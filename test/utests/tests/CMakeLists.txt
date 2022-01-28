@@ -37,3 +37,5 @@ add_subdirectory(AampProfilerTests)
 add_subdirectory(DashUrl)
 add_subdirectory(MediaStreamContextTests)
 add_subdirectory(AampEventManagerTests)
+add_subdirectory(fragmentcollector_hls)
+

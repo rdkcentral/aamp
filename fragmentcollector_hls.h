@@ -456,6 +456,12 @@ class TrackState : public MediaTrack
 		 * @return none
 		 ****************************************************************************/
 		void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) override;
+
+		/**
+                 * @brief Get byteRangeLength and byteRangeOffset from fragmentInfo.
+                 */
+		bool IsExtXByteRange(const char *fragmentInfo, size_t *byteRangeLength, size_t *byteRangeOffset);
+
 	private:
 		/***************************************************************************
 		 * @fn GetFragmentUriFromIndex

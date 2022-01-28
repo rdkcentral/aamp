@@ -1103,26 +1103,7 @@ char *TrackState::GetFragmentUriFromIndex(bool &bSegmentRepeated)
 
 		while (fragmentInfo[0] == '#')
 		{
-			if (!memcmp(fragmentInfo, "#EXT-X-BYTERANGE:", 17))
-			{
-				char temp[1024];
-				const char * end = fragmentInfo;
-				while (end[0] != CHAR_LF)
-				{
-					end++;
-				}
-				int len = (int)(end - fragmentInfo);
-				assert(len < 1024);
-				strncpy(temp, fragmentInfo + 17, len);
-				temp[1023] = 0x00;
-				char * offsetDelim = strchr(temp, '@'); // optional
-				if (offsetDelim)
-				{
-					*offsetDelim++ = 0x00;
-					sscanf(offsetDelim, "%zu", &byteRangeOffset);
-				}
-				sscanf(temp, "%zu", &byteRangeLength);
-			}
+			IsExtXByteRange(fragmentInfo, &byteRangeLength, &byteRangeOffset);
 			/*Skip to next line*/
 			while (fragmentInfo[0] != CHAR_LF)
 			{
@@ -7834,4 +7815,15 @@ StreamAbstractionAAMP::ABRMode StreamAbstractionAAMP_HLS::GetABRMode()
 	}
 
 	return mode;
+}
+
+bool TrackState::IsExtXByteRange(const char *fragmentInfo, size_t *byteRangeLength, size_t *byteRangeOffset)
+{
+	if (!memcmp(fragmentInfo, "#EXT-X-BYTERANGE:", 17))
+	{
+		sscanf( fragmentInfo+17, "%zu@%zu", byteRangeLength, byteRangeOffset );
+		return true;
+	}
+
+    return false;
 }
