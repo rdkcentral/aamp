@@ -1,6 +1,58 @@
 #!/bin/bash
 
 # audio generation requires following installs:
+#Support functions
+mac_find_or_install_pkgs() {
+    # Check if brew package $1 is installed
+    # http://stackoverflow.com/a/20802425/1573477
+    for pkg in "$@";
+    do
+        if brew ls --versions $pkg > /dev/null; then
+            echo "${pkg} is already installed."
+            arr_install_status+=("${pkg} is already installed.")
+        else
+            echo "Installing ${pkg}"
+            brew install $pkg
+            #update summery
+            if brew ls --versions $pkg > /dev/null; then
+                #The package is successfully installed
+                arr_install_status+=("The package was ${pkg} was successfully installed.")
+
+            else
+                #The package is failed to be installed
+                arr_install_status+=("The package ${pkg} was FAILED to be installed.")
+            fi
+        fi
+    done
+}
+
+linux_find_or_install_pkgs() {
+
+        for pkg in "$@";
+        do
+            if which $pkg > /dev/null; then
+                echo "${pkg} already installed."
+            else
+                echo "Installing ${pkg}"
+                sudo apt -y install $pkg
+                if which $pkg > /dev/null; then
+                        echo "${pkg} successfully installed."
+                else
+                        echo "FYI:${pkg} install failed!"
+                fi
+            fi
+
+        done
+
+}
+
+#check and install basic packages
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    mac_find_or_install_pkgs python ffmpeg
+elif [[ "$OSTYPE" == "linux"* ]]; then
+    linux_find_or_install_pkgs python3 python3-pip ffmpeg
+fi
+
 # pip3 install gtts
 if which gtts-cli > /dev/null; then
    echo "gtts already installed."
@@ -168,6 +220,42 @@ do
 
     # override DASH audio with the same content and generate DASH manifest
     ffmpeg -hide_banner -y -i ${AUDIO_PATH}/${LANG[$I]}/full_track.wav -map 0:a -c:a aac -b:a 384k -ar 48000 -t $VIDEO_LENGTH_SEC  -seg_duration $((VIDEO_SEGMENT_SEC)) -use_timeline 1 -use_template 1 -init_seg_name $DASH_OUT/${LANG[$I]}_init.m4s -media_seg_name $DASH_OUT/${LANG[$I]}_'$Number%03d$.mp3'  -f dash ${LANG[$I]}.mpd
+
+done
+
+#####################################################
+# Generate muxed A/V HLS with all languages from above
+#####################################################
+
+LANG_639_3=(eng fra deu spa pol)
+
+#add audio inputs
+for (( I=0; I<${#LANG[@]}; I++ ))
+do
+    AUDIO_INPUTS="$AUDIO_INPUTS -i ${AUDIO_PATH}/${LANG[$I]}/full_track.wav"
+done
+
+#add audio mapping
+for (( I=0; I<${#LANG[@]}; I++ ))
+do
+    AUDIO_INPUTS="$AUDIO_INPUTS -map $((I+1)):a"
+    AUDIO_HLS_MAP="$AUDIO_HLS_MAP -map 0:a:$I"
+done
+
+#add audio tags
+for (( I=0; I<${#LANG[@]}; I++ ))
+do
+    AUDIO_INPUTS="$AUDIO_INPUTS -metadata:s:a:$I language=${LANG_639_3[$I]} -metadata:s:a:$I title=\"${LANG_FULL_NAME[$I]}\""
+    AUDIO_HLS_MAP="$AUDIO_HLS_MAP -metadata:s:a:$I language=${LANG_639_3[$I]} -metadata:s:a:$I title=\"${LANG_FULL_NAME[$I]}\""
+done
+
+for (( I=0; I<${#WIDTH[@]}; I++ ))
+do
+    #combine video with audio streams
+    ffmpeg -hide_banner -y -i overlay${HEIGHT[$I]}.mp4 $AUDIO_INPUTS -map 0:v -c:v h264 -c:a aac overlay${HEIGHT[$I]}_mux.mp4
+
+    #generate muxed HLS
+    ffmpeg -hide_banner -y -i overlay${HEIGHT[$I]}_mux.mp4  -map 0:v $AUDIO_HLS_MAP -vf scale=w=${WIDTH[$I]}:h=${HEIGHT[$I]}:force_original_aspect_ratio=decrease -c:v h264 -c:a aac -profile:v main -crf 20 -sc_threshold 0 -g $((FPS*VIDEO_SEGMENT_SEC)) -hls_time ${VIDEO_SEGMENT_SEC} -hls_playlist_type vod  -b:v ${KBPS[$I]}k -maxrate ${MAXKBPS[$I]}k -bufsize 1200k -hls_segment_filename $HLS_OUT/${HEIGHT[$I]}p_mux_%03d.ts $HLS_OUT/${HEIGHT[$I]}p_mux.m3u8
 
 done
 
