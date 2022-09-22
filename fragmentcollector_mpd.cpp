@@ -1585,6 +1585,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						uint64_t fragmentTimeBackUp = pMediaStreamContext->fragmentDescriptor.Time;
 						bool liveEdgePeriodPlayback = mIsLiveManifest && (mCurrentPeriodIdx == mUpperBoundaryPeriod);
 						ReleasePlaylistLock();
+
 						if(!FCS_content &&
 							(mIsFogTSB ||
 								((0 != mPeriodDuration) &&
@@ -1851,6 +1852,12 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			uint32_t duration = segmentTemplates.GetDuration();
 			double fragmentDuration =  ComputeFragmentDuration(duration,timeScale);
 			long startNumber = segmentTemplates.GetStartNumber();
+
+			if (mLiveTimeFragmentSync)
+			{
+				startNumber += (long)((mPeriodStartTime - mAvailabilityStartTime) / fragmentDuration);
+			}
+
 			uint32_t scale = segmentTemplates.GetTimescale();
 			double pto =  (double) segmentTemplates.GetPresentationTimeOffset();
 			AAMPLOG_TRACE("Type[%d] currentTimeSeconds:%f duration:%d fragmentDuration:%f startNumber:%ld", pMediaStreamContext->type, currentTimeSeconds,duration,fragmentDuration,startNumber);
@@ -3858,13 +3865,10 @@ double aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeriod * period)
 						duration = (double) deltaBwFirstSegmentAndOffset / timeScale;
 						AAMPLOG_TRACE("timeline start : %" PRIu64 " offset delta : %lf", timelineStart,duration);
 					}
-					duration = (double) deltaBwFirstSegmentAndOffset / timeScale;
-					if(duration != 0.0f)
-						AAMPLOG_INFO("offset delta : %lf",  duration);
-
+					AAMPLOG_TRACE("offset delta : %lf",  duration);
 				}
 			}
-                }
+		}
 	}
 	return duration;
 }
@@ -3929,8 +3933,29 @@ double StreamAbstractionAAMP_MPD::GetPeriodStartTime(IMPD *mpd, int periodIndex)
 			string startTimeStr = mpd->GetPeriods().at(periodIndex)->GetStart();
 			if(!startTimeStr.empty())
 			{
-				periodStartMs = ParseISO8601Duration(startTimeStr.c_str()) + (aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mpd->GetPeriods().at(periodIndex)) * 1000);
-				periodStart = (periodStartMs / 1000) + mAvailabilityStartTime;
+				double deltaInStartTime = aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mpd->GetPeriods().at(periodIndex)) * 1000;
+				periodStartMs = ParseISO8601Duration(startTimeStr.c_str()) + deltaInStartTime;
+				periodStart =  mAvailabilityStartTime + (periodStartMs / 1000);
+				if(periodCnt == 1 && periodIndex == 0 && aamp->IsLiveStream() && !aamp->IsTSBSupported() && (periodStart == mAvailabilityStartTime) && deltaInStartTime == 0)
+				{
+					// segmentTemplate without timeline having period start "PT0S".
+					if(!mLiveTimeFragmentSync)
+					{
+						mLiveTimeFragmentSync = true;
+					}
+
+					double duration = (aamp_GetPeriodDuration(mpd, periodIndex, mLastPlaylistDownloadTimeMs) / 1000);
+					double liveTime = (double)mLastPlaylistDownloadTimeMs / 1000.0;
+					if(mHasServerUtcTime)
+					{
+						liveTime+=mDeltaTime;
+					}
+					if(mAvailabilityStartTime < (liveTime - duration))
+					{
+						periodStart =  liveTime - duration;
+					}
+				}
+
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: - MPD periodIndex %d AvailStartTime %f periodStart %f %s", periodIndex, mAvailabilityStartTime, periodStart,startTimeStr.c_str());
 			}
 			else
@@ -3976,7 +4001,7 @@ double StreamAbstractionAAMP_MPD::GetPeriodDuration(IMPD *mpd, int periodIndex)
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
 	double periodDuration = 0;
-	uint64_t  periodDurationMs = 0;
+	double  periodDurationMs = 0;
 	if(mpd != NULL)
 	{
 		int periodCnt= mpd->GetPeriods().size();
@@ -3986,7 +4011,12 @@ double StreamAbstractionAAMP_MPD::GetPeriodDuration(IMPD *mpd, int periodIndex)
 			if(!durationStr.empty())
 			{
 				periodDurationMs = ParseISO8601Duration(durationStr.c_str());
-				periodDuration = ((double)periodDurationMs / (double)1000);
+				double liveTime = (double)mLastPlaylistDownloadTimeMs / 1000.0;
+				if(!aamp->IsTSBSupported() && aamp->IsLive() && mLiveTimeFragmentSync && (mAvailabilityStartTime > (liveTime - (periodDurationMs/1000))))
+				{
+					periodDurationMs = (liveTime - mAvailabilityStartTime) * 1000;
+				}
+				periodDuration = periodDurationMs / 1000.0;
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: MPD periodIndex:%d periodDuration %f", periodIndex, periodDuration);
 			}
 			else
@@ -4002,7 +4032,7 @@ double StreamAbstractionAAMP_MPD::GetPeriodDuration(IMPD *mpd, int periodIndex)
 					{
 						periodDurationMs = aamp_GetPeriodDuration(mpd, periodIndex, mLastPlaylistDownloadTimeMs);
 					}
-					periodDuration = ((double)periodDurationMs / (double)1000);
+					periodDuration = (periodDurationMs / 1000.0);
 					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: [MediaPresentation] - MPD periodIndex:%d periodDuration %f", periodIndex, periodDuration);
 				}
 				else
@@ -4020,7 +4050,7 @@ double StreamAbstractionAAMP_MPD::GetPeriodDuration(IMPD *mpd, int periodIndex)
 						curPeriodStartMs = ParseISO8601Duration(curStartStr.c_str()) + (aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mpd->GetPeriods().at(periodIndex)) * 1000);
 						nextPeriodStartMs = ParseISO8601Duration(nextStartStr.c_str()) + (aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mpd->GetPeriods().at(periodIndex+1)) * 1000);
 						periodDurationMs = nextPeriodStartMs - curPeriodStartMs;
-						periodDuration = ((double)periodDurationMs / (double)1000);
+						periodDuration = (periodDurationMs / 1000.0);
 						if(periodDuration != 0.0f)
 							AAMPLOG_INFO("StreamAbstractionAAMP_MPD: [StartTime based] - MPD periodIndex:%d periodDuration %f", periodIndex, periodDuration);
 					}
@@ -4035,7 +4065,7 @@ double StreamAbstractionAAMP_MPD::GetPeriodDuration(IMPD *mpd, int periodIndex)
 						else
 						{
 							periodDurationMs = aamp_GetPeriodDuration(mpd, periodIndex, mLastPlaylistDownloadTimeMs);
-							periodDuration = ((double)periodDurationMs / (double)1000);
+							periodDuration = (periodDurationMs / 1000.0);
 						}
 						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: [Segments based] - MPD periodIndex:%d periodDuration %f", periodIndex, periodDuration);
 					}
@@ -4090,9 +4120,9 @@ double StreamAbstractionAAMP_MPD::GetPeriodEndTime(IMPD *mpd, int periodIndex, u
 		}
 		else
 		{
-			if(startTimeStr.empty())
+			if(startTimeStr.empty() || mLiveTimeFragmentSync)
 			{
-				AAMPLOG_WARN("Period startTime is not present in MPD, so calculating start time with previous period durations");
+				AAMPLOG_INFO("Period startTime is not present in MPD, so calculating start time with previous period durations");
 				periodStartMs = GetPeriodStartTime(mpd, periodIndex) * 1000 - (mAvailabilityStartTime * 1000);
 			}
 			else
@@ -4209,7 +4239,7 @@ double aamp_GetPeriodDuration(dash::mpd::IMPD *mpd, int periodIndex, uint64_t mp
 									publishTimeStr = attributesMap["publishTime"];
 								}
 
-								if(!publishTimeStr.empty())
+								if(!publishTimeStr.empty() && (publishTimeStr.compare(availabilityStartStr) != 0))
 								{
 									mpdDownloadTime = (uint64_t)ISO8601DateTimeToUTCSeconds(publishTimeStr.c_str()) * 1000;
 								}
@@ -4234,10 +4264,28 @@ double aamp_GetPeriodDuration(dash::mpd::IMPD *mpd, int periodIndex, uint64_t mp
 									periodStart = ParseISO8601Duration( periodStartStr.c_str() );
 									availablilityStart = ISO8601DateTimeToUTCSeconds(availabilityStartStr.c_str()) * 1000;
 									minUpdatePeriod = ParseISO8601Duration( minimumUpdatePeriodStr.c_str() );
-									AAMPLOG_INFO("periodStart %lf availabilityStartTime %lf minUpdatePeriod %lf mpdDownloadTime %llu", periodStart, availablilityStart, minUpdatePeriod, mpdDownloadTime);
 									double periodEndTime = mpdDownloadTime + minUpdatePeriod;
 									double periodStartTime = availablilityStart + periodStart;
-									durationMs = periodEndTime - periodStartTime;
+									std::string tsbDepth = mpd->GetTimeShiftBufferDepth();
+									AAMPLOG_INFO("periodStart %lf availabilityStartTime %lf minUpdatePeriod %lf mpdDownloadTime %llu tsbDepth:%s", periodStart, availablilityStart, minUpdatePeriod, mpdDownloadTime, tsbDepth.c_str());
+									if(periodStartTime == availablilityStart)
+									{
+										// period starting from availability start time
+										if(!tsbDepth.empty())
+										{
+											durationMs = ParseISO8601Duration(tsbDepth.c_str());
+										}
+
+										if((mpdDownloadTime - durationMs) < availablilityStart)
+										{
+											durationMs = mpdDownloadTime - availablilityStart;
+										}
+									}
+									else
+									{
+										durationMs = periodEndTime - periodStartTime;
+									}
+
 									if(durationMs <= 0)
 									{
 										AAMPLOG_WARN("Invalid period duration periodStartTime %lf periodEndTime %lf durationMs %lf", periodStartTime, periodEndTime, durationMs);
@@ -5005,6 +5053,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				}
 
 				double durationSecond = (((double)durationMs)/1000);
+				if (mLiveTimeFragmentSync)
+				{
+					durationSecond = mPeriodDuration / 1000;
+				}
+
 				aamp->UpdateDuration(durationSecond);
 				GetCulledSeconds(currMPDPeriodDetails);
 				aamp->UpdateRefreshPlaylistInterval((float)mMinUpdateDurationMs / 1000);
@@ -5806,11 +5859,13 @@ bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 						long http_error = -1;
 						GrowableBuffer data;
                                                 std::string value = node->GetAttributeValue("value");
+
 						if(!strcasestr(value.c_str(), "http"))
 						{
 							std::string valueCopy = value;
 							aamp_ResolveURL(value, aamp->GetManifestUrl(), valueCopy.c_str(), ISCONFIGSET(eAAMPConfig_PropogateURIParam));
 						}
+
 						if(aamp->ProcessCustomCurlRequest(value, &data, &http_error))
 						{
 							mServerUtcTime = ISO8601DateTimeToUTCSeconds(data.ptr);
@@ -8389,11 +8444,14 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				// mFirstPTS is used during Flush() for configuring gst_element_seek start position
 				const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
 				long int startNumber = segmentTemplates.GetStartNumber();
+				double fragmentDuration = 0;
+				bool timelineAvailable = true;
 				if(NULL == segmentTimeline)
 				{
                                         uint32_t timeScale = segmentTemplates.GetTimescale();
                                         uint32_t duration = segmentTemplates.GetDuration();
-                                        double fragmentDuration =  ComputeFragmentDuration(duration,timeScale);
+										fragmentDuration =  ComputeFragmentDuration(duration,timeScale);
+										timelineAvailable = false;
 
                                         if( timeScale )
                                         {
@@ -8427,6 +8485,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					}
 				}
 				pMediaStreamContext->fragmentDescriptor.Number = startNumber;
+				if (mLiveTimeFragmentSync && !timelineAvailable)
+				{
+					pMediaStreamContext->fragmentDescriptor.Number += (long)((GetPeriodStartTime(mpd, 0) - mAvailabilityStartTime) / fragmentDuration);
+				}
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d timeLineIndex %d fragmentDescriptor.Number %lld mFirstPTS:%lf", i, pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Number, mFirstPTS);
 			}
 		}
@@ -8548,6 +8610,10 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 					if(segmentTemplates.GetTimescale() != 0)
 					{
 						double fragmentDuration = ((double)segmentTemplates.GetDuration()) / segmentTemplates.GetTimescale();
+						if (mLiveTimeFragmentSync)
+						{
+							 newStartSegment += (long)((GetPeriodStartTime(mpd, 0) - mAvailabilityStartTime) / fragmentDuration);
+						}
 						if (newStartSegment && mPrevStartTimeSeconds)
 						{
 							culled = (newStartSegment - mPrevStartTimeSeconds) * fragmentDuration;
