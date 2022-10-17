@@ -32,6 +32,7 @@ Harvestor::Harvestor() : mMasterHarvestorThreadID(),
 			 mReportThread(),
 			 mSlaveVideoThreads{},
 			 mSlaveAudioThreads{},
+			 mSlaveSubtitleThreads{},
 			 mSlaveIFrameThread()
 {}
 
@@ -101,6 +102,58 @@ bool Harvestor::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp
 	return true;
 }
 
+std::vector<AudioTrackInfo> Harvestor::GetAudioTracks()
+{
+	std::vector<AudioTrackInfo> audioTrackVec;
+	std::string json = mHarvestor.mPlayerInstanceAamp->GetAvailableAudioTracks(true);
+
+	cJSON *root = cJSON_Parse(json.c_str());
+	cJSON *arrayItem = NULL;
+	int arraySize = cJSON_GetArraySize(root);
+	for ( int item = 0; item < arraySize; item++)
+	{
+		// As we don't get any sort of index, we'll just try to create a unique value for the item
+		arrayItem = cJSON_GetArrayItem(root, item);
+		std::string arrayItemText = cJSON_Print(arrayItem);
+		std::size_t itemHash = std::hash<std::string>{}(arrayItemText);
+
+		// Just fill the fields we require
+		AudioTrackInfo trackInfo;
+		trackInfo.index = std::to_string(itemHash);
+		trackInfo.bandwidth = cJSON_GetObjectItem(arrayItem, "bandwidth")->valuedouble;
+		trackInfo.language = cJSON_GetObjectItem(arrayItem, "language")->valuestring;
+		audioTrackVec.push_back(trackInfo);
+	}
+
+	return audioTrackVec;
+}
+
+std::vector<TextTrackInfo> Harvestor::GetTextTracks()
+{
+	std::vector<TextTrackInfo> textTrackVec;
+	std::string json = mHarvestor.mPlayerInstanceAamp->GetAvailableTextTracks(true);
+
+	cJSON *root = cJSON_Parse(json.c_str());
+	cJSON *arrayItem = NULL;
+	int arraySize = cJSON_GetArraySize(root);
+	for ( int item = 0; item < arraySize; item++)
+	{
+		// As we don't get any sort of index, we'll just try to create a unique value for the item
+		arrayItem = cJSON_GetArrayItem(root, item);
+		std::string arrayItemText = cJSON_Print(arrayItem);
+		std::size_t itemHash = std::hash<std::string>{}(arrayItemText);
+
+		// Just fill the fields we require
+		TextTrackInfo trackInfo;
+		trackInfo.index = std::to_string(itemHash);
+		trackInfo.language = cJSON_GetObjectItem(arrayItem, "language")->valuestring;
+		textTrackVec.push_back(trackInfo);
+	}
+
+	return textTrackVec;
+}
+
+
 void Harvestor::masterHarvestor(void * arg)
 {
 	char * cmd = (char *)arg;
@@ -111,6 +164,7 @@ void Harvestor::masterHarvestor(void * arg)
 	FILE * pIframe;
 	int videoThreadId = 0;
 	int audioThreadId = 0;
+	int subtitleThreadId = 0;
 
 	if(aamp_pthread_setname(pthread_self(), "MasterHarvestor"))
 	{
@@ -125,19 +179,23 @@ void Harvestor::masterHarvestor(void * arg)
 	params.push_back("harvestConfig=65535");
 	params.push_back("defaultBitrate=9999999");
 	params.push_back("defaultBitrate4K=9999999");
-	params.push_back("abr");
+	params.push_back("abr=false");
 	params.push_back("useTCPServerSink=true");
 
 	for(std::string param : params)
 	{
-		mHarvestor.mPlayerInstanceAamp->mConfig.ProcessConfigText(param, AAMP_DEV_CFG_SETTING);
-		mHarvestor.mPlayerInstanceAamp->mConfig.DoCustomSetting(AAMP_DEV_CFG_SETTING);
-
 		std::size_t delimiterPos = param.find("=");
 
-		if(delimiterPos != std::string::npos)
+		if((delimiterPos != std::string::npos) && (param.substr(delimiterPos + 1) != ""))
 		{
+			mHarvestor.mPlayerInstanceAamp->mConfig.ProcessConfigText(param, AAMP_DEV_CFG_SETTING);
+			mHarvestor.mPlayerInstanceAamp->mConfig.DoCustomSetting(AAMP_DEV_CFG_SETTING);
 			cmdlineParams[ param.substr(0, delimiterPos) ] = param.substr(delimiterPos + 1);
+		}
+		else
+		{
+			printf("%s:%d: Error in command param %s\n",__FUNCTION__,__LINE__,param.c_str());
+			return;
 		}
 	}
 
@@ -155,6 +213,7 @@ void Harvestor::masterHarvestor(void * arg)
 		mHarvestor.mPlayerInstanceAamp->Tune(cmdlineParams["harvestUrl"].c_str());
 
 		Harvestor::mHarvestPath = cmdlineParams["harvestPath"];
+
 		try
 		{
 			mHarvestor.startHarvestReport((char *) cmdlineParams["harvestUrl"].c_str());
@@ -174,12 +233,16 @@ void Harvestor::masterHarvestor(void * arg)
 			printf("%s:%d: could not create slave harvest process for iframe.", __FUNCTION__, __LINE__);
 		}
 
-		std::vector<long> cacheVideoBitrates,cacheAudioBitrates,cacheTextTracks;
+		std::vector<long> cacheVideoBitrates;
+		std::vector<AudioTrackInfo> cacheAudioTrackInfo;
+		std::vector<TextTrackInfo> cacheTextTrackInfo;
 
 		while(1)
 		{
-			std::vector<long> tempVideoBitrates,tempAudioBitrates;
-			std::vector<long> diffVideoBitrates,diffAudioBitrates;
+
+			std::vector<long> tempVideoBitrates,diffVideoBitrates;
+			std::vector<AudioTrackInfo> currentAudioTrackInfo,diffAudioTrackInfo;
+			std::vector<TextTrackInfo> currentTextTrackInfo,diffTextTrackInfo;
 			sleep (1);
 
 			if(mHarvestor.mPlayerInstanceAamp->GetState() == eSTATE_COMPLETE)
@@ -193,15 +256,17 @@ void Harvestor::masterHarvestor(void * arg)
 				mHarvestor.mPlayerInstanceAamp->Tune(cmdlineParams["harvestUrl"].c_str());
 			}
 
-			tempAudioBitrates = mHarvestor.mPlayerInstanceAamp->GetAudioBitrates();
-			std::sort(tempAudioBitrates.begin(), tempAudioBitrates.end());
-
 			tempVideoBitrates = mHarvestor.mPlayerInstanceAamp->GetVideoBitrates();
 			std::sort(tempVideoBitrates.begin(), tempVideoBitrates.end());
 
+			currentAudioTrackInfo = mHarvestor.GetAudioTracks();
+			currentTextTrackInfo = mHarvestor.GetTextTracks();
+						
 			std::vector<long>::iterator position = std::find(tempVideoBitrates.begin(), tempVideoBitrates.end(), mHarvestor.mPlayerInstanceAamp->GetVideoBitrate());
 			if (position != tempVideoBitrates.end())
+			{
 				tempVideoBitrates.erase(position);
+			}
 
 			if (cacheVideoBitrates.size() == 0)
 			{
@@ -218,17 +283,52 @@ void Harvestor::masterHarvestor(void * arg)
 				}
 			}
 
-			if (cacheAudioBitrates.size() == 0)
+			if (cacheAudioTrackInfo.size() == 0)
 			{
-				diffAudioBitrates = tempAudioBitrates;
+				diffAudioTrackInfo = currentAudioTrackInfo;
 			}
 			else
 			{
-				for (long tempAudioBitrate: tempAudioBitrates)
+				if(cacheAudioTrackInfo.size() < currentAudioTrackInfo.size())
 				{
-					if ( ! (std::find(cacheAudioBitrates.begin(), cacheAudioBitrates.end(), tempAudioBitrate) != cacheAudioBitrates.end()) )
+					for(auto cItr = currentAudioTrackInfo.begin(); cItr != currentAudioTrackInfo.end(); cItr++)
 					{
-						diffAudioBitrates.push_back(tempAudioBitrate);
+						bool status = false;
+						for(auto pItr = cacheAudioTrackInfo.begin(); pItr!= cacheAudioTrackInfo.end(); pItr++)
+						{
+							if(cItr->index == pItr->index)
+							{
+								status = true;
+							}
+						}
+						
+						if(status == false)
+							diffAudioTrackInfo.push_back(*cItr);
+					}
+				}
+			}
+
+			if ((cacheTextTrackInfo.size() == 0)  && (!currentTextTrackInfo.empty()))
+			{
+				diffTextTrackInfo = currentTextTrackInfo;
+			}
+			else
+			{
+				if(cacheTextTrackInfo.size() < currentTextTrackInfo.size())
+				{
+					for(auto cItr = currentTextTrackInfo.begin(); cItr != currentTextTrackInfo.end(); cItr++)
+					{
+						bool status = false;
+						for(auto pItr = cacheTextTrackInfo.begin(); pItr!= cacheTextTrackInfo.end(); pItr++)
+						{
+							if(cItr->index == pItr->index)
+							{
+								status = true;
+							}
+						}
+						
+						if(status == false)
+							diffTextTrackInfo.push_back(*cItr);
 					}
 				}
 			}
@@ -255,13 +355,15 @@ void Harvestor::masterHarvestor(void * arg)
 				cacheVideoBitrates = tempVideoBitrates;
 			}
 
-			if(diffAudioBitrates.size())
+			if(diffAudioTrackInfo.size())
 			{
-				for(auto bitrate:diffAudioBitrates)
+				for(int trackId = 0; trackId < diffAudioTrackInfo.size(); trackId++)
 				{
 					FILE *p = NULL;
 					
-					p = mHarvestor.createSlaveHarvestor (cmdlineParams, getHarvestConfigForMedia(eMEDIATYPE_AUDIO), bitrate);
+					p = mHarvestor.createSlaveHarvestor (cmdlineParams, getHarvestConfigForMedia(eMEDIATYPE_AUDIO), 
+					                                     diffAudioTrackInfo[trackId].bandwidth,
+														 diffAudioTrackInfo[trackId].language, trackId);
 					if (p != NULL)
 					{
 						if (mHarvestor.createSlaveDataReader(p, mHarvestor.mSlaveAudioThreads[audioThreadId]) == true)
@@ -274,9 +376,36 @@ void Harvestor::masterHarvestor(void * arg)
 						printf("%s:%d: could not create slave harvest process for audio.", __FUNCTION__, __LINE__);
 					}
 				}
-				cacheAudioBitrates = tempAudioBitrates;
+
+				cacheAudioTrackInfo = currentAudioTrackInfo;
 			}
-			
+
+			if(diffTextTrackInfo.size())
+			{
+				for(int trackId = 0; trackId < diffTextTrackInfo.size(); trackId++)
+				{
+					FILE *p = NULL;
+					
+					p = mHarvestor.createSlaveHarvestor (cmdlineParams, 
+					                                     getHarvestConfigForMedia(eMEDIATYPE_INIT_SUBTITLE)|getHarvestConfigForMedia(eMEDIATYPE_SUBTITLE), 
+					                                     0L,
+														 diffTextTrackInfo[trackId].language, trackId);
+					if (p != NULL)
+					{
+						if (mHarvestor.createSlaveDataReader(p, mHarvestor.mSlaveSubtitleThreads[subtitleThreadId]) == true)
+						{
+							subtitleThreadId++;
+						}
+					}
+					else
+					{
+						printf("%s:%d: could not create slave harvest process for subtitle.", __FUNCTION__, __LINE__);
+					}
+				}
+
+				cacheTextTrackInfo = currentTextTrackInfo;
+			}
+
 			// We are done when all of the data readers are done
 			bool done = true;
 			for (auto itr = mHarvestInfo.begin(); itr != mHarvestInfo.end(); itr++)
@@ -313,6 +442,15 @@ void Harvestor::masterHarvestor(void * arg)
 				mHarvestor.mSlaveAudioThreads[i].join();
 			}
 		}
+
+		for(int i =0; i < subtitleThreadId; i++)
+		{
+			if(mHarvestor.mSlaveSubtitleThreads[i].joinable())
+			{
+    			mHarvestor.mSlaveSubtitleThreads[i].join();
+            }
+		}
+
 	}
 	else
 	{
@@ -343,16 +481,20 @@ void Harvestor::slaveHarvestor(void * arg)
 
 	for(std::string param : params)
 	{
-
-		mHarvestor.mPlayerInstanceAamp->mConfig.ProcessConfigText(param, AAMP_DEV_CFG_SETTING);
-		mHarvestor.mPlayerInstanceAamp->mConfig.DoCustomSetting(AAMP_DEV_CFG_SETTING);
-
 		std::size_t delimiterPos = param.find("=");
 
 		if(delimiterPos != std::string::npos)
 		{
+			mHarvestor.mPlayerInstanceAamp->mConfig.ProcessConfigText(param, AAMP_DEV_CFG_SETTING);
+			mHarvestor.mPlayerInstanceAamp->mConfig.DoCustomSetting(AAMP_DEV_CFG_SETTING);
 			cmdlineParams[ param.substr(0, delimiterPos) ] = param.substr(delimiterPos + 1);
 		}
+		else
+		{
+			printf("%s:%d: Error in command param %s\n",__FUNCTION__,__LINE__,param.c_str());
+			return;
+		}
+
 	}
 
 
@@ -365,6 +507,20 @@ void Harvestor::slaveHarvestor(void * arg)
 		float rate = 2;
 		mHarvestor.mPlayerInstanceAamp->SetRate(rate);
 
+	}
+	else if(harvestConfig == (getHarvestConfigForMedia(eMEDIATYPE_AUDIO)))
+	{
+		int trackId = stoi(cmdlineParams["trackId"]);
+		sleep(5);
+		mHarvestor.mPlayerInstanceAamp->SetAudioTrack(trackId);	
+		printf("%s:%d: Harvest audio trackId %d\n",__FUNCTION__,__LINE__,trackId);
+	}
+	else if(harvestConfig == (getHarvestConfigForMedia(eMEDIATYPE_INIT_SUBTITLE)|getHarvestConfigForMedia(eMEDIATYPE_SUBTITLE)))
+	{
+		int trackId = stoi(cmdlineParams["trackId"]);
+		sleep(5);
+		mHarvestor.mPlayerInstanceAamp->SetTextTrack(trackId);
+		printf("%s:%d: Harvest subtitle trackId %d\n",__FUNCTION__,__LINE__,trackId);
 	}
 
 	while (1)
@@ -443,7 +599,7 @@ long Harvestor::getNumberFromString(std::string buffer)
 			return value;
 		}
 
-		tempStr = "";
+		tempStr = ""; 
 	}
 
 	return value;
@@ -521,6 +677,10 @@ bool Harvestor::getHarvestReportDetails(char *buffer)
 
 		if(itr->second.harvestConfig == 2)
 			strcpy(itr->second.media,"Audio");
+
+		if(itr->second.harvestConfig == 516)
+			strcpy(itr->second.media,"Subtitle");
+
 	}
 
 	if ((itr->second.bitrate == 0) && (strstr(buffer, "defaultBitrate -") != NULL))
@@ -537,6 +697,12 @@ bool Harvestor::getHarvestReportDetails(char *buffer)
 		{
 			harvestComplete = true;
 		}
+	}
+
+	if (strstr(buffer, "Harvest trackId") != NULL)
+	{
+		token = strstr(buffer, "Harvest trackId");
+		itr->second.harvestTrackId = (int)getNumberFromString(token);
 	}
 
 	if ((strstr(buffer, "error") != NULL) || (strstr(buffer, "File open failed") != NULL) )
@@ -592,7 +758,7 @@ void Harvestor::writeHarvestEndReport(HarvestProfileDetails harvestProfileDetail
 {
 	FILE *fp;
 	std::string filename;
-
+	
 	filename = Harvestor::mHarvestPath+"/HarvestReport.txt";
 	fp = fopen(filename.c_str(), "a");
 
@@ -661,7 +827,8 @@ void Harvestor::harvestTerminateHandler(int signal)
 	exit(signal);
 }
 
-FILE * Harvestor::createSlaveHarvestor(std::map<std::string, std::string> cmdlineParams, int harvestWhat, long bitrate)
+FILE * Harvestor::createSlaveHarvestor(std::map<std::string, std::string> cmdlineParams, int harvestWhat, long bitrate, 
+									   std::string language, int trackId)
 {
 	std::string slaveCmd;
 	if(Harvestor::mExePathName[0] != '\0')
@@ -673,7 +840,9 @@ FILE * Harvestor::createSlaveHarvestor(std::map<std::string, std::string> cmdlin
 		" harvest harvestMode=Slave harvestUrl=" + cmdlineParams["harvestUrl"] +
 		" harvestCountLimit=" + std::to_string(Harvestor::mHarvestCountLimit) +
 		" harvestConfig=" + std::to_string(harvestWhat) +
-		" abr useTCPServerSink=true TCPServerSinkPort=" + std::to_string(Harvestor::mTCPServerSinkPort);
+		" abr=false" +
+		" useTCPServerSink=true" +
+		" TCPServerSinkPort=" + std::to_string(Harvestor::mTCPServerSinkPort);
 	
 	Harvestor::mTCPServerSinkPort += 2;
 
@@ -686,6 +855,23 @@ FILE * Harvestor::createSlaveHarvestor(std::map<std::string, std::string> cmdlin
 	{
 		slaveCmd = slaveCmd + " defaultBitrate="+std::to_string(bitrate);
 		slaveCmd = slaveCmd + " defaultBitrate4k="+std::to_string(bitrate);
+	}
+
+	if (language != "")
+	{
+		if(harvestWhat == (getHarvestConfigForMedia(eMEDIATYPE_AUDIO)))
+		{
+			slaveCmd = slaveCmd + " preferredAudioLanguage="+language;
+		}
+		else if(harvestWhat == (getHarvestConfigForMedia(eMEDIATYPE_INIT_SUBTITLE)|getHarvestConfigForMedia(eMEDIATYPE_SUBTITLE)))
+		{
+			slaveCmd = slaveCmd + " preferredTextLanguage="+language;
+		}
+	}
+
+	if (trackId > -1)
+	{
+		slaveCmd = slaveCmd + " trackId="+std::to_string(trackId);
 	}
 
 	printf("%s:%d: Create process of slave harvest command %s \n", __FUNCTION__, __LINE__, slaveCmd.c_str());
@@ -724,12 +910,12 @@ void Harvestor::getExecutablePath()
 #ifdef __APPLE__
 void Harvestor::getExecutablePath()
 {
-		char rawPathName[PATH_MAX];
-		uint32_t rawPathSize = (uint32_t)sizeof(rawPathName);
+	char rawPathName[PATH_MAX];
+	uint32_t rawPathSize = (uint32_t)sizeof(rawPathName);
 
-		if(!_NSGetExecutablePath(rawPathName, &rawPathSize))
-		{
-			realpath(rawPathName, Harvestor::mExePathName);
-		}
+	if(!_NSGetExecutablePath(rawPathName, &rawPathSize))
+	{
+		realpath(rawPathName, Harvestor::mExePathName);
+	}
 }
-#endif
+#endif 

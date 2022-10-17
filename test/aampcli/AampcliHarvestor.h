@@ -50,6 +50,7 @@ typedef struct harvestProfileDetails
 	int harvestFragmentsCount;
 	int harvestErrorCount;
 	int harvestFailureCount;
+	int harvestTrackId;
 	long bitrate;
 }HarvestProfileDetails;
 
@@ -60,6 +61,7 @@ class Harvestor : public Command
 		static bool mHarvestReportFlag;
 		static const int mHarvestCommandLength = 4096;
 		static const int mHarvestSlaveThreadCount = 50;
+		static const int mHarvestSubsThreadCount = 10;
 		static int mHarvestCountLimit;
 		static int mTCPServerSinkPort;
 		static char mExePathName[PATH_MAX];
@@ -74,14 +76,16 @@ class Harvestor : public Command
 		std::thread mSlaveIFrameThread;
 		std::thread mSlaveVideoThreads[mHarvestSlaveThreadCount];
 		std::thread mSlaveAudioThreads[mHarvestSlaveThreadCount];
-
+		std::thread mSlaveSubtitleThreads[mHarvestSubsThreadCount];
+		
 		static void masterHarvestor(void * arg);
 		static void slaveHarvestor(void * arg);
 		static void slaveDataOutput(void * arg);
 		long getNumberFromString(std::string buffer);
 		void startHarvestReport(char * arg);
 		bool getHarvestReportDetails(char *buffer);
-		FILE *createSlaveHarvestor(std::map<std::string, std::string> cmdlineParams, int harvestConfig, long bitRate=0);
+		FILE *createSlaveHarvestor(std::map<std::string, std::string> cmdlineParams, int harvestConfig, long bitRate=0, 
+								   std::string language = "", int trackId=-1);
 		bool createSlaveDataReader(FILE *pSlaveHarvestor, std::thread& dataReader);
 		void writeHarvestErrorReport(HarvestProfileDetails, char *buffer);
 		void writeHarvestEndReport(HarvestProfileDetails, char *buffer);
@@ -89,6 +93,9 @@ class Harvestor : public Command
 		void getExecutablePath();
 		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
 		Harvestor();
+
+		std::vector<AudioTrackInfo> GetAudioTracks();
+		std::vector<TextTrackInfo> GetTextTracks();
 };
 
 

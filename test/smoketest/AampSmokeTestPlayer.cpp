@@ -54,7 +54,7 @@ AampPlayer& AampPlayer::operator=(const AampPlayer &aampPlayer)
  * @param[in] arg user_data
  * @retval void pointer
  */
-void * AampPlayer::aampGstPlayerStreamThread(void *arg)
+gpointer AampPlayer::aampGstPlayerStreamThread(gpointer arg)
 {
 	if (mAampPlayer.mAampGstPlayerMainLoop)
 	{
@@ -79,7 +79,7 @@ void AampPlayer::initPlayerLoop(int argc, char **argv)
 		mInitialized = true;
 		gst_init(&argc, &argv);
 		mAampGstPlayerMainLoop = g_main_loop_new(NULL, FALSE);
-		mAampMainLoopThread = g_thread_new("AAMPGstPlayerLoop", &aampGstPlayerStreamThread, NULL );
+		mAampMainLoopThread = g_thread_new("AAMPGstPlayerLoop", aampGstPlayerStreamThread, NULL );
 	}
 	
 	mPlayerInstanceAamp = new PlayerInstanceAAMP();

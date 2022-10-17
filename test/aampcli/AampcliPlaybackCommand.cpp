@@ -437,6 +437,7 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("progress","Toggle progress event logging (default=false)");
 	addCommand("auto <params", "stress test with defaults: startChan(500) endChan(1000) maxTuneTime(6) playTime(15) betweenTime(15)" );
 	addCommand("exit","Exit aampcli");
+	addCommand("harvest <configs>","harvest VOD or Live content; refer README.txt");
 }
 
 void PlaybackCommand::addCommand(std::string command,std::string description)

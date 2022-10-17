@@ -19,8 +19,9 @@
 #include <gst/gst.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
 #include <string.h>
+#include <thread>
+		
 
 
 #define DEFAULT_URI "aamps://tungsten.aaplimg.com/VOD/bipbop_adv_example_v2/master.m3u8"
@@ -35,7 +36,7 @@ GST_DEBUG_CATEGORY_STATIC (playbintest);
 
 GstElement *playbin[PLAYBINTEST_NUMBER_OF_VID];
 GMainLoop *main_loop;
-pthread_t uiThreadID;
+std::thread uiThread;
 const char* uri[2];
 const char* playbin_names[PLAYBINTEST_MAX_NUMBER_OF_VID] = {"playbin-0", "playbin-1"};
 const char* video_rectangle[PLAYBINTEST_MAX_NUMBER_OF_VID] = {"0,0,640,360","640,0,640,360"};
@@ -218,7 +219,7 @@ static void process_command(char* cmd)
 	}
 }
 
-static void* ui_thread(void * arg)
+static void ui_thread()
 {
 	char cmd[1024];
 	g_print("**PLAYBINTEST: start ui_thread\n");
@@ -233,7 +234,6 @@ static void* ui_thread(void * arg)
 		process_command(cmd);
 	}
 	g_print("**PLAYBINTEST: exit ui_thread\n");
-	return NULL;
 }
 
 static gboolean handle_bus_message(GstBus *bus, GstMessage *msg, void* arg)
@@ -413,10 +413,8 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	}
-	if(0 != pthread_create(&uiThreadID, NULL, &ui_thread, NULL))
-	{
-		g_printerr("%s:%d: Error at  pthread_create", __FUNCTION__, __LINE__);  //CID:83354 - checked return
-	}
+
+	uiThread = std::thread( ui_thread );
 	main_loop = g_main_loop_new(NULL, FALSE);
 	g_main_loop_run(main_loop);
 

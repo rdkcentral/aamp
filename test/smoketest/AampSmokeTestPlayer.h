@@ -46,7 +46,7 @@ class AampPlayer
 		static GThread *mAampMainLoopThread;
 		static SmokeTestEventListener *mEventListener;
 		static PlayerInstanceAAMP *mPlayerInstanceAamp;
-		static void * aampGstPlayerStreamThread(void *arg);
+		static gpointer aampGstPlayerStreamThread( gpointer arg);
 		void initPlayerLoop(int argc, char **argv);
 		FILE * getConfigFile(const std::string& cfgFile);
 		AampPlayer();

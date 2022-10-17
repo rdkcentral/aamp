@@ -223,7 +223,7 @@ FILE * Aampcli::getConfigFile(const std::string& cfgFile)
  * @param[in] arg user_data
  * @retval void pointer
  */
-void * Aampcli::aampGstPlayerStreamThread(void *arg)
+gpointer Aampcli::aampGstPlayerStreamThread(gpointer arg)
 {
 	if (mAampcli.mAampGstPlayerMainLoop)
 	{
@@ -372,7 +372,6 @@ int main(int argc, char **argv)
 	{
 		printf("[AAMPCLI] Failed at create thread error %s\n",e.what());  //CID:83593 - checked return
 	}
-
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
 	// Render frames in graphics plane using opengl
 	glutInit(&argc, argv);
