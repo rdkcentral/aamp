@@ -1425,8 +1425,8 @@ fragmentIdxToFetch(0), fragmentChunkIdxToFetch(0), abort(false), fragmentInjecto
 		totalMdatCount(0), cachedFragmentChunks{}, unparsedBufferChunk{}, parsedBufferChunk{}, fragmentChunkFetched(), fragmentChunkInjected(), abortInjectChunk(false), maxCachedFragmentChunksPerTrack(0),
 		noMDATCount(0), mLogObj(logObj)
 		,abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
-		,plDwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
-		, frDwnldMutex(), frDownloadWait(),prevDownloadStartTime(-1)
+		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
+		,frDownloadWait(),prevDownloadStartTime(-1)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	cachedFragment = new CachedFragment[maxCachedFragmentsPerTrack];
@@ -3276,6 +3276,7 @@ void StreamAbstractionAAMP::DisablePlaylistDownloads()
  */
 void MediaTrack::AbortWaitForPlaylistDownload()
 {
+	std::unique_lock<std::mutex> lock(dwnldMutex);
 	if(playlistDownloaderThreadStarted)
 	{
 		plDownloadWait.notify_one();
@@ -3293,7 +3294,7 @@ void MediaTrack::EnterTimedWaitForPlaylistRefresh(int timeInMs)
 {
 	if(timeInMs > 0 && aamp->DownloadsAreEnabled())
 	{
-		std::unique_lock<std::mutex> lock(plDwnldMutex);
+		std::unique_lock<std::mutex> lock(dwnldMutex);
 		if(plDownloadWait.wait_for(lock, std::chrono::milliseconds(timeInMs)) == std::cv_status::timeout)
 		{
 			AAMPLOG_TRACE("[%s] timeout exceeded %d", name, timeInMs); // make it trace
@@ -3310,6 +3311,7 @@ void MediaTrack::EnterTimedWaitForPlaylistRefresh(int timeInMs)
  */
 void MediaTrack::AbortFragmentDownloaderWait()
 {
+	std::unique_lock<std::mutex> lock(dwnldMutex);
 	if(fragmentCollectorWaitingForPlaylistUpdate)
 	{
 		frDownloadWait.notify_one();
@@ -3323,8 +3325,8 @@ void MediaTrack::WaitForManifestUpdate()
 {
 	if(aamp->DownloadsAreEnabled() && fragmentCollectorWaitingForPlaylistUpdate)
 	{
-		std::unique_lock<std::mutex> lock(plDwnldMutex);
-		AAMPLOG_INFO("Waiting for manifest update", name);
+		std::unique_lock<std::mutex> lock(dwnldMutex);
+		AAMPLOG_INFO("[%s] Waiting for manifest update", name);
 		frDownloadWait.wait(lock);
 	}
 	fragmentCollectorWaitingForPlaylistUpdate = false;

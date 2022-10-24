@@ -721,13 +721,12 @@ private:
 	long long prevDownloadStartTime;		/**< Previous file download Start time*/
 
 	std::thread *playlistDownloaderThread;	/**< PlaylistDownloadThread of track*/
-	bool playlistDownloaderThreadStarted;	/**< `Playlist downloader thread started or not*/
+	bool playlistDownloaderThreadStarted;	/**< Playlist downloader thread started or not*/
 	bool abortPlaylistDownloader;			/**< Flag used to abort playlist downloader*/
 	std::condition_variable plDownloadWait;	/**< Conditional variable for signalling timed wait*/
-	std::mutex plDwnldMutex;				/**< Playlist download mutex for conditional timed wait*/
+	std::mutex dwnldMutex;					/**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/
 	bool fragmentCollectorWaitingForPlaylistUpdate;	/**< Flag to indicate that the fragment collecor is waiting for ongoing playlist download, used for profile changes*/
 	std::condition_variable frDownloadWait;	/**< Conditional variable for signalling timed wait*/
-	std::mutex frDwnldMutex;
 };
 
 /**

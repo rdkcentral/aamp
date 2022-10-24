@@ -3536,7 +3536,6 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 		bool isDownloadStalled = false;
 		CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE;
 		double connectTime = 0;
-		pthread_mutex_unlock(&mLock);
 		std::string uriParameter = GETCONFIGVALUE_PRIV(eAAMPConfig_URIParameter);
 		// append custom uri parameter with remoteUrl at the end before curl request if curlHeader logging enabled.
 		if (ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) && (!uriParameter.empty()) && fileType == eMEDIATYPE_MANIFEST)
@@ -4261,13 +4260,12 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 			// download time expired with partial file for playlists/init fragments
 			http_code = PARTIAL_FILE_DOWNLOAD_TIME_EXPIRED_AAMP;
 		}
-		pthread_mutex_lock(&mLock);
 	}
 	else
 	{
 		AAMPLOG_WARN("downloads disabled");
 	}
-	pthread_mutex_unlock(&mLock);
+
 	if (http_error)
 	{
 		*http_error = http_code;
