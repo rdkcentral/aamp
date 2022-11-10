@@ -5545,7 +5545,7 @@ void StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackInfo)
 			mPeriodStartTime = GetPeriodStartTime(mpd, mCurrentPeriodIdx);
 			mPeriodDuration = GetPeriodDuration(mpd, mCurrentPeriodIdx);
 
-			double duration = durMs / 1000;
+			double duration = durMs /(double)1000;
 			aamp->UpdateDuration(duration);
 			mLiveEndPosition = duration + mCulledSeconds;
 		}
@@ -8787,7 +8787,7 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 	if(firstPeriod)
 	{
 		unsigned lastPeriodIdx = mpd->GetPeriods().size() - 1;
-		for (unsigned iPeriod = mpd->GetPeriods().size() - 1 ; iPeriod >= 0; iPeriod--)
+		for(int iPeriod = mpd->GetPeriods().size() - 1 ; iPeriod >= 0; iPeriod--)
 		{
 			IPeriod *period = mpd->GetPeriods().at(iPeriod);
 			if(IsEmptyPeriod(period))
@@ -8981,6 +8981,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 								if( !urlType )
 								{
 									AAMPLOG_WARN("initialization is null");
+									ReleasePlaylistLock();
 									return;
 								}
 							}
