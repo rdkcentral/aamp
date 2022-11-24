@@ -632,6 +632,21 @@ typedef struct AampUrlInfo
 	AampUrlInfo& operator=(const AampUrlInfo&) = delete;
 }AampURLInfoStruct;
 
+typedef enum
+{
+	PROFILE_BLACKLIST_DRM_FAILURE,
+	PROFILE_BLACKLIST_INIT_FAILURE
+
+} eBlacklistProfileReason;
+
+typedef struct BlacklistProfileInfo_t
+{
+	// Extend for HLS and other stream formats
+	std::string mPeriodId;
+	uint32_t mAdaptationSetIdx;
+	eBlacklistProfileReason mReason;
+} StreamBlacklistProfileInfo;
+
 /**
  * @}
  */
@@ -3784,12 +3799,12 @@ public:
 		return mLLDashCurrentPlayRate;
 	}
 
-	 /**
-	  *   @brief Turn off/on the player speed correction for Low latency Dash
-	  *
-	  *   @param[in] state - true or false
-	  *   @return void
-	  */
+	/**
+	 *   @brief Turn off/on the player speed correction for Low latency Dash
+	 *
+	 *   @param[in] state - true or false
+	 *   @return void
+	 */
 	void SetLLDashAdjustSpeed(bool state)
 	{
 		bLLDashAdjustPlayerSpeed = state;
@@ -3819,17 +3834,17 @@ public:
 	void SetLiveOffsetAppRequest(bool LiveOffsetAppRequest);
 
 	/**
-         *     @fn GetLowLatencyServiceConfigured
-         *     @return bool
-         */
-        bool GetLowLatencyServiceConfigured();
+	 *     @fn GetLowLatencyServiceConfigured
+	 *     @return bool
+	 */
+	bool GetLowLatencyServiceConfigured();
 
-        /**
-         *     @fn SetLowLatencyServiceConfigured
-         *     @param[in] bConfig - bool flag
-         *     @return void
-         */
-        void SetLowLatencyServiceConfigured(bool bConfig);
+	/**
+	 *     @fn SetLowLatencyServiceConfigured
+	 *     @param[in] bConfig - bool flag
+	 *     @return void
+	 */
+	void SetLowLatencyServiceConfigured(bool bConfig);
 
 	/**
 	 *     @fn GetUtcTime
@@ -3989,6 +4004,22 @@ public:
 	 * @brief To update the max DASH DRM sessions supported in AAMP
 	 */
 	void UpdateMaxDRMSessions();
+
+	/**
+	 * @brief To add profile to blacklisted profile list
+	 */
+	void AddToBlacklistedProfiles(const StreamBlacklistProfileInfo &info)
+	{
+		mBlacklistedProfiles.push_back(info);
+	}
+
+	/**
+	 * @brief To get the blacklisted profiles
+	 */
+	const std::vector<StreamBlacklistProfileInfo>& GetBlacklistedProfiles()
+	{
+		return mBlacklistedProfiles;
+	}
 
 private:
 
@@ -4165,6 +4196,7 @@ private:
 	videoRect mVideoRect;
 	std::unique_ptr<char[]> mData;
 	std::string mTextStyle;
+	std::vector<StreamBlacklistProfileInfo> mBlacklistedProfiles;
 };
 
 /**

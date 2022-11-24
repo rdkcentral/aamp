@@ -19,17 +19,9 @@
 
 #include "fragmentcollector_mpd.h"
 
-struct EarlyAvailablePeriodInfo
-{
-	EarlyAvailablePeriodInfo() : periodId(), isLicenseProcessed(false), isLicenseFailed(false), helper(nullptr){}
-	std::string periodId;
-	std::shared_ptr<AampDrmHelper> helper;
-	bool isLicenseProcessed;
-	bool isLicenseFailed;
-};
-
 StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-    : StreamAbstractionAAMP(logObj, aamp)
+    : StreamAbstractionAAMP(logObj, aamp),
+      mLicensePrefetcher(logObj, aamp, this)
 {
 }
 
@@ -160,4 +152,16 @@ bool StreamAbstractionAAMP_MPD::Is4KStream(int &height, long &bandwidth)
 bool StreamAbstractionAAMP_MPD::SetTextStyle(const std::string &options)
 {
     return false;
+}
+
+void StreamAbstractionAAMP_MPD::UpdateFailedDRMStatus(LicensePreFetchObject *object)
+{
+}
+
+void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, MediaType mediaType, bool qGstProtectEvent)
+{
+}
+
+void StreamAbstractionAAMP_MPD::ProcessAllContenProtForMediaType(MediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs)
+{
 }

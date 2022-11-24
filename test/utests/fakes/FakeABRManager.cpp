@@ -26,7 +26,7 @@ ABRManager::ABRManager()
 {
 }
 
-int ABRManager::getProfileCount() const
+int ABRManager::getProfileCount()
 {
     return 0;
 }
@@ -107,3 +107,7 @@ void ABRManager::setDefaultIframeBitrate(long defaultIframeBitrate)
 {
 }
 
+int ABRManager::removeProfiles(std::vector<long> profileBPS, int currentProfileIndex, const std::string& periodId)
+{
+    return 0;
+}

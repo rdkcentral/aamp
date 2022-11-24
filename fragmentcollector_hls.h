@@ -821,6 +821,13 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 */
 		virtual bool Is4KStream(int &height, long &bandwidth) override;
 
+		/**
+		 * @fn UpdateFailedDRMStatus
+		 * @brief Function to update the failed DRM status to mark the adaptation sets to be omitted
+		 * @param[in] object  - Prefetch object instance which failed
+		 */
+		void UpdateFailedDRMStatus(LicensePreFetchObject *object) override { }
+
 		//private:
 		// TODO: following really should be private, but need to be accessible from callbacks
 

@@ -190,6 +190,14 @@ public:
      * @return true on success 
      */
     bool Is4KStream(int &height, long &bandwidth) override { return false; };
+
+	/**
+	 * @fn UpdateFailedDRMStatus
+	 * @brief Function to update the failed DRM status to mark the adaptation sets to be omitted
+	 * @param[in] object  - Prefetch object instance which failed
+	 */
+	void UpdateFailedDRMStatus(LicensePreFetchObject *object) override { }
+
 protected:
     /**
      *   @fn GetStreamInfo

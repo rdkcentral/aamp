@@ -39,6 +39,7 @@
 #include <libxml/xmlreader.h>
 #include <thread>
 #include "admanager_mpd.h"
+#include "AampDRMLicPreFetcher.h"
 
 using namespace dash;
 using namespace std;
@@ -435,6 +436,7 @@ public:
          * @return void
          */
 	void ResumeSubtitleAfterSeek(bool mute, char *data) override;
+
 	/**
 	 *   @fn SetTextStyle
 	 *   @brief Set the text style of the subtitle to the options passed
@@ -442,6 +444,15 @@ public:
 	 *   @return - true indicating successful operation in passing options to the parser
 	 */
 	bool SetTextStyle(const std::string &options) override;
+
+	/**
+	 * @fn UpdateFailedDRMStatus
+	 * @brief Function to update the failed DRM status to mark the adaptation sets to be omitted
+	 * @param[in] object  - Prefetch object instance which failed
+	 */
+	// TODO: Add implementation to mark the failed DRM's adaptation set as failed/un-usable
+	void UpdateFailedDRMStatus(LicensePreFetchObject *object) override;
+
 private:
 	/**
 	 * @fn printSelectedTrack
@@ -636,12 +647,7 @@ private:
 	 * @param pMediaStreamContext Track object pointer
  	 */
 	void SkipToEnd( class MediaStreamContext *pMediaStreamContext); //Added to support rewind in multiperiod assets
-	/**
-	 * @fn ProcessContentProtection 
-	 * @param adaptationSet Adaptation set object
-	 * @param mediaType type of track
-	 */
-	void ProcessContentProtection(IAdaptationSet * adaptationSet,MediaType mediaType, std::shared_ptr<AampDrmHelper> drmHelper = nullptr);
+
 	/**
 	 * @fn SeekInPeriod
 	 * @param seekPositionSeconds seek positon in seconds
@@ -801,6 +807,27 @@ private:
 	 */
 	bool IsPeriodEncrypted(IPeriod *period);
 
+	/**
+	 * @fn QueueContentProtection
+	 * @param[in] period - period
+	 * @param[in] adaptationSetIdx - adaptation set index
+	 * @param[in] mediaType - media type
+	 * @param[in] qGstProtectEvent - Flag denotes if GST protection event should be queued in sink
+	 * @brief queue content protection for the given adaptation set
+	 * @retval true on success
+	 */
+	void QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, MediaType mediaType, bool qGstProtectEvent = true);
+
+	/**
+	 * @fn ProcessAllContenProtForMediaType
+	 * @param[in] type - media type
+	 * @param[in] priorityAdaptationIdx - selected adaption index, to be processed with priority
+	 * @param[in] chosenAdaptationIdxs - selected adaption indexes, might be empty for certain playback cases
+	 * @brief process content protection of all the adaptation for the given media type
+	 * @retval none
+	 */
+	void ProcessAllContenProtForMediaType(MediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs);
+
 	std::mutex mStreamLock;
 	CMCDHeaders *pCMCDMetrics;/**<pointer object to class CMCDHeaders*/
 	bool fragmentCollectorThreadStarted;
@@ -808,11 +835,6 @@ private:
 	double seekPosition;
 	float rate;
 	std::thread fragmentCollectorThreadID;
-	std::thread createDRMSessionThreadID;
-	std::thread *deferredDRMRequestThread;
-	bool deferredDRMRequestThreadStarted;
-	bool mAbortDeferredLicenseLoop;
-	bool drmSessionThreadStarted;
 	dash::mpd::IMPD *mpd;
 	class MediaStreamContext *mMediaStreamContext[AAMP_TRACK_COUNT];
 	int mNumberOfTracks;
@@ -855,10 +877,7 @@ private:
 	std::string mBasePeriodId;
 	double mBasePeriodOffset;
 	class PrivateCDAIObjectMPD *mCdaiObject;
-	std::shared_ptr<AampDrmHelper> mLastDrmHelper;
 	std::vector<std::string> mEarlyAvailablePeriodIds;
-	std::map<std::string, struct EarlyAvailablePeriodInfo> mEarlyAvailableKeyIDMap;
-	std::queue<std::string> mPendingKeyIDs;
 	int mCommonKeyDuration;
 
 	// DASH does not use abr manager to store the supported bandwidth values,
@@ -932,29 +951,13 @@ private:
 	 */
 	void ReleasePlaylistLock();
 	
-#ifdef AAMP_MPD_DRM
-	/**
-	 * @fn ProcessEAPLicenseRequest
-	 */
-	void ProcessEAPLicenseRequest(void);
-	/**
-	 * @fn StartDeferredDRMRequestThread
-	 * @param mediaType type of track
-	 */
-	void StartDeferredDRMRequestThread(MediaType mediaType);
-	/**
-	 * @fn ProcessVssContentProtection
-	 * @param drmHelper created
-	 * @param mediaType type of track
-	 */
-	void ProcessVssContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, MediaType mediaType);
 	/**
 	 * @fn CreateDrmHelper
 	 * @param adaptationSet Adaptation set object
 	 * @param mediaType type of track
 	 */
-	std::shared_ptr<AampDrmHelper> CreateDrmHelper(IAdaptationSet * adaptationSet,MediaType mediaType);
-#endif
+	std::shared_ptr<AampDrmHelper> CreateDrmHelper(const IAdaptationSet * adaptationSet,MediaType mediaType);
+
 	/**
 	* @fn CheckForVssTags
 	*/
@@ -983,6 +986,8 @@ private:
 	std::thread latencyMonitorThreadID;	 /**< Fragment injector thread id*/
 	int mProfileCount;			 /**< Total video profile count*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;	/**< Parser for subtitle data*/
+	AampLicensePreFetcher mLicensePrefetcher;
+	bool mMultiVideoAdaptationPresent;
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_

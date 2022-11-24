@@ -1449,6 +1449,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mTextStyle()
 	, mIsEventStreamFound(false)
 	, mFogDownloadFailReason("")
+	, mBlacklistedProfiles()
 {
 	for(int i=0; i<eMEDIATYPE_DEFAULT; i++)
 	{
@@ -7271,7 +7272,7 @@ void PrivateInstanceAAMP::Stop()
 		timedMetadata.clear();
 	}
 	mFailureReason="";
-
+	mBlacklistedProfiles.clear();
 
 	// LLAMA-7124 - explicitly invalidate previous position for consistency with previous code
 	mPrevPositionMilliseconds.Invalidate();
