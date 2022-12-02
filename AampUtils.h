@@ -275,4 +275,6 @@ void mssleep(int milliseconds);
 	*DST++ = "0123456789abcdef"[BYTE&0xf]; \
 }
 
+std::size_t GetPrintableThreadID( const std::thread &t );
+
 #endif  /* __AAMP_UTILS_H__ */

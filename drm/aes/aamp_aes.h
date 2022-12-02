@@ -96,6 +96,11 @@ public:
 
 	/*Functions to support internal operations*/
 	/**
+	 * @brief key acquistion thread
+	 * @retval NULL
+	 */
+	void acquire_key();
+	/**
 	 * @brief Acquire drm key from URI
 	 */
 	void AcquireKey();
@@ -148,7 +153,7 @@ private:
 	std::string mDrmUrl;
 	int mCurlInstance;
 	int mAcquireKeyWaitTime;
-	pthread_t licenseAcquisitionThreadId;
+	std::thread licenseAcquisitionThreadId;
 	bool licenseAcquisitionThreadStarted;
 };
 

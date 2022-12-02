@@ -222,6 +222,15 @@ public:
      	 * @return void
      	 ***************************************************************************/
 	void RunFetchLoop();
+
+	/***************************************************************************
+	* @fn FragmentCollector
+	* @brief Fragment collector thread function
+
+	* @return void
+	***************************************************************************/
+	void FragmentCollector(void);
+
 	/***************************************************************************
      	 * @fn IndexPlaylist
      	 * @brief Function to parse playlist 
@@ -571,7 +580,7 @@ public:
 
 private:
 	bool refreshPlaylist;	                /**< bool flag to indicate if playlist refresh required or not */
-	pthread_t fragmentCollectorThreadID;	/**< Thread Id for Fragment  collector Thread */
+	std::thread fragmentCollectorThreadID;	/**< Thread Id for Fragment  collector Thread */
 	bool fragmentCollectorThreadStarted;	/**< Flag indicating if fragment collector thread started or not*/
 	int manifestDLFailCount;		/**< Manifest Download fail count for retry*/
 	bool firstIndexDone;                    /**< Indicates if first indexing is done*/
@@ -967,6 +976,13 @@ private:
          * @return void
          ***************************************************************************/
 	void ConfigureTextTrack();
+
+	/***************************************************************************
+	* @fn CachePlaylistThreadFunction
+	* @brief Thread function created for PreCaching playlist
+	* @return void
+	***************************************************************************/
+	void CachePlaylistThreadFunction(void);
 
 	int segDLFailCount;		/**< Segment Download fail count */
 	int segDrmDecryptFailCount;	/**< Segment Decrypt fail count */
