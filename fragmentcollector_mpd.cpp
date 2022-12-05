@@ -4564,7 +4564,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			if (!mpdDurationAvailable)
 			{
 				durationMs += periodDurationMs;
-				AAMPLOG_INFO("Updated duration %llu seconds", (durationMs/1000));
+				AAMPLOG_INFO("Updated duration %lf seconds", ((double) durationMs/1000));
 			}
 
 			if(offsetFromStart >= 0 && seekPeriods)
@@ -4808,6 +4808,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				if (offsetFromStart < 0)
 				{
 					offsetFromStart = 0;
+				}
+				if(mCurrentPeriodIdx < 0)
+				{
+					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Invalid currentPeriodIdx[%d], resetting to 0",mCurrentPeriodIdx);
+					mCurrentPeriodIdx = 0;
 				}
 				mIsAtLivePoint = true;
 				AAMPLOG_WARN( "StreamAbstractionAAMP_MPD: liveAdjust - Updated offSetFromStart[%f] duration [%f] currentPeriodStart[%f] MaxPeriodIdx[%d]",
