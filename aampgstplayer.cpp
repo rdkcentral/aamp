@@ -69,7 +69,7 @@ typedef enum {
 //#define SUPPORT_MULTI_AUDIO
 #define GST_ELEMENT_GET_STATE_RETRY_CNT_MAX 5
 
-/*Playersinkbin events*/
+/* Playersinkbin events */
 #define GSTPLAYERSINKBIN_EVENT_HAVE_VIDEO 0x01
 #define GSTPLAYERSINKBIN_EVENT_HAVE_AUDIO 0x02
 #define GSTPLAYERSINKBIN_EVENT_FIRST_VIDEO_FRAME 0x03
@@ -2082,7 +2082,7 @@ static GstElement* AAMPGstPlayer_GetAppSrc(AAMPGstPlayer *_this, MediaType media
 
 		if (stream_format == FORMAT_SUBTITLE_MP4)
 		{
-			AAMPLOG_INFO("Subtitle seeking first PTS %02f", _this->aamp->GetFirstPTS());
+			AAMPLOG_INFO("Subtitle seeking first PTS %.2f/%" GST_TIME_FORMAT " seek_pos_seconds %02f", _this->aamp->GetFirstPTS(), GST_TIME_ARGS(_this->aamp->GetFirstPTS() * GST_SECOND), _this->aamp->seek_pos_seconds);
 			gst_element_seek_simple(GST_ELEMENT(source), GST_FORMAT_TIME, GST_SEEK_FLAG_NONE, _this->aamp->GetFirstPTS() * GST_SECOND);
 			/* Perform a seek on the source, seeking relative to the start of the stream */
 		}
@@ -2627,7 +2627,7 @@ void AAMPGstPlayer::SendNewSegmentEvent(MediaType mediaType, GstClockTime startP
 /**
  *  @brief Inject stream buffer to gstreamer pipeline
  */
-bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, bool initFragment)
+bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, bool initFragment, bool discontinuity)
 {
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
@@ -2642,6 +2642,19 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 	GstClockTime pts = (GstClockTime)(fpts * GST_SECOND);
 	GstClockTime dts = (GstClockTime)(fdts * GST_SECOND);
 	GstClockTime duration = (GstClockTime)(fDuration * 1000000000LL);
+	media_stream *stream = &privateContext->stream[mediaType];
+
+	if (eMEDIATYPE_SUBTITLE == mediaType && discontinuity)
+	{
+		AAMPLOG_WARN( "[%d] Discontinuity detected - setting subtitle clock to %" GST_TIME_FORMAT " dAR %d rP %d init %d sC %d",
+					 mediaType,
+					 GST_TIME_ARGS(pts),
+					 aamp->DownloadsAreEnabled(),
+					 stream->resetPosition,
+					 initFragment,
+					 stream->sourceConfigured );
+		//gst_element_seek_simple(GST_ELEMENT(stream->source), GST_FORMAT_TIME, GST_SEEK_FLAG_NONE, pts);
+	}
 
 	if (aamp->IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA) &&
 		hasId3Header(mediaType, static_cast<const uint8_t*>(ptr), len))
@@ -2662,7 +2675,6 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 		return false;
 	}
 
-	media_stream *stream = &privateContext->stream[mediaType];
 	bool isFirstBuffer = stream->resetPosition;
 	// Flag to wait sending Gst events until receiving a valid buffer for PTS restamping. HLS mp4 already has PTS restamping.
 	bool waitForPtsRestamp = ((eMEDIAFORMAT_DASH == aamp->mMediaFormat) && (initFragment) && (0 == aamp->GetFirstPTS()));
@@ -2811,11 +2823,10 @@ bool AAMPGstPlayer::SendCopy(MediaType mediaType, const void *ptr, size_t len, d
 /**
  *  @brief inject mp4 segment to gstreamer pipeline
  */
-bool AAMPGstPlayer::SendTransfer(MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment)
-
+bool AAMPGstPlayer::SendTransfer(MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment, bool discontinuity)
 {
 	FN_TRACE( __FUNCTION__ );
-	return SendHelper( mediaType, ptr, len, fpts, fdts, fDuration, false /*transfer*/, initFragment );
+	return SendHelper( mediaType, ptr, len, fpts, fdts, fDuration, false /*transfer*/, initFragment, discontinuity );
 }
 
 /**

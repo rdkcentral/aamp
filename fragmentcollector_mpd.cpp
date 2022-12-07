@@ -300,7 +300,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,mVideoPosRemainder(0)
 	,mPresentationOffsetDelay(0)
 	,mUpdateStreamInfo(false)
-	,mAvailabilityStartTime(-1)
+	,mAvailabilityStartTime(0)
 	,mFirstPeriodStartTime(0)
 	,mDrmPrefs({{CLEARKEY_UUID, 1}, {WIDEVINE_UUID, 2}, {PLAYREADY_UUID, 3}})// Default values, may get changed due to config file
 	,mLastDrmHelper()
@@ -3930,7 +3930,7 @@ double StreamAbstractionAAMP_MPD::GetPeriodStartTime(IMPD *mpd, int periodIndex)
 			if(!startTimeStr.empty())
 			{
 				periodStartMs = ParseISO8601Duration(startTimeStr.c_str()) + (aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mpd->GetPeriods().at(periodIndex)) * 1000);
-				periodStart =  mAvailabilityStartTime + (periodStartMs / 1000);
+				periodStart = (periodStartMs / 1000) + mAvailabilityStartTime;
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: - MPD periodIndex %d AvailStartTime %f periodStart %f %s", periodIndex, mAvailabilityStartTime, periodStart,startTimeStr.c_str());
 			}
 			else
@@ -4080,7 +4080,7 @@ double StreamAbstractionAAMP_MPD::GetPeriodEndTime(IMPD *mpd, int periodIndex, u
 		string startTimeStr = period->GetStart();
 		periodDurationMs = GetPeriodDuration(mpd, periodIndex);
 
-		if((0 > mAvailabilityStartTime) && !(mpd->GetType() == "static"))
+		if((mpd->GetAvailabilityStarttime().empty()) && !(mpd->GetType() == "static"))
 		{
 			AAMPLOG_WARN("availabilityStartTime required to calculate period duration not present in MPD");
 		}
@@ -4093,7 +4093,7 @@ double StreamAbstractionAAMP_MPD::GetPeriodEndTime(IMPD *mpd, int periodIndex, u
 			if(startTimeStr.empty())
 			{
 				AAMPLOG_WARN("Period startTime is not present in MPD, so calculating start time with previous period durations");
-				periodStartMs = GetPeriodStartTime(mpd, periodIndex) * 1000;
+				periodStartMs = GetPeriodStartTime(mpd, periodIndex) * 1000 - (mAvailabilityStartTime * 1000);
 			}
 			else
 			{
@@ -7160,12 +7160,17 @@ void StreamAbstractionAAMP_MPD::StartSubtitleParser()
 	struct MediaStreamContext *subtitle = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
 	if (subtitle && subtitle->enabled && subtitle->mSubtitleParser)
 	{
+		auto seekPoint = aamp->seek_pos_seconds;
 		if(aamp->IsLive())
 		{ // adjust subtitle presentation start to align with AV live offset
-			seekPosition -= aamp->mLiveOffset;
+			seekPoint -= aamp->mLiveOffset;
 		}
-		AAMPLOG_INFO("sending init %.3f", seekPosition);
-		subtitle->mSubtitleParser->init(seekPosition, 0);
+		else
+		{ // absolute to relative correction for subtec synchronization within period
+			seekPoint -= aamp->mNextPeriodStartTime;
+		}
+		AAMPLOG_INFO("sending init seekPoint=%.3f", seekPoint);
+		subtitle->mSubtitleParser->init(seekPoint, 0);
 		subtitle->mSubtitleParser->mute(aamp->subtitles_muted);
 		subtitle->mSubtitleParser->isLinear(mIsLiveStream);
 	}
@@ -7633,6 +7638,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		
 		if (eMEDIATYPE_SUBTITLE == i && selAdaptationSetIndex != -1)
 		{
+			aamp->mIsInbandCC = false;
 			AAMPLOG_WARN("SDW config set %d", ISCONFIGSET(eAAMPConfig_GstSubtecEnabled));
 			if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 			{

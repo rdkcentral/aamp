@@ -1007,8 +1007,8 @@ public:
 	Accessibility  preferredAudioAccessibilityNode; 	/**< Preferred Accessibility Node for Audio  */
 	AudioTrackTuple mAudioTuple;				/**< Depricated **/
 	VideoZoomMode zoom_mode;
-	bool video_muted;
-	bool subtitles_muted;
+	bool video_muted; /**< true iff video plane is logically muted */
+	bool subtitles_muted; /**< true iff subtitle plane is logically muted */
 	int audio_volume;
 	std::vector<std::string> subscribedTags;
 	std::vector<TimedMetadata> timedMetadata;
@@ -1132,6 +1132,7 @@ public:
 	int mCurrentTextTrackIndex;				/**< Keep current selected text track index*/
 	double mLLActualOffset;				/**< Actual Offset After Seeking in LL Mode*/
 	bool mIsStream4K;                  /**< Identify whether live playing stream is 4K or not; reset on every retune*/
+	bool mIsInbandCC;                   /** Indicate inband cc or out of band cc is selected*/
 
 	/**
 	 * @fn hasId3Header
@@ -1660,7 +1661,7 @@ public:
      	 *   @param[in]  initFragment - flag for buffer type (init, data)
 	 *   @return void
 	 */
-	void SendStreamTransfer(MediaType mediaType, GrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment = 0);
+	void SendStreamTransfer(MediaType mediaType, GrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment = 0, bool discontinuity = false);
 
 	/**
 	 * @fn SetStreamSink
@@ -4111,7 +4112,6 @@ private:
 	bool mApplyVideoRect; 			/**< Status to apply stored video rectagle */
 	videoRect mVideoRect;
 	char *mData;
-	bool mIsInbandCC;
 	std::string mTextStyle;
 };
 

@@ -20,9 +20,13 @@
 #include "TtmlSubtecParser.hpp"
 #include <regex>
 
+// #define TTML_DEBUG
 
 TtmlSubtecParser::TtmlSubtecParser(AampLogManager *logObj, PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(logObj, aamp, type), m_channel(nullptr)
 {
+#ifdef TTML_DEBUG
+	printf( "TtmlSubtecParser::TtmlSubtecParser\n" );
+#endif
 	m_channel = SubtecChannel::SubtecChannelFactory(SubtecChannel::ChannelType::TTML);
 	if (!m_channel->InitComms())
 	{
@@ -40,7 +44,10 @@ TtmlSubtecParser::TtmlSubtecParser(AampLogManager *logObj, PrivateInstanceAAMP *
 
 bool TtmlSubtecParser::init(double startPosSeconds, unsigned long long basePTS)
 {
-	AAMPLOG_INFO("startPos %.3fs", startPosSeconds);
+#ifdef TTML_DEBUG
+	printf( "TtmlSubtecParser::init(startPosSeconds=%.3fs,basePTS=%llu\n", startPosSeconds, basePTS );
+#endif
+	AAMPLOG_INFO("startPosSeconds %.3fs basePTS=%llu", startPosSeconds, basePTS);
 	m_channel->SendTimestampPacket(static_cast<uint64_t>(startPosSeconds * 1000.0));
 	mAamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
 
@@ -53,11 +60,17 @@ bool TtmlSubtecParser::init(double startPosSeconds, unsigned long long basePTS)
 
 void TtmlSubtecParser::updateTimestamp(unsigned long long positionMs)
 {
+#ifdef TTML_DEBUG
+	printf( "TtmlSubtecParser::updateTimestamp(positionMs=%llu\n", positionMs );
+#endif
 	m_channel->SendTimestampPacket(positionMs);
 }
 
 void TtmlSubtecParser::reset()
 {
+#ifdef TTML_DEBUG
+	printf( "TtmlSubtecParser::reset\n" );
+#endif
 	m_channel->SendResetChannelPacket();
 }
 
@@ -97,6 +110,10 @@ static std::int64_t parseFirstBegin(std::stringstream &ss)
 
 bool TtmlSubtecParser::processData(char* buffer, size_t bufferLen, double position, double duration)
 {
+#ifdef TTML_DEBUG
+	printf( "TtmlSubtecParser::processData(bufferLen=%zu,position=%f,duration=%f)\n", bufferLen, position, duration );
+#endif
+
 	IsoBmffBuffer isobuf(mLogObj);
 
 	isobuf.setBuffer(reinterpret_cast<uint8_t *>(buffer), bufferLen);
@@ -161,16 +178,30 @@ bool TtmlSubtecParser::processData(char* buffer, size_t bufferLen, double positi
 
 void TtmlSubtecParser::mute(bool mute)
 {
+#ifdef TTML_DEBUG
+	printf( "TtmlSubtecParser::mute(mute=%d)\n", mute );
+#endif
 	if (mute)
+	{
 		m_channel->SendMutePacket();
+	}
 	else
+	{
 		m_channel->SendUnmutePacket();
+	}
 }
 
 void TtmlSubtecParser::pause(bool pause)
 {
+#ifdef TTML_DEBUG
+	printf( "TtmlSubtecParser::pause(pause=%d)\n", pause );
+#endif
 	if (pause)
+	{
 		m_channel->SendPausePacket();
+	}
 	else
+	{
 		m_channel->SendResumePacket();
+	}
 }

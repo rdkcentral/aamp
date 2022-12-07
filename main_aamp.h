@@ -423,7 +423,7 @@ public:
          *   @param[in]  initFragment - flag for buffer type (init, data)
 	 *   @return void
 	 */
-	virtual bool SendTransfer( MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment = false)= 0;
+	virtual bool SendTransfer( MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment = false, bool discontinuity = false)= 0;
 
 	/**
 	 *   @brief  Notifies EOS to sink

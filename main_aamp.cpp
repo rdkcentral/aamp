@@ -1312,13 +1312,22 @@ void PlayerInstanceAAMP::SetVideoMute(bool muted)
 		{
 			if (aamp->mpStreamAbstractionAAMP)
 			{
-				aamp->SetVideoMute(muted);
-				SetCCStatus(muted ? false : !aamp->subtitles_muted);
+				aamp->SetVideoMute(muted); // hide/show video plane
+				bool subtitles_are_logically_muted = aamp->subtitles_muted;
+				if( muted )
+				{ // hiding video plane
+					SetCCStatus(false); // hide subtitle plane (along with video)
+					aamp->subtitles_muted = subtitles_are_logically_muted;
+				}
+				else
+				{ // we are unmuting video; also unmute subtitles if appropriate
+					SetCCStatus(!subtitles_are_logically_muted);
+				}
 			}
 			else
 			{
 				AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
-				aamp->mApplyCachedVideoMute = true;
+				aamp->mApplyCachedVideoMute = true; // can't do it now, but remember that we want video muted
 			}
 			aamp->ReleaseStreamLock();
 		}
