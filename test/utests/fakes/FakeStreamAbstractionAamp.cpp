@@ -125,6 +125,10 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 
 bool StreamAbstractionAAMP::SetTextStyle(const std::string &options)
 {
+    if (g_mockStreamAbstractionAAMP != nullptr)
+    {
+        return g_mockStreamAbstractionAAMP->SetTextStyle(options);
+    }
     return false;
 }
 

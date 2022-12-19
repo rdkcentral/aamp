@@ -42,12 +42,10 @@ using ::testing::Return;
 
 #define WAIT_FOR_SCHEDUE_TASK_POLL_PERIOD_MS    (50)
 
-AampConfig *gpGlobalConfig=NULL;
-AampLogManager *mLogObj=NULL;
-
 class PauseAtTests : public ::testing::Test
 {
 protected:
+
     PrivateInstanceAAMP *mPrivateInstanceAAMP;
 
     AampScheduler mScheduler;

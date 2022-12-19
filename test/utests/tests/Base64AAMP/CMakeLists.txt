@@ -46,6 +46,6 @@ add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest)
+target_link_libraries(${EXEC_NAME} fakes ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lpthread)
 
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)

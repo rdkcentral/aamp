@@ -403,6 +403,14 @@ public:
          */
     static bool IsMS2V12Supported();
 
+	/**
+		* @brief Set the text style of the subtitle to the options passed
+		* @fn SetTextStyle()
+		* @param[in] options - reference to the Json string that contains the information
+		* @return - true indicating successful operation in passing options to the parser
+	 */
+	bool SetTextStyle(const std::string &options) override;
+
 private:
 	/**
      	 * @fn PauseAndFlush 

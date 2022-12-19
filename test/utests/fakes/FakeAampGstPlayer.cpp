@@ -180,3 +180,7 @@ void AAMPGstPlayer::InitializeAAMPGstreamerPlugins(AampLogManager *mLogObj)
 {
 }
 
+bool AAMPGstPlayer::SetTextStyle(const std::string &options)
+{
+	return false;
+}

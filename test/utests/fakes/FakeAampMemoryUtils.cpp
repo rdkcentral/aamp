@@ -41,6 +41,7 @@ void aamp_TransferMemory( void *ptr )
 
 void *aamp_Malloc( size_t numBytes )
 {
+    return nullptr;
 }
 
 void aamp_Malloc(struct GrowableBuffer *buffer, size_t len)

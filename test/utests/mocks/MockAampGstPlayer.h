@@ -33,6 +33,7 @@ public:
 
     MOCK_METHOD(bool, Pause, (bool pause, bool forceStopGstreamerPreBuffering));
 
+    MOCK_METHOD(bool , SetTextStyle, (const std::string &options));
 };
 
 extern MockAAMPGstPlayer *g_mockAampGstPlayer;

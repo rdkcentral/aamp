@@ -676,11 +676,26 @@ public:
 	virtual void StopBuffering(bool forceStop) { };
 
 	/**
+	 *   @brief Set the text style of the subtitle to the options passed
+	 *   @param[in] options - reference to the Json string that contains the information
+	 *   @return - true indicating successful operation in passing options to the parser
+	 */
+	virtual bool SetTextStyle(const std::string &options) { return false; }
+
+	/**
+	 *   @brief Get the set text style of the subtitle
+	 *   @param[in] textStyle - Json string that contains text style
+	 *   @return - true indicating indicating that subtitles are enabled
+	 */
+	virtual bool GetTextStyle(std::string &textStyle) { return false; }
+
+	/**
 	 * @brief API to set track Id to audio sync property in case of AC4 audio
 	 * 
 	 * @param[in] trackId - AC4 track Id parsed by aamp based of preference
 	 * @return bol sttaus of API
 	 */
+
 
 };
 

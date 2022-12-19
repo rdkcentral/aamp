@@ -10666,16 +10666,30 @@ void PrivateInstanceAAMP::SetTextStyle(const std::string &options)
 {
 	bool retVal = false;
 
-	mTextStyle = options;
-
+	// Try setting text style via subtitle parser
 	if (mpStreamAbstractionAAMP)
 	{
 		AAMPLOG_WARN("Calling StreamAbstractionAAMP::SetTextStyle(%s)", options.c_str());
 		retVal = mpStreamAbstractionAAMP->SetTextStyle(options);
 	}
+
 	if (!retVal)
 	{
+		// Try setting text style via gstreamer
+		AAMPLOG_WARN("Calling StreamSink::SetTextStyle(%s)", options.c_str());
+		retVal = mStreamSink->SetTextStyle(options);
+	}
+
+	if (retVal)
+	{
+		// Store current TextStyle in PrivateInstanceAAMP rather than in StreamAbstractionAAMP
+		// as StreamAbstractionAAMP object is destroyed on seek
+		mTextStyle = options;
+	}
+	else
+	{
 #ifdef AAMP_CC_ENABLED
+		// Try setting text style via CC Manager
 		AAMPLOG_WARN("Calling AampCCManager::SetTextStyle(%s)", options.c_str());
 		AampCCManager::GetInstance()->SetStyle(options);
 #endif
@@ -10687,7 +10701,17 @@ void PrivateInstanceAAMP::SetTextStyle(const std::string &options)
  */
 std::string PrivateInstanceAAMP::GetTextStyle()
 {
-	return mTextStyle;
+	std::string textStyle = mTextStyle;
+
+	if (textStyle.empty())
+	{
+#ifdef AAMP_CC_ENABLED
+		// CCManager is a singleton potentially used by multiple players
+		// so should retrieve from CCManager.
+		textStyle = AampCCManager::GetInstance()->GetStyle();
+#endif
+	}
+	return textStyle;
 }
 
 /**

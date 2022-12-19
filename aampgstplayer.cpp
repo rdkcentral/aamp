@@ -28,6 +28,7 @@
 #include "isobmffbuffer.h"
 #include "AampUtils.h"
 #include "AampGstUtils.h"
+#include "TextStyleAttributes.h"
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
@@ -4859,4 +4860,36 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 	return true;
 }
 
+/**
+  * @brief Set the text style of the subtitle to the options passed
+  */
+bool AAMPGstPlayer::SetTextStyle(const std::string &options)
+{
+	FN_TRACE( __FUNCTION__ );
+	bool ret = false;
 
+	if (privateContext->subtitle_sink)
+	{
+		TextStyleAttributes textStyleAttributes(mLogObj);
+		uint32_t attributesMask = 0;
+		attributesType attributesValues = {0};
+
+		if (textStyleAttributes.getAttributes(options, attributesValues, attributesMask) == 0)
+		{
+			if (attributesMask & (1 << TextStyleAttributes::FONT_SIZE_ARR_POSITION))
+			{
+				guint font_size = attributesValues[TextStyleAttributes::FONT_SIZE_ARR_POSITION];
+
+				AAMPLOG_INFO("AAMPGstPlayer: font-site set to %u", font_size);
+				g_object_set(privateContext->subtitle_sink, "font-size", font_size, NULL);
+			}
+		}
+		ret = true;
+	}
+	else
+	{
+		AAMPLOG_INFO("AAMPGstPlayer: subtitle sink not set");
+	}
+
+	return ret;
+}
