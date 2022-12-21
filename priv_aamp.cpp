@@ -10690,7 +10690,7 @@ bool PrivateInstanceAAMP::DiscontinuitySeenInAllTracks()
 	bool audDiscontinuity = (mAudioFormat == FORMAT_INVALID || mProcessingDiscontinuity[eMEDIATYPE_AUDIO]);
 	bool auxDiscontinuity = (mAuxFormat == FORMAT_INVALID || mProcessingDiscontinuity[eMEDIATYPE_AUX_AUDIO]);
 
-	return (vidDiscontinuity && auxDiscontinuity && auxDiscontinuity);
+	return (vidDiscontinuity && audDiscontinuity && auxDiscontinuity);
 }
 
 /**
@@ -10704,7 +10704,7 @@ bool PrivateInstanceAAMP::DiscontinuitySeenInAnyTracks()
 	bool audDiscontinuity = (mAudioFormat != FORMAT_INVALID && mProcessingDiscontinuity[eMEDIATYPE_AUDIO]);
 	bool auxDiscontinuity = (mAuxFormat != FORMAT_INVALID && mProcessingDiscontinuity[eMEDIATYPE_AUX_AUDIO]);
 
-	return (vidDiscontinuity || auxDiscontinuity || auxDiscontinuity);
+	return (vidDiscontinuity || audDiscontinuity || auxDiscontinuity);
 }
 
 /**
