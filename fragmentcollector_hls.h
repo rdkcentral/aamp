@@ -38,9 +38,8 @@
 #include <memory>
 #include "StreamAbstractionAAMP.h"
 #include "mediaprocessor.h"
-#include "drm.h"
 #include <sys/time.h>
-
+#include "HlsDrmBase.h"
 
 #define MAX_PROFILE 128 // TODO: remove limitation
 #define FOG_FRAG_BW_IDENTIFIER "bandwidth-"
