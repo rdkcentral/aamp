@@ -264,9 +264,6 @@ typedef enum
 	eAAMPConfig_ContentProtectionDataUpdateTimeout,				/**< Default Timeout For ContentProtectionData Update in milliseconds */
 	eAAMPConfig_MaxCurlSockStore,						/**< Max no of curl socket to be stored */
 	eAAMPConfig_TCPServerSinkPort,						/**< TCP port number */
-	eAAMPConfig_IntMaxValue,
-	///////////////////////////////////
-	eAAMPConfig_LongStartValue,
 	eAAMPConfig_DefaultBitrate,						/**< Default bitrate*/
 	eAAMPConfig_DefaultBitrate4K,						/**< Default 4K bitrate*/
 	eAAMPConfig_IFrameDefaultBitrate,					/**< Default bitrate for iframe track selection for non-4K assets*/
@@ -275,11 +272,11 @@ typedef enum
 	eAAMPConfig_CurlDownloadStartTimeout,					/**< Timeout value for curl download to start after connect in seconds*/
 	eAAMPConfig_CurlDownloadLowBWTimeout,					/**< Timeout value for curl download expiry if player cann't catchup the selected bitrate buffer*/
 	eAAMPConfig_DiscontinuityTimeout,					/**< Timeout value to auto process pending discontinuity after detecting cache is empty*/
-	eAAMPConfig_MinBitrate, 						/**< minimum bitrate filter for playback profiles */
-	eAAMPConfig_MaxBitrate, 						/**< maximum bitrate filter for playback profiles*/
+	eAAMPConfig_MinBitrate,                         /**< minimum bitrate filter for playback profiles */
+	eAAMPConfig_MaxBitrate,                         /**< maximum bitrate filter for playback profiles*/
 	eAAMPConfig_TLSVersion,
-
-	eAAMPConfig_LongMaxValue,
+	eAAMPConfig_IntMaxValue,
+	
 	////////////////////////////////////
 	eAAMPConfig_DoubleStartValue,
 	eAAMPConfig_NetworkTimeout,						/**< Fragment download timeout in sec*/
@@ -292,6 +289,7 @@ typedef enum
 	eAAMPConfig_LiveOffset4K,						/**< Live offset for 4K content;*/
 	eAAMPConfig_CDVRLiveOffset, 						/**< CDVR LIVE offset*/
 	eAAMPConfig_DoubleMaxValue,
+	
 	////////////////////////////////////
 	eAAMPConfig_StringStartValue,
 	eAAMPConfig_MapMPD, 							/**< host name in url for which hls to mpd mapping done'*/
@@ -369,13 +367,11 @@ struct AampConfigLookupEntry
 	union
 	{
 		int iMinValue;
-		long lMinValue;
 		double dMinValue;
 	}Min;
 	union
 	{
 		int iMaxValue;
-		long lMaxValue;
 		double dMaxValue;
 	}Max;
 
@@ -416,18 +412,6 @@ typedef struct ConfigInt
 	int lastvalue;
 	ConfigInt():owner(AAMP_DEFAULT_SETTING),value(0),lastowner(AAMP_DEFAULT_SETTING),lastvalue(0){}
 }ConfigInt;
-
-/**
- * @brief AAMP Config Long data type
- */
-typedef struct ConfigLong
-{
-	ConfigPriority owner;
-	long value;
-	ConfigPriority lastowner;
-	long lastvalue;
-	ConfigLong():owner(AAMP_DEFAULT_SETTING),value(0),lastowner(AAMP_DEFAULT_SETTING),lastvalue(0){}
-}ConfigLong;
 
 /**
  * @brief AAMP Config double data type
@@ -586,6 +570,12 @@ public:
      	 * @return true / false 
      	 */
 	bool IsConfigSet(AAMPConfigSettings cfg);
+	
+	std::string GetConfigValueString( AAMPConfigSettings cfg );
+	int GetConfigValueInt( AAMPConfigSettings cfg );
+	double GetConfigValueDouble( AAMPConfigSettings cfg );
+
+	
 	/**
      	 * @fn GetConfigValue
      	 * @param[in] cfg - configuration enum
@@ -597,13 +587,7 @@ public:
      	 * @param[in] cfg - configuration enum
      	 * @param[out] value - configuration value
      	 */
-	bool GetConfigValue(AAMPConfigSettings cfg, long &value);
-	/**
-    	 * @fn GetConfigValue
-     	 * @param[in] cfg - configuration enum
-     	 * @param[out] value - configuration value
-     	 */
-	bool GetConfigValue(AAMPConfigSettings cfg, double &value);	
+	bool GetConfigValue(AAMPConfigSettings cfg, double &value);
 	/**
      	 * @fn GetConfigValue
      	 * @param[in] cfg - configuration enum
@@ -738,7 +722,6 @@ private:
 	bool customFound;
 	ConfigBool	bAampCfgValue[eAAMPConfig_BoolMaxValue];					/**< Stores bool configuration */
 	ConfigInt	iAampCfgValue[eAAMPConfig_IntMaxValue-eAAMPConfig_IntStartValue];		/**< Stores int configuration */
-	ConfigLong	lAampCfgValue[eAAMPConfig_LongMaxValue-eAAMPConfig_LongStartValue];		/**< Stores long configuration */
 	ConfigDouble 	dAampCfgValue[eAAMPConfig_DoubleMaxValue-eAAMPConfig_DoubleStartValue];		/**< Stores double configuration */
 	ConfigString	sAampCfgValue[eAAMPConfig_StringMaxValue-eAAMPConfig_StringStartValue];		/**< Stores string configuration */
 	typedef std::list<ConfigChannelInfo> ChannelMap ;

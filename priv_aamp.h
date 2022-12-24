@@ -1138,7 +1138,7 @@ public:
 
 	double mOffsetFromTunetimeForSAPWorkaround; 		/**< current playback position in epoch */
 	bool mLanguageChangeInProgress;
-	long mSupportedTLSVersion;    				/**< ssl/TLS default version */
+	int mSupportedTLSVersion;    				/**< ssl/TLS default version */
 	std::string mFailureReason;   				/**< String to hold the tune failure reason  */
 	long long mTimedMetadataStartTime;			/**< Start time to report TimedMetadata   */
 	long long mTimedMetadataDuration;
@@ -2889,7 +2889,7 @@ public:
 	 *
 	 *   @param[in] stallTimeout curl stall timeout
 	 */
-	void SetDownloadStallTimeout(long stallTimeout);
+	void SetDownloadStallTimeout(int stallTimeout);
 
 	/**
 	 *   @brief To set the curl download start timeout value

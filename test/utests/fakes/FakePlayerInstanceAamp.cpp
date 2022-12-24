@@ -80,9 +80,9 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	void PlayerInstanceAAMP::SetDownloadBufferSize(int bufferSize) {  }
 	void PlayerInstanceAAMP::SetNetworkProxy(const char * proxy) {  }
 	void PlayerInstanceAAMP::SetLicenseReqProxy(const char * licenseProxy) {  }
-	void PlayerInstanceAAMP::SetDownloadStallTimeout(long stallTimeout) {  }
-	void PlayerInstanceAAMP::SetDownloadStartTimeout(long startTimeout) {  }
-	void PlayerInstanceAAMP::SetDownloadLowBWTimeout(long lowBWTimeout) {  }
+	void PlayerInstanceAAMP::SetDownloadStallTimeout(int stallTimeout) {  }
+	void PlayerInstanceAAMP::SetDownloadStartTimeout(int startTimeout) {  }
+	void PlayerInstanceAAMP::SetDownloadLowBWTimeout(int lowBWTimeout) {  }
 	void PlayerInstanceAAMP::SetPreferredSubtitleLanguage(const char*  language) {  }
 	void PlayerInstanceAAMP::SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url) {  }
 	void PlayerInstanceAAMP::SetParallelPlaylistDL(bool bValue) {  }

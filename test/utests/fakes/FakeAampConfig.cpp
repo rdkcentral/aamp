@@ -22,7 +22,6 @@
 
 MockAampConfig *g_mockAampConfig = nullptr;
 
-template void AampConfig::SetConfigValue<long>(ConfigPriority owner, AAMPConfigSettings cfg , const long &value);
 template void AampConfig::SetConfigValue<double>(ConfigPriority owner, AAMPConfigSettings cfg , const double &value);
 template void AampConfig::SetConfigValue<int>(ConfigPriority owner, AAMPConfigSettings cfg , const int &value);
 template void AampConfig::SetConfigValue<bool>(ConfigPriority owner, AAMPConfigSettings cfg , const bool &value);
@@ -53,18 +52,6 @@ bool AampConfig::IsConfigSet(AAMPConfigSettings cfg)
 }
 
 bool AampConfig::GetConfigValue(AAMPConfigSettings cfg , int &value)
-{
-    if (g_mockAampConfig != nullptr)
-    {
-        return g_mockAampConfig->GetConfigValue(cfg, value);
-    }
-    else
-    {
-        return false;
-    }
-}
-
-bool AampConfig::GetConfigValue(AAMPConfigSettings cfg, long &value)
 {
     if (g_mockAampConfig != nullptr)
     {

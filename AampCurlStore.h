@@ -273,9 +273,9 @@ struct CurlProgressCbContext
 
 	long long downloadStartTime;
 	long long downloadUpdatedTime;
-	long startTimeout;
-	long stallTimeout;
-	long lowBWTimeout;
+	int startTimeout;
+	int stallTimeout;
+	int lowBWTimeout;
 	double downloadSize;
 	CurlAbortReason abortReason;
 	double downloadNow;

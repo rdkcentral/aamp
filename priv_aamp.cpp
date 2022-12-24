@@ -6061,7 +6061,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 void PrivateInstanceAAMP::CheckForDiscontinuityStall(MediaType mediaType)
 {
 	AAMPLOG_TRACE("Enter mediaType %d", mediaType);
-	long discontinuityTimeoutValue;
+	int discontinuityTimeoutValue;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_DiscontinuityTimeout,discontinuityTimeoutValue);
 	if(!(mStreamSink->CheckForPTSChangeWithTimeout(discontinuityTimeoutValue)))
 	{
@@ -6384,7 +6384,7 @@ AampCacheHandler * PrivateInstanceAAMP::getAampCacheHandler()
  */
 long PrivateInstanceAAMP::GetMaximumBitrate()
 {
-	long lMaxBitrate;
+	int lMaxBitrate;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxBitrate,lMaxBitrate);
 	return lMaxBitrate;
 }
@@ -6394,7 +6394,7 @@ long PrivateInstanceAAMP::GetMaximumBitrate()
  */
 long PrivateInstanceAAMP::GetMinimumBitrate()
 {
-	long lMinBitrate;
+	int lMinBitrate;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_MinBitrate,lMinBitrate);
 	return lMinBitrate;
 }
@@ -6404,7 +6404,7 @@ long PrivateInstanceAAMP::GetMinimumBitrate()
  */
 long PrivateInstanceAAMP::GetDefaultBitrate()
 {
-	long defaultBitRate;
+	int defaultBitRate;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_DefaultBitrate,defaultBitRate);
 	return defaultBitRate;
 }
@@ -6414,7 +6414,7 @@ long PrivateInstanceAAMP::GetDefaultBitrate()
  */
 long PrivateInstanceAAMP::GetDefaultBitrate4K()
 {
-	long defaultBitRate;
+	int defaultBitRate;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_DefaultBitrate4K,defaultBitRate);
 	return defaultBitRate;
 }
@@ -6424,7 +6424,7 @@ long PrivateInstanceAAMP::GetDefaultBitrate4K()
  */
 long PrivateInstanceAAMP::GetIframeBitrate()
 {
-	long defaultIframeBitRate;
+	int defaultIframeBitRate;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_IFrameDefaultBitrate,defaultIframeBitRate);
 	return defaultIframeBitRate;
 }
@@ -6434,7 +6434,7 @@ long PrivateInstanceAAMP::GetIframeBitrate()
  */
 long PrivateInstanceAAMP::GetIframeBitrate4K()
 {
-	long defaultIframeBitRate4K;
+	int defaultIframeBitRate4K;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_IFrameDefaultBitrate4K,defaultIframeBitRate4K);
 	return defaultIframeBitRate4K;
 }
@@ -6579,7 +6579,7 @@ std::string PrivateInstanceAAMP::GetThumbnailTracks()
 					if(data[i]->bandwidthBitsPerSecond >= 0)
 					{
 						char buf[32];
-						snprintf(buf, sizeof(buf), "%dx%d",data[i]->resolution.width,data[i]->resolution.height);
+						snprintf(buf,sizeof(buf), "%dx%d",data[i]->resolution.width,data[i]->resolution.height);
 						cJSON_AddStringToObject(item,"RESOLUTION",buf);
 						cJSON_AddNumberToObject(item,"BANDWIDTH",data[i]->bandwidthBitsPerSecond);
 					}
@@ -11991,7 +11991,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	std::string jsonStr;
 	AampJsonObject jsondata;
 	double tmpVar = 0;
-	long tmpLongVar = 0;
+	int tmpLongVar = 0;
 	int maxdownload = 0;
 
 	// langCodePreference
@@ -12052,18 +12052,18 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	//tsbInterruptHandling
 	jsondata.add("tsbInterruptHandling", ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling));
 
-        //minBitrate
-        tmpLongVar = 0;
-        GETCONFIGVALUE_PRIV(eAAMPConfig_MinBitrate,tmpLongVar);
-        jsondata.add("minBitrate", tmpLongVar);
+	//minBitrate
+	tmpLongVar = 0;
+	GETCONFIGVALUE_PRIV(eAAMPConfig_MinBitrate,tmpLongVar);
+	jsondata.add("minBitrate", tmpLongVar);
 
-        //maxBitrate
-        tmpLongVar = 0;
-        GETCONFIGVALUE_PRIV(eAAMPConfig_MaxBitrate,tmpLongVar);
-        jsondata.add("maxBitrate", tmpLongVar);
+	//maxBitrate
+	tmpLongVar = 0;
+	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxBitrate,tmpLongVar);
+	jsondata.add("maxBitrate", tmpLongVar);
 
-        //enableABR
-        jsondata.add("enableABR", ISCONFIGSET_PRIV(eAAMPConfig_EnableABR));
+	//enableABR
+	jsondata.add("enableABR", ISCONFIGSET_PRIV(eAAMPConfig_EnableABR));
 
 	/*
 	 * Audio and subtitle preference

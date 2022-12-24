@@ -496,7 +496,7 @@ void PlayerInstanceAAMP::SetMinimumBitrate(long bitrate)
 	if (bitrate > 0)
 	{
 		AAMPLOG_INFO("Setting minimum bitrate: %ld", bitrate);
-		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_MinBitrate,bitrate);
+		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_MinBitrate,(int)bitrate);
 	}
 	else
 	{
@@ -510,7 +510,7 @@ void PlayerInstanceAAMP::SetMinimumBitrate(long bitrate)
  */
 long PlayerInstanceAAMP::GetMinimumBitrate(void)
 {
-	long bitrate;
+	int bitrate;
 	GETCONFIGVALUE(eAAMPConfig_MinBitrate,bitrate);
 	return bitrate;
 }
@@ -523,7 +523,7 @@ void PlayerInstanceAAMP::SetMaximumBitrate(long bitrate)
 	if (bitrate > 0)
 	{
 		AAMPLOG_INFO("Setting maximum bitrate : %ld", bitrate);
-		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_MaxBitrate,bitrate);
+		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_MaxBitrate,(int)bitrate);
 	}
 	else
 	{
@@ -536,7 +536,7 @@ void PlayerInstanceAAMP::SetMaximumBitrate(long bitrate)
  */
 long PlayerInstanceAAMP::GetMaximumBitrate(void)
 {
-	long bitrate;
+	int bitrate;
 	GETCONFIGVALUE(eAAMPConfig_MaxBitrate,bitrate);
 	return bitrate;
 }
@@ -1824,15 +1824,15 @@ void PlayerInstanceAAMP::SetVideoBitrate(long bitrate)
 	{
 		// Single bitrate profile selection , with abr disabled
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_EnableABR,false);
-		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate,bitrate);
+		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate,(int)bitrate);
 	}
 	else
 	{
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_EnableABR,true);
-		long gpDefaultBitRate;
-		gpGlobalConfig->GetConfigValue( eAAMPConfig_DefaultBitrate ,gpDefaultBitRate);
+		int gpDefaultBitRate;
+		gpGlobalConfig->GetConfigValue( eAAMPConfig_DefaultBitrate, gpDefaultBitRate);
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate,gpDefaultBitRate);
-		AAMPLOG_WARN("Resetting default bitrate to  %ld", gpDefaultBitRate);
+		AAMPLOG_WARN("Resetting default bitrate to  %d", gpDefaultBitRate);
 	}
 }
 
@@ -1969,7 +1969,7 @@ std::vector<long> PlayerInstanceAAMP::GetAudioBitrates(void)
 void PlayerInstanceAAMP::SetInitialBitrate(long bitrate)
 {
 	ERROR_STATE_CHECK_VOID();
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate,bitrate);
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate,(int)bitrate);
 }
 
 /**
@@ -1977,7 +1977,7 @@ void PlayerInstanceAAMP::SetInitialBitrate(long bitrate)
  */
 long PlayerInstanceAAMP::GetInitialBitrate(void)
 {
-	long bitrate;
+	int bitrate;
 	GETCONFIGVALUE(eAAMPConfig_DefaultBitrate,bitrate);
 	return bitrate;
 }
@@ -1988,7 +1988,7 @@ long PlayerInstanceAAMP::GetInitialBitrate(void)
 void PlayerInstanceAAMP::SetInitialBitrate4K(long bitrate4K)
 {
 	ERROR_STATE_CHECK_VOID();
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate4K,bitrate4K);
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate4K,(int)bitrate4K);
 }
 
 /**
@@ -1996,7 +1996,7 @@ void PlayerInstanceAAMP::SetInitialBitrate4K(long bitrate4K)
  */
 long PlayerInstanceAAMP::GetInitialBitrate4k(void)
 {
-	long bitrate4K;
+	int bitrate4K;
 	GETCONFIGVALUE(eAAMPConfig_DefaultBitrate4K,bitrate4K);
 	return bitrate4K;
 }
@@ -2006,7 +2006,7 @@ long PlayerInstanceAAMP::GetInitialBitrate4k(void)
  */
 void PlayerInstanceAAMP::SetNetworkTimeout(double timeout)
 {
-        ERROR_STATE_CHECK_VOID();
+	ERROR_STATE_CHECK_VOID();
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_NetworkTimeout,timeout);
 }
 
@@ -2024,8 +2024,8 @@ void PlayerInstanceAAMP::SetManifestTimeout(double timeout)
  */
 void PlayerInstanceAAMP::SetPlaylistTimeout(double timeout)
 {
-        ERROR_STATE_CHECK_VOID();        
-		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PlaylistTimeout,timeout);
+	ERROR_STATE_CHECK_VOID();
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PlaylistTimeout,timeout);
 }
 
 /**
@@ -2146,7 +2146,7 @@ void PlayerInstanceAAMP::SetLicenseReqProxy(const char * licenseProxy)
 /**
  *  @brief To set the curl stall timeout value
  */
-void PlayerInstanceAAMP::SetDownloadStallTimeout(long stallTimeout)
+void PlayerInstanceAAMP::SetDownloadStallTimeout(int stallTimeout)
 {
 	ERROR_STATE_CHECK_VOID();
 	if( stallTimeout >= 0 )
@@ -2158,7 +2158,7 @@ void PlayerInstanceAAMP::SetDownloadStallTimeout(long stallTimeout)
 /**
  *  @brief To set the curl download start timeout
  */
-void PlayerInstanceAAMP::SetDownloadStartTimeout(long startTimeout)
+void PlayerInstanceAAMP::SetDownloadStartTimeout(int startTimeout)
 {
 	ERROR_STATE_CHECK_VOID();
         if( startTimeout >= 0 )
@@ -2170,7 +2170,7 @@ void PlayerInstanceAAMP::SetDownloadStartTimeout(long startTimeout)
 /**
  *  @brief To set the curl download low bandwidth timeout value
  */
-void PlayerInstanceAAMP::SetDownloadLowBWTimeout(long lowBWTimeout)
+void PlayerInstanceAAMP::SetDownloadLowBWTimeout(int lowBWTimeout)
 {
 	ERROR_STATE_CHECK_VOID();
 	if( lowBWTimeout >= 0 )

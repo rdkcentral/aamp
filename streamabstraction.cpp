@@ -151,8 +151,8 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 void MediaTrack::MonitorBufferHealth()
 {
 	int  bufferHealthMonitorDelay,bufferHealthMonitorInterval;
-	long discontinuityTimeoutValue;
-	GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorDelay,bufferHealthMonitorDelay);
+	int discontinuityTimeoutValue;
+	GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorDelay,bufferHealthMonitorDelay); 
 	GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorInterval,bufferHealthMonitorInterval);
 	GETCONFIGVALUE(eAAMPConfig_DiscontinuityTimeout,discontinuityTimeoutValue);
 	assert(bufferHealthMonitorDelay >= bufferHealthMonitorInterval);
