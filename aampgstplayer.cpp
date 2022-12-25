@@ -468,7 +468,7 @@ void AAMPGstPlayer::TimerAdd(GSourceFunc funcPtr, int repeatTimeout, guint& task
 	}
 	else
 	{
-		AAMPLOG_ERR("Bad pointer. funcPtr = %p, user_data=%p");
+		AAMPLOG_ERR("Bad pointer.");
 	}
 }
 
@@ -1796,7 +1796,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 #endif
 			gCbgetWindowContentView && gst_is_video_overlay_prepare_window_handle_message(msg))
 		{
-			AAMPLOG_WARN("Received prepare-window-handle. Attaching video to window handle=%llu",(*gCbgetWindowContentView)());
+			AAMPLOG_WARN("Received prepare-window-handle. Attaching video to window handle=%lu",(*gCbgetWindowContentView)());
 			gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (GST_MESSAGE_SRC (msg)), (*gCbgetWindowContentView)());
 		}
 		break;
@@ -4293,7 +4293,7 @@ bool AAMPGstPlayer::IsCacheEmpty(MediaType mediaType)
 				if(!ptsChanged)
 				{
 					//PTS hasn't changed for the timeout value
-					AAMPLOG_WARN("AAMPGstPlayer: Appsrc cache is empty and PTS hasn't been updated for more than %lldms and ret(%d)",
+					AAMPLOG_WARN("AAMPGstPlayer: Appsrc cache is empty and PTS hasn't been updated for more than %dms and ret(%d)",
 									AAMP_MIN_PTS_UPDATE_INTERVAL, ret);
 				}
 				else
