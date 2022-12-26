@@ -57,8 +57,6 @@
 #include "AampCCManager.h"
 #endif
 
-
-
 /**
  * @addtogroup AAMP_COMMON_TYPES
  */
@@ -2065,7 +2063,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				{ // done with index
 					if( pMediaStreamContext->index_ptr )
 					{
-						g_free(pMediaStreamContext->index_ptr);
+						aamp_Free(pMediaStreamContext->index_ptr);
 						pMediaStreamContext->index_ptr = NULL;
 					}
 					pMediaStreamContext->eos = true;
@@ -2676,7 +2674,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						// done with index
 						if( pMediaStreamContext->index_ptr )
 						{
-							g_free(pMediaStreamContext->index_ptr);
+							aamp_Free(pMediaStreamContext->index_ptr);
 							pMediaStreamContext->index_ptr = NULL;
 						}
 						pMediaStreamContext->eos = true;
@@ -8426,7 +8424,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 						pMediaStreamContext->fragmentOffset = 0;
 						if (pMediaStreamContext->index_ptr)
 						{
-							g_free( pMediaStreamContext->index_ptr );
+							aamp_Free( pMediaStreamContext->index_ptr );
 							pMediaStreamContext->index_ptr = NULL;
 						}
 						std::string range;
@@ -9949,6 +9947,11 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			if(aamp->GetLLDashServiceData()->lowLatencyMode)
 			{
 				track->StopInjectChunkLoop();
+			}
+			if( track->index_ptr )
+			{
+				aamp_Free(track->index_ptr);
+				track->index_ptr = NULL;
 			}
 		}
 	}

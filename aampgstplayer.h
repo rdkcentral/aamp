@@ -122,19 +122,19 @@ public:
          * @param[in] len length of buffer
          * @param[in] fpts PTS of buffer (in sec)
          * @param[in] fdts DTS of buffer (in sec)
-         * @param[in] duration duration of buffer (in sec)
+         * @param[in] fDuration duration of buffer (in sec)
          */
-	void SendCopy(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration);
+	bool SendCopy(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration);
 	/**
          * @fn SendTransfer
          * @param[in] mediaType stream type
          * @param[in] buffer buffer as GrowableBuffer pointer
          * @param[in] fpts PTS of buffer (in sec)
          * @param[in] fdts DTS of buffer (in sec)
-         * @param[in] duration duration of buffer (in sec)
+         * @param[in] fDuration duration of buffer (in sec)
          * @param[in] initFragment flag for buffer type (init, data)
          */
-	void SendTransfer(MediaType mediaType, GrowableBuffer* buffer, double fpts, double fdts, double duration, bool initFragment);
+	bool SendTransfer(MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment);
 	/**
          * @fn EndOfStreamReached
          * @param[in] type stream type
@@ -349,8 +349,8 @@ public:
 	AAMPGstPlayer(const AAMPGstPlayer&) = delete;
 	AAMPGstPlayer& operator=(const AAMPGstPlayer&) = delete;
 	/**
-     	 * @fn ~AAMPGstPlayer
-     	 */
+	* @fn ~AAMPGstPlayer
+	*/
 	~AAMPGstPlayer();
 	/**
      	 * @fn InitializeAAMPGstreamerPlugins

@@ -407,10 +407,10 @@ public:
 	 *   @param[in]  len - Buffer length.
 	 *   @param[in]  fpts - Presentation Time Stamp.
 	 *   @param[in]  fdts - Decode Time Stamp
-	 *   @param[in]  duration - Buffer duration.
+	 *   @param[in]  fDuration - Buffer duration.
 	 *   @return void
 	 */
-	virtual void SendCopy( MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration)= 0;
+	virtual bool SendCopy( MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)= 0;
 
 	/**
 	 *   @brief  API to send audio/video buffer into the sink.
@@ -419,11 +419,11 @@ public:
 	 *   @param[in]  buffer - Pointer to the GrowableBuffer; ownership is taken by the sink
 	 *   @param[in]  fpts - Presentation Time Stamp.
 	 *   @param[in]  fdts - Decode Time Stamp
-	 *   @param[in]  duration - Buffer duration.
+	 *   @param[in]  fDuration - Buffer duration.
          *   @param[in]  initFragment - flag for buffer type (init, data)
 	 *   @return void
 	 */
-	virtual void SendTransfer( MediaType mediaType, struct GrowableBuffer* buffer, double fpts, double fdts, double duration, bool initFragment = false)= 0;
+	virtual bool SendTransfer( MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment = false)= 0;
 
 	/**
 	 *   @brief  Notifies EOS to sink
