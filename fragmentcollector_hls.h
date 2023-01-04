@@ -40,6 +40,7 @@
 #include "mediaprocessor.h"
 #include <sys/time.h>
 #include "HlsDrmBase.h"
+#include <atomic>
 
 #define MAX_PROFILE 128 // TODO: remove limitation
 #define FOG_FRAG_BW_IDENTIFIER "bandwidth-"
@@ -236,10 +237,11 @@ public:
 	void ABRProfileChanged(void);
 	/***************************************************************************
      	 * @fn GetNextFragmentUriFromPlaylist
+	 * @param reloadUri reload uri on playlist refreshed scenario
      	 * @param ignoreDiscontinuity Ignore discontinuity
      	 * @return string fragment URI pointer
      	 ***************************************************************************/
-	char *GetNextFragmentUriFromPlaylist(bool ignoreDiscontinuity=false);
+	char *GetNextFragmentUriFromPlaylist(bool &reloadUri, bool ignoreDiscontinuity=false);
 	/***************************************************************************
      	 * @fn UpdateDrmIV
      	 *
@@ -301,13 +303,13 @@ public:
 	/***************************************************************************
     	 * @fn HasDiscontinuityAroundPosition
      	 * @param[in] position Position to check for discontinuity
-		 * @param[in] useStartTime starting time to search discontinuity
-		 * @param[out] diffBetweenDiscontinuities discontinuity position minus input position
-		 * @param[in] playPosition playback position 
-		 * @param[in] inputCulledSec culled seconds
-		 * @param [in] inputProgramDateTime prorgram date and time in epoc format
-		 * @param [out] isDiffChkReq indicates is diffBetweenDiscontinuities check required 
-		 * @return true if discontinuity present around given position
+	 * @param[in] useStartTime starting time to search discontinuity
+	 * @param[out] diffBetweenDiscontinuities discontinuity position minus input position
+	 * @param[in] playPosition playback position 
+	 * @param[in] inputCulledSec culled seconds
+	 * @param [in] inputProgramDateTime prorgram date and time in epoc format
+	 * @param [out] isDiffChkReq indicates is diffBetweenDiscontinuities check required 
+	 * @return true if discontinuity present around given position
      	 ***************************************************************************/
 	bool HasDiscontinuityAroundPosition(double position, bool useStartTime, double &diffBetweenDiscontinuities, double playPosition,double inputCulledSec,double inputProgramDateTime,bool &isDiffChkReq);
 
@@ -340,13 +342,6 @@ public:
 	void CancelDrmOperation(bool clearDRM);
 
 	/***************************************************************************
-	 * @fn StopDiscontinuityCheck
-	 *
-	 * @return void
-	***************************************************************************/
-	void StopDiscontinuityCheckWait();
-	
-	/***************************************************************************
      	 * @fn RestoreDrmState
     	 *
      	 * @return void
@@ -365,11 +360,11 @@ public:
      	 * @return void
      	 ***************************************************************************/
 	void FindTimedMetadata(bool reportbulk=false, bool bInitCall = false);
-    	/***************************************************************************
-     	 * @fn SetXStartTimeOffset
+	/***************************************************************************
+	 * @fn SetXStartTimeOffset
      	 * @brief Function to set XStart Time Offset Value 
      	 *
-     	 * @return void
+         * @return void
      	 ***************************************************************************/
 	void SetXStartTimeOffset(double offset) { mXStartTimeOFfset = offset; }
     	/***************************************************************************
@@ -385,6 +380,56 @@ public:
      	 * @return Buffer Duration
      	 ***************************************************************************/
 	double GetBufferedDuration();
+
+	/***************************************************************************
+	 * @fn GetPlaylistUrl
+	 *
+	 * @return string - playlist URL
+	 ***************************************************************************/
+	std::string& GetPlaylistUrl() { return mPlaylistUrl; }
+	/***************************************************************************
+	 * @fn GetEffectivePlaylistUrl
+	 *
+	 * @return string - original playlist URL(redirected)
+	 ***************************************************************************/
+	std::string& GetEffectivePlaylistUrl() { return mEffectiveUrl; }
+	/***************************************************************************
+	 * @fn SetEffectivePlaylistUrl
+	 *
+	 * @return none
+	 ***************************************************************************/
+	void SetEffectivePlaylistUrl(std::string url) { mEffectiveUrl = url; }
+	/***************************************************************************
+	 * @fn GetLastPlaylistDownloadTime
+	 *
+	 * @return lastPlaylistDownloadTime
+	 ****************************************************************************/
+	long long GetLastPlaylistDownloadTime() { return lastPlaylistDownloadTimeMS; }
+	/****************************************************************************
+	 * @fn SetLastPlaylistDownloadTime
+	 *
+	 * @return void
+	 ****************************************************************************/
+	void SetLastPlaylistDownloadTime(long long time) { lastPlaylistDownloadTimeMS = time; }
+	/****************************************************************************
+	 * @fn GetMinUpdateDuration
+	 *
+	 * @return minimumUpdateDuration
+	 ****************************************************************************/
+	long GetMinUpdateDuration();
+	/****************************************************************************
+	 * fn GetDefaultDurationBetweenPlaylistUpdates
+	 *
+	 * @return maxIntervalBtwPlaylistUpdateMs
+	 ****************************************************************************/
+	int GetDefaultDurationBetweenPlaylistUpdates();
+
+	/****************************************************************************
+	 * @fn ProcessPlaylist
+	 *
+	 * @return none
+	 ****************************************************************************/
+	void ProcessPlaylist(GrowableBuffer& newPlaylist, long http_error);
 private:
 	/***************************************************************************
      	 * @fn GetFragmentUriFromIndex
@@ -488,6 +533,7 @@ public:
 	long long lastPlaylistDownloadTimeMS;    /**< UTC time at which playlist was downloaded */
 	size_t byteRangeLength;                  /**< state for \#EXT-X-BYTERANGE fragments */
 	size_t byteRangeOffset;                  /**< state for \#EXT-X-BYTERANGE fragments */
+	long long lastPlaylistIndexedTimeMS;	 /**< UTC time at which last playlist indexed */
 
 	long long nextMediaSequenceNumber;       /**< media sequence number following current fragment-of-interest */
 	double playlistPosition;                 /**< playlist-relative time of most recent fragment-of-interest; -1 if undefined */
@@ -515,7 +561,6 @@ public:
 	bool mIndexingInProgress;                /**< indicates if indexing is in progress*/
 	GrowableBuffer mDiscontinuityIndex;      /**< discontinuity start position mapping of associated playlist */
 	int mDiscontinuityIndexCount;            /**< number of records in discontinuity position index */
-	bool mDiscontinuityCheckingOn;
 	double mDuration;                        /** Duration of the track*/
 	typedef std::vector<KeyTagStruct> KeyHashTable;
 	typedef std::vector<KeyTagStruct>::iterator KeyHashTableIter;
@@ -538,8 +583,6 @@ private:
 	pthread_mutex_t mPlaylistMutex;         /**< protect playlist update */
 	pthread_cond_t mPlaylistIndexed;        /**< Notifies after a playlist indexing operation */
 	pthread_mutex_t mTrackDrmMutex;         /**< protect DRM Interactions for the track */
-	pthread_mutex_t mDiscoCheckMutex;         	/**< protect playlist discontinuity check */
-	pthread_cond_t mDiscoCheckComplete;     /**< Notifies after a discontinuity check */
 	double mLastMatchedDiscontPosition;     /**< Holds discontinuity position last matched  by other track */
 	double mCulledSeconds;                  /**< Total culled duration in this streamer instance*/
 	double mCulledSecondsOld;               /**< Total culled duration in this streamer instance*/
@@ -552,6 +595,7 @@ private:
 	double mXStartTimeOFfset;		/**< Holds value of time offset from X-Start tag */
 	double mCulledSecondsAtStart;		/**< Total culled duration with this asset prior to streamer instantiation*/
 	bool mSkipSegmentOnError;		/**< Flag used to enable segment skip on fetch error */
+	MediaType playlistMediaType;		/**< Media type of playlist of this track */
 };
 
 class StreamAbstractionAAMP_HLS;
@@ -794,6 +838,7 @@ public:
 	bool mStartTimestampZero;				/**< Flag indicating if timestamp to start is zero or not (No audio stream) */
 	int mNumberOfTracks;					/**< Number of media tracks.*/
 	CMCDHeaders *pCMCDMetrics;				/**<pointer object to class CMCDHeaders*/
+	pthread_mutex_t mDiscoCheckMutex;               	/**< protect playlist discontinuity check */
 	/***************************************************************************
          * @fn ParseMainManifest
          *
