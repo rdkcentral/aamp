@@ -3755,16 +3755,31 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		}
 		else
 		{
+			if (http_error == 512 && aamp->mFogDownloadFailReason.find("PROFILE_NONE") != std::string::npos)
+			{
+				aamp->mFogDownloadFailReason.clear();
+				AAMPLOG_ERR("StreamAbstractionAAMP_HLS: No playable profiles found");
+				retval = AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+			}
+			else{
 			aamp->UpdateDuration(0);
 			AAMPLOG_ERR("Manifest download failed : http response : %d", http_error);
 			retval = eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
+			}
 		}
 	}
 	if (!this->mainManifest.len && aamp->DownloadsAreEnabled()) //!aamp->GetFile(aamp->GetManifestUrl(), &this->mainManifest, aamp->GetManifestUrl()))
 	{
 		aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error);
 		aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
-		aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+		if(retval == AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
+                {
+			aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR, http_error);
+                }                  
+		else
+                {                  
+			aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+                }                  
 	}
 	if (this->mainManifest.len)
 	{

@@ -944,7 +944,6 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 	if (eMEDIATYPE_MANIFEST == context->fileType && context->aamp->IsEventListenerAvailable(AAMP_EVENT_HTTP_RESPONSE_HEADER))
 	{
 		std::vector<std::string> responseHeaders = context->aamp->responseHeaders;
-
 		if (responseHeaders.size() > 0)
 		{
 			for (int header=0; header < responseHeaders.size(); header++) {
@@ -1433,6 +1432,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsStream4K(false)
 	, mTextStyle()
 	, mIsEventStreamFound(false)
+	, mFogDownloadFailReason("")
 {
 	for(int i=0; i<eMEDIATYPE_DEFAULT; i++)
 	{
@@ -4502,7 +4502,10 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					}
 				}
 
-
+				if(http_code == 512 && fileType == eMEDIATYPE_MANIFEST && httpRespHeaders[curlInstance].data.length() > 0){
+					mFogDownloadFailReason.clear();
+					mFogDownloadFailReason = httpRespHeaders[curlInstance].data.c_str();
+				}
                 AAMPLOG_WARN("Received FOG-Reason header: '%s'", httpRespHeaders[curlInstance].data.c_str());
                 SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", httpRespHeaders[curlInstance].data.c_str());
             }
@@ -12132,6 +12135,19 @@ long PrivateInstanceAAMP::LoadFogConfig()
 
 	//tsbInterruptHandling
 	jsondata.add("tsbInterruptHandling", ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling));
+
+        //minBitrate
+        tmpLongVar = 0;
+        GETCONFIGVALUE_PRIV(eAAMPConfig_MinBitrate,tmpLongVar);
+        jsondata.add("minBitrate", tmpLongVar);
+
+        //maxBitrate
+        tmpLongVar = 0;
+        GETCONFIGVALUE_PRIV(eAAMPConfig_MaxBitrate,tmpLongVar);
+        jsondata.add("maxBitrate", tmpLongVar);
+
+        //enableABR
+        jsondata.add("enableABR", ISCONFIGSET_PRIV(eAAMPConfig_EnableABR));
 
 	/*
 	 * Audio and subtitle preference

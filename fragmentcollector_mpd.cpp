@@ -4423,7 +4423,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	{
 		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance)i);
 	}
-
+	
 	AAMPStatusType ret = FetchDashManifest();
 	if (ret == eAAMPSTATUS_OK)
 	{
@@ -5091,6 +5091,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			retval = eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 		}
 	}
+	else if(ret == eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
+	{
+		retval = eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+	}
 	else
 	{
 		AAMPLOG_ERR("StreamAbstractionAAMP_MPD: corrupt/invalid manifest");
@@ -5619,6 +5623,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Ignore curl timeout");
 				ret = AAMPStatusType::eAAMPSTATUS_OK;
 			}
+			else if (http_error == 512 && aamp->mFogDownloadFailReason.find("PROFILE_NONE") != std::string::npos)
+			{
+				aamp->mFogDownloadFailReason.clear();
+				AAMPLOG_ERR("StreamAbstractionAAMP_MPD: No playable profiles found");
+				ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+			}
 			else
 			{
 				aamp->UpdateDuration(0);
@@ -5693,7 +5703,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		ManifestData manifestData(downloadTime * 1000, manifest.len, parseTimeMs, mpd ? mpd->GetPeriods().size() : 0);
 		aamp->UpdateVideoEndMetrics(eMEDIATYPE_MANIFEST,0,http_error,manifestUrl,downloadTime, &manifestData);
 	}
-
 	if( ret == eAAMPSTATUS_MANIFEST_PARSE_ERROR || ret == eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
 	{
 		if(NULL != manifest.ptr && !manifestUrl.empty())
@@ -5705,7 +5714,14 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			AAMPLOG_WARN("ERROR: Invalid Playlist URL: %s ret:%d", manifestUrl.c_str(),ret);
 			AAMPLOG_WARN("ERROR: Invalid Playlist DATA: %s ", temp);
 		}
-		aamp->SendErrorEvent(AAMP_TUNE_INVALID_MANIFEST_FAILURE);
+		if(ret == eAAMPSTATUS_MANIFEST_CONTENT_ERROR && http_error == 512)
+                {                  
+			aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
+                }                  
+		else
+                {                  
+			aamp->SendErrorEvent(AAMP_TUNE_INVALID_MANIFEST_FAILURE);
+                }                  
 	}
 
 	return ret;
