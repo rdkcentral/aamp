@@ -3750,7 +3750,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	}
 	
 	bool updateVideoEndMetrics = false;
-	double mainManifestdownloadTime;
+	double mainManifestdownloadTime = 0;
 	int parseTimeMs = 0;
 	if (!this->mainManifest.len)
 	{
