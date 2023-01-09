@@ -2208,7 +2208,15 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			}
 			else
 			{
-				AAMPLOG_ERR(" not-yet-supported mpd format");
+				IBaseUrl *baseURL = pMediaStreamContext->representation->GetBaseURLs().at(0);
+				if(baseURL && (pMediaStreamContext->mediaType == eMEDIATYPE_SUBTITLE))
+				{
+					pMediaStreamContext->eos = true;
+				}
+				else
+				{
+					AAMPLOG_ERR(" not-yet-supported mpd format");
+				}
 			}
 		}
 	}
@@ -8582,7 +8590,46 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 						}
 						else
 						{
-							AAMPLOG_ERR("not-yet-supported mpd format");
+							vector<IBaseUrl *> baseURLs = pMediaStreamContext->representation->GetBaseURLs();
+							IBaseUrl *baseURL = baseURLs.at(0);
+							if(baseURL && (pMediaStreamContext->mediaType == eMEDIATYPE_SUBTITLE))
+							{
+								std::string initialization = baseURL->GetUrl();
+								if (!initialization.empty())
+								{
+									double fragmentDuration = 0.0;
+									if(!dlThreadCreated)
+									{
+										try
+										{
+											trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
+											dlThreadCreated = true;
+											AAMPLOG_INFO("Thread created for TrackDownloader [%u]", trackDownloadThreadID.get_id());
+										}
+										catch(std::exception &e)
+										{
+											AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Thread create failed for TrackDownloader : %s", e.what());
+										}
+									}
+									else
+									{
+										if(pMediaStreamContext->WaitForFreeFragmentAvailable(0))
+										{
+											pMediaStreamContext->profileChanged = false;
+											FetchFragment(pMediaStreamContext, initialization, fragmentDuration, true, getCurlInstanceByMediaType(static_cast<MediaType>(trackIdx)), pMediaStreamContext->discontinuity);
+											pMediaStreamContext->discontinuity = false;
+										}
+									}
+								}
+								else
+								{
+									AAMPLOG_WARN("initialization  is null");
+								}
+							}
+							else
+							{
+								AAMPLOG_ERR("not-yet-supported mpd format");
+							}
 						}
 					}
 				}
