@@ -2310,8 +2310,17 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			}
 			else
 			{
-				AAMPLOG_ERR(" not-yet-supported mpd format");
-				ReleasePlaylistLock();
+				IBaseUrl *baseURL = pMediaStreamContext->representation->GetBaseURLs().at(0);
+				if(baseURL && (pMediaStreamContext->mediaType == eMEDIATYPE_SUBTITLE))
+				{
+					pMediaStreamContext->eos = true;
+					ReleasePlaylistLock();
+				}
+				else
+				{
+					AAMPLOG_ERR(" not-yet-supported mpd format");
+					ReleasePlaylistLock();
+				}
 			}
 		}
 	}
@@ -8928,8 +8937,28 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 						}
 						else
 						{
-							AAMPLOG_ERR("not-yet-supported mpd format");
 							ReleasePlaylistLock();
+							if( pMediaStreamContext->mediaType == eMEDIATYPE_SUBTITLE )
+							{
+								try
+								{
+									trackDownloadThreadID = std::thread(
+																		&StreamAbstractionAAMP_MPD::TrackDownloader,
+																		this,
+																		trackIdx,
+																		"" // BaseUrl used for WebVTT download
+																		);
+									AAMPLOG_INFO("Thread created for TrackDownloader [%lu]", GetPrintableThreadID(trackDownloadThreadID));
+								}
+								catch(std::exception &e)
+								{
+									AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Thread create failed for TrackDownloader : %s", e.what());
+								}
+							}
+							else
+							{ // note: this risks flooding logs, as will get called repeatedly
+								AAMPLOG_ERR("not-yet-supported mpd format");
+							}
 						}
 					}
 				}
