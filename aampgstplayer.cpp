@@ -4397,6 +4397,20 @@ bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
 }
 
 /**
+ * @brief function to check whether the device is having MS12V2 audio support or not
+ */
+bool AAMPGstPlayer::IsMS2V12Supported()
+{
+	bool IsMS12V2 = false;
+#ifdef AAMP_MPD_DRM
+		AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProcectionInstance();
+		IsMS12V2  = pInstance->IsMS2V12Supported();
+		pInstance->Release();
+#endif
+	return IsMS12V2;
+}
+
+/**
  *  @brief Increase the rank of AAMP decryptor plugins
  */
 void AAMPGstPlayer::InitializeAAMPGstreamerPlugins(AampLogManager *mLogObj)
@@ -4772,211 +4786,77 @@ bool AAMPGstPlayer::ForwardAudioBuffersToAux()
 bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 {
 	int ret=0;
-
-	GstState gst_current = GST_STATE_NULL;
-	GstState gst_pending = GST_STATE_NULL;
-	GstStateChangeReturn retStatus = GST_STATE_CHANGE_FAILURE;
-	bool bSetPlayerRate = false;
-
-#if defined (REALTEKCE) || defined (BRCM)
-	retStatus = gst_element_get_state(privateContext->pipeline, &gst_current, &gst_pending, 0);
-#elif defined (AMLOGIC)
-	retStatus = gst_element_get_state(privateContext->video_dec, &gst_current, &gst_pending, 0);
-#else
-	retStatus = GST_STATE_CHANGE_FAILURE;
-#endif
-
-	switch (retStatus)
+#if defined (REALTEKCE) || defined (AMLOGIC)
+	AAMPLOG_WARN("AAMPGstPlayer: =send custom-instant-rate-change : %f ...", rate);
+	GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
+	if (!structure)
 	{
-		case GST_STATE_CHANGE_SUCCESS:
-		case GST_STATE_CHANGE_NO_PREROLL:
-		{
-			if ( (gst_current == GST_STATE_PLAYING) )
-			{
-				// Using below flag only for AMLOGIC as of now.
-				bSetPlayerRate = true;
-				AAMPLOG_INFO("GetState Success, Current state = %.80s, pending state=%.80s",
-					gst_element_state_get_name(gst_current),gst_element_state_get_name(gst_pending));
-			}
-			else
-			{
-				AAMPLOG_INFO("GetState Success, But pipeline is in %.80s state, pending state=%.80s, don't set playbackrate",
-					gst_element_state_get_name(gst_current),gst_element_state_get_name(gst_pending));
-			}
-			break;
-		}
-		case GST_STATE_CHANGE_ASYNC:
-		{
-			AAMPLOG_INFO("GetState Async, don't set playbackrate. Current state = %.80s, pending state=%.80s",
-						gst_element_state_get_name(gst_current), gst_element_state_get_name(gst_pending));
-			break;
-		}
-		case GST_STATE_CHANGE_FAILURE:
-		{
-			AAMPLOG_INFO("GetState FAILED. don't set playbackrate");
-			break;
-		}
-		default:
-		{
-			AAMPLOG_WARN("Unhandled state change return status %d", retStatus);
-			break;
-		}
+		AAMPLOG_WARN("AAMPGstPlayer: Failed to create custom-instant-rate-change structure");
+		return false;
 	}
 
-#if defined (REALTEKCE)
-	GstStructure* s = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
-						/* The above statement creates a new GstStructure with the name 'custom-instant-rate-change' that has a member variable
-						'rate' of G_TYPE_DOUBLE and a value of rate i.e. second last parameter */
-
-	ret = gst_element_send_event( privateContext->pipeline, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, s) );
+	/* The above statement creates a new GstStructure with the name
+	'custom-instant-rate-change' that has a member variable
+	'rate' of G_TYPE_DOUBLE and a value of rate i.e. second last parameter */
+	GstEvent * rate_event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure);
+	if (!rate_event)
+	{
+		AAMPLOG_WARN("AAMPGstPlayer: Failed to create rate_event");
+		/* cleanup */
+		gst_structure_free (structure);
+		return false;
+	}
+	ret = gst_element_send_event( privateContext->pipeline, rate_event );
 	if(!ret)
 	{
-		AAMPLOG_WARN("AAMPGstPlayer: Set custom rate change failed");
+		AAMPLOG_WARN("AAMPGstPlayer: Rate change failed : %g [gst_element_send_event]", rate);
 		return false;
 	}
+	gst_event_unref(rate_event);
+	AAMPLOG_WARN ("Current rate: %g", rate);	
+#elif defined (BRCM)
+	AAMPLOG_WARN("send custom-instant-rate-change : %f ...", rate);
+
+	GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
+	if (!structure)
+	{
+		AAMPLOG_WARN("failed to create custom-instant-rate-change structure");
+		return false;
+	}
+
+	GstEvent * rate_event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure);
+	if (!rate_event)
+	{
+		AAMPLOG_WARN("failed to create rate_event");
+		/* cleanup */
+		gst_structure_free (structure);
+		return false;
+	}
+
+	AAMPLOG_WARN("rate_event %p video_decoder %p audio_decoder %p", (void*)rate_event, (void*)privateContext->video_dec, (void *)privateContext->audio_dec);
+	if (privateContext->video_dec)
+	{
+		if (!gst_element_send_event(privateContext->video_dec,  gst_event_ref(rate_event)))
+		{
+			AAMPLOG_WARN("failed to push rate_event %p to video sink %p", (void*)rate_event, (void*)privateContext->video_dec);
+		}
+	}
+
+	if (privateContext->audio_dec)
+	{
+		if (!gst_element_send_event(privateContext->audio_dec,  gst_event_ref(rate_event)))
+		{
+			AAMPLOG_WARN("failed to push rate_event %p to audio decoder %p", (void*)rate_event, (void*)privateContext->audio_dec);
+		}
+	}
+
+	gst_event_unref(rate_event);
 	AAMPLOG_WARN ("Current rate: %g", rate);
-#elif defined (AMLOGIC)
-	if( true == bSetPlayerRate )
-	{
-		AAMPLOG_WARN("Setting new segment with rate as:%f to audiosink", rate);
-		media_stream* audstream = &privateContext->stream[eMEDIATYPE_AUDIO];
-		GstElement *audsink=NULL;
-
-		GstSegment* segment = gst_segment_new();
-		gst_segment_init(segment, GST_FORMAT_TIME);
-		segment->rate = rate;
-		segment->start = GST_CLOCK_TIME_NONE;
-		segment->position = GST_CLOCK_TIME_NONE;
-
-		AAMPLOG_WARN("Sending new segment");
-		g_object_get (audstream->sinkbin, "audio-sink", &audsink, NULL);
-		if(NULL != audsink)
-		{
-			ret=gst_pad_send_event (GST_BASE_SINK_PAD(audsink), gst_event_new_segment(segment));
-			AAMPLOG_WARN("send new segment to audio ret:%d", ret);
-		}
-		else
-		{
-			AAMPLOG_WARN("audio-sink device not found");
-		}
-		AAMPLOG_WARN ("Current rate: %g", rate);
-	}
-#else //Broadcom
-	gint64 position;
-	GstEvent *seek_event=NULL, *vidseek=NULL;
-	media_stream* stream = &privateContext->stream[eMEDIATYPE_VIDEO];
-	media_stream* audstream = &privateContext->stream[eMEDIATYPE_AUDIO];
-	GstElement* vidsink = NULL, *audsink=NULL;
-
-	if (privateContext->pipeline == NULL)
-	{
-		AAMPLOG_WARN("AAMPGstPlayer: Pipeline is NULL");
-		return false;
-	}
-
-	/* Obtain the current position, needed for the seek event */
-	if (!gst_element_query_position (privateContext->pipeline, GST_FORMAT_TIME, &position))
-	{
-		AAMPLOG_WARN ("Unable to retrieve current position:%lld.", position);
-		position=0;
-	}
-
-	AAMPLOG_WARN ("pipeline current position:%lld.", position);
-
-	if ( 0 == position && privateContext->positionQuery )
-	{
-		if (gst_element_query(stream->sinkbin, privateContext->positionQuery) == TRUE)
-		{
-			gst_query_parse_position(privateContext->positionQuery, NULL, &position);
-			AAMPLOG_WARN ("video sink current position:%lld.", position);
-		}
-	}
-
-	/* Create the seek event */
-	if (rate > 0)
-	{
-		seek_event = gst_event_new_seek (rate, GST_FORMAT_TIME,
-		(GstSeekFlags)(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE), GST_SEEK_TYPE_SET,
-		position, GST_SEEK_TYPE_END, 0);
-
-		vidseek = gst_event_new_seek (rate, GST_FORMAT_TIME,
-		(GstSeekFlags)(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE), GST_SEEK_TYPE_SET,
-		position, GST_SEEK_TYPE_END, 0);
-	}
-	else
-	{
-		AAMPLOG_WARN ( "Negative player rate for slow motion is not supported");
-		return false;
-	}
-
-	g_object_get (stream->sinkbin, "video-sink", &vidsink, NULL);
-	if(NULL != vidsink)
-	{
-		ret = gst_element_send_event (vidsink, vidseek);
-		AAMPLOG_WARN("send seek event for video ret:%d", ret);
-	}
-
-	g_object_get (audstream->sinkbin, "audio-sink", &audsink, NULL);
-	if(NULL != audsink)
-	{
-		// seek_event=gst_event_ref(seek_event);
-		ret=gst_element_send_event (audsink, seek_event);
-		AAMPLOG_WARN("send seek event for audio ret:%d", ret);
-	}
-
-	// g_object_unref(vidsink);
-	// g_object_unref(audsink);
-	// gst_event_unref(seek_event);
-	AAMPLOG_WARN ("Current rate: %g, position:%lld", rate, position);
+#else //Non BRCM/AMLOGIC/REALTEK case
+	return false;
 #endif /*REALTEKCE*/
 
 	return true;
 }
 
-/**
- * @brief  adjust playback rate
- */
-bool AAMPGstPlayer::AdjustPlayBackRate(double position, double rate)
-{
-	FN_TRACE( __FUNCTION__ );
-	bool ErrSuccess = false;
-	if (privateContext->pipeline == NULL)
-	{
-		AAMPLOG_WARN("AAMPGstPlayer: Pipeline is NULL");
-	}
-	else
-	{
-        PrivAAMPState state = eSTATE_IDLE;
-        aamp->GetState(state);
-        if( ( rate != privateContext->playbackrate ) && ( state == eSTATE_PLAYING ) )
-		{
-			gint64 position1=0;
-			/* Obtain the current position, needed for the seek event */
-			if (!gst_element_query_position (privateContext->pipeline, GST_FORMAT_TIME, &position1))
-			{
-				AAMPLOG_WARN("AAMPGstPlayer: Unable to query gst element position");
-			}
-			else
-			{
-				if (!gst_element_seek(privateContext->pipeline, rate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH,
-					GST_SEEK_TYPE_SET, position1, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
-				{
-					AAMPLOG_WARN("AAMPGstPlayer: playrate adjustment  failed");
-				}
-				else
-				{
-					AAMPLOG_INFO("AAMPGstPlayer: playrate adjustment  success");
-					privateContext->playbackrate = rate;
-					ErrSuccess = true;
-				}
-			}
-		}
-		else
-		{
-			AAMPLOG_TRACE("AAMPGstPlayer: rate is already in %lf rate",rate);
-			ErrSuccess = true;
-		}
-	}
-	return ErrSuccess;
-}
 

@@ -212,12 +212,13 @@ float SpeedChangedEvent::getRate() const
  * @brief ProgressEvent Constructor
  *
  */
-ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode):
+ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency):
 		AAMPEventObject(AAMP_EVENT_PROGRESS), mDuration(duration),
 		mPosition(position), mStart(start),
 		mEnd(end), mSpeed(speed), mPTS(pts),
 		mBufferedDuration(bufferedDuration),
-		mSEITimecode(seiTimecode)
+		mSEITimecode(seiTimecode),
+		mLiveLatency(liveLatency)
 {
 
 }
@@ -300,6 +301,16 @@ double ProgressEvent::getBufferedDuration() const
 const char* ProgressEvent::getSEITimeCode() const
 {
 	return mSEITimecode.c_str();
+}
+
+/**
+ * @brief Get Live Latency
+ *
+ * @return Live latency
+ */
+double ProgressEvent::getLiveLatency() const
+{
+	return mLiveLatency;
 }
 
 /**

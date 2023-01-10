@@ -58,7 +58,6 @@ AampOutputProtection::AampOutputProtection()
 {
     DEBUG_FUNC;
     pthread_mutex_init(&m_opProtectMutex,NULL);
-
 #ifndef USE_OPENCDM
 #if defined(USE_PLAYREADY)    
     memset(&m_minOPLevels, 0, sizeof(MinOPLevelsplayReady));
@@ -133,6 +132,32 @@ bool AampOutputProtection::IsSourceUHD()
     return retVal;
 }
 
+bool AampOutputProtection::IsMS2V12Supported()
+{
+	bool IsMS12V2 = false;
+#ifdef IARM_MGR
+	try {
+		//Get the HDMI port
+		device::Manager::Initialize();
+		::device::VideoOutputPort &vPort = ::device::Host::getInstance().getVideoOutputPort("HDMI0");
+		int caps;
+		vPort.getAudioOutputPort().getAudioCapabilities(&caps);
+		if(((caps & dsAUDIOSUPPORT_MS12V2) == dsAUDIOSUPPORT_MS12V2))
+		{
+			IsMS12V2 = true;
+		}
+		else
+		{
+			AAMPLOG_INFO("MS12V2 Audio not supported in this device");
+		}
+		device::Manager::DeInitialize();
+	}
+	catch (const std::exception e) {
+		AAMPLOG_WARN("DeviceSettings exception caught ");
+	}
+#endif // IARM_MGR
+	return IsMS12V2 ;
+}
 
 /**
  * @brief Set the HDCP status using data from DeviceSettings

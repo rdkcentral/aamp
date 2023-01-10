@@ -829,6 +829,7 @@ public:
 	pthread_mutex_t mLock;				/**< = PTHREAD_MUTEX_INITIALIZER; */
 	pthread_mutexattr_t mMutexAttr;
 	pthread_mutex_t mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
+	std::thread  mRateCorrectionThread;     /**< Rate coorection thread Id **/   
 
 	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
 	class CDAIObject *mCdaiObject;      		/**< Client Side DAI Object */
@@ -870,6 +871,7 @@ public:
 	bool mTSBEnabled;
 	bool mIscDVR;
 	double mLiveOffset;
+	double mLiveOffsetDrift;               /**< allowed drift value from live offset configured **/
 	long mNetworkTimeoutMs;
 	std::string mCMCDNextObjectRequest;			/**<store the next next fragment url */
 	long mCMCDBandwidth;					/**<store the audio bandwidth */
@@ -1077,6 +1079,8 @@ public:
 	                                				in gst brcmaudiodecoder, default: True */
 	std::string mSessionToken; 				/**< Field to set session token for player */
 	bool midFragmentSeekCache;    				/**< RDK-26957: To find if cache is updated when seeked to mid fragment boundary */
+	bool mDisableRateCorrection;             /**< Disable live latency correction when user pause or seek the playback **/
+	bool mAbortRateCorrection;               /**< Flag to abort rate correction thread **/
 	bool mAutoResumeTaskPending;
 
 	std::string mTsbRecordingId; 				/**< Recording ID of current TSB */
@@ -1090,6 +1094,7 @@ public:
 	bool mProfileCappedStatus; 				/**< Profile capped status by resolution or bitrate */
 	double mProgressReportOffset; 				/**< Offset time for progress reporting */
 	double mAbsoluteEndPosition; 				/**< Live Edge position for absolute reporting */
+	double mFirstFragmentTimeOffset;			/**< Offset time for first fragment injected */
 	AampConfig *mConfig;
 
 	bool mbUsingExternalPlayer; 				/**<Playback using external players eg:OTA, HDMIIN,Composite*/
@@ -1105,6 +1110,9 @@ public:
 
 	pthread_mutex_t  mDiscoCompleteLock; 			/**< Lock the period jump if discontinuity already in progress */
 	pthread_cond_t mWaitForDiscoToComplete; 		/**< Conditional wait for period jump */
+	std::condition_variable mRateCorrectionWait;	/**< Conditional variable for signalling timed wait for rate correction*/
+	std::mutex mRateCorrectionTimeoutLock;				/**< Rate correction thread mutex for conditional timed wait*/  
+	double mCorrectionRate;                          /**< Variable to store corection rate **/        
 	bool mIsPeriodChangeMarked; 				/**< Mark if a period change occurred */
 	bool mIsEventStreamFound;				/**< Flag to indicate event stream entry in any of period */
         
@@ -1581,6 +1589,34 @@ public:
 	 *   @return void
 	 */
 	void ReportProgress(bool sync = true, bool beginningOfStream = false);
+	/**
+	 *   @fn WakeupLatencyCheck
+	 *   @return void
+	 */
+	void WakeupLatencyCheck();
+	/**
+	 *   @fn TimedWaitForLatencyCheck
+	 *   @param [in] timeInMs - Time in milli sec 
+	 *   @return void
+	 */
+	void TimedWaitForLatencyCheck(int timeInMs);
+	/**
+	 *   @fn StartRateCorrectionWokerthread
+	 *   @return void
+	 */
+	void StartRateCorrectionWokerthread(void);
+
+	/**
+	 *   @fn StopRateCorrectionWokerthread
+	 *   @return void
+	 */
+	void StopRateCorrectionWokerthread(void);
+
+	/**
+	 *   @fn RateCorrectionWokerthread
+	 *   @return void
+	 */
+	void RateCorrectionWokerthread(void);
 
 	/**
 	 *   @fn ReportAdProgress
@@ -2958,6 +2994,13 @@ public:
 	 */
 	void UpdateVideoEndMetrics(AAMPAbrInfo & info);
 
+	/**
+	 *   @fn UpdateVideoEndMetrics
+	 *
+	 *   @param[in] adjustedRate - new rate after correction
+	 *   @return void
+	 */
+	void UpdateVideoEndMetrics(double adjustedRate);
 
 	/**
 	 *   @brief To check if current asset is DASH or not

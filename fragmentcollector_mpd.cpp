@@ -1133,6 +1133,7 @@ static void deIndexTileInfo(std::vector<TileInfo> &indexedTileInfo)
 	}
 	indexedTileInfo.clear();
 }
+
 /**
  * @brief Fetch and cache a fragment
  *
@@ -2005,11 +2006,11 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					if(!startTimeStringValue.empty())
 					{
 						periodstartValue = (ParseISO8601Duration(startTimeStringValue.c_str()))/1000;
-						pMediaStreamContext->downloadedDuration = periodstartValue + positionInPeriod;
+						pMediaStreamContext->downloadedDuration = periodstartValue + positionInPeriod + fragmentDuration;
 					}
 					else
 					{
-						pMediaStreamContext->downloadedDuration = (GetPeriodStartTime(mpd, mCurrentPeriodIdx) - mAvailabilityStartTime) + positionInPeriod;
+						pMediaStreamContext->downloadedDuration = (GetPeriodStartTime(mpd, mCurrentPeriodIdx) - mAvailabilityStartTime) + positionInPeriod + fragmentDuration;
 					}
 				}
 				else
@@ -2017,7 +2018,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					// For VOD and non-fog linear without Absolute timeline
 					// calculate relative position in manifest
 					// For VOD, culledSeconds will be 0, and for linear it is added to first period start
-					pMediaStreamContext->downloadedDuration = aamp->culledSeconds + GetPeriodStartTime(mpd, mCurrentPeriodIdx) - GetPeriodStartTime(mpd, 0) + positionInPeriod;
+					pMediaStreamContext->downloadedDuration = aamp->culledSeconds + GetPeriodStartTime(mpd, mCurrentPeriodIdx) - GetPeriodStartTime(mpd, 0) + positionInPeriod + fragmentDuration;
 				}
 				if( mCheckForRampdown )
 				{
@@ -3829,7 +3830,17 @@ double aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeriod * period)
 	const ISegmentTemplate *adaptationSet = NULL;
 	if( adaptationSets.size() > 0 )
 	{
-		IAdaptationSet * firstAdaptation = adaptationSets.at(0);
+		IAdaptationSet * firstAdaptation;
+		for (auto &adaptationSet : period->GetAdaptationSets())
+		{
+			//Check for video adaptation
+			if (!IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
+			{
+				continue;
+			}
+			firstAdaptation = adaptationSet;
+		}
+
 		if(firstAdaptation != NULL)
 		{
 			adaptationSet = firstAdaptation->GetSegmentTemplate();
@@ -4181,7 +4192,16 @@ double aamp_GetPeriodDuration(dash::mpd::IMPD *mpd, int periodIndex, uint64_t mp
 		const ISegmentTemplate *adaptationSet = NULL;
 		if (adaptationSets.size() > 0)
 		{
-			IAdaptationSet * firstAdaptation = adaptationSets.at(0);
+			IAdaptationSet * firstAdaptation;
+			for (auto &adaptationSet : period->GetAdaptationSets())
+			{
+				//Check for video adaptation
+				if (!IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
+				{
+					continue;
+				}
+				firstAdaptation = adaptationSet;
+			}
 			if(firstAdaptation != NULL)
 			{
 				adaptationSet = firstAdaptation->GetSegmentTemplate();
@@ -4190,7 +4210,7 @@ double aamp_GetPeriodDuration(dash::mpd::IMPD *mpd, int periodIndex, uint64_t mp
 				{
 					representation = representations.at(0)->GetSegmentTemplate();
 				}
-			
+
 				SegmentTemplates segmentTemplates(representation,adaptationSet);
 	
 				if( segmentTemplates.HasSegmentTemplate() )
@@ -4767,10 +4787,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				}
 				else
 				{
-					if((eTUNETYPE_SEEK == tuneType || eTUNETYPE_NEW_SEEK == tuneType)&&(aamp->GetLLDashServiceData()->lowLatencyMode ))
+					if((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType))
 					{
-						aamp->SetLLDashAdjustSpeed(false);
-						AAMPLOG_WARN("LL-Dash speed correction disabled");
+						if (aamp->GetLLDashServiceData()->lowLatencyMode )
+						{
+							aamp->SetLLDashAdjustSpeed(false);
+						}
+						aamp->mDisableRateCorrection = true;
 					}
 				}
 			}
@@ -5040,7 +5063,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			if(aamp->GetLLDashServiceData()->lowLatencyMode)
 			{
 				aamp->mLLActualOffset = seekPosition;
-			}	
+				AAMPLOG_INFO("LL-Dash speed correction %s", aamp->GetLLDashAdjustSpeed()? "enabled":"disabled");
+			}
 			AAMPLOG_INFO("offsetFromStart(%f) seekPosition(%f) currentPeriodStart(%f)", offsetFromStart,seekPosition, currentPeriodStart);
 
 			if (newTune )
@@ -8485,9 +8509,17 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					}
 				}
 				pMediaStreamContext->fragmentDescriptor.Number = startNumber;
+				bool liveSync = false;
 				if (mLiveTimeFragmentSync && !timelineAvailable)
 				{
 					pMediaStreamContext->fragmentDescriptor.Number += (long)((GetPeriodStartTime(mpd, 0) - mAvailabilityStartTime) / fragmentDuration);
+					// For LiveTimeSync cases, availability timeOffset and periodstart is same. So take first fragment time based on fragment number.
+					liveSync = true;
+				}
+				if(aamp->mFirstFragmentTimeOffset < 0 && aamp->GetLLDashServiceData()->lowLatencyMode)
+				{
+					aamp->mFirstFragmentTimeOffset = liveSync? (((double)pMediaStreamContext->fragmentDescriptor.Number * fragmentDuration) + mAvailabilityStartTime)  : mFirstPeriodStartTime;
+					AAMPLOG_INFO("mFirstFragmentTimeOffset:%lf mReportProgressOffset:%lf", aamp->mFirstFragmentTimeOffset, aamp->mProgressReportOffset);
 				}
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d timeLineIndex %d fragmentDescriptor.Number %lld mFirstPTS:%lf", i, pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Number, mFirstPTS);
 			}
@@ -12102,14 +12134,14 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 	int monitorInterval = latencyMonitorInterval  * 1000;
 	AAMPLOG_INFO( "Speed correction state:%d", aamp->GetLLDashAdjustSpeed());
 
-	aamp->SetLLDashCurrentPlayBackRate(AAMP_NORMAL_PLAY_RATE);
+	aamp->SetLLDashCurrentPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED);
 
 	while(keepRunning)
 	{
 		aamp->InterruptableMsSleep(monitorInterval);
-		if ( aamp->DownloadsAreEnabled() )
+		if (aamp->DownloadsAreEnabled() && aamp->GetLLDashAdjustSpeed())
 		{
-	
+
 			double playRate = aamp->GetLLDashCurrentPlayBackRate();
 			PrivAAMPState state = eSTATE_IDLE;
 			aamp->GetState(state);
@@ -12132,15 +12164,25 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 					assert(pAampLLDashServiceData->maxLatency !=0 );
 					assert(pAampLLDashServiceData->maxLatency >= pAampLLDashServiceData->targetLatency);
 
-					long InitialLatencyOffset =  ( aamp->GetDurationMs() - ( (long long) (aamp->mLLActualOffset*1000)));
-					long PlayBackLatency = ((aamp->DurationFromStartOfPlaybackMs()) - aamp->GetPositionMs() );
-					long TimeOffsetSeekLatency = (long)(((pAampLLDashServiceData->fragmentDuration - pAampLLDashServiceData->availabilityTimeOffset))*1000);
-					long currentLatency = ((InitialLatencyOffset+PlayBackLatency)-TimeOffsetSeekLatency);
-
-					AAMPLOG_INFO("currentDur = %lld actualOffset=%lld DurationFromStart=%lld Position=%lld,seekLLValue=%ld",aamp->GetDurationMs(),
-									(long long) (aamp->mLLActualOffset*1000), aamp->DurationFromStartOfPlaybackMs(),aamp->GetPositionMs(), TimeOffsetSeekLatency);
-					AAMPLOG_INFO("LiveLatency=%ld currentPlayRate=%lf",currentLatency, playRate);
-
+					double currentLatency;// = ((aamp->DurationFromStartOfPlaybackMs()) - aamp->GetPositionMs());
+					const auto seek_pos_seconds_copy = aamp->seek_pos_seconds;
+					if(aamp->mNewSeekInfo.GetInfo().isPopulated())
+					{
+						double liveTime = (double)aamp->mNewSeekInfo.GetInfo().getUpdateTime()/1000.0 + mDeltaTime;
+						double finalProgressTime = (aamp->mFirstFragmentTimeOffset) + ((double)aamp->mNewSeekInfo.GetInfo().getPosition()/1000.0);
+						currentLatency = (liveTime - finalProgressTime) * 1000;
+						if(ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) && (aamp->mProgressReportOffset >= 0))
+						{
+							// Correction with progress offset
+							currentLatency += (aamp->mProgressReportOffset * 1000);
+						}
+						AAMPLOG_INFO("LiveLatency=%lf currentPlayRate=%lf",currentLatency, playRate);
+					}
+					else
+					{
+						currentLatency = ((aamp->DurationFromStartOfPlaybackMs()) - aamp->GetPositionMs());
+						AAMPLOG_INFO("LiveLatency=%ld currentPlayRate=%lf dur:%lld pos:%lld",currentLatency, playRate, aamp->DurationFromStartOfPlaybackMs(), aamp->GetPositionMs());
+					}
 #if 0
 					long encoderDisplayLatency = 0;
 					encoderDisplayLatency = (long)( GetEncoderDisplayLatency() * 1000)+currentLatency;
@@ -12152,10 +12194,10 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 					if(ISCONFIGSET(eAAMPConfig_EnableLowLatencyCorrection) && 
 						pAampLLDashServiceData->minPlaybackRate !=0 && 
 						pAampLLDashServiceData->minPlaybackRate < pAampLLDashServiceData->maxPlaybackRate &&
-						pAampLLDashServiceData->minPlaybackRate < AAMP_NORMAL_PLAY_RATE && 
+						pAampLLDashServiceData->minPlaybackRate < DEFAULT_NORMAL_RATE_CORRECTION_SPEED &&
 						pAampLLDashServiceData->maxPlaybackRate !=0 && 
 						pAampLLDashServiceData->maxPlaybackRate > pAampLLDashServiceData->minPlaybackRate &&
-						pAampLLDashServiceData->maxPlaybackRate > AAMP_NORMAL_PLAY_RATE)
+						pAampLLDashServiceData->maxPlaybackRate > DEFAULT_NORMAL_RATE_CORRECTION_SPEED)
 					{
 						if (currentLatency < (long)pAampLLDashServiceData->minLatency)
 						{
@@ -12164,30 +12206,16 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_MIN(%d)",latencyStatus);
 							playRate = pAampLLDashServiceData->minPlaybackRate;
 						}
-						else if ( ( currentLatency >= (long) pAampLLDashServiceData->minLatency ) &&
-							(  currentLatency <= (long)pAampLLDashServiceData->targetLatency) )
+						else if (( currentLatency >= (long) pAampLLDashServiceData->minLatency) &&
+							 (currentLatency < (long)pAampLLDashServiceData->targetLatency) &&
+							(pAampLLDashServiceData->minPlaybackRate != playRate))
 						{
 							//Yellow state(the latency is within range but less than target latency but greater than minimum latency)
 							latencyStatus = LATENCY_STATUS_THRESHOLD_MIN;
 							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_THRESHOLD_MIN(%d)",latencyStatus);
-							playRate = AAMP_NORMAL_LL_PLAY_RATE;
+							playRate = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
 						}
-						else if ( currentLatency == (long)pAampLLDashServiceData->targetLatency )
-						{
-							//green state(No correction is requried. set the playrate to normal, the latency is equal to given latency from mpd)
-							latencyStatus = LATENCY_STATUS_THRESHOLD;
-							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_THRESHOLD(%d)",latencyStatus);
-							playRate = AAMP_NORMAL_LL_PLAY_RATE;
-						}
-						else if ( ( currentLatency >= (long)pAampLLDashServiceData->targetLatency ) &&
-							( currentLatency <= (long)pAampLLDashServiceData->maxLatency )  )
-						{
-							//Red state(The latency is more that target latency but less than maximum latency)
-							latencyStatus = LATENCY_STATUS_THRESHOLD_MAX;
-							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_THRESHOLD_MAX(%d)",latencyStatus);
-							playRate = AAMP_NORMAL_LL_PLAY_RATE;
-						}
-						else if (currentLatency > (long)pAampLLDashServiceData->maxLatency)
+						else if (currentLatency > (long)pAampLLDashServiceData->targetLatency)
 						{
 							//Red state(The latency is more than maximum latency)
 							latencyStatus = LATENCY_STATUS_MAX; //Red state
@@ -12217,6 +12245,8 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 										else
 										{
 											rateCorrected = true;
+											aamp->UpdateVideoEndMetrics(playRate);
+											aamp->SendAnomalyEvent(ANOMALY_WARNING, "Rate changed to:%lf", playRate);
 											AAMPLOG_TRACE("[LATENCY_STATUS_%d] SetPlayBackRate: success", latencyStatus);
 										}
 									}
@@ -12273,9 +12303,20 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 		}
 		else
 		{
+			if((aamp->DownloadsAreEnabled() || aamp->mbSeeked) && aamp->mStreamSink && (rate == AAMP_NORMAL_PLAY_RATE && (DEFAULT_NORMAL_RATE_CORRECTION_SPEED != aamp->GetLLDashCurrentPlayBackRate())))
+			{
+				if(aamp->mStreamSink->SetPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED))
+				{
+					AAMPLOG_INFO("SetPlayBackRate: reset");
+					aamp->SetLLDashCurrentPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED);
+				}
+				else
+				{
+					AAMPLOG_WARN("SetPlayBackRate: reset failed");
+				}
+			}
 			AAMPLOG_WARN("Stopping Thread");
 			keepRunning = false;
-
 		}
 	}
 	AAMPLOG_WARN("Thread Done");
@@ -12419,12 +12460,10 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 			if( ISCONFIGSET( eAAMPConfig_EnableLowLatencyCorrection ) )
 			{
 				aamp->SetLLDashAdjustSpeed(true);
-				AAMPLOG_WARN("LL-Dash speed correction enabled");
 			}
 			else
 			{
 				aamp->SetLLDashAdjustSpeed(false);
-				AAMPLOG_WARN("LL-Dash speed correction disabled");
 			}
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: LL-DASH playback enabled availabilityTimeOffset=%lf,fragmentDuration=%lf",
 									stLLServiceData.availabilityTimeOffset,stLLServiceData.fragmentDuration);
@@ -12533,23 +12572,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 				double latencyOffset = 0;
 				if(!aamp->GetLowLatencyServiceConfigured())
 				{
-					if(maxFragmentDuartion > 0 )
-					{
-						latencyOffset = maxFragmentDuartion+(maxFragmentDuartion-stLLServiceData.availabilityTimeOffset);
-					}
-					else if(stLLServiceData.fragmentDuration > 0)
-					{
-						latencyOffset = stLLServiceData.fragmentDuration+(stLLServiceData.fragmentDuration-stLLServiceData.availabilityTimeOffset);
-					}
-					else
-					{
-						latencyOffset =(double)((double) DEFAULT_MIN_LOW_LATENCY);
-					}
-					
-					if(latencyOffset > DEFAULT_TARGET_LOW_LATENCY)
-					{
-						latencyOffset = DEFAULT_MIN_LOW_LATENCY;
-					}
+					latencyOffset =(double) (stLLServiceData.targetLatency/1000);
 					
 					//Override Latency offset with Min Value if config enabled
 					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: currentOffset:%lf LL-DASH offset(s): %lf",currentOffset,latencyOffset);

@@ -4664,6 +4664,11 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					return eAAMPSTATUS_SEEK_RANGE_ERROR;
 				}
 			}
+			else
+			{
+				/** Playing from seek position disable the rate correction **/
+				aamp->mDisableRateCorrection = true;
+			}
 		}
 
 		// RDK-27796, in case of muxed a/v and auxiliary track scenario
