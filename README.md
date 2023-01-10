@@ -370,6 +370,7 @@ ta = time at top profile. This includes all the fragments which are downloaded/i
 d = duration - estimate of total playback duration.  Note that this is based on fragments downloaded/injected - user may interrupt buffered playback with seek/stop, causing estimates to skew higher in edge cases.
 dn = Download step-downs due to bad Network bandwidth
 de = Download step-downs due to Error handling ramp-down/retry logic
+rc = Rate corrections made in player to catch up live latency
 w = Display Width :  value > 0 = Valid Width.. value -1 means HDMI display resolution could NOT be read successfully. Only for HDMI Display else wont be available.
 h = Display Height : value > 0 = Valid Height,  value -1 means HDMI display resolution could NOT be read successfully. Only for HDMI Display else wont be available.
 t = indicates that FOG time shift buffer (TSB) was used for playback

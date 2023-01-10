@@ -40,6 +40,8 @@
 #include "dsMgr.h"
 #include "dsDisplay.h"
 #include <iarmUtil.h>
+#include "audioOutputPort.hpp"
+#include "dsAudio.h"
 
 #else
 #include <stdint.h>
@@ -78,6 +80,7 @@ using namespace std;
  */
 class ReferenceCount
 {
+
 public:
 
     ReferenceCount() : m_refCount(0), m_refCountMutex() {
@@ -259,7 +262,12 @@ public:
      * @retval true or false
      */
     static bool IsAampOutputProcectionInstanceActive();
-
+	
+    /** 
+    * @fn IsMS2V12Supported
+    * @retval true or false
+    */
+    bool IsMS2V12Supported ();
 };
 
 #endif // aampoutputprotection_h

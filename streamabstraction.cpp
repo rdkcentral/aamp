@@ -3373,7 +3373,7 @@ void MediaTrack::PlaylistDownloader()
 						}
 						else
 						{
-							liveRefreshTimeOutInMs = MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+							liveRefreshTimeOutInMs = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
 						}
 					}
 					else
