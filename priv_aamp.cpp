@@ -2441,9 +2441,9 @@ void PrivateInstanceAAMP::SendDrmErrorEvent(DrmMetaDataEventPtr event, bool isRe
 	if (event)
 	{
 		AAMPTuneFailure tuneFailure = event->getFailure();
-		long error_code = event->getResponseCode();
+		int error_code = event->getResponseCode();
 		bool isSecClientError = event->getSecclientError();
-		long secManagerReasonCode = event->getSecManagerReasonCode();
+		int secManagerReasonCode = event->getSecManagerReasonCode();
 		 
 		if(AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN == tuneFailure || AAMP_TUNE_LICENCE_REQUEST_FAILED == tuneFailure)
 		{
@@ -2456,16 +2456,16 @@ void PrivateInstanceAAMP::SendDrmErrorEvent(DrmMetaDataEventPtr event, bool isRe
 				{
 					if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 					{
-						snprintf(description, MAX_ERROR_DESCRIPTION_LENGTH - 1, "%s : SecManager Error Code %ld:%ld", tuneFailureMap[tuneFailure].description,error_code, secManagerReasonCode);
+						snprintf(description, MAX_ERROR_DESCRIPTION_LENGTH - 1, "%s : SecManager Error Code %d:%d", tuneFailureMap[tuneFailure].description,error_code, secManagerReasonCode);
 					}
 					else
 					{
-						snprintf(description, MAX_ERROR_DESCRIPTION_LENGTH - 1, "%s : Secclient Error Code %ld", tuneFailureMap[tuneFailure].description, error_code);
+						snprintf(description, MAX_ERROR_DESCRIPTION_LENGTH - 1, "%s : Secclient Error Code %d", tuneFailureMap[tuneFailure].description, error_code);
 					}
 				}
 				else
 				{
-					snprintf(description, MAX_ERROR_DESCRIPTION_LENGTH - 1, "%s : Curl Error Code %ld", tuneFailureMap[tuneFailure].description, error_code);
+					snprintf(description, MAX_ERROR_DESCRIPTION_LENGTH - 1, "%s : Curl Error Code %d", tuneFailureMap[tuneFailure].description, error_code);
 				}
 			}
 			else if (AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN == tuneFailure && eAUTHTOKEN_TOKEN_PARSE_ERROR == (AuthTokenErrors)error_code)
@@ -2478,7 +2478,7 @@ void PrivateInstanceAAMP::SendDrmErrorEvent(DrmMetaDataEventPtr event, bool isRe
 			}
 			else
 			{
-				snprintf(description, MAX_ERROR_DESCRIPTION_LENGTH - 1, "%s : Http Error Code %ld", tuneFailureMap[tuneFailure].description, error_code);
+				snprintf(description, MAX_ERROR_DESCRIPTION_LENGTH - 1, "%s : Http Error Code %d", tuneFailureMap[tuneFailure].description, error_code);
 			}
 			SendErrorEvent(tuneFailure, description, isRetryEnabled, event->getSecManagerClassCode(),event->getSecManagerReasonCode(), event->getBusinessStatus());
 		}
@@ -2497,7 +2497,7 @@ void PrivateInstanceAAMP::SendDrmErrorEvent(DrmMetaDataEventPtr event, bool isRe
 /**
  * @brief Handles download errors and sends events to application if required.
  */
-void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, long error_code)
+void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, int error_code)
 {
 	AAMPTuneFailure actualFailure = tuneFailure;
 	bool retryStatus = true;
@@ -2512,7 +2512,7 @@ void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, lo
 				case PARTIAL_FILE_DOWNLOAD_TIME_EXPIRED_AAMP:
 						error_code = CURLE_PARTIAL_FILE;
 				case CURLE_OPERATION_TIMEDOUT:
-						snprintf(description,MAX_DESCRIPTION_SIZE, "%s : Curl Error Code %ld, Download time expired", tuneFailureMap[tuneFailure].description, error_code);
+						snprintf(description,MAX_DESCRIPTION_SIZE, "%s : Curl Error Code %d, Download time expired", tuneFailureMap[tuneFailure].description, error_code);
 						break;
 				case PARTIAL_FILE_START_STALL_TIMEOUT_AAMP:
 						snprintf(description,MAX_DESCRIPTION_SIZE, "%s : Curl Error Code %d, Start/Stall timeout", tuneFailureMap[tuneFailure].description, CURLE_PARTIAL_FILE);
@@ -2527,11 +2527,11 @@ void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, lo
 		}
 		else if(error_code < 100)
 		{
-			snprintf(description,MAX_DESCRIPTION_SIZE, "%s : Curl Error Code %ld", tuneFailureMap[tuneFailure].description, error_code);  //CID:86441 - DC>STRING_BUFFER
+			snprintf(description,MAX_DESCRIPTION_SIZE, "%s : Curl Error Code %d", tuneFailureMap[tuneFailure].description, error_code);  //CID:86441 - DC>STRING_BUFFER
 		}
 		else
 		{
-			snprintf(description,MAX_DESCRIPTION_SIZE, "%s : Http Error Code %ld", tuneFailureMap[tuneFailure].description, error_code);
+			snprintf(description,MAX_DESCRIPTION_SIZE, "%s : Http Error Code %d", tuneFailureMap[tuneFailure].description, error_code);
 			if (error_code == 404)
 			{
 				actualFailure = AAMP_TUNE_CONTENT_NOT_FOUND;
@@ -2632,7 +2632,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 			// Send a TSB delete request when player is not tuned successfully.
 			// If player is once tuned, retune happens with same content and player can reuse same TSB.
 			std::string remoteUrl = "127.0.0.1:9080/tsb";
-			long http_error = -1;
+			int http_error = -1;
 			ProcessCustomCurlRequest(remoteUrl, NULL, &http_error, eCURL_DELETE);
 		}
 		sendErrorEvent = true;
@@ -3657,12 +3657,12 @@ const char* PrivateInstanceAAMP::MediaTypeString(MediaType fileType)
 /**
  * @brief Download a file from the server
  */
-bool PrivateInstanceAAMP::GetNetworkTime(enum UtcTiming timingType, const std::string& remoteUrl, long *http_error, CurlRequest request)
+bool PrivateInstanceAAMP::GetNetworkTime(enum UtcTiming timingType, const std::string& remoteUrl, int *http_error, CurlRequest request)
 {
     bool ret = false;
 
     CURLcode res;
-    long httpCode = -1;
+    int http_code = -1;
 
     if(eCURL_GET != request)
         return ret;
@@ -3697,8 +3697,8 @@ bool PrivateInstanceAAMP::GetNetworkTime(enum UtcTiming timingType, const std::s
         res = curl_easy_perform(curl);
         if (res == CURLE_OK)
         {
-            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
-            if ((httpCode == 204) || (httpCode == 200))
+			http_code = GetCurlResponseCode(curl);
+            if ((http_code == 204) || (http_code == 200))
             {
                 if(buffer.len)
                 {
@@ -3724,7 +3724,7 @@ bool PrivateInstanceAAMP::GetNetworkTime(enum UtcTiming timingType, const std::s
             }
             else
             {
-                AAMPLOG_ERR(" Returned [%d]", httpCode);
+                AAMPLOG_ERR(" Returned [%d]", http_code);
             }
         }
         else
@@ -3732,9 +3732,9 @@ bool PrivateInstanceAAMP::GetNetworkTime(enum UtcTiming timingType, const std::s
             AAMPLOG_ERR("Failed to perform curl request, result:%d", res);
         }
 
-        if(httpCode > 0)
+        if( http_error )
         {
-            *http_error = httpCode;
+            *http_error = http_code;
         }
 
         curl_easy_cleanup(curl);
@@ -3747,7 +3747,7 @@ bool PrivateInstanceAAMP::GetNetworkTime(enum UtcTiming timingType, const std::s
  * @brief Download a file from the CDN
  */
 bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *buffer, std::string& effectiveUrl,
-				long * http_error, double *downloadTime, const char *range, unsigned int curlInstance, 
+				int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
 				bool resetBuffer, MediaType fileType, long *bitrate, int * fogError,
 				double fragmentDurationSeconds,CMCDHeaders *pCMCDMetrics)
 {
@@ -3760,7 +3760,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 		pCMCDMetrics->BuildCMCDCustomHeaders(mCMCDCustomHeaders);
 
 	}
-	long http_code = -1;
+	int http_code = -1;
 	double fileDownloadTime = 0;
 	bool ret = false;
 	int downloadAttempt = 0;
@@ -4102,12 +4102,12 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					}
 					else
 					{
-						curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+						http_code = GetCurlResponseCode(curl);
 					}
 					char *effectiveUrlPtr = NULL;
 					if (http_code != 200 && http_code != 204 && http_code != 206)
 					{
-						AAMP_LOG_NETWORK_ERROR (remoteUrl.c_str(), AAMPNetworkErrorHttp, (int)http_code, simType);
+						AAMP_LOG_NETWORK_ERROR (remoteUrl.c_str(), AAMPNetworkErrorHttp, http_code, simType);
 						print_headerResponse(context.allResponseHeadersForErrorLogging, simType);
 
 						if((http_code >= 500 && http_code != 502) && downloadAttempt < maxDownloadAttempt)
@@ -4629,7 +4629,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 		}
 	}
 	//Stip downloaded chunked Iframes when ranged requests receives 200 as HTTP response for HLS MP4
-	if(  mConfig->IsConfigSet(eAAMPConfig_RepairIframes) && NULL != range && '\0' != range[0] && 200 == http_code && NULL != buffer->ptr && FORMAT_ISO_BMFF == this->mVideoFormat)
+	if( mConfig->IsConfigSet(eAAMPConfig_RepairIframes) && NULL != range && '\0' != range[0] && 200 == http_code && NULL != buffer->ptr && FORMAT_ISO_BMFF == this->mVideoFormat)
 	{
 		AAMPLOG_INFO( "Received HTTP 200 for ranged request (chunked iframe: %s: %s), starting to strip the fragment", range, remoteUrl.c_str() );
 		size_t start;
@@ -4673,7 +4673,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 char * PrivateInstanceAAMP::GetOnVideoEndSessionStatData()
 {
 	std::string remoteUrl = "127.0.0.1:9080/sessionstat";
-	long http_error = -1;
+	int http_error = -1;
 	char* ret = NULL;
 	if(!mTsbRecordingId.empty())
 	{
@@ -4720,11 +4720,11 @@ char * PrivateInstanceAAMP::GetOnVideoEndSessionStatData()
 /**
  * @brief Perform custom curl request
  */
-bool PrivateInstanceAAMP::ProcessCustomCurlRequest(std::string& remoteUrl, GrowableBuffer* buffer, long *http_error, CurlRequest request, std::string pData)
+bool PrivateInstanceAAMP::ProcessCustomCurlRequest(std::string& remoteUrl, GrowableBuffer* buffer, int *http_error, CurlRequest request, std::string pData)
 {
 	bool ret = false;
 	CURLcode res;
-	long httpCode = -1;
+	int http_code = -1;
 	CURL *curl = curl_easy_init();
 	if(curl)
 	{
@@ -4774,14 +4774,14 @@ bool PrivateInstanceAAMP::ProcessCustomCurlRequest(std::string& remoteUrl, Growa
 
 		if (res == CURLE_OK)
 		{
-			curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
-			if ((httpCode == 204) || (httpCode == 200))
+			http_code = GetCurlResponseCode(curl);
+			if ((http_code == 204) || (http_code == 200))
 			{
 				ret = true;
 			}
 			else
 			{
-				AAMPLOG_ERR("Returned [%d]", httpCode);
+				AAMPLOG_ERR("Returned [%d]", http_code);
 			}
 		}
 		else
@@ -4789,9 +4789,9 @@ bool PrivateInstanceAAMP::ProcessCustomCurlRequest(std::string& remoteUrl, Growa
 			AAMPLOG_ERR("Failed to perform curl request, result:%d", res);
 		}
 
-		if(httpCode > 0)
+		if( http_error )
 		{
-			*http_error = httpCode;
+			*http_error = http_code;
 		}
 
 		curl_easy_cleanup(curl);
@@ -5303,7 +5303,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 			if (failReason == AAMP_TUNE_INIT_FAILED_PLAYLIST_VIDEO_DNLD_ERROR || failReason == AAMP_TUNE_INIT_FAILED_PLAYLIST_AUDIO_DNLD_ERROR)
 			{
-				long http_error = mPlaylistFetchFailError;
+				int http_error = mPlaylistFetchFailError;
 				SendDownloadErrorEvent(failReason, http_error);
 			}
 			else
@@ -6079,7 +6079,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 		// no extension - sniff first few bytes of file to disambiguate
 		struct GrowableBuffer sniffedBytes = {0, 0, 0};
 		std::string effectiveUrl;
-		long http_error;
+		int http_error;
 		double downloadTime;
 		long bitrate;
 		int fogError;
@@ -6520,7 +6520,7 @@ long PrivateInstanceAAMP::GetIframeBitrate4K()
 /**
  * @brief Fetch a file from CDN and update profiler
  */
-char *PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, size_t *len, unsigned int curlInstance, const char *range, long * http_code, double *downloadTime, MediaType fileType,int * fogError)
+char *PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, size_t *len, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, MediaType fileType,int * fogError)
 {
 	profiler.ProfileBegin(bucketType);
 	struct GrowableBuffer fragment = { 0, 0, 0 }; // TODO: leaks if thread killed
@@ -6541,7 +6541,7 @@ char *PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::stri
  * @brief Fetch a file from CDN and update profiler
  */
 bool PrivateInstanceAAMP::LoadFragment(CMCDHeaders *pCMCDMetrics,ProfilerBucketType bucketType, std::string fragmentUrl,std::string& effectiveUrl, struct GrowableBuffer *fragment, 
-					unsigned int curlInstance, const char *range, MediaType fileType,long * http_code, double *downloadTime, long *bitrate,int * fogError, double fragmentDurationSeconds)
+					unsigned int curlInstance, const char *range, MediaType fileType,int * http_code, double *downloadTime, long *bitrate,int * fogError, double fragmentDurationSeconds)
 {
 	bool ret = true;
 	profiler.ProfileBegin(bucketType);
@@ -9533,9 +9533,9 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 						std::string playlistUrl;
 						std::string playlistEffectiveUrl;
 						GrowableBuffer playlistStore ;
-						long http_error;
+						int http_code;
 						double downloadTime;
-						if(GetFile(newelem.url, &playlistStore, playlistEffectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true, newelem.type))
+						if(GetFile(newelem.url, &playlistStore, playlistEffectiveUrl, &http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true, newelem.type))
 						{
 							// If successful download , then insert into Cache 
 							getAampCacheHandler()->InsertToPlaylistCache(newelem.url, &playlistStore, playlistEffectiveUrl, false, newelem.type);
@@ -12193,7 +12193,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	jsonStr = jsondata.print_UnFormatted();
 	AAMPLOG_TRACE("%s", jsonStr.c_str());
 	std::string remoteUrl = "127.0.0.1:9080/playerconfig";
-	long http_error = -1;
+	int http_error = -1;
 	ProcessCustomCurlRequest(remoteUrl, NULL, &http_error, eCURL_POST, jsonStr);
 	return http_error;
 }

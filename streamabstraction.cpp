@@ -1997,7 +1997,7 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 /**
  *  @brief Rampdown profile
  */
-bool StreamAbstractionAAMP::RampDownProfile(long http_error)
+bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 {
 	bool ret = false;
 	int desiredProfileIndex = currentProfileIndex;
@@ -2037,7 +2037,7 @@ bool StreamAbstractionAAMP::RampDownProfile(long http_error)
 			stAbrInfo.desiredBandwidth = streamInfodesired->bandwidthBitsPerSecond;
 			stAbrInfo.networkBandwidth = aamp->GetCurrentlyAvailableBandwidth();
 			stAbrInfo.errorType = AAMPNetworkErrorHttp;
-			stAbrInfo.errorCode = (int)http_error;
+			stAbrInfo.errorCode = http_error;
 
 			AAMP_LOG_ABR_INFO(&stAbrInfo);
 
@@ -2097,9 +2097,9 @@ bool StreamAbstractionAAMP::IsLowestProfile(int currentProfileIndex)
 /**
  *  @brief Convert custom curl errors to original
  */
-long StreamAbstractionAAMP::getOriginalCurlError(long http_error)
+int StreamAbstractionAAMP::getOriginalCurlError(int http_error)
 {
-	long ret = http_error;
+	int ret = http_error;
 
 	if (http_error >= PARTIAL_FILE_CONNECTIVITY_AAMP && http_error <= PARTIAL_FILE_START_STALL_TIMEOUT_AAMP)
 	{
@@ -2121,7 +2121,7 @@ long StreamAbstractionAAMP::getOriginalCurlError(long http_error)
 /**
  *  @brief Check for ramdown profile.
  */
-bool StreamAbstractionAAMP::CheckForRampDownProfile(long http_error)
+bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 {
 	bool retValue = false;
 
@@ -3406,7 +3406,7 @@ void MediaTrack::PlaylistDownloader()
 			// take the original url before it gets changed in GetFile
 			std::string effectiveUrl = GetEffectivePlaylistUrl();
 			bool gotManifest = false;
-			long http_error = 0;
+			int http_error = 0;
 			double downloadTime;
 			memset(&manifest, 0, sizeof(manifest));
 

@@ -1665,7 +1665,7 @@ char *TrackState::FindMediaForSequenceNumber()
 /**
  * @brief Helper function to download fragment
  */
-bool TrackState::FetchFragmentHelper(long &http_error, bool &decryption_error, bool & bKeyChanged, int * fogError, double &downloadTime)
+bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bool & bKeyChanged, int * fogError, double &downloadTime)
 {
 #ifdef TRACE
 		AAMPLOG_WARN("FetchFragmentHelper Enter: pos %f start %f frag-duration %f fragmentURI %s",
@@ -1959,7 +1959,7 @@ bool TrackState::FetchFragmentHelper(long &http_error, bool &decryption_error, b
 void TrackState::FetchFragment()
 {
 	int timeoutMs = -1;
-	long http_error = 0;
+	int http_error = 0;
 	double downloadTime = 0;
 	bool decryption_error = false;
 	if (IsLive())
@@ -2766,7 +2766,7 @@ int TrackState::GetDefaultDurationBetweenPlaylistUpdates()
 /**
 * @brief Function to Parse/Index playlist after being downloaded.
 */
-void TrackState::ProcessPlaylist(GrowableBuffer& newPlaylist, long http_error)
+void TrackState::ProcessPlaylist(GrowableBuffer& newPlaylist, int http_error)
 {
 	AAMPLOG_TRACE("[%s] Enter", name);
 	if (newPlaylist.len)
@@ -3720,7 +3720,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
     /* END: Added As Part of DELIA-28363 and DELIA-28247 */
 
 	TSProcessor* audioQueuedPC = NULL;
-	long http_error = 0;   //CID:81873 - Initialization
+	int http_error = 0;   //CID:81873 - Initialization
 	memset(&mainManifest, 0, sizeof(mainManifest));
 
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -3760,7 +3760,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		else
 		{
 			aamp->UpdateDuration(0);
-			AAMPLOG_ERR("Manifest download failed : http response : %d", (int) http_error);
+			AAMPLOG_ERR("Manifest download failed : http response : %d", http_error);
 			retval = eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 		}
 	}
@@ -4954,7 +4954,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				std::string defaultIframePlaylistUrl;
 				std::string defaultIframePlaylistEffectiveUrl;
 				//To avoid clashing with the http error for master manifest
-				long http_error = 0;
+				int http_error = 0;
 				GrowableBuffer defaultIframePlaylist;
 				HlsStreamInfo *streamInfo = (HlsStreamInfo *)GetStreamInfo(iframeStreamIdx);
 				aamp_ResolveURL(defaultIframePlaylistUrl, aamp->GetManifestUrl(), streamInfo->uri, ISCONFIGSET(eAAMPConfig_PropogateURIParam));
@@ -5842,7 +5842,7 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 
 				std::string url;
 				aamp_ResolveURL(url, aamp->GetManifestUrl(), streamInfo->uri,ISCONFIGSET(eAAMPConfig_PropogateURIParam));
-				long http_error = 0;
+				int http_error = 0;
 				double downloadTime = 0;
 				std::string tempEffectiveUrl;
 				if( aamp->GetFile(url, &thumbnailManifest, tempEffectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN,true,eMEDIATYPE_PLAYLIST_IFRAME) )
@@ -6219,9 +6219,9 @@ void TrackState::UpdateDrmIV(const char *ptr)
 void TrackState::FetchPlaylist()
 {
 
-	long http_error = 0;   //CID:81884 - Initialization
+	int http_error = 0;   //CID:81884 - Initialization
 	double downloadTime;
-	long  main_error = 0;
+	int  main_error = 0;
 
 	ProfilerBucketType bucketId = PROFILE_BUCKET_PLAYLIST_VIDEO; //type == eTRACK_VIDEO, eTRACK_AUDIO,...
 	MediaType mType = eMEDIATYPE_PLAYLIST_VIDEO;
@@ -6260,7 +6260,7 @@ void TrackState::FetchPlaylist()
 	aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs,dnldCurlInstance);
 	if (!playlist.len)
 	{
-		AAMPLOG_WARN("Playlist download failed : %s  http response : %d", mPlaylistUrl.c_str(), (int)http_error);
+		AAMPLOG_WARN("Playlist download failed : %s  http response : %d", mPlaylistUrl.c_str(), http_error);
 		aamp->mPlaylistFetchFailError = http_error;
 		aamp->profiler.ProfileError(bucketId, main_error);
 		aamp->profiler.ProfileEnd(bucketId);
@@ -6564,7 +6564,7 @@ void TrackState::FetchInitFragment()
 			return;
 		}
 
-		long http_code = -1;
+		int http_code = -1;
 		bool forcePushEncryptedHeader = (!fragmentEncrypted && mCheckForInitialFragEnc);
 		// Check if we have encrypted header successfully parsed to push ahead
 		if (forcePushEncryptedHeader && mFirstEncInitFragmentInfo == NULL)
@@ -6628,7 +6628,7 @@ void TrackState::FetchInitFragment()
 		}
 		else if (aamp->DownloadsAreEnabled())
 		{
-			long http_error = context->getOriginalCurlError(http_code);
+			int http_error = context->getOriginalCurlError(http_code);
 			AAMPLOG_ERR("TrackState::Init fragment fetch failed");
 			aamp->profiler.ProfileError(bucketType, http_error);
 			aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, http_code);
@@ -6646,7 +6646,7 @@ void TrackState::FetchInitFragment()
 /**
  * @brief Helper to fetch init fragment for fragmented mp4 format
  */
-bool TrackState::FetchInitFragmentHelper(long &http_code, bool forcePushEncryptedHeader)
+bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncryptedHeader)
 {
 	bool ret = false;
 	std::istringstream initFragmentUrlStream;
@@ -6774,7 +6774,7 @@ bool TrackState::FetchInitFragmentHelper(long &http_code, bool forcePushEncrypte
 				AAMPLOG_TRACE("---------------CurlReq Time diff:%llu---------------" , downloadTime);
 #endif /* CHECK_PERFORMANCE */
 	
-				long main_error = context->getOriginalCurlError(http_code);
+				int main_error = context->getOriginalCurlError(http_code);
 				aamp->UpdateVideoEndMetrics(actualType, this->GetCurrentBandWidth(), main_error, mEffectiveUrl, downloadTime);
 
 				if ( fetched )

@@ -1266,7 +1266,7 @@ public:
 	* @param[out] buffer - Pointer to the output buffer
 	* @return bool status
 	*/
-	bool GetNetworkTime(enum UtcTiming timingtype, const std::string& remoteUrl, long *http_error, CurlRequest request);
+	bool GetNetworkTime(enum UtcTiming timingtype, const std::string& remoteUrl, int *http_error, CurlRequest request);
 
 	/**
 	 * @fn GetFile
@@ -1282,7 +1282,7 @@ public:
 	 * @param[in] CMCDMetrics - pointer to CMCDNetwork metrics
 	 * @return void
 	 */
-	bool GetFile(std::string remoteUrl, struct GrowableBuffer *buffer, std::string& effectiveUrl, long *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true,MediaType fileType = eMEDIATYPE_DEFAULT, long *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0,class CMCDHeaders *pCMCDMetrics = NULL);
+	bool GetFile(std::string remoteUrl, struct GrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true,MediaType fileType = eMEDIATYPE_DEFAULT, long *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0,class CMCDHeaders *pCMCDMetrics = NULL);
 
 	/**
 	 * @fn getUUID
@@ -1308,7 +1308,7 @@ public:
 	 * @param[in] pData - string contains post data
 	 * @return bool status
 	 */
-	bool ProcessCustomCurlRequest(std::string& remoteUrl, struct GrowableBuffer* buffer, long *http_error, CurlRequest request = eCURL_GET, std::string pData = "");
+	bool ProcessCustomCurlRequest(std::string& remoteUrl, struct GrowableBuffer* buffer, int *http_error, CurlRequest request = eCURL_GET, std::string pData = "");
 
 	/**
 	 * @fn MediaTypeString
@@ -1330,7 +1330,7 @@ public:
 	 * @param[out] fogError - Error from FOG
 	 * @return void
 	 */
-	char *LoadFragment( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, size_t *len, unsigned int curlInstance = 0, const char *range = NULL,long * http_code = NULL, double *downloadTime = NULL, MediaType fileType = eMEDIATYPE_MANIFEST,int * fogError = NULL);
+	char *LoadFragment( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, size_t *len, unsigned int curlInstance = 0, const char *range = NULL,int * http_code = NULL, double *downloadTime = NULL, MediaType fileType = eMEDIATYPE_MANIFEST,int * fogError = NULL);
 
 	/**
 	 * @fn LoadFragment
@@ -1346,7 +1346,7 @@ public:
 	 * @param[in] CMCDMetrics - pointer to CMCDNetwork metrics
 	 * @return void
 	 */
-	bool LoadFragment(class CMCDHeaders *pCMCDMetrics,ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, struct GrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, MediaType fileType = eMEDIATYPE_MANIFEST, long * http_code = NULL, double * downloadTime = NULL, long *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
+	bool LoadFragment(class CMCDHeaders *pCMCDMetrics,ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, struct GrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, MediaType fileType = eMEDIATYPE_MANIFEST, int * http_code = NULL, double * downloadTime = NULL, long *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
 
 	/**
 	 * @fn PushFragment
@@ -1450,7 +1450,7 @@ public:
 	 * @param[in] error_code - HTTP error code/ CURLcode
 	 * @return void
 	 */
-	void SendDownloadErrorEvent(AAMPTuneFailure tuneFailure,long error_code);
+	void SendDownloadErrorEvent(AAMPTuneFailure tuneFailure,int error_code);
 
 	/**
 	 * @fn SendAnomalyEvent

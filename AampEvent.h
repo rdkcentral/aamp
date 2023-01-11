@@ -352,7 +352,7 @@ struct AAMPEvent
 			AAMPTuneFailure failure;                            /**< Error Type */
 			const char *accessStatus;
 			int accessStatus_value;
-			long responseCode;
+			int responseCode;
 			bool isSecClientError;
 		} dash_drmmetadata;
 
@@ -1405,7 +1405,7 @@ class DrmMetaDataEvent: public AAMPEventObject
 	AAMPTuneFailure mFailure;	/**< Error Type */
 	std::string mAccessStatus;	/**< Access status */
 	int mAccessStatusValue;		/**< Access status value */
-	long mResponseCode;		/**< Response code */
+	int mResponseCode;		/**< Response code */
 	bool mSecclientError;		/**< Is secclient error */
 	
 	int32_t mSecManagerClass;	/**< Secmanager error class */
@@ -1425,7 +1425,7 @@ public:
 	 * @param[in] responseCode - Response code
 	 * @param[in] secclientErr - Is secclient error
 	 */
-	DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, long responseCode, bool secclientErr);
+	DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, int responseCode, bool secclientErr);
 
 	/**
 	 * @brief DrmMetaDataEvent Destructor
@@ -1482,7 +1482,7 @@ public:
 	 *
 	 * @return Response code
 	 */
-	long getResponseCode() const;
+	int getResponseCode() const;
 	
 	/**
 	 * @brief Get Response Code
@@ -1511,7 +1511,7 @@ public:
 	 * @param[in] code - Response code
 	 * @return void
 	 */
-	void setResponseCode(long code);
+	void setResponseCode(int code);
 	
 	/**
 	 * @brief Get Secmanager response code

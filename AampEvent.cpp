@@ -867,7 +867,7 @@ bool BufferingChangedEvent::buffering() const
 /**
  * @brief DrmMetaDataEvent Constructor
  */
-DrmMetaDataEvent::DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, long responseCode, bool secclientErr):
+DrmMetaDataEvent::DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, int responseCode, bool secclientErr):
 	AAMPEventObject(AAMP_EVENT_DRM_METADATA), mFailure(failure), mAccessStatus(accessStatus),
 	mAccessStatusValue(statusValue), mResponseCode(responseCode), mSecclientError(secclientErr), mSecManagerReasonCode(-1), mSecManagerClass(-1),
 	mBusinessStatus(-1)
@@ -934,7 +934,7 @@ void DrmMetaDataEvent::setAccessStatusValue(int value)
  *
  * @return Response code
  */
-long DrmMetaDataEvent::getResponseCode() const
+int DrmMetaDataEvent::getResponseCode() const
 {
 	return mResponseCode;
 }
@@ -972,7 +972,7 @@ int32_t DrmMetaDataEvent::getBusinessStatus() const
 /**
  * @brief Set Response Code
  */
-void DrmMetaDataEvent::setResponseCode(long code)
+void DrmMetaDataEvent::setResponseCode(int code)
 {
 	mResponseCode = code;
 }

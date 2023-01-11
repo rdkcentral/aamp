@@ -438,7 +438,7 @@ public:
 	 *
 	 * @return none
 	 ****************************************************************************/
-	void ProcessPlaylist(GrowableBuffer& newPlaylist, long http_error);
+	void ProcessPlaylist(GrowableBuffer& newPlaylist, int http_error);
 private:
 	/***************************************************************************
      	 * @fn GetFragmentUriFromIndex
@@ -465,7 +465,7 @@ private:
      	 * @param[out] decryption_error decryption error
      	 * @return bool true on success else false
      	 ***************************************************************************/
-	bool FetchFragmentHelper(long &http_error, bool &decryption_error, bool & bKeyChanged, int * fogError, double &downloadTime);
+	bool FetchFragmentHelper(int &http_error, bool &decryption_error, bool & bKeyChanged, int * fogError, double &downloadTime);
 	/***************************************************************************
      	 * @fn RefreshPlaylist
     	 *
@@ -501,7 +501,7 @@ private:
      	 * @fn FetchInitFragmentHelper
      	 * @return true if success
      	 ***************************************************************************/
-	bool FetchInitFragmentHelper(long &http_code, bool forcePushEncryptedHeader = false);
+	bool FetchInitFragmentHelper(int &http_code, bool forcePushEncryptedHeader = false);
 	/***************************************************************************
 	 * @fn ProcessDrmMetadata
      	 ***************************************************************************/
