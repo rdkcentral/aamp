@@ -4174,7 +4174,9 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		}
 
 		double programStartTime = -1;
-
+		//by default it is true, but it will set to False if the audio format is not MPEGTS.
+		//if it is false, no need to apply 500ms offset to pts in processPacket API
+		bool audioFormatMPEGTS = true;
 		for (int iTrack = AAMP_TRACK_COUNT - 1; iTrack >= 0; iTrack--)
 		{
 			TrackState *ts = trackState[iTrack];
@@ -4297,6 +4299,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : Track[%s] - FORMAT_AUDIO_ES_AAC", ts->name);
 					ts->streamOutputFormat = FORMAT_AUDIO_ES_AAC;
 					aamp->SetAudioPlayContextCreationSkipped( true );
+					audioFormatMPEGTS = false;
 					continue;
 				}
 
@@ -4306,6 +4309,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : Track[%s] - FORMAT_AUDIO_ES_AC3", ts->name);
 					ts->streamOutputFormat = FORMAT_AUDIO_ES_AC3;
 					aamp->SetAudioPlayContextCreationSkipped( true );
+					audioFormatMPEGTS = false;
 					continue;
 				}
 
@@ -4315,6 +4319,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : Track[%s] - FORMAT_AUDIO_ES_EC3", ts->name);
 					ts->streamOutputFormat = FORMAT_AUDIO_ES_EC3;
 					aamp->SetAudioPlayContextCreationSkipped( true );
+					audioFormatMPEGTS = false;
 					continue;
 				}
 
@@ -4508,6 +4513,18 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						ts->playContext = new TSProcessor(mLogObj, aamp, demuxOp, eMEDIATYPE_VIDEO, static_cast<TSProcessor*> (trackState[eMEDIATYPE_AUDIO]->playContext), static_cast<TSProcessor*> (trackState[eMEDIATYPE_AUX_AUDIO]->playContext));
 						if(ts->playContext)
 						{
+							if(!audioFormatMPEGTS)
+							{
+								//video track is MPEGTS but not the audio track. So setting a variable as false
+								// to avoid applying offset to video pts  in processPacket for this particular playback.
+								// Otherwise it might cause av sync issues.
+								ts->playContext->setApplyOffsetFlag(false);
+							}
+							else
+							{
+								//both audio and video in TS format or muxed
+								ts->playContext->setApplyOffsetFlag(true);
+							}
 							ts->playContext->setThrottleEnable(this->enableThrottle);
 							if (currentAudioProfileIndex >= 0 )
 							{
