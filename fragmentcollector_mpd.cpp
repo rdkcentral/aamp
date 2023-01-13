@@ -8712,7 +8712,6 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 {
 		FN_TRACE_F_MPD( __FUNCTION__ );
 		std::thread trackDownloadThreadID;
-		bool dlThreadCreated = false;
 		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 
 		if(discontinuity && pMediaStreamContext->enabled)
@@ -8738,28 +8737,14 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 						 * to reduce the tune time, especially when using DRM.
 						 * Moving the fragment download of first AAMPTRACK to separate thread
 						 */
-						if(!dlThreadCreated)
+						try
 						{
-							try
-							{
-								trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
-								dlThreadCreated = true;
-								AAMPLOG_INFO("Thread created for TrackDownloader [%lu]", GetPrintableThreadID(trackDownloadThreadID));
-							}
-							catch(std::exception &e)
-							{
-								AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Thread create failed for TrackDownloader : %s", e.what());
-							}
+							trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
+							AAMPLOG_INFO("Thread created for TrackDownloader [%lu]", GetPrintableThreadID(trackDownloadThreadID));
 						}
-						else
+						catch(std::exception &e)
 						{
-							if(pMediaStreamContext->WaitForFreeFragmentAvailable(0))
-							{
-								pMediaStreamContext->profileChanged = false;
-
-								FetchFragment(pMediaStreamContext, initialization, fragmentDuration, true, getCurlInstanceByMediaType(static_cast<MediaType>(trackIdx)), pMediaStreamContext->discontinuity);
-								pMediaStreamContext->discontinuity = false;
-							}
+							AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Thread create failed for TrackDownloader : %s", e.what());
 						}
 					}
 					else
@@ -8840,26 +8825,14 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 								 * to reduce the tune time, especially when using DRM.
 								 * Moving the fragment download of first AAMPTRACK to separate thread
 								 */
-								if(!dlThreadCreated)
+								try
 								{
-									try
-									{
-										trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
-										dlThreadCreated = true;
-										AAMPLOG_INFO("Thread created for TrackDownloader [%lu]", GetPrintableThreadID(trackDownloadThreadID));
-									}
-									catch(const std::exception& e)
-									{
-										AAMPLOG_WARN("StreamAbstractionAAMP_MPD: std::thread failed for TrackDownloader : %s", e.what());
-									}
+									trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
+									AAMPLOG_INFO("Thread created for TrackDownloader [%lu]", GetPrintableThreadID(trackDownloadThreadID));
 								}
-								else
+								catch(const std::exception& e)
 								{
-									if(pMediaStreamContext->WaitForFreeFragmentAvailable(0))
-									{
-										pMediaStreamContext->profileChanged = false;
-										FetchFragment(pMediaStreamContext, initialization, fragmentDuration, true, getCurlInstanceByMediaType(static_cast<MediaType>(trackIdx)));
-									}
+									AAMPLOG_WARN("StreamAbstractionAAMP_MPD: std::thread failed for TrackDownloader : %s", e.what());
 								}
 							}
 							else
@@ -8951,7 +8924,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 			ReleasePlaylistLock();
 		}
 
-	if(dlThreadCreated)
+	if(trackDownloadThreadID.joinable())
 	{
 		AAMPLOG_TRACE("Waiting for join trackDownloadThread");
 		trackDownloadThreadID.join();
@@ -11804,7 +11777,7 @@ double StreamAbstractionAAMP_MPD::GetEncoderDisplayLatency()
 							duration = timeline->GetDuration();
 							repeatCount = timeline->GetRepeatCount();
 
-							AAMPLOG_TRACE("startTime: %" PRIu32 " duration: %" PRIu32 " repeatCount: %" PRIu32, timeScale,duration,repeatCount);
+							AAMPLOG_TRACE("startTime: %" PRIu32 " duration: %" PRIu32 " repeatCount: %" PRIu32, timeScale, duration, repeatCount);
 
 							if(timeScale)
 								PT = (double)(startTime+((uint64_t)repeatCount*duration))/timeScale ;

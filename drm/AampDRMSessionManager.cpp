@@ -1855,7 +1855,7 @@ int SpawnDRMLicenseAcquireThread(PrivateInstanceAAMP *aamp, std::shared_ptr<DrmS
 		{
 			aamp->createDRMSessionThreadID = std::thread(CreateDRMSession, drmSessionParams);
 			aamp->drmSessionThreadStarted = true;
-			AAMPLOG_INFO("Thread created for CreateDRMSession [%u]", aamp->createDRMSessionThreadID.get_id());
+			AAMPLOG_INFO("Thread created for CreateDRMSession [%u]", GetPrintableThreadID(aamp->createDRMSessionThreadID));
 			aamp->setCurrentDrm(drmSessionParams->drmHelper);
 			iState = DRM_API_SUCCESS;
 		}
