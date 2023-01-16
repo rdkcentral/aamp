@@ -4154,7 +4154,7 @@ private:
 	AampLogManager *mLogObj;
 	bool mApplyVideoRect; 			/**< Status to apply stored video rectagle */
 	videoRect mVideoRect;
-	char *mData;
+	std::unique_ptr<char[]> mData;
 	std::string mTextStyle;
 };
 

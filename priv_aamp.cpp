@@ -1406,7 +1406,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mPlaybackMode("UNKNOWN")
 	, mApplyVideoRect(false)
 	, mVideoRect{}
-	, mData(NULL)
+	, mData()
 	, mIsInbandCC(true)
 	, bitrateList()
 	, userProfileStatus(false)
@@ -1613,8 +1613,6 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 
 	if (HasSidecarData())
 	{ // has sidecar data
-		SAFE_DELETE_ARRAY(mData);
-		mData = NULL;
 		if (mpStreamAbstractionAAMP)
 			mpStreamAbstractionAAMP->ResetSubtitle();
 	}
@@ -2773,7 +2771,7 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 				if (HasSidecarData())
 				{ // has sidecar data
 					if (mpStreamAbstractionAAMP)
-						mpStreamAbstractionAAMP->ResumeSubtitleOnPlay(subtitles_muted, mData);
+						mpStreamAbstractionAAMP->ResumeSubtitleOnPlay(subtitles_muted, mData.get());
 				}
 			}
 			SetState(eSTATE_PLAYING);
@@ -5469,7 +5467,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		if (HasSidecarData())
 		{ // has sidecar data
 			if (mpStreamAbstractionAAMP)
-				mpStreamAbstractionAAMP->ResumeSubtitleAfterSeek(subtitles_muted, mData);
+				mpStreamAbstractionAAMP->ResumeSubtitleAfterSeek(subtitles_muted, mData.get());
 		}
 
 		if ((mpStreamAbstractionAAMP) && (!mTextStyle.empty()))
@@ -10456,6 +10454,11 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 		if (MUTE_SUBTITLES_TRACKID == trackId)
 		{
 			SetCCStatus(false);
+			if (data != NULL)
+			{
+				SAFE_DELETE_ARRAY(data);
+				data = NULL;
+			}
 			return;
 		}
 
@@ -10540,7 +10543,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 		else
 		{
 			AAMPLOG_WARN("webvtt data received from application");
-			mData = data;
+			mData.reset(data);
 			SetCCStatus(true);
 
 			mpStreamAbstractionAAMP->InitSubtitleParser(data);
@@ -10549,6 +10552,15 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				// Restore the subtitle text style after a track change.
 				(void)mpStreamAbstractionAAMP->SetTextStyle(mTextStyle);
 			}
+		}
+	}
+	else
+	{
+		AAMPLOG_ERR("null Stream Abstraction AAMP");
+		if (data != NULL)
+		{
+			SAFE_DELETE_ARRAY(data);
+			data = NULL;
 		}
 	}
 }
@@ -12246,7 +12258,7 @@ std::string PrivateInstanceAAMP::GetLicenseCustomData()
  */
 bool PrivateInstanceAAMP::HasSidecarData()
 {
-	if (mData != NULL)
+	if (mData)
 	{
 		return true;
 	}

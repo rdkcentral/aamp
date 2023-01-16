@@ -2606,6 +2606,15 @@ void PlayerInstanceAAMP::SetTextTrack(int trackId, char *ccData)
 		else
 			SetTextTrackInternal(trackId, ccData);
 	}
+	else
+	{
+		AAMPLOG_ERR("null aamp or Stream Abstraction AAMP");
+		if (ccData != NULL)
+		{
+			SAFE_DELETE_ARRAY(ccData);
+			ccData = NULL;
+		}
+	}
 }
 
 /**

@@ -1630,7 +1630,7 @@ JSValueRef AAMPMediaPlayerJS_setTextTrack (JSContextRef ctx, JSObjectRef functio
 		// note, here, first parameter is not used, only the passed WebVTT data
 		// note: SetTextTrack() will responsibility for releasing data when no longer needed
 		char *data = aamp_JSValueToCString(ctx, arguments[0], exception);
-		privObj->_aamp->SetTextTrack(0, data);
+		privObj->_aamp->SetTextTrack(0, std::move(data));
 
 	}
 	else
