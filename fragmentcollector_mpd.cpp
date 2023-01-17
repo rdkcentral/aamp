@@ -9922,6 +9922,7 @@ void StreamAbstractionAAMP_MPD::Start(void)
 	{
 		if(aamp->IsPlayEnabled())
 		{
+			aamp->ResumeTrackInjection((MediaType) i);
 			mMediaStreamContext[i]->StartInjectLoop();
 
 			if(aamp->GetLLDashServiceData()->lowLatencyMode)
@@ -9982,6 +9983,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
 		if(track && track->Enabled())
 		{
+			aamp->StopTrackInjection((MediaType) iTrack);
 			track->StopInjectLoop();
 			if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 			{
