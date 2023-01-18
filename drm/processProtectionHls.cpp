@@ -37,14 +37,11 @@ using namespace std;
 
 #ifdef AAMP_HLS_DRM
 
-extern void *CreateDRMSession(void *arg);
-extern void ReleaseDRMLicenseAcquireThread(PrivateInstanceAAMP *aamp);
-
 /**
  * Global aamp config data 
  */
 extern AampConfig *gpGlobalConfig;
-DrmSessionDataInfo* ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
+shared_ptr<DrmSessionParams> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
 
 /**
  * Local APIs declarations
@@ -230,18 +227,16 @@ static std::shared_ptr<AampDrmHelper> getDrmHelper(string attrName , bool bPropa
  * @param attribute list from manifest
  * @return none
  */
-DrmSessionDataInfo* ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName)
+shared_ptr<DrmSessionParams> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName)
 {
 	/* StreamAbstractionAAMP_HLS* context; */
 	/* Pseudo code for ProcessContentProtection in HLS is below
 	 * Get Aamp instance as aamp
 	 * 1. Get DRM type from manifest (KEYFORMAT uuid)
 	 * 2. Get pssh data from manifest (extract URI value)
-	 * 3. Check whether keyID with last processed keyId
-	 * 4. if not, Create DrmSessionParams instance and fill it 
-	 *    4.1 Create a thread with CreateDRMSession and DrmSessionParams as parameter
-	 *    4.2 Reuse the thread function CreateDRMSession which is used in MPD for HLS also
-	 * 5. Else delete keyId and return
+	 * 3. Create DrmSessionParams instance and fill it 
+	 *    3.1 Create a thread with CreateDRMSession and DrmSessionParams as parameter
+	 *    3.2 Reuse the thread function CreateDRMSession which is used in MPD for HLS also
 	 */
 	AampLogManager *mLogObj = aamp->mConfig->GetLoggerInstance();
 	shared_ptr<AampDrmHelper> drmHelper;
@@ -251,10 +246,8 @@ DrmSessionDataInfo* ProcessContentProtection(PrivateInstanceAAMP *aamp, std::str
 	int status = DRM_API_FAILED;  
 	string psshDataStr = "";
 	char* psshData = NULL;
-	unsigned char * keyId = NULL;
-	int keyIdLen = 0;
 	MediaType mediaType = eMEDIATYPE_VIDEO;
-	DrmSessionDataInfo *drmSessioData = NULL;
+	shared_ptr<DrmSessionParams> drmSessionParams = nullptr;
 	do{
 		drmHelper = getDrmHelper(attrName , ISCONFIGSET(eAAMPConfig_PropogateURIParam));
 		if (nullptr == drmHelper){
@@ -317,37 +310,17 @@ DrmSessionDataInfo* ProcessContentProtection(PrivateInstanceAAMP *aamp, std::str
 
 		if (drmHelper){
 			/** Push Drm Information for later use do not free the memory here*/
-			//AAMPLOG_INFO("Storing DRM Info at keyId %s",
-			//keyId);
 
 			/** Populate session data **/
-			DrmSessionParams* sessionParams = new DrmSessionParams;
-			sessionParams->initData = data;
-			sessionParams->initDataLen = dataLength;
-			sessionParams->stream_type = mediaType;
-			sessionParams->aamp = aamp;
-			sessionParams->drmHelper = drmHelper;
-
-			/** populate pool data **/
-			drmSessioData = new DrmSessionDataInfo() ;
-			drmSessioData->isProcessedLicenseAcquire = false;
-			drmSessioData->sessionData = sessionParams;
-			drmSessioData->processedKeyIdLen = keyIdLen;
-			drmSessioData->processedKeyId = (unsigned char *) malloc(keyIdLen + 1);
-			memcpy(drmSessioData->processedKeyId, keyId, keyIdLen);
+			drmSessionParams = std::make_shared<DrmSessionParams>(aamp, drmHelper, mediaType);
 		}
-
-		if (keyId) {
-			free(keyId);
-			keyId = NULL;
-		}
-		
 	}while(0);
+
 	if(data)
 	{
 		free(data);  //CID:128617 - Resource leak
 	}
-	return drmSessioData;
+	return drmSessionParams;
 }
 
 #else

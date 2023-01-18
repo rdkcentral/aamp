@@ -101,8 +101,8 @@ static const double DEFAULT_STREAM_FRAMERATE = 25.0;
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
 
 #ifdef AAMP_HLS_DRM
-extern DrmSessionDataInfo* ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
-extern int SpawnDRMLicenseAcquireThread(PrivateInstanceAAMP *aamp, DrmSessionDataInfo* drmData);
+extern std::shared_ptr<DrmSessionParams> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
+extern int SpawnDRMLicenseAcquireThread(PrivateInstanceAAMP *aamp, std::shared_ptr<DrmSessionParams> drmData);
 extern void ReleaseDRMLicenseAcquireThread(PrivateInstanceAAMP *aamp);
 #endif 
 
@@ -724,28 +724,23 @@ static void InitiateDrmProcess(PrivateInstanceAAMP* aamp){
 		/** If fragments are CDM encrypted KC **/
 		if (aamp->fragmentCdmEncrypted && ISCONFIGSET(eAAMPConfig_Fragmp4PrefetchLicense)){
 			pthread_mutex_lock(&aamp->drmParserMutex);
-			DrmSessionDataInfo* drmDataToUse = NULL;
+			std::shared_ptr<DrmSessionParams> drmDataToUse = nullptr;
 			for (int i=0; i < aamp->aesCtrAttrDataList.size(); i++ ){
 				if (!aamp->aesCtrAttrDataList.at(i).isProcessed){
 					aamp->aesCtrAttrDataList.at(i).isProcessed = true;
-					DrmSessionDataInfo* drmData = ProcessContentProtection(aamp, aamp->aesCtrAttrDataList.at(i).attrName);
-					if (NULL != drmData){
+					std::shared_ptr<DrmSessionParams> drmData = ProcessContentProtection(aamp, aamp->aesCtrAttrDataList.at(i).attrName);
+					if (nullptr != drmData){
 /* This needs effort from MSO as to what they want to do viz-a-viz preferred DRM, */						
-	               					if (NULL != drmDataToUse) {
-		                                        free(drmDataToUse);//CID:178316 RESOURCE_LEAK
-                                                   	}
-							drmDataToUse = drmData;
-						}
+						drmDataToUse = drmData;
 					}
 				}
+			}
 			if (drmDataToUse != nullptr) 
 			{
+				// drmDataToUse will be freed in SpawnDRMLicenseAcquireThread() -> CreateDRMSession() 
 				SpawnDRMLicenseAcquireThread(aamp, drmDataToUse);
 			}
 			pthread_mutex_unlock(&aamp->drmParserMutex);
-			if (NULL != drmDataToUse) {
-			    free(drmDataToUse);
-			}
 		}
 #endif
 }

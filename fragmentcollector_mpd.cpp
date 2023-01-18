@@ -3233,16 +3233,13 @@ static void ParseXmlNS(const std::string& fullName, std::string& ns, std::string
 
 #ifdef AAMP_MPD_DRM
 
-extern void CreateDRMSession(void *arg);
+extern void CreateDRMSession(std::shared_ptr<DrmSessionParams> sessionParams);
 
 /** @brief Create DRMSession thread
  */
 void StreamAbstractionAAMP_MPD::CreateDRMSessionMPD(PrivateInstanceAAMP *aamp, std::shared_ptr<AampDrmHelper> drmHelper, MediaType mediaType)
 {
-	DrmSessionParams* sessionParams = new DrmSessionParams;
-    	sessionParams->aamp = aamp;
-    	sessionParams->drmHelper = drmHelper;
-    	sessionParams->stream_type = mediaType;
+	std::shared_ptr<DrmSessionParams> sessionParams = std::make_shared<DrmSessionParams>(aamp, drmHelper, mediaType);
     	CreateDRMSession(sessionParams);
 }
 

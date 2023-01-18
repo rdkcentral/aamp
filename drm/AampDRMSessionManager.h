@@ -42,18 +42,6 @@
 #define AUDIO_SESSION 1
 
 /**
- *  @struct	DrmSessionDataInfo
- *  @brief	Drm Session Data Information 
- * for storing in a pool from parser.
- */
-typedef struct DrmSessionDataInfo{
-	struct DrmSessionParams* sessionData;   /**< DRM Session Data */
-	bool isProcessedLicenseAcquire; 	/**< Flag to avoid multiple acquire for a key */
-	unsigned char *processedKeyId; 		/**< Pointer to store last processed key Id */
-	int processedKeyIdLen; 			/**< Last processed key Id size */
-}DrmSessionDataInfo;
-
-/**
  *  @struct	DrmSessionContext
  *  @brief	To store drmSession and keyId data.
  */
@@ -91,16 +79,13 @@ struct DrmSessionContext
  */
 struct DrmSessionParams
 {
-	DrmSessionParams() : initData(NULL), initDataLen(0), stream_type(eMEDIATYPE_DEFAULT),
-		aamp(NULL), drmType(eDRM_NONE), drmHelper()
-	{};
+	DrmSessionParams() = delete;
+	DrmSessionParams(PrivateInstanceAAMP *privAamp, std::shared_ptr<AampDrmHelper> helper, MediaType type);
+	~DrmSessionParams();
 	DrmSessionParams(const DrmSessionParams&) = delete;
 	DrmSessionParams& operator=(const DrmSessionParams&) = delete;
-	unsigned char *initData;
-	int initDataLen;
 	MediaType stream_type;
 	PrivateInstanceAAMP *aamp;
-	DRMSystems drmType;
 	std::shared_ptr<AampDrmHelper> drmHelper;
 };
 
