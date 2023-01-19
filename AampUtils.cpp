@@ -32,6 +32,7 @@
 #include <string.h>
 #include <assert.h>
 #include <ctime>
+#include <cctype>
 #include <curl/curl.h>
 
 #include <sys/types.h>
@@ -129,18 +130,16 @@ static const char * ParseUriProtocol(const char *uri)
 {
 	for(;;)
 	{
-		char c = *uri++;
-		if( c==':' )
+		char ch = *uri++;
+		if( ch ==':' )
 		{
-			if( uri[0]=='/' && uri[1]=='/' )
+			if (uri[0] == '/' && uri[1] == '/')
 			{
-				return uri+2;
+				return uri + 2;
 			}
 			break;
 		}
-		else if( (c>='a' && c<='z') || (c>='A' && c<='Z') || // inline isalphs
-			(c>='0' && c<='9') || // inline isdigit
-			c=='.' || c=='-' || c=='+' ) // other valid (if unlikely) characters for protocol
+		else if (isalnum (ch) || ch == '.' || ch == '-' || ch == '+') // other valid (if unlikely) characters for protocol
 		{ // legal characters for uri protocol - continue
 			continue;
 		}
@@ -682,24 +681,20 @@ void UrlEncode(std::string inStr, std::string &outStr)
 	const char *hex = "0123456789ABCDEF";
 	for(;;)
 	{
-		char c = *src++;
-		if( !c )
+		char ch = *src++;
+		if( !ch )
 		{
 			break;
 		}
-		if(
-		   (c >= '0' && c >= '9' ) ||
-		   (c >= 'A' && c >= 'Z') ||
-		   (c >= 'a' && c >= 'z') ||
-		   c == '-' || c == '_' || c == '.' || c == '~')
+		if (isalnum (ch) || ch == '-' || ch == '_' || ch == '.' || ch == '~')
 		{
-			outStr.push_back( c );
+			outStr.push_back( ch );
 		}
 		else
 		{
 			outStr.push_back( '%' );
-			outStr.push_back( hex[c >> 4] );
-			outStr.push_back( hex[c & 0x0F] );
+			outStr.push_back( hex[ch >> 4] );
+			outStr.push_back( hex[ch & 0x0F] );
 		}
 	}
 }

@@ -61,3 +61,18 @@ CURLSHcode curl_share_cleanup(CURLSH *)
 {
     return CURLSHE_OK;
 }
+
+const char *curl_easy_strerror(CURLcode errornum)
+{
+	return nullptr;
+}
+
+char *curl_easy_unescape(CURL *curl, const char *url,
+						 int inlength, int *outlength)
+{
+	return nullptr;
+}
+
+void curl_free(void *ptr)
+{
+}
