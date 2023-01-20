@@ -386,3 +386,363 @@ void PrivateInstanceAAMP::UnlockGetPositionMilliseconds()
 void PrivateInstanceAAMP::SetPreferredLanguages(char const*, char const*, char const*, char const*, char const*)
 {
 }
+
+bool PrivateInstanceAAMP::IsLiveAdjustRequired()
+{
+    return false;
+}
+
+void PrivateInstanceAAMP::UpdateLiveOffset()
+{
+}
+
+void PrivateInstanceAAMP::StoreLanguageList(const std::set<std::string> &langlist)
+{
+}
+
+bool PrivateInstanceAAMP::DownloadsAreEnabled(void)
+{
+    return true;
+}
+
+void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, int error_code)
+{
+}
+
+long PrivateInstanceAAMP::GetMaximumBitrate()
+{
+    return 0;
+}
+
+void PrivateInstanceAAMP::UpdateVideoEndProfileResolution(MediaType mediaType, long bitrate, int width, int height)
+{
+}
+
+long PrivateInstanceAAMP::GetDefaultBitrate()
+{
+    return 0;
+}
+
+void PrivateInstanceAAMP::UpdateDuration(double seconds)
+{
+}
+
+void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char * description, bool isRetryEnabled, int32_t secManagerClassCode, int32_t secManagerReasonCode, int32_t secClientBusinessStatus)
+{
+}
+
+void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
+{
+}
+
+void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName)
+{
+}
+
+bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *buffer, std::string& effectiveUrl,
+                int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
+                bool resetBuffer, MediaType fileType, long *bitrate, int * fogError,
+                double fragmentDurationSeconds,CMCDHeaders *pCMCDMetrics)
+{
+    return true;
+}
+
+void PrivateInstanceAAMP::DisableMediaDownloads(MediaType type)
+{
+}
+
+void PrivateInstanceAAMP::SetContentType(const char *cType)
+{
+}
+
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, long bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime)
+{
+}
+
+void PrivateInstanceAAMP::CurlTerm(AampCurlInstance startIdx, unsigned int instanceCount)
+{
+}
+
+void PrivateInstanceAAMP::DisableDownloads(void)
+{
+}
+
+int PrivateInstanceAAMP::GetInitialBufferDuration()
+{
+    return 0;
+}
+
+long PrivateInstanceAAMP::GetMinimumBitrate()
+{
+    return 0;
+}
+
+long long PrivateInstanceAAMP::GetPositionMs()
+{
+    return 0;
+}
+
+bool PrivateInstanceAAMP::IsAuxiliaryAudioEnabled(void)
+{
+    return true;
+}
+
+bool PrivateInstanceAAMP::IsPlayEnabled()
+{
+    return true;
+}
+
+bool PrivateInstanceAAMP::IsSubtitleEnabled(void)
+{
+    return true;
+}
+
+void PrivateInstanceAAMP::NotifyAudioTracksChanged()
+{
+}
+
+void PrivateInstanceAAMP::NotifyFirstFragmentDecrypted()
+{
+}
+
+void PrivateInstanceAAMP::NotifyTextTracksChanged()
+{
+}
+
+void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
+{
+}
+
+void PrivateInstanceAAMP::ReportBulkTimedMetadata()
+{
+}
+
+void PrivateInstanceAAMP::ReportTimedMetadata(bool init)
+{
+}
+
+void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const char *szName, const char *szContent, int nb, bool bSyncCall, const char *id, double durationMS)
+{
+}
+
+void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(long bitsPerSecond , bool trickPlay,int profile)
+{
+}
+
+void PrivateInstanceAAMP::ResumeTrackInjection(MediaType type)
+{
+}
+
+void PrivateInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const char* szName, const char* szContent, int nb, const char* id, double durationMS)
+{
+}
+
+void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventMode)
+{
+}
+
+void PrivateInstanceAAMP::SendStreamCopy(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
+{
+}
+
+bool PrivateInstanceAAMP::SendTunedEvent(bool isSynchronous)
+{
+    return true;
+}
+
+void PrivateInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput)
+{
+}
+
+void PrivateInstanceAAMP::StopTrackDownloads(MediaType type)
+{
+}
+
+void PrivateInstanceAAMP::StopTrackInjection(MediaType type)
+{
+}
+
+void PrivateInstanceAAMP::SyncBegin(void)
+{
+}
+
+void PrivateInstanceAAMP::SyncEnd(void)
+{
+}
+
+void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
+{
+}
+
+void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
+{
+}
+
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, long bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
+{
+}
+
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(AAMPAbrInfo & info)
+{
+}
+
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, long bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData)
+{
+}
+
+bool PrivateInstanceAAMP::WebVTTCueListenersRegistered(void)
+{
+    return true;
+}
+
+LangCodePreference PrivateInstanceAAMP::GetLangCodePreference()
+{
+    return ISO639_NO_LANGCODE_PREFERENCE;
+}
+
+TunedEventConfig PrivateInstanceAAMP::GetTuneEventConfig(bool isLive)
+{
+    return eTUNED_EVENT_ON_PLAYLIST_INDEXED;
+}
+
+std::string PrivateInstanceAAMP::GetNetworkProxy()
+{
+    std::string s;
+    return s;
+}
+
+AampCurlInstance PrivateInstanceAAMP::GetPlaylistCurlInstance(MediaType type, bool isInitialDownload)
+{
+    return eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO;
+}
+
+void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int periodMs, int track)
+{
+}
+
+void PrivateInstanceAAMP::CheckForDiscontinuityStall(MediaType mediaType)
+{
+}
+
+bool PrivateInstanceAAMP::Discontinuity(MediaType track, bool setDiscontinuityFlag)
+{
+    return true;
+}
+
+bool PrivateInstanceAAMP::DiscontinuitySeenInAllTracks()
+{
+    return true;
+}
+
+bool PrivateInstanceAAMP::DiscontinuitySeenInAnyTracks()
+{
+    return true;
+}
+
+void PrivateInstanceAAMP::EnableMediaDownloads(MediaType type)
+{
+}
+
+void PrivateInstanceAAMP::EndOfStreamReached(MediaType mediaType)
+{
+}
+
+uint32_t  PrivateInstanceAAMP::GetAudTimeScale(void)
+{
+    return 0u;
+}
+
+long PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
+{
+    return 0;
+}
+
+long PrivateInstanceAAMP::GetIframeBitrate()
+{
+    return 0;
+}
+
+long PrivateInstanceAAMP::GetIframeBitrate4K()
+{
+    return 0;
+}
+
+AampLLDashServiceData*  PrivateInstanceAAMP::GetLLDashServiceData(void)
+{
+    return nullptr;
+}
+
+uint32_t  PrivateInstanceAAMP::GetVidTimeScale(void)
+{
+    return 0u;
+}
+
+void PrivateInstanceAAMP::InterruptableMsSleep(int timeInMs)
+{
+}
+
+bool PrivateInstanceAAMP::IsDiscontinuityIgnoredForOtherTrack(MediaType track)
+{
+    return true;
+}
+
+bool PrivateInstanceAAMP::IsDiscontinuityProcessPending()
+{
+    return true;
+}
+
+bool PrivateInstanceAAMP::IsSinkCacheEmpty(MediaType mediaType)
+{
+    return true;
+}
+
+const char* PrivateInstanceAAMP::MediaTypeString(MediaType fileType)
+{
+    return nullptr;
+}
+
+void PrivateInstanceAAMP::NotifyBitRateChangeEvent(int bitrate, BitrateChangeReason reason, int width, int height, double frameRate, double position, bool GetBWIndex, VideoScanType scantype, int aspectRatioWidth, int aspectRatioHeight)
+{
+}
+
+void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
+{
+}
+
+void PrivateInstanceAAMP::ResetEOSSignalledFlag()
+{
+}
+
+void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatus(void)
+{
+}
+
+void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, MediaType trackType)
+{
+}
+
+void PrivateInstanceAAMP::SendStalledErrorEvent()
+{
+}
+
+void PrivateInstanceAAMP::SendStreamTransfer(MediaType mediaType, GrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment, bool discontinuity)
+{
+}
+
+void PrivateInstanceAAMP::SetTrackDiscontinuityIgnoredStatus(MediaType track)
+{
+}
+
+void PrivateInstanceAAMP::StopBuffering(bool forceStop)
+{
+}
+
+bool PrivateInstanceAAMP::TrackDownloadsAreEnabled(MediaType type)
+{
+    return true;
+}
+
+void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
+{
+}
+

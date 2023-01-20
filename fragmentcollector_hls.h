@@ -17,15 +17,15 @@
  * limitations under the License.
 */
 
- /** 
+ /**
  *  @file  fragmentcollector_hls.h
- *  @brief This file handles HLS Streaming functionality for AAMP player	
+ *  @brief This file handles HLS Streaming functionality for AAMP player
  *
  *  @section DESCRIPTION
- *  
- *  This file handles HLS Streaming functionality for AAMP player. Class/structures 
- *	required for hls fragment collector is defined here.  
- *  Major functionalities include 
+ *
+ *  This file handles HLS Streaming functionality for AAMP player. Class/structures
+ *	required for hls fragment collector is defined here.
+ *  Major functionalities include
  *	a) Manifest / fragment collector and trick play handling
  *	b) DRM Initialization / Key acquisition
  *  c) Decrypt and inject fragments for playback
@@ -65,17 +65,17 @@
 
 /**
 * \struct	HlsProtectionInfo
-* \brief	HlsStreamInfo structure for stream related information 
+* \brief	HlsStreamInfo structure for stream related information
 */
 typedef struct HlsProtectionInfo
-{ 
+{
 	struct DrmSessionParams* drmData; /**< Session data */
 	HlsProtectionInfo *next;          /**< pointer to access next element of Queue */
 } HlsProtectionInfo;
 
 /**
 * \struct	HlsStreamInfo
-* \brief	HlsStreamInfo structure for stream related information 
+* \brief	HlsStreamInfo structure for stream related information
 */
 typedef struct HlsStreamInfo: public StreamInfo
 { // #EXT-X-STREAM-INFs
@@ -93,7 +93,7 @@ typedef struct HlsStreamInfo: public StreamInfo
 
 /**
 * \struct	MediaInfo
-* \brief	MediaInfo structure for Media related information 
+* \brief	MediaInfo structure for Media related information
 */
 typedef struct MediaInfo
 { // #EXT-X-MEDIA
@@ -189,7 +189,7 @@ public:
 	TrackState(AampLogManager *logObj, TrackType type, class StreamAbstractionAAMP_HLS* parent, PrivateInstanceAAMP* aamp, const char* name);
 	/***************************************************************************
      	 * @fn ~TrackState
-     	 * @brief copy constructor function 
+     	 * @brief copy constructor function
     	 *
      	 * @return void
      	***************************************************************************/
@@ -208,7 +208,7 @@ public:
      	 * @fn Start
     	 *
      	 * @return void
-     	 **************************************************************************/  
+     	 **************************************************************************/
 	void Start();
 	/***************************************************************************
      	 * @fn Stop
@@ -233,7 +233,7 @@ public:
 
 	/***************************************************************************
      	 * @fn IndexPlaylist
-     	 * @brief Function to parse playlist 
+     	 * @brief Function to parse playlist
      	 *
      	 * @return double total duration from playlist
      	***************************************************************************/
@@ -312,13 +312,13 @@ public:
 	/***************************************************************************
     	 * @fn HasDiscontinuityAroundPosition
      	 * @param[in] position Position to check for discontinuity
-	 * @param[in] useStartTime starting time to search discontinuity
-	 * @param[out] diffBetweenDiscontinuities discontinuity position minus input position
-	 * @param[in] playPosition playback position 
-	 * @param[in] inputCulledSec culled seconds
-	 * @param [in] inputProgramDateTime prorgram date and time in epoc format
-	 * @param [out] isDiffChkReq indicates is diffBetweenDiscontinuities check required 
-	 * @return true if discontinuity present around given position
+		 * @param[in] useStartTime starting time to search discontinuity
+		 * @param[out] diffBetweenDiscontinuities discontinuity position minus input position
+		 * @param[in] playPosition playback position
+		 * @param[in] inputCulledSec culled seconds
+		 * @param [in] inputProgramDateTime prorgram date and time in epoc format
+		 * @param [out] isDiffChkReq indicates is diffBetweenDiscontinuities check required
+		 * @return true if discontinuity present around given position
      	 ***************************************************************************/
 	bool HasDiscontinuityAroundPosition(double position, bool useStartTime, double &diffBetweenDiscontinuities, double playPosition,double inputCulledSec,double inputProgramDateTime,bool &isDiffChkReq);
 
@@ -371,7 +371,7 @@ public:
 	void FindTimedMetadata(bool reportbulk=false, bool bInitCall = false);
 	/***************************************************************************
 	 * @fn SetXStartTimeOffset
-     	 * @brief Function to set XStart Time Offset Value 
+     	 * @brief Function to set XStart Time Offset Value
      	 *
          * @return void
      	 ***************************************************************************/
@@ -530,7 +530,7 @@ public:
 	std::string mEffectiveUrl; 		 /**< uri associated with downloaded playlist (takes into account 302 redirect) */
 	std::string mPlaylistUrl; 		 /**< uri associated with downloaded playlist */
 	GrowableBuffer playlist; 		 /**< downloaded playlist contents */
-	
+
 	double mProgramDateTime;
 	GrowableBuffer index; 			 /**< packed IndexNode records for associated playlist */
 	int indexCount; 			 /**< number of indexed fragments in currently indexed playlist */
@@ -548,7 +548,7 @@ public:
 	double playlistPosition;                 /**< playlist-relative time of most recent fragment-of-interest; -1 if undefined */
 	double playTarget;                       /**< initially relative seek time (seconds) based on playlist window, but updated as a play_target */
 	double playTargetBufferCalc;
-	double lastDownloadedIFrameTarget;	 /**< stores last downloaded iframe segment target value for comparison */ 
+	double lastDownloadedIFrameTarget;	 /**< stores last downloaded iframe segment target value for comparison */
 	double targetDurationSeconds;            /**< copy of \#EXT-X-TARGETDURATION to manage playlist refresh frequency */
 	int mDeferredDrmKeyMaxTime;	         /**< copy of \#EXT-X-X1-LIN DRM refresh randomization Max time interval */
 	StreamOutputFormat streamOutputFormat;   /**< type of data encoded in each fragment */
@@ -612,7 +612,7 @@ class PrivateInstanceAAMP;
 /**
  * \class StreamAbstractionAAMP_HLS
  *
- * \brief HLS Stream handler class 
+ * \brief HLS Stream handler class
  *
  * This class is meant to handle download of HLS manifest and interface play controls
  */
@@ -642,7 +642,7 @@ public:
          * @fn ~StreamAbstractionAAMP_HLS
          *
          * @return void
-         ***************************************************************************/ 
+         ***************************************************************************/
 	~StreamAbstractionAAMP_HLS();
 	/*****************************************************************************
          * @brief assignment operator disabled
@@ -824,19 +824,19 @@ public:
 	 * @brief check if current stream have 4K content
 	 * @param height - resolution of 4K stream if found
 	 * @param bandwidth - bandwidth of 4K stream if foudd
-	 * @return true on success 
+	 * @return true on success
 	 */
 	virtual bool Is4KStream(int &height, long &bandwidth) override;
 
 //private:
 	// TODO: following really should be private, but need to be accessible from callbacks
-	
-	TrackState* trackState[AAMP_TRACK_COUNT];		/**< array to store all tracks of a stream */
+
+	TrackState* trackState[AAMP_TRACK_COUNT]{};		/**< array to store all tracks of a stream */
 	float rate;						/**< Rate of playback  */
 	float maxIntervalBtwPlaylistUpdateMs;			/**< Interval between playlist update */
 	GrowableBuffer mainManifest;				/**< Main manifest buffer holder */
 	bool allowsCache;					/**< Flag indicating if playlist needs to be cached or not */
-	HlsStreamInfo streamInfo[MAX_PROFILE];			/**< Array to store multiple stream information */
+	HlsStreamInfo streamInfo[MAX_PROFILE]{};			/**< Array to store multiple stream information */
 	MediaInfo mediaInfo[MAX_PROFILE];			/**< Array to store multiple media within stream */
 
 	double seekPosition;					/**< Seek position for playback */
@@ -860,7 +860,7 @@ public:
          * @param[in] trackType Track type
          * @param[in] format stream output type
          * @return string playlist URI
-         ***************************************************************************/ 
+         ***************************************************************************/
 	const char *GetPlaylistURI(TrackType trackType, StreamOutputFormat* format = NULL);
 	int lastSelectedProfileIndex; 	/**< Variable  to restore in case of playlist download failure */
 	/***************************************************************************
@@ -889,8 +889,8 @@ public:
 	void NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale) override;
 	/**
          * @fn StartSubtitleParser
-         * @return void 
-         */ 
+         * @return void
+         */
 	void StartSubtitleParser() override;
 	/**
          * @fn PauseSubtitleParser

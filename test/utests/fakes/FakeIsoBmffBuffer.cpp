@@ -50,3 +50,37 @@ bool IsoBmffBuffer::getEMSGData(uint8_t* &message, uint32_t &messageLen, uint8_t
 {
     return false;
 }
+
+Box* IsoBmffBuffer::getChunkedfBox() const
+{
+    return nullptr;
+}
+
+bool IsoBmffBuffer::getFirstPTSInternal(const std::vector<Box*> *boxes, uint64_t &pts)
+{
+    return true;
+}
+
+bool IsoBmffBuffer::getFirstPTS(uint64_t &pts)
+{
+    return true;
+}
+
+bool IsoBmffBuffer::getMdatBoxCount(size_t &count)
+{
+    return true;
+}
+
+std::vector<Box*> *IsoBmffBuffer::getParsedBoxes()
+{
+    return nullptr;
+}
+
+uint64_t IsoBmffBuffer::getSampleDurationInernal(const std::vector<Box*> *boxes)
+{
+    return 0;
+}
+
+void IsoBmffBuffer::getSampleDuration(Box *box, uint64_t &fduration)
+{
+}

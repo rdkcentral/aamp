@@ -766,6 +766,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 	vProfileCount = iFrameCount = lineNum = 0;
 	aamp->mhAbrManager.clearProfiles();
 	bool useavgbw = ISCONFIGSET(eAAMPConfig_AvgBWForABR);
+
 	while (ptr)
 	{
 		char *next = mystrpbrk(ptr);
@@ -4495,7 +4496,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					else
 					{
 						AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : VideoTrack -couldn't determine format from streamInfo->codec %s",
-							streamInfo->codecs);
+							 streamInfo[currentProfileIndex].codecs);
 					}
 				}
 				else /*Video Track - No demuxing*/
@@ -5341,17 +5342,14 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(AampLogManager *logObj, cla
 	}
 	//targetDurationSeconds = 0.0;
 	aamp->mhAbrManager.clearProfiles();
-	memset(&trackState[0], 0x00, sizeof(trackState));
 	aamp->CurlInit(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT,aamp->GetNetworkProxy());
 	// Initializing curl instances for playlists.
 	aamp->CurlInit(eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO, AAMP_TRACK_COUNT, aamp->GetNetworkProxy());
-	memset(streamInfo, 0, sizeof(*streamInfo));
 	pthread_mutex_init(&mDiscoCheckMutex, NULL);
 	if(ISCONFIGSET(eAAMPConfig_EnableCMCD))
 	{
 		pCMCDMetrics = new ManifestCMCDHeaders();
 	}
-
 }
 
 
@@ -6982,14 +6980,14 @@ void StreamAbstractionAAMP_HLS::ConfigureAudioTrack()
 bool StreamAbstractionAAMP_HLS::Is4KStream(int &height, long &bandwidth)
 {
 	bool Stream4k = false;
-	for (auto stream : streamInfo)
+    for (int ii = 0; ii < mProfileCount; ii++)
 	{
-		if (stream.resolution.height > AAMP_FHD_HEIGHT)
+        if (streamInfo[ii].resolution.height > AAMP_FHD_HEIGHT)
 		{
-			height = stream.resolution.height ;
-			bandwidth = stream.bandwidthBitsPerSecond;
+			height = streamInfo[ii].resolution.height;
+			bandwidth = streamInfo[ii].bandwidthBitsPerSecond;
 			Stream4k = true;
-			AAMPLOG_INFO("4K profile found resolution : %d*%d bandwidth %ld", stream.resolution.height, stream.resolution.width, stream.bandwidthBitsPerSecond);
+			AAMPLOG_INFO("4K profile found resolution : %d*%d bandwidth %ld", streamInfo[ii].resolution.height, streamInfo[ii].resolution.width, streamInfo[ii].bandwidthBitsPerSecond);
 			break;
 		}
 	}

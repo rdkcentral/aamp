@@ -56,3 +56,18 @@ bool AampCacheHandler::IsUrlCached(std::string url)
 {
     return false;
 }
+
+void AampCacheHandler::RemoveFromPlaylistCache(const std::string url)
+{
+}
+
+bool AampCacheHandler::RetrieveFromInitFragCache(const std::string url, GrowableBuffer* buffer, std::string& effectiveUrl)
+{
+    return false;
+}
+
+void AampCacheHandler::InsertToInitFragCache(const std::string url, const GrowableBuffer* buffer, std::string effectiveUrl, MediaType fileType)
+{
+}
+
+

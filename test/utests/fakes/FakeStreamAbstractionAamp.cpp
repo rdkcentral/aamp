@@ -127,3 +127,149 @@ bool StreamAbstractionAAMP::SetTextStyle(const std::string &options)
 {
     return false;
 }
+
+void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
+{
+}
+
+void MediaTrack::AbortWaitForCachedFragment()
+{
+}
+
+void MediaTrack::AbortWaitForPlaylistDownload()
+{
+}
+
+bool MediaTrack::Enabled()
+{
+    return true;
+}
+
+void MediaTrack::FlushFragments()
+{
+}
+
+int MediaTrack::GetCurrentBandWidth()
+{
+    return 0;
+}
+
+CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
+{
+    return NULL;
+}
+
+MediaType MediaTrack::GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe)
+{
+    return eMEDIATYPE_DEFAULT;
+}
+
+void MediaTrack::PlaylistDownloader()
+{
+}
+
+void MediaTrack::SetCurrentBandWidth(int bandwidthBps)
+{
+}
+
+void MediaTrack::StartInjectLoop()
+{
+}
+
+void MediaTrack::StartPlaylistDownloaderThread()
+{
+}
+
+MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAAMP* aamp, const char* name)
+{
+}
+
+MediaTrack::~MediaTrack()
+{
+}
+
+void MediaTrack::StopInjectLoop()
+{
+}
+
+void MediaTrack::StopPlaylistDownloaderThread()
+{
+}
+
+void MediaTrack::UpdateTSAfterFetch()
+{
+}
+
+bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
+{
+    return true;
+}
+
+void MediaTrack::WaitForManifestUpdate()
+{
+}
+
+bool StreamAbstractionAAMP::CheckForRampDownLimitReached()
+{
+    return true;
+}
+
+bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
+{
+    return true;
+}
+
+double StreamAbstractionAAMP::LastVideoFragParsedTimeMS(void)
+{
+    return 0;
+}
+
+int StreamAbstractionAAMP::GetDesiredProfile(bool getMidProfile)
+{
+    return 0;
+}
+
+int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
+{
+    return 0;
+}
+
+int StreamAbstractionAAMP::GetIframeTrack()
+{
+    return 0;
+}
+
+int StreamAbstractionAAMP::GetMaxBWProfile()
+{
+    return 0;
+}
+
+int StreamAbstractionAAMP::getOriginalCurlError(int http_error)
+{
+    return 0;
+}
+
+void StreamAbstractionAAMP::AbortWaitForAudioTrackCatchup(bool force)
+{
+}
+
+void StreamAbstractionAAMP::CheckForPlaybackStall(bool fragmentParsed)
+{
+}
+
+void StreamAbstractionAAMP::CheckForProfileChange(void)
+{
+}
+
+void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int &newProfileIndex)
+{
+}
+
+void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex, int &newProfileIndex, long nwBandwidth)
+{
+}
+
+void StreamAbstractionAAMP::ReassessAndResumeAudioTrack(bool abort)
+{
+}
+

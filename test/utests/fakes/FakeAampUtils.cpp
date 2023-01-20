@@ -77,3 +77,33 @@ std::size_t GetPrintableThreadID( const std::thread &t )
 {
     return 0;
 }
+
+const FormatMap * GetAudioFormatForCodec( const char *codecs )
+{
+    return NULL;
+}
+
+double ISO8601DateTimeToUTCSeconds(const char *ptr)
+{
+    return 0;
+}
+
+void aamp_ResolveURL(std::string& dst, std::string base, const char *uri , bool bPropagateUriParams)
+{
+}
+
+const char * GetAudioFormatStringForCodec ( StreamOutputFormat input)
+{
+    const char *codec = "UNKNOWN";
+    return codec;
+}
+
+std::string Getiso639map_NormalizeLanguageCode(std::string  lang,LangCodePreference preferLangFormat )
+{
+    return lang;
+}
+
+const FormatMap * GetVideoFormatForCodec( const char *codecs )
+{
+    return NULL;
+}

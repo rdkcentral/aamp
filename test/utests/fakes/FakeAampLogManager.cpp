@@ -111,3 +111,7 @@ bool AampLogManager::isLogworthyErrorCode(int errorCode)
 {
 	return false;
 }
+
+void AampLogManager::LogABRInfo(AAMPAbrInfo *pstAbrInfo)
+{
+}

@@ -22,17 +22,17 @@
 long ABRManager::mPersistBandwidth = 0;
 long long ABRManager::mPersistBandwidthUpdatedTime = 0;
 
-ABRManager::ABRManager() 
+ABRManager::ABRManager()
 {
 }
 
-int ABRManager::getProfileCount() const 
+int ABRManager::getProfileCount() const
 {
     return 0;
 }
 
-int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth) 
-{ 
+int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth)
+{
     return 0;
 }
 
@@ -41,7 +41,69 @@ int ABRManager::getMaxBandwidthProfile(const std::string& periodId)
     return 0;
 }
 
-long ABRManager::getBandwidthOfProfile(int profileIndex) 
+long ABRManager::getBandwidthOfProfile(int profileIndex)
 {
     return 0;
 }
+
+void ABRManager::clearProfiles()
+{
+    return;
+}
+
+void ABRManager::addProfile(ABRManager::ProfileInfo profile)
+{
+}
+
+int ABRManager::getRampedDownProfileIndex(int currentProfileIndex, const std::string& periodId)
+{
+    return 0;
+}
+
+int ABRManager::getUserDataOfProfile(int currentProfileIndex)
+{
+    return 0;
+}
+
+void ABRManager::setDefaultInitBitrate(long defaultInitBitrate)
+{
+}
+
+void ABRManager::updateProfile()
+{
+}
+
+int ABRManager::getDesiredIframeProfile() const
+{
+    return 0;
+}
+
+int ABRManager::getInitialProfileIndex(bool chooseMediumProfile, const std::string& periodId)
+{
+    return 0;
+}
+
+int ABRManager::getLowestIframeProfile() const
+{
+    return 0;
+}
+
+int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, long currentBandwidth, long networkBandwidth, int nwConsistencyCnt, const std::string& periodId)
+{
+    return 0;
+}
+
+int ABRManager::getRampedUpProfileIndex(int currentProfileIndex, const std::string& periodId)
+{
+    return 0;
+}
+
+bool ABRManager::isProfileIndexBitrateLowest(int currentProfileIndex, const std::string& periodId)
+{
+    return true;
+}
+
+void ABRManager::setDefaultIframeBitrate(long defaultIframeBitrate)
+{
+}
+

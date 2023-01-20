@@ -72,28 +72,28 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 }
 
 bool AAMPGstPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
-{ 
+{
 	return true;
 }
 
 long AAMPGstPlayer::GetDurationMilliseconds(void)
-{ 
-	return 0; 
+{
+	return 0;
 }
 
 long AAMPGstPlayer::GetPositionMilliseconds(void)
-{ 
-	return 0; 
+{
+	return 0;
 }
 
 long long AAMPGstPlayer::GetVideoPTS(void)
-{ 
-	return 0; 
+{
+	return 0;
 }
 
 unsigned long AAMPGstPlayer::getCCDecoderHandle(void)
-{ 
-	return 0; 
+{
+	return 0;
 }
 
 void AAMPGstPlayer::SetVideoRectangle(int x, int y, int w, int h)
@@ -120,19 +120,19 @@ void AAMPGstPlayer::SetAudioVolume(int volume)
 {
 }
 
-bool AAMPGstPlayer::Discontinuity( MediaType mediaType) 
-{ 
-	return true; 
+bool AAMPGstPlayer::Discontinuity( MediaType mediaType)
+{
+	return true;
 }
 
-bool AAMPGstPlayer::CheckForPTSChangeWithTimeout(long timeout) 
-{ 
-	return true; 
+bool AAMPGstPlayer::CheckForPTSChangeWithTimeout(long timeout)
+{
+	return true;
 }
 
 bool AAMPGstPlayer::IsCacheEmpty(MediaType mediaType)
-{ 
-	return true; 
+{
+	return true;
 }
 
 void AAMPGstPlayer::ResetEOSSignalledFlag()
@@ -151,25 +151,25 @@ void AAMPGstPlayer::GetVideoSize(int &w, int &h)
 {
 }
 
-void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *ptr, size_t len, MediaType type) 
+void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *ptr, size_t len, MediaType type)
 {
 }
 
-void AAMPGstPlayer::ClearProtectionEvent() 
+void AAMPGstPlayer::ClearProtectionEvent()
 {
 }
 
-void AAMPGstPlayer::SignalTrickModeDiscontinuity() 
+void AAMPGstPlayer::SignalTrickModeDiscontinuity()
 {
 }
 
-void AAMPGstPlayer::SeekStreamSink(double position, double rate) 
+void AAMPGstPlayer::SeekStreamSink(double position, double rate)
 {
 }
 
-std::string AAMPGstPlayer::GetVideoRectangle() 
-{ 
-	return std::string(); 
+std::string AAMPGstPlayer::GetVideoRectangle()
+{
+	return std::string();
 }
 
 void AAMPGstPlayer::StopBuffering(bool forceStop)
