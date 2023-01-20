@@ -354,6 +354,14 @@ public:
 	void ProfileEnd(ProfilerBucketType type);
 
 	/**
+	 * @fn ProfileReset
+	 *
+	 * @param[in] type - Bucket type
+	 * @return void
+	 */
+	void ProfileReset(ProfilerBucketType type);
+
+	/**
 	 * @fn ProfilePerformed
 	 *
 	 * @param[in] type - Bucket type
