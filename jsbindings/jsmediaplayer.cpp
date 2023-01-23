@@ -2693,7 +2693,7 @@ JSValueRef AAMPMediaPlayerJS_setPreferredAudioLanguage(JSContextRef ctx, JSObjec
 		return JSValueMakeUndefined(ctx);
 	}
 
-	if( argumentCount>=1 && argumentCount<=4)
+	if( argumentCount>=1 && argumentCount<=5)
 	{
 		char* lanList = aamp_JSValueToCString(ctx,arguments[0], NULL);
 		char *rendition = NULL;

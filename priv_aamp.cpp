@@ -2509,6 +2509,8 @@ void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, in
 			{
 				case PARTIAL_FILE_DOWNLOAD_TIME_EXPIRED_AAMP:
 						error_code = CURLE_PARTIAL_FILE;
+						snprintf(description,MAX_DESCRIPTION_SIZE, "%s : Curl Error Code %d, Download time expired", tuneFailureMap[tuneFailure].description, error_code);
+						break;
 				case CURLE_OPERATION_TIMEDOUT:
 						snprintf(description,MAX_DESCRIPTION_SIZE, "%s : Curl Error Code %d, Download time expired", tuneFailureMap[tuneFailure].description, error_code);
 						break;
