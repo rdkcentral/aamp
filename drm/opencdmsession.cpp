@@ -112,7 +112,7 @@ void LogPerformanceExt(const char* strFunc, uint64_t msStart, uint64_t msEnd, SE
             }
         }
         if(idx == MAX_THREADS) {
-            AAMPLOG_WARN(">>>>>>>> All slots allocated!!!, idx = %d, clearing the array.", idx);
+            AAMPLOG_WARN("All slots allocated!!!, idx = %d, clearing the array.", idx);
             memset(stats, 0, sizeof(DecryptStats) * MAX_THREADS);
             return;
         }
@@ -127,7 +127,7 @@ void LogPerformanceExt(const char* strFunc, uint64_t msStart, uint64_t msEnd, SE
                stats[idx].nTimeTotal += stats[idx].nTimeInterval;
                double avgTime = (double)stats[idx].nTimeTotal/(double)stats[idx].nCallsTotal;
                if(avgTime >= DECRYPT_AVG_TIME_THRESHOLD) {
-                  AAMPLOG_WARN(">>>>>>>> Thread ID %X (%d) Avg Time %0.2llf ms, Avg Bytes %llu  calls (%llu) Interval avg time %0.2llf, Interval avg bytes %llu",
+                  AAMPLOG_WARN("%s Thread ID %X (%d) Avg Time %0.2lf ms, Avg Bytes %llu  calls (%llu) Interval avg time %0.2lf, Interval avg bytes %llu",
                      strFunc, stats[idx].threadID, idx, avgTime, stats[idx].nBytesTotal/stats[idx].nCallsTotal,
                      stats[idx].nCallsTotal, (double)stats[idx].nTimeInterval/(double)INTERVAL,
                      stats[idx].nBytesInterval/INTERVAL);

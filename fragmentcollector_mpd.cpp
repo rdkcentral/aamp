@@ -84,12 +84,12 @@
 #define MEDIATYPE_IMAGE "image"
 
 // weights used for autio/subtitle track-selection heuristic
-#define AAMP_LANGUAGE_SCORE 1000000000UL  /**< Top priority:  matching language **/
-#define AAMP_SCHEME_ID_SCORE 100000000L  /**< 2nd priority to scheme id matching **/
-#define AAMP_LABEL_SCORE 10000000L       /**< 3rd priority to  label matching **/
-#define AAMP_ROLE_SCORE 1000000L         /**< 4th priority to role/rendition matching **/
-#define AAMP_TYPE_SCORE 100000L          /**< 5th priority to type matching **/
-#define AAMP_CODEC_SCORE 1000L           /**< Lowest priority: matchng codec **/
+#define AAMP_LANGUAGE_SCORE 1000000000ULL  /**< Top priority:  matching language **/
+#define AAMP_SCHEME_ID_SCORE 100000000ULL  /**< 2nd priority to scheme id matching **/
+#define AAMP_LABEL_SCORE 10000000ULL       /**< 3rd priority to  label matching **/
+#define AAMP_ROLE_SCORE 1000000ULL         /**< 4th priority to role/rendition matching **/
+#define AAMP_TYPE_SCORE 100000ULL          /**< 5th priority to type matching **/
+#define AAMP_CODEC_SCORE 1000ULL           /**< Lowest priority: matchng codec **/
 
 static double ParseISO8601Duration(const char *ptr);
 
@@ -554,7 +554,7 @@ bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptatio
 				if(iter != aamp->preferredCodecList.end())
 				{  /* track is in preferred codec list */
 					int distance = std::distance(aamp->preferredCodecList.begin(),iter);
-					score = ((aamp->preferredCodecList.size()-distance))*AAMP_CODEC_SCORE; /* bonus for codec match */
+					score = ((aamp->preferredCodecList.size()-distance)) * AAMP_CODEC_SCORE; /* bonus for codec match */
 				}
 				AudioType codecType = getCodecType(codecValue, rep);
 				score += (uint32_t)codecType;
@@ -6751,7 +6751,7 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 				if(iter != aamp->preferredLanguagesList.end())
 				{ // track is in preferred language list
 					int distance = std::distance(aamp->preferredLanguagesList.begin(),iter);
-					score += ((aamp->preferredLanguagesList.size()-distance))*AAMP_LANGUAGE_SCORE; // big bonus for language match
+					score += ((aamp->preferredLanguagesList.size()-distance)) * AAMP_LANGUAGE_SCORE; // big bonus for language match
 				}
 			}
 
@@ -6761,7 +6761,7 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 				if(iter != aamp->preferredLabelList.end())
 				{ // track is in preferred language list
 					int distance = std::distance(aamp->preferredLabelList.begin(),iter);
-					score += ((aamp->preferredLabelList.size()-distance))*AAMP_LABEL_SCORE; // big bonus for language match
+					score += ((aamp->preferredLabelList.size()-distance)) * AAMP_LABEL_SCORE; // big bonus for language match
 				}
 			}
 			
@@ -6885,7 +6885,7 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 						if(iter != aamp->preferredLanguagesList.end())
 						{ // track is in preferred language list
 							int distance = std::distance(aamp->preferredLanguagesList.begin(),iter);
-							ac4CurrentScore += ((aamp->preferredLanguagesList.size()-distance))*AAMP_LANGUAGE_SCORE; // big bonus for language match
+							ac4CurrentScore += ((aamp->preferredLanguagesList.size()-distance)) * AAMP_LANGUAGE_SCORE; // big bonus for language match
 						}
 					}
 					if( !aamp->preferredRenditionString.empty() )
@@ -6990,7 +6990,7 @@ bool StreamAbstractionAAMP_MPD::GetBestTextTrackByLanguage( TextTrackInfo &selec
 				if(iter != aamp->preferredTextLanguagesList.end())
 				{ // track is in preferred language list
 					int dist = std::distance(aamp->preferredTextLanguagesList.begin(),iter);
-					score += (aamp->preferredTextLanguagesList.size()-dist)*AAMP_LANGUAGE_SCORE; // big bonus for language match
+					score += (aamp->preferredTextLanguagesList.size()-dist) * AAMP_LANGUAGE_SCORE; // big bonus for language match
 				}
 			}
 			
