@@ -64,152 +64,12 @@ bool PacketSender::Init()
     return Init(SOCKET_PATH);
 }
 
-#ifdef AAMP_SIMULATOR_BUILD
-// in simulator build, create a socket to receive and dump messages that would
-// otherwise go to subtec
-#include <pthread.h>
-static struct SubtecSimulatorState
-{
-	bool started;
-	std::thread threadId;
-	int sockfd;
-} mSubtecSimulatorState;
-
-static bool read32(const unsigned char *ptr, size_t len, std::uint32_t &ret32)
-{
-    bool ret = false;
-    //Load packet header
-    if (len >= sizeof(std::uint32_t))
-    {
-        const std::uint32_t byte0 = static_cast<const uint32_t>(ptr[0]) & 0xFF;
-        const std::uint32_t byte1 = static_cast<const uint32_t>(ptr[1]) & 0xFF;
-        const std::uint32_t byte2 = static_cast<const uint32_t>(ptr[2]) & 0xFF;
-        const std::uint32_t byte3 = static_cast<const uint32_t>(ptr[3]) & 0xFF;
-        ret32 =  byte0 | (byte1 << 8) | (byte2 << 16) | (byte3 << 24);
-        ret = true;
-    }
-    
-    return ret;
-}
-
-static void DumpPacket(const unsigned char *ptr, size_t len)
-{
-    //Get type
-    std::uint32_t type;
-    if (read32(ptr, len, type))
-    {
-        AAMPLOG_INFO("Type:%s:%d", Packet::getTypeString(type).c_str(), type);
-        ptr += 4;
-        len -= 4;
-    }
-    else
-    {
-        AAMPLOG_ERR("Packet read failed on type - returning");
-        return;
-    }
-    //Get Packet counter
-    std::uint32_t counter;
-    if (read32(ptr, len, counter))
-    {
-        AAMPLOG_INFO("Counter:%d", counter);
-        ptr += 4;
-        len -= 4;
-    }
-    else
-    {
-        AAMPLOG_ERR("Packet read failed on type - returning");
-        return;
-    }
-    //Get size
-    std::uint32_t size;
-    if (read32(ptr, len, size))
-    {
-        AAMPLOG_INFO("Packet size:%d", size);
-        ptr += 4;
-        len -= 4;
-    }
-    else
-    {
-        AAMPLOG_ERR("Packet read failed on type - returning");
-        return;
-    }
-    if (len > 0)
-    {
-        AAMPLOG_WARN("Packet data:");
-        DumpBlob(ptr, len);
-    }
-}
-
-static void SubtecSimulatorThread( void *param )
-{
-	struct SubtecSimulatorState *state = (SubtecSimulatorState *)param;
-	struct sockaddr cliaddr;
-	socklen_t sockLen = sizeof(cliaddr);
-	size_t maxBuf = 8*1024; // big enough?
-	unsigned char *buffer = (unsigned char *)malloc(maxBuf);
-	if( buffer )
-	{
-		AAMPLOG_WARN( "SubtecSimulatorThread - listening for packets" );
-		for(;;)
-		{
-			int numBytes = recvfrom( state->sockfd, (void *)buffer, maxBuf, MSG_WAITALL, (struct sockaddr *) &cliaddr, &sockLen);
-			AAMPLOG_INFO( "***SubtecSimulatorThread:\n" );
-            DumpPacket( buffer, numBytes );
-		}
-		free( buffer );
-	}
-	close( state->sockfd );
-	return;
-}
-
-static bool PrepareSubtecSimulator( const char *name )
-{
-	struct SubtecSimulatorState *state = &mSubtecSimulatorState;
-	if( !state->started )
-	{ // already started - ok
-		unlink( name ); // close if left over from previous session to avoid bind failure
-		state->sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
-		if( state->sockfd>=0 )
-		{
-			struct sockaddr_un serverAddr;
-			memset(&serverAddr, 0, sizeof(serverAddr));
-			serverAddr.sun_family = AF_UNIX;
-			strcpy(serverAddr.sun_path, name );
-			socklen_t len = sizeof(serverAddr);
-			if( bind( state->sockfd, (struct sockaddr*)&serverAddr, len ) == 0 )
-			{
-				state->started = true;
-                try
-                {
-                    state->threadId = std::thread(&SubtecSimulatorThread, (void *)state);
-                    AAMPLOG_INFO("Thread created for SubtecSimulatorThread [%lu]", GetPrintableThreadID(state->threadId));
-                }
-                catch(std::exception &e)
-                {
-                    AAMPLOG_ERR( "Failed to create thread SubtecSimulatorThread : %s", e.what());
-                }
-			}
-			else
-			{
-				AAMPLOG_ERR( "SubtecSimulatorThread bind() error: %d", errno );
-			}
-		}
-	}
-	return state->started;
-}
-#endif // AAMP_SIMULATOR_BUILD
-
 bool PacketSender::Init(const char *socket_path)
 {
     bool ret = true;
     std::unique_lock<std::mutex> lock(mStartMutex);
 
     AAMPLOG_INFO("PacketSender::Init with %s", socket_path);
-
-
-#ifdef AAMP_SIMULATOR_BUILD
-	ret = PrepareSubtecSimulator(socket_path);
-#endif
 
     if (!running)
     {
@@ -273,7 +133,7 @@ void PacketSender::sendPacket(PacketPtr && pkt)
     size_t size =  static_cast<ssize_t>(buffer.size());
     if (size > mSockBufSize && size < MAX_SNDBUF_SIZE)
     {
-	int newSize = buffer.size();
+	int newSize = (int)buffer.size();
 	if (::setsockopt(mSubtecSocketHandle, SOL_SOCKET, SO_SNDBUF, &newSize, sizeof(newSize)) == -1)
 	{
             AAMPLOG_WARN("::setsockopt() SO_SNDBUF failed\n");

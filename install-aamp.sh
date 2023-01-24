@@ -357,8 +357,6 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     
     sed -i '' 's:COMMAND gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code TeletextDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/TeletextDbusInterface.xml:COMMAND '"$PWD"'/glib/build/gio/gdbus-2.0/codegen/gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code TeletextDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/TeletextDbusInterface.xml:g' subtec-app/subttxrend-dbus/CMakeLists.txt
     
-    sed -i '' 's:/run/subttx/pes_data_main:/tmp/pes_data_main:g' subtec/libsubtec/PacketSender.hpp
-    
     echo "************************"
     echo "Subtec-App successfully installed!"
     echo "Run by running './install-aamp.sh subtec'"
