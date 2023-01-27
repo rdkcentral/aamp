@@ -59,7 +59,7 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std:
  * @brief PrivateCDAIObjectMPD constructor
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(AampLogManager* logObj, PrivateInstanceAAMP* aamp) : mLogObj(logObj),mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mAdFailed(false), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdtoInsertInNextBreak(), mAdObjThreadStarted(false)
+					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdtoInsertInNextBreak(), mAdObjThreadStarted(false),mImmediateNextAdbreakAvailable(false)
 {
 	mAamp->CurlInit(eCURLINSTANCE_DAI,1,mAamp->GetNetworkProxy());
 }
@@ -389,11 +389,15 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 				mPlacementObj.openPeriodId = "";
 				mPlacementObj.curEndNumber = 0;
 				mPlacementObj.adNextOffset = 0;
+				mImmediateNextAdbreakAvailable = false;
 			}
 			else
 			{
+				//Current ad break finshed and the next ad break is avaialable.
+				//So need to call onAdEvent again from fetcher loop
 				mPlacementObj = mAdtoInsertInNextBreak;
 				mAdtoInsertInNextBreak.curAdIdx = -1;
+				mImmediateNextAdbreakAvailable = true;
 			}
 		}
 	}
@@ -445,7 +449,6 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 				{
 					end = abObj.endPeriodOffset;	//No need to look beyond the adbreakEnd
 				}
-
 				if(key >= start && key <= end)
 				{
 					//Yes, Key is in Adbreak. Find which Ad.
@@ -706,8 +709,6 @@ void PrivateCDAIObjectMPD::FulFillAdObject()
 					mPlacementObj.curEndNumber = 0;
 					mPlacementObj.curAdIdx = 0;
 					mPlacementObj.adNextOffset = 0;
-					bPeriodId = periodId;
-					bOffset = 0;
 				}
 				else
 				{
@@ -717,6 +718,8 @@ void PrivateCDAIObjectMPD::FulFillAdObject()
 					mAdtoInsertInNextBreak.curAdIdx = 0;
 					mAdtoInsertInNextBreak.adNextOffset = 0;
 				}
+				bPeriodId = periodId;
+				bOffset = 0;
 			}
 			if(!finalManifest)
 			{

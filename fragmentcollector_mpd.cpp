@@ -4929,7 +4929,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			AAMPLOG_WARN("mCurrentPeriod  is null");  //CID:84770 - Null Return
 		}
 		mBasePeriodOffset = offsetFromStart;
-
 		onAdEvent(AdEvent::INIT, offsetFromStart);
 
 		UpdateLanguageList();
@@ -9501,16 +9500,27 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						mBasePeriodId = newPeriod->GetId();
 						periodChanged = false; //If the playing period changes, it will be detected below [if(currentPeriodId != mCurrentPeriod->GetId())]
 					}
+					//Calling the function to play ads from first ad break(existing logic).
 					adStateChanged = onAdEvent(AdEvent::DEFAULT);		//TODO: Vinod, We can optimize here.
-
 					if(AdState::IN_ADBREAK_WAIT2CATCHUP == mCdaiObject->mAdState)
 					{
 						waitForAdBreakCatchup= true;
 						ReleasePlaylistLock();
 						break;
 					}
+					//OUTSIDE_ADBREAK means the current ad break playback completed.
 					if(adStateChanged && AdState::OUTSIDE_ADBREAK == mCdaiObject->mAdState)
 					{
+						//If the next ad break is available,need to call onAdEvent again to play DAI ads from the next immediate ad break.
+						//Otherwise, player will switch to base period(source) of second ad break
+						if(mCdaiObject->mImmediateNextAdbreakAvailable)
+						{
+							AAMPLOG_INFO("[CDAI] Going to play next ad break");
+							mCdaiObject->mImmediateNextAdbreakAvailable = false;
+                                                        mBasePeriodOffset = 0;//Not considering the delta from previous period's duration.
+							mCdaiObject->PlaceAds(mpd);// to ensure the second ad break is placed to the ad object
+							adStateChanged = onAdEvent(AdEvent::DEFAULT);//to play Second immediate ad break.
+						}
 						//Just came out from the Adbreak. Need to search the right period
 						for(mIterPeriodIndex=0;mIterPeriodIndex < mNumberOfPeriods;  mIterPeriodIndex++)
 						{

@@ -295,6 +295,7 @@ public:
 	PlacementObj				       mAdtoInsertInNextBreak;
 	double                                         mContentSeekOffset;  /**< Seek offset after the Ad playback */
 	AdState                                        mAdState;            /**< Current state of the CDAI state machine */
+	bool 					       mImmediateNextAdbreakAvailable;/**< Next ad break(immediate/back to back)  need to be placed if the value is true*/
 	/**
 	 * @fn PrivateCDAIObjectMPD
 	 *
