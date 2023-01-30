@@ -7296,9 +7296,12 @@ void PrivateInstanceAAMP::Stop()
 		{ // has sidecar data
 			mpStreamAbstractionAAMP->ResetSubtitle();
 		}
+		// Using StreamLock to make sure this is not interferring with GetFile() from PreCachePlaylistDownloadTask
+		AcquireStreamLock();
 		//Deleting mpStreamAbstractionAAMP here will prevent the extra stop call in TeardownStream()
 		//and will avoid enableDownlaod() call being made unnecessarily
 		SAFE_DELETE(mpStreamAbstractionAAMP);
+		ReleaseStreamLock();
 	}
 
 	TeardownStream(true);
@@ -9518,10 +9521,10 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 			int idx = 0;
 			do
 			{
+				InterruptableMsSleep(sleepTimeBetweenDnld);
+				GetState(state);
 				if(DownloadsAreEnabled())
 				{
-					InterruptableMsSleep(sleepTimeBetweenDnld);
-
 					// First check if the file is already in Cache
 					PreCacheUrlStruct newelem = mPreCacheDnldList.at(idx);
 					
@@ -9535,7 +9538,12 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 						GrowableBuffer playlistStore ;
 						int http_code;
 						double downloadTime;
-						if(GetFile(newelem.url, &playlistStore, playlistEffectiveUrl, &http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true, newelem.type))
+						bool ret = false;
+						// Using StreamLock to avoid StreamAbstractionAAMP deletion when external player commands or stop call received
+						AcquireStreamLock();
+						ret = GetFile(newelem.url, &playlistStore, playlistEffectiveUrl, &http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true, newelem.type);
+						ReleaseStreamLock();
+						if(ret != false)
 						{
 							// If successful download , then insert into Cache 
 							getAampCacheHandler()->InsertToPlaylistCache(newelem.url, &playlistStore, playlistEffectiveUrl, false, newelem.type);
@@ -9552,12 +9560,11 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 						// wait for seek to complete 
 						sleep(1);
 					}
-					else
+					else if (state != eSTATE_RELEASED && state != eSTATE_IDLE && state != eSTATE_ERROR)
 					{
 						usleep(500000); // call sleep for other stats except seeking and prepared, otherwise this thread will run in highest priority until the state changes.
 					}
 				}
-				GetState(state);
 			}while (idx < mPreCacheDnldList.size() && state != eSTATE_RELEASED && state != eSTATE_IDLE && state != eSTATE_ERROR);
 			mPreCacheDnldList.clear();
 			CurlTerm(eCURLINSTANCE_PLAYLISTPRECACHE);
