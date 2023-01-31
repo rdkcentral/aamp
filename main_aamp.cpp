@@ -1260,7 +1260,7 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 				AAMPLOG_WARN("Pausing Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
 				aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 				aamp->StopDownloads();
-				bool retValue = aamp->mStreamSink->Pause(true, false);
+				(void)aamp->mStreamSink->Pause(true, false);
 				aamp->pipeline_paused = true;
 			}
 		}
@@ -3190,13 +3190,13 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 /**
  *   @brief To set the dynamic drm update on key rotation timeout value.
  *
- *   @param[in] preferred timeout value
+ *   @param[in] preferred timeout value in seconds
  */
 void PlayerInstanceAAMP::SetContentProtectionDataUpdateTimeout(int timeout)
 {
 	ERROR_STATE_CHECK_VOID();
 	int timeout_ms = timeout * 1000;
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_ContentProtectionDataUpdateTimeout,timeout);
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_ContentProtectionDataUpdateTimeout,timeout_ms);
 }
 
 /**

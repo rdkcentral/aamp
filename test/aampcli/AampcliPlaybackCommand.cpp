@@ -172,10 +172,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	else if (sscanf(cmd, "seek %lf %d", &seconds, &keepPaused) >= 1)
 	{
 		bool seekWhilePaused = (keepPaused==1);
-		{
-			playerInstanceAamp->Seek(seconds, (keepPaused==1) );
-		}
-		keepPaused = 0;
+		playerInstanceAamp->Seek(seconds, seekWhilePaused );
 	}
 	else if (isCommandMatch(cmd, "slow") )
 	{

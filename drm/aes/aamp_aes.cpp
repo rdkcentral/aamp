@@ -214,7 +214,7 @@ DrmReturn AesDec::SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInf
 	mDrmUrl = drmInfo->keyURI;
 	mDrmState = eDRM_ACQUIRING_KEY;
 	mPrevDrmState = eDRM_INITIALIZED;
-	if (-1 == mCurlInstance)
+	if ((-1 == mCurlInstance) && (aamp != NULL))
 	{
 		mCurlInstance = eCURLINSTANCE_AES;
 		aamp->CurlInit((AampCurlInstance)mCurlInstance,1,aamp->GetLicenseReqProxy());
@@ -314,6 +314,7 @@ DrmReturn AesDec::Decrypt( ProfilerBucketType bucketType, void *encryptedDataPtr
 
 			memcpy(encryptedDataPtr, decryptedDataBuf, encryptedDataLen);
 			free(decryptedDataBuf);
+			(void)decryptedDataLen; // Avoid a warning as this is only used in a log.
 		}
 	}
 	else

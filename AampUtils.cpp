@@ -421,7 +421,6 @@ static size_t MyRpcWriteFunction( void *buffer, size_t size, size_t nmemb, void 
  */
 std::string aamp_PostJsonRPC( std::string id, std::string method, std::string params )
 {
-	bool rc = false;
 	std::string response;
 	CURL *curlhandle= curl_easy_init();
 	if( curlhandle )
@@ -444,7 +443,6 @@ std::string aamp_PostJsonRPC( std::string id, std::string method, std::string pa
 		{
 			int http_code = GetCurlResponseCode(curlhandle);
 			AAMPLOG_WARN("HTTP %d \n", http_code);
-			rc = true;
 		}
 		else
 		{

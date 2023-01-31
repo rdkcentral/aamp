@@ -859,6 +859,7 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 	sample_count = READ_U32(ptr);
 
 	discard = READ_U32(ptr);
+	(void)discard; // Avoid a warning.
 
 	for (unsigned int i=0; i<sample_count; i++)
 	{
@@ -870,14 +871,17 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 		if (flags & TRUN_FLAG_SAMPLE_SIZE_PRESENT)
 		{
 			sample_size = READ_U32(ptr);
+			(void)sample_size; // Avoid a warning.
 		}
 		if (flags & TRUN_FLAG_SAMPLE_FLAGS_PRESENT)
 		{
 			sample_flags = READ_U32(ptr);
+			(void)sample_flags; // Avoid a warning.
 		}
 		if (flags & TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)
 		{
 			sample_composition_time_offset = READ_U32(ptr);
+			(void)sample_composition_time_offset; // Avoid a warning.
 		}
 	}
 	FullBox fbox(sz, Box::TRUN, version, flags);
@@ -972,6 +976,13 @@ TfhdBox* TfhdBox::constructTfhdBox(uint32_t sz, uint8_t *ptr)
 //    logprintf("TFHD constructTfhdBox DefaultSampleDuration: %d",DefaultSampleDuration );
 //    logprintf("TFHD constructTfhdBox DefaultSampleSize: %d",DefaultSampleSize );
 //    logprintf("TFHD constructTfhdBox DefaultSampleFlags: %d",DefaultSampleFlags );
+
+    /* Avoid set but not used warnings. */
+    (void)TrackId;
+    (void)BaseDataOffset;
+    (void)SampleDescriptionIndex;
+    (void)DefaultSampleSize;
+    (void)DefaultSampleFlags;
 
     FullBox fbox(sz, Box::TFHD, version, flags);
     return new TfhdBox(fbox, DefaultSampleDuration);

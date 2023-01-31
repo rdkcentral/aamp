@@ -1946,7 +1946,7 @@ public:
 	/**
 	 *   @brief To set default timeout for Dynamic ContentProtectionDataUpdate on Key Rotation.
 	 *
-	 *   @param[in] preferred timeout value
+	 *   @param[in] preferred timeout value in seconds
 	 */
 	void SetContentProtectionDataUpdateTimeout(int timeout);
 

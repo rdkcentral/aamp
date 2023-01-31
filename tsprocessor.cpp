@@ -2065,6 +2065,8 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 						}
 					}
 				}
+
+				(void)payloadOffset; // Avoid a warning as the last value set may not be used.
 			}
 			if (doThrottle)
 			{
@@ -2640,7 +2642,7 @@ bool TSProcessor::processStartCode(unsigned char *buffer, bool& keepScanning, in
 					H264SPS *pSPS;
 					int mask = 0x40;
 					unsigned char *p = &buffer[INDEX(4)];
-					int slice_type = getUExpGolomb(p, mask);
+					(void)getUExpGolomb(p, mask); // slice_type
 					int pic_parameter_set_id = getUExpGolomb(p, mask);
 					m_currSPSId = m_PPS[pic_parameter_set_id].spsId;
 					pSPS = &m_SPS[m_currSPSId];
@@ -2702,7 +2704,7 @@ bool TSProcessor::processStartCode(unsigned char *buffer, bool& keepScanning, in
 			{
 				unsigned char *newBuff = 0;
 				int newSize = m_emulationPreventionCapacity * 2 + length;
-				newBuff = (unsigned char *)calloc(newSize,sizeof(char));
+				newBuff = (unsigned char *)calloc(newSize,sizeof(unsigned char));
 				if (!newBuff)
 				{
 					ERROR("Error: unable to allocate emulation prevention buffer");
@@ -2786,7 +2788,7 @@ bool TSProcessor::processStartCode(unsigned char *buffer, bool& keepScanning, in
 				{
 					unsigned char *newBuff = 0;
 					int newSize = m_emulationPreventionCapacity * 2 + length;
-					newBuff = (unsigned char *)malloc(newSize*sizeof(char));
+					newBuff = (unsigned char *)malloc(newSize*sizeof(unsigned char));
 					if (!newBuff)
 					{
 						AAMPLOG_ERR("Error: unable to allocate emulation prevention buffer");
@@ -2919,20 +2921,11 @@ void TSProcessor::checkIfInterlaced(unsigned char *packet, int length)
 					{
 						int streamid = packet[payload + 3];
 						int pesHeaderDataLen = packet[payload + 8];
-						int tsbase = payload + 9;
 
 						if ((streamid >= 0xE0) && (streamid <= 0xEF))
 						{
 							// Video
 							m_scanForFrameSize = true;
-						}
-						if (packet[payload + 7] & 0x80)
-						{
-							tsbase += 5;
-						}
-						if (packet[payload + 7] & 0x40)
-						{
-							tsbase += 5;
 						}
 						payload = payload + 9 + pesHeaderDataLen;
 					}
@@ -3279,6 +3272,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 							  WARNING("Warning: PES packet has CRC flag set");
 						  }
 						  payload = payload + 9 + pesHeaderDataLen;
+						  (void)tsbase; // Avoid a warning as the last value set may not be used.
 					  }
 				  }
 			  }
@@ -4081,7 +4075,8 @@ unsigned char* TSProcessor::createNullPFrame(int width, int height, int *nullPFr
 	int sliceBitLen, sliceLen, sliceCount;
 	int numTSPackets;
 	unsigned char slice[16];
-	int i, j, accum, bitcount;
+	int i, j, bitcount;
+	uint32_t accum;
 
 	// Start of Video (19) + Picture (9) + Picture coding extension (9) minus TS packet header
 	requiredLen = sizeof(nullPFrameHeader) - 4;
@@ -4168,8 +4163,12 @@ unsigned char* TSProcessor::createNullPFrame(int width, int height, int *nullPFr
 	FLUSH_ALL_SLICE_BITS();
 	assert(i == sliceLen);
 
+	if (numTSPackets > 0)
+	{
+		nullPFrame = (unsigned char *)malloc(((size_t)numTSPackets)*m_packetSize);
+	}
+
 	i = 0;
-	nullPFrame = (unsigned char *)malloc(numTSPackets*m_packetSize);
 	if (nullPFrame)
 	{
 		if (m_ttsSize)
@@ -4373,7 +4372,7 @@ bool TSProcessor::processSeqParameterSet(unsigned char *p, int length)
 				int aspect_ratio_info_present_flag = getBits(p, mask, 1);
 				if (aspect_ratio_info_present_flag)
 				{
-					int aspect_ratio_idc = getBits(p, mask, 8);
+					(void)getBits(p, mask, 8); // aspect_ratio_idc
 				}
 
 				int overscan_info_present_flag = getBits(p, mask, 1);
@@ -4659,7 +4658,6 @@ bool TSProcessor::FilterAudioCodecBasedOnConfig(StreamOutputFormat audioFormat)
 	bool ignoreProfile = false;
 	bool bDisableEC3 = ISCONFIGSET(eAAMPConfig_DisableEC3);
 	bool bDisableAC3 = bDisableEC3;
-	bool bDisableAC4 = ISCONFIGSET(eAAMPConfig_DisableAC4);
 	// bringing in parity with DASH , if EC3 is disabled ,then ATMOS also will be disabled
 	bool bDisableATMOS = (bDisableEC3) ? true : ISCONFIGSET(eAAMPConfig_DisableATMOS);
 

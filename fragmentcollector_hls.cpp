@@ -640,7 +640,6 @@ static void ParseAttrList(char *attrName, void(*cb)(char *attrName, char *delim,
 			{
 				if (inQuote)
 				{ 	// trailing quote
-					inQuote = false;
 					fin++;
 					break;
 				}
@@ -2249,7 +2248,6 @@ void TrackState::SetDrmContext()
 	// or between KeyMethond when IV or URL changes (for Vanilla AES)
 
 	//CID:93939 - Removed the drmContextUpdated variable which is initialized but not used
-	DrmMetadataNode* drmMetadataIdx = (DrmMetadataNode*)mDrmMetaDataIndex.ptr;
 	mDrmInfo.bPropagateUriParams = ISCONFIGSET(eAAMPConfig_PropogateURIParam);
 #ifdef USE_OPENCDM
 	if (AampHlsDrmSessionManager::getInstance().isDrmSupported(mDrmInfo))
@@ -2336,7 +2334,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, double &culledSec)
 	double totalDuration = 0.0;
 	double prevProgramDateTime = mProgramDateTime;
 	long long commonPlayPosition = nextMediaSequenceNumber - 1;
-	double prevSecondsBeforePlayPoint;
+	double prevSecondsBeforePlayPoint = 0.0;
 	const char *initFragmentPtr = NULL;
 
 	if(IsRefresh && !UseProgramDateTimeIfAvailable())
@@ -2866,7 +2864,6 @@ bool StreamAbstractionAAMP_HLS::FilterAudioCodecBasedOnConfig(StreamOutputFormat
 	bool ignoreProfile = false;
 	bool bDisableEC3 = ISCONFIGSET(eAAMPConfig_DisableEC3);
 	bool bDisableAC3 = bDisableEC3;
-	bool bDisableAC4 = ISCONFIGSET(eAAMPConfig_DisableAC4);
 	// bringing in parity with DASH , if EC3 is disabled ,then ATMOS also will be disabled
 	bool bDisableATMOS = (bDisableEC3) ? true : ISCONFIGSET(eAAMPConfig_DisableATMOS);
 
@@ -3009,7 +3006,10 @@ const char *StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 			else
 			{
 				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: Couldn't find subtitle URI for preferred language: %s", aamp->mSubLanguage.c_str());
-				*format = FORMAT_INVALID;
+				if (format != NULL)
+				{
+					*format = FORMAT_INVALID;
+				}
 			}
 		}
 		break;
@@ -3710,7 +3710,6 @@ std::string StreamAbstractionAAMP_HLS::GetLanguageCode(int iMedia)
 AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 {
 	AAMPStatusType retval = eAAMPSTATUS_GENERIC_ERROR;
-	bool needMetadata = true;
 	mTuneType = tuneType;
 	bool newTune = aamp->IsNewTune();
 	/* START: Added As Part of DELIA-28363 and DELIA-28247 */
@@ -4579,9 +4578,8 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 		}
 
-		if (newTune && needMetadata)
+		if (newTune)
 		{
-			needMetadata = false;
 			aamp->mIsIframeTrackPresent = mIframeAvailable;
 			mProgramStartTime = programStartTime;
 			// Delay "preparing" state until all tracks have been processed.
@@ -5044,7 +5042,6 @@ void StreamAbstractionAAMP_HLS::PreCachePlaylist()
 	// Run through all the streamInfo and get uri for download , push to a download list
 	// Start a thread and return back . This thread will wake up after Tune completion
 	// and start downloading the uri in the list
-	int szUrlList = mMediaCount + mProfileCount;
 	PreCacheUrlList dnldList ;
 	for (auto& streamInfo : streamInfoStore)
 	{
@@ -6355,8 +6352,6 @@ bool TrackState::HasDiscontinuityAroundPosition(double position, bool useDiscont
 	bool discontinuityFound = false;
 	bool useProgramDateTimeIfAvailable = UseProgramDateTimeIfAvailable();
 	double discDiscardTolreanceInSec = (3 * targetDurationSeconds); /* Used by discontinuity handling logic to ensure both tracks have discontinuity tag around same area */
-	double low = position - discDiscardTolreanceInSec;
-	double high = position + discDiscardTolreanceInSec;
 	int playlistRefreshCount = 0;
 	diffBetweenDiscontinuities = DBL_MAX;
 	bool newDiscHandling = true;
@@ -7120,6 +7115,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 		}
 
 		int vProfileCountSelected = 0;
+		bool ignoreBitRateRangeCheck = false;
 		do{
 			int aacProfiles = 0, ac3Profiles = 0, ec3Profiles = 0, atmosProfiles = 0;
 			vProfileCountSelected = 0;
@@ -7127,7 +7123,6 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 			int audioProfileMatchedCount = 0;
 			int bitrateMatchedCount = 0;
 			int resolutionMatchedCount = 0;
-			bool ignoreBitRateRangeCheck = false;
 			int availableCountATMOS = 0, availableCountEC3 = 0, availableCountAC3 = 0;
 			StreamOutputFormat selectedAudioType = FORMAT_INVALID;
 			bool bVideoResolutionCheckEnabled = false;

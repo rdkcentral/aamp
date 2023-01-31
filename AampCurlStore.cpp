@@ -249,13 +249,12 @@ CurlSocketStoreStruct *CurlStore::CreateCurlStore ( const std::string &hostname 
 	CurlSock->pstShareLocks = locks;
 	CurlSock->mCurlStoreUserCount += 1;
 
-	CURLSHcode sh;
 	CurlSock->mCurlShared = curl_share_init();
-	sh = curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_USERDATA, (void*)locks);
-	sh = curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_LOCKFUNC, curl_lock_callback);
-	sh = curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_UNLOCKFUNC, curl_unlock_callback);
-	sh = curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
-	sh = curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_SHARE, CURL_LOCK_DATA_SSL_SESSION);
+	(void)curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_USERDATA, (void*)locks);
+	(void)curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_LOCKFUNC, curl_lock_callback);
+	(void)curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_UNLOCKFUNC, curl_unlock_callback);
+	(void)curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
+	(void)curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_SHARE, CURL_LOCK_DATA_SSL_SESSION);
 
 	if ( umCurlSockDataStore.size() >= MaxCurlSockStore )
 	{
@@ -698,7 +697,6 @@ AampCurlStoreErrorCode CurlStore::GetFromCurlStore ( const std::string &hostname
 		CurlSock = it->second;
 		CurlSock->mCurlStoreUserCount += 1;
 		CurlSock->timestamp = aamp_GetCurrentTimeMS();
-		long long MaxAge = CurlSock->timestamp-eCURL_MAX_AGE_TIME;
 
 		for( int loop = (int)CurlIndex; loop < CurlIndex+1; )
 		{

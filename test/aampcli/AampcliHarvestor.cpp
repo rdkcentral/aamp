@@ -99,7 +99,6 @@ void Harvestor::masterHarvestor(void * arg)
 	std::vector<std::string> params;
 	std::stringstream ss(cmd);
 	std::string item;
-	long currentAudioBitrate = 0,currentVideoBitrate = 0,currentIFrameBitrate = 0;
 	FILE * pIframe;
 	int videoThreadId = 0;
 	int audioThreadId = 0;
@@ -185,9 +184,6 @@ void Harvestor::masterHarvestor(void * arg)
 			}
 
 		}
-
-		currentVideoBitrate = mHarvestor.mPlayerInstanceAamp->GetVideoBitrate();
-		currentAudioBitrate = mHarvestor.mPlayerInstanceAamp->GetAudioBitrate();
 
 		std::vector<long> cacheVideoBitrates,cacheAudioBitrates,cacheTextTracks;
 

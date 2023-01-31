@@ -152,6 +152,8 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 			uint8_t version = READ_VERSION(buf);
 			uint32_t flags  = READ_FLAGS(buf);
 
+			(void)flags; // Avoid a warning.
+
 			if (1 == version)
 			{
 				uint64_t pts = ReadUint64(buf);
@@ -452,8 +454,7 @@ bool IsoBmffBuffer::getMdatBoxCount(size_t &count)
 void IsoBmffBuffer::printMdatBoxes()
 {
 	std::vector<Box*> mdatBoxes;
-	bool bParse = false;
-	bParse = getBoxesInternal(&boxes ,Box::MDAT, &mdatBoxes);
+	(void)getBoxesInternal(&boxes ,Box::MDAT, &mdatBoxes);
 	printBoxesInternal(&mdatBoxes);
 }
 

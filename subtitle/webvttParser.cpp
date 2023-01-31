@@ -370,6 +370,14 @@ bool WebVTTParser::processData(char* buffer, size_t bufferLen, double position, 
 					token = strtok(NULL, " -->\t");
 				}
 
+				/* Avoid set but not used warnings as these are for future use. */
+				(void)cueLine;
+				(void)cueLineAlign;
+				(void)cuePosition;
+				(void)cuePosAlign;
+				(void)cueSize;
+				(void)cueTextAlign;
+
 				text = nextLine;
 				nextLine = findWebVTTLineBreak(nextLine);
 				while(nextLine && (*nextLine != CHAR_LINE_FEED && *nextLine != CHAR_CARRIAGE_RETURN && *nextLine != '\0'))
@@ -475,9 +483,13 @@ void WebVTTParser::addCueData(VTTCue *cue)
 		pthread_mutex_lock(&mVttQueueMutex);
 		mVttQueue.push(cue);
 		pthread_mutex_unlock(&mVttQueueMutex);
+		lastCue.mStart = cue->mStart;
+		lastCue.mDuration = cue->mDuration;
 	}
-	lastCue.mStart = cue->mStart;
-	lastCue.mDuration = cue->mDuration;
+	else
+	{
+		delete cue;
+	}
 }
 
 

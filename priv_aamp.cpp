@@ -1157,8 +1157,6 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 
 			if(downloadbps)
 			{
-				long currentProfilebps  = context->aamp->mpStreamAbstractionAAMP->GetVideoBitrate();
-
 				pthread_mutex_lock(&context->aamp->mLock);
 				aamp->mhAbrManager.UpdateABRBitrateDataBasedOnCacheLength(context->aamp->mAbrBitrateData,downloadbps,true);
 				pthread_mutex_unlock(&context->aamp->mLock);
@@ -3718,15 +3716,6 @@ bool PrivateInstanceAAMP::GetNetworkTime(enum UtcTiming timingType, const std::s
 			{
 				if(buffer.len)
 				{
-					time_t currentTime;
-					currentTime     = time(0);
-					struct tm *localTime;
-					localTime       = localtime(&currentTime);
-					struct tm *stGMT;
-					stGMT           = gmtime(&currentTime);
-					time_t currentTimeGMT;
-					currentTimeGMT  = mktime(stGMT);
-
 					//2021-06-15T18:11:39Z - UTC Zulu
 					//2021-06-15T19:03:48.795Z - <ProducerReferenceTime> WallClk UTC Zulu
 					const char* format = "%Y-%m-%dT%H:%M:%SZ";
@@ -4066,6 +4055,8 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 				}
 			}
 
+			long curlDownloadTimeoutMS = curlDLTimeout[curlInstance]; // curlDLTimeout is in msec
+
 			while(downloadAttempt < maxDownloadAttempt)
 			{
 				progressCtx.downloadStartTime = NOW_STEADY_TS_MS;
@@ -4243,7 +4234,6 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 				}
 				else
 				{
-					long curlDownloadTimeoutMS = curlDLTimeout[curlInstance]; // curlDLTimeout is in msec
 					//abortReason for progress_callback exit scenarios
 					// curl sometimes exceeds the wait time by few milliseconds.Added buffer of 10msec
 					isDownloadStalled = ((res == CURLE_PARTIAL_FILE) || (progressCtx.abortReason != eCURL_ABORT_REASON_NONE));
@@ -4450,14 +4440,6 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 			}
 			else
 			{
-				if(fileType == eMEDIATYPE_MANIFEST)
-				{
-					fileType = (MediaType)curlInstance;
-				}
-				else if (remoteUrl.find("iframe") != std::string::npos)
-				{
-					fileType = eMEDIATYPE_IFRAME;
-				}
 				ret = true;
 			}
 		}

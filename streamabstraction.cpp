@@ -2884,7 +2884,7 @@ void StreamAbstractionAAMP::CheckForMediaTrackInjectionStall(TrackType type)
 				{
 					AAMPLOG_WARN("Discontinuity in track:%d does not have a discontinuity in other track (diff is negative: %f, injectedDuration: %f)",
 							type, diff, otherTrackDuration);
-					isDiscontinuityPresent = otherTrack->CheckForFutureDiscontinuity(cachedDuration); // called just to get the value of cachedDuration of the track.
+					(void)otherTrack->CheckForFutureDiscontinuity(cachedDuration); // called just to get the value of cachedDuration of the track.
 					bProcessFlag = true;
 				}
 
@@ -3526,7 +3526,6 @@ int MediaTrack::WaitTimeBasedOnBufferAvailable()
 		long bufferAvailable = (endPositionAvailable - currentPlayPosition);
 		//Get Minimum update duration in milliseconds
 		long minUpdateDuration = GetMinUpdateDuration();
-		minDelayBetweenPlaylistUpdates = MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
 
 		// If buffer Available is > 2*minUpdateDuration
 		if(bufferAvailable  > (minUpdateDuration*2) )

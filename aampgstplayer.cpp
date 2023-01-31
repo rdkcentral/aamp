@@ -1643,8 +1643,6 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 					_this->setVolumeOrMuteUnMute();
 				}
 #endif
-
-				StreamOutputFormat audFormat = _this->privateContext->stream[eMEDIATYPE_AUDIO].format;
 			}
 #endif
 		}
@@ -1756,10 +1754,11 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 
 			  AAMP is added as a property of playready plugin
 			*/
-			if(aamp_StartsWith(GST_OBJECT_NAME(msg->src), GstPluginNamePR) == true ||
+			if ((NULL != msg->src) &&
+			  (aamp_StartsWith(GST_OBJECT_NAME(msg->src), GstPluginNamePR) == true ||
 			   aamp_StartsWith(GST_OBJECT_NAME(msg->src), GstPluginNameWV) == true ||
 			   aamp_StartsWith(GST_OBJECT_NAME(msg->src), GstPluginNameCK) == true ||
-			   aamp_StartsWith(GST_OBJECT_NAME(msg->src), GstPluginNameVMX) == true) 
+			   aamp_StartsWith(GST_OBJECT_NAME(msg->src), GstPluginNameVMX) == true)) 
 			{
 				AAMPLOG_WARN("AAMPGstPlayer setting aamp instance for %s decryptor", GST_OBJECT_NAME(msg->src));
 				GValue val = { 0, };
@@ -3283,7 +3282,6 @@ static std::string GetStatus(gpointer pElementOrBin, int& recursionCount, gpoint
 			returnStringBuilder += ":";
 
 			returnStringBuilder += gst_element_state_get_name(state);
-			auto parentState = validParent?GST_STATE(pParent):GST_STATE_VOID_PENDING;
 
 			returnStringBuilder += StateText(statePending, '<', '>', state,
 									 validParent?GST_STATE_PENDING(pParent):GST_STATE_VOID_PENDING);
@@ -3797,7 +3795,6 @@ void AAMPGstPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 void AAMPGstPlayer::SetSubtitleMute(bool muted)
 {
 	FN_TRACE( __FUNCTION__ );
-	media_stream *stream = &privateContext->stream[eMEDIATYPE_SUBTITLE];
 	privateContext->subtitleMuted = muted;
 
 	if (privateContext->subtitle_sink)
