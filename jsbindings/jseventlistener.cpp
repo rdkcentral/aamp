@@ -664,6 +664,23 @@ public:
 		prop = JSStringCreateWithUTF8CString("description");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, description), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
+
+		const std::vector<std::string> &headerVec = evt->getHeaderResponses();
+		if(!headerVec.empty())
+		{
+			int count = headerVec.size();
+			JSValueRef* array = new JSValueRef[count];
+			for(int32_t i = 0; i < count; i++)
+			{
+				JSValueRef respHeader = aamp_CStringToJSValue(p_obj->_ctx, headerVec[i].c_str());
+				array[i] = respHeader;
+			}
+			JSValueRef propValue = JSObjectMakeArray(p_obj->_ctx, count, array, NULL);
+			SAFE_DELETE_ARRAY(array);
+			prop = JSStringCreateWithUTF8CString("headers");
+			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, propValue, kJSPropertyAttributeReadOnly, NULL);
+			JSStringRelease(prop);
+		}
 	}
 
 };

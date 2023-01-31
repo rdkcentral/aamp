@@ -1411,6 +1411,7 @@ class DrmMetaDataEvent: public AAMPEventObject
 	int32_t mSecManagerClass;	/**< Secmanager error class */
 	int32_t mSecManagerReasonCode; /**< Secmanager reason  code */
 	int32_t mBusinessStatus;	/**< secclient business reason  code */
+	std::vector<std::string> mHeaderResponses; /**< Header response strings */
 public:
 	DrmMetaDataEvent() = delete;
 	DrmMetaDataEvent(const DrmMetaDataEvent&) = delete;
@@ -1544,6 +1545,21 @@ public:
 	 * @brief Convert the secclient DRM error code into secmanager error code to have a unified verbose error reported
 	 */
 	void ConvertToVerboseErrorCode(int32_t httpCode, int32_t httpExtStatusCode );
+
+	/**
+	 * @brief Get header responses
+	 *
+	 * @return header response vector
+	 */
+	const std::vector<std::string> &getHeaderResponses() const;
+
+	/**
+	 * @brief Set Header response from license request
+	 *
+	 * @param[in] vector of header reponse
+	 * @return void
+	 */
+	void setHeaderResponses(const std::vector<std::string> &responses);
 };
 
 

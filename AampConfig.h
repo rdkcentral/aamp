@@ -206,6 +206,7 @@ typedef enum
 	eAAMPConfig_EnableSCTE35PresentationTime,			/**< Enable/Disable use of SCTE PTS presentation time */
 	eAAMPConfig_JsInfoLogging,						/**< Enable/disable jsinfo logging       */
 	eAAMPConfig_IgnoreAppLiveOffset,				/** <Config to ignore the liveOffset from App for LLD */
+	eAAMPConfig_SendLicenseResponseHeaders,			/** <Config to enable adding license response headers with drm metadata event */
 	eAAMPConfig_BoolMaxValue,
 	/////////////////////////////////
 	eAAMPConfig_IntStartValue,

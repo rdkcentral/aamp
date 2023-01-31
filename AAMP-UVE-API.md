@@ -408,7 +408,7 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | nativeCCRendering | Boolean | False | Use native ClosedCaption support in AAMP (version 2.6) |
 | enableLiveLatencyCorrection | Boolean | False | Optional field to enable live latency correction for non LLD streams |
 | liveOffsetDriftCorrectionInterval | Number | 1 | Optional field to set the allowed delta from live offset configured |
-
+| sendLicenseResponseHeaders | Boolean | False | Optional field to enable headers in DRM metadata event after license request |
 
 Example:
 ```js
@@ -1870,10 +1870,12 @@ Example:
 **Event Payload:** 
 - code: number
 - description: string
+- headers: array
 
 **Description:** 
 - Supported UVE version 0.7 and above.
 - Fired when there is a change in DRM metadata (especially expiration of DRM auth data)
+- Refer sendLicenseResponseHeaders configuration for headers
 
 ---
 

@@ -233,7 +233,7 @@ struct CurlCallbackContext
 {
 	PrivateInstanceAAMP *aamp;
 	MediaType fileType;
-	std::vector<std::string> allResponseHeadersForErrorLogging;
+	std::vector<std::string> allResponseHeaders;
 	GrowableBuffer *buffer;
 	httpRespHeaderData *responseHeaderData;
 	long bitrate;
@@ -244,11 +244,11 @@ struct CurlCallbackContext
 	size_t contentLength;
 	long long downloadStartTime;
 
-	CurlCallbackContext() : aamp(NULL), buffer(NULL), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false), chunkedDownload(false),  fileType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeadersForErrorLogging{""}, contentLength(0),downloadStartTime(-1)
+	CurlCallbackContext() : aamp(NULL), buffer(NULL), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false), chunkedDownload(false),  fileType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""}, contentLength(0),downloadStartTime(-1)
 	{
 
 	}
-	CurlCallbackContext(PrivateInstanceAAMP *_aamp, GrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false),  chunkedDownload(false), fileType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeadersForErrorLogging{""},  contentLength(0),downloadStartTime(-1){}
+	CurlCallbackContext(PrivateInstanceAAMP *_aamp, GrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false),  chunkedDownload(false), fileType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""},  contentLength(0),downloadStartTime(-1){}
 
 	~CurlCallbackContext() {}
 

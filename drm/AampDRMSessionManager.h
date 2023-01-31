@@ -168,6 +168,16 @@ private:
 	 */
 	static int progress_callback(void *clientp,	double dltotal, 
 			double dlnow, double ultotal, double ulnow );
+
+	/**
+	 * @brief callback invoked on http header by curl
+	 * @param ptr pointer to buffer containing the data
+	 * @param size size of the buffer
+	 * @param nmemb number of bytes
+	 * @param user_data  CurlCallbackContext pointer
+	 * @retval
+	 */
+	static size_t header_callback(const char *ptr, size_t size, size_t nmemb, void *user_data);
 public:
 	
 	/**
@@ -214,6 +224,7 @@ public:
 	 *
 	 *  @param[in]	licRequest - License request details (URL, headers etc.)
 	 *  @param[out]	httpError - Gets updated with http error; default -1.
+	 *  @param[in]	eventHandle - DRM Metadata event handle
 	 *  @param[in]	isContentMetadataAvailable - Flag to indicate whether MSO specific headers
 	 *  			are to be used.
 	 *  @param[in]	licenseProxy - Proxy to use for license requests.
@@ -223,7 +234,7 @@ public:
 	 *			customHeader ownership should be taken up by getLicense function
 	 *
 	 */
-	DrmData * getLicense(AampLicenseRequest &licRequest, int32_t *httpError, MediaType streamType, PrivateInstanceAAMP* aamp, bool isContentMetadataAvailable = false, std::string licenseProxy="");
+	DrmData * getLicense(AampLicenseRequest &licRequest, int32_t *httpError, MediaType streamType, PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr eventHandle, bool isContentMetadataAvailable = false, std::string licenseProxy="");
 	/**
 	 *  @fn		IsKeyIdUsable
 	 *  @param[in]	keyIdArray - key Id extracted from pssh data

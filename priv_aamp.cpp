@@ -840,20 +840,20 @@ static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdat
  * @brief function to print header response during download failure and latency.
  * @param fileType current media type
  */
-static void print_headerResponse(std::vector<std::string> &allResponseHeadersForErrorLogging, MediaType fileType)
+static void print_headerResponse(std::vector<std::string> &allResponseHeaders, MediaType fileType)
 {
 	if (gpGlobalConfig->logging.curlHeader && (eMEDIATYPE_VIDEO == fileType || eMEDIATYPE_PLAYLIST_VIDEO == fileType))
 	{
-		int size = allResponseHeadersForErrorLogging.size();
+		int size = allResponseHeaders.size();
 		AAMPLOG_WARN("################ Start :: Print Header response ################");
 		for (int i=0; i < size; i++)
 		{
-			AAMPLOG_WARN("* %s", allResponseHeadersForErrorLogging.at(i).c_str());
+			AAMPLOG_WARN("* %s", allResponseHeaders.at(i).c_str());
 		}
 		AAMPLOG_WARN("################ End :: Print Header response ################");
 	}
 
-	allResponseHeadersForErrorLogging.clear();
+	allResponseHeaders.clear();
 }
 
 /**
@@ -880,7 +880,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 		(eMEDIATYPE_VIDEO == context->fileType || eMEDIATYPE_PLAYLIST_VIDEO == context->fileType))
 	{
 		std::string temp = std::string(ptr,endPos);
-		context->allResponseHeadersForErrorLogging.push_back(temp);
+		context->allResponseHeaders.push_back(temp);
 	}
 
 	// As per Hypertext Transfer Protocol ==> Field names are case-insensitive
@@ -4108,7 +4108,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					if (http_code != 200 && http_code != 204 && http_code != 206)
 					{
 						AAMP_LOG_NETWORK_ERROR (remoteUrl.c_str(), AAMPNetworkErrorHttp, http_code, simType);
-						print_headerResponse(context.allResponseHeadersForErrorLogging, simType);
+						print_headerResponse(context.allResponseHeaders, simType);
 
 						if((http_code >= 500 && http_code != 502) && downloadAttempt < maxDownloadAttempt)
 						{
@@ -4222,7 +4222,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					else if (downloadTimeMS > FRAGMENT_DOWNLOAD_WARNING_THRESHOLD )
 					{
 						AAMP_LOG_NETWORK_LATENCY (effectiveUrl.c_str(), downloadTimeMS, FRAGMENT_DOWNLOAD_WARNING_THRESHOLD, simType);
-						print_headerResponse(context.allResponseHeadersForErrorLogging, simType);
+						print_headerResponse(context.allResponseHeaders, simType);
 					}
 				}
 				else
@@ -4239,7 +4239,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					if (AAMP_IS_LOG_WORTHY_ERROR(res) || progressCtx.abortReason != eCURL_ABORT_REASON_NONE)
 					{
 						AAMP_LOG_NETWORK_ERROR (remoteUrl.c_str(), AAMPNetworkErrorCurl, (int)(progressCtx.abortReason == eCURL_ABORT_REASON_NONE ? res : CURLE_PARTIAL_FILE), simType);
-						print_headerResponse(context.allResponseHeadersForErrorLogging, simType);
+						print_headerResponse(context.allResponseHeaders, simType);
 					}
 
 					//Attempt retry for partial downloads, which have a higher chance to succeed

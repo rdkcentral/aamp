@@ -870,7 +870,7 @@ bool BufferingChangedEvent::buffering() const
 DrmMetaDataEvent::DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, int responseCode, bool secclientErr):
 	AAMPEventObject(AAMP_EVENT_DRM_METADATA), mFailure(failure), mAccessStatus(accessStatus),
 	mAccessStatusValue(statusValue), mResponseCode(responseCode), mSecclientError(secclientErr), mSecManagerReasonCode(-1), mSecManagerClass(-1),
-	mBusinessStatus(-1)
+	mBusinessStatus(-1), mHeaderResponses()
 {
 	
 }
@@ -1036,6 +1036,27 @@ bool DrmMetaDataEvent::getSecclientError() const
 void DrmMetaDataEvent::setSecclientError(bool secClientError)
 {
 	mSecclientError = secClientError;
+}
+
+/**
+ * @brief Get header responses
+ *
+ * @return header response vector
+ */
+const std::vector<std::string> &DrmMetaDataEvent::getHeaderResponses() const
+{
+	return mHeaderResponses;
+}
+
+/**
+ * @brief Set Header response from license request
+ *
+ * @param[in] vector of header reponse
+ * @return void
+ */
+void DrmMetaDataEvent::setHeaderResponses(const std::vector<std::string> &responses)
+{
+	mHeaderResponses = responses;
 }
 
 /**

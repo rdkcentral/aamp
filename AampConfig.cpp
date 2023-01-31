@@ -295,7 +295,8 @@ static AampConfigLookupEntry ConfigLookUpTable[] =
 	{"SchemeIdUriDaiStream",eAAMPConfig_SchemeIdUriDaiStream,true,-1,-1},
 	{"SchemeIdUriVssStream",eAAMPConfig_SchemeIdUriVssStream,true,-1,-1},
 	{"LRHAcceptValue",eAAMPConfig_LRHAcceptValue,true,-1,-1},
-	{"LRHContentType",eAAMPConfig_LRHContentType,true,-1,-1}
+	{"LRHContentType",eAAMPConfig_LRHContentType,true,-1,-1},
+	{"sendLicenseResponseHeaders", eAAMPConfig_SendLicenseResponseHeaders, false, -1, -1}
 };
 
 /////////////////// Public Functions /////////////////////////////////////
@@ -496,6 +497,7 @@ void AampConfig::Initialize()
 	bAampCfgValue[eAAMPConfig_EnableSlowMotion].value			=	true;
 	bAampCfgValue[eAAMPConfig_EnableSCTE35PresentationTime].value			=	false;
 	bAampCfgValue[eAAMPConfig_JsInfoLogging].value                          = 	false;
+	bAampCfgValue[eAAMPConfig_SendLicenseResponseHeaders].value = false;
 
 	///////////////// Following for Integer Data type configs ////////////////////////////
 	iAampCfgValue[eAAMPConfig_HarvestCountLimit-eAAMPConfig_IntStartValue].value		=	0;

@@ -362,6 +362,39 @@ size_t AampDRMSessionManager::write_callback(char *ptr, size_t size,
 	return numBytesForBlock;
 }
 
+
+/**
+ * @brief callback invoked on http header by curl
+ * @param ptr pointer to buffer containing the data
+ * @param size size of the buffer
+ * @param nmemb number of bytes
+ * @param user_data  CurlCallbackContext pointer
+ * @retval
+ */
+size_t AampDRMSessionManager::header_callback(const char *ptr, size_t size, size_t nmemb, void *user_data)
+{
+	size_t ret = 0;
+	size_t len = nmemb * size;
+	size_t endPos = len-2; // strip CRLF
+
+	CurlCallbackContext *context = static_cast<CurlCallbackContext *>(user_data);
+
+	if( len<2 || ptr[endPos] != '\r' || ptr[endPos+1] != '\n' )
+	{ // only proceed if this is a CRLF terminated curl header, as expected
+		return len;
+	}
+
+	if(context->aamp->mConfig->IsConfigSet(eAAMPConfig_SendLicenseResponseHeaders) && ptr[0])
+	{
+		std::string temp = std::string(ptr,endPos);
+		if(!temp.empty())
+		{
+			context->allResponseHeaders.push_back(temp);
+		}
+	}
+	return len;
+}
+
 /**
  *  @brief	Extract substring between (excluding) two string delimiters.
  *
@@ -671,7 +704,7 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
  *  @brief Get DRM license key from DRM server.
  */
 DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
-		int32_t *httpCode, MediaType streamType, PrivateInstanceAAMP* aamp, bool isContentMetadataAvailable, std::string licenseProxy)
+		int32_t *httpCode, MediaType streamType, PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr eventHandle, bool isContentMetadataAvailable, std::string licenseProxy)
 {
 	*httpCode = -1;
 	CURL *curl;
@@ -714,6 +747,16 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 	CURL_EASY_SETOPT(curl, CURLOPT_FOLLOWLOCATION, 1L);
 	CURL_EASY_SETOPT(curl, CURLOPT_URL, licenseRequest.url.c_str());
 	CURL_EASY_SETOPT(curl, CURLOPT_WRITEDATA, callbackData);
+
+	CurlCallbackContext context;
+	if(ISCONFIGSET(eAAMPConfig_SendLicenseResponseHeaders))
+	{
+		CURL_EASY_SETOPT(curl, CURLOPT_HEADERFUNCTION, header_callback);
+		context.aamp = aamp;
+		context.fileType = eMEDIATYPE_LICENCE;
+		CURL_EASY_SETOPT(curl, CURLOPT_HEADERDATA, &context);
+	}
+
 	if(!ISCONFIGSET(eAAMPConfig_SslVerifyPeer)){
 		CURL_EASY_SETOPT(curl, CURLOPT_SSL_VERIFYPEER, 0L);
 	}
@@ -777,6 +820,7 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 	                                callbackData->data = keyInfo;
 	                                callbackData->mDRMSessionManager = this;
 	                                CURL_EASY_SETOPT(curl, CURLOPT_WRITEDATA, callbackData);
+	                                context.allResponseHeaders.clear();
         	                }
                 	        AAMPLOG_ERR(" curl_easy_perform() failed: %s", curl_easy_strerror(res));
                         	AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : curl %d", attemptCount, res);
@@ -802,6 +846,7 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
                                         callbackData->data = keyInfo;
                                         callbackData->mDRMSessionManager = this;
 					CURL_EASY_SETOPT(curl, CURLOPT_WRITEDATA, callbackData);
+					context.allResponseHeaders.clear();
 					AAMPLOG_WARN("acquireLicense : Sleeping %d milliseconds before next retry.",licenseRetryWaitTime);
 					mssleep(licenseRetryWaitTime);
 				}
@@ -848,6 +893,10 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 			break;
 	}
 
+	if(ISCONFIGSET(eAAMPConfig_SendLicenseResponseHeaders) && !context.allResponseHeaders.empty())
+	{
+		eventHandle->setHeaderResponses(context.allResponseHeaders);
+	}
 	if(*httpCode == -1)
 	{
 		AAMPLOG_WARN(" Updating Curl Abort Response Code");
@@ -1416,7 +1465,7 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 						AAMPLOG_WARN("Ignore  AuthToken Provided for non-ContentMetadata DRM license request");
 					}
 					eventHandle->setSecclientError(false);
-					licenseResponse.reset(getLicense(licenseRequest, &httpResponseCode, streamType, aampInstance, isContentMetadataAvailable, licenseServerProxy));
+					licenseResponse.reset(getLicense(licenseRequest, &httpResponseCode, streamType, aampInstance, eventHandle, isContentMetadataAvailable, licenseServerProxy));
 				}
 
 			}
