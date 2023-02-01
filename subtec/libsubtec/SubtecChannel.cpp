@@ -60,10 +60,12 @@ bool SubtecChannel::InitComms()
 {
     const char *socket_path = ::getenv("AAMP_SUBTITLE_SOCKET");
 
-    if (socket_path)
-        return InitComms(socket_path);
-    else
-        return InitComms(SOCKET_PATH);
+    if (!socket_path)
+    {
+        socket_path = SOCKET_PATH;
+    }
+
+    return InitComms(socket_path);
 }
 
 bool SubtecChannel::InitComms(const char* socket_path)
@@ -102,7 +104,14 @@ void SubtecChannel::SendUnmutePacket() {
     sendPacket<UnmutePacket>();
 }
 void SubtecChannel::SendCCSetAttributePacket(std::uint32_t ccType, std::uint32_t attribType, const attributesType &attributesValues) {
-    AAMPLOG_INFO("SendCCSetAttributePacket, the bit mask is 0x%X", attribType);
+    AAMPLOG_INFO("SendCCSetAttributePacket bit mask is 0x%X", attribType);
+    for(uint i = 0; i < attributesValues.size(); i++)
+    {
+        if (attribType & (1 << i))
+        {
+            AAMPLOG_TRACE("SendCCSetAttributePacket attribute[%u]: %u", i, attributesValues[i]);
+        }
+    }
     sendPacket<CCSetAttributePacket>(ccType, attribType, attributesValues);
 }
 

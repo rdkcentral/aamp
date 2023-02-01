@@ -25,6 +25,7 @@
 #include <iomanip>
 #include"Aampcli.h"
 #include"AampcliSet.h"
+#include "AampcliSubtecSimulator.h"
 
 std::map<std::string,setCommandInfo> Set::setCommands = std::map<std::string,setCommandInfo>();
 std::vector<std::string> Set::commands(0);
@@ -1199,6 +1200,46 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						break;
 					}
 
+				case 57:
+					{
+						int enable;
+						printf("[AAMPCLI] Matched Command SubtecSimulator - %s\n", cmd);
+						if (sscanf(cmd, "set %s %d", command, &enable) != 2)
+						{
+							printf("[AAMPCLI] ERROR: Unexpected number of arguments\n");
+							printf("[AAMPCLI] Expected: set %s <0/1>\n", command);
+						}
+						else if (enable == 0)
+						{
+							if (!StopSubtecSimulator())
+							{
+								printf("Subtec Simulator did not stop");
+							}
+							else
+							{
+								printf("Subtec Simulator stopped");
+							}
+						}
+						else if (enable == 1)
+						{
+							// The socket path used here has to match the one used in SubtecChannel::InitComms()
+							if (!StartSubtecSimulator("/tmp/pes_data_main"))
+							{
+								printf("Subtec Simulator did not start");
+							}
+							else
+							{
+								printf("Subtec Simulator started");
+							}
+						}
+						else
+						{
+							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							printf("[AAMPCLI] Expected: set %s <0/1>\n", command);
+						}
+						break;
+					}
+
 				default:
 					printf("[AAMPCLI] Invalid set command %s\n", command);
 					break;
@@ -1278,6 +1319,7 @@ void Set::registerSetCommands()
 	addCommand(54,"videoTrack"," <x> <y> <z> ","Set Video tracks range (x = bitrate1, y = bitrate2, z = bitrate3) OR single bitrate provide same value for x, y,z ");
 	addCommand(55,"dynamicDrm"," <x> ","set Dynamic DRM config in Json format x=Timeout value for response message ");
 	addCommand(56,"liveOffset4K"," <x> ","Set Live offset 4K stream(int x=offset)");
+	addCommand(57,"subtecSimulator"," <x> ","Set the SubTec simulator (1 to start the simulator, 0 to stop it)");
 	commands.push_back("help");
 }
 

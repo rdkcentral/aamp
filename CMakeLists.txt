@@ -303,32 +303,33 @@ if(CMAKE_IARM_MGR)
 endif()
 
 if(CMAKE_PLATFORM_UBUNTU)
-    message("AAMP_SIMULATOR_BUILD set")
+    message("CMAKE_PLATFORM_UBUNTU set")
     link_directories(${CMAKE_LIBRARY_PATH})
     STRING(REPLACE " -Werror=effc++" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 endif()
 
-set(AAMP_CLI_HEADERS test/aampcli/Aampcli.h 
-		     test/aampcli/AampcliPlaybackCommand.h
-	             test/aampcli/AampcliCommandHandler.h
-		     test/aampcli/AampcliGet.h
-		     test/aampcli/AampcliSet.h
-		     test/aampcli/AampcliVirtualChannelMap.h
-		     test/aampcli/AampcliShader.h
-		     test/aampcli/AampcliHarvestor.h
-		     test/aampcli/AampcliSmokeTest.h
-		     ${AAMP_OS_SOURCES})
+set(AAMP_CLI_HEADERS test/aampcli/Aampcli.h
+			test/aampcli/AampcliPlaybackCommand.h
+			test/aampcli/AampcliCommandHandler.h
+			test/aampcli/AampcliGet.h
+			test/aampcli/AampcliSet.h
+			test/aampcli/AampcliVirtualChannelMap.h
+			test/aampcli/AampcliShader.h
+			test/aampcli/AampcliHarvestor.h
+			test/aampcli/AampcliSmokeTest.h
+			test/aampcli/AampcliSubtecSimulator.h
+			${AAMP_OS_SOURCES})
 set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp 
-		     test/aampcli/AampcliPlaybackCommand.cpp
-	             test/aampcli/AampcliCommandHandler.cpp
-		     test/aampcli/AampcliGet.cpp
-		     test/aampcli/AampcliSet.cpp
-		     test/aampcli/AampcliVirtualChannelMap.cpp
-		     test/aampcli/AampcliShader.cpp
-		     test/aampcli/AampcliHarvestor.cpp
-		     test/aampcli/AampcliSmokeTest.cpp
-		     ${AAMP_OS_SOURCES})
-
+			test/aampcli/AampcliPlaybackCommand.cpp
+			test/aampcli/AampcliCommandHandler.cpp
+			test/aampcli/AampcliGet.cpp
+			test/aampcli/AampcliSet.cpp
+			test/aampcli/AampcliVirtualChannelMap.cpp
+			test/aampcli/AampcliShader.cpp
+			test/aampcli/AampcliHarvestor.cpp
+			test/aampcli/AampcliSmokeTest.cpp
+			test/aampcli/AampcliSubtecSimulator.cpp
+			${AAMP_OS_SOURCES})
 
 
 # Session based stats for latency histogram
@@ -542,7 +543,7 @@ if (CMAKE_RDK_CC_ENABLED)
 		include_directories(${STAGING_INCDIR}/closedcaption/ccGraphics)
 		include_directories(${STAGING_INCDIR}/closedcaption/ccManager)
 		set(LIBAAMP_MOCK_SOURCES ${LIBAAMP_MOCK_SOURCES} test/fakes/ccManagerFakes.cpp)
-        copy_staging_header_file(vlCCConstants.h)
+		copy_staging_header_file(vlCCConstants.h)
 	else()
 		set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lrdkCCReader -lrdkCCManager -lrdkCCGfx -l${DIRECTFB_LIBRARIES}")
 	endif()
@@ -552,15 +553,18 @@ set(AAMP_SUBTEC_CLASS_SOURCES subtec/subtecparser/WebVttSubtecParser.cpp subtec/
 set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} ${AAMP_SUBTEC_CLASS_SOURCES})
 include_directories(subtec/subtecparser)
 
-message("CMAKE_GST_SUBTEC_ENABLED set")
 add_library(subtec SHARED subtec/libsubtec/PacketSender.cpp subtec/libsubtec/SubtecChannel.cpp)
 set(AAMP_SUBTEC_PUBLIC_HEADERS subtec/libsubtec/SubtecChannel.hpp subtec/libsubtec/SubtecAttribute.hpp)
 set_target_properties(subtec PROPERTIES PUBLIC_HEADER "${AAMP_SUBTEC_PUBLIC_HEADERS}")
-set_target_properties(subtec PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} -DSUBTEC_PACKET_DEBUG=1")
+set(AAMP_SUBTEC_COMPILE_FLAGS "${CMAKE_CXX_FLAGS} -DSUBTEC_PACKET_DEBUG=1")
+if(CMAKE_PLATFORM_UBUNTU)
+	set(AAMP_SUBTEC_COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS} -DUBUNTU=1")
+endif()
+set_target_properties(subtec PROPERTIES COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS}")
 include_directories(subtec/libsubtec)
 install (TARGETS subtec
-        DESTINATION lib
-        PUBLIC_HEADER DESTINATION include 
+		DESTINATION lib
+		PUBLIC_HEADER DESTINATION include
 )
 
 if (CMAKE_GST_SUBTEC_ENABLED)
