@@ -24,7 +24,7 @@
 #include <iomanip>
 #include "AampcliGet.h"
 
-std::map<string,getCommandInfo> Get::getCommands = std::map<string,getCommandInfo>();
+std::map<std::string,getCommandInfo> Get::getCommands = std::map<std::string,getCommandInfo>();
 std::vector<std::string> Get::commands(0);
 
 bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
@@ -41,8 +41,7 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 		}
 		else
 		{
-			std::map<string,getCommandInfo>::iterator getCmdItr;
-			getCmdItr = getCommands.find(command);
+			auto getCmdItr = getCommands.find(command);
 
 			if(getCmdItr != getCommands.end())
 			{
@@ -55,7 +54,7 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 		}
 		else
 		{
-			switch(getCmd){ 
+			switch(getCmd){
 				case 32:
 					printf("[AAMPCLI] GETTING AVAILABLE THUMBNAIL TRACKS: %s\n", playerInstanceAamp->GetAvailableThumbnailTracks().c_str() );
 					break;
@@ -289,7 +288,7 @@ void Get::registerGetCommands()
 	commands.push_back("help");
 }
 
-void Get::addCommand(int value,string command,string description)
+void Get::addCommand(int value,std::string command,std::string description)
 {
 	getCommandInfo lCmdInfo;
 	lCmdInfo.value = value;
@@ -305,8 +304,6 @@ void Get::addCommand(int value,string command,string description)
  */
 void Get::ShowHelpGet(){
 
-	std::map<string,getCommandInfo>::iterator getCmdItr;
-
 	printf("******************************************************************************************\n");
 	printf("*   get <command> [<arguments>]\n");
 	printf("*   Usage of Commands, and arguments expected\n");
@@ -316,7 +313,7 @@ void Get::ShowHelpGet(){
 	{
 		for(auto itr:commands)
 		{
-			getCmdItr = getCommands.find(itr);
+			auto getCmdItr = getCommands.find(itr);
 			if(getCmdItr != getCommands.end())
 			{
 				std::cout << "get " << std::right << std::setw(2) << (getCmdItr->second).value << " / " << std::setw(35) << std::left << (getCmdItr->first).c_str() << "// "<< (getCmdItr->second.description).c_str() << "\n";
@@ -333,7 +330,7 @@ char * Get::getCommandRecommender(const char *text, int state)
     static size_t len;
     static std::vector<std::string>::iterator itr;
 
-    if (!state) 
+    if (!state)
     {
 		itr = commands.begin();
         len = strlen(text);
@@ -343,10 +340,10 @@ char * Get::getCommandRecommender(const char *text, int state)
     {
 	    name = (char *) itr->c_str();
 	    itr++;
-	    if (strncmp(name, text, len) == 0) 
+	    if (strncmp(name, text, len) == 0)
 	    {
 		    return strdup(name);
-	    }	
+	    }
     }
 
     return NULL;

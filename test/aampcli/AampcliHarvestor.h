@@ -28,7 +28,7 @@
 #include <libgen.h>
 #include <limits.h>
 #include <unistd.h>
-#include "AampcliCommandHandler.h"
+#include "AampcliCommand.h"
 
 #ifdef __APPLE__
     #include <mach-o/dyld.h>
@@ -53,7 +53,7 @@ typedef struct harvestProfileDetails
 	long bitrate;
 }HarvestProfileDetails;
 
-class Harvestor : public Command 
+class Harvestor : public Command
 {
 
 	public:

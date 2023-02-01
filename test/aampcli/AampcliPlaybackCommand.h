@@ -25,8 +25,7 @@
 #ifndef AAMPCLIPLAYBACKCOMMAND_H
 #define AAMPCLIPLAYBACKCOMMAND_H
 
-#include "Aampcli.h"
-#include "AampcliCommandHandler.h"
+#include "AampcliCommand.h"
 
 
 class PlaybackCommand : public Command
@@ -34,8 +33,8 @@ class PlaybackCommand : public Command
 
 	public:
 		static std::vector<std::string> commands;
-		static std::map<string,string> playbackCommands;
-		void addCommand(string command,string description);
+		static std::map<std::string,std::string> playbackCommands;
+		void addCommand(std::string command,std::string description);
 		void registerPlaybackCommands();
 		static char *commandRecommender(const char *text, int state);
 		static bool isCommandMatch( const char *cmdBuf, const char *cmdName );

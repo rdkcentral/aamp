@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2022 RDK Management
+ * Copyright 2023 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,26 +18,17 @@
  */
 
 /**
- * @file AampcliSmokeTest.h
- * @brief AampcliSmokeTest header file
+ * @file AampcliCommand.h
+ * @brief AampcliCommand header file
  */
-
-#ifndef AAMPCLISMOKETEST_H
-#define AAMPCLISMOKETEST_H
+#pragma once
 
 #include "priv_aamp.h"
-#include "AampcliCommand.h"
 
-class SmokeTest : public Command {
-
+class Command
+{
 	public:
-
-		static std::map<std::string, std::string> smokeTestUrls;
-		void vodTune(const char *stream);
-		void liveTune(const char *stream);
-		void loadSmokeTestUrls();
-		bool createTestFilePath(std::string &filePath);
-		bool execute(const char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
+		virtual ~Command( )
+		{}
+		virtual bool execute(const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) = 0;
 };
-
-#endif // AAMPCLISMOKETEST_H

@@ -23,6 +23,7 @@
  */
 
 #include <iomanip>
+#include "Aampcli.h"
 #include "AampcliPlaybackCommand.h"
 
 extern bool gAampcliQuietLogs;
@@ -30,7 +31,7 @@ extern VirtualChannelMap mVirtualChannelMap;
 extern Aampcli mAampcli;
 extern void tsdemuxer_InduceRollover( bool enable );
 
-std::map<string,string> PlaybackCommand::playbackCommands = std::map<string,string>();
+std::map<std::string,std::string> PlaybackCommand::playbackCommands = std::map<std::string,std::string>();
 std::vector<std::string> PlaybackCommand::commands(0);
 
 /**
@@ -424,7 +425,7 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("exit","Exit aampcli");
 }
 
-void PlaybackCommand::addCommand(string command,string description)
+void PlaybackCommand::addCommand(std::string command,std::string description)
 {
 	playbackCommands.insert(make_pair(command,description));
 	commands.push_back(command);
@@ -436,16 +437,16 @@ void PlaybackCommand::addCommand(string command,string description)
 void PlaybackCommand::showHelp(void)
 {
 
-	std::map<string,string>::iterator playbackCmdItr;
+	std::map<std::string,std::string>::iterator playbackCmdItr;
 
 	printf("******************************************************************************************\n");
 	printf("*   <command> [<arguments>]\n");
 	printf("*   Usage of Commands, and arguments expected\n");
 	printf("******************************************************************************************\n");
-	
+
 	for(auto itr:commands)
 	{
-		playbackCmdItr = playbackCommands.find(itr);	
+		playbackCmdItr = playbackCommands.find(itr);
 
 		if(playbackCmdItr != playbackCommands.end())
 		{
@@ -461,7 +462,7 @@ char * PlaybackCommand::commandRecommender(const char *text, int state)
 	static size_t len;
 	static std::vector<std::string>::iterator itr;
 
-	if (!state) 
+	if (!state)
 	{
 		itr = commands.begin();
 		len = strlen(text);
@@ -471,10 +472,10 @@ char * PlaybackCommand::commandRecommender(const char *text, int state)
 	{
 		char *name = (char *) itr->c_str();
 		itr++;
-		if (strncmp(name, text, len) == 0) 
+		if (strncmp(name, text, len) == 0)
 		{
 			return strdup(name);
-		}	
+		}
 	}
 
 	return NULL;

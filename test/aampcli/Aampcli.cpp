@@ -28,7 +28,7 @@ Aampcli mAampcli;
 extern VirtualChannelMap mVirtualChannelMap;
 extern void tsdemuxer_InduceRollover( bool enable );
 
-Aampcli :: Aampcli(): 
+Aampcli :: Aampcli():
 	mInitialized(false),
 	mEnableProgressLog(false),
 	mbAutoPlay(true),
@@ -41,7 +41,7 @@ Aampcli :: Aampcli():
 {
 };
 
-Aampcli::Aampcli(const Aampcli& aampcli): 
+Aampcli::Aampcli(const Aampcli& aampcli):
 	mInitialized(false),
 	mEnableProgressLog(false),
 	mbAutoPlay(true),
@@ -64,12 +64,7 @@ Aampcli& Aampcli::operator=(const Aampcli& aampcli)
 
 Aampcli :: ~Aampcli()
 {
-
-	if(mSingleton != NULL)
-	{
-		SAFE_DELETE(mSingleton);
-	}
-};	
+};
 
 void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS, int playTimeS, int betweenTimeS )
 {
@@ -182,7 +177,7 @@ void Aampcli::runCommand( void* args )
 	}
 
 	printf("[AAMPCLI] type 'help' for list of available commands\n");
-	
+
 	for(;;)
 	{
 		rl_attempted_completion_function = lCommandHandler.commandCompletion;
@@ -197,7 +192,7 @@ void Aampcli::runCommand( void* args )
 			bool l_status = lCommandHandler.dispatchAampcliCommands(buffer,mAampcli.mSingleton);
 			if( !l_status )
 			{
-				_exit(0);
+				exit(0);
 			}
 		} // if( *buffer )
 		free(buffer);
@@ -291,7 +286,7 @@ int main(int argc, char **argv)
 	ABRManager mAbrManager;
 
 	signal(SIGINT, Harvestor::harvestTerminateHandler);
-	
+
 	/* Set log directory path for AAMP and ABR Manager */
 	mLogManager.setLogAndCfgDirectory(driveName);
 	mAbrManager.setLogDirectory(driveName);
@@ -302,7 +297,7 @@ int main(int argc, char **argv)
 
 	mAampcli.initPlayerLoop(0,NULL);
 	mAampcli.newPlayerInstance();
-		
+
 	// Read/create virtual channel map
 	const std::string cfgCSV("/aampcli.csv");
 	const std::string cfgLegacy("/aampcli.cfg");

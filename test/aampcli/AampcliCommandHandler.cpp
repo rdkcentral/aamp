@@ -22,40 +22,24 @@
  * @brief Aampcli Command register and handler
  */
 
+#include <stdio.h>  // required by readline
+#include <readline/readline.h>
 #include "AampcliCommandHandler.h"
-#include "AampcliGet.h"
-#include "AampcliSet.h"
-#include "AampcliPlaybackCommand.h"
-#include "AampcliSmokeTest.h"
 
-std::map<std::string, Command*> CommandHandler::mCommandMap = std::map<std::string, Command*>();
+CommandHandler::CommandHandler()
+{
+	mCommandMap = {
+		{"set", &mSet},
+		{"get", &mGet},
+		{"harvest", &mHarvestor},
+		{"smoketest", &mSmokeTest},
+		{"default", &mPlaybackCommand}
+	};
+}
 
 void CommandHandler::registerAampcliCommands()
 {
 	registerAllCommands();
-	registerCommandObjects();
-}
-
-void CommandHandler::registerCommandObjects()
-{
-	registerCommand( "set", new Set);
-	registerCommand( "get", new Get);
-	registerCommand( "harvest", new Harvestor);
-	registerCommand( "smoketest", new SmokeTest);
-	registerCommand( "default", new PlaybackCommand);
-}
-
-void CommandHandler::registerCommand(const std::string& commandName, Command* command)
-{
-	std::map<std::string, Command*>::iterator cmdPair = mCommandMap.find(commandName);
-	if (cmdPair != mCommandMap.end())
-	{
-		printf("%s:%d: Command already registered\n", __FUNCTION__, __LINE__);
-	}
-	else
-	{
-		mCommandMap[commandName] = command;
-	}
 }
 
 bool CommandHandler::dispatchAampcliCommands( const char *cmdBuf, PlayerInstanceAAMP *playerInstanceAamp )
@@ -73,7 +57,7 @@ bool CommandHandler::dispatchAampcliCommands( const char *cmdBuf, PlayerInstance
 	return l_Command->execute(cmdBuf,playerInstanceAamp);
 }
 
-void CommandHandler::registerAllCommands() 
+void CommandHandler::registerAllCommands()
 {
 	PlaybackCommand lPlaybackCommand;
 	Set lSet;

@@ -28,24 +28,30 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <priv_aamp.h>
 
-using std::string;
-
-class Command
-{
-	public:
-		virtual ~Command( )
-		{}
-		virtual bool execute( const char *cmdBuf, PlayerInstanceAAMP *playerInstanceAamp) = 0;
-};
+#include "priv_aamp.h"
+#include "AampcliCommand.h"
+#include "AampcliGet.h"
+#include "AampcliSet.h"
+#include "AampcliHarvestor.h"
+#include "AampcliPlaybackCommand.h"
+#include "AampcliSmokeTest.h"
 
 class CommandHandler
 {
+	private:
+		Set mSet{};
+		Get mGet{};
+		Harvestor mHarvestor{};
+		SmokeTest mSmokeTest{};
+		PlaybackCommand mPlaybackCommand{};
+
+		std::map<std::string, Command*> mCommandMap{};
+
 	public:
-		static std::map<std::string, Command*> mCommandMap;
+		CommandHandler();
+
 		void registerAampcliCommands();
-		void registerCommandObjects();
 		void registerCommand(const std::string& commandName, Command* command);
 		bool dispatchAampcliCommands( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
 		void registerAllCommands();

@@ -26,7 +26,7 @@
 #include"Aampcli.h"
 #include"AampcliSet.h"
 
-std::map<string,setCommandInfo> Set::setCommands = std::map<string,setCommandInfo>();
+std::map<std::string,setCommandInfo> Set::setCommands = std::map<std::string,setCommandInfo>();
 std::vector<std::string> Set::commands(0);
 
 bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
@@ -46,8 +46,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 		}
 		else
 		{
-			std::map<string,setCommandInfo>::iterator setCmdItr;
-			setCmdItr = setCommands.find(command);
+			auto setCmdItr = setCommands.find(command);
 
 			if(setCmdItr != setCommands.end())
 			{
@@ -603,15 +602,15 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 								prefTypePresent = true;
 							}
 
-							playerInstanceAamp->SetPreferredLanguages(prefLanPresent?preferredLanguages:NULL, 
-									prefRendPresent?rendition:NULL, 
-									prefTypePresent?type:NULL, 
+							playerInstanceAamp->SetPreferredLanguages(prefLanPresent?preferredLanguages:NULL,
+									prefRendPresent?rendition:NULL,
+									prefTypePresent?type:NULL,
 									prefCodecPresent?preferredCodec:NULL);
 						}
 						else if (sscanf(cmd, "set %s %s %s %s", command, preferredLanguages, rendition, type) == 4)
 						{
 							printf("[AAMPCLI] setting PreferredLanguages (%s) with rendition (%s) and type (%s)\n" ,
-									preferredLanguages, rendition, type);  
+									preferredLanguages, rendition, type);
 							if (0 != strcasecmp(preferredLanguages, "null"))
 							{
 								prefLanPresent = true;
@@ -624,14 +623,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 							{
 								prefTypePresent = true;
 							}
-							playerInstanceAamp->SetPreferredLanguages(prefLanPresent?preferredLanguages:NULL, 
-									prefRendPresent?rendition:NULL, 
+							playerInstanceAamp->SetPreferredLanguages(prefLanPresent?preferredLanguages:NULL,
+									prefRendPresent?rendition:NULL,
 									prefTypePresent?type:NULL);
 						}
 						else if (sscanf(cmd, "set %s %s %s", command, preferredLanguages, rendition) == 3)
 						{
 							printf("[AAMPCLI] setting PreferredLanguages (%s) with rendition (%s)\n" ,
-									preferredLanguages, rendition); 
+									preferredLanguages, rendition);
 							if (0 != strcasecmp(preferredLanguages, "null"))
 							{
 								prefLanPresent = true;
@@ -640,7 +639,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 							{
 								prefRendPresent = true;
 							}
-							playerInstanceAamp->SetPreferredLanguages(prefLanPresent?preferredLanguages:NULL, 
+							playerInstanceAamp->SetPreferredLanguages(prefLanPresent?preferredLanguages:NULL,
 									prefRendPresent?rendition:NULL);
 						}
 						else if (sscanf(cmd, "set %s %s", command, preferredLanguages) == 2)
@@ -960,7 +959,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 								if(!substr.empty()){
 									language = substr;
 								}
-							} 
+							}
 
 							/*rendition */
 							if (std::getline(ss, substr, ',')){
@@ -974,28 +973,28 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 								if(!substr.empty()){
 									type = substr;
 								}
-							} 
+							}
 
 							/*codec */
 							if (std::getline(ss, substr, ',')){
 								if(!substr.empty()){
 									codec = substr;
 								}
-							} 
+							}
 
 							/*channel TODO:not supported now */
-							if (std::getline(ss, substr, ',')){	
+							if (std::getline(ss, substr, ',')){
 								if(!substr.empty()){
 									channel = std::stoi(substr);
 								}
-							} 
+							}
 							/*label*/
 							if (std::getline(ss, substr, ',')){
 								if(!substr.empty()){
 									label = substr;
 								}
-							} 
-							printf("[AAMPCLI] Selecting audio track based on language  - %s rendition - %s type = %s codec = %s channel = %d label = %s\n", 
+							}
+							printf("[AAMPCLI] Selecting audio track based on language  - %s rendition - %s type = %s codec = %s channel = %d label = %s\n",
 									language.c_str(), rendition.c_str(), type.c_str(), codec.c_str(), channel, label.c_str());
 							playerInstanceAamp->SetAudioTrack(language, rendition, type, codec, channel,label);
 
@@ -1199,7 +1198,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						}
 						break;
 					}
-				
+
 				default:
 					printf("[AAMPCLI] Invalid set command %s\n", command);
 					break;
@@ -1272,7 +1271,7 @@ void Set::registerSetCommands()
 	//addCommand("rateOnTune"," <x>","Set Pre-tune rate (x= PreTuneRate)");
 	addCommand(48,"thumbnailTrack"," <x>","Set Thumbnail Track (int x = Thumbnail Index)");
 	addCommand(49,"sslVerifyPeer"," <x>","Set Ssl Verify Peer flag (x = 1 for enabling)");
-	addCommand(50,"downloadDelayOnFetch"," <x>","Set delay while downloading fragments (unsigned int x = download delay in ms)");        
+	addCommand(50,"downloadDelayOnFetch"," <x>","Set delay while downloading fragments (unsigned int x = download delay in ms)");
 	addCommand(51,"pausedBehavior"," <x>","Set Paused behavior (int x (0-3) options -\"autoplay defer\",\"autoplay immediate\",\"live defer\",\"live immediate\"");
 	addCommand(52,"auxiliaryAudio"," <x>","Set auxiliary audio language (x = string lang)");
 	addCommand(53,"registerForMediaMetadata"," <x>","Set Listen for AAMP_EVENT_MEDIA_METADATA events (x = 1 - add listener, x = 0 - remove)");
@@ -1282,7 +1281,7 @@ void Set::registerSetCommands()
 	commands.push_back("help");
 }
 
-void Set::addCommand(int value,string command,string param,string description)
+void Set::addCommand(int value,std::string command,std::string param,std::string description)
 {
 	setCommandInfo lCmdInfo;
 	lCmdInfo.value = value;
@@ -1299,21 +1298,18 @@ void Set::addCommand(int value,string command,string param,string description)
  */
 void Set::ShowHelpSet()
 {
-	std::map<string,setCommandInfo>::iterator setCmdItr;
-	
 	printf("******************************************************************************************\n");
 	printf("*   set <command> [<arguments>]\n");
 	printf("*   Usage of Commands with arguemnts expected in ()\n");
 	printf("******************************************************************************************\n");
-	
+
 	if(!commands.empty())
 	{
-
 		if(!commands.empty())
 		{
 			for(auto itr:commands)
 			{
-				setCmdItr = setCommands.find(itr);
+				auto setCmdItr = setCommands.find(itr);
 
 				if(setCmdItr != setCommands.end())
 				{
@@ -1323,7 +1319,7 @@ void Set::ShowHelpSet()
 			}
 		}
 	}
-	
+
 	printf("******************************************************************************************\n");
 }
 
@@ -1333,7 +1329,7 @@ char * Set::setCommandRecommender(const char *text, int state)
     static int len;
     static std::vector<std::string>::iterator itr;
 
-    if (!state) 
+    if (!state)
     {
 	itr = commands.begin();
         len = strlen(text);
@@ -1343,10 +1339,10 @@ char * Set::setCommandRecommender(const char *text, int state)
     {
 	    name = (char *) itr->c_str();
 	    itr++;
-	    if (strncmp(name, text, len) == 0) 
+	    if (strncmp(name, text, len) == 0)
 	    {
 		    return strdup(name);
-	    }	
+	    }
     }
 
     return NULL;

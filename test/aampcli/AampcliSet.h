@@ -26,7 +26,7 @@
 #define AAMPCLISET_H
 
 #include "priv_aamp.h"
-#include "AampcliCommandHandler.h"
+#include "AampcliCommand.h"
 
 #define CC_OPTION_1 "{\"penItalicized\":false,\"textEdgeStyle\":\"none\",\"textEdgeColor\":\"black\",\"penSize\":\"small\",\"windowFillColor\":\"black\",\"fontStyle\":\"default\",\"textForegroundColor\":\"white\",\"windowFillOpacity\":\"transparent\",\"textForegroundOpacity\":\"solid\",\"textBackgroundColor\":\"black\",\"textBackgroundOpacity\":\"solid\",\"windowBorderEdgeStyle\":\"none\",\"windowBorderEdgeColor\":\"black\",\"penUnderline\":false}"
 #define CC_OPTION_2 "{\"penItalicized\":false,\"textEdgeStyle\":\"none\",\"textEdgeColor\":\"yellow\",\"penSize\":\"small\",\"windowFillColor\":\"black\",\"fontStyle\":\"default\",\"textForegroundColor\":\"yellow\",\"windowFillOpacity\":\"transparent\",\"textForegroundOpacity\":\"solid\",\"textBackgroundColor\":\"cyan\",\"textBackgroundOpacity\":\"solid\",\"windowBorderEdgeStyle\":\"none\",\"windowBorderEdgeColor\":\"black\",\"penUnderline\":true}"
@@ -43,9 +43,9 @@ class Set : public Command {
 
 	public:
 		static std::vector<std::string> commands;
-		static std::map<string,setCommandInfo> setCommands;
-		static std::map<string,string> setNumCommands;
-		void addCommand(int value, string command,string param,string description);
+		static std::map<std::string,setCommandInfo> setCommands;
+		static std::map<std::string,std::string> setNumCommands;
+		void addCommand(int value, std::string command,std::string param,std::string description);
 		void registerSetCommands();
 		static char *setCommandRecommender(const char *text, int state);
 		void ShowHelpSet();

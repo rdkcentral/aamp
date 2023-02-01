@@ -26,8 +26,8 @@
 #define AAMPCLIGET_H
 
 #include <cstring>
-#include <priv_aamp.h>
-#include "AampcliCommandHandler.h"
+#include "priv_aamp.h"
+#include "AampcliCommand.h"
 
 typedef struct GetCommandInfo{
 	GetCommandInfo() : value(0), description("") {}
@@ -39,9 +39,9 @@ class Get : public Command {
 
 	public:
 		static std::vector<std::string> commands;
-		static std::map<string,getCommandInfo> getCommands;
-		static std::map<string,string> getNumCommands;
-		void addCommand(int value,string command,string description);
+		static std::map<std::string,getCommandInfo> getCommands;
+		static std::map<std::string,std::string> getNumCommands;
+		void addCommand(int value,std::string command,std::string description);
 		void registerGetCommands();
 		static char *getCommandRecommender(const char *text, int state);
 		void ShowHelpGet();
