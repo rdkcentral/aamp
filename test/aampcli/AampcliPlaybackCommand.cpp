@@ -444,8 +444,9 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("select","Enumerate available player instances");
 	addCommand("select <index>","Select player instance for use");
 	addCommand("detach","Detach (lightweight stop) selected player instance");
-	addCommand("pause","Pause the existing playback");
-	addCommand("pause <seconds>","Pause at specified position, negative value to cancel");
+	addCommand("pause","Pause existing playback now");
+	addCommand("pause <s>","Schedule pause at position<s>; pass -1 to cancel");
+	addCommand("seek <s> <p>","Seek to position<s>; optionally pass 1 for <p> to remain paused");
 	addCommand("play","Continue existing playback");
 	addCommand("stop","Stop the existing playback");
 	addCommand("status","get the status of existing playback");
