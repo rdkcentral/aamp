@@ -3981,6 +3981,11 @@ public:
 	 */
 	size_t HandleSSLHeaderCallback ( const char *ptr, size_t size, size_t nmemb, void* userdata );
 
+	/**
+	 * @brief To update the max DASH DRM sessions supported in AAMP
+	 */
+	void UpdateMaxDRMSessions();
+
 private:
 
 	/**

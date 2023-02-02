@@ -2924,10 +2924,17 @@ bool PlayerInstanceAAMP::InitAAMPConfig(char *jsonStr)
 	{
 		AsyncStartStop();
 	}
-	
-	if(cfgdata != NULL){
+
+	if(GETCONFIGOWNER(eAAMPConfig_MaxDASHDRMSessions) == AAMP_APPLICATION_SETTING)
+	{
+		aamp->UpdateMaxDRMSessions();
+	}
+
+	if(cfgdata != NULL)
+	{
 		cJSON *drmConfig = cJSON_GetObjectItem(cfgdata,"drmConfig");
-		if(drmConfig) {
+		if(drmConfig)
+		{
 			std::string LicenseServerUrl = "";
 			GETCONFIGVALUE(eAAMPConfig_PRLicenseServerUrl, LicenseServerUrl);
 			aamp->mDynamicDrmDefaultconfig.licenseEndPoint.insert(std::pair<std::string, std::string>("com.microsoft.playready", LicenseServerUrl.c_str()));
@@ -2938,7 +2945,7 @@ bool PlayerInstanceAAMP::InitAAMPConfig(char *jsonStr)
 			std::string customData = "";
 			GETCONFIGVALUE(eAAMPConfig_CustomLicenseData,customData);
 			aamp->mDynamicDrmDefaultconfig.customData = customData;
-                }
+		}
 		cJSON_Delete(cfgdata);
 	}
 	return retVal;

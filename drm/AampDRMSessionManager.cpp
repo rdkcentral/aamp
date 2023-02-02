@@ -132,14 +132,6 @@ AampDRMSessionManager::AampDRMSessionManager(AampLogManager *logObj, int maxDrmS
 		,mSessionId(AAMP_SECMGR_INVALID_SESSION_ID)
 #endif
 {
-	if(maxDrmSessions < 1)
-	{
-		mMaxDRMSessions = 1; // minimum of 1 drm session needed
-	}
-	else if(maxDrmSessions > MAX_DASH_DRM_SESSIONS)
-	{
-		mMaxDRMSessions = MAX_DASH_DRM_SESSIONS; // limit to 30 
-	}
 	drmSessionContexts	= new DrmSessionContext[mMaxDRMSessions];
 	cachedKeyIDs		= new KeyID[mMaxDRMSessions];
 	AAMPLOG_INFO("AampDRMSessionManager MaxSession:%d",mMaxDRMSessions);
@@ -1737,12 +1729,37 @@ void AampDRMSessionManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aam
 		{
 			AAMPLOG_WARN("pthread_cond_timedwait returned %s ", strerror(pthreadReturnValue));
 		}
-		else{
+		else
+		{
 			AAMPLOG_WARN("%s:%d [WARN] pthread_cond_timedwait(dynamicDrmUpdate) returned success!", __FUNCTION__, __LINE__);
 		}
 		pthread_mutex_unlock(&aampInstance->mDynamicDrmUpdateLock);
 	}
 }
+
+/**
+ * @brief To update the max DRM sessions supported
+ *
+ * @param[in] maxSessions max DRM Sessions
+ */
+void AampDRMSessionManager::UpdateMaxDRMSessions(int maxSessions)
+{
+	if (mMaxDRMSessions != maxSessions)
+	{
+		// Clean up the current sessions
+		clearSessionData();
+		SAFE_DELETE_ARRAY(drmSessionContexts);
+		SAFE_DELETE_ARRAY(cachedKeyIDs);
+
+		//Update to new session count
+		mMaxDRMSessions = maxSessions;
+		drmSessionContexts      = new DrmSessionContext[mMaxDRMSessions];
+		cachedKeyIDs            = new KeyID[mMaxDRMSessions];
+		AAMPLOG_INFO("Updated AampDRMSessionManager MaxSession to:%d", mMaxDRMSessions);
+	}
+}
+
+
 
 /**
  *  @brief		Function to release the DrmSession if it running

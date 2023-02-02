@@ -12290,3 +12290,26 @@ bool PrivateInstanceAAMP::HasSidecarData()
 	}
 	return false;
 }
+
+/**
+ *   @brief To update the max DASH DRM sessions supported in AAMP
+ */
+void PrivateInstanceAAMP::UpdateMaxDRMSessions()
+{
+	int maxSessions;
+	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions, maxSessions);
+
+	// drm sessions should be updated only when player is idle
+	if (mState == eSTATE_IDLE || mState == eSTATE_RELEASED)
+	{
+#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
+		mDRMSessionManager->UpdateMaxDRMSessions(maxSessions);
+#else
+		AAMPLOG_ERR("DRM is not supported");
+#endif
+	}
+	else
+	{
+		AAMPLOG_ERR("Discarded DRM session update as player is in state:%d", mState.load());
+	}
+}

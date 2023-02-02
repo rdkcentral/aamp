@@ -332,6 +332,13 @@ public:
 	 * @fn ContentProtectionDataUpdate
 	 */
 	void ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, std::vector<uint8_t> keyId, MediaType streamType);
+
+	/**
+	 * @brief To update the max DRM sessions supported
+	 *
+	 * @param[in] maxSessions max DRM Sessions
+	 */
+	void UpdateMaxDRMSessions(int maxSessions);
 };
 
 /**
