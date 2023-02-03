@@ -1070,7 +1070,7 @@ void StreamAbstractionAAMP_MPD::GetFragmentUrl( std::string& fragmentUrl, const 
 	replace(constructedUri, "Bandwidth", fragmentDescriptor->Bandwidth);
 	replace(constructedUri, "RepresentationID", fragmentDescriptor->RepresentationID);
 	replace(constructedUri, "Number", fragmentDescriptor->Number);
-	replace(constructedUri, "Time", fragmentDescriptor->Time );
+	replace(constructedUri, "Time", (uint64_t)fragmentDescriptor->Time );
 	aamp_ResolveURL(fragmentUrl, fragmentDescriptor->manifestUrl, constructedUri.c_str(),ISCONFIGSET(eAAMPConfig_PropogateURIParam));
 	//As a part of RDK-35897 to fetch the url of next next fragment and bandwidth corresponding to each fragment fetch
 	if(ISCONFIGSET(eAAMPConfig_EnableCMCD))
@@ -10305,13 +10305,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 #endif
 
 	aamp->EnableDownloads();
-}
-
-/**
- * @brief Stub implementation
- */
-void StreamAbstractionAAMP_MPD::DumpProfiles(void)
-{ // STUB
 }
 
 StreamOutputFormat GetSubtitleFormat(std::string mimeType)

@@ -64,10 +64,6 @@ public:
      */
     StreamAbstractionAAMP_VIDEOIN& operator=(const StreamAbstractionAAMP_VIDEOIN&) = delete;
     /**
-     * @brief Stub implementation
-     */
-    void DumpProfiles(void) override;
-    /**
      *   @fn Start
      */
     void Start() override;

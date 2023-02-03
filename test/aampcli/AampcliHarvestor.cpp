@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <exception>
 #include "AampcliHarvestor.h"
+#include "AampcliPlaybackCommand.h"
 
 Harvestor::Harvestor() : mMasterHarvestorThreadID(),
 			 mSlaveHarvestorThreadID(),
@@ -42,17 +43,17 @@ std::string Harvestor::mHarvestPath = "";
 char Harvestor::exePathName[PATH_MAX] = "";
 Harvestor mHarvestor;
 
-bool Harvestor::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
+bool Harvestor::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 {
 	char harvestCmd[mHarvestCommandLength] = {'\0'};
 	bool slaveFlag = false;
 
 	Harvestor::mPlayerInstanceAamp = playerInstanceAamp;
 
-	int len = strlen(cmd) - 8;
+	auto len = strlen(cmd) - 8;
 	strncpy(harvestCmd, cmd+8, len);
 	
-	if(memcmp(harvestCmd,"harvestMode=Master",18) == 0)
+	if( PlaybackCommand::isCommandMatch(harvestCmd,"harvestMode=Master") )
 	{
 		printf("%s:%d: thread create:MasterHarvestor thread\n", __FUNCTION__, __LINE__);
 		try {
@@ -63,7 +64,7 @@ bool Harvestor::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 			printf("%s:%d: Error at thread create:MasterHarvestor thread : %s\n", __FUNCTION__, __LINE__, e.what());
 		}
 	}
-	else if(memcmp(harvestCmd,"harvestMode=Slave",17) == 0)
+	else if( PlaybackCommand::isCommandMatch(harvestCmd,"harvestMode=Slave") )
 	{
 		printf("%s:%d: thread create:SlaveHarvestor thread\n", __FUNCTION__, __LINE__);
 		try {

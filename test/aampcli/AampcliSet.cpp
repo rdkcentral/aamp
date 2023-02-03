@@ -29,7 +29,7 @@
 std::map<string,setCommandInfo> Set::setCommands = std::map<string,setCommandInfo>();
 std::vector<std::string> Set::commands(0);
 
-bool Set::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
+bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 {
 	printf("%s:%d:cmd %s\n", __FUNCTION__, __LINE__,cmd);
 	char command[100];
@@ -1252,7 +1252,7 @@ void Set::registerSetCommands()
 	addCommand(29,"downloadLowBWTimeout"," <x>","Set Download Low Bandwidth timeout (long x=timeout)");
 	addCommand(30,"preferredSubtitleLang"," <x>","Set Preferred Subtitle language (string x = lang)");
 	addCommand(31,"parallelPlaylistDL"," <x>","Set Parallel Playlist download (x=0/1)");
-	addCommand(32,"preferredLanguages"," <x>","Set Preferred languages (string lang1,lang2,... rendition type codec1,codec2.. ) , use null keyword to discard any argument or path to json file");
+	addCommand(32,"preferredLanguages"," <x>","Set Preferred Languages(string lang1,lang2,... rendition type codec1,codec2.. ); use null to skip arguments");
 	addCommand(33,"preferredTextLanguages"," <x>","Set Preferred languages (string lang1,lang2,... ) , or path json file");
 	addCommand(34,"rampDownLimit"," <x>","Set number of Ramp Down limit during the playback (x = number)");
 	addCommand(35,"initRampdownLimit"," <x>","Set number of Initial Ramp Down limit prior to the playback (x = number)");

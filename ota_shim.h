@@ -78,13 +78,6 @@ public:
     /*Event Handler*/
     void onPlayerStatusHandler(const JsonObject& parameters);
 #endif
-    /**
-     *   @fn DumpProfiles
-     */
-    void DumpProfiles(void) override;
-    /**
-     *   @fn Start
-     */
     void Start() override;
     /**
      *   @fn Stop

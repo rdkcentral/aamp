@@ -27,8 +27,6 @@ StreamAbstractionAAMP_PROGRESSIVE::~StreamAbstractionAAMP_PROGRESSIVE()
 {
 }
 
-void StreamAbstractionAAMP_PROGRESSIVE::DumpProfiles(void) {  }
-
 AAMPStatusType StreamAbstractionAAMP_PROGRESSIVE::Init(TuneType tuneType) { return eAAMPSTATUS_OK; }
 
 void StreamAbstractionAAMP_PROGRESSIVE::Start() {  }

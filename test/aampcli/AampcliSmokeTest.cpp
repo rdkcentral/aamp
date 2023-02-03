@@ -25,7 +25,7 @@ extern Aampcli mAampcli;
 static PlayerInstanceAAMP *mPlayerInstanceAamp;
 std::map<std::string, std::string> SmokeTest::smokeTestUrls = std::map<std::string, std::string>();
 
-bool SmokeTest::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
+bool SmokeTest::execute(const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 {
 	int result;
 

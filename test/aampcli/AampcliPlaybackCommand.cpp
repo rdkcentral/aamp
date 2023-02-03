@@ -25,6 +25,7 @@
 #include <iomanip>
 #include "AampcliPlaybackCommand.h"
 
+extern bool gAampcliQuietLogs;
 extern VirtualChannelMap mVirtualChannelMap;
 extern Aampcli mAampcli;
 extern void tsdemuxer_InduceRollover( bool enable );
@@ -36,11 +37,10 @@ std::vector<std::string> PlaybackCommand::commands(0);
  * @brief Process command
  * @param cmd command
  */
-bool PlaybackCommand::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
+bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 {
 	bool eventChange = false;
 	char lang[MAX_LANGUAGE_TAG_LENGTH];
-	char cacheUrl[200];
 	int keepPaused = 0;
 	int rate = 0;
 	double seconds = 0;
@@ -50,40 +50,29 @@ bool PlaybackCommand::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 	int ms = 0;
 	int playerIndex = -1;
 
-	trim(&cmd);
-	while( *cmd==' ' ) cmd++;
-
 	if( cmd[0]=='#' )
 	{
 		printf( "skipping comment\n" );
 	}
-	else if(cmd[0] == 0)
-	{
-		if (playerInstanceAamp->aamp->mpStreamAbstractionAAMP)
-		{
-			playerInstanceAamp->aamp->mpStreamAbstractionAAMP->DumpProfiles();
-		}
-		printf("[AAMPCLI] current network bandwidth ~= %ld\n", playerInstanceAamp->aamp->GetPersistedBandwidth());
-	}
-	else if (strcmp(cmd, "help") == 0)
+	else if( isCommandMatch(cmd, "help") )
 	{
 		showHelp();
 	}
-	else if( strcmp(cmd,"rollover")==0 )
+	else if( isCommandMatch(cmd,"rollover") )
 	{
 		printf( "enabling artificial pts rollover (10s after next tune)\n" );
 		tsdemuxer_InduceRollover( true );
 	}
-	else if (strcmp(cmd, "list") == 0)
+	else if( isCommandMatch(cmd, "list") )
 	{
 		mVirtualChannelMap.showList();
 	}
-	else if( strcmp(cmd,"autoplay") == 0 )
+	else if( isCommandMatch(cmd,"autoplay") )
 	{
 		mAampcli.mbAutoPlay = !mAampcli.mbAutoPlay;
 		printf( "autoplay = %s\n", mAampcli.mbAutoPlay?"true":"false" );
 	}
-	else if( strcmp(cmd,"new") == 0 )
+	else if( isCommandMatch(cmd,"new") )
 	{
 		mAampcli.newPlayerInstance();
 	}
@@ -98,7 +87,8 @@ bool PlaybackCommand::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 	}
 	else if( sscanf(cmd, "select %d", &playerIndex ) == 1 )
 	{
-		try {
+		if( playerIndex < mAampcli.mPlayerInstances.size() )
+		{
 			playerInstanceAamp = mAampcli.mPlayerInstances.at(playerIndex);
 			if (playerInstanceAamp->aamp)
 			{
@@ -109,18 +99,13 @@ bool PlaybackCommand::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 			{
 				printf( "error - player exists but is not valid/ready, playerInstanceAamp->aamp is not a valid ptr\n");
 			}
-		} catch (std::out_of_range const& exc) {
-			if (mAampcli.mPlayerInstances.size() == 0)
-			{
-				printf( "error - no player instances\n" );
-			}
-			else
-			{
-				printf( "valid range = 0..%lu\n", mAampcli.mPlayerInstances.size()-1 );
-			}
+		}
+		else
+		{
+			printf( "valid range = 0..%lu\n", mAampcli.mPlayerInstances.size()-1 );
 		}
 	}
-	else if (strcmp(cmd, "select") == 0)
+	else if( isCommandMatch(cmd, "select") )
 	{ // List available player instances
 		printf( "player instances:\n" );
 		playerIndex = 0;
@@ -134,24 +119,15 @@ bool PlaybackCommand::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 			printf( "\n ");
 		}
 	}
-	else if( strcmp(cmd,"detach") == 0 )
+	else if( isCommandMatch(cmd,"detach") )
 	{
 		playerInstanceAamp->detach();
 	}
 	else if (isTuneScheme(cmd))
 	{
-		{
-			if (memcmp(cmd, "live", 4) == 0)
-			{
-				playerInstanceAamp->SeekToLive();
-			}
-			else
-			{
-				playerInstanceAamp->Tune(cmd,mAampcli.mbAutoPlay);
-			}
-		}
+		playerInstanceAamp->Tune(cmd,mAampcli.mbAutoPlay);
 	}
-	else if( memcmp(cmd, "next", 4) == 0 )
+	else if( isCommandMatch(cmd, "next") )
 	{
 		VirtualChannelInfo *pNextChannel = mVirtualChannelMap.next();
 		if (pNextChannel)
@@ -164,7 +140,7 @@ bool PlaybackCommand::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 			printf("[AAMPCLI] can not fetch 'next' channel, empty virtual channel map\n");
 		}
 	}
-	else if( memcmp(cmd, "prev", 4) == 0 )
+	else if( isCommandMatch(cmd, "prev") )
 	{
 		VirtualChannelInfo *pPrevChannel = mVirtualChannelMap.prev();
 		if (pPrevChannel)
@@ -177,7 +153,7 @@ bool PlaybackCommand::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 			printf("[AAMPCLI] can not fetch 'prev' channel, empty virtual channel map\n");
 		}
 	}
-	else if (isNumber(cmd))
+	else if( isNumber(cmd) )
 	{
 		int channelNumber = atoi(cmd);  // invalid input results in 0 -- will not be found
 
@@ -200,11 +176,11 @@ bool PlaybackCommand::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 		}
 		keepPaused = 0;
 	}
-	else if (strcmp(cmd, "sf") == 0)
+	else if (isCommandMatch(cmd, "slow") )
 	{
 		playerInstanceAamp->SetRate((float)0.5);
 	}
-	else if (sscanf(cmd, "ff%d", &rate) == 1)
+	else if (sscanf(cmd, "ff %d", &rate) == 1)
 	{
 		playerInstanceAamp->SetRate((float)rate);
 	}
@@ -212,7 +188,7 @@ bool PlaybackCommand::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 	{
 		playerInstanceAamp->SetRate(1);
 	}
-	else if (sscanf(cmd, "pause%lf", &seconds) == 1)
+	else if (sscanf(cmd, "pause %lf", &seconds) == 1)
 	{
 		playerInstanceAamp->PauseAt(seconds);
 	}
@@ -220,7 +196,7 @@ bool PlaybackCommand::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 	{
 		playerInstanceAamp->SetRate(0);
 	}
-	else if (sscanf(cmd, "rw%d", &rate) == 1)
+	else if (sscanf(cmd, "rew %d", &rate) == 1)
 	{
 		playerInstanceAamp->SetRate((float)(-rate));
 	}
@@ -229,32 +205,33 @@ bool PlaybackCommand::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 		printf("[AAMPCLI] Set video bitrate %d.\n", rate);
 		playerInstanceAamp->SetVideoBitrate(rate);
 	}
-	else if (strcmp(cmd, "flush") == 0)
+	else if (isCommandMatch(cmd, "flush") )
 	{
 		playerInstanceAamp->aamp->mStreamSink->Flush();
 	}
-	else if (strcmp(cmd, "stop") == 0)
+	else if (isCommandMatch(cmd, "stop") )
 	{
 		playerInstanceAamp->Stop();
 		tsdemuxer_InduceRollover(false);
 	}
-	else if (strcmp(cmd, "underflow") == 0)
+	else if (isCommandMatch(cmd, "underflow") )
 	{
 		playerInstanceAamp->aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, eMEDIATYPE_VIDEO);
 	}
-	else if (strcmp(cmd, "retune") == 0)
+	else if (isCommandMatch(cmd, "retune") )
 	{
 		playerInstanceAamp->aamp->ScheduleRetune(eDASH_ERROR_STARTTIME_RESET, eMEDIATYPE_VIDEO);
 	}
-	else if (strcmp(cmd, "status") == 0)
-	{
-		playerInstanceAamp->aamp->mStreamSink->DumpStatus();
-	}
-	else if (strcmp(cmd, "live") == 0)
+	else if (isCommandMatch(cmd, "live") )
 	{
 		playerInstanceAamp->SeekToLive();
 	}
-	else if (strcmp(cmd, "exit") == 0)
+	else if( isCommandMatch(cmd,"quiet") )
+	{
+		gAampcliQuietLogs = !gAampcliQuietLogs;
+		printf("[AAMPCLI] core logging: %s\n", gAampcliQuietLogs?"QUIET":"NORMAL" );
+	}
+	else if (isCommandMatch(cmd, "exit") )
 	{
 		playerInstanceAamp = NULL;
 		for( auto playerInstance : mAampcli.mPlayerInstances )
@@ -265,61 +242,16 @@ bool PlaybackCommand::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 		termPlayerLoop();
 		return false;	//to exit
 	}
-	else if (memcmp(cmd, "rect", 4) == 0)
+	else if( isCommandMatch(cmd, "customheader") )
 	{
-		int x, y, w, h;
-		if (sscanf(cmd, "rect %d %d %d %d", &x, &y, &w, &h) == 4)
-		{
-			playerInstanceAamp->SetVideoRectangle(x, y, w, h);
-		}
-	}
-	else if (memcmp(cmd, "zoom", 4) == 0)
-	{
-		int zoom;
-		if (sscanf(cmd, "zoom %d", &zoom) == 1)
-		{
-			if (zoom)
-			{
-				printf("[AAMPCLI] Set zoom to full\n");
-				playerInstanceAamp->SetVideoZoom(VIDEO_ZOOM_FULL);
-			}
-			else
-			{
-				printf("[AAMPCLI] Set zoom to none\n");
-				playerInstanceAamp->SetVideoZoom(VIDEO_ZOOM_NONE);
-			}
-		}
-	}
-	else if( sscanf(cmd, "sap %s",lang ) )
-	{
-		size_t len = strlen(lang);
-		printf("[AAMPCLI] aamp cli sap called for language %s\n",lang);
-		if( len>0 )
-		{
-			playerInstanceAamp->SetLanguage( lang );
-		}
-		else
-		{
-			printf("[AAMPCLI] GetCurrentAudioLanguage: '%s'\n", playerInstanceAamp->GetCurrentAudioLanguage() );
-		}
-	}
-	else if( strcmp(cmd,"getplaybackrate") == 0 )
-	{
-		printf("[AAMPCLI] Playback Rate: %d\n", playerInstanceAamp->GetPlaybackRate());
-	}
-	else if (memcmp(cmd, "islive", 6) == 0 )
-	{
-		printf("[AAMPCLI] VIDEO IS %s\n",
-				(playerInstanceAamp->IsLive() == true )? "LIVE": "NOT LIVE");
-	}
-	else if (memcmp(cmd, "customheader", 12) == 0 )
-	{
-		//Dummy implimenations
 		std::vector<std::string> headerValue;
 		printf("[AAMPCLI] customheader Command is %s\n" , cmd);
-		playerInstanceAamp->AddCustomHTTPHeader("", headerValue, false);
+		playerInstanceAamp->AddCustomHTTPHeader(
+												"", // headerName(?)
+												headerValue,
+												false); // isLicenseHeader
 	}
-	else if (sscanf(cmd, "unlock %ld", &unlockSeconds) >= 1)
+	else if( sscanf(cmd, "unlock %ld", &unlockSeconds) >= 1 )
 	{
 		printf("[AAMPCLI] unlocking for %ld seconds\n" , unlockSeconds);
 		if(-1 == unlockSeconds)
@@ -328,26 +260,70 @@ bool PlaybackCommand::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 			time = unlockSeconds;
 		playerInstanceAamp->DisableContentRestrictions(grace, time, eventChange);
 	}
-	else if (memcmp(cmd, "unlock", 6) == 0 )
+	else if( isCommandMatch(cmd, "unlock") )
 	{
 		printf("[AAMPCLI] unlocking till next program change\n");
 		eventChange = true;
 		playerInstanceAamp->DisableContentRestrictions(grace, time, eventChange);
 	}
-	else if (memcmp(cmd, "lock", 4) == 0 )
+	else if( isCommandMatch(cmd, "lock") )
 	{
 		playerInstanceAamp->EnableContentRestrictions();
 	}
-	else if (strcmp(cmd, "progress") == 0)
+	else if( isCommandMatch(cmd, "progress") )
 	{
 		mAampcli.mEnableProgressLog = mAampcli.mEnableProgressLog ? false : true;
 	}
-	else if(strcmp(cmd, "stats") == 0)
+	else if( isCommandMatch(cmd, "stats") )
 	{
-		printf("[AAMPCLI] Playback stats: %s", playerInstanceAamp->GetPlaybackStats().c_str());
+		printf("[AAMPCLI] statistics:\n%s\n", playerInstanceAamp->GetPlaybackStats().c_str());
 	}
-
+	else if( isCommandMatch(cmd,"subtec") )
+	{
+#ifdef __APPLE__
+		mAampcli.mSingleton->SetCCStatus(true);
+		system( "cd ../..;bash install-aamp.sh subtec&\n");
+#endif
+	}
+	else if( isCommandMatch(cmd,"history") )
+	{
+		HISTORY_STATE *historyState = history_get_history_state ();
+		for (int i = 0; i < historyState->length; i++)
+		{
+			printf ("%s\n", history_get(i+1)->line);
+		}
+	}
+	else if( isCommandMatch(cmd,"auto") )
+	{
+		int start=500, end=1000;
+		int maxTuneTimeS = 6;
+		int playTimeS = 15;
+		int betweenTimeS = 15;
+		int matched = sscanf(cmd, "auto %d %d %d %d %d", &start, &end, &maxTuneTimeS, &playTimeS, &betweenTimeS );
+		mAampcli.doAutomation( start, end, maxTuneTimeS, playTimeS, betweenTimeS );
+	}
+	else
+	{
+		printf( "[AAMP-CLI] unmatched command: %s\n", cmd );
+	}
 	return true;
+}
+
+bool PlaybackCommand::isCommandMatch( const char *cmdBuf, const char *cmdName )
+{
+	for(;;)
+	{
+		char k = *cmdBuf++;
+		char c = *cmdName++;
+		if( !c )
+		{
+			return (k<=' ' ); // buf ends with whitespace
+		}
+		if( k!=c )
+		{
+			return false;
+		}
+	}
 }
 
 /**
@@ -384,37 +360,21 @@ bool PlaybackCommand::isNumber(const char *s)
  * @brief Decide if input command consists of supported URI scheme to be tuned.
  * @param cmd cmd to parse
  */
-bool PlaybackCommand::isTuneScheme(const char *cmd)
+bool PlaybackCommand::isTuneScheme( const char *cmdBuf )
 {
+	size_t cmdLen = strlen(cmdBuf);
 	bool isTuneScheme = false;
 	const char *protocol[5] = { "http:","https:","live:","hdmiin:","file:" };
 	for( int i=0; i<5; i++ )
 	{
-		size_t len = strlen(protocol[i]);
-		if( memcmp( cmd, protocol[i],len )==0 )
+		size_t protocolLen = strlen(protocol[i]);
+		if( cmdLen>=protocolLen && memcmp( cmdBuf, protocol[i], protocolLen )==0 )
 		{
 			isTuneScheme=true;
 			break;
 		}
 	}
 	return isTuneScheme;
-}
-
-/**
- * @brief trim a string
- * @param[in][out] cmd Buffer containing string
- */
-void PlaybackCommand::trim(char **cmd)
-{
-	std::string src = *cmd;
-	size_t first = src.find_first_not_of(' ');
-	if (first != std::string::npos)
-	{
-		size_t last = src.find_last_not_of(" \r\n");
-		std::string dst = src.substr(first, (last - first + 1));
-		strncpy(*cmd, (char*)dst.c_str(), dst.size());
-		(*cmd)[dst.size()] = '\0';
-	}
 }
 
 /**
@@ -433,43 +393,56 @@ void PlaybackCommand::termPlayerLoop()
 
 void PlaybackCommand::registerPlaybackCommands()
 {
-	addCommand("list","Type list to view virtual channel map");
-	addCommand("get help","Show help of get command");
-	addCommand("set help","Show help of set command");
-	addCommand("<channelNumber>","Play selected channel from guide");
-	addCommand("<url>","Play arbitrary stream");
-	addCommand("sleep <ms>","Sleep <ms> milliseconds");
-	addCommand("autoplay","Toggle tune autoplay (default = true)");
-	addCommand("new","Create new player instance");
-	addCommand("select","Enumerate available player instances");
-	addCommand("select <index>","Select player instance for use");
-	addCommand("detach","Detach (lightweight stop) selected player instance");
-	addCommand("pause","Pause existing playback now");
+	addCommand("get help","Show 'get' commands");
+	addCommand("set help","Show 'set' commands");
+	addCommand("history","Show user-entered aampcli command history" );
+	addCommand("help","Show this list of available commands");
+
+	// tuning
+	addCommand("autoplay","Toggle whether to autoplay (default=true)");
+	addCommand("list","Show virtual channel map");
+	addCommand("<channelNumber>","Tune specified virtual channel");
+	addCommand("next","Tune next virtual channel");
+	addCommand("prev","Tune previous virtual channel");
+	addCommand("<url>","Tune to arbitrary locator");
+
+	// trickplay
+	addCommand("play","Continue existing playback");
+	addCommand("slow","Slow Motion playback");
+	addCommand("ff <x>","Fast <speed>; up to 128x");
+	addCommand("rew <y>","Rewind <speed>; up to 128x");
+	addCommand("pause","Pause playerback");
 	addCommand("pause <s>","Schedule pause at position<s>; pass -1 to cancel");
 	addCommand("seek <s> <p>","Seek to position<s>; optionally pass 1 for <p> to remain paused");
-	addCommand("play","Continue existing playback");
+	addCommand("live","Seek to live edge");
 	addCommand("stop","Stop the existing playback");
-	addCommand("status","get the status of existing playback");
-	addCommand("flush","Flush the existing playback");
-	addCommand("sf","slow");
-	addCommand("ff<x>","Trickmodes (x <= 128. y <= 128)");
-	addCommand("rw<y>","Trickmodes (x <= 128. y <= 128)");
-	addCommand("bps <x>","set bitrate (x= bitrate)");
-	addCommand("sap","Use SAP track (if avail)");
-	addCommand("seek <seconds>","Specify start time within manifest");
-	addCommand("live","Seek to live point");
+
+	// simulated events
+	addCommand("retune","Retune to current locator");
+	addCommand("flush","Flush AV pipeline");
 	addCommand("underflow","Simulate underflow");
-	addCommand("retune","schedule retune");
-	addCommand("unlock <cond>","unlock a channel <long int - time in seconds>");
-	addCommand("lock","lock the current channel");
-	addCommand("next","Play next virtual channel");
+	addCommand("lock","Lock parental control");
+	addCommand("unlock <t>","Unlock parental control; <t> for timed unlock in seconds>");
 	addCommand("rollover","Schedule artificial pts rollover 10s after next tune");
-	addCommand("prev","Play previous virtual channel");
-	addCommand("exit","Exit from application");
-	addCommand("help","Show this list again");
-	addCommand("progress","Enable/disable Progress event logging");
-	addCommand("auto <opt params>",
-			   "startChan=500 endChan=1000 maxTuneTime=6 playTime=15 betweenTime=15" );
+
+	// background player instances
+	addCommand("new","Create new player instance (in addition to default)");
+	addCommand("select","Enumerate available player instances");
+	addCommand("select <index>","Select player instance to use");
+	addCommand("detach","Detach (lightweight stop) selected player instance");
+	
+#ifdef __APPLE__
+	addCommand("subtec","Launch subtec-app and default enable cc." );
+#endif
+	
+	// special
+	addCommand("quiet","toggle core aamp logs (on by default");
+	addCommand("sleep <ms>","Sleep <ms> milliseconds");
+	addCommand("bps <x>","lock abr to bitrate <x>");
+	addCommand("customheader <header>", "apply global http header on all outgoing requests" ); // TODO: move to 'set'?
+	addCommand("progress","Toggle progress event logging (default=false)");
+	addCommand("auto <params", "stress test with defaults: startChan(500) endChan(1000) maxTuneTime(6) playTime(15) betweenTime(15)" );
+	addCommand("exit","Exit aampcli");
 }
 
 void PlaybackCommand::addCommand(string command,string description)
@@ -506,8 +479,7 @@ void PlaybackCommand::showHelp(void)
 
 char * PlaybackCommand::commandRecommender(const char *text, int state)
 {
-	char *name;
-	static int len;
+	static size_t len;
 	static std::vector<std::string>::iterator itr;
 
 	if (!state) 
@@ -518,7 +490,7 @@ char * PlaybackCommand::commandRecommender(const char *text, int state)
 
 	while (itr != commands.end())
 	{
-		name = (char *) itr->c_str();
+		char *name = (char *) itr->c_str();
 		itr++;
 		if (strncmp(name, text, len) == 0) 
 		{

@@ -28,8 +28,6 @@ StreamAbstractionAAMP_OTA::~StreamAbstractionAAMP_OTA()
 {
 }
 
-void StreamAbstractionAAMP_OTA::DumpProfiles(void) {  }
-
 AAMPStatusType StreamAbstractionAAMP_OTA::Init(TuneType tuneType) { return eAAMPSTATUS_OK; }
 
 void StreamAbstractionAAMP_OTA::Start() {  }

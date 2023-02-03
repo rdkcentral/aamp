@@ -5631,63 +5631,6 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 	}
 }
 
-
-/**
- * @brief Function to log all debug information on Stream/Media information
- */
-void StreamAbstractionAAMP_HLS::DumpProfiles(void)
-{
-	int profileCount = mProfileCount;
-	if (profileCount)
-	{
-		for (int i = 0; i < profileCount; i++)
-		{
-			struct HlsStreamInfo *streamInfo = &this->streamInfo[i];
-			AAMPLOG_WARN("stream[%d]:", i);
-			if (streamInfo->uri) AAMPLOG_WARN("\tURI:%s", streamInfo->uri);
-			AAMPLOG_WARN("\tBANDWIDTH:%ld", streamInfo->bandwidthBitsPerSecond);
-			AAMPLOG_WARN("\tPROGRAM-ID:%ld", streamInfo->program_id);
-			if (streamInfo->audio) AAMPLOG_WARN("\tAUDIO:%s", streamInfo->audio);
-			if (streamInfo->codecs) AAMPLOG_WARN("\tCODECS:%s", streamInfo->codecs);
-			AAMPLOG_WARN("\tRESOLUTION: %dx%d FPS:%f", streamInfo->resolution.width, streamInfo->resolution.height,streamInfo->resolution.framerate);
-		}
-		AAMPLOG_WARN("");
-	}
-
-	if (mMediaCount)
-	{
-		for (int i = 0; i < mMediaCount; i++)
-		{
-			MediaInfo *mediaInfo = &this->mediaInfo[i];
-			AAMPLOG_WARN("media[%d]:", i);
-			if (mediaInfo->uri) AAMPLOG_WARN("\tURI:%s", mediaInfo->uri);
-			switch (mediaInfo->type)
-			{
-			case eMEDIATYPE_AUDIO:
-				AAMPLOG_WARN("type:AUDIO");
-				break;
-			case eMEDIATYPE_VIDEO:
-				AAMPLOG_WARN("type:VIDEO");
-				break;
-			default:
-				break;
-			}
-			if (mediaInfo->group_id) AAMPLOG_WARN("\tgroup-id:%s", mediaInfo->group_id);
-			if (mediaInfo->name) AAMPLOG_WARN("\tname:%s", mediaInfo->name);
-			if (mediaInfo->language) AAMPLOG_WARN("\tlanguage:%s", mediaInfo->language);
-			if (mediaInfo->autoselect)
-			{
-				AAMPLOG_WARN("\tAUTOSELECT");
-			}
-			if (mediaInfo->isDefault)
-			{
-				AAMPLOG_WARN("\tDEFAULT");
-			}
-		}
-		AAMPLOG_WARN("");
-	}
-}
-
 /***************************************************************************
 * @brief Function to get stream format
 ***************************************************************************/

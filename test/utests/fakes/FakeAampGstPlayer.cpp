@@ -58,10 +58,6 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 {
 }
 
-void AAMPGstPlayer::DumpStatus(void)
-{
-}
-
 void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
 }

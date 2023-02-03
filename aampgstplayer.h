@@ -151,10 +151,6 @@ public:
          */
 	void Stop(bool keepLastFrame);
 	/**
-         * @fn DumpStatus
-         */
-	void DumpStatus(void);
-	/**
          * @fn Flush
          * @param[in] position playback seek position
          * @param[in] rate playback rate

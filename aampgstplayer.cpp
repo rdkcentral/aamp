@@ -3333,65 +3333,6 @@ static void LogStatus(GstElement* pElementOrBin)
 }
 
 /**
- *  @brief Log the various info related to playback
- */
-void AAMPGstPlayer::DumpStatus(void)
-{
-	FN_TRACE( __FUNCTION__ );
-	GstElement *source = this->privateContext->stream[eMEDIATYPE_VIDEO].source;
-	gboolean rcBool;
-	guint64 rcUint64;
-	gint64 rcInt64;
-	GstFormat rcFormat;
-
-	//https://gstreamer.freedesktop.org/data/doc/gstreamer/head/gst-plugins-base-plugins/html/gst-plugins-base-plugins-appsrc.html
-	
-	rcBool = 0;
-	g_object_get(source, "block", &rcBool, NULL);
-	AAMPLOG_WARN("\tblock=%d", (int)rcBool); // 0
-
-	rcBool = 0;
-	g_object_get(source, "emit-signals", &rcBool, NULL);
-	AAMPLOG_WARN("\temit-signals=%d", (int)rcBool); // 1
-
-	rcFormat = (GstFormat)0;
-	g_object_get(source, "format", &rcFormat, NULL);
-	AAMPLOG_WARN("\tformat=%d", (int)rcFormat); // 2
-	
-	rcBool = 0;
-	g_object_get(source, "is-live", &rcBool, NULL);
-	AAMPLOG_WARN("\tis-live=%d", (int)rcBool); // 0
-	
-	rcUint64 = 0;
-	g_object_get(source, "max-bytes", &rcUint64, NULL);
-	AAMPLOG_WARN("\tmax-bytes=%d", (int)rcUint64); // 200000
-	
-	rcInt64 = 0;
-	g_object_get(source, "max-latency", &rcInt64, NULL);
-	AAMPLOG_WARN("\tmax-latency=%d", (int)rcInt64); // -1
-
-	rcInt64 = 0;
-	g_object_get(source, "min-latency", &rcInt64, NULL);
-	AAMPLOG_WARN("\tmin-latency=%d", (int)rcInt64); // -1
-
-	rcInt64 = 0;
-	g_object_get(source, "size", &rcInt64, NULL);
-	AAMPLOG_WARN("\tsize=%d", (int)rcInt64); // -1
-
-	gint64 pos, len;
-	GstFormat format = GST_FORMAT_TIME;
-	if (gst_element_query_position(privateContext->pipeline, format, &pos) &&
-		gst_element_query_duration(privateContext->pipeline, format, &len))
-	{
-		AAMPLOG_WARN("Position: %" GST_TIME_FORMAT " / %" GST_TIME_FORMAT "\r",
-			GST_TIME_ARGS(pos), GST_TIME_ARGS(len));
-	}
-
-	LogStatus(privateContext->pipeline);
-}
-
-
-/**
  * @brief Validate pipeline state transition within a max timeout
  * @param[in] _this pointer to AAMPGstPlayer instance
  * @param[in] stateToValidate state to be validated

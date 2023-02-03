@@ -21,22 +21,19 @@
  * @file AampcliGet.cpp
  * @brief Aampcli Get command handler
  */
-
 #include <iomanip>
-#include"AampcliGet.h"
+#include "AampcliGet.h"
 
 std::map<string,getCommandInfo> Get::getCommands = std::map<string,getCommandInfo>();
 std::vector<std::string> Get::commands(0);
 
-bool Get::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
+bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 {
 	char help[8];
 	int opt, value1, value2;
 	char command[100];
 	int getCmd;
-
-
-	if (sscanf(cmd, "get %s", command) == 1)
+	if( sscanf(cmd, "get %s", command) == 1 )
 	{
 		if(isdigit(command[0]))
 		{
@@ -52,8 +49,7 @@ bool Get::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				getCmd = getCmdItr->second.value;
 			}
 		}
-
-		if(0 == strncmp("help", command, 4))
+		if( strcmp(command,"help")==0)
 		{
 			ShowHelpGet();
 		}
@@ -108,10 +104,15 @@ bool Get::execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 20:
 					printf("[AAMPCLI] AVAILABLE AUDIO TRACKS: %s\n", playerInstanceAamp->GetAvailableAudioTracks(false).c_str() );
 					break;
+				
 				case 34:
 					printf("[AAMPCLI] AVAILABLE VIDEO TRACKS: %s\n", playerInstanceAamp->GetAvailableVideoTracks().c_str() );
 					break;
-
+	
+				case 35:
+					printf( "[AAMPCLI] LIVE: %s\n", playerInstanceAamp->IsLive()? "TRUE": "FALSE" );
+					break;
+					   
 				case 21:
 					printf("[AAMPCLI] ALL AUDIO TRACKS: %s\n", playerInstanceAamp->GetAvailableAudioTracks(true).c_str() );
 					break;
@@ -284,6 +285,7 @@ void Get::registerGetCommands()
 	addCommand(32,"thumbnailConfig","Get Available ThumbnailTracks");
 	addCommand(33,"thumbnailData","Get Thumbnail timerange data(int startpos, int endpos)");
 	addCommand(34,"availableVideoTracks","Get All Available Video Tracks information from manifest");
+	addCommand(35,"live","Report if playback is logically from live edge");
 	commands.push_back("help");
 }
 
@@ -328,12 +330,12 @@ void Get::ShowHelpGet(){
 char * Get::getCommandRecommender(const char *text, int state)
 {
     char *name;
-    static int len;
+    static size_t len;
     static std::vector<std::string>::iterator itr;
 
     if (!state) 
     {
-	itr = commands.begin();
+		itr = commands.begin();
         len = strlen(text);
     }
 

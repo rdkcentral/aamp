@@ -150,7 +150,6 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
 
 void Aampcli::runCommand( void* args )
 {
-	char cmd[mMaxBufferLength] = {'\0'};
 	std::vector<std::string> *arguments;
 	std::vector<std::string> cmdVec;
 	CommandHandler lCommandHandler;
@@ -162,16 +161,15 @@ void Aampcli::runCommand( void* args )
 	{
 		arguments = static_cast<std::vector<std::string>*>(args);
 		cmdVec = *arguments;
-
 		if(!cmdVec.empty())
 		{
+			char cmd[mMaxBufferLength] = {'\0'};
 			for(auto param : cmdVec)
 			{
 				snprintf( cmd+strlen(cmd),mMaxBufferLength-strlen(cmd),"%s ", param.c_str());
 			}
 			lCommandHandler.dispatchAampcliCommands(cmd,mAampcli.mSingleton);
 		}
-
 	}
 
 	printf("[AAMPCLI] type 'help' for list of available commands\n");
@@ -180,54 +178,22 @@ void Aampcli::runCommand( void* args )
 	{
 		rl_attempted_completion_function = lCommandHandler.commandCompletion;
 		char *buffer = readline("[AAMPCLI] Enter cmd: ");
-	
 		if(buffer == NULL)
 		{
 			break;
 		}
-
-		if(*buffer) 
-		{
-			strcpy(cmd,buffer);
+		if( *buffer )
+		{ // non-empty line
 			add_history(buffer);
-			free(buffer);
-
-			if(strncmp(cmd,"history",7) == 0)
+			bool l_status = lCommandHandler.dispatchAampcliCommands(buffer,mAampcli.mSingleton);
+			if( !l_status )
 			{
-				HISTORY_STATE *historyState = history_get_history_state ();
-
-				for (int i = 0; i < historyState->length; i++) 
-				{
-					printf ("%s\n", history_get(i+1)->line);
-				}
+				_exit(0);
 			}
-
-			if( memcmp(cmd,"autoplay",8)!=0 && // avoid false match
-			   memcmp(cmd,"auto",4)==0 )
-			{
-				int start=500, end=1000;
-				int maxTuneTimeS = 6;
-				int playTimeS = 15;
-				int betweenTimeS = 15;
-				int matched = sscanf(cmd, "auto %d %d %d %d %d", &start, &end, &maxTuneTimeS, &playTimeS, &betweenTimeS );
-				mAampcli.doAutomation( start, end, maxTuneTimeS, playTimeS, betweenTimeS );
-			}
-			else
-			{
-				bool l_status = false;
-
-				l_status = lCommandHandler.dispatchAampcliCommands(cmd,mAampcli.mSingleton);
-
-				if(l_status == false)
-				{
-					_exit(0);
-				}
-			}
-		}
-	}
-
-	return;
-}
+		} // if( *buffer )
+		free(buffer);
+	} // for(;;)
+} // Aampcli::runCommand
 
 FILE * Aampcli::getConfigFile(const std::string& cfgFile)
 {
@@ -294,8 +260,8 @@ void Aampcli::newPlayerInstance( void )
 		mEventListener = new MyAAMPEventListener();
 	}
 	player->RegisterEvents(mEventListener);
-	int playerIndex = mPlayerInstances.size();
-	printf( "new playerInstance; index=%d\n", playerIndex );
+	auto playerIndex = mPlayerInstances.size();
+	printf( "new playerInstance; index=%lu\n", playerIndex );
 	mPlayerInstances.push_back(player);
 	mSingleton = player; // select
 	mSingleton->SetContentProtectionDataUpdateTimeout(0);

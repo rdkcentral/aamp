@@ -449,13 +449,6 @@ public:
 	virtual void Stop(bool keepLastFrame){}
 
 	/**
-	 *   @brief Dump the sink status for debugging purpose
-	 *
-	 *   @return void
-	 */
-	virtual void DumpStatus(void){}
-
-	/**
 	 *   @brief Flush the pipeline
 	 *
 	 *   @param[in]  position - playback position

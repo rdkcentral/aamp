@@ -270,13 +270,6 @@ void StreamAbstractionAAMP_PROGRESSIVE::Stop(bool clearChannelData)
  }
 
 /**
- * @brief Stub implementation
- */
-void StreamAbstractionAAMP_PROGRESSIVE::DumpProfiles(void)
-{ // STUB
-}
-
-/**
  * @brief Get output format of stream.
  */
 void StreamAbstractionAAMP_PROGRESSIVE::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)

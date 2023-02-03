@@ -58,29 +58,19 @@ void CommandHandler::registerCommand(const std::string& commandName, Command* co
 	}
 }
 
-bool CommandHandler::dispatchAampcliCommands(char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
+bool CommandHandler::dispatchAampcliCommands( const char *cmdBuf, PlayerInstanceAAMP *playerInstanceAamp )
 {
-	bool l_status = true;
-	char l_cmd[4096] = {'\0'};
-	strcpy(l_cmd,cmd);
-	char *token = strtok(l_cmd," ");
-
-	if (token != NULL)
+	for( auto commandInfo : mCommandMap )
 	{
-		std::map<std::string, Command*>::iterator cmdPair;
-		cmdPair = mCommandMap.find(token);
-
-		if(cmdPair == mCommandMap.end())
-		{	
-			cmdPair = mCommandMap.find("default");
+		if( PlaybackCommand::isCommandMatch(cmdBuf, commandInfo.first.c_str() ) )
+		{
+			Command* l_Command = commandInfo.second;
+			return l_Command->execute(cmdBuf,playerInstanceAamp);
 		}
-
-		Command* l_Command = cmdPair->second;
-		l_status = l_Command->execute(cmd,playerInstanceAamp);
-
 	}
-	
-	return l_status;
+	auto commandInfo = mCommandMap.find("default");
+	Command* l_Command = commandInfo->second;
+	return l_Command->execute(cmdBuf,playerInstanceAamp);
 }
 
 void CommandHandler::registerAllCommands() 

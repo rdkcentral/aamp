@@ -742,14 +742,6 @@ public:
 	StreamAbstractionAAMP& operator=(const StreamAbstractionAAMP&) = delete;
 
 	/**
-	 * @brief  Dump profiles for debugging.
-	 *         To be implemented by sub classes
-	 *
-	 * @return void
-	 */
-	virtual void DumpProfiles(void) = 0;
-
-	/**
 	 *   @brief  Initialize a newly created object.
 	 *           To be implemented by sub classes
 	 *

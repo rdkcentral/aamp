@@ -196,14 +196,6 @@ public:
          *
          */
 	StreamAbstractionAAMP_MPD& operator=(const StreamAbstractionAAMP_MPD&) = delete;
-	/**
-	 * @fn DumpProfiles
-	 */
-	void DumpProfiles(void) override;
-	/**
-	 * @fn Start
-	 * @return void
-	 */
 	void Start() override;
 	/**
 	 * @fn Stop

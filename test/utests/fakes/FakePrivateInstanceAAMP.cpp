@@ -49,6 +49,10 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 	return 0;
 }
 
+void PrivateInstanceAAMP::UpdateMaxDRMSessions( void )
+{
+}
+
 void PrivateInstanceAAMP::SetStreamSink(StreamSink* streamSink)
 {
 }

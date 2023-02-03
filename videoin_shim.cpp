@@ -202,14 +202,6 @@ void StreamAbstractionAAMP_VIDEOIN::SetVideoRectangle(int x, int y, int w, int h
 }
 
 /**
- * @brief Stub implementation
- */
-void StreamAbstractionAAMP_VIDEOIN::DumpProfiles(void)
-{ // STUB
-	AAMPLOG_WARN("%s Function not implemented",mName.c_str());
-}
-
-/**
  * @brief Get output format of stream.
  *
  */

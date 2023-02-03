@@ -41,6 +41,8 @@ static char gAampLog[] = "./aamp.log";
 static char gAampCfg[] = "/opt/aamp.cfg";
 static char gAampCliCfg[] = "/opt/aampcli.cfg";
 
+bool gAampcliQuietLogs;
+
 /*-----------------------------------------------------------------------------------------------------*/
 bool AampLogManager::disableLogRedirection = false;
 
@@ -431,6 +433,7 @@ bool AampLogManager::isLogworthyErrorCode(int errorCode)
  */
 void logprintf(const char *format, ...)
 {
+	if( gAampcliQuietLogs ) return;
 	int len = 0;
 	va_list args;
 	va_start(args, format);
@@ -481,6 +484,7 @@ void logprintf(const char *format, ...)
  */
 void logprintf_new(int playerId,const char* levelstr,const char* file, int line,const char *format, ...)
 {
+	if( gAampcliQuietLogs ) return;
 	int len = 0;
 	va_list args;
 	va_start(args, format);

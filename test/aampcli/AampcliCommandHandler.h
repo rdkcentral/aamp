@@ -37,7 +37,7 @@ class Command
 	public:
 		virtual ~Command( )
 		{}
-		virtual bool execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp) = 0;
+		virtual bool execute( const char *cmdBuf, PlayerInstanceAAMP *playerInstanceAamp) = 0;
 };
 
 class CommandHandler
@@ -47,7 +47,7 @@ class CommandHandler
 		void registerAampcliCommands();
 		void registerCommandObjects();
 		void registerCommand(const std::string& commandName, Command* command);
-		bool dispatchAampcliCommands(char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
+		bool dispatchAampcliCommands( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
 		void registerAllCommands();
 		static char **commandCompletion(const char *text, int start, int end);
 };

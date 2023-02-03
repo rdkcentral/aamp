@@ -49,7 +49,7 @@ class Set : public Command {
 		void registerSetCommands();
 		static char *setCommandRecommender(const char *text, int state);
 		void ShowHelpSet();
-		bool execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
+		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
 };
 
 #endif // AAMPCLISET_H

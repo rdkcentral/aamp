@@ -38,12 +38,12 @@ class PlaybackCommand : public Command
 		void addCommand(string command,string description);
 		void registerPlaybackCommands();
 		static char *commandRecommender(const char *text, int state);
-		bool isNumber(const char *s);
-		void showHelp(void);
-		bool isTuneScheme(const char *cmd);
-		void trim(char **cmd);
+		static bool isCommandMatch( const char *cmdBuf, const char *cmdName );
+		static bool isNumber(const char *s);
+		static void showHelp(void);
+		static bool isTuneScheme(const char *cmd);
 		void termPlayerLoop();
-		bool execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
+		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
 
 };
 

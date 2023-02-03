@@ -59,11 +59,10 @@ public:
      */
     StreamAbstractionAAMP_PROGRESSIVE& operator=(const StreamAbstractionAAMP_PROGRESSIVE&) = delete;
     double seekPosition;
-    void DumpProfiles(void) override;
-    /**
-     *   @fn Start
-     *   @return void
-     */
+	/**
+	 *   @fn Start
+	 *   @return void
+	 */
     void Start() override;
     /**
      *   @fn Stop

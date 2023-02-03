@@ -45,7 +45,7 @@ class Get : public Command {
 		void registerGetCommands();
 		static char *getCommandRecommender(const char *text, int state);
 		void ShowHelpGet();
-		bool execute(char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
+		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
 };
 
 #endif // AAMPCLIGET_H

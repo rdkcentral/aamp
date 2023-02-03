@@ -3110,8 +3110,6 @@ static std::string TrackTypeString(const int track)
  */
 void PrivateInstanceAAMP::AdditionalTuneFailLogEntries()
 {
-	mStreamSink->DumpStatus();
-
 	{
 		std::string downloadsBlockedMessage = "Downloads";
 		if (!mbDownloadsBlocked)

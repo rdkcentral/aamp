@@ -33,8 +33,6 @@ StreamAbstractionAAMP_VIDEOIN::~StreamAbstractionAAMP_VIDEOIN()
 {
 }
 
-void StreamAbstractionAAMP_VIDEOIN::DumpProfiles(void) {  }
-
 AAMPStatusType StreamAbstractionAAMP_VIDEOIN::Init(TuneType tuneType) { return eAAMPSTATUS_OK; }
 
 void StreamAbstractionAAMP_VIDEOIN::Start() {  }

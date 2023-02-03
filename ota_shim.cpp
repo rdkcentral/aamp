@@ -1008,13 +1008,6 @@ void StreamAbstractionAAMP_OTA::EnableContentRestrictions()
 }
 
 /**
- * @brief Stub implementation
- */
-void StreamAbstractionAAMP_OTA::DumpProfiles(void)
-{ // STUB
-}
-
-/**
  * @brief Get output format of stream.
  */
 void StreamAbstractionAAMP_OTA::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)

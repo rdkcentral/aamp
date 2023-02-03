@@ -43,8 +43,6 @@ Accessibility StreamAbstractionAAMP_MPD::getAccessibilityNode(AampJsonObject &ac
     return accessibilityNode;
 }
 
-void StreamAbstractionAAMP_MPD::DumpProfiles(void) {  }
-
 AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType) { return eAAMPSTATUS_OK; }
 
 void StreamAbstractionAAMP_MPD::Start() {  }

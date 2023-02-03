@@ -27,8 +27,6 @@ StreamAbstractionAAMP_HLS::~StreamAbstractionAAMP_HLS()
 {
 }
 
-void StreamAbstractionAAMP_HLS::DumpProfiles(void) {  }
-
 AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType) { return eAAMPSTATUS_OK; }
 
 void StreamAbstractionAAMP_HLS::Start() {  }

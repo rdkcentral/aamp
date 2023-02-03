@@ -31,8 +31,6 @@ public:
 
     MOCK_METHOD(void, NotifyPlaybackPaused, (bool paused));
 
-    MOCK_METHOD(void, DumpProfiles, ());
-
     MOCK_METHOD(AAMPStatusType, Init, (TuneType tuneType));
 
     MOCK_METHOD(void, Start, ());
