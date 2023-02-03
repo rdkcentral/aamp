@@ -48,4 +48,6 @@ add_executable(${EXEC_NAME}
 
 target_link_libraries(${EXEC_NAME} fakes ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lpthread)
 
+set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)

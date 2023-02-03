@@ -57,4 +57,6 @@ set_target_properties(${EXEC_NAME} PROPERTIES COMPILE_FLAGS "-DSESSION_STATS")
 
 target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest)
 
+set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)

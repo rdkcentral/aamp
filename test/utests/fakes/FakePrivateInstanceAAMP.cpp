@@ -746,3 +746,6 @@ void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
 {
 }
 
+void PrivateInstanceAAMP::UpdateMaxDRMSessions(void)
+{
+}
