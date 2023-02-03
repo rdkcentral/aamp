@@ -531,6 +531,7 @@ static bool getEstbMac(char* mac)
 	return ret;
 }
 #endif
+
 /**
  * @brief Get time to defer DRM acquisition
  *
@@ -563,7 +564,7 @@ int aamp_GetDeferTimeMs(long maxTimeSeconds)
 					AAMPLOG_ERR("ERROR - reading /dev/urandom  failed");
 					break;
 				}
-				WRITE_HASCII(uRandString,temp);
+				sprintf(uRandString + i * 2, "%02x", temp);
 			}
 			close(randFD);
 			randString[RAND_STRING_LEN] = '\0';

@@ -2051,8 +2051,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				float fragmentDuration;
 				if (ParseSegmentIndexBox(pMediaStreamContext->index_ptr, pMediaStreamContext->index_len, pMediaStreamContext->fragmentIndex++, &referenced_size, &fragmentDuration, NULL))
 				{
-					char range[MAX_RANGE_STRING_CHARS];
-					snprintf(range, sizeof(range), "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
+					char range[128];
+					sprintf(range, "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
 					AAMPLOG_INFO("%s [%s]",getMediaTypeName(pMediaStreamContext->mediaType), range);
 					if(pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, pMediaStreamContext->fragmentTime, fragmentDuration, range ))
 					{
@@ -8440,9 +8440,10 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							range = segmentBase->GetIndexRange();
 							uint64_t s1,s2;
 							sscanf(range.c_str(), "%" PRIu64 "-%" PRIu64 "", &s1,&s2);
-							char temp[MAX_RANGE_STRING_CHARS];
-							snprintf( temp, sizeof(temp), "0-%llu", s1-1 );
-							range = temp;
+							char temp[128];
+							sprintf( temp, "%lu", s1-1 );
+							range = "0-";
+							range += temp;
 						}
 						std::string fragmentUrl;
 						GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
@@ -8538,8 +8539,8 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 										{
 											if (start > 1)
 											{
-												char range_c[MAX_RANGE_STRING_CHARS];
-												snprintf(range_c, sizeof(range_c), "%d-%d", 0, start - 1);
+												char range_c[64];
+												sprintf(range_c, "%d-%d", 0, start - 1);
 												range = range_c;
 											}
 											else

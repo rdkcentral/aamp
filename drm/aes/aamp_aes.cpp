@@ -64,7 +64,9 @@ void AesDec::NotifyDRMError(AAMPTuneFailure drmFailure)
 		mpAamp->DisableDownloads();
 		if(AAMP_TUNE_UNTRACKED_DRM_ERROR == drmFailure)
 		{
-			mpAamp->SendErrorEvent(drmFailure, "AAMP: DRM Failure" );
+			char description[128] = {};
+			sprintf(description, "AAMP: DRM Failure");
+			mpAamp->SendErrorEvent(drmFailure, description);
 		}
 		else
 		{
