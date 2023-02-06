@@ -64,7 +64,6 @@ class Aampcli
 		bool mInitialized;
 		bool mEnableProgressLog;
 		bool mbAutoPlay;
-		static const int mMaxBufferLength = 4096;
 		std::string mTuneFailureDescription;
 		PlayerInstanceAAMP *mSingleton;
 		MyAAMPEventListener *mEventListener;

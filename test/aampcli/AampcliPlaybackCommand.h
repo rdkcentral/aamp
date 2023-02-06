@@ -41,7 +41,6 @@ class PlaybackCommand : public Command
 		static bool isCommandMatch( const char *cmdBuf, const char *cmdName );
 		static bool isNumber(const char *s);
 		static void showHelp(void);
-		static bool isTuneScheme(const char *cmd);
 		void termPlayerLoop();
 		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
 

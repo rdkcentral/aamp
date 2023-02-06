@@ -163,12 +163,21 @@ void Aampcli::runCommand( void* args )
 		cmdVec = *arguments;
 		if(!cmdVec.empty())
 		{
-			char cmd[mMaxBufferLength] = {'\0'};
+			bool first = true;
+			std::string cmd;
 			for(auto param : cmdVec)
-			{
-				snprintf( cmd+strlen(cmd),mMaxBufferLength-strlen(cmd),"%s ", param.c_str());
+			{ // join cli parameters
+				if( first )
+				{
+					first = false;
+				}
+				else
+				{ // whitespace delimiter prefixed only before subsquent arguments
+					cmd += ' ';
+				}
+				cmd += param;
 			}
-			lCommandHandler.dispatchAampcliCommands(cmd,mAampcli.mSingleton);
+			lCommandHandler.dispatchAampcliCommands( cmd.c_str(), mAampcli.mSingleton);
 		}
 	}
 

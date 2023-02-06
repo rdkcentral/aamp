@@ -730,6 +730,30 @@ public:
 	PlayerInstanceAAMP& operator=(const PlayerInstanceAAMP& other) = delete;
 
 	/**
+	 * @fn isTuneScheme
+	 *
+	 * @param[in] uri
+	 *
+	 * @retval true iff uri starts with a recognized protocol representing an IP Video Locator
+	 */
+	static bool isTuneScheme( const char *cmdBuf )
+	{
+		size_t cmdLen = strlen(cmdBuf);
+		bool isTuneScheme = false;
+		const char *protocol[] = { "http:","https:","live:","hdmiin:","file:","mr:","tune:" };
+		for( int i=0; i<sizeof(protocol)/sizeof(protocol[0]); i++ )
+		{
+			size_t protocolLen = strlen(protocol[i]);
+			if( cmdLen>=protocolLen && memcmp( cmdBuf, protocol[i], protocolLen )==0 )
+			{
+				isTuneScheme=true;
+				break;
+			}
+		}
+		return isTuneScheme;
+	}
+
+	/**
 	 *   @fn Tune
 	 *
 	 *   @param[in]  mainManifestUrl - HTTP/HTTPS url to be played.

@@ -305,7 +305,7 @@ static AampConfigLookupEntry ConfigLookUpTable[] =
  *
  * @return None
  */
-AampConfig::AampConfig():mAampLookupTable(),mChannelOverrideMap(),logging(),mAampDevCmdTable(),vCustom(),vCustomIt(),customFound(false),mLogObj(NULL)
+AampConfig::AampConfig():mAampLookupTable(),mChannelOverrideMap(),logging(), vCustom(),vCustomIt(),customFound(false),mLogObj(NULL)
 {
 	for(int i=0; i<sizeof(ConfigLookUpTable) / sizeof(AampConfigLookupEntry); ++i)
 	{
@@ -326,7 +326,6 @@ AampConfig& AampConfig::operator=(const AampConfig& rhs)
 	}
 	logging  = rhs.logging;
 	mChannelOverrideMap = rhs.mChannelOverrideMap;
-	mAampDevCmdTable = rhs.mAampDevCmdTable;
 	vCustom = rhs.vCustom;
 	customFound = rhs.customFound;		
 	mLogObj = &logging;
@@ -1341,59 +1340,35 @@ bool AampConfig::GetAampConfigJSONStr(std::string &str)
 }
 
 /**
- * @brief GetDeveloperConfigData - Function to parse and process configuration text
- *
- * @return true if parse successfully
- */
-bool AampConfig::GetDeveloperConfigData(std::string &key,std::string &value)
-{
-	bool retval = false;
-	DevCmdsIter iter = mAampDevCmdTable.find(key);
-	if(iter != mAampDevCmdTable.end())
-	{
-		value = iter->second;
-		retval = true;
-	}
-	return retval;
-}
-
-/**
  * @brief ProcessConfigText - Function to parse and process configuration text
  *
  * @return true if config process success
  */
-bool AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
+void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 {
-	bool retval=true;
-	do{
-	if (!cfg.empty() && cfg.at(0) != '#')
-	{ // ignore comments
-
-		if(cfg[0] == '#')
-			break;
-		if(cfg[0] == '*')
-		{
-			// Add to channel map
+	if( !cfg.empty() )
+	{
+		char c = cfg[0];
+		if( c<' ' )
+		{ // ignore newline
+		}
+		else if( c == '#')
+		{ // ignore comments
+		}
+		else if( c == '*')
+		{// wildcard matching for channel override feature
 			std::size_t pos = cfg.find_first_of(' ');
 			if (pos != std::string::npos)
-			{
-				//Populate channel map from aamp.cfg
-				// new wildcard matching for overrides - allows *HBO to remap any url including "HBO"
+			{ // at least one space delimiter
 				ConfigChannelInfo channelInfo;
 				std::stringstream iss(cfg.substr(1));
 				std::string token;
 				while (getline(iss, token, ' '))
 				{
-					if (token.compare(0,4,"http") == 0)
-						channelInfo.uri = token;
-					else if ((token.compare(0,5,"live:") == 0) || (token.compare(0,3,"mr:") == 0) || (token.compare(0,5,"tune:") == 0))
+					const char *uri = token.c_str();
+					if( PlayerInstanceAAMP::isTuneScheme(uri) )
 					{
-						AAMPLOG_INFO("Overriden OTA Url!!");
-						channelInfo.uri = token;
-					}
-					else if(token.compare(0,4,"file") == 0)
-					{
-						AAMPLOG_INFO("Overriden Progressive URL!!");
+						AAMPLOG_INFO("Override %s", uri );
 						channelInfo.uri = token;
 					}
 					else if (token.compare(0,17,"licenseServerUrl=") == 0)
@@ -1401,11 +1376,12 @@ bool AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 						channelInfo.licenseUri = token.substr(17);
 					}
 					else
+					{
 						channelInfo.name = token;
+					}
 				}
 				mChannelOverrideMap.push_back(channelInfo);
 			}
-
 		}
 		else
 		{
@@ -1413,7 +1389,7 @@ bool AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 			cfg.erase(std::find_if(cfg.rbegin(), cfg.rend(), [](unsigned char ch) {return !std::isspace(ch);}).base(), cfg.end());
 			// Process commands
 			bool toggle = false;
-			int position = 0;
+			size_t position = 0;
 			std::string key,value;
 			std::size_t delimiterPos = cfg.find("=");
 			if(delimiterPos != std::string::npos)
@@ -1429,7 +1405,7 @@ bool AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 				key = cfg.substr(0);
 				toggle = true;
 			}
-
+			
 			LookUpIter iter = mAampLookupTable.find(key);
 			if(iter != mAampLookupTable.end())
 			{
@@ -1446,22 +1422,29 @@ bool AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 						if(isdigit(value[0]))
 						{ // for backward compatability 0/1
 							if(ReadNumericHelper(value,conv))
+							{
 								SetConfigValue<bool>(owner,cfgEnum,(bool)(conv != 0));
+							}
 						}
 						else
 						{
 							// look for true or false
 							if(strcasecmp(value.c_str(),"true")==0)
+							{
 								SetConfigValue<bool>(owner,cfgEnum,(bool)true);
+							}
 							else if(strcasecmp(value.c_str(),"false")==0)
+							{
 								SetConfigValue<bool>(owner,cfgEnum,(bool)false);
+							}
 							else
+							{
 								AAMPLOG_ERR("Wrong input provided for Cfg:%s Value:%s",iter->first.c_str(),value.c_str());
+							}
 						}
 					}
 					else
 					{
-						// for toggle
 						ToggleConfigValue(owner,cfgEnum);
 					}
 				}
@@ -1517,19 +1500,17 @@ bool AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 				{
 					// For those parameters in string Settings
 					if(value.size())
+					{
 						SetConfigValue<std::string>(owner,cfgEnum,value);
+					}
 				}
-
 			}
 			else
 			{
-				mAampDevCmdTable[key]=value;
-				AAMPLOG_WARN("Unknown command(%s) added to DeveloperTable",key.c_str());
+				AAMPLOG_WARN("unknown configuration key (%s)", key.c_str());
 			}
 		}
 	}
-	}while(0);
-	return retval;
 }
 
 /**

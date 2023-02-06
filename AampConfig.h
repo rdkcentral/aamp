@@ -642,7 +642,7 @@ public:
      	 * @param[in] cfg - config text ( new line separated)
      	 * @param[in] owner   - Owner who is setting the value
      	 */
-	bool ProcessConfigText(std::string &cfg, ConfigPriority owner );
+	void ProcessConfigText(std::string &cfg, ConfigPriority owner );
 	/**
      	 * @fn RestoreConfiguration
      	 * @param[in] owner - Owner value for reverting
@@ -659,12 +659,6 @@ public:
      	 * @param[in] str  - input string where config json will be stored
      	 */
 	bool GetAampConfigJSONStr(std::string &str);
-	/**
-     	 * @fn GetDeveloperConfigData
-     	 * @param[in] key - key string to parse
-     	 * @param[in] value - value read from input string 
-     	 */
-	bool GetDeveloperConfigData(std::string &key,std::string &value);
 	/**
      	 * @fn DoCustomSetting 
      	 *
@@ -739,9 +733,6 @@ private:
 	typedef std::map<std::string, AampConfigLookupEntry> LookUp;
 	typedef std::map<std::string, AampConfigLookupEntry>::iterator LookUpIter;
 	LookUp mAampLookupTable;
-	typedef std::map<std::string, std::string> DevCmds;
-	typedef std::map<std::string, std::string>::iterator DevCmdsIter;
-	DevCmds mAampDevCmdTable;
 	std::vector<struct customJson>vCustom;
 	std::vector<struct customJson>::iterator vCustomIt;
 	bool customFound;

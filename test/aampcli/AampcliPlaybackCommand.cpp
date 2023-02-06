@@ -123,7 +123,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		playerInstanceAamp->detach();
 	}
-	else if (isTuneScheme(cmd))
+	else if( playerInstanceAamp->isTuneScheme(cmd) )
 	{
 		playerInstanceAamp->Tune(cmd,mAampcli.mbAutoPlay);
 	}
@@ -354,27 +354,6 @@ bool PlaybackCommand::isNumber(const char *s)
 		}
 	}
 	return false;
-}
-
-/**
- * @brief Decide if input command consists of supported URI scheme to be tuned.
- * @param cmd cmd to parse
- */
-bool PlaybackCommand::isTuneScheme( const char *cmdBuf )
-{
-	size_t cmdLen = strlen(cmdBuf);
-	bool isTuneScheme = false;
-	const char *protocol[5] = { "http:","https:","live:","hdmiin:","file:" };
-	for( int i=0; i<5; i++ )
-	{
-		size_t protocolLen = strlen(protocol[i]);
-		if( cmdLen>=protocolLen && memcmp( cmdBuf, protocol[i], protocolLen )==0 )
-		{
-			isTuneScheme=true;
-			break;
-		}
-	}
-	return isTuneScheme;
 }
 
 /**
