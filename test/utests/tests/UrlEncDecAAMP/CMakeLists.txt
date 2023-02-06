@@ -49,6 +49,14 @@ add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
 
+if (COVERAGE_ENABLED)
+    include(CodeCoverage)
+    APPEND_COVERAGE_COMPILER_FLAGS()
+    SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
+                              EXECUTABLE ${EXEC_NAME}
+                              DEPENDENCIES ${EXEC_NAME})
+endif()
+
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest)

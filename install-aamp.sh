@@ -88,7 +88,7 @@ install_system_packages() {
 
     #Check/Install base packages needed by aamp env
     echo "Check/Install aamp development environment base packages"
-    find_or_install_pkgs  json-glib cmake $defaultopensslversion libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config
+    find_or_install_pkgs  json-glib cmake $defaultopensslversion libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config lcov gcovr
 
     git clone https://github.com/google/googletest
     cd googletest

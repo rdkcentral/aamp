@@ -52,6 +52,14 @@ add_executable(${EXEC_NAME}
                ${AAMP_SOURCES})
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
+if (COVERAGE_ENABLED)
+    include(CodeCoverage)
+    APPEND_COVERAGE_COMPILER_FLAGS()
+    SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
+                              EXECUTABLE ${EXEC_NAME}
+                              DEPENDENCIES ${EXEC_NAME})
+endif()
+
 target_link_libraries(${EXEC_NAME} fakes ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lpthread)
 
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)

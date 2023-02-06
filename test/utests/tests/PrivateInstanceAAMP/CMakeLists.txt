@@ -55,6 +55,14 @@ add_executable(${EXEC_NAME}
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
+if (COVERAGE_ENABLED)
+    include(CodeCoverage)
+    APPEND_COVERAGE_COMPILER_FLAGS()
+    SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
+                              EXECUTABLE ${EXEC_NAME}
+                              DEPENDENCIES ${EXEC_NAME})
+endif()
+
 # Can be removed once SESSION_STATS build issues resolved
 set_target_properties(${EXEC_NAME} PROPERTIES COMPILE_FLAGS "-DSESSION_STATS")
 

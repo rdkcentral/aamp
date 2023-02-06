@@ -41,5 +41,7 @@ add_definitions(-DENABLE_LOGGING)
 add_subdirectory(fakes)
 
 enable_testing()
+LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}")
 
 add_subdirectory(tests)
+
