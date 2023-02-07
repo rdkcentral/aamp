@@ -198,7 +198,7 @@ public:
 		mManifest = manifest;
 		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (_, _, _, _, _, _, _, _, _, _, _, _, _))
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (_, _, _, _, _, _, _, _, _, _, _, _))
 			.WillOnce(WithArgs<0,1>(Invoke(this, &FunctionalTests::GetManifest)));
 
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));

@@ -829,7 +829,6 @@ private:
 	void ProcessAllContenProtForMediaType(MediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs);
 
 	std::mutex mStreamLock;
-	CMCDHeaders *pCMCDMetrics;/**<pointer object to class CMCDHeaders*/
 	bool fragmentCollectorThreadStarted;
 	std::set<std::string> mLangList;
 	double seekPosition;

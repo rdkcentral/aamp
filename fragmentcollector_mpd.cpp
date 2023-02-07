@@ -297,7 +297,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,mHasServerUtcTime(false)
 	,latencyMonitorThreadStarted(false),prevLatencyStatus(LATENCY_STATUS_UNKNOWN),latencyStatus(LATENCY_STATUS_UNKNOWN),latencyMonitorThreadID()
 	,mStreamLock()
-	,mProfileCount(0),pCMCDMetrics(NULL)
+	,mProfileCount(0)
 	,playlistMutex(), mIterPeriodIndex(0), mNumberOfPeriods(0)
 	,mUpperBoundaryPeriod(0), mLowerBoundaryPeriod(0), playlistDownloaderThreadStarted(false)
 	,mLiveTimeFragmentSync(false)
@@ -374,10 +374,6 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	}
 
 	trickplayMode = (rate != AAMP_NORMAL_PLAY_RATE);
-	if(ISCONFIGSET(eAAMPConfig_EnableCMCD))
-	{
-		pCMCDMetrics = new ManifestCMCDHeaders();
-	}
 }
 
 static void GetBitrateInfoFromCustomMpd( const IAdaptationSet *adaptationSet, std::vector<Representation *>& representations );
@@ -1067,22 +1063,6 @@ void StreamAbstractionAAMP_MPD::GetFragmentUrl( std::string& fragmentUrl, const 
 	replace(constructedUri, "Number", fragmentDescriptor->Number);
 	replace(constructedUri, "Time", (uint64_t)fragmentDescriptor->Time );
 	aamp_ResolveURL(fragmentUrl, fragmentDescriptor->manifestUrl, constructedUri.c_str(),ISCONFIGSET(eAAMPConfig_PropogateURIParam));
-	//As a part of RDK-35897 to fetch the url of next next fragment and bandwidth corresponding to each fragment fetch
-	if(ISCONFIGSET(eAAMPConfig_EnableCMCD))
-	{
-		std::string CMCDfragmentUrl;
-		std::string CMCDUri = constructedUri;
-		int num = fragmentDescriptor->Number;
-		++num;
-		replace(CMCDUri, "Bandwidth", fragmentDescriptor->Bandwidth);
-		replace(CMCDUri, "RepresentationID", fragmentDescriptor->RepresentationID);
-		replace(CMCDUri, "Number", num);
-		replace(CMCDUri, "Time", fragmentDescriptor->Time );
-		aamp->mCMCDBandwidth = fragmentDescriptor->Bandwidth;
-		aamp_ResolveURL(CMCDfragmentUrl, fragmentDescriptor->manifestUrl, CMCDUri.c_str(),ISCONFIGSET(eAAMPConfig_PropogateURIParam));
-		aamp->mCMCDNextObjectRequest = CMCDfragmentUrl;
-		AAMPLOG_INFO("Next fragment url %s",CMCDfragmentUrl.c_str());
-	}
 }
 
 /**
@@ -1140,6 +1120,9 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	bool retval = true;
 	std::string fragmentUrl;
 	GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, media);
+	//As a part of RDK-35897 update the next segment for download
+	aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)((&pMediaStreamContext->fragmentDescriptor)->Number),
+			(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
 	//CID:96900 - Removex the len variable which is initialized but not used
 	float position;
 	if(isInitializationSegment)
@@ -2070,6 +2053,10 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 		{ // single-segment
 			std::string fragmentUrl;
 			GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
+			//As a part of RDK-35897 update the next segment for download
+			aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)(&pMediaStreamContext->fragmentDescriptor)->Number,
+					(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
+
 			if (!pMediaStreamContext->index_ptr)
 			{ // lazily load index
 				std::string range = segmentBase->GetIndexRange();
@@ -2183,6 +2170,10 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						{
 							std::string fragmentUrl;
 							GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor,  segmentURL->GetMediaURI());
+							//As a part of RDK-35897 update the next segment for download
+							aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)(&pMediaStreamContext->fragmentDescriptor)->Number,
+										(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
+
 							AAMPLOG_INFO("%s [%s]", getMediaTypeName(pMediaStreamContext->mediaType), segmentURL->GetMediaRange().c_str());
 							ReleasePlaylistLock();
 							if(!pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, pMediaStreamContext->fragmentTime, 0.0, segmentURL->GetMediaRange().c_str() ))
@@ -2734,6 +2725,11 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 			{   // lazily load index
 				std::string fragmentUrl;
 				GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
+
+				//As a part of RDK-35897 update the next segment for download
+				aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)(&pMediaStreamContext->fragmentDescriptor)->Number,
+							(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
+
 				ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(pMediaStreamContext->mediaType, true);
 				MediaType actualType = (MediaType)(eMEDIATYPE_INIT_VIDEO+pMediaStreamContext->mediaType);
 				std::string effectiveUrl;
@@ -5528,7 +5524,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		memset(&manifest, 0, sizeof(manifest));
 		aamp->profiler.ProfileBegin(PROFILE_BUCKET_MANIFEST);
 		aamp->SetCurlTimeout(aamp->mManifestTimeoutMs,eCURLINSTANCE_VIDEO);
-		gotManifest = aamp->GetFile(manifestUrl, &manifest, manifestUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_VIDEO, true, eMEDIATYPE_MANIFEST,NULL,NULL,0,pCMCDMetrics);
+		gotManifest = aamp->GetFile(manifestUrl, &manifest, manifestUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_VIDEO, true, eMEDIATYPE_MANIFEST,NULL,NULL,0);
 		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs,eCURLINSTANCE_VIDEO);
 		//update videoend info
 		updateVideoEndMetrics = true;
@@ -7675,7 +7671,12 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	/**< for Traiging Log selected track informations **/
 	printSelectedTrack(aTrackIdx, eMEDIATYPE_AUDIO);
 	printSelectedTrack(tTrackIdx, eMEDIATYPE_SUBTITLE);
-
+	std::vector<long> bitratelist;
+	for (auto &audioTrack : aTracks)
+	{
+		bitratelist.push_back(audioTrack.bandwidth);
+	}
+	aamp->mCMCDCollector->SetBitrates(eMEDIATYPE_AUDIO, bitratelist);
 }
 
 /**
@@ -8202,6 +8203,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				{
 					GetABRManager().setDefaultInitBitrate(defaultBitrate);
 				}
+				aamp->mCMCDCollector->SetBitrates(eMEDIATYPE_VIDEO, GetVideoBitrates());
 			}
 
 			if(-1 == pMediaStreamContext->representationIndex)
@@ -8758,6 +8760,11 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 						}
 						std::string fragmentUrl;
 						GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
+
+						//As a part of RDK-35897 update the next segment for download
+						aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)(&pMediaStreamContext->fragmentDescriptor)->Number,
+									(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
+
 						if(pMediaStreamContext->WaitForFreeFragmentAvailable(0))
 						{
 							ReleasePlaylistLock();
@@ -8859,6 +8866,11 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 								{
 									std::string fragmentUrl;
 									GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
+
+									//As a part of RDK-35897 update the next segment for download
+									aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)(&pMediaStreamContext->fragmentDescriptor)->Number,
+											(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
+
 									AAMPLOG_INFO("%s [%s]", getMediaTypeName(pMediaStreamContext->mediaType),
 											range.c_str());
 									ReleasePlaylistLock();
@@ -9028,6 +9040,7 @@ bool StreamAbstractionAAMP_MPD::PushEncryptedHeaders()
 									{
 										std::string fragmentUrl;
 										FragmentDescriptor *fragmentDescriptor = new FragmentDescriptor();
+
 										fragmentDescriptor->bUseMatchingBaseUrl	=	ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
 										fragmentDescriptor->manifestUrl = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.manifestUrl;
 
@@ -9042,7 +9055,13 @@ bool StreamAbstractionAAMP_MPD::PushEncryptedHeaders()
 										fragmentDescriptor->AppendMatchingBaseUrl(&representation->GetBaseURLs());
 
 										fragmentDescriptor->RepresentationID.assign(representation->GetId());
-										GetFragmentUrl(fragmentUrl,fragmentDescriptor , initialization);
+										 FragmentDescriptor *fragmentDescriptorCMCD(fragmentDescriptor);
+										GetFragmentUrl(fragmentUrl,fragmentDescriptorCMCD , initialization);
+
+
+										//As a part of RDK-35897 update the next segment for download
+										aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)fragmentDescriptor->Number,
+												fragmentDescriptor->Bandwidth,(MediaType)i);
 										if (mMediaStreamContext[i]->WaitForFreeFragmentAvailable())
 										{
 											AAMPLOG_WARN("Pushing encrypted header for %s", getMediaTypeName(MediaType(i)));
@@ -9975,7 +9994,6 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 	memset(aamp->GetLLDashServiceData(),0x00,sizeof(AampLLDashServiceData));
 	aamp->SetLowLatencyServiceConfigured(false);
 	aamp->SyncEnd();
-	SAFE_DELETE(pCMCDMetrics);
 }
 
 /**

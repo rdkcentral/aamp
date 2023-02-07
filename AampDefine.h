@@ -178,6 +178,9 @@
 #define SECMANGER_ACCTOKEN_EXPIRED 8
 #define SECMANGER_ENTITLEMENT_FAILURE 102
 
+#define MAX_SESSION_ID_LENGTH 128                                /**<session id string length */
+
+
 //delay for the first speed set event
 #define SECMANGER_SPEED_SET_DELAY 500
 
