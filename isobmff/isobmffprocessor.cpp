@@ -39,7 +39,7 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManag
 	processPTSComplete(false), timeScale(0), initSegment(),
 	playRate(1.0f), abortAll(false), m_mutex(), m_cond(),
 	initSegmentProcessComplete(false),
-	mLogObj(logObj)	
+	mLogObj(logObj)
 {
 	AAMPLOG_WARN("IsoBmffProcessor:: Created IsoBmffProcessor(%p) for type:%d and peerProcessor(%p)", this, type, peerBmffProcessor);
 	if (peerProcessor)
@@ -155,7 +155,7 @@ bool IsoBmffProcessor::sendSegment(char *segment, size_t& size, double position,
 			{
 				basePTS = fPts;
 				processPTSComplete = true;
-				AAMPLOG_WARN("IsoBmffProcessor:: [%s] Base PTS (%lld) set", IsoBmffProcessorTypeName[type], basePTS);
+				AAMPLOG_WARN("IsoBmffProcessor:: [%s] Base PTS (%" PRIu64 ") set", IsoBmffProcessorTypeName[type], basePTS);
 			}
 			else
 			{
@@ -275,7 +275,7 @@ void IsoBmffProcessor::setRate(double rate, PlayMode mode)
  */
 void IsoBmffProcessor::setBasePTS(uint64_t pts, uint32_t tScale)
 {
-	AAMPLOG_WARN("[%s] Base PTS (%lld) and TimeScale (%u) set",  IsoBmffProcessorTypeName[type], pts, tScale);
+	AAMPLOG_WARN("[%s] Base PTS (%" PRIu64 ") and TimeScale (%u) set",  IsoBmffProcessorTypeName[type], pts, tScale);
 	pthread_mutex_lock(&m_mutex);
 	basePTS = pts;
 	timeScale = tScale;

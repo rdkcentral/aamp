@@ -233,7 +233,7 @@ bool IsoBmffBuffer::getTrackIdInternal(const std::vector<Box*> *boxes, uint32_t 
 				}
 			} catch (std::bad_cast& bc){
 				//do nothing
-			}			
+			}
 		}
 		if (box->hasChildren())
 		{
@@ -256,7 +256,7 @@ bool IsoBmffBuffer::getFirstPTS(uint64_t &pts)
  */
 void IsoBmffBuffer::PrintPTS(void)
 {
-    return printPTSInternal(&boxes);
+	return printPTSInternal(&boxes);
 }
 
 /**
@@ -322,7 +322,7 @@ void IsoBmffBuffer::printBoxesInternal(const std::vector<Box*> *boxes)
 		if (IS_TYPE(box->getType(), Box::TFDT))
 		{
 			if(dynamic_cast<TfdtBox *>(box)) {
-				AAMPLOG_WARN("****Base Media Decode Time: %lld", dynamic_cast<TfdtBox *>(box)->getBaseMDT());
+				AAMPLOG_WARN("****Base Media Decode Time: %" PRIu64, dynamic_cast<TfdtBox *>(box)->getBaseMDT());
 			}
 		}
 		else if (IS_TYPE(box->getType(), Box::MVHD))
@@ -353,7 +353,7 @@ void IsoBmffBuffer::printBoxes()
 {
 	printBoxesInternal(&boxes);
 }
- 
+
 /**
  *  @brief Check if buffer is an initialization segment
  */
@@ -416,22 +416,22 @@ bool IsoBmffBuffer::getEMSGData(uint8_t* &message, uint32_t &messageLen, uint8_t
  */
 bool IsoBmffBuffer::getBoxesInternal(const std::vector<Box*> *boxes, const char *name, std::vector<Box*> *pBoxes)
 {
-    size_t size =boxes->size();
-    //Adjust size when chunked box is available
-    if(chunkedBox)
-    {
-        size -= 1;
-    }
-    for (size_t i = 0; i < size; i++)
-    {
-        Box *box = boxes->at(i);
+	size_t size =boxes->size();
+	//Adjust size when chunked box is available
+	if(chunkedBox)
+	{
+		size -= 1;
+	}
+	for (size_t i = 0; i < size; i++)
+	{
+		Box *box = boxes->at(i);
 
-        if (IS_TYPE(box->getType(), name))
-        {
-            pBoxes->push_back(box);
-        }
-    }
-    return !!(pBoxes->size());
+		if (IS_TYPE(box->getType(), name))
+		{
+			pBoxes->push_back(box);
+		}
+	}
+	return !!(pBoxes->size());
 }
 
 /**
@@ -439,11 +439,11 @@ bool IsoBmffBuffer::getBoxesInternal(const std::vector<Box*> *boxes, const char 
  */
 bool IsoBmffBuffer::getMdatBoxCount(size_t &count)
 {
-    std::vector<Box*> mdatBoxes;
-    bool bParse = false;
-    bParse = getBoxesInternal(&boxes ,Box::MDAT, &mdatBoxes);
-    count = mdatBoxes.size();
-    return bParse;
+	std::vector<Box*> mdatBoxes;
+	bool bParse = false;
+	bParse = getBoxesInternal(&boxes ,Box::MDAT, &mdatBoxes);
+	count = mdatBoxes.size();
+	return bParse;
 }
 
 /**
@@ -451,10 +451,10 @@ bool IsoBmffBuffer::getMdatBoxCount(size_t &count)
  */
 void IsoBmffBuffer::printMdatBoxes()
 {
-    std::vector<Box*> mdatBoxes;
-    bool bParse = false;
-    bParse = getBoxesInternal(&boxes ,Box::MDAT, &mdatBoxes);
-    printBoxesInternal(&mdatBoxes);
+	std::vector<Box*> mdatBoxes;
+	bool bParse = false;
+	bParse = getBoxesInternal(&boxes ,Box::MDAT, &mdatBoxes);
+	printBoxesInternal(&mdatBoxes);
 }
 
 /**
@@ -462,9 +462,9 @@ void IsoBmffBuffer::printMdatBoxes()
  */
 bool IsoBmffBuffer::getTypeOfBoxes(const char *name, std::vector<Box*> &stBoxes)
 {
-    bool bParse = false;
-    bParse = getBoxesInternal(&boxes ,name, &stBoxes);
-    return bParse;
+	bool bParse = false;
+	bParse = getBoxesInternal(&boxes ,name, &stBoxes);
+	return bParse;
 }
 
 /**
@@ -472,7 +472,7 @@ bool IsoBmffBuffer::getTypeOfBoxes(const char *name, std::vector<Box*> &stBoxes)
  */
 Box* IsoBmffBuffer::getChunkedfBox() const
 {
-    return this->chunkedBox;
+	return this->chunkedBox;
 }
 
 /**
@@ -480,7 +480,7 @@ Box* IsoBmffBuffer::getChunkedfBox() const
  */
 std::vector<Box*> *IsoBmffBuffer::getParsedBoxes()
 {
-    return &this->boxes;
+	return &this->boxes;
 }
 
 /**
@@ -488,19 +488,19 @@ std::vector<Box*> *IsoBmffBuffer::getParsedBoxes()
  */
 Box*  IsoBmffBuffer::getBox(const char *name, size_t &index)
 {
-    Box *pBox = NULL;
-    index = -1;
-    for (size_t i = 0; i < boxes.size(); i++)
-    {
-        pBox = boxes.at(i);
-        if (IS_TYPE(pBox->getType(), name))
-        {
-            index = i;
-            break;
-        }
-        pBox = NULL;
-    }
-    return pBox;
+	Box *pBox = NULL;
+	index = -1;
+	for (size_t i = 0; i < boxes.size(); i++)
+	{
+		pBox = boxes.at(i);
+		if (IS_TYPE(pBox->getType(), name))
+		{
+			index = i;
+			break;
+		}
+		pBox = NULL;
+	}
+	return pBox;
 }
 
 /**
@@ -508,10 +508,10 @@ Box*  IsoBmffBuffer::getBox(const char *name, size_t &index)
  */
 Box* IsoBmffBuffer::getBoxAtIndex(size_t index)
 {
-    if(index != -1)
-        return boxes.at(index);
-    else
-        return NULL;
+	if(index != -1)
+		return boxes.at(index);
+	else
+		return NULL;
 }
 
 
@@ -520,24 +520,24 @@ Box* IsoBmffBuffer::getBoxAtIndex(size_t index)
  */
 void IsoBmffBuffer::printPTSInternal(const std::vector<Box*> *boxes)
 {
-    for (size_t i = 0; i < boxes->size(); i++)
-    {
-        Box *box = boxes->at(i);
+	for (size_t i = 0; i < boxes->size(); i++)
+	{
+		Box *box = boxes->at(i);
 
-        if (IS_TYPE(box->getType(), Box::TFDT))
-        {
-	    TfdtBox *tfdtBox = dynamic_cast<TfdtBox *>(box);
-            if(tfdtBox)
-	    {
-                AAMPLOG_WARN("****Base Media Decode Time: %lld", tfdtBox->getBaseMDT());
-	    }
-        }
+		if (IS_TYPE(box->getType(), Box::TFDT))
+		{
+			TfdtBox *tfdtBox = dynamic_cast<TfdtBox *>(box);
+			if(tfdtBox)
+			{
+				AAMPLOG_WARN("****Base Media Decode Time: %" PRIu64, tfdtBox->getBaseMDT());
+			}
+		}
 
-        if (box->hasChildren())
-        {
-            printBoxesInternal(box->getChildren());
-        }
-    }
+		if (box->hasChildren())
+		{
+			printBoxesInternal(box->getChildren());
+		}
+	}
 }
 
 /**
@@ -545,41 +545,41 @@ void IsoBmffBuffer::printPTSInternal(const std::vector<Box*> *boxes)
  */
 uint64_t IsoBmffBuffer::getSampleDurationInernal(const std::vector<Box*> *boxes)
 {
-    if(!boxes) return 0;
+	if(!boxes) return 0;
 
-    for (int i = boxes->size()-1; i >= 0; i--)
-    {
-        Box *box = boxes->at(i);
-        uint64_t duration = 0;
-        if (IS_TYPE(box->getType(), Box::TRUN))
-        {
-	    TrunBox *trunBox = dynamic_cast<TrunBox *>(box);
-	    if(trunBox)
-	    {
-           	 //AAMPLOG_WARN("****TRUN BOX SIZE: %d \n", box->getSize());
-            	duration = trunBox->getSampleDuration();
-	    }
-            //AAMPLOG_WARN("****DURATION: %lld \n", duration);
-            if(duration) return duration;
-        }
-        else if (IS_TYPE(box->getType(), Box::TFHD))
-        {
-	    TfhdBox *tfhdBox = dynamic_cast<TfhdBox *>(box);
-	    if(tfhdBox)
-	    {
-            	//AAMPLOG_WARN("****TFHD BOX SIZE: %d \n", box->getSize());
-            	duration = tfhdBox->getSampleDuration();
-	    }
-            //AAMPLOG_WARN("****DURATION: %lld \n", duration);
-            if(duration) return duration;
-        }
+	for (int i = boxes->size()-1; i >= 0; i--)
+	{
+		Box *box = boxes->at(i);
+		uint64_t duration = 0;
+		if (IS_TYPE(box->getType(), Box::TRUN))
+		{
+			TrunBox *trunBox = dynamic_cast<TrunBox *>(box);
+			if(trunBox)
+			{
+				//AAMPLOG_WARN("****TRUN BOX SIZE: %d \n", box->getSize());
+				duration = trunBox->getSampleDuration();
+			}
+			//AAMPLOG_WARN("****DURATION: %lld \n", duration);
+			if(duration) return duration;
+		}
+		else if (IS_TYPE(box->getType(), Box::TFHD))
+		{
+			TfhdBox *tfhdBox = dynamic_cast<TfhdBox *>(box);
+			if(tfhdBox)
+			{
+				//AAMPLOG_WARN("****TFHD BOX SIZE: %d \n", box->getSize());
+				duration = tfhdBox->getSampleDuration();
+			}
+			//AAMPLOG_WARN("****DURATION: %lld \n", duration);
+			if(duration) return duration;
+		}
 
-        if (IS_TYPE(box->getType(), Box::TRAF) && box->hasChildren())
-        {
-            return getSampleDurationInernal(box->getChildren());
-        }
-    }
-    return 0;
+		if (IS_TYPE(box->getType(), Box::TRAF) && box->hasChildren())
+		{
+			return getSampleDurationInernal(box->getChildren());
+		}
+	}
+	return 0;
 }
 
 /**
@@ -587,10 +587,10 @@ uint64_t IsoBmffBuffer::getSampleDurationInernal(const std::vector<Box*> *boxes)
  */
 void IsoBmffBuffer::getSampleDuration(Box *box, uint64_t &fduration)
 {
-    if (box->hasChildren())
-    {
-        fduration = getSampleDurationInernal(box->getChildren());
-    }
+	if (box->hasChildren())
+	{
+		fduration = getSampleDurationInernal(box->getChildren());
+	}
 }
 
 /**
@@ -598,29 +598,29 @@ void IsoBmffBuffer::getSampleDuration(Box *box, uint64_t &fduration)
  */
 uint64_t IsoBmffBuffer::getPtsInternal(const std::vector<Box*> *boxes)
 {
-    uint64_t retValue = 0;
-    for (size_t i = 0; i < boxes->size(); i++)
-    {
-        Box *box = boxes->at(i);
+	uint64_t retValue = 0;
+	for (size_t i = 0; i < boxes->size(); i++)
+	{
+		Box *box = boxes->at(i);
 
-        if (IS_TYPE(box->getType(), Box::TFDT))
-        {
-	    TfdtBox *tfdtBox =  dynamic_cast<TfdtBox *>(box);
-	    if(tfdtBox)
-	    {
-            	AAMPLOG_WARN("****Base Media Decode Time: %lld", tfdtBox->getBaseMDT());
-            	retValue = tfdtBox->getBaseMDT();
-	    }
-            break;
-        }
+		if (IS_TYPE(box->getType(), Box::TFDT))
+		{
+			TfdtBox *tfdtBox =  dynamic_cast<TfdtBox *>(box);
+			if(tfdtBox)
+			{
+				AAMPLOG_WARN("****Base Media Decode Time: %" PRIu64, tfdtBox->getBaseMDT());
+				retValue = tfdtBox->getBaseMDT();
+			}
+			break;
+		}
 
-        if (box->hasChildren())
-        {
-            retValue = getPtsInternal(box->getChildren());
-            break;
-        }
-    }
-    return retValue;
+		if (box->hasChildren())
+		{
+			retValue = getPtsInternal(box->getChildren());
+			break;
+		}
+	}
+	return retValue;
 }
 
 /**
@@ -628,9 +628,9 @@ uint64_t IsoBmffBuffer::getPtsInternal(const std::vector<Box*> *boxes)
  */
 void IsoBmffBuffer::getPts(Box *box, uint64_t &fpts)
 {
-    if (box->hasChildren())
-    {
-        fpts = getPtsInternal(box->getChildren());
-    }
+	if (box->hasChildren())
+	{
+		fpts = getPtsInternal(box->getChildren());
+	}
 }
 

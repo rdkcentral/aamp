@@ -141,7 +141,7 @@ void MediaTrack::MonitorBufferHealth()
 {
 	int  bufferHealthMonitorDelay,bufferHealthMonitorInterval;
 	long discontinuityTimeoutValue;
-	GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorDelay,bufferHealthMonitorDelay); 
+	GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorDelay,bufferHealthMonitorDelay);
 	GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorInterval,bufferHealthMonitorInterval);
 	GETCONFIGVALUE(eAAMPConfig_DiscontinuityTimeout,discontinuityTimeoutValue);
 	assert(bufferHealthMonitorDelay >= bufferHealthMonitorInterval);
@@ -423,9 +423,9 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 			ret = false;
 		}
 		}
-		pthread_mutex_unlock(&aamp->mMutexPlaystart);	
+		pthread_mutex_unlock(&aamp->mMutexPlaystart);
 	}
-	
+
 	pthread_mutex_lock(&mutex);
 	if ( ret && (numberOfFragmentsCached == maxCachedFragmentsPerTrack) )
 	{
@@ -712,7 +712,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	size_t parsedBoxCount = 0;
 	char *unParsedBuffer = NULL;
 	size_t parsedBufferSize = 0, unParsedBufferSize = 0;
-	
+
 	unParsedBuffer = unparsedBufferChunk.ptr;
 	unParsedBufferSize = parsedBufferSize = unparsedBufferChunk.len;
 
@@ -766,7 +766,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	pBox = isobuf.getChunkedfBox();
 	if(pBox)
 	{
-		
+
 		parsedBoxCount--;
 
 		AAMPLOG_TRACE("[%s] MDAT Chunk Found - Actual Parsed Box Count: %zu", name,parsedBoxCount);
@@ -826,7 +826,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		bool bParse = isobuf.getFirstPTS(fPts);
 		if (bParse)
 		{
-			AAMPLOG_TRACE("[%s] fPts %lld",name, fPts);
+			AAMPLOG_TRACE("[%s] fPts %" PRIu64,name, fPts);
 		}
 
 		uint32_t timeScale = 0;
@@ -898,7 +898,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		aamp_Free(&unparsedBufferChunk);
 		memset(&unparsedBufferChunk, 0x00, sizeof(GrowableBuffer));
 	}
-	
+
 	aamp_Free(&parsedBufferChunk);
 	memset(&parsedBufferChunk, 0x00, sizeof(GrowableBuffer));
 	return true;
@@ -1052,14 +1052,14 @@ bool MediaTrack::InjectFragment()
 					AAMPLOG_WARN("[%s] - Not updating totalInjectedDuration since fragment is Discarded", name);
 					mSegInjectFailCount++;
 					int  SegInjectFailCount;
-					GETCONFIGVALUE(eAAMPConfig_SegmentInjectThreshold,SegInjectFailCount); 
+					GETCONFIGVALUE(eAAMPConfig_SegmentInjectThreshold,SegInjectFailCount);
 					if(SegInjectFailCount <= mSegInjectFailCount)
 					{
 						ret	= false;
 						AAMPLOG_ERR("[%s] Reached max inject failure count: %d, stopping playback", name, SegInjectFailCount);
 						aamp->SendErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR);
 					}
-					
+
 				}
 				UpdateTSAfterInject();
 			}
@@ -1484,7 +1484,7 @@ MediaTrack::~MediaTrack()
 		pthread_cond_destroy(&fragmentChunkFetched);
 		pthread_cond_destroy(&fragmentChunkInjected);
 	}
-    
+
 	for (int j = 0; j < maxCachedFragmentsPerTrack; j++)
 	{
 		aamp_Free(&cachedFragment[j].fragment);
@@ -1492,7 +1492,7 @@ MediaTrack::~MediaTrack()
 	}
 
 	SAFE_DELETE_ARRAY(cachedFragment);
-	
+
 	pthread_cond_destroy(&fragmentFetched);
 	pthread_cond_destroy(&fragmentInjected);
 	pthread_mutex_destroy(&mutex);
@@ -1616,7 +1616,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInst
 	mABRCacheLength = mMaxBufferCountCheck;
 	GETCONFIGVALUE(eAAMPConfig_MaxABRNWBufferRampUp,mABRMaxBuffer);
 	GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown,mABRMinBuffer);
-	GETCONFIGVALUE(eAAMPConfig_ABRNWConsistency,mABRNwConsistency); 
+	GETCONFIGVALUE(eAAMPConfig_ABRNWConsistency,mABRNwConsistency);
 	aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
 
 
@@ -1625,7 +1625,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInst
 	{
 		aamp->mhAbrManager.setDefaultIframeBitrate(ibitrate);
 	}
-	GETCONFIGVALUE(eAAMPConfig_RampDownLimit,mRampDownLimit); 
+	GETCONFIGVALUE(eAAMPConfig_RampDownLimit,mRampDownLimit);
 	if (!aamp->IsNewTune())
 	{
 		mBitrateReason = (aamp->rate != AAMP_NORMAL_PLAY_RATE) ? eAAMP_BITRATE_CHANGE_BY_TRICKPLAY : eAAMP_BITRATE_CHANGE_BY_SEEK;
@@ -1863,7 +1863,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 		{
 			mABRLowBufferCounter++;
 			mABRHighBufferCounter = 0;
-			
+
 				HybridABRManager::BitrateChangeReason mhBitrateReason;
 				mhBitrateReason = (HybridABRManager::BitrateChangeReason) mBitrateReason;
 				aamp->mhAbrManager.CheckRampdownFromSteadyState(currProfileIndex,newProfileIndex,mhBitrateReason,mABRLowBufferCounter);
@@ -1888,7 +1888,7 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 
 	if(video && video->enabled)
 	{
-		// If buffer is high , set high timeout , not to fail the download 
+		// If buffer is high , set high timeout , not to fail the download
 		// If buffer is low , set timeout less than the buffer availability
 		double vBufferDuration = video->GetBufferedDuration();
 		if(vBufferDuration > 0)
@@ -1899,7 +1899,7 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 				timeoutMs = aamp->mNetworkTimeoutMs;
 			}
 			else
-			{	// enough buffer available 
+			{	// enough buffer available
 				timeoutMs = std::min(timeoutMs/2,(long)(mABRMaxBuffer*1000));
 				timeoutMs = std::max(timeoutMs , aamp->mNetworkTimeoutMs);
 			}
@@ -1972,7 +1972,7 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 			if(!mNwConsistencyBypass && ISCONFIGSET(eAAMPConfig_ABRBufferCheckEnabled))
 			{
 				// Checking if frequent profile change happening
-				if(currentProfileIndex != desiredProfileIndex)	
+				if(currentProfileIndex != desiredProfileIndex)
 				{
 					GetDesiredProfileOnBuffer(currentProfileIndex, desiredProfileIndex);
 				}
@@ -2189,7 +2189,7 @@ void StreamAbstractionAAMP::CheckForProfileChange(void)
 			double totalFetchedDuration = video->GetTotalFetchedDuration();
 			long availBW = aamp->GetCurrentlyAvailableBandwidth();
 			bool checkProfileChange = aamp->mhAbrManager.CheckProfileChange(totalFetchedDuration,currentProfileIndex,availBW);
-		
+
 			if (checkProfileChange)
 			{
 				UpdateProfileBasedOnFragmentCache();
@@ -3308,7 +3308,7 @@ void MediaTrack::PlaylistDownloader()
 	bool quickPlaylistDownload = false;
 	bool firstTimeDownload = true;
 	long minUpdateDuration = 0, maxSegDuration = 0,availTimeOffMs=0;
-	
+
 	// abortPlaylistDownloader is by default true, sets as "false" when thread initializes
 	// This supports Single download mode for VOD and looped mode for Live (always runs in thread)
 	if(abortPlaylistDownloader)
@@ -3360,10 +3360,10 @@ void MediaTrack::PlaylistDownloader()
 				{
 					if(aamp->GetLLDashServiceData()->lowLatencyMode)
 					{
-						
-						
-						
-						
+
+
+
+
 						if( minUpdateDuration > 0 &&  minUpdateDuration > availTimeOffMs )
 						{
 							liveRefreshTimeOutInMs = (int)(minUpdateDuration-availTimeOffMs);
@@ -3599,7 +3599,7 @@ int MediaTrack::WaitTimeBasedOnBufferAvailable()
 				long maxSegDuration = (long)(aamp->GetLLDashServiceData()->fragmentDuration*1000);
 				if(minUpdateDuration > 0 && minUpdateDuration < maxSegDuration)
 				{
-					minDelayBetweenPlaylistUpdates = (int)minUpdateDuration;		
+					minDelayBetweenPlaylistUpdates = (int)minUpdateDuration;
 				}
 				else if(minUpdateDuration > 0 && minUpdateDuration > availTimeOffMs)
 				{

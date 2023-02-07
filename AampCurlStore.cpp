@@ -503,39 +503,58 @@ void CurlStore::CurlTerm(void *privContext, AampCurlInstance startIdx, unsigned 
 	}
 }
 
-CurlStore* CurlStore::CurlInstance = NULL;
-pthread_mutex_t CurlStore::mCurlInstLock = PTHREAD_MUTEX_INITIALIZER;
-int CurlStore::MaxCurlSockStore=MAX_CURL_SOCK_STORE;
+/**
+ * @fn CurlStore
+ * @brief CurlStore constructor
+ */
+CurlStore::CurlStore( void *pContext ):
+	umCurlSockDataStore(),
+	MaxCurlSockStore(MAX_CURL_SOCK_STORE)
+{
+	PrivateInstanceAAMP *aamp = static_cast<PrivateInstanceAAMP *>(pContext);
+
+	GETCONFIGVALUE(eAAMPConfig_MaxCurlSockStore, MaxCurlSockStore);
+	AAMPLOG_INFO("Max sock store size:%d", MaxCurlSockStore);
+}
+
+/**
+ * @fn ~curlStore
+ * @brief CurlStore destructor
+ */
+CurlStore::~CurlStore()
+{
+	for( auto& it : umCurlSockDataStore )
+	{
+		CurlSocketStoreStruct *CurlSock {it.second};
+		AAMPLOG_INFO("Removing host:%s lastused:%lld UserCount:%d", (it.first).c_str(), CurlSock->timestamp, CurlSock->mCurlStoreUserCount);
+
+		for( auto& itFreeQ : CurlSock->mFreeQ )
+		{
+			if(itFreeQ.curl)
+			{
+				curl_easy_cleanup(itFreeQ.curl);
+			}
+		}
+
+		if(CurlSock->mCurlShared)
+		{
+			curl_share_cleanup(CurlSock->mCurlShared);
+			delete(CurlSock->pstShareLocks);
+		}
+
+		delete(CurlSock);
+	}
+}
 
 /**
  * @fn GetCurlStoreInstance
  * @brief GetCurlStoreInstance - Get static curlstore singleton object
  */
-CurlStore *CurlStore::GetCurlStoreInstance ( void *pContext )
+CurlStore& CurlStore::GetCurlStoreInstance ( void *pContext )
 {
-	PrivateInstanceAAMP *aamp = (PrivateInstanceAAMP *)pContext;
+	static CurlStore instance(pContext);
 
-	pthread_mutex_lock(&mCurlInstLock);
-	if ( NULL == CurlInstance )
-	{
-		int MaxSockStoreSize=0;
-		CurlInstance = new CurlStore();
-
-		if ( NULL == CurlInstance )
-		{
-			AAMPLOG_WARN("Failed to alloc mem for Curl instance");
-			return NULL;
-		}
-
-		GETCONFIGVALUE(eAAMPConfig_MaxCurlSockStore,MaxSockStoreSize);
-		if( MAX_CURL_SOCK_STORE != MaxSockStoreSize)
-		{
-			MaxCurlSockStore = MaxSockStoreSize;
-		}
-		AAMPLOG_INFO("Max sock store size:%d", MaxCurlSockStore);
-	}
-	pthread_mutex_unlock(&mCurlInstLock);
-	return CurlInstance;
+	return instance;
 }
 
 /**
@@ -592,7 +611,7 @@ AampCurlStoreErrorCode CurlStore::GetFromCurlStoreBulk ( const std::string &host
 	PrivateInstanceAAMP *aamp = (PrivateInstanceAAMP*)priv;
 	AampCurlStoreErrorCode ret = eCURL_STORE_HOST_SOCK_AVAILABLE;
 
-	pthread_mutex_lock(&mCurlInstLock);
+	const std::lock_guard<std::mutex> lock(mCurlInstLock);
 	CurlSockDataIter it = umCurlSockDataStore.find(hostname);
 
 	if (it != umCurlSockDataStore.end())
@@ -658,7 +677,6 @@ AampCurlStoreErrorCode CurlStore::GetFromCurlStoreBulk ( const std::string &host
 		}
 	}
 
-	pthread_mutex_unlock(&mCurlInstLock);
 	return ret;
 }
 
@@ -672,7 +690,7 @@ AampCurlStoreErrorCode CurlStore::GetFromCurlStore ( const std::string &hostname
 	CurlSocketStoreStruct *CurlSock = NULL;
 	*curl = NULL;
 
-	pthread_mutex_lock(&mCurlInstLock);
+	const std::lock_guard<std::mutex> lock(mCurlInstLock);
 	CurlSockDataIter it = umCurlSockDataStore.find(hostname);
 
 	if (it != umCurlSockDataStore.end())
@@ -718,7 +736,6 @@ AampCurlStoreErrorCode CurlStore::GetFromCurlStore ( const std::string &hostname
 		CURL_EASY_SETOPT(*curl, CURLOPT_SHARE, CurlSock->mCurlShared);
 	}
 
-	pthread_mutex_unlock(&mCurlInstLock);
 	return ret;
 }
 
@@ -731,7 +748,7 @@ void CurlStore::KeepInCurlStoreBulk ( const std::string &hostname, AampCurlInsta
 	PrivateInstanceAAMP *aamp =  (PrivateInstanceAAMP*)priv;
 	CurlSocketStoreStruct *CurlSock = NULL;
 
-	pthread_mutex_lock(&mCurlInstLock);
+	const std::lock_guard<std::mutex> lock(mCurlInstLock);
 	CurlSockDataIter it = umCurlSockDataStore.find(hostname);
 
 	if(it != umCurlSockDataStore.end())
@@ -771,8 +788,6 @@ void CurlStore::KeepInCurlStoreBulk ( const std::string &hostname, AampCurlInsta
 	{
 		AAMPLOG_INFO("Host %s not in store, Curl Inst %d-%d", hostname.c_str(), CurlIndex,count);
 	}
-
-	pthread_mutex_unlock(&mCurlInstLock);
 }
 
 /**
@@ -782,7 +797,7 @@ void CurlStore::KeepInCurlStoreBulk ( const std::string &hostname, AampCurlInsta
 void CurlStore::KeepInCurlStore ( const std::string &hostname, AampCurlInstance CurlIndex, CURL *curl )
 {
 	CurlSocketStoreStruct *CurlSock = NULL;
-	pthread_mutex_lock(&mCurlInstLock);
+	const std::lock_guard<std::mutex> lock(mCurlInstLock);
 	CurlSockDataIter it = umCurlSockDataStore.find(hostname);
 	if(it != umCurlSockDataStore.end())
 	{
@@ -802,7 +817,6 @@ void CurlStore::KeepInCurlStore ( const std::string &hostname, AampCurlInstance 
 	{
 		AAMPLOG_INFO("Host %s not in store, Curlfd:%p", hostname.c_str(), curl);
 	}
-	pthread_mutex_unlock(&mCurlInstLock);
 }
 
 /**

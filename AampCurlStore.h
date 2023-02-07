@@ -100,17 +100,16 @@ typedef struct curlstorestruct
 class CurlStore
 {
 private:
-	static CurlStore *CurlInstance;
-	static pthread_mutex_t mCurlInstLock;
-	static int MaxCurlSockStore;
+	std::mutex mCurlInstLock{};
+	int MaxCurlSockStore;
 
 	typedef std::unordered_map <std::string, CurlSocketStoreStruct*> CurlSockData ;
 	typedef std::unordered_map <std::string, CurlSocketStoreStruct*>::iterator CurlSockDataIter;
 	CurlSockData umCurlSockDataStore;
 
 protected:
-	CurlStore( ):umCurlSockDataStore(){}
-	~CurlStore( ){}
+	CurlStore(void* pContext);
+	~CurlStore();
 
 public:
 	/**
@@ -222,7 +221,7 @@ public:
 	 * @param[in] pContext - Private aamp instance
 	 * @return CurlStore - Singleton instance object
 	 */
-	static CurlStore *GetCurlStoreInstance(void* pContext);
+	static CurlStore& GetCurlStoreInstance(void* pContext);
 };
 
 /**
