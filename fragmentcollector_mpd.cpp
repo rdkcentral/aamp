@@ -12206,7 +12206,12 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 						pAampLLDashServiceData->maxPlaybackRate > pAampLLDashServiceData->minPlaybackRate &&
 						pAampLLDashServiceData->maxPlaybackRate > DEFAULT_NORMAL_RATE_CORRECTION_SPEED)
 					{
-						if (currentLatency < (long)pAampLLDashServiceData->minLatency)
+						double buffervalue = GetBufferedDuration();
+						int minbuffer,maxbuffer ;
+						GETCONFIGVALUE(eAAMPConfig_MaxABRNWBufferRampUp,maxbuffer);
+						GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown,minbuffer);
+
+						if ((currentLatency < (long)pAampLLDashServiceData->minLatency) ||(buffervalue < minbuffer))
 						{
 							//Yellow state(the latency is within range but less than mimium latency)
 							latencyStatus = LATENCY_STATUS_MIN;
@@ -12222,7 +12227,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_THRESHOLD_MIN(%d)",latencyStatus);
 							playRate = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
 						}
-						else if (currentLatency > (long)pAampLLDashServiceData->targetLatency)
+						else if (currentLatency > (long)pAampLLDashServiceData->targetLatency && (buffervalue > maxbuffer))
 						{
 							//Red state(The latency is more than maximum latency)
 							latencyStatus = LATENCY_STATUS_MAX; //Red state
@@ -12591,6 +12596,12 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 						{
 							aamp->UpdateLiveOffset();
 						}
+						SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_MinABRNWBufferRampDown,AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD);
+						SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_MaxABRNWBufferRampUp,AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD);
+						SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_CurlDownloadStartTimeout,TIMEOUT_FOR_LLD);
+						SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_CurlStallTimeout,TIMEOUT_FOR_LLD);
+						SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_CurlDownloadLowBWTimeout,TIMEOUT_FOR_LLD);
+						aamp->LoadAampAbrConfig();
 					}
 					//Set LL Dash Service Configuration Data in Pvt AAMP instance
 					aamp->SetLLDashServiceData(stLLServiceData);

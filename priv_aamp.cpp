@@ -1217,16 +1217,34 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 			double elapsedTimeMs = (double)(NOW_STEADY_TS_MS - context->downloadStartTime);
 			if( elapsedTimeMs >= context->lowBWTimeout*1000 )
 			{
-				double predictedTotalDownloadTimeMs = elapsedTimeMs*dltotal/dlnow;
-				if( predictedTotalDownloadTimeMs > aamp->mNetworkTimeoutMs )
+				if(dltotal)
 				{
-					AAMPLOG_WARN("lowBWTimeout=%lds; predictedTotalDownloadTime=%fs>%fs (network timeout)",
-								 context->lowBWTimeout,
-								 predictedTotalDownloadTimeMs/1000.0,
-								 aamp->mNetworkTimeoutMs/1000.0 );
-					context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
-					rc = -1;
+					double predictedTotalDownloadTimeMs = elapsedTimeMs*dltotal/dlnow;
+					if( predictedTotalDownloadTimeMs > aamp->mNetworkTimeoutMs )
+					{
+						AAMPLOG_WARN("lowBWTimeout=%lds; predictedTotalDownloadTime=%fs>%fs (network timeout)",
+								context->lowBWTimeout,
+								predictedTotalDownloadTimeMs/1000.0,
+								aamp->mNetworkTimeoutMs/1000.0 );
+						context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
+						rc = -1;
+					}
 				}
+				else
+				{
+					if(context->aamp->GetLLDashServiceData()->lowLatencyMode)
+					{
+						long downloadbps = getCurrentContentDownloadSpeed(aamp, context->fileType, context->dlStarted, (long)context->downloadStartTime, dlnow);
+						long currentProfilebps  = context->aamp->mpStreamAbstractionAAMP->GetVideoBitrate();
+						if((downloadbps + DEFAULT_BITRATE_OFFSET_FOR_DOWNLOAD) < currentProfilebps)
+						{
+							AAMPLOG_WARN("Abort download as content is estimated to be expired current BW : %ld bps, min required:%ld bps", downloadbps, currentProfilebps);
+							context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
+							rc = -1;
+						}
+					}
+				}
+
 			}
 		}
 	}

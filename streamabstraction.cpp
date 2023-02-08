@@ -601,7 +601,7 @@ bool MediaTrack::WaitForCachedFragmentChunkAvailable()
 	}
 
 
-	ret = !(abort || abortInjectChunk);
+	ret = !(abort || abortInjectChunk|| numberOfFragmentChunksCached == 0);
 
 	AAMPLOG_TRACE("[%s] fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d ret = %d abort = %d abortInjectChunk = %d",
 			 name, fragmentChunkIdxToInject, numberOfFragmentChunksCached, ret, abort, abortInjectChunk);
@@ -1939,6 +1939,14 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	if(video != NULL)
 	{
+		double buffervalue = video->GetBufferedDuration();
+		if(aamp->GetLLDashServiceData()->lowLatencyMode && buffervalue < AAMP_LLDABR_MIN_BUFFER_VALUE)
+		{
+			//InsufficientBufferRule: Buffer is empty
+			AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf ",buffervalue);
+			desiredProfileIndex = 0;
+			return desiredProfileIndex;
+		}
 		if (this->trickplayMode)
 		{
 			int tmpIframeProfile = GetIframeTrack();
