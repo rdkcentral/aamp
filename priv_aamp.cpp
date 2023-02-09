@@ -11116,8 +11116,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		}
 
 		/**< Release json object **/
-		delete jsObject;
-		jsObject = NULL;
+		SAFE_DELETE(jsObject);
 
 		if ((preferredAudioAccessibilityNode != inputAudioAccessibilityNode ) || (preferredRenditionString != inputRenditionString ) ||
 		(preferredLabelsString != inputLabelsString) || (inputLanguagesList != preferredLanguagesList ))
@@ -11523,8 +11522,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 		}
 
 		/**< Release json object **/
-		delete jsObject;
-		jsObject = NULL;
+		SAFE_DELETE(jsObject);
 
 		if((inputTextLanguagesList != preferredTextLanguagesList) || (inputTextRenditionString != preferredTextRenditionString) ||
 		(inputTextAccessibilityNode != preferredTextAccessibilityNode))

@@ -539,10 +539,10 @@ CurlStore::~CurlStore()
 		if(CurlSock->mCurlShared)
 		{
 			curl_share_cleanup(CurlSock->mCurlShared);
-			delete(CurlSock->pstShareLocks);
+			SAFE_DELETE(CurlSock->pstShareLocks);
 		}
 
-		delete(CurlSock);
+		SAFE_DELETE(CurlSock);
 	}
 }
 

@@ -5455,8 +5455,7 @@ TrackState::~TrackState()
 	pthread_cond_destroy(&mPlaylistIndexed);
 	pthread_mutex_destroy(&mPlaylistMutex);
 	pthread_mutex_destroy(&mTrackDrmMutex);
-	delete pCMCDMetrics;
-
+	SAFE_DELETE(pCMCDMetrics);
 }
 
 
@@ -5527,7 +5526,7 @@ StreamAbstractionAAMP_HLS::~StreamAbstractionAAMP_HLS()
 	aamp->CurlTerm(eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO, AAMP_TRACK_COUNT);
 	aamp->SyncEnd();
 	pthread_mutex_destroy(&mDiscoCheckMutex);
-	delete pCMCDMetrics;
+	SAFE_DELETE(pCMCDMetrics);
 }
 
 /**

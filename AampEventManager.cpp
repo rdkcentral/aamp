@@ -72,7 +72,7 @@ AampEventManager::~AampEventManager()
 		{
 			ListenerData* pListener = mEventListeners[i];
 			mEventListeners[i] = pListener->pNext;
-			delete pListener;
+			SAFE_DELETE(pListener);
 		}
 	}
 	pthread_mutex_unlock(&mMutexVar);

@@ -10179,7 +10179,7 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 	memset(aamp->GetLLDashServiceData(),0x00,sizeof(AampLLDashServiceData));
 	aamp->SetLowLatencyServiceConfigured(false);
 	aamp->SyncEnd();
-	delete pCMCDMetrics;
+	SAFE_DELETE(pCMCDMetrics);
 }
 
 /**
