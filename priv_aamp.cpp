@@ -12201,6 +12201,7 @@ void PrivateInstanceAAMP::LoadAampAbrConfig()
 	GETCONFIGVALUE_PRIV(eAAMPConfig_ABRThresholdSize,mhAampAbrConfig.abrThresholdSize);
 	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp,mhAampAbrConfig.abrMaxBuffer);
 	GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown,mhAampAbrConfig.abrMinBuffer);
+	GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheOutlier,mhAampAbrConfig.abrCacheOutlier);
 
 	// Logging level support on aampabr
 
