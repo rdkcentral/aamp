@@ -7868,7 +7868,14 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			IPeriod *period = mCurrentPeriod;
 			/**< Safe check to avoid wrong access on adaptation due to update track 
 			info called before stream selection in fragment downloader thread on period switching */
-			if (pMediaStreamContext->adaptationSetIdx >= period->GetAdaptationSets().size())
+			auto numAdaptationSets = period->GetAdaptationSets().size();
+			if( numAdaptationSets==0 )
+			{
+				AAMPLOG_WARN("empty period");
+				pMediaStreamContext->adaptationSet = NULL;
+				continue;
+			}
+			if (pMediaStreamContext->adaptationSetIdx >= numAdaptationSets )
 			{
 				pMediaStreamContext->adaptationSetIdx = 0;
 			}
