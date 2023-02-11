@@ -3756,7 +3756,6 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 				bool resetBuffer, MediaType fileType, long *bitrate, int * fogError,
 				double fragmentDurationSeconds,CMCDHeaders *pCMCDMetrics)
 {
-	MediaType simType = fileType; // remember the requested specific file type; fileType gets overridden later with simple VIDEO/AUDIO
 	MediaTypeTelemetry mediaType = aamp_GetMediaTypeForTelemetry(fileType);
 	std::unordered_map<std::string, std::vector<std::string>> mCMCDCustomHeaders;
 	if((pCMCDMetrics!=NULL) && ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD))
@@ -3774,7 +3773,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 	struct curl_slist* httpHeaders = NULL;
 	CURLcode res = CURLE_OK;
 	int fragmentDurationMs = (int)(fragmentDurationSeconds*1000);/*convert to MS */
-	if (simType == eMEDIATYPE_INIT_VIDEO || simType == eMEDIATYPE_INIT_AUDIO || simType == eMEDIATYPE_INIT_AUX_AUDIO)
+	if (fileType == eMEDIATYPE_INIT_VIDEO || fileType == eMEDIATYPE_INIT_AUDIO || fileType == eMEDIATYPE_INIT_AUX_AUDIO)
 	{
 		int InitFragmentRetryCount;
 		GETCONFIGVALUE_PRIV(eAAMPConfig_InitFragmentRetryCount,InitFragmentRetryCount);
@@ -3803,7 +3802,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 		std::string uriParameter;
 		GETCONFIGVALUE_PRIV(eAAMPConfig_URIParameter,uriParameter);
 		// append custom uri parameter with remoteUrl at the end before curl request if curlHeader logging enabled.
-		if (ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) && (!uriParameter.empty()) && simType == eMEDIATYPE_MANIFEST)
+		if (ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) && (!uriParameter.empty()) && fileType == eMEDIATYPE_MANIFEST)
 		{
 			if (remoteUrl.find("?") == std::string::npos)
 			{
@@ -3839,7 +3838,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 			curl=curlhost[curlInstance]->curl;
 		}
 
-		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaType, simType, curlInstance,fragmentDurationSeconds, remoteUrl.c_str());
+		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaType, fileType, curlInstance,fragmentDurationSeconds, remoteUrl.c_str());
 		CurlCallbackContext context;
 		if (curl)
 		{
@@ -3852,7 +3851,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 			context.aamp = this;
 			context.buffer = buffer;
 			context.responseHeaderData = &httpRespHeaders[curlInstance];
-			context.fileType = simType;
+			context.fileType = fileType;
 
 			if(!this->mAampLLDashServiceData.lowLatencyMode)
 			{
@@ -3872,20 +3871,20 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 
 			CurlProgressCbContext progressCtx;
 			progressCtx.aamp = this;
-			progressCtx.fileType = simType;
+			progressCtx.fileType = fileType;
 			progressCtx.dlStarted = true;
 			progressCtx.fragmentDurationMs = fragmentDurationMs;
 
 			if(this->mAampLLDashServiceData.lowLatencyMode &&
-					(simType == eMEDIATYPE_VIDEO))
+					(fileType == eMEDIATYPE_VIDEO))
 			{
 				progressCtx.remoteUrl = remoteUrl;
 			}
 
 			//Disable download stall detection checks for FOG playback done by JS PP
-			if(simType == eMEDIATYPE_MANIFEST || simType == eMEDIATYPE_PLAYLIST_VIDEO ||
-					simType == eMEDIATYPE_PLAYLIST_AUDIO || simType == eMEDIATYPE_PLAYLIST_SUBTITLE ||
-					simType == eMEDIATYPE_PLAYLIST_IFRAME || simType == eMEDIATYPE_PLAYLIST_AUX_AUDIO)
+			if(fileType == eMEDIATYPE_MANIFEST || fileType == eMEDIATYPE_PLAYLIST_VIDEO ||
+			   fileType == eMEDIATYPE_PLAYLIST_AUDIO || fileType == eMEDIATYPE_PLAYLIST_SUBTITLE ||
+			   fileType == eMEDIATYPE_PLAYLIST_IFRAME || fileType == eMEDIATYPE_PLAYLIST_AUX_AUDIO)
 			{
 				// For Manifest file : Set starttimeout to 0 ( no wait for first byte). Playlist/Manifest with DAI
 				// contents take more time , hence to avoid frequent timeout, its set as 0
@@ -3989,7 +3988,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					customHeader.append(headerValue);
 					httpHeaders = curl_slist_append(httpHeaders, customHeader.c_str());
 				}
-				if (ISCONFIGSET_PRIV(eAAMPConfig_LimitResolution) && mIsFirstRequestToFOG && mTSBEnabled && eMEDIATYPE_MANIFEST == simType)
+				if (ISCONFIGSET_PRIV(eAAMPConfig_LimitResolution) && mIsFirstRequestToFOG && mTSBEnabled && eMEDIATYPE_MANIFEST == fileType)
 				{
 					std::string customHeader;
 					customHeader.clear();
@@ -4000,7 +3999,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					httpHeaders = curl_slist_append(httpHeaders, customHeader.c_str());
 				}
 
-				if(mTSBEnabled  && eMEDIATYPE_VIDEO == simType)
+				if(mTSBEnabled  && eMEDIATYPE_VIDEO == fileType)
 				{
 					double bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec() * 1000.0;
 					std::string customHeader;
@@ -4008,7 +4007,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					customHeader = "Buffer: " +std::to_string(bufferedDuration);
 					httpHeaders = curl_slist_append(httpHeaders, customHeader.c_str());
 				}
-				if(mTSBEnabled  && eMEDIATYPE_AUDIO == simType)
+				if(mTSBEnabled  && eMEDIATYPE_AUDIO == fileType)
 				{
 					double bufferedAudioDuration = mpStreamAbstractionAAMP->GetBufferedDuration() * 1000.0;
 					std::string customHeader;
@@ -4016,9 +4015,9 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					customHeader = "AudioBuffer: " +std::to_string(bufferedAudioDuration);
 					httpHeaders = curl_slist_append(httpHeaders, customHeader.c_str());
 				}
-				if(mTSBEnabled && (eMEDIATYPE_VIDEO == simType || eMEDIATYPE_AUDIO == simType))
+				if(mTSBEnabled && (eMEDIATYPE_VIDEO == fileType || eMEDIATYPE_AUDIO == fileType))
 				{
-					MediaTrack* mediaTrack = (eMEDIATYPE_VIDEO == simType)?(mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO)):(mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_AUDIO));
+					MediaTrack* mediaTrack = (eMEDIATYPE_VIDEO == fileType)?(mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO)):(mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_AUDIO));
 					if((mediaTrack) && (mediaTrack->GetBufferStatus() == BUFFER_STATUS_RED))
 					{
 						std::string customHeader;
@@ -4028,7 +4027,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					}
 				}
 
-				if (ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) && (eMEDIATYPE_VIDEO == simType || eMEDIATYPE_PLAYLIST_VIDEO == simType))
+				if (ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) && (eMEDIATYPE_VIDEO == fileType || eMEDIATYPE_PLAYLIST_VIDEO == fileType))
 				{
 					std::string customheaderstr;
 					GETCONFIGVALUE_PRIV(eAAMPConfig_CustomHeader,customheaderstr);
@@ -4039,7 +4038,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					}
 				}
 
-				if (mIsFirstRequestToFOG && mTSBEnabled && eMEDIATYPE_MANIFEST == simType)
+				if (mIsFirstRequestToFOG && mTSBEnabled && eMEDIATYPE_MANIFEST == fileType)
 				{
 					std::string customHeader = "4k: 1";
 					if (ISCONFIGSET_PRIV(eAAMPConfig_Disable4K))
@@ -4114,8 +4113,8 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					char *effectiveUrlPtr = NULL;
 					if (http_code != 200 && http_code != 204 && http_code != 206)
 					{
-						AAMP_LOG_NETWORK_ERROR (remoteUrl.c_str(), AAMPNetworkErrorHttp, http_code, simType);
-						print_headerResponse(context.allResponseHeaders, simType);
+						AAMP_LOG_NETWORK_ERROR (remoteUrl.c_str(), AAMPNetworkErrorHttp, http_code, fileType);
+						print_headerResponse(context.allResponseHeaders, fileType);
 
 						if((http_code >= 500 && http_code != 502) && downloadAttempt < maxDownloadAttempt)
 						{
@@ -4142,7 +4141,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 							mTSBEnabled = false;
 						}
 						res = curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &effectiveUrlPtr);
-						if((simType == eMEDIATYPE_INIT_VIDEO || simType ==  eMEDIATYPE_INIT_AUDIO))
+						if((fileType == eMEDIATYPE_INIT_VIDEO || fileType ==  eMEDIATYPE_INIT_AUDIO))
 						{
 							IsoBmffBuffer isobuf(mLogObj);
 							isobuf.setBuffer(reinterpret_cast<uint8_t *>(context.buffer->ptr), context.buffer->len);
@@ -4167,11 +4166,11 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 
 							if(!bParse)
 							{
-								AAMPLOG_ERR("[%d] Cant Find TimeScale. No Box available in Init File !!!", simType);
+								AAMPLOG_ERR("[%d] Cant Find TimeScale. No Box available in Init File !!!", fileType);
 							}
 							else
 							{
-								AAMPLOG_INFO("[%d] Buffer Length: %zu", simType, context.buffer->len);
+								AAMPLOG_INFO("[%d] Buffer Length: %zu", fileType, context.buffer->len);
 
 								//Print box details
 								//isobuf.printBoxes();
@@ -4179,7 +4178,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 								{
 									uint32_t timeScale = 0;
 									isobuf.getTimeScale(timeScale);
-									if(simType == eMEDIATYPE_INIT_VIDEO)
+									if(fileType == eMEDIATYPE_INIT_VIDEO)
 									{
 										AAMPLOG_INFO("Video TimeScale  [%d]", timeScale);
 										SetVidTimeScale(timeScale);
@@ -4223,13 +4222,13 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 						/*in case of fetch fragment this will be non zero value */
 						if (downloadTimeMS > fragmentDurationMs )
 						{
-							AAMP_LOG_NETWORK_LATENCY (effectiveUrl.c_str(), downloadTimeMS, fragmentDurationMs, simType);
+							AAMP_LOG_NETWORK_LATENCY (effectiveUrl.c_str(), downloadTimeMS, fragmentDurationMs, fileType);
 						}
 					}
 					else if (downloadTimeMS > FRAGMENT_DOWNLOAD_WARNING_THRESHOLD )
 					{
-						AAMP_LOG_NETWORK_LATENCY (effectiveUrl.c_str(), downloadTimeMS, FRAGMENT_DOWNLOAD_WARNING_THRESHOLD, simType);
-						print_headerResponse(context.allResponseHeaders, simType);
+						AAMP_LOG_NETWORK_LATENCY (effectiveUrl.c_str(), downloadTimeMS, FRAGMENT_DOWNLOAD_WARNING_THRESHOLD, fileType);
+						print_headerResponse(context.allResponseHeaders, fileType);
 					}
 				}
 				else
@@ -4244,8 +4243,8 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					//Log errors due to curl stall/start detection abort
 					if (AAMP_IS_LOG_WORTHY_ERROR(res) || progressCtx.abortReason != eCURL_ABORT_REASON_NONE)
 					{
-						AAMP_LOG_NETWORK_ERROR (remoteUrl.c_str(), AAMPNetworkErrorCurl, (int)(progressCtx.abortReason == eCURL_ABORT_REASON_NONE ? res : CURLE_PARTIAL_FILE), simType);
-						print_headerResponse(context.allResponseHeaders, simType);
+						AAMP_LOG_NETWORK_ERROR (remoteUrl.c_str(), AAMPNetworkErrorCurl, (int)(progressCtx.abortReason == eCURL_ABORT_REASON_NONE ? res : CURLE_PARTIAL_FILE), fileType);
+						print_headerResponse(context.allResponseHeaders, fileType);
 					}
 
 					//Attempt retry for partial downloads, which have a higher chance to succeed
@@ -4253,13 +4252,13 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					{
 						if(mpStreamAbstractionAAMP)
 						{
-							if( simType == eMEDIATYPE_MANIFEST ||
-									simType == eMEDIATYPE_AUDIO ||
-									simType == eMEDIATYPE_VIDEO ||
-									simType == eMEDIATYPE_INIT_VIDEO ||
-									simType == eMEDIATYPE_PLAYLIST_AUDIO ||
-									simType == eMEDIATYPE_INIT_AUDIO ||
-									simType == eMEDIATYPE_AUX_AUDIO || simType == eMEDIATYPE_INIT_AUX_AUDIO)
+							if( fileType == eMEDIATYPE_MANIFEST ||
+							   fileType == eMEDIATYPE_AUDIO ||
+							   fileType == eMEDIATYPE_VIDEO ||
+							   fileType == eMEDIATYPE_INIT_VIDEO ||
+							   fileType == eMEDIATYPE_PLAYLIST_AUDIO ||
+							   fileType == eMEDIATYPE_INIT_AUDIO ||
+							   fileType == eMEDIATYPE_AUX_AUDIO || fileType == eMEDIATYPE_INIT_AUX_AUDIO)
 							{ // always retry small, critical fragments on timeout
 								loopAgain = true;
 							}
@@ -4273,7 +4272,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 									// Check if buffer is available and more than timeout interval then only reattempt
 									// Not to retry download if there is no buffer left
 									loopAgain = true;
-									if(simType == eMEDIATYPE_VIDEO)
+									if(fileType == eMEDIATYPE_VIDEO)
 									{
 										if(buffer->len)
 										{
@@ -4362,8 +4361,8 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 						timeoutClass = "(" + to_string(reqSize > 0) + ")";
 					}
 					AAMPLOG(mLogObj, reqEndLogLevel, "WARN", "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s",
-							appName.c_str(), mediaType, simType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize,downloadbps,
-							(((simType == eMEDIATYPE_VIDEO) || (simType == eMEDIATYPE_INIT_VIDEO) || (simType == eMEDIATYPE_PLAYLIST_VIDEO)) ? mpStreamAbstractionAAMP->GetVideoBitrate() : 0), // Video fragment current bitrate
+							appName.c_str(), mediaType, fileType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize,downloadbps,
+							(((fileType == eMEDIATYPE_VIDEO) || (fileType == eMEDIATYPE_INIT_VIDEO) || (fileType == eMEDIATYPE_PLAYLIST_VIDEO)) ? mpStreamAbstractionAAMP->GetVideoBitrate() : 0), // Video fragment current bitrate
 							((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str())); // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
 					if(ui32CurlTrace < 10 )
 					{
@@ -4563,74 +4562,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 		mIsFirstRequestToFOG = false;
 	}
 
-	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableLinearSimulator))
-	{
-		// NEW! note that for simulated playlists, ideally we'd not bother re-downloading playlist above
-
-		AAMPLOG_INFO("*** Simulated Linear URL: %s\n", remoteUrl.c_str()); // Log incoming request
-
-		switch( simType )
-		{
-			case eMEDIATYPE_MANIFEST:
-			{
-				// Reset state after requesting main manifest
-				if( full_playlist_video_ptr )
-				{
-					// Flush old cached video playlist
-
-					free( full_playlist_video_ptr );
-					full_playlist_video_ptr = NULL;
-					full_playlist_video_len = 0;
-				}
-
-				if( full_playlist_audio_ptr )
-				{
-					// Flush old cached audio playlist
-
-					free( full_playlist_audio_ptr );
-					full_playlist_audio_ptr = NULL;
-					full_playlist_audio_len = 0;
-				}
-
-				simulation_start = aamp_GetCurrentTimeMS();
-			}
-				break; /* eMEDIATYPE_MANIFEST */
-
-			case eMEDIATYPE_PLAYLIST_AUDIO:
-			{
-				if( !full_playlist_audio_ptr )
-				{
-					// Cache the full vod audio playlist
-
-					full_playlist_audio_len = buffer->len;
-					full_playlist_audio_ptr = (char *)malloc(buffer->len);
-					memcpy( full_playlist_audio_ptr, buffer->ptr, buffer->len );
-				}
-
-				SimulateLinearWindow( buffer, full_playlist_audio_ptr, full_playlist_audio_len );
-			}
-				break; /* eMEDIATYPE_PLAYLIST_AUDIO */
-
-			case eMEDIATYPE_PLAYLIST_VIDEO:
-			{
-				if( !full_playlist_video_ptr )
-				{
-					// Cache the full vod video playlist
-
-					full_playlist_video_len = buffer->len;
-					full_playlist_video_ptr = (char *)malloc(buffer->len);
-					memcpy( full_playlist_video_ptr, buffer->ptr, buffer->len );
-				}
-
-				SimulateLinearWindow( buffer, full_playlist_video_ptr, full_playlist_video_len );
-			}
-				break; /* eMEDIATYPE_PLAYLIST_VIDEO */
-
-			default:
-				break;
-		}
-	}
-	//Stip downloaded chunked Iframes when ranged requests receives 200 as HTTP response for HLS MP4
+	// Strip downloaded chunked Iframes when ranged requests receives 200 as HTTP response for HLS MP4
 	if( mConfig->IsConfigSet(eAAMPConfig_RepairIframes) && NULL != range && '\0' != range[0] && 200 == http_code && NULL != buffer->ptr && FORMAT_ISO_BMFF == this->mVideoFormat)
 	{
 		AAMPLOG_INFO( "Received HTTP 200 for ranged request (chunked iframe: %s: %s), starting to strip the fragment", range, remoteUrl.c_str() );
@@ -8453,17 +8385,16 @@ void PrivateInstanceAAMP::CollectCMCDCustomHeaders(MediaType fileType,class CMCD
 {
 	if(pCMCDMetrics!=NULL)
 	{
-		MediaType simType = fileType;
 		long temp=0;
 		std::vector<long> bitrateList;
 		pCMCDMetrics->SetSessionId(this->mTraceUUID);
 		//For manifest sessionid and object type is passed as a part of CMCD Headers
-		if(simType == eMEDIATYPE_MANIFEST)
+		if(fileType == eMEDIATYPE_MANIFEST)
 		{
 			pCMCDMetrics->SetMediaType("MANIFEST");
 		}
 		//For video sessionid,object type,currentvideobitrate,maximum videobitrate,bufferlength are send as a part of CMCD Headers
-		if(simType == eMEDIATYPE_VIDEO)
+		if(fileType == eMEDIATYPE_VIDEO)
 		{
 			pCMCDMetrics->SetMediaType("VIDEO");
 			MediaTrack *video = mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO);
@@ -8491,7 +8422,7 @@ void PrivateInstanceAAMP::CollectCMCDCustomHeaders(MediaType fileType,class CMCD
 			}
 		}
 		//For audio sessionid,object type,currentaudiobitrate,maximum audiobitrate,bufferlength are send as a part of CMCD Headers
-		if(simType == eMEDIATYPE_AUDIO)
+		if(fileType == eMEDIATYPE_AUDIO)
 		{
 			pCMCDMetrics->SetMediaType("AUDIO");
 			MediaTrack *audio = mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_AUDIO);
@@ -8518,13 +8449,13 @@ void PrivateInstanceAAMP::CollectCMCDCustomHeaders(MediaType fileType,class CMCD
 			AAMPLOG_INFO("audio bufferlength %daudio bitrate %d",audioBufferLength,((int)mCMCDBandwidth)/1000);
 		}
 		//For subtitle sessionid and object type are send as a part of CMCD Headers
-		if(simType == eMEDIATYPE_SUBTITLE)
+		if(fileType == eMEDIATYPE_SUBTITLE)
 		{
 
 			pCMCDMetrics->SetMediaType("SUBTITLE");
 		}
 		//For init fragment sessionid,object type,bitrate,maximum bitrate are send as a part of CMCD Headers
-		if(simType == eMEDIATYPE_INIT_VIDEO)
+		if(fileType == eMEDIATYPE_INIT_VIDEO)
 		{
 			pCMCDMetrics->SetMediaType("INIT_VIDEO");
 			int initVideoBitrate  = ((int)mpStreamAbstractionAAMP->GetVideoBitrate())/1000;
@@ -8538,9 +8469,8 @@ void PrivateInstanceAAMP::CollectCMCDCustomHeaders(MediaType fileType,class CMCD
 			}
 			pCMCDMetrics->SetBitrate(initVideoBitrate);
 			pCMCDMetrics->SetTopBitrate(temp);
-
 		}
-		if(simType == eMEDIATYPE_INIT_AUDIO)
+		if(fileType == eMEDIATYPE_INIT_AUDIO)
 		{
 			pCMCDMetrics->SetMediaType("INIT_AUDIO");
 			bitrateList = mpStreamAbstractionAAMP->GetAudioBitrates();

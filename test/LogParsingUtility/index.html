@@ -43,6 +43,19 @@
 		}
     }
 
+	function MapTelemetryType( value )
+	{
+		switch( parseInt(value) )
+		{
+			case 0: return "AVS";
+			case 1: return "DRM";
+			case 2: return "INIT";
+			case 3: return "MANIFEST";
+			default:
+			return "UNKNOWN";
+		}
+	}
+	
 function MapMediaType( mediaType )
 {
 	switch( parseInt(mediaType) )
@@ -113,8 +126,10 @@ function strip(firstValue)
 			}
 			else
 			{
-				fields = fields + "mediaType,simType,http_code,totalPerformRequest,total,connect,startTransfer,resolve,appConnect,preTransfer,redirect,dlSize,reqSize,bps,currentBitrate,url";
-				value[ indexAdjust ] = "("+value[indexAdjust]+")"+MapMediaType(value[indexAdjust]); // mediaType
+				fields = fields + "telemetryType,fileType,http_code,totalPerformRequest,total,connect,startTransfer,resolve,appConnect,preTransfer,redirect,dlSize,reqSize,bps,currentBitrate,url";
+				value[ indexAdjust ] = "("+value[indexAdjust]+")"+MapTelemetryType(value[indexAdjust]); // mediaType
+				indexAdjust++;
+				value[ indexAdjust ] = "("+value[indexAdjust]+")"+MapMediaType(value[indexAdjust]); // fileType
 			}
 		}
 		else if( value[0].indexOf("IP_TUNETIME")>=0 )

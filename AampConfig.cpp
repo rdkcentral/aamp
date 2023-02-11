@@ -106,7 +106,6 @@ static AampConfigLookupEntry ConfigLookUpTable[] =
 	{"playlistTimeout",eAAMPConfig_PlaylistTimeout,true,{.dMinValue = -1},{.dMaxValue=-1}},
 	{"dashIgnoreBaseUrlIfSlash",eAAMPConfig_DASHIgnoreBaseURLIfSlash,false,-1,-1},		// Complete
 	{"licenseAnonymousRequest",eAAMPConfig_AnonymousLicenseRequest,false,-1,-1},			// Complete
-	{"useLinearSimulator",eAAMPConfig_EnableLinearSimulator,false,-1,-1},
 	{"info",eAAMPConfig_InfoLogging,true,-1,-1},
 	{"failover",eAAMPConfig_FailoverLogging,false,-1,-1},
 	{"curlHeader",eAAMPConfig_CurlHeader,false,-1,-1},
@@ -277,7 +276,6 @@ static AampConfigLookupEntry ConfigLookUpTable[] =
 	{"xreSupportedTune",eAAMPConfig_XRESupportedTune,false,-1,-1},
 	{"allowPageHeaders",eAAMPConfig_AllowPageHeaders,false,-1,-1},
 	{"customLicenseData",eAAMPConfig_CustomLicenseData,false,-1,-1},
-	{"suppressDecode",eAAMPConfig_SuppressDecode,false,-1,-1},
 	{"persistHighNetworkBandwidth",eAAMPConfig_PersistHighNetworkBandwidth,false,-1,-1},
 	{"persistLowNetworkBandwidth",eAAMPConfig_PersistLowNetworkBandwidth,false,-1,-1},
 	{"gstSubtecEnabled",eAAMPConfig_GstSubtecEnabled,false,-1,-1},
@@ -428,7 +426,6 @@ void AampConfig::Initialize()
 	bAampCfgValue[eAAMPConfig_WifiCurlHeader].value                         =       false;
 #endif
 
-	bAampCfgValue[eAAMPConfig_EnableLinearSimulator].value			=	false;
 	bAampCfgValue[eAAMPConfig_RetuneForUnpairDiscontinuity].value		=	true;
 	bAampCfgValue[eAAMPConfig_EnableSeekRange].value			=	false;
 	bAampCfgValue[eAAMPConfig_EnableLiveLatencyCorrection].value =	false;

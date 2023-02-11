@@ -2107,28 +2107,24 @@ void TrackState::FetchFragment()
  */
 void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded)
 {
-	if(!ISCONFIGSET(eAAMPConfig_SuppressDecode))
+	if (playContext)
 	{
-#ifndef FOG_HAMMER_TEST // support aamp stress-tests of fog without video decoding/presentation
-		if (playContext)
+		double position = 0;
+		if(!context->mStartTimestampZero || streamOutputFormat == FORMAT_ISO_BMFF)
 		{
-			double position = 0;
-			if(!context->mStartTimestampZero || streamOutputFormat == FORMAT_ISO_BMFF)
-			{
-				position = cachedFragment->position;
-			}
-			fragmentDiscarded = !playContext->sendSegment(cachedFragment->fragment.ptr, cachedFragment->fragment.len,
-					position, cachedFragment->duration, cachedFragment->discontinuity, ptsError);
+			position = cachedFragment->position;
 		}
-		else
-		{
-			fragmentDiscarded = false;
-			aamp->SendStreamCopy((MediaType)type, cachedFragment->fragment.ptr, cachedFragment->fragment.len,
-					cachedFragment->position, cachedFragment->position, cachedFragment->duration);
-		}
-#endif
+		fragmentDiscarded = !playContext->sendSegment(cachedFragment->fragment.ptr, cachedFragment->fragment.len,
+													  position, cachedFragment->duration, cachedFragment->discontinuity, ptsError);
+	}
+	else
+	{
+		fragmentDiscarded = false;
+		aamp->SendStreamCopy((MediaType)type, cachedFragment->fragment.ptr, cachedFragment->fragment.len,
+							 cachedFragment->position, cachedFragment->position, cachedFragment->duration);
 	}
 } // InjectFragmentInternal
+
 /***************************************************************************
 * @fn GetCompletionTimeForFragment
 * @brief Function to get end time of fragment
