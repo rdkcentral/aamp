@@ -12009,7 +12009,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 						{
 							//Yellow state(the latency is within range but less than mimium latency)
 							latencyStatus = LATENCY_STATUS_MIN;
-							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_MIN(%d)",latencyStatus);
+							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_MIN(%d) AvailableBuffer %lf",latencyStatus,buffervalue);
 							playRate = pAampLLDashServiceData->minPlaybackRate;
 						}
 						else if (( currentLatency >= (long) pAampLLDashServiceData->minLatency) &&
@@ -12018,20 +12018,20 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 						{
 							//Yellow state(the latency is within range but less than target latency but greater than minimum latency)
 							latencyStatus = LATENCY_STATUS_THRESHOLD_MIN;
-							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_THRESHOLD_MIN(%d)",latencyStatus);
+							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_THRESHOLD_MIN(%d) AvailableBuffer %lf",latencyStatus,buffervalue);
 							playRate = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
 						}
 						else if (currentLatency > (long)pAampLLDashServiceData->targetLatency && (buffervalue > maxbuffer))
 						{
 							//Red state(The latency is more than maximum latency)
 							latencyStatus = LATENCY_STATUS_MAX; //Red state
-							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_MAX(%d)",latencyStatus);
+							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_MAX(%d) AvailableBuffer %lf",latencyStatus,buffervalue);
 							playRate = pAampLLDashServiceData->maxPlaybackRate;
 						}
 						else //must not hit here
 						{
 							latencyStatus = LATENCY_STATUS_UNKNOWN; //Red state
-							AAMPLOG_WARN("latencyStatus = LATENCY_STATUS_UNKNOWN(%d)",latencyStatus);
+							AAMPLOG_WARN("latencyStatus = LATENCY_STATUS_UNKNOWN(%d) AvailableBuffer %lf",latencyStatus,buffervalue);
 						}
 
 						if ( playRate != aamp->GetLLDashCurrentPlayBackRate() )

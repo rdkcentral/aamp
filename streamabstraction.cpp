@@ -119,8 +119,19 @@ const char* MediaTrack::GetBufferHealthStatusString(BufferHealthStatus status)
 BufferHealthStatus MediaTrack::GetBufferStatus()
 {
     BufferHealthStatus bStatus = BUFFER_STATUS_GREEN;
-    double bufferedTime = totalInjectedDuration - GetContext()->GetElapsedTime();
-    if ( (numberOfFragmentsCached <= 0) && (bufferedTime <= AAMP_BUFFER_MONITOR_GREEN_THRESHOLD))
+    double bufferedTime ;
+    int CachedFragmentsOrChunks;
+    if(aamp->GetLLDashServiceData()->lowLatencyMode)
+    {
+	    bufferedTime 	    = totalInjectedChunksDuration - GetContext()->GetElapsedTime();
+	    CachedFragmentsOrChunks = numberOfFragmentChunksCached ;
+    }
+    else
+    {
+	    bufferedTime 	    = totalInjectedDuration - GetContext()->GetElapsedTime();
+	    CachedFragmentsOrChunks = numberOfFragmentsCached ;
+    }
+    if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= AAMP_BUFFER_MONITOR_GREEN_THRESHOLD))
     {
         AAMPLOG_WARN("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f",
                 name, bufferedTime, totalInjectedDuration, GetContext()->GetElapsedTime());
