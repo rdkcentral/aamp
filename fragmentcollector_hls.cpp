@@ -5389,7 +5389,7 @@ TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstraction
 		mDuration(0), mLastMatchedDiscontPosition(-1), mCulledSeconds(0),mCulledSecondsOld(0),
 		mEffectiveUrl(""), mPlaylistUrl(""), mFragmentURIFromIndex(""),
 		mDiscontinuityIndexCount(0), mSyncAfterDiscontinuityInProgress(false), playlist(),
-		index(), targetDurationSeconds(1), mDeferredDrmKeyMaxTime(0), startTimeForPlaylistSync(),
+		index(), targetDurationSeconds(1), mDeferredDrmKeyMaxTime(0), startTimeForPlaylistSync(0.0),
 		context(parent), fragmentEncrypted(false), mKeyTagChanged(false), mLastKeyTagIdx(0), mDrmInfo(),
 		mDrmMetaDataIndexPosition(0), mDrmMetaDataIndex(), mDiscontinuityIndex(), mKeyHashTable(), mPlaylistMutex(),
 		mPlaylistIndexed(), mTrackDrmMutex(), mPlaylistType(ePLAYLISTTYPE_UNDEFINED), mReachedEndListTag(false),
@@ -5402,7 +5402,6 @@ TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstraction
 {
 	memset(&playlist, 0, sizeof(playlist));
 	memset(&index, 0, sizeof(index));
-	memset(&startTimeForPlaylistSync, 0, sizeof(struct timeval));
 	memset(&mDrmMetaDataIndex, 0, sizeof(mDrmMetaDataIndex));
 	memset(&mDiscontinuityIndex, 0, sizeof(mDiscontinuityIndex));
 	pthread_cond_init(&mPlaylistIndexed, NULL);
