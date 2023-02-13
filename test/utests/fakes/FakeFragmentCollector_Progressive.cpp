@@ -39,33 +39,7 @@ double StreamAbstractionAAMP_PROGRESSIVE::GetStreamPosition() { return 0; }
 
 double StreamAbstractionAAMP_PROGRESSIVE::GetFirstPTS() { return 0; }
 
-double StreamAbstractionAAMP_PROGRESSIVE::GetStartTimeOfFirstPTS() { return 0; }
-
-MediaTrack* StreamAbstractionAAMP_PROGRESSIVE::GetMediaTrack(TrackType type) { return nullptr; }
-
-double StreamAbstractionAAMP_PROGRESSIVE::GetBufferedDuration (void) { return 0; }
-
 bool StreamAbstractionAAMP_PROGRESSIVE::IsInitialCachingSupported() { return false; }
-
-int StreamAbstractionAAMP_PROGRESSIVE::GetBWIndex(long bandwidth) { return 0; }
-
-std::vector<long> StreamAbstractionAAMP_PROGRESSIVE::GetVideoBitrates(void) { std::vector<long> temp; return temp; }
-
-std::vector<long> StreamAbstractionAAMP_PROGRESSIVE::GetAudioBitrates(void) { std::vector<long> temp; return temp; }
-
-void StreamAbstractionAAMP_PROGRESSIVE::StopInjection(void) {  }
-
-void StreamAbstractionAAMP_PROGRESSIVE::StartInjection(void) {  }
-
-std::vector<StreamInfo*> StreamAbstractionAAMP_PROGRESSIVE::GetAvailableVideoTracks(void) { std::vector<StreamInfo*> temp; return temp; }
-
-std::vector<StreamInfo*> StreamAbstractionAAMP_PROGRESSIVE::GetAvailableThumbnailTracks(void) { std::vector<StreamInfo*> temp; return temp; }
-
-bool StreamAbstractionAAMP_PROGRESSIVE::SetThumbnailTrack(int) { return false; }
-
-std::vector<ThumbnailData> StreamAbstractionAAMP_PROGRESSIVE::GetThumbnailRangeData(double, double, std::string*, int*, int*, int*, int*) { std::vector<ThumbnailData> temp; return temp; }
-
-StreamInfo* StreamAbstractionAAMP_PROGRESSIVE::GetStreamInfo(int idx) { return nullptr; }
 
 long StreamAbstractionAAMP_PROGRESSIVE::GetMaxBitrate()
 { 

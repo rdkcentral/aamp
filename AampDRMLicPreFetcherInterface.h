@@ -33,7 +33,11 @@ public:
 	 * @brief Function to update the failed DRM status to mark the adaptation sets to be omitted
 	 * @param[in] object  - Prefetch object instance which failed
 	 */
-	virtual void UpdateFailedDRMStatus(LicensePreFetchObject *object) = 0;
+	virtual void UpdateFailedDRMStatus(LicensePreFetchObject *object)
+	{
+		(void)object;
+		return ;
+	}	
 	/**
 	 * @fn ~AampLicenseFetcher
 	 * @brief virtual destructor

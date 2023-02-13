@@ -691,13 +691,6 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 ***************************************************************************/
 		double GetFirstPTS() override;
 		/***************************************************************************
-		 * @fn GetStartTimeOfFirstPTS
-		 * @brief Function to return start time of first PTS
-		 *
-		 * @return double start time of first PTS value
-		 ***************************************************************************/
-		double GetStartTimeOfFirstPTS() override { return 0.0; }
-		/***************************************************************************
 		 * @fn GetMediaTrack
 		 *
 		 * @param[in] type TrackType input
@@ -717,12 +710,6 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return available video bitrates
 		 ***************************************************************************/
 		std::vector<long> GetVideoBitrates(void) override;
-		/***************************************************************************
-		 * @fn GetAudioBitrates
-		 *
-		 * @return available audio bitrates
-		 ***************************************************************************/
-		std::vector<long> GetAudioBitrates(void) override;
 		/***************************************************************************
 		 * @fn GetMediaCount
 		 * @brief Function to get the Media count

@@ -281,14 +281,6 @@ void StreamAbstractionAAMP_PROGRESSIVE::GetStreamFormat(StreamOutputFormat &prim
 }
 
 /**
- *  @brief Return MediaTrack of requested type
- */
-MediaTrack* StreamAbstractionAAMP_PROGRESSIVE::GetMediaTrack(TrackType type)
-{
-    return NULL;//mPriv->GetMediaTrack(type);
-}
-
-/**
  *  @brief Get current stream position.
  */
 double StreamAbstractionAAMP_PROGRESSIVE::GetStreamPosition()
@@ -297,35 +289,11 @@ double StreamAbstractionAAMP_PROGRESSIVE::GetStreamPosition()
 }
 
 /**
- *  @brief Get stream information of a profile from subclass.
- */
-StreamInfo* StreamAbstractionAAMP_PROGRESSIVE::GetStreamInfo(int idx)
-{
-    return NULL;
-}
-
-/**
  *  @brief  Get PTS of first sample.
  */
 double StreamAbstractionAAMP_PROGRESSIVE::GetFirstPTS()
 {
     return 0.0;
-}
-
-/**
- *  @brief  Get Start time PTS of first sample.
- */
-double StreamAbstractionAAMP_PROGRESSIVE::GetStartTimeOfFirstPTS()
-{
-    return 0.0;
-}
-
-/**
- *  @brief Get the Buffered duration
- */
-double StreamAbstractionAAMP_PROGRESSIVE::GetBufferedDuration()
-{
-	return -1.0;
 }
 
 /**
@@ -338,85 +306,10 @@ bool StreamAbstractionAAMP_PROGRESSIVE::IsInitialCachingSupported()
 }
 
 /**
- *  @brief Get index of profile corresponds to bandwidth
- */
-int StreamAbstractionAAMP_PROGRESSIVE::GetBWIndex(long bitrate)
-{
-    return 0;
-}
-
-/**
- *  @brief To get the available video bitrates.
- */
-std::vector<long> StreamAbstractionAAMP_PROGRESSIVE::GetVideoBitrates(void)
-{ // STUB
-    return std::vector<long>();
-}
-
-/**
  *  @brief Gets Max Bitrate avialable for current playback.
  */
 long StreamAbstractionAAMP_PROGRESSIVE::GetMaxBitrate()
 { // STUB
     return 0;
 }
-
-/**
- *  @brief To get the available audio bitrates.
- */
-std::vector<long> StreamAbstractionAAMP_PROGRESSIVE::GetAudioBitrates(void)
-{ // STUB
-    return std::vector<long>();
-}
-
-/**
- *  @brief To get the available video tracks.
- */
-std::vector<StreamInfo*> StreamAbstractionAAMP_PROGRESSIVE::GetAvailableVideoTracks(void)
-{ // STUB
-	return std::vector<StreamInfo*>();
-}
-
-/**
- *  @brief To get the available thumbnail tracks.
- */
-std::vector<StreamInfo*> StreamAbstractionAAMP_PROGRESSIVE::GetAvailableThumbnailTracks(void)
-{ // STUB
-	return std::vector<StreamInfo*>();
-}
-
-/**
- *  @brief Function to set thumbnail track for processing
- */
-bool StreamAbstractionAAMP_PROGRESSIVE::SetThumbnailTrack(int thumbnailIndex)
-{
-	(void)thumbnailIndex;	/* unused */
-	return false;
-}
-
-
-std::vector<ThumbnailData> StreamAbstractionAAMP_PROGRESSIVE::GetThumbnailRangeData(double start, double end, std::string *baseurl, int *raw_w, int *raw_h, int *width, int *height)
-{
-	return std::vector<ThumbnailData>();
-}
-
-/**
- *  @brief  Stops injecting fragments to StreamSink.
- */
-void StreamAbstractionAAMP_PROGRESSIVE::StopInjection(void)
-{ // STUB - discontinuity related
-}
-
-/**
- *  @brief  Start injecting fragments to StreamSink.
- */
-void StreamAbstractionAAMP_PROGRESSIVE::StartInjection(void)
-{ // STUB - discontinuity related
-}
-
-
-
-
-
-
 

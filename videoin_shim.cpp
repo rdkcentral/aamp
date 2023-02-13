@@ -214,57 +214,12 @@ void StreamAbstractionAAMP_VIDEOIN::GetStreamFormat(StreamOutputFormat &primaryO
 }
 
 /**
- *  @brief Return MediaTrack of requested type
- */
-MediaTrack* StreamAbstractionAAMP_VIDEOIN::GetMediaTrack(TrackType type)
-{ // STUB
-	AAMPLOG_WARN("%s ",mName.c_str());
-    return NULL;
-}
-
-/**
- * @brief Get current stream position.
- */
-double StreamAbstractionAAMP_VIDEOIN::GetStreamPosition()
-{ // STUB
-	AAMPLOG_WARN("%s ",mName.c_str());
-    return 0.0;
-}
-
-/**
- *  @brief Get stream information of a profile from subclass.
- */
-StreamInfo* StreamAbstractionAAMP_VIDEOIN::GetStreamInfo(int idx)
-{ // STUB
-	AAMPLOG_WARN("%s ",mName.c_str());
-    return NULL;
-}
-
-/**
  *  @brief  Get PTS of first sample.
  */
 double StreamAbstractionAAMP_VIDEOIN::GetFirstPTS()
 { // STUB
 	AAMPLOG_WARN("%s ",mName.c_str());
     return 0.0;
-}
-
-/**
- *  @brief  Get Start time PTS of first sample. 
- */
-double StreamAbstractionAAMP_VIDEOIN::GetStartTimeOfFirstPTS()
-{ // STUB
-	AAMPLOG_WARN("%s ",mName.c_str());
-    return 0.0;
-}
-
-/**
- * @brief Get the Duration of buffer
- */
-double StreamAbstractionAAMP_VIDEOIN::GetBufferedDuration()
-{ // STUB
-	AAMPLOG_WARN("%s ",mName.c_str());
-	return -1.0;
 }
 
 /**
@@ -277,24 +232,6 @@ bool StreamAbstractionAAMP_VIDEOIN::IsInitialCachingSupported()
 }
 
 /**
- * @brief Get index of profile corresponds to bandwidth
- */
-int StreamAbstractionAAMP_VIDEOIN::GetBWIndex(long bitrate)
-{
-	AAMPLOG_WARN("%s ",mName.c_str());
-    return 0;
-}
-
-/**
- *  @brief To get the available video bitrates.
- */
-std::vector<long> StreamAbstractionAAMP_VIDEOIN::GetVideoBitrates(void)
-{ // STUB
-	AAMPLOG_WARN("%s ",mName.c_str());
-    return std::vector<long>();
-}
-
-/**
  *  @brief Gets Max Bitrate avialable for current playback.
  */
 long StreamAbstractionAAMP_VIDEOIN::GetMaxBitrate()
@@ -302,32 +239,6 @@ long StreamAbstractionAAMP_VIDEOIN::GetMaxBitrate()
 	AAMPLOG_WARN("%s ",mName.c_str());
     return 0;
 }
-
-/**
- * @brief To get the available audio bitrates.
- */
-std::vector<long> StreamAbstractionAAMP_VIDEOIN::GetAudioBitrates(void)
-{ // STUB
-	AAMPLOG_WARN("%s ",mName.c_str());
-    return std::vector<long>();
-}
-
-/**
- *  @brief  Stops injecting fragments to StreamSink.
- */
-void StreamAbstractionAAMP_VIDEOIN::StopInjection(void)
-{ // STUB - discontinuity related
-	AAMPLOG_WARN("%s ",mName.c_str());
-}
-
-/**
- *  @brief  Start injecting fragments to StreamSink.
- */
-void StreamAbstractionAAMP_VIDEOIN::StartInjection(void)
-{ // STUB - discontinuity related
-	AAMPLOG_WARN("%s ",mName.c_str());
-}
-
 
 
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS

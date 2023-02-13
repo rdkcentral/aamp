@@ -5674,14 +5674,6 @@ std::vector<long> StreamAbstractionAAMP_HLS::GetVideoBitrates(void)
 	return bitrates;
 }
 
-/**
- * @brief Function to get available audio bitrates
- */
-std::vector<long> StreamAbstractionAAMP_HLS::GetAudioBitrates(void)
-{
-	//TODO: Impl audio bitrate getter
-	return std::vector<long>();
-}
 
 /***************************************************************************
 * @fn isThumbnailStream

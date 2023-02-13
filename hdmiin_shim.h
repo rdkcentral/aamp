@@ -76,22 +76,7 @@ public:
      *   @fn Stop
      */
     void Stop(bool clearChannelData) override;
-    /**
-     * @fn GetAvailableVideoTracks
-     */
-    std::vector<StreamInfo*> GetAvailableVideoTracks(void) override;
-    /**
-     * @fn GetAvailableThumbnailTracks
-     */
-    std::vector<StreamInfo*> GetAvailableThumbnailTracks(void) override;
-    /**
-     * @fn SetThumbnailTrack
-     */
-    bool SetThumbnailTrack(int) override;
-    /**
-     * @fn GetThumbnailRangeData
-     */
-    std::vector<ThumbnailData> GetThumbnailRangeData(double,double, std::string*, int*, int*, int*, int*) override;
+
 private:
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     /*Event Handler*/

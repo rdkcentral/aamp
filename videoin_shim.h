@@ -93,28 +93,7 @@ public:
 	 * @param[out]  subtitleOutputFormat - format of sutbtile track
 	 */
 	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subtitleOutputFormat) override;
-    
-    /**
-     * @fn Is4KStream
-     * @brief check if current stream have 4K content
-     * @param height - resolution of 4K stream if found
-     * @param bandwidth - bandwidth of 4K stream if foudd
-     * @return true on success 
-     */
-    virtual bool Is4KStream(int &height, long &bandwidth) override {return false; };
-    
-    /**
-     * @fn GetStreamPosition
-     *
-     * @retval current position of stream. 
-     */
-    double GetStreamPosition() override;
-    /**
-     *   @fn GetMediaTrack
-     *   @param[in] type - track type
-     *   @retval MediaTrack pointer.
-     */
-    MediaTrack* GetMediaTrack(TrackType type) override;
+       
     /**
      *   @fn GetFirstPTS
      *
@@ -122,66 +101,16 @@ public:
      */
     double GetFirstPTS() override;
     /**
-     *   @fn GetStartTimeOfFirstPTS 
-     *   
-     *   @retval start time of first sample
-     */
-    double GetStartTimeOfFirstPTS() override;
-    /**
-     * @fn GetBufferedDuration
-     */
-    double GetBufferedDuration() override;
-    /**
      * @fn IsInitialCachingSupported
      * @return true if yes 
      */
     bool IsInitialCachingSupported() override;
     /**
-     * @fn GetBWIndex
-     * @param[in] bitrate Bitrate to lookup profile
-     * @retval profile index
-     */
-    int GetBWIndex(long bitrate) override;
-    /**
-     * @fn GetVideoBitrates
-     * @return available video bitrates
-     */
-    std::vector<long> GetVideoBitrates(void) override;
-    /**
-     * @fn GetAudioBitrates
-     * @return available audio bitrates
-     */
-    std::vector<long> GetAudioBitrates(void) override;
-    /**
      * @fn GetMaxBitrate
      * @return long MAX video bitrates
      */
     long GetMaxBitrate(void) override;
-    /**
-     *   @fn StopInjection
-     */
-    void StopInjection(void) override;
-    /**
-     *   @fn StartInjection
-     */
-    void StartInjection(void) override;
-    void SeekPosUpdate(double) { };
-
-	/**
-	 * @fn UpdateFailedDRMStatus
-	 * @brief Function to update the failed DRM status to mark the adaptation sets to be omitted
-	 * @param[in] object  - Prefetch object instance which failed
-	 */
-	void UpdateFailedDRMStatus(LicensePreFetchObject *object) override { }
-
 protected:
-    /**
-     *   @fn GetStreamInfo
-     *
-     *   @param[in]  idx - profile index.
-     *   @retval stream information corresponding to index.
-     */
-    StreamInfo* GetStreamInfo(int idx) override;
     AAMPStatusType InitHelper(TuneType tuneType);
     /**
      *   @fn StartHelper

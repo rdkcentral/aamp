@@ -92,63 +92,22 @@ public:
      */
     double GetStreamPosition() override;
     /**
-     *   @fn GetMediaTrack
-     *
-     *   @param[in]  type - track type
-     *   @retval MediaTrack pointer.
-     */
-    MediaTrack* GetMediaTrack(TrackType type) override;
-    /**
      *   @fn GetFirstPTS 
      *
      *   @retval PTS of first sample
      */
     double GetFirstPTS() override;
-    /**
-     *   @fn GetStartTimeOfFirstPTS
-     *
-     *   @retval start time of first sample
-     */
-    double GetStartTimeOfFirstPTS() override;
-    /**
-     *  @fn GetBufferedDuration
-     *
-     */
-    double GetBufferedDuration() override;
+    
     /**
      *  @fn IsInitialCachingSupported
      *
      */
     bool IsInitialCachingSupported() override;
     /**
-     * @param[in] bitrate Bitrate to lookup profile
-     * @retval profile index
-     */
-    int GetBWIndex(long bitrate) override;
-    /**
-     * @fn GetVideoBitrates
-     * @return available video bitrates
-     */
-    std::vector<long> GetVideoBitrates(void) override;
-    /**
-     * @fn GetAudioBitrates
-     * @return available audio bitrates
-     */
-    std::vector<long> GetAudioBitrates(void) override;
-    /**
      * @fn GetMaxBitrate
      * @return long MAX video bitrates
      */
     long GetMaxBitrate(void) override;
-    /**
-     *   @fn StopInjection
-     */
-    void StopInjection(void) override;
-    /**
-     *   @fn StartInjection
-     */
-    void StartInjection(void) override;
-    void SeekPosUpdate(double) { };
     /**
      * @fn FetcherLoop
      * @return void
@@ -159,53 +118,7 @@ public:
      * @retval void
      */
     void FragmentCollector();
-    /**
-     * @fn GetAvailableVideoTracks
-     * @return available video tracks.
-     */
-    std::vector<StreamInfo*> GetAvailableVideoTracks(void) override;
-    /**
-     * @fn GetAvailableThumbnailTracks
-     * @return available thumbnail tracks.
-     */
-    std::vector<StreamInfo*> GetAvailableThumbnailTracks(void) override;
-    /**
-     * @fn SetThumbnailTrack
-     *
-     * @param thumbnailIndex thumbnail index value indicating the track to select
-     * @return bool true on success.
-     */
-    bool SetThumbnailTrack(int) override;
-    /**
-     * @fn GetThumbnailRangeData
-     * @return Updated vector of available thumbnail data.
-     */
-    std::vector<ThumbnailData> GetThumbnailRangeData(double,double, std::string*, int*, int*, int*, int*) override;
 
-    /**
-     * @fn Is4KStream
-     * @brief check if current stream have 4K content
-     * @param height - resolution of 4K stream if found
-     * @param bandwidth - bandwidth of 4K stream if foudd
-     * @return true on success 
-     */
-    bool Is4KStream(int &height, long &bandwidth) override { return false; };
-
-	/**
-	 * @fn UpdateFailedDRMStatus
-	 * @brief Function to update the failed DRM status to mark the adaptation sets to be omitted
-	 * @param[in] object  - Prefetch object instance which failed
-	 */
-	void UpdateFailedDRMStatus(LicensePreFetchObject *object) override { }
-
-protected:
-    /**
-     *   @fn GetStreamInfo
-     *
-     *   @param[in]  idx - profile index.
-     *   @retval stream information corresponding to index.
-     */
-    StreamInfo* GetStreamInfo(int idx) override;
 private:
     void StreamFile( const char *uri, int *http_error );
     bool fragmentCollectorThreadStarted;

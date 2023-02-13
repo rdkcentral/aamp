@@ -1019,51 +1019,11 @@ void StreamAbstractionAAMP_OTA::GetStreamFormat(StreamOutputFormat &primaryOutpu
 }
 
 /**
- *   @brief Return MediaTrack of requested type
- */
-MediaTrack* StreamAbstractionAAMP_OTA::GetMediaTrack(TrackType type)
-{ // STUB
-    return NULL;
-}
-
-/**
- * @brief Get current stream position.
- */
-double StreamAbstractionAAMP_OTA::GetStreamPosition()
-{ // STUB
-    return 0.0;
-}
-
-/**
- *   @brief Get stream information of a profile from subclass.
- */
-StreamInfo* StreamAbstractionAAMP_OTA::GetStreamInfo(int idx)
-{ // STUB
-    return NULL;
-}
-
-/**
  *   @brief  Get PTS of first sample.
  */
 double StreamAbstractionAAMP_OTA::GetFirstPTS()
 { // STUB
     return 0.0;
-}
-
-/**
- *   @brief  Get Start time PTS of first sample.
- */
-double StreamAbstractionAAMP_OTA::GetStartTimeOfFirstPTS()
-{ // STUB
-    return 0.0;
-}
-
-/**
- *  @brief Get the Buffered time
- */
-double StreamAbstractionAAMP_OTA::GetBufferedDuration()
-{ // STUB
-	return -1.0;
 }
 
 /**
@@ -1075,22 +1035,6 @@ bool StreamAbstractionAAMP_OTA::IsInitialCachingSupported()
 }
 
 /**
- *  @brief Get index of profile corresponds to bandwidth
- */
-int StreamAbstractionAAMP_OTA::GetBWIndex(long bitrate)
-{ // STUB
-    return 0;
-}
-
-/**
- *  @brief To get the available video bitrates.
- */
-std::vector<long> StreamAbstractionAAMP_OTA::GetVideoBitrates(void)
-{ // STUB
-    return std::vector<long>();
-}
-
-/**
  *  @brief Gets Max Bitrate avialable for current playback.
  */
 long StreamAbstractionAAMP_OTA::GetMaxBitrate()
@@ -1098,57 +1042,3 @@ long StreamAbstractionAAMP_OTA::GetMaxBitrate()
     return 0;
 }
 
-/**
- *  @brief To get the available audio bitrates.
- */
-std::vector<long> StreamAbstractionAAMP_OTA::GetAudioBitrates(void)
-{ // STUB
-    return std::vector<long>();
-}
-
-/**
- *  @brief To get the available video tracks.
- */
-std::vector<StreamInfo*> StreamAbstractionAAMP_OTA::GetAvailableVideoTracks(void)
-{ // STUB
-	return std::vector<StreamInfo*>();
-}
-
-/**
- *  @brief To get the available thumbnail tracks.
- */
-std::vector<StreamInfo*> StreamAbstractionAAMP_OTA::GetAvailableThumbnailTracks(void)
-{ // STUB
-	return std::vector<StreamInfo*>();
-}
-
-/**
- *  @brief Function to set thumbnail track for processing
- */
-bool StreamAbstractionAAMP_OTA::SetThumbnailTrack(int thumbnailIndex)
-{
-	(void) thumbnailIndex;	/* unused */
-	return false;
-}
-
-/**
- *  @brief To get the available thumbnail tracks.
- */
-std::vector<ThumbnailData> StreamAbstractionAAMP_OTA::GetThumbnailRangeData(double start, double end, std::string *baseurl, int *raw_w, int *raw_h, int *width, int *height)
-{
-	return std::vector<ThumbnailData>();
-}
-
-/**
- *  @brief  Stops injecting fragments to StreamSink.
- */
-void StreamAbstractionAAMP_OTA::StopInjection(void)
-{ // STUB - discontinuity related
-}
-
-/**
- *  @brief  Start injecting fragments to StreamSink.
- */
-void StreamAbstractionAAMP_OTA::StartInjection(void)
-{ // STUB - discontinuity related
-}

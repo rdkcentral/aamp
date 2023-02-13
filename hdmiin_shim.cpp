@@ -89,46 +89,6 @@ void StreamAbstractionAAMP_HDMIIN::Stop(bool clearChannelData)
 	StopHelper("stopHdmiInput");
 }
 
-/**
- * @brief To get the available video tracks.
- * @return available video tracks
- */
-std::vector<StreamInfo*> StreamAbstractionAAMP_HDMIIN::GetAvailableVideoTracks(void)
-{ // STUB
-	AAMPLOG_WARN("StreamAbstractionAAMP_HDMIIN");
-	return std::vector<StreamInfo*>();
-}
-
-/**
- * @brief To get the available thumbnail tracks.
- * @return available thumbnail tracks
- */
-std::vector<StreamInfo*> StreamAbstractionAAMP_HDMIIN::GetAvailableThumbnailTracks(void)
-{ // STUB
-	AAMPLOG_WARN("StreamAbstractionAAMP_HDMIIN");
-	return std::vector<StreamInfo*>();
-}
-
-/**
- * @brief To set the thumbnail track by index.
- * @return True or False indicating success failure.
- */
-bool StreamAbstractionAAMP_HDMIIN::SetThumbnailTrack(int thumbnailIndex)
-{
-	(void)thumbnailIndex;	/* unused */
-	return false;
-}
-
-/**
- * @brief To get thumbnail range data.
- * @return vector containg multiple thumbnail tile info.
- */
-std::vector<ThumbnailData> StreamAbstractionAAMP_HDMIIN::GetThumbnailRangeData(double start, double end, std::string *baseurl, int *raw_w, int *raw_h, int *width, int *height)
-{
-        return std::vector<ThumbnailData>();
-}
-
-
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 
 /**

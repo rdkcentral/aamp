@@ -434,6 +434,13 @@ public:
 	 * @return void
 	 */
 	virtual void ABRProfileChanged(void) = 0;
+	
+	/**
+	 *   @brief Function to get the buffer duration
+	 *
+	 *   @return buffer value 
+	 */                
+
 	virtual double GetBufferedDuration (void) = 0;
 
 	/**
@@ -780,19 +787,30 @@ public:
 	 *
 	 *   @return current position of stream.
 	 */
-	virtual double GetStreamPosition() = 0;
+	virtual double GetStreamPosition()
+	{
+		return 0.0;
+	}
+		
 	/**
 	 *   @brief  Get PTS of first sample.
 	 *
 	 *   @return PTS of first sample
 	 */
-	virtual double GetFirstPTS() = 0;
+	virtual double GetFirstPTS()
+	{
+		return 0.0;
+	}
+	
 	/**
 	 *   @brief  Get Start time PTS of first sample.
 	 *
 	 *   @retval start time of first sample
 	 */
-	virtual double GetStartTimeOfFirstPTS() = 0;
+	virtual double GetStartTimeOfFirstPTS()
+	{
+		return 0.0;
+	}
 
 	/**
 	 *   @brief Return MediaTrack of requested type
@@ -800,7 +818,11 @@ public:
 	 *   @param[in]  type - track type
 	 *   @return MediaTrack pointer.
 	 */
-	virtual MediaTrack* GetMediaTrack(TrackType type) = 0;
+	virtual MediaTrack* GetMediaTrack(TrackType type)
+	{
+		(void)type;
+		return nullptr;
+	}
 
 	/**
 	 *   @brief Waits audio track injection until caught up with video track.
@@ -897,7 +919,10 @@ public:
 	 *
 	 *   @return buffer value 
 	 */                
-	virtual double GetBufferedDuration (void) = 0;
+	virtual double GetBufferedDuration (void)
+	{
+		return -1.0;
+	}	
 
     	/**
 	 *   @fn IsLowestProfile
@@ -997,7 +1022,10 @@ public:
 	 * @param bandwidth - bandwidth of 4K stream if foudd
 	 * @return true on success 
 	 */
-	virtual bool Is4KStream(int &height, long &bandwidth) = 0;
+	virtual bool Is4KStream(int &height, long &bandwidth)
+	{
+		return false;
+	}
 
 	/**
 	 * @fn GetPreferredLiveOffsetFromConfig
@@ -1080,7 +1108,7 @@ public:
 	 *   @param[in]  bandwidth - Bandwidth
 	 *   @return Profile index
 	 */
-	virtual int GetBWIndex(long bandwidth) = 0;
+	virtual int GetBWIndex(long bandwidth) { (void)bandwidth ; return 0;	}
 
 	/**
 	 *    @brief Get the ABRManager reference.
@@ -1149,14 +1177,20 @@ public:
 	 *
 	 *   @return available video bitrates.
 	 */
-	virtual std::vector<long> GetVideoBitrates(void) = 0;
+	virtual std::vector<long> GetVideoBitrates(void)
+	{
+		return std::vector<long>();
+	}
 
 	/**
 	 *   @brief Get available audio bitrates.
 	 *
 	 *   @return available audio bitrates.
 	 */
-	virtual std::vector<long> GetAudioBitrates(void) = 0;
+	virtual std::vector<long> GetAudioBitrates(void)
+	{
+		return std::vector<long>();
+	}
 
 	/**
 	 *   @brief Check if playback stalled in fragment collector side.
@@ -1168,12 +1202,12 @@ public:
 	/**
 	 *   @brief Stop injection of fragments.
 	 */
-	virtual void StopInjection(void) = 0;
+	virtual void StopInjection(void) { }
 
 	/**
 	 *   @brief Start injection of fragments.
 	 */
-	virtual void StartInjection(void) = 0;
+	virtual void StartInjection(void) { }
 
 	/**
 	 *   @fn IsMuxedStream
@@ -1251,7 +1285,7 @@ public:
 	*
 	*   @param[in] secondsRelativeToTuneTime seekposition time.
 	*/
-	virtual void SeekPosUpdate(double secondsRelativeToTuneTime) = 0;
+	virtual void SeekPosUpdate(double secondsRelativeToTuneTime) { (void) secondsRelativeToTuneTime ;}
 
 	/**
 	 *   @fn GetLastInjectedFragmentPosition
@@ -1340,28 +1374,51 @@ public:
 	 */
 	virtual void SetVideoRectangle(int x, int y, int w, int h) {}
 
-	virtual std::vector<StreamInfo*> GetAvailableVideoTracks(void) = 0;
+	virtual std::vector<StreamInfo*> GetAvailableVideoTracks(void) 
+	{ // STUB
+		return std::vector<StreamInfo*>();
+	}
 
         /**
      	 *   @brief Get available thumbnail bitrates.
      	 *
      	 *   @return available thumbnail bitrates.
      	 */
-    	virtual std::vector<StreamInfo*> GetAvailableThumbnailTracks(void) = 0;
+    	virtual std::vector<StreamInfo*> GetAvailableThumbnailTracks(void)
+		{ // STUB
+			return std::vector<StreamInfo*>();
+		}
+    	
 
     	/**
      	 *   @brief Set thumbnail bitrate.
     	 *
      	 *   @return none.
      	 */
-	virtual bool SetThumbnailTrack(int) = 0;
+	virtual bool SetThumbnailTrack(int thumbnailIndex)
+	{
+		(void) thumbnailIndex;	/* unused */
+		return false;	
+	}
 
     	/**
      	 *   @brief Get thumbnail data for duration value.
      	 *
      	 *   @return thumbnail data.
      	 */
-	virtual std::vector<ThumbnailData> GetThumbnailRangeData(double, double, std::string*, int*, int*, int*, int*) = 0;
+	virtual std::vector<ThumbnailData> GetThumbnailRangeData(double start, double end, std::string *baseurl, int *raw_w, int *raw_h, int *width, int *height)
+	{		
+		(void)start;
+		(void)end;
+		(void)baseurl;
+		(void)raw_w;
+		(void)raw_h;
+		(void)width;
+		(void)height;
+		
+		return std::vector<ThumbnailData>();
+	}
+
 	
     	/**
      	 * @brief SetAudioTrack set the audio track using index value. [currently for OTA]
@@ -1536,7 +1593,11 @@ protected:
 	 *   @param[in]  idx - profile index.
 	 *   @return stream information corresponding to index.
 	 */
-	virtual StreamInfo* GetStreamInfo(int idx) = 0;
+	virtual StreamInfo* GetStreamInfo(int idx)
+	{
+		(void)idx;
+		return NULL;
+	}	
 
 private:
 

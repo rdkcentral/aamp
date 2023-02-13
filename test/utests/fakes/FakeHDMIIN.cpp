@@ -41,29 +41,9 @@ void StreamAbstractionAAMP_VIDEOIN::Stop(bool clearChannelData) {  }
 
 void StreamAbstractionAAMP_VIDEOIN::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
 
-double StreamAbstractionAAMP_VIDEOIN::GetStreamPosition() { return 0; }
-
 double StreamAbstractionAAMP_VIDEOIN::GetFirstPTS() { return 0; }
 
-double StreamAbstractionAAMP_VIDEOIN::GetStartTimeOfFirstPTS() { return 0; }
-
-MediaTrack* StreamAbstractionAAMP_VIDEOIN::GetMediaTrack(TrackType type) { return nullptr; }
-
-double StreamAbstractionAAMP_VIDEOIN::GetBufferedDuration (void) { return 0; }
-
 bool StreamAbstractionAAMP_VIDEOIN::IsInitialCachingSupported() { return false; }
-
-int StreamAbstractionAAMP_VIDEOIN::GetBWIndex(long bandwidth) { return 0; }
-
-std::vector<long> StreamAbstractionAAMP_VIDEOIN::GetVideoBitrates(void) { std::vector<long> temp; return temp; }
-
-std::vector<long> StreamAbstractionAAMP_VIDEOIN::GetAudioBitrates(void) { std::vector<long> temp; return temp; }
-
-void StreamAbstractionAAMP_VIDEOIN::StopInjection(void) {  }
-
-void StreamAbstractionAAMP_VIDEOIN::StartInjection(void) {  }
-
-StreamInfo* StreamAbstractionAAMP_VIDEOIN::GetStreamInfo(int idx) { return nullptr; }
 
 long StreamAbstractionAAMP_VIDEOIN::GetMaxBitrate()
 {
@@ -96,26 +76,6 @@ void StreamAbstractionAAMP_HDMIIN::Stop(bool clearChannelData)
 {
 }
 
-std::vector<StreamInfo*> StreamAbstractionAAMP_HDMIIN::GetAvailableVideoTracks(void)
-{
-	return std::vector<StreamInfo*>();
-}
-
-std::vector<StreamInfo*> StreamAbstractionAAMP_HDMIIN::GetAvailableThumbnailTracks(void)
-{
-	return std::vector<StreamInfo*>();
-}
-
-bool StreamAbstractionAAMP_HDMIIN::SetThumbnailTrack(int thumbnailIndex)
-{
-    return false;
-}
-
-std::vector<ThumbnailData> StreamAbstractionAAMP_HDMIIN::GetThumbnailRangeData(double start, double end, std::string *baseurl, int *raw_w, int *raw_h, int *width, int *height)
-{
-    return std::vector<ThumbnailData>();
-}
-
 StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
                              : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", COMPOSITEINPUT_CALLSIGN, logObj, aamp,seek_pos,rate)
 {
@@ -138,22 +98,3 @@ void StreamAbstractionAAMP_COMPOSITEIN::Stop(bool clearChannelData)
 {
 }
 
-std::vector<StreamInfo*> StreamAbstractionAAMP_COMPOSITEIN::GetAvailableVideoTracks(void)
-{
-	return std::vector<StreamInfo*>();
-}
-
-std::vector<StreamInfo*> StreamAbstractionAAMP_COMPOSITEIN::GetAvailableThumbnailTracks(void)
-{
-	return std::vector<StreamInfo*>();
-}
-
-bool StreamAbstractionAAMP_COMPOSITEIN::SetThumbnailTrack(int thumbnailIndex)
-{
-    return false;
-}
-
-std::vector<ThumbnailData> StreamAbstractionAAMP_COMPOSITEIN::GetThumbnailRangeData(double start, double end, std::string *baseurl, int *raw_w, int *raw_h, int *width, int *height)
-{
-    return std::vector<ThumbnailData>();
-}

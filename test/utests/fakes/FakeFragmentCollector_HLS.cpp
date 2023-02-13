@@ -45,8 +45,6 @@ int StreamAbstractionAAMP_HLS::GetBWIndex(long bandwidth) { return 0; }
 
 std::vector<long> StreamAbstractionAAMP_HLS::GetVideoBitrates(void) { std::vector<long> temp; return temp; }
 
-std::vector<long> StreamAbstractionAAMP_HLS::GetAudioBitrates(void) { std::vector<long> temp; return temp; }
-
 void StreamAbstractionAAMP_HLS::StopInjection(void) {  }
 
 void StreamAbstractionAAMP_HLS::StartInjection(void) {  }

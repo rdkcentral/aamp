@@ -79,42 +79,4 @@ void StreamAbstractionAAMP_COMPOSITEIN::Stop(bool clearChannelData)
 	StopHelper("stopCompositeInput");
 }
 
-/**
- * @brief To get the available video tracks.
- * @return available video tracks.
- */
-std::vector<StreamInfo*> StreamAbstractionAAMP_COMPOSITEIN::GetAvailableVideoTracks(void)
-{ // STUB
-	AAMPLOG_WARN("StreamAbstractionAAMP_COMPOSITEIN");
-	return std::vector<StreamInfo*>();
-}
-
-/**
- * @brief To get the available thumbnail tracks.
- * @return available thunbnail tracks.
- */
-std::vector<StreamInfo*> StreamAbstractionAAMP_COMPOSITEIN::GetAvailableThumbnailTracks(void)
-{ // STUB
-	AAMPLOG_WARN("StreamAbstractionAAMP_COMPOSITEIN");
-	return std::vector<StreamInfo*>();
-}
-
-/**
- * @brief To set the available thumbnail tracks.
- */
-bool StreamAbstractionAAMP_COMPOSITEIN::SetThumbnailTrack(int thumbnailIndex)
-{
-	(void)thumbnailIndex;	/* unused */
-        return false;
-}
-
-/**
- * @brief Function to fetch the thumbnail data.
- *
- * @return Updated vector of available thumbnail data.
- */
-std::vector<ThumbnailData> StreamAbstractionAAMP_COMPOSITEIN::GetThumbnailRangeData(double start, double end, std::string *baseurl, int *raw_w, int *raw_h, int *width, int *height)
-{
-        return std::vector<ThumbnailData>();
-}
 
