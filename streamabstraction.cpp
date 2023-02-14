@@ -1256,7 +1256,7 @@ void MediaTrack::RunInjectChunkLoop()
  */
 void MediaTrack::StopInjectLoop()
 {
-	if (fragmentInjectorThreadStarted)
+	if(fragmentInjectorThreadStarted && fragmentInjectorThreadID.joinable())
 	{
 		fragmentInjectorThreadID.join();
 #ifdef TRACE

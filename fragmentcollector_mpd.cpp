@@ -10276,7 +10276,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 	{
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
-		if(track && track->Enabled())
+		if(track)
 		{
 			aamp->StopTrackInjection((MediaType) iTrack);
 			track->StopInjectLoop();
