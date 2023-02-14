@@ -88,8 +88,96 @@ double ISO8601DateTimeToUTCSeconds(const char *ptr)
     return 0;
 }
 
+/**
+ * @brief parse leading protcocol from uri if present
+ * @param[in] uri manifest/ fragment uri
+ * @retval return pointer just past protocol (i.e. http://) if present (or) return NULL uri doesn't start with protcol
+ */
+static const char * ParseUriProtocol(const char *uri)
+{
+	for(;;)
+	{
+		char ch = *uri++;
+		if( ch ==':' )
+		{
+			if (uri[0] == '/' && uri[1] == '/')
+			{
+				return uri + 2;
+			}
+			break;
+		}
+		else if (isalnum (ch) || ch == '.' || ch == '-' || ch == '+') // other valid (if unlikely) characters for protocol
+		{ // legal characters for uri protocol - continue
+			continue;
+		}
+		else
+		{
+			break;
+		}
+	}
+	return NULL;
+}
+
+/**
+ * @brief Resolve file URL from the base and file path
+ */
 void aamp_ResolveURL(std::string& dst, std::string base, const char *uri , bool bPropagateUriParams)
 {
+	if( ParseUriProtocol(uri) )
+	{
+		dst = uri;
+	}
+	else
+	{
+		const char *baseStart = base.c_str();
+		const char *basePtr = ParseUriProtocol(baseStart);
+		const char *baseEnd;
+		for(;;)
+		{
+			char c = *basePtr;
+			if( c==0 || c=='/' || c=='?' )
+			{
+				baseEnd = basePtr;
+				break;
+			}
+			basePtr++;
+		}
+
+		if( uri[0]!='/' && uri[0]!='\0' )
+		{
+			for(;;)
+			{
+				char c = *basePtr;
+				if( c=='/' )
+				{
+					baseEnd = basePtr;
+				}
+				else if( c=='?' || c==0 )
+				{
+					break;
+				}
+				basePtr++;
+			}
+		}
+		dst = base.substr(0,baseEnd-baseStart);
+		if( uri[0]!='/' )
+		{
+			dst += "/";
+		}
+		dst += uri;
+		if( bPropagateUriParams )
+		{
+			if (strchr(uri,'?') == 0)
+			{ // uri doesn't have url parameters; copy from parents if present
+				const char *baseParams = strchr(basePtr,'?');
+				if( baseParams )
+				{
+					std::string params = base.substr(baseParams-baseStart);
+					dst.append(params);
+				}
+			}
+		}
+	}
 }
 
 const char * GetAudioFormatStringForCodec ( StreamOutputFormat input)
@@ -106,4 +194,9 @@ std::string Getiso639map_NormalizeLanguageCode(std::string  lang,LangCodePrefere
 const FormatMap * GetVideoFormatForCodec( const char *codecs )
 {
     return NULL;
+}
+
+bool aamp_IsAbsoluteURL( const std::string &url )
+{
+	return url.compare(0, 7, "http://")==0 || url.compare(0, 8, "https://")==0;
 }

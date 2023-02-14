@@ -41,6 +41,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     PKG_CONFIG_PATH=/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCOVERAGE_ENABLED=ON -DCMAKE_BUILD_TYPE=Debug ../
 elif [[ "$OSTYPE" == "linux"* ]]; then
     PKG_CONFIG_PATH=$PWD/../../../Linux/lib/pkgconfig /usr/bin/cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=$PWD/../../../Linux -DCMAKE_PLATFORM_UBUNTU=1 -DCOVERAGE_ENABLED=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_LIBRARY_PATH=$PWD/../../../Linux/lib -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -S../ -B$PWD -G "Unix Makefiles"
+    export LD_LIBRARY_PATH=$PWD/../../../Linux/lib
 else
     #abort the script if its not macOS or linux
     echo "Aborting unsupported OS detected"
@@ -61,11 +62,12 @@ if [ "$build_coverage" -eq "1" ]; then
   build_test "PlayerInstanceAAMP" "PlayerInstanceAAMPTests_coverage"
   build_test "PrivateInstanceAAMP" "PrivateInstanceAAMPTests_coverage"
   build_test "StreamAbstractionAAMP_HLS" "StreamAbstractionAAMP_HLS_coverage"
+  build_test "StreamAbstractionAAMP_MPD" "StreamAbstractionAAMP_MPD_coverage"
   build_test "TextStyleAttributes" "TextStyleAttributesTests_coverage"
   build_test "UrlEncDecAAMP" "UrlEncDecAAMPTests_coverage"
+
   #Create combined test report
-  lcov -a ./PlayerInstanceAAMPTests_coverage.info -a ./AampCliSetTests_coverage.info -a ./Base64AAMPTests_coverage.info -a ./UrlEncDecAAMPTests_coverage.info -o combined.info
-  lcov -a ./PlayerInstanceAAMPTests_coverage.info -a ./AampCliSetTests_coverage.info -a ./Base64AAMPTests_coverage.info -a ./UrlEncDecAAMPTests_coverage.info -o combined.info  -a ./TextStyleAttributesTests_coverage.info -a ./StreamAbstractionAAMP_HLS_coverage.info -a ./PrivateInstanceAAMPTests_coverage.info -o combined.info
+  lcov -a ./PlayerInstanceAAMPTests_coverage.info -a ./AampCliSetTests_coverage.info -a ./Base64AAMPTests_coverage.info -a ./UrlEncDecAAMPTests_coverage.info -a ./TextStyleAttributesTests_coverage.info -a ./StreamAbstractionAAMP_HLS_coverage.info -a ./StreamAbstractionAAMP_MPD_coverage.info -a ./PrivateInstanceAAMPTests_coverage.info -o combined.info
   genhtml combined.info -o ../CombinedCoverage
   echo Building coverage tests complete
 fi

@@ -18,8 +18,83 @@
 */
 
 #include "MediaStreamContext.h"
+#include "MockMediaStreamContext.h"
+
+MockMediaStreamContext *g_mockMediaStreamContext = nullptr;
 
 bool MediaStreamContext::CacheFragmentChunk(MediaType actualType, char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime)
 {
     return false;
+}
+
+bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int curlInstance, double position, double duration, const char *range, bool initSegment, bool discontinuity, bool playingAd, double pto, uint32_t scale, bool overWriteTrackId)
+{
+	bool rv = true;
+
+	if (g_mockMediaStreamContext != nullptr)
+	{
+		rv = g_mockMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, position, duration, range, initSegment, discontinuity, playingAd, pto, scale, overWriteTrackId);
+	}
+
+    return rv;
+}
+
+void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded)
+{
+}
+
+void MediaStreamContext::ABRProfileChanged(void)
+{
+}
+
+double MediaStreamContext::GetBufferedDuration()
+{
+	return 0.0;
+}
+
+void MediaStreamContext::SignalTrickModeDiscontinuity()
+{
+}
+
+bool MediaStreamContext::IsAtEndOfTrack()
+{
+	return false;
+}
+
+std::string& MediaStreamContext::GetPlaylistUrl()
+{
+	return mPlaylistUrl;
+}
+
+std::string& MediaStreamContext::GetEffectivePlaylistUrl()
+{
+	return mEffectiveUrl;
+}
+
+void MediaStreamContext::SetEffectivePlaylistUrl(std::string url)
+{
+	mEffectiveUrl = url;
+}
+
+long long MediaStreamContext::GetLastPlaylistDownloadTime()
+{
+	return 0;
+}
+
+void MediaStreamContext::SetLastPlaylistDownloadTime(long long time)
+{
+}
+
+long MediaStreamContext::GetMinUpdateDuration()
+{
+	return 0;
+}
+
+int MediaStreamContext::GetDefaultDurationBetweenPlaylistUpdates()
+{
+	return 0;
+}
+
+void MediaStreamContext::ProcessPlaylist(GrowableBuffer& newPlaylist, int http_error)
+{
 }

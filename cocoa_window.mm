@@ -109,3 +109,13 @@ void setSimulatorWindowTitle( const char *title )
 		});
 	}
 }
+
+void terminateCocoaWindow()
+{
+	if( gCocoaWindow )
+	{
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[NSApp terminate: nil];
+		});
+	}
+}

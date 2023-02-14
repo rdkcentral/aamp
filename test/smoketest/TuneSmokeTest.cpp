@@ -270,7 +270,7 @@ bool SmokeTest::readVodData(const char *stream)
 		else if(strncmp(stream,"Hls",3) == 0)
 			fileName = fileName + "tuneHlsStream.txt";
 
-		if( fp = fopen(fileName.c_str(), "r"))
+		if( (fp = fopen(fileName.c_str(), "r")))
 		{
 			while(!feof(fp))
 			{
@@ -361,7 +361,7 @@ bool SmokeTest::readLiveData(const char *stream)
 	{
 		fileName = fileName + "tuneLive.txt";
 
-		if(fp = fopen(fileName.c_str(), "r"))
+		if((fp = fopen(fileName.c_str(), "r")))
 		{
 			while(!feof(fp))
 			{

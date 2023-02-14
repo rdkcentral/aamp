@@ -26,12 +26,121 @@
 
 MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
 
-PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mConfig (config)
+PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
+	mStreamSink(NULL),
+	profiler(),
+	licenceFromManifest(false),
+	previousAudioType(eAUDIO_UNKNOWN),
+	isPreferredDRMConfigured(false),
+	mTSBEnabled(false),
+	mLiveOffset(AAMP_LIVE_OFFSET),
+	seek_pos_seconds(-1),
+	rate(0),
+	subtitles_muted(true),
+	subscribedTags(),
+	httpHeaderResponses(),
+	IsTuneTypeNew(false),
+	culledSeconds(0.0),
+	culledOffset(0.0),
+	mNewSeekInfo(),
+	mIsVSS(false),
+	mIsAudioContextSkipped(false),
+	mMediaFormat(eMEDIAFORMAT_HLS),
+	mPersistedProfileIndex(0),
+	mAvailableBandwidth(0),
+	mContentType(ContentType_UNKNOWN),
+	mManifestUrl(""),
+	mServiceZone(),
+	mVssVirtualStreamId(),
+	preferredLanguagesList(),
+	preferredLabelList(),
+	mhAbrManager(),
+	mVideoEnd(NULL),
+	mIsFirstRequestToFOG(false),
+	mTuneType(eTUNETYPE_NEW_NORMAL),
+	mCdaiObject(NULL),
+	mBufUnderFlowStatus(false),
+	mVideoBasePTS(0),
+	mIsIframeTrackPresent(false),
+	mManifestTimeoutMs(-1),
+	mNetworkTimeoutMs(-1),
+	waitforplaystart(),
+	mMutexPlaystart(),
+#ifdef AAMP_HLS_DRM
+	drmParserMutex(),
+#endif
+#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
+	mDRMSessionManager(NULL),
+#endif
+	mDrmInitData(),
+	mPreferredTextTrack(),
+	midFragmentSeekCache(false),
+	mDisableRateCorrection (false),
+	mthumbIndexValue(-1),
+	mMPDPeriodsInfo(),
+	mProfileCappedStatus(false),
+	mSchemeIdUriDai(""),
+	mDisplayWidth(0),
+	mDisplayHeight(0),
+	preferredRenditionString(""),
+	preferredTypeString(""),
+	mAudioTuple(),
+	preferredAudioAccessibilityNode(),
+	preferredTextLanguagesList(),
+	preferredTextRenditionString(""),
+	preferredTextTypeString(""),
+	preferredTextAccessibilityNode(),
+	mProgressReportOffset(-1),
+	mFirstFragmentTimeOffset(-1),
+	mScheduler(NULL),
+	mConfig(config),
+	mSubLanguage(),
+	mIsWVKIDWorkaround(false),
+	mAuxAudioLanguage(),
+	mAbsoluteEndPosition(0),
+	mIsLiveStream(false),
+	mAampLLDashServiceData{},
+	bLLDashAdjustPlayerSpeed(false),
+	mLLDashCurrentPlayRate(AAMP_NORMAL_PLAY_RATE),
+	mIsPeriodChangeMarked(false),
+	mEventManager(NULL),
+	mbDetached(false),
+	mIsFakeTune(false),
+	mIsDefaultOffset(false),
+	mNextPeriodDuration(0),
+	mNextPeriodStartTime(0),
+	mNextPeriodScaledPtoStartTime(0),
+	mOffsetFromTunetimeForSAPWorkaround(0),
+	mLanguageChangeInProgress(false),
+	mbSeeked(false),
+	playerStartedWithTrickPlay(false),
+	mIsInbandCC(true),
+	bitrateList(),
+	userProfileStatus(false),
+	mCurrentAudioTrackIndex(-1),
+	mCurrentTextTrackIndex(-1),
+	mEncryptedPeriodFound(false),
+	mPipelineIsClear(false),
+	mLLActualOffset(-1),
+	mIsStream4K(false),
+	mIsEventStreamFound(false),
+	mFogDownloadFailReason(""),
+	mBlacklistedProfiles()
 {
+	pthread_cond_init(&waitforplaystart, NULL);
+	pthread_mutex_init(&mMutexPlaystart, NULL);
+#ifdef AAMP_HLS_DRM
+	pthread_mutex_init(&drmParserMutex, NULL);
+#endif
 }
 
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
+	pthread_cond_destroy(&waitforplaystart);
+	pthread_mutex_destroy(&mMutexPlaystart);
+#ifdef AAMP_HLS_DRM
+	pthread_mutex_destroy(&drmParserMutex);
+#endif
 }
 
 size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata )
@@ -415,7 +524,7 @@ void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, in
 
 long PrivateInstanceAAMP::GetMaximumBitrate()
 {
-    return 0;
+    return LONG_MAX;
 }
 
 void PrivateInstanceAAMP::UpdateVideoEndProfileResolution(MediaType mediaType, long bitrate, int width, int height)
@@ -448,7 +557,17 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
                 bool resetBuffer, MediaType fileType, long *bitrate, int * fogError,
                 double fragmentDurationSeconds,CMCDHeaders *pCMCDMetrics)
 {
-    return true;
+	bool rv = false;
+
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		rv = g_mockPrivateInstanceAAMP->GetFile(remoteUrl, buffer, effectiveUrl,
+				 								http_error, downloadTime, range, curlInstance,
+												resetBuffer, fileType, bitrate, fogError,
+												fragmentDurationSeconds, pCMCDMetrics);
+	}
+
+	return rv;
 }
 
 void PrivateInstanceAAMP::DisableMediaDownloads(MediaType type)
@@ -673,7 +792,7 @@ long PrivateInstanceAAMP::GetIframeBitrate4K()
 
 AampLLDashServiceData*  PrivateInstanceAAMP::GetLLDashServiceData(void)
 {
-    return nullptr;
+	return &this->mAampLLDashServiceData;
 }
 
 uint32_t  PrivateInstanceAAMP::GetVidTimeScale(void)
@@ -750,3 +869,104 @@ void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
 {
 }
 
+void PrivateInstanceAAMP::SendAnomalyEvent(AAMPAnomalyMessageType type, const char* format, ...)
+{
+}
+
+void PrivateInstanceAAMP::LoadAampAbrConfig(void)
+{
+}
+
+bool PrivateInstanceAAMP::GetNetworkTime(enum UtcTiming timingtype, const std::string& remoteUrl, int *http_error, CurlRequest request)
+{
+	return true;
+}
+
+void PrivateInstanceAAMP::SetLowLatencyServiceConfigured(bool bConfig)
+{
+}
+
+void PrivateInstanceAAMP::SetLLDashServiceData(AampLLDashServiceData &stAampLLDashServiceData)
+{
+	this->mAampLLDashServiceData = stAampLLDashServiceData;
+}
+
+bool PrivateInstanceAAMP::GetLowLatencyServiceConfigured()
+{
+	return false;
+}
+
+long long PrivateInstanceAAMP::DurationFromStartOfPlaybackMs(void)
+{
+	return 0;
+}
+
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
+{
+}
+
+time_t PrivateInstanceAAMP::GetUtcTime()
+{
+	return 0;
+}
+
+void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, bool immediate)
+{
+}
+
+void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::string &adId, uint32_t position, uint32_t adOffset, uint32_t adDuration, bool immediate, long error_code)
+{
+}
+
+bool PrivateInstanceAAMP::IsLiveStream(void)
+{
+	return false;
+}
+
+void PrivateInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)
+{
+}
+
+void PrivateInstanceAAMP::SendSupportedSpeedsChangedEvent(bool isIframeTrackPresent)
+{
+}
+
+long PrivateInstanceAAMP::GetDefaultBitrate4K()
+{
+	return 0;
+}
+
+void PrivateInstanceAAMP::SaveNewTimedMetadata(long long timeMS, const char* szName, const char* szContent, int nb, const char* id, double durationMS)
+{
+}
+
+void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo)
+{
+}
+
+void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs)
+{
+}
+
+void PrivateInstanceAAMP::ReportContentGap(long long timeMS, std::string id, double durationMS)
+{
+}
+
+void PrivateInstanceAAMP::SendHTTPHeaderResponse()
+{
+}
+
+bool PrivateInstanceAAMP::LoadFragment(class CMCDHeaders *pCMCDMetrics,ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, struct GrowableBuffer *buffer, unsigned int curlInstance, const char *range, MediaType fileType, int * http_code, double * downloadTime, long *bitrate, int * fogError, double fragmentDurationSec)
+{
+	return true;
+}
+
+char *PrivateInstanceAAMP::LoadFragment( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, size_t *len, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, MediaType fileType, int * fogError)
+{
+	return NULL;
+}
+
+bool PrivateInstanceAAMP::ProcessCustomCurlRequest(std::string& remoteUrl, struct GrowableBuffer* buffer, int *http_error, CurlRequest request, std::string pData)
+{
+	return true;
+}

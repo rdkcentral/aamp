@@ -19,15 +19,63 @@
 
 #include "admanager_mpd.h"
 
-CDAIObjectMPD::CDAIObjectMPD(AampLogManager *logObj, PrivateInstanceAAMP* aamp): CDAIObject(logObj, aamp)
+CDAIObjectMPD::CDAIObjectMPD(AampLogManager *logObj, PrivateInstanceAAMP* aamp): CDAIObject(logObj, aamp), mPrivObj(new PrivateCDAIObjectMPD(logObj, aamp))
 {
 }
 
 CDAIObjectMPD::~CDAIObjectMPD()
 {
+	SAFE_DELETE(mPrivObj);
 }
 
 void CDAIObjectMPD::SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url, uint64_t startMS, uint32_t breakdur)
 {
 }
 
+PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(AampLogManager* logObj, PrivateInstanceAAMP* aamp) : mLogObj(logObj),mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mAdFailed(false), mCurAds(nullptr),
+					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdtoInsertInNextBreak(), mAdObjThreadStarted(false),mImmediateNextAdbreakAvailable(false)
+{
+}
+
+/**
+ * @brief PrivateCDAIObjectMPD destructor
+ */
+PrivateCDAIObjectMPD::~PrivateCDAIObjectMPD()
+{
+}
+
+MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &url, bool &finalManifest, bool tryFog)
+{
+	return NULL;
+}
+
+void PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
+{
+}
+
+void PrivateCDAIObjectMPD::InsertToPeriodMap(IPeriod *period)
+{
+}
+
+bool PrivateCDAIObjectMPD::CheckForAdTerminate(double fragmentTime)
+{
+	return false;
+}
+
+int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const std::string &periodId, double offSet, std::string &breakId, double &adOffset)
+{
+	return 0;
+}
+
+bool PrivateCDAIObjectMPD::isPeriodExist(const std::string &periodId)
+{
+	return false;
+}
+
+void PrivateCDAIObjectMPD::PrunePeriodMaps(std::vector<std::string> &newPeriodIds)
+{
+}
+
+void PrivateCDAIObjectMPD::ResetState()
+{
+}
