@@ -28,6 +28,8 @@ install_package zlib1g-dev
 install_package libreadline-dev
 install_package libgstreamer-plugins-base1.0-dev
 install_package gstreamer1.0-libav
+install_package lcov
+install_package gcovr
 
 ver=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
