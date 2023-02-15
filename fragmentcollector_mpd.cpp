@@ -7100,6 +7100,17 @@ void StreamAbstractionAAMP_MPD::StartSubtitleParser()
 		{ // absolute to relative correction for subtec synchronization within period
 			seekPoint -= aamp->mNextPeriodStartTime;
 		}
+
+		// seekPoint can end up -0.088400000000000006 here
+		// 0.1 seems too big an epsilon, but works to avoid RDKAAMP-769
+		// need to check the math leading up to above value to see if precision can be improved
+#define FLOATING_POINT_EPSILON 0.1
+		if (seekPoint < -FLOATING_POINT_EPSILON )
+		{
+			AAMPLOG_INFO("Not reached start point yet - returning");
+			return;
+		}
+
 		AAMPLOG_INFO("sending init seekPoint=%.3f", seekPoint);
 		subtitle->mSubtitleParser->init(seekPoint, 0);
 		subtitle->mSubtitleParser->mute(aamp->subtitles_muted);
