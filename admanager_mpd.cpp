@@ -330,12 +330,12 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 							abObj.endPeriodOffset = 0;//Aligning to next period start
 							abObj.endPeriodId = nextPeriod->GetId();
 							mPeriodMap[abObj.endPeriodId] = Period2AdData();
-							AAMPLOG_INFO("[CDAI] [%d] close to period end [%lld],Aligning to next-period:%s", 
+							AAMPLOG_INFO("[CDAI] [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s", 
 														diff,currPeriodDuration,abObj.endPeriodId.c_str());
 						}
 						else
 						{
-							AAMPLOG_INFO("[CDAI] [%d] close to period end [%lld],but next period not available,waiting", 
+							AAMPLOG_INFO("[CDAI] [%d] close to period end [%" PRIu64 "],but next period not available,waiting", 
 														diff,currPeriodDuration);
 						}
 					}// --> Inserted Ads finishes >= 2 seconds behind new period : Channel playback starts from that position in the current period.

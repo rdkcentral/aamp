@@ -1473,15 +1473,15 @@ char *TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreDis
 								AAMPLOG_WARN("%s Acquiring Discontinuity mutex playlist Indexed:%lld", name, playlistIndexedTimeMS);
 								// Acquire discontunuity ongoing lock
 								pthread_mutex_lock(&context->mDiscoCheckMutex);
-								AAMPLOG_WARN("%s Checking HasDiscontinuity for position :%f, playposition :%f playtarget:%f",name,position,playPosition,playTarget);
+								AAMPLOG_WARN("%s Checking HasDiscontinuity for position :%f, playposition :%f playtarget:%f", name, position, playPosition, playTarget);
 								bool isDiffChkReq=true;
-								if(false == other->HasDiscontinuityAroundPosition(position, (NULL != programDateTime), diff, playPosition,iCulledSeconds,iProgramDateTime,isDiffChkReq))
+								if(false == other->HasDiscontinuityAroundPosition(position, (NULL != programDateTime), diff, playPosition, iCulledSeconds, iProgramDateTime, isDiffChkReq))
 								{
 									AAMPLOG_WARN("[%s] Ignoring discontinuity as %s track does not have discontinuity", name, other->name);
 									discontinuity = false;
 								}
 								pthread_mutex_unlock(&context->mDiscoCheckMutex);
-								AAMPLOG_WARN("%s Released Discontinuity mutex last playlist Indexed:%lld", lastPlaylistIndexedTimeMS);
+								AAMPLOG_WARN("%s Released Discontinuity mutex last playlist Indexed:%lld", name, lastPlaylistIndexedTimeMS);
 								pthread_mutex_lock(&mPlaylistMutex);
 								if (playlistIndexedTimeMS != lastPlaylistIndexedTimeMS)
 								{

@@ -262,7 +262,7 @@ private:
 			if ((base_pts > current_pts)
 				|| (current_dts && base_pts > current_dts))
 			{
-				WARNING("Discard ES Type %d position %f base_pts %llu current_pts %llu diff %f seconds length %d",
+				WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " diff %f seconds length %d",
 					type, position, base_pts.value, current_pts.value, (double)(base_pts - current_pts) / 90000, (int)es.len );
 				es.len = 0;
 				return;
@@ -270,7 +270,7 @@ private:
 
 			if (base_pts + uint33_t::half_max() > current_pts + uint33_t::half_max())
 			{
-				WARNING("Discard ES Type %d position %f base_pts %llu current_pts %llu base_pts+half_max %llu current_pts+half_max %llu",
+				WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " base_pts+half_max %" PRIu64 " current_pts+half_max %" PRIu64 ,
 					type, position, base_pts.value, current_pts.value, (base_pts+uint33_t::half_max()).value, (current_pts+uint33_t::half_max()).value);
 				es.len = 0;
 				return;
@@ -462,10 +462,10 @@ public:
 							auto prev_pts = exchange(current_pts, timeStamp);
 							if(prev_pts > current_pts && prev_pts - current_pts > uint33_t::half_max())
 							{//pts may come out of order so prev>current is not sufficient to detect the rollover
-								WARNING("PTS Rollover type:%d %llu -> %llu ", type, prev_pts.value, current_pts.value);
+								WARNING("PTS Rollover type:%d %" PRIu64 " -> %" PRIu64 , type, prev_pts.value, current_pts.value);
 							}
 							current_pts = timeStamp;
-							DEBUG("PTS updated %llu", current_pts.value);
+							DEBUG("PTS updated %" PRIu64 , current_pts.value);
 							if(!finalized_base_pts)
 							{
 								finalized_base_pts = true;
@@ -478,7 +478,7 @@ public:
 										if(applyOffset)
 										{
 											base_pts = current_pts - MAX_FIRST_PTS_OFFSET;
-											WARNING("Type[%d] base_pts not initialized, updated to %llu", type, base_pts.value);
+											WARNING("Type[%d] base_pts not initialized, updated to %" PRIu64 , type, base_pts.value);
 										}
 										else
 										{
@@ -505,7 +505,7 @@ public:
 											{
 												base_pts = current_pts;
 											}
-											WARNING("Type[%d] current_pts[%llu] < base_pts[%llu], base_pts[%llu]->[%llu]",
+											WARNING("Type[%d] current_pts[%" PRIu64 "] < base_pts[%" PRIu64 "], base_pts[%" PRIu64 "]->[%" PRIu64 "]",
 												type, current_pts.value, base_pts.value, orig_base_pts.value, base_pts.value);
 										}
 										else /*current_pts >= base_pts*/
@@ -523,12 +523,12 @@ public:
 												{
 													base_pts = current_pts;
 												}
-												NOTICE("Type[%d] delta[%lld] > MAX_FIRST_PTS_OFFSET, current_pts[%llu] base_pts[%llu]->[%llu]",
+												NOTICE("Type[%d] delta[%" PRIu64 "] > MAX_FIRST_PTS_OFFSET, current_pts[%" PRIu64 "] base_pts[%" PRIu64 "]->[%" PRIu64 "]",
 													type, delta.value, current_pts.value, orig_base_pts.value, base_pts.value);
 											}
 											else
 											{
-												NOTICE("Type[%d] PTS in range.delta[%lld] <= MAX_FIRST_PTS_OFFSET base_pts[%llu]",
+												NOTICE("Type[%d] PTS in range.delta[%" PRIu64 "] <= MAX_FIRST_PTS_OFFSET base_pts[%" PRIu64 "]",
 													type, delta.value, base_pts.value);
 											}
 										}
@@ -537,11 +537,11 @@ public:
 								if (-1 == base_pts)
 								{
 									base_pts = timeStamp;
-									WARNING("base_pts not available, updated to pts %llu", timeStamp.value);
+									WARNING("base_pts not available, updated to pts %" PRIu64 , timeStamp.value);
 								}
 								else if (base_pts > timeStamp)
 								{
-									WARNING("base_pts update from %llu to %llu", base_pts.value, timeStamp.value);
+									WARNING("base_pts update from %" PRIu64 " to %" PRIu64 , base_pts.value, timeStamp.value);
 									base_pts = timeStamp;
 								}
 								basePtsUpdated = true;
