@@ -5418,7 +5418,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	{
 		PrivAAMPState state;
 		GetState(state);
-		if((state != eSTATE_ERROR) && ((mMediaFormat != eMEDIAFORMAT_OTA) || (mMediaFormat != eMEDIAFORMAT_RMF)))
+		if((state != eSTATE_ERROR) && (mMediaFormat != eMEDIAFORMAT_OTA) && (mMediaFormat != eMEDIAFORMAT_RMF))
 		{
 			/*For OTA/RMF this event will be generated from StreamAbstractionAAMP_OTA*/
 			SetState(eSTATE_PREPARED);
