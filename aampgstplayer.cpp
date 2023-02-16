@@ -4299,9 +4299,12 @@ void AAMPGstPlayer::NotifyFragmentCachingOngoing()
 void AAMPGstPlayer::GetVideoSize(int &width, int &height)
 {
 	FN_TRACE( __FUNCTION__ );
-	int x, y, w, h;
-	sscanf(privateContext->videoRectangle, "%d,%d,%d,%d", &x, &y, &w, &h);
-	if (w > 0 && h > 0)
+	int x;
+	int y;
+	int w = 0;
+	int h = 0;
+
+	if ((4 == sscanf(privateContext->videoRectangle, "%d,%d,%d,%d", &x, &y, &w, &h)) && (w > 0) && (h > 0))
 	{
 		width = w;
 		height = h;
