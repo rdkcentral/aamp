@@ -45,7 +45,7 @@ if os.path.exists(os.path.join(AAMP_HOME, "Linux", "bin", "aamp-cli")):
 elif os.path.exists(os.path.join(AAMP_HOME, "build", "Debug", "aamp-cli")):
     AAMP_ENV = ""
     AAMP_CMD = os.path.join(AAMP_HOME, "build", "Debug", "aamp-cli")
-    printf("Platform: Mac")
+    print("Platform: Mac")
 else:
     print("ERROR: aamp-cli not found")
     sys.exit(os.EX_SOFTWARE)

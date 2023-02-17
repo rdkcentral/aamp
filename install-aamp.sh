@@ -10,6 +10,7 @@ defaultopensslversion="openssl@1.1"
 googletestreference="tags/release-1.11.0"
 processtorun="aamp"
 subtecoption=""
+dontrunaampcli=false
 
 
 # pull in general utility finctions
@@ -124,10 +125,10 @@ install_system_packages() {
     #rm gstreamer-1.0-devel-1.18.6-x86_64.pkg
     
     if [[ $arch == "x86_64" ]]; then
-        curl -o gstreamer-1.0-$defaultgstversion-x86_64.pkg  https://urldefense.com/v3/__https://gstreamer.freedesktop.org/data/pkg/osx/$defaultgstversion/gstreamer-1.0-$defaultgstversion-x86_64.pkg
+        curl -o gstreamer-1.0-$defaultgstversion-x86_64.pkg  https://gstreamer.freedesktop.org/data/pkg/osx/$defaultgstversion/gstreamer-1.0-$defaultgstversion-x86_64.pkg
         sudo installer -pkg gstreamer-1.0-$defaultgstversion-x86_64.pkg -target /
         rm gstreamer-1.0-$defaultgstversion-x86_64.pkg
-        curl -o gstreamer-1.0-devel-$defaultgstversion-x86_64.pkg https://urldefense.com/v3/__https://gstreamer.freedesktop.org/data/pkg/osx/$defaultgstversion/gstreamer-1.0-devel-$defaultgstversion-x86_64.pkg
+        curl -o gstreamer-1.0-devel-$defaultgstversion-x86_64.pkg  https://gstreamer.freedesktop.org/data/pkg/osx/$defaultgstversion/gstreamer-1.0-devel-$defaultgstversion-x86_64.pkg
         sudo installer -pkg gstreamer-1.0-devel-$defaultgstversion-x86_64.pkg  -target /
         rm gstreamer-1.0-devel-$defaultgstversion-x86_64.pkg
     elif [[ $arch == "arm64" ]]; then
@@ -238,7 +239,7 @@ fi
 echo "Ver=$aamposxinstallerver"
 
 #Optional Command-line support for -b <aamp code branch> and -d <build directory> 
-while getopts ":d:b:c" opt; do
+while getopts ":d:b:c:f:n" opt; do
   case ${opt} in
     d ) # process option d install base directory name
 	builddir=${OPTARG}
@@ -251,7 +252,15 @@ while getopts ":d:b:c" opt; do
         COVERAGE=ON
 	echo coverage "${COVERAGE}"
       ;;
-    * ) echo "Usage: $0 [subtec [clean]] [-b aamp branch name] [-d local setup directory name]"
+    f )# process option f to get compiler flags
+        buildargs=${OPTARG}
+        echo "${OPTARG}"
+        ;;
+    n )# process option n not to run aamp-cli on MAC
+        dontrunaampcli=true
+        echo "Skip AAMPCli : ${dontrunaampcli}"
+        ;;
+    * ) echo "Usage: $0 [subtec [clean]] [-b aamp branch name] [-d local setup directory name] [-f compiler flags] [-n]"
         echo
         echo "Note:  Subtec is built by default but can be rebuilt separately with the subtec option "
         echo "       ('clean' will delete the subtec source and reinstall before building):"
@@ -260,6 +269,14 @@ while getopts ":d:b:c" opt; do
       ;;
   esac
 done
+
+if [[ "$buildargs" == "" ]]; then
+    echo "No additional build configs specified"
+else
+    #add flags to build to cmake by splitting buildargs with separator ','
+    echo "Additional build configs specified"
+    echo "${buildargs}"
+fi
 
 #Check and if needed setup default aamp code branch name and local environment directory name
 if [[ $codebranch == "" ]]; then
@@ -534,13 +551,14 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Installing subtec..."
     install_and_build_subtec
 
-    #Launching aamp-cli
-    
-    otool -L ./Debug/aamp-cli
-    
-   ./Debug/aamp-cli https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd
-   
-   
+    if [ $dontrunaampcli = false ];then
+        #Launching aamp-cli
+
+        otool -L ./Debug/aamp-cli
+
+        ./Debug/aamp-cli https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd
+
+    fi
 
     exit 0
 

@@ -1,0 +1,7 @@
+#create docker image freshly
+version: "3.9"
+services:
+  aamp:
+    build: .
+    volumes:
+      - ../../:/aamp

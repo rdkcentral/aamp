@@ -1,0 +1,13 @@
+
+version: "3.9"
+services:
+  aamp:
+    image: l2test-aamp:latest
+    volumes:
+      - ../../:/aamp
+    working_dir: /aamp/test/l2test/
+    command: bash -c "python3 run_l2_aamp.py $optargs"
+    environment:
+      - PYTHONUNBUFFERED=1
+    env_file:
+      - .env

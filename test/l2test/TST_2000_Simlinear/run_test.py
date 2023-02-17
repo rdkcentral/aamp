@@ -23,8 +23,7 @@ if "AAMP_HOME" in os.environ:
 else:
     AAMP_HOME="aamp"
 
-TOOLS_PATH=os.path.join(AAMP_HOME, 'test','tools')
-
+TEST_PATH=os.path.join(AAMP_HOME, 'test','l2test')
 AAMP_ENV = {"LD_PRELOAD": os.path.join(AAMP_HOME, "Linux", "lib", "libdash.so"), "LD_LIBRARY_PATH": os.path.join(AAMP_HOME, "Linux", "lib")}
 
 AAMP_CFG=os.path.join(os.environ["HOME"], "aamp.cfg")
@@ -38,9 +37,9 @@ else:
     #Linux
     AAMP_CLI_PATH=os.path.join(AAMP_HOME,'Linux','bin','aamp-cli')
 
-AAMP_CMD='/bin/bash -c "' + AAMP_CLI_PATH +' | ' + os.path.join(TOOLS_PATH, 'run_test','tcp_client.py') +'"'
+AAMP_CMD='/bin/bash -c "' + AAMP_CLI_PATH +' | ' + os.path.join(TEST_PATH, 'TST_2000_Simlinear','tcp_client.py') +'"'
 
-SL_CMD=os.path.join(TOOLS_PATH,'simlinear','simlinear.py')
+SL_CMD=os.path.join(TEST_PATH,'TST_2000_Simlinear','simlinear.py')
 
 
 SL_PORT=8085
