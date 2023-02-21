@@ -471,6 +471,8 @@ int ClearKeySession::decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer, GstBuf
 					}
 				}//SubSample end if
 			} //retVal end if
+
+			gst_byte_reader_free(reader);
 		}//reader end if
 		else
 		{

@@ -285,8 +285,8 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	}
 	else if( isCommandMatch(cmd,"history") )
 	{
-		HISTORY_STATE *historyState = history_get_history_state ();
-		for (int i = 0; i < historyState->length; i++)
+		// history_length is defined in the header file history.h
+		for (int i = 0; i < history_length; i++)
 		{
 			printf ("%s\n", history_get(i+1)->line);
 		}

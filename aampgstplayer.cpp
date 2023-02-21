@@ -4408,8 +4408,13 @@ void AAMPGstPlayer::InitializeAAMPGstreamerPlugins(AampLogManager *mLogObj)
 	}
 	if(pluginFeature)
 	{
+		// CID:313773 gst_registry_remove_feature() will unref pluginFeature internally and
+		// gst_registry_add_feature() will ref it again. So to maintain the refcount we do a ref and unref here
+		// gst_registry_lookup_feature() will return pluginFeature after incrementing refcount which is unreffed at the end
+		gst_object_ref(pluginFeature);
 		gst_registry_remove_feature (registry, pluginFeature);//Added as a work around to handle DELIA-31716
 		gst_registry_add_feature (registry, pluginFeature);
+		gst_object_unref(pluginFeature);
 
 
 		AAMPLOG_WARN("AAMPGstPlayer: %s plugin priority set to GST_RANK_PRIMARY + 111", GstPluginNamePR);
