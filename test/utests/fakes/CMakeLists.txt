@@ -43,3 +43,4 @@ include_directories(${UTESTS_ROOT}/mocks)
 
 add_library(fakes ${fakes_SRC})
 set_target_properties(fakes PROPERTIES FOLDER "utests")
+set_target_properties(fakes PROPERTIES COMPILE_FLAGS -Wno-effc++)

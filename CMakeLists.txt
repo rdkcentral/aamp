@@ -98,7 +98,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 else()
     set(USE_MAC_FOR_RANDOM_GEN "-DUSE_MAC_FOR_RANDOM_GEN")
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    
+
 if(CMAKE_RDK_CC_ENABLED)
 	pkg_check_modules(DIRECTFB REQUIRED directfb)
 endif()
@@ -114,7 +114,8 @@ include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${OPENSSL_INCLUDE_DIRS})
 include_directories(${OPENGL_INCLUDE_DIRS})
 include_directories(${GLEW_INCLUDE_DIRS})
-include_directories(${LIBCJSON_INCLUDE_DIRS})
+# Sets the include paths to Linux/includem. By making it a system include the headers won't report any errors ( effc++ )
+include_directories(SYSTEM ${LIBCJSON_INCLUDE_DIRS})
 
 set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampConfig.h
@@ -306,7 +307,6 @@ endif()
 if(CMAKE_PLATFORM_UBUNTU)
     message("CMAKE_PLATFORM_UBUNTU set")
     link_directories(${CMAKE_LIBRARY_PATH})
-    STRING(REPLACE " -Werror=effc++" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 endif()
 
 set(AAMP_CLI_HEADERS test/aampcli/Aampcli.h
@@ -320,7 +320,7 @@ set(AAMP_CLI_HEADERS test/aampcli/Aampcli.h
 			test/aampcli/AampcliSmokeTest.h
 			test/aampcli/AampcliSubtecSimulator.h
 			${AAMP_OS_SOURCES})
-set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp 
+set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp
 			test/aampcli/AampcliPlaybackCommand.cpp
 			test/aampcli/AampcliCommandHandler.cpp
 			test/aampcli/AampcliGet.cpp
@@ -697,7 +697,7 @@ install(TARGETS playbintest DESTINATION bin)
 
 install(TARGETS aamp DESTINATION lib PUBLIC_HEADER DESTINATION include PRIVATE_HEADER DESTINATION include)
 install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampEventManager.h AampDefine.h AampEventListener.h drm/AampMemorySystem.h drm/AampDRMSessionManager.h AampDrmSystems.h AampMediaType.h
-  drm/AampDrmData.h drm/AampDrmInfo.h drm/AampDrmMediaFormat.h AampDrmCallbacks.h AampLogManager.h 
+  drm/AampDrmData.h drm/AampDrmInfo.h drm/AampDrmMediaFormat.h AampDrmCallbacks.h AampLogManager.h
   drm/AampDrmSession.h drm/ClearKeyDrmSession.h drm/AampDRMutils.h drm/aampdrmsessionfactory.h
   drm/helper/AampDrmHelper.h subtitle/vttCue.h AampUtils.h
   AampMemoryUtils.h AampProfiler.h AampConstants.h iso639map.h AampRfc.h AampGstUtils.h

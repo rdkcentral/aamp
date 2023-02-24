@@ -38,7 +38,7 @@ using ::testing::Return;
 class TextStyleTests : public ::testing::Test
 {
 protected:
-    PrivateInstanceAAMP *mPrivateInstanceAAMP;
+    PrivateInstanceAAMP *mPrivateInstanceAAMP{};
 
     void SetUp() override
     {

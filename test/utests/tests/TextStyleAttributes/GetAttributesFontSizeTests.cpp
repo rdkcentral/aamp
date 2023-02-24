@@ -38,7 +38,7 @@ class GetAttributesFontSizeTests : public ::testing::Test
 {
 protected:
 
-    std::unique_ptr<TextStyleAttributes> mAttributes;
+    std::unique_ptr<TextStyleAttributes> mAttributes{};
 
     void SetUp() override
     {

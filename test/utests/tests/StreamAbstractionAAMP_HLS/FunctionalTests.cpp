@@ -100,8 +100,8 @@ AampLogManager *mLogObj{nullptr};
 class FunctionalTests : public ::testing::Test
 {
 protected:
-    PrivateInstanceAAMP *mPrivateInstanceAAMP;
-    StreamAbstractionAAMP_HLS *mStreamAbstractionAAMP_HLS;
+    PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+    StreamAbstractionAAMP_HLS *mStreamAbstractionAAMP_HLS{};
 
     void SetUp() override
     {

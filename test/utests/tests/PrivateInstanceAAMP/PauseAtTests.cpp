@@ -46,18 +46,18 @@ class PauseAtTests : public ::testing::Test
 {
 protected:
 
-    PrivateInstanceAAMP *mPrivateInstanceAAMP;
+    PrivateInstanceAAMP *mPrivateInstanceAAMP{};
 
-    AampScheduler mScheduler;
+    AampScheduler mScheduler{};
 
-    AsyncTask mScheduleAsyncTask;
-    void * mScheduleAsyncData;
-    int mScheduleAsyncId;
-    std::string mScheduleAsyncTaskName;
+    AsyncTask mScheduleAsyncTask{};
+    void * mScheduleAsyncData{};
+    int mScheduleAsyncId{};
+    std::string mScheduleAsyncTaskName{};
 
-    bool mScheduleTaskCalled;
-    std::mutex mScheduleTaskCalledMutex;
-    std::condition_variable mScheduleTaskCalledCV;
+    bool mScheduleTaskCalled{};
+    std::mutex mScheduleTaskCalledMutex{};
+    std::condition_variable mScheduleTaskCalledCV{};
 
     void SetUp() override
     {
@@ -270,7 +270,7 @@ TEST_F(PauseAtTests, StartPausePositionMonitoring_InvalidPosition)
 
     // Don't move position for this test
     EXPECT_CALL(*g_mockAampGstPlayer, GetPositionMilliseconds()).WillRepeatedly(Return (0));
-    
+
     // Check that PrivateInstanceAAMP_PausePosition is not called
     EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).Times(0);
 
@@ -325,7 +325,7 @@ TEST_F(PauseAtTests, StopPausePositionMonitoring_WhenNotMonitoring)
 }
 
 // Testing call of PrivateInstanceAAMP_PausePosition when at playback speed
-// Current position returned is beyond the requested pause position, to trigger 
+// Current position returned is beyond the requested pause position, to trigger
 // the call immediately to PrivateInstanceAAMP_PausePosition
 // Expect:
 //     gstreamer pause to be called,
@@ -395,7 +395,7 @@ TEST_F(PauseAtTests, PausePosition_Playback)
 }
 
 // Testing call of PrivateInstanceAAMP_PausePosition when at trickmode speed
-// Current position returned is beyond the requested pause position, to trigger 
+// Current position returned is beyond the requested pause position, to trigger
 // the call immediately to PrivateInstanceAAMP_PausePosition
 // Expect:
 //     gstreamer pause to be called,
@@ -556,7 +556,7 @@ TEST_P(PlaybackSpeedTests, StartPausePositionMonitoring_PositionAlreadyPassed)
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AudioOnlyPlayback)).WillRepeatedly(Return(false));
 
     EXPECT_CALL(*g_mockAampGstPlayer, GetPositionMilliseconds()).WillRepeatedly(Return(pauseAtMilliseconds + 100));
-    
+
     // Check that PrivateInstanceAAMP_PausePosition is called
     EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_))
         .WillOnce(Invoke(this, &PauseAtTests::ScheduleTask));
