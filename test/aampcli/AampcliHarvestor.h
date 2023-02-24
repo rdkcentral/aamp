@@ -48,7 +48,7 @@ typedef struct harvestProfileDetails
 	char media[7];
 	int harvestConfig;
 	int harvestFragmentsCount;
-	int harvesterrorCount;
+	int harvestErrorCount;
 	int harvestFailureCount;
 	long bitrate;
 }HarvestProfileDetails;
@@ -60,7 +60,9 @@ class Harvestor : public Command
 		static bool mHarvestReportFlag;
 		static const int mHarvestCommandLength = 4096;
 		static const int mHarvestSlaveThreadCount = 50;
-		static char exePathName[PATH_MAX];
+		static int mHarvestCountLimit;
+		static int mTCPServerSinkPort;
+		static char mExePathName[PATH_MAX];
 		static std::string mHarvestPath;
 		static std::map<std::thread::id, harvestProfileDetails> mHarvestInfo;
 		static std::vector<std::thread::id> mHarvestThreadId;
@@ -79,6 +81,8 @@ class Harvestor : public Command
 		long getNumberFromString(std::string buffer);
 		void startHarvestReport(char * arg);
 		bool getHarvestReportDetails(char *buffer);
+		FILE *createSlaveHarvestor(std::map<std::string, std::string> cmdlineParams, int harvestConfig, long bitRate=0);
+		bool createSlaveDataReader(FILE *pSlaveHarvestor, std::thread& dataReader);
 		void writeHarvestErrorReport(HarvestProfileDetails, char *buffer);
 		void writeHarvestEndReport(HarvestProfileDetails, char *buffer);
 		static void harvestTerminateHandler(int signal);

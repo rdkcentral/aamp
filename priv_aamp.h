@@ -4020,6 +4020,15 @@ public:
 	{
 		return mBlacklistedProfiles;
 	}
+	
+	/**
+	 *     @fn GetHarvestRemainingFragmentCount
+	 *     @return int of remaining fragments to be harvested. 0 when harvest is complete.
+	 */
+	int GetHarvestRemainingFragmentCount()
+	{
+		return mHarvestCountLimit;
+	}
 
 private:
 
