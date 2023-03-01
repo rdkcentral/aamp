@@ -639,6 +639,25 @@ static void InitializeSource(AAMPGstPlayer *_this, GObject *source, MediaType me
 																					typefind determines the media-type of a stream and once type has been
 																					detected it sets its src pad caps to the found media type*/
 	}
+
+#if defined(AAMP_SIMULATOR_BUILD) && (!defined(ENABLE_AAMP_QTDEMUX_OVERRIDE))
+	/* If qtdemux PTS restamping is not enabled and play starts at a non-zero stream time, then
+	 * seek to the start time, otherwise gstreamer will block until the running time matches the
+	 * stream time.
+	 */
+	if ((eMEDIATYPE_VIDEO == mediaType) || (eMEDIATYPE_AUDIO == mediaType) || (eMEDIATYPE_AUX_AUDIO == mediaType))
+	{
+		gint64 firstTime = (gint64)(_this->aamp->GetFirstPTS()*GST_SECOND);
+		if( firstTime>0 )
+		{
+			if (!gst_element_seek_simple(GST_ELEMENT(source), GST_FORMAT_TIME, GST_SEEK_FLAG_NONE, firstTime))
+			{
+				AAMPLOG_ERR("Seek failed");
+			}
+		}
+	}
+#endif /* AAMP_SIMULATOR_BUILD && !ENABLE_AAMP_QTDEMUX_OVERRIDE */
+
 	stream->sourceConfigured = true;
 }
 
