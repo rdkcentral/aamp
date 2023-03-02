@@ -3961,6 +3961,7 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 	}
 	privateContext->eosSignalled = false;
 	privateContext->numberOfVideoBuffersSent = 0;
+	aamp->mCorrectionRate = (double)AAMP_NORMAL_PLAY_RATE;
 }
 
 /**

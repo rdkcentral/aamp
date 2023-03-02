@@ -2051,7 +2051,7 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 						rateRequired = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
 					}
 
-					if((mCorrectionRate != rateRequired) && mStreamSink)
+					if((mCorrectionRate != rateRequired) && mStreamSink && !mDiscontinuityTuneOperationInProgress)
 					{
 						if (mStreamSink->SetPlayBackRate(rateRequired))
 						{
