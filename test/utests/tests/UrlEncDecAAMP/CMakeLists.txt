@@ -49,6 +49,11 @@ add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
 
+if (CMAKE_XCODE_BUILD_SYSTEM)
+  # XCode schema target
+  xcode_define_schema(${EXEC_NAME})
+endif()
+
 if (COVERAGE_ENABLED)
     include(CodeCoverage)
     APPEND_COVERAGE_COMPILER_FLAGS()

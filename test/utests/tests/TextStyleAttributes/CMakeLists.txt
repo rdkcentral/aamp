@@ -51,6 +51,10 @@ add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+if (CMAKE_XCODE_BUILD_SYSTEM)
+  # XCode schema target
+  xcode_define_schema(${EXEC_NAME})
+endif()
 
 if (COVERAGE_ENABLED)
     include(CodeCoverage)

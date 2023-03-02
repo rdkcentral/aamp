@@ -55,6 +55,11 @@ add_executable(${EXEC_NAME}
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
+if (CMAKE_XCODE_BUILD_SYSTEM)
+  # XCode schema target
+  xcode_define_schema(${EXEC_NAME})
+endif()
+
 if (COVERAGE_ENABLED)
     include(CodeCoverage)
     APPEND_COVERAGE_COMPILER_FLAGS()

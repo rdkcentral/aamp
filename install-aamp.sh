@@ -398,14 +398,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Starting Xcode, open aamp/build/AAMP.xcodeproj project file OR Execute ./aamp-cli or /playbintest <url> binaries"
     echo "Opening AAMP project in Xcode..."
     
-    cd AAMP.xcodeproj
-    mkdir xcshareddata
-    cd xcshareddata
-    mkdir xcschemes
-    cd ../../
-    cp ../OSX/aamp-cli.xcscheme AAMP.xcodeproj/xcshareddata/xcschemes
-    
-    if ./ps -o comm= $$ | grep -q '-bash'; then
+    if ps -o comm= $$ | grep -q '\-bash'; then
         echo "Already in bash"
     else
         chsh -s /bin/bash
