@@ -103,7 +103,7 @@ public:
 	 * @param aamp PrivateInstanceAAMP instance
 	 * @param fetcherInstance AampLicenseFetcher instance
 	 */
-	AampLicensePreFetcher(AampLogManager *logObj, PrivateInstanceAAMP *aamp, AampLicenseFetcher *fetcherInstance);
+	AampLicensePreFetcher(AampLogManager *logObj, PrivateInstanceAAMP *aamp);
 
 	/**
 	 * @brief Copy constructor disabled
@@ -152,6 +152,13 @@ public:
 	bool DeInit();
 
 	/**
+	 * @brief set license prefetcher
+	 * 
+	 * @return none
+	 */
+	void SetLicenseFetcher(AampLicenseFetcher *fetcherInstance) { mFetchInstance = fetcherInstance; }
+
+	/**
 	 * @brief Set the Common Key Duration object
 	 * 
 	 * @param keyDuration key duration
@@ -164,6 +171,15 @@ public:
 	 * 
 	 */
 	void PreFetchThread();
+
+	/**
+	 * @brief Set to true if error event to be sent to application if any license request fails
+	 *  Otherwise, error event will be sent if a track doesn't have a successful or pending license request
+	 * 
+	 * @param sendErrorOnFailure key duration
+	 */
+	void SetSendErrorOnFailure(bool sendErrorOnFailure) { mSendErrorOnFailure = sendErrorOnFailure; }
+
 private:
 
 	/**
@@ -191,6 +207,7 @@ private:
 	bool mExitLoop;                                     /** Flag denotes if pre-fetch thread has to be exited*/
 	int mCommonKeyDuration;                             /** Common key duration for deferred license acquistion*/
 	std::array<bool, AAMP_TRACK_COUNT> mTrackStatus;    /** To mark the status of license acquistion for tracks*/
+	bool mSendErrorOnFailure;                           /** To send error event when session creation fails without additional checks*/
 
 	PrivateInstanceAAMP *mPrivAAMP;                     /** PrivateInstanceAAMP instance*/
 	AampLogManager* mLogObj;                            /** AampLogManager instance */

@@ -1281,7 +1281,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	preferredTextTypeString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextType);
 #if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 	int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
-	mDRMSessionManager = new AampDRMSessionManager(mLogObj, maxDrmSession);
+	mDRMSessionManager = new AampDRMSessionManager(mLogObj, maxDrmSession, this);
 #endif
 	pthread_cond_init(&mDownloadsDisabled, NULL);
 	mSubLanguage = GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage);
@@ -5284,7 +5284,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 		int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
 		if(NULL == mDRMSessionManager)
 		{
-			mDRMSessionManager = new AampDRMSessionManager(mLogObj, maxDrmSession);
+			mDRMSessionManager = new AampDRMSessionManager(mLogObj, maxDrmSession, this);
 		}
 #endif
 	}
@@ -7003,7 +7003,11 @@ void PrivateInstanceAAMP::Stop()
 	{
 		mPreCachePlaylistThreadId.join();
 	}
-	getAampCacheHandler()->StopPlaylistCache();
+	
+	if (mAampCacheHandler)
+	{
+		mAampCacheHandler->StopPlaylistCache();
+	}
 
 	if (pipeline_paused)
 	{
@@ -7019,6 +7023,13 @@ void PrivateInstanceAAMP::Stop()
 		SAFE_DELETE(mDRMSessionManager);
 #endif
 	}
+#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
+	else if (mDRMSessionManager)
+	{
+		/** Reset the license fetcher only DRM handle is deleting **/
+		mDRMSessionManager->Stop();
+	}
+#endif
 
 	SAFE_DELETE(mCdaiObject);
 

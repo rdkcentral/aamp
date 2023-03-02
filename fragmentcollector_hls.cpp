@@ -102,9 +102,7 @@ static const double DEFAULT_STREAM_FRAMERATE = 25.0;
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
 
 #ifdef AAMP_HLS_DRM
-extern std::shared_ptr<DrmSessionParams> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
-extern int SpawnDRMLicenseAcquireThread(PrivateInstanceAAMP *aamp, std::shared_ptr<DrmSessionParams> drmData);
-extern void ReleaseDRMLicenseAcquireThread(PrivateInstanceAAMP *aamp);
+extern std::shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
 #endif
 
 #define UseProgramDateTimeIfAvailable() (ISCONFIGSET(eAAMPConfig_HLSAVTrackSyncUsingStartTime) || aamp->mIsVSS)
@@ -705,45 +703,48 @@ static double ParseXStartTimeOffset(const char* ptr)
 	return retOffSet;
 }
 
-/***************************************************************************
-* @fn InitiateDrmProcess
-* @brief Function to initiate drm process
-*
-* @param aamp[in] PrivateInstanceAAMP pointer
-*
-* @return None
-***************************************************************************/
-#ifdef AAMP_HLS_DRM
-static void InitiateDrmProcess(PrivateInstanceAAMP* aamp){
-		/** If fragments are CDM encrypted KC **/
-		if (aamp->fragmentCdmEncrypted && ISCONFIGSET(eAAMPConfig_Fragmp4PrefetchLicense)){
-			pthread_mutex_lock(&aamp->drmParserMutex);
-			std::shared_ptr<DrmSessionParams> drmDataToUse = nullptr;
-			for (int i=0; i < aamp->aesCtrAttrDataList.size(); i++ ){
-				if (!aamp->aesCtrAttrDataList.at(i).isProcessed){
-					aamp->aesCtrAttrDataList.at(i).isProcessed = true;
-					std::shared_ptr<DrmSessionParams> drmData = ProcessContentProtection(aamp, aamp->aesCtrAttrDataList.at(i).attrName);
-					if (nullptr != drmData){
-/* This needs effort from MSO as to what they want to do viz-a-viz preferred DRM, */
-						drmDataToUse = drmData;
-					}
-				}
-			}
-			if (drmDataToUse != nullptr)
-			{
-				// drmDataToUse will be freed in SpawnDRMLicenseAcquireThread() -> CreateDRMSession()
-				SpawnDRMLicenseAcquireThread(aamp, drmDataToUse);
-			}
-			pthread_mutex_unlock(&aamp->drmParserMutex);
-		}
-}
-#endif
-
 void static setupStreamInfo(HlsStreamInfo & streamInfo)
 {
 	streamInfo.resolution.width = DEFAULT_STREAM_WIDTH;
 	streamInfo.resolution.height = DEFAULT_STREAM_HEIGHT;
 	streamInfo.resolution.framerate = DEFAULT_STREAM_FRAMERATE;
+}
+
+/**
+ *  @brief Function to initiate drm process
+ */
+void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
+{
+#ifdef AAMP_HLS_DRM
+	/** If fragments are CDM encrypted KC **/
+	if (aamp->fragmentCdmEncrypted && ISCONFIGSET(eAAMPConfig_Fragmp4PrefetchLicense))
+	{
+		pthread_mutex_lock(&aamp->drmParserMutex);
+		std::shared_ptr<AampDrmHelper> drmHelperToUse = nullptr;
+		for (int i = 0; i < aamp->aesCtrAttrDataList.size(); i++ )
+		{
+			if (!aamp->aesCtrAttrDataList.at(i).isProcessed)
+			{
+				aamp->aesCtrAttrDataList.at(i).isProcessed = true;
+				std::shared_ptr<AampDrmHelper> drmHelper = ProcessContentProtection(aamp, aamp->aesCtrAttrDataList.at(i).attrName);
+				if (nullptr != drmHelper)
+				{
+					/* This needs effort from MSO as to what they want to do viz-a-viz preferred DRM, */
+					drmHelperToUse = drmHelper;
+				}
+			}
+		}
+		if ((drmHelperToUse != nullptr) && (aamp->mDRMSessionManager))
+		{
+			AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
+			/** Queue protection event to the pipline **/
+			sessionMgr->QueueProtectionEvent(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
+			/** Queue content protection in DRM license fetcher **/
+			sessionMgr->QueueContentProtection(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
+		}
+		pthread_mutex_unlock(&aamp->drmParserMutex);
+	}
+#endif
 }
 
 /**
@@ -940,7 +941,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 						SAFE_DELETE(aesCtrAttrData);
 						pthread_mutex_unlock(&aamp->drmParserMutex);
 						aamp->fragmentCdmEncrypted = true;
-						InitiateDrmProcess(this->aamp);
+						InitiateDrmProcess();
 					}
 				}
 #endif
@@ -2532,7 +2533,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, double &culledSec)
 							pthread_mutex_unlock(&aamp->drmParserMutex);
 							/** Mark as CDM encryption is found in HLS **/
 							aamp->fragmentCdmEncrypted = true;
-							InitiateDrmProcess(this->aamp);
+							context->InitiateDrmProcess();
 						}
 #endif
 					}
@@ -5339,6 +5340,13 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(AampLogManager *logObj, cla
 	mLangList(),mIframeAvailable(false), thumbnailManifest(), indexedTileInfo(),
 	mFirstPTS(0),mDiscoCheckMutex()
 {
+#ifdef AAMP_HLS_DRM
+	if (aamp->mDRMSessionManager)
+	{
+		AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
+		sessionMgr->SetLicenseFetcher(this);
+	}
+#endif
 	trickplayMode = false;
 	enableThrottle = ISCONFIGSET(eAAMPConfig_Throttle);
 	AAMPLOG_WARN("hls fragment collector seekpos = %f", seekpos);
@@ -5620,7 +5628,6 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 			aamp->mDRMSessionManager->notifyCleanup();
 		}
 		aamp->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
-		ReleaseDRMLicenseAcquireThread(aamp);
 #endif
 	}
 	if(!clearChannelData)

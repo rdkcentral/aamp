@@ -39,6 +39,8 @@
 #endif
 
 #include "downloader/AampCurlStore.h"
+#include "AampDRMLicPreFetcherInterface.h"
+#include "AampDRMLicPreFetcher.h"
 
 //#define LOG_TRACE 1
 #define LICENCE_REQUEST_HEADER_ACCEPT "Accept:"
@@ -60,22 +62,6 @@ static pthread_mutex_t drmSessionMutex = PTHREAD_MUTEX_INITIALIZER;
 KeyID::KeyID() : creationTime(0), isFailedKeyId(false), isPrimaryKeyId(false), data()
 {
 }
-
-DrmSessionParams::DrmSessionParams(PrivateInstanceAAMP *privAamp, std::shared_ptr<AampDrmHelper> helper, MediaType type) :
-				stream_type(type),
-				aamp(privAamp),
-				drmHelper(helper)
-{
-	AAMPLOG_TRACE("##### Created DrmSessionParams object %p", this);
-}
-DrmSessionParams::~DrmSessionParams()
-{
-	AAMPLOG_TRACE("##### Deleted DrmSessionParams object %p", this);
-}
-
-void CreateDRMSession(std::shared_ptr<DrmSessionParams> drmSessionParams);
-int SpawnDRMLicenseAcquireThread(PrivateInstanceAAMP *aamp, std::shared_ptr<DrmSessionParams> drmData);
-void ReleaseDRMLicenseAcquireThread(PrivateInstanceAAMP *aamp);
 
 #if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 /**
@@ -115,7 +101,7 @@ static string getFormattedLicenseServerURL(string url)
 /**
  *  @brief AampDRMSessionManager constructor.
  */
-AampDRMSessionManager::AampDRMSessionManager(AampLogManager *logObj, int maxDrmSessions) : drmSessionContexts(NULL),
+AampDRMSessionManager::AampDRMSessionManager(AampLogManager *logObj, int maxDrmSessions, PrivateInstanceAAMP *aamp) : drmSessionContexts(NULL),
 		cachedKeyIDs(NULL), accessToken(NULL),
 		accessTokenLen(0), sessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE), accessTokenMutex(PTHREAD_MUTEX_INITIALIZER),
 		cachedKeyMutex(PTHREAD_MUTEX_INITIALIZER)
@@ -125,6 +111,8 @@ AampDRMSessionManager::AampDRMSessionManager(AampLogManager *logObj, int maxDrmS
 		,mLogObj(logObj)
 		,mLicenseRenewalThreads()
 		,mAccessTokenConnector()
+		,aampInstance(aamp)
+		,mLicensePrefetcher(nullptr)
 #ifdef USE_SECMANAGER
 		,mSessionId()
 		,mIsVideoOnMute(false)
@@ -137,6 +125,8 @@ AampDRMSessionManager::AampDRMSessionManager(AampLogManager *logObj, int maxDrmS
 	mLicenseRenewalThreads.resize(mMaxDRMSessions);
 	AAMPLOG_INFO("AampDRMSessionManager MaxSession:%d",mMaxDRMSessions);
 	pthread_mutex_init(&mDrmSessionLock, NULL);
+	mLicensePrefetcher = new AampLicensePreFetcher(logObj, aamp);
+	mLicensePrefetcher->Init();
 }
 
 /**
@@ -145,6 +135,7 @@ AampDRMSessionManager::AampDRMSessionManager(AampLogManager *logObj, int maxDrmS
 AampDRMSessionManager::~AampDRMSessionManager()
 {
 	clearAccessToken();
+	SAFE_DELETE(mLicensePrefetcher);
 	clearSessionData();
 	releaseLicenseRenewalThreads();
 	SAFE_DELETE_ARRAY(drmSessionContexts);
@@ -169,6 +160,85 @@ void AampDRMSessionManager::releaseLicenseRenewalThreads()
 	}
 	mLicenseRenewalThreads.clear();
 }
+
+/*
+ * @brief Set the Common Key Duration object
+ * 
+ * @param keyDuration key duration
+ */
+void AampDRMSessionManager::SetCommonKeyDuration(int keyDuration)
+{
+	mLicensePrefetcher->SetCommonKeyDuration(keyDuration);
+}
+
+/**
+ * @brief Stop DRM session manager and deinitialise license fetcher
+ * 
+ * @param none
+ * @return none
+ */
+void AampDRMSessionManager::Stop()
+{
+	mLicensePrefetcher->DeInit();
+}
+
+/**
+ * @brief Queue a content protection event to the pipeline
+ * 
+ * @param drmHelper AampDrmHelper shared_ptr
+ * @param periodId ID of the period to which CP belongs to
+ * @param adapId Index of the adaptation to which CP belongs to
+ * @param type media type
+ * @return none
+ */
+void AampDRMSessionManager::QueueProtectionEvent(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type)
+{
+	if (drmHelper && aampInstance && aampInstance->mStreamSink)
+	{
+		std::vector<uint8_t> data;
+		const char* systemId = drmHelper->getUuid().c_str();
+		drmHelper->createInitData(data);
+		AAMPLOG_INFO("Queueing protection event in mStreamSink for type:%d period id:%s and adaptation index:%u", type, periodId.c_str(), adapIdx);
+		aampInstance->mStreamSink->QueueProtectionEvent(systemId, data.data(), data.size(), type);
+	}
+}
+
+/**
+ * @brief set licensefetcher object
+ * 
+ * @return none
+ */
+void AampDRMSessionManager::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+{
+	mLicensePrefetcher->SetLicenseFetcher(fetcherInstance);
+}
+
+/**
+ * @brief Set to true if error event to be sent to application if any license request fails
+ *  Otherwise, error event will be sent if a track doesn't have a successful or pending license request
+ * 
+ * @param sendErrorOnFailure key duration
+ */
+void AampDRMSessionManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
+{
+	mLicensePrefetcher->SetSendErrorOnFailure(sendErrorOnFailure);
+}
+
+/**
+ * @brief Queue a content protection info to be processed later
+ * 
+ * @param drmHelper AampDrmHelper shared_ptr
+ * @param periodId ID of the period to which CP belongs to
+ * @param adapId Index of the adaptation to which CP belongs to
+ * @param type media type
+ * @return true if successfully queued
+ * @return false if error occurred
+ */
+bool AampDRMSessionManager::QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type)
+{
+	return mLicensePrefetcher->QueueContentProtection(drmHelper, periodId, adapIdx, type);
+}
+
 /**
  *  @brief  Clean up the memory used by session variables.
  */
@@ -1846,159 +1916,3 @@ void AampDRMSessionManager::UpdateMaxDRMSessions(int maxSessions)
 		AAMPLOG_INFO("Updated AampDRMSessionManager MaxSession to:%d", mMaxDRMSessions);
 	}
 }
-
-
-
-/**
- *  @brief		Function to release the DrmSession if it running
- *  @param[out]	aamp private aamp instance
- *  @return		None.
- */
-void ReleaseDRMLicenseAcquireThread(PrivateInstanceAAMP *aamp){
-
-	if(aamp->drmSessionThreadStarted) //In the case of license rotation
-	{
-		aamp->createDRMSessionThreadID.join();
-		aamp->drmSessionThreadStarted = false;
-		AAMPLOG_WARN("DRMSession Thread Released");
-	}
-}
-
-/**
- *  @brief	Function to spawn the DrmSession Thread based on the
- *              preferred drm set.
- *  @param[out]	drmData private aamp instance
- *  @return		None.
- */
-int SpawnDRMLicenseAcquireThread(PrivateInstanceAAMP *aamp, std::shared_ptr<DrmSessionParams> drmSessionParams)
-{
-	int iState = DRM_API_FAILED;
-	do{
-
-		/** API protection added **/
-		if (NULL == drmSessionParams){
-			AAMPLOG_ERR("Could not able to process with the NULL Drm data");
-			break;
-		}
-		/** Achieve single thread logic for DRM Session Creation **/
-		ReleaseDRMLicenseAcquireThread(aamp);
-		AAMPLOG_INFO("Creating thread with sessionData = 0x%08x", drmSessionParams);
-		try
-		{
-			aamp->createDRMSessionThreadID = std::thread(CreateDRMSession, drmSessionParams);
-			aamp->drmSessionThreadStarted = true;
-			AAMPLOG_INFO("Thread created for CreateDRMSession [%u]", GetPrintableThreadID(aamp->createDRMSessionThreadID));
-			aamp->setCurrentDrm(drmSessionParams->drmHelper);
-			iState = DRM_API_SUCCESS;
-		}
-		catch(const std::exception& e)
-		{
-			AAMPLOG_ERR("thread creation failed for CreateDRMSession: %s", e.what());
-		}
-	}while(0);
-
-	return iState;
-}
-
-/**
- *  @brief	Thread function to create DRM Session which would be invoked in thread from
- *              HLS , PlayReady or from pipeline
- *
- *  @param[out]	arg - DrmSessionParams structure with filled data
- *  @return		None.
- */
-void CreateDRMSession(std::shared_ptr<DrmSessionParams> sessionParams)
-{
-	if(aamp_pthread_setname(pthread_self(), "aampfMP4DRM"))
-	{
-		AAMPLOG_ERR("aamp_pthread_setname failed");
-	}
-
-	if(sessionParams == nullptr)
-	{
-		AAMPLOG_ERR("sessionParams is null");
-		return;
-	}
-	if(sessionParams->aamp == nullptr)
-	{
-		AAMPLOG_ERR("no aamp in sessionParams");
-		return;
-	}   //CID:144411 - Reverse_inull
-	AampDRMSessionManager* sessionManger = sessionParams->aamp->mDRMSessionManager;
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
-	bool isSecClientError = true;
-#else
-	bool isSecClientError = false;
-#endif
-
-	sessionParams->aamp->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
-
-	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError);
-
-	AampDrmSession *drmSession = NULL;
-	const char * systemId;
-
-	if (sessionParams->aamp->mDRMSessionManager == nullptr) {
-		AAMPLOG_ERR("no aamp->mDrmSessionManager in sessionParams");
-		return;
-	}
-
-
-	if (sessionParams->drmHelper == nullptr)
-	{
-		AAMPTuneFailure failure = e->getFailure();
-		AAMPLOG_ERR("Failed DRM Session Creation,  no helper");
-
-		sessionParams->aamp->SendDrmErrorEvent(e, false);
-		sessionParams->aamp->profiler.SetDrmErrorCode((int)failure);
-		sessionParams->aamp->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
-		sessionParams->aamp->profiler.ProfileEnd(PROFILE_BUCKET_LA_TOTAL);
-	}
-	else
-	{
-		std::vector<uint8_t> data;
-		systemId = sessionParams->drmHelper->getUuid().c_str();
-		sessionParams->drmHelper->createInitData(data);
-		sessionParams->aamp->mStreamSink->QueueProtectionEvent(systemId, data.data(), data.size(), sessionParams->stream_type);
-		drmSession = sessionManger->createDrmSession(sessionParams->drmHelper, e, sessionParams->aamp, sessionParams->stream_type);
-
-		if(NULL == drmSession)
-		{
-			AAMPLOG_ERR("Failed DRM Session Creation for systemId = %s", systemId);
-			AAMPTuneFailure failure = e->getFailure();
-			int responseCode = e->getResponseCode();
-			bool selfAbort = (failure == AAMP_TUNE_DRM_SELF_ABORT);
-			if (!selfAbort)
-			{
-				bool isRetryEnabled = (failure != AAMP_TUNE_AUTHORISATION_FAILURE)
-					&& (failure != AAMP_TUNE_LICENCE_REQUEST_FAILED)
-					&& (failure != AAMP_TUNE_LICENCE_TIMEOUT)
-					&& (failure != AAMP_TUNE_DEVICE_NOT_PROVISIONED)
-					&& (failure != AAMP_TUNE_HDCP_COMPLIANCE_ERROR);
-				sessionParams->aamp->SendDrmErrorEvent(e, isRetryEnabled);
-			}
-			sessionParams->aamp->profiler.SetDrmErrorCode((int) failure);
-			sessionParams->aamp->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int) failure);
-			sessionParams->aamp->profiler.ProfileEnd(PROFILE_BUCKET_LA_TOTAL);
-		}
-
-		else
-		{
-			if(e->getAccessStatusValue() != 3)
-			{
-				AAMPLOG_INFO("Sending DRMMetaData");
-				sessionParams->aamp->SendDRMMetaData(e);
-			}
-			sessionParams->aamp->profiler.ProfileEnd(PROFILE_BUCKET_LA_TOTAL);
-		}
-	}
-	if(sessionParams->aamp->mIsFakeTune)
-	{
-		sessionParams->aamp->SetState(eSTATE_COMPLETE);
-		sessionParams->aamp->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS));
-	}
-
-	return;
-}
-
-

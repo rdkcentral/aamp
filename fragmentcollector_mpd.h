@@ -716,13 +716,7 @@ private:
 	 * @param init true if this is the first playlist download for a tune/seek/trickplay
 	 */
 	AAMPStatusType GetMpdFromManifest(const AampGrowableBuffer &manifest, MPD * &mpd, std::string manifestUrl, bool init);
-	/**
-	* @fn CreateDRMSessionMPD
-	* @param aamp Priv instance pointer
-	* @param drmHelper drmHelper pointer
-	* @param mediaType DRM type
-	*/
-	void CreateDRMSessionMPD(PrivateInstanceAAMP *aamp, std::shared_ptr<AampDrmHelper> drmHelper, MediaType mediaType);
+
 	/**
 	 * @fn GetDrmPrefs
 	 * @param The UUID for the DRM type
@@ -1000,7 +994,6 @@ private:
 	std::thread latencyMonitorThreadID;	 /**< Fragment injector thread id*/
 	int mProfileCount;			 /**< Total video profile count*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;	/**< Parser for subtitle data*/
-	AampLicensePreFetcher mLicensePrefetcher;
 	bool mMultiVideoAdaptationPresent;
 	double mLocalUtcTime;
 };

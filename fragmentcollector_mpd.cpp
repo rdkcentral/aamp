@@ -301,13 +301,19 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,mUpperBoundaryPeriod(0), mLowerBoundaryPeriod(0), playlistDownloaderThreadStarted(false)
 	,mLiveTimeFragmentSync(false)
 	,mSubtitleParser()
-	,mLicensePrefetcher(logObj, aamp, this)
 	,mMultiVideoAdaptationPresent(false)
 	,mLocalUtcTime(0)
 	,prevTimeScale(0)
 {
         FN_TRACE_F_MPD( __FUNCTION__ );
 	this->aamp = aamp;
+#ifdef AAMP_MPD_DRM
+	if (aamp->mDRMSessionManager)
+	{
+		AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
+		sessionMgr->SetLicenseFetcher(this);
+	}
+#endif
 	memset(&mMediaStreamContext, 0, sizeof(mMediaStreamContext));
 	for (int i=0; i<AAMP_TRACK_COUNT; i++)
 	{
@@ -3386,18 +3392,6 @@ static void ParseXmlNS(const std::string& fullName, std::string& ns, std::string
 }
 
 #ifdef AAMP_MPD_DRM
-
-extern void CreateDRMSession(std::shared_ptr<DrmSessionParams> sessionParams);
-
-/** @brief Create DRMSession thread
- */
-void StreamAbstractionAAMP_MPD::CreateDRMSessionMPD(PrivateInstanceAAMP *aamp, std::shared_ptr<AampDrmHelper> drmHelper, MediaType mediaType)
-{
-	std::shared_ptr<DrmSessionParams> sessionParams = std::make_shared<DrmSessionParams>(aamp, drmHelper, mediaType);
-    	CreateDRMSession(sessionParams);
-}
-
-
 /**
  * @brief Get the DRM preference value.
  * @return The preference level for the DRM type.
@@ -3689,15 +3683,17 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
 			std::shared_ptr<AampDrmHelper> drmHelper = CreateDrmHelper(adaptationSet, mediaType);
 			if (drmHelper)
 			{
-				if (qGstProtectEvent)
+				if (aamp->mDRMSessionManager)
 				{
-					std::vector<uint8_t> data;
-					const char* systemId = drmHelper->getUuid().c_str();
-					drmHelper->createInitData(data);
-					AAMPLOG_INFO("Queueing protection event in mStreamSink for type:%d period id:%s and adaptation index:%u", mediaType, period->GetId().c_str(), adaptationSetIdx);
-					aamp->mStreamSink->QueueProtectionEvent(systemId, data.data(), data.size(), mediaType);
+					AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
+					if (qGstProtectEvent)
+					{
+						/** Queue protection event to the pipline **/
+						sessionMgr->QueueProtectionEvent(drmHelper, period->GetId(), adaptationSetIdx, mediaType);
+					}
+					/** Queue content protection in DRM license fetcher **/
+					sessionMgr->QueueContentProtection(drmHelper, period->GetId(), adaptationSetIdx, mediaType);
 				}
-				mLicensePrefetcher.QueueContentProtection(drmHelper, period->GetId(), adaptationSetIdx, mediaType);
 				hasDrm = true;
 				aamp->licenceFromManifest = true;
 			}
@@ -4470,7 +4466,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	AAMPStatusType retval = eAAMPSTATUS_OK;
 	aamp->CurlInit(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT, aamp->GetNetworkProxy());
 	mCdaiObject->ResetState();
-	mLicensePrefetcher.Init();
 
 	aamp->mStreamSink->ClearProtectionEvent();
   #ifdef AAMP_MPD_DRM
@@ -7808,6 +7803,22 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 			}
 		}
 	} // next track
+#ifdef AAMP_MPD_DRM
+	if (aamp->mDRMSessionManager)
+	{
+		AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
+		if (mMultiVideoAdaptationPresent)
+		{
+			// We have multiple video adaptations in the same period and 
+            // if one of them fails in license acquisition, we can skip error event
+			sessionMgr->SetSendErrorOnFailure(false);
+		}
+		else
+		{
+			sessionMgr->SetSendErrorOnFailure(true);
+		}
+	}
+#endif
 
 	if(1 == mNumberOfTracks && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
 	{ // what about audio+subtitles?
@@ -10017,7 +10028,13 @@ bool StreamAbstractionAAMP_MPD::CheckForVssTags()
 							std::string value = childNode->GetAttributeValue("value");
 							mCommonKeyDuration = std::stoi(value);
 							AAMPLOG_INFO("Recieved Common Key Duration : %d of VSS stream", mCommonKeyDuration);
-							mLicensePrefetcher.SetCommonKeyDuration(mCommonKeyDuration);
+#ifdef AAMP_MPD_DRM
+							if (aamp->mDRMSessionManager)
+							{
+								AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
+								sessionMgr->SetCommonKeyDuration(mCommonKeyDuration);
+							}
+#endif	
 							isVss = true;
 						}
 					}
@@ -10311,7 +10328,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			track->IDX.Free();
 		}
 	}
-	mLicensePrefetcher.DeInit();
 
 	aamp->mStreamSink->ClearProtectionEvent();
 	if (clearChannelData)

@@ -36,7 +36,7 @@ int LicensePreFetchObject::staticId = 1;
  * @param aamp PrivateInstanceAAMP instance
  * @param fetcherInstance AampLicenseFetcher instance
  */
-AampLicensePreFetcher::AampLicensePreFetcher(AampLogManager *logObj, PrivateInstanceAAMP *aamp, AampLicenseFetcher *fetcherInstance) : mPreFetchThread(),
+AampLicensePreFetcher::AampLicensePreFetcher(AampLogManager *logObj, PrivateInstanceAAMP *aamp) : mPreFetchThread(),
 		mFetchQueue(),
 		mQMutex(),
 		mQCond(),
@@ -44,9 +44,10 @@ AampLicensePreFetcher::AampLicensePreFetcher(AampLogManager *logObj, PrivateInst
 		mExitLoop(false),
 		mCommonKeyDuration(0),
 		mTrackStatus(),
+		mSendErrorOnFailure(true),
 		mPrivAAMP(aamp),
 		mLogObj(logObj),
-		mFetchInstance(fetcherInstance)
+		mFetchInstance(nullptr)
 {
 	FN_TRACE_F_LIC_PREFETCH( __FUNCTION__ );
 	mTrackStatus.fill(false);
@@ -62,6 +63,14 @@ AampLicensePreFetcher::~AampLicensePreFetcher()
 	DeInit();
 	{
 		std::lock_guard<std::mutex>lock(mQMutex);
+		mExitLoop = true;
+	}
+	if (mPreFetchThreadStarted)
+	{
+		mQCond.notify_one();
+		AAMPLOG_WARN("Joining mPreFetchThread");
+		mPreFetchThread.join();
+		mPreFetchThreadStarted = false;
 	}
 }
 
@@ -77,7 +86,7 @@ bool AampLicensePreFetcher::Init()
 	bool ret = true;
 	if (mPreFetchThreadStarted)
 	{
-		AAMPLOG_ERR("PreFetch thread is already started when calling Init. Crashing application for debug!");
+		AAMPLOG_WARN("PreFetch thread is already started when calling Init!!");
 	}
 	mTrackStatus.fill(false);
 	mExitLoop = false;
@@ -129,18 +138,13 @@ bool AampLicensePreFetcher::DeInit()
 {
 	FN_TRACE_F_LIC_PREFETCH( __FUNCTION__ );
 	bool ret = true;
-	mExitLoop = true;
-	if (mPreFetchThreadStarted)
-	{
-		mQCond.notify_one();
-		AAMPLOG_WARN("Joining mPreFetchThread");
-		mPreFetchThread.join();
-		mPreFetchThreadStarted = false;
-	}
+	/** Clear the queue **/
 	while (!mFetchQueue.empty())
 	{
 		mFetchQueue.pop_front();
 	}
+	mTrackStatus.fill(false);
+	mFetchInstance = nullptr;
 	return ret;
 }
 
@@ -240,7 +244,10 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 	bool isRetryEnabled = false;
 	bool selfAbort = (failure == AAMP_TUNE_DRM_SELF_ABORT);
 	bool skipErrorEvent = false;
-	if (fetchObj)
+	// Skip these additional checks and send error event if mSendErrorOnFailure is set
+	// For a non-intra asset playback with KR, if a future license fails, we should send the error
+	// and skip below check. Maybe introduce a better data structure for mTrackStatus based on periodId
+	if (fetchObj && !mSendErrorOnFailure)
 	{
 		try
 		{
@@ -273,7 +280,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 		}
 	}
 
-	if (skipErrorEvent)
+	if (skipErrorEvent && mFetchInstance)
 	{
 		mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
 	}
@@ -286,11 +293,11 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 						&& (failure != AAMP_TUNE_LICENCE_TIMEOUT)
 						&& (failure != AAMP_TUNE_DEVICE_NOT_PROVISIONED)
 						&& (failure != AAMP_TUNE_HDCP_COMPLIANCE_ERROR);
-		}
 
-		mPrivAAMP->SendDrmErrorEvent(event, isRetryEnabled);
-		mPrivAAMP->profiler.SetDrmErrorCode((int)failure);
-		mPrivAAMP->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
+			mPrivAAMP->SendDrmErrorEvent(event, isRetryEnabled);
+			mPrivAAMP->profiler.SetDrmErrorCode((int)failure);
+			mPrivAAMP->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
+		}
 	}
 }
 

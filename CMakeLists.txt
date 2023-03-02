@@ -183,6 +183,8 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					mediaprocessor.h
 					ota_shim.h
 					priv_aamp.h
+                                        AampDRMLicPreFetcher.h
+                                        AampDRMLicPreFetcherInterface.h
 					tsprocessor.h
 					uint33_t.h
 					videoin_shim.h
@@ -769,6 +771,8 @@ install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h Aam
   downloader/AampCurlDefine.h
   ID3Metadata.hpp
   AampSegmentInfo.hpp
+  AampDRMLicPreFetcher.h
+  AampDRMLicPreFetcherInterface.h
   DESTINATION include)
 
 if (CMAKE_AAMP_RFC_REQUIRED)

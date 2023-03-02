@@ -38,6 +38,8 @@
 #include "sec_client.h"
 #endif
 
+#include "AampDRMLicPreFetcher.h"
+
 #define VIDEO_SESSION 0
 #define AUDIO_SESSION 1
 
@@ -72,22 +74,6 @@ struct DrmSessionContext
 	{
 		pthread_mutex_destroy(&sessionMutex);
 	}
-};
-
-/**
- * @struct DrmSessionParams
- * @brief Holds data regarding drm session
- */
-struct DrmSessionParams
-{
-	DrmSessionParams() = delete;
-	DrmSessionParams(PrivateInstanceAAMP *privAamp, std::shared_ptr<AampDrmHelper> helper, MediaType type);
-	~DrmSessionParams();
-	DrmSessionParams(const DrmSessionParams&) = delete;
-	DrmSessionParams& operator=(const DrmSessionParams&) = delete;
-	MediaType stream_type;
-	PrivateInstanceAAMP *aamp;
-	std::shared_ptr<AampDrmHelper> drmHelper;
 };
 
 /**
@@ -137,6 +123,8 @@ private:
 	int mMaxDRMSessions;
 	std::vector<std::thread> mLicenseRenewalThreads;
 	AampCurlDownloader mAccessTokenConnector;
+	AampLicensePreFetcher* mLicensePrefetcher; /**< DRM license prefetcher instance */
+	PrivateInstanceAAMP *aampInstance; /** AAMP instance **/
 #ifdef USE_SECMANAGER
 	SessionId mSessionId;
 	std::atomic<bool> mIsVideoOnMute;
@@ -188,10 +176,63 @@ public:
 	/**
 	 *  @fn AampDRMSessionManager
 	 */
-	AampDRMSessionManager(AampLogManager *logObj, int maxDrmSessions);
+	AampDRMSessionManager(AampLogManager *logObj, int maxDrmSessions, PrivateInstanceAAMP *aamp);
 
 	void initializeDrmSessions();
-	
+
+	/**
+	 * @brief Set the Common Key Duration object
+	 * 
+	 * @param keyDuration key duration
+	 */
+	void SetCommonKeyDuration(int keyDuration);
+
+	/**
+	 * @brief set license prefetcher
+	 * 
+	 * @return none
+	 */
+	void SetLicenseFetcher(AampLicenseFetcher *fetcherInstance);
+
+	/**
+	 * @brief Set to true if error event to be sent to application if any license request fails
+	 *  Otherwise, error event will be sent if a track doesn't have a successful or pending license request
+	 * 
+	 * @param sendErrorOnFailure key duration
+	 */
+	void SetSendErrorOnFailure(bool sendErrorOnFailure);
+
+	/**
+	 * @brief Queue a content protection info to be processed later
+	 * 
+	 * @param drmHelper AampDrmHelper shared_ptr
+	 * @param periodId ID of the period to which CP belongs to
+	 * @param adapId Index of the adaptation to which CP belongs to
+	 * @param type media type
+	 * @return true if successfully queued
+	 * @return false if error occurred
+	 */
+	bool QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type);
+
+	/**
+	 * @brief Queue a content protection event to the pipeline
+	 * 
+	 * @param drmHelper AampDrmHelper shared_ptr
+	 * @param periodId ID of the period to which CP belongs to
+	 * @param adapId Index of the adaptation to which CP belongs to
+	 * @param type media type
+	 * @return none
+	 */
+	void QueueProtectionEvent(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type);
+
+	/**
+	 * @brief Stop DRM session manager and deinitialise license fetcher
+	 * 
+	 * @param none
+	 * @return none
+	 */
+	void Stop();
+
 	/**
 	 *  @fn ~AampDRMSessionManager
 	 */

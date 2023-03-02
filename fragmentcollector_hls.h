@@ -41,6 +41,7 @@
 #include <sys/time.h>
 #include "HlsDrmBase.h"
 #include <atomic>
+#include "AampDRMLicPreFetcher.h"
 
 #define FOG_FRAG_BW_IDENTIFIER "bandwidth-"
 #define FOG_FRAG_BW_IDENTIFIER_LEN 10
@@ -59,18 +60,6 @@
 #define MAX_PLAYLIST_REFRESH_FOR_DISCONTINUITY_CHECK_EVENT 5	/*!< Maximum playlist refresh count for discontinuity check for TSB/cDvr*/
 #define MAX_PLAYLIST_REFRESH_FOR_DISCONTINUITY_CHECK_LIVE 3		/*!< Maximum playlist refresh count for discontinuity check for live without TSB*/
 #define MAX_PDT_DISCONTINUITIY_DELTA_LIMIT 1.0f			/*!< maximum audio/video track PDT delta to determine discontiuity using PDT*/
-
-
-
-/**
- * \struct	HlsProtectionInfo
- * \brief	HlsStreamInfo structure for stream related information
- */
-typedef struct HlsProtectionInfo
-{
-	struct DrmSessionParams* drmData; /**< Session data */
-	HlsProtectionInfo *next;		  /**< pointer to access next element of Queue */
-} HlsProtectionInfo;
 
 /**
  * \struct	HlsStreamInfo
@@ -913,6 +902,12 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 *	 @return void
 		 ****************************************************************************/
 		void ChangeMuxedAudioTrackIndex(std::string& index) override;
+
+		/***************************************************************************
+		 * @brief  Function to get output format for audio/aux track
+		 *
+		 *************************************************************************/
+		void InitiateDrmProcess();
 
 	protected:
 		/***************************************************************************

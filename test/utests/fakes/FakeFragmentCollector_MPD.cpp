@@ -20,8 +20,7 @@
 #include "fragmentcollector_mpd.h"
 
 StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-    : StreamAbstractionAAMP(logObj, aamp),
-      mLicensePrefetcher(logObj, aamp, this)
+    : StreamAbstractionAAMP(logObj, aamp)
 {
 }
 

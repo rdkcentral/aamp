@@ -41,7 +41,7 @@ using namespace std;
  * Global aamp config data 
  */
 extern AampConfig *gpGlobalConfig;
-shared_ptr<DrmSessionParams> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
+shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
 
 /**
  * Local APIs declarations
@@ -216,47 +216,47 @@ static std::shared_ptr<AampDrmHelper> getDrmHelper(string attrName , bool bPropa
 	}
 	DrmInfo drmInfo;
 	drmInfo.mediaFormat = eMEDIAFORMAT_HLS_MP4;
-	drmInfo.systemUUID=systemId;
+	drmInfo.systemUUID = systemId;
 	drmInfo.bPropagateUriParams = bPropagateUriParams;
 	return AampDrmHelperEngine::getInstance().createHelper(drmInfo);
 }
 
 /**
  * @brief Process content protection of track
- * @param TrackState object 
- * @param attribute list from manifest
- * @return none
+ * @param aamp PrivateInstanceAAMP instance 
+ * @param attrName attribute value
+ * @return shared_ptr to the AampDrmHelper instance
  */
-shared_ptr<DrmSessionParams> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName)
+shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName)
 {
 	/* StreamAbstractionAAMP_HLS* context; */
 	/* Pseudo code for ProcessContentProtection in HLS is below
 	 * Get Aamp instance as aamp
-	 * 1. Get DRM type from manifest (KEYFORMAT uuid)
+	 * 1. Create AampDrmHelper object based on attribute value
 	 * 2. Get pssh data from manifest (extract URI value)
-	 * 3. Create DrmSessionParams instance and fill it 
-	 *    3.1 Create a thread with CreateDRMSession and DrmSessionParams as parameter
-	 *    3.2 Reuse the thread function CreateDRMSession which is used in MPD for HLS also
+	 * 3. Set PSSH data to AampDrmHelper object
 	 */
 	AampLogManager *mLogObj = aamp->mConfig->GetLoggerInstance();
-	shared_ptr<AampDrmHelper> drmHelper;
+	shared_ptr<AampDrmHelper> finalDrmHelper = nullptr;
 	unsigned char* data = NULL;
 	unsigned char* contentMetadata = NULL;
 	size_t dataLength = 0;
 	int status = DRM_API_FAILED;  
 	string psshDataStr = "";
 	char* psshData = NULL;
-	MediaType mediaType = eMEDIATYPE_VIDEO;
-	shared_ptr<DrmSessionParams> drmSessionParams = nullptr;
-	do{
-		drmHelper = getDrmHelper(attrName , ISCONFIGSET(eAAMPConfig_PropogateURIParam));
-		if (nullptr == drmHelper){
+
+	do
+	{
+		shared_ptr<AampDrmHelper> drmHelper = getDrmHelper(attrName, ISCONFIGSET(eAAMPConfig_PropogateURIParam));
+		if (nullptr == drmHelper)
+		{
 			AAMPLOG_ERR("Failed to get DRM type/helper from manifest!");
 			break;
 		}
 
 		status  = getPsshData(attrName, psshDataStr);
-		if (DRM_API_SUCCESS != status){
+		if (DRM_API_SUCCESS != status)
+		{
 			AAMPLOG_ERR("Failed to get PSSH Data from manifest!");
 			break;
 		}
@@ -285,8 +285,7 @@ shared_ptr<DrmSessionParams> ProcessContentProtection(PrivateInstanceAAMP *aamp,
 		}
 		if (gpGlobalConfig->logging.trace)
 		{
-			AAMPLOG_TRACE("content metadata from manifest; length %d",
-			dataLength);
+			AAMPLOG_TRACE("content metadata from manifest; length %d", dataLength);
 			printf("*****************************************************************\n");
 			for (int i = 0; i < dataLength; i++)
 			{
@@ -305,29 +304,22 @@ shared_ptr<DrmSessionParams> ProcessContentProtection(PrivateInstanceAAMP *aamp,
 			AAMPLOG_ERR("Failed to get key Id from manifest");
 			break;
 		}
-
-		MediaType mediaType  = eMEDIATYPE_VIDEO;
-
-		if (drmHelper){
-			/** Push Drm Information for later use do not free the memory here*/
-
-			/** Populate session data **/
-			drmSessionParams = std::make_shared<DrmSessionParams>(aamp, drmHelper, mediaType);
-		}
-	}while(0);
+		// After processing the PSSH information, return the drmHelper
+		finalDrmHelper = drmHelper;
+	} while(0);
 
 	if(data)
 	{
 		free(data);  //CID:128617 - Resource leak
 	}
-	return drmSessionParams;
+	return finalDrmHelper;
 }
 
 #else
 
-void* ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName){
-	AAMPLOG_INFO("AAMP_HLS_DRM not enabled" 
-	);
+void* ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName)
+{
+	AAMPLOG_INFO("AAMP_HLS_DRM not enabled");
 	return NULL;
 }
 #endif /** AAMP_HLS_DRM */
