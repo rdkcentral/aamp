@@ -80,10 +80,6 @@ typedef enum {
 #define GSTPLAYERSINKBIN_EVENT_ERROR_VIDEO_PTS 0x08
 #define GSTPLAYERSINKBIN_EVENT_ERROR_AUDIO_PTS 0x09
 
-#ifdef INTELCE
-#define INPUT_GAIN_DB_MUTE  (gdouble)-145
-#define INPUT_GAIN_DB_UNMUTE  (gdouble)0
-#endif
 #define DEFAULT_BUFFERING_TO_MS 10                       /**< TimeOut interval to check buffer fullness */
 #if defined(REALTEKCE)
 #define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (3)          /**< if the video decoder has this many queued frames start.. */
@@ -166,9 +162,6 @@ struct AAMPGstPlayerPriv
 	GstElement *video_sink; 			/**< Video sink used by pipeline. */
 	GstElement *audio_sink; 			/**< Audio sink used by pipeline. */
 	GstElement *subtitle_sink; 			/**< Subtitle sink used by pipeline. */
-#ifdef INTELCE_USE_VIDRENDSINK
-	GstElement *video_pproc; 			/**< Video element used by pipeline.(only for Intel). */
-#endif
 
 	int rate; 					/**< Current playback rate. */
 	double playbackrate; 				/**< playback rate in fractions */
@@ -194,9 +187,6 @@ struct AAMPGstPlayerPriv
 	gboolean buffering_in_progress; 		/**< buffering is in progress */
 	guint buffering_timeout_cnt;    		/**< make sure buffering_timeout doesn't get stuck */
 	GstState buffering_target_state; 		/**< the target state after buffering */
-#ifdef INTELCE
-	bool keepLastFrame; 				/**< Keep last frame over next pipeline delete/ create cycle */
-#endif
 	gint64 lastKnownPTS; 				/**< To store the PTS of last displayed video */
 	long long ptsUpdatedTimeMS; 			/**< Timestamp when PTS was last updated */
 	guint ptsCheckForEosOnUnderflowIdleTaskId; 	/**< ID of task to ensure video PTS is not moving before notifying EOS on underflow. */
@@ -225,9 +215,6 @@ struct AAMPGstPlayerPriv
 			periodicProgressCallbackIdleTaskId(AAMP_TASK_ID_INVALID),
 			bufferingTimeoutTimerId(AAMP_TASK_ID_INVALID), video_dec(NULL), audio_dec(NULL),TaskControlMutex(),firstProgressCallbackIdleTask("FirstProgressCallback"),
 			video_sink(NULL), audio_sink(NULL), subtitle_sink(NULL),
-#ifdef INTELCE_USE_VIDRENDSINK
-			video_pproc(NULL),
-#endif
 			rate(AAMP_NORMAL_PLAY_RATE), zoom(VIDEO_ZOOM_FULL), videoMuted(false), audioMuted(false), volumeMuteMutex(), subtitleMuted(false),
 			audioVolume(1.0), eosCallbackIdleTaskId(AAMP_TASK_ID_INVALID), eosCallbackIdleTaskPending(false),
 			firstFrameReceived(false), pendingPlayState(false), decoderHandleNotified(false),
@@ -236,9 +223,6 @@ struct AAMPGstPlayerPriv
 			buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
 			buffering_target_state(GST_STATE_NULL),
 			playbackrate(AAMP_NORMAL_PLAY_RATE),
-#ifdef INTELCE
-			keepLastFrame(false),
-#endif
 			lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(AAMP_TASK_ID_INVALID),
 			numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL), durationQuery(NULL),
 			paused(false), pipelineState(GST_STATE_NULL), firstVideoFrameDisplayedCallbackIdleTaskId(AAMP_TASK_ID_INVALID),
@@ -251,9 +235,6 @@ struct AAMPGstPlayerPriv
 			, forwardAudioBuffers (false), enableSEITimeCode(true),firstVideoFrameReceived(false),firstAudioFrameReceived(false),NumberOfTracks(0)
 	{
 		memset(videoRectangle, '\0', VIDEO_COORDINATES_SIZE);
-#ifdef INTELCE
-                strcpy(videoRectangle, "0,0,0,0");
-#else
                 /* DELIA-45366-default video scaling should take into account actual graphics
                  * resolution instead of assuming 1280x720.
                  * By default we where setting the resolution has 0,0,1280,720.
@@ -262,8 +243,7 @@ struct AAMPGstPlayerPriv
                  * since the video will display full screen, if a gstreamer pipeline is started
                  * using the westerossink connected using westeros compositor.
                  */
-                strcpy(videoRectangle, "");
-#endif
+		strcpy(videoRectangle, "");
 		for(int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
 			protectionEvent[i] = NULL;
@@ -1057,7 +1037,6 @@ static gboolean VideoDecoderPtsCheckerForEOS(gpointer user_data)
 {
 	AAMPGstPlayer *_this = (AAMPGstPlayer *) user_data;
 	AAMPGstPlayerPriv *privateContext = _this->privateContext;
-#ifndef INTELCE
 	gint64 currentPTS = _this->GetVideoPTS();			/* Gets the currentPTS from the 'video-pts' property of the element */
 
 	if (currentPTS == privateContext->lastKnownPTS)
@@ -1069,7 +1048,6 @@ static gboolean VideoDecoderPtsCheckerForEOS(gpointer user_data)
 	{
 		AAMPLOG_WARN("Video PTS still moving lastKnownPTS %" G_GUINT64_FORMAT " currentPTS %" G_GUINT64_FORMAT " ##", privateContext->lastKnownPTS, currentPTS);
 	}
-#endif
 	privateContext->ptsCheckForEosOnUnderflowIdleTaskId = AAMP_TASK_ID_INVALID;
 	return G_SOURCE_REMOVE;
 }
@@ -1398,7 +1376,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 					_this->NotifyFirstFrame(eMEDIATYPE_VIDEO);
 				}
 #endif
-#if (defined(INTELCE) || defined(RPI) || defined(__APPLE__) || defined(UBUNTU))
+#if (defined(RPI) || defined(__APPLE__) || defined(UBUNTU))
 				if(!_this->privateContext->firstFrameReceived)
 				{
 					_this->privateContext->firstFrameReceived = true;
@@ -1582,7 +1560,6 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 		 */
 		if (!_this->privateContext->stream[eMEDIATYPE_VIDEO].using_playersinkbin)
 		{
-#ifndef INTELCE
 			if (new_state == GST_STATE_PAUSED && old_state == GST_STATE_READY)
 			{
 				if (AAMPGstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), _this))
@@ -1644,11 +1621,9 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 				}
 #endif
 			}
-#endif
 		}
 		if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
 		{
-#ifndef INTELCE
 			if ((NULL != msg->src) && AAMPGstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), _this))
 			{
 				if (AAMPGstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), _this))
@@ -1699,55 +1674,6 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 			if ((NULL != msg->src) && aamp_StartsWith(GST_OBJECT_NAME(msg->src), "rtkaudiosink"))
 				g_signal_connect(msg->src, "first-audio-frame",
 					G_CALLBACK(AAMPGstPlayer_OnAudioFirstFrameAudDecoder), _this);
-#endif
-#else
-			if (aamp_StartsWith(GST_OBJECT_NAME(msg->src), "ismdgstaudiosink") == true)
-			{
-				_this->privateContext->audio_sink = (GstElement *) msg->src;
-
-				AAMPLOG_WARN("AAMPGstPlayer setting audio-sync");
-				g_object_set(msg->src, "sync", TRUE, NULL);
-
-				_this->setVolumeOrMuteUnMute();
-			}
-			else
-			{
-#ifndef INTELCE_USE_VIDRENDSINK
-				if (aamp_StartsWith(GST_OBJECT_NAME(msg->src), "ismdgstvidsink") == true)
-#else
-				if (aamp_StartsWith(GST_OBJECT_NAME(msg->src), "ismdgstvidrendsink") == true)
-#endif
-				{
-					AAMPGstPlayerPriv *privateContext = _this->privateContext;
-					privateContext->video_sink = (GstElement *) msg->src;
-					AAMPLOG_WARN("AAMPGstPlayer setting stop-keep-frame %d", (int)(privateContext->keepLastFrame));
-					g_object_set(msg->src, "stop-keep-frame", privateContext->keepLastFrame, NULL);
-#if defined(INTELCE) && !defined(INTELCE_USE_VIDRENDSINK)
-					AAMPLOG_WARN("AAMPGstPlayer setting rectangle %s", privateContext->videoRectangle);
-					g_object_set(msg->src, "rectangle", privateContext->videoRectangle, NULL);
-					AAMPLOG_WARN("AAMPGstPlayer setting zoom %s", (VIDEO_ZOOM_FULL == privateContext->zoom) ? "FULL" : "NONE");
-					g_object_set(msg->src, "scale-mode", (VIDEO_ZOOM_FULL == privateContext->zoom) ? 0 : 3, NULL);
-					AAMPLOG_WARN("AAMPGstPlayer setting crop-lines to FALSE");
-					g_object_set(msg->src, "crop-lines", FALSE, NULL);
-#endif
-					AAMPLOG_WARN("AAMPGstPlayer setting video mute %d", privateContext->videoMuted);
-					g_object_set(msg->src, "mute", privateContext->videoMuted, NULL);
-				}
-				else if (aamp_StartsWith(GST_OBJECT_NAME(msg->src), "ismdgsth264viddec") == true)
-				{
-					_this->privateContext->video_dec = (GstElement *) msg->src;
-				}
-#ifdef INTELCE_USE_VIDRENDSINK
-				else if (aamp_StartsWith(GST_OBJECT_NAME(msg->src), "ismdgstvidpproc") == true)
-				{
-					_this->privateContext->video_pproc = (GstElement *) msg->src;
-					AAMPLOG_WARN("AAMPGstPlayer setting rectangle %s", _this->privateContext->videoRectangle);
-					g_object_set(msg->src, "rectangle", _this->privateContext->videoRectangle, NULL);
-					AAMPLOG_WARN("AAMPGstPlayer setting zoom %d", _this->privateContext->zoom);
-					g_object_set(msg->src, "scale-mode", (VIDEO_ZOOM_FULL == _this->privateContext->zoom) ? 0 : 3, NULL);
-				}
-#endif
-			}
 #endif
 			/*This block is added to share the PrivateInstanceAAMP object
 			  with PlayReadyDecryptor Plugin, for tune time profiling
@@ -1851,12 +1777,7 @@ bool AAMPGstPlayer::CreatePipeline()
 			privateContext->buffering_in_progress = false;
 			privateContext->buffering_timeout_cnt = DEFAULT_BUFFERING_MAX_CNT;
 			privateContext->buffering_target_state = GST_STATE_NULL;
-#ifdef INTELCE
-			privateContext->buffering_enabled = false;
-			AAMPLOG_WARN("%s buffering_enabled forced 0, INTELCE", GST_ELEMENT_NAME(privateContext->pipeline));
-#else
 			AAMPLOG_WARN("%s buffering_enabled %u", GST_ELEMENT_NAME(privateContext->pipeline), privateContext->buffering_enabled);
-#endif
 			if (privateContext->positionQuery == NULL)
 			{
 				/* Construct a new position query that will used to query the 'current playback position' when needed.
@@ -1935,14 +1856,10 @@ unsigned long AAMPGstPlayer::getCCDecoderHandle()
 	else if(this->privateContext->video_dec != NULL)
 	{
 		AAMPLOG_WARN("Querying video decoder for handle");
-#ifndef INTELCE
 #if defined (REALTEKCE)
 		dec_handle = this->privateContext->video_dec;
 #else
 		g_object_get(this->privateContext->video_dec, "videodecoder", &dec_handle, NULL);
-#endif
-#else
-		g_object_get(privateContext->video_dec, "decode-handle", &dec_handle, NULL);
 #endif
 	}
 	AAMPLOG_WARN("video decoder handle received %p for video_dec %p", dec_handle, privateContext->video_dec);
@@ -2149,13 +2066,7 @@ void AAMPGstPlayer::TearDownStream(MediaType mediaType)
 	if (mediaType == eMEDIATYPE_VIDEO)
 	{
 		privateContext->video_dec = NULL;
-#if !defined(INTELCE) || defined(INTELCE_USE_VIDRENDSINK)
 		privateContext->video_sink = NULL;
-#endif
-
-#ifdef INTELCE_USE_VIDRENDSINK
-		privateContext->video_pproc = NULL;
-#endif
 	}
 	else if (mediaType == eMEDIATYPE_AUDIO)
 	{
@@ -2280,16 +2191,18 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 #endif
 				g_object_set(stream->sinkbin, "video-sink", vidsink, NULL);					/* In the stream->sinkbin, set the video-sink property to vidsink */
 			}
+#if defined(BRCM)
 			else if (!_this->privateContext->using_westerossink && eMEDIATYPE_VIDEO == streamId)
 			{
 				GstElement* vidsink = gst_element_factory_make("brcmvideosink", NULL);
-#if defined(BRCM) && defined(CONTENT_4K_SUPPORTED)
+#if defined(CONTENT_4K_SUPPORTED)
 				g_object_set(vidsink, "secure-video", TRUE, NULL);
-#endif
+#endif // CONTENT_4K_SUPPORTED
 				g_object_set(stream->sinkbin, "video-sink", vidsink, NULL);
 			}
+#endif // BRCM
+
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
-			//else if(_this->cbExportYUVFrame)
 			{
 				if (eMEDIATYPE_VIDEO == streamId)
 				{
@@ -2320,31 +2233,6 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 				AAMPLOG_WARN("AAMPGstPlayer_SetupStream - using audsrvsink");
 			}
 		}
-#if defined(INTELCE) && !defined(INTELCE_USE_VIDRENDSINK)
-		if (eMEDIATYPE_VIDEO == streamId)
-		{
-			AAMPLOG_WARN("using ismd_vidsink");
-			GstElement* vidsink = _this->privateContext->video_sink;
-			if(NULL == vidsink)
-			{
-				vidsink = gst_element_factory_make("ismd_vidsink", NULL);
-				if(!vidsink)
-				{
-					AAMPLOG_WARN("Could not create ismd_vidsink element");
-				}
-				else
-				{
-					_this->privateContext->video_sink = GST_ELEMENT(gst_object_ref( vidsink));
-				}
-			}
-			else
-			{
-				AAMPLOG_WARN("Reusing existing vidsink element");
-			}
-			AAMPLOG_WARN("Set video-sink %p to playbin %p", vidsink, stream->sinkbin);
-			g_object_set(stream->sinkbin, "video-sink", vidsink, NULL);
-		}
-#endif
 		gst_bin_add(GST_BIN(_this->privateContext->pipeline), stream->sinkbin);					/* Add the stream sink to the pipeline */
 		gint flags;
 		g_object_get(stream->sinkbin, "flags", &flags, NULL);									/* Read the state of the current flags */
@@ -2566,13 +2454,6 @@ void AAMPGstPlayer::SendGstEvents(MediaType mediaType, GstClockTime pts, const v
 			}
 		}
 	}
-#ifdef INTELCE
-	if (!gst_pad_push_event(sourceEleSrcPad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, gst_structure_new("discard-segment-event-with-zero-start", "enable", G_TYPE_BOOLEAN, TRUE, NULL))))
-	{
-		AAMPLOG_WARN("Error on sending discard-segment-event-with-zero-start custom event");
-	}
-#endif
-
 	gst_object_unref(sourceEleSrcPad);
 	stream->resetPosition = false;
 	stream->flush = false;
@@ -3123,24 +3004,6 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 	//XIONE-8595 - make the execution of this function more deterministic and reduce scope for potential pipeline lockups
 	gst_bus_remove_watch(privateContext->bus);		/* Remove the watch from bus so that gstreamer no longer sends messages to it */
 
-#ifdef INTELCE
-	if (privateContext->video_sink)
-	{
-		privateContext->keepLastFrame = keepLastFrame;
-		g_object_set(privateContext->video_sink,  "stop-keep-frame", keepLastFrame, NULL);
-#if !defined(INTELCE_USE_VIDRENDSINK)
-		if  (!keepLastFrame)
-		{
-			gst_object_unref(privateContext->video_sink);
-			privateContext->video_sink = NULL;
-		}
-		else
-		{
-			g_object_set(privateContext->video_sink,  "reuse-vidrend", keepLastFrame, NULL);
-		}
-#endif
-	}
-#endif
 	if(!keepLastFrame)
 	{
 		privateContext->firstFrameReceived = false;
@@ -3726,13 +3589,10 @@ void AAMPGstPlayer::SetVideoRectangle(int x, int y, int w, int h)
 	FN_TRACE( __FUNCTION__ );
 	int currentX = 0, currentY = 0, currentW = 0, currentH = 0;
 
-#ifdef INTELCE
-	if (strcmp(privateContext->videoRectangle, "0,0,0,0") != 0)
-#else
 	if (strcmp(privateContext->videoRectangle, "") != 0)
-#endif
+	{
 		sscanf(privateContext->videoRectangle,"%d,%d,%d,%d",&currentX,&currentY,&currentW,&currentH);
-
+	}
 	//check the existing VideoRectangle co-ordinates
 	if ((currentX == x) && (currentY == y) && (currentW == w) && (currentH == h))
 	{
@@ -3751,24 +3611,10 @@ void AAMPGstPlayer::SetVideoRectangle(int x, int y, int w, int h)
 		{
 			g_object_set(stream->sinkbin, "rectangle", privateContext->videoRectangle, NULL);
 		}
-#ifndef INTELCE
 		else if (privateContext->video_sink)
 		{
 			g_object_set(privateContext->video_sink, "rectangle", privateContext->videoRectangle, NULL);
 		}
-#else
-#if defined(INTELCE_USE_VIDRENDSINK)
-		else if (privateContext->video_pproc)
-		{
-			g_object_set(privateContext->video_pproc, "rectangle", privateContext->videoRectangle, NULL);
-		}
-#else
-		else if (privateContext->video_sink)
-		{
-			g_object_set(privateContext->video_sink, "rectangle", privateContext->videoRectangle, NULL);
-		}
-#endif
-#endif	
 		else
 		{
 			AAMPLOG_WARN("Scaling not possible at this time");
@@ -3795,22 +3641,10 @@ void AAMPGstPlayer::SetVideoZoom(VideoZoomMode zoom)
 	{
 		g_object_set(stream->sinkbin, "zoom", zoom, NULL);
 	}
-#ifndef INTELCE
 	else if (privateContext->video_sink)
 	{
 		g_object_set(privateContext->video_sink, "zoom-mode", VIDEO_ZOOM_FULL == zoom ? 0 : 1, NULL);
 	}
-#elif defined(INTELCE_USE_VIDRENDSINK)
-	else if (privateContext->video_pproc)
-	{
-		g_object_set(privateContext->video_pproc, "scale-mode", VIDEO_ZOOM_FULL == zoom ? 0 : 3, NULL);
-	}
-#else
-	else if (privateContext->video_sink)
-	{
-		g_object_set(privateContext->video_sink, "scale-mode", VIDEO_ZOOM_FULL == zoom ? 0 : 3, NULL);
-	}
-#endif
 }
 
 void AAMPGstPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)
@@ -3861,11 +3695,7 @@ void AAMPGstPlayer::SetVideoMute(bool muted)
 	}
 	else if (privateContext->video_sink)
 	{
-#ifndef INTELCE
 		g_object_set(privateContext->video_sink, "show-video-window", !privateContext->videoMuted, NULL);	/* videoMuted to true implies setting the 'show-video-window' to false */
-#else
-		g_object_set(privateContext->video_sink, "mute", privateContext->videoMuted, NULL);
-#endif
 	}
 }
 
@@ -3930,17 +3760,7 @@ void AAMPGstPlayer::setVolumeOrMuteUnMute(void)
 	if (0 == privateContext->audioVolume)
 	{
 		AAMPLOG_WARN("AAMPGstPlayer: Audio Muted");
-#ifdef INTELCE
-		if (!stream->using_playersinkbin)
-		{
-			AAMPLOG_WARN("AAMPGstPlayer: Setting input-gain to %f", INPUT_GAIN_DB_MUTE);
-			g_object_set(privateContext->audio_sink, "input-gain", INPUT_GAIN_DB_MUTE, NULL);
-		}
-		else
-#endif
-		{
-			g_object_set(gSource, propertyName, true, NULL);
-		}
+		g_object_set(gSource, propertyName, true, NULL);
 		privateContext->audioMuted = true;
 	}
 	else
@@ -3948,17 +3768,7 @@ void AAMPGstPlayer::setVolumeOrMuteUnMute(void)
 		if (privateContext->audioMuted)
 		{
 			AAMPLOG_WARN("AAMPGstPlayer: Audio Unmuted after a Mute");
-#ifdef INTELCE
-			if (!stream->using_playersinkbin)
-			{
-				AAMPLOG_WARN("AAMPGstPlayer: Setting input-gain to %f", INPUT_GAIN_DB_UNMUTE);
-				g_object_set(privateContext->audio_sink, "input-gain", INPUT_GAIN_DB_UNMUTE, NULL);
-			}
-			else
-#endif
-			{
-				g_object_set(gSource, propertyName, false, NULL);
-			}
+			g_object_set(gSource, propertyName, false, NULL);
 			privateContext->audioMuted = false;
 		}
 		
@@ -4175,7 +3985,6 @@ bool AAMPGstPlayer::CheckForPTSChangeWithTimeout(long timeout)
 {
 	FN_TRACE( __FUNCTION__ );
 	bool ret = true;
-#ifndef INTELCE
 	gint64 currentPTS = GetVideoPTS();			/* Gets the currentPTS from the 'video-pts' property of the element */
 	if (currentPTS != 0)
 	{
@@ -4201,7 +4010,6 @@ bool AAMPGstPlayer::CheckForPTSChangeWithTimeout(long timeout)
 		AAMPLOG_WARN("AAMPGstPlayer: video-pts parsed is: %" G_GINT64_FORMAT "\n",
 			currentPTS);
 	}
-#endif
 	return ret;
 }
 
@@ -4264,12 +4072,11 @@ bool AAMPGstPlayer::IsCacheEmpty(MediaType mediaType)
 			// We're seeing this logged frequently during live linear playback, despite no user-facing problem.
 			AAMPLOG_TRACE("AAMPGstPlayer::Cache level empty");
 			if (privateContext->stream[eMEDIATYPE_VIDEO].bufferUnderrun == true ||
-					privateContext->stream[eMEDIATYPE_AUDIO].bufferUnderrun == true)				/* Interpret bufferUnderun as cachelevel being empty */
+				privateContext->stream[eMEDIATYPE_AUDIO].bufferUnderrun == true)				/* Interpret bufferUnderun as cachelevel being empty */
 			{
 				AAMPLOG_WARN("AAMPGstPlayer::Received buffer underrun signal for video(%d) or audio(%d) previously",privateContext->stream[eMEDIATYPE_VIDEO].bufferUnderrun,
-					privateContext->stream[eMEDIATYPE_AUDIO].bufferUnderrun);
+							 privateContext->stream[eMEDIATYPE_AUDIO].bufferUnderrun);
 			}
-#ifndef INTELCE
 			else
 			{
 				bool ptsChanged = CheckForPTSChangeWithTimeout(AAMP_MIN_PTS_UPDATE_INTERVAL);
@@ -4277,14 +4084,13 @@ bool AAMPGstPlayer::IsCacheEmpty(MediaType mediaType)
 				{
 					//PTS hasn't changed for the timeout value
 					AAMPLOG_WARN("AAMPGstPlayer: Appsrc cache is empty and PTS hasn't been updated for more than %dms and ret(%d)",
-									AAMP_MIN_PTS_UPDATE_INTERVAL, ret);
+								 AAMP_MIN_PTS_UPDATE_INTERVAL, ret);
 				}
 				else
 				{
 					ret = false;		/* Pts changing, conclude that cache is not empty */
 				}
 			}
-#endif
 		}
 	}
 	return ret;
@@ -4460,16 +4266,16 @@ void AAMPGstPlayer::InitializeAAMPGstreamerPlugins(AampLogManager *mLogObj)
 		gst_plugin_feature_set_rank(pluginFeature, GST_RANK_PRIMARY + 111);
 		gst_object_unref(pluginFeature);
 	}
-#ifndef INTELCE
-	for (int i=0; i<PLUGINS_TO_LOWER_RANK_MAX; i++) {
+	for (int i=0; i<PLUGINS_TO_LOWER_RANK_MAX; i++)
+	{
 		pluginFeature = gst_registry_lookup_feature(registry, plugins_to_lower_rank[i]);
-		if(pluginFeature) {
+		if(pluginFeature)
+		{
 			gst_plugin_feature_set_rank(pluginFeature, GST_RANK_PRIMARY - 1);
 			gst_object_unref(pluginFeature);
 			AAMPLOG_WARN("AAMPGstPlayer: %s plugin priority set to GST_RANK_PRIMARY  - 1\n", plugins_to_lower_rank[i]);
 		}
 	}
-#endif
 #endif
 }
 
@@ -4541,7 +4347,7 @@ void AAMPGstPlayer::DumpDiagnostics()
 	AAMPLOG_WARN("video_dec %p audio_dec %p video_sink %p audio_sink %p numberOfVideoBuffersSent %d",
 			privateContext->video_dec, privateContext->audio_dec, privateContext->video_sink,
 			privateContext->audio_sink, privateContext->numberOfVideoBuffersSent);
-#ifndef INTELCE
+#ifdef BRCM
 	DumpFile("/proc/brcm/transport");
 	DumpFile("/proc/brcm/video_decoder");
 	DumpFile("/proc/brcm/audio");
@@ -4606,7 +4412,7 @@ void AAMPGstPlayer::StopBuffering(bool forceStop)
 	if (ISCONFIGSET(eAAMPConfig_ReportBufferEvent) && privateContext->video_dec && aamp->GetBufUnderFlowStatus())
 	{
 		bool stopBuffering = forceStop;
-#if ( !defined(INTELCE) && !defined(RPI) && !defined(__APPLE__) )
+#if ( !defined(RPI) && !defined(__APPLE__) )
 		int frames = -1;
 	        g_object_get(privateContext->video_dec,"queued_frames",(uint*)&frames,NULL);
 	        if (frames != -1)
@@ -4619,7 +4425,7 @@ void AAMPGstPlayer::StopBuffering(bool forceStop)
 
 		if (stopBuffering)
 		{
-#if ( !defined(INTELCE) && !defined(RPI) && !defined(__APPLE__) )
+#if ( !defined(RPI) && !defined(__APPLE__) )
 			AAMPLOG_WARN("Enough data available to stop buffering, frames %d !", frames);
 #endif
 			GstState current, pending;
@@ -4656,7 +4462,7 @@ void AAMPGstPlayer::StopBuffering(bool forceStop)
 			static int bufferLogCount = 0;
 			if (0 == (bufferLogCount++ % 10) )
 			{
-#if ( !defined(INTELCE) && !defined(RPI) && !defined(__APPLE__) )
+#if ( !defined(RPI) && !defined(__APPLE__) )
 				AAMPLOG_WARN("Not enough data available to stop buffering, frames %d !", frames);
 #endif
 			}
