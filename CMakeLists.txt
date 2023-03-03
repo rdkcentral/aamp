@@ -108,6 +108,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     pkg_check_modules(GLIB REQUIRED GLib-2.0)
     include_directories(${GLIB_INCLUDE_DIRS})
     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DCONTENT_4K_SUPPORTED")
+
+    # XCode build flags. Even when using CLANG, the GCC name is required to enable the check
+    set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_UNUSED_FUNCTION "YES")
+    set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_UNUSED_VARIABLE "YES")
 else()
     set(USE_MAC_FOR_RANDOM_GEN "-DUSE_MAC_FOR_RANDOM_GEN")
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
