@@ -157,7 +157,6 @@ typedef enum
 	eAAMPConfig_MatchBaseUrl,						/**< Enable host of main url will be matched with host of base url*/
 	eAAMPConfig_WifiCurlHeader,
 	eAAMPConfig_EnableSeekRange,						/**< Enable seekable range reporting via progress events */
-	eAAMPConfig_EnableLiveLatencyCorrection,            /**< Enable the live latency (drift) correction by adjusting the playback speed */
 	eAAMPConfig_DashParallelFragDownload,					/**< Enable dash fragment parallel download*/
 	eAAMPConfig_PersistentBitRateOverSeek,					/**< ABR profile persistence during Seek/Trickplay/Audio switching*/
 	eAAMPConfig_SetLicenseCaching,						/**< License caching*/
@@ -287,7 +286,6 @@ typedef enum
 	eAAMPConfig_ReportProgressInterval,					/**< Interval of progress reporting*/
 	eAAMPConfig_PlaybackOffset,						/**< playback offset value in seconds*/
 	eAAMPConfig_LiveOffset, 						/**< Current LIVE offset*/
-	eAAMPConfig_LiveOffsetDriftCorrectionInterval,  /**< Config to ovverride the allowed live offset drift **/
 	eAAMPConfig_LiveOffset4K,						/**< Live offset for 4K content;*/
 	eAAMPConfig_CDVRLiveOffset, 						/**< CDVR LIVE offset*/
 	eAAMPConfig_DoubleMaxValue,

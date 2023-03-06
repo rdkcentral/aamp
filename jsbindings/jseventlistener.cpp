@@ -126,10 +126,6 @@ public:
 		prop = JSStringCreateWithUTF8CString("timecode");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getSEITimeCode()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
-
-		prop = JSStringCreateWithUTF8CString("liveLatency");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getLiveLatency()), kJSPropertyAttributeReadOnly, NULL);
-		JSStringRelease(prop);
 	}
 };
 

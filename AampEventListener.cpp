@@ -69,7 +69,6 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 			event.data.progress.videoPTS = ev->getPTS();
 			event.data.progress.videoBufferedMiliseconds = ev->getBufferedDuration();
 			event.data.progress.timecode = ev->getSEITimeCode();
-			event.data.progress.liveLatency = ev->getLiveLatency();
 			break;
 		}
 		case AAMP_EVENT_CC_HANDLE_RECEIVED:

@@ -319,6 +319,13 @@ public:
          * @param[in] forceStop - true to force end buffering
          */
 	void StopBuffering(bool forceStop);
+	/**
+         * @fn AdjustPlayBackRate
+         * @param[in] position playback seek position
+         * @param[in] rate playback rate
+         * @return true if playrate adjusted
+         */
+	bool AdjustPlayBackRate(double position, double rate);
 
 	/**
 	 * @fn SetPlayBackRate
@@ -396,12 +403,6 @@ public:
     	 *
      	 */
 	std::string GetVideoRectangle();
-	
-	/**
-         * @fn to check MS2V12Supported or not
-         *
-         */
-    static bool IsMS2V12Supported();
 
 private:
 	/**

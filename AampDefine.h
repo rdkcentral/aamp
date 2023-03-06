@@ -78,7 +78,6 @@
 #define DEFAULT_BITRATE_OFFSET_FOR_DOWNLOAD 500000		/**< Offset in bandwidth window for checking buffer download expiry */
 #define DEFAULT_INIT_BITRATE_4K 13000000            		/**< Initial bitrate for 4K playback: 13mb ie, 3/4 profile */
 #define AAMP_LIVE_OFFSET 15             			/**< Live offset in seconds */
-#define AAMP_DEFAULT_LIVE_OFFSET_DRIFT (1)          /**< Default value of allowed live offset drift **/
 #define AAMP_DEFAULT_PLAYBACK_OFFSET -99999            		/**< default 'unknown' offset value */
 #define AAMP_CDVR_LIVE_OFFSET 30        			/**< Live offset in seconds for CDVR hot recording */
 #define MIN_DASH_DRM_SESSIONS 3
@@ -143,11 +142,7 @@
 #define DEFAULT_TARGET_LOW_LATENCY			6					/**< Target Default Latency */
 #define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.90f					/**< min Rate correction speed */
 #define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.10f					/**< max Rate correction speed */
-#ifdef AMLOGIC
-#define DEFAULT_NORMAL_RATE_CORRECTION_SPEED  1.000001f	/**< Live Catchup Normal play rate adjusted to 1.001 in Amlogic */
-#else
-#define DEFAULT_NORMAL_RATE_CORRECTION_SPEED  1.00f	   	/**< Live Catchup Normal play rate adjusted to 1 for others */
-#endif
+#define AAMP_NORMAL_LL_PLAY_RATE 				1.01f					/**< LL Normal play rate adjusted to 1.01 */
 #define DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK	20					/**< Default cached fragement chunks per track */
 #define DEFAULT_ABR_CHUNK_CACHE_LENGTH			10					/**< Default ABR chunk cache length */
 #define DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE		(DEFAULT_AAMP_ABR_THRESHOLD_SIZE)	/**< aamp abr Chunk threshold size */

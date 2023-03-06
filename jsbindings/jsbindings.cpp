@@ -795,10 +795,6 @@ public:
 		name = JSStringCreateWithUTF8CString("timecode");
 		JSObjectSetProperty(context, eventObj, name, aamp_CStringToJSValue(context, evt->getSEITimeCode()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
-
-		name = JSStringCreateWithUTF8CString("liveLatency");
-		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getLiveLatency()), kJSPropertyAttributeReadOnly, NULL);
-		JSStringRelease(name);
 	}
 };
 

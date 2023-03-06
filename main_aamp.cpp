@@ -785,13 +785,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->StopDownloads();
 				retValue = aamp->mStreamSink->Pause(true, false);
 				aamp->pipeline_paused = true;
-				if(aamp->GetLLDashServiceData()->lowLatencyMode)
-				{
-					// PAUSED to PLAY without tune, LLD rate correction is disabled to keep position
-					AAMPLOG_INFO("LL-Dash speed correction disabled after Pause");
-					aamp->SetLLDashAdjustSpeed(false);
-				}
-				aamp->mDisableRateCorrection = true;
 			}
 		}
 		else

@@ -98,7 +98,6 @@ static AampConfigLookupEntry ConfigLookUpTable[] =
 	{"cdvrLiveOffset",eAAMPConfig_CDVRLiveOffset,true,{.dMinValue = 0},{.dMaxValue=50}},
 	{"liveOffset",eAAMPConfig_LiveOffset,true,{.dMinValue = 0},{.dMaxValue=50}}, //liveOffset by user
 	{"liveOffset4K",eAAMPConfig_LiveOffset4K,true,{.dMinValue = 0},{.dMaxValue=50}}, //liveOffset for 4K by user
-	{"liveOffsetDriftCorrectionInterval",eAAMPConfig_LiveOffsetDriftCorrectionInterval,true,{.dMinValue = 0},{.dMaxValue=50}}, //liveOffset by user
 	{"disablePlaylistIndexEvent",eAAMPConfig_DisablePlaylistIndexEvent,false,-1,-1},		// Complete
 	{"enableSubscribedTags",eAAMPConfig_EnableSubscribedTags,false,-1,-1},			// Complete
 	{"networkTimeout",eAAMPConfig_NetworkTimeout,true,{.dMinValue = -1},{.dMaxValue=-1}},
@@ -211,7 +210,6 @@ static AampConfigLookupEntry ConfigLookUpTable[] =
 	{"asyncTune",eAAMPConfig_AsyncTune,true,-1,-1},
 	{"initRampdownLimit",eAAMPConfig_InitRampDownLimit,false,{.iMinValue=-1},{.iMaxValue=-1}},
 	{"enableSeekableRange",eAAMPConfig_EnableSeekRange,false,-1,-1},
-	{"enableLiveLatencyCorrection",eAAMPConfig_EnableLiveLatencyCorrection,true,-1,-1},
 	{"maxTimeoutForSourceSetup",eAAMPConfig_SourceSetupTimeout,false,{.iMinValue=-1},{.iMaxValue=-1}},
 	{"seekMidFragment",eAAMPConfig_MidFragmentSeek,false,-1,-1},
 	{"wifiCurlHeader",eAAMPConfig_WifiCurlHeader,false,-1,-1},
@@ -431,7 +429,6 @@ void AampConfig::Initialize()
 	bAampCfgValue[eAAMPConfig_EnableLinearSimulator].value			=	false;
 	bAampCfgValue[eAAMPConfig_RetuneForUnpairDiscontinuity].value		=	true;
 	bAampCfgValue[eAAMPConfig_EnableSeekRange].value			=	false;
-	bAampCfgValue[eAAMPConfig_EnableLiveLatencyCorrection].value =	false;
 	bAampCfgValue[eAAMPConfig_DashParallelFragDownload].value		=	true;
 	bAampCfgValue[eAAMPConfig_PersistentBitRateOverSeek].value		=	false;
 	bAampCfgValue[eAAMPConfig_SetLicenseCaching].value			=	true;
@@ -472,7 +469,7 @@ void AampConfig::Initialize()
 	bAampCfgValue[eAAMPConfig_InterruptHandling].value			=	false;
 	bAampCfgValue[eAAMPConfig_EnableLowLatencyDash].value			=	true;
 	bAampCfgValue[eAAMPConfig_DisableLowLatencyABR].value		    	=	true;
-#if (defined(REALTEKCE) || defined(AMLOGIC) || defined(BRCM))
+#if defined(REALTEKCE)
 	bAampCfgValue[eAAMPConfig_EnableLowLatencyCorrection].value		=	true;
 #else
 	bAampCfgValue[eAAMPConfig_EnableLowLatencyCorrection].value		=	false;
@@ -577,7 +574,6 @@ void AampConfig::Initialize()
 	dAampCfgValue[eAAMPConfig_ReportProgressInterval-eAAMPConfig_DoubleStartValue].value	=	DEFAULT_REPORT_PROGRESS_INTERVAL;
 	dAampCfgValue[eAAMPConfig_LiveOffset-eAAMPConfig_DoubleStartValue].value		=	AAMP_LIVE_OFFSET;
 	dAampCfgValue[eAAMPConfig_LiveOffset4K-eAAMPConfig_DoubleStartValue].value		=	AAMP_LIVE_OFFSET;
-	dAampCfgValue[eAAMPConfig_LiveOffsetDriftCorrectionInterval-eAAMPConfig_DoubleStartValue].value	=	AAMP_DEFAULT_LIVE_OFFSET_DRIFT;
 	dAampCfgValue[eAAMPConfig_CDVRLiveOffset-eAAMPConfig_DoubleStartValue].value		=	AAMP_CDVR_LIVE_OFFSET;
 
 	///////////////// Following for String type config ////////////////////////////
@@ -635,14 +631,6 @@ void AampConfig::ReadDeviceCapability()
 		bAampCfgValue[eAAMPConfig_DisableAC3].value		=	false;
 		logprintf("AC3 not supported. DisableAC3 Audio");
 	}
-#if defined(BRCM)
-	if(!AAMPGstPlayer::IsMS2V12Supported())
-	{
-		bAampCfgValue[eAAMPConfig_EnableLowLatencyCorrection].value =  false;           
-		/**If platform does not have the support override all the configuration other than dev config**/
-        SetConfigValue(AAMP_TUNE_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, false);
-	}
-#endif
 }
 
 
