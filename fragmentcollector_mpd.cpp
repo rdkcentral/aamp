@@ -2993,7 +2993,7 @@ static void AddAttributesToNode(xmlTextReaderPtr *reader, Node *node)
 AAMPStatusType StreamAbstractionAAMP_MPD::GetMpdFromManifest(const AampGrowableBuffer &manifest, MPD * &mpd, std::string manifestUrl, bool init)
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
-	AAMPStatusType ret = eAAMPSTATUS_GENERIC_ERROR;
+	AAMPStatusType ret = eAAMPSTATUS_MANIFEST_PARSE_ERROR;
 	xmlTextReaderPtr reader = xmlReaderForMemory( (char *)manifest.GetPtr(), (int) manifest.GetLen(), NULL, NULL, 0);
 	if (reader != NULL)
 	{
@@ -3045,14 +3045,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMpdFromManifest(const AampGrowableB
 				}
 				SAFE_DELETE(root);
 			}
-			else if (root == NULL)
-			{
-				ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_PARSE_ERROR;
-			}
-		}
-		else if (xmlTextReaderRead(reader) == -1)
-		{
-			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_PARSE_ERROR;
 		}
 		xmlFreeTextReader(reader);
 	}
