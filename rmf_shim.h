@@ -76,10 +76,6 @@ class StreamAbstractionAAMP_RMF : public StreamAbstractionAAMP
 	void onPlayerStatusHandler(const JsonObject& parameters);
 	void onPlayerErrorHandler(const JsonObject& parameters);
 	/**
-	 *   @fn DumpProfiles
-	 */
-	void DumpProfiles(void) override;
-	/**
 	 *   @fn Start
 	 */
 	void Start() override;

@@ -390,12 +390,6 @@ void StreamAbstractionAAMP_RMF::EnableContentRestrictions()
 	//Not supported.
 }
 
-/**
- * @brief Stub implementation
- */
-void StreamAbstractionAAMP_RMF::DumpProfiles(void)
-{ // STUB
-}
 
 /**
  * @brief Get output format of stream.
