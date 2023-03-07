@@ -135,7 +135,22 @@ void SmokeTest::vodTune(const char *stream)
 	
 	mAampPlayer.mPlayerInstanceAamp->Tune(url);
 
-	initialTime = time(NULL);
+	initialTime = time(NULL);  // seconds since the start of epoch
+	
+	sleep(30);
+	
+	// Advance to 1 minute before EOS
+	double durationSec = mAampPlayer.mPlayerInstanceAamp->GetPlaybackDuration();
+	double positionSec = mAampPlayer.mPlayerInstanceAamp->GetPlaybackPosition();
+	if (durationSec > (double)(5*60)) // if <= 5 minute duration, just play it out
+	{
+		double targetPositionSec = durationSec - (double)(1*60);  // 1 min before EOS
+		if (positionSec < targetPositionSec)
+		{
+			printf("%s:%d: seek to %f of %f\n",__FUNCTION__,__LINE__, targetPositionSec, durationSec);
+			mAampPlayer.mPlayerInstanceAamp->Seek(targetPositionSec);
+		}
+	}
 
 	while(1)
 	{
@@ -157,9 +172,10 @@ void SmokeTest::vodTune(const char *stream)
 			break;
 		}
 
-		currentTime = time(NULL);
-		if((currentTime - initialTime) > 1200)
+		currentTime = time(NULL);               // seconds since the start of epoch
+		if((currentTime - initialTime) > 10*60) // give up at 10 minutes
 		{
+			printf("%s:%d: Giving up on test -- exceeded 10 minutes.\n",__FUNCTION__,__LINE__);
 			break;
 		}
 	}
@@ -581,12 +597,14 @@ TEST(hlsTuneTest, RewindState)
 /* To test live pause state is true*/
 TEST(liveTuneTest, PauseState)
 {
+	GTEST_SKIP() << "URL https://ll-usw2.akamaized.net/live/disk/sky/DASH-LL-sky.toml/sky.mpd is 404";
 	EXPECT_EQ(SmokeTest::livePauseState,true);
 }
 
 /* To test live play state is true*/
 TEST(liveTuneTest, PlayState)
 {
+	GTEST_SKIP() << "URL https://ll-usw2.akamaized.net/live/disk/sky/DASH-LL-sky.toml/sky.mpd is 404";
 	EXPECT_EQ(SmokeTest::livePlayState,true);
 }
 
