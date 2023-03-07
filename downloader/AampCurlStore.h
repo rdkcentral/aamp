@@ -25,6 +25,7 @@
 #ifndef AAMPCURLSTORE_H
 #define AAMPCURLSTORE_H
 
+#include "AampCurlDefine.h"
 #include "priv_aamp.h"
 #include <map>
 #include <iterator>

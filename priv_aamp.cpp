@@ -56,7 +56,7 @@
 #include "aampoutputprotection.h"
 #endif
 
-#include "AampCurlStore.h"
+#include "downloader/AampCurlStore.h"
 
 #ifdef IARM_MGR
 #include "host.hpp"
@@ -75,6 +75,7 @@
 #include <fcntl.h>
 #include <uuid/uuid.h>
 #include <string.h>
+
 
 #define LOCAL_HOST_IP       "127.0.0.1"
 #define AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (20*1000LL)
@@ -609,36 +610,6 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 
 // End of helper functions for loading configuration
 
-static time_t convertTimeToEpoch(const char* theTime, const char* format = "%Y-%m-%dT%H:%M:%S.%f%Z")
-{
-	std::tm tmTime;
-	memset(&tmTime, 0, sizeof(tmTime));
-	strptime(theTime, format, &tmTime);
-	return mktime(&tmTime);
-}
-
-// Curl callback functions
-
-/**
- * @brief write callback to be used by CURL
- * @param ptr pointer to buffer containing the data
- * @param size size of the buffer
- * @param nmemb number of bytes
- * @param userdata CurlCallbackContext pointer
- * @retval size consumed or 0 if interrupted
- */
-static size_t SyncTime_write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
-{
-	size_t ret = 0;
-	CurlCbContextSyncTime *context = (CurlCbContextSyncTime *)userdata;
-	pthread_mutex_lock(&context->aamp->mLock);
-	size_t numBytesForBlock = size*nmemb;
-	context->buffer->AppendBytes( ptr, numBytesForBlock);
-	ret = numBytesForBlock;
-	pthread_mutex_unlock(&context->aamp->mLock);
-	return ret;
-}
-
 /**
  * @brief HandleSSLWriteCallback - Handle write callback from CURL
  */
@@ -690,23 +661,6 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	}
 	pthread_mutex_unlock(&context->aamp->mLock);
 
-	return ret;
-}
-/**
- * @brief write callback to be used by CURL
- * @param ptr pointer to buffer containing the data
- * @param size size of the buffer
- * @param nmemb number of bytes
- * @param userdata CurlCallbackContext pointer
- * @retval size consumed or 0 if interrupted
- */
-static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
-{
-	size_t ret = 0;
-	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
-	if(!context) return ret;
-
-	ret = context->aamp->HandleSSLWriteCallback( ptr, size, nmemb, userdata);
 	return ret;
 }
 
@@ -1130,27 +1084,6 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 	return rc;
 }
 
-/**
- * @brief
- * @param clientp app-specific as optionally set with CURLOPT_PROGRESSDATA
- * @param dltotal total bytes expected to download
- * @param dlnow downloaded bytes so far
- * @param ultotal total bytes expected to upload
- * @param ulnow uploaded bytes so far
- * @retval
- */
-static int progress_callback(
-	void *clientp, // app-specific as optionally set with CURLOPT_PROGRESSDATA
-	double dltotal, // total bytes expected to download
-	double dlnow, // downloaded bytes so far
-	double ultotal, // total bytes expected to upload
-	double ulnow // uploaded bytes so far
-	)
-{
-	CurlProgressCbContext *context = (CurlProgressCbContext *)clientp;
-
-	return context->aamp->HandleSSLProgressCallback ( clientp, dltotal, dlnow, ultotal, ulnow );
-}
 
 // End of curl callback functions
 
@@ -1259,7 +1192,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, vidTimeScale(0)
 	, audTimeScale(0)
 	, speedCache {}
-	, mTime (0)
 	, mCurrentLatency(0)
 	, mLiveOffsetAppRequest(false)
 	, bLowLatencyStartABR(false)
@@ -2505,6 +2437,7 @@ bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBu
 	return true;
 }
 
+
 /**
  * @brief Handles errors and sends events to application if required.
  * For download failures, use SendDownloadErrorEvent instead.
@@ -2520,8 +2453,13 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 			// Send a TSB delete request when player is not tuned successfully.
 			// If player is once tuned, retune happens with same content and player can reuse same TSB.
 			std::string remoteUrl = "127.0.0.1:9080/tsb";
-			int http_error = -1;
-			ProcessCustomCurlRequest(remoteUrl, NULL, &http_error, eCURL_DELETE);
+			AampCurlDownloader T1;
+			DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
+			DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
+			inpData->bIgnoreResponseHeader	= true;
+			inpData->eRequestType = eCURL_DELETE;
+			T1.Initialize(inpData);
+			T1.Download(remoteUrl, respData);
 		}
 		sendErrorEvent = true;
 		mState = eSTATE_ERROR;
@@ -3556,86 +3494,6 @@ const char* PrivateInstanceAAMP::MediaTypeString(MediaType fileType)
 }
 
 /**
- * @brief Download a file from the server
- */
-bool PrivateInstanceAAMP::GetNetworkTime(enum UtcTiming timingType, const std::string& remoteUrl, int *http_error, CurlRequest request)
-{
-	bool ret = false;
-
-	CURLcode res;
-	int http_code = -1;
-
-	if(eCURL_GET != request)
-		return ret;
-
-	CURL *curl = curl_easy_init();
-	if(curl)
-	{
-		AAMPLOG_TRACE("%s, %d", remoteUrl.c_str(), request);
-		AampGrowableBuffer buffer;
-
-		CurlCbContextSyncTime context(this, &buffer);
-
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOSIGNAL, 1);
-		CURL_EASY_SETOPT_FUNC(curl, CURLOPT_WRITEFUNCTION, SyncTime_write_callback);
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOPROGRESS, 1);
-		CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, &context);
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTPGET, 1);
-
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_FOLLOWLOCATION, 1);
-		if(!ISCONFIGSET_PRIV(eAAMPConfig_SslVerifyPeer)){
-			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 0);
-		}
-		else {
-			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
-			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 1);
-		}
-
-		CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
-
-		res = curl_easy_perform(curl);
-		if (res == CURLE_OK)
-		{
-			http_code = GetCurlResponseCode(curl);
-			if ((http_code == 204) || (http_code == 200))
-			{
-				if(buffer.GetLen() )
-				{
-					//2021-06-15T18:11:39Z - UTC Zulu
-					//2021-06-15T19:03:48.795Z - <ProducerReferenceTime> WallClk UTC Zulu
-					const char* format = "%Y-%m-%dT%H:%M:%SZ";
-					mTime = convertTimeToEpoch((const char*)buffer.GetPtr(), format);
-					AAMPLOG_WARN("ProducerReferenceTime Wallclock (Epoch): [%ld]", mTime);
-
-					buffer.Free();
-
-					ret = true;
-				}
-			}
-			else
-			{
-				AAMPLOG_ERR(" Returned [%d]", http_code);
-			}
-		}
-		else
-		{
-			AAMPLOG_ERR("Failed to perform curl request, result:%d", res);
-		}
-
-		if( http_error )
-		{
-			*http_error = http_code;
-		}
-
-		curl_easy_cleanup(curl);
-	}
-
-	return ret;
-}
-
-/**
  * @brief Download a file from the CDN
  */
 bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl,
@@ -4470,11 +4328,9 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
  *
  * @return string tsbSessionEnd data from fog
  */
-char * PrivateInstanceAAMP::GetOnVideoEndSessionStatData()
+void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 {
 	std::string remoteUrl = "127.0.0.1:9080/sessionstat";
-	int http_error = -1;
-	char* ret = NULL;
 	if(!mTsbRecordingId.empty())
 	{
 		/* Request session statistics for current recording ID
@@ -4484,118 +4340,45 @@ char * PrivateInstanceAAMP::GetOnVideoEndSessionStatData()
 		 */
 		remoteUrl.append("/");
 		remoteUrl.append(mTsbRecordingId);
-		AampGrowableBuffer data;
-		if(ProcessCustomCurlRequest(remoteUrl, &data, &http_error))
+		AampCurlDownloader T1;
+		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
+		DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
+		inpData->bIgnoreResponseHeader	= true;
+		inpData->eRequestType = eCURL_GET;
+		inpData->proxyName        = GetNetworkProxy();
+		T1.Initialize(inpData);
+		T1.Download(remoteUrl, respData);
+		
+		if(respData->iHttpRetValue == 200)
 		{
-			// succesfully requested
-			data.AppendNulTerminator(); // DELIA-60690
-			AAMPLOG_INFO("curl request %s success", remoteUrl.c_str());
-			cJSON *root = cJSON_Parse(data.GetPtr() );
-			if (root == NULL)
+			std::string dataStr =  std::string( respData->mDownloadData.begin(), respData->mDownloadData.end());
+			if(dataStr.size())
 			{
-				const char *error_ptr = cJSON_GetErrorPtr();
-				if (error_ptr != NULL)
+				cJSON *root = cJSON_Parse(dataStr.c_str());
+				if (root == NULL)
 				{
-					AAMPLOG_ERR("Invalid Json format: %s", error_ptr);
+					const char *error_ptr = cJSON_GetErrorPtr();
+					if (error_ptr != NULL)
+					{
+						AAMPLOG_ERR("Invalid Json format: %s", error_ptr);
+					}
+				}
+				else
+				{
+					data = cJSON_PrintUnformatted(root);
+					cJSON_Delete(root);
 				}
 			}
-			else
-			{
-				ret = cJSON_PrintUnformatted(root);
-				cJSON_Delete(root);
-			}
-
 		}
 		else
 		{
 			// Failure in request
-			AAMPLOG_ERR("curl request %s failed[%d]", remoteUrl.c_str(), http_error);
+			AAMPLOG_ERR("curl request %s failed[%d]", remoteUrl.c_str(), respData->iHttpRetValue);
 		}
-
-		data.Free();
 	}
-
-	return ret;
+	return ;
 }
 
-/**
- * @brief Perform custom curl request
- */
-bool PrivateInstanceAAMP::ProcessCustomCurlRequest(std::string& remoteUrl, AampGrowableBuffer* buffer, int *http_error, CurlRequest request, std::string pData)
-{
-	bool ret = false;
-	CURLcode res;
-	int http_code = -1;
-	CURL *curl = curl_easy_init();
-	if(curl)
-	{
-		AAMPLOG_INFO("%s, %d", remoteUrl.c_str(), request);
-
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_FOLLOWLOCATION, 1L);
-
-		if(!ISCONFIGSET_PRIV(eAAMPConfig_SslVerifyPeer)){
-			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 0);
-		}
-		else {
-			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
-			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 1);
-		}
-		CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
-
-		if(eCURL_GET == request)
-		{
-			assert( buffer );
-			CurlCallbackContext context(this, buffer);
-			CurlProgressCbContext progressCtx(this, NOW_STEADY_TS_MS);
-			CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOSIGNAL, 1);
-			CURL_EASY_SETOPT_FUNC(curl, CURLOPT_WRITEFUNCTION, write_callback);
-			CURL_EASY_SETOPT_FUNC(curl, CURLOPT_PROGRESSFUNCTION, progress_callback);
-			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
-			CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOPROGRESS, 0);
-			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, &context);
-			CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTPGET, 1);
-			res = curl_easy_perform(curl); // DELIA-57728 - avoid out of scope use of progressCtx
-		}
-		else if(eCURL_DELETE == request)
-		{
-			CURL_EASY_SETOPT_STRING(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
-			res = curl_easy_perform(curl);
-		}
-		else if(eCURL_POST == request)
-		{
-			CURL_EASY_SETOPT_LONG(curl, CURLOPT_POSTFIELDSIZE, pData.size());
-			CURL_EASY_SETOPT_STRING(curl, CURLOPT_POSTFIELDS,pData.c_str());
-			res = curl_easy_perform(curl);
-		}
-
-		if (res == CURLE_OK)
-		{
-			http_code = GetCurlResponseCode(curl);
-			if ((http_code == 204) || (http_code == 200))
-			{
-				ret = true;
-			}
-			else
-			{
-				AAMPLOG_ERR("Returned [%d]", http_code);
-			}
-		}
-		else
-		{
-			AAMPLOG_ERR("Failed to perform curl request, result:%d", res);
-		}
-
-		if( http_error )
-		{
-			*http_error = http_code;
-		}
-
-		curl_easy_cleanup(curl);
-	}
-	return ret;
-}
 
 /**
  * @brief Terminate the stream
@@ -7082,8 +6865,14 @@ void PrivateInstanceAAMP::Stop()
 	if(IsTSBSupported())
 	{
 		std::string remoteUrl = "127.0.0.1:9080/tsb";
-		int http_error = -1;
-		ProcessCustomCurlRequest(remoteUrl, NULL, &http_error, eCURL_DELETE);
+		AampCurlDownloader T1;
+		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
+		DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
+		inpData->bIgnoreResponseHeader	= true;
+		inpData->eRequestType = eCURL_DELETE;
+		inpData->proxyName        = GetNetworkProxy();
+		T1.Initialize(inpData);
+		T1.Download(remoteUrl, respData );
 	}
 	UnblockWaitForDiscontinuityProcessToComplete();
 	StopRateCorrectionWokerthread();
@@ -7868,13 +7657,14 @@ bool PrivateInstanceAAMP::SendVideoEndEvent()
 		{
 			if(mTSBEnabled)
 			{
-				char* data = GetOnVideoEndSessionStatData();
-				if(data)
+				std::string videoEndData;
+				GetOnVideoEndSessionStatData(videoEndData);
+				if(videoEndData.size())
 				{
-					AAMPLOG_INFO("TsbSessionEnd:%s", data);
-					strVideoEndJson = mVideoEnd->ToJsonString(data);
-					cJSON_free( data );
-					data = NULL;
+					AAMPLOG_INFO("TsbSessionEnd:%s", videoEndData.c_str());
+					strVideoEndJson = mVideoEnd->ToJsonString(videoEndData.c_str());
+					//cJSON_free( data );
+					//data = NULL;
 				}
 			}
 			else
@@ -11625,23 +11415,6 @@ void PrivateInstanceAAMP::SetLowLatencyServiceConfigured(bool bConfig)
 {
 	bLowLatencyServiceConfigured = bConfig;
 }
-
-/**
- *  @brief Get Utc Time
- */
-time_t PrivateInstanceAAMP::GetUtcTime()
-{
-	return mTime;
-}
-
-/**
- *  @brief Set Utc Time
- */
-void PrivateInstanceAAMP::SetUtcTime(time_t time)
-{
-	this->mTime = time;
-}
-
 /**
  *  @brief Get Current Latency
  */
@@ -11945,9 +11718,16 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	jsonStr = jsondata.print_UnFormatted();
 	AAMPLOG_TRACE("%s", jsonStr.c_str());
 	std::string remoteUrl = "127.0.0.1:9080/playerconfig";
-	int http_error = -1;
-	ProcessCustomCurlRequest(remoteUrl, NULL, &http_error, eCURL_POST, jsonStr);
-	return http_error;
+	AampCurlDownloader T1;
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
+	inpData->bIgnoreResponseHeader	= true;
+	inpData->eRequestType = eCURL_POST;
+	inpData->postData	=	jsonStr;
+	T1.Initialize(inpData);
+	T1.Download(remoteUrl, respData);
+	
+	return respData->iHttpRetValue;
 }
 
 
@@ -12019,3 +11799,5 @@ void PrivateInstanceAAMP::UpdateMaxDRMSessions()
 		AAMPLOG_ERR("Discarded DRM session update as player is in state:%d", mState.load());
 	}
 }
+
+

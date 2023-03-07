@@ -2974,10 +2974,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMpdFromManifest(const AampGrowableB
 					{
 						aamp->ReportTimedMetadata(false);
 					}
+
 					if(mIsLiveManifest)
 					{
 						mHasServerUtcTime = FindServerUTCTime(root);
 					}
+
 					if(mIsFogTSB && ISCONFIGSET(eAAMPConfig_InterruptHandling))
 					{
 						FindPeriodGapsAndReport();
@@ -5832,24 +5834,23 @@ bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 					{
 						double currentTime = (double)aamp_GetCurrentTimeMS() / 1000;
 						int http_error = -1;
-						AampGrowableBuffer data;
-                                                std::string value = node->GetAttributeValue("value");
-
-						if(!strcasestr(value.c_str(), "http"))
+						std::string ServerUrl = node->GetAttributeValue("value");
+						if(!(ServerUrl.find("http") == 0))
 						{
-							std::string valueCopy = value;
-							aamp_ResolveURL(value, aamp->GetManifestUrl(), valueCopy.c_str(), ISCONFIGSET(eAAMPConfig_PropogateURIParam));
+							std::string valueCopy = ServerUrl;
+							aamp_ResolveURL(ServerUrl, aamp->GetManifestUrl(), valueCopy.c_str(), ISCONFIGSET(eAAMPConfig_PropogateURIParam));
 						}
-
-						if(aamp->ProcessCustomCurlRequest(value, &data, &http_error))
+						
+						mServerUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
+						if(mServerUtcTime > 0 )
 						{
-							mServerUtcTime = ISO8601DateTimeToUTCSeconds( data.GetPtr() );
 							mDeltaTime =  mServerUtcTime - currentTime;
-							data.AppendNulTerminator(); // DELIA-57728
-							AAMPLOG_TRACE("Time sync delta : %lf (%s)", mDeltaTime, data.GetPtr() );
 							hasServerUtcTime = true;
 						}
-						data.Free();
+						else
+						{
+							AAMPLOG_ERR("Failed to read timeServer [%s] RetCode[%d]",ServerUrl.c_str(),http_error);
+						}
 						break;
 					}
 				}
@@ -11849,7 +11850,7 @@ double StreamAbstractionAAMP_MPD::GetEncoderDisplayLatency()
 							strptime(wallClockTime.c_str(), format, &tmTime);
 							wTime = mktime(&tmTime);
 
-							AAMPLOG_TRACE("ProducerReferenceTime@wallClockTime [%ld] UTCTime [%ld]",wTime, aamp->GetUtcTime());
+							AAMPLOG_TRACE("ProducerReferenceTime@wallClockTime [%ld] UTCTime [%f]",wTime, mServerUtcTime);
 
 							/* Convert the time back to a string. */
 							strftime( out_buffer, 80, "That's %D (a %A), at %T",localtime (&wTime) );

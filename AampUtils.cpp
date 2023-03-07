@@ -26,7 +26,8 @@
 #include "_base64.h"
 #include "AampConfig.h"
 #include "AampConstants.h"
-#include "AampCurlStore.h"
+#include "downloader/AampCurlStore.h"
+#include "downloader/AampCurlDownloader.h"
 
 #include <sys/time.h>
 #include <string.h>
@@ -85,46 +86,6 @@ const FormatMap mVideoFormatMap[] =
 	{ "mpeg2v", FORMAT_VIDEO_ES_MPEG2 }//For testing.
 };
 #define AAMP_VIDEO_FORMAT_MAP_LEN ARRAY_SIZE(mVideoFormatMap)
-
-double aamp_CurlEasyGetinfoDouble( CURL *handle, CURLINFO info )
-{
-	double rc = 0.0;
-	if( curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
-	{
-		AAMPLOG_WARN( "aamp_CurlEasyGetinfoDouble failure" );
-	}
-	return rc;
-}
-
-int aamp_CurlEasyGetinfoInt( CURL *handle, CURLINFO info )
-{
-	int rc = 0;
-	if( curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
-	{
-		AAMPLOG_WARN( "aamp_CurlEasyGetinfoInt failure" );
-	}
-	return rc;
-}
-
-long aamp_CurlEasyGetinfoLong( CURL *handle, CURLINFO info )
-{
-	long rc = -1;
-	if( curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
-	{
-		AAMPLOG_WARN( "aamp_CurlEasyGetinfoLong failure" );
-	}
-	return rc;
-}
-
-char *aamp_CurlEasyGetinfoString( CURL *handle, CURLINFO info )
-{
-	char *rc = NULL;
-	if( curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
-	{
-		AAMPLOG_WARN( "aamp_CurlEasyGetinfoString failure" );
-	}
-	return rc;
-}
 
 /**
  * @brief Get current time from epoch is milliseconds
@@ -461,37 +422,31 @@ static size_t MyRpcWriteFunction( void *buffer, size_t size, size_t nmemb, void 
  */
 std::string aamp_PostJsonRPC( std::string id, std::string method, std::string params )
 {
+	std::string remoteUrl = "http://127.0.0.1:9998/jsonrpc";
+	AampCurlDownloader T1;
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
+	inpData->bIgnoreResponseHeader	= true;
+	inpData->eRequestType = eCURL_POST;
+	inpData->postData	=	"{\"jsonrpc\":\"2.0\",\"id\":"+id+",\"method\":\""+method+"\",\"params\":"+params+"}";
+	inpData->sCustomHeaders["Content-Type:"] = std::vector<std::string> {"application/json"};
+	T1.Initialize(inpData);
+	T1.Download(remoteUrl, respData);
+	
 	std::string response;
-	CURL *curlhandle= curl_easy_init();
-	if( curlhandle )
+	if( respData->curlRetValue == CURLE_OK )
 	{
-		CURL_EASY_SETOPT_STRING( curlhandle, CURLOPT_URL, "http://127.0.0.1:9998/jsonrpc" ); // local thunder
-		
-		struct curl_slist *headers = NULL;
-		headers = curl_slist_append( headers, "Content-Type: application/json" );
-		CURL_EASY_SETOPT_LIST(curlhandle, CURLOPT_HTTPHEADER, headers);    // set HEADER with content type
-		
-		std::string data = "{\"jsonrpc\":\"2.0\",\"id\":"+id+",\"method\":\""+method+"\",\"params\":"+params+"}";
-		AAMPLOG_WARN("JSONRPC data: %s\n", data.c_str() );
-		CURL_EASY_SETOPT_STRING(curlhandle, CURLOPT_POSTFIELDS, data.c_str() );    // set post data
-		
-		CURL_EASY_SETOPT_FUNC(curlhandle, CURLOPT_WRITEFUNCTION, MyRpcWriteFunction);    // update callback function
-		CURL_EASY_SETOPT_POINTER(curlhandle, CURLOPT_WRITEDATA, &response);  // and data
-		
-		CURLcode res = curl_easy_perform(curlhandle);
-		if( res == CURLE_OK )
-		{
-			int http_code = GetCurlResponseCode(curlhandle);
-			AAMPLOG_WARN("HTTP %d \n", http_code);
-		}
-		else
-		{
-			AAMPLOG_ERR("failed: %s", curl_easy_strerror(res));
-		}
-		curl_slist_free_all( headers );
-		curl_easy_cleanup(curlhandle);
+		AAMPLOG_WARN("JSONRPC data: %s", inpData->postData.c_str() );
+		AAMPLOG_WARN("HTTP %d", respData->iHttpRetValue);
+		response =  std::string( respData->mDownloadData.begin(), respData->mDownloadData.end());
 	}
-        return response;
+	else
+	{
+		AAMPLOG_ERR("failed: %d", respData->curlRetValue);
+	}
+
+	return response;
+	
 }
 
 
@@ -1140,6 +1095,58 @@ std::size_t GetPrintableThreadID( const std::thread &t )
 	return hasher( t.get_id() );
 }
 
+
+/**
+ * @brief Download a file from the server
+ */
+double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::string NetworkProxy)
+{
+	double retValue = 0;
+	AampCurlDownloader T1;
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
+	inpData->bIgnoreResponseHeader	= true;
+	inpData->eRequestType = eCURL_GET;
+	inpData->iStallTimeout = 2; // 2sec
+	inpData->iStartTimeout = 2; // 2sec
+	inpData->iDownloadTimeout = 3; // 3sec
+	inpData->proxyName 	  = NetworkProxy;
+	
+	T1.Initialize(inpData);
+	T1.Download(remoteUrl, respData);
+		
+	if (respData->curlRetValue == CURLE_OK)
+	{
+		if ((respData->iHttpRetValue == 204) || (respData->iHttpRetValue == 200))
+		{
+			std::string dataStr =  std::string( respData->mDownloadData.begin(), respData->mDownloadData.end());
+			if(dataStr.size())
+			{
+				//2021-06-15T18:11:39Z - UTC Zulu
+				//2021-06-15T19:03:48.795Z - <ProducerReferenceTime> WallClk UTC Zulu
+				//const char* format = "%Y-%m-%dT%H:%M:%SZ";
+				//mTime = convertTimeToEpoch((const char*)dataStr.c_str(), format);
+				retValue = ISO8601DateTimeToUTCSeconds((const char*)dataStr.c_str());
+				AAMPLOG_WARN("ProducerReferenceTime Wallclock (Epoch): [%f] TimeTaken[%f]", retValue, respData->downloadCompleteMetrics.total);
+			}
+		}
+		else
+		{
+			AAMPLOG_ERR("Http Error Returned [%d]", respData->iHttpRetValue);
+		}
+	}
+	else
+	{
+		AAMPLOG_ERR("Failed to perform curl request [%d]", respData->curlRetValue);
+	}
+	
+	if(http_error)
+	{
+		*http_error = respData->iHttpRetValue;
+	}
+	return retValue;
+	
+}
 /**
  * EOF
  */

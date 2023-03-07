@@ -31,7 +31,7 @@
 #include "priv_aamp.h"
 #include "main_aamp.h"
 #include <string>
-#include <curl/curl.h>
+#include "AampCurlDownloader.h"
 #include "AampDrmHelper.h"
 
 #ifdef USE_SECCLIENT
@@ -50,11 +50,12 @@ struct DrmSessionContext
 	std::vector<uint8_t> data;
 	pthread_mutex_t sessionMutex;
 	AampDrmSession * drmSession;
-
-	DrmSessionContext() : sessionMutex(PTHREAD_MUTEX_INITIALIZER), drmSession(NULL),data()
+	AampCurlDownloader mLicenseDownloader;
+	
+	DrmSessionContext() : sessionMutex(PTHREAD_MUTEX_INITIALIZER), drmSession(NULL),data(),mLicenseDownloader()
 	{
 	}
-	DrmSessionContext(const DrmSessionContext& other) : sessionMutex(other.sessionMutex), data(), drmSession()
+	DrmSessionContext(const DrmSessionContext& other) : sessionMutex(other.sessionMutex), data(), drmSession(), mLicenseDownloader()
 	{
 		// Releases memory allocated after destructing any of these objects
 		drmSession = other.drmSession;
@@ -131,11 +132,11 @@ private:
 	pthread_mutex_t accessTokenMutex;
 	pthread_mutex_t cachedKeyMutex;
 	pthread_mutex_t mDrmSessionLock;
-	bool curlSessionAbort;
 	bool licenseRequestAbort;
 	bool mEnableAccessAtrributes;
 	int mMaxDRMSessions;
 	std::vector<std::thread> mLicenseRenewalThreads;
+	AampCurlDownloader mAccessTokenConnector;
 #ifdef USE_SECMANAGER
 	SessionId mSessionId;
 	std::atomic<bool> mIsVideoOnMute;
@@ -238,7 +239,7 @@ public:
 	 *			customHeader ownership should be taken up by getLicense function
 	 *
 	 */
-	DrmData * getLicense(AampLicenseRequest &licRequest, int32_t *httpError, MediaType streamType, PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr eventHandle, bool isContentMetadataAvailable = false, std::string licenseProxy="");
+	DrmData * getLicense(AampLicenseRequest &licRequest, int32_t *httpError, MediaType streamType, PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr eventHandle,AampCurlDownloader *pLicenseDownloader,std::string licenseProxy="");
 	/**
 	 *  @fn		IsKeyIdProcessed
 	 *  @param[in]	keyIdArray - key Id extracted from pssh data
@@ -301,17 +302,6 @@ public:
 	 * @return session manager state.
 	 */
 	SessionMgrState getSessionMgrState();
-	/**
-	 * @fn		setCurlAbort
-	 * @param	isAbort bool flag to curl abort
-	 * @return	void.
-	 */
-	void setCurlAbort(bool isAbort);
-	/**
-	 * @fn  getCurlAbort
-	 * @return bool flag curlSessionAbort.
-	 */	
-	bool getCurlAbort(void);
 	/**
 	 * @fn		setLicenseRequestAbort
 	 * @param	isAbort bool flag to curl abort

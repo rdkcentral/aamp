@@ -38,7 +38,7 @@
 #include "AampSecManager.h"
 #endif
 
-#include "AampCurlStore.h"
+#include "downloader/AampCurlStore.h"
 
 //#define LOG_TRACE 1
 #define LICENCE_REQUEST_HEADER_ACCEPT "Accept:"
@@ -119,11 +119,12 @@ AampDRMSessionManager::AampDRMSessionManager(AampLogManager *logObj, int maxDrmS
 		cachedKeyIDs(NULL), accessToken(NULL),
 		accessTokenLen(0), sessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE), accessTokenMutex(PTHREAD_MUTEX_INITIALIZER),
 		cachedKeyMutex(PTHREAD_MUTEX_INITIALIZER)
-		,curlSessionAbort(false), mEnableAccessAtrributes(true)
+		,mEnableAccessAtrributes(true)
 		,mDrmSessionLock(), licenseRequestAbort(false)
 		,mMaxDRMSessions(maxDrmSessions)
 		,mLogObj(logObj)
 		,mLicenseRenewalThreads()
+		,mAccessTokenConnector()
 #ifdef USE_SECMANAGER
 		,mSessionId()
 		,mIsVideoOnMute(false)
@@ -185,6 +186,7 @@ void AampDRMSessionManager::clearSessionData()
 				AampSecManager::GetInstance()->ReleaseSession(drmSessionContexts[i].drmSession->getSessionId());
 			}
 #endif
+			drmSessionContexts[i].mLicenseDownloader.Release();
 			SAFE_DELETE(drmSessionContexts[i].drmSession);
 			drmSessionContexts[i] = DrmSessionContext();
 		}
@@ -192,7 +194,7 @@ void AampDRMSessionManager::clearSessionData()
 		if (cachedKeyIDs != NULL)
 		{
 			cachedKeyIDs[i] = KeyID();
-		}
+		}		
 	}
 }
 
@@ -213,25 +215,11 @@ SessionMgrState AampDRMSessionManager::getSessionMgrState()
 }
 
 /**
- * @brief Set Session abort flag
- */
-void AampDRMSessionManager::setCurlAbort(bool isAbort){
-	curlSessionAbort = isAbort;
-}
-
-/**
- * @brief Get Session abort flag
- */
-bool AampDRMSessionManager::getCurlAbort(){
-	return curlSessionAbort;
-}
-
-/**
  * @brief Get Session abort flag
  */
 void AampDRMSessionManager::setLicenseRequestAbort(bool isAbort)
 {
-	setCurlAbort(isAbort);
+	mAccessTokenConnector.Release();
 	licenseRequestAbort = isAbort;
 }
 
@@ -292,6 +280,7 @@ void AampDRMSessionManager::clearDrmSession(bool forceClearSession)
 				}
 #endif
 				SAFE_DELETE(drmSessionContexts[i].drmSession);
+				drmSessionContexts[i].mLicenseDownloader.Clear();
 			}
 		}
 	}
@@ -363,93 +352,6 @@ void AampDRMSessionManager::setPlaybackSpeedState(int speed, double position, bo
 }
 
 
-int AampDRMSessionManager::progress_callback(
-	void *clientp, // app-specific as optionally set with CURLOPT_PROGRESSDATA
-	double dltotal, // total bytes expected to download
-	double dlnow, // downloaded bytes so far
-	double ultotal, // total bytes expected to upload
-	double ulnow // uploaded bytes so far
-	)
-{
-	int returnCode = 0 ;
-	AampDRMSessionManager *drmSessionManager = (AampDRMSessionManager *)clientp;
-	if(drmSessionManager->getCurlAbort())
-	{
-		AAMPLOG_OBJ_WARN(drmSessionManager->mLogObj, "Aborting DRM curl operation.. - CURLE_ABORTED_BY_CALLBACK");
-		returnCode = -1; // Return non-zero for CURLE_ABORTED_BY_CALLBACK
-		//Reset the abort variable
-		drmSessionManager->setCurlAbort(false);
-	}
-
-	return returnCode;
-}
-
-/**
- *  @brief  Curl write callback, used to get the curl o/p
- *          from DRM license, accessToken curl requests.
- */
-size_t AampDRMSessionManager::write_callback(char *ptr, size_t size,
-		size_t nmemb, void *userdata)
-{
-	writeCallbackData *callbackData = (writeCallbackData*)userdata;
-	DrmData *data = (DrmData *)callbackData->data;
-	size_t numBytesForBlock = size * nmemb;
-	if(callbackData->mDRMSessionManager->getCurlAbort())
-	{
-		AAMPLOG_OBJ_WARN(callbackData->mDRMSessionManager->mLogObj, "Aborting DRM curl operation.. - CURLE_ABORTED_BY_CALLBACK");
-		numBytesForBlock = 0; // Will cause CURLE_WRITE_ERROR
-		//Reset the abort variable
-		callbackData->mDRMSessionManager->setCurlAbort(false);
-
-	}
-	else if (data->getData().empty())
-	{
-		data->setData((unsigned char *)ptr, numBytesForBlock);
-	}
-	else
-	{
-		data->addData((unsigned char *)ptr, numBytesForBlock);
-	}
-	if (gpGlobalConfig->logging.trace)
-	{
-		AAMPLOG_OBJ_WARN(callbackData->mDRMSessionManager->mLogObj, "Wrote %zu number of blocks", numBytesForBlock);
-	}
-	return numBytesForBlock;
-}
-
-
-/**
- * @brief callback invoked on http header by curl
- * @param ptr pointer to buffer containing the data
- * @param size size of the buffer
- * @param nmemb number of bytes
- * @param user_data  CurlCallbackContext pointer
- * @retval
- */
-size_t AampDRMSessionManager::header_callback(const char *ptr, size_t size, size_t nmemb, void *user_data)
-{
-	size_t ret = 0;
-	size_t len = nmemb * size;
-	size_t endPos = len-2; // strip CRLF
-
-	CurlCallbackContext *context = static_cast<CurlCallbackContext *>(user_data);
-
-	if( len<2 || ptr[endPos] != '\r' || ptr[endPos+1] != '\n' )
-	{ // only proceed if this is a CRLF terminated curl header, as expected
-		return len;
-	}
-
-	if(context->aamp->mConfig->IsConfigSet(eAAMPConfig_SendLicenseResponseHeaders) && ptr[0])
-	{
-		std::string temp = std::string(ptr,endPos);
-		if(!temp.empty())
-		{
-			context->allResponseHeaders.push_back(temp);
-		}
-	}
-	return len;
-}
-
 /**
  *  @brief	Extract substring between (excluding) two string delimiters.
  *
@@ -473,44 +375,34 @@ string _extractSubstring(string parentStr, string startStr, string endStr)
 	return ret;
 }
 
+
+
 /**
  *  @brief Get the accessToken from authService.
  */
 const char * AampDRMSessionManager::getAccessToken(int &tokenLen, int &error_code , bool bSslPeerVerify)
-{
+{	
 	if(accessToken == NULL)
 	{
-		DrmData * tokenReply = new DrmData();
-		writeCallbackData *callbackData = new writeCallbackData();
-		callbackData->data = tokenReply;
-		callbackData->mDRMSessionManager = this;
-		CURLcode res;
-		int httpCode = -1;
+		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();		
+		// Initialize the Seesion Token Connector
+		DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
+		inpData->bIgnoreResponseHeader	= true;
+		inpData->eRequestType = eCURL_GET;
+		inpData->iStallTimeout = 2; // 2sec
+		inpData->iStartTimeout = 2; // 2sec
+		inpData->iDownloadTimeout = DEFAULT_CURL_TIMEOUT; 
+		inpData->bNeedDownloadMetrics = true;
+		inpData->bSSLVerifyPeer		=	bSslPeerVerify;
+		mAccessTokenConnector.Initialize(inpData);
+		mAccessTokenConnector.Download(SESSION_TOKEN_URL, respData);
 
-		CURL *curl = curl_easy_init();;
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOSIGNAL, 1);
-		CURL_EASY_SETOPT_FUNC(curl, CURLOPT_WRITEFUNCTION, write_callback);
-		CURL_EASY_SETOPT_FUNC(curl, CURLOPT_PROGRESSFUNCTION, progress_callback);
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
-		CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, this);
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_FOLLOWLOCATION, 1);
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOPROGRESS, 0);
-		CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, callbackData);
-		if(!bSslPeerVerify)
-		{
-			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 0);
-		}
-		CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, SESSION_TOKEN_URL);
-
-		res = curl_easy_perform(curl);
-
-		if (res == CURLE_OK)
-		{
-			httpCode = GetCurlResponseCode(curl);
-			if (httpCode == 200 || httpCode == 206)
-			{
-				string tokenReplyStr = tokenReply->getData();
+		if( respData->curlRetValue == CURLE_OK )
+		{			
+			if (respData->iHttpRetValue == 200 || respData->iHttpRetValue == 206)
+			{		
+				string tokenReplyStr;
+				mAccessTokenConnector.GetDataString(tokenReplyStr);
 				string tokenStatusCode = _extractSubstring(tokenReplyStr, "status\":", ",\"");
 				if(tokenStatusCode.length() == 0)
 				{
@@ -529,7 +421,7 @@ const char * AampDRMSessionManager::getAccessToken(int &tokenLen, int &error_cod
 							accessTokenLen = len;
 							memcpy( accessToken, token.c_str(), len );
 							accessToken[len] = 0x00;
-							AAMPLOG_WARN(" Received session token from auth service ");
+							AAMPLOG_WARN(" Received session token from auth service in [%f]",respData->downloadCompleteMetrics.total);
 						}
 						else
 						{
@@ -550,20 +442,17 @@ const char * AampDRMSessionManager::getAccessToken(int &tokenLen, int &error_cod
 			}
 			else
 			{
-				AAMPLOG_ERR(" Get Session token call failed with http error %d", httpCode);
-				error_code = httpCode;
+				AAMPLOG_ERR(" Get Session token call failed with http error %d", respData->iHttpRetValue);
+				error_code = respData->iHttpRetValue;
 			}
 		}
 		else
 		{
-			AAMPLOG_ERR(" Get Session token call failed with curl error %d", res);
-			error_code = res;
+			AAMPLOG_ERR(" Get Session token call failed with curl error %d", respData->curlRetValue);
+			error_code = respData->curlRetValue;
 		}
-		SAFE_DELETE(tokenReply);
-		SAFE_DELETE(callbackData);
-		curl_easy_cleanup(curl);
 	}
-
+	
 	tokenLen = accessTokenLen;
 	return accessToken;
 }
@@ -850,100 +739,70 @@ void AampDRMSessionManager::renewLicense(std::shared_ptr<AampDrmHelper> drmHelpe
 		AAMPLOG_ERR("Failed to renew license as the requested DRM session slot is not available");
 	}
 }
+
 /**
  *  @brief Get DRM license key from DRM server.
  */
 DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
-		int32_t *httpCode, MediaType streamType, PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr eventHandle, bool isContentMetadataAvailable, std::string licenseProxy)
+		int32_t *httpCode, MediaType streamType, PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr eventHandle, AampCurlDownloader *pLicenseDownloader, std::string licenseProxy)
 {
-	*httpCode = -1;
+
 	CURL *curl;
 	CURLcode res;
 	double totalTime = 0;
-	struct curl_slist *headers = NULL;
-	DrmData * keyInfo = new DrmData();
-	writeCallbackData *callbackData = new writeCallbackData();
-	callbackData->data = keyInfo;
-	callbackData->mDRMSessionManager = this;
-	long challengeLength = 0;
-	long long downloadTimeMS = 0;
-
-	curl = CurlStore::GetCurlStoreInstance(aamp).GetCurlHandle(aamp, licenseRequest.url, eCURLINSTANCE_AES);
-
-	for (auto& header : licenseRequest.headers)
-	{
-		std::string customHeaderStr = header.first;
-		customHeaderStr.push_back(' ');
-		// For scenarios with multiple header values, its most likely a custom defined.
-		// Below code will have to extended to support the same (eg: money trace headers)
-		customHeaderStr.append(header.second.at(0));
-		headers = curl_slist_append(headers, customHeaderStr.c_str());
-		if (aamp->mConfig->IsConfigSet(eAAMPConfig_CurlLicenseLogging))
-		{
-			AAMPLOG_WARN(" CustomHeader :%s",customHeaderStr.c_str());
-		}
-	}
-
-	AAMPLOG_WARN(" Sending license request to server : %s ", licenseRequest.url.c_str());
+	DrmData * keyInfo = NULL;
+	bool bNeedResponseHeadersTobeShared 	=	ISCONFIGSET(eAAMPConfig_SendLicenseResponseHeaders);
+	DownloadResponsePtr respData 	=	std::make_shared<DownloadResponse> ();		
+	// Initialize the Seesion Token Connector
+	DownloadConfigPtr inpData 	=	std::make_shared<DownloadConfig> ();
+	inpData->bIgnoreResponseHeader				=	!bNeedResponseHeadersTobeShared;
+	inpData->iDownloadTimeout					=	DEFAULT_CURL_TIMEOUT; 
+	inpData->bNeedDownloadMetrics				=	true;
+	inpData->proxyName							=	licenseProxy;		
+	inpData->pCurl			=	CurlStore::GetCurlStoreInstance(aamp).GetCurlHandle(aamp, licenseRequest.url, eCURLINSTANCE_AES);
+	inpData->sCustomHeaders	=	licenseRequest.headers;
+	
 	if (aamp->mConfig->IsConfigSet(eAAMPConfig_CurlLicenseLogging))
 	{
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_VERBOSE, 1);
+		inpData->bVerbose		=	true;
+		for (auto& header : licenseRequest.headers)
+		{
+			std::string customHeaderStr = header.first;
+			customHeaderStr.push_back(' ');
+			customHeaderStr.append(header.second.at(0));
+			AAMPLOG_WARN("CustomHeader :%s",customHeaderStr.c_str());
+		}
 	}
-	CURL_EASY_SETOPT_FUNC(curl, CURLOPT_WRITEFUNCTION, write_callback);
-	CURL_EASY_SETOPT_FUNC(curl, CURLOPT_PROGRESSFUNCTION, progress_callback);
-	CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, this);
-	CURL_EASY_SETOPT_LONG(curl, CURLOPT_TIMEOUT, 5);
-	CURL_EASY_SETOPT_LONG(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
-	CURL_EASY_SETOPT_LONG(curl, CURLOPT_FOLLOWLOCATION, 1);
-	CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, licenseRequest.url.c_str());
-	CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, callbackData);
-
-	CurlCallbackContext context;
-	if(ISCONFIGSET(eAAMPConfig_SendLicenseResponseHeaders))
-	{
-		CURL_EASY_SETOPT_FUNC(curl, CURLOPT_HEADERFUNCTION, header_callback);
-		context.aamp = aamp;
-		context.fileType = eMEDIATYPE_LICENCE;
-		CURL_EASY_SETOPT_POINTER(curl, CURLOPT_HEADERDATA, &context);
-	}
-
-	if(!ISCONFIGSET(eAAMPConfig_SslVerifyPeer)){
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 0);
-	}
-	else {
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, aamp->mSupportedTLSVersion);
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 1);
-	}
-
-	CURL_EASY_SETOPT_LIST(curl, CURLOPT_HTTPHEADER, headers);
-
+	
+	inpData->bSSLVerifyPeer		=	ISCONFIGSET(eAAMPConfig_SslVerifyPeer);	
 	if(licenseRequest.method == AampLicenseRequest::POST)
 	{
-		challengeLength = licenseRequest.payload.size();
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_POSTFIELDSIZE, challengeLength);
-		CURL_EASY_SETOPT_STRING(curl, CURLOPT_POSTFIELDS,licenseRequest.payload.data());
-	}else
+		inpData->eRequestType 	=	eCURL_POST;
+		inpData->postData		=	licenseRequest.payload;
+	}
+	else
 	{
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTPGET, 1);
+		inpData->eRequestType = eCURL_GET;	
 	}
 
-	if (!licenseProxy.empty())
-	{
-		CURL_EASY_SETOPT_STRING(curl, CURLOPT_PROXY, licenseProxy.c_str());
-		/* allow whatever auth the proxy speaks */
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_PROXYAUTH, CURLAUTH_ANY);
-	}
+	// Initialize the downloader for above config settings 	
+	pLicenseDownloader->Initialize(inpData);
+	
+	AAMPLOG_WARN(" Sending license request to server : %s ", licenseRequest.url.c_str());
+
 	unsigned int attemptCount = 0;
-	bool requestFailed = true;
 	/* Check whether stopped or not before looping - download will be disabled */
 	while(attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && !licenseRequestAbort)
 	{
 		bool loopAgain = false;
 		attemptCount++;
+
 		long long tStartTime = NOW_STEADY_TS_MS;
-		res = curl_easy_perform(curl);
+		pLicenseDownloader->Download(licenseRequest.url, respData);		
+		res = (CURLcode)respData->curlRetValue;
 		long long tEndTime = NOW_STEADY_TS_MS;
 		long long downloadTimeMS = tEndTime - tStartTime;
+		
 		/** Restrict further processing license if stop called in between  */
 		if(licenseRequestAbort)
 		{
@@ -952,6 +811,7 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 			*httpCode = CURLE_ABORTED_BY_CALLBACK;
 			break;
 		}
+		
 		if (res != CURLE_OK)
 		{
 			// To avoid scary logging
@@ -961,15 +821,7 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 				{
 					// Retry for curl 28 and curl 7 errors.
 					loopAgain = true;
-
-					SAFE_DELETE(keyInfo);
-					SAFE_DELETE(callbackData);
-					keyInfo = new DrmData();
-					callbackData = new writeCallbackData();
-					callbackData->data = keyInfo;
-					callbackData->mDRMSessionManager = this;
-					CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, callbackData);
-					context.allResponseHeaders.clear();
+					pLicenseDownloader->Clear();
 				}
 				AAMPLOG_ERR(" curl_easy_perform() failed: %s", curl_easy_strerror(res));
 				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : curl %d", attemptCount, res);
@@ -978,48 +830,34 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 		}
 		else
 		{
-			*httpCode = GetCurlResponseCode(curl);
-			curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &totalTime);
+			*httpCode = respData->iHttpRetValue;
+			totalTime = respData->downloadCompleteMetrics.total;
 			if (*httpCode != 200 && *httpCode != 206)
 			{
 				int  licenseRetryWaitTime = aamp->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime) ;
 				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : http %d", attemptCount, *httpCode);
 				if(*httpCode >= 500 && *httpCode < 600
-						&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && licenseRetryWaitTime > 0)
-				{
-					SAFE_DELETE(keyInfo);
-					SAFE_DELETE(callbackData);
-					keyInfo = new DrmData();
-					callbackData = new writeCallbackData();
-					callbackData->data = keyInfo;
-					callbackData->mDRMSessionManager = this;
-					CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, callbackData);
-					context.allResponseHeaders.clear();
+					&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && licenseRetryWaitTime > 0)
+				{			
 					AAMPLOG_WARN("acquireLicense : Sleeping %d milliseconds before next retry.",licenseRetryWaitTime);
 					mssleep(licenseRetryWaitTime);
+					// TODO this is not enabled in old code ???? 
+					//loopAgain = true;
+					//mLicenseDownloader.Clear();
 				}
 			}
 			else
 			{
 				AAMPLOG_WARN(" DRM Session Manager Received license data from server; Curl total time  = %.1f", totalTime);
 				AAMPLOG_WARN(" acquireLicense SUCCESS! license request attempt %d; response code : http %d", attemptCount, *httpCode);
-				requestFailed = false;
+				keyInfo = new DrmData();
+				std::string keyData;
+				int keyLen = pLicenseDownloader->GetDataString(keyData);
+				keyInfo->setData((unsigned char *)keyData.c_str(),keyLen);
 			}
 		}
-
-		double total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize;
-		long reqSize;
+		
 		double totalPerformRequest = (double)(downloadTimeMS)/1000;
-
-		curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME, &resolve);
-		curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME, &connect);
-		curl_easy_getinfo(curl, CURLINFO_APPCONNECT_TIME, &appConnect);
-		curl_easy_getinfo(curl, CURLINFO_PRETRANSFER_TIME, &preTransfer);
-		curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &startTransfer);
-		curl_easy_getinfo(curl, CURLINFO_REDIRECT_TIME, &redirect);
-		curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD, &dlSize);
-		curl_easy_getinfo(curl, CURLINFO_REQUEST_SIZE, &reqSize);
-
 		std::string appName, timeoutClass;
 		if (!aamp->GetAppName().empty())
 		{
@@ -1030,26 +868,31 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 		{
 			// introduce  extra marker for connection status curl 7/18/28,
 			// example 18(0) if connection failure with PARTIAL_FILE code
-			timeoutClass = "(" + to_string(reqSize > 0) + ")";
+			timeoutClass = "(" + to_string(respData->downloadCompleteMetrics.reqSize > 0) + ")";
 		}
-		AAMPLOG_WARN("HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%f,%f,%.500s",
-					 appName.c_str(),
-					 eMEDIATYPE_TELEMETRY_DRM,
-					 eMEDIATYPE_LICENCE,//streamType,
-					 *httpCode, timeoutClass.c_str(), totalPerformRequest, totalTime, connect, startTransfer, resolve, appConnect,
-						preTransfer, redirect, dlSize, reqSize,
-					 0.0, // downloadbps, include so we get consistent HttpRequestEnd format, but no urgency to populate here
-					 0.0, // video fragment bitrate, n/a
-					 licenseRequest.url.c_str());
+		AAMPLOG_WARN("HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s",
+						appName.c_str(),
+						eMEDIATYPE_TELEMETRY_DRM,
+						eMEDIATYPE_LICENCE,//streamType,
+						*httpCode, timeoutClass.c_str(), totalPerformRequest, totalTime, respData->downloadCompleteMetrics.connect, 
+						respData->downloadCompleteMetrics.startTransfer, respData->downloadCompleteMetrics.resolve, respData->downloadCompleteMetrics.appConnect,
+						respData->downloadCompleteMetrics.preTransfer, respData->downloadCompleteMetrics.redirect, respData->downloadCompleteMetrics.dlSize,
+						respData->downloadCompleteMetrics.reqSize,
+						0.0, // downloadbps, include so we get consistent HttpRequestEnd format, but no urgency to populate here
+						0.0, // video fragment bitrate, n/a
+						licenseRequest.url.c_str());
 
 		if(!loopAgain)
 			break;
 	}
 
-	if(ISCONFIGSET(eAAMPConfig_SendLicenseResponseHeaders) && !context.allResponseHeaders.empty())
+
+	// TODO : Header Response to be set for failed DRM response also ??? 
+	if(bNeedResponseHeadersTobeShared && !respData->mResponseHeader.empty())
 	{
-		eventHandle->setHeaderResponses(context.allResponseHeaders);
+		eventHandle->setHeaderResponses(respData->mResponseHeader);
 	}
+	
 	if(*httpCode == -1)
 	{
 		AAMPLOG_WARN(" Updating Curl Abort Response Code");
@@ -1057,17 +900,13 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 		*httpCode = CURLE_ABORTED_BY_CALLBACK;
 	}
 
-	if(requestFailed && keyInfo != NULL)
-	{
-		SAFE_DELETE(keyInfo);
-	}
-
-	SAFE_DELETE(callbackData);
-	curl_slist_free_all(headers);
+	// Return the Curl instance back to Curl Store after use . 
 	CurlStore::GetCurlStoreInstance(aamp).SaveCurlHandle(aamp, licenseRequest.url, eCURLINSTANCE_AES, curl);
-
+	// Filled in KeyInfo is returned back 
 	return keyInfo;
 }
+
+
 
 /**
  *  @brief      Creates and/or returns the DRM session corresponding to keyId (Present in initDataPtr)
@@ -1634,7 +1473,7 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 						AAMPLOG_WARN("Ignore  AuthToken Provided for non-ContentMetadata DRM license request");
 					}
 					eventHandle->setSecclientError(false);
-					licenseResponse.reset(getLicense(licenseRequest, &httpResponseCode, streamType, aampInstance, eventHandle, isContentMetadataAvailable, licenseServerProxy));
+					licenseResponse.reset(getLicense(licenseRequest, &httpResponseCode, streamType, aampInstance, eventHandle, &drmSessionContexts[sessionSlot].mLicenseDownloader,licenseServerProxy));
 				}
 
 			}

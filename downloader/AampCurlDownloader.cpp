@@ -1,0 +1,614 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2023 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+/**************************************
+* @file AampCurlDownloader.cpp
+* @brief Curl Downloader for Aamp
+**************************************/
+
+#include "AampCurlDownloader.h"
+#include "AampUtils.h"
+#include <vector>
+#include "AampLogManager.h"
+
+#if 0
+#define MAX_DEBUG_LOG_BUFF_SIZE 1024
+
+class FnLogger {
+public:
+	FnLogger( std::string const & pMsg1,std::string const & pMsg2  ) : msg1(pMsg1),msg2(pMsg2)
+	{   AAMPLOG_INFO("%s Enter ===> %s(): ", msg1.c_str(), msg2.c_str()); }
+	~FnLogger()
+	{   AAMPLOG_INFO("%s Exit <=== %s(): ", msg1.c_str(), msg2.c_str()); }
+	std::string msg1;
+	std::string msg2;
+};
+#endif
+
+#ifndef LOG_FN_TRACE_CURL_DOWNLOAD
+#define LOG_FN_TRACE_CURL_DOWNLOAD 0
+#endif
+#if LOG_FN_TRACE_CURL_DOWNLOAD
+#define FN_TRACE_CURL_DOWNLOAD(x) FnLogger l_##x##_scope("[F-CURL-DOWNLOAD]",x);
+#else
+#define FN_TRACE_CURL_DOWNLOAD(x)
+#endif
+
+
+void _downloadConfig::show()
+{
+	AAMPLOG_INFO("iDownloadTimeout : %u", iDownloadTimeout);
+	AAMPLOG_INFO("iLowBWTimeout : %u", iLowBWTimeout);
+	AAMPLOG_INFO("iStallTimeout : %u", iStallTimeout);
+	AAMPLOG_INFO("iStartTimeout : %u", iStartTimeout);
+	AAMPLOG_INFO("iCurlConnectionTimeout : %u", iCurlConnectionTimeout);
+	AAMPLOG_INFO("lSupportedTLSVersion : %ld", lSupportedTLSVersion);
+	AAMPLOG_INFO("bSSLVerifyPeer : %d", bSSLVerifyPeer);
+	AAMPLOG_INFO("curl : %p", pCurl);
+	AAMPLOG_INFO("userAgentString :%s",userAgentString.c_str());
+	AAMPLOG_INFO("proxyName :%s",proxyName.c_str());
+	
+	
+	
+	if (sCustomHeaders.size() > 0)
+	{
+		std::string customHeader;
+		std::string headerValue;
+		for (std::unordered_map<std::string, std::vector<std::string>>::iterator it = sCustomHeaders.begin();
+			 it != sCustomHeaders.end(); it++)
+		{
+			customHeader.clear();
+			headerValue.clear();
+			customHeader.insert(0, it->first);
+			headerValue = it->second.at(0);
+			customHeader.push_back(' ');
+			customHeader.append(headerValue);
+			AAMPLOG_INFO("header : %s", customHeader.c_str());
+		}
+	}
+}
+
+void _downloadResponse::show()
+{
+	AAMPLOG_INFO("curlRetValue : %d", curlRetValue);
+	AAMPLOG_INFO("iHttpRetValue : %d", iHttpRetValue);
+	AAMPLOG_INFO("total : %lf msec", downloadCompleteMetrics.total*1000);
+	AAMPLOG_INFO("connect : %lf msec", downloadCompleteMetrics.connect*1000);
+	AAMPLOG_INFO("startTransfer : %lf msec", downloadCompleteMetrics.startTransfer*1000);
+	AAMPLOG_INFO("resolve : %lf msec", downloadCompleteMetrics.resolve*1000);
+	AAMPLOG_INFO("appConnect : %lf msec", downloadCompleteMetrics.appConnect*1000);
+	AAMPLOG_INFO("preTransfer : %lf msec", downloadCompleteMetrics.preTransfer*1000);
+	AAMPLOG_INFO("redirect : %lf msec", downloadCompleteMetrics.redirect*1000);
+	AAMPLOG_INFO("dlSize : %f bytes", downloadCompleteMetrics.dlSize);
+	
+	AAMPLOG_INFO("reqSize : %ld bytes", downloadCompleteMetrics.reqSize);
+	AAMPLOG_INFO("downloadbps : %ld bps", downloadCompleteMetrics.downloadbps);
+	AAMPLOG_INFO("dataSize : %d bytes", (int)mDownloadData.size());
+	AAMPLOG_INFO("effective Url : %s", sEffectiveUrl.c_str());
+	
+	for(auto it=mResponseHeader.begin();it < mResponseHeader.end();it++)
+	{
+		AAMPLOG_INFO("Header=>: %s",(*it).c_str());
+	}
+}
+
+
+double aamp_CurlEasyGetinfoDouble( CURL *handle, CURLINFO info )
+{
+	double rc = 0.0;
+	if( handle && curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
+	{
+		AAMPLOG_WARN( "aamp_CurlEasyGetinfoDouble failure" );
+	}
+	return rc;
+}
+
+int aamp_CurlEasyGetinfoInt( CURL *handle, CURLINFO info )
+{
+	int rc = 0;
+	if( handle && curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
+	{
+		AAMPLOG_WARN( "aamp_CurlEasyGetinfoInt failure" );
+	}
+	return rc;
+}
+
+long aamp_CurlEasyGetinfoLong( CURL *handle, CURLINFO info )
+{
+	long rc = -1;
+	if( handle && curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
+	{
+		AAMPLOG_WARN( "aamp_CurlEasyGetinfoLong failure" );
+	}
+	return rc;
+}
+
+char *aamp_CurlEasyGetinfoString( CURL *handle, CURLINFO info )
+{
+	char *rc = NULL;
+	if( handle && curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
+	{
+		AAMPLOG_WARN( "aamp_CurlEasyGetinfoString failure" );
+	}
+	return rc;
+}
+
+
+
+AampCurlDownloader::AampCurlDownloader() : mCurlMutex(),m_threadName(""),mDownloadActive(false),mCreatedNewFd(false),
+			mCurl(nullptr),mDownloadUpdatedTime(0),mDownloadStartTime(0),mDnldCfg(),mDownloadResponse(nullptr),mHeaders(NULL),mWriteCallbackBufferSize(0)
+
+{
+	// All download related configs are read here
+	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);	
+	AAMPLOG_INFO("Create Curl Downloader Instance ");
+}
+
+
+AampCurlDownloader::~AampCurlDownloader()
+{
+	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
+	mDownloadActive = false;
+	
+	if(mCreatedNewFd && mCurl)
+	{
+		curl_easy_cleanup(mCurl);
+	}
+	if (mHeaders != NULL)
+	{
+		curl_slist_free_all(mHeaders);
+		mHeaders = NULL;
+	}
+}
+
+bool AampCurlDownloader::IsDownloadActive()
+{
+	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
+	return mDownloadActive;
+}
+
+int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<DownloadResponse> dnldData )
+{
+	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
+	int httpRetVal=0;
+	int curlRetVal=0;
+	if(urlStr.size() == 0 || dnldData == nullptr)
+	{
+		AAMPLOG_ERR("Invalid inputs provided for download . Check the arguements. Url[%s] dnldData is Null[%d]", urlStr.c_str(), (dnldData == nullptr));
+	}
+	else if(mCurl)
+	{
+		if(!mDownloadActive)
+		{
+			{
+				std::lock_guard<std::mutex> lock(mCurlMutex);
+				mDownloadActive = true;
+				mDownloadResponse = dnldData;
+				mDownloadResponse->sEffectiveUrl	=	urlStr;
+				CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_URL, urlStr.c_str());
+			}
+			do{
+				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
+				curlRetVal = curl_easy_perform(mCurl);
+				//AAMPLOG_INFO("Download Status Ret:%d %s",mDownloadResponse->curlRetValue, urlStr.c_str());
+				if(curlRetVal == CURLE_OK)
+				{
+					httpRetVal = mDownloadResponse->iHttpRetValue;
+					//mDownloadResponse->show();
+				}
+				else if(mDnldCfg->iDownloadRetryCount)
+				{
+					mDnldCfg->iDownloadRetryCount--;
+					// TODO : Add the download delay between retries
+					continue;
+				}
+			}while(0);
+
+			// update the downlaod response metrics for success and failure case 
+			// and for last attempt only (if retries enabled)
+			updateResponseParams();
+				
+			mDownloadActive = false;		
+			mDownloadResponse->curlRetValue = curlRetVal;
+		}
+		else
+		{
+			AAMPLOG_ERR("Already download inprogress.Ignore new request for download %s",urlStr.c_str());
+		}
+	}
+	else
+	{
+		AAMPLOG_ERR("Failed to Initialize CurlDownloader. mCurl is Null ");
+	}
+	return httpRetVal;
+}
+
+void AampCurlDownloader::updateResponseParams()
+{
+	std::lock_guard<std::mutex> lock(mCurlMutex);
+	if(mCurl)
+	{
+		mDownloadResponse->iHttpRetValue	=	aamp_CurlEasyGetinfoInt(mCurl, CURLINFO_RESPONSE_CODE);
+		if(mDnldCfg->bNeedDownloadMetrics)
+		{
+			mDownloadResponse->downloadCompleteMetrics.total 	=	aamp_CurlEasyGetinfoDouble(mCurl, CURLINFO_TOTAL_TIME );
+			mDownloadResponse->downloadCompleteMetrics.connect	=	aamp_CurlEasyGetinfoDouble(mCurl, CURLINFO_CONNECT_TIME);
+			mDownloadResponse->downloadCompleteMetrics.resolve	=	aamp_CurlEasyGetinfoDouble(mCurl, CURLINFO_NAMELOOKUP_TIME);
+			mDownloadResponse->downloadCompleteMetrics.appConnect	=	aamp_CurlEasyGetinfoDouble(mCurl, CURLINFO_APPCONNECT_TIME);
+			mDownloadResponse->downloadCompleteMetrics.preTransfer	=	aamp_CurlEasyGetinfoDouble(mCurl, CURLINFO_PRETRANSFER_TIME);
+			mDownloadResponse->downloadCompleteMetrics.startTransfer	=	aamp_CurlEasyGetinfoDouble(mCurl, CURLINFO_STARTTRANSFER_TIME);
+			mDownloadResponse->downloadCompleteMetrics.redirect		=	aamp_CurlEasyGetinfoDouble(mCurl, CURLINFO_REDIRECT_TIME);
+			mDownloadResponse->downloadCompleteMetrics.dlSize	=	aamp_CurlEasyGetinfoDouble(mCurl, CURLINFO_SIZE_DOWNLOAD);
+			mDownloadResponse->downloadCompleteMetrics.reqSize	=	aamp_CurlEasyGetinfoLong(mCurl, CURLINFO_REQUEST_SIZE);
+			mDownloadResponse->downloadCompleteMetrics.downloadbps = (long)(mDownloadResponse->downloadCompleteMetrics.dlSize*8) / mDownloadResponse->downloadCompleteMetrics.total;
+		}
+		char *effectiveUrlStr = NULL;
+		if(mDownloadResponse->iHttpRetValue == 204)
+		{
+			RespHeaderIter itr =	mDownloadResponse->httpRespHeaderData.find(eHTTPHEADERTYPE_EFF_LOCATION);
+			if (itr != mDownloadResponse->httpRespHeaderData.end())
+			{
+				effectiveUrlStr =  const_cast<char *>(itr->second.c_str());
+			}
+		}
+		else
+		{
+			effectiveUrlStr	=	aamp_CurlEasyGetinfoString(mCurl, CURLINFO_EFFECTIVE_URL);
+			
+		}
+		if(effectiveUrlStr!=NULL)
+		{
+			mDownloadResponse->sEffectiveUrl.assign(effectiveUrlStr);
+		}
+	}
+	
+}
+
+void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
+{
+	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
+	if(dnldCfg == nullptr)
+		return;
+	
+	// Release and reset and previously called values
+	Release();
+
+	std::lock_guard<std::mutex> lock(mCurlMutex);
+	mDnldCfg = dnldCfg;
+	//mDnldCfg->show();
+	if (!mDnldCfg->pCurl)
+	{
+		if(mCurl == NULL)
+		{
+			mCurl = curl_easy_init();
+			mCreatedNewFd = true;
+		}
+
+	}
+	else
+	{
+		if(mCreatedNewFd && mCurl)
+		{
+			// Whatever created by this module should be freed by this module
+			// AampcurlDownloader is not responsible for the curl handles provdided for download
+			curl_easy_cleanup(mCurl);
+			mCreatedNewFd = false;
+		}
+		mCurl =	mDnldCfg->pCurl;
+	}
+	updateCurlParams();
+
+}
+
+
+void AampCurlDownloader::Release()
+{
+	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
+	std::lock_guard<std::mutex> lock(mCurlMutex);
+	mDownloadActive = false;
+	mDownloadUpdatedTime = 0 ;
+	mDownloadStartTime =  0;
+	mWriteCallbackBufferSize = 0;
+	if (mHeaders != NULL)
+	{
+		curl_slist_free_all(mHeaders);
+		mHeaders = NULL;
+	}
+}
+
+
+void AampCurlDownloader::Clear()
+{
+	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
+	std::lock_guard<std::mutex> lock(mCurlMutex);
+	mDownloadActive = false;
+	mDownloadUpdatedTime = 0 ;
+	mDownloadStartTime =  0;
+	mWriteCallbackBufferSize=0;
+	if (mHeaders != NULL)
+	{
+		curl_slist_free_all(mHeaders);
+		mHeaders = NULL;
+	}
+
+	// Clear all the partially stored data before retry attempt
+	if(mDownloadResponse)
+		mDownloadResponse->clear();
+}
+
+
+void AampCurlDownloader::updateCurlParams()
+{
+	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
+
+	if(mDnldCfg->bVerbose)
+	{
+		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_VERBOSE, 1L);
+	}
+
+	if(mDnldCfg->eRequestType != eCURL_GET)
+	{
+		if(eCURL_DELETE == mDnldCfg->eRequestType)
+		{
+			CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_CUSTOMREQUEST, "DELETE");
+		}
+		else if(eCURL_POST == mDnldCfg->eRequestType)
+		{
+			CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_POSTFIELDSIZE, mDnldCfg->postData.size());
+			CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_POSTFIELDS,(uint8_t * )mDnldCfg->postData.c_str());
+		}
+	}
+		
+	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_NOSIGNAL, 1L);
+	//curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback); // unused
+	CURL_EASY_SETOPT_POINTER(mCurl, CURLOPT_WRITEDATA, this);
+	CURL_EASY_SETOPT_POINTER(mCurl, CURLOPT_PROGRESSDATA, this);
+	CURL_EASY_SETOPT_FUNC(mCurl, CURLOPT_XFERINFOFUNCTION, AampCurlDownloader::ProgressCallback);
+	//CURL_EASY_SETOPT(mCurl, CURLOPT_PROGRESSFUNCTION, AampCurlDownloader::ProgressCallback);
+	if(!mDnldCfg->bIgnoreResponseHeader)
+	{
+		CURL_EASY_SETOPT_POINTER(mCurl, CURLOPT_HEADERDATA, this);
+		CURL_EASY_SETOPT_FUNC(mCurl, CURLOPT_HEADERFUNCTION, AampCurlDownloader::HeaderCallback);
+	}
+	CURL_EASY_SETOPT_FUNC(mCurl, CURLOPT_WRITEFUNCTION, AampCurlDownloader::WriteCallback);
+	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_TIMEOUT, mDnldCfg->iDownloadTimeout);
+	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_CONNECTTIMEOUT, mDnldCfg->iCurlConnectionTimeout);
+	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
+	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_FOLLOWLOCATION, 1L);
+	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_NOPROGRESS, 0L); // enable progress meter (off by default)
+	
+	CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_USERAGENT, mDnldCfg->userAgentString.c_str());
+	CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_ACCEPT_ENCODING, "");//Enable all the encoding formats supported by client
+	//CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_SSL_CTX_FUNCTION, ssl_callback); //Check for downloads disabled in btw ssl handshake
+	//CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_SSL_CTX_DATA, aamp);
+	long dns_cache_timeout = 3*60;
+	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_DNS_CACHE_TIMEOUT, dns_cache_timeout);
+	
+	if (!mDnldCfg->proxyName.empty())
+	{
+		/* use this proxy */
+		CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_PROXY, mDnldCfg->proxyName.c_str());
+		/* allow whatever auth the proxy speaks */
+		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_PROXYAUTH, CURLAUTH_ANY);
+	}
+	
+	if(!mDnldCfg->bSSLVerifyPeer)
+	{
+		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSL_VERIFYHOST, 0L);
+		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSL_VERIFYPEER, 0L);
+	}
+	else
+	{
+		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSLVERSION, mDnldCfg->lSupportedTLSVersion);
+		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSL_VERIFYPEER, 1L);
+	}
+
+	if (mDnldCfg->sCustomHeaders.size() > 0)
+	{
+		std::string customHeader;
+		std::string headerValue;
+		for (std::unordered_map<std::string, std::vector<std::string>>::iterator it = mDnldCfg->sCustomHeaders.begin();
+			 it != mDnldCfg->sCustomHeaders.end(); it++)
+		{
+			customHeader.clear();
+			headerValue.clear();
+			customHeader.insert(0, it->first);
+			headerValue = it->second.at(0);
+			customHeader.push_back(' ');
+			customHeader.append(headerValue);
+			mHeaders = curl_slist_append(mHeaders, customHeader.c_str());
+		}
+		CURL_EASY_SETOPT_LIST(mCurl, CURLOPT_HTTPHEADER, mHeaders);
+	}
+	
+	return ;
+}
+
+
+size_t AampCurlDownloader::WriteCallback(void *buffer, size_t sz, size_t nmemb, void *userdata)
+{
+	// Call non-static member function.
+	size_t ret = 0;
+	AampCurlDownloader *context = static_cast<AampCurlDownloader *>(userdata);
+	if(context != NULL)
+	{
+		ret = context->write_callback(buffer, sz, nmemb);
+	}
+	return ret;
+}
+
+size_t AampCurlDownloader::write_callback(void *buffer, size_t sz, size_t nmemb)
+{
+	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
+	size_t retSize = sz * nmemb;
+
+	if(retSize)
+	{
+		std::lock_guard<std::mutex> lock(mCurlMutex);
+		std::vector<std::uint8_t> op1;
+		std::uint8_t *bufferS = static_cast<std::uint8_t*>( buffer );
+		std::uint8_t *bufferE = bufferS + retSize;
+		std::copy(bufferS, bufferE, std::back_inserter(this->mDownloadResponse->mDownloadData));
+		mDownloadUpdatedTime = NOW_STEADY_TS_MS;
+		mWriteCallbackBufferSize += retSize;
+	}
+
+	return retSize;
+}
+
+size_t AampCurlDownloader::HeaderCallback(void *buffer, size_t sz, size_t nmemb, void *userdata)
+{
+	// Call non-static member function.
+	size_t ret = 0;
+	AampCurlDownloader *context = static_cast<AampCurlDownloader *>(userdata);
+	if(context != NULL)
+	{
+		ret = context->header_callback(buffer, sz, nmemb);
+	}
+	return ret;
+}
+
+size_t AampCurlDownloader::header_callback(void *buffer, size_t sz, size_t nmemb)
+{
+	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
+	size_t retSize = sz * nmemb;
+	
+	if(retSize)
+	{
+		std::lock_guard<std::mutex> lock(mCurlMutex);
+		std::uint8_t *bufferS = static_cast<std::uint8_t*>( buffer );
+		std::uint8_t *bufferE = bufferS + retSize;
+		std::string str;
+		size_t pos;
+		str.assign(bufferS, bufferE);
+		if((pos = str.find('\n')) != std::string::npos)
+		{
+			str.erase(pos);
+		}
+		if(str.size())
+			this->mDownloadResponse->mResponseHeader.push_back(str);
+	}
+	return retSize;
+}
+
+int AampCurlDownloader::ProgressCallback(
+										 void *clientp, // app-specific as optionally set with CURLOPT_PROGRESSDATA
+										 double dltotal, // total bytes expected to download
+										 double dlnow, // downloaded bytes so far
+										 double ultotal, // total bytes expected to upload
+										 double ulnow // uploaded bytes so far
+)
+{
+	int ret = 0;
+	AampCurlDownloader *context = (AampCurlDownloader *)clientp;
+	
+	if(context)
+	{
+		ret = context->progress_callback ( dltotal, dlnow, ultotal, ulnow );
+	}
+	return ret;
+}
+
+int AampCurlDownloader::progress_callback(
+					 double dltotal, // total bytes expected to download
+					 double dlnow, // downloaded bytes so far
+					 double ultotal, // total bytes expected to upload
+					 double ulnow // uploaded bytes so far
+)
+{
+	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
+	int rc = 0;
+	std::lock_guard<std::mutex> lock(mCurlMutex);
+	if (!mDownloadActive)
+	{
+		rc = -1; // CURLE_ABORTED_BY_CALLBACK
+		AAMPLOG_WARN("Abort download... Release called");
+	}
+	else
+	{
+		//AAMPLOG_INFO("dlnow:%f startTimeout:%d stallTimeout:%d Time:%lld StartTime:%lld",dlnow,mDnldCfg->iStartTimeout,mDnldCfg->iStallTimeout,NOW_STEADY_TS_MS,mDownloadStartTime);
+		if (this->mWriteCallbackBufferSize == 0 && mDnldCfg->iStartTimeout > 0)
+		{ // check to handle scenario where <startTimeout> seconds delay occurs without any bytes having been downloaded (stall at start)
+			double timeElapsedInSec = (double)(NOW_STEADY_TS_MS - mDownloadStartTime) /1000;
+			if (timeElapsedInSec >= (mDnldCfg->iStartTimeout))
+			{
+				AAMPLOG_WARN("Abort download as no data received for %.2f seconds", timeElapsedInSec);
+				mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_START_TIMEDOUT;
+				rc = -1;
+			}
+
+		}
+		else if( this->mWriteCallbackBufferSize > 0 && mDnldCfg->iStallTimeout > 0)
+		{
+			//if(this->mDownloadResponse->mDownloadData.size())
+			{
+				double timeElapsedSinceLastUpdate = (double)(NOW_STEADY_TS_MS - mDownloadUpdatedTime) / 1000; //in secs
+				if (timeElapsedSinceLastUpdate >= (mDnldCfg->iStallTimeout))
+				{ // no change for at least <stallTimeout> seconds - consider download stalled and abort
+					AAMPLOG_WARN("Abort download as mid-download stall detected for %.2f seconds, download size:%.2f bytes", timeElapsedSinceLastUpdate, dlnow);
+					mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_STALL_TIMEDOUT;
+					rc = -1;
+				}
+			}
+			if ( mDownloadResponse->progressMetrics.dlnow != dlnow)
+			{
+				mDownloadResponse->progressMetrics.dlnow  	= dlnow;
+				mDownloadResponse->progressMetrics.dlTotal  = dltotal;
+			}
+		}
+		else if((this->mWriteCallbackBufferSize > 0 && mDnldCfg->iLowBWTimeout > 0))
+		{
+			double elapsedTimeMs = (double)(NOW_STEADY_TS_MS - mDownloadStartTime);
+			if( elapsedTimeMs >= mDnldCfg->iLowBWTimeout*1000 )
+			{
+				if(dltotal)
+				{
+					double predictedTotalDownloadTimeMs = elapsedTimeMs*dltotal/dlnow;
+					if( predictedTotalDownloadTimeMs > mDnldCfg->iDownloadTimeout )
+					{
+						AAMPLOG_WARN("lowBWTimeout=%lds; predictedTotalDownloadTime=%fs>%fs (network timeout)",
+								mDnldCfg->iLowBWTimeout,
+								predictedTotalDownloadTimeMs/1000.0,
+								mDnldCfg->iDownloadTimeout/1000.0 );
+						mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
+						rc = -1;
+					}
+				}
+			}
+
+		}
+
+	}
+	
+	
+	return rc;
+	
+}
+
+size_t AampCurlDownloader::GetDataString(std::string &dataStr)
+{
+	int ret=0;
+	if(mDownloadResponse != nullptr)
+	{
+		dataStr =	std::string( mDownloadResponse->mDownloadData.begin(), mDownloadResponse->mDownloadData.end());
+		ret 	=	mDownloadResponse->mDownloadData.size();
+	}
+	return ret;
+}
+

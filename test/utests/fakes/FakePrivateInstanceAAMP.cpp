@@ -877,11 +877,6 @@ void PrivateInstanceAAMP::LoadAampAbrConfig(void)
 {
 }
 
-bool PrivateInstanceAAMP::GetNetworkTime(enum UtcTiming timingtype, const std::string& remoteUrl, int *http_error, CurlRequest request)
-{
-	return true;
-}
-
 void PrivateInstanceAAMP::SetLowLatencyServiceConfigured(bool bConfig)
 {
 }
@@ -903,11 +898,6 @@ long long PrivateInstanceAAMP::DurationFromStartOfPlaybackMs(void)
 
 void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 {
-}
-
-time_t PrivateInstanceAAMP::GetUtcTime()
-{
-	return 0;
 }
 
 void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, bool immediate)
@@ -964,11 +954,6 @@ bool PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::strin
 void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, MediaType fileType,int * fogError)
 {
         return;
-}
-
-bool PrivateInstanceAAMP::ProcessCustomCurlRequest(std::string& remoteUrl, AampGrowableBuffer* buffer, int *http_error, CurlRequest request, std::string pData)
-{
-	return true;
 }
 
 void PrivateInstanceAAMP::LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelper,void* userData)

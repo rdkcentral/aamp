@@ -122,7 +122,7 @@ endif()
 
 find_package (Threads REQUIRED)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm drm/aes drm/helper subtitle isobmff)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader drm/aes drm/helper subtitle isobmff)
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
 include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
@@ -137,7 +137,7 @@ include_directories(SYSTEM ${LIBCJSON_INCLUDE_DIRS})
 set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampConfig.h
 					AampConstants.h
-					AampCurlStore.h
+					downloader/AampCurlStore.h
 					AampDefine.h
 					AampDrmCallbacks.h
 					AampDrmSystems.h
@@ -180,6 +180,8 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					uint33_t.h
 					videoin_shim.h
 					AampCMCDCollector.h
+					downloader/AampCurlDefine.h
+					downloader/AampCurlDownloader.h
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -219,9 +221,10 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					drm/helper/AampDrmHelper.cpp
 					AampGstUtils.cpp
 					MediaStreamContext.cpp
-					AampCurlStore.cpp
+					downloader/AampCurlStore.cpp
 					AampDRMLicPreFetcher.cpp
 					AampCMCDCollector.cpp
+					downloader/AampCurlDownloader.cpp
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
@@ -735,7 +738,9 @@ install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h Aam
   AampMemoryUtils.h AampProfiler.h AampConstants.h iso639map.h AampRfc.h AampGstUtils.h AampGrowableBuffer.h
   AampScheduler.h
   drm/AampSecManager.h
-  AampCurlStore.h
+  downloader/AampCurlStore.h
+  downloader/AampCurlDownloader.h
+  downloader/AampCurlDefine.h
   DESTINATION include)
 
 if (CMAKE_AAMP_RFC_REQUIRED)

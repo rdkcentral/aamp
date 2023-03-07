@@ -59,7 +59,7 @@
 #include "AampEventManager.h"
 #include <HybridABRManager.h>
 #include "AampCMCDCollector.h"
-
+#include "AampCurlDownloader.h"
 
 #ifdef __APPLE__
 #define aamp_pthread_setname(tid,name) pthread_setname_np(name)
@@ -232,27 +232,6 @@ enum AAMPStatusType
 /**
  * @brief Http Header Type
  */
-enum HttpHeaderType
-{
-	eHTTPHEADERTYPE_COOKIE,       /**< Cookie Header */
-	eHTTPHEADERTYPE_XREASON,      /**< X-Reason Header */
-	eHTTPHEADERTYPE_FOG_REASON,   /**< X-Reason Header */
-	eHTTPHEADERTYPE_EFF_LOCATION, /**< Effective URL location returned */
-	eHTTPHEADERTYPE_UNKNOWN=-1    /**< Unkown Header */
-};
-
-
-/**
- * @brief Http Header Type
- */
-enum CurlAbortReason
-{
-	eCURL_ABORT_REASON_NONE = 0,
-	eCURL_ABORT_REASON_STALL_TIMEDOUT,
-	eCURL_ABORT_REASON_START_TIMEDOUT,
-	eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT
-};
-
 /**
  * @brief Different reasons for bitrate change
  */
@@ -287,17 +266,6 @@ enum AudioType
 	eAUDIO_DOLBYAC4
 };
 
-/**
- *
- * @enum Curl Request
- *
- */
-enum CurlRequest
-{
-	eCURL_GET,
-	eCURL_POST,
-	eCURL_DELETE
-};
 
 /**
  *
@@ -1293,18 +1261,6 @@ public:
 	AampCurlInstance GetPlaylistCurlInstance(MediaType type, bool IsInitDnld=true);
 
 	/**
-	* @fn GetNetworkTime
-	*
-	* @param[in] UtcTiming - Timing Type
-	* @param[in] remoteUrl - File URL
-	* @param[in] http_error - HTTP error code
-	* @param[in] CurlRequest - request type
-	* @param[out] buffer - Pointer to the output buffer
-	* @return bool status
-	*/
-	bool GetNetworkTime(enum UtcTiming timingtype, const std::string& remoteUrl, int *http_error, CurlRequest request);
-
-	/**
 	 * @fn GetFile
 	 *
 	 * @param[in] remoteUrl - File URL
@@ -1332,19 +1288,7 @@ public:
 	 *
 	 * @param[out] buffer - Pointer to the output buffer
 	 */
-	char* GetOnVideoEndSessionStatData();
-
-	/**
-	 * @fn ProcessCustomCurlRequest
-	 *
-	 * @param[in] remoteUrl - File URL
-	 * @param[out] buffer - Pointer to the output buffer
-	 * @param[out] http_error - HTTP error code
-	 * @param[in] request - curl request type
-	 * @param[in] pData - string contains post data
-	 * @return bool status
-	 */
-	bool ProcessCustomCurlRequest(std::string& remoteUrl, AampGrowableBuffer* buffer, int *http_error, CurlRequest request = eCURL_GET, std::string pData = "");
+	void GetOnVideoEndSessionStatData(std::string &data);
 	
 	/**
 	 * @fn MediaTypeString
@@ -3852,20 +3796,6 @@ public:
 	void SetLowLatencyServiceConfigured(bool bConfig);
 
 	/**
-	 *     @fn GetUtcTime
-	 *
-	 *     @return time_t
-	 */
-	time_t GetUtcTime();
-
-	/**
-	 *     @fn SetUtcTime
- 	 *     @param[in] time - Utc Time
-	 *     @return void
-	 */
-	void SetUtcTime(time_t time);
-
-	/**
 	 *     @fn GetCurrentLatency
 	 *
 	 *     @return long
@@ -4204,7 +4134,6 @@ private:
 	struct SpeedCache speedCache;
 	bool bLowLatencyStartABR;
 	bool mLiveOffsetAppRequest;
-	time_t mTime;
 	long mCurrentLatency;
 	AampLogManager *mLogObj;
 	bool mApplyVideoRect; 			/**< Status to apply stored video rectagle */

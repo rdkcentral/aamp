@@ -32,6 +32,11 @@
 //#define ENABLE_LOGGING
 #define TEST_LOG_LEVEL eLOGLEVEL_TRACE
 
+/**
+ * @brief Log file and cfg directory path - To support dynamic directory configuration
+ */
+static char gAampLog[] = "./aamp.log";
+
 bool AampLogManager::isLogLevelAllowed(AAMP_LogLevel chkLevel)
 {
 	return chkLevel >= TEST_LOG_LEVEL;
@@ -63,7 +68,10 @@ void logprintf(int playerId, const char* levelstr, const char* file, int line, c
 	gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE-1)] = 0;
 
 	std::cout << gDebugPrintBuffer << std::endl;
-
+	std::ofstream f;
+	f.open(gAampLog, std::ios::app);
+	f << gDebugPrintBuffer << std::endl;
+	f.close();
 	va_end(args);
 #endif
 }

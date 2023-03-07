@@ -29,7 +29,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <assert.h>
-#include "AampCurlStore.h"
+#include "downloader/AampCurlStore.h"
 
 /**
  * @struct StreamWriteCallbackContext

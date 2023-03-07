@@ -1,7 +1,7 @@
 # If not stated otherwise in this file or this component's license file the
 # following copyright and licenses apply:
 #
-# Copyright 2022 RDK Management
+# Copyright 2023 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME PrivateInstanceAAMPTests)
+set(EXEC_NAME AampCurlDownloaderTest)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader)
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 
@@ -43,17 +43,15 @@ include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 
 
-set(TEST_SOURCES PauseAtTests.cpp
-                 TextStyleTests.cpp
-                 PrivateInstanceAAMPTests.cpp)
+set(TEST_SOURCES FunctionalTests.cpp
+                 AampCurlDownloaderTest.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp)
+
+set(AAMP_SOURCES ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
-
-set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 if (CMAKE_XCODE_BUILD_SYSTEM)
   # XCode schema target
@@ -64,7 +62,7 @@ if (COVERAGE_ENABLED)
     include(CodeCoverage)
     APPEND_COVERAGE_COMPILER_FLAGS()
     #Set NO_EXCLUDE_DIR to the location of this test so it doesn't get excluded & include common exclude files:
-    set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/PrivateInstanceAAMP/*")
+    set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/AampCurlDownloaderTest/*")
     include("${PROJECT_SOURCE_DIR}/cmake_exclude_file.list")    
     SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
                               EXECUTABLE ${EXEC_NAME}
@@ -72,5 +70,7 @@ if (COVERAGE_ENABLED)
 endif()
 
 target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lcurl)
+
+set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)

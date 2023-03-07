@@ -10,3 +10,5 @@ add_subdirectory(TextStyleAttributes)
 add_subdirectory(UrlEncDecAAMP)
 add_subdirectory(StreamAbstractionAAMP_HLS)
 add_subdirectory(StreamAbstractionAAMP_MPD)
+add_subdirectory(AampCurlDownloader)
+

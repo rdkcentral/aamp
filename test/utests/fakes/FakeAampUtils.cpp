@@ -201,38 +201,8 @@ bool aamp_IsAbsoluteURL( const std::string &url )
 	return url.compare(0, 7, "http://")==0 || url.compare(0, 8, "https://")==0;
 }
 
-double CURL_EASY_GETINFO_DOUBLE( CURL *handle, CURLINFO info )
+double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::string NetworkProxy)
 {
 	return 0.0;
-}
-
-int CURL_EASY_GETINFO_LONG( CURL *handle, CURLINFO info )
-{
-	return -1;
-}
-
-char *CURL_EASY_GETINFO_STRING( CURL *handle, CURLINFO info )
-{
-	return NULL;
-}
-
-double aamp_CurlEasyGetinfoDouble( CURL *handle, CURLINFO info )
-{
-	return 0.0;
-}
-
-int aamp_CurlEasyGetinfoInt( CURL *handle, CURLINFO info )
-{
-	return 0;
-}
-
-long aamp_CurlEasyGetinfoLong( CURL *handle, CURLINFO info )
-{
-	return 0;
-}
-
-char *aamp_CurlEasyGetinfoString( CURL *handle, CURLINFO info )
-{
-	return NULL;
 }
 

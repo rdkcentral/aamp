@@ -22,7 +22,7 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME ConfigTests)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle) # ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle) # ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser)
 
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
