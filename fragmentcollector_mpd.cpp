@@ -2713,24 +2713,41 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							skipTime = 0;
 						}
 					}
-					
-					if(!aamp->IsLive())
+
+					if( timeScale )
 					{
-						if( timeScale )
-						{
+						if( aamp->IsLive() )
+						{ // RDKAAMP-740 live manifests that don't include explicit timeline
+							auto number = pMediaStreamContext->fragmentDescriptor.Number;
+							uint64_t startNumber = segmentTemplates.GetStartNumber();
+							uint64_t pto = segmentTemplates.GetPresentationTimeOffset();
+							if( pto )
+							{
+								mFirstPTS = (double)pto/(double)timeScale;
+							}
+							else
+							{
+								mFirstPTS = segmentDuration * (number - startNumber);
+							}
+							AAMPLOG_TRACE("Live signal - firstPTS: %f timescale: %u PTO: %" PRIu64 " number: %" PRIu64 " startNumber: %" PRIu64 " segmentDuration: %f",
+										mFirstPTS, timeScale, pto, number, startNumber, segmentDuration);
+						}
+						else
+						{ // !live
 							mFirstPTS = (double)segmentTemplates.GetPresentationTimeOffset() / (double)timeScale;
 						}
-						if( updateFirstPTS )
-						{
-							mFirstPTS += skipTime;
-							AAMPLOG_TRACE("Type[%d] updateFirstPTS: %f SkipTime: %f",pMediaStreamContext->type,mFirstPTS, skipTime);
-						}
 					}
+					if( updateFirstPTS )
+					{ // common logic to adjust based on relative seek position
+						mFirstPTS += skipTime;
+						AAMPLOG_TRACE("Type[%d] updateFirstPTS: %f SkipTime: %f", pMediaStreamContext->type, mFirstPTS, skipTime);
+					}
+
 					if (skipTime >= segmentDuration)
 					{ // seeking past more than one segment
 						uint64_t number = skipTime / segmentDuration;
 						double fragmentTimeFromNumber = segmentDuration * number;
-						
+
 						pMediaStreamContext->fragmentDescriptor.Number += number;
 						pMediaStreamContext->fragmentDescriptor.Time += fragmentTimeFromNumber;
 						pMediaStreamContext->fragmentTime = fragmentTimeFromNumber;
@@ -4853,6 +4870,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 							mCurrentPeriodIdx--;
 						}
 					}
+
 					AAMPLOG_WARN("duration %f durationMs %f mCurrentPeriodIdx %d currentPeriodStart %f offsetFromStart %f",
 				 duration, (double)durationMs / 1000, mCurrentPeriodIdx, currentPeriodStart, offsetFromStart);
 				}

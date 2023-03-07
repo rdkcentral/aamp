@@ -27,6 +27,7 @@
 #include "fragmentcollector_mpd.h"
 #include "MediaStreamContext.h"
 #include "MockAampConfig.h"
+#include "MockAampUtils.h"
 #include "MockAampGstPlayer.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockMediaStreamContext.h"
@@ -74,7 +75,8 @@ protected:
 		{eAAMPConfig_PersistLowNetworkBandwidth, false},
 		{eAAMPConfig_MidFragmentSeek, false},
 		{eAAMPConfig_PropogateURIParam, true},
-		{eAAMPConfig_DashParallelFragDownload, false}
+		{eAAMPConfig_DashParallelFragDownload, false},
+		{eAAMPConfig_EnableLowLatencyDash, false}
 	};
 
 	/** @brief Integer AAMP configuration settings. */
@@ -87,7 +89,8 @@ protected:
 		{eAAMPConfig_RampDownLimit, -1},
 		{eAAMPConfig_MaxFragmentCached, DEFAULT_CACHED_FRAGMENTS_PER_TRACK},
 		{eAAMPConfig_PrePlayBufferCount, DEFAULT_PREBUFFER_COUNT},
-		{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS}
+		{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
+		{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
 	};
 
 	void SetUp() override
@@ -148,6 +151,12 @@ protected:
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
+
+		if (g_mockAampUtils)
+		{
+			delete g_mockAampUtils;
+			g_mockAampUtils = nullptr;
+		}
 
 		delete g_mockAampGstPlayer;
 		g_mockAampGstPlayer = nullptr;
@@ -337,6 +346,171 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 /**
+ * @brief Live segment template test.
+ *
+ * The $Number$ identifier is set to the segment number which is calculated from the current time
+ * and is used to select the uri of the media segment to download and present.
+ */
+TEST_F(FunctionalTests, Live_Test1)
+{
+	AAMPStatusType status;
+	const char *currentTimeISO = "2023-01-01T00:00:00Z";
+	double currentTime;
+	double availabilityStartTime;
+	double deltaTime;
+	long long timeMS;
+	long long fragmentNumber;
+	double firstPresentationTime;
+	char url[64];
+	std::string fragmentUrl;
+	/* The value of these variables must match the content of the manifest below: */
+	const char *availabilityStartTimeISO = "1970-01-01T00:00:00Z";
+	constexpr uint32_t segmentTemplateDuration = 5000;
+	constexpr uint32_t timescale = 2500;
+	constexpr uint32_t startNumber = 0;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="p0" start="PT0S">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	constexpr uint32_t segmentDurationSec = segmentTemplateDuration / timescale;
+
+	/* Setup AAMP utils mock. */
+	g_mockAampUtils = new StrictMock<MockAampUtils>();
+	currentTime = ISO8601DateTimeToUTCSeconds(currentTimeISO);
+	availabilityStartTime = ISO8601DateTimeToUTCSeconds(availabilityStartTimeISO);
+	deltaTime = currentTime - availabilityStartTime;
+	timeMS = 1000LL*((long long)currentTime);
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
+	  .Times(AnyNumber())
+	  .WillRepeatedly(Return(timeMS));
+
+	/* Initialize MPD. The video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest);
+
+	/* The first segment downloaded will be at the live point. */
+	fragmentNumber = ((((long long)deltaTime) - AAMP_LIVE_OFFSET) / segmentDurationSec) + startNumber;
+
+	/* Calculate the first frame time (in seconds). The gstreamer interface will perform a seek to
+	 * this postion to start playback at the live point. It might not be the first frame in the
+	 * downloaded segment.
+	 */
+	firstPresentationTime = deltaTime - AAMP_LIVE_OFFSET;
+	ASSERT_EQ(firstPresentationTime, mStreamAbstractionAAMP_MPD->GetFirstPTS());
+
+	/* Push the first video segment to present. */
+	(void)snprintf(url, sizeof(url), "%svideo_%lld.m4s", TEST_BASE_URL, fragmentNumber);
+	fragmentUrl = std::string(url);
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	PushNextFragment(eTRACK_VIDEO);
+
+	/* Push the second video segment to present. */
+	fragmentNumber++;
+	(void)snprintf(url, sizeof(url), "%svideo_%lld.m4s", TEST_BASE_URL, fragmentNumber);
+	fragmentUrl = std::string(url);
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	PushNextFragment(eTRACK_VIDEO);
+}
+
+/**
+ * @brief Live segment template test with no startNumber specified.
+ *
+ * The $Number$ identifier is set to the segment number which is calculated from the current time
+ * and is used to select the uri of the media segment to download and present.
+ * The default startNumber used to calculate the value of $Number$ is 1, if it is missing from
+ * the manifest.
+ */
+TEST_F(FunctionalTests, Live_Test2)
+{
+	AAMPStatusType status;
+	const char *currentTimeISO = "2023-01-01T00:00:00Z";
+	double currentTime;
+	double availabilityStartTime;
+	double deltaTime;
+	long long timeMS;
+	long long fragmentNumber;
+	double firstPresentationTime;
+	char url[64];
+	std::string fragmentUrl;
+	/* The value of these variables must match the content of the manifest below: */
+	const char *availabilityStartTimeISO = "1973-01-14T01:30:00Z";
+	constexpr uint32_t segmentTemplateDuration = 5000;
+	constexpr uint32_t timescale = 2500;
+	constexpr uint32_t startNumber = 1;				// default value, as it is not specified in the manifest
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1973-01-14T01:30:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="p0" start="PT0S">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	constexpr uint32_t segmentDurationSec = segmentTemplateDuration / timescale;
+
+	/* Setup AAMP utils mock. */
+	g_mockAampUtils = new StrictMock<MockAampUtils>();
+	currentTime = ISO8601DateTimeToUTCSeconds(currentTimeISO);
+	availabilityStartTime = ISO8601DateTimeToUTCSeconds(availabilityStartTimeISO);
+	deltaTime = currentTime - availabilityStartTime;
+	timeMS = 1000LL*((long long)currentTime);
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
+	  .Times(AnyNumber())
+	  .WillRepeatedly(Return(timeMS));
+
+	/* Initialize MPD. The video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	/* The first segment downloaded will be at the live point. */
+	fragmentNumber = ((((long long)deltaTime) - AAMP_LIVE_OFFSET) / segmentDurationSec) + startNumber;
+
+	/* Calculate the first frame time (in seconds). The gstreamer interface will perform a seek to
+	 * this postion to start playback at the live point. It might not be the first frame in the
+	 * downloaded segment.
+	 */
+	firstPresentationTime = deltaTime - AAMP_LIVE_OFFSET;
+	ASSERT_EQ(firstPresentationTime, mStreamAbstractionAAMP_MPD->GetFirstPTS());
+
+	/* Push the first video segment to present. */
+	(void)snprintf(url, sizeof(url), "%svideo_%lld.m4s", TEST_BASE_URL, fragmentNumber);
+	fragmentUrl = std::string(url);
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	PushNextFragment(eTRACK_VIDEO);
+
+	/* Push the second video segment to present. */
+	fragmentNumber++;
+	(void)snprintf(url, sizeof(url), "%svideo_%lld.m4s", TEST_BASE_URL, fragmentNumber);
+	fragmentUrl = std::string(url);
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	PushNextFragment(eTRACK_VIDEO);
+}
+
+/**
  * @brief Missing period ids test.
  *
  * Unique period ids are added if none is specified in the manifest. AAMP uses
@@ -407,3 +581,4 @@ R"(<?xml version="1.0"?>
 	EXPECT_NE(mpd->GetPeriods().at(2)->GetId(), std::string());
 	EXPECT_NE(mpd->GetPeriods().at(0)->GetId(), mpd->GetPeriods().at(2)->GetId());
 }
+
