@@ -13,10 +13,13 @@
     "${BASE_DIR}/test/utests/mocks/*"
     "${PROJECT_SOURCE_DIR}/tests/AampCliSet/*"
     "${PROJECT_SOURCE_DIR}/tests/Base64AAMP/*"
+    "${PROJECT_SOURCE_DIR}/tests/AampUtilsTests/*"
     "${PROJECT_SOURCE_DIR}/tests/PlayerInstanceAAMP/*"
     "${PROJECT_SOURCE_DIR}/tests/PrivateInstanceAAMP/*"
     "${PROJECT_SOURCE_DIR}/tests/StreamAbstractionAAMP_HLS/*"
     "${PROJECT_SOURCE_DIR}/tests/TextStyleAttributes/*"
-    "${PROJECT_SOURCE_DIR}/tests/UrlEncDecAAMP/*")
+    "${PROJECT_SOURCE_DIR}/tests/UrlEncDecAAMP/*"
+    "/Applications/*"
+    "./v1/*")
 
     list(REMOVE_ITEM COVERAGE_EXCLUDES ${NO_EXCLUDE_DIR})
