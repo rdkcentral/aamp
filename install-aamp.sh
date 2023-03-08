@@ -8,6 +8,9 @@ defaultcodebranch="dev_sprint_23_1"
 defaultchannellistfile="$HOME/aampcli.csv"
 defaultopensslversion="openssl@1.1"
 
+# pull in general utility finctions
+source install-script-utilities.sh
+
 arch=$(uname -m)
 echo "Architecture is +$(arch)+"
 if [[ $arch == "x86_64" ]]; then
@@ -90,7 +93,7 @@ install_system_packages() {
     echo "Check/Install aamp development environment base packages"
     find_or_install_pkgs  json-glib cmake $defaultopensslversion libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config lcov gcovr
 
-    git clone https://github.com/google/googletest
+    do_clone https://github.com/google/googletest
     cd googletest
     git checkout tags/release-1.11.0
     mkdir build
@@ -100,7 +103,7 @@ install_system_packages() {
     sudo make install
     cd ../../
 
-    git clone https://github.com/DaveGamble/cJSON.git
+    do_clone https://github.com/DaveGamble/cJSON.git
     cd cJSON
     mkdir build
     cd build
@@ -209,7 +212,7 @@ if [[ ! -d "$builddir" ]]; then
     mkdir $builddir
     cd $builddir
     
-    git clone -b $codebranch https://code.rdkcentral.com/r/rdk/components/generic/aamp
+    do_clone -b $codebranch https://code.rdkcentral.com/r/rdk/components/generic/aamp
     cd aamp
 else
     cd $builddir
@@ -294,12 +297,16 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     cd temp
 
     sudo bash ./install_libdash.sh
+    if [ $? != 0 ]; then
+        echo "libdash installation FAILED"
+        exit 0
+    fi
     cd ..
 
     pwd
-    git clone -b $codebranch https://code.rdkcentral.com/r/rdk/components/generic/aampabr
-    git clone -b $codebranch https://code.rdkcentral.com/r/rdk/components/generic/gst-plugins-rdk-aamp
-    git clone -b $codebranch https://code.rdkcentral.com/r/rdk/components/generic/aampmetrics
+    do_clone_rdk_repo $codebranch aampabr
+    do_clone_rdk_repo $codebranch gst-plugins-rdk-aamp
+    do_clone_rdk_repo $codebranch aampmetrics
 
     #Build aamp components
     echo "Building following aamp components"
@@ -308,7 +315,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Building aampabr..."
     pwd
     cd aampabr
-    mkdir build
+    mkdir -p build
     cd build
     cmake ..
     make
@@ -318,7 +325,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     #Build aampmetrics
     echo "Building aampmetrics..."
     cd aampmetrics
-    mkdir build
+    mkdir -p build
     cd build
     cmake .. 
     make
@@ -342,11 +349,11 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     brew install graphviz
     
     echo "Cloning subtec-app..."
-    git clone https://code.rdkcentral.com/r/components/generic/subtec-app
+    do_clone https://code.rdkcentral.com/r/components/generic/subtec-app
     echo "Cloning websocket-ipplayer2-utils..."
-    git clone https://code.rdkcentral.com/r/components/generic/websocket-ipplayer2-utils subtec-app/websocket-ipplayer2-utils
+    do_clone https://code.rdkcentral.com/r/components/generic/websocket-ipplayer2-utils subtec-app/websocket-ipplayer2-utils
     echo "Installing glib..."
-    git clone https://gitlab.gnome.org/GNOME/glib.git
+    do_clone https://gitlab.gnome.org/GNOME/glib.git
     cd glib
     meson build && cd build
     meson compile
@@ -449,7 +456,8 @@ elif [[ "$OSTYPE" == "linux"* ]]; then
     sudo apt-get install freeglut3-dev build-essential
     sudo apt-get install libglew-dev
     sudo bash install-linux-deps.sh
-    bash install-linux.sh -b $codebranch
+    
+    source install-linux.sh -b $codebranch
     
     cd ../
     echo "Building aamp-cli..."

@@ -17,12 +17,32 @@
 # limitations under the License.
 
 
+# do_clone <params>
+# Pass all params to 'git clone'
+# If the clone fails then exit the script
+function do_clone()
+{
+    arglist=""
+    while [ "$1" ]; do
+        arglist+=" $1"
+        shift
+    done
+
+    echo && echo "Executing: 'git clone $arglist'"
+    git clone $arglist
+
+    if [ $? != 0 ]; then
+        echo "'git clone $arglist' FAILED"
+        exit 1
+    fi
+}
+
 echo "Please do make sure you have access to github and code.rdkcentral.com"
 cd ..
-git clone https://github.com/bitmovin/libdash.git
+do_clone https://github.com/bitmovin/libdash.git
 cd libdash/libdash
 git checkout stable_3_0
-git clone -b rdk-next "https://code.rdkcentral.com/r/rdk/components/generic/rdk-oe/meta-rdk-ext"
+do_clone -b rdk-next "https://code.rdkcentral.com/r/rdk/components/generic/rdk-oe/meta-rdk-ext"
 patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0001-libdash-build.patch
 patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0002-libdash-starttime-uint64.patch 
 patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0003-libdash-presentationTimeOffset-uint64.patch 

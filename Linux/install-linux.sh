@@ -4,15 +4,11 @@ echo $OSTYPE
 aampdir=$PWD/..
 echo $aampdir
 builddir=$aampdir/Linux
-defaultcodebranch=dev_sprint_22_1
+defaultcodebranch=dev_sprint_23_1
 
-function clone_rdk_repo() {
-    if [ -d $1 ]; then
-        echo "exist $1"
-    else
-        git clone -b $codebranch https://code.rdkcentral.com/r/rdk/components/generic/$1
-    fi
-}
+# pull in general utility finctions
+source $aampdir/install-script-utilities.sh
+
 
 while getopts ":d:b:" opt; do
   case ${opt} in
@@ -40,23 +36,24 @@ cd $builddir
 echo "Builddir: $builddir"
 
 #### CLONE_PACKAGES
-clone_rdk_repo aampabr
-clone_rdk_repo gst-plugins-rdk-aamp
-clone_rdk_repo aampmetrics
+do_clone_rdk_repo $codebranch aampabr
+do_clone_rdk_repo $codebranch gst-plugins-rdk-aamp
+
 
 if [ -d "cJSON" ]; then
     echo "exist cJSON"
 else
-    git clone https://github.com/DaveGamble/cJSON
+    do_clone https://github.com/DaveGamble/cJSON
 fi
 
-if [ -d "aampmetrics" ]; then
+do_clone_rdk_repo $codebranch aampmetrics
+if [ $? = 0 ]; then
     echo "Patching aampmetrics CMakeLists.txt"
     pushd aampmetrics
     	patch < ../patches/aampmetrics.patch
     popd
 else
-    echo "aampmetrics not cloned properly"
+    echo "skipping ampmetrics patch"
 fi
 
 #### CLONE_PACKAGES
