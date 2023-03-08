@@ -891,6 +891,10 @@ bool aamp_WriteFile(std::string fileName, const char* data, size_t len, MediaTyp
 			{
 				std::size_t manifestPos = fileName.find_last_of('/');
 				std::size_t extPos = fileName.find_last_of('.');
+				if(manifestPos == std::string::npos || extPos == std::string::npos)
+				{
+					return retVal;
+				}
 				std::string ext = fileName.substr(extPos);
 				fileName = fileName.substr(0,manifestPos+1); 
 				fileName = fileName + "manifest." + std::to_string(count) + ext;
@@ -920,13 +924,13 @@ bool aamp_WriteFile(std::string fileName, const char* data, size_t len, MediaTyp
 			{
 				f.write(data, len);
 				f.close();
+				retVal = true;
 			}
 			else
 			{
 				AAMPLOG_ERR("File open failed. outfile = %s ", (dirpath + fileName).c_str());
 			}
 		}
-		retVal = true;
 	}
 	return retVal;
 }
