@@ -64,9 +64,6 @@ if (COVERAGE_ENABLED)
                               DEPENDENCIES ${EXEC_NAME})
 endif()
 
-# Can be removed once SESSION_STATS build issues resolved
-set_target_properties(${EXEC_NAME} PROPERTIES COMPILE_FLAGS "-DSESSION_STATS")
-
 target_link_libraries(${EXEC_NAME} fakes -lpthread ${LIBDASH_LDFLAGS} ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lcjson)
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
