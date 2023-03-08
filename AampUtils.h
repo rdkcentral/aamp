@@ -29,10 +29,10 @@
 #include "AampDrmSystems.h"
 #include "main_aamp.h"
 #include "iso639map.h"
-
 #include <string>
 #include <sstream>
 #include <chrono>
+#include <curl/curl.h>
 
 #define NOW_SYSTEM_TS_MS std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()     /**< Getting current system clock in milliseconds */
 #define NOW_STEADY_TS_MS std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()     /**< Getting current steady clock in milliseconds */
@@ -46,6 +46,40 @@
 
 /** FHD height*/
 #define AAMP_FHD_HEIGHT (1080)
+
+#define CURL_SHARE_SETOPT( SH, OPT, PARAM ) \
+	{ \
+		CURLSHcode rc = curl_share_setopt( SH, OPT, PARAM ); \
+		if( rc != CURLSHE_OK ) \
+		{ \
+			AAMPLOG_WARN( "curl_share_setopt fail %d\n", rc ); \
+		} \
+	}
+#define CURL_EASY_SETOPT_POINTER( handle, option, parameter )\
+	if (curl_easy_setopt( handle, option, parameter ) != CURLE_OK ) {\
+		AAMPLOG_WARN("CURL_EASY_SETOPT_POINTER failure" );\
+	}
+#define CURL_EASY_SETOPT_STRING( handle, option, parameter)\
+	if (curl_easy_setopt( handle, option, parameter ) != CURLE_OK ) {\
+		AAMPLOG_WARN("CURL_EASY_SETOPT_STRING failure" );\
+	}
+#define CURL_EASY_SETOPT_LONG( handle, option, parameter )\
+	if (curl_easy_setopt( handle, option, (long)parameter ) != CURLE_OK ) {\
+		AAMPLOG_WARN("CURL_EASY_SETOPT_LONG failure" );\
+	}
+#define CURL_EASY_SETOPT_FUNC( handle, option, parameter )\
+	if (curl_easy_setopt( handle, option, parameter ) != CURLE_OK) {\
+		AAMPLOG_WARN("CURL_EASY_SETOPT_FUNC failure" );\
+	}
+#define CURL_EASY_SETOPT_LIST( handle, option, parameter )\
+	if (curl_easy_setopt( handle, option, parameter ) != CURLE_OK) {\
+		AAMPLOG_WARN("CURL_EASY_SETOPT_LIST failure" );\
+}
+
+double aamp_CurlEasyGetinfoDouble( CURL *handle, CURLINFO info );
+int aamp_CurlEasyGetinfoInt( CURL *handle, CURLINFO info );
+long aamp_CurlEasyGetinfoLong( CURL *handle, CURLINFO info );
+char *aamp_CurlEasyGetinfoString( CURL *handle, CURLINFO info );
 
 /**
 * @struct	FormatMap

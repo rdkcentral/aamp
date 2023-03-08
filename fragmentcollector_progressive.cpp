@@ -123,32 +123,29 @@ static size_t StreamWriteCallback( void *ptr, size_t size, size_t nmemb, void *u
 
 void StreamAbstractionAAMP_PROGRESSIVE::StreamFile( const char *uri, int *http_error )
 { // TODO: move to main_aamp
-
-
-    int http_code = -1;
-    AAMPLOG_INFO("StreamFile: %s\n", uri );
-    CURL *curl = curl_easy_init();
-    if (curl)
-    {
-        StreamWriteCallbackContext context;
-        context.aamp = aamp;
-        context.sentTunedEvent = false;
-
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, StreamWriteCallback );
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&context );
-        curl_easy_setopt(curl, CURLOPT_URL, uri );
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, "aamp-progressive/1.0"); // TODO: use same user agent string normally used by AAMP
-        CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
-        if( res == CURLE_OK)
-        { // all data collected
+	int http_code = -1;
+	AAMPLOG_INFO("StreamFile: %s\n", uri );
+	CURL *curl = curl_easy_init();
+	if (curl)
+	{
+		StreamWriteCallbackContext context;
+		context.aamp = aamp;
+		context.sentTunedEvent = false;
+		CURL_EASY_SETOPT_FUNC(curl, CURLOPT_WRITEFUNCTION, StreamWriteCallback );
+		CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, (void *)&context );
+		CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, uri );
+		CURL_EASY_SETOPT_STRING(curl, CURLOPT_USERAGENT, "aamp-progressive/1.0"); // TODO: use same user agent string normally used by AAMP
+		CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
+		if( res == CURLE_OK)
+		{ // all data collected
 			http_code = GetCurlResponseCode(curl);
-        }
-        if (http_error)
-        {
-            *http_error = http_code;
-        }
-        curl_easy_cleanup(curl);
-    }
+		}
+		if (http_error)
+		{
+			*http_error = http_code;
+		}
+		curl_easy_cleanup(curl);
+	}
 }
 
 /**

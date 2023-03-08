@@ -24,11 +24,7 @@
 
 #include "AampCurlStore.h"
 #include "AampDefine.h"
-
-#define CURL_EASY_SETOPT(curl, CURLoption, option)\
-	if (curl_easy_setopt(curl, CURLoption, option) != 0) {\
-			logprintf("Failed at curl_easy_setopt ");\
-	}  //CID:132698,135078 - checked return
+#include "AampUtils.h"
 
 // Curl callback functions
 static pthread_mutex_t gCurlShMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -250,11 +246,11 @@ CurlSocketStoreStruct *CurlStore::CreateCurlStore ( const std::string &hostname 
 	CurlSock->mCurlStoreUserCount += 1;
 
 	CurlSock->mCurlShared = curl_share_init();
-	(void)curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_USERDATA, (void*)locks);
-	(void)curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_LOCKFUNC, curl_lock_callback);
-	(void)curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_UNLOCKFUNC, curl_unlock_callback);
-	(void)curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
-	(void)curl_share_setopt(CurlSock->mCurlShared, CURLSHOPT_SHARE, CURL_LOCK_DATA_SSL_SESSION);
+	CURL_SHARE_SETOPT(CurlSock->mCurlShared, CURLSHOPT_USERDATA, (void*)locks);
+	CURL_SHARE_SETOPT(CurlSock->mCurlShared, CURLSHOPT_LOCKFUNC, curl_lock_callback);
+	CURL_SHARE_SETOPT(CurlSock->mCurlShared, CURLSHOPT_UNLOCKFUNC, curl_unlock_callback);
+	CURL_SHARE_SETOPT(CurlSock->mCurlShared, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
+	CURL_SHARE_SETOPT(CurlSock->mCurlShared, CURLSHOPT_SHARE, CURL_LOCK_DATA_SSL_SESSION);
 
 	if ( umCurlSockDataStore.size() >= MaxCurlSockStore )
 	{
@@ -328,46 +324,44 @@ CURL* CurlStore::CurlEasyInitWithOpt ( void *privContext, const std::string &pro
 	CURL *curlEasyhdl = curl_easy_init();
 	if (ISCONFIGSET(eAAMPConfig_CurlLogging))
 	{
-		CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_VERBOSE, 1L);
+		CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_VERBOSE, 1 );
 	}
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_NOSIGNAL, 1L);
-	//curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback); // unused
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_PROGRESSFUNCTION, progress_callback);
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_HEADERFUNCTION, header_callback);
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_WRITEFUNCTION, write_callback);
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_CONNECTTIMEOUT, DEFAULT_CURL_CONNECTTIMEOUT);
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_FOLLOWLOCATION, 1L);
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_NOPROGRESS, 0L); // enable progress meter (off by default)
+	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_NOSIGNAL, 1 );
+	CURL_EASY_SETOPT_FUNC(curlEasyhdl, CURLOPT_PROGRESSFUNCTION, progress_callback);
+	CURL_EASY_SETOPT_FUNC(curlEasyhdl, CURLOPT_HEADERFUNCTION, header_callback);
+	CURL_EASY_SETOPT_FUNC(curlEasyhdl, CURLOPT_WRITEFUNCTION, write_callback);
+	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
+	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_CONNECTTIMEOUT, DEFAULT_CURL_CONNECTTIMEOUT);
+	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
+	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_FOLLOWLOCATION, 1 );
+	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_NOPROGRESS, 0 ); // enable progress meter (off by default)
 
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_USERAGENT, UserAgentString.c_str());
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_ACCEPT_ENCODING, "");//Enable all the encoding formats supported by client
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_SSL_CTX_FUNCTION, ssl_callback); //Check for downloads disabled in btw ssl handshake
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_SSL_CTX_DATA, aamp);
+	CURL_EASY_SETOPT_STRING(curlEasyhdl, CURLOPT_USERAGENT, UserAgentString.c_str());
+	CURL_EASY_SETOPT_STRING(curlEasyhdl, CURLOPT_ACCEPT_ENCODING, "");//Enable all the encoding formats supported by client
+	CURL_EASY_SETOPT_FUNC(curlEasyhdl, CURLOPT_SSL_CTX_FUNCTION, ssl_callback); //Check for downloads disabled in btw ssl handshake
+	CURL_EASY_SETOPT_POINTER(curlEasyhdl, CURLOPT_SSL_CTX_DATA, aamp);
 	long dns_cache_timeout = 3*60;
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_DNS_CACHE_TIMEOUT, dns_cache_timeout);
-	CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_SHARE, aamp->mCurlShared);
-	//CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_TCP_KEEPALIVE, 1 );
+	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_DNS_CACHE_TIMEOUT, dns_cache_timeout);
+	CURL_EASY_SETOPT_POINTER(curlEasyhdl, CURLOPT_SHARE, aamp->mCurlShared);
 
 	aamp->curlDLTimeout[instId] = DEFAULT_CURL_TIMEOUT * 1000;
 
 	if (!proxyName.empty())
 	{
 		/* use this proxy */
-		CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_PROXY, proxyName.c_str());
+		CURL_EASY_SETOPT_STRING(curlEasyhdl, CURLOPT_PROXY, proxyName.c_str());
 		/* allow whatever auth the proxy speaks */
-		CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_PROXYAUTH, CURLAUTH_ANY);
+		CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_PROXYAUTH, CURLAUTH_ANY);
 	}
 
 	if(aamp->IsEASContent())
 	{
 		//enable verbose logs so we can debug field issues
-		CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_VERBOSE, 1);
-		CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_DEBUGFUNCTION, eas_curl_debug_callback);
+		CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_VERBOSE, 1);
+		CURL_EASY_SETOPT_FUNC(curlEasyhdl, CURLOPT_DEBUGFUNCTION, eas_curl_debug_callback);
 		//set eas specific timeouts to handle faster cycling through bad hosts and faster total timeout
-		CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_TIMEOUT, EAS_CURL_TIMEOUT);
-		CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_CONNECTTIMEOUT, EAS_CURL_CONNECTTIMEOUT);
+		CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_TIMEOUT, EAS_CURL_TIMEOUT);
+		CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_CONNECTTIMEOUT, EAS_CURL_CONNECTTIMEOUT);
 
 		aamp->curlDLTimeout[instId] = EAS_CURL_TIMEOUT * 1000;
 
@@ -376,7 +370,7 @@ CURL* CurlStore::CurlEasyInitWithOpt ( void *privContext, const std::string &pro
 		bool isv6(::stat( "/tmp/estb_ipv6", &tmpStat) == 0);
 		if(isv6)
 		{
-			CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
+			CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
 		}
 		AAMPLOG_WARN("aamp eas curl config: timeout=%ld, connecttimeout%ld, ipv6=%d", EAS_CURL_TIMEOUT, EAS_CURL_CONNECTTIMEOUT, isv6);
 	}
@@ -424,14 +418,14 @@ void CurlStore::CurlInit(void *privContext, AampCurlInstance startIdx, unsigned 
 			if(NULL==aamp->mCurlShared)
 			{
 				aamp->mCurlShared = curl_share_init();
-				curl_share_setopt(aamp->mCurlShared, CURLSHOPT_USERDATA, (void*)NULL);
-				curl_share_setopt(aamp->mCurlShared, CURLSHOPT_LOCKFUNC, curl_lock_callback);
-				curl_share_setopt(aamp->mCurlShared, CURLSHOPT_UNLOCKFUNC, curl_unlock_callback);
-				curl_share_setopt(aamp->mCurlShared, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
+				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_USERDATA, (void*)NULL);
+				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_LOCKFUNC, curl_lock_callback);
+				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_UNLOCKFUNC, curl_unlock_callback);
+				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
 
 				if (ISCONFIGSET(eAAMPConfig_EnableSharedSSLSession))
 				{
-					curl_share_setopt(aamp->mCurlShared, CURLSHOPT_SHARE, CURL_LOCK_DATA_SSL_SESSION);
+					CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_SHARE, CURL_LOCK_DATA_SSL_SESSION);
 				}
 			}
 		}
@@ -638,7 +632,7 @@ AampCurlStoreErrorCode CurlStore::GetFromCurlStoreBulk ( const std::string &host
 				*CurlFd= GetCurlHandleFromFreeQ ( CurlSock, loop );
 				if(NULL!=*CurlFd)
 				{
-					CURL_EASY_SETOPT(*CurlFd, CURLOPT_SSL_CTX_DATA, aamp);
+					CURL_EASY_SETOPT_POINTER(*CurlFd, CURLOPT_SSL_CTX_DATA, aamp);
 					++CurlFdCount;
 				}
 				else
@@ -731,7 +725,7 @@ AampCurlStoreErrorCode CurlStore::GetFromCurlStore ( const std::string &hostname
 		}
 
 		*curl = curl_easy_init();
-		CURL_EASY_SETOPT(*curl, CURLOPT_SHARE, CurlSock->mCurlShared);
+		CURL_EASY_SETOPT_POINTER(*curl, CURLOPT_SHARE, CurlSock->mCurlShared);
 	}
 
 	return ret;
@@ -905,8 +899,6 @@ void CurlStore::ShowCurlStoreData ( bool trace )
 
 int GetCurlResponseCode( CURL *curlhandle )
 {
-	long lHttpCode = -1;
-	curl_easy_getinfo(curlhandle, CURLINFO_RESPONSE_CODE, &lHttpCode);
-	return (int)lHttpCode;
+	return aamp_CurlEasyGetinfoInt( curlhandle, CURLINFO_RESPONSE_CODE );
 }
 

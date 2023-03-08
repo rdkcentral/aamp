@@ -53,11 +53,6 @@
 #define INVALID_SESSION_SLOT -1
 #define DEFUALT_CDM_WAIT_TIMEOUT_MS 2000
 
-#define CURL_EASY_SETOPT(curl, CURLoption, option)\
-	if (curl_easy_setopt(curl, CURLoption, option) != 0) {\
-		AAMPLOG_WARN("Failed at curl_easy_setopt ");\
-	}  //CID:128208 - checked return
-
 static const char *sessionTypeName[] = {"video", "audio", "subtitle", "aux-audio"};
 
 static pthread_mutex_t drmSessionMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -433,20 +428,20 @@ const char * AampDRMSessionManager::getAccessToken(int &tokenLen, int &error_cod
 		int httpCode = -1;
 
 		CURL *curl = curl_easy_init();;
-		CURL_EASY_SETOPT(curl, CURLOPT_NOSIGNAL, 1L);
-		CURL_EASY_SETOPT(curl, CURLOPT_WRITEFUNCTION, write_callback);
-		CURL_EASY_SETOPT(curl, CURLOPT_PROGRESSFUNCTION, progress_callback);
-		CURL_EASY_SETOPT(curl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
-		CURL_EASY_SETOPT(curl, CURLOPT_PROGRESSDATA, this);
-		CURL_EASY_SETOPT(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
-		CURL_EASY_SETOPT(curl, CURLOPT_FOLLOWLOCATION, 1L);
-		CURL_EASY_SETOPT(curl, CURLOPT_NOPROGRESS, 0L);
-		CURL_EASY_SETOPT(curl, CURLOPT_WRITEDATA, callbackData);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOSIGNAL, 1);
+		CURL_EASY_SETOPT_FUNC(curl, CURLOPT_WRITEFUNCTION, write_callback);
+		CURL_EASY_SETOPT_FUNC(curl, CURLOPT_PROGRESSFUNCTION, progress_callback);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
+		CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, this);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_FOLLOWLOCATION, 1);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOPROGRESS, 0);
+		CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, callbackData);
 		if(!bSslPeerVerify)
 		{
-			CURL_EASY_SETOPT(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 0);
 		}
-		CURL_EASY_SETOPT(curl, CURLOPT_URL, SESSION_TOKEN_URL);
+		CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, SESSION_TOKEN_URL);
 
 		res = curl_easy_perform(curl);
 
@@ -744,52 +739,51 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 	AAMPLOG_WARN(" Sending license request to server : %s ", licenseRequest.url.c_str());
 	if (aamp->mConfig->IsConfigSet(eAAMPConfig_CurlLicenseLogging))
 	{
-		CURL_EASY_SETOPT(curl, CURLOPT_VERBOSE, 1L);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_VERBOSE, 1);
 	}
-	CURL_EASY_SETOPT(curl, CURLOPT_WRITEFUNCTION, write_callback);
-	CURL_EASY_SETOPT(curl, CURLOPT_PROGRESSFUNCTION, progress_callback);
-	CURL_EASY_SETOPT(curl, CURLOPT_PROGRESSDATA, this);
-	CURL_EASY_SETOPT(curl, CURLOPT_TIMEOUT, 5L);
-	CURL_EASY_SETOPT(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
-	CURL_EASY_SETOPT(curl, CURLOPT_FOLLOWLOCATION, 1L);
-	CURL_EASY_SETOPT(curl, CURLOPT_URL, licenseRequest.url.c_str());
-	CURL_EASY_SETOPT(curl, CURLOPT_WRITEDATA, callbackData);
+	CURL_EASY_SETOPT_FUNC(curl, CURLOPT_WRITEFUNCTION, write_callback);
+	CURL_EASY_SETOPT_FUNC(curl, CURLOPT_PROGRESSFUNCTION, progress_callback);
+	CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, this);
+	CURL_EASY_SETOPT_LONG(curl, CURLOPT_TIMEOUT, 5);
+	CURL_EASY_SETOPT_LONG(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
+	CURL_EASY_SETOPT_LONG(curl, CURLOPT_FOLLOWLOCATION, 1);
+	CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, licenseRequest.url.c_str());
+	CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, callbackData);
 
 	CurlCallbackContext context;
 	if(ISCONFIGSET(eAAMPConfig_SendLicenseResponseHeaders))
 	{
-		CURL_EASY_SETOPT(curl, CURLOPT_HEADERFUNCTION, header_callback);
+		CURL_EASY_SETOPT_FUNC(curl, CURLOPT_HEADERFUNCTION, header_callback);
 		context.aamp = aamp;
 		context.fileType = eMEDIATYPE_LICENCE;
-		CURL_EASY_SETOPT(curl, CURLOPT_HEADERDATA, &context);
+		CURL_EASY_SETOPT_POINTER(curl, CURLOPT_HEADERDATA, &context);
 	}
 
 	if(!ISCONFIGSET(eAAMPConfig_SslVerifyPeer)){
-		CURL_EASY_SETOPT(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 0);
 	}
 	else {
-		CURL_EASY_SETOPT(curl, CURLOPT_SSLVERSION, aamp->mSupportedTLSVersion);
-		CURL_EASY_SETOPT(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, aamp->mSupportedTLSVersion);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 1);
 	}
 
-	CURL_EASY_SETOPT(curl, CURLOPT_HTTPHEADER, headers);
+	CURL_EASY_SETOPT_LIST(curl, CURLOPT_HTTPHEADER, headers);
 
 	if(licenseRequest.method == AampLicenseRequest::POST)
 	{
 		challengeLength = licenseRequest.payload.size();
-		CURL_EASY_SETOPT(curl, CURLOPT_POSTFIELDSIZE, challengeLength);
-		CURL_EASY_SETOPT(curl, CURLOPT_POSTFIELDS,(uint8_t * )licenseRequest.payload.data());
-	}
-	else
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_POSTFIELDSIZE, challengeLength);
+		CURL_EASY_SETOPT_STRING(curl, CURLOPT_POSTFIELDS,licenseRequest.payload.data());
+	}else
 	{
-		CURL_EASY_SETOPT(curl, CURLOPT_HTTPGET, 1L);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTPGET, 1);
 	}
 
 	if (!licenseProxy.empty())
 	{
-		CURL_EASY_SETOPT(curl, CURLOPT_PROXY, licenseProxy.c_str());
+		CURL_EASY_SETOPT_STRING(curl, CURLOPT_PROXY, licenseProxy.c_str());
 		/* allow whatever auth the proxy speaks */
-		CURL_EASY_SETOPT(curl, CURLOPT_PROXYAUTH, CURLAUTH_ANY);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_PROXYAUTH, CURLAUTH_ANY);
 	}
 	unsigned int attemptCount = 0;
 	bool requestFailed = true;
@@ -826,7 +820,7 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 					callbackData = new writeCallbackData();
 					callbackData->data = keyInfo;
 					callbackData->mDRMSessionManager = this;
-					CURL_EASY_SETOPT(curl, CURLOPT_WRITEDATA, callbackData);
+					CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, callbackData);
 					context.allResponseHeaders.clear();
 				}
 				AAMPLOG_ERR(" curl_easy_perform() failed: %s", curl_easy_strerror(res));
@@ -852,7 +846,7 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 					callbackData = new writeCallbackData();
 					callbackData->data = keyInfo;
 					callbackData->mDRMSessionManager = this;
-					CURL_EASY_SETOPT(curl, CURLOPT_WRITEDATA, callbackData);
+					CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, callbackData);
 					context.allResponseHeaders.clear();
 					AAMPLOG_WARN("acquireLicense : Sleeping %d milliseconds before next retry.",licenseRetryWaitTime);
 					mssleep(licenseRetryWaitTime);

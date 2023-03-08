@@ -106,11 +106,6 @@
 		param_value = default_value; \
 	}
 
-#define CURL_EASY_SETOPT(curl, CURLoption, option)\
-	if (curl_easy_setopt(curl, CURLoption, option) != 0) {\
-		logprintf("Failed at curl_easy_setopt ");\
-	}  //CID:132698,135078 - checked return
-
 #define FOG_REASON_STRING			"Fog-Reason:"
 #define CURLHEADER_X_REASON			"X-Reason:"
 #define BITRATE_HEADER_STRING		"X-Bitrate:"
@@ -3503,7 +3498,7 @@ void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instan
 		return;
 	if(instance < eCURLINSTANCE_MAX && curl[instance])
 	{
-		CURL_EASY_SETOPT(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
+		CURL_EASY_SETOPT_LONG(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
 		curlDLTimeout[instance] = timeoutMS;
 	}
 	else
@@ -3690,24 +3685,24 @@ bool PrivateInstanceAAMP::GetNetworkTime(enum UtcTiming timingType, const std::s
 
 		CurlCbContextSyncTime context(this, &buffer);
 
-		curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, SyncTime_write_callback);
-		curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &context);
-		curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOSIGNAL, 1);
+		CURL_EASY_SETOPT_FUNC(curl, CURLOPT_WRITEFUNCTION, SyncTime_write_callback);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOPROGRESS, 1);
+		CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, &context);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTPGET, 1);
 
-		curl_easy_setopt(curl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
-		curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
-		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_FOLLOWLOCATION, 1);
 		if(!ISCONFIGSET_PRIV(eAAMPConfig_SslVerifyPeer)){
-			curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 0);
 		}
 		else {
-			curl_easy_setopt(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
-			curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 1);
 		}
 
-		curl_easy_setopt(curl, CURLOPT_URL, remoteUrl.c_str());
+		CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
 
 		res = curl_easy_perform(curl);
 		if (res == CURLE_OK)
@@ -3831,7 +3826,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 				if( curlhost[curlInstance]->isRemotehost && (std::string::npos == mOrigManifestUrl.hostname.find(curlhost[curlInstance]->hostname)) )
 				{
 					CurlStore::GetCurlStoreInstance(this).CurlInit(this, (AampCurlInstance)curlInstance, 1, GetNetworkProxy(), curlhost[curlInstance]->hostname);
-					CURL_EASY_SETOPT(curlhost[curlInstance]->curl, CURLOPT_TIMEOUT_MS, curlDLTimeout[curlInstance]);
+					CURL_EASY_SETOPT_LONG(curlhost[curlInstance]->curl, CURLOPT_TIMEOUT_MS, curlDLTimeout[curlInstance]);
 				}
 			}
 
@@ -3843,10 +3838,10 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 		CurlCallbackContext context;
 		if (curl)
 		{
-			CURL_EASY_SETOPT(curl, CURLOPT_URL, remoteUrl.c_str());
+			CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
 			if(this->mAampLLDashServiceData.lowLatencyMode)
 			{
-				CURL_EASY_SETOPT(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 				context.remoteUrl = remoteUrl;
 			}
 			context.aamp = this;
@@ -3854,20 +3849,18 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 			context.responseHeaderData = &httpRespHeaders[curlInstance];
 			context.fileType = fileType;
 
-			if(!this->mAampLLDashServiceData.lowLatencyMode)
-			{
-				CURL_EASY_SETOPT(curl, CURLOPT_WRITEDATA, &context);
-				CURL_EASY_SETOPT(curl, CURLOPT_HEADERDATA, &context);
-			}
+			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, &context);
+			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_HEADERDATA, &context);
+
 			if(!ISCONFIGSET_PRIV(eAAMPConfig_SslVerifyPeer))
 			{
-				CURL_EASY_SETOPT(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-				CURL_EASY_SETOPT(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYHOST, 0);
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 0);
 			}
 			else
 			{
-				CURL_EASY_SETOPT(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
-				CURL_EASY_SETOPT(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 1);
 			}
 
 			CurlProgressCbContext progressCtx;
@@ -3900,13 +3893,12 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 			GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout,progressCtx.stallTimeout);
 
 			// note: win32 curl lib doesn't support multi-part range
-			CURL_EASY_SETOPT(curl, CURLOPT_RANGE, range);
+			CURL_EASY_SETOPT_STRING(curl, CURLOPT_RANGE, range);
 
 			if ((httpRespHeaders[curlInstance].type == eHTTPHEADERTYPE_COOKIE) && (httpRespHeaders[curlInstance].data.length() > 0))
 			{
 				AAMPLOG_TRACE("Appending cookie headers to HTTP request");
-				//curl_easy_setopt(curl, CURLOPT_COOKIE, cookieHeaders[curlInstance].c_str());
-				CURL_EASY_SETOPT(curl, CURLOPT_COOKIE, httpRespHeaders[curlInstance].data.c_str());
+				CURL_EASY_SETOPT_STRING(curl, CURLOPT_COOKIE, httpRespHeaders[curlInstance].data.c_str());
 			}
 			if ( ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD) && mCMCDCustomHeaders.size() > 0)
 			{
@@ -4051,7 +4043,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 
 				if (httpHeaders != NULL)
 				{
-					CURL_EASY_SETOPT(curl, CURLOPT_HTTPHEADER, httpHeaders);
+					CURL_EASY_SETOPT_LIST(curl, CURLOPT_HTTPHEADER, httpHeaders);
 				}
 			}
 
@@ -4064,13 +4056,11 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 				if(this->mAampLLDashServiceData.lowLatencyMode)
 				{
 					context.downloadStartTime = progressCtx.downloadStartTime;
-					CURL_EASY_SETOPT(curl, CURLOPT_WRITEDATA, &context);
-					CURL_EASY_SETOPT(curl, CURLOPT_HEADERDATA, &context);
 				}
 				progressCtx.downloadUpdatedTime = -1;
 				progressCtx.downloadSize = -1;
 				progressCtx.abortReason = eCURL_ABORT_REASON_NONE;
-				CURL_EASY_SETOPT(curl, CURLOPT_PROGRESSDATA, &progressCtx);
+				CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
 				if(buffer->ptr != NULL)
 				{
 					AAMPLOG_TRACE("reset length. buffer %p avail %d",  buffer, (int)buffer->avail);
@@ -4141,7 +4131,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 						{
 							mTSBEnabled = false;
 						}
-						res = curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &effectiveUrlPtr);
+						effectiveUrlPtr = aamp_CurlEasyGetinfoString(curl, CURLINFO_EFFECTIVE_URL);
 						if((fileType == eMEDIATYPE_INIT_VIDEO || fileType ==  eMEDIATYPE_INIT_AUDIO))
 						{
 							IsoBmffBuffer isobuf(mLogObj);
@@ -4326,8 +4316,8 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 				if(downloadTimeMS != 0 && buffer->len != 0)
 					downloadbps = ((long)(buffer->len / downloadTimeMS)*8000);
 
-				curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME , &total);
-				curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME, &connect);
+				total = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_TOTAL_TIME);
+				connect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_CONNECT_TIME);
 				connectTime = connect;
 				fileDownloadTime = total;
 				if(res != CURLE_OK || http_code == 0 || http_code >= 400 || total > 2.0 /*seconds*/)
@@ -4337,13 +4327,13 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 				if (gpGlobalConfig->logging.isLogLevelAllowed(reqEndLogLevel))
 				{
 					double totalPerformRequest = (double)(downloadTimeMS)/1000;
-					curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME, &resolve);
-					curl_easy_getinfo(curl, CURLINFO_APPCONNECT_TIME, &appConnect);
-					curl_easy_getinfo(curl, CURLINFO_PRETRANSFER_TIME, &preTransfer);
-					curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &startTransfer);
-					curl_easy_getinfo(curl, CURLINFO_REDIRECT_TIME, &redirect);
-					curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD, &dlSize);
-					curl_easy_getinfo(curl, CURLINFO_REQUEST_SIZE, &reqSize);
+					resolve = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_NAMELOOKUP_TIME);
+					appConnect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_APPCONNECT_TIME);
+					preTransfer = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_PRETRANSFER_TIME);
+					startTransfer = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_STARTTRANSFER_TIME);
+					redirect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_REDIRECT_TIME);
+					dlSize = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
+					reqSize = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
 					if((pCMCDMetrics!=NULL) && ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD))
 					{
 						pCMCDMetrics->SetNetworkMetrics((int)(startTransfer*1000),(int)(total*1000),(int)(resolve*1000));
@@ -4428,19 +4418,19 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 						mHarvestCountLimit--;
 				}  //CID:168113 - forward null
 			}
-			double expectedContentLength = 0;
-			if ((!context.downloadIsEncoded) && CURLE_OK==curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &expectedContentLength) && ((int)expectedContentLength>0) && ((int)expectedContentLength != (int)buffer->len))
+			ret = true;
+			if( !context.downloadIsEncoded )
 			{
 				//Note: For non-compressed data, Content-Length header and buffer size should be same. For gzipped data, 'Content-Length' will be <= deflated data.
-				AAMPLOG_WARN("AAMP Content-Length=%d actual=%d", (int)expectedContentLength, (int)buffer->len);
-				http_code       =       416; // Range Not Satisfiable
-				ret             =       false; // redundant, but harmless
-				aamp_Free(buffer);
-				memset(buffer, 0x00, sizeof(*buffer));
-			}
-			else
-			{
-				ret = true;
+				double expectedContentLength = aamp_CurlEasyGetinfoDouble( curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
+				if( expectedContentLength>0 && (int)expectedContentLength != (int)buffer->len )
+				{
+					AAMPLOG_WARN("AAMP Content-Length=%d actual=%d", (int)expectedContentLength, (int)buffer->len);
+					http_code       =       416; // Range Not Satisfiable
+					ret             =       false; // redundant, but harmless
+					aamp_Free(buffer);
+					memset(buffer, 0x00, sizeof(*buffer));
+				}
 			}
 		}
 		else
@@ -4665,45 +4655,42 @@ bool PrivateInstanceAAMP::ProcessCustomCurlRequest(std::string& remoteUrl, Growa
 	{
 		AAMPLOG_INFO("%s, %d", remoteUrl.c_str(), request);
 
-		CURL_EASY_SETOPT(curl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
-		CURL_EASY_SETOPT(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
-		CURL_EASY_SETOPT(curl, CURLOPT_FOLLOWLOCATION, 1L);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_FOLLOWLOCATION, 1L);
 
-		if(!ISCONFIGSET_PRIV(eAAMPConfig_SslVerifyPeer))
-		{
-			CURL_EASY_SETOPT(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+		if(!ISCONFIGSET_PRIV(eAAMPConfig_SslVerifyPeer)){
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 0);
 		}
-		else
-		{
-			CURL_EASY_SETOPT(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
-			CURL_EASY_SETOPT(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+		else {
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 1);
 		}
-		CURL_EASY_SETOPT(curl, CURLOPT_URL, remoteUrl.c_str());
+		CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
 
 		if(eCURL_GET == request)
 		{
 			CurlCallbackContext context(this, buffer);
 			memset(buffer, 0x00, sizeof(*buffer));
 			CurlProgressCbContext progressCtx(this, NOW_STEADY_TS_MS);
-
-			CURL_EASY_SETOPT(curl, CURLOPT_NOSIGNAL, 1L);
-			CURL_EASY_SETOPT(curl, CURLOPT_WRITEFUNCTION, write_callback);
-			CURL_EASY_SETOPT(curl, CURLOPT_PROGRESSFUNCTION, progress_callback);
-			CURL_EASY_SETOPT(curl, CURLOPT_PROGRESSDATA, &progressCtx);
-			CURL_EASY_SETOPT(curl, CURLOPT_NOPROGRESS, 0L);
-			CURL_EASY_SETOPT(curl, CURLOPT_WRITEDATA, &context);
-			CURL_EASY_SETOPT(curl, CURLOPT_HTTPGET, 1L);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOSIGNAL, 1);
+			CURL_EASY_SETOPT_FUNC(curl, CURLOPT_WRITEFUNCTION, write_callback);
+			CURL_EASY_SETOPT_FUNC(curl, CURLOPT_PROGRESSFUNCTION, progress_callback);
+			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOPROGRESS, 0);
+			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, &context);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTPGET, 1);
 			res = curl_easy_perform(curl); // DELIA-57728 - avoid out of scope use of progressCtx
 		}
 		else if(eCURL_DELETE == request)
 		{
-			CURL_EASY_SETOPT(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+			CURL_EASY_SETOPT_STRING(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
 			res = curl_easy_perform(curl);
 		}
 		else if(eCURL_POST == request)
 		{
-			CURL_EASY_SETOPT(curl, CURLOPT_POSTFIELDSIZE, pData.size());
-			CURL_EASY_SETOPT(curl, CURLOPT_POSTFIELDS,(uint8_t * )pData.c_str());
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_POSTFIELDSIZE, pData.size());
+			CURL_EASY_SETOPT_STRING(curl, CURLOPT_POSTFIELDS,pData.c_str());
 			res = curl_easy_perform(curl);
 		}
 

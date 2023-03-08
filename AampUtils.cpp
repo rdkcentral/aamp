@@ -86,6 +86,46 @@ const FormatMap mVideoFormatMap[] =
 };
 #define AAMP_VIDEO_FORMAT_MAP_LEN ARRAY_SIZE(mVideoFormatMap)
 
+double aamp_CurlEasyGetinfoDouble( CURL *handle, CURLINFO info )
+{
+	double rc = 0.0;
+	if( curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
+	{
+		AAMPLOG_WARN( "aamp_CurlEasyGetinfoDouble failure" );
+	}
+	return rc;
+}
+
+int aamp_CurlEasyGetinfoInt( CURL *handle, CURLINFO info )
+{
+	int rc = 0;
+	if( curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
+	{
+		AAMPLOG_WARN( "aamp_CurlEasyGetinfoInt failure" );
+	}
+	return rc;
+}
+
+long aamp_CurlEasyGetinfoLong( CURL *handle, CURLINFO info )
+{
+	long rc = -1;
+	if( curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
+	{
+		AAMPLOG_WARN( "aamp_CurlEasyGetinfoLong failure" );
+	}
+	return rc;
+}
+
+char *aamp_CurlEasyGetinfoString( CURL *handle, CURLINFO info )
+{
+	char *rc = NULL;
+	if( curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
+	{
+		AAMPLOG_WARN( "aamp_CurlEasyGetinfoString failure" );
+	}
+	return rc;
+}
+
 /**
  * @brief Get current time from epoch is milliseconds
  *
@@ -425,18 +465,18 @@ std::string aamp_PostJsonRPC( std::string id, std::string method, std::string pa
 	CURL *curlhandle= curl_easy_init();
 	if( curlhandle )
 	{
-		curl_easy_setopt( curlhandle, CURLOPT_URL, "http://127.0.0.1:9998/jsonrpc" ); // local thunder
+		CURL_EASY_SETOPT_STRING( curlhandle, CURLOPT_URL, "http://127.0.0.1:9998/jsonrpc" ); // local thunder
 		
 		struct curl_slist *headers = NULL;
 		headers = curl_slist_append( headers, "Content-Type: application/json" );
-		curl_easy_setopt(curlhandle, CURLOPT_HTTPHEADER, headers);    // set HEADER with content type
+		CURL_EASY_SETOPT_LIST(curlhandle, CURLOPT_HTTPHEADER, headers);    // set HEADER with content type
 		
 		std::string data = "{\"jsonrpc\":\"2.0\",\"id\":"+id+",\"method\":\""+method+"\",\"params\":"+params+"}";
 		AAMPLOG_WARN("JSONRPC data: %s\n", data.c_str() );
-		curl_easy_setopt(curlhandle, CURLOPT_POSTFIELDS, data.c_str() );    // set post data
+		CURL_EASY_SETOPT_STRING(curlhandle, CURLOPT_POSTFIELDS, data.c_str() );    // set post data
 		
-		curl_easy_setopt(curlhandle, CURLOPT_WRITEFUNCTION, MyRpcWriteFunction);    // update callback function
-		curl_easy_setopt(curlhandle, CURLOPT_WRITEDATA, &response);  // and data
+		CURL_EASY_SETOPT_FUNC(curlhandle, CURLOPT_WRITEFUNCTION, MyRpcWriteFunction);    // update callback function
+		CURL_EASY_SETOPT_POINTER(curlhandle, CURLOPT_WRITEDATA, &response);  // and data
 		
 		CURLcode res = curl_easy_perform(curlhandle);
 		if( res == CURLE_OK )
