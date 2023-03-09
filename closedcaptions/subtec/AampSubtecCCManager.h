@@ -97,6 +97,13 @@ private:
 	void EnsureHALInitialized() override;
 
 	/**
+	 * @brief Impl specific initialization code called once in Init() function
+	 *
+	 * @return 0 - success, -1 - failure
+	 */
+	int Initialize(void *handle) override;
+
+	/**
 	 * @fn EnsureRendererCommsInitialized
 	 * @return void
 	 */
@@ -122,13 +129,16 @@ private:
 	 */
 	void EnsureRendererStateConsistency();
 
+	void *mCCHandle{nullptr}; /**< Decoder handle for intializing CC resources */
+
 
 private:
 	bool mRendererInitialized{false};
 	bool mHALInitialized{false};
-    std::mutex mIdLock;
-    int mId{0};
-    std::set<int> mIdSet;
+	bool mHandleUpdated{false};
+	std::mutex mIdLock{};
+	int mId{0};
+	std::set<int> mIdSet{};
 };
 
 #endif /* __AAMP_SUBTEC_CC_MANAGER_H__ */

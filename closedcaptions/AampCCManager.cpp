@@ -64,6 +64,8 @@ mrcc_Error SetAttributes(gsw_CcAttributes * attrib, short type, gsw_CcType ccTyp
 
 #elif defined(AAMP_SUBTEC_CC_ENABLED)
 
+int IsCCOnFlag = 0;
+
 static mrcc_Error GetCapability(gsw_CcAttribType attribType, gsw_CcType ccType, void **values, unsigned int *size)
 {
 	return subtecConnector::ccMgrAPI::ccGetCapability(attribType, ccType, values, size);
@@ -758,6 +760,12 @@ int AampCCManagerBase::SetStatus(bool enable)
 	mEnabled = enable;
 	AAMPLOG_WARN("AampCCManagerBase::mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s",
 				mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
+#if defined(AAMP_SUBTEC_CC_ENABLED)
+	if (mEnabled)
+		IsCCOnFlag = 1;
+	else
+		IsCCOnFlag = 0;
+#endif
 	if (!mTrickplayStarted && !mParentalCtrlLocked && CheckCCHandle())
 	{
 		// Setting CC rendering to true before media_closeCaptionStart is not honoured

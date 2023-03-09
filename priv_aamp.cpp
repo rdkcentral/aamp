@@ -7456,8 +7456,12 @@ void PrivateInstanceAAMP::InitializeCC()
 		else
 #endif
 		{
+#if defined FLEX2_RDK && defined AAMP_CC_ENABLED
+			AampCCManager::GetInstance()->Init((void *)mStreamSink->getCCDecoderHandle());
+#else
 			CCHandleEventPtr event = std::make_shared<CCHandleEvent>(mStreamSink->getCCDecoderHandle());
 			mEventManager->SendEvent(event);
+#endif
 		}
 	}
 }

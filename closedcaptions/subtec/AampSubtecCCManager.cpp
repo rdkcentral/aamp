@@ -45,12 +45,13 @@ void AampSubtecCCManager::EnsureInitialized()
  */
 void AampSubtecCCManager::EnsureHALInitialized()
 {
-	if(not mHALInitialized)
+	if(not mHALInitialized || mHandleUpdated)
 	{
-		if(subtecConnector::initHal() == CC_VL_OS_API_RESULT_SUCCESS)
+		if(subtecConnector::initHal((void *)mCCHandle) == CC_VL_OS_API_RESULT_SUCCESS)
 		{
 			AAMPLOG_WARN("AampSubtecCCManager::calling subtecConnector::initHal() - success");
 			mHALInitialized = true;
+			mHandleUpdated = false;
 		}
 		else
 		{
@@ -77,6 +78,19 @@ void AampSubtecCCManager::EnsureRendererCommsInitialized()
 		}
 	}
 };
+
+/**
+ * @brief stores Handle
+ */
+int AampSubtecCCManager::Initialize(void * handle)
+{
+	if (mCCHandle != handle)
+		mHandleUpdated = true;
+	mCCHandle = handle;
+
+	return 0;
+}
+
 
 /**
  *  @brief Gets Handle or ID, Every client using subtec must call GetId  in the begining , save id, which is required for Release funciton.
@@ -107,6 +121,10 @@ void AampSubtecCCManager::Release(int id)
 			{
 				subtecConnector::close();
 				mHALInitialized = false;
+				if (mCCHandle != NULL)
+				{
+					mCCHandle = NULL;
+				}
 			}
 			mTrickplayStarted = false;
 			mParentalCtrlLocked = false;

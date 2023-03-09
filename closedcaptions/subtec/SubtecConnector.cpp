@@ -42,7 +42,7 @@
 
 namespace subtecConnector
 {
-    mrcc_Error initHal()
+    mrcc_Error initHal(void * handle)
     {
         const auto registerResult = vlhal_cc_Register(0, CCDataController::Instance(), closedCaptionDataCb, closedCaptionDecodeCb);
         AAMPLOG_WARN("vlhal_cc_Register return value = %d", registerResult);
@@ -50,9 +50,8 @@ namespace subtecConnector
         if(registerResult != 0)
             return CC_VL_OS_API_RESULT_FAILED;
 
-         const auto startResult = media_closeCaptionStart(nullptr);
+		 const auto startResult = media_closeCaptionStart(handle);
          AAMPLOG_WARN("media_closeCaptionStart return value = %d", registerResult);
-		
 
         if(startResult != 0)
             return CC_VL_OS_API_RESULT_FAILED;

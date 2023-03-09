@@ -378,7 +378,7 @@ namespace subtecConnector
     void resetChannel();
     void close();
 
-    mrcc_Error initHal();
+    mrcc_Error initHal(void *handle);
     mrcc_Error initPacketSender();
 
 namespace ccMgrAPI
