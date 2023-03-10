@@ -16,6 +16,7 @@
 # limitations under the License.
 
 include(GoogleTest)
+pkg_check_modules(CURL REQUIRED libcurl)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
@@ -40,14 +41,10 @@ include_directories(${UTESTS_ROOT}/mocks)
 set(TEST_SOURCES AampUtilsTests.cpp
                  AampUtilsAAMPTests.cpp)
 
-#MV:
 set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 		${AAMP_ROOT}/iso639map.cpp)
-#                 ${AAMP_ROOT}/AampUtils.cpp)
-#set(AAMP_SOURCES ${AAMP_ROOT}/AampUtils.cpp)
 
 add_executable(${EXEC_NAME}
-               /lib/x86_64-linux-gnu/libcurl.so.4
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
 
@@ -62,8 +59,6 @@ if (COVERAGE_ENABLED)
                               DEPENDENCIES ${EXEC_NAME})
 endif()
 
-# /lib/x86_64-linux-gnu/libcurl.so.4)
-#add_library(/lib/x86_64-linux-gnu/libcurl.so.4) IMPORTED)
 target_link_libraries(${EXEC_NAME} fakes ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lpthread -lcurl)
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
