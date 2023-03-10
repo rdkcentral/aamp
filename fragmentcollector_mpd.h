@@ -893,7 +893,7 @@ private:
 	int mMaxTracks; /* Max number of tracks for this session */
 	double mServerUtcTime;
 	double mDeltaTime;
-	double mHasServerUtcTime;
+	bool mHasServerUtcTime;
 	bool mLiveTimeFragmentSync;
 	std::mutex playlistMutex;       /**< Mutex locked for accessing and updating mpd document */
  	/**
