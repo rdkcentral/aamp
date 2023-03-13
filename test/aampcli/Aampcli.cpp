@@ -25,6 +25,7 @@
 #include "Aampcli.h"
 
 Aampcli mAampcli;
+const char *gApplicationPath = NULL;
 extern VirtualChannelMap mVirtualChannelMap;
 extern void tsdemuxer_InduceRollover( bool enable );
 
@@ -271,6 +272,50 @@ void Aampcli::newPlayerInstance( void )
 	mSingleton->SetContentProtectionDataUpdateTimeout(0);
 }
 
+int Aampcli::getApplicationDir( char *buffer, uint32_t size )
+{
+	if ((buffer == NULL) || (size == 0))
+	{
+		return 0;
+	}
+
+	buffer[0] = '\0';
+
+	if (gApplicationPath != NULL)
+	{
+		if (strlen(gApplicationPath) < size)
+		{
+			// Is it a relative path?
+			if (gApplicationPath[0] != '/')
+			{
+				// append it to the current working dir
+				if(getcwd(buffer, size))
+				{
+					strncat(buffer, "/", size);
+					buffer[size-1] = '\0';
+					strncat(buffer, gApplicationPath, size);
+					buffer[size-1] = '\0';
+				}
+			}
+			else
+			{
+				// it's a ful path so just copy it
+				strncpy(buffer, gApplicationPath, size);
+				buffer[size-1] = '\0';
+			}
+
+			// strip off the app name to leave the path
+			char *lastDir = strrchr(buffer, '/');
+			if (lastDir)
+			{
+				*lastDir = '\0';
+			}
+		}
+	}
+
+	return strnlen(buffer, size);
+}
+
 
 /**
  * @brief
@@ -284,6 +329,8 @@ int main(int argc, char **argv)
 	AampLogManager mLogManager;
 	AampLogManager::disableLogRedirection = true;
 	ABRManager mAbrManager;
+
+    gApplicationPath = argv[0];
 
 	signal(SIGINT, Harvestor::harvestTerminateHandler);
 

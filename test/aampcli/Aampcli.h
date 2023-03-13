@@ -77,6 +77,7 @@ class Aampcli
 		FILE * getConfigFile(const std::string& cfgFile);
 		void initPlayerLoop(int argc, char **argv);
 		void newPlayerInstance( void );
+		int getApplicationDir( char *buffer, uint32_t size );
 		Aampcli();
 		Aampcli(const Aampcli& aampcli);
 		Aampcli& operator=(const Aampcli& aampcli);

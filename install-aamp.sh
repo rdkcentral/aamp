@@ -7,6 +7,9 @@ defaultbuilddir=aamp-devenv-$(date +"%Y-%m-%d-%H-%M")
 defaultcodebranch="dev_sprint_23_1"
 defaultchannellistfile="$HOME/aampcli.csv"
 defaultopensslversion="openssl@1.1"
+processtorun="aamp"
+subtecoption=""
+
 
 # pull in general utility finctions
 source install-script-utilities.sh
@@ -22,18 +25,6 @@ else
     exit
 fi
 
-if  [[ $1 = "subtec" ]]; then
-
-    if [ ! -d "subtec-app/subttxrend-app/x86_builder/" ]; then
-        echo "Subtec-app not installed. Run 'bash install-aamp.sh' to install aamp and subtec-app"
-    else
-        cd subtec-app/subttxrend-app/x86_builder/
-        ./build.sh run
-    fi
-    exit 0
-else
-    echo "Installing aamp-cli and subtec-app..."
-fi
 
 
 ######################################################## 
@@ -144,11 +135,105 @@ install_system_packages() {
         sudo installer -pkg gstreamer-1.0-devel-$defaultgstversion-universal.pkg  -target /
         rm gstreamer-1.0-devel-$defaultgstversion-universal.pkg
     fi
+}
 
- }
+install_subtec() {
+    echo "Cloning subtec-app..."
+    do_clone "https://code.rdkcentral.com/r/components/generic/subtec-app"
+
+    echo
+    echo "Cloning websocket-ipplayer2-utils..."
+    do_clone https://code.rdkcentral.com/r/components/generic/websocket-ipplayer2-utils subtec-app/websocket-ipplayer2-utils
+
+    if [ ! -d glib ]; then
+        echo "Installing glib..."
+        do_clone https://gitlab.gnome.org/GNOME/glib.git
+    fi
+    cd glib
+    meson build && cd build
+    meson compile
+    cd ../../
+    
+    sed -i '' 's:COMMAND gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code SubtitleDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/SubtitleDbusInterface.xml:COMMAND '"$PWD"'/glib/build/gio/gdbus-2.0/codegen/gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code SubtitleDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/SubtitleDbusInterface.xml:g' subtec-app/subttxrend-dbus/CMakeLists.txt
+    
+    sed -i '' 's:COMMAND gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code TeletextDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/TeletextDbusInterface.xml:COMMAND '"$PWD"'/glib/build/gio/gdbus-2.0/codegen/gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code TeletextDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/TeletextDbusInterface.xml:g' subtec-app/subttxrend-dbus/CMakeLists.txt
+    
+    echo "************************"
+    echo "Subtec-App successfully installed!"
+    echo "************************"
+}
+
+create_subtec_run_script()
+{
+    # Create a subtec run script in the build dir
+    # This will contain all the paths to the subtec build so wherever aamp-cli is
+    # run from it can run subtec
+if [[ "$OSTYPE" == "darwin"* ]]; then    
+    subtecrunscript=$builddir/build/Debug/aampcli-run-subtec.sh
+elif [[ "$OSTYPE" == "linux"* ]]; then
+    subtecrunscript=$builddir/build/aampcli-run-subtec.sh
+else
+    echo "WARNING - unrecognised platform!"
+    subtecrunscript=$builddir/aampcli-run-subtec.sh
+fi    
+
+    echo '#!/bin/bash' > $subtecrunscript
+    
+if [[ "$OSTYPE" == "linux"* ]]; then
+    # start a weston window to display subtitles
+    echo 'export XDG_RUNTIME_DIR=/tmp/subtec' >> $subtecrunscript
+    echo 'mkdir -p /tmp/subtec' >> $subtecrunscript
+    echo 'weston &' >> $subtecrunscript
+    echo 'sleep 5' >> $subtecrunscript
+fi    
+
+    echo 'cd '$builddir'/build/subtec-app' >> $subtecrunscript
+    echo 'THIS_DIR=$PWD' >> $subtecrunscript
+    echo 'MSP=${MSP:-/tmp/pes_data_main}' >> $subtecrunscript
+    echo 'INSTALL_DIR=$PWD/build/install' >> $subtecrunscript
+    echo 'LD_LIBRARY_PATH=$INSTALL_DIR/usr/local/lib $INSTALL_DIR/usr/local/bin/subttxrend-app -msp=$MSP -cfp=$THIS_DIR/config.ini' >> $subtecrunscript
+}
+
+install_and_build_subtec() {
+    pushd $builddir
+    echo "Install and build subtec-app..."
+
+    if [[ ! -d "subtec-app" ]]; then
+        install_subtec
+    fi
+    
+    if [ ! -d "subtec-app/subttxrend-app/x86_builder/" ]; then
+        echo "Subtec-app is not correctly installed."
+    else
+        cd subtec-app/subttxrend-app/x86_builder/
+        PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:$PKG_CONFIG_PATH ./build.sh fast
+
+        if [ -f ./build/install/usr/local/bin/subttxrend-app ]; then
+            if [ ! -f "$builddir/build/subtec-app" ]; then
+                ln -s $PWD $builddir/build/subtec-app
+            fi
+        fi
+    fi
+
+    popd
+}
+
 
 #main/start
+
+
+# Parse subtec options
+if  [[ $1 = "subtec" ]]; then
+    processtorun="subtec"
+    shift
+    if  [[ $1 = "clean" ]]; then
+        subtecoption="clean"
+        shift
+    fi
+fi
+
 echo "Ver=$aamposxinstallerver"
+
 #Optional Command-line support for -b <aamp code branch> and -d <build directory> 
 while getopts ":d:b:" opt; do
   case ${opt} in
@@ -159,8 +244,12 @@ while getopts ":d:b:" opt; do
     b ) # process option b code branch name
 	codebranch=${OPTARG}
       ;;
-    * ) echo "Usage: $0 [-b aamp branch name] [-d local setup directory name]"
-	 exit
+    * ) echo "Usage: $0 [subtec [clean]] [-b aamp branch name] [-d local setup directory name]"
+        echo
+        echo "Note:  Subtec is built by default but can be rebuilt separately with the subtec option "
+        echo "       ('clean' will delete the subtec source and reinstall before building):"
+        echo "             ./install-aamp [subtec [clean]] [-b branch] [-d directory]"
+        exit
       ;;
   esac
 done
@@ -172,8 +261,8 @@ if [[ $codebranch == "" ]]; then
 fi 
 
 if [[ "$builddir" == "" ]]; then
-builddir=$defaultbuilddir
-if [ -d "../aamp" ]; then
+    builddir=$defaultbuilddir
+    if [ -d "../aamp" ]; then
         abs_path="$(cd "../aamp" && pwd -P)"
         while true; do
         read -p '[!Alert!] Install script identified that the aamp folder already exists @ ../aamp.
@@ -185,7 +274,7 @@ if [ -d "../aamp" ]; then
                      * ) echo "Please answer yes or no.";;
                 esac
         done
-fi
+    fi
 fi
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -216,17 +305,35 @@ if [[ ! -d "$builddir" ]]; then
     cd aamp
 else
     cd $builddir
-
 fi
 
-#build all aamp supporting packages under lib folder 
-mkdir -p build
-
+builddir=$PWD
 echo "Builddir: $builddir"
 echo "Code Branch: $codebranch"
 
 
+#
+# Check for subtec process commands
+#
+if  [[ $processtorun = "subtec" ]]; then
+    if  [[ $subtecoption = "clean" ]]; then
+        echo "Deleting subtec-app ..."
+        rm -rf subtec-app
+        rm -rf glib
+    fi
+    
+    install_and_build_subtec
+    exit 0
+fi
 
+
+
+#
+# Install aamp
+#
+
+#build all aamp supporting packages under lib folder 
+mkdir -p build
 
 
 #Check OS=macOS
@@ -333,7 +440,6 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     cd ../..
 
     cd ../
-    echo "Installing subtec-app..."
     
     echo "Installing packages..."
     brew install coreutils
@@ -348,33 +454,6 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     brew install doxygen
     brew install graphviz
     
-    if [ ! -d subtec-app ]; then
-        echo "Cloning subtec-app..."
-        do_clone https://code.rdkcentral.com/r/components/generic/subtec-app
-    fi
-    if [ ! -d subtec-app/websocket-ipplayer2-utils ]; then
-        echo "Cloning websocket-ipplayer2-utils..."
-        do_clone https://code.rdkcentral.com/r/components/generic/websocket-ipplayer2-utils subtec-app/websocket-ipplayer2-utils
-    fi
-    if [ ! -d glib ]; then
-        echo "Installing glib..."
-        do_clone https://gitlab.gnome.org/GNOME/glib.git
-    fi
-
-    cd glib
-    meson build && cd build
-    meson compile
-    cd ../../
-    
-    sed -i '' 's:COMMAND gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code SubtitleDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/SubtitleDbusInterface.xml:COMMAND '"$PWD"'/glib/build/gio/gdbus-2.0/codegen/gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code SubtitleDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/SubtitleDbusInterface.xml:g' subtec-app/subttxrend-dbus/CMakeLists.txt
-    
-    sed -i '' 's:COMMAND gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code TeletextDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/TeletextDbusInterface.xml:COMMAND '"$PWD"'/glib/build/gio/gdbus-2.0/codegen/gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code TeletextDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/TeletextDbusInterface.xml:g' subtec-app/subttxrend-dbus/CMakeLists.txt
-    
-    echo "************************"
-    echo "Subtec-App successfully installed!"
-    echo "Run by running './install-aamp.sh subtec'"
-    echo "************************"
-
     #Build aamp-cli
     echo "Build aamp-cli"
     pwd
@@ -385,7 +464,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     fi
 
     mkdir -p build
-    
+   
     cd build && PKG_CONFIG_PATH=/usr/local/opt/ossp-uuid/lib/pkgconfig:/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCMAKE_OSX_SYSROOT="/" -DCMAKE_OSX_DEPLOYMENT_TARGET="" -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -G Xcode ../
 
     echo "Please Start XCode, open aamp/build/AAMP.xcodeproj project file"
@@ -401,8 +480,8 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     fi	
 
     if [ -d "AAMP.xcodeproj" ]; then 
-        echo "AAMP Environment Sucessfully Installed."
-        arr_install_status+=("AAMP Environment Sucessfully Installed.")
+	echo "AAMP Environment Sucessfully Installed."
+	arr_install_status+=("AAMP Environment Sucessfully Installed.")
     else
 	    echo "AAMP Environment FAILED to Install."
         arr_install_status+=("AAMP Environment FAILED to Install.")
@@ -426,8 +505,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
         echo "OSX AAMP Build PASSED"
         arr_install_status+=("OSX AAMP Build PASSED")
         
-        
-        
+        create_subtec_run_script	# after build/Debug directory created by xcodebuild
     else
         echo "OSX AAMP Build FAILED"
         arr_install_status+=("OSX AAMP Build FAILED")
@@ -442,6 +520,10 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     done   
     echo ""
     echo "********AAMP install summary end*************"
+
+    echo "Installing subtec..."
+    install_and_build_subtec
+
     #Launching aamp-cli
     
     otool -L ./Debug/aamp-cli
@@ -472,6 +554,7 @@ elif [[ "$OSTYPE" == "linux"* ]]; then
     fi
 
     mkdir -p build
+    create_subtec_run_script
     
     PKG_CONFIG_PATH=$PWD/Linux/lib/pkgconfig /usr/bin/cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=$PWD/Linux -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH=$PWD/Linux/lib -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -S$PWD -B$PWD/build -G "Unix Makefiles"
     
@@ -485,14 +568,18 @@ elif [[ "$OSTYPE" == "linux"* ]]; then
         echo "****Linux AAMP Build PASSED****"
         lld ./aamp-cli
         arr_install_status+=("Linux AAMP Build PASSED")
+        
+        echo "Installing subtec..."
+        install_and_build_subtec
+        
         echo "Installing VSCode..."
-	    sudo snap install --classic code
+        sudo snap install --classic code
 	    
-	    echo "Installing VSCode Dependencies..."
-	    code --install-extension ms-vscode.cmake-tools
+        echo "Installing VSCode Dependencies..."
+        code --install-extension ms-vscode.cmake-tools
 		
-	    echo "Openning VSCode Workspace..."
-	    code ../ubuntu-aamp-cli.code-workspace
+        echo "Openning VSCode Workspace..."
+        code ../ubuntu-aamp-cli.code-workspace
     else
         echo "****Linux AAMP Build FAILED****"
         arr_install_status+=("Linux AAMP Build FAILED")

@@ -740,6 +740,10 @@ if (UTEST_ENABLED)
 	add_subdirectory(test/utests)
 endif()
 
+if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
+    install(FILES build/aampcli-run-subtec.sh DESTINATION bin)
+endif()
+
 message("LIBAAMP_DEFINES is ${LIBAAMP_DEFINES}")
 message("LIBAAMP_SOURCES is ${LIBAAMP_SOURCES}")
 message("LIBAAMP_HELP_SOURCES is ${LIBAAMP_HELP_SOURCES}")

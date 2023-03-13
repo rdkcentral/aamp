@@ -3,7 +3,7 @@
 echo $OSTYPE
 aampdir=$PWD/..
 echo $aampdir
-builddir=$aampdir/Linux
+linuxbuilddir=$aampdir/Linux
 defaultcodebranch=dev_sprint_23_1
 
 # pull in general utility finctions
@@ -13,7 +13,7 @@ source $aampdir/install-script-utilities.sh
 while getopts ":d:b:" opt; do
   case ${opt} in
     d ) # process option d install base directory name
-    builddir=${OPTARG}
+    linuxbuilddir=${OPTARG}
     echo "${OPTARG}"
       ;;
     b ) # process option b code branch name
@@ -31,9 +31,9 @@ if [[ $codebranch == "" ]]; then
     echo "using default code branch: $defaultcodebranch"
 fi 
 
-mkdir -p $builddir
-cd $builddir
-echo "Builddir: $builddir"
+mkdir -p $linuxbuilddir
+cd $linuxbuilddir
+echo "linuxbuilddir: $linuxbuilddir"
 
 #### CLONE_PACKAGES
 do_clone_rdk_repo $codebranch aampabr
@@ -77,7 +77,7 @@ fi
 ### Install libdash
 if [ -d "libdash" ]; then
     echo "libdash installed"
-    libdash_build_dir=$builddir/libdash/libdash/build/
+    libdash_build_dir=$linuxbuilddir/libdash/libdash/build/
 else
     echo "Installing libdash"
     mkdir tmp
@@ -96,13 +96,13 @@ function build_repo()
     pushd $1
         mkdir -p build
         cd build
-        env PKG_CONFIG_PATH=$builddir/lib/pkgconfig cmake .. -DCMAKE_LIBRARY_PATH=$builddir/lib -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_INSTALL_PREFIX=$builddir
+        env PKG_CONFIG_PATH=$linuxbuilddir/lib/pkgconfig cmake .. -DCMAKE_LIBRARY_PATH=$linuxbuilddir/lib -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_INSTALL_PREFIX=$linuxbuilddir
         make
         make install
     popd
 }
 
-# export env PKG_CONFIG_PATH=$builddir/lib/pkgconfig
+# export env PKG_CONFIG_PATH=$linuxbuilddir/lib/pkgconfig
 
 build_repo cJSON
 build_repo aampabr
@@ -111,23 +111,23 @@ build_repo aampmetrics
 
 #### COPY LIBDASH FILES
 pushd $libdash_build_dir
-    cp ./bin/libdash.so $builddir/lib/
-    mkdir -p $builddir/include/libdash
-    mkdir -p $builddir/include/libdash/xml
-    mkdir -p $builddir/include/libdash/mpd
-    mkdir -p $builddir/include/libdash/helpers
-    mkdir -p $builddir/include/libdash/network
-    mkdir -p $builddir/include/libdash/portable
-    mkdir -p $builddir/include/libdash/metrics
-    cp -pr ../libdash/include/*.h $builddir/include/libdash
-    cp -pr ../libdash/source/xml/*.h $builddir/include/libdash/xml
-    cp -pr ../libdash/source/mpd/*.h $builddir/include/libdash/mpd
-    cp -pr ../libdash/source/network/*.h $builddir/include/libdash/network
-    cp -pr ../libdash/source/portable/*.h $builddir/include/libdash/portable
-    cp -pr ../libdash/source/helpers/*.h $builddir/include/libdash/helpers
-    cp -pr ../libdash/source/metrics/*.h $builddir/include/libdash/metrics
+    cp ./bin/libdash.so $linuxbuilddir/lib/
+    mkdir -p $linuxbuilddir/include/libdash
+    mkdir -p $linuxbuilddir/include/libdash/xml
+    mkdir -p $linuxbuilddir/include/libdash/mpd
+    mkdir -p $linuxbuilddir/include/libdash/helpers
+    mkdir -p $linuxbuilddir/include/libdash/network
+    mkdir -p $linuxbuilddir/include/libdash/portable
+    mkdir -p $linuxbuilddir/include/libdash/metrics
+    cp -pr ../libdash/include/*.h $linuxbuilddir/include/libdash
+    cp -pr ../libdash/source/xml/*.h $linuxbuilddir/include/libdash/xml
+    cp -pr ../libdash/source/mpd/*.h $linuxbuilddir/include/libdash/mpd
+    cp -pr ../libdash/source/network/*.h $linuxbuilddir/include/libdash/network
+    cp -pr ../libdash/source/portable/*.h $linuxbuilddir/include/libdash/portable
+    cp -pr ../libdash/source/helpers/*.h $linuxbuilddir/include/libdash/helpers
+    cp -pr ../libdash/source/metrics/*.h $linuxbuilddir/include/libdash/metrics
 popd
-echo -e 'prefix='$builddir'/lib \nexec_prefix='$builddir' \nlibdir='$builddir'/lib \nincludedir='$builddir'/include/libdash \n \nName: libdash \nDescription: ISO/IEC MPEG-DASH library \nVersion: 3.0 \nRequires: libxml-2.0 \nLibs: -L${libdir} -ldash \nLibs.private: -lxml2 \nCflags: -I${includedir}' > $builddir/lib/pkgconfig/libdash.pc
+echo -e 'prefix='$linuxbuilddir'/lib \nexec_prefix='$linuxbuilddir' \nlibdir='$linuxbuilddir'/lib \nincludedir='$linuxbuilddir'/include/libdash \n \nName: libdash \nDescription: ISO/IEC MPEG-DASH library \nVersion: 3.0 \nRequires: libxml-2.0 \nLibs: -L${libdir} -ldash \nLibs.private: -lxml2 \nCflags: -I${includedir}' > $linuxbuilddir/lib/pkgconfig/libdash.pc
 
 echo "AAMP Workspace Sucessfully prepared" 
 echo "Please Start VS Code, open workspace from file: ubuntu-aamp-cli.code-workspace"

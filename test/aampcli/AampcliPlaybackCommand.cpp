@@ -277,10 +277,28 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	}
 	else if( isCommandMatch(cmd,"subtec") )
 	{
-#ifdef __APPLE__
+        #define MAX_SCRIPT_PATH_LEN 512
+		char scriptPath[MAX_SCRIPT_PATH_LEN] = "";
+		char subtecCommand[MAX_SCRIPT_PATH_LEN] = "";
+
 		mAampcli.mSingleton->SetCCStatus(true);
-		system( "cd ../..;bash install-aamp.sh subtec&\n");
+
+		if (mAampcli.getApplicationDir(scriptPath, MAX_SCRIPT_PATH_LEN) > 0)
+		{
+#ifdef __APPLE__
+			snprintf( subtecCommand, MAX_SCRIPT_PATH_LEN, "bash %s/aampcli-run-subtec.sh&\n", scriptPath);
+			system(subtecCommand);
+#elif __linux__		
+			snprintf( subtecCommand, MAX_SCRIPT_PATH_LEN, "gnome-terminal -- bash %s/aampcli-run-subtec.sh\n", scriptPath);
+			system(subtecCommand);
+#else			
+    		printf("[AAMPCLI] WARNING - subtec command not supported on platform\n");
 #endif
+		}
+		else
+		{
+    		printf("[AAMPCLI] ERROR - unable to get path to subtec run script\n");
+		}
 	}
 	else if( isCommandMatch(cmd,"history") )
 	{
