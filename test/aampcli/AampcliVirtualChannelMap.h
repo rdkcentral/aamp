@@ -54,7 +54,7 @@ struct VirtualChannelInfo
 class VirtualChannelMap
 {
 	public:
-		VirtualChannelMap() : mVirtualChannelMap(),mCurrentlyTunedChannel(0),mAutoChannelNumber(0) {}
+		VirtualChannelMap() : mVirtualChannelMap(),mCurrentlyTunedChannel(0),mMostRecentlyImportedVirtualChannelNumber(0) {}
 		~VirtualChannelMap()
 		{
 			mVirtualChannelMap.clear();
@@ -76,7 +76,7 @@ class VirtualChannelMap
 
 	protected:
 		std::list<VirtualChannelInfo> mVirtualChannelMap;
-		int mAutoChannelNumber;
+		int mMostRecentlyImportedVirtualChannelNumber;
 		int mCurrentlyTunedChannel;
 };
 

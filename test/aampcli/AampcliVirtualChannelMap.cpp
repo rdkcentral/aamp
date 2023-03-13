@@ -33,15 +33,15 @@ void VirtualChannelMap::add(VirtualChannelInfo& channelInfo)
 		if( !channelInfo.uri.empty() )
 		{
 			if( !VIRTUAL_CHANNEL_VALID(channelInfo.channelNumber) )
-			{ // No channel set, use an auto. This could conflict with a later add, we can't check for that here
-				channelInfo.channelNumber = mAutoChannelNumber+1;
+			{ // No explicit channel number set; automatically populate
+				channelInfo.channelNumber = mMostRecentlyImportedVirtualChannelNumber+1;
 			}
 
-			if (isPresent(channelInfo) == true)
-			{
-				return;  // duplicate
+			if (isPresent(channelInfo) )
+			{ // skip if duplicate
+				return;
 			}
-			mAutoChannelNumber = channelInfo.channelNumber;
+			mMostRecentlyImportedVirtualChannelNumber = channelInfo.channelNumber;
 		}
 	}
 	mVirtualChannelMap.push_back(channelInfo);
@@ -63,18 +63,22 @@ VirtualChannelInfo* VirtualChannelMap::find(const int channelNumber)
 }
 bool VirtualChannelMap::isPresent(const VirtualChannelInfo& channelInfo)
 {
-	for (std::list<VirtualChannelInfo>::iterator it = mVirtualChannelMap.begin(); it != mVirtualChannelMap.end(); ++it)
+	bool didWarn = false;
+	for( auto it = mVirtualChannelMap.begin(); it != mVirtualChannelMap.end(); ++it)
 	{
-		VirtualChannelInfo &existingChannelInfo = *it;
+		const VirtualChannelInfo &existingChannelInfo = *it;
 		if(channelInfo.channelNumber == existingChannelInfo.channelNumber)
-		{
+		{ // forbid repeated virtual channel number!
 			printf("[AAMPCLI] duplicate channel number: %d: '%s'\n", channelInfo.channelNumber, channelInfo.uri.c_str() );
 			return true;
 		}
 		if(channelInfo.uri == existingChannelInfo.uri )
 		{
-			printf("[AAMPCLI] duplicate URL: %d: '%s'\n", channelInfo.channelNumber, channelInfo.uri.c_str() );
-			return true;
+			if( !didWarn )
+			{ // warn for same url appearing more than once
+				printf("[AAMPCLI] duplicate URL: %d: '%s'\n", channelInfo.channelNumber, channelInfo.uri.c_str() );
+				didWarn = true;
+			}
 		}
 	}
 	return false;
@@ -171,9 +175,9 @@ void VirtualChannelMap::print()
 	printf("[AAMPCLI] aampcli.cfg virtual channel map:\n");
 
 	int numCols = 0;
-	for (std::list<VirtualChannelInfo>::iterator it = mVirtualChannelMap.begin(); it != mVirtualChannelMap.end(); ++it )
+	for ( auto it = mVirtualChannelMap.begin(); it != mVirtualChannelMap.end(); ++it )
 	{
-		VirtualChannelInfo &pChannelInfo = *it;
+		const VirtualChannelInfo &pChannelInfo = *it;
 		std::string channelName = pChannelInfo.name.c_str();
 		size_t len = channelName.length();
 		int maxNameLen = 20;
