@@ -7201,6 +7201,13 @@ void PrivateInstanceAAMP::Stop()
 	}
 	
 	DisableDownloads();
+	//DELIA-60010 : Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
+	if(IsTSBSupported())
+	{
+		std::string remoteUrl = "127.0.0.1:9080/tsb";
+		int http_error = -1;
+		ProcessCustomCurlRequest(remoteUrl, NULL, &http_error, eCURL_DELETE);
+	}
 	UnblockWaitForDiscontinuityProcessToComplete();
 	StopRateCorrectionWokerthread();
 
