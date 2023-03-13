@@ -200,3 +200,25 @@ bool aamp_IsAbsoluteURL( const std::string &url )
 {
 	return url.compare(0, 7, "http://")==0 || url.compare(0, 8, "https://")==0;
 }
+
+
+double aamp_CurlEasyGetinfoDouble( CURL *handle, CURLINFO info )
+{
+	return 0.0;
+}
+
+int aamp_CurlEasyGetinfoInt( CURL *handle, CURLINFO info )
+{
+	return 0;
+}
+
+long aamp_CurlEasyGetinfoLong( CURL *handle, CURLINFO info )
+{
+	return 0;
+}
+
+char *aamp_CurlEasyGetinfoString( CURL *handle, CURLINFO info )
+{
+	return NULL;
+}
+
