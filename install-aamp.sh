@@ -348,16 +348,22 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     brew install doxygen
     brew install graphviz
     
-    echo "Cloning subtec-app..."
-    do_clone https://code.rdkcentral.com/r/components/generic/subtec-app
-    echo "Cloning websocket-ipplayer2-utils..."
-    do_clone https://code.rdkcentral.com/r/components/generic/websocket-ipplayer2-utils subtec-app/websocket-ipplayer2-utils
-    echo "Installing glib..."
-    do_clone https://gitlab.gnome.org/GNOME/glib.git
+    if [ ! -d subtec-app ]; then
+        echo "Cloning subtec-app..."
+        do_clone https://code.rdkcentral.com/r/components/generic/subtec-app
+    fi
+    if [ ! -d subtec-app/websocket-ipplayer2-utils ]; then
+        echo "Cloning websocket-ipplayer2-utils..."
+        do_clone https://code.rdkcentral.com/r/components/generic/websocket-ipplayer2-utils subtec-app/websocket-ipplayer2-utils
+    fi
+    if [ ! -d glib ]; then
+        echo "Installing glib..."
+        do_clone https://gitlab.gnome.org/GNOME/glib.git
+    fi
+
     cd glib
     meson build && cd build
     meson compile
-    
     cd ../../
     
     sed -i '' 's:COMMAND gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code SubtitleDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/SubtitleDbusInterface.xml:COMMAND '"$PWD"'/glib/build/gio/gdbus-2.0/codegen/gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code SubtitleDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/SubtitleDbusInterface.xml:g' subtec-app/subttxrend-dbus/CMakeLists.txt
@@ -448,7 +454,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 
     #print final status of the script
 elif [[ "$OSTYPE" == "linux"* ]]; then
-    
+
     sudo apt install ninja-build
     
     cd Linux
