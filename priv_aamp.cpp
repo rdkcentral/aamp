@@ -4613,6 +4613,7 @@ char * PrivateInstanceAAMP::GetOnVideoEndSessionStatData()
 		if(ProcessCustomCurlRequest(remoteUrl, &data, &http_error))
 		{
 			// succesfully requested
+			aamp_AppendNulTerminator(&data); // DELIA-60690
 			AAMPLOG_INFO("curl request %s success", remoteUrl.c_str());
 			cJSON *root = cJSON_Parse(data.ptr);
 			if (root == NULL)
@@ -4670,6 +4671,7 @@ bool PrivateInstanceAAMP::ProcessCustomCurlRequest(std::string& remoteUrl, Growa
 
 		if(eCURL_GET == request)
 		{
+			assert( buffer );
 			CurlCallbackContext context(this, buffer);
 			memset(buffer, 0x00, sizeof(*buffer));
 			CurlProgressCbContext progressCtx(this, NOW_STEADY_TS_MS);
