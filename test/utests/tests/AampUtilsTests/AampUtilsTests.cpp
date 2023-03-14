@@ -318,13 +318,10 @@ TEST(_AampUtils, aamp_WriteFile)
 	MediaType fileType = eMEDIATYPE_PLAYLIST_VIDEO;
 	result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "prefix");
 	EXPECT_TRUE(result);
-	//This test currently commented out as it depends on delia-60598
-	/*
 	//For coverage, expect to be rejected because no "/" or"." in filename
 	fileType = eMEDIATYPE_MANIFEST;
 	result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "prefix");
 	EXPECT_FALSE(result);
-	*/
 	fileName +="/MANIFEST.EXT";
 	result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "prefix");
 	EXPECT_TRUE(result);
