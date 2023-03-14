@@ -45,8 +45,6 @@ set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp)
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
-# XCode schema target
-xcode_define_schema(${EXEC_NAME})
 
 if (COVERAGE_ENABLED)
     include(CodeCoverage)

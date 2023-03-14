@@ -13,7 +13,5 @@ set(SOURCES AampSmokeTestPlayer.cpp TuneSmokeTest.cpp gtest_main.cpp)
 add_executable(aamp_smoketest ${HEADERS} ${SOURCES})
 add_dependencies(aamp_smoketest aamp)
 set_target_properties(aamp_smoketest PROPERTIES COMPILE_FLAGS "${SMOKETEST_DEFINES} ${LIBAAMP_DEFINES} ${AAMP_CLI_EXTRA_DEFINES} ${OS_CXX_FLAGS}")
-# XCode schema target
-xcode_define_schema(aamp_smoketest)
 target_link_libraries(aamp_smoketest aamp ${GOOGLETEST_LIBRARIES})
 #gtest_discover_tests(aamp_gtest)

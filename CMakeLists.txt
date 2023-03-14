@@ -14,16 +14,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-# XCode schema generation / flag setting
-# Other flags see here: https://cmake.org/cmake/help/latest/prop_tgt/XCODE_GENERATE_SCHEME.html
-function(xcode_define_schema new_schema)
-    message( "xcode_define_schema for ${new_schema}" )
-    set_property(TARGET ${new_schema} PROPERTY XCODE_GENERATE_SCHEME TRUE)
-    set_property(TARGET ${new_schema} PROPERTY XCODE_SCHEME_ADDRESS_SANITIZER TRUE)
-    set_property(TARGET ${new_schema} PROPERTY XCODE_SCHEME_ADDRESS_SANITIZER_USE_AFTER_RETURN TRUE)
-endfunction()
-
 if(APPLE)
 	set(CMAKE_C_COMPILER "/usr/bin/cc")
 	set(CMAKE_CXX_COMPILER "/usr/bin/c++")
@@ -76,9 +66,6 @@ elseif(CMAKE_WPEWEBKIT_JSBINDINGS)
 else()
 	message("CMAKE_QT5WEBKIT_JSBINDINGS not set, CMAKE_WPEWEBKIT_JSBINDINGS not set")
 endif()
-
-#update XCode scheme flags, harmless for non Darwin builds
-set (CMAKE_CODE_GENERATE_SCHEME TRUE)
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
@@ -624,13 +611,8 @@ set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" "${LIBAAMP_DRM_SOURCES}" "${LIBAAMP_MOC
 add_library(aamp SHARED ${LIBAAMP_HEADERS} ${LIBAAMP_SOURCES} ${LIBAAMP_HELP_SOURCES})
 add_executable(aamp-cli ${AAMP_CLI_HEADERS} ${AAMP_CLI_SOURCES})
 target_link_libraries(aamp-cli "-lreadline")
-# XCode schema target
-xcode_define_schema(aamp-cli)
-
 add_executable(playbintest test/playbintest.cpp)
 target_link_libraries(playbintest ${PLAYBINTEST_DEPENDS})
-# XCode schema target
-xcode_define_schema(playbintest)
 
 if(CMAKE_SOC_PLATFORM_INTEL)
 	message("CMAKE_SOC_PLATFORM_INTEL set")
@@ -704,7 +686,6 @@ target_link_libraries(aamp-cli aamp ${AAMP_CLI_LD_FLAGS})
 set_target_properties(aamp PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 #aamp-cli is not an ideal standalone app. It uses private aamp instance for debugging purposes
 set_target_properties(aamp-cli PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${AAMP_CLI_EXTRA_DEFINES} ${OS_CXX_FLAGS}")
-
 set_target_properties(aamp PROPERTIES PUBLIC_HEADER "main_aamp.h")
 set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
 

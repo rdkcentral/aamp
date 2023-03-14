@@ -9536,7 +9536,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				double lastPrdOffset = mBasePeriodOffset;
 				bool parallelDnld = ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) ;
 				// playback
-				bool *cacheFullStatus = new bool[AAMP_TRACK_COUNT]{false} ;
 				while (!exitFetchLoop)
 				{
 
@@ -9546,11 +9545,13 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						playlistDownloaderContext->StopPlaylistDownloaderThread();
 						playlistDownloaderThreadStarted = false;
 					}
+					bool cacheFullStatus[AAMP_TRACK_COUNT] = { false };
 					std::thread *parallelDownload[AAMP_TRACK_COUNT] = { nullptr };
+
 					for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
 					{
 						parallelDownload[trackIdx] = NULL;
-						cacheFullStatus[trackIdx] = false;
+						bool bCacheFullState = true;
 						if (!mMediaStreamContext[trackIdx]->eos)
 						{
 							if (parallelDnld && trackIdx > 0) // (trackIdx > 0) indicates video/iframe/audio-only has to be downloaded in sync mode from this FetcherLoop().
@@ -9563,15 +9564,16 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 												trickPlay,
 												delta,
 												&waitForFreeFrag,
-												&cacheFullStatus[trackIdx]);
-								AAMPLOG_TRACE("Thread created for parallelDownload:AdvanceTrack [%d][%lu]", trackIdx, GetPrintableThreadID( *parallelDownload[trackIdx]));
+												&bCacheFullState);
+							        AAMPLOG_TRACE("Thread created for parallelDownload:AdvanceTrack [%d][%lu]", trackIdx, GetPrintableThreadID( *parallelDownload[trackIdx]));
 							}
 							else
 							{
-								AdvanceTrack(trackIdx, trickPlay, delta, &waitForFreeFrag, &cacheFullStatus[trackIdx]);
+								AdvanceTrack(trackIdx, trickPlay, delta, &waitForFreeFrag, &bCacheFullState);
 								parallelDownload[trackIdx] = NULL;
 							}
 						}
+						cacheFullStatus[trackIdx] = bCacheFullState;
 					}
 
 					for (int trackIdx = (mNumberOfTracks - 1); (parallelDnld && trackIdx >= 0); trackIdx--)
@@ -9700,8 +9702,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						aamp->InterruptableMsSleep(50);
 					}
 				} // Loop 3: end of while loop (!exitFetchLoop)
-				SAFE_DELETE_ARRAY(cacheFullStatus);
-				
+
 				if(AdState::IN_ADBREAK_WAIT2CATCHUP == mCdaiObject->mAdState)
 				{
 					continue; //Need to finish all the ads in current before period change
