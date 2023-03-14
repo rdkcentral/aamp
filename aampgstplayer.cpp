@@ -181,7 +181,6 @@ struct AAMPGstPlayerPriv
 	GstEvent *protectionEvent[AAMP_TRACK_COUNT]; 	/**< GstEvent holding the pssi data to be sent downstream. */
 	std::atomic<bool> firstFrameCallbackIdleTaskPending; /**< Set if any first frame callback is pending. */
 	bool using_westerossink; 			/**< true if westros sink is used as video sink */
-	guint busWatchId;					/**< Id of the event source assigned to the message bus */
 	std::atomic<bool> eosSignalled; 		/**< Indicates if EOS has signaled */
 	gboolean buffering_enabled; 			/**< enable buffering based on multiqueue */
 	gboolean buffering_in_progress; 		/**< buffering is in progress */
@@ -219,7 +218,7 @@ struct AAMPGstPlayerPriv
 			audioVolume(1.0), eosCallbackIdleTaskId(AAMP_TASK_ID_INVALID), eosCallbackIdleTaskPending(false),
 			firstFrameReceived(false), pendingPlayState(false), decoderHandleNotified(false),
 			firstFrameCallbackIdleTaskId(AAMP_TASK_ID_INVALID), firstFrameCallbackIdleTaskPending(false),
-			using_westerossink(false), busWatchId(0), eosSignalled(false),
+			using_westerossink(false), eosSignalled(false),
 			buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
 			buffering_target_state(GST_STATE_NULL),
 			playbackrate(AAMP_NORMAL_PLAY_RATE),
@@ -1789,8 +1788,8 @@ bool AAMPGstPlayer::CreatePipeline()
 		privateContext->bus = gst_pipeline_get_bus(GST_PIPELINE(privateContext->pipeline));		/*Gets the GstBus of pipeline. The bus allows applications to receive GstMessage packets.*/
 		if (privateContext->bus)
 		{
-			privateContext->busWatchId = gst_bus_add_watch(privateContext->bus, (GstBusFunc) bus_message, this); /* Creates a watch for privateContext->bus, invoking 'bus_message'
-																													when a asynchronous message on the bus is available */
+			guint busWatchId = gst_bus_add_watch(privateContext->bus, (GstBusFunc) bus_message, this); /* Creates a watch for privateContext->bus, invoking 'bus_message' when a asynchronous message on the bus is available */
+			(void)busWatchId;
 			gst_bus_set_sync_handler(privateContext->bus, (GstBusSyncHandler) bus_sync_handler, this, NULL);	/* Assigns a synchronous bus_sync_handler for synchronous messages */
 			privateContext->buffering_enabled = ISCONFIGSET(eAAMPConfig_GStreamerBufferingBeforePlay);
 			privateContext->buffering_in_progress = false;
@@ -1835,11 +1834,6 @@ void AAMPGstPlayer::DestroyPipeline()
 		gst_object_unref(privateContext->pipeline);		/* Decreases the reference count on privateContext->pipeline, in this case it will become zero,
 															the reference to privateContext->pipeline will be freed in gstreamer */
 		privateContext->pipeline = NULL;
-	}
-	if (privateContext->busWatchId != 0)
-	{
-		g_source_remove(privateContext->busWatchId);	/* Remove the source that has privateContext->busWatchId from the default main context*/
-		privateContext->busWatchId = 0;
 	}
 	if (privateContext->bus)
 	{
