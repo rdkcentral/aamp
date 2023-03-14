@@ -3769,7 +3769,7 @@ double aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeriod * period)
 	const ISegmentTemplate *adaptationSet = NULL;
 	if( adaptationSets.size() > 0 )
 	{
-		IAdaptationSet * firstAdaptation;
+		IAdaptationSet * firstAdaptation = NULL;
 		for (auto &adaptationSet : period->GetAdaptationSets())
 		{
 			//Check for video adaptation
