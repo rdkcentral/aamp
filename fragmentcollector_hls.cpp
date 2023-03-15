@@ -4675,8 +4675,12 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			}
 			else
 			{
-				/** Playing from seek position disable the rate correction **/
-				aamp->mDisableRateCorrection = true;
+				/** Disable only if it is seek **/
+				if ((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType))
+				{
+					/** Playing from seek position disable the rate correction **/
+					aamp->mDisableRateCorrection = true;
+				}
 			}
 		}
 
