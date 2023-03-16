@@ -68,20 +68,20 @@ std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 	std::string url;
 	if (type == eDRM_PlayReady)
 	{
-		GETCONFIGVALUE_PRIV(eAAMPConfig_PRLicenseServerUrl,url);
+		url = GETCONFIGVALUE_PRIV(eAAMPConfig_PRLicenseServerUrl);
 	}
 	else if (type == eDRM_WideVine)
 	{
-		GETCONFIGVALUE_PRIV(eAAMPConfig_WVLicenseServerUrl,url);
+		url = GETCONFIGVALUE_PRIV(eAAMPConfig_WVLicenseServerUrl);
 	}
 	else if (type == eDRM_ClearKey)
 	{
-		GETCONFIGVALUE_PRIV(eAAMPConfig_CKLicenseServerUrl,url);
+		url = GETCONFIGVALUE_PRIV(eAAMPConfig_CKLicenseServerUrl);
 	}
 
 	if(url.empty())
 	{
-		GETCONFIGVALUE_PRIV(eAAMPConfig_LicenseServerUrl,url);
+		url = GETCONFIGVALUE_PRIV(eAAMPConfig_LicenseServerUrl);
 	}
 	return url;
 }

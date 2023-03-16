@@ -1779,8 +1779,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 				}
 				//Adding logic to report error if fragment downloads are failing continuously
 				//Avoid sending error for failure to download subtitle fragments
-				int FragmentDownloadFailThreshold;
-				GETCONFIGVALUE(eAAMPConfig_FragmentDownloadFailThreshold,FragmentDownloadFailThreshold);
+				int FragmentDownloadFailThreshold = GETCONFIGVALUE(eAAMPConfig_FragmentDownloadFailThreshold);
 				if((FragmentDownloadFailThreshold <= segDLFailCount) && aamp->DownloadsAreEnabled() && type != eTRACK_SUBTITLE)
 				{
 					AAMPLOG_ERR("Not able to download fragments; reached failure threshold sending tune failed event");
@@ -4018,9 +4017,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			{
 				/* START: Added As Part of DELIA-39963 */
 				int limitCount = 0;
-				int numberOfLimit = 0;
-
-				GETCONFIGVALUE(eAAMPConfig_InitRampDownLimit,numberOfLimit);
+				int numberOfLimit = GETCONFIGVALUE(eAAMPConfig_InitRampDownLimit);
 				do{
 					video->FetchPlaylist();
 					limitCount++;
@@ -4120,11 +4117,11 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			trickplayMode = true;
 			if(aamp->IsTSBSupported())
 			{
-				GETCONFIGVALUE(eAAMPConfig_LinearTrickPlayFPS,mTrickPlayFPS);
+				mTrickPlayFPS = GETCONFIGVALUE(eAAMPConfig_LinearTrickPlayFPS);
 			}
 			else
 			{
-				GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS,mTrickPlayFPS);
+				mTrickPlayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS);
 			}
 		}
 		else
@@ -4531,11 +4528,11 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						this->trickplayMode = true;
 						if(aamp->IsTSBSupported())
 						{
-							GETCONFIGVALUE(eAAMPConfig_LinearTrickPlayFPS,mTrickPlayFPS);
+							mTrickPlayFPS = GETCONFIGVALUE(eAAMPConfig_LinearTrickPlayFPS);
 						}
 						else
 						{
-							GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS,mTrickPlayFPS);
+							mTrickPlayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS);
 						}
 						ts->playContext->setRate(this->rate, PlayMode_retimestamp_Ionly);
 						ts->playContext->setFrameRateForTM(mTrickPlayFPS);
@@ -5400,8 +5397,7 @@ TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstraction
 TrackState::~TrackState()
 {
 	playlist.Free();
-	int  maxCachedFragmentsPerTrack;
-	GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached,maxCachedFragmentsPerTrack);
+	int maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	for (int j=0; j< maxCachedFragmentsPerTrack; j++)
 	{
 		cachedFragment[j].fragment.Free();

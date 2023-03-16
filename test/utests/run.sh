@@ -63,6 +63,7 @@ if [ "$build_coverage" -eq "1" ]; then
   build_test "AampCliSet" "AampCliSetTests_coverage"
   build_test "Base64AAMP" "Base64AAMPTests_coverage"
   build_test "AampUtilsTests" "AampUtilsTests_coverage"
+  build_test "ConfigTests" "ConfigTests_coverage"  
   build_test "PlayerInstanceAAMP" "PlayerInstanceAAMPTests_coverage"
   build_test "PrivateInstanceAAMP" "PrivateInstanceAAMPTests_coverage"
   build_test "StreamAbstractionAAMP_HLS" "StreamAbstractionAAMP_HLS_coverage"
@@ -71,7 +72,7 @@ if [ "$build_coverage" -eq "1" ]; then
   build_test "UrlEncDecAAMP" "UrlEncDecAAMPTests_coverage"
 
   #Create combined test report
-  lcov -a ./PlayerInstanceAAMPTests_coverage.info -a ./AampCliSetTests_coverage.info -a ./Base64AAMPTests_coverage.info -a ./AampUtilsTests_coverage.info -a ./UrlEncDecAAMPTests_coverage.info -a ./TextStyleAttributesTests_coverage.info -a ./StreamAbstractionAAMP_HLS_coverage.info -a ./StreamAbstractionAAMP_MPD_coverage.info -a ./PrivateInstanceAAMPTests_coverage.info -o combined.info
+  lcov -a ./PlayerInstanceAAMPTests_coverage.info -a ./AampCliSetTests_coverage.info -a ./Base64AAMPTests_coverage.info -a ./AampUtilsTests_coverage.info  -a ./ConfigTests_coverage.info -a ./UrlEncDecAAMPTests_coverage.info -a ./TextStyleAttributesTests_coverage.info -a ./StreamAbstractionAAMP_HLS_coverage.info -a ./StreamAbstractionAAMP_MPD_coverage.info -a ./PrivateInstanceAAMPTests_coverage.info -o combined.info
   genhtml combined.info -o ../CombinedCoverage
   echo Building coverage tests complete
 fi

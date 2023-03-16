@@ -445,9 +445,7 @@ void PlayerInstanceAAMP::SetInitialBufferDuration(int durationSec)
  */
 int PlayerInstanceAAMP::GetInitialBufferDuration(void)
 {
-	int durationSec;
-	GETCONFIGVALUE(eAAMPConfig_InitialBuffer,durationSec);
-	return durationSec;
+	return GETCONFIGVALUE(eAAMPConfig_InitialBuffer);
 }
 
 /**
@@ -471,9 +469,7 @@ void PlayerInstanceAAMP::SetRampDownLimit(int limit)
  */
 int PlayerInstanceAAMP::GetRampDownLimit(void)
 {
-	int limit;
-	GETCONFIGVALUE(eAAMPConfig_RampDownLimit,limit);
-	return limit;
+	return GETCONFIGVALUE(eAAMPConfig_RampDownLimit);
 }
 
 /**
@@ -512,9 +508,7 @@ void PlayerInstanceAAMP::SetMinimumBitrate(long bitrate)
  */
 long PlayerInstanceAAMP::GetMinimumBitrate(void)
 {
-	int bitrate;
-	GETCONFIGVALUE(eAAMPConfig_MinBitrate,bitrate);
-	return bitrate;
+	return GETCONFIGVALUE(eAAMPConfig_MinBitrate);
 }
 
 /**
@@ -538,9 +532,7 @@ void PlayerInstanceAAMP::SetMaximumBitrate(long bitrate)
  */
 long PlayerInstanceAAMP::GetMaximumBitrate(void)
 {
-	int bitrate;
-	GETCONFIGVALUE(eAAMPConfig_MaxBitrate,bitrate);
-	return bitrate;
+	return GETCONFIGVALUE(eAAMPConfig_MaxBitrate);
 }
 
 /**
@@ -1832,8 +1824,7 @@ void PlayerInstanceAAMP::SetVideoBitrate(long bitrate)
 	else
 	{
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_EnableABR,true);
-		int gpDefaultBitRate;
-		gpGlobalConfig->GetConfigValue( eAAMPConfig_DefaultBitrate, gpDefaultBitRate);
+		int gpDefaultBitRate = gpGlobalConfig->GetConfigValue( eAAMPConfig_DefaultBitrate);
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate,gpDefaultBitRate);
 		AAMPLOG_WARN("Resetting default bitrate to  %d", gpDefaultBitRate);
 	}
@@ -1978,9 +1969,7 @@ void PlayerInstanceAAMP::SetInitialBitrate(long bitrate)
  */
 long PlayerInstanceAAMP::GetInitialBitrate(void)
 {
-	int bitrate;
-	GETCONFIGVALUE(eAAMPConfig_DefaultBitrate,bitrate);
-	return bitrate;
+	return GETCONFIGVALUE(eAAMPConfig_DefaultBitrate);
 }
 
 /**
@@ -1997,9 +1986,7 @@ void PlayerInstanceAAMP::SetInitialBitrate4K(long bitrate4K)
  */
 long PlayerInstanceAAMP::GetInitialBitrate4k(void)
 {
-	int bitrate4K;
-	GETCONFIGVALUE(eAAMPConfig_DefaultBitrate4K,bitrate4K);
-	return bitrate4K;
+	return GETCONFIGVALUE(eAAMPConfig_DefaultBitrate4K);
 }
 
 /**
@@ -2936,15 +2923,13 @@ bool PlayerInstanceAAMP::InitAAMPConfig(char *jsonStr)
 		cJSON *drmConfig = cJSON_GetObjectItem(cfgdata,"drmConfig");
 		if(drmConfig)
 		{
-			std::string LicenseServerUrl = "";
-			GETCONFIGVALUE(eAAMPConfig_PRLicenseServerUrl, LicenseServerUrl);
+			std::string LicenseServerUrl = GETCONFIGVALUE(eAAMPConfig_PRLicenseServerUrl);
 			aamp->mDynamicDrmDefaultconfig.licenseEndPoint.insert(std::pair<std::string, std::string>("com.microsoft.playready", LicenseServerUrl.c_str()));
-			GETCONFIGVALUE(eAAMPConfig_WVLicenseServerUrl, LicenseServerUrl);
+			LicenseServerUrl = GETCONFIGVALUE(eAAMPConfig_WVLicenseServerUrl);
 			aamp->mDynamicDrmDefaultconfig.licenseEndPoint.insert(std::pair<std::string, std::string>("com.widevine.alpha",LicenseServerUrl.c_str()));
-			GETCONFIGVALUE(eAAMPConfig_CKLicenseServerUrl, LicenseServerUrl);
+			LicenseServerUrl = GETCONFIGVALUE(eAAMPConfig_CKLicenseServerUrl);
 			aamp->mDynamicDrmDefaultconfig.licenseEndPoint.insert(std::pair<std::string, std::string>("org.w3.clearkey",LicenseServerUrl.c_str()));
-			std::string customData = "";
-			GETCONFIGVALUE(eAAMPConfig_CustomLicenseData,customData);
+			std::string customData = GETCONFIGVALUE(eAAMPConfig_CustomLicenseData);
 			aamp->mDynamicDrmDefaultconfig.customData = customData;
 		}
 		cJSON_Delete(cfgdata);

@@ -21,7 +21,6 @@
  * @file AampConfig.cpp
  * @brief Configuration related Functionality for AAMP
  */
- 
 #include "AampConfig.h"
 #include "_base64.h"
 #include "base16.h"
@@ -30,17 +29,17 @@
 #include "aampgstplayer.h"
 #include "AampRfc.h"
 #include <time.h>
+#include <map>
+
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
 /// 1. This Class handles Configuration Parameters of AAMP Player , only Config related functionality to be added
 /// 2. Simple Steps to add a new configuration
-///		a) Identify new configuration takes what value ( bool / int / long / string )
+///		a) Identify new configuration takes what value ( bool / int  / string )
 /// 	b) Add the new configuration string in README.txt with appropriate comment
-///		c) Add a enum value for new config in AAMPConfigSettings. It should be inserted
-///			at right place based on data type
-/// 	d) Add the config string added in README and its equivalent enum value at the
-///			end of ConfigLookUpTable
-/// 	e) Go to AampConfig constructor and assign default value . Again the array to
-///			store is based on the datatype of config
+///		c) Add a enum value for new config in AAMPConfigSettingInt, AAMPConfigSettingBool, AAMPConfigSettingFloat, or AAMPConfigSettingString.
+/// 	d) Add the config string added in README and its equivalent enum value in corresponding
+/// 		mConfigLookupTableInt, mConfigLookupTableBool, mConfigLookupTableFloat, or mConfigLookupTableString
+/// 	e) Go to AampConfig constructor explicitly initialize of different value than default is required (int: 0, bool:false, float:0.0, string:"")
 /// 	f) Thats it !! You added a new configuration . Use Set and Get function to
 ///			store and read value using enum config
 /// 	g) IF any conversion required only (from config to usage, ex: sec to millisec ),
@@ -48,16 +47,77 @@
 ///			Not recommened . Better to have the conversion ( enum to string , sec to millisec etc ) where its consumed .
 ///////////////////////////////// Happy Configuration ////////////////////////////////////
 
-template void AampConfig::SetConfigValue<double>(ConfigPriority owner, AAMPConfigSettings cfg , const double &value);
-template void AampConfig::SetConfigValue<int>(ConfigPriority owner, AAMPConfigSettings cfg , const int &value);
-template void AampConfig::SetConfigValue<bool>(ConfigPriority owner, AAMPConfigSettings cfg , const bool &value);
+#define ARRAY_SIZE(A) (sizeof(A)/sizeof(A[0]))
+
+#define ERROR_TEXT_BAD_RANGE "Set failed. Input beyond the configured range"
+
+typedef enum
+{
+	eCONFIG_RANGE_ANY,
+	eCONFIG_RANGE_PORT,
+	eCONFIG_RANGE_DRM_SYSTEMS, // 0..eDRM_MAX_DRMSystems
+	eCONFIG_RANGE_LICENSE_WAIT, // MIN_LICENSE_KEY_ACQUIRE_WAIT_TIME..MAX_LICENSE_ACQ_WAIT_TIME
+	eCONFIG_RANGE_PTS_ERROR_THRESHOLD, // 0..MAX_PTS_ERRORS_THRESHOLD
+	eCONFIG_RANGE_PLAYLIST_CACHE_SIZE, // 0,15360, // Range for PlaylistCache size - upto 15 MB max
+	eCONFIG_RANGE_DASH_DRM_SESSIONS, // 1..MAX_DASH_DRM_SESSIONS
+	eCONFIG_RANGE_LANGUAGE_CODE, // 0,3
+	eCONFIG_RANGE_DECRYPT_ERROR_THRESHOLD, // 0..MAX_SEG_DRM_DECRYPT_FAIL_COUNT},
+	eCONFIG_RANGE_INJECT_ERROR_THRESHOLD, // 0..MAX_SEG_INJECT_FAIL_COUNT},
+	eCONFIG_RANGE_DOWNLOAD_DELAY,  // 0..MAX_DOWNLOAD_DELAY_LIMIT_MS
+	eCONFIG_RANGE_PAUSE_BEHAVIOR, // ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE..ePAUSED_BEHAVIOR_MAX},
+	eCONFIG_RANGE_DOWNLOAD_ERROR_THRESHOLD, // 1..MAX_SEG_DOWNLOAD_FAIL_COUNT
+	eCONFIG_RANGE_INIT_FRAGMENT_CACHE, // 1..5
+	eCONFIG_RANGE_TIMEOUT, // 0..50
+	eCONFIG_RANGE_CURL_SOCK_STORE_SIZE, // 1..10
+	eCONFIG_RANGE_CURL_SSL_VERSION, // CURL_SSLVERSION_DEFAULT..CURL_SSLVERSION_TLSv1_3
+	eCONFIG_RANGE_TUNED_EVENT_CODE, // eTUNED_EVENT_ON_PLAYLIST_INDEXED..eTUNED_EVENT_ON_GST_PLAYING},
+	eCONFIG_RANGE_LIVEOFFSET, // 0..50
+	eCONFIG_RANGE_RAMPDOWN_LIMIT, // -1..50
+	eCONFIG_RANGE_CEA_PREFERRED, // -1..5
+	eCONFIG_RANGE_PLAYBACK_OFFSET, // -99999..INT_MAX
+	eCONFIG_RANGE_MAX_VALUE,
+} ConfigValidRange;
+#define CONFIG_RANGE_ENUM_COUNT (eCONFIG_RANGE_MAX_VALUE)
+
+/**
+  * @brief lookup table for categories of valid ranges, used for value validation
+ */
+static const struct
+{
+	int minValue;
+	int maxValue;
+	ConfigValidRange type;
+} mConfigValueValidRange[] =
+{
+	{ 0, INT_MAX, eCONFIG_RANGE_ANY },
+	{ 1, 65535, eCONFIG_RANGE_PORT },
+	{ 0, eDRM_MAX_DRMSystems, eCONFIG_RANGE_DRM_SYSTEMS },
+	{ MIN_LICENSE_KEY_ACQUIRE_WAIT_TIME, MAX_LICENSE_ACQ_WAIT_TIME, eCONFIG_RANGE_LICENSE_WAIT },
+	{ 0, MAX_PTS_ERRORS_THRESHOLD, eCONFIG_RANGE_PTS_ERROR_THRESHOLD },
+	{ 0, 15360, eCONFIG_RANGE_PLAYLIST_CACHE_SIZE },
+	{ 1, MAX_DASH_DRM_SESSIONS, eCONFIG_RANGE_DASH_DRM_SESSIONS },
+	{ 0, 3, eCONFIG_RANGE_LANGUAGE_CODE },
+	{ 0, MAX_SEG_DRM_DECRYPT_FAIL_COUNT, eCONFIG_RANGE_DECRYPT_ERROR_THRESHOLD },
+	{ 0, MAX_SEG_INJECT_FAIL_COUNT, eCONFIG_RANGE_INJECT_ERROR_THRESHOLD },
+	{ 0, MAX_DOWNLOAD_DELAY_LIMIT_MS, eCONFIG_RANGE_DOWNLOAD_DELAY },
+	{ ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE, ePAUSED_BEHAVIOR_MAX, eCONFIG_RANGE_PAUSE_BEHAVIOR },
+	{ 1, MAX_SEG_DOWNLOAD_FAIL_COUNT, eCONFIG_RANGE_DOWNLOAD_ERROR_THRESHOLD },
+	{ 1, 5, eCONFIG_RANGE_INIT_FRAGMENT_CACHE },
+	{ 0, 50, eCONFIG_RANGE_TIMEOUT },
+	{ 1, 10, eCONFIG_RANGE_CURL_SOCK_STORE_SIZE },
+	{ CURL_SSLVERSION_DEFAULT, CURL_SSLVERSION_TLSv1_3, eCONFIG_RANGE_CURL_SSL_VERSION },
+	{ eTUNED_EVENT_ON_PLAYLIST_INDEXED, eTUNED_EVENT_ON_GST_PLAYING, eCONFIG_RANGE_TUNED_EVENT_CODE },
+	{ 0, 50, eCONFIG_RANGE_LIVEOFFSET },
+	{ -1, 50, eCONFIG_RANGE_RAMPDOWN_LIMIT },
+	{ -1, 5, eCONFIG_RANGE_CEA_PREFERRED },
+	{AAMP_DEFAULT_PLAYBACK_OFFSET, INT_MAX, eCONFIG_RANGE_PLAYBACK_OFFSET },
+};
 
 static ConfigPriority customOwner;
 /**
  * @brief AAMP Config Owners enum-string mapping table
  */
-
-static AampOwnerLookupEntry OwnerLookUpTable[] =
+static const AampOwnerLookupEntry mOwnerLookupTable[] =
 {
 	{"def",AAMP_DEFAULT_SETTING},
 	{"oper",AAMP_OPERATOR_SETTING},
@@ -69,234 +129,646 @@ static AampOwnerLookupEntry OwnerLookUpTable[] =
 	{"unknown",AAMP_MAX_SETTING}
 };
 
-/**
- * @brief AAMP Config Command lookup table
- */
-
-///// No order is required to add to this table ,
-///// Better to add always at the end than inserting in the middle to avoid git merge conflicts
-///// Format -> configuration name, configuration enum (defined in AampConfig.h) , minValue(-1 if none) , maxValue(-1 if none)
-static AampConfigLookupEntry ConfigLookUpTable[] =
+struct ConfigLookupEntryInt
 {
-	{"mapMPD",eAAMPConfig_MapMPD,false,-1,-1},
-	{"mapM3U8",eAAMPConfig_MapM3U8,false,-1,-1},
-	{"fragmp4LicensePrefetch",eAAMPConfig_Fragmp4PrefetchLicense,false,-1,-1},
-	{"enableVideoEndEvent",eAAMPConfig_EnableVideoEndEvent,true,-1,-1},
-	{"fog",eAAMPConfig_Fog,false,-1,-1},
-	{"harvestCountLimit",eAAMPConfig_HarvestCountLimit,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"harvestConfig",eAAMPConfig_HarvestConfig,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"harvestPath",eAAMPConfig_HarvestPath,false,-1,-1},
-	{"forceEC3",eAAMPConfig_ForceEC3,false,-1,-1},						// Complete
-	{"disableEC3",eAAMPConfig_DisableEC3,true,-1,-1},						// Complete
-	{"disableATMOS",eAAMPConfig_DisableATMOS,true,-1,-1},					// Complete
-	{"disableAC4",eAAMPConfig_DisableAC4,true,-1,-1},
-	{"stereoOnly",eAAMPConfig_StereoOnly,true,-1,-1},						// Complete
-	{"disableAC3",eAAMPConfig_DisableAC3,true,-1,-1},
-	{"descriptiveTrackName",eAAMPConfig_DescriptiveTrackName,false,-1,-1},
-	{"offset",eAAMPConfig_PlaybackOffset,false,{.dMinValue = -1},{.dMaxValue = -1}},
-	{"cdvrLiveOffset",eAAMPConfig_CDVRLiveOffset,true,{.dMinValue = 0},{.dMaxValue=50}},
-	{"liveOffset",eAAMPConfig_LiveOffset,true,{.dMinValue = 0},{.dMaxValue=50}}, //liveOffset by user
-	{"liveOffset4K",eAAMPConfig_LiveOffset4K,true,{.dMinValue = 0},{.dMaxValue=50}}, //liveOffset for 4K by user
-	{"liveOffsetDriftCorrectionInterval",eAAMPConfig_LiveOffsetDriftCorrectionInterval,true,{.dMinValue = 0},{.dMaxValue=50}}, //liveOffset by user
-	{"disablePlaylistIndexEvent",eAAMPConfig_DisablePlaylistIndexEvent,false,-1,-1},		// Complete
-	{"enableSubscribedTags",eAAMPConfig_EnableSubscribedTags,false,-1,-1},			// Complete
-	{"networkTimeout",eAAMPConfig_NetworkTimeout,true,{.dMinValue = -1},{.dMaxValue=-1}},
-	{"manifestTimeout",eAAMPConfig_ManifestTimeout,true,{.dMinValue = -1},{.dMaxValue=-1}},
-	{"playlistTimeout",eAAMPConfig_PlaylistTimeout,true,{.dMinValue = -1},{.dMaxValue=-1}},
-	{"dashIgnoreBaseUrlIfSlash",eAAMPConfig_DASHIgnoreBaseURLIfSlash,false,-1,-1},		// Complete
-	{"licenseAnonymousRequest",eAAMPConfig_AnonymousLicenseRequest,false,-1,-1},			// Complete
-	{"info",eAAMPConfig_InfoLogging,true,-1,-1},
-	{"failover",eAAMPConfig_FailoverLogging,false,-1,-1},
-	{"curlHeader",eAAMPConfig_CurlHeader,false,-1,-1},
-	{"curlLicense",eAAMPConfig_CurlLicenseLogging,false,-1,-1},
-	{"logMetadata",eAAMPConfig_MetadataLogging,false,-1,-1},
-	{"customHeader",eAAMPConfig_CustomHeader,false,-1,-1},
-	{"uriParameter",eAAMPConfig_URIParameter,false,-1,-1},
-	{"gst",eAAMPConfig_GSTLogging,false,-1,-1},
-	{"progress",eAAMPConfig_ProgressLogging,false,-1,-1},
-	{"debug",eAAMPConfig_DebugLogging,false,-1,-1},
-	{"trace",eAAMPConfig_TraceLogging,false,-1,-1},
-	{"warn",eAAMPConfig_WarnLogging,false,-1,-1},
-	{"curl",eAAMPConfig_CurlLogging,false,-1,-1},
-	{"stream",eAAMPConfig_StreamLogging,false,-1,-1},
-	{"initialBitrate",eAAMPConfig_DefaultBitrate,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"initialBitrate4K",eAAMPConfig_DefaultBitrate4K,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"defaultBitrate",eAAMPConfig_DefaultBitrate,true,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"abr",eAAMPConfig_EnableABR,false,-1,-1},
-	{"abrCacheLife",eAAMPConfig_ABRCacheLife,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"abrCacheLength",eAAMPConfig_ABRCacheLength,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"timeShiftBufferLength",eAAMPConfig_TimeShiftBufferLength,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"useNewABR",eAAMPConfig_ABRBufferCheckEnabled,false,-1,-1},
-	{"useNewAdBreaker",eAAMPConfig_NewDiscontinuity,false,-1,-1},
-	{"reportVideoPTS",eAAMPConfig_ReportVideoPTS,false,-1,-1},
-	{"decoderUnavailableStrict",eAAMPConfig_DecoderUnavailableStrict,false,-1,-1},
-	{"descriptiveAudioTrack",eAAMPConfig_DescriptiveAudioTrack,false,-1,-1},
-	{"langCodePreference",eAAMPConfig_LanguageCodePreference,false,{.iMinValue=0},{.iMaxValue=3}},
-	{"appSrcForProgressivePlayback",eAAMPConfig_UseAppSrcForProgressivePlayback,false,-1,-1},
-	{"abrCacheOutlier",eAAMPConfig_ABRCacheOutlier,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"abrSkipDuration",eAAMPConfig_ABRSkipDuration,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"abrNwConsistency",eAAMPConfig_ABRNWConsistency,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"minABRBufferRampdown",eAAMPConfig_MinABRNWBufferRampDown,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"preservePipeline",eAAMPConfig_PreservePipeline,false,-1,-1},
-	{"demuxHlsAudioTrack",eAAMPConfig_DemuxAudioHLSTrack,false,-1,-1},
-	{"demuxHlsVideoTrack",eAAMPConfig_DemuxVideoHLSTrack,false,-1,-1},
-	{"demuxHlsVideoTrackTrickMode",eAAMPConfig_DemuxHLSVideoTsTrackTM,false,-1,-1},
-	{"demuxAudioBeforeVideo",eAAMPConfig_DemuxAudioBeforeVideo,false,-1,-1},
-	{"throttle",eAAMPConfig_Throttle,false,-1,-1},
-	{"bufferHealthMonitorDelay",eAAMPConfig_BufferHealthMonitorDelay,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"bufferHealthMonitorInterval",eAAMPConfig_BufferHealthMonitorInterval,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"preferredDrm",eAAMPConfig_PreferredDRM,true,{.iMinValue=0},{.iMaxValue=eDRM_MAX_DRMSystems}},
-	{"playreadyOutputProtection",eAAMPConfig_EnablePROutputProtection,false,-1,-1},
-	{"tuneEventConfig",eAAMPConfig_TuneEventConfig,false,{.iMinValue=eTUNED_EVENT_ON_PLAYLIST_INDEXED},{.iMaxValue=eTUNED_EVENT_ON_GST_PLAYING}},
-	{"parallelPlaylistDownload",eAAMPConfig_PlaylistParallelFetch,false,-1,-1},
-	{"dashParallelFragDownload",eAAMPConfig_DashParallelFragDownload,false,-1,-1},
-	{"parallelPlaylistRefresh",eAAMPConfig_PlaylistParallelRefresh ,false,-1,-1},
-	{"bulkTimedMetadata",eAAMPConfig_BulkTimedMetaReport,false,-1,-1},
-	{"useRetuneForUnpairedDiscontinuity",eAAMPConfig_RetuneForUnpairDiscontinuity,false,-1,-1},
-	{"useRetuneForGstInternalError",eAAMPConfig_RetuneForGSTError,false,-1,-1},
-	{"useWesterosSink",eAAMPConfig_UseWesterosSink,true,-1,-1},
-	{"setLicenseCaching",eAAMPConfig_SetLicenseCaching,false,-1,-1},
-	{"propagateUriParameters",eAAMPConfig_PropogateURIParam,false,-1,-1},
-	{"preFetchIframePlaylist",eAAMPConfig_PrefetchIFramePlaylistDL,false,-1,-1},
-	{"hlsAVTrackSyncUsingPDT",eAAMPConfig_HLSAVTrackSyncUsingStartTime,false,-1,-1},
-	{"mpdDiscontinuityHandling",eAAMPConfig_MPDDiscontinuityHandling,false,-1,-1},
-	{"mpdDiscontinuityHandlingCdvr",eAAMPConfig_MPDDiscontinuityHandlingCdvr,false,-1,-1},
-	{"vodTrickPlayFps",eAAMPConfig_VODTrickPlayFPS,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"linearTrickPlayFps",eAAMPConfig_LinearTrickPlayFPS,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"progressReportingInterval",eAAMPConfig_ReportProgressInterval,false,{.dMinValue=0},{.dMaxValue=-1}},
-	{"forceHttp",eAAMPConfig_ForceHttp,false,-1,-1},
-	{"internalRetune",eAAMPConfig_InternalReTune,false,-1,-1},
-	{"gstBufferAndPlay",eAAMPConfig_GStreamerBufferingBeforePlay,false,-1,-1},
-	{"retuneOnBufferingTimeout",eAAMPConfig_ReTuneOnBufferingTimeout,false,-1,-1},
-	{"iframeDefaultBitrate",eAAMPConfig_IFrameDefaultBitrate,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"iframeDefaultBitrate4K",eAAMPConfig_IFrameDefaultBitrate4K,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"audioOnlyPlayback",eAAMPConfig_AudioOnlyPlayback,false,-1,-1},
-	{"licenseRetryWaitTime",eAAMPConfig_LicenseRetryWaitTime,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"licenseKeyAcquireWaitTime",eAAMPConfig_LicenseKeyAcquireWaitTime,false,{.iMinValue=MIN_LICENSE_KEY_ACQUIRE_WAIT_TIME},{.iMaxValue=MAX_LICENSE_ACQ_WAIT_TIME}},
-	{"downloadBuffer",eAAMPConfig_MaxFragmentCached,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"ptsErrorThreshold",eAAMPConfig_PTSErrorThreshold,false,{.iMinValue=0},{.iMaxValue=MAX_PTS_ERRORS_THRESHOLD}},
-	{"enableVideoRectangle",eAAMPConfig_EnableRectPropertyCfg,false,-1,-1},
-	{"maxPlaylistCacheSize",eAAMPConfig_MaxPlaylistCacheSize,false,{.iMinValue=0},{.iMaxValue=15360}},              // Range for PlaylistCache size - upto 15 MB max
-	{"dashMaxDrmSessions",eAAMPConfig_MaxDASHDRMSessions,false,{.iMinValue=1},{.iMaxValue=MAX_DASH_DRM_SESSIONS}},
-	{"userAgent",eAAMPConfig_UserAgent,false,-1,-1},
-	{"waitTimeBeforeRetryHttp5xx",eAAMPConfig_Http5XXRetryWaitInterval,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"preplayBuffercount",eAAMPConfig_PrePlayBufferCount,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"sslVerifyPeer",eAAMPConfig_SslVerifyPeer,false,-1,-1},
-	{"downloadStallTimeout",eAAMPConfig_CurlStallTimeout,false,{.iMinValue=0},{.iMaxValue=50}},
-	{"downloadStartTimeout",eAAMPConfig_CurlDownloadStartTimeout,false,{.iMinValue=0},{.iMaxValue=50}},
-	{"downloadLowBWTimeout",eAAMPConfig_CurlDownloadLowBWTimeout,false,{.iMinValue=0},{.iMaxValue=50}},
-	{"discontinuityTimeout",eAAMPConfig_DiscontinuityTimeout,false,{.iMinValue=0},{.iMaxValue=50}},
-	{"client-dai",eAAMPConfig_EnableClientDai,true,-1,-1},                               // not changing this name , this is already in use for RFC
-	{"cdnAdsOnly",eAAMPConfig_PlayAdFromCDN,false,-1,-1},
-	{"thresholdSizeABR",eAAMPConfig_ABRThresholdSize,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"preferredSubtitleLanguage",eAAMPConfig_SubTitleLanguage,false,-1,-1},
-	{"reportBufferEvent",eAAMPConfig_ReportBufferEvent,false,-1,-1},
-	{"gstPositionQueryEnable",eAAMPConfig_EnableGstPositionQuery,false,-1,-1},
-	{"useMatchingBaseUrl",eAAMPConfig_MatchBaseUrl,false,-1,-1},
-	{"useAverageBandwidth",eAAMPConfig_AvgBWForABR,false,-1,-1},
-	{"preCachePlaylistTime",eAAMPConfig_PreCachePlaylistTime,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"fragmentRetryLimit",eAAMPConfig_RampDownLimit,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"segmentInjectFailThreshold",eAAMPConfig_SegmentInjectThreshold,false,{.iMinValue=0},{.iMaxValue=MAX_SEG_INJECT_FAIL_COUNT}},
-	{"drmDecryptFailThreshold",eAAMPConfig_DRMDecryptThreshold,false,{.iMinValue=0},{.iMaxValue=MAX_SEG_DRM_DECRYPT_FAIL_COUNT}},
-	{"minBitrate",eAAMPConfig_MinBitrate,true,{.iMinValue=0},{.iMaxValue=-1}},
-	{"maxBitrate",eAAMPConfig_MaxBitrate,true,{.iMinValue=0},{.iMaxValue=-1}},
-	{"initFragmentRetryCount",eAAMPConfig_InitFragmentRetryCount,false,{.iMinValue=0},{.iMaxValue=-1}},
-	{"nativeCCRendering",eAAMPConfig_NativeCCRendering,false,-1,-1},
-	{"subtecSubtitle",eAAMPConfig_Subtec_subtitle,false,-1,-1},
-	{"webVttNative",eAAMPConfig_WebVTTNative,false,-1,-1},
-	{"ceaFormat",eAAMPConfig_CEAPreferred,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"asyncTune",eAAMPConfig_AsyncTune,true,-1,-1},
-	{"initRampdownLimit",eAAMPConfig_InitRampDownLimit,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"enableSeekableRange",eAAMPConfig_EnableSeekRange,false,-1,-1},
-	{"enableLiveLatencyCorrection",eAAMPConfig_EnableLiveLatencyCorrection,true,-1,-1},
-	{"maxTimeoutForSourceSetup",eAAMPConfig_SourceSetupTimeout,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"seekMidFragment",eAAMPConfig_MidFragmentSeek,false,-1,-1},
-	{"wifiCurlHeader",eAAMPConfig_WifiCurlHeader,false,-1,-1},
-	{"persistBitrateOverSeek",eAAMPConfig_PersistentBitRateOverSeek,true,-1,-1},
-	{"log",eAAMPConfig_LogLevel,false,-1,-1},
-	{"maxABRBufferRampup",eAAMPConfig_MaxABRNWBufferRampUp,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"networkProxy",eAAMPConfig_NetworkProxy,false,-1,-1},
-	{"licenseProxy",eAAMPConfig_LicenseProxy,false,-1,-1},
-	{"authToken",eAAMPConfig_AuthToken,false,-1,-1},
-	{"enableAccessAttributes",eAAMPConfig_EnableAccessAttributes,false,-1,-1},
-	{"ckLicenseServerUrl",eAAMPConfig_CKLicenseServerUrl,false,-1,-1},
-	{"licenseServerUrl",eAAMPConfig_LicenseServerUrl,false,-1,-1},
-	{"prLicenseServerUrl",eAAMPConfig_PRLicenseServerUrl,false,-1,-1},
-	{"wvLicenseServerUrl",eAAMPConfig_WVLicenseServerUrl,false,-1,-1},
-	{"stallErrorCode",eAAMPConfig_StallErrorCode,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"stallTimeout",eAAMPConfig_StallTimeoutMS,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"initialBuffer",eAAMPConfig_InitialBuffer,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"playbackBuffer",eAAMPConfig_PlaybackBuffer,false,{.iMinValue=-1},{.iMaxValue=-1}},
-	{"downloadDelay",eAAMPConfig_DownloadDelay,false,{.iMinValue=0},{.iMaxValue=MAX_DOWNLOAD_DELAY_LIMIT_MS}},
-	{"livePauseBehavior",eAAMPConfig_LivePauseBehavior,false,{.iMinValue=ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE},{.iMaxValue=ePAUSED_BEHAVIOR_MAX}},
-	{"disableUnderflow",eAAMPConfig_DisableUnderflow,false,-1,-1},
-	{"limitResolution",eAAMPConfig_LimitResolution,false,-1,-1},
-	{"useAbsoluteTimeline",eAAMPConfig_UseAbsoluteTimeline,false,-1,-1},
-	{"id3",eAAMPConfig_ID3Logging,false,-1,-1},
-	{"SkyStoreDE",eAAMPConfig_WideVineKIDWorkaround,false,-1,-1},
-	{"repairIframes",eAAMPConfig_RepairIframes,false,-1,-1},
-	{"customHeaderLicense",eAAMPConfig_CustomHeaderLicense,false,-1,-1},
-	{"preferredAudioRendition",eAAMPConfig_PreferredAudioRendition,false,-1,-1},
-	{"preferredAudioCodec",eAAMPConfig_PreferredAudioCodec,false,-1,-1},
-	{"preferredAudioLanguage",eAAMPConfig_PreferredAudioLanguage,false,-1,-1},
-	{"preferredAudioLabel",eAAMPConfig_PreferredAudioLabel,false,-1,-1},
-	{"preferredAudioType",eAAMPConfig_PreferredAudioType,false,-1,-1},
-	{"preferredTextRendition",eAAMPConfig_PreferredTextRendition,false,-1,-1},
-	{"preferredTextLanguage",eAAMPConfig_PreferredTextLanguage,false,-1,-1},
-	{"preferredTextLabel",eAAMPConfig_PreferredTextLabel,false,-1,-1},
-	{"preferredTextType",eAAMPConfig_PreferredTextType,false,-1,-1},
-	{"gstVideoBufBytes", eAAMPConfig_GstVideoBufBytes,false,-1,-1},
-	{"gstAudioBufBytes", eAAMPConfig_GstAudioBufBytes,false,-1,-1},
-	{"seiTimeCode",eAAMPConfig_SEITimeCode,false,-1,-1},
-	{"disable4K" , eAAMPConfig_Disable4K, false,-1, -1},
-	{"sharedSSL",eAAMPConfig_EnableSharedSSLSession, true,-1,-1},
-	{"tsbInterruptHandling", eAAMPConfig_InterruptHandling,true, -1, -1},
-	{"enableLowLatencyDash",eAAMPConfig_EnableLowLatencyDash,true,-1,-1},
-	{"disableLowLatencyABR",eAAMPConfig_DisableLowLatencyABR,false,-1,-1},
-	{"enableLowLatencyCorrection",eAAMPConfig_EnableLowLatencyCorrection,true,-1,-1},
-	{"latencyMonitorDelay",eAAMPConfig_LatencyMonitorDelay,false,-1,-1},
-	{"latencyMonitorInterval",eAAMPConfig_LatencyMonitorInterval,false,-1,-1},
-	{"downloadBufferChunks",eAAMPConfig_MaxFragmentChunkCached,false,-1,-1},
-	{"abrChunkThresholdSize",eAAMPConfig_ABRChunkThresholdSize,false,-1,-1},
-	{"lowLatencyMinValue",eAAMPConfig_LLMinLatency,false,-1,-1},
-	{"lowLatencyTargetValue",eAAMPConfig_LLTargetLatency,false,-1,-1},
-	{"lowLatencyMaxValue",eAAMPConfig_LLMaxLatency,false,-1,-1},
-	{"enableLowLatencyOffsetMin",eAAMPConfig_EnableLowLatencyOffsetMin,false,-1,-1},
-	{"fragmentDownloadFailThreshold",eAAMPConfig_FragmentDownloadFailThreshold,false,{.iMinValue=1},{.iMaxValue=MAX_SEG_DOWNLOAD_FAIL_COUNT}},
-	{"syncAudioFragments",eAAMPConfig_SyncAudioFragments,false,-1,-1},
-	{"enableEosSmallFragment", eAAMPConfig_EnableIgnoreEosSmallFragment, false,-1, -1},
-	{"useSecManager",eAAMPConfig_UseSecManager, true,-1,-1},
-	{"enablePTO", eAAMPConfig_EnablePTO,false, -1, -1},
-	{"maxInitFragCachePerTrack",eAAMPConfig_MaxInitFragCachePerTrack,true,{.iMinValue=1},{.iMaxValue=5}},
-	{"supportTLS",eAAMPConfig_TLSVersion,true,{.iMinValue=CURL_SSLVERSION_DEFAULT},{.iMaxValue=CURL_SSLVERSION_TLSv1_3}},
-	{"fogMaxConcurrentDownloads",eAAMPConfig_FogMaxConcurrentDownloads, false,-1, -1},
-	{"enableFogConfig", eAAMPConfig_EnableAampConfigToFog, false, -1, -1},
-	{"xreSupportedTune",eAAMPConfig_XRESupportedTune,false,-1,-1},
-	{"allowPageHeaders",eAAMPConfig_AllowPageHeaders,false,-1,-1},
-	{"customLicenseData",eAAMPConfig_CustomLicenseData,false,-1,-1},
-	{"persistHighNetworkBandwidth",eAAMPConfig_PersistHighNetworkBandwidth,false,-1,-1},
-	{"persistLowNetworkBandwidth",eAAMPConfig_PersistLowNetworkBandwidth,false,-1,-1},
-	{"gstSubtecEnabled",eAAMPConfig_GstSubtecEnabled,false,-1,-1},
-	{"changeTrackWithoutRetune", eAAMPConfig_ChangeTrackWithoutRetune, false,-1,-1},
-	{"contentProtectionDataUpdateTimeout",eAAMPConfig_ContentProtectionDataUpdateTimeout,false,{.iMinValue = 0},{.iMaxValue=-1}},
-	{"curlStore", eAAMPConfig_EnableCurlStore, true, -1, -1},
-	{"maxCurlStore", eAAMPConfig_MaxCurlSockStore,false, {.iMinValue=1},{.iMaxValue=10}},
-	{"configRuntimeDRM", eAAMPConfig_RuntimeDRMConfig,false,-1,-1},
-	{"enablePublishingMuxedAudio",eAAMPConfig_EnablePublishingMuxedAudio,false,-1,-1},
-	{"enableCMCD", eAAMPConfig_EnableCMCD, true, -1, -1},
-	{"SlowMotion", eAAMPConfig_EnableSlowMotion, true, -1, -1},
-	{"enableSCTE35PresentationTime", eAAMPConfig_EnableSCTE35PresentationTime, false, -1, -1},
-	{"jsinfo",eAAMPConfig_JsInfoLogging,false, -1, -1},
-	{"ignoreAppLiveOffset", eAAMPConfig_IgnoreAppLiveOffset, false, -1, -1},
-	{"SchemeIdUriDaiStream",eAAMPConfig_SchemeIdUriDaiStream,true,-1,-1},
-	{"SchemeIdUriVssStream",eAAMPConfig_SchemeIdUriVssStream,true,-1,-1},
-	{"LRHAcceptValue",eAAMPConfig_LRHAcceptValue,true,-1,-1},
-	{"LRHContentType",eAAMPConfig_LRHContentType,true,-1,-1},
-	{"sendLicenseResponseHeaders", eAAMPConfig_SendLicenseResponseHeaders, false, -1, -1},
-	{"useTCPServerSink",eAAMPConfig_useTCPServerSink,false, -1, -1},
-	{"TCPServerSinkPort",eAAMPConfig_TCPServerSinkPort,false, -1, -1},
+	int defaultValue;
+	const char* cmdString;
+	AAMPConfigSettingInt configEnum;
+	bool bConfigurableByOperatorRFC; // better to have a separate list?
+	ConfigValidRange validRange;
 };
+
+struct ConfigLookupEntryFloat
+{
+	double defaultValue;
+	const char* cmdString;
+	AAMPConfigSettingFloat configEnum;
+	bool bConfigurableByOperatorRFC; // better to have a separate list?
+	ConfigValidRange validRange;
+};
+
+struct ConfigLookupEntryBool
+{
+	bool defaultValue;
+	const char* cmdString;
+	AAMPConfigSettingBool configEnum;
+	bool bConfigurableByOperatorRFC; // better to have a separate list?
+};
+
+struct ConfigLookupEntryString
+{
+	const char *defaultValue;
+	const char* cmdString;
+	AAMPConfigSettingString configEnum;
+	bool bConfigurableByOperatorRFC; // better to have a separate list?
+};
+
+#ifdef __APPLE__
+#define DEFAULT_VALE_APPSRCFORPROGRESSIVEPLAYBACK true
+#else
+#define DEFAULT_VALE_APPSRCFORPROGRESSIVEPLAYBACK false
+#endif
+
+#if defined(BRCM) || defined(RPI) || defined(AAMP_SIMULATOR_BUILD)
+#define DEFAULT_VALUE_DISABLE_ACR true
+#else
+#define DEFAULT_VALUE_DISABLE_ACR false
+#endif
+
+#if defined(REALTEKCE) || defined(AMLOGIC) || defined(FLEX2_RDK)
+#define DEFAULT_VALUE_USE_WESTEROS_SINK true
+#else
+#define DEFAULT_VALUE_USE_WESTEROS_SINK false
+#endif
+
+#ifdef IARM_MGR
+#define DEFAULT_VALUE_WIFI_CURL_HEADER true
+#else
+#define DEFAULT_VALUE_WIFI_CURL_HEADER false
+#endif
+
+#ifdef GST_SUBTEC_ENABLED
+#define DEFAULT_VALUE_GST_SUBTEC_ENABLED true
+#else
+#define DEFAULT_VALUE_GST_SUBTEC_ENABLED false
+#endif
+
+#ifdef REALTEKCE
+#define DEFAULT_VALUE_SYNC_AUDIO_FRAGMENTS true
+#else
+#define DEFAULT_VALUE_SYNC_AUDIO_FRAGMENTS false
+#endif
+
+#ifdef CONTENT_4K_SUPPORTED
+#define DEFAULT_DISABLE_4K false
+#else
+#define DEFAULT_DISABLE_4K true
+#endif
+
+#if (defined(REALTEKCE) || defined(AMLOGIC) || defined(BRCM)) // temporary workaround
+#define DEFAULT_VALUE_ENABLE_LATENCY_CORRECTION true
+#else
+#define DEFAULT_VALUE_ENABLE_LATENCY_CORRECTION false
+#endif
+
+#ifdef USE_SECMANAGER
+#define DEFAULT_VALUE_USE_SECMANAGER true
+#else
+#define DEFAULT_VALUE_USE_SECMANAGER false
+#endif
+
+/**
+ * @brief AAMPConfigSettingString metadata
+ * note that order must match the actual order of the enum; this is enforced with asserts to catch any wrong/missing declarations
+ */
+static const ConfigLookupEntryString mConfigLookupTableString[AAMPCONFIG_STRING_COUNT] =
+{
+	{"","mapMPD",eAAMPConfig_MapMPD,false},
+	{"","mapM3U8",eAAMPConfig_MapM3U8,false},
+	{"","harvestPath",eAAMPConfig_HarvestPath,false},
+	{"","licenseServerUrl",eAAMPConfig_LicenseServerUrl,false},
+	{"","ckLicenseServerUrl",eAAMPConfig_CKLicenseServerUrl,false},
+	{"","prLicenseServerUrl",eAAMPConfig_PRLicenseServerUrl,false},
+	{"","wvLicenseServerUrl",eAAMPConfig_WVLicenseServerUrl,false},
+	{"","userAgent",eAAMPConfig_UserAgent,false},
+	{"en,eng","preferredSubtitleLanguage",eAAMPConfig_SubTitleLanguage,false},
+	{"","customHeader",eAAMPConfig_CustomHeader,false},
+	{"","uriParameter",eAAMPConfig_URIParameter,false},
+	{"","networkProxy",eAAMPConfig_NetworkProxy,false},
+	{"","licenseProxy",eAAMPConfig_LicenseProxy,false},
+	{"","authToken",eAAMPConfig_AuthToken,false},
+	{"","log",eAAMPConfig_LogLevel,false},
+	{"","customHeaderLicense",eAAMPConfig_CustomHeaderLicense,false},
+	{"","preferredAudioRendition",eAAMPConfig_PreferredAudioRendition,false},
+	{"","preferredAudioCodec",eAAMPConfig_PreferredAudioCodec,false},
+	{"en,eng","preferredAudioLanguage",eAAMPConfig_PreferredAudioLanguage,false},
+	{"","preferredAudioLabel",eAAMPConfig_PreferredAudioLabel,false},
+	{"","preferredAudioType",eAAMPConfig_PreferredAudioType,false},
+	{"","preferredTextRendition",eAAMPConfig_PreferredTextRendition,false},
+	{"","preferredTextLanguage",eAAMPConfig_PreferredTextLanguage,false},
+	{"","preferredTextLabel",eAAMPConfig_PreferredTextLabel,false},
+	{"","preferredTextType",eAAMPConfig_PreferredTextType,false},
+	{"","customLicenseData",eAAMPConfig_CustomLicenseData,false},
+	{"urn:comcast:dai:2018","SchemeIdUriDaiStream",eAAMPConfig_SchemeIdUriDaiStream,true},
+	{"urn:comcast:x1:lin:ck","SchemeIdUriVssStream",eAAMPConfig_SchemeIdUriVssStream,true},
+	{"","LRHAcceptValue",eAAMPConfig_LRHAcceptValue,true},
+	{"","LRHContentType",eAAMPConfig_LRHContentType,true},
+};
+
+/**
+ * @brief AAMPConfigSettingBool metadata
+ * note that order must match the actual order of the enum; this is enforced with asserts to catch any wrong/missing declarations
+ */
+static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT] =
+{
+	{true,"abr",eAAMPConfig_EnableABR,false},
+	{true,"fog",eAAMPConfig_Fog,false},
+	{false,"preFetchIframePlaylist",eAAMPConfig_PrefetchIFramePlaylistDL,false},
+	{false,"preservePipeline",eAAMPConfig_PreservePipeline,false},
+	{true,"demuxHlsAudioTrack",eAAMPConfig_DemuxAudioHLSTrack,false},
+	{true,"demuxHlsVideoTrack",eAAMPConfig_DemuxVideoHLSTrack,false},
+	{false,"throttle",eAAMPConfig_Throttle,false},
+	{false,"demuxAudioBeforeVideo",eAAMPConfig_DemuxAudioBeforeVideo,false},
+	{true,"demuxHlsVideoTrackTrickMode",eAAMPConfig_DemuxHLSVideoTsTrackTM,false},
+	{false,"forceEC3",eAAMPConfig_ForceEC3,false},
+	{false,"disableEC3",eAAMPConfig_DisableEC3,true},
+	{false,"disableATMOS",eAAMPConfig_DisableATMOS,true},
+	{ DEFAULT_VALUE_DISABLE_ACR,"disableAC4",eAAMPConfig_DisableAC4,true},
+	{false,"stereoOnly",eAAMPConfig_StereoOnly,true},
+	{false,"descriptiveTrackName",eAAMPConfig_DescriptiveTrackName,false},
+	{false,"disableAC3",eAAMPConfig_DisableAC3,true},
+	{true,"disablePlaylistIndexEvent",eAAMPConfig_DisablePlaylistIndexEvent,false},
+	{true,"enableSubscribedTags",eAAMPConfig_EnableSubscribedTags,false},
+	{false,"dashIgnoreBaseUrlIfSlash",eAAMPConfig_DASHIgnoreBaseURLIfSlash,false},
+	{false,"licenseAnonymousRequest",eAAMPConfig_AnonymousLicenseRequest,false},
+	{false,"hlsAVTrackSyncUsingPDT",eAAMPConfig_HLSAVTrackSyncUsingStartTime,false},
+	{true,"mpdDiscontinuityHandling",eAAMPConfig_MPDDiscontinuityHandling,false},
+	{true,"mpdDiscontinuityHandlingCdvr",eAAMPConfig_MPDDiscontinuityHandlingCdvr,false},
+	{false,"forceHttp",eAAMPConfig_ForceHttp,false},
+	{true,"internalRetune",eAAMPConfig_InternalReTune,false},
+	{false,"audioOnlyPlayback",eAAMPConfig_AudioOnlyPlayback,false},
+	{true,"gstBufferAndPlay",eAAMPConfig_GStreamerBufferingBeforePlay,false},
+	{false,"playreadyOutputProtection",eAAMPConfig_EnablePROutputProtection,false},
+	{true,"retuneOnBufferingTimeout",eAAMPConfig_ReTuneOnBufferingTimeout,false},
+	{true,"sslVerifyPeer",eAAMPConfig_SslVerifyPeer,false},
+	{false,"client-dai",eAAMPConfig_EnableClientDai,true},  // not changing this name , this is already in use for RFC
+	{false,"cdnAdsOnly",eAAMPConfig_PlayAdFromCDN,false},
+	{true,"enableVideoEndEvent",eAAMPConfig_EnableVideoEndEvent,true},
+	{true,"enableVideoRectangle",eAAMPConfig_EnableRectPropertyCfg,false},
+	{false,"reportVideoPTS",eAAMPConfig_ReportVideoPTS,false},
+	{false,"decoderUnavailableStrict",eAAMPConfig_DecoderUnavailableStrict,false},
+	{DEFAULT_VALE_APPSRCFORPROGRESSIVEPLAYBACK,"appSrcForProgressivePlayback",eAAMPConfig_UseAppSrcForProgressivePlayback,false},
+	{false,"descriptiveAudioTrack",eAAMPConfig_DescriptiveAudioTrack,false},
+	{true,"reportBufferEvent",eAAMPConfig_ReportBufferEvent,false},
+	{false,"info",eAAMPConfig_InfoLogging,true},
+	{false,"debug",eAAMPConfig_DebugLogging,false},
+	{false,"trace",eAAMPConfig_TraceLogging,false},
+	{true,"warn",eAAMPConfig_WarnLogging,false},
+	{false,"failover",eAAMPConfig_FailoverLogging,false},
+	{false,"gst",eAAMPConfig_GSTLogging,false},
+	{false,"progress",eAAMPConfig_ProgressLogging,false},
+	{false,"curl",eAAMPConfig_CurlLogging,false},
+	{false,"curlLicense",eAAMPConfig_CurlLicenseLogging,false},
+	{false,"logMetadata",eAAMPConfig_MetadataLogging,false},
+	{false,"curlHeader",eAAMPConfig_CurlHeader,false},
+	{false,"stream",eAAMPConfig_StreamLogging,false},
+	{false,"id3",eAAMPConfig_ID3Logging,false},
+	{true,"gstPositionQueryEnable",eAAMPConfig_EnableGstPositionQuery,false},
+	{false,"seekMidFragment",eAAMPConfig_MidFragmentSeek,false},
+	{true,"propagateUriParameters",eAAMPConfig_PropogateURIParam,false},
+	{DEFAULT_VALUE_USE_WESTEROS_SINK, "useWesterosSink",eAAMPConfig_UseWesterosSink,true},
+	{true,"useRetuneForUnpairedDiscontinuity",eAAMPConfig_RetuneForUnpairDiscontinuity,false},
+	{true,"useRetuneForGstInternalError",eAAMPConfig_RetuneForGSTError,false},
+	{false,"useMatchingBaseUrl",eAAMPConfig_MatchBaseUrl,false},
+	{DEFAULT_VALUE_WIFI_CURL_HEADER,"wifiCurlHeader",eAAMPConfig_WifiCurlHeader,false},
+	{false,"enableSeekableRange",eAAMPConfig_EnableSeekRange,false},
+	{false,"enableLiveLatencyCorrection",eAAMPConfig_EnableLiveLatencyCorrection,true},
+	{true,"dashParallelFragDownload",eAAMPConfig_DashParallelFragDownload,false},
+	{false,"persistBitrateOverSeek",eAAMPConfig_PersistentBitRateOverSeek,true},
+	{true,"setLicenseCaching",eAAMPConfig_SetLicenseCaching,false},
+	{true,"fragmp4LicensePrefetch",eAAMPConfig_Fragmp4PrefetchLicense,false},
+	{true,"useNewABR",eAAMPConfig_ABRBufferCheckEnabled,false},
+	{false,"useNewAdBreaker",eAAMPConfig_NewDiscontinuity,false},
+	{false,"parallelPlaylistDownload",eAAMPConfig_PlaylistParallelFetch,false},
+	{true,"parallelPlaylistRefresh",eAAMPConfig_PlaylistParallelRefresh ,false},
+	{false,"bulkTimedMetadata",eAAMPConfig_BulkTimedMetaReport,false},
+	{false,"useAverageBandwidth",eAAMPConfig_AvgBWForABR,false},
+	{false,"nativeCCRendering",eAAMPConfig_NativeCCRendering,false},
+	{true,"subtecSubtitle",eAAMPConfig_Subtec_subtitle,false},
+	{true,"webVttNative",eAAMPConfig_WebVTTNative,false},
+	{false,"asyncTune",eAAMPConfig_AsyncTune,true},
+	{false,"disableUnderflow",eAAMPConfig_DisableUnderflow,false},
+	{false,"limitResolution",eAAMPConfig_LimitResolution,false},
+	{false,"useAbsoluteTimeline",eAAMPConfig_UseAbsoluteTimeline,false},
+	{true,"enableAccessAttributes",eAAMPConfig_EnableAccessAttributes,false},
+	{false,"SkyStoreDE",eAAMPConfig_WideVineKIDWorkaround,false},
+	{false,"repairIframes",eAAMPConfig_RepairIframes,false},
+	{true,"seiTimeCode",eAAMPConfig_SEITimeCode,false},
+	{DEFAULT_DISABLE_4K,"disable4K" , eAAMPConfig_Disable4K, false},
+	{true,"sharedSSL",eAAMPConfig_EnableSharedSSLSession, true},
+	{false,"tsbInterruptHandling", eAAMPConfig_InterruptHandling,true},
+	{true,"enableLowLatencyDash",eAAMPConfig_EnableLowLatencyDash,true},
+	{false,"disableLowLatencyABR",eAAMPConfig_DisableLowLatencyABR,false},
+	{DEFAULT_VALUE_ENABLE_LATENCY_CORRECTION,"enableLowLatencyCorrection",eAAMPConfig_EnableLowLatencyCorrection,true},
+	{true,"enableLowLatencyOffsetMin",eAAMPConfig_EnableLowLatencyOffsetMin,false},
+	{DEFAULT_VALUE_SYNC_AUDIO_FRAGMENTS,"syncAudioFragments",eAAMPConfig_SyncAudioFragments,false},
+	{false,"enableEosSmallFragment", eAAMPConfig_EnableIgnoreEosSmallFragment, false},
+	{DEFAULT_VALUE_USE_SECMANAGER,"useSecManager",eAAMPConfig_UseSecManager, true},
+	{false,"enablePTO", eAAMPConfig_EnablePTO,false},
+	{true,"enableFogConfig", eAAMPConfig_EnableAampConfigToFog, false},
+	{false,"xreSupportedTune",eAAMPConfig_XRESupportedTune,false},
+	{DEFAULT_VALUE_GST_SUBTEC_ENABLED,"gstSubtecEnabled",eAAMPConfig_GstSubtecEnabled,false},
+	{true,"allowPageHeaders",eAAMPConfig_AllowPageHeaders,false},
+	{false,"persistHighNetworkBandwidth",eAAMPConfig_PersistHighNetworkBandwidth,false},
+	{true,"persistLowNetworkBandwidth",eAAMPConfig_PersistLowNetworkBandwidth,false},
+	{false,"changeTrackWithoutRetune", eAAMPConfig_ChangeTrackWithoutRetune, false},
+	{true,"curlStore", eAAMPConfig_EnableCurlStore, true},
+	{false,"configRuntimeDRM", eAAMPConfig_RuntimeDRMConfig,false},
+	{false,"enablePublishingMuxedAudio",eAAMPConfig_EnablePublishingMuxedAudio,false},
+	{true,"enableCMCD", eAAMPConfig_EnableCMCD, true},
+	{true,"SlowMotion", eAAMPConfig_EnableSlowMotion, true},
+	{false,"enableSCTE35PresentationTime", eAAMPConfig_EnableSCTE35PresentationTime, false},
+	{false,"jsinfo",eAAMPConfig_JsInfoLogging,false},
+	{false,"ignoreAppLiveOffset", eAAMPConfig_IgnoreAppLiveOffset, false},
+	{false,"useTCPServerSink",eAAMPConfig_useTCPServerSink,false},
+	{false,"sendLicenseResponseHeaders", eAAMPConfig_SendLicenseResponseHeaders, false},
+};
+
+#define CONFIG_INT_ALIAS_COUNT 2
+/**
+ * @brief AAMPConfigSettingInt metadata
+ * note that order must match the actual order of the enum; this is enforced with asserts to catch any wrong/missing declarations
+ */
+static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CONFIG_INT_ALIAS_COUNT] =
+{
+	{0,"harvestCountLimit",eAAMPConfig_HarvestCountLimit,false},
+	{0,"harvestConfig",eAAMPConfig_HarvestConfig,false},
+	{DEFAULT_ABR_CACHE_LIFE,"abrCacheLife",eAAMPConfig_ABRCacheLife,false},
+	{DEFAULT_ABR_CACHE_LENGTH,"abrCacheLength",eAAMPConfig_ABRCacheLength,false},
+	{0,"timeShiftBufferLength",eAAMPConfig_TimeShiftBufferLength,false},
+	{DEFAULT_ABR_OUTLIER,"abrCacheOutlier",eAAMPConfig_ABRCacheOutlier,false},
+	{DEFAULT_ABR_SKIP_DURATION,"abrSkipDuration",eAAMPConfig_ABRSkipDuration,false},
+	{DEFAULT_ABR_NW_CONSISTENCY_CNT,"abrNwConsistency",eAAMPConfig_ABRNWConsistency,false},
+	{DEFAULT_AAMP_ABR_THRESHOLD_SIZE,"thresholdSizeABR",eAAMPConfig_ABRThresholdSize,false},
+	{DEFAULT_CACHED_FRAGMENTS_PER_TRACK,"downloadBuffer",eAAMPConfig_MaxFragmentCached,false},
+	{DEFAULT_BUFFER_HEALTH_MONITOR_DELAY,"bufferHealthMonitorDelay",eAAMPConfig_BufferHealthMonitorDelay,false},
+	{DEFAULT_BUFFER_HEALTH_MONITOR_INTERVAL,"bufferHealthMonitorInterval",eAAMPConfig_BufferHealthMonitorInterval,false},
+	{eDRM_PlayReady,"preferredDrm",eAAMPConfig_PreferredDRM,true,eCONFIG_RANGE_DRM_SYSTEMS},
+	{eTUNED_EVENT_ON_GST_PLAYING,"tuneEventConfig",eAAMPConfig_TuneEventConfig,false,eCONFIG_RANGE_TUNED_EVENT_CODE},
+	{TRICKPLAY_VOD_PLAYBACK_FPS,"vodTrickPlayFps",eAAMPConfig_VODTrickPlayFPS,false},
+	{TRICKPLAY_LINEAR_PLAYBACK_FPS,"linearTrickPlayFps",eAAMPConfig_LinearTrickPlayFPS,false},
+	{DEFAULT_LICENSE_REQ_RETRY_WAIT_TIME,"licenseRetryWaitTime",eAAMPConfig_LicenseRetryWaitTime,false},
+	{DEFAULT_LICENSE_KEY_ACQUIRE_WAIT_TIME,"licenseKeyAcquireWaitTime",eAAMPConfig_LicenseKeyAcquireWaitTime,false,eCONFIG_RANGE_LICENSE_WAIT},
+	{MAX_PTS_ERRORS_THRESHOLD,"ptsErrorThreshold",eAAMPConfig_PTSErrorThreshold,false, eCONFIG_RANGE_PTS_ERROR_THRESHOLD },
+	{MAX_PLAYLIST_CACHE_SIZE,"maxPlaylistCacheSize",eAAMPConfig_MaxPlaylistCacheSize,false, eCONFIG_RANGE_PLAYLIST_CACHE_SIZE },
+	{MIN_DASH_DRM_SESSIONS,"dashMaxDrmSessions",eAAMPConfig_MaxDASHDRMSessions,false,eCONFIG_RANGE_DASH_DRM_SESSIONS },
+	{DEFAULT_WAIT_TIME_BEFORE_RETRY_HTTP_5XX_MS,"waitTimeBeforeRetryHttp5xx",eAAMPConfig_Http5XXRetryWaitInterval,false},
+	{0,"langCodePreference",eAAMPConfig_LanguageCodePreference,false,eCONFIG_RANGE_LANGUAGE_CODE },
+	{-1,"fragmentRetryLimit",eAAMPConfig_RampDownLimit,false, eCONFIG_RANGE_RAMPDOWN_LIMIT},
+	{0,"initRampdownLimit",eAAMPConfig_InitRampDownLimit,false},
+	{MAX_SEG_DRM_DECRYPT_FAIL_COUNT,"drmDecryptFailThreshold",eAAMPConfig_DRMDecryptThreshold,false,eCONFIG_RANGE_DECRYPT_ERROR_THRESHOLD },
+	{MAX_SEG_INJECT_FAIL_COUNT,"segmentInjectFailThreshold",eAAMPConfig_SegmentInjectThreshold,false, eCONFIG_RANGE_INJECT_ERROR_THRESHOLD },
+	{DEFAULT_DOWNLOAD_RETRY_COUNT,"initFragmentRetryCount",eAAMPConfig_InitFragmentRetryCount,false },
+	{AAMP_LOW_BUFFER_BEFORE_RAMPDOWN,"minABRBufferRampdown",eAAMPConfig_MinABRNWBufferRampDown,false},
+	{AAMP_HIGH_BUFFER_BEFORE_RAMPUP,"maxABRBufferRampup",eAAMPConfig_MaxABRNWBufferRampUp,false},
+	{DEFAULT_PREBUFFER_COUNT,"preplayBuffercount",eAAMPConfig_PrePlayBufferCount,false},
+	{0,"preCachePlaylistTime",eAAMPConfig_PreCachePlaylistTime,false},
+	{-1, "ceaFormat",eAAMPConfig_CEAPreferred,false, eCONFIG_RANGE_CEA_PREFERRED},
+	{DEFAULT_STALL_ERROR_CODE,"stallErrorCode",eAAMPConfig_StallErrorCode,false},
+	{DEFAULT_STALL_DETECTION_TIMEOUT,"stallTimeout",eAAMPConfig_StallTimeoutMS,false},
+	{DEFAULT_MINIMUM_INIT_CACHE_SECONDS,"initialBuffer",eAAMPConfig_InitialBuffer,false},
+	{DEFAULT_MAXIMUM_PLAYBACK_BUFFER_SECONDS,"playbackBuffer",eAAMPConfig_PlaybackBuffer,false},
+	{DEFAULT_TIMEOUT_FOR_SOURCE_SETUP,"maxTimeoutForSourceSetup",eAAMPConfig_SourceSetupTimeout,false},
+	{0,"downloadDelay",eAAMPConfig_DownloadDelay,false, eCONFIG_RANGE_DOWNLOAD_DELAY },
+	{ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE,"livePauseBehavior",eAAMPConfig_LivePauseBehavior,false,eCONFIG_RANGE_PAUSE_BEHAVIOR },
+	{MAX_GST_VIDEO_BUFFER_BYTES,"gstVideoBufBytes", eAAMPConfig_GstVideoBufBytes,false},
+	{MAX_GST_AUDIO_BUFFER_BYTES,"gstAudioBufBytes", eAAMPConfig_GstAudioBufBytes,false},
+	{DEFAULT_LATENCY_MONITOR_DELAY,"latencyMonitorDelay",eAAMPConfig_LatencyMonitorDelay,false},
+	{DEFAULT_LATENCY_MONITOR_INTERVAL,"latencyMonitorInterval",eAAMPConfig_LatencyMonitorInterval,false},
+	{DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK,"downloadBufferChunks",eAAMPConfig_MaxFragmentChunkCached,false},
+	{DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE,"abrChunkThresholdSize",eAAMPConfig_ABRChunkThresholdSize,false},
+	{DEFAULT_MIN_LOW_LATENCY,"lowLatencyMinValue",eAAMPConfig_LLMinLatency,false},
+	{DEFAULT_TARGET_LOW_LATENCY,"lowLatencyTargetValue",eAAMPConfig_LLTargetLatency,false},
+	{DEFAULT_MAX_LOW_LATENCY,"lowLatencyMaxValue",eAAMPConfig_LLMaxLatency,false},
+	{MAX_SEG_DOWNLOAD_FAIL_COUNT,"fragmentDownloadFailThreshold",eAAMPConfig_FragmentDownloadFailThreshold,false,eCONFIG_RANGE_DOWNLOAD_ERROR_THRESHOLD },
+	{MAX_INIT_FRAGMENT_CACHE_PER_TRACK,"maxInitFragCachePerTrack",eAAMPConfig_MaxInitFragCachePerTrack,true, eCONFIG_RANGE_INIT_FRAGMENT_CACHE },
+	{FOG_MAX_CONCURRENT_DOWNLOADS,"fogMaxConcurrentDownloads",eAAMPConfig_FogMaxConcurrentDownloads, false },
+	{DEFAULT_CONTENT_PROTECTION_DATA_UPDATE_TIMEOUT,"contentProtectionDataUpdateTimeout",eAAMPConfig_ContentProtectionDataUpdateTimeout,false},
+	{MAX_CURL_SOCK_STORE,"maxCurlStore", eAAMPConfig_MaxCurlSockStore,false, eCONFIG_RANGE_CURL_SOCK_STORE_SIZE },
+	{6123,"TCPServerSinkPort",eAAMPConfig_TCPServerSinkPort,false, eCONFIG_RANGE_ANY },
+	{DEFAULT_INIT_BITRATE,"initialBitrate",eAAMPConfig_DefaultBitrate,false },
+	{DEFAULT_INIT_BITRATE_4K,"initialBitrate4K",eAAMPConfig_DefaultBitrate4K,false },
+	{0,"iframeDefaultBitrate",eAAMPConfig_IFrameDefaultBitrate,false},
+	{0,"iframeDefaultBitrate4K",eAAMPConfig_IFrameDefaultBitrate4K,false},
+	{0,"downloadStallTimeout",eAAMPConfig_CurlStallTimeout,false,eCONFIG_RANGE_TIMEOUT},
+	{0,"downloadStartTimeout",eAAMPConfig_CurlDownloadStartTimeout,false,eCONFIG_RANGE_TIMEOUT},
+	{0,"downloadLowBWTimeout",eAAMPConfig_CurlDownloadLowBWTimeout,false,eCONFIG_RANGE_TIMEOUT},
+	{DEFAULT_DISCONTINUITY_TIMEOUT,"discontinuityTimeout",eAAMPConfig_DiscontinuityTimeout,false},
+	{0,"minBitrate",eAAMPConfig_MinBitrate,true},
+	{INT_MAX,"maxBitrate",eAAMPConfig_MaxBitrate,true},
+	{CURL_SSLVERSION_TLSv1_2,"supportTLS",eAAMPConfig_TLSVersion,true,eCONFIG_RANGE_CURL_SSL_VERSION},
+
+	// aliases, kept for backwards compatibility
+	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
+	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },
+};
+
+/**
+ * @brief AAMPConfigSettingFloat metadata
+ * note that order must match the actual order of the enum; this is enforced with asserts to catch any wrong/missing declarations
+ */
+static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COUNT] =
+{
+	{CURL_FRAGMENT_DL_TIMEOUT,"networkTimeout",eAAMPConfig_NetworkTimeout,true},
+	{CURL_FRAGMENT_DL_TIMEOUT,"manifestTimeout",eAAMPConfig_ManifestTimeout,true},
+	{0.0,"playlistTimeout",eAAMPConfig_PlaylistTimeout,true},
+	{DEFAULT_REPORT_PROGRESS_INTERVAL,"progressReportingInterval",eAAMPConfig_ReportProgressInterval,false},
+	{AAMP_DEFAULT_PLAYBACK_OFFSET,"offset",eAAMPConfig_PlaybackOffset,false,eCONFIG_RANGE_PLAYBACK_OFFSET},
+	{AAMP_LIVE_OFFSET,"liveOffset",eAAMPConfig_LiveOffset,true,eCONFIG_RANGE_LIVEOFFSET}, //liveOffset by user
+	{AAMP_DEFAULT_LIVE_OFFSET_DRIFT,"liveOffsetDriftCorrectionInterval",eAAMPConfig_LiveOffsetDriftCorrectionInterval,true,eCONFIG_RANGE_LIVEOFFSET}, //liveOffset by user
+	{AAMP_LIVE_OFFSET,"liveOffset4K",eAAMPConfig_LiveOffset4K,true,eCONFIG_RANGE_LIVEOFFSET}, //liveOffset for 4K by user
+	{AAMP_CDVR_LIVE_OFFSET,"cdvrLiveOffset",eAAMPConfig_CDVRLiveOffset,true,eCONFIG_RANGE_LIVEOFFSET},
+};
+
+/**
+ * @brief singleton helper class mapping configuration names to configuration metadata (not app/player instance specific)
+ */
+class ConfigLookup
+{
+private:
+	std::map<std::string, ConfigLookupEntryBool> lookupBool;
+	std::map<std::string, ConfigLookupEntryInt> lookupInt;
+	std::map<std::string, ConfigLookupEntryFloat> lookupFloat;
+	std::map<std::string, ConfigLookupEntryString> lookupString;
+	
+public:
+	static bool ConfigStringValueToBool( const char *value_cstr )
+	{
+		bool rc = false;
+		if( value_cstr )
+		{
+			if( isdigit(*value_cstr) )
+			{
+				int ival = atoi(value_cstr);
+				if( ival == 1 )
+				{
+					rc = true;
+				}
+				else if( ival!=0 )
+				{
+					AAMPLOG_ERR( "unexpected input: %s", value_cstr );
+				}
+			}
+			else if( strcasecmp(value_cstr,"true")==0 )
+			{
+				rc = true;
+			}
+			else if( strcasecmp(value_cstr,"false")!=0 )
+			{
+				AAMPLOG_ERR( "unexpected input: %s", value_cstr );
+			}
+		}
+		return rc;
+	}
+
+	void Process( AampConfig *aampConfig, ConfigPriority owner, const std::string &key, const std::string &value )
+	{ // used while parsing aamp.cfg text
+		const char *value_cstr = value.c_str();
+		auto iter = lookupBool.find(key);
+		if( iter != lookupBool.end())
+		{
+			auto cfg = iter->second;
+			AAMPLOG_WARN("Parsed value for dev cfg property %s - %s", key.c_str(), value_cstr );
+			if( value.empty() )
+			{
+				bool currentValue = aampConfig->GetConfigValue(cfg.configEnum);
+				aampConfig->SetConfigValue( owner, cfg.configEnum, !currentValue );
+			}
+			else
+			{
+				aampConfig->SetConfigValue( owner, cfg.configEnum, ConfigStringValueToBool(value_cstr) );
+			}
+		}
+		else
+		{
+			auto iter = lookupInt.find(key);
+			if( iter != lookupInt.end() )
+			{
+				auto cfg = iter->second;
+				int conv = atoi( value_cstr );
+				aampConfig->SetConfigValue(owner,cfg.configEnum,conv);
+			}
+			else
+			{
+				auto iter = lookupFloat.find(key);
+				if( iter != lookupFloat.end() )
+				{
+					auto cfg = iter->second;
+					double conv = atof( value_cstr );
+					aampConfig->SetConfigValue(owner,cfg.configEnum,conv);
+				}
+				else
+				{
+					auto iter = lookupString.find(key);
+					if( iter != lookupString.end() )
+					{
+						auto cfg = iter->second;
+						if(value.size())
+						{
+							aampConfig->SetConfigValue(owner,cfg.configEnum,value);
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	void Process( AampConfig *aampConfig, struct customJson &custom )
+	{ // called from AampConfig::CustomSearch
+		Process( aampConfig, customOwner, custom.config, custom.configValue );
+	}
+		
+	void Process( AampConfig *aampConfig, cJSON *customVal, customJson &customValues, std::vector<struct customJson> &vCustom )
+	{ // called from AampConfig::CustomArrayRead
+		// Verify any of ConfigLookupEntryBool item matched with given custom json
+		for (auto it = lookupBool.begin(); it != lookupBool.end(); ++it)
+		{
+			auto keyname =  it->first;
+			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
+			if(searchVal)
+			{
+				customValues.config = keyname;
+				if(searchVal->valuestring != NULL)
+				{
+					customValues.configValue = searchVal->valuestring;
+					vCustom.push_back(customValues);
+				}
+				else
+				{
+					AAMPLOG_ERR("Invalid format for %s ",keyname.c_str());
+					continue;
+				}
+			}
+		}
+		// Verify any of ConfigLookupEntryInt item matched with given custom json
+		for (auto it = lookupInt.begin(); it != lookupInt.end(); ++it)
+		{
+			auto keyname =  it->first;
+			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
+			if(searchVal)
+			{
+				customValues.config = keyname;
+				if(searchVal->valuestring != NULL)
+				{
+					customValues.configValue = searchVal->valuestring;
+					vCustom.push_back(customValues);
+				}
+				else
+				{
+					AAMPLOG_ERR("Invalid format for %s ",keyname.c_str());
+					continue;
+				}
+			}
+		}
+
+		//Verify any of ConfigLookupEntryFloat item matched with given custom json
+		for (auto it = lookupFloat.begin(); it != lookupFloat.end(); ++it)
+		{
+			auto keyname =  it->first;
+			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
+			if(searchVal)
+			{
+				customValues.config = keyname;
+				if(searchVal->valuestring != NULL)
+				{
+					customValues.configValue = searchVal->valuestring;
+					vCustom.push_back(customValues);
+				}
+				else
+				{
+					AAMPLOG_ERR("Invalid format for %s ",keyname.c_str());
+					continue;
+				}
+			}
+		}
+
+		// Verify any of ConfigLookupEntryString item matched with given custom json
+		for (auto it = lookupString.begin(); it != lookupString.end(); ++it)
+		{
+			auto keyname =  it->first;
+			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
+			if(searchVal)
+			{
+				customValues.config = keyname;
+				if(searchVal->valuestring != NULL)
+				{
+					customValues.configValue = searchVal->valuestring;
+					vCustom.push_back(customValues);
+				}
+				else
+				{
+					AAMPLOG_ERR("Invalid format for %s ",keyname.c_str());
+					continue;
+				}
+			}
+		}
+
+	}
+	
+	void Process( AampConfig *aampConfig, ConfigPriority owner, cJSON *searchObj )
+	{ // called from AampConfig::ProcessConfigJson
+		auto it = lookupBool.find(searchObj->string);
+		if( it != lookupBool.end() )
+		{
+			auto cfg = it->second;
+			auto cfgEnum = cfg.configEnum;
+			std::string keyname = it->first;
+			if(cJSON_IsTrue(searchObj))
+			{
+				aampConfig->SetConfigValue(owner,cfgEnum,true);
+				AAMPLOG_WARN("Parsed value for property %s - true",keyname.c_str());
+			}
+			else
+			{
+				aampConfig->SetConfigValue(owner,cfgEnum,false);
+				AAMPLOG_WARN("Parsed value for property %s - false",keyname.c_str());
+			}
+		}
+		else
+		{
+			auto it = lookupInt.find(searchObj->string);
+			if( it != lookupInt.end() )
+			{
+				auto conv = (int)searchObj->valueint;
+				
+				auto cfg = it->second;
+				auto cfgEnum = cfg.configEnum;
+				std::string keyname = it->first;
+				aampConfig->SetConfigValue(owner,cfgEnum,conv);
+				AAMPLOG_WARN("Parsed value for property %s - %d",keyname.c_str(),conv);
+			}
+			else
+			{
+				auto it = lookupFloat.find(searchObj->string);
+				if( it != lookupFloat.end() )
+				{
+					auto conv = (double)searchObj->valuedouble;
+					//cJSON_GetNumberValue(searchObj)
+					auto cfg = it->second;
+					auto cfgEnum = cfg.configEnum;
+					std::string keyname = it->first;
+					aampConfig->SetConfigValue(owner,cfgEnum,conv);
+					AAMPLOG_WARN("Parsed value for property %s - %f",keyname.c_str(),conv);
+				}
+				else
+				{
+					auto it = lookupString.find(searchObj->string);
+					if( it != lookupString.end() )
+					{
+						auto conv = std::string(searchObj->valuestring);
+						//cJSON_GetStringValue(searchObj)
+						auto cfg = it->second;
+						auto cfgEnum = cfg.configEnum;
+						std::string keyname = it->first;
+						aampConfig->SetConfigValue(owner,cfgEnum,conv);
+						AAMPLOG_WARN("Parsed value for property %s - %s",keyname.c_str(),conv.c_str() );
+					}
+				}
+			}
+		}
+	}
+	
+	ConfigLookup(): lookupBool(), lookupInt(), lookupFloat(), lookupString()
+	{ // constructor; populate collection of std::map for lookup by config name
+		int i;
+		assert( ARRAY_SIZE(mConfigValueValidRange) == CONFIG_RANGE_ENUM_COUNT );
+		for( i=0; i<CONFIG_RANGE_ENUM_COUNT; i++ )
+		{
+			assert( mConfigValueValidRange[i].type == i );
+		}
+		
+		assert( ARRAY_SIZE(mConfigLookupTableInt) == AAMPCONFIG_INT_COUNT+CONFIG_INT_ALIAS_COUNT );
+		i = 0;
+		while( i<AAMPCONFIG_INT_COUNT )
+		{
+			assert( mConfigLookupTableInt[i].configEnum == i );
+			lookupInt[mConfigLookupTableInt[i].cmdString] = mConfigLookupTableInt[i];
+			i++;
+		}
+		while( i<ARRAY_SIZE(mConfigLookupTableInt) )
+		{ // two final entries with alias initialBitrate/defaultBitrate and initialBitrate4k/defaultBitrate4k
+			lookupInt[mConfigLookupTableInt[i].cmdString] = mConfigLookupTableInt[i];
+			i++;
+		}
+
+		assert( ARRAY_SIZE(mConfigLookupTableBool) == AAMPCONFIG_BOOL_COUNT );
+		for(int i=0; i<AAMPCONFIG_BOOL_COUNT; ++i)
+		{
+			assert( mConfigLookupTableBool[i].configEnum == i );
+			lookupBool[mConfigLookupTableBool[i].cmdString] = mConfigLookupTableBool[i];
+		}
+
+		assert( ARRAY_SIZE(mConfigLookupTableFloat) == AAMPCONFIG_FLOAT_COUNT );
+		for(int i=0; i<AAMPCONFIG_FLOAT_COUNT; ++i)
+		{
+			assert( mConfigLookupTableFloat[i].configEnum == i );
+			lookupFloat[mConfigLookupTableFloat[i].cmdString] = mConfigLookupTableFloat[i];
+		}
+
+		assert( ARRAY_SIZE(mConfigLookupTableString) == AAMPCONFIG_STRING_COUNT );
+		for(int i=0; i<AAMPCONFIG_STRING_COUNT; ++i)
+		{
+			assert( mConfigLookupTableString[i].configEnum == i );
+			lookupString[mConfigLookupTableString[i].cmdString] = mConfigLookupTableString[i];
+		}
+	}
+	
+	~ConfigLookup()
+	{
+	}
+};
+
+static ConfigLookup mConfigLookup;
 
 /////////////////// Public Functions /////////////////////////////////////
 /**
@@ -304,343 +776,80 @@ static AampConfigLookupEntry ConfigLookUpTable[] =
  *
  * @return None
  */
-AampConfig::AampConfig():mAampLookupTable(),mChannelOverrideMap(),logging(), vCustom(),vCustomIt(),customFound(false),mLogObj(NULL)
+AampConfig::AampConfig(): mChannelOverrideMap(),logging(), vCustom(),vCustomIt(),customFound(false),mLogObj(NULL)
 {
-	for(int i=0; i<sizeof(ConfigLookUpTable) / sizeof(AampConfigLookupEntry); ++i)
-	{
-		mAampLookupTable[ConfigLookUpTable[i].cmdString] = ConfigLookUpTable[i];
-	}
 	mLogObj = &logging;
 }
 
 /**
- * @brief AampConfig Copy Constructor function 
+ * @brief AampConfig Copy Constructor function - used to update global config
  */
 AampConfig& AampConfig::operator=(const AampConfig& rhs) 
 {
-	// set the pointer to instance logger object , not the one from copyinstance
-	for(int i=0; i<sizeof(ConfigLookUpTable) / sizeof(AampConfigLookupEntry); ++i)
-	{
-		mAampLookupTable[ConfigLookUpTable[i].cmdString] = ConfigLookUpTable[i];
-	}
 	logging  = rhs.logging;
 	mChannelOverrideMap = rhs.mChannelOverrideMap;
 	vCustom = rhs.vCustom;
 	customFound = rhs.customFound;		
 	mLogObj = &logging;
-	memcpy(bAampCfgValue , rhs.bAampCfgValue , sizeof(bAampCfgValue));
-	memcpy(iAampCfgValue , rhs.iAampCfgValue , sizeof(iAampCfgValue));
-	memcpy(dAampCfgValue , rhs.dAampCfgValue , sizeof(dAampCfgValue));
+	memcpy(configValueBool , rhs.configValueBool , sizeof(configValueBool));
+	memcpy(configValueInt , rhs.configValueInt , sizeof(configValueInt));
+	memcpy(configValueFloat , rhs.configValueFloat , sizeof(configValueFloat));
 
- 	for(int index=0;index < (eAAMPConfig_StringMaxValue-eAAMPConfig_StringStartValue) ; index++)	
+ 	for(int index=0;index <AAMPCONFIG_STRING_COUNT; index++)
 	{
-		sAampCfgValue[index].owner = rhs.sAampCfgValue[index].owner;
-		sAampCfgValue[index].lastowner = rhs.sAampCfgValue[index].lastowner;
-		sAampCfgValue[index].value = rhs.sAampCfgValue[index].value;
-		sAampCfgValue[index].lastvalue = rhs.sAampCfgValue[index].lastvalue;
+		configValueString[index].owner = rhs.configValueString[index].owner;
+		configValueString[index].lastowner = rhs.configValueString[index].lastowner;
+		configValueString[index].value = rhs.configValueString[index].value;
+		configValueString[index].lastvalue = rhs.configValueString[index].lastvalue;
 	}
 	return *this;
 }
 
-
 void AampConfig::Initialize()
 {
-	// Player Default Configuration
-	///////////////// Following for Boolean setting ////////////////////////////
-	bAampCfgValue[eAAMPConfig_EnableABR].value				=	true;
-	bAampCfgValue[eAAMPConfig_Fog].value					=	true;
-	bAampCfgValue[eAAMPConfig_PrefetchIFramePlaylistDL].value		=	false;
-	bAampCfgValue[eAAMPConfig_PreservePipeline].value			=	false;
-	bAampCfgValue[eAAMPConfig_DemuxAudioHLSTrack].value			=	true;
-	bAampCfgValue[eAAMPConfig_DemuxVideoHLSTrack].value			=	true;
-	bAampCfgValue[eAAMPConfig_Throttle].value				=	false;
-	bAampCfgValue[eAAMPConfig_DemuxAudioBeforeVideo].value			=	false;
-	bAampCfgValue[eAAMPConfig_DemuxHLSVideoTsTrackTM].value			=	true;
-	bAampCfgValue[eAAMPConfig_ForceEC3].value				=	false;
-	bAampCfgValue[eAAMPConfig_StereoOnly].value				=	false;
-	bAampCfgValue[eAAMPConfig_DescriptiveTrackName].value			=	false;
-	bAampCfgValue[eAAMPConfig_DisableEC3].value				=	false;
-	bAampCfgValue[eAAMPConfig_DisableATMOS].value				=	false;
-#if defined(BRCM) || defined(RPI) || defined(AAMP_SIMULATOR_BUILD)
-	bAampCfgValue[eAAMPConfig_DisableAC4].value				=	true;
-#else
-	bAampCfgValue[eAAMPConfig_DisableAC4].value				=	false;
-#endif
-	bAampCfgValue[eAAMPConfig_DisableAC3].value				=	false;
-	bAampCfgValue[eAAMPConfig_DisablePlaylistIndexEvent].value		=	true;
-	bAampCfgValue[eAAMPConfig_EnableSubscribedTags].value			=	true;
-	bAampCfgValue[eAAMPConfig_DASHIgnoreBaseURLIfSlash].value		=	false;
-	bAampCfgValue[eAAMPConfig_AnonymousLicenseRequest].value		=	false;
-	bAampCfgValue[eAAMPConfig_HLSAVTrackSyncUsingStartTime].value		=	false;
-	bAampCfgValue[eAAMPConfig_MPDDiscontinuityHandling].value		=	true;
-	bAampCfgValue[eAAMPConfig_MPDDiscontinuityHandlingCdvr].value		=	true;
-	bAampCfgValue[eAAMPConfig_ForceHttp].value				=	false;
-	bAampCfgValue[eAAMPConfig_InternalReTune].value				=	true;
-	bAampCfgValue[eAAMPConfig_AudioOnlyPlayback].value			=	false;
-	bAampCfgValue[eAAMPConfig_GStreamerBufferingBeforePlay].value		=	true;
-	bAampCfgValue[eAAMPConfig_EnablePROutputProtection].value		=	false;
-	bAampCfgValue[eAAMPConfig_ReTuneOnBufferingTimeout].value		=	true;
-	bAampCfgValue[eAAMPConfig_SslVerifyPeer].value				=	true;
-	bAampCfgValue[eAAMPConfig_EnableClientDai].value			=	false;
-	bAampCfgValue[eAAMPConfig_PlayAdFromCDN].value				=	false;
-	bAampCfgValue[eAAMPConfig_EnableVideoEndEvent].value			=	true;
-	bAampCfgValue[eAAMPConfig_EnableRectPropertyCfg].value			=	true;
-	bAampCfgValue[eAAMPConfig_ReportVideoPTS].value				=	false;
-	bAampCfgValue[eAAMPConfig_DecoderUnavailableStrict].value		=	false;
-#ifdef __APPLE__
-	bAampCfgValue[eAAMPConfig_UseAppSrcForProgressivePlayback].value	=	true; // RDKAAMP-517 workaround
-#else
-	bAampCfgValue[eAAMPConfig_UseAppSrcForProgressivePlayback].value	=	false;
-#endif
-	bAampCfgValue[eAAMPConfig_DescriptiveAudioTrack].value			=	false;
-	bAampCfgValue[eAAMPConfig_ReportBufferEvent].value			=	true;
-	bAampCfgValue[eAAMPConfig_InfoLogging].value				=	false;
-	bAampCfgValue[eAAMPConfig_DebugLogging].value				=	false;
-	bAampCfgValue[eAAMPConfig_TraceLogging].value				=	false;
-	bAampCfgValue[eAAMPConfig_WarnLogging].value				=	true;
-	bAampCfgValue[eAAMPConfig_FailoverLogging].value			=	false;
-	bAampCfgValue[eAAMPConfig_GSTLogging].value				=	false;
-	bAampCfgValue[eAAMPConfig_ProgressLogging].value			=	false;
-	bAampCfgValue[eAAMPConfig_CurlLogging].value				=	false;
-	bAampCfgValue[eAAMPConfig_CurlLicenseLogging].value			=	false;
-	bAampCfgValue[eAAMPConfig_MetadataLogging].value			=	false;
-	bAampCfgValue[eAAMPConfig_StreamLogging].value				=	false;
-	bAampCfgValue[eAAMPConfig_ID3Logging].value    				= 	false;
-	bAampCfgValue[eAAMPConfig_CurlHeader].value				=	false;
-	bAampCfgValue[eAAMPConfig_XRESupportedTune].value			=	false;
-	bAampCfgValue[eAAMPConfig_AllowPageHeaders].value			=	true;
-	//bAampCfgValue[eAAMPConfig_XREEventReporting].value			=	true;
-#ifdef INTELCE
-	bAampCfgValue[eAAMPConfig_EnableGstPositionQuery].value			=	false;
-#else
-       bAampCfgValue[eAAMPConfig_EnableGstPositionQuery].value			=	true;
-#endif
-	bAampCfgValue[eAAMPConfig_MidFragmentSeek].value                        =       false;
-	bAampCfgValue[eAAMPConfig_PropogateURIParam].value			=	true;
-#if defined(REALTEKCE) || defined(AMLOGIC) || defined(FLEX2_RDK)		// Temporary till westerossink disable is rollbacked
-	bAampCfgValue[eAAMPConfig_UseWesterosSink].value			=	true;
-#else
-	bAampCfgValue[eAAMPConfig_UseWesterosSink].value			=	false;
-#endif
-	bAampCfgValue[eAAMPConfig_RetuneForGSTError].value			=	true;
-	bAampCfgValue[eAAMPConfig_MatchBaseUrl].value				=	false;
-#ifdef IARM_MGR
-	bAampCfgValue[eAAMPConfig_WifiCurlHeader].value                         =       true;
-#else
-	bAampCfgValue[eAAMPConfig_WifiCurlHeader].value                         =       false;
-#endif
-
-	bAampCfgValue[eAAMPConfig_RetuneForUnpairDiscontinuity].value		=	true;
-	bAampCfgValue[eAAMPConfig_EnableSeekRange].value			=	false;
-	bAampCfgValue[eAAMPConfig_EnableLiveLatencyCorrection].value =	false;
-	bAampCfgValue[eAAMPConfig_DashParallelFragDownload].value		=	true;
-	bAampCfgValue[eAAMPConfig_PersistentBitRateOverSeek].value		=	false;
-	bAampCfgValue[eAAMPConfig_SetLicenseCaching].value			=	true;
-	bAampCfgValue[eAAMPConfig_Fragmp4PrefetchLicense].value			=	true;
-	bAampCfgValue[eAAMPConfig_ABRBufferCheckEnabled].value			=	true;
-	bAampCfgValue[eAAMPConfig_NewDiscontinuity].value			=	false;
-	bAampCfgValue[eAAMPConfig_PlaylistParallelFetch].value			=	false;
-	bAampCfgValue[eAAMPConfig_PlaylistParallelRefresh].value		=	true;
-	bAampCfgValue[eAAMPConfig_BulkTimedMetaReport].value			=	false;
-	bAampCfgValue[eAAMPConfig_AvgBWForABR].value				=	false;
-	bAampCfgValue[eAAMPConfig_NativeCCRendering].value			=	false;
-	bAampCfgValue[eAAMPConfig_Subtec_subtitle].value			=	true;
-	bAampCfgValue[eAAMPConfig_WebVTTNative].value				=	true;
-	bAampCfgValue[eAAMPConfig_AsyncTune].value                              =       false;
-	bAampCfgValue[eAAMPConfig_EnableAccessAttributes].value			=	true;
-#ifdef GST_SUBTEC_ENABLED
-	bAampCfgValue[eAAMPConfig_GstSubtecEnabled].value				=	true;
-#else
-	bAampCfgValue[eAAMPConfig_GstSubtecEnabled].value				=	false;
-#endif
-	bAampCfgValue[eAAMPConfig_DisableUnderflow].value                       =       false;
-	bAampCfgValue[eAAMPConfig_LimitResolution].value                        =       false;
-	bAampCfgValue[eAAMPConfig_UseAbsoluteTimeline].value                  	=       false;
-	bAampCfgValue[eAAMPConfig_WideVineKIDWorkaround].value                	=       false;
-#ifdef REALTEKCE
-	bAampCfgValue[eAAMPConfig_SyncAudioFragments].value                  	=       true;
-#else
-	bAampCfgValue[eAAMPConfig_SyncAudioFragments].value			=       false;
-#endif
-	bAampCfgValue[eAAMPConfig_RepairIframes].value                  	=       false;
-	bAampCfgValue[eAAMPConfig_SEITimeCode].value              		=       true;
-#ifdef CONTENT_4K_SUPPORTED
-	bAampCfgValue[eAAMPConfig_Disable4K].value				=	false;
-#else
-	bAampCfgValue[eAAMPConfig_Disable4K].value                              =       true;
-#endif
-	bAampCfgValue[eAAMPConfig_EnableSharedSSLSession].value			=	true;
-	bAampCfgValue[eAAMPConfig_InterruptHandling].value			=	false;
-	bAampCfgValue[eAAMPConfig_EnableLowLatencyDash].value			=	true;
-	bAampCfgValue[eAAMPConfig_DisableLowLatencyABR].value		    	=	false;
-#if (defined(REALTEKCE) || defined(AMLOGIC) || defined(BRCM))
-	bAampCfgValue[eAAMPConfig_EnableLowLatencyCorrection].value		=	true;
-#else
-	bAampCfgValue[eAAMPConfig_EnableLowLatencyCorrection].value		=	false;
-#endif
-	bAampCfgValue[eAAMPConfig_EnableLowLatencyOffsetMin].value      	=	true;
-	bAampCfgValue[eAAMPConfig_EnableIgnoreEosSmallFragment].value		=       false;
-	bAampCfgValue[eAAMPConfig_EnableAampConfigToFog].value                  =       true;
-#ifdef USE_SECMANAGER
-  	// LLAMA-5520 workaround, QS005 branch only
-	bAampCfgValue[eAAMPConfig_UseSecManager].value			=	true;
-#else
-	bAampCfgValue[eAAMPConfig_UseSecManager].value			=	false;
-#endif
-	bAampCfgValue[eAAMPConfig_PersistHighNetworkBandwidth].value		=	false;
-	bAampCfgValue[eAAMPConfig_PersistLowNetworkBandwidth].value		=	true;
-	bAampCfgValue[eAAMPConfig_ChangeTrackWithoutRetune].value		=	false;
-	bAampCfgValue[eAAMPConfig_EnableCurlStore].value		= true;
-	bAampCfgValue[eAAMPConfig_RuntimeDRMConfig].value			=	false;
-	bAampCfgValue[eAAMPConfig_EnablePublishingMuxedAudio].value		=	false;
-	bAampCfgValue[eAAMPConfig_EnableCMCD].value				=	true;
-	bAampCfgValue[eAAMPConfig_EnableSlowMotion].value			=	true;
-	bAampCfgValue[eAAMPConfig_EnableSCTE35PresentationTime].value			=	false;
-	bAampCfgValue[eAAMPConfig_JsInfoLogging].value                          = 	false;
-	bAampCfgValue[eAAMPConfig_SendLicenseResponseHeaders].value = false;
-	bAampCfgValue[eAAMPConfig_useTCPServerSink].value           = 	false;
-
-	///////////////// Following for Integer Data type configs ////////////////////////////
-	iAampCfgValue[eAAMPConfig_HarvestCountLimit-eAAMPConfig_IntStartValue].value		=	0;
-	iAampCfgValue[eAAMPConfig_ABRCacheLife-eAAMPConfig_IntStartValue].value			=	DEFAULT_ABR_CACHE_LIFE;
-
-	iAampCfgValue[eAAMPConfig_ABRCacheLength-eAAMPConfig_IntStartValue].value		=	DEFAULT_ABR_CACHE_LENGTH;
-	iAampCfgValue[eAAMPConfig_ABRCacheOutlier-eAAMPConfig_IntStartValue].value		=	DEFAULT_ABR_OUTLIER;
-	iAampCfgValue[eAAMPConfig_TimeShiftBufferLength-eAAMPConfig_IntStartValue].value        =       0;
-
-	iAampCfgValue[eAAMPConfig_ABRSkipDuration-eAAMPConfig_IntStartValue].value		=	DEFAULT_ABR_SKIP_DURATION;
-	iAampCfgValue[eAAMPConfig_ABRNWConsistency-eAAMPConfig_IntStartValue].value		=	DEFAULT_ABR_NW_CONSISTENCY_CNT;
-	iAampCfgValue[eAAMPConfig_BufferHealthMonitorDelay-eAAMPConfig_IntStartValue].value     =       DEFAULT_BUFFER_HEALTH_MONITOR_DELAY;
-	iAampCfgValue[eAAMPConfig_BufferHealthMonitorInterval-eAAMPConfig_IntStartValue].value  =       DEFAULT_BUFFER_HEALTH_MONITOR_INTERVAL;
-	iAampCfgValue[eAAMPConfig_LicenseRetryWaitTime-eAAMPConfig_IntStartValue].value		=	DEFAULT_LICENSE_REQ_RETRY_WAIT_TIME;
-	iAampCfgValue[eAAMPConfig_LicenseKeyAcquireWaitTime-eAAMPConfig_IntStartValue].value = DEFAULT_LICENSE_KEY_ACQUIRE_WAIT_TIME;
-	iAampCfgValue[eAAMPConfig_HarvestConfig-eAAMPConfig_IntStartValue].value		=	0;
-	iAampCfgValue[eAAMPConfig_PreferredDRM-eAAMPConfig_IntStartValue].value			=	eDRM_PlayReady;
-	iAampCfgValue[eAAMPConfig_CEAPreferred-eAAMPConfig_IntStartValue].value			=	-1;
-	iAampCfgValue[eAAMPConfig_TuneEventConfig-eAAMPConfig_IntStartValue].value		=	eTUNED_EVENT_ON_GST_PLAYING;
-	iAampCfgValue[eAAMPConfig_MaxPlaylistCacheSize-eAAMPConfig_IntStartValue].value		=	MAX_PLAYLIST_CACHE_SIZE;
-	iAampCfgValue[eAAMPConfig_MaxDASHDRMSessions-eAAMPConfig_IntStartValue].value		=	MIN_DASH_DRM_SESSIONS;
-	iAampCfgValue[eAAMPConfig_InitRampDownLimit-eAAMPConfig_IntStartValue].value            =       0;
-	iAampCfgValue[eAAMPConfig_MaxFragmentCached-eAAMPConfig_IntStartValue].value            =       DEFAULT_CACHED_FRAGMENTS_PER_TRACK;
-
-	iAampCfgValue[eAAMPConfig_VODTrickPlayFPS-eAAMPConfig_IntStartValue].value		=	TRICKPLAY_VOD_PLAYBACK_FPS;
-	iAampCfgValue[eAAMPConfig_LinearTrickPlayFPS-eAAMPConfig_IntStartValue].value		=	TRICKPLAY_LINEAR_PLAYBACK_FPS;
-	iAampCfgValue[eAAMPConfig_RampDownLimit-eAAMPConfig_IntStartValue].value		=	-1;
-	iAampCfgValue[eAAMPConfig_InitFragmentRetryCount-eAAMPConfig_IntStartValue].value	=	DEFAULT_DOWNLOAD_RETRY_COUNT;
-	iAampCfgValue[eAAMPConfig_StallErrorCode-eAAMPConfig_IntStartValue].value		=	DEFAULT_STALL_ERROR_CODE;
-	iAampCfgValue[eAAMPConfig_StallTimeoutMS-eAAMPConfig_IntStartValue].value		=	DEFAULT_STALL_DETECTION_TIMEOUT;
-	iAampCfgValue[eAAMPConfig_PreCachePlaylistTime-eAAMPConfig_IntStartValue].value 	=	0;
-	iAampCfgValue[eAAMPConfig_LanguageCodePreference-eAAMPConfig_IntStartValue].value	=	0;
-	iAampCfgValue[eAAMPConfig_InitialBuffer-eAAMPConfig_IntStartValue].value               	=       DEFAULT_MINIMUM_INIT_CACHE_SECONDS;
-	iAampCfgValue[eAAMPConfig_PlaybackBuffer-eAAMPConfig_IntStartValue].value		=	DEFAULT_MAXIMUM_PLAYBACK_BUFFER_SECONDS;
-	iAampCfgValue[eAAMPConfig_SourceSetupTimeout-eAAMPConfig_IntStartValue].value           =       DEFAULT_TIMEOUT_FOR_SOURCE_SETUP;
-	iAampCfgValue[eAAMPConfig_DRMDecryptThreshold-eAAMPConfig_IntStartValue].value		=	MAX_SEG_DRM_DECRYPT_FAIL_COUNT;
-	iAampCfgValue[eAAMPConfig_SegmentInjectThreshold-eAAMPConfig_IntStartValue].value	=	MAX_SEG_INJECT_FAIL_COUNT;
-	iAampCfgValue[eAAMPConfig_ABRThresholdSize-eAAMPConfig_IntStartValue].value		=	DEFAULT_AAMP_ABR_THRESHOLD_SIZE;
-	iAampCfgValue[eAAMPConfig_PrePlayBufferCount-eAAMPConfig_IntStartValue].value           =       DEFAULT_PREBUFFER_COUNT;
-	iAampCfgValue[eAAMPConfig_MinABRNWBufferRampDown-eAAMPConfig_IntStartValue].value       =       AAMP_LOW_BUFFER_BEFORE_RAMPDOWN;
-	iAampCfgValue[eAAMPConfig_MaxABRNWBufferRampUp-eAAMPConfig_IntStartValue].value         =       AAMP_HIGH_BUFFER_BEFORE_RAMPUP;
-	iAampCfgValue[eAAMPConfig_DownloadDelay-eAAMPConfig_IntStartValue].value         	=       0;
-	iAampCfgValue[eAAMPConfig_LivePauseBehavior-eAAMPConfig_IntStartValue].value            =       ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE;
-	iAampCfgValue[eAAMPConfig_GstVideoBufBytes-eAAMPConfig_IntStartValue].value             =       MAX_GST_VIDEO_BUFFER_BYTES;
-	iAampCfgValue[eAAMPConfig_GstAudioBufBytes-eAAMPConfig_IntStartValue].value             =       MAX_GST_AUDIO_BUFFER_BYTES;
-	iAampCfgValue[eAAMPConfig_LatencyMonitorDelay-eAAMPConfig_IntStartValue].value          =       DEFAULT_LATENCY_MONITOR_DELAY;
-	iAampCfgValue[eAAMPConfig_LatencyMonitorInterval-eAAMPConfig_IntStartValue].value       =       DEFAULT_LATENCY_MONITOR_INTERVAL;
-	iAampCfgValue[eAAMPConfig_MaxFragmentChunkCached-eAAMPConfig_IntStartValue].value       =       DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK;
-	iAampCfgValue[eAAMPConfig_LLMinLatency-eAAMPConfig_IntStartValue].value       			=       DEFAULT_MIN_LOW_LATENCY;
-	iAampCfgValue[eAAMPConfig_LLTargetLatency-eAAMPConfig_IntStartValue].value       		=       DEFAULT_TARGET_LOW_LATENCY;
-	iAampCfgValue[eAAMPConfig_LLMaxLatency-eAAMPConfig_IntStartValue].value       			=       DEFAULT_MAX_LOW_LATENCY;
-	iAampCfgValue[eAAMPConfig_ABRChunkThresholdSize-eAAMPConfig_IntStartValue].value        = 	DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE;
-	iAampCfgValue[eAAMPConfig_FragmentDownloadFailThreshold-eAAMPConfig_IntStartValue].value=	MAX_SEG_DOWNLOAD_FAIL_COUNT;
-	iAampCfgValue[eAAMPConfig_MaxInitFragCachePerTrack-eAAMPConfig_IntStartValue].value	=       MAX_INIT_FRAGMENT_CACHE_PER_TRACK;
-	iAampCfgValue[eAAMPConfig_FogMaxConcurrentDownloads-eAAMPConfig_IntStartValue].value	=	FOG_MAX_CONCURRENT_DOWNLOADS;
-	iAampCfgValue[eAAMPConfig_ContentProtectionDataUpdateTimeout-eAAMPConfig_IntStartValue].value	=	DEFAULT_CONTENT_PROTECTION_DATA_UPDATE_TIMEOUT;
-	iAampCfgValue[eAAMPConfig_MaxCurlSockStore-eAAMPConfig_IntStartValue].value		=	MAX_CURL_SOCK_STORE;
-	iAampCfgValue[eAAMPConfig_TCPServerSinkPort-eAAMPConfig_IntStartValue].value			=	6123;
-	iAampCfgValue[eAAMPConfig_DiscontinuityTimeout-eAAMPConfig_IntStartValue].value	=	DEFAULT_DISCONTINUITY_TIMEOUT;
-	iAampCfgValue[eAAMPConfig_MaxBitrate-eAAMPConfig_IntStartValue].value			= 	INT_MAX;
-	iAampCfgValue[eAAMPConfig_CurlStallTimeout-eAAMPConfig_IntStartValue].value		=	0;
-	iAampCfgValue[eAAMPConfig_CurlDownloadStartTimeout-eAAMPConfig_IntStartValue].value	=	0;
-	iAampCfgValue[eAAMPConfig_CurlDownloadLowBWTimeout-eAAMPConfig_IntStartValue].value	=	0;
-	iAampCfgValue[eAAMPConfig_MinBitrate-eAAMPConfig_IntStartValue].value			=       0;
-	iAampCfgValue[eAAMPConfig_PTSErrorThreshold-eAAMPConfig_IntStartValue].value            =       MAX_PTS_ERRORS_THRESHOLD;
-	iAampCfgValue[eAAMPConfig_Http5XXRetryWaitInterval-eAAMPConfig_IntStartValue].value     =       DEFAULT_WAIT_TIME_BEFORE_RETRY_HTTP_5XX_MS;
-	iAampCfgValue[eAAMPConfig_DefaultBitrate-eAAMPConfig_IntStartValue].value		=       DEFAULT_INIT_BITRATE;
-	iAampCfgValue[eAAMPConfig_DefaultBitrate4K-eAAMPConfig_IntStartValue].value		=       DEFAULT_INIT_BITRATE_4K;
-	iAampCfgValue[eAAMPConfig_IFrameDefaultBitrate-eAAMPConfig_IntStartValue].value	=       0;
-	iAampCfgValue[eAAMPConfig_IFrameDefaultBitrate4K-eAAMPConfig_IntStartValue].value	=       0;
-	iAampCfgValue[eAAMPConfig_TLSVersion-eAAMPConfig_IntStartValue].value                  =       CURL_SSLVERSION_TLSv1_2;
-
-	///////////////// Following for double data types /////////////////////////////
-	dAampCfgValue[eAAMPConfig_NetworkTimeout-eAAMPConfig_DoubleStartValue].value      	=       CURL_FRAGMENT_DL_TIMEOUT;
-	dAampCfgValue[eAAMPConfig_ManifestTimeout-eAAMPConfig_DoubleStartValue].value     	=       CURL_FRAGMENT_DL_TIMEOUT;
-	dAampCfgValue[eAAMPConfig_PlaylistTimeout-eAAMPConfig_DoubleStartValue].value     	=       0;
-	dAampCfgValue[eAAMPConfig_PlaybackOffset-eAAMPConfig_DoubleStartValue].value		=	AAMP_DEFAULT_PLAYBACK_OFFSET;
-	dAampCfgValue[eAAMPConfig_ReportProgressInterval-eAAMPConfig_DoubleStartValue].value	=	DEFAULT_REPORT_PROGRESS_INTERVAL;
-	dAampCfgValue[eAAMPConfig_LiveOffset-eAAMPConfig_DoubleStartValue].value		=	AAMP_LIVE_OFFSET;
-	dAampCfgValue[eAAMPConfig_LiveOffset4K-eAAMPConfig_DoubleStartValue].value		=	AAMP_LIVE_OFFSET;
-	dAampCfgValue[eAAMPConfig_LiveOffsetDriftCorrectionInterval-eAAMPConfig_DoubleStartValue].value	=	AAMP_DEFAULT_LIVE_OFFSET_DRIFT;
-	dAampCfgValue[eAAMPConfig_CDVRLiveOffset-eAAMPConfig_DoubleStartValue].value		=	AAMP_CDVR_LIVE_OFFSET;
-
-	///////////////// Following for String type config ////////////////////////////
-	sAampCfgValue[eAAMPConfig_MapMPD-eAAMPConfig_StringStartValue].value			=	"";
-	sAampCfgValue[eAAMPConfig_MapM3U8-eAAMPConfig_StringStartValue].value			=	"";
-	sAampCfgValue[eAAMPConfig_HarvestPath-eAAMPConfig_StringStartValue].value		=	"";
-	sAampCfgValue[eAAMPConfig_LicenseServerUrl-eAAMPConfig_StringStartValue].value		=	"";
-	sAampCfgValue[eAAMPConfig_CKLicenseServerUrl-eAAMPConfig_StringStartValue].value	=	"";
-	sAampCfgValue[eAAMPConfig_PRLicenseServerUrl-eAAMPConfig_StringStartValue].value	=	"";
-	//sAampCfgValue[eAAMPConfig_RedirectUrl-eAAMPConfig_StringStartValue].value		=	"";
-	sAampCfgValue[eAAMPConfig_WVLicenseServerUrl-eAAMPConfig_StringStartValue].value	=	"";
-	sAampCfgValue[eAAMPConfig_UserAgent-eAAMPConfig_StringStartValue].value			=	"";
-	sAampCfgValue[eAAMPConfig_SubTitleLanguage-eAAMPConfig_StringStartValue].value		=	"en,eng";
-	sAampCfgValue[eAAMPConfig_CustomHeader-eAAMPConfig_StringStartValue].value		=	"";
-	sAampCfgValue[eAAMPConfig_URIParameter-eAAMPConfig_StringStartValue].value		=	"";
-	sAampCfgValue[eAAMPConfig_NetworkProxy-eAAMPConfig_StringStartValue].value		=	"";
-	sAampCfgValue[eAAMPConfig_LicenseProxy-eAAMPConfig_StringStartValue].value		=	"";
-	sAampCfgValue[eAAMPConfig_AuthToken-eAAMPConfig_StringStartValue].value			=	"";
-	sAampCfgValue[eAAMPConfig_LogLevel-eAAMPConfig_StringStartValue].value                  =       "";
-	sAampCfgValue[eAAMPConfig_CustomHeaderLicense-eAAMPConfig_StringStartValue].value	=	"";
-	sAampCfgValue[eAAMPConfig_PreferredAudioRendition-eAAMPConfig_StringStartValue].value	=	"";
-	sAampCfgValue[eAAMPConfig_PreferredAudioCodec-eAAMPConfig_StringStartValue].value	=	"";
-	sAampCfgValue[eAAMPConfig_PreferredAudioLanguage-eAAMPConfig_StringStartValue].value    =       "en,eng";
-	sAampCfgValue[eAAMPConfig_PreferredAudioLabel-eAAMPConfig_StringStartValue].value    =       "";
-	sAampCfgValue[eAAMPConfig_PreferredAudioType-eAAMPConfig_StringStartValue].value    =       "";
-	sAampCfgValue[eAAMPConfig_PreferredTextRendition-eAAMPConfig_StringStartValue].value    =   "";
-	sAampCfgValue[eAAMPConfig_PreferredTextLanguage-eAAMPConfig_StringStartValue].value    =    "";
-	sAampCfgValue[eAAMPConfig_PreferredTextLabel-eAAMPConfig_StringStartValue].value    =       "";
-	sAampCfgValue[eAAMPConfig_PreferredTextType-eAAMPConfig_StringStartValue].value    =       "";
-	sAampCfgValue[eAAMPConfig_CustomLicenseData-eAAMPConfig_StringStartValue].value        =       "";
-	sAampCfgValue[eAAMPConfig_SchemeIdUriDaiStream-eAAMPConfig_StringStartValue].value		=	"urn:comcast:dai:2018";
-	sAampCfgValue[eAAMPConfig_SchemeIdUriVssStream-eAAMPConfig_StringStartValue].value		=	"urn:comcast:x1:lin:ck";
-	sAampCfgValue[eAAMPConfig_LRHAcceptValue-eAAMPConfig_StringStartValue].value			=	"";
-	sAampCfgValue[eAAMPConfig_LRHContentType-eAAMPConfig_StringStartValue].value			=	"";
+	for( int i=0; i<AAMPCONFIG_BOOL_COUNT; i++ )
+	{
+		configValueBool[i].value = mConfigLookupTableBool[i].defaultValue;
+	}
+	for( int i=0; i<AAMPCONFIG_INT_COUNT; i++ )
+	{
+		configValueInt[i].value = mConfigLookupTableInt[i].defaultValue;
+	}
+	for( int i=0; i<AAMPCONFIG_FLOAT_COUNT; i++ )
+	{
+		configValueFloat[i].value = mConfigLookupTableFloat[i].defaultValue;
+	}
+	for( int i=0; i<AAMPCONFIG_STRING_COUNT; i++ )
+	{
+		configValueString[i].value = mConfigLookupTableString[i].defaultValue;
+	}
 }
 
 void AampConfig::ReadDeviceCapability()
 {
 #if defined(BRCM) || defined(RPI) || defined(AAMP_SIMULATOR_BUILD)
-        bAampCfgValue[eAAMPConfig_DisableAC4].value			=	true;
+        configValueBool[eAAMPConfig_DisableAC4].value			=	true;
 #else
 	if(!AAMPGstPlayer::IsCodecSupported("ac-4"))
 	{	
- 		bAampCfgValue[eAAMPConfig_DisableAC4].value		=	true;
+ 		configValueBool[eAAMPConfig_DisableAC4].value		=	true;
 		AAMPLOG_WARN("AC4 not supported. DisableAC4 Audio");
 	}
 	else
 	{
-		bAampCfgValue[eAAMPConfig_DisableAC4].value		=	false;
+		configValueBool[eAAMPConfig_DisableAC4].value		=	false;
 	}
 #endif  
 
 	if(!AAMPGstPlayer::IsCodecSupported("ac-3"))
 	{
-		bAampCfgValue[eAAMPConfig_DisableAC3].value		=	false;
+		configValueBool[eAAMPConfig_DisableAC3].value		=	false;
 		AAMPLOG_WARN("AC3 not supported. DisableAC3 Audio");
 	}
-#if defined(BRCM)
+#if defined(BRCM) // temporary workaround
 	if(!AAMPGstPlayer::IsMS2V12Supported())
 	{
-		bAampCfgValue[eAAMPConfig_EnableLowLatencyCorrection].value =  false;           
+		configValueBool[eAAMPConfig_EnableLowLatencyCorrection].value =  false;           
 		/**If platform does not have the support override all the configuration other than dev config**/
         SetConfigValue(AAMP_TUNE_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, false);
 	}
@@ -648,62 +857,66 @@ void AampConfig::ReadDeviceCapability()
 }
 
 
-#if 0
-LangCodePreference AampConfig::GetLanguageCodePreference()
-{
-	return (LangCodePreference)iAampCfgValue[eAAMPConfig_LanguageCodePreference-eAAMPConfig_IntStartValue].value;
-}
-#endif
-
-
 std::string AampConfig::GetUserAgentString()
 {
-	return std::string(sAampCfgValue[eAAMPConfig_UserAgent-eAAMPConfig_StringStartValue].value + " " + AAMP_USERAGENT_SUFFIX);
+	return std::string(configValueString[eAAMPConfig_UserAgent].value + " " + AAMP_USERAGENT_SUFFIX);
 }
 
 /**
  * @brief Gets the boolean configuration value
  */
-bool AampConfig::IsConfigSet(AAMPConfigSettings cfg)
-{
-	bool ret= false;
-	if(cfg < eAAMPConfig_BoolMaxValue)
+bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg)
+{	if (cfg < AAMPCONFIG_BOOL_COUNT)
 	{
-		ret = bAampCfgValue[cfg].value;
+		return configValueBool[cfg].value;
 	}
-	return ret;
+	return false;
 }
 
-std::string AampConfig::GetConfigValueString( AAMPConfigSettings cfg )
+bool AampConfig::GetConfigValue( AAMPConfigSettingBool cfg )
 {
-	assert(cfg > eAAMPConfig_IntStartValue && cfg < eAAMPConfig_StringMaxValue);
-	return sAampCfgValue[cfg-eAAMPConfig_StringStartValue].value;
+	if(cfg < AAMPCONFIG_BOOL_COUNT)
+	{
+		return configValueBool[cfg].value;
+	}
+	return false;
 }
-int AampConfig::GetConfigValueInt( AAMPConfigSettings cfg )
-{
-	assert(cfg > eAAMPConfig_IntStartValue && cfg < eAAMPConfig_IntMaxValue);
-	return iAampCfgValue[cfg-eAAMPConfig_IntStartValue].value;
-}
-double AampConfig::GetConfigValueDouble( AAMPConfigSettings cfg )
-{
-	assert(cfg > eAAMPConfig_DoubleStartValue && cfg < eAAMPConfig_DoubleMaxValue);
-	return dAampCfgValue[cfg-eAAMPConfig_DoubleStartValue].value;
-}
-
 /**
  * @brief GetConfigValue - Gets configuration for integer data type
  *
- * @return true - if valid return
  */
-bool AampConfig::GetConfigValue(AAMPConfigSettings cfg , int &value)
+int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg)
 {
-	bool ret= false;
-	if(cfg > eAAMPConfig_IntStartValue && cfg < eAAMPConfig_IntMaxValue)
+	if(cfg < AAMPCONFIG_INT_COUNT)
 	{
-		value = iAampCfgValue[cfg-eAAMPConfig_IntStartValue].value;
-		ret = true;
+		return configValueInt[cfg].value;
 	}
-	return ret;
+	return 0;
+}
+/**
+ * @brief GetConfigValue - Gets configuration for double data type
+ *
+ */
+double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg)
+{
+	if(cfg < AAMPCONFIG_FLOAT_COUNT)
+	{
+		return configValueFloat[cfg].value;
+	}
+	return 0.0;
+}
+
+/**
+ * @brief GetConfigValue - Gets configuration for string data type
+ *
+ */
+std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg)
+{
+	if(cfg < AAMPCONFIG_STRING_COUNT)
+	{
+		return configValueString[cfg].value;
+	}
+	return "";
 }
 
 /**
@@ -711,63 +924,21 @@ bool AampConfig::GetConfigValue(AAMPConfigSettings cfg , int &value)
  *
  * @return ConfigPriority - owner of the config
  */
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettings cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingBool cfg)
 {
-	ConfigPriority ret = AAMP_DEFAULT_SETTING;
-
-	if(cfg < eAAMPConfig_BoolMaxValue)
-	{
-		ret = bAampCfgValue[cfg].owner;
-	}
-	else if(cfg > eAAMPConfig_IntStartValue && cfg < eAAMPConfig_IntMaxValue)
-	{
-		ret = iAampCfgValue[cfg-eAAMPConfig_IntStartValue].owner;
-	}
-	else if(cfg > eAAMPConfig_DoubleStartValue && cfg < eAAMPConfig_DoubleMaxValue)
-	{
-		ret = dAampCfgValue[cfg-eAAMPConfig_DoubleStartValue].owner;
-	}
-	else if(cfg > eAAMPConfig_StringStartValue && cfg < eAAMPConfig_StringMaxValue)
-	{
-		ret = sAampCfgValue[cfg-eAAMPConfig_StringStartValue].owner;
-	}
-	else
-	{
-		AAMPLOG_ERR("Cfg Index Not in range : %d",cfg);
-	}
-	return ret;
+	return configValueBool[cfg].owner;
 }
-
-/**
- * @brief GetConfigValue - Gets configuration for double data type
- *
- * @return true - if valid return
- */
-bool AampConfig::GetConfigValue(AAMPConfigSettings cfg, double &value)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingInt cfg)
 {
-	bool ret= false;
-	if(cfg > eAAMPConfig_DoubleStartValue && cfg < eAAMPConfig_DoubleMaxValue)
-	{
-		value = dAampCfgValue[cfg-eAAMPConfig_DoubleStartValue].value;
-		ret=true;
-	}
-	return ret;
+	return configValueInt[cfg].owner;
 }
-
-/**
- * @brief GetConfigValue - Gets configuration for string data type
- *
- * @return true - if valid return
- */
-bool AampConfig::GetConfigValue(AAMPConfigSettings cfg, std::string &value)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingFloat cfg)
 {
-	bool ret=false;
-	if(cfg > eAAMPConfig_StringStartValue && cfg < eAAMPConfig_StringMaxValue)
-	{
-		value = sAampCfgValue[cfg-eAAMPConfig_StringStartValue].value;
-		ret = true;
-	}
-	return ret;
+	return configValueFloat[cfg].owner;
+}
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg)
+{
+	return configValueString[cfg].owner;
 }
 
 /**
@@ -779,7 +950,7 @@ const char * AampConfig::GetChannelOverride(const std::string manifestUrl)
 {
 	if(mChannelOverrideMap.size() && manifestUrl.size())
 	{
-		for (ChannelMapIter it = mChannelOverrideMap.begin(); it != mChannelOverrideMap.end(); ++it)
+		for (auto it = mChannelOverrideMap.begin(); it != mChannelOverrideMap.end(); ++it)
 		{
 			ConfigChannelInfo &pChannelInfo = *it;
 			if (manifestUrl.find(pChannelInfo.name) != std::string::npos)
@@ -800,7 +971,7 @@ const char * AampConfig::GetChannelLicenseOverride(const std::string manifestUrl
 {
     if(mChannelOverrideMap.size() && manifestUrl.size())
     {
-        for (ChannelMapIter it = mChannelOverrideMap.begin(); it != mChannelOverrideMap.end(); ++it)
+        for (auto it = mChannelOverrideMap.begin(); it != mChannelOverrideMap.end(); ++it)
         {
             ConfigChannelInfo &pChannelInfo = *it;
             if (manifestUrl.find(pChannelInfo.uri) != std::string::npos)
@@ -815,93 +986,98 @@ const char * AampConfig::GetChannelLicenseOverride(const std::string manifestUrl
     return NULL;
 }
 
-/**
- * @brief ToggleConfigValue - Toggle Boolean configuration
- *
- * @return void
- */
-void AampConfig::ToggleConfigValue(ConfigPriority owner, AAMPConfigSettings cfg )
+void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingBool cfg ,const bool &value)
 {
-	if(cfg < eAAMPConfig_BoolMaxValue)
+	const char * cfgName = GetConfigName(cfg);
+	ConfigValueBool &setting = configValueBool[cfg];
+	if(setting.owner <= newowner )
 	{
-
-		bool value = !bAampCfgValue[cfg].value;
-		SetValue<ConfigBool , bool> (bAampCfgValue[cfg], owner,value,GetConfigName(cfg));
-	}
-	else
-	{
-		AAMPLOG_ERR("Index beyond range : %d Max:%d ",cfg,eAAMPConfig_BoolMaxValue);
-	}
-}
-
-
-/**
- * @brief SetConfigValue - Set function to set bool/int/long data type configuration
- *
- * @return void
- */
-template<typename T>
-void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettings cfg ,const T &value)
-{
-	if(cfg < eAAMPConfig_BoolMaxValue)
-	{
-		SetValue<ConfigBool , bool> (bAampCfgValue[cfg], owner,(bool)value,GetConfigName(cfg));
-	}
-	else if(cfg > eAAMPConfig_IntStartValue && cfg < eAAMPConfig_IntMaxValue)
-	{
-		int valueInt = (int)value;
-		if(ValidateRange(GetConfigName(cfg),valueInt))
+		if(setting.owner != newowner)
 		{
-			SetValue<ConfigInt , int>(iAampCfgValue[cfg-eAAMPConfig_IntStartValue], owner,(int)value,GetConfigName(cfg));
+			setting.lastvalue = setting.value;
+			setting.lastowner = setting.owner;
 		}
+		setting.value = value;
+		setting.owner = newowner;
+		AAMPLOG_WARN("%s New Owner[%d]",cfgName,newowner);
 	}
-	else if(cfg > eAAMPConfig_DoubleStartValue && cfg < eAAMPConfig_DoubleMaxValue)
+	else
 	{
-		double valueDouble = (double)value;
-		if(ValidateRange(GetConfigName(cfg),valueDouble))
+		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]",cfgName,newowner,setting.owner);
+	}
+}
+
+void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingInt cfg ,const int &value)
+{
+	auto cfgInfo = mConfigLookupTableInt[cfg];
+	ConfigValueInt &setting = configValueInt[cfg];
+	auto range = mConfigValueValidRange[cfgInfo.validRange];
+	if( value<range.minValue || value>range.maxValue )
+	{
+		AAMPLOG_ERR(ERROR_TEXT_BAD_RANGE);
+	}
+	else if(setting.owner <= newowner )
+	{
+		if(setting.owner != newowner)
 		{
-			SetValue<ConfigDouble , double>(dAampCfgValue[cfg-eAAMPConfig_DoubleStartValue], owner,(double)value,GetConfigName(cfg));
+			setting.lastvalue = setting.value;
+			setting.lastowner = setting.owner;
 		}
-	}
-	else
-	{		
-		AAMPLOG_ERR("Cfg Index Not in range : %d ",cfg);
-	}
-}
-
-/**
- * @brief SetConfigValue - Set function to set string data type configuration
- *
- * @return void
- */
-template <>
-void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettings cfg , const std::string &value)
-{
-	if(cfg > eAAMPConfig_StringStartValue && cfg < eAAMPConfig_StringMaxValue)
-	{
-		SetValue<ConfigString , std::string>(sAampCfgValue[cfg-eAAMPConfig_StringStartValue], owner,value,GetConfigName(cfg));
+		setting.value = value;
+		setting.owner = newowner;
+		AAMPLOG_WARN("%s New Owner[%d]", cfgInfo.cmdString, newowner);
 	}
 	else
 	{
-		AAMPLOG_ERR("Index Not in range : %d [%d-%d] ",cfg,eAAMPConfig_StringStartValue,eAAMPConfig_StringMaxValue);
+		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]", cfgInfo.cmdString, newowner, setting.owner);
 	}
 }
 
-/**
- * @brief ProcessConfigJson - Function to parse and process json configuration string
- *
- * @return bool - true on success
- */
-bool AampConfig::ProcessConfigJson(const char *jsonbuffer, ConfigPriority owner )
+void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingFloat cfg ,const double &value)
 {
-	bool retval = false;
-	if(jsonbuffer)
+	auto cfgInfo = mConfigLookupTableFloat[cfg];
+	ConfigValueFloat &setting = configValueFloat[cfg];
+	auto range = mConfigValueValidRange[cfgInfo.validRange];
+	if( value<range.minValue || value>range.maxValue )
 	{
-		cJSON *cfgdata = cJSON_Parse(jsonbuffer);
-		retval = ProcessConfigJson(cfgdata, owner);
-		cJSON_Delete(cfgdata);
+		AAMPLOG_ERR(ERROR_TEXT_BAD_RANGE);
 	}
-	return retval;
+	else if(setting.owner <= newowner )
+	{
+		if(setting.owner != newowner)
+		{
+			setting.lastvalue = setting.value;
+			setting.lastowner = setting.owner;
+		}
+		setting.value = value;
+		setting.owner = newowner;
+		AAMPLOG_WARN("%s New Owner[%d]",cfgInfo.cmdString,newowner);
+	}
+	else
+	{
+		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]", cfgInfo.cmdString, newowner, setting.owner);
+	}
+}
+
+void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingString cfg ,const std::string &value)
+{
+	const char * cfgName = GetConfigName(cfg);
+	ConfigValueString &setting = configValueString[cfg];
+	if(setting.owner <= newowner )
+	{
+		if(setting.owner != newowner)
+		{
+			setting.lastvalue = setting.value;
+			setting.lastowner = setting.owner;
+		}
+		setting.value = value;
+		setting.owner = newowner;
+		AAMPLOG_WARN("%s New Owner[%d]",cfgName,newowner);
+	}
+	else
+	{
+		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]", cfgName, newowner, setting.owner);
+	}
 }
 
 /**
@@ -924,62 +1100,7 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 
 		for(cJSON *searchObj = cfgdata->child; NULL != searchObj; searchObj=searchObj->next)
 		{
-			auto it = mAampLookupTable.find(searchObj->string);
-			if ( it != mAampLookupTable.end())
-			{
-				AampConfigLookupEntry cfg = it->second;
-				AAMPConfigSettings cfgEnum = cfg.cfgEntryValue;
-				std::string keyname = it->first;
-				// Found that keyname in json string
-				if(cfgEnum < eAAMPConfig_BoolMaxValue )
-				{
-					if(cJSON_IsTrue(searchObj))
-					{
-						SetConfigValue<bool>(owner,cfgEnum,true);
-						AAMPLOG_WARN("Parsed value for property %s - true",keyname.c_str());
-					}
-					else
-					{
-						SetConfigValue<bool>(owner,cfgEnum,false);
-						AAMPLOG_WARN("Parsed value for property %s - false",keyname.c_str());
-					}
-				}
-				else if(cfgEnum > eAAMPConfig_IntStartValue && cfgEnum < eAAMPConfig_IntMaxValue && cJSON_IsNumber(searchObj))
-				{
-					// For those parameters in Integer Settings
-					int conv = (int)searchObj->valueint;
-					AAMPLOG_WARN("Parsed value for property %s - %d",keyname.c_str(),conv);
-					if(ValidateRange(keyname,conv))
-					{
-						SetConfigValue<int>(owner,cfgEnum,conv);
-					}
-					else
-					{
-						AAMPLOG_ERR("Set failed .Input beyond the configured range");
-					}
-				}
-				else if(cfgEnum > eAAMPConfig_DoubleStartValue && cfgEnum < eAAMPConfig_DoubleMaxValue && cJSON_IsNumber(searchObj))
-				{
-					// For those parameters in double settings
-					double conv= (double)searchObj->valuedouble;
-					AAMPLOG_WARN("Parsed value for property %s - %f",keyname.c_str(),conv);
-					if(ValidateRange(keyname,conv))
-					{
-						SetConfigValue<double>(owner,cfgEnum,conv);
-					}
-					else
-					{
-						AAMPLOG_ERR("Set failed .Input beyond the configured range");
-					}
-				}
-				else if(cfgEnum > eAAMPConfig_StringStartValue && cfgEnum < eAAMPConfig_StringMaxValue && cJSON_IsString(searchObj))
-				{
-					// For those parameters in string Settings
-					std::string conv = std::string(searchObj->valuestring);
-					AAMPLOG_WARN("Parsed value for property %s - %s",keyname.c_str(),conv.c_str());
-					SetConfigValue<std::string>(owner,cfgEnum,conv);
-				}
-			}
+			mConfigLookup.Process( this, owner, searchObj );
 		}
 		// checked all the config string in json
 		// next check is channel override array is present
@@ -987,7 +1108,7 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 		if(chMap)
 		{
 			if(cJSON_IsArray(chMap))
-				{
+			{
 				for (int i = 0 ; i < cJSON_GetArraySize(chMap) ; i++)
 				{
 					cJSON * subitem = cJSON_GetArrayItem(chMap, i);
@@ -1021,30 +1142,30 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 				if(strcasecmp("com.microsoft.playready",subitem->string)==0)
 				{
 					AAMPLOG_WARN("Playready License Server URL config param received - %s", conv.c_str());
-					SetConfigValue<std::string>(owner,eAAMPConfig_PRLicenseServerUrl,conv);
+					SetConfigValue(owner,eAAMPConfig_PRLicenseServerUrl,conv);
 					drmType = eDRM_PlayReady;
 				}
 				if(strcasecmp("com.widevine.alpha",subitem->string)==0)
 				{
 					AAMPLOG_WARN("Widevine License Server URL config param received - %s", conv.c_str());
-					SetConfigValue<std::string>(owner,eAAMPConfig_WVLicenseServerUrl,conv);
+					SetConfigValue(owner,eAAMPConfig_WVLicenseServerUrl,conv);
 					drmType = eDRM_WideVine;
 				}
 				if(strcasecmp("org.w3.clearkey",subitem->string)==0)
 				{
 					AAMPLOG_WARN("ClearKey License Server URL config param received - %s", conv.c_str());
-					SetConfigValue<std::string>(owner,eAAMPConfig_CKLicenseServerUrl,conv);
+					SetConfigValue(owner,eAAMPConfig_CKLicenseServerUrl,conv);
 					drmType = eDRM_ClearKey;
 				}
 				if(strcasecmp("preferredKeysystem",subitem->string)==0)
 				{
 					AAMPLOG_WARN("Preferred key system received - %s", conv.c_str());
-					SetConfigValue<int>(owner,eAAMPConfig_PreferredDRM,(int)drmType);
+					SetConfigValue(owner,eAAMPConfig_PreferredDRM,(int)drmType);
 				}
 				if(strcasecmp("customData",subitem->string)==0)
 				{
 					AAMPLOG_WARN("customData received - %s", conv.c_str());
-					SetConfigValue<std::string>(owner,eAAMPConfig_CustomLicenseData,conv);
+					SetConfigValue(owner,eAAMPConfig_CustomLicenseData,conv);
 				}					
 				subitem = subitem->next;
 			}
@@ -1100,25 +1221,7 @@ void AampConfig::CustomArrayRead( cJSON *customArray,ConfigPriority owner )
 				AAMPLOG_ERR("Invalid format for %s",keyname.c_str());
 				continue;
 			}
-			for (auto it = mAampLookupTable.begin(); it != mAampLookupTable.end(); ++it)
-			{
-				keyname =  it->first;
-				searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
-				if(searchVal)
-				{
-					customValues.config = keyname;
-					if(searchVal->valuestring != NULL)
-					{
-						customValues.configValue = searchVal->valuestring;
-						vCustom.push_back(customValues);
-					}
-					else
-					{
-						AAMPLOG_ERR("Invalid format for %s ",keyname.c_str());
-						continue;
-					}
-				}
-			}
+			mConfigLookup.Process( this, customVal, customValues, vCustom );
 		}
 		for(int i = 0; i < vCustom.size(); i++)
 		{
@@ -1128,8 +1231,10 @@ void AampConfig::CustomArrayRead( cJSON *customArray,ConfigPriority owner )
 }
 		
 /**
- * @brief CustomSearch - Function to apply custom search
- *
+ * @brief (re)apply configuration for specified player instance at tune time
+ * @param url: locator being tuned
+ * @param playerId identifer for player instance
+ * @param appname
  */
 bool AampConfig::CustomSearch( std::string url, int playerId , std::string appname)
 {
@@ -1203,54 +1308,7 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
 				break;}
 			else
 			{
-				for (auto it = mAampLookupTable.begin(); it != mAampLookupTable.end(); ++it)
-				{
-					AampConfigLookupEntry cfg = it->second;
-					AAMPConfigSettings cfgEnum = cfg.cfgEntryValue;
-					keyname =  it->first;
-					if(strcmp(vCustom[i].config.c_str(),keyname.c_str()) == 0)
-					{
-						if(cfgEnum < eAAMPConfig_BoolMaxValue )
-						{
-							if(strcmp(vCustom[i].configValue.c_str(),"true") == 0)
-							{
-								SetConfigValue<bool>(customOwner,cfgEnum,true);
-							}
-							else
-							{
-								SetConfigValue<bool>(customOwner,cfgEnum,false);
-							}
-						}
-						else if(cfgEnum > eAAMPConfig_IntStartValue && cfgEnum < eAAMPConfig_IntMaxValue)
-						{
-							int conv = atoi(vCustom[i].configValue.c_str());
-							if(ValidateRange(keyname,conv))
-							{
-								SetConfigValue<int>(customOwner,cfgEnum,conv);
-							}
-							else
-							{
-								AAMPLOG_ERR("Set failed .Input beyond the configured range");
-							}
-						}
-						else if(cfgEnum > eAAMPConfig_DoubleStartValue && cfgEnum < eAAMPConfig_DoubleMaxValue)
-						{
-							double conv= (double)atof(vCustom[i].configValue.c_str());
-							if(ValidateRange(keyname,conv))
-							{
-								SetConfigValue<double>(customOwner,cfgEnum,conv);
-							}
-							else
-							{
-								AAMPLOG_ERR("Set failed .Input beyond the configured range");
-							}
-						}
-						else if(cfgEnum > eAAMPConfig_StringStartValue && cfgEnum < eAAMPConfig_StringMaxValue)
-						{
-							SetConfigValue<std::string>(customOwner,cfgEnum,std::string(vCustom[i].configValue.c_str()));
-						}
-					}
-				}
+				mConfigLookup.Process( this, vCustom[i] );
 			}
 		}
 	
@@ -1269,27 +1327,27 @@ bool AampConfig::GetAampConfigJSONStr(std::string &str)
 	AampJsonObject jsondata;
 
 	// All Bool values
-	for(int i=0;i<eAAMPConfig_BoolMaxValue;i++)
+	for(int i=0;i<AAMPCONFIG_BOOL_COUNT;i++)
 	{
-		jsondata.add(GetConfigName((AAMPConfigSettings)i),bAampCfgValue[i].value);
+		jsondata.add(GetConfigName((AAMPConfigSettingBool)i),configValueBool[i].value);
 	}
 
 	// All integer values
-	for(int i=eAAMPConfig_IntStartValue+1;i<eAAMPConfig_IntMaxValue;i++)
+	for(int i=0;i<AAMPCONFIG_INT_COUNT;i++)
 	{
-		jsondata.add(GetConfigName((AAMPConfigSettings)i),iAampCfgValue[i-eAAMPConfig_IntStartValue].value);
+		jsondata.add(GetConfigName((AAMPConfigSettingInt)i),configValueInt[i].value);
 	}
 
 	// All double values
-	for(int i=eAAMPConfig_DoubleStartValue+1;i<eAAMPConfig_DoubleMaxValue;i++)
+	for(int i=0;i<AAMPCONFIG_FLOAT_COUNT;i++)
 	{
-		jsondata.add(GetConfigName((AAMPConfigSettings)i),dAampCfgValue[i-eAAMPConfig_DoubleStartValue].value);
+		jsondata.add(GetConfigName((AAMPConfigSettingFloat)i),configValueFloat[i].value);
 	}
 
 	// All String values
-	for(int i=eAAMPConfig_StringStartValue+1;i<eAAMPConfig_StringMaxValue;i++)
+	for(int i=0;i<AAMPCONFIG_STRING_COUNT;i++)
 	{
-		jsondata.add(GetConfigName((AAMPConfigSettings)i),sAampCfgValue[i-eAAMPConfig_StringStartValue].value);
+		jsondata.add(GetConfigName((AAMPConfigSettingString)i),configValueString[i].value);
 	}
 
 	str = jsondata.print_UnFormatted();
@@ -1344,8 +1402,6 @@ void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 		{
 			//trim whitespace from the end of the string
 			cfg.erase(std::find_if(cfg.rbegin(), cfg.rend(), [](unsigned char ch) {return !std::isspace(ch);}).base(), cfg.end());
-			// Process commands
-			bool toggle = false;
 			size_t position = 0;
 			std::string key,value;
 			std::size_t delimiterPos = cfg.find("=");
@@ -1360,97 +1416,33 @@ void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 			else
 			{
 				key = cfg.substr(0);
-				toggle = true;
 			}
 			
-			LookUpIter iter = mAampLookupTable.find(key);
-			if(iter != mAampLookupTable.end())
-			{
-				AampConfigLookupEntry cfg = iter->second;
-				AAMPConfigSettings cfgEnum = cfg.cfgEntryValue;
-				AAMPLOG_WARN("Parsed value for dev cfg property %s - %s",key.c_str(),value.c_str());
-				// For those parameters in Boolean Settings
-				if(cfgEnum < eAAMPConfig_BoolMaxValue )
-				{
-					int conv = 0;
-					if(!toggle)
-					{
-						if(isdigit(value[0]))
-						{ // for backward compatability 0/1
-							if(ReadNumericHelper(value,conv))
-							{
-								SetConfigValue<bool>(owner,cfgEnum,(bool)(conv != 0));
-							}
-						}
-						else
-						{
-							// look for true or false
-							if(strcasecmp(value.c_str(),"true")==0)
-							{
-								SetConfigValue<bool>(owner,cfgEnum,(bool)true);
-							}
-							else if(strcasecmp(value.c_str(),"false")==0)
-							{
-								SetConfigValue<bool>(owner,cfgEnum,(bool)false);
-							}
-							else
-							{
-								AAMPLOG_ERR("Wrong input provided for Cfg:%s Value:%s",iter->first.c_str(),value.c_str());
-							}
-						}
-					}
-					else
-					{
-						ToggleConfigValue(owner,cfgEnum);
-					}
-				}
-				else if(cfgEnum > eAAMPConfig_IntStartValue && cfgEnum < eAAMPConfig_IntMaxValue)
-				{
-					// For those parameters in Integer Settings
-					int conv = 0;
-					if(isdigit(value[0]) && ReadNumericHelper(value,conv))
-					{
-						if(ValidateRange(key,conv))
-						{
-							SetConfigValue<int>(owner,cfgEnum,(int)conv);
-						}
-						else
-						{
-							AAMPLOG_ERR("Set failed .Input beyond the configured range");
-						}
-					}
-				}
-				else if(cfgEnum > eAAMPConfig_DoubleStartValue && cfgEnum < eAAMPConfig_DoubleMaxValue)
-				{
-					// For those parameters in double settings
-					double conv=0.0;
-					if(isdigit(value[0]) && ReadNumericHelper(value,conv))
-					{
-						if(ValidateRange(key,conv))
-						{
-							SetConfigValue<double>(owner,cfgEnum,(double)conv);
-						}
-						else
-						{
-							AAMPLOG_ERR("Set failed .Input beyond the configured range");
-						}
-					}
-				}
-				else if(cfgEnum > eAAMPConfig_StringStartValue && cfgEnum < eAAMPConfig_StringMaxValue)
-				{
-					// For those parameters in string Settings
-					if(value.size())
-					{
-						SetConfigValue<std::string>(owner,cfgEnum,value);
-					}
-				}
-			}
-			else
-			{
-				AAMPLOG_WARN("unknown configuration key (%s)", key.c_str());
-			}
+			mConfigLookup.Process( this, owner, key, value );
 		}
 	}
+}
+
+static std::string GetConfigPathHelper( const char *file )
+{
+	std::string cfgPath;
+	const char *env_aamp_enable_opt = "true"; // default
+#ifdef AAMP_SIMULATOR_BUILD
+	cfgPath = getenv("HOME");
+	const char *prefix = "/opt/";
+	size_t len = strlen(prefix);
+	if( strlen(file)>=len && memcmp(file,prefix,len)==0 )
+	{ // skip leading /opt in simulator
+		file += len-1;
+	}
+#elif defined(AAMP_CPC) // in Comcast builds AAMP_ENABLE_OPT_OVERRIDE defined only in PROD builds
+	env_aamp_enable_opt = getenv("AAMP_ENABLE_OPT_OVERRIDE");
+#endif
+	if(env_aamp_enable_opt)
+	{
+		cfgPath += file;
+	}
+	return cfgPath;
 }
 
 /**
@@ -1458,51 +1450,36 @@ void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
  *
  * @return true if read successfully
  */
-
 bool AampConfig::ReadAampCfgJsonFile()
 {
 	bool retVal=false;
-#ifdef AAMP_SIMULATOR_BUILD
-	std::string cfgPath(getenv("HOME"));
-#else
-	std::string cfgPath = "";
-#endif
-
-#ifdef AAMP_SIMULATOR_BUILD
-		cfgPath += "/aampcfg.json";
-#else
-
-#ifdef AAMP_CPC // Comcast builds
-		// AAMP_ENABLE_OPT_OVERRIDE is only added for PROD builds.
-		const char *env_aamp_enable_opt = getenv("AAMP_ENABLE_OPT_OVERRIDE");
-#else
-		const char *env_aamp_enable_opt = "true";
-#endif
-
-		if(env_aamp_enable_opt)
+	std::string cfgPath = GetConfigPathHelper(AAMP_JSON_PATH);
+	
+	if (!cfgPath.empty())
+	{
+		std::ifstream f(cfgPath, std::ifstream::in | std::ifstream::binary);
+		if (f.good())
 		{
-			cfgPath = AAMP_JSON_PATH;
-		}
-#endif
-
-		if (!cfgPath.empty())
-		{
-			std::ifstream f(cfgPath, std::ifstream::in | std::ifstream::binary);
-			if (f.good())
+			AAMPLOG_WARN("opened aampcfg.json");
+			std::filebuf* pbuf = f.rdbuf();
+			std::size_t size = pbuf->pubseekoff (0,f.end,f.in);
+			pbuf->pubseekpos (0,f.in);
+			char* jsonbuffer=new char[size+1];
+			pbuf->sgetn (jsonbuffer,size);
+			jsonbuffer[size] = 0x00;
+			f.close();
+		
+			if( jsonbuffer )
 			{
-				AAMPLOG_WARN("opened aampcfg.json");
-				std::filebuf* pbuf = f.rdbuf();
-				std::size_t size = pbuf->pubseekoff (0,f.end,f.in);
-				pbuf->pubseekpos (0,f.in);
-				char* jsonbuffer=new char[size];
-				pbuf->sgetn (jsonbuffer,size);
-				f.close();
-				ProcessConfigJson( jsonbuffer, AAMP_DEV_CFG_SETTING);
-				SAFE_DELETE_ARRAY(jsonbuffer);
-				DoCustomSetting(AAMP_DEV_CFG_SETTING);
-				retVal = true;
+				cJSON *cfgdata = cJSON_Parse(jsonbuffer);
+				ProcessConfigJson(cfgdata, AAMP_DEV_CFG_SETTING);
+				cJSON_Delete(cfgdata);
 			}
+			SAFE_DELETE_ARRAY(jsonbuffer);
+			DoCustomSetting(AAMP_DEV_CFG_SETTING);
+			retVal = true;
 		}
+	}
 	return retVal;
 }
 
@@ -1513,29 +1490,7 @@ bool AampConfig::ReadAampCfgJsonFile()
 bool AampConfig::ReadAampCfgTxtFile()
 {
 	bool retVal = false;
-#ifdef AAMP_SIMULATOR_BUILD
-	std::string cfgPath(getenv("HOME"));
-#else
-	std::string cfgPath = "";
-#endif
-
-#ifdef AAMP_SIMULATOR_BUILD
-	cfgPath += "/aamp.cfg";
-#else
-
-#ifdef AAMP_CPC // Comcast builds
-	// AAMP_ENABLE_OPT_OVERRIDE is only added for PROD builds.
-	const char *env_aamp_enable_opt = getenv("AAMP_ENABLE_OPT_OVERRIDE");
-#else
-	const char *env_aamp_enable_opt = "true";
-#endif
-
-	if(env_aamp_enable_opt)
-	{
-		cfgPath = AAMP_CFG_PATH;
-	}
-#endif
-
+	std::string cfgPath = GetConfigPathHelper(AAMP_CFG_PATH);
 	if (!cfgPath.empty())
 	{
 		std::ifstream f(cfgPath, std::ifstream::in | std::ifstream::binary);
@@ -1582,7 +1537,8 @@ void AampConfig::ReadBase64TR181Param()
 		if (bCharCompliant)
 		{
 			std::string strCfg(cloudConf,iConfigLen);
-			if(!ProcessConfigJson(strCfg.c_str(),AAMP_OPERATOR_SETTING))
+			cJSON *cfgdata = cJSON_Parse(strCfg.c_str());
+			if(!ProcessConfigJson(cfgdata,AAMP_OPERATOR_SETTING))
 			{
 				// Input received is not json format, parse as text
 				std::istringstream iSteam(strCfg);
@@ -1607,103 +1563,76 @@ void AampConfig::ReadBase64TR181Param()
  * @fn ReadAllTR181Params reads  All Tr181 parameters at Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.aamp.<param-name>
  * @return void
  */
+static std::string getRFCValue( const char *strParamName )
+{
+	const std::string  strAAMPTr181BasePath = "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.aamp.";
+#ifdef AAMP_RFC_ENABLED
+	std::string value = RFCSettings::getRFCValue(strAAMPTr181BasePath+strParamName);
+#else
+	std::string value;
+#endif
+	return value;
+}
+
 void AampConfig::ReadAllTR181Params()
 {
-
-#ifdef AAMP_RFC_ENABLED
-
-	// To find the execution time of ReadAllTR181Params
-	long long begin = NOW_STEADY_TS_MS;
+	long long begin = NOW_STEADY_TS_MS; // profile execution time of ReadAllTR181Params
 
 	ConfigPriority owner = AAMP_OPERATOR_SETTING;
-	const std::string  strAAMPTr181BasePath = "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.aamp.";
 
-	for( int icount =0; icount < sizeof( ConfigLookUpTable)/ sizeof(AampConfigLookupEntry) ; icount++ )
+	for( int i =0; i < AAMPCONFIG_BOOL_COUNT; i++ )
 	{
-		if(true == ConfigLookUpTable[icount].bSupportOperatorSetting )
+		const ConfigLookupEntryBool &entry = mConfigLookupTableBool[i];
+		if( entry.bConfigurableByOperatorRFC )
 		{
-			std::string strParamName = ConfigLookUpTable[icount].cmdString ;
-			AAMPConfigSettings cfgEnum = ConfigLookUpTable[icount].cfgEntryValue;
-			std::string value = RFCSettings::getRFCValue(strAAMPTr181BasePath+strParamName);
+			std::string value = getRFCValue(entry.cmdString);
 			if( !value.empty() )
 			{
-				if(cfgEnum < eAAMPConfig_BoolMaxValue)
-				{
-					int conv = 0;
-					if(isdigit(value[0]))
-					{ // for backward compatability 0/1
-						if(ReadNumericHelper(value,conv))
-							SetConfigValue<bool>(owner,cfgEnum,(bool)(conv != 0));
-					}
-					else
-					{
-						// look for true or false
-						if(strcasecmp(value.c_str(),"true")==0)
-						{
-							SetConfigValue<bool>(owner,cfgEnum,(bool)true);
-						}
-						else if(strcasecmp(value.c_str(),"false")==0)
-						{
-							SetConfigValue<bool>(owner,cfgEnum,(bool)false);
-						}
-						else
-						{
-							AAMPLOG_ERR("ReadAllTR181Params: Wrong input provided for param:%s Value:%s",strParamName.c_str(),value.c_str());
-						}
-					}
-				}
-				else if(cfgEnum > eAAMPConfig_IntStartValue && cfgEnum < eAAMPConfig_IntMaxValue)
-				{
-					// For those parameters in Integer Settings
-					int conv = 0;
-					if(isdigit(value[0]) && ReadNumericHelper(value,conv))
-					{
-						if(ValidateRange(strParamName,conv))
-						{
-							SetConfigValue<int>(owner,cfgEnum,(int)conv);
-						}
-						else
-						{
-							AAMPLOG_ERR("ReadAllTR181Params: Out of range input provided for param:%s Value:%s",strParamName.c_str(),value.c_str());
-						}
-					}
-				}
-				else if(cfgEnum > eAAMPConfig_DoubleStartValue && cfgEnum < eAAMPConfig_DoubleMaxValue)
-				{
-					// For those parameters in double settings
-					double conv=0.0;
-					if(isdigit(value[0]) && ReadNumericHelper(value,conv))
-					{
-						if(ValidateRange(strParamName,conv))
-						{
-							SetConfigValue<double>(owner,cfgEnum,(double)conv);
-						}
-						else
-						{
-							AAMPLOG_ERR("ReadAllTR181Params: Out of range input provided for param:%s Value:%s",strParamName.c_str(),value.c_str());
-						}
-					}
-				}
-				else if (cfgEnum > eAAMPConfig_StringStartValue && cfgEnum < eAAMPConfig_StringMaxValue)
-				{
-					// For those parameters in string Settings
-					if(value.size())
-					{
-						SetConfigValue<std::string>(owner,cfgEnum,value);
-					}
-				}
+				SetConfigValue( owner, entry.configEnum, ConfigLookup::ConfigStringValueToBool(value.c_str()) );
 			}
-			else
-			{ // normal case - no need to log by default
-				AAMPLOG_TRACE("ReadAllTR181Params: Got empty value for param:%s",strParamName.c_str());
+		}
+	}
+	
+	for( int i =0; i < ARRAY_SIZE(mConfigLookupTableInt); i++ )
+	{
+		const ConfigLookupEntryInt &entry = mConfigLookupTableInt[i];
+		if( entry.bConfigurableByOperatorRFC )
+		{
+			std::string value = getRFCValue(entry.cmdString);
+			if( !value.empty() )
+			{
+				SetConfigValue( owner, entry.configEnum, std::stoi(value) );
+			}
+		}
+	}
+	
+	for( int i =0; i < AAMPCONFIG_FLOAT_COUNT; i++ )
+	{
+		const ConfigLookupEntryFloat &entry = mConfigLookupTableFloat[i];
+		if( entry.bConfigurableByOperatorRFC )
+		{
+			std::string value = getRFCValue(entry.cmdString);
+			if( !value.empty() )
+			{
+				SetConfigValue( owner, entry.configEnum, std::stod(value) );
 			}
 		}
 	}
 	ConfigureLogSettings();
 
+	for( int i =0; i < AAMPCONFIG_STRING_COUNT; i++ )
+	{
+		const ConfigLookupEntryString &entry = mConfigLookupTableString[i];
+		if( entry.bConfigurableByOperatorRFC )
+		{
+			std::string value = getRFCValue(entry.cmdString);
+			if( !value.empty() )
+			{
+				SetConfigValue( owner, entry.configEnum, value );
+			}
+		}
+	}
 	AAMPLOG_WARN("ReadAllTR181Params took %lld ms to execute", (NOW_STEADY_TS_MS - begin));
-#endif
-
 }
 
 
@@ -1725,12 +1654,12 @@ void AampConfig::ReadOperatorConfiguration()
 	if(env_aamp_force_aac)
 	{
 		AAMPLOG_INFO("AAMP_FORCE_AAC present: Changing preference to AAC over ATMOS & DD+");
-		SetConfigValue<bool>(AAMP_OPERATOR_SETTING,eAAMPConfig_DisableAC4,true);
-		SetConfigValue<bool>(AAMP_OPERATOR_SETTING,eAAMPConfig_DisableEC3,true);
-		SetConfigValue<bool>(AAMP_OPERATOR_SETTING,eAAMPConfig_DisableAC3,true);
-		SetConfigValue<bool>(AAMP_OPERATOR_SETTING,eAAMPConfig_DisableATMOS,true);
-		SetConfigValue<bool>(AAMP_OPERATOR_SETTING,eAAMPConfig_ForceEC3,false);
-		SetConfigValue<bool>(AAMP_OPERATOR_SETTING,eAAMPConfig_StereoOnly,true);
+		SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_DisableAC4,true);
+		SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_DisableEC3,true);
+		SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_DisableAC3,true);
+		SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_DisableATMOS,true);
+		SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_ForceEC3,false);
+		SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_StereoOnly,true);
 	}
 
 	const char *env_aamp_min_init_cache = getenv("AAMP_MIN_INIT_CACHE");
@@ -1740,7 +1669,7 @@ void AampConfig::ReadOperatorConfiguration()
 		if(sscanf(env_aamp_min_init_cache,"%d",&minInitCache) && minInitCache >= 0)
 		{
 			AAMPLOG_INFO("AAMP_MIN_INIT_CACHE present: Changing min initial cache to %d seconds",minInitCache);
-			SetConfigValue<int>(AAMP_OPERATOR_SETTING,eAAMPConfig_InitialBuffer,minInitCache);
+			SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_InitialBuffer,minInitCache);
 		}
 	}
 
@@ -1749,7 +1678,7 @@ void AampConfig::ReadOperatorConfiguration()
 	if(env_enable_cdai)
 	{
 		AAMPLOG_INFO("CLIENT_SIDE_DAI present: Enabling CLIENT_SIDE_DAI.");
-		SetConfigValue<bool>(AAMP_OPERATOR_SETTING,eAAMPConfig_EnableClientDai,true);
+		SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_EnableClientDai,true);
 	}
 
 	const char *env_enable_westoros_sink = getenv("AAMP_ENABLE_WESTEROS_SINK");
@@ -1764,7 +1693,7 @@ void AampConfig::ReadOperatorConfiguration()
 		if(iValue || bValue)
 		{
 			AAMPLOG_INFO("AAMP_ENABLE_WESTEROS_SINK present: Enabling westeros-sink.");
-			SetConfigValue<bool>(AAMP_OPERATOR_SETTING,eAAMPConfig_UseWesterosSink,true);
+			SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_UseWesterosSink,true);
 		}
 
 	}
@@ -1773,7 +1702,7 @@ void AampConfig::ReadOperatorConfiguration()
 	if(env_enable_lld)
 	{
 		AAMPLOG_INFO("LOW_LATENCY_DASH present: Enabling LOW_LATENCY_DASH");
-		SetConfigValue<bool>(AAMP_OPERATOR_SETTING,eAAMPConfig_EnableLowLatencyDash,true);
+		SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_EnableLowLatencyDash,true);
 	}
 }
 
@@ -1784,28 +1713,28 @@ void AampConfig::ReadOperatorConfiguration()
 void AampConfig::ConfigureLogSettings()
 {
 	std::string logString;
-	logString = sAampCfgValue[eAAMPConfig_LogLevel-eAAMPConfig_StringStartValue].value;
+	logString = configValueString[eAAMPConfig_LogLevel].value;
 
-	if(bAampCfgValue[eAAMPConfig_TraceLogging].value || logString.compare("trace") == 0)
+	if(configValueBool[eAAMPConfig_TraceLogging].value || logString.compare("trace") == 0)
 	{
 		// backward compatability
 		logging.setLogLevel(eLOGLEVEL_TRACE);
 		logging.trace = true;
 	}
-	else if(bAampCfgValue[eAAMPConfig_DebugLogging].value || logString.compare("debug") == 0)
+	else if(configValueBool[eAAMPConfig_DebugLogging].value || logString.compare("debug") == 0)
 	{
 		// backward compatability . Trace ande debug does same job.
 		logging.info = false;
 		logging.setLogLevel(eLOGLEVEL_TRACE);
 		logging.debug = true;
 	}
-	else if((bAampCfgValue[eAAMPConfig_InfoLogging].value || logString.compare("info") == 0))
+	else if((configValueBool[eAAMPConfig_InfoLogging].value || logString.compare("info") == 0))
 	{
 		// backward compatability
 		logging.setLogLevel(eLOGLEVEL_INFO);
 		logging.info = true;
 	}
-	else if((bAampCfgValue[eAAMPConfig_WarnLogging].value || logString.compare("warn") == 0))
+	else if((configValueBool[eAAMPConfig_WarnLogging].value || logString.compare("warn") == 0))
 	{
 		logging.setLogLevel(eLOGLEVEL_WARN);
 	}
@@ -1816,15 +1745,15 @@ void AampConfig::ConfigureLogSettings()
 
 
 	// This is pending to handle the ownership rights , whether App can set following config
-	logging.failover			=	bAampCfgValue[eAAMPConfig_FailoverLogging].value;
-	logging.gst				=	bAampCfgValue[eAAMPConfig_GSTLogging].value;
-	logging.progress			=	bAampCfgValue[eAAMPConfig_ProgressLogging].value;
-	logging.curl				=	bAampCfgValue[eAAMPConfig_CurlLogging].value;
-	logging.stream				=	bAampCfgValue[eAAMPConfig_StreamLogging].value;
-	logging.curlHeader			= 	bAampCfgValue[eAAMPConfig_CurlHeader].value;
-	logging.curlLicense			=	bAampCfgValue[eAAMPConfig_CurlLicenseLogging].value;
-	logging.logMetadata			=	bAampCfgValue[eAAMPConfig_MetadataLogging].value;
-	logging.id3    				= 	bAampCfgValue[eAAMPConfig_ID3Logging].value;
+	logging.failover			=	configValueBool[eAAMPConfig_FailoverLogging].value;
+	logging.gst				=	configValueBool[eAAMPConfig_GSTLogging].value;
+	logging.progress			=	configValueBool[eAAMPConfig_ProgressLogging].value;
+	logging.curl				=	configValueBool[eAAMPConfig_CurlLogging].value;
+	logging.stream				=	configValueBool[eAAMPConfig_StreamLogging].value;
+	logging.curlHeader			= 	configValueBool[eAAMPConfig_CurlHeader].value;
+	logging.curlLicense			=	configValueBool[eAAMPConfig_CurlLicenseLogging].value;
+	logging.logMetadata			=	configValueBool[eAAMPConfig_MetadataLogging].value;
+	logging.id3    				= 	configValueBool[eAAMPConfig_ID3Logging].value;
 
 }
 
@@ -1851,9 +1780,7 @@ void AampConfig::ShowAppSetConfiguration()
  */
 void AampConfig::ShowStreamSetConfiguration()
 {
-	////////////////// AAMP Config (Stream Set) //////////
 	ShowConfiguration(AAMP_STREAM_SETTING);
-
 }
 
 /**
@@ -1862,7 +1789,6 @@ void AampConfig::ShowStreamSetConfiguration()
  */
 void AampConfig::ShowDefaultAampConfiguration()
 {
-	///////////////// AAMP Default Configuration  /////////
 	ShowConfiguration(AAMP_DEFAULT_SETTING);
 }
 
@@ -1871,7 +1797,6 @@ void AampConfig::ShowDefaultAampConfiguration()
  */
 void AampConfig::ShowDevCfgConfiguration()
 {
-	////////////////// AAMP Cfg Override Configuration  //////////
 	ShowConfiguration(AAMP_DEV_CFG_SETTING);
 }
 
@@ -1881,34 +1806,8 @@ void AampConfig::ShowDevCfgConfiguration()
  */
 void AampConfig::ShowAAMPConfiguration()
 {
-	 ////////////////// AAMP Configuration  //////////
 	ShowConfiguration(AAMP_MAX_SETTING);
-
 }
-
-//////////////// Special Functions which involve conversion of configuration ///////////
-/////////Only add new functions if required only , else use default Get call and covert
-/////////at usage
-#if 0
-/**
- * @brief GetPreferredDRM - Get Preferred DRM type
- *
- * @return DRMSystems - type of drm
- */
-DRMSystems AampConfig::GetPreferredDRM()
-{
-	DRMSystems prefSys;
-	std::string keySystem = sAampCfgValue[eAAMPConfig_PreferredDRM-eAAMPConfig_StringStartValue].value;
-	std::transform(keySystem.begin(), keySystem.end(), keySystem.begin(), ::tolower);
-	if(keySystem.find("widevine") != std::string::npos)
-		prefSys = eDRM_WideVine;
-	else if(keySystem.find("clearkey") != std::string::npos)
-		prefSys = eDRM_ClearKey;
-	else
-		prefSys = eDRM_PlayReady;       // default is playready
-	return prefSys;
-}
-#endif
 
 ///////////////////////////////// Private Functions ///////////////////////////////////////////
 
@@ -1920,195 +1819,123 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 	if(IsConfigSet(eAAMPConfig_StereoOnly))
 	{
 		// If Stereo Only flag is set , it will override all other sub setting with audio
-		SetConfigValue<bool>(owner,eAAMPConfig_DisableEC3,true);
-		SetConfigValue<bool>(owner,eAAMPConfig_DisableATMOS,true);
-		SetConfigValue<bool>(owner,eAAMPConfig_ForceEC3,false);
-		SetConfigValue<bool>(owner,eAAMPConfig_DisableAC4,true);
-		SetConfigValue<bool>(owner,eAAMPConfig_DisableAC3,true);
+		SetConfigValue(owner,eAAMPConfig_DisableEC3,true);
+		SetConfigValue(owner,eAAMPConfig_DisableATMOS,true);
+		SetConfigValue(owner,eAAMPConfig_ForceEC3,false);
+		SetConfigValue(owner,eAAMPConfig_DisableAC4,true);
+		SetConfigValue(owner,eAAMPConfig_DisableAC3,true);
 	}
 	else if(IsConfigSet(eAAMPConfig_DisableEC3))
 	{
 		// if EC3 is disabled , no need to enable forceEC3
-		SetConfigValue<bool>(owner,eAAMPConfig_ForceEC3,false);
+		SetConfigValue(owner,eAAMPConfig_ForceEC3,false);
 	}
 	if(IsConfigSet(eAAMPConfig_ABRBufferCheckEnabled) && (GetConfigOwner(eAAMPConfig_ABRBufferCheckEnabled) == AAMP_APPLICATION_SETTING))
 	{
-		SetConfigValue<bool>(AAMP_APPLICATION_SETTING,eAAMPConfig_NewDiscontinuity,true);
-		SetConfigValue<bool>(AAMP_APPLICATION_SETTING,eAAMPConfig_HLSAVTrackSyncUsingStartTime,true);
+		SetConfigValue(AAMP_APPLICATION_SETTING,eAAMPConfig_NewDiscontinuity,true);
+		SetConfigValue(AAMP_APPLICATION_SETTING,eAAMPConfig_HLSAVTrackSyncUsingStartTime,true);
 
 	}
 	if((!IsConfigSet(eAAMPConfig_EnableRectPropertyCfg)) && (GetConfigOwner(eAAMPConfig_EnableRectPropertyCfg) == AAMP_APPLICATION_SETTING))
 	{
 		if(!IsConfigSet(eAAMPConfig_UseWesterosSink))
 		{
-			SetConfigValue<bool>(AAMP_APPLICATION_SETTING,eAAMPConfig_EnableRectPropertyCfg,true);
+			SetConfigValue(AAMP_APPLICATION_SETTING,eAAMPConfig_EnableRectPropertyCfg,true);
 		}
 	}
 	if(IsConfigSet(eAAMPConfig_NewDiscontinuity) && (GetConfigOwner(eAAMPConfig_NewDiscontinuity) == AAMP_APPLICATION_SETTING))
 	{
-		SetConfigValue<bool>(AAMP_APPLICATION_SETTING,eAAMPConfig_HLSAVTrackSyncUsingStartTime,true);
+		SetConfigValue(AAMP_APPLICATION_SETTING,eAAMPConfig_HLSAVTrackSyncUsingStartTime,true);
 	}
 	if(GetConfigOwner(eAAMPConfig_AuthToken) == AAMP_APPLICATION_SETTING)
 	{
 		ConfigPriority tempowner;
 		std::string tempvalue;
 		std::string sessionToken;
-		tempowner = sAampCfgValue[eAAMPConfig_AuthToken-eAAMPConfig_StringStartValue].lastowner;
-		tempvalue = sAampCfgValue[eAAMPConfig_AuthToken-eAAMPConfig_StringStartValue].lastvalue;
+		tempowner = configValueString[eAAMPConfig_AuthToken].lastowner;
+		tempvalue = configValueString[eAAMPConfig_AuthToken].lastvalue;
 
-		GetConfigValue(eAAMPConfig_AuthToken,sessionToken);
-		SetConfigValue<std::string>(AAMP_TUNE_SETTING,eAAMPConfig_AuthToken,sessionToken);
-
-		sAampCfgValue[eAAMPConfig_AuthToken-eAAMPConfig_StringStartValue].lastowner = tempowner;
-		sAampCfgValue[eAAMPConfig_AuthToken-eAAMPConfig_StringStartValue].lastvalue = tempvalue;
+		sessionToken = GetConfigValue(eAAMPConfig_AuthToken);
+		SetConfigValue(AAMP_TUNE_SETTING,eAAMPConfig_AuthToken,sessionToken);
+		configValueString[eAAMPConfig_AuthToken].lastowner = tempowner;
+		configValueString[eAAMPConfig_AuthToken].lastvalue = tempvalue;
 
 	}
-
 	ConfigureLogSettings();
 }
 
-/**
- * @brief SetValue - Function to store the configuration and ownership based on priority set
- */
-template<class J,class K>
-void AampConfig::SetValue(J &setting, ConfigPriority newowner, const K &value, std::string cfgName)
+const char * AampConfig::GetConfigName(AAMPConfigSettingBool cfg )
 {
-	if(setting.owner <= newowner )
-	{
-		// n number of times same configuration can be overwritten.
-		// to store to last value ,owner has to be different
-		if(setting.owner != newowner)
-		{
-			setting.lastvalue = setting.value;
-			setting.lastowner = setting.owner;
-		}
-		setting.value = value;
-		setting.owner = newowner;
-		AAMPLOG_WARN("%s New Owner[%d]",cfgName.c_str(),newowner);
-	}
-	else
-	{
-		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]",cfgName.c_str(),newowner,setting.owner);
-	}
+	return mConfigLookupTableBool[cfg].cmdString;
 }
-
-/**
- * @brief GetConfigName - Function to get configuration name for enum from lookup table
- *
- */
-std::string AampConfig::GetConfigName(AAMPConfigSettings cfg )
+const char * AampConfig::GetConfigName(AAMPConfigSettingInt cfg )
 {
-	std::string keyname;
-	for (auto it = mAampLookupTable.begin(); it != mAampLookupTable.end(); ++it)
-	{
-		AampConfigLookupEntry cfgitem = it->second;
-		AAMPConfigSettings cfgEnum = cfgitem.cfgEntryValue;
-		if (cfgEnum == cfg)
-		{
-			keyname =  it->first;
-			break;
-		}
-	}
-	return keyname;
+	return mConfigLookupTableInt[cfg].cmdString;
 }
-
-
-template<typename T>
-bool AampConfig::ValidateRange(std::string key, T& value)
+const char * AampConfig::GetConfigName(AAMPConfigSettingFloat cfg )
 {
-	bool retval = true;
-
-	LookUpIter iter = mAampLookupTable.find(key);
-	if(iter != mAampLookupTable.end())
-	{
-		// check the type and find the min and max values
-		AampConfigLookupEntry item = iter->second;
-		if (std::is_same<T, int>::value)
-		{
-			if(item.Min.iMinValue != -1 && value < item.Min.iMinValue)
-				retval = false;
-			if(item.Max.iMaxValue != -1 && value > item.Max.iMaxValue)
-				retval = false;
-		}
-		else if (std::is_same<T, long>::value)
-		{
-			if(item.Min.iMinValue != -1 && value < item.Min.iMinValue)
-				retval = false;
-			if(item.Max.iMaxValue != -1 && value > item.Max.iMaxValue)
-				retval = false;
-		}
-		else if (std::is_same<T, double>::value)
-		{
-			if(item.Min.dMinValue != -1 && value < item.Min.dMinValue)
-				retval = false;
-			if(item.Max.dMaxValue != -1 && value > item.Max.dMaxValue)
-				retval = false;
-		}
-	}
-	else
-	{
-		retval = false;
-	}
-	return retval;
+	return mConfigLookupTableFloat[cfg].cmdString;
+}
+const char *AampConfig::GetConfigName(AAMPConfigSettingString cfg )
+{
+	return mConfigLookupTableString[cfg].cmdString;
 }
 
 /**
  * @brief RestoreConfiguration - Function is restore last configuration value from current ownership
- *
  */
 void AampConfig::RestoreConfiguration(ConfigPriority owner, AampLogManager *mLogObj)
 {
 	// All Bool values
-	for(int i=0;i<eAAMPConfig_BoolMaxValue;i++)
+	for(int i=0;i<AAMPCONFIG_BOOL_COUNT;i++)
 	{
-		if(bAampCfgValue[i].owner == owner && bAampCfgValue[i].owner != bAampCfgValue[i].lastowner)
+		if(configValueBool[i].owner == owner && configValueBool[i].owner != configValueBool[i].lastowner)
 		{
-			AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s]->[%-5s][%s]->[%s]",i,GetConfigName((AAMPConfigSettings)i).c_str(),OwnerLookUpTable[bAampCfgValue[i].owner].ownerName,
-				OwnerLookUpTable[bAampCfgValue[i].lastowner].ownerName,bAampCfgValue[i].value?"true":"false",bAampCfgValue[i].lastvalue?"true":"false");
-			bAampCfgValue[i].owner = bAampCfgValue[i].lastowner;
-			bAampCfgValue[i].value = bAampCfgValue[i].lastvalue;
-
+			AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s]->[%-5s][%s]->[%s]",i,GetConfigName((AAMPConfigSettingBool)i), mOwnerLookupTable[configValueBool[i].owner].ownerName,
+				mOwnerLookupTable[configValueBool[i].lastowner].ownerName,configValueBool[i].value?"true":"false",configValueBool[i].lastvalue?"true":"false");
+			configValueBool[i].owner = configValueBool[i].lastowner;
+			configValueBool[i].value = configValueBool[i].lastvalue;
 		}
 	}
 
 	// All integer values
-	for(int i=eAAMPConfig_IntStartValue+1;i<eAAMPConfig_IntMaxValue;i++)
+	for(int i=0;i<AAMPCONFIG_INT_COUNT;i++)
 	{
 		// for int array
-		if(iAampCfgValue[i-eAAMPConfig_IntStartValue].owner == owner && iAampCfgValue[i-eAAMPConfig_IntStartValue].owner != iAampCfgValue[i-eAAMPConfig_IntStartValue].lastowner)
+		if(configValueInt[i].owner == owner && configValueInt[i].owner != configValueInt[i].lastowner)
 		{
-			AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s]->[%-5s][%d]->[%d]",i,GetConfigName((AAMPConfigSettings)i).c_str(),OwnerLookUpTable[iAampCfgValue[i-eAAMPConfig_IntStartValue].owner].ownerName,
-				OwnerLookUpTable[iAampCfgValue[i-eAAMPConfig_IntStartValue].lastowner].ownerName,iAampCfgValue[i-eAAMPConfig_IntStartValue].value,iAampCfgValue[i-eAAMPConfig_IntStartValue].lastvalue);
-			iAampCfgValue[i-eAAMPConfig_IntStartValue].owner = iAampCfgValue[i-eAAMPConfig_IntStartValue].lastowner;
-			iAampCfgValue[i-eAAMPConfig_IntStartValue].value = iAampCfgValue[i-eAAMPConfig_IntStartValue].lastvalue;
+			AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s]->[%-5s][%d]->[%d]",i,GetConfigName((AAMPConfigSettingInt)i), mOwnerLookupTable[configValueInt[i].owner].ownerName,
+				mOwnerLookupTable[configValueInt[i].lastowner].ownerName,configValueInt[i].value,configValueInt[i].lastvalue);
+			configValueInt[i].owner = configValueInt[i].lastowner;
+			configValueInt[i].value = configValueInt[i].lastvalue;
 
 		}
 	}
 
 	// All double values
-	for(int i=eAAMPConfig_DoubleStartValue+1;i<eAAMPConfig_DoubleMaxValue;i++)
+	for(int i=0;i<AAMPCONFIG_FLOAT_COUNT;i++)
 	{
 		// for double array
-		if(dAampCfgValue[i-eAAMPConfig_DoubleStartValue].owner == owner && dAampCfgValue[i-eAAMPConfig_DoubleStartValue].owner != dAampCfgValue[i-eAAMPConfig_DoubleStartValue].lastowner)
+		if(configValueFloat[i].owner == owner && configValueFloat[i].owner != configValueFloat[i].lastowner)
                 {
-					AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s]->[%-5s][%f]->[%f]",i,GetConfigName((AAMPConfigSettings)i).c_str(),OwnerLookUpTable[dAampCfgValue[i-eAAMPConfig_DoubleStartValue].owner].ownerName,
-						OwnerLookUpTable[dAampCfgValue[i-eAAMPConfig_DoubleStartValue].lastowner].ownerName,dAampCfgValue[i-eAAMPConfig_DoubleStartValue].value,dAampCfgValue[i-eAAMPConfig_DoubleStartValue].lastvalue);
-					dAampCfgValue[i-eAAMPConfig_DoubleStartValue].owner = dAampCfgValue[i-eAAMPConfig_DoubleStartValue].lastowner;
-					dAampCfgValue[i-eAAMPConfig_DoubleStartValue].value = dAampCfgValue[i-eAAMPConfig_DoubleStartValue].lastvalue;
+					AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s]->[%-5s][%f]->[%f]",i,GetConfigName((AAMPConfigSettingFloat)i), mOwnerLookupTable[configValueFloat[i].owner].ownerName,
+						mOwnerLookupTable[configValueFloat[i].lastowner].ownerName,configValueFloat[i].value,configValueFloat[i].lastvalue);
+					configValueFloat[i].owner = configValueFloat[i].lastowner;
+					configValueFloat[i].value = configValueFloat[i].lastvalue;
                 }
         }
 
 
 	// All String values
-	for(int i=eAAMPConfig_StringStartValue+1;i<eAAMPConfig_StringMaxValue;i++)
+	for(int i=0;i<AAMPCONFIG_STRING_COUNT;i++)
 	{
 		// for string array
-		if(sAampCfgValue[i-eAAMPConfig_StringStartValue].owner == owner && sAampCfgValue[i-eAAMPConfig_StringStartValue].owner != sAampCfgValue[i-eAAMPConfig_StringStartValue].lastowner)
+		if(configValueString[i].owner == owner && configValueString[i].owner != configValueString[i].lastowner)
 		{
-			AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s]->[%-5s][%s]->[%s]",i,GetConfigName((AAMPConfigSettings)i).c_str(),OwnerLookUpTable[sAampCfgValue[i-eAAMPConfig_StringStartValue].owner].ownerName,
-				OwnerLookUpTable[sAampCfgValue[i-eAAMPConfig_StringStartValue].lastowner].ownerName,sAampCfgValue[i-eAAMPConfig_StringStartValue].value.c_str(),sAampCfgValue[i-eAAMPConfig_StringStartValue].lastvalue.c_str());
-			sAampCfgValue[i-eAAMPConfig_StringStartValue].owner = sAampCfgValue[i-eAAMPConfig_StringStartValue].lastowner;
-			sAampCfgValue[i-eAAMPConfig_StringStartValue].value = sAampCfgValue[i-eAAMPConfig_StringStartValue].lastvalue;
+			AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s]->[%-5s][%s]->[%s]",i,GetConfigName((AAMPConfigSettingString)i), mOwnerLookupTable[configValueString[i].owner].ownerName,
+				mOwnerLookupTable[configValueString[i].lastowner].ownerName,configValueString[i].value.c_str(),configValueString[i].lastvalue.c_str());
+			configValueString[i].owner = configValueString[i].lastowner;
+			configValueString[i].value = configValueString[i].lastvalue;
 		}
 	}
 
@@ -2123,51 +1950,41 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner, AampLogManager *mLog
  */
 void AampConfig::ShowConfiguration(ConfigPriority owner)
 {
-	// All Bool values
-	for(int i=0;i<eAAMPConfig_BoolMaxValue;i++)
+	for( int i=0; i<AAMPCONFIG_BOOL_COUNT; i++ )
 	{
-		if(bAampCfgValue[i].owner == owner || owner == AAMP_MAX_SETTING)
+		if(configValueBool[i].owner == owner || owner == AAMP_MAX_SETTING)
 		{
-			AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s][%s]",i,GetConfigName((AAMPConfigSettings)i).c_str(),OwnerLookUpTable[bAampCfgValue[i].owner].ownerName,bAampCfgValue[i].value?"true":"false");
+			AAMPLOG_WARN("Cfg [%-34s][%-5s][%s]", GetConfigName((AAMPConfigSettingBool)i), mOwnerLookupTable[configValueBool[i].owner].ownerName,configValueBool[i].value?"true":"false");
 		}
 	}
 
-	// All integer values
-	for(int i=eAAMPConfig_IntStartValue+1;i<eAAMPConfig_IntMaxValue;i++)
+	for( int i=0; i<AAMPCONFIG_INT_COUNT; i++ )
 	{
-		// for int array
-		if(iAampCfgValue[i-eAAMPConfig_IntStartValue].owner == owner || owner == AAMP_MAX_SETTING)
+		if(configValueInt[i].owner == owner || owner == AAMP_MAX_SETTING)
 		{
-			AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s][%d]",i,GetConfigName((AAMPConfigSettings)i).c_str(),OwnerLookUpTable[iAampCfgValue[i-eAAMPConfig_IntStartValue].owner].ownerName,iAampCfgValue[i-eAAMPConfig_IntStartValue].value);
+			AAMPLOG_WARN("Cfg [%-34s][%-5s][%d]", GetConfigName((AAMPConfigSettingInt)i), mOwnerLookupTable[configValueInt[i].owner].ownerName,configValueInt[i].value);
 		}
 	}
 
-	// All double values
-	for(int i=eAAMPConfig_DoubleStartValue+1;i<eAAMPConfig_DoubleMaxValue;i++)
+	for( int i=0;  i<AAMPCONFIG_FLOAT_COUNT;i++ )
 	{
-		// for double array
-		if(dAampCfgValue[i-eAAMPConfig_DoubleStartValue].owner == owner || owner == AAMP_MAX_SETTING)
-                {
-                        AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s][%f]",i,GetConfigName((AAMPConfigSettings)i).c_str(),OwnerLookUpTable[dAampCfgValue[i-eAAMPConfig_DoubleStartValue].owner].ownerName,dAampCfgValue[i-eAAMPConfig_DoubleStartValue].value);
-                }
-        }
-
-
-
-	// All String values
-	for(int i=eAAMPConfig_StringStartValue+1;i<eAAMPConfig_StringMaxValue;i++)
-	{
-		// for string array
-		if(sAampCfgValue[i-eAAMPConfig_StringStartValue].owner == owner || owner == AAMP_MAX_SETTING)
+		if(configValueFloat[i].owner == owner || owner == AAMP_MAX_SETTING)
 		{
-			AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s][%s]",i,GetConfigName((AAMPConfigSettings)i).c_str(),OwnerLookUpTable[sAampCfgValue[i-eAAMPConfig_StringStartValue].owner].ownerName,sAampCfgValue[i-eAAMPConfig_StringStartValue].value.c_str());
+			AAMPLOG_WARN("Cfg [%-34s][%-5s][%f]", GetConfigName((AAMPConfigSettingFloat)i), mOwnerLookupTable[configValueFloat[i].owner].ownerName,configValueFloat[i].value);
+		}
+	}
+
+	for(int i=0;i<AAMPCONFIG_STRING_COUNT;i++)
+	{
+		if(configValueString[i].owner == owner || owner == AAMP_MAX_SETTING)
+		{
+			AAMPLOG_WARN("Cfg [%-34s][%-5s][%s]", GetConfigName((AAMPConfigSettingString)i), mOwnerLookupTable[configValueString[i].owner].ownerName,configValueString[i].value.c_str());
 		}
 	}
 
 	if(mChannelOverrideMap.size() && (owner == AAMP_DEV_CFG_SETTING || owner == AAMP_MAX_SETTING))
 	{
-		ChannelMapIter iter;
-		for (iter = mChannelOverrideMap.begin(); iter != mChannelOverrideMap.end(); ++iter)
+		for ( auto iter = mChannelOverrideMap.begin(); iter != mChannelOverrideMap.end(); ++iter)
 		{
 			AAMPLOG_INFO("Cfg Channel[%s]-> [%s]",iter->name.c_str(),iter->uri.c_str());
 			AAMPLOG_INFO("Cfg Channel[%s]-> License Uri: [%s]",iter->name.c_str(),iter->licenseUri.c_str());
@@ -2176,36 +1993,7 @@ void AampConfig::ShowConfiguration(ConfigPriority owner)
 
 }
 
-/**
- * @brief ReadNumericHelper - Parse helper function
- */
-template<typename T>
-bool AampConfig::ReadNumericHelper(std::string valStr, T& value)
-{
-	bool ret=false;
-	if (valStr.size())
-	{
-		ret = true;
-		if (std::is_same<T, int>::value)
-			value = std::stoi(valStr);
-		else if (std::is_same<T, long>::value)
-			value = std::stol(valStr);
-		else if (std::is_same<T, float>::value)
-			value = std::stof(valStr);
-		else if (std::is_same<T, double>::value)
-			value = std::stod(valStr);
-		else
-		{
-			AAMPLOG_ERR("ERROR Invalid Input ");
-			ret = false;
-		}
-
-	}
-	return ret;
-}
-
 #ifdef IARM_MGR
-
 /**
  * @brief GetTR181AAMPConfig
  *
@@ -2248,7 +2036,7 @@ char * AampConfig::GetTR181AAMPConfig(const char * paramName, size_t & iConfigLe
 	}
 	return strConfig;
 }
-#endif
+#endif // IARM_MGR
 
 #ifdef UNIT_TEST_ENABLED
 
@@ -2258,63 +2046,45 @@ int main()
 	var1.ReadAampCfgTxtFile();
 
 	var1.ShowAAMPConfiguration();
-	for(int i=0;i<eAAMPConfig_BoolMaxValue;i++)
+	for(int i=0;i<AAMPCONFIG_BOOL_COUNT;i++)
 	{
-		var1.SetConfigValue(AAMP_DEV_CFG_SETTING,(AAMPConfigSettings)i,false);
+		var1.SetConfigValue(AAMP_DEV_CFG_SETTING,(AAMPConfigSettingBool)i,false);
 	}
 	var1.ShowDevCfgConfiguration();
-	for(int i=0;i<eAAMPConfig_BoolMaxValue;i++)
+	for(int i=0;i<AAMPCONFIG_BOOL_COUNT;i++)
 	{
-		var1.SetConfigValue(AAMP_DEV_CFG_SETTING,(AAMPConfigSettings)i,true);
+		var1.SetConfigValue(AAMP_DEV_CFG_SETTING,(AAMPConfigSettingBool)i,true);
 	}
 	var1.ShowOperatorSetConfiguration();
-	for(int i=0;i<eAAMPConfig_BoolMaxValue;i++)
+	for(int i=0;i<AAMPCONFIG_BOOL_COUNT;i++)
 	{
-		var1.SetConfigValue(AAMP_OPERATOR_SETTING,(AAMPConfigSettings)i,false);
+		var1.SetConfigValue(AAMP_OPERATOR_SETTING,(AAMPConfigSettingBool)i,false);
 	}
 	var1.ShowAppSetConfiguration();
 
-	/*
-	var1.SetConfigValue(AAMP_OPERATOR_SETTING, eAAMPConfig_EnableABR, false);
-	var1.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_EnableABR, true);
-	var1.SetConfigValue(AAMP_OPERATOR_SETTING, eAAMPConfig_EnableABR, false);
-	printf("Var 1 value : %d\n",var1.IsConfigSet(eAAMPConfig_EnableABR));
-	printf("Var 2 value : %d\n",var2.IsConfigSet(eAAMPConfig_EnableABR));
-	var2 = var1;
-	printf("Var 2 value : %d\n",var2.IsConfigSet(eAAMPConfig_EnableABR));
-	*/
-	var1.SetConfigValue<std::string>(AAMP_DEV_CFG_SETTING,eAAMPConfig_LicenseServerUrl,(std::string)"Testing");
+	var1.SetConfigValue(AAMP_DEV_CFG_SETTING,eAAMPConfig_LicenseServerUrl,(std::string)"Testing");
 	printf("Before Client DAI : %d \n",var1.IsConfigSet(eAAMPConfig_EnableClientDai));
-	var1.ToggleConfigValue(AAMP_DEV_CFG_SETTING,eAAMPConfig_EnableClientDai);
 	printf("After Client DAI : %d \n",var1.IsConfigSet(eAAMPConfig_EnableClientDai));
-	std::string test1;
-	var1.GetConfigValue(eAAMPConfig_LicenseServerUrl,test1);
+	std::string test1 = var1.GetConfigValue(eAAMPConfig_LicenseServerUrl);
 	printf("Var1 LicenseServer Url:%s\n",test1.c_str());
 
 	var2.ReadAampCfgTxtFile();
-	var2.SetConfigValue<std::string>(AAMP_OPERATOR_SETTING,eAAMPConfig_LicenseServerUrl,"Testing URL");
+	var2.SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_LicenseServerUrl,"Testing URL");
 	var2.SetConfigValue(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableATMOS,true);
 	var2.ShowAAMPConfiguration();
-	std::string ovrride;
-	if(var2.GetChannelOverride("HBOCM",ovrride))
+	const char *ovrride = var2.GetChannelOverride("HBOCM"))
 	{
-		printf("Ch override for HBO: %s \n",ovrride.c_str());
+		printf("Ch override for HBO: %s\n", ovrride );
 	}
 	return 0;
 }
-#endif
 
-
+#endif // UNIT_TEST_ENABLED
 
 //TODO
 // Time conversion of networktimeout , manifesttimeout ,
 // Handling info/debug/trace logging
 // channel mapping
 // playlist Cache size calc
-// MaxDRM session min n max checl
+// MaxDRM session min n max check
 // langcodepref - convert to enum
-
-
-
-
-

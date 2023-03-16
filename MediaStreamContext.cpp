@@ -222,8 +222,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
                 // Reset flag for next fetch
                 mSkipSegmentOnError = true;
             }
-	int FragmentDownloadFailThreshold;
-	GETCONFIGVALUE(eAAMPConfig_FragmentDownloadFailThreshold,FragmentDownloadFailThreshold);
+	int FragmentDownloadFailThreshold = GETCONFIGVALUE(eAAMPConfig_FragmentDownloadFailThreshold);
             if (FragmentDownloadFailThreshold <= segDLFailCount)
             {
                 if(!playingAd)    //If playingAd, we are invalidating the current Ad in onAdEvent().

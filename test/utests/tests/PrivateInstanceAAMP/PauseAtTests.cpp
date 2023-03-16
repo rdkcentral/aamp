@@ -164,7 +164,7 @@ TEST_F(PauseAtTests, StartPausePositionMonitoring_PipelinePaused)
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
 
-    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS, An<int &>())).Times(0);
+    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS)).Times(0);
 
     // Calls from PrivateInstanceAAMP::GetPositionMilliseconds
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery)).WillOnce(Return(true));
@@ -198,7 +198,7 @@ TEST_F(PauseAtTests, StartPausePositionMonitoring_RatePaused)
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
 
-    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS, An<int &>())).Times(0);
+    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS)).Times(0);
 
     // Calls from PrivateInstanceAAMP::GetPositionMilliseconds
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery)).WillOnce(Return(true));
@@ -420,8 +420,8 @@ TEST_F(PauseAtTests, PausePosition_Trickmode)
 
     ASSERT_FALSE(mPrivateInstanceAAMP->mbDownloadsBlocked);
 
-    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS, An<int &>()))
-        .WillRepeatedly(DoAll(SetArgReferee<1>(trickplayFPS), Return(true)));
+    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS))
+      .WillRepeatedly(Return(trickplayFPS));
 
     // Calls from PrivateInstanceAAMP::GetPositionMilliseconds
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery)).WillRepeatedly(Return(true));
@@ -486,8 +486,8 @@ TEST_P(PlaybackSpeedTests, StartPausePositionMonitoring)
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
 
-    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS, An<int &>()))
-        .WillRepeatedly(DoAll(SetArgReferee<1>(trickplayFPS), Return(true)));
+    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS))
+     .WillRepeatedly(Return(trickplayFPS));
 
     // Calls from PrivateInstanceAAMP::GetPositionMilliseconds
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery)).WillRepeatedly(Return(true));
@@ -548,8 +548,8 @@ TEST_P(PlaybackSpeedTests, StartPausePositionMonitoring_PositionAlreadyPassed)
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
 
-    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS, An<int &>()))
-        .WillRepeatedly(DoAll(SetArgReferee<1>(trickplayFPS), Return(true)));
+    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS))
+      .WillRepeatedly(Return(trickplayFPS));
 
     // Calls from PrivateInstanceAAMP::GetPositionMilliseconds
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery)).WillRepeatedly(Return(true));

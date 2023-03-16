@@ -216,7 +216,7 @@ enum PausedBehavior
 
 typedef enum
 {
-	AAMP_DEFAULT_SETTING            = 0,            /**< Lowest priority */
+	AAMP_DEFAULT_SETTING            = 0,        /**< Lowest priority */
 	AAMP_OPERATOR_SETTING           = 1,
 	AAMP_STREAM_SETTING             = 2,
 	AAMP_APPLICATION_SETTING        = 3,

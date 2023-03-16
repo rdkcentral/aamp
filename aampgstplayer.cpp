@@ -610,15 +610,13 @@ static void InitializeSource(AAMPGstPlayer *_this, GObject *source, MediaType me
 	gst_app_src_set_stream_type(GST_APP_SRC(source), GST_APP_STREAM_TYPE_SEEKABLE);
 	if (eMEDIATYPE_VIDEO == mediaType )
 	{
-		int MaxGstVideoBufBytes = 0;
-		_this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstVideoBufBytes,MaxGstVideoBufBytes);
+		int MaxGstVideoBufBytes = _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstVideoBufBytes);
 		AAMPLOG_INFO("Setting gst Video buffer max bytes to %d", MaxGstVideoBufBytes);
 		g_object_set(source, "max-bytes", (guint64)MaxGstVideoBufBytes, NULL);			/* Sets the maximum video buffer bytes as per configuration*/
 	}
 	else if (eMEDIATYPE_AUDIO == mediaType || eMEDIATYPE_AUX_AUDIO == mediaType)
 	{
-		int MaxGstAudioBufBytes = 0;
-                _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstAudioBufBytes,MaxGstAudioBufBytes);
+		int MaxGstAudioBufBytes = _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstAudioBufBytes);
 		AAMPLOG_INFO("Setting gst Audio buffer max bytes to %d", MaxGstAudioBufBytes);
 		g_object_set(source, "max-bytes", (guint64)MaxGstAudioBufBytes, NULL);			/* Sets the maximum audio buffer bytes as per configuration*/
 	}
@@ -797,8 +795,7 @@ static gboolean IdleCallback(gpointer user_data)
 
 		if ( !(_this->TimerIsRunning(_this->privateContext->periodicProgressCallbackIdleTaskId)) )
 		{
-			double  reportProgressInterval;
-			_this->aamp->mConfig->GetConfigValue(eAAMPConfig_ReportProgressInterval,reportProgressInterval);
+			double  reportProgressInterval = _this->aamp->mConfig->GetConfigValue(eAAMPConfig_ReportProgressInterval);
 			reportProgressInterval *= 1000; //convert s to ms
 
 			GSourceFunc timerFunc = ProgressCallbackOnTimeout;
@@ -2182,8 +2179,8 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 			{
 				AAMPLOG_INFO("using tcpserversink");
 				GstElement* sink = gst_element_factory_make("tcpserversink", NULL);
-				int tcp_port = 0;
-				_this->aamp->mConfig->GetConfigValue(eAAMPConfig_TCPServerSinkPort,tcp_port);
+				int tcp_port = _this->aamp->mConfig->GetConfigValue(eAAMPConfig_TCPServerSinkPort);
+				// TCPServerSinkPort of 0 is treated specially and should not be incremented for audio
 				if (eMEDIATYPE_VIDEO == streamId)
 				{
 					g_object_set (G_OBJECT (sink), "port", tcp_port,"host","127.0.0.1",NULL);
@@ -2274,8 +2271,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 #if defined(REALTEKCE)
 		if (eMEDIATYPE_VIDEO == streamId && (mediaFormat==eMEDIAFORMAT_DASH || mediaFormat==eMEDIAFORMAT_HLS_MP4) )
 		{ // enable multiqueue (Refer : XIONE-6138)
-	                int MaxGstVideoBufBytes = 0;
-			_this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstVideoBufBytes,MaxGstVideoBufBytes);
+	        int MaxGstVideoBufBytes = _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstVideoBufBytes);
 			AAMPLOG_INFO("Setting gst Video buffer size bytes to %d", MaxGstVideoBufBytes);
 			g_object_set(stream->sinkbin, "buffer-size", (guint64)MaxGstVideoBufBytes, NULL);
 			g_object_set(stream->sinkbin, "buffer-duration", 3000000000, NULL); //3000000000(ns), 3s
@@ -4390,8 +4386,7 @@ void AAMPGstPlayer::SignalTrickModeDiscontinuity()
 	if (stream && (privateContext->rate != AAMP_NORMAL_PLAY_RATE) )
 	{
 		GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
-		int  vodTrickplayFPS;
-		GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS,vodTrickplayFPS); 
+		int vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS); 
 		GstStructure * eventStruct = gst_structure_new("aamp-tm-disc", "fps", G_TYPE_UINT, (guint)vodTrickplayFPS, NULL);
 		if (!gst_pad_push_event(sourceEleSrcPad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, eventStruct)))
 		{
@@ -4509,8 +4504,7 @@ void type_check_instance(const char * str, GstElement * elem)
 bool AAMPGstPlayer::WaitForSourceSetup(MediaType mediaType)
 {
 	bool ret = false;
-	int timeRemaining = -1;
-	GETCONFIGVALUE(eAAMPConfig_SourceSetupTimeout, timeRemaining);
+	int timeRemaining = GETCONFIGVALUE(eAAMPConfig_SourceSetupTimeout);
 	media_stream *stream = &privateContext->stream[mediaType];
 	
 	int waitInterval = 100; //ms

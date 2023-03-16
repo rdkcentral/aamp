@@ -150,11 +150,9 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 
 void MediaTrack::MonitorBufferHealth()
 {
-	int  bufferHealthMonitorDelay,bufferHealthMonitorInterval;
-	int discontinuityTimeoutValue;
-	GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorDelay,bufferHealthMonitorDelay); 
-	GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorInterval,bufferHealthMonitorInterval);
-	GETCONFIGVALUE(eAAMPConfig_DiscontinuityTimeout,discontinuityTimeoutValue);
+	int bufferHealthMonitorDelay = GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorDelay);
+	int bufferHealthMonitorInterval = GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorInterval);
+	int discontinuityTimeoutValue = GETCONFIGVALUE(eAAMPConfig_DiscontinuityTimeout);
 	assert(bufferHealthMonitorDelay >= bufferHealthMonitorInterval);
 	unsigned int bufferMontiorScheduleTime = bufferHealthMonitorDelay - bufferHealthMonitorInterval;
 	bool keepRunning = false;
@@ -394,8 +392,7 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 	bool ret = true;
 	int pthreadReturnValue = 0;
 	PrivAAMPState state;
-	int preplaybuffercount=0;
-	GETCONFIGVALUE(eAAMPConfig_PrePlayBufferCount,preplaybuffercount);
+	int preplaybuffercount = GETCONFIGVALUE(eAAMPConfig_PrePlayBufferCount);
 
 	if(abort)
 	{
@@ -1054,8 +1051,7 @@ bool MediaTrack::InjectFragment()
 				{
 					AAMPLOG_WARN("[%s] - Not updating totalInjectedDuration since fragment is Discarded", name);
 					mSegInjectFailCount++;
-					int  SegInjectFailCount;
-					GETCONFIGVALUE(eAAMPConfig_SegmentInjectThreshold,SegInjectFailCount);
+					int SegInjectFailCount = GETCONFIGVALUE(eAAMPConfig_SegmentInjectThreshold);
 					if(SegInjectFailCount <= mSegInjectFailCount)
 					{
 						ret	= false;
@@ -1432,7 +1428,7 @@ fragmentIdxToFetch(0), fragmentChunkIdxToFetch(0), abort(false), fragmentInjecto
 		,plDwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
 		, frDwnldMutex(), frDownloadWait(),prevDownloadStartTime(-1)
 {
-	GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached,maxCachedFragmentsPerTrack);
+	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	cachedFragment = new CachedFragment[maxCachedFragmentsPerTrack];
 	for(int X =0; X< maxCachedFragmentsPerTrack; ++X){
 		cachedFragment[X].fragment.Clear();
@@ -1441,7 +1437,7 @@ fragmentIdxToFetch(0), fragmentChunkIdxToFetch(0), abort(false), fragmentInjecto
 
 	if(aamp->GetLLDashServiceData()->lowLatencyMode)
 	{
-		GETCONFIGVALUE(eAAMPConfig_MaxFragmentChunkCached,maxCachedFragmentChunksPerTrack);
+		maxCachedFragmentChunksPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentChunkCached);
 		for(int X =0; X< maxCachedFragmentChunksPerTrack; ++X)
 		{
 			cachedFragmentChunks[X].fragmentChunk.Clear();
@@ -1618,11 +1614,11 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInst
 
 	pthread_mutex_init(&mStateLock, NULL);
 	pthread_cond_init(&mStateCond, NULL);
-	GETCONFIGVALUE(eAAMPConfig_ABRCacheLength,mMaxBufferCountCheck);
+	mMaxBufferCountCheck = GETCONFIGVALUE(eAAMPConfig_ABRCacheLength);
 	mABRCacheLength = mMaxBufferCountCheck;
-	GETCONFIGVALUE(eAAMPConfig_MaxABRNWBufferRampUp,mABRMaxBuffer);
-	GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown,mABRMinBuffer);
-	GETCONFIGVALUE(eAAMPConfig_ABRNWConsistency,mABRNwConsistency);
+	mABRMaxBuffer = GETCONFIGVALUE(eAAMPConfig_MaxABRNWBufferRampUp);
+	mABRMinBuffer = GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown);
+	mABRNwConsistency = GETCONFIGVALUE(eAAMPConfig_ABRNWConsistency);
 	aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
 
 
@@ -1631,7 +1627,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInst
 	{
 		aamp->mhAbrManager.setDefaultIframeBitrate(ibitrate);
 	}
-	GETCONFIGVALUE(eAAMPConfig_RampDownLimit,mRampDownLimit);
+	mRampDownLimit = GETCONFIGVALUE(eAAMPConfig_RampDownLimit);
 	if (!aamp->IsNewTune())
 	{
 		mBitrateReason = (aamp->rate != AAMP_NORMAL_PLAY_RATE) ? eAAMP_BITRATE_CHANGE_BY_TRICKPLAY : eAAMP_BITRATE_CHANGE_BY_SEEK;
@@ -2351,8 +2347,7 @@ void StreamAbstractionAAMP::CheckForPlaybackStall(bool fragmentParsed)
 		MediaTrack* mediatrack = GetMediaTrack(eTRACK_VIDEO);
 		if(mediatrack != NULL)
 		{
-			int stalltimeout;
-			GETCONFIGVALUE(eAAMPConfig_StallTimeoutMS,stalltimeout);
+			int stalltimeout = GETCONFIGVALUE(eAAMPConfig_StallTimeoutMS);
 			if (!mNetworkDownDetected && (timeElapsedSinceLastFragment > stalltimeout) && mediatrack->numberOfFragmentsCached == 0)
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP: Didn't download a new fragment for a long time(%f) and cache empty!", timeElapsedSinceLastFragment);
@@ -3164,7 +3159,7 @@ bool StreamAbstractionAAMP::GetPreferredLiveOffsetFromConfig()
 		if (GETCONFIGOWNER(eAAMPConfig_LiveOffset4K) > AAMP_DEFAULT_SETTING)
 		{
 			/**Update live Offset with 4K stream live offset configured*/
-			GETCONFIGVALUE(eAAMPConfig_LiveOffset4K, aamp->mLiveOffset);
+			aamp->mLiveOffset = GETCONFIGVALUE(eAAMPConfig_LiveOffset4K);
 			if(aamp->mBufferFor4kRampup != 0)
 			{
 				SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_MaxABRNWBufferRampUp,aamp->mBufferFor4kRampup);

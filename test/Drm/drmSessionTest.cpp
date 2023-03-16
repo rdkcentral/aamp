@@ -583,8 +583,7 @@ TEST(AampDrmSessionTests, TestDashPlayReadySessionNoCkmPolicy)
 	const MockCurlOpts *curlOpts = MockCurlGetOpts();
 
 	// Check license URL from the global config was used
-	std::string url;
-	CHECK_TRUE(gpGlobalConfig->GetConfigValue(eAAMPConfig_PRLicenseServerUrl, url));
+	std::string url = CHECK_TRUE(gpGlobalConfig->GetConfigValue(eAAMPConfig_PRLicenseServerUrl));
 	STRCMP_EQUAL(url.c_str(), curlOpts->url);
 
 	// Check the post data set on Curl. Since we didn't pass any metadata (ckm:policy) in the init data,

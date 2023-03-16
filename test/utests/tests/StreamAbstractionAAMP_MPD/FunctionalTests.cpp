@@ -54,8 +54,8 @@ protected:
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
 
-	using BoolConfigSettings = std::map<AAMPConfigSettings, bool>;
-	using IntConfigSettings = std::map<AAMPConfigSettings, int>;
+	using BoolConfigSettings = std::map<AAMPConfigSettingBool, bool>;
+	using IntConfigSettings = std::map<AAMPConfigSettingInt, int>;
 
 	/** @brief Boolean AAMP configuration settings. */
 	const BoolConfigSettings mBoolConfigSettings =
@@ -119,9 +119,9 @@ protected:
 
 		for (const auto & i : mIntConfigSettings)
 		{
-			EXPECT_CALL(*g_mockAampConfig, GetConfigValue(i.first, An<int &>()))
-			  .Times(AnyNumber())
-			  .WillRepeatedly(DoAll(SetArgReferee<1>(i.second), Return(true)));
+			EXPECT_CALL(*g_mockAampConfig, GetConfigValue(i.first))
+			.Times(AnyNumber())
+			.WillRepeatedly(Return(i.second));
 		}
 
 		/* Create MPD instance. */

@@ -85,8 +85,8 @@
 #define ISCONFIGSET_PRIV(x) (mConfig->IsConfigSet(x))
 #define SETCONFIGVALUE(owner,key,value) (aamp->mConfig->SetConfigValue(owner, key ,value))
 #define SETCONFIGVALUE_PRIV(owner,key,value) (mConfig->SetConfigValue(owner, key ,value))
-#define GETCONFIGVALUE(key,value) (aamp->mConfig->GetConfigValue( key ,value))
-#define GETCONFIGVALUE_PRIV(key,value) (mConfig->GetConfigValue( key ,value))
+#define GETCONFIGVALUE(key) (aamp->mConfig->GetConfigValue( key))
+#define GETCONFIGVALUE_PRIV(key) (mConfig->GetConfigValue( key))
 #define GETCONFIGOWNER(key) (aamp->mConfig->GetConfigOwner(key))
 #define GETCONFIGOWNER_PRIV(key) (mConfig->GetConfigOwner(key))
 /**
@@ -94,7 +94,7 @@
  */
 typedef enum
 {
-	eAAMPConfig_EnableABR = 0,						/**< Enable/Disable adaptive bitrate logic*/
+	eAAMPConfig_EnableABR,						/**< Enable/Disable adaptive bitrate logic*/
 	eAAMPConfig_Fog, 							/**< Enable / Disable FOG*/
 	eAAMPConfig_PrefetchIFramePlaylistDL,					/**< Enabled prefetching of I-Frame playlist*/
 	eAAMPConfig_PreservePipeline,						/**< Flush instead of teardown*/
@@ -146,7 +146,6 @@ typedef enum
 	eAAMPConfig_CurlHeader, 						/**< enable curl header response logging on curl errors*/
 	eAAMPConfig_StreamLogging,						/**< Enables HLS Playlist content logging */
 	eAAMPConfig_ID3Logging,        						/**< Enables ID3 logging */
-	//eAAMPConfig_XREEventReporting,					/**< Enable/Disable Event reporting to XRE */
 	eAAMPConfig_EnableGstPositionQuery, 					/**< GStreamer position query will be used for progress report events, Enabled by default for non-Intel platforms*/
 	eAAMPConfig_MidFragmentSeek,                                            /**< Enable/Disable the Mid-Fragment seek functionality in aamp.*/
 	eAAMPConfig_PropogateURIParam,						/**< Feature where top-level manifest URI parameters included when downloading fragments*/
@@ -165,7 +164,7 @@ typedef enum
 	eAAMPConfig_NewDiscontinuity,						/**< Flag to enable/disable new discontinuity handling with PDT*/
 	eAAMPConfig_PlaylistParallelFetch,					/**< Enabled parallel fetching of audio & video playlists*/
 	eAAMPConfig_PlaylistParallelRefresh,					/**< Enabled parallel fetching for refresh of audio & video playlists*/
- 	eAAMPConfig_BulkTimedMetaReport, 					/**< Enabled Bulk event reporting for TimedMetadata*/
+	eAAMPConfig_BulkTimedMetaReport, 					/**< Enabled Bulk event reporting for TimedMetadata*/
 	eAAMPConfig_AvgBWForABR,						/**< Enables usage of AverageBandwidth if available for ABR */
 	eAAMPConfig_NativeCCRendering,						/**< If native CC rendering to be supported */
 	eAAMPConfig_Subtec_subtitle,						/**< Enable subtec-based subtitles */
@@ -190,7 +189,7 @@ typedef enum
 	eAAMPConfig_UseSecManager,                                              /**< Enable/Disable secmanager instead of secclient for license acquisition */
 	eAAMPConfig_EnablePTO,								/**< Enable/Disable PTO Handling */
 	eAAMPConfig_EnableAampConfigToFog,                                      /**< Enable/Disable player config to Fog on every tune*/
- 	eAAMPConfig_XRESupportedTune,						/**< Enable/Disable XRE supported tune*/
+	eAAMPConfig_XRESupportedTune,						/**< Enable/Disable XRE supported tune*/
 	eAAMPConfig_GstSubtecEnabled,								/**< Force Gstreamer subtec */
 	eAAMPConfig_AllowPageHeaders,						/**< Allow page http headers*/
 	eAAMPConfig_PersistHighNetworkBandwidth,				/** Flag to enable Persist High Network Bandwidth across Tunes */
@@ -198,17 +197,20 @@ typedef enum
 	eAAMPConfig_ChangeTrackWithoutRetune,					/**< Flag to enable audio track change without disturbing video pipeline */
 	eAAMPConfig_EnableCurlStore,						/**< Enable/Disable CurlStore to save/reuse curl fds */
 	eAAMPConfig_RuntimeDRMConfig,                                           /**< Enable/Disable Dynamic DRM config feature */
-	eAAMPConfig_EnablePublishingMuxedAudio,				/**< Enable/Disable publishing the audio track info from muxed contents */
+	eAAMPConfig_EnablePublishingMuxedAudio,					/**< Enable/Disable publishing the audio track info from muxed contents */
 	eAAMPConfig_EnableCMCD,							/**< Enable/Disable CMCD config feature */
-	eAAMPConfig_EnableSlowMotion,					/**< Enable/Disable Slowmotion playback */
-	eAAMPConfig_EnableSCTE35PresentationTime,			/**< Enable/Disable use of SCTE PTS presentation time */
+	eAAMPConfig_EnableSlowMotion,						/**< Enable/Disable Slowmotion playback */
+	eAAMPConfig_EnableSCTE35PresentationTime,				/**< Enable/Disable use of SCTE PTS presentation time */
 	eAAMPConfig_JsInfoLogging,						/**< Enable/disable jsinfo logging       */
-	eAAMPConfig_IgnoreAppLiveOffset,				/** <Config to ignore the liveOffset from App for LLD */
-	eAAMPConfig_SendLicenseResponseHeaders,			/** <Config to enable adding license response headers with drm metadata event */
-	eAAMPConfig_useTCPServerSink,					/** <Config to enable tcpserversink */
-	eAAMPConfig_BoolMaxValue,						
-	/////////////////////////////////
-	eAAMPConfig_IntStartValue,
+	eAAMPConfig_IgnoreAppLiveOffset,					/**< Config to ignore the liveOffset from App for LLD */
+	eAAMPConfig_useTCPServerSink,						/**< Route audio/video to tcpserversink, suppressing decode and presentation */
+	eAAMPConfig_SendLicenseResponseHeaders,					/**<Config to enable adding license response headers with drm metadata event */
+	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
+} AAMPConfigSettingBool;
+#define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)
+
+typedef enum
+{
 	eAAMPConfig_HarvestCountLimit,						/**< Number of files to be harvested */
 	eAAMPConfig_HarvestConfig,						/**< Indicate type of file to be  harvest */
 	eAAMPConfig_ABRCacheLife,						/**< Adaptive bitrate cache life in seconds*/
@@ -272,26 +274,30 @@ typedef enum
 	eAAMPConfig_CurlDownloadStartTimeout,					/**< Timeout value for curl download to start after connect in seconds*/
 	eAAMPConfig_CurlDownloadLowBWTimeout,					/**< Timeout value for curl download expiry if player cann't catchup the selected bitrate buffer*/
 	eAAMPConfig_DiscontinuityTimeout,					/**< Timeout value to auto process pending discontinuity after detecting cache is empty*/
-	eAAMPConfig_MinBitrate,                         /**< minimum bitrate filter for playback profiles */
-	eAAMPConfig_MaxBitrate,                         /**< maximum bitrate filter for playback profiles*/
-	eAAMPConfig_TLSVersion,
-	eAAMPConfig_IntMaxValue,
-	
-	////////////////////////////////////
-	eAAMPConfig_DoubleStartValue,
+	eAAMPConfig_MinBitrate,                         			/**< minimum bitrate filter for playback profiles */
+	eAAMPConfig_MaxBitrate,                         			/**< maximum bitrate filter for playback profiles*/
+	eAAMPConfig_TLSVersion,							/**< TLS Version value*/
+	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
+} AAMPConfigSettingInt;
+#define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
+
+typedef enum
+{
 	eAAMPConfig_NetworkTimeout,						/**< Fragment download timeout in sec*/
 	eAAMPConfig_ManifestTimeout,						/**< Manifest download timeout in sec*/
 	eAAMPConfig_PlaylistTimeout,						/**< playlist download time out in sec*/
 	eAAMPConfig_ReportProgressInterval,					/**< Interval of progress reporting*/
 	eAAMPConfig_PlaybackOffset,						/**< playback offset value in seconds*/
 	eAAMPConfig_LiveOffset, 						/**< Current LIVE offset*/
-	eAAMPConfig_LiveOffsetDriftCorrectionInterval,  /**< Config to ovverride the allowed live offset drift **/
+	eAAMPConfig_LiveOffsetDriftCorrectionInterval,  			/**< Config to ovverride the allowed live offset drift **/
 	eAAMPConfig_LiveOffset4K,						/**< Live offset for 4K content;*/
 	eAAMPConfig_CDVRLiveOffset, 						/**< CDVR LIVE offset*/
-	eAAMPConfig_DoubleMaxValue,
-	
-	////////////////////////////////////
-	eAAMPConfig_StringStartValue,
+	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
+} AAMPConfigSettingFloat;
+#define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)
+
+typedef enum
+{
 	eAAMPConfig_MapMPD, 							/**< host name in url for which hls to mpd mapping done'*/
 	eAAMPConfig_MapM3U8,							/**< host name in url for which mpd to hls mapping done'*/
 	eAAMPConfig_HarvestPath,						/**< Path to store Harvested files */
@@ -301,7 +307,6 @@ typedef enum
 	eAAMPConfig_WVLicenseServerUrl,						/**< Widevine License server URL*/
 	eAAMPConfig_UserAgent,							/**< Curl user-agent string */
 	eAAMPConfig_SubTitleLanguage,						/**< User preferred subtitle language*/
-	//eAAMPConfig_RedirectUrl,						/**< redirects requests to tune to url1 to url2 */
 	eAAMPConfig_CustomHeader,						/**< custom header string data to be appended to curl request*/
 	eAAMPConfig_URIParameter,						/**< uri parameter data to be appended on download-url during curl request*/
 	eAAMPConfig_NetworkProxy,						/**< Network Proxy */
@@ -323,9 +328,9 @@ typedef enum
 	eAAMPConfig_SchemeIdUriVssStream,					/**< Scheme Id URI String for VSS Stream */
 	eAAMPConfig_LRHAcceptValue,							/**< Custom License Request Header Data */
 	eAAMPConfig_LRHContentType,							/**< Custom License Request ContentType Data */
-	eAAMPConfig_StringMaxValue,
-	eAAMPConfig_MaxValue
-}AAMPConfigSettings;
+	eAAMPConfig_StringMaxValue						/**< Max value for string config always last element */
+} AAMPConfigSettingString;
+#define AAMPCONFIG_STRING_COUNT (eAAMPConfig_StringMaxValue)
 
 /**
  * @struct ConfigChannelInfo
@@ -354,29 +359,6 @@ struct customJson
         std::string configValue;
 };
 
-
-/**
- * @struct AampConfigLookupEntry
- * @brief AAMP Config lookup table structure
- */
-struct AampConfigLookupEntry
-{
-	const char* cmdString;
-	AAMPConfigSettings cfgEntryValue;
-	bool bSupportOperatorSetting;
-	union
-	{
-		int iMinValue;
-		double dMinValue;
-	}Min;
-	union
-	{
-		int iMaxValue;
-		double dMaxValue;
-	}Max;
-
-};
-
 /**
  * @struct AampOwnerLookupEntry
  * @brief AAMP Config ownership enum string mapping table
@@ -387,55 +369,54 @@ struct AampOwnerLookupEntry
 	ConfigPriority ownerValue;
 };
 
-
 /**
- * @struct ConfigBool
+ * @struct ConfigValueBool
  * @brief AAMP Config Boolean data type
  */
-typedef struct ConfigBool
+typedef struct ConfigValueBool
 {
 	ConfigPriority owner;
 	bool value;
 	ConfigPriority lastowner;
 	bool lastvalue;
-	ConfigBool():owner(AAMP_DEFAULT_SETTING),value(false),lastowner(AAMP_DEFAULT_SETTING),lastvalue(false){}
-}ConfigBool;
+	ConfigValueBool():owner(AAMP_DEFAULT_SETTING),value(false),lastowner(AAMP_DEFAULT_SETTING),lastvalue(false){}
+} ConfigValueBool;
 
 /**
  * @brief AAMP Config Int data type
  */
-typedef struct ConfigInt
+typedef struct ConfigValueInt
 {
 	ConfigPriority owner;
 	int value;
 	ConfigPriority lastowner;
 	int lastvalue;
-	ConfigInt():owner(AAMP_DEFAULT_SETTING),value(0),lastowner(AAMP_DEFAULT_SETTING),lastvalue(0){}
-}ConfigInt;
+	ConfigValueInt():owner(AAMP_DEFAULT_SETTING),value(0),lastowner(AAMP_DEFAULT_SETTING),lastvalue(0){}
+} ConfigValueInt;
 
 /**
  * @brief AAMP Config double data type
  */
-typedef struct ConfigDouble
+typedef struct ConfigValueFloat
 {
     ConfigPriority owner;
     double value;
     ConfigPriority lastowner;
     double lastvalue;
-    ConfigDouble():owner(AAMP_DEFAULT_SETTING),value(0),lastowner(AAMP_DEFAULT_SETTING),lastvalue(0){}
-}ConfigDouble;
+    ConfigValueFloat():owner(AAMP_DEFAULT_SETTING),value(0),lastowner(AAMP_DEFAULT_SETTING),lastvalue(0){}
+} ConfigValueFloat;
+
 /**
  * @brief AAMP Config String data type
  */
-typedef struct ConfigString
+typedef struct ConfigValueString
 {
 	ConfigPriority owner;
 	std::string value;
 	ConfigPriority lastowner;
 	std::string lastvalue;
-	ConfigString():owner(AAMP_DEFAULT_SETTING),value(""),lastowner(AAMP_DEFAULT_SETTING),lastvalue(""){}
-}ConfigString;
-
+	ConfigValueString():owner(AAMP_DEFAULT_SETTING),value(""),lastowner(AAMP_DEFAULT_SETTING),lastvalue(""){}
+} ConfigValueString;
 
 /**
  * @class AampConfig
@@ -549,56 +530,34 @@ public:
          * @return Void
          */
 	void ParseAampCfgJsonString(std::string &cfg);	
-	/**
-     	 * @fn ToggleConfigValue
-     	 * @param[in] owner  - ownership of new set call
-     	 * @param[in] cfg	- Configuration enum to set
-     	 */
-	void ToggleConfigValue(ConfigPriority owner, AAMPConfigSettings cfg );
+	
 	/**
      	 * @fn SetConfigValue
      	 * @param[in] owner  - ownership of new set call
      	 * @param[in] cfg	- Configuration enum to set
      	 * @param[in] value   - value to set
      	 */
-	template<typename T>
-	void SetConfigValue(ConfigPriority owner, AAMPConfigSettings cfg , const T &value);	
+	void SetConfigValue(ConfigPriority owner, AAMPConfigSettingBool cfg , const bool &value);
+	void SetConfigValue(ConfigPriority owner, AAMPConfigSettingInt cfg , const int &value);
+	void SetConfigValue(ConfigPriority owner, AAMPConfigSettingFloat cfg , const double &value);
+	void SetConfigValue(ConfigPriority owner, AAMPConfigSettingString cfg , const std::string &value);
 	/**
      	 * @fn IsConfigSet
      	 *
      	 * @param[in] cfg - Configuration enum
      	 * @return true / false 
      	 */
-	bool IsConfigSet(AAMPConfigSettings cfg);
+	bool IsConfigSet(AAMPConfigSettingBool cfg);
+	bool GetConfigValue( AAMPConfigSettingBool cfg );
+	int GetConfigValue( AAMPConfigSettingInt cfg );
+	double GetConfigValue( AAMPConfigSettingFloat cfg );
+	std::string GetConfigValue( AAMPConfigSettingString cfg );
 	
-	std::string GetConfigValueString( AAMPConfigSettings cfg );
-	int GetConfigValueInt( AAMPConfigSettings cfg );
-	double GetConfigValueDouble( AAMPConfigSettings cfg );
-
+	ConfigPriority GetConfigOwner(AAMPConfigSettingBool cfg);
+	ConfigPriority GetConfigOwner(AAMPConfigSettingInt cfg);
+	ConfigPriority GetConfigOwner(AAMPConfigSettingFloat cfg);
+	ConfigPriority GetConfigOwner(AAMPConfigSettingString cfg);
 	
-	/**
-     	 * @fn GetConfigValue
-     	 * @param[in] cfg - configuration enum
-     	 * @param[out] value - configuration value
-    	 */
-	bool GetConfigValue(AAMPConfigSettings cfg, std::string &value);
-	/**
-    	 * @fn GetConfigValue
-     	 * @param[in] cfg - configuration enum
-     	 * @param[out] value - configuration value
-     	 */
-	bool GetConfigValue(AAMPConfigSettings cfg, double &value);
-	/**
-     	 * @fn GetConfigValue
-     	 * @param[in] cfg - configuration enum
-     	 * @param[out] value - configuration value
-     	 */
-	bool GetConfigValue(AAMPConfigSettings cfg , int &value);
-	/**
-	 * @fn GetConfigOwner
-     	 * @param[in] cfg - configuration enum
-     	 */
-	ConfigPriority GetConfigOwner(AAMPConfigSettings cfg);
  	/**
      	 * @fn GetChannelOverride
      	 * @param[in] chName - channel name to search
@@ -609,18 +568,13 @@ public:
      	 * @param[in] chName - channel Name to override
      	 */
  	const char * GetChannelLicenseOverride(const std::string chName);
-	/**
-     	 * @fn ProcessConfigJson
-     	 * @param[in] cfg - json string
-     	 * @param[in] owner   - Owner who is setting the value
-     	 */
-	bool ProcessConfigJson(const char *cfg, ConfigPriority owner );	
+
 	/**
          * @fn ProcessConfigJson
          * @param[in] cfg - json format
          * @param[in] owner   - Owner who is setting the value
          */
-        bool ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner );
+	bool ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner );
 	/**
      	 * @fn ProcessConfigText
      	 * @param[in] cfg - config text ( new line separated)
@@ -650,12 +604,7 @@ public:
      	 * @return None
      	 */
 	void DoCustomSetting(ConfigPriority owner);
-	/**
-	 * @fn CustomArrayRead
-     	 * @param[in] customArray - input string where custom config json will be stored
-     	 * @param[in] owner - ownership of configs will be stored
-     	 */
-	void CustomArrayRead( cJSON *customArray,ConfigPriority owner );
+
 	/**
      	 * @fn CustomSearch
      	 * @param[in] url  - input string where url name will be stored
@@ -664,12 +613,8 @@ public:
      	 */
 	bool CustomSearch( std::string url, int playerId , std::string appname);
 	AampLogManager *GetLoggerInstance() { return &logging;}
-	////////// Special Functions /////////////////////////
+
 	std::string GetUserAgentString();
-	//long GetManifestTimeoutMs();
-	//long GetNetworkTimeoutMs();
-	//LangCodePreference GetLanguageCodePreference();
-	//DRMSystems GetPreferredDRM();
 private:
 
 	/**
@@ -691,41 +636,35 @@ private:
      	 */
 	char * GetTR181AAMPConfig(const char * paramName, size_t & iConfigLen);
 	
-	/**
-     	 * @fn ReadNumericHelper
-     	 * @param[in] valStr - string input to convert
-     	 * @param[out] value - coverted output
-     	 * @return true on success
-     	 */
-	template<typename T>
-	bool ReadNumericHelper(std::string valStr, T& value);
-	/**
-     	 * @fn ShowConfiguration
-     	 * @param[in] owner - Owner value for listing
-     	 * @return None
-    	 */
 	void ShowConfiguration(ConfigPriority owner);	
 	/**
      	 * @fn GetConfigName
      	 * @param[in] cfg  - configuration enum
      	 * @return string - configuration name
      	 */
-	std::string GetConfigName(AAMPConfigSettings cfg );
-	template<typename T>
-	bool ValidateRange(std::string key,T& value);
-private:
-	typedef std::map<std::string, AampConfigLookupEntry> LookUp;
-	typedef std::map<std::string, AampConfigLookupEntry>::iterator LookUpIter;
-	LookUp mAampLookupTable;
+
+	/**
+	 * @fn CustomArrayRead
+		 * @param[in] customArray - input string where custom config json will be stored
+		 * @param[in] owner - ownership of configs will be stored
+		 */
+	void CustomArrayRead( cJSON *customArray,ConfigPriority owner );
+
+	const char * GetConfigName(AAMPConfigSettingBool cfg );
+	const char * GetConfigName(AAMPConfigSettingInt cfg );
+	const char * GetConfigName(AAMPConfigSettingFloat cfg );
+	const char * GetConfigName(AAMPConfigSettingString cfg );
+	
 	std::vector<struct customJson>vCustom;
 	std::vector<struct customJson>::iterator vCustomIt;
 	bool customFound;
-	ConfigBool	bAampCfgValue[eAAMPConfig_BoolMaxValue];					/**< Stores bool configuration */
-	ConfigInt	iAampCfgValue[eAAMPConfig_IntMaxValue-eAAMPConfig_IntStartValue];		/**< Stores int configuration */
-	ConfigDouble 	dAampCfgValue[eAAMPConfig_DoubleMaxValue-eAAMPConfig_DoubleStartValue];		/**< Stores double configuration */
-	ConfigString	sAampCfgValue[eAAMPConfig_StringMaxValue-eAAMPConfig_StringStartValue];		/**< Stores string configuration */
-	typedef std::list<ConfigChannelInfo> ChannelMap ;
-	typedef std::list<ConfigChannelInfo>::iterator ChannelMapIter ;
+	
+	ConfigValueBool configValueBool[AAMPCONFIG_BOOL_COUNT];
+	ConfigValueInt configValueInt[AAMPCONFIG_INT_COUNT];
+	ConfigValueFloat configValueFloat[AAMPCONFIG_FLOAT_COUNT];
+	ConfigValueString configValueString[AAMPCONFIG_STRING_COUNT];
+	
+	typedef std::list<ConfigChannelInfo> ChannelMap;
 	ChannelMap mChannelOverrideMap;
 };
 

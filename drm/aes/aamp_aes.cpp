@@ -193,7 +193,7 @@ DrmReturn AesDec::SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInf
 
 	if (NULL!= mpAamp)
 	{
-		mpAamp->mConfig->GetConfigValue(eAAMPConfig_LicenseKeyAcquireWaitTime, mAcquireKeyWaitTime);
+		mAcquireKeyWaitTime = mpAamp->mConfig->GetConfigValue(eAAMPConfig_LicenseKeyAcquireWaitTime);
 	}
 	if (mDrmState == eDRM_ACQUIRING_KEY)
 	{

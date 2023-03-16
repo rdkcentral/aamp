@@ -142,12 +142,12 @@ void Harvestor::masterHarvestor(void * arg)
 	}
 
 	// Make sure we have a valid harvest count limit; priority: set by harvest command option, set by aamp.cfg, default if not set
-	mHarvestor.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_HarvestCountLimit, mHarvestor.mHarvestCountLimit);
+	mHarvestor.mHarvestCountLimit = mHarvestor.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_HarvestCountLimit);
 	if (mHarvestor.mHarvestCountLimit == 0)
 	{
 		mHarvestor.mHarvestCountLimit = 9999999;
 	}
-	mHarvestor.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_TCPServerSinkPort, mHarvestor.mTCPServerSinkPort);
+	mHarvestor.mTCPServerSinkPort = mHarvestor.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_TCPServerSinkPort);
 	mHarvestor.mTCPServerSinkPort += 2;  // increment for next aamp-cli as already used on master tune
 	
 	if(cmdlineParams.find("harvestUrl") != cmdlineParams.end())
@@ -356,8 +356,7 @@ void Harvestor::slaveHarvestor(void * arg)
 	}
 
 
-	int harvestConfig = 0;
-	mHarvestor.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_HarvestConfig,harvestConfig) ;
+	int harvestConfig = mHarvestor.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_HarvestConfig) ;
 
 	mHarvestor.mPlayerInstanceAamp->Tune(cmdlineParams["harvestUrl"].c_str());
 

@@ -1145,8 +1145,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		position = position/rate;
 		AAMPLOG_INFO("StreamAbstractionAAMP_MPD: rate %f pMediaStreamContext->fragmentTime %f updated position %f",
 				rate, pMediaStreamContext->fragmentTime, position);
-		int  vodTrickplayFPS;
-		GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS,vodTrickplayFPS); 
+		int  vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS); 
 		duration = duration/rate * vodTrickplayFPS;
 		//aamp->disContinuity();
 	}
@@ -9116,10 +9115,8 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	FN_TRACE_F_MPD( __FUNCTION__ );
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 	bool isAllowNextFrag = true;
-	int  maxCachedFragmentsPerTrack;
-        GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached,maxCachedFragmentsPerTrack); 
-	int  vodTrickplayFPS;
-	GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS,vodTrickplayFPS); 
+	int  maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached); 
+	int  vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS); 
 
 	if (waitForFreeFrag && *waitForFreeFrag && !trickPlay)
 	{
@@ -9805,8 +9802,7 @@ bool StreamAbstractionAAMP_MPD::CheckForVssTags()
 	else
 	{
 		// get the VSS URI for comparison
-		std::string schemeIdUriVss = "";
-		GETCONFIGVALUE(eAAMPConfig_SchemeIdUriVssStream,schemeIdUriVss); 
+		std::string schemeIdUriVss = GETCONFIGVALUE(eAAMPConfig_SchemeIdUriVssStream); 
 		for (INode* childNode : nodePtr->GetAdditionalSubNodes())
 		{
 			const std::string& name = childNode->GetName();
@@ -11937,11 +11933,9 @@ void StreamAbstractionAAMP_MPD::StartLatencyMonitorThread()
 void StreamAbstractionAAMP_MPD::MonitorLatency()
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
-	int latencyMonitorDelay = 0;
-	int latencyMonitorInterval = 0;
-	GETCONFIGVALUE(eAAMPConfig_LatencyMonitorDelay,latencyMonitorDelay);
-	GETCONFIGVALUE(eAAMPConfig_LatencyMonitorInterval,latencyMonitorInterval);
-
+	int latencyMonitorDelay = GETCONFIGVALUE(eAAMPConfig_LatencyMonitorDelay);
+	int latencyMonitorInterval = GETCONFIGVALUE(eAAMPConfig_LatencyMonitorInterval);
+	
 	assert(latencyMonitorDelay >= latencyMonitorInterval);
 
 	AAMPLOG_TRACE("latencyMonitorDelay %d latencyMonitorInterval=%d", latencyMonitorDelay,latencyMonitorInterval );
@@ -12023,8 +12017,8 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 					{
 						double buffervalue = GetBufferedDuration();
 						int minbuffer,maxbuffer ;
-						GETCONFIGVALUE(eAAMPConfig_MaxABRNWBufferRampUp,maxbuffer);
-						GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown,minbuffer);
+						maxbuffer = GETCONFIGVALUE(eAAMPConfig_MaxABRNWBufferRampUp);
+						minbuffer = GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown);
 
 						if ((currentLatency < (long)pAampLLDashServiceData->minLatency) ||(buffervalue < minbuffer))
 						{
@@ -12319,16 +12313,16 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 				stLLServiceData.minPlaybackRate = DEFAULT_MIN_RATE_CORRECTION_SPEED;
 			}
 
-			GETCONFIGVALUE(eAAMPConfig_LLMinLatency,minLatency);
-			GETCONFIGVALUE(eAAMPConfig_LLTargetLatency,TargetLatency);
-			GETCONFIGVALUE(eAAMPConfig_LLMaxLatency,maxLatency);
+			minLatency = GETCONFIGVALUE(eAAMPConfig_LLMinLatency);
+			TargetLatency = GETCONFIGVALUE(eAAMPConfig_LLTargetLatency);
+			maxLatency = GETCONFIGVALUE(eAAMPConfig_LLMaxLatency);
 			if (aamp->mIsStream4K)
 			{
-				GETCONFIGVALUE(eAAMPConfig_LiveOffset4K,currentOffset);
+				currentOffset = GETCONFIGVALUE(eAAMPConfig_LiveOffset4K);
 			}
 			else
 			{
-				GETCONFIGVALUE(eAAMPConfig_LiveOffset,currentOffset);
+				currentOffset = GETCONFIGVALUE(eAAMPConfig_LiveOffset);
 			}
 			
 			AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Current Offset(s): %ld",(long)currentOffset);

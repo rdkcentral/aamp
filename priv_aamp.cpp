@@ -994,8 +994,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 		//AAMPLOG_WARN("[%d] dltotal: %.0f , dlnow: %.0f, ultotal: %.0f, ulnow: %.0f, time: %.0f\n", context->fileType,
 		//	dltotal, dlnow, ultotal, ulnow, difftime(time(NULL), 0));
 
-		int  AbrChunkThresholdSize = 0;
-		GETCONFIGVALUE(eAAMPConfig_ABRChunkThresholdSize,AbrChunkThresholdSize);
+		int AbrChunkThresholdSize = GETCONFIGVALUE(eAAMPConfig_ABRChunkThresholdSize);
 
 		if (/*(dlnow > AbrChunkThresholdSize) &&*/ (context->downloadNow != dlnow))
 		{
@@ -1340,22 +1339,21 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mCMCDCollector = new AampCMCDCollector(mLogObj);
 
 	SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_UserAgent, (std::string )AAMP_USERAGENT_BASE_STRING);
-	int maxDrmSession;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions,maxDrmSession);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLanguage,preferredLanguagesString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioRendition,preferredRenditionString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioCodec,preferredCodecString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLabel,preferredLabelsString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioType,preferredTypeString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextRendition,preferredTextRenditionString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLanguage,preferredTextLanguagesString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLabel,preferredTextLabelString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextType,preferredTextTypeString);
+	int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
+	preferredLanguagesString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLanguage);
+	preferredRenditionString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioRendition);
+	preferredCodecString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioCodec);
+	preferredLabelsString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLabel);
+	preferredTypeString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioType);
+	preferredTextRenditionString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextRendition);
+	preferredTextLanguagesString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLanguage);
+	preferredTextLabelString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLabel);
+	preferredTextTypeString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextType);
 #if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 	mDRMSessionManager = new AampDRMSessionManager(mLogObj, maxDrmSession);
 #endif
 	pthread_cond_init(&mDownloadsDisabled, NULL);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage,mSubLanguage);
+	mSubLanguage = GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage);
 	pthread_mutexattr_init(&mMutexAttr);
 	pthread_mutexattr_settype(&mMutexAttr, PTHREAD_MUTEX_RECURSIVE);
 	pthread_mutex_init(&mLock, &mMutexAttr);
@@ -1422,8 +1420,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	memset(&aesCtrAttrDataList, 0, sizeof(aesCtrAttrDataList));
 	pthread_mutex_init(&drmParserMutex, NULL);
 #endif
-	GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit,mHarvestCountLimit);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig,mHarvestConfig);
+	mHarvestCountLimit = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit);
+	mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
 	}
 
@@ -1628,10 +1626,9 @@ void PrivateInstanceAAMP::RunPausePositionMonitoring(void)
 		}
 		else
 		{
-			int vodTrickplayFPS = 0;
-			bool config_valid = GETCONFIGVALUE_PRIV(eAAMPConfig_VODTrickPlayFPS,vodTrickplayFPS);
+			int vodTrickplayFPS = GETCONFIGVALUE_PRIV(eAAMPConfig_VODTrickPlayFPS);
 
-			assert (config_valid && (vodTrickplayFPS != 0));
+			assert (vodTrickplayFPS != 0);
 
 			// Poll at half the frame period (twice the frame rate)
 			pollPeriodMs = (1000 / vodTrickplayFPS) / 2;
@@ -1882,8 +1879,7 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 {
 	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection))
 	{
-		int latencyMonitorInterval = 0;
-		GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyMonitorInterval,latencyMonitorInterval);
+		int latencyMonitorInterval = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyMonitorInterval);
 		while(!mAbortRateCorrection)
 		{
 			mCorrectionRate = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
@@ -2540,7 +2536,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 		{
 			if (tuneFailure == AAMP_TUNE_PLAYBACK_STALLED)
 			{ // allow config override for stall detection error code
-				GETCONFIGVALUE_PRIV(eAAMPConfig_StallErrorCode,code);
+				code = GETCONFIGVALUE_PRIV(eAAMPConfig_StallErrorCode);
 			}
 			else
 			{
@@ -3647,8 +3643,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 	int fragmentDurationMs = (int)(fragmentDurationSeconds*1000);/*convert to MS */
 	if (fileType == eMEDIATYPE_INIT_VIDEO || fileType == eMEDIATYPE_INIT_AUDIO || fileType == eMEDIATYPE_INIT_AUX_AUDIO)
 	{
-		int InitFragmentRetryCount;
-		GETCONFIGVALUE_PRIV(eAAMPConfig_InitFragmentRetryCount,InitFragmentRetryCount);
+		int InitFragmentRetryCount = GETCONFIGVALUE_PRIV(eAAMPConfig_InitFragmentRetryCount);
 		maxDownloadAttempt += InitFragmentRetryCount;
 	}
 	else
@@ -3671,8 +3666,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 		CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE;
 		double connectTime = 0;
 		pthread_mutex_unlock(&mLock);
-		std::string uriParameter;
-		GETCONFIGVALUE_PRIV(eAAMPConfig_URIParameter,uriParameter);
+		std::string uriParameter = GETCONFIGVALUE_PRIV(eAAMPConfig_URIParameter);
 		// append custom uri parameter with remoteUrl at the end before curl request if curlHeader logging enabled.
 		if (ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) && (!uriParameter.empty()) && fileType == eMEDIATYPE_MANIFEST)
 		{
@@ -3791,10 +3785,10 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 			else
 			{
 				// for Video/Audio segments , set the start timeout as configured by Application
-				GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadStartTimeout,progressCtx.startTimeout);
-				GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout,progressCtx.lowBWTimeout);
+				progressCtx.startTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadStartTimeout);
+				progressCtx.lowBWTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout);
 			}
-			GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout,progressCtx.stallTimeout);
+			progressCtx.stallTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout);
 
 			// note: win32 curl lib doesn't support multi-part range
 			CURL_EASY_SETOPT_STRING(curl, CURLOPT_RANGE, range);
@@ -3908,8 +3902,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 
 				if (ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) && (eMEDIATYPE_VIDEO == fileType || eMEDIATYPE_PLAYLIST_VIDEO == fileType))
 				{
-					std::string customheaderstr;
-					GETCONFIGVALUE_PRIV(eAAMPConfig_CustomHeader,customheaderstr);
+					std::string customheaderstr = GETCONFIGVALUE_PRIV(eAAMPConfig_CustomHeader);
 					if(!customheaderstr.empty())
 					{
 						//AAMPLOG_WARN ("Custom Header Data: Index( %d ) Data( %s )", i, &customheaderstr.at(i));
@@ -3961,8 +3954,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 
 				if(!mAampLLDashServiceData.lowLatencyMode)
 				{
-					int insertDownloadDelay=0;
-					GETCONFIGVALUE_PRIV(eAAMPConfig_DownloadDelay,insertDownloadDelay);
+					int insertDownloadDelay = GETCONFIGVALUE_PRIV(eAAMPConfig_DownloadDelay);
 					/* optionally locally induce extra per-download latency */
 					if( insertDownloadDelay > 0 )
 					{
@@ -3995,8 +3987,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 
 						if((http_code >= 500 && http_code != 502) && downloadAttempt < maxDownloadAttempt)
 						{
-							int waitTimeBeforeRetryHttp5xxMSValue;
-							GETCONFIGVALUE_PRIV(eAAMPConfig_Http5XXRetryWaitInterval,waitTimeBeforeRetryHttp5xxMSValue);
+							int waitTimeBeforeRetryHttp5xxMSValue = GETCONFIGVALUE_PRIV(eAAMPConfig_Http5XXRetryWaitInterval);
 							InterruptableMsSleep(waitTimeBeforeRetryHttp5xxMSValue);
 							AAMPLOG_WARN("Download failed due to Server error. Retrying Attempt:%d!", downloadAttempt);
 							loopAgain = true;
@@ -4248,8 +4239,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 
 			if (downloadTimeMS > 0 && fileType == eMEDIATYPE_VIDEO && CheckABREnabled())
 			{
-				int  AbrThresholdSize;
-				GETCONFIGVALUE_PRIV(eAAMPConfig_ABRThresholdSize,AbrThresholdSize);
+				int  AbrThresholdSize = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRThresholdSize);
 				//HybridABRManager mhABRManager;
 				HybridABRManager::CurlAbortReason hybridabortReason = (HybridABRManager::CurlAbortReason) abortReason;
 				if((buffer->GetLen() > AbrThresholdSize) && (!GetLLDashServiceData()->lowLatencyMode ||
@@ -4276,8 +4266,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 				}
 
 				AAMPLOG_WARN("aamp harvestCountLimit: %d mManifestRefreshCount %d", mHarvestCountLimit,mManifestRefreshCount);
-				std::string harvestPath;
-				GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath,harvestPath);
+				std::string harvestPath = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);
 				if(harvestPath.empty() )
 				{
 					getDefaultHarvestPath(harvestPath);
@@ -5360,33 +5349,33 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 	mConfig->logging.setLogLevel(eLOGLEVEL_INFO);
 	gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_INFO);
 
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PlaybackOffset,seek_pos_seconds);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioRendition,preferredRenditionString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioCodec,preferredCodecString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLanguage,preferredLanguagesString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLabel,preferredLabelsString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioType,preferredTypeString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextRendition,preferredTextRenditionString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLanguage,preferredTextLanguagesString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLabel,preferredTextLabelString);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextType,preferredTextTypeString);
+	seek_pos_seconds = GETCONFIGVALUE_PRIV(eAAMPConfig_PlaybackOffset);
+	preferredRenditionString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioRendition);
+	preferredCodecString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioCodec);
+	preferredLanguagesString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLanguage);
+	preferredLabelsString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLabel);
+	preferredTypeString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioType);
+	preferredTextRenditionString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextRendition);
+	preferredTextLanguagesString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLanguage);
+	preferredTextLabelString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLabel);
+	preferredTextTypeString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextType);
 	UpdatePreferredAudioList();
-	GETCONFIGVALUE_PRIV(eAAMPConfig_DRMDecryptThreshold,mDrmDecryptFailCount);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreCachePlaylistTime,mPreCacheDnldTimeWindow);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit,mHarvestCountLimit);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig,mHarvestConfig);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_AuthToken,mSessionToken);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage,mSubLanguage);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_TLSVersion,mSupportedTLSVersion);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffsetDriftCorrectionInterval, mLiveOffsetDrift);
+	mDrmDecryptFailCount = GETCONFIGVALUE_PRIV(eAAMPConfig_DRMDecryptThreshold);
+	mPreCacheDnldTimeWindow = GETCONFIGVALUE_PRIV(eAAMPConfig_PreCachePlaylistTime);
+	mHarvestCountLimit = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit);
+	mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
+	mSessionToken = GETCONFIGVALUE_PRIV(eAAMPConfig_AuthToken);
+	mSubLanguage = GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage);
+	mSupportedTLSVersion = GETCONFIGVALUE_PRIV(eAAMPConfig_TLSVersion);
+	mLiveOffsetDrift = GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffsetDriftCorrectionInterval);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_LivePauseBehavior,intTmpVar);
+	intTmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_LivePauseBehavior);
 	mPausedBehavior = (PausedBehavior)intTmpVar;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout,tmpVar);
+	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout);
 	mNetworkTimeoutMs = (long)CONVERT_SEC_TO_MS(tmpVar);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_ManifestTimeout,tmpVar);
+	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_ManifestTimeout);
 	mManifestTimeoutMs = (long)CONVERT_SEC_TO_MS(tmpVar);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PlaylistTimeout,tmpVar);
+	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_PlaylistTimeout);
 	mPlaylistTimeoutMs = (long)CONVERT_SEC_TO_MS(tmpVar);
 	if(mPlaylistTimeoutMs <= 0) mPlaylistTimeoutMs = mManifestTimeoutMs;
 	mLogTimetoTopProfile = true;
@@ -5398,7 +5387,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 	mCurrentAudioTrackIndex = -1;
 	mCurrentTextTrackIndex = -1;
 
-	GETCONFIGVALUE_PRIV(eAAMPConfig_SchemeIdUriDaiStream,mSchemeIdUriDai);
+	mSchemeIdUriDai = GETCONFIGVALUE_PRIV(eAAMPConfig_SchemeIdUriDaiStream);
 
 	UpdateBufferBasedOnLiveOffset();
 	// Set the EventManager config
@@ -5458,8 +5447,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 		}
 #if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 		// read the configured max drm session
-		int maxDrmSession = 1;
-		GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions,maxDrmSession);
+		int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
 		if(NULL == mDRMSessionManager)
 		{
 			mDRMSessionManager = new AampDRMSessionManager(mLogObj, maxDrmSession);
@@ -5471,7 +5459,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 	mManifestRefreshCount = 0;
 
 	// For PreCaching of playlist , no max limit set as size will vary for each playlist length
-	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxPlaylistCacheSize,iCacheMaxSize);
+	iCacheMaxSize = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxPlaylistCacheSize);
 	if(iCacheMaxSize != MAX_PLAYLIST_CACHE_SIZE)
 	{
 		getAampCacheHandler()->SetMaxPlaylistCacheSize(iCacheMaxSize*1024); // convert KB inputs to bytes
@@ -5484,7 +5472,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 	}
 
 	// Set max no of init fragment to be maintained in cache table, ByDefault 5.
-	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxInitFragCachePerTrack,iCacheMaxSize);
+	iCacheMaxSize = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxInitFragCachePerTrack);
 	if(iCacheMaxSize != MAX_INIT_FRAGMENT_CACHE_PER_TRACK)
 	{
 		getAampCacheHandler()->SetMaxInitFragCacheSize(iCacheMaxSize);
@@ -5555,8 +5543,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 
 	//Add Custom Header via config
 	{
-		std::string customLicenseHeaderStr;
-		GETCONFIGVALUE_PRIV(eAAMPConfig_CustomHeaderLicense,customLicenseHeaderStr);
+		std::string customLicenseHeaderStr = GETCONFIGVALUE_PRIV(eAAMPConfig_CustomHeaderLicense);
 		if(!customLicenseHeaderStr.empty())
 		{
 			if (ISCONFIGSET_PRIV(eAAMPConfig_CurlLicenseLogging))
@@ -5651,8 +5638,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 	if( !remapUrl )
 	{
 		std::string mapMPDStr, mapM3U8Str;
-		GETCONFIGVALUE_PRIV(eAAMPConfig_MapMPD,mapMPDStr);
-		GETCONFIGVALUE_PRIV(eAAMPConfig_MapM3U8,mapM3U8Str);
+		mapMPDStr = GETCONFIGVALUE_PRIV(eAAMPConfig_MapMPD);
+		mapM3U8Str = GETCONFIGVALUE_PRIV(eAAMPConfig_MapM3U8);
 		if (!mapMPDStr.empty() && mMediaFormat == eMEDIAFORMAT_HLS && (mContentType != ContentType_EAS)) //Don't map, if it is dash and dont map if it is EAS
 		{
 			std::string hostName = aamp_getHostFromURL(mManifestUrl);
@@ -5784,8 +5771,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
  */
 LangCodePreference PrivateInstanceAAMP::GetLangCodePreference()
 {
-	int langCodePreference;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_LanguageCodePreference,langCodePreference);
+	int langCodePreference = GETCONFIGVALUE_PRIV(eAAMPConfig_LanguageCodePreference);
 	return (LangCodePreference)langCodePreference;
 }
 
@@ -5950,8 +5936,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 void PrivateInstanceAAMP::CheckForDiscontinuityStall(MediaType mediaType)
 {
 	AAMPLOG_TRACE("Enter mediaType %d", mediaType);
-	int discontinuityTimeoutValue;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_DiscontinuityTimeout,discontinuityTimeoutValue);
+	int discontinuityTimeoutValue = GETCONFIGVALUE_PRIV(eAAMPConfig_DiscontinuityTimeout);
 	if(!(mStreamSink->CheckForPTSChangeWithTimeout(discontinuityTimeoutValue)))
 	{
 		pthread_mutex_lock(&mLock);
@@ -6273,9 +6258,7 @@ AampCacheHandler * PrivateInstanceAAMP::getAampCacheHandler()
  */
 long PrivateInstanceAAMP::GetMaximumBitrate()
 {
-	int lMaxBitrate;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxBitrate,lMaxBitrate);
-	return lMaxBitrate;
+	return GETCONFIGVALUE_PRIV(eAAMPConfig_MaxBitrate);
 }
 
 /**
@@ -6283,9 +6266,7 @@ long PrivateInstanceAAMP::GetMaximumBitrate()
  */
 long PrivateInstanceAAMP::GetMinimumBitrate()
 {
-	int lMinBitrate;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_MinBitrate,lMinBitrate);
-	return lMinBitrate;
+	return GETCONFIGVALUE_PRIV(eAAMPConfig_MinBitrate);
 }
 
 /**
@@ -6293,9 +6274,7 @@ long PrivateInstanceAAMP::GetMinimumBitrate()
  */
 long PrivateInstanceAAMP::GetDefaultBitrate()
 {
-	int defaultBitRate;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_DefaultBitrate,defaultBitRate);
-	return defaultBitRate;
+	return GETCONFIGVALUE_PRIV(eAAMPConfig_DefaultBitrate);
 }
 
 /**
@@ -6303,9 +6282,7 @@ long PrivateInstanceAAMP::GetDefaultBitrate()
  */
 long PrivateInstanceAAMP::GetDefaultBitrate4K()
 {
-	int defaultBitRate;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_DefaultBitrate4K,defaultBitRate);
-	return defaultBitRate;
+	return GETCONFIGVALUE_PRIV(eAAMPConfig_DefaultBitrate4K);
 }
 
 /**
@@ -6313,9 +6290,7 @@ long PrivateInstanceAAMP::GetDefaultBitrate4K()
  */
 long PrivateInstanceAAMP::GetIframeBitrate()
 {
-	int defaultIframeBitRate;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_IFrameDefaultBitrate,defaultIframeBitRate);
-	return defaultIframeBitRate;
+	return GETCONFIGVALUE_PRIV(eAAMPConfig_IFrameDefaultBitrate);
 }
 
 /**
@@ -6323,9 +6298,7 @@ long PrivateInstanceAAMP::GetIframeBitrate()
  */
 long PrivateInstanceAAMP::GetIframeBitrate4K()
 {
-	int defaultIframeBitRate4K;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_IFrameDefaultBitrate4K,defaultIframeBitRate4K);
-	return defaultIframeBitRate4K;
+	return GETCONFIGVALUE_PRIV(eAAMPConfig_IFrameDefaultBitrate4K);
 }
 
 /**
@@ -6544,8 +6517,7 @@ std::string PrivateInstanceAAMP::GetThumbnails(double tStart, double tEnd)
 
 TunedEventConfig PrivateInstanceAAMP::GetTuneEventConfig(bool isLive)
 {
-	int tunedEventConfig;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_TuneEventConfig,tunedEventConfig);
+	int tunedEventConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_TuneEventConfig);
 	return (TunedEventConfig)tunedEventConfig;
 }
 
@@ -7473,8 +7445,7 @@ void PrivateInstanceAAMP::InitializeCC()
 		{
 			AampCCManager::GetInstance()->Init((void *)mStreamSink->getCCDecoderHandle());
 
-			int overrideCfg;
-			GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred,overrideCfg);
+			int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
 			if (overrideCfg == 0)
 			{
 				AAMPLOG_WARN("PrivateInstanceAAMP: CC format override to 608 present, selecting 608CC");
@@ -7652,8 +7623,7 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, MediaType 
 					{
 						long long now = aamp_GetCurrentTimeMS();
 						long long lastErrorReportedTimeMs = lastUnderFlowTimeMs[trackType];
-						int ptsErrorThresholdValue = 0;
-						GETCONFIGVALUE_PRIV(eAAMPConfig_PTSErrorThreshold,ptsErrorThresholdValue);
+						int ptsErrorThresholdValue = GETCONFIGVALUE_PRIV(eAAMPConfig_PTSErrorThreshold);
 						if (lastErrorReportedTimeMs)
 						{
 							bool isRetuneRequried = false;
@@ -8292,11 +8262,11 @@ void PrivateInstanceAAMP::UpdateLiveOffset()
 {
 	if(!IsLiveAdjustRequired()) /* Ideally checking the content is either "ivod/cdvr" to adjust the liveoffset on trickplay. */
 	{
-		GETCONFIGVALUE_PRIV(eAAMPConfig_CDVRLiveOffset,mLiveOffset);
+		mLiveOffset = GETCONFIGVALUE_PRIV(eAAMPConfig_CDVRLiveOffset);
 	}
 	else
 	{
-		GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffset,mLiveOffset);
+		mLiveOffset = GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffset);
 	}
 	AAMPLOG_INFO("Live offset value updated to %lf", mLiveOffset);
 }
@@ -8308,8 +8278,7 @@ void PrivateInstanceAAMP::SendStalledErrorEvent()
 {
 	char description[MAX_ERROR_DESCRIPTION_LENGTH];
 	memset(description, '\0', MAX_ERROR_DESCRIPTION_LENGTH);
-	int stalltimeout;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_StallTimeoutMS,stalltimeout);
+	int stalltimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_StallTimeoutMS);
 	snprintf(description, (MAX_ERROR_DESCRIPTION_LENGTH - 1), "Playback has been stalled for more than %d ms due to lack of new fragments", stalltimeout);
 	SendErrorEvent(AAMP_TUNE_PLAYBACK_STALLED, description);
 }
@@ -8710,8 +8679,7 @@ bool PrivateInstanceAAMP::IsTuneCompleted()
  */
 DRMSystems PrivateInstanceAAMP::GetPreferredDRM()
 {
-	int drmType;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredDRM,drmType);
+	int drmType = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredDRM);
 	return (DRMSystems)drmType;
 }
 
@@ -8946,9 +8914,7 @@ const char* PrivateInstanceAAMP::GetTunedManifestUrl()
  */
 std::string PrivateInstanceAAMP::GetNetworkProxy()
 {
-	std::string proxy;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkProxy,proxy);
-	return proxy;
+	return GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkProxy);
 }
 
 /**
@@ -8956,9 +8922,7 @@ std::string PrivateInstanceAAMP::GetNetworkProxy()
  */
 std::string PrivateInstanceAAMP::GetLicenseReqProxy()
 {
-	std::string proxy;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_LicenseProxy,proxy);
-	return proxy;
+	return GETCONFIGVALUE_PRIV(eAAMPConfig_LicenseProxy);
 }
 
 
@@ -9686,7 +9650,7 @@ void PrivateInstanceAAMP::individualization(const std::string& payload)
  */
 int PrivateInstanceAAMP::GetInitialBufferDuration()
 {
-	GETCONFIGVALUE_PRIV(eAAMPConfig_InitialBuffer,mMinInitialCacheSeconds);
+	mMinInitialCacheSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_InitialBuffer);
 	return mMinInitialCacheSeconds;
 }
 
@@ -9823,20 +9787,20 @@ std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 	std::string url;
 	if (type == eDRM_PlayReady)
 	{
-		GETCONFIGVALUE_PRIV(eAAMPConfig_PRLicenseServerUrl,url);
+		url = GETCONFIGVALUE_PRIV(eAAMPConfig_PRLicenseServerUrl);
 	}
 	else if (type == eDRM_WideVine)
 	{
-		GETCONFIGVALUE_PRIV(eAAMPConfig_WVLicenseServerUrl,url);
+		url = GETCONFIGVALUE_PRIV(eAAMPConfig_WVLicenseServerUrl);
 	}
 	else if (type == eDRM_ClearKey)
 	{
-		GETCONFIGVALUE_PRIV(eAAMPConfig_CKLicenseServerUrl,url);
+		url = GETCONFIGVALUE_PRIV(eAAMPConfig_CKLicenseServerUrl);
 	}
 
 	if(url.empty())
 	{
-		GETCONFIGVALUE_PRIV(eAAMPConfig_LicenseServerUrl,url);
+		url = GETCONFIGVALUE_PRIV(eAAMPConfig_LicenseServerUrl);
 	}
 	return url;
 }
@@ -10154,8 +10118,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 						}
 
 						// preferredCEA708 overrides whatever we infer from track. USE WITH CAUTION
-						int overrideCfg;
-						GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred,overrideCfg);
+						int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
 						if (overrideCfg != -1)
 						{
 							format = (CCFormat)(overrideCfg & 1);
@@ -11427,9 +11390,9 @@ void PrivateInstanceAAMP::UpdateBufferBasedOnLiveOffset()
 	{
 		int maxbuffer,minbuffer;
 		double liveoffset =0,liveoffset4k=0;
-		GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffset,liveoffset);
-		GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffset4K,liveoffset4k);
-		GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp,maxbuffer);
+		liveoffset = GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffset);
+		liveoffset4k = GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffset4K);
+		maxbuffer = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp);
 		if(GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset4K) > AAMP_DEFAULT_SETTING)
 		{
 			if(liveoffset4k < maxbuffer)
@@ -11775,31 +11738,28 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	jsondata.add("langCodePreference", (int) GetLangCodePreference());
 
 	// networkTimeout value in sec and convert into MS
-	GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout,tmpVar);
+	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout);
 	jsondata.add("downloadTimeoutMS", (long)CONVERT_SEC_TO_MS(tmpVar));
 
-	tmpVar = 0;
 	// manifestTimeout value in sec and convert into MS
-	GETCONFIGVALUE_PRIV(eAAMPConfig_ManifestTimeout,tmpVar);
+	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_ManifestTimeout);
 	jsondata.add("manifestTimeoutMS", (long)CONVERT_SEC_TO_MS(tmpVar));
 
-	tmpLongVar = 0;
 	//downloadStallTimeout in sec
-	GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout,tmpLongVar);
+	tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout);
 	jsondata.add("downloadStallTimeout", tmpLongVar);
 
 	tmpLongVar = 0;
 	//downloadStartTimeout sec
-	GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadStartTimeout,tmpLongVar);
+	tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadStartTimeout);
 	jsondata.add("downloadStartTimeout", tmpLongVar);
 
-	tmpLongVar = 0;
 	//downloadStartTimeout sec
-	GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout,tmpLongVar);
+	tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout);
 	jsondata.add("downloadLowBWTimeout", tmpLongVar);
 
 	//maxConcurrentDownloads
-	GETCONFIGVALUE_PRIV(eAAMPConfig_FogMaxConcurrentDownloads, maxdownload);
+	maxdownload = GETCONFIGVALUE_PRIV(eAAMPConfig_FogMaxConcurrentDownloads);
 	jsondata.add("maxConcurrentDownloads", (long)(maxdownload));
 
 	//disableEC3
@@ -11830,26 +11790,22 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	jsondata.add("tsbInterruptHandling", ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling));
 
 	//minBitrate
-	tmpLongVar = 0;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_MinBitrate,tmpLongVar);
+	tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_MinBitrate);
 	jsondata.add("minBitrate", tmpLongVar);
 
 	//maxBitrate
-	tmpLongVar = 0;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxBitrate,tmpLongVar);
+	tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxBitrate);
 	jsondata.add("maxBitrate", tmpLongVar);
 
 	//enableABR
 	jsondata.add("enableABR", ISCONFIGSET_PRIV(eAAMPConfig_EnableABR));
 	
 	//LiveOffset
-	tmpLongVar =0;
 	if (GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset) > AAMP_DEFAULT_SETTING )
 	{
-		GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp,tmpLongVar);
+		tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp);
 		jsondata.add("abrMaxBuffer",tmpLongVar);
-		tmpLongVar =0;
-		GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown,tmpLongVar);
+		tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown);
 		jsondata.add("abrMinBuffer",tmpLongVar);
 	}
 
@@ -11979,14 +11935,14 @@ void PrivateInstanceAAMP::LoadAampAbrConfig()
 {
 	HybridABRManager::AampAbrConfig mhAampAbrConfig;
 	// ABR config values
-	GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheLife,mhAampAbrConfig.abrCacheLife);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheLength,mhAampAbrConfig.abrCacheLength);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_ABRSkipDuration,mhAampAbrConfig.abrSkipDuration);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_ABRNWConsistency,mhAampAbrConfig.abrNwConsistency);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_ABRThresholdSize,mhAampAbrConfig.abrThresholdSize);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp,mhAampAbrConfig.abrMaxBuffer);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown,mhAampAbrConfig.abrMinBuffer);
-	GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheOutlier,mhAampAbrConfig.abrCacheOutlier);
+	mhAampAbrConfig.abrCacheLife = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheLife);
+	mhAampAbrConfig.abrCacheLength = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheLength);
+	mhAampAbrConfig.abrSkipDuration = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRSkipDuration);
+	mhAampAbrConfig.abrNwConsistency = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRNWConsistency);
+	mhAampAbrConfig.abrThresholdSize = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRThresholdSize);
+	mhAampAbrConfig.abrMaxBuffer = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp);
+	mhAampAbrConfig.abrMinBuffer = GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown);
+	mhAampAbrConfig.abrCacheOutlier = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheOutlier);
 
 	// Logging level support on aampabr
 
@@ -12003,8 +11959,7 @@ void PrivateInstanceAAMP::LoadAampAbrConfig()
  */
 std::string PrivateInstanceAAMP::GetLicenseCustomData()
 {
-	std::string customData;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_CustomLicenseData,customData);
+	std::string customData = GETCONFIGVALUE_PRIV(eAAMPConfig_CustomLicenseData);
 	return customData;
 }
 
@@ -12025,8 +11980,7 @@ bool PrivateInstanceAAMP::HasSidecarData()
  */
 void PrivateInstanceAAMP::UpdateMaxDRMSessions()
 {
-	int maxSessions;
-	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions, maxSessions);
+	int maxSessions = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
 
 	// drm sessions should be updated only when player is idle
 	if (mState == eSTATE_IDLE || mState == eSTATE_RELEASED)

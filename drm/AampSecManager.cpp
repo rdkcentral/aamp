@@ -195,8 +195,7 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 			param["licenseRequestLength"] = licReqLen;
 			
 			//Retry delay
-			int sleepTime ;
-			GETCONFIGVALUE(eAAMPConfig_LicenseRetryWaitTime,sleepTime) ;
+			int sleepTime = GETCONFIGVALUE(eAAMPConfig_LicenseRetryWaitTime);
 			if(sleepTime<=0) sleepTime = 100;
 			//invoke "openPlaybackSession" with retries for specific error cases
 			do

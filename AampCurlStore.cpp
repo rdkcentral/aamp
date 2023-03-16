@@ -506,7 +506,7 @@ CurlStore::CurlStore( void *pContext ):
 {
 	PrivateInstanceAAMP *aamp = static_cast<PrivateInstanceAAMP *>(pContext);
 
-	GETCONFIGVALUE(eAAMPConfig_MaxCurlSockStore, MaxCurlSockStore);
+	MaxCurlSockStore = GETCONFIGVALUE(eAAMPConfig_MaxCurlSockStore);
 	AAMPLOG_INFO("Max sock store size:%d", MaxCurlSockStore);
 }
 

@@ -639,8 +639,7 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 		int32_t sec_client_result = SEC_CLIENT_RESULT_FAILURE;
 		SecClient_ExtendedStatus statusInfo;
 		unsigned int attemptCount = 0;
-		int sleepTime ;
-		aampInstance->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime,sleepTime) ;
+		int sleepTime = aampInstance->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime) ;
 		if(sleepTime<=0) sleepTime = 100;
 		while (attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS)
 		{
@@ -834,8 +833,7 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 			curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &totalTime);
 			if (*httpCode != 200 && *httpCode != 206)
 			{
-				int  licenseRetryWaitTime;
-				aamp->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime,licenseRetryWaitTime) ;
+				int  licenseRetryWaitTime = aamp->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime) ;
 				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : http %d", attemptCount, *httpCode);
 				if(*httpCode >= 500 && *httpCode < 600
 						&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && licenseRetryWaitTime > 0)
@@ -1682,14 +1680,14 @@ bool AampDRMSessionManager::configureLicenseServerParameters(std::shared_ptr<Aam
 				licenseRequest.headers.clear();
 			}
 			// read License request Headers
-			aampInstance->mConfig->GetConfigValue(eAAMPConfig_LRHAcceptValue,customData);
+			customData = aampInstance->mConfig->GetConfigValue(eAAMPConfig_LRHAcceptValue);
 			if (!customData.empty())
 			{
 				licenseRequest.headers.insert({LICENCE_REQUEST_HEADER_ACCEPT, {customData.c_str()}});
 			}
 
 			// read license request content type
-			aampInstance->mConfig->GetConfigValue(eAAMPConfig_LRHContentType,customData);
+			customData = aampInstance->mConfig->GetConfigValue(eAAMPConfig_LRHContentType);
 			if (!customData.empty())
 			{
 				licenseRequest.headers.insert({LICENCE_REQUEST_HEADER_CONTENT_TYPE, {customData.c_str()}});
@@ -1759,8 +1757,7 @@ void AampDRMSessionManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aam
 		pthread_mutex_lock(&aampInstance->mDynamicDrmUpdateLock);
 		int pthreadReturnValue = 0;
 		struct timespec ts;
-		int drmUpdateTimeout;
-		aampInstance->mConfig->GetConfigValue(eAAMPConfig_ContentProtectionDataUpdateTimeout, drmUpdateTimeout);
+		int drmUpdateTimeout = aampInstance->mConfig->GetConfigValue(eAAMPConfig_ContentProtectionDataUpdateTimeout);
 		AAMPLOG_WARN("Timeout Wait for DRM config message from application :%d",drmUpdateTimeout);
 		ts = aamp_GetTimespec(drmUpdateTimeout); /** max delay to update dynamic drm on key rotation **/
 		AAMPLOG_INFO("Found new KeyId %s and not in drm config cache, sending ContentProtectionDataEvent to App", keyIdDebugStr.c_str());
