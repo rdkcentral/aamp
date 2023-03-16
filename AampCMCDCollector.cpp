@@ -128,6 +128,25 @@ void AampCMCDCollector::Initialize(bool enableDisable , std::string &traceId)
 		pCMCDMetrics->SetSessionId(mTraceId);
 		pCMCDMetrics->SetMediaType("SUBTITLE");
 		mCMCDStreamData[eMEDIATYPE_INIT_SUBTITLE] = pCMCDMetrics;
+
+		// for Video Playlist
+		pCMCDMetrics = new ManifestCMCDHeaders();
+		pCMCDMetrics->SetSessionId(mTraceId);
+		pCMCDMetrics->SetMediaType("PLAYLIST_VIDEO");
+		mCMCDStreamData[eMEDIATYPE_PLAYLIST_VIDEO] = pCMCDMetrics;
+
+		// for Audio Playlist
+		pCMCDMetrics = new ManifestCMCDHeaders();
+		pCMCDMetrics->SetSessionId(mTraceId);
+		pCMCDMetrics->SetMediaType("PLAYLIST_AUDIO");
+		mCMCDStreamData[eMEDIATYPE_PLAYLIST_AUDIO] = pCMCDMetrics;
+
+		// for Subtitle Playlist
+		pCMCDMetrics = new ManifestCMCDHeaders();
+		pCMCDMetrics->SetSessionId(mTraceId);
+		pCMCDMetrics->SetMediaType("PLAYLIST_SUBTITLE");
+		mCMCDStreamData[eMEDIATYPE_PLAYLIST_SUBTITLE] = pCMCDMetrics;
+
 	}
 }
 
@@ -227,7 +246,7 @@ void AampCMCDCollector::CMCDGetHeaders(MediaType fileType , std::vector<std::str
 		}
 		else
 		{
-			AAMPLOG_WARN("[CMCD][%d]Couldnt find the filetype to Get metrics",fileType);
+			AAMPLOG_INFO("[CMCD][%d]Couldnt find the filetype to Get metrics",fileType);
 			return;
 		}
 		std::string headerValue;
@@ -262,7 +281,7 @@ void AampCMCDCollector::CMCDSetNetworkMetrics(MediaType fileType,  int startTran
 		}
 		else
 		{
-			AAMPLOG_WARN("[CMCD][%d]Couldnt find the filetype to store metrics",fileType);
+			AAMPLOG_INFO("[CMCD][%d]Couldnt find the filetype to store metrics",fileType);
 		}
 	}
 }
@@ -288,7 +307,7 @@ void AampCMCDCollector::SetBitrates(MediaType fileType,const std::vector<long> b
 		}
 		else
 		{
-			AAMPLOG_WARN("[CMCD][%d]Couldnt find the filetype to store metrics",fileType);
+			AAMPLOG_INFO("[CMCD][%d]Couldnt find the filetype to store metrics",fileType);
 		}
 	}
 }
