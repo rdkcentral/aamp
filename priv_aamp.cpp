@@ -3656,7 +3656,13 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 			{
 				// for Video/Audio segments , set the start timeout as configured by Application
 				progressCtx.startTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadStartTimeout);
-				progressCtx.lowBWTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout);
+				// to enable lowBWTimeout based network timeout factor, if lowBWTimeout is not configured
+				int lowBWTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout);
+				if ((0 == lowBWTimeout) && (AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout)))
+				{
+					lowBWTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout) * LOW_BW_TIMEOUT_FACTOR;
+				}
+				progressCtx.lowBWTimeout = lowBWTimeout;
 			}
 			progressCtx.stallTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout);
 
@@ -3977,7 +3983,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 						{
 							if( fileType == eMEDIATYPE_MANIFEST ||
 							   fileType == eMEDIATYPE_AUDIO ||
-							   fileType == eMEDIATYPE_VIDEO ||
+							   fileType == eMEDIATYPE_PLAYLIST_VIDEO ||
 							   fileType == eMEDIATYPE_INIT_VIDEO ||
 							   fileType == eMEDIATYPE_PLAYLIST_AUDIO ||
 							   fileType == eMEDIATYPE_INIT_AUDIO ||
@@ -4002,7 +4008,10 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 											long downloadbps = ((long)(buffer->GetLen() / downloadTimeMS)*8000);
 											long currentProfilebps	= mpStreamAbstractionAAMP->GetVideoBitrate();
 											if(currentProfilebps - downloadbps >  BITRATE_ALLOWED_VARIATION_BAND)
+											{
 												loopAgain = false;
+												AAMPLOG_WARN("Video retry disabled on timeout bps:%ld var:%d", (currentProfilebps - downloadbps), BITRATE_ALLOWED_VARIATION_BAND);
+											}
 										}
 										curlDownloadTimeoutMS = mNetworkTimeoutMs;
 									}
@@ -11547,8 +11556,12 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadStartTimeout);
 	jsondata.add("downloadStartTimeout", tmpLongVar);
 
-	//downloadStartTimeout sec
+	//downloadLowBWTimeout sec, if default value is 0 sec then derived from network timeout
 	tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout);
+	if ((0 == tmpLongVar) && (AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout)))
+	{
+		tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout) * LOW_BW_TIMEOUT_FACTOR;
+	}
 	jsondata.add("downloadLowBWTimeout", tmpLongVar);
 
 	//maxConcurrentDownloads

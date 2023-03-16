@@ -108,7 +108,7 @@
 #define MAX_DASH_DRM_SESSIONS 30
 #define MAX_AD_SEG_DOWNLOAD_FAIL_COUNT 2            		/**< Max Ad segment download failures to identify as the ad playback failure. */
 #define FRAGMENT_DOWNLOAD_WARNING_THRESHOLD 2000    		/**< MAX Fragment download threshold time in Msec*/
-#define BITRATE_ALLOWED_VARIATION_BAND 500000       		/**< NW BW change beyond this will be ignored */
+#define BITRATE_ALLOWED_VARIATION_BAND 100000       		/**< NW BW change beyond this will be ignored */
 #define MAX_DIFF_BETWEEN_PTS_POS_MS (3600*1000)
 #define MAX_SEG_DOWNLOAD_FAIL_COUNT 10              		/**< Max segment download failures to identify a playback failure. */
 #define MAX_DOWNLOAD_DELAY_LIMIT_MS 30000
