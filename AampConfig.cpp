@@ -1595,6 +1595,7 @@ void AampConfig::ReadBase64TR181Param()
 			}
 		}
 		free(cloudConf); // allocated by base64_Decode in GetTR181AAMPConfig
+		ConfigureLogSettings();
 	}
 #endif
 }
@@ -1695,6 +1696,7 @@ void AampConfig::ReadAllTR181Params()
 			}
 		}
 	}
+	ConfigureLogSettings();
 
 	AAMPLOG_WARN("ReadAllTR181Params took %lld ms to execute", (NOW_STEADY_TS_MS - begin));
 #endif
