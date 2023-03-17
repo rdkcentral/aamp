@@ -52,6 +52,40 @@
 
 #ifdef USE_SECMANAGER
 #define AAMP_SECMGR_INVALID_SESSION_ID (-1)
+
+/**
+ * @brief To handle get/set/invalidate and enquiry about the state of a session ID from multiple threads
+ */
+class SessionId
+{
+private:
+	int64_t 	mSessionId;
+	std::mutex 	sessionIdMutex;
+
+public:
+	SessionId(): mSessionId(AAMP_SECMGR_INVALID_SESSION_ID), sessionIdMutex() {};
+
+	void setSessionId(int64_t sessionId)
+	{
+		std::lock_guard<std::mutex>lock(sessionIdMutex);
+		mSessionId=sessionId;
+	}
+	int64_t getSessionId(void)
+	{
+		std::lock_guard<std::mutex>lock(sessionIdMutex);
+		return mSessionId;
+	}
+	bool isSessionValid(void)
+	{
+		std::lock_guard<std::mutex>lock(sessionIdMutex);
+		return (mSessionId != AAMP_SECMGR_INVALID_SESSION_ID);
+	}
+	void setSessionInvalid(void)
+	{
+		std::lock_guard<std::mutex>lock(sessionIdMutex);
+		mSessionId=AAMP_SECMGR_INVALID_SESSION_ID;
+	}
+};
 #endif
 
 /**

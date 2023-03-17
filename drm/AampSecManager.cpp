@@ -48,6 +48,8 @@ void AampSecManager::DestroyInstance()
 {
 	if (mInstance)
 	{
+		/* hide watermarking before secman shutdown */
+		mInstance->ShowWatermark(false);
 		delete mInstance;
 		mInstance = NULL;
 	}
@@ -66,6 +68,9 @@ AampSecManager::AampSecManager() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSecMut
 		std::lock_guard<std::mutex> lock(mWatMutex);
 		mWatermarkPluginObj.ActivatePlugin();
 	}
+
+	/* hide watermarking at startup */
+	ShowWatermark(false);
 
 	/*Start Scheduler for handling RDKShell API invocation*/    
 	if(false == mSchedulerStarted)
@@ -101,8 +106,8 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 					const char* accessAttributes[][2], const char* contentMetdata, size_t contMetaLen,
 					const char* licenseRequest, size_t licReqLen, const char* keySystemId,
 					const char* mediaUsage, const char* accessToken, size_t accTokenLen,
-					int64_t* sessionId,
-					char** licenseResponse, size_t* licenseResponseLength, int32_t* statusCode, int32_t* reasonCode, int32_t* businessStatus)
+					SessionId &sessionId,
+					char** licenseResponse, size_t* licenseResponseLength, int32_t* statusCode, int32_t* reasonCode, int32_t* businessStatus, bool isVideoMuted)
 {
 	// licenseUrl un-used now
 	(void) licenseUrl;
@@ -137,8 +142,8 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 
 	sessionConfig["distributedTraceType"] = "money";
 	sessionConfig["distributedTraceId"] = moneyTraceMetdata[0][1];
-	sessionConfig["sessionState"] = "active";
-
+	//Start the playback session as inactive if the video mute is on
+	sessionConfig["sessionState"] = isVideoMuted ? "inactive" : "active";
 	// TODO: Remove hardcoded values
 	aspectDimensions["width"] = 1920;
 	aspectDimensions["height"] = 1080;
@@ -151,10 +156,10 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 	param["mediaUsage"] = mediaUsage;
 	
 	// If sessionId is present, we are trying to acquire a new license within the same session
-	if (*sessionId != -1)
+	if (sessionId.isSessionValid())
 	{
 		apiName = "updatePlaybackSession";
-		param["sessionId"] = *sessionId;
+		param["sessionId"] = sessionId.getSessionId();
 	}
 
 #ifdef DEBUG_SECMAMANER
@@ -243,9 +248,9 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 						}
 					}
 					// Save session ID
-					if (*sessionId == -1)
+					if (!sessionId.isSessionValid())
 					{
-						*sessionId = response["sessionId"].Number();
+						sessionId.setSessionId( response["sessionId"].Number() );
 					}
 					
 				}
@@ -288,7 +293,7 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 				}
 				else
 				{
-					AAMPLOG_INFO("SecManager license request success, response for %s : statusCode: %d, reasonCode: %d", apiName, *statusCode, *reasonCode);
+					AAMPLOG_INFO("SecManager license request success, response for %s : statusCode: %d, reasonCode: %d, session status: %s", apiName, *statusCode, *reasonCode, isVideoMuted ? "inactive" : "active");
 					break;
 				}
 			}
@@ -421,17 +426,13 @@ bool AampSecManager::setVideoWindowSize(int64_t sessionId, int64_t video_width, 
 /**
  * @brief To set Playback Speed State to SecManager
  */
-bool AampSecManager::setPlaybackSpeedState(int64_t sessionId, int64_t playback_speed, int64_t playback_position, bool delayNeeded)
+bool AampSecManager::setPlaybackSpeedState(int64_t sessionId, int64_t playback_speed, int64_t playback_position)
 {
        bool rpcResult = false;
        JsonObject result;
        JsonObject param;
        //mSpeedStateMutex is used to avoid any speedstate event to go when a delayed event is in progress results change in order of event call (i.e, if user tries a trickplay within half a second of tune)
        std::lock_guard<std::mutex> lock(mSpeedStateMutex);
-       if(delayNeeded)
-       {
-              mssleep(SECMANGER_SPEED_SET_DELAY);
-       }
 
        param["sessionId"] = sessionId;
        param["playbackSpeed"] = playback_speed;

@@ -136,7 +136,10 @@ private:
 	bool mEnableAccessAtrributes;
 	int mMaxDRMSessions;
 #ifdef USE_SECMANAGER
-	int64_t mSessionId;
+	SessionId mSessionId;
+	std::atomic<bool> mIsVideoOnMute;
+	std::atomic<int> mCurrentSpeed;
+	std::atomic<bool> mFirstFrameSeen;
 #endif
 	/**     
      	 * @brief Copy constructor disabled
@@ -271,7 +274,20 @@ public:
 
 	void setVideoWindowSize(int width, int height);
 
-	void setPlaybackSpeedState(int speed, double position, bool delayNeeded = false);
+	/**
+	 * @brief 	Update tracking of speed status and send watermarking requests as required. This is based on video presence, video mute state, and speed
+	 * @param	speed playback speed
+	 * @param	position indicates the playback position at which most recent playback activity began
+	 * @param   firstFrameSeen set to true the first time we see a video frame after tune
+ 	*/
+	void setPlaybackSpeedState(int speed, double position, bool firstFrameSeen = false);
+	
+	/**
+	 * @brief 	Update tracking of video mute status and update watermarking requests as required, based on video presence, video mute state, and speed
+	 * @param	videoMuteStatus video mute state to be set
+	 * @param	seek_pos_seconds indicates the playback position at which most recent playback activity began
+ 	*/
+ 	void setVideoMute(bool videoMuteStatus, double seek_pos_seconds);
 	/**
 	 * @fn    	setSessionMgrState
 	 * @param	state session manager sate to be set

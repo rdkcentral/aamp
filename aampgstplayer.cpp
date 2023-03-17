@@ -833,6 +833,8 @@ static gboolean IdleCallbackFirstVideoFrameDisplayed(gpointer user_data)
 void AAMPGstPlayer::NotifyFirstFrame(MediaType type)
 {
 	FN_TRACE( __FUNCTION__ );
+	bool firstBufferNotified=false;
+
 	// RDK-34481 :LogTuneComplete will be noticed after getting video first frame.
 	// incase of audio or video only playback NumberofTracks =1, so in that case also LogTuneCompleted needs to captured when either audio/video frame received.
 	if (!privateContext->firstFrameReceived && (privateContext->firstVideoFrameReceived
@@ -842,6 +844,7 @@ void AAMPGstPlayer::NotifyFirstFrame(MediaType type)
 		aamp->LogFirstFrame();
 		aamp->LogTuneComplete();
 		aamp->NotifyFirstBufferProcessed();
+		firstBufferNotified=true;
 	}
 
 	if (eMEDIATYPE_VIDEO == type)
@@ -851,7 +854,10 @@ void AAMPGstPlayer::NotifyFirstFrame(MediaType type)
 		// DELIA-42262: No additional checks added here, since the NotifyFirstFrame will be invoked only once
 		// in westerossink disabled case until BCOM fixes it. Also aware of NotifyFirstBufferProcessed called
 		// twice in this function, since it updates timestamp for calculating time elapsed, its trivial
-		aamp->NotifyFirstBufferProcessed();
+		if (!firstBufferNotified)
+		{
+			aamp->NotifyFirstBufferProcessed();
+		}
 
 		if (!privateContext->decoderHandleNotified)
 		{

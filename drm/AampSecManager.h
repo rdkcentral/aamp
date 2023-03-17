@@ -65,7 +65,7 @@ public:
 	 * @param[in] keySystemId - unique system ID of drm
 	 * @param[in] mediaUsage - indicates whether its stream or download license request
 	 * @param[in] accessToken - access token info
-	 * @param[out] sessionId - ID of current session
+	 * @param[out] sessionId - session ID object of current session
 	 * @param[out] licenseResponse - license response
 	 * @param[out] licenseResponseLength - len of license response
 	 * @param[out] statusCode - license fetch status code
@@ -76,9 +76,9 @@ public:
 						const char* accessAttributes[][2], const char* contentMetadata, size_t contentMetadataLen,
 						const char* licenseRequest, size_t licenseRequestLen, const char* keySystemId,
 						const char* mediaUsage, const char* accessToken, size_t accessTokenLen,
-						int64_t* sessionId,
+						SessionId &sessionId,
 						char** licenseResponse, size_t* licenseResponseLength,
-						int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus);
+						int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus, bool isVideoMuted);
 
 
 	/**
@@ -108,10 +108,9 @@ public:
 	 *
 	 * @param[in] sessionId - session id
 	 * @param[in] playback_speed - playback speed 
-	 * @param[in] playback_position - playback position
-	 * @param[in] delayNeeded - if delay is required, to avoid any wm flash before tune
+	 * @param[in] playback_position - playback position	 
 	 */
-	bool setPlaybackSpeedState(int64_t sessionId, int64_t playback_speed, int64_t playback_position, bool delayNeeded = false);
+	bool setPlaybackSpeedState(int64_t sessionId, int64_t playback_speed, int64_t playback_position);
 	/**
 	 * @fn loadClutWatermark
 	 * @param[in] sessionId - session id

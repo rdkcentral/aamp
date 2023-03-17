@@ -180,10 +180,6 @@
 
 #define MAX_SESSION_ID_LENGTH 128                                /**<session id string length */
 
-
-//delay for the first speed set event
-#define SECMANGER_SPEED_SET_DELAY 500
-
 //DELIA-53727 change this into #define to extract the raw YCrCb colors from each frame of video
 #undef RENDER_FRAMES_IN_APP_CONTEXT
 

@@ -6668,6 +6668,12 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
 	mStreamSink->SetVideoMute(muted);
+#ifdef USE_SECMANAGER
+	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
+	{
+		mDRMSessionManager->setVideoMute(muted, seek_pos_seconds);
+	}
+#endif
 }
 
 /**
@@ -8338,10 +8344,8 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed()
 #ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
-		//Thread to call setplayback speed as it needs a 500ms delay here
-		std::thread t([&](){
-			mDRMSessionManager->setPlaybackSpeedState(rate,seek_pos_seconds, true);});
-		t.detach();
+		mDRMSessionManager->setVideoMute(video_muted, seek_pos_seconds);
+		mDRMSessionManager->setPlaybackSpeedState(rate,seek_pos_seconds, true);
 		int x,y,w,h;
 		sscanf(mStreamSink->GetVideoRectangle().c_str(),"%d,%d,%d,%d",&x,&y,&w,&h);
 		AAMPLOG_WARN("calling setVideoWindowSize  w:%d x h:%d ",w,h);
