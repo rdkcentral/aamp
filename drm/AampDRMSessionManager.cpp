@@ -873,7 +873,6 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 		curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD, &dlSize);
 		curl_easy_getinfo(curl, CURLINFO_REQUEST_SIZE, &reqSize);
 
-		MediaTypeTelemetry mediaType = eMEDIATYPE_TELEMETRY_DRM;
 		std::string appName, timeoutClass;
 		if (!aamp->GetAppName().empty())
 		{
@@ -886,9 +885,15 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 			// example 18(0) if connection failure with PARTIAL_FILE code
 			timeoutClass = "(" + to_string(reqSize > 0) + ")";
 		}
-		AAMPLOG_WARN("HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%.500s",
-						appName.c_str(), mediaType, streamType, *httpCode, timeoutClass.c_str(), totalPerformRequest, totalTime, connect, startTransfer, resolve, appConnect,
-						preTransfer, redirect, dlSize, reqSize, licenseRequest.url.c_str());
+		AAMPLOG_WARN("HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s",
+					 appName.c_str(),
+					 eMEDIATYPE_TELEMETRY_DRM,
+					 eMEDIATYPE_LICENCE,//streamType,
+					 *httpCode, timeoutClass.c_str(), totalPerformRequest, totalTime, connect, startTransfer, resolve, appConnect,
+						preTransfer, redirect, dlSize, reqSize,
+					 0.0, // downloadbps, include so we get consistent HttpRequestEnd format, but no urgency to populate here
+					 0.0, // video fragment bitrate, n/a
+					 licenseRequest.url.c_str());
 
 		if(!loopAgain)
 			break;
