@@ -88,7 +88,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	}
 	else if( sscanf(cmd, "select %d", &playerIndex ) == 1 )
 	{
-		if( playerIndex < mAampcli.mPlayerInstances.size() )
+		if( (playerIndex > -1) && (playerIndex < mAampcli.mPlayerInstances.size() ))
 		{
 			playerInstanceAamp = mAampcli.mPlayerInstances.at(playerIndex);
 			if (playerInstanceAamp->aamp)
@@ -288,7 +288,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 		// history_length is defined in the header file history.h
 		for (int i = 0; i < history_length; i++)
 		{
-			printf ("%s\n", history_get(i+1)->line);
+			printf ("%s\n", history_get(i) ? history_get(i)->line : "NULL");
 		}
 	}
 	else if( isCommandMatch(cmd,"auto") )

@@ -2232,9 +2232,9 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 									}
 									AcquirePlaylistLock();
 								}
-								ReleasePlaylistLock();
 								double fragmentDuration = ComputeFragmentDuration(duration,timeScale);
 								pMediaStreamContext->lastSegmentTime = startTime;
+								ReleasePlaylistLock();
 								retval = FetchFragment(pMediaStreamContext, segmentURL->GetMediaURI(), fragmentDuration, false, curlInstance);
 								if( mCheckForRampdown )
 								{

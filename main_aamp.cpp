@@ -810,7 +810,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			/* if Gstreamer pipeline set to paused state by user, change it to playing state */
 			if( aamp->pipeline_paused == true )
 			{
-				aamp->mStreamSink->Pause(false, false);
+				(void)aamp->mStreamSink->Pause(false, false);
 			}
 			aamp->rate = rate;
 			aamp->pipeline_paused = false;

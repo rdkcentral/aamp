@@ -118,7 +118,6 @@ private:
 	bool mInitialized;
 	bool mCacheActive;
 	bool mAsyncCacheCleanUpThread;
-	bool mAsyncThreadStartedFlag;
 	int mMaxPlaylistCacheSize;
 	pthread_mutex_t mMutex;
 	pthread_mutex_t mCondVarMutex;

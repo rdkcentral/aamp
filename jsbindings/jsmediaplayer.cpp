@@ -231,7 +231,7 @@ bool ParseJSPropAsString(JSContextRef ctx, JSObjectRef jsObject, const char *pro
 	if (JSValueIsString(ctx, propValue))
 	{
 		value = aamp_JSValueToCString(ctx, propValue, NULL);
-		LOG_WARN_EX("Parsed value for property %s - %f",prop, value);
+		LOG_WARN_EX("Parsed value for property %s - %s",prop, value);
 		ret = true;
 	}
 	else
@@ -821,12 +821,12 @@ JSValueRef AAMPMediaPlayerJS_getThumbnails (JSContextRef ctx, JSObjectRef functi
 
 		if (!value.empty())
 		{
-			LOG_INFO(privObj," %d  _aamp->GetThumbnails(%d, %d)",value.size(), startPos, endPos);
+			LOG_INFO(privObj," %d  _aamp->GetThumbnails(%lf, %lf)",value.size(), startPos, endPos);
 			return aamp_CStringToJSValue(ctx, value.c_str());
 		}
 		else
 		{
-			LOG_INFO(privObj," 0  _aamp->GetThumbnails(%d, %d)", startPos, endPos);
+			LOG_INFO(privObj," 0  _aamp->GetThumbnails(%lf, %lf)", startPos, endPos);
 		}
 	}
 	else
@@ -1825,7 +1825,7 @@ JSValueRef AAMPMediaPlayerJS_setPlaybackRate (JSContextRef ctx, JSObjectRef func
 			overshootCorrection = (int) JSValueToNumber(ctx, arguments[1], exception);
 		}
 		{
-               		LOG_WARN(privObj,"_aamp->SetRate(%d, %d)", rate, overshootCorrection);
+			LOG_WARN(privObj,"_aamp->SetRate(%f, %d)", rate, overshootCorrection);
 			privObj->_aamp->SetRate(rate, overshootCorrection);
 		}
 	}
@@ -2193,7 +2193,7 @@ JSValueRef AAMPMediaPlayerJS_addCustomHTTPHeader (JSContextRef ctx, JSObjectRef 
 		{
 			isLicenseHeader = JSValueToBoolean(ctx, arguments[2]);
 		}
-		LOG_WARN(privObj,"  _aamp->AddCustomHTTPHeader headerName= %s headerVal= %p",headerName.c_str(), headerVal);
+		LOG_WARN(privObj,"  _aamp->AddCustomHTTPHeader headerName= %s headerValSz= %u",headerName.c_str(), headerVal.size());
 		privObj->_aamp->AddCustomHTTPHeader(headerName, headerVal, isLicenseHeader);
 	}
 	else
@@ -2651,7 +2651,8 @@ static JSValueRef AAMPMediaPlayerJS_setAlternateContent(JSContextRef ctx, JSObje
 			std::string url(adURL);  //CID:115000 - Resolve Forward null
 
 			privObj->saveCallbackForAdId(adIdStr, callbackObj); //save callback for sending status later, if ad can be played or not
-            		LOG_WARN(privObj,"_aamp->SetAlternateContents(adBreakId=%s,adIdStr=%s,url=%s) with promiseCallback:%p",adBreakId, adIdStr,url,callbackObj);
+			//CID:334429 Resolved the invalid type arg for format specifier
+			LOG_WARN(privObj,"_aamp->SetAlternateContents(adBreakId=%s,adIdStr=%s,url=%s) with promiseCallback:%p",adBreakId.c_str(), adIdStr.c_str(),url.c_str(),callbackObj);
 			privObj->_aamp->SetAlternateContents(adBreakId, adIdStr, url);
 		}
 		else

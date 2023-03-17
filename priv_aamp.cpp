@@ -5291,8 +5291,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			&& rate == AAMP_NORMAL_PLAY_RATE
 			&& mpStreamAbstractionAAMP->IsInitialCachingSupported())
 		{
+			pthread_mutex_lock(&mFragmentCachingLock);
 			mFirstVideoFrameDisplayedEnabled = true;
 			mFragmentCachingRequired = true;
+			pthread_mutex_unlock(&mFragmentCachingLock);
 		}
 
 		// Set Pause on First Video frame if seeking and requested
@@ -5301,7 +5303,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mFirstVideoFrameDisplayedEnabled = true;
 			mPauseOnFirstVideoFrameDisp = true;
 		}
-
 #ifndef AAMP_STOP_SINK_ON_SEEK
 		if (mMediaFormat == eMEDIAFORMAT_HLS)
 		{
@@ -5358,6 +5359,21 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if (mbPlayEnabled)
 				mStreamSink->Stream();
 		}
+
+		if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
+		{
+			if (HasSidecarData())
+			{
+				// has sidecar data
+				mpStreamAbstractionAAMP->ResumeSubtitleAfterSeek(subtitles_muted, mData.get());
+			}
+
+			if (!mTextStyle.empty())
+			{
+				// Restore the subtitle text style after a seek.
+				(void)mpStreamAbstractionAAMP->SetTextStyle(mTextStyle);
+			}
+		}
 	}
 
 	if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
@@ -5388,20 +5404,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 #endif
 
-	if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
-	{
-		if (HasSidecarData())
-		{ // has sidecar data
-			if (mpStreamAbstractionAAMP)
-				mpStreamAbstractionAAMP->ResumeSubtitleAfterSeek(subtitles_muted, mData.get());
-		}
-
-		if ((mpStreamAbstractionAAMP) && (!mTextStyle.empty()))
-		{
-			// Restore the subtitle text style after a seek.
-			(void)mpStreamAbstractionAAMP->SetTextStyle(mTextStyle);
-		}
-	}
 
 	if (newTune && !mIsFakeTune)
 	{

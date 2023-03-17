@@ -408,6 +408,7 @@ static JSValueRef AAMP_getProperty_timedMetadata(JSContextRef context, JSObjectR
 static bool AAMP_setProperty_stallErrorCode(JSContextRef context, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef value, JSValueRef* exception)
 {
 	LOG_TRACE("Enter");
+	int errorCode;
 	AAMP_JS* pAAMP = (AAMP_JS*)JSObjectGetPrivate(thisObject);
 	if (pAAMP == NULL)
 	{
@@ -415,8 +416,9 @@ static bool AAMP_setProperty_stallErrorCode(JSContextRef context, JSObjectRef th
 		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.stallErrorCode on instances of AAMP");
 		return false;
 	}
-        LOG_WARN(pAAMP,"_aamp->SetStallErrorCode context=%p  value=%d exception=%p ",context, value, exception);
-	pAAMP->_aamp->SetStallErrorCode(JSValueToNumber(context, value, exception));
+	errorCode = (int)JSValueToNumber(context, value, exception);
+        LOG_WARN(pAAMP,"_aamp->SetStallErrorCode context=%p  value=%d exception=%p ",context, errorCode, exception);
+	pAAMP->_aamp->SetStallErrorCode(errorCode);
 	return true;
 }
 
@@ -433,6 +435,7 @@ static bool AAMP_setProperty_stallErrorCode(JSContextRef context, JSObjectRef th
 static bool AAMP_setProperty_stallTimeout(JSContextRef context, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef value, JSValueRef* exception)
 {
 	LOG_TRACE("Enter");
+	int timeoutMS;
 	AAMP_JS* pAAMP = (AAMP_JS*)JSObjectGetPrivate(thisObject);
 	if (pAAMP == NULL)
 	{
@@ -440,8 +443,9 @@ static bool AAMP_setProperty_stallTimeout(JSContextRef context, JSObjectRef this
 		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.stallTimeout on instances of AAMP");
 		return false;
 	}
-        LOG_WARN(pAAMP,"_aamp->SetStallTimeout context=%p  value=%d exception=%p",context, value, exception);
-	pAAMP->_aamp->SetStallTimeout(JSValueToNumber(context, value, exception));
+	timeoutMS = (int)JSValueToNumber(context, value, exception);
+        LOG_WARN(pAAMP,"_aamp->SetStallTimeout context=%p  value=%d exception=%p",context, timeoutMS, exception);
+	pAAMP->_aamp->SetStallTimeout(timeoutMS);
 	return true;
 }
 
@@ -458,6 +462,7 @@ static bool AAMP_setProperty_stallTimeout(JSContextRef context, JSObjectRef this
 static bool AAMP_setProperty_reportInterval(JSContextRef context, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef value, JSValueRef* exception)
 {
 	LOG_TRACE("Enter");
+	int reportInterval;
 	AAMP_JS* pAAMP = (AAMP_JS*)JSObjectGetPrivate(thisObject);
 	if (pAAMP == NULL)
 	{
@@ -465,8 +470,9 @@ static bool AAMP_setProperty_reportInterval(JSContextRef context, JSObjectRef th
 		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.reportInterval on instances of AAMP");
 		return false;
 	}
-        LOG_WARN(pAAMP,"_aamp->SetReportInterval context=%p  value=%d exception=%p ",context, value, exception);
-	pAAMP->_aamp->SetReportInterval(JSValueToNumber(context, value, exception));
+	reportInterval = (int)JSValueToNumber(context, value, exception);
+        LOG_WARN(pAAMP,"_aamp->SetReportInterval context=%p  value=%d exception=%p ",context, reportInterval, exception);
+	pAAMP->_aamp->SetReportInterval(reportInterval);
 	return true;
 }
 
@@ -482,6 +488,7 @@ static bool AAMP_setProperty_reportInterval(JSContextRef context, JSObjectRef th
 static bool AAMP_setProperty_enableNativeCC(JSContextRef context, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef value, JSValueRef* exception)
 {
 	LOG_TRACE("Enter");
+	bool enableNativeCC;
 	AAMP_JS* pAAMP = (AAMP_JS*)JSObjectGetPrivate(thisObject);
 	if (pAAMP == NULL)
 	{
@@ -489,8 +496,9 @@ static bool AAMP_setProperty_enableNativeCC(JSContextRef context, JSObjectRef th
 		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.reportInterval on instances of AAMP");
 		return false;
 	}
-        LOG_WARN(pAAMP,"_aamp->SetNativeCCRendering context=%p  value=%d ",context, value);
-	pAAMP->_aamp->SetNativeCCRendering(JSValueToBoolean(context, value));
+	enableNativeCC = (bool)JSValueToBoolean(context, value);
+        LOG_WARN(pAAMP,"_aamp->SetNativeCCRendering context=%p  value=%d ",context, enableNativeCC);
+	pAAMP->_aamp->SetNativeCCRendering(enableNativeCC);
 	return true;
 }
 
@@ -506,6 +514,7 @@ static bool AAMP_setProperty_enableNativeCC(JSContextRef context, JSObjectRef th
 static bool AAMP_setProperty_preferredCEAFormat(JSContextRef context, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef value, JSValueRef* exception)
 {
 	LOG_TRACE("Enter");
+	int preferredCEAFormat;
 	AAMP_JS* pAAMP = (AAMP_JS*)JSObjectGetPrivate(thisObject);
 	if (pAAMP == NULL)
 	{
@@ -513,8 +522,9 @@ static bool AAMP_setProperty_preferredCEAFormat(JSContextRef context, JSObjectRe
 		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.reportInterval on instances of AAMP");
 		return false;
 	}
-        LOG_WARN(pAAMP,"_aamp->SetCEAFormat context=%p  value=%d exception=%p ",context, value, exception);
-	pAAMP->_aamp->SetCEAFormat((int)JSValueToNumber(context, value, exception));
+	preferredCEAFormat = (int)JSValueToNumber(context, value, exception);
+        LOG_WARN(pAAMP,"_aamp->SetCEAFormat context=%p  value=%d exception=%p ",context, preferredCEAFormat, exception);
+	pAAMP->_aamp->SetCEAFormat(preferredCEAFormat);
 	return true;
 }
 
@@ -2340,7 +2350,7 @@ static JSValueRef AAMP_load(JSContextRef context, JSObjectRef function, JSObject
 			pAAMP->_aamp->SetSessionToken(strAuthToken);
 		}
 		{
-                        LOG_WARN(pAAMP," _aamp->Tune(%d, %d, %d, %d, %d)", true, contentType, bFirstAttempt, bFinalAttempt, strTraceId);
+                        LOG_WARN(pAAMP," _aamp->Tune(%d, %s, %d, %d, %s)", true, contentType, bFirstAttempt, bFinalAttempt, strTraceId);
 			pAAMP->_aamp->Tune(url, true, contentType, bFirstAttempt, bFinalAttempt, strTraceId);
 		}
 
@@ -2423,7 +2433,7 @@ static JSValueRef AAMP_setRate(JSContextRef context, JSObjectRef function, JSObj
 
                 LOG_WARN(pAAMP,"rate=%f, overshoot=%d", rate, overshoot);
 		{
-           		LOG_WARN(pAAMP," _aamp->SetRate(%d, %d)", rate, overshoot);
+			LOG_WARN(pAAMP," _aamp->SetRate(%f, %d)", rate, overshoot);
 			pAAMP->_aamp->SetRate(rate, overshoot);
 		}
 	}
@@ -2810,7 +2820,7 @@ static JSValueRef AAMP_addCustomHTTPHeader(JSContextRef context, JSObjectRef fun
 			*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.addCustomHTTPHeader' - 2nd argument should be a string or array of strings");
 			return JSValueMakeUndefined(context);
 		}
-                LOG_WARN(pAAMP,"  _aamp->AddCustomHTTPHeader headerName= %s headerVal= %p",headerName.c_str(), headerVal);
+                LOG_WARN(pAAMP,"  _aamp->AddCustomHTTPHeader headerName= %s headerValSz= %u",headerName.c_str(), headerVal.size());
 		pAAMP->_aamp->AddCustomHTTPHeader(headerName, headerVal);
 	}
 	return JSValueMakeUndefined(context);

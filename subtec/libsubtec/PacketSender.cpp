@@ -199,7 +199,10 @@ bool PacketSender::initSocket(const char *socket_path)
     addr.sun_path[sizeof(addr.sun_path) - 1] = 0;
 
     socklen_t optlen = sizeof(mSockBufSize);
-    ::getsockopt(mSubtecSocketHandle, SOL_SOCKET, SO_SNDBUF, &mSockBufSize, &optlen);
+    if(::getsockopt(mSubtecSocketHandle, SOL_SOCKET, SO_SNDBUF, &mSockBufSize, &optlen) != 0)
+    {
+	    AAMPLOG_WARN("PacketSender: getsockopt Fails");
+    }
     mSockBufSize = mSockBufSize / 2;  //kernel returns twice the value of actual buffer
     AAMPLOG_INFO("SockBuffer size : %d\n", mSockBufSize);
 

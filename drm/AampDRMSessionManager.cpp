@@ -1168,6 +1168,7 @@ KeyState AampDRMSessionManager::getDrmSession(std::shared_ptr<AampDrmHelper> drm
 			{
 				cachedKeyIDs[sessionSlot].data.clear();
 			}
+
 			cachedKeyIDs[sessionSlot].isFailedKeyId = false;
 
 			std::vector<std::vector<uint8_t>> data;
@@ -1225,12 +1226,16 @@ KeyState AampDRMSessionManager::getDrmSession(std::shared_ptr<AampDrmHelper> drm
 					return KEY_READY;
 				}
 				AAMPLOG_WARN("key was never ready for %s ", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
+				//CID-164094 : Added the mutex lock due to overriding the isFailedKeyId variable
+				AampMutexHold keymutex(cachedKeyMutex);
 				cachedKeyIDs[selectedSlot].isFailedKeyId = true;
 				return KEY_ERROR;
 			}
 			else
 			{
 				AAMPLOG_WARN("existing DRM session for %s has error state %d", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str(), existingState);
+				//CID-164094 : Added the mutex lock due to overriding the isFailedKeyId variable
+				AampMutexHold keymutex(cachedKeyMutex);
 				cachedKeyIDs[selectedSlot].isFailedKeyId = true;
 				return KEY_ERROR;
 			}

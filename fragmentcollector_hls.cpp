@@ -4116,7 +4116,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				aux->streamOutputFormat = FORMAT_INVALID;
 			}
 		}
-		if (video->enabled && !video->playlist.len)
+		if (video && video->enabled && !video->playlist.len)
 		{
 			AAMPLOG_ERR("StreamAbstractionAAMP_HLS::Video Playlist download failed");
 			return eAAMPSTATUS_PLAYLIST_VIDEO_DOWNLOAD_ERROR;

@@ -115,10 +115,16 @@ void SmokeTest::vodTune(const char *stream)
 			url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.m3u8";
 		}
 	}
+
+	if(NULL == url)
+	{
+		printf("%s:%d: URL is InValid\n",__FUNCTION__,__LINE__);
+		return;
+	}
 	
 	fp = stdout;
 	stdout = fopen(fileName.c_str(),"w");
-	
+
 	mPlayerInstanceAamp->Tune(url);
 
 	initialTime = time(NULL);
@@ -202,7 +208,11 @@ bool SmokeTest::createTestFilePath(std::string &filePath)
 	DIR *dir = opendir(filePath.c_str());
 	if (!dir)
 	{
-		mkdir(filePath.c_str(), 0777);
+		if(mkdir(filePath.c_str(), 0777) == -1)
+		{
+			printf("%s:%d: Error :  %s\n",__FUNCTION__,__LINE__,strerror(errno));
+			return false;
+		}
 	}
 	else
 	{
