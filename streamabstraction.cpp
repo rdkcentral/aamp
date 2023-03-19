@@ -3165,6 +3165,13 @@ bool StreamAbstractionAAMP::GetPreferredLiveOffsetFromConfig()
 		{
 			/**Update live Offset with 4K stream live offset configured*/
 			GETCONFIGVALUE(eAAMPConfig_LiveOffset4K, aamp->mLiveOffset);
+			if(aamp->mBufferFor4kRampup != 0)
+			{
+				SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_MaxABRNWBufferRampUp,aamp->mBufferFor4kRampup);
+				SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_MinABRNWBufferRampDown,aamp->mBufferFor4kRampdown);
+				aamp->LoadAampAbrConfig();
+
+			}
 			AAMPLOG_INFO("Updated live offset for 4K stream %lf", aamp->mLiveOffset);
 			stream4K = true;
 		}

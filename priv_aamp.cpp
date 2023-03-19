@@ -1445,6 +1445,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsEventStreamFound(false)
 	, mFogDownloadFailReason("")
 	, mBlacklistedProfiles()
+	, mBufferFor4kRampup(0)
+	, mBufferFor4kRampdown(0)
 {
 	for(int i=0; i<eMEDIATYPE_DEFAULT; i++)
 	{
@@ -5515,6 +5517,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 
 	GETCONFIGVALUE_PRIV(eAAMPConfig_SchemeIdUriDaiStream,mSchemeIdUriDai);
 
+	UpdateBufferBasedOnLiveOffset();
 	// Set the EventManager config
 	// TODO When faketune code is added later , push the faketune status here
 	mEventManager->SetAsyncTuneState(mAsyncTuneEnabled);
@@ -5544,6 +5547,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 		{
 			LoadAampAbrConfig();
 		}
+
 	}
 	//temporary hack for peacock
 	if (STARTS_WITH_IGNORE_CASE(mAppName.c_str(), "peacock"))
@@ -11687,7 +11691,43 @@ unsigned char* PrivateInstanceAAMP::ReplaceKeyIDPsshData(const unsigned char *In
 	}
 	return NULL;
 }
+/*
+ * @brief UpdateBufferBasedOnLiveOffset - fn to modify maxbuffer and minbuffer based on liveoffset 
+ */
+ 
+void PrivateInstanceAAMP::UpdateBufferBasedOnLiveOffset()
+{
+	if(GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset) > AAMP_DEFAULT_SETTING || GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset4K) > AAMP_DEFAULT_SETTING )
+	{
+		int maxbuffer,minbuffer;
+		double liveoffset =0,liveoffset4k=0;
+		GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffset,liveoffset);
+		GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffset4K,liveoffset4k);
+		GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp,maxbuffer);
+		if(GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset4K) > AAMP_DEFAULT_SETTING)
+		{
+			if(liveoffset4k < maxbuffer)
+			{
+				mBufferFor4kRampup = liveoffset4k -2 ;
+				mBufferFor4kRampdown = mBufferFor4kRampup - 5 ;
+				mBufferFor4kRampdown = mBufferFor4kRampdown < 2 ? 2 : mBufferFor4kRampdown;
+			}
+		}
+		if(GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset) > AAMP_DEFAULT_SETTING)
+		{
+			if(liveoffset < maxbuffer)
+			{
+				maxbuffer = liveoffset -2;
+				minbuffer = maxbuffer  -5 ;
+				minbuffer = minbuffer < 2 ? 2: minbuffer;
+				SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_MaxABRNWBufferRampUp,maxbuffer);
+				SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_MinABRNWBufferRampDown,minbuffer);
+			}
+		}
 
+
+	}
+}
 /**
  * @brief Check if segment starts with an ID3 section
  */
@@ -12075,7 +12115,28 @@ long PrivateInstanceAAMP::LoadFogConfig()
 
 	//enableABR
 	jsondata.add("enableABR", ISCONFIGSET_PRIV(eAAMPConfig_EnableABR));
+	
+	//LiveOffset
+	tmpLongVar =0;
+	if (GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset) > AAMP_DEFAULT_SETTING )
+	{
+		GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp,tmpLongVar);
+		jsondata.add("abrMaxBuffer",tmpLongVar);
+		tmpLongVar =0;
+		GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown,tmpLongVar);
+		jsondata.add("abrMinBuffer",tmpLongVar);
+	}
 
+	//LiveOffset4k
+	tmpLongVar = 0;
+	if(GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset4K) > AAMP_DEFAULT_SETTING)
+	{
+		if(mBufferFor4kRampup != 0)
+		{
+			jsondata.add("abrMaxBuffer4k",mBufferFor4kRampup);
+			jsondata.add("abrMinBuffer4k",mBufferFor4kRampdown);
+		}
+	}
 	/*
 	 * Audio and subtitle preference
 	 * Disabled this for XRE supported TSB linear

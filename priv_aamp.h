@@ -841,6 +841,13 @@ public:
 	 * @retval Output data pointer 
 	 */
 	unsigned char* ReplaceKeyIDPsshData(const unsigned char *InputData, const size_t InputDataLength,  size_t & OutputDataLength);
+
+	/**
+	 * @fn UpdateBufferBasedOnLiveOffset - to modify Min/Max buffer based on liveoffset value
+	 *
+	 * @return void
+	 */
+	void UpdateBufferBasedOnLiveOffset();
 	
 	std::vector< std::pair<long long,long> > mAbrBitrateData;
 
@@ -1160,6 +1167,8 @@ public:
 	bool mIsStream4K;                  /**< Identify whether live playing stream is 4K or not; reset on every retune*/
 	bool mIsInbandCC;                   /** Indicate inband cc or out of band cc is selected*/
 	std::string mFogDownloadFailReason; /** Identify Fog Manifest Download Failure Reason*/
+	int mBufferFor4kRampup; 		    /** Max Buffer for rampup used for 4k stream */
+	int mBufferFor4kRampdown; 	    /** Min Buffer for rampdown used for 4k Stream */
 
 	/**
 	 * @fn hasId3Header
