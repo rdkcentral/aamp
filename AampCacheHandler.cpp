@@ -488,9 +488,7 @@ void AampCacheHandler::InsertToInitFragCache(const std::string url, const Growab
 			AAMPLOG_INFO("Inserted effective init url %s", url.c_str());
 		}
 
-		AAMPLOG_INFO("Size [CacheTable:%lu,TrackQ:%lu,CurrentTrack:%lu,MaxLimit:%d]\n", umInitFragCache.size(),umCacheTrackQ.size(),
-						NewTrackQueueCache->Trackqueue.size(),
-						MaxInitCacheSlot );
+		AAMPLOG_INFO("Size [CacheTable:%d,TrackQ:%d,CurrentTrack:%d,MaxLimit:%d]\n", (int)umInitFragCache.size(), (int)umCacheTrackQ.size(), (int)NewTrackQueueCache->Trackqueue.size(), MaxInitCacheSlot );
 	}
 
 	pthread_mutex_unlock(&mInitFragMutex);

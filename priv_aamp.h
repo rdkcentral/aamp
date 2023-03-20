@@ -933,9 +933,9 @@ public:
 		 * @brief For objects containing real data (check using isPopulated()) this
 		 * returns the number of milliseconds since the object was created
 		 */
-		long long getTimeSinceUpdateMs() const
+		int getTimeSinceUpdateMs() const
 		{
-			return (aamp_GetCurrentTimeMS() - getUpdateTime());
+			return (int)(aamp_GetCurrentTimeMS() - getUpdateTime());
 		}
 
 		/**
@@ -1099,7 +1099,7 @@ public:
 	bool drmSessionThreadStarted; 				/**< flag to indicate the thread is running on not */
 	AampDRMSessionManager *mDRMSessionManager;
 #endif
-	long mPlaylistFetchFailError;				/**< To store HTTP error code when playlist download fails */
+	int mPlaylistFetchFailError;				/**< To store HTTP error code when playlist download fails */
 	bool mAudioDecoderStreamSync; 				/**< BCOM-4203: Flag to set or clear 'stream_sync_mode' property
 	                                				in gst brcmaudiodecoder, default: True */
 	std::string mSessionToken; 				/**< Field to set session token for player */

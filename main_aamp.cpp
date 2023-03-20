@@ -96,7 +96,6 @@ AampLogManager *mLogObj=NULL;
 		return; \
 	}
 
-static bool iarmInitialized = false;
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 
 /**
@@ -106,8 +105,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(uint8_t *, int, int, int) > exportFrames
 	) : aamp(NULL), sp_aamp(nullptr), mInternalStreamSink(NULL), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
-
 #ifdef IARM_MGR
+static bool iarmInitialized = false;
 if(!iarmInitialized)
 {
         char processName[20] = {0};
@@ -128,7 +127,7 @@ if(!iarmInitialized)
         }
 	iarmInitialized = true;
 }
-#endif
+#endif // IARM_MGR
 
 #ifdef SUPPORT_JS_EVENTS
 #ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so
@@ -1928,7 +1927,6 @@ std::string PlayerInstanceAAMP::GetManifest(void)
 {
 	ERROR_OR_IDLE_STATE_CHECK_VAL(std::string());
 	GrowableBuffer manifest;
-	ContentType ContentType;
 	if ((aamp->GetContentType() == ContentType_VOD) && (aamp->mMediaFormat == eMEDIAFORMAT_DASH))
 	{
 		std::string manifestUrl = aamp->GetManifestUrl();

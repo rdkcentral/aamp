@@ -674,7 +674,6 @@ static void ParseAttrList(char *attrName, void(*cb)(char *attrName, char *delim,
 static double ParseXStartTimeOffset(const char* ptr)
 {
 	double retOffSet = 0.0;
-	double offset = 0.0;  //CID:119528 - Intialization
 	if(ptr)
 	{
 		size_t len = FindLineLength(ptr);
@@ -692,23 +691,6 @@ static double ParseXStartTimeOffset(const char* ptr)
 	}
 	return retOffSet;
 }
-/***************************************************************************
-* @fn TrackPLDownloader
-* @brief Thread function for download
-*
-* @param arg[in] void ptr , thread arguement
-* @return void ptr
-***************************************************************************/
-static void * TrackPLDownloader(void *arg)
-{
-	TrackState* ts = (TrackState*)arg;
-	if(aamp_pthread_setname(pthread_self(), "aampHLSAudPLDL"))
-	{
-		AAMPLOG_WARN("aamp_pthread_setname failed");
-	}
-	ts->FetchPlaylist();
-	return NULL;
-}
 
 /***************************************************************************
 * @fn InitiateDrmProcess
@@ -718,8 +700,8 @@ static void * TrackPLDownloader(void *arg)
 *
 * @return None
 ***************************************************************************/
-static void InitiateDrmProcess(PrivateInstanceAAMP* aamp){
 #ifdef AAMP_HLS_DRM
+static void InitiateDrmProcess(PrivateInstanceAAMP* aamp){
 		/** If fragments are CDM encrypted KC **/
 		if (aamp->fragmentCdmEncrypted && ISCONFIGSET(eAAMPConfig_Fragmp4PrefetchLicense)){
 			pthread_mutex_lock(&aamp->drmParserMutex);
@@ -741,8 +723,8 @@ static void InitiateDrmProcess(PrivateInstanceAAMP* aamp){
 			}
 			pthread_mutex_unlock(&aamp->drmParserMutex);
 		}
-#endif
 }
+#endif
 
 void static setupStreamInfo(HlsStreamInfo & streamInfo)
 {
@@ -1111,7 +1093,7 @@ char *TrackState::GetFragmentUriFromIndex(bool &bSegmentRepeated)
 				{
 					end++;
 				}
-				int len = end - fragmentInfo;
+				int len = (int)(end - fragmentInfo);
 				assert(len < 1024);
 				strncpy(temp, fragmentInfo + 17, len);
 				temp[1023] = 0x00;
@@ -1137,7 +1119,7 @@ char *TrackState::GetFragmentUriFromIndex(bool &bSegmentRepeated)
 			{
 				urlEnd--;
 			}
-			int urlLen = urlEnd - fragmentInfo;
+			int urlLen = (int)(urlEnd - fragmentInfo);
 			mFragmentURIFromIndex.assign(fragmentInfo, urlLen);
 			if(!mFragmentURIFromIndex.empty()){
 				uri = (char *)mFragmentURIFromIndex.c_str();
@@ -1167,7 +1149,7 @@ char *TrackState::GetFragmentUriFromIndex(bool &bSegmentRepeated)
 			int keyIndexPosn = idxNode->drmMetadataIdx;
 			if(keyIndexPosn != mLastKeyTagIdx)
 			{
-				AAMPLOG_WARN("[%d] KeyTable Size [%zu] keyIndexPosn[%d] lastKeyIdx[%d]",type, mKeyHashTable.size(), keyIndexPosn, mLastKeyTagIdx);
+				AAMPLOG_WARN("[%d] KeyTable Size [%d] keyIndexPosn[%d] lastKeyIdx[%d]",type, (int)mKeyHashTable.size(), keyIndexPosn, mLastKeyTagIdx);
 				if(keyIndexPosn < mKeyHashTable.size() && mKeyHashTable[keyIndexPosn].mKeyTagStr.size())
 				{
 					// ParseAttrList function modifies the input string ,hence cannot pass mKeyTagStr
@@ -1865,7 +1847,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 					 */
 					if ( eMETHOD_AES_128 == mDrmInfo.method && true == mDrmInfo.bUseMediaSequenceIV )
 					{
-						if ( true == CreateInitVectorByMediaSeqNo(nextMediaSequenceNumber-1) )
+						if ( true == CreateInitVectorByMediaSeqNo( (unsigned int)(nextMediaSequenceNumber-1) ) )
 						{
 							// Set this flag to seed the newly created IV to corresponding DRM instance
 							mKeyTagChanged = true;
@@ -2355,7 +2337,6 @@ void TrackState::IndexPlaylist(bool IsRefresh, double &culledSec)
 			mDuration = totalDuration;
 			return;
 		}
-		DrmMetadataNode drmMetadataNode;
 		IndexNode node;
 		node.completionTimeSecondsFromStart = 0.0;
 		node.pFragmentInfo = NULL;
@@ -2915,7 +2896,7 @@ int StreamAbstractionAAMP_HLS::GetBestAudioTrackByLanguage( void )
 					auto iter = std::find(aamp->preferredLanguagesList.begin(), aamp->preferredLanguagesList.end(), trackLanguage);
 					if(iter != aamp->preferredLanguagesList.end())
 					{ // track is in preferred language list
-						int distance = std::distance(aamp->preferredLanguagesList.begin(),iter);
+						int distance = (int)std::distance(aamp->preferredLanguagesList.begin(),iter);
 						score += (aamp->preferredLanguagesList.size()-distance)*100000; // big bonus for language match
 					}
 				}
@@ -2929,7 +2910,7 @@ int StreamAbstractionAAMP_HLS::GetBestAudioTrackByLanguage( void )
 					auto iter = std::find(aamp->preferredCodecList.begin(), aamp->preferredCodecList.end(), GetAudioFormatStringForCodec(mediaInfo.audioFormat) );
 					if(iter != aamp->preferredCodecList.end())
 					{ // track is in preferred codec list
-						int distance = std::distance(aamp->preferredCodecList.begin(),iter);
+						int distance = (int)std::distance(aamp->preferredCodecList.begin(),iter);
 						score += (aamp->preferredCodecList.size()-distance)*100; //  bonus for codec match
 					}
 				}
@@ -3201,8 +3182,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracksForDiscontinuity()
 	double videoPeriodStartCurrentPeriod = 0.0;
 	double audioPeriodStartPrevPeriod = 0.0;
 	double videoPeriodStartPrevPeriod = 0.0;
-
-	int discIndex = -1;
 
 	if (audio->GetNumberOfPeriods() != video->GetNumberOfPeriods())
 	{
@@ -3797,7 +3776,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		// Parse the Main manifest ( As Parse function modifies the original data,InsertCache had to be called before it .
 		long long tStartTime = NOW_STEADY_TS_MS;
 		AAMPStatusType mainManifestResult = ParseMainManifest();
-		parseTimeMs = NOW_STEADY_TS_MS - tStartTime;
+		parseTimeMs = (int)(NOW_STEADY_TS_MS - tStartTime);
 		// Check if Main manifest is good or not
 		if(mainManifestResult != eAAMPSTATUS_OK)
 		{
@@ -3985,7 +3964,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		//Store Bitrate info to Video Track
 		if(video)
 		{
-			video->SetCurrentBandWidth(GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond);
+			video->SetCurrentBandWidth( (int)(GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond) );
 		}
 		if(ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
 		{
@@ -6345,7 +6324,6 @@ bool TrackState::HasDiscontinuityAroundPosition(double position, bool useDiscont
 	double discDiscardTolreanceInSec = (3 * targetDurationSeconds); /* Used by discontinuity handling logic to ensure both tracks have discontinuity tag around same area */
 	int playlistRefreshCount = 0;
 	diffBetweenDiscontinuities = DBL_MAX;
-	bool newDiscHandling = true;
 	pthread_mutex_lock(&mPlaylistMutex);
 
 	while (aamp->DownloadsAreEnabled())
@@ -7116,9 +7094,6 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 			int resolutionMatchedCount = 0;
 			int availableCountATMOS = 0, availableCountEC3 = 0, availableCountAC3 = 0;
 			StreamOutputFormat selectedAudioType = FORMAT_INVALID;
-			bool bVideoResolutionCheckEnabled = false;
-			bool bVideoThumbnailResolutionCheckEnabled = false;
-
 			for (int j = 0; j < mProfileCount; j++)
 			{
 				HlsStreamInfo &streamInfo = streamInfoStore[j];

@@ -2586,7 +2586,7 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 	}
 
 	if (aamp->IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA) &&
-		hasId3Header(mediaType, static_cast<const uint8_t*>(ptr), len))
+		hasId3Header(mediaType, static_cast<const uint8_t*>(ptr), (int32_t)len))
 	{
 		uint32_t len = getId3TagSize(static_cast<const uint8_t*>(ptr));
 		if (len && (len != aamp->lastId3DataLen[mediaType] ||
@@ -4326,6 +4326,7 @@ void AAMPGstPlayer::NotifyEOS()
 	}
 }
 
+#ifdef BRCM
 /**
  *  @brief Dump a file to log
  */
@@ -4350,6 +4351,7 @@ static void DumpFile(const char* fileName)
 		AAMPLOG_WARN("Could not open %s", fileName);
 	}
 }
+#endif // BRCM
 
 /**
  *  @brief Dump diagnostic information
@@ -4583,7 +4585,6 @@ bool AAMPGstPlayer::ForwardAudioBuffersToAux()
  */
 bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 {
-	int ret=0;
 #if defined (REALTEKCE) || defined (AMLOGIC)
 	AAMPLOG_WARN("AAMPGstPlayer: =send custom-instant-rate-change : %f ...", rate);
 	GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
@@ -4604,7 +4605,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 		gst_structure_free (structure);
 		return false;
 	}
-	ret = gst_element_send_event( privateContext->pipeline, rate_event );
+	int ret = gst_element_send_event( privateContext->pipeline, rate_event );
 	if(!ret)
 	{
 		AAMPLOG_WARN("AAMPGstPlayer: Rate change failed : %g [gst_element_send_event]", rate);

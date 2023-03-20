@@ -91,11 +91,11 @@ StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string 
 StreamAbstractionAAMP_VIDEOIN::~StreamAbstractionAAMP_VIDEOIN()
 {
 	AAMPLOG_WARN("%s destructor",mName.c_str());
-	for (auto const& evtName : mRegisteredEvents) {
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
+	for (auto const& evtName : mRegisteredEvents) {
 		thunderAccessObj.UnSubscribeEvent(_T(evtName));
-#endif
 	}
+#endif
 	mRegisteredEvents.clear();
 }
 

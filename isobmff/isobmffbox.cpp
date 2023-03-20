@@ -264,7 +264,7 @@ GenericContainerBox::GenericContainerBox(uint32_t sz, const char btype[4]) : Box
  */
 GenericContainerBox::~GenericContainerBox()
 {
-	for (unsigned int i = children.size(); i>0;)
+	for (unsigned int i = (unsigned int)children.size(); i>0;)
 	{
 		--i;
 		SAFE_DELETE(children.at(i));
@@ -830,8 +830,8 @@ uint64_t TrunBox::getSampleDuration()
  */
 TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 {
-	const uint32_t TRUN_FLAG_DATA_OFFSET_PRESENT                    = 0x0001;
-	const uint32_t TRUN_FLAG_FIRST_SAMPLE_FLAGS_PRESENT             = 0x0004;
+//	const uint32_t TRUN_FLAG_DATA_OFFSET_PRESENT                    = 0x0001;
+//	const uint32_t TRUN_FLAG_FIRST_SAMPLE_FLAGS_PRESENT             = 0x0004;
 	const uint32_t TRUN_FLAG_SAMPLE_DURATION_PRESENT                = 0x0100;
 	const uint32_t TRUN_FLAG_SAMPLE_SIZE_PRESENT                    = 0x0200;
 	const uint32_t TRUN_FLAG_SAMPLE_FLAGS_PRESENT                   = 0x0400;
@@ -839,7 +839,7 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 
 	uint8_t version = READ_VERSION(ptr);
 	uint32_t flags  = READ_FLAGS(ptr);
-	uint64_t sampleDuration = 0;//1001000; //fix-Me
+//	uint64_t sampleDuration = 0;//1001000; //fix-Me
 	uint32_t sample_count = 0;
 	uint32_t sample_duration = 0;
 	uint32_t sample_size = 0;
@@ -933,8 +933,8 @@ TfhdBox* TfhdBox::constructTfhdBox(uint32_t sz, uint8_t *ptr)
     const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_DURATION_PRESENT     = 0x00008;
     const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_SIZE_PRESENT         = 0x00010;
     const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT        = 0x00020;
-    const uint32_t TFHD_FLAG_DURATION_IS_EMPTY                   = 0x10000;
-    const uint32_t TFHD_FLAG_DEFAULT_BASE_IS_MOOF                = 0x20000;
+//    const uint32_t TFHD_FLAG_DURATION_IS_EMPTY                   = 0x10000;
+//    const uint32_t TFHD_FLAG_DEFAULT_BASE_IS_MOOF                = 0x20000;
 
     uint32_t TrackId;
     uint32_t BaseDataOffset;
@@ -945,7 +945,7 @@ TfhdBox* TfhdBox::constructTfhdBox(uint32_t sz, uint8_t *ptr)
 
     TrackId = READ_U32(ptr);
     if (flags & TFHD_FLAG_BASE_DATA_OFFSET_PRESENT) {
-        BaseDataOffset = READ_64(ptr);
+        BaseDataOffset = (uint32_t)READ_64(ptr);
     } else {
         BaseDataOffset = 0;
     }

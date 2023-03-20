@@ -392,7 +392,7 @@ const std::vector<std::string> &MediaMetadataEvent::getLanguages() const
  */
 int MediaMetadataEvent::getLanguagesCount() const
 {
-	return mLanguages.size();
+	return (int)mLanguages.size();
 }
 
 /**
@@ -420,7 +420,7 @@ const std::vector<long> &MediaMetadataEvent::getBitrates() const
  */
 int MediaMetadataEvent::getBitratesCount() const
 {
-	return mBitrates.size();
+	return (int)mBitrates.size();
 }
 
 /**
@@ -478,7 +478,7 @@ const std::vector<float> &MediaMetadataEvent::getSupportedSpeeds() const
  */
 int MediaMetadataEvent::getSupportedSpeedCount() const
 {
-	return mSupportedSpeeds.size();
+	return (int)mSupportedSpeeds.size();
 }
 
 /**
@@ -804,7 +804,7 @@ const std::vector<float> &SupportedSpeedsChangedEvent::getSupportedSpeeds() cons
  */
 int SupportedSpeedsChangedEvent::getSupportedSpeedCount() const
 {
-	return mSupportedSpeeds.size();
+	return (int)mSupportedSpeeds.size();
 }
 
 /**
@@ -1312,7 +1312,7 @@ const std::vector<uint8_t> &ID3MetadataEvent::getMetadata() const
  */
 int ID3MetadataEvent::getMetadataSize() const
 {
-	return mMetadata.size();
+	return (int)mMetadata.size();
 }
 
 /**

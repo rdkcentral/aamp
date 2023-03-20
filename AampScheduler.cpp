@@ -163,7 +163,7 @@ void AampScheduler::RemoveAllTasks()
 	}
 	if (!mTaskQueue.empty())
 	{
-		AAMPLOG_WARN("Clearing up %zu entries from mFuncQueue", mTaskQueue.size());
+		AAMPLOG_WARN("Clearing up %d entries from mFuncQueue", (int)mTaskQueue.size());
 		mTaskQueue.clear();
 	}
 }

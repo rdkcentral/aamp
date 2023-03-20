@@ -234,7 +234,6 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 	FN_TRACE_F_LIC_PREFETCH( __FUNCTION__ );
 
 	AAMPTuneFailure failure = event->getFailure();
-	long responseCode = event->getResponseCode();
 	bool isRetryEnabled = false;
 	bool selfAbort = (failure == AAMP_TUNE_DRM_SELF_ABORT);
 	bool skipErrorEvent = false;

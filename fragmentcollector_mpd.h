@@ -775,7 +775,7 @@ private:
 	 * @param disableATMOS whether ATMOS audio deabled by config
  	 */
 	bool GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType, 
-	uint32_t &selectedRepBandwidth, uint32_t &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool &disabled);
+	uint32_t &selectedRepBandwidth, long &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool &disabled);
  	
 	/**
          * @brief Get the audio track information from all period
@@ -839,7 +839,7 @@ private:
 	class MediaStreamContext *mMediaStreamContext[AAMP_TRACK_COUNT];
 	int mNumberOfTracks;
 	int mCurrentPeriodIdx;
-	size_t mNumberOfPeriods;	// Number of periods in the updated manifest
+	int mNumberOfPeriods;	// Number of periods in the updated manifest
 	int mIterPeriodIndex;	// FetcherLoop period iterator index
 	int mUpperBoundaryPeriod;	// Last playable period index
 	int mLowerBoundaryPeriod;	// First playable period index

@@ -597,7 +597,7 @@ int StreamAbstractionAAMP_OTA::GetAudioTrack()
         {
             if (it->index == mAudioTrackIndex)
             {
-                index = std::distance(mAudioTracks.begin(), it);
+                index = (int)std::distance(mAudioTracks.begin(), it);
             }
         }
     }
@@ -609,7 +609,6 @@ int StreamAbstractionAAMP_OTA::GetAudioTrack()
  */
 bool StreamAbstractionAAMP_OTA::GetCurrentAudioTrack(AudioTrackInfo &audioTrack)
 {
-	int index = -1;
 	bool bFound = false;
 	if (mAudioTrackIndex.empty())
         GetAudioTracks();

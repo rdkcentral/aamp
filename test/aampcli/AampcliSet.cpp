@@ -462,7 +462,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						long downloadStallTimeout;
 						printf("[AAMPCLI] Matched Command DownloadStallTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &downloadStallTimeout) == 2){
-							playerInstanceAamp->SetDownloadStallTimeout(downloadStallTimeout);
+							playerInstanceAamp->SetDownloadStallTimeout((int)downloadStallTimeout);
 						}
 						else
 						{
@@ -477,7 +477,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						long downloadStartTimeout;
 						printf("[AAMPCLI] Matched Command DownloadStartTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &downloadStartTimeout) == 2){
-							playerInstanceAamp->SetDownloadStartTimeout(downloadStartTimeout);
+							playerInstanceAamp->SetDownloadStartTimeout((int)downloadStartTimeout);
 						}
 						else
 						{
@@ -492,7 +492,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						long downloadLowBWTimeout;
 						printf("[AAMPCLI] Matched Command DownloadLowBWTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &downloadLowBWTimeout) == 2){
-							playerInstanceAamp->SetDownloadLowBWTimeout(downloadLowBWTimeout);
+							playerInstanceAamp->SetDownloadLowBWTimeout((int)downloadLowBWTimeout);
 						}
 						else
 						{
@@ -1153,7 +1153,6 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 
 				case 51:
 					{
-						char behavior[24];
 						printf("[AAMPCLI] Matched Command PausedBehavior - %s\n", cmd);
 						if(sscanf(cmd, "set %s %d", command, &rate) == 2)
 						{
@@ -1368,12 +1367,12 @@ void Set::ShowHelpSet()
 char * Set::setCommandRecommender(const char *text, int state)
 {
     char *name;
-    static int len;
+    static size_t len;
     static std::vector<std::string>::iterator itr;
 
     if (!state)
     {
-	itr = commands.begin();
+		itr = commands.begin();
         len = strlen(text);
     }
 

@@ -29,7 +29,6 @@ std::vector<std::string> Get::commands(0);
 
 bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 {
-	char help[8];
 	int opt, value1, value2;
 	char command[100];
 	int getCmd = 0;

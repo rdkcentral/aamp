@@ -237,7 +237,7 @@ static void *SubtecSimulatorThread( void *param )
 			}
 			else if (FD_ISSET(state->sockfd, &readfds))
 			{
-				int numBytes = recvfrom( state->sockfd, (void *)buffer, maxBuf, MSG_WAITALL, (struct sockaddr *) &cliaddr, &sockLen);
+				int numBytes = (int)recvfrom( state->sockfd, (void *)buffer, maxBuf, MSG_WAITALL, (struct sockaddr *) &cliaddr, &sockLen);
 				printf( "***SubtecSimulatorThread:\n" );
 				DumpPacket( buffer, numBytes );
 			}

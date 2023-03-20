@@ -279,7 +279,7 @@ DrmReturn AesDec::Decrypt( ProfilerBucketType bucketType, void *encryptedDataPtr
 		int decryptedDataLen = 0;
 		if (decryptedDataBuf)
 		{
-			int decLen = encryptedDataLen;
+			int decLen = (int)encryptedDataLen;
 			memset(decryptedDataBuf, 0, encryptedDataLen);
 			mpAamp->LogDrmDecryptBegin(bucketType);
 			if(!EVP_DecryptInit_ex(OPEN_SSL_CONTEXT, EVP_aes_128_cbc(), NULL, (unsigned char*)mAesKeyBuf.ptr, mDrmInfo.iv))
@@ -288,7 +288,7 @@ DrmReturn AesDec::Decrypt( ProfilerBucketType bucketType, void *encryptedDataPtr
 			}
 			else
 			{
-				if (!EVP_DecryptUpdate(OPEN_SSL_CONTEXT, decryptedDataBuf, &decLen, (const unsigned char*) encryptedDataPtr, encryptedDataLen))
+				if (!EVP_DecryptUpdate(OPEN_SSL_CONTEXT, decryptedDataBuf, &decLen, (const unsigned char*) encryptedDataPtr, (int)encryptedDataLen))
 				{
 					AAMPLOG_ERR("AesDec::EVP_DecryptUpdate failed mDrmState = %d",(int) mDrmState);
 				}

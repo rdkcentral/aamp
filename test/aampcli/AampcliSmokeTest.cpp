@@ -27,8 +27,6 @@ std::map<std::string, std::string> SmokeTest::smokeTestUrls = std::map<std::stri
 
 bool SmokeTest::execute(const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 {
-	int result;
-
 	mPlayerInstanceAamp = playerInstanceAamp;
 
 	loadSmokeTestUrls();	

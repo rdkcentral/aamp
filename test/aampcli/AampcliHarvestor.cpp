@@ -200,7 +200,7 @@ void Harvestor::masterHarvestor(void * arg)
 			std::sort(tempVideoBitrates.begin(), tempVideoBitrates.end());
 
 			std::vector<long>::iterator position = std::find(tempVideoBitrates.begin(), tempVideoBitrates.end(), mHarvestor.mPlayerInstanceAamp->GetVideoBitrate());
-			if (position != tempVideoBitrates.end()) 
+			if (position != tempVideoBitrates.end())
 				tempVideoBitrates.erase(position);
 
 			if (cacheVideoBitrates.size() == 0)
@@ -349,7 +349,7 @@ void Harvestor::slaveHarvestor(void * arg)
 
 		std::size_t delimiterPos = param.find("=");
 
-		if(delimiterPos != std::string::npos) 
+		if(delimiterPos != std::string::npos)
 		{
 			cmdlineParams[ param.substr(0, delimiterPos) ] = param.substr(delimiterPos + 1);
 		}
@@ -413,7 +413,7 @@ void Harvestor::slaveDataOutput(void * arg)
 		printf("%s:%d: aamp_pthread_setname failed\n",__FUNCTION__, __LINE__);
 	}
 
-	while (!feof(pipe)) 
+	while (!feof(pipe))
 	{
 		if (fgets(buffer, 500, pipe) != NULL)
 		{
@@ -431,20 +431,20 @@ void Harvestor::slaveDataOutput(void * arg)
 	return;
 }
 
-long Harvestor::getNumberFromString(std::string buffer) 
+long Harvestor::getNumberFromString(std::string buffer)
 {
 	std::stringstream strm;
-	strm << buffer; 
+	strm << buffer;
 	std::string tempStr;
 	long value = 0;
 	while(!strm.eof()) {
-		strm >> tempStr; 
-		if(std::stringstream(tempStr) >> value) 
+		strm >> tempStr;
+		if(std::stringstream(tempStr) >> value)
 		{
-			return value;	
+			return value;
 		}
 
-		tempStr = ""; 
+		tempStr = "";
 	}
 
 	return value;
@@ -623,7 +623,7 @@ void Harvestor::harvestTerminateHandler(int signal)
 	{
 		FILE *fp;
 		std::string filename;
-		int harvestCountLimit = 0;
+		//int harvestCountLimit = 0;
 
 		filename = Harvestor::mHarvestPath+"/HarvestReport.txt";
 		fp = fopen(filename.c_str(), "a");
@@ -725,12 +725,12 @@ void Harvestor::getExecutablePath()
 #ifdef __APPLE__
 void Harvestor::getExecutablePath()
 {
-        char rawPathName[PATH_MAX];
-        uint32_t rawPathSize = (uint32_t)sizeof(rawPathName);
+		char rawPathName[PATH_MAX];
+		uint32_t rawPathSize = (uint32_t)sizeof(rawPathName);
 
-        if(!_NSGetExecutablePath(rawPathName, &rawPathSize))
-        {
-            realpath(rawPathName, Harvestor::mExePathName);
-        }
+		if(!_NSGetExecutablePath(rawPathName, &rawPathSize))
+		{
+			realpath(rawPathName, Harvestor::mExePathName);
+		}
 }
-#endif 
+#endif

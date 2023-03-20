@@ -117,19 +117,6 @@
 #define CAPPED_PROFILE_STRING 		"Profile-Capped:"
 #define TRANSFER_ENCODING_STRING		"Transfer-Encoding:"
 
-#define MAX_DOWNLOAD_DELAY_LIMIT_MS 30000
-
-/**
- * New state for treating a VOD asset as a "virtual linear" stream
- */
-// Note that below state/impl currently assumes single profile, and so until fixed should be tested with "abr" in aamp.cfg to disable ABR
-static long long simulation_start; // time at which main manifest was downloaded.
-// Simulation_start is used to calculate elapsed time, used to advance virtual live window
-static char *full_playlist_video_ptr = NULL; // Cache of initial full vod video playlist
-static size_t full_playlist_video_len = 0; // Size (bytes) of initial full vod video playlist
-static char *full_playlist_audio_ptr = NULL; // Cache of initial full vod audio playlist
-static size_t full_playlist_audio_len = 0; // Size (bytes) of initial full vod audio playlist
-
 /**
  * @struct gActivePrivAAMP_t
  * @brief Used for storing active PrivateInstanceAAMPs
@@ -151,8 +138,6 @@ static int PLAYERID_CNTR = 0;
 static const char* strAAMPPipeName = "/tmp/ipc_aamp";
 
 static bool activeInterfaceWifi = false;
-
-static char previousInterface[20] = {'\0'};
 
 static unsigned int ui32CurlTrace = 0;
 /**
@@ -406,77 +391,6 @@ static gboolean PrivateInstanceAAMP_Retune(gpointer ptr)
 	return G_SOURCE_REMOVE;
 }
 
-
-/**
- * @brief Simulate VOD asset as a "virtual linear" stream.
- */
-static void SimulateLinearWindow( struct GrowableBuffer *buffer, const char *ptr, size_t len )
-{
-	// Calculate elapsed time in seconds since virtual linear stream started
-	float cull = (aamp_GetCurrentTimeMS() - simulation_start)/1000.0;
-	buffer->len = 0; // Reset Growable Buffer length
-	float window = 20.0; // Virtual live window size; can be increased/decreasedint
-	const char *fin = ptr+len;
-	bool wroteHeader = false; // Internal state used to decide whether HLS playlist header has already been output
-	int seqNo = 0;
-
-	while (ptr < fin)
-	{
-		int count = 0;
-		char line[1024];
-		float fragmentDuration;
-
-		for(;;)
-		{
-			char c = *ptr++;
-			line[count++] = c;
-			if( ptr>=fin || c<' ' ) break;
-		}
-
-		line[count] = 0x00;
-
-		if (sscanf(line,"#EXTINF:%f",&fragmentDuration) == 1)
-		{
-			if (cull > 0)
-			{
-				cull -= fragmentDuration;
-				seqNo++;
-				continue; // Not yet in active window
-			}
-
-			if (!wroteHeader)
-			{
-				// Write a simple linear HLS header, without the type:VOD, and with dynamic media sequence number
-				wroteHeader = true;
-				char header[1024];
-				snprintf( header, sizeof(header),
-					"#EXTM3U\n"
-					"#EXT-X-VERSION:3\n"
-					"#EXT-X-TARGETDURATION:2\n"
-					"#EXT-X-MEDIA-SEQUENCE:%d\n", seqNo );
-				aamp_AppendBytes(buffer, header, strlen(header) );
-			}
-
-			window -= fragmentDuration;
-
-			if (window < 0.0)
-			{
-				// Finished writing virtual linear window
-				break;
-			}
-		}
-
-		if (wroteHeader)
-		{
-			aamp_AppendBytes(buffer, line, count );
-		}
-	}
-
-	// Following can be used to debug
-	// aamp_AppendNulTerminator( buffer );
-	// printf( "Virtual Linear Playlist:\n%s\n***\n", buffer->ptr );
-}
-
 /**
  * @brief Get the telemetry type for a media type
  * @param type media type
@@ -582,6 +496,7 @@ static bool replace(std::string &str, const char *existingSubStringToReplace, co
  */
 void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t eventId, void *data, size_t len)
 {
+	static char previousInterface[20] = {'\0'};
 
 	if (strcmp (owner, "NET_SRV_MGR") != 0)
 		return;
@@ -651,34 +566,6 @@ static bool IsActiveStreamingInterfaceWifi (void)
 }
 
 /**
-* @brief helper function to avoid dependency on unsafe sscanf while reading strings
-* @param buf pointer to CString buffer to scan
-* @param prefixPtr - prefix string to match in bufPtr
-* @param valueCopyPtr receives allocated copy of string following prefix (skipping delimiting whitesace) if prefix found
-* @retval 0 if prefix not present or error
-* @retval 1 if string extracted/copied to valueCopyPtr
-*/
-static int ReadConfigStringHelper(std::string buf, const char *prefixPtr, const char **valueCopyPtr)
-{
-	int ret = 0;
-	if (buf.find(prefixPtr) != std::string::npos)
-	{
-		std::size_t pos = strlen(prefixPtr);
-		if (*valueCopyPtr != NULL)
-		{
-			free((void *)*valueCopyPtr);
-			*valueCopyPtr = NULL;
-		}
-		*valueCopyPtr = strdup(buf.substr(pos).c_str());
-		if (*valueCopyPtr)
-		{
-			ret = 1;
-		}
-	}
-	return ret;
-}
-
-/**
 * @brief helper function to extract numeric value from given buf after removing prefix
 * @param buf String buffer to scan
 * @param prefixPtr - prefix string to match in bufPtr
@@ -719,14 +606,6 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 
 
 // End of helper functions for loading configuration
-
-
-static std::string getTimeStamp(time_t epochTime, const char* format = "%Y-%m-%dT%H:%M:%S.%f%Z")
-{
-	char timestamp[64] = {0};
-	strftime(timestamp, sizeof(timestamp), format, localtime(&epochTime));
-	return timestamp;
-}
 
 static time_t convertTimeToEpoch(const char* theTime, const char* format = "%Y-%m-%dT%H:%M:%S.%f%Z")
 {
@@ -839,7 +718,7 @@ static void print_headerResponse(std::vector<std::string> &allResponseHeaders, M
 {
 	if (gpGlobalConfig->logging.curlHeader && (eMEDIATYPE_VIDEO == fileType || eMEDIATYPE_PLAYLIST_VIDEO == fileType))
 	{
-		int size = allResponseHeaders.size();
+		int size = (int)allResponseHeaders.size();
 		AAMPLOG_WARN("################ Start :: Print Header response ################");
 		for (int i=0; i < size; i++)
 		{
@@ -1050,7 +929,6 @@ long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,
 	long time_now = 0;
 	long time_diff = 0;
 	long dl_diff = 0;
-	char buffer[2][6] = {0,};
 
 	struct SpeedCache* speedcache = NULL;
 	speedcache = aamp->GetLLDashSpeedCache();
@@ -1070,7 +948,6 @@ long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,
 
 	dl_diff = (long)dlnow -  speedcache->prev_dlnow;
 
-	long prevdlnow = speedcache->prev_dlnow;
 	speedcache->prev_dlnow = dlnow;
 
 	long currentTotalDownloaded = 0;
@@ -1078,9 +955,6 @@ long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,
 	currentTotalDownloaded = speedcache->totalDownloaded + dl_diff;
 	total_dl_diff = currentTotalDownloaded - speedcache->prevSampleTotalDownloaded;
 	if(total_dl_diff<=0) total_dl_diff = 0;
-
-	//AAMPLOG_INFO("[%d] prev_dlnow: %ld dlnow: %ld dl_diff: %ld total_dl_diff: %ld Current Total Download: %ld Previous Total Download: %ld",fileType, prevdlnow, (long)dlnow, dl_diff,total_dl_diff,currentTotalDownloaded, speedcache->prevSampleTotalDownloaded);
-
 	if(aamp->mhAbrManager.IsABRDataGoodToEstimate(time_diff))
 	{
 		aamp->mhAbrManager.CheckLLDashABRSpeedStoreSize(speedcache,bitsPerSecond,time_now,total_dl_diff,time_diff,currentTotalDownloaded);
@@ -1215,7 +1089,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 					double predictedTotalDownloadTimeMs = elapsedTimeMs*dltotal/dlnow;
 					if( predictedTotalDownloadTimeMs > aamp->mNetworkTimeoutMs )
 					{
-						AAMPLOG_WARN("lowBWTimeout=%lds; predictedTotalDownloadTime=%fs>%fs (network timeout)",
+						AAMPLOG_WARN("lowBWTimeout=%ds; predictedTotalDownloadTime=%fs>%fs (network timeout)",
 								context->lowBWTimeout,
 								predictedTotalDownloadTimeMs/1000.0,
 								aamp->mNetworkTimeoutMs/1000.0 );
@@ -3202,13 +3076,13 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	PrivAAMPState state;
 	GetState(state);
 	TuneEndMetrics mTuneMetrics = {0, 0, 0,0,0,0,0,0,0,(ContentType)0};
-	mTuneMetrics.mTotalTime                 = NOW_STEADY_TS_MS ;
+	mTuneMetrics.mTotalTime                 = (int)NOW_STEADY_TS_MS ;
 	mTuneMetrics.success         	 	= ((state != eSTATE_ERROR) ? -1 : !fail);
 	int streamType 				= getStreamType();
 	mTuneMetrics.mFirstTune			= mFirstTune;
-	mTuneMetrics.mTimedMetadata 	 	= timedMetadata.size();
+	mTuneMetrics.mTimedMetadata 	 	= (int)timedMetadata.size();
 	mTuneMetrics.mTimedMetadataStartTime 	= mTimedMetadataStartTime;
-	mTuneMetrics.mTimedMetadataDuration  	= mTimedMetadataDuration;
+	mTuneMetrics.mTimedMetadataDuration  	= (int)mTimedMetadataDuration;
 	mTuneMetrics.mTuneAttempts 		= mTuneAttempts;
 	mTuneMetrics.contentType 		= mContentType;
 	mTuneMetrics.streamType 		= streamType;
@@ -3231,9 +3105,9 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	mTuneMetrics.success 		 	 = true;
 	int streamType 				 = getStreamType();
 	mTuneMetrics.contentType 		 = mContentType;
-	mTuneMetrics.mTimedMetadata 	 	 = timedMetadata.size();
+	mTuneMetrics.mTimedMetadata 	 	 = (int)timedMetadata.size();
 	mTuneMetrics.mTimedMetadataStartTime 	 = mTimedMetadataStartTime;
-	mTuneMetrics.mTimedMetadataDuration      = mTimedMetadataDuration;
+	mTuneMetrics.mTimedMetadataDuration      = (int)mTimedMetadataDuration;
 	mTuneMetrics.mTuneAttempts 		 = mTuneAttempts;
 	mTuneMetrics.streamType 		 = streamType;
 	mTuneMetrics.mTSBEnabled                 = mTSBEnabled;
@@ -3447,7 +3321,7 @@ void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int insta
 void PrivateInstanceAAMP::StoreLanguageList(const std::set<std::string> &langlist)
 {
 	// store the language list
-	int langCount = langlist.size();
+	int langCount = (int)langlist.size();
 	if (langCount > MAX_LANGUAGE_COUNT)
 	{
 		langCount = MAX_LANGUAGE_COUNT; //boundary check
@@ -4370,7 +4244,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 							( GetLLDashServiceData()->lowLatencyMode  && ISCONFIGSET_PRIV(eAAMPConfig_DisableLowLatencyABR))))
 				{
 					long currentProfilebps  = mpStreamAbstractionAAMP->GetVideoBitrate();
-					long downloadbps = mhAbrManager.CheckAbrThresholdSize(buffer->len,downloadTimeMS,currentProfilebps,fragmentDurationMs,hybridabortReason);
+					long downloadbps = (long)mhAbrManager.CheckAbrThresholdSize((int)buffer->len,downloadTimeMS,currentProfilebps,fragmentDurationMs,hybridabortReason);
 						pthread_mutex_lock(&mLock);
 						mhAbrManager.UpdateABRBitrateDataBasedOnCacheLength(mAbrBitrateData,downloadbps,false);
 						pthread_mutex_unlock(&mLock);
@@ -4903,7 +4777,7 @@ void PrivateInstanceAAMP::SendMessageOverPipe(const char *str,int nToWrite)
 	if(m_fd != -1)
 	{
 		// Write the packet data to the pipe
-		int nWritten =  write(m_fd, str, nToWrite);
+		int nWritten =  (int)write(m_fd, str, nToWrite);
 		if(nWritten != nToWrite)
 		{
 			// Error
@@ -5408,8 +5282,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
  */
 void PrivateInstanceAAMP::ReloadTSB()
 {
-	TuneType tuneType =  eTUNETYPE_SEEK;
-
 	mEventManager->SetPlayerState(eSTATE_IDLE);
 	mManifestUrl = mTsbSessionRequestUrl + "&reloadTSB=true";
 	// To post player configurations to fog on 1st time tune
@@ -5437,7 +5309,6 @@ void PrivateInstanceAAMP::ReloadTSB()
 void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const char *contentType, bool bFirstAttempt, bool bFinalAttempt,const char *pTraceID,bool audioDecoderStreamSync)
 {
 	int iCacheMaxSize = 0;
-	int maxDrmSession = 1;
 	double tmpVar=0;
 	int intTmpVar=0;
 
@@ -5553,6 +5424,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 		}
 #if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 		// read the configured max drm session
+		int maxDrmSession = 1;
 		GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions,maxDrmSession);
 		if(NULL == mDRMSessionManager)
 		{
@@ -6080,7 +5952,7 @@ void PrivateInstanceAAMP::CheckForDiscontinuityStall(MediaType mediaType)
 
 		pthread_mutex_unlock(&mLock);
 
-		AAMPLOG_INFO("No change in PTS for more than %ld ms, schedule retune!", discontinuityTimeoutValue);
+		AAMPLOG_INFO("No change in PTS for more than %d ms, schedule retune!", discontinuityTimeoutValue);
 		ResetDiscontinuityInTracks();
 
 		ResetTrackDiscontinuityIgnoredStatus();
@@ -6612,7 +6484,7 @@ std::string PrivateInstanceAAMP::GetThumbnails(double tStart, double tEnd)
 	if(mpStreamAbstractionAAMP)
 	{
 		std::string baseurl;
-		int raw_w, raw_h, width, height;
+		int raw_w = 0, raw_h = 0, width = 0, height = 0;
 		std::vector<ThumbnailData> datavec = mpStreamAbstractionAAMP->GetThumbnailRangeData(tStart, tEnd, &baseurl, &raw_w, &raw_h, &width, &height);
 		if( !datavec.empty() )
 		{
@@ -7361,7 +7233,7 @@ void PrivateInstanceAAMP::ReportTimedMetadata(bool init)
 		mTimedMetadataStartTime = NOW_STEADY_TS_MS ;
 		for (iter = timedMetadataNew.begin(); iter != timedMetadataNew.end(); iter++)
 		{
-			ReportTimedMetadata(iter->_timeMS, iter->_name.c_str(), iter->_content.c_str(), iter->_content.size(), init, iter->_id.c_str(), iter->_durationMS);
+			ReportTimedMetadata(iter->_timeMS, iter->_name.c_str(), iter->_content.c_str(), (int)iter->_content.size(), init, iter->_id.c_str(), iter->_durationMS);
 		}
 		timedMetadataNew.clear();
 		mTimedMetadataDuration = (NOW_STEADY_TS_MS - mTimedMetadataStartTime);
@@ -8088,15 +7960,6 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, long bitrat
 		VideoStatDataType dataType = VideoStatDataType::VE_DATA_UNKNOWN;
 
 		VideoStatTrackType trackType = VideoStatTrackType::STAT_UNKNOWN;
-		VideoStatCountType eCountType = VideoStatCountType::COUNT_UNKNOWN;
-
-		/*	COUNT_UNKNOWN,
-		 COUNT_LIC_TOTAL,
-		 COUNT_LIC_ENC_TO_CLR,
-		 COUNT_LIC_CLR_TO_ENC,
-		 COUNT_STALL,
-		 */
-
 		switch(mediaType)
 		{
 			case eMEDIATYPE_MANIFEST:
@@ -8825,9 +8688,6 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 	std::vector<long> bitrateList;
 	std::set<std::string> langList;
 	std::vector<float> supportedPlaybackSpeeds { -64, -32, -16, -4, -1, 0, 0.5, 1, 4, 16, 32, 64 };
-	int langCount = 0;
-	int bitrateCount = 0;
-	int supportedSpeedCount = 0;
 	int width  = 1280;
 	int height = 720;
 
@@ -8903,7 +8763,6 @@ void PrivateInstanceAAMP::SendSupportedSpeedsChangedEvent(bool isIframeTrackPres
 {
 	SupportedSpeedsChangedEventPtr event = std::make_shared<SupportedSpeedsChangedEvent>();
 	std::vector<float> supportedPlaybackSpeeds { -64, -32, -16, -4, -1, 0, 0.5, 1, 4, 16, 32, 64 };
-	int supportedSpeedCount = 0;
 
 	//Iframe track present and hence playbackRate change is supported
 	if (isIframeTrackPresent)
@@ -8993,7 +8852,7 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 		std::string adId("");
 		std::string url("");
 		mCdaiObject->SetAlternateContents(adBreakId, adId, url, startMS, brInfo.duration);	//A placeholder to avoid multiple scte35 event firing for the same adbreak
-		SaveNewTimedMetadata((long long) startMS, brInfo.name.c_str(), brInfo.payload.c_str(), brInfo.payload.size(), adBreakId.c_str(), brInfo.duration);
+		SaveNewTimedMetadata((long long) startMS, brInfo.name.c_str(), brInfo.payload.c_str(), (int)brInfo.payload.size(), adBreakId.c_str(), brInfo.duration);
 	}
 }
 
@@ -9430,7 +9289,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 	// This is the thread function to download all the HLS Playlist in a
 	// differed manner
 	int maxWindowforDownload = mPreCacheDnldTimeWindow * 60; // convert to seconds
-	int szPlaylistCount = mPreCacheDnldList.size();
+	int szPlaylistCount = (int)mPreCacheDnldList.size();
 	if(szPlaylistCount)
 	{
 		PrivAAMPState state;
@@ -9684,7 +9543,7 @@ std::string PrivateInstanceAAMP::GetAvailableVideoTracks()
  */
 void PrivateInstanceAAMP::SetVideoTracks(std::vector<long> bitrateList)
 {
-	int bitrateSize = bitrateList.size();
+	int bitrateSize = (int)bitrateList.size();
 	//clear cached bitrate list
 	this->bitrateList.clear();
 	// user profile stats enabled only for valid bitrate list, otherwise disabled for empty bitrates
@@ -9721,7 +9580,6 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 			//Convert to JSON format
 			cJSON *root;
 			cJSON *item;
-			cJSON *accessbilityArray = NULL;
 			root = cJSON_CreateArray();
 			if(root)
 			{
@@ -11488,7 +11346,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			bool languagePresent = false;
 			bool renditionPresent = false;
 			bool accessibilityTypePresent = false;
-			bool codecPresent = false;
 			bool labelPresent = false;
 			int trackIndex = GetTextTrack();
 			bool languageAvailabilityInManifest = false;
@@ -11611,11 +11468,11 @@ void PrivateInstanceAAMP::EnableAllMediaDownloads()
 bool PrivateInstanceAAMP::IsWideVineKIDWorkaround(std::string url)
 {
 	bool enable = false;
-	int pos = url.find(WV_KID_WORKAROUND);
+	auto pos = url.find(WV_KID_WORKAROUND);
 	if (pos != string::npos){
 		pos = pos + strlen(WV_KID_WORKAROUND);
 		AAMPLOG_INFO("URL found WideVine KID Workaround at %d key = %c",
-				pos, url.at(pos));
+				(int)pos, url.at(pos));
 		enable = (url.at(pos) == '1');
 	}
 
@@ -11631,7 +11488,7 @@ unsigned char* PrivateInstanceAAMP::ReplaceKeyIDPsshData(const unsigned char *In
 {
 	unsigned char *OutpuData = NULL;
 	unsigned int WIDEVINE_PSSH_KEYID_OFFSET = 36u;
-	unsigned int WIDEVINE_PSSH_DATA_SIZE = 60u;
+	//unsigned int WIDEVINE_PSSH_DATA_SIZE = 60u;
 	unsigned int CK_PSSH_KEYID_OFFSET = 32u;
 	unsigned int COMMON_KEYID_SIZE = 16u;
 	unsigned char WVSamplePSSH[] = {

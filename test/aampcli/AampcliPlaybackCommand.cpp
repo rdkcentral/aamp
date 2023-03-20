@@ -41,7 +41,6 @@ std::vector<std::string> PlaybackCommand::commands(0);
 bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 {
 	bool eventChange = false;
-	char lang[MAX_LANGUAGE_TAG_LENGTH];
 	int keepPaused = 0;
 	int rate = 0;
 	double seconds = 0;
@@ -297,7 +296,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 		int maxTuneTimeS = 6;
 		int playTimeS = 15;
 		int betweenTimeS = 15;
-		int matched = sscanf(cmd, "auto %d %d %d %d %d", &start, &end, &maxTuneTimeS, &playTimeS, &betweenTimeS );
+		(void)sscanf(cmd, "auto %d %d %d %d %d", &start, &end, &maxTuneTimeS, &playTimeS, &betweenTimeS );
 		mAampcli.doAutomation( start, end, maxTuneTimeS, playTimeS, betweenTimeS );
 	}
 	else
