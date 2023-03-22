@@ -3375,11 +3375,9 @@ void MediaTrack::PlaylistDownloader()
 				{
 					if(aamp->GetLLDashServiceData()->lowLatencyMode)
 					{
-
-
-
-
-						if( minUpdateDuration > 0 &&  minUpdateDuration > availTimeOffMs )
+						if((minUpdateDuration > 0) &&  
+							(minUpdateDuration > availTimeOffMs) && 
+							(minUpdateDuration < MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS) )
 						{
 							liveRefreshTimeOutInMs = (int)(minUpdateDuration-availTimeOffMs);
 						}

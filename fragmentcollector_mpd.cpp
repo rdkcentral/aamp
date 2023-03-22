@@ -1961,9 +1961,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					( isLowLatencyMode? fragmentRequestTime >= mServerUtcTime+mDeltaTime : fragmentRequestTime >= mServerUtcTime)) 
 			{
 				ReleasePlaylistLock();
-				int sleepTime = mMinUpdateDurationMs;
-				sleepTime = (sleepTime > MAX_DELAY_BETWEEN_MPD_UPDATE_MS) ? MAX_DELAY_BETWEEN_MPD_UPDATE_MS : sleepTime;
-				sleepTime = (sleepTime < 200) ? 200 : sleepTime;
+				int sleepTime = MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
 
 				AAMPLOG_TRACE("With ServerUTCTime. Next fragment Not Available yet: fragmentDescriptor.Time %f fragmentDuration:%f currentTimeSeconds %f Server  UTCTime %f sleepTime %d ", pMediaStreamContext->fragmentDescriptor.Time, fragmentDuration, currentTimeSeconds, mServerUtcTime, sleepTime);	
 				aamp->InterruptableMsSleep(sleepTime);
@@ -1973,9 +1971,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					(isLowLatencyMode?(fragmentRequestTime>=currentTimeSeconds):(fragmentRequestTime >= (currentTimeSeconds-mPresentationOffsetDelay))))
 			{
 				ReleasePlaylistLock();
-				int sleepTime = mMinUpdateDurationMs;
-				sleepTime = (sleepTime > MAX_DELAY_BETWEEN_MPD_UPDATE_MS) ? MAX_DELAY_BETWEEN_MPD_UPDATE_MS : sleepTime;
-				sleepTime = (sleepTime < 200) ? 200 : sleepTime;
+				int sleepTime = MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
 
 				AAMPLOG_TRACE("Without ServerUTCTime. Next fragment Not Available yet: fragmentDescriptor.Time %f fragmentDuration:%f currentTimeSeconds %f Server  UTCTime %f sleepTime %d ", pMediaStreamContext->fragmentDescriptor.Time, fragmentDuration, currentTimeSeconds, mServerUtcTime, sleepTime);	
 				aamp->InterruptableMsSleep(sleepTime);
@@ -2688,12 +2684,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							AAMPLOG_TRACE("Type[%d] updateFirstPTS: %f SkipTime: %f",pMediaStreamContext->type,mFirstPTS, skipTime);
 						}
 					}
-					if(mMinUpdateDurationMs > MAX_DELAY_BETWEEN_MPD_UPDATE_MS)
-					{
-						AAMPLOG_INFO("Minimum Update Period is larger  than Max mpd update delay");
-						break;
-					}					
-					else if (skipTime >= segmentDuration)
+					if (skipTime >= segmentDuration)
 					{ // seeking past more than one segment
 						uint64_t number = skipTime / segmentDuration;
 						double fragmentTimeFromNumber = segmentDuration * number;
