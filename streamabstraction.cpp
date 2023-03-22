@@ -158,8 +158,6 @@ void MediaTrack::MonitorBufferHealth()
 	assert(bufferHealthMonitorDelay >= bufferHealthMonitorInterval);
 	unsigned int bufferMontiorScheduleTime = bufferHealthMonitorDelay - bufferHealthMonitorInterval;
 	bool keepRunning = false;
-	PrivAAMPState state;
-
 	if(aamp->DownloadsAreEnabled() && !abort)
 	{
 		aamp->InterruptableMsSleep(bufferMontiorScheduleTime *1000);
@@ -169,11 +167,6 @@ void MediaTrack::MonitorBufferHealth()
 	while(keepRunning && !abort)
 	{
 		aamp->InterruptableMsSleep(monitorInterval);
- 		aamp->GetState(state);
-		// Skip monitoring in COMPLETE state (EOS processed)
-		if (state == eSTATE_COMPLETE)
-			continue;
-
 		pthread_mutex_lock(&mutex);
 		if (aamp->DownloadsAreEnabled() && !abort)
 		{
