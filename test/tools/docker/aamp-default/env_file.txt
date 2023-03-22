@@ -1,0 +1,1 @@
+DOCKER_REPO=aamp-docker.artifactory.comcast.com/aamp-default

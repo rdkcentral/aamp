@@ -1,0 +1,24 @@
+version: "3.1"
+services:
+  simlinear:
+    image: ${DOCKER_REPO}simlinear
+    # The stream content data to be served by simlinear needs to be in the working directory.
+    volumes:
+        - ${TEST_STREAM_PATH}:/test_streams
+    working_dir: /test_streams
+    command: bash -c "/opt/app/simlinear.py -i 0.0.0.0"
+    environment:
+       - PYTHONUNBUFFERED=1
+
+  abrtestproxy:
+    cap_add:
+      - NET_ADMIN
+    image: ${DOCKER_REPO}abr-test-proxy
+    working_dir: /home
+    command: bash -c "/usr/local/bin/run.sh"
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+       - PYTHONUNBUFFERED=1
+

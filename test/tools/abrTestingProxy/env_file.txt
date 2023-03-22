@@ -1,0 +1,2 @@
+TEST_STREAM_PATH=../../simlinear/tools
+DOCKER_REPO=aamp-docker.artifactory.comcast.com/
