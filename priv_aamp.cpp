@@ -5529,6 +5529,18 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 	}
 	mEventManager->SetFakeTuneFlag(mIsFakeTune);
 
+	// Temp hack for Sky LLD trials , to be removed next Sprint - RDKAAMP-890
+	mManifestUrl = mainManifestUrl;
+	
+	if((mAppName == "Viper") &&
+	   (mManifestUrl.find("chunked") != std::string::npos) &&
+	   (mManifestUrl.find("tsb?") != std::string::npos))
+	{
+		DeFog(mManifestUrl);
+		mainManifestUrl = mManifestUrl.c_str();
+		AAMPLOG_INFO("LLD trials Url Remapping done");
+	}
+
 	mTSBEnabled = strcasestr(mainManifestUrl, "tsb?") && ISCONFIGSET_PRIV(eAAMPConfig_Fog);
 	SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_InterruptHandling, (mTSBEnabled && strcasestr(mainManifestUrl, "networkInterruption=true")));
 	if(!ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling))
