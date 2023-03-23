@@ -894,7 +894,8 @@ private:
 	bool mHasServerUtcTime;
 	bool mLiveTimeFragmentSync;
 	std::mutex playlistMutex;       /**< Mutex locked for accessing and updating mpd document */
- 	/**
+	uint32_t prevTimeScale;
+	/**
 	 * @fn GetPeriodStartTime
 	 * @param mpd : pointer manifest
 	 * @param periodIndex

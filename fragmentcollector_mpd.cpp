@@ -304,6 +304,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,mLicensePrefetcher(logObj, aamp, this)
 	,mMultiVideoAdaptationPresent(false)
 	,mLocalUtcTime(0)
+	,prevTimeScale(0)
 {
         FN_TRACE_F_MPD( __FUNCTION__ );
 	this->aamp = aamp;
@@ -1333,6 +1334,28 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						}
 					}
 
+					if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO && prevTimeScale != 0 && prevTimeScale != timeScale)
+					{
+						AAMPLOG_WARN("[!!! WARNING !!!] Inconsistent timescale detected within same adaptation sets - prevTimeScale %d currentTimeScale %d, which contradicts stream compliance, Applying workaround",prevTimeScale, timeScale);
+
+						double timelineOffset  = (double)timeScale / (double)prevTimeScale;
+						if(pMediaStreamContext->lastSegmentTime != 0)
+						{
+							pMediaStreamContext->lastSegmentTime = pMediaStreamContext->lastSegmentTime * timelineOffset;
+						}
+						if(pMediaStreamContext->lastSegmentDuration != 0)
+						{
+							pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->lastSegmentDuration * timelineOffset;
+						}
+
+						//When manifest refresh, FD.Time will be 0 and updated based on start time later.
+						if(pMediaStreamContext->fragmentDescriptor.Time != 0 )
+						{
+							pMediaStreamContext->fragmentDescriptor.Time = pMediaStreamContext->fragmentDescriptor.Time * timelineOffset;
+						}
+
+					}
+
 					if (presentationTimeOffset > 0 && pMediaStreamContext->lastSegmentDuration ==  0
 						&& pMediaStreamContext->fragmentDescriptor.Time == 0)
 					{
@@ -1532,6 +1555,15 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							AAMPLOG_INFO("Type[%d] update startTime to %" PRIu64 ,pMediaStreamContext->type, startTime);
 						}
 						pMediaStreamContext->fragmentDescriptor.Time = startTime;
+	
+						//Some foxtel streams have timeline start variation(~1) under diff representation but on same adaptation with same startNumber. Reset lastSegmentTime, as FDT>lastSegmentTime, it leads to Fetch duplicate fragment, as fragment number remains same.
+                                                if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO &&
+						(prevTimeScale != 0 && prevTimeScale != timeScale) && (pMediaStreamContext->lastSegmentTime != 0 && pMediaStreamContext->lastSegmentTime < pMediaStreamContext->fragmentDescriptor.Time) &&
+						(pMediaStreamContext->lastSegmentNumber != 0 && pMediaStreamContext->lastSegmentNumber == pMediaStreamContext->fragmentDescriptor.Number))
+                                                {
+                                                        pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time;
+                                                }
+
 #ifdef DEBUG_TIMELINE
 						AAMPLOG_WARN("Type[%d] Setting startTime to %" PRIu64 ,pMediaStreamContext->type, startTime);
 #endif
@@ -1540,6 +1572,11 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					ITimeline *timeline = timelines.at(pMediaStreamContext->timeLineIndex);
 					uint32_t repeatCount = timeline->GetRepeatCount();
 					uint32_t duration = timeline->GetDuration();
+					if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
+                                        {
+						prevTimeScale = timeScale;
+                                        }
+
 					// Flag used to identify manifest refresh after fragment download (FetchFragment)
 					pMediaStreamContext->freshManifest = false;
 #ifdef DEBUG_TIMELINE
@@ -1606,6 +1643,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 
 						uint64_t fragmentTimeBackUp = pMediaStreamContext->fragmentDescriptor.Time;
 						bool liveEdgePeriodPlayback = mIsLiveManifest && (mCurrentPeriodIdx == mUpperBoundaryPeriod);
+						uint64_t fragmentNumberBackUp = pMediaStreamContext->fragmentDescriptor.Number;
 						ReleasePlaylistLock();
 
 						if(!FCS_content &&
@@ -1657,11 +1695,13 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								// if manifest refreshed in between, take backup values
 								pMediaStreamContext->lastSegmentTime = fragmentTimeBackUp;
 								pMediaStreamContext->lastSegmentDuration = fragmentTimeBackUp + duration;
+								pMediaStreamContext->lastSegmentNumber = fragmentNumberBackUp;
 							}
 							else
 							{
 								pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time;
 								pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time + duration;
+								pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number;
 							}
 
 							// pMediaStreamContext->downloadedDuration is introduced to calculate the bufferedduration value.
@@ -9175,6 +9215,10 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	{
 		PrivAAMPState state;
 		aamp->GetState(state);
+		if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
+		{
+			state = eSTATE_PLAYING;
+		}
 		if(state == eSTATE_PLAYING)
 		{
 			*waitForFreeFrag = false;
@@ -9454,6 +9498,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							mMediaStreamContext[i]->lastSegmentTime = 0;
 							mMediaStreamContext[i]->lastSegmentDuration = 0;
 							mMediaStreamContext[i]->lastSegmentNumber =0; // looks like change in period may happen now. hence reset lastSegmentNumber
+							prevTimeScale = 0;
 						}
 					}
 					else if(mPrevAdaptationSetCount != adaptationSetCount)

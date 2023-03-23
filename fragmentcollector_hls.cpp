@@ -2078,6 +2078,10 @@ void TrackState::FetchFragment()
  */
 void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded)
 {
+	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
+	{
+		return;
+	}
 	if (playContext)
 	{
 		double position = 0;

@@ -2213,7 +2213,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 				}
 				else if (eMEDIATYPE_AUDIO == streamId)
 				{
-					g_object_set (G_OBJECT (sink), "port", tcp_port+1,"host","127.0.0.1",NULL);
+					g_object_set (G_OBJECT (sink), "port", (tcp_port>0)?tcp_port+1:tcp_port,"host","127.0.0.1",NULL);
 					g_object_set(stream->sinkbin, "audio-sink", sink, NULL);
 				}
 			}
@@ -2501,6 +2501,20 @@ void AAMPGstPlayer::SendNewSegmentEvent(MediaType mediaType, GstClockTime startP
 bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, bool initFragment, bool discontinuity)
 {
 	FN_TRACE( __FUNCTION__ );
+	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
+	{
+		if (eMEDIATYPE_VIDEO == mediaType)
+		{
+			if( privateContext->numberOfVideoBuffersSent == 0 )
+			{ // required in order for subtitle harvesting/processing to work
+				aamp->UpdateSubtitleTimestamp();
+			  // required in order to fetch more than eAAMPConfig_PrePlayBufferCount video segments see WaitForFreeFragmentAvailable()
+				aamp->NotifyFirstFrameReceived();
+			}
+			privateContext->numberOfVideoBuffersSent++;
+		}
+		return false;
+	}
 	GstClockTime pts = (GstClockTime)(fpts * GST_SECOND);
 	GstClockTime dts = (GstClockTime)(fdts * GST_SECOND);
 	GstClockTime duration = (GstClockTime)(fDuration * 1000000000LL);
@@ -3742,6 +3756,10 @@ void AAMPGstPlayer::setVolumeOrMuteUnMute(void)
 void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
 	FN_TRACE( __FUNCTION__ );
+	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
+	{
+		return;
+	}
 	media_stream *stream = &privateContext->stream[eMEDIATYPE_VIDEO];
 	privateContext->rate = rate;
 	//TODO: Need to decide if required for AUX_AUDIO

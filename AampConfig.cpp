@@ -372,6 +372,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"ignoreAppLiveOffset", eAAMPConfig_IgnoreAppLiveOffset, false},
 	{false,"useTCPServerSink",eAAMPConfig_useTCPServerSink,false},
 	{false,"sendLicenseResponseHeaders", eAAMPConfig_SendLicenseResponseHeaders, false},
+	{false,"suppressDecode", eAAMPConfig_SendLicenseResponseHeaders, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
