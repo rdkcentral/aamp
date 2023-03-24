@@ -38,13 +38,13 @@ bool AampVerimatrixHelper::parsePssh(const uint8_t* initData, uint32_t initDataL
 
 	if(mDrmInfo.mediaFormat == eMEDIAFORMAT_HLS)
 	{
-		logprintf("mediaFormat is not DASH");
+		AAMPLOG_WARN("mediaFormat is not DASH");
 		return true;
 	}
 
 	if(initDataLen < VERIMATRIX_PSSH_DATA_POSITION)
 	{
-		logprintf("initDataLen less than %d", VERIMATRIX_PSSH_DATA_POSITION);
+		AAMPLOG_WARN("initDataLen less than %d", VERIMATRIX_PSSH_DATA_POSITION);
 		return false;
 	}
 
@@ -57,20 +57,20 @@ bool AampVerimatrixHelper::parsePssh(const uint8_t* initData, uint32_t initDataL
 	std::string pssh(init);
 	delete []init;
 
-	logprintf("pssh %s", pssh.c_str());
+	AAMPLOG_WARN("pssh %s", pssh.c_str());
 
 	size_t sp = pssh.find(KEYURL_TAG_START);
 	size_t ep = pssh.find(KEYURL_TAG_END);
 	if((sp == std::string::npos) || (ep == std::string::npos))
 	{
-		logprintf("not found KeyUrl TAG");
+		AAMPLOG_WARN("not found KeyUrl TAG");
 		return false;
 	}
 
 	sp += strlen(KEYURL_TAG_START);
 
 	std::string keyfile = pssh.substr(sp, ep - sp);
-	logprintf("keyfile %s", keyfile.c_str());
+	AAMPLOG_WARN("keyfile %s", keyfile.c_str());
 
 	mKeyID.assign((uint8_t *)keyfile.c_str(), (uint8_t *)keyfile.c_str() + keyfile.length());
 
@@ -97,7 +97,7 @@ void AampVerimatrixHelper::createInitData(std::vector<uint8_t>& initData) const
 	else if(mDrmInfo.mediaFormat == eMEDIAFORMAT_DASH)
 		init = "{\"contentType\" : \"DASH\"}";
 	else
-		logprintf("unknown mediaFormat %d", mDrmInfo.mediaFormat);
+		AAMPLOG_WARN("unknown mediaFormat %d", mDrmInfo.mediaFormat);
 
 	initData.assign((uint8_t *)init, (uint8_t *)init + strlen(init));
 }
@@ -110,7 +110,7 @@ void AampVerimatrixHelper::getKey(std::vector<uint8_t>& keyID) const
 	else if(mDrmInfo.mediaFormat == eMEDIAFORMAT_DASH)
 		keyID.insert(keyID.begin(), mKeyID.begin(), mKeyID.end());
 	else
-		logprintf("unknown mediaFormat %d", mDrmInfo.mediaFormat);
+		AAMPLOG_WARN("unknown mediaFormat %d", mDrmInfo.mediaFormat);
 }
 
 void AampVerimatrixHelper::generateLicenseRequest(const AampChallengeInfo& challengeInfo, AampLicenseRequest& licenseRequest) const
@@ -127,7 +127,7 @@ void AampVerimatrixHelper::transformLicenseResponse(std::shared_ptr<DrmData> lic
 	else if(mDrmInfo.mediaFormat == eMEDIAFORMAT_DASH)
 		licenseResponse->setData((unsigned char*)mKeyID.data(), mKeyID.size());
 	else
-		logprintf("unknown mediaFormat %d", mDrmInfo.mediaFormat);
+		AAMPLOG_WARN("unknown mediaFormat %d", mDrmInfo.mediaFormat);
 }
 
 bool AampVerimatrixHelperFactory::isDRM(const struct DrmInfo& drmInfo) const

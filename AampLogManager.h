@@ -37,7 +37,7 @@
  * @brief Direct call for trace printf, can be enabled b defining TRACE here
  */
 #ifdef TRACE
-#define traceprintf logprintf
+#define traceprintf printf
 #else
 #define traceprintf(FORMAT, ...)
 #endif
@@ -61,7 +61,7 @@ do { \
 		if( !gpGlobalConfig->logging.isLogLevelAllowed(LEVEL) ) break; \
 		PLAYERID = -1; \
 	} \
-	logprintf_new( PLAYERID, LEVELSTR, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
+	logprintf( PLAYERID, LEVELSTR, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
 } while(0)
 
 /**
@@ -75,7 +75,7 @@ do { \
 
 #define AAMPLOG_FAILOVER(FORMAT, ...) \
 		if (mLogObj && mLogObj->failover) { \
-				logprintf_new(mLogObj->getPlayerId(), "FAILOVER",__FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
+				logprintf(mLogObj->getPlayerId(), "FAILOVER",__FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
 		}
 
 /**
@@ -85,6 +85,14 @@ do { \
 #define AAMPLOG_INFO(FORMAT, ...) AAMPLOG(mLogObj,eLOGLEVEL_INFO, "INFO", FORMAT, ##__VA_ARGS__)
 #define AAMPLOG_WARN(FORMAT, ...) AAMPLOG(mLogObj,eLOGLEVEL_WARN, "WARN", FORMAT, ##__VA_ARGS__)
 #define AAMPLOG_ERR(FORMAT, ...) AAMPLOG(mLogObj,eLOGLEVEL_ERROR, "ERROR", FORMAT, ##__VA_ARGS__)
+
+/**
+ * @brief AAMP logging defines specifying the log obj
+ */
+#define AAMPLOG_OBJ_TRACE(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_TRACE, "TRACE", FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_OBJ_INFO(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_INFO, "INFO", FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_OBJ_WARN(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_WARN, "WARN", FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_OBJ_ERR(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_ERROR, "ERROR", FORMAT, ##__VA_ARGS__)
 
 
 /**
@@ -257,11 +265,6 @@ public:
 	void setLogLevel(AAMP_LogLevel newLevel);
 
 	/**
-	 * @fn setLogAndCfgDirectory
-	 */
-	void setLogAndCfgDirectory(char driveName);
-
-	/**
 	 * @fn isLogworthyErrorCode
 	 * @param[in] errorCode - curl error
      	 * @return true if it is not a curl error 23 and 42, bcasue those are not a real network errors.
@@ -296,13 +299,7 @@ extern AampLogManager *mLogObj;
  * @param[in] format - printf style string
  * @return void
  */
-extern void logprintf(const char *format, ...)  __attribute__ ((format (printf, 1, 2)));;
-/**
- * @fn logprintf_new
- * @param[in] format - printf style string
- * @return void
- */
-extern void logprintf_new(int playerId,const char* levelstr,const char* file, int line,const char *format, ...)  __attribute__ ((format (printf, 5, 6)));;
+extern void logprintf(int playerId,const char* levelstr,const char* file, int line,const char *format, ...)  __attribute__ ((format (printf, 5, 6)));;
 
 /**
  * @fn DumpBlob

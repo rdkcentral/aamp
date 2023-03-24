@@ -38,8 +38,7 @@
  * @param[in] format - printf style string
  * @retuen void
  */
-extern void logprintf(const char *format, ...);
-extern void logprintf_new(int playerId,const char* levelstr,const char* file, int line,const char *format, ...);
+extern void logprintf(int playerId,const char* levelstr,const char* file, int line,const char *format, ...);
 
 namespace subtecConnector
 {

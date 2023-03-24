@@ -315,7 +315,7 @@ int AampDRMSessionManager::progress_callback(
 	AampDRMSessionManager *drmSessionManager = (AampDRMSessionManager *)clientp;
 	if(drmSessionManager->getCurlAbort())
 	{
-		logprintf("Aborting DRM curl operation.. - CURLE_ABORTED_BY_CALLBACK");
+		AAMPLOG_OBJ_WARN(drmSessionManager->mLogObj, "Aborting DRM curl operation.. - CURLE_ABORTED_BY_CALLBACK");
 		returnCode = -1; // Return non-zero for CURLE_ABORTED_BY_CALLBACK
 		//Reset the abort variable
 		drmSessionManager->setCurlAbort(false);
@@ -336,7 +336,7 @@ size_t AampDRMSessionManager::write_callback(char *ptr, size_t size,
 	size_t numBytesForBlock = size * nmemb;
 	if(callbackData->mDRMSessionManager->getCurlAbort())
 	{
-		logprintf("Aborting DRM curl operation.. - CURLE_ABORTED_BY_CALLBACK");
+		AAMPLOG_OBJ_WARN(callbackData->mDRMSessionManager->mLogObj, "Aborting DRM curl operation.. - CURLE_ABORTED_BY_CALLBACK");
 		numBytesForBlock = 0; // Will cause CURLE_WRITE_ERROR
 		//Reset the abort variable
 		callbackData->mDRMSessionManager->setCurlAbort(false);
@@ -352,7 +352,7 @@ size_t AampDRMSessionManager::write_callback(char *ptr, size_t size,
 	}
 	if (gpGlobalConfig->logging.trace)
 	{
-		logprintf(" wrote %zu number of blocks", numBytesForBlock);
+		AAMPLOG_OBJ_WARN(callbackData->mDRMSessionManager->mLogObj, "Wrote %zu number of blocks", numBytesForBlock);
 	}
 	return numBytesForBlock;
 }

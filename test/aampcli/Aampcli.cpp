@@ -313,7 +313,7 @@ int Aampcli::getApplicationDir( char *buffer, uint32_t size )
 		}
 	}
 
-	return strnlen(buffer, size);
+	return (int)strnlen(buffer, size);
 }
 
 
@@ -325,7 +325,6 @@ int Aampcli::getApplicationDir( char *buffer, uint32_t size )
  */
 int main(int argc, char **argv)
 {
-	char driveName = (*argv)[0];
 	AampLogManager mLogManager;
 	AampLogManager::disableLogRedirection = true;
 	ABRManager mAbrManager;
@@ -333,10 +332,6 @@ int main(int argc, char **argv)
     gApplicationPath = argv[0];
 
 	signal(SIGINT, Harvestor::harvestTerminateHandler);
-
-	/* Set log directory path for AAMP and ABR Manager */
-	mLogManager.setLogAndCfgDirectory(driveName);
-	mAbrManager.setLogDirectory(driveName);
 
 	printf("**************************************************************************\n");
 	printf("** ADVANCED ADAPTIVE MEDIA PLAYER (AAMP) - COMMAND LINE INTERFACE (CLI) **\n");

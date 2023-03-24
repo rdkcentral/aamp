@@ -179,25 +179,7 @@ void AampLogManager::setLogLevel(AAMP_LogLevel newLevel)
 {
 }
 
-void logprintf(const char *format, ...)
-{
-#ifdef ENABLE_LOGGING
-	int len = 0;
-	va_list args;
-	va_start(args, format);
-
-	char gDebugPrintBuffer[MAX_DEBUG_LOG_BUFF_SIZE];
-	len = sprintf(gDebugPrintBuffer, "[AAMP-PLAYER]");
-	vsnprintf(gDebugPrintBuffer+len, MAX_DEBUG_LOG_BUFF_SIZE-len, format, args);
-	gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE-1)] = 0;
-
-	std::cout << gDebugPrintBuffer << std::endl;
-
-	va_end(args);
-#endif
-}
-
-void logprintf_new(int playerId, const char* levelstr, const char* file, int line, const char *format, ...)
+void logprintf(int playerId, const char* levelstr, const char* file, int line, const char *format, ...)
 {
 #ifdef ENABLE_LOGGING
 	int len = 0;

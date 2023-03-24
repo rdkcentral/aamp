@@ -137,7 +137,7 @@ void print_nop(const char *format, ...){}
 	if (type == DEBUG_DEMUX_TRACK || DEBUG_DEMUX_TRACK == 0xff) \
 	{ \
 		AAMPLOG_WARN("PC: DEBUG_DEMUX Track %d : ", DEBUG_DEMUX_TRACK );\
-		logprintf(a); \
+		printf(a); \
 	}\
 	else \
 	{ \

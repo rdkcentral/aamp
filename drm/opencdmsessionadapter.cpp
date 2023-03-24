@@ -66,7 +66,7 @@ AAMPOCDMSessionAdapter::AAMPOCDMSessionAdapter(AampLogManager *logObj, std::shar
 
 void AAMPOCDMSessionAdapter::initAampDRMSystem()
 {
-	logprintf("initAampDRMSystem :: enter ");
+	AAMPLOG_WARN("initAampDRMSystem :: enter ");
 	pthread_mutex_lock(&decryptMutex);
 	if (m_pOpenCDMSystem == nullptr) {
 #ifdef USE_THUNDER_OCDM_API_0_2
@@ -120,7 +120,7 @@ void AAMPOCDMSessionAdapter::generateAampDRMSession(const uint8_t *f_pbInitData,
 		m_OCDMSessionCallbacks.process_challenge_callback = [](OpenCDMSession* session, void* userData, const char destUrl[], const uint8_t challenge[], const uint16_t challengeSize) {
 			AAMPOCDMSessionAdapter* userSession = reinterpret_cast<AAMPOCDMSessionAdapter*>(userData);
 			userSession->timeBeforeCallback = ((aamp_GetCurrentTimeMS())-(userSession->timeBeforeCallback));
-			logprintf("Duration for process_challenge_callback %lld",(userSession->timeBeforeCallback));
+			AAMPLOG_OBJ_WARN(userSession->mLogObj, "Duration for process_challenge_callback %lld",(userSession->timeBeforeCallback));
 			userSession->processOCDMChallenge(destUrl, challenge, challengeSize);
 		};
 

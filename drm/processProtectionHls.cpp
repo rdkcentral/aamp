@@ -266,7 +266,7 @@ shared_ptr<DrmSessionParams> ProcessContentProtection(PrivateInstanceAAMP *aamp,
 
 		if(drmHelper->friendlyName().compare("Verimatrix") == 0)
 		{
-			logprintf("%s:%d Verimatrix DRM.", __FUNCTION__, __LINE__);
+			AAMPLOG_WARN( "Verimatrix DRM" );
 			data = (unsigned char *)psshData;
 			dataLength = psshDataStr.length();
 		}

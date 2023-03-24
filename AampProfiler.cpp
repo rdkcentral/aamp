@@ -328,22 +328,6 @@ void ProfileEventAAMP::ProfileEnd(ProfilerBucketType type)
 	if (!bucket->complete && bucket->profileStarted)
 	{
 		bucket->tFinish = (unsigned int)(NOW_STEADY_TS_MS - tuneStartMonotonicBase);
-		/*
-		static const char *bucketName[PROFILE_BUCKET_TYPE_COUNT] =
-		{
-		"manifest",
-		"playlist",
-		"fragment",
-		"key",
-		"decrypt"
-		"first-frame"
-		};
-
-		logprintf("aamp %7d (+%6d): %s",
-		bucket->tStart,
-		bucket->tFinish - bucket->tStart,
-		bucketName[type]);
-		*/
 		bucket->complete = true;
 	}
 }

@@ -27,9 +27,6 @@
 
 #include <stddef.h>
 
-extern void logprintf(const char *format, ...);
-extern void logprintf_new(int playerId,const char* levelstr,const char* file, int line,const char *format, ...);
-
 /**
  * @class FnLogger
  * @brief Enable Logger to add more logs
@@ -37,12 +34,17 @@ extern void logprintf_new(int playerId,const char* levelstr,const char* file, in
 
 class FnLogger {
 public:
-    FnLogger( std::string const & pMsg1,std::string const & pMsg2  ) : msg1(pMsg1),msg2(pMsg2)
-   {   logprintf("%s Enter ===> %s(): ", msg1.c_str(), msg2.c_str()); }
-   ~FnLogger()
-    {   logprintf("%s Exit <=== %s(): ", msg1.c_str(), msg2.c_str()); }
-    std::string msg1;
-    std::string msg2;
+	FnLogger( std::string const & pMsg1,std::string const & pMsg2  ) : msg1(pMsg1),msg2(pMsg2)
+	{
+		AAMPLOG_WARN( "%s Enter ===> %s(): ", msg1.c_str(), msg2.c_str() );
+	}
+
+	~FnLogger()
+	{
+		AAMPLOG_WARN( "%s Exit <=== %s(): ", msg1.c_str(), msg2.c_str() );
+	}
+	std::string msg1;
+	std::string msg2;
 };
 
 #ifndef LOG_FN_TRACE
@@ -105,11 +107,11 @@ public:
 #define FN_TRACE(x)
 #endif
 
-#if LOG_FN_TRACE_P
-#define FN_TRACE_P(x) FnLogger l_##x##_scope("[GST-PLAYER-PVT]",x);
-#else
-#define FN_TRACE_P(x)
-#endif
+//#if LOG_FN_TRACE_P
+//#define FN_TRACE_P(x) FnLogger l_##x##_scope("[GST-PLAYER-PVT]",x);
+//#else
+//#define FN_TRACE_P(x)
+//#endif
 
 #if LOG_FN_TRACE_F_MPD
 #define FN_TRACE_F_MPD(x) FnLogger l_##x##_scope("[F-MPD]",x);
@@ -117,60 +119,59 @@ public:
 #define FN_TRACE_F_MPD(x)
 #endif
 
+//#if LOG_FN_TRACE_G_CONF
+//#define FN_TRACE_G_CONF(x) FnLogger l_##x##_scope("[G-CONF]",x);
+//#else
+//#define FN_TRACE_G_CONF(x)
+//#endif
 
-#if LOG_FN_TRACE_G_CONF
-#define FN_TRACE_G_CONF(x) FnLogger l_##x##_scope("[G-CONF]",x);
-#else
-#define FN_TRACE_G_CONF(x)
-#endif
+//#if LOG_FN_TRACE_DMX
+//#define FN_TRACE_DMX(x) FnLogger l_##x##_scope("[DMX]",x);
+//#else
+//#define FN_TRACE_DMX(x)
+//#endif
 
-#if LOG_FN_TRACE_DMX
-#define FN_TRACE_DMX(x) FnLogger l_##x##_scope("[DMX]",x);
-#else
-#define FN_TRACE_DMX(x)
-#endif
+//#if LOG_FN_TRACE_STRM_ABS
+//#define FN_TRACE_STRM_ABS(x) FnLogger l_##x##_scope("[STRM-ABS]",x);
+//#else
+//#define FN_TRACE_STRM_ABS(x)
+//#endif
 
-#if LOG_FN_TRACE_STRM_ABS
-#define FN_TRACE_STRM_ABS(x) FnLogger l_##x##_scope("[STRM-ABS]",x);
-#else
-#define FN_TRACE_STRM_ABS(x)
-#endif
+//#if LOG_FN_TRACE_STRM_PROG
+//#define FN_TRACE_STRM_PROG(x) FnLogger l_##x##_scope("[STRM-PROG]",x);
+//#else
+//#define FN_TRACE_STRM_PROG(x)
+//#endif
 
-#if LOG_FN_TRACE_STRM_PROG
-#define FN_TRACE_STRM_PROG(x) FnLogger l_##x##_scope("[STRM-PROG]",x);
-#else
-#define FN_TRACE_STRM_PROG(x)
-#endif
+//#if LOG_FN_TRACE_PROFILER
+//#define FN_TRACE_PROFILER(x) FnLogger l_##x##_scope("[PROFILER]",x);
+//#else
+//#define FN_TRACE_PROFILER(x)
+//#endif
 
-#if LOG_FN_TRACE_PROFILER
-#define FN_TRACE_PROFILER(x) FnLogger l_##x##_scope("[PROFILER]",x);
-#else
-#define FN_TRACE_PROFILER(x)
-#endif
+//#if LOG_FN_TRACE_CDAI
+//#define FN_TRACE_CDAI(x) FnLogger l_##x##_scope("[CDAI]",x);
+//#else
+//#define FN_TRACE_CDAI(x)
+//#endif
 
-#if LOG_FN_TRACE_CDAI
-#define FN_TRACE_CDAI(x) FnLogger l_##x##_scope("[CDAI]",x);
-#else
-#define FN_TRACE_CDAI(x)
-#endif
+//#if LOG_FN_TRACE_DRM
+//#define FN_TRACE_DRM(x) FnLogger l_##x##_scope("[DRM]",x);
+//#else
+//#define FN_TRACE_DRM(x)
+//#endif
 
-#if LOG_FN_TRACE_DRM
-#define FN_TRACE_DRM(x) FnLogger l_##x##_scope("[DRM]",x);
-#else
-#define FN_TRACE_DRM(x)
-#endif
+//#if LOG_FN_TRACE_DRM_SMGR
+//#define FN_TRACE_DRM_SMGR(x) FnLogger l_##x##_scope("[DRM-SMGR]",x);
+//#else
+//#define FN_TRACE_DRM_SMGR(x)
+//#endif
 
-#if LOG_FN_TRACE_DRM_SMGR
-#define FN_TRACE_DRM_SMGR(x) FnLogger l_##x##_scope("[DRM-SMGR]",x);
-#else
-#define FN_TRACE_DRM_SMGR(x)
-#endif
-
-#if LOG_FN_TRACE_ISOBMFF
-#define FN_TRACE_ISOBMFF(x) FnLogger l_##x##_scope("[ISOBMFF]",x);
-#else
-#define FN_TRACE_ISOBMFF(x)
-#endif
+//#if LOG_FN_TRACE_ISOBMFF
+//#define FN_TRACE_ISOBMFF(x) FnLogger l_##x##_scope("[ISOBMFF]",x);
+//#else
+//#define FN_TRACE_ISOBMFF(x)
+//#endif
 
 #if LOG_FN_TRACE_F_LIC_PREFETCH
 #define FN_TRACE_F_LIC_PREFETCH(x) FnLogger l_##x##_scope("[F-LIC-PREFETCH]",x);

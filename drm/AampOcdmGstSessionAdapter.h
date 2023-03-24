@@ -28,9 +28,9 @@ public:
                 const char* ocdmgstsessiondecrypt = "opencdm_gstreamer_session_decrypt_ex";
                 AAMPOCDMGSTSessionDecrypt = (OpenCDMError(*)(struct OpenCDMSession*, GstBuffer*, GstBuffer*, const uint32_t, GstBuffer*, GstBuffer*, uint32_t, GstCaps*))dlsym(RTLD_DEFAULT, ocdmgstsessiondecrypt);
                 if (AAMPOCDMGSTSessionDecrypt)
-                        logprintf("Has opencdm_gstreamer_session_decrypt_ex");
+					AAMPLOG_WARN("Has opencdm_gstreamer_session_decrypt_ex");
                 else
-                        logprintf("No opencdm_gstreamer_session_decrypt_ex found");
+					AAMPLOG_WARN("No opencdm_gstreamer_session_decrypt_ex found");
 #else
 	{
 #endif

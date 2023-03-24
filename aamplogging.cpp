@@ -27,6 +27,12 @@
 #include "priv_aamp.h"
 using namespace std;
 
+#ifdef AAMP_SIMULATOR_BUILD
+#define LOG_PASS_COUNT 2 // console and file
+#else
+#define LOG_PASS_COUNT 1 // console only
+#endif
+
 #ifdef USE_SYSLOG_HELPER_PRINT
 #include "syslog_helper_ifc.h"
 #endif
@@ -37,9 +43,9 @@ using namespace std;
 /**
  * @brief Log file and cfg directory path - To support dynamic directory configuration
  */
-static char gAampLog[] = "./aamp.log";
-static char gAampCfg[] = "/opt/aamp.cfg";
-static char gAampCliCfg[] = "/opt/aampcli.cfg";
+static const char *gAampLog = "./aamp.log";
+static const char *gAampCfg = "/opt/aamp.cfg";
+static const char *gAampCliCfg = "/opt/aampcli.cfg";
 
 bool gAampcliQuietLogs;
 
@@ -61,16 +67,6 @@ void AampLogManager::setLogLevel(AAMP_LogLevel newLevel)
 {
 	if(!info && !debug && !trace)
 		aampLoglevel = newLevel;
-}
-
-/**
- * @brief Set log file and cfg directory index.
- */
-void AampLogManager::setLogAndCfgDirectory(char driveName)
-{
-	gAampLog[0] = driveName;
-	gAampCfg[0] = driveName;
-	gAampCliCfg[0] = driveName;
 }
 
 /**
@@ -428,72 +424,26 @@ bool AampLogManager::isLogworthyErrorCode(int errorCode)
 	return returnValue;
 }
 
-/**
- * @brief Print logs to console / log fil
- */
-void logprintf(const char *format, ...)
+static FILE *OpenSimulatorLogFile( void )
 {
-	if( gAampcliQuietLogs ) return;
-	int len = 0;
-	va_list args;
-	va_start(args, format);
-
-	char gDebugPrintBuffer[MAX_DEBUG_LOG_BUFF_SIZE];
-	len = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer), "[AAMP-PLAYER]");
-	vsnprintf(gDebugPrintBuffer+len, MAX_DEBUG_LOG_BUFF_SIZE-len, format, args);
-	gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE-1)] = 0;
-
-	va_end(args);
-
-#if (defined (USE_SYSTEMD_JOURNAL_PRINT) || defined (USE_SYSLOG_HELPER_PRINT))
-	if(!AampLogManager::disableLogRedirection)
-	{
-#ifdef USE_SYSTEMD_JOURNAL_PRINT
-		sd_journal_print(LOG_NOTICE, "%s", gDebugPrintBuffer);
-#else
-		send_logs_to_syslog(gDebugPrintBuffer);
-#endif
-	}
-	else
-	{	
-		struct timeval t;
-		gettimeofday(&t, NULL);
-		printf("%ld:%3ld : %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, gDebugPrintBuffer);
-	}
-#else	//USE_SYSTEMD_JOURNAL_PRINT
-#ifdef AAMP_SIMULATOR_BUILD
 	static bool init;
-
 	FILE *f = fopen(gAampLog, (init ? "a" : "w"));
-	if (f)
-	{
-		init = true;
-		fputs(gDebugPrintBuffer, f);
-		fclose(f);
-	}
-
-	struct timeval t;
-	gettimeofday(&t, NULL);
-	printf("%ld:%3ld : %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, gDebugPrintBuffer);
-#endif
-#endif
+	init = true;
+	return f;
 }
 
 /**
  * @brief Print logs to console / log file
  */
-void logprintf_new(int playerId,const char* levelstr,const char* file, int line,const char *format, ...)
+void logprintf(int playerId,const char* levelstr,const char* file, int line,const char *format, ...)
 {
 	if( gAampcliQuietLogs ) return;
-	int len = 0;
 	va_list args;
 	va_start(args, format);
-
 	char gDebugPrintBuffer[MAX_DEBUG_LOG_BUFF_SIZE];
-	len = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer), "[AAMP-PLAYER][%d][%s][%s][%d]",playerId,levelstr,file,line);
+	int len = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer), "[AAMP-PLAYER][%d][%s][%s][%d]",playerId,levelstr,file,line);
 	vsnprintf(gDebugPrintBuffer+len, MAX_DEBUG_LOG_BUFF_SIZE-len, format, args);
 	gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE-1)] = 0;
-
 	va_end(args);
 
 #if (defined (USE_SYSTEMD_JOURNAL_PRINT) || defined (USE_SYSLOG_HELPER_PRINT))
@@ -504,30 +454,24 @@ void logprintf_new(int playerId,const char* levelstr,const char* file, int line,
 #else
 		send_logs_to_syslog(gDebugPrintBuffer);
 #endif
+		return;
 	}
-	else
-	{
-		struct timeval t;
-		gettimeofday(&t, NULL);
-		printf("%ld:%3ld : %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, gDebugPrintBuffer);
-	}
-#else	//USE_SYSTEMD_JOURNAL_PRINT
-#ifdef AAMP_SIMULATOR_BUILD
-	static bool init;
-
-	FILE *f = fopen(gAampLog, (init ? "a" : "w"));
-	if (f)
-	{
-		init = true;
-		fputs(gDebugPrintBuffer, f);
-		fclose(f);
-	}
-
+#endif
+	
 	struct timeval t;
 	gettimeofday(&t, NULL);
-	printf("%ld:%3ld : %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, gDebugPrintBuffer);
-#endif
-#endif
+	for( int i=0; i<LOG_PASS_COUNT; i++ )
+	{
+		FILE *f = (i==0)?stdout:OpenSimulatorLogFile();
+		if( f )
+		{
+			fprintf( f, "%ld.%03ld: %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, gDebugPrintBuffer);
+			if( i==1 )
+			{
+				fclose( f );
+			}
+		}
+	}
 }
 
 /**

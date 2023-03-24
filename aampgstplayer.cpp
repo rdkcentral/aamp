@@ -4082,7 +4082,7 @@ bool AAMPGstPlayer::IsCacheEmpty(MediaType mediaType)
 		}
 		else
 		{
-			// Changed from logprintf to AAMPLOG_TRACE, to avoid log flooding (seen on xi3 and xid).
+			// Changed to AAMPLOG_TRACE, to avoid log flooding (seen on xi3 and xid).
 			// We're seeing this logged frequently during live linear playback, despite no user-facing problem.
 			AAMPLOG_TRACE("AAMPGstPlayer::Cache level empty");
 			if (privateContext->stream[eMEDIATYPE_VIDEO].bufferUnderrun == true ||

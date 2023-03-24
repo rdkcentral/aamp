@@ -624,7 +624,7 @@ void AampConfig::ReadDeviceCapability()
 	if(!AAMPGstPlayer::IsCodecSupported("ac-4"))
 	{	
  		bAampCfgValue[eAAMPConfig_DisableAC4].value		=	true;
-		logprintf("AC4 not supported. DisableAC4 Audio");
+		AAMPLOG_WARN("AC4 not supported. DisableAC4 Audio");
 	}
 	else
 	{
@@ -635,7 +635,7 @@ void AampConfig::ReadDeviceCapability()
 	if(!AAMPGstPlayer::IsCodecSupported("ac-3"))
 	{
 		bAampCfgValue[eAAMPConfig_DisableAC3].value		=	false;
-		logprintf("AC3 not supported. DisableAC3 Audio");
+		AAMPLOG_WARN("AC3 not supported. DisableAC3 Audio");
 	}
 #if defined(BRCM)
 	if(!AAMPGstPlayer::IsMS2V12Supported())
@@ -1152,7 +1152,7 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
 		auto it = std::find_if( vCustom.begin(), vCustom.end(),[](const customJson & item) { return item.config == "url"; });
 		if (it != vCustom.end())
 		{
-			int distance = std::distance(vCustom.begin(),it);
+			int distance = (int)std::distance(vCustom.begin(),it);
 			foundurl = url_custom.find(vCustom[distance].configValue);
 			if( foundurl != std::string::npos)
 			{
@@ -1165,7 +1165,7 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
 		auto it1 = std::find_if( vCustom.begin(), vCustom.end(),[](const customJson & item) { return item.config == "playerId"; });
 		if (it1 != vCustom.end())
 		{
-			int distance = std::distance(vCustom.begin(),it1);
+			int distance = (int)std::distance(vCustom.begin(),it1);
 			foundurl = playerId_custom.find(vCustom[distance].configValue);
 			if( foundurl != std::string::npos)
 			{
@@ -1178,7 +1178,7 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
 		auto it2 = std::find_if( vCustom.begin(), vCustom.end(),[](const customJson & item) { return item.config == "appName"; });
 		if (it2 != vCustom.end())
 		{
-			int distance = std::distance(vCustom.begin(),it2);
+			int distance = (int)std::distance(vCustom.begin(),it2);
 			foundurl = appName_custom.find(vCustom[distance].configValue);
 			if( foundurl != std::string::npos)
 			{
@@ -1372,7 +1372,6 @@ void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 				// For those parameters in Boolean Settings
 				if(cfgEnum < eAAMPConfig_BoolMaxValue )
 				{
-					bool param=false;
 					int conv = 0;
 					if(!toggle)
 					{

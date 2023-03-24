@@ -105,49 +105,38 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(uint8_t *, int, int, int) > exportFrames
 	) : aamp(NULL), sp_aamp(nullptr), mInternalStreamSink(NULL), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
-#ifdef IARM_MGR
-static bool iarmInitialized = false;
-if(!iarmInitialized)
-{
-        char processName[20] = {0};
-        IARM_Result_t result;
-        snprintf(processName, sizeof(processName), "AAMP-PLAYER-%u", getpid());
-        if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Init((const char*) &processName))) {
-                logprintf("IARM Interface Inited in AAMP");
-        }
-        else {
-            logprintf("IARM Interface Inited Externally : %d", result);
-        }
 
-        if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
-                logprintf("IARM Interface Connected  in AAMP");
-        }
-        else {
-            logprintf ("IARM Interface Connected Externally :%d", result);
-        }
+//Need to do iarm initialization process before reading the tr181 aamp parameters.
+//Using printf here since AAMP logs can only use after creating the global object
+#ifdef IARM_MGR
+	static bool iarmInitialized = false;
+	if(!iarmInitialized)
+	{
+	char processName[20] = {0};
+	IARM_Result_t result;
+	snprintf(processName, sizeof(processName), "AAMP-PLAYER-%u", getpid());
+	if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Init((const char*) &processName))) {
+		printf("IARM Interface Inited in AAMP");
+	}
+	else {
+		printf("IARM Interface Inited Externally : %d", result);
+	}
+
+	if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
+		printf("IARM Interface Connected  in AAMP");
+	}
+	else {
+		printf("IARM Interface Connected Externally :%d", result);
+	}
 	iarmInitialized = true;
 }
 #endif // IARM_MGR
-
-#ifdef SUPPORT_JS_EVENTS
-#ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so
-	const char* szJSLib = "libaampjsbindings.so";
-#else
-	const char* szJSLib = "libaamp.so";
-#endif
-	mJSBinding_DL = dlopen(szJSLib, RTLD_GLOBAL | RTLD_LAZY);
-	logprintf("[AAMP_JS] dlopen(\"%s\")=%p", szJSLib, mJSBinding_DL);
-#endif
-
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
-	{		
-#ifdef AAMP_BUILD_INFO
-		std::string tmpstr = MACRO_TO_STRING(AAMP_BUILD_INFO);
-		logprintf(" AAMP_BUILD_INFO: %s",tmpstr.c_str());
-#endif
+	{
 		gpGlobalConfig =  new AampConfig();
+
 		// Init the default values
 		gpGlobalConfig->Initialize();
 		gpGlobalConfig->ReadDeviceCapability();
@@ -162,6 +151,20 @@ if(!iarmInitialized)
 		::mLogObj = gpGlobalConfig->GetLoggerInstance();
 	}
 
+#ifdef SUPPORT_JS_EVENTS
+#ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so
+	const char* szJSLib = "libaampjsbindings.so";
+#else
+	const char* szJSLib = "libaamp.so";
+#endif
+	mJSBinding_DL = dlopen(szJSLib, RTLD_GLOBAL | RTLD_LAZY);
+	AAMPLOG_WARN("[AAMP_JS] dlopen(\"%s\")=%p", szJSLib, mJSBinding_DL);
+#endif
+
+#ifdef AAMP_BUILD_INFO
+		std::string tmpstr = MACRO_TO_STRING(AAMP_BUILD_INFO);
+		AAMPLOG_WARN(" AAMP_BUILD_INFO: %s",tmpstr.c_str());
+#endif
 	// Copy the default configuration to session configuration .
 	// App can modify the configuration set
 	mConfig = *gpGlobalConfig;

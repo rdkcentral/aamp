@@ -176,7 +176,7 @@ void AAMPOCDMGSTSessionAdapter::ExtractSEI( GstBuffer *buffer)
 	}
 	else
 	{
-		logprintf("Invalid Buffer Input - NULL");
+		AAMPLOG_WARN("Invalid Buffer Input - NULL");
 		gst_buffer_unmap(buffer, &info);
 		return;
 	}

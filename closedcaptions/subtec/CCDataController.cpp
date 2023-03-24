@@ -76,7 +76,7 @@ void CCDataController::closedCaptionDataCb (int decoderIndex, VL_CC_DATA_TYPE eT
 
 void CCDataController::closedCaptionDecodeCb(int decoderIndex, int event)
 {
-    logprintf("closedCaptionDecodeCb decoderIndex = %d, event = %d", decoderIndex, event);
+    AAMPLOG_WARN("closedCaptionDecodeCb decoderIndex = %d, event = %d", decoderIndex, event);
 }
 
 void CCDataController::sendMute()
@@ -158,7 +158,7 @@ namespace
             return it->second;
         else
         {
-            logprintf("Cannot match %s to attribute value", attrib);
+            AAMPLOG_WARN("Cannot match %s to attribute value", attrib);
             return 0; // value for default
         }
 
@@ -267,7 +267,7 @@ namespace
                 currentAttributes->edgeColor = attrib->edgeColor;
                 return;
             default:
-                logprintf("%s: wrong attribute type used 0x%x",__func__,  type);
+                AAMPLOG_WARN("%s: wrong attribute type used 0x%x",__func__,  type);
                 return;
 
         }

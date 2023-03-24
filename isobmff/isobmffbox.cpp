@@ -969,14 +969,7 @@ TfhdBox* TfhdBox::constructTfhdBox(uint32_t sz, uint8_t *ptr)
     } else {
         DefaultSampleFlags = 0;
     }
-
-//    logprintf("TFHD constructTfhdBox TrackId: %d",TrackId );
-//    logprintf("TFHD constructTfhdBox BaseDataOffset: %d",BaseDataOffset );
-//    logprintf("TFHD constructTfhdBox SampleDescriptionIndex: %d",SampleDescriptionIndex);
-//    logprintf("TFHD constructTfhdBox DefaultSampleDuration: %d",DefaultSampleDuration );
-//    logprintf("TFHD constructTfhdBox DefaultSampleSize: %d",DefaultSampleSize );
-//    logprintf("TFHD constructTfhdBox DefaultSampleFlags: %d",DefaultSampleFlags );
-
+	
     /* Avoid set but not used warnings. */
     (void)TrackId;
     (void)BaseDataOffset;
@@ -1066,9 +1059,7 @@ PrftBox* PrftBox::constructPrftBox(uint32_t sz, uint8_t *ptr)
     ntp_ts = READ_64(ptr);
     uint64_t pts = 0; //media time
     pts = READ_64(ptr);
-//    logprintf("PRFT constructPrftBox TrackId: %d",track_id );
-//    logprintf("PRFT constructPrftBox Ntp TS: %llu",ntp_ts );
-//    logprintf("PRFT constructPrftBox Media Time: %ld",pts);
+
     FullBox fbox(sz, Box::PRFT, version, flags);
 
     return new PrftBox(fbox, track_id, ntp_ts, pts);

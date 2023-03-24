@@ -4369,7 +4369,7 @@ static void AAMP_finalize(JSObjectRef thisObject)
 
 #ifdef AAMP_CC_ENABLED
 	//disable CC rendering so that state will not be persisted between two different sessions.
-	logprintf("[%s] Disabling CC", __FUNCTION__);
+	AAMPLOG_WARN("Disabling CC");
 	AampCCManager::GetInstance()->SetStatus(false);
 #endif
 }
