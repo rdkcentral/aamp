@@ -128,13 +128,13 @@ void AampScheduler::ExecuteAsyncTask()
 				if (obj.mId != AAMP_TASK_ID_INVALID)
 				{
 					mCurrentTaskId = obj.mId;
-					AAMPLOG_INFO("Found entry in function queue!!, task:%s. State:%d",obj.mTaskName.c_str(),mState);
+					AAMPLOG_INFO("Found entry in function queue!!, task:%s. State:%d: CurrentTaskId:%d ",obj.mTaskName.c_str(),mState,mCurrentTaskId);
 					if( mState != eSTATE_ERROR && mState != eSTATE_RELEASED)
 					{
 						//Unlock so that new entries can be added to queue while function executes
 						queueLock.unlock();
 
-						AAMPLOG_WARN("SchedulerTask Execution:%s",obj.mTaskName.c_str());
+						AAMPLOG_WARN("SchedulerTask Execution:%s taskId:%d",obj.mTaskName.c_str(),obj.mId);
 						//Execute function
 						obj.mTask(obj.mData);
 						//May be used in a wait() in future loops, it needs to be locked

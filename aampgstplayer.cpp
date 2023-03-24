@@ -4304,25 +4304,35 @@ void AAMPGstPlayer::NotifyEOS()
 	{
 		if (!privateContext->eosCallbackIdleTaskPending)
 		{
+			/*DELIA-60806: scheduling and executed async task immediately without returing the task id. 
+			Which is leading to set the task pending always true when SLE is reached END_OF_LIST. 
+			Due to this 30 tick is reported. changing the logic to set task pending to true before adding the task in notifyEOS function
+			and making it pending task to false if task id is invalid and eoscallback is pending.*/
+			privateContext->eosCallbackIdleTaskPending = true;
 			privateContext->eosCallbackIdleTaskId = aamp->ScheduleAsyncTask(IdleCallbackOnEOS, (void *)this, "IdleCallbackOnEOS");
-			if (privateContext->eosCallbackIdleTaskId != AAMP_TASK_ID_INVALID)
+			if (privateContext->eosCallbackIdleTaskId == AAMP_TASK_ID_INVALID && true == privateContext->eosCallbackIdleTaskPending)
 			{
-				privateContext->eosCallbackIdleTaskPending = true;
+				privateContext->eosCallbackIdleTaskPending = false;
+				AAMPLOG_WARN("eosCallbackIdleTaskPending(%d),eosCallbackIdleTaskId(%d)", 
+							(privateContext->eosCallbackIdleTaskPending ? 1 : 0),privateContext->eosCallbackIdleTaskId);
 			}
 			else
 			{
-				AAMPLOG_WARN("eosCallbackIdleTask scheduled, eosCallbackIdleTaskId %d", privateContext->eosCallbackIdleTaskId);
+				AAMPLOG_WARN("eosCallbackIdleTask scheduled eosCallbackIdleTaskPending(%d),eosCallbackIdleTaskId(%d)", 
+								(privateContext->eosCallbackIdleTaskPending ? 1 : 0),privateContext->eosCallbackIdleTaskId);
 			}
 		}
 		else
 		{
-			AAMPLOG_WARN("IdleCallbackOnEOS already registered previously, hence skip!");
+			AAMPLOG_WARN("IdleCallbackOnEOS already registered previously, hence skip! eosCallbackIdleTaskPending(%d),eosCallbackIdleTaskId(%d)", 
+														(privateContext->eosCallbackIdleTaskPending ? 1 : 0),privateContext->eosCallbackIdleTaskId);
 		}
 		privateContext->eosSignalled = true;
 	}
 	else
 	{
-		AAMPLOG_WARN("EOS already signaled, hence skip!");
+		AAMPLOG_WARN("EOS already signaled, hence skip! eosCallbackIdleTaskPending(%d),eosCallbackIdleTaskId(%d)", 
+														(privateContext->eosCallbackIdleTaskPending ? 1 : 0),privateContext->eosCallbackIdleTaskId);
 	}
 }
 
