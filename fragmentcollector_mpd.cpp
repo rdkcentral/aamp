@@ -9591,7 +9591,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
 					{
 						parallelDownload[trackIdx] = NULL;
-						cacheFullStatus[trackIdx] = false;
+						cacheFullStatus[trackIdx] = true;
 						if (!mMediaStreamContext[trackIdx]->eos)
 						{
 							if (parallelDnld && trackIdx > 0) // (trackIdx > 0) indicates video/iframe/audio-only has to be downloaded in sync mode from this FetcherLoop().
