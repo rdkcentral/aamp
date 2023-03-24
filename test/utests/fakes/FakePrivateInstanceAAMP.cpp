@@ -377,7 +377,7 @@ std::string PrivateInstanceAAMP::GetAvailableVideoTracks()
 	return nullptr;
 }
 
-void PrivateInstanceAAMP::SetVideoTracks(std::vector<long> bitrateList)
+void PrivateInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
 {
 }
 
@@ -522,16 +522,16 @@ void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, in
 {
 }
 
-long PrivateInstanceAAMP::GetMaximumBitrate()
+BitsPerSecond PrivateInstanceAAMP::GetMaximumBitrate()
 {
     return LONG_MAX;
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndProfileResolution(MediaType mediaType, long bitrate, int width, int height)
+void PrivateInstanceAAMP::UpdateVideoEndProfileResolution(MediaType mediaType, BitsPerSecond bitrate, int width, int height)
 {
 }
 
-long PrivateInstanceAAMP::GetDefaultBitrate()
+BitsPerSecond PrivateInstanceAAMP::GetDefaultBitrate()
 {
     return 0;
 }
@@ -554,7 +554,7 @@ void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int insta
 
 bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl,
                 int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
-                bool resetBuffer, MediaType fileType, long *bitrate, int * fogError,
+                bool resetBuffer, MediaType fileType, BitsPerSecond *bitrate, int * fogError,
                 double fragmentDurationSeconds)
 {
 	bool rv = false;
@@ -578,7 +578,7 @@ void PrivateInstanceAAMP::SetContentType(const char *cType)
 {
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, long bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime)
 {
 }
 
@@ -595,7 +595,7 @@ int PrivateInstanceAAMP::GetInitialBufferDuration()
     return 0;
 }
 
-long PrivateInstanceAAMP::GetMinimumBitrate()
+BitsPerSecond PrivateInstanceAAMP::GetMinimumBitrate()
 {
     return 0;
 }
@@ -648,7 +648,7 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 {
 }
 
-void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(long bitsPerSecond , bool trickPlay,int profile)
+void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond , bool trickPlay,int profile)
 {
 }
 
@@ -701,7 +701,7 @@ void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
 {
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, long bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
 {
 }
 
@@ -709,7 +709,7 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(AAMPAbrInfo & info)
 {
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, long bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData)
 {
 }
 
@@ -775,17 +775,17 @@ uint32_t  PrivateInstanceAAMP::GetAudTimeScale(void)
     return 0u;
 }
 
-long PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
+BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
 {
     return 0;
 }
 
-long PrivateInstanceAAMP::GetIframeBitrate()
+BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate()
 {
     return 0;
 }
 
-long PrivateInstanceAAMP::GetIframeBitrate4K()
+BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate4K()
 {
     return 0;
 }
@@ -824,7 +824,7 @@ const char* PrivateInstanceAAMP::MediaTypeString(MediaType fileType)
     return nullptr;
 }
 
-void PrivateInstanceAAMP::NotifyBitRateChangeEvent(int bitrate, BitrateChangeReason reason, int width, int height, double frameRate, double position, bool GetBWIndex, VideoScanType scantype, int aspectRatioWidth, int aspectRatioHeight)
+void PrivateInstanceAAMP::NotifyBitRateChangeEvent( BitsPerSecond bitrate, BitrateChangeReason reason, int width, int height, double frameRate, double position, bool GetBWIndex, VideoScanType scantype, int aspectRatioWidth, int aspectRatioHeight)
 {
 }
 
@@ -921,7 +921,7 @@ void PrivateInstanceAAMP::SendSupportedSpeedsChangedEvent(bool isIframeTrackPres
 {
 }
 
-long PrivateInstanceAAMP::GetDefaultBitrate4K()
+BitsPerSecond PrivateInstanceAAMP::GetDefaultBitrate4K()
 {
 	return 0;
 }
@@ -946,7 +946,7 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 {
 }
 
-bool PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *buffer, unsigned int curlInstance, const char *range, MediaType fileType, int * http_code, double * downloadTime, long *bitrate, int * fogError, double fragmentDurationSec)
+bool PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *buffer, unsigned int curlInstance, const char *range, MediaType fileType, int * http_code, double * downloadTime, BitsPerSecond *bitrate, int * fogError, double fragmentDurationSec)
 {
 	return true;
 }

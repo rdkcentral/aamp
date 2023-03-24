@@ -520,7 +520,7 @@ class AudioTrackTuple
 		std::string language;
 		std::string rendition;
 		std::string codec;
-		unsigned int bitrate;
+		BitsPerSecond bitrate;
 		unsigned int channel;
 
 	public:
@@ -1010,7 +1010,7 @@ public:
 	std::vector<TimedMetadata> timedMetadataNew;
 	std::vector<ContentGapInfo> contentGaps;
 	std::vector<std::string> responseHeaders;
-	std::vector<long>bitrateList;
+	std::vector<BitsPerSecond>bitrateList;
 	std::map<std::string, std::string> httpHeaderResponses;
 	bool mIsIframeTrackPresent;				/**< flag to check iframe track availability*/
 
@@ -1274,7 +1274,7 @@ public:
 	 * @param[in] CMCDMetrics - pointer to CMCDNetwork metrics
 	 * @return void
 	 */
-	bool GetFile(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true,MediaType fileType = eMEDIATYPE_DEFAULT, long *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0);
+	bool GetFile(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true,MediaType fileType = eMEDIATYPE_DEFAULT, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0);
 
 	/**
 	 * @fn getUUID
@@ -1325,8 +1325,7 @@ public:
 	 * @param[out] fogError - Error from FOG
 	 * @return void
 	 */
-	bool LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, MediaType fileType = eMEDIATYPE_MANIFEST, int * http_code = NULL, double * downloadTime = NULL, long *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
-
+	bool LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, MediaType fileType = eMEDIATYPE_MANIFEST, int * http_code = NULL, double * downloadTime = NULL, BitsPerSecond *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
 	/**
 	 * @fn PushFragment
 	 *
@@ -1485,7 +1484,7 @@ public:
 	 * @param[in] GetBWIndex - Flag to get the bandwidth index
 	 * @return void
 	 */
-	void NotifyBitRateChangeEvent(int bitrate, BitrateChangeReason reason, int width, int height, double framerate, double position, bool GetBWIndex = false, VideoScanType scantype = eVIDEOSCAN_UNKNOWN, int aspectRatioWidth = 0, int aspectRatioHeight = 0);
+	void NotifyBitRateChangeEvent(BitsPerSecond bitrate, BitrateChangeReason reason, int width, int height, double framerate, double position, bool GetBWIndex = false, VideoScanType scantype = eVIDEOSCAN_UNKNOWN, int aspectRatioWidth = 0, int aspectRatioHeight = 0);
 
 	/**
 	 * @fn NotifyEOSReached
@@ -2003,7 +2002,7 @@ public:
 	/**
 	 * @fn GetCurrentlyAvailableBandwidth
 	 */
-	long GetCurrentlyAvailableBandwidth(void);
+	BitsPerSecond GetCurrentlyAvailableBandwidth(void);
 
 	/**
 	 * @fn DisableDownloads
@@ -2586,14 +2585,14 @@ public:
 	 *
 	 *   @param[in] bitrate initial bitrate to be selected
 	 */
-	void SetInitialBitrate(long bitrate);
+	void SetInitialBitrate(BitsPerSecond bitrate);
 
 	/**
 	 *   @brief To set the initial bitrate value for 4K assets.
 	 *
 	 *   @param[in] bitrate4K initial bitrate to be selected for 4K assets
 	 */
-	void SetInitialBitrate4K(long bitrate4K);
+	void SetInitialBitrate4K(BitsPerSecond bitrate4K);
 
 	/**
 	 *   @brief To set the network download timeout value.
@@ -2710,7 +2709,7 @@ public:
 	 *
 	 *   @param[in] preferred bitrate.
 	 */
-	void SetVideoBitrate(long bitrate);
+	void SetVideoBitrate(BitsPerSecond bitrate);
 	/**
  	 *    @fn GetThumbnails
 	 *
@@ -2901,7 +2900,7 @@ public:
 	 *   @param[in] manifestData : Manifest info to be updated to partner apps
 	 *   @return void
 	 */
-	void UpdateVideoEndMetrics(MediaType mediaType, long bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData = NULL);
+	void UpdateVideoEndMetrics(MediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData = NULL);
 
 	/**  
 	 *   @fn UpdateVideoEndProfileResolution
@@ -2911,7 +2910,7 @@ public:
 	 *   @param[in]  height - Frame Height
 	 *   @return void
 	 */
-	void UpdateVideoEndProfileResolution(MediaType mediaType, long bitrate, int width, int height);
+	void UpdateVideoEndProfileResolution(MediaType mediaType, BitsPerSecond bitrate, int width, int height);
 
 	/**
 	 *   @fn UpdateVideoEndTsbStatus
@@ -2940,7 +2939,7 @@ public:
 	 *   @param[in] manifestData : Manifest info to be updated to partner apps
 	 *   @return void
 	 */
-	void UpdateVideoEndMetrics(MediaType mediaType, long bitrate, int curlOrHTTPCode, std::string& strUrl, double duration,double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData = NULL);
+	void UpdateVideoEndMetrics(MediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration,double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData = NULL);
     
 	/**
 	 *   @fn UpdateVideoEndMetrics
@@ -2951,7 +2950,7 @@ public:
 	 *   @param[in]  strUrl - URL in case of faulures
 	 *   @return void
 	 */
-	void UpdateVideoEndMetrics(MediaType mediaType, long bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime);
+	void UpdateVideoEndMetrics(MediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime);
 
 
 	/**
@@ -3104,7 +3103,7 @@ public:
 	 *
      	 *   @return void
 	 */
-	void SetVideoTracks(std::vector<long> bitrateList);
+	void SetVideoTracks(std::vector<BitsPerSecond> bitrateList);
 
 	/**
 	 *   @fn GetAvailableAudioTracks
@@ -3227,49 +3226,49 @@ public:
 	 * @brief Set minimum bitrate value.
 	 *
 	 */
-	void SetMinimumBitrate(long bitrate);
+	void SetMinimumBitrate(BitsPerSecond bitrate);
 
 	/**
 	 * @brief Set maximum bitrate value.
 	 *
 	 */
-	void SetMaximumBitrate(long bitrate);
+	void SetMaximumBitrate(BitsPerSecond bitrate);
 
 	/**
 	 * @fn GetMaximumBitrate
 	 * @return maximum bitrate value
 	 */
-	long GetMaximumBitrate();
+	BitsPerSecond GetMaximumBitrate();
 
 	/**
 	 * @fn GetMinimumBitrate
 	 * @return minimum bitrate value
 	 */
-	long GetMinimumBitrate();
+	BitsPerSecond GetMinimumBitrate();
 
 	/**
 	 * @fn GetDefaultBitrate
 	 * @return default bitrate value
 	 */
-	long GetDefaultBitrate();
+	BitsPerSecond GetDefaultBitrate();
 
 	/**
 	* @fn GetDefaultBitrate4K
 	* @return default bitrate 4K value
 	*/
-	long GetDefaultBitrate4K();
+	BitsPerSecond GetDefaultBitrate4K();
 
 	/**
 	 * @fn GetIframeBitrate
 	 * @return default iframe bitrate value
 	 */
-	long GetIframeBitrate();
+	BitsPerSecond GetIframeBitrate();
 
 	/**
 	 * @fn GetIframeBitrate4K
 	 * @return default iframe bitrate 4K value
 	 */
-	long GetIframeBitrate4K();
+	BitsPerSecond GetIframeBitrate4K();
 
 	/* End AampDrmCallbacks implementation */
 

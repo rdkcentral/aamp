@@ -40,7 +40,7 @@
 #include "AampDefine.h"
 #include "AampLogManager.h"
 #include <algorithm>
-
+#include "ABRManager.h"
 
 /**
  * @class AampCMCDCollector
@@ -103,7 +103,7 @@ public:
 	 * @return None
 	 */
 	void CMCDGetHeaders(MediaType fileType ,  std::vector<std::string> &customHeader);
-	void SetBitrates(MediaType fileType,const std::vector<long> bitrates);
+	void SetBitrates(MediaType fileType,const std::vector<BitsPerSecond> bitrates);
 	void SetTrackData(MediaType fileType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed=false);
 private:
 	AampLogManager *mLogObj; 	   /**< Logger instance for CMCDCollector */

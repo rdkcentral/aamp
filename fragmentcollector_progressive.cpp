@@ -29,7 +29,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <assert.h>
-#include "downloader/AampCurlStore.h"
+#include "AampCurlStore.h"
 
 /**
  * @struct StreamWriteCallbackContext
@@ -198,7 +198,7 @@ AAMPStatusType StreamAbstractionAAMP_PROGRESSIVE::Init(TuneType tuneType)
     aamp->CurlInit(eCURLINSTANCE_VIDEO, AAMP_TRACK_COUNT,aamp->GetNetworkProxy());  //CID:110904 - newTune bool variable  initialized not used
     aamp->IsTuneTypeNew = false;
     std::set<std::string> mLangList; /**< emptry language list */
-    std::vector<long> bitrates; /**< empty bitrates */
+    std::vector<BitsPerSecond> bitrates; /**< empty bitrates */
     for (int i = 0; i < AAMP_TRACK_COUNT; i++)
     {
         aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance) i);
@@ -305,7 +305,7 @@ bool StreamAbstractionAAMP_PROGRESSIVE::IsInitialCachingSupported()
 /**
  *  @brief Gets Max Bitrate avialable for current playback.
  */
-long StreamAbstractionAAMP_PROGRESSIVE::GetMaxBitrate()
+BitsPerSecond StreamAbstractionAAMP_PROGRESSIVE::GetMaxBitrate()
 { // STUB
     return 0;
 }

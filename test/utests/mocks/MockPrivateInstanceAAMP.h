@@ -37,7 +37,7 @@ public:
 
     MOCK_METHOD(bool, GetFile, (std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl,
                 int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
-                bool resetBuffer, MediaType fileType, long *bitrate, int * fogError,
+                bool resetBuffer, MediaType fileType, BitsPerSecond *bitrate, int * fogError,
                 double fragmentDurationSeconds));
 };
 

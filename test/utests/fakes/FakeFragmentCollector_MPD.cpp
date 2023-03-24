@@ -53,11 +53,11 @@ MediaTrack* StreamAbstractionAAMP_MPD::GetMediaTrack(TrackType type) { return nu
 
 double StreamAbstractionAAMP_MPD::GetBufferedDuration (void) { return 0; }
 
-int StreamAbstractionAAMP_MPD::GetBWIndex(long bandwidth) { return 0; }
+int StreamAbstractionAAMP_MPD::GetBWIndex( BitsPerSecond bandwidth) { return 0; }
 
-std::vector<long> StreamAbstractionAAMP_MPD::GetVideoBitrates(void) { std::vector<long> temp; return temp; }
+std::vector<BitsPerSecond> StreamAbstractionAAMP_MPD::GetVideoBitrates(void) { std::vector<BitsPerSecond> temp; return temp; }
 
-std::vector<long> StreamAbstractionAAMP_MPD::GetAudioBitrates(void) { std::vector<long> temp; return temp; }
+std::vector<BitsPerSecond> StreamAbstractionAAMP_MPD::GetAudioBitrates(void) { std::vector<BitsPerSecond> temp; return temp; }
 
 void StreamAbstractionAAMP_MPD::StopInjection(void) {  }
 
@@ -88,12 +88,12 @@ int StreamAbstractionAAMP_MPD::GetProfileCount()
     return 0;
 }
 
-int StreamAbstractionAAMP_MPD::GetProfileIndexForBandwidth(long mTsbBandwidth)
+int StreamAbstractionAAMP_MPD::GetProfileIndexForBandwidth(BitsPerSecond mTsbBandwidth)
 {
     return 0;
 }
 
-long StreamAbstractionAAMP_MPD::GetMaxBitrate()
+BitsPerSecond StreamAbstractionAAMP_MPD::GetMaxBitrate()
 {
     return 0;
 }
@@ -144,7 +144,7 @@ void StreamAbstractionAAMP_MPD::MuteSidecarSubtitles(bool mute)
 {
 }
 
-bool StreamAbstractionAAMP_MPD::Is4KStream(int &height, long &bandwidth)
+bool StreamAbstractionAAMP_MPD::Is4KStream(int &height, BitsPerSecond &bandwidth)
 {
     return false;
 }

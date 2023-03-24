@@ -489,16 +489,16 @@ void PlayerInstanceAAMP::SetLanguageFormat(LangCodePreference preferredFormat, b
 /**
  *  @brief Set minimum bitrate value.
  */
-void PlayerInstanceAAMP::SetMinimumBitrate(long bitrate)
+void PlayerInstanceAAMP::SetMinimumBitrate(BitsPerSecond bitrate)
 {
 	if (bitrate > 0)
 	{
-		AAMPLOG_INFO("Setting minimum bitrate: %ld", bitrate);
+		AAMPLOG_INFO("Setting minimum bitrate: %" BITSPERSECOND_FORMAT, bitrate);
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_MinBitrate,(int)bitrate);
 	}
 	else
 	{
-		AAMPLOG_WARN("Invalid bitrate value %ld",  bitrate);
+		AAMPLOG_WARN("Invalid bitrate value %" BITSPERSECOND_FORMAT,  bitrate);
 	}
 
 }
@@ -506,7 +506,7 @@ void PlayerInstanceAAMP::SetMinimumBitrate(long bitrate)
 /**
  *  @brief Get minimum bitrate value.
  */
-long PlayerInstanceAAMP::GetMinimumBitrate(void)
+BitsPerSecond PlayerInstanceAAMP::GetMinimumBitrate(void)
 {
 	return GETCONFIGVALUE(eAAMPConfig_MinBitrate);
 }
@@ -514,23 +514,23 @@ long PlayerInstanceAAMP::GetMinimumBitrate(void)
 /**
  *  @brief Set maximum bitrate value.
  */
-void PlayerInstanceAAMP::SetMaximumBitrate(long bitrate)
+void PlayerInstanceAAMP::SetMaximumBitrate(BitsPerSecond bitrate)
 {
 	if (bitrate > 0)
 	{
-		AAMPLOG_INFO("Setting maximum bitrate : %ld", bitrate);
+		AAMPLOG_INFO("Setting maximum bitrate : %" BITSPERSECOND_FORMAT, bitrate);
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_MaxBitrate,(int)bitrate);
 	}
 	else
 	{
-		AAMPLOG_WARN("Invalid bitrate value %ld", bitrate);
+		AAMPLOG_WARN("Invalid bitrate value %" BITSPERSECOND_FORMAT, bitrate);
 	}
 }
 
 /**
  *  @brief Get maximum bitrate value.
  */
-long PlayerInstanceAAMP::GetMaximumBitrate(void)
+BitsPerSecond PlayerInstanceAAMP::GetMaximumBitrate(void)
 {
 	return GETCONFIGVALUE(eAAMPConfig_MaxBitrate);
 }
@@ -1797,7 +1797,7 @@ PrivAAMPState PlayerInstanceAAMP::GetState(void)
  */
 long PlayerInstanceAAMP::GetVideoBitrate(void)
 {
-	long bitrate = 0;
+	BitsPerSecond bitrate = 0;
 	ERROR_OR_IDLE_STATE_CHECK_VAL(0);
 	if(aamp){
 	aamp->AcquireStreamLock();
@@ -1813,7 +1813,7 @@ long PlayerInstanceAAMP::GetVideoBitrate(void)
 /**
  *  @brief To set a preferred bitrate for video profile.
  */
-void PlayerInstanceAAMP::SetVideoBitrate(long bitrate)
+void PlayerInstanceAAMP::SetVideoBitrate(BitsPerSecond bitrate)
 {
 	if (bitrate != 0)
 	{
@@ -1833,10 +1833,10 @@ void PlayerInstanceAAMP::SetVideoBitrate(long bitrate)
 /**
  *  @brief To get the bitrate of current audio profile.
  */
-long PlayerInstanceAAMP::GetAudioBitrate(void)
+BitsPerSecond PlayerInstanceAAMP::GetAudioBitrate(void)
 {
 	ERROR_OR_IDLE_STATE_CHECK_VAL(0);
-	long bitrate = 0;
+	BitsPerSecond bitrate = 0;
 	if(aamp){
 	aamp->AcquireStreamLock();
 	if (aamp->mpStreamAbstractionAAMP)
@@ -1851,7 +1851,7 @@ long PlayerInstanceAAMP::GetAudioBitrate(void)
 /**
  *  @brief To set a preferred bitrate for audio profile.
  */
-void PlayerInstanceAAMP::SetAudioBitrate(long bitrate)
+void PlayerInstanceAAMP::SetAudioBitrate(BitsPerSecond bitrate)
 {
 	//no-op for now
 }
@@ -1900,10 +1900,10 @@ int PlayerInstanceAAMP::GetPlaybackRate(void)
 /**
  *  @brief To get the available video bitrates.
  */
-std::vector<long> PlayerInstanceAAMP::GetVideoBitrates(void)
+std::vector<BitsPerSecond> PlayerInstanceAAMP::GetVideoBitrates(void)
 {
-	ERROR_OR_IDLE_STATE_CHECK_VAL(std::vector<long>());
-	std::vector<long> bitrates;
+	ERROR_OR_IDLE_STATE_CHECK_VAL(std::vector<BitsPerSecond>());
+	std::vector<BitsPerSecond> bitrates;
 	if(aamp){
 	aamp->AcquireStreamLock();
 	if (aamp->mpStreamAbstractionAAMP)
@@ -1940,10 +1940,10 @@ std::string PlayerInstanceAAMP::GetManifest(void)
 /**
  *  @brief To get the available audio bitrates.
  */
-std::vector<long> PlayerInstanceAAMP::GetAudioBitrates(void)
+std::vector<BitsPerSecond> PlayerInstanceAAMP::GetAudioBitrates(void)
 {
-	ERROR_OR_IDLE_STATE_CHECK_VAL(std::vector<long>());
-	std::vector<long> bitrates;
+	ERROR_OR_IDLE_STATE_CHECK_VAL(std::vector<BitsPerSecond>());
+	std::vector<BitsPerSecond> bitrates;
 	if(aamp){
 	aamp->AcquireStreamLock();
 	if (aamp->mpStreamAbstractionAAMP)
@@ -1958,7 +1958,7 @@ std::vector<long> PlayerInstanceAAMP::GetAudioBitrates(void)
 /**
  *  @brief To set the initial bitrate value.
  */
-void PlayerInstanceAAMP::SetInitialBitrate(long bitrate)
+void PlayerInstanceAAMP::SetInitialBitrate(BitsPerSecond bitrate)
 {
 	ERROR_STATE_CHECK_VOID();
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate,(int)bitrate);
@@ -1967,7 +1967,7 @@ void PlayerInstanceAAMP::SetInitialBitrate(long bitrate)
 /**
  *  @brief To get the initial bitrate value.
  */
-long PlayerInstanceAAMP::GetInitialBitrate(void)
+BitsPerSecond PlayerInstanceAAMP::GetInitialBitrate(void)
 {
 	return GETCONFIGVALUE(eAAMPConfig_DefaultBitrate);
 }
@@ -1975,7 +1975,7 @@ long PlayerInstanceAAMP::GetInitialBitrate(void)
 /**
  *  @brief To set the initial bitrate value for 4K assets.
  */
-void PlayerInstanceAAMP::SetInitialBitrate4K(long bitrate4K)
+void PlayerInstanceAAMP::SetInitialBitrate4K(BitsPerSecond bitrate4K)
 {
 	ERROR_STATE_CHECK_VOID();
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate4K,(int)bitrate4K);
@@ -1984,7 +1984,7 @@ void PlayerInstanceAAMP::SetInitialBitrate4K(long bitrate4K)
 /**
  *  @brief To get the initial bitrate value for 4K assets.
  */
-long PlayerInstanceAAMP::GetInitialBitrate4k(void)
+BitsPerSecond PlayerInstanceAAMP::GetInitialBitrate4k(void)
 {
 	return GETCONFIGVALUE(eAAMPConfig_DefaultBitrate4K);
 }
@@ -2421,7 +2421,7 @@ std::string PlayerInstanceAAMP::GetAvailableVideoTracks()
 /**
  *  @brief Set video tracks.
  */
-void PlayerInstanceAAMP::SetVideoTracks(std::vector<long> bitrates)
+void PlayerInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrates)
 {
 	return aamp->SetVideoTracks(bitrates);
 }

@@ -72,7 +72,7 @@ struct StreamInfo
 	bool isIframeTrack;             /**< indicates if the stream is iframe stream*/
 	bool validity;		        /**< indicates profile validity against user configured profile range */
 	const char *codecs;	        /**< Codec String */
-	long bandwidthBitsPerSecond;    /**< Bandwidth of the stream bps*/
+	BitsPerSecond bandwidthBitsPerSecond;    /**< Bandwidth of the stream bps*/
 	StreamResolution resolution;    /**< Resolution of the stream*/
 	BitrateChangeReason reason;     /**< Reason for bitrate change*/
 };
@@ -487,7 +487,7 @@ public:
          * @param mTsbBandwidth - bandwidth to identify profile index from list
          * @retval profile index of the current bandwidth
          */
-        int GetProfileIndexForBW(long mTsbBandwidth);
+        int GetProfileIndexForBW(BitsPerSecond mTsbBandwidth);
 
 	/**
 	 * @fn GetCurrentBandWidth
@@ -1031,7 +1031,7 @@ public:
 	 * @param bandwidth - bandwidth of 4K stream if foudd
 	 * @return true on success 
 	 */
-	virtual bool Is4KStream(int &height, long &bandwidth)
+	virtual bool Is4KStream(int &height, BitsPerSecond &bandwidth)
 	{
 		return false;
 	}
@@ -1117,7 +1117,7 @@ public:
 	 *   @param[in]  bandwidth - Bandwidth
 	 *   @return Profile index
 	 */
-	virtual int GetBWIndex(long bandwidth) { (void)bandwidth ; return 0;	}
+	virtual int GetBWIndex( BitsPerSecond bandwidth) { (void)bandwidth; return 0;	}
 
 	/**
 	 *    @brief Get the ABRManager reference.
@@ -1142,11 +1142,11 @@ public:
        * @param mTsbBandwidth - bandwidth to identify profile index from list
        * @retval profile index of the current bandwidth
        */
-       virtual int GetProfileIndexForBandwidth(long mTsbBandwidth) {
+       virtual int GetProfileIndexForBandwidth( BitsPerSecond mTsbBandwidth) {
 	       return aamp->mhAbrManager.getBestMatchedProfileIndexByBandWidth((int)mTsbBandwidth);
        }
 
-	long GetCurProfIdxBW(){
+	BitsPerSecond GetCurProfIdxBW(){
 		return aamp->mhAbrManager.getBandwidthOfProfile(this->currentProfileIndex);
 	}
 
@@ -1156,7 +1156,7 @@ public:
 	 *
 	 *   @return max bandwidth
 	 */
-	virtual long GetMaxBitrate(){
+	virtual BitsPerSecond GetMaxBitrate(){
 		return aamp->mhAbrManager.getBandwidthOfProfile(aamp->mhAbrManager.getMaxBandwidthProfile());
 	}
 
@@ -1165,30 +1165,30 @@ public:
 	 *
 	 *   @return bitrate of current video profile.
 	 */
-	long GetVideoBitrate(void);
+	BitsPerSecond GetVideoBitrate(void);
 
 	/**
 	 *   @fn GetAudioBitrate
 	 *
 	 *   @return bitrate of current audio profile.
 	 */
-	long GetAudioBitrate(void);
+	BitsPerSecond GetAudioBitrate(void);
 
 	/**
 	 *   @brief Set a preferred bitrate for video.
 	 *
 	 *   @param[in] bitrate preferred bitrate.
 	 */
-	void SetVideoBitrate(long bitrate);
+	void SetVideoBitrate(BitsPerSecond bitrate);
 
 	/**
 	 *   @brief Get available video bitrates.
 	 *
 	 *   @return available video bitrates.
 	 */
-	virtual std::vector<long> GetVideoBitrates(void)
+	virtual std::vector<BitsPerSecond> GetVideoBitrates(void)
 	{
-		return std::vector<long>();
+		return std::vector<BitsPerSecond>();
 	}
 
 	/**
@@ -1196,9 +1196,9 @@ public:
 	 *
 	 *   @return available audio bitrates.
 	 */
-	virtual std::vector<long> GetAudioBitrates(void)
+	virtual std::vector<BitsPerSecond> GetAudioBitrates(void)
 	{
-		return std::vector<long>();
+		return std::vector<BitsPerSecond>();
 	}
 
 	/**

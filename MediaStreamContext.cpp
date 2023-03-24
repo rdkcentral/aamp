@@ -62,7 +62,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
     fragmentDurationSeconds = duration;
     ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
     CachedFragment* cachedFragment = GetFetchBuffer(true);
-    long bitrate = 0;
+    BitsPerSecond bitrate = 0;
     double downloadTime = 0;
     MediaType actualType = (MediaType)(initSegment?(eMEDIATYPE_INIT_VIDEO+mediaType):mediaType); //Need to revisit the logic
 

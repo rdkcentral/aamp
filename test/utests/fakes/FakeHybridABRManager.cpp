@@ -33,11 +33,11 @@ void HybridABRManager::UpdateABRBitrateDataBasedOnCacheLength(std::vector < std:
 {
 }
 
-void HybridABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,long> > &mAbrBitrateData , std::vector< long> &tmpData)
+void HybridABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,long> > &mAbrBitrateData , std::vector<BitsPerSecond> &tmpData)
 {
 }
 
-long HybridABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long> &tmpData)
+long HybridABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector<BitsPerSecond> &tmpData)
 {
 	return 0;
 }

@@ -5625,9 +5625,9 @@ void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutpu
 /***************************************************************************
 * @brief Function to get available video bitrates
 ***************************************************************************/
-std::vector<long> StreamAbstractionAAMP_HLS::GetVideoBitrates(void)
+std::vector<BitsPerSecond> StreamAbstractionAAMP_HLS::GetVideoBitrates(void)
 {
-	std::vector<long> bitrates;
+	std::vector<BitsPerSecond> bitrates;
 	bitrates.reserve(GetProfileCount());
 	if (mProfileCount)
 	{
@@ -6178,7 +6178,7 @@ void TrackState::FetchPlaylist()
 /**
  * @brief Function to get bandwidth index corresponding to bitrate
  */
-int StreamAbstractionAAMP_HLS::GetBWIndex(long bitrate)
+int StreamAbstractionAAMP_HLS::GetBWIndex(BitsPerSecond bitrate)
 {
 	int topBWIndex = 0;
 	if (mProfileCount)
@@ -6887,7 +6887,7 @@ void StreamAbstractionAAMP_HLS::ConfigureAudioTrack()
  *
  * @return true or false
  */
-bool StreamAbstractionAAMP_HLS::Is4KStream(int &height, long &bandwidth)
+bool StreamAbstractionAAMP_HLS::Is4KStream(int &height, BitsPerSecond &bandwidth)
 {
 	bool Stream4k = false;
 
@@ -7314,7 +7314,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 				{
 					// Video Profiles available , but not finding anything within bitrate range configured
 					// As fallback recovery ,lets ignore bitrate limit check and add available video profiles for playback to happen
-					AAMPLOG_WARN("ERROR No video profiles available in manifest for playback, minBitrate:%ld maxBitrate:%ld", minBitrate, maxBitrate);
+					AAMPLOG_WARN("ERROR No video profiles available in manifest for playback, minBitrate:%" BITSPERSECOND_FORMAT " maxBitrate:%" BITSPERSECOND_FORMAT, minBitrate, maxBitrate);
 					ignoreBitRateRangeCheck = true;
 					continue;
 				}

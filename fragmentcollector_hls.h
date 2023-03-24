@@ -702,13 +702,13 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @param bitrate Bitrate in bits per second
 		 * @return bandwidth index
 		 ***************************************************************************/
-		int GetBWIndex(long bitrate) override;
+		int GetBWIndex(BitsPerSecond bitrate) override;
 		/***************************************************************************
 		 * @fn GetVideoBitrates
 		 *
 		 * @return available video bitrates
 		 ***************************************************************************/
-		std::vector<long> GetVideoBitrates(void) override;
+		std::vector<BitsPerSecond> GetVideoBitrates(void) override;
 		/***************************************************************************
 		 * @fn GetMediaCount
 		 * @brief Function to get the Media count
@@ -805,7 +805,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @param bandwidth - bandwidth of 4K stream if foudd
 		 * @return true on success
 		 */
-		virtual bool Is4KStream(int &height, long &bandwidth) override;
+		virtual bool Is4KStream(int &height, BitsPerSecond &bandwidth) override;
 
 		/**
 		 * @fn UpdateFailedDRMStatus

@@ -398,7 +398,7 @@ int MediaMetadataEvent::getLanguagesCount() const
 /**
  * @brief Add a supported bitrate
  */
-void MediaMetadataEvent::addBitrate(long bitrate)
+void MediaMetadataEvent::addBitrate(BitsPerSecond bitrate)
 {
 	return mBitrates.push_back(bitrate);
 }
@@ -408,7 +408,7 @@ void MediaMetadataEvent::addBitrate(long bitrate)
  *
  * @return Vector of supported bitrates
  */
-const std::vector<long> &MediaMetadataEvent::getBitrates() const
+const std::vector<BitsPerSecond> &MediaMetadataEvent::getBitrates() const
 {
 	return mBitrates;
 }
@@ -534,7 +534,7 @@ void MediaMetadataEvent::SetAudioMetaData(const std::string &audioCodec,const st
 /**
  * @brief BitrateChangeEvent Constructor
  */
-BitrateChangeEvent::BitrateChangeEvent(int time, long bitrate, const std::string &desc, int width, int height, double frameRate, double position, bool cappedProfile, int displayWidth, int displayHeight, VideoScanType videoScanType, int aspectRatioWidth, int aspectRatioHeight):
+BitrateChangeEvent::BitrateChangeEvent(int time, BitsPerSecond bitrate, const std::string &desc, int width, int height, double frameRate, double position, bool cappedProfile, int displayWidth, int displayHeight, VideoScanType videoScanType, int aspectRatioWidth, int aspectRatioHeight):
 		AAMPEventObject(AAMP_EVENT_BITRATE_CHANGED), mTime(time),
 		mBitrate(bitrate), mDescription(desc), mWidth(width),
 		mHeight(height), mFrameRate(frameRate), mPosition(position), mCappedProfile(cappedProfile), mDisplayWidth(displayWidth), mDisplayHeight(displayHeight), mVideoScanType(videoScanType), mAspectRatioWidth(aspectRatioWidth), mAspectRatioHeight(aspectRatioHeight)
@@ -557,7 +557,7 @@ int BitrateChangeEvent::getTime() const
  *
  * @return Current bitrate
  */
-long BitrateChangeEvent::getBitrate() const
+BitsPerSecond BitrateChangeEvent::getBitrate() const
 {
 	return mBitrate;
 }

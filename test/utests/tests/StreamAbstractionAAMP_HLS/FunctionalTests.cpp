@@ -145,7 +145,7 @@ public:
 TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_no_4k)
 {
     int height;
-    long bandwidth;
+	BitsPerSecond bandwidth;
     char manifest[] = MANIFEST_6SD_1A;
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
@@ -163,7 +163,7 @@ TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_no_4k)
 TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_4k)
 {
     int height;
-    long bandwidth;
+	BitsPerSecond bandwidth;
     char manifest[] = MANIFEST_5SD_4K_1A;
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
@@ -181,7 +181,7 @@ TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_4k)
 TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_multiple_mainfests)
 {
     int height;
-    long bandwidth;
+	BitsPerSecond bandwidth;
     std::string manifests[] = {
         MANIFEST_6SD_1A,
         MANIFEST_5SD_1A,

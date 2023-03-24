@@ -5264,7 +5264,7 @@ void StreamAbstractionAAMP_MPD::ProcessPlaylist(AampGrowableBuffer& newPlaylist,
  * @brief check if current stream have 4K content
  * @retval true on success
  */
-bool StreamAbstractionAAMP_MPD::Is4KStream(int &height, long &bandwidth)
+bool StreamAbstractionAAMP_MPD::Is4KStream(int &height, BitsPerSecond &bandwidth)
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool Stream4k = false;
@@ -5311,7 +5311,7 @@ bool StreamAbstractionAAMP_MPD::Is4KStream(int &height, long &bandwidth)
 			/**< If 4K stream found*/
 			if (Stream4k)
 			{
-				AAMPLOG_INFO("4K profile found with resolution : height %d bandwidth %ld", height, bandwidth);
+				AAMPLOG_INFO("4K profile found with resolution : height %d bandwidth %" BITSPERSECOND_FORMAT, height, bandwidth);
 				break;
 			}
 		}
@@ -7686,7 +7686,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	/**< for Traiging Log selected track informations **/
 	printSelectedTrack(aTrackIdx, eMEDIATYPE_AUDIO);
 	printSelectedTrack(tTrackIdx, eMEDIATYPE_SUBTITLE);
-	std::vector<long> bitratelist;
+	std::vector<BitsPerSecond> bitratelist;
 	for (auto &audioTrack : aTracks)
 	{
 		bitratelist.push_back(audioTrack.bandwidth);
@@ -7759,7 +7759,7 @@ int StreamAbstractionAAMP_MPD::GetProfileIdxForBandwidthNotification(uint32_t ba
 	FN_TRACE_F_MPD( __FUNCTION__ );
 	int profileIndex = 0; // Keep default index as 0
 
-	std::vector<long>::iterator it = std::find(mBitrateIndexVector.begin(), mBitrateIndexVector.end(), (long)bandwidth);
+	std::vector<BitsPerSecond>::iterator it = std::find(mBitrateIndexVector.begin(), mBitrateIndexVector.end(), (long)bandwidth);
 
 	if (it != mBitrateIndexVector.end())
 	{
@@ -7905,10 +7905,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							// Skip profile by resolution, if profile capping already applied in Fog
 							if(ISCONFIGSET(eAAMPConfig_LimitResolution) && aamp->mProfileCappedStatus &&  aamp->mDisplayWidth > 0 && mStreamInfo[idx].resolution.width > aamp->mDisplayWidth)
 							{
-								AAMPLOG_INFO ("Video Profile Ignoring resolution=%d:%d display=%d:%d Bw=%ld", mStreamInfo[idx].resolution.width, mStreamInfo[idx].resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, mStreamInfo[idx].bandwidthBitsPerSecond);
+								AAMPLOG_INFO ("Video Profile Ignoring resolution=%d:%d display=%d:%d Bw=%" BITSPERSECOND_FORMAT, mStreamInfo[idx].resolution.width, mStreamInfo[idx].resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, mStreamInfo[idx].bandwidthBitsPerSecond);
 								continue;
 							}
-							AAMPLOG_INFO("Added Video Profile to ABR BW=%ld to bitrate vector index:%d", mStreamInfo[idx].bandwidthBitsPerSecond, idx);
+							AAMPLOG_INFO("Added Video Profile to ABR BW=%" BITSPERSECOND_FORMAT" to bitrate vector index:%d", mStreamInfo[idx].bandwidthBitsPerSecond, idx);
 							mBitrateIndexVector.push_back(mStreamInfo[idx].bandwidthBitsPerSecond);
 							if(mStreamInfo[idx].bandwidthBitsPerSecond > mMaxTSBBandwidth)
 							{
@@ -8073,7 +8073,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							((mStreamInfo[pidx].isIframeTrack && bIframeCapped) || 
 							(!mStreamInfo[pidx].isIframeTrack && bVideoCapped)))
 						{
-							AAMPLOG_INFO("Video Profile ignoring for resolution= %d:%d display= %d:%d BW=%ld", mStreamInfo[pidx].resolution.width, mStreamInfo[pidx].resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, mStreamInfo[pidx].bandwidthBitsPerSecond);
+							AAMPLOG_INFO("Video Profile ignoring for resolution= %d:%d display= %d:%d BW=%" BITSPERSECOND_FORMAT, mStreamInfo[pidx].resolution.width, mStreamInfo[pidx].resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, mStreamInfo[pidx].bandwidthBitsPerSecond);
 						}
 						else
 						{
@@ -8081,7 +8081,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							{
 								if (aamp->userProfileStatus && false ==  mStreamInfo[pidx].validity)
 								{
-									AAMPLOG_INFO("Video Profile ignoring user profile range BW=%ld", mStreamInfo[pidx].bandwidthBitsPerSecond);
+									AAMPLOG_INFO("Video Profile ignoring user profile range BW=%" BITSPERSECOND_FORMAT, mStreamInfo[pidx].bandwidthBitsPerSecond);
 									continue;
 								}
 								else if (false == aamp->userProfileStatus && ISCONFIGSET(eAAMPConfig_Disable4K) &&
@@ -8121,7 +8121,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 									iframeBitrate  = aamp->GetIframeBitrate4K();
 								}
 								mStreamInfo[pidx].enabled = true;
-								AAMPLOG_INFO("Added Video Profile to ABR BW= %ld res= %d:%d display= %d:%d pc:%d", mStreamInfo[pidx].bandwidthBitsPerSecond, mStreamInfo[pidx].resolution.width, mStreamInfo[pidx].resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, aamp->mProfileCappedStatus);
+								AAMPLOG_INFO("Added Video Profile to ABR BW= %" BITSPERSECOND_FORMAT" res= %d:%d display= %d:%d pc:%d", mStreamInfo[pidx].bandwidthBitsPerSecond, mStreamInfo[pidx].resolution.width, mStreamInfo[pidx].resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, aamp->mProfileCappedStatus);
 							}
 						}
 					}
@@ -8206,7 +8206,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							// Set default init bitrate 
 							else
 							{
-								AAMPLOG_WARN("Using defaultBitrate %ld . PersistBandwidth : %ld TimeGap : %ld",aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
+								AAMPLOG_WARN("Using defaultBitrate %" BITSPERSECOND_FORMAT " . PersistBandwidth : %ld TimeGap : %ld",aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
 								aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
 
 							}
@@ -10275,7 +10275,7 @@ int StreamAbstractionAAMP_MPD::GetProfileCount()
  * @brief Get profile index for TsbBandwidth
  * @retval profile index of the current bandwidth
  */
-int StreamAbstractionAAMP_MPD::GetProfileIndexForBandwidth(long mTsbBandwidth)
+int StreamAbstractionAAMP_MPD::GetProfileIndexForBandwidth( BitsPerSecond mTsbBandwidth)
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
 	int profileIndex = 0;
@@ -10283,7 +10283,7 @@ int StreamAbstractionAAMP_MPD::GetProfileIndexForBandwidth(long mTsbBandwidth)
 
 	if(isFogTsb)
 	{
-			std::vector<long>::iterator it = std::find(mBitrateIndexVector.begin(), mBitrateIndexVector.end(), mTsbBandwidth);
+			std::vector<BitsPerSecond>::iterator it = std::find(mBitrateIndexVector.begin(), mBitrateIndexVector.end(), mTsbBandwidth);
 
 			if (it != mBitrateIndexVector.end())
 			{
@@ -10350,7 +10350,7 @@ double StreamAbstractionAAMP_MPD::GetStartTimeOfFirstPTS()
  * @brief Get index of profile corresponds to bandwidth
  * @retval profile index
  */
-int StreamAbstractionAAMP_MPD::GetBWIndex(long bitrate)
+int StreamAbstractionAAMP_MPD::GetBWIndex(BitsPerSecond bitrate)
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
 	int topBWIndex = 0;
@@ -10373,10 +10373,10 @@ int StreamAbstractionAAMP_MPD::GetBWIndex(long bitrate)
  * @brief To get the available video bitrates.
  * @ret available video bitrates
  */
-std::vector<long> StreamAbstractionAAMP_MPD::GetVideoBitrates(void)
+std::vector<BitsPerSecond> StreamAbstractionAAMP_MPD::GetVideoBitrates(void)
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
-	std::vector<long> bitrates;
+	std::vector<BitsPerSecond> bitrates;
 	int profileCount = GetProfileCount();
 	bitrates.reserve(profileCount);
 	if (profileCount)
@@ -10397,10 +10397,10 @@ std::vector<long> StreamAbstractionAAMP_MPD::GetVideoBitrates(void)
 * @brief Gets Max Bitrate avialable for current playback.
 * @ret long MAX video bitrates
 */
-long StreamAbstractionAAMP_MPD::GetMaxBitrate()
+BitsPerSecond StreamAbstractionAAMP_MPD::GetMaxBitrate()
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
-	long maxBitrate = 0;
+	BitsPerSecond maxBitrate = 0;
 	if( mIsFogTSB )
 	{
 		maxBitrate = mMaxTSBBandwidth;
@@ -10418,10 +10418,10 @@ long StreamAbstractionAAMP_MPD::GetMaxBitrate()
  * @brief To get the available audio bitrates.
  * @ret available audio bitrates
  */
-std::vector<long> StreamAbstractionAAMP_MPD::GetAudioBitrates(void)
+std::vector<BitsPerSecond> StreamAbstractionAAMP_MPD::GetAudioBitrates(void)
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
-	std::vector<long> audioBitrate;
+	std::vector<BitsPerSecond> audioBitrate;
 	int trackSize = (int)mAudioTracks.size();
 	if(trackSize)
 	{
@@ -10511,7 +10511,7 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 								tmp->resolution.width = rep->GetWidth()/w;
 								tmp->resolution.height = rep->GetHeight()/h;
 								thumbnailtrack.push_back(tmp);
-								AAMPLOG_TRACE("thumbnailtrack bandwidth=%ld width=%d height=%d", tmp->bandwidthBitsPerSecond, tmp->resolution.width, tmp->resolution.height);
+								AAMPLOG_TRACE("thumbnailtrack bandwidth=%" BITSPERSECOND_FORMAT " width=%d height=%d", tmp->bandwidthBitsPerSecond, tmp->resolution.width, tmp->resolution.height);
 							}
 							if((thumbnailtrack.size() > thumbIndexValue) && thumbnailtrack[thumbIndexValue]->bandwidthBitsPerSecond == (long)bandwidth)
 							{
@@ -12780,7 +12780,7 @@ void StreamAbstractionAAMP_MPD::UpdateFailedDRMStatus(LicensePreFetchObject *obj
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
 	IPeriod *period = nullptr;
-	std::vector<long> profilesToRemove;
+	std::vector<BitsPerSecond> profilesToRemove;
 	bool updateABR = false;
 
 	if (object == nullptr)

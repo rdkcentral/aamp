@@ -107,7 +107,7 @@ void ABRManager::setDefaultIframeBitrate(long defaultIframeBitrate)
 {
 }
 
-int ABRManager::removeProfiles(std::vector<long> profileBPS, int currentProfileIndex, const std::string& periodId)
+int ABRManager::removeProfiles(std::vector<BitsPerSecond> profileBPS, int currentProfileIndex, const std::string& periodId)
 {
     return 0;
 }

@@ -41,9 +41,9 @@ MediaTrack* StreamAbstractionAAMP_HLS::GetMediaTrack(TrackType type) { return nu
 
 double StreamAbstractionAAMP_HLS::GetBufferedDuration (void) { return 0; }
 
-int StreamAbstractionAAMP_HLS::GetBWIndex(long bandwidth) { return 0; }
+int StreamAbstractionAAMP_HLS::GetBWIndex(BitsPerSecond bandwidth) { return 0; }
 
-std::vector<long> StreamAbstractionAAMP_HLS::GetVideoBitrates(void) { std::vector<long> temp; return temp; }
+std::vector<BitsPerSecond> StreamAbstractionAAMP_HLS::GetVideoBitrates(void) { std::vector<BitsPerSecond> temp; return temp; }
 
 void StreamAbstractionAAMP_HLS::StopInjection(void) {  }
 
@@ -69,4 +69,4 @@ void StreamAbstractionAAMP_HLS::SeekPosUpdate(double secondsRelativeToTuneTime) 
 
 void StreamAbstractionAAMP_HLS::ChangeMuxedAudioTrackIndex(std::string& index) { }
 
-bool StreamAbstractionAAMP_HLS::Is4KStream(int &height, long &bandwidth) { return false; }
+bool StreamAbstractionAAMP_HLS::Is4KStream(int &height, BitsPerSecond &bandwidth) { return false; }

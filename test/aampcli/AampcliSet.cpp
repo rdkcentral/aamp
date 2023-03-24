@@ -794,8 +794,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 					}
 				case 54:
 					{
-						long bitrate1, bitrate2, bitrate3;
-						std::vector<long>bitrateList;
+						BitsPerSecond bitrate1, bitrate2, bitrate3;
+						std::vector<BitsPerSecond>bitrateList;
 						printf("[AAMPCLI] Matched Command VideoTrack - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld %ld %ld", command, &bitrate1, &bitrate2, &bitrate3) == 4){
 							bitrateList.push_back(bitrate1);
@@ -1275,8 +1275,8 @@ void Set::registerSetCommands()
 	addCommand(13,"stallErrorCode"," <x>","Set Stall error code (int x=errorCode)");
 	addCommand(14,"stallTimeout"," <x>","Set Stall timeout (int x=timeout)");
 	addCommand(15,"reportInterval"," <x>","Set Report Interval (int x=interval)");
-	addCommand(16,"videoBitrate"," <x>","Set Video Bitrate (long x=bitrate)");
-	addCommand(17,"initialBitrate"," <x>","Set Initial Bitrate (long x = bitrate)");
+	addCommand(16,"videoBitrate"," <x>","Set Video Bitrate (x=bitrate)");
+	addCommand(17,"initialBitrate"," <x>","Set Initial Bitrate (x = bitrate)");
 	addCommand(18,"initialBitrate4k"," <x>","Set Initial Bitrate 4K (long x = bitrate4k)");
 	addCommand(19,"networkTimeout"," <x>","Set Network Timeout (long x = timeout in ms)");
 	addCommand(20,"manifestTimeout"," <x>","Set Manifest Timeout (long x = timeout in ms)");

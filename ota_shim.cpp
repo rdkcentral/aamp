@@ -1036,7 +1036,7 @@ bool StreamAbstractionAAMP_OTA::IsInitialCachingSupported()
 /**
  *  @brief Gets Max Bitrate avialable for current playback.
  */
-long StreamAbstractionAAMP_OTA::GetMaxBitrate()
+BitsPerSecond StreamAbstractionAAMP_OTA::GetMaxBitrate()
 { // STUB
     return 0;
 }

@@ -289,7 +289,7 @@ void AampCMCDCollector::CMCDSetNetworkMetrics(MediaType fileType,  int startTran
 /**
  * @brief Collect and send all key-value pairs for CMCD headers.
  */
-void AampCMCDCollector::SetBitrates(MediaType fileType,const std::vector<long> bitrateList)
+void AampCMCDCollector::SetBitrates(MediaType fileType,const std::vector<BitsPerSecond> bitrateList)
 {
 	std::lock_guard<std::mutex> lock (myMutex);
 	if(bCMCDEnabled && bitrateList.size())

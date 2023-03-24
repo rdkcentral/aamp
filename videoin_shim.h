@@ -109,7 +109,7 @@ public:
      * @fn GetMaxBitrate
      * @return long MAX video bitrates
      */
-    long GetMaxBitrate(void) override;
+    BitsPerSecond GetMaxBitrate(void) override;
 protected:
     AAMPStatusType InitHelper(TuneType tuneType);
     /**

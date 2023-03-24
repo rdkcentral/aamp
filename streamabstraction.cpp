@@ -1350,7 +1350,7 @@ void MediaTrack::SetCurrentBandWidth(int bandwidthBps)
 /**
  *  @brief Get profile index for TsbBandwidth
  */
-int MediaTrack::GetProfileIndexForBW(long mTsbBandwidth)
+int MediaTrack::GetProfileIndexForBW( BitsPerSecond mTsbBandwidth)
 {
        return GetContext()->GetProfileIndexForBandwidth(mTsbBandwidth);
 }
@@ -1622,7 +1622,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInst
 	aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
 
 
-	long ibitrate = aamp->GetIframeBitrate();
+	BitsPerSecond ibitrate = aamp->GetIframeBitrate();
 	if (ibitrate > 0)
 	{
 		aamp->mhAbrManager.setDefaultIframeBitrate(ibitrate);
@@ -1735,7 +1735,7 @@ void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamIn
 			if(aamp->IsTuneTypeNew && (cacheFragStreamInfo.bandwidthBitsPerSecond == streamInfo->bandwidthBitsPerSecond))
 			{
 				MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-				AAMPLOG_WARN("NotifyBitRateUpdate: Max BitRate: %ld, timetotop: %f", cacheFragStreamInfo.bandwidthBitsPerSecond, video->GetTotalInjectedDuration());
+				AAMPLOG_WARN("NotifyBitRateUpdate: Max BitRate: %" BITSPERSECOND_FORMAT ", timetotop: %f", cacheFragStreamInfo.bandwidthBitsPerSecond, video->GetTotalInjectedDuration());
 				aamp->IsTuneTypeNew = false;
 				lGetBWIndex = true;
 			}
@@ -2403,7 +2403,7 @@ double StreamAbstractionAAMP::GetElapsedTime()
 /**
  *  @brief Get the bitrate of current video profile selected.
  */
-long StreamAbstractionAAMP::GetVideoBitrate(void)
+BitsPerSecond StreamAbstractionAAMP::GetVideoBitrate(void)
 {
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	return ((video && video->enabled) ? (video->GetCurrentBandWidth()) : 0);
@@ -2412,7 +2412,7 @@ long StreamAbstractionAAMP::GetVideoBitrate(void)
 /**
  *  @brief Get the bitrate of current audio profile selected.
  */
-long StreamAbstractionAAMP::GetAudioBitrate(void)
+BitsPerSecond StreamAbstractionAAMP::GetAudioBitrate(void)
 {
 	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
 	return ((audio && audio->enabled) ? (audio->GetCurrentBandWidth()) : 0);
@@ -3103,7 +3103,7 @@ bool StreamAbstractionAAMP::GetPreferredLiveOffsetFromConfig()
 	do
 	{
 		int height = 0;
-		long bandwidth = 0;
+		BitsPerSecond bandwidth = 0;
 
 		/** Update Live Offset with default or configured liveOffset*/
 		aamp->UpdateLiveOffset();
@@ -3132,10 +3132,10 @@ bool StreamAbstractionAAMP::GetPreferredLiveOffsetFromConfig()
 		}
 
 		/**< 4. maxbitrate should be less than 4K bitrate? */
-		long maxBitrate = aamp->GetMaximumBitrate();
+		BitsPerSecond maxBitrate = aamp->GetMaximumBitrate();
 		if (bandwidth > maxBitrate)
 		{
-			AAMPLOG_WARN("Maxbitrate (%ld) set by user is less than 4K bitrate (%ld);", maxBitrate, bandwidth);
+			AAMPLOG_WARN("Maxbitrate (%" BITSPERSECOND_FORMAT ") set by user is less than 4K bitrate (%" BITSPERSECOND_FORMAT ");", maxBitrate, bandwidth);
 			stream4K = false;
 			break;
 		}

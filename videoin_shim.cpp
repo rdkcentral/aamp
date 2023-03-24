@@ -234,7 +234,7 @@ bool StreamAbstractionAAMP_VIDEOIN::IsInitialCachingSupported()
 /**
  *  @brief Gets Max Bitrate avialable for current playback.
  */
-long StreamAbstractionAAMP_VIDEOIN::GetMaxBitrate()
+BitsPerSecond StreamAbstractionAAMP_VIDEOIN::GetMaxBitrate()
 { // STUB
 	AAMPLOG_WARN("%s ",mName.c_str());
     return 0;

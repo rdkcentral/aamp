@@ -56,7 +56,7 @@
 #include "aampoutputprotection.h"
 #endif
 
-#include "downloader/AampCurlStore.h"
+#include "AampCurlStore.h"
 
 #ifdef IARM_MGR
 #include "host.hpp"
@@ -806,7 +806,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 		{
 			const char * strBitrate = ptr + startPos;
 			context->bitrate = atol(strBitrate);
-			AAMPLOG_TRACE("Parsed HTTP %s: %ld", isBitrateHeader? "Bitrate": "False", context->bitrate);
+			AAMPLOG_TRACE("Parsed HTTP %s: %" BITSPERSECOND_FORMAT, isBitrateHeader? "Bitrate": "False", context->bitrate);
 		}
 		else if(isFogRecordingIdHeader)
 		{
@@ -2546,7 +2546,7 @@ void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventM
 /**
  * @brief Notify bit rate change event to listeners
  */
-void PrivateInstanceAAMP::NotifyBitRateChangeEvent(int bitrate, BitrateChangeReason reason, int width, int height, double frameRate, double position, bool GetBWIndex, VideoScanType scantype, int aspectRatioWidth, int aspectRatioHeight)
+void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, BitrateChangeReason reason, int width, int height, double frameRate, double position, bool GetBWIndex, VideoScanType scantype, int aspectRatioWidth, int aspectRatioHeight)
 {
 	if(mEventManager->IsEventListenerAvailable(AAMP_EVENT_BITRATE_CHANGED))
 	{
@@ -2555,12 +2555,12 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(int bitrate, BitrateChangeRea
 		/* START: Added As Part of DELIA-28363 and DELIA-28247 */
 		if(GetBWIndex)
 		{
-			AAMPLOG_WARN("NotifyBitRateChangeEvent :: bitrate:%d desc:%s width:%d height:%d fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
+			AAMPLOG_WARN("NotifyBitRateChangeEvent :: bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, mpStreamAbstractionAAMP->GetBWIndex(bitrate), (IsTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 		else
 		{
-			AAMPLOG_WARN("NotifyBitRateChangeEvent :: bitrate:%d desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
+			AAMPLOG_WARN("NotifyBitRateChangeEvent :: bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, (IsTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 		/* END: Added As Part of DELIA-28363 and DELIA-28247 */
@@ -2572,12 +2572,12 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(int bitrate, BitrateChangeRea
 		/* START: Added As Part of DELIA-28363 and DELIA-28247 */
 		if(GetBWIndex)
 		{
-			AAMPLOG_WARN("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%d desc:%s width:%d height:%d, fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
+			AAMPLOG_WARN("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d, fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, mpStreamAbstractionAAMP->GetBWIndex(bitrate), (IsTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 		else
 		{
-			AAMPLOG_WARN("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%d desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
+			AAMPLOG_WARN("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, (IsTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 		/* END: Added As Part of DELIA-28363 and DELIA-28247 */
@@ -3416,7 +3416,7 @@ void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(long bitsPerSecond , 
  * using most recently recorded 3 samples
  * @return Available bandwidth in bps
  */
-long PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
+BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
 {
 	// 1. Check for any old bitrate beyond threshold time . remove those before calculation
 	// 2. Sort and get median
@@ -3424,7 +3424,7 @@ long PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
 	// 4. Get the average of remaining data.
 	// 5. if no item in the list , return -1 . Caller to ignore bandwidth based processing
 
-	std::vector< long> tmpData;
+	std::vector<BitsPerSecond> tmpData;
 	long ret = -1;
 	pthread_mutex_lock(&mLock);
 	mhAbrManager.UpdateABRBitrateDataBasedOnCacheLife(mAbrBitrateData,tmpData);
@@ -3498,7 +3498,7 @@ const char* PrivateInstanceAAMP::MediaTypeString(MediaType fileType)
  */
 bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl,
 				int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
-				bool resetBuffer, MediaType fileType, long *bitrate, int * fogError,
+				bool resetBuffer, MediaType fileType, BitsPerSecond *bitrate, int * fogError,
 				double fragmentDurationSeconds)
 {
 	MediaTypeTelemetry mediaType = aamp_GetMediaTypeForTelemetry(fileType);
@@ -4237,7 +4237,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 
 		if (bitrate && (context.bitrate > 0))
 		{
-			AAMPLOG_INFO("Received getfile Bitrate : %ld", context.bitrate);
+			AAMPLOG_INFO("Received getfile Bitrate : %" BITSPERSECOND_FORMAT, context.bitrate);
 			*bitrate = context.bitrate;
 		}
 
@@ -5676,7 +5676,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 		std::string effectiveUrl;
 		int http_error;
 		double downloadTime;
-		long bitrate;
+		BitsPerSecond bitrate;
 		int fogError;
 
 		mOrigManifestUrl.hostname=aamp_getHostFromURL(url);
@@ -6062,7 +6062,7 @@ long PrivateInstanceAAMP::GetMaximumBitrate()
 /**
  * @brief Get minimum bitrate value.
  */
-long PrivateInstanceAAMP::GetMinimumBitrate()
+BitsPerSecond PrivateInstanceAAMP::GetMinimumBitrate()
 {
 	return GETCONFIGVALUE_PRIV(eAAMPConfig_MinBitrate);
 }
@@ -6070,7 +6070,7 @@ long PrivateInstanceAAMP::GetMinimumBitrate()
 /**
  * @brief Get default bitrate value.
  */
-long PrivateInstanceAAMP::GetDefaultBitrate()
+BitsPerSecond PrivateInstanceAAMP::GetDefaultBitrate()
 {
 	return GETCONFIGVALUE_PRIV(eAAMPConfig_DefaultBitrate);
 }
@@ -6078,7 +6078,7 @@ long PrivateInstanceAAMP::GetDefaultBitrate()
 /**
  * @brief Get Default bitrate for 4K
  */
-long PrivateInstanceAAMP::GetDefaultBitrate4K()
+BitsPerSecond PrivateInstanceAAMP::GetDefaultBitrate4K()
 {
 	return GETCONFIGVALUE_PRIV(eAAMPConfig_DefaultBitrate4K);
 }
@@ -6086,7 +6086,7 @@ long PrivateInstanceAAMP::GetDefaultBitrate4K()
 /**
  * @brief Get Default Iframe bitrate value.
  */
-long PrivateInstanceAAMP::GetIframeBitrate()
+BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate()
 {
 	return GETCONFIGVALUE_PRIV(eAAMPConfig_IFrameDefaultBitrate);
 }
@@ -6094,7 +6094,7 @@ long PrivateInstanceAAMP::GetIframeBitrate()
 /**
  * @brief Get Default Iframe bitrate 4K value.
  */
-long PrivateInstanceAAMP::GetIframeBitrate4K()
+BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate4K()
 {
 	return GETCONFIGVALUE_PRIV(eAAMPConfig_IFrameDefaultBitrate4K);
 }
@@ -6120,7 +6120,7 @@ void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fra
  * @brief Fetch a file from CDN and update profiler
  */
 bool PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl,std::string& effectiveUrl, AampGrowableBuffer *fragment,
-					unsigned int curlInstance, const char *range, MediaType fileType,int * http_code, double *downloadTime, long *bitrate,int * fogError, double fragmentDurationSeconds)
+					unsigned int curlInstance, const char *range, MediaType fileType,int * http_code, double *downloadTime, BitsPerSecond *bitrate,int * fogError, double fragmentDurationSeconds)
 {
 	bool ret = true;
 	profiler.ProfileBegin(bucketType);
@@ -7692,7 +7692,7 @@ bool PrivateInstanceAAMP::SendVideoEndEvent()
 /**
  * @brief updates profile Resolution to VideoStat object
  */
-void PrivateInstanceAAMP::UpdateVideoEndProfileResolution(MediaType mediaType, long bitrate, int width, int height)
+void PrivateInstanceAAMP::UpdateVideoEndProfileResolution(MediaType mediaType, BitsPerSecond bitrate, int width, int height)
 {
 	pthread_mutex_lock(&mLock);
 	if(mVideoEnd)
@@ -7710,7 +7710,7 @@ void PrivateInstanceAAMP::UpdateVideoEndProfileResolution(MediaType mediaType, l
 /**
  *  @brief updates download metrics to VideoStat object, this is used for VideoFragment as it takes duration for calcuation purpose.
  */
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, long bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime)
 {
 	UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl,duration,curlDownloadTime, false,false);
 }
@@ -7746,7 +7746,7 @@ void PrivateInstanceAAMP::UpdateProfileCappedStatus(void)
 /**
  * @brief updates download metrics to VideoStat object, this is used for VideoFragment as it takes duration for calcuation purpose.
  */
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, long bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
 {
 	int audioIndex = 1;
 	// ignore for write and aborted errors
@@ -7807,7 +7807,7 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, long bitrat
 				{
 					if(mpStreamAbstractionAAMP->GetProfileCount())
 					{
-						long maxBitrateSupported = mpStreamAbstractionAAMP->GetMaxBitrate();
+						BitsPerSecond maxBitrateSupported = mpStreamAbstractionAAMP->GetMaxBitrate();
 						if(maxBitrateSupported == bitrate)
 						{
 							mTimeAtTopProfile += duration;
@@ -7972,7 +7972,7 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 /**
  * @brief updates download metrics to VideoStat object, this is used for VideoFragment as it takes duration for calcuation purpose.
  */
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, long bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData)
 {
 
 	UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl,0,curlDownloadTime, false, false, manifestData);
@@ -8341,7 +8341,7 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
  */
 void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 {
-	std::vector<long> bitrateList;
+	std::vector<BitsPerSecond> bitrateList;
 	std::set<std::string> langList;
 	std::vector<float> supportedPlaybackSpeeds { -64, -32, -16, -4, -1, 0, 0.5, 1, 4, 16, 32, 64 };
 	int width  = 1280;
@@ -9192,7 +9192,7 @@ std::string PrivateInstanceAAMP::GetAvailableVideoTracks()
 /**
  * @brief  set birate for video tracks selection
  */
-void PrivateInstanceAAMP::SetVideoTracks(std::vector<long> bitrateList)
+void PrivateInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
 {
 	int bitrateSize = (int)bitrateList.size();
 	//clear cached bitrate list

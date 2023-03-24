@@ -237,19 +237,19 @@ public:
 	 * @fn GetBWIndex
 	 * @param[in] bitrate Bitrate to lookup profile
 	 */
-	int GetBWIndex(long bitrate) override;
+	int GetBWIndex(BitsPerSecond bitrate) override;
 	/**
 	 * @fn GetVideoBitrates
 	 */
-	std::vector<long> GetVideoBitrates(void) override;
+	std::vector<BitsPerSecond> GetVideoBitrates(void) override;
 	/**
 	 * @fn GetAudioBitrates
 	 */
-	std::vector<long> GetAudioBitrates(void) override;
+	std::vector<BitsPerSecond> GetAudioBitrates(void) override;
 	/**
 	 * @fn GetMaxBitrate
 	 */
-	long GetMaxBitrate(void) override;
+	BitsPerSecond GetMaxBitrate(void) override;
 	/**
 	 * @fn StopInjection
 	 * @return void
@@ -282,7 +282,7 @@ public:
 	 * @param bandwidth - bandwidth of 4K stream if foudd
 	 * @return true on success 
 	 */
-	virtual bool Is4KStream(int &height, long &bandwidth) override;
+	virtual bool Is4KStream(int &height, BitsPerSecond &bandwidth) override;
 
 	
 	/**
@@ -294,7 +294,7 @@ public:
 	 * @fn GetProfileIndexForBandwidth
 	 * @param mTsbBandwidth - bandwidth to identify profile index from list
 	 */
-	int GetProfileIndexForBandwidth(long mTsbBandwidth) override;
+	int GetProfileIndexForBandwidth( BitsPerSecond mTsbBandwidth) override;
 	/**
 	 * @fn GetAvailableThumbnailTracks
 	 */
@@ -862,7 +862,7 @@ private:
 	double mFirstFragPTS[AAMP_TRACK_COUNT];
 	AudioType mAudioType;
 	int mPrevAdaptationSetCount;
-	std::vector<long> mBitrateIndexVector;
+	std::vector<BitsPerSecond> mBitrateIndexVector;
 	bool playlistDownloaderThreadStarted; // Playlist downloader thread start status
 
 	// In case of streams with multiple video Adaptation Sets, A profile

@@ -28,6 +28,7 @@
 #include "vttCue.h" //Required for VTTCue
 #include <memory>
 #include <vector>
+#include "ABRManager.h"
 
 // Macros required for backward compatible AAMPEventListener implementation
 #define MAX_LANGUAGE_COUNT 16
@@ -263,7 +264,7 @@ struct AAMPEvent
 		struct
 		{
 			int time;                   /**< Playback time */
-			long bitrate;               /**< Playback bitrate */
+			BitsPerSecond bitrate;               /**< Playback bitrate */
 			const char *description;    /**< Description */
 			int width;                  /**< Video width */
 			int height;                 /**< Video height */
@@ -286,7 +287,7 @@ struct AAMPEvent
 			int languageCount;                                              /**< Available language count */
 			char languages[MAX_LANGUAGE_COUNT][MAX_LANGUAGE_TAG_LENGTH];    /**< Available languages */
 			int bitrateCount;                                               /**< Available bitrate count */
-			long bitrates[MAX_BITRATE_COUNT];                               /**< Available bitrates */
+			BitsPerSecond bitrates[MAX_BITRATE_COUNT];                               /**< Available bitrates */
 			int width;                                                      /**< Maximum video width */
 			int height;                                                     /**< Maximum video height */
 			bool hasDrm;                                                    /**< Drm enabled */
@@ -755,7 +756,7 @@ class MediaMetadataEvent: public AAMPEventObject
 {
 	long mDuration;			    /**< Asset duration in MS */
 	std::vector<std::string> mLanguages;/**< Available languages */
-	std::vector<long> mBitrates;	    /**< Available bitrates */
+	std::vector<BitsPerSecond> mBitrates;	    /**< Available bitrates */
 	int mWidth;			    /**< Maximum video width */
 	int mHeight;		    	    /**< Maximum video height */
 	bool mHasDrm;			    /**< Drm enabled */
@@ -777,7 +778,7 @@ class MediaMetadataEvent: public AAMPEventObject
 	std::string mMediaFormatName;	/*< Media format type */
 
 	/* Audio Info   */
-	std::vector<long> mAudioBitrates; 	  /**< Available Audio bitrates */
+	std::vector<BitsPerSecond> mAudioBitrates; 	  /**< Available Audio bitrates */
 	std::string mAudioCodec; 		  /**< AudioCodec E.g AC3.*/
 	std::string mAudioMixType; 		  /**<  AudioMixType(- E.g STEREO. */
 	bool  isAtmos;  	 		  /**<  Is Atmos : 1 - True if audio playing is Dolby Atmos, 0 false ,  -1 indicates data not available */
@@ -839,12 +840,12 @@ public:
 	 * @param[in] bitrate - Supported bitrate
 	 * @return void
 	 */
-	void addBitrate(long bitrate);
+	void addBitrate(BitsPerSecond bitrate);
 
 	/**
 	 * @fn getBitrates
 	 */
-	const std::vector<long> &getBitrates() const;
+	const std::vector<BitsPerSecond> &getBitrates() const;
 
 	/**
 	 * @fn getBitratesCount
@@ -911,7 +912,7 @@ public:
 	/**
 	 * @fn getAudioBitrates
 	 */
-	const std::vector<long> &getAudioBitrates() const { return mAudioBitrates; }
+	const std::vector<BitsPerSecond> &getAudioBitrates() const { return mAudioBitrates; }
 
 	/**
 	 * @brief Sets additional metadata for Audio
@@ -928,7 +929,7 @@ public:
 	 * @param[in] bitrate - Supported bitrate
 	 * @return void
 	 */
-	void addAudioBitrate(long bitrate) { return mAudioBitrates.push_back(bitrate); }
+	void addAudioBitrate(BitsPerSecond bitrate) { return mAudioBitrates.push_back(bitrate); }
 
 	/**
 	 * @brief get Parental control ratings
@@ -1028,7 +1029,7 @@ public:
 class BitrateChangeEvent: public AAMPEventObject
 {
 	int mTime;			/**< Playback time */
-	long mBitrate;			/**< Playback bitrate */
+	BitsPerSecond mBitrate;			/**< Playback bitrate */
 	std::string mDescription;	/**< Bitrate change reason */
 	int mWidth;			/**< Video width */
 	int mHeight;			/**< Video height */
@@ -1063,7 +1064,7 @@ public:
 	 * @param[in] position   - Aspect Ratio Width
 	 * @param[in] position   - Aspect Ratio Height
 	 */
-	BitrateChangeEvent(int time, long bitrate, const std::string &desc, int width, int height, double frameRate, double position, bool mCappedProfile, int mDisplayWidth, int mDisplayHeight, VideoScanType videoScanType, int aspectRatioWidth, int aspectRatioHeight);
+	BitrateChangeEvent(int time, BitsPerSecond bitrate, const std::string &desc, int width, int height, double frameRate, double position, bool mCappedProfile, int mDisplayWidth, int mDisplayHeight, VideoScanType videoScanType, int aspectRatioWidth, int aspectRatioHeight);
 
 	/**
 	 * @brief BitrateChangeEvent Destructor

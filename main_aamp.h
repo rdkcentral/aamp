@@ -1205,21 +1205,21 @@ public:
 	 *
 	 *   @param[in] bitrate preferred bitrate for video profile
 	 */
-	void SetVideoBitrate(long bitrate);
+	void SetVideoBitrate(BitsPerSecond bitrate);
 
 	/**
 	 *   @fn GetAudioBitrate
 	 *
 	 *   @return bitrate of audio profile
 	 */
-	long GetAudioBitrate(void);
+	BitsPerSecond GetAudioBitrate(void);
 
 	/**
 	 *   @fn SetAudioBitrate
 	 *
 	 *   @param[in] bitrate preferred bitrate for audio profile
 	 */
-	void SetAudioBitrate(long bitrate);
+	void SetAudioBitrate(BitsPerSecond bitrate);
 
 	/**
 	 *   @fn GetVideoZoom
@@ -1255,7 +1255,7 @@ public:
 	 *
 	 *   @return available video bitrates
 	 */
-	std::vector<long> GetVideoBitrates(void);
+	std::vector<BitsPerSecond> GetVideoBitrates(void);
 
 	/**
          *   @fn GetManifest
@@ -1269,7 +1269,7 @@ public:
 	 *
 	 *   @return available audio bitrates
 	 */
-	std::vector<long> GetAudioBitrates(void);
+	std::vector<BitsPerSecond> GetAudioBitrates(void);
 
 	/**
 	 *   @fn SetInitialBitrate
@@ -1277,14 +1277,14 @@ public:
 	 *   @param[in] bitrate initial bitrate to be selected
 	 *   @return void
 	 */
-	void SetInitialBitrate(long bitrate);
+	void SetInitialBitrate(BitsPerSecond bitrate);
 
 	/**
 	 *   @fn GetInitialBitrate
 	 *
 	 *   @return initial bitrate value.
 	 */
-	long  GetInitialBitrate(void);
+	BitsPerSecond GetInitialBitrate(void);
 
 	/**
 	 *   @fn SetInitialBitrate4K
@@ -1292,14 +1292,14 @@ public:
 	 *   @param[in] bitrate4K initial bitrate to be selected for 4K assets.
 	 *   @return void
 	 */
-	void SetInitialBitrate4K(long bitrate4K);
+	void SetInitialBitrate4K(BitsPerSecond bitrate4K);
 
 	/**
 	 *   @fn GetInitialBitrate4k
 	 *
 	 *   @return initial bitrate value for 4k assets
 	 */
-	long GetInitialBitrate4k(void);
+	BitsPerSecond GetInitialBitrate4k(void);
 
 	/**
 	 *   @fn SetNetworkTimeout
@@ -1507,7 +1507,7 @@ public:
 	 *   
 	 *   @return void
 	 */
-	void SetVideoTracks(std::vector<long> bitrates);
+	void SetVideoTracks(std::vector<BitsPerSecond> bitrates);
 
 	/**
 	 *   @fn GetAvailableAudioTracks
@@ -1636,26 +1636,26 @@ public:
 	 * @fn SetMinimumBitrate
 	 * @return void
 	 */
-	void SetMinimumBitrate(long bitrate);
+	void SetMinimumBitrate(BitsPerSecond bitrate);
 
 	/**
 	 * @fn GetMinimumBitrate
 	 * @return Minimum bitrate value
 	 *
 	 */
-	long GetMinimumBitrate(void);
+	BitsPerSecond GetMinimumBitrate(void);
 
 	/**
 	 * @fn SetMaximumBitrate
 	 * @return void
 	 */
-	void SetMaximumBitrate(long bitrate);
+	void SetMaximumBitrate(BitsPerSecond bitrate);
 
 	/**
 	 * @fn GetMaximumBitrate
 	 * @return Max bit rate value 
 	 */
-	long GetMaximumBitrate(void);
+	BitsPerSecond GetMaximumBitrate(void);
 
 	/**
 	 * @fn SetSegmentInjectFailCount

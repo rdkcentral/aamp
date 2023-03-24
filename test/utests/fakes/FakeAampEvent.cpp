@@ -92,7 +92,7 @@ void MediaMetadataEvent::addSupportedSpeed(float speed)
 {
 }
 
-void MediaMetadataEvent::addBitrate(long bitrate)
+void MediaMetadataEvent::addBitrate(BitsPerSecond bitrate)
 {
 }
 
@@ -218,7 +218,7 @@ MediaErrorEvent::MediaErrorEvent(AAMPTuneFailure failure, int code, const std::s
 {
 }
 
-BitrateChangeEvent::BitrateChangeEvent(int time, long bitrate, const std::string &desc, int width, int height, double frameRate, double position, bool cappedProfile, int displayWidth, int displayHeight, VideoScanType videoScanType, int aspectRatioWidth, int aspectRatioHeight):
+BitrateChangeEvent::BitrateChangeEvent(int time, BitsPerSecond bitrate, const std::string &desc, int width, int height, double frameRate, double position, bool cappedProfile, int displayWidth, int displayHeight, VideoScanType videoScanType, int aspectRatioWidth, int aspectRatioHeight):
 		AAMPEventObject(AAMP_EVENT_BITRATE_CHANGED)
 {
 }

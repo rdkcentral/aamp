@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
-#include "downloader/AampCurlDownloader.h"
+#include "AampCurlDownloader.h"
 
 #include "AampConfig.h"
 #include "AampLogManager.h"

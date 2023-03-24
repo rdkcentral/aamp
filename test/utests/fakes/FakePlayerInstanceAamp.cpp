@@ -70,10 +70,10 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	void PlayerInstanceAAMP::SetStallTimeout(int timeoutMS) {  }
 	void PlayerInstanceAAMP::SetReportInterval(int reportInterval) {  }
 	void PlayerInstanceAAMP::SetInitFragTimeoutRetryCount(int count) {  }
-	void PlayerInstanceAAMP::SetVideoBitrate(long bitrate) {  }
-	void PlayerInstanceAAMP::SetAudioBitrate(long bitrate) {  }
-	void PlayerInstanceAAMP::SetInitialBitrate(long bitrate) {  }
-	void PlayerInstanceAAMP::SetInitialBitrate4K(long bitrate4K) {  }
+	void PlayerInstanceAAMP::SetVideoBitrate(BitsPerSecond bitrate) {  }
+	void PlayerInstanceAAMP::SetAudioBitrate(BitsPerSecond bitrate) {  }
+	void PlayerInstanceAAMP::SetInitialBitrate(BitsPerSecond bitrate) {  }
+	void PlayerInstanceAAMP::SetInitialBitrate4K(BitsPerSecond bitrate4K) {  }
 	void PlayerInstanceAAMP::SetNetworkTimeout(double  timeout) {  }
 	void PlayerInstanceAAMP::SetManifestTimeout(double  timeout) {  }
 	void PlayerInstanceAAMP::SetPlaylistTimeout(double  timeout) {  }
@@ -98,7 +98,7 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	void PlayerInstanceAAMP::SetSslVerifyPeerConfig(bool bValue) {  }
 	void PlayerInstanceAAMP::SetNewABRConfig(bool bValue) {  }
 	void PlayerInstanceAAMP::SetNewAdBreakerConfig(bool bValue) {  }
-	void PlayerInstanceAAMP::SetVideoTracks(std::vector<long> bitrates) {  }
+	void PlayerInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrates) {  }
 	void PlayerInstanceAAMP::SetAppName(std::string name) {  }
 	void PlayerInstanceAAMP::SetPreferredLanguages(const char*  languageList, const char *preferredRendition, const char *preferredType, const char*  codecList, const char*  labelList) {  } 
 	void PlayerInstanceAAMP::SetPreferredTextLanguages(const char*  param) {  } 
@@ -110,8 +110,8 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	void PlayerInstanceAAMP::EnableVideoRectangle(bool rectProperty) {  }
 	void PlayerInstanceAAMP::SetRampDownLimit(int limit) {  }
 	void PlayerInstanceAAMP::SetInitRampdownLimit(int limit) {  }
-	void PlayerInstanceAAMP::SetMinimumBitrate(long bitrate) {  }
-	void PlayerInstanceAAMP::SetMaximumBitrate(long bitrate) {  }
+	void PlayerInstanceAAMP::SetMinimumBitrate(BitsPerSecond bitrate) {  }
+	void PlayerInstanceAAMP::SetMaximumBitrate(BitsPerSecond bitrate) {  }
 	void PlayerInstanceAAMP::SetSegmentInjectFailCount(int value) {  }
 	void PlayerInstanceAAMP::SetSegmentDecryptFailCount(int value) {  }
 	void PlayerInstanceAAMP::SetInitialBufferDuration(int durationSec) {  }
@@ -171,8 +171,8 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	const char* PlayerInstanceAAMP::GetCurrentDRM() { return ""; }
     const char* PlayerInstanceAAMP::GetPreferredLanguages() { return ""; }
 	DRMSystems PlayerInstanceAAMP::GetPreferredDRM() { return eDRM_NONE; }
-	std::vector<long> PlayerInstanceAAMP::GetVideoBitrates(void) { static std::vector<long> temp; return temp; }
-	std::vector<long> PlayerInstanceAAMP::GetAudioBitrates(void) { static std::vector<long> temp; return temp; }
+	std::vector<BitsPerSecond> PlayerInstanceAAMP::GetVideoBitrates(void) { static std::vector<BitsPerSecond> temp; return temp; }
+	std::vector<BitsPerSecond> PlayerInstanceAAMP::GetAudioBitrates(void) { static std::vector<BitsPerSecond> temp; return temp; }
     std::string PlayerInstanceAAMP::GetManifest(void) { return nullptr; }
 	std::string PlayerInstanceAAMP::GetAvailableVideoTracks() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetAvailableAudioTracks(bool allTrack) { return nullptr; }

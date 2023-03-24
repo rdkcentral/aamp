@@ -96,7 +96,7 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 				memset(event.data.metadata.languages[i], '\0', MAX_LANGUAGE_TAG_LENGTH);
 				strncpy(event.data.metadata.languages[i], languages[i].c_str(), MAX_LANGUAGE_TAG_LENGTH - 1);
 			}
-			std::vector<long> bitrates = ev->getBitrates();
+			std::vector<BitsPerSecond> bitrates = ev->getBitrates();
 			for(int i = 0; i < event.data.metadata.bitrateCount && i < MAX_BITRATE_COUNT; i++)
 			{
 				event.data.metadata.bitrates[i] = bitrates[i];

@@ -462,7 +462,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				}
 				printf("[AAMPCLI] AAMP_EVENT_MEDIA_METADATA\n\tDuration=%ld\n\twidth=%d\n\tHeight=%d\n\tHasDRM=%d\n\tProgreamStartTime=%f\n", ev->getDuration(), ev->getWidth(), ev->getHeight(), ev->hasDrm(), ev->getProgramStartTime());
 				int bitrateCount = ev->getBitratesCount();
-				std::vector<long> bitrates = ev->getBitrates();
+				std::vector<BitsPerSecond> bitrates = ev->getBitrates();
 				printf("[AAMPCLI] Bitrates:\n");
 				for(int i = 0; i < bitrateCount; i++)
 				{
@@ -523,7 +523,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_BITRATE_CHANGED:
 			{
 				BitrateChangeEventPtr ev = std::dynamic_pointer_cast<BitrateChangeEvent>(e);
-				printf("[AAMPCLI] AAMP_EVENT_BITRATE_CHANGED\n\tbitrate=%ld\n\tdescription=\"%s\"\n\tresolution=%dx%d@%ffps\n\ttime=%d\n\tposition=%lf\n", ev->getBitrate(), ev->getDescription().c_str(), ev->getWidth(), ev->getHeight(), ev->getFrameRate(), ev->getTime(), ev->getPosition());
+				printf("[AAMPCLI] AAMP_EVENT_BITRATE_CHANGED\n\tbitrate=%" BITSPERSECOND_FORMAT "\n\tdescription=\"%s\"\n\tresolution=%dx%d@%ffps\n\ttime=%d\n\tposition=%lf\n", ev->getBitrate(), ev->getDescription().c_str(), ev->getWidth(), ev->getHeight(), ev->getFrameRate(), ev->getTime(), ev->getPosition());
 				break;
 			}
 		case AAMP_EVENT_AUDIO_TRACKS_CHANGED:

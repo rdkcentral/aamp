@@ -26,8 +26,8 @@
 #include "_base64.h"
 #include "AampConfig.h"
 #include "AampConstants.h"
-#include "downloader/AampCurlStore.h"
-#include "downloader/AampCurlDownloader.h"
+#include "AampCurlStore.h"
+#include "AampCurlDownloader.h"
 
 #include <sys/time.h>
 #include <string.h>
