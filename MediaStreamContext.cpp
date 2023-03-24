@@ -122,8 +122,22 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				buffer.parseBuffer();
 				uint32_t track_id = 0;
 				buffer.getTrack_id(track_id);
-				
-				
+				if(buffer.isInitSegment())
+				{
+					uint32_t timeScale = 0;
+					buffer.getTimeScale(timeScale);
+					if(actualType == eMEDIATYPE_INIT_VIDEO)
+					{
+						AAMPLOG_INFO("Video TimeScale [%d]", timeScale);
+						aamp->SetVidTimeScale(timeScale);
+					}
+					else
+					{
+						AAMPLOG_INFO("Audio TimeScale  [%d]", timeScale);
+						aamp->SetAudTimeScale(timeScale);
+					}
+				}		
+
 				if(actualType == eMEDIATYPE_INIT_VIDEO)
 				{
 					AAMPLOG_INFO("Video track_id read from init fragment: %d ", track_id);

@@ -4165,23 +4165,6 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 							{
 								AAMPLOG_INFO("[%d] Buffer Length: %zu", fileType, context.buffer->len);
 
-								//Print box details
-								//isobuf.printBoxes();
-								if(isobuf.isInitSegment())
-								{
-									uint32_t timeScale = 0;
-									isobuf.getTimeScale(timeScale);
-									if(fileType == eMEDIATYPE_INIT_VIDEO)
-									{
-										AAMPLOG_INFO("Video TimeScale  [%d]", timeScale);
-										SetVidTimeScale(timeScale);
-									}
-									else
-									{
-										AAMPLOG_INFO("Audio TimeScale  [%d]", timeScale);
-										SetAudTimeScale(timeScale);
-									}
-								}
 							}
 						}
 					}
