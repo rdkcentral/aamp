@@ -242,7 +242,7 @@ class TrackState : public MediaTrack
 		 *
 		 * @return void
 		 ***************************************************************************/
-		void ABRProfileChanged(void);
+		void ABRProfileChanged(void) override;
 		/***************************************************************************
 		 * @fn GetNextFragmentUriFromPlaylist
 		 * @param reloadUri reload uri on playlist refreshed scenario
@@ -387,57 +387,57 @@ class TrackState : public MediaTrack
 		 *
 		 * @return Buffer Duration
 		 ***************************************************************************/
-		double GetBufferedDuration();
+		double GetBufferedDuration() override;
 
 		/***************************************************************************
 		 * @fn GetPlaylistUrl
 		 *
 		 * @return string - playlist URL
 		 ***************************************************************************/
-		std::string& GetPlaylistUrl() { return mPlaylistUrl; }
+		std::string& GetPlaylistUrl() override { return mPlaylistUrl; }
 		/***************************************************************************
 		 * @fn GetEffectivePlaylistUrl
 		 *
 		 * @return string - original playlist URL(redirected)
 		 ***************************************************************************/
-		std::string& GetEffectivePlaylistUrl() { return mEffectiveUrl; }
+		std::string& GetEffectivePlaylistUrl() override { return mEffectiveUrl; }
 		/***************************************************************************
 		 * @fn SetEffectivePlaylistUrl
 		 *
 		 * @return none
 		 ***************************************************************************/
-		void SetEffectivePlaylistUrl(std::string url) { mEffectiveUrl = url; }
+		void SetEffectivePlaylistUrl(std::string url) override { mEffectiveUrl = url; }
 		/***************************************************************************
 		 * @fn GetLastPlaylistDownloadTime
 		 *
 		 * @return lastPlaylistDownloadTime
 		 ****************************************************************************/
-		long long GetLastPlaylistDownloadTime() { return lastPlaylistDownloadTimeMS; }
+		long long GetLastPlaylistDownloadTime() override { return lastPlaylistDownloadTimeMS; }
 		/****************************************************************************
 		 * @fn SetLastPlaylistDownloadTime
 		 *
 		 * @return void
 		 ****************************************************************************/
-		void SetLastPlaylistDownloadTime(long long time) { lastPlaylistDownloadTimeMS = time; }
+		void SetLastPlaylistDownloadTime(long long time) override { lastPlaylistDownloadTimeMS = time; }
 		/****************************************************************************
 		 * @fn GetMinUpdateDuration
 		 *
 		 * @return minimumUpdateDuration
 		 ****************************************************************************/
-		long GetMinUpdateDuration();
+		long GetMinUpdateDuration() override;
 		/****************************************************************************
 		 * fn GetDefaultDurationBetweenPlaylistUpdates
 		 *
 		 * @return maxIntervalBtwPlaylistUpdateMs
 		 ****************************************************************************/
-		int GetDefaultDurationBetweenPlaylistUpdates();
+		int GetDefaultDurationBetweenPlaylistUpdates() override;
 
 		/****************************************************************************
 		 * @fn ProcessPlaylist
 		 *
 		 * @return none
 		 ****************************************************************************/
-		void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error);
+		void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) override;
 	private:
 		/***************************************************************************
 		 * @fn GetFragmentUriFromIndex
@@ -476,7 +476,7 @@ class TrackState : public MediaTrack
 		 *
 		 * @return StreamAbstractionAAMP instance
 		 ***************************************************************************/
-		StreamAbstractionAAMP* GetContext();
+		StreamAbstractionAAMP* GetContext() override;
 		/***************************************************************************
 		 * @fn InjectFragmentInternal
 		 *
@@ -484,7 +484,7 @@ class TrackState : public MediaTrack
 		 * @param[out] fragmentDiscarded bool to indicate fragment successfully injected
 		 * @return void
 		 ***************************************************************************/
-		void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded);
+		void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded) override;
 		/***************************************************************************
 		 * @fn FindMediaForSequenceNumber
 		 * @return string fragment tag line pointer

@@ -252,7 +252,7 @@ private:
 class AampJsonParseException : public std::exception
 {
 public:
-	virtual const char* what() const throw()
+	virtual const char* what() const throw() override
 	{
 		return "Failed to parse JSON string";
 	}

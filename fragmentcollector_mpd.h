@@ -260,8 +260,8 @@ public:
 	 * @return void
 	 */
 	void StartInjection(void) override;
-	double GetBufferedDuration();
-	void SeekPosUpdate(double secondsRelativeToTuneTime) {seekPosition = secondsRelativeToTuneTime; }
+	double GetBufferedDuration() override;
+	void SeekPosUpdate(double secondsRelativeToTuneTime) override {seekPosition = secondsRelativeToTuneTime; }
 	virtual void SetCDAIObject(CDAIObject *cdaiObj) override;
 	/**
 	 * @fn GetAvailableAudioTracks
@@ -289,12 +289,12 @@ public:
          * @fn GetProfileCount
          * 
          */
-	int GetProfileCount();
+	int GetProfileCount() override;
 	/**
 	 * @fn GetProfileIndexForBandwidth
 	 * @param mTsbBandwidth - bandwidth to identify profile index from list
 	 */
-	int GetProfileIndexForBandwidth(long mTsbBandwidth);
+	int GetProfileIndexForBandwidth(long mTsbBandwidth) override;
 	/**
 	 * @fn GetAvailableThumbnailTracks
 	 */
@@ -353,14 +353,14 @@ public:
 	/**
 	 * @fn GetFirstPeriodStartTime
 	 */
-	double GetFirstPeriodStartTime(void);
+	double GetFirstPeriodStartTime(void) override;
 	void MonitorLatency();
 	void StartSubtitleParser() override;
 	void PauseSubtitleParser(bool pause) override;
 	/**
 	 * @fn GetCurrPeriodTimeScale
 	 */
-	uint32_t GetCurrPeriodTimeScale();
+	uint32_t GetCurrPeriodTimeScale() override;
 	dash::mpd::IMPD *GetMPD( void );
 	IPeriod *GetPeriod( void );
 	/**

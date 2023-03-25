@@ -32,12 +32,12 @@ public:
 	TtmlSubtecParser& operator=(const TtmlSubtecParser&) = delete;
 
 	
-	bool init(double startPosSeconds, unsigned long long basePTS);
-	bool processData(char* buffer, size_t bufferLen, double position, double duration);
-	bool close() { return true; }
-	void reset();
-	void setProgressEventOffset(double offset) {}
-	void updateTimestamp(unsigned long long positionMs);
+	bool init(double startPosSeconds, unsigned long long basePTS) override;
+	bool processData(char* buffer, size_t bufferLen, double position, double duration) override;
+	bool close() override { return true; }
+	void reset() override;
+	void setProgressEventOffset(double offset) override {}
+	void updateTimestamp(unsigned long long positionMs) override;
 	void pause(bool pause) override;
 	void mute(bool mute) override;
 

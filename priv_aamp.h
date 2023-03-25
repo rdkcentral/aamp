@@ -3343,7 +3343,7 @@ public:
 	 *   @param[in] payload - individualization payload
 	 *   @return void
 	 */
-	void individualization(const std::string& payload);
+	void individualization(const std::string& payload) override;
 
 	/* End AampDrmCallbacks implementation */
 

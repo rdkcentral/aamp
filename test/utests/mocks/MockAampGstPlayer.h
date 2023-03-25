@@ -29,11 +29,11 @@ public:
 
     MockAAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp) : AAMPGstPlayer(logObj, aamp) { }
 
-    MOCK_METHOD(long, GetPositionMilliseconds, ());
+    MOCK_METHOD(long, GetPositionMilliseconds, (), (override));
 
-    MOCK_METHOD(bool, Pause, (bool pause, bool forceStopGstreamerPreBuffering));
+    MOCK_METHOD(bool, Pause, (bool pause, bool forceStopGstreamerPreBuffering), (override));
 
-    MOCK_METHOD(bool , SetTextStyle, (const std::string &options));
+    MOCK_METHOD(bool , SetTextStyle, (const std::string &options), (override));
 };
 
 extern MockAAMPGstPlayer *g_mockAampGstPlayer;

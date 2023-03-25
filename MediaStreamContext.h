@@ -82,7 +82,7 @@ public:
      * @brief Get the context of media track. To be implemented by subclasses
      * @retval Context of track.
      */
-    StreamAbstractionAAMP* GetContext()
+    StreamAbstractionAAMP* GetContext() override
     {
         return context;
     }
@@ -93,7 +93,7 @@ public:
      * @param[in] cachedFragment - contains fragment to be processed and injected
      * @param[out] fragmentDiscarded - true if fragment is discarded.
      */
-    void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded);
+    void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded) override;
 
     /**
      * @fn CacheFragment
@@ -125,66 +125,66 @@ public:
     /**
      * @fn ABRProfileChanged
      */
-    void ABRProfileChanged(void);
+    void ABRProfileChanged(void) override;
     /**
      * @fn GetBufferedDuration
      */
-    double GetBufferedDuration();
+    double GetBufferedDuration() override;
 
     /**
      * @fn SignalTrickModeDiscontinuity
      * @return void
      */
-    void SignalTrickModeDiscontinuity();
+    void SignalTrickModeDiscontinuity() override;
 
     /**
      * @fn IsAtEndOfTrack
      * @return true - If yes
      */
-    bool IsAtEndOfTrack();
+    bool IsAtEndOfTrack() override;
 
     /**
      * @fn GetPlaylistUrl
      * @return string - playlist URL
      */
-    std::string& GetPlaylistUrl();
+    std::string& GetPlaylistUrl() override;
 
     /**
      * @fn GetEffectivePlaylistUrl
      * @return string - original playlist URL(redirected)
      */
-    std::string& GetEffectivePlaylistUrl();
+    std::string& GetEffectivePlaylistUrl() override;
 
     /**
      * @fn SetEffectivePlaylistUrl
      * @param string - original playlist URL
      */
-    void SetEffectivePlaylistUrl(std::string url);
+    void SetEffectivePlaylistUrl(std::string url) override;
 
     /**
      * @fn GetLastPlaylistDownloadTime
      * @return lastPlaylistDownloadTime
      */
-    long long GetLastPlaylistDownloadTime();
+    long long GetLastPlaylistDownloadTime() override;
 
     /**
      * @fn SetLastPlaylistDownloadTime
      * @param[in] time last playlist download time
      * @return void
      */
-    void SetLastPlaylistDownloadTime(long long time);
+    void SetLastPlaylistDownloadTime(long long time) override;
 
     /**
      * @fn GetMinUpdateDuration
      * @return minimumUpdateDuration
      */
-    long GetMinUpdateDuration();
+    long GetMinUpdateDuration() override;
 
     /**
      * @fn GetDefaultDurationBetweenPlaylistUpdates
      * @return maxIntervalBtwPlaylistUpdateMs
      */
-    int GetDefaultDurationBetweenPlaylistUpdates();
+    int GetDefaultDurationBetweenPlaylistUpdates() override;
 
     /**
      * @fn ProcessPlaylist
@@ -192,7 +192,7 @@ public:
      * @param[in] http error code
      * @return void
      */
-    void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error);
+    void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) override;
 
     MediaType mediaType;
     struct FragmentDescriptor fragmentDescriptor;

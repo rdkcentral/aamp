@@ -87,7 +87,7 @@ class Harvestor : public Command
 		void writeHarvestEndReport(HarvestProfileDetails, char *buffer);
 		static void harvestTerminateHandler(int signal);
 		void getExecutablePath();
-		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
+		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
 		Harvestor();
 };
 

@@ -29,51 +29,51 @@ public:
 
     MockStreamAbstractionAAMP(AampLogManager *logObj, PrivateInstanceAAMP *aamp) : StreamAbstractionAAMP(logObj, aamp) { }
 
-    MOCK_METHOD(void, NotifyPlaybackPaused, (bool paused));
+    MOCK_METHOD(void, NotifyPlaybackPaused, (bool paused), (override));
 
-    MOCK_METHOD(AAMPStatusType, Init, (TuneType tuneType));
+    MOCK_METHOD(AAMPStatusType, Init, (TuneType tuneType), (override));
 
-    MOCK_METHOD(void, Start, ());
+    MOCK_METHOD(void, Start, (), (override));
 
-    MOCK_METHOD(void, Stop, (bool clearChannelData));
+    MOCK_METHOD(void, Stop, (bool clearChannelData), (override));
 
-    MOCK_METHOD(void, GetStreamFormat, (StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat));
+    MOCK_METHOD(void, GetStreamFormat, (StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat), (override));
 
-    MOCK_METHOD(double, GetStreamPosition, ());
+    MOCK_METHOD(double, GetStreamPosition, (), (override));
 
-    MOCK_METHOD(double, GetFirstPTS, ());
+    MOCK_METHOD(double, GetFirstPTS, (), (override));
 
-    MOCK_METHOD(double, GetStartTimeOfFirstPTS, ());
+    MOCK_METHOD(double, GetStartTimeOfFirstPTS, (), (override));
 
-    MOCK_METHOD(MediaTrack*, GetMediaTrack, (TrackType type));
+    MOCK_METHOD(MediaTrack*, GetMediaTrack, (TrackType type), (override));
 
-    MOCK_METHOD(double, GetBufferedDuration, ());
+    MOCK_METHOD(double, GetBufferedDuration, (), (override));
 
-    MOCK_METHOD(int, GetBWIndex, (long bandwidth));
+    MOCK_METHOD(int, GetBWIndex, (long bandwidth), (override));
 
-    MOCK_METHOD(std::vector<long>, GetVideoBitrates, ());
+    MOCK_METHOD(std::vector<long>, GetVideoBitrates, (), (override));
 
-    MOCK_METHOD(std::vector<long>, GetAudioBitrates, ());
+    MOCK_METHOD(std::vector<long>, GetAudioBitrates, (), (override));
 
-    MOCK_METHOD(void, StartInjection, ());
+    MOCK_METHOD(void, StartInjection, (), (override));
 
-    MOCK_METHOD(void, StopInjection, ());
+    MOCK_METHOD(void, StopInjection, (), (override));
 
-    MOCK_METHOD(void, SeekPosUpdate, (double secondsRelativeToTuneTime));
+    MOCK_METHOD(void, SeekPosUpdate, (double secondsRelativeToTuneTime), (override));
 
-    MOCK_METHOD(std::vector<StreamInfo*>, GetAvailableVideoTracks, ());
+    MOCK_METHOD(std::vector<StreamInfo*>, GetAvailableVideoTracks, (), (override));
 
-    MOCK_METHOD(std::vector<StreamInfo*>, GetAvailableThumbnailTracks, ());
+    MOCK_METHOD(std::vector<StreamInfo*>, GetAvailableThumbnailTracks, (), (override));
 
-    MOCK_METHOD(bool, SetThumbnailTrack, (int));
+    MOCK_METHOD(bool, SetThumbnailTrack, (int), (override));
 
-    MOCK_METHOD(std::vector<ThumbnailData>, GetThumbnailRangeData, (double, double, std::string*, int*, int*, int*, int*));
+    MOCK_METHOD(std::vector<ThumbnailData>, GetThumbnailRangeData, (double, double, std::string*, int*, int*, int*, int*), (override));
 
-    MOCK_METHOD(StreamInfo* , GetStreamInfo, (int idx));
+    MOCK_METHOD(StreamInfo* , GetStreamInfo, (int idx), (override));
 
-    MOCK_METHOD(bool , Is4KStream, (int &height, long &bandwidth));
+    MOCK_METHOD(bool , Is4KStream, (int &height, long &bandwidth), (override));
 
-    MOCK_METHOD(bool , SetTextStyle, (const std::string &options));
+    MOCK_METHOD(bool , SetTextStyle, (const std::string &options), (override));
 
     MOCK_METHOD(void, UpdateFailedDRMStatus, (LicensePreFetchObject *object), (override));
 };

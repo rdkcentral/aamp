@@ -37,7 +37,7 @@ class SmokeTest : public Command {
 		void liveTune(const char *stream);
 		void loadSmokeTestUrls();
 		bool createTestFilePath(std::string &filePath);
-		bool execute(const char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
+		bool execute(const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
 };
 
 #endif // AAMPCLISMOKETEST_H

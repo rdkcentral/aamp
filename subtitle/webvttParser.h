@@ -60,15 +60,15 @@ public:
 	WebVTTParser(AampLogManager *logObj, PrivateInstanceAAMP *aamp, SubtitleMimeType type);
 	virtual ~WebVTTParser();
 
-	virtual bool init(double startPosSeconds, unsigned long long basePTS);
-	virtual bool processData(char *buffer, size_t bufferLen, double position, double duration);
-	virtual bool close();
-	virtual void reset();
-	virtual void setProgressEventOffset(double offset) { mProgressOffset = offset; }
+	virtual bool init(double startPosSeconds, unsigned long long basePTS) override;
+	virtual bool processData(char *buffer, size_t bufferLen, double position, double duration) override;
+	virtual bool close() override;
+	virtual void reset() override;
+	virtual void setProgressEventOffset(double offset) override { mProgressOffset = offset; }
 
 	virtual void addCueData(VTTCue *cue);
 	virtual void sendCueData();
-	virtual void updateTimestamp(unsigned long long positionMs) {}
+	virtual void updateTimestamp(unsigned long long positionMs) override {}
 
 protected:
 	unsigned long long mStartPTS;   /**< start/base PTS for current period */

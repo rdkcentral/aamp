@@ -39,31 +39,31 @@ class AampVanillaDrmHelper : public AampDrmHelper
 private:
 	const std::string EMPTY_STRING;
 public:
-	virtual const std::string& ocdmSystemId() const { return EMPTY_STRING; };
+	virtual const std::string& ocdmSystemId() const override { return EMPTY_STRING; };
 
 	virtual void createInitData(std::vector<uint8_t>& initData){};
 
-	virtual bool parsePssh(const uint8_t* initData, uint32_t initDataLen){ return false; };
+	virtual bool parsePssh(const uint8_t* initData, uint32_t initDataLen) override { return false; };
 
 	virtual bool isClearDecrypt() { return true; };
 
-	virtual void setDrmMetaData(const std::string& metaData) { }
+	virtual void setDrmMetaData(const std::string& metaData) override { }
 
-	virtual int getDrmCodecType() const { return CODEC_TYPE; }
+	virtual int getDrmCodecType() const override { return CODEC_TYPE; }
 
 	virtual void getKey(std::vector<uint8_t>& keyID) { keyID.clear(); };
 
-	virtual bool isExternalLicense() const { return true; };
+	virtual bool isExternalLicense() const override { return true; };
 
-	virtual void generateLicenseRequest(const AampChallengeInfo& challengeInfo, AampLicenseRequest& licenseRequest) const {};
+	virtual void generateLicenseRequest(const AampChallengeInfo& challengeInfo, AampLicenseRequest& licenseRequest) const override {};
 
 	virtual const std::string& friendlyName() const override { return FRIENDLY_NAME; }
 
-	virtual void createInitData(std::vector<uint8_t>& initData) const {};
+	virtual void createInitData(std::vector<uint8_t>& initData) const override {};
 
-	virtual bool isClearDecrypt() const { return true; };
+	virtual bool isClearDecrypt() const override { return true; };
 
-	virtual void getKey(std::vector<uint8_t>& keyID) const {};
+	virtual void getKey(std::vector<uint8_t>& keyID) const override {};
 
 	AampVanillaDrmHelper(AampLogManager *logObj) : AampDrmHelper(DrmInfo {},logObj), FRIENDLY_NAME("Vanilla_AES"), CODEC_TYPE(3), EMPTY_STRING() {}
 

@@ -126,7 +126,7 @@ class TSProcessor : public MediaProcessor
        * @param[in] discontinuous true if fragment is discontinuous
        * @param[out] true on PTS error
        */
-      bool sendSegment( char *segment, size_t& size, double position, double duration, bool discontinuous, bool &ptsError);
+      bool sendSegment( char *segment, size_t& size, double position, double duration, bool discontinuous, bool &ptsError) override;
       /**
        * @fn setRate
        *
@@ -135,28 +135,28 @@ class TSProcessor : public MediaProcessor
        * PlayMode_retimestamp_IPB, PlayMode_retimestamp_IandP or PlayMode_reverse_GOP.
        *
        */
-      void setRate(double rate, PlayMode mode);    
+      void setRate(double rate, PlayMode mode) override;    
       /**
        * @fn setThrottleEnable 
        * @param[in] enable true to enable throttle, false to disable
        */
-      void setThrottleEnable(bool enable);
+      void setThrottleEnable(bool enable) override;
       /**
        * @brief Set frame rate for trick mode
        * @param[in] frameRate rate per second
        */
-      void setFrameRateForTM( int frameRate)
+      void setFrameRateForTM( int frameRate) override
       {
          m_apparentFrameRate = frameRate;
       }
       /**
        * @fn abort
        */
-      void abort();
+      void abort() override;
       /**
        * @fn reset
        */
-      void reset();
+      void reset() override;
       /**
        * @fn flush
        */
@@ -166,7 +166,7 @@ class TSProcessor : public MediaProcessor
        * @fn Change Muxed Audio Track
        * @param[in] AudioTrackIndex
        */
-      void ChangeMuxedAudioTrack(unsigned char index);
+      void ChangeMuxedAudioTrack(unsigned char index) override;
 
       /**
        * @fn Select Audio Track
@@ -191,12 +191,12 @@ class TSProcessor : public MediaProcessor
        * @brief Function to set the group-ID
        * @param[in] string - id
        */
-      void SetAudioGroupId(std::string& id);
+      void SetAudioGroupId(std::string& id) override;
 	/**
 	* @brief Function to set a flag to identify both the av tracks are in TS format or not
 	* @param[in] bool  - true/false
 	*/
-      void setApplyOffsetFlag(bool enable);
+      void setApplyOffsetFlag(bool enable) override;
 
    protected:
       /**

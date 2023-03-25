@@ -35,6 +35,9 @@ pkg_check_modules(LibXml2 REQUIRED libxml-2.0)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_GST1 -ggdb")
+#if (CMAKE_PLATFORM_UBUNTU )
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wsuggest-override")
+#endif()
 
 add_definitions(-DENABLE_LOGGING)
 

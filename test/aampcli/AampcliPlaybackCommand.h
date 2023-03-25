@@ -41,7 +41,7 @@ class PlaybackCommand : public Command
 		static bool isNumber(const char *s);
 		static void showHelp(void);
 		void termPlayerLoop();
-		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
+		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
 
 };
 
