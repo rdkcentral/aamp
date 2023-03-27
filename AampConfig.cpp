@@ -387,7 +387,11 @@ void AampConfig::Initialize()
 	bAampCfgValue[eAAMPConfig_EnableRectPropertyCfg].value			=	true;
 	bAampCfgValue[eAAMPConfig_ReportVideoPTS].value				=	false;
 	bAampCfgValue[eAAMPConfig_DecoderUnavailableStrict].value		=	false;
+#ifdef __APPLE__
+	bAampCfgValue[eAAMPConfig_UseAppSrcForProgressivePlayback].value	=	true; // RDKAAMP-517 workaround
+#else
 	bAampCfgValue[eAAMPConfig_UseAppSrcForProgressivePlayback].value	=	false;
+#endif
 	bAampCfgValue[eAAMPConfig_DescriptiveAudioTrack].value			=	false;
 	bAampCfgValue[eAAMPConfig_ReportBufferEvent].value			=	true;
 	bAampCfgValue[eAAMPConfig_InfoLogging].value				=	false;
