@@ -467,6 +467,9 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
    
     cd build && PKG_CONFIG_PATH=/usr/local/opt/ossp-uuid/lib/pkgconfig:/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCMAKE_OSX_SYSROOT="/" -DCMAKE_OSX_DEPLOYMENT_TARGET="" -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -G Xcode ../
 
+    # the cmake Xcode generator can not set this scheme property (Debug -> Options -> Console -> Use Terminal
+    patch ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme < ../OSX/patches/aamp-cli.xscheme.patch 
+
     echo "Please Start XCode, open aamp/build/AAMP.xcodeproj project file"
 	
     ##Create default channel ~/aampcli.csv – supports local configuration overrides
