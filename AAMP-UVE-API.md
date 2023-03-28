@@ -1,6 +1,6 @@
 
 # ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
-# V5.1
+# V5.3
  
 ## Overview
 
@@ -289,6 +289,14 @@ Jan  2023 Release update
 - Configuration
     - configRuntimeDRM
 
+**Version:** 5.3
+**Release Notes:** 
+Mar  2023 Release update
+- Configuration
+    - enableCMCD
+- Event
+    - playbackProgressUpdate ( updated for new field )
+    
 <div style="page-break-after: always;"></div>
 
 ## Abbreviation Summary 
@@ -406,9 +414,10 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | descriptiveTrackName | Boolean | False | Use descriptive audio track naming format which is a combination of <lang>-<role> (version 2.6) |
 | preferredSubtitleLanguage | String | en | ISO-639 language code used with VTT OOB captions |
 | nativeCCRendering | Boolean | False | Use native ClosedCaption support in AAMP (version 2.6) |
-| enableLiveLatencyCorrection | Boolean | False | Optional field to enable live latency correction for non LLD streams |
+| enableLiveLatencyCorrection | Boolean | False | Optional field to enable live latency correction for non-Low Latency streams |
 | liveOffsetDriftCorrectionInterval | Number | 1 | Optional field to set the allowed delta from live offset configured |
 | sendLicenseResponseHeaders | Boolean | False | Optional field to enable headers in DRM metadata event after license request |
+| enableCMCD | Boolean | True | Optional field to enable/disable CMCD Metrics reporting from player |
 
 Example:
 ```js
@@ -1665,7 +1674,8 @@ Example:
 - startMiliseconds: number
 - endMiliseconds: number
 - currentPTS: number
-- videoBufferedMiliseconds : number  
+- videoBufferedMiliseconds : number 
+- liveLatency : number
 
 **Description:** 
 - Supported UVE version 0.7 and above.
