@@ -169,7 +169,7 @@ private:
 	bool initSegmentProcessComplete;
 	double playRate;
 
-	std::vector<GrowableBuffer *> initSegment;
+	std::vector<AampGrowableBuffer *> initSegment;
 
 	bool abortAll;
 

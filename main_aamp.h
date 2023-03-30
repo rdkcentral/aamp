@@ -416,7 +416,7 @@ public:
 	 *   @brief  API to send audio/video buffer into the sink.
 	 *
 	 *   @param[in]  mediaType - Type of the media.
-	 *   @param[in]  buffer - Pointer to the GrowableBuffer; ownership is taken by the sink
+	 *   @param[in]  buffer - Pointer to the AampGrowableBuffer; ownership is taken by the sink
 	 *   @param[in]  fpts - Presentation Time Stamp.
 	 *   @param[in]  fdts - Decode Time Stamp
 	 *   @param[in]  fDuration - Buffer duration.

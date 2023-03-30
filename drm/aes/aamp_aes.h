@@ -147,7 +147,7 @@ private:
 	EVP_CIPHER_CTX mOpensslCtx;
 #endif
 	DrmInfo mDrmInfo ;
-	GrowableBuffer mAesKeyBuf;
+	AampGrowableBuffer mAesKeyBuf;
 	DRMState mDrmState;
 	DRMState mPrevDrmState;
 	std::string mDrmUrl;

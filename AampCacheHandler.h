@@ -38,7 +38,7 @@
  */
 typedef struct playlistcacheddata{
 	std::string mEffectiveUrl;
-	GrowableBuffer* mCachedBuffer;
+	AampGrowableBuffer* mCachedBuffer;
 	MediaType mFileType;
 	bool mDuplicateEntry;
 
@@ -48,9 +48,8 @@ typedef struct playlistcacheddata{
 
 	playlistcacheddata(const playlistcacheddata& p) : mEffectiveUrl(p.mEffectiveUrl), mCachedBuffer(p.mCachedBuffer), mFileType(p.mFileType),mDuplicateEntry(p.mDuplicateEntry)
 	{
-		mCachedBuffer->ptr = p.mCachedBuffer->ptr;
-		mCachedBuffer->len = p.mCachedBuffer->len;
-		mCachedBuffer->avail = p.mCachedBuffer->avail;
+		mCachedBuffer = p.mCachedBuffer;
+		mCachedBuffer->Replace( p.mCachedBuffer );
 	}
 
 	playlistcacheddata& operator=(const playlistcacheddata &p)
@@ -220,7 +219,7 @@ public:
      	 *
 	 *   @return void
 	 */
-	void InsertToPlaylistCache(const std::string url, const GrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,MediaType fileType=eMEDIATYPE_DEFAULT);
+	void InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,MediaType fileType=eMEDIATYPE_DEFAULT);
 
 	/**
 	 *   @fn RetrieveFromPlaylistCache
@@ -229,7 +228,7 @@ public:
 	 *   @param[out] effectiveUrl - Final URL
 	 *   @return true: found, false: not found
 	 */
-	bool RetrieveFromPlaylistCache(const std::string url, GrowableBuffer* buffer, std::string& effectiveUrl);
+	bool RetrieveFromPlaylistCache(const std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl);
 
 	/**
 	 *  @brief Remove specific playlist cache
@@ -267,7 +266,7 @@ public:
      	 *
 	 *   @return void
 	 */
-	void InsertToInitFragCache(const std::string url, const GrowableBuffer* buffer, std::string effectiveUrl,MediaType fileType);
+	void InsertToInitFragCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,MediaType fileType);
 
 	/**
 	 *   @fn RetrieveFromInitFragCache
@@ -278,7 +277,7 @@ public:
 	 * 
 	 *   @return true: found, false: not found
 	 */
-	bool RetrieveFromInitFragCache(const std::string url, GrowableBuffer* buffer, std::string& effectiveUrl);
+	bool RetrieveFromInitFragCache(const std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl);
 
 	/**
 	*   @fn SetMaxInitFragCacheSize

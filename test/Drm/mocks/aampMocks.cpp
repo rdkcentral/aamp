@@ -127,7 +127,7 @@ bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
 	return true;
 }
 
-void aamp_Free(struct GrowableBuffer *buffer)
+void aamp_Free(AampGrowableBuffer *buffer)
 {
 	if (buffer && buffer->ptr)
 	{

@@ -1156,7 +1156,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		,(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING), pto, scale);
 	// Check if we have downloaded the fragment and waiting for init fragment download on
 	// bitrate switching before caching it.
-	bool fragmentSaved = (NULL != pMediaStreamContext->mDownloadedFragment.ptr);
+	bool fragmentSaved = (NULL != pMediaStreamContext->mDownloadedFragment.GetPtr() );
 
 	if (!fragmentCached)
 	{
@@ -1646,7 +1646,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							}
 							ReleasePlaylistLock();
 						}
-						else if((mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.ptr)
+						else if((mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.GetPtr() )
 						{
 							pMediaStreamContext->profileChanged = true;
 							profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(pMediaStreamContext->fragmentDescriptor.Bandwidth);
@@ -1693,7 +1693,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						double fragmentDuration = ComputeFragmentDuration(duration,timeScale);
 						ReleasePlaylistLock();
 						retval = FetchFragment( pMediaStreamContext, media, fragmentDuration, false, curlInstance);
-						if (!retval && ((mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.ptr))
+						if (!retval && ((mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.GetPtr() ))
 						{
 							pMediaStreamContext->profileChanged = true;
 							profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(pMediaStreamContext->fragmentDescriptor.Bandwidth);
@@ -2057,7 +2057,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)(&pMediaStreamContext->fragmentDescriptor)->Number,
 					(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
 
-			if (!pMediaStreamContext->index_ptr)
+			if (!pMediaStreamContext->IDX.GetPtr() )
 			{ // lazily load index
 				std::string range = segmentBase->GetIndexRange();
 				ReleasePlaylistLock();
@@ -2071,7 +2071,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				double downloadTime;
 				int iFogError = -1;
 				int iCurrentRate = aamp->rate; //  Store it as back up, As sometimes by the time File is downloaded, rate might have changed due to user initiated Trick-Play
-				pMediaStreamContext->index_ptr = aamp->LoadFragment(bucketType, fragmentUrl, effectiveUrl,&pMediaStreamContext->index_len, curlInstance, range.c_str(),&http_code, &downloadTime, actualType,&iFogError);
+				aamp->LoadIDX(bucketType, fragmentUrl, effectiveUrl,&pMediaStreamContext->IDX, curlInstance, range.c_str(),&http_code, &downloadTime, actualType,&iFogError);
 
 				if (iCurrentRate != AAMP_NORMAL_PLAY_RATE)
 				{
@@ -2092,13 +2092,19 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										(iFogError > 0 ? iFogError : http_code),effectiveUrl,pMediaStreamContext->fragmentDescriptor.Time, downloadTime);
 
 				pMediaStreamContext->fragmentOffset++; // first byte following packed index
-				if (pMediaStreamContext->index_ptr)
+				if (pMediaStreamContext->IDX.GetPtr() )
 				{
 					unsigned int firstOffset;
-					ParseSegmentIndexBox(pMediaStreamContext->index_ptr, pMediaStreamContext->index_len, 0, NULL, NULL, &firstOffset);
+					ParseSegmentIndexBox(
+										 pMediaStreamContext->IDX.GetPtr(),
+										 pMediaStreamContext->IDX.GetLen(),
+										 0,
+										 NULL,
+										 NULL,
+										 &firstOffset);
 					pMediaStreamContext->fragmentOffset += firstOffset;
 				}
-				if (pMediaStreamContext->fragmentIndex != 0 && pMediaStreamContext->index_ptr)
+				if (pMediaStreamContext->fragmentIndex != 0 && pMediaStreamContext->IDX.GetPtr() )
 				{
 					unsigned int referenced_size;
 					float fragmentDuration;
@@ -2106,7 +2112,13 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					//Find the offset of previous fragment in new representation
 					for (int i = 0; i < pMediaStreamContext->fragmentIndex; i++)
 					{
-						if (ParseSegmentIndexBox(pMediaStreamContext->index_ptr, pMediaStreamContext->index_len, i, &referenced_size, &fragmentDuration, NULL))
+						if (ParseSegmentIndexBox(
+												 pMediaStreamContext->IDX.GetPtr(),
+												 pMediaStreamContext->IDX.GetLen(),
+												 i,
+												 &referenced_size,
+												 &fragmentDuration,
+												 NULL))
 						{
 							pMediaStreamContext->fragmentOffset += referenced_size;
 						}
@@ -2117,11 +2129,17 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			{
 				ReleasePlaylistLock();
 			}
-			if (pMediaStreamContext->index_ptr)
+			if (pMediaStreamContext->IDX.GetPtr() )
 			{
 				unsigned int referenced_size;
 				float fragmentDuration;
-				if (ParseSegmentIndexBox(pMediaStreamContext->index_ptr, pMediaStreamContext->index_len, pMediaStreamContext->fragmentIndex++, &referenced_size, &fragmentDuration, NULL))
+				if (ParseSegmentIndexBox(
+										 pMediaStreamContext->IDX.GetPtr(),
+										 pMediaStreamContext->IDX.GetLen(),
+										 pMediaStreamContext->fragmentIndex++,
+										 &referenced_size,
+										 &fragmentDuration,
+										 NULL) )
 				{
 					char range[MAX_RANGE_STRING_CHARS];
 					snprintf(range, sizeof(range), "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
@@ -2135,11 +2153,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				}
 				else
 				{ // done with index
-					if( pMediaStreamContext->index_ptr )
-					{
-						aamp_Free(pMediaStreamContext->index_ptr);
-						pMediaStreamContext->index_ptr = NULL;
-					}
+					pMediaStreamContext->IDX.Free();
 					pMediaStreamContext->eos = true;
 				}
 			}
@@ -2721,7 +2735,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 		if (segmentBase)
 		{ // single-segment
 			std::string range = segmentBase->GetIndexRange();
-			if (!pMediaStreamContext->index_ptr)
+			if (!pMediaStreamContext->IDX.GetPtr() )
 			{   // lazily load index
 				std::string fragmentUrl;
 				GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
@@ -2736,9 +2750,9 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				int http_code;
 				double downloadTime;
 				int iFogError = -1;
-				pMediaStreamContext->index_ptr = aamp->LoadFragment(bucketType, fragmentUrl, effectiveUrl,&pMediaStreamContext->index_len, pMediaStreamContext->mediaType, range.c_str(),&http_code, &downloadTime, actualType,&iFogError);
+				aamp->LoadIDX(bucketType, fragmentUrl, effectiveUrl, &pMediaStreamContext->IDX, pMediaStreamContext->mediaType, range.c_str(),&http_code, &downloadTime, actualType,&iFogError);
 			}
-			if (pMediaStreamContext->index_ptr)
+			if (pMediaStreamContext->IDX.GetPtr() )
 			{
 				unsigned int referenced_size = 0;
 				float fragmentDuration = 0.00;
@@ -2750,7 +2764,13 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 
 				while ((fragmentTime < skipTime) || skipToEnd)
 				{
-					if (ParseSegmentIndexBox(pMediaStreamContext->index_ptr, pMediaStreamContext->index_len, fragmentIndex++, &referenced_size, &fragmentDuration, NULL))
+					if (ParseSegmentIndexBox(
+											 pMediaStreamContext->IDX.GetPtr(),
+											 pMediaStreamContext->IDX.GetLen(),
+											 fragmentIndex++,
+											 &referenced_size,
+											 &fragmentDuration,
+											 NULL))
 					{
 						lastFragmentDuration = fragmentDuration;
 						lastReferencedSize = referenced_size;
@@ -2768,11 +2788,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					else
 					{
 						// done with index
-						if( pMediaStreamContext->index_ptr )
-						{
-							aamp_Free(pMediaStreamContext->index_ptr);
-							pMediaStreamContext->index_ptr = NULL;
-						}
+						pMediaStreamContext->IDX.Free();
 						pMediaStreamContext->eos = true;
 						break;
 					}
@@ -2934,11 +2950,11 @@ static void AddAttributesToNode(xmlTextReaderPtr *reader, Node *node)
  * @brief Get mpd object of manifest
  * @retval AAMPStatusType indicates if success or fail
 */
-AAMPStatusType StreamAbstractionAAMP_MPD::GetMpdFromManifest(const GrowableBuffer &manifest, MPD * &mpd, std::string manifestUrl, bool init)
+AAMPStatusType StreamAbstractionAAMP_MPD::GetMpdFromManifest(const AampGrowableBuffer &manifest, MPD * &mpd, std::string manifestUrl, bool init)
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
 	AAMPStatusType ret = eAAMPSTATUS_GENERIC_ERROR;
-	xmlTextReaderPtr reader = xmlReaderForMemory(manifest.ptr, (int) manifest.len, NULL, NULL, 0);
+	xmlTextReaderPtr reader = xmlReaderForMemory( (char *)manifest.GetPtr(), (int) manifest.GetLen(), NULL, NULL, 0);
 	if (reader != NULL)
 	{
 		if (xmlTextReaderRead(reader))
@@ -5161,10 +5177,10 @@ uint64_t aamp_GetDurationFromRepresentation(dash::mpd::IMPD *mpd)
 * @brief Function to Parse/Index playlist after being downloaded.
 * @return none
 */
-void StreamAbstractionAAMP_MPD::ProcessPlaylist(GrowableBuffer& newPlaylist, int http_error)
+void StreamAbstractionAAMP_MPD::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error)
 {
 	AAMPLOG_TRACE("Enter");
-	if (newPlaylist.len)
+	if (newPlaylist.GetLen() )
 	{ // download successful
 		//lastPlaylistDownloadTimeMS = aamp_GetCurrentTimeMS();
 		aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
@@ -5234,10 +5250,10 @@ void StreamAbstractionAAMP_MPD::ProcessPlaylist(GrowableBuffer& newPlaylist, int
 		}
 	}
 
-	if(newPlaylist.ptr)
+	if(newPlaylist.GetPtr() )
 	{
 		// Clear playlist data
-		aamp_Free(&newPlaylist);
+		newPlaylist.Free();
 	}
 }
 
@@ -5502,7 +5518,7 @@ void StreamAbstractionAAMP_MPD::ReleasePlaylistLock()
  */
 AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 {
-	GrowableBuffer manifest;
+	AampGrowableBuffer manifest;
 	AAMPStatusType ret = AAMPStatusType::eAAMPSTATUS_OK;
 	std::string manifestUrl = aamp->GetManifestUrl();
 
@@ -5510,7 +5526,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 	std::string origManifestUrl = manifestUrl;
 	bool gotManifest = false;
 	bool retrievedPlaylistFromCache = false;
-	memset(&manifest, 0, sizeof(manifest));
 	if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(manifestUrl, &manifest, manifestUrl))
 	{
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: manifest retrieved from cache");
@@ -5521,7 +5536,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 	int http_error = 0;
 	if (!retrievedPlaylistFromCache)
 	{
-		memset(&manifest, 0, sizeof(manifest));
 		aamp->profiler.ProfileBegin(PROFILE_BUCKET_MANIFEST);
 		aamp->SetCurlTimeout(aamp->mManifestTimeoutMs,eCURLINSTANCE_VIDEO);
 		gotManifest = aamp->GetFile(manifestUrl, &manifest, manifestUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_VIDEO, true, eMEDIATYPE_MANIFEST,NULL,NULL,0);
@@ -5611,7 +5625,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			AAMPLOG_WARN("Error while processing MPD, GetMpdFromManifest returned %d", ret);
 		}
-		aamp_Free(&manifest);
+		manifest.Free();
 		mLastPlaylistDownloadTimeMs = aamp_GetCurrentTimeMS();
 		if(mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai))
 		{
@@ -5624,16 +5638,16 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 	}
 	if(updateVideoEndMetrics)
 	{
-		ManifestData manifestData(downloadTime * 1000, manifest.len, parseTimeMs, mpd ? mpd->GetPeriods().size() : 0);
+		ManifestData manifestData(downloadTime * 1000, manifest.GetLen(), parseTimeMs, mpd ? mpd->GetPeriods().size() : 0);
 		aamp->UpdateVideoEndMetrics(eMEDIATYPE_MANIFEST,0,http_error,manifestUrl,downloadTime, &manifestData);
 	}
 	if( ret == eAAMPSTATUS_MANIFEST_PARSE_ERROR || ret == eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
 	{
-		if(NULL != manifest.ptr && !manifestUrl.empty())
+		if(NULL != manifest.GetPtr() && !manifestUrl.empty())
 		{
 			int tempDataLen = (MANIFEST_TEMP_DATA_LENGTH - 1);
 			char temp[MANIFEST_TEMP_DATA_LENGTH];
-			strncpy(temp, manifest.ptr, tempDataLen);
+			strncpy(temp, (char *)manifest.GetPtr(), tempDataLen);
 			temp[tempDataLen] = 0x00;
 			AAMPLOG_WARN("ERROR: Invalid Playlist URL: %s ret:%d", manifestUrl.c_str(),ret);
 			AAMPLOG_WARN("ERROR: Invalid Playlist DATA: %s ", temp);
@@ -5818,7 +5832,7 @@ bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 					{
 						double currentTime = (double)aamp_GetCurrentTimeMS() / 1000;
 						int http_error = -1;
-						GrowableBuffer data;
+						AampGrowableBuffer data;
                                                 std::string value = node->GetAttributeValue("value");
 
 						if(!strcasestr(value.c_str(), "http"))
@@ -5829,13 +5843,13 @@ bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 
 						if(aamp->ProcessCustomCurlRequest(value, &data, &http_error))
 						{
-							mServerUtcTime = ISO8601DateTimeToUTCSeconds(data.ptr);
+							mServerUtcTime = ISO8601DateTimeToUTCSeconds( data.GetPtr() );
 							mDeltaTime =  mServerUtcTime - currentTime;
-							aamp_AppendNulTerminator( &data ); // DELIA-57728
-							AAMPLOG_TRACE("Time sync delta : %lf (%s)", mDeltaTime, data.ptr);
+							data.AppendNulTerminator(); // DELIA-57728
+							AAMPLOG_TRACE("Time sync delta : %lf (%s)", mDeltaTime, data.GetPtr() );
 							hasServerUtcTime = true;
 						}
-						aamp_Free(&data);
+						data.Free();
 						break;
 					}
 				}
@@ -8738,11 +8752,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 					if (segmentBase)
 					{
 						pMediaStreamContext->fragmentOffset = 0;
-						if (pMediaStreamContext->index_ptr)
-						{
-							aamp_Free( pMediaStreamContext->index_ptr );
-							pMediaStreamContext->index_ptr = NULL;
-						}
+						pMediaStreamContext->IDX.Free();
 						std::string range;
 						const IURLType *urlType = segmentBase->GetInitialization();
 						if (urlType)
@@ -9139,7 +9149,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 				if (!pMediaStreamContext->eos)
 				{
 					AcquirePlaylistLock();
-					if(trickPlay && pMediaStreamContext->mDownloadedFragment.ptr == NULL && !pMediaStreamContext->freshManifest)
+					if(trickPlay && pMediaStreamContext->mDownloadedFragment.GetPtr() == NULL && !pMediaStreamContext->freshManifest)
 					{
 						//When player started in trickplay rate during player swithcing, make sure that we are showing atleast one frame (mainly to avoid cases where trickplay rate is so high that an ad could get skipped completely)
 						if(aamp->playerStartedWithTrickPlay)
@@ -10103,11 +10113,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			{
 				track->StopInjectChunkLoop();
 			}
-			if( track->index_ptr )
-			{
-				aamp_Free(track->index_ptr);
-				track->index_ptr = NULL;
-			}
+			track->IDX.Free();
 		}
 	}
 	mLicensePrefetcher.DeInit();

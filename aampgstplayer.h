@@ -128,7 +128,7 @@ public:
 	/**
          * @fn SendTransfer
          * @param[in] mediaType stream type
-         * @param[in] buffer buffer as GrowableBuffer pointer
+         * @param[in] buffer buffer as AampGrowableBuffer pointer
          * @param[in] fpts PTS of buffer (in sec)
          * @param[in] fdts DTS of buffer (in sec)
          * @param[in] fDuration duration of buffer (in sec)

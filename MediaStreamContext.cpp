@@ -36,8 +36,8 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
     if(!(aamp->GetLLDashServiceData()->lowLatencyMode  && (cachedFragment->type == eMEDIATYPE_AUDIO ||
                                                            cachedFragment->type == eMEDIATYPE_VIDEO)))
     {
-	    aamp->ProcessID3Metadata(cachedFragment->fragment.ptr, cachedFragment->fragment.len, (MediaType) type);
-	    AAMPLOG_TRACE("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
+ 	    aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), (MediaType) type);
+ 	    AAMPLOG_TRACE("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
         aamp->SendStreamTransfer((MediaType)type, &cachedFragment->fragment,
         cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
     }
@@ -69,13 +69,10 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
     cachedFragment->type = actualType;
     cachedFragment->initFragment = initSegment;
 
-    if(!initSegment && mDownloadedFragment.ptr)
+    if(!initSegment && mDownloadedFragment.GetPtr() )
     {
         ret = true;
-        cachedFragment->fragment.ptr = mDownloadedFragment.ptr;
-        cachedFragment->fragment.len = mDownloadedFragment.len;
-        cachedFragment->fragment.avail = mDownloadedFragment.avail;
-        memset(&mDownloadedFragment, 0, sizeof(GrowableBuffer));
+		cachedFragment->fragment.Replace(&mDownloadedFragment);
     }
     else
     {
@@ -118,7 +115,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				//so upon upgrade to it or introduced a patch in qtdemux,
 				//this portion can be reverted
 				IsoBmffBuffer buffer;
-				buffer.setBuffer((uint8_t *)cachedFragment->fragment.ptr, cachedFragment->fragment.len);
+				buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen() );
 				buffer.parseBuffer();
 				uint32_t track_id = 0;
 				buffer.getTrack_id(track_id);
@@ -204,16 +201,13 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
         AAMPLOG_INFO("Bitrate changed from %u to %ld",fragmentDescriptor.Bandwidth, bitrate);
         fragmentDescriptor.Bandwidth = (uint32_t)bitrate;
         context->SetTsbBandwidth(bitrate);
-        mDownloadedFragment.ptr = cachedFragment->fragment.ptr;
-        mDownloadedFragment.avail = cachedFragment->fragment.avail;
-        mDownloadedFragment.len = cachedFragment->fragment.len;
-        memset(&cachedFragment->fragment, 0, sizeof(GrowableBuffer));
-        ret = false;
+        mDownloadedFragment.Replace(&cachedFragment->fragment);
+		ret = false;
     }
     else if (!ret)
     {
 	AAMPLOG_INFO("fragment fetch failed - Free cachedFragment");
-        aamp_Free(&cachedFragment->fragment);
+        cachedFragment->fragment.Free();
         if( aamp->DownloadsAreEnabled())
         {
             AAMPLOG_WARN("%sfragment fetch failed -- fragmentUrl %s", (initSegment)?"Init ":" ", fragmentUrl.c_str());
@@ -336,9 +330,9 @@ bool MediaStreamContext::CacheFragmentChunk(MediaType actualType, char *ptr, siz
         }
         cachedFragmentChunk->type = actualType;
         cachedFragmentChunk->downloadStartTime = dnldStartTime;
-        aamp_AppendBytes(&cachedFragmentChunk->fragmentChunk, ptr, size);
+		cachedFragmentChunk->fragmentChunk.AppendBytes(ptr, size);
 
-        AAMPLOG_TRACE("[%s] cachedFragmentChunk %p ptr %p",name, cachedFragmentChunk, cachedFragmentChunk->fragmentChunk.ptr);
+        AAMPLOG_TRACE("[%s] cachedFragmentChunk %p ptr %p",name, cachedFragmentChunk, cachedFragmentChunk->fragmentChunk.GetPtr() );
 
         UpdateTSAfterChunkFetch();
     }
@@ -498,7 +492,7 @@ int MediaStreamContext::GetDefaultDurationBetweenPlaylistUpdates()
 /**
  * @brief ProcessPlaylist after MPD refresh
  */
-void MediaStreamContext::ProcessPlaylist(GrowableBuffer& newPlaylist, int http_error)
+void MediaStreamContext::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error)
 {
     context->ProcessPlaylist(newPlaylist, http_error);
 }

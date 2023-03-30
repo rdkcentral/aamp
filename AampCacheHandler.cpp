@@ -28,7 +28,7 @@
 /**
  *  @brief Retrieve playlist from cache  
  */
-void AampCacheHandler::InsertToPlaylistCache(const std::string url, const GrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,MediaType fileType)
+void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,MediaType fileType)
 {
 	PlayListCachedData *tmpData,*newtmpData;
 	pthread_mutex_lock(&mMutex);
@@ -55,27 +55,26 @@ void AampCacheHandler::InsertToPlaylistCache(const std::string url, const Growab
 				ClearPlaylistCache();
 			}
 			// Dont check for CacheSize if Max is configured as unlimited 
-			if(mMaxPlaylistCacheSize == PLAYLIST_CACHE_SIZE_UNLIMITED || (mMaxPlaylistCacheSize != PLAYLIST_CACHE_SIZE_UNLIMITED  && buffer->len < mMaxPlaylistCacheSize))
+			if(mMaxPlaylistCacheSize == PLAYLIST_CACHE_SIZE_UNLIMITED || (mMaxPlaylistCacheSize != PLAYLIST_CACHE_SIZE_UNLIMITED  && buffer->GetLen() < mMaxPlaylistCacheSize))
 			{
 				// Before inserting into cache, need to check if max cache size will exceed or not on adding new data
 				// if more , need to pop out some from same type of playlist
 				bool cacheStoreReady = true;
-				if(mMaxPlaylistCacheSize != PLAYLIST_CACHE_SIZE_UNLIMITED  && ((mCacheStoredSize + buffer->len) > mMaxPlaylistCacheSize))
+				if(mMaxPlaylistCacheSize != PLAYLIST_CACHE_SIZE_UNLIMITED  && ((mCacheStoredSize + buffer->GetLen()) > mMaxPlaylistCacheSize))
 				{
-					AAMPLOG_WARN("Count[%lu]Avail[%d]Needed[%zu] Reached max cache size", mPlaylistCache.size(),mCacheStoredSize,buffer->len);
-					cacheStoreReady = AllocatePlaylistCacheSlot(fileType,buffer->len);
+					AAMPLOG_WARN("Count[%lu]Avail[%d]Needed[%zu] Reached max cache size", mPlaylistCache.size(),mCacheStoredSize,buffer->GetLen() );
+					cacheStoreReady = AllocatePlaylistCacheSlot(fileType,buffer->GetLen() );
 				}
 				if(cacheStoreReady)
 				{
 					tmpData = new PlayListCachedData();
-					tmpData->mCachedBuffer = new GrowableBuffer();
-					memset (tmpData->mCachedBuffer, 0, sizeof(GrowableBuffer));
-					aamp_AppendBytes(tmpData->mCachedBuffer, buffer->ptr, buffer->len );
+					tmpData->mCachedBuffer = new AampGrowableBuffer();
+					tmpData->mCachedBuffer->AppendBytes( buffer->GetPtr(), buffer->GetLen() );
 
 					tmpData->mEffectiveUrl = effectiveUrl;
 					tmpData->mFileType = fileType;
 					mPlaylistCache[url] = tmpData;
-					mCacheStoredSize += buffer->len;
+					mCacheStoredSize += buffer->GetLen();
 					AAMPLOG_INFO("Inserted. url %s", url.c_str());
 					// There are cases where Main url and effective url will be different ( for Main manifest)
 					// Need to store both the entries with same content data 
@@ -108,9 +107,9 @@ void AampCacheHandler::InsertToPlaylistCache(const std::string url, const Growab
 /**
  *  @brief Retrieve playlist from cache
  */
-bool AampCacheHandler::RetrieveFromPlaylistCache(const std::string url, GrowableBuffer* buffer, std::string& effectiveUrl)
+bool AampCacheHandler::RetrieveFromPlaylistCache(const std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl)
 {
-	GrowableBuffer* buf = NULL;
+	AampGrowableBuffer* buf = NULL;
 	bool ret; 
 	std::string eUrl;
 	pthread_mutex_lock(&mMutex);
@@ -120,8 +119,8 @@ bool AampCacheHandler::RetrieveFromPlaylistCache(const std::string url, Growable
 		PlayListCachedData *tmpData = it->second;
 		buf = tmpData->mCachedBuffer;
 		eUrl = tmpData->mEffectiveUrl;
-		buffer->len = 0;
-		aamp_AppendBytes(buffer, buf->ptr, buf->len );
+		buffer->Clear();
+		buffer->AppendBytes( buf->GetPtr(), buf->GetLen() );
 		effectiveUrl = eUrl;
 		AAMPLOG_TRACE("url %s found", url.c_str());
 		ret = true;
@@ -147,7 +146,6 @@ void AampCacheHandler::RemoveFromPlaylistCache(const std::string url)
 		PlayListCachedData *tmpData = it->second;
 		if(!tmpData->mDuplicateEntry)
 		{
-			aamp_Free(tmpData->mCachedBuffer);
 			SAFE_DELETE(tmpData->mCachedBuffer);
 		}
 		SAFE_DELETE(tmpData);
@@ -174,7 +172,6 @@ void AampCacheHandler::ClearPlaylistCache()
 		PlayListCachedData *tmpData = it->second;
 		if(!tmpData->mDuplicateEntry)
 		{
-			aamp_Free(tmpData->mCachedBuffer);
 			SAFE_DELETE(tmpData->mCachedBuffer);
 		}
 		SAFE_DELETE(tmpData);
@@ -216,8 +213,7 @@ bool AampCacheHandler::AllocatePlaylistCacheSlot(MediaType fileType,size_t newLe
 			}
 			if(!tmpData->mDuplicateEntry)
 			{
-				freedSize += tmpData->mCachedBuffer->len;
-				aamp_Free(tmpData->mCachedBuffer);
+				freedSize += tmpData->mCachedBuffer->GetLen();
 				SAFE_DELETE(tmpData->mCachedBuffer);
 			}
 			SAFE_DELETE(tmpData);
@@ -237,8 +233,7 @@ bool AampCacheHandler::AllocatePlaylistCacheSlot(MediaType fileType,size_t newLe
 				}
 				if(!tmpData->mDuplicateEntry)
 				{
-					freedSize += tmpData->mCachedBuffer->len;
-					aamp_Free(tmpData->mCachedBuffer);
+					freedSize += tmpData->mCachedBuffer->GetLen();
 					SAFE_DELETE(tmpData->mCachedBuffer);
 				}
 				SAFE_DELETE(tmpData);
@@ -416,7 +411,7 @@ bool AampCacheHandler::IsUrlCached(std::string url)
 /**
  *  @brief Insert init fragment into cache table
  */
-void AampCacheHandler::InsertToInitFragCache(const std::string url, const GrowableBuffer* buffer,
+void AampCacheHandler::InsertToInitFragCache(const std::string url, const AampGrowableBuffer* buffer,
 						std::string effectiveUrl, MediaType fileType)
 {
 	InitFragCacheStruct *NewInitData;
@@ -432,9 +427,8 @@ void AampCacheHandler::InsertToInitFragCache(const std::string url, const Growab
 	else
 	{
 		NewInitData = new playlistcacheddata();
-		NewInitData->mCachedBuffer = new GrowableBuffer();
-		memset (NewInitData->mCachedBuffer, 0, sizeof(GrowableBuffer));
-		aamp_AppendBytes(NewInitData->mCachedBuffer, buffer->ptr, buffer->len );
+		NewInitData->mCachedBuffer = new AampGrowableBuffer();
+		NewInitData->mCachedBuffer->AppendBytes( buffer->GetPtr(), buffer->GetLen() );
 
 		NewInitData->mEffectiveUrl = effectiveUrl;
 		NewInitData->mFileType = fileType;
@@ -497,10 +491,10 @@ void AampCacheHandler::InsertToInitFragCache(const std::string url, const Growab
 /**
  *  @brief Retrieve init fragment from cache
  */
-bool AampCacheHandler::RetrieveFromInitFragCache(const std::string url, GrowableBuffer* buffer,
+bool AampCacheHandler::RetrieveFromInitFragCache(const std::string url, AampGrowableBuffer* buffer,
 									std::string& effectiveUrl)
 {
-	GrowableBuffer* buf = NULL;
+	AampGrowableBuffer* buf = NULL;
 	bool ret;
 	std::string eUrl;
 	pthread_mutex_lock(&mInitFragMutex);
@@ -510,8 +504,8 @@ bool AampCacheHandler::RetrieveFromInitFragCache(const std::string url, Growable
 		InitFragCacheStruct *findFragData = it->second;
 		buf = findFragData->mCachedBuffer;
 		eUrl = findFragData->mEffectiveUrl;
-		buffer->len = 0;
-		aamp_AppendBytes(buffer, buf->ptr, buf->len );
+		buffer->Clear();
+		buffer->AppendBytes( buf->GetPtr(), buf->GetLen() );
 		effectiveUrl = eUrl;
 		AAMPLOG_INFO("url %s found", url.c_str());
 		ret = true;
@@ -564,7 +558,6 @@ void AampCacheHandler::RemoveInitFragCacheEntry ( MediaType fileType )
 				AAMPLOG_INFO("Removed dup url:%s",removeCacheData->mEffectiveUrl.c_str());
 			}
 		}
-		aamp_Free(removeCacheData->mCachedBuffer);
 		SAFE_DELETE(removeCacheData->mCachedBuffer);
 		SAFE_DELETE(removeCacheData);
 		umInitFragCache.erase(Iter);
@@ -587,7 +580,6 @@ void AampCacheHandler::ClearInitFragCache()
 		InitFragCacheStruct *delData = it->second;
 		if(!delData->mDuplicateEntry)
 		{
-			aamp_Free(delData->mCachedBuffer);
 			SAFE_DELETE(delData->mCachedBuffer);
 		}
 		SAFE_DELETE(delData);

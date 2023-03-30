@@ -235,8 +235,8 @@ private:
 	int pes_state;
 	int pes_header_ext_len;
 	int pes_header_ext_read;
-	GrowableBuffer pes_header;
-	GrowableBuffer es;
+	AampGrowableBuffer pes_header;
+	AampGrowableBuffer es;
 	double position;
 	double duration;
 	uint33_t base_pts;
@@ -262,9 +262,9 @@ private:
 			if ((base_pts > current_pts)
 				|| (current_dts && base_pts > current_dts))
 			{
-				WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " diff %f seconds length %d",
-					type, position, base_pts.value, current_pts.value, (double)(base_pts - current_pts) / 90000, (int)es.len );
-				es.len = 0;
+                WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " diff %f seconds length %d",
+					type, position, base_pts.value, current_pts.value, (double)(base_pts - current_pts) / 90000, (int)es.GetLen() );
+				es.Clear();
 				return;
 			}
 
@@ -272,7 +272,7 @@ private:
 			{
 				WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " base_pts+half_max %" PRIu64 " current_pts+half_max %" PRIu64 ,
 					type, position, base_pts.value, current_pts.value, (base_pts+uint33_t::half_max()).value, (current_pts+uint33_t::half_max()).value);
-				es.len = 0;
+				es.Clear();
 				return;
 			}
 			reached_steady_state = true;
@@ -293,8 +293,8 @@ private:
 			dts = pts;
 		}
 		DEBUG_DEMUX("Send : pts %f dts %f", pts, dts);
-		DEBUG_DEMUX("position %f base_pts %llu current_pts %llu diff %f seconds length %d", position, base_pts, current_pts, (double)(current_pts - base_pts) / 90000, (int)es.len );
-		aamp->SendStreamCopy(type, es.ptr, es.len, pts, dts, duration);
+		DEBUG_DEMUX("position %f base_pts %llu current_pts %llu diff %f seconds length %d", position, base_pts, current_pts, (double)(current_pts - base_pts) / 90000, (int)es.GetLen() );
+		aamp->SendStreamCopy(type, es.GetPtr(), es.GetLen(), pts, dts, duration);
 		if (gpGlobalConfig->logging.info)
 		{
 			sentESCount++;
@@ -303,7 +303,7 @@ private:
 				AAMPLOG_WARN("Demuxer:: type %d sent %d packets", (int)type, sentESCount);
 			}
 		}
-		es.len = 0;
+		es.Clear();
 	}
 
 public:
@@ -336,8 +336,8 @@ public:
 	 */
 	~Demuxer()
 	{
-		aamp_Free(&es);
-		aamp_Free(&pes_header);
+		es.Free();
+		pes_header.Free();
 	}
 
 
@@ -362,8 +362,6 @@ public:
 		first_pts = 0;
 		update_first_pts = false;
 		finalized_base_pts = false;
-		memset(&pes_header, 0x00, sizeof(GrowableBuffer));
-		memset(&es, 0x00, sizeof(GrowableBuffer));
 		sentESCount = 0;
 		pes_state = PES_STATE_WAITING_FOR_HEADER;
 		DEBUG_DEMUX("init : position %f, duration %f resetBasePTS %d", position, duration, resetBasePTS);
@@ -375,9 +373,9 @@ public:
 	 */
 	void flush()
 	{
-		if (es.len > 0)
+		if (es.GetLen() > 0)
 		{
-			INFO("demux : sending remaining bytes. es.len %d", (int)es.len);
+			INFO("demux : sending remaining bytes. es.len %d", (int)es.GetLen());
 			send();
 		}
 		AAMPLOG_INFO("Demuxer::count %d in duration %f",sentESCount, duration);
@@ -390,10 +388,8 @@ public:
 	 */
 	void reset()
 	{
-		aamp_Free(&es);
-		aamp_Free(&pes_header);
-		memset(&pes_header, 0x00, sizeof(GrowableBuffer));
-		memset(&es, 0x00, sizeof(GrowableBuffer));
+		es.Free();
+		pes_header.Free();
 		sentESCount = 0;
 	}
 
@@ -447,7 +443,7 @@ public:
 			/*Store the pts/dts*/
 			if (PAYLOAD_UNIT_START(packetStart))
 			{
-				if (es.len > 0)
+				if (es.GetLen() > 0)
 				{
 					send();
 				}
@@ -616,7 +612,7 @@ public:
 				if (PAYLOAD_UNIT_START(packetStart))
 				{
 					pes_state = PES_STATE_GETTING_HEADER;
-					pes_header.len = 0;
+					pes_header.Clear();
 					DEBUG_DEMUX("Payload Unit Start");
 				}
 
@@ -629,28 +625,28 @@ public:
 						size = 0;
 						break;
 					case PES_STATE_GETTING_HEADER:
-						bytes_to_read = (int)(PES_MIN_DATA - pes_header.len);
+						bytes_to_read = (int)(PES_MIN_DATA - pes_header.GetLen());
 						if (size < bytes_to_read)
 						{
 							bytes_to_read = size;
 						}
 						DEBUG("PES_STATE_GETTING_HEADER. size = %d, bytes_to_read =%d", size, bytes_to_read);
-						aamp_AppendBytes(&pes_header, data, bytes_to_read);
+						pes_header.AppendBytes( data, bytes_to_read);
 						data += bytes_to_read;
 						size -= bytes_to_read;
-						if (pes_header.len == PES_MIN_DATA)
+						if (pes_header.GetLen() == PES_MIN_DATA)
 						{
-							if (!IS_PES_PACKET_START(pes_header.ptr))
+							if (!IS_PES_PACKET_START(pes_header.GetPtr()))
 							{
-								WARNING("Packet start prefix check failed 0x%x 0x%x 0x%x", pes_header.ptr[0],
-									pes_header.ptr[1], pes_header.ptr[2]);
+								WARNING("Packet start prefix check failed 0x%x 0x%x 0x%x", pes_header.GetPtr()[0],
+									pes_header.GetPtr()[1], pes_header.GetPtr()[2]);
 								pes_state = PES_STATE_WAITING_FOR_HEADER;
 								break;
 							}
-							if (PES_OPTIONAL_HEADER_PRESENT(pes_header.ptr))
+							if (PES_OPTIONAL_HEADER_PRESENT(pes_header.GetPtr()))
 							{
 								pes_state = PES_STATE_GETTING_HEADER_EXTENSION;
-								pes_header_ext_len = PES_OPTIONAL_HEADER_LENGTH(pes_header.ptr);
+								pes_header_ext_len = PES_OPTIONAL_HEADER_LENGTH(pes_header.GetPtr());
 								pes_header_ext_read = 0;
 								DEBUG(
 									"Optional header preset len = %d. Switching to PES_STATE_GETTING_HEADER_EXTENSION",
@@ -660,7 +656,7 @@ public:
 							{
 								WARNING(
 									"Optional header not preset pesStart[6] 0x%x bytes_to_read %d- switching to PES_STATE_WAITING_FOR_HEADER",
-									pes_header.ptr[6], bytes_to_read);
+									pes_header.GetPtr()[6], bytes_to_read);
 								pes_state = PES_STATE_WAITING_FOR_HEADER;
 							}
 						}
@@ -683,7 +679,7 @@ public:
 					case PES_STATE_GETTING_ES:
 						/*Handle padding?*/
 						TRACE1("PES_STATE_GETTING_ES bytes_to_read = %d", size);
-						aamp_AppendBytes(&es, data, size);
+						es.AppendBytes(data, size);
 						size = 0;
 						break;
 					default:

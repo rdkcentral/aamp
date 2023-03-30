@@ -35,7 +35,7 @@ public:
 
     MOCK_METHOD(void, SetState, (PrivAAMPState state));
 
-    MOCK_METHOD(bool, GetFile, (std::string remoteUrl,struct GrowableBuffer *buffer, std::string& effectiveUrl,
+    MOCK_METHOD(bool, GetFile, (std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl,
                 int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
                 bool resetBuffer, MediaType fileType, long *bitrate, int * fogError,
                 double fragmentDurationSeconds));

@@ -46,8 +46,8 @@ public:
             MediaTrack(logObj, type, aamp, name),
             mediaType((MediaType)type), adaptationSet(NULL), representation(NULL),
             fragmentIndex(0), timeLineIndex(0), fragmentRepeatCount(0), fragmentOffset(0),
-            eos(false), fragmentTime(0), periodStartOffset(0), timeStampOffset(0), index_ptr(NULL), index_len(0),
-            lastSegmentTime(0), lastSegmentNumber(0), lastSegmentDuration(0), adaptationSetIdx(0), representationIndex(0), profileChanged(true),
+            eos(false), fragmentTime(0), periodStartOffset(0), timeStampOffset(0), IDX(),
+	        lastSegmentTime(0), lastSegmentNumber(0), lastSegmentDuration(0), adaptationSetIdx(0), representationIndex(0), profileChanged(true),
             adaptationSetId(0), fragmentDescriptor(), context(ctx), initialization(""),
             mDownloadedFragment(), discontinuity(false), mSkipSegmentOnError(true),
             downloadedDuration(0)//,mCMCDNetworkMetrics{-1,-1,-1}
@@ -56,7 +56,6 @@ public:
            , mPlaylistUrl(""), mEffectiveUrl(""),freshManifest(false)
     {
         mPlaylistUrl = aamp->GetManifestUrl();
-        memset(&mDownloadedFragment, 0, sizeof(GrowableBuffer));
         fragmentDescriptor.bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
     }
 
@@ -65,7 +64,7 @@ public:
      */
     ~MediaStreamContext()
     {
-        aamp_Free(&mDownloadedFragment);
+        mDownloadedFragment.Free();
     }
 
     /**
@@ -193,7 +192,7 @@ public:
      * @param[in] http error code
      * @return void
      */
-    void ProcessPlaylist(GrowableBuffer& newPlaylist, int http_error);
+    void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error);
 
     MediaType mediaType;
     struct FragmentDescriptor fragmentDescriptor;
@@ -206,14 +205,13 @@ public:
     bool eos;
     bool profileChanged;
     bool discontinuity;
-    GrowableBuffer mDownloadedFragment;
+    AampGrowableBuffer mDownloadedFragment;
 
     double fragmentTime;
     double downloadedDuration;
     double periodStartOffset;
     uint64_t timeStampOffset;
-    char *index_ptr;
-    size_t index_len;
+	AampGrowableBuffer IDX;
     uint64_t lastSegmentTime;
     uint64_t lastSegmentNumber;
     uint64_t lastSegmentDuration;

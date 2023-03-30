@@ -391,7 +391,7 @@ public:
 	 * @param newPlaylist buffer
 	 * @param[out] http_error code
 	 */
-	void ProcessPlaylist(GrowableBuffer& newPlaylist, int http_error);
+	void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error);
 
 	//Apis for sidecar caption support
 
@@ -708,7 +708,7 @@ private:
 	 * @param manifestUrl manifest url
 	 * @param init true if this is the first playlist download for a tune/seek/trickplay
 	 */
-	AAMPStatusType GetMpdFromManifest(const GrowableBuffer &manifest, MPD * &mpd, std::string manifestUrl, bool init);
+	AAMPStatusType GetMpdFromManifest(const AampGrowableBuffer &manifest, MPD * &mpd, std::string manifestUrl, bool init);
 	/**
 	* @fn CreateDRMSessionMPD
 	* @param aamp Priv instance pointer

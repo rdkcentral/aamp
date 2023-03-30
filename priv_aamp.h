@@ -32,6 +32,7 @@
 #include "AampDrmCallbacks.h"
 #include "main_aamp.h"
 #include <IPVideoStat.h>
+#include "AampGrowableBuffer.h"
 
 #include <pthread.h>
 #include <signal.h>
@@ -1310,7 +1311,7 @@ public:
 	 * @param[in] CMCDMetrics - pointer to CMCDNetwork metrics
 	 * @return void
 	 */
-	bool GetFile(std::string remoteUrl, struct GrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true,MediaType fileType = eMEDIATYPE_DEFAULT, long *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0);
+	bool GetFile(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true,MediaType fileType = eMEDIATYPE_DEFAULT, long *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0);
 
 	/**
 	 * @fn getUUID
@@ -1336,8 +1337,8 @@ public:
 	 * @param[in] pData - string contains post data
 	 * @return bool status
 	 */
-	bool ProcessCustomCurlRequest(std::string& remoteUrl, struct GrowableBuffer* buffer, int *http_error, CurlRequest request = eCURL_GET, std::string pData = "");
-
+	bool ProcessCustomCurlRequest(std::string& remoteUrl, AampGrowableBuffer* buffer, int *http_error, CurlRequest request = eCURL_GET, std::string pData = "");
+	
 	/**
 	 * @fn MediaTypeString
 	 * @param[in] fileType - Type of Media
@@ -1346,7 +1347,7 @@ public:
 	const char* MediaTypeString(MediaType fileType);
 
 	/**
-	 * @fn LoadFragment
+	 * @fn LoadIDX
 	 *
 	 * @param[in] bucketType - Bucket type of the profiler
 	 * @param[in] fragmentUrl - Fragment URL
@@ -1358,7 +1359,7 @@ public:
 	 * @param[out] fogError - Error from FOG
 	 * @return void
 	 */
-	char *LoadFragment( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, size_t *len, unsigned int curlInstance = 0, const char *range = NULL,int * http_code = NULL, double *downloadTime = NULL, MediaType fileType = eMEDIATYPE_MANIFEST,int * fogError = NULL);
+	void LoadIDX( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl,  AampGrowableBuffer *idx, unsigned int curlInstance = 0, const char *range = NULL,int * http_code = NULL, double *downloadTime = NULL, MediaType fileType = eMEDIATYPE_MANIFEST,int * fogError = NULL);
 
 	/**
 	 * @fn LoadFragment
@@ -1373,7 +1374,7 @@ public:
 	 * @param[out] fogError - Error from FOG
 	 * @return void
 	 */
-	bool LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, struct GrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, MediaType fileType = eMEDIATYPE_MANIFEST, int * http_code = NULL, double * downloadTime = NULL, long *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
+	bool LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, MediaType fileType = eMEDIATYPE_MANIFEST, int * http_code = NULL, double * downloadTime = NULL, long *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
 
 	/**
 	 * @fn PushFragment
@@ -1395,7 +1396,7 @@ public:
 	 * @param[in] fragmentDuration - Fragment duration
 	 * @return void
 	 */
-	void PushFragment(MediaType mediaType, GrowableBuffer* buffer, double fragmentTime, double fragmentDuration);
+	void PushFragment(MediaType mediaType, AampGrowableBuffer* buffer, double fragmentTime, double fragmentDuration);
 
 	/**
 	 * @fn EndOfStreamReached
@@ -1717,14 +1718,14 @@ public:
 	 *   @fn SendStreamTransfer
 	 *
 	 *   @param[in]  mediaType - Type of the media.
-	 *   @param[in]  buffer - Pointer to the GrowableBuffer.
+	 *   @param[in]  buffer - Pointer to the AampGrowableBuffer.
 	 *   @param[in]  fpts - Presentation Time Stamp.
 	 *   @param[in]  fdts - Decode Time Stamp
 	 *   @param[in]  fDuration - Buffer duration.
      	 *   @param[in]  initFragment - flag for buffer type (init, data)
 	 *   @return void
 	 */
-	void SendStreamTransfer(MediaType mediaType, GrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment = 0, bool discontinuity = false);
+	void SendStreamTransfer(MediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment = 0, bool discontinuity = false);
 
 	/**
 	 * @fn SetStreamSink

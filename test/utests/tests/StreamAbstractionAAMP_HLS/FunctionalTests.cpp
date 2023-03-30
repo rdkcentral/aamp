@@ -148,7 +148,7 @@ TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_no_4k)
     long bandwidth;
     char manifest[] = MANIFEST_6SD_1A;
 
-    mStreamAbstractionAAMP_HLS->mainManifest.ptr = manifest;
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -166,7 +166,7 @@ TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_4k)
     long bandwidth;
     char manifest[] = MANIFEST_5SD_4K_1A;
 
-    mStreamAbstractionAAMP_HLS->mainManifest.ptr = manifest;
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -204,7 +204,7 @@ TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_multiple_mainfests)
     {
         // Note: ParseMainManifest alters the manifest in situ, replacing some \n with \0
         //       Not ideal, but safe to convert from const char.
-        mStreamAbstractionAAMP_HLS->mainManifest.ptr = (char *)td.manifest;
+        mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes((char *)td.manifest, sizeof((char *)td.manifest));
 
         EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 

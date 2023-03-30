@@ -96,12 +96,13 @@ struct TileInfo
  * @brief Structure of cached fragment data
  *        Holds information about a cached fragment
  */
-struct CachedFragment
+class CachedFragment
 {
-	GrowableBuffer fragment;    /**< Buffer to keep fragment content */
+public:
+	AampGrowableBuffer fragment;    /**< Buffer to keep fragment content */
 	double position;            /**< Position in the playlist */
 	double duration;            /**< Fragment duration */
-	bool initFragment;	    /**< Is init frgment */
+	bool initFragment;	    	/**< Is init fragment */
 	bool discontinuity;         /**< PTS discontinuity status */
 	int profileIndex;           /**< Profile index; Updated internally */
 #ifdef AAMP_DEBUG_INJECT
@@ -109,17 +110,25 @@ struct CachedFragment
 #endif
 	StreamInfo cacheFragStreamInfo; /**< Bitrate info of the fragment */
 	MediaType   type;               /**< MediaType info of the fragment */
+	
+    CachedFragment() : fragment(AampGrowableBuffer()), position(0.0), duration(0.0), initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()), type(eMEDIATYPE_DEFAULT)
+    {
+        memset(  &cacheFragStreamInfo, 0, sizeof(cacheFragStreamInfo) );
+    }
 };
 
 /**
  * @brief Structure of cached fragment data
  *        Holds information about a cached fragment
  */
-struct CachedFragmentChunk
+class CachedFragmentChunk
 {
-	GrowableBuffer fragmentChunk;   /**< Buffer to keep fragment content */
+public:
+	AampGrowableBuffer fragmentChunk;   /**< Buffer to keep fragment content */
 	MediaType   type; 		/**< MediaType info of the fragment */
 	long long downloadStartTime;	/**< The start time of file download */
+	
+    CachedFragmentChunk() : fragmentChunk(AampGrowableBuffer()), type(eMEDIATYPE_DEFAULT), downloadStartTime(0){}
 };
 
 /**
@@ -269,7 +278,7 @@ public:
 	 *
 	 * @return void
 	 */
-	virtual void ProcessPlaylist(GrowableBuffer& newPlaylist, int http_error) = 0;
+	virtual void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) = 0;
 
 	/**
 	 * @fn GetPlaylistUrl
@@ -631,7 +640,7 @@ protected:
 	 * @param[out] fragmentChunkDiscarded - true if fragment is discarded.
 	 * @return void
 	 */
-	void InjectFragmentChunkInternal(MediaType mediaType, GrowableBuffer* buffer, double fpts, double fdts, double fDuration);
+	void InjectFragmentChunkInternal(MediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration);
 
 
 	static int GetDeferTimeMs(long maxTimeSeconds);
@@ -675,8 +684,8 @@ protected:
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
 	CachedFragment *cachedFragment;     /**< storage for currently-downloaded fragment */
 	CachedFragmentChunk cachedFragmentChunks[DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK];
-	GrowableBuffer unparsedBufferChunk; /**< Buffer to keep fragment content */
-	GrowableBuffer parsedBufferChunk;   /**< Buffer to keep fragment content */
+	AampGrowableBuffer unparsedBufferChunk; /**< Buffer to keep fragment content */
+	AampGrowableBuffer parsedBufferChunk;   /**< Buffer to keep fragment content */
 	bool abort;                         /**< Abort all operations if flag is set*/
 	pthread_mutex_t mutex;              /**< protection of track variables accessed from multiple threads */
 	bool ptsError;                      /**< flag to indicate if last injected fragment has ptsError */

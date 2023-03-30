@@ -32,59 +32,23 @@
 #define SHM_ACCESS_PERMISSION 0666
 #define SHMGET_RETRY_MAX 10
 #endif
-/**
- * @struct GrowableBuffer
- * @brief Structure of GrowableBuffer
- */
-struct GrowableBuffer
-{
-	char *ptr;      /**< Pointer to buffer's memory location */
-	size_t len;     /**< Buffer size */
-	size_t avail;   /**< Available buffer size */
-};
+
+static int gNetMemoryCount;
+static int gNetMemoryHighWatermark;
 
 /**
- * @fn aamp_Free
- * @param ptr memory allocated with aamp_Malloc
+ * @brief adds to memory count
  */
-void aamp_Free(void *ptr);
-/**
- * @fn aamp_Free
- * @param[in] buffer struct GrowableBuffer
- */
-void aamp_Free(struct GrowableBuffer *buffer);
-void *aamp_Realloc( void *ptr, size_t numBytes );
-void *aamp_Malloc( size_t numBytes );
-void aamp_TransferMemory( void *ptr );
+void NETMEMORY_PLUS();
 
 /**
- * @brief Allocate memory to growable buffer
- * @param buffer growable buffer
- * @param len size of memory to be allocated
+ * @brief subtracts from memory count
  */
-void aamp_Malloc(struct GrowableBuffer *buffer, size_t len);
+void NETMEMORY_MINUS();
 
-/**
- * @fn aamp_AppendBytes
- * @param buffer Growable buffer object pointer
- * @param ptr Buffer to append
- * @param len Buffer size
- */
-void aamp_AppendBytes(struct GrowableBuffer *buffer, const void *ptr, size_t len);
 
-/**
- * @fn aamp_MoveBytes
- * @param buffer Growable buffer object pointer
- * @param ptr Buffer to Move
- * @param len Buffer size
- */
-void aamp_MoveBytes(struct GrowableBuffer *buffer, const void *ptr, size_t len);
-
-/**
- * @fn aamp_AppendNulTerminator
- * @param buffer buffer in which nul to be append
- */
-void aamp_AppendNulTerminator(struct GrowableBuffer *buffer);
+void aamp_GFree(void *ptr);
+void *aamp_GMalloc( size_t numBytes );
 
 #ifdef USE_SECMANAGER
 /**
