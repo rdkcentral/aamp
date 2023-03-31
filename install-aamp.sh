@@ -569,7 +569,7 @@ elif [[ "$OSTYPE" == "linux"* ]]; then
     
     if [  -f "./aamp-cli" ]; then
         echo "****Linux AAMP Build PASSED****"
-        lld ./aamp-cli
+        ldd ./aamp-cli
         arr_install_status+=("Linux AAMP Build PASSED")
         
         echo "Installing subtec..."
