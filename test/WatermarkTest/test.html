@@ -1,0 +1,306 @@
+
+<html>
+<head>
+<style>
+table, th, td {
+    border: 1px solid  lightgrey;
+    color: lightgrey;
+}
+</style>
+</head>
+<script>
+var wmimage_1_data;
+
+function ReportTestResult(ID, Result) {
+    console.log( ID + " "+ Result)
+    document.getElementById(ID).innerHTML = Result
+}
+
+function ReportTestResultTest(){
+  	ReportTestResult("ResultTestResult", "Pass")
+}
+
+function CreateObj(){
+    ReportTestResult("ResultCreateObj", "In Progress")
+    try {
+        var PMInstance = new PersistentWatermark();
+        ReportTestResult("ResultCreateObj", "Pass")
+    }
+    catch(err) {
+        ReportTestResult("ResultCreateObj", "Fail")
+    }
+}
+
+function CallMethods(){
+    try {
+        var PMInstance = new PersistentWatermark();
+        PMInstance.Hide()
+        PMInstance.Show()
+        PMInstance.getMetadata()
+        PMInstance.Update()
+        ReportTestResult("ResultCallMethods", "Pass")
+    }
+    catch(err) {
+        ReportTestResult("ResultCallMethods", "Error:" + err.name + " " + err.message)
+    }
+}
+
+function MetaDataInitial(){
+    ReportTestResult("ResultMetadataInitial", "In Progress")
+    try {
+        var PMInstance = new PersistentWatermark();
+        var MetaData = PMInstance.getMetadata()
+        if(MetaData==""){
+            ReportTestResult("ResultMetadataInitial", "Pass")
+        }
+        else{
+            ReportTestResult("ResultMetadataInitial", "Fail, (metadata " + String(MetaData) + ")")
+        }
+
+    }
+    catch(err) {
+        ReportTestResult("ResultMetadataInitial", "Error:" + err.name + " " + err.message)
+    }
+}
+
+
+function UpdateMetaData(){
+    try {
+        ReportTestResult("ResultUpdateMetaData", "in progress...")
+
+        var PMInstance = new PersistentWatermark();
+        var metadata = "test metadata"
+        var update_result = PMInstance.Update(wmimage_1_data, metadata)
+
+        console.log("PMInstance.getMetadata()")
+        var returnedMetadata = PMInstance.getMetadata()
+        if(update_result != true) {
+            ReportTestResult("ResultUpdateMetaData", "Fail: Update() returned " + String(update_result))
+        }
+        else if(metadata==returnedMetadata){
+            ReportTestResult("ResultUpdateMetaData", "Pass")
+        }
+        else{
+            ReportTestResult("ResultUpdateMetaData", "Fail: supplied metadata (" +metadata + ") != returned metadata (" + String(returnedMetadata) + ")")
+        }
+    }
+    catch(err)
+    {
+        ReportTestResult("ResultUpdateMetaData", "Error:" + err.name + " " + err.message)
+    }
+}
+
+function UpdateReturn(){
+    try {
+        var PMInstance = new PersistentWatermark();
+        ReportTestResult("ResultUpdateReturn", "in progress...")
+        if (PMInstance.Update() != false){
+            ReportTestResult("ResultUpdateReturn", "Fail: no arguments did not return false")
+        }
+        else if (PMInstance.Update("") != false){
+            ReportTestResult("ResultUpdateReturn", "Fail: 1 argument did not return false")
+        }
+        else if (PMInstance.Update(false, "") != false){
+            ReportTestResult("ResultUpdateReturn", "Fail: incorrect arg 1 type did not return false")
+        }
+        else if (PMInstance.Update(wmimage_1_data, false) != false){
+            ReportTestResult("ResultUpdateReturn", "Fail: incorrect arg 2 type did not return false")
+        }
+        else if (PMInstance.Update(new ArrayBuffer(), false) != false){
+            ReportTestResult("ResultUpdateReturn", "Fail: empty array buffer did not return false")
+        }
+        else if (PMInstance.Update(new ArrayBuffer(100), "valid metadata") != false){
+            ReportTestResult("ResultUpdateReturn", "Fail: None PNG data did not return false")
+        }
+        else if (PMInstance.Update(wmimage_1_data, "valid metadata") != true){
+            ReportTestResult("ResultUpdateReturn", "Fail: valid inputs did not return true")
+        }
+        else{
+            ReportTestResult("ResultUpdateReturn", "Pass")
+        }
+    }
+    catch(err)
+    {
+        ReportTestResult("ResultUpdateReturn", "Error:" + err.name + " " + err.message)
+    }
+}
+
+var ShowEventDetected = false
+
+function ShowSuccessEventCB() {
+    console.log("ShowSuccessEventCB()")
+    ShowEventDetected=true
+}
+
+function TestShowAndSuccessEvent(NextTest){
+    ReportTestResult("ResultTestShowAndSuccessEvent", "in progress...")
+    ShowEventDetected = false
+    var PMInstance = new PersistentWatermark();
+    PMInstance.RemoveEventListener("ShowSuccess")
+    console.log("TestShowAndSuccessEvent:show")
+    PMInstance.Show()
+
+        setTimeout(() => {
+            if (ShowEventDetected != false){
+            ReportTestResult("ResultTestShowAndSuccessEvent", "Fail: ShowAndShowEventSuccess should still be false")
+            }
+            else{
+                console.log("TestShowAndSuccessEvent:addEventListener")
+                PMInstance.addEventListener("ShowSuccess", ShowSuccessEventCB)
+                if (ShowEventDetected != false){
+                        ReportTestResult("ResultTestShowAndSuccessEvent", "Fail: ShowAndShowEventSuccess should still be false")
+                }
+                else {
+                    console.log("TestShowAndSuccessEvent:show")
+                    PMInstance.Show()
+                    setTimeout(() => {
+                        if (ShowEventDetected != true){
+                            ReportTestResult("ResultTestShowAndSuccessEvent", "Fail: event not received")
+                        }
+                        else {
+                            ReportTestResult("ResultTestShowAndSuccessEvent", "Pass")
+                            NextTest()
+                        }
+                    }, 500);
+                }
+            }
+         }, 500);
+}
+
+
+var HideEventDetected = false
+
+function HideSuccessEventCB() {
+    console.log("HideSuccessEventCB()")
+    HideEventDetected=true
+}
+
+function TestHideAndSuccessEvent(){
+    ReportTestResult("ResultTestHideAndSuccessEvent", "in progress...")
+    HideEventDetected = false
+    var PMInstance = new PersistentWatermark();
+    PMInstance.RemoveEventListener("HideSuccess")
+    console.log("TestHideAndSuccessEvent:hide()")
+    PMInstance.Hide()
+
+        setTimeout(() => {
+            if (HideEventDetected != false){
+            ReportTestResult("ResultTestHideAndSuccessEvent", "Fail: HideAndSuccessEvent should still be false")
+            }
+            else{
+                console.log("TestHideAndSuccessEvent:addEventListener")
+                PMInstance.addEventListener("HideSuccess", HideSuccessEventCB)
+                if (HideEventDetected != false){
+                        ReportTestResult("ResultTestHideAndSuccessEvent", "Fail: HideAndSuccessEvent should still be false")
+                }
+                else {
+                    console.log("TestHideAndSuccessEvent:hide()")
+                    PMInstance.Hide()
+                    setTimeout(() => {
+                        if (HideEventDetected != true){
+                            ReportTestResult("ResultTestHideAndSuccessEvent", "Fail: event not received")
+                        }
+                        else {
+                            ReportTestResult("ResultTestHideAndSuccessEvent", "Pass")
+                        }
+                    }, 500);
+                }
+            }
+         }, 500);
+}
+
+function testRemoveEvent()
+{
+    ReportTestResult("ResultTestRemoveEvent", "in progress...")
+    HideEventDetected = false
+    var PMInstance = new PersistentWatermark();
+    PMInstance.addEventListener("HideSuccess", HideSuccessEventCB)
+    PMInstance.Hide()
+
+    setTimeout(() => {
+        if (HideEventDetected != true){
+            ReportTestResult("ResultTestRemoveEvent", "Fail: event not received")
+        }
+        else {
+            PMInstance.RemoveEventListener("HideSuccess")
+            HideEventDetected = false
+            PMInstance.Hide()
+            setTimeout(() => {
+                if (HideEventDetected != false){
+                    ReportTestResult("ResultTestRemoveEvent", "Fail: event received")
+                }
+                else {
+                    ReportTestResult("ResultTestRemoveEvent", "Pass")
+                }
+            }, 500);
+        }
+    }, 500);
+}
+
+function runTests()
+{
+    setTimeout(() => {
+        console.log("start of tests")
+        CreateObj()
+        CallMethods()
+        MetaDataInitial()
+        UpdateMetaData()
+        UpdateReturn()
+        TestShowAndSuccessEvent(TestHideAndSuccessEvent)
+        setTimeout(() => {
+            testRemoveEvent()
+        }, 3000);
+    }, 1000);
+}
+
+function setUpThenRunTests(){
+    ReportTestResult("ResultSetup", "in progress")
+    var request = new XMLHttpRequest();
+    request.open('GET', "/wmimage_1.png", true);
+    request.responseType = 'blob';
+    request.onprogress = function() {
+        console.log("progress " + String((this.loaded/this.total)*100) + "%")
+    }
+    request.onreadystatechange = function() {
+
+        console.log("onreadystatechange " + this.statusText + " " + String(this.readyState))
+    }
+    request.onload = function() {
+        console.log("response successful")
+        var fr = new FileReader()
+        fr.readAsArrayBuffer(request.response)
+        fr.onload  = function() {
+            console.log("got array buffer of " + String(fr.result.byteLength) + " bytes")
+            wmimage_1_data = fr.result
+            ReportTestResult("ResultSetup", "complete")
+            runTests()
+        }
+    }
+
+    request.send()
+}
+
+
+window.onload = function() {
+    ReportTestResultTest() //special case, test of js/html only
+    setUpThenRunTests()
+}
+</script>
+
+<body>
+<table style="height:100%; width:100%; position:absolute; bottom:0; left:0">
+<tr><td>Test</td><td>Result</td></tr>
+<tr><td>setup </td><td><p id="ResultSetup">pending</p></td></tr>
+<tr><td>Test Method Test </td><td><p id="ResultTestResult">pending</p></td></tr>
+<tr><td>Create Obj</td><td><p id="ResultCreateObj">pending</p></td></tr>
+<tr><td>Call Methods</td><td><p id="ResultCallMethods">pending</p></td></tr>
+<tr><td>MetaData initial status</td><td><p id="ResultMetadataInitial">pending</p></td></tr>
+<tr><td>Update MetaData</td><td><p id="ResultUpdateMetaData">pending</p></td></tr>
+<tr><td>Update Return</td><td><p id="ResultUpdateReturn">pending</p></td></tr>
+<tr><td>Show and Show Success Event</td><td><p id="ResultTestShowAndSuccessEvent">pending</p></td></tr>
+<tr><td>Hide and Hide Success Event</td><td><p id="ResultTestHideAndSuccessEvent">pending</p></td></tr>
+<tr><td>Test Remove Event</td><td><p id="ResultTestRemoveEvent">pending</p></td></tr>
+</table>
+
+</body>
+</html>

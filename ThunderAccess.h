@@ -34,6 +34,8 @@ using namespace WPEFramework;
 
 #define THUNDER_RPC_TIMEOUT 5000
 
+class  AampLogManager;
+
 /**
  * @class ThunderAccessAAMP
  * @brief Support Thunder Plugin Access from AAMP
