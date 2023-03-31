@@ -11147,10 +11147,14 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 
 			if(stateChanged)
 			{
-				for (int i = 0; i < mNumberOfTracks; i++)
+				for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 				{
-					//Resetting the manifest Url in track contexts
-					mMediaStreamContext[i]->fragmentDescriptor.manifestUrl = aamp->GetManifestUrl();
+					//after the ad placement, replacing ad manifest url to source manifest url for all the tracks in MediaStreamContext.
+					MediaStreamContext *track = mMediaStreamContext[iTrack];
+					if(track)
+					{
+						mMediaStreamContext[iTrack]->fragmentDescriptor.manifestUrl = aamp->GetManifestUrl();
+					}
 				}
 			}
 			break;
