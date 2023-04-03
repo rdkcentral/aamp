@@ -1829,7 +1829,14 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 						mAbortRateCorrection = true;
 						break;
 					}
-
+					double bufferedDuration = 0.0;
+					pthread_mutex_lock(&mStreamLock);
+					if (mpStreamAbstractionAAMP)
+					{
+						bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
+					}
+					pthread_mutex_unlock(&mStreamLock);
+					bool isEnoughBuffer = bufferedDuration > (mLiveOffset / 2);
 					double liveTime = (double)mNewSeekInfo.GetInfo().getUpdateTime()/1000.0;
 					double finalProgressTime = (mFirstFragmentTimeOffset) + ((double)mNewSeekInfo.GetInfo().getPosition()/1000.0);
 					double latency = liveTime - finalProgressTime;
@@ -1838,17 +1845,18 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 						// Correction with progress offset
 						latency += mProgressReportOffset;
 					}
-					AAMPLOG_INFO("Current latency is : %lf and current rate is %f mLiveOffset:%lf mLiveOffsetDrift:%lf", latency, mCorrectionRate, mLiveOffset, mLiveOffsetDrift);
-					if ((latency > (mLiveOffset + mLiveOffsetDrift)))
+					AAMPLOG_INFO("Current latency is : %lf and current rate is %f mLiveOffset:%lf mLiveOffsetDrift:%lf bufferedDuration:%lf", latency, mCorrectionRate, mLiveOffset, mLiveOffsetDrift, bufferedDuration);
+					if ((latency > (mLiveOffset + mLiveOffsetDrift)) && isEnoughBuffer)
 					{
 						rateRequired = DEFAULT_MAX_RATE_CORRECTION_SPEED;
 					}
-					else if (latency < (mLiveOffset - mLiveOffsetDrift) )
+					else if (latency < (mLiveOffset - mLiveOffsetDrift))
 					{
 						rateRequired = DEFAULT_MIN_RATE_CORRECTION_SPEED;
 					}
 					else if (((latency <= mLiveOffset) && mCorrectionRate ==  DEFAULT_MAX_RATE_CORRECTION_SPEED) ||
-							((latency >= mLiveOffset) && mCorrectionRate == DEFAULT_MIN_RATE_CORRECTION_SPEED))
+							((latency >= mLiveOffset) && mCorrectionRate == DEFAULT_MIN_RATE_CORRECTION_SPEED) ||
+							((mCorrectionRate ==  DEFAULT_MAX_RATE_CORRECTION_SPEED) && !isEnoughBuffer)) 
 					{
 						rateRequired = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
 					}
