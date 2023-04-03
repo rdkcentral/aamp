@@ -1,0 +1,37 @@
+# Just run this once, use url variables but just set them to fixed urls
+SET_VAR_TAGS(FOREGROUND) https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd
+SET_VAR_TAGS(BACKGROUND) https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd
+
+# Fail the script if we ever get an error or blocked state
+failon ERROR BLOCKED
+
+# create a foreground player and play for 5s (check we get TUNED and PLAYING events)
+tune $FOREGROUND
+waitfor 1 TUNED PLAYING
+sleep 5
+
+# ffwd x4, check for a progress event with speed 4 within 2s
+ff 4
+waitfor 2 PROGRESS 4 -
+
+# create a background player (this will then be the selected player)
+new
+
+# tune background player (autoplay = 0) (we get the TUNED event when we start playing)
+tune $BACKGROUND 0
+
+# sleep 5s (i.e. carry on ffw on first player) then play 2nd player and check for TUNED and PLAYING events
+sleep 5
+play
+waitfor 1 TUNED PLAYING
+
+# select first player and detach
+select 0
+detach
+
+# sleep 5s then stop second player
+select 1
+sleep 5
+stop
+
+

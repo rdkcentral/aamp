@@ -22,6 +22,8 @@
  */
 
 #include "AampSmokeTestPlayer.h"
+#include "ScriptedSmokeTestEventListener.h"
+#include "ScriptedSmokeTest.h"
 
 AampPlayer mAampPlayer;
 bool AampPlayer::mInitialized = false;
@@ -29,6 +31,8 @@ GMainLoop* AampPlayer::mAampGstPlayerMainLoop = NULL;
 GThread* AampPlayer::mAampMainLoopThread = NULL;
 SmokeTestEventListener* AampPlayer::mEventListener = NULL;
 PlayerInstanceAAMP* AampPlayer::mPlayerInstanceAamp = NULL;
+std::vector<AampPlayerInstance> AampPlayer::mPlayers;
+
 
 AampPlayer :: AampPlayer(): 
 	mEnableProgressLog(false),
@@ -82,13 +86,92 @@ void AampPlayer::initPlayerLoop(int argc, char **argv)
 		mAampMainLoopThread = g_thread_new("AAMPGstPlayerLoop", aampGstPlayerStreamThread, NULL );
 	}
 	
-	mPlayerInstanceAamp = new PlayerInstanceAAMP();
-	if( !mEventListener )
-	{ 
-		printf( "allocating new SmokeTestEventListener\n");
-		mEventListener = new SmokeTestEventListener();
+	if (mPlayers.empty())
+	{
+		newPlayer();
 	}
-	mPlayerInstanceAamp->RegisterEvents(mEventListener);
+}
+
+/**
+ * @brief Create a new aamp player and event listener in player list
+ * @retval integer id (index) of player
+ */
+int AampPlayer::newPlayer()
+{
+	int index = mPlayers.size();
+	PlayerInstanceAAMP *player = new PlayerInstanceAAMP;
+	ScriptedSmokeTestEventListener *listener = new ScriptedSmokeTestEventListener(player);
+	mPlayers.push_back(AampPlayerInstance(player, listener));
+
+	// Store the main player and listener used by tune test
+	if (index == 0)
+	{
+		mPlayerInstanceAamp = player;
+		mEventListener = listener;
+	}
+
+	return index;
+}
+
+/**
+ * @brief Reset the player list, deleting all players but one
+ */
+void AampPlayer::resetPlayers()
+{
+	for (uint32_t index = 0; index < mPlayers.size(); index++)
+	{
+		deletePlayer(index);
+	}
+	mPlayers.clear();
+	newPlayer(); // Recreate the main player
+}
+
+/**
+ * @brief Delete the player at specified index (player id)
+ * @param[in] playerId - the player id (index of player)
+ */
+void AampPlayer::deletePlayer(uint32_t playerId)
+{
+	if (playerId < mPlayers.size())
+	{
+		mPlayers[playerId].clear();
+	}
+}
+
+/**
+ * @brief Get the aamp player from the player id
+ * @param[in] playerId - the player id (index of player)
+ * @retval A pointer to an aamp player instance
+ */
+PlayerInstanceAAMP *AampPlayer::getPlayer(uint32_t playerId)
+{
+	if (playerId < mPlayers.size())
+	{
+		if (mPlayers[playerId].mPlayerInstance == NULL)
+		{
+			printf("ERROR - player(%d) invalid\n", playerId);
+		}
+		return mPlayers[playerId].mPlayerInstance;
+	}
+	return NULL;
+}
+
+/**
+ * @brief Get the aamp event listener from the player id
+ * @param[in] playerId - the player id (index of player)
+ * @retval A pointer to an aamp event listener instance
+ */
+SmokeTestEventListener *AampPlayer::getListener(uint32_t playerId)
+{
+	if (playerId < mPlayers.size())
+	{
+		if (mPlayers[playerId].mEventListener == NULL)
+		{
+			printf("ERROR - listener(%d) invalid\n", playerId);
+		}
+		return mPlayers[playerId].mEventListener;
+	}
+	return NULL;
 }
 
 FILE * AampPlayer::getConfigFile(const std::string& cfgFile)

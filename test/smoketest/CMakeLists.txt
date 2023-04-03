@@ -16,8 +16,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     set(AAMP_OS_HEADERS ${AAMP_ROOT}/cocoa_window.h)
 endif()
 
-set(HEADERS AampSmokeTestPlayer.h TuneSmokeTest.h ${AAMP_OS_HEADERS})
-set(SOURCES AampSmokeTestPlayer.cpp TuneSmokeTest.cpp gtest_main.cpp ${AAMP_OS_SOURCES})
+set(HEADERS AampSmokeTestPlayer.h TuneSmokeTest.h SmokeTestEventListener.h ScriptedSmokeTestEventListener.h ScriptedSmokeTest.h ${AAMP_OS_HEADERS})
+set(SOURCES AampSmokeTestPlayer.cpp TuneSmokeTest.cpp ScriptedSmokeTestEventListener.cpp ScriptedSmokeTest.cpp gtest_main.cpp ${AAMP_OS_SOURCES})
 
 if (CMAKE_PLATFORM_UBUNTU)
     set(CMAKE_INSTALL_RPATH "${PROJECT_SOURCE_DIR}/Linux/lib")
@@ -64,3 +64,15 @@ target_link_libraries(aamp_smoketest aamp ${GOOGLETEST_LIBRARIES} --coverage)
 
 install (TARGETS aamp_smoketest DESTINATION lib)
 #gtest_discover_tests(aamp_smoketest)  
+
+if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
+    # Copy scripts to ~/smoketest (but only if they do not exist)
+    file(MAKE_DIRECTORY $ENV{HOME}/smoketest)
+    file(GLOB SCRIPT_FILES RELATIVE ${CMAKE_SOURCE_DIR}/test/smoketest/scripts ${CMAKE_SOURCE_DIR}/test/smoketest/scripts/*)
+    foreach(SCRIPT IN LISTS SCRIPT_FILES)
+        if (NOT EXISTS $ENV{HOME}/smoketest/${SCRIPT})
+            configure_file(${CMAKE_SOURCE_DIR}/test/smoketest/scripts/${SCRIPT} $ENV{HOME}/smoketest/${SCRIPT})
+        endif()
+    endforeach()
+endif()
+

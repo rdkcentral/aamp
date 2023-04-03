@@ -28,16 +28,67 @@
 #include <gst/gst.h>
 #include <main_aamp.h>
 #include "priv_aamp.h"
+#include <vector>
+#include "ScriptedSmokeTestEventListener.h"
 
-class SmokeTestEventListener : public AAMPEventObjectListener
+
+class AampPlayerInstance
 {
 	public:
-		const char *stringifyPrivAAMPState(PrivAAMPState state);
-		void Event(const AAMPEventPtr& e);
+		AampPlayerInstance():
+			mPlayerInstance(NULL),
+			mEventListener(NULL)
+		{
+		}
+
+		AampPlayerInstance(PlayerInstanceAAMP *playerInstance, SmokeTestEventListener *eventListener):
+			mPlayerInstance(playerInstance),
+			mEventListener(eventListener)
+		{
+			if (mPlayerInstance && mEventListener)
+			{
+				mPlayerInstance->RegisterEvents(mEventListener);
+			}
+			else
+			{
+			}
+		}
+
+		~AampPlayerInstance()
+		{
+		}
+
+		AampPlayerInstance(const AampPlayerInstance& s) = default;
+		AampPlayerInstance& operator=(AampPlayerInstance const&) = delete;
+
+		void clear()
+		{
+			if (mEventListener)
+			{
+				if (mPlayerInstance)
+				{
+					mPlayerInstance->UnRegisterEvents(mEventListener);
+				}
+				delete mEventListener;
+				mEventListener = NULL;
+			}
+			if (mPlayerInstance)
+			{
+				mPlayerInstance->detach();
+				delete mPlayerInstance;
+				mPlayerInstance = NULL;
+			}
+		}
+
+		PlayerInstanceAAMP *mPlayerInstance;
+		SmokeTestEventListener *mEventListener;
 };
 
 class AampPlayer
 {
+	private:
+		static std::vector<AampPlayerInstance> mPlayers;
+
 	public:
 		static bool mInitialized;
 		bool mEnableProgressLog;
@@ -52,6 +103,12 @@ class AampPlayer
 		AampPlayer();
 		AampPlayer(const AampPlayer& aampPlayer);
 		AampPlayer& operator=(const AampPlayer& aampPlayer);
+
+		int newPlayer();
+		void resetPlayers();
+		void deletePlayer(uint32_t index);
+		PlayerInstanceAAMP *getPlayer(uint32_t index);
+		SmokeTestEventListener *getListener(uint32_t index);
 };
 
 
