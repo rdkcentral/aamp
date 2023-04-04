@@ -25,7 +25,9 @@ else
     exit
 fi
 
-
+######################################################## 
+#Disable coverage tests by default
+COVERAGE=OFF
 
 ######################################################## 
 # Declare a status array to collect full summary to be printed by the end of execution
@@ -235,7 +237,7 @@ fi
 echo "Ver=$aamposxinstallerver"
 
 #Optional Command-line support for -b <aamp code branch> and -d <build directory> 
-while getopts ":d:b:" opt; do
+while getopts ":d:b:c" opt; do
   case ${opt} in
     d ) # process option d install base directory name
 	builddir=${OPTARG}
@@ -243,6 +245,10 @@ while getopts ":d:b:" opt; do
       ;;
     b ) # process option b code branch name
 	codebranch=${OPTARG}
+      ;;
+    c ) # process option c coverage
+        COVERAGE=ON
+	echo coverage "${COVERAGE}"
       ;;
     * ) echo "Usage: $0 [subtec [clean]] [-b aamp branch name] [-d local setup directory name]"
         echo
@@ -465,7 +471,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 
     mkdir -p build
    
-    cd build && PKG_CONFIG_PATH=/usr/local/opt/ossp-uuid/lib/pkgconfig:/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -G Xcode ../
+    cd build && PKG_CONFIG_PATH=/usr/local/opt/ossp-uuid/lib/pkgconfig:/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCMAKE_BUILD_TYPE=Debug -DCOVERAGE_ENABLED=${COVERAGE} -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -G Xcode ../
 
     # the cmake Xcode generator can not set this scheme property (Debug -> Options -> Console -> Use Terminal
     patch ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme < ../OSX/patches/aamp-cli.xscheme.patch 
@@ -559,7 +565,7 @@ elif [[ "$OSTYPE" == "linux"* ]]; then
     mkdir -p build
     create_subtec_run_script
     
-    PKG_CONFIG_PATH=$PWD/Linux/lib/pkgconfig /usr/bin/cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=$PWD/Linux -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH=$PWD/Linux/lib -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -S$PWD -B$PWD/build -G "Unix Makefiles"
+    PKG_CONFIG_PATH=$PWD/Linux/lib/pkgconfig /usr/bin/cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=$PWD/Linux -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH=$PWD/Linux/lib -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DSMOKETEST_ENABLED=ON -DCOVERAGE_ENABLED=${COVERAGE} -DUTEST_ENABLED=ON -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -S$PWD -B$PWD/build -G "Unix Makefiles"
     
     echo "Making aamp-cli..."
     cd build

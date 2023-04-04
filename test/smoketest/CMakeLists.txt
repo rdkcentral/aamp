@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.16) 
 find_package(GTest 1.12.1 REQUIRED)
 pkg_check_modules(GOOGLETEST REQUIRED GTest)
 include_directories(${GOOGLETEST_INCLUDE_DIRS})
@@ -21,9 +21,39 @@ set(SOURCES AampSmokeTestPlayer.cpp TuneSmokeTest.cpp gtest_main.cpp ${AAMP_OS_S
 
 
 add_executable(aamp_smoketest ${HEADERS} ${SOURCES})
+set(EXEC_NAME aamp_smoketest)
+
+if (COVERAGE_ENABLED)
+  LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/test/smoketest")
+  LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/test")
+  include(CodeCoverage)
+  APPEND_COVERAGE_COMPILER_FLAGS()
+  get_filename_component(PARENT_DIR ${PROJECT_SOURCE_DIR} DIRECTORY)
+  get_filename_component(BASE_DIR ${PARENT_DIR} DIRECTORY)
+  
+  set(COVERAGE_EXCLUDES
+    "/usr/*"
+    "${PROJECT_SOURCE_DIR}/Linux/*"
+    "${PROJECT_SOURCE_DIR}/drm/*"
+    "${PROJECT_SOURCE_DIR}/isobmff/*"
+    "${PROJECT_SOURCE_DIR}/subtec/*"
+    "${PROJECT_SOURCE_DIR}/subtitle/*"
+    "${PROJECT_SOURCE_DIR}/test/aampcli/*"
+    "${PROJECT_SOURCE_DIR}/test/utests/*"
+    "/Applications/*"
+    "./v1/*")
+  SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
+                              EXECUTABLE ${EXEC_NAME}
+                              DEPENDENCIES ${EXEC_NAME})
+
+endif()
 add_dependencies(aamp_smoketest aamp)
 set_target_properties(aamp_smoketest PROPERTIES COMPILE_FLAGS "${SMOKETEST_DEFINES} ${LIBAAMP_DEFINES} ${AAMP_CLI_EXTRA_DEFINES} ${OS_CXX_FLAGS}")
-# XCode schema target
-xcode_define_schema(aamp_smoketest)
-target_link_libraries(aamp_smoketest aamp ${GOOGLETEST_LIBRARIES})
-#gtest_discover_tests(aamp_gtest)
+if (CMAKE_XCODE_BUILD_SYSTEM)
+  # XCode schema target
+  xcode_define_schema(${EXEC_NAME})
+endif()
+target_link_libraries(aamp_smoketest aamp ${GOOGLETEST_LIBRARIES} --coverage)
+
+install (TARGETS aamp_smoketest DESTINATION lib)
+#gtest_discover_tests(aamp_smoketest)  
