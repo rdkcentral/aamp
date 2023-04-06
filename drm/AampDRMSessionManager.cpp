@@ -885,7 +885,7 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 			// example 18(0) if connection failure with PARTIAL_FILE code
 			timeoutClass = "(" + to_string(reqSize > 0) + ")";
 		}
-		AAMPLOG_WARN("HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s",
+		AAMPLOG_WARN("HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%f,%f,%.500s",
 					 appName.c_str(),
 					 eMEDIATYPE_TELEMETRY_DRM,
 					 eMEDIATYPE_LICENCE,//streamType,

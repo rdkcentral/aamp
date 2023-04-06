@@ -137,10 +137,10 @@ struct AAMPMediaPlayer_JS : public PrivAAMPStruct_JS
         	LOG_TRACE("Enter");
 		if (!_promiseCallbacks.empty())
 		{
-			for (std::map<std::string, JSObjectRef>::iterator it = _promiseCallbacks.begin(); it != _promiseCallbacks.end(); )
+			for (auto it = _promiseCallbacks.begin(); it != _promiseCallbacks.end(); )
 			{
 				JSValueUnprotect(_ctx, it->second);
-				_promiseCallbacks.erase(it);
+				it = _promiseCallbacks.erase(it);
 			}
 		}
         	LOG_TRACE("Exit");

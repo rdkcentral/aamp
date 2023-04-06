@@ -3770,8 +3770,8 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 				MediaTrack* mediaTrack =  mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_AUDIO);
 				if(mediaTrack){
 					bufferRedStatus = (mediaTrack->GetBufferStatus() == BUFFER_STATUS_RED);
+					bufferedDuration = ((int)mediaTrack->GetBufferedDuration())*1000;
 				}
-				bufferedDuration = ((int)mediaTrack->GetBufferedDuration())*1000;
 				currentBitrate  = ((int)mpStreamAbstractionAAMP->GetAudioBitrate())/1000;
 				mCMCDCollector->SetTrackData(fileType,bufferRedStatus,bufferedDuration,currentBitrate,IsMuxed);
 				
