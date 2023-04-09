@@ -1022,8 +1022,8 @@ public:
 	 *
 	 *   @return true if we are at live point.
 	 */
-	bool IsStreamerAtLivePoint() { return mIsAtLivePoint; }
-
+	bool IsStreamerAtLivePoint(double seekPosition = 0 ); 
+	
 	/**
 	 * @fn Is4KStream
 	 * @brief check if current stream have 4K content

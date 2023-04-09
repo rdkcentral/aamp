@@ -4858,6 +4858,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
 	{
 		mSeekOperationInProgress = true;
+		mFirstFragmentTimeOffset = -1 ; //reset the firstFragmentOffsetTime when seek opeartion is done
 	}
 
 	if (eTUNETYPE_LAST == tuneType)
@@ -5148,10 +5149,19 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 		if(mFirstFragmentTimeOffset < 0)
 		{
-			// Update first fragment time, ie time of the tune
+			long long  duartion = 0;
+			// Update first fragment time, ie time of the tune for new tune, and time of retune for seektolive
 			// For LL-DASH, we update mFirstFragmentTimeOffset as the Absolute start time of fragment.
-			mFirstFragmentTimeOffset = (double)(aamp_GetCurrentTimeMS() - GetDurationMs())/1000.0;
-			AAMPLOG_INFO("[DEBUG] Updated FirstFragmentTimeOffset:%lf", mFirstFragmentTimeOffset);
+			if(mSeekOperationInProgress)
+			{
+					duartion = DurationFromStartOfPlaybackMs();
+			}
+			else
+			{
+					duartion = GetDurationMs();
+			}
+			mFirstFragmentTimeOffset = (double)(aamp_GetCurrentTimeMS() - duartion)/1000.0;
+			AAMPLOG_INFO("[DEBUG] Updated FirstFragmentTimeOffset:%lf %lld %lld", mFirstFragmentTimeOffset,aamp_GetCurrentTimeMS(),duartion);
 			StartRateCorrectionWokerthread();
 		}
 

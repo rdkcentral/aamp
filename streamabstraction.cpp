@@ -3199,6 +3199,32 @@ bool StreamAbstractionAAMP::SetTextStyle(const std::string &options)
 	}
 	return retVal;
 }
+/**
+* @brief Whether we are playing at live point or not.
+*
+* @param[in] - seekPosition - seek position in seconds
+* @return true if we are at live point.
+*/
+bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
+{
+	
+	if(mIsAtLivePoint)
+	{
+		double endPos = aamp->culledSeconds+aamp->durationSeconds;
+		if(seekPosition > (endPos-aamp->mLiveOffset))
+		{
+			AAMPLOG_INFO("SeekPostion[%lf] is greater than endPos[%lf]-mLiveOffset(%lf) i.e:%lf",seekPosition,endPos,aamp->mLiveOffset,endPos-aamp->mLiveOffset);
+		}
+		else
+		{
+			AAMPLOG_INFO("SeekPostion[%lf] is within range of endPos[%lf]-mLiveOffset(%lf) i.e:%lf",seekPosition,endPos,aamp->mLiveOffset,endPos-aamp->mLiveOffset);
+			mIsAtLivePoint = false;
+		}
+	}
+
+	return mIsAtLivePoint;
+
+}
 
 /**
  * @brief Returns playlist type of track

@@ -276,4 +276,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 void StreamAbstractionAAMP::ReassessAndResumeAudioTrack(bool abort)
 {
 }
-
+bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
+{
+    return false;
+}
