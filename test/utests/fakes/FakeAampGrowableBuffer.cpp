@@ -36,6 +36,8 @@ void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 
 void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 {
+	this->ptr = (void*)srcPtr;
+	this->len = srcLen;
 }
 
 void AampGrowableBuffer::MoveBytes( const void *ptr, size_t len )
