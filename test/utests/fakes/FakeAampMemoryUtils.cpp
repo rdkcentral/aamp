@@ -18,12 +18,3 @@
 */
 
 #include "AampMemoryUtils.h"
-
-void aamp_GFree( void *ptr )
-{
-}
-
-void *aamp_GMalloc( size_t numBytes )
-{
-	return NULL;
-}

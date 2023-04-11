@@ -52,8 +52,12 @@
  void AampGrowableBuffer::ReserveBytes( size_t numBytes )
  {
      assert( ptr==NULL && avail == 0 );
-     ptr = (char *)aamp_GMalloc( numBytes );
-     avail = numBytes;
+     ptr = (char *)g_malloc( numBytes );
+	 if( ptr )
+	 {
+		 NETMEMORY_PLUS();
+		 avail = numBytes;
+	 }
  }
 
  void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
@@ -119,9 +123,7 @@
   */
  void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
  {
-     assert( ptr == NULL );
-     assert( src->ptr != NULL );
-
+     assert( ptr == NULL ); // only replace if empty!
      ptr = src->GetPtr();
      len = src->GetLen();
      avail = src->GetAvail();

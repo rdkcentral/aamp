@@ -39,16 +39,13 @@ static int gNetMemoryHighWatermark;
 /**
  * @brief adds to memory count
  */
-void NETMEMORY_PLUS();
+void NETMEMORY_PLUS( void );
 
 /**
  * @brief subtracts from memory count
  */
-void NETMEMORY_MINUS();
+void NETMEMORY_MINUS( void );
 
-
-void aamp_GFree(void *ptr);
-void *aamp_GMalloc( size_t numBytes );
 
 #ifdef USE_SECMANAGER
 /**

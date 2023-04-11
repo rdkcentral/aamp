@@ -32,11 +32,8 @@
 /**
  * @brief adds to memory count
  */
-void NETMEMORY_PLUS()
+void NETMEMORY_PLUS( void )
 {
-    /*if(name == NULL) {
-        AAMPLOG_WARN( "No name assigned: name = NULL");
-    }*/
 	gNetMemoryCount++;
 	if( gNetMemoryCount>gNetMemoryHighWatermark )
 	{
@@ -50,42 +47,20 @@ void NETMEMORY_PLUS()
  */
 void NETMEMORY_MINUS()
 {
-    /*if(name == NULL) {
-        AAMPLOG_WARN( "No name assigned: name = NULL");
-    }*/
-	gNetMemoryCount--;
-	if( gNetMemoryCount==0 )
-	{
-		AAMPLOG_WARN( "***gNetMemoryCount=0" );
-	}
-	assert( gNetMemoryCount>=0 );
+    if (gNetMemoryCount > 0) // Check if gNetMemoryCount is greater than zero
+    {
+        gNetMemoryCount--;
+        if (gNetMemoryCount == 0)
+        {
+            AAMPLOG_WARN("***gNetMemoryCount=0");
+        }
+    }
+    else
+    {
+        AAMPLOG_WARN("gNetMemoryCount is already 0");
+    }
+    assert(gNetMemoryCount >= 0);
 }
-
-/**
- * @brief wrapper for g_free, used for segment allocation
- */
-void aamp_GFree( void *ptr )
-{
-	if( ptr )
-	{
-		NETMEMORY_MINUS();
-		g_free( ptr );
-	}
-}
-
-/**
- * @brief wrapper for g_malloc; used internally and for ID3 metadata
- */
-void *aamp_GMalloc( size_t numBytes )
-{
-	void *ptr = g_malloc(numBytes);
-	if( ptr )
-	{
-		NETMEMORY_PLUS();
-	}
-	return ptr;
-}
-
 #ifdef USE_SECMANAGER
 
 /**

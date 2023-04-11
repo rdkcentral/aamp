@@ -11498,7 +11498,7 @@ void PrivateInstanceAAMP::ReportID3Metadata(MediaType mediaType, const uint8_t* 
 {
 	FlushLastId3Data(mediaType);
 	Id3CallbackData* id3Metadata = new Id3CallbackData(this, static_cast<const uint8_t*>(ptr), len, static_cast<const char*>(schemeIdURI), static_cast<const char*>(id3Value), presTime, id3ID, eventDur, tScale, tStampOffset);
-	lastId3Data[mediaType] = (uint8_t*)aamp_GMalloc(len);
+	lastId3Data[mediaType] = (uint8_t*)g_malloc(len);
 	if (lastId3Data[mediaType])
 	{
 		lastId3DataLen[mediaType] = len;
@@ -11516,9 +11516,9 @@ void PrivateInstanceAAMP::FlushLastId3Data(MediaType mediaType)
 {
 	if(lastId3Data[mediaType])
 	{
-		lastId3DataLen[mediaType] = 0;
-		aamp_GFree((void *)lastId3Data[mediaType]);
+		g_free( lastId3Data[mediaType] );
 		lastId3Data[mediaType] = NULL;
+		lastId3DataLen[mediaType] = 0;
 	}
 }
 
