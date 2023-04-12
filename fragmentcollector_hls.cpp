@@ -4644,6 +4644,8 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					{
 						aamp->NotifyOnEnteringLive();
 					}
+					AAMPLOG_INFO("StreamAbstractionAAMP_HLS: Live latency correction is enabled due to the seek (rate=%f) to live widnow!!", this->rate);
+					aamp->mDisableRateCorrection = false;
 				}
 				else
 				{
@@ -4659,15 +4661,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 							video->playTarget, seekWindowEnd);
 
 					return eAAMPSTATUS_SEEK_RANGE_ERROR;
-				}
-			}
-			else
-			{
-				/** Disable only if it is seek **/
-				if ((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType))
-				{
-					/** Playing from seek position disable the rate correction **/
-					aamp->mDisableRateCorrection = true;
 				}
 			}
 		}

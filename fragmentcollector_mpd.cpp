@@ -4717,6 +4717,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					{
 						notifyEnteringLive = true;
 					}
+					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Live latency correction is enabled due to the seek (rate=%f) to live widnow!!", rate);
+					aamp->mDisableRateCorrection = false;
 				}
 				else
 				{
@@ -4726,10 +4728,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 						{
 							aamp->SetLLDashAdjustSpeed(false);
 						}
-						aamp->mDisableRateCorrection = true;
 					}
 				}
 			}
+
 			if (liveAdjust)
 			{
 				// DELIA-43662

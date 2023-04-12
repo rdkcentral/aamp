@@ -793,6 +793,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					AAMPLOG_INFO("LL-Dash speed correction disabled after Pause");
 					aamp->SetLLDashAdjustSpeed(false);
 				}
+				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Live latency correction is disabled due to the Pause operation!!");
 				aamp->mDisableRateCorrection = true;
 			}
 		}

@@ -4852,8 +4852,16 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mFirstVideoFrameDisplayedEnabled = true;
 	}
 
-	/** Enabled rate Correction by default, seek case and live added later point  **/
-	mDisableRateCorrection = false;
+	if((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType))
+	{
+		/** Enabled rate Correction by default, seek case and live added later point  **/
+		AAMPLOG_INFO("Live latency correction is disabled for seek by default!!");
+		mDisableRateCorrection = true;
+	}
+	else
+	{
+		mDisableRateCorrection = false;
+	}
 
 	if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
 	{
