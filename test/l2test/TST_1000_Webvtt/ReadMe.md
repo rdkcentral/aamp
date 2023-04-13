@@ -17,7 +17,7 @@ subtitles can be used to run this test.
 
 ## Run l2test using script:
 
-From the *test/l2test/webvtt* folder run:
+From the *test/l2test/TST_1000_Webvtt* folder run:
 
 ./run_test.py
 
@@ -25,5 +25,5 @@ From the *test/l2test/webvtt* folder run:
 
     cd aamp
     bash install-aamp.sh
-    cd test/l2test/webvtt
+    cd test/l2test/TST_1001_Webvtt
     ./run_test.py

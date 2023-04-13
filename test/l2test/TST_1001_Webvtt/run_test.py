@@ -39,13 +39,13 @@ else:
 print("AAMP_HOME:",AAMP_HOME)
 
 if os.path.exists(os.path.join(AAMP_HOME, "Linux", "bin", "aamp-cli")):
-    AAMP_ENV = {"LD_PRELOAD": os.path.join(AAMP_HOME, "Linux", "lib", "libdash.so"), "LD_LIBRARY_PATH": os.path.join(AAMP_HOME, "Linux", "lib")}
+    AAMP_ENV = {"LD_PRELOAD": os.path.join(AAMP_HOME, "Linux", "lib", "libdash.so"), "LD_LIBRARY_PATH": os.path.join(AAMP_HOME, "Linux", "lib"), "GST_PLUGIN_PATH": os.path.join(AAMP_HOME, "Linux", "lib", "gstreamer-1.0")}
     AAMP_CMD = os.path.join(AAMP_HOME, "Linux", "bin", "aamp-cli")
     print("Platform: Ubuntu")
 elif os.path.exists(os.path.join(AAMP_HOME, "build", "Debug", "aamp-cli")):
-    AAMP_ENV = ""
+    AAMP_ENV = {"GST_PLUGIN_PATH": os.path.join(AAMP_HOME, "build", "Debug", "lib", "gstreamer-1.0")}
     AAMP_CMD = os.path.join(AAMP_HOME, "build", "Debug", "aamp-cli")
-    printf("Platform: Mac")
+    print("Platform: Mac")
 else:
     print("ERROR: aamp-cli not found")
     sys.exit(os.EX_SOFTWARE)
@@ -92,6 +92,7 @@ def restore_aamp_cfg():
 
 ################################################################
 #$HOME/aamp.cfg should contain
+#gstSubtecEnabled=true, config used to send subtitles via gstreamer
 #info=true
 #trace=true
 # Otherwise aamp-cli will not output the logging required for test validation.
@@ -102,7 +103,7 @@ def create_aamp_cfg():
         if "HOME" in os.environ:
             print("Creating ", aamp_cfg_file)
             f = open(aamp_cfg_file, "w")
-            f.write("info=true\ntrace=true\nuseTCPServerSink=true\n")
+            f.write("gstSubtecEnabled=true\ninfo=true\ntrace=true\nuseTCPServerSink=true\n")
             f.close()
         else:
             print("HOME env not set")
@@ -139,11 +140,11 @@ def run_test(testdata):
             try:
                 aamp.expect(e['expect'])
             except pexpect.TIMEOUT:
-                print("ERROR TIMEOUT was thrown:",str(aamp))
+                print("ERROR TIMEOUT was thrown on event ",e,":",str(aamp))
                 test_pass = False
                 break
             except:
-                print("ERROR Exception was thrown:",str(aamp))
+                print("ERROR Exception was thrown on event ",e,":",str(aamp))
                 test_pass = False
                 break
             else:
@@ -195,49 +196,51 @@ def run_test(testdata):
 # This test requires a DASH stream with no subtitles (if it has subtitles, the
 # SubtecSimulatorThread starts before the tuned event is received and the test fails).
 
+# This test is sending font size command to subtec (using subtec simulator) 
+# via Gstreamer subtecbin plugin.
 TESTDATA1= {
-"title": "Setting WebVTT font size",
+"title": "Setting WebVTT font size AAMP - GStreamer - Subtec",
 "logfile": "testdata1.txt",
 "expect_list": [
     {"cmd":"set subtecSimulator 1"},
     {"expect":"SubtecSimulatorThread - listening for packets",},
-    {"cmd":"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+    {"cmd":"https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8"},
     {"expect":"AAMP_EVENT_TUNED"},
-    {"cmd":"set textTrack data/test.vtt"},
-    {"expect":"webvtt data received from application",},
+    {"cmd":"set 43 0"},
+    {"expect":"AAMPGstPlayer_SetupStream - subs using subtecbin"},
     {"cmd":"set ccStyle data/small.json"},
     {"expect":"Calling StreamAbstractionAAMP::SetTextStyle"},
-    {"expect":"Calling SubtitleParser"},
+    {"expect":"Calling StreamSink::SetTextStyle"},
     {"expect":"\*\*\*SubtecSimulatorThread:"},
     {"expect":"Type:CC_SET_ATTRIBUTE"},
     {"expect":"attribute\[5\]: 0"},
     {"cmd":"set ccStyle data/medium.json"},
     {"expect":"Calling StreamAbstractionAAMP::SetTextStyle"},
-    {"expect":"Calling SubtitleParser"},
+    {"expect":"Calling StreamSink::SetTextStyle"},
     {"expect":"\*\*\*SubtecSimulatorThread:"},
     {"expect":"Type:CC_SET_ATTRIBUTE"},
     {"expect":"attribute\[5\]: 1"},
     {"cmd":"set ccStyle data/large.json"},
     {"expect":"Calling StreamAbstractionAAMP::SetTextStyle"},
-    {"expect":"Calling SubtitleParser"},
+    {"expect":"Calling StreamSink::SetTextStyle"},
     {"expect":"\*\*\*SubtecSimulatorThread:"},
     {"expect":"Type:CC_SET_ATTRIBUTE"},
     {"expect":"attribute\[5\]: 2"},
     {"cmd":"set ccStyle data/extra_large.json"},
     {"expect":"Calling StreamAbstractionAAMP::SetTextStyle"},
-    {"expect":"Calling SubtitleParser"},
+    {"expect":"Calling StreamSink::SetTextStyle"},
     {"expect":"\*\*\*SubtecSimulatorThread:"},
     {"expect":"Type:CC_SET_ATTRIBUTE"},
     {"expect":"attribute\[5\]: 3"},
     {"cmd":"set ccStyle data/auto.json"},
     {"expect":"Calling StreamAbstractionAAMP::SetTextStyle"},
-    {"expect":"Calling SubtitleParser"},
+    {"expect":"Calling StreamSink::SetTextStyle"},
     {"expect":"\*\*\*SubtecSimulatorThread:"},
     {"expect":"Type:CC_SET_ATTRIBUTE"},
     {"expect":"attribute\[5\]: 4294967295"},
     {"cmd":"stop"},
     {"cmd":"set subtecSimulator 0"},
-    {"expect":"SubtecSimulatorThread - exit",},
+    {"expect":"SubtecSimulatorThread - exit"},
 ]
 }
 
@@ -245,8 +248,7 @@ TESTLIST = [TESTDATA1]
 
 ############################################################
 parser = argparse.ArgumentParser()
-parser.add_argument("--aamp_log", help="Output aamp logging",
-                    action="store_true")
+parser.add_argument("--aamp_log", help="Output aamp logging", action="store_true")
 args = parser.parse_args()
 
 save_aamp_cfg()
