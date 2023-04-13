@@ -533,4 +533,11 @@ class AAMPPlayer {
     setContentProtectionDataConfig(config) {
         this.player.setContentProtectionDataConfig(config);
     }
+
+    /**
+     * Set Preferred Audio Language
+     */
+    setPreferredAudioLanguage(audioObj) {
+        this.player.setPreferredAudioLanguage(audioObj);
+    }
 };

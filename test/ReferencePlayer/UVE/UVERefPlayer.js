@@ -326,8 +326,8 @@ function playbackStateChanged(event) {
         case playerStatesEnum.initialized:
             playerState = playerStatesEnum.initialized;
             var videoTracksAvailable = playerObj.getAvailableVideoTracks();
-            var audioTracksAvailable = playerObj.getAvailableAudioTracks();
-            var textTracksAvailable = playerObj.getAvailableTextTracks();
+            var audioTracksAvailable = playerObj.getAvailableAudioTracks(true);
+            var textTracksAvailable = playerObj.getAvailableTextTracks(true);
             console.log("Available audio tracks: " + audioTracksAvailable);
             console.log("Available text tracks: " + textTracksAvailable);
 
@@ -376,7 +376,7 @@ function playbackStateChanged(event) {
                 // Iteratively adding all the options to audioTracks
                 for (var trackNo = 0; trackNo < audioTrackList.length; trackNo++) {
                     var option = document.createElement("option");
-                    option.value = trackNo;
+                    option.value = JSON.stringify(audioTrackList[trackNo]);
                     option.text = audioTrackList[trackNo].language + " " + audioTrackList[trackNo].rendition;
                     audioTracks.add(option);
                 }
