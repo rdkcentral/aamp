@@ -433,10 +433,10 @@ double ISO8601DateTimeToUTCSeconds(const char *ptr)
 		//Find out offset from utc by convering epoch
 		std::tm baseTimeObj = { 0 };
 		strptime("1970-01-01T00:00:00.", "%Y-%m-%dT%H:%M:%S.", &baseTimeObj);
-		time_t offsetFromUTC = mktime(&baseTimeObj);
+		time_t offsetFromUTC = timegm(&baseTimeObj);
 		//Convert input string to time
 		const char *msString = strptime(ptr, "%Y-%m-%dT%H:%M:%S.", &timeObj);
-		timeSeconds = mktime(&timeObj) - offsetFromUTC;
+		timeSeconds = timegm(&timeObj) - offsetFromUTC;
 		
 		if( msString && *msString )
 		{ // at least one character following decimal point

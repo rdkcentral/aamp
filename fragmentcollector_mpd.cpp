@@ -8359,7 +8359,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				}
 				if(aamp->mFirstFragmentTimeOffset < 0 && aamp->GetLLDashServiceData()->lowLatencyMode)
 				{
-					aamp->mFirstFragmentTimeOffset = liveSync? (((double)pMediaStreamContext->fragmentDescriptor.Number * fragmentDuration) + mAvailabilityStartTime)  : mFirstPeriodStartTime;
+					aamp->mFirstFragmentTimeOffset = liveSync? (((double)(pMediaStreamContext->fragmentDescriptor.Number - startNumber)  * fragmentDuration) + mAvailabilityStartTime)  : mFirstPeriodStartTime;
 					AAMPLOG_INFO("mFirstFragmentTimeOffset:%lf mReportProgressOffset:%lf", aamp->mFirstFragmentTimeOffset, aamp->mProgressReportOffset);
 				}
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d timeLineIndex %d fragmentDescriptor.Number %" PRIu64 " mFirstPTS:%lf", i, pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Number, mFirstPTS);
