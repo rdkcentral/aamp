@@ -118,7 +118,7 @@ private:
 	bool mCacheActive;
 	bool mAsyncCacheCleanUpThread;
 	int mMaxPlaylistCacheSize;
-	pthread_mutex_t mMutex;
+	std::recursive_mutex mMutex;
 	pthread_mutex_t mCondVarMutex;
 	pthread_cond_t mCondVar ;
 	std::thread mAsyncCleanUpTaskThreadId;

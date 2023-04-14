@@ -31,7 +31,7 @@
 void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,MediaType fileType)
 {
 	PlayListCachedData *tmpData,*newtmpData;
-	pthread_mutex_lock(&mMutex);
+	std::lock_guard<std::recursive_mutex> lock(mMutex);
 
 	//Initialize AampCacheHandler
 	Init();
@@ -100,7 +100,6 @@ void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGr
 			}
 		}
 	}
-	pthread_mutex_unlock(&mMutex);
 }
 
 
@@ -112,7 +111,7 @@ bool AampCacheHandler::RetrieveFromPlaylistCache(const std::string url, AampGrow
 	AampGrowableBuffer* buf = NULL;
 	bool ret; 
 	std::string eUrl;
-	pthread_mutex_lock(&mMutex);
+	std::lock_guard<std::recursive_mutex> lock(mMutex);
 	PlaylistCacheIter it = mPlaylistCache.find(url);
 	if (it != mPlaylistCache.end())
 	{
@@ -130,7 +129,6 @@ bool AampCacheHandler::RetrieveFromPlaylistCache(const std::string url, AampGrow
 		AAMPLOG_TRACE("url %s not found", url.c_str());
 		ret = false;
 	}
-	pthread_mutex_unlock(&mMutex);
 	return ret;
 }
 
@@ -139,7 +137,7 @@ bool AampCacheHandler::RetrieveFromPlaylistCache(const std::string url, AampGrow
  */
 void AampCacheHandler::RemoveFromPlaylistCache(const std::string url)
 {
-	pthread_mutex_lock(&mMutex);
+	std::lock_guard<std::recursive_mutex> lock(mMutex);
 	PlaylistCacheIter it = mPlaylistCache.find(url);
 	if (it != mPlaylistCache.end())
 	{
@@ -157,7 +155,6 @@ void AampCacheHandler::RemoveFromPlaylistCache(const std::string url)
 	{
 		AAMPLOG_WARN("Playlist URL %s not found in cache", url.c_str());
 	}
-	pthread_mutex_unlock(&mMutex);
 }
 
 /**
@@ -165,6 +162,7 @@ void AampCacheHandler::RemoveFromPlaylistCache(const std::string url)
  */
 void AampCacheHandler::ClearPlaylistCache()
 {
+	std::lock_guard<std::recursive_mutex> lock(mMutex);
 	AAMPLOG_INFO("cache size %d", (int)mPlaylistCache.size());
 	PlaylistCacheIter it = mPlaylistCache.begin();
 	for (;it != mPlaylistCache.end(); it++)
@@ -178,6 +176,7 @@ void AampCacheHandler::ClearPlaylistCache()
 	}
 	mCacheStoredSize = 0;
 	mPlaylistCache.clear();
+
 }
 
 /**
@@ -310,7 +309,6 @@ AampCacheHandler::AampCacheHandler(AampLogManager *logObj):
 	,umInitFragCache(),umCacheTrackQ(),bInitFragCache(false),mInitFragMutex()
 	,MaxInitCacheSlot(MAX_INIT_FRAGMENT_CACHE_PER_TRACK)
 {
-	pthread_mutex_init(&mMutex, NULL);
 	pthread_mutex_init(&mCondVarMutex, NULL);
 	pthread_cond_init(&mCondVar, NULL);
 
@@ -325,7 +323,6 @@ AampCacheHandler::~AampCacheHandler()
 {
 	if(true == mInitialized)
 		ClearCacheHandler();
-	pthread_mutex_destroy(&mMutex);
 	pthread_mutex_destroy(&mCondVarMutex);
 	pthread_cond_destroy(&mCondVar);
 
@@ -386,10 +383,9 @@ void AampCacheHandler::AsyncCacheCleanUpTask()
  */
 void AampCacheHandler::SetMaxPlaylistCacheSize(int maxPlaylistCacheSz)
 {
-	pthread_mutex_lock(&mMutex);
+	std::lock_guard<std::recursive_mutex> lock(mMutex);
 	mMaxPlaylistCacheSize = maxPlaylistCacheSz;
 	AAMPLOG_WARN("Setting mMaxPlaylistCacheSize to :%d",maxPlaylistCacheSz);
-	pthread_mutex_unlock(&mMutex);	
 }
 
 /**
@@ -398,12 +394,11 @@ void AampCacheHandler::SetMaxPlaylistCacheSize(int maxPlaylistCacheSz)
 bool AampCacheHandler::IsUrlCached(std::string url)
 {
 	bool retval = false;
-	pthread_mutex_lock(&mMutex);
+	std::lock_guard<std::recursive_mutex> lock(mMutex);
 	PlaylistCacheIter it = mPlaylistCache.find(url);
 	if (it != mPlaylistCache.end())
 		retval = true;
 
-	pthread_mutex_unlock(&mMutex);
 	return retval;
 }
 
