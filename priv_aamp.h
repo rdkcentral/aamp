@@ -1267,7 +1267,14 @@ public:
 	 * @return True or False
 	 */
 	bool IsAudioLanguageSupported (const char *checkLanguage);
-
+	/**
+	 * @fn LicenseRenewal
+	 *
+	 * @param[in] drmHelper - Current drm helper
+	 * @param[in] userData - DrmSession data
+	 * @return void
+	 */	
+	void LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelper,void* userData);
 	/**
 	 * @fn CurlTerm
 	 *

@@ -123,6 +123,7 @@ AampDRMSessionManager::AampDRMSessionManager(AampLogManager *logObj, int maxDrmS
 		,mDrmSessionLock(), licenseRequestAbort(false)
 		,mMaxDRMSessions(maxDrmSessions)
 		,mLogObj(logObj)
+		,mLicenseRenewalThreads()
 #ifdef USE_SECMANAGER
 		,mSessionId()
 		,mIsVideoOnMute(false)
@@ -132,6 +133,7 @@ AampDRMSessionManager::AampDRMSessionManager(AampLogManager *logObj, int maxDrmS
 {
 	drmSessionContexts	= new DrmSessionContext[mMaxDRMSessions];
 	cachedKeyIDs		= new KeyID[mMaxDRMSessions];
+	mLicenseRenewalThreads.resize(mMaxDRMSessions);
 	AAMPLOG_INFO("AampDRMSessionManager MaxSession:%d",mMaxDRMSessions);
 	pthread_mutex_init(&mDrmSessionLock, NULL);
 }
@@ -143,6 +145,7 @@ AampDRMSessionManager::~AampDRMSessionManager()
 {
 	clearAccessToken();
 	clearSessionData();
+	releaseLicenseRenewalThreads();
 	SAFE_DELETE_ARRAY(drmSessionContexts);
 	SAFE_DELETE_ARRAY(cachedKeyIDs);
 	pthread_mutex_destroy(&mDrmSessionLock);
@@ -150,6 +153,21 @@ AampDRMSessionManager::~AampDRMSessionManager()
 	pthread_mutex_destroy(&cachedKeyMutex);
 }
 
+/**
+ *  @brief Clean up the license renewal threads created.
+ */
+
+void AampDRMSessionManager::releaseLicenseRenewalThreads()
+{
+        for(int i = 0 ; i < mLicenseRenewalThreads.size(); i++)
+        {
+		if(mLicenseRenewalThreads[i].joinable())
+		{
+			mLicenseRenewalThreads[i].join();
+		}
+	}
+	mLicenseRenewalThreads.clear();
+}
 /**
  *  @brief  Clean up the memory used by session variables.
  */
@@ -754,6 +772,84 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 }
 #endif
 
+int AampDRMSessionManager::getSlotIdForSession(AampDrmSession* session)
+{
+	int slot = -1;
+	AampMutexHold drmSessionLock(mDrmSessionLock);
+
+	if (drmSessionContexts != NULL)
+	{
+		for (int i = 0; i < mMaxDRMSessions; i++)
+		{
+			if (drmSessionContexts[i].drmSession == session)
+			{
+				AAMPLOG_INFO("DRM Session found at slot:%d", i);
+				slot = i;
+				break;
+			}
+		}
+	}
+
+	if (slot == -1)
+	{
+		AAMPLOG_WARN("DRM Session not found");
+	}
+
+	return slot;
+}
+
+void AampDRMSessionManager::licenseRenewalThread(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance)
+{
+#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
+	bool isSecClientError = false;
+#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
+	isSecClientError = true;
+#endif
+	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError);
+	int cdmError = -1;
+	KeyState code = acquireLicense(drmHelper, sessionSlot, cdmError, e, aampInstance, eMEDIATYPE_LICENCE, true);
+	if (code != KEY_READY)
+	{
+		aampInstance->SendAnomalyEvent(ANOMALY_WARNING, "License Renewal failed due to Key State %d", code);
+		AAMPLOG_ERR("Unable to Renew License for DRM Session : Key State %d ", code);
+	}
+	else
+	{
+		AAMPLOG_INFO("License Renewal Done for sessionSlot : %d",sessionSlot);
+	}
+#endif
+}
+
+void AampDRMSessionManager::renewLicense(std::shared_ptr<AampDrmHelper> drmHelper, void* userData, PrivateInstanceAAMP* aampInstance)
+{
+	AampDrmSession* session = static_cast<AampDrmSession*>(userData);
+	int sessionSlot = getSlotIdForSession(session);
+	if (sessionSlot >= 0)
+	{
+		if(mLicenseRenewalThreads.size() == 0)
+		{
+			mLicenseRenewalThreads.resize(mMaxDRMSessions);
+		}
+		if(mLicenseRenewalThreads[sessionSlot].joinable())
+		{
+			mLicenseRenewalThreads[sessionSlot].join();
+		}
+		try
+		{
+			mLicenseRenewalThreads[sessionSlot] = std::thread(&AampDRMSessionManager::licenseRenewalThread, this, drmHelper, sessionSlot, aampInstance);
+			AAMPLOG_INFO("Thread created for LicenseRenewal [%lu]", GetPrintableThreadID(mLicenseRenewalThreads[sessionSlot]));
+		}
+		catch(const std::exception& e)
+		{
+			AAMPLOG_ERR("thread creation failed for CreateDRMSession: %s", e.what());
+		}
+	}
+	else
+	{
+		aampInstance->SendAnomalyEvent(ANOMALY_WARNING, "Failed to renew license as slot not available");
+		AAMPLOG_ERR("Failed to renew license as the requested DRM session slot is not available");
+	}
+}
 /**
  *  @brief Get DRM license key from DRM server.
  */
@@ -1379,13 +1475,13 @@ KeyState AampDRMSessionManager::initializeDrmSession(std::shared_ptr<AampDrmHelp
  * @brief sent license challenge to the DRM server and provide the respone to CDM
  */
 KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, int &cdmError,
-		DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, MediaType streamType)
+		DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, MediaType streamType, bool isLicenseRenewal)
 {
 	shared_ptr<DrmData> licenseResponse;
 	int32_t httpResponseCode = -1;
 	int32_t httpExtendedStatusCode = -1;
 	KeyState code = KEY_ERROR;
-	if (drmHelper->isExternalLicense())
+	if (drmHelper->isExternalLicense() && !isLicenseRenewal)
 	{
 		// External license, assuming the DRM system is ready to proceed
 		code = KEY_PENDING;
@@ -1412,16 +1508,23 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 		if (code != KEY_PENDING)
 		{
 			AAMPLOG_ERR("Error in getting license challenge : Key State %d ", code);
-			aampInstance->profiler.ProfileError(PROFILE_BUCKET_LA_PREPROC, AAMP_TUNE_DRM_CHALLENGE_FAILED);
+			if(!isLicenseRenewal)
+			{
+				aampInstance->profiler.ProfileError(PROFILE_BUCKET_LA_PREPROC, AAMP_TUNE_DRM_CHALLENGE_FAILED);
+				aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_PREPROC);
+			}
 			eventHandle->setFailure(AAMP_TUNE_DRM_CHALLENGE_FAILED);
-			aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_PREPROC);
 		}
 		else
 		{
 			/** flag for authToken set externally by app **/
 			bool usingAppDefinedAuthToken = !aampInstance->mSessionToken.empty();
 			bool anonymouslicReq 	=	 aampInstance->mConfig->IsConfigSet(eAAMPConfig_AnonymousLicenseRequest);
-			aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_PREPROC);
+
+			if(!isLicenseRenewal)
+			{
+				aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_PREPROC);
+			}
 
 			if (!(drmHelper->getDrmMetaData().empty() || anonymouslicReq))
 			{
@@ -1490,8 +1593,10 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 				 * Perform License acquistion by invoking http license request to license server
 				 */
 				AAMPLOG_WARN("Request License from the Drm Server %s", licenseRequest.url.c_str());
-				aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_NETWORK);
-
+				if(!isLicenseRenewal)
+				{
+					aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_NETWORK);
+				}
 #if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 				if (isContentMetadataAvailable)
 				{
@@ -1538,21 +1643,23 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 
 	if (code == KEY_PENDING)
 	{
-		code = handleLicenseResponse(drmHelper, sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, licenseResponse, eventHandle, aampInstance);
+		code = handleLicenseResponse(drmHelper, sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, licenseResponse, eventHandle, aampInstance, isLicenseRenewal);
 	}
 
 	return code;
 }
 
 
-KeyState AampDRMSessionManager::handleLicenseResponse(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, int &cdmError, int32_t httpResponseCode, int32_t httpExtendedStatusCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aamp)
+KeyState AampDRMSessionManager::handleLicenseResponse(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, int &cdmError, int32_t httpResponseCode, int32_t httpExtendedStatusCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aamp, bool isLicenseRenewal)
 {
 	if (!drmHelper->isExternalLicense())
 	{
 		if ((licenseResponse != NULL) && (licenseResponse->getDataLength() != 0))
 		{
-			aamp->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
-
+			if(!isLicenseRenewal)
+			{
+				aamp->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
+			}
 #if !defined(USE_SECCLIENT) && !defined(USE_SECMANAGER)
 			if (!drmHelper->getDrmMetaData().empty())
 			{
@@ -1588,9 +1695,11 @@ KeyState AampDRMSessionManager::handleLicenseResponse(std::shared_ptr<AampDrmHel
 		}
 		else
 		{
-			aamp->profiler.ProfileError(PROFILE_BUCKET_LA_NETWORK, httpResponseCode);
-			aamp->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
-
+			if(!isLicenseRenewal)
+			{
+				aamp->profiler.ProfileError(PROFILE_BUCKET_LA_NETWORK, httpResponseCode);
+				aamp->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
+			}
 			AAMPLOG_ERR("Error!! Invalid License Response was provided by the Server");
 
 			bool SecAuthFailure = false, SecTimeout = false;
@@ -1647,12 +1756,12 @@ KeyState AampDRMSessionManager::handleLicenseResponse(std::shared_ptr<AampDrmHel
 		}
 	}
 
-	return processLicenseResponse(drmHelper, sessionSlot, cdmError, licenseResponse, eventHandle, aamp);
+	return processLicenseResponse(drmHelper, sessionSlot, cdmError, licenseResponse, eventHandle, aamp, isLicenseRenewal);
 }
 
 
 KeyState AampDRMSessionManager::processLicenseResponse(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, int &cdmError,
-		shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance)
+		shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, bool isLicenseRenewal)
 {
 	/**
 	 * Provide the acquired License response from the DRM license server to the CDM.
@@ -1660,11 +1769,17 @@ KeyState AampDRMSessionManager::processLicenseResponse(std::shared_ptr<AampDrmHe
 	 * for processing and the DRM session should await the key from the DRM implementation
 	 */
 	AAMPLOG_INFO("Updating the license response to the aampDRMSession(CDM)");
-	aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_POSTPROC);
+	if(!isLicenseRenewal)
+	{
+		aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_POSTPROC);
+	}
+
 	cdmError = drmSessionContexts[sessionSlot].drmSession->aampDRMProcessKey(licenseResponse.get(), drmHelper->keyProcessTimeout());
 
-	aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_POSTPROC);
-
+	if(!isLicenseRenewal)
+	{
+		aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_POSTPROC);
+	}
 
 	KeyState code = drmSessionContexts[sessionSlot].drmSession->getState();
 
@@ -1870,6 +1985,7 @@ void AampDRMSessionManager::UpdateMaxDRMSessions(int maxSessions)
 		mMaxDRMSessions = maxSessions;
 		drmSessionContexts      = new DrmSessionContext[mMaxDRMSessions];
 		cachedKeyIDs            = new KeyID[mMaxDRMSessions];
+		mLicenseRenewalThreads.resize(mMaxDRMSessions);
 		AAMPLOG_INFO("Updated AampDRMSessionManager MaxSession to:%d", mMaxDRMSessions);
 	}
 }

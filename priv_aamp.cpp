@@ -2582,6 +2582,21 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 	}
 }
 
+void PrivateInstanceAAMP::LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelper, void* userData)
+{
+#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
+	if (mDRMSessionManager == nullptr)
+	{
+		SendAnomalyEvent(ANOMALY_WARNING, "Failed to renew license as mDrmSessionManager not available");
+		AAMPLOG_ERR("Failed to renew License as no mDrmSessionManager available");
+		return;
+	}
+	mDRMSessionManager->renewLicense(drmHelper, userData, this);
+#else
+	AAMPLOG_ERR("DRM is not supported");
+#endif
+}
+
 /**
  * @brief Send event to listeners
  */

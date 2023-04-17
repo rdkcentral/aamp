@@ -58,7 +58,7 @@ AampDrmSession* AampDrmSessionFactory::GetDrmSession(AampLogManager *logObj, std
 	}
 	else
 	{
-		return new AAMPOCDMGSTSessionAdapter(logObj, drmHelper);
+		return new AAMPOCDMGSTSessionAdapter(logObj, drmHelper, drmCallbacks);
 	}
 #elif defined (USE_OPENCDM)
 	return new AAMPOCDMSession(systemId);

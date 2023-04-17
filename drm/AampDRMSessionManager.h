@@ -135,6 +135,7 @@ private:
 	bool licenseRequestAbort;
 	bool mEnableAccessAtrributes;
 	int mMaxDRMSessions;
+	std::vector<std::thread> mLicenseRenewalThreads;
 #ifdef USE_SECMANAGER
 	SessionId mSessionId;
 	std::atomic<bool> mIsVideoOnMute;
@@ -332,6 +333,34 @@ public:
 	 */
 	KeyState getDrmSession(std::shared_ptr<AampDrmHelper> drmHelper, int &selectedSlot, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, bool isPrimarySession = false);
 	/**
+	 * @fn getSlotIdForSession
+	 * @return index to the session slot for selected drmSessionContext 
+	 */
+	int getSlotIdForSession(AampDrmSession* session);
+	/**
+	 * @fn renewLicense
+	 *
+	 * @param[in] drmHelper - Current drm helper
+	 * @param[in] userData - Data holds the current drm Session
+	 * @param[in] aampInstance - Aamp instance
+	 * @return void
+	 */
+
+	void renewLicense(std::shared_ptr<AampDrmHelper> drmHelper, void* userData, PrivateInstanceAAMP* aampInstance);
+	/**
+	 * @fn licenseRenewalThread
+	 *
+	 * @param[in] drmHelper - Current drm helper
+	 * @param[in] sessionSlot - Session slot that holds the current drm Session
+	 * @param[in] aampInstance - Aamp instance
+	 * @return void
+ 	 */
+	void licenseRenewalThread(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance);
+	/**
+	 * @fn releaseLicenseRenewalThreads
+	 */
+	void releaseLicenseRenewalThreads();
+	/**
 	 * @fn initializeDrmSession
 	 */
 	KeyState initializeDrmSession(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance);
@@ -339,13 +368,13 @@ public:
 	 * @fn acquireLicense
 	 */
 	KeyState acquireLicense(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, int &cdmError,
-			DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, MediaType streamType);
+			DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, MediaType streamType, bool isLicenseRenewal = false);
 
 	KeyState handleLicenseResponse(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, int &cdmError,
-			int32_t httpResponseCode, int32_t httpExtResponseCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance);
+			int32_t httpResponseCode, int32_t httpExtResponseCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, bool isLicenseRenewal = false);
 
 	KeyState processLicenseResponse(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, int &cdmError,
-			shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance);
+			shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, bool isLicenseRenewal = false);
 	/**
 	 * @fn configureLicenseServerParameters
 	 */

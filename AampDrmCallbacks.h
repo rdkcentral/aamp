@@ -35,6 +35,7 @@ class AampDrmCallbacks
 {
 public:
 	virtual void individualization(const std::string& payload) = 0;
+	virtual void LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelper, void* userData) = 0;
 	virtual ~AampDrmCallbacks() {};
 };
 

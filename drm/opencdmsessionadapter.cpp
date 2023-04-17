@@ -23,6 +23,7 @@
 #include <sys/time.h>
 #include <gst/gstbuffer.h>
 
+#define LICENSE_RENEWAL_MESSAGE_TYPE "1"
 
 /**
  * @fn AAMPOCDMSessionAdapter
@@ -193,8 +194,13 @@ void AAMPOCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const ui
 
 		m_challengeReady.signal();
 	}
-}
 
+	if(messageType == LICENSE_RENEWAL_MESSAGE_TYPE)
+	{
+		if (m_drmCallbacks)
+			m_drmCallbacks->LicenseRenewal(m_drmHelper,static_cast<AampDrmSession*> (this));
+	}
+}
 
 void AAMPOCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySize) {
 	AAMPLOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);

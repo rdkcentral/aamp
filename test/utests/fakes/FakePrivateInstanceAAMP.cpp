@@ -970,3 +970,8 @@ bool PrivateInstanceAAMP::ProcessCustomCurlRequest(std::string& remoteUrl, AampG
 {
 	return true;
 }
+
+void PrivateInstanceAAMP::LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelper,void* userData)
+{
+}
+
