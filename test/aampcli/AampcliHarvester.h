@@ -18,16 +18,17 @@
  */
 
 /**
- * @file AampcliHarvestor.h
- * @brief AampcliHarvestor header file
+ * @file AampcliHarvester.h
+ * @brief AampcliHarvester header file
  */
 
-#ifndef AAMPCLIHARVESTOR_H
-#define AAMPCLIHARVESTOR_H
+#ifndef AAMPCLIHARVESTER_H
+#define AAMPCLIHARVESTER_H
 
 #include <libgen.h>
 #include <limits.h>
 #include <unistd.h>
+#include <mutex>
 #include "AampcliCommand.h"
 
 #ifdef __APPLE__
@@ -54,49 +55,61 @@ typedef struct harvestProfileDetails
 	long bitrate;
 }HarvestProfileDetails;
 
-class Harvestor : public Command
+class Harvester : public Command
 {
 
 	public:
-		static bool mHarvestReportFlag;
+		// static so can be used to size arrays below
 		static const int mHarvestCommandLength = 4096;
 		static const int mHarvestSlaveThreadCount = 50;
 		static const int mHarvestSubsThreadCount = 10;
-		static int mHarvestCountLimit;
-		static int mTCPServerSinkPort;
-		static char mExePathName[PATH_MAX];
+	
+		// static so can be used in static function harvestTerminateHandler
+		static bool mHarvestReportFlag;
 		static std::string mHarvestPath;
+		static std::mutex mHarvestInfoMutex;
 		static std::map<std::thread::id, harvestProfileDetails> mHarvestInfo;
 		static std::vector<std::thread::id> mHarvestThreadId;
+	
+		// static as used by slave harvester
 		static PlayerInstanceAAMP *mPlayerInstanceAamp;
+	
+		char mExePathName[PATH_MAX];
+		int mHarvestCountLimit;
+		int mHarvestConfig;
+		int mTCPServerSinkPort;
 
-		std::thread mMasterHarvestorThreadID;
-		std::thread mSlaveHarvestorThreadID;
+		std::thread mMasterHarvesterThreadID;
+		std::thread mSlaveHarvesterThreadID;
 		std::thread mReportThread;
 		std::thread mSlaveIFrameThread;
 		std::thread mSlaveVideoThreads[mHarvestSlaveThreadCount];
 		std::thread mSlaveAudioThreads[mHarvestSlaveThreadCount];
 		std::thread mSlaveSubtitleThreads[mHarvestSubsThreadCount];
 		
-		static void masterHarvestor(void * arg);
-		static void slaveHarvestor(void * arg);
+		// static so can be passed to thread()
+		static void masterHarvester(void * arg);
+		static void slaveHarvester(void * arg);
 		static void slaveDataOutput(void * arg);
+		// static so can be passed to signal()
+		static void harvestTerminateHandler(int signal);
+	
 		long getNumberFromString(std::string buffer);
 		void startHarvestReport(char * arg);
 		bool getHarvestReportDetails(char *buffer);
-		FILE *createSlaveHarvestor(std::map<std::string, std::string> cmdlineParams, int harvestConfig, long bitRate=0, 
+		FILE *createSlaveHarvester(std::map<std::string, std::string> cmdlineParams, int harvestConfig, long bitRate=0,
 								   std::string language = "", int trackId=-1);
-		bool createSlaveDataReader(FILE *pSlaveHarvestor, std::thread& dataReader);
+		bool createSlaveDataReader(FILE *pSlaveHarvester, std::thread& dataReader);
 		void writeHarvestErrorReport(HarvestProfileDetails, char *buffer);
 		void writeHarvestEndReport(HarvestProfileDetails, char *buffer);
-		static void harvestTerminateHandler(int signal);
+		
 		void getExecutablePath();
 		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
-		Harvestor();
+		Harvester();
 
 		std::vector<AudioTrackInfo> GetAudioTracks();
 		std::vector<TextTrackInfo> GetTextTracks();
 };
 
 
-#endif // AAMPCLIHARVESTOR_H
+#endif // AAMPCLIHARVESTER_H

@@ -33,7 +33,7 @@
 #include "AampcliCommand.h"
 #include "AampcliGet.h"
 #include "AampcliSet.h"
-#include "AampcliHarvestor.h"
+#include "AampcliHarvester.h"
 #include "AampcliPlaybackCommand.h"
 #include "AampcliSmokeTest.h"
 
@@ -42,7 +42,7 @@ class CommandHandler
 	private:
 		Set mSet{};
 		Get mGet{};
-		Harvestor mHarvestor{};
+		Harvester mHarvester{};
 		SmokeTest mSmokeTest{};
 		PlaybackCommand mPlaybackCommand{};
 

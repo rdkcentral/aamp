@@ -340,7 +340,7 @@ set(AAMP_CLI_HEADERS test/aampcli/Aampcli.h
 			test/aampcli/AampcliSet.h
 			test/aampcli/AampcliVirtualChannelMap.h
 			test/aampcli/AampcliShader.h
-			test/aampcli/AampcliHarvestor.h
+			test/aampcli/AampcliHarvester.h
 			test/aampcli/AampcliSmokeTest.h
 			test/aampcli/AampcliSubtecSimulator.h
 			${AAMP_OS_SOURCES})
@@ -351,7 +351,7 @@ set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp
 			test/aampcli/AampcliSet.cpp
 			test/aampcli/AampcliVirtualChannelMap.cpp
 			test/aampcli/AampcliShader.cpp
-			test/aampcli/AampcliHarvestor.cpp
+			test/aampcli/AampcliHarvester.cpp
 			test/aampcli/AampcliSmokeTest.cpp
 			test/aampcli/AampcliSubtecSimulator.cpp
 			${AAMP_OS_SOURCES})
