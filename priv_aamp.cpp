@@ -6056,6 +6056,9 @@ void PrivateInstanceAAMP::detach()
 			mCCId = 0;
 		}
 #endif
+#ifdef USE_SECMANAGER
+		mDRMSessionManager->hideWatermarkOnDetach();
+#endif
 		mStreamSink->Stop(true);
 		mbPlayEnabled = false;
 		mbDetached=true;

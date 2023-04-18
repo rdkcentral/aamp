@@ -277,18 +277,26 @@ public:
 	void setVideoWindowSize(int width, int height);
 
 	/**
-	 * @brief 	Update tracking of speed status and send watermarking requests as required. This is based on video presence, video mute state, and speed
+	 * @fn 	De-activate watermark and prevent it from being re-enabled until we get a new first video frame at normal play speed
+	 * @return	void.
+ 	 */
+	void hideWatermarkOnDetach();
+
+	/**
+	 * @fn 	Update tracking of speed status and send watermarking requests as required. This is based on video presence, video mute state, and speed
 	 * @param	speed playback speed
 	 * @param	position indicates the playback position at which most recent playback activity began
 	 * @param   firstFrameSeen set to true the first time we see a video frame after tune
- 	*/
+	 * @return	void.
+ 	 */
 	void setPlaybackSpeedState(int speed, double position, bool firstFrameSeen = false);
 	
 	/**
-	 * @brief 	Update tracking of video mute status and update watermarking requests as required, based on video presence, video mute state, and speed
+	 * @fn 	Update tracking of video mute status and update watermarking requests as required, based on video presence, video mute state, and speed
 	 * @param	videoMuteStatus video mute state to be set
 	 * @param	seek_pos_seconds indicates the playback position at which most recent playback activity began
- 	*/
+	 * @return	void.
+ 	 */
  	void setVideoMute(bool videoMuteStatus, double seek_pos_seconds);
 	/**
 	 * @fn    	setSessionMgrState

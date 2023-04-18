@@ -321,6 +321,21 @@ void AampDRMSessionManager::setVideoMute(bool isVideoOnMute, double seek_pos_sec
 #endif
 }
 
+/**
+ * @brief De-activate watermark and prevent it from being re-enabled until we get a new first video frame at normal play speed
+ */
+void AampDRMSessionManager::hideWatermarkOnDetach(void)
+{
+#ifdef USE_SECMANAGER
+	AAMPLOG_WARN("Clearing first frame flag and de-activating watermark.");
+	if(mSessionId.isSessionValid())
+	{
+		AampSecManager::GetInstance()->UpdateSessionState(mSessionId.getSessionId(), false);
+	}
+	mFirstFrameSeen = false;
+#endif
+}
+
 
 void AampDRMSessionManager::setPlaybackSpeedState(int speed, double position, bool firstFrameSeen)
 {
