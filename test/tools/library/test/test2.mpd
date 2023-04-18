@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD type="dynamic" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:dvb="urn:dvb:dash:dash-extensions:2014-1" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" minBufferTime="PT1.143S" maxSegmentDuration="PT4S" minimumUpdatePeriod="P1D" timeShiftBufferDepth="PT2M" availabilityStartTime="2017-12-19T12:00:12Z" publishTime="2019-11-14T15:17:38">
+	<BaseURL dvb:priority="1" dvb:weight="1" serviceLocation="ak">http://server.abc/</BaseURL>
+	<Period start="PT0S" id="1">
+		<AdaptationSet startWithSAP="2" segmentAlignment="true" par="16:9" sar="1:1" id="1" mimeType="video/mp4" scanType="progressive" contentType="video">
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+			<SegmentTemplate startNumber="378421197" presentationTimeOffset="302736956800" timescale="200" duration="800" media="content/fff/$RepresentationID$/$Number%06d$.m4s" initialization="init/fff/$RepresentationID$/init.mp4" />
+			<Representation id="1280x720p50" bandwidth="7000000" width="1280" height="720" frameRate="50" />
+			<Representation id="1920x1080p50" bandwidth="10000000" width="1920" height="1080" frameRate="50" />
+			<Representation id="2560x1440p50" bandwidth="16000000" width="2560" height="1440" frameRate="50" />
+			<Representation id="3840x2160p50" bandwidth="36000000" width="3840" height="2160" frameRate="50" />
+
+		</AdaptationSet>
+		<AdaptationSet startWithSAP="2" segmentAlignment="true" audioSamplingRate="48000" codecs="mp4a.40.2" id="3" mimeType="audio/mp4" lang="eng" contentType="audio">
+			<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+			<SegmentTemplate startNumber="378421197" presentationTimeOffset="72656869632000" timescale="48000" duration="192000" media="content/fff/$RepresentationID$/$Number%06d$.m4s" initialization="init/fff/$RepresentationID$/init.mp4" />
+			<Representation bandwidth="192000" id="192kbps" />
+		</AdaptationSet>
+	</Period>
+	<UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-xsdate:2014" value="https://time.akamai.com/?iso"/>
+</MPD>

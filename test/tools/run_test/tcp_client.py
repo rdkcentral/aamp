@@ -29,7 +29,7 @@ def log(msg):
     """
     STD format for log messages created by this code.
     """
-    print("{} {} {}".format(int(time.time()),sys.argv[0],msg))
+    print("{:10.3f}: {} {}".format(time.time(),sys.argv[0],msg))
 
 def connect_to_tcp_server():
     """
