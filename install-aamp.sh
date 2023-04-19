@@ -472,7 +472,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 
     mkdir -p build
    
-    cd build && PKG_CONFIG_PATH=/usr/local/opt/ossp-uuid/lib/pkgconfig:/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCMAKE_BUILD_TYPE=Debug -DCOVERAGE_ENABLED=${COVERAGE} -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -G Xcode ../
+    cd build && PKG_CONFIG_PATH=/usr/local/opt/ossp-uuid/lib/pkgconfig:/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCOVERAGE_ENABLED=${COVERAGE} -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -G Xcode ../
 
     # the cmake Xcode generator can not set this scheme property (Debug -> Options -> Console -> Use Terminal
     patch ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme < ../OSX/patches/aamp-cli.xscheme.patch 
