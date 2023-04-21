@@ -7,6 +7,7 @@ defaultbuilddir=aamp-devenv-$(date +"%Y-%m-%d-%H-%M")
 defaultcodebranch="dev_sprint_23_1"
 defaultchannellistfile="$HOME/aampcli.csv"
 defaultopensslversion="openssl@1.1"
+googletestbranch="tags/release-1.11.0"
 processtorun="aamp"
 subtecoption=""
 
@@ -88,7 +89,7 @@ install_system_packages() {
 
     do_clone https://github.com/google/googletest
     cd googletest
-    git checkout tags/release-1.11.0
+    git checkout $googletestbranch
     mkdir build
     cd build
     cmake ../

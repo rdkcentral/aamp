@@ -19,9 +19,16 @@ endif()
 set(HEADERS AampSmokeTestPlayer.h TuneSmokeTest.h ${AAMP_OS_HEADERS})
 set(SOURCES AampSmokeTestPlayer.cpp TuneSmokeTest.cpp gtest_main.cpp ${AAMP_OS_SOURCES})
 
+if (CMAKE_PLATFORM_UBUNTU)
+    set(CMAKE_INSTALL_RPATH "${PROJECT_SOURCE_DIR}/Linux/lib")
+endif()
 
 add_executable(aamp_smoketest ${HEADERS} ${SOURCES})
 set(EXEC_NAME aamp_smoketest)
+
+if (CMAKE_PLATFORM_UBUNTU)
+    target_link_libraries(aamp_smoketest "-Wl,--disable-new-dtags")
+endif()
 
 if (COVERAGE_ENABLED)
   LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/test/smoketest")

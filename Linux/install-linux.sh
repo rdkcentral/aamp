@@ -56,6 +56,16 @@ else
     echo "skipping ampmetrics patch"
 fi
 
+if [ -d "googletest" ]; then
+    echo "googletest exists"
+else
+    do_clone https://github.com/google/googletest
+    pushd googletest
+        git checkout $googletestbranch
+    popd
+fi    
+
+
 #### CLONE_PACKAGES
 
 #  TODO: check
@@ -107,6 +117,18 @@ function build_repo()
 build_repo cJSON
 build_repo aampabr
 build_repo aampmetrics
+
+
+###Build gtest
+echo "Building googletest"
+pushd googletest
+    mkdir -p build
+    cd build
+    env PKG_CONFIG_PATH=$linuxbuilddir/lib/pkgconfig cmake .. -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_INSTALL_PREFIX=$linuxbuilddir
+    make
+    make install
+popd
+###End build gtest
 
 
 #### COPY LIBDASH FILES
