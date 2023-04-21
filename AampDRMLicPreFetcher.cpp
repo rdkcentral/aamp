@@ -60,6 +60,9 @@ AampLicensePreFetcher::~AampLicensePreFetcher()
 {
 	FN_TRACE_F_LIC_PREFETCH( __FUNCTION__ );
 	DeInit();
+	{
+		std::lock_guard<std::mutex>lock(mQMutex);
+	}
 }
 
 /**
