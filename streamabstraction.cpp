@@ -3497,6 +3497,16 @@ void MediaTrack::PlaylistDownloader()
 			// Index playlist and update track informations.
 			ProcessPlaylist(manifest, http_error);
 
+			// RDKAAMP-991: HTTP Response header needs to be sent to app when:
+			// 1. HTTP header response event listener is available
+			// 2. HTTP header response values are present
+			// 3. Manifest refresh has happened during Live
+			// Sending response after ProcessPlaylist is done
+			if (aamp->IsEventListenerAvailable(AAMP_EVENT_HTTP_RESPONSE_HEADER) && gotManifest && !aamp->httpHeaderResponses.empty() && aamp->IsLive())
+			{
+				aamp->SendHTTPHeaderResponse();
+			}
+
 			if(fragmentCollectorWaitingForPlaylistUpdate && gotManifest)
 			{
 				// (gotManifest => false) If manifest download failed due to ABR request from HLS, don't abort wait.

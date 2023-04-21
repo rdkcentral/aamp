@@ -960,3 +960,7 @@ void PrivateInstanceAAMP::LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelpe
 {
 }
 
+bool PrivateInstanceAAMP::IsEventListenerAvailable(AAMPEventType eventType)
+{
+	return false;
+}
