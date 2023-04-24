@@ -30,6 +30,7 @@ install_package libgstreamer-plugins-base1.0-dev
 install_package gstreamer1.0-libav
 install_package lcov
 install_package gcovr
+install_package libcjson-dev
 
 ver=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
