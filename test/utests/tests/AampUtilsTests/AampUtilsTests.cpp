@@ -163,15 +163,6 @@ TEST(_AampUtils, ISO8601DateTimeToUTCSeconds)
 }
 
 
-TEST(_AampUtils, MyRpcWriteFunction)
-{
-	std::string context = "context";
-	char buffer[] = {"buffer"};
-	int numBytes = MyRpcWriteFunction((void*)buffer, 5, 7,(void*)&context);
-	EXPECT_EQ(numBytes, 35);
-	EXPECT_STREQ(context.c_str(), "contextbuffer");
-}
-
 TEST(_AampUtils, aamp_PostJsonRPC)
 {
 	std::string result;

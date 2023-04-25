@@ -408,15 +408,6 @@ double ISO8601DateTimeToUTCSeconds(const char *ptr)
 	return timeSeconds;
 }
 
-
-static size_t MyRpcWriteFunction( void *buffer, size_t size, size_t nmemb, void *context )
-{
-	std::string *response = (std::string *)context;
-	size_t numBytes = size*nmemb;
-	*response += std::string((const char *)buffer,numBytes);
-	return numBytes;
-}
-
 /**
  * @brief aamp_PostJsonRPC posts JSONRPC data
  */

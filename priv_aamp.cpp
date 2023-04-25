@@ -948,7 +948,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 		//AAMPLOG_WARN("[%d] dltotal: %.0f , dlnow: %.0f, ultotal: %.0f, ulnow: %.0f, time: %.0f\n", context->fileType,
 		//	dltotal, dlnow, ultotal, ulnow, difftime(time(NULL), 0));
 
-		int AbrChunkThresholdSize = GETCONFIGVALUE(eAAMPConfig_ABRChunkThresholdSize);
+		// int AbrChunkThresholdSize = GETCONFIGVALUE(eAAMPConfig_ABRChunkThresholdSize);
 
 		if (/*(dlnow > AbrChunkThresholdSize) &&*/ (context->downloadNow != dlnow))
 		{
@@ -1271,7 +1271,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mCMCDCollector = new AampCMCDCollector(mLogObj);
 
 	SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_UserAgent, (std::string )AAMP_USERAGENT_BASE_STRING);
-	int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
 	preferredLanguagesString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLanguage);
 	preferredRenditionString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioRendition);
 	preferredCodecString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioCodec);
@@ -1282,6 +1281,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	preferredTextLabelString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLabel);
 	preferredTextTypeString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextType);
 #if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
+	int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
 	mDRMSessionManager = new AampDRMSessionManager(mLogObj, maxDrmSession);
 #endif
 	pthread_cond_init(&mDownloadsDisabled, NULL);
@@ -11782,12 +11782,11 @@ bool PrivateInstanceAAMP::HasSidecarData()
  */
 void PrivateInstanceAAMP::UpdateMaxDRMSessions()
 {
-	int maxSessions = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
-
 	// drm sessions should be updated only when player is idle
 	if (mState == eSTATE_IDLE || mState == eSTATE_RELEASED)
 	{
 #if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
+		int maxSessions = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
 		mDRMSessionManager->UpdateMaxDRMSessions(maxSessions);
 #else
 		AAMPLOG_ERR("DRM is not supported");

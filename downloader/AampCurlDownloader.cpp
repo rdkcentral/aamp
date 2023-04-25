@@ -582,8 +582,8 @@ int AampCurlDownloader::progress_callback(
 					double predictedTotalDownloadTimeMs = elapsedTimeMs*dltotal/dlnow;
 					if( predictedTotalDownloadTimeMs > mDnldCfg->iDownloadTimeout )
 					{
-						AAMPLOG_WARN("lowBWTimeout=%lds; predictedTotalDownloadTime=%fs>%fs (network timeout)",
-								mDnldCfg->iLowBWTimeout,
+						AAMPLOG_WARN("lowBWTimeout=%ds; predictedTotalDownloadTime=%fs>%fs (network timeout)",
+								(int)mDnldCfg->iLowBWTimeout,
 								predictedTotalDownloadTimeMs/1000.0,
 								mDnldCfg->iDownloadTimeout/1000.0 );
 						mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
@@ -603,7 +603,7 @@ int AampCurlDownloader::progress_callback(
 
 size_t AampCurlDownloader::GetDataString(std::string &dataStr)
 {
-	int ret=0;
+	size_t ret=0;
 	if(mDownloadResponse != nullptr)
 	{
 		dataStr =	std::string( mDownloadResponse->mDownloadData.begin(), mDownloadResponse->mDownloadData.end());
