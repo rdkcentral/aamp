@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 function package_exists_lin() {
     dpkg -s "$1" &> /dev/null
     return $?
@@ -8,11 +9,23 @@ function package_exists_lin() {
 function install_package() {
     if ! package_exists_lin $1 ; then
         echo "installing $1"
-        apt install $1 -y
+        sudo apt install $1 -y
     fi
 }
 
-apt update
+function pip_package_exists_lin() {
+    pip3 show "$1" &> /dev/null
+    return $?
+}
+
+function pip_install_package() {
+    if ! pip_package_exists_lin $1 ; then
+        echo "installing $1"
+        sudo pip3 install $1
+    fi
+}
+
+sudo apt update
 install_package git
 install_package cmake
 install_package gcc
@@ -31,17 +44,43 @@ install_package lcov
 install_package gcovr
 install_package libcjson-dev
 install_package curl
-install_package meson
 install_package xz-utils
+install_package freeglut3-dev
+install_package build-essential
+install_package libglew-dev
+install_package libboost-all-dev
+install_package ninja-build
+install_package libwebsocketpp-dev
+install_package libjansson-dev
+install_package libwayland-dev
+install_package libxkbcommon-dev
+install_package libfontconfig-dev
+install_package libharfbuzz-dev
 
 ver=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
-if [ ${ver:0:2} -eq 20 ]; then
-	echo "No additional packages required. OS verion is $ver"
+if [ ${ver:0:2} -eq 22 ]; then
+	install_package meson
+
+	# Temporary check for gcc version as subtec currently fails to build with gcc-11
+	# on 22.04. Once the build issues have been fixed this can be removed
+	gccver=$(g++ --version | awk '{ print $NF }' | head -n 1 | cut -d. -f1)
+	if [ $gccver -eq 11 ]; then
+	    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+	    echo "Currently subtec will not build with gcc-11"
+	    echo "Please install and use gcc-9 as follows:"
+	    echo " sudo apt update"
+	    echo " sudo apt install g++-9 -y"
+	    echo " sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 10"
+	    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+	    exit 1
+	fi
+elif [ ${ver:0:2} -eq 20 ]; then
+	install_package python3-pip
+	pip_install_package meson
 elif [ ${ver:0:2} -eq 18 ]; then
-	echo "Two additional packages required. 0S version is $ver"
-	install_package freeglut3-dev
-	install_package libglew-dev
+	install_package python3-pip
+	pip_install_package meson
 else
-	echo "Please upgrade your Ubuntu version to at least 18:04 LTS. OS version is $ver"
+	echo "Please upgrade your Ubuntu version to at least 20:04 LTS. OS version is $ver"
 fi

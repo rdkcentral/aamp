@@ -546,15 +546,11 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 
     #print final status of the script
 elif [[ "$OSTYPE" == "linux"* ]]; then
-
-    sudo apt install ninja-build
     
     cd Linux
+
     #cat ../../../aampmetrics.patch > patches/aampmetrics.patch
-    sudo apt-get install freeglut3-dev build-essential
-    sudo apt-get install libglew-dev
-    sudo bash install-linux-deps.sh
-    
+    source install-linux-deps.sh
     source install-linux.sh -b $codebranch
     
     cd ../
