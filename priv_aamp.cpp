@@ -6962,7 +6962,11 @@ void PrivateInstanceAAMP::Stop()
 	{
 		mPreCachePlaylistThreadId.join();
 	}
-	getAampCacheHandler()->StopPlaylistCache();
+	
+	if (mAampCacheHandler)
+	{
+		mAampCacheHandler->StopPlaylistCache();
+	}
 
 	if (pipeline_paused)
 	{
