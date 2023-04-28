@@ -292,7 +292,6 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,mDrmPrefs({{CLEARKEY_UUID, 1}, {WIDEVINE_UUID, 2}, {PLAYREADY_UUID, 3}})// Default values, may get changed due to config file
 	,mCommonKeyDuration(0), mEarlyAvailablePeriodIds(), thumbnailtrack(), indexedTileInfo()
 	,mMaxTracks(0)
-	,mServerUtcTime(0)
 	,mDeltaTime(0)
 	,mHasServerUtcTime(false)
 	,latencyMonitorThreadStarted(false),prevLatencyStatus(LATENCY_STATUS_UNKNOWN),latencyStatus(LATENCY_STATUS_UNKNOWN),latencyMonitorThreadID()
@@ -304,6 +303,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,mSubtitleParser()
 	,mLicensePrefetcher(logObj, aamp, this)
 	,mMultiVideoAdaptationPresent(false)
+	,mLocalUtcTime(0)
 {
         FN_TRACE_F_MPD( __FUNCTION__ );
 	this->aamp = aamp;
@@ -1948,7 +1948,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			}
 
 			AAMPLOG_TRACE("fDesc.Time= %lf utcTime=%lf delta=%lf CTSeconds=%lf,FreqTime=%lf",pMediaStreamContext->fragmentDescriptor.Time,
-					mServerUtcTime,mDeltaTime,currentTimeSeconds,fragmentRequestTime);
+					mLocalUtcTime,mDeltaTime,currentTimeSeconds,fragmentRequestTime);
 
 			bool bProcessFrgment = true;
 			if(!mIsLiveStream)
@@ -1977,22 +1977,22 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				pMediaStreamContext->eos = true;
 			}
 			else if( mIsLiveStream &&  mHasServerUtcTime &&  
-					( isLowLatencyMode? fragmentRequestTime >= mServerUtcTime+mDeltaTime : fragmentRequestTime >= mServerUtcTime)) 
+					( isLowLatencyMode? fragmentRequestTime >= mLocalUtcTime+mDeltaTime : fragmentRequestTime >= mLocalUtcTime))
 			{
 				ReleasePlaylistLock();
 				int sleepTime = MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
 
-				AAMPLOG_TRACE("With ServerUTCTime. Next fragment Not Available yet: fragmentDescriptor.Time %f fragmentDuration:%f currentTimeSeconds %f Server  UTCTime %f sleepTime %d ", pMediaStreamContext->fragmentDescriptor.Time, fragmentDuration, currentTimeSeconds, mServerUtcTime, sleepTime);	
+				AAMPLOG_TRACE("With ServerUTCTime. Next fragment Not Available yet: fragmentDescriptor.Time %f fragmentDuration:%f currentTimeSeconds %f Local UTCTime %f sleepTime %d ", pMediaStreamContext->fragmentDescriptor.Time, fragmentDuration, currentTimeSeconds, mLocalUtcTime, sleepTime);
 				aamp->InterruptableMsSleep(sleepTime);
 				retval = false;
-            }
+			}
 			else if(mIsLiveStream && !mHasServerUtcTime && 
 					(isLowLatencyMode?(fragmentRequestTime>=currentTimeSeconds):(fragmentRequestTime >= (currentTimeSeconds-mPresentationOffsetDelay))))
 			{
 				ReleasePlaylistLock();
 				int sleepTime = MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
 
-				AAMPLOG_TRACE("Without ServerUTCTime. Next fragment Not Available yet: fragmentDescriptor.Time %f fragmentDuration:%f currentTimeSeconds %f Server  UTCTime %f sleepTime %d ", pMediaStreamContext->fragmentDescriptor.Time, fragmentDuration, currentTimeSeconds, mServerUtcTime, sleepTime);	
+				AAMPLOG_TRACE("Without ServerUTCTime. Next fragment Not Available yet: fragmentDescriptor.Time %f fragmentDuration:%f currentTimeSeconds %f Local UTCTime %f sleepTime %d ", pMediaStreamContext->fragmentDescriptor.Time, fragmentDuration, currentTimeSeconds, mLocalUtcTime, sleepTime);
 				aamp->InterruptableMsSleep(sleepTime);
 				retval = false;
 			}
@@ -3019,7 +3019,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMpdFromManifest(const AampGrowableB
 
 					if(mIsLiveManifest)
 					{
-						mHasServerUtcTime = FindServerUTCTime(root);
+						if(init)
+						{
+							mHasServerUtcTime = FindServerUTCTime(root);
+						}
+						else
+						{
+							double currentTime = (double)aamp_GetCurrentTimeMS() / 1000;
+							mLocalUtcTime =  currentTime + mDeltaTime;
+						}
 					}
 
 					if(mIsFogTSB && ISCONFIGSET(eAAMPConfig_InterruptHandling))
@@ -5857,7 +5865,7 @@ bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 	bool hasServerUtcTime = false;
 	if( root )
 	{
-		mServerUtcTime = 0;
+		mLocalUtcTime = 0;
 		for ( auto node :  root->GetSubNodes() )
 		{
 			if(node)
@@ -5867,16 +5875,15 @@ bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 					std::string schemeIdUri = node->GetAttributeValue("schemeIdUri");
 					if ( SERVER_UTCTIME_DIRECT == schemeIdUri && node->HasAttribute("value"))
 					{
-						double currentTime = (double)aamp_GetCurrentTimeMS() / 1000;
 						const std::string &value = node->GetAttributeValue("value");
-						mServerUtcTime = ISO8601DateTimeToUTCSeconds(value.c_str() );
-						mDeltaTime =  mServerUtcTime - currentTime;
+						mLocalUtcTime = ISO8601DateTimeToUTCSeconds(value.c_str() );
+						double currentTime = (double)aamp_GetCurrentTimeMS() / 1000;
+						mDeltaTime =  mLocalUtcTime - currentTime;
 						hasServerUtcTime = true;
 						break;
 					}
 					else if((SERVER_UTCTIME_HTTP == schemeIdUri || (URN_UTC_HTTP_ISO == schemeIdUri) || (URN_UTC_HTTP_HEAD == schemeIdUri)) && node->HasAttribute("value"))
 					{
-						double currentTime = (double)aamp_GetCurrentTimeMS() / 1000;
 						int http_error = -1;
 						std::string ServerUrl = node->GetAttributeValue("value");
 						if(!(ServerUrl.find("http") == 0))
@@ -5885,10 +5892,11 @@ bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 							aamp_ResolveURL(ServerUrl, aamp->GetManifestUrl(), valueCopy.c_str(), ISCONFIGSET(eAAMPConfig_PropogateURIParam));
 						}
 						
-						mServerUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
-						if(mServerUtcTime > 0 )
+						mLocalUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
+						if(mLocalUtcTime > 0 )
 						{
-							mDeltaTime =  mServerUtcTime - currentTime;
+							double currentTime = (double)aamp_GetCurrentTimeMS() / 1000;
+							mDeltaTime =  mLocalUtcTime - currentTime;
 							hasServerUtcTime = true;
 						}
 						else
@@ -11894,7 +11902,7 @@ double StreamAbstractionAAMP_MPD::GetEncoderDisplayLatency()
 							strptime(wallClockTime.c_str(), format, &tmTime);
 							wTime = mktime(&tmTime);
 
-							AAMPLOG_TRACE("ProducerReferenceTime@wallClockTime [%ld] UTCTime [%f]",wTime, mServerUtcTime);
+							AAMPLOG_TRACE("ProducerReferenceTime@wallClockTime [%ld] UTCTime [%f]",wTime, mLocalUtcTime);
 
 							/* Convert the time back to a string. */
 							strftime( out_buffer, 80, "That's %D (a %A), at %T",localtime (&wTime) );

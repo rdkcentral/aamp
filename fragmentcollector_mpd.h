@@ -890,7 +890,6 @@ private:
 	double mAvailabilityStartTime;
 	std::map<std::string, int> mDrmPrefs;
 	int mMaxTracks; /* Max number of tracks for this session */
-	double mServerUtcTime;
 	double mDeltaTime;
 	bool mHasServerUtcTime;
 	bool mLiveTimeFragmentSync;
@@ -987,6 +986,7 @@ private:
 	std::unique_ptr<SubtitleParser> mSubtitleParser;	/**< Parser for subtitle data*/
 	AampLicensePreFetcher mLicensePrefetcher;
 	bool mMultiVideoAdaptationPresent;
+	double mLocalUtcTime;
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_
