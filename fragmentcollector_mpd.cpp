@@ -3061,6 +3061,7 @@ Node* aamp_ProcessNode(xmlTextReaderPtr *reader, std::string url, bool isAd)
 {
 	//FN_TRACE_F_MPD( __FUNCTION__ );
 	int type = xmlTextReaderNodeType(*reader);
+	static int UNIQ_PID = 0;
 
 	if (type != WhiteSpace && type != Text)
 	{
@@ -3090,16 +3091,25 @@ Node* aamp_ProcessNode(xmlTextReaderPtr *reader, std::string url, bool isAd)
 
 		AddAttributesToNode(reader, node);
 
-		if(isAd && !strcmp("Period", name))
+		if(!strcmp("Period", name))
 		{
-			//Making period ids unique. It needs for playing same ad back to back.
-			static int UNIQ_PID = 0;
-			std::string periodId = std::to_string(UNIQ_PID++) + "-";
-			if(node->HasAttribute("id"))
+			if(!node->HasAttribute("id"))
 			{
-				periodId += node->GetAttributeValue("id");
+				// Add a unique period id. AAMP needs these in multi-period
+				// static DASH assets to identify the current period.
+				std::string periodId = std::to_string(UNIQ_PID++) + "-";
+				node->AddAttribute("id", periodId);
 			}
-			node->AddAttribute("id", periodId);
+			else if(isAd)
+			{
+				// Make ad period ids unique. AAMP needs these for playing the same ad back to back.
+				std::string periodId = std::to_string(UNIQ_PID++) + "-" + node->GetAttributeValue("id");
+				node->AddAttribute("id", periodId);
+			}
+			else
+			{
+				// Non-ad period already has an id. Don't change dynamic period ids.
+			}
 		}
 
 		if (isEmpty)

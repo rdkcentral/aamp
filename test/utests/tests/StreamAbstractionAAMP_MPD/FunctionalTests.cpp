@@ -252,7 +252,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 </MPD>
 )";
 
-	/* Initialize MPD. The video initialization segement is cached. */
+	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
@@ -307,7 +307,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 </MPD>
 )";
 
-	/* Initialize MPD. The video initialization segement is cached. */
+	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
@@ -334,4 +334,76 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
+}
+
+/**
+ * @brief Missing period ids test.
+ *
+ * Unique period ids are added if none is specified in the manifest. AAMP uses
+ * these to distinguish between periods.
+ */
+TEST_F(FunctionalTests, MissingPeriodIds)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+R"(<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H0M6.000S" maxSegmentDuration="PT0H0M2.000S" profiles="urn:mpeg:dash:profile:full:2011,urn:mpeg:dash:profile:cmaf:2019">
+  <Period duration="PT0H0M2.000S">
+    <AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000">
+        <SegmentTemplate timescale="2500" media="video_$Number$.mp4" initialization="video_init.mp4">
+          <SegmentTimeline>
+            <S d="5000" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="ad" duration="PT0H0M2.000S">
+    <AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000">
+        <SegmentTemplate timescale="2500" media="ad_$Number$.mp4" initialization="ad_init.mp4">
+          <SegmentTimeline>
+            <S d="5000" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period duration="PT0H0M2.000S">
+    <AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000">
+        <SegmentTemplate timescale="2500" media="video_$Number$.mp4" initialization="video_init.mp4">
+          <SegmentTimeline>
+            <S t="5000" d="5000" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+	/* Initialize MPD. The first video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	/* Get the manifest data. */
+	mpd = mStreamAbstractionAAMP_MPD->GetMPD();
+	EXPECT_NE(mpd, nullptr);
+	EXPECT_EQ(mpd->GetPeriods().size(), 3);
+
+	/* Verify that a unique period id is added to the first and last period. The
+	 * actual id values depend on the test running order.
+	 */
+	EXPECT_NE(mpd->GetPeriods().at(0)->GetId(), std::string());
+	EXPECT_EQ(mpd->GetPeriods().at(1)->GetId(), std::string("ad"));
+	EXPECT_NE(mpd->GetPeriods().at(2)->GetId(), std::string());
+	EXPECT_NE(mpd->GetPeriods().at(0)->GetId(), mpd->GetPeriods().at(2)->GetId());
 }
