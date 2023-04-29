@@ -178,6 +178,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					tsprocessor.h
 					uint33_t.h
 					videoin_shim.h
+					AampCMCDCollector.h
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -218,6 +219,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					MediaStreamContext.cpp
 					AampCurlStore.cpp
 					AampDRMLicPreFetcher.cpp
+					AampCMCDCollector.cpp
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
@@ -719,8 +721,8 @@ install(TARGETS aamp-cli DESTINATION bin)
 install(TARGETS playbintest DESTINATION bin)
 
 install(TARGETS aamp DESTINATION lib PUBLIC_HEADER DESTINATION include PRIVATE_HEADER DESTINATION include)
-install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampEventManager.h AampDefine.h AampEventListener.h drm/AampMemorySystem.h drm/AampDRMSessionManager.h AampDrmSystems.h AampMediaType.h
-  drm/AampDrmData.h drm/AampDrmInfo.h drm/AampDrmMediaFormat.h AampDrmCallbacks.h AampLogManager.h
+install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h AampDefine.h AampEventListener.h drm/AampMemorySystem.h drm/AampDRMSessionManager.h AampDrmSystems.h AampMediaType.h
+  drm/AampDrmData.h drm/AampDrmInfo.h drm/AampDrmMediaFormat.h AampDrmCallbacks.h AampLogManager.h 
   drm/AampDrmSession.h drm/ClearKeyDrmSession.h drm/AampDRMutils.h drm/aampdrmsessionfactory.h
   drm/helper/AampDrmHelper.h subtitle/vttCue.h AampUtils.h
   AampMemoryUtils.h AampProfiler.h AampConstants.h iso639map.h AampRfc.h AampGstUtils.h

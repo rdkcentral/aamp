@@ -38,7 +38,7 @@ public:
     MOCK_METHOD(bool, GetFile, (std::string remoteUrl,struct GrowableBuffer *buffer, std::string& effectiveUrl,
                 int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
                 bool resetBuffer, MediaType fileType, long *bitrate, int * fogError,
-                double fragmentDurationSeconds,CMCDHeaders *pCMCDMetrics));
+                double fragmentDurationSeconds));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

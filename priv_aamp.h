@@ -57,6 +57,8 @@
 #include "AampRfc.h"
 #include "AampEventManager.h"
 #include <HybridABRManager.h>
+#include "AampCMCDCollector.h"
+
 
 #ifdef __APPLE__
 #define aamp_pthread_setname(tid,name) pthread_setname_np(name)
@@ -77,7 +79,6 @@
 
 #define AAMP_SEEK_TO_LIVE_POSITION (-1)
 
-#define MAX_SESSION_ID_LENGTH 128                                /**<session id string length */
 #define MANIFEST_TEMP_DATA_LENGTH 100			/**< Manifest temp data length */
 #define AAMP_LOW_BUFFER_BEFORE_RAMPDOWN 10 		/**< 10sec buffer before rampdown */
 #define AAMP_HIGH_BUFFER_BEFORE_RAMPUP  15 		/**< 15sec buffer before rampup */
@@ -898,8 +899,6 @@ public:
 	double mLiveOffset;
 	double mLiveOffsetDrift;               /**< allowed drift value from live offset configured **/
 	long mNetworkTimeoutMs;
-	std::string mCMCDNextObjectRequest;			/**<store the next next fragment url */
-	long mCMCDBandwidth;					/**<store the audio bandwidth */
 	long mManifestTimeoutMs;
 	long mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
@@ -1170,6 +1169,7 @@ public:
 	int mBufferFor4kRampup; 		    /** Max Buffer for rampup used for 4k stream */
 	int mBufferFor4kRampdown; 	    /** Min Buffer for rampdown used for 4k Stream */
 
+	AampCMCDCollector *mCMCDCollector;
 	/**
 	 * @fn hasId3Header
 	 *
@@ -1310,7 +1310,7 @@ public:
 	 * @param[in] CMCDMetrics - pointer to CMCDNetwork metrics
 	 * @return void
 	 */
-	bool GetFile(std::string remoteUrl, struct GrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true,MediaType fileType = eMEDIATYPE_DEFAULT, long *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0,class CMCDHeaders *pCMCDMetrics = NULL);
+	bool GetFile(std::string remoteUrl, struct GrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true,MediaType fileType = eMEDIATYPE_DEFAULT, long *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0);
 
 	/**
 	 * @fn getUUID
@@ -1371,10 +1371,9 @@ public:
 	 * @param[in] fileType - File type
 	 * @param[out] http_code - HTTP error code
 	 * @param[out] fogError - Error from FOG
-	 * @param[in] CMCDMetrics - pointer to CMCDNetwork metrics
 	 * @return void
 	 */
-	bool LoadFragment(class CMCDHeaders *pCMCDMetrics,ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, struct GrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, MediaType fileType = eMEDIATYPE_MANIFEST, int * http_code = NULL, double * downloadTime = NULL, long *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
+	bool LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, struct GrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, MediaType fileType = eMEDIATYPE_MANIFEST, int * http_code = NULL, double * downloadTime = NULL, long *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
 
 	/**
 	 * @fn PushFragment
@@ -2295,17 +2294,6 @@ public:
 	 *   @return void
 	 */
 	void SetCallbackAsDispatched(guint id);
-
-
-	/**
-	 *   @fn CollectCMCDCustomHeaders
-	 *   @brief Collect and store CMCD Headers related data
-	 *
-	 *   @param[in] fileType - Type of content.
-	 *   @param[in] pCMCDMetrics - pointer to CMCDHeaders.
-	 *   @return void
-	 */
-	void CollectCMCDCustomHeaders(MediaType fileType,class CMCDHeaders *pCMCDMetrics);
 
 	/**
 	 *   @fn AddCustomHTTPHeader
@@ -4179,6 +4167,7 @@ private:
 	bool mProgressReportFromProcessDiscontinuity; /** flag dentoes if progress reporting is in execution from ProcessPendingDiscontinuity*/
 	AampEventManager *mEventManager;
 	AampCacheHandler *mAampCacheHandler;
+	
 	int mMinInitialCacheSeconds; 		/**< Minimum cached duration before playing in seconds*/
 	std::string mDrmInitData; 		/**< DRM init data from main manifest URL (if present) */
 	bool mFragmentCachingRequired; 		/**< True if fragment caching is required or ongoing */

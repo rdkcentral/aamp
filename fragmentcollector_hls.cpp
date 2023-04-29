@@ -1548,22 +1548,11 @@ char *TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreDis
 
 	}
 	//As a part of RDK-37711 to fetch the url of next next fragment
-	if(rc && ISCONFIGSET(eAAMPConfig_EnableCMCD))
+	if(rc)
 	{
-		std::string url(rc);
-		long long seqNo = nextMediaSequenceNumber - 1;
-		if(!url.empty())
-		{
-			size_t found = url.rfind(std::to_string(seqNo));
-			if (found != std::string::npos)
-			{
-				seqNo++;
-				std::string sequenceNumberNew = std::to_string(seqNo);
-				url.replace(found,sequenceNumberNew.length(),sequenceNumberNew);
-				aamp->mCMCDNextObjectRequest = url;
-				AAMPLOG_INFO("Next fragment url %s",url.c_str());
-			}
-		}
+		// TODO: Bug : Bandwidth is set as 0 .Before also mCMCDBandwidth was not updated for HLS ??
+		MediaType TrackMediaType = (MediaType) type;
+		aamp->mCMCDCollector->CMCDSetNextObjectRequest(rc, (nextMediaSequenceNumber - 1),0,TrackMediaType);
 	}
 #ifdef TRACE
 	AAMPLOG_WARN("GetNextFragmentUriFromPlaylist %s:  pos %f returning %s", name,playlistPosition, rc);
@@ -1758,7 +1747,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			std::string tempEffectiveUrl;
 			AAMPLOG_TRACE(" Calling Getfile . buffer %p avail %d", &cachedFragment->fragment, (int)cachedFragment->fragment.avail);
 			bool fetched = aamp->GetFile(fragmentUrl, &cachedFragment->fragment,
-			 tempEffectiveUrl, &http_error, &downloadTime, range, type, false, (MediaType)(type), NULL, NULL, fragmentDurationSeconds,pCMCDMetrics);
+			 tempEffectiveUrl, &http_error, &downloadTime, range, type, false, (MediaType)(type), NULL, NULL, fragmentDurationSeconds);
 			//Workaround for 404 of subtitle fragments
 			//TODO: This needs to be handled at server side and this workaround has to be removed
 			if (!fetched && http_error == 404 && type == eTRACK_SUBTITLE)
@@ -3715,7 +3704,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		// take the original url before its gets changed in GetFile
 		std::string mainManifestOrigUrl = aamp->GetManifestUrl();
 		aamp->SetCurlTimeout(aamp->mManifestTimeoutMs, eCURLINSTANCE_MANIFEST_MAIN);
-		(void) aamp->GetFile(aamp->GetManifestUrl(), &this->mainManifest, aamp->GetManifestUrl(), &http_error, &mainManifestdownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN, true, eMEDIATYPE_MANIFEST,NULL,NULL,0,pCMCDMetrics);//CID:82578 - checked return
+		(void) aamp->GetFile(aamp->GetManifestUrl(), &this->mainManifest, aamp->GetManifestUrl(), &http_error, &mainManifestdownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN, true, eMEDIATYPE_MANIFEST,NULL,NULL,0);//CID:82578 - checked return
 		// Set playlist curl timeouts.
 		for (int i = eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO; i < (eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO + AAMP_TRACK_COUNT); i++)
 		{
@@ -3965,6 +3954,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		if(video)
 		{
 			video->SetCurrentBandWidth( (int)(GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond) );
+			aamp->mCMCDCollector->SetBitrates(eMEDIATYPE_VIDEO, GetVideoBitrates());
 		}
 		if(ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
 		{
@@ -5321,7 +5311,7 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(AampLogManager *logObj, cla
 	rate(rate), maxIntervalBtwPlaylistUpdateMs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS), mainManifest(), allowsCache(false), seekPosition(seekpos), mTrickPlayFPS(),
 	enableThrottle(false), firstFragmentDecrypted(false), mStartTimestampZero(false), mNumberOfTracks(0), midSeekPtsOffset(0),
 	lastSelectedProfileIndex(0), segDLFailCount(0), segDrmDecryptFailCount(0), mMediaCount(0),mProfileCount(0),
-	mLangList(),mIframeAvailable(false), thumbnailManifest(), indexedTileInfo(),pCMCDMetrics(NULL),
+	mLangList(),mIframeAvailable(false), thumbnailManifest(), indexedTileInfo(),
 	mFirstPTS(0),mDiscoCheckMutex()
 {
 	trickplayMode = false;
@@ -5343,10 +5333,6 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(AampLogManager *logObj, cla
 	// Initializing curl instances for playlists.
 	aamp->CurlInit(eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO, AAMP_TRACK_COUNT, aamp->GetNetworkProxy());
 	pthread_mutex_init(&mDiscoCheckMutex, NULL);
-	if(ISCONFIGSET(eAAMPConfig_EnableCMCD))
-	{
-		pCMCDMetrics = new ManifestCMCDHeaders();
-	}
 }
 
 
@@ -5375,7 +5361,7 @@ TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstraction
 		mByteOffsetCalculation(false),mSkipAbr(false),
 		mCheckForInitialFragEnc(false), mFirstEncInitFragmentInfo(NULL), mDrmMethod(eDRM_KEY_METHOD_NONE)
 		,mXStartTimeOFfset(0), mCulledSecondsAtStart(0.0)//, mCMCDNetworkMetrics{-1,-1,-1}
-		,mProgramDateTime(0.0),pCMCDMetrics(NULL)
+		,mProgramDateTime(0.0)
 		,mSkipSegmentOnError(true)
 		,playlistMediaType()
 {
@@ -5389,15 +5375,6 @@ TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstraction
 	mCulledSecondsAtStart = aamp->culledSeconds;
 	mProgramDateTime = aamp->mProgramDateTime;
 	AAMPLOG_INFO("Restore PDT (%f) ",mProgramDateTime);
-	if(ISCONFIGSET(eAAMPConfig_EnableCMCD))
-	{
-		if(type == eTRACK_VIDEO)
-			pCMCDMetrics = new VideoCMCDHeaders();
-		else if(type == eTRACK_AUDIO)
-			pCMCDMetrics = new AudioCMCDHeaders();
-		else if(type == eTRACK_SUBTITLE)
-			pCMCDMetrics = new SubtitleCMCDHeaders();
-	}
 	playlistMediaType = GetPlaylistMediaTypeFromTrack(type, IS_FOR_IFRAME(aamp->rate,type));
 }
 
@@ -5430,7 +5407,6 @@ TrackState::~TrackState()
 	pthread_cond_destroy(&mPlaylistIndexed);
 	pthread_mutex_destroy(&mPlaylistMutex);
 	pthread_mutex_destroy(&mTrackDrmMutex);
-	SAFE_DELETE(pCMCDMetrics);
 }
 
 
@@ -5501,7 +5477,6 @@ StreamAbstractionAAMP_HLS::~StreamAbstractionAAMP_HLS()
 	aamp->CurlTerm(eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO, AAMP_TRACK_COUNT);
 	aamp->SyncEnd();
 	pthread_mutex_destroy(&mDiscoCheckMutex);
-	SAFE_DELETE(pCMCDMetrics);
 }
 
 /**
