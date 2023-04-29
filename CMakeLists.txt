@@ -146,6 +146,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampEventManager.h
 					AampFnLogger.h
 					AampGstUtils.h
+					AampGrowableBuffer.h
 					AampJsonObject.h
 					AampLogManager.h
 					AampMediaType.h
@@ -186,6 +187,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					_base64.cpp
 					AampMemoryUtils.cpp
 					AampCacheHandler.cpp
+					AampGrowableBuffer.cpp
 					AampScheduler.cpp
 					AampUtils.cpp
 					AampJsonObject.cpp
@@ -725,7 +727,7 @@ install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h Aam
   drm/AampDrmData.h drm/AampDrmInfo.h drm/AampDrmMediaFormat.h AampDrmCallbacks.h AampLogManager.h 
   drm/AampDrmSession.h drm/ClearKeyDrmSession.h drm/AampDRMutils.h drm/aampdrmsessionfactory.h
   drm/helper/AampDrmHelper.h subtitle/vttCue.h AampUtils.h
-  AampMemoryUtils.h AampProfiler.h AampConstants.h iso639map.h AampRfc.h AampGstUtils.h
+  AampMemoryUtils.h AampProfiler.h AampConstants.h iso639map.h AampRfc.h AampGstUtils.h AampGrowableBuffer.h
   AampScheduler.h
   drm/AampSecManager.h
   AampCurlStore.h

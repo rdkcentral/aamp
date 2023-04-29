@@ -505,12 +505,11 @@ bool PrivateCDAIObjectMPD::isPeriodInAdbreak(const std::string &periodId)
 MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifest, bool tryFog)
 {
 	MPD* adMpd = NULL;
-	GrowableBuffer manifest;
+	AampGrowableBuffer manifest;
 	bool gotManifest = false;
 	int http_error = 0;
 	double downloadTime = 0;
 	std::string effectiveUrl;
-	memset(&manifest, 0, sizeof(manifest));
 	gotManifest = mAamp->GetFile(manifestUrl, &manifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 	if (gotManifest)
 	{
@@ -524,7 +523,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	if (gotManifest)
 	{
 		finalManifest = true;
-		xmlTextReaderPtr reader = xmlReaderForMemory(manifest.ptr, (int) manifest.len, NULL, NULL, 0);
+		xmlTextReaderPtr reader = xmlReaderForMemory( manifest.GetPtr(), (int) manifest.GetLen(), NULL, NULL, 0);
 		if(tryFog && !mAamp->mConfig->IsConfigSet(eAAMPConfig_PlayAdFromCDN) && reader && mIsFogTSB)	//Main content from FOG. Ad is expected from FOG.
 		{
 			std::string channelUrl = mAamp->GetManifestUrl();	//TODO: Get FOG URL from channel URL
@@ -546,8 +545,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 			effectiveUrl.assign(channelUrl.c_str(), 0, ipend);
 			effectiveUrl.append("/adrec?clientId=FOG_AAMP&recordedUrl=");
 			effectiveUrl.append(encodedUrl.c_str());
-			GrowableBuffer fogManifest;
-			memset(&fogManifest, 0, sizeof(manifest));
+			AampGrowableBuffer fogManifest;
 			http_error = 0;
 			mAamp->GetFile(effectiveUrl, &fogManifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 			if(200 == http_error || 204 == http_error)
@@ -557,10 +555,9 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 				{
 					//FOG already has the manifest. Releasing the one from CDN and using FOG's
 					xmlFreeTextReader(reader);
-					reader = xmlReaderForMemory(fogManifest.ptr, (int) fogManifest.len, NULL, NULL, 0);
-					aamp_Free(&manifest);
-					manifest = fogManifest;
-					fogManifest.ptr = NULL;
+					reader = xmlReaderForMemory(fogManifest.GetPtr(), (int) fogManifest.GetLen(), NULL, NULL, 0);
+					manifest.Free();
+					manifest.Replace(&fogManifest);
 				}
 				else
 				{
@@ -568,9 +565,9 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 				}
 			}
 
-			if(fogManifest.ptr)
+			if(fogManifest.GetPtr() )
 			{
-				aamp_Free(&fogManifest);
+				fogManifest.Free();
 			}
 		}
 		if (reader != NULL)
@@ -648,10 +645,10 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 		if (gpGlobalConfig->logging.trace)
 		{
-			aamp_AppendNulTerminator(&manifest); // make safe for cstring operations
-			AAMPLOG_WARN("Ad manifest: %s", manifest.ptr);
+			manifest.AppendNulTerminator(); // make safe for cstring operations
+			AAMPLOG_WARN("Ad manifest: %s", manifest.GetPtr() );
 		}
-		aamp_Free(&manifest);
+		manifest.Free();
 	}
 	else
 	{

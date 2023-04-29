@@ -552,7 +552,7 @@ void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int insta
 {
 }
 
-bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *buffer, std::string& effectiveUrl,
+bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl,
                 int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
                 bool resetBuffer, MediaType fileType, long *bitrate, int * fogError,
                 double fragmentDurationSeconds)
@@ -848,7 +848,7 @@ void PrivateInstanceAAMP::SendStalledErrorEvent()
 {
 }
 
-void PrivateInstanceAAMP::SendStreamTransfer(MediaType mediaType, GrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment, bool discontinuity)
+void PrivateInstanceAAMP::SendStreamTransfer(MediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment, bool discontinuity)
 {
 }
 
@@ -956,17 +956,17 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 {
 }
 
-bool PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, struct GrowableBuffer *buffer, unsigned int curlInstance, const char *range, MediaType fileType, int * http_code, double * downloadTime, long *bitrate, int * fogError, double fragmentDurationSec)
+bool PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *buffer, unsigned int curlInstance, const char *range, MediaType fileType, int * http_code, double * downloadTime, long *bitrate, int * fogError, double fragmentDurationSec)
 {
 	return true;
 }
 
-char *PrivateInstanceAAMP::LoadFragment( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, size_t *len, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, MediaType fileType, int * fogError)
+void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, MediaType fileType,int * fogError)
 {
-	return NULL;
+        return;
 }
 
-bool PrivateInstanceAAMP::ProcessCustomCurlRequest(std::string& remoteUrl, struct GrowableBuffer* buffer, int *http_error, CurlRequest request, std::string pData)
+bool PrivateInstanceAAMP::ProcessCustomCurlRequest(std::string& remoteUrl, AampGrowableBuffer* buffer, int *http_error, CurlRequest request, std::string pData)
 {
 	return true;
 }

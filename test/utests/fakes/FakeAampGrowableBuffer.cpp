@@ -17,13 +17,43 @@
 * limitations under the License.
 */
 
-#include "AampMemoryUtils.h"
+#include "AampGrowableBuffer.h"
 
-void aamp_GFree( void *ptr )
+AampGrowableBuffer::~AampGrowableBuffer( void )
 {
 }
 
-void *aamp_GMalloc( size_t numBytes )
+/**
+ * @brief release any resource associated with AampGrowableBuffer, resetting back to contructed state
+ */
+void AampGrowableBuffer::Free( void )
 {
-	return NULL;
+}
+
+void AampGrowableBuffer::ReserveBytes( size_t numBytes )
+{
+}
+
+void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
+{
+}
+
+void AampGrowableBuffer::MoveBytes( const void *ptr, size_t len )
+{    
+}
+
+void AampGrowableBuffer::AppendNulTerminator(void)
+{
+}
+
+void AampGrowableBuffer::Clear( void )
+{
+}
+
+void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
+{
+}
+
+void AampGrowableBuffer::Transfer( void )
+{
 }

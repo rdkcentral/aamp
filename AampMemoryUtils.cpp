@@ -23,16 +23,20 @@
  */
 
 #include "AampMemoryUtils.h"
+//#include "AampGrowableBuffer.h"
 #include "AampConfig.h"
 #include <assert.h>
 #include <glib.h>
 #include <errno.h>
 
-static int gNetMemoryCount;
-static int gNetMemoryHighWatermark;
-
-static void NETMEMORY_PLUS( void )
+/**
+ * @brief adds to memory count
+ */
+void NETMEMORY_PLUS()
 {
+    /*if(name == NULL) {
+        AAMPLOG_WARN( "No name assigned: name = NULL");
+    }*/
 	gNetMemoryCount++;
 	if( gNetMemoryCount>gNetMemoryHighWatermark )
 	{
@@ -41,19 +45,26 @@ static void NETMEMORY_PLUS( void )
 	}
 }
 
-static void NETMEMORY_MINUS( void )
+/**
+ * @brief subtracts from memory count
+ */
+void NETMEMORY_MINUS()
 {
+    /*if(name == NULL) {
+        AAMPLOG_WARN( "No name assigned: name = NULL");
+    }*/
 	gNetMemoryCount--;
 	if( gNetMemoryCount==0 )
 	{
 		AAMPLOG_WARN( "***gNetMemoryCount=0" );
 	}
+	assert( gNetMemoryCount>=0 );
 }
 
 /**
  * @brief wrapper for g_free, used for segment allocation
  */
-void aamp_Free( void *ptr )
+void aamp_GFree( void *ptr )
 {
 	if( ptr )
 	{
@@ -63,9 +74,9 @@ void aamp_Free( void *ptr )
 }
 
 /**
- * @brief wrapper for g_malloc, used for segment allocation
+ * @brief wrapper for g_malloc; used internally and for ID3 metadata
  */
-void *aamp_Malloc( size_t numBytes )
+void *aamp_GMalloc( size_t numBytes )
 {
 	void *ptr = g_malloc(numBytes);
 	if( ptr )
@@ -73,90 +84,6 @@ void *aamp_Malloc( size_t numBytes )
 		NETMEMORY_PLUS();
 	}
 	return ptr;
-}
-
-/**
- * @brief called when ownership of memory of injected fragments passed to gstreamer
- */
-void aamp_TransferMemory( void *ptr )
-{
-	if( ptr )
-	{
-		NETMEMORY_MINUS();
-	}
-}
-
-/**
- * @brief free "GrowableBuffer" memopry allocated by aamp_Malloc
- */
-void aamp_Free(struct GrowableBuffer *buffer)
-{
-	if( buffer )
-	{
-		if( buffer->ptr )
-		{
-			NETMEMORY_MINUS();
-		}
-		g_free( buffer->ptr );
-		buffer->ptr = NULL;
-	}
-}
-
-/**
- * @brief append data to GrowableBuffer ADT
- */
-void aamp_AppendBytes(struct GrowableBuffer *buffer, const void *ptr, size_t len)
-{
-	size_t required = buffer->len + len;
-	if (required > buffer->avail)
-	{
-		// For encoded contents, step by step increment 512KB => 1MB => 2MB => ..
-		// In other cases, double the buffer based on availability and requirement.
-		buffer->avail = ((buffer->avail * 2) > required) ? (buffer->avail * 2) : (required * 2);
-		if( buffer->avail && !buffer->ptr )
-		{ // first allocation
-			NETMEMORY_PLUS();
-		}
-		buffer->ptr = (char *)g_realloc(buffer->ptr, buffer->avail);
-	}
-	if (buffer->ptr)
-	{
-		memcpy(&buffer->ptr[buffer->len], ptr, len);
-		buffer->len = required;
-	}
-}
-
-/**
- * @brief Move data to buffer
- */
-void aamp_MoveBytes(struct GrowableBuffer *buffer, const void *ptr, size_t len)
-{
-	/* remove parsed data from memory */
-	if (buffer->ptr && ptr)
-	{
-        if(buffer->avail >= len)
-        {
-            memmove(&buffer->ptr[0], ptr, len);
-            buffer->len = len;
-        }
-        else
-        {
-            AAMPLOG_ERR("bad arg(len=%zu > available)", len );
-        }
-	}
-	else
-	{
-		AAMPLOG_ERR("bad arg(NULL)");
-	}
-}
-
-/**
- * @brief Append nul character to buffer
- */
-void aamp_AppendNulTerminator(struct GrowableBuffer *buffer)
-{
-	char zeros[2] = { 0, 0 }; // append two bytes, to distinguish between internal inserted 0x00's and a final 0x00 0x00
-	aamp_AppendBytes(buffer, zeros, 2);
 }
 
 #ifdef USE_SECMANAGER

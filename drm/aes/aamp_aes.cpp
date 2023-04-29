@@ -120,14 +120,14 @@ void AesDec::AcquireKey()
 	bool fetched = mpAamp->GetFile(keyURI, &mAesKeyBuf, tempEffectiveUrl, &http_error, &downloadTime, NULL, mCurlInstance, true, eMEDIATYPE_LICENCE);
 	if (fetched)
 	{
-		if (AES_128_KEY_LEN_BYTES == mAesKeyBuf.len)
+		if (AES_128_KEY_LEN_BYTES == mAesKeyBuf.GetLen() )
 		{
-			AAMPLOG_WARN("Key fetch success len = %d",  (int)mAesKeyBuf.len);
+			AAMPLOG_WARN("Key fetch success len = %d",  (int)mAesKeyBuf.GetLen() );
 			keyAcquisitionStatus = true;
 		}
 		else
 		{
-			AAMPLOG_ERR("Error Key fetch - size %d",  (int)mAesKeyBuf.len);
+			AAMPLOG_ERR("Error Key fetch - size %d",  (int)mAesKeyBuf.GetLen() );
 			failureReason = AAMP_TUNE_INVALID_DRM_KEY;
 		}
 	}
@@ -150,7 +150,7 @@ void AesDec::AcquireKey()
 	}
 	else
 	{
-		aamp_Free(&mAesKeyBuf); //To cleanup previous successful key if any
+		mAesKeyBuf.Free(); //To cleanup previous successful key if any
 		NotifyDRMError(failureReason);
 	}
 }
@@ -282,7 +282,7 @@ DrmReturn AesDec::Decrypt( ProfilerBucketType bucketType, void *encryptedDataPtr
 			int decLen = (int)encryptedDataLen;
 			memset(decryptedDataBuf, 0, encryptedDataLen);
 			mpAamp->LogDrmDecryptBegin(bucketType);
-			if(!EVP_DecryptInit_ex(OPEN_SSL_CONTEXT, EVP_aes_128_cbc(), NULL, (unsigned char*)mAesKeyBuf.ptr, mDrmInfo.iv))
+			if(!EVP_DecryptInit_ex(OPEN_SSL_CONTEXT, EVP_aes_128_cbc(), NULL, (unsigned char*)mAesKeyBuf.GetPtr(), mDrmInfo.iv))
 			{
 				AAMPLOG_ERR( "AesDec::EVP_DecryptInit_ex failed mDrmState = %d",(int)mDrmState);
 			}

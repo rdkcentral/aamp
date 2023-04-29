@@ -95,6 +95,6 @@ int MediaStreamContext::GetDefaultDurationBetweenPlaylistUpdates()
 	return 0;
 }
 
-void MediaStreamContext::ProcessPlaylist(GrowableBuffer& newPlaylist, int http_error)
+void MediaStreamContext::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error)
 {
 }

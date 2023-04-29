@@ -294,9 +294,8 @@ void IsoBmffProcessor::cacheInitSegment(char *segment, size_t size)
 {
 	// Save init segment for later. Init segment will be pushed once basePTS is calculated
 	AAMPLOG_INFO("IsoBmffProcessor::[%s] Caching init fragment", IsoBmffProcessorTypeName[type]);
-	GrowableBuffer *buffer = new GrowableBuffer();
-	memset(buffer, 0x00, sizeof(GrowableBuffer));
-	aamp_AppendBytes(buffer, segment, size);
+	AampGrowableBuffer *buffer = new AampGrowableBuffer();
+	buffer->AppendBytes(segment, size);
 	initSegment.push_back(buffer);
 }
 
@@ -312,9 +311,8 @@ void IsoBmffProcessor::pushInitSegment(double position)
 	{
 		for (auto it = initSegment.begin(); it != initSegment.end();)
 		{
-			GrowableBuffer *buf = *it;
+			AampGrowableBuffer *buf = *it;
 			p_aamp->SendStreamTransfer((MediaType)type, buf, position, position, 0);
-			aamp_Free(buf);
 			SAFE_DELETE(buf);
 			it = initSegment.erase(it);
 		}
@@ -330,8 +328,7 @@ void IsoBmffProcessor::clearInitSegment()
 	{
 		for (auto it = initSegment.begin(); it != initSegment.end();)
 		{
-			GrowableBuffer *buf = *it;
-			aamp_Free(buf);
+			AampGrowableBuffer *buf = *it;
 			SAFE_DELETE(buf);
 			it = initSegment.erase(it);
 		}

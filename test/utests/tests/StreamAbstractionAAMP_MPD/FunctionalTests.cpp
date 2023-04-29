@@ -169,13 +169,13 @@ public:
 	 * @param[out] buffer Buffer containing manifest data
 	 * @retval true on success
 	*/
-	bool GetManifest(std::string remoteUrl, struct GrowableBuffer *buffer)
+	bool GetManifest(std::string remoteUrl, AampGrowableBuffer *buffer)
 	{
 		EXPECT_STREQ(remoteUrl.c_str(), TEST_MANIFEST_URL);
 
-		/* Setup fake GrowableBuffer contents. */
-		buffer->ptr = (char *)mManifest;
-		buffer->len = strlen(mManifest);
+		/* Setup fake AampGrowableBuffer contents. */
+        buffer->Clear();
+        buffer->AppendBytes((char *)mManifest, strlen(mManifest));
 
 		return true;
 	}

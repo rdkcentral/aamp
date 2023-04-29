@@ -227,8 +227,8 @@ void MediaTrack::UpdateTSAfterInject()
 	pthread_mutex_lock(&mutex);
 	AAMPLOG_TRACE("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d",
 			name, fragmentIdxToInject, numberOfFragmentsCached);
-	aamp_Free(&cachedFragment[fragmentIdxToInject].fragment);
-	memset(&cachedFragment[fragmentIdxToInject], 0, sizeof(CachedFragment));
+	cachedFragment[fragmentIdxToInject].fragment.Free();
+	//memset(&cachedFragment[fragmentIdxToInject], 0, sizeof(CachedFragment));
 	fragmentIdxToInject++;
 	if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
 	{
@@ -254,11 +254,11 @@ void MediaTrack::UpdateTSAfterChunkInject()
 	pthread_mutex_lock(&mutex);
 	//Free Chunk Cache Buffer
 	prevDownloadStartTime = cachedFragmentChunks[fragmentChunkIdxToInject].downloadStartTime;
-	aamp_Free(&cachedFragmentChunks[fragmentChunkIdxToInject].fragmentChunk);
-    memset(&cachedFragmentChunks[fragmentChunkIdxToInject], 0, sizeof(CachedFragmentChunk));
+	cachedFragmentChunks[fragmentChunkIdxToInject].fragmentChunk.Free();
+    //memset(&cachedFragmentChunks[fragmentChunkIdxToInject], 0, sizeof(CachedFragmentChunk));
 
-	aamp_Free(&parsedBufferChunk);
-	memset(&parsedBufferChunk, 0x00, sizeof(GrowableBuffer));
+	parsedBufferChunk.Free();
+	//memset(&parsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
 
 	//increment Inject Index
 	++fragmentChunkIdxToInject;
@@ -276,7 +276,7 @@ void MediaTrack::UpdateTSAfterChunkInject()
  * @brief  To be implemented by derived classes to receive cached fragment Chunk
  *         Receives cached fragment and injects to sink.
  */
-void MediaTrack::InjectFragmentChunkInternal(MediaType mediaType, GrowableBuffer* buffer, double fpts, double fdts, double fDuration)
+void MediaTrack::InjectFragmentChunkInternal(MediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration)
 {
 	aamp->SendStreamTransfer(mediaType, buffer,
                      fpts, fdts, fDuration);
@@ -683,28 +683,28 @@ bool MediaTrack::ProcessFragmentChunk()
 {
 	//Get Cache buffer
 	CachedFragmentChunk* cachedFragmentChunk = &this->cachedFragmentChunks[fragmentChunkIdxToInject];
-	if(cachedFragmentChunk != NULL && NULL == cachedFragmentChunk->fragmentChunk.ptr)
+	if(cachedFragmentChunk != NULL && NULL == cachedFragmentChunk->fragmentChunk.GetPtr())
 	{
-		AAMPLOG_TRACE("[%s] Ignore NULL Chunk - cachedFragmentChunk->fragmentChunk.len %zu", name, cachedFragmentChunk->fragmentChunk.len);
+		AAMPLOG_TRACE("[%s] Ignore NULL Chunk - cachedFragmentChunk->fragmentChunk.len %zu", name, cachedFragmentChunk->fragmentChunk.GetLen());
 		return false;
 	}
-	if((cachedFragmentChunk->downloadStartTime != prevDownloadStartTime) && (unparsedBufferChunk.ptr != NULL))
+	if((cachedFragmentChunk->downloadStartTime != prevDownloadStartTime) && (unparsedBufferChunk.GetPtr() != NULL))
 	{
 		AAMPLOG_WARN("[%s] clean up curl chunk buffer, since  prevDownloadStartTime[%lld] != currentdownloadtime[%lld]", name,prevDownloadStartTime,cachedFragmentChunk->downloadStartTime);
-		aamp_Free(&unparsedBufferChunk);
-		memset(&unparsedBufferChunk,0x00,sizeof(GrowableBuffer));
-
+		unparsedBufferChunk.Free();
 	}
-	size_t requiredLength = cachedFragmentChunk->fragmentChunk.len + unparsedBufferChunk.len;
-	AAMPLOG_TRACE("[%s] cachedFragmentChunk->fragmentChunk.len [%zu] to unparsedBufferChunk.len [%zu] Required Len [%zu]", name, cachedFragmentChunk->fragmentChunk.len, unparsedBufferChunk.len, requiredLength);
+	size_t requiredLength = cachedFragmentChunk->fragmentChunk.GetLen() + unparsedBufferChunk.GetLen();
+	AAMPLOG_TRACE("[%s] cachedFragmentChunk->fragmentChunk.len [%zu] to unparsedBufferChunk.len [%zu] Required Len [%zu]", name, cachedFragmentChunk->fragmentChunk.GetLen(), unparsedBufferChunk.GetLen(), requiredLength);
 
 	//Append Cache buffer to unparsed buffer for processing
-	aamp_AppendBytes(&unparsedBufferChunk, cachedFragmentChunk->fragmentChunk.ptr, cachedFragmentChunk->fragmentChunk.len);
+	unparsedBufferChunk.AppendBytes(
+									 cachedFragmentChunk->fragmentChunk.GetPtr(),
+									 cachedFragmentChunk->fragmentChunk.GetLen() );
 
 #if 0  //enable to avoid small buffer processing
-	if(cachedFragmentChunk->fragmentChunk.len < 500)
+	if(cachedFragmentChunk->fragmentChunk.GetLen() < 500)
 	{
-		AAMPLOG_TRACE("[%s] cachedFragmentChunk->fragmentChunk.len [%d] Ignoring", name, cachedFragmentChunk->fragmentChunk.len);
+		AAMPLOG_TRACE("[%s] cachedFragmentChunk->fragmentChunk.len [%d] Ignoring", name, cachedFragmentChunk->fragmentChunk.GetLen();
 		return true;
 	}
 #endif
@@ -717,12 +717,12 @@ bool MediaTrack::ProcessFragmentChunk()
 	char *unParsedBuffer = NULL;
 	size_t parsedBufferSize = 0, unParsedBufferSize = 0;
 
-	unParsedBuffer = unparsedBufferChunk.ptr;
-	unParsedBufferSize = parsedBufferSize = unparsedBufferChunk.len;
+	unParsedBuffer = unparsedBufferChunk.GetPtr();
+	unParsedBufferSize = parsedBufferSize = unparsedBufferChunk.GetLen();
 
-	isobuf.setBuffer(reinterpret_cast<uint8_t *>(unparsedBufferChunk.ptr), unparsedBufferChunk.len);
+	isobuf.setBuffer(reinterpret_cast<uint8_t *>(unparsedBufferChunk.GetPtr()), unparsedBufferChunk.GetLen() );
 
-	AAMPLOG_TRACE("[%s] Unparsed Buffer Size: %zu", name,unparsedBufferChunk.len);
+	AAMPLOG_TRACE("[%s] Unparsed Buffer Size: %zu", name,unparsedBufferChunk.GetLen() );
 
 	bool bParse = false;
 	try
@@ -858,11 +858,11 @@ bool MediaTrack::ProcessFragmentChunk()
 		fduration = totalChunkDuration/(timeScale*1.0);
 
 		//Prepeare parsed buffer
-		aamp_AppendBytes(&parsedBufferChunk, unparsedBufferChunk.ptr, parsedBufferSize);
+		parsedBufferChunk.AppendBytes( unparsedBufferChunk.GetPtr(), parsedBufferSize);
 #ifdef AAMP_DEBUG_INJECT_CHUNK
 		IsoBmffBuffer isobufTest(mLogObj);
 		//TEST CODE for PARSED DATA COMPELTENESS
-		isobufTest.setBuffer(reinterpret_cast<uint8_t *>(parsedBufferChunk.ptr), parsedBufferChunk.len);
+		isobufTest.setBuffer(reinterpret_cast<uint8_t *>(parsedBufferChunk.GetPtr()), parsedBufferChunk.GetLen());
 		isobufTest.parseBuffer();
 		if(isobufTest.getChunkedfBox())
 		{
@@ -875,7 +875,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		//isobufTest.printBoxes();
 		isobufTest.destroyBoxes();
 #endif
-		AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%ld fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.len,fpts,fduration);
+		AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%ld fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
 		InjectFragmentChunkInternal((MediaType)type,&parsedBufferChunk , fpts, fpts, fduration);
 		totalInjectedChunksDuration += fduration;
 	}
@@ -887,24 +887,23 @@ bool MediaTrack::ProcessFragmentChunk()
 	{
 		AAMPLOG_TRACE("[%s] unparsed[%p] unparsed_size[%zu]", name,unParsedBuffer,unParsedBufferSize);
 
-		GrowableBuffer tempBuffer;
-		memset(&tempBuffer,0x00,sizeof(GrowableBuffer));
-		aamp_AppendBytes(&tempBuffer,unParsedBuffer,unParsedBufferSize);
-		aamp_Free(&unparsedBufferChunk);
-		memset(&unparsedBufferChunk,0x00,sizeof(GrowableBuffer));
-		aamp_AppendBytes(&unparsedBufferChunk,tempBuffer.ptr,tempBuffer.len);
-		aamp_Free(&tempBuffer);
-		memset(&tempBuffer,0x00,sizeof(GrowableBuffer));
+		AampGrowableBuffer tempBuffer;
+		//(&tempBuffer,0x00,sizeof(AampGrowableBuffer));
+		tempBuffer.AppendBytes(unParsedBuffer,unParsedBufferSize);
+		unparsedBufferChunk.Free();
+		//memset(&unparsedBufferChunk,0x00,sizeof(AampGrowableBuffer));
+		unparsedBufferChunk.AppendBytes(tempBuffer.GetPtr(),tempBuffer.GetLen());
+		tempBuffer.Free();
 	}
 	else
 	{
 		AAMPLOG_TRACE("[%s] Set Unparsed Buffer chunk Empty...", name);
-		aamp_Free(&unparsedBufferChunk);
-		memset(&unparsedBufferChunk, 0x00, sizeof(GrowableBuffer));
+		unparsedBufferChunk.Free();
+		//memset(&unparsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
 	}
 
-	aamp_Free(&parsedBufferChunk);
-	memset(&parsedBufferChunk, 0x00, sizeof(GrowableBuffer));
+	parsedBufferChunk.Free();
+	//memset(&parsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
 	return true;
 }
 
@@ -950,7 +949,7 @@ bool MediaTrack::InjectFragment()
 		AAMPLOG_WARN("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
 				name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.ptr);
 #endif
-		if (cachedFragment->fragment.ptr)
+		if (cachedFragment->fragment.GetPtr() )
 		{
 			StreamAbstractionAAMP* context = GetContext();
 #ifdef AAMP_DEBUG_INJECT
@@ -1034,7 +1033,7 @@ bool MediaTrack::InjectFragment()
 #endif
 				if (mSubtitleParser && type == eTRACK_SUBTITLE)
 				{
-					mSubtitleParser->processData(cachedFragment->fragment.ptr, cachedFragment->fragment.len, cachedFragment->position, cachedFragment->duration);
+					mSubtitleParser->processData(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), cachedFragment->position, cachedFragment->duration);
 				}
 
 				if (type != eTRACK_SUBTITLE || ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
@@ -1306,11 +1305,12 @@ CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
 	CachedFragment* cachedFragment = &this->cachedFragment[fragmentIdxToFetch];
 	if(initialize)
 	{
-		if (cachedFragment->fragment.ptr)
+		if (cachedFragment->fragment.GetPtr() )
 		{
 			AAMPLOG_WARN("fragment.ptr already set - possible memory leak");
 		}
-		memset(&cachedFragment->fragment, 0x00, sizeof(GrowableBuffer));
+		cachedFragment->fragment.Clear();
+		//memset(&cachedFragment->fragment, 0x00, sizeof(AampGrowableBuffer));
 	}
 	return cachedFragment;
 }
@@ -1333,11 +1333,12 @@ CachedFragmentChunk* MediaTrack::GetFetchChunkBuffer(bool initialize)
 
 	if(initialize && cachedFragmentChunk)
 	{
-		if (cachedFragmentChunk->fragmentChunk.ptr)
+		if (cachedFragmentChunk->fragmentChunk.GetPtr() )
 		{
-			AAMPLOG_WARN("[%s] fragmentChunk.ptr[%p] already set - possible memory leak (len=[%zu],avail=[%zu])",name, cachedFragmentChunk->fragmentChunk.ptr, cachedFragmentChunk->fragmentChunk.len, cachedFragmentChunk->fragmentChunk.avail);
+			AAMPLOG_WARN("[%s] fragmentChunk.ptr[%p] already set - possible memory leak (len=[%zu],avail=[%zu])",name, cachedFragmentChunk->fragmentChunk.GetPtr(), cachedFragmentChunk->fragmentChunk.GetLen(), cachedFragmentChunk->fragmentChunk.GetAvail() );
 		}
-		memset(&cachedFragmentChunk->fragmentChunk, 0x00, sizeof(GrowableBuffer));
+		cachedFragmentChunk->fragmentChunk.Clear();
+		//memset(&cachedFragmentChunk->fragmentChunk, 0x00, sizeof(AampGrowableBuffer));
 	}
 	return cachedFragmentChunk;
 }
@@ -1375,8 +1376,7 @@ void MediaTrack::FlushFragments()
 {
 	for (int i = 0; i < maxCachedFragmentsPerTrack; i++)
 	{
-		aamp_Free(&cachedFragment[i].fragment);
-		memset(&cachedFragment[i], 0, sizeof(CachedFragment));
+		cachedFragment[i].fragment.Free();
 	}
 	fragmentIdxToInject = 0;
 	fragmentIdxToFetch = 0;
@@ -1395,13 +1395,13 @@ void MediaTrack::FlushFragmentChunks()
 
 	for (int i = 0; i < maxCachedFragmentChunksPerTrack; i++)
 	{
-		aamp_Free(&cachedFragmentChunks[i].fragmentChunk);
+		cachedFragmentChunks[i].fragmentChunk.Free();
 		memset(&cachedFragmentChunks[i], 0, sizeof(CachedFragmentChunk));
 	}
-	aamp_Free(&unparsedBufferChunk);
-	memset(&unparsedBufferChunk, 0x00, sizeof(GrowableBuffer));
-	aamp_Free(&parsedBufferChunk);
-	memset(&parsedBufferChunk, 0x00, sizeof(GrowableBuffer));
+	unparsedBufferChunk.Free();
+	//memset(&unparsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
+	parsedBufferChunk.Free();
+	//memset(&parsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
 
 	fragmentChunkIdxToInject = 0;
 	fragmentChunkIdxToFetch = 0;
@@ -1435,15 +1435,18 @@ fragmentIdxToFetch(0), fragmentChunkIdxToFetch(0), abort(false), fragmentInjecto
 	GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached,maxCachedFragmentsPerTrack);
 	cachedFragment = new CachedFragment[maxCachedFragmentsPerTrack];
 	for(int X =0; X< maxCachedFragmentsPerTrack; ++X){
-		memset(&cachedFragment[X], 0, sizeof(CachedFragment));
+		cachedFragment[X].fragment.Clear();
+		//memset(&cachedFragment[X], 0, sizeof(CachedFragment));
 	}
 
 	if(aamp->GetLLDashServiceData()->lowLatencyMode)
 	{
 		GETCONFIGVALUE(eAAMPConfig_MaxFragmentChunkCached,maxCachedFragmentChunksPerTrack);
 		for(int X =0; X< maxCachedFragmentChunksPerTrack; ++X)
-			memset(&cachedFragmentChunks[X], 0x00, sizeof(CachedFragmentChunk));
-
+		{
+			cachedFragmentChunks[X].fragmentChunk.Clear();
+//			memset(&cachedFragmentChunks[X], 0x00, sizeof(CachedFragmentChunk));
+		}
 		pthread_cond_init(&fragmentChunkFetched, NULL);
 		pthread_cond_init(&fragmentChunkInjected, NULL);
 	}
@@ -1490,8 +1493,8 @@ MediaTrack::~MediaTrack()
 
 	for (int j = 0; j < maxCachedFragmentsPerTrack; j++)
 	{
-		aamp_Free(&cachedFragment[j].fragment);
-		memset(&cachedFragment[j], 0x00, sizeof(CachedFragment));
+		cachedFragment[j].fragment.Free();
+		//memset(&cachedFragment[j], 0x00, sizeof(CachedFragment));
 	}
 
 	SAFE_DELETE_ARRAY(cachedFragment);
@@ -3409,7 +3412,7 @@ void MediaTrack::PlaylistDownloader()
 		 */
 		if(aamp->DownloadsAreEnabled())
 		{
-			GrowableBuffer manifest;
+			AampGrowableBuffer manifest;
 			// reset quickPlaylistDownload for live playlist
 			quickPlaylistDownload = false;
 			std::string manifestUrl = GetPlaylistUrl();
@@ -3418,7 +3421,8 @@ void MediaTrack::PlaylistDownloader()
 			bool gotManifest = false;
 			int http_error = 0;
 			double downloadTime;
-			memset(&manifest, 0, sizeof(manifest));
+			manifest.Clear();
+			//memset(&manifest, 0, sizeof(manifest));
 
 			/*
 			 *
