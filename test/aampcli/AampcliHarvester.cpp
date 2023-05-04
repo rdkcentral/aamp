@@ -933,7 +933,7 @@ FILE * Harvester::createSlaveHarvester(std::map<std::string, std::string> cmdlin
 	}
 
 	slaveCmd = slaveCmd +
-		" harvest harvestMode=Slave harvestUrl=" + cmdlineParams["harvestUrl"] +
+		" harvest harvestMode=Slave harvestUrl=\"" + cmdlineParams["harvestUrl"] + "\"" +
 		" harvestCountLimit=" + std::to_string(Harvester::mHarvestCountLimit) +
 		" harvestConfig=" + std::to_string(harvestWhat) +
 		" abr=false" +
