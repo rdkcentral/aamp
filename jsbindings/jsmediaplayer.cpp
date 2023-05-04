@@ -3702,6 +3702,7 @@ public:
 
 	static std::string findTextTrackWithLang(JSContextRef ctx, std::string selectedLang)
 	{
+#ifdef AAMP_CC_ENABLED
 		const auto textTracks = AampCCManager::GetInstance()->getLastTextTracks();
                 LOG_WARN_EX("[XREReceiver]:found %d text tracks", (int)textTracks.size());
 
@@ -3735,6 +3736,7 @@ public:
 		}
 
                 LOG_WARN_EX("[XREReceiver]:cannot find text track matching the selected language, defaulting to 'CC1'");
+#endif
 		return "CC1";
 	}
 
@@ -3743,6 +3745,7 @@ private:
 	static void handle_onClosedCaptions(JSContextRef ctx, size_t argumentCount, const JSValueRef arguments[])
 	{
         	LOG_TRACE("[XREReceiver]: Inside Closed Captions");
+#ifdef AAMP_CC_ENABLED
 		if(argumentCount != 2)
 		{
             		LOG_ERROR_EX("[XREReceiver]: wrong argument count (expected 2) %d", argumentCount);
@@ -3764,10 +3767,7 @@ private:
 			const bool enable_value = JSValueToBoolean(ctx, param_enable_value);
             		LOG_WARN_EX("[XREReceiver]:received enable boolean %d", enable_value);
 
-
-#ifdef AAMP_CC_ENABLED
 			AampCCManager::GetInstance()->SetStatus(enable_value);
-#endif
 			if(enable_value)
 			{
 				const auto textTracks = AampCCManager::GetInstance()->getLastTextTracks();
@@ -3782,10 +3782,7 @@ private:
 
                                 LOG_WARN_EX("[XREReceiver]: found %d tracks, selected default textTrack = '%s'", (int)textTracks.size(), defaultTrack.c_str());
 
-
-#ifdef AAMP_CC_ENABLED
 				AampCCManager::GetInstance()->SetTrack(defaultTrack);
-#endif
 			}
 		}
 
@@ -3809,16 +3806,13 @@ private:
 
                         LOG_WARN_EX("[XREReceiver]: selected textTrack = '%s'", textTrack.c_str());
 
-
-#ifdef AAMP_CC_ENABLED
 			AampCCManager::GetInstance()->SetTrack(textTrack);
-#endif
-
 		}
 
 		JSStringRelease(param_enable);
 		JSStringRelease(param_setOptions);
 		JSStringRelease(param_setTrack);
+#endif
 	}
 
 	using Handler_t = std::function<void(JSContextRef, size_t, const JSValueRef[])>;
