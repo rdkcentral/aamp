@@ -531,7 +531,7 @@ CurlStore::~CurlStore()
 
 		if(CurlSock->mCurlShared)
 		{
-			curl_share_cleanup(CurlSock->mCurlShared);
+			(void)curl_share_cleanup(CurlSock->mCurlShared);
 			SAFE_DELETE(CurlSock->pstShareLocks);
 		}
 

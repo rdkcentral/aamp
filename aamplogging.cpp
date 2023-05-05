@@ -29,12 +29,6 @@
 #include "priv_aamp.h"
 using namespace std;
 
-#ifdef AAMP_SIMULATOR_BUILD
-#define LOG_PASS_COUNT 2 // console and file
-#else
-#define LOG_PASS_COUNT 1 // console only
-#endif
-
 #ifdef USE_SYSLOG_HELPER_PRINT
 #include "syslog_helper_ifc.h"
 #endif
@@ -435,9 +429,17 @@ static FILE *OpenSimulatorLogFile( void )
 }
 
 /**
+ * @brief Print one log line
+ */
+void logprintline(FILE *f, struct timeval t, const char* printBuffer)
+{
+	(void)fprintf(f, "%ld.%03ld: %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, printBuffer);
+}
+
+/**
  * @brief Print logs to console / log file
  */
-void logprintf(int playerId,const char* levelstr,const char* file, int line,const char *format, ...)
+void logprintf(int playerId, const char* levelstr, const char* file, int line, const char *format, ...)
 {
 	if( gAampcliQuietLogs ) return;
 	va_list args;
@@ -447,7 +449,15 @@ void logprintf(int playerId,const char* levelstr,const char* file, int line,cons
 	ossthread << std::this_thread::get_id();
 	int len = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer), "[AAMP-PLAYER][%d][%s][%s][%s][%d]",
 					playerId, levelstr, ossthread.str().c_str(), file, line);
-	vsnprintf(gDebugPrintBuffer+len, MAX_DEBUG_LOG_BUFF_SIZE-len, format, args);
+	if ((len <= 0) || (len > sizeof(gDebugPrintBuffer)))
+	{
+		// Log line too long to fit in buffer, print line and file, in that order, to help identify it in the code.
+		(void)snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer), "[%d][%s]Log line too long",line,file);
+	}
+	else
+	{
+		(void)vsnprintf(gDebugPrintBuffer+len, MAX_DEBUG_LOG_BUFF_SIZE-len, format, args);
+	}
 	gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE-1)] = 0;
 	va_end(args);
 
@@ -465,18 +475,17 @@ void logprintf(int playerId,const char* levelstr,const char* file, int line,cons
 
 	struct timeval t;
 	gettimeofday(&t, NULL);
-	for( int i=0; i<LOG_PASS_COUNT; i++ )
+	logprintline(stdout, t, gDebugPrintBuffer);
+
+#ifdef AAMP_SIMULATOR_BUILD
+	// When running the simulator also print the log to a file
+	FILE *f = OpenSimulatorLogFile();
+	if (f)
 	{
-		FILE *f = (i==0)?stdout:OpenSimulatorLogFile();
-		if( f )
-		{
-			fprintf( f, "%ld.%03ld: %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, gDebugPrintBuffer);
-			if( i==1 )
-			{
-				fclose( f );
+		logprintline(f, t, gDebugPrintBuffer);
+		(void)fclose(f);
 			}
-		}
-	}
+#endif
 }
 
 /**

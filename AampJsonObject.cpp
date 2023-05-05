@@ -95,12 +95,64 @@ bool AampJsonObject::add(const std::string& name, const char *value, const ENCOD
  */
 bool AampJsonObject::add(const std::string& name, const std::vector<std::string>& values)
 {
+	bool res = false;
 	cJSON* arr = cJSON_CreateArray();
-	for (auto value : values)
+
+	if (!arr)
 	{
-		cJSON_AddItemToArray(arr, cJSON_CreateString(value.c_str()));
+		// Failed to  create array
 	}
-	return add(name, arr);
+	else
+	{
+		res = true;
+		for (auto& value : values)
+		{
+			cJSON* string_item = cJSON_CreateString(value.c_str());
+
+			if (!string_item)
+			{
+				// Create string failed
+				res = false;
+			}
+			else if (!cJSON_AddItemToArray(arr, string_item))
+			{
+				cJSON_Delete(string_item);
+				res = false;
+			}
+			else
+			{
+				// String added successfully
+			}
+
+			if (!res)
+			{
+				// Adding an item failed
+				break;
+			}
+		}
+
+		if (!res)
+		{
+			// Something failed
+		}
+		else if (!add(name, arr))
+		{
+			// Adding the array to the json object failed
+			res = false;
+		}
+		else
+		{
+			// Array added successfully
+		}
+
+		if (!res)
+		{
+			// Something failed, so delete whole array
+			cJSON_Delete(arr);
+		}
+	}
+
+	return res;
 }
 
 /**
@@ -150,27 +202,72 @@ bool AampJsonObject::add(const std::string& name, const std::vector<uint8_t>& va
 }
 
 /**
- *  @brief Add a vector of #AampJsonObject as a JSON array
+ *  @brief Add a #AampJsonObject value
  */
 bool AampJsonObject::add(const std::string& name, AampJsonObject& value)
 {
-	cJSON_AddItemToObject(mJsonObj, name.c_str(), value.mJsonObj);
+	bool res = false;
+
+	if (cJSON_AddItemToObject(mJsonObj, name.c_str(), value.mJsonObj))
+	{
 	value.mParent = this;
-	return true;
+		res = true;
+	}
+
+	return res;
 }
 
 /**
- *  @brief Add a vector of string values as a JSON array
+ *  @brief Add a vector of #AampJsonObject values as a JSON array
  */
 bool AampJsonObject::add(const std::string& name, std::vector<AampJsonObject*>& values)
 {
+	bool res = false;
 	cJSON *arr = cJSON_CreateArray();
+
+	if (!arr)
+	{
+		// Failed to  create array
+	}
+	else
+	{
+		res = true;
 	for (auto& obj : values)
 	{
-		cJSON_AddItemToArray(arr, obj->mJsonObj);
+			if (!cJSON_AddItemToArray(arr, obj->mJsonObj))
+			{
+				// Failed to add item to array
+				res = false;
+				break;
+			}
+			else
+			{
 		obj->mParent = this;
 	}
-	return add(name, arr);
+		}
+
+		if (!res)
+		{
+			// Something failed
+		}
+		else if (!add(name, arr))
+		{
+			// Adding the array to the json object failed
+			res = false;
+		}
+		else
+		{
+			// Array added successfully
+		}
+
+		if (!res)
+		{
+			// Something failed, so delete whole array
+			cJSON_Delete(arr);
+		}
+	}
+
+	return res;
 }
 
 /**
@@ -178,12 +275,22 @@ bool AampJsonObject::add(const std::string& name, std::vector<AampJsonObject*>& 
  */
 bool AampJsonObject::add(const std::string& name, cJSON *value)
 {
+	bool res = false;
+
 	if (NULL == value)
 	{
-		return false;
+		// NULL parameter passed
 	}
-	cJSON_AddItemToObject(mJsonObj, name.c_str(), value);
-	return true;
+	else if (!cJSON_AddItemToObject(mJsonObj, name.c_str(), value))
+	{
+		// cJSON_AddItemToObject failed
+	}
+	else
+	{
+		res = true;
+	}
+
+	return res;
 }
 
 
@@ -192,17 +299,47 @@ bool AampJsonObject::add(const std::string& name, cJSON *value)
  */
 bool AampJsonObject::add(const std::string& name, bool value)
 {
-	cJSON_AddItemToObject(mJsonObj, name.c_str(), cJSON_CreateBool(value));
-	return true;
+	bool res = false;
+	cJSON *bool_item = cJSON_CreateBool(value);
+
+	if (!bool_item)
+	{
+		// Failed to create a bool
+	}
+	else if (!cJSON_AddItemToObject(mJsonObj, name.c_str(), bool_item))
+	{
+		cJSON_Delete(bool_item);
+	}
+	else
+	{
+		res = true;
+	}
+
+	return res;
 }
 
 /**
- *  @brief Add a int value
+ *  @brief Add an int value
  */
 bool AampJsonObject::add(const std::string& name, int value)
 {
-	cJSON_AddItemToObject(mJsonObj, name.c_str(), cJSON_CreateNumber(value));
-	return true;
+	bool res = false;
+	cJSON *number_item = cJSON_CreateNumber(value);
+
+	if (!number_item)
+	{
+		// Failed to create a number
+	}
+	else if (!cJSON_AddItemToObject(mJsonObj, name.c_str(), number_item))
+	{
+		cJSON_Delete(number_item);
+	}
+	else
+	{
+		res = true;
+	}
+
+	return res;
 }
 
 /**
@@ -210,8 +347,23 @@ bool AampJsonObject::add(const std::string& name, int value)
  */
 bool AampJsonObject::add(const std::string& name, double value)
 {
-	cJSON_AddItemToObject(mJsonObj, name.c_str(), cJSON_CreateNumber(value));
-	return true;
+	bool res = false;
+	cJSON *number_item = cJSON_CreateNumber(value);
+
+	if (!number_item)
+	{
+		// Failed to create a number
+	}
+	else if (!cJSON_AddItemToObject(mJsonObj, name.c_str(), number_item))
+	{
+		cJSON_Delete(number_item);
+	}
+	else
+	{
+		res = true;
+	}
+
+	return res;
 }
 
 /**
@@ -219,8 +371,23 @@ bool AampJsonObject::add(const std::string& name, double value)
  */
 bool AampJsonObject::add(const std::string& name, long value)
 {
-	cJSON_AddItemToObject(mJsonObj, name.c_str(), cJSON_CreateNumber(value));
-	return true;
+	bool res = false;
+	cJSON *number_item = cJSON_CreateNumber(value);
+
+	if (!number_item)
+	{
+		// Failed to create a number
+	}
+	else if (!cJSON_AddItemToObject(mJsonObj, name.c_str(), number_item))
+	{
+		cJSON_Delete(number_item);
+	}
+	else
+	{
+		res = true;
+	}
+
+	return res;
 }
 
 /**

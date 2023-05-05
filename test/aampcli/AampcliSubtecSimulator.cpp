@@ -248,7 +248,7 @@ static void *SubtecSimulatorThread( void *param )
 		}
 		free( buffer );
 	}
-	close( state->sockfd );
+	(void)close( state->sockfd );
 	printf( "SubtecSimulatorThread - exit\n" );
 	return 0;
 }
@@ -258,19 +258,25 @@ bool StartSubtecSimulator( const char *socket_path )
 	struct SubtecSimulatorState *state = &mSubtecSimulatorState;
 	if( !state->started )
 	{
-		unlink( socket_path );	// close if left over from previous session to avoid bind failure
+		(void)unlink( socket_path );	// close if left over from previous session to avoid bind failure
 		state->sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
 		if( state->sockfd>=0 )
 		{
 			struct sockaddr_un serverAddr;
 			memset(&serverAddr, 0, sizeof(serverAddr));
 			serverAddr.sun_family = AF_UNIX;
-			strcpy(serverAddr.sun_path, socket_path );
+			strncpy(serverAddr.sun_path, socket_path, sizeof(serverAddr.sun_path) - 1);
 			socklen_t len = sizeof(serverAddr);
 			if( bind( state->sockfd, (struct sockaddr*)&serverAddr, len ) == 0 )
 			{
-				state->started = true;
-				pthread_create(&state->threadId, NULL, &SubtecSimulatorThread, (void *)state);
+				if( pthread_create(&state->threadId, NULL, &SubtecSimulatorThread, (void *)state) )
+				{
+					printf( "SubtecSimulatorThread create() error: %d\n", errno );
+				}
+				else
+				{
+					state->started = true;
+				}
 			}
 			else
 			{
@@ -291,7 +297,7 @@ bool StopSubtecSimulator( void )
 	if( state->started )
 	{
 		state->started = false;
-		pthread_join(state->threadId, NULL);
+		(void)pthread_join(state->threadId, NULL);
 	}
 	else
 	{

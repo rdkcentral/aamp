@@ -27,6 +27,8 @@
 #include"AampcliSet.h"
 #include "AampcliSubtecSimulator.h"
 
+#define AAMPCLI_MAX_WEBVTT_SIZE	(500 * 1024)
+
 std::map<std::string,setCommandInfo> Set::setCommands = std::map<std::string,setCommandInfo>();
 std::vector<std::string> Set::commands(0);
 
@@ -1018,12 +1020,21 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 								std::stringstream strStream;
 								strStream << inFile.rdbuf();
 								std::string str = strStream.str();
-								char* data = new char[str.size() + 1];
-								std::copy(str.begin(), str.end(), data);
-								data[str.size()] = '\0';
+								size_t subt_size = str.size();
+								if (subt_size > AAMPCLI_MAX_WEBVTT_SIZE)
+								{
+									printf("[AAMPCLI] ERROR: WebVTT sidecar subtitles file too big (%lu > max=%u)\n",
+										subt_size, AAMPCLI_MAX_WEBVTT_SIZE);
+								}
+								else
+								{
+									char* data = new char[subt_size + 1];
+									std::copy(str.begin(), str.end(), data);
+									data[subt_size] = '\0';
 
-								/* Ownership of data is passed to AAMP. */
-								playerInstanceAamp->SetTextTrack(0, data);
+									/* Ownership of data is passed to AAMP. */
+									playerInstanceAamp->SetTextTrack(0, data);
+								}
 							}
 							else if (sscanf(cmd, "set %s %d", command, &track) == 2)
 							{
@@ -1348,7 +1359,7 @@ void Set::ShowHelpSet()
 	{
 		if(!commands.empty())
 		{
-			for(auto itr:commands)
+			for(auto& itr:commands)
 			{
 				auto setCmdItr = setCommands.find(itr);
 
