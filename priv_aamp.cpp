@@ -2730,6 +2730,14 @@ bool PrivateInstanceAAMP::IsDiscontinuityProcessPending()
 }
 
 /**
+ *   @brief get last injected position from video track
+ */
+double PrivateInstanceAAMP::getLastInjectedPosition()
+{
+	return (seek_pos_seconds + mpStreamAbstractionAAMP->GetLastInjectedFragmentPosition());
+}
+
+/**
  *   @brief Process pending discontinuity and continue playback of stream after discontinuity
  *
  *   @return true if pending discontinuity was processed successful, false if interrupted
@@ -5344,6 +5352,10 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		{
 			mDRMSessionManager = new AampDRMSessionManager(mLogObj, maxDrmSession, this);
 		}
+#endif
+        // Enable PTS Restamping only for Peacock App on BCOM
+#if defined(BRCM)
+        SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, true);
 #endif
 	}
 

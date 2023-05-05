@@ -838,8 +838,8 @@ uint32_t TrunBox::getSampleCount()
  */
 TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 {
-//	const uint32_t TRUN_FLAG_DATA_OFFSET_PRESENT                    = 0x0001;
-//	const uint32_t TRUN_FLAG_FIRST_SAMPLE_FLAGS_PRESENT             = 0x0004;
+	const uint32_t TRUN_FLAG_DATA_OFFSET_PRESENT                    = 0x0001;
+	const uint32_t TRUN_FLAG_FIRST_SAMPLE_FLAGS_PRESENT             = 0x0004;
 	const uint32_t TRUN_FLAG_SAMPLE_DURATION_PRESENT                = 0x0100;
 	const uint32_t TRUN_FLAG_SAMPLE_SIZE_PRESENT                    = 0x0200;
 	const uint32_t TRUN_FLAG_SAMPLE_FLAGS_PRESENT                   = 0x0400;
@@ -853,8 +853,9 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 	uint32_t sample_size = 0;
 	uint32_t sample_flags = 0;
 	uint32_t sample_composition_time_offset = 0;
-	uint32_t discard;
-	uint32_t totalSampleDuration = 0;
+	uint32_t firstSampleFlags=0;
+	uint32_t dataOffset = 0;
+	uint64_t totalSampleDuration = 0;
 
 	uint32_t record_fields_count = 0;
 
@@ -864,10 +865,19 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 		if (flags & (1<<(i+8))) ++record_fields_count;
 	}
 
+	
 	sample_count = READ_U32(ptr);
-
-	discard = READ_U32(ptr);
-	(void)discard; // Avoid a warning.
+	if(flags & TRUN_FLAG_DATA_OFFSET_PRESENT)
+	{
+		dataOffset = READ_U32(ptr);
+		(void)dataOffset; //avoid warnings
+	}
+	if(flags & TRUN_FLAG_FIRST_SAMPLE_FLAGS_PRESENT)
+	{
+		firstSampleFlags = READ_U32(ptr);
+		(void)firstSampleFlags; //avoid warnings
+	}
+	
 
 	for (unsigned int i=0; i<sample_count; i++)
 	{

@@ -377,6 +377,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"reconfigPipelineOnDiscontinuity", eAAMPConfig_ReconfigPipelineOnDiscontinuity, false},
 	{true,"mpdStichingSupport", eAAMPConfig_MPDStichingSupport, true},
 	{false,"sendUserAgentInLicense", eAAMPConfig_SendUserAgent, false},
+	{false,"enablePTSReStamp", eAAMPConfig_EnablePTSReStamp, true},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2

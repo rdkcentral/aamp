@@ -1121,3 +1121,6 @@ void PrivateInstanceAAMP::NotifyVideoBasePTS(unsigned long long basepts, unsigne
 void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string& manifestBuffer)
 {
 }
+void PrivateInstanceAAMP::ResetDiscontinuityInTracks()
+{
+}

@@ -485,7 +485,7 @@ class TrackState : public MediaTrack
 		 * @param[out] fragmentDiscarded bool to indicate fragment successfully injected
 		 * @return void
 		 ***************************************************************************/
-		void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded) override;
+		void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity=false)override;
 		/***************************************************************************
 		 * @fn FindMediaForSequenceNumber
 		 * @return string fragment tag line pointer
@@ -582,6 +582,7 @@ class TrackState : public MediaTrack
 
 	private:
 		bool refreshPlaylist;					/**< bool flag to indicate if playlist refresh required or not */
+		bool isFirstFragmentAfterABR;			/**< bool flag to inddicate whether the fragment is first fragment after ABR */
 		std::thread fragmentCollectorThreadID;	/**< Thread Id for Fragment  collector Thread */
 		bool fragmentCollectorThreadStarted;	/**< Flag indicating if fragment collector thread started or not*/
 		int manifestDLFailCount;		/**< Manifest Download fail count for retry*/

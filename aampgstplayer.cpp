@@ -4069,17 +4069,25 @@ bool AAMPGstPlayer::Discontinuity(MediaType type)
 	else
 	{
 		AAMPLOG_TRACE("stream->format %d, stream->firstBufferProcessed %d, stream->flush %d", stream->format , stream->firstBufferProcessed, stream->flush);
-		AAMPGstPlayer_SignalEOS(stream->source);
-		// We are in buffering, but we received discontinuity, un-pause pipeline
-		StopBuffering(true);
-		ret = true;
-
-		//If we have an audio discontinuity, signal subtec as well
-		if ((type == eMEDIATYPE_AUDIO) && (privateContext->stream[eMEDIATYPE_SUBTITLE].source))
+	if( ISCONFIGSET(eAAMPConfig_EnablePTSReStamp)  && ( aamp->mVideoFormat == FORMAT_ISO_BMFF &&
+		( aamp->mMediaFormat == eMEDIAFORMAT_HLS_MP4 ) ) )
 		{
-			AAMPGstPlayer_SignalEOS(privateContext->stream[eMEDIATYPE_SUBTITLE].source);
+			AAMPLOG_WARN("NO EOS: PTS-RESTAMP ENABLED");
+			ret = true;
 		}
+		else
+		{
+			AAMPGstPlayer_SignalEOS(stream->source);
+			// We are in buffering, but we received discontinuity, un-pause pipeline
+			StopBuffering(true);
+			ret = true;
 
+			//If we have an audio discontinuity, signal subtec as well
+			if ((type == eMEDIATYPE_AUDIO) && (privateContext->stream[eMEDIATYPE_SUBTITLE].source))
+			{
+				AAMPGstPlayer_SignalEOS(privateContext->stream[eMEDIATYPE_SUBTITLE].source);
+			}
+		}
 	}
 	return ret;
 }

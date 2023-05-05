@@ -940,6 +940,7 @@ bool MediaTrack::InjectFragment()
 	{
 		bool stopInjection = false;
 		bool fragmentDiscarded = false;
+		bool isDiscontinuity = false;
 		CachedFragment* cachedFragment = &this->cachedFragment[fragmentIdxToInject];
 #ifdef TRACE
 		AAMPLOG_WARN("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
@@ -1000,7 +1001,19 @@ bool MediaTrack::InjectFragment()
 				}
 				else
 				{
-					stopInjection = context->ProcessDiscontinuity(type);
+					if( ISCONFIGSET(eAAMPConfig_EnablePTSReStamp)  && ( aamp->mVideoFormat == FORMAT_ISO_BMFF && 
+						( aamp->mMediaFormat == eMEDIAFORMAT_HLS_MP4 ) ) )
+					{
+						context->ProcessDiscontinuity(type);
+						isDiscontinuity = true;
+						context->resetDiscontinuityTrackState();
+						aamp->ResetDiscontinuityInTracks();
+						AAMPLOG_WARN("track %s - Discontinuity @position - %f", name, cachedFragment->position);
+					}
+					else
+					{
+						stopInjection = context->ProcessDiscontinuity(type);
+					}
 				}
 
 				if (stopInjection)
@@ -1034,7 +1047,7 @@ bool MediaTrack::InjectFragment()
 
 				if (type != eTRACK_SUBTITLE || ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 				{
-					InjectFragmentInternal(cachedFragment, fragmentDiscarded);
+					InjectFragmentInternal(cachedFragment, fragmentDiscarded,isDiscontinuity);
 				}
 				if (eTRACK_VIDEO == type && GetContext()->GetProfileCount())
 				{
@@ -2729,6 +2742,14 @@ void MediaTrack::OnSinkBufferFull()
 }
 
 /**
+ *  @brief Function to reset the paired discontinuity.
+ */
+void StreamAbstractionAAMP::resetDiscontinuityTrackState()
+{
+	mTrackState = eDISCONTIUITY_FREE;
+}
+
+/**
  *  @brief Function to process discontinuity.
  */
 bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
@@ -2883,8 +2904,8 @@ void StreamAbstractionAAMP::CheckForMediaTrackInjectionStall(TrackType type)
 				double duration = track->GetTotalInjectedDuration();
 				double otherTrackDuration = otherTrack->GetTotalInjectedDuration();
 				double diff = otherTrackDuration - duration;
-				AAMPLOG_WARN("Discontinuity encountered in track:%d with injectedDuration:%f and other track injectedDuration:%f, fragmentDurationSeconds:%f, diff:%f",
-								type, duration, otherTrackDuration, track->fragmentDurationSeconds, diff);
+				AAMPLOG_WARN("Discontinuity encountered in track:%d with injectedDuration:%f and other track injectedDuration:%f, other.fragmentDurationSeconds:%f, diff:%f",
+								type, duration, otherTrackDuration, otherTrack->fragmentDurationSeconds, diff);
 				if (otherTrackDuration >= duration)
 				{
 					//Check for future discontinuity

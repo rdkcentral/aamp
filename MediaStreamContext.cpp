@@ -30,7 +30,7 @@
 /**
  *  @brief Receives cached fragment and injects to sink.
  */
-void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded)
+void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity)
 {
     //FN_TRACE_F_MPD( __FUNCTION__ );
     if(!(aamp->GetLLDashServiceData()->lowLatencyMode  && (cachedFragment->type == eMEDIATYPE_AUDIO ||

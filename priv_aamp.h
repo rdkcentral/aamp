@@ -1456,7 +1456,13 @@ public:
 	 * @return void
 	 */
 	void NotifyOnEnteringLive();
-
+	
+	/**
+	 * @fn getLastInjectedPosition
+	 *
+	 * @return last injected position
+	 */
+	double getLastInjectedPosition();
 	/**
 	 * @brief Get persisted profile index
 	 *
@@ -2084,6 +2090,13 @@ public:
 	 *    @return void
 	 */
 	void ResetTrackDiscontinuityIgnoredStatus(void);
+
+	/**
+	 *   @fn ResetDiscontinuityInTracks
+	 *
+	 *   @return void
+	 */
+	void ResetDiscontinuityInTracks();
 
 	/**
 	 *   @fn SetVideoZoom
@@ -4021,13 +4034,6 @@ private:
 	 *   @return true if discontinuity processed in any track
 	 */
 	bool DiscontinuitySeenInAnyTracks();
-
-	/**
-	 *   @fn ResetDiscontinuityInTracks
-	 *
-	 *   @return void
-	 */
-	void ResetDiscontinuityInTracks();
 
 	/**
 	 *   @fn HasSidecarData

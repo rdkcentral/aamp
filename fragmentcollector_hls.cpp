@@ -1209,11 +1209,16 @@ char *TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreDis
 		playTarget = 0;
 		//return fragmentURI; // leads to buffer overrun/crash
 	}
-	if (playlistPosition == playTarget)
+	if ((playlistPosition == playTarget)
+			|| (isFirstFragmentAfterABR && (type == eTRACK_VIDEO) && (-1 != playlistPosition) && ((int)playlistPosition == (int)playTarget)))
+			// Check the playposition and playtarget matches in case of fragment durtion mismatch after chaning profile in ABR.
 	{
+		isFirstFragmentAfterABR = false;
+
 		//AAMPLOG_WARN("[PLAYLIST_POSITION==PLAY_TARGET]");
 		return fragmentURI;
 	}
+
 	if ((playlistPosition != -1) && (fragmentURI != NULL))
 	{ // already presenting - skip past previous segment
 		//AAMPLOG_WARN("[PLAYLIST_POSITION!= -1]");
@@ -1230,6 +1235,7 @@ char *TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreDis
 		// Starts parsing from beginning, so change to default
 		fragmentEncrypted = false;
 	}
+
 	//AAMPLOG_WARN("before loop, ptr = %p fragmentURI %p", ptr, fragmentURI);
 	while (ptr)
 	{
@@ -1495,7 +1501,7 @@ char *TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreDis
 									discontinuity = false;
 								}
 								pthread_mutex_unlock(&context->mDiscoCheckMutex);
-								AAMPLOG_WARN("Released Discontinuity mutex last playlist Indexed:%lld", lastPlaylistIndexedTimeMS);
+								AAMPLOG_WARN("%s Released Discontinuity mutex last playlist Indexed:%lld", name, lastPlaylistIndexedTimeMS);
 								pthread_mutex_lock(&mPlaylistMutex);
 								if (playlistIndexedTimeMS != lastPlaylistIndexedTimeMS)
 								{
@@ -2145,7 +2151,7 @@ void TrackState::FetchFragment()
 /**
  * @brief Injected decrypted fragment for playback
  */
-void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded)
+void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity)
 {
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
@@ -2178,7 +2184,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 					len,
 					position,
 					cachedFragment->duration,
-					cachedFragment->discontinuity,
+					isDiscontinuity,
 					processor,
 					ptsError
 					);
@@ -5347,6 +5353,8 @@ void TrackState::RunFetchLoop()
 					PlaylistDownloader();
 				}
 				refreshPlaylist = false;
+
+				isFirstFragmentAfterABR = true;
 			}
 			pthread_mutex_unlock(&mutex);
 		}
@@ -5466,7 +5474,7 @@ TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstraction
 		streamOutputFormat(FORMAT_INVALID), playContext(NULL),
 		playTargetOffset(0),
 		discontinuity(false),
-		refreshPlaylist(false), fragmentCollectorThreadID(),
+		refreshPlaylist(false), fragmentCollectorThreadID(), isFirstFragmentAfterABR(false),
 		fragmentCollectorThreadStarted(false),
 		manifestDLFailCount(0),
 		mCMSha1Hash(NULL), mDrmTimeStamp(0), mDrmMetaDataIndexCount(0),firstIndexDone(false), mDrm(NULL), mDrmLicenseRequestPending(false),

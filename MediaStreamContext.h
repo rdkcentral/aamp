@@ -94,7 +94,7 @@ public:
      * @param[in] cachedFragment - contains fragment to be processed and injected
      * @param[out] fragmentDiscarded - true if fragment is discarded.
      */
-    void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded) override;
+    void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity=false) override;
 
     /**
      * @fn CacheFragment

@@ -631,7 +631,7 @@ protected:
 	 * @param[out] fragmentDiscarded - true if fragment is discarded.
 	 * @return void
 	 */
-	virtual void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded) = 0;
+	virtual void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity=false) = 0;
 
 	/**
 	 * @fn InjectFragmentChunkInternal
@@ -1330,7 +1330,14 @@ public:
 	 *   @return double last injected fragment position in seconds
 	 */
 	double GetLastInjectedFragmentPosition();
-
+	
+	/**
+	 *   @fn resetDiscontinuityTrackState
+	 *
+	 *   @return void
+	 */
+	void resetDiscontinuityTrackState();
+	
 	/**
 	 *   @fn ProcessDiscontinuity
 	 *

@@ -41,6 +41,33 @@ enum IsoBmffProcessorType
 };
 
 /**
+ * @struct InitRestampSegment
+ * @brief structure to hold init details of fragment
+ */
+typedef struct
+{
+	MediaType type;
+	char *segment;
+	size_t size;
+	double position;
+	double duration;
+}stInitRestampSegment;
+
+/**
+ * @enum timeScaleChangeStateType
+ * @brief Time Scale change type
+ */
+enum timeScaleChangeStateType
+{
+	eBMFFPROCESSOR_INIT_TIMESCALE,	 					/* Indicates no upscale or downscale requried keep injecting in current timescale */
+	eBMFFPROCESSOR_CONTINUE_TIMESCALE, 					/* Indicates to push Init buffer on same time scale */
+	eBMFFPROCESSOR_CONTINUE_WITH_ABR_CHANGED_TIMESCALE,	/* Indicates abr changed with new timescale	*/
+	eBMFFPROCESSOR_SCALE_TO_NEW_TIMESCALE,				/* Upscale or downscale based on new timescale(changes when discontinuity detected) */
+	eBMFFPROCESSOR_AFTER_ABR_SCALE_TO_NEW_TIMESCALE, 	/* Handling curl 28 error for fragment when trasiting from ad->to->content/vice versa */
+	eBMFFPROCESSOR_TIMESCALE_COMPLETE					/* push regular fragments on current timescale */
+};
+
+/**
  * @class IsoBmffProcessor
  * @brief Class for ISO BMFF Fragment Processor
  */
@@ -138,6 +165,123 @@ private:
 	void setBasePTS(uint64_t pts, uint32_t tScale);
 
 	/**
+	 * @fn resetRestampVariables
+	 *
+	 * @return void
+	 */
+	void resetRestampVariables();
+
+	/**
+	 * @fn setRestampBasePTS
+	 *
+	 * @param[in] pts - base PTS value after re-stamping
+	 * @return void
+	 */
+	void setRestampBasePTS(uint64_t pts);
+
+	/**
+	 * @fn setTuneTimePTS
+	 *
+	 * @param[in] segment - fragment buffer pointer
+	 * @param[in] size - fragment buffer size
+	 * @param[in] position - position of fragment
+	 * @param[in] duration - duration of fragment
+	 * @param[in] discontinuous - true if discontinuous fragment
+	 * @param[out] ptsError - flag indicates if any PTS error occurred
+	 * @return false if base was set, true otherwise
+	 */
+	bool setTuneTimePTS(char *segment, size_t& size, double position, double duration, bool discontinuous, bool &ptsError);
+
+	/**
+	 * @fn restampPTSAndSendSegment
+	 *
+	 * @param[in] segment - fragment buffer pointer
+	 * @param[in] size - fragment buffer size
+	 * @param[in] position - position of fragment
+	 * @param[in] duration - duration of fragment
+	 * @param[in] isDiscontinuity - true if discontinuity fragment
+	 * @return void
+	 */
+	void restampPTSAndSendSegment(char *segment, size_t& size, double position, double duration,bool isDiscontinuity);
+
+	/**
+	 * @fn cacheInitBufferForRestampingPTS
+	 *
+	 * @param[in] segment - fragment buffer pointer
+	 * @param[in] size - fragment buffer size
+	 * @param[in] tScale - timeScale of fragment
+	 * @param[in] position - position of fragment
+	 * @param[in] isAbrChangedTimeScale - indicates is timescale changed due to abr
+	 * @return void
+	 */
+	void cacheInitBufferForRestampingPTS(char *segment, size_t& size,uint32_t tScale,double position,bool isAbrChangedTimeScale=false);
+
+	/**
+	 * @fn handleSkipFragments
+	 *
+	 * @param[in] diffDuration - difference between current position and previous position
+	 * @return void
+	 */
+	uint64_t handleSkipFragments(float diffDuration);
+
+	/**
+	 * @fn pushInitAndSetRestampPTSAsBasePTS
+	 *
+	 * @param[in] pts - base PTS value after re-stamping
+	 * @return true if init push is success, false otherwise
+	 */
+	bool pushInitAndSetRestampPTSAsBasePTS(uint64_t pts);
+
+	/**
+	 * @fn scaleToNewTimeScale
+	 *
+	 * @param[in] pts - base PTS value after re-stamping
+	 * @return true if init push is success, false otherwise
+	 */
+	bool scaleToNewTimeScale(uint64_t pts);
+
+	/**
+	 * @fn continueInjectionInSameTimeScale
+	 *
+	 * @param[in] pts - base PTS value after re-stamping
+	 * @return true if init push is success, false otherwise
+	 */
+	bool continueInjectionInSameTimeScale(uint64_t pts);
+	
+	/**
+	 * @fn waitForVideoPTS
+	 *
+	 * @return void
+	 */
+	void waitForVideoPTS();
+
+	/**
+	 * @fn cacheRestampInitSegment
+	 *
+	 * @param[in] type - media type
+	 * @param[in] segment - fragment buffer pointer
+	 * @param[in] size - fragment buffer size
+	 * @param[in] pos - fragment position
+	 * @param[in] duartion - duartion of the position
+	 * @return void
+	 */
+	void cacheRestampInitSegment(MediaType type,char *segment,size_t size,double pos,double duration);
+
+	/**
+	 * @fn pushRestampInitSegment
+	 *
+	 * @return void
+	 */
+	void pushRestampInitSegment();
+
+	/**
+	 * @fn clearRestampInitSegment
+	 *
+	 * @return void
+	 */
+	void clearRestampInitSegment();
+
+	/**
 	 * @fn cacheInitSegment
 	 *
 	 * @param[in] segment - buffer pointer
@@ -162,17 +306,35 @@ private:
 	void clearInitSegment();
 
 	PrivateInstanceAAMP *p_aamp;
+	timeScaleChangeStateType timeScaleChangeState;
+	ContentType contentType;
+
 	uint32_t timeScale;
-	uint64_t basePTS;
-	IsoBmffProcessor *peerProcessor;
-	IsoBmffProcessorType type;
-	bool processPTSComplete;
-	bool initSegmentProcessComplete;
+	uint32_t currTimeScale;
+
+	double sumOfTrackDurationFromISOBuffer;
+	double startPos;
+	double prevPosition;
+	double prevDuration;
+	double maxDurationFromManifest;
 	double playRate;
 
-	std::vector<AampGrowableBuffer *> initSegment;
+	uint64_t basePTS;
+	uint64_t sumPTS;
+	uint64_t prevPTS;
+	uint64_t maxTrackDurationFromISOBufferInTS;
 
+	IsoBmffProcessor *peerProcessor;
+	IsoBmffProcessorType type;
+
+	bool isRestampConfigEnabled;
+	bool processPTSComplete;
+	bool initSegmentProcessComplete;
+	bool scalingOfPTSComplete;
 	bool abortAll;
+
+	std::vector<AampGrowableBuffer *> initSegment;
+	std::vector<stInitRestampSegment *> resetPTSInitSegment;
 
 	pthread_mutex_t m_mutex;
 	pthread_cond_t m_cond;

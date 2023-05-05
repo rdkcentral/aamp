@@ -39,7 +39,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
     return rv;
 }
 
-void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded)
+void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded, bool isDiscontinuity)
 {
 }
 
