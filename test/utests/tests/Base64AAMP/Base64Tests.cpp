@@ -29,42 +29,42 @@ namespace base64Test {
 
 	TEST(_base64Suite, encode)
 	{
-		int size = 4;
+		size_t size = 4;
 		char *result;
 		
 		// padded output
 		result = ::base64_Encode(base64Inp1, size);
-		EXPECT_STREQ(result, base64Exp1) << "The base64 encode of " << base64Inp1 << ", size " << size << " is not correct";
+		EXPECT_EQ(memcmp(result, base64Exp1, strlen(base64Exp1)), 0) << "The base64 encode of " << base64Inp1 << ", size " << size << " is not correct";
 		free(result);
 		
 		// all supported characters limited length
 		size = 4;
 		result = ::base64_Encode(base64Inp2, size);
-		EXPECT_STREQ(result, base64Exp2) << "The base64 encode of " << base64Inp2 << ", size " << size << " is not correct";
+		EXPECT_EQ(memcmp(result, base64Exp2, strlen(base64Exp2)), 0) << "The base64 encode of " << base64Inp2 << ", size " << size << " is not correct";
 		free(result);
 		
 		// all supported characters full length
 		size = strlen((char *)base64Inp2);
 		result = ::base64_Encode(base64Inp2, size);
-		EXPECT_STREQ(result, base64Exp3) << "The base64 encode of " << base64Inp2 << ", size " << size << " is not correct";
+		EXPECT_EQ(memcmp(result, base64Exp3, strlen(base64Exp3)), 0) << "The base64 encode of " << base64Inp2 << ", size " << size << " is not correct";
 		free(result);
 		
 		// unsupported character should return empty result?
 		size = 1;
 		result = ::base64_Encode(base64Inp4, size);
-		EXPECT_STREQ(result, base64Exp4) << "The base64 encode of " << base64Inp4 << ", size " << size << " is not correct";
+		EXPECT_EQ(memcmp(result, base64Exp4, strlen(base64Exp4)), 0) << "The base64 encode of " << base64Inp4 << ", size " << size << " is not correct";
 		free(result);
 		
 		// empty input
 		size = 0;
 		result = ::base64_Encode(base64Inp5, size);
-		EXPECT_STREQ(result, base64Exp5) << "The base64 encode of " << base64Inp5 << ", size " << size << " is not correct";
+		EXPECT_EQ(memcmp(result, base64Exp5, size), 0) << "The base64 encode of " << base64Inp5 << ", size " << size << " is not correct";
 		free(result);
 		
 		// NULL doesn't upset us if size is 0, crashes if > 0
 		size = 0;
 		result = ::base64_Encode(NULL, size);
-		EXPECT_STREQ(result, "") << "The base64 encode of NULL, size 1 is not correct";
+		EXPECT_EQ(memcmp(result, "", size), 0) << "The base64 encode of NULL, size 1 is not correct";
 		free(result);
 		
 		size = 0;
@@ -91,7 +91,7 @@ namespace base64Test {
 			}
 			size = i;
 			result = ::base64_Encode(base64Inp6, size);
-			EXPECT_STREQ(result, exp) << "The base64 encode of " << base64Inp6 << ", size " << size << " is not correct";
+			EXPECT_EQ(memcmp(result, exp, strlen(exp)), 0) << "The base64 encode of " << base64Inp6 << ", size " << size << " is not correct";
 			free(result);
 		}
 	}
@@ -119,7 +119,7 @@ namespace base64Test {
 		
 		// unsupported character should return empty result?
 		result = (char *)::base64_Decode(base64Exp4, &len);
-		EXPECT_STREQ(result, (char *)base64Inp4) << "The base64 decode of " << base64Exp4 << " is not correct";
+		EXPECT_EQ(memcmp(result, base64Inp4, strlen((char *)base64Inp4)), 0) << "The base64 decode of " << base64Exp4 << " is not correct";
 		EXPECT_EQ(len, strlen((char *)base64Inp4)) << "The base64 decode of " << base64Exp4 << " is not correct";
 		memset(result, 0, len);
 		free(result);
@@ -177,7 +177,7 @@ namespace base64Test {
 		// unsupported character should return empty result?
 		size = 1;
 		result = (char *)::base64_Decode(base64Exp4, &len, size);
-		EXPECT_STREQ(result, (char *)base64Inp4) << "The base64 decode of " << base64Exp4 << " is not correct";
+		EXPECT_EQ(memcmp(result, base64Inp4, strlen((char *)base64Inp4)), 0) << "The base64 decode of " << base64Exp4 << " is not correct";
 		memset(result, 0, len);
 		free(result);
 		
@@ -191,7 +191,7 @@ namespace base64Test {
 		// NULL doesn't upset us if size is 0, crashes if > 0
 		size = 0;
 		result = (char *)::base64_Decode(NULL, &len, size);
-		EXPECT_STREQ(result, (char *)base64Inp5) << "The base64 decode of NULL is not correct";
+		EXPECT_EQ(memcmp(result, base64Inp5, strlen((char *)base64Inp5)), 0) << "The base64 decode of NULL is not correct";
 		memset(result, 0, len);
 		free(result);
 		
