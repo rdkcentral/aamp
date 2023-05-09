@@ -1274,6 +1274,16 @@ static gboolean buffering_timeout (gpointer data)
 			{
 				AAMPLOG_WARN("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i", gst_element_state_get_name(_this->privateContext->buffering_target_state), (_this->privateContext->buffering_timeout_cnt+1), frames);
 				SetStateWithWarnings (_this->privateContext->pipeline, _this->privateContext->buffering_target_state);
+
+#if defined(BRCM)
+				// Setting first fractional rate as DEFAULT_INITIAL_RATE_CORRECTION_SPEED right away on PLAYING to avoid DELIA-61708 audio drop
+				if (_this->aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && _this->aamp->IsLive())
+				{
+					AAMPLOG_WARN("Setting first fractional rate %.6f right after moving to PLAYING", DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
+					_this->SetPlayBackRate(DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
+				}
+#endif
+
 				_this->privateContext->buffering_in_progress = false;
 				if(!_this->aamp->mConfig->IsConfigSet(eAAMPConfig_GstSubtecEnabled))
 				{

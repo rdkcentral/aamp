@@ -148,6 +148,10 @@
 #else
 #define DEFAULT_NORMAL_RATE_CORRECTION_SPEED  1.00f	   	/**< Live Catchup Normal play rate adjusted to 1 for others */
 #endif
+// DELIA-61708 audio drop workaround
+#if defined(BRCM)
+#define DEFAULT_INITIAL_RATE_CORRECTION_SPEED 1.000001f	/**< Initial rate correction speed to avoid audio drop */
+#endif
 #define DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK	20					/**< Default cached fragement chunks per track */
 #define DEFAULT_ABR_CHUNK_CACHE_LENGTH			10					/**< Default ABR chunk cache length */
 #define DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE		(DEFAULT_AAMP_ABR_THRESHOLD_SIZE)	/**< aamp abr Chunk threshold size */
