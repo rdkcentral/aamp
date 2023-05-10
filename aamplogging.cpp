@@ -24,6 +24,8 @@
 
 #include <iomanip>
 #include <algorithm>
+#include <thread>
+#include <sstream>
 #include "priv_aamp.h"
 using namespace std;
 
@@ -441,7 +443,10 @@ void logprintf(int playerId,const char* levelstr,const char* file, int line,cons
 	va_list args;
 	va_start(args, format);
 	char gDebugPrintBuffer[MAX_DEBUG_LOG_BUFF_SIZE];
-	int len = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer), "[AAMP-PLAYER][%d][%s][%s][%d]",playerId,levelstr,file,line);
+	std::ostringstream ossthread;
+	ossthread << std::this_thread::get_id();
+	int len = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer), "[AAMP-PLAYER][%d][%s][%s][%s][%d]",
+					playerId, levelstr, ossthread.str().c_str(), file, line);
 	vsnprintf(gDebugPrintBuffer+len, MAX_DEBUG_LOG_BUFF_SIZE-len, format, args);
 	gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE-1)] = 0;
 	va_end(args);
@@ -457,7 +462,7 @@ void logprintf(int playerId,const char* levelstr,const char* file, int line,cons
 		return;
 	}
 #endif
-	
+
 	struct timeval t;
 	gettimeofday(&t, NULL);
 	for( int i=0; i<LOG_PASS_COUNT; i++ )
