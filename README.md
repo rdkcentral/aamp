@@ -155,6 +155,7 @@ sendUserAgentInLicense		Enable/disable sending user agent in the DRM license req
 ptsErrorThreshold		aamp maximum number of back-to-back pts errors to be considered for triggering a retune
 waitTimeBeforeRetryHttp5xx 	Specify the wait time before retry for 5xx http errors. Default wait time is 1s.
 harvestCountLimit		Specify the limit of number of files to be harvested
+harvestDuration			Specify the time limit of files to be harvested in seconds
 harvestConfig			*Specify the value to indicate the type of file to be harvested. Refer table below for masking table 
 bufferHealthMonitorDelay 	Override for buffer health monitor start delay after tune/ seek (in secs)
 bufferHealthMonitorInterval	Override for buffer health monitor interval(in secs)

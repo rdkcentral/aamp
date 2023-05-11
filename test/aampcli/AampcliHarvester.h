@@ -43,6 +43,9 @@
     #endif
 #endif
 
+// A large count limit if not specified or if duration specified.
+#define DEFAULT_HARVEST_COUNT_LIMIT (9999999)
+
 typedef struct harvestProfileDetails
 {
 	bool harvestEndFlag;
@@ -75,9 +78,12 @@ class Harvester : public Command
 		static PlayerInstanceAAMP *mPlayerInstanceAamp;
 	
 		char mExePathName[PATH_MAX];
+		int mHarvestDuration;
 		int mHarvestCountLimit;
 		int mHarvestConfig;
 		int mTCPServerSinkPort;
+		bool mUseTCPServerSink;
+		bool mSuppressDecode;
 
 		std::thread mMasterHarvesterThreadID;
 		std::thread mSlaveHarvesterThreadID;
@@ -95,7 +101,7 @@ class Harvester : public Command
 		static void harvestTerminateHandler(int signal);
 	
 		long getNumberFromString(std::string buffer);
-		void startHarvestReport(char * arg);
+		void writeHarvestReport(const char * arg, bool master);
 		bool getHarvestReportDetails(char *buffer);
 		FILE *createSlaveHarvester(std::map<std::string, std::string> cmdlineParams, int harvestConfig, long bitRate=0,
 								   std::string language = "", int trackId=-1);

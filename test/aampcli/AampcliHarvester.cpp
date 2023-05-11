@@ -36,6 +36,7 @@ Harvester::Harvester() : mMasterHarvesterThreadID(),
 			mSlaveIFrameThread(),
 			mExePathName(""),
 			mHarvestCountLimit(0),
+			mHarvestDuration(0),
 			mHarvestConfig(65535),
 			mTCPServerSinkPort(0)
 {}
@@ -210,6 +211,10 @@ void Harvester::masterHarvester(void * arg)
 	int videoThreadId = 0;
 	int audioThreadId = 0;
 	int subtitleThreadId = 0;
+	std::string masterCmd = "harvest harvestMode=Master ";
+	// Save off master values we end up changing for later restore
+	int restoreMasterConfig = mHarvester.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_HarvestConfig);
+	int restoreMasterCountLimit = mHarvester.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_HarvestCountLimit);
 
 	if(aamp_pthread_setname(pthread_self(), "MasterHarvester"))
 	{
@@ -218,11 +223,14 @@ void Harvester::masterHarvester(void * arg)
 
 	mHarvester.getExecutablePath();
 	
+	// NOTE: Expect aamp.cfg or passed parameters to include useTCPServerSink / suppressDecode as appropiate not set here!
+
+	/*
+	** Process harvest command line parameters
+	*/
 	while(std::getline(ss, item, ' ')) {
 		params.push_back(item);
 	}
-
-	// NOTE: Expect aamp.cfg or passed parameters to include useTCPServerSink / suppressDecode as appropiate not set here!
 
 	for(std::string param : params)
 	{
@@ -237,25 +245,16 @@ void Harvester::masterHarvester(void * arg)
 			printf("%s:%d: Error in command param %s\n",__FUNCTION__,__LINE__,param.c_str());
 			return;
 		}
-		// master harvester needs a path set
+		// Set master harvestPath if passed in as parameter
 		if (param.find("harvestPath") != std::string::npos)
 		{
 			mHarvester.mPlayerInstanceAamp->mConfig.ProcessConfigText(param, AAMP_DEV_CFG_SETTING);
 			mHarvester.mPlayerInstanceAamp->mConfig.DoCustomSetting(AAMP_DEV_CFG_SETTING);
+			masterCmd += param;
 		}
 	}
-
-	// Make sure we have a valid harvest count limit; priority: set by harvest command option, set by aamp.cfg, default if not set
-	mHarvester.mHarvestCountLimit = mHarvester.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_HarvestCountLimit);
-	if (mHarvester.mHarvestCountLimit == 0)
-	{
-		mHarvester.mHarvestCountLimit = 9999999;
-	}
-
-	mHarvester.mTCPServerSinkPort = mHarvester.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_TCPServerSinkPort);
-	mHarvester.mTCPServerSinkPort += 2;  // increment for next aamp-cli as already used on master tune
-
-	// See if a harvestConfig is provided, priority: set by harvest command option, set by aamp.cfg, default if not set
+	
+	// See if a harvestConfig is provided, priority: set by harvest command option, set by aamp.cfg, default if not set. Master and slave will divvy up different parts of harvestConfig.
 	if(cmdlineParams.find("harvestConfig") != cmdlineParams.end())
 	{
 		mHarvester.mHarvestConfig = (int)mHarvester.getNumberFromString(cmdlineParams["harvestConfig"].c_str());
@@ -265,11 +264,12 @@ void Harvester::masterHarvester(void * arg)
 		mHarvester.mHarvestConfig = mHarvester.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_HarvestConfig);
 		if (mHarvester.mHarvestConfig == 0)
 		{
+			// getHarvestConfigForMedia() has no value to return eHARVEST_ENABLE_DEFAULT and not present in header file so we'll just set it here.
 			mHarvester.mHarvestConfig = 0xFFFFFFFF;
 		}
 	}
 	
-	// Master harvests other stream types (manifest, playlists)
+	// Master harvests some limited stream types (manifest, playlists)
 	unsigned int harvestConfig =
 		getHarvestConfigForMedia(eMEDIATYPE_MANIFEST) |
 		getHarvestConfigForMedia(eMEDIATYPE_PLAYLIST_VIDEO) |
@@ -280,11 +280,28 @@ void Harvester::masterHarvester(void * arg)
 	// Remove any not listed in mHarvestConfig
 	harvestConfig &= mHarvester.mHarvestConfig;
 	
-	// Set the master to this value, don't check for a harvest limit, let the slave harvests dictate when master should end harvesting
+	// Set master harvestConfig
 	mHarvester.mPlayerInstanceAamp->mConfig.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_HarvestConfig, harvestConfig);
-	mHarvester.mPlayerInstanceAamp->mConfig.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_HarvestCountLimit, 9999999);
+	masterCmd += " harvestConfig=" + std::to_string(harvestConfig);
+
 	
-	// Make sure we have a valid harvest count limit; priority: set by harvest command option, set by aamp.cfg, default if not set
+
+	/*
+	** Determine slave harvester settings
+	*/
+	
+	mHarvester.mHarvestDuration = 0;
+	// Checking for conflicting harvestDuration & harvestCountLimit
+	if(cmdlineParams.find("harvestDuration") != cmdlineParams.end())
+	{
+		mHarvester.mHarvestDuration = (int)mHarvester.getNumberFromString(cmdlineParams["harvestDuration"].c_str());
+	}
+	else
+	{
+		mHarvester.mHarvestDuration = mHarvester.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_HarvestDuration);
+	}
+
+	mHarvester.mHarvestCountLimit = 0;
 	if(cmdlineParams.find("harvestCountLimit") != cmdlineParams.end())
 	{
 		mHarvester.mHarvestCountLimit = (int)mHarvester.getNumberFromString(cmdlineParams["harvestCountLimit"].c_str());
@@ -292,23 +309,63 @@ void Harvester::masterHarvester(void * arg)
 	else
 	{
 		mHarvester.mHarvestCountLimit = mHarvester.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_HarvestCountLimit);
+	}
+	
+	// Set master harvestCountLimit to a large value, let the slave harvests dictate when master should end harvesting
+	mHarvester.mPlayerInstanceAamp->mConfig.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_HarvestCountLimit, DEFAULT_HARVEST_COUNT_LIMIT);
+	masterCmd += " harvestCountLimit=" + std::to_string(DEFAULT_HARVEST_COUNT_LIMIT);
+
+	// We're trying to detect a user set harvest count limit and harvest duration, which is not allowed.  We always need a harvestCountLimit to do any harvesting, just not wanting user to specify both.
+	if(mHarvester.mHarvestDuration > 0 && (mHarvester.mHarvestCountLimit > 0 && mHarvester.mHarvestCountLimit != DEFAULT_HARVEST_COUNT_LIMIT))
+	{
+		printf(" %s:%d: Error harvestDuration and harvestCountLimit both configured.\n", __FILE__, __LINE__);
+		return;
+	}
+	
+	// Make sure there is a valid mHarvestCountLimit as slaves won't harvest if it goes to 0 even when using duration.
+	if (mHarvester.mHarvestDuration <= 0)
+	{
 		if (mHarvester.mHarvestCountLimit == 0)
 		{
-			mHarvester.mHarvestCountLimit = 9999999;
+			mHarvester.mHarvestCountLimit = DEFAULT_HARVEST_COUNT_LIMIT;
 		}
 	}
-	mHarvester.mTCPServerSinkPort = mHarvester.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_TCPServerSinkPort);
-	mHarvester.mTCPServerSinkPort += 2;  // increment for next aamp-cli as already used on master tune
+
+	else // if there is a duration, then set a high mHarvestCountLimit
+	{
+		mHarvester.mHarvestCountLimit = DEFAULT_HARVEST_COUNT_LIMIT;
+	}
 	
+	// Harvester will maintain unique TCPServerSinkPort if enabled
+	mHarvester.mUseTCPServerSink = mHarvester.mPlayerInstanceAamp->mConfig.IsConfigSet(eAAMPConfig_useTCPServerSink);
+	mHarvester.mTCPServerSinkPort = mHarvester.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_TCPServerSinkPort);
+
+	if (mHarvester.mUseTCPServerSink && mHarvester.mTCPServerSinkPort > 0)
+	{
+		masterCmd += " useTCPServerSink=1";
+		masterCmd += " TCPserverSinkPort=" + std::to_string(mHarvester.mTCPServerSinkPort);
+		mHarvester.mTCPServerSinkPort += 2;	// increment for next aamp-cli as port already used on master tune
+	}
+	mHarvester.mSuppressDecode = mHarvester.mPlayerInstanceAamp->mConfig.IsConfigSet(eAAMPConfig_SuppressDecode);
+	if (mHarvester.mSuppressDecode)
+	{
+		masterCmd += " suppressDecode=1";
+	}
+	
+	
+	// Tune and launch slave harvesters
 	if(cmdlineParams.find("harvestUrl") != cmdlineParams.end())
 	{
+		masterCmd += " harvestUrl=" + cmdlineParams["harvestUrl"];
+		printf("%s:%d: Config process of master harvest command %s \n", __FUNCTION__, __LINE__, masterCmd.c_str());
+		
 		mHarvester.mPlayerInstanceAamp->Tune(cmdlineParams["harvestUrl"].c_str());
 
 		Harvester::mHarvestPath = cmdlineParams["harvestPath"];
 
 		try
 		{
-			mHarvester.startHarvestReport((char *) cmdlineParams["harvestUrl"].c_str());
+			mHarvester.writeHarvestReport((char *)masterCmd.c_str(), true);
 		}
 		catch (std::exception& e)
 		{
@@ -586,6 +643,10 @@ void Harvester::masterHarvester(void * arg)
 		// Clear static member data for next run
 		mHarvestInfo.clear();
 		mHarvestThreadId.clear();
+		
+		// Restore master config for another run
+		mHarvester.mPlayerInstanceAamp->mConfig.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_HarvestConfig, restoreMasterConfig);
+		mHarvester.mPlayerInstanceAamp->mConfig.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_HarvestCountLimit, restoreMasterCountLimit);
 	}
 	else
 	{
@@ -602,6 +663,7 @@ void Harvester::slaveHarvester(void * arg)
 	std::vector<std::string> params;
 	std::stringstream ss(cmd);
 	std::string item,harvestUrl;
+	time_t initialTime, currentTime;
 
 	if(aamp_pthread_setname(pthread_self(), "SlaveHarvester"))
 	{
@@ -660,6 +722,9 @@ void Harvester::slaveHarvester(void * arg)
 		printf("%s:%d: Harvest subtitle trackId %d\n",__FUNCTION__,__LINE__,trackId);
 	}
 
+	int harvestDuration = mHarvester.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_HarvestDuration);
+	initialTime = time(NULL);
+	
 	while (1)
 	{
 		sleep(1);
@@ -685,8 +750,18 @@ void Harvester::slaveHarvester(void * arg)
 		int currHarvestCount = mHarvester.mPlayerInstanceAamp->aamp->GetHarvestRemainingFragmentCount();
 		if (currHarvestCount == 0)
 		{
-			printf("%s:%d: Harvest count completed, exiting harvesting mode\n",__FUNCTION__,__LINE__);
+			printf("%s:%d: Harvest count completed, exiting harvesting mode.\n",__FUNCTION__,__LINE__);
 			sleep(5);  // allow logs to propogate to slaveDataOutput
+			break;
+		}
+
+		// Don't use duration if not configured
+		currentTime = time(NULL);
+	
+		if ((harvestDuration > 0) && (currentTime - initialTime) > harvestDuration)
+		{
+			printf("%s:%d: Harvest time completed, exiting harvest mode.\n",__FUNCTION__,__LINE__);
+			sleep(5); // allow logs to propagate to slaveDataOutput
 			break;
 		}
 	}
@@ -715,9 +790,16 @@ void Harvester::slaveDataOutput(void * arg)
 		
 		if (active == false) // end this thread
 		{
-			printf("%s:%d: harvesting complete, exiting thread.\n",__FUNCTION__, __LINE__);
+			printf("%s:%d: EndOfHarvestReached harvesting complete, exiting thread.\n",__FUNCTION__, __LINE__);
 			break;
 		}
+	}
+	
+	if (active)  // feof end of duration likely
+	{
+		strncpy(buffer,"EndOfStreamReached", sizeof(buffer)-1);
+		mHarvester.getHarvestReportDetails(buffer);
+		printf("%s:%d: EndOfHarvestReached harvesting complete, exiting thread.\n",__FUNCTION__, __LINE__);
 	}
 
 	return;
@@ -742,43 +824,34 @@ long Harvester::getNumberFromString(std::string buffer)
 	return value;
 }
 
-void Harvester::startHarvestReport(char * harvesturl)
+void Harvester::writeHarvestReport(const char* harvestCmd, bool isMaster)
 {
-	FILE *fp;
-	FILE *errorfp;
-	std::string filename;
-	std::string errorFilename;
-
-	filename = Harvester::mHarvestPath+"/HarvestReport.txt";
-	errorFilename = Harvester::mHarvestPath+"/HarvestErrorReport.txt";
-
-	fp = fopen(filename.c_str(), "w");
-
-	if (fp == NULL)
+	FILE *fp, *errorfp;
+	std::string filename, errorFilename;
+	
+	filename = Harvester::mHarvestPath + "/HarvestReport.txt";
+	errorFilename = Harvester::mHarvestPath + "/HarvestErrorReport.txt";
+	
+	fp = fopen(filename.c_str(), isMaster ? "w" : "a");
+	errorfp = fopen(errorFilename.c_str(), isMaster ? "w" : "a");
+	
+	if (fp == NULL || errorfp == NULL)
 	{
-		printf("Error opening the file %s\n", filename.c_str());
+		printf("Error opening the file %s (%s)\n", fp == NULL ? filename.c_str() : errorFilename.c_str(), strerror(errno));
 		return;
 	}
-
+	
 	fprintf(fp, "Harvest Profile Details\n\n");
-	fprintf(fp, "Harvest url : %s\n",harvesturl);
-	fprintf(fp, "Harvest mode : Master\n");
-	fclose(fp);
-
-	Harvester::mHarvestReportFlag = true;
-
-	errorfp = fopen(errorFilename.c_str(), "w");
-
-	if (errorfp == NULL)
+	fprintf(fp, "Harvest %s cmd : '%s'\n", isMaster ? "Master" : "Slave", harvestCmd);
+	if (isMaster)
 	{
-		printf("Error opening the file %s\n", errorFilename.c_str());
-		return;
+		Harvester::mHarvestReportFlag = true;
 	}
-
-	fprintf(errorfp, "Harvest Error Report\n\n");
-	fprintf(errorfp, "Harvest url : %s\n",harvesturl);
+	
+	fprintf(errorfp, "Harvest %s cmd : '%s'\n", isMaster ? "Master" : "Slave", harvestCmd);
+	
+	fclose(fp);
 	fclose(errorfp);
-	return;
 }
 
 bool Harvester::getHarvestReportDetails(char *buffer)
@@ -963,14 +1036,33 @@ FILE * Harvester::createSlaveHarvester(std::map<std::string, std::string> cmdlin
 	}
 
 	slaveCmd = slaveCmd +
-		" harvest harvestMode=Slave harvestUrl=\"" + cmdlineParams["harvestUrl"] + "\"" +
-		" harvestCountLimit=" + std::to_string(Harvester::mHarvestCountLimit) +
+		" harvest harvestMode=Slave harvestUrl=" + cmdlineParams["harvestUrl"] +
 		" harvestConfig=" + std::to_string(harvestWhat) +
 		" abr=false" +
 		" useTCPServerSink=true" +
 		" TCPServerSinkPort=" + std::to_string(Harvester::mTCPServerSinkPort);
 	
-	Harvester::mTCPServerSinkPort += 2;
+	if (mHarvester.mUseTCPServerSink)
+	{
+		slaveCmd = slaveCmd + " useTCPServerSink=true TCPServerSinkPort=" + std::to_string(Harvester::mTCPServerSinkPort);
+		if (mHarvester.mTCPServerSinkPort > 0)
+		{
+			mHarvester.mTCPServerSinkPort += 2;  // increment for next aamp-cli as already used on master tune
+		}
+	}
+	if (mHarvester.mSuppressDecode)
+	{
+		slaveCmd = slaveCmd + " suppressDecode=true";
+	}
+	
+	if (mHarvester.mHarvestCountLimit > 0)
+	{
+		slaveCmd = slaveCmd + " harvestCountLimit=" + std::to_string(mHarvester.mHarvestCountLimit);
+	}
+	if (mHarvester.mHarvestDuration > 0)
+	{
+		slaveCmd = slaveCmd + " harvestDuration=" + std::to_string(mHarvester.mHarvestDuration);;
+	}
 
 	if(cmdlineParams.find("harvestPath") != cmdlineParams.end())
 	{
@@ -1001,7 +1093,13 @@ FILE * Harvester::createSlaveHarvester(std::map<std::string, std::string> cmdlin
 	}
 
 	printf("%s:%d: Create process of slave harvest command %s \n", __FUNCTION__, __LINE__, slaveCmd.c_str());
-	return popen(slaveCmd.c_str(), "r");
+	mHarvester.writeHarvestReport((char *)slaveCmd.c_str(), false);
+	
+	if(cmdlineParams.find("noHarvest") == cmdlineParams.end())
+	{
+		return popen(slaveCmd.c_str(), "r");
+	}
+	return NULL;
 }
 
 bool Harvester::createSlaveDataReader(FILE *pSlaveHarvester, std::thread& dataReader)

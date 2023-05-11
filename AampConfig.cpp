@@ -75,6 +75,7 @@ typedef enum
 	eCONFIG_RANGE_RAMPDOWN_LIMIT, // -1..50
 	eCONFIG_RANGE_CEA_PREFERRED, // -1..5
 	eCONFIG_RANGE_PLAYBACK_OFFSET, // -99999..INT_MAX
+	eCONFIG_RANGE_HARVEST_DURATION, // -1...10 HRS
 	eCONFIG_RANGE_MAX_VALUE,
 } ConfigValidRange;
 #define CONFIG_RANGE_ENUM_COUNT (eCONFIG_RANGE_MAX_VALUE)
@@ -111,6 +112,7 @@ static const struct
 	{ -1, 50, eCONFIG_RANGE_RAMPDOWN_LIMIT },
 	{ -1, 5, eCONFIG_RANGE_CEA_PREFERRED },
 	{AAMP_DEFAULT_PLAYBACK_OFFSET, INT_MAX, eCONFIG_RANGE_PLAYBACK_OFFSET },
+	{-1, 60*60*10, eCONFIG_RANGE_HARVEST_DURATION },
 };
 
 static ConfigPriority customOwner;
@@ -452,7 +454,6 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{0,"minBitrate",eAAMPConfig_MinBitrate,true},
 	{INT_MAX,"maxBitrate",eAAMPConfig_MaxBitrate,true},
 	{CURL_SSLVERSION_TLSv1_2,"supportTLS",eAAMPConfig_TLSVersion,true,eCONFIG_RANGE_CURL_SSL_VERSION},
-
 	{MAX_GST_VIDEO_BUFFER_BYTES_FOG_LIVE,"gstVideoBufBytesForFogLive", eAAMPConfig_GstVideoBufBytesForFogLive,false},
 	{MAX_GST_AUDIO_BUFFER_BYTES_FOG_LIVE,"gstAudioBufBytesForFogLive", eAAMPConfig_GstAudioBufBytesForFogLive,false},
 	{DEFAULT_DRM_NETWORK_TIMEOUT,"drmNetworkTimeout",eAAMPConfig_DrmNetworkTimeout,true,eCONFIG_RANGE_TIMEOUT},
@@ -461,6 +462,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{0,"timeBasedBufferSeconds",eAAMPConfig_TimeBasedBufferSeconds,true,eCONFIG_RANGE_PLAYBACK_OFFSET},
 	{DEFAULT_TELEMETRY_REPORT_INTERVAL,"telemetryInterval",eAAMPConfig_TelemetryInterval,true},
 	{120,"rateCorrectionDelay", eAAMPConfig_RateCorrectionDelay,true},
+	{-1,"harvestDuration",eAAMPConfig_HarvestDuration,false,eCONFIG_RANGE_HARVEST_DURATION},
 
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
