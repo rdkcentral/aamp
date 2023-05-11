@@ -165,7 +165,7 @@ VirtualChannelInfo* VirtualChannelMap::next()
 	return pNextChannel;
 }
 
-void VirtualChannelMap::print()
+void VirtualChannelMap::print(unsigned long start, unsigned long end, unsigned long tail)
 {
 	if (mVirtualChannelMap.empty())
 	{
@@ -175,8 +175,38 @@ void VirtualChannelMap::print()
 	printf("[AAMPCLI] aampcli.cfg virtual channel map:\n");
 
 	int numCols = 0;
+	unsigned long size = mVirtualChannelMap.size();
+	unsigned long lineCount = 0;
+	unsigned long mapSize = mVirtualChannelMap.size();
+	if(end == ULLONG_MAX || end >= mapSize)
+	{
+		end = mapSize - 1;
+	}
+	if(start >= mapSize)
+	{
+		start = 0;
+	}
+	if(tail)
+	{
+		if(tail >= mapSize)
+		{
+			tail = 0;
+			start = 0;
+		}
+		else
+		{
+			start = mapSize - tail;
+		}
+	}
+
 	for ( auto it = mVirtualChannelMap.begin(); it != mVirtualChannelMap.end(); ++it )
 	{
+		if(lineCount < start)
+		{
+			//Skip over lines we don't want to display when a range or tail is specified.
+			lineCount++;
+			continue;
+		}
 		const VirtualChannelInfo &pChannelInfo = *it;
 		std::string channelName = pChannelInfo.name.c_str();
 		size_t len = channelName.length();
@@ -194,6 +224,12 @@ void VirtualChannelMap::print()
 			}
 			printf( "%s\n", channelName.c_str() );
 			numCols = 0;
+			//Increment displayed lines here & check, as the "continue" bypasses the normal check.
+			lineCount++;
+			if(lineCount > end)
+			{
+				break;
+			}			
 			continue;
 		}
 		printf("%4d: %s", pChannelInfo.channelNumber, channelName.c_str() );
@@ -211,6 +247,12 @@ void VirtualChannelMap::print()
 			}
 			numCols++;
 		}
+		//Check if we've reached the end of lines we want to display
+		lineCount++;
+		if(lineCount > end)
+		{
+			break;
+		}
 	}
 	printf("\n\n");
 }
@@ -220,12 +262,12 @@ void VirtualChannelMap::setCurrentlyTunedChannel(int value)
 	mCurrentlyTunedChannel = value;
 }
 
-void VirtualChannelMap::showList(void)
+void VirtualChannelMap::showList(unsigned long start, unsigned long end, unsigned long tail)
 {
 	printf("******************************************************************************************\n");
 	printf("*   Virtual Channel Map\n");
 	printf("******************************************************************************************\n");
-	print();
+	print(start, end, tail);
 }
 
 void VirtualChannelMap::tuneToChannel( VirtualChannelInfo &channel, PlayerInstanceAAMP *playerInstanceAamp, bool bAutoPlay)

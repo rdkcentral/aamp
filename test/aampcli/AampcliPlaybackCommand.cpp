@@ -34,6 +34,49 @@ extern void tsdemuxer_InduceRollover( bool enable );
 std::map<std::string,std::string> PlaybackCommand::playbackCommands = std::map<std::string,std::string>();
 std::vector<std::string> PlaybackCommand::commands(0);
 
+void PlaybackCommand::getRange(const char* cmd, unsigned long& start, unsigned long& end, unsigned long& tail)
+{
+	//Parse the command line to see if all lines should be displayed, a range from start to end, or a number of lines from the end of the list.
+	//If tail is 0, start & end specify the range. If tail is non-zero it is the number of lines to display from the end of the list.
+	start = 0;
+	end = ULLONG_MAX;
+	tail = 0;
+	if( !strcmp(cmd, "list"))
+	{
+		// just "list", no parameters.
+	}
+	else
+	if( sscanf(cmd, "list %lu-%lu", &start, &end) == 2 )
+	{
+		if(start != 0)
+		{
+			start--;
+			end--;
+		}
+		//A range of lines from the list with start & end
+	}
+	else
+	if( sscanf(cmd, "list -%lu", &tail) != 1 )
+	{
+		//Check for "list -n". tail is the number of lines to display at the end of the list.
+		if( sscanf(cmd, "list %lu", &start) == 1 )
+		{
+			if(start != 0)
+			{
+				start--;
+			}
+			//Display lines from the specified start to the end of the list.
+		}
+	}
+	if(start > end)
+	{
+		start = 0;
+		end = ULLONG_MAX;
+		tail = 0;
+	}
+}
+
+
 /**
  * @brief Process command
  * @param cmd command
@@ -65,7 +108,9 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	}
 	else if( isCommandMatch(cmd, "list") )
 	{
-		mVirtualChannelMap.showList();
+		unsigned long start, end, tail;
+		getRange(cmd, start, end, tail);
+		mVirtualChannelMap.showList(start, end, tail);
 	}
 	else if( isCommandMatch(cmd,"autoplay") )
 	{
@@ -394,7 +439,7 @@ void PlaybackCommand::registerPlaybackCommands()
 
 	// tuning
 	addCommand("autoplay","Toggle whether to autoplay (default=true)");
-	addCommand("list","Show virtual channel map");
+	addCommand("list","Show virtual channel map; optionally pass a range e.g. 1-10, a start channel or -n to show the last n channels");
 	addCommand("<channelNumber>","Tune specified virtual channel");
 	addCommand("next","Tune next virtual channel");
 	addCommand("prev","Tune previous virtual channel");

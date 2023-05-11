@@ -65,9 +65,9 @@ class VirtualChannelMap
 		VirtualChannelInfo* next();
 		void add(VirtualChannelInfo& channelInfo);
 		bool isPresent(const VirtualChannelInfo& channelInfo);
-		void print();
+		void print(unsigned long start, unsigned long end, unsigned long tail);
 		void setCurrentlyTunedChannel(int value);
-		void showList(void);
+		void showList(unsigned long start, unsigned long end, unsigned long tail);
 		void tuneToChannel( VirtualChannelInfo &channel, PlayerInstanceAAMP *playerInstanceAamp, bool bAutoPlay );
 		std::string getNextFieldFromCSV( const char **pptr );
 		void loadVirtualChannelMapFromCSV( FILE *f );

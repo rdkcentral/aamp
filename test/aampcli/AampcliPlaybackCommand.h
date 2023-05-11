@@ -42,7 +42,8 @@ class PlaybackCommand : public Command
 		static void showHelp(void);
 		void termPlayerLoop();
 		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
-
+private:
+		void getRange(const char* cmd, unsigned long& start, unsigned long& end, unsigned long& tail);
 };
 
 #endif // AAMPCLIPLAYBACKCOMMAND_H
