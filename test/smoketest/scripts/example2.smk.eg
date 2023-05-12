@@ -12,7 +12,7 @@ sleep 5
 
 # ffwd x4, check for a progress event with speed 4 within 2s
 ff 4
-waitfor 2 PROGRESS 4 -
+waitfor 2 PROGRESS(4,)
 
 # create a background player (this will then be the selected player)
 new
@@ -22,7 +22,7 @@ tune $BACKGROUND 0
 
 # sleep 5s (i.e. carry on ffw on first player) then play 2nd player and check for TUNED and PLAYING events
 sleep 5
-play
+ff 4
 waitfor 1 TUNED PLAYING
 
 # select first player and detach

@@ -36,6 +36,7 @@ void ScriptedSmokeTestEventListener::Event(const AAMPEventPtr& e)
 	std::unique_lock<std::mutex> lock(protectMonitoredEvents);
 	bool waitFailed = false;
 
+	// Extract some meta data for furure use *duration etc.)
 	if (e->getType() == AAMP_EVENT_MEDIA_METADATA)
 	{
 		MediaMetadataEventPtr ev = std::dynamic_pointer_cast<MediaMetadataEvent>(e);
@@ -72,153 +73,103 @@ bool ScriptedSmokeTestEventListener::CheckEventList(const AAMPEventPtr& e, std::
 	{
 		failed = false;
 
-		// Update any events that we have confured for monitoring
-		for ( auto &state : eventList )
+		// Update any events that we have configured for monitoring
+		for ( auto &eventItem : eventList )
 		{
-			switch (state.event)
+			if ((eventItem.event == AAMP_EVENT_TUNED) &&
+				(e->getType() == AAMP_EVENT_TUNE_FAILED))
 			{
-				case WaitEvent::TUNED:
-					if (e->getType() == AAMP_EVENT_TUNED)
-					{
-						state.received = true;
-					}
-					else if (e->getType() == AAMP_EVENT_TUNE_FAILED)
-					{
-						failed = true;
-					}
-					break;
-				case WaitEvent::TUNE_FAILED:
-					if (e->getType() == AAMP_EVENT_TUNE_FAILED)
-					{
-						state.received = true;
-					}
-					break;
-				case WaitEvent::PLAYING:
-					if (e->getType() == AAMP_EVENT_STATE_CHANGED)
-					{
-						StateChangedEventPtr ev = std::dynamic_pointer_cast<StateChangedEvent>(e);
-						if (ev->getState() == PrivAAMPState::eSTATE_PLAYING)
-						{
-							state.received = true;
-						}
-					}
-					break;
-				case WaitEvent::STOPPED:
-					if (e->getType() == AAMP_EVENT_STATE_CHANGED)
-					{
-						StateChangedEventPtr ev = std::dynamic_pointer_cast<StateChangedEvent>(e);
-						if (ev->getState() == PrivAAMPState::eSTATE_IDLE)
-						{
-							state.received = true;
-						}
-					}
-					break;
-				case WaitEvent::PAUSED:
-					if (e->getType() == AAMP_EVENT_STATE_CHANGED)
-					{
-						StateChangedEventPtr ev = std::dynamic_pointer_cast<StateChangedEvent>(e);
-						if (ev->getState() == PrivAAMPState::eSTATE_PAUSED)
-						{
-							state.received = true;
-						}
-					}
-					break;
-				case WaitEvent::ERROR:
-					if (e->getType() == AAMP_EVENT_STATE_CHANGED)
-					{
-						StateChangedEventPtr ev = std::dynamic_pointer_cast<StateChangedEvent>(e);
-						if (ev->getState() == PrivAAMPState::eSTATE_ERROR)
-						{
-							state.received = true;
-						}
-					}
-					break;
-				case WaitEvent::BLOCKED:
-					if (e->getType() == AAMP_EVENT_STATE_CHANGED)
-					{
-						StateChangedEventPtr ev = std::dynamic_pointer_cast<StateChangedEvent>(e);
-						if (ev->getState() == PrivAAMPState::eSTATE_BLOCKED)
-						{
-							state.received = true;
-						}
-					}
-					break;
-				case WaitEvent::COMPLETE:
-					if (e->getType() == AAMP_EVENT_STATE_CHANGED)
-					{
-						StateChangedEventPtr ev = std::dynamic_pointer_cast<StateChangedEvent>(e);
-						if (ev->getState() == PrivAAMPState::eSTATE_COMPLETE)
-						{
-							state.received = true;
-						}
-					}
-					break;
-				case WaitEvent::EOS:
-					if (e->getType() == AAMP_EVENT_EOS)
-					{
-						state.received = true;
-					}
-					break;
-				case WaitEvent::PROGRESS:
-					if (e->getType() == AAMP_EVENT_PROGRESS)
-					{
+				// Special case - if we are waiting for 'tuned' and get 'tune failed'
+				// then just fail the check
+				failed = true;
+			}
+			else if (eventItem.event == e->getType())
+			{
+				switch (eventItem.event)
+				{
+					//
+					// Events with, potentially, some extra checks 
+					//
+					case AAMP_EVENT_PROGRESS:
 						// We can get multiple progress events so if we have already got the one we want don't check again
-						if (!state.received)
+						if (!eventItem.received)
 						{
-							state.received = true;
+							eventItem.received = true;
 
 							ProgressEventPtr ev = std::dynamic_pointer_cast<ProgressEvent>(e);
-							if (state.data.progress.speed > INVALID_SPEED)
+							if (eventItem.data.progress.speed > INVALID_VALUE)
 							{
-								if (state.data.progress.speed != ev->getSpeed())
+								eventItem.actual.progress.speed = ev->getSpeed();
+								if (eventItem.data.progress.speed != eventItem.actual.progress.speed)
 								{
-									state.received = false;
+									eventItem.received = false;
 								}
 							}
-							if (state.data.progress.position > INVALID_POSITION)
+							if (eventItem.data.progress.position > INVALID_VALUE)
 							{
-								double diff = std::abs(ev->getPosition() - state.data.progress.position);
-								if (diff > state.data.progress.accuracy)
+								eventItem.actual.progress.position = ev->getPosition();
+								double diff = std::abs(eventItem.actual.progress.position - eventItem.data.progress.position);
+								if (diff > eventItem.data.progress.accuracy)
 								{
-									state.received = false;
+									eventItem.received = false;
 								}
 							}
 						}
-					}
-					break;
-				case WaitEvent::AUDIO_TRACKS_CHANGED:
-					if (e->getType() == AAMP_EVENT_AUDIO_TRACKS_CHANGED)
-					{
-						if (state.data.audio.track != -1)
+						break;
+					case AAMP_EVENT_SEEKED:
+						eventItem.received = true;
+						if (eventItem.data.seek.position > INVALID_VALUE)
 						{
-							state.received = (state.data.audio.track == GetCurrentAudioTrack());
+							SeekedEventPtr ev = std::dynamic_pointer_cast<SeekedEvent>(e);
+							eventItem.actual.seek.position = ev->getPosition();
+							double diff = std::abs(eventItem.actual.seek.position - eventItem.data.seek.position);
+							if (diff > eventItem.data.seek.accuracy)
+							{
+								eventItem.received = false;
+							}
 						}
-						else
+						break;
+					case AAMP_EVENT_SPEED_CHANGED:
+						eventItem.received = true;
+						if (eventItem.data.progress.speed > INVALID_VALUE)
 						{
-							state.received = true;
+							SpeedChangedEventPtr ev = std::dynamic_pointer_cast<SpeedChangedEvent>(e);
+							eventItem.actual.progress.speed = ev->getRate();
+							if (eventItem.data.progress.speed != eventItem.actual.progress.speed)
+							{
+								eventItem.received = false;
+							}
 						}
-					}
-					break;
-				case WaitEvent::TEXT_TRACKS_CHANGED:
-					if (e->getType() == AAMP_EVENT_TEXT_TRACKS_CHANGED)
-					{
-						if (state.data.text.track != -1)
+						break;
+
+					//
+					// For state change vents, check this is the state change we are waiting for
+					//
+					case AAMP_EVENT_STATE_CHANGED:
 						{
-							state.received = (state.data.text.track == GetCurrentTextTrack());
+							StateChangedEventPtr ev = std::dynamic_pointer_cast<StateChangedEvent>(e);
+							if (eventItem.state == ev->getState())
+							{
+								eventItem.received = true;
+							}
 						}
-						else
-						{
-							state.received = true;
-						}
-					}
-					break;
+						break;
+
+					//
+					// For most events, if we got the event then we are done
+					//
+					default:
+						eventItem.received = true;
+						break;
+
+				}
 			}
 
-			if (!state.received)
+			if (!eventItem.received)
 			{
 				allEventsReceived = false;
 			}
-			else if (state.negative)
+			else if (eventItem.negative)
 			{
 				failed = true; // we didn't want this one!
 			}
@@ -227,6 +178,65 @@ bool ScriptedSmokeTestEventListener::CheckEventList(const AAMPEventPtr& e, std::
 
 	return allEventsReceived;
 }
+
+/**
+ * @brief Helper function to extract the event position arguments from a stream
+ * @param[in] argStream - string stream of argumants
+ * @param[out] position - the extracted position
+ * @param[out] accuracy - the extracted accuracy
+ * @retval - true if a position value was extracted
+ */
+bool ScriptedSmokeTestEventListener::extractPositionArgs(std::stringstream &argStream, double &position, double &accuracy)
+{
+	bool retval = false;
+	std::string positionArg;
+	std::string accuracyArg;
+
+	// Extract the expected position - in the form 'position' or 'position(accuracy)'
+	if (ScriptedSmokeTest::getValueParameter(argStream, positionArg, accuracyArg, false, false))
+	{
+		if (!positionArg.empty())
+		{
+			retval = ScriptedSmokeTest::getInteger(positionArg, position);
+			if (!accuracyArg.empty())
+			{
+				retval = ScriptedSmokeTest::getInteger(accuracyArg, accuracy);
+			}
+		}
+	}
+	else
+	{
+		printf("%s:%d: Unable to get position from stream\n", __FUNCTION__,__LINE__);
+	}
+	return retval;
+}
+
+/**
+ * @brief Helper function to extract the event speed argument from a stream
+ * @param[in] argStream - string stream of argumants
+ * @param[out] speed - the extracted speed
+ * @retval - true if a speed value was extracted
+ */
+bool ScriptedSmokeTestEventListener::extractSpeedArgs(std::stringstream &argStream, double &speed)
+{
+	bool retval = false;
+	std::string speedArg;
+
+	// Extract the expected speed
+	if (ScriptedSmokeTest::getValueParameter(argStream, speedArg, false))
+	{
+		if (!speedArg.empty())
+		{
+			retval = ScriptedSmokeTest::getInteger(speedArg, speed);
+		}
+	}
+	else
+	{
+		printf("%s:%d: Unable to get speed from stream\n", __FUNCTION__,__LINE__);
+	}
+	return retval;
+}
+
 
 /**
  * @brief Create a list of monitored events from text input
@@ -242,7 +252,7 @@ bool ScriptedSmokeTestEventListener::createEventList(std::stringstream &argStrea
 
 	std::string event;
 	std::string eventArgs;
-	while (ScriptedSmokeTest::getValueParameter(argStream, event, eventArgs, false))
+	while (ScriptedSmokeTest::getValueParameter(argStream, event, eventArgs, true, false))
 	{
 		bool negate = defaultNegate;
 		if (event[0] == '!')
@@ -251,118 +261,290 @@ bool ScriptedSmokeTestEventListener::createEventList(std::stringstream &argStrea
 			event.erase(0, 1);
 		}
 
-		if (event == "TUNED")
+		//
+		// Events with, potentially, some extra checks 
+		//
+		if (event == "PROGRESS")
 		{
-			eventList.push_back(monitoredEventStatus(ScriptedSmokeTestEventListener::WaitEvent::TUNED, event.c_str(), negate));
-		}
-		else if (event == "PLAYING")
-		{
-			eventList.push_back(monitoredEventStatus(ScriptedSmokeTestEventListener::WaitEvent::PLAYING, event.c_str(), negate));
-		}
-		else if (event == "PAUSED")
-		{
-			eventList.push_back(monitoredEventStatus(ScriptedSmokeTestEventListener::WaitEvent::PAUSED, event.c_str(), negate));
-		}
-		else if (event == "STOPPED")
-		{
-			eventList.push_back(monitoredEventStatus(ScriptedSmokeTestEventListener::WaitEvent::STOPPED, event.c_str(), negate));
-		}
-		else if (event == "EOS")
-		{
-			eventList.push_back(monitoredEventStatus(ScriptedSmokeTestEventListener::WaitEvent::EOS, event.c_str(), negate));
-		}
-		else if (event == "TUNE_FAILED")
-		{
-			eventList.push_back(monitoredEventStatus(ScriptedSmokeTestEventListener::WaitEvent::TUNE_FAILED, event.c_str(), negate));
-		}
-		else if (event == "ERROR")
-		{
-			eventList.push_back(monitoredEventStatus(ScriptedSmokeTestEventListener::WaitEvent::ERROR, event.c_str(), negate));
-		}
-		else if (event == "BLOCKED")
-		{
-			eventList.push_back(monitoredEventStatus(ScriptedSmokeTestEventListener::WaitEvent::BLOCKED, event.c_str(), negate));
-		}
-		else if (event == "AUDIO_TRACKS_CHANGED")
-		{
-			monitoredEventStatus status = monitoredEventStatus(ScriptedSmokeTestEventListener::WaitEvent::AUDIO_TRACKS_CHANGED, event.c_str(), negate);
-			if (!eventArgs.empty())
-			{
-				retval = ScriptedSmokeTest::getInteger(eventArgs, status.data.audio.track);
-			}
-			eventList.push_back(status);
-		}
-		else if (event == "TEXT_TRACKS_CHANGED")
-		{
-			monitoredEventStatus status = monitoredEventStatus(ScriptedSmokeTestEventListener::WaitEvent::TEXT_TRACKS_CHANGED, event.c_str(), negate);
-			if (!eventArgs.empty())
-			{
-				retval = ScriptedSmokeTest::getInteger(eventArgs, status.data.text.track);
-			}
-			eventList.push_back(status);
-		}
-		else if (event == "PROGRESS")
-		{
-			monitoredEventStatus status = monitoredEventStatus(ScriptedSmokeTestEventListener::WaitEvent::PROGRESS, event.c_str(), negate);
+			monitoredEventStatus status = monitoredEventStatus(AAMP_EVENT_PROGRESS, event.c_str(), negate);
 			if (!eventArgs.empty())
 			{
 				// We expect a comma separated list of progress arguments
-				// first of all remove any spaces that have been put in
-				auto start = std::remove(eventArgs.begin(), eventArgs.end(), ' ');
-				eventArgs.erase(start, eventArgs.end());
-				std::stringstream positionStream(eventArgs);
+				std::stringstream progressArgStream(eventArgs);
 
-				// Extract the expected speed
+				status.name += "(";
+				if (extractSpeedArgs(progressArgStream, status.data.progress.speed))
 				{
-					std::string speed;
-					if (std::getline(positionStream, speed, ','))
-					{
-						if (!speed.empty())
-						{
-							status.name += " speed ";
-							status.name += speed;
-							retval = ScriptedSmokeTest::getInteger(speed, status.data.progress.speed);
-						}
-					}
-					else
-					{
-						printf("%s:%d: Unable to get speed from '%s'\n", __FUNCTION__,__LINE__, eventArgs.c_str());
-						retval = false;
-					}
+					status.name += "speed ";
+					status.name += std::to_string(status.data.progress.speed);
 				}
-
-				// Extract the expected position - in the form 'position' or 'position(accuracy)'
+				status.name += ",";
+				if (extractPositionArgs(progressArgStream, status.data.progress.position, status.data.progress.accuracy))
 				{
-					std::string position;
-					std::string accuracy;
-					if (ScriptedSmokeTest::getValueParameter(positionStream, position, accuracy, false, ','))
-					{
-						if (!position.empty())
-						{
-							status.name += " position ";
-							status.name += position;
-							retval = ScriptedSmokeTest::getInteger(position, status.data.progress.position);
-
-							if (!accuracy.empty())
-							{
-								status.name += "+-";
-								status.name += accuracy;
-								retval = ScriptedSmokeTest::getInteger(accuracy, status.data.progress.accuracy);
-							}
-						}
-					}
-					else
-					{
-						printf("%s:%d: Unable to get position from '%s'\n", __FUNCTION__,__LINE__, eventArgs.c_str());
-						retval = false;
-					}
+					status.name += " position ";
+					status.name += std::to_string(status.data.progress.position);
+					status.name += "+-";
+					status.name += std::to_string(status.data.progress.accuracy);
 				}
+				status.name += ")";
 			}
 			eventList.push_back(status);
-			break; // Don't allow any more events after PROGRESS
 		}
+		else if (event == "SEEKED")
+		{
+			monitoredEventStatus status = monitoredEventStatus(AAMP_EVENT_SEEKED, event.c_str(), negate);
+			if (!eventArgs.empty())
+			{
+				status.name += "(";
+				std::stringstream seekedArgStream(eventArgs);
+				if (extractPositionArgs(seekedArgStream, status.data.seek.position, status.data.seek.accuracy))
+				{
+					status.name += " position ";
+					status.name += std::to_string(status.data.seek.position);
+					status.name += "+-";
+					status.name += std::to_string(status.data.seek.accuracy);
+				}
+				status.name += ")";
+			}
+			eventList.push_back(status);
+		}
+		else if (event == "SPEED_CHANGED")
+		{
+			monitoredEventStatus status = monitoredEventStatus(AAMP_EVENT_SPEED_CHANGED, event.c_str(), negate);
+			if (!eventArgs.empty())
+			{
+				status.name += "(";
+				std::stringstream speedArgStream(eventArgs);
+				if (extractSpeedArgs(speedArgStream, status.data.speed.speed))
+				{
+					status.name += "speed ";
+					status.name += std::to_string(status.data.speed.speed);
+				}
+				status.name += ")";
+			}
+			eventList.push_back(status);
+		}
+		else if (event == "AUDIO_TRACKS_CHANGED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_AUDIO_TRACKS_CHANGED, event.c_str(), negate));
+		}
+		else if (event == "TEXT_TRACKS_CHANGED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_TEXT_TRACKS_CHANGED, event.c_str(), negate));
+		}
+		else if (event == "TUNED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_TUNED, event.c_str(), negate));
+		}
+		else if (event == "EOS")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_EOS, event.c_str(), negate));
+		}
+		else if (event == "TUNE_FAILED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_TUNE_FAILED, event.c_str(), negate));
+		}
+		else if (event == "BLOCKED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_BLOCKED, event.c_str(), negate));
+		}
+		else if (event == "PLAYLIST_INDEXED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_PLAYLIST_INDEXED, event.c_str(), negate));
+		}
+		else if (event == "CC_HANDLE_RECEIVED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_CC_HANDLE_RECEIVED, event.c_str(), negate));
+		}
+		else if (event == "JS_EVENT")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_JS_EVENT, event.c_str(), negate));
+		}
+		else if (event == "MEDIA_METADATA")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_MEDIA_METADATA, event.c_str(), negate));
+		}
+		else if (event == "ENTERING_LIVE")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_ENTERING_LIVE, event.c_str(), negate));
+		}
+		else if (event == "BITRATE_CHANGED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_BITRATE_CHANGED, event.c_str(), negate));
+		}
+		else if (event == "TIMED_METADATA")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_TIMED_METADATA, event.c_str(), negate));
+		}
+		else if (event == "BULK_TIMED_METADATA")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_BULK_TIMED_METADATA, event.c_str(), negate));
+		}
+		else if (event == "SPEEDS_CHANGED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_SPEEDS_CHANGED, event.c_str(), negate));
+		}
+		else if (event == "TUNE_PROFILING")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_TUNE_PROFILING, event.c_str(), negate));
+		}
+		else if (event == "BUFFERING_CHANGED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_BUFFERING_CHANGED, event.c_str(), negate));
+		}
+		else if (event == "DURATION_CHANGED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_DURATION_CHANGED, event.c_str(), negate));
+		}
+		else if (event == "AD_BREAKS_CHANGED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_AD_BREAKS_CHANGED, event.c_str(), negate));
+		}
+		else if (event == "AD_STARTED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_AD_STARTED, event.c_str(), negate));
+		}
+		else if (event == "AD_COMPLETED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_AD_COMPLETED, event.c_str(), negate));
+		}
+		else if (event == "DRM_METADATA")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_DRM_METADATA, event.c_str(), negate));
+		}
+		else if (event == "REPORT_ANOMALY")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_REPORT_ANOMALY, event.c_str(), negate));
+		}
+		else if (event == "WEBVTT_CUE_DATA")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_WEBVTT_CUE_DATA, event.c_str(), negate));
+		}
+		else if (event == "AD_RESOLVED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_AD_RESOLVED, event.c_str(), negate));
+		}
+		else if (event == "AD_RESERVATION_START")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_AD_RESERVATION_START, event.c_str(), negate));
+		}
+		else if (event == "AD_RESERVATION_END")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_AD_RESERVATION_END, event.c_str(), negate));
+		}
+		else if (event == "AD_PLACEMENT_START")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_AD_PLACEMENT_START, event.c_str(), negate));
+		}
+		else if (event == "AD_PLACEMENT_END")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_AD_PLACEMENT_END, event.c_str(), negate));
+		}
+		else if (event == "AD_PLACEMENT_ERROR")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_AD_PLACEMENT_ERROR, event.c_str(), negate));
+		}
+		else if (event == "AD_PLACEMENT_PROGRESS")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_AD_PLACEMENT_PROGRESS, event.c_str(), negate));
+		}
+		else if (event == "REPORT_METRICS_DATA")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_REPORT_METRICS_DATA, event.c_str(), negate));
+		}
+		else if (event == "ID3_METADATA")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_ID3_METADATA, event.c_str(), negate));
+		}
+		else if (event == "DRM_MESSAGE")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_DRM_MESSAGE, event.c_str(), negate));
+		}
+		else if (event == "CONTENT_GAP")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_CONTENT_GAP, event.c_str(), negate));
+		}
+		else if (event == "HTTP_RESPONSE_HEADER")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_HTTP_RESPONSE_HEADER, event.c_str(), negate));
+		}
+		else if (event == "WATERMARK_SESSION_UPDATE")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_WATERMARK_SESSION_UPDATE, event.c_str(), negate));
+		}
+		else if (event == "CONTENT_PROTECTION_DATA_UPDATE")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE, event.c_str(), negate));
+		}
+
+		//
+		// State change events
+		//
+		else if (event == "IDLE")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_IDLE, event.c_str(), negate));
+		}
+		else if (event == "PLAYING")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_PLAYING, event.c_str(), negate));
+		}
+		else if (event == "PAUSED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_PAUSED, event.c_str(), negate));
+		}
+		else if (event == "STOPPED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_STOPPED, event.c_str(), negate));
+		}
+		else if (event == "ERROR")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_ERROR, event.c_str(), negate));
+		}
+		else if (event == "INITIALIZING")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_INITIALIZING, event.c_str(), negate));
+		}
+		else if (event == "INITIALIZED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_INITIALIZED, event.c_str(), negate));
+		}
+		else if (event == "PREPARING")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_PREPARING, event.c_str(), negate));
+		}
+		else if (event == "PREPARED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_PREPARED, event.c_str(), negate));
+		}
+		else if (event == "BUFFERING")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_BUFFERING, event.c_str(), negate));
+		}
+		else if (event == "SEEKING")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_SEEKING, event.c_str(), negate));
+		}
+		else if (event == "STOPPING")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_STOPPING, event.c_str(), negate));
+		}
+		else if (event == "COMPLETE")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_COMPLETE, event.c_str(), negate));
+		}
+		else if (event == "RELEASED")
+		{
+			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_RELEASED, event.c_str(), negate));
+		}
+//		else if (event == "BLOCKED")
+//		{
+//			eventList.push_back(monitoredEventStatus(AAMP_EVENT_STATE_CHANGED, eSTATE_BLOCKED, event.c_str(), negate));
+//		}
+
+		// unrecognised
 		else
 		{
+			printf("%s:%d: ERROR - unrecognised event '%s'\n",__FUNCTION__,__LINE__, event.c_str());
 			retval = false;
 		}
 	}
@@ -389,13 +571,23 @@ bool ScriptedSmokeTestEventListener::checkEventList(std::vector<monitoredEventSt
 		}
 		status += event.name;
 		status += "(";
-		status += (event.received != event.negative)?"OK":"NOT OK";
-		status += ") ";
-
 		if (event.received == event.negative) // wanted event not received, or not wanted event received
 		{
+			status += "NOT OK";
+			if (event.event == AAMP_EVENT_PROGRESS)
+			{
+				status += ", speed ";
+				status += std::to_string(event.actual.progress.speed);
+				status += ", position ";
+				status += std::to_string(event.actual.progress.position);
+			}
 			retval = false;
 		}
+		else
+		{
+			status += "OK";
+		}
+		status += ") ";
 	}
 
 	return retval;

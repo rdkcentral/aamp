@@ -44,7 +44,6 @@ int runCommand(bool videoFlag,  void *testArg)
 {
 	char *testName = (char *)testArg;
 	SmokeTest lSmokeTest;
-	bool disableGTESTs = false;
 	
 	if( (testName == NULL) || ((testName != NULL) && (strncasecmp(testName,"smoketest",9) == 0)) )
 	{
@@ -59,13 +58,10 @@ int runCommand(bool videoFlag,  void *testArg)
 	}
 	else if (strlen(testName) > 0)
 	{
-		// Can probably improve this but if we have a test name ('aamp_smoketest -t <testname>')
-		// that isn't 'smoketest' or 'scripts' then we'll assume it is a specific script and
-		// just try to run that.
+		// If we have a test name ('aamp_smoketest -t <testname>') that isn't 'smoketest' or 'scripts' then assume 
+		// it is a specific script and just try to run that.
+		testing::GTEST_FLAG(filter) = "SmokeTestScripts*";
 		printf("\n[SMOKETEST] Attempting to run script: '%s'\n", testName);
-		ScriptedSmokeTest::testScript(testName);
-		// This is really for dev purposes so disable gtests and run it directly.
-		disableGTESTs = true;
 	}
 	else
 	{
@@ -80,7 +76,7 @@ int runCommand(bool videoFlag,  void *testArg)
 	}
 #endif
 
-	return disableGTESTs ? 0 : RUN_ALL_TESTS();
+	return RUN_ALL_TESTS();
 }
 
 
@@ -90,10 +86,6 @@ GTEST_API_ int main(int argc, char* argv[])
 	bool videoFlag = false;
 	char *testName = NULL;
 	
-	::testing::GTEST_FLAG(output) = gtestReportPath;
-	::testing::InitGoogleTest(&argc, argv);
-
-	
 	while ((ch = getopt(argc, argv, "vht:")) != -1)
 	{
 		switch (ch)
@@ -102,6 +94,7 @@ GTEST_API_ int main(int argc, char* argv[])
 				videoFlag = true;
 				break;
 			case 't':
+				ScriptedSmokeTest::setTestScript(optarg); // Try to set the specified test as a smoke test script
 				testName = optarg;
 				printf("[SMOKETEST] Test name specified: '%s'\n", testName);
 				break;
@@ -111,6 +104,10 @@ GTEST_API_ int main(int argc, char* argv[])
 				exit(0);
 		}
 	}
+
+	::testing::GTEST_FLAG(output) = gtestReportPath;
+	::testing::InitGoogleTest(&argc, argv);
+	
 	argc -= optind;
 	argv += optind;
 

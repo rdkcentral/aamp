@@ -70,9 +70,11 @@ if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
     file(MAKE_DIRECTORY $ENV{HOME}/smoketest)
     file(GLOB SCRIPT_FILES RELATIVE ${CMAKE_SOURCE_DIR}/test/smoketest/scripts ${CMAKE_SOURCE_DIR}/test/smoketest/scripts/*)
     foreach(SCRIPT IN LISTS SCRIPT_FILES)
-        if (NOT EXISTS $ENV{HOME}/smoketest/${SCRIPT})
+#        if (NOT EXISTS $ENV{HOME}/smoketest/${SCRIPT})
             configure_file(${CMAKE_SOURCE_DIR}/test/smoketest/scripts/${SCRIPT} $ENV{HOME}/smoketest/${SCRIPT})
-        endif()
+#        endif()
     endforeach()
+    # remove old file with an invalid name
+    file(REMOVE $ENV{HOME}/smoketest/frozen-video.smk)
 endif()
 

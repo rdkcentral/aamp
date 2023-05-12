@@ -36,10 +36,16 @@ class ScriptedSmokeTest
         static std::map<std::string, std::string> taggedURLList;
 		static std::map<std::string, std::string> tagMap;
 		static uint32_t currentPlayerId;
+		static std::string smoketestDirectory;
+		static std::string scriptDirectory;
+    	static bool abortTests;
+
+		static bool getScriptDirectory();
 
 		static void getTestUrls(std::string &filename);
 		static bool applyTestIterations(std::string &filename, std::vector<testInformation> &testList);
         static bool getIterationInfo(std::ifstream &script, int iteration);
+		static bool checkTargetDevice(std::string &filename);
 
 		static bool process_tune(std::stringstream &args, PlayerInstanceAAMP *player);
 		static bool process_stop(std::stringstream &args, PlayerInstanceAAMP *player);
@@ -55,28 +61,46 @@ class ScriptedSmokeTest
 		static bool process_setaudiotrack(std::stringstream &args, PlayerInstanceAAMP *player);
 		static bool process_settextrack(std::stringstream &args, PlayerInstanceAAMP *player);
 
+		static bool do_check(std::stringstream &args, PlayerInstanceAAMP *player, std::string &status);
+
 		static PlayerInstanceAAMP *getCurrentPlayer();
 		static ScriptedSmokeTestEventListener *getCurrentListener();
+
+		static bool isFile(const char *path, bool directory = false);
+
+		static std::string getScriptFilePath(const char *filename)
+		{
+			std::string filepath = scriptDirectory + "/" + filename;
+			return filepath;
+		}
 
 	public:
 		static bool getIsNumber(std::string &value, bool allowSigned = true, bool allowDouble = true);
 
 		static bool getValueParameter(std::stringstream &stringStream, std::string &name, std::string &value, 
-		                              bool assertValue = true, char delim = ' ');
-		static bool getValueParameter(std::string &item, std::string &name, std::string &value, bool assertValue = true);
-        static bool getValueParameter(std::stringstream &line, const char *name, std::string &value);
+									  bool assertName = true, bool assertValue = true, bool assertNotEmptyValue = true);
+
+		static bool getValueParameter(std::string &item, std::string &name, std::string &value);
+		static bool getValueParameter(std::stringstream &item, std::string &name, bool assertName = true);
+
+        static bool checkForValueParameter(std::stringstream &line, const char *name, std::string &value);
+		static bool checkForValueParameter(std::string &line, const char *name, std::string &value);
+
 		static bool getIntParameter(std::stringstream &stringStream, int &value);
 		static bool getUintParameter(std::stringstream &stringStream, uint32_t &value);
-		static bool getEnvVarValue(std::string &param, std::string &name, std::string &value);
-		static bool getEnvVarValue(std::string &param, std::string &name);
-		static bool getEnvVar(std::string &name, std::string &value);
+		static bool getEnvironmentVariableName(std::string &param);
+		static bool getEnvironmentVariable(std::string &name, std::string &value);
 		static bool getInteger(std::string &text, int &value);
 		static bool getInteger(std::string &text, uint32_t &value);
 		static bool getInteger(std::string &text, double &value);
 
-		static std::vector<testInformation> getTestInformation(const char *testScript = NULL);
+		static std::vector<testInformation> getTestInformation();
 		static bool runScript(const char *script, int iteration = 0, bool gtest = true);
-    	static bool testScript(const char *testScript);
+
+    	static void setAbortTests() {abortTests = true;}
+    	static bool getAbortTests() {return abortTests;}
+
+		static bool setTestScript(const char *script);
 };
 
 #endif // SCRIPTEDSMOKETEST_H

@@ -1,2 +1,3 @@
-DASH_URL https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd
-HLS_URL https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.m3u8
+DASH_URL           https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd
+HLS_URL            https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.m3u8
+DASH_MULTILANG_URL https://cpetestutility.stb.r53.xcal.tv/multilang/main.mpd

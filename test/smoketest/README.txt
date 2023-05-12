@@ -3,11 +3,39 @@ Using Scripted Smoke Tests
 
 This intention here is to allow creation of a set of scripts that define smoke tests to be run.
 The script is a list of instructions and parameters (similar to aamp-cli).
+
+The scripts should be located in a 'smoketest' dir ('~/smoketest' on a PC and '/opt/smoketest' on a box).
+This dir should also contain the tagged list of URLs.
+
+The scripts will be run in alphabetical order (This should allow a set of scripts to be created to test that basic 
+functionality works before running more complicated tests. The following tests can then be aborted if these fail.)
+
 The actual testing is performed by checking the events sent from aamp using a 'waitfor <EVENT>' command.
 Instructions and parameters on a line must be separated by a single space.
 Comments may be added by starting the line with '#'
 
+General syntax:
+ - each command is followed by a space separated list of arguments:
+   COMMAND ARG1 ARG2 ...
+ - an argument may have associated parameters, these should be within brackets:
+   COMMAND ARG1(param) ARG2 ...
+ - if an argument has multiple parmeters, these should be entered as a comma separated list:
+   COMMAND ARG1(param1, param2, param3 ...) ARG2 ...
+ - an parameter may have its own parmeters:
+   COMMAND ARG1(param1(p1, p2...), param2, param3 ...) ARG2 ...
 
+ - Spaces are not supported other than to separate arguments (within a parameter or parameter list they will be stripped)
+ - Optionally, a parameter may be represented as ARG:PARAM. This can make some things more readable but a list of 
+   parameters must be within brackets.
+   E.g. to set the language configuration we use the 'config' command with a list of arguments for each item we want to set:
+     config preferredAudioLanguage(spa) preferredAudioRendition(french)
+   coud also be:
+     config preferredAudioLanguage:spa preferredAudioRendition:french
+   but for a list we need brackets:
+     config preferredAudioLanguage(eng, fra, spa) preferredAudioRendition:french
+   
+ 
+ 
 Instruction set:
 -----------------
 
@@ -21,7 +49,7 @@ Instruction set:
   setrate <rate>
   ff <rate>
   rew <rate>
-  pause
+  pause [position seconds - if set specified call PauseAt(position)]
   play
   seek <position in seconds> [keep paused, 0 or 1, default 0]
       (the position may be specified by $DURATION(offset) to seek to asset duration - optionally adjusted by int offset)
@@ -33,9 +61,21 @@ Instruction set:
   async <enabled, integer 0 or 1>
   config <list of 'name(value)' config parameters>
       e.g. config suppressDecode(true) supportTLS(2) preferredSubtitleLanguage(fra)
+  check <type(valuesettings) where 'type' is the type of check and value is a list of (json) settings 'setting(value)' or 'setting:value'>
+     supported types:
+        audio
+        text
+     e.g. check audio(language(eng), codec(mp4a.40.2))
+          check audio(language:eng, codec:mp4a.40.2)
     
+  SET_TARGET(<list of devices>)
+     e.g. SET_TARGET(simulator)
+          SET_TARGET(XiOneUK, XiOneDE, XiOneIT)
+          SET_TARGET(!XiOneIT)
   SET_VAR_TAGS(<var>) <list of tags> 			(see Setting Tune URL below)
   SET_ITERATIONS(<iterations>) [list of names]		(see Setting Tune URL below)
+
+  SET_STOP_ON_ERROR - if this is set then all following scripts will be skipped if this script fails
 
 
 
@@ -120,32 +160,23 @@ The 'waitfor' instruction is the bit that does the tests - it specifies what eve
 from the preceding instructions. This may be a single event or list of events (unordered) and 'waitfor' 
 can be used as a blocking or non-blocking test. If the check fails, the script will exit as failed.
 It can be specified that an event should NOT be received with '!<event>'.
-Where an event can check for certain parameters, these can, optionally, be added within brackets, e.g.
-To wait for any AUDIO_TRACKS_CHANGED event we can do:
-    waitfor 2 AUDIO_TRACKS_CHANGED
-To wait for an AUDIO_TRACKS_CHANGED and check the track number we can do
-    waitfor 2 AUDIO_TRACKS_CHANGED(track number)
-If an event an have multiple parameters they can be pravided as a comma separated list e.g.
+Where an event can check for certain parameters, these can, optionally, be added within brackets.
+If an event can have multiple parameters they can be pravided as a comma separated list e.g.
 To wait for a progress event we can do:
     waitfor 2 PROGRESS
 To wait for a progress event with particular speed and position we can do:
     waitfor 2 PROGRESS(speed,position)
-To ignor a parameter just leave it out so for a progress event wher we ignore the speed but check the position we can do:
+To ignore a parameter just leave it out. So for a progress event where we ignore the speed but check the position we can do:
     waitfor 2 PROGRESS(,position)
 
-Events currently supported:
-  TUNED (includes checking for TUNE_FAILED)
-  TUNE_FAILED
-  PLAYING
-  PAUSED
-  STOPPED
-  ERROR
-  BLOCKED
-  COMPLETE
-  EOS
-  AUDIO_TRACKS_CHANGED(int track index)
-  TEXT_TRACKS_CHANGED(int track index)
-  PROGRESS (int speed,int ms position)
+Events supported:
+  Most AAMPEventType events (just remove the 'AAMP_EVENT_', e.g. for AAMP_EVENT_SPEED_CHANGED use 'SPEED_CHANGED'):
+    waitfor 2 SPEED_CHANGED
+  For AAMP_EVENT_STATE_CHANGED events, use the PrivAAMPState enum (drop the 'eSTATE_'). E.g. for a AAMP_EVENT_STATE_CHANGED indicating
+  a state change to eSTATE_PAUSED, just use 'PAUSED'.
+    waitfor 2 PAUSED
+  The PROGRESS event can optionally accept speeed and position checks:
+     PROGRESS(int speed,int ms position)
 
 Note:
   - the accuracy of the postion (specified in ms) is by default 1s but may be specifed by appending '(accuracy)' e.g.:
@@ -184,6 +215,7 @@ If the app is run normally a set of tests will be run for each script along with
 The app may be run specifying that just the smoke test scripts be run:
     aamp_smoketest <-v> -t scripts
 
-The app may be run specifying that a single smoke test scripts be run (not as a google test):
-    aamp_smoketest <-v> -t <script filename>
+The app may be run specifying that a single smoke test script be run. This will not as run as a google test and may
+be in a different dir to the the main scripts (in which case just specify the full path).
+    aamp_smoketest <-v> -t [script filename]
 

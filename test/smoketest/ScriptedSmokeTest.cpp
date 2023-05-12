@@ -37,7 +37,9 @@ extern AampPlayer mAampPlayer;
 std::map<std::string, std::string> ScriptedSmokeTest::taggedURLList;
 std::map<std::string, std::string> ScriptedSmokeTest::tagMap;
 uint32_t ScriptedSmokeTest::currentPlayerId = 0;
-
+std::string ScriptedSmokeTest::smoketestDirectory;
+std::string ScriptedSmokeTest::scriptDirectory;
+bool ScriptedSmokeTest::abortTests = false;
 
 //////////////////////////////////////////////////////////////////////
 // This class contains the information for each test that is run
@@ -53,7 +55,7 @@ public:
 	}
 
 	std::string file; 		// the filename of the script
-	std::string name; 		// the name of the test
+	std::string name; 		// the name of the test (iteration) specified in the script
 	int iteration;
 };
 
@@ -62,58 +64,135 @@ const bool operator==(const testInformation& lhs, const std::string &rhs)
     return lhs.name == rhs;
 }
 
+const bool operator<(const testInformation& lhs, const testInformation &rhs)
+{
+		int test = lhs.file.compare(rhs.file);
+		if (test < 0)
+		{
+			return true;
+		}
+		else if (test > 0)
+		{
+			return false;
+		}
+		return lhs.iteration < rhs.iteration;
+}
+
 std::ostream& operator<<(std::ostream& os, const testInformation& info)
 {
+	std::string filename = info.file.substr(0, info.file.find('.')); // remove '.smk'
+
 	if (info.name != "")
 	{
-		os << info.file << ", test: " << info.name << ", " << info.iteration;
+		os << filename << "_" << info.name;
 	}
 	else if (info.iteration)
 	{
-		os << info.file << ", iteration: " << info.iteration;
+		os << filename << "_" << info.iteration;
 	}
 	else
 	{
-		os << info.file;
+		os << filename;
 	}
 	return os;
 }
 
 
 
+/**
+ * @brief Get the currently selected aamp player instance
+ * @retval pointer to aamp player instance
+ */
 PlayerInstanceAAMP *ScriptedSmokeTest::getCurrentPlayer()
 {
 	return mAampPlayer.getPlayer(currentPlayerId);
 }
 
+/**
+ * @brief Get the currently selected aamp player event listener
+ * @retval pointer to event listener
+ */
 ScriptedSmokeTestEventListener *ScriptedSmokeTest::getCurrentListener()
 {
 	return dynamic_cast<ScriptedSmokeTestEventListener*>(mAampPlayer.getListener(currentPlayerId));
 }
 
+bool ScriptedSmokeTest::isFile(const char *path, bool directory)
+{
+	if (NULL != path)
+	{
+		struct stat fileinfo;	
+		if (stat(path, &fileinfo) == 0)
+		{
+			if (directory)
+			{
+				return ((fileinfo.st_mode & S_IFDIR) == S_IFDIR);
+			}
+			else
+			{
+				return ((fileinfo.st_mode & S_IFREG) == S_IFREG);
+			}
+		}
+	}
+	return false;
+}
 
 /**
- * @brief Run just the specified test
- * @param[in] testScript - the filename of the test to run
- * @retval true
+ * @brief Check the scrip to se if it is a smoke test script.
+ *        If it is then set it as the only script to test.
+ * @param[in] script - the filename of the test to run
+ * @retval true if it was recognised as a smoke test script
  */
-bool ScriptedSmokeTest::testScript(const char *testScript)
+bool ScriptedSmokeTest::setTestScript(const char *script)
 {
-	std::vector<testInformation> testInfo = getTestInformation(testScript);
-	if (testInfo.size() == 0)
+	std::string filepath(script);
+	if (filepath.find(".smk") != std::string::npos) // if it contains '.smk' then it is a smoke test script
 	{
-		printf("ERROR: unrecognised script name '%s'", testScript);
-		return false;
+		scriptDirectory = filepath; // set the scriptDirectory to point to the file
+		return true;
+	}
+	return false;
+}
+
+
+/**
+ * @brief Get the smoketest directory
+ * @retval true if the directory was found
+ */
+bool ScriptedSmokeTest::getScriptDirectory()
+{
+	// Try to find the dir to look for test scripts
+
+	// Try /opt/smoketest
+	smoketestDirectory = "/opt/smoketest";
+
+	if (!isFile(smoketestDirectory.c_str(), true))
+	{
+		// Try ~/smoketest
+		const char *homedir = getenv("HOME");
+		if (homedir)
+		{
+			smoketestDirectory = homedir;
+			smoketestDirectory += "/smoketest";
+		}
 	}
 
-	for (auto info : testInfo)
+	if (!isFile(smoketestDirectory.c_str(), true))
 	{
-		printf("\n\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n>>> Running script %s (%s, %d)\n", 
-			   info.file.c_str(), info.name.c_str(), info.iteration);
-		runScript(info.file.c_str(), info.iteration, false);
+		// Just create a dir in /tmp
+		smoketestDirectory = "/tmp/smoketest";
+		std::system("mkdir -p /tmp/smoketest");
+		printf("WARNING: unable to find smoketest dir, using '/tmp/smoketest'");
 	}
-	return true;
+
+	if (scriptDirectory.empty())
+	{
+		scriptDirectory = smoketestDirectory;
+	}
+
+	return isFile(smoketestDirectory.c_str(), true);
 }
+
 
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -225,33 +304,19 @@ bool ScriptedSmokeTest::getInteger(std::string &text, double &value)
 }	
 
 /**
- * @brief potential envornment variable - '$name' or '$name(value)'
- * @param[in] stringStream - string parameter
- * @param[out] name - the name extracted (or env var value if exported)
- * @param[out] value - the string value extracted
- * @retval true if the param was an environment variable (atsrts with '$')
+ * @brief check for envornment variable - '$name' and strip the '$'
+ * @param[in out] param - string parameter
+ * @retval true if the param was an environment variable (starts with '$')
  */
-bool ScriptedSmokeTest::getEnvVarValue(std::string &param, std::string &name, std::string &value)
+bool ScriptedSmokeTest::getEnvironmentVariableName(std::string &param)
 {
 	if (param[0] == '$')
 	{
-		std::string temp = param;
-		temp.erase(0, 1);
-		return getValueParameter(temp, name, value, false);
+		param.erase(0, 1);
+		return true;
 	}
 	return false;
-}
 
-/**
- * @brief potential envornment variable - '$name'
- * @param[in] stringStream - string parameter
- * @param[out] name - the name extracted (or env var value if exported)
- * @retval true if the param was an environment variable (atsrts with '$')
- */
-bool ScriptedSmokeTest::getEnvVarValue(std::string &param, std::string &name)
-{
-	std::string value;
-	return getEnvVarValue(param, name, value);
 }
 
 /**
@@ -260,7 +325,7 @@ bool ScriptedSmokeTest::getEnvVarValue(std::string &param, std::string &name)
  * @param[out] value - the value of the variable
  * @retval true if 'name' was an exported environment variable
  */
-bool ScriptedSmokeTest::getEnvVar(std::string &name, std::string &value)
+bool ScriptedSmokeTest::getEnvironmentVariable(std::string &name, std::string &value)
 {
 	char *envvar = getenv(name.c_str());
 	if (envvar)
@@ -273,52 +338,149 @@ bool ScriptedSmokeTest::getEnvVar(std::string &name, std::string &value)
 }
 
 /**
- * @brief get a named string value of the form 'name(value)'
+ * @brief get a named string value of the form 'name(value)' or 'name:value'
  * @param[in] stringStream - stream to extract the value from
  * @param[out] name - the name value extracted
  * @param[in, out] value - the string value extracted
- * @param[in] delim - the stream delimiting character
- * @param[in] assertValue - true if there must be a value - 'n(v)', false if it is optional - 'n'
+ * @param[in] assertName - true if there must be a name(value) - use false if the name is optional
+ * @param[in] assertValue - true if there must be a value - 'n(v)', false if the value part is optional - 'n'
+ * @param[in] assertNotEmptyValue - true if the value must be set - 'n(v)', false if it can be empty - 'n()'
  * @retval true if no error occured
  */
 bool ScriptedSmokeTest::getValueParameter(std::stringstream &stringStream, std::string &name, std::string &value, 
-                                          bool assertValue, char delim)
+                                          bool assertName, bool assertValue, bool assertNotEmptyValue)
 {
-	std::string item;
-	bool retval = false;
-	if (std::getline(stringStream, item, delim)) // get the item
+	enum parsingStage {	NAME, VALUE, ERROR };
+	parsingStage stage = NAME;
+
+	name.clear();
+	value.clear();
+
+	if (!stringStream.eof())
 	{
-		// We are looking for synyax 'name(value)'
-		std::stringstream itemStream(item);
-		if (std::getline(itemStream, name, '('))
+		char c;
+		int brackets = 0;
+		while (stringStream.get(c))
 		{
-			if (itemStream.eof())
+			if (c == '(')
 			{
-				value.clear();
-				retval = !assertValue; // ok if the value is optional
+				if (name.empty())
+				{
+					printf("%s:%d: ERROR: Syntax error: '%s:%s'\n",__FUNCTION__,__LINE__, name.c_str(), value.c_str());
+					return false;
+				}
+				else if (!brackets && (stage == VALUE))
+				{
+					printf("%s:%d: ERROR: Syntax error: '%s:%s'\n",__FUNCTION__,__LINE__, name.c_str(), value.c_str());
+					return false;
+				}
+				else if (++brackets == 1)
+				{
+					stage = VALUE;
+					continue;
+				}
 			}
-			else if (std::getline(itemStream, value, '\0'))
+			else if (c == ')')
 			{
-				value.erase(value.rfind(')')); // remove end ')'
-				retval = !value.empty();
+				if (!brackets)
+				{
+					printf("%s:%d: ERROR: Syntax error: '%s:%s'\n",__FUNCTION__,__LINE__, name.c_str(), value.c_str());
+					return false;
+				}
+				else if (--brackets == 0)
+				{
+					continue;
+				}
+			}
+			else if (c == ':')
+			{
+				if (name.empty())
+				{
+					printf("%s:%d: ERROR: Syntax error: '%s:%s'\n",__FUNCTION__,__LINE__, name.c_str(), value.c_str());
+					return false;
+				}
+				else if ((stage == NAME) &&
+				         (name.substr(0,4) != "http"))
+				{
+					stage = VALUE;
+					continue;
+				}
+			}
+			else if (c == ',')
+			{
+				if (!brackets)
+				{
+					break;
+				}
+			}
+			else if (c == ' ')
+			{
+				if (!brackets && !name.empty())
+				{
+					break;
+				}
+				continue; // Strip spaces - don't add them to the result
+			}
+			
+			if (stage == NAME)
+			{
+				name += c;
+			}
+			else if (stage == VALUE)
+			{
+				value += c;
+			}
+			else
+			{
+				printf("%s:%d: ERROR: Syntax error: '%s:%s'\n",__FUNCTION__,__LINE__, name.c_str(), value.c_str());
+				return false;
 			}
 		}
+
+		if (name.empty())
+		{
+			return !assertName;
+		}
+
+		if (value.empty())
+		{
+			if (stage == VALUE)
+			{
+				return !assertNotEmptyValue;
+			}
+			else
+			{
+				return !assertValue;
+			}
+		}
+
+		return true;
 	}
-	return retval;
+	return false;
 }
 
 /**
  * @brief get a named string value of the form 'name(value)'
  * @param[in] item - stream to extract the value from
  * @param[in, out] name - the name value extracted
- * @param[in, out] value - the string value extracted
- * @param[in] assertValue - true if there must be a value - 'n(v)', false if it is optional - 'n'
  * @retval true if no error occured
  */
-bool ScriptedSmokeTest::getValueParameter(std::string &item, std::string &name, std::string &value, bool assertValue)
+bool ScriptedSmokeTest::getValueParameter(std::string &item, std::string &name, std::string &value)
 {
 	std::stringstream stream(item);
-	return getValueParameter(stream, name, value, assertValue);
+	return getValueParameter(stream, name, value);
+}
+
+/**
+ * @brief get a value from a string list
+ * @param[in] item - stream to extract the value from
+ * @param[in, out] value - the value extracted
+ * @retval true if no error occured
+ */
+bool ScriptedSmokeTest::getValueParameter(std::stringstream &item, std::string &name, bool assertName)
+{
+	std::string value;
+	return getValueParameter(item, name, value, assertName, false);
 }
 
 /**
@@ -328,7 +490,7 @@ bool ScriptedSmokeTest::getValueParameter(std::string &item, std::string &name, 
  * @param[out] value - the string value extracted
  * @retval true if no error occured
  */
-bool ScriptedSmokeTest::getValueParameter(std::stringstream &stringStream, const char *name, std::string &value)
+bool ScriptedSmokeTest::checkForValueParameter(std::stringstream &stringStream, const char *name, std::string &value)
 {
 	std::string itemName;
 	if (getValueParameter(stringStream, itemName, value))
@@ -342,6 +504,19 @@ bool ScriptedSmokeTest::getValueParameter(std::stringstream &stringStream, const
 }
 
 /**
+ * @brief get a named string value of the form 'name(value)' with a specified name
+ * @param[in] line - string to extract the value from
+ * @param[in] name - the name to check for
+ * @param[out] value - the string value extracted
+ * @retval true if no error occured
+ */
+bool ScriptedSmokeTest::checkForValueParameter(std::string &line, const char *name, std::string &value)
+{
+	std::stringstream stringStream(line);
+	return checkForValueParameter(stringStream, name, value);
+}
+
+/**
  * @brief get an integer value from a string stream
  * @param[in] stringStream - stream to extract the value from
  * @param[out] value - the int value extracted
@@ -350,7 +525,7 @@ bool ScriptedSmokeTest::getValueParameter(std::stringstream &stringStream, const
 bool ScriptedSmokeTest::getIntParameter(std::stringstream &stringStream, int &value)
 {
 	std::string item;
-	if (std::getline(stringStream, item, ' ')) // get the item
+	if (getValueParameter(stringStream, item)) // get the item
 	{
 		return getInteger(item, value);
 	}
@@ -366,7 +541,7 @@ bool ScriptedSmokeTest::getIntParameter(std::stringstream &stringStream, int &va
 bool ScriptedSmokeTest::getUintParameter(std::stringstream &stringStream, uint32_t &value)
 {
 	std::string item;
-	if (std::getline(stringStream, item, ' ')) // get the item
+	if (getValueParameter(stringStream, item)) // get the item
 	{
 		return getInteger(item, value);
 	}
@@ -402,8 +577,8 @@ void ScriptedSmokeTest::getTestUrls(std::string &filename)
 			while (std::getline(urlFile, line))
 			{
 				std::stringstream lineText(line);
-				if (std::getline(lineText, tag, ' ') &&
-					std::getline(lineText, url, ' ') &&
+				if (getValueParameter(lineText, tag) &&
+					getValueParameter(lineText, url) &&
 					tag[0] != '#')
 				{
 					taggedURLList[tag] = url;
@@ -413,6 +588,67 @@ void ScriptedSmokeTest::getTestUrls(std::string &filename)
 		}
 	}
 }
+
+/**
+ * @brief Check a script for a list of target devices
+ * @param[in] filename - the filename of the script
+ * @retval true no specified targets or targets matched current device
+ */
+bool ScriptedSmokeTest::checkTargetDevice(std::string &filename)
+{
+	bool targetSpecified = false;
+
+	// Open the script and check for an instruction to target only specified device(s)
+	std::ifstream script(getScriptFilePath(filename.c_str()));
+	if (script.good())
+	{
+		std::string device;
+#ifdef SIMULATOR_BUILD
+		device = "simulator";
+#else
+		std::string deviceName = getenv("DEVICE_NAME");
+		std::string locale = getenv("GDPR_LOCALE");
+		device = deviceName + locale;
+#endif
+
+		std::string line;
+		std::string param;
+		while (std::getline(script, line))
+		{
+			if (checkForValueParameter(line, "SET_TARGET", param)) // look for 'SET_TARGET(target)'
+			{
+				std::string target;
+				std::stringstream deviceStream(param);
+				while (getValueParameter(deviceStream, target)) // look through list 'dev1, dev2, dev3 ...'
+				{
+					// Check for NOT device
+					if (target[0] == '!')
+					{
+						target.erase(0, 1);
+						if (device == target)
+						{
+							printf("%s:%d: WARNING: Skipping test for device '%s' (target '%s')\n",__FUNCTION__,__LINE__, device.c_str(), target.c_str());
+							return false;
+						}
+					}
+					else
+					{
+						targetSpecified = true;
+						
+						if (device == target)
+						{
+							printf("%s:%d: INFO: Target device matched '%s'\n",__FUNCTION__,__LINE__, device.c_str());
+							return true;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return !targetSpecified; // return false if target devices were specified (but not matched)
+}
+
 
 /**
  * @brief Check a script and create a test for each iteration specified
@@ -426,7 +662,7 @@ bool ScriptedSmokeTest::applyTestIterations(std::string &filename, std::vector<t
 	uint32_t testsAdded = 0;
 
 	// Open the script and check for an instruction to perform multiple iterations
-	std::ifstream script(filename);
+	std::ifstream script(getScriptFilePath(filename.c_str()));
 	if (script.good())
 	{
 		std::string line;
@@ -434,7 +670,7 @@ bool ScriptedSmokeTest::applyTestIterations(std::string &filename, std::vector<t
 		while (std::getline(script, line))
 		{
 			std::stringstream lineStream(line);
-			if (getValueParameter(lineStream, "SET_ITERATIONS", param)) // look for 'SET_ITERATIONS(iterations)'
+			if (checkForValueParameter(lineStream, "SET_ITERATIONS", param)) // look for 'SET_ITERATIONS(iterations)'
 			{
 				uint32_t iterations = 0;
 				if (getInteger(param, iterations))
@@ -443,7 +679,7 @@ bool ScriptedSmokeTest::applyTestIterations(std::string &filename, std::vector<t
 					for (int iter = 1; iter <= iterations; iter++)
 					{
 						testInformation test(filename);
-						std::getline(lineStream, test.name, ' ');
+						getValueParameter(lineStream, test.name);
 						test.iteration = iter;
 
 						testList.push_back(test);
@@ -481,10 +717,10 @@ bool ScriptedSmokeTest::getIterationInfo(std::ifstream &script, int iteration)
 		std::string var;
 		std::string tag;
 		std::stringstream lineStream(line);
-		if (getValueParameter(lineStream, "SET_VAR_TAGS", var)) // look for 'SET_VAR_TAGS(var)'
+		if (checkForValueParameter(lineStream, "SET_VAR_TAGS", var)) // look for 'SET_VAR_TAGS(var)'
 		{
 			// We always expect at least one tag
-			if (!std::getline(lineStream, tag, ' '))
+			if (!getValueParameter(lineStream, tag))
 			{
 				printf("%s:%d: ERROR: Invalid 'SET_VAR_TAGS(%s)'\n",__FUNCTION__,__LINE__, var.c_str());
 				return false;
@@ -493,7 +729,7 @@ bool ScriptedSmokeTest::getIterationInfo(std::ifstream &script, int iteration)
 			// Try to extract a tag for each iteration
 			for (int iter = 1; iter < iteration; iter++)
 			{
-				if (!std::getline(lineStream, tag, ' '))
+				if (!getValueParameter(lineStream, tag))
 				{
 					printf("%s:%d: WARNING: too few tags in 'SET_VAR_TAGS(%s)'\n",__FUNCTION__,__LINE__, var.c_str());
 				}
@@ -509,31 +745,42 @@ bool ScriptedSmokeTest::getIterationInfo(std::ifstream &script, int iteration)
  * @param[in] testScript - set if only one particular test is to be run
  * @retval a list of all the tests to run
  */
-std::vector<testInformation> ScriptedSmokeTest::getTestInformation(const char *testScript)
+std::vector<testInformation> ScriptedSmokeTest::getTestInformation()
 {
-	// Try to find the dir to look for test scripts
-	// Try /opt/smoketest first and if that doesn't exist, try ~/smoketest
-	std::string dirname("/opt/smoketest");
 	std::vector<testInformation> testList;
 
-	DIR *directory = opendir(dirname.c_str());
-	if (!directory)
+	if (!getScriptDirectory())
 	{
-		const char *homedir = getenv("HOME");
-		if (homedir)
+		printf("%s:%d: ERROR - unabe to find script directory\n",__FUNCTION__,__LINE__);
+		return testList;
+	}
+
+	// Parse the test URL file
+	std::string testUrlsFile = smoketestDirectory + "/" + SCRIPT_TEST_URL_FILE;
+	getTestUrls(testUrlsFile);
+
+	// Check the script directory - if the app has been run requesting the test of a specific script then
+	// scriptDirectory will indicate the file to parse. In this case we will extract the path and filename
+	// and limit the test cases to just this script.
+	std::string specifiedScript;
+	if (scriptDirectory.find(".smk") != std::string::npos)
+	{
+		std::size_t pos = scriptDirectory.rfind("/");
+		if (pos != std::string::npos)
 		{
-			dirname = homedir;
-			dirname += "/smoketest";
-			directory = opendir(dirname.c_str());
+			specifiedScript = scriptDirectory.substr(pos + 1);
+			scriptDirectory = scriptDirectory.erase(pos);
+		}
+		else // No path so assume it is a script in the smoketest dir
+		{
+			specifiedScript = scriptDirectory;
+			scriptDirectory = smoketestDirectory;
 		}
 	}
 
+	DIR *directory = opendir(scriptDirectory.c_str());
 	if (directory != NULL)
 	{
-		// Parse the test URL file
-		std::string testUrlsFile = dirname + "/" + SCRIPT_TEST_URL_FILE;
-		getTestUrls(testUrlsFile);
-
 		// Check all the files lloking for '.smk' scripts
 		struct dirent *file = readdir(directory);
 		while (file)
@@ -543,24 +790,30 @@ std::vector<testInformation> ScriptedSmokeTest::getTestInformation(const char *t
 			{
 				if (filename.substr(filename.size() - 4) == ".smk")
 				{
-					std::string filepath = dirname + "/" + filename;
-
-					if ((testScript != NULL) &&
-					    (filename != testScript))
+					if (!specifiedScript.empty() && (filename != specifiedScript))
 					{
 						// Skip this as we have been given a speciific file to run and it doesn't match
 					}
+					else if (!checkTargetDevice(filename))
+					{
+						// Skip this test as it is not for this device
+					}
 					// Check for requested iterations and create tests
-					else if (!applyTestIterations(filepath, testList))
+					else if (!applyTestIterations(filename, testList))
 					{
 						// Didn't find any iterations specified so just add the test
-						testList.push_back(testInformation(filepath));
+						testList.push_back(testInformation(filename));
 					}
 				}
 			}
 
 			file = readdir(directory);
 		}
+
+		closedir(directory);
+
+		// Sort the tests alphabetically
+		std::sort(testList.begin(), testList.end());
 	}
 
     return testList;
@@ -575,16 +828,16 @@ std::vector<testInformation> ScriptedSmokeTest::getTestInformation(const char *t
  */
 bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtest)
 {
-	std::ifstream script(filename);
 	std::stringstream text;
 	std::string line;
 	std::stringstream::pos_type loopstart;
-	uint32_t loopcount = 0;
+	int loopcount = -1;
 	bool scriptOk = true;
 	int lineNumber = 0;
+	bool abortOnError = false;
 
 	printf("%s:%d: Run script %s...\n",__FUNCTION__,__LINE__, filename);
-
+	std::ifstream script(getScriptFilePath(filename));
 	if (script.good())
 	{
 		if (!getIterationInfo(script, iteration))
@@ -611,7 +864,9 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 			}
 			else if (std::getline(cmd, token, ' '))
 			{
-				// Do any select first then get the player and listener
+				//
+				// Process commands that do not require a player / listener first
+				//
 				if (token == "select")
 				{
 					if (!getUintParameter(cmd, currentPlayerId))
@@ -630,27 +885,8 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 							scriptOk = false;
 						}
 					}
-
-					continue;
 				}
-
-				// Get the active player and listener
-				playerInstance = getCurrentPlayer();
-				if (playerInstance == NULL)
-				{
-					printf("%s:%d: Invalid player %d\n",__FUNCTION__,__LINE__, currentPlayerId);
-					scriptOk = false;
-					break;
-				}
-				listener = getCurrentListener();
-				if (listener == NULL)
-				{
-					printf("%s:%d: Invalid listener %d\n",__FUNCTION__,__LINE__, currentPlayerId);
-					scriptOk = false;
-					break;
-				}
-
-				if (token == "new") // create a new player
+				else if (token == "new") // create a new player
 				{
 					currentPlayerId = mAampPlayer.newPlayer();
 					printf("%s:%d: New player created and selected %d\n",__FUNCTION__,__LINE__, currentPlayerId);
@@ -662,7 +898,7 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 						printf("%s:%d: Invalid loop start\n",__FUNCTION__,__LINE__);
 						scriptOk = false;
 					}
-					else if (!getUintParameter(cmd, loopcount))
+					else if (!getIntParameter(cmd, loopcount))
 					{
 						printf("%s:%d: Failed to get loop count\n",__FUNCTION__,__LINE__);
 						scriptOk = false;
@@ -694,34 +930,9 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 						loopcount = -1;
 					}
 				}
-				else if (token == "waitfor") // check for specified events
+				else if (token == "SET_STOP_ON_ERROR")
 				{
-					std::string message;
-	                bool receivedEvents = listener->WaitForEvent(cmd, message);
-					if (!receivedEvents)
-					{
-						if (gtest)
-						{
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// GTEST bit
-							EXPECT_TRUE(receivedEvents) << "line " << std::to_string(lineNumber) << ": " << message;
-						}
-						else
-						{
-							printf("\n>>>>>>>>>>>>>>>>\n%s:%d: Script failed: %s\n\n",__FUNCTION__,__LINE__, message.c_str());
-						}
-
-						scriptOk = false;
-					}
-				}
-				else if (token == "failon") // set any events to fail script on
-				{
-					std::string message;
-	                if (!listener->SetFailEvents(cmd))
-					{
-						printf("%s:%d: Failed to get set fail events\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
+					abortOnError = true;
 				}
 				else if (token == "sleep") // sleep for 'n' seconds
 				{
@@ -737,83 +948,170 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 						sleep(seconds);
 					}
 				}
-				else if ((token.substr(0, 12) == "SET_VAR_TAGS") ||
-						 (token.substr(0, 14) == "SET_ITERATIONS"))
+#ifdef SIMULATOR_BUILD
+				else if (token == "simlinear")
+				{
+				}
+#endif
+				else if (token.substr(0, 4) == "SET_")
 				{
 					// ignore
 				}
 
-				
-				//
-				// AAAMP command processing
-				//
-				else if (token == "tune")
-				{
-					scriptOk = process_tune(cmd, playerInstance);
-				}
-				else if (token == "stop")
-				{
-					scriptOk = process_stop(cmd, playerInstance);
-				}
-				else if (token == "detach")
-				{
-					scriptOk = process_detach(cmd, playerInstance);
-					mAampPlayer.deletePlayer(currentPlayerId);
-					currentPlayerId = currentPlayerId ? currentPlayerId-- : currentPlayerId++;
-				}
-				else if (token == "setrate")
-				{
-					scriptOk = process_setrate(cmd, playerInstance);
-				}
-				else if (token == "ff")
-				{
-					scriptOk = process_ff(cmd, playerInstance);
-				}
-				else if (token == "rew")
-				{
-					scriptOk = process_rew(cmd, playerInstance);
-				}
-				else if (token == "pause")
-				{
-					scriptOk = process_pause(cmd, playerInstance);
-				}
-				else if (token == "play")
-				{
-					scriptOk = process_play(cmd, playerInstance);
-				}
-				else if (token == "seek")
-				{
-					scriptOk = process_seek(cmd, playerInstance);
-				}
-				else if (token == "async")
-				{
-					scriptOk = process_async(cmd, playerInstance);
-				}
-				else if (token == "config")
-				{
-					scriptOk = process_config(cmd, playerInstance);
-				}
-				else if (token == "setaudiotrack")
-				{
-					scriptOk = process_setaudiotrack(cmd, playerInstance);
-				}
-				else if (token == "settextrack")
-				{
-					scriptOk = process_settextrack(cmd, playerInstance);
-				}
+				// All the following require a valid player/listener to be set
 				else
 				{
-					printf("%s:%d: ERROR: unrecognised command '%s'\n",__FUNCTION__,__LINE__, token.c_str());
-					scriptOk = false;
+					// Get the active player and listener
+					playerInstance = getCurrentPlayer();
+					if (playerInstance == NULL)
+					{
+						printf("%s:%d: Invalid player %d\n",__FUNCTION__,__LINE__, currentPlayerId);
+						scriptOk = false;
+						break;
+					}
+					listener = getCurrentListener();
+					if (listener == NULL)
+					{
+						printf("%s:%d: Invalid listener %d\n",__FUNCTION__,__LINE__, currentPlayerId);
+						scriptOk = false;
+						break;
+					}
+
+					//
+					// Event listener commands
+					//
+					if (token == "waitfor") // check for specified events
+					{
+						std::string message;
+						bool receivedEvents = listener->WaitForEvent(cmd, message);
+						if (!receivedEvents)
+						{
+							printf("\n>>>>>>>>>>>>>>>>> Failure >>>>>>>>>>>>>>>>>>>>>>\n");
+							if (gtest)
+							{
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// GTEST bit
+								EXPECT_TRUE(receivedEvents) << "line " << std::to_string(lineNumber) << ": " << message;
+							}
+							else
+							{
+								printf("%s:%d: Script failed: %s\n\n",__FUNCTION__,__LINE__, message.c_str());
+							}
+
+							scriptOk = false;
+						}
+					}
+					else if (token == "failon") // set any events to fail script on
+					{
+						std::string message;
+						if (!listener->SetFailEvents(cmd))
+						{
+							printf("%s:%d: Failed to get set fail events\n",__FUNCTION__,__LINE__);
+							scriptOk = false;
+						}
+					}
+
+					//
+					// AAAMP command processing
+					//
+					else if (token == "tune")
+					{
+						scriptOk = process_tune(cmd, playerInstance);
+					}
+					else if (token == "stop")
+					{
+						scriptOk = process_stop(cmd, playerInstance);
+					}
+					else if (token == "detach")
+					{
+						scriptOk = process_detach(cmd, playerInstance);
+						mAampPlayer.deletePlayer(currentPlayerId);
+						currentPlayerId = currentPlayerId ? currentPlayerId-- : currentPlayerId++;
+					}
+					else if (token == "setrate")
+					{
+						scriptOk = process_setrate(cmd, playerInstance);
+					}
+					else if (token == "ff")
+					{
+						scriptOk = process_ff(cmd, playerInstance);
+					}
+					else if (token == "rew")
+					{
+						scriptOk = process_rew(cmd, playerInstance);
+					}
+					else if (token == "pause")
+					{
+						scriptOk = process_pause(cmd, playerInstance);
+					}
+					else if (token == "play")
+					{
+						scriptOk = process_play(cmd, playerInstance);
+					}
+					else if (token == "seek")
+					{
+						scriptOk = process_seek(cmd, playerInstance);
+					}
+					else if (token == "async")
+					{
+						scriptOk = process_async(cmd, playerInstance);
+					}
+					else if (token == "config")
+					{
+						scriptOk = process_config(cmd, playerInstance);
+					}
+					else if (token == "setaudiotrack")
+					{
+						scriptOk = process_setaudiotrack(cmd, playerInstance);
+					}
+					else if (token == "settextrack")
+					{
+						scriptOk = process_settextrack(cmd, playerInstance);
+					}
+
+					//
+					// Check specified settings
+					//
+					else if (token == "check")
+					{
+						std::string message;
+						bool checksOk = do_check(cmd, playerInstance, message);
+						if (!checksOk)
+						{
+							printf("\n>>>>>>>>>>>>>>>>> Failure >>>>>>>>>>>>>>>>>>>>>>\n");
+							if (gtest)
+							{
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// GTEST bit
+								EXPECT_TRUE(checksOk) << "line " << std::to_string(lineNumber) << ": " << message;
+							}
+							else
+							{
+								printf("%s:%d: Script failed: %s\n\n",__FUNCTION__,__LINE__, message.c_str());
+							}
+
+							scriptOk = false;
+						}
+					}
+
+					else
+					{
+						printf("%s:%d: ERROR: unrecognised command '%s'\n",__FUNCTION__,__LINE__, token.c_str());
+						scriptOk = false;
+					}
 				}
 			}
 
+			//
+			// If we have defined any events to fail the script on, check these here
+			//
 			if ((listener != NULL) && scriptOk)
 			{
 				std::string message;
 				bool checkFailEvents = listener->CheckFailEvents(message);
 				if (!checkFailEvents)
 				{
+					printf("\n>>>>>>>>>>>>>>>>> Failure >>>>>>>>>>>>>>>>>>>>>>\n");
 					if (gtest)
 					{
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -822,7 +1120,7 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 					}
 					else
 					{
-						printf("\n>>>>>>>>>>>>>>>>\n%s:%d: Script failed: %s\n\n",__FUNCTION__,__LINE__, message.c_str());
+						printf("%s:%d: Script failed: %s\n\n",__FUNCTION__,__LINE__, message.c_str());
 					}
 
 					scriptOk = false;
@@ -839,9 +1137,15 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 	// Delete player instances that have been created
 	mAampPlayer.resetPlayers();
 
-	printf("%s:%d: \n>>> Script %s\n\n",__FUNCTION__,__LINE__, scriptOk?"SUCCEEDED":"FAILED");
+	printf("\n%s:%d: >>> Script %s\n\n",__FUNCTION__,__LINE__, scriptOk?"SUCCEEDED":"FAILED");
 	if (!scriptOk)
 	{
+		if (abortOnError)
+		{
+			printf("\n%s:%d: >>> Script has SET_STOP_ON_ERROR so skipping following tests\n\n",__FUNCTION__,__LINE__);
+			setAbortTests();
+		}
+
 		//TBD - copy aamp log to an error log
 		//std::string errlog = filename;
 	}
@@ -849,12 +1153,11 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 	return scriptOk;
 }
 
-
 /**
- * @brief process_tune
- * @param[in] args - stream of arguments
- * @param[in] player - the aamp player instance
- * @retval true if command was parsed and sent successfully
+ * @brief perform tune
+ * @param[in] args - a stream of command arguments
+ * @param[in] player - the current player instance
+ * @retval true if the command was parsed and sent
  */
 bool ScriptedSmokeTest::process_tune(std::stringstream &args, PlayerInstanceAAMP *player)
 {
@@ -862,7 +1165,7 @@ bool ScriptedSmokeTest::process_tune(std::stringstream &args, PlayerInstanceAAMP
 	uint32_t autoplay = 1;
 	bool scriptOk = true;
 
-	if (!std::getline(args, url, ' '))
+	if (!getValueParameter(args, url))
 	{
 		printf("%s:%d: Failed to get url\n",__FUNCTION__,__LINE__);
 		scriptOk = false;
@@ -874,11 +1177,11 @@ bool ScriptedSmokeTest::process_tune(std::stringstream &args, PlayerInstanceAAMP
 	}
 
 	// if url begins with '$' then assume it is some sort of environment variable
-	std::string var;
-	if (getEnvVarValue(url, var))
+	std::string var = url;
+	if (getEnvironmentVariableName(var))
 	{
 		// First see if it is an exported variable
-		if (getEnvVar(var, url))
+		if (getEnvironmentVariable(var, url))
 		{
 			printf("%s:%d: Got url from environment: '%s'\n",__FUNCTION__,__LINE__, url.c_str());
 		}
@@ -924,10 +1227,10 @@ bool ScriptedSmokeTest::process_tune(std::stringstream &args, PlayerInstanceAAMP
 }
 
 /**
- * @brief process_stop
- * @param[in] args - stream of arguments
- * @param[in] player - the aamp player instance
- * @retval true if command was parsed and sent successfully
+ * @brief perform stop
+ * @param[in] args - a stream of command arguments
+ * @param[in] player - the current player instance
+ * @retval true if the command was parsed and sent
  */
 bool ScriptedSmokeTest::process_stop(std::stringstream &args, PlayerInstanceAAMP *player)
 {
@@ -937,10 +1240,10 @@ bool ScriptedSmokeTest::process_stop(std::stringstream &args, PlayerInstanceAAMP
 }
 
 /**
- * @brief process_detach
- * @param[in] args - stream of arguments
- * @param[in] player - the aamp player instance
- * @retval true if command was parsed and sent successfully
+ * @brief perform detach
+ * @param[in] args - a stream of command arguments
+ * @param[in] player - the current player instance
+ * @retval true if the command was parsed and sent
  */
 bool ScriptedSmokeTest::process_detach(std::stringstream &args, PlayerInstanceAAMP *player)
 {
@@ -950,10 +1253,10 @@ bool ScriptedSmokeTest::process_detach(std::stringstream &args, PlayerInstanceAA
 }
 
 /**
- * @brief process_setrate
- * @param[in] args - stream of arguments
- * @param[in] player - the aamp player instance
- * @retval true if command was parsed and sent successfully
+ * @brief perform setrate
+ * @param[in] args - a stream of command arguments
+ * @param[in] player - the current player instance
+ * @retval true if the command was parsed and sent
  */
 bool ScriptedSmokeTest::process_setrate(std::stringstream &args, PlayerInstanceAAMP *player)
 {
@@ -973,10 +1276,10 @@ bool ScriptedSmokeTest::process_setrate(std::stringstream &args, PlayerInstanceA
 }
 
 /**
- * @brief process_ff
- * @param[in] args - stream of arguments
- * @param[in] player - the aamp player instance
- * @retval true if command was parsed and sent successfully
+ * @brief perform ff
+ * @param[in] args - a stream of command arguments
+ * @param[in] player - the current player instance
+ * @retval true if the command was parsed and sent
  */
 bool ScriptedSmokeTest::process_ff(std::stringstream &args, PlayerInstanceAAMP *player)
 {
@@ -996,10 +1299,10 @@ bool ScriptedSmokeTest::process_ff(std::stringstream &args, PlayerInstanceAAMP *
 }
 
 /**
- * @brief process_rew
- * @param[in] args - stream of arguments
- * @param[in] player - the aamp player instance
- * @retval true if command was parsed and sent successfully
+ * @brief perform rew
+ * @param[in] args - a stream of command arguments
+ * @param[in] player - the current player instance
+ * @retval true if the command was parsed and sent
  */
 bool ScriptedSmokeTest::process_rew(std::stringstream &args, PlayerInstanceAAMP *player)
 {
@@ -1019,23 +1322,32 @@ bool ScriptedSmokeTest::process_rew(std::stringstream &args, PlayerInstanceAAMP 
 }
 
 /**
- * @brief process_pause
- * @param[in] args - stream of arguments
- * @param[in] player - the aamp player instance
- * @retval true if command was parsed and sent successfully
+ * @brief perform pause
+ * @param[in] args - a stream of command arguments
+ * @param[in] player - the current player instance
+ * @retval true if the command was parsed and sent
  */
 bool ScriptedSmokeTest::process_pause(std::stringstream &args, PlayerInstanceAAMP *player)
 {
-	printf("%s:%d: Pause\n",__FUNCTION__,__LINE__);
-	player->SetRate(0);
+	uint32_t position = 0;
+	if (getUintParameter(args, position))
+	{
+		printf("%s:%d: PauseAt(%d)\n",__FUNCTION__,__LINE__, position);
+		player->PauseAt(position);
+	}
+	else
+	{
+		printf("%s:%d: Pause\n",__FUNCTION__,__LINE__);
+		player->SetRate(0);
+	}
 	return true;
 }
 
 /**
- * @brief process_play
- * @param[in] args - stream of arguments
- * @param[in] player - the aamp player instance
- * @retval true if command was parsed and sent successfully
+ * @brief perform play
+ * @param[in] args - a stream of command arguments
+ * @param[in] player - the current player instance
+ * @retval true if the command was parsed and sent
  */
 bool ScriptedSmokeTest::process_play(std::stringstream &args, PlayerInstanceAAMP *player)
 {
@@ -1045,30 +1357,29 @@ bool ScriptedSmokeTest::process_play(std::stringstream &args, PlayerInstanceAAMP
 }
 
 /**
- * @brief process_seek
- * @param[in] args - stream of arguments
- * @param[in] player - the aamp player instance
- * @retval true if command was parsed and sent successfully
+ * @brief perform seek
+ * @param[in] args - a stream of command arguments
+ * @param[in] player - the current player instance
+ * @retval true if the command was parsed and sent
  */
 bool ScriptedSmokeTest::process_seek(std::stringstream &args, PlayerInstanceAAMP *player)
 {
 	bool scriptOk = true;
-	std::string param;
 	uint32_t position = 0;
 	uint32_t keepPaused = 0;
 	std::string name;
 	std::string value;
 
-	if (!std::getline(args, param, ' '))
+	if (!getValueParameter(args, name, value, true, false)) // could be 'name(value)'
 	{
 		printf("%s:%d: Failed to get position param\n",__FUNCTION__,__LINE__);
 		scriptOk = false;
 	}
-	else if (getEnvVarValue(param, name, value)) // could be 'name(value)'
+	else if (getEnvironmentVariableName(name))
 	{
 		// First see if 'name' is an exported variable
 		std::string exportedValue;
-		if (getEnvVar(name, exportedValue))
+		if (getEnvironmentVariable(name, exportedValue))
 		{
 			// The parameter was an exported environment valiable so use it's value
 			scriptOk = getInteger(exportedValue, position);
@@ -1089,7 +1400,7 @@ bool ScriptedSmokeTest::process_seek(std::stringstream &args, PlayerInstanceAAMP
 		}
 		else
 		{
-			printf("%s:%d: Unrecognised environment variable '%s'\n",__FUNCTION__,__LINE__, param.c_str());
+			printf("%s:%d: Unrecognised environment variable '%s'\n",__FUNCTION__,__LINE__, name.c_str());
 			scriptOk = false;
 		}
 
@@ -1100,9 +1411,9 @@ bool ScriptedSmokeTest::process_seek(std::stringstream &args, PlayerInstanceAAMP
 			position += adjust;
 		}
 	}
-	else if (!getInteger(param, position))
+	else if (!getInteger(name, position))
 	{
-		printf("%s:%d: Failed to get position from '%s'\n",__FUNCTION__,__LINE__, param.c_str());
+		printf("%s:%d: Failed to get position from '%s'\n",__FUNCTION__,__LINE__, name.c_str());
 		scriptOk = false;
 	}
 
@@ -1122,10 +1433,10 @@ bool ScriptedSmokeTest::process_seek(std::stringstream &args, PlayerInstanceAAMP
 }
 
 /**
- * @brief process_async
- * @param[in] args - stream of arguments
- * @param[in] player - the aamp player instance
- * @retval true if command was parsed and sent successfully
+ * @brief perform async enable/disable
+ * @param[in] args - a stream of command arguments
+ * @param[in] player - the current player instance
+ * @retval true if the command was parsed and sent
  */
 bool ScriptedSmokeTest::process_async(std::stringstream &args, PlayerInstanceAAMP *player)
 {
@@ -1144,30 +1455,28 @@ bool ScriptedSmokeTest::process_async(std::stringstream &args, PlayerInstanceAAM
 	return scriptOk;
 }
 
+
 /**
- * @brief process_config
- * @param[in] args - stream of arguments
- * @param[in] player - the aamp player instance
- * @retval true if command was parsed and sent successfully
+ * @brief perform config setting
+ * @param[in] args - a stream of command arguments
+ * @param[in] player - the current player instance
+ * @retval true if the command was parsed and sent
  */
 bool ScriptedSmokeTest::process_config(std::stringstream &args, PlayerInstanceAAMP *player)
 {
-	std::string quotes = "\"";
-	std::string comma = ",";
-	std::string colon = ":";
-
 	std::string config = "{";
 	std::string name;
 	std::string value;
 	int parameterCount = 0;
-	while (getValueParameter(args, name, value))
+	while (getValueParameter(args, name, value, true, true, false)) // must have a name and value but the value can be empty
 	{
 		if (parameterCount)
 		{
-			config += comma;
+			config += ',';
 		}
 
-		config += quotes + name + quotes + colon;
+		config += "\"" + name + "\"" + ":";
+
 		if (getIsNumber(value) || 
 			(value == "true") || 
 			(value == "false"))
@@ -1176,8 +1485,9 @@ bool ScriptedSmokeTest::process_config(std::stringstream &args, PlayerInstanceAA
 		}
 		else
 		{
-			config += quotes + value + quotes;
+			config += "\"" + value + "\"";
 		}
+
 		parameterCount++;
 	}
 	config += "}";
@@ -1192,33 +1502,90 @@ bool ScriptedSmokeTest::process_config(std::stringstream &args, PlayerInstanceAA
 }
 
 /**
- * @brief process_setaudiotrack
- * @param[in] args - stream of arguments
- * @param[in] player - the aamp player instance
- * @retval true if command was parsed and sent successfully
+ * @brief perform setaudiotrack
+ * @param[in] args - a stream of command arguments
+ * @param[in] player - the current player instance
+ * @retval true if the command was parsed and sent
  */
 bool ScriptedSmokeTest::process_setaudiotrack(std::stringstream &args, PlayerInstanceAAMP *player)
 {
 	bool scriptOk = true;
 	uint32_t track = 0;
-	if (!getUintParameter(args, track))
+
+	std::string param;
+	std::string value;
+	if (!getValueParameter(args, param, value, true, false)) // get the argumnet
 	{
 		printf("%s:%d: Failed to get audio track\n",__FUNCTION__,__LINE__);
 		scriptOk = false;
 	}
-	else
+	else if (getInteger(param, track)) // if the argument is an integer call SetAudioTrack(track)
 	{
 		printf("%s:%d: Set audio track %d...\n",__FUNCTION__,__LINE__, track);
 		player->SetAudioTrack(track);
+	}
+	else // assume a set of arguments of the form 'name(value)' eg 'language(eng,spa)'
+	{
+		std::string language="";
+		std::string rendition="";
+		std::string type="";
+		std::string codec="";
+		unsigned int channel=0;
+		std::string label="";
+		do
+		{
+			if (param == "language")
+			{
+				language = value;
+			}
+			else if (param == "rendition")
+			{
+				rendition = value;
+			}
+			else if (param == "type")
+			{
+				type = value;
+			}
+			else if (param == "codec")
+			{
+				codec = value;
+			}
+			else if (param == "channel")
+			{
+				if (!getInteger(param, channel))
+				{
+					printf("%s:%d: Unknown channel for SetAudioTrack(), '%s'\n",__FUNCTION__,__LINE__, param.c_str());
+					scriptOk = false;
+					break;
+				}
+			}
+			else if (param == "label")
+			{
+				label = value;
+			}
+			else
+			{
+				printf("%s:%d: Unknown argumnet for SetAudioTrack(), '%s'\n",__FUNCTION__,__LINE__, param.c_str());
+				scriptOk = false;
+				break;
+			}
+		} while (getValueParameter(args, param, value));
+
+		if (scriptOk)
+		{
+			printf("%s:%d: Set audio track (%s, %s, %s, %s, %d, %s)...\n",__FUNCTION__,__LINE__, 
+			       language.c_str(), rendition.c_str(), type.c_str(), codec.c_str(), channel, label.c_str());
+			player->SetAudioTrack(language, rendition, type, codec, channel, label);
+		}
 	}
 	return scriptOk;
 }
 
 /**
- * @brief process_settextrack
- * @param[in] args - stream of arguments
- * @param[in] player - the aamp player instance
- * @retval true if command was parsed and sent successfully
+ * @brief perform settexttrack
+ * @param[in] args - a stream of command arguments
+ * @param[in] player - the current player instance
+ * @retval true if the command was parsed and sent
  */
 bool ScriptedSmokeTest::process_settextrack(std::stringstream &args, PlayerInstanceAAMP *player)
 {
@@ -1239,6 +1606,124 @@ bool ScriptedSmokeTest::process_settextrack(std::stringstream &args, PlayerInsta
 
 
 
+/**
+ * @brief query and chck specified information
+ * @param[in] args - a stream of command arguments
+ * @param[in] player - the current player instance
+ * @retval true if the command was parsed and sent
+ */
+bool ScriptedSmokeTest::do_check(std::stringstream &args, PlayerInstanceAAMP *player, std::string &status)
+{
+	bool scriptOk = true;
+	std::string type;
+	std::string settings;
+	std::string jsonInfo;
+	cJSON *jsonRoot = NULL;
+	cJSON *jsonData = NULL;
+
+	if (!getValueParameter(args, type, settings))
+	{
+		printf("%s:%d: ERROR - could not extract 'name(value)' to check\n",__FUNCTION__,__LINE__);
+		scriptOk = false;
+	}
+	else if (type == "audio")
+	{
+		jsonInfo = player->GetAudioTrackInfo();
+		jsonRoot = cJSON_Parse(jsonInfo.c_str());
+		if (jsonRoot)
+		{
+			jsonData = jsonRoot->child;
+			if (jsonData)
+			{
+				// Add the track index to the settings
+				cJSON_AddItemToObject(jsonData, "track", cJSON_CreateNumber(player->GetAudioTrack()));
+			}
+		}
+	}
+	else if (type == "text")
+	{
+		jsonInfo = player->GetTextTrackInfo();
+		jsonRoot = cJSON_Parse(jsonInfo.c_str());
+		if (jsonRoot)
+		{
+			jsonData = jsonRoot->child;
+			if (jsonData)
+			{
+				// Add the track index to the settings
+				cJSON_AddItemToObject(jsonData, "track", cJSON_CreateNumber(player->GetTextTrack()));
+			}
+		}
+	}
+	else
+	{
+		printf("%s:%d: ERROR - unsupported check '%s'\n",__FUNCTION__,__LINE__, type.c_str());
+		return false;
+	}
+
+	if (jsonData)
+	{
+		std::string name;
+		std::string value;
+		std::string actual;
+		double dValue;
+
+		std::stringstream settingsStream(settings);
+		while (getValueParameter(settingsStream, name, value) && scriptOk)
+		{
+			cJSON *jsonSetting = NULL;
+			for ( jsonSetting = jsonData->child; ((jsonSetting != NULL) && scriptOk); jsonSetting = jsonSetting->next)
+			{
+				if (jsonSetting->string)
+				{
+					if (name == jsonSetting->string)
+					{
+						if (jsonSetting->type == cJSON_String)
+						{
+							scriptOk = (value == jsonSetting->valuestring);
+							actual = jsonSetting->valuestring;
+						}
+						else if (jsonSetting->type == cJSON_Number)
+						{
+							scriptOk = (getInteger(value, dValue) && (dValue == jsonSetting->valuedouble));
+							actual = std::to_string(jsonSetting->valuedouble);
+						}
+						else if (jsonSetting->type == cJSON_False)
+						{
+							scriptOk = (value == "false");
+							actual = "false";
+						}
+						else if (jsonSetting->type == cJSON_True)
+						{
+							scriptOk = (value == "true");
+							actual = "true";
+						}
+						else
+						{
+							printf("%s:%d: ERROR - unsupported json type (%d)\n",__FUNCTION__,__LINE__, jsonSetting->type);
+							actual = "<unsupported>";
+							scriptOk = false;
+						}
+
+						if (!scriptOk)
+						{
+							status = "Check failed for " + type + " " + name + ", expected '" + value + "', got '" + actual + "'";
+						}
+						break;
+					}
+				}
+			}
+
+			if (jsonSetting == NULL)
+			{
+				scriptOk = false;
+			}
+		}
+
+		cJSON_Delete(jsonRoot);
+	}
+
+	return scriptOk;
+}
 
 
 
@@ -1264,6 +1749,10 @@ public:
 
 	void SetUp() override 
 	{
+		if (ScriptedSmokeTest::getAbortTests())
+		{
+			GTEST_SKIP() << "SKIPPING TEST because script failed with SET_STOP_ON_ERROR";
+		}
 		_scriptInfo = GetParam();
 	}
 	void TearDown() override
@@ -1281,496 +1770,11 @@ protected:
 
 TEST_P(ScriptTest, RunScriptTest)
 {
-	EXPECT_TRUE(runScript(_scriptInfo.file.c_str(), _scriptInfo.iteration)) << _scriptInfo.name;
+	EXPECT_TRUE(runScript(_scriptInfo.file.c_str(), _scriptInfo.iteration)) << _scriptInfo.file << _scriptInfo.name;;
 }
 
 // Create a test for each element in the vector returned by ScriptedSmokeTest::getTestInformation()
-INSTANTIATE_TEST_SUITE_P(SmokeTestScripts, ScriptTest, ::testing::ValuesIn(ScriptedSmokeTest::getTestInformation()));
+INSTANTIATE_TEST_SUITE_P(SmokeTestScripts, ScriptTest, 
+                         ::testing::ValuesIn(ScriptedSmokeTest::getTestInformation()),
+						 ::testing::PrintToStringParamName());
 
-
-
-
-
-
-#if 0
-bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtest)
-{
-	std::ifstream script(filename);
-	std::stringstream text;
-	std::string line;
-	std::stringstream::pos_type loopstart;
-	uint32_t loopcount = 0;
-	bool scriptOk = true;
-	int lineNumber = 0;
-	uint32_t playerId = 0;
-
-	printf("%s:%d: Run script %s...\n",__FUNCTION__,__LINE__, filename);
-
-	if (script.good())
-	{
-		if (!getIterationInfo(script, iteration))
-		{
-		}
-
-		text << script.rdbuf();
-		script.close();
-		
-		while(std::getline(text, line) && scriptOk) 
-		{
-			PlayerInstanceAAMP *playerInstance = NULL;
-			ScriptedSmokeTestEventListener *listener = NULL;
-			std::stringstream cmd(line);
-			std::string token;
-			lineNumber++;
-
-			printf("%s:%d: >>> %s\n",__FUNCTION__,__LINE__, cmd.str().c_str());
-
-			if ((line.length() > 0) && (line[0] == '#'))
-			{
-				// comment line
-			}
-			else if (std::getline(cmd, token, ' '))
-			{
-				if (token == "select")
-				{
-					if (!getUintParameter(cmd, playerId))
-					{
-						printf("%s:%d: Failed to get player id\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
-					else
-					{
-						printf("%s:%d: Select player %d\n",__FUNCTION__,__LINE__, playerId);
-
-						// Check the selected player is valid
-						if (!mAampPlayer.getPlayer(playerId) || !mAampPlayer.getListener(playerId))
-						{
-							printf("%s:%d: Invalid player id (%d)\n",__FUNCTION__,__LINE__, playerId);
-							scriptOk = false;
-						}
-					}
-
-					continue;
-				}
-
-				// Get the active player and listener
-				playerInstance = mAampPlayer.getPlayer(playerId);
-				if (playerInstance == NULL)
-				{
-					printf("%s:%d: Invalid player %d\n",__FUNCTION__,__LINE__, playerId);
-					scriptOk = false;
-					break;
-				}
-				listener = dynamic_cast<ScriptedSmokeTestEventListener*>(mAampPlayer.getListener(playerId));
-				if (listener == NULL)
-				{
-					printf("%s:%d: Invalid listener %d\n",__FUNCTION__,__LINE__, playerId);
-					scriptOk = false;
-					break;
-				}
-
-				if (token == "new")
-				{
-					playerId = mAampPlayer.newPlayer();
-					printf("%s:%d: New player created and selected %d\n",__FUNCTION__,__LINE__, playerId);
-				}
-				else if (token == "loopstart")
-				{
-					if (loopcount >= 0)
-					{
-						printf("%s:%d: Invalid loop start\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
-					else if (!getUintParameter(cmd, loopcount))
-					{
-						printf("%s:%d: Failed to get loop count\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
-					else if (loopcount <= 0)
-					{
-						printf("%s:%d: Invalid loop count (%d)\n",__FUNCTION__,__LINE__, loopcount);
-						scriptOk = false;
-					}
-					else
-					{
-						loopstart = text.tellg();
-					}
-				}
-				else if (token == "loopend")
-				{
-					if (loopcount < 0)
-					{
-						printf("%s:%d: Invalid loop end\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
-					else if (--loopcount)
-					{
-						text.seekg(loopstart);
-					}
-					else
-					{
-						printf("%s:%d: Loop complete\n",__FUNCTION__,__LINE__);
-						loopcount = -1;
-					}
-				}
-				else if (token == "tune")
-				{
-					std::string url;
-					uint32_t autoplay = 1;
-
-					if (!std::getline(cmd, url, ' '))
-					{
-						printf("%s:%d: Failed to get url\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
-					else if (!getUintParameter(cmd, autoplay))
-					{
-						printf("%s:%d: Failed to get autoplay, default to 1\n",__FUNCTION__,__LINE__);
-						autoplay = 1;
-					}
-
-					// if url begins with '$' then assume it is some sort of environment variable
-					std::string var;
-					if (getEnvVarValue(url, var))
-					{
-						// First see if it is an exported variable
-						if (getEnvVar(var, url))
-						{
-							printf("%s:%d: Got url from environment: '%s'\n",__FUNCTION__,__LINE__, url.c_str());
-						}
-						else
-						{
-							// See if it has been defined in the tag map (via SET_VAR_TAGS(name))
-							std::map<std::string, std::string>::iterator varIter = tagMap.find(var);
-							if (varIter != tagMap.end())
-							{
-								std::string tag = varIter->second;
-
-								// See if the tag exists in the tagged URL list
-								std::map<std::string, std::string>::iterator tagIter = taggedURLList.find(tag);
-								if (tagIter != taggedURLList.end())
-								{
-									// Found it so we'll set the URL from the tagged URL entry
-									printf("%s:%d: Got url from var (%s -> %s -> %s)\n",__FUNCTION__,__LINE__, 
-										var.c_str(), tag.c_str(), url.c_str());
-									url = tagIter->second;
-								}
-								else
-								{
-									// We failed to find it so we'll just try to use the 'tag' as the URL
-									printf("%s:%d: Unable to find the tag '%s' so using it as url\n",__FUNCTION__,__LINE__, tag.c_str());
-									url = tag;
-								}
-							}
-							else
-							{
-								printf("%s:%d: Failed to resolve environment variable '%s'\n",__FUNCTION__,__LINE__, url.c_str());
-								scriptOk = false;
-							}
-						}
-					}
-
-					if (scriptOk)
-					{
-						printf("%s:%d: Tune to '%s'\n",__FUNCTION__,__LINE__, url.c_str());
-						playerInstance->Tune(url.c_str(), autoplay);
-					}
-				}
-				else if (token == "stop")
-				{
-					printf("%s:%d: Stop\n",__FUNCTION__,__LINE__);
-					playerInstance->Stop();
-				}
-				else if (token == "detach")
-				{
-					printf("%s:%d: Detach\n",__FUNCTION__,__LINE__);
-					playerInstance->detach();
-					mAampPlayer.deletePlayer(playerId);
-					playerId = playerId ? playerId-- : playerId++;
-				}
-				else if (token == "setrate")
-				{
-					int rate = 1;
-					if (!getIntParameter(cmd, rate))
-					{
-						printf("%s:%d: Failed to get rate\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
-					else
-					{
-						printf("%s:%d: SetRate(%d)\n",__FUNCTION__,__LINE__, rate);
-						playerInstance->SetRate(rate);
-					}
-				}
-				else if (token == "ff")
-				{
-					uint32_t rate = 1;
-					if (!getUintParameter(cmd, rate))
-					{
-						printf("%s:%d: Failed to get rate\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
-					else
-					{
-						printf("%s:%d: ff(%d)\n",__FUNCTION__,__LINE__, rate);
-						playerInstance->SetRate(rate);
-					}
-				}
-				else if (token == "rew")
-				{
-					uint32_t rate = 1;
-					if (!getUintParameter(cmd, rate))
-					{
-						printf("%s:%d: Failed to get rate\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
-					else
-					{
-						printf("%s:%d: rew(%d)\n",__FUNCTION__,__LINE__, rate);
-						playerInstance->SetRate(rate);
-					}
-				}
-				else if (token == "pause")
-				{
-					printf("%s:%d: Pause\n",__FUNCTION__,__LINE__);
-					playerInstance->SetRate(0);
-				}
-				else if (token == "play")
-				{
-					printf("%s:%d: Play\n",__FUNCTION__,__LINE__);
-					playerInstance->SetRate(1);
-				}
-				else if (token == "seek")
-				{
-					std::string param;
-					uint32_t position = 0;
-					uint32_t keepPaused = 0;
-					std::string name;
-					std::string value;
-
-					if (!std::getline(cmd, param, ' '))
-					{
-						printf("%s:%d: Failed to get position param\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
-					else if (getEnvVarValue(param, name, value)) // could be 'name(value)'
-					{
-						// First see if 'name' is an exported variable
-						std::string exportedValue;
-						if (getEnvVar(name, exportedValue))
-						{
-							// The parameter was an exported environment valiable so use it's value
-							scriptOk = getInteger(exportedValue, position);
-						}
-						else if (name == "DURATION")
-						{
-							// Special case 'DURATION' - use the asset duration
-							position = (listener->GetDuration() / 1000);
-						}
-						else
-						{
-							printf("%s:%d: Unrecognised environment variable '%s'\n",__FUNCTION__,__LINE__, param.c_str());
-							scriptOk = false;
-						}
-
-						if (scriptOk && !value.empty())
-						{
-							int adjust = 0;
-							scriptOk = getInteger(value, adjust);
-							position += adjust;
-						}
-					}
-					else if (!getInteger(param, position))
-					{
-						printf("%s:%d: Failed to get position from '%s'\n",__FUNCTION__,__LINE__, param.c_str());
-						scriptOk = false;
-					}
-
-					if (scriptOk)
-					{
-						if (!getUintParameter(cmd, keepPaused))
-						{
-							printf("%s:%d: Failed to get keepPaused, default to 0\n",__FUNCTION__,__LINE__);
-							keepPaused = 0;
-						}
-
-						printf("%s:%d: Seek(%d)\n",__FUNCTION__,__LINE__, position);
-						playerInstance->Seek(position, keepPaused);
-					}
-				}
-				else if (token == "waitfor")
-				{
-					std::string message;
-	                bool receivedEvents = listener->WaitForEvent(cmd, message);
-					if (!receivedEvents)
-					{
-						if (gtest)
-						{
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// GTEST bit
-							EXPECT_TRUE(receivedEvents) << "line " << std::to_string(lineNumber) << ": " << message;
-						}
-						else
-						{
-							printf("\n>>>>>>>>>>>>>>>>\n%s:%d: Script failed: %s\n\n",__FUNCTION__,__LINE__, message.c_str());
-						}
-
-						scriptOk = false;
-					}
-				}
-				else if (token == "failon")
-				{
-					std::string message;
-	                if (!listener->SetFailEvents(cmd))
-					{
-						printf("%s:%d: Failed to get set fail events\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
-				}
-				else if (token == "sleep")
-				{
-					uint32_t seconds = 0;
-					if (!getUintParameter(cmd, seconds))
-					{
-						printf("%s:%d: Failed to get seconds\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
-					else
-					{
-						printf("%s:%d: Sleep for %d...\n",__FUNCTION__,__LINE__, seconds);
-						sleep(seconds);
-					}
-				}
-				else if (token == "async")
-				{
-					uint32_t asyncEnabled = 0;
-					if (!getUintParameter(cmd, asyncEnabled))
-					{
-						printf("%s:%d: Failed to get async enabled\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
-					else
-					{
-						printf("%s:%d: Sleep for %d...\n",__FUNCTION__,__LINE__, asyncEnabled);
-						playerInstance->SetAsyncTuneConfig(asyncEnabled);
-					}
-				}
-				else if (token == "config")
-				{
-					std::string quotes = "\"";
-					std::string comma = ",";
-					std::string colon = ":";
-
-					std::string config = "{";
-					std::string name;
-					std::string value;
-					int parameterCount = 0;
-					while (getValueParameter(cmd, name, value))
-					{
-						if (parameterCount)
-						{
-							config += comma;
-						}
-
-						config += quotes + name + quotes + colon;
-						if (getIsNumber(value) || 
-						    (value == "true") || 
-							(value == "false"))
-						{
-							config += value;
-						}
-						else
-						{
-							config += quotes + value + quotes;
-						}
-						parameterCount++;
-					}
-					config += "}";
-
-					if (config.size() > 2)
-					{
-						printf("%s:%d: Set config %s...\n",__FUNCTION__,__LINE__, config.c_str());
-						playerInstance->InitAAMPConfig((char *)config.c_str());
-					}
-				}
-				else if (token == "setaudiotrack")
-				{
-					uint32_t track = 0;
-					if (!getUintParameter(cmd, track))
-					{
-						printf("%s:%d: Failed to get audio track\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
-					else
-					{
-						printf("%s:%d: Set audio track %d...\n",__FUNCTION__,__LINE__, track);
-						playerInstance->SetAudioTrack(track);
-					}
-				}
-				else if (token == "settextrack")
-				{
-					uint32_t track = 0;
-					if (!getUintParameter(cmd, track))
-					{
-						printf("%s:%d: Failed to get text track\n",__FUNCTION__,__LINE__);
-						scriptOk = false;
-					}
-					else
-					{
-						printf("%s:%d: Set text track %d...\n",__FUNCTION__,__LINE__, track);
-						playerInstance->SetTextTrack(track);
-					}
-				}
-				else if ((token.substr(0, 12) == "SET_VAR_TAGS") ||
-						 (token.substr(0, 14) == "SET_ITERATIONS"))
-				{
-					// ignore
-				}
-				else
-				{
-					printf("%s:%d: ERROR: unrecognised command '%s'\n",__FUNCTION__,__LINE__, token.c_str());
-					scriptOk = false;
-				}
-			}
-
-			if ((listener != NULL) && scriptOk)
-			{
-				std::string message;
-				bool checkFailEvents = listener->CheckFailEvents(message);
-				if (!checkFailEvents)
-				{
-					if (gtest)
-					{
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// GTEST bit
-						EXPECT_TRUE(checkFailEvents) << message;
-					}
-					else
-					{
-						printf("\n>>>>>>>>>>>>>>>>\n%s:%d: Script failed: %s\n\n",__FUNCTION__,__LINE__, message.c_str());
-					}
-
-					scriptOk = false;
-				}
-			}
-		}
-	}
-	else
-	{
-		printf("%s:%d: Failed to open script\n",__FUNCTION__,__LINE__);
-		scriptOk = false;
-	}
-
-	// Delete player instances that have been created
-	mAampPlayer.resetPlayers();
-
-	printf("%s:%d: \n>>> Script %s\n\n",__FUNCTION__,__LINE__, scriptOk?"SUCCEEDED":"FAILED");
-	if (!scriptOk)
-	{
-		//TBD - copy aamp log to an error log
-		//std::string errlog = filename;
-	}
-
-	return scriptOk;
-}
-#endif

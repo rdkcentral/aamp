@@ -31,27 +31,9 @@
 #include <vector>
 #include "SmokeTestEventListener.h"
 
-
 class ScriptedSmokeTestEventListener : public SmokeTestEventListener
 {
 	public:
-		enum class WaitEvent
-		{
-			NONE,
-			TUNED, 			// implies !TUNE_FAILED
-			TUNE_FAILED,
-			PLAYING,
-			PAUSED,
-			STOPPED,
-			ERROR,
-			BLOCKED,
-			COMPLETE,
-			EOS,
-			PROGRESS,
-			AUDIO_TRACKS_CHANGED,
-			TEXT_TRACKS_CHANGED
-		};
-
 		ScriptedSmokeTestEventListener(PlayerInstanceAAMP *player = NULL) :
 			protectMonitoredEvents(), 
 			eventCondition(), 
@@ -69,24 +51,6 @@ class ScriptedSmokeTestEventListener : public SmokeTestEventListener
 		bool SetFailEvents(std::stringstream &argStream);
 		bool CheckFailEvents(std::string &status);
 
-		int GetCurrentAudioTrack()
-		{
-			if (aampPlayer)
-			{
-				return aampPlayer->GetAudioTrack();
-			}
-			return -3;
-		}
-
-		int GetCurrentTextTrack()
-		{
-			if (aampPlayer)
-			{
-				return aampPlayer->GetTextTrack();
-			}
-			return -1;
-		}
-
 		long GetDuration()
 		{
 			return duration;
@@ -96,33 +60,42 @@ class ScriptedSmokeTestEventListener : public SmokeTestEventListener
 		class monitoredEventStatus
 		{
 		public:
-			#define INVALID_POSITION -1000 // invalid position value (s)
-			#define INVALID_SPEED -1000    // invalid speed valueS
+			#define INVALID_VALUE 				-1000 // invalid position/speed value
+			#define DEFAULT_POSITION_ACCURACY 	 1000 // Default position accuracy of +-1s
 
-			monitoredEventStatus(WaitEvent waitfor = WaitEvent::NONE, const char *eventName = "", bool negate = false) : 
+			monitoredEventStatus(AAMPEventType waitfor = AAMP_MAX_NUM_EVENTS, PrivAAMPState newState = eSTATE_IDLE, 
+			                     const char *eventName = "", bool negate = false) : 
 			    event(waitfor), 
+				state(newState),
 				name(eventName), 
 				received(false),
 				negative(negate),
 				data()
 			{
-				if (event == WaitEvent::PROGRESS)
+				if (event == AAMP_EVENT_PROGRESS)
 				{
-					data.progress.speed = INVALID_SPEED;
-					data.progress.position = INVALID_POSITION;
-					data.progress.accuracy = 1000; // default to 1s accuracy (on position)?
+					data.progress.speed = INVALID_VALUE;
+					data.progress.position = INVALID_VALUE;
+					data.progress.accuracy = DEFAULT_POSITION_ACCURACY;
 				}
-				else if (event == WaitEvent::AUDIO_TRACKS_CHANGED)
+				else if (event == AAMP_EVENT_SEEKED)
 				{
-					data.audio.track = -1;
+					data.seek.position = INVALID_VALUE;
+					data.seek.accuracy = DEFAULT_POSITION_ACCURACY;
 				}
-				else if (event == WaitEvent::TEXT_TRACKS_CHANGED)
+				else if (event == AAMP_EVENT_SPEED_CHANGED)
 				{
-					data.audio.track = -1;
+					data.speed.speed = INVALID_VALUE;
 				}
 			}
 
-			WaitEvent event;
+			monitoredEventStatus(AAMPEventType waitfor = AAMP_MAX_NUM_EVENTS, const char *eventName = "", bool negate = false) : 
+				monitoredEventStatus(waitfor, eSTATE_IDLE, eventName, negate)
+			{
+			}
+
+			AAMPEventType event;
+			PrivAAMPState state;
 			std::string name;
 			bool received;
 			bool negative;
@@ -139,18 +112,24 @@ class ScriptedSmokeTestEventListener : public SmokeTestEventListener
 				} progress;
 				struct
 				{ 
-					int track;
-				} audio;
+					double position;
+					double accuracy;
+				} seek;
 				struct
 				{ 
-					int track;
-				} text;
+					double speed;
+				} speed;
 			} data;
+
+			eventData actual;
 		};
 
 		bool CheckEventList(const AAMPEventPtr& e, std::vector<monitoredEventStatus> &eventList, bool &failed);
 		bool createEventList(std::stringstream &argStream, std::vector<monitoredEventStatus> &eventList, bool defaultNegate = false);
 		bool checkEventList(std::vector<monitoredEventStatus> &eventList, std::string &status);
+
+		bool extractPositionArgs(std::stringstream &argStream, double &position, double &accuracy);
+		bool extractSpeedArgs(std::stringstream &argStream, double &speed);
 
 		std::mutex protectMonitoredEvents;
 		std::condition_variable eventCondition;
