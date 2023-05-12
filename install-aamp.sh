@@ -7,7 +7,7 @@ defaultbuilddir=aamp-devenv-$(date +"%Y-%m-%d-%H-%M")
 defaultcodebranch="dev_sprint_23_1"
 defaultchannellistfile="$HOME/aampcli.csv"
 defaultopensslversion="openssl@1.1"
-googletestbranch="tags/release-1.11.0"
+googletestreference="tags/release-1.11.0"
 processtorun="aamp"
 subtecoption=""
 
@@ -89,7 +89,7 @@ install_system_packages() {
 
     do_clone https://github.com/google/googletest
     cd googletest
-    git checkout $googletestbranch
+    git checkout $googletestreference
     mkdir build
     cd build
     cmake ../
@@ -551,8 +551,8 @@ elif [[ "$OSTYPE" == "linux"* ]]; then
 
     #cat ../../../aampmetrics.patch > patches/aampmetrics.patch
     source install-linux-deps.sh
-    source install-linux.sh -b $codebranch
-    
+    source install-linux.sh -b $codebranch -g $googletestreference
+
     cd ../
     echo "Building aamp-cli..."
     if [ -d "./build" ]; then

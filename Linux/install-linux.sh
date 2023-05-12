@@ -5,12 +5,13 @@ aampdir=$PWD/..
 echo $aampdir
 linuxbuilddir=$aampdir/Linux
 defaultcodebranch=dev_sprint_23_1
+googletestreference="tags/release-1.11.0"
 
 # pull in general utility finctions
 source $aampdir/install-script-utilities.sh
 
 
-while getopts ":d:b:" opt; do
+while getopts ":d:b:g:" opt; do
   case ${opt} in
     d ) # process option d install base directory name
     linuxbuilddir=${OPTARG}
@@ -19,17 +20,20 @@ while getopts ":d:b:" opt; do
     b ) # process option b code branch name
     codebranch=${OPTARG}
       ;;
-    * ) echo "Usage: $0 [-b aamp branch name] [-d local setup directory name]"
+    g ) # process option g googletest reference
+    googletestreference=${OPTARG}
+      ;;
+    * ) echo "Usage: $0 [-b aamp branch name] [-d local setup directory name] [-g googletest reference]"
      exit
       ;;
   esac
 done
 
-#Check and if needed setup default aamp code branch name and local environment directory name
+# Check and, if needed, setup default aamp code branch name and local environment directory name
 if [[ $codebranch == "" ]]; then
     codebranch=${defaultcodebranch}
     echo "using default code branch: $defaultcodebranch"
-fi 
+fi
 
 mkdir -p $linuxbuilddir
 cd $linuxbuilddir
@@ -61,9 +65,10 @@ if [ -d "googletest" ]; then
 else
     do_clone https://github.com/google/googletest
     pushd googletest
-        git checkout $googletestbranch
+        echo "Checkout googletest '$googletestreference'"
+        git checkout $googletestreference
     popd
-fi    
+fi
 
 
 #### CLONE_PACKAGES
