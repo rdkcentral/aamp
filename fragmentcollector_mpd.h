@@ -835,6 +835,14 @@ private:
 	 */
 	void ProcessAllContenProtForMediaType(MediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs);
 
+	/**
+	* @fn CheckForValidScteEevnt
+	* @brief Function to find the scte event is valid or not. Considering event is valid if duration is greater than 0
+	* @param[in] period.
+	* @retval true if event is valid.
+	*/
+	bool CheckForValidScteEevnt(IPeriod *period);
+
 	std::mutex mStreamLock;
 	bool fragmentCollectorThreadStarted;
 	std::set<std::string> mLangList;

@@ -9467,7 +9467,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 
 						vector <IAdaptationSet*> adapatationSets = newPeriod->GetAdaptationSets();
 						int adaptationSetCount = (int)adapatationSets.size();
-						if(0 == adaptationSetCount || IsEmptyPeriod(newPeriod, mIsFogTSB))
+
+						//If CheckForValidScteEevnt  Return true, need to process the period further even though the period don’t have any adaptation set.
+						//Need to skip the below condition in that case.
+						if(!CheckForValidScteEevnt(newPeriod) && (0 == adaptationSetCount || IsEmptyPeriod(newPeriod, mIsFogTSB)))
 						{
 							/*To Handle non fog scenarios where empty periods are
 							* present after mpd update causing issues (DELIA-29879)
@@ -13062,4 +13065,28 @@ void StreamAbstractionAAMP_MPD::setNextobjectrequestUrl(std::string media,const 
 void StreamAbstractionAAMP_MPD::setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,MediaType mediaType)
 {
 	aamp->mCMCDCollector->CMCDSetNextRangeRequest(nextrange,bandwidth,mediaType);
+}
+/**
+ * @fn CheckForValidScteEevnt
+ * @brief Function to find the scte event is valid or not. Considering event is valid if duration is greater than 0
+ * @param[in] period.
+ * @retval true if event is valid.
+ */
+bool StreamAbstractionAAMP_MPD::CheckForValidScteEevnt(IPeriod *period)
+{
+	const std::vector<IEventStream *> &eventStreams = period->GetEventStreams();
+	bool validScteEvent = false;
+	for(auto &eventStream: eventStreams)
+	{
+		for(auto &event: eventStream->GetEvents())
+		{
+			if(event->GetDuration() > 0)
+			{
+				validScteEvent = true;
+				AAMPLOG_INFO("Found validScteEvent on period:%s",period->GetId().c_str());
+				break;
+			}
+		}
+	}
+	return (validScteEvent);
 }
