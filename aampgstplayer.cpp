@@ -1384,6 +1384,20 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 
 			if (isPlaybinStateChangeEvent && new_state == GST_STATE_PLAYING)
 			{
+#if defined(AMLOGIC)
+				//RDK-37643: To support first frame notification on audioOnlyPlayback for hls streams on amlogic.
+				if(_this->aamp->mAudioOnlyPb && !_this->privateContext->firstAudioFrameReceived && _this->privateContext->NumberOfTracks==1)
+				{
+					media_stream *stream = &_this->privateContext->stream[eMEDIATYPE_AUDIO];
+					g_object_get(stream->sinkbin, "n-audio", &_this->privateContext->n_audio, NULL);
+					if(&_this->privateContext->n_audio > 0)
+					{
+						AAMPLOG_WARN("Audio only playback detected, hence notify first frame");
+						_this->privateContext->firstAudioFrameReceived = true;
+						_this->NotifyFirstFrame(eMEDIATYPE_AUDIO);
+					}
+				}
+#endif
 				// progressive ff case, notify to update trickStartUTCMS
 				if (_this->aamp->mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 				{
