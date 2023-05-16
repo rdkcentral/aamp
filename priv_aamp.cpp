@@ -9226,9 +9226,9 @@ std::string PrivateInstanceAAMP::GetAvailableVideoTracks()
 
 					cJSON_AddNumberToObject(item, "enabled", trackInfo[i]->enabled);
 
-					if (trackInfo[i]->codecs)
+					if( !trackInfo[i]->codecs.empty() )
 					{
-						cJSON_AddStringToObject(item, "codec", trackInfo[i]->codecs);
+						cJSON_AddStringToObject(item, "codec", trackInfo[i]->codecs.c_str() );
 					}
 				}
 				char *jsonStr = cJSON_Print(root);

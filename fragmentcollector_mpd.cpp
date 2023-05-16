@@ -505,9 +505,13 @@ static AudioType getCodecType(string & codecValue, const IMPDElement *rep)
 			audioType = eAUDIO_ATMOS;
 		}
 	}
-	else if( codecValue == "opus" || codecValue.find("vorbis") != std::string::npos )
+	else if( codecValue.find("vorbis") != std::string::npos )
 	{
-		audioType = eAUDIO_UNSUPPORTED;
+		audioType = eAUDIO_VORBIS;
+	}
+	else if( codecValue == "opus" )
+	{
+		audioType = eAUDIO_OPUS;
 	}
 	else if( codecValue == "aac" || codecValue.find("mp4") != std::string::npos )
 	{
@@ -714,11 +718,7 @@ static int GetDesiredVideoCodecIndex(IAdaptationSet *adaptationSet)
 			codecValue=codecs.at(0);
 		else if(adapCodecs.size())
 			codecValue = adapCodecs.at(0);
-		//Ignore vp8 and vp9 codec video profiles(webm)
-		if(codecValue.find("vp") == std::string::npos)
-		{
-			selectedRepIdx = representationIndex;
-		}
+		selectedRepIdx = representationIndex;
 	}
 	return selectedRepIdx;
 }
@@ -6954,7 +6954,9 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 					case eAUDIO_AAC:
 						score += 2;
 						break;
-						
+
+					case eAUDIO_VORBIS:
+					case eAUDIO_OPUS:
 					case eAUDIO_UNKNOWN:
 						score += 1;
 						break;
@@ -7943,6 +7945,18 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(MediaType mediaType)
 }
 
 /**
+ * @brief Is this a Webvm video codec
+ *
+ * @param codec Name of codec
+ * @return true if this a VPx codec, false otherwise
+ */
+static bool IsWebmVideoCodec(const std::string &codec )
+{
+	/* For example, "vp09.00.10.08". */
+	return codec.rfind("vp", 0) == 0;
+}
+
+/**
  * @brief Updates track information based on current state
  */
 AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex)
@@ -8087,6 +8101,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					mUpdateStreamInfo = false;
 					int representationCount = 0;
 					std::set<uint32_t> blAdaptationIdxs;
+					bool bSeenNonWebmCodec = false;
 
 					const auto &blacklistedProfiles = aamp->GetBlacklistedProfiles();
 					// Filter the blacklisted profiles in the period
@@ -8166,6 +8181,19 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							{
 								mStreamInfo[idx].codecs = adaptationSet->GetCodecs().at(0).c_str();
 							}
+							else
+							{
+								mStreamInfo[idx].codecs.clear();
+							}
+							// See if a non Webm video code (i.e. not VP8 or VP9) is listed.
+							// These will be used in preference to VP8 or VP9.
+							if( !bSeenNonWebmCodec )
+							{
+								if( !IsWebmVideoCodec(mStreamInfo[idx].codecs) )
+								{
+									bSeenNonWebmCodec = true;
+								}
+							}
 
 							mStreamInfo[idx].enabled = false;
 							mStreamInfo[idx].validity = false;
@@ -8228,6 +8256,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							(!mStreamInfo[pidx].isIframeTrack && bVideoCapped)))
 						{
 							AAMPLOG_INFO("Video Profile ignoring for resolution= %d:%d display= %d:%d BW=%" BITSPERSECOND_FORMAT, mStreamInfo[pidx].resolution.width, mStreamInfo[pidx].resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, mStreamInfo[pidx].bandwidthBitsPerSecond);
+						}
+						else if( bSeenNonWebmCodec && IsWebmVideoCodec(mStreamInfo[pidx].codecs) )
+						{
+							// Don't use VP8 or VP9 codecs if others are listed.
+							AAMPLOG_INFO("Video Profile ignoring for codec %s resolution= %d:%d display= %d:%d BW=%" BITSPERSECOND_FORMAT, mStreamInfo[pidx].codecs.c_str(), mStreamInfo[pidx].resolution.width, mStreamInfo[pidx].resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, mStreamInfo[pidx].bandwidthBitsPerSecond);
 						}
 						else
 						{

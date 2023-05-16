@@ -74,7 +74,10 @@ protected:
 		{eAAMPConfig_PersistLowNetworkBandwidth, false},
 		{eAAMPConfig_MidFragmentSeek, false},
 		{eAAMPConfig_PropogateURIParam, true},
-		{eAAMPConfig_DashParallelFragDownload, false}
+		{eAAMPConfig_DashParallelFragDownload, false},
+		{eAAMPConfig_DisableATMOS, false},
+		{eAAMPConfig_DisableEC3, false},
+		{eAAMPConfig_DisableAC3, false}
 	};
 
 	/** @brief Integer AAMP configuration settings. */
@@ -204,7 +207,8 @@ public:
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
 
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_))
-			.WillOnce(SetArgReferee<0>(eSTATE_PREPARING));
+			.Times(AnyNumber())
+			.WillRepeatedly(SetArgReferee<0>(eSTATE_PREPARING));
 
 		status = mStreamAbstractionAAMP_MPD->Init(TuneType::eTUNETYPE_NEW_NORMAL);
 		return status;
@@ -334,6 +338,217 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
+}
+
+/**
+ * @brief VP8 video and Vorbis audio codec test.
+ *
+ * VP8 encoded video and Vorbis encoded audio contained in MP4 format.
+ */
+TEST_F(FunctionalTests, VP8AndVorbisInMP4)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="vp08.00.41.08" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="vp8/video_init.mp4" media="vp8/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="25600" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="audio">
+			<Representation id="0" mimeType="audio/mp4" codecs="vorbis" bandwidth="24605" audioSamplingRate="48000">
+				<SegmentTemplate timescale="48000" initialization="vorbis/audio_init.mp4" media="vorbis/audio_$Number$.mp3" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="96000" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	/* Initialize MPD. The initialization segments are cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vp8/video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vorbis/audio_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	/* Push the first video segment to present. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vp8/video_1.m4s");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	PushNextFragment(eTRACK_VIDEO);
+
+	/* Push the first audio segment to present. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vorbis/audio_1.mp3");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	PushNextFragment(eTRACK_AUDIO);
+}
+
+/**
+ * @brief VP9 video and Opus audio codec test.
+ *
+ * VP9 encoded video and Opus encoded audio contained in MP4 format.
+ */
+TEST_F(FunctionalTests, VP9AndOpusInMP4)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="vp09.00.10.08" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="vp9/video_init.mp4" media="vp9/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="25600" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio">
+			<Representation id="0" mimeType="audio/mp4" codecs="opus" bandwidth="64000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="48000" initialization="opus/audio_init.mp4" media="opus/audio_$Number$.mp3" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="96000" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	/* Initialize MPD. The initialization segments are cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vp9/video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("opus/audio_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	/* Push the first video segment to present. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vp9/video_1.m4s");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	PushNextFragment(eTRACK_VIDEO);
+
+	/* Push the first audio segment to present. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("opus/audio_1.mp3");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	PushNextFragment(eTRACK_AUDIO);
+}
+
+/**
+ * @brief Multi MP4 codec test.
+ *
+ * VP9 and H264 encoded video with Opus and AAC encoded audio contained in MP4
+ * format. H264 and AAC is selected in preference to VP9 and Opus.
+ */
+TEST_F(FunctionalTests, MultiCodecMP4)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="vp09.00.10.08" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="vp9/video_init.mp4" media="vp9/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="25600" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="h264/video_init.mp4" media="h264/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="25600" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="3" contentType="audio">
+			<Representation id="0" mimeType="audio/mp4" codecs="opus" bandwidth="64000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="48000" initialization="opus/audio_init.mp4" media="opus/audio_$Number$.mp3" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="96000" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="4" contentType="audio">
+			<Representation id="0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="64000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="48000" initialization="aac/audio_init.mp4" media="aac/audio_$Number$.mp3" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="96000" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	/* Initialize MPD. The initialization segments are cached. H264 video is
+	 * selected in prefernce to VP9, AAC audio is selected in preference to
+	 * Opus.
+	 */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("h264/video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("aac/audio_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	/* Push the first video segment to present. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("h264/video_1.m4s");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	PushNextFragment(eTRACK_VIDEO);
+
+	/* Push the first audio segment to present. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("aac/audio_1.mp3");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	PushNextFragment(eTRACK_AUDIO);
 }
 
 /**
