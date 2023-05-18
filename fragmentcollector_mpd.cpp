@@ -727,17 +727,40 @@ static const char* getMediaTypeName( MediaType mediaType )
 	switch(mediaType)
 	{
 		case eMEDIATYPE_VIDEO:
-                        return MEDIATYPE_VIDEO;
-                case eMEDIATYPE_AUDIO:
-                        return MEDIATYPE_AUDIO;
-                case eMEDIATYPE_SUBTITLE:
-                        return MEDIATYPE_TEXT;
-                case eMEDIATYPE_IMAGE:
-                        return MEDIATYPE_IMAGE;
-				case eMEDIATYPE_AUX_AUDIO:
-					return MEDIATYPE_AUX_AUDIO;
-                default:
-                        return NULL;
+			return MEDIATYPE_VIDEO;
+		case eMEDIATYPE_AUDIO:
+			return MEDIATYPE_AUDIO;
+		case eMEDIATYPE_SUBTITLE:
+			return MEDIATYPE_TEXT;
+		case eMEDIATYPE_IMAGE:
+			return MEDIATYPE_IMAGE;
+		case eMEDIATYPE_AUX_AUDIO:
+			return MEDIATYPE_AUX_AUDIO;
+		default:
+			return NULL;
+	}
+}
+
+/**
+ * @brief map cannonical media type to corresponding playlist type
+ */
+static MediaType MediaTypeToPlaylist( MediaType mediaType )
+{
+	switch( mediaType )
+	{
+		case eMEDIATYPE_VIDEO:
+			return eMEDIATYPE_PLAYLIST_VIDEO;
+		case eMEDIATYPE_AUDIO:
+			return eMEDIATYPE_PLAYLIST_AUDIO;
+		case eMEDIATYPE_SUBTITLE:
+			return eMEDIATYPE_PLAYLIST_SUBTITLE;
+		case eMEDIATYPE_AUX_AUDIO:
+			return eMEDIATYPE_PLAYLIST_AUX_AUDIO;
+		case eMEDIATYPE_IFRAME:
+			return eMEDIATYPE_PLAYLIST_IFRAME;
+		default:
+			assert(0);
+			break;
 	}
 }
 
@@ -797,15 +820,16 @@ static bool IsContentType(const IAdaptationSet *adaptationSet, MediaType mediaTy
 }
 
 /**
- * @brief read unsigned 32 bit value and update buffer pointer
+ * @brief read unsigned multi-byte value and update buffer pointer
  * @param[in] pptr buffer
+ * @param[in] n word size in byes
  * @retval 32 bit value
  */
-static unsigned int Read32( const char **pptr)
+static uint64_t ReadWordHelper( const char **pptr, int n )
 {
 	const char *ptr = *pptr;
-	unsigned int rc = 0;
-	for (int i = 0; i < 4; i++)
+	uint64_t rc = 0;
+	while( n-- )
 	{
 		rc <<= 8;
 		rc |= (unsigned char)*ptr++;
@@ -814,6 +838,18 @@ static unsigned int Read32( const char **pptr)
 	return rc;
 }
 
+static unsigned int Read16( const char **pptr)
+{
+	return (unsigned int)ReadWordHelper(pptr,2);
+}
+static unsigned int Read32( const char **pptr)
+{
+	return (unsigned int)ReadWordHelper(pptr,4);
+}
+static uint64_t Read64( const char **pptr)
+{
+	return ReadWordHelper(pptr,8);
+}
 
 /**
  * @brief Parse segment index box
@@ -828,7 +864,6 @@ static unsigned int Read32( const char **pptr)
 static bool ParseSegmentIndexBox( const char *start, size_t size, int segmentIndex, unsigned int *referenced_size, float *referenced_duration, unsigned int *firstOffset)
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
-
 	if (!start)
 	{
 		// If the fragment pointer is NULL then return from here, no need to process it further.
@@ -854,39 +889,44 @@ static bool ParseSegmentIndexBox( const char *start, size_t size, int segmentInd
 		return false;
 	}
 
-	unsigned int version = Read32(f);
-	unsigned int reference_ID = Read32(f);
+	unsigned int version = Read32(f); (void) version;
+	unsigned int reference_ID = Read32(f); (void)reference_ID;
 	unsigned int timescale = Read32(f);
-	unsigned int earliest_presentation_time = Read32(f);
-	unsigned int first_offset = Read32(f);
-	unsigned int count = Read32(f);
-
-	/* Avoid set but not used warnings. */
-	(void)version;
-	(void)reference_ID;
-	(void)timescale;
-	(void)earliest_presentation_time;
-	(void)first_offset;
-	(void)count;
-
+	uint64_t earliest_presentation_time;
+	uint64_t first_offset;
+	if( version==0 )
+	{
+		earliest_presentation_time = Read32(f);
+		first_offset = Read32(f);
+	}
+	else
+	{
+		earliest_presentation_time = Read64(f);
+		first_offset = Read64(f);
+	}
+	unsigned int reserved = Read16(f); (void)reserved;
+	unsigned int reference_count = Read16(f);
 	if (firstOffset)
 	{
-		*firstOffset = first_offset;
-
+		*firstOffset = (unsigned int)first_offset;
 		return true;
 	}
-
-	if( segmentIndex<count )
+	if( segmentIndex<reference_count )
 	{
 		start += 12*segmentIndex;
-		*referenced_size = Read32(f);
+		*referenced_size = Read32(f)&0x7fffffff;
+		// top bit is "reference_type"
+		
 		*referenced_duration = Read32(f)/(float)timescale;
+		
 		unsigned int flags = Read32(f);
-		(void)flags; // Avoid a warning.
+		(void)flags;
+		// starts_with_SAP (1 bit)
+		// SAP_type (3 bits)
+		// SAP_delta_time (28 bits)
 
 		return true;
 	}
-
 	return false;
 }
 
@@ -1089,6 +1129,7 @@ static AampCurlInstance getCurlInstanceByMediaType(MediaType type)
 	default:
 		instance = eCURLINSTANCE_VIDEO;
 		break;
+	// what about eMEDIATYPE_AUX_AUDIO?
 	}
 
 	return instance;
@@ -2063,7 +2104,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				sscanf(range.c_str(), "%" PRIu64 "-%" PRIu64 "", &start, &pMediaStreamContext->fragmentOffset);
 
 				ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(pMediaStreamContext->mediaType, true);
-				MediaType actualType = (MediaType)(eMEDIATYPE_INIT_VIDEO+pMediaStreamContext->mediaType);
+				MediaType actualType = MediaTypeToPlaylist(pMediaStreamContext->mediaType);
 				std::string effectiveUrl;
 				int http_code;
 				double downloadTime;
@@ -2071,6 +2112,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				int iCurrentRate = aamp->rate; //  Store it as back up, As sometimes by the time File is downloaded, rate might have changed due to user initiated Trick-Play
 				aamp->LoadIDX(bucketType, fragmentUrl, effectiveUrl,&pMediaStreamContext->IDX, curlInstance, range.c_str(),&http_code, &downloadTime, actualType,&iFogError);
 
+				
 				if (iCurrentRate != AAMP_NORMAL_PLAY_RATE)
 				{
 					if(actualType == eMEDIATYPE_VIDEO)
@@ -2743,7 +2785,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
 
 				ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(pMediaStreamContext->mediaType, true);
-				MediaType actualType = (MediaType)(eMEDIATYPE_INIT_VIDEO+pMediaStreamContext->mediaType);
+				MediaType actualType = MediaTypeToPlaylist(pMediaStreamContext->mediaType);
 				std::string effectiveUrl;
 				int http_code;
 				double downloadTime;
