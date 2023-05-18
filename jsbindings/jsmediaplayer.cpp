@@ -33,6 +33,7 @@
 #include "jsbindings.h"
 #include "jsutils.h"
 #include "jseventlistener.h"
+#include "PersistentWatermark.h"
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -3892,7 +3893,9 @@ void AAMPPlayer_LoadJS(void* context)
 
 	JSClassRelease(mediaPlayerClass);
 	JSStringRelease(str);
-	
+
+	PersistentWatermark_LoadJS(context);
+
 #ifdef PLATCO
 	LoadXREReceiverStub(context);
 #endif

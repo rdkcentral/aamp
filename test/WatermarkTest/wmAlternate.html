@@ -1,0 +1,70 @@
+<html>
+<script src="/getAndCallback.js"></script>
+<script>
+
+var AssetUrl = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd";
+var AAMPInstance = new AAMPMediaPlayer();
+var PMInstance = new PersistentWatermark();
+
+var index = 0
+function showSuccessCB() {
+    console.log("successCB!!!")
+    const watermarks = ["/wmimage_1.png", "/wmimage_2.png"];
+    console.log("change WM image in 1 sec")
+    setTimeout(() => {
+        console.log("change WM image")
+        getAndCallback(watermarks[index], "", updateAndShow)
+
+        if (index == 0) {
+            index = 1
+        }
+        else{
+            index = 0
+        }
+    }, 1000);
+}
+PMInstance.addEventListener("ShowSuccess", showSuccessCB)
+
+function showSuccessCB2() {
+    console.log("successCB2!!!")
+}
+PMInstance.addEventListener("ShowSuccess", showSuccessCB2)
+
+function ShowFailedCB() {
+    console.log("ShowFailed!!!")
+}
+PMInstance.addEventListener("ShowFailed", ShowFailedCB)
+
+function updateAndShow(imageData, metadata)
+{
+    PMInstance.Update(imageData, metadata)
+    PMInstance.Show()  //note show refreshes the screen
+}
+
+window.onload = function() {
+    AAMPInstance.load(AssetUrl);
+    setTimeout(() => {
+        getAndCallback("/wmimage_1.png", "", updateAndShow)
+    }, 1000);
+
+    setTimeout(() => {
+        console.log("RemoveEventListener!!!")
+        PMInstance.RemoveEventListener("ShowSuccess")
+        PMInstance.RemoveEventListener("ShowFailed")
+    }, 5000);
+
+
+
+}
+</script>
+
+
+<body>
+    <div id="videoContainer">
+        <video style="height:100%; width:100%; position:absolute; bottom:0; left:0">
+        <source src="dummy.mp4" type=”video/ave”> <!-- hole punching -->
+        </video>
+    </div>
+
+</body>
+</html>

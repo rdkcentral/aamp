@@ -1,0 +1,22 @@
+<html>
+<script src="/getAndCallback.js"></script>
+<script>
+
+var AssetUrl = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd";
+var AAMPInstance = new AAMPMediaPlayer();
+
+window.onload = function() {
+    AAMPInstance.load(AssetUrl);
+}
+</script>
+
+
+<body>
+    <div id="videoContainer">
+        <video style="height:100%; width:100%; position:absolute; bottom:0; left:0">
+        <source src="dummy.mp4" type=”video/ave”> <!-- hole punching -->
+        </video>
+    </div>
+
+</body>
+</html>
