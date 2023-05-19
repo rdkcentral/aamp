@@ -39,14 +39,28 @@
  */
 void AampRDKCCManager::Release(int iID)
  {
-	Stop();
-	if (mCCHandle != NULL)
+	std::lock_guard<std::mutex> lock(mIdLock);
+	if( mIdSet.erase(iID) > 0 )
 	{
-		media_closeCaptionStop();
-		mCCHandle = NULL;
+		int iSize = (int)mIdSet.size();
+		AAMPLOG_WARN("AampRDKCCManager::users:%d",iSize);
+		//No one using RDKCCMgr, stop/close it.
+		if(0 == iSize)
+		{
+			Stop();
+			if (mCCHandle != NULL)
+			{
+				media_closeCaptionStop();
+				mCCHandle = NULL;
+			}
+			mTrickplayStarted = false;
+			mParentalCtrlLocked = false;
+		}
 	}
-	mTrickplayStarted = false;
-	mParentalCtrlLocked = false;
+	else
+	{
+		AAMPLOG_TRACE("AampRDKCCCManager::ID:%d not found returning",iID);
+	}	
  }
 
 /**
@@ -110,3 +124,15 @@ int AampRDKCCManager::SetAnalogChannel(unsigned int id)
  {
 	return ccSetAnalogChannel(id);
  }
+
+/**
+ *  @brief Gets Handle or ID, Every client using rdkccmgr must call GetId  in the begining , save id, which is required for Release funciton.
+ */
+int AampRDKCCManager::GetId()
+ {
+	std::lock_guard<std::mutex> lock(mIdLock);
+	mId++;
+	mIdSet.insert(mId);
+	return mId;
+ }
+

@@ -31,6 +31,8 @@
 
 #include <string>
 #include "vlCCConstants.h"
+#include <set>
+#include <mutex>
 
 /**
  * @class AampRDKCCManager
@@ -44,6 +46,12 @@ public:
 	 * @fn Release
 	 */
 	void Release(int iID) override;
+
+	/**
+	* @fn GetId
+	* @return int -  unique ID
+	*/
+	virtual int GetId();
 
 	/**
 	 * @brief Constructor
@@ -104,6 +112,10 @@ private:
 
 	void *mCCHandle{nullptr}; /**< Decoder handle for intializing CC resources */
 
+private:
+	std::mutex mIdLock{};
+	int mId{0};
+	std::set<int> mIdSet{};
 };
 
 #endif /* __AAMP_RDK_CC_MANAGER_H__ */
