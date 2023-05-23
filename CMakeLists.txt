@@ -182,6 +182,8 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampCMCDCollector.h
 					downloader/AampCurlDefine.h
 					downloader/AampCurlDownloader.h
+                    ID3Metadata.hpp
+                    AampSegmentInfo.hpp
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -225,6 +227,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					AampDRMLicPreFetcher.cpp
 					AampCMCDCollector.cpp
 					downloader/AampCurlDownloader.cpp
+                    ID3Metadata.cpp
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
@@ -750,6 +753,8 @@ install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h Aam
   downloader/AampCurlStore.h
   downloader/AampCurlDownloader.h
   downloader/AampCurlDefine.h
+  ID3Metadata.hpp
+  AampSegmentInfo.hpp
   DESTINATION include)
 
 if (CMAKE_AAMP_RFC_REQUIRED)

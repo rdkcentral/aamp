@@ -179,9 +179,11 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 	if (NULL == streamSink)
 	{
-		mInternalStreamSink = new AAMPGstPlayer(mConfig.GetLoggerInstance(), aamp
+		mInternalStreamSink = new AAMPGstPlayer(mConfig.GetLoggerInstance(), aamp,
+			std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, aamp, 
+				std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4)
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
-                , exportFrames
+			, exportFrames
 #endif
 		);
 

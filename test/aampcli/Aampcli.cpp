@@ -534,6 +534,11 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			break;
 		case AAMP_EVENT_ID3_METADATA:
 			printf("[AAMPCLI] AAMP_EVENT_ID3_METADATA\n");
+			{
+				auto ev = std::dynamic_pointer_cast<ID3MetadataEvent>(e);
+				printf("[AAMPCLI] :: presentation time: %llu\n\n", ev->getPresentationTime());
+			}
+
 			break;
 		case AAMP_EVENT_BLOCKED :
 			{

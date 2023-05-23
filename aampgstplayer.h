@@ -38,6 +38,11 @@
 struct AAMPGstPlayerPriv;
 
 /**
+ * 
+*/
+class SegmentInfo_t;
+
+/**
  * @struct TaskControlData
  * @brief data for scheduling and handling asynchronous tasks
  */
@@ -109,6 +114,10 @@ private:
 	gboolean SendQtDemuxOverrideEvent(MediaType mediaType, const void *ptr = nullptr, size_t len = 0);
 
 public:
+
+	/// Signature of function to call in case of an ID3 packet 
+	using id3_callback_t = std::function<void (MediaType mediaType, const uint8_t * ptr, size_t pkt_len, const SegmentInfo_t & info)>;
+
 	class PrivateInstanceAAMP *aamp;
 	/**
          * @fn Configure
@@ -332,11 +341,16 @@ public:
 	bool PipelineSetToReady; /**< To indicate the pipeline is set to ready forcefully */
 	bool trickTeardown;		/**< To indicate that the tear down is initiated in trick play */
 	struct AAMPGstPlayerPriv *privateContext;
+	
 	/**
-         * @fn AAMPGstPlayer
-         *  
-         */
+	 * Constructor
+	 * 
+	 * @param[in] logObj Log handle
+	 * @param[in] aamp Pointer to parent aamp instance
+	 * @param[in] id3HandlerCallback Function to call to generate the JS event for in ID3 packet 
+	 */
 	AAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp
+	, id3_callback_t id3HandlerCallback
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
 	, std::function< void(uint8_t *, int, int, int) > exportFrames = nullptr
 #endif
@@ -438,11 +452,6 @@ private:
      	 */ 
 	void Flush(void);
 	/**
-     	 * @brief Flush last saved ID3 metadata
-     	 * @return void
-     	 */
-	void FlushLastId3Data();
-    	/**
      	 * @fn WaitForSourceSetup
      	 *
      	 * @param[in] mediaType - source element for media type
@@ -465,6 +474,8 @@ private:
 	pthread_mutex_t mBufferingLock;
 	pthread_mutex_t mProtectionLock;
 	AampLogManager *mLogObj;
+
+	id3_callback_t m_ID3MetadataHandler; /**< Function to call to generate the JS event for in ID3 packet */
 };
 
 #endif // AAMPGSTPLAYER_H

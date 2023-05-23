@@ -61,6 +61,8 @@
 #include "AampCMCDCollector.h"
 #include "AampCurlDownloader.h"
 
+#include "ID3Metadata.hpp"
+
 #ifdef __APPLE__
 #define aamp_pthread_setname(tid,name) pthread_setname_np(name)
 #else
@@ -626,6 +628,12 @@ class AampCacheHandler;
 class AampDRMSessionManager;
 
 /**
+ * @brief 
+ * 
+ */
+class SegmentInfo_t;
+
+/**
  * @brief Class representing the AAMP player's private instance, which is not exposed to outside world.
  */
 class PrivateInstanceAAMP : public AampDrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>
@@ -1091,9 +1099,7 @@ public:
 	AampConfig *mConfig;
 
 	bool mbUsingExternalPlayer; 				/**<Playback using external players eg:OTA, HDMIIN,Composite*/
-	int32_t lastId3DataLen[eMEDIATYPE_DEFAULT]; 		/**< last sent ID3 data length */
-	uint8_t *lastId3Data[eMEDIATYPE_DEFAULT]; 		/**< ptr with last sent ID3 data */
-        
+
     bool mbDetached;					/**< Flag to denote setRate call if that called after detach */
 	bool mbSeeked; 						/**< Flag to inidicate play after seek */
 
@@ -1139,14 +1145,11 @@ public:
 	int mBufferFor4kRampdown; 	    /** Min Buffer for rampdown used for 4k Stream */
 
 	AampCMCDCollector *mCMCDCollector;
-	/**
-	 * @fn hasId3Header
-	 *
-	 * @param[in] data pointer to segment buffer
-	 * @param[in] length length of segment buffer
-	 * @retval true if segment has an ID3 section
-	 */
-	bool hasId3Header(const uint8_t* data, uint32_t length);
+
+	std::string seiTimecode; /**< SEI Timestamp information from Westeros */
+
+	// ID3 metadata 
+	aamp::id3_metadata::MetadataCache mId3MetadataCache; /**< Metadata cache object for the JS event */
 
 	/**
 	 * @fn ProcessID3Metadata
@@ -1157,11 +1160,10 @@ public:
 	 */
 	void ProcessID3Metadata(char *segment, size_t size, MediaType type, uint64_t timestampOffset = 0);
 
-	std::string seiTimecode; /**< SEI Timestamp information from Westeros */
-
 	/**
 	 * @fn ReportID3Metadata
 	 *
+	 * @param[in] mediaType - Media type
 	 * @param[in] ptr - ID3 metadata pointer
 	 * @param[in] len - Metadata length
 	 * @param[in] schemeIdURI - schemeID URI
@@ -1173,13 +1175,37 @@ public:
 	 * @param[in] tStampOffset - timestampOffset 
 	 * @return void
 	 */
-	void ReportID3Metadata(MediaType mediaType, const uint8_t* ptr, uint32_t len, const char* schemeIdURI = NULL, const char* id3Value = NULL, uint64_t presTime = 0, uint32_t id3ID = 0, uint32_t eventDur = 0, uint32_t tScale = 0, uint64_t tStampOffset=0);
+	void ReportID3Metadata(MediaType mediaType, const uint8_t* ptr, uint32_t len, 
+		const char* schemeIdURI = NULL, const char* id3Value = NULL, uint64_t presTime = 0, 
+		uint32_t id3ID = 0, uint32_t eventDur = 0, uint32_t tScale = 0, uint64_t tStampOffset = 0);
 
 	/**
-	 * @fn FlushLastId3Data
+	 * @fn ReportID3Metadata
+	 *
+	 * @param[in] mediaType - Media type
+	 * @param[in] data - Vector containing the metadata
+	 * @param[in] schemeIdURI - schemeID URI
+	 * @param[in] id3Value - value from id3 metadata
+	 * @param[in] presTime - presentationTime
+	 * @param[in] id3ID - id from id3 metadata
+	 * @param[in] eventDur - event duration
+	 * @param[in] tScale - timeScale
+	 * @param[in] tStampOffset - timestampOffset 
 	 * @return void
 	 */
-	void FlushLastId3Data(MediaType mediaType);
+	void ReportID3Metadata(MediaType mediaType, std::vector<uint8_t> data, 
+		const char* schemeIdURI = NULL, const char* id3Value = NULL, uint64_t presTime = 0, 
+		uint32_t id3ID = 0, uint32_t eventDur = 0, uint32_t tScale = 0, uint64_t tStampOffset = 0);
+
+    /**
+     * @brief Verifies the ID3 packet content and prepares the data for the JS event
+     * 
+     * @param mediaType - Media type
+     * @param[in] ptr - ID3 metadata pointer
+     * @param[in] len - Metadata packet length
+     * @param info - Stream current data
+     */
+    void ID3MetadataHandler(MediaType mediaType, const uint8_t* ptr, size_t len, const SegmentInfo_t & info);
 
 	/**
 	 * @fn CurlInit
@@ -3174,7 +3200,7 @@ public:
 	 *
 	 *   @param[in] id3Metadata ID3 metadata
 	 */
-	void SendId3MetadataEvent(Id3CallbackData* id3Metadata);
+	void SendId3MetadataEvent(aamp::id3_metadata::CallbackData* id3Metadata);
 
 	/**
 	 * @fn TrackDownloadsAreEnabled
@@ -4148,44 +4174,6 @@ private:
 	std::string mTextStyle;
 	std::vector<StreamBlacklistProfileInfo> mBlacklistedProfiles;
 	//std::vector<ProfilerBucketType> cachedMediaBucketTypes;
-};
-
-/**
- * @class Id3CallbackData
- * @brief Holds id3 metadata callback specific variables.
- */
-class Id3CallbackData
-{
-public:
-	Id3CallbackData(PrivateInstanceAAMP *instance, const uint8_t* ptr, uint32_t len,
-		const char* schemeIdURI, const char* id3Value, uint64_t presTime, uint32_t id3ID, uint32_t eventDur, uint32_t tScale, uint64_t tStampOffset)
-		: aamp(instance), data(), schemeIdUri(), value(), presentationTime(presTime), id(id3ID), eventDuration(eventDur), timeScale(tScale), timestampOffset(tStampOffset)
-	{
-		data = std::vector<uint8_t>(ptr, ptr + len);
-
-		if (schemeIdURI)
-		{
-			schemeIdUri = std::string(schemeIdURI);
-		}
-
-		if (id3Value)
-		{
-			value = std::string(id3Value);
-		}
-	}
-	Id3CallbackData() = delete;
-	Id3CallbackData(const Id3CallbackData&) = delete;
-	Id3CallbackData& operator=(const Id3CallbackData&) = delete;
-
-	PrivateInstanceAAMP* aamp; /**< PrivateInstanceAAMP instance */
-	std::vector<uint8_t> data; /**<id3 metadata */
-	uint32_t timeScale;
-	std::string schemeIdUri;   /**< schemeIduri */
-	std::string value;
-	uint64_t presentationTime;
-	uint32_t eventDuration;
-	uint32_t id;
-	uint64_t timestampOffset;
 };
 
 #endif // PRIVAAMP_H

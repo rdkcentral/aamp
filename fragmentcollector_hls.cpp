@@ -6744,6 +6744,8 @@ void TrackState::StopInjection()
  */
 void TrackState::StartInjection()
 {
+	AAMPLOG_INFO("StartInjection()");
+
 	aamp->ResumeTrackInjection((MediaType) type);
 	if (playContext)
 	{

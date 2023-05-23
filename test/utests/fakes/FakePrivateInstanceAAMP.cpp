@@ -20,6 +20,9 @@
 #include "priv_aamp.h"
 #include "MockPrivateInstanceAAMP.h"
 
+#include "ID3Metadata.hpp"
+#include "AampSegmentInfo.hpp"
+
 //Enable the define below to get AAMP logging out when running tests
 //#define ENABLE_LOGGING
 #define TEST_LOG_LEVEL eLOGLEVEL_TRACE
@@ -125,7 +128,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mIsStream4K(false),
 	mIsEventStreamFound(false),
 	mFogDownloadFailReason(""),
-	mBlacklistedProfiles()
+	mBlacklistedProfiles(),
+	mId3MetadataCache{}
 {
 	pthread_cond_init(&waitforplaystart, NULL);
 	pthread_mutex_init(&mMutexPlaystart, NULL);
@@ -963,6 +967,10 @@ void PrivateInstanceAAMP::LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelpe
 bool PrivateInstanceAAMP::IsEventListenerAvailable(AAMPEventType eventType)
 {
 	return false;
+}
+
+void PrivateInstanceAAMP::ID3MetadataHandler(MediaType, const uint8_t *, size_t, const SegmentInfo_t &)
+{
 }
 
 void PrivateInstanceAAMP::ResetProfileCache()

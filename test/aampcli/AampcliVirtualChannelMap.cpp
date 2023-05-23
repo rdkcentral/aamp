@@ -175,7 +175,6 @@ void VirtualChannelMap::print(unsigned long start, unsigned long end, unsigned l
 	printf("[AAMPCLI] aampcli.cfg virtual channel map:\n");
 
 	int numCols = 0;
-	unsigned long size = mVirtualChannelMap.size();
 	unsigned long lineCount = 0;
 	unsigned long mapSize = mVirtualChannelMap.size();
 	if(end == ULLONG_MAX || end >= mapSize)

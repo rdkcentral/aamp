@@ -24,7 +24,7 @@
 
 MockAAMPGstPlayer *g_mockAampGstPlayer = nullptr;
 
-AAMPGstPlayer::AAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp)
+AAMPGstPlayer::AAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback)
 {
 }
 

@@ -23,11 +23,13 @@
 #include <gmock/gmock.h>
 #include "aampgstplayer.h"
 
+auto mock_id3_callback = [](MediaType , const uint8_t * , size_t , const SegmentInfo_t & ){ };
+
 class MockAAMPGstPlayer : public AAMPGstPlayer
 {
 public:
 
-    MockAAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp) : AAMPGstPlayer(logObj, aamp) { }
+    MockAAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp) : AAMPGstPlayer(logObj, aamp, mock_id3_callback) { }
 
     MOCK_METHOD(long, GetPositionMilliseconds, (), (override));
 

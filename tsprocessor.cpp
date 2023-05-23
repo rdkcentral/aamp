@@ -36,6 +36,7 @@
 #include "tsprocessor.h"
 #include "AampUtils.h"
 
+#include <unordered_set>
 
 /**
  * @brief NOP function used to controll logging
@@ -250,7 +251,6 @@ private:
 	int sentESCount;
 	bool allowPtsRewind;
 	bool reached_steady_state;
-
 
 	/**
 	 * @brief Sends elementary stream with proper PTS
@@ -696,6 +696,40 @@ public:
 		}
 		ptsError = false;
 	}
+
+	/** @brief Provides the @a MediaType of the demixer
+	 * @return The MediaType of the demuxer
+	 */
+	MediaType GetType() const { return type; }
+
+	/**
+	 * @brief Consumes the cached data of the @a es buffer, if present
+	 * @return True if data was present
+	 * @return False if there was no data
+	 */
+	bool ConsumeCachedData()
+	{
+		if (es.GetLen())
+		{
+			send();
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * @brief Checks if there is any cached data in the @a es buffer
+	 * @return True if there is any cached data
+	 * @return False if there is no cached data
+	*/
+	bool HasCachedData() const { return !!es.GetLen(); }
+
+	/**
+	 * @brief Provides the current size of the @a es buffer
+	 * @return The size of data contained in the @a es buffer
+	*/
+	size_t GetCachedDataSize() const { return es.GetLen(); }
+
 };
 
 #define rmf_osal_memcpy(d, s, n, dc, sc)  memcpy(d, s, n)
@@ -2171,6 +2205,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 	}
 	INFO("demuxAndSend : len  %d videoPid %d audioPid %d m_pcrPid %d videoComponentCount %d m_demuxInitialized = %d", (int)len, videoPid, audioPid, m_pcrPid, videoComponentCount, m_demuxInitialized);
 
+	std::unordered_set<Demuxer*> updated_demuxers{};
 	unsigned char * packetStart = (unsigned char *)ptr;
 	while (len >= PACKET_SIZE)
 	{
@@ -2295,6 +2330,9 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 			{
 				basePtsUpdatedFromCurrentSegment = true;
 			}
+
+			// Caching the demuxer pointer for later use
+			updated_demuxers.emplace(demuxer);
 		}
 		else
 		{
@@ -2304,6 +2342,15 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 		packetStart += PACKET_SIZE;
 		len -= PACKET_SIZE;
 	}
+
+	for (auto demuxer : updated_demuxers)
+	{
+		if (demuxer && demuxer->HasCachedData())
+		{
+			demuxer->ConsumeCachedData();
+		}
+	}
+
 	return ret;
 }
 

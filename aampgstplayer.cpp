@@ -40,6 +40,9 @@
 #include <pthread.h>
 #include <atomic>
 
+#include "ID3Metadata.hpp"
+#include "AampSegmentInfo.hpp"
+
 #ifdef __APPLE__
 	#include "gst/video/videooverlay.h"
 	guintptr (*gCbgetWindowContentView)() = NULL;
@@ -307,10 +310,12 @@ const char *plugins_to_lower_rank[PLUGINS_TO_LOWER_RANK_MAX] = {
  * @brief AAMPGstPlayer Constructor
  */
 AAMPGstPlayer::AAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp
+	, id3_callback_t id3HandlerCallback
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
         , std::function< void(uint8_t *, int, int, int) > exportFrames
 #endif
-	) : mLogObj(logObj), aamp(NULL) , privateContext(NULL), mBufferingLock(), mProtectionLock(), PipelineSetToReady(false), trickTeardown(false)
+	) : mLogObj(logObj), aamp(NULL), privateContext(NULL), mBufferingLock(), mProtectionLock(), PipelineSetToReady(false), trickTeardown(false)
+	, m_ID3MetadataHandler{id3HandlerCallback}
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
 	, cbExportYUVFrame(NULL)
 #endif
@@ -2442,62 +2447,6 @@ void AAMPGstPlayer::SendGstEvents(MediaType mediaType)
 	stream->flush = false;
 }
 
-
-/**
- * @fn hasId3Header
- * @brief Check if segment starts with an ID3 section
- * @param[in] data pointer to segment buffer
- * @param[in] length length of segment buffer
- * @retval true if segment has an ID3 section
- */
-bool hasId3Header(MediaType mediaType, const uint8_t* data, int32_t length)
-{
-	if ((mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_DSM_CC)
-		&& length >= 3)
-	{
-		/* Check file identifier ("ID3" = ID3v2) and major revision matches (>= ID3v2.2.x). */
-		/* The ID3 header has first three bytes as "ID3" and in the next two bytes first byte is the major version and second byte is its revision number */
-		if (*data++ == 'I' && *data++ == 'D' && *data++ == '3' && *data++ >= 2)
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-#define ID3_HEADER_SIZE 10		/**< Header size for ID3v2 header */
-
-/**
- * @fn getId3TagSize
- * @brief Get the size of the ID3v2 tag.
- * @param[in] data buffer pointer
- * @retval size of ID3 tag or 0 for bad header format
- */
-uint32_t getId3TagSize(const uint8_t *data)
-{
-	uint32_t bufferSize = 0;
-	uint8_t tagSize[4];
-
-	memcpy(tagSize, data+6, 4);
-
-	// bufferSize is encoded as a syncsafe integer - this means that bit 7 is always zeroed
-	// Check for any 1s in bit 7
-	if (tagSize[0] > 0x7f || tagSize[1] > 0x7f || tagSize[2] > 0x7f || tagSize[3] > 0x7f)
-	{
-		AAMPLOG_WARN("Bad header format");
-		return 0;
-	}
-
-	bufferSize = tagSize[0] << 21;
-	bufferSize += tagSize[1] << 14;
-	bufferSize += tagSize[2] << 7;
-	bufferSize += tagSize[3];
-	bufferSize += ID3_HEADER_SIZE;
-
-	return bufferSize;
-}
-
 /**
  *  @brief Send new segment event to pipeline
  */
@@ -2555,16 +2504,16 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 		//gst_element_seek_simple(GST_ELEMENT(stream->source), GST_FORMAT_TIME, GST_SEEK_FLAG_NONE, pts);
 	}
 
-	if (aamp->IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA) &&
-		hasId3Header(mediaType, static_cast<const uint8_t*>(ptr), (int32_t)len))
+	// This block checks if the data contain a valid ID3 header and if it is the case 
+	// calls the callback function.
 	{
-		uint32_t len = getId3TagSize(static_cast<const uint8_t*>(ptr));
-		if (len && (len != aamp->lastId3DataLen[mediaType] ||
-					!aamp->lastId3Data[mediaType] ||
-					(memcmp(ptr, aamp->lastId3Data[mediaType], aamp->lastId3DataLen[mediaType]) != 0)))
+		namespace aih = aamp::id3_metadata::helpers;
+
+		if (aih::IsValidMediaType(mediaType) &&
+			aih::IsValidHeader(static_cast<const uint8_t*>(ptr), len))
 		{
-			AAMPLOG_INFO("AAMPGstPlayer: Found new ID3 frame");
-			aamp->ReportID3Metadata(mediaType, static_cast<const uint8_t*>(ptr), len);
+			m_ID3MetadataHandler(mediaType, static_cast<const uint8_t*>(ptr), len,
+				{fpts, fdts, fDuration});
 		}
 	}
 
