@@ -776,6 +776,65 @@ Example:
 | W | Number | Video Width |
 | H | Number | Video Height |
 
+#### Minimal UVE Player with Video Scaling
+- This is a simple example of how to scale or reposition video using AAMP.
+- Video is rendered in the background video plane and UI is rendered in the graphics plane.
+- The app will only hole punch through what is configured via the drawVideoRectHelper(x, y, w, h ) function, and the video will be scaled to fit the specified rectangle. The UI will be visible on the rest of the screen. This will ensure that the video is not hidden behind the UI and the UI is not hidden by video hole punching.
+
+```js
+<html>
+	<head>
+		<title>MINIMAL UVE PLAYER - SCALED VIDEO</title>
+	</head>
+	
+	<script>
+		var player;
+		window.onload = function() {
+			player = new AAMPMediaPlayer(); // create player instance for AAMP
+			let url = "http://amssamples.streaming.mediaservices.windows.net/683f7e47-bd83-4427-b0a3-26a6c4547782/BigBuckBunny.ism/manifest(format=mpd-time-csf)";
+			console.log("loading " + url );
+			player.load( url ); // tune using AMP
+			console.log("screen size: " + screen.width + "x" + screen.height); // typically 1280x720
+			let w = screen.width/2; // 50% width
+			let h = screen.height/2; // 50% height
+			let x = (screen.width-w)/2; // center horizontally
+			let y = (screen.height-h)/2; // center vertically
+			drawVideoRectHelper(x, y, w, h ); // place video using graphics plane coordinates
+		}
+​
+		// helper function to set video position
+		function drawVideoRectHelper(x, y, w, h) {
+			let video = document.getElementById("video");
+			video.style.left = x + "px";
+			video.style.top = y + "px";
+			video.style.width = w + "px";
+			video.style.height = h + "px";
+			player.setVideoRect(x, y, w, h ); // place video using graphics plane coordinates
+		}
+	</script>
+	<style>
+		#backDrop {
+			position: absolute;
+			width: 100%;
+			height: 100%;
+			left: 0;
+			top: 0;
+			background-color: rgb(9, 62, 148);
+		}
+​
+		#video {
+			position: absolute;
+		}
+	</style>
+	<body>
+		<div id="backDrop"></div>  
+		<video id="video">
+			<source src="dummy.mp4" type="video/ave"> <!-- hole punching -->
+		</video>
+	</body>
+</html>
+```
+
 ---
 
 ### getVideoRectangle()
