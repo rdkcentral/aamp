@@ -3235,6 +3235,31 @@ bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
 }
 
 /**
+* @brief Whether we seeked to live offset range or not.
+*
+* @param[in] - seekPosition - seek position in seconds
+* @return true if we seeked to live.
+*/
+bool StreamAbstractionAAMP::IsSeekedToLive(double seekPosition)
+{
+	bool ret = false;
+	double endPos = aamp->culledSeconds + aamp->durationSeconds;
+
+	// if case seekPosition is in live range, endPos-mLiveOffset to endPos.
+	// else if endPos updates after seek cmd received or seekPosition < endPos-LiveOffset, seekPosition sent by App won't be in live range.
+	if (ceil(endPos - seekPosition) <= aamp->mLiveOffset)
+	{
+		AAMPLOG_WARN("SeekPostion[%lf] is in live range, endPos[%lf]-mLiveOffset(%lf) i.e:%lf",seekPosition,endPos,aamp->mLiveOffset,endPos-aamp->mLiveOffset);
+		ret = true;
+	}
+	else
+	{
+		AAMPLOG_INFO("SeekPostion[%lf] is not in live range, endPos[%lf]-mLiveOffset(%lf) i.e:%lf",seekPosition,endPos,aamp->mLiveOffset,endPos-aamp->mLiveOffset);
+	}
+	return ret;
+}
+
+/**
  * @brief Returns playlist type of track
  */
 MediaType MediaTrack::GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe)

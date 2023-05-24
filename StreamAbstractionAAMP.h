@@ -1020,7 +1020,14 @@ public:
 	 *
 	 *   @return true if we are at live point.
 	 */
-	bool IsStreamerAtLivePoint(double seekPosition = 0 ); 
+	bool IsStreamerAtLivePoint(double seekPosition = 0 );
+
+	/**
+	 *   @brief Whether we seeked to live offset range or not.
+	 *
+	 *   @return true if we seeked to live.
+	 */
+	bool IsSeekedToLive(double seekPosition);
 	
 	/**
 	 * @fn Is4KStream

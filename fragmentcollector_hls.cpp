@@ -4614,10 +4614,16 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			}
 		}
 
-		if (aamp->IsLive() )
+		if (aamp->IsLive())
 		{
 			/** Set preferred live Offset for 4K or non 4K; Default value of mIsStream4K = false */
 			aamp->mIsStream4K = GetPreferredLiveOffsetFromConfig();
+
+			/* Check if we are seeking to live using aamp->seek_pos_seconds for Peacock */
+			if (tuneType == eTUNETYPE_SEEK && IsSeekedToLive(aamp->seek_pos_seconds))
+			{
+				tuneType = eTUNETYPE_SEEKTOLIVE;
+			}
 		}
 
 		/*Do live adjust on live streams on 1. eTUNETYPE_NEW_NORMAL, 2. eTUNETYPE_SEEKTOLIVE,
@@ -4633,6 +4639,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			subtitle->playTarget = 0;
 			aux->playTarget = 0;
 			aamp->NotifyOnEnteringLive();
+			aamp->mDisableRateCorrection = false;
 		}
 		else if (((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_RETUNE == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType)) && (this->rate > 0))
 		{
