@@ -28,6 +28,19 @@ From the *utests* folder run:
 
 ./run.sh
 
+## Check line coverage in microtests:
+
+From the *utests* directory, run:
+
+./run.sh -c
+
+The aggregated results can be found in the following html file:
+*utests/CombinedCoverage/index.html*
+
+**Note:**
+
+This takes considerably longer than running the script with no options
+
 ## To build and run the microtests manually:
 
 From the *utests* folder run:

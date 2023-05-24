@@ -18,6 +18,11 @@
 */
 
 #include <gtest/gtest.h>
+#include "AampConfig.h"
+#include "AampLogManager.h"
+
+AampConfig *gpGlobalConfig=NULL;
+AampLogManager *mLogObj=NULL;
 
 int main(int argc, char** argv)
 {

@@ -69,7 +69,7 @@ if (COVERAGE_ENABLED)
                               DEPENDENCIES ${EXEC_NAME})
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lcurl)
+target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest)
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 

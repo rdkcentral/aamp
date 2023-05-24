@@ -16,7 +16,6 @@
 # limitations under the License.
 
 include(GoogleTest)
-pkg_check_modules(CURL REQUIRED libcurl)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
@@ -64,7 +63,7 @@ if (COVERAGE_ENABLED)
                               DEPENDENCIES ${EXEC_NAME})
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lpthread -lcurl)
+target_link_libraries(${EXEC_NAME} fakes ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lpthread)
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 

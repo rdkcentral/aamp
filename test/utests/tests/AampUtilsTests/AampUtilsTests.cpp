@@ -1,16 +1,48 @@
+#include <cstdlib>
 #include <iostream>
 #include <string>
 #include <string.h>
 
 //include the google test dependencies
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
 // unit under test
 #include <AampUtils.cpp>
 
-// Fakes to allow linkage
-AampConfig *gpGlobalConfig=NULL;
-AampLogManager *mLogObj=NULL;
+#include "MockCurl.h"
+
+using ::testing::_;
+using ::testing::DoAll;
+using ::testing::Return;
+using ::testing::SetArgPointee;
+
+class AampUtilsTests : public ::testing::Test
+{
+protected:
+	CURL *mCurlEasyHandle = nullptr;
+
+	void SetUp() override
+	{
+		gpGlobalConfig =  new AampConfig();
+
+		g_mockCurl = new MockCurl();
+
+		mCurlEasyHandle = malloc(1);		// use a valid address for the handle
+	}
+
+	void TearDown() override
+	{
+		free(mCurlEasyHandle);
+
+		delete gpGlobalConfig;
+		gpGlobalConfig = nullptr;
+
+		delete g_mockCurl;
+		g_mockCurl = nullptr;
+	}
+
+};
 
 //Test string & base64 encoded test string:
 const char* teststr = "abcdefghijklmnopqrstuvwxyz01234567890!\"£$%^&*()ABCDEFGHIJKLMNOPQRSTUVWXYZ|\\<>?,./:;@'~#{}[]-_";
@@ -138,14 +170,20 @@ TEST(_AampUtils, aamp_Base64_URL_Decode)
 }
 
 
-TEST(_AampUtils, aamp_DecodeUrlParameter)
+TEST_F(AampUtilsTests, aamp_DecodeUrlParameter)
 {
-	std::string test1, test2;
-	test1 = "https%3A%2F%2Flin021-gb-s8-prd-ak.cdn01.skycdp.com%2Fv1%2Ffrag%2Fbmff%2Fenc%2Fcenc%2Ft%2FBOX_SD_SU_SKYUK_1802_0_9103338152997639163.mpd";
-	aamp_DecodeUrlParameter(test1);
-	//If this is built with the fake curl implementation, curl_easy_init returns false. A real curl implementation should return the following:
-	EXPECT_STREQ(test1.c_str(), "https://lin021-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/BOX_SD_SU_SKYUK_1802_0_9103338152997639163.mpd");
-	//EXPECT_STREQ(test1.c_str(), test1.c_str());
+	std::string parameter_url ("encoded url");
+	std::string decoded_url ("decoded url");
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_unescape(mCurlEasyHandle, parameter_url.c_str(), parameter_url.length(), _))
+		.WillOnce(DoAll(SetArgPointee<3>(static_cast<int>(decoded_url.length())), Return(const_cast<char*>(decoded_url.c_str()))));
+	EXPECT_CALL(*g_mockCurl, curl_free(_));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+
+	aamp_DecodeUrlParameter(parameter_url);
+
+	EXPECT_STREQ(parameter_url.c_str(), decoded_url.c_str());
 }
 
 
