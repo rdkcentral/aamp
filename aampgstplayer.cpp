@@ -127,11 +127,12 @@ struct media_stream
 	pthread_mutex_t sourceLock;
 	uint32_t timeScale;
 	int32_t trackId;							/**< Current Audio Track Id,so far it is implimented for AC4 track selection only */
+	bool resendQtDemuxOverride;					/**< Indicates if the qtdemux override event should be resend or not */
 
 	media_stream() : sinkbin(NULL), source(NULL), format(FORMAT_INVALID),
 			 using_playersinkbin(FALSE), flush(false), resetPosition(false),
 			 bufferUnderrun(false), eosReached(false), sourceConfigured(false), sourceLock(PTHREAD_MUTEX_INITIALIZER)
-			, timeScale(1), trackId(-1)
+			, timeScale(1), trackId(-1), resendQtDemuxOverride(false)
 	{
 
 	}
@@ -2372,11 +2373,8 @@ double AAMPGstPlayer::RecalculatePTS(MediaType mediaType, const void *ptr, size_
 /**
  * @fn SendGstEvents
  * @param[in] mediaType stream type
- * @param[in] pts PTS of next buffer
- * @param[in] ptr buffer pointer
- * @param[in] len length of buffer
  */
-void AAMPGstPlayer::SendGstEvents(MediaType mediaType, GstClockTime pts, const void *ptr, size_t len)
+void AAMPGstPlayer::SendGstEvents(MediaType mediaType)
 {
 	media_stream* stream = &privateContext->stream[mediaType];
 	gboolean enableOverride = FALSE;
@@ -2392,36 +2390,7 @@ void AAMPGstPlayer::SendGstEvents(MediaType mediaType, GstClockTime pts, const v
 		stream->flush = false;
 	}
 
-	if (stream->format == FORMAT_ISO_BMFF && mediaType != eMEDIATYPE_SUBTITLE)
-	{
-#ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
-		enableOverride = TRUE;
-#else
-		enableOverride = (privateContext->rate != AAMP_NORMAL_PLAY_RATE);
-#endif
-		/* 	The below statement creates a new eventStruct with the name 'aamp_override' and sets its three variables as follows:-
-			1) the variable 'enable' has datatype of G_TYPE_BOOLEAN and has value enableOverride.
-			2) the variable 'rate' has datatype of G_TYPE_FLOAT and is set to (float)privateContext->rate.
-			3) the variable 'aampplayer' has datatype of G_TYPE_BOOLEAN and a value of TRUE.
-		*/
-		GstStructure * eventStruct = gst_structure_new("aamp_override", "enable", G_TYPE_BOOLEAN, enableOverride, "rate", G_TYPE_FLOAT, (float)privateContext->rate, "aampplayer", G_TYPE_BOOLEAN, TRUE, NULL);
-#ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
-		if ( privateContext->rate == AAMP_NORMAL_PLAY_RATE )
-		{
-			guint64 basePTS = aamp->GetFirstPTS() * GST_SECOND;
-			if(0 == basePTS)
-			{
-				basePTS = RecalculatePTS(mediaType, ptr, len) * GST_SECOND;
-			}
-			AAMPLOG_WARN("Set override event's basePTS [ %" G_GUINT64_FORMAT "]", basePTS);
-			gst_structure_set (eventStruct, "basePTS", G_TYPE_UINT64, basePTS, NULL);
-		}
-#endif
-		if (!gst_pad_push_event(sourceEleSrcPad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, eventStruct)))
-		{
-			AAMPLOG_WARN("Error on sending rate override event");
-		}
-	}
+	enableOverride = SendQtDemuxOverrideEvent(mediaType);
 
 	if (mediaType == eMEDIATYPE_VIDEO)
 	{
@@ -2607,8 +2576,6 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 	}
 
 	bool isFirstBuffer = stream->resetPosition;
-	// Flag to wait sending Gst events until receiving a valid buffer for PTS restamping. HLS mp4 already has PTS restamping.
-	bool waitForPtsRestamp = ((eMEDIAFORMAT_DASH == aamp->mMediaFormat) && (initFragment) && (0 == aamp->GetFirstPTS()));
 	// Make sure source element is present before data is injected
 	// If format is FORMAT_INVALID, we don't know what we are doing here
 	pthread_mutex_lock(&stream->sourceLock);
@@ -2623,14 +2590,14 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 			return false;
 		}
 	}
-	if (isFirstBuffer && !waitForPtsRestamp)
+	if (isFirstBuffer)
 	{
 		//Send Gst Event when first buffer received after new tune, seek or period change
-		SendGstEvents(mediaType, pts, ptr, len);
+		SendGstEvents(mediaType);
 
 		if (mediaType == eMEDIATYPE_AUDIO && ForwardAudioBuffersToAux())
 		{
-			SendGstEvents(eMEDIATYPE_AUX_AUDIO, pts, ptr, len);
+			SendGstEvents(eMEDIATYPE_AUX_AUDIO);
 		}
 
 #if defined(AMLOGIC)
@@ -2646,6 +2613,19 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 		AAMPLOG_TRACE("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d", mediaType, initFragment);
 	}
 
+	// Send the qtdemux override event for restamping PTS
+	if (stream->resendQtDemuxOverride)
+	{
+		AAMPLOG_INFO("mediaType[%d] SendHelper: resending the qtdemux override event", mediaType);
+		(void)SendQtDemuxOverrideEvent(mediaType, ptr, len);
+		if (mediaType == eMEDIATYPE_AUDIO && ForwardAudioBuffersToAux())
+		{
+			(void)SendQtDemuxOverrideEvent(eMEDIATYPE_AUX_AUDIO, ptr, len);
+		}
+	}
+	// Check if the override event needs to be sent again when we receive the actual buffer  
+	// From the buffer we will calculate PTS again and sent it
+	stream->resendQtDemuxOverride = ((eMEDIAFORMAT_DASH == aamp->mMediaFormat) && (initFragment) && (0 == aamp->GetFirstPTS()));
 
 	if( aamp->DownloadsAreEnabled())
 	{
@@ -2877,6 +2857,7 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 
 		stream->resetPosition = true;
 		stream->eosReached = false;
+		stream->resendQtDemuxOverride = false;
 	}
 
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -3906,6 +3887,7 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 			privateContext->stream[i].resetPosition = true;
 			privateContext->stream[i].flush = false;
 			privateContext->stream[i].eosReached = false;
+			privateContext->stream[i].resendQtDemuxOverride = false;
 		}
 
 		AAMPLOG_INFO("AAMPGstPlayer: Pipeline flush seek - start = %f rate = %d", position, rate);
@@ -4700,4 +4682,52 @@ bool AAMPGstPlayer::SetTextStyle(const std::string &options)
 	}
 
 	return ret;
+}
+
+/**
+ * @fn SendQtDemuxOverrideEvent
+ * @param[in] mediaType stream type
+ * @param[in] ptr buffer pointer
+ * @param[in] len length of buffer
+ * @ret TRUE if override is enabled, FALSE otherwise
+ */
+gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, const void *ptr, size_t len)
+{
+	media_stream* stream = &privateContext->stream[mediaType];
+	gboolean enableOverride = FALSE;
+	GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");	/* Retrieves the src pad */
+
+	if (stream->format == FORMAT_ISO_BMFF && mediaType != eMEDIATYPE_SUBTITLE)
+	{
+#ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
+		enableOverride = TRUE;
+#else
+		enableOverride = (privateContext->rate != AAMP_NORMAL_PLAY_RATE);
+#endif
+		/* 	The below statement creates a new eventStruct with the name 'aamp_override' and sets its three variables as follows:-
+			1) the variable 'enable' has datatype of G_TYPE_BOOLEAN and has value enableOverride.
+			2) the variable 'rate' has datatype of G_TYPE_FLOAT and is set to (float)privateContext->rate.
+			3) the variable 'aampplayer' has datatype of G_TYPE_BOOLEAN and a value of TRUE.
+		*/
+		GstStructure * eventStruct = gst_structure_new("aamp_override", "enable", G_TYPE_BOOLEAN, enableOverride, "rate", G_TYPE_FLOAT, (float)privateContext->rate, "aampplayer", G_TYPE_BOOLEAN, TRUE, NULL);
+#ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
+		if ( privateContext->rate == AAMP_NORMAL_PLAY_RATE )
+		{
+			guint64 basePTS = aamp->GetFirstPTS() * GST_SECOND;
+			if(0 == basePTS && ptr && len > 0)
+			{
+				basePTS = RecalculatePTS(mediaType, ptr, len) * GST_SECOND;
+			}
+			AAMPLOG_WARN("Set override event's basePTS [ %" G_GUINT64_FORMAT "]", basePTS);
+			gst_structure_set (eventStruct, "basePTS", G_TYPE_UINT64, basePTS, NULL);
+		}
+#endif
+		if (!gst_pad_push_event(sourceEleSrcPad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, eventStruct)))
+		{
+			AAMPLOG_WARN("Error on sending qtdemux override event");
+		}
+	}
+	gst_object_unref(sourceEleSrcPad);
+	stream->resendQtDemuxOverride = false;
+	return enableOverride;
 }

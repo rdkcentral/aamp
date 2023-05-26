@@ -80,11 +80,8 @@ private:
 	/**
 	 * @fn SendGstEvents
 	 * @param[in] mediaType stream type
-	 * @param[in] pts PTS of next buffer
-	 * @param[in] ptr buffer pointer
-	 * @param[in] len length of buffer
 	 */
-	void SendGstEvents(MediaType mediaType, GstClockTime pts, const void *ptr, size_t len);
+	void SendGstEvents(MediaType mediaType);
 
 	/**
 	 * @fn RecalculatePTS
@@ -101,6 +98,15 @@ private:
          * @param[in] stopPts Stop position of last buffer
          */
 	void SendNewSegmentEvent(MediaType mediaType, GstClockTime startPts ,GstClockTime stopPts = 0);
+
+	/**
+	 * @fn SendQtDemuxOverrideEvent
+	 * @param[in] mediaType stream type
+	 * @param[in] ptr buffer pointer
+	 * @param[in] len length of buffer
+	 * @ret TRUE if override is enabled, FALSE otherwise
+	 */
+	gboolean SendQtDemuxOverrideEvent(MediaType mediaType, const void *ptr = nullptr, size_t len = 0);
 
 public:
 	class PrivateInstanceAAMP *aamp;
