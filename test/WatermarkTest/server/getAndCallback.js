@@ -1,0 +1,16 @@
+function getAndCallback(url, metadata, Callback) {
+    var request = new XMLHttpRequest();
+    request.open('GET', url, true);
+    request.responseType = 'blob';
+    request.onload = function() {
+        console.log("getAndCallback(): response successful")
+        var fr = new FileReader()
+        fr.readAsArrayBuffer(request.response)
+        fr.onload  = function() {
+            console.log("getAndCallback(): got array buffer of " + String(fr.result.byteLength) + " bytes")
+            Callback(fr.result, metadata)
+        }
+    }
+
+    request.send()
+}

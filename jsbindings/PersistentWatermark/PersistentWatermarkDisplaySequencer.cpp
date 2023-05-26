@@ -18,18 +18,12 @@
 */
 #ifdef USE_WATERMARK_JSBINDINGS
 #include "PersistentWatermarkDisplaySequencer.h"
+#include  "PersistentWatermarkPluginAccess.h"
 
 
-PersistentWatermark::DisplaySequencer::DisplaySequencer():mCurrentLayerID(0), mMutex(), mThunderAccess{"org.rdk.Watermark.1"}
+PersistentWatermark::DisplaySequencer::DisplaySequencer():mCurrentLayerID(0)
 {
-	if(mThunderAccess.ActivatePlugin())
-	{
-		LOG_TRACE("activated");
-	}
-	else
-	{
-		LOG_ERROR_EX("PersistentWatermark:could not activate.");
-	}
+	//empty
 }
 
 void PersistentWatermark::DisplaySequencer::deleteLayer()
@@ -39,7 +33,7 @@ void PersistentWatermark::DisplaySequencer::deleteLayer()
 		LOG_TRACE("delete watermark");
 		JsonObject param, result;
 		param["id"] = mCurrentLayerID;
-		bool success = mThunderAccess.InvokeJSONRPC("deleteWatermark", param, result);
+		bool success = PluginAccess::get().InvokeJSONRPC("deleteWatermark", param, result);
 		if(success && result["success"].Boolean())
 		{
 			LOG_TRACE("Watermark deleted");
@@ -79,22 +73,15 @@ static int nextLayerID()
 
 void PersistentWatermark::DisplaySequencer::Show(PersistentWatermark::Storage& storage)
 {
-	if(!storage.valid())
-	{
-		SendEvent(EventHandler::eventType::ShowFailed, "Stored image is invalid");
-		return;
-	}
-	std::lock_guard<std::mutex>lock(mMutex);
-
 	if(mCurrentLayerID == 0)
 	{
 		mCurrentLayerID  = nextLayerID();
 		{
-			LOG_TRACE("Watermark create");
+			LOG_TRACE("PersistentWatermark::DisplaySequencer::Show() Watermark create");
 			JsonObject param, result;
 			param["id"] = mCurrentLayerID;
 			param["zorder"] = 1;
-			bool success = mThunderAccess.InvokeJSONRPC("createWatermark", param, result);
+			bool success = PluginAccess::get().InvokeJSONRPC("createWatermark", param, result);
 			if(success && result["success"].Boolean())
 			{
 				LOG_TRACE("Watermark Create successful");
@@ -102,7 +89,7 @@ void PersistentWatermark::DisplaySequencer::Show(PersistentWatermark::Storage& s
 			else
 			{
 				SendEvent(EventHandler::eventType::ShowFailed, "createWatermark failed");
-				LOG_TRACE("Watermark exit -createWatermark failed");
+				LOG_WARN_EX("PersistentWatermark::DisplaySequencer::Show() exit -createWatermark failed");
 				mCurrentLayerID = 0;
 				return;
 			}
@@ -113,64 +100,41 @@ void PersistentWatermark::DisplaySequencer::Show(PersistentWatermark::Storage& s
 		LOG_TRACE("Watermark show");
 		JsonObject param, result;
 		param["show"] = true;
-		bool success = mThunderAccess.InvokeJSONRPC("showWatermark", param, result);
+		bool success = PluginAccess::get().InvokeJSONRPC("showWatermark", param, result);
 		if(success && result["success"].Boolean())
 		{
-			LOG_TRACE("Watermark Show successful");
+			LOG_TRACE("PersistentWatermark::DisplaySequencer::Show() Watermark Show successful");
 		}
 		else
 		{
 			SendEvent(EventHandler::eventType::ShowFailed, " showWatermark, failed");
-			LOG_TRACE("Watermark exit - showWatermark, failed");
+			LOG_WARN_EX("PersistentWatermark::DisplaySequencer::Show()  exit - showWatermark, failed");
 			return;
 		}
 	}
 
+
+	if(storage.UpdatePlugin(mCurrentLayerID))
 	{
-		if(!storage.valid())
-		{
-			SendEvent(EventHandler::eventType::ShowFailed, "Stored image is invalid");
-			return;
-		}
-
-		/* Calling show() & update() concurrently could generate a failure here
-			* (e.g. update() is executed between getKey() and getSize()
-			* or the shared memory is deleted before the plugin connects to it)
-			* This would have a low consequence as a failure event should be generated.*/
-		int ImageKey = storage.getKey();
-		int ImageSize= storage.getSize();
-		LOG_TRACE("Watermark update key=%d, size=%d", ImageKey, ImageSize);
-		JsonObject param, result;
-		param["id"] = mCurrentLayerID;
-		param["key"] = ImageKey;
-		param["size"] = ImageSize;
-		bool success = mThunderAccess.InvokeJSONRPC("updateWatermark", param, result);
-		if(success && result["success"].Boolean())
-		{
-			LOG_TRACE("Watermark Update successful");
-		}
-		else
-		{
-			SendEvent(EventHandler::eventType::ShowFailed, "updateWatermark failed");
-			LOG_TRACE("Watermark exit - updateWatermark failed");
-			return;
-		}
-
+		SendEvent(EventHandler::eventType::ShowSuccess);
+		LOG_TRACE("PersistentWatermark::DisplaySequencer::Show() exit - success");
 	}
-	SendEvent(EventHandler::eventType::ShowSuccess);
-	LOG_TRACE("Watermark exit - success");
+	else
+	{
+		SendEvent(EventHandler::eventType::ShowFailed, "updateWatermark failed");
+		LOG_WARN_EX("PersistentWatermark::DisplaySequencer::Show() updateWatermark failed");
+		return;
+	}
 }
 
 void PersistentWatermark::DisplaySequencer::Hide()
 {
-	LOG_TRACE("Watermark enter");
-	std::lock_guard<std::mutex>lock(mMutex);
 	LOG_TRACE("Watermark hide");
 	deleteLayer();
 
 	JsonObject param, result;
 	param["show"] = false;
-	bool success = mThunderAccess.InvokeJSONRPC("showWatermark", param, result);
+	bool success = PluginAccess::get().InvokeJSONRPC("showWatermark", param, result);
 
 	if(success && result["success"].Boolean())
 	{

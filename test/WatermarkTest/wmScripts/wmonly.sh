@@ -1,3 +1,4 @@
+#!/bin/bash
 systemctl stop sky-appsservice sky-asplayer.service;
 curl -X POST -H "Content-Type: application/json" 'http://127.0.0.1:9998/jsonrpc' -d '{"jsonrpc": "2.0","id": 4,"method": "Controller.1.activate", "params": { "callsign": "org.rdk.RDKShell" }}';
 echo;
@@ -11,8 +12,7 @@ curl -d '{"jsonrpc":"2.0","id":"4","method": "org.rdk.Watermark.1.showWatermark"
 echo;
 curl -d '{"jsonrpc":"2.0","id":"4","method": "org.rdk.Watermark.1.createWatermark", "params": {"id":4661, "zorder":1}}' http://127.0.0.1:9998/jsonrpc;
 echo;
-/usr/bin/WatermarkTestClient 46 /opt/wmimage.png&
+/usr/bin/WatermarkTestClient 46 /opt/wmScripts/wmimage_1.png&
 sleep 1;
-curl -d '{"jsonrpc":"2.0","id":"4","method": "org.rdk.Watermark.1.updateWatermark", "params": {"id":4661, "key":46, "size":375879}}' http://127.0.0.1:9998/jsonrpc;
+curl -d '{"jsonrpc":"2.0","id":"4","method": "org.rdk.Watermark.1.updateWatermark", "params": {"id":4661, "key":46, "size":11108}}' http://127.0.0.1:9998/jsonrpc;
 echo;
-journalctl -f|egrep "watermark";

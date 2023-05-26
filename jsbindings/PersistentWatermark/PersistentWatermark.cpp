@@ -28,6 +28,14 @@ void PersistentWatermark_LoadJS(void* context)
 };
 #else
 
+#include <mutex>
+/*
+	Do not allow concurrency in the PersistentWatermark API
+	There is no requirement for it and
+	eliminating it greatly simplifies design and validation
+*/
+static std::mutex JSInterfaceMutex;
+
 #ifndef USE_CPP_THUNDER_PLUGIN_ACCESS
 	#error "thunder plugin access required"
 #endif
@@ -76,6 +84,7 @@ static bool ArgumentCheck(size_t argumentCount, size_t expectedArgumentCount, co
  */
 static JSValueRef PersistentWatermarkJS_Update (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
+	std::lock_guard<std::mutex>lock(JSInterfaceMutex);
 	LOG_WARN_EX("PersistentWatermark.Update()");
 
 	if (!ArgumentCheck(argumentCount, 2, __FUNCTION__))
@@ -91,8 +100,10 @@ static JSValueRef PersistentWatermarkJS_Update (JSContextRef ctx, JSObjectRef fu
  */
 static JSValueRef PersistentWatermarkJS_getMetadata (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
+	std::lock_guard<std::mutex>lock(JSInterfaceMutex);
 	LOG_WARN_EX("PersistentWatermark.getMetadata()");
-	const char* metaData = PersistentWatermark::Storage::getInstance().getMetadata().c_str();
+	std::string metaDataStr = PersistentWatermark::Storage::getInstance().getMetadata();
+	const char* metaData = metaDataStr.c_str();
 	LOG_WARN_EX("successs metadata:%s",metaData);
 	return aamp_CStringToJSValue(ctx, metaData);
 }
@@ -102,6 +113,7 @@ static JSValueRef PersistentWatermarkJS_getMetadata (JSContextRef ctx, JSObjectR
  */
 static JSValueRef PersistentWatermarkJS_Hide (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
+	std::lock_guard<std::mutex>lock(JSInterfaceMutex);
 	LOG_WARN_EX("PersistentWatermark.Hide()");
 	PersistentWatermark::DisplaySequencer::getInstance().Hide();
 	LOG_TRACE("PersistentWatermark.Hide() Exit");
@@ -113,6 +125,7 @@ static JSValueRef PersistentWatermarkJS_Hide (JSContextRef ctx, JSObjectRef func
  */
 static JSValueRef PersistentWatermarkJS_Show (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
+	std::lock_guard<std::mutex>lock(JSInterfaceMutex);
 	LOG_WARN_EX("PersistentWatermark.Show()");
 	PersistentWatermark::DisplaySequencer::getInstance().Show(PersistentWatermark::Storage::getInstance());
 	LOG_TRACE("PersistentWatermark.Show() Exit");
@@ -124,6 +137,7 @@ static JSValueRef PersistentWatermarkJS_Show (JSContextRef ctx, JSObjectRef func
  */
 static JSValueRef PersistentWatermarkJS_addEventListener (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
+	std::lock_guard<std::mutex>lock(JSInterfaceMutex);
 	LOG_WARN_EX("PersistentWatermark.addEventListener()");
 	if (!ArgumentCheck(argumentCount, 2, __FUNCTION__))
 	{
@@ -168,6 +182,7 @@ static JSValueRef PersistentWatermarkJS_addEventListener (JSContextRef ctx, JSOb
  */
 static JSValueRef PersistentWatermarkJS_RemoveEventListener(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
+	std::lock_guard<std::mutex>lock(JSInterfaceMutex);
 	LOG_WARN_EX("PersistentWatermark.RemoveEventListener()");
 
 	if (!ArgumentCheck(argumentCount, 1, __FUNCTION__))
@@ -198,10 +213,12 @@ static const JSStaticFunction PersistentWatermark_JS_static_functions[] = {
 	{ NULL, NULL, 0 },
 };
 
+static constexpr const char* PERSISTENT_WATERMARK_VERSION = "0.3";
+
 static JSValueRef getProperty_Version(JSContextRef ctx, JSObjectRef object, JSStringRef propertyName, JSValueRef* exception)
 {
 	LOG_TRACE("Enter/exit");
-	return aamp_CStringToJSValue(ctx, "0.2");
+	return aamp_CStringToJSValue(ctx, PERSISTENT_WATERMARK_VERSION);
 }
 
 static const JSStaticValue PersistentWatermark_JS_static_values[] = {
@@ -269,10 +286,11 @@ static JSClassDefinition PersistentWatermark_JS_class_def {
 void PersistentWatermark_LoadJS(void* context)
 {
 	LOG_TRACE("Enter");
+	std::lock_guard<std::mutex>lock(JSInterfaceMutex);
 	JSGlobalContextRef jsContext = (JSGlobalContextRef)context;
 	JSObjectRef globalObj = JSContextGetGlobalObject(jsContext);
 
-	LOG_WARN_EX("PersistentWatermark:register persistent watermark class ");
+	LOG_WARN_EX("PersistentWatermark:register persistent watermark class version %s", PERSISTENT_WATERMARK_VERSION);
 	JSClassRef PersistentWatermarkClass = JSClassCreate(&PersistentWatermark_JS_class_def);
 	JSObjectRef PersistentWatermarkClassObj = JSObjectMakeConstructor(jsContext, PersistentWatermarkClass, PersistentWatermark_JS_class_constructor);
 	JSValueProtect(jsContext, PersistentWatermarkClassObj);
@@ -281,7 +299,7 @@ void PersistentWatermark_LoadJS(void* context)
 	JSObjectSetProperty(jsContext, globalObj, namestr, PersistentWatermarkClassObj, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, NULL);
 	JSClassRelease(PersistentWatermarkClass);
 	JSStringRelease(namestr);
-	LOG_WARN_EX("PersistentWatermark:done with registering persistent watermark class");
+	LOG_WARN_EX("PersistentWatermark:done with registering persistent watermark class version %s", PERSISTENT_WATERMARK_VERSION);
 	LOG_TRACE("Exit");
 };
 #endif

@@ -1,0 +1,63 @@
+<html>
+<script src="/getAndCallback.js"></script>
+<script>
+
+var PMInstance = new PersistentWatermark();
+
+var index = 0
+function showSuccessCB() {
+    console.log("Show Success!")
+}
+PMInstance.addEventListener("ShowSuccess", showSuccessCB)
+
+function ShowFailedCB() {
+    console.log("Show Failed!")
+}
+PMInstance.addEventListener("ShowFailed", ShowFailedCB)
+
+function HideSuccessCB() {
+    console.log("Hide Success!")
+}
+PMInstance.addEventListener("HideSuccess", HideSuccessCB)
+
+function HideFailedCB() {
+    console.log("HideFailed!")
+}
+PMInstance.addEventListener("HideFailed", HideFailedCB)
+
+function updateAndShow(imageData, metadata)
+{
+    PMInstance.Update(imageData, metadata, true)
+    PMInstance.Show()  //note show refreshes the screen
+}
+
+window.onload = function() {
+    PMInstance.Show()
+    console.log("Persistent Metadata: '" + PMInstance.getMetadata() + "'")
+
+    setTimeout(() => {
+	console.log("updateAndShow 1")
+        getAndCallback("/wmimage_1_persist.png", "Persist 1", updateAndShow)
+    }, 1000);
+    
+    setTimeout(() => {
+        console.log("Metadata 1: '" + PMInstance.getMetadata() + "'")
+
+        console.log("updateAndShow 2")
+        getAndCallback("/wmimage_2_persist.png", "Persist 2", updateAndShow)
+    }, 2000);
+    
+    setTimeout(() => {
+        console.log("Metadata 2: '" + PMInstance.getMetadata() + "'")
+
+        console.log("hide")
+        PMInstance.Hide()
+    }, 3000);
+}
+</script>
+
+
+<body>
+    no video
+</body>
+</html>

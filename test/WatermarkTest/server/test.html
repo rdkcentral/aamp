@@ -45,48 +45,29 @@ function CallMethods(){
     }
 }
 
-function MetaDataInitial(){
-    ReportTestResult("ResultMetadataInitial", "In Progress")
+
+function UpdateMetaData(ID, persist, metadata){
     try {
-        var PMInstance = new PersistentWatermark();
-        var MetaData = PMInstance.getMetadata()
-        if(MetaData==""){
-            ReportTestResult("ResultMetadataInitial", "Pass")
-        }
-        else{
-            ReportTestResult("ResultMetadataInitial", "Fail, (metadata " + String(MetaData) + ")")
-        }
-
-    }
-    catch(err) {
-        ReportTestResult("ResultMetadataInitial", "Error:" + err.name + " " + err.message)
-    }
-}
-
-
-function UpdateMetaData(){
-    try {
-        ReportTestResult("ResultUpdateMetaData", "in progress...")
+        ReportTestResult(ID, "in progress...")
 
         var PMInstance = new PersistentWatermark();
-        var metadata = "test metadata"
-        var update_result = PMInstance.Update(wmimage_1_data, metadata)
+        var update_result = PMInstance.Update(wmimage_1_data, metadata, persist)
 
         console.log("PMInstance.getMetadata()")
         var returnedMetadata = PMInstance.getMetadata()
         if(update_result != true) {
-            ReportTestResult("ResultUpdateMetaData", "Fail: Update() returned " + String(update_result))
+            ReportTestResult(ID, "Fail: Update(" + string(persist)+ ") returned " + String(update_result))
         }
         else if(metadata==returnedMetadata){
-            ReportTestResult("ResultUpdateMetaData", "Pass")
+            ReportTestResult(ID, "Pass")
         }
         else{
-            ReportTestResult("ResultUpdateMetaData", "Fail: supplied metadata (" +metadata + ") != returned metadata (" + String(returnedMetadata) + ")")
+            ReportTestResult(ID, "Fail: supplied metadata (" +metadata + ") != returned metadata (" + String(returnedMetadata) + ")")
         }
     }
     catch(err)
     {
-        ReportTestResult("ResultUpdateMetaData", "Error:" + err.name + " " + err.message)
+        ReportTestResult(ID, "Error:" + err.name + " " + err.message)
     }
 }
 
@@ -106,6 +87,9 @@ function UpdateReturn(){
         else if (PMInstance.Update(wmimage_1_data, false) != false){
             ReportTestResult("ResultUpdateReturn", "Fail: incorrect arg 2 type did not return false")
         }
+        else if (PMInstance.Update(wmimage_1_data, "valid metadata", "not a boolean") != false){
+            ReportTestResult("ResultUpdateReturn", "Fail: incorrect arg 3 type did not return false")
+        }
         else if (PMInstance.Update(new ArrayBuffer(), false) != false){
             ReportTestResult("ResultUpdateReturn", "Fail: empty array buffer did not return false")
         }
@@ -113,6 +97,12 @@ function UpdateReturn(){
             ReportTestResult("ResultUpdateReturn", "Fail: None PNG data did not return false")
         }
         else if (PMInstance.Update(wmimage_1_data, "valid metadata") != true){
+            ReportTestResult("ResultUpdateReturn", "Fail: valid inputs did not return true")
+        }
+        else if (PMInstance.Update(wmimage_1_data, "valid metadata", false) != true){
+            ReportTestResult("ResultUpdateReturn", "Fail: valid inputs did not return true")
+        }
+        else if (PMInstance.Update(wmimage_1_data, "valid persist metadata", true) != true){
             ReportTestResult("ResultUpdateReturn", "Fail: valid inputs did not return true")
         }
         else{
@@ -243,8 +233,8 @@ function runTests()
         console.log("start of tests")
         CreateObj()
         CallMethods()
-        MetaDataInitial()
-        UpdateMetaData()
+        UpdateMetaData("ResultUpdateMetaData", false, "test metadata")
+        UpdateMetaData("ResultUpdateMetaDataPersist", true, "Persist test metadata")
         UpdateReturn()
         TestShowAndSuccessEvent(TestHideAndSuccessEvent)
         setTimeout(() => {
@@ -294,8 +284,8 @@ window.onload = function() {
 <tr><td>Test Method Test </td><td><p id="ResultTestResult">pending</p></td></tr>
 <tr><td>Create Obj</td><td><p id="ResultCreateObj">pending</p></td></tr>
 <tr><td>Call Methods</td><td><p id="ResultCallMethods">pending</p></td></tr>
-<tr><td>MetaData initial status</td><td><p id="ResultMetadataInitial">pending</p></td></tr>
 <tr><td>Update MetaData</td><td><p id="ResultUpdateMetaData">pending</p></td></tr>
+<tr><td>Update MetaData Persist</td><td><p id="ResultUpdateMetaDataPersist">pending</p></td></tr>
 <tr><td>Update Return</td><td><p id="ResultUpdateReturn">pending</p></td></tr>
 <tr><td>Show and Show Success Event</td><td><p id="ResultTestShowAndSuccessEvent">pending</p></td></tr>
 <tr><td>Hide and Hide Success Event</td><td><p id="ResultTestHideAndSuccessEvent">pending</p></td></tr>

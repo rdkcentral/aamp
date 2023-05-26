@@ -20,8 +20,6 @@
 #ifndef __PERSISTENT_WATERMARK_DISPLAY_SEQUENCER__H__
 #define __PERSISTENT_WATERMARK_DISPLAY_SEQUENCER__H__
 
-#include  <mutex>
-
 #include "PersistentWatermarkEventHandler.h"
 #include "PersistentWatermarkStorage.h"
 #include "ThunderAccess.h"
@@ -66,8 +64,6 @@ namespace PersistentWatermark
 
 	private:
 		int mCurrentLayerID;
-		std::mutex mMutex;
-		ThunderAccessAAMP mThunderAccess;
 
 		/**
 		 @brief private constructor for singleton class
