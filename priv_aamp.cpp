@@ -4673,7 +4673,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
 	{
 		mSeekOperationInProgress = true;
-		mFirstFragmentTimeOffset = -1 ; //reset the firstFragmentOffsetTime when seek opeartion is done
+		if(! GetLLDashServiceData()->lowLatencyMode )
+		{
+			mFirstFragmentTimeOffset = -1 ; //reset the firstFragmentOffsetTime when seek opeartion is done
+		}
 	}
 
 	if (eTUNETYPE_LAST == tuneType)
