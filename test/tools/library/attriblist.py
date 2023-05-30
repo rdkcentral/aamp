@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+#
 # If not stated otherwise in this file or this component's LICENSE file the
 # following copyright and licenses apply:
 #
 # Copyright 2023 Synamedia Ltd.
+#
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +23,7 @@ import sys
 from datetime import *
 import time
 
+
 class AttribList(object):
     """
     Class to parse a line containing name=value parameters into
@@ -28,22 +31,24 @@ class AttribList(object):
     then it will use this as the source of the name/value pairs.
     Dictionaries within dictionaries will create a recusive structure.
     """
+
     def __init__(self, src, start=None, sep=",", to_upper=True):
         self._sep = sep
 
         if type(src) is str:
             self._quoted = set()
 
-            if start: 
-                src = src[src.index(start) + 1:]
+            if start:
+                src = src[src.index(start) + 1 :]
             i = 0
 
             while i < len(src):
                 end = src[i:].index("=") + i
-                if end < i: 
+                if end < i:
                     raise ValueError("Missing '=' from name on %s" % src)
 
                 name = src[i:end].upper() if to_upper else src[i:end]
+                name = name.strip()
                 i = end + 1
 
                 if src[i] == '"':
@@ -54,12 +59,13 @@ class AttribList(object):
                     i = end + 1
                     self._quoted.add(name)
 
-                    if i >= len(src): 
+                    if i >= len(src):
                         break
-                    if src[i] != sep: 
-                        raise ValueError("Missing separator %s in %s" % ( sep, src ))
+                    if src[i] != sep:
+                        raise ValueError("Missing separator %s in %s" % (sep, src))
 
                     i += 1
+                    self._quoted.add(name)
 
                 else:
                     end = src[i:].find(sep) + i
@@ -102,6 +108,8 @@ class AttribList(object):
                 else:
                     setattr(self, name, val)
 
+        return self
+
     def intattr(self, name, default=None):
         """
         Convert an attribute into an 'int' with an option default.
@@ -127,7 +135,8 @@ class AttribList(object):
         prefix.
         """
         for n, v in from_dict:
-            if n.startswith(prefix): setattr(self, n, v)
+            if n.startswith(prefix):
+                setattr(self, n, v)
 
         return self
 
@@ -139,13 +148,13 @@ class AttribList(object):
         res = ""
 
         for name, val in vars(self).items():
-            if name.startswith("_"): 
+            if name.startswith("_"):
                 continue
 
             if self._quoted is None or name in self._quoted:
-                res += sep + name + '="'+ str(val) + '"'
+                res += sep + name + '="' + str(val) + '"'
             else:
-                res += sep + name + '='+ str(val)
+                res += sep + name + "=" + str(val)
 
             sep = self._sep
 
@@ -154,7 +163,8 @@ class AttribList(object):
 
 if __name__ == "__main__":
     base_dir = sys.argv[0]
-    base_dir = base_dir[:base_dir.rfind('/')]
+    base_dir = base_dir[: base_dir.rfind("/")]
 
     time.sleep(1)
     print("no tests at the moment")
+

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns="urn:mpeg:dash:schema:mpd:2011"
+	xmlns:xlink="http://www.w3.org/1999/xlink"
+	xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd"
+	profiles="urn:mpeg:dash:profile:isoff-live:2011"
+	type="static"
+	mediaPresentationDuration="PT15M0.0S"
+	minBufferTime="PT4.0S">
+	<ProgramInformation>
+	</ProgramInformation>
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="1" contentType="video" segmentAlignment="true" bitstreamSwitching="true" lang="und">
+
+			<Representation id="0" bandwidth="800000" width="640" height="360">
+				<BaseURL>dash/</BaseURL>
+				<SegmentList timescale="12800" duration="25600">
+					<Initialization sourceURL="360p_init.m4s"/>
+					<SegmentURL media="360p_001.m4s"/>
+					<SegmentURL media="360p_002.m4s"/>
+					<SegmentURL media="360p_003.m4s"/>
+					<SegmentURL media="360p_004.m4s"/>
+				</SegmentList>
+			</Representation>
+
+			<Representation id="1" bandwidth="1400000" width="842" height="474">
+				<BaseURL>dash/</BaseURL>
+				<SegmentList timescale="12800" duration="25600">
+					<Initialization sourceURL="480p_init.m4s"/>
+					<SegmentURL media="480p_001.m4s"/>
+					<SegmentURL media="480p_002.m4s"/>
+					<SegmentURL media="480p_003.m4s"/>
+					<SegmentURL media="480p_004.m4s"/>
+				</SegmentList>
+			</Representation>
+
+			<Representation id="2" bandwidth="2800000" width="1280" height="720">
+				<BaseURL>dash/</BaseURL>
+				<SegmentList timescale="12800" duration="25600">
+					<Initialization sourceURL="720p_init.m4s"/>
+					<SegmentURL media="720p_001.m4s"/>
+					<SegmentURL media="720p_002.m4s"/>
+					<SegmentURL media="720p_003.m4s"/>
+					<SegmentURL media="720p_004.m4s"/>
+				</SegmentList>
+			</Representation>
+
+		</AdaptationSet>
+
+		<AdaptationSet id="2" contentType="audio" segmentAlignment="true" bitstreamSwitching="true" lang="eng">
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="english" />
+			<Representation id="10" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="288000" audioSamplingRate="48000">
+				<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1" />
+				<SegmentTemplate timescale="48000" initialization="dash/en_init.m4s" media="dash/en_$Number%03d$.mp3" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="95232" />
+						<S d="96256" r="5" />
+						<S d="30080" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+
