@@ -283,11 +283,11 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 						&& (failure != AAMP_TUNE_LICENCE_TIMEOUT)
 						&& (failure != AAMP_TUNE_DEVICE_NOT_PROVISIONED)
 						&& (failure != AAMP_TUNE_HDCP_COMPLIANCE_ERROR);
-
-			mPrivAAMP->SendDrmErrorEvent(event, isRetryEnabled);
-			mPrivAAMP->profiler.SetDrmErrorCode((int)failure);
-			mPrivAAMP->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
 		}
+
+		mPrivAAMP->SendDrmErrorEvent(event, isRetryEnabled);
+		mPrivAAMP->profiler.SetDrmErrorCode((int)failure);
+		mPrivAAMP->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
 	}
 }
 
