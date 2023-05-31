@@ -56,6 +56,8 @@ install_package libwayland-dev
 install_package libxkbcommon-dev
 install_package libfontconfig-dev
 install_package libharfbuzz-dev
+install_package snapd
+
 
 ver=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
