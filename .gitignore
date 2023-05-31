@@ -2,3 +2,4 @@ oe-*
 /build/
 nbproject/
 test/utests/build/
+Linux/gst-plugins-good-*/

@@ -71,18 +71,30 @@ fi
 #  TODO: check
 # apt-get install gstreamer gst-validate gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-validate gst-libav
 
-# curl -o	gst-plugins-good-1.18.4.tar.xz https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-1.18.4.tar.xz
-# tar -xf gst-plugins-good-1.18.4.tar.xz
-# cd gst-plugins-good-1.18.4
-# pwd
-# patch -p1 < $aampdir/local-setup/patches/0009-qtdemux-aamp-tm_gst-1.16.patch	
-# patch -p1 < $aampdir/local-setup/patches/0013-qtdemux-remove-override-segment-event_gst-1.16.patch
-# patch -p1 < $aampdir/local-setup/patches/0014-qtdemux-clear-crypto-info-on-trak-switch_gst-1.16.patch	
-# patch -p1 < $aampdir/local-setup/patches/0021-qtdemux-aamp-tm-multiperiod_gst-1.16.patch 
-# meson build
-#     ninja -C build
-#     ninja -C build install
-# cd ..
+# Patch qtdemux, The version of gst-plugins-good is selected based on the OS version.
+echo "Patching qtdemux"
+
+ver=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
+if [ ${ver:0:2} -eq 20 ]; then
+    defaultgstversion="1.16.3"
+elif [ ${ver:0:2} -eq 22 ]; then
+    defaultgstversion="1.20.3"
+else
+    defaultgstversion="1.18.4"
+fi
+
+curl -o	gst-plugins-good-$defaultgstversion.tar.xz https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-$defaultgstversion.tar.xz
+tar -xf gst-plugins-good-$defaultgstversion.tar.xz
+cd gst-plugins-good-$defaultgstversion
+pwd
+patch -p1 < $aampdir/OSX/patches/0009-qtdemux-aamp-tm_gst-1.16.patch
+patch -p1 < $aampdir/OSX/patches/0013-qtdemux-remove-override-segment-event_gst-1.16.patch
+patch -p1 < $aampdir/OSX/patches/0014-qtdemux-clear-crypto-info-on-trak-switch_gst-1.16.patch
+patch -p1 < $aampdir/OSX/patches/0021-qtdemux-aamp-tm-multiperiod_gst-1.16.patch
+meson --prefix=/usr build
+ninja -C build
+sudo ninja -C build install
+cd ..
 
 ### Install libdash
 if [ -d "libdash" ]; then

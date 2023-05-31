@@ -12,6 +12,7 @@ function install_package() {
     fi
 }
 
+apt update
 install_package git
 install_package cmake
 install_package gcc
@@ -29,6 +30,9 @@ install_package gstreamer1.0-libav
 install_package lcov
 install_package gcovr
 install_package libcjson-dev
+install_package curl
+install_package meson
+install_package xz-utils
 
 ver=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
