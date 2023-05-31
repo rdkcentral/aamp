@@ -2295,6 +2295,8 @@ adPlayer2.stop();
 | AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN | 50 | AAMP: Failed to get access token from Auth Service |
 | AAMP_TUNE_CORRUPT_DRM_METADATA | 50 | AAMP: DRM failure due to Bad DRMMetadata in stream |
 | AAMP_TUNE_DRM_DECRYPT_FAILED | 50 | AAMP: DRM Decryption Failed for Fragments |
+| AAMP_TUNE_DRM_UNSUPPORTED | 50 | AAMP: DRM format Unsupported |
+| AAMP_TUNE_DRM_SELF_ABORT | 50 | AAMP: DRM license request aborted by player |
 | AAMP_TUNE_DRM_KEY_UPDATE_FAILED | 50 | AAMP: Failed to process DRM key |
 | AAMP_TUNE_CORRUPT_DRM_DATA | 51 | AAMP: DRM failure due to Corrupt DRM files |
 | AAMP_TUNE_DEVICE_NOT_PROVISIONED | 52 | AAMP: Device not provisioned |
