@@ -862,6 +862,13 @@ bool aamp_WriteFile(std::string fileName, const char* data, size_t len, MediaTyp
 {
 	bool retVal=false;	
 	{
+		//check if query parameter(s) present if yes then remove it.This is creating problem for file / folder path 
+		std::size_t queryParamStartPos = fileName.find_first_of('?');
+		if( queryParamStartPos != std::string::npos )
+		{
+			fileName = fileName.substr(0,queryParamStartPos);
+		}
+
 		std::size_t pos = fileName.find("://");
 		if( pos != std::string::npos )
 		{
