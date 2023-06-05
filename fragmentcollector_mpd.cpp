@@ -1165,7 +1165,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)((&pMediaStreamContext->fragmentDescriptor)->Number),
 			(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
 	//CID:96900 - Removex the len variable which is initialized but not used
-	float position;
+	double position;
 	if(isInitializationSegment)
 	{
 		if(!(pMediaStreamContext->initialization.empty()) && (0 == pMediaStreamContext->initialization.compare(fragmentUrl))&& !discontinuity)
@@ -1180,7 +1180,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	}
 	position = pMediaStreamContext->fragmentTime;
 
-	float duration = fragmentDuration;
+	double duration = fragmentDuration;
 	if(rate > AAMP_NORMAL_PLAY_RATE)
 	{
 		position = position/rate;
@@ -9535,7 +9535,17 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						{
 							if( segmentTemplates.HasSegmentTemplate() )
 							{
-								uint64_t segmentStartTime = GetFirstSegmentStartTime(mCurrentPeriod);
+								// Trying to maintain parity with GetFirstSegmentStartTime() logic, and get video start time
+								uint64_t segmentStartTime = 0;
+								const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
+								if (segmentTimeline)
+								{
+									std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
+									if(timelines.size() > 0)
+									{
+										segmentStartTime = timelines.at(0)->GetStartTime();
+									}
+								}
 								/* Process the discontinuity,
 								 * 1. If the next segment time is not matching with the next period segment start time.
 								 * 2. To reconfigure the pipeline, if there is a change in the Audio Codec even if there is no change in segment start time in multi period content.
