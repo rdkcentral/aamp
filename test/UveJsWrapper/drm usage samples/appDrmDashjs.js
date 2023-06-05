@@ -1,9 +1,11 @@
 // select dashjs as preferred engine
 uve_prepare("dashjs", true);
 
+var player;
+
 window.onload = function() {
     // create UVEPlayer instance
-    var player = new UVEPlayer("sampleApp");
+    player = new UVEPlayer("sampleApp");
     player.addEventListener("playbackStarted", mediaPlaybackStarted);
     var DrmConfig = { 'com.widevine.alpha':'https://drm-widevine-licensing.axtest.net/AcquireLicense', 'preferredKeysystem':'com.widevine.alpha'};
     var locator = "https://media.axprod.net/TestVectors/v7-MultiDRM-SingleKey/Manifest_1080p.mpd"; //DRM Encrypted content

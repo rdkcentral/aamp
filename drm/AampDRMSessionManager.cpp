@@ -261,10 +261,12 @@ void AampDRMSessionManager::clearSessionData()
 			drmSessionContexts[i] = DrmSessionContext();
 		}
 
+		(void)pthread_mutex_lock(&cachedKeyMutex);
 		if (cachedKeyIDs != NULL)
 		{
 			cachedKeyIDs[i] = KeyID();
 		}		
+		(void)pthread_mutex_unlock(&cachedKeyMutex);
 	}
 }
 
