@@ -1639,7 +1639,7 @@ private:
 	long mCurrentBandwidth;             /**< stores current bandwidth*/
 	int mLastVideoFragCheckedforABR;    /**< Last video fragment for which ABR is checked*/
 	long mTsbBandwidth;                 /**< stores bandwidth when TSB is involved*/
-	long mNwConsistencyBypass;          /**< Network consistency bypass**/
+	bool mNwConsistencyBypass;          /**< Network consistency bypass**/
 	int mABRHighBufferCounter;	    /**< ABR High buffer counter */
 	int mABRLowBufferCounter;	    /**< ABR Low Buffer counter */
 	int mMaxBufferCountCheck;
