@@ -38,14 +38,15 @@ typedef struct GetCommandInfo{
 class Get : public Command {
 
 	public:
-		static std::vector<std::string> commands;
-		static std::map<std::string,getCommandInfo> getCommands;
-		static std::map<std::string,std::string> getNumCommands;
-		void addCommand(int value,std::string command,std::string description);
-		void registerGetCommands();
+		static void registerGetCommands();
 		static char *getCommandRecommender(const char *text, int state);
 		void ShowHelpGet();
 		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
+	private:
+		static void addCommand(int value,std::string command,std::string description);
+		static std::vector<std::string> commands;
+		static std::map<std::string,getCommandInfo> getCommands;
+		static std::map<std::string,std::string> getNumCommands;
 };
 
 #endif // AAMPCLIGET_H

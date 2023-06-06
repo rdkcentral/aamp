@@ -390,10 +390,10 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 #ifdef __APPLE__
 			snprintf( subtecCommand, MAX_SUBTEC_PATH_LEN, "bash %s/aampcli-run-subtec.sh&\n", scriptPath);
 			system(subtecCommand);
-#elif __linux__		
+#elif __linux__
 			snprintf( subtecCommand, MAX_SUBTEC_PATH_LEN, "gnome-terminal -- bash %s/aampcli-run-subtec.sh\n", scriptPath);
 			system(subtecCommand);
-#else			
+#else
     		printf("[AAMPCLI] WARNING - subtec command not supported on platform\n");
 #endif
 		}
@@ -677,6 +677,19 @@ void PlaybackCommand::termPlayerLoop()
 
 void PlaybackCommand::registerPlaybackCommands()
 {
+	thread_local bool runOnce = false;
+
+	if (runOnce)
+	{
+		// Avoid any chance of this static member function creating another copy of the commands
+		commands.clear();
+		playbackCommands.clear();
+	}
+	else
+	{
+		runOnce = true;
+	}
+
 	addCommand("get help","Show 'get' commands");
 	addCommand("set help","Show 'set' commands");
 	addCommand("history","Show user-entered aampcli command history" );
@@ -718,11 +731,11 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("select","Enumerate available player instances");
 	addCommand("select <index>","Select player instance to use");
 	addCommand("detach","Detach (lightweight stop) selected player instance");
-	
+
 #ifdef __APPLE__
 	addCommand("subtec","Launch subtec-app and default enable cc." );
 #endif
-	
+
 	// special
 	addCommand("quiet","toggle core aamp logs (on by default");
 	addCommand("sleep <ms>","Sleep <ms> milliseconds");

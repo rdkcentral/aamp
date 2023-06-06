@@ -1285,6 +1285,19 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
  */
 void Set::registerSetCommands()
 {
+	thread_local bool runOnce = false;
+
+	if (runOnce)
+	{
+		// Avoid any chance of this static member function creating another copy of the commands
+		commands.clear();
+		setCommands.clear();
+	}
+	else
+	{
+		runOnce = true;
+	}
+
 	addCommand(1,"rateAndSeek"," <x> <y>","Set Rate and Seek (int x=rate, double y=seconds)");
 	addCommand(2,"videoRectangle"," <x> <y> <w> <h>","Set Video Rectangle (int x,y,w,h)");
 	addCommand(3,"videoZoom"," <x>","Set Video zoom  ( x = 1 for full, x = 0 for normal)");

@@ -39,10 +39,7 @@ class PlaybackCommand : public Command
 {
 
 	public:
-		static std::vector<std::string> commands;
-		static std::map<std::string,std::string> playbackCommands;
-		void addCommand(std::string command,std::string description);
-		void registerPlaybackCommands();
+		static void registerPlaybackCommands();
 		static char *commandRecommender(const char *text, int state);
 		static bool isCommandMatch( const char *cmdBuf, const char *cmdName );
 		static bool isNumber(const char *s);
@@ -51,6 +48,9 @@ class PlaybackCommand : public Command
 		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
 private:
 		void getRange(const char* cmd, unsigned long& start, unsigned long& end, unsigned long& tail);
+		static void addCommand(std::string command,std::string description);
+		static std::vector<std::string> commands;
+		static std::map<std::string,std::string> playbackCommands;
 };
 
 #endif // AAMPCLIPLAYBACKCOMMAND_H

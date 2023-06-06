@@ -102,18 +102,18 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 20:
 					printf("[AAMPCLI] AVAILABLE AUDIO TRACKS: %s\n", playerInstanceAamp->GetAvailableAudioTracks(false).c_str() );
 					break;
-				
+
 				case 34:
 					printf("[AAMPCLI] AVAILABLE VIDEO TRACKS: %s\n", playerInstanceAamp->GetAvailableVideoTracks().c_str() );
 					break;
-	
+
 				case 35:
 					printf( "[AAMPCLI] LIVE: %s\n", playerInstanceAamp->IsLive()? "TRUE": "FALSE" );
 					break;
 
-                                case 36:
-                                        printf("[AAMPCLI] VIDEO PLAYBACK QUALITY: %s\n", playerInstanceAamp->GetVideoPlaybackQuality().c_str() );
-                                        break;
+				case 36:
+						printf("[AAMPCLI] VIDEO PLAYBACK QUALITY: %s\n", playerInstanceAamp->GetVideoPlaybackQuality().c_str() );
+					break;
 					   
 				case 21:
 					printf("[AAMPCLI] ALL AUDIO TRACKS: %s\n", playerInstanceAamp->GetAvailableAudioTracks(true).c_str() );
@@ -253,6 +253,19 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
  */
 void Get::registerGetCommands()
 {
+	thread_local bool runOnce = false;
+
+	if (runOnce)
+	{
+		// Avoid any chance of this static member function creating another copy of the commands
+		commands.clear();
+		getCommands.clear();
+	}
+	else
+	{
+		runOnce = true;
+	}
+
 	addCommand(1,"currentState","Get current player state");
 	addCommand(2,"currentAudioLan","Get Current audio language");
 	addCommand(3,"currentDrm","Get Current DRM");
@@ -352,4 +365,3 @@ char * Get::getCommandRecommender(const char *text, int state)
 
     return NULL;
 }
-
