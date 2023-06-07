@@ -1411,7 +1411,14 @@ void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 				key.erase(std::remove_if(key.begin(), key.end(), ::isspace), key.end());
 				value = cfg.substr(delimiterPos + 1);
 				position = value.find_first_not_of(' ');
-				value = value.substr(position);
+				if( position == std::string::npos )
+				{
+					AAMPLOG_WARN( "unexpected cfg: '%s'", cfg.c_str() );
+				}
+				else
+				{
+					value = value.substr(position);
+				}
 			}
 			else
 			{

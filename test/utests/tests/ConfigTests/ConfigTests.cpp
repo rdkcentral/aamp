@@ -333,6 +333,72 @@ TEST(_Config, configSetGetString)
 	testStringFail(aampConfig, AAMP_TUNE_SETTING);
 }
 
+TEST(_Config, ProcessConfigTextBlankString)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+	std::string trstr("");
+	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
+}
+
+//With no value supplied, the resulting value expected to be toggle/inverted of existing value
+TEST(_Config, ProcessConfigTextNoValue)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+	std::string trstr("debug= ");
+	bool bResult = aampConfig.GetConfigValue(eAAMPConfig_DebugLogging);
+	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
+	bool bResult2 = aampConfig.GetConfigValue(eAAMPConfig_DebugLogging);
+	EXPECT_NE(bResult, bResult2);
+}
+
+TEST(_Config, ProcessConfigTextValidProperty)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+	std::string trstr("debug=1");
+	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
+	int configVal = aampConfig.GetConfigValue(eAAMPConfig_DebugLogging);
+	EXPECT_EQ(configVal,1);
+}
+
+//With no value supplied, the resulting value expected to be toggle/inverted of existing value
+TEST(_Config, ProcessConfigTextNoValue2)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+	std::string trstr("debug");
+	bool bResult = aampConfig.GetConfigValue(eAAMPConfig_DebugLogging);
+	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
+	bool bResult2 = aampConfig.GetConfigValue(eAAMPConfig_DebugLogging);
+	EXPECT_NE(bResult, bResult2);
+}
+
+TEST(_Config, ProcessConfigTextWhiteSpace)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+	std::string trstr(" ");
+	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
+}
+
+TEST(_Config, ProcessConfigTextNewLine)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+	std::string trstr("\n");
+	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
+}
+
+TEST(_Config, ProcessConfigTextNoKeyOnlyValue)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+	std::string trstr("=1");
+	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
+}
+
 //For linkage.
 bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
 {
