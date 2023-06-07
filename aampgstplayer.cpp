@@ -801,7 +801,6 @@ static gboolean IdleCallback(gpointer user_data)
 
 			GSourceFunc timerFunc = ProgressCallbackOnTimeout;
 			_this->TimerAdd(timerFunc, (int)reportProgressInterval, _this->privateContext->periodicProgressCallbackIdleTaskId, user_data, "periodicProgressCallbackIdleTask");
-			AAMPLOG_WARN("current %d, periodicProgressCallbackIdleTaskId %d", g_source_get_id(g_main_current_source()), _this->privateContext->periodicProgressCallbackIdleTaskId);
 		}
 		else
 		{
