@@ -275,6 +275,10 @@ static void ParseKeyAttributeCallback(char *attrName, char *delimEqual, char *fi
 				if (!ts->mIndexingInProgress)
 				{
 					AAMPLOG_WARN("Track %s encrypted to clear ", ts->name);
+					if(eTRACK_AUDIO == ts->type)
+					{
+						ts->fragmentEncChange = true;
+					}
 				}
 				ts->fragmentEncrypted = false;
 				ts->UpdateDrmCMSha1Hash(NULL);
@@ -288,6 +292,10 @@ static void ParseKeyAttributeCallback(char *attrName, char *delimEqual, char *fi
 				if (!ts->mIndexingInProgress)
 				{
 					AAMPLOG_WARN("Track %s clear to encrypted ", ts->name);
+					if(eTRACK_AUDIO == ts->type)
+					{
+						ts->fragmentEncChange = true;
+					}
 				}
 				ts->fragmentEncrypted = true;
 			}
@@ -306,6 +314,10 @@ static void ParseKeyAttributeCallback(char *attrName, char *delimEqual, char *fi
 				if (!ts->mIndexingInProgress)
 				{
 					AAMPLOG_WARN("Track %s clear to encrypted", ts->name);
+					if(eTRACK_AUDIO == ts->type)
+					{
+						ts->fragmentEncChange = true;
+					}
 				}
 				ts->fragmentEncrypted = true;
 			}
@@ -1522,6 +1534,11 @@ char *TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreDis
 					this->discontinuity = discontinuity || mSyncAfterDiscontinuityInProgress;
 					mSyncAfterDiscontinuityInProgress = false;
 					AAMPLOG_TRACE(" [%s] Discontinuity - %d", name, (int)this->discontinuity);
+					if (type == eTRACK_AUDIO && this->discontinuity && fragmentEncChange && ISCONFIGSET(eAAMPConfig_ReconfigPipelineOnDiscontinuity))
+					{
+						fragmentEncChange = false;
+						context->SetESChangeStatus();
+					}
 					rc = ptr;
 					//The EXT-X-TARGETDURATION tag specifies the maximum Media Segment   duration.
 					//The EXTINF duration of each Media Segment in the Playlist   file,
@@ -5372,6 +5389,7 @@ TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstraction
 		,mProgramDateTime(0.0)
 		,mSkipSegmentOnError(true)
 		,playlistMediaType()
+		,fragmentEncChange(false)
 {
 	playlist.Clear();
 	index.Clear();

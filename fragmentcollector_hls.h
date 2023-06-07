@@ -577,6 +577,7 @@ class TrackState : public MediaTrack
 		KeyHashTable mKeyHashTable;
 		bool mCheckForInitialFragEnc;			/**< Flag that denotes if we should check for encrypted init header and push it to GStreamer*/
 		DrmKeyMethod mDrmMethod;				/**< denotes the X-KEY method for the fragment of interest */
+		bool fragmentEncChange;				/**< Flag to denote there is change in encrypted<->clear, used to reconfigure audio pipeline */
 
 	private:
 		bool refreshPlaylist;					/**< bool flag to indicate if playlist refresh required or not */

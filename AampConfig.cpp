@@ -373,6 +373,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"useTCPServerSink",eAAMPConfig_useTCPServerSink,false},
 	{false,"sendLicenseResponseHeaders", eAAMPConfig_SendLicenseResponseHeaders, false},
 	{false,"suppressDecode", eAAMPConfig_SendLicenseResponseHeaders, false},
+	{false,"reconfigPipelineOnDiscontinuity", eAAMPConfig_ReconfigPipelineOnDiscontinuity, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
