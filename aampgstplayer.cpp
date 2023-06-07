@@ -4789,6 +4789,7 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, const void
 
 	if (stream->format == FORMAT_ISO_BMFF && mediaType != eMEDIATYPE_SUBTITLE)
 	{
+		int vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS);
 #ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
 		enableOverride = TRUE;
 #else
@@ -4799,7 +4800,7 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, const void
 			2) the variable 'rate' has datatype of G_TYPE_FLOAT and is set to (float)privateContext->rate.
 			3) the variable 'aampplayer' has datatype of G_TYPE_BOOLEAN and a value of TRUE.
 		*/
-		GstStructure * eventStruct = gst_structure_new("aamp_override", "enable", G_TYPE_BOOLEAN, enableOverride, "rate", G_TYPE_FLOAT, (float)privateContext->rate, "aampplayer", G_TYPE_BOOLEAN, TRUE, NULL);
+		GstStructure * eventStruct = gst_structure_new("aamp_override", "enable", G_TYPE_BOOLEAN, enableOverride, "rate", G_TYPE_FLOAT, (float)privateContext->rate, "aampplayer", G_TYPE_BOOLEAN, TRUE, "fps", G_TYPE_UINT, (guint)vodTrickplayFPS, NULL);
 #ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
 		if ( privateContext->rate == AAMP_NORMAL_PLAY_RATE )
 		{

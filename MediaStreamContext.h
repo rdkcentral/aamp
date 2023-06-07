@@ -51,9 +51,10 @@ public:
             adaptationSetId(0), fragmentDescriptor(), context(ctx), initialization(""),
             mDownloadedFragment(), discontinuity(false), mSkipSegmentOnError(true),
             downloadedDuration(0)//,mCMCDNetworkMetrics{-1,-1,-1}
-	   , scaledPTO(0)
-	   , failAdjacentSegment(false),httpErrorCode(0)
-           , mPlaylistUrl(""), mEffectiveUrl(""),freshManifest(false),nextfragmentIndex(-1)
+		   , scaledPTO(0)
+		   , failAdjacentSegment(false),httpErrorCode(0)
+	       , mPlaylistUrl(""), mEffectiveUrl(""),freshManifest(false),nextfragmentIndex(-1)
+	       , mReachedFirstFragOnRewind(false)
     {
         mPlaylistUrl = aamp->GetManifestUrl();
         fragmentDescriptor.bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
@@ -228,6 +229,7 @@ public:
     std::string mEffectiveUrl; 		/**< uri associated with downloaded playlist (takes into account 302 redirect) */
     bool freshManifest;
     int nextfragmentIndex; //CMCD get next index to fetch url from Segment List
+    bool mReachedFirstFragOnRewind; /**< flag denotes if we reached the first fragment in a period on rewind */
 }; // MediaStreamContext
 
 #endif /* MEDIASTREAMCONTEXT_H */

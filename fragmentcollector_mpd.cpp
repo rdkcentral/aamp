@@ -1241,7 +1241,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						pMediaStreamContext->fragmentTime, mLiveEndPosition);
 #endif
 					}
-					else if (pMediaStreamContext->fragmentRepeatCount == 0)
+					else if (pMediaStreamContext->fragmentRepeatCount == 0 && !pMediaStreamContext->mReachedFirstFragOnRewind)
 					{
 						ITimeline *timeline = timelines.at(pMediaStreamContext->timeLineIndex);
 						uint64_t startTime = 0;
@@ -1560,6 +1560,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 #endif
 						pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time;
 						pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time + duration;
+						pMediaStreamContext->mReachedFirstFragOnRewind = false;
 						double fragmentDuration = ComputeFragmentDuration(duration,timeScale);
 						ReleasePlaylistLock();
 						if(!mIsFogTSB)
@@ -2382,8 +2383,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					pMediaStreamContext->adaptationSet->GetSegmentTemplate() );
 	if( segmentTemplates.HasSegmentTemplate() )
 	{
-		 AAMPLOG_INFO("Enter : Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentTime %f skipTime %f segNumber %" PRIu64 ,pMediaStreamContext->type,
-								pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentTime, skipTime, pMediaStreamContext->fragmentDescriptor.Number);
+		 AAMPLOG_INFO("Enter : Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentTime %f skipTime %f segNumber % " PRIu64" Ftime:%f" ,pMediaStreamContext->type,
+								pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentTime, skipTime, pMediaStreamContext->fragmentDescriptor.Number,pMediaStreamContext->fragmentDescriptor.Time);
 
 		gboolean firstFrag = true;
 
@@ -2395,7 +2396,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 			{
 				uint32_t timeScale = segmentTemplates.GetTimescale();
 				std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
-				if (pMediaStreamContext->timeLineIndex >= timelines.size())
+				if (pMediaStreamContext->timeLineIndex >= timelines.size() || pMediaStreamContext->timeLineIndex < 0)
 				{
 					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%lu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
 					pMediaStreamContext->eos = true;
@@ -2543,6 +2544,14 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							}
 						}
 						skipTime = 0;
+						// This is a special case, when we rewind to the first fragment in period, its hitting fragmentRepeatCount==0 login PushNextFragment
+						// For now, avoid this
+						if (rate < 0 && pMediaStreamContext->timeLineIndex == 0 && pMediaStreamContext->fragmentRepeatCount == 0 &&
+								pMediaStreamContext->fragmentDescriptor.Time == 0)
+						{
+							AAMPLOG_INFO("Reached last framgent in the period during rewind");
+							pMediaStreamContext->mReachedFirstFragOnRewind = true;
+						}
 						if (pMediaStreamContext->type == eTRACK_AUDIO){
 //							AAMPLOG_TRACE("audio/video PTS offset %f  audio %f video %f", firstPTS-mFirstPTS, firstPTS, mFirstPTS);
 							if (abs(firstPTS - mFirstPTS)> 1.00){
@@ -7861,6 +7870,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			pMediaStreamContext->fragmentDescriptor.RepresentationID.assign(pMediaStreamContext->representation->GetId());
 			pMediaStreamContext->fragmentDescriptor.Time = 0;
 			pMediaStreamContext->eos = false;
+			pMediaStreamContext->mReachedFirstFragOnRewind = false;
 			if(resetTimeLineIndex)
 			{
 				pMediaStreamContext->timeLineIndex = 0;
