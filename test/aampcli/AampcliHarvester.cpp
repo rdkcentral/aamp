@@ -112,25 +112,29 @@ std::vector<AudioTrackInfo> Harvester::GetAudioTracks()
 	std::string json = mHarvester.mPlayerInstanceAamp->GetAvailableAudioTracks(true);
 
 	cJSON *root = cJSON_Parse(json.c_str());
-	cJSON *arrayItem = NULL;
-	int arraySize = cJSON_GetArraySize(root);
-	for ( int item = 0; item < arraySize; item++)
+	if (root)
 	{
-		// As we don't get any sort of index, we'll just try to create a unique value for the item
-		arrayItem = cJSON_GetArrayItem(root, item);
-		std::string arrayItemText = cJSON_Print(arrayItem);
-		std::size_t itemHash = std::hash<std::string>{}(arrayItemText);
-
-		// Just fill the fields we require
-		AudioTrackInfo trackInfo;
-		trackInfo.index = std::to_string(itemHash);
-		cJSON *bandwidth = cJSON_GetObjectItem(arrayItem, "bandwidth");
-		if (bandwidth) // not all tracks have this field
+		cJSON *arrayItem = NULL;
+		int arraySize = cJSON_GetArraySize(root);
+		for ( int item = 0; item < arraySize; item++)
 		{
-			trackInfo.bandwidth = bandwidth->valuedouble;
+			// As we don't get any sort of index, we'll just try to create a unique value for the item
+			arrayItem = cJSON_GetArrayItem(root, item);
+			std::string arrayItemText = cJSON_Print(arrayItem);
+			std::size_t itemHash = std::hash<std::string>{}(arrayItemText);
+
+			// Just fill the fields we require
+			AudioTrackInfo trackInfo;
+			trackInfo.index = std::to_string(itemHash);
+			cJSON *bandwidth = cJSON_GetObjectItem(arrayItem, "bandwidth");
+			if (bandwidth) // not all tracks have this field
+			{
+				trackInfo.bandwidth = bandwidth->valuedouble;
+			}
+			trackInfo.language = cJSON_GetObjectItem(arrayItem, "language")->valuestring;
+			audioTrackVec.push_back(trackInfo);
 		}
-		trackInfo.language = cJSON_GetObjectItem(arrayItem, "language")->valuestring;
-		audioTrackVec.push_back(trackInfo);
+		cJSON_Delete(root);
 	}
 
 	return audioTrackVec;
@@ -142,20 +146,53 @@ std::vector<TextTrackInfo> Harvester::GetTextTracks()
 	std::string json = mHarvester.mPlayerInstanceAamp->GetAvailableTextTracks(true);
 
 	cJSON *root = cJSON_Parse(json.c_str());
-	cJSON *arrayItem = NULL;
-	int arraySize = cJSON_GetArraySize(root);
-	for ( int item = 0; item < arraySize; item++)
+	if (root)
 	{
-		// As we don't get any sort of index, we'll just try to create a unique value for the item
-		arrayItem = cJSON_GetArrayItem(root, item);
-		std::string arrayItemText = cJSON_Print(arrayItem);
-		std::size_t itemHash = std::hash<std::string>{}(arrayItemText);
+		cJSON *arrayItem = NULL;
+		int arraySize = cJSON_GetArraySize(root);
+		for ( int item = 0; item < arraySize; item++)
+		{
+			// Check to see if any of the tracks are closed captions
+			bool isCC = false;
+			arrayItem = cJSON_GetArrayItem(root, item);
+			cJSON *jsonData = arrayItem->child;
+			while (jsonData)
+			{
+				if (std::string("accessibility") == jsonData->string) 
+				{
+					jsonData = jsonData->child;
+					while (jsonData)
+					{
+						if ((std::string("scheme") == jsonData->string) &&
+							(jsonData->type == cJSON_String))
+						{
+							isCC = (std::string(jsonData->valuestring).substr(0,20) == "urn:scte:dash:cc:cea"); // check the scheme for cc data
+							break;
+						}
+						jsonData = jsonData->next;
+					}
+					break;
+				}
+				jsonData = jsonData->next;
+			}
 
-		// Just fill the fields we require
-		TextTrackInfo trackInfo;
-		trackInfo.index = std::to_string(itemHash);
-		trackInfo.language = cJSON_GetObjectItem(arrayItem, "language")->valuestring;
-		textTrackVec.push_back(trackInfo);
+			if (isCC)
+			{
+				// We can't harvest inband data
+				continue;
+			}
+
+			// As we don't get any sort of index, we'll just try to create a unique value for the item
+			std::string arrayItemText = cJSON_Print(arrayItem);
+			std::size_t itemHash = std::hash<std::string>{}(arrayItemText);
+
+			// Just fill the fields we require
+			TextTrackInfo trackInfo;
+			trackInfo.index = std::to_string(itemHash);
+			trackInfo.language = cJSON_GetObjectItem(arrayItem, "language")->valuestring;
+			textTrackVec.push_back(trackInfo);
+		}
+		cJSON_Delete(root);
 	}
 
 	return textTrackVec;
@@ -281,7 +318,7 @@ void Harvester::masterHarvester(void * arg)
 		// if iframe enabled, then harvest
 		if ((mHarvester.mHarvestConfig & getHarvestConfigForMedia(eMEDIATYPE_IFRAME)) != 0)
 		{
-			harvestConfig = getHarvestConfigForMedia(eMEDIATYPE_VIDEO)|getHarvestConfigForMedia(eMEDIATYPE_IFRAME)|getHarvestConfigForMedia(eMEDIATYPE_INIT_IFRAME);
+			harvestConfig = getHarvestConfigForMedia(eMEDIATYPE_INIT_VIDEO)|getHarvestConfigForMedia(eMEDIATYPE_VIDEO)|getHarvestConfigForMedia(eMEDIATYPE_IFRAME)|getHarvestConfigForMedia(eMEDIATYPE_INIT_IFRAME);
 			// Remove any not listed in mHarvestConfig
 			harvestConfig &= mHarvester.mHarvestConfig;
 			
@@ -607,17 +644,18 @@ void Harvester::slaveHarvester(void * arg)
 		mHarvester.mPlayerInstanceAamp->SetRate(rate);
 
 	}
-	else if(harvestConfig == (getHarvestConfigForMedia(eMEDIATYPE_AUDIO)))
+	else if(harvestConfig & (getHarvestConfigForMedia(eMEDIATYPE_AUDIO)))
 	{
 		int trackId = stoi(cmdlineParams["trackId"]);
 		sleep(5);
 		mHarvester.mPlayerInstanceAamp->SetAudioTrack(trackId);
 		printf("%s:%d: Harvest audio trackId %d\n",__FUNCTION__,__LINE__,trackId);
 	}
-	else if(harvestConfig == (getHarvestConfigForMedia(eMEDIATYPE_INIT_SUBTITLE)|getHarvestConfigForMedia(eMEDIATYPE_SUBTITLE)))
+	else if(harvestConfig & (getHarvestConfigForMedia(eMEDIATYPE_SUBTITLE)))
 	{
 		int trackId = stoi(cmdlineParams["trackId"]);
 		sleep(5);
+		mHarvester.mPlayerInstanceAamp->SetCCStatus(true);
 		mHarvester.mPlayerInstanceAamp->SetTextTrack(trackId);
 		printf("%s:%d: Harvest subtitle trackId %d\n",__FUNCTION__,__LINE__,trackId);
 	}
