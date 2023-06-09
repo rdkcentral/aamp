@@ -23,6 +23,7 @@
  */
 
 #include <iomanip>
+#include <regex>
 #include "Aampcli.h"
 #include "AampcliPlaybackCommand.h"
 
@@ -92,6 +93,13 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	long time = -1;
 	int ms = 0;
 	int playerIndex = -1;
+
+	// DELIA-61795 : Sanity check to make sure there is no space at beginning or end of cmd
+	std::string str(cmd);
+	// Pattern to search for leading or trailing spaces
+	std::regex pattern("^\\s+|\\s+$");
+	std::string trimmedStr = std::regex_replace(str, pattern, "");
+	cmd = trimmedStr.c_str();
 
 	if( cmd[0]=='#' )
 	{
