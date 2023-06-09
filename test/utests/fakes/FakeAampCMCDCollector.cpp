@@ -60,11 +60,18 @@ void AampCMCDCollector::Initialize(bool enableDisable , std::string &traceId)
 *
 * @return None
 */
-void AampCMCDCollector::CMCDSetNextObjectRequest(std::string url, long long SeqNo,long CMCDBandwidth,MediaType mediaT)
+void AampCMCDCollector::CMCDSetNextObjectRequest(std::string url,long CMCDBandwidth,MediaType mediaT)
 {
 }
 
+/**
+* @brief CMCDSetNextRangeRequest Store the next range relative to the current url
+* @return None
+*/
 
+void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,long bandwidth,MediaType mediaType)
+{
+}
 /**
 * @brief CMCDGetHeaders Get the CMCD headers to add in downlaod request
 *

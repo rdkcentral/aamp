@@ -75,12 +75,22 @@ public:
 	 * @brief CMCDSetNextObjectRequest Store the next segment uri for stream type
 	 *
 	 * @param[in] url - current segment url
-	 * @param[in] SeqNo - Sequence number of current segment
 	 * @param[in] CMCDBandwidth - Bandwidth of current segment
 	 * @param[in] mediaT - media type
 	 * @return None
 	 */
-	void CMCDSetNextObjectRequest(std::string url, long long SeqNo,long CMCDBandwidth,MediaType mediaT=eMEDIATYPE_VIDEO);
+	void CMCDSetNextObjectRequest(std::string url,long CMCDBandwidth,MediaType mediaT=eMEDIATYPE_VIDEO);
+    
+    	/**
+	* @brief CMCDSetNextRangeRequest Store the next range relative to the current url
+	*
+	* @param[in] nextrange - the next byte range to be requested
+	* @param[in] CMCDBandwidth - Bandwidth of current segment
+	* @param[in] mediaT - media type
+	* @return None
+	*/
+	void CMCDSetNextRangeRequest(std::string nextrange,long bandwidth,MediaType mediaType);
+
 	/**
 	 * @brief Initialize AampCMCD Collector instance
 	 *

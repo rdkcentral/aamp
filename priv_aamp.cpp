@@ -3698,7 +3698,10 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 			}
 
 			std::vector<std::string> cmcdCustomHeader;
-			mCMCDCollector->CMCDGetHeaders(fileType, cmcdCustomHeader);
+			MediaType mmediaT;
+			mmediaT = (fileType == eMEDIATYPE_INIT_VIDEO) ? eMEDIATYPE_VIDEO : (fileType == eMEDIATYPE_INIT_AUDIO) ? eMEDIATYPE_AUDIO :fileType;
+			mCMCDCollector->CMCDGetHeaders(mmediaT,cmcdCustomHeader);
+
 			if (cmcdCustomHeader.size() > 0)
 			{
 				for (std::vector<string>::iterator it=cmcdCustomHeader.begin(); it!=cmcdCustomHeader.end(); ++it)

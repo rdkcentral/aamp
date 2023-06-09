@@ -525,6 +525,8 @@ class TrackState : public MediaTrack
 		 ***************************************************************************/
 		void SwitchSubtitleTrack();
 
+		void getNextFetchRequestUri(); //CMCD Get next object request url(nor)
+
 	public:
 		std::string mEffectiveUrl;		 /**< uri associated with downloaded playlist (takes into account 302 redirect) */
 		std::string mPlaylistUrl;		 /**< uri associated with downloaded playlist */

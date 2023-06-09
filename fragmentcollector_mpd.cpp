@@ -1162,9 +1162,6 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	bool retval = true;
 	std::string fragmentUrl;
 	GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, media);
-	//As a part of RDK-35897 update the next segment for download
-	aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)((&pMediaStreamContext->fragmentDescriptor)->Number),
-			(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
 	//CID:96900 - Removex the len variable which is initialized but not used
 	double position;
 	if(isInitializationSegment)
@@ -1511,6 +1508,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										break;
 									}
 									pMediaStreamContext->fragmentDescriptor.Number += (repeatCount+1);
+									pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+(repeatCount+1);
 								}// end of for
 
 								
@@ -1542,6 +1540,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 									startTime += duration;
 									pMediaStreamContext->fragmentDescriptor.Number++;
 									pMediaStreamContext->fragmentRepeatCount++;
+									pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
 								}
 #ifdef DEBUG_TIMELINE
 								AAMPLOG_WARN("Type[%d] t=%" PRIu64 " L=%" PRIu64 " d=%d r=%d fragRep=%d Index=%d Num=%" PRIu64 " FTime=%f", pMediaStreamContext->type,
@@ -1642,6 +1641,11 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						}
 
 						uint64_t fragmentTimeBackUp = pMediaStreamContext->fragmentDescriptor.Time;
+						pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time+duration;
+						if(pMediaStreamContext->fragmentDescriptor.nextfragmentNum == -1)
+						{
+							pMediaStreamContext->fragmentDescriptor.nextfragmentNum  = pMediaStreamContext->fragmentDescriptor.Number+1;
+						}
 						bool liveEdgePeriodPlayback = mIsLiveManifest && (mCurrentPeriodIdx == mUpperBoundaryPeriod);
 						uint64_t fragmentNumberBackUp = pMediaStreamContext->fragmentDescriptor.Number;
 						ReleasePlaylistLock();
@@ -1657,6 +1661,10 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							 *  1. Fail over content
 							 *  2. Non-Fog(Linear OR VOD) with fragment position outside period end, except live final period.
 							 */
+							if(!mIsFogTSB)
+							{
+								setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+							}
 							retval = FetchFragment( pMediaStreamContext, media, fragmentDuration, false, curlInstance);
 						}
 						else
@@ -1772,6 +1780,10 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time + duration;
 						double fragmentDuration = ComputeFragmentDuration(duration,timeScale);
 						ReleasePlaylistLock();
+						if(!mIsFogTSB)
+						{
+							setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+						}
 						retval = FetchFragment( pMediaStreamContext, media, fragmentDuration, false, curlInstance);
 						if (!retval && ((mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.GetPtr() ))
 						{
@@ -1811,6 +1823,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										pMediaStreamContext->fragmentDescriptor.Time += duration;
 										pMediaStreamContext->fragmentDescriptor.Number++;
 										pMediaStreamContext->fragmentRepeatCount++;
+										pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time+duration;
+										pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
 									}
 								}
 						}
@@ -1833,6 +1847,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								pMediaStreamContext->fragmentRepeatCount = 0;
 								pMediaStreamContext->timeLineIndex++;
 							}
+							pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time+duration;
+							pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
 #ifdef DEBUG_TIMELINE
 							AAMPLOG_WARN("Type[%d] After Incr. fragmentDescriptor.Time %f lastSegmentTime %" PRIu64 " Index=%d fragRep=%d,repMax=%d Number=%lld",pMediaStreamContext->type,
 							pMediaStreamContext->fragmentDescriptor.Time, pMediaStreamContext->lastSegmentTime,pMediaStreamContext->timeLineIndex,
@@ -1852,6 +1868,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 									pMediaStreamContext->fragmentRepeatCount = timelines.at(pMediaStreamContext->timeLineIndex)->GetRepeatCount();
 								}
 							}
+							pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number-1;
+							pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time-duration;
 						}
 					}
 					else
@@ -1986,9 +2004,10 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			{
 				fragmentRequestTime = pMediaStreamContext->fragmentDescriptor.Time + fragmentDuration;
 			}
+			pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time + fragmentDuration;
 
-			AAMPLOG_TRACE("fDesc.Time= %lf utcTime=%lf delta=%lf CTSeconds=%lf,FreqTime=%lf",pMediaStreamContext->fragmentDescriptor.Time,
-					mLocalUtcTime,mDeltaTime,currentTimeSeconds,fragmentRequestTime);
+			AAMPLOG_TRACE("fDesc.Time= %lf utcTime=%lf delta=%lf CTSeconds=%lf,FreqTime=%lf  nextfragTime : %lf",pMediaStreamContext->fragmentDescriptor.Time,
+					mLocalUtcTime,mDeltaTime,currentTimeSeconds,fragmentRequestTime,pMediaStreamContext->fragmentDescriptor.nextfragmentTime);
 
 			bool bProcessFrgment = true;
 			if(!mIsLiveStream)
@@ -2044,7 +2063,15 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				}
 				uint64_t lastSegmentNumberBackup = pMediaStreamContext->fragmentDescriptor.Number;
 				pMediaStreamContext->freshManifest = false;
+				if(pMediaStreamContext->fragmentDescriptor.nextfragmentNum == -1)
+				{
+					pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
+				}
 				ReleasePlaylistLock();
+				if(!mIsFogTSB)
+				{
+					setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+				}
 				retval = FetchFragment(pMediaStreamContext, media, fragmentDuration, false, curlInstance, false, pto, scale);
 				double positionInPeriod = 0;
 				if(pMediaStreamContext->lastSegmentNumber > startNumber)
@@ -2089,11 +2116,13 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					{
 						pMediaStreamContext->fragmentDescriptor.Number++;
 						pMediaStreamContext->fragmentDescriptor.Time += fragmentDuration;
+						pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
 					}
 					else
 					{
 						pMediaStreamContext->fragmentDescriptor.Number--;
 						pMediaStreamContext->fragmentDescriptor.Time -= fragmentDuration;
+						pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number-1;
 					}
 					pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number;
 				}
@@ -2132,10 +2161,6 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 		{ // single-segment
 			std::string fragmentUrl;
 			GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
-			//As a part of RDK-35897 update the next segment for download
-			aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)(&pMediaStreamContext->fragmentDescriptor)->Number,
-					(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
-
 			if (!pMediaStreamContext->IDX.GetPtr() )
 			{ // lazily load index
 				std::string range = segmentBase->GetIndexRange();
@@ -2224,6 +2249,22 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					char range[MAX_RANGE_STRING_CHARS];
 					snprintf(range, sizeof(range), "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
 					AAMPLOG_INFO("%s [%s]",getMediaTypeName(pMediaStreamContext->mediaType), range);
+					unsigned int nextreferenced_size;
+					float nextfragmentDuration;
+					uint64_t nextfragmentOffset;
+		                        if (ParseSegmentIndexBox(
+                                             pMediaStreamContext->IDX.GetPtr(),
+                                             pMediaStreamContext->IDX.GetLen(),
+                                             pMediaStreamContext->fragmentIndex,
+                                             &nextreferenced_size,
+                                             &nextfragmentDuration,
+                                             NULL))
+					{
+						char nextrange[MAX_RANGE_STRING_CHARS];
+						nextfragmentOffset = pMediaStreamContext->fragmentOffset+referenced_size;
+						snprintf(nextrange, sizeof(nextrange), "%" PRIu64 "-%" PRIu64 "",nextfragmentOffset, nextfragmentOffset+nextreferenced_size - 1);
+						setNextRangeRequest(fragmentUrl,nextrange,(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
+					}
 					if(pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, pMediaStreamContext->fragmentTime, fragmentDuration, range ))
 					{
 						pMediaStreamContext->fragmentTime += fragmentDuration;
@@ -2245,6 +2286,10 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 		else
 		{
 			ISegmentList *segmentList = pMediaStreamContext->representation->GetSegmentList();
+			if(pMediaStreamContext->nextfragmentIndex == -1)
+			{
+				pMediaStreamContext->nextfragmentIndex = pMediaStreamContext->fragmentIndex +1;
+			}
 			if (segmentList)
 			{
 				const std::vector<ISegmentURL*>segmentURLs = segmentList->GetSegmentURLs();
@@ -2256,6 +2301,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				else if(!segmentURLs.empty())
 				{
 					ISegmentURL *segmentURL = segmentURLs.at(pMediaStreamContext->fragmentIndex);
+					ISegmentURL *nextsegmentURL = segmentURLs.at(pMediaStreamContext->nextfragmentIndex);
 					if(segmentURL != NULL)
 					{
 
@@ -2264,11 +2310,11 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						{
 							std::string fragmentUrl;
 							GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor,  segmentURL->GetMediaURI());
-							//As a part of RDK-35897 update the next segment for download
-							aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)(&pMediaStreamContext->fragmentDescriptor)->Number,
-										(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
-
 							AAMPLOG_INFO("%s [%s]", getMediaTypeName(pMediaStreamContext->mediaType), segmentURL->GetMediaRange().c_str());
+							if(nextsegmentURL != NULL && (mIsFogTSB != true))
+							{
+								setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+							}
 							ReleasePlaylistLock();
 							if(!pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, pMediaStreamContext->fragmentTime, 0.0, segmentURL->GetMediaRange().c_str() ))
 							{
@@ -2313,6 +2359,10 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								double fragmentDuration = ComputeFragmentDuration(duration,timeScale);
 								pMediaStreamContext->lastSegmentTime = startTime;
 								ReleasePlaylistLock();
+								if(nextsegmentURL != NULL && (mIsFogTSB != true))
+								{
+									setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+								}
 								retval = FetchFragment(pMediaStreamContext, segmentURL->GetMediaURI(), fragmentDuration, false, curlInstance);
 								if( mCheckForRampdown )
 								{
@@ -2368,11 +2418,14 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						if(rate > 0)
 						{
 							pMediaStreamContext->fragmentIndex++;
+							pMediaStreamContext->nextfragmentIndex = pMediaStreamContext->fragmentIndex+1;
 						}
 						else
 						{
 							pMediaStreamContext->fragmentIndex--;
+							pMediaStreamContext->nextfragmentIndex = pMediaStreamContext->fragmentIndex-1;
 						}
+
 					}
 					else
 					{
@@ -2821,8 +2874,6 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
 
 				//As a part of RDK-35897 update the next segment for download
-				aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)(&pMediaStreamContext->fragmentDescriptor)->Number,
-							(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
 
 				ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(pMediaStreamContext->mediaType, true);
 				MediaType actualType = MediaTypeToPlaylist(pMediaStreamContext->mediaType);
@@ -8826,6 +8877,14 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 						 */
 						try
 						{
+							std::string media = segmentTemplates.Getmedia();
+							pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time;
+							pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number;
+							if(!mIsFogTSB)
+							{
+								setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+							}
+							pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
 							trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
 							AAMPLOG_INFO("Thread created for TrackDownloader [%lu]", GetPrintableThreadID(trackDownloadThreadID));
 						}
@@ -8847,10 +8906,12 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 						pMediaStreamContext->fragmentOffset = 0;
 						pMediaStreamContext->IDX.Free();
 						std::string range;
+						std::string nextrange; //CMCD get the next range
 						const IURLType *urlType = segmentBase->GetInitialization();
 						if (urlType)
 						{
 							range = urlType->GetRange();
+							nextrange =segmentBase->GetIndexRange();
 						}
 						else
 						{
@@ -8860,18 +8921,35 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							char temp[MAX_RANGE_STRING_CHARS];
 							snprintf( temp, sizeof(temp), "0-%" PRIu64 , s1-1 );
 							range = temp;
+							if (pMediaStreamContext->IDX.GetPtr() )
+							{
+				                                unsigned int referenced_size;
+				                                float fragmentDuration;
+				                                if (ParseSegmentIndexBox(
+		                                                         pMediaStreamContext->IDX.GetPtr(),
+		                                                         pMediaStreamContext->IDX.GetLen(),
+		                                                         pMediaStreamContext->fragmentIndex,
+		                                                         &referenced_size,
+		                                                         &fragmentDuration,
+		                                                         NULL))
+								{
+				                                    char temprange[MAX_RANGE_STRING_CHARS];
+				                                    snprintf(temprange, sizeof(temprange), "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
+				                                    nextrange = temprange;
+				                                 }
+							}
 						}
 						std::string fragmentUrl;
 						GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
-
-						//As a part of RDK-35897 update the next segment for download
-						aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)(&pMediaStreamContext->fragmentDescriptor)->Number,
-									(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
 
 						if(pMediaStreamContext->WaitForFreeFragmentAvailable(0))
 						{
 							ReleasePlaylistLock();
 							pMediaStreamContext->profileChanged = false;
+							if(!nextrange.empty())
+							{
+								setNextRangeRequest(fragmentUrl,nextrange,(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
+							}
 							if(!pMediaStreamContext->CacheFragment(fragmentUrl,
 								getCurlInstanceByMediaType(pMediaStreamContext->mediaType),
 								pMediaStreamContext->fragmentTime,
@@ -8914,6 +8992,13 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 								 */
 								try
 								{
+									const std::vector<ISegmentURL*> segmentURLs = segmentList->GetSegmentURLs();
+									ISegmentURL* nextsegmentURL = segmentURLs.at(pMediaStreamContext->fragmentIndex);
+									pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time;
+									if(nextsegmentURL != NULL && (mIsFogTSB != true))
+									{
+										setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+									}
 									trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
 									AAMPLOG_INFO("Thread created for TrackDownloader [%lu]", GetPrintableThreadID(trackDownloadThreadID));
 								}
@@ -8925,6 +9010,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							else
 							{
 								string range;
+				                                string nextrange;
 #ifdef LIBDASH_SEGMENTLIST_GET_INIT_SUPPORT
 								const ISegmentURL *segmentURL = NULL;
 								segmentURL = segmentList->Getinitialization();
@@ -8935,6 +9021,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 								}
 #else
 								const std::vector<ISegmentURL*> segmentURLs = segmentList->GetSegmentURLs();
+								ISegmentURL *nextsegurl = segmentURLs.at(pMediaStreamContext->fragmentIndex);
 								if (segmentURLs.size() > 0)
 								{
 									ISegmentURL *firstSegmentURL = segmentURLs.at(0);
@@ -8970,16 +9057,16 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 									std::string fragmentUrl;
 									GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
 
-									//As a part of RDK-35897 update the next segment for download
-									aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)(&pMediaStreamContext->fragmentDescriptor)->Number,
-											(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
-
 									AAMPLOG_INFO("%s [%s]", getMediaTypeName(pMediaStreamContext->mediaType),
 											range.c_str());
 									ReleasePlaylistLock();
 									if(pMediaStreamContext->WaitForFreeFragmentAvailable(0))
 									{
 										pMediaStreamContext->profileChanged = false;
+										if(nextsegurl != NULL && (mIsFogTSB != true))
+										{
+											setNextobjectrequestUrl(nextsegurl->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+										}
 										if(!pMediaStreamContext->CacheFragment(fragmentUrl,
 												getCurlInstanceByMediaType(pMediaStreamContext->mediaType),
 												pMediaStreamContext->fragmentTime,
@@ -9163,8 +9250,8 @@ bool StreamAbstractionAAMP_MPD::PushEncryptedHeaders()
 
 
 										//As a part of RDK-35897 update the next segment for download
-										aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)fragmentDescriptor->Number,
-												fragmentDescriptor->Bandwidth,(MediaType)i);
+										//aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)fragmentDescriptor->Number,
+										//		fragmentDescriptor->Bandwidth,(MediaType)i);
 										if (mMediaStreamContext[i]->WaitForFreeFragmentAvailable())
 										{
 											AAMPLOG_WARN("Pushing encrypted header for %s", getMediaTypeName(MediaType(i)));
@@ -12944,4 +13031,35 @@ void StreamAbstractionAAMP_MPD::UpdateFailedDRMStatus(LicensePreFetchObject *obj
 	AAMPLOG_WARN("Add periodId:%s and adaptationSetIdx:%u to blacklist profiles", object->mPeriodId.c_str(), object->mAdaptationIdx);
 	StreamBlacklistProfileInfo blProfileInfo = { object->mPeriodId, object->mAdaptationIdx, PROFILE_BLACKLIST_DRM_FAILURE };
 	aamp->AddToBlacklistedProfiles(blProfileInfo);
+}
+static std::string getrelativenorurl(std::string media)
+{
+	if(!media.empty())
+	{
+		size_t urlpos = media.find_last_of('/');
+		if (urlpos != std::string::npos) {
+			media = media.substr(urlpos+1);
+		}
+	}
+	return media;
+}
+
+void StreamAbstractionAAMP_MPD::setNextobjectrequestUrl(std::string media,const FragmentDescriptor *fragmentDescriptor,MediaType mediaType)
+{
+	FN_TRACE_F_MPD( __FUNCTION__ );
+	if( !media.empty() )
+	{
+		replace(media, "Bandwidth", fragmentDescriptor->Bandwidth);
+		replace(media, "RepresentationID", fragmentDescriptor->RepresentationID);
+		replace(media, "Number", fragmentDescriptor->nextfragmentNum);
+		replace(media, "Time", (uint64_t)fragmentDescriptor->nextfragmentTime );
+	}
+	AAMPLOG_INFO("Current Frag Number %" PRIu64 "  nextfragmentNum : %lld,Current fragstarttime : %f nextfragmentTime : %f",fragmentDescriptor->Number,fragmentDescriptor->nextfragmentNum,fragmentDescriptor->Time,fragmentDescriptor->nextfragmentTime);
+	media = getrelativenorurl(media);
+	aamp->mCMCDCollector->CMCDSetNextObjectRequest( media ,(fragmentDescriptor)->Bandwidth,mediaType);
+}
+
+void StreamAbstractionAAMP_MPD::setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,MediaType mediaType)
+{
+	aamp->mCMCDCollector->CMCDSetNextRangeRequest(nextrange,bandwidth,mediaType);
 }

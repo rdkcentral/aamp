@@ -98,12 +98,13 @@ public :
 	uint64_t Number;
 	double Time;
 	bool bUseMatchingBaseUrl;
-
-	FragmentDescriptor() : manifestUrl(""), Bandwidth(0), Number(0), Time(0), RepresentationID(""),matchingBaseURL(""),bUseMatchingBaseUrl(false)
+	int64_t nextfragmentNum;
+	double nextfragmentTime;
+	FragmentDescriptor() : manifestUrl(""), Bandwidth(0), Number(0), Time(0), RepresentationID(""),matchingBaseURL(""),bUseMatchingBaseUrl(false),nextfragmentNum(-1),nextfragmentTime(0)
 	{
 	}
 	
-	FragmentDescriptor(const FragmentDescriptor& p) : manifestUrl(p.manifestUrl), Bandwidth(p.Bandwidth), RepresentationID(p.RepresentationID), Number(p.Number), Time(p.Time),matchingBaseURL(p.matchingBaseURL),bUseMatchingBaseUrl(p.bUseMatchingBaseUrl)
+	FragmentDescriptor(const FragmentDescriptor& p) : manifestUrl(p.manifestUrl), Bandwidth(p.Bandwidth), RepresentationID(p.RepresentationID), Number(p.Number), Time(p.Time),matchingBaseURL(p.matchingBaseURL),bUseMatchingBaseUrl(p.bUseMatchingBaseUrl),nextfragmentNum(p.nextfragmentNum),nextfragmentTime(p.nextfragmentTime)
 	{
 	}
 
@@ -115,6 +116,8 @@ public :
 		Number = p.Number;
 		Time = p.Time;
 		matchingBaseURL = p.matchingBaseURL;
+	        nextfragmentNum = p.nextfragmentNum;
+	        nextfragmentTime = p.nextfragmentTime;
 		return *this;
 	}
 	std::string GetMatchingBaseUrl() const
@@ -452,6 +455,10 @@ public:
 	 */
 	// TODO: Add implementation to mark the failed DRM's adaptation set as failed/un-usable
 	void UpdateFailedDRMStatus(LicensePreFetchObject *object) override;
+
+	// CMCD Get nor and nrr fields
+	void setNextobjectrequestUrl(std::string media,const FragmentDescriptor *fragmentDescriptor,MediaType mediaType);
+	void setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,MediaType mediaType);
 
 private:
 	/**

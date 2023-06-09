@@ -157,45 +157,17 @@ void AampCMCDCollector::Initialize(bool enableDisable , std::string &traceId)
  *
  * @return None
  */
-void AampCMCDCollector::CMCDSetNextObjectRequest(std::string url, long long SeqNo,long CMCDBandwidth,MediaType mediaT)
+void AampCMCDCollector::CMCDSetNextObjectRequest(std::string url,long CMCDBandwidth,MediaType mediaT)
 {
 	std::lock_guard<std::mutex> lock (myMutex);
-	if(bCMCDEnabled && (!url.empty()))
+	if(bCMCDEnabled)
 	{
 		StreamTypeCMCDIter it=mCMCDStreamData.find(mediaT);
 		if(it != mCMCDStreamData.end())
 		{
 			CMCDHeaders *pCMCDMetrics = it->second;
-			std::string CMCDNextObjectRequest;
-			std::string hex = convertHexa(SeqNo);
-			std::transform(hex.begin(), hex.end(), hex.begin(), ::tolower);
-			std::string seqNumber = std::to_string(SeqNo);
-			size_t found = url.rfind(seqNumber);
-			size_t foundHex = url.rfind(hex);
-			if (found != std::string::npos)
-			{
-				SeqNo++;
-				std::string sequenceNumberNew = std::to_string(SeqNo);
-				url.replace(found,seqNumber.length(),sequenceNumberNew);
-				CMCDNextObjectRequest = url;
-				AAMPLOG_INFO("[CMCD]Next fragment url %s",url.c_str());
-			}
-			else if(foundHex != std::string::npos)
-			{
-				SeqNo++;
-				std::string sequenceNumberHexNew = convertHexa(SeqNo);
-				std::transform(sequenceNumberHexNew.begin(), sequenceNumberHexNew.end(), sequenceNumberHexNew.begin(), ::tolower);
-				url.replace(foundHex,hex.length(),sequenceNumberHexNew);
-				CMCDNextObjectRequest = url;
-				AAMPLOG_INFO("[CMCD]Next fragment url %s",url.c_str());
-			}
-			else
-			{
-				CMCDNextObjectRequest = "";
-				AAMPLOG_INFO("[CMCD]Next fragment url is NULL");
-			}
 			pCMCDMetrics->SetBitrate((int)(CMCDBandwidth/1000));
-			pCMCDMetrics->SetNextUrl(CMCDNextObjectRequest);
+			pCMCDMetrics->SetNextUrl(url);
 		}
 	}
 }
@@ -257,7 +229,7 @@ void AampCMCDCollector::CMCDGetHeaders(MediaType fileType , std::vector<std::str
 			headerValue.append(" ");
 			headerValue.append(it->second.at(0));
 			customHeader.push_back(headerValue);
-			//AAMPLOG_INFO("[CMCD][%d]Header :%s",fileType,headerValue.c_str());
+			AAMPLOG_TRACE("[CMCD][%d]Header :%s",fileType,headerValue.c_str());
 		}
 	}
 }
@@ -347,3 +319,24 @@ void AampCMCDCollector::SetTrackData(MediaType fileType,bool bufferRedStatus,int
 	}
 }
 
+/**
+ * @brief CMCD populate the nrr fields - next range request to fetch in case of Segment List MPD
+ *
+ * @return None
+ */
+void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,long bandwidth,MediaType mediaType)
+{
+	std::lock_guard<std::mutex> lock (myMutex);
+	if(bCMCDEnabled && (!nextrange.empty()))
+	{
+		StreamTypeCMCDIter it=mCMCDStreamData.find(mediaType);
+		if(it != mCMCDStreamData.end())
+		{
+			CMCDHeaders *pCMCDMetrics = it->second;
+			std::string CMCDNextRangeRequest;
+			CMCDNextRangeRequest = nextrange;
+			pCMCDMetrics->SetBitrate((int)(bandwidth/1000));
+			pCMCDMetrics->SetNextRange(CMCDNextRangeRequest);
+		}
+	}
+}

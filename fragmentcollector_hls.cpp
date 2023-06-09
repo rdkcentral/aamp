@@ -1548,13 +1548,7 @@ char *TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreDis
 		ptr = next;
 
 	}
-	//As a part of RDK-37711 to fetch the url of next next fragment
-	if(rc)
-	{
-		// TODO: Bug : Bandwidth is set as 0 .Before also mCMCDBandwidth was not updated for HLS ??
-		MediaType TrackMediaType = (MediaType) type;
-		aamp->mCMCDCollector->CMCDSetNextObjectRequest(rc, (nextMediaSequenceNumber - 1),0,TrackMediaType);
-	}
+    
 #ifdef TRACE
 	AAMPLOG_WARN("GetNextFragmentUriFromPlaylist %s:  pos %f returning %s", name,playlistPosition, rc);
 	AAMPLOG_WARN("GetNextFragmentUriFromPlaylist %s: seqNo=%lld", name,nextMediaSequenceNumber - 1);
@@ -1716,6 +1710,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 				}
 			}
 		}
+		getNextFetchRequestUri();
 
 		if (!mInjectInitFragment && fragmentURI && !bSegmentRepeated)
 		{
@@ -6634,6 +6629,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 		if (!uri.empty())
 		{
 			std::string fragmentUrl;
+			getNextFetchRequestUri();
 			aamp_ResolveURL(fragmentUrl, mEffectiveUrl, uri.c_str(), ISCONFIGSET(eAAMPConfig_PropogateURIParam));
 			std::string tempEffectiveUrl;
 			CachedFragment* cachedFragment = GetFetchBuffer(true);
@@ -7600,6 +7596,115 @@ void StreamAbstractionAAMP_HLS::ChangeMuxedAudioTrackIndex(std::string& index)
 	}
 }
 
-/**
- * @}
- */
+static std::string getNextobjrelativeUrl(std::string fragurl,bool compareurls)
+{
+	if(!fragurl.empty()) {
+		size_t urlpos = fragurl.find_last_of('/');
+		bool validUrlPos = (urlpos != std::string::npos);
+		if (compareurls && validUrlPos) {
+			fragurl = fragurl.substr(0, urlpos);
+		}else if (!compareurls && validUrlPos) {
+			fragurl = fragurl.substr(urlpos + 1);
+		}
+	}
+	return fragurl;
+}
+
+static bool IsNexturlRelativetoCurrurl(std::string currfragurl,std::string nextfragurl)
+{
+	bool isnexturlrelative = false;
+	bool compareurls = true;
+	currfragurl = getNextobjrelativeUrl(currfragurl,compareurls);
+	nextfragurl = getNextobjrelativeUrl(nextfragurl,compareurls);
+	if( (!nextfragurl.empty()) && (!currfragurl.empty()) )
+	{
+		if(strcmp(currfragurl.c_str(),nextfragurl.c_str()) == 0)
+		{
+			isnexturlrelative = true;
+		}
+	}
+	return isnexturlrelative;
+}
+
+/****************************************************************************
+ *   @brief Get next fetch request url
+ *
+ *   @param[in] void
+ *   @return void
+****************************************************************************/
+void TrackState::getNextFetchRequestUri(void)
+{
+	double nextplaylistPosition = 0.0;
+	double nextfragmentduration = 0.0;
+	std::string line;
+	std::string stream;
+	std::string currfragurl;
+	if(!fragmentURI)
+	{
+		return;
+	}
+	if(mInjectInitFragment)
+	{
+		currfragurl.assign(fragmentURI,strlen(fragmentURI));
+		currfragurl = getNextobjrelativeUrl(currfragurl,false);
+		aamp->mCMCDCollector->CMCDSetNextObjectRequest(currfragurl,0,(MediaType)type);
+		return;
+	}
+	if (!playlist.GetLen())
+	{
+		return;
+	}
+
+	stream.assign(playlist.GetPtr(),playlist.GetPtr()+playlist.GetLen());
+	size_t currentfragpos = stream.find(fragmentURI);
+	if(currentfragpos == std::string::npos)
+	{
+		return;
+	}
+	char *ptr = &stream[currentfragpos];
+	ptr = ptr+strlen(fragmentURI)+1;
+	while(ptr)
+	{
+		char *next = mystrpbrk(ptr);
+		if(ptr)
+		{
+			if (startswith(&ptr, "#EXT"))
+			{
+				if (startswith(&ptr, "INF:"))
+				{
+					nextplaylistPosition = playlistPosition + fragmentDurationSeconds;
+					nextfragmentduration = atof(ptr);
+				}
+				else if (startswith(&ptr, "-X-DISCONTINUITY"))
+				{
+					//discontinuity = true;
+				}
+			}
+			else if (*ptr == '#' || *ptr == '\0')
+			{ // all other lines beginning with # are comments
+			}
+			else
+			{
+				if(((nextplaylistPosition+nextfragmentduration) > playTarget) || ((playTarget - nextplaylistPosition) < PLAYLIST_TIME_DIFF_THRESHOLD_SECONDS))
+				{
+					break;
+				}
+			}
+		}
+		ptr = next;
+	}
+	if(ptr)
+	{
+		std::string nextfragurl = ptr;
+		currfragurl.assign(fragmentURI,strlen(fragmentURI));
+		if(IsNexturlRelativetoCurrurl(currfragurl,nextfragurl))
+		{
+			nextfragurl = getNextobjrelativeUrl(nextfragurl,false);
+		}
+		aamp->mCMCDCollector->CMCDSetNextObjectRequest(nextfragurl,0,(MediaType)type);
+	}
+	else
+	{
+		aamp->mCMCDCollector->CMCDSetNextObjectRequest("",0,(MediaType)type);
+	}
+}
