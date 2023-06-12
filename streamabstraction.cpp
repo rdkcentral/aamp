@@ -43,7 +43,7 @@
 
 #define MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (6000)
 #define MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (500) // 500mSec
-
+#define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
 using namespace std;
 
 /**
@@ -120,10 +120,12 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 {
     BufferHealthStatus bStatus = BUFFER_STATUS_GREEN;
     double bufferedTime ;
+    long long currentPlayPosition = aamp->GetPositionMilliseconds();
+    long long endPositionAvailable = (aamp->culledSeconds + aamp->durationSeconds)*1000;
     int CachedFragmentsOrChunks;
     if(aamp->GetLLDashServiceData()->lowLatencyMode)
     {
-	    bufferedTime 	    = totalInjectedChunksDuration - GetContext()->GetElapsedTime();
+	    bufferedTime 	    = (endPositionAvailable - currentPlayPosition);
 	    CachedFragmentsOrChunks = numberOfFragmentChunksCached ;
     }
     else
@@ -134,7 +136,7 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
     if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= AAMP_BUFFER_MONITOR_GREEN_THRESHOLD))
     {
         AAMPLOG_WARN("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f",
-                name, bufferedTime, totalInjectedDuration, GetContext()->GetElapsedTime());
+                name, bufferedTime, aamp->GetLLDashServiceData()->lowLatencyMode ? totalInjectedChunksDuration : totalInjectedDuration, GetContext()->GetElapsedTime());
         if (bufferedTime <= 0)
         {
             bStatus = BUFFER_STATUS_RED;
@@ -1830,7 +1832,15 @@ void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int 
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 
 	double bufferValue = video->GetBufferedDuration();
-	double minBufferNeeded = video->fragmentDurationSeconds + aamp->mNetworkTimeoutMs/1000;
+	double minBufferNeeded ;
+	if(aamp->GetLLDashServiceData()->lowLatencyMode)
+	{
+		minBufferNeeded	= mABRMinBuffer;
+	}
+	else
+	{
+		minBufferNeeded = video->fragmentDurationSeconds + aamp->mNetworkTimeoutMs/1000;
+	}
 	aamp->mhAbrManager.GetDesiredProfileOnBuffer(currProfileIndex,newProfileIndex,bufferValue,minBufferNeeded);
 }
 
@@ -1841,6 +1851,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 {
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	double bufferValue = video->GetBufferedDuration();
+	long currBandwidth = GetStreamInfo(currProfileIndex)->bandwidthBitsPerSecond;
 	if(bufferValue > 0 && currProfileIndex == newProfileIndex)
 	{
 		AAMPLOG_INFO("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);
@@ -1861,7 +1872,8 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 		}
 		// steady state ,with no ABR cache available to determine actual bandwidth
 		// this state can happen due to timeouts
-		if(nwBandwidth == -1 && bufferValue < mABRMinBuffer && !video->IsInjectionAborted())
+		// Adding delta check: When bandwidth is higher than currentprofile bandwidth but insufficient to download both audio and video simultaneously, a delta less than 2000 kbps indicates a need for steady state rampdown.
+		if((nwBandwidth - currBandwidth) < STEADYSTATE_RAMPDOWN_DELTA && bufferValue < mABRMinBuffer && !video->IsInjectionAborted())
 		{
 			mABRLowBufferCounter++;
 			mABRHighBufferCounter = 0;
