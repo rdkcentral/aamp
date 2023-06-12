@@ -60,14 +60,34 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(const JsonObject& paramete
 	   playerData["locator"].String(), playerData["length"].String(), playerData["position"].String() */
 
 	std::string currState = playerData["playerStatus"].String();
+
+	//Following used for blocked status processing
 	bool blockedReasonChanged = false;
-	std::string reason("");
+	std::string reason;
+	std::string currentLocator;
+
 	if(0 == currState.compare("BLOCKED"))
 	{
-		reason = playerData["blockedReason"].String();
-		if(0 != reason.compare(prevBlockedReason))
+		// Check if event is for current aamp instance,
+		// sometimes blocked events are delayed and in fast channel change
+		// senario , it is delivered late.
+		std::string eventUrl = playerData["locator"].String();
+		currentLocator =  aamp->GetManifestUrl();
+
+		if( 0 != currentLocator.compare(eventUrl))
 		{
-			blockedReasonChanged = true;
+			AAMPLOG_WARN( "[OTA_SHIM] Ignoring BLOCKED event as tune url %s playerStatus event url %s is not same ",currentLocator.c_str(),eventUrl.c_str());
+
+			//Ignore the event
+			currState = prevState;
+		}
+		else
+		{
+			reason = playerData["blockedReason"].String();
+			if(0 != reason.compare(prevBlockedReason))
+			{
+				blockedReasonChanged = true;
+			}
 		}
 	}
 
@@ -88,7 +108,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(const JsonObject& paramete
 			AAMPLOG_WARN( "[OTA_SHIM] Received BLOCKED event from player with REASON: %s Current Ratings: %s",  reason.c_str(), ratingString.c_str());
 
 			aamp->SendAnomalyEvent(ANOMALY_WARNING,"BLOCKED REASON:%s", reason.c_str());
-			aamp->SendBlockedEvent(reason);
+			aamp->SendBlockedEvent(reason, currentLocator);
 			state = eSTATE_BLOCKED;
 			prevBlockedReason = reason;
 		}else if(0 == currState.compare("PLAYING"))

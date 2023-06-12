@@ -1332,6 +1332,9 @@ public:
 		prop = JSStringCreateWithUTF8CString("reason");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getReason().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
+		prop = JSStringCreateWithUTF8CString("locator");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getLocator().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
 	}
 };
 

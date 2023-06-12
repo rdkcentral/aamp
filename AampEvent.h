@@ -1952,6 +1952,7 @@ public:
 class BlockedEvent: public AAMPEventObject
 {
 	std::string mReason;	/**< Blocked Reason  */
+	std::string mCurrentLocator;
 
 public:
 	BlockedEvent() = delete;
@@ -1962,7 +1963,7 @@ public:
 	 * @brief BlockedEvent Constructor
 	 * @param[in] reason     - Blocked Reason
 	 */
-	BlockedEvent(const std::string &reason) : AAMPEventObject(AAMP_EVENT_BLOCKED) , mReason(reason)
+	BlockedEvent(const std::string &reason, const std::string &currentLocator ) : AAMPEventObject(AAMP_EVENT_BLOCKED) , mReason(reason) , mCurrentLocator(currentLocator)
 	{}
 
 	/**
@@ -1976,6 +1977,7 @@ public:
 	 * @return Blocked Reason
 	 */
 	const std::string &getReason() const { return mReason; }
+	const std::string &getLocator() const { return mCurrentLocator; }
 };
 
 /**

@@ -2518,10 +2518,10 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 
 **Value:** 38
 **Description:** 
-- Blocked event is generated when player status switches to eSTATE_BLOCKED.
-- The Event payload is a string to describe the reason for the blocked state.
+- Blocked event is generated when player status switches to eSTATE BLOCKED.
     - Event Payload: 
-    - Type : reason – string
+    - Type : reason – string to describe the reason for the blocked state
+    - Type : locator - string to hold aamp url
     - Reason for restriction
 
 - Example:
@@ -2529,6 +2529,7 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
     "STATUS|Low or No Signal"
     "Service Pin Locked"
     "STATUS|Unable to decode"
+    "locator": (OTA url)
 - If a program is Blocked due to Restrictions set by the Application, the ‘blocked’ event’s reason will be  "Service Pin Locked"
     “reason”: (HDMIIN)
     "NO_SIGNAL"

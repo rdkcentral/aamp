@@ -2602,7 +2602,7 @@ public:
 	 *
 	 *   @param[in] reason - Blocked Reason
 	 */
-	void SendBlockedEvent(const std::string & reason);
+	void SendBlockedEvent(const std::string & reason, const std::string currentLocator = "");
 
 	/**
 	 *   @fn SendWatermarkSessionUpdateEvent

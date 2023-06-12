@@ -8495,10 +8495,10 @@ void PrivateInstanceAAMP::SendSupportedSpeedsChangedEvent(bool isIframeTrackPres
 /**
  * @brief Generate Blocked event based on args passed.
  */
-void PrivateInstanceAAMP::SendBlockedEvent(const std::string & reason)
+void PrivateInstanceAAMP::SendBlockedEvent(const std::string & reason, const std::string currentLocator)
 {
-	BlockedEventPtr event = std::make_shared<BlockedEvent>(reason);
-	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
+	BlockedEventPtr event = std::make_shared<BlockedEvent>(reason, currentLocator);
+	SendEvent(event,AAMP_EVENT_SYNC_MODE);
 #ifdef AAMP_CC_ENABLED
 	if (0 == reason.compare("SERVICE_PIN_LOCKED"))
 	{
