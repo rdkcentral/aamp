@@ -859,7 +859,7 @@ void AampConfig::ReadDeviceCapability()
 
 std::string AampConfig::GetUserAgentString()
 {
-	return std::string(configValueString[eAAMPConfig_UserAgent].value);
+	return std::string(configValueString[eAAMPConfig_UserAgent].value + " " + AAMP_USERAGENT_SUFFIX);
 }
 
 /**

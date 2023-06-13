@@ -418,7 +418,6 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | liveOffsetDriftCorrectionInterval | Number | 1 | Optional field to set the allowed delta from live offset configured |
 | sendLicenseResponseHeaders | Boolean | False | Optional field to enable headers in DRM metadata event after license request |
 | enableCMCD | Boolean | True | Optional field to enable/disable CMCD Metrics reporting from player |
-| userAgent | String |  | Optional The User-Agent request header for HTTP request  |
 
 Example:
 ```js
