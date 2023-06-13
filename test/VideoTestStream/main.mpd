@@ -41,9 +41,9 @@
 		<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1"/>
 		<SegmentTemplate timescale="48000" initialization="dash/en_init.m4s" media="dash/en_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="95232"/>
-			<S d="96256" r="447"/>
-			<S d="30080"/>
+			  <S t="0" d="95232" />
+			  <S d="96256" r="446" />
+			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -54,9 +54,9 @@
 		<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1"/>
 		<SegmentTemplate timescale="48000" initialization="dash/en_init.m4s" media="dash/en_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="95232"/>
-			<S d="96256" r="447"/>
-			<S d="30080"/>
+			  <S t="0" d="95232" />
+			  <S d="96256" r="446" />
+			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -67,9 +67,9 @@
 		<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1"/>
 		<SegmentTemplate timescale="48000" initialization="dash/de_init.m4s" media="dash/de_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="95232"/>
-			<S d="96256" r="447"/>
-			<S d="30080"/>
+			  <S t="0" d="95232" />
+			  <S d="96256" r="446" />
+			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -80,9 +80,9 @@
 		<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1"/>
 		<SegmentTemplate timescale="48000" initialization="dash/de_init.m4s" media="dash/de_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="95232"/>
-			<S d="96256" r="447"/>
-			<S d="30080"/>
+			  <S t="0" d="95232" />
+			  <S d="96256" r="446" />
+			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -93,9 +93,9 @@
 		<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1"/>
 		<SegmentTemplate timescale="48000" initialization="dash/es_init.m4s" media="dash/es_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="95232"/>
-			<S d="96256" r="447"/>
-			<S d="30080"/>
+			  <S t="0" d="95232" />
+			  <S d="96256" r="446" />
+			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -106,9 +106,9 @@
 		<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1"/>
 		<SegmentTemplate timescale="48000" initialization="dash/es_init.m4s" media="dash/es_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="95232"/>
-			<S d="96256" r="447"/>
-			<S d="30080"/>
+			  <S t="0" d="95232" />
+			  <S d="96256" r="446" />
+			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -119,9 +119,9 @@
 		<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1"/>
 		<SegmentTemplate timescale="48000" initialization="dash/fr_init.m4s" media="dash/fr_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="95232"/>
-			<S d="96256" r="447"/>
-			<S d="30080"/>
+			  <S t="0" d="95232" />
+			  <S d="96256" r="446" />
+			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -132,9 +132,9 @@
 		<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1"/>
 		<SegmentTemplate timescale="48000" initialization="dash/fr_init.m4s" media="dash/fr_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="95232"/>
-			<S d="96256" r="447"/>
-			<S d="30080"/>
+			  <S t="0" d="95232" />
+			  <S d="96256" r="446" />
+			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -145,9 +145,9 @@
 		<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1"/>
 		<SegmentTemplate timescale="48000" initialization="dash/pl_init.m4s" media="dash/pl_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="95232"/>
-			<S d="96256" r="447"/>
-			<S d="30080"/>
+			  <S t="0" d="95232" />
+			  <S d="96256" r="446" />
+			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -158,9 +158,9 @@
 		<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1"/>
 		<SegmentTemplate timescale="48000" initialization="dash/pl_init.m4s" media="dash/pl_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="95232"/>
-			<S d="96256" r="447"/>
-			<S d="30080"/>
+			  <S t="0" d="95232" />
+			  <S d="96256" r="446" />
+			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>

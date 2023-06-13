@@ -5,21 +5,23 @@ In this directory the script generate-hls-dash.sh can be used to create a video
 test stream in HLS and DASH format. The script startserver.sh can be used to run
 a web server (server.py) so that AAMP can play the video test stream.
 
-The following streams are available:
-
-main.mpd
-
-  DASH.
-
-main.m3u8
-
-  HLS TS format.
-
-main_mp4.m3u8
-
-  HLS MP4 format.
-
 Multiple video profiles (for ABR) and audio languages are supported.
+
+
+The following streams are generated:
+main.mpd // DASH
+main_mp4.m3u8 // fragmented HLS mp4
+main.m3u8 // HLS ts with demux audio
+muxed.m3u8 // HLS ts with muxed audio
+
+generate-hls-dash-4k.sh is variation used to generate an animated test pattern that had more realistic segment sizes and includes 4k profile.
+SegmentTemplate4k.mpd
+SegmentTimeline4k.mpd
+SegmentBase4k.mpd
+SegmentList4k.mpd
+Muxed.m4u8
+FragmentedMp4.m3u8
+HlsTs.m3u8
 
 
 generate-hls-dash.h
