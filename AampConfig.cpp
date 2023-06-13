@@ -844,8 +844,12 @@ void AampConfig::ReadDeviceCapability()
 
 	if(!AAMPGstPlayer::IsCodecSupported("ac-3"))
 	{
-		configValueBool[eAAMPConfig_DisableAC3].value		=	false;
+		configValueBool[eAAMPConfig_DisableAC3].value		=	true;
 		AAMPLOG_WARN("AC3 not supported. DisableAC3 Audio");
+	}
+	else
+	{
+		configValueBool[eAAMPConfig_DisableAC3].value		=	false;
 	}
 #if defined(BRCM) // temporary workaround
 	if(!AAMPGstPlayer::IsMS2V12Supported())
@@ -1115,7 +1119,8 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 					cJSON * subitem = cJSON_GetArrayItem(chMap, i);
 					char *name      = (char *)cJSON_GetObjectItem(subitem, "name")->valuestring;
 					char *url       = (char *)cJSON_GetObjectItem(subitem, "url")->valuestring;
-					char *licenseUrl= (char *)cJSON_GetObjectItem(subitem, "licenseServerUrl")->valuestring;
+					cJSON * license = cJSON_GetObjectItem(subitem, "licenseServerUrl");
+					char *licenseUrl= license ? license->valuestring : (char*)"";
 					if(name && url )
 					{
 						ConfigChannelInfo channelInfo;

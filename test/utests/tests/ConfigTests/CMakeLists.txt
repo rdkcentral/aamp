@@ -21,9 +21,11 @@ pkg_check_modules(LIBCJSON REQUIRED libcjson)
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME ConfigTests)
+set(CMAKE_CXX_FLAGS "-DUTEST")
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle) # ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser)
 
+include_directories(${LIBCJSON_INCLUDE_DIRS})
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     include_directories(/usr/local/include)
@@ -51,6 +53,7 @@ set(AAMP_SOURCES ${AAMP_ROOT}/Linux/cJSON/cJSON.c ${AAMP_ROOT}/Linux/cJSON/cJSON
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
+target_link_directories(${EXEC_NAME} PUBLIC ${LIBCJSON_LIBRARY_DIRS})
 
 if (COVERAGE_ENABLED)
     include(CodeCoverage)
@@ -63,7 +66,9 @@ if (COVERAGE_ENABLED)
                               DEPENDENCIES ${EXEC_NAME})
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lpthread -lcjson)
+target_link_libraries(${EXEC_NAME} "cjson")
+target_link_libraries(${EXEC_NAME} ${GLIB_LDFLAGS} ${OS_LD_FLAGS} fakes -lgmock -lgtest -lpthread)
+
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 

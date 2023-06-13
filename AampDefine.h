@@ -27,7 +27,7 @@
 
 #include <limits.h>
 
-#ifdef UNIT_TEST_ENABLED
+#if defined(UNIT_TEST_ENABLED) || defined(UTEST)
 #define AAMP_CFG_PATH "aamp.cfg"
 #define AAMP_JSON_PATH "aampcfg.json"
 #else
