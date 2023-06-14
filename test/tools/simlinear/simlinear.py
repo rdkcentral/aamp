@@ -262,8 +262,8 @@ class HLSServer():
                         #print("field ",field)
                         d = time.strptime(time_field, "%Y-%m-%dT%H:%M:%S")
                         return time.mktime(d)
-
-                return None
+                print("WARNING did not find SIMLINEAR-PDT-OVERRIDE in ",mfile)
+                return time.mktime(time.gmtime())
         except OSError as e:
             print(f"{type(e)}: {e}")
             return None

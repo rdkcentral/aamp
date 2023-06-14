@@ -1,0 +1,74 @@
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" id="0000000000000018163" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" minimumUpdatePeriod="PT0H0M1.920S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2023-03-20T16:16:34.112Z">
+  <Period id="874649910" start="PT401637H57M9.078S">
+    <AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+      <SegmentTemplate initialization="S/track-video-repid-$RepresentationID$-tc--enc--header.mp4" media="S/track-video-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="874650496" presentationTimeOffset="126444">
+        <SegmentTimeline>
+          <S t="101732844" d="172800" r="3" />
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_video4" bandwidth="562800" width="640" height="360" frameRate="25/1" />
+      <Representation id="root_video3" bandwidth="1328400" width="960" height="540" frameRate="50/1" />
+      <Representation id="root_video2" bandwidth="1996000" width="960" height="540" frameRate="50/1" />
+      <Representation id="root_video1" bandwidth="4459600" width="1280" height="720" frameRate="50/1" />
+      <Representation id="root_video0" bandwidth="6052400" width="1920" height="1080" frameRate="50/1" />
+    </AdaptationSet>
+    <AdaptationSet id="3" contentType="audio" mimeType="audio/mp4" lang="en">
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+      <SegmentTemplate initialization="S-eac3/track-audio-repid-$RepresentationID$-tc--enc--header.mp4" media="S-eac3/track-audio-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="874650496" presentationTimeOffset="126444">
+        <SegmentTimeline>
+          <S t="101733968" d="172800" r="3" />
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_audio110" bandwidth="215200" codecs="ec-3" audioSamplingRate="48000" />
+    </AdaptationSet>
+    <AdaptationSet id="4" contentType="audio" mimeType="audio/mp4" lang="en">
+      <Accessibility schemeIdUri="urn:mpeg:dash:role:2011" value="description" />
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="alternate" />
+      <SegmentTemplate initialization="S-eac3/track-sap-repid-$RepresentationID$-tc--enc--header.mp4" media="S-eac3/track-sap-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="874650496" presentationTimeOffset="126444">
+        <SegmentTimeline>
+          <S t="101733360" d="172800" r="3" />
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_audio111" bandwidth="117600" codecs="ec-3" audioSamplingRate="48000" />
+    </AdaptationSet>
+    <AdaptationSet id="5" contentType="audio" mimeType="audio/mp4" lang="en">
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+      <SegmentTemplate initialization="S/track-audio-repid-$RepresentationID$-tc--enc--header.mp4" media="S/track-audio-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="874650496" presentationTimeOffset="126444">
+        <SegmentTimeline>
+          <S t="101734519" d="172800" r="3" />
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_audio130" bandwidth="119200" codecs="mp4a.40.5" audioSamplingRate="24000" />
+    </AdaptationSet>
+    <AdaptationSet id="6" contentType="audio" mimeType="audio/mp4" lang="en">
+      <Accessibility schemeIdUri="urn:mpeg:dash:role:2011" value="description" />
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="alternate" />
+      <SegmentTemplate initialization="S/track-sap-repid-$RepresentationID$-tc--enc--header.mp4" media="S/track-sap-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="874650496" presentationTimeOffset="126444">
+        <SegmentTimeline>
+          <S t="101735831" d="172800" r="3" />
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_audio131" bandwidth="119200" codecs="mp4a.40.5" audioSamplingRate="24000" />
+    </AdaptationSet>
+    <AdaptationSet id="50" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1" codingDependency="false" maxPlayoutRate="24">
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="alternate" />
+      <SegmentTemplate initialization="S/track-iframe-repid-$RepresentationID$-tc--enc--header.mp4" media="S/track-iframe-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="874650496" presentationTimeOffset="126444">
+        <SegmentTimeline>
+          <S t="101732844" d="172800" r="3" />
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="iframe0" bandwidth="605240" codecs="hvc1.1.6.L123.90" width="1920" height="1080" frameRate="50/1" />
+    </AdaptationSet>
+    <AdaptationSet id="100" contentType="text" mimeType="application/mp4" lang="en" segmentAlignment="true" startWithSAP="1">
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="subtitle" />
+      <SegmentTemplate initialization="S/track-text-repid-$RepresentationID$-tc--enc--header.mp4" media="S/track-text-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="874650496" presentationTimeOffset="126444">
+        <SegmentTimeline>
+          <S t="101905628" d="172800" r="3" />
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="subtitle0" bandwidth="20000" codecs="stpp.ttml.im1t|etd1" />
+    </AdaptationSet>
+  </Period>
+  <SupplementalProperty schemeIdUri="urn:scte:dash:powered-by" value="viper-mod_super8-4.4.0-1" />
+</MPD>

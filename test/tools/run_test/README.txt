@@ -1,10 +1,5 @@
 
 
-
-tools/
-simlinear.py  Webserver for serving manifest data.
-
-run_test/
 tcp_client.py Detects A/V gaps via gstreamer tcpserversink
 run_test.py   Causes aamp-cli to play manifest HLS test sets containing discontinuitys. Checks 
               log messages output from aamp are as expected. For each test gives PASS/FAIL result
