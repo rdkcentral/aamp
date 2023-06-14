@@ -795,6 +795,15 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			if(aamp->mbDetached){ 
 				aamp->mbPlayEnabled = true;
 			}
+			
+			aamp->LogPlayerPreBuffered();
+			if (AAMP_NORMAL_PLAY_RATE != rate)
+			{
+				/** Rate is not in normal play so expect to clear the cache and redownload the 
+				 * iframe fragments; So clear the fragments downloaded (buffered data) time **/
+				aamp->ResetProfileCache();
+			}
+			
 
 			TuneType tuneTypePlay = eTUNETYPE_SEEK;
 			if(aamp->mJumpToLiveFromPause)

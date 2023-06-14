@@ -964,3 +964,8 @@ bool PrivateInstanceAAMP::IsEventListenerAvailable(AAMPEventType eventType)
 {
 	return false;
 }
+
+void PrivateInstanceAAMP::ResetProfileCache()
+{
+}
+

@@ -50,3 +50,8 @@ void ProfileEventAAMP::ProfileEnd(ProfilerBucketType type)
 void ProfileEventAAMP::ProfilePerformed(ProfilerBucketType type)
 {
 }
+
+void ProfileEventAAMP::ProfileReset(ProfilerBucketType)
+{
+}
+

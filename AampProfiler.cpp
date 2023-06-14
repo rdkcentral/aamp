@@ -301,7 +301,7 @@ void ProfileEventAAMP::ProfileBegin(ProfilerBucketType type)
 	{
 		bucket->tStart 		= (unsigned int)(NOW_STEADY_TS_MS - tuneStartMonotonicBase);
 		bucket->tFinish 	= bucket->tStart;
-		bucket ->profileStarted = true;
+		bucket->profileStarted = true;
 	}
 }
 
@@ -330,6 +330,18 @@ void ProfileEventAAMP::ProfileEnd(ProfilerBucketType type)
 		bucket->tFinish = (unsigned int)(NOW_STEADY_TS_MS - tuneStartMonotonicBase);
 		bucket->complete = true;
 	}
+}
+
+/**
+ * @brief Resetting the buckets
+ */
+void ProfileEventAAMP::ProfileReset(ProfilerBucketType type)
+{
+	struct ProfilerBucket *bucket = &buckets[type];
+	bucket->complete = false;
+	bucket->profileStarted = false;
+	bucket->tFinish = 0;
+	bucket->tStart = 0;
 }
 
 /**

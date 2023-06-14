@@ -1895,6 +1895,13 @@ public:
 	void LogFirstFrame(void);
 
 	/**
+	 *   @fn ResetProfileCache
+	 *
+	 *   @return void
+	 */
+	void ResetProfileCache(void);
+
+	/**
 	 *   @fn LogPlayerPreBuffered
 	 *
 	 *   @return void
@@ -4140,6 +4147,7 @@ private:
 	std::unique_ptr<char[]> mData;
 	std::string mTextStyle;
 	std::vector<StreamBlacklistProfileInfo> mBlacklistedProfiles;
+	//std::vector<ProfilerBucketType> cachedMediaBucketTypes;
 };
 
 /**

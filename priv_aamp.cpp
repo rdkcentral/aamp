@@ -3121,6 +3121,21 @@ void PrivateInstanceAAMP::LogFirstFrame(void)
 /**
  *  @brief Profile Player changed from background to foreground i.e prebuffred
  */
+void PrivateInstanceAAMP::ResetProfileCache(void)
+{
+	profiler.ProfileReset(PROFILE_BUCKET_INIT_VIDEO);
+	profiler.ProfileReset(PROFILE_BUCKET_INIT_AUDIO);
+	profiler.ProfileReset(PROFILE_BUCKET_INIT_SUBTITLE);
+	profiler.ProfileReset(PROFILE_BUCKET_INIT_AUXILIARY);
+	profiler.ProfileReset(PROFILE_BUCKET_FRAGMENT_VIDEO);
+	profiler.ProfileReset(PROFILE_BUCKET_FRAGMENT_AUDIO);
+	profiler.ProfileReset(PROFILE_BUCKET_FRAGMENT_SUBTITLE);
+	profiler.ProfileReset(PROFILE_BUCKET_FRAGMENT_AUXILIARY);
+}
+
+/**
+ *  @brief Profile Player changed from background to foreground i.e prebuffred
+ */
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
 {
 	profiler.ProfilePerformed(PROFILE_BUCKET_PLAYER_PRE_BUFFERED);
