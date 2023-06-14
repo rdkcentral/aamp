@@ -297,6 +297,12 @@ Mar  2023 Release update
 - Event
     - playbackProgressUpdate ( updated for new field )
     
+**Version:** 5.6
+**Release Notes:**
+Jun  2023 Release update
+- API
+    - getPlaybackStatistics ( updated example )
+  
 <div style="page-break-after: always;"></div>
 
 ## Abbreviation Summary 
@@ -2601,8 +2607,9 @@ Procedure to setup the AAMP Reference Player in RDK devices(Comcast):
 ---
 
 
-### getPlaybackStatistics
-**Description:** Returns the playback statistics from beginning of playback till the time API is called.
+### getPlaybackStatistics()
+**Description:** Returns the playback statistics in JSON format from beginning of playback till the time API is called.
+
 **JSON Description:**
 
 ```json
@@ -2820,8 +2827,106 @@ Procedure to setup the AAMP Reference Player in RDK devices(Comcast):
 }
 ```
 
+##### Example:
 
+DASH VOD:
 
+```json
+  getPlaybackStatistics Return Val:{
+      "timeToTopProfile":8,
+      "timeInTopProfile":104,
+      "duration":112,
+      "profileStepDown_Network":0,
+      "mediaType":"DASH",
+      "playbackMode":"VOD",
+      "totalError":0,
+      "numOfGaps":0,
+      "languageSupported":{"audio1":"en"},
+      "main":{"profiles":{"0":{"manifestStat":{"latencyReport":{"timeWindow_1":1},"sessionSummary":{"200":1},
+      "info":{"DownloadTimeMs":255,"ParseTimeMs":1,"PeriodCount":1,"Size":2012}}}}},
+      "video":{"profiles":{"2400000":{"fragmentStat":{"media":{"latencyReport":{"timeWindow_1":1,"timeWindow_2":1},
+      "sessionSummary":{"200":2}},"init":{"latencyReport":{"timeWindow_0":1},"sessionSummary":{"200":1}}},
+      "width":1280,"height":720},"4800000":{“fragmentStat":{"media":{"latencyReport":{"timeWindow_2":5,"timeWindow_3":10,
+      "timeWindow_4":9,"timeWindow_5":2},"sessionSummary":{"200":26}},
+      "init":{"latencyReport":{"timeWindow_0":1},"sessionSummary":{"200":1}}},"width":1920,"height":1080}}},
+      "audio1":{"profiles":{"128000":{"fragmentStat":{"media":{"latencyReport":{"timeWindow_0":23,"timeWindow_1":6,"timeWindow_2":1},
+      "sessionSummary":{"200":30}},"init":{"latencyReport":{"timeWindow_1":1},"sessionSummary":{"200":1}}}}}},
+      "version":"2.0","creationTime":"2023-05-17.20:15:01"}
+```
+
+HLS VOD:
+
+```json
+  getPlaybackStatistics Return Val:{
+      "timeToTopProfile":6,
+      "timeInTopProfile":330,
+      "duration":336,
+      "profileStepDown_Network":0,
+      "mediaType":"HLS",
+      "playbackMode":"VOD",
+      "totalError":0,
+      "languageSupported":{"audio1":"eng","audio2":"fra","audio3":"ger","audio4":"pol","audio5":"spa"},
+      "main":{"profiles":{"0":{"manifestStat":{"latencyReport":{"timeWindow_1":1},"sessionSummary":{"200":1},
+      "info":{"DownloadTimeMs":415,"ParseTimeMs":0,"Size":1746}}}}},
+      "video":{"profiles":{"1400000":{"manifestStat":{"latencyReport":{"timeWindow_0":1},
+      "sessionSummary":{"200":1},"info":{"DownloadTimeMs":46,"Size":13613}},
+      "fragmentStat":{"media":{"latencyReport":{"timeWindow_0":2,"timeWindow_1":1},
+      "sessionSummary":{"200":3}}},"width":842,"height":480},
+      "5000000":{"manifestStat":{"latencyReport":{"timeWindow_0":1},"sessionSummary":{"200":1},
+      "info":{"DownloadTimeMs":68,"Size":14063}},
+      "fragmentStat":{"media":{"latencyReport":{"timeWindow_0":164,"timeWindow_1":1},"sessionSummary":{"200":165}}},"width":1920,"height":1080}}},
+      "audio1":{"profiles":{"0":{"manifestStat":{"latencyReport":{"timeWindow_0":1},"sessionSummary":{"200":1},
+      "info":{"DownloadTimeMs":39,"Size":12631}},"fragmentStat":{"media":{"latencyReport":{"timeWindow_0":72,"timeWindow_1":1},
+      "sessionSummary":{"200":73}}}}}},"version":"2.0","creationTime":"2023-05-18.03:44:31"}
+```
+
+DASH Linear:
+
+```json
+  "getPlaybackStatistics","returnType":"string"
+
+   getPlaybackStatistics Return Val:{
+       "timeInTopProfile":20,
+       "duration":20,
+       "profileStepDown_Network":0,
+       "mediaType":"DASH",
+       "playbackMode":"LINEAR_TV",
+       "liveLatency":2147483647,
+       "totalError”:0,
+       ”numOfGaps”:0,
+       ”languageSupported":{"audio1":"en"},
+       "main":{"profiles":{"0":{"manifestStat":{"latencyReport":{"timeWindow_0":2},"sessionSummary":{"200":2},
+       "info":{"DownloadTimeMs":70,"ParseTimeMs":1,"PeriodCount":1,"Size":1955}}}}},
+       "video":{"profiles":{"300000":{"fragmentStat":{"media":{"latencyReport":{"timeWindow_0":10},
+       "sessionSummary":{"200":10}},"init":{"latencyReport":{"timeWindow_0":1},
+       "sessionSummary":{"200":1}}},"width":640,"height":360}}},
+       "audio1":{"profiles":{"48000":{"fragmentStat":{"media":{"latencyReport":{"timeWindow_0":10},"sessionSummary":{"200":10}},
+       "init":{"latencyReport":{"timeWindow_0":1},"sessionSummary":{"200":1}}}}}},
+       "version":"2.0","creationTime":"2023-05-18.21:06:23"}
+```
+
+HLS Linear:
+
+```json
+  getPlaybackStatistics Return Val:{
+      "timeToTopProfile":6,
+      "timeInTopProfile":30,
+      "duration":36,
+      "profileStepDown_Network":0,
+      "mediaType":"HLS",
+      "playbackMode":"LINEAR_TV",
+      "liveLatency":18138,
+      "totalError":0,
+      "main":{"profiles":{"0":{"manifestStat":{"latencyReport":{"timeWindow_0":1},
+      "sessionSummary":{"200":1},"info":{"DownloadTimeMs":149,"ParseTimeMs":0,"Size":1379}}}}},
+      "video":{"profiles":{"2305600":{"manifestStat":{"latencyReport":{"timeWindow_0":1},"sessionSummary":{"200":1},
+      "info":{"DownloadTimeMs":149,"Size":997}},"fragmentStat":{"media":{"latencyReport":{"timeWindow_0":1},
+      "sessionSummary":{"200":1}}},"width":960,"height":540},"6705600":{"manifestStat":{"latencyReport":{"timeWindow_0":3},
+      "sessionSummary":{"200":3},"info":{"DownloadTimeMs":35,"Size":997}},
+      "fragmentStat":{"media":{"latencyReport":{"timeWindow_1":5},"sessionSummary":{"200":5}}},
+      "width":1920,"height":1080}}},
+      "version":"2.0","creationTime":"2023-05-18.23:07:08"}
+```
 
 
 
