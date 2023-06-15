@@ -67,6 +67,7 @@ if [ "$build_coverage" -eq "1" ]; then
   build_test "ConfigTests" "ConfigTests_coverage"  
   build_test "PlayerInstanceAAMP" "PlayerInstanceAAMPTests_coverage"
   build_test "PrivateInstanceAAMP" "PrivateInstanceAAMPTests_coverage"
+  build_test "PreferredLanguages" "PreferredLanguagesTests_coverage"
   build_test "StreamAbstractionAAMP_HLS" "StreamAbstractionAAMP_HLS_coverage"
   build_test "StreamAbstractionAAMP_MPD" "StreamAbstractionAAMP_MPD_coverage"
   build_test "TextStyleAttributes" "TextStyleAttributesTests_coverage"
@@ -75,7 +76,22 @@ if [ "$build_coverage" -eq "1" ]; then
   build_test "JsonObjectTests" "JsonObjectTests_coverage"
 
   #Create combined test report
-  lcov -a ./PlayerInstanceAAMPTests_coverage.info -a ./AampCliSetTests_coverage.info -a ./AampCurlDownloaderTest_coverage.info -a ./Base64AAMPTests_coverage.info -a ./AampUtilsTests_coverage.info  -a ./ConfigTests_coverage.info -a ./UrlEncDecAAMPTests_coverage.info -a ./TextStyleAttributesTests_coverage.info -a ./StreamAbstractionAAMP_HLS_coverage.info -a ./StreamAbstractionAAMP_MPD_coverage.info -a ./PrivateInstanceAAMPTests_coverage.info -a ./Iso639MapTests_coverage.info -a ./JsonObjectTests_coverage.info -o combined.info
+  lcov \
+  -a ./PlayerInstanceAAMPTests_coverage.info 
+  -a ./AampCliSetTests_coverage.info 
+  -a ./AampCurlDownloaderTest_coverage.info 
+  -a ./Base64AAMPTests_coverage.info 
+  -a ./AampUtilsTests_coverage.info  
+  -a ./ConfigTests_coverage.info 
+  -a ./UrlEncDecAAMPTests_coverage.info 
+  -a ./TextStyleAttributesTests_coverage.info 
+  -a ./StreamAbstractionAAMP_HLS_coverage.info 
+  -a ./StreamAbstractionAAMP_MPD_coverage.info 
+  -a ./PrivateInstanceAAMPTests_coverage.info 
+  -a ./PreferredLanguagesTests_coverage.info \
+  -a ./Iso639MapTests_coverage.info 
+  -a ./JsonObjectTests_coverage.info 
+  -o combined.info
   genhtml combined.info -o ../CombinedCoverage
   echo Building coverage tests complete
 fi

@@ -226,9 +226,12 @@ static void ui_thread()
 	while (fgets(cmd, sizeof(cmd), stdin))
 	{
 		char *dst = cmd;
-		while (*dst >= ' ')
+		// CID:136245, CID:337053 - Untrusted loop bound
+		size_t counter = 1;
+		while ((counter < sizeof(cmd)) && (*dst >= ' '))
 		{
 			dst++;
+			counter++;
 		}
 		*dst = 0x00; // NUL terminator
 		process_command(cmd);

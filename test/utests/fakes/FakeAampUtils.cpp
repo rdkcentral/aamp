@@ -206,3 +206,12 @@ double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::strin
 	return 0.0;
 }
 
+char *aamp_Base64_URL_Encode(const unsigned char *src, size_t len)
+{
+	return NULL;
+}
+
+unsigned char *aamp_Base64_URL_Decode(const char *src, size_t *len, size_t srcLen)
+{
+	return NULL;
+}

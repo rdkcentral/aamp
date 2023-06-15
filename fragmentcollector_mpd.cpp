@@ -1597,7 +1597,9 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						ITimeline *firstTimeline = timelines.at(0);
 						double positionInPeriod = 0;
 						uint64_t ret = pMediaStreamContext->lastSegmentDuration;
-						if(((firstTimeline->GetRawAttributes().find("t")) != (firstTimeline->GetRawAttributes().end())) && (ret > 0))
+						// CID:186808 - Invalid iterator comparison
+						map<string, string> attributeMap = timeline->GetRawAttributes();
+						if((attributeMap.find("t") != attributeMap.end()) && (ret > 0))
 						{
 							// 't' in first timeline is expected.
 							positionInPeriod = (pMediaStreamContext->lastSegmentDuration - firstTimeline->GetStartTime()) / timeScale;
@@ -1803,12 +1805,14 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					else if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO &&
 							((pMediaStreamContext->lastSegmentTime - pMediaStreamContext->fragmentDescriptor.Time) > TIMELINE_START_RESET_DIFF))
 					{
-						ReleasePlaylistLock();
 						if(!mIsLiveStream || !aamp->IsLiveAdjustRequired())
 						{
 							pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time - 1;
+							// CID:328774 - Data race condition
+							ReleasePlaylistLock();
 							return false;
 						}
+						ReleasePlaylistLock();
 						AAMPLOG_WARN("Calling ScheduleRetune to handle start-time reset lastSegmentTime=%" PRIu64 " start-time=%f" , pMediaStreamContext->lastSegmentTime, pMediaStreamContext->fragmentDescriptor.Time);
 						aamp->ScheduleRetune(eDASH_ERROR_STARTTIME_RESET, pMediaStreamContext->mediaType);
 					}

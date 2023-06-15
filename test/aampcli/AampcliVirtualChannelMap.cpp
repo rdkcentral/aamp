@@ -26,6 +26,13 @@
 
 VirtualChannelMap mVirtualChannelMap;
 
+// coverity[ +tainted_string_sanitize_content : arg-0 ]
+static bool sanitize(const char *data, size_t size)
+{
+	size_t length = strnlen(data, size);
+	return ((length > 0) && (length < size));
+}
+
 void VirtualChannelMap::add(VirtualChannelInfo& channelInfo)
 {
 	if( !channelInfo.name.empty() )
@@ -326,20 +333,24 @@ void VirtualChannelMap::loadVirtualChannelMapFromCSV( FILE *f )
 	char buf[MAX_BUFFER_LENGTH];
 	while (fgets(buf, sizeof(buf), f))
 	{
-		VirtualChannelInfo channelInfo;
-		const char *ptr = buf;
-		std::string channelNumber = getNextFieldFromCSV( &ptr );
-		// invalid input results in 0 -- !VIRTUAL_CHANNEL_VALID, will be auto assigned
-		channelInfo.channelNumber = atoi(channelNumber.c_str());
-		channelInfo.name = getNextFieldFromCSV(&ptr);
-		channelInfo.uri = getNextFieldFromCSV(&ptr);
-		if (!channelInfo.name.empty() && !channelInfo.uri.empty())
+		// CID:280549 - Untrusted loop bound
+		if (sanitize(buf, sizeof(buf)))
 		{
-			add( channelInfo );
-		}
-		else
-		{ // no name, no uri, no service
-			//printf("[AAMPCLI] can not parse virtual channel '%s'\n", buf);
+			VirtualChannelInfo channelInfo;
+			const char *ptr = buf;
+			std::string channelNumber = getNextFieldFromCSV( &ptr );
+			// invalid input results in 0 -- !VIRTUAL_CHANNEL_VALID, will be auto assigned
+			channelInfo.channelNumber = atoi(channelNumber.c_str());
+			channelInfo.name = getNextFieldFromCSV(&ptr);
+			channelInfo.uri = getNextFieldFromCSV(&ptr);
+			if (!channelInfo.name.empty() && !channelInfo.uri.empty())
+			{
+				add( channelInfo );
+			}
+			else
+			{ // no name, no uri, no service
+				//printf("[AAMPCLI] can not parse virtual channel '%s'\n", buf);
+			}
 		}
 	}
 }
@@ -354,6 +365,13 @@ void VirtualChannelMap::loadVirtualChannelMapLegacyFormat( FILE *f )
 	char buf[MAX_BUFFER_LENGTH];
 	while (fgets(buf, sizeof(buf), f))
 	{
+		// CID:280433 - Untrusted loop bound
+		if (!sanitize(buf, sizeof(buf)))
+		{
+			// Skip blank or overlong line
+			continue;
+		}
+
 		const char *ptr = buf;
 		ptr = skipwhitespace(ptr);
 		if( *ptr=='#' )

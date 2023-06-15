@@ -76,6 +76,10 @@ public:
     MOCK_METHOD(bool , SetTextStyle, (const std::string &options), (override));
 
     MOCK_METHOD(void, UpdateFailedDRMStatus, (LicensePreFetchObject *object), (override));
+
+    MOCK_METHOD(std::vector<AudioTrackInfo> &, GetAvailableAudioTracks, (bool allTrack), (override));
+
+	MOCK_METHOD(std::vector<TextTrackInfo> &, GetAvailableTextTracks, (bool allTrack), (override));
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;

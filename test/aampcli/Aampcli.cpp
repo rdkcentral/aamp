@@ -206,7 +206,7 @@ FILE * Aampcli::getConfigFile(const std::string& cfgFile)
 	{
 		return NULL;
 	}
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(UBUNTU)
 	std::string cfgBasePath(getenv("HOME"));
 	std::string cfgPath = cfgBasePath + cfgFile;
 	FILE *f = fopen(cfgPath.c_str(), "rb");

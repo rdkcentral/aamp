@@ -518,7 +518,10 @@ void PlaybackCommand::showHelp(void)
 
 		if(playbackCmdItr != playbackCommands.end())
 		{
+			// CID:306266 - Not restoring ostream format
+			std::ios_base::fmtflags orig_flags = std::cout.flags();
 			std::cout << std::setw(20) << std::left << (playbackCmdItr->first).c_str() << "// "<< (playbackCmdItr->second).c_str() << "\n";
+			(void)std::cout.flags(orig_flags);
 		}
 	}
 

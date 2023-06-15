@@ -10754,17 +10754,30 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				if(preferredLanguagesList.size() > 0)
 				{
 					std::string firstLanguage = preferredLanguagesList.at(0);
-					auto language = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[firstLanguage, currentPrefLanguage](AudioTrackInfo& temp)
-								{ return ((temp.language == firstLanguage) && (temp.language != currentPrefLanguage)); });
-					languagePresent = (language != end(trackInfo) || (preferredLanguagesList.size() > 1)); /* If multiple value of language is present then retune */
-					auto languageAvailable = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[firstLanguage, currentPrefLanguage](AudioTrackInfo& temp)
-								{ return ((temp.language == firstLanguage) && (temp.language != currentPrefLanguage) && (temp.isAvailable)); });
-					languageAvailabilityInManifest = (languageAvailable != end(trackInfo) && languageAvailable->isAvailable);
-					if(languagePresent && (language != end(trackInfo)))
+
+					// CID:280504 - Using invalid iterator
+					for (auto &temp : trackInfo)
 					{
-						trackIndexStr = language->index;
+						if ((temp.language == firstLanguage) && (temp.language != currentPrefLanguage))
+						{
+							languagePresent = true;
+							if (trackIndexStr.empty())
+							{
+								trackIndexStr = temp.index;
+							}
+
+							if (temp.isAvailable)
+							{
+								languageAvailabilityInManifest = true;
+								break;
+							}
+						}
+					}
+
+					if (preferredLanguagesList.size() > 1)
+					{
+						/* If multiple value of language is present then retune */
+						languagePresent = true;
 					}
 				}
 
@@ -10773,16 +10786,25 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				// if not available, then avoid calling tune. Call retune if multiple labels is present
 				if(!preferredLabelsString.empty())
 				{
-					std::string curLabel = preferredLabelsString;
-					auto label = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[curLabel, currentPrefLabel](AudioTrackInfo& temp)
-								{ return ((temp.label == curLabel) && (temp.label != currentPrefLabel)); });
-					labelPresent = (label != end(trackInfo) || (preferredLabelList.size() > 1)); /* If multiple value of label is present then retune */
-					auto labelAvailable = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[curLabel, currentPrefLabel](AudioTrackInfo& temp)
-								{ return ((temp.label == curLabel) && (temp.label != currentPrefLabel) && (temp.isAvailable)); });
-					labelAvailabilityInManifest = ((labelAvailable != end(trackInfo) ) && labelAvailable->isAvailable);
+					// CID:280504 - Using invalid iterator
+					for (auto &temp : trackInfo)
+					{
+						if ((temp.label == preferredLabelsString) && (temp.label != currentPrefLabel))
+						{
+							labelPresent = true;
+							if (temp.isAvailable)
+							{
+								labelAvailabilityInManifest = true;
+								break;
+							}
+						}
+					}
 
+					if (preferredLabelList.size() > 1)
+					{
+						/* If multiple value of label is present then retune */
+						labelPresent = true;
+					}
 				}
 
 
@@ -10791,15 +10813,19 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				// if not available, then avoid calling tune.
 				if(!preferredRenditionString.empty())
 				{
-					std::string curRendition = preferredRenditionString;
-					auto rendition = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[curRendition, currentPrefRendition](AudioTrackInfo& temp)
-								{ return ((temp.rendition == curRendition) && (temp.rendition != currentPrefRendition)); });
-					renditionPresent = (rendition != end(trackInfo));
-					auto renditionAvailable = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[curRendition, currentPrefRendition](AudioTrackInfo& temp)
-								{ return ((temp.rendition == curRendition) && (temp.rendition != currentPrefRendition) && (temp.isAvailable)); });
-					renditionAvailabilityInManifest = ((renditionAvailable != end(trackInfo)) && renditionAvailable->isAvailable);
+					// CID:280504 - Using invalid iterator
+					for (auto &temp : trackInfo)
+					{
+						if ((temp.rendition == preferredRenditionString) && (temp.rendition != currentPrefRendition))
+						{
+							renditionPresent = true;
+							if (temp.isAvailable)
+							{
+								renditionAvailabilityInManifest = true;
+								break;
+							}
+						}
+					}
 				}
 
 				// Logic to check whether the given accessibility is present in the available tracks,
@@ -10807,27 +10833,46 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				// if not available, then avoid calling tune.
 				if(!preferredTypeString.empty())
 				{
-					std:;string curType = preferredTypeString;
-					auto accessType = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[curType, currentPrefAccessibility](AudioTrackInfo& temp)
-								{ return ((temp.accessibilityType == curType) && (temp.accessibilityType != currentPrefAccessibility)); });
-					accessibilityTypePresent = (accessType != end(trackInfo));
-					auto accessTypeAvailable = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[curType, currentPrefAccessibility](AudioTrackInfo& temp)
-								{ return ((temp.accessibilityType == curType) && (temp.accessibilityType != currentPrefAccessibility) && (temp.isAvailable)); });
-					accessibilityAvailabilityInManifest = ((accessTypeAvailable != end(trackInfo)) && accessTypeAvailable->isAvailable);
+					// CID:280504 - Using invalid iterator
+					for (auto &temp : trackInfo)
+					{
+						if ((temp.accessibilityType == preferredTypeString) && (temp.accessibilityType != currentPrefAccessibility))
+						{
+							accessibilityTypePresent = true;
+							if (temp.isAvailable)
+							{
+								accessibilityAvailabilityInManifest = true;
+								break;
+							}
+						}
+					}
 				}
 
 				// Logic to check whether the given codec is present in the available tracks,
 				// if available, it should not match with current preferred codec, then call tune to reflect the codec change.
 				// if not available, then avoid calling tune.
-				if(preferredCodecList.size() > 0)
+				if (preferredCodecList.size() > 1)
+				{
+					/* If multiple value of codec is present then retune */
+					codecPresent = true;
+				}
+				else if(preferredCodecList.size() > 0)
 				{
 					std::string firstCodec = preferredCodecList.at(0);
-					auto codec = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[firstCodec, currentPrefCodec](AudioTrackInfo& temp)
-								{ return ((temp.codec == firstCodec) && (temp.codec != currentPrefCodec) && (temp.isAvailable)); });
-					codecPresent = (codec != end(trackInfo) || (preferredCodecList.size() > 1) ); /* If multiple value of codec is present then retune */
+
+					for (auto &temp : trackInfo)
+					{
+						if ((temp.codec == firstCodec) && (temp.codec != currentPrefCodec) && (temp.isAvailable))
+						{
+							codecPresent = true;
+							break;
+						}
+					}
+
+				}
+				else
+				{
+					// Empty preferred codec list.
 				}
 			}
 
@@ -11076,14 +11121,26 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				if(preferredTextLanguagesList.size() > 0)
 				{
 					std::string firstLanguage = preferredTextLanguagesList.at(0);
-					auto language = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[firstLanguage, currentPrefLanguage](TextTrackInfo& temp)
-								{ return ((temp.language == firstLanguage) && (temp.language != currentPrefLanguage)); });
-					languagePresent = (language != end(trackInfo) || (preferredTextLanguagesList.size() > 1)); /* If multiple value of language is present then retune */
-					auto languageAvailable = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[firstLanguage, currentPrefLanguage](TextTrackInfo& temp)
-								{ return ((temp.language == firstLanguage) && (temp.language != currentPrefLanguage) && (temp.isAvailable)); });
-					languageAvailabilityInManifest = (languageAvailable != end(trackInfo) && languageAvailable->isAvailable);
+
+					// CID:280501 - Using invalid iterator
+					for (auto &temp : trackInfo)
+					{
+						if ((temp.language == firstLanguage) && (temp.language != currentPrefLanguage))
+						{
+							languagePresent = true;
+							if (temp.isAvailable)
+							{
+								languageAvailabilityInManifest = true;
+								break;
+							}
+						}
+					}
+
+					if (preferredTextLanguagesList.size() > 1)
+					{
+						/* If multiple value of language is present then retune */
+						languagePresent = true;
+					}
 				}
 
 				// Logic to check whether the given rendition is present in the available tracks,
@@ -11091,15 +11148,19 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				// if not available, then avoid calling tune.
 				if(!preferredTextRenditionString.empty())
 				{
-					std::string curRendition = preferredTextRenditionString;
-					auto rendition = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[curRendition, currentPrefRendition](TextTrackInfo& temp)
-								{ return ((temp.rendition == curRendition) && (temp.rendition != currentPrefRendition)); });
-					renditionPresent = (rendition != end(trackInfo));
-					auto renditionAvailable = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[curRendition, currentPrefRendition](TextTrackInfo& temp)
-								{ return ((temp.rendition == curRendition) && (temp.rendition != currentPrefRendition) && (temp.isAvailable)); });
-					renditionAvailabilityInManifest = ((renditionAvailable != end(trackInfo)) && renditionAvailable->isAvailable);
+					// CID:280501 - Using invalid iterator
+					for (auto &temp : trackInfo)
+					{
+						if ((temp.rendition == preferredTextRenditionString) && (temp.rendition != currentPrefRendition))
+						{
+							renditionPresent = true;
+							if (temp.isAvailable)
+							{
+								renditionAvailabilityInManifest = true;
+								break;
+							}
+						}
+					}
 				}
 			}
 			else
