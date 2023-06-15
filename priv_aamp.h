@@ -46,6 +46,7 @@
 #include <list>
 #include <sstream>
 #include <mutex>
+#include <condition_variable>
 #include <queue>
 #include <algorithm>
 #include <glib.h>
@@ -1049,12 +1050,10 @@ public:
 	double mNextPeriodStartTime; 				/**< Keep Next Period Start Time  */
 	double mNextPeriodScaledPtoStartTime; 			/**< Keep Next Period Start Time as per PTO  */
 
-	pthread_mutex_t  mDiscoCompleteLock; 			/**< Lock the period jump if discontinuity already in progress */
-	pthread_cond_t mWaitForDiscoToComplete; 		/**< Conditional wait for period jump */
 	std::condition_variable mRateCorrectionWait;	/**< Conditional variable for signalling timed wait for rate correction*/
 	std::mutex mRateCorrectionTimeoutLock;				/**< Rate correction thread mutex for conditional timed wait*/  
 	double mCorrectionRate;                          /**< Variable to store corection rate **/        
-	bool mIsPeriodChangeMarked; 				/**< Mark if a period change occurred */
+	bool mIsEventStreamFound;				/**< Flag to indicate event stream entry in any of period */
         
 	bool mIsFakeTune;
 
@@ -3861,6 +3860,18 @@ public:
 	void CompleteDiscontinutyDataDeliverForPTSRestamp(MediaType type);
      
 	/**
+	 * @brief Set Discontinuity handling period change marked flag
+	 * @param[in] value Period change marked flag
+	 */
+	void SetIsPeriodChangeMarked(bool value);
+
+	/**
+	 * @brief Get Discontinuity handling period change marked flag
+	 * @return Period change marked flag
+	 */
+	bool GetIsPeriodChangeMarked();
+
+	/**
 	 * @fn GetLicenseCustomData
 	 *
 	 * @return Custom data string
@@ -4210,6 +4221,9 @@ protected:
 	std::atomic<double> m_PTSOffsetFromTune {0.}; /**< PTS offset cache from Tune, is reset only on a `Stop` */
 	
 	// double mCurrentMaxPTS;
+	std::mutex  mDiscoCompleteLock; 					/**< Lock the period jump if discontinuity already in progress */
+	std::condition_variable mWaitForDiscoToComplete;	/**< Conditional wait for period jump */
+	bool mIsPeriodChangeMarked; 						/**< Mark if a period change occurred */
 };
 
 #endif // PRIVAAMP_H

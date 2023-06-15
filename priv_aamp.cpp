@@ -1206,9 +1206,6 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mCurrentLatency(0)
 	, mLiveOffsetAppRequest(false)
 	, bLowLatencyStartABR(false)
-	, mWaitForDiscoToComplete()
-	, mDiscoCompleteLock()
-	, mIsPeriodChangeMarked(false)
 	, mLogObj(NULL)
 	, mEventManager (NULL)
 	, mCMCDCollector(NULL)
@@ -1272,6 +1269,9 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mRateCorrectionDelay(false)
 	, mDownloadDelay(0)
 	, curlhost{}
+	, mWaitForDiscoToComplete()
+	, mDiscoCompleteLock()
+	, mIsPeriodChangeMarked(false)
 {
 	mLogObj = mConfig->GetLoggerInstance();
 	//LazilyLoadConfigIfNeeded();
@@ -1308,7 +1308,6 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	pthread_mutex_init(&mEventLock, &mMutexAttr);
 	pthread_mutex_init(&mDynamicDrmUpdateLock,&mMutexAttr);
 	pthread_mutex_init(&mStreamLock, &mMutexAttr);
-	pthread_mutex_init(&mDiscoCompleteLock,&mMutexAttr);
 
 	for (int i = 0; i < eCURLINSTANCE_MAX; i++)
 	{
@@ -1359,7 +1358,6 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	pthread_cond_init(&waitforplaystart, NULL);
 	pthread_cond_init(&mWaitForDynamicDRMToUpdate,NULL);
 	pthread_mutex_init(&mMutexPlaystart, NULL);
-	pthread_cond_init(&mWaitForDiscoToComplete,NULL);
 	preferredLanguagesList.push_back("en");
 
 #ifdef AAMP_HLS_DRM
@@ -1406,7 +1404,6 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 	pthread_cond_destroy(&mWaitForDynamicDRMToUpdate);
 	pthread_cond_destroy(&mCondDiscontinuity);
 	pthread_cond_destroy(&waitforplaystart);
-	pthread_cond_destroy(&mWaitForDiscoToComplete);
 	pthread_mutex_destroy(&mMutexPlaystart);
 	pthread_mutex_destroy(&mLock);
 	pthread_mutex_destroy(&mDynamicDrmUpdateLock);
@@ -1414,7 +1411,6 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 	pthread_mutex_destroy(&mFragmentCachingLock);
 	pthread_mutex_destroy(&mEventLock);
 	pthread_mutex_destroy(&mStreamLock);
-	pthread_mutex_destroy(&mDiscoCompleteLock);
 	pthread_mutexattr_destroy(&mMutexAttr);
 	
 	
@@ -1695,9 +1691,9 @@ void PrivateInstanceAAMP::StopPausePositionMonitoring(std::string reason)
  */
 void PrivateInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)
 {
-	pthread_mutex_lock(&mDiscoCompleteLock);
-	pthread_cond_wait(&mWaitForDiscoToComplete, &mDiscoCompleteLock);
-	pthread_mutex_unlock(&mDiscoCompleteLock);
+	// CID:306170 - Data race condition
+	std::unique_lock<std::mutex>lock(mDiscoCompleteLock);
+	mWaitForDiscoToComplete.wait(lock, [this]{ return (false == mIsPeriodChangeMarked); });
 }
 
 /**
@@ -1705,11 +1701,36 @@ void PrivateInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)
  */
 void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
 {
-	mIsPeriodChangeMarked = false;
+	// CID:306170 - Data race condition
+	SetIsPeriodChangeMarked(false);
+}
 
-	pthread_mutex_lock(&mDiscoCompleteLock);
-	pthread_cond_signal(&mWaitForDiscoToComplete);
-	pthread_mutex_unlock(&mDiscoCompleteLock);
+/**
+ * @brief Set Discontinuity handling period change marked flag
+ * @param[in] value Period change marked flag
+ */
+void PrivateInstanceAAMP::SetIsPeriodChangeMarked(bool value)
+{
+	// CID:306170 - Data race condition
+	std::lock_guard<std::mutex>lock(mDiscoCompleteLock);
+	mIsPeriodChangeMarked = value;
+
+	if (false == mIsPeriodChangeMarked)
+	{
+		/* Unblock the wait for discontinuity process to complete. */
+		mWaitForDiscoToComplete.notify_one();
+	}
+}
+
+/**
+ * @brief Get Discontinuity handling period change marked flag
+ * @return Period change marked flag
+ */
+bool PrivateInstanceAAMP::GetIsPeriodChangeMarked()
+{
+	// CID:306170 - Data race condition
+	std::lock_guard<std::mutex>lock(mDiscoCompleteLock);
+	return mIsPeriodChangeMarked;
 }
 
 /**

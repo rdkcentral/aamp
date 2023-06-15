@@ -8538,7 +8538,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					int adaptationSetCount = (int)adapatationSets.size();
 					if(currentPeriodId != mCurrentPeriod->GetId())
 					{
-						if (aamp->mIsPeriodChangeMarked)
+						if (aamp->GetIsPeriodChangeMarked())
 						{
 							AAMPLOG_WARN("Discontinuity process is yet to complete, going to wait until it is done");
 							aamp->WaitForDiscontinuityProcessToComplete();
@@ -8561,9 +8561,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							mPrevAdaptationSetCount = adaptationSetCount;
 							periodChanged = true;
 							if (!trickPlay)
-                                                        {
-								aamp->mIsPeriodChangeMarked = true;
-                                                        }
+							{
+								aamp->SetIsPeriodChangeMarked(true);
+							}
 							requireStreamSelection = true;
 							AAMPLOG_WARN("playing period %d/%d", mIterPeriodIndex, (int)mNumberOfPeriods);
 						}
@@ -8690,7 +8690,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						if(ignoreDiscontinuity)
 						{
 							AAMPLOG_WARN("Error! Audio or Video track missing in period, ignoring discontinuity");
-							aamp->mIsPeriodChangeMarked = false;
+							aamp->SetIsPeriodChangeMarked(false);
 						}
 						else
 						{
@@ -8760,7 +8760,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 								else
 								{
 									AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
-									aamp->mIsPeriodChangeMarked = false;
+									aamp->SetIsPeriodChangeMarked(false);
 								}
                                                           	if( rate < 0 || rate > 1)
                                                                 {
@@ -8771,7 +8771,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							else
 							{
 								AAMPLOG_TRACE("StreamAbstractionAAMP_MPD:: Segment template not available");
-								aamp->mIsPeriodChangeMarked = false;
+								aamp->SetIsPeriodChangeMarked(false);
 							}
 						}
 					}

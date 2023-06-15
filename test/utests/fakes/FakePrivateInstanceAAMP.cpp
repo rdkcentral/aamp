@@ -108,7 +108,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mAampLLDashServiceData{},
 	bLLDashAdjustPlayerSpeed(false),
 	mLLDashCurrentPlayRate(AAMP_NORMAL_PLAY_RATE),
-	mIsPeriodChangeMarked(false),
 	mEventManager(NULL),
 	mbDetached(false),
 	mIsFakeTune(false),
@@ -132,7 +131,10 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mFogDownloadFailReason(""),
 	mBlacklistedProfiles(),
 	mId3MetadataCache{},
-	mMPDDownloaderInstance(new AampMPDDownloader())
+	mMPDDownloaderInstance(new AampMPDDownloader()),
+	mDiscoCompleteLock(),
+	mWaitForDiscoToComplete(),
+	mIsPeriodChangeMarked(false)
 {
 	pthread_cond_init(&waitforplaystart, NULL);
 	pthread_mutex_init(&mMutexPlaystart, NULL);
@@ -1189,3 +1191,22 @@ void PrivateInstanceAAMP::SetLatencyParam(double latency)
 void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
 {
 }
+
+/**
+ * @brief Set Discontinuity handling period change marked flag
+ * @param[in] value Period change marked flag
+ */
+void PrivateInstanceAAMP::SetIsPeriodChangeMarked(bool value)
+{
+	mIsPeriodChangeMarked = value;
+}
+
+/**
+ * @brief Get Discontinuity handling period change marked flag
+ * @return Period change marked flag
+ */
+bool PrivateInstanceAAMP::GetIsPeriodChangeMarked()
+{
+	return mIsPeriodChangeMarked;
+}
+

@@ -43,8 +43,9 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 
 set(TEST_SOURCES PauseAtTests.cpp
                  TextStyleTests.cpp
-                 PrivateInstanceAAMPTests.cpp
-                 MediaFormatTypeTests.cpp)
+                 MediaFormatTypeTests.cpp
+                 IsPeriodChangeMarkedTests.cpp
+                 PrivateInstanceAAMPTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp)
 
