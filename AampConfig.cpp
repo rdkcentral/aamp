@@ -253,6 +253,7 @@ static const ConfigLookupEntryString mConfigLookupTableString[AAMPCONFIG_STRING_
 	{"urn:comcast:x1:lin:ck","SchemeIdUriVssStream",eAAMPConfig_SchemeIdUriVssStream,true},
 	{"","LRHAcceptValue",eAAMPConfig_LRHAcceptValue,true},
 	{"","LRHContentType",eAAMPConfig_LRHContentType,true},
+	{"","gstlevel", eAAMPConfig_GstDebugLevel,false},
 };
 
 /**

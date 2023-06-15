@@ -118,6 +118,7 @@ wifiCurlHeader			Enable/Disable wifi custom curl header inclusion.Default true
 reportBufferEvent		Enables Buffer event reporting.Default is true.
 info            		Enable/Disable logging of requested urls.Default is false
 gst             		Enable/Disable gstreamer logging including pipeline dump.Default is false
+gstlevel                String to set (final) override of gstreamer debug level, e.g. gstlevel=*:3,westeros*:5
 progress        		Enable/Disable periodic logging of position.Default is false
 trace           		Enable/Disable dumps of manifests.Default is false
 curl            		Enable/Disable verbose curl logging for manifest/playlist/segment downloads.Default is false

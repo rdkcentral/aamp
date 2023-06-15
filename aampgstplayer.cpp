@@ -334,6 +334,13 @@ AAMPGstPlayer::AAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
 		this->cbExportYUVFrame = exportFrames;
 #endif
+
+		std::string debugLevel = GETCONFIGVALUE(eAAMPConfig_GstDebugLevel);
+		if (!debugLevel.empty())
+		{
+			gst_debug_set_threshold_from_string(debugLevel.c_str(), 1);
+		}
+
 		CreatePipeline();
 	}
 	else
