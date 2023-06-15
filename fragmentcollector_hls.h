@@ -462,6 +462,16 @@ class TrackState : public MediaTrack
                  */
 		bool IsExtXByteRange(const char *fragmentInfo, size_t *byteRangeLength, size_t *byteRangeOffset);
 
+		/**
+		 * @brief Acquire playlist lock.
+		 */
+		void AcquirePlaylistLock();
+
+		/**
+		 * @brief Release playlist lock.
+		 */
+		void ReleasePlaylistLock();
+
 	private:
 		/***************************************************************************
 		 * @fn GetFragmentUriFromIndex

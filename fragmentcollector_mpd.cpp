@@ -1585,7 +1585,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								pMediaStreamContext->timeLineIndex--;
 								if(pMediaStreamContext->timeLineIndex >= 0)
 								{
-									pMediaStreamContext->fragmentRepeatCount = timelines.at(pMediaStreamContext->timeLineIndex)->GetRepeatCount();
+									// CID:306172 - Value not atomically updated
+									pMediaStreamContext->fragmentRepeatCount = GetSegmentRepeatCount(pMediaStreamContext, pMediaStreamContext->timeLineIndex);
 								}
 							}
 							pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number-1;
@@ -2048,7 +2049,14 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							string startTimestr = segmentURL->GetRawAttributes().at("s");
 							uint32_t duration = (uint32_t)stoull(durationStr);
 							long long startTime = stoll(startTimestr);
-							if(startTime > pMediaStreamContext->lastSegmentTime || 0 == pMediaStreamContext->lastSegmentTime || rate < 0 )
+							// CID:337057 - Division or modulo by zero
+							if (duration == 0)
+							{
+								AAMPLOG_WARN("Zero duration in TSB");
+								ReleasePlaylistLock();
+								return false;
+							}
+							else if(startTime > pMediaStreamContext->lastSegmentTime || 0 == pMediaStreamContext->lastSegmentTime || rate < 0 )
 							{
 								/*
 									Added to inject appropriate initialization header in
@@ -2064,18 +2072,18 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										string bitrateStr = rawAttributes["bitrate"];
 										bitrate = stoi(bitrateStr);
 									}
-									ReleasePlaylistLock();
 									if(pMediaStreamContext->fragmentDescriptor.Bandwidth != bitrate || pMediaStreamContext->profileChanged)
 									{
 										pMediaStreamContext->fragmentDescriptor.Bandwidth = bitrate;
 										pMediaStreamContext->profileChanged = true;
 										profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(bitrate);
+										// CID:306172 - Value not atomically updated
+										ReleasePlaylistLock();
 										FetchAndInjectInitFragments();
 										UpdateRampdownProfileReason();
 										pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 										return false; //Since we need to check WaitForFreeFragmentCache
 									}
-									AcquirePlaylistLock();
 								}
 								double fragmentDuration = ComputeFragmentDuration(duration,timeScale);
 								pMediaStreamContext->lastSegmentTime = startTime;
@@ -8650,9 +8658,20 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 
 					if(mIsLiveStream)
 					{
-						if(mCdaiObject->mContentSeekOffset && (!bmanifestupdate))
+						double seekPositionSeconds = 0.0;
+
+						if(!bmanifestupdate)
 						{
-							AAMPLOG_INFO("[CDAI]: Resuming channel playback at PeriodID[%s] at Position[%lf]", currentPeriodId.c_str(), mCdaiObject->mContentSeekOffset);
+							// CID:190371 - Data race condition
+							// Get and clear mContentSeekOffset atomically.
+							std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+							seekPositionSeconds = mCdaiObject->mContentSeekOffset;
+							mCdaiObject->mContentSeekOffset = 0;
+						}
+
+						if(seekPositionSeconds)
+						{
+							AAMPLOG_INFO("[CDAI]: Resuming channel playback at PeriodID[%s] at Position[%lf]", currentPeriodId.c_str(), seekPositionSeconds);
 							//This seek should not be reflected in the fragmentTime, since we have already cached
 							//same duration of ad content; So keep a copy of current fragmentTime so that it can be
 							//updated back when seek is done
@@ -8664,8 +8683,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 								{
 									fragmentTime[i] = mMediaStreamContext[i]->fragmentTime;
 								}
-								SeekInPeriod(mCdaiObject->mContentSeekOffset);
-								mCdaiObject->mContentSeekOffset = 0;
+								SeekInPeriod(seekPositionSeconds);
 								for (int i = 0; i < mNumberOfTracks; i++)
 								{
 									mMediaStreamContext[i]->fragmentTime = fragmentTime[i];
@@ -12173,6 +12191,7 @@ void StreamAbstractionAAMP_MPD::UpdateFailedDRMStatus(LicensePreFetchObject *obj
 	StreamBlacklistProfileInfo blProfileInfo = { object->mPeriodId, object->mAdaptationIdx, PROFILE_BLACKLIST_DRM_FAILURE };
 	aamp->AddToBlacklistedProfiles(blProfileInfo);
 }
+
 static std::string getrelativenorurl(std::string media)
 {
 	if(!media.empty())
@@ -12323,4 +12342,33 @@ void StreamAbstractionAAMP_MPD::UpdateMPDPeriodDetails(std::vector<PeriodInfo>& 
 			durMs += periodInfo.duration;
 		}
 	}
+}
+
+/**
+ * @brief Get a timeline segment repeat count
+ * @param[in] pMediaStreamContext Media stream context
+ * @param[in] timeLineIndex Timeline index
+ * @return The timeline segment repeat count or zero
+ */
+uint32_t StreamAbstractionAAMP_MPD::GetSegmentRepeatCount(MediaStreamContext *pMediaStreamContext, int timeLineIndex)
+{
+	uint32_t repeatCount = 0;
+	SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),
+									  pMediaStreamContext->adaptationSet->GetSegmentTemplate());
+
+	if (segmentTemplates.HasSegmentTemplate())
+	{
+		const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
+		if (segmentTimeline)
+		{
+			std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
+
+			if ((int)timelines.size() > timeLineIndex)
+			{
+				repeatCount = timelines.at(timeLineIndex)->GetRepeatCount();
+			}
+		}
+	}
+
+	return repeatCount;
 }

@@ -947,6 +947,14 @@ private:
 	*/
 	std::string GetVssVirtualStreamID();
 
+	/**
+	 * @brief Get a timeline segment repeat count
+	 * @param[in] pMediaStreamContext Media stream context
+	 * @param[in] timeLineIndex Timeline index
+	 * @return The timeline segment repeat count or zero
+	 */
+	uint32_t GetSegmentRepeatCount(MediaStreamContext *pMediaStreamContext, int timeLineIndex);
+
 	std::vector<StreamInfo*> thumbnailtrack;
 	std::vector<TileInfo> indexedTileInfo;
 	double mFirstPeriodStartTime; /*< First period start time for progress report*/

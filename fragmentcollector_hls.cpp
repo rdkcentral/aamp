@@ -1485,8 +1485,8 @@ char *TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreDis
 
 								// To get last playlist indexed time reference
 								long long playlistIndexedTimeMS = lastPlaylistIndexedTimeMS;
-								// Release playlist lock before entering into discontinuity mutext
-								pthread_mutex_unlock(&mPlaylistMutex);
+								// Release playlist lock before entering into discontinuity mutex
+								ReleasePlaylistLock();
 								AAMPLOG_WARN("%s Acquiring Discontinuity mutex playlist Indexed:%lld", name, playlistIndexedTimeMS);
 								// Acquire discontunuity ongoing lock
 								pthread_mutex_lock(&context->mDiscoCheckMutex);
@@ -1499,7 +1499,7 @@ char *TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreDis
 								}
 								pthread_mutex_unlock(&context->mDiscoCheckMutex);
 								AAMPLOG_WARN("%s Released Discontinuity mutex last playlist Indexed:%lld", name, lastPlaylistIndexedTimeMS);
-								pthread_mutex_lock(&mPlaylistMutex);
+								AcquirePlaylistLock();
 								if (playlistIndexedTimeMS != lastPlaylistIndexedTimeMS)
 								{
 									reloadUri = true;
@@ -1656,7 +1656,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 		assert (fragmentURI);
 		http_error = 0;
 		bool bSegmentRepeated = false;
-		pthread_mutex_lock(&mPlaylistMutex);
+		AcquirePlaylistLock();
 		if (context->trickplayMode && ABRManager::INVALID_PROFILE != context->GetIframeTrack())
 		{
 			// Note :: only for IFrames , there is a possibility of same segment getting downloaded again
@@ -1739,7 +1739,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			std::string fragmentUrl;
 			CachedFragment* cachedFragment = GetFetchBuffer(true);
 			aamp_ResolveURL(fragmentUrl, mEffectiveUrl, fragmentURI , ISCONFIGSET(eAAMPConfig_PropogateURIParam));
-			pthread_mutex_unlock(&mPlaylistMutex);
+			ReleasePlaylistLock();
 			AAMPLOG_TRACE("Got next fragment url %s fragmentEncrypted %d discontinuity %d mDrmMethod %d", fragmentUrl.c_str(), fragmentEncrypted, (int)discontinuity, mDrmMethod);
 
 			aamp->profiler.ProfileBegin(mediaTrackBucketTypes[type]);
@@ -1928,7 +1928,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 				// if real problem exists, underflow will eventually be detected/reported
 				AAMPLOG_INFO("FetchFragmentHelper : fragmentURI %s playTarget(%f), playlistPosition(%f)", fragmentURI, playTarget, playlistPosition);
 			}
-			pthread_mutex_unlock(&mPlaylistMutex);
+			ReleasePlaylistLock();
 			return ret;
 		}
 		return true;
@@ -2834,7 +2834,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 			context->mNetworkDownDetected = false;
 		}
 
-		pthread_mutex_lock(&mPlaylistMutex);
+		AcquirePlaylistLock();
 		// Free previous playlist buffer and load with new one
 		playlist.Free();
 		playlist.Replace( &newPlaylist );
@@ -2884,7 +2884,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		}
 		lastPlaylistIndexedTimeMS = aamp_GetCurrentTimeMS();
 		pthread_cond_signal(&mPlaylistIndexed);
-		pthread_mutex_unlock(&mPlaylistMutex);
+		ReleasePlaylistLock();
 	}
 	else
 	{
@@ -2920,6 +2920,22 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 			}
 		}
 	}
+}
+
+/**
+ * @brief Acquire playlist lock.
+ */
+void TrackState::AcquirePlaylistLock()
+{
+	(void)pthread_mutex_lock(&mPlaylistMutex);
+}
+
+/**
+ * @brief Release playlist lock.
+ */
+void TrackState::ReleasePlaylistLock()
+{
+	(void)pthread_mutex_unlock(&mPlaylistMutex);
 }
 
 /**
@@ -3463,6 +3479,9 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 	for(int i = 0; i<AAMP_TRACK_COUNT; i++)
 	{
 		TrackState *ts = trackState[i];
+
+		// CID:335490 - Data race condition
+		ts->AcquirePlaylistLock();
 		if (ts->enabled)
 		{
 			bool reloadUri = false;
@@ -3477,6 +3496,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 			}
 			mediaSequenceNumber[i] = ts->nextMediaSequenceNumber - 1;
 		}
+		ts->ReleasePlaylistLock();
 	}
 
 	if (audio->enabled)
@@ -5218,9 +5238,9 @@ void TrackState::SwitchSubtitleTrack()
 
 		playTarget = 0.0;
 		bool reloadUri = false;
-		pthread_mutex_lock(&mPlaylistMutex);
+		AcquirePlaylistLock();
 		fragmentURI = GetNextFragmentUriFromPlaylist(reloadUri);
-		pthread_mutex_unlock(&mPlaylistMutex);
+		ReleasePlaylistLock();
 		context->AbortWaitForAudioTrackCatchup(true);
 
 		mSubtitleParser->init(aamp->GetPositionSeconds(), aamp->GetBasePTS());
@@ -6412,7 +6432,7 @@ bool TrackState::HasDiscontinuityAroundPosition(double position, bool useDiscont
 	double discDiscardTolreanceInSec = (3 * targetDurationSeconds); /* Used by discontinuity handling logic to ensure both tracks have discontinuity tag around same area */
 	int playlistRefreshCount = 0;
 	diffBetweenDiscontinuities = DBL_MAX;
-	pthread_mutex_lock(&mPlaylistMutex);
+	AcquirePlaylistLock();
 
 	while (aamp->DownloadsAreEnabled())
 	{
@@ -6543,7 +6563,7 @@ bool TrackState::HasDiscontinuityAroundPosition(double position, bool useDiscont
 			break;
 		}
 	}
-	pthread_mutex_unlock(&mPlaylistMutex);
+	ReleasePlaylistLock();
 	return discontinuityFound;
 }
 
@@ -6657,7 +6677,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 	bool ret = false;
 	std::istringstream initFragmentUrlStream;
 
-	pthread_mutex_lock(&mPlaylistMutex);
+	AcquirePlaylistLock();
 	// If the first init fragment is of a clear fragment, we push an encrypted fragment's
 	// init data first to let qtdemux know we will need decryptor plugins
 	AAMPLOG_TRACE("TrackState::[%s] fragmentEncrypted-%d mFirstEncInitFragmentInfo-%s", name, fragmentEncrypted, mFirstEncInitFragmentInfo);
@@ -6673,7 +6693,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 	}
 	std::string line;
 	std::getline(initFragmentUrlStream, line);
-	pthread_mutex_unlock(&mPlaylistMutex);
+	ReleasePlaylistLock();
 	if (!line.empty())
 	{
 		const char *range = NULL;
@@ -6881,9 +6901,9 @@ void StreamAbstractionAAMP_HLS::StartInjection(void)
 void TrackState::StopWaitForPlaylistRefresh()
 {
 	AAMPLOG_WARN("track [%s]", name);
-	pthread_mutex_lock(&mPlaylistMutex);
+	AcquirePlaylistLock();
 	pthread_cond_signal(&mPlaylistIndexed);
-	pthread_mutex_unlock(&mPlaylistMutex);
+	ReleasePlaylistLock();
 }
 
 /**
