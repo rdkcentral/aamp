@@ -40,6 +40,8 @@ public:
                 bool resetBuffer, MediaType fileType, BitsPerSecond *bitrate, int * fogError,
                 double fragmentDurationSeconds));
     MOCK_METHOD(void, SetStreamFormat, (StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat));
+    
+    MOCK_METHOD(std::string, GetAvailableAudioTracks, (bool allTrack));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

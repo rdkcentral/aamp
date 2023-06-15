@@ -420,12 +420,17 @@ int PrivateInstanceAAMP::GetTextTrack()
 
 std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 {
-	return nullptr;
+	return "";
 }
 
 std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 {
-	return nullptr;
+	if (g_mockPrivateInstanceAAMP != nullptr) {
+		return g_mockPrivateInstanceAAMP->GetAvailableAudioTracks(allTrack);
+	}else {
+		return "";
+	}
+	
 }
 
 std::string PrivateInstanceAAMP::GetVideoRectangle()

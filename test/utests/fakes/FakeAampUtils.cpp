@@ -22,6 +22,34 @@
 
 MockAampUtils *g_mockAampUtils = nullptr;
 
+/** 
+ * @enum HarvestConfigType
+ * @brief Harvest Configuration type 
+ */
+enum HarvestConfigType
+{
+	eHARVEST_DISABLE_DEFAULT = 0x00000000,            /**< Desable harversting for unknown type */
+	eHARVEST_ENABLE_VIDEO = 0x00000001,              /**< Enable Harvest Video fragments - set 1st bit*/
+	eHARVEST_ENABLE_AUDIO = 0x00000002,              /**< Enable Harvest audio - set 2nd bit*/
+	eHARVEST_ENABLE_SUBTITLE = 0x00000004,           /**< Enable Harvest subtitle - set 3rd bit */
+	eHARVEST_ENABLE_AUX_AUDIO = 0x00000008,          /**< Enable Harvest auxiliary audio - set 4th bit*/
+	eHARVEST_ENABLE_MANIFEST = 0x00000010,           /**< Enable Harvest manifest - set 5th bit */
+	eHARVEST_ENABLE_LICENCE = 0x00000020,            /**< Enable Harvest license - set 6th bit  */
+	eHARVEST_ENABLE_IFRAME = 0x00000040,             /**< Enable Harvest iframe - set 7th bit  */
+	eHARVEST_ENABLE_INIT_VIDEO = 0x00000080,         /**< Enable Harvest video init fragment - set 8th bit*/
+	eHARVEST_ENABLE_INIT_AUDIO = 0x00000100,         /**< Enable Harvest audio init fragment - set 9th bit*/
+	eHARVEST_ENABLE_INIT_SUBTITLE = 0x00000200,      /**< Enable Harvest subtitle init fragment - set 10th bit*/
+	eHARVEST_ENABLE_INIT_AUX_AUDIO = 0x00000400,     /**< Enable Harvest auxiliary audio init fragment - set 11th bit*/
+	eHARVEST_ENABLE_PLAYLIST_VIDEO = 0x00000800,     /**< Enable Harvest video playlist - set 12th bit*/
+	eHARVEST_ENABLE_PLAYLIST_AUDIO = 0x00001000,     /**< Enable Harvest audio playlist - set 13th bit*/
+	eHARVEST_ENABLE_PLAYLIST_SUBTITLE = 0x00002000,  /**< Enable Harvest subtitle playlist - set 14th bit*/
+	eHARVEST_ENABLE_PLAYLIST_AUX_AUDIO = 0x00004000, /**< Enable Harvest auxiliary audio playlist - set 15th bit*/
+	eHARVEST_ENABLE_PLAYLIST_IFRAME = 0x00008000,    /**< Enable Harvest Iframe playlist - set 16th bit*/
+	eHARVEST_ENABLE_INIT_IFRAME = 0x00010000,        /**< Enable Harvest IFRAME init fragment - set 17th bit*/
+	eHARVEST_ENABLE_DSM_CC = 0x00020000,             /**< Enable Harvest digital storage media command and control (DSM-CC)- set 18th bit */
+	eHARVEST_ENABLE_DEFAULT = 0xFFFFFFFF             /**< Harvest unknown - Enable all by default */
+};
+
 long long aamp_GetCurrentTimeMS(void)
 {
 	long long timeMS = 0;
@@ -71,7 +99,74 @@ std::string aamp_getHostFromURL(std::string url)
 
 int getHarvestConfigForMedia(MediaType fileType)
 {
-    return 0;
+	enum HarvestConfigType harvestType = eHARVEST_ENABLE_DEFAULT;
+	switch(fileType)
+	{
+		case eMEDIATYPE_VIDEO:
+			harvestType = eHARVEST_ENABLE_VIDEO;
+			break; 
+
+		case eMEDIATYPE_INIT_VIDEO:
+			harvestType = eHARVEST_ENABLE_INIT_VIDEO;
+			break;
+
+		case eMEDIATYPE_AUDIO:
+			harvestType = eHARVEST_ENABLE_AUDIO;
+			break; 
+		
+		case eMEDIATYPE_INIT_AUDIO:
+			harvestType = eHARVEST_ENABLE_INIT_AUDIO;
+			break; 
+		
+		case eMEDIATYPE_SUBTITLE:
+			harvestType = eHARVEST_ENABLE_SUBTITLE;
+			break; 
+
+		case eMEDIATYPE_INIT_SUBTITLE:
+			harvestType = eHARVEST_ENABLE_INIT_SUBTITLE;
+			break; 
+
+		case eMEDIATYPE_MANIFEST:
+			harvestType = eHARVEST_ENABLE_MANIFEST;
+			break; 
+
+		case eMEDIATYPE_LICENCE:
+			harvestType = eHARVEST_ENABLE_LICENCE;
+			break; 
+
+		case eMEDIATYPE_IFRAME:
+			harvestType = eHARVEST_ENABLE_IFRAME;
+			break; 
+		
+		case eMEDIATYPE_INIT_IFRAME:
+			harvestType = eHARVEST_ENABLE_INIT_IFRAME;
+			break;
+
+		case eMEDIATYPE_PLAYLIST_VIDEO:
+			harvestType = eHARVEST_ENABLE_PLAYLIST_VIDEO;
+			break; 
+
+		case eMEDIATYPE_PLAYLIST_AUDIO:
+			harvestType = eHARVEST_ENABLE_PLAYLIST_AUDIO;
+			break; 
+
+		case eMEDIATYPE_PLAYLIST_SUBTITLE:
+			harvestType = eHARVEST_ENABLE_PLAYLIST_SUBTITLE;
+			break; 
+		
+		case eMEDIATYPE_PLAYLIST_IFRAME:
+			harvestType = eHARVEST_ENABLE_PLAYLIST_IFRAME;
+			break;  
+
+		case eMEDIATYPE_DSM_CC: 
+			harvestType = eHARVEST_ENABLE_DSM_CC;
+			break; 
+
+		default:
+			harvestType = eHARVEST_DISABLE_DEFAULT;
+			break; 
+	}
+	return (int)harvestType;
 }
 
 void getDefaultHarvestPath(std::string &value)
