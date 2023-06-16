@@ -162,11 +162,8 @@
 #define DEFAULT_TARGET_LOW_LATENCY			6					/**< Target Default Latency */
 #define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.90f					/**< min Rate correction speed */
 #define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.10f					/**< max Rate correction speed */
-#ifdef AMLOGIC
-#define DEFAULT_NORMAL_RATE_CORRECTION_SPEED  1.000001f	/**< Live Catchup Normal play rate adjusted to 1.001 in Amlogic */
-#else
-#define DEFAULT_NORMAL_RATE_CORRECTION_SPEED  1.00f	   	/**< Live Catchup Normal play rate adjusted to 1 for others */
-#endif
+#define DEFAULT_NORMAL_RATE_CORRECTION_SPEED    1.00f	   	/**< Live Catchup Normal play rate */
+
 // DELIA-61708 audio drop workaround
 #if defined(BRCM)
 #define DEFAULT_INITIAL_RATE_CORRECTION_SPEED 1.000001f	/**< Initial rate correction speed to avoid audio drop */

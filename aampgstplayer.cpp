@@ -533,7 +533,6 @@ static void analyze_streams(AAMPGstPlayer *_this)
 #endif
 }
 
-
 /**
  * @brief Callback for appsrc "need-data" signal
  * @param[in] source pointer to appsrc instance triggering "need-data" signal
@@ -603,6 +602,53 @@ static gboolean appsrc_seek(GstAppSrc *src, guint64 offset, AAMPGstPlayer * _thi
 #endif
 	return TRUE;
 }
+
+/**
+ * @brief AAMPGstPlayer_HandleInstantRateChangeSeekProbe
+ * @param[in] pad pad element
+ * @param[in] info Pad information
+ * @param[in] data pointer to data
+ */
+static GstPadProbeReturn AAMPGstPlayer_HandleInstantRateChangeSeekProbe(GstPad* pad, GstPadProbeInfo* info, gpointer data)
+{
+    GstEvent *event = GST_PAD_PROBE_INFO_EVENT(info);
+    GstSegment *segment = reinterpret_cast<GstSegment*>(data);
+    
+    switch ( GST_EVENT_TYPE(event) ) 
+    {
+    	case GST_EVENT_SEEK:
+    	    break;
+    	case  GST_EVENT_SEGMENT:
+    	    gst_event_copy_segment(event, segment);
+    	default:
+    	    AAMPLOG_INFO("In default case of  GST_EVENT_TYPE in padprobeReturn"); 
+            return GST_PAD_PROBE_OK;
+    };
+
+    gdouble rate = 1.0;
+    GstSeekFlags flags = GST_SEEK_FLAG_NONE;
+    gst_event_parse_seek (event, &rate, nullptr, &flags, nullptr, nullptr, nullptr, nullptr);
+    AAMPLOG_TRACE("rate %f segment->rate %f segment->format %d %d", rate, segment->rate, segment->format, GST_FORMAT_TIME);
+
+    if (!!(flags & GST_SEEK_FLAG_INSTANT_RATE_CHANGE)) 
+    {
+        gdouble rateMultiplier = rate / segment->rate;
+        GstEvent *rateChangeEvent =
+            gst_event_new_instant_rate_change(rateMultiplier, static_cast<GstSegmentFlags>(flags));
+        
+        gst_event_set_seqnum (rateChangeEvent, gst_event_get_seqnum (event));
+        GstPad *peerPad = gst_pad_get_peer(pad);
+        
+        if ( gst_pad_send_event (peerPad, rateChangeEvent) != TRUE )
+            GST_PAD_PROBE_INFO_FLOW_RETURN(info) = GST_FLOW_NOT_SUPPORTED;
+
+        gst_object_unref(peerPad);
+        gst_event_unref(event);
+        return GST_PAD_PROBE_HANDLED;
+    }
+    return GST_PAD_PROBE_OK;
+}
+
 
 
 /**
@@ -1508,7 +1554,25 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 			}
 #endif
 		}
-
+#if defined(AMLOGIC)
+		else if (NULL != msg->src)
+		{
+			
+			if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
+			{
+				GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(msg->src), "src");
+				if(aamp_StartsWith(GST_OBJECT_NAME(msg->src), "source"))
+				{
+                                gst_pad_add_probe (
+                                   sourceEleSrcPad,
+                                   GST_PAD_PROBE_TYPE_EVENT_BOTH,
+                                   AAMPGstPlayer_HandleInstantRateChangeSeekProbe,
+                                   gst_segment_new(),
+                                   reinterpret_cast<GDestroyNotify>(gst_segment_free));
+				}
+            }
+		}
+#endif
         if ((NULL != msg->src) &&
 #if defined(REALTEKCE)
             AAMPGstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), _this)
@@ -1809,7 +1873,6 @@ bool AAMPGstPlayer::CreatePipeline()
 {
 	FN_TRACE( __FUNCTION__ );
 	bool ret = false;
-
 	/* Destroy any existing pipeline before creating a new one */
 	if (privateContext->pipeline || privateContext->bus)
 	{
@@ -2163,7 +2226,6 @@ static void callback_element_added (GstElement * element, GstElement * source, g
 static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 {
 	media_stream* stream = &_this->privateContext->stream[streamId];
-
 	if (!stream->using_playersinkbin)
 	{
 		if (eMEDIATYPE_SUBTITLE == streamId)
@@ -2412,6 +2474,7 @@ void AAMPGstPlayer::SendGstEvents(MediaType mediaType)
 	media_stream* stream = &privateContext->stream[mediaType];
 	gboolean enableOverride = FALSE;
 	GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");	/* Retrieves the src pad */
+
 	if(stream->flush)
 	{
 		AAMPLOG_WARN("flush pipeline");
@@ -4548,7 +4611,23 @@ bool AAMPGstPlayer::ForwardAudioBuffersToAux()
  */
 bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 {
-#if defined (REALTEKCE) || defined (AMLOGIC)
+    /** For gst version 1.18 and Amlogic*/
+#if defined (AMLOGIC) && GST_CHECK_VERSION(1,18,0)
+	AAMPLOG_INFO("AAMPGstPlayer: gst_event_new_instant_rate_change: %f ...V6", rate);
+	for (int iTrack = 0; iTrack < AAMP_TRACK_COUNT; iTrack++)
+	{
+		if(privateContext->stream[iTrack].source != NULL) 
+		{
+			GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(privateContext->stream[iTrack].source), "src");
+			gst_pad_send_event(sourceEleSrcPad, gst_event_new_seek (rate, GST_FORMAT_TIME,
+				static_cast<GstSeekFlags>(GST_SEEK_FLAG_INSTANT_RATE_CHANGE), GST_SEEK_TYPE_NONE,
+				0, GST_SEEK_TYPE_NONE, 0));
+			AAMPLOG_INFO("Seeking in %s ( %d )", PrivateInstanceAAMP::MediaTypeString(static_cast<MediaType>(iTrack)), iTrack);
+		}
+	}
+    AAMPLOG_WARN ("Current rate: %g", rate);
+#elif defined (REALTEKCE) || defined (AMLOGIC)
+
 	AAMPLOG_WARN("AAMPGstPlayer: =send custom-instant-rate-change : %f ...", rate);
 	GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
 	if (!structure)
