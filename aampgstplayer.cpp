@@ -340,8 +340,6 @@ AAMPGstPlayer::AAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp
 		{
 			gst_debug_set_threshold_from_string(debugLevel.c_str(), 1);
 		}
-
-		CreatePipeline();
 	}
 	else
 	{
