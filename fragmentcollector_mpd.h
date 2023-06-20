@@ -790,10 +790,11 @@ private:
 	 * @param[in] adaptationSetIdx - adaptation set index
 	 * @param[in] mediaType - media type
 	 * @param[in] qGstProtectEvent - Flag denotes if GST protection event should be queued in sink
+	 * @param[in] isVssPeriod flag denotes if this is for a VSS period
 	 * @brief queue content protection for the given adaptation set
 	 * @retval true on success
 	 */
-	void QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, MediaType mediaType, bool qGstProtectEvent = true);
+	void QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, MediaType mediaType, bool qGstProtectEvent = true, bool isVssPeriod = false);
 
 	/**
 	 * @fn ProcessAllContenProtForMediaType

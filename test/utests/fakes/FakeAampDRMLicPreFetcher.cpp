@@ -35,7 +35,7 @@ bool AampLicensePreFetcher::Init()
 	return false;
 }
 
-bool AampLicensePreFetcher::QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type)
+bool AampLicensePreFetcher::QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type, bool isVssPeriod)
 {
 	return false;
 }
@@ -46,6 +46,11 @@ bool AampLicensePreFetcher::DeInit()
 }
 
 void AampLicensePreFetcher::PreFetchThread()
+{
+
+}
+
+void AampLicensePreFetcher::VssPreFetchThread()
 {
 
 }

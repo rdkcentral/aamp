@@ -3449,7 +3449,7 @@ void StreamAbstractionAAMP_MPD::ProcessVssLicenseRequset()
 			{
 				std::string keyIdDebugStr = AampLogManager::getHexDebugStr(keyIdArray);
 				AAMPLOG_INFO("New VSS Period : %s Key ID: %s", tempPeriod->GetId().c_str(), keyIdDebugStr.c_str());
-				QueueContentProtection(tempPeriod, 0, eMEDIATYPE_VIDEO);
+				QueueContentProtection(tempPeriod, 0, eMEDIATYPE_VIDEO, true, true);
 			}
 			else
 			{
@@ -3468,7 +3468,7 @@ void StreamAbstractionAAMP_MPD::ProcessVssLicenseRequset()
  * @brief queue content protection for the given adaptation set
  * @retval true on success
  */
-void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, MediaType mediaType, bool qGstProtectEvent)
+void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, MediaType mediaType, bool qGstProtectEvent, bool isVssPeriod)
 {
 	if (period)
 	{
@@ -3495,7 +3495,7 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
 						sessionMgr->QueueProtectionEvent(drmHelper, period->GetId(), adaptationSetIdx, mediaType);
 					}
 					/** Queue content protection in DRM license fetcher **/
-					sessionMgr->QueueContentProtection(drmHelper, period->GetId(), adaptationSetIdx, mediaType);
+					sessionMgr->QueueContentProtection(drmHelper, period->GetId(), adaptationSetIdx, mediaType, isVssPeriod);
 				}
 				hasDrm = true;
 				aamp->licenceFromManifest = true;
@@ -3526,7 +3526,7 @@ void StreamAbstractionAAMP_MPD::ProcessVssLicenseRequset()
 /**
  * @brief queue content protection for the given adaptation set
  */
-void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, MediaType mediaType, bool qGstProtectEvent)
+void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, MediaType mediaType, bool qGstProtectEvent, bool isVssPeriod)
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
 	AAMPLOG_WARN("MPD DRM not enabled");

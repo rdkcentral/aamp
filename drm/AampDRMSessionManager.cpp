@@ -231,12 +231,13 @@ void AampDRMSessionManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
  * @param periodId ID of the period to which CP belongs to
  * @param adapId Index of the adaptation to which CP belongs to
  * @param type media type
+ * @param isVssPeriod flag denotes if this is for a VSS period
  * @return true if successfully queued
  * @return false if error occurred
  */
-bool AampDRMSessionManager::QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type)
+bool AampDRMSessionManager::QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type, bool isVssPeriod)
 {
-	return mLicensePrefetcher->QueueContentProtection(drmHelper, periodId, adapIdx, type);
+	return mLicensePrefetcher->QueueContentProtection(drmHelper, periodId, adapIdx, type, isVssPeriod);
 }
 
 /**

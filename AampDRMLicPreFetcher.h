@@ -44,6 +44,7 @@ struct LicensePreFetchObject
 	MediaType mType;                        /** Stream type*/
 	int mId;                                /** Object ID*/
 	static int staticId;
+	bool mIsVssPeriod;
 
 	/**
 	 * @brief Construct a new License Pre Fetch Object object
@@ -51,13 +52,15 @@ struct LicensePreFetchObject
 	 * @param drmHelper AampDrmHelper shared_ptr
 	 * @param periodId ID of the period to which CP belongs to
 	 * @param adapIdx Index of the adaptation to which CP belongs to
+	 * @param isVssPeriod flag denotes if this is for a VSS period
 	 * @param type media type
 	 */
-	LicensePreFetchObject(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type): mHelper(drmHelper),
+	LicensePreFetchObject(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type, bool isVssPeriod): mHelper(drmHelper),
 															mPeriodId(periodId),
 															mAdaptationIdx(adapIdx),
 															mType(type),
-															mId(staticId++)
+															mId(staticId++),
+															mIsVssPeriod(isVssPeriod)
 	{
 		AAMPLOG_TRACE("Creating new LicensePreFetchObject, id:%d", mId);
 	}
@@ -140,10 +143,11 @@ public:
 	 * @param periodId ID of the period to which CP belongs to
 	 * @param adapId Index of the adaptation to which CP belongs to
 	 * @param type media type
+	 * @param isVssPeriod flag denotes if this is for a VSS period
 	 * @return true if successfully queued
 	 * @return false if error occurred
 	 */
-	bool QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type);
+	bool QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type, bool isVssPeriod = false);
 
 	/**
 	 * @brief De-initialize/free resources
@@ -182,6 +186,13 @@ public:
 	 */
 	void SetSendErrorOnFailure(bool sendErrorOnFailure) { mSendErrorOnFailure = sendErrorOnFailure; }
 
+	/**
+         * @brief Thread for processing VSS content protection queued using QueueContentProtection
+         * Thread will be joined when DeInit is called
+         * 
+         */
+
+	void VssPreFetchThread();
 private:
 
 	/**
@@ -214,6 +225,11 @@ private:
 	PrivateInstanceAAMP *mPrivAAMP;                     /** PrivateInstanceAAMP instance*/
 	AampLogManager* mLogObj;                            /** AampLogManager instance */
 	AampLicenseFetcher *mFetchInstance;                 /** AampLicenseFetcher instance for notifying DRM session status*/
+	std::thread mVssPreFetchThread;                     /** Thread for pre-fetching VSS license*/
+	std::deque<LicensePreFetchObjectPtr> mVssFetchQueue;/** Queue for storing VSS content protection objects*/
+	std::mutex mQVssMutex;                              /** Mutex for accessing the mVssFetchQueue*/
+	std::condition_variable mQVssCond;                  /** Conditional variable to notify addition of an obj to mVssFetchQueue*/
+	bool mVssPreFetchThreadStarted;                     /** Flag denotes if Vss thread started*/
 };
 
 #endif /* _AAMP_LICENSE_PREFETCHER_HPP */
