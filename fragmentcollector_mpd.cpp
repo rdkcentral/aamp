@@ -11069,8 +11069,12 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				int adIdx = mCdaiObject->CheckForAdStart(rate, (AdEvent::INIT == evt), mBasePeriodId, mBasePeriodOffset, brkId, adOffset);
 				if(!brkId.empty() && adIdx >= 0)
 				{
-					AAMPLOG_INFO("[CDAI] CheckForAdStart found Adbreak. adIdx[%d] mBasePeriodOffset[%lf] adOffset[%lf].", adIdx, mBasePeriodOffset, adOffset);
+					AAMPLOG_INFO("[CDAI] CheckForAdStart found Adbreak. adIdx[%d] mBasePeriodOffset[%lf] adOffset[%lf] SeekOffset:%f.", adIdx, mBasePeriodOffset, adOffset,mCdaiObject->mContentSeekOffset);
+					//Setting  mContentSeekOffset as 0 if player is going to play DAI ad.
+					//Otherwise, player will skip initial fragments of DAI ad  sometimes due to the seekoffset.
+					//Dai ad playback should start from first fragment.
 
+					mCdaiObject->mContentSeekOffset = mBasePeriodOffset;
 					mCdaiObject->mCurPlayingBreakId = brkId;
 					if(-1 != adIdx && mCdaiObject->mAdBreaks[brkId].ads)
 					{
