@@ -85,6 +85,20 @@ install_system_packages() {
     fi
 
     #Check/Install base packages needed by aamp env
+
+    echo "Checking/removing ORC package which cause compile errors with gst-plugins-good"
+    brew list | grep -i orc
+    if [ $? -eq 0 ]; then
+        read -p "Found ORC, remove ORC package (Y/N)" remove_orc
+        case $remove_orc in
+            [Yy]* ) brew remove -f --ignore-dependencies orc 
+                ;;
+            * ) echo "Exiting without removal ..."
+                exit
+                ;;
+        esac
+    fi
+     
     echo "Check/Install aamp development environment base packages"
     find_or_install_pkgs  json-glib cmake $defaultopensslversion libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config lcov gcovr
 
