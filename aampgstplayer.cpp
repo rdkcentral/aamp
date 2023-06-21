@@ -2601,7 +2601,11 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 	}
 	// Check if the override event needs to be sent again when we receive the actual buffer  
 	// From the buffer we will calculate PTS again and sent it
-	stream->resendQtDemuxOverride = ((eMEDIAFORMAT_DASH == aamp->mMediaFormat) && (initFragment) && (0 == aamp->GetFirstPTS()));
+	if (isFirstBuffer)
+	{
+		// initFragment is always true for isFirstBuffer in DASH scenario
+		stream->resendQtDemuxOverride = ((eMEDIAFORMAT_DASH == aamp->mMediaFormat) && (initFragment) && (0 == aamp->GetFirstPTS()));
+	}
 
 	if( aamp->DownloadsAreEnabled())
 	{
