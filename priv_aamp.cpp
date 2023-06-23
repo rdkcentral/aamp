@@ -4602,7 +4602,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
 	{
 		mSeekOperationInProgress = true;
-		if(! GetLLDashServiceData()->lowLatencyMode )
+		if ((mMediaFormat == eMEDIAFORMAT_HLS) || (mMediaFormat == eMEDIAFORMAT_HLS_MP4))
 		{
 			mFirstFragmentTimeOffset = -1 ; //reset the firstFragmentOffsetTime when seek opeartion is done
 		}
