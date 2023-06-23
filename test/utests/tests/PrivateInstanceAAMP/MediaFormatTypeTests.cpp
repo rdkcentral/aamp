@@ -122,7 +122,7 @@ const char* hlsUrl[] =
 	EXPECT_EQ(mediaType, eMEDIAFORMAT_OTA);
     	mediaType = mPrivateInstanceAAMP->GetMediaFormatType("mr:2");
 	EXPECT_EQ(mediaType, eMEDIAFORMAT_OTA);
-    	mediaType = mPrivateInstanceAAMP->GetMediaFormatType("ocap:2");
+    	mediaType = mPrivateInstanceAAMP->GetMediaFormatType("ocap://");
 	EXPECT_EQ(mediaType, eMEDIAFORMAT_RMF);
 
 	for(int i=0; i < ARRAY_SIZE(hlsUrl); i++)

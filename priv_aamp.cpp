@@ -5618,10 +5618,10 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 	{
 		rc = eMEDIAFORMAT_OTA;
 	}
-	else if(urlStr.rfind("ocap:",0)==0)
+	else if(urlStr.rfind("ocap://") != std::string::npos)
 	{
 		rc = eMEDIAFORMAT_RMF;
-	}	
+	}
 	else if(urlStr.rfind("http://127.0.0.1", 0) == 0) // starts with localhost
 	{ // where local host is used; inspect further to determine if this locator involves FOG
 
