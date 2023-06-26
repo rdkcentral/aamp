@@ -1,0 +1,1242 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2023 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+/**************************************
+* @file AampMPDDownloader.cpp
+* @brief MPD Downloader for Aamp
+**************************************/
+
+
+#include "AampCurlDownloader.h"
+#include "AampMPDDownloader.h"
+#include "AampUtils.h"
+#include "AampLogManager.h"
+
+/**
+ * @brief Add attriblutes to xml node
+ */
+static void addAttributesToNode(xmlTextReaderPtr *reader, Node *node);
+/**
+ * @brief Get xml node form reader
+ *
+ * @retval xml node
+ */
+static Node* processNode(xmlTextReaderPtr *reader, std::string url, bool isAd=false);
+
+#define DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS 3000
+
+void _manifestDownloadResponse::show()
+{
+	mMPDDownloadResponse->show();
+	AAMPLOG_INFO("IsLive : %d", mIsLiveManifest);
+	AAMPLOG_INFO("MPD RetStatus : %d", mMPDStatus);
+	if(mMPDInstance)
+	{
+		if(mMPDInstance->GetLocations().size())
+		{
+			 AAMPLOG_INFO("location: %s", mMPDInstance->GetLocations()[0].c_str());
+		}
+		AAMPLOG_INFO("type: %s", mMPDInstance->GetType().c_str());
+		auto periods = mMPDInstance->GetPeriods();
+		AAMPLOG_INFO("Size of 'periods': %zu\n", periods.size());
+		AAMPLOG_INFO("Minimum Update Period:  %s\n", mMPDInstance->GetMinimumUpdatePeriod().c_str());
+	}
+}
+
+ _manifestDownloadResponse::~_manifestDownloadResponse()
+{
+	if(mRootNode != NULL)
+	{
+		SAFE_DELETE(mRootNode);
+	}
+	if(mMPDParseHelper)
+	{
+		SAFE_DELETE(mMPDParseHelper);
+	}
+	mMPDDownloadResponse	=	NULL;
+	mDashMpdDoc	=	NULL;
+
+}
+
+void _manifestDownloadResponse::parseMpdDocument()
+{
+	AAMPLOG_TRACE("Enter");
+	if(mDashMpdDoc == nullptr)
+	{
+		mDashMpdDoc = std::make_shared<DashMPDDocument>(mMPDDownloadResponse->getString());
+	}
+	AAMPLOG_TRACE("Exit");
+}
+
+std::shared_ptr<_manifestDownloadResponse> _manifestDownloadResponse::clone()
+{
+	AAMPLOG_TRACE("Enter");
+	std::shared_ptr<_manifestDownloadResponse> clonedDoc = std::make_shared<_manifestDownloadResponse>(*this);
+	if(this->mDashMpdDoc)
+	{
+		clonedDoc->mDashMpdDoc = this->mDashMpdDoc->clone(true);
+	}
+	clonedDoc->mMPDDownloadResponse = std::make_shared<DownloadResponse>(*this->mMPDDownloadResponse);
+	clonedDoc->mMPDDownloadResponse->mDownloadData = mMPDDownloadResponse->mDownloadData;
+	clonedDoc->mMPDParseHelper = new AampMPDParseHelper(*this->mMPDParseHelper);
+	clonedDoc->parseMPD();
+	AAMPLOG_TRACE("Exit");
+	return clonedDoc;
+}
+
+/**
+*   @fn parseMPD
+*   @brief parseMPD function to parse the downloaded MPD file
+*/
+void _manifestDownloadResponse::parseMPD()
+{
+	std::string manifestStr;	
+	xmlTextReaderPtr mXMLReader =   NULL; // Initialize to nullptr
+
+	if(this->mMPDDownloadResponse)
+	{
+		manifestStr = mMPDDownloadResponse->getString();
+	}
+
+	if(!manifestStr.empty())
+	{
+		// Parse the MPD and create mpd object ;
+		uint32_t fetchTime = Time::GetCurrentUTCTimeInSec();
+
+		mXMLReader = xmlReaderForMemory( (char *)manifestStr.c_str(), (int) manifestStr.length(), NULL, NULL, 0);
+		if (mXMLReader != NULL)
+		{
+			int retStatus = xmlTextReaderRead(mXMLReader);
+			if (retStatus == 1)
+			{
+				mRootNode = processNode(&mXMLReader, mMPDDownloadResponse->sEffectiveUrl);
+				if(mRootNode != NULL)
+				{
+					MPD *mpd = mRootNode->ToMPD();
+					if (mpd)
+					{
+						mpd->SetFetchTime(fetchTime);
+						std::shared_ptr<dash::mpd::IMPD> tmp_ptr(mpd);
+						mMPDInstance		=	tmp_ptr;
+						mMPDStatus 		= 	AAMPStatusType::eAAMPSTATUS_OK;
+						mMPDParseHelper->Initialize(mpd);
+					}
+					else
+					{
+						mMPDStatus = AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+					}
+				}
+				else if (mRootNode == NULL)
+				{
+					mMPDStatus = AAMPStatusType::eAAMPSTATUS_MANIFEST_PARSE_ERROR;
+				}
+			}
+			else if (retStatus == -1)
+			{
+				mMPDStatus = AAMPStatusType::eAAMPSTATUS_MANIFEST_PARSE_ERROR;
+			}
+		}
+	}
+	if(mXMLReader != NULL)
+	{
+		xmlFreeTextReader(mXMLReader);
+		mXMLReader = NULL;
+	}
+
+	AAMPLOG_INFO("Parse MPD Completed ...");
+}
+
+/**
+ * @brief Get xml node form reader
+ *
+ * @retval xml node
+ */
+static Node* processNode(xmlTextReaderPtr *reader, std::string url, bool isAd)
+{
+	int type = xmlTextReaderNodeType(*reader);
+
+	if (type != WhiteSpace && type != Text)
+	{
+		while (type == Comment || type == WhiteSpace)
+		{
+			if(!xmlTextReaderRead(*reader))
+			{
+				AAMPLOG_WARN("xmlTextReaderRead  failed");
+			}
+			type = xmlTextReaderNodeType(*reader);
+		}
+
+		Node *node = new Node();
+		node->SetType(type);
+		node->SetMPDPath(Path::GetDirectoryPath(url));
+
+		const char *name = (const char *)xmlTextReaderConstName(*reader);
+		if (name == NULL)
+		{
+			SAFE_DELETE(node);
+			return NULL;
+		}
+
+		int	isEmpty = xmlTextReaderIsEmptyElement(*reader);
+		node->SetName(name);
+		addAttributesToNode(reader, node);
+
+		if(isAd && !strcmp("Period", name))
+		{
+			//Making period ids unique. It needs for playing same ad back to back.
+			static int UNIQ_PID = 0;
+			std::string periodId = std::to_string(UNIQ_PID++) + "-";
+			if(node->HasAttribute("id"))
+			{
+				periodId += node->GetAttributeValue("id");
+			}
+			node->AddAttribute("id", periodId);
+		}
+
+		if (isEmpty)
+			return node;
+
+		Node    *subnode = NULL;
+		int     ret = xmlTextReaderRead(*reader);
+		int subnodeType = xmlTextReaderNodeType(*reader);
+
+		while (ret == 1)
+		{
+			if (!strcmp(name, (const char *)xmlTextReaderConstName(*reader)))
+			{
+				return node;
+			}
+
+			if(subnodeType != Comment && subnodeType != WhiteSpace)
+			{
+				subnode = processNode(reader, url, isAd);
+				if (subnode != NULL)
+					node->AddSubNode(subnode);
+			}
+
+			ret = xmlTextReaderRead(*reader);
+			subnodeType = xmlTextReaderNodeType(*reader);
+		}
+
+		return node;
+	}
+	else if (type == Text)
+	{
+		xmlChar * text = xmlTextReaderReadString(*reader);
+
+		if (text != NULL)
+		{
+			Node *node = new Node();
+			node->SetType(type);
+			node->SetText((const char*)text);
+			xmlFree(text);
+			return node;
+		}
+	}
+	return NULL;
+}
+
+
+/**
+ * @brief Add attriblutes to xml node
+ * @param reader xmlTextReaderPtr
+ * @param node xml Node
+ */
+static void addAttributesToNode(xmlTextReaderPtr *reader, Node *node)
+{
+	//FN_TRACE_F_MPD( __FUNCTION__ );
+	if (xmlTextReaderHasAttributes(*reader))
+	{
+		while (xmlTextReaderMoveToNextAttribute(*reader))
+		{
+			std::string key = (const char *)xmlTextReaderConstName(*reader);
+			if(!key.empty())
+			{
+				std::string value = (const char *)xmlTextReaderConstValue(*reader);
+				node->AddAttribute(key, value);
+			}
+			else
+			{
+				AAMPLOG_WARN("key   is null");  //CID:85916 - Null Returns
+			}
+		}
+	}
+}
+
+/**
+*   @fn AampMPDDownloader
+*   @brief Default Constructor
+*/
+AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBufferMutex(),mRefreshMtx(),mRefreshCondVar(),
+	mMPDDnldMutex(),mRefreshInterval(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS),mLatencyValue(-1),mReleaseCalled(true),
+	mMPDDnldCfg(NULL),mDownloaderThread_t1(),mDownloaderThread_t2(),mDownloader1(),mDownloader2(),mMPDData(nullptr),mAppName(""),
+	mLogObj(NULL),mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
+	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0),mIsLowLatency(false)
+{
+	AAMPLOG_INFO("%s\n",__FUNCTION__);
+}
+
+/**
+*   @fn AampMPDDownloader
+*   @brief Destructor
+*/
+AampMPDDownloader::~AampMPDDownloader()
+{
+	AAMPLOG_INFO("%s",__FUNCTION__);
+	// Clear the queue and release all the objects
+	Release();
+	// reset the pointers , its shared pointer, it will released automatically
+	mMPDData	=	nullptr;
+	mMPDDnldCfg	=	NULL;
+	mCachedMPDData	=	nullptr;
+}
+
+/**
+*   @fn Initialize
+*   @brief Initialize with MPD Download Input
+*/
+void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, AampLogManager *logObj, std::string appName)
+{
+	if(mpdDnldCfg == nullptr)
+	{
+		AAMPLOG_INFO("Need a valid MPD download config.\n");
+		return;
+	}
+
+	mAppName	=	appName;
+	mLogObj		=	logObj;
+
+	// Release and reset and previously called values
+	// Initialize to be called only once . If repeatedly called , then stored vars will be
+	// resetted
+	Release();
+	mReleaseCalled = false;
+
+	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+	mMPDDnldCfg = mpdDnldCfg;
+
+}
+
+/**
+*   @fn SetNetworkTimeout
+*   @brief Set Network Timeout for Manifest download
+*/
+void AampMPDDownloader::SetNetworkTimeout(uint32_t iDurationSec)
+{
+	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+	if(mMPDDnldCfg && iDurationSec > 0)
+	{
+		mMPDDnldCfg->mDnldConfig->iDownloadTimeout = iDurationSec;
+	}
+}
+/**
+*   @fn SetStallTimeout
+*   @brief Set Stall Timeout for Manifest download
+*/
+void AampMPDDownloader::SetStallTimeout(uint32_t iDurationSec)
+{
+	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+	if(mMPDDnldCfg)
+	{
+		mMPDDnldCfg->mDnldConfig->iStallTimeout = iDurationSec;
+	}
+}
+/**
+*   @fn SetStartTimeout
+*   @brief Set Start Timeout for Manifest download
+*/
+void AampMPDDownloader::SetStartTimeout(uint32_t iDurationSec)
+{
+	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+	if(mMPDDnldCfg)
+	{
+		mMPDDnldCfg->mDnldConfig->iStartTimeout = iDurationSec;
+	}
+}
+/**
+*   @fn SetBufferAvailability
+*   @brief Set Buffer Value to calculate the manifest refresh rate
+*/
+void AampMPDDownloader::SetBufferAvailability(int iDurationMilliSec)
+{
+	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+	mLatencyValue	=	iDurationMilliSec;
+}
+
+/**
+*   @fn Release
+*   @brief Release function to clear the allocation and join threads
+*/
+void AampMPDDownloader::Release()
+{
+	AAMPLOG_INFO("Release Called in MPD Downloader");
+	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+	if(!mReleaseCalled)
+	{
+		mReleaseCalled = true;
+		mRefreshCondVar.notify_all();
+		mMPDDnldDataCondVar.notify_all();
+		mMPDNotifierCondVar.notify_all();
+
+		mDownloader1.Release();
+		mDownloader2.Release();
+
+		if(mDownloaderThread_t1.joinable())
+			mDownloaderThread_t1.join();
+
+		if(mDownloaderThread_t2.joinable())
+			mDownloaderThread_t2.join();
+
+		if(mManifestUpdateCb != NULL)
+		{
+			UnRegisterCallback();
+		}
+		if(mDownloadNotifierThread.joinable())
+			mDownloadNotifierThread.join();
+		while (!mMPDBufferQ.empty())
+		{
+			mMPDBufferQ.pop();
+		}
+
+		AAMPLOG_INFO("Release Called in MPD Downloader - Exit %ld %ld", mMPDData.use_count(),mMPDDnldCfg.use_count());
+
+	}
+}
+
+/**
+*   @fn Start
+*   @brief Start the Manifest downlaoder
+*/
+void AampMPDDownloader::Start()
+{
+ 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+	// Start the thread to initiate the download of manifest
+	if(mMPDDnldCfg && !mMPDDnldCfg->mTuneUrl.empty())
+	{
+		// start the download of tune url
+		try
+		{
+			mDownloaderThread_t1 = std::thread(&AampMPDDownloader::downloadMPDThread1, this);
+			AAMPLOG_INFO("Thread created for MPD Downloader1 [%lu]", GetPrintableThreadID(mDownloaderThread_t1));
+		}
+		catch(std::exception &e)
+		{
+			AAMPLOG_WARN("Thread create failed for MPD Downloader1 : %s", e.what());
+		}
+
+		#if 0 // downloader thread 2 is not required now . When Option 2 is considered , need to do parallel download
+		// Following to be done after successful download of Main Manifest
+		if(!mMPDDnldCfg->mStichUrl.empty())
+		{
+			try
+			{
+				mDownloaderThread_t2 = std::thread(&AampMPDDownloader::downloadMPDThread2, this);
+				AAMPLOG_INFO("Thread created for MPD Downloader2 [%lu]", GetPrintableThreadID(mDownloaderThread_t2));
+			}
+			catch(std::exception &e)
+			{
+				AAMPLOG_WARN("Thread create failed for MPD Downloader2 : %s", e.what());
+			}
+		}
+		#endif
+	}
+	else
+	{
+		AAMPLOG_ERR("No Tune Url provided for downlaod ");
+	}
+}
+
+/**
+*   @fn downloadMPDThread1
+*   @brief downloadMPDThread1 thread function to download the Manifest 1
+*/
+void AampMPDDownloader::downloadMPDThread1()
+{
+	bool refreshNeeded = false;
+	std::string tuneUrl = mMPDDnldCfg->mTuneUrl;
+	bool firstDownload	=	true;
+	ManifestDownloadResponsePtr cachedBackupData = nullptr;
+	do
+	{
+		std::unordered_map<std::string, std::vector<std::string>> Headers = mMPDDnldCfg->mDnldConfig->sCustomHeaders;
+		if(mMPDDnldCfg->mCMCDCollector)
+		{
+			std::unordered_map<std::string, std::vector<std::string>> CMCDHeaders = getCMCDHeader();
+			Headers.insert(CMCDHeaders.begin(), CMCDHeaders.end());
+		}
+		mMPDDnldCfg->mDnldConfig->sCustomHeaders = Headers;
+		mDownloader1.Initialize(mMPDDnldCfg->mDnldConfig);
+		refreshNeeded = false;
+		long long tStartTime = NOW_STEADY_TS_MS;
+		//mDownloader1.Clear();
+		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, tuneUrl.c_str());
+		mMPDData = std::make_shared<ManifestDownloadResponse> ();
+		mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
+
+		if(mMPDData->mMPDDownloadResponse->curlRetValue == 0 && mMPDData->mMPDDownloadResponse->iHttpRetValue == 200)
+		{
+			//std::string dataStr =  std::string( mMPDData->mMPDDownloadResponse->mDownloadData.begin(), mMPDData->mMPDDownloadResponse->mDownloadData.end());
+			//mMPDData->show();
+			// store the last manifestdownloadTime
+			mMPDData->mLastPlaylistDownloadTimeMs	=	aamp_GetCurrentTimeMS();
+			mMPDData->parseMPD();
+			if(firstDownload)
+			{
+				 // Check for LLD Manifest for first manifest download only . This is needed to determine the refresh parameters
+                                mIsLowLatency         =               isMPDLowLatency(mMPDData, mMPDData->mLLDashData);
+			}
+			if(mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK)
+			{
+				readMPDData(mMPDData);
+			}
+			AAMPLOG_INFO("Successfully parsed Manifest ...IsLive[%d]",mMPDData->mIsLiveManifest);
+
+			// Update the effective url , so that next refresh uses the effective url
+			tuneUrl = mMPDData->mMPDDownloadResponse->sEffectiveUrl;
+
+			// first time download complete . Do what need to be done . ....
+			if(firstDownload && mMPDData->mIsLiveManifest)
+			{
+				// For very first tune , if mpd need to be truncated ( Cloud TSB Support )
+				if(mMPDDnldCfg->mCullManifestAtTuneStart)
+				{
+					// Cull mMPDData to mStartPosnToTSB
+					//truncateMPDStartPosition();
+				}
+
+				if(!mMPDDnldCfg->mStichUrl.empty())
+				{
+					mCachedMPDData	=	mMPDData;
+					tuneUrl	=	mMPDDnldCfg->mStichUrl;
+					AAMPLOG_INFO("Update the Cached MPD Data. New URL:%s ", tuneUrl.c_str());
+				}
+				firstDownload	=	 false;
+			}
+			else
+			{
+				// Stich API to merge two manifest
+				if(cachedBackupData != nullptr)
+				{
+					mCachedMPDData = cachedBackupData;
+					stichToCachedManifest(mMPDData);
+				}
+			}
+		}
+		else
+		{
+			// Failure in request
+			AAMPLOG_ERR("curl request %s httpError[%u] curlError[%u]", mMPDDnldCfg->mTuneUrl.c_str(), mMPDData->mMPDDownloadResponse->iHttpRetValue,mMPDData->mMPDDownloadResponse->curlRetValue);
+			mMPDData->mMPDStatus	=	AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
+			if(mMPDData->mMPDDownloadResponse->iHttpRetValue != 200 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 204 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 206)
+			{
+				AAMP_LOG_NETWORK_ERROR (mMPDDnldCfg->mTuneUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
+				//Use DownloadResponse Show call instead of printheaderresponse fn -since it is not scope
+				mMPDData->mMPDDownloadResponse->show();
+			}
+		}
+		long long tEndTime = NOW_STEADY_TS_MS;
+
+		showDownloadMetrics(mMPDData->mMPDDownloadResponse, (int)(tEndTime - tStartTime));
+
+		// Push the output to Queue for Consumer to take
+		pushDownloadDataToQueue();
+		// harvest downloaded manifest 
+		harvestManifest();
+
+		if(mCachedMPDData != nullptr)
+		{
+			cachedBackupData = mCachedMPDData->clone();
+			AAMPLOG_TRACE("Created copy of cached:%p backup:%p", mCachedMPDData.get(), cachedBackupData.get());
+			AAMPLOG_TRACE("Created copy of cachedMPD:%p backupMPD:%p", mCachedMPDData->mDashMpdDoc.get(), cachedBackupData->mDashMpdDoc.get());
+			AAMPLOG_TRACE("Created copy of cachedDwnResp:%p backupDwnldResp:%p", mCachedMPDData->mMPDDownloadResponse.get(), cachedBackupData->mMPDDownloadResponse.get());
+			AAMPLOG_TRACE("Created copy of cachedMPDInst:%p backupMPDInst:%p", mCachedMPDData->mMPDInstance.get(), cachedBackupData->mMPDInstance.get());
+		}
+		//Wait for duration before refrehs
+		if(mMPDData->mIsLiveManifest)
+		{
+			refreshNeeded = waitForRefreshInterval();
+		}
+	}while(refreshNeeded && !mReleaseCalled);
+	AAMPLOG_INFO("Out of Manifest Download loop ...");
+}
+
+/**
+ * @brief Harvest the manifest.
+ *
+ * This function is responsible for harvesting the manifest file to the specified harvest path
+ * 
+ * return void
+ */
+void AampMPDDownloader::harvestManifest()
+{
+	if(mMPDData->mMPDDownloadResponse->curlRetValue == 0 && 
+		(mMPDData->mMPDDownloadResponse->iHttpRetValue == 200 || mMPDData->mMPDDownloadResponse->iHttpRetValue == 206))
+	{
+			MediaType fileType	=	eMEDIATYPE_MANIFEST	;
+			if((mMPDDnldCfg->mHarvestCountLimit > 0) && (mMPDDnldCfg->mHarvestConfig & getHarvestConfigForMedia(fileType)))
+			{
+				/* Avoid chance of overwriting , in case of manifest and playlist, name will be always same */
+				mManifestRefreshCount++;
+				AAMPLOG_WARN("aamp harvestCountLimit: %d mManifestRefreshCount %d", mMPDDnldCfg->mHarvestCountLimit,mManifestRefreshCount);
+				std::string harvestPath = mMPDDnldCfg->mHarvestPathConfigured;
+				if(harvestPath.empty() )
+				{
+					getDefaultHarvestPath(harvestPath);
+					AAMPLOG_WARN("Harvest path has not configured, taking default path %s", harvestPath.c_str());
+				}
+				std::string dataStr =  mMPDData->mMPDDownloadResponse->getString(); 
+				if(!dataStr.empty() )
+				{
+					if(aamp_WriteFile(mMPDData->mMPDDownloadResponse->sEffectiveUrl, dataStr.c_str(),(int) dataStr.length(), fileType, mManifestRefreshCount,harvestPath.c_str()))
+					{
+						mMPDDnldCfg->mHarvestCountLimit--;
+					}
+				}  //CID:168113 - forward null
+			}
+	}
+
+
+}
+
+
+void AampMPDDownloader::stichToCachedManifest(ManifestDownloadResponsePtr mpdToAppend)
+{
+	// check if any big manifest already downloaded ,
+	// If downloaded only , stich the current one to that , if not ignore
+	AAMPLOG_INFO("Stiching [%s] to [%s]",mMPDDnldCfg->mTuneUrl.c_str(), mMPDDnldCfg->mStichUrl.c_str());
+	if(mCachedMPDData != nullptr)
+	{
+		// call API to Merge
+		if(mCachedMPDData->mDashMpdDoc == nullptr)
+		{
+			mCachedMPDData->parseMpdDocument();
+		}
+		if(mpdToAppend->mDashMpdDoc == nullptr)
+		{
+			mpdToAppend->parseMpdDocument();
+		}
+
+		if(mCachedMPDData->mDashMpdDoc && mpdToAppend->mDashMpdDoc)
+		{
+			mCachedMPDData->mDashMpdDoc->mergeDocuments(mpdToAppend->mDashMpdDoc);
+			std::string manifestData = mCachedMPDData->mDashMpdDoc->toString();
+			mCachedMPDData->mMPDDownloadResponse->mDownloadData.clear();
+			mCachedMPDData->mMPDDownloadResponse->mDownloadData = std::vector<uint8_t>(manifestData.begin(), manifestData.end());
+			mCachedMPDData->parseMPD();
+		}
+	}
+}
+
+/**
+* @fn showDownloadMetrics - fn to log downloadresponse
+* @params DownloadResponse pointer ,totalPerformanceTime
+* @return void
+*/
+void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int totalPerformanceTime)
+{
+
+	CURLcode res 			=	static_cast<CURLcode>(dnldPtr->curlRetValue);
+	int http_code			=	dnldPtr->iHttpRetValue;
+	double total			=	dnldPtr->downloadCompleteMetrics.total;
+	double totalPerformRequest	= (double)(totalPerformanceTime)/1000;	// in sec
+	AAMP_LogLevel reqEndLogLevel	=	eLOGLEVEL_INFO;
+
+	std::string appName, timeoutClass;
+	if (!mAppName.empty())
+	{
+		// append app name with class data
+		appName = mAppName + ",";
+	}
+
+	if (CURLE_OPERATION_TIMEDOUT == res || CURLE_PARTIAL_FILE == res || CURLE_COULDNT_CONNECT == res)
+	{
+		// introduce  extra marker for connection status curl 7/18/28,
+		// example 18(0) if connection failure with PARTIAL_FILE code
+		timeoutClass = "(" + std::to_string(dnldPtr->downloadCompleteMetrics.reqSize > 0) + ")";
+	}
+	/*
+	 * Assigning curl error to http_code, for sending the error code as
+	 * part of error event if required
+	 * We can distinguish curl error and http error based on value
+	 * curl errors are below 100 and http error starts from 100
+	 */
+	if(res !=  CURLE_OK)
+	{
+		if( res == CURLE_FILE_COULDNT_READ_FILE )
+		{
+			dnldPtr->iHttpRetValue = http_code = 404; // translate file not found to URL not found
+		}
+		else if(dnldPtr->mAbortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT)
+		{
+			dnldPtr->iHttpRetValue = http_code = CURLE_OPERATION_TIMEDOUT; // Timed out wrt configured low bandwidth timeout.
+		}
+		else
+		{
+			dnldPtr->iHttpRetValue = http_code = res;
+		}
+	}
+	if(res != CURLE_OK || http_code == 0 || http_code >= 400 || totalPerformRequest > 2.0 /*seconds*/)
+	{
+		reqEndLogLevel = eLOGLEVEL_WARN;
+	}
+	if(mLogObj)
+	{
+		AAMPLOG(mLogObj, reqEndLogLevel, "WARN", "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%d,%.500s",
+			appName.c_str(), eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST, http_code, timeoutClass.c_str(), totalPerformRequest, total,
+			dnldPtr->downloadCompleteMetrics.connect, dnldPtr->downloadCompleteMetrics.startTransfer, dnldPtr->downloadCompleteMetrics.resolve,
+			dnldPtr->downloadCompleteMetrics.appConnect, dnldPtr->downloadCompleteMetrics.preTransfer, dnldPtr->downloadCompleteMetrics.redirect,
+			dnldPtr->downloadCompleteMetrics.dlSize, dnldPtr->downloadCompleteMetrics.reqSize, dnldPtr->downloadCompleteMetrics.downloadbps,
+			0, dnldPtr->sEffectiveUrl.c_str());
+	}
+	else
+	{
+		AAMPLOG_INFO("HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%d,%.500s",
+			appName.c_str(), eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST, http_code, timeoutClass.c_str(), totalPerformRequest, total,
+			dnldPtr->downloadCompleteMetrics.connect, dnldPtr->downloadCompleteMetrics.startTransfer, dnldPtr->downloadCompleteMetrics.resolve,
+			dnldPtr->downloadCompleteMetrics.appConnect, dnldPtr->downloadCompleteMetrics.preTransfer, dnldPtr->downloadCompleteMetrics.redirect,
+			dnldPtr->downloadCompleteMetrics.dlSize, dnldPtr->downloadCompleteMetrics.reqSize, dnldPtr->downloadCompleteMetrics.downloadbps,
+			0, dnldPtr->sEffectiveUrl.c_str());
+	}
+
+}
+
+
+/**
+*   @fn downloadMPDThread2
+*   @brief downloadMPDThread1 thread function to download the Manifest 2
+*/
+void AampMPDDownloader::downloadMPDThread2()
+{
+	mDownloader2.Initialize(mMPDDnldCfg->mDnldConfig);
+	do
+	{
+		long long tStartTime = NOW_STEADY_TS_MS;
+		mDownloader2.Clear();
+		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, mMPDDnldCfg->mStichUrl.c_str());
+		ManifestDownloadResponsePtr tmpFullManifestData	=	std::make_shared<ManifestDownloadResponse> ();
+		mDownloader2.Download(mMPDDnldCfg->mStichUrl, tmpFullManifestData->mMPDDownloadResponse);
+
+		if(tmpFullManifestData->mMPDDownloadResponse->curlRetValue == 0 && tmpFullManifestData->mMPDDownloadResponse->iHttpRetValue == 200)
+		{
+			tmpFullManifestData->parseMPD();
+			// Update the effective url , so that next refresh uses the effective url
+			mMPDDnldCfg->mStichUrl = tmpFullManifestData->mMPDDownloadResponse->sEffectiveUrl;
+			AAMPLOG_INFO("Successfully parsed Full Manifest ...IsLive[%d]",tmpFullManifestData->mIsLiveManifest);
+			mCachedMPDData	=	tmpFullManifestData;
+		}
+		else
+		{
+			// Failure in request
+			AAMPLOG_ERR("curl request %s httpError[%u] curlError[%u]", mMPDDnldCfg->mStichUrl.c_str(), tmpFullManifestData->mMPDDownloadResponse->iHttpRetValue,tmpFullManifestData->mMPDDownloadResponse->curlRetValue);
+			tmpFullManifestData->mMPDStatus	=	AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
+		}
+		long long tEndTime = NOW_STEADY_TS_MS;
+
+		showDownloadMetrics(tmpFullManifestData->mMPDDownloadResponse, (int)(tEndTime - tStartTime));
+
+	}while(false);
+	AAMPLOG_INFO("Out of Full Manifest Download ...");
+
+}
+
+/**
+*   @fn pushDownloadDataToQueue
+*   @brief pushDownloadDataToQueue push the downloaded data to queue
+*/
+void AampMPDDownloader::pushDownloadDataToQueue()
+{
+	std::lock_guard<std::mutex> lock(mMPDBufferMutex);
+	if (mMPDBufferQ.size() >= mMPDBufferSize)
+	{
+		// Replace the old instance in the queue with the new one
+		mMPDBufferQ.pop();
+	}
+	// Add the new item to the end of the queue - 1st iteration
+	// If Cached MPD ( Stiched MPD is present, then push that to Q) , else push single downloaded MPD
+	if(mCachedMPDData != nullptr)
+		mMPDBufferQ.push(mCachedMPDData);
+	else
+		mMPDBufferQ.push(mMPDData);
+
+	// inform the consumers if anyone is waiting for the data
+	mMPDDnldDataCondVar.notify_all(); //signal to getmanifest
+	if(mManifestUpdateCb)
+	{
+		mMPDNotifierCondVar.notify_all(); //signal Notifier Thread
+	}
+	AAMPLOG_INFO("Pushed new Manifest Data to Q...");
+}
+
+/**
+*   @fn GetManifest
+*   @brief GetManifest Application to read the Manifest stored in MPD Downloader
+*/
+ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWaitDurationMs,int errorSimulation)
+{
+	ManifestDownloadResponsePtr respPtr = std::make_shared<ManifestDownloadResponse> ();
+	respPtr->mMPDStatus = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
+	// Check if anything available in the Q to return
+	// If last downloaded manifest present , return it to the application
+	// if Q is empty (during tune) , if application asked for wait ( sync ) if so wait for download to complete and return
+	// If Q is empty (during tune) and if application asked not to wait , then return failure .
+	if(!mReleaseCalled)
+	{
+
+		if(errorSimulation != -1)
+		{
+			AAMPLOG_INFO("GetManifest Simulating Http Error:%d",errorSimulation);
+			respPtr->mMPDDownloadResponse->iHttpRetValue	=	errorSimulation;
+			return respPtr;
+		}
+
+		{
+			std::unique_lock<std::mutex> lck1(mMPDBufferMutex);
+			if(mMPDBufferQ.size())
+			{
+				return mMPDBufferQ.front();
+			}
+		}
+
+
+		// if Q is not available with any data ( for very first tune )
+		if(bWait)
+		{
+			std::unique_lock<std::mutex> lck2(mMPDDnldDataMtx);
+			if (mMPDDnldDataCondVar.wait_for(lck2, std::chrono::milliseconds(iWaitDurationMs)) == std::cv_status::timeout)
+			{
+				// Timed out
+				respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
+				AAMPLOG_INFO("GetManifest timer exited after timeout ...%d",iWaitDurationMs);
+				return respPtr;
+			}
+			else
+			{
+				// check if it exited the timer due to Release call
+				if(mReleaseCalled)
+				{
+					// Relese called , so send error
+					respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_ABORTED_BY_CALLBACK;
+					AAMPLOG_INFO("GetManifest timer exited after Release call ...");
+					return respPtr;
+				}
+				else
+				{
+					// data received
+					AAMPLOG_INFO("GetManifest timer exited after new data received ...");
+					std::unique_lock<std::mutex> lck3(mMPDBufferMutex);
+					if(mMPDBufferQ.size())
+					{
+						return mMPDBufferQ.front();
+					}
+				}
+			}
+		}
+		else
+		{
+			// No wait
+			respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
+			AAMPLOG_INFO("GetManifest exited with no Wait call ...");
+			return respPtr;
+		}
+	}
+
+	return respPtr;
+}
+
+
+/**
+*   @fn waitForRefreshInterval
+*   @brief Wait function for the duration of Refresh interval before next download
+*/
+bool AampMPDDownloader::waitForRefreshInterval()
+{
+	bool refreshNeeded = false;
+
+	std::unique_lock<std::mutex> lck(mRefreshMtx);
+	if(mRefreshCondVar.wait_for(lck,std::chrono::milliseconds(mRefreshInterval))==std::cv_status::timeout) {
+		refreshNeeded = true;
+	}
+	else
+	{
+		AAMPLOG_INFO("Manifest Refresh interval wait interrupted ...");
+	}
+
+	return refreshNeeded;
+}
+
+
+/**
+*   @fn readMPDData
+*   @brief readMPDData function to read the mpd and pull the parameters like isLive/Refresh Interval
+*/
+void AampMPDDownloader::readMPDData(std::shared_ptr<ManifestDownloadResponse> dnldManifest)
+{
+	dnldManifest->mIsLiveManifest   =       !(dnldManifest->mMPDInstance->GetType() == "static");
+	mRefreshInterval				=		getMeNextManifestDownloadWaitTime(dnldManifest);
+}
+
+/**
+ * @brief Computes the fragment duratioN.
+ * @param duration of the fragment.
+ * @param timeScale value.
+ * @return - computed fragment duration in double.
+ */
+static double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
+{
+	double newduration = 2.0;
+	if( duration && timeScale )
+	{
+		newduration =  (double)duration / (double)timeScale;
+		return newduration;
+	}
+	AAMPLOG_WARN( "bad fragment duration");
+	return newduration;
+}
+
+/**
+* @fn IsMPDLowLatency
+* @brief Checks if the MPD has low latency mode enabled.
+* @param LLDashData Reference to AampLLDashServiceData object 
+* @return True if low latency mode is enabled in the MPD, false otherwise.
+*/
+bool AampMPDDownloader::IsMPDLowLatency(AampLLDashServiceData &LLDashData)
+{
+	bool retVal = false;
+	if(mMPDData != nullptr)
+	{
+		retVal 		= 	mMPDData->mLLDashData.lowLatencyMode;
+		LLDashData	=	mMPDData->mLLDashData;
+	}
+	return retVal;
+}
+
+
+bool AampMPDDownloader::isMPDLowLatency(std::shared_ptr<ManifestDownloadResponse> dnldManifest, AampLLDashServiceData &LLDashData)
+{
+	bool isSuccess=false;
+	LLDashData.lowLatencyMode	=	 false;
+	if(mMPDDnldCfg->mIsLLDConfigEnabled)
+	{
+		dash::mpd::IMPD *mpd			=	dnldManifest->mMPDInstance.get();
+		if(mpd != NULL)
+		{
+			size_t numPeriods = mpd->GetPeriods().size();
+			for (unsigned iPeriod = 0; iPeriod < numPeriods; iPeriod++)
+			{
+				IPeriod *period = mpd->GetPeriods().at(iPeriod);
+				if(NULL != period )
+				{
+					const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
+					if (adaptationSets.size() > 0)
+					{
+						IAdaptationSet * pFirstAdaptation = adaptationSets.at(0);
+						if ( NULL != pFirstAdaptation )
+						{
+							ISegmentTemplate *pSegmentTemplate = NULL;
+							pSegmentTemplate = pFirstAdaptation->GetSegmentTemplate();
+							if( NULL != pSegmentTemplate )
+							{
+								std::map<std::string, std::string> attributeMap = pSegmentTemplate->GetRawAttributes();
+								if(attributeMap.find("availabilityTimeOffset") == attributeMap.end())
+								{
+									AAMPLOG_WARN("Latency availabilityTimeOffset attribute not available");
+								}
+								else
+								{
+									LLDashData.availabilityTimeOffset = pSegmentTemplate->GetAvailabilityTimeOffset();
+									LLDashData.availabilityTimeComplete = pSegmentTemplate->GetAvailabilityTimeComplete();
+									AAMPLOG_INFO("AvailabilityTimeOffset=%lf AvailabilityTimeComplete=%d",
+													pSegmentTemplate->GetAvailabilityTimeOffset(),pSegmentTemplate->GetAvailabilityTimeComplete());
+									LLDashData.lowLatencyMode	=	isSuccess	=	true;
+									if( isSuccess )
+									{
+										uint32_t timeScale=0;
+										uint32_t duration =0;
+										const ISegmentTimeline *segmentTimeline = pSegmentTemplate->GetSegmentTimeline();
+										if (segmentTimeline)
+										{
+											timeScale = pSegmentTemplate->GetTimescale();
+											std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
+											ITimeline *timeline = timelines.at(0);
+											duration = timeline->GetDuration();
+											LLDashData.fragmentDuration = ComputeFragmentDuration(duration,timeScale);
+											LLDashData.isSegTimeLineBased = true;
+										}
+										else
+										{
+											timeScale = pSegmentTemplate->GetTimescale();
+											duration = pSegmentTemplate->GetDuration();
+											LLDashData.fragmentDuration = ComputeFragmentDuration(duration,timeScale);
+											LLDashData.isSegTimeLineBased = false;
+										}
+										AAMPLOG_INFO("timeScale=%u duration=%u fragmentDuration=%lf",
+													timeScale,duration,LLDashData.fragmentDuration);
+									}
+									break;
+								}
+							}
+							else
+							{
+								AAMPLOG_ERR("NULL segmenttemplate");
+							}
+						}
+						else
+						{
+							AAMPLOG_INFO("NULL adaptationSets");
+						}
+					}
+					else
+					{
+						AAMPLOG_WARN("empty adaptationSets");
+					}
+				}
+				else
+				{
+					AAMPLOG_WARN("empty period ");
+				}
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN("NULL mpd");
+		}
+	}
+	else
+	{
+		LLDashData.lowLatencyMode	=	false;
+	}
+	return isSuccess;
+}
+
+uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(std::shared_ptr<ManifestDownloadResponse> dnldManifest)
+{
+	uint32_t minUpdateDuration		=       DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS;
+	uint32_t minDelayBetweenPlaylistUpdates = DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS;
+	if(dnldManifest->mIsLiveManifest)
+	{
+		bool eventStreamFound	=	 false;
+		dnldManifest->mRefreshRequired		=		true;
+		std::string tempStr = dnldManifest->mMPDInstance->GetMinimumUpdatePeriod();
+		if(!tempStr.empty())
+		{
+			minUpdateDuration = ParseISO8601Duration( tempStr.c_str() );
+		}
+		auto periods = dnldManifest->mMPDInstance->GetPeriods();
+		for (int iter = 0; iter < periods.size(); iter++)
+		{
+			auto period = periods.at(iter);
+			auto eventStream = period->GetEventStreams();
+			if(!(eventStream.empty()))
+			{
+				eventStreamFound = true;
+				break;
+			}
+		}
+		AAMPLOG_INFO("Min Update Period from Manifest %u Latency Value %d lowLatencyMode %d",minUpdateDuration,mLatencyValue,mIsLowLatency);
+
+		// playTarget value will vary if TSB is full and trickplay is attempted. Cant use for buffer calculation
+		// So using the endposition in playlist - Current playing position to get the buffer availability
+		int bufferAvailable = mLatencyValue;
+
+		// when target duration is high value(>Max delay)  but buffer is available just above the max update inteval,then go with max delay between playlist refresh.
+		if(bufferAvailable != -1)
+		{
+			if(bufferAvailable < (2* MAX_DELAY_BETWEEN_MPD_UPDATE_MS))
+			{
+				if ((minUpdateDuration > 0) && (bufferAvailable  > minUpdateDuration))
+				{
+					//1.If buffer Available is > 2*minUpdateDuration , may be 1.0 times also can be set ???
+					//2.If buffer is between 2*target & mMinUpdateDurationMs
+					float mFactor=0.0f;
+					if (mIsLowLatency)
+					{
+						mFactor = (bufferAvailable  > (minUpdateDuration * 2)) ? (float)(minUpdateDuration/1000) : 0.5;
+					}
+					else
+					{
+						mFactor = (bufferAvailable  > (minUpdateDuration * 2)) ? 1.5 : 0.5;
+					}
+					minDelayBetweenPlaylistUpdates = (int)(mFactor * minUpdateDuration);
+				}
+				// if buffer < targetDuration && buffer < MaxDelayInterval
+				else
+				{
+					// if bufferAvailable is less than targetDuration ,its in RED alert . Close to freeze
+					// need to refresh soon ..
+					minDelayBetweenPlaylistUpdates = (bufferAvailable) ? (int)(bufferAvailable / 3) : MIN_DELAY_BETWEEN_MPD_UPDATE_MS; //500ms
+					// limit the logs when buffer is low
+					if(bufferAvailable < DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS)
+					{
+						static int bufferlowCnt;
+						if((bufferlowCnt++ & 5) == 0)
+						{
+							AAMPLOG_WARN("Buffer is running low(%d).Refreshing playlist(%u)",bufferAvailable,minDelayBetweenPlaylistUpdates);
+						}
+					}
+				}
+			}
+			else if(bufferAvailable > (2* MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS))
+			{
+				minDelayBetweenPlaylistUpdates = MAX_DELAY_BETWEEN_MPD_UPDATE_MS;
+			}
+		}
+
+		// If any CDAI entries present in playlist, then refresh with update duration specified in playlist
+		if (eventStreamFound && minUpdateDuration >0 && minUpdateDuration < minDelayBetweenPlaylistUpdates)
+		{
+			minDelayBetweenPlaylistUpdates = (int)minUpdateDuration;
+		}
+
+		// restrict to Max delay interval
+		if (minDelayBetweenPlaylistUpdates > MAX_DELAY_BETWEEN_MPD_UPDATE_MS)
+		{
+			minDelayBetweenPlaylistUpdates = MAX_DELAY_BETWEEN_MPD_UPDATE_MS;
+		}
+
+		if(minDelayBetweenPlaylistUpdates < MIN_DELAY_BETWEEN_MPD_UPDATE_MS)
+		{
+			if (mIsLowLatency)
+			{
+				long availTimeOffMs = (long)((mMPDData->mLLDashData.availabilityTimeOffset)*1000);
+				long maxSegDuration = (long)((mMPDData->mLLDashData.fragmentDuration)*1000);
+				if(minUpdateDuration > 0 && minUpdateDuration < maxSegDuration)
+				{
+					minDelayBetweenPlaylistUpdates = (uint32_t)minUpdateDuration;
+				}
+				else if(minUpdateDuration > 0 && minUpdateDuration > availTimeOffMs)
+				{
+					minDelayBetweenPlaylistUpdates = (uint32_t)(minUpdateDuration-availTimeOffMs);
+				}
+				else if (maxSegDuration > 0 && maxSegDuration > availTimeOffMs)
+				{
+					minDelayBetweenPlaylistUpdates = (uint32_t)(maxSegDuration-availTimeOffMs);
+				}
+				else
+				{
+					// minimum of 500 mSec needed to avoid too frequent download.
+					minDelayBetweenPlaylistUpdates = (uint32_t)MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
+				}
+				if(minDelayBetweenPlaylistUpdates < MIN_DELAY_BETWEEN_MPD_UPDATE_MS)
+				{
+						// minimum of 500 mSec needed to avoid too frequent download.
+					minDelayBetweenPlaylistUpdates = (uint32_t)MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
+				}
+			}
+			else
+			{
+				// minimum of 500 mSec needed to avoid too frequent download.
+				minDelayBetweenPlaylistUpdates = (uint32_t)MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
+			}
+		}
+		AAMPLOG_INFO("aamp playlist end refresh bufferMs(%d) delay(%u)", bufferAvailable,minDelayBetweenPlaylistUpdates);
+	}
+	return minDelayBetweenPlaylistUpdates;
+}
+
+/**
+* @fn RegisterCallback
+* @brief Registers a callback function for manifest update notifications.
+* @param fnPtr Pointer to the callback function.
+* @param cbArg Pointer to data passed to the callback function.
+* return void 
+*/
+void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void *cbArg)
+{
+	std::unique_lock<std::mutex> lck2(mMPDNotifierMtx);
+	AAMPLOG_INFO("Register for Callback ");
+	if(fnPtr !=NULL && mManifestUpdateCb == NULL)
+	{
+		mManifestUpdateCb       =		fnPtr;
+		mManifestUpdateCbArg	=		cbArg;
+		if(mDownloadNotifierThread.joinable())
+			mDownloadNotifierThread.join();
+		// Start thread for sending manifest updates
+		mDownloadNotifierThread = std::thread(&AampMPDDownloader::downloadNotifierThread, this);
+		AAMPLOG_INFO("Thread created for MPD Download notification [%lu]", GetPrintableThreadID(mDownloadNotifierThread));
+	}
+}
+
+/**
+* @fn UnRegisterCallback
+* @brief Unregisters the callback function for manifest update notifications.
+*/
+void AampMPDDownloader::UnRegisterCallback()
+{
+	std::unique_lock<std::mutex> lck2(mMPDNotifierMtx);
+	AAMPLOG_INFO("UnRegister for Callback ");
+	if(mManifestUpdateCb)
+	{
+		mManifestUpdateCb		=	NULL;
+		mManifestUpdateCbArg	=	NULL;
+		// Send notification to exit from notifier Thread
+		mMPDNotifierCondVar.notify_all();
+	}
+}
+
+/**
+*   @fn downloadNotifier
+*   @brief downloadNotifier thread function to notify Download
+*/
+void AampMPDDownloader::downloadNotifierThread()
+{
+	// infinite wait for downlaod notification
+	do
+	{
+		std::unique_lock<std::mutex> lck2(mMPDNotifierMtx);
+		mMPDNotifierCondVar.wait(lck2);
+		{
+			if(!mReleaseCalled && mManifestUpdateCb)
+			{
+				// if its not the notification from Release call
+				long long tStartTime = NOW_STEADY_TS_MS;
+				mManifestUpdateCb(mManifestUpdateCbArg);
+				long long tEndTime = NOW_STEADY_TS_MS;
+				AAMPLOG_INFO("Time taken for MPD Download notification %u", (unsigned int)(tEndTime-tStartTime));
+			}
+		}
+	}while(!mReleaseCalled && mManifestUpdateCb);
+	AAMPLOG_INFO("Exited Download Notifier Thread");
+}
+
+/**
+* @fn GetCMCDHeader
+* @brief Retrieves CMCD headers for manifest requests.
+* @return Unordered map with header names as keys and vector of header values as values.
+*/
+std::unordered_map<std::string, std::vector<std::string>> AampMPDDownloader::getCMCDHeader()
+{
+	std::unordered_map<std::string, std::vector<std::string>> cmcd;
+	{
+		std::vector<std::string> cmcdCustomHeader;
+		mMPDDnldCfg->mCMCDCollector->CMCDGetHeaders(eMEDIATYPE_MANIFEST, cmcdCustomHeader);
+		for (const auto& header : cmcdCustomHeader) {
+			size_t colon_pos = header.find(':');
+			if (colon_pos != std::string::npos) {
+				std::string header_name = header.substr(0, colon_pos + 1); // include the colon
+				std::string header_value = header.substr(colon_pos + 1);
+				trim(header_value); // remove any whitespace
+				//AAMPLOG_INFO("CMCD Header: %s, Value: %s\n", header_name.c_str(), header_value.c_str());
+				cmcd[header_name].push_back(header_value);
+			}
+		}
+	}
+	return cmcd;
+
+
+}

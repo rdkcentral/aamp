@@ -39,7 +39,7 @@
 #endif
 
 static class PlayerInstanceAAMP* _allocated_aamp = NULL;
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t jsMutex = PTHREAD_MUTEX_INITIALIZER;
 
 extern void ClearAAMPPlayerInstances();
 
@@ -4355,7 +4355,7 @@ static void AAMP_finalize(JSObjectRef thisObject)
 		}
 	}
 
-	pthread_mutex_lock(&mutex);
+	pthread_mutex_lock(&jsMutex);
 	if (NULL != _allocated_aamp)
 	{
 		//when finalizing JS object, don't generate state change events
@@ -4364,7 +4364,7 @@ static void AAMP_finalize(JSObjectRef thisObject)
         	LOG_WARN(pAAMP,"delete aamp %p",_allocated_aamp);
 		SAFE_DELETE(_allocated_aamp);
 	}
-	pthread_mutex_unlock(&mutex);
+	pthread_mutex_unlock(&jsMutex);
 	SAFE_DELETE(pAAMP);
 
 #ifdef AAMP_CC_ENABLED
@@ -4692,7 +4692,7 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 	}
 	else
 	{
-		pthread_mutex_lock(&mutex);
+		pthread_mutex_lock(&jsMutex);
 		if (NULL == _allocated_aamp )
 		{
 			_allocated_aamp = new PlayerInstanceAAMP(NULL, NULL);
@@ -4704,7 +4704,7 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 
 		}
 		pAAMP->_aamp = _allocated_aamp;
-		pthread_mutex_unlock(&mutex);
+		pthread_mutex_unlock(&jsMutex);
 	}
 
 	pAAMP->_listeners = NULL;
@@ -4782,7 +4782,7 @@ void __attribute__ ((destructor(101))) _aamp_term()
 {
 	
     	LOG_TRACE("Enter");
-	pthread_mutex_lock(&mutex);
+	pthread_mutex_lock(&jsMutex);
 	if (NULL != _allocated_aamp)
 	{
         	LOG_WARN_EX("stopping aamp");
@@ -4792,7 +4792,7 @@ void __attribute__ ((destructor(101))) _aamp_term()
 		delete _allocated_aamp;
 		_allocated_aamp = NULL;
 	}
-	pthread_mutex_unlock(&mutex);
+	pthread_mutex_unlock(&jsMutex);
 
 	//Clear any active js mediaplayer instances on term
 	ClearAAMPPlayerInstances();

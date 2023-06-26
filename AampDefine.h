@@ -119,6 +119,25 @@
 #define MIN_SEG_DURTION_THREASHOLD	(0.25)			/**< Min Segment Duration threshold for pushing to pipeline at period End*/
 #define MAX_CURL_SOCK_STORE		10			/**< Maximum no of host to be maintained in curl store*/
 
+#define AAMP_TRACK_COUNT 4		/**< internal use - audio+video+sub+aux track */
+#define DEFAULT_CURL_INSTANCE_COUNT (AAMP_TRACK_COUNT + 1) /**< One for Manifest/Playlist + Number of tracks */
+#define AAMP_DRM_CURL_COUNT 4		/**< audio+video+sub+aux track DRMs */
+//#define CURL_FRAGMENT_DL_TIMEOUT 10L	/**< Curl timeout for fragment download */
+#define DEFAULT_PLAYLIST_DL_TIMEOUT 10L	/**< Curl timeout for playlist download */
+#define DEFAULT_CURL_TIMEOUT 5L		/**< Default timeout for Curl downloads */
+#define DEFAULT_CURL_CONNECTTIMEOUT 3L	/**< Curl socket connection timeout */
+#define EAS_CURL_TIMEOUT 3L		/**< Curl timeout for EAS manifest downloads */
+#define EAS_CURL_CONNECTTIMEOUT 2L      /**< Curl timeout for EAS connection */
+#define DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS (6*1000)   /**< Interval between playlist refreshes */
+#define DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS 3000
+#define MAX_DELAY_BETWEEN_MPD_UPDATE_MS (6000)
+#define MIN_DELAY_BETWEEN_MPD_UPDATE_MS (500) // 500mSec
+#define SAFE_LATENCY_VALUE_FOR_SLOW_REFRESH (20000) // 20 sec
+#define MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (6000)
+#define MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (500) // 500mSec
+#define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
+
+
 // Player supported play/trick-play rates.
 #define AAMP_RATE_TRICKPLAY_MAX		64
 #define AAMP_NORMAL_PLAY_RATE		1
@@ -182,6 +201,22 @@
 #define SECMANGER_ACCTOKEN_EXPIRED 8
 #define SECMANGER_ENTITLEMENT_FAILURE 102
 
+#define MEDIATYPE_VIDEO "video"
+#define MEDIATYPE_AUDIO "audio"
+#define MEDIATYPE_TEXT "text"
+#define MEDIATYPE_AUX_AUDIO "aux-audio"
+#define MEDIATYPE_IMAGE "image"
+
+// weights used for autio/subtitle track-selection heuristic
+#define AAMP_LANGUAGE_SCORE 1000000000ULL  /**< Top priority:  matching language **/
+#define AAMP_SCHEME_ID_SCORE 100000000ULL  /**< 2nd priority to scheme id matching **/
+#define AAMP_LABEL_SCORE 10000000ULL       /**< 3rd priority to  label matching **/
+#define AAMP_ROLE_SCORE 1000000ULL         /**< 4th priority to role/rendition matching **/
+#define AAMP_TYPE_SCORE 100000ULL          /**< 5th priority to type matching **/
+#define AAMP_CODEC_SCORE 1000ULL           /**< Lowest priority: matchng codec **/
+
+
+
 #define MAX_SESSION_ID_LENGTH 128                                /**<session id string length */
 
 //DELIA-53727 change this into #define to extract the raw YCrCb colors from each frame of video
@@ -231,12 +266,12 @@ typedef enum
  */
 enum LatencyStatus
 {
-    LATENCY_STATUS_UNKNOWN=-1,     /**< The latency is Unknown */
-    LATENCY_STATUS_MIN,            /**< The latency is within range but less than mimium latency */
-    LATENCY_STATUS_THRESHOLD_MIN,  /**< The latency is within range but less than target latency but greater than minimum latency */
-    LATENCY_STATUS_THRESHOLD,      /**< The latency is equal to given latency from mpd */
-    LATENCY_STATUS_THRESHOLD_MAX,  /**< The latency is more that target latency but less than maximum latency */
-    LATENCY_STATUS_MAX             /**< The latency is more than maximum latency */
+	LATENCY_STATUS_UNKNOWN=-1,     /**< The latency is Unknown */
+	LATENCY_STATUS_MIN,            /**< The latency is within range but less than mimium latency */
+	LATENCY_STATUS_THRESHOLD_MIN,  /**< The latency is within range but less than target latency but greater than minimum latency */
+	LATENCY_STATUS_THRESHOLD,      /**< The latency is equal to given latency from mpd */
+	LATENCY_STATUS_THRESHOLD_MAX,  /**< The latency is more that target latency but less than maximum latency */
+	LATENCY_STATUS_MAX             /**< The latency is more than maximum latency */
 };
 
 
@@ -293,6 +328,52 @@ typedef enum {
 	SECMANAGER_REASON_DRM_ENTITLEMENT_ERROR = 102,
 	SECMANAGER_REASON_DRM_AUTHENTICATION_FAIL = 103
 } SecManagerResultDRMCode;
+
+
+/**
+ * @brief AAMP Function return values
+ */
+enum AAMPStatusType
+{
+	eAAMPSTATUS_OK,					/**< Aamp Status ok */
+	eAAMPSTATUS_FAKE_TUNE_COMPLETE,			/**< Fake tune completed */
+	eAAMPSTATUS_GENERIC_ERROR,			/**< Aamp General Error */
+	eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR,		/**< Manifest download failed */
+	eAAMPSTATUS_PLAYLIST_VIDEO_DOWNLOAD_ERROR,	/**< Video download failed */
+	eAAMPSTATUS_PLAYLIST_AUDIO_DOWNLOAD_ERROR,	/**< Audio dowload failed */
+	eAAMPSTATUS_MANIFEST_PARSE_ERROR,		/**< Manifest parse failed */
+	eAAMPSTATUS_MANIFEST_CONTENT_ERROR,		/**< Manifest content is unknown or Error */
+	eAAMPSTATUS_MANIFEST_INVALID_TYPE,		/**< Invalid manifest type */
+	eAAMPSTATUS_PLAYLIST_PLAYBACK,			/**< Playlist play back happening */
+	eAAMPSTATUS_SEEK_RANGE_ERROR,			/**< Seek position range invalid */
+	eAAMPSTATUS_TRACKS_SYNCHRONISATION_ERROR,	/**< Audio video track synchronisation Error */
+	eAAMPSTATUS_INVALID_PLAYLIST_ERROR,		/**< Playlist discontinuity mismatch*/
+	eAAMPSTATUS_UNSUPPORTED_DRM_ERROR		/**< Unsupported DRM */
+};
+
+
+/**
+ *
+ * @enum UTC TIMING
+ *
+ */
+enum UtcTiming
+{
+    eUTC_HTTP_INVALID,
+    eUTC_HTTP_XSDATE,
+    eUTC_HTTP_ISO,
+    eUTC_HTTP_NTP
+};
+
+/**
+ * @brief MPD Stich Options
+ */
+enum MPDStichOptions
+{
+	OPT_1_FULL_MANIFEST_TUNE = 0,     /**< Tune with full manifest URL and stich small content manifest */
+	OPT_2_SMALL_MANIFEST_TUNE = 1,     /**< Tune with small manifest URL and stich full content manifest */
+};
+
 #endif
 
 

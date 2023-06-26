@@ -41,9 +41,6 @@
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
 
-#define MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (6000)
-#define MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (500) // 500mSec
-#define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
 using namespace std;
 
 /**
@@ -1907,18 +1904,18 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 		double vBufferDuration = video->GetBufferedDuration();
 		if(vBufferDuration > 0)
 		{
-			long timeoutMs = (long)(vBufferDuration*1000); ;
+			int timeoutMs = vBufferDuration*1000;
 			if(vBufferDuration < mABRMaxBuffer)
 			{
 				timeoutMs = aamp->mNetworkTimeoutMs;
 			}
 			else
 			{	// enough buffer available
-				timeoutMs = std::min(timeoutMs/2,(long)(mABRMaxBuffer*1000));
+				timeoutMs = std::min(timeoutMs/2, mABRMaxBuffer*1000 );
 				timeoutMs = std::max(timeoutMs , aamp->mNetworkTimeoutMs);
 			}
 			aamp->SetCurlTimeout(timeoutMs,eCURLINSTANCE_VIDEO);
-			AAMPLOG_INFO("Setting Video timeout to :%ld %f",timeoutMs,vBufferDuration);
+			AAMPLOG_INFO("Setting Video timeout to :%d %f",timeoutMs,vBufferDuration);
 		}
 	}
 	if(audio && audio->enabled)
@@ -1928,18 +1925,18 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 		double aBufferDuration = audio->GetBufferedDuration();
 		if(aBufferDuration > 0)
 		{
-			long timeoutMs = (long)(aBufferDuration*1000);
+			int timeoutMs = aBufferDuration*1000;
 			if(aBufferDuration < mABRMaxBuffer)
 			{
 				timeoutMs = aamp->mNetworkTimeoutMs;
 			}
 			else
 			{
-				timeoutMs = std::min(timeoutMs/2,(long)(mABRMaxBuffer*1000));
+				timeoutMs = std::min(timeoutMs/2, mABRMaxBuffer*1000 );
 				timeoutMs = std::max(timeoutMs , aamp->mNetworkTimeoutMs);
 			}
 			aamp->SetCurlTimeout(timeoutMs,eCURLINSTANCE_AUDIO);
-			AAMPLOG_INFO("Setting Audio timeout to :%ld %f",timeoutMs,aBufferDuration);
+			AAMPLOG_INFO("Setting Audio timeout to :%d %f",timeoutMs,aBufferDuration);
 		}
 	}
 }
@@ -3627,12 +3624,6 @@ int MediaTrack::WaitTimeBasedOnBufferAvailable()
 		if (minDelayBetweenPlaylistUpdates > MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS)
 		{
 			minDelayBetweenPlaylistUpdates = MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
-		}
-
-		// If any CDAI entries present in playlist, then refresh with update duration specified in playlist
-		if (aamp->mIsEventStreamFound)
-		{
-			minDelayBetweenPlaylistUpdates = (int)minUpdateDuration;
 		}
 
 		// adjust with last refreshed time interval

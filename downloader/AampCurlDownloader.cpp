@@ -63,8 +63,7 @@ void _downloadConfig::show()
 	AAMPLOG_INFO("curl : %p", pCurl);
 	AAMPLOG_INFO("userAgentString :%s",userAgentString.c_str());
 	AAMPLOG_INFO("proxyName :%s",proxyName.c_str());
-	
-	
+
 	
 	if (sCustomHeaders.size() > 0)
 	{
@@ -198,8 +197,8 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 		{
 			{
 				std::lock_guard<std::mutex> lock(mCurlMutex);
-				mDownloadActive = true;
-				mDownloadResponse = dnldData;
+				mDownloadActive		=	true;
+				mDownloadResponse	=	dnldData;
 				mDownloadResponse->sEffectiveUrl	=	urlStr;
 				CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_URL, urlStr.c_str());
 			}
@@ -212,11 +211,31 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 					httpRetVal = mDownloadResponse->iHttpRetValue;
 					//mDownloadResponse->show();
 				}
-				else if(mDnldCfg->iDownloadRetryCount)
-				{
-					mDnldCfg->iDownloadRetryCount--;
-					// TODO : Add the download delay between retries
-					continue;
+				//NETWORK_ERROR 
+				else
+				{	
+					if (mDnldCfg->iDownloadRetryCount)
+					{
+						if(mDownloadResponse->iHttpRetValue != 200 &&
+								mDownloadResponse->iHttpRetValue != 204 &&
+								mDownloadResponse->iHttpRetValue != 206 &&
+								mDownloadResponse->iHttpRetValue >= 500 &&
+								mDownloadResponse->iHttpRetValue != 502)
+						{
+							mDnldCfg->iDownloadRetryCount--;
+							// TODO: Add the download delay between retries : Need to handle similar to InterruptableMsSleep
+							std::this_thread::sleep_for(std::chrono::milliseconds(mDnldCfg->iDownloadRetryWaitMs));
+							AAMPLOG_WARN("Download failed due to Server error. Retrying Attempt: %d!", mDnldCfg->iDownloadRetryCount);
+							continue;
+						}
+						//Attempt retry for partial downloads, which have a higher chance to succeed
+						else if (curlRetVal == CURLE_COULDNT_CONNECT || curlRetVal == CURLE_OPERATION_TIMEDOUT || curlRetVal  == CURLE_PARTIAL_FILE)
+						{
+							mDnldCfg->iDownloadRetryCount--;
+							continue;
+
+						}
+					}	
 				}
 			}while(0);
 
@@ -258,24 +277,30 @@ void AampCurlDownloader::updateResponseParams()
 			mDownloadResponse->downloadCompleteMetrics.reqSize	=	aamp_CurlEasyGetinfoLong(mCurl, CURLINFO_REQUEST_SIZE);
 			mDownloadResponse->downloadCompleteMetrics.downloadbps = (long)(mDownloadResponse->downloadCompleteMetrics.dlSize*8) / mDownloadResponse->downloadCompleteMetrics.total;
 		}
-		char *effectiveUrlStr = NULL;
+		
 		if(mDownloadResponse->iHttpRetValue == 204)
-		{
-			RespHeaderIter itr =	mDownloadResponse->httpRespHeaderData.find(eHTTPHEADERTYPE_EFF_LOCATION);
-			if (itr != mDownloadResponse->httpRespHeaderData.end())
+		{		
+			// check if any response available to search 	
+			if(mDownloadResponse->mResponseHeader.size())
 			{
-				effectiveUrlStr =  const_cast<char *>(itr->second.c_str());
+				for ( std::string header : mDownloadResponse->mResponseHeader )
+				{					
+					if(STARTS_WITH_IGNORE_CASE(header.c_str(), LOCATION_HEADER_STRING))
+					{
+						mDownloadResponse->sEffectiveUrl =  	header.substr(std::string(LOCATION_HEADER_STRING).length() + 2);
+						break;
+					}
+				}
 			}
 		}
 		else
 		{
-			effectiveUrlStr	=	aamp_CurlEasyGetinfoString(mCurl, CURLINFO_EFFECTIVE_URL);
-			
-		}
-		if(effectiveUrlStr!=NULL)
-		{
-			mDownloadResponse->sEffectiveUrl.assign(effectiveUrlStr);
-		}
+			char *effectiveUrlStr = aamp_CurlEasyGetinfoString(mCurl, CURLINFO_EFFECTIVE_URL);
+			if(effectiveUrlStr	!=	NULL)
+			{
+				mDownloadResponse->sEffectiveUrl.assign(effectiveUrlStr);
+			}						
+		}		
 	}
 	
 }
@@ -339,13 +364,7 @@ void AampCurlDownloader::Clear()
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDownloadActive = false;
 	mDownloadUpdatedTime = 0 ;
-	mDownloadStartTime =  0;
-	mWriteCallbackBufferSize=0;
-	if (mHeaders != NULL)
-	{
-		curl_slist_free_all(mHeaders);
-		mHeaders = NULL;
-	}
+	mDownloadStartTime =  0;	
 
 	// Clear all the partially stored data before retry attempt
 	if(mDownloadResponse)
@@ -582,8 +601,8 @@ int AampCurlDownloader::progress_callback(
 					double predictedTotalDownloadTimeMs = elapsedTimeMs*dltotal/dlnow;
 					if( predictedTotalDownloadTimeMs > mDnldCfg->iDownloadTimeout )
 					{
-						AAMPLOG_WARN("lowBWTimeout=%ds; predictedTotalDownloadTime=%fs>%fs (network timeout)",
-								(int)mDnldCfg->iLowBWTimeout,
+						AAMPLOG_WARN("lowBWTimeout=%u predictedTotalDownloadTime=%fs>%fs (network timeout)",
+								mDnldCfg->iLowBWTimeout,
 								predictedTotalDownloadTimeMs/1000.0,
 								mDnldCfg->iDownloadTimeout/1000.0 );
 						mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;

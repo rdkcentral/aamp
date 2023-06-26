@@ -19,6 +19,7 @@
 
 #include "priv_aamp.h"
 #include "MockPrivateInstanceAAMP.h"
+#include "AampMPDDownloader.h"
 
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
@@ -126,16 +127,17 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mPipelineIsClear(false),
 	mLLActualOffset(-1),
 	mIsStream4K(false),
-	mIsEventStreamFound(false),
 	mFogDownloadFailReason(""),
 	mBlacklistedProfiles(),
-	mId3MetadataCache{}
+	mId3MetadataCache{},
+	mMPDDownloaderInstance(new AampMPDDownloader())
 {
 	pthread_cond_init(&waitforplaystart, NULL);
 	pthread_mutex_init(&mMutexPlaystart, NULL);
 #ifdef AAMP_HLS_DRM
 	pthread_mutex_init(&drmParserMutex, NULL);
 #endif
+
 }
 
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
@@ -216,7 +218,16 @@ AampCacheHandler * PrivateInstanceAAMP::getAampCacheHandler()
 	return nullptr;
 }
 
-void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const char *contentType, bool bFirstAttempt, bool bFinalAttempt,const char *pTraceID,bool audioDecoderStreamSync)
+void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
+								bool autoPlay,
+								const char *contentType,
+								bool bFirstAttempt,
+								bool bFinalAttempt,
+								const char *pTraceID,
+								bool audioDecoderStreamSync,
+								const char *refreshManifestUrl,
+								int mpdStichingMode)
+
 {
 }
 
@@ -975,5 +986,16 @@ void PrivateInstanceAAMP::ID3MetadataHandler(MediaType, const uint8_t *, size_t,
 
 void PrivateInstanceAAMP::ResetProfileCache()
 {
+}
+
+struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(MediaType fileType)
+{
+
+       return NULL;
+}
+
+std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDownloadConfig()
+{
+	return NULL;
 }
 

@@ -30,6 +30,7 @@
 #include "MockAampGstPlayer.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockMediaStreamContext.h"
+#include "MockAampMPDDownloader.h"
 
 using ::testing::_;
 using ::testing::An;
@@ -38,6 +39,7 @@ using ::testing::Return;
 using ::testing::StrictMock;
 using ::testing::NiceMock;
 using ::testing::WithArgs;
+using ::testing::WithoutArgs;
 using ::testing::AnyNumber;
 using ::testing::DoAll;
 
@@ -109,6 +111,8 @@ protected:
 
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 
+		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
+
 		/* Setup configuration mock. */
 		for (const auto & b : mBoolConfigSettings)
 		{
@@ -158,6 +162,9 @@ protected:
 		delete g_mockMediaStreamContext;
 		g_mockMediaStreamContext = nullptr;
 
+		delete g_mockAampMPDDownloader;
+		g_mockAampMPDDownloader = nullptr;
+
 		mManifest = nullptr;
 	}
 
@@ -180,6 +187,50 @@ public:
 		return true;
 	}
 
+	void GetMPDFromManifest(std::shared_ptr<ManifestDownloadResponse> response)
+	{
+		dash::mpd::MPD* mpd = nullptr;
+		std::string manifestStr = std::string( response->mMPDDownloadResponse->mDownloadData.begin(), response->mMPDDownloadResponse->mDownloadData.end());
+
+		xmlTextReaderPtr reader = xmlReaderForMemory( (char *)manifestStr.c_str(), (int) manifestStr.length(), NULL, NULL, 0);
+		if (reader != NULL)
+		{
+			if (xmlTextReaderRead(reader))
+			{
+				response->mRootNode = aamp_ProcessNode(&reader, TEST_MANIFEST_URL);
+				if(response->mRootNode != NULL)
+				{
+					mpd = response->mRootNode->ToMPD();
+					if (mpd)
+					{
+						std::shared_ptr<dash::mpd::IMPD> tmp_ptr(mpd);
+						response->mMPDInstance	=	tmp_ptr;
+						response->GetMPDParseHelper()->Initialize(mpd);
+					}
+				}
+			}
+		}
+		xmlFreeTextReader(reader);
+	}
+
+	/**
+	 * @brief Get manifest helper method for MPDDownloader
+	 *
+	 * @param[in] remoteUrl Manfiest url
+	 * @param[out] buffer Buffer containing manifest data
+	 * @retval true on success
+	*/
+	std::shared_ptr<ManifestDownloadResponse> GetManifestForMPDDownloader()
+	{
+		std::shared_ptr<ManifestDownloadResponse> response = std::make_shared<ManifestDownloadResponse> ();
+		response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
+		response->mMPDDownloadResponse->iHttpRetValue = 200;
+		response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
+		response->mMPDDownloadResponse->mDownloadData.assign((uint8_t*)mManifest, (uint8_t*)(mManifest + strlen(mManifest)));
+		GetMPDFromManifest(response);
+		return response;
+	}
+
 	/**
 	 * @brief Initialize the MPD instance
 	 *
@@ -198,13 +249,13 @@ public:
 		mManifest = manifest;
 		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (_, _, _, _, _, _, _, _, _, _, _, _))
-			.WillOnce(WithArgs<0,1>(Invoke(this, &FunctionalTests::GetManifest)));
-
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
 
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_))
 			.WillOnce(SetArgReferee<0>(eSTATE_PREPARING));
+
+		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest (_, _, _))
+			.WillOnce(WithoutArgs(Invoke(this, &FunctionalTests::GetManifestForMPDDownloader)));
 
 		status = mStreamAbstractionAAMP_MPD->Init(TuneType::eTUNETYPE_NEW_NORMAL);
 		return status;

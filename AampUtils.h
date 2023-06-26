@@ -279,6 +279,13 @@ double GetNetworkTime(const std::string& remoteUrl, int *http_error, std::string
 
 std::size_t GetPrintableThreadID( const std::thread &t );
 
+/**
+ * @brief Parse duration from ISO8601 string
+ * @param ptr ISO8601 string
+ * @return durationMs duration in milliseconds
+ */
+double ParseISO8601Duration(const char *ptr);
+
 #define MAX_RANGE_STRING_CHARS 128
 
 #define WRITE_HASCII( DST, BYTE ) \

@@ -25,8 +25,22 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink, std::function< void(uint8_t *, int, int, int) > exportFrames) {  }
 	PlayerInstanceAAMP::~PlayerInstanceAAMP() {  }
 
-	void PlayerInstanceAAMP::Tune(const char *mainManifestUrl, const char *contentType, bool bFirstAttempt, bool bFinalAttempt,const char *traceUUID,bool audioDecoderStreamSync) {  }
-	void PlayerInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const char *contentType, bool bFirstAttempt, bool bFinalAttempt, const char *traceUUID,bool audioDecoderStreamSync) {  }
+	void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
+									const char *contentType,
+									bool bFirstAttempt,
+									bool bFinalAttempt,
+									const char *traceUUID,
+									bool audioDecoderStreamSync) { }
+
+	void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
+									bool autoPlay,
+									const char *contentType,
+									bool bFirstAttempt,
+									bool bFinalAttempt,
+									const char *traceUUID,
+									bool audioDecoderStreamSync,
+									const char *refreshManifestUrl,
+									int mpdStichingMode) { }
     void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent) {  }
 	void PlayerInstanceAAMP::ResetConfiguration() {  }
 	void PlayerInstanceAAMP::SetRate(float rate, int overshootcorrection) {  }
@@ -100,8 +114,8 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	void PlayerInstanceAAMP::SetNewAdBreakerConfig(bool bValue) {  }
 	void PlayerInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrates) {  }
 	void PlayerInstanceAAMP::SetAppName(std::string name) {  }
-	void PlayerInstanceAAMP::SetPreferredLanguages(const char*  languageList, const char *preferredRendition, const char *preferredType, const char*  codecList, const char*  labelList) {  } 
-	void PlayerInstanceAAMP::SetPreferredTextLanguages(const char*  param) {  } 
+	void PlayerInstanceAAMP::SetPreferredLanguages(const char*  languageList, const char *preferredRendition, const char *preferredType, const char*  codecList, const char*  labelList) {  }
+	void PlayerInstanceAAMP::SetPreferredTextLanguages(const char*  param) {  }
 	void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string rendition, std::string type, std::string codec, unsigned int channel, std::string label) {  }
 	void PlayerInstanceAAMP::SetPreferredCodec(const char *codecList) {  }
 	void PlayerInstanceAAMP::SetPreferredLabels(const char *lableList) {  }
@@ -119,8 +133,8 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	void PlayerInstanceAAMP::SetAudioTrack(int trackId) {  }
 	void PlayerInstanceAAMP::SetTextTrack(int trackId, char *ccData) {  }
 	void PlayerInstanceAAMP::SetCCStatus(bool enabled) {  }
-	void PlayerInstanceAAMP::SetTextStyle(const std::string &options) 
-    { 
+	void PlayerInstanceAAMP::SetTextStyle(const std::string &options)
+    {
     	if (g_mockPlayerInstanceAAMP != nullptr)
     	{
 	    	g_mockPlayerInstanceAAMP->SetTextStyle(options);

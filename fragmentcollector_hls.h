@@ -51,8 +51,6 @@
 #define BOOLSTR(boolValue) (boolValue?"true":"false")
 #define PLAYLIST_TIME_DIFF_THRESHOLD_SECONDS (0.1f)
 #define MAX_MANIFEST_DOWNLOAD_RETRY 3
-#define MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (6*1000)
-#define MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (500) // 500mSec
 #define DRM_IV_LEN 16
 
 #define MAX_SEQ_NUMBER_LAG_COUNT 50					/*!< Configured sequence number max count to avoid continuous looping for an edge case scenario, which leads crash due to hung */

@@ -458,7 +458,8 @@ void parseDRMConfiguration (JSContextRef ctx, AAMPMediaPlayer_JS* privObj, JSVal
  * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
  * @retval JSValue that is the function's return value
  */
-JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, 
+				size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
 	LOG_TRACE("Enter");
 	
@@ -475,8 +476,11 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 	bool bFinalAttempt = false;
 	bool bFirstAttempt = true;
 	char* url = NULL;
+	char* url2 = NULL;
+	bool audioDecoderStreamSync = true;
 	char* contentType = NULL;
 	char* strTraceId = NULL;
+	int mpdStichingMode = 0;
 
 	switch(argumentCount)
 	{
@@ -514,10 +518,27 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 				bFinalAttempt = JSValueToBoolean(ctx, paramValue);
 			}
 			JSStringRelease(paramName);
+
+			paramName = JSStringCreateWithUTF8CString("url2");
+			paramValue = JSObjectGetProperty(ctx, argument, paramName, NULL);
+			if (JSValueIsString(ctx, paramValue))
+			{
+				url2 = aamp_JSValueToCString(ctx, paramValue, NULL);
+			}
+			JSStringRelease(paramName);
+
+			paramName = JSStringCreateWithUTF8CString("mpdStichingMode");
+			paramValue = JSObjectGetProperty(ctx, argument, paramName, NULL);
+			if (JSValueIsNumber(ctx, paramValue))
+			{
+				mpdStichingMode = (int) JSValueToNumber(ctx, paramValue, NULL);
+			}
+			JSStringRelease(paramName);
+
 		}
 		case 2:
 			autoPlay = JSValueToBoolean(ctx, arguments[1]);
-		case 1:
+		case 1:		
 		{
 			url = aamp_JSValueToCString(ctx, arguments[0], exception);
 			aamp_ApplyPageHttpHeaders(privObj->_aamp);
@@ -525,7 +546,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 			{
 				char* url = aamp_JSValueToCString(ctx, arguments[0], exception);
 				LOG_WARN(privObj,"_aamp->Tune(%d, %s, %d, %d, %s)", autoPlay, contentType, bFirstAttempt, bFinalAttempt,strTraceId);
-				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt,strTraceId);
+				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt,strTraceId,audioDecoderStreamSync,url2,mpdStichingMode);
 
 			}
 

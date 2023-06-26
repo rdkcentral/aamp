@@ -39,8 +39,9 @@
 #include <libxml/xmlreader.h>
 #include <thread>
 #include "admanager_mpd.h"
+#include "AampMPDDownloader.h"
 #include "AampDRMLicPreFetcher.h"
-
+#include "AampMPDParseHelper.h"
 using namespace dash;
 using namespace std;
 using namespace dash::mpd;
@@ -456,6 +457,8 @@ public:
 	// TODO: Add implementation to mark the failed DRM's adaptation set as failed/un-usable
 	void UpdateFailedDRMStatus(LicensePreFetchObject *object) override;
 
+	static void MPDUpdateCallback(void *);
+
 	// CMCD Get nor and nrr fields
 	void setNextobjectrequestUrl(std::string media,const FragmentDescriptor *fragmentDescriptor,MediaType mediaType);
 	void setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,MediaType mediaType);
@@ -716,7 +719,10 @@ private:
 	 * @param init true if this is the first playlist download for a tune/seek/trickplay
 	 */
 	AAMPStatusType GetMpdFromManifest(const AampGrowableBuffer &manifest, MPD * &mpd, std::string manifestUrl, bool init);
-
+	AAMPStatusType GetMPDFromManifest( std::shared_ptr<ManifestDownloadResponse> mpdDnldResp, bool init);
+	void ProcessMetadataFromManifest( std::shared_ptr<ManifestDownloadResponse> mpdDnldResp, bool init);
+	void ProcessManifestHeaderResponse(std::shared_ptr<ManifestDownloadResponse> mpdDnldResp,bool init);
+	void MPDUpdateCallbackExec();
 	/**
 	 * @fn GetDrmPrefs
 	 * @param The UUID for the DRM type
@@ -726,19 +732,6 @@ private:
 	 * @fn GetPreferredDrmUUID
 	 */
 	std::string GetPreferredDrmUUID();
-	/**
-	 * @fn IsEmptyPeriod
-	 * @param period period to check whether it is empty
-	 * @param isFogPeriod true if it is fog period
-	 * @retval Return true on empty Period
-	 */
-	bool IsEmptyPeriod(IPeriod *period, bool isFogPeriod = false);
-	/**
-	 * @fn IsEmptyAdaptation
-	 * @param Adaptation Adaptationto check whether it is empty
-	 * @param isFogPeriod true if it is fog period
-	 */
-	bool IsEmptyAdaptation(IAdaptationSet *adaptationSet, bool isFogPeriod);
 	/**
 	 * @fn IsMatchingLanguageAndMimeType
 	 * @param[in] type - media type
@@ -761,11 +754,6 @@ private:
 	 */
 	void StartLatencyMonitorThread();
 	LatencyStatus GetLatencyStatus() { return latencyStatus; }
-	/**
-	 * @fn GetContentProtection
-	 * @param[In] adaptation set and media type
-	 */
-	vector<IDescriptor*> GetContentProtection(const IAdaptationSet *adaptationSet, MediaType mediaType);
 	/**
 	 * @fn GetPreferredCodecIndex
 	 * @param adaptationSet Adaptation set object
@@ -799,14 +787,6 @@ private:
 	 * @retun none
 	 */
 	void PopulateTrackInfo(MediaType media, bool reset=false);
-	
-	/**
-	 * @fn IsPeriodEncrypted
-	 * @param[in] period - current period
-	 * @brief check if current period is encrypted
-	 * @retval true on success
-	 */
-	bool IsPeriodEncrypted(IPeriod *period);
 
 	/**
 	 * @fn QueueContentProtection
@@ -843,6 +823,10 @@ private:
 	double seekPosition;
 	float rate;
 	std::thread fragmentCollectorThreadID;
+	ManifestDownloadResponsePtr mManifestDnldRespPtr ; 
+	bool    mManifestUpdateHandleFlag;
+	AampMPDParseHelper	*mMPDParseHelper;
+	bool mLowLatencyMode;	
 	dash::mpd::IMPD *mpd;
 	class MediaStreamContext *mMediaStreamContext[AAMP_TRACK_COUNT];
 	int mNumberOfTracks;

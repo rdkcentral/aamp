@@ -129,7 +129,7 @@ endif()
 
 find_package (Threads REQUIRED)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader drm/aes drm/helper subtitle isobmff)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader drm/aes drm/helper subtitle isobmff dash/xml dash/mpd dash/utils)
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
 include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
@@ -183,16 +183,30 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					mediaprocessor.h
 					ota_shim.h
 					priv_aamp.h
-                                        AampDRMLicPreFetcher.h
-                                        AampDRMLicPreFetcherInterface.h
+					AampDRMLicPreFetcher.h
+					AampDRMLicPreFetcherInterface.h
 					tsprocessor.h
 					uint33_t.h
 					videoin_shim.h
 					AampCMCDCollector.h
 					downloader/AampCurlDefine.h
 					downloader/AampCurlDownloader.h
-                    ID3Metadata.hpp
-                    AampSegmentInfo.hpp
+					ID3Metadata.hpp
+					AampSegmentInfo.hpp
+					dash/xml/DomDocument.h
+					dash/xml/DomElement.h
+					dash/xml/DomNode.h
+					dash/xml/DomNodeIter.h
+					dash/xml/DomTextNode.h
+					dash/mpd/MPDModel.h
+					dash/mpd/MPDSegmenter.h
+					dash/utils/Utils.h
+					dash/utils/Url.h
+					dash/utils/Path.h
+					dash/utils/StringEx.h
+					AampMPDDownloader.h
+					AampMPDParseHelper.h
+					AampLLDASHData.h
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -236,7 +250,20 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					AampDRMLicPreFetcher.cpp
 					AampCMCDCollector.cpp
 					downloader/AampCurlDownloader.cpp
-                    ID3Metadata.cpp
+					ID3Metadata.cpp
+					dash/xml/DomDocument.cpp
+					dash/xml/DomElement.cpp
+					dash/xml/DomNode.cpp
+					dash/xml/DomNodeIter.cpp
+					dash/xml/DomTextNode.cpp
+					dash/mpd/MPDModel.cpp
+					dash/mpd/MPDSegmenter.cpp
+					dash/utils/Utils.cpp
+					dash/utils/Url.cpp
+					dash/utils/StringEx.cpp
+					dash/utils/Path.cpp
+					AampMPDDownloader.cpp
+					AampMPDParseHelper.cpp	
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
@@ -318,7 +345,7 @@ else()
 	message("CMAKE_WPEWEBKIT_JSBINDINGS and CMAKE_WPEWEBKIT_JSBINDINGS not set")
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-multichar -std=c++11 -Wno-non-virtual-dtor -Werror=effc++ -Wno-psabi")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-multichar -std=c++11 -Wno-non-virtual-dtor -Wno-psabi")
 
 if(CMAKE_IARM_MGR)
 	message("CMAKE_IARM_MGR set")
@@ -773,6 +800,9 @@ install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h Aam
   AampSegmentInfo.hpp
   AampDRMLicPreFetcher.h
   AampDRMLicPreFetcherInterface.h
+  AampMPDDownloader.h
+  AampMPDParseHelper.h
+  AampLLDASHData.h
   DESTINATION include)
 
 if (CMAKE_AAMP_RFC_REQUIRED)

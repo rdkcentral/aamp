@@ -21,7 +21,7 @@ set(EXEC_NAME StreamAbstractionAAMP_MPD)
 
 pkg_check_modules(LIBDASH REQUIRED libdash)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 
@@ -44,11 +44,22 @@ include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${UTESTS_ROOT}/mocks)
 
+set (DASH_PARSER_SOURCES ${AAMP_ROOT}/dash/xml/DomDocument.cpp
+                ${AAMP_ROOT}/dash/xml/DomElement.cpp
+                ${AAMP_ROOT}/dash/xml/DomNode.cpp
+                ${AAMP_ROOT}/dash/xml/DomNodeIter.cpp
+                ${AAMP_ROOT}/dash/xml/DomTextNode.cpp
+                ${AAMP_ROOT}/dash/mpd/MPDModel.cpp
+                ${AAMP_ROOT}/dash/mpd/MPDSegmenter.cpp
+                ${AAMP_ROOT}/dash/utils/Utils.cpp
+                ${AAMP_ROOT}/dash/utils/Url.cpp
+                ${AAMP_ROOT}/dash/utils/StringEx.cpp
+                ${AAMP_ROOT}/dash/utils/Path.cpp)
 
 set(TEST_SOURCES FunctionalTests.cpp
                  StreamAbstractionAAMP_MPD.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDParseHelper.cpp ${AAMP_ROOT}/AampUtils.cpp ${DASH_PARSER_SOURCES})
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

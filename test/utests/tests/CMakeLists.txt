@@ -14,4 +14,5 @@ add_subdirectory(UrlEncDecAAMP)
 add_subdirectory(StreamAbstractionAAMP_HLS)
 add_subdirectory(StreamAbstractionAAMP_MPD)
 add_subdirectory(AampCurlDownloader)
-
+add_subdirectory(AampMPDDownloader)
+add_subdirectory(ManifestStitching)

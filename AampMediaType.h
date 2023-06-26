@@ -58,6 +58,20 @@ enum MediaType
 	eMEDIATYPE_DEFAULT              /**< Type unknown */
 };
 
+/**
+ * @enum MediaTypeTelemetry
+ * @brief Media types for telemetry
+ */
+enum MediaTypeTelemetry
+{
+	eMEDIATYPE_TELEMETRY_AVS,               /**< Type audio, video or subtitle */
+	eMEDIATYPE_TELEMETRY_DRM,               /**< Type DRM license */
+	eMEDIATYPE_TELEMETRY_INIT,              /**< Type audio or video init fragment */
+	eMEDIATYPE_TELEMETRY_MANIFEST,          /**< Type main or sub manifest file */
+	eMEDIATYPE_TELEMETRY_UNKNOWN,           /**< Type unknown*/
+};
+
+
 
 #endif /* AAMPMEDIATYPE_H */
 

@@ -86,20 +86,6 @@ struct TuneFailureMap
 
 
 /**
- * @enum MediaTypeTelemetry
- * @brief Media types for telemetry
- */
-enum MediaTypeTelemetry
-{
-	eMEDIATYPE_TELEMETRY_AVS,               /**< Type audio, video or subtitle */
-	eMEDIATYPE_TELEMETRY_DRM,               /**< Type DRM license */
-	eMEDIATYPE_TELEMETRY_INIT,              /**< Type audio or video init fragment */
-	eMEDIATYPE_TELEMETRY_MANIFEST,          /**< Type main or sub manifest file */
-	eMEDIATYPE_TELEMETRY_UNKNOWN,           /**< Type unknown*/
-};
-
-
-/**
  * @enum StreamOutputFormat
  * @brief Media output format
  */
@@ -762,7 +748,8 @@ public:
 	 *                set to 'false' if audio fragments come with additional padding at the end (BCOM-4203)
 	 *   @return void
 	 */
-	void Tune(const char *mainManifestUrl, const char *contentType, bool bFirstAttempt, bool bFinalAttempt,const char *traceUUID,bool audioDecoderStreamSync);
+	void Tune(const char *mainManifestUrl, const char *contentType, bool bFirstAttempt,
+				bool bFinalAttempt,const char *traceUUID,bool audioDecoderStreamSync);
 
 	/**
 	 *   @fn Tune
@@ -774,7 +761,15 @@ public:
 	 *                set to 'false' if audio fragments come with additional padding at the end (BCOM-4203)
 	 *   @return void
 	 */
-	void Tune(const char *mainManifestUrl, bool autoPlay = true, const char *contentType = NULL, bool bFirstAttempt = true, bool bFinalAttempt = false,const char *traceUUID = NULL,bool audioDecoderStreamSync = true);
+	void Tune(const char *mainManifestUrl,
+				bool autoPlay = true,
+				const char *contentType = NULL,
+				bool bFirstAttempt = true,
+				bool bFinalAttempt = false,
+				const char *traceUUID = NULL,
+				bool audioDecoderStreamSync = true,
+				const char *refreshManifestUrl = NULL,
+				int mpdStichingMode = 0 );
 
 	/**
 	 *   @brief Stop playback and release resources.
@@ -1998,7 +1993,15 @@ private:
          *   @param[in] autoPlay - Start playback immediately or not
          *   @param  contentType - content Type.
          */
-	void TuneInternal(const char *mainManifestUrl, bool autoPlay, const char *contentType, bool bFirstAttempt, bool bFinalAttempt,const char *traceUUID,bool audioDecoderStreamSync);
+	void TuneInternal(const char *mainManifestUrl,
+						bool autoPlay,
+						const char *contentType,
+						bool bFirstAttempt,
+						bool bFinalAttempt,
+						const char *traceUUID,
+						bool audioDecoderStreamSync,
+						const char *refreshManifestUrl = NULL,
+						int mpdStichingMode = 0 );
 	/**
          *   @fn SetRateInternal
          *

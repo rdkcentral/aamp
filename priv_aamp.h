@@ -59,7 +59,12 @@
 #include "AampEventManager.h"
 #include <HybridABRManager.h>
 #include "AampCMCDCollector.h"
-#include "AampCurlDownloader.h"
+#include "AampDefine.h"
+#include "AampCurlDefine.h"
+#include "AampLLDASHData.h"
+
+class AampMPDDownloader;
+typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 
 #include "ID3Metadata.hpp"
 
@@ -68,17 +73,6 @@
 #else
 #define aamp_pthread_setname(tid,name) pthread_setname_np(tid,name)
 #endif
-
-#define AAMP_TRACK_COUNT 4		/**< internal use - audio+video+sub+aux track */
-#define DEFAULT_CURL_INSTANCE_COUNT (AAMP_TRACK_COUNT + 1) /**< One for Manifest/Playlist + Number of tracks */
-#define AAMP_DRM_CURL_COUNT 4		/**< audio+video+sub+aux track DRMs */
-//#define CURL_FRAGMENT_DL_TIMEOUT 10L	/**< Curl timeout for fragment download */
-#define DEFAULT_PLAYLIST_DL_TIMEOUT 10L	/**< Curl timeout for playlist download */
-#define DEFAULT_CURL_TIMEOUT 5L		/**< Default timeout for Curl downloads */
-#define DEFAULT_CURL_CONNECTTIMEOUT 3L	/**< Curl socket connection timeout */
-#define EAS_CURL_TIMEOUT 3L		/**< Curl timeout for EAS manifest downloads */
-#define EAS_CURL_CONNECTTIMEOUT 2L      /**< Curl timeout for EAS connection */
-#define DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS (6*1000)   /**< Interval between playlist refreshes */
 
 #define AAMP_SEEK_TO_LIVE_POSITION (-1)
 
@@ -151,30 +145,6 @@ struct HLSXStart
 	bool precise;       /**< Precise input */
 };
 
-/**
- * @addtogroup AAMP_COMMON_TYPES
- * @{
- */
-
-/**
- * @brief Enumeration for Curl Instances
- */
-enum AampCurlInstance
-{
-	eCURLINSTANCE_VIDEO,
-	eCURLINSTANCE_AUDIO,
-	eCURLINSTANCE_SUBTITLE,
-	eCURLINSTANCE_AUX_AUDIO,
-	eCURLINSTANCE_MANIFEST_MAIN,
-	eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO,
-	eCURLINSTANCE_MANIFEST_PLAYLIST_AUDIO,
-	eCURLINSTANCE_MANIFEST_PLAYLIST_SUBTITLE,
-	eCURLINSTANCE_MANIFEST_PLAYLIST_AUX_AUDIO,
-	eCURLINSTANCE_DAI,
-	eCURLINSTANCE_AES,
-	eCURLINSTANCE_PLAYLISTPRECACHE,
-	eCURLINSTANCE_MAX
-};
 
 /*
  * @brief Playback Error Type
@@ -207,27 +177,6 @@ enum TuneType
 	eTUNETYPE_LAST,         /**< Use the tune mode used in last tune*/
 	eTUNETYPE_NEW_END,      /**< Start playback from the end of the asset*/
 	eTUNETYPE_SEEKTOEND     /**< Seek to live point. Not a new channel, so resources can be reused*/
-};
-
-/**
- * @brief AAMP Function return values
- */
-enum AAMPStatusType
-{
-	eAAMPSTATUS_OK,					/**< Aamp Status ok */
-	eAAMPSTATUS_FAKE_TUNE_COMPLETE,			/**< Fake tune completed */
-	eAAMPSTATUS_GENERIC_ERROR,			/**< Aamp General Error */
-	eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR,		/**< Manifest download failed */
-	eAAMPSTATUS_PLAYLIST_VIDEO_DOWNLOAD_ERROR,	/**< Video download failed */
-	eAAMPSTATUS_PLAYLIST_AUDIO_DOWNLOAD_ERROR,	/**< Audio dowload failed */
-	eAAMPSTATUS_MANIFEST_PARSE_ERROR,		/**< Manifest parse failed */
-	eAAMPSTATUS_MANIFEST_CONTENT_ERROR,		/**< Manifest content is unknown or Error */
-	eAAMPSTATUS_MANIFEST_INVALID_TYPE,		/**< Invalid manifest type */
-	eAAMPSTATUS_PLAYLIST_PLAYBACK,			/**< Playlist play back happening */ 
-	eAAMPSTATUS_SEEK_RANGE_ERROR,			/**< Seek position range invalid */
-	eAAMPSTATUS_TRACKS_SYNCHRONISATION_ERROR,	/**< Audio video track synchronisation Error */
-	eAAMPSTATUS_INVALID_PLAYLIST_ERROR,		/**< Playlist discontinuity mismatch*/
-	eAAMPSTATUS_UNSUPPORTED_DRM_ERROR		/**< Unsupported DRM */
 };
 
 
@@ -268,19 +217,6 @@ enum AudioType
 	eAUDIO_DOLBYAC4
 };
 
-
-/**
- *
- * @enum UTC TIMING
- *
- */
-enum UtcTiming
-{
-    eUTC_HTTP_INVALID,
-    eUTC_HTTP_XSDATE,
-    eUTC_HTTP_ISO,
-    eUTC_HTTP_NTP
-};
 
 /**
  * @struct AsyncEventDescriptor
@@ -483,24 +419,6 @@ struct SpeedCache
     }
 };
 
-/**
- * @brief To store Low Latency Service configurtions
- */
-struct AampLLDashServiceData {
-    bool lowLatencyMode;        	/**< LL Playback mode enabled */
-    bool strictSpecConformance; 	/**< Check for Strict LL Dash spec conformace*/
-    double availabilityTimeOffset;  	/**< LL Availability Time Offset */
-    bool availabilityTimeComplete;  	/**< LL Availability Time Complete */
-    int targetLatency;          	/**< Target Latency of playback */
-    int minLatency;             	/**< Minimum Latency of playback */
-    int maxLatency;             	/**< Maximum Latency of playback */
-    int latencyThreshold;       	/**< Latency when play rate correction kicks-in */
-    double minPlaybackRate;     	/**< Minimum playback rate for playback */
-    double maxPlaybackRate;     	/**< Maximum playback rate for playback */
-    bool isSegTimeLineBased;		/**< Indicates is stream is segmenttimeline based */
-    double fragmentDuration;		/**< Maximum Fragment Duartion */
-    UtcTiming utcTiming;		/**< Server UTC timings */	
-};
 
 /**
  * @brief To store video rectangle properties
@@ -692,7 +610,15 @@ public:
 	 *                set to 'false' if audio fragments come with additional padding at the end (BCOM-4203)
 	 * @return void
 	 */
-	void Tune(const char *url, bool autoPlay,  const char *contentType = NULL, bool bFirstAttempt = true, bool bFinalAttempt = false, const char *sessionUUID = NULL,bool audioDecoderStreamSync = true);
+	void Tune(const char *url,
+				bool autoPlay,
+				const char *contentType = NULL,
+				bool bFirstAttempt = true,
+				bool bFinalAttempt = false,
+				const char *sessionUUID = NULL,
+				bool audioDecoderStreamSync = true,
+				const char *refreshManifestUrl = NULL,
+				int mpdStichingMode = 0 );
 
 	/**
 	 * @brief API Used to reload TSB with new session
@@ -826,7 +752,9 @@ public:
 	 * @return void
 	 */
 	void UpdateBufferBasedOnLiveOffset();
-	
+
+	struct curl_slist* GetCustomHeaders(MediaType fileType);
+
 	std::vector< std::pair<long long,long> > mAbrBitrateData;
 
 	pthread_mutex_t mLock;				/**< = PTHREAD_MUTEX_INITIALIZER; */
@@ -864,6 +792,8 @@ public:
 	std::string mTunedManifestUrl;
 	std::string mTsbSessionRequestUrl;
 	std::string mSchemeIdUriDai;
+	std::string mMPDStichRefreshUrl;
+	MPDStichOptions	mMPDStichOption;
 	AampURLInfoStruct mOrigManifestUrl;					/**< Original Manifest URl */
 
 	bool isPreferredDRMConfigured;
@@ -875,9 +805,9 @@ public:
 	bool mIscDVR;
 	double mLiveOffset;
 	double mLiveOffsetDrift;               /**< allowed drift value from live offset configured **/
-	long mNetworkTimeoutMs;
-	long mManifestTimeoutMs;
-	long mPlaylistTimeoutMs;
+	int mNetworkTimeoutMs;
+	int mManifestTimeoutMs;
+	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
 
 	/**
@@ -1017,7 +947,7 @@ public:
 	std::vector<TimedMetadata> timedMetadata;
 	std::vector<TimedMetadata> timedMetadataNew;
 	std::vector<ContentGapInfo> contentGaps;
-	std::vector<std::string> responseHeaders;
+	std::vector<std::string> manifestHeadersNeeded;
 	std::vector<BitsPerSecond>bitrateList;
 	std::map<std::string, std::string> httpHeaderResponses;
 	bool mIsIframeTrackPresent;				/**< flag to check iframe track availability*/
@@ -1113,7 +1043,6 @@ public:
 	std::mutex mRateCorrectionTimeoutLock;				/**< Rate correction thread mutex for conditional timed wait*/  
 	double mCorrectionRate;                          /**< Variable to store corection rate **/        
 	bool mIsPeriodChangeMarked; 				/**< Mark if a period change occurred */
-	bool mIsEventStreamFound;				/**< Flag to indicate event stream entry in any of period */
         
 	bool mIsFakeTune;
 
@@ -3997,6 +3926,11 @@ public:
 		return mHarvestCountLimit;
 	}
 
+	AampMPDDownloader *GetMPDDownloader()
+	{
+		return mMPDDownloaderInstance;
+	}
+
 private:
 
 	/**
@@ -4088,6 +4022,20 @@ private:
 	 */
 	bool HasSidecarData();
 
+	/**
+	 *   @fn GetCurlInstanceForURL
+	 *
+	 *   @return Get curl instance for the url from curlstore
+	 */
+	CURL *GetCurlInstanceForURL(std::string &remoteUrl,unsigned int curlInstance) ;
+
+	/**
+	 * @fn prepareManifestDownloadConfig
+	 *
+	 * @return shared ptr of ManifestDownloadConfig
+	 */
+	std::shared_ptr<ManifestDownloadConfig> prepareManifestDownloadConfig();
+
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
@@ -4174,6 +4122,7 @@ private:
 	std::string mTextStyle;
 	std::vector<StreamBlacklistProfileInfo> mBlacklistedProfiles;
 	//std::vector<ProfilerBucketType> cachedMediaBucketTypes;
+	AampMPDDownloader *mMPDDownloaderInstance;
 };
 
 #endif // PRIVAAMP_H

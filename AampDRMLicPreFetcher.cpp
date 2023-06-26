@@ -22,6 +22,7 @@
 #include "AampDrmSession.h"
 #include "AampDRMSessionManager.h"
 #include "AampUtils.h"	// for aamp_GetDeferTimeMs
+#include "priv_aamp.h"
 
 /**
  * @brief For generating IDs for LicensePreFetchObject

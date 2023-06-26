@@ -129,6 +129,11 @@ void getDefaultHarvestPath(std::string &value)
  */
 static const char * ParseUriProtocol(const char *uri)
 {
+	if(NULL == uri)
+	{
+		AAMPLOG_ERR("Empty URI");
+		return NULL;
+	}
 	for(;;)
 	{
 		char ch = *uri++;
@@ -163,6 +168,11 @@ void aamp_ResolveURL(std::string& dst, std::string base, const char *uri , bool 
 	}
 	else
 	{
+		if(base.empty())
+		{
+			AAMPLOG_WARN("Empty base");
+			return;
+		}
 		const char *baseStart = base.c_str();
 		const char *basePtr = ParseUriProtocol(baseStart);
 		const char *baseEnd;
@@ -1110,6 +1120,7 @@ double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::strin
 	inpData->iDownloadTimeout = 3; // 3sec
 	inpData->proxyName 	  = NetworkProxy;
 	
+	inpData->bNeedDownloadMetrics = true;
 	T1.Initialize(inpData);
 	T1.Download(remoteUrl, respData);
 		
@@ -1145,6 +1156,116 @@ double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::strin
 	return retValue;
 	
 }
+
+//Multiply two ints without overflow
+inline double safeMultiply(const  unsigned int first, const unsigned int second)
+{
+    return static_cast<double>(first * second);
+}
+/**
+ * @brief Parse duration from ISO8601 string
+ * @param ptr ISO8601 string
+ * @return durationMs duration in milliseconds
+ */
+double ParseISO8601Duration(const char *ptr)
+{
+	int years = 0;
+	int months = 0;
+	int days = 0;
+	int hour = 0;
+	int minute = 0;
+	double seconds = 0.0;
+	double returnValue = 0.0;
+	int indexforM = 0,indexforT=0;
+
+	//ISO 8601 does not specify specific values for months in a day
+	//or days in a year, so use 30 days/month and 365 days/year
+	static constexpr auto kMonthDays = 30;
+	static constexpr auto kYearDays = 365;
+	static constexpr auto kMinuteSecs = 60;
+	static constexpr auto kHourSecs = kMinuteSecs * 60;
+	static constexpr auto kDaySecs = kHourSecs * 24;
+	static constexpr auto kMonthSecs = kMonthDays * kDaySecs;
+	static constexpr auto kYearSecs = kDaySecs * kYearDays;
+
+	// ISO 8601 allow for number of years(Y), months(M), days(D) before the "T"
+	// and hours(H), minutes(M), and seconds after the "T"
+
+	const char* durationPtr = strchr(ptr, 'T');
+	indexforT = (int)(durationPtr - ptr);
+	const char* pMptr = strchr(ptr, 'M');
+	if(NULL != pMptr)
+	{
+		indexforM = (int)(pMptr - ptr);
+	}
+
+	if (ptr[0] == 'P')
+	{
+		ptr++;
+		if (ptr != durationPtr)
+		{
+			const char *temp = strchr(ptr, 'Y');
+			if (temp)
+			{	sscanf(ptr, "%dY", &years);
+				AAMPLOG_WARN("years %d", years);
+				ptr = temp + 1;
+			}
+			temp = strchr(ptr, 'M');
+			if (temp && ( indexforM < indexforT ) )
+			{
+				sscanf(ptr, "%dM", &months);
+				ptr = temp + 1;
+			}
+			temp = strchr(ptr, 'D');
+			if (temp)
+			{
+				sscanf(ptr, "%dD", &days);
+				ptr = temp + 1;
+			}
+		}
+		if (ptr == durationPtr)
+		{
+			ptr++;
+			const char* temp = strchr(ptr, 'H');
+			if (temp)
+			{
+				sscanf(ptr, "%dH", &hour);
+				ptr = temp + 1;
+			}
+			temp = strchr(ptr, 'M');
+			if (temp)
+			{
+				sscanf(ptr, "%dM", &minute);
+				ptr = temp + 1;
+			}
+			temp = strchr(ptr, 'S');
+			if (temp)
+			{
+				sscanf(ptr, "%lfS", &seconds);
+				ptr = temp + 1;
+			}
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("Invalid input %s", ptr);
+	}
+
+	returnValue += seconds;
+
+	//Guard against overflow by casting first term
+	returnValue += safeMultiply(kMinuteSecs, minute);
+	returnValue += safeMultiply(kHourSecs, hour);
+	returnValue += safeMultiply(kDaySecs, days);
+	returnValue += safeMultiply(kMonthSecs, months);
+	returnValue += safeMultiply(kYearSecs, years);
+
+	(void)ptr; // Avoid a warning as the last set value is unused.
+
+	return returnValue * 1000;
+}
+
+
 /**
  * EOF
  */

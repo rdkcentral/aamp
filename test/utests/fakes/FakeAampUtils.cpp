@@ -215,3 +215,18 @@ unsigned char *aamp_Base64_URL_Decode(const char *src, size_t *len, size_t srcLe
 {
 	return NULL;
 }
+
+inline double safeMultiply(const unsigned int first, const unsigned int second)
+{
+    return static_cast<double>(first * second);
+}
+
+double ParseISO8601Duration(const char *ptr)
+{
+        return 0.0;
+}
+
+void trim(std::string& src)
+{
+
+}

@@ -164,9 +164,9 @@ typedef struct _downloadResponse
 	std::vector<std::string>  mResponseHeader;
 	std::vector<std::uint8_t> mDownloadData;
 	
-	RespHeader httpRespHeaderData;
-	
-	_downloadResponse() : 	curlRetValue(0),iHttpRetValue(0),sEffectiveUrl(""),mDownloadData(),downloadCompleteMetrics(),progressMetrics(),mAbortReason(eCURL_ABORT_REASON_NONE),mResponseHeader(),httpRespHeaderData()
+	_downloadResponse() : 	curlRetValue(0),iHttpRetValue(0),sEffectiveUrl(""),mDownloadData(),
+							downloadCompleteMetrics(),progressMetrics(),mAbortReason(eCURL_ABORT_REASON_NONE),
+							mResponseHeader()
 	{
 		
 	}
@@ -181,10 +181,11 @@ public:
 		curlRetValue = 0;
 		iHttpRetValue = 0;
 		mAbortReason = eCURL_ABORT_REASON_NONE;
-		mResponseHeader.clear();
-		httpRespHeaderData.clear();
+		mResponseHeader.clear();		
 	}
 
+	size_t size() { return mDownloadData.size();}
+	std::string getString() { return std::string( mDownloadData.begin(), mDownloadData.end()); }
 	void show();
 }DownloadResponse;
 

@@ -27,8 +27,10 @@
 #include <array>
 #include "AampDrmHelper.h"
 #include "AampLogManager.h"
-#include "priv_aamp.h"
+#include "AampDefine.h"
 #include "AampDRMLicPreFetcherInterface.h"
+
+class PrivateInstanceAAMP;
 
 /**
  * @brief Structure for storing the pre-fetch data

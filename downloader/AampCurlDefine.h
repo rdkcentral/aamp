@@ -76,6 +76,25 @@ enum CurlRequest
 	eCURL_DELETE
 };
 
+/**
+ * @brief Enumeration for Curl Instances
+ */
+enum AampCurlInstance
+{
+	eCURLINSTANCE_VIDEO,
+	eCURLINSTANCE_AUDIO,
+	eCURLINSTANCE_SUBTITLE,
+	eCURLINSTANCE_AUX_AUDIO,
+	eCURLINSTANCE_MANIFEST_MAIN,
+	eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO,
+	eCURLINSTANCE_MANIFEST_PLAYLIST_AUDIO,
+	eCURLINSTANCE_MANIFEST_PLAYLIST_SUBTITLE,
+	eCURLINSTANCE_MANIFEST_PLAYLIST_AUX_AUDIO,
+	eCURLINSTANCE_DAI,
+	eCURLINSTANCE_AES,
+	eCURLINSTANCE_PLAYLISTPRECACHE,
+	eCURLINSTANCE_MAX
+};
 
 #define CURL_SHARE_SETOPT( SH, OPT, PARAM ) \
 	{ \
@@ -110,6 +129,17 @@ double aamp_CurlEasyGetinfoDouble( CURL *handle, CURLINFO info );
 int aamp_CurlEasyGetinfoInt( CURL *handle, CURLINFO info );
 long aamp_CurlEasyGetinfoLong( CURL *handle, CURLINFO info );
 char *aamp_CurlEasyGetinfoString( CURL *handle, CURLINFO info );
+
+#define FOG_REASON_STRING			"Fog-Reason:"
+#define CURLHEADER_X_REASON			"X-Reason:"
+#define BITRATE_HEADER_STRING		"X-Bitrate:"
+#define CONTENTLENGTH_STRING		"Content-Length:"
+#define SET_COOKIE_HEADER_STRING	"Set-Cookie:"
+#define LOCATION_HEADER_STRING		"Location:"
+#define CONTENT_ENCODING_STRING		"Content-Encoding:"
+#define FOG_RECORDING_ID_STRING		"Fog-Recording-Id:"
+#define CAPPED_PROFILE_STRING		"Profile-Capped:"
+#define TRANSFER_ENCODING_STRING	"Transfer-Encoding:"
 
 
 #endif  //__AAMP_CURL_DEFINE_H__

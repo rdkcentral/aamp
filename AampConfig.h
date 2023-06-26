@@ -207,7 +207,8 @@ typedef enum
 	eAAMPConfig_SendLicenseResponseHeaders,					/**<Config to enable adding license response headers with drm metadata event */
 	eAAMPConfig_SuppressDecode,					/**< To Suppress Decode of segments for playback . Test only Downloader */
 	eAAMPConfig_ReconfigPipelineOnDiscontinuity,				/*** Enable/Disable reconfigure pipeline on discontinuity */
-	eAAMPConfig_BoolMaxValue					/**< Max value of bool config always last element */
+	eAAMPConfig_MPDStichingSupport,					/**< To enable/disable MPD Stich functionality in the player. Default enabled */
+	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 } AAMPConfigSettingBool;
 #define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)
 

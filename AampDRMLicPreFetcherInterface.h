@@ -19,9 +19,6 @@
 #ifndef _AAMP_LICENSE_FETCHER_INTERFACE_HPP
 #define _AAMP_LICENSE_FETCHER_INTERFACE_HPP
 
-#include "priv_aamp.h"
-
-class PrivateInstanceAAMP;
 struct LicensePreFetchObject;
 
 class AampLicenseFetcher

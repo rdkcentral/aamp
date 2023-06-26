@@ -28,9 +28,8 @@
 #include "aampdrmsessionfactory.h"
 #include "AampDrmSession.h"
 #include "AampDRMutils.h"
-#include "priv_aamp.h"
-#include "main_aamp.h"
 #include <string>
+#include <atomic>
 #include "AampCurlDownloader.h"
 #include "AampDrmHelper.h"
 
@@ -39,6 +38,8 @@
 #endif
 
 #include "AampDRMLicPreFetcher.h"
+
+class PrivateInstanceAAMP;
 
 #define VIDEO_SESSION 0
 #define AUDIO_SESSION 1
