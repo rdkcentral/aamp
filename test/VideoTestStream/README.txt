@@ -5,20 +5,20 @@ In this directory the script generate-hls-dash.sh can be used to create a video
 test stream in HLS and DASH format. The script startserver.sh can be used to run
 a web server (server.py) so that AAMP can play the video test stream.
 
-Multiple video profiles (for ABR) and audio languages are supported.
-
+Multiple video profiles (for ABR) audio and caption languages are supported.
 
 The following streams are generated:
 main.mpd // DASH
 main_mp4.m3u8 // fragmented HLS mp4
 main.m3u8 // HLS ts with demux audio
-muxed.m3u8 // HLS ts with muxed audio
+main_mux.m3u8 // HLS ts with muxed audio
 
-generate-hls-dash-4k.sh is variation used to generate an animated test pattern that had more realistic segment sizes and includes 4k profile.
-SegmentTemplate4k.mpd
-SegmentTimeline4k.mpd
-SegmentBase4k.mpd
-SegmentList4k.mpd
+generate-hls-dash-4k.sh is variation used to generate an animated test pattern with more realistic
+segment sizes and includes a 4k resolution profile.
+SegmentTemplate.mpd
+SegmentTimeline.mpd
+SegmentBase.mpd
+SegmentList.mpd
 Muxed.m4u8
 FragmentedMp4.m3u8
 HlsTs.m3u8
@@ -35,13 +35,17 @@ $ ./generate-hls-dash.h
 Known Limitations
 -----------------
 
-Currently no subtitles are available in the video test stream.
+Separate 'sidecar' caption text files are generated in the text directory and
+can be loaded using the 'set textTrack' aamp-cli command and displayed using the
+subtec-app server. On Apple Macs, some socket buffer size limits need to be
+increased, for example:
 
-Multiplexed HLS test streams are generated but there is no master playlist.
+$ sudo sysctl net.local.dgram.maxdgram=102400
+$ sudo sysctl net.local.dgram.recvspace=204800
 
-The DASH manifest main.mpd and HLS master playlists main.m3u8 and main_mp4.m3u8
-are not generated. If you change the generated video test stream parameters in
-generate-hls-dash.h you may need to edit these files.
+The DASH manifest main.mpd and HLS master playlists main.m3u8, main_mp4.m3u8 and
+main_mux.m3u8 are not generated. If you change the generated video test stream
+parameters in generate-hls-dash.h you may need to edit these files.
 
 
 startserver.sh
@@ -72,6 +76,10 @@ http://127.0.0.1:8080/main.mpd
 http://127.0.0.1:8080/main.m3u8
 
   HLS TS format stream.
+
+http://127.0.0.1:8080/main_mux.m3u8
+
+  HLS TS format muxed audio and video stream.
 
 http://127.0.0.1:8080/main_mp4.m3u8
 

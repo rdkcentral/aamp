@@ -165,5 +165,55 @@
 		</SegmentTemplate>
 	  </Representation>
 	</AdaptationSet>
+	<AdaptationSet id="10" contentType="text" segmentAlignment="true" lang="eng">
+	  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
+	  <Representation id="English WebVTT captions" mimeType="text/vtt" codecs="wvtt" bandwidth="400">
+		<SegmentTemplate timescale="1" media="dash/en_$Number%03d$.vtt" startNumber="1">
+		  <SegmentTimeline>
+			<S t="0" d="2" r="449" />
+		  </SegmentTimeline>
+		</SegmentTemplate>
+	  </Representation>
+	</AdaptationSet>
+	<AdaptationSet id="11" contentType="text" segmentAlignment="true" lang="ger">
+	  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
+	  <Representation id="German WebVTT captions" mimeType="text/vtt" codecs="wvtt" bandwidth="400">
+		<SegmentTemplate timescale="1" media="dash/de_$Number%03d$.vtt" startNumber="1">
+		  <SegmentTimeline>
+			<S t="0" d="2" r="449" />
+		  </SegmentTimeline>
+		</SegmentTemplate>
+	  </Representation>
+	</AdaptationSet>
+	<AdaptationSet id="12" contentType="text" segmentAlignment="true" lang="spa">
+	  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
+	  <Representation id="Spanish WebVTT captions" mimeType="text/vtt" codecs="wvtt" bandwidth="400">
+		<SegmentTemplate timescale="1" media="dash/es_$Number%03d$.vtt" startNumber="1">
+		  <SegmentTimeline>
+			<S t="0" d="2" r="449" />
+		  </SegmentTimeline>
+		</SegmentTemplate>
+	  </Representation>
+	</AdaptationSet>
+	<AdaptationSet id="13" contentType="text" segmentAlignment="true" lang="fra">
+	  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
+	  <Representation id="French WebVTT captions" mimeType="text/vtt" codecs="wvtt" bandwidth="400">
+		<SegmentTemplate timescale="1" media="dash/fr_$Number%03d$.vtt" startNumber="1">
+		  <SegmentTimeline>
+			<S t="0" d="2" r="449" />
+		  </SegmentTimeline>
+		</SegmentTemplate>
+	  </Representation>
+	</AdaptationSet>
+	<AdaptationSet id="14" contentType="text" segmentAlignment="true" lang="pol">
+	  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
+	  <Representation id="Polish WebVTT captions" mimeType="text/vtt" codecs="wvtt" bandwidth="400">
+		<SegmentTemplate timescale="1" media="dash/pl_$Number%03d$.vtt" startNumber="1">
+		  <SegmentTimeline>
+			<S t="0" d="2" r="449" />
+		  </SegmentTimeline>
+		</SegmentTemplate>
+	  </Representation>
+	</AdaptationSet>
   </Period>
 </MPD>

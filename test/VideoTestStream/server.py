@@ -317,6 +317,9 @@ class TestServer(BaseHTTPRequestHandler):
             elif extension == ".mp3":
                 # MP3 audio
                 self.getFile(path)
+            elif extension == ".vtt":
+                # WebVTT text
+                self.getFile(path)
             else:
                 self.send_response(404)
                 self.end_headers()

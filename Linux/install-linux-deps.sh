@@ -57,12 +57,28 @@ install_package libxkbcommon-dev
 install_package libfontconfig-dev
 install_package libharfbuzz-dev
 install_package snapd
-
+install_package libcppunit-dev
+install_package wayland-protocols
+install_package libcppunit-dev
 
 ver=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
 if [ ${ver:0:2} -eq 22 ]; then
-	install_package meson
+	# Install and verify the version of meson
+	install_package python3-pip
+	pip_install_package meson
+
+	mesonversion=$(meson --version)
+	if $(dpkg --compare-versions "${mesonversion}" lt "1.2.3"); then
+	    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+	    echo "Meson version ${mesonversion} is not supported"
+	    echo "Please uninstall and use version 1.2.3 or later"
+	    echo " sudo apt remove meson"
+	    echo " sudo pip3 install meson"
+	    echo " hash -r"
+	    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+	    exit 1
+	fi
 
 	# Temporary check for gcc version as subtec currently fails to build with gcc-11
 	# on 22.04. Once the build issues have been fixed this can be removed

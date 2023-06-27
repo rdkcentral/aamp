@@ -248,6 +248,9 @@ install_and_build_subtec() {
     if [ ! -d "subtec-app/subttxrend-app/x86_builder/" ]; then
         echo "Subtec-app is not correctly installed."
     else
+        echo "Patching subtec-app..."
+        git apply OSX/patches/subttxrend-app-packet.patch --directory subtec-app
+
         cd subtec-app/subttxrend-app/x86_builder/
         PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:$PKG_CONFIG_PATH ./build.sh fast
 

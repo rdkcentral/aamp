@@ -8180,6 +8180,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 					else
 					{
 						AAMPLOG_WARN("initialization  is null");  //CID:84853 ,86291- Null Return
+						pMediaStreamContext->profileChanged = false;
 					}
 				}
 				else
