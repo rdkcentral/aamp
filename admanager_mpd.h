@@ -293,10 +293,14 @@ public:
 	int                                            mCurAdIdx;           /**< Currently playing Ad index */
 	AdFulfillObj                                   mAdFulfillObj;       /**< Temporary object for Ad fulfillment (to pass to the fulfillment thread) */
 	PlacementObj                                   mPlacementObj;       /**< Temporary object for Ad placement over period */
-	PlacementObj				       mAdtoInsertInNextBreak;
 	double                                         mContentSeekOffset;  /**< Seek offset after the Ad playback */
 	AdState                                        mAdState;            /**< Current state of the CDAI state machine */
 	bool 					       mImmediateNextAdbreakAvailable;/**< Next ad break(immediate/back to back)  need to be placed if the value is true*/
+	bool					       currentAdPeriodClosed;/**< True means player is ready to process very next open period available in the manifest.
+										  The next open period should not be processed until the flag is set to true**/
+	std::vector<PlacementObj>		       mAdtoInsertInNextBreakVec;
+	std::mutex                                     mAdBrkVecMtx;             /**< Mutex protecting DAI critical section */
+
 	/**
 	 * @fn PrivateCDAIObjectMPD
 	 *
@@ -419,6 +423,8 @@ public:
 	 * @return True or false
 	 */
 	inline bool isPeriodInAdbreak(const std::string &periodId);
+
+	PlacementObj PopulatePlacementObjwithnxtadbrk(std::string adBrkId,std::string endPeriodId);
 };
 
 

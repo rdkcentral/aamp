@@ -8887,7 +8887,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					{
 						IPeriod *newPeriod = mpd->GetPeriods().at(mIterPeriodIndex);
 						AAMPLOG_WARN("Period(%s - %d/%d) Offset[%lf] IsLive(%d) IsCdvr(%d) ", mBasePeriodId.c_str(), mCurrentPeriodIdx, mNumberOfPeriods, mBasePeriodOffset, mIsLiveStream, aamp->IsInProgressCDVR());
-
 						vector <IAdaptationSet*> adapatationSets = newPeriod->GetAdaptationSets();
 						int adaptationSetCount = (int)adapatationSets.size();
 
@@ -8947,14 +8946,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					{
 						//If the next ad break is available,need to call onAdEvent again to play DAI ads from the next immediate ad break.
 						//Otherwise, player will switch to base period(source) of second ad break
-						if(mCdaiObject->mImmediateNextAdbreakAvailable)
-						{
-							AAMPLOG_INFO("[CDAI] Going to play next ad break");
-							mCdaiObject->mImmediateNextAdbreakAvailable = false;
-                                                        mBasePeriodOffset = 0;//Not considering the delta from previous period's duration.
-							mCdaiObject->PlaceAds(mpd);// to ensure the second ad break is placed to the ad object
-							adStateChanged = onAdEvent(AdEvent::DEFAULT);//to play Second immediate ad break.
-						}
+						PlacenextAdBrkifAvail(mpd);
 						//Just came out from the Adbreak. Need to search the right period
 						for(mIterPeriodIndex=0;mIterPeriodIndex < mNumberOfPeriods;  mIterPeriodIndex++)
 						{
@@ -10998,6 +10990,21 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			}
 		}
 	}
+	mCdaiObject->mAdBrkVecMtx.lock();
+	for(auto it = mCdaiObject->mAdtoInsertInNextBreakVec.begin();it != mCdaiObject->mAdtoInsertInNextBreakVec.end();)
+	{
+		if(it->pendingAdbrkId == mCdaiObject->mCurPlayingBreakId)
+		{
+			AAMPLOG_WARN("Period Id : %s state : %s processed remove from the AdBreak Vector",it->pendingAdbrkId.c_str(),ADSTATE_STR[static_cast<int>(mCdaiObject->mAdState)]);
+			it = mCdaiObject->mAdtoInsertInNextBreakVec.erase(it);
+			break;
+		}
+		else
+		{
+			++it;
+		}
+	}
+	mCdaiObject->mAdBrkVecMtx.unlock();
 	return stateChanged;
 }
 
@@ -12543,4 +12550,37 @@ bool StreamAbstractionAAMP_MPD::CheckForValidScteEevnt(IPeriod *period)
 		}
 	}
 	return (validScteEvent);
+}
+/**
+ * @fn PlacenextAdBrkifAvail
+ * @brief Function to verify if the next period contains ad break and place it
+ * @param[in] mpd
+ * @retval true if adstate changes.
+ */
+bool StreamAbstractionAAMP_MPD::PlacenextAdBrkifAvail(dash::mpd::IMPD *mpd)
+{
+	bool adStateChanged = false;
+
+	if(!mCdaiObject->mAdtoInsertInNextBreakVec.empty())
+	{
+		std::vector<PlacementObj>::iterator it;
+		it = mCdaiObject->mAdtoInsertInNextBreakVec.begin();
+		for(it = mCdaiObject->mAdtoInsertInNextBreakVec.begin();it != mCdaiObject->mAdtoInsertInNextBreakVec.end();it++)
+		{
+			AAMPLOG_INFO("pendingAdbrkId : %s BasePeriodId : %s",it->pendingAdbrkId.c_str(),mBasePeriodId.c_str());
+			if(mBasePeriodId == it->pendingAdbrkId)
+			{
+				AAMPLOG_INFO("Current Period : %s has Dai ADS .. PlaceAds",mBasePeriodId.c_str());
+				mBasePeriodOffset = 0;//Not considering the delta from previous period's duration.
+				mCdaiObject->PlaceAds(mpd);// to ensure the second ad break is placed to the ad object
+				adStateChanged = onAdEvent(AdEvent::DEFAULT);//to play Second immediate ad break
+			}
+			if(!mCdaiObject->mAdtoInsertInNextBreakVec.size())
+			{
+				AAMPLOG_INFO("[CDAI] no adbrks available");
+				break;
+			}
+		}
+	}
+	return adStateChanged;
 }

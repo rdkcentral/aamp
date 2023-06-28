@@ -813,6 +813,7 @@ private:
 	* @retval true if event is valid.
 	*/
 	bool CheckForValidScteEevnt(IPeriod *period);
+	bool PlacenextAdBrkifAvail(dash::mpd::IMPD *mpd);
 
 	std::mutex mStreamLock;
 	bool fragmentCollectorThreadStarted;
