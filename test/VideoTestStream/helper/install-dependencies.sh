@@ -1,5 +1,7 @@
 #!/bin/bash
 
+version() { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
+
 # audio generation requires following installs:
 #Support functions
 mac_find_or_install_pkgs() {
@@ -54,15 +56,28 @@ elif [[ "$OSTYPE" == "linux"* ]]; then
 fi
 
 # pip3 install gtts
+gtts_version="1.0"
 if which gtts-cli > /dev/null; then
-   echo "gtts already installed."
+   echo "gtts already installed, checking version."
+   gtts_version=`gtts-cli --version | cut -d " " -f 3`
 else
    echo "Installing gtts, as its not available"
-   pip3 install gtts
-   if which gtts-cli > /dev/null; then
+fi
+
+if [ $(version $gtts_version) -ge $(version "2.3.2") ]; then
+    echo "gtts $gtts_version is up to date"
+else
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+       pip3 install "gtts >=2.3.2"
+    elif [[ "$OSTYPE" == "linux"* ]]; then
+       sudo pip3 install "gtts>=2.3.2"
+    fi
+
+   gtts_version=`gtts-cli --version | cut -d " " -f 3`
+   if [ $(version $gtts_version) -ge $(version "2.3.2") ]; then
       echo "gtts successfully installed."
    else
-      echo "FYI:gtts install failed!"
+      echo "gtts install failed check your \$PATH variable!"
    fi
 fi
 

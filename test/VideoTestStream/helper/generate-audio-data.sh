@@ -16,13 +16,13 @@ do
             OUT=${AUDIO_PATH}/${LANG_639_2[$I]}/${J}
             TEXT=${TRANSLATIONS[$((101*I+J))]}
             echo $TEXT
-            gtts-cli "$TEXT" --lang ${LANG_639_2[$I]} --output ${OUT}.mp3
+            sudo gtts-cli "$TEXT" --lang ${LANG_639_2[$I]} --output ${OUT}.mp3
             # pad with silence
             ffmpeg -hide_banner -y -i  ${OUT}.mp3 -af "apad=pad_dur=1" ${OUT}_temp.wav
             # - cut to 1 second
             ffmpeg -hide_banner -y -i ${OUT}_temp.wav -t 1  ${OUT}.wav
             # cleanup
-            rm ${OUT}_temp.wav ${OUT}.mp3
+            sudo rm ${OUT}_temp.wav ${OUT}.mp3
         done
 
         # populate index.txt
