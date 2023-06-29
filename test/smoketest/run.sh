@@ -46,7 +46,7 @@ elif [[ "$OSTYPE" == "linux"* ]]; then
             echo -e "\nCould not build. Was install-aamp.sh run first?\n"
             exit $?
         fi
-        ../../build/test/smoketest/Debug/aamp_smoketest
+        ./aamp_smoketest
     fi
 else    
     echo "WARNING - unsupported platform!"
