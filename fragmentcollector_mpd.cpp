@@ -6583,6 +6583,12 @@ void StreamAbstractionAAMP_MPD::StartSubtitleParser()
 		{ // absolute to relative correction for subtec synchronization within period
 			seekPoint -= aamp->mNextPeriodStartTime;
 		}
+		
+		SegmentTemplates segmentTemplates(subtitle->representation->GetSegmentTemplate(),
+										  subtitle->adaptationSet->GetSegmentTemplate() );
+		uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
+		uint32_t tScale = segmentTemplates.GetTimescale();
+		seekPoint += presentationTimeOffset/(double)tScale;
 
 		// seekPoint can end up -0.088400000000000006 here
 		// 0.1 seems too big an epsilon, but works to avoid RDKAAMP-769
@@ -7868,6 +7874,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 				aamp->mNextPeriodDuration = mPeriodDuration;
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
+				if(eMEDIATYPE_SUBTITLE == i && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled)
+				{
+					pMediaStreamContext->fragmentTime = mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentTime;
+					AAMPLOG_INFO("Resetting subititle track fragmentTime to %lf", pMediaStreamContext->fragmentTime);
+				}
 			}
 
 			SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),pMediaStreamContext->adaptationSet->GetSegmentTemplate());
