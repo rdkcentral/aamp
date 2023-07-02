@@ -36,7 +36,7 @@
 #endif
 
 
-#define AAMP_VERSION "5.6"
+#define AAMP_VERSION "5.7"
 #define AAMP_TUNETIME_VERSION 5
 
 //Stringification of Macro : use two levels of macros
