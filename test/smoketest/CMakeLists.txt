@@ -30,9 +30,10 @@ if (CMAKE_PLATFORM_UBUNTU)
     target_link_libraries(aamp_smoketest "-Wl,--disable-new-dtags")
 endif()
 
+LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/test/smoketest")
+LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/test")
+  
 if (COVERAGE_ENABLED)
-  LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/test/smoketest")
-  LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/test")
   include(CodeCoverage)
   APPEND_COVERAGE_COMPILER_FLAGS()
   get_filename_component(PARENT_DIR ${PROJECT_SOURCE_DIR} DIRECTORY)

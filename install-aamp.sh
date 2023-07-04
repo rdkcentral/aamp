@@ -283,7 +283,7 @@ fi
 echo "Ver=$aamposxinstallerver"
 
 #Optional Command-line support for -b <aamp code branch> and -d <build directory> 
-while getopts ":d:b:c:f:n" opt; do
+while getopts ":d:b:cf:n" opt; do
   case ${opt} in
     d ) # process option d install base directory name
 	builddir=${OPTARG}
