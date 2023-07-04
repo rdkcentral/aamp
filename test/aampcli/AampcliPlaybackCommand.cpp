@@ -34,6 +34,7 @@ extern void tsdemuxer_InduceRollover( bool enable );
 
 std::map<std::string,std::string> PlaybackCommand::playbackCommands = std::map<std::string,std::string>();
 std::vector<std::string> PlaybackCommand::commands(0);
+static std::string mFogHostPrefix="127.0.0.1:9080"; //Default host string for "fog" command
 
 void PlaybackCommand::getRange(const char* cmd, unsigned long& start, unsigned long& end, unsigned long& tail)
 {
@@ -77,6 +78,20 @@ void PlaybackCommand::getRange(const char* cmd, unsigned long& start, unsigned l
 	}
 }
 
+/**
+ * @brief Take a URL of playable content & convert it to a URL which plays via fog.
+ * @param host A host string where fog is running, e.g. "127.0.0.1:9080".
+ * @param url A URL which could be used on its own to play content without using fog.
+ * @param fogUrl The newly created "fog" url
+ */
+static void buildFogUrl(const std::string host, const char* url, std::string& fogUrl)
+{
+	fogUrl = "http://" + host + "/tsb?clientId=FOG_AAMP&recordedUrl=";
+	std::string inStr(url);
+	std::string outStr;
+	UrlEncode(inStr, outStr);
+	fogUrl += outStr;
+}
 
 /**
  * @brief Process command
@@ -370,6 +385,43 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 		(void)sscanf(cmd, "auto %d %d %d %d %d", &start, &end, &maxTuneTimeS, &playTimeS, &betweenTimeS );
 		mAampcli.doAutomation( start, end, maxTuneTimeS, playTimeS, betweenTimeS );
 	}
+	else  if( isCommandMatch(cmd,"fog") )
+	{
+		if(!strcmp(cmd, "fog"))
+		{
+			printf("host: %s\n", mFogHostPrefix.c_str());
+		}
+		else if(!strncmp(cmd, "fog host=", 9))
+		{
+			std::string tmpIpv4 = &cmd[9];
+			//Match ip address:port. 0 to 255 followed by . {3} times then 0 to 255 then : then number
+			std::regex ipv4("(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5]):[0-9]+");
+			if (std::regex_match(tmpIpv4, ipv4))
+			{
+				mFogHostPrefix = tmpIpv4;
+				printf("host: %s\n", mFogHostPrefix.c_str());
+			}
+			else
+			{
+				printf("Invalid ip:port\n");
+			}
+		}
+		else
+		{
+			//Should be a cmd of "fog url". Create fogified URL & try & tune to that.
+			if((strlen(cmd) > 4) && playerInstanceAamp->isTuneScheme(&cmd[4]))
+			{
+				std::string fogUrl;
+				buildFogUrl(mFogHostPrefix, &cmd[4], fogUrl);
+				printf("Tune to: %s\n", fogUrl.c_str());
+				playerInstanceAamp->Tune(fogUrl.c_str(), mAampcli.mbAutoPlay);
+			}
+			else
+			{
+				printf("Invalid URL\n");
+			}
+		}
+	}
 	else
 	{
 		printf( "[AAMP-CLI] unmatched command: %s\n", cmd );
@@ -452,6 +504,7 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("next","Tune next virtual channel");
 	addCommand("prev","Tune previous virtual channel");
 	addCommand("<url>","Tune to arbitrary locator");
+	addCommand("fog <url|host=ip:port>", "'fog url' tune to arbitrary locator via fog. 'fog host=ip:port' set fog location (default: 127.0.0.1:9080)");
 
 	// trickplay
 	addCommand("play","Continue existing playback");

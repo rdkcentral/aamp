@@ -338,6 +338,7 @@ bps <val>   Set video bitrate in bps
 harvest <harvestConfiguration> Initiate harvesting for space separated harvest configuration such as 
 	harvestMode=Master harvestUrl=<url> harvestPath=<path> for Master mode(To download all available profiles)
 	harvestMode=Slave harvestUrl=<url> harvestConfig=65535 defaultBitrate=400000 defaultBitrate4K=400000 disableDecode=true harvestPath=<path> for Slave mode(To download selective profile)
+fog <url|host=ip:port> 'fog url' tune to arbitrary locator via fog. 'fog host=ip:port' set fog location (default: 127.0.0.1:9080)
 ```
 
 To add channelmap for CLI, enter channel entries in below format in /opt/aampcli.cfg
