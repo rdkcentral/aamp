@@ -9084,16 +9084,20 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							//This seek should not be reflected in the fragmentTime, since we have already cached
 							//same duration of ad content; So keep a copy of current fragmentTime so that it can be
 							//updated back when seek is done
-			                            double fragmentTime[AAMP_TRACK_COUNT] = {0.0};
-							for (int i = 0; i < mNumberOfTracks; i++)
+							//No need to do seek from here during trickplay.It will takecare from fetcher loop
+							if(rate == AAMP_NORMAL_PLAY_RATE)
 							{
-								fragmentTime[i] = mMediaStreamContext[i]->fragmentTime;
-							}
-							SeekInPeriod(mCdaiObject->mContentSeekOffset);
-							mCdaiObject->mContentSeekOffset = 0;
-							for (int i = 0; i < mNumberOfTracks; i++)
-							{
-								mMediaStreamContext[i]->fragmentTime = fragmentTime[i];
+								double fragmentTime[AAMP_TRACK_COUNT] = {0.0};
+								for (int i = 0; i < mNumberOfTracks; i++)
+								{
+									fragmentTime[i] = mMediaStreamContext[i]->fragmentTime;
+								}
+								SeekInPeriod(mCdaiObject->mContentSeekOffset);
+								mCdaiObject->mContentSeekOffset = 0;
+								for (int i = 0; i < mNumberOfTracks; i++)
+								{
+									mMediaStreamContext[i]->fragmentTime = fragmentTime[i];
+								}
 							}
 						}
 					}
@@ -9180,6 +9184,11 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 									AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 									aamp->mIsPeriodChangeMarked = false;
 								}
+                                                          	if( rate < 0 || rate > 1)
+                                                                {
+                                                                        discontinuity = true;
+                                                                        AAMPLOG_INFO("Discontinuity set for trickplay");
+                                                                }
 							}
 							else
 							{
@@ -9279,13 +9288,13 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 
 						bool eosAdPlayback = (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState &&
 								((rate > 0 && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime >= mLiveEndPosition)
-								||(rate < 0 && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime <= 0)));
-
+								||(rate < 0 && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime <= 0 && ( mLowerBoundaryPeriod == mCurrentPeriodIdx ))));//For rewinding, EOS does not need to be set unless the current period is a lower period.
 						if((!mIsLiveManifest || (rate != AAMP_NORMAL_PLAY_RATE))
 							&& (eosOutSideAd || eosAdPlayback))
 						{
 							if(vEos)
 							{
+								AAMPLOG_INFO("EOS Reached.eosOutSideAd:%d eosAdPlayback:%d",eosOutSideAd,eosAdPlayback);
 								mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 								mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 							}

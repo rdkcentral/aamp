@@ -436,7 +436,6 @@ public:
 	 * @return void
 	 */
 	void AbortWaitForCachedAndFreeFragment(bool immediate);
-
 	/**
 	 * @brief Notifies profile changes to subclasses
 	 *
