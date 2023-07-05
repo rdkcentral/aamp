@@ -25,7 +25,8 @@ import time
 import platform
 import argparse
 import pexpect
-HELP="""
+
+HELP = """
 Used to test the 'tool chain' of harvest, transcode, and playback with a list of URLs
 contained in this script
 
@@ -36,38 +37,34 @@ for each URL
     Some playback checks are made by the script but a visual check will also be required. 
     See help for options
 
-
 For transcode then a 'donor' video needs to be provided. ~/big_buck_bunny_720p_surround.mp4
+https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4
 in the following examples
 
 Example usage:
 
-Harvest 40S of each URL and playback. No transcode so encrytped content will not playback 
-through AAMP although AAMP does appear to read all segments.
-test_toolchain.py --no_transcode 
+Harvest 40S of each URL and playback. Expect to see 40S of video played for each URL
+test_toolchain.py 
 
-Harvest 40S of each URL, transcode and playback. It takes too long!
-test_toolchain.py --video ~/big_buck_bunny_720p_surround.mp4 
+Harvest 60s of every URL containing 'skycdp' (I.E all the encrypted production URLS) and transcode
+test_toolchain.py --maxtime 60 --only skycdp --video big_buck_bunny.mp4
 
-Harvest 40S of every URL containing 'ITV' (I.E there is 1 ITV URL in the list ) and transcode
-test_toolchain.py --only ITV --video big_buck_bunny.mp4
-
-Harvest 240S of specified URL and transcode.
-test_toolchain.py --video ~/big_buck_bunny_720p_surround.mp4  --only ITV --maxtime 240
+Harvest 240S of specified URL (Not from internal list) and transcode.
+test_toolchain.py --video ~/big_buck_bunny_720p_surround.mp4 --maxtime 240 https://lin012-gb-s8-prd-ll.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd
 
 """
 sl_process = None
 
-#Find path to aamp repository based on the
-#assumption that this script exists within aamp
-head=os.path.abspath(sys.argv[0])
-tail=""
+# Find path to aamp repository based on the
+# assumption that this script exists within aamp
+head = os.path.abspath(sys.argv[0])
+tail = ""
 while tail != "aamp":
-    (head,tail)=os.path.split(head)
+    (head, tail) = os.path.split(head)
 
-AAMP_HOME=os.path.join(head,"aamp")
+AAMP_HOME = os.path.join(head, "aamp")
 
-print("AAMP_HOME=",AAMP_HOME)
+print("AAMP_HOME=", AAMP_HOME)
 
 AAMP_ENV = {
     "LD_PRELOAD": AAMP_HOME + "/Linux/lib/libdash.so",
@@ -83,8 +80,6 @@ SL_CMD = TOOLS_HOME + "/simlinear/simlinear.py"
 TRANSCODE = TOOLS_HOME + "/replace_segments/transcode.py"
 
 DEFAULT_DONATE_VIDEO = "big_buck_bunny_720p_surround.mp4"
-
-PLAYER = "/snap/bin/vlc"
 
 DEFAULT_HARVEST_DURATION_SEC = 40
 
@@ -124,6 +119,7 @@ def stop_simlinear():
     if sl_process:
         sl_process.kill()
     sl_process = None
+    time.sleep(1)
 
 
 #################################################################
@@ -148,7 +144,9 @@ def check_segments_changed(test_dir, is_before=False):
                 if path in seg_list:
                     if mtime == seg_list.get(path):
                         print(
-                            "Potential ERROR file not changed during transcode {}".format(path)
+                            "Potential ERROR file not changed during transcode {}".format(
+                                path
+                            )
                         )
                         return True
                 else:
@@ -169,14 +167,14 @@ def transcode(test_dir, url):
     """
     Perform transcode step on harvested data
     """
+    start = time.time()
     donate_video = os.path.abspath(args.video)
     if not os.path.exists(donate_video):
         print("cannot find ", donate_video)
         sys.exit(1)
 
-    path = delete_http_host(url)
     # Transcode data
-    cmd = [TRANSCODE, "-a", "-t", donate_video, path]
+    cmd = [TRANSCODE, "-t", donate_video]
     print(cmd)
     logfile = os.path.join(test_dir, "transcode.log")
     try:
@@ -186,45 +184,22 @@ def transcode(test_dir, url):
         elapsed = time.time() - start_time
         log.write(f"Transcode duration {elapsed} secs\n".encode())
         log.close()
+        print(f"Transcode duration {elapsed} secs\n")
     except:
         print("FAILED transcode non zero exit see logfile {}".format(log))
         return False
-
     return True
-
-
-##################################
-def player_and_simlinear(test_dir, url):
-    """
-    Start some player E.G vlc and simlinear
-    """
-    playback_url = re.sub(r"(.+?//.+?/)", "http://127.0.0.1:8085/", url)
-    print("simlinear playback URL ", playback_url)
-    if url.endswith(".mpd"):
-        abr_type = "DASH"
-    else:
-        abr_type = "HLS"
-
-    start_simlinear(abr_type, test_dir)
-    cmd = [PLAYER, playback_url]
-    player_process = subprocess.Popen(
-        cmd, cwd=test_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-    )
-
-    # By default we are harvesting 40S so let player run for 60s before we kill it
-    time.sleep(playback_time_secs)
-    print("Terminating player")
-    player_process.terminate()
-
-    stop_simlinear()
 
 
 ###########################################################################
 def run_aamp(test_dir, url):
     """
     Start aamp and giv it a URL to play, assumes simlinear already running
-    """
 
+    Cannot determine if AAMP is actually managing to output video so
+    it is a bit rubbish from a testing point of view.
+    """
+    first_404 = False
     aamp = None
     if platform.system() == "Darwin":
         # MAC
@@ -242,33 +217,39 @@ def run_aamp(test_dir, url):
     time.sleep(2)
     aamp.expect_exact("cmd: ")
 
+    if args.low_bandwidth:
+        aamp.sendline("set 37 1000000")
+        aamp.expect_exact("cmd: ")
+
     # Send URL to start playing
     aamp.sendline(url)
     start = time.time()
 
     passed = True
-    expect_list = [r"\n(\d{10})", "LogNetworkError"]
+    expect_list = [r"\n(\d{10})", "LogNetworkError.*url='(.*)'\r"]
     # Keep reading from AAMP otherwise it blocks
-    while time.time() - start < playback_time_secs and passed:
+    while time.time() - start < playback_time_secs:  # and passed
         try:
             i = aamp.expect(expect_list)
             elapsed = time.time() - start
             if i:
-                print("{} {}".format(expect_list[i], elapsed))
-                if i == 1 and elapsed < min_time_to_404:
-                    passed = False
+                if i == 1 and first_404 is False:
+                    first_404 = True
+                    url_404 = aamp.match.group(1).decode()
+
                     print(
-                        f"FAILED aamp has logged a 404 which should only occur after {min_time_to_404} secs of play"
+                        "First 404 occurs with URL={} elapsed={}".format(
+                            url_404, elapsed
+                        )
                     )
+
         except pexpect.TIMEOUT:
             pass
 
     aamp.sendline("stop")
-
     aamp.sendline("exit")
-
     aamp.close()
-    
+
     return passed
 
 
@@ -321,6 +302,7 @@ def harvest(test_dir, data):
             + ["--maxtime", str(args.maxtime), "-r", test_dir, url]
         )
         print(cmd)
+        harvest_start = time.time()
         harvest_result = subprocess.run(
             cmd,
             stdout=log,
@@ -331,7 +313,8 @@ def harvest(test_dir, data):
             print("FAILED harvest returned non zero exit code")
             test_passed = False
         else:
-            print("HARVEST ok")
+            elapsed = time.time() - harvest_start
+            print("HARVEST ok: duration", elapsed)
             os.system("cp -R " + test_dir + " " + bak)
         elapsed = time.time() - start_time
         log.write(f"\nHarvest duration {elapsed} secs\n".encode())
@@ -348,23 +331,26 @@ def test(test_urls):
     for idx, data in enumerate(test_urls):
         url = data["URL"]
         test_dir = "harvest_test{}".format(idx)
-        print("URL={}".format(url))
+        # print("URL={}".format(url))
+        if "notes" in data:
+            print(data["notes"])
 
         passed = True
         if harvest(test_dir, data) is False:
             passed = False
+            continue
 
-        # Optionally skip transcode
-        if not args.no_trans:
-            check_segments_changed(test_dir, is_before=True)
+        # Transcode the encrypted streams
+        if "is_encrypted" in data and not args.no_trans:
+            # check_segments_changed(test_dir, is_before=True)
             if transcode(test_dir, url) is False:
                 passed = False
-            if check_segments_changed(test_dir) is False:
-                passed = False
+                continue
+            # if check_segments_changed(test_dir) is False:
+            #   passed = False
 
-        if args.vlc:
-            player_and_simlinear(test_dir, url)
-        else:
+        # Skip aamp playback if requested
+        if args.no_aamp is False:
             if aamp_and_simlinear(test_dir, url) is False:
                 passed = False
 
@@ -378,50 +364,82 @@ def test(test_urls):
 TEST_URLS = [
     # DASH
     # Test streams
+    #
     {
-        "URL": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main-segmentbase.mpd"
+        "URL": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main-segmentbase.mpd",
+        "notes": "Plays more than 40s because of the large base segment",
     },
     {
-        "URL": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main_notimeline.mpd"
+        "URL": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main_notimeline.mpd",
     },
     {
-        "URL": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main-segmentlist.mpd"
+        "URL": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main-segmentlist.mpd",
     },
     {
         "URL": "https://lin001-gb-s8-tst-ll.cdn01.skycdp.com/SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163.mpd",
         "harvest_opt": ["--bandwidths", "562800", "--bandwidths", "1328400"],
     },
+    #Encrypted
+    {
+        "notes": "Sky Witness",
+        "URL": "https://lin012-gb-s8-prd-ll.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd",
+        "is_encrypted": True,
+    },
+    {
+        "notes": "Sky Atlantic",
+        "URL": "https://lin012-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd",
+        "is_encrypted": True,
+    },
+    {
+        "notes": "National Geo",
+        "URL": "https://lin024-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/NGCHDUK_HD_SU_SKYUK_4031_0_8379280913661561163.mpd",
+        "is_encrypted": True,
+    },
     # The following has content protection
+    # Takes too long to transcode
+    #   {
+    #       "URL": "https://lin013-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/SCINCOH_HD_SU_SKYUK_4019_0_6771210893185225163.mpd",
+    #       "is_encrypted" : True,
+    #   },
+    #   {
+    #        "URL": "https://lin022-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/MOV24P_SD_SU_SKYUK_4421_0_5488226467390721163.mpd",
+    #        "is_encrypted" : True,
+    #    },
     {
-        "URL": "https://lin013-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/SCINCOH_HD_SU_SKYUK_4019_0_6771210893185225163.mpd"
+        "notes": "Pick HD",
+        "URL": "https://lin022-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/PICKTVH_HD_SU_SKYUK_1831_0_8234566181954368163.mpd",
+        "is_encrypted": True,
     },
     {
-        "URL": "https://lin022-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/MOV24P_SD_SU_SKYUK_4421_0_5488226467390721163.mpd"
+        "notes": "ITV1",
+        "URL": "https://lin019-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/ITV1HDL_HD_SU_SKYUK_6504_0_5353835158189364163.mpd",
+        "is_encrypted": True,
     },
+    # UHD channel
     {
-        "URL": "https://lin022-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/PICKTVH_HD_SU_SKYUK_1831_0_8234566181954368163.mpd"
+        "URL": "https://lin201-gb-s8-prd-ll.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/UK7201_UD_SU_SKYUK_7201_0_5225302050947417163.mpd",
+        "is_encrypted": True,
     },
+    # $Time$ template
     {
-        "URL": "https://lin019-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/ITV1HDL_HD_SU_SKYUK_6504_0_5353835158189364163.mpd"
-    },
-    #UHD channel
-    {
-        "URL": "https://lin201-gb-s8-prd-ll.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/UK7201_UD_SU_SKYUK_7201_0_5225302050947417163.mpd"
+        "URL": "https://814bffb9b389f652.mediapackage.ap-southeast-2.amazonaws.com/out/v1/eae9d7726eb249f68920dd21203bdb9a/index.mpd",
+        "harvest_opt": ["--bandwidths", "249984"],
+        "notes": "harvest can take ~30mins because of the large segment buffer in the manifest",
     },
     # HLS
     {
-        "URL": "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8"
-    },
-    # AAMP don't play{ 'URL':'https://stream.mux.com/v69RSHhFelSm4701snP22dYz2jICy4E4FUyk02rW4gxRM.m3u8'},
-    {  # encrypted
-        "URL": "https://storage.googleapis.com/shaka-demo-assets/angel-one-widevine-hls/hls.m3u8"
+        "URL": "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8",
     },
 ]
 
 ###################################
-parser = argparse.ArgumentParser(description=HELP,formatter_class=argparse.RawDescriptionHelpFormatter)
+parser = argparse.ArgumentParser(
+    description=HELP, formatter_class=argparse.RawDescriptionHelpFormatter
+)
 parser.add_argument(
-    "--vlc", help="Playback using vlc, Default is aamp", action="store_true"
+    "--low_bandwidth",
+    help="Limit AAMP bandwidth if playback computer is slow",
+    action="store_true",
 )
 parser.add_argument("--no_trans", help="Skip transcoding step", action="store_true")
 parser.add_argument(
@@ -439,8 +457,21 @@ parser.add_argument(
     help=f"Duration to harvest for default={DEFAULT_HARVEST_DURATION_SEC}",
     default=DEFAULT_HARVEST_DURATION_SEC,
 )
-args = parser.parse_args()
+parser.add_argument(
+    "--no_aamp",
+    help="Skip aamp playback, I.E just do harvest and transcode",
+    action="store_true",
+)
 
+parser.add_argument(
+    "--repeat_forever",
+    help="Cycle through the URL(s) until failure is detected",
+    action="store_true",
+)
+
+parser.add_argument("url", nargs="?", help="url to test in place of internal list")
+
+args = parser.parse_args()
 
 playback_time_secs = args.maxtime * 1.5
 
@@ -449,9 +480,11 @@ min_time_to_404
 We only expect aamp to report 404 after this at least this much time. 404 occurs 
 because it has read and buffered all harvested segments
 """
-min_time_to_404 = args.maxtime * 0.8
+min_time_to_404 = 1
 
-if args.only:
+if args.url:
+    test_urls1 = [{"URL": args.url, "is_encrypted": True}]
+elif args.only:
     test_urls1 = []
     for x in TEST_URLS:
         if args.only in x["URL"]:
@@ -460,7 +493,11 @@ else:
     test_urls1 = TEST_URLS
 
 try:
-    test(test_urls1)
+    if args.repeat_forever:
+        while test(test_urls1) is False:
+            pass
+    else:
+        test(test_urls1)
 finally:
     # Try and ensure simlinear is not left running
     stop_simlinear()

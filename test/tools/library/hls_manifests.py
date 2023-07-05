@@ -18,11 +18,12 @@
 #
 import os
 import sys
-import json
+import re
+import logging
 from datetime import datetime, timedelta, timezone
 import time
 from pathlib import Path
-from library.manifests import delHTTPhost, Manifest, seg_list_base, get_seg_manlist
+from library.manifests import delHTTPhost, Manifest, SegmentList
 from library.attriblist import AttribList
 
 
@@ -38,7 +39,10 @@ class HLSManifest(Manifest):
         super().__init__(path)
 
         self.disc_crypt = set()
-        self.attrs = attrs
+        if attrs is None:
+            self.attrs = AttribList("")
+        else:
+            self.attrs = attrs
         self.is_master_manifest = True
         self.has_segments = False
 
@@ -50,7 +54,6 @@ class HLSManifest(Manifest):
 
         if post_process:
             self.orig_date = self.calc_range(default_start)
-            # if rebase and self.orig_date is not None: self.adj_dates(rebase)
 
     def load_contents(self, post_process, content, adj_line=lambda x: x):
         """
@@ -135,7 +138,7 @@ class HLSManifest(Manifest):
                     start = end
                 end = end + timedelta(0, self.extinf_to_num(value))
                 self.cnt_seg += 1
-        print("start", start)
+        log.info("start %s", start)
         if not start:
             return None
 
@@ -143,143 +146,6 @@ class HLSManifest(Manifest):
         self.last_date = end
 
         return start + timedelta(0)
-
-    def adj_dates(self, targ):
-        """
-        Adjust the all of the date/time entries in the manifest so that
-        they start from the suppled point.
-        """
-        self.last_idx = -1
-        adj = targ - self.first_date
-
-        for line in self.content:
-            if (
-                line[0] == "#EXT-X-PROGRAM-DATE-TIME"
-                or line[0] == "#SIMLINEAR-PDT-OVERRIDE"
-            ):
-                line[1] = line[1] + adj
-            elif line[0] == "#EXT-X-DATERANGE":
-                line[1] = self.adj_list_date(line[1], ["START-DATE", "END-DATE"], adj)
-
-        self.first_date = targ
-        self.last_date += adj
-
-    def adj_list_date(self, src, names, adj):
-        """
-        Helper routine to adjust a date/time entry within a line
-        containing al list of name=value entries.
-        """
-        namelst = src if isinstance(src, AttribList) else AttribList(src)
-
-        for name in names:
-            dt = getattr(namelst, name, None)
-            if dt:
-                setattr(namelst, name, self.adj_char_date(dt, adj))
-
-        return str(namelst)
-
-    def do_concatenate(self, src, space=0.0):
-        """
-        Concatenate another manifest onto this manifest.
-        """
-        if not isinstance(src, HLSManifest):
-            raise ValueError("Invalid type (type(src)} passed to do_concatenate()")
-
-        src.adj_dates(self.last_date + timedelta(space))
-        passed_hddr = False
-        do_copy = timedelta(0)
-
-        key, value = self.content[-1]
-        end_list = key == "" and value == "#EXT-X-ENDLIST"
-        if end_list:
-            self.content.pop(-1)
-
-        seg_no = self.first_seg + self.cnt_seg
-        last_path = None
-
-        for key, value in src.content:
-            if key == "#EXT-X-PROGRAM-DATE-TIME":
-                passed_hddr = True
-                self.content.append([key, value + do_copy])
-
-            elif key == "#EXTINF":
-                passed_hddr = True
-                seg_no += 1
-                self.content.append([key, value])
-
-            elif passed_hddr:
-                self.content.append([key, value])
-                # if key == "#!": self.add_rule(value, seg_no, last_path)
-                if key == "" and not value.startswith("#"):
-                    last_path = value
-
-        self.last_date = src.last_date + do_copy
-        self.cnt_seg += src.cnt_seg
-
-        if end_list:
-            self.content.append(["", "#EXT-X-ENDLIST"])
-
-        return self.last_date
-
-    def do_merge(self, src, space=0.0):
-        """
-        Merge another manfest in. This assumes that the other manifest is time-shifted
-        such that we only really want to extend our manifest.
-        """
-        if not isinstance(src, HLSManifest):
-            raise ValueError("Invalid type (type(src)} passed to do_merge()")
-
-        print("pat ", self.first_date, self.orig_date, file=sys.stderr)
-        diff = self.first_date - self.orig_date
-        src_diff = src.first_date - src.orig_date
-        src.adj_dates(src.first_date - src_diff + diff + timedelta(space))
-
-        if src.last_date <= self.last_date:
-            return self.last_date
-
-        found = False
-        do_copy = timedelta(0)
-        end_seg_no = self.first_seg + self.cnt_seg
-        src_seg_no = src.first_seg
-        last_path = None
-
-        for key, value in src.content:
-            if key == "#EXT-X-PROGRAM-DATE-TIME" or key == "#SIMLINEAR-PDT-OVERRIDE":
-                found = src_seg_no >= end_seg_no
-                # src_seg_no += 1
-                if found:
-                    value = value + do_copy
-
-            elif key == "#EXTINF":
-                found = src_seg_no >= end_seg_no
-                src_seg_no += 1
-
-            if not found:
-                continue
-
-            if key == "#!":
-                self.add_rule(value, src_seg_no, last_path)
-            elif key == "" and not value.startswith("#"):
-                last_path = value
-
-            self.content.append([key, value])
-
-        self.cnt_seg = src_seg_no - self.first_seg
-        self.last_date = src.last_date + do_copy
-        return self.last_date
-
-    def concat_discontinuity(self, src, space=0.0):
-        """
-        Concatenate another manifest as a discontinuity.
-        """
-        dur = src.last_date - src.first_date
-        dur = dur.seconds + dur.microseconds / 1000000.0
-        start = self.first_date + timedelta(0, space)
-
-        self.content.append(["", "#EXT-X-DISCONTINUITY"])
-        # self.content.append([ "#EXT-X-DATERANGE", 'ID="0x30-139-1665502597",START-DATE="' + start.strftime(self.date_formtz) + '",PLANNED-DURATION=' + str(cur) ])
-
-        return self.do_concatenate(src, space)
 
     def write(self, path=None):
         """
@@ -319,11 +185,13 @@ class HLSManifest(Manifest):
                 # if len(missing_lst) < 10: print(fn)
                 missing_lst.append(url)
                 if rept_miss and rept_miss in fn or rept_miss == "*":
-                    print("     ", fn)
+                    log.info("fn %s", fn)
 
-        print(
-            "For %s:  OK files: %d  Missing files: %d"
-            % (self.orig_path, ok_cnt, len(missing_lst))
+        log.info(
+            "For %s:  OK files: %d  Missing files: %d",
+            self.orig_path,
+            ok_cnt,
+            len(missing_lst),
         )
         return ok_cnt, missing_lst
 
@@ -378,15 +246,23 @@ class HLSManifest(Manifest):
 
         return cnt
 
+    def remove_increment(self, path):
+        """
+        For a path like a/b/c/manifest.m3u8.1
+        returns
+        a/b/c/manifest.m3u8.1
+        """
+
+        return re.sub(r"\.[0-9]+$", "", path)
+
     def get_seg_list(self, from_seg=None, abs_paths=False, seg_list=None):
         """
         Returns the files names associated with segments.
         """
-        print("get_seg_list")
         if from_seg is None:
             from_seg = {}
         if seg_list == None:
-            seg_list = seg_list_base()
+            seg_list = SegmentList()
 
         seg_no = from_seg.get(self.orig_path, -1)
         cur_seg = self.first_seg
@@ -395,9 +271,9 @@ class HLSManifest(Manifest):
         duration = None
 
         if seg_no < 0:
-            print("seg_no < 0")
+            segment_group = self.remove_increment(self.orig_path)
             seg_list.new_file(
-                self.orig_path + "_" + str(cur_disc),
+                segment_group,
                 cur_disc in self.disc_crypt,
                 self.attrs,
             )
@@ -406,17 +282,17 @@ class HLSManifest(Manifest):
         # files
         for key, value in self.content:
             if key == "#EXTINF":
-                print("add seg")
                 duration = self.extinf_to_num(value)
                 cur_seg += 1
 
             elif key == "" and value == "#EXT-X-DISCONTINUITY":
                 cur_disc += 1
 
+                segment_group = self.remove_increment(self.orig_path)
                 if cur_seg > seg_no:
-                    print("new_file")
+                    log.info("new_file")
                     seg_list.new_file(
-                        self.orig_path, cur_disc in self.disc_crypt, self.attrs
+                        segment_group, cur_disc in self.disc_crypt, self.attrs
                     )
 
             elif cur_seg <= seg_no:
@@ -424,8 +300,9 @@ class HLSManifest(Manifest):
 
             elif key == "#EXT-X-MAP" and disc_no != cur_disc:
                 url = AttribList(value).URI
+                segment_group = self.remove_increment(self.orig_path)
                 seg_list.new_file(
-                    self.orig_path + "_" + str(cur_disc),
+                    segment_group,
                     cur_disc in self.disc_crypt,
                     self.attrs,
                 )
@@ -437,9 +314,9 @@ class HLSManifest(Manifest):
                 continue
 
             elif not key and value and not value.startswith("#"):
-                seg_list.add_file(
-                    self.abs_path(value) if abs_paths else value, duration
-                )
+                seg_path = self.abs_path(value) if abs_paths else value
+                segment_group = self.remove_increment(self.orig_path)
+                seg_list.add_file(seg_path, duration, segment_group)
 
         from_seg[self.orig_path] = cur_seg
         return seg_list
@@ -568,10 +445,13 @@ class HLSMainManifest(Manifest):
         if mime_list is not None and type(mime_list) is str:
             mime_list = [mime_list]
 
+        log.info("mime_list %s", mime_list)
+        log.info("sub_list %s", self.sub_list)
+
         for mime_type, slist in self.sub_list.items():
             if mime_list is not None and mime_type not in mime_list:
                 continue
-
+            log.info("slist %s", slist)
             flist += [self.abs_path(fn) for fn in slist] if abs_paths else list(slist)
 
         return flist
@@ -649,6 +529,8 @@ class HLSMainManifest(Manifest):
             idx += 1
 
 
+log = logging.getLogger("root")
+
 if __name__ == "__main__":
     base_dir = sys.argv[0]
     base_dir = base_dir[: base_dir.rfind("/")]
@@ -703,8 +585,8 @@ if __name__ == "__main__":
         else:
             man = HLSManifest(t["manifest"])
             flist = []
-            for fn in man.get_seg_list(abs_paths=True):
-                flist.append(fn)
+            for segment_details in man.get_seg_list(abs_paths=True):
+                flist.append(segment_details['segment_name'])
         if flist != t["expected_list"]:
             print("FAILED unexpected list {}", flist)
             exit(-1)

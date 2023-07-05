@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -x
 #
 # If not stated otherwise in this file or this component's LICENSE file the
 # following copyright and licenses apply:
@@ -30,5 +30,4 @@
     ffmpeg -hide_banner -vn -sn -t ${2} -stream_loop -1 -i ${1} \
         -b:a ${3}k -codec:a ${4:-aac} \
         -af asetpts=PTS-STARTPTS+1024 -seg_duration 3 -use_template 1 -use_timeline 0 -hls_playlist 1 -f dash  $dir/convert_audio.mpd
-
     exit $?

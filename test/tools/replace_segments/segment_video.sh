@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -x
 #
 # If not stated otherwise in this file or this component's LICENSE file the
 # following copyright and licenses apply:
@@ -19,7 +19,7 @@
 # limitations under the License.
 #
 
-    echo "Input file:${1}  Duration:${2}  bit rate:${3}  Codec:${4}  PTS: ${5}  Dimension: ${6}  fps: ${7}"
+    echo "Input file:${1}  Duration:${2}  bit rate:${3}  Codec:${4}  PTS: ${5}  Dimension: ${6}  fps: ${7} iframe {8} text: ${9}"
 
     if [ $# -lt 5 ]; then exit 1; fi
 
@@ -31,7 +31,6 @@
 
     ffmpeg -hide_banner -an -sn -t ${2} -stream_loop -1 -i ${1} \
         -s ${6} -r ${7:-25} -b:v ${3}k -codec:v ${4:-h264} $iframe -force_key_frames ${8:-expr:gte(t,n_forced*1)} \
-        -vf "drawtext=fontsize=80: r=25: x=(w-tw)/2: y=h-(2*lh): fontcolor=white: box=1: borderw=10: boxcolor=0x00000099: text='${6} ${3}k %{pts\:flt\:0}'" \
+        -vf "drawtext=fontsize=30: box=1: x=(w-text_w)/2:y=(h-text_h)/2: text='${9} %{pts\:flt\:0}'" \
         -f dash -seg_duration 6 -use_template 1 -use_timeline 0 -hls_playlist 1 $dir/convert_video.mpd
-
     exit $?

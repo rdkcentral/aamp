@@ -24,6 +24,8 @@ import json
 from datetime import *
 import time
 import re
+import copy
+import logging
 from enum import Enum
 from pathlib import Path
 
@@ -38,14 +40,16 @@ def delHTTPhost(line):
     return result
 
 
-def write_harvest_details():
+def write_harvest_details(more_details):
     """
     Record some useful details about this harvest
     """
     time_str = datetime.utcnow().isoformat()
     data = {"recording_start_time": time_str, "args": sys.argv}
+    data.update(more_details)
+
     with open("harvest_details.txt", "w") as f:
-        print(json.dumps(data))
+        log.debug("%s", json.dumps(data))
         f.write(json.dumps(data))
 
 
@@ -57,7 +61,160 @@ def read_harvest_details():
     return d
 
 
-class Manifest(object):
+#################################################################
+class ManifestServerCommon:
+    """
+    Methods for reading from previously harvested manifests that
+    are common to both DASH and HLS
+    """
+
+    time_of_first_manifest = 0
+    time_started_serving = 0
+    # { path_to_manifest: [(ts from mf,path_to_manifest_increment),() ... ]
+    manifest_list = {}
+
+    def return_file_index(self, path):
+        """
+        Returns numeric suffix from filename
+        a/b/c/manifest.abc.10  returns 10
+        """
+        num = 0
+        pattern_match = re.match(r".*\.([0-9]+)", path)
+        if pattern_match:
+            num = int(pattern_match.group(1))
+        return num
+
+    def get_manifest_time(self, mfile):
+        """
+        Read the time stamp from manifest that determines when the inremental
+        manifest will be served.
+        return as epoch time
+        """
+        time_field_re = self.get_timestamp_re(
+            mfile
+        )  # Different method for DASH and HLS
+
+        try:
+            with open(mfile, "r") as f:
+                for line in f:
+                    # print(line)
+                    pattern_match = re.match(time_field_re, line)
+                    if pattern_match:
+                        # 19 characters gives "2023-06-15T08:16:32"
+                        # but avoids fractions or Z or timezone that may occur after
+                        # and we are not interested in
+                        time_field = pattern_match.group(1)[:19]
+                        date = time.strptime(time_field, "%Y-%m-%dT%H:%M:%S")
+                        # print("time_field={} d={}".format(time_field,d))
+                        return time.mktime(date)
+                log.warning("WARNING did not find %s in %s", time_field_re, mfile)
+                return time.mktime(time.gmtime())
+        except OSError as exception:
+            log.error("Exception %s $s", type(exception), exception)
+            return None
+
+    def get_list_of_manifest_timestamps(self, path):
+        """
+        Get a list of all the timestamps for this manifest
+        cache the list in self.manifest_list
+        e.g
+        path something like test2/manifest_bitrate.m3u8 (or .mpd)
+        directory test2/ contains
+          manifest_bitrate.m3u8.1
+          manifest_bitrate.m3u8.2
+
+        returns [ (timestamp1, mf.1),(timestamp2, mf.2) ..]
+        sorted by lowest file suffix first
+        """
+        (base, filename) = os.path.split(path)
+        if base == "":
+            base = "."
+        # print("get_list_of_manifest_timestamps base ",base)
+        # looking for all files ../some_manifest.m3u8.[n]
+        files = []
+        if not path in self.manifest_list:
+            for file in os.listdir(base):
+                re_pattern = r"{}\.[0-9]+$".format(filename)
+                pattern_match = re.match(re_pattern, file)
+                if pattern_match:
+                    # print("Adding",file)
+                    files.append(base + "/" + file)
+
+            files_sorted = sorted(files, key=self.return_file_index)
+            files_with_timestamps = []
+            for file in files_sorted:
+                time_stamp = self.get_manifest_time(file)
+                if time_stamp:
+                    tup = (time_stamp, file)
+                    files_with_timestamps.append(tup)
+            self.manifest_list.update({path: files_with_timestamps})
+        # print("get_list_of_manifest_timestamps ",path, ":",self.manifest_list[path])
+        return self.manifest_list[path]
+
+    def manifest_serve(self, path):
+        """
+        path is somthing like a/b/c/manifest.mpd
+        Returns one of
+        path if path exists
+        OR
+        path.n if indexed manifests do exist I.E path.1 path.2 ...
+        n is dependant on timstamp in the manifest
+        OR
+        None if path and path.n do not exist
+        """
+        # print("manifest_serve:", path)
+        if os.path.exists(path):
+            # With request for non-incremental manifest then we
+            # assume this is top level manifest so reset timer
+            # used for serving incremental
+            self.time_started_serving = 0
+            return path
+        file_timestamps = self.get_list_of_manifest_timestamps(path)
+        if len(file_timestamps) == 0:
+            # No manifests - need return 404
+            log.info("Not found index %s", path)
+            return None
+
+        if len(file_timestamps) == 1:
+            # Occurs for VOD
+            first_ts, file_to_serve = file_timestamps[0]
+            return file_to_serve
+
+        first_ts, file_to_serve = file_timestamps[0]
+        if self.time_started_serving == 0:
+            # First manifest to be served, initialise timestamps
+            self.time_of_first_manifest = first_ts
+            self.time_started_serving = time.time()
+
+        # look for the timestamp and hence corresponding manifest
+        # that we need to serve at this time. This will be the highest
+        # number timestamp that does not exceed
+        # time_manifest as calculated below
+        time_elapsed = time.time() - self.time_started_serving
+        time_manifest = self.time_of_first_manifest + time_elapsed
+
+        for timestamp, manifest_file in file_timestamps:
+            if timestamp > time_manifest:
+                break
+            file_to_serve = manifest_file
+
+    def get_timestamp_re(self, path):
+        """
+        Returns re pattern to extract timestamp from DASH/HLS manifest
+        """
+        if ".mpd" in path:
+            re_pattern = r'.*publishTime="(.*?)"'
+        elif ".m3u8" in path:
+            re_pattern = (
+                r"#(?:SIMLINEAR-PDT-OVERRIDE|EXT-X-PROGRAM-DATE-TIME):([0-9T:\-]+)"
+            )
+        else:
+            log.error("Cannot determine manifest type from %s", path)
+            exit(1)
+        return re_pattern
+
+
+class Manifest:
     """
     Represent a general manifest for media stream.
     """
@@ -149,8 +306,8 @@ class Manifest(object):
             base = self.orig_path
         elif base.startswith("http://") or base.startswith("https://"):
             pass
-        elif not base.startswith('/') and '/' in self.orig_path:
-            base = self.orig_path.rsplit('/', 1)[0] + '/' + base
+        elif not base.startswith("/") and "/" in self.orig_path:
+            base = self.orig_path.rsplit("/", 1)[0] + "/" + base
 
         if fn.startswith("https://"):
             return fn[7:]
@@ -173,180 +330,133 @@ class Manifest(object):
 
         return res
 
-class seg_list_base(object):
+
+class SegmentList:
     """
-    Base interface class for building the list of segment files from geg_seg_list() calls to
-    a manifest class.
+    Class for accumulating list of segment files and then
+    returning in various forms
     """
+
     def __init__(self):
-        self.slist = []
-        self.play_order=0
+        self.segment_detail_list = []
 
-    def play_order_reset(self):
-        self.play_order=1
+        # For each segment group an incrementing counter
+        self.play_order = {}
 
-    def new_file(self, key, encrypted, attrs=None):
-        """
-        Call for when a new segmented file is encountered.
-        """
-        pass
+        # List of segments we have already added to segment_detail_list
+        # to avoid duplicates
+        self.segment_name_list = []
 
-    def add_init(self,fn):
-        """
-        Call for when a stream initialisation file is to be atted to the list.
-        """
-        self.play_order=0
-        self.add_file(fn,0)
+        # attributes for each segment_group
+        self.attributes = {}
 
-    def add_file(self, fn, duration):
+    def new_file(self, segment_group, encrypted, attrs=None):
+        """
+        Called for when a new logical segmented file is encountered. The different
+        attributes need to coalesed into a common set.
+        """
+        self.key = segment_group
+        attrs.encrypted = encrypted
+
+        if attrs is not None:
+            if not hasattr(attrs, "TYPE") and hasattr(attrs, "mimeType"):
+                attrs.TYPE = attrs.mimeType
+                if "/" in attrs.TYPE:
+                    attrs.TYPE = attrs.TYPE.split("/")[0]
+
+            if hasattr(attrs, "FRAME-RATE"):
+                attrs.FPS = round(float(getattr(attrs, "FRAME-RATE")))
+            elif hasattr(attrs, "frameRate"):
+                attrs.FPS = attrs.frameRate.split("/")[0]
+
+            if hasattr(attrs, "bandwidth"):
+                attrs.BANDWIDTH = attrs.bandwidth
+
+            if hasattr(attrs, "height"):
+                attrs.RESOLUTION = attrs.width + "x" + attrs.height
+
+        self.attributes[segment_group] = copy.copy(attrs)
+
+    def add_init(self, fn, segment_group):
+        """
+        Call for when a stream initialisation file is to be added to the list.
+        """
+        self.add_file(fn, 0, segment_group)
+
+    def add_file(self, segment_name, segment_duration, segment_group):
         """
         Call for when a segment needs to be added.
+
+        segment_name:     path to segment
+        segment_duration: The duration of this segment (seconds)
+        segment_group :   The bandwidth or representation id of segment
         """
-        self.slist.append({'seg':fn,'play_order':self.play_order})
-        self.play_order+=1
+
+        if segment_name in self.segment_name_list:
+            # log.info("Ignore duplicate %s",segment_name)
+            return
+
+        self.segment_name_list.append(segment_name)
+
+        play_order = self.play_order.get(segment_group, 0)
+        play_order += 1
+        self.play_order.update({segment_group: play_order})
+
+        segment_details = {
+            "segment_name": segment_name,
+            "profile": segment_group,
+            "play_order": play_order,
+            "duration": segment_duration,
+        }
+
+        self.segment_detail_list.append(segment_details)
+        # log.info("%s",segment_details)
+
+    def get_segment_groups(self):
+        return self.play_order.keys()
+
+    def get_attributes(self, segment_group):
+        return self.attributes[segment_group]
+
+    def get_segments(self, segment_group):
+        """
+        return ordered list of segments belonging to specific segment_group
+        """
+        list = []
+        for segment_details in self.segment_detail_list:
+            if segment_details["profile"] == segment_group:
+                list.append(segment_details)
+
+        # print("get_segments",list)
+        return sorted(list, key=lambda x: x.get("play_order"))
+
+    def dump_info(self):
+        """
+        Optput data that class is holding.
+        """
+        log.info("%s", self.attributes)
+        for segment_group in self.get_segment_groups():
+            seg_list = self.get_segments(segment_group)
+            log.debug("%s total_segments=%d", len(seg_list))
 
     def __iter__(self):
         """
-        Return an iterator over the resultant list.
+        Return an iterator over all the segments
 
         The list is returned after sorting on 2 parameters:
         1) sorted by the play_order value so that segments played first are returned first
         2) sorted alphabetically so that for example '480p_003.m4s' is always before '720p_003.m4s'
         """
 
-        l = sorted(self.slist,key=lambda x: (x.get('play_order'),x.get('seg')))
-
-        #Extract just seg field from sorted list
-        self.rtn_list=[]
-        for seg in l:
-            self.rtn_list.append(seg.get('seg'))
+        self.rtn_list = sorted(
+            self.segment_detail_list,
+            key=lambda x: (x.get("play_order"), x.get("segment_name")),
+        )
 
         return iter(self.rtn_list)
 
 
-def get_incr_manifests(man_path_list, oper=lambda x: x):
-    """
-    Obtain the list of incremental manifest files that have been downloaded
-    into the directory hierachy and return them as a correctly sorted list
-    based upon the numeric suffix.
-    """
-    res = []
-
-    for path in [man_path_list] if type(man_path_list) is str else man_path_list:
-        flist = []
-
-        dn = os.path.dirname(path)
-        dn = "./" if dn == "" else dn + "/"
-        prefix = os.path.basename(path)
-
-        for fn in os.listdir(dn):
-            if not fn.startswith(prefix) or "." not in fn or fn == prefix:
-                continue
-
-            main, idx = fn.rsplit(".", 1)
-            if not idx.isdecimal():
-                continue
-
-            flist.append((int(idx), dn + fn))
-
-        flist.sort(key=lambda e: e[0])
-        res.append((path, [oper(fn) for idx, fn in flist]))
-
-    return res
-
-
-def coalesce_manifests(man_path_list, man_type, max_merge=0):
-    """
-    Build a single coalesced manifest by merging the list of
-    individual incremental manifests that were written over time.
-    """
-    man_list = []
-
-    if len(man_path_list) > 0 and type(man_path_list[0]) is not tuple:
-        man_path_list = get_incr_manifests(man_path_list)
-
-    for path, flist in man_path_list:
-        cnt = 0
-        first_man = None
-
-        merged = max_merge
-        print("Merging %s: " % path, end="")
-
-        for fn in flist:
-            print(".", end="", flush=True)
-            man = man_type(fn)
-            cnt += 1
-
-            if first_man:
-                first_man.do_merge(man)
-                merged -= 1
-                if merged == 0:
-                    break
-            else:
-                man.orig_path = path
-                first_man = man
-
-        if first_man is None and Path(path).is_file():
-            first_man = man_type(path)
-            print(" no incrementals but single manifest found")
-        elif cnt > 0:
-            print("\n  %d manifests processed" % cnt)
-        else:
-            print(" no manifests found")
-
-        if first_man is not None:
-            man_list.append(first_man)
-
-    return man_list
-
-
-def single_manifest(manfn, man_type):
-    """
-    Return a single manifest instance. If the pointed to is an incremental
-    manifest, then each file will be coalesced together.
-    """
-    exists = Path(manfn).is_file()
-
-    if exists and not manfn.endswith(".1"):
-        man = man_type(manfn)
-
-    else:
-        if exists:
-            manfn = manfn[:-2]
-        man_lst = coalesce_manifests(manfn, man_type)
-
-        if len(man_lst) != 1:
-            print("No manifest files found for", manfn)
-            return None
-
-        man = man_lst[0]
-        man.orig_path = manfn
-
-    return man
-
-
-def get_seg_manlist(
-    manfn, man_type, from_seg=None, abs_paths=False, seg_list=None, oper=None
-):
-    """
-    Returns the segment files from a manfest. If the manifest is not a single
-    files, then attempt to expand from an incremental set of manifest files.
-    """
-    if from_seg is None:
-        from_seg = {}
-    if seg_list is None:
-        seg_list = seg_list_base()
-
-    man = single_manifest(manfn, man_type)
-
-    if man is not None:
-        if oper is not None:
-            oper(man)
-
-        man.get_seg_list(from_seg=from_seg, abs_paths=abs_paths, seg_list=seg_list)
-
-    return seg_list
-
+log = logging.getLogger("root")
 
 if __name__ == "__main__":
     base_dir = os.path.dirname(sys.argv[0])
@@ -354,4 +464,3 @@ if __name__ == "__main__":
 
     time.sleep(1)
     print("no tests at the moment")
-

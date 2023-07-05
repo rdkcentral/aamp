@@ -25,7 +25,6 @@ import time
 import re
 import argparse
 import threading
-import subprocess
 import queue
 import signal
 import logging
@@ -68,7 +67,7 @@ def write_file(url, data):
     file_name = url_to_filename(url)
     mode = "wb" if isinstance(data, bytes) else "w"
 
-    logging.info("%s size=%d ts=%d", file_name, len(data), time.time())
+    log.info("%s size=%d ts=%d", file_name, len(data), time.time())
 
     head, tail = os.path.split(file_name)
 
@@ -100,7 +99,8 @@ class SegmentDownloader:
 
     threads = []
     inqueue = queue.SimpleQueue()
-    shutdown = False
+    shutdown_when_empty = False
+    shutdown_immediatly = False
     thread_no = 0
     missing = []
 
@@ -118,9 +118,9 @@ class SegmentDownloader:
         Run the downloader. Pull next item from queue and download it
         abd write it to a file.
         """
-        logging.info("Downloader starting %d", self.thread_number)
+        log.info("Downloader starting %d", self.thread_number)
 
-        while not self.shutdown or not self.inqueue.empty():
+        while not (self.shutdown_when_empty and self.inqueue.empty()) and not self.shutdown_immediatly:
             try:
                 url = self.inqueue.get(timeout=1)
 
@@ -129,14 +129,14 @@ class SegmentDownloader:
                 if resp.ok:
                     write_file(url, resp.content)
                 else:
-                    logging.error("status_code=%d %s", resp.status_code, url)
+                    log.error("status_code=%d %s", resp.status_code, url)
                     self.missing.append(url)
 
             except queue.Empty:
                 pass
 
         self.threads.remove(self)
-        logging.info("Downloader stopping %s", self.thread_number)
+        log.info("Downloader stopping %s", self.thread_number)
 
     @classmethod
     def add(cls, filename):
@@ -146,14 +146,15 @@ class SegmentDownloader:
         cls.inqueue.put(filename)
 
     @classmethod
-    def stop_all(cls):
+    def stop_all(cls,shutdown_immediatly=False):
         """
         Stop all downloader threads.
         """
-        logging.info(
+        log.info(
             "Stopping threads=%d qsize=%s", len(cls.threads), cls.inqueue.qsize()
         )
-        cls.shutdown = True
+        cls.shutdown_when_empty = True
+        cls.shutdown_immediatly = shutdown_immediatly
 
         while len(cls.threads) > 0:
             time.sleep(1)
@@ -172,7 +173,33 @@ class ManifestDownloader:
         self.last_read = {filename: b"" for filename in url_list}
         self.check = {filename: manifest_checker(filename) for filename in url_list}
         self.max_time = None
-        self.seg_down = True
+        self.do_download_segments = True
+
+        self.seg_requested_duration_totals = {}
+
+    def segment_list_process(self, segment_list, is_vod):
+        """
+        Takes list of segments and adds them to the segment downloader until
+        the total segment time for each profile/bandwidth meets that required
+        for harvest
+
+        return True if segment(s) were added to downloader
+        """
+        did_add_segment = False
+        for segment_details in segment_list:
+            profile = segment_details["profile"]
+            total = self.seg_requested_duration_totals.get(profile, 0)
+            if total < self.max_time or is_vod is False:
+                self.seg_requested_duration_totals[profile] = (
+                    total + segment_details["duration"]
+                )
+                segment_name = segment_details["segment_name"]
+                # print("Adding {}",segment_details)
+                SegmentDownloader.add(segment_name)
+                did_add_segment = True
+            else:
+                pass
+        return did_add_segment
 
     def run(self, max_time, poll_intv):
         """
@@ -182,7 +209,8 @@ class ManifestDownloader:
         file names to add to the downloaders queue.
         """
 
-        self.max_time = max_time // poll_intv * poll_intv
+        start_time = time.time()
+        self.max_time = max_time
 
         signal.signal(signal.SIGINT, self.interrupt)
         signal.signal(signal.SIGHUP, self.interrupt)
@@ -199,7 +227,7 @@ class ManifestDownloader:
                         and not self.shutdown
                         or len(self.last_read) <= 1
                     ):
-                        logging.info("Manifests all for VOD content - shutting down")
+                        log.info("Manifests all for VOD content - shutting down")
                         self.shutdown = True
 
                     last_change -= 1
@@ -208,7 +236,7 @@ class ManifestDownloader:
                 resp = self.requests_session.get(url)
 
                 if resp.status_code != 200:
-                    logging.error("status_code=%d %s", resp.status_code, url)
+                    log.error("status_code=%d %s", resp.status_code, url)
                     continue
 
                 cur_read = resp.content
@@ -216,7 +244,7 @@ class ManifestDownloader:
 
                 if cur_read == last_read:
                     if last_change < 0 and not self.shutdown:
-                        logging.info("Manifests seem to be idle - shutting down")
+                        log.info("Manifests seem to be idle - shutting down")
                         self.shutdown = True
 
                     last_change -= 1
@@ -224,19 +252,19 @@ class ManifestDownloader:
 
                 last_change = max_idle
                 self.last_read[url] = cur_read
-                vod, flist = self.check[url].changed(cur_read, self)
+                vod, segment_detail_list = self.check[url].changed(cur_read, self)
 
-                if self.seg_down:
-                    for filename in flist:
-                        SegmentDownloader.add(filename)
+                if self.do_download_segments:
+                    self.segment_list_process(segment_detail_list,vod)
 
                 if vod:
                     self.last_read[url] = None
 
-            if self.max_time == 0:
-                break
+            if time.time() - start_time > self.max_time:
+                log.info("SHUTDOWN Polling for longer than %d", self.max_time)
+                self.shutdown = True
+
             time.sleep(poll_intv)
-            self.max_time -= poll_intv
 
         for man in self.check.values():
             man.terminate()
@@ -245,7 +273,8 @@ class ManifestDownloader:
         """
         Handle ctrl-C or other action
         """
-        logging.warning("Interrupt. Shutdown in progress")
+        log.warning("Interrupt. Shutdown in progress")
+        SegmentDownloader.stop_all(shutdown_immediatly=True)
         self.shutdown = True
 
 
@@ -266,7 +295,7 @@ class HLSChecker:
         """
         man = HLSManifest(self.filename, content=cur_read)
 
-        flist = man.get_seg_list(self.seg_no, abs_paths=True)
+        segment_detail_list = man.get_seg_list(self.seg_no, abs_paths=True)
         if self.vod is None:
             self.vod = man.check_vod()
 
@@ -283,13 +312,13 @@ class HLSChecker:
         # Write as recreated
         write_file(wr_fn, str(man))
 
-        return self.vod, flist
+        return self.vod, segment_detail_list
 
     def terminate(self):
         """
         Called when shutdown invoked.
         """
-        logging.info("HLS Terminated manifest %s", self.filename)
+        log.info("HLS Terminated manifest %s", self.filename)
 
 
 class DASHChecker:
@@ -321,7 +350,7 @@ class DASHChecker:
         if self.bands:
             man.reduce_bandwidth(self.bands)
 
-        flist = man.get_seg_list(self.seg_no, abs_paths=True)
+        segment_detail_list = man.get_seg_list(self.seg_no, abs_paths=True)
         if self.vod is None:
             self.vod = man.check_vod()
 
@@ -340,17 +369,16 @@ class DASHChecker:
             # Writing as recreated
             write_file(wr_fn, str(man))
 
-            return self.vod, flist
+            return self.vod, segment_detail_list
 
         intv = int(man.poll_interval)
         max_time = owner.max_time // intv * intv
 
-        logging.info("Switching to static manifest with time based segment files")
+        log.info("Switching to static manifest with time based segment files")
 
-        if owner.seg_down:
+        if owner.do_download_segments:
             while not owner.shutdown:
-                for filename in flist:
-                    SegmentDownloader.add(filename)
+                owner.segment_list_process(segment_detail_list,self.vod)
 
                 if max_time == 0:
                     break
@@ -358,7 +386,7 @@ class DASHChecker:
                 time.sleep(man.poll_interval)
                 max_time -= intv
 
-                flist = man.get_seg_list(self.seg_no, abs_paths=True)
+                segment_detail_list = man.get_seg_list(self.seg_no, abs_paths=True)
 
         write_file(self.filename, str(man))
 
@@ -369,7 +397,7 @@ class DASHChecker:
         """
         Called when shutdown invoked.
         """
-        logging.info("DASH Terminated manifest %s", self.filename)
+        log.info("DASH Terminated manifest %s", self.filename)
 
 
 def get_manifest_type(filename):
@@ -385,18 +413,20 @@ def get_manifest_type(filename):
     if filename.endswith(".mpd") or ".mpd." in filename:
         return "dash"
 
-    logging.error("ERROR Unknown manifest type from %s", filename)
+    log.error("ERROR Unknown manifest type from %s", filename)
     sys.exit(1)
 
 
 # Expecting at least this version. It might run with earlier versions
 assert sys.version_info >= (3, 9)
+
 logging.basicConfig(
     format="%(funcName)-15s:%(lineno)04d %(message)s",
-    level=logging.INFO,
     stream=sys.stdout,
 )
 
+log = logging.getLogger('root')
+log.setLevel(logging.INFO)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Harvests content from media streams")
     parser.add_argument(
@@ -417,17 +447,19 @@ if __name__ == "__main__":
         type=int,
         help="""The number of seconds between polling for changes to the manifests.
                         If no changes are detected with the manifests for a number of polls 
-                        or the manifests indicate VOD content, then the downloading will automatically stop.""",
+                        or the manifests indicate VOD content, then the downloading will automatically stop.
+                        default=2s""",
         default=2,
     )
     parser.add_argument(
         "-m",
         "--maxtime",
         type=int,
-        help="""The number of seconds that downloading will run for. Once past this time
-                        or earlier if no manifest changes are detected, downloading of the manifests
-                        will stop and downloading of the segment files will allowed to quiesce before
-                        termination. This can also be triggered by a SIGINT (CTrl+C)""",
+        help="""For VOD asset then harvest will download this duration of segments. 
+                        For a live asset then harvest will download all segments 
+                        referenced by manifest and then poll for further segments 
+                        for this duration.
+                        default=40s""",
         default=40,
     )
     parser.add_argument(
@@ -450,7 +482,7 @@ if __name__ == "__main__":
     url = args.url
     filename_part = url_to_filename(url)
     if filename_part is None or len(filename_part) == 0:
-        logging.error("ERROR no filename from %s", url)
+        log.error("ERROR no filename from %s", url)
         sys.exit(1)
 
     ftype = get_manifest_type(filename_part)
@@ -458,14 +490,14 @@ if __name__ == "__main__":
 
     response = requests_session.get(url)
     if response is None:
-        logging.error("ERROR no response from %s", url)
+        log.error("ERROR no response from %s", url)
         sys.exit(1)
 
     if not response.ok:
-        logging.error("status_code=%d %s", response.status_code, url)
+        log.error("status_code=%d %s", response.status_code, url)
         sys.exit(1)
 
-    write_harvest_details()
+    write_harvest_details({'url':args.url})
 
     for i in range(NUM_DOWNLOADERS):
         SegmentDownloader()
@@ -484,11 +516,11 @@ if __name__ == "__main__":
             print(str(man))
 
             if args.bandwidths and not man.reduce_bandwidth(args.bandwidths):
-                logging.error("Bandwidths invalid %s", man.rept_bands())
+                log.error("Bandwidths invalid %s", man.rept_bands())
                 sys.exit(1)
 
             flist = man.get_sub_files(abs_paths=True)
-            logging.info("url=%s flist=%s", url, flist)
+            log.info("url=%s flist=%s", url, flist)
             url_list = flist
 
             man.trim_urls()
@@ -497,7 +529,7 @@ if __name__ == "__main__":
         else:
             url_list = [url]
 
-        logging.info("url_list=%s", url_list)
+        log.info("url_list=%s", url_list)
         man_down = ManifestDownloader(requests_session, HLSChecker, url_list)
 
     elif ftype == "dash":
@@ -509,7 +541,7 @@ if __name__ == "__main__":
         print(str(man))
 
         if args.bandwidths and not man.reduce_bandwidth(args.bandwidths):
-            logging.error("Bandwidths invalid %s", man.rept_bands())
+            log.error("Bandwidths invalid %s", man.rept_bands())
             sys.exit(1)
 
         check = DASHChecker(args.bandwidths)
@@ -517,15 +549,15 @@ if __name__ == "__main__":
         man_down = ManifestDownloader(requests_session, check.pass_thru, [url])
 
     else:
-        logging.info("Unrecognised URL type: try using -o option")
+        log.info("Unrecognised URL type: try using -o option")
         sys.exit(1)
 
     man_down.run(args.maxtime, args.poll)
 
     SegmentDownloader.stop_all()
 
-    logging.info("Missing details %d", len(SegmentDownloader.missing))
+    log.info("Missing details %d", len(SegmentDownloader.missing))
     for filename in SegmentDownloader.missing:
-        logging.info("%s", filename)
+        log.info("%s", filename)
 
     sys.exit(0)

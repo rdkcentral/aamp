@@ -18,11 +18,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import sys, os
+import sys
+import os
 from datetime import datetime, timedelta
-import time
-import re
-import threading
+import logging
 import subprocess
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -267,10 +266,8 @@ class mp4_segment(object):
             first_time = 0
 
         if self.logging:
-            print(
-                "    Read segment:",
+            log.info("Read segment:%d  backlog:%d",
                 round(first_time, 3),
-                "  backlog:",
                 round(self.duration, 3),
             )
         return True
@@ -309,7 +306,7 @@ class mp4_segment(object):
         """
         Write content to an output file.
         """
-        print("    Write segment", round(self.duration, 3))
+        log.info("Write segment duration=%d", self.duration)
 
         moof = self.moof.write()
         mdat_len = len(self.mdat) + 8
@@ -469,7 +466,14 @@ class mp4_moof(mp4_box):
                     self.tfhd.Track_ID != tfhd.Track_ID
                     or self.tfhd.samp_duration != tfhd.samp_duration
                 ):
-                    raise Exception("In tfhd, Track_ID or samp_duration changed")
+                    log.error("self.tfhd.Track_ID=%s tfhd.Track_ID=%s",self.tfhd.Track_ID,tfhd.Track_ID)
+                    log.error("self.tfhd.samp_duration=%s tfhd.samp_duration=%s",self.tfhd.samp_duration,tfhd.samp_duration)
+                    log.error("box len %d",len(box))
+                    #ffmpeg can produce a short last segment and in this case the sample duration will
+                    #be less than has been read from previous segments. Skip generating an exception 
+                    #for this case
+                    if self.tfhd.Track_ID != tfhd.Track_ID:
+                        raise Exception("In tfhd, Track_ID changed")
 
             elif hddr_type == b"tfdt":
                 tfdt = mp4_tfdt(box[8:])
@@ -811,7 +815,7 @@ def input_mp4_box(flist):
     for fn in flist:
         if fn != "-":
             f = open(fn, "rb")
-            print("  Reading file", fn)
+            log.info("Reading file %s", fn)
             read_func = f.read
         else:
             f = sys.stdin
@@ -867,11 +871,11 @@ class output_mp4_seg(object):
         if self.fout is not None:
             # if not self.output_parm.mult_file: return
             self.fout.close()
-            print("  Finished writing", self.flist[-1])
+            log.info("Finished writing %s", self.flist[-1])
 
         fn = self.output_parm.get_init_fn() if self.do_init else next(self.out_iter)
-
-        backup_file(fn)
+ 
+        log.info("Open for write %s",fn)
         self.fout = open(fn, "wb")
         self.flist.append(fn)
 
@@ -931,10 +935,10 @@ class output_mp4_seg(object):
             return self
 
         self.fout.close()
-        print("  Finished writing", self.flist[-1])
+        log.info("Finished writing %s", self.flist[-1])
         self.fout = None
 
-        print("Written", len(self.flist), "List:", self.flist)
+        log.debug("Written %d list %s", len(self.flist), self.flist)
         return self
 
     def split(self):
@@ -1004,14 +1008,14 @@ class transcode_flist(object):
         """
         Return the initialisation output file name.
         """
-        return self.adj_fn(self.init_file)
+        return self.init_file
 
     def __iter__(self):
         """
         Return a generator that returns the segement output file names.
         """
         for fn in self.flist:
-            yield self.adj_fn(fn)
+            yield fn
 
     def durations(self):
         """
@@ -1031,12 +1035,6 @@ class transcode_flist(object):
             res.append(str(round(duration, 3)))
 
         return res
-
-    def adj_fn(self, fn):
-        """
-        Remove directory name from input file name and and output directory name
-        """
-        return self.out_dir + os.path.basename(fn)
 
     def media_attribs(self, attrs=None):
         """
@@ -1078,7 +1076,7 @@ class transcode_flist(object):
         attr_dim = ""
 
         if attrs is not None and hasattr(attrs, "TYPE") and hasattr(attrs, "BANDWIDTH"):
-            print("     ", attrs)
+            log.info("attrs %s", attrs)
             attr_rate = int(attrs.BANDWIDTH) / 1000
             if hasattr(attrs, "FPS"):
                 attr_fps = attrs.FPS
@@ -1088,7 +1086,7 @@ class transcode_flist(object):
         for elem in root:
             if elem.tag.endswith("streams"):
                 for stream in elem:
-                    print("££££", stream.attrib)
+                    log.info("stream.attrib %s", stream.attrib)
                     med_type = stream.get("codec_type")
                     rates[med_type] = stream.get(
                         "bit_rate", rates.get(med_type, "100 Kbit/s")
@@ -1124,14 +1122,14 @@ class transcode_flist(object):
                     codecs["video"] = ""
 
         if len(rates) > 0:
-            print("====", rates)
+            log.info("rates %s", rates)
 
         elif attrs is None:
-            print("Could not identify media rates for audio/video from segment files")
+            log.error("Could not identify media rates for audio/video from segment files")
             exit(1)
 
         elif attr_rate is not None:
-            print("Resolving from manifest:", attrs)
+            log.info("Resolving from manifest:%s", attrs)
             med_type = attrs.TYPE
             rates[med_type] = "%d Kbit" % attr_rate
             codecs[med_type] = ""
@@ -1141,7 +1139,7 @@ class transcode_flist(object):
                 dim = attr_dim
 
         else:
-            print("Could not identify media rates for audio/video from manifest")
+            log.error("Could not identify media rates for audio/video from manifest")
             exit(1)
 
         if numb_frames == 1:
@@ -1158,10 +1156,8 @@ class transcode_flist(object):
                 elif attr_rate is not None and (
                     "Kbit" not in parts[1] or rate < attr_rate * 0.9
                 ):
-                    print(
-                        "**** Probable rubbish bit rate",
+                    log.warning("Probable rubbish bit rate %s overriding with %d",
                         parts,
-                        "overriding with",
                         attr_rate,
                     )
                     rate = attr_rate
@@ -1171,20 +1167,14 @@ class transcode_flist(object):
 
             rate = rates[med_type] = str(round(rate))
 
-            print(
-                "Input type:",
+            log.info(
+                "Input type:%s bit rate:%s Codec:%s FPS:%s Dimensions:%s pts:%d timebase %d",
                 med_type,
-                "  bit rate:",
                 rate,
-                "  Codec:",
                 codecs[med_type],
-                "  fps:",
                 fps,
-                "  Dimensions:",
                 dim,
-                "  pts:",
                 pts,
-                "timebase:",
                 time_base,
             )
 
@@ -1218,12 +1208,9 @@ class mpeg_flist(transcode_flist):
                 self.use_mp4_parser(flist)
 
         self.tot_duration = round(self.tot_duration, 3)
-        print(
-            "Total duration of",
+        log.info("Total duration of %d files:%d list %s",
             len(self.flist),
-            "files:",
             self.tot_duration,
-            "list:",
             self.dur_list,
         )
 
@@ -1266,7 +1253,7 @@ class mpeg_flist(transcode_flist):
             and self.tot_duration > 0
             and self.chek_init
         ):
-            print("Cannot identify 'init' file or first non 'init' file from the list")
+            log.error("Cannot identify 'init' file or first non 'init' file from the list")
             exit(1)
 
     def use_ffprobe(self, flist):
@@ -1274,7 +1261,7 @@ class mpeg_flist(transcode_flist):
         Use ffprobe to identify the the duration from each file in the list.
         """
         for fn in flist:
-            print("+" * 20, fn, "+" * 20)
+            log.info("fn %s",fn)
 
             try:
                 stat = os.stat(fn)
@@ -1311,13 +1298,13 @@ class mpeg_flist(transcode_flist):
             except ET.ParseError:
                 subp.wait()
                 self.missing += 1
-                print("   Failed parsing XML from ffprobe", fn)
+                log.error("Failed parsing XML from ffprobe %s", fn)
 
             except FileNotFoundError:
                 self.missing += 1
 
         if len(self.flist) < 1 and self.chek_init:
-            print("Cannot identify any valid tranport segment files")
+            log.error("Cannot identify any valid tranport segment files")
             exit(1)
 
 
@@ -1374,7 +1361,8 @@ def do_transcode(base_dir, proc_list, skeleton, attrs=None, no_trans=False):
 
     else:
         for med_type in rates:
-            print("Starting transcoding from:", skeleton)
+            display_text="Pid{} {}k".format(getattr(attrs,"period_id","?") ,rates[med_type])
+            log.info("Starting transcoding from:%s", skeleton)
             subp = subprocess.Popen(
                 [
                     "%s/segment_%s.sh" % (base_dir, med_type),
@@ -1386,6 +1374,7 @@ def do_transcode(base_dir, proc_list, skeleton, attrs=None, no_trans=False):
                     dim,
                     fps,
                     iframe_pos,
+                    display_text
                 ],
                 shell=False,
             )
@@ -1402,11 +1391,11 @@ def do_transcode(base_dir, proc_list, skeleton, attrs=None, no_trans=False):
             skel_flist += "," + WORK_DIR + "/" + fn
 
     if not skel_flist:
-        print("Could not locate files in tmp directory from ffmpeg")
+        log.error("Could not locate files in tmp directory from ffmpeg")
         exit(1)
 
     skel_flist = skel_flist[1:]
-    print("Resegmenting the following list of files:", skel_flist.replace(",", "  "))
+    log.info("Resegmenting the following list of files:%s", skel_flist.replace(",", "  "))
 
     if filetype_ts:
         out_iter = iter(proc_list)
@@ -1421,7 +1410,9 @@ def do_transcode(base_dir, proc_list, skeleton, attrs=None, no_trans=False):
         seg_out = output_mp4_seg(proc_list.durations(), proc_list, base_pts=pts)
         seg_out.copy_file(input_mp4_box(skel_flist))
 
-    print("Transcoding finished")
+    log.info("Transcoding finished")
+
+log = logging.getLogger('root')
 
 
 if __name__ == "__main__":
