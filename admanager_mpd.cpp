@@ -264,7 +264,8 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 								abObj.endPeriodId = periodId;	//If it is the exact period boundary, end period will be the next one
 								abObj.endPeriodOffset = p2AdData.duration - periodDelta;
 								abObj.adjustEndPeriodOffset = true; // marked for later adjustment
-								break;
+ 								AAMPLOG_INFO("[CDAI] Current Ad completely placed.end period:%s end period offset:%" PRIu64 " adjustEndPeriodOffset:%d",periodId.c_str(),abObj.endPeriodOffset,abObj.adjustEndPeriodOffset);
+ 								break;
 							}
 						}
 						else

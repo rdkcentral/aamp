@@ -346,18 +346,19 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	else if( isCommandMatch(cmd,"subtec") )
 	{
         #define MAX_SCRIPT_PATH_LEN 512
+	#define MAX_SUBTEC_PATH_LEN 560
 		char scriptPath[MAX_SCRIPT_PATH_LEN] = "";
-		char subtecCommand[MAX_SCRIPT_PATH_LEN] = "";
+		char subtecCommand[MAX_SUBTEC_PATH_LEN] = "";
 
 		mAampcli.mSingleton->SetCCStatus(true);
 
 		if (mAampcli.getApplicationDir(scriptPath, MAX_SCRIPT_PATH_LEN) > 0)
 		{
 #ifdef __APPLE__
-			snprintf( subtecCommand, MAX_SCRIPT_PATH_LEN, "bash %s/aampcli-run-subtec.sh&\n", scriptPath);
+			snprintf( subtecCommand, MAX_SUBTEC_PATH_LEN, "bash %s/aampcli-run-subtec.sh&\n", scriptPath);
 			system(subtecCommand);
 #elif __linux__		
-			snprintf( subtecCommand, MAX_SCRIPT_PATH_LEN, "gnome-terminal -- bash %s/aampcli-run-subtec.sh\n", scriptPath);
+			snprintf( subtecCommand, MAX_SUBTEC_PATH_LEN, "gnome-terminal -- bash %s/aampcli-run-subtec.sh\n", scriptPath);
 			system(subtecCommand);
 #else			
     		printf("[AAMPCLI] WARNING - subtec command not supported on platform\n");

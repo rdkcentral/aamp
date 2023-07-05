@@ -536,7 +536,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			printf("[AAMPCLI] AAMP_EVENT_ID3_METADATA\n");
 			{
 				auto ev = std::dynamic_pointer_cast<ID3MetadataEvent>(e);
-				printf("[AAMPCLI] :: presentation time: %llu\n\n", ev->getPresentationTime());
+				printf("[AAMPCLI] :: presentation time: %" PRIu64 "\n\n", ev->getPresentationTime());
 			}
 
 			break;

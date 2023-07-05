@@ -293,7 +293,7 @@ void MediaTrack::UpdateTSAfterFetch()
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
 		AAMPLOG_WARN("[%s] before update fragmentIdxToFetch = %d numberOfFragmentsCached %d",
-		        fragmentIdxToFetch, numberOfFragmentsCached);
+		        name, fragmentIdxToFetch, numberOfFragmentsCached);
 	}
 #endif
 	totalFetchedDuration += cachedFragment[fragmentIdxToFetch].duration;
