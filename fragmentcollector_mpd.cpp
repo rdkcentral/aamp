@@ -2685,8 +2685,17 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 
 				unsigned int lastReferencedSize = 0;
 				float lastFragmentDuration = 0.00;
+				double presentationTimeOffsetSec = segmentBase->GetPresentationTimeOffset();
 
-				while ((fragmentTime < skipTime) || skipToEnd)
+				if(segmentBase->GetTimescale())
+				{
+					presentationTimeOffsetSec /= ((double)segmentBase->GetTimescale());
+				}
+
+				AAMPLOG_INFO("SegmentBase: Presentation time offset present:%lf", presentationTimeOffsetSec);
+				
+
+				while ((fragmentTime < skipTime + presentationTimeOffsetSec ) || skipToEnd)
 				{
 					if (ParseSegmentIndexBox(
 											 pMediaStreamContext->IDX.GetPtr(),
@@ -2721,7 +2730,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				mFirstPTS = fragmentTime;
 				//updated seeked position
 				pMediaStreamContext->fragmentIndex = fragmentIndex;
-				pMediaStreamContext->fragmentTime = fragmentTime;
+				pMediaStreamContext->fragmentTime = fragmentTime -  presentationTimeOffsetSec;
 			}
 			else
 			{
