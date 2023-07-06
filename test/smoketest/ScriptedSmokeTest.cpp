@@ -1026,7 +1026,18 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 					{
 						scriptOk = process_detach(cmd, playerInstance);
 						mAampPlayer.deletePlayer(currentPlayerId);
-						currentPlayerId = currentPlayerId ? currentPlayerId-- : currentPlayerId++;
+                    
+
+						// If we delete the current player, try to find a valid one to continue with.
+						// (Assuming here that the script will 'select' a valid player anyway.)
+						while (currentPlayerId > 0)
+						{
+							if (mAampPlayer.getPlayer(currentPlayerId) != NULL)
+							{
+								break;
+							}
+							currentPlayerId--;
+						}
 					}
 					else if (token == "setrate")
 					{
@@ -1390,7 +1401,8 @@ bool ScriptedSmokeTest::process_seek(std::stringstream &args, PlayerInstanceAAMP
 			ScriptedSmokeTestEventListener *listener = getCurrentListener();
 			if (listener)
 			{
-				position = (listener->GetDuration() / 1000);
+				long durationSeconds = (listener->GetDuration() / 1000);
+				position = (uint32_t)durationSeconds;
 			}
 			else
 			{
