@@ -196,7 +196,28 @@ else
 fi    
 
     echo '#!/bin/bash' > $subtecrunscript
-    
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    cat <<AAMPCLI_RUN_SUBTEC >> $subtecrunscript
+# Verify the Unix domain socket size settings to support large sidecar subtitle
+# files.
+SYSCTL_MAXDGRAM=\`sysctl net.local.dgram.maxdgram\`
+MIN_MAXDGRAM=102400
+if [[ "\${SYSCTL_MAXDGRAM}" =~ net.local.dgram.maxdgram:\ ([0-9]+) ]]
+then
+    MAXDGRAM=\${BASH_REMATCH[1]}
+    if (( MAXDGRAM < MIN_MAXDGRAM ))
+    then
+        echo "To support the loading of sidecar subtitle files, increase the Unix domain"
+        echo "socket size settings. For example:"
+        echo "    sudo sysctl net.local.dgram.maxdgram=\$((MIN_MAXDGRAM))"
+        echo "    sudo sysctl net.local.dgram.recvspace=\$((MIN_MAXDGRAM * 2))"
+    fi
+fi
+
+AAMPCLI_RUN_SUBTEC
+fi
+
 if [[ "$OSTYPE" == "linux"* ]]; then
     # start a weston window to display subtitles
     echo 'export XDG_RUNTIME_DIR=/tmp/subtec' >> $subtecrunscript
@@ -231,6 +252,15 @@ install_and_build_subtec() {
                 ln -s $PWD $builddir/build/subtec-app
             fi
         fi
+    fi
+
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # Set size limits on Unix domain sockets to enable the loading of large
+        # sidecar subtitle files using the set textTrack <filename> command. These
+        # settings are large enough to load the files generated in the directory
+        # test/VideoTestStream/text. Repeat this if your Mac is restarted.
+        sudo sysctl net.local.dgram.maxdgram=102400
+        sudo sysctl net.local.dgram.recvspace=204800
     fi
 
     popd
