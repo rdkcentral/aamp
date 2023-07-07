@@ -1877,6 +1877,11 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 		configValueString[eAAMPConfig_AuthToken].lastvalue = tempvalue;
 
 	}
+	if(GetConfigValue(eAAMPConfig_InitialBuffer) > 0)
+	{
+		//AMLOGIC-4119 Enabling initialBuffer and gstBufferAndPlay together cause first frame freeze in amlogic.
+		SetConfigValue(owner, eAAMPConfig_GStreamerBufferingBeforePlay, false);
+	}
 	ConfigureLogSettings();
 }
 
