@@ -59,7 +59,7 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std:
  * @brief PrivateCDAIObjectMPD constructor
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(AampLogManager* logObj, PrivateInstanceAAMP* aamp) : mLogObj(logObj),mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mAdFailed(false), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mImmediateNextAdbreakAvailable(false),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec()
+					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mImmediateNextAdbreakAvailable(false),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),mWaitForManifestUpdateFlag(false)
 {
 	mAamp->CurlInit(eCURLINSTANCE_DAI,1,mAamp->GetNetworkProxy());
 }
@@ -74,6 +74,7 @@ PrivateCDAIObjectMPD::~PrivateCDAIObjectMPD()
 		mAdObjThreadID.join();
 		mAdObjThreadStarted = false;
 	}
+	mWaitForManifestUpdateFlag = false;
 	mAamp->CurlTerm(eCURLINSTANCE_DAI);
 }
 
@@ -122,18 +123,7 @@ void PrivateCDAIObjectMPD::PrunePeriodMaps(std::vector<std::string> &newPeriodId
 			{
 				SAFE_DELETE(ad.mpd);
 			}
-			std::vector<PlacementObj>::iterator adbrkvec_it;
-			for(adbrkvec_it = mAdtoInsertInNextBreakVec.begin();adbrkvec_it != mAdtoInsertInNextBreakVec.end() ; )
-			{
-				if(adbrkvec_it->pendingAdbrkId == it->first)
-				{
-					adbrkvec_it = mAdtoInsertInNextBreakVec.erase(adbrkvec_it);
-				}
-				else
-				{
-					++adbrkvec_it;
-				}
-			}
+			ErasefrmAdBrklist(it->first);
 			it = mAdBreaks.erase(it);
 		} else {
 			++it;
@@ -378,11 +368,13 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 							abObj.endPeriodOffset = 0;//Aligning to next period start
 							abObj.endPeriodId = nextPeriod->GetId();
 							mPeriodMap[abObj.endPeriodId] = Period2AdData();
+							mWaitForManifestUpdateFlag = false;
 							AAMPLOG_INFO("[CDAI] [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s", 
 														diff,currPeriodDuration,abObj.endPeriodId.c_str());
 						}
 						else
 						{
+							mWaitForManifestUpdateFlag = true; //adbrk duration matches the source period duration wait for the manifest update to conitnue playback
 							AAMPLOG_INFO("[CDAI] [%d] close to period end [%" PRIu64 "],but next period not available,waiting", 
 														diff,currPeriodDuration);
 						}
@@ -392,12 +384,14 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 					{
 						AAMPLOG_INFO("[CDAI] [%d] NOT close to period end", diff);
 						abObj.adjustEndPeriodOffset = false; // done with Adjustment
+						mWaitForManifestUpdateFlag = false; // adbrk duration not equal to src period duration continue to play source period remaining duration
 					}
 				}
 			}
 			if(!abObj.adjustEndPeriodOffset) // placed all ads now print the placement data and set mPlacementObj.curAdIdx = -1;
 			{
 				mPlacementObj.curAdIdx = -1;
+				mWaitForManifestUpdateFlag = false;
 				//Printing the placement positions
 				std::stringstream ss;
 				ss<<"{AdbreakId: "<<mPlacementObj.pendingAdbrkId;
@@ -441,16 +435,15 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 			{
 				//Current ad break finshed and the next ad break is avaialable.
 				//So need to call onAdEvent again from fetcher loop
-				mAdBrkVecMtx.lock();
 				if(!mAdtoInsertInNextBreakVec.empty())
 				{
-					mPlacementObj = PopulatePlacementObjwithnxtadbrk(mPlacementObj.pendingAdbrkId,abObj.endPeriodId);
+					mPlacementObj = setPlacementObj(mPlacementObj.pendingAdbrkId,abObj.endPeriodId);
 				}
-				mAdBrkVecMtx.unlock();
 				AAMPLOG_INFO("[CDAI]  num of adbrks avail: %d ",mAdtoInsertInNextBreakVec.size());
 
 				mImmediateNextAdbreakAvailable = true;
 			}
+			mWaitForManifestUpdateFlag = false;
 		}
 	}
 	SAFE_DELETE(adMPDParseHelper);
@@ -884,10 +877,11 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 	}
 }
 
-PlacementObj PrivateCDAIObjectMPD::PopulatePlacementObjwithnxtadbrk(std::string adBrkId,std::string endPeriodId)
+PlacementObj PrivateCDAIObjectMPD::setPlacementObj(std::string adBrkId,std::string endPeriodId)
 {
 	std::vector<PlacementObj>::iterator itr;
 	PlacementObj nxtPlacementObj;
+	mAdBrkVecMtx.lock();
 	if(adBrkId == endPeriodId)
 	{
 		AAMPLOG_INFO("[CDAI] Period %s playback remained endPeriodId : %s",adBrkId.c_str(),endPeriodId.c_str());
@@ -925,5 +919,59 @@ PlacementObj PrivateCDAIObjectMPD::PopulatePlacementObjwithnxtadbrk(std::string 
 		}
 	}
 	AAMPLOG_INFO("[CDAI] Placed AdBrkId = %s ",nxtPlacementObj.pendingAdbrkId.c_str());
+	mAdBrkVecMtx.unlock();
 	return nxtPlacementObj;
+}
+
+/**
+ * @fn ErasefrmAdBrklist
+ * @brief Function to erase the current PlayingAdBrkId
+ * from next AdBreak Vector
+ * @param[in] mpd
+ * @retval true if adstate changes.
+ */
+void PrivateCDAIObjectMPD::ErasefrmAdBrklist(const std::string adBrkId)
+{
+	mAdBrkVecMtx.lock();
+	for(auto it = mAdtoInsertInNextBreakVec.begin();it != mAdtoInsertInNextBreakVec.end();)
+	{
+		if(it->pendingAdbrkId == adBrkId)
+		{
+			AAMPLOG_WARN("Period Id : %s state : %s processed remove from the DAI adbrk list ",it->pendingAdbrkId.c_str(),ADSTATE_STR[static_cast<int>(mAdState)]);
+			it = mAdtoInsertInNextBreakVec.erase(it);
+			break;
+		}
+		else
+		{
+			++it;
+		}
+	}
+	mAdBrkVecMtx.unlock();
+}
+
+
+/**
+* @fn HasDaiAd
+* @brief Function Verify if the current period has DAI Ad
+* @param[in] string basperiodId
+*/
+
+bool PrivateCDAIObjectMPD::HasDaiAd(const std::string periodId)
+{
+	bool adFound = false;
+	mAdBrkVecMtx.lock();
+	if( !mAdtoInsertInNextBreakVec.empty() )
+	{
+		for(auto it = mAdtoInsertInNextBreakVec.begin();it != mAdtoInsertInNextBreakVec.end(); )
+		{
+			if(it->pendingAdbrkId == periodId)
+			{
+				adFound = true;
+				break;
+			}
+			it++;
+		}
+	}
+	mAdBrkVecMtx.unlock();
+	return adFound;
 }

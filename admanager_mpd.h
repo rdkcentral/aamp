@@ -299,7 +299,8 @@ public:
 	bool					       currentAdPeriodClosed;/**< True means player is ready to process very next open period available in the manifest.
 										  The next open period should not be processed until the flag is set to true**/
 	std::vector<PlacementObj>		       mAdtoInsertInNextBreakVec;
-	std::mutex                                     mAdBrkVecMtx;             /**< Mutex protecting DAI critical section */
+	bool 					       mWaitForManifestUpdateFlag; /** upperboundary period matches the current playing period wait for the manifest update to continue playback */
+	std::mutex                           	       mAdBrkVecMtx;             /**< Mutex protecting DAI critical section */
 
 	/**
 	 * @fn PrivateCDAIObjectMPD
@@ -424,7 +425,30 @@ public:
 	 */
 	inline bool isPeriodInAdbreak(const std::string &periodId);
 
-	PlacementObj PopulatePlacementObjwithnxtadbrk(std::string adBrkId,std::string endPeriodId);
+	/**
+	* @fn setPlacementObj
+	* @brief Function to place the next available DAI ad
+	* @param[in] adBrkId : currentPlaying DAI AdId
+	* 	endPeriodId : nextperiod to play(after DAI playback)
+	* @retval true if adstate changes.
+	*/
+	PlacementObj setPlacementObj(const std::string adBrkId,const std::string endPeriodId);
+
+	/**
+	* @fn ErasefrmAdBrklist
+	* @brief Function to erase the current PlayingAdBrkId
+	* from next AdBreak Vector
+	* @param[in] mpd
+	* @retval true if adstate changes.
+	* */
+	void ErasefrmAdBrklist(const std::string adBrkId);
+
+	/**
+        * @fn HasDaiAd
+        * @brief Function Verify if the current period has DAI Ad
+        * @param[in] string basperiodId
+        */
+	bool HasDaiAd(const std::string periodId);
 };
 
 
