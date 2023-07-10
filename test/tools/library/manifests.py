@@ -116,8 +116,15 @@ class ManifestServerCommon:
 
     time_of_first_manifest = 0
     time_started_serving = 0
+    time_offset = 0
     # { path_to_manifest: [(ts from mf,path_to_manifest_increment),() ... ]
     manifest_list = {}
+    
+    # to allow to update the offset time
+    def set_offset_time(self, offset_time):
+        ManifestServerCommon.time_offset = offset_time
+        log.info("changing offst time from 0 to %d", offset_time)
+
 
     def return_file_index(self, path):
         """
@@ -194,7 +201,7 @@ class ManifestServerCommon:
                     tup = (time_stamp, file)
                     files_with_timestamps.append(tup)
             self.manifest_list.update({path: files_with_timestamps})
-        # print("get_list_of_manifest_timestamps ",path, ":",self.manifest_list[path])
+        #log.info("get_list_of_manifest_timestamps %s : %s",path,self.manifest_list[path])
         return self.manifest_list[path]
 
     def manifest_serve(self, path):
@@ -237,12 +244,13 @@ class ManifestServerCommon:
         # number timestamp that does not exceed
         # time_manifest as calculated below
         time_elapsed = time.time() - self.time_started_serving
-        time_manifest = self.time_of_first_manifest + time_elapsed
+        time_manifest = self.time_of_first_manifest + time_elapsed + self.time_offset
 
         for timestamp, manifest_file in file_timestamps:
             if timestamp > time_manifest:
                 break
             file_to_serve = manifest_file
+        return file_to_serve
 
     def get_timestamp_re(self, path):
         """
