@@ -9019,6 +9019,16 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
                                                         else
                                                         {
 								AAMPLOG_WARN("Period ID not changed from \'%s\' to \'%s\',since period is empty [BasePeriodId=\'%s\']", currentPeriodId.c_str(),mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
+								if(mIsLiveManifest && (mIterPeriodIndex > mUpperBoundaryPeriod))
+								{
+									// Update manifest and check for period validity in the next iteration
+									// For CDAI empty period at the end, we should re-iterate the loop
+									ReleasePlaylistLock();
+									playlistDownloaderContext->NotifyFragmentCollectorWait();
+									playlistDownloaderContext->WaitForManifestUpdate();
+									continue;
+								}
+
 							}
 						}
 
