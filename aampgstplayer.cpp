@@ -603,6 +603,7 @@ static gboolean appsrc_seek(GstAppSrc *src, guint64 offset, AAMPGstPlayer * _thi
 	return TRUE;
 }
 
+#if defined (AMLOGIC) && GST_CHECK_VERSION(1,18,0)
 /**
  * @brief AAMPGstPlayer_HandleInstantRateChangeSeekProbe
  * @param[in] pad pad element
@@ -648,7 +649,7 @@ static GstPadProbeReturn AAMPGstPlayer_HandleInstantRateChangeSeekProbe(GstPad* 
     }
     return GST_PAD_PROBE_OK;
 }
-
+#endif //defined (AMLOGIC) && GST_CHECK_VERSION(1,18,0)
 
 
 /**
@@ -1554,7 +1555,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 			}
 #endif
 		}
-#if defined(AMLOGIC)
+#if defined (AMLOGIC) && GST_CHECK_VERSION(1,18,0)
 		else if (NULL != msg->src)
 		{
 			
