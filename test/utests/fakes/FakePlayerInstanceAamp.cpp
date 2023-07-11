@@ -201,3 +201,4 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	std::string PlayerInstanceAAMP::GetThumbnails(double  sduration, double  eduration) { return nullptr; }
 	std::string PlayerInstanceAAMP::GetAAMPConfig() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetPlaybackStats() { return nullptr; }
+	std::string PlayerInstanceAAMP::GetVideoPlaybackQuality(void) { return nullptr; }

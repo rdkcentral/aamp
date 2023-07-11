@@ -999,3 +999,8 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	return NULL;
 }
 
+std::string PrivateInstanceAAMP::GetVideoPlaybackQuality()
+{
+        return nullptr;
+}
+

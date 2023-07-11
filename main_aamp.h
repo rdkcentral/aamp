@@ -157,6 +157,16 @@ typedef enum
 } LangCodePreference;
 
 /**
+ * @struct PlaybackQualityData
+ * @brief Playback quality data information
+ */
+typedef struct PlaybackQualityData
+{
+	long long rendered;
+	long long dropped;
+} PlaybackQualityStruct;
+
+/**
  * @struct AudioTrackInfo
  * @brief Structure for audio track information
  *        Holds information about an audio track in playlist
@@ -675,7 +685,12 @@ public:
 	 * @return bol sttaus of API
 	 */
 
-
+	/**
+	 *   @brief Get the video playback quality
+	 *
+	 *   @return current video playback quality
+	 */
+	virtual PlaybackQualityStruct* GetVideoPlaybackQuality() { return NULL; };
 };
 
 
@@ -1977,6 +1992,13 @@ public:
    	 *   @return json string reperesenting the stats
   	 */
 	std::string GetPlaybackStats();
+
+	/**
+	 *   @fn GetVideoPlaybackQuality
+	 *
+	 *   @return json string with video playback quality
+	 */
+	std::string GetVideoPlaybackQuality(void);
 private:
 	
 	/**

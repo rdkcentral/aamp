@@ -213,7 +213,8 @@ struct AAMPGstPlayerPriv
 	bool firstVideoFrameReceived; 			/**< flag that denotes if first video frame was notified. */
 	bool firstAudioFrameReceived; 			/**< flag that denotes if first audio frame was notified */
 	int  NumberOfTracks;	      			/**< Indicates the number of tracks */
-	AAMPGstPlayerPriv() : pipeline(NULL), bus(NULL), current_rate(0),
+ 	PlaybackQualityStruct playbackQuality;		/**< video playback quality info */
+ 	AAMPGstPlayerPriv() : pipeline(NULL), bus(NULL), current_rate(0),
 			total_bytes(0), n_audio(0), current_audio(0), 
 			periodicProgressCallbackIdleTaskId(AAMP_TASK_ID_INVALID),
 			bufferingTimeoutTimerId(AAMP_TASK_ID_INVALID), video_dec(NULL), audio_dec(NULL),TaskControlMutex(),firstProgressCallbackIdleTask("FirstProgressCallback"),
@@ -235,8 +236,8 @@ struct AAMPGstPlayerPriv
 #endif
 			decodeErrorMsgTimeMS(0), decodeErrorCBCount(0),
 			progressiveBufferingEnabled(false), progressiveBufferingStatus(false)
-			, forwardAudioBuffers (false), enableSEITimeCode(true),firstVideoFrameReceived(false),firstAudioFrameReceived(false),NumberOfTracks(0)
-	{
+ 			, forwardAudioBuffers (false), enableSEITimeCode(true),firstVideoFrameReceived(false),firstAudioFrameReceived(false),NumberOfTracks(0),playbackQuality{}
+ 	{
 		memset(videoRectangle, '\0', VIDEO_COORDINATES_SIZE);
                 /* DELIA-45366-default video scaling should take into account actual graphics
                  * resolution instead of assuming 1280x720.
@@ -4075,6 +4076,44 @@ long long AAMPGstPlayer::GetVideoPTS(void)
 	return (long long) currentPTS;
 }
 
+
+PlaybackQualityStruct* AAMPGstPlayer::GetVideoPlaybackQuality(void)
+{
+	GstStructure *stats= 0;
+        GstElement *element;
+#if defined (REALTEKCE)
+        element = privateContext->video_sink;
+#else
+        element = privateContext->video_dec;
+#endif
+        if( element )
+        {
+		g_object_get( G_OBJECT(element), "stats", &stats, NULL );
+		if ( stats )
+		{
+			const GValue *value;
+			value= gst_structure_get_value( stats, "rendered" );
+			if ( value )
+			{
+				privateContext->playbackQuality.rendered= g_value_get_uint64( value );
+			}
+			value= gst_structure_get_value( stats, "dropped" );
+			if ( value )
+			{
+				privateContext->playbackQuality.dropped= g_value_get_uint64( value );
+			}
+			AAMPLOG_WARN("rendered %lld dropped %lld\n", privateContext->playbackQuality.rendered, privateContext->playbackQuality.dropped);
+			gst_structure_free( stats );
+
+			return &privateContext->playbackQuality;
+		}
+		else
+		{
+			AAMPLOG_WARN("Failed to get sink stats");
+		}
+	}
+	return NULL;
+}
 /**
  *  @brief Reset EOS SignalledFlag
  */

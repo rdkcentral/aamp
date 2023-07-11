@@ -302,7 +302,13 @@ Mar  2023 Release update
 Jun  2023 Release update
 - API
     - getPlaybackStatistics ( updated example )
-  
+
+**Version:** 5.7
+**Release Notes:**
+July 2023 Release update
+- API
+    - getVideoPlaybackQuality
+
 <div style="page-break-after: always;"></div>
 
 ## Abbreviation Summary 
@@ -1645,6 +1651,20 @@ acquisition |
           :1}}},"width":1280,"height":720},"7518491":{"fragmentStat":{"media
           ":{"latencyReport":{"timeWindow_0":548}
         }
+
+---
+
+### getVideoPlaybackQuality ()
+- Supported UVE version 5.7 and above
+- Returns the playback quality info in JSON format during playback
+- This API returns valid data if the video sink is westerossink
+
+##### Example:
+     [ {
+	"rendered": 54321,
+	"dropped":  12
+	}
+     ]
 
 ---
 

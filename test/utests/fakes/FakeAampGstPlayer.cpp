@@ -185,3 +185,9 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, const void
 {
 	return FALSE;
 }
+
+PlaybackQualityStruct* AAMPGstPlayer::GetVideoPlaybackQuality(void)
+{
+	return nullptr;
+}
+

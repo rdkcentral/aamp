@@ -110,6 +110,10 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 35:
 					printf( "[AAMPCLI] LIVE: %s\n", playerInstanceAamp->IsLive()? "TRUE": "FALSE" );
 					break;
+
+                                case 36:
+                                        printf("[AAMPCLI] VIDEO PLAYBACK QUALITY: %s\n", playerInstanceAamp->GetVideoPlaybackQuality().c_str() );
+                                        break;
 					   
 				case 21:
 					printf("[AAMPCLI] ALL AUDIO TRACKS: %s\n", playerInstanceAamp->GetAvailableAudioTracks(true).c_str() );
@@ -284,6 +288,7 @@ void Get::registerGetCommands()
 	addCommand(33,"thumbnailData","Get Thumbnail timerange data(int startpos, int endpos)");
 	addCommand(34,"availableVideoTracks","Get All Available Video Tracks information from manifest");
 	addCommand(35,"live","Report if playback is logically from live edge");
+	addCommand(36,"playbackQuality","Get playback quality info");
 	commands.push_back("help");
 }
 

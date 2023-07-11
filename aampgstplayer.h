@@ -427,6 +427,12 @@ public:
 	 */
 	bool SetTextStyle(const std::string &options) override;
 
+	/**
+	 * @fn GetVideoPlaybackQuality
+	 * returns video playback quality data
+	 */
+	PlaybackQualityStruct* GetVideoPlaybackQuality(void) override;
+
 private:
 	/**
      	 * @fn PauseAndFlush 

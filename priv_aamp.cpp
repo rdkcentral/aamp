@@ -12100,3 +12100,44 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	
 	return inpData;
 }
+
+/**
+ * @brief Get video playback quality data
+ */
+std::string PrivateInstanceAAMP::GetVideoPlaybackQuality()
+{
+	std::string playbackQualityStr="";
+	PlaybackQualityStruct* playbackQuality;
+	playbackQuality = mStreamSink->GetVideoPlaybackQuality();
+
+	if(playbackQuality)
+	{
+		cJSON *root;
+		cJSON *item;
+		root = cJSON_CreateArray();
+		if(root)
+		{
+			cJSON_AddItemToArray(root, item = cJSON_CreateObject());
+			if(playbackQuality->rendered != -1)
+			{
+				cJSON_AddNumberToObject(item, "rendered", playbackQuality->rendered);
+			}
+			if(playbackQuality->dropped != -1)
+			{
+				cJSON_AddNumberToObject(item, "dropped", playbackQuality->dropped);
+			}
+		}
+		char *jsonStr = cJSON_Print(root);
+		if (jsonStr)
+		{
+			playbackQualityStr.assign(jsonStr);
+			free(jsonStr);
+		}
+		cJSON_Delete(root);
+	}
+	else
+	{
+		AAMPLOG_ERR("PrivateInstanceAAMP: playbackQuality not available");
+	}
+	return playbackQualityStr;
+}

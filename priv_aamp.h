@@ -3933,6 +3933,12 @@ public:
 		return mMPDDownloaderInstance;
 	}
 
+        /**
+         *     @fn GetVideoPlaybackQuality
+         *     @return video playback quality data string.
+         */
+	std::string GetVideoPlaybackQuality(void);
+
 private:
 
 	/**

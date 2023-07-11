@@ -3235,6 +3235,15 @@ bool PlayerInstanceAAMP::IsOOBCCRenderingSupported()
 #endif 
 }
 
+/**
+ *  @brief To get video playback quality
+ */
+std::string PlayerInstanceAAMP::GetVideoPlaybackQuality(void)
+{
+	ERROR_OR_IDLE_STATE_CHECK_VAL(std::string());
+
+	return aamp->GetVideoPlaybackQuality();
+}
 
 /**
  * @}
