@@ -5209,8 +5209,9 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	std::string sTraceId = (pTraceID?pTraceID:"unknown");
 	//CMCD to be enabled for player direct downloads, not for Fog . All downloads in Fog , CMCD response to be done in Fog.
 	mCMCDCollector->Initialize((ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD) && !mTSBEnabled),sTraceId);
-
-	SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_InterruptHandling, (mTSBEnabled && strcasestr(mainManifestUrl, "networkInterruption=true")));
+// RDKAAMP-1315 : This feature RDKAAMP-1315 is causing trickplay issues for client dai 
+// hence removing code which reads this config from tune url , Ideally it should be fixed by app and not to enable this feature 
+//	SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_InterruptHandling, (mTSBEnabled && strcasestr(mainManifestUrl, "networkInterruption=true")));
 	if(!ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling))
 	{
 		AAMPLOG_INFO("Absolute timeline reporting enabled for interrupt enabled TSB stream");
