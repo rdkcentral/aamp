@@ -74,19 +74,6 @@
 #define SCHEME_ID_URI_EC3_EXT_CODEC "tag:dolby.com,2018:dash:EC3_ExtensionType:2018"
 #define EC3_EXT_VALUE_AUDIO_ATMOS "JOC"
 
-static double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
-{
-        FN_TRACE_F_MPD( __FUNCTION__ );
-	double newduration = 2.0;
-	if( duration && timeScale )
-	{
-		newduration =  (double)duration / (double)timeScale;
-		return newduration;
-	}
-	AAMPLOG_WARN( "bad fragment duration");
-	return newduration;
-}
-
 /**
  * @class HeaderFetchParams
  * @brief Holds information regarding initialization fragment
@@ -239,45 +226,6 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 }
 
 static void GetBitrateInfoFromCustomMpd( const IAdaptationSet *adaptationSet, std::vector<Representation *>& representations );
-
-/**
- * @brief Check if mime type is compatible with media type
- * @param mimeType mime type
- * @param mediaType media type
- * @retval true if compatible
- */
-static bool IsCompatibleMimeType(const std::string& mimeType, MediaType mediaType)
-{
-        //FN_TRACE_F_MPD( __FUNCTION__ );
-	bool isCompatible = false;
-
-	switch ( mediaType )
-	{
-		case eMEDIATYPE_VIDEO:
-			if (mimeType == "video/mp4")
-				isCompatible = true;
-			break;
-
-		case eMEDIATYPE_AUDIO:
-		case eMEDIATYPE_AUX_AUDIO:
-			if ((mimeType == "audio/webm") ||
-				(mimeType == "audio/mp4"))
-				isCompatible = true;
-			break;
-
-		case eMEDIATYPE_SUBTITLE:
-			if ((mimeType == "application/ttml+xml") ||
-				(mimeType == "text/vtt") ||
-				(mimeType == "application/mp4"))
-				isCompatible = true;
-			break;
-
-		default:
-			break;
-	}
-
-	return isCompatible;
-}
 
 /**
  * @brief Get Additional tag property value from any child node of MPD
@@ -578,30 +526,6 @@ static int GetDesiredVideoCodecIndex(IAdaptationSet *adaptationSet)
 	return selectedRepIdx;
 }
 
-/**
- * @brief Return the name corresponding to the Media Type
- * @param mediaType media type
- * @retval the name of the mediaType
- */
-static const char* getMediaTypeName( MediaType mediaType )
-{
-	//FN_TRACE_F_MPD( __FUNCTION__ );
-	switch(mediaType)
-	{
-		case eMEDIATYPE_VIDEO:
-			return MEDIATYPE_VIDEO;
-		case eMEDIATYPE_AUDIO:
-			return MEDIATYPE_AUDIO;
-		case eMEDIATYPE_SUBTITLE:
-			return MEDIATYPE_TEXT;
-		case eMEDIATYPE_IMAGE:
-			return MEDIATYPE_IMAGE;
-		case eMEDIATYPE_AUX_AUDIO:
-			return MEDIATYPE_AUX_AUDIO;
-		default:
-			return NULL;
-	}
-}
 
 /**
  * @brief map cannonical media type to corresponding playlist type
@@ -3912,7 +3836,7 @@ double StreamAbstractionAAMP_MPD::GetPeriodStartTime(IMPD *mpd, int periodIndex)
 						mLiveTimeFragmentSync = true;
 					}
 
-					double duration = (aamp_GetPeriodDuration(mpd, periodIndex, mLastPlaylistDownloadTimeMs) / 1000);
+					double duration = (mMPDParseHelper->aamp_GetPeriodDuration(periodIndex, mLastPlaylistDownloadTimeMs) / 1000);
 					double liveTime = (double)mLastPlaylistDownloadTimeMs / 1000.0;
 					if(mHasServerUtcTime)
 					{
@@ -3940,7 +3864,7 @@ double StreamAbstractionAAMP_MPD::GetPeriodStartTime(IMPD *mpd, int periodIndex)
 					}
 					else
 					{
-						durationTotal += aamp_GetPeriodDuration(mpd, periodIndex, mLastPlaylistDownloadTimeMs);
+						durationTotal += mMPDParseHelper->aamp_GetPeriodDuration(periodIndex, mLastPlaylistDownloadTimeMs);
 					}
 				}
 				periodStart =  ((double)durationTotal / (double)1000);
@@ -3959,95 +3883,6 @@ double StreamAbstractionAAMP_MPD::GetPeriodStartTime(IMPD *mpd, int periodIndex)
 	}
 	return periodStart;
 }
-
-
-/**
- * @brief Get duration of current period
- * @retval current period's duration
- */
-double StreamAbstractionAAMP_MPD::GetPeriodDuration(IMPD *mpd, int periodIndex)
-{
-	FN_TRACE_F_MPD( __FUNCTION__ );
-	double periodDuration = 0;
-	double  periodDurationMs = 0;
-	if(mpd != NULL)
-	{
-		int periodCnt= (int)mpd->GetPeriods().size();
-		if(periodIndex < periodCnt)
-		{
-			string durationStr = mpd->GetPeriods().at(periodIndex)->GetDuration();
-			if(!durationStr.empty())
-			{
-				periodDurationMs = ParseISO8601Duration(durationStr.c_str());
-				double liveTime = (double)mLastPlaylistDownloadTimeMs / 1000.0;
-				if(!aamp->IsTSBSupported() && aamp->IsLive() && mLiveTimeFragmentSync && (mAvailabilityStartTime > (liveTime - (periodDurationMs/1000))))
-				{
-					periodDurationMs = (liveTime - mAvailabilityStartTime) * 1000;
-				}
-				periodDuration = periodDurationMs / 1000.0;
-				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: MPD periodIndex:%d periodDuration %f", periodIndex, periodDuration);
-			}
-			else
-			{
-				if(periodCnt == 1 && periodIndex == 0)
-				{
-					std::string durationStr =  mpd->GetMediaPresentationDuration();
-					if(!durationStr.empty())
-					{
-						periodDurationMs = ParseISO8601Duration( durationStr.c_str());
-					}
-					else
-					{
-						periodDurationMs = aamp_GetPeriodDuration(mpd, periodIndex, mLastPlaylistDownloadTimeMs);
-					}
-					periodDuration = (periodDurationMs / 1000.0);
-					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: [MediaPresentation] - MPD periodIndex:%d periodDuration %f", periodIndex, periodDuration);
-				}
-				else
-				{
-					string curStartStr = mpd->GetPeriods().at(periodIndex)->GetStart();
-					string nextStartStr = "";
-					if(periodIndex+1 < periodCnt)
-					{
-						nextStartStr = mpd->GetPeriods().at(periodIndex+1)->GetStart();
-					}
-					if(!curStartStr.empty() && (!nextStartStr.empty()) && !aamp->IsUninterruptedTSB())
-					{
-						double  curPeriodStartMs = 0;
-						double  nextPeriodStartMs = 0;
-						curPeriodStartMs = ParseISO8601Duration(curStartStr.c_str()) + (aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mpd->GetPeriods().at(periodIndex)) * 1000);
-						nextPeriodStartMs = ParseISO8601Duration(nextStartStr.c_str()) + (aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mpd->GetPeriods().at(periodIndex+1)) * 1000);
-						periodDurationMs = nextPeriodStartMs - curPeriodStartMs;
-						periodDuration = (periodDurationMs / 1000.0);
-						if(periodDuration != 0.0f)
-							AAMPLOG_INFO("StreamAbstractionAAMP_MPD: [StartTime based] - MPD periodIndex:%d periodDuration %f", periodIndex, periodDuration);
-					}
-					else
-					{
-						if(mMPDParseHelper->IsEmptyPeriod(periodIndex, (rate != AAMP_NORMAL_PLAY_RATE)))
-						{
-							// Final empty period, return duration as 0 incase if GetPeriodDuration is called for this.
-							periodDurationMs = 0;
-							periodDuration = 0;
-						}
-						else
-						{
-							periodDurationMs = aamp_GetPeriodDuration(mpd, periodIndex, mLastPlaylistDownloadTimeMs);
-							periodDuration = (periodDurationMs / 1000.0);
-						}
-						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: [Segments based] - MPD periodIndex:%d periodDuration %f", periodIndex, periodDuration);
-					}
-				}
-			}
-		}
-	}
-	else
-	{
-		AAMPLOG_WARN("mpd is null");  //CID:83436 Null Returns
-	}
-	return periodDurationMs;
-}
-
 
 /**
  * @brief Get end time of current period
@@ -4075,7 +3910,7 @@ double StreamAbstractionAAMP_MPD::GetPeriodEndTime(IMPD *mpd, int periodIndex, u
 	if(period != NULL)
 	{
 		string startTimeStr = period->GetStart();
-		periodDurationMs = GetPeriodDuration(mpd, periodIndex);
+		periodDurationMs = mMPDParseHelper->GetPeriodDuration(periodIndex,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 
 		if((mpd->GetAvailabilityStarttime().empty()) && !(mpd->GetType() == "static"))
 		{
@@ -4109,227 +3944,6 @@ double StreamAbstractionAAMP_MPD::GetPeriodEndTime(IMPD *mpd, int periodIndex, u
 		AAMPLOG_WARN("period is null");  //CID:85519- Null returns
 	}
 	return periodEndTime;
-}
-
-/**
- *   @brief  Get Period Duration
- *   @retval period duration in milli seconds
-  */
-double aamp_GetPeriodDuration(dash::mpd::IMPD *mpd, int periodIndex, uint64_t mpdDownloadTime)
-{
-    FN_TRACE_F_MPD( __FUNCTION__ );
-	double durationMs = 0;
-	auto periods = mpd->GetPeriods();
-	IPeriod * period = periods.at(periodIndex);
-
-	std::string tempString = period->GetDuration();
-	if(!tempString.empty())
-	{
-		durationMs = ParseISO8601Duration( tempString.c_str());
-	}
-	//DELIA-45784 Calculate duration from @mediaPresentationDuration for a single period VOD stream having empty @duration.This is added as a fix for voot stream seekposition timestamp issue.
-	size_t numPeriods = mpd->GetPeriods().size();
-	if(0 == durationMs && mpd->GetType() == "static" && numPeriods == 1)
-	{
-		std::string durationStr =  mpd->GetMediaPresentationDuration();
-		if(!durationStr.empty())
-		{
-			durationMs = ParseISO8601Duration( durationStr.c_str());
-		}
-		else
-		{
-			AAMPLOG_WARN("mediaPresentationDuration missing in period %s", period->GetId().c_str());
-		}
-	}
-	if(0 == durationMs)
-	{
-		const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
-		const ISegmentTemplate *representation = NULL;
-		const ISegmentTemplate *adaptationSet = NULL;
-		if (adaptationSets.size() > 0)
-		{
-			IAdaptationSet * firstAdaptation;
-			for (auto &adaptationSet : period->GetAdaptationSets())
-			{
-				//Check for video adaptation
-				if (!IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
-				{
-					continue;
-				}
-				firstAdaptation = adaptationSet;
-			}
-			if(firstAdaptation != NULL)
-			{
-				adaptationSet = firstAdaptation->GetSegmentTemplate();
-				const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
-				if (representations.size() > 0)
-				{
-					representation = representations.at(0)->GetSegmentTemplate();
-				}
-
-				SegmentTemplates segmentTemplates(representation,adaptationSet);
-	
-				if( segmentTemplates.HasSegmentTemplate() )
-				{
-					const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
-					uint32_t timeScale = segmentTemplates.GetTimescale();
-					//Calculate period duration by adding up the segment durations in timeline
-					if (segmentTimeline)
-					{
-						std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
-						int timeLineIndex = 0;
-						while (timeLineIndex < timelines.size())
-						{
-							ITimeline *timeline = timelines.at(timeLineIndex);
-							uint32_t repeatCount = timeline->GetRepeatCount();
-							double timelineDurationMs = ComputeFragmentDuration(timeline->GetDuration(),timeScale) * 1000;
-							durationMs += ((repeatCount + 1) * timelineDurationMs);
-							AAMPLOG_TRACE("timeLineIndex[%d] size [%lu] updated durationMs[%lf]", timeLineIndex, timelines.size(), durationMs);
-							timeLineIndex++;
-						}
-					}
-					else
-					{
-						std::string periodStartStr = period->GetStart();
-						if(!periodStartStr.empty())
-						{
-							//If it's last period find period duration using mpd download time
-							//and minimumUpdatePeriod
-							std::string durationStr =  mpd->GetMediaPresentationDuration();
-							if(!durationStr.empty() && mpd->GetType() == "static")
-							{
-								double periodStart = 0;
-								double totalDuration = 0;
-								periodStart = ParseISO8601Duration( periodStartStr.c_str() );
-								totalDuration = ParseISO8601Duration( durationStr.c_str() );
-								durationMs = totalDuration - periodStart;
-							}
-							else if(periodIndex == (periods.size() - 1))
-							{
-								std::string minimumUpdatePeriodStr = mpd->GetMinimumUpdatePeriod();
-								std::string availabilityStartStr = mpd->GetAvailabilityStarttime();
-								std::string publishTimeStr;
-								auto attributesMap = mpd->GetRawAttributes();
-								if(attributesMap.find("publishTime") != attributesMap.end())
-								{
-									publishTimeStr = attributesMap["publishTime"];
-								}
-
-								if(!publishTimeStr.empty() && (publishTimeStr.compare(availabilityStartStr) != 0))
-								{
-									mpdDownloadTime = (uint64_t)ISO8601DateTimeToUTCSeconds(publishTimeStr.c_str()) * 1000;
-								}
-
-								if(0 == mpdDownloadTime)
-								{
-									AAMPLOG_WARN("mpdDownloadTime required to calculate period duration not provided");
-								}
-								else if(minimumUpdatePeriodStr.empty())
-								{
-									AAMPLOG_WARN("minimumUpdatePeriod required to calculate period duration not present in MPD");
-								}
-								else if(availabilityStartStr.empty())
-								{
-									AAMPLOG_WARN("availabilityStartTime required to calculate period duration not present in MPD");
-								}
-								else
-								{
-									double periodStart = 0;
-									double availablilityStart = 0;
-									double minUpdatePeriod = 0;
-									periodStart = ParseISO8601Duration( periodStartStr.c_str() );
-									availablilityStart = ISO8601DateTimeToUTCSeconds(availabilityStartStr.c_str()) * 1000;
-									minUpdatePeriod = ParseISO8601Duration( minimumUpdatePeriodStr.c_str() );
-									double periodEndTime = mpdDownloadTime + minUpdatePeriod;
-									double periodStartTime = availablilityStart + periodStart;
-									std::string tsbDepth = mpd->GetTimeShiftBufferDepth();
-									AAMPLOG_INFO("periodStart %lf availabilityStartTime %lf minUpdatePeriod %lf mpdDownloadTime %" PRIu64 " tsbDepth:%s", periodStart, availablilityStart, minUpdatePeriod, mpdDownloadTime, tsbDepth.c_str());
-									if(periodStartTime == availablilityStart)
-									{
-										// period starting from availability start time
-										if(!tsbDepth.empty())
-										{
-											durationMs = ParseISO8601Duration(tsbDepth.c_str());
-										}
-
-										if((mpdDownloadTime - durationMs) < availablilityStart)
-										{
-											durationMs = mpdDownloadTime - availablilityStart;
-										}
-									}
-									else
-									{
-										durationMs = periodEndTime - periodStartTime;
-									}
-
-									if(durationMs <= 0)
-									{
-										AAMPLOG_WARN("Invalid period duration periodStartTime %lf periodEndTime %lf durationMs %lf", periodStartTime, periodEndTime, durationMs);
-										durationMs = 0;
-									}
-								}
-							}
-							//We can calculate period duration by subtracting startime from next period start time.
-							else
-							{
-								std::string nextPeriodStartStr = periods.at(periodIndex + 1)->GetStart();
-								if(!nextPeriodStartStr.empty())
-								{
-									double periodStart = 0;
-									double nextPeriodStart = 0;
-									periodStart = ParseISO8601Duration( periodStartStr.c_str() );
-									nextPeriodStart = ParseISO8601Duration( nextPeriodStartStr.c_str() );
-									durationMs = nextPeriodStart - periodStart;
-									if(durationMs <= 0)
-									{
-										AAMPLOG_WARN("Invalid period duration periodStartTime %lf nextPeriodStart %lf durationMs %lf", periodStart, nextPeriodStart, durationMs);
-										durationMs = 0;
-									}
-								}
-								else
-								{
-									AAMPLOG_WARN("Next period startTime missing periodIndex %d", periodIndex);
-								}
-							}
-						}
-						else
-						{
-							AAMPLOG_WARN("Start time and duration missing in period %s", period->GetId().c_str());
-						}
-					}
-				}
-				else
-				{
-					const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
-					if (representations.size() > 0)
-					{
-						ISegmentList *segmentList = representations.at(0)->GetSegmentList();
-						if (segmentList)
-						{
-							const std::vector<ISegmentURL*> segmentURLs = segmentList->GetSegmentURLs();
-							if(!segmentURLs.empty())
-							{
-								durationMs += ComputeFragmentDuration( segmentList->GetDuration(), segmentList->GetTimescale()) * 1000;
-							}
-							else
-							{
-								AAMPLOG_WARN("segmentURLs  is null");  //CID:82729 - Null Returns
-							}
-						}
-						else
-						{
-							AAMPLOG_ERR("not-yet-supported mpd format");
-						}
-					}
-				}
-			}
-			else
-			{
-				AAMPLOG_WARN("firstAdaptation is null");  //CID:84261 - Null Returns
-			}
-		}
-	}
-	return durationMs;
 }
 
 /**
@@ -4480,7 +4094,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			auto period = periods.at(iter);
 			PeriodInfo periodInfo;
 			periodInfo.periodId = period->GetId();
-			periodInfo.duration = GetPeriodDuration(mpd, iter);
+			periodInfo.duration = mMPDParseHelper->GetPeriodDuration(iter,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 			periodInfo.startTime = GetFirstSegmentStartTime(period);
 			periodInfo.timeScale = GetPeriodSegmentTimeScale(period);
 			currMPDPeriodDetails.push_back(periodInfo);
@@ -4518,7 +4132,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			std::string tempString = period->GetDuration();
 			double  periodStartMs = 0;
 			double periodDurationMs = 0;
-			periodDurationMs = aamp_GetPeriodDuration(mpd, iPeriod, mLastPlaylistDownloadTimeMs);
+			periodDurationMs =mMPDParseHelper->aamp_GetPeriodDuration(iPeriod, mLastPlaylistDownloadTimeMs);
 			if (!mpdDurationAvailable)
 			{
 				durationMs += periodDurationMs;
@@ -4637,7 +4251,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				{
 					continue;
 				}
-				durationMs += GetPeriodDuration(mpd, iPeriod);
+				durationMs += mMPDParseHelper->GetPeriodDuration(iPeriod,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 			}
 			AAMPLOG_WARN("Duration after adding up Period Duration %" PRIu64 " seconds", durationMs/1000);
 		}
@@ -4704,7 +4318,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				{
 					if(segmentTagsPresent)
 					{
-						duration = (GetPeriodDuration(mpd, mCurrentPeriodIdx)) / 1000;
+						duration = (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB())) / 1000;
 						currentPeriodStart = ((double)durationMs / 1000) - duration;
 						offsetFromStart = duration - aamp->mLiveOffset;
 						while(offsetFromStart < 0 && mCurrentPeriodIdx > 0)
@@ -4715,7 +4329,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 							{
 								mCurrentPeriodIdx--;
 							}
-							duration = (GetPeriodDuration(mpd, mCurrentPeriodIdx)) / 1000;
+							duration = (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB())) / 1000;
 							currentPeriodStart = currentPeriodStart - duration;
 							offsetFromStart = offsetFromStart + duration;
 						}
@@ -4741,7 +4355,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 								mCurrentPeriodIdx--;
 							}
 							mPeriodStartTime =  GetPeriodStartTime(mpd, mCurrentPeriodIdx);
-							duration = (GetPeriodDuration(mpd, mCurrentPeriodIdx)) / 1000;
+							duration = (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB())) / 1000;
 							currentPeriodStart -= duration;
 							if(mPeriodStartTime < startTime)
 							{
@@ -4801,7 +4415,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			}
 		}
 		mPeriodStartTime =  GetPeriodStartTime(mpd, mCurrentPeriodIdx);
-		mPeriodDuration =  GetPeriodDuration(mpd, mCurrentPeriodIdx);
+		mPeriodDuration =  mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 		mPeriodEndTime = GetPeriodEndTime(mpd, mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs);
 		int periodCnt = numPeriods;
 		if(mCurrentPeriodIdx < periodCnt)
@@ -4889,7 +4503,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				{
 					if(!mMPDParseHelper->IsEmptyPeriod(periodIter, (rate != AAMP_NORMAL_PLAY_RATE)))
 					{
-						durMs += GetPeriodDuration(mpd, periodIter);
+						durMs += mMPDParseHelper->GetPeriodDuration(periodIter,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 					}
 				}
 
@@ -5378,7 +4992,7 @@ void StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackInfo)
 				auto period = periods.at(iter);
 				PeriodInfo periodInfo;
 				periodInfo.periodId = period->GetId();
-				periodInfo.duration = GetPeriodDuration(mpd, iter);
+				periodInfo.duration = mMPDParseHelper->GetPeriodDuration(iter,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 				periodInfo.startTime = GetFirstSegmentStartTime(period);
 				periodInfo.timeScale = GetPeriodSegmentTimeScale(period);
 				currMPDPeriodDetails.push_back(periodInfo);
@@ -5406,7 +5020,7 @@ void StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackInfo)
 
 			mPeriodEndTime = GetPeriodEndTime(mpd, mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs);
 			mPeriodStartTime = GetPeriodStartTime(mpd, mCurrentPeriodIdx);
-			mPeriodDuration = GetPeriodDuration(mpd, mCurrentPeriodIdx);
+			mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 
 			double duration = durMs /(double)1000;
 			aamp->UpdateDuration(duration);
@@ -5699,7 +5313,7 @@ void StreamAbstractionAAMP_MPD::FindPeriodGapsAndReport()
 			aamp->ReportContentGap((long long)(prevPeriodEndMs - (aamp->mProgressReportOffset*1000)), tempPeriod->GetId(), periodGapMS);
 		}
 		if(mMPDParseHelper->IsEmptyPeriod(i, (rate != AAMP_NORMAL_PLAY_RATE))) continue;
-		double periodDuration = aamp_GetPeriodDuration(mpd, i, mLastPlaylistDownloadTimeMs);
+		double periodDuration = mMPDParseHelper->aamp_GetPeriodDuration(i, mLastPlaylistDownloadTimeMs);
 		prevPeriodEndMs = curPeriodStartMs + periodDuration;
 	}
 }
@@ -8248,7 +7862,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				//update period start and endtimes as period has changed.
 				mPeriodEndTime = GetPeriodEndTime(mpd, mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs);
 				mPeriodStartTime = GetPeriodStartTime(mpd, mCurrentPeriodIdx);
-				mPeriodDuration = GetPeriodDuration(mpd, mCurrentPeriodIdx);
+				mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 				aamp->mNextPeriodDuration = mPeriodDuration;
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
 			}
@@ -8613,7 +8227,7 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			aamp->culledSeconds = firstPeriodStart;
 			mCulledSeconds = aamp->culledSeconds;
 		}
-		aamp->mAbsoluteEndPosition = lastPeriodStart + (GetPeriodDuration(mpd, lastPeriodIdx) / 1000.00);
+		aamp->mAbsoluteEndPosition = lastPeriodStart + (mMPDParseHelper->GetPeriodDuration(lastPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) / 1000.00);
 		if(aamp->mAbsoluteEndPosition < aamp->culledSeconds)
 		{
 			// Handling edge case just before dynamic => static transition.
@@ -9300,7 +8914,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						}
 						else
 						{
-							mBasePeriodOffset += (GetPeriodDuration(mpd, mIterPeriodIndex)/1000.00);	//Already reached -ve. Subtracting from current period duration
+							mBasePeriodOffset += (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB())/1000.00);	//Already reached -ve. Subtracting from current period duration
 						}
 						//Update period gaps for playback stats
 						if(mIsLiveStream)
@@ -10477,6 +10091,9 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool trackEmpty = thumbnailtrack.empty();
+	AampMPDParseHelper *MPDParseHelper = nullptr;
+	MPDParseHelper  = new AampMPDParseHelper();
+	MPDParseHelper->Initialize(mpd);
 	if(trackEmpty || indexedTileInfo.empty())
 	{
 		int w = 1, h = 1, bandwidth = 0, periodIndex = 0;
@@ -10626,7 +10243,7 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 				}
 				if ( isAdPeriod )
 				{
-					adDuration += aamp_GetPeriodDuration(mpd, periodIndex, 0);
+					adDuration += MPDParseHelper->aamp_GetPeriodDuration(periodIndex, 0);
 				}
 				isAdPeriod = true;
 				periodIndex++;
@@ -10634,6 +10251,7 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 		}	// end of thumbnail track size
 	}
 	AAMPLOG_WARN("Exiting");
+	SAFE_DELETE(MPDParseHelper);
 }
 
 /**

@@ -42,6 +42,7 @@
 #include <condition_variable> // std::condition_variable, std::cv_status
 #include <memory>
 #include <string>
+#include <inttypes.h>
 #include <stdint.h>
 #include "libdash/IMPD.h"
 #include "libdash/INode.h"
@@ -52,6 +53,7 @@
 #include "libdash/xml/DOMParser.h"
 #include <libxml/xmlreader.h>
 #include "AampDefine.h"
+#include "AampUtils.h"
 
 using namespace dash;
 using namespace dash::mpd;
@@ -305,6 +307,30 @@ public :
 	*/
 	bool IsIframeTrack(IAdaptationSet *adaptationSet);
 
+	/**
+	 *   @brief  Get Period Duration
+	 *   @retval period duration in milli seconds
+	 */
+	double aamp_GetPeriodDuration(int periodIndex, uint64_t mpdDownloadTime);
+	
+	/**
+ 	  * @brief Check if adaptation set is of a given media type
+	  * @retval true if adaptation set is of the given media type
+	  */
+	bool IsContentType(const IAdaptationSet *adaptationSet, MediaType mediaType );
+	
+	/**
+	 * @fn GetPeriodDuration
+	 * @param mpd : pointer manifest
+	 * @param periodIndex Index of the current period
+	 */
+	double GetPeriodDuration(int periodIndex, uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB);
+
+	/**
+	 * @fn aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset
+	 * @param period period of segment
+	 */
+	double aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeriod * period);
 private:
 
 	/**

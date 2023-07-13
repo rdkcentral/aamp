@@ -286,6 +286,28 @@ std::size_t GetPrintableThreadID( const std::thread &t );
  */
 double ParseISO8601Duration(const char *ptr);
 
+/**
+ * @brief Return the name corresponding to the Media Type
+ * @param mediaType media type
+ * @retval the name of the mediaType
+ */
+const char* getMediaTypeName( MediaType mediaType );
+
+/**
+ * @brief Check if mime type is compatible with media type
+ * @param mimeType mime type
+ * @param mediaType media type
+ * @retval true if compatible
+ */
+bool IsCompatibleMimeType(const std::string& mimeType, MediaType mediaType);
+
+/**
+ * @brief Computes the fragment duratioN.
+ * @param duration of the fragment.
+ * @param timeScale value.
+ * @return - computed fragment duration in double.
+ */
+double ComputeFragmentDuration(uint32_t duration, uint32_t timeScale);
 #define MAX_RANGE_STRING_CHARS 128
 
 #define WRITE_HASCII( DST, BYTE ) \

@@ -42,6 +42,7 @@
 #include "AampMPDDownloader.h"
 #include "AampDRMLicPreFetcher.h"
 #include "AampMPDParseHelper.h"
+
 using namespace dash;
 using namespace std;
 using namespace dash::mpd;
@@ -56,12 +57,7 @@ double aamp_GetPeriodNewContentDuration(dash::mpd::IMPD *mpd, IPeriod * period, 
  * @param period period of segment
  */
 double aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeriod * period);
-/**
- * @fn aamp_GetPeriodDuration
- * @param  mpd manifest ptr
- * @param  periodIndex Index of the current period
- */
-double aamp_GetPeriodDuration(dash::mpd::IMPD *mpd, int periodIndex, uint64_t mpdDownloadTime = 0);
+
 /**
  * @fn aamp_ProcessNode
  * @param[in] reader Pointer to reader object
@@ -894,12 +890,6 @@ private:
 	 * @param periodIndex
 	 */	
 	double GetPeriodStartTime(IMPD *mpd, int periodIndex);
-	/**
-	 * @fn GetPeriodDuration
-	 * @param mpd : pointer manifest
-	 * @param periodIndex Index of the current period
- 	 */
-	double GetPeriodDuration(IMPD *mpd, int periodIndex);
 	/**
 	 * @fn GetPeriodEndTime
 	 * @param mpd : pointer manifest

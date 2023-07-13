@@ -21,7 +21,7 @@
 
 long long aamp_GetCurrentTimeMS(void)
 {
-    return 0;
+	return 0;
 }
 
 float getWorkingTrickplayRate(float rate)
@@ -85,7 +85,25 @@ const FormatMap * GetAudioFormatForCodec( const char *codecs )
 
 double ISO8601DateTimeToUTCSeconds(const char *ptr)
 {
-    return 0;
+    double timeSeconds = 0;
+	if(ptr)
+	{
+		std::tm timeObj = { 0 };
+		//Find out offset from utc by convering epoch
+		std::tm baseTimeObj = { 0 };
+		strptime("1970-01-01T00:00:00.", "%Y-%m-%dT%H:%M:%S.", &baseTimeObj);
+		time_t offsetFromUTC = timegm(&baseTimeObj);
+		//Convert input string to time
+		const char *msString = strptime(ptr, "%Y-%m-%dT%H:%M:%S.", &timeObj);
+		timeSeconds = timegm(&timeObj) - offsetFromUTC;
+
+		if( msString && *msString )
+		{ // at least one character following decimal point
+			double ms = atof(msString-1); // back up and parse as float
+			timeSeconds += ms; // include ms granularity
+		}
+	}
+	return timeSeconds;
 }
 
 /**

@@ -892,24 +892,6 @@ void AampMPDDownloader::readMPDData(std::shared_ptr<ManifestDownloadResponse> dn
 }
 
 /**
- * @brief Computes the fragment duratioN.
- * @param duration of the fragment.
- * @param timeScale value.
- * @return - computed fragment duration in double.
- */
-static double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
-{
-	double newduration = 2.0;
-	if( duration && timeScale )
-	{
-		newduration =  (double)duration / (double)timeScale;
-		return newduration;
-	}
-	AAMPLOG_WARN( "bad fragment duration");
-	return newduration;
-}
-
-/**
 * @fn IsMPDLowLatency
 * @brief Checks if the MPD has low latency mode enabled.
 * @param LLDashData Reference to AampLLDashServiceData object 

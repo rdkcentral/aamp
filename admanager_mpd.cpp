@@ -177,6 +177,9 @@ void PrivateCDAIObjectMPD::ClearMaps()
  */
 void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 {
+	AampMPDParseHelper *adMPDParseHelper = nullptr;
+	adMPDParseHelper  = new AampMPDParseHelper();
+	adMPDParseHelper->Initialize(mpd);
 	//Populate the map to specify the period boundaries
 	if(mpd && (-1 != mPlacementObj.curAdIdx) && "" != mPlacementObj.pendingAdbrkId && isAdBreakObjectExist(mPlacementObj.pendingAdbrkId)) //Some Ad is still waiting for the placement
 	{
@@ -203,13 +206,13 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 				}
 				else if(openPrdFound)
 				{
-					if(aamp_GetPeriodDuration(mpd, iter, 0) > 0)
+					if(adMPDParseHelper->aamp_GetPeriodDuration(mpd, iter, 0) > 0)
 					{
-						//Previous openPeriod ended. New period in the adbreak will be the new open period
+ 						//Previous openPeriod ended. New period in the adbreak will be the new open period
 						mPeriodMap[mPlacementObj.openPeriodId].filled = true;
 						mPlacementObj.openPeriodId = periodId;
 						mPlacementObj.curEndNumber = 0;
-					}
+ 					}
 					else
 					{
 						continue;		//Empty period may come early; excluding them
@@ -312,7 +315,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 				else
 				{
 					// get current period duration
-					uint64_t currPeriodDuration = aamp_GetPeriodDuration(mpd, iter, 0);
+					uint64_t currPeriodDuration = adMPDParseHelper->aamp_GetPeriodDuration(iter, 0);
 
 					// Are we too close to current period end?
 					//--> Inserted Ads finishes < 2 seconds behind new period : Channel play-back starts from new period.
@@ -401,6 +404,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 			}
 		}
 	}
+	SAFE_DELETE(adMPDParseHelper);
 }
 
 /**

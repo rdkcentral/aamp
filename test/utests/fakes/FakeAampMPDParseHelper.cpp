@@ -79,7 +79,7 @@ vector<IDescriptor*> AampMPDParseHelper::GetContentProtection(const IAdaptationS
 
 bool AampMPDParseHelper::IsPeriodEncrypted(int iPeriodIndex)
 {
-	return 0;
+	return false;
 }
 
 
@@ -89,7 +89,7 @@ bool AampMPDParseHelper::IsPeriodEncrypted(int iPeriodIndex)
  */
 bool AampMPDParseHelper::IsEmptyPeriod(int iPeriodIndex, bool checkIframe) 
 {
-	return 0;
+	return false;
 }
 
 /**
@@ -98,7 +98,7 @@ bool AampMPDParseHelper::IsEmptyPeriod(int iPeriodIndex, bool checkIframe)
  */
 bool AampMPDParseHelper::IsEmptyAdaptation(IAdaptationSet *adaptationSet)
 {
-	return 0;
+	return false;
 }
 
 /**
@@ -109,4 +109,40 @@ bool AampMPDParseHelper::IsEmptyAdaptation(IAdaptationSet *adaptationSet)
 bool AampMPDParseHelper::IsIframeTrack(IAdaptationSet *adaptationSet)
 {
 	return false;
+}
+/**
+ *   @brief  Get Period Duration
+ *   @retval period duration in milli seconds
+ */
+double aamp_GetPeriodDuration(int periodIndex, uint64_t mpdDownloadTime)
+{
+	return 0.0;
+}
+
+/**
+ * @brief Check if adaptation set is of a given media type
+ * @retval true if adaptation set is of the given media type
+ */
+bool IsContentType(const IAdaptationSet *adaptationSet, MediaType mediaType )
+{
+	return false;
+}
+
+/**
+ * @fn GetPeriodDuration
+ * @param mpd : pointer manifest
+ * @param periodIndex Index of the current period
+ */
+double GetPeriodDuration(int periodIndex, uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB)
+{
+	return 0.0;
+}
+
+/**
+ * @fn aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset
+ * @param period period of segment
+ */
+double aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeriod * period)
+{
+	return 0.0;
 }

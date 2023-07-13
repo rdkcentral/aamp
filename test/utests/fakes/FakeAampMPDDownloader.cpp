@@ -148,16 +148,6 @@ std::shared_ptr<ManifestDownloadResponse> AampMPDDownloader::GetManifest(bool bW
 	}
 }
 
-/**
- * @brief Computes the fragment duratioN.
- * @param duration of the fragment.
- * @param timeScale value.
- * @return - computed fragment duration in double.
- */
-static double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
-{
-	return 0.0;
-}
 
 /**
  * @fn IsMPDLowLatency
