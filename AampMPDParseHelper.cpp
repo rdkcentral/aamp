@@ -689,7 +689,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 		const ISegmentTemplate *adaptationSet = NULL;
 		if (adaptationSets.size() > 0)
 		{
-			IAdaptationSet * firstAdaptation;
+			IAdaptationSet * firstAdaptation = NULL;
 			for (auto &adaptationSet : period->GetAdaptationSets())
 			{
 				//Check for video adaptation
