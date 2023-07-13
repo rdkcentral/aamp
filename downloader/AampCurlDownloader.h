@@ -75,8 +75,8 @@ typedef struct _downloadConfig
 	std::string proxyName;
 	CURL *pCurl;
 	
-	_downloadConfig() : pCurl(nullptr),iDownloadTimeout(DEFAULT_CURL_TIMEOUT),iLowBWTimeout(2),iCurlConnectionTimeout(DEFAULT_CURL_CONNECTTIMEOUT),
-			iStallTimeout(2),iStartTimeout(2),bSSLVerifyPeer(false),lSupportedTLSVersion(CURL_SSLVERSION_TLSv1_2),proxyName(""),userAgentString(""),sCustomHeaders(),
+	_downloadConfig() : pCurl(nullptr),iDownloadTimeout(DEFAULT_CURL_TIMEOUT),iLowBWTimeout(0),iCurlConnectionTimeout(DEFAULT_CURL_CONNECTTIMEOUT),
+			iStallTimeout(0),iStartTimeout(0),bSSLVerifyPeer(false),lSupportedTLSVersion(CURL_SSLVERSION_TLSv1_2),proxyName(""),userAgentString(""),sCustomHeaders(),
 			bVerbose(false),bIgnoreResponseHeader(false),bNeedDownloadMetrics(false),eRequestType(eCURL_GET),postData(""),iDownloadRetryCount(0),iDownloadRetryWaitMs(50)
 	{
 	}
