@@ -5226,7 +5226,7 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 	{
 		// Failure from the manifest download during refresh --- fire , what to do ??
 		// Check if the App only insisted to stop the download resulting in partial failure ?
-		int http_error	=	mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
+		int http_error	=	tmpManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
 
 		if (aamp->DownloadsAreEnabled())
 		{
@@ -5242,9 +5242,9 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 			{
 				if (http_error == 512 )
 				{
-					if(mManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && mIsFogTSB)
+					if(tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && mIsFogTSB)
 					{
-						for ( std::string header : mManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader )
+						for ( std::string header : tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader )
 						{
 							if(STARTS_WITH_IGNORE_CASE(header.c_str(),FOG_REASON_STRING))
 							{

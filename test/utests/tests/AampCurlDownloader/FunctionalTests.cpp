@@ -212,10 +212,10 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_6)
 		.WillOnce(Return(CURLE_OK));
 	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle)).WillOnce(Return(CURLE_COULDNT_RESOLVE_HOST));
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
-		.WillOnce(DoAll(SetArgPointee<2>(0), Return(CURLE_OK)));
+		.Times(0); // This prevents the function from being called if CURL return value is not CURLE_OK
 	mAampCurlDownloader->Download(mUrl, respData);
 	EXPECT_EQ(CURLE_COULDNT_RESOLVE_HOST, respData->curlRetValue);
-	EXPECT_EQ(0, respData->iHttpRetValue);
+	EXPECT_NE(200, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
 
@@ -234,7 +234,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_6)
 	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
 		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
 	mAampCurlDownloader->Initialize(inpData);
-	/* Assert if the callbacks are null to avoid a crash if they are called by the test. */
+	/* Assert if the callbacks are null to avoid a crash if they are called by the test.*/ 
 	ASSERT_NE(mCurlProgressCallback, nullptr);
 	ASSERT_NE(mCurlWriteFunc, nullptr);
 
@@ -285,13 +285,14 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_8)
 	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
 		.WillOnce(Return(CURLE_ABORTED_BY_CALLBACK));
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
-		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
+		.Times(0); // This prevents the function from being called if CURL return value is not CURLE_OK
 	mAampCurlDownloader->Download(mUrl, respData);
 	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->curlRetValue);
-	EXPECT_EQ(200, respData->iHttpRetValue);
+	EXPECT_NE(200, respData->iHttpRetValue);
 	EXPECT_EQ(eCURL_ABORT_REASON_NONE ,respData->mAbortReason);
 	respData->show();
 	respData->clear();
+
 }
 
 TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_StallAtStart)
@@ -334,7 +335,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_StallAtStart)
 			}),
 			Return(CURLE_ABORTED_BY_CALLBACK)));
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
-		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
+		.Times(0); // This prevents the function from being called if CURL return value is not CURLE_OK
 	mAampCurlDownloader->Download(mUrl, respData);
 	respData->show();
 	EXPECT_EQ(progress_callback_return, -1);
@@ -390,7 +391,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_Stall)
 			}),
 			Return(CURLE_ABORTED_BY_CALLBACK)));
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
-		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
+		.Times(0); // This prevents the function from being called if CURL return value is not CURLE_OK
 	mAampCurlDownloader->Download(mUrl, respData);
 	respData->show();
 	EXPECT_EQ(write_func_return, (write_sz * write_nmemb));

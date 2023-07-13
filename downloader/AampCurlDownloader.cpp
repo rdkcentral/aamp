@@ -208,12 +208,17 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				//AAMPLOG_INFO("Download Status Ret:%d %s",mDownloadResponse->curlRetValue, urlStr.c_str());
 				if(curlRetVal == CURLE_OK)
 				{
-					httpRetVal = mDownloadResponse->iHttpRetValue;
-					//mDownloadResponse->show();
-				}
-				//NETWORK_ERROR 
-				else
-				{	
+					if( memcmp(urlStr.c_str(), "file:", 5) == 0 )
+					{ // file uri scheme
+						// libCurl does not provide CURLINFO_RESPONSE_CODE for 'file:' protocol.
+						// Handle CURL_OK to http_code mapping here, other values handled below (see http_code = res).
+						httpRetVal = mDownloadResponse->iHttpRetValue = 200;
+					}
+					else
+					{
+						httpRetVal = mDownloadResponse->iHttpRetValue = aamp_CurlEasyGetinfoInt(mCurl, CURLINFO_RESPONSE_CODE);
+					}
+
 					if (mDnldCfg->iDownloadRetryCount)
 					{
 						if(mDownloadResponse->iHttpRetValue != 200 &&
@@ -228,8 +233,15 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 							AAMPLOG_WARN("Download failed due to Server error. Retrying Attempt: %d!", mDnldCfg->iDownloadRetryCount);
 							continue;
 						}
+					}
+				}
+				//NETWORK_ERROR 
+				else
+				{	
+					if(mDnldCfg->iDownloadRetryCount)
+					{
 						//Attempt retry for partial downloads, which have a higher chance to succeed
-						else if (curlRetVal == CURLE_COULDNT_CONNECT || curlRetVal == CURLE_OPERATION_TIMEDOUT || curlRetVal  == CURLE_PARTIAL_FILE)
+						if (curlRetVal == CURLE_COULDNT_CONNECT || curlRetVal == CURLE_OPERATION_TIMEDOUT || curlRetVal  == CURLE_PARTIAL_FILE)
 						{
 							mDnldCfg->iDownloadRetryCount--;
 							continue;
@@ -239,6 +251,27 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				}
 			}while(0);
 
+			/*
+			 * Assigning curl error to http_code, for sending the error code as
+			 * part of error event if required
+			 * We can distinguish curl error and http error based on value
+			 * curl errors are below 100 and http error starts from 100
+			 */
+			if(curlRetVal !=  CURLE_OK)
+			{
+				if( curlRetVal == CURLE_FILE_COULDNT_READ_FILE )
+				{
+					mDownloadResponse->iHttpRetValue = httpRetVal = 404; // translate file not found to URL not found
+				}
+				else if(mDownloadResponse->mAbortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT)
+				{
+					mDownloadResponse->iHttpRetValue = httpRetVal = CURLE_OPERATION_TIMEDOUT; // Timed out wrt configured low bandwidth timeout.
+				}
+				else
+				{
+					mDownloadResponse->iHttpRetValue = httpRetVal = curlRetVal;
+				}
+			}
 			// update the downlaod response metrics for success and failure case 
 			// and for last attempt only (if retries enabled)
 			updateResponseParams();
@@ -263,7 +296,6 @@ void AampCurlDownloader::updateResponseParams()
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	if(mCurl)
 	{
-		mDownloadResponse->iHttpRetValue	=	aamp_CurlEasyGetinfoInt(mCurl, CURLINFO_RESPONSE_CODE);
 		if(mDnldCfg->bNeedDownloadMetrics)
 		{
 			mDownloadResponse->downloadCompleteMetrics.total 	=	aamp_CurlEasyGetinfoDouble(mCurl, CURLINFO_TOTAL_TIME );
@@ -600,12 +632,12 @@ int AampCurlDownloader::progress_callback(
 				if(dltotal)
 				{
 					double predictedTotalDownloadTimeMs = elapsedTimeMs*dltotal/dlnow;
-					if( predictedTotalDownloadTimeMs > mDnldCfg->iDownloadTimeout )
+					if( predictedTotalDownloadTimeMs > (mDnldCfg->iDownloadTimeout * 1000) )
 					{
-						AAMPLOG_WARN("lowBWTimeout=%u predictedTotalDownloadTime=%fs>%fs (network timeout)",
+						AAMPLOG_WARN("lowBWTimeout=%u predictedTotalDownloadTime=%fs>%us (download timeout)",
 								mDnldCfg->iLowBWTimeout,
 								predictedTotalDownloadTimeMs/1000.0,
-								mDnldCfg->iDownloadTimeout/1000.0 );
+								mDnldCfg->iDownloadTimeout);
 						mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
 						rc = -1;
 					}

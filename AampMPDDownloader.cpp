@@ -95,6 +95,7 @@ std::shared_ptr<_manifestDownloadResponse> _manifestDownloadResponse::clone()
 	clonedDoc->mMPDDownloadResponse = std::make_shared<DownloadResponse>(*this->mMPDDownloadResponse);
 	clonedDoc->mMPDDownloadResponse->mDownloadData = mMPDDownloadResponse->mDownloadData;
 	clonedDoc->mMPDParseHelper = new AampMPDParseHelper(*this->mMPDParseHelper);
+	clonedDoc->mRootNode = NULL;
 	clonedDoc->parseMPD();
 	AAMPLOG_TRACE("Exit");
 	return clonedDoc;
@@ -125,6 +126,11 @@ void _manifestDownloadResponse::parseMPD()
 			int retStatus = xmlTextReaderRead(mXMLReader);
 			if (retStatus == 1)
 			{
+				if (mRootNode)
+				{
+					SAFE_DELETE(mRootNode);
+				}
+
 				mRootNode = processNode(&mXMLReader, mMPDDownloadResponse->sEffectiveUrl);
 				if(mRootNode != NULL)
 				{
@@ -488,7 +494,6 @@ void AampMPDDownloader::downloadMPDThread1()
 		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, tuneUrl.c_str());
 		mMPDData = std::make_shared<ManifestDownloadResponse> ();
 		mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
-
 		if(mMPDData->mMPDDownloadResponse->curlRetValue == 0 && mMPDData->mMPDDownloadResponse->iHttpRetValue == 200)
 		{
 			//std::string dataStr =  std::string( mMPDData->mMPDDownloadResponse->mDownloadData.begin(), mMPDData->mMPDDownloadResponse->mDownloadData.end());
@@ -541,7 +546,8 @@ void AampMPDDownloader::downloadMPDThread1()
 		else
 		{
 			// Failure in request
-			AAMPLOG_ERR("curl request %s httpError[%u] curlError[%u]", mMPDDnldCfg->mTuneUrl.c_str(), mMPDData->mMPDDownloadResponse->iHttpRetValue,mMPDData->mMPDDownloadResponse->curlRetValue);
+			AAMPLOG_ERR("curl request %s %s Error Code [%u]",mMPDDnldCfg->mTuneUrl.c_str(), (mMPDData->mMPDDownloadResponse->iHttpRetValue < 100) ? "Curl" : "HTTP", mMPDData->mMPDDownloadResponse->iHttpRetValue);
+
 			mMPDData->mMPDStatus	=	AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 			if(mMPDData->mMPDDownloadResponse->iHttpRetValue != 200 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 204 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 206)
 			{
@@ -670,27 +676,7 @@ void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int tot
 		// example 18(0) if connection failure with PARTIAL_FILE code
 		timeoutClass = "(" + std::to_string(dnldPtr->downloadCompleteMetrics.reqSize > 0) + ")";
 	}
-	/*
-	 * Assigning curl error to http_code, for sending the error code as
-	 * part of error event if required
-	 * We can distinguish curl error and http error based on value
-	 * curl errors are below 100 and http error starts from 100
-	 */
-	if(res !=  CURLE_OK)
-	{
-		if( res == CURLE_FILE_COULDNT_READ_FILE )
-		{
-			dnldPtr->iHttpRetValue = http_code = 404; // translate file not found to URL not found
-		}
-		else if(dnldPtr->mAbortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT)
-		{
-			dnldPtr->iHttpRetValue = http_code = CURLE_OPERATION_TIMEDOUT; // Timed out wrt configured low bandwidth timeout.
-		}
-		else
-		{
-			dnldPtr->iHttpRetValue = http_code = res;
-		}
-	}
+	
 	if(res != CURLE_OK || http_code == 0 || http_code >= 400 || totalPerformRequest > 2.0 /*seconds*/)
 	{
 		reqEndLogLevel = eLOGLEVEL_WARN;
@@ -935,11 +921,7 @@ bool AampMPDDownloader::isMPDLowLatency(std::shared_ptr<ManifestDownloadResponse
 							if( NULL != pSegmentTemplate )
 							{
 								std::map<std::string, std::string> attributeMap = pSegmentTemplate->GetRawAttributes();
-								if(attributeMap.find("availabilityTimeOffset") == attributeMap.end())
-								{
-									AAMPLOG_WARN("Latency availabilityTimeOffset attribute not available");
-								}
-								else
+								if(attributeMap.find("availabilityTimeOffset") != attributeMap.end())
 								{
 									LLDashData.availabilityTimeOffset = pSegmentTemplate->GetAvailabilityTimeOffset();
 									LLDashData.availabilityTimeComplete = pSegmentTemplate->GetAvailabilityTimeComplete();
@@ -992,6 +974,11 @@ bool AampMPDDownloader::isMPDLowLatency(std::shared_ptr<ManifestDownloadResponse
 				{
 					AAMPLOG_WARN("empty period ");
 				}
+			}
+			
+			if (!isSuccess)
+			{
+				AAMPLOG_INFO("Latency availabilityTimeOffset attribute not available");
 			}
 		}
 		else

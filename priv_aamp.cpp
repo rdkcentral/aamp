@@ -12108,13 +12108,12 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 		inpData->mStichUrl	= mMPDStichRefreshUrl;
 		inpData->mMPDStichOption	=	mMPDStichOption;
 	}
-	
+
 	inpData->mDnldConfig->bNeedDownloadMetrics = true;
-	// For Manifest file : Set starttimeout to 0 ( no wait for first byte). 
+	// For Manifest file : Keep default starttimeout and lowBwTimeout - 0 ( no wait for first byte).
 	// Playlist/Manifest with DAI contents take more time,hence to avoid frequent timeout, its set as 0
-	inpData->mDnldConfig->iStartTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadStartTimeout);
 	inpData->mDnldConfig->iStallTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout);
-	inpData->mDnldConfig->iLowBWTimeout = 0;
+	inpData->mDnldConfig->iDownloadTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_ManifestTimeout);
 	inpData->mDnldConfig->iDownloadRetryCount = DEFAULT_DOWNLOAD_RETRY_COUNT;
 	inpData->mHarvestConfig				=	GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	inpData->mHarvestCountLimit			=	GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit);
