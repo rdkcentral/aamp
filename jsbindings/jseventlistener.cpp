@@ -130,6 +130,14 @@ public:
 		prop = JSStringCreateWithUTF8CString("liveLatency");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getLiveLatency()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("profileBandwidth");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getProfileBandwidth()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("networkBandwidth");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getNetworkBandwidth()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
 	}
 };
 

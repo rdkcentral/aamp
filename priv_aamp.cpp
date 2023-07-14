@@ -1127,6 +1127,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	,mDrmDecryptFailCount(MAX_SEG_DRM_DECRYPT_FAIL_COUNT)
 	,mPlaylistTimeoutMs(-1)
 	,mMutexPlaystart()
+	,mNetworkBandwidth(0)
 #ifdef AAMP_HLS_DRM
 	, fragmentCdmEncrypted(false) ,drmParserMutex(), aesCtrAttrDataList()
 	, drmSessionThreadStarted(false), createDRMSessionThreadID()
@@ -2023,9 +2024,13 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			start -= (mProgressReportOffset * 1000);
 			reportFormatPosition -= (mProgressReportOffset * 1000);
 			end -= (mProgressReportOffset * 1000);
-		}
 
-		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormatPosition, start, end, speed, videoPTS, bufferedDuration, seiTimecode.c_str(), latency);
+		}
+		if(GetCurrentlyAvailableBandwidth() != -1)
+		{
+			mNetworkBandwidth = GetCurrentlyAvailableBandwidth();
+		}
+		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormatPosition, start, end, speed, videoPTS, bufferedDuration, seiTimecode.c_str(), latency, mpStreamAbstractionAAMP->GetVideoBitrate(), mNetworkBandwidth);
 
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
@@ -2040,14 +2045,16 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 				static int tick;
 				if ((tick++ % 4) == 0)
 				{
-					AAMPLOG_WARN("aamp pos: [%ld..%ld..%ld..%lld..%ld..%.2f..%s]",
+					AAMPLOG_WARN("aamp pos: [%ld..%ld..%ld..%lld..%ld..%.2f..%s..%ld..%ld]",
 						(long)(start / 1000),
 						(long)(reportFormatPosition / 1000),
 						(long)(end / 1000),
 						(long long) videoPTS,
 						(long)(bufferedDuration / 1000),
 					        (latency / 1000),
-						seiTimecode.c_str());
+						seiTimecode.c_str(),
+						mpStreamAbstractionAAMP->GetVideoBitrate(),
+						mNetworkBandwidth);
 				}
 			}
 

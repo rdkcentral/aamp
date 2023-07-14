@@ -222,13 +222,15 @@ float SpeedChangedEvent::getRate() const
  * @brief ProgressEvent Constructor
  *
  */
-ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency):
+ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth):
 		AAMPEventObject(AAMP_EVENT_PROGRESS), mDuration(duration),
 		mPosition(position), mStart(start),
 		mEnd(end), mSpeed(speed), mPTS(pts),
 		mBufferedDuration(bufferedDuration),
 		mSEITimecode(seiTimecode),
-		mLiveLatency(liveLatency)
+		mLiveLatency(liveLatency),
+		mProfileBandwidth(profileBandwidth),
+		mNetworkBandwidth(networkBandwidth)
 {
 
 }
@@ -321,6 +323,26 @@ const char* ProgressEvent::getSEITimeCode() const
 double ProgressEvent::getLiveLatency() const
 {
 	return mLiveLatency;
+}
+
+/**
+ * @brief Get Profile Bandwidth
+ *
+ * @return Profile Bandwidth
+ */
+long ProgressEvent::getProfileBandwidth() const
+{
+	return mProfileBandwidth;
+}
+
+/**
+ * @brief Get Network Bandwidth 
+ *
+ * @return Network Bandwidth
+ */
+long ProgressEvent::getNetworkBandwidth() const
+{
+	return mNetworkBandwidth;
 }
 
 /**

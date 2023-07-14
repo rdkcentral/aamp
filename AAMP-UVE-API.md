@@ -1762,6 +1762,8 @@ Example:
 - currentPTS: number
 - videoBufferedMiliseconds : number 
 - liveLatency : number
+- profileBandwidth : number
+- networkBandwidth : number
 
 **Description:** 
 - Supported UVE version 0.7 and above.

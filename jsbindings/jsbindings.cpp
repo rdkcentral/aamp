@@ -809,6 +809,14 @@ public:
 		name = JSStringCreateWithUTF8CString("liveLatency");
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getLiveLatency()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
+
+		name = JSStringCreateWithUTF8CString("profileBandwidth");
+		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getProfileBandwidth()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(name);
+
+		name = JSStringCreateWithUTF8CString("networkBandwidth");
+		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getNetworkBandwidth()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(name);
 	}
 };
 

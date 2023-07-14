@@ -240,6 +240,8 @@ struct AAMPEvent
 			double videoBufferedMiliseconds;	/**< current duration of buffered video ready to playback */
 			const char* timecode;			/**< SEI Timecode information */
 			double liveLatency;			/**< Live latency */
+			long profileBandwidth;      /**< Profile Bandwidth */
+			long networkBandwidth;      /**< Network Bandwidth*/
 		} progress;
 
 		/**
@@ -652,6 +654,8 @@ class ProgressEvent: public AAMPEventObject
 	double mBufferedDuration;	/**< current duration of buffered video ready to playback */
 	std::string mSEITimecode;   	/**< SEI Timecode information */
 	double mLiveLatency;		/**< Live latency */
+	long mProfileBandwidth;     /**<Profile Bandwidth */
+	long mNetworkBandwidth;     /**<Network Bandwidth */
 
 public:
 	ProgressEvent() = delete;
@@ -668,8 +672,12 @@ public:
 	 * @param[in]  speed    - Current Speed
 	 * @param[in]  pts      - Video PTS
 	 * @param[in]  bufferedDuration - buffered duration
+	 * @param[in]  seiTimecode      - Time code
+	 * @param[in]  liveLatency      - Live latency
+	 * @param[in]  profileBandwidth - profile Bandwidth
+	 * @param[in]  networkBandwidth - network Bandwidth
 	 */
-	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency);
+	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth);
 
 	/**
 	 * @brief ProgressEvent Destructor
@@ -723,6 +731,16 @@ public:
 	 * @fn getLiveLatency
 	 */
 	double getLiveLatency() const;
+
+	/**
+	 * @fn getProfileBandwidth
+	 */
+	long getProfileBandwidth() const;
+
+	/**
+	 * @fn getNetworkBandwidth
+	 */
+	long getNetworkBandwidth() const;
 };
 
 /**

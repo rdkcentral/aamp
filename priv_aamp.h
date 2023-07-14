@@ -811,7 +811,7 @@ public:
 	int mManifestTimeoutMs;
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
-
+	long mNetworkBandwidth;
 	/**
 	 * @brief A readonly, validatable position value.
 	 */

@@ -116,7 +116,7 @@ const char* MediaTrack::GetBufferHealthStatusString(BufferHealthStatus status)
 BufferHealthStatus MediaTrack::GetBufferStatus()
 {
     BufferHealthStatus bStatus = BUFFER_STATUS_GREEN;
-    double bufferedTime ;
+    double bufferedTime ;	
     long long currentPlayPosition = aamp->GetPositionMilliseconds();
     long long endPositionAvailable = (aamp->culledSeconds + aamp->durationSeconds)*1000;
     int CachedFragmentsOrChunks;
