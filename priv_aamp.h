@@ -3548,9 +3548,10 @@ public:
      	 *   @param[in] preferredType -  preferred accessibility type
 	 *   @param[in] codecList  - preferred codec list
 	 *   @param[in] labelList  - preferred label list
+	 *   @param[in] accessibilityItem - preferred accessibilityNode with scheme id and value
 	 *   @return void
 	 */
-	void SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char *codecList, const char *labelList );
+	void SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char *codecList, const char *labelList, const Accessibility *accessibilityItem = NULL);
 
 	/**
 	 *   @brief Set the scheduler instance to schedule tasks

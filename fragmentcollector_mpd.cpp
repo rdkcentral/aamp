@@ -6282,9 +6282,12 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 			Accessibility accessibilityNode = StreamAbstractionAAMP_MPD::getAccessibilityNode((void* )adaptationSet);
 			if (accessibilityNode == aamp->preferredAudioAccessibilityNode)
 			{
-				score += AAMP_SCHEME_ID_SCORE;
+				if (!accessibilityNode.getSchemeId().empty())
+				{
+					score += AAMP_SCHEME_ID_SCORE;
+				}
 			}
-			
+
 			AudioType selectedCodecType = eAUDIO_UNKNOWN;
 			unsigned int selRepBandwidth = 0;
 			bool disableATMOS = ISCONFIGSET(eAAMPConfig_DisableATMOS);

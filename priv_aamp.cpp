@@ -10459,7 +10459,7 @@ void PrivateInstanceAAMP::ResetDiscontinuityInTracks()
 /**
  *  @brief set preferred Audio Language properties like language, rendition, type and codec
  */
-void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char *codecList, const char *labelList )
+void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char *codecList, const char *labelList, const Accessibility *accessibilityItem)
 {
 
 	/**< First argment is Json data then parse it and and assign the variables properly*/
@@ -10537,6 +10537,37 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			}
 		}
 
+		std::vector<std::string> inputCodecList;
+		std::string inputCodecString;
+
+		/** Get Codec Properties*/
+		if (jsObject->isArray("codec"))
+		{
+			if (jsObject->get("codec", inputCodecList))
+			{
+				for (auto preferredCodec : inputCodecList)
+				{
+					if (!inputCodecString.empty())
+					{
+						inputCodecString += ",";
+					}
+					inputCodecString += preferredCodec;
+				}
+				if(!inputCodecString.empty())
+				{
+					AAMPLOG_INFO("Preferred codec string: %s", inputCodecString.c_str());
+				}
+			}
+		}
+		else if (jsObject->isString("codec"))
+		{
+			if (jsObject->get("codec", inputCodecString))
+			{
+				inputCodecList.push_back(inputCodecString);
+				AAMPLOG_INFO("Preferred codec string: %s", inputCodecString.c_str());
+			}
+		}
+
 		Accessibility  inputAudioAccessibilityNode;
 		/** Get accessibility Properties*/
 		if (jsObject->isObject("accessibility"))
@@ -10581,6 +10612,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		preferredRenditionString.clear();
 		preferredLanguagesString.clear();
 		preferredLanguagesList.clear();
+		preferredCodecString.clear();
+		preferredCodecList.clear();
 
 		/** Reload the new values **/
 		preferredAudioAccessibilityNode = inputAudioAccessibilityNode;
@@ -10588,10 +10621,13 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		preferredLabelsString = inputLabelsString;
 		preferredLanguagesList = inputLanguagesList;
 		preferredLanguagesString = inputLanguagesString;
+		preferredCodecString = inputCodecString;
+		preferredCodecList = inputCodecList;
 
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioRendition,preferredRenditionString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLabel,preferredLabelsString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLanguage,preferredLanguagesString);
+		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioCodec,preferredCodecString);
 	}
 	else
 	{
@@ -10599,7 +10635,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		(preferredRendition && preferredRenditionString != preferredRendition) ||
 		(preferredType && preferredTypeString != preferredType) ||
 		(codecList && preferredCodecString != codecList) ||
-		(labelList && preferredLabelsString != labelList)
+		(labelList && preferredLabelsString != labelList) ||
+		(accessibilityItem && !accessibilityItem->getSchemeId().empty() && (preferredAudioAccessibilityNode != *accessibilityItem))
 		)
 		{
 			isRetuneNeeded = true;
@@ -10685,6 +10722,28 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioCodec,preferredCodecString);
 			}
 			AAMPLOG_INFO("Number of preferred codecs: %lu", preferredCodecList.size());
+
+			if(accessibilityItem && !accessibilityItem->getSchemeId().empty())
+			{
+				preferredAudioAccessibilityNode.clear();
+				accessibilityPresent = true;
+				const std::string &schemeId = accessibilityItem->getSchemeId();
+				std::string value;
+				if(accessibilityItem->getTypeName() == "int_value")
+				{
+					value = std::to_string(accessibilityItem->getIntValue());
+				}
+				else
+				{
+					value = accessibilityItem->getStrValue();
+				}
+				preferredAudioAccessibilityNode.setAccessibilityData(schemeId, value);
+				AAMPLOG_INFO("Preferred accessibility SchemeId: %s, Value Type: %s and Value: %s",schemeId.c_str(), accessibilityItem->getTypeName().c_str(), value.c_str());
+			}
+			else
+			{
+				preferredAudioAccessibilityNode.clear();
+			}
 		}
 		else
 		{

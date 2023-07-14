@@ -2352,7 +2352,7 @@ void PlayerInstanceAAMP::SetAudioTrackInternal(std::string language,  std::strin
  */
 void PlayerInstanceAAMP::SetPreferredCodec(const char *codecList)
 {
-	aamp->SetPreferredLanguages(NULL, NULL, NULL, codecList, NULL);
+	aamp->SetPreferredLanguages(NULL, NULL, NULL, codecList, NULL, NULL);
 }
 
 /**
@@ -2360,7 +2360,7 @@ void PlayerInstanceAAMP::SetPreferredCodec(const char *codecList)
  */
 void PlayerInstanceAAMP::SetPreferredLabels(const char *labelList)
 {
-	aamp->SetPreferredLanguages(NULL, NULL, NULL, NULL, labelList);
+	aamp->SetPreferredLanguages(NULL, NULL, NULL, NULL, labelList, NULL);
 }
 
 /**
@@ -2368,7 +2368,7 @@ void PlayerInstanceAAMP::SetPreferredLabels(const char *labelList)
  */
 void PlayerInstanceAAMP::SetPreferredRenditions(const char *renditionList)
 {
-	aamp->SetPreferredLanguages(NULL, renditionList, NULL, NULL, NULL);
+	aamp->SetPreferredLanguages(NULL, renditionList, NULL, NULL, NULL, NULL);
 }
 
 /**
@@ -2392,9 +2392,9 @@ std::string PlayerInstanceAAMP::GetPreferredTextProperties()
 /**
  *  @brief Set optional preferred language list
  */
-void PlayerInstanceAAMP::SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char* codecList, const char* labelList )
+void PlayerInstanceAAMP::SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char* codecList, const char* labelList, const Accessibility *accessibilityItem)
 {
-	aamp->SetPreferredLanguages(languageList, preferredRendition, preferredType, codecList, labelList);
+	aamp->SetPreferredLanguages(languageList, preferredRendition, preferredType, codecList, labelList, accessibilityItem);
 }
 
 /**
@@ -2571,12 +2571,12 @@ void PlayerInstanceAAMP::SetAudioTrack(int trackId)
 						[tracks , trackId](void *data)
 						{
 							PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
-							instance->SetPreferredLanguages(tracks[trackId].language.c_str(), tracks[trackId].rendition.c_str(), tracks[trackId].accessibilityType.c_str(), tracks[trackId].codec.c_str(), tracks[trackId].label.c_str());
+							instance->SetPreferredLanguages(tracks[trackId].language.c_str(), tracks[trackId].rendition.c_str(), tracks[trackId].accessibilityType.c_str(), tracks[trackId].codec.c_str(), tracks[trackId].label.c_str(), &tracks[trackId].accessibilityItem);
 						}, (void *) this,__FUNCTION__));
 			}
 			else
 			{
-				SetPreferredLanguages(tracks[trackId].language.c_str(), tracks[trackId].rendition.c_str(), tracks[trackId].accessibilityType.c_str(), tracks[trackId].codec.c_str(), tracks[trackId].label.c_str());
+				SetPreferredLanguages(tracks[trackId].language.c_str(), tracks[trackId].rendition.c_str(), tracks[trackId].accessibilityType.c_str(), tracks[trackId].codec.c_str(), tracks[trackId].label.c_str(), &tracks[trackId].accessibilityItem);
 			}
 		}
 	} // end of if

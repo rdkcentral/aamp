@@ -114,7 +114,7 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	void PlayerInstanceAAMP::SetNewAdBreakerConfig(bool bValue) {  }
 	void PlayerInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrates) {  }
 	void PlayerInstanceAAMP::SetAppName(std::string name) {  }
-	void PlayerInstanceAAMP::SetPreferredLanguages(const char*  languageList, const char *preferredRendition, const char *preferredType, const char*  codecList, const char*  labelList) {  }
+	void PlayerInstanceAAMP::SetPreferredLanguages(const char*  languageList, const char *preferredRendition, const char *preferredType, const char*  codecList, const char*  labelList, const Accessibility *accessibilityItem) {  }
 	void PlayerInstanceAAMP::SetPreferredTextLanguages(const char*  param) {  }
 	void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string rendition, std::string type, std::string codec, unsigned int channel, std::string label) {  }
 	void PlayerInstanceAAMP::SetPreferredCodec(const char *codecList) {  }

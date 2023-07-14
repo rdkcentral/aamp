@@ -511,7 +511,7 @@ void PrivateInstanceAAMP::UnlockGetPositionMilliseconds()
 {
 }
 
-void PrivateInstanceAAMP::SetPreferredLanguages(char const*, char const*, char const*, char const*, char const*)
+void PrivateInstanceAAMP::SetPreferredLanguages(char const*, char const*, char const*, char const*, char const*, const Accessibility*)
 {
 }
 

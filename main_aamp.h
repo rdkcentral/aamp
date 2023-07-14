@@ -1553,11 +1553,12 @@ public:
      	 *   @param[in] preferredType -  preferred accessibility type
 	 *   @param[in] codecList - string with comma-delimited codec list
 	 *             from most to least preferred: "codec1,codec2". Set NULL to clear current list.
-	 * 	 @param[in] labelList - string with comma-delimited label list
+	 *   @param[in] labelList - string with comma-delimited label list
 	 *             from most to least preferred: "label1,label2". Set NULL to clear current list.
+	 *   @param[in] accessibilityItem - preferred accessibilityNode with scheme id and value
 	 *   @return void
 	 */
-	void SetPreferredLanguages(const char* languageList, const char *preferredRendition = NULL, const char *preferredType = NULL, const char* codecList = NULL, const char* labelList = NULL ); 
+	void SetPreferredLanguages(const char* languageList, const char *preferredRendition = NULL, const char *preferredType = NULL, const char* codecList = NULL, const char* labelList = NULL, const Accessibility *accessibilityItem = NULL);
 
 
 	/**

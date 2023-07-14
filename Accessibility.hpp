@@ -85,10 +85,11 @@ class Accessibility
 		strValue = "";
 	};
 
-	std::string& getTypeName() {return valueType;};
-	std::string& getSchemeId() {return strSchemeId;};
-	int getIntValue() {return intValue;};
-	std::string& getStrValue() {return strValue;};
+	const std::string& getTypeName() const {return valueType;};
+	const std::string& getSchemeId() const {return strSchemeId;};
+	int getIntValue() const {return intValue;};
+	const std::string& getStrValue() const {return strValue;};
+
 	void clear()
 	{
 		strSchemeId = "";
