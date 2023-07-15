@@ -778,7 +778,8 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 									double periodEndTime = mpdDownloadTime + mMinUpdateDurationMs;
 									double periodStartTime = mAvailabilityStartTime + periodStart;
 									std::string tsbDepth = mMPDInstance->GetTimeShiftBufferDepth();
-									AAMPLOG_INFO("periodStart %lf availabilityStartTime %lf minUpdatePeriod %lu mpdDownloadTime %" PRIu64 " tsbDepth:%s", periodStart, mAvailabilityStartTime, mMinUpdateDurationMs, mpdDownloadTime, tsbDepth.c_str());
+									AAMPLOG_INFO("periodStart=%lf availabilityStartTime=%lf minUpdatePeriod=%" PRIu64 " mpdDownloadTime=%" PRIu64 " tsbDepth:%s",
+												 periodStart, mAvailabilityStartTime, mMinUpdateDurationMs, mpdDownloadTime, tsbDepth.c_str());
 									if(periodStartTime == mAvailabilityStartTime)
 									{
 
