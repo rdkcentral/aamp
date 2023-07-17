@@ -538,6 +538,7 @@ class MediaErrorEvent: public AAMPEventObject
 	AAMPTuneFailure mFailure;	/**< Error Type */
 	int mCode;			/**< Error code */
 	std::string mDescription;	/**< Error description */
+	std::string mResponseData;	/**< Response Data */
 	bool mShouldRetry;		/**< If recovery on retry is possible */
 	
 	int32_t mSecManagerClass;	/**< Secmanager error class */
@@ -557,7 +558,7 @@ public:
 	 * @param[in] desc        - Error description
 	 * @param[in] shouldRetry - Retry or not
 	 */
-	MediaErrorEvent(AAMPTuneFailure failure, int code, const std::string &desc, bool shouldRetry, int32_t classCode, int32_t reason, int32_t businessStatus);
+	MediaErrorEvent(AAMPTuneFailure failure, int code, const std::string &desc, bool shouldRetry, int32_t classCode, int32_t reason, int32_t businessStatus, const std::string &responseData);
 
 	/**
 	 * @brief MediaErrorEvent Destructor
@@ -578,6 +579,11 @@ public:
 	 * @fn getDescription
 	 */
 	const std::string &getDescription() const;
+
+	/**
+	 * @fn getResponseData
+	 */
+	const std::string &getResponseData() const;
 
 	/**
 	 * @fn shouldRetry
@@ -1413,6 +1419,7 @@ class DrmMetaDataEvent: public AAMPEventObject
 	int32_t mSecManagerReasonCode; /**< Secmanager reason  code */
 	int32_t mBusinessStatus;	/**< secclient business reason  code */
 	std::vector<std::string> mHeaderResponses; /**< Header response strings */
+	std::string mResponseData;	/**< Response Data */
 public:
 	DrmMetaDataEvent() = delete;
 	DrmMetaDataEvent(const DrmMetaDataEvent&) = delete;
@@ -1463,6 +1470,21 @@ public:
 	 * @return void
 	 */
 	void setAccessStatus(const std::string &status);
+
+	/**
+	 * @brief Set Response Data
+	 *
+	 * @param[in] status - Response Data
+	 * @return void
+	 */
+	void setResponseData(const std::string &data);
+
+	/**
+	 * @brief Get Response Data
+	 *
+	 * @return Response Data value
+	 */
+	const std::string &getResponseData() const;
 
 	/**
 	 * @brief Get Access Status

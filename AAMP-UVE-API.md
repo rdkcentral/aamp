@@ -1967,6 +1967,7 @@ Example:
 - code: number
 - description: string
 - headers: array
+- responseData: string
 
 **Description:** 
 - Supported UVE version 0.7 and above.

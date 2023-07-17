@@ -673,6 +673,11 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 			*httpCode = statusCode;
 			*httpExtStatusCode = reasonCode;
 
+			if(licenseResponseStr != NULL)
+			{
+				std::string responseData(licenseResponseStr);
+				eventHandle->setResponseData(responseData);
+			}
 			AAMPLOG_ERR("acquireLicense via SecManager FAILED!, httpCode %d, httpExtStatusCode %d", *httpCode, *httpExtStatusCode);
 			//TODO: Sort this out for backward compatibility
 		}
@@ -705,7 +710,11 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 				&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS)
 			{
 				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : sec_client %d", attemptCount, sec_client_result);
-				if (licenseResponseStr) SecClient_FreeResource(licenseResponseStr);
+				if (licenseResponseStr)
+				{
+					SecClient_FreeResource(licenseResponseStr);
+					licenseResponseStr = NULL;
+				}
 				AAMPLOG_WARN(" acquireLicense : Sleeping %d milliseconds before next retry.", sleepTime);
 				mssleep(sleepTime);
 			}
@@ -714,7 +723,6 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 				break;
 			}
 		}
-
 			AAMPLOG_TRACE("licenseResponse is %s", licenseResponseStr);
 			AAMPLOG_TRACE("licenseResponse len is %zd", licenseResponseLength);
 			AAMPLOG_TRACE("accessAttributesStatus is %d", statusInfo.accessAttributeStatus);
@@ -725,6 +733,12 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 			AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : sec_client %d extStatus %d", attemptCount, sec_client_result, statusInfo.statusCode);
 
 			eventHandle->ConvertToVerboseErrorCode( sec_client_result,  statusInfo.statusCode);
+
+			if(licenseResponseStr != NULL)
+			{
+				std::string responseData(licenseResponseStr);
+				eventHandle->setResponseData(responseData);
+			}
 
 			*httpCode = sec_client_result;
 			*httpExtStatusCode = statusInfo.statusCode;
@@ -924,6 +938,17 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 			totalTime = respData->downloadCompleteMetrics.total;
 			if (*httpCode != 200 && *httpCode != 206)
 			{
+				std::string responseData;
+				pLicenseDownloader->GetDataString(responseData);
+				if(!responseData.empty())
+				{
+					eventHandle->setResponseData(responseData);
+				}
+				else
+				{
+					std::string defResponseData("undefined");
+					eventHandle->setResponseData(defResponseData);
+				}
 				int  licenseRetryWaitTime = aamp->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime) ;
 				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : http %d", attemptCount, *httpCode);
 				if(*httpCode >= 500 && *httpCode < 600

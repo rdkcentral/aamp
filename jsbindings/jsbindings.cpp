@@ -981,6 +981,13 @@ public:
 			JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getBusinessStatus()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(name);
 		}
+		if(!evt->getResponseData().empty())
+		{
+			name = JSStringCreateWithUTF8CString("responseData");
+			JSObjectSetProperty(context, eventObj, name, aamp_CStringToJSValue(context, evt->getResponseData().c_str()), kJSPropertyAttributeReadOnly, NULL);
+			JSStringRelease(name);
+		}
+
 	}
 };
 

@@ -28,6 +28,11 @@ const std::string &MediaErrorEvent::getDescription() const
 	return mDescription;
 }
 
+const std::string &MediaErrorEvent::getResponseData() const
+{
+	return mResponseData;
+}
+
 AAMPEventType AAMPEventObject::getType() const
 {
 	return mType;
@@ -124,6 +129,15 @@ void DrmMetaDataEvent::setAccessStatus(const std::string &status)
 {
 }
 
+const std::string &DrmMetaDataEvent::getResponseData() const
+{
+	return mResponseData;
+}
+
+void DrmMetaDataEvent::setResponseData(const std::string &data)
+{
+}
+
 int DrmMetaDataEvent::getAccessStatusValue() const
 {
 	return 0;
@@ -213,7 +227,7 @@ int SupportedSpeedsChangedEvent::getSupportedSpeedCount() const
 	return 0;
 }
 
-MediaErrorEvent::MediaErrorEvent(AAMPTuneFailure failure, int code, const std::string &desc, bool shouldRetry, int classCode, int reason, int businessStatus):
+MediaErrorEvent::MediaErrorEvent(AAMPTuneFailure failure, int code, const std::string &desc, bool shouldRetry, int classCode, int reason, int businessStatus, const std::string &responseData):
 		AAMPEventObject(AAMP_EVENT_TUNE_FAILED)
 {
 }

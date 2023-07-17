@@ -119,9 +119,9 @@ AAMPEventType AAMPEventObject::getType() const
 /**
  * @brief MediaErrorEvent Constructor
  */
-MediaErrorEvent::MediaErrorEvent(AAMPTuneFailure failure, int code, const std::string &desc, bool shouldRetry, int classCode, int reason, int businessStatus):
+MediaErrorEvent::MediaErrorEvent(AAMPTuneFailure failure, int code, const std::string &desc, bool shouldRetry, int classCode, int reason, int businessStatus, const std::string &responseData):
 		AAMPEventObject(AAMP_EVENT_TUNE_FAILED), mFailure(failure), mCode(code),
-		mDescription(desc), mShouldRetry(shouldRetry), mSecManagerClass(classCode), mSecManagerReasonCode(reason), mBusinessStatus(businessStatus)
+		mDescription(desc), mShouldRetry(shouldRetry), mSecManagerClass(classCode), mSecManagerReasonCode(reason), mBusinessStatus(businessStatus), mResponseData(responseData)
 {
 
 }
@@ -154,6 +154,16 @@ int MediaErrorEvent::getCode() const
 const std::string &MediaErrorEvent::getDescription() const
 {
 	return mDescription;
+}
+
+/**
+ * @brief Get ResponseData
+ *
+ * @return Error ResponseData
+ */
+const std::string &MediaErrorEvent::getResponseData() const
+{
+	return mResponseData;
 }
 
 /**
@@ -909,6 +919,24 @@ const std::string &DrmMetaDataEvent::getAccessStatus() const
 void DrmMetaDataEvent::setAccessStatus(const std::string &status)
 {
 	mAccessStatus = status;
+}
+
+/**
+ * @brief Get Response Data
+ *
+ * @return Response Data string
+ */
+const std::string &DrmMetaDataEvent::getResponseData() const
+{
+	return mResponseData;
+}
+
+/**
+ * @brief Set Response Data
+ */
+void DrmMetaDataEvent::setResponseData(const std::string &data)
+{
+	mResponseData = data;
 }
 
 /**

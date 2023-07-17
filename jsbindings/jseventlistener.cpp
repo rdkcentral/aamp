@@ -250,7 +250,7 @@ public:
 		prop = JSStringCreateWithUTF8CString("shouldRetry");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeBoolean(p_obj->_ctx, evt->shouldRetry()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
-		
+
 		if(-1 != evt->getClass()) //Only send verbose error for secclient/secmanager DRM failures
 		{
 			prop = JSStringCreateWithUTF8CString("class");
@@ -265,6 +265,13 @@ public:
 			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getBusinessStatus()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
+		if(!evt->getResponseData().empty())
+		{
+			prop = JSStringCreateWithUTF8CString("responseData");
+			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getResponseData().c_str()), kJSPropertyAttributeReadOnly, NULL);
+			JSStringRelease(prop);
+		}
+
 	}
 };
 
