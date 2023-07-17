@@ -201,6 +201,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampDRMLicPreFetcher.h
 					AampDRMLicPreFetcherInterface.h
 					tsprocessor.h
+					gstaamptaskpool.h
 					uint33_t.h
 					videoin_shim.h
 					AampCMCDCollector.h
@@ -265,6 +266,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					downloader/AampCurlStore.cpp
 					AampDRMLicPreFetcher.cpp
 					AampCMCDCollector.cpp
+					gstaamptaskpool.cpp
 					downloader/AampCurlDownloader.cpp
 					ID3Metadata.cpp
 					dash/xml/DomDocument.cpp

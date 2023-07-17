@@ -81,6 +81,7 @@
 #include "AampCurlDownloader.h"
 #include "AampMPDDownloader.h"
 
+#include <sched.h>
 
 #define LOCAL_HOST_IP       "127.0.0.1"
 #define AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (20*1000LL)
@@ -4602,6 +4603,58 @@ CURL * PrivateInstanceAAMP::GetCurlInstanceForURL(std::string &remoteUrl,unsigne
 	return lcurl;
 }
 
+static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int defaultPriority)
+{
+    int ret = -1;
+    int priority = defaultPriority;
+    int policy = defaultPolicy;
+    struct sched_param param = {0};
+    /* get env settings from file for envName */
+    const char *envVal = getenv(env);
+    if (envVal)
+    {
+        int len;
+        char c;
+        len= strlen(envVal);
+        if ( (len >= 3) && (envVal[1]==',') )
+        {
+            c = envVal[0];
+            /* parse thread policy value */
+            switch(c)
+            {
+                case 'o':
+                case 'O':
+                    policy = SCHED_OTHER;
+                    break;
+                case 'f':
+                case 'F':
+                    policy = SCHED_FIFO;
+                    break;
+                case 'r':
+                case 'R':
+                    policy = SCHED_RR;
+                    break;
+            }
+            /* get thread priority value */
+            priority = atoi(envVal+2);
+        }
+    }
+    if((policy >= 0) && (policy <= 6))
+    {
+        param.sched_priority = priority;
+        ret = pthread_setschedparam(pthread_self(), policy, &param);
+    }
+    else
+    {
+        /* fallback thread priority setting in case of corruption */
+        priority = defaultPriority;
+        policy = defaultPolicy;
+        param.sched_priority = priority;
+        ret = pthread_setschedparam(pthread_self(), policy, &param);
+    }
+    return ret;
+}
+
 /**
  * @brief The helper function which perform tuning
  * Common tune operations used on Tune, Seek, SetRate etc
@@ -4609,6 +4662,7 @@ CURL * PrivateInstanceAAMP::GetCurlInstanceForURL(std::string &remoteUrl,unsigne
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
+	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
 		lastUnderFlowTimeMs[i] = 0;
