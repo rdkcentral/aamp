@@ -521,6 +521,9 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	mAdDownloaderInstance 	= new AampMPDDownloader();
 	//initialize the downloadconfig 
 	inpData->mTuneUrl 	= manifestUrl;
+	inpData->mDnldConfig->iStartTimeout = mAamp->mConfig->GetConfigValue(eAAMPConfig_CurlDownloadStartTimeout);
+        inpData->mDnldConfig->iStallTimeout = mAamp->mConfig->GetConfigValue(eAAMPConfig_CurlStallTimeout);
+        inpData->mDnldConfig->iLowBWTimeout = 0;
 	inpData->mDnldConfig->bNeedDownloadMetrics = true;
 	inpData->mDnldConfig->pCurl                  =       CurlStore::GetCurlStoreInstance(mAamp).GetCurlHandle(mAamp, manifestUrl, eCURLINSTANCE_DAI);
 
