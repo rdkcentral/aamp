@@ -287,7 +287,8 @@ void AampCurlDownloader::updateResponseParams()
 				{					
 					if(STARTS_WITH_IGNORE_CASE(header.c_str(), LOCATION_HEADER_STRING))
 					{
-						mDownloadResponse->sEffectiveUrl =  	header.substr(std::string(LOCATION_HEADER_STRING).length() + 2);
+						mDownloadResponse->sEffectiveUrl =  	header.substr(std::string(LOCATION_HEADER_STRING).length() + 1);
+						trim(mDownloadResponse->sEffectiveUrl);
 						break;
 					}
 				}
