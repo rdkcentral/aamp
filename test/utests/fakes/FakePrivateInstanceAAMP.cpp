@@ -247,7 +247,7 @@ void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
 
 bool PrivateInstanceAAMP::IsLive()
 {
-	return false;
+	return mIsLive;
 }
 
 void PrivateInstanceAAMP::NotifyOnEnteringLive()
@@ -517,9 +517,32 @@ void PrivateInstanceAAMP::SetPreferredLanguages(char const*, char const*, char c
 {
 }
 
+/**
+ * @brief Check if Live Adjust is required for current content. ( For "vod/ivod/ip-dvr/cdvr/eas", Live Adjust is not required ).
+ */
 bool PrivateInstanceAAMP::IsLiveAdjustRequired()
 {
-    return false;
+	bool retValue;
+
+	switch (mContentType)
+	{
+		case ContentType_IVOD:
+		case ContentType_VOD:
+		case ContentType_CDVR:
+		case ContentType_IPDVR:
+		case ContentType_EAS:
+			retValue = false;
+			break;
+
+		case ContentType_SLE:
+			retValue = true;
+			break;
+
+		default:
+			retValue = true;
+			break;
+	}
+	return retValue;
 }
 
 void PrivateInstanceAAMP::UpdateLiveOffset()
@@ -591,8 +614,76 @@ void PrivateInstanceAAMP::DisableMediaDownloads(MediaType type)
 {
 }
 
+/**
+ * @brief Set Content Type
+ */
 void PrivateInstanceAAMP::SetContentType(const char *cType)
 {
+	mContentType = ContentType_UNKNOWN; //default unknown
+	if(NULL != cType)
+	{
+		mPlaybackMode = std::string(cType);
+		if(mPlaybackMode == "CDVR")
+		{
+			mContentType = ContentType_CDVR; //cdvr
+		}
+		else if(mPlaybackMode == "VOD")
+		{
+			mContentType = ContentType_VOD; //vod
+		}
+		else if(mPlaybackMode == "LINEAR_TV")
+		{
+			mContentType = ContentType_LINEAR; //linear
+		}
+		else if(mPlaybackMode == "IVOD")
+		{
+			mContentType = ContentType_IVOD; //ivod
+		}
+		else if(mPlaybackMode == "EAS")
+		{
+			mContentType = ContentType_EAS; //eas
+		}
+		else if(mPlaybackMode == "xfinityhome")
+		{
+			mContentType = ContentType_CAMERA; //camera
+		}
+		else if(mPlaybackMode == "DVR")
+		{
+			mContentType = ContentType_DVR; //dvr
+		}
+		else if(mPlaybackMode == "MDVR")
+		{
+			mContentType = ContentType_MDVR; //mdvr
+		}
+		else if(mPlaybackMode == "IPDVR")
+		{
+			mContentType = ContentType_IPDVR; //ipdvr
+		}
+		else if(mPlaybackMode == "PPV")
+		{
+			mContentType = ContentType_PPV; //ppv
+		}
+		else if(mPlaybackMode == "OTT")
+		{
+			mContentType = ContentType_OTT; //ott
+		}
+		else if(mPlaybackMode == "OTA")
+		{
+			mContentType = ContentType_OTA; //ota
+		}
+		else if(mPlaybackMode == "HDMI_IN")
+		{
+			mContentType = ContentType_HDMIIN; //ota
+		}
+		else if(mPlaybackMode == "COMPOSITE_IN")
+		{
+			mContentType = ContentType_COMPOSITEIN; //ota
+		}
+		else if(mPlaybackMode == "SLE")
+		{
+			mContentType = ContentType_SLE; //single live event
+		}
+	}
 }
 
 void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime)
@@ -927,7 +1018,7 @@ void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::st
 
 bool PrivateInstanceAAMP::IsLiveStream(void)
 {
-	return false;
+	return mIsLiveStream;
 }
 
 void PrivateInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)

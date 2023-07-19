@@ -18,10 +18,20 @@
 */
 
 #include "AampUtils.h"
+#include "MockAampUtils.h"
+
+MockAampUtils *g_mockAampUtils = nullptr;
 
 long long aamp_GetCurrentTimeMS(void)
 {
-	return 0;
+	long long timeMS = 0;
+
+	if (g_mockAampUtils)
+	{
+		timeMS = g_mockAampUtils->aamp_GetCurrentTimeMS();
+	}
+
+	return timeMS;
 }
 
 float getWorkingTrickplayRate(float rate)
@@ -83,9 +93,13 @@ const FormatMap * GetAudioFormatForCodec( const char *codecs )
     return NULL;
 }
 
+/**
+ * @brief Parse date time from ISO8601 string and return value in seconds
+ * @retval date time in seconds
+ */
 double ISO8601DateTimeToUTCSeconds(const char *ptr)
 {
-    double timeSeconds = 0;
+	double timeSeconds = 0;
 	if(ptr)
 	{
 		std::tm timeObj = { 0 };
@@ -239,12 +253,194 @@ inline double safeMultiply(const unsigned int first, const unsigned int second)
     return static_cast<double>(first * second);
 }
 
+/**
+ * @brief Parse duration from ISO8601 string
+ * @param ptr ISO8601 string
+ * @return durationMs duration in milliseconds
+ */
 double ParseISO8601Duration(const char *ptr)
 {
-        return 0.0;
+	int years = 0;
+	int months = 0;
+	int days = 0;
+	int hour = 0;
+	int minute = 0;
+	double seconds = 0.0;
+	double returnValue = 0.0;
+	int indexforM = 0,indexforT=0;
+
+	//ISO 8601 does not specify specific values for months in a day
+	//or days in a year, so use 30 days/month and 365 days/year
+	static constexpr auto kMonthDays = 30;
+	static constexpr auto kYearDays = 365;
+	static constexpr auto kMinuteSecs = 60;
+	static constexpr auto kHourSecs = kMinuteSecs * 60;
+	static constexpr auto kDaySecs = kHourSecs * 24;
+	static constexpr auto kMonthSecs = kMonthDays * kDaySecs;
+	static constexpr auto kYearSecs = kDaySecs * kYearDays;
+
+	// ISO 8601 allow for number of years(Y), months(M), days(D) before the "T"
+	// and hours(H), minutes(M), and seconds after the "T"
+
+	const char* durationPtr = strchr(ptr, 'T');
+	indexforT = (int)(durationPtr - ptr);
+	const char* pMptr = strchr(ptr, 'M');
+	if(NULL != pMptr)
+	{
+		indexforM = (int)(pMptr - ptr);
+	}
+
+	if (ptr[0] == 'P')
+	{
+		ptr++;
+		if (ptr != durationPtr)
+		{
+			const char *temp = strchr(ptr, 'Y');
+			if (temp)
+			{	sscanf(ptr, "%dY", &years);
+				AAMPLOG_WARN("years %d", years);
+				ptr = temp + 1;
+			}
+			temp = strchr(ptr, 'M');
+			if (temp && ( indexforM < indexforT ) )
+			{
+				sscanf(ptr, "%dM", &months);
+				ptr = temp + 1;
+			}
+			temp = strchr(ptr, 'D');
+			if (temp)
+			{
+				sscanf(ptr, "%dD", &days);
+				ptr = temp + 1;
+			}
+		}
+		if (ptr == durationPtr)
+		{
+			ptr++;
+			const char* temp = strchr(ptr, 'H');
+			if (temp)
+			{
+				sscanf(ptr, "%dH", &hour);
+				ptr = temp + 1;
+			}
+			temp = strchr(ptr, 'M');
+			if (temp)
+			{
+				sscanf(ptr, "%dM", &minute);
+				ptr = temp + 1;
+			}
+			temp = strchr(ptr, 'S');
+			if (temp)
+			{
+				sscanf(ptr, "%lfS", &seconds);
+				ptr = temp + 1;
+			}
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("Invalid input %s", ptr);
+	}
+
+	returnValue += seconds;
+
+	//Guard against overflow by casting first term
+	returnValue += safeMultiply(kMinuteSecs, minute);
+	returnValue += safeMultiply(kHourSecs, hour);
+	returnValue += safeMultiply(kDaySecs, days);
+	returnValue += safeMultiply(kMonthSecs, months);
+	returnValue += safeMultiply(kYearSecs, years);
+
+	(void)ptr; // Avoid a warning as the last set value is unused.
+
+	return returnValue * 1000;
 }
 
 void trim(std::string& src)
 {
 
+}
+
+/**
+ * @brief Return the name corresponding to the Media Type
+ * @param mediaType media type
+ * @retval the name of the mediaType
+ */
+const char* getMediaTypeName( MediaType mediaType )
+{
+	//FN_TRACE_F_MPD( __FUNCTION__ );
+	switch(mediaType)
+	{
+		case eMEDIATYPE_VIDEO:
+			return MEDIATYPE_VIDEO;
+		case eMEDIATYPE_AUDIO:
+			return MEDIATYPE_AUDIO;
+		case eMEDIATYPE_SUBTITLE:
+			return MEDIATYPE_TEXT;
+		case eMEDIATYPE_IMAGE:
+			return MEDIATYPE_IMAGE;
+		case eMEDIATYPE_AUX_AUDIO:
+			return MEDIATYPE_AUX_AUDIO;
+		default:
+			return "UNKNOWN";
+	}
+}
+
+/**
+ * @brief Check if mime type is compatible with media type
+ * @param mimeType mime type
+ * @param mediaType media type
+ * @retval true if compatible
+ */
+bool IsCompatibleMimeType(const std::string& mimeType, MediaType mediaType)
+{
+        //FN_TRACE_F_MPD( __FUNCTION__ );
+	bool isCompatible = false;
+
+	switch ( mediaType )
+	{
+		case eMEDIATYPE_VIDEO:
+			if (mimeType == "video/mp4")
+				isCompatible = true;
+			break;
+
+		case eMEDIATYPE_AUDIO:
+		case eMEDIATYPE_AUX_AUDIO:
+			if ((mimeType == "audio/webm") ||
+				(mimeType == "audio/mp4"))
+				isCompatible = true;
+			break;
+
+		case eMEDIATYPE_SUBTITLE:
+			if ((mimeType == "application/ttml+xml") ||
+				(mimeType == "text/vtt") ||
+				(mimeType == "application/mp4"))
+				isCompatible = true;
+			break;
+
+		default:
+			break;
+	}
+
+	return isCompatible;
+}
+
+/**
+ * @brief Computes the fragment duratioN.
+ * @param duration of the fragment.
+ * @param timeScale value.
+ * @return - computed fragment duration in double.
+ */
+double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
+{
+	double newduration = 2.0;
+	if( duration && timeScale )
+	{
+		newduration =  (double)duration / (double)timeScale;
+	}
+	else
+	{
+		AAMPLOG_ERR("Invalid %u %u",duration,timeScale);
+	}
+	return newduration;
 }

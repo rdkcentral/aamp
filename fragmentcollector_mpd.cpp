@@ -4377,9 +4377,18 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				SeekInPeriod( offsetFromStart);
 			}
 
-			if(!ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
+			if((!ISCONFIGSET(eAAMPConfig_MidFragmentSeek)) || (eTUNETYPE_SEEKTOLIVE == tuneType))
 			{
-				seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime;
+				if(!ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
+				{
+					seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime;
+				}
+				else
+				{
+					// eAAMPConfig_MidFragmentSeek && eTUNETYPE_SEEKTOLIVE
+					seekPosition = offsetFromStart;
+				}
+
 				if((0 != mCurrentPeriodIdx && !ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline)) || aamp->IsUninterruptedTSB())
 				{
 					// Avoid adding period start time for Absolute progress reporting,
