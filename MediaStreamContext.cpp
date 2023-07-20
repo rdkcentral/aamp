@@ -229,8 +229,11 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
                 {
                     if (!initSegment)
                     {
-                        AAMPLOG_ERR("Not able to download fragments; reached failure threshold sending tune failed event");
-                        aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
+			    if(type != eTRACK_SUBTITLE) // Avoid sending error for failure to download subtitle fragments
+			    {
+				AAMPLOG_ERR("Not able to download fragments; reached failure threshold sending tune failed event");
+                        	aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
+			    }
                     }
                     else
                     {
