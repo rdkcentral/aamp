@@ -258,9 +258,9 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_8)
 	inpData->bIgnoreResponseHeader = false;
 
 	//Check for timeout config values
-	EXPECT_EQ(2,inpData->iStallTimeout);
-	EXPECT_EQ(2,inpData->iStartTimeout);
-	EXPECT_EQ(2,inpData->iLowBWTimeout);
+	EXPECT_EQ(0,inpData->iStallTimeout);
+	EXPECT_EQ(0,inpData->iStartTimeout);
+	EXPECT_EQ(0,inpData->iLowBWTimeout);
 	inpData->show();
 
 	//Start Timeout case
