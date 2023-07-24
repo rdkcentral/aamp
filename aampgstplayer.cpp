@@ -663,20 +663,21 @@ static void InitializeSource(AAMPGstPlayer *_this, GObject *source, MediaType me
 {
 	media_stream *stream = &_this->privateContext->stream[mediaType];
 	GstCaps * caps = NULL;
+	bool isFogEnabled = _this->aamp->mTSBEnabled;
 	g_signal_connect(source, "need-data", G_CALLBACK(need_data), _this);		/* Sets up the call back function for need data event */
 	g_signal_connect(source, "enough-data", G_CALLBACK(enough_data), _this);	/* Sets up the call back function for enough data event */
 	g_signal_connect(source, "seek-data", G_CALLBACK(appsrc_seek), _this);		/* Sets up the call back function for seek data event */
 	gst_app_src_set_stream_type(GST_APP_SRC(source), GST_APP_STREAM_TYPE_SEEKABLE);
 	if (eMEDIATYPE_VIDEO == mediaType )
 	{
-		int MaxGstVideoBufBytes = _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstVideoBufBytes);
-		AAMPLOG_INFO("Setting gst Video buffer max bytes to %d", MaxGstVideoBufBytes);
+		int MaxGstVideoBufBytes = isFogEnabled ? _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstVideoBufBytesForFogLive) : _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstVideoBufBytes);
+		AAMPLOG_INFO("Setting gst Video buffer max bytes to %d FogLive :%d ", MaxGstVideoBufBytes,isFogEnabled);
 		g_object_set(source, "max-bytes", (guint64)MaxGstVideoBufBytes, NULL);			/* Sets the maximum video buffer bytes as per configuration*/
 	}
 	else if (eMEDIATYPE_AUDIO == mediaType || eMEDIATYPE_AUX_AUDIO == mediaType)
 	{
-		int MaxGstAudioBufBytes = _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstAudioBufBytes);
-		AAMPLOG_INFO("Setting gst Audio buffer max bytes to %d", MaxGstAudioBufBytes);
+		int MaxGstAudioBufBytes = isFogEnabled ? _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstAudioBufBytesForFogLive) : _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstAudioBufBytes);
+		AAMPLOG_INFO("Setting gst Audio buffer max bytes to %d FogLive :%d ", MaxGstAudioBufBytes,isFogEnabled);
 		g_object_set(source, "max-bytes", (guint64)MaxGstAudioBufBytes, NULL);			/* Sets the maximum audio buffer bytes as per configuration*/
 	}
 	g_object_set(source, "min-percent", 50, NULL);								/* Trigger the need data event when the queued bytes fall below 50% */
@@ -2375,8 +2376,9 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 #if defined(REALTEKCE)
 		if (eMEDIATYPE_VIDEO == streamId && (mediaFormat==eMEDIAFORMAT_DASH || mediaFormat==eMEDIAFORMAT_HLS_MP4) )
 		{ // enable multiqueue (Refer : XIONE-6138)
-	        int MaxGstVideoBufBytes = _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstVideoBufBytes);
-			AAMPLOG_INFO("Setting gst Video buffer size bytes to %d", MaxGstVideoBufBytes);
+		bool isFogEnabled = _this->aamp->mTSBEnabled;
+		int MaxGstVideoBufBytes = isFogEnabled ? _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstVideoBufBytesForFogLive) : _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstVideoBufBytes);
+			AAMPLOG_INFO("Setting gst Video buffer size bytes to %d FogLive : %d", MaxGstVideoBufBytes,isFogEnabled);
 			g_object_set(stream->sinkbin, "buffer-size", (guint64)MaxGstVideoBufBytes, NULL);
 			g_object_set(stream->sinkbin, "buffer-duration", 3000000000, NULL); //3000000000(ns), 3s
 		}

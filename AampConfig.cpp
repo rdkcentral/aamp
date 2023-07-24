@@ -452,6 +452,8 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{INT_MAX,"maxBitrate",eAAMPConfig_MaxBitrate,true},
 	{CURL_SSLVERSION_TLSv1_2,"supportTLS",eAAMPConfig_TLSVersion,true,eCONFIG_RANGE_CURL_SSL_VERSION},
 
+	{MAX_GST_VIDEO_BUFFER_BYTES_FOG_LIVE,"gstVideoBufBytesForFogLive", eAAMPConfig_GstVideoBufBytesForFogLive,false},
+	{MAX_GST_AUDIO_BUFFER_BYTES_FOG_LIVE,"gstAudioBufBytesForFogLive", eAAMPConfig_GstAudioBufBytesForFogLive,false},
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },

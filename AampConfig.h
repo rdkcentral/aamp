@@ -280,6 +280,8 @@ typedef enum
 	eAAMPConfig_MinBitrate,                         			/**< minimum bitrate filter for playback profiles */
 	eAAMPConfig_MaxBitrate,                         			/**< maximum bitrate filter for playback profiles*/
 	eAAMPConfig_TLSVersion,							/**< TLS Version value*/
+	eAAMPConfig_GstVideoBufBytesForFogLive,                                 /**< Gstreamer Max Video buffering bytes for fog linear*/
+	eAAMPConfig_GstAudioBufBytesForFogLive,                                 /**< Gstreamer Max Audio buffering bytes for fog linear*/
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
