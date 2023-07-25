@@ -9240,39 +9240,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					// So after video downloads loop was exiting without audio fetch causing audio drop .
 					// Now wait for both video and audio to reach EOS before moving to next period or exit.
 					AcquirePlaylistLock();
-					if(mIsLiveManifest)
-					{
-						// let all the track threads to pause for manifest update
-						//playlistDownloaderContext->NotifyFragmentCollectorWait();
-						//playlistDownloaderContext->WaitForManifestUpdate();
-						AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
-						// Get the Manifest with a wait of Manifest Timeout time
-						ManifestDownloadResponsePtr tmpManifestDnldRespPtr ;
-						// No wait needed , pick the manifest from top of the Q
-						tmpManifestDnldRespPtr  = dnldInstance->GetManifest(false, 0);
-						// Need to check if same last Manifest is given or new refresh happened
-						if( tmpManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK )
-						{
-							if(tmpManifestDnldRespPtr->mMPDInstance != mManifestDnldRespPtr->mMPDInstance)
-							{
-								mManifestDnldRespPtr    =       tmpManifestDnldRespPtr;
-								//bool gotManifest              =       (mManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
-								//if (gotManifest)
-								{
-									AAMPStatusType ret = GetMPDFromManifest(mManifestDnldRespPtr , false);
-									// if no parse error
-									if(ret == AAMPStatusType::eAAMPSTATUS_OK)
-									{
-										AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
-										// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
-										IndexNewMPDDocument();
-									}
-								}
-
-							}
-						}
-					}
-
+					UpdateMPD();
 					bool vEos = mMediaStreamContext[eMEDIATYPE_VIDEO]->eos;
 					bool audioEnabled = (mMediaStreamContext[eMEDIATYPE_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled);
 					bool aEos = (audioEnabled && mMediaStreamContext[eMEDIATYPE_AUDIO]->eos);
@@ -9410,7 +9378,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 		{
 			break;
 		}
-
+		UpdateMPD();
 		mpdChanged = true;
 	}		//Loop 1
 	while (!exitFetchLoop);
@@ -9439,6 +9407,50 @@ void StreamAbstractionAAMP_MPD::GetAvailableVSSPeriods(std::vector<IPeriod*>& Pe
 			}
 		}
 	}
+}
+
+/**
+ * @fn UpdateMPD
+ * @param init flag to indicate whether call is from init\
+ * @return AAMPStatusType
+ */
+AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
+{
+	AAMPStatusType ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
+
+	if(mIsLiveManifest)
+	{
+		// let all the track threads to pause for manifest update
+		//playlistDownloaderContext->NotifyFragmentCollectorWait();
+		//playlistDownloaderContext->WaitForManifestUpdate();
+		AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
+		// Get the Manifest with a wait of Manifest Timeout time
+		ManifestDownloadResponsePtr tmpManifestDnldRespPtr ;
+		// No wait needed , pick the manifest from top of the Q
+		tmpManifestDnldRespPtr  = dnldInstance->GetManifest(false, 0);
+		// Need to check if same last Manifest is given or new refresh happened
+		if( tmpManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK )
+		{
+			if(tmpManifestDnldRespPtr->mMPDInstance != mManifestDnldRespPtr->mMPDInstance)
+			{
+				mManifestDnldRespPtr    =       tmpManifestDnldRespPtr;
+				//bool gotManifest              =       (mManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
+				//if (gotManifest)
+				{
+					ret = GetMPDFromManifest(mManifestDnldRespPtr , false);
+					// if no parse error
+					if(ret == AAMPStatusType::eAAMPSTATUS_OK)
+					{
+						AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
+						// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
+						IndexNewMPDDocument();
+					}
+				}
+
+			}
+		}
+	}
+	return ret;
 }
 
 /**
