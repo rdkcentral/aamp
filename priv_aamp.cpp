@@ -8532,7 +8532,17 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 		std::string adId("");
 		std::string url("");
 		mCdaiObject->SetAlternateContents(adBreakId, adId, url, startMS, brInfo.duration);	//A placeholder to avoid multiple scte35 event firing for the same adbreak
-		SaveNewTimedMetadata((long long) startMS, brInfo.name.c_str(), brInfo.payload.c_str(), (int)brInfo.payload.size(), adBreakId.c_str(), brInfo.duration);
+		//Ignoring past SCTE events.
+		//mTSBEnabled check is added to ensure the change won't effect IPVOD
+		AAMPLOG_INFO("[CDAI] mTuneCompleted:%d mTSBEnabled:%d",mTuneCompleted,mTSBEnabled);
+		if (mTuneCompleted || !mTSBEnabled)
+		{
+			SaveNewTimedMetadata((long long) startMS, brInfo.name.c_str(), brInfo.payload.c_str(), (int)brInfo.payload.size(), adBreakId.c_str(), brInfo.duration);
+		}
+		else
+		{
+			AAMPLOG_WARN("[CDAI] Discarding SCTE event for period:%s  since tune is not completed",adBreakId.c_str());
+		}
 	}
 }
 
