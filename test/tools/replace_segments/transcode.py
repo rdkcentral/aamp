@@ -33,6 +33,7 @@ from library.manifests import (
 )
 from library.hls_manifests import HLSManifest, HLSMainManifest
 from library.dash_manifests import DASHManifest
+from library.manifests import write_transcode_details
 from mp4_tools import *
 
 
@@ -227,6 +228,8 @@ if __name__ == "__main__":
 
     if args.verbose:
         log.setLevel(logging.DEBUG)
+        
+    write_transcode_details()
 
     manifestFilename = get_manifest_path()
 

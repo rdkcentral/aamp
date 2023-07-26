@@ -472,6 +472,18 @@ if __name__ == "__main__":
                         is an error. This maybe supplied multiple times. This can be used if 
                         having ABR ability for the content is not required.""",
     )
+    parser.add_argument(
+        "--reason",
+        action="append",
+        type=str,
+        help="""For adding specified significance to command call. Reason for harvest""",
+    )
+    parser.add_argument(
+        "--jira",
+        action="append",
+        type=str,
+        help="""For adding related Jira Ticket. In format RDKAAMP-XXXX""",
+    )
     parser.add_argument("url", metavar="URL", help="URL from which to obtain content")
 
     args = parser.parse_args()
@@ -497,7 +509,7 @@ if __name__ == "__main__":
         log.error("status_code=%d %s", response.status_code, url)
         sys.exit(1)
 
-    write_harvest_details({'url':args.url})
+    write_harvest_details({'url':args.url}, ftype)
 
     for i in range(NUM_DOWNLOADERS):
         SegmentDownloader()
@@ -557,7 +569,10 @@ if __name__ == "__main__":
     SegmentDownloader.stop_all()
 
     log.info("Missing details %d", len(SegmentDownloader.missing))
-    for filename in SegmentDownloader.missing:
-        log.info("%s", filename)
+    with open("missing_segments.txt", "a") as f:
+        f.write("Missing details " + str(len(SegmentDownloader.missing)) + "\n\n")
+        for filename in SegmentDownloader.missing:
+            log.info("%s", filename)
+            f.write(filename + "\n\n")
 
     sys.exit(0)

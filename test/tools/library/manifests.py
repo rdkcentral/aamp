@@ -40,22 +40,68 @@ def delHTTPhost(line):
     return result
 
 
-def write_harvest_details(more_details):
+def write_harvest_details(more_details, ftype):
     """
     Record some useful details about this harvest
     """
     time_str = datetime.utcnow().isoformat()
-    data = {"recording_start_time": time_str, "args": sys.argv}
+    
+    playback = ""
+    if ftype == "hls" or ftype == "dash":
+        playback = "aamp/test/tools/simlinear/simlinear.py --"+ ftype +" 8085"
+    
+    foundreason = False
+    significance = ""
+    for each in sys.argv:
+        if foundreason:
+            significance = each
+            break
+        if each == "--reason":
+            foundreason = True
+            
+    foundjira = False
+    ticket = ""
+    for each in sys.argv:
+        if foundjira:
+            ticket = each
+            break
+        if each == "--jira":
+            foundjira = True
+        
+    user = os.getlogin()
+    data = {"recording_start_time": time_str, "args": sys.argv, "playback_command": playback, "significance": significance, "jira_ticket": ticket, "user": user}
     data.update(more_details)
 
-    with open("harvest_details.txt", "w") as f:
+    with open("harvest_details.json", "w") as f:
         log.debug("%s", json.dumps(data))
         f.write(json.dumps(data))
 
 
 def read_harvest_details():
     d = {}
-    with open("harvest_details.txt") as f:
+    with open("harvest_details.json") as f:
+        d = json.load(f)
+
+    return d
+    
+
+def write_transcode_details():
+    """
+    Record some useful details about this harvest
+    """
+    time_str = datetime.utcnow().isoformat()
+    user = os.getlogin()
+    data = {"transcode_start_time": time_str, "args": sys.argv, "user": user}
+    #data.update(more_details)
+
+    with open("transcode_details.json", "w") as f:
+        log.debug("%s", json.dumps(data))
+        f.write(json.dumps(data))
+
+
+def read_transcode_details():
+    d = {}
+    with open("transcode_details.json") as f:
         d = json.load(f)
 
     return d
