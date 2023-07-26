@@ -527,7 +527,8 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	inpData->mDnldConfig->iDownloadTimeout = mAamp->mConfig->GetConfigValue(eAAMPConfig_ManifestTimeout);
 	inpData->mDnldConfig->bNeedDownloadMetrics = true;
 	inpData->mDnldConfig->pCurl                  =       CurlStore::GetCurlStoreInstance(mAamp).GetCurlHandle(mAamp, manifestUrl, eCURLINSTANCE_DAI);
-
+	inpData->mDnldConfig->userAgentString = mAamp->mConfig->GetUserAgentString();
+	inpData->mDnldConfig->proxyName       = mAamp->mConfig->GetConfigValue(eAAMPConfig_NetworkProxy);
 	mAdDownloaderInstance->Initialize(inpData, mLogObj);
 	mAdDownloaderInstance->Start();
 	mAdManifestDnldRespPtr = mAdDownloaderInstance->GetManifest(true, mAamp->mManifestTimeoutMs);

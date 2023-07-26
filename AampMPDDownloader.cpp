@@ -392,13 +392,17 @@ void AampMPDDownloader::SetBufferAvailability(int iDurationMilliSec)
 void AampMPDDownloader::Release()
 {
 	AAMPLOG_INFO("Release Called in MPD Downloader");
-	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+
 	if(!mReleaseCalled)
 	{
-		mReleaseCalled = true;
-		mRefreshCondVar.notify_all();
-		mMPDDnldDataCondVar.notify_all();
-		mMPDNotifierCondVar.notify_all();
+		{
+			std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+			mReleaseCalled = true;
+			mRefreshCondVar.notify_all();
+			mMPDDnldDataCondVar.notify_all();
+			mMPDNotifierCondVar.notify_all();
+
+		}
 
 		mDownloader1.Release();
 		mDownloader2.Release();
@@ -480,19 +484,25 @@ void AampMPDDownloader::downloadMPDThread1()
 	ManifestDownloadResponsePtr cachedBackupData = nullptr;
 	do
 	{
+		
 		std::unordered_map<std::string, std::vector<std::string>> Headers = mMPDDnldCfg->mDnldConfig->sCustomHeaders;
-		if(mMPDDnldCfg->mCMCDCollector)
-		{
-			std::unordered_map<std::string, std::vector<std::string>> CMCDHeaders = getCMCDHeader();
-			Headers.insert(CMCDHeaders.begin(), CMCDHeaders.end());
-		}
-		mMPDDnldCfg->mDnldConfig->sCustomHeaders = Headers;
-		mDownloader1.Initialize(mMPDDnldCfg->mDnldConfig);
-		refreshNeeded = false;
 		long long tStartTime = NOW_STEADY_TS_MS;
-		//mDownloader1.Clear();
-		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, tuneUrl.c_str());
-		mMPDData = std::make_shared<ManifestDownloadResponse> ();
+		{
+			std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+			if(mReleaseCalled)
+				break;
+			if(mMPDDnldCfg->mCMCDCollector)
+			{
+				std::unordered_map<std::string, std::vector<std::string>> CMCDHeaders = getCMCDHeader();
+				Headers.insert(CMCDHeaders.begin(), CMCDHeaders.end());
+			}
+			mMPDDnldCfg->mDnldConfig->sCustomHeaders = Headers;
+			mDownloader1.Initialize(mMPDDnldCfg->mDnldConfig);
+			refreshNeeded = false;
+			//mDownloader1.Clear();
+			AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, tuneUrl.c_str());
+			mMPDData = std::make_shared<ManifestDownloadResponse> ();
+		}
 		mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
 		if(mMPDData->mMPDDownloadResponse->curlRetValue == 0 && mMPDData->mMPDDownloadResponse->iHttpRetValue == 200)
 		{
@@ -574,7 +584,7 @@ void AampMPDDownloader::downloadMPDThread1()
 			AAMPLOG_TRACE("Created copy of cachedMPDInst:%p backupMPDInst:%p", mCachedMPDData->mMPDInstance.get(), cachedBackupData->mMPDInstance.get());
 		}
 		//Wait for duration before refrehs
-		if(mMPDData->mIsLiveManifest)
+		if(mMPDData->mIsLiveManifest && !mReleaseCalled)
 		{
 			refreshNeeded = waitForRefreshInterval();
 		}
