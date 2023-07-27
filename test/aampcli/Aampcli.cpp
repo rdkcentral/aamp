@@ -28,6 +28,8 @@ Aampcli mAampcli;
 const char *gApplicationPath = NULL;
 extern VirtualChannelMap mVirtualChannelMap;
 extern void tsdemuxer_InduceRollover( bool enable );
+extern std::vector<std::string> mAdvertList;
+uint32_t mAdvertIndex = 0;
 
 Aampcli :: Aampcli():
 	mInitialized(false),
@@ -584,6 +586,27 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				mAampcli.mSingleton->ProcessContentProtectionDataConfig(json.c_str());
 				break;
 			}
+			
+		case AAMP_EVENT_TIMED_METADATA:
+		{
+			TimedMetadataEventPtr ev =  std::dynamic_pointer_cast<TimedMetadataEvent>(e);
+			if( ev->getName() == "SCTE35" )
+			{
+				// Default value
+				std::string url = "https://ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd";
+				
+				// If we have an advwert list, use that
+				if (mAdvertList.size())
+				{
+					mAdvertIndex %= mAdvertList.size();
+					url = mAdvertList[mAdvertIndex];
+					mAdvertIndex++;
+				}
+				mAampcli.mSingleton->SetAlternateContents( ev->getId(),"ad1", url.c_str());
+			}
+		}
+			break;
+			
 		default:
 			break;
 	}

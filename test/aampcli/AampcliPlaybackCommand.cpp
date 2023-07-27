@@ -35,6 +35,7 @@ extern void tsdemuxer_InduceRollover( bool enable );
 std::map<std::string,std::string> PlaybackCommand::playbackCommands = std::map<std::string,std::string>();
 std::vector<std::string> PlaybackCommand::commands(0);
 static std::string mFogHostPrefix="127.0.0.1:9080"; //Default host string for "fog" command
+std::vector<std::string> mAdvertList;
 
 void PlaybackCommand::getRange(const char* cmd, unsigned long& start, unsigned long& end, unsigned long& tail)
 {
@@ -423,6 +424,119 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 			}
 		}
 	}
+	else if( isCommandMatch(cmd, "advert") )
+	{
+		std::istringstream input;
+		input.str(cmd);
+
+		std::string token;
+		std::getline(input, token, ' ');
+		assert(token == "advert");
+
+		if (std::getline(input, token, ' '))
+		{
+			if (token == "list")
+			{
+				int urlIndex = 0;
+				for ( auto adUrl : mAdvertList )
+				{
+					printf("[AAMP-CLI] advert %d: %s\n", urlIndex++, adUrl.c_str());
+				}
+			}
+			else
+			{
+				std::string url;
+				std::string identifier;
+
+				// The next para should be a url or an index to a url
+				if (!std::getline(input, identifier))
+				{
+					printf("[AAMP-CLI] ERROR - unable to parse url identifier\n");
+				}
+				else if (playerInstanceAamp->isTuneScheme(identifier.c_str()))
+				{
+					url = identifier;
+				}
+				else if (isNumber(identifier.c_str()))
+				{
+					uint32_t urlIndex = -1;
+					try
+					{
+						urlIndex = (uint32_t)std::stoi(identifier);
+
+						// If adding a url by index, get the url from the virtual channel map
+						if (token == "add")
+						{
+							// Add a url from the virtual channel map
+							VirtualChannelInfo *info = mVirtualChannelMap.find(urlIndex);
+							if (info)
+							{
+								url = info->uri;
+							}
+							else
+							{
+								printf("[AAMP-CLI] ERROR - invalid index into virtual channel map %d\n", urlIndex);		
+							}
+						}
+
+						// If deleting a url by index, get the url at that index
+						else if (token == "rm")
+						{
+							// Remove a url by index
+							if (urlIndex < mAdvertList.size())
+							{
+								std::vector<std::string>::iterator pos = mAdvertList.begin() + urlIndex;
+								url = *pos;
+							}
+							else
+							{
+								printf("[AAMP-CLI] ERROR - invalid url index %d\n", urlIndex);		
+							}
+						}
+					}
+					catch (...)
+					{
+						printf("[AAMP-CLI] ERROR - invalid index '%s'\n", identifier.c_str());
+					}
+				}
+				else
+				{
+					printf("[AAMP-CLI] ERROR - param '%s'\n", identifier.c_str());
+				}
+
+				// If we have a URL, add or remove it from the list
+				if (playerInstanceAamp->isTuneScheme(url.c_str()))
+				{
+					if (token == "add")
+					{
+						mAdvertList.push_back(url);
+						printf("[AAMP-CLI] Added '%s' to advert list\n", url.c_str());
+					}
+					else if (token == "rm")
+					{
+						std::vector<std::string>::iterator pos = std::find(mAdvertList.begin(), mAdvertList.end(), url);
+						if (pos != mAdvertList.end())
+						{
+							mAdvertList.erase(pos);
+							printf("[AAMP-CLI] Removed '%s' from advert list\n", url.c_str());
+						}
+						else
+						{
+							printf("[AAMP-CLI] ERROR - no url '%s' in list\n", url.c_str());
+						}
+					}
+					else
+					{
+						printf("[AAMP-CLI] ERROR - unrecognised command 'advert %s'\n", token.c_str());
+					}
+				}
+			}
+		}
+		else
+		{
+			printf("[AAMP-CLI] ERROR - expected 'advert [list, add, rm]'\n");
+		}
+	}
 	else
 	{
 		printf( "[AAMP-CLI] unmatched command: %s\n", cmd );
@@ -545,6 +659,7 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("auto <params", "stress test with defaults: startChan(500) endChan(1000) maxTuneTime(6) playTime(15) betweenTime(15)" );
 	addCommand("exit","Exit aampcli");
 	addCommand("harvest <configs>","harvest VOD or Live content; refer README.txt");
+	addCommand("advert <params>", "manage injected advert list - 'list', 'add <url or channel in virtual channel map>', 'rm <url or index into list>'");
 }
 
 void PlaybackCommand::addCommand(std::string command,std::string description)
