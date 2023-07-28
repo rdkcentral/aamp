@@ -17,7 +17,9 @@
 
 class AAMPOCDMGSTSessionAdapter : public AAMPOCDMSessionAdapter
 {
+#ifdef AMLOGIC
         void ExtractSEI( GstBuffer *buffer);
+#endif
 public:
 	AAMPOCDMGSTSessionAdapter(AampLogManager *logObj, std::shared_ptr<AampDrmHelper> drmHelper,  AampDrmCallbacks *drmCallbacks) : AAMPOCDMSessionAdapter(logObj, drmHelper, drmCallbacks)
 #if defined(AMLOGIC)

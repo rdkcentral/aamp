@@ -326,6 +326,9 @@ set(PLAYBINTEST_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LIB
 if (CMAKE_AMLOGIC_SOC)
 	message("CMAKE_AMLOGIC_SOC set")
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DNO_NATIVE_AV=1 -DAMLOGIC -DCONTENT_4K_SUPPORTED")
+
+	# For extracting SEI timecode
+	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lgstvideo-1.0")
 endif()
 
 if(CMAKE_FLEX2_RDK)
@@ -496,10 +499,6 @@ if(CMAKE_USE_OPENCDM_ADAPTER)
                                                      drm/AampOcdmBasicSessionAdapter.cpp
                                                      drm/AampOcdmGstSessionAdapter.cpp
     )
-
-    # For extracting SEI timecode
-    set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lgstvideo-1.0")
-
     if(DEFINED SAGE_SVP)
             set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DCONTENT_4K_SUPPORTED")
     endif()
