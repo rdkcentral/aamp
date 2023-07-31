@@ -1063,7 +1063,16 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			}
 			else
 			{
-				tuneType = eTUNETYPE_SEEKTOEND;
+				// LLAMA-4799:Rewind over AD using Seek(-1) is impemented only for DASH, so restoring old code for non DASH to avoid DELIA-59899 regression.
+				if (aamp->mMediaFormat == eMEDIAFORMAT_DASH)
+				{
+					tuneType = eTUNETYPE_SEEKTOEND;
+				}
+				else
+				{
+					AAMPLOG_WARN("Not live, skipping seekToLive for MediaFormat %d", aamp->mMediaFormat);
+					return;
+				}
 			}
 		}
 
