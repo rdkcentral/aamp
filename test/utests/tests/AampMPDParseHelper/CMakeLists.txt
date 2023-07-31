@@ -67,7 +67,9 @@ set(TEST_SOURCES FunctionalTests.cpp
 set(AAMP_SOURCES ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp ${AAMP_ROOT}/AampUtils.cpp ${AAMP_ROOT}/_base64.cpp
                 ${AAMP_ROOT}/iso639map.cpp
 		${AAMP_ROOT}/AampMPDParseHelper.cpp
-		${AAMP_ROOT}/AampMPDDownloader.cpp ${DASH_PARSER_SOURCES})
+		${AAMP_ROOT}/AampMPDDownloader.cpp 
+		${AAMP_ROOT}/AampMPDUtils.cpp
+		${DASH_PARSER_SOURCES})
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

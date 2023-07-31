@@ -189,6 +189,7 @@ public:
 
 		return true;
 	}
+	
 
 	void GetMPDFromManifest(std::shared_ptr<ManifestDownloadResponse> response)
 	{
@@ -200,7 +201,7 @@ public:
 		{
 			if (xmlTextReaderRead(reader))
 			{
-				response->mRootNode = aamp_ProcessNode(&reader, TEST_MANIFEST_URL);
+				response->mRootNode = MPDProcessNode(&reader, TEST_MANIFEST_URL);
 				if(response->mRootNode != NULL)
 				{
 					mpd = response->mRootNode->ToMPD();

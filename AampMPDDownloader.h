@@ -61,6 +61,7 @@
 #include "dash/mpd/MPDModel.h"
 #include "dash/mpd/MPDSegmenter.h"
 #include "AampLLDASHData.h"
+#include "AampMPDUtils.h"
 
 typedef void (*ManifestUpdateCallbackFunc)(void *);
 
@@ -198,6 +199,7 @@ public:
 
 typedef std::shared_ptr<ManifestDownloadResponse> ManifestDownloadResponsePtr;
 typedef std::shared_ptr<ManifestDownloadConfig> ManifestDownloadConfigPtr;
+
 
 class AampMPDDownloader
 {

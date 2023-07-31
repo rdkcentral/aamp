@@ -193,7 +193,7 @@ public:
      * @param[in] http error code
      * @return void
      */
-    void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) override;
+    void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) {};
 
     MediaType mediaType;
     struct FragmentDescriptor fragmentDescriptor;

@@ -59,12 +59,6 @@ double aamp_GetPeriodNewContentDuration(dash::mpd::IMPD *mpd, IPeriod * period, 
 double aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeriod * period);
 
 /**
- * @fn aamp_ProcessNode
- * @param[in] reader Pointer to reader object
- * @param[in] url    manifest url
- */
-Node* aamp_ProcessNode(xmlTextReaderPtr *reader, std::string url, bool isAd = false);
-/**
  * @fn aamp_GetDurationFromRepresentation
  * @param mpd manifest ptr
  */
@@ -386,12 +380,6 @@ public:
 	 */
 	void ParseTrackInformation(IAdaptationSet *adaptationSet, uint32_t iAdaptationIndex, MediaType media, std::vector<AudioTrackInfo> &aTracks, std::vector<TextTrackInfo> &tTracks);
 	uint64_t mLastPlaylistDownloadTimeMs; // Last playlist refresh time
-	/**
-	 * @fn ProcessPlaylist
-	 * @param newPlaylist buffer
-	 * @param[out] http_error code
-	 */
-	void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error);
 
 	//Apis for sidecar caption support
 
@@ -714,7 +702,6 @@ private:
 	 * @param manifestUrl manifest url
 	 * @param init true if this is the first playlist download for a tune/seek/trickplay
 	 */
-	AAMPStatusType GetMpdFromManifest(const AampGrowableBuffer &manifest, MPD * &mpd, std::string manifestUrl, bool init);
 	AAMPStatusType GetMPDFromManifest( std::shared_ptr<ManifestDownloadResponse> mpdDnldResp, bool init);
 	void ProcessMetadataFromManifest( std::shared_ptr<ManifestDownloadResponse> mpdDnldResp, bool init);
 	void ProcessManifestHeaderResponse(std::shared_ptr<ManifestDownloadResponse> mpdDnldResp,bool init);

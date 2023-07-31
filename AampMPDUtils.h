@@ -1,0 +1,58 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2023 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+/**************************************
+* @file AampMPDUtils.h
+* @brief MPD Utils for Aamp
+**************************************/
+
+#ifndef __AAMP_MPD_UTILS_H__
+#define __AAMP_MPD_UTILS_H__
+
+#include "libdash/xml/Node.h"
+#include "libdash/xml/DOMParser.h"
+#include <libxml/xmlreader.h>
+#include <thread>
+#include "AampLogManager.h"
+#include "AampUtils.h"
+
+using namespace dash;
+using namespace std;
+using namespace dash::mpd;
+using namespace dash::xml;
+using namespace dash::helpers;
+
+
+/**
+ * @brief Get xml node form reader
+ *
+ * @retval xml node
+ */
+Node* MPDProcessNode(xmlTextReaderPtr *reader, std::string url, bool isAd=false);
+
+
+/**
+ * @brief Add attriblutes to xml node
+ * @param reader xmlTextReaderPtr
+ * @param node xml Node
+ */
+void AddAttributesToNode(xmlTextReaderPtr *reader, Node *node);
+
+#endif /* __AAMP_MPD_UTILS_H__ */
+

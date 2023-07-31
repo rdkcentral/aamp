@@ -649,7 +649,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 		{
 			if (xmlTextReaderRead(reader))
 			{
-				Node* root = aamp_ProcessNode(&reader, manifestUrl, true);
+				Node* root = MPDProcessNode(&reader, manifestUrl, true);
 				if (NULL != root)
 				{
 					std::vector<Node*> children = root->GetSubNodes();

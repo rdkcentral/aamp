@@ -488,11 +488,3 @@ int MediaStreamContext::GetDefaultDurationBetweenPlaylistUpdates()
     return DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS;
 }
 
-/**
- * @brief ProcessPlaylist after MPD refresh
- */
-void MediaStreamContext::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error)
-{
-    context->ProcessPlaylist(newPlaylist, http_error);
-}
-

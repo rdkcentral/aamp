@@ -28,16 +28,6 @@
 #include "AampUtils.h"
 #include "AampLogManager.h"
 
-/**
- * @brief Add attriblutes to xml node
- */
-static void addAttributesToNode(xmlTextReaderPtr *reader, Node *node);
-/**
- * @brief Get xml node form reader
- *
- * @retval xml node
- */
-static Node* processNode(xmlTextReaderPtr *reader, std::string url, bool isAd=false);
 
 #define DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS 3000
 
@@ -131,7 +121,7 @@ void _manifestDownloadResponse::parseMPD()
 					SAFE_DELETE(mRootNode);
 				}
 
-				mRootNode = processNode(&mXMLReader, mMPDDownloadResponse->sEffectiveUrl);
+				mRootNode = MPDProcessNode(&mXMLReader, mMPDDownloadResponse->sEffectiveUrl);
 				if(mRootNode != NULL)
 				{
 					MPD *mpd = mRootNode->ToMPD();
@@ -166,123 +156,6 @@ void _manifestDownloadResponse::parseMPD()
 	}
 
 	AAMPLOG_INFO("Parse MPD Completed ...");
-}
-
-/**
- * @brief Get xml node form reader
- *
- * @retval xml node
- */
-static Node* processNode(xmlTextReaderPtr *reader, std::string url, bool isAd)
-{
-	int type = xmlTextReaderNodeType(*reader);
-
-	if (type != WhiteSpace && type != Text)
-	{
-		while (type == Comment || type == WhiteSpace)
-		{
-			if(!xmlTextReaderRead(*reader))
-			{
-				AAMPLOG_WARN("xmlTextReaderRead  failed");
-			}
-			type = xmlTextReaderNodeType(*reader);
-		}
-
-		Node *node = new Node();
-		node->SetType(type);
-		node->SetMPDPath(Path::GetDirectoryPath(url));
-
-		const char *name = (const char *)xmlTextReaderConstName(*reader);
-		if (name == NULL)
-		{
-			SAFE_DELETE(node);
-			return NULL;
-		}
-
-		int	isEmpty = xmlTextReaderIsEmptyElement(*reader);
-		node->SetName(name);
-		addAttributesToNode(reader, node);
-
-		if(isAd && !strcmp("Period", name))
-		{
-			//Making period ids unique. It needs for playing same ad back to back.
-			static int UNIQ_PID = 0;
-			std::string periodId = std::to_string(UNIQ_PID++) + "-";
-			if(node->HasAttribute("id"))
-			{
-				periodId += node->GetAttributeValue("id");
-			}
-			node->AddAttribute("id", periodId);
-		}
-
-		if (isEmpty)
-			return node;
-
-		Node    *subnode = NULL;
-		int     ret = xmlTextReaderRead(*reader);
-		int subnodeType = xmlTextReaderNodeType(*reader);
-
-		while (ret == 1)
-		{
-			if (!strcmp(name, (const char *)xmlTextReaderConstName(*reader)))
-			{
-				return node;
-			}
-
-			if(subnodeType != Comment && subnodeType != WhiteSpace)
-			{
-				subnode = processNode(reader, url, isAd);
-				if (subnode != NULL)
-					node->AddSubNode(subnode);
-			}
-
-			ret = xmlTextReaderRead(*reader);
-			subnodeType = xmlTextReaderNodeType(*reader);
-		}
-
-		return node;
-	}
-	else if (type == Text)
-	{
-		xmlChar * text = xmlTextReaderReadString(*reader);
-
-		if (text != NULL)
-		{
-			Node *node = new Node();
-			node->SetType(type);
-			node->SetText((const char*)text);
-			xmlFree(text);
-			return node;
-		}
-	}
-	return NULL;
-}
-
-
-/**
- * @brief Add attriblutes to xml node
- * @param reader xmlTextReaderPtr
- * @param node xml Node
- */
-static void addAttributesToNode(xmlTextReaderPtr *reader, Node *node)
-{
-	//FN_TRACE_F_MPD( __FUNCTION__ );
-	if (xmlTextReaderHasAttributes(*reader))
-	{
-		while (xmlTextReaderMoveToNextAttribute(*reader))
-		{
-			std::string key = (const char *)xmlTextReaderConstName(*reader);
-			if(!key.empty())
-			{
-				std::string value = (const char *)xmlTextReaderConstValue(*reader);
-				node->AddAttribute(key, value);
-			}
-			else
-			{
-				AAMPLOG_WARN("key   is null");  //CID:85916 - Null Returns
-			}
-		}
-	}
 }
 
 /**

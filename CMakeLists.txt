@@ -207,6 +207,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampMPDDownloader.h
 					AampMPDParseHelper.h
 					AampLLDASHData.h
+					AampMPDUtils.h
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -264,6 +265,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					dash/utils/Path.cpp
 					AampMPDDownloader.cpp
 					AampMPDParseHelper.cpp	
+					AampMPDUtils.cpp
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
