@@ -71,7 +71,7 @@ struct StreamInfo
 	bool enabled;			/**< indicates if the streamInfo profile is enabled */
 	bool isIframeTrack;             /**< indicates if the stream is iframe stream*/
 	bool validity;		        /**< indicates profile validity against user configured profile range */
-	std::string codecs;	        /**< Codec String */
+	const char *codecs;	        /**< Codec String */
 	BitsPerSecond bandwidthBitsPerSecond;    /**< Bandwidth of the stream bps*/
 	StreamResolution resolution;    /**< Resolution of the stream*/
 	BitrateChangeReason reason;     /**< Reason for bitrate change*/
@@ -1142,8 +1142,8 @@ public:
        * @retval profile index of the current bandwidth
        */
        virtual int GetProfileIndexForBandwidth( BitsPerSecond mTsbBandwidth) {
-		   return aamp->mhAbrManager.getBestMatchedProfileIndexByBandWidth((int)mTsbBandwidth);
-	   }
+	       return aamp->mhAbrManager.getBestMatchedProfileIndexByBandWidth((int)mTsbBandwidth);
+       }
 
 	BitsPerSecond GetCurProfIdxBW(){
 		return aamp->mhAbrManager.getBandwidthOfProfile(this->currentProfileIndex);
