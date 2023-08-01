@@ -365,11 +365,22 @@ int AAMPOCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, c
 		{
 			return HDCP_COMPLIANCE_CHECK_FAILURE;
 		}
+#if 0 //RDKAAMP-1168: Temporary Code Change intend to remove meta layer patches, will be removed later
 
 		pthread_mutex_lock(&decryptMutex);
 		start_decrypt_time = GetCurrentTimeStampInMSec();
 		retValue = opencdm_session_decrypt(m_pOpenCDMSession, (uint8_t *)payloadData, payloadDataSize, f_pbIV, f_cbIV, NULL, 0, 0);
 		end_decrypt_time = GetCurrentTimeStampInMSec();
+		if (retValue != 0)
+		{
+			//Todo: Dup Code, Will be deleted.
+		}
+#endif
+		pthread_mutex_lock(&decryptMutex);
+		start_decrypt_time = GetCurrentTimeStampInMSec();
+		EncryptionScheme encScheme = AesCtr_Cenc;
+		EncryptionPattern pattern = {0};
+		retValue = opencdm_session_decrypt(m_pOpenCDMSession, (uint8_t *)payloadData, payloadDataSize, encScheme, pattern, f_pbIV, f_cbIV, NULL, 0, 0);
 		if (retValue != 0)
 		{
 #ifdef USE_THUNDER_OCDM_API_0_2
