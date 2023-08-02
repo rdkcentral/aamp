@@ -1048,7 +1048,7 @@ bool MediaTrack::InjectFragment()
 					mSubtitleParser->processData(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), cachedFragment->position, cachedFragment->duration);
 				}
 
-				if (type != eTRACK_SUBTITLE || ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
+				if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 				{
 					InjectFragmentInternal(cachedFragment, fragmentDiscarded,isDiscontinuity);
 				}

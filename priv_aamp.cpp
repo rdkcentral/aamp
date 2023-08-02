@@ -12383,3 +12383,12 @@ void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string& manifestBuffer)
 		mMPDDownloaderInstance->GetLastDownloadedManifest(manifestBuffer);
 	}
 }
+
+/*
+ * @brief to check gstsubtec flag and vttcueventlistener
+ */
+bool PrivateInstanceAAMP::IsGstreamerSubsEnabled(void)
+{
+	return (ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled) && !WebVTTCueListenersRegistered());
+}
+

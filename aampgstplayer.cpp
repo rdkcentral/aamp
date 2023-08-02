@@ -1396,7 +1396,7 @@ static gboolean buffering_timeout (gpointer data)
 #endif
 
 				_this->privateContext->buffering_in_progress = false;
-				if(!_this->aamp->mConfig->IsConfigSet(eAAMPConfig_GstSubtecEnabled))
+				if(!_this->aamp->IsGstreamerSubsEnabled())
 				{
 					_this->aamp->UpdateSubtitleTimestamp();
 				}
@@ -2330,7 +2330,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 	{
 		if (eMEDIATYPE_SUBTITLE == streamId)
 		{
-			if(_this->aamp->mConfig->IsConfigSet(eAAMPConfig_GstSubtecEnabled))
+			if(_this->aamp->IsGstreamerSubsEnabled())
 			{
 #ifdef NO_PLAYBIN
 				_this->aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);					/* Stop any ongoing downloads before setting up a new subtitle stream */
@@ -2954,7 +2954,7 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 	newFormat[eMEDIATYPE_VIDEO] = format;
 	newFormat[eMEDIATYPE_AUDIO] = audioFormat;
 
-	if(ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))				/* Ignore the sub titles if Subtec is not enabled */
+	if(aamp->IsGstreamerSubsEnabled())			/* Ignore the sub titles if Subtec is not enabled */
 	{
 		newFormat[eMEDIATYPE_SUBTITLE] = subFormat;
 		AAMPLOG_WARN("Gstreamer subs enabled");
@@ -3756,7 +3756,7 @@ bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
 		privateContext->buffering_target_state = nextState;
 		privateContext->paused = pause;
 		privateContext->pendingPlayState = false;
-		if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
+		if(!aamp->IsGstreamerSubsEnabled())
 			aamp->PauseSubtitleParser(pause);
 	}
 	else

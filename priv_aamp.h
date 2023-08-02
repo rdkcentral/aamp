@@ -3963,6 +3963,13 @@ public:
 	 */
 	void GetLastDownloadedManifest(std::string& manifestBuffer);
 
+	 /**
+	 * @fn IsGstreamerSubsEnabled
+	 *
+	 * @return bool - true if gstsubtec flag enabled and vttcueevent listener not registered.
+	 */
+	bool IsGstreamerSubsEnabled(void);
+
 private:
 
 	/**
