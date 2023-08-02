@@ -667,6 +667,7 @@ class TrunBox : public FullBox
 {
 private:
 	uint64_t duration;    //Sample Duration value
+	uint32_t sample_count;
 
 
 public:
@@ -682,16 +683,18 @@ public:
  	 *
 	 * @param[in] sz - box size
 	 * @param[in] mdt - sampleDuration value
+	 * @param[in] mdt - sampleCount value
 	 */
-	TrunBox(uint32_t sz, uint64_t sampleDuration);
+	TrunBox(uint32_t sz, uint64_t sampleDuration,uint32_t sampleCount);
 
 	/**
 	 * @fn TrunBox
 	 *
 	 * @param[in] fbox - box object
 	 * @param[in] mdt - BaseMediaDecodeTime value
+	 * @param[in] mdt - sampleCount value
 	 */
-	TrunBox(FullBox &fbox, uint64_t sampleDuration);
+	TrunBox(FullBox &fbox, uint64_t sampleDuration,uint32_t sampleCount);
 
 	/**
 	 * @fn setSampleDuration
@@ -707,6 +710,13 @@ public:
 	 * @return sampleDuration value
 	 */
 	uint64_t getSampleDuration();
+
+	/**
+	 * @fn getSampleCount
+	 *
+	 * @return SampleCount value
+	 */
+	uint32_t getSampleCount();
 
 	/**
 	 * @fn constructTrunBox

@@ -550,7 +550,7 @@ void IsoBmffBuffer::printPTSInternal(const std::vector<Box*> *boxes)
 uint64_t IsoBmffBuffer::getSampleDurationInernal(const std::vector<Box*> *boxes)
 {
 	if(!boxes) return 0;
-
+	uint32_t sample_count = 0;
 	for (int i = (int)boxes->size()-1; i >= 0; i--)
 	{
 		Box *box = boxes->at(i);
@@ -564,17 +564,30 @@ uint64_t IsoBmffBuffer::getSampleDurationInernal(const std::vector<Box*> *boxes)
 				duration = trunBox->getSampleDuration();
 			}
 			//AAMPLOG_WARN("****DURATION: %lld \n", duration);
-			if(duration) return duration;
+			if(duration)
+			{
+				return duration;
+			}
+			else
+			{
+				sample_count = trunBox->getSampleCount();
+			}
 		}
 		else if (IS_TYPE(box->getType(), Box::TFHD))
 		{
+			uint64_t default_sample_duartion=0;
 			TfhdBox *tfhdBox = dynamic_cast<TfhdBox *>(box);
 			if(tfhdBox)
 			{
 				//AAMPLOG_WARN("****TFHD BOX SIZE: %d \n", box->getSize());
-				duration = tfhdBox->getSampleDuration();
+				default_sample_duartion = tfhdBox->getSampleDuration();
 			}
 			//AAMPLOG_WARN("****DURATION: %lld \n", duration);
+			if(default_sample_duartion && sample_count )
+			{
+				duration =  default_sample_duartion*sample_count;
+			}
+			//AAMPLOG_WARN("**** Gnan %s dsd=%lld sc=%ld DURATION: %lld \n",type.c_str(), default_sample_duartion, sample_count,duration);
 			if(duration) return duration;
 		}
 

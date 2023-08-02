@@ -798,14 +798,14 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 /**
  *  @brief TrunBox constructor
  */
-TrunBox::TrunBox(uint32_t sz, uint64_t sampleDuration) : FullBox(sz, Box::TRUN, 0, 0), duration(sampleDuration)
+TrunBox::TrunBox(uint32_t sz, uint64_t sampleDuration,uint32_t sampleCount) : FullBox(sz, Box::TRUN, 0, 0), duration(sampleDuration),sample_count(sampleCount)
 {
 }
 
 /**
  *  @brief TrunBox constructor
  */
-TrunBox::TrunBox(FullBox &fbox, uint64_t sampleDuration) : FullBox(fbox), duration(sampleDuration)
+TrunBox::TrunBox(FullBox &fbox, uint64_t sampleDuration,uint32_t sampleCount) : FullBox(fbox), duration(sampleDuration),sample_count(sampleCount)
 {
 }
 
@@ -823,6 +823,14 @@ void TrunBox::setSampleDuration(uint64_t sampleDuration)
 uint64_t TrunBox::getSampleDuration()
 {
     return duration;
+}
+
+/**
+ *  @brief Get SampleCount value
+ */
+uint32_t TrunBox::getSampleCount()
+{
+    return sample_count;
 }
 
 /**
@@ -885,7 +893,7 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 		}
 	}
 	FullBox fbox(sz, Box::TRUN, version, flags);
-	return new TrunBox(fbox, totalSampleDuration);
+	return new TrunBox(fbox, totalSampleDuration,sample_count);
 }
 
 /**
