@@ -11753,33 +11753,38 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 						maxbuffer = GETCONFIGVALUE(eAAMPConfig_MaxABRNWBufferRampUp);
 						minbuffer = GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown);
 
-						if ((currentLatency < (long)pAampLLDashServiceData->minLatency) ||(buffervalue < minbuffer))
-						{
-							//Yellow state(the latency is within range but less than mimium latency)
-							latencyStatus = LATENCY_STATUS_MIN;
-							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_MIN(%d) AvailableBuffer %lf",latencyStatus,buffervalue);
-							playRate = pAampLLDashServiceData->minPlaybackRate;
-						}
-						else if (( currentLatency >= (long) pAampLLDashServiceData->minLatency) &&
-							 (currentLatency < (long)pAampLLDashServiceData->targetLatency) &&
-							(pAampLLDashServiceData->minPlaybackRate != playRate))
-						{
-							//Yellow state(the latency is within range but less than target latency but greater than minimum latency)
-							latencyStatus = LATENCY_STATUS_THRESHOLD_MIN;
-							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_THRESHOLD_MIN(%d) AvailableBuffer %lf",latencyStatus,buffervalue);
-							playRate = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
-						}
-						else if (currentLatency > (long)pAampLLDashServiceData->targetLatency && (buffervalue > maxbuffer))
+						double segmentBufferValue = pAampLLDashServiceData->fragmentDuration*AAMP_LLD_MINIMUM_CACHE_SEGMENTS*1000; 
+						double targetBuffer = (segmentBufferValue >  (double)pAampLLDashServiceData->targetLatency) ?  pAampLLDashServiceData->targetLatency : segmentBufferValue;
+						bool isEnoughBuffer = (buffervalue*1000.00) > targetBuffer;
+
+						if ((currentLatency > (double) pAampLLDashServiceData->targetLatency) && isEnoughBuffer)
 						{
 							//Red state(The latency is more than maximum latency)
 							latencyStatus = LATENCY_STATUS_MAX; //Red state
 							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_MAX(%d) AvailableBuffer %lf",latencyStatus,buffervalue);
 							playRate = pAampLLDashServiceData->maxPlaybackRate;
 						}
-						else //must not hit here
+
+						else if (currentLatency < ((double) pAampLLDashServiceData->minLatency/2.0))
 						{
-							latencyStatus = LATENCY_STATUS_UNKNOWN; //Red state
-							AAMPLOG_WARN("latencyStatus = LATENCY_STATUS_UNKNOWN(%d) AvailableBuffer %lf",latencyStatus,buffervalue);
+							//Yellow state(the latency is within range but less than mimium latency)
+							latencyStatus = LATENCY_STATUS_MIN;
+							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_MIN(%d) AvailableBuffer %lf",latencyStatus,buffervalue);
+							playRate = pAampLLDashServiceData->minPlaybackRate;
+						}
+						else if (((currentLatency <= (long)pAampLLDashServiceData->targetLatency) &&  aamp->GetLLDashCurrentPlayBackRate() ==  pAampLLDashServiceData->maxPlaybackRate) ||
+								((currentLatency >= (long)pAampLLDashServiceData->targetLatency) &&  aamp->GetLLDashCurrentPlayBackRate() == pAampLLDashServiceData->minPlaybackRate) ||
+								((aamp->GetLLDashCurrentPlayBackRate() ==  pAampLLDashServiceData->maxPlaybackRate) && !isEnoughBuffer)) 
+						{
+							//Yellow state(the latency is within range but less than target latency but greater than minimum latency)
+							latencyStatus = LATENCY_STATUS_MIN;
+							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_MIN(%d) AvailableBuffer %lf",latencyStatus, buffervalue);
+							playRate = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
+						}
+						else //nothing change from current state
+						{
+							//latencyStatus = LATENCY_STATUS_UNKNOWN; //Red state
+							//AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_UNKNOWN(%d) AvailableBuffer %lf",latencyStatus,buffervalue);
 						}
 
 						if ( playRate != aamp->GetLLDashCurrentPlayBackRate() )

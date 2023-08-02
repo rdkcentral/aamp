@@ -2045,12 +2045,12 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 				static int tick;
 				if ((tick++ % 4) == 0)
 				{
-					AAMPLOG_WARN("aamp pos: [%ld..%ld..%ld..%lld..%ld..%.2f..%s..%ld..%ld]",
+					AAMPLOG_WARN("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%s..%ld..%ld]",
 						(long)(start / 1000),
 						(long)(reportFormatPosition / 1000),
 						(long)(end / 1000),
 						(long long) videoPTS,
-						(long)(bufferedDuration / 1000),
+						(double)(bufferedDuration / 1000.0),
 					        (latency / 1000),
 						seiTimecode.c_str(),
 						mpStreamAbstractionAAMP->GetVideoBitrate(),

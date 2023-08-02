@@ -166,6 +166,7 @@
 #define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.90f					/**< min Rate correction speed */
 #define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.10f					/**< max Rate correction speed */
 #define DEFAULT_NORMAL_RATE_CORRECTION_SPEED    1.00f	   	/**< Live Catchup Normal play rate */
+#define AAMP_LLD_MINIMUM_CACHE_SEGMENTS (2)                     /**< Number of segments to be cached minimum before rate change*/
 
 // DELIA-61708 audio drop workaround
 #if defined(BRCM)

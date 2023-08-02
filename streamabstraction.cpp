@@ -1950,7 +1950,18 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	if(video != NULL)
 	{
-		double buffervalue = video->GetBufferedDuration();
+		double buffervalue = video->GetBufferedDuration() * 1000;
+		if(aamp->GetLLDashServiceData()->lowLatencyMode && buffervalue <= aamp->GetLLDashServiceData()->minLatency)
+		{
+			//InsufficientBufferRule: Buffer is empty
+			if (aamp->GetLLDashCurrentPlayBackRate() == aamp->GetLLDashServiceData()->maxPlaybackRate )
+			{
+				aamp->mStreamSink->SetPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED);
+				aamp->SetLLDashCurrentPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED);
+				AAMPLOG_INFO("[DUBUG] Optimal buffer point Change the rate to Normal %lf",buffervalue);
+			}
+		}
+		
 		if(aamp->GetLLDashServiceData()->lowLatencyMode && buffervalue < AAMP_LLDABR_MIN_BUFFER_VALUE)
 		{
 			//InsufficientBufferRule: Buffer is empty
