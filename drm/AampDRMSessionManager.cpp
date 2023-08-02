@@ -46,6 +46,7 @@
 #define LICENCE_REQUEST_HEADER_ACCEPT "Accept:"
 
 #define LICENCE_REQUEST_HEADER_CONTENT_TYPE "Content-Type:"
+#define LICENCE_REQUEST_USER_AGENT "User-Agent:"
 
 #define LICENCE_RESPONSE_JSON_LICENCE_KEY "license"
 #define DRM_METADATA_TAG_START "<ckm:policy xmlns:ckm=\"urn:ccp:ckm\">"
@@ -1818,6 +1819,17 @@ bool AampDRMSessionManager::configureLicenseServerParameters(std::shared_ptr<Aam
 				licenseRequest.headers.insert({LICENCE_REQUEST_HEADER_CONTENT_TYPE, {customData.c_str()}});
 			}
 		}
+
+		// send user agent
+		if(aampInstance->mConfig->IsConfigSet(eAAMPConfig_SendUserAgent))
+		{
+			std::string customData = aampInstance->mConfig->GetUserAgentString();
+			if (!customData.empty())
+			{
+				licenseRequest.headers.insert({LICENCE_REQUEST_USER_AGENT, {customData.c_str()}});
+			}
+		}
+
 		// license Server Proxy need to be applied for both request , with and without contentMetadata
 		licenseServerProxy = aampInstance->GetLicenseReqProxy();
 	}
