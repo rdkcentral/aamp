@@ -206,7 +206,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 				}
 				else if(openPrdFound)
 				{
-					if(adMPDParseHelper->aamp_GetPeriodDuration(mpd, iter, 0) > 0)
+					if(adMPDParseHelper->aamp_GetPeriodDuration(iter, 0) > 0)
 					{
  						//Previous openPeriod ended. New period in the adbreak will be the new open period
 						mPeriodMap[mPlacementObj.openPeriodId].filled = true;
