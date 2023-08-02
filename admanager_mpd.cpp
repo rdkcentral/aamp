@@ -59,7 +59,7 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std:
  * @brief PrivateCDAIObjectMPD constructor
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(AampLogManager* logObj, PrivateInstanceAAMP* aamp) : mLogObj(logObj),mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mAdFailed(false), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mImmediateNextAdbreakAvailable(false),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),mWaitForManifestUpdateFlag(false)
+					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mImmediateNextAdbreakAvailable(false),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec()
 {
 	mAamp->CurlInit(eCURLINSTANCE_DAI,1,mAamp->GetNetworkProxy());
 }
@@ -74,7 +74,6 @@ PrivateCDAIObjectMPD::~PrivateCDAIObjectMPD()
 		mAdObjThreadID.join();
 		mAdObjThreadStarted = false;
 	}
-	mWaitForManifestUpdateFlag = false;
 	mAamp->CurlTerm(eCURLINSTANCE_DAI);
 }
 
@@ -368,13 +367,13 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 							abObj.endPeriodOffset = 0;//Aligning to next period start
 							abObj.endPeriodId = nextPeriod->GetId();
 							mPeriodMap[abObj.endPeriodId] = Period2AdData();
-							mWaitForManifestUpdateFlag = false;
+							abObj.mWaitForManifestUpdateFlag = false;
 							AAMPLOG_INFO("[CDAI] [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s", 
 														diff,currPeriodDuration,abObj.endPeriodId.c_str());
 						}
 						else
 						{
-							mWaitForManifestUpdateFlag = true; //adbrk duration matches the source period duration wait for the manifest update to conitnue playback
+							abObj.mWaitForManifestUpdateFlag = true; //adbrk duration matches the source period duration wait for the manifest update to conitnue playback
 							AAMPLOG_INFO("[CDAI] [%d] close to period end [%" PRIu64 "],but next period not available,waiting", 
 														diff,currPeriodDuration);
 						}
@@ -384,14 +383,14 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 					{
 						AAMPLOG_INFO("[CDAI] [%d] NOT close to period end", diff);
 						abObj.adjustEndPeriodOffset = false; // done with Adjustment
-						mWaitForManifestUpdateFlag = false; // adbrk duration not equal to src period duration continue to play source period remaining duration
+						abObj.mWaitForManifestUpdateFlag = false; // adbrk duration not equal to src period duration continue to play source period remaining duration
 					}
 				}
 			}
 			if(!abObj.adjustEndPeriodOffset) // placed all ads now print the placement data and set mPlacementObj.curAdIdx = -1;
 			{
 				mPlacementObj.curAdIdx = -1;
-				mWaitForManifestUpdateFlag = false;
+				abObj.mWaitForManifestUpdateFlag = false;
 				//Printing the placement positions
 				std::stringstream ss;
 				ss<<"{AdbreakId: "<<mPlacementObj.pendingAdbrkId;
@@ -443,7 +442,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 
 				mImmediateNextAdbreakAvailable = true;
 			}
-			mWaitForManifestUpdateFlag = false;
+			abObj.mWaitForManifestUpdateFlag = false;
 		}
 	}
 	SAFE_DELETE(adMPDParseHelper);
@@ -880,7 +879,7 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 PlacementObj PrivateCDAIObjectMPD::setPlacementObj(std::string adBrkId,std::string endPeriodId)
 {
 	std::vector<PlacementObj>::iterator itr;
-	PlacementObj nxtPlacementObj;
+	PlacementObj nxtPlacementObj = PlacementObj();
 	mAdBrkVecMtx.lock();
 	if(adBrkId == endPeriodId)
 	{
