@@ -966,6 +966,7 @@ private:
 	double mLocalUtcTime;
 	ABRMode mABRMode;					 /**< ABR mode*/
 	size_t mLastManifestFileSize;
+	double mFragmentTimeOffset;     /**< denotes the offset added to fragment time when absolute timeline is disabled, holds currentPeriodOffset*/
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_

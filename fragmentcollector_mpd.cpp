@@ -149,6 +149,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,mMPDParseHelper(NULL)
 	,mLowLatencyMode(false)
 	,mABRMode(ABRMode::UNDEF)
+	,mFragmentTimeOffset(0)
 {
         FN_TRACE_F_MPD( __FUNCTION__ );
 	this->aamp = aamp;
@@ -978,6 +979,15 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	}
 //	AAMPLOG_WARN("[%s] mFirstFragPTS %f  position %f -> %f ", pMediaStreamContext->name, mFirstFragPTS[pMediaStreamContext->mediaType], position, mFirstFragPTS[pMediaStreamContext->mediaType]+position);
 	position += mFirstFragPTS[pMediaStreamContext->mediaType];
+
+	// fragmentTime is set at the beginning of the playback, which then advances with every fragment download
+	// the offset is also added at the beginning when absolute timeline is disabled
+	// the offset will further mess up the position value because fragmentTime + mFirstFragPTS is the actual PTS of the fragment in period
+	// So deduct the offset here to align subtitles timestamps.
+	if (position > mFragmentTimeOffset)
+	{
+		position -= mFragmentTimeOffset;
+	}
 	bool fragmentCached = pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, position, duration, NULL, isInitializationSegment, discontinuity
 		,(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING), pto, scale);
 	// Check if we have downloaded the fragment and waiting for init fragment download on
@@ -4406,6 +4416,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					// position is adjusted in TuneHelper based on current period start,
 					// So just save fragmentTime.
 					seekPosition += currentPeriodStart;
+					// Save the offset. This is to be used later in CacheFragment
+					mFragmentTimeOffset = currentPeriodStart;
 				}
 			}
 			else if (!seekPosition)
