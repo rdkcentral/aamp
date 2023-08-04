@@ -8911,9 +8911,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						vector <IAdaptationSet*> adapatationSets = newPeriod->GetAdaptationSets();
 						int adaptationSetCount = (int)adapatationSets.size();
 
-						//If CheckForValidScteEevnt  Return true, need to process the period further even though the period don’t have any adaptation set.
-						//Need to skip the below condition in that case.
-						if(!CheckForValidScteEevnt(newPeriod) && (0 == adaptationSetCount || (mMPDParseHelper->IsEmptyPeriod(mIterPeriodIndex, (rate != AAMP_NORMAL_PLAY_RATE)))))
+						if(0 == adaptationSetCount || (mMPDParseHelper->IsEmptyPeriod(mIterPeriodIndex, (rate != AAMP_NORMAL_PLAY_RATE))))
 						{
 							/*To Handle non fog scenarios where empty periods are
 							* present after mpd update causing issues (DELIA-29879)
@@ -12571,30 +12569,7 @@ void StreamAbstractionAAMP_MPD::setNextRangeRequest(std::string fragmentUrl,std:
 {
 	aamp->mCMCDCollector->CMCDSetNextRangeRequest(nextrange,bandwidth,mediaType);
 }
-/**
- * @fn CheckForValidScteEevnt
- * @brief Function to find the scte event is valid or not. Considering event is valid if duration is greater than 0
- * @param[in] period.
- * @retval true if event is valid.
- */
-bool StreamAbstractionAAMP_MPD::CheckForValidScteEevnt(IPeriod *period)
-{
-	const std::vector<IEventStream *> &eventStreams = period->GetEventStreams();
-	bool validScteEvent = false;
-	for(auto &eventStream: eventStreams)
-	{
-		for(auto &event: eventStream->GetEvents())
-		{
-			if(event->GetDuration() > 0)
-			{
-				validScteEvent = true;
-				AAMPLOG_INFO("Found validScteEvent on period:%s",period->GetId().c_str());
-				break;
-			}
-		}
-	}
-	return (validScteEvent);
-}
+
 /**
  * @fn PlacenextAdBrkifAvail
  * @brief Function to verify if the next period contains ad break and place it
@@ -12616,3 +12591,4 @@ bool StreamAbstractionAAMP_MPD::PlacenextAdBrkifAvail(IMPD *mpd)
 	AAMPLOG_WARN("[CDAI] number of ads pending for playback :%d",mCdaiObject->mAdtoInsertInNextBreakVec.size());
 	return adStateChanged;
 }
+
