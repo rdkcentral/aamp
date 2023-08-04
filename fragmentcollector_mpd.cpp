@@ -12145,6 +12145,8 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadStartTimeout,TIMEOUT_FOR_LLD);
 						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_CurlStallTimeout,TIMEOUT_FOR_LLD);
 						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadLowBWTimeout,TIMEOUT_FOR_LLD);
+						SetABRMinBuffer(GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown));
+						SetABRMaxBuffer(GETCONFIGVALUE(eAAMPConfig_MaxABRNWBufferRampUp));
 						aamp->LoadAampAbrConfig();
 					
 					//Set LL Dash Service Configuration Data in Pvt AAMP instance

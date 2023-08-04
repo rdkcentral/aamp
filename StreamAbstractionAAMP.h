@@ -830,7 +830,22 @@ public:
 		(void)type;
 		return nullptr;
 	}
+	
+	/**
+	 * @brief Sets the minimum buffer for ABR (Adaptive Bit Rate).
+	 *
+	 * @param minbuffer The minimum buffer value to be set for ABR.
+	 * @return void
+	 */
+	void SetABRMinBuffer(int minbuffer) { mABRMinBuffer = minbuffer;}
 
+	/**
+	 * @brief Sets the maximum buffer for ABR (Adaptive Bit Rate).
+	 * 
+	 * @param maxbuffer The maximum buffer value to be set for ABR.
+	 * @return void
+	 */
+	void SetABRMaxBuffer(int maxbuffer) { mABRMaxBuffer = maxbuffer;}
 	/**
 	 *   @brief Waits audio track injection until caught up with video track.
 	 *          Used internally by injection logic
