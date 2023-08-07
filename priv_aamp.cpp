@@ -11836,6 +11836,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	double tmpVar = 0;
 	int tmpLongVar = 0;
 	int maxdownload = 0;
+	std::string tmpStringVar = "";
 
 	// langCodePreference
 	jsondata.add("langCodePreference", (int) GetLangCodePreference());
@@ -11926,6 +11927,14 @@ long PrivateInstanceAAMP::LoadFogConfig()
 			jsondata.add("abrMinBuffer4k",mBufferFor4kRampdown);
 		}
 	}
+
+	// RDKAAMP-1268: Harvest configuration
+	tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
+	jsondata.add("harvestConfig",tmpLongVar);
+
+	tmpStringVar = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);
+	jsondata.add("harvestPath",tmpStringVar);
+
 	/*
 	 * Audio and subtitle preference
 	 * Disabled this for XRE supported TSB linear
