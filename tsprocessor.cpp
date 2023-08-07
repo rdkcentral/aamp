@@ -843,6 +843,8 @@ static StreamOutputFormat getStreamFormatForCodecType(int streamType)
 			format = FORMAT_VIDEO_ES_MPEG2;
 			break;
 		case eSTREAM_TYPE_MPEG1_AUDIO:
+			format = FORMAT_AUDIO_ES_MP3;
+			break;
 		case eSTREAM_TYPE_MPEG2_AUDIO:
 		case eSTREAM_TYPE_AAC_ADTS:
 		case eSTREAM_TYPE_AAC_LATM:

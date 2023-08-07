@@ -39,6 +39,7 @@ public:
                 int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
                 bool resetBuffer, MediaType fileType, BitsPerSecond *bitrate, int * fogError,
                 double fragmentDurationSeconds));
+    MOCK_METHOD(void, SetStreamFormat, (StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

@@ -409,6 +409,8 @@ TEST(_AampUtils, GetAudioFormatStringForCodec)
 	EXPECT_STREQ(result, "UNKNOWN");
 	result = GetAudioFormatStringForCodec(FORMAT_ISO_BMFF);
 	EXPECT_STREQ(result, "UNKNOWN");
+	result = GetAudioFormatStringForCodec(FORMAT_AUDIO_ES_MP3);
+	EXPECT_STREQ(result, "UNKNOWN");
 	result = GetAudioFormatStringForCodec(FORMAT_AUDIO_ES_AAC);
 	EXPECT_STREQ(result, "mp4a.40.2");
 	result = GetAudioFormatStringForCodec(FORMAT_AUDIO_ES_AC3);

@@ -60,6 +60,7 @@
 
 /*
  * Variable initialization for various audio formats
+ * There are no registered codecs parameters for mp1, mp2, mp3, mpg, mpeg
  */
 const FormatMap mAudioFormatMap[] =
 {

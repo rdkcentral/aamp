@@ -1004,3 +1004,19 @@ std::string PrivateInstanceAAMP::GetVideoPlaybackQuality()
         return nullptr;
 }
 
+void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat)
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SetStreamFormat(videoFormat, audioFormat, auxFormat);
+	}
+}
+
+void PrivateInstanceAAMP::NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale)
+{
+}
+
+void PrivateInstanceAAMP::NotifyVideoBasePTS(unsigned long long basepts, unsigned long timeScale)
+{
+}
+

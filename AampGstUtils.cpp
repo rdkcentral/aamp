@@ -42,6 +42,10 @@ GstCaps* GetGstCaps(StreamOutputFormat format)
 		case FORMAT_ISO_BMFF:
 			caps = gst_caps_new_simple("video/quicktime", NULL, NULL);
 			break;
+		case FORMAT_AUDIO_ES_MP3:
+			caps = gst_caps_new_simple ("audio/mpeg",
+					"mpegversion", G_TYPE_INT, 1, NULL);
+			break;
 		case FORMAT_AUDIO_ES_AAC:
 			caps = gst_caps_new_simple ("audio/mpeg",
 					"mpegversion", G_TYPE_INT, 2,
