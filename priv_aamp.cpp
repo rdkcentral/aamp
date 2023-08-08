@@ -2045,7 +2045,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 				static int tick;
 				if ((tick++ % 4) == 0)
 				{
-					AAMPLOG_WARN("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%s..%ld..%ld]",
+					AAMPLOG_WARN("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%s..%ld..%ld..%.2f]",
 						(long)(start / 1000),
 						(long)(reportFormatPosition / 1000),
 						(long)(end / 1000),
@@ -2054,7 +2054,8 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 					        (latency / 1000),
 						seiTimecode.c_str(),
 						mpStreamAbstractionAAMP->GetVideoBitrate(),
-						mNetworkBandwidth);
+						mNetworkBandwidth,
+						mLLDashCurrentPlayRate); /** TODO non LLD support */
 				}
 			}
 

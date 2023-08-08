@@ -66,6 +66,7 @@
 #define VSS_DASH_EARLY_AVAILABLE_PERIOD_PREFIX "vss-"
 #define FOG_INSERTED_PERIOD_ID_PREFIX "FogPeriod"
 #define INVALID_VOD_DURATION  (0)
+#define FLOATING_POINT_EPSILON 0.1 // workaround for floating point math precision issues
 
 /**
  * Macros for extended audio codec check as per ETSI-TS-103-420-V1.2.1
@@ -1781,7 +1782,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			{
 				// Low Latency Mode will be pointing to edge of the fragment based on avilablitystarttimeoffset,
 				// and fragmentDescriptor time itself will be pointing to edge time when live offset is 0. 
-				// So adding the duration will cause the latency of fragment duartion and sometime repeat the same content.
+				// So adding the duration will cause the latency of fragment duration and sometime repeat the same content.
 				availabilityTimeOffset =  aamp->GetLLDashServiceData()->availabilityTimeOffset;
 				fragmentRequestTime = pMediaStreamContext->fragmentDescriptor.Time+(fragmentDuration-availabilityTimeOffset);
 			}
@@ -2471,7 +2472,12 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							continue;  /* continue to next fragment */
 						}
 					}
-					else if (skipTime >= fragmentDuration)
+					//DELIA-60587:Content Audio and Video Played for 1-2 seconds when we seek after Ad break.
+					//Even if skiptime is equal to fragmentduration(eg: skipTime = 1.190600 & fragmentDuration=1.190600 this is based on logs)
+					//it is not entering the loop which is leading to go back to 2 seconds of previous period content and play,
+					//then jump to next period. The issue here is complier is optimizing the value to 1.18999 for skiptime where as
+					//fragment duration is optimized to 1.190600. so adding floating point precision.
+					else if (ceil(skipTime) >= fragmentDuration - FLOATING_POINT_EPSILON)
 					{
 						skipTime -= fragmentDuration;
 						pMediaStreamContext->fragmentTime += fragmentDuration;
@@ -4350,6 +4356,22 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					( eTUNETYPE_RETUNE != tuneType ) ) )
 				{
 					offsetFromStart = offsetFromStart+(aamp->GetLLDashServiceData()->fragmentDuration - aamp->GetLLDashServiceData()->availabilityTimeOffset);
+				}
+				else if( (mLowLatencyMode ) &&
+					(aamp->GetLLDashServiceData()->isSegTimeLineBased) && \
+					( (eTUNETYPE_SEEK != tuneType   ) &&
+					( eTUNETYPE_NEW_SEEK != tuneType ) &&
+					( eTUNETYPE_NEW_END != tuneType ) &&
+					( eTUNETYPE_SEEKTOEND != tuneType ) &&
+					( eTUNETYPE_RETUNE != tuneType ) ) )
+				{
+					double manifestEndDelta = ((double)mLastPlaylistDownloadTimeMs/1000.0) - mPeriodEndTime;
+					if(manifestEndDelta > 0)
+					{
+						offsetFromStart = offsetFromStart + manifestEndDelta;
+					}
+					AAMPLOG_INFO("manifestEndDelta = %lf mLastPlaylistDownloadTimeMs %lf mPeriodEndTime = %lf offsetFromStart = %lf", 
+					manifestEndDelta, (double)mLastPlaylistDownloadTimeMs/1000.0, mPeriodEndTime, offsetFromStart);
 				}
 				SeekInPeriod( offsetFromStart);
 			}
@@ -6323,7 +6345,7 @@ void StreamAbstractionAAMP_MPD::StartSubtitleParser()
 		// seekPoint can end up -0.088400000000000006 here
 		// 0.1 seems too big an epsilon, but works to avoid RDKAAMP-769
 		// need to check the math leading up to above value to see if precision can be improved
-#define FLOATING_POINT_EPSILON 0.1
+
 		if (seekPoint < -FLOATING_POINT_EPSILON )
 		{
 			AAMPLOG_INFO("Not reached start point yet - returning");
@@ -11461,31 +11483,46 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 						pAampLLDashServiceData->maxPlaybackRate > DEFAULT_NORMAL_RATE_CORRECTION_SPEED)
 					{
 						double buffervalue = GetBufferedDuration();
-						int minbuffer,maxbuffer ;
-						maxbuffer = GETCONFIGVALUE(eAAMPConfig_MaxABRNWBufferRampUp);
-						minbuffer = GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown);
-
+						double minbuffer = (double)pAampLLDashServiceData->targetLatency/2.0;
+						minbuffer = minbuffer > DEFAULT_MIN_BUFFER_LOW_LATENCY ? DEFAULT_MIN_BUFFER_LOW_LATENCY: minbuffer;
+						
 						double segmentBufferValue = pAampLLDashServiceData->fragmentDuration*AAMP_LLD_MINIMUM_CACHE_SEGMENTS*1000; 
 						double targetBuffer = (segmentBufferValue >  (double)pAampLLDashServiceData->targetLatency) ?  pAampLLDashServiceData->targetLatency : segmentBufferValue;
 						bool isEnoughBuffer = (buffervalue*1000.00) > targetBuffer;
+						bool bufferLowHitted = false; 
+						static int bufferLowCount = 0;
+						if(buffervalue < minbuffer)
+						{
+							bufferLowCount++;
+							if (bufferLowCount == AAMP_LLD_LOW_BUFF_CHECK_COUNT)
+							{
+								bufferLowHitted = true;
+								bufferLowCount = 0;
+							}
+						}
+						else
+						{
+							bufferLowHitted = false;
+							bufferLowCount = 0;
+						}
 
-						if ((currentLatency > (double) pAampLLDashServiceData->targetLatency) && isEnoughBuffer)
+						if ((currentLatency >= ((double) pAampLLDashServiceData->targetLatency + 1 )) && isEnoughBuffer)
 						{
 							//Red state(The latency is more than maximum latency)
 							latencyStatus = LATENCY_STATUS_MAX; //Red state
 							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_MAX(%d) AvailableBuffer %lf",latencyStatus,buffervalue);
 							playRate = pAampLLDashServiceData->maxPlaybackRate;
 						}
-
-						else if (currentLatency < ((double) pAampLLDashServiceData->minLatency/2.0))
+						else if (currentLatency < ((double) pAampLLDashServiceData->minLatency) ||  bufferLowHitted )
 						{
 							//Yellow state(the latency is within range but less than mimium latency)
 							latencyStatus = LATENCY_STATUS_MIN;
-							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_MIN(%d) AvailableBuffer %lf",latencyStatus,buffervalue);
+							AAMPLOG_INFO("latencyStatus = LATENCY_STATUS_MIN(%d) AvailableBuffer %lf bufferLowHitted = %d",
+							latencyStatus,buffervalue, bufferLowHitted);
 							playRate = pAampLLDashServiceData->minPlaybackRate;
 						}
 						else if (((currentLatency <= (long)pAampLLDashServiceData->targetLatency) &&  aamp->GetLLDashCurrentPlayBackRate() ==  pAampLLDashServiceData->maxPlaybackRate) ||
-								((currentLatency >= (long)pAampLLDashServiceData->targetLatency) &&  aamp->GetLLDashCurrentPlayBackRate() == pAampLLDashServiceData->minPlaybackRate) ||
+								(((currentLatency >= (long)pAampLLDashServiceData->targetLatency) &&  aamp->GetLLDashCurrentPlayBackRate() == pAampLLDashServiceData->minPlaybackRate && !bufferLowHitted)) ||
 								((aamp->GetLLDashCurrentPlayBackRate() ==  pAampLLDashServiceData->maxPlaybackRate) && !isEnoughBuffer)) 
 						{
 							//Yellow state(the latency is within range but less than target latency but greater than minimum latency)
@@ -11831,8 +11868,6 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 			}
 			else
 			{
-				
-				//double maxFragmentDuartion	=	mMPDParseHelper->GetSegmentDurationSeconds();
 				double latencyOffset = 0;
 				if(!aamp->GetLowLatencyServiceConfigured())
 				{
@@ -11862,6 +11897,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadStartTimeout,TIMEOUT_FOR_LLD);
 						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_CurlStallTimeout,TIMEOUT_FOR_LLD);
 						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadLowBWTimeout,TIMEOUT_FOR_LLD);
+						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_LatencyMonitorInterval,AAMP_LLD_LATENCY_MONITOR_INTERVAL);
 						SetABRMinBuffer(GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown));
 						SetABRMaxBuffer(GETCONFIGVALUE(eAAMPConfig_MaxABRNWBufferRampUp));
 						aamp->LoadAampAbrConfig();
