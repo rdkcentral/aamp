@@ -55,7 +55,7 @@ protected:
 	const char *mManifest;
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
-
+	std::shared_ptr<ManifestDownloadResponse> mResponse =  std::make_shared<ManifestDownloadResponse> ();
 	using BoolConfigSettings = std::map<AAMPConfigSettingBool, bool>;
 	using IntConfigSettings = std::map<AAMPConfigSettingInt, int>;
 
@@ -137,6 +137,7 @@ protected:
 		mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 
 		mManifest = nullptr;
+		mResponse = nullptr;
 	}
 
 	void TearDown() override
@@ -232,6 +233,7 @@ public:
 		response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
 		response->mMPDDownloadResponse->mDownloadData.assign((uint8_t*)mManifest, (uint8_t*)(mManifest + strlen(mManifest)));
 		GetMPDFromManifest(response);
+		mResponse = response;
 		return response;
 	}
 
@@ -751,3 +753,50 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	/* Verify that Fog is selected. */
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetABRMode(), StreamAbstractionAAMP::ABRMode::FOG_TSB);
 }
+
+/**
+ * @brief test for XML Parser to read and process CDATA section under EventStream
+ *
+ * The MPD initialization should be successful
+ * The MPD object should be valid.
+ */
+
+/*TEST_F(FunctionalTests, CDATA_Test)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H10M54.00S" profiles="urn:mpeg:dash:profile:isoff-live:2011,http://dashif.org/guidelines/dash264">
+  <Period duration="PT1M0S">
+   <EventStream schemeIdUri="urn:sva:advertising-wg:ad-id-signaling" timescale="90000">
+            <Event duration="1358857" presentationTime="0"><![CDATA[{"version":1,"identifiers":[{"scheme":"urn:smpte:ul:060E2B34.01040101.01200900.00000000","value":"5493003","ad_position":"_PT0S_0","ad_type":"avail","tracking_uri":"../../../../../../../../../../tracking/99247e89c7677df85a85aabdd3256ffe02a60196/peacock-dash-vod-2s-generic/f38d0147-7bee-480f-83a7-fec49fda39b9","custom_vast_data":null}]}]]></Event>
+        </EventStream>
+    <AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000">
+        <SegmentTemplate timescale="2500" media="video_$Time$.mp4" initialization="video_init.mp4">
+          <SegmentTimeline>
+            <S d="5000" r="29" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	// Initialize MPD. The video initialization segment is cached. 
+	std::string expectedCData = R"({"version":1,"identifiers":[{"scheme":"urn:smpte:ul:060E2B34.01040101.01200900.00000000","value":"5493003","ad_position":"_PT0S_0","ad_type":"avail","tracking_uri":"../../../../../../../../../../tracking/99247e89c7677df85a85aabdd3256ffe02a60196/peacock-dash-vod-2s-generic/f38d0147-7bee-480f-83a7-fec49fda39b9","custom_vast_data":null}]})";
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest);
+	//To verify the anticipated cdata against the cdata processed within the process node function.
+	ASSERT_EQ(mResponse->mRootNode->GetText().c_str(), expectedCData);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Get the manifest data. 
+	mpd = mStreamAbstractionAAMP_MPD->GetMPD();
+	EXPECT_NE(mpd, nullptr);
+	}*/

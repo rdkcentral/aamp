@@ -29,7 +29,7 @@ Node* MPDProcessNode(xmlTextReaderPtr *reader, std::string url, bool isAd)
 	static int UNIQ_PID = 0;
 	int type = xmlTextReaderNodeType(*reader);
 
-	if (type != WhiteSpace && type != Text)
+	if (type != WhiteSpace && type != Text && type != XML_CDATA_SECTION_NODE)
 	{
 		while (type == Comment || type == WhiteSpace)
 		{
@@ -103,10 +103,17 @@ Node* MPDProcessNode(xmlTextReaderPtr *reader, std::string url, bool isAd)
 
 		return node;
 	}
-	else if (type == Text)
+	else if (type == Text || type == XML_CDATA_SECTION_NODE) 
 	{
-		xmlChar * text = xmlTextReaderReadString(*reader);
-
+		xmlChar* text = nullptr;
+		if (type == XML_CDATA_SECTION_NODE) 
+		{
+			text = xmlTextReaderValue(*reader); // CDATA section
+		} 
+		else 
+		{
+			text = xmlTextReaderReadString(*reader); // Regular text node
+		}
 		if (text != NULL)
 		{
 			Node *node = new Node();
