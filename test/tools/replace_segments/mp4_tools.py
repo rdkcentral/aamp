@@ -1036,10 +1036,30 @@ class transcode_flist(object):
 
         return res
 
+    def get_header_codec(self, url):
+        subp = subprocess.Popen(
+            [
+                f"cat {url} | ffprobe -hide_banner -show_format -show_streams -count_frames -pretty -of xml - 2>/dev/null"
+            ],
+            shell=True,
+            stdout=subprocess.PIPE,
+        )
+        tree = ET.parse(subp.stdout)
+        root = tree.getroot()
+        codec = ""
+        for elem in root:
+            if elem.tag.endswith("streams"):
+                for stream in elem:
+                    codec = stream.get("codec_name")
+        log.info(f"header codec over-ride -> {codec} | cat {url} | ffprobe -hide_banner -show_format -show_streams -count_frames -pretty -of xml - 2>/dev/null")
+        subp.wait()
+        return codec
+
     def media_attribs(self, attrs=None):
         """
         Return the attributes for the target based upon the imput files.
         """
+        ffprobe_on = ""
         if self.init_file is None:
             subp = subprocess.Popen(
                 [
@@ -1049,6 +1069,7 @@ class transcode_flist(object):
                 shell=True,
                 stdout=subprocess.PIPE,
             )
+            ffprobe_on = self.flist[0]
         else:
             subp = subprocess.Popen(
                 [
@@ -1058,7 +1079,10 @@ class transcode_flist(object):
                 shell=True,
                 stdout=subprocess.PIPE,
             )
+            ffprobe_on = self.init_file
 
+        header_codec = self.get_header_codec(ffprobe_on)
+        
         tree = ET.parse(subp.stdout)
         root = tree.getroot()
 
@@ -1092,6 +1116,10 @@ class transcode_flist(object):
                         "bit_rate", rates.get(med_type, "100 Kbit/s")
                     )
                     codecs[med_type] = stream.get("codec_name", "")
+
+                    # DELIA-62747 : patch to over-ride codec of segment with codec of header
+                    if header_codec not in ["", None]:
+                        codecs[med_type] = header_codec
 
                     if med_type == "video":
                         parts = stream.get("r_frame_rate", attr_fps).split("/", 1)
@@ -1179,6 +1207,9 @@ class transcode_flist(object):
             )
 
         subp.wait()
+        # DELIA-62747 : temparary patch to handle ac3 codec of segment -> replace {'audio': 'ac3'} with {'audio': 'eac3'}
+        # if "ac3" == codecs.get('audio',''):
+        #     codecs['audio'] = 'eac3'
 
         return rates, codecs, str(round(pts / time_base, 3)), fps, dim
 
