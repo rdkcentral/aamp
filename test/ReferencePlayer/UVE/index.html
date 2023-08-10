@@ -35,81 +35,164 @@
 
 <body>
     <div id="videoContainer"  class="container">
+        
         <!-- Video -->
         <video id="dummyVideo" class="videoPlayer">
             <source src="placeholder.mp4" type="video/ave">
         </video>
-        <div id="controlDiv">
-          <!-- Video Controls -->
-          <div id="videoControlsDiv">
-              <button class="button" id="playOrPauseButton"><img id="playOrPauseIcon" src="../icons/play.png"></button>
-              <button class="button" id="videoToggleButton"><img id="flipIcon" src="../icons/flip.png"></button>
-              <button class="button" id="rewindButton"><img class="flipImg" src="../icons/fastForward.png"></button>
-              <button class="button" id="skipBackwardButton"><img class="flipImg" src="../icons/skipForward.png"></button>
-              <nobr id="currentDuration">00:00:00</nobr>
-              <div id="seekBarOuter">
-                  <div id="seekBar"></div>
-              </div>
-              <nobr id="totalDuration">00:00:00</nobr>
-              <button class="button" id="skipForwardButton"><img src="../icons/skipForward.png"></button>
-              <button class="button" id="fastForwardButton"><img src="../icons/fastForward.png"></button>
-              <button class="button" id="muteVideoButton"><img id="muteIcon" src="../icons/unMute.png"></button>
-              <button class="button" id="ccButton" ><img id="ccIcon" src="../icons/closedCaptioningDisabled.png"></button>
-          </div>
+
+        <!-- Video Controls -->
+        <div id="bottomNavBar">            
+            
+            <div id="progressBarDiv">
+                <div class="progress-column current-duration">
+                    <p id="currentDuration">00:00:00</p>
+                </div>
+                <div class="progress-column progress-bar">
+                    <div id="seekBarOuter">
+                        <div id="seekBar"></div>
+                    </div>
+                </div>
+                <div class="progress-column total-duration">
+                    <p id="totalDuration">00:00:00</p><br>
+                </div>
+            </div>
+
+            <div id="playbackButtonsDiv">
+                <div class="buttons-column left-buttons">
+                    <button class="button" id="videoToggleButton"><img id="flipIcon" src="../icons/flip.png"></button>
+                    <button class="button" id="ccButton" ><img id="ccIcon" src="../icons/closedCaptioningDisabled.png"></button>  
+                </div>
+                <div class="buttons-column mid-buttons">
+                    <button class="button" id="rewindButton"><img class="flipImg" src="../icons/fastForward.png"></button>
+                    <button class="button" id="skipBackwardButton"><img class="flipImg" src="../icons/skipForward.png"></button>
+                    <button class="button" id="playOrPauseButton"><img id="playOrPauseIcon" src="../icons/play.png"></button>
+                    <button class="button" id="skipForwardButton"><img src="../icons/skipForward.png"></button>
+                    <button class="button" id="fastForwardButton"><img src="../icons/fastForward.png"></button>
+                </div>
+                <div class="buttons-column right-buttons">
+                    <button class="button" id="muteVideoButton"><img id="muteIcon" src="../icons/unMute.png"></button>
+                    <button class="button" id="resizeButton"><img id="scaleIcon" src="../icons/compress.png"></button>
+                </div>
+            </div>
         </div>
-        <div id="controlDivNext">
-          <div id="videoControlsDivNext">
-            <select id="audioTracks">
-            </select>
-             <select id="ccTracks">
-              </select>
-              <select id="ccStyles">
-                <option>Option 1</option>
-                <option>Option 2</option>
-                <option>Option 3</option>
-              </select>
-              <select id="videoURLs">
-              </select>
-              <p id="playerType">UVE PLAYER</p>
-              <span id="cacheOnly" class="cacheOnly">Cache: </span>
-              <label id="cacheOnlyButton">
-                  <input type="checkbox" id="cacheOnlyCheck" class="check-box-custom">
-              </label>
-              <span id="seekState">Seek: </span>
-              <label id="autoSeekButton">
-                  <input type="checkbox" id="seekCheck" checked>
-              </label>
-              <input type="text" id="jumpPosition" placeholder=" position(ms)">
-              <button class="button" id="jumpButton">JUMP</button>
-              <span id="logState">Diagnostics: </span>
-              <label id="autoLogButton">
-                  <input type="checkbox" id="logCheck" class="check-box-custom">
-              </label>
-              <span id="metadataState">Metadata: </span>
-              <label id="metadataButton">
-                  <input type="checkbox" id="metadataCheck" class="check-box-custom">
-              </label>
-              <label>
-                  <button class="round-button" id="homeButton"><img id="homeIcon" src="../icons/home.png"></button>
-              </label>
-              <p id="audioTitle">AUDIO</p>
-              <p id="ccTitle">CC</p>
-          </div>
+
+        <div id="topNavBar">
+
+            <div class="top-bar-column asset-col">
+                <div class="drop-down-list">
+                    <select name="videoURLs" id="videoURLs">
+                    </select>
+                </div>
+            </div>
+
+            <div class="top-bar-column audio-col">
+                <div class="drop-down-list">
+                    <select name="audioTracks" id="audioTracks">
+                    </select>
+                </div>
+            </div>
+
+            <div class="top-bar-column cc-col">
+                <div class="drop-down-list">
+                    <select name="ccTracks" id="ccTracks">
+                    </select>
+                </div>
+            </div>
+
+            <div class="top-bar-column cc-style-col">
+                <div class="drop-down-list">
+                    <select name="ccStyles" id="ccStyles">
+                        <option>CC Style 1</option>
+                        <option>CC Style 2</option>
+                        <option>CC Style 3</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="top-bar-column home-col">
+                <button class="button" id="homeButton"><img id="homeIcon" src="../icons/home.png"></button>
+            </div>
+        </div>
+
+        <div id="innerNavBar">
+            <div id="cacheCheckBox" class="check-box-custom">
+                <input type="checkbox" id="cacheOnlyCheck">
+                <label for="cacheOnlyCheck">CACHE</label>
+            </div>
+            
+            <div id="metadataCheckBox" class="check-box-custom">
+                <input type="checkbox" id="metadataCheck">
+                <label for="metadataCheck">METADATA</label>
+            </div>
+
+            <div id="seekCheckBox" class="check-box-custom">
+                <input type="checkbox" id="seekCheck" checked>
+                <label for="seekCheck">SEEK</label>
+            </div>
+            
+            <input type="text" id="jumpPosition" placeholder=" position(ms)">
+            
+            <button class="jump-button" id="jumpButton">JUMP</button>
+            
         </div>
     </div>
 
-    <!-- The Overlay Modal -->
-    <div id="overlayModal" class="overModal">
-        <h4>
-            AAMP<nobr id="contentType"></nobr><nobr id="manifestType"></nobr><nobr id="drmType"></nobr>
-        </h4>
-        Bitrates(Mbps): <nobr id="availableBitratesList"></nobr>
+    <div id="debugScreen">
+        <!-- DEBUG TABLE -->
+        <table id="debugTable">
+            <tr>
+              <td>CURRENT POSITION</td>
+              <td id="positionInSeconds"></td>
+            </tr>
+            <tr>
+              <td>PLAY STATE</td>
+              <td id="playState"></td>
+            </tr>
+            <tr>
+              <td>STREAM TYPE</td>
+              <td id="streamType"></td>
+            </tr>
+            <tr>
+                <td>BITRATES(Mbps)</td>
+                <td id="availableBitratesList"></td>
+            </tr>
+            <tr>
+              <td>AUDIO TRACK INFO</td>
+              <td id="audioTrackInfo"></td>
+            </tr>
+            <tr>
+                <td>PROFILE INFO</td>
+                <td id="profileInfo"></td>
+            </tr>
+            <tr>
+                <td>WIDTH x HEIGHT</td>
+                <td id="widthHeight"></td>
+            </tr>            
+            <tr>
+                <td>CURRENT PTS</td>
+                <td id="currentPTS"></td>
+            </tr>
+            <tr>
+                <td>LIVE LATENCY</td>
+                <td id="liveLatency"></td>
+            </tr>
+            <tr>
+                <td>VIDEO BUFFERED(Ms)</td>
+                <td id="videoBuffered"></td>
+            </tr>            
+            <tr>
+              <td>BUFFER STATUS</td>
+              <td id="bufferStatus">Good</td>
+            </tr>
+        </table>
+
+        <!-- The URL Modal -->
+        <div id="urlModal" class="urlModal">
+            <p id="contentURL" ></p>
+        </div>
     </div>
-  
-    <!-- The URL Modal -->
-    <div id="urlModal" class="urlModal">
-        <p id="contentURL" ></p>
-    </div>
+
 
     <!-- The Metadata Modal -->
     <div id="metadataModal" class="metadataModal">
@@ -150,11 +233,8 @@
             <mark id="subtitleText"></mark>
         </p>
     </div>
-
-    <!-- The Position Reporting Modal -->
-    <div id="positionModal" class="positionModal">
-        <p id="positionInSeconds" ></p>
-    </div>
 </body>
 
 </html>
+
+ 

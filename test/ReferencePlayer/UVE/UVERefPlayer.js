@@ -54,6 +54,7 @@ var SintelDrmConfig = {
 	'com.microsoft.playready':'https://amssamples.keydelivery.mediaservices.windows.net/PlayReady/',
 	'com.widevine.alpha':'https://amssamples.keydelivery.mediaservices.windows.net/Widevine/?KID=f9dbca11-a1e2-45c8-891f-fb71063cbfdb',
 	'preferredKeysystem':'com.microsoft.playready'};
+    
 //AAMP initConfig is used to pass certain predefined config params to AAMP
 //Commented out values are not implemented for now
 //Values assigned are default values of each config param
@@ -257,6 +258,7 @@ var playerState = playerStatesEnum.idle;
 var playbackRateIndex = playbackSpeeds.indexOf(1);
 var urlIndex = 0;
 var mutedStatus = false;
+var fullScreenVideo = true;
 var playerObj = null;
 var bgPlayerObj = null;
 
@@ -341,10 +343,11 @@ function playbackStateChanged(event) {
                 }
 
                 var textTrackList = JSON.parse(textTracksAvailable);
+
                 // Parse only the closed captioning tracks
                 var closedCaptioningList = [];
                 for(track=0; track<textTrackList.length;track++) {
-                    if(textTrackList[track].type === "CLOSED-CAPTIONS") {
+                    if(textTrackList[track]["sub-type"] === "CLOSED-CAPTIONS") {
                         closedCaptioningList.push(textTrackList[track].language);
                     }
                 }
@@ -357,7 +360,7 @@ function playbackStateChanged(event) {
                     } else {
                         option.value = trackNo;
                     }
-                    option.text = closedCaptioningList[trackNo-1];
+                    option.text = "cc " + closedCaptioningList[trackNo-1];
                     ccTracks.add(option);
                 }
             }
@@ -405,6 +408,7 @@ function playbackStateChanged(event) {
             break;
     }
     console.log("Player state is: " + playerState);
+    document.getElementById("playState").innerHTML = playerState;
 }
 
 function mediaEndReached() {
@@ -636,6 +640,23 @@ function mediaProgressUpdate(event) {
             document.getElementById("metadataContent").appendChild(listItem);
         }
     }
+
+
+    document.getElementById("audioTrackInfo").innerHTML = playerObj.getAudioTrackInfo();
+
+    stst = JSON.parse(playerObj.getPlaybackStatistics());
+
+    document.getElementById("profileInfo").innerHTML = "timeToTopProfile: " + stst.timeToTopProfile +
+        ", timeInTopProfile: " + stst.timeInTopProfile + ", profileStepDown_Network: " + stst.profileStepDown_Network +
+        ", profileCappingPresent: " + stst.profileCappingPresent + ", totalError: " + stst.totalError +
+        ", numOfGaps: " + stst.numOfGaps;
+    document.getElementById("widthHeight").innerHTML = stst.displayWidth + "x" + stst.displayHeight;
+    document.getElementById("currentPTS").innerHTML = event.currentPTS;
+    document.getElementById("videoBuffered").innerHTML = event.videoBufferedMiliseconds;
+    document.getElementById("liveLatency").innerHTML = event.liveLatency;
+
+    document.getElementById("streamType").innerHTML =  stst.mediaType + " " + stst.playbackMode;
+    
 }
 
 function checkAdInRange(position) {
@@ -697,8 +718,10 @@ function bufferingChangedHandler(event) {
     console.log("Buffers running empty - " + event.buffering);
     if(event.buffering === false) {
         document.getElementById('buffModal').style.display = "block";
+        document.getElementById('bufferStatus').innerHTML = "BUFFERING";
     } else {
         document.getElementById('buffModal').style.display = "none";
+        document.getElementById('bufferStatus').innerHTML = "GOOD";
     }
 }
 

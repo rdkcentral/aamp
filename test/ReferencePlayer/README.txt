@@ -31,10 +31,7 @@ C. General setup:
 
             b.1. /opt/webfilterpatterns.conf
 
-         c. To get input fields rendered correctly, add the following line in /opt/SetEnv.sh
-           c.1 export RFC_WEBKIT_NICOSIA_PAINTING_THREADS=0
-
-         d. To launch ReferencePlayer, use IBIS App (https://ibis.comcast.com)
+         c. To launch ReferencePlayer, use IBIS App (https://ibis.comcast.com)
            d.1 Login to IBIS
            d.2 Select "Manage Devices" and select Pair the device using either XRE Easy pair or using IBIS pair
            d.3 Select "Launch HTML App" tab
@@ -60,8 +57,8 @@ E. Folder structure
      -UVERefPlayer.js                // Main JS file
      -UVERefPlayerStyle.js           // CSS for reference player and its UI
    -VIDEOTAG
-     -AAMPReferencePlayer.js         // JS code for HTML reference player
-     -AAMPReferencePlayerStyle.js    // CSS for reference player and its UI
+     -VideoTagReferencePlayer.js         // JS code for HTML reference player
+     -VideoTagReferencePlayerStyle.js    // CSS for reference player and its UI
      -index.html                     // Homepage of HTML reference player
    -index.html                       // Homepage of reference player
    -ReferencePlayer.js               // JS  code for Homepage and redirection to respective reference players

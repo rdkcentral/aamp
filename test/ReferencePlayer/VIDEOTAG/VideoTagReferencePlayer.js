@@ -58,9 +58,9 @@ window.onload = function() {
     }
 
     //to show the navBar initially
-    var navBar = document.getElementById('controlDiv');
+    var navBar = document.getElementById('bottomNavBar');
     navBar.style.display = "block";
-    var navBarNext = document.getElementById('controlDivNext');
+    var navBarNext = document.getElementById('topNavBar');
     navBarNext.style.display = "block";
 
     function playPause() {
@@ -302,7 +302,6 @@ window.onload = function() {
     }
 
     var HTML5Player = function() {
-        var that = this;
         this.init = function() {
             this.video = document.getElementById("video");
 

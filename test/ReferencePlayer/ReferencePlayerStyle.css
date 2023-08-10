@@ -17,9 +17,9 @@
 * limitations under the License.
 */
 
-body{
+body {
     margin:0;
-    background-image: linear-gradient(to right, #20E2D7 , #F9FEA5);
+    background-color: #00448A;
 }
 
 .header {
@@ -118,71 +118,24 @@ h3 {
 
 /* Style the buttons */
 .button {
-    background-color:  rgba(255,255,255,0.8); 
+    background-color: #313232;
     text-align: center;
     display: inline-block;
     cursor: pointer;
-    border-radius: 2px;
-    border: 2px solid #00448A;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, .6);
-    transition: background-color 0s;
-}
-
-#controlDiv {
-    transition: all 0s linear;
-}
-
-#controlDivNext {
-    transition: all 0s linear;
-}
-
-#videoControlsDiv {
-    height:65px;
-    opacity: 0;
-    position: fixed;
-    bottom: 0;
-    width:100%;
-    -webkit-transition: opacity 0s;
-    transition: opacity 0s;
-    background-image: linear-gradient(left, #000000 30%,#171717 50%, #000000 70%);
-    background-image: -webkit-linear-gradient(left, #000000 30%,#171717 50%, #000000 70%);
-    border-top: 1px solid #00253D;
-    border-right: 1px solid #00253D;
-    border-left: 1px solid #00253D;
-    box-shadow: 0 -3px 3px -3px #002C4A, 3px 0px 3px -3px #002C4A, -3px 0px 3px -3px #002C4A;
-    border-radius: 3px 3px 0px 0px / 6px 6px 0px 0px;
-}
-
-#videoControlsDivNext {
-    padding-top: 10px;
-    height:65px;
-    opacity: 0;
-    position: fixed;
-    top: 0;
-    width:100%;
-    -webkit-transition: opacity 0s;
-    transition: opacity 0s;
-    background-image: linear-gradient(left, #000000 30%,#171717 50%, #000000 70%);
-    background-image: -webkit-linear-gradient(left, #000000 30%,#171717 50%, #000000 70%);
-    border-top: 1px solid #00253D;
-    border-right: 1px solid #00253D;
-    border-left: 1px solid #00253D;
-    box-shadow: 0 -3px 3px -3px #002C4A, 3px 0px 3px -3px #002C4A, -3px 0px 3px -3px #002C4A;
-    border-radius: 3px 3px 0px 0px / 6px 6px 0px 0px;
-}
-
-#videoContainer #videoControlsDiv {
-    opacity: .9;
-}
-
-#videoContainer #videoControlsDivNext {
-    opacity: .9;
+    border-radius: 50%;
+    -webkit-border-radius: 50%;
+    border: 2px solid #7e7d7d;
+    -webkit-border: 2px solid #7e7d7d;
+    height: 60px;
+    width: 60px;
+    box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 3px 1px -2px rgba(0, 0, 0, 0.12), 0 1px 5px 0 rgba(0, 0, 0, 0.2);
+    -webkit-box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 3px 1px -2px rgba(0, 0, 0, 0.12), 0 1px 5px 0 rgba(0, 0, 0, 0.2);
 }
 
 img {
     display: block;
-    height: 21px;  
-    width: 31px;
+    height: 40px;  
+    width: 40px;
 }
 
 .flipImg {
@@ -190,66 +143,9 @@ img {
     transform: scaleX(-1);
 }
 
-#videoURLs {
-    position: fixed;
-    font-family: Arial, Helvetica, sans-serif;
-    margin-top: 2%;
-}
-
-#videoToggleButton {
-    height: 30px;
-}
-
-#rewindButton {
-    height: 30px;
-}
-
-#skipBackwardButton {
-    height: 30px;
-}
-
-#muteVideoButton {
-    height: 30px;
-}
-
-#skipForwardButton {
-    height: 30px;
-}
-
-#fastForwardButton {
-    height: 30px;
-}
-
-#ccButton {
-    height: 30px;
-}
-
-#playOrPauseButton {
-    background-color:#ccc;
-    margin-top: 10px;
-    height: 30px;
-    width: 50px;
-}
-
-#playOrPauseButton.focus {
-    background-color: orange;
-}
-
-#seekBar {
-    width: 397px;
-    text-align:center;
-}
-
-#seekBarOuter {
-    display: inline-block;
-    width: 398px;
-    height: 25px;
-    background-color: rgba(0,0,0,0.4);
-    outline: thin solid #00448A;
-}
 
 .focus {
-    background:orange;
+    background-color:#6d6d6d;
 }
 
 .overModal {
@@ -260,36 +156,15 @@ img {
     background-color: rgba(0,0,0,0.5);
     border: 1.2px solid #2B364F;
     box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
-    -webkit-animation-name: flydown;
+    -webkit-animation-name: animatefromtop;
     -webkit-animation-duration: 0.21s;
-    animation-name: flydown;
+    animation-name: animatefromtop;
     animation-duration: 0.21s;
     width: auto;
     height: 10%;
     top: 22%;
     left: 5%;
     padding: 0px 15px 15px 15px;
-    font: 13px arial, sans-serif;
-}
-
-.urlModal {
-    display: none; 
-    overflow-wrap: break-word;
-    word-wrap: break-word;
-    position: absolute;
-    background-color: rgba(0,0,0,0.5);
-    border: 1.2px solid #2B364F;
-    box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
-    -webkit-animation-name: flydown;
-    -webkit-animation-duration: 0.21s;
-    animation-name: flydown;
-    animation-duration: 0.21s;
-    width: 90%;
-    height: 7%;
-    top: 12%;
-    left: 0;
-    right: 0;
-    margin: 0 auto;
     font: 13px arial, sans-serif;
 }
 
@@ -301,9 +176,9 @@ img {
     background-color: rgba(0,0,0,0.5);
     border: 1.2px solid #2B364F;
     box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
-    -webkit-animation-name: flydown;
+    -webkit-animation-name: animatefromtop;
     -webkit-animation-duration: 0.21s;
-    animation-name: flydown;
+    animation-name: animatefromtop;
     animation-duration: 0.21s;
     width: 43%;
     top: 36%;
@@ -322,9 +197,9 @@ img {
     background-color: rgba(0,0,0,0.5);
     border: 1.2px solid lightgrey;
     box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
-    -webkit-animation-name: flydown;
+    -webkit-animation-name: animatefromtop;
     -webkit-animation-duration: 0.10s;
-    animation-name: flydown;
+    animation-name: animatefromtop;
     animation-duration: 0.10s;
     width: 11%;
     top: 40%;
@@ -340,9 +215,9 @@ img {
     background-color: rgba(0,0,0,0.5);
     border: 1.2px solid lightgrey;
     box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
-    -webkit-animation-name: flydown;
+    -webkit-animation-name: animatefromtop;
     -webkit-animation-duration: 0.10s;
-    animation-name: flydown;
+    animation-name: animatefromtop;
     animation-duration: 0.10s;
     width: 20%;
     top: 50%;
@@ -375,36 +250,13 @@ img {
     background-color: rgba(0,0,0,0.5);
     border: 1.2px solid lightgrey;
     box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
-    -webkit-animation-name: flydown;
+    -webkit-animation-name: animatefromtop;
     -webkit-animation-duration: 0.10s;
-    animation-name: flydown;
+    animation-name: animatefromtop;
     animation-duration: 0.10s;
     padding: 5px;
     width: 50%;
     top: 30%;
-    left: 0;
-    right: 0;
-    margin: 0 auto;
-    font: 20px arial, sans-serif;
-}
-
-#positionInSeconds {
-    text-align: center;
-    color: white;
-}
-
-.positionModal {
-    display: none; 
-    position: absolute;
-    background-color: rgba(0,0,0,0.5);
-    border: 1.2px solid lightgrey;
-    box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
-    -webkit-animation-name: flydown;
-    -webkit-animation-duration: 0.10s;
-    animation-name: flydown;
-    animation-duration: 0.10s;
-    width: 11%;
-    bottom: 10%;
     left: 0;
     right: 0;
     margin: 0 auto;
@@ -418,7 +270,7 @@ img {
     bottom: 10%;
     width: 100%;
     line-height: 17px;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: Verdana, Geneva, sans-serif;
     font-size: 30px;
 }
 
@@ -432,67 +284,45 @@ img {
     color: white;
 }
 
-@-webkit-keyframes flydown {
+@-webkit-keyframes animatefromtop {
     from {top:-211px; opacity:0.1} 
     to {top:0; opacity:1}
 }
 
-@keyframes flydown {
+@keyframes animatefromtop {
     from {top:-211px; opacity:0.1}
     to {top:0; opacity:1}
 }
 
-@-webkit-keyframes animatebottom {
+@-webkit-keyframes animatetotop {
+    from {top:0; opacity:1} 
+    to {top:-211px; opacity:0.1}
+}
+
+@keyframes animatetotop {
+    from {top:0; opacity:1} 
+    to {top:-211px; opacity:0.1}
+}
+
+@-webkit-keyframes animatefrombottom {
    from {bottom:-211px; opacity:0.1} 
     to {bottom:0; opacity:1}
 }
 
-@keyframes animatebottom {
-     from {bottom:-211px; opacity:0.1} 
+@keyframes animatefrombottom {
+    from {bottom:-211px; opacity:0.1} 
     to {bottom:0; opacity:1}
 }
 
-#homeButton {
- position: fixed;
- margin-left: 4%;
- margin-top: -0.5%;
-}
-
-#homeIcon {
-    position: fixed;
-    width: 25px;
-    height: 25px;
-    margin-left: -7px;
-    margin-top: -12.5px;
-}
-
-
-#homeButton.focus {
-    border: 4px solid orange; 
-}
-
-.round-button {
-    width: 32px;
-    height: 32px;
-    border: 4px solid grey;
-    border-radius: 50%;
-    background: black;
-}
-
-.round-button.focus {
-    border: 2px solid orange;
-}
-
-.round-button img{
-    width: 32px;
-    height: 32px;
-    margin-left: -10px;
-    margin-top: -4px;
-}
-
-option { 
-    background-color: #72daef;
-}
+@-webkit-keyframes animatetobottom {
+    from {bottom:0; opacity:1} 
+    to {bottom:-211px; opacity:0.1}
+ }
+ 
+ @keyframes animatetobottom {
+    from {bottom:0; opacity:1} 
+    to {bottom:-211px; opacity:0.1}
+ }
 
 #playerType {
     margin: 3px;
@@ -500,53 +330,4 @@ option {
     font-family: Verdana, Geneva, sans-serif;
     letter-spacing: 3px;
     font-size: 15px;
-}
-
-#autoLogButton {
-    position: absolute;
-    width: 25px;
-    height: 25px;
-    margin-left: 1px;
-}
-
-#autoSeekButton {
-    position: absolute;
-    width: 25px;
-    height: 25px;
-}
-
-#seekCheck{
-    padding: 5px;
-    width: 18px;
-    height: 18px;
-}
-
-#logCheck{
-    padding: 5px;
-    width: 18px;
-    height: 18px;
-}
-
-#metadataState {
-    margin-left: 3%;
-}
-
-#cacheOnlyButton {
-    position: absolute;
-    width: 25px;
-    height: 25px;
-    margin-left: 1px;
-}
-
-#metadataButton {
-    position: absolute;
-    width: 25px;
-    height: 25px;
-    margin-left: 1px;
-}
-
-.check-box-custom {
-    padding: 5px;
-    width: 18px;
-    height: 18px;
 }

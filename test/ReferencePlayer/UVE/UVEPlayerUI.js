@@ -21,6 +21,10 @@ var controlObj = null;
 var bitrateList = [];
 var ccStatus = false;
 var disableButtons = false;
+var mainMenuToggle = true;
+var configMenuToggle = false;
+var debugMenuToggle = false;
+
 var currentObjID = "";
 const xreCCOptions1 = { textItalicized: false, textEdgeStyle:"none", textEdgeColor:"black", textSize: "large", windowFillColor: "black", fontStyle: "default", textForegroundColor: "black", windowFillOpacity: "transparent", textForegroundOpacity: "solid", textBackgroundColor: "white", textBackgroundOpacity:"solid", windowBorderEdgeStyle: "none", windowBorderEdgeColor: "blue", textUnderline: false };
 const xreCCOptions2 = { textItalicized: true, textEdgeStyle:"none", textEdgeColor:"black", textSize: "small", windowFillColor: "black", fontStyle: "default", textForegroundColor: "blue", windowFillOpacity: "transparent", textForegroundOpacity: "solid", textBackgroundColor: "red", textBackgroundOpacity:"solid", windowBorderEdgeStyle: "none", windowBorderEdgeColor: "blue", textUnderline: true };
@@ -80,6 +84,45 @@ function mutePlayer() {
         document.getElementById("muteIcon").src = "../icons/unMute.png";
     }
 };
+
+function resizeVideo() {
+    if (fullScreenVideo === true) {
+        // Scale to small Screen
+        document.getElementById("scaleIcon").src = "../icons/expand.png";
+        // Show debug Screen
+        document.getElementById("debugScreen").style.display = "block";
+        document.getElementById("innerNavBar").style.display = "block";
+        debugMenuToggle = true;
+        let w = screen.width/2; // 50% width
+        let h = screen.height/2; // 50% height
+        let x = 0; // align left
+        let y = (screen.height/100)* 20; // place at 80% of screen height
+        drawVideoRectHelper(x, y, w, h ); // place video using graphics plane coordinates
+        fullScreenVideo = false;
+    } else {
+        // Scale to full Screen
+        document.getElementById("scaleIcon").src = "../icons/compress.png";
+        // Hide debug Screen
+        document.getElementById("debugScreen").style.display = "none";
+        document.getElementById("innerNavBar").style.display = "none";
+        debugMenuToggle = false;
+        let w = screen.width; // full width
+        let h = screen.height; // full height
+        drawVideoRectHelper(0, 0, w, h);
+        fullScreenVideo = true;
+    }
+};
+
+// helper function to set video position
+function drawVideoRectHelper(x, y, w, h) {
+	let video = document.getElementById("dummyVideo");
+	video.style.left = x + "px";
+	video.style.top = y + "px";
+	video.style.width = w + "px";
+	video.style.height = h + "px";
+	playerObj.setVideoRect(x, y, w, h ); // place video using graphics plane coordinates
+}
+
 
 function toggleCC() {
     if (ccStatus === false) {
@@ -282,32 +325,14 @@ function jumpToPPosition() {
     }
 }
 
-//function to toggle Overlay widget
-function toggleOverlay() {
-    var overlay = document.getElementById('overlayModal');
-    var urlMod = document.getElementById('urlModal');
-    document.getElementById("logCheck").checked = !document.getElementById("logCheck").checked;
-    if(document.getElementById("logCheck").checked) {
-        overlay.style.display = "block";
-        urlMod.style.display = "block";
-    } else {
-        overlay.style.display = "none";
-        urlMod.style.display = "none";
-    }
-}
-
-
 //function to toggle Metadata widget
 function toggleTimedMetadata() {
     var metadataMod = document.getElementById('metadataModal');
-    var positionMod = document.getElementById('positionModal');
     document.getElementById("metadataCheck").checked = !document.getElementById("metadataCheck").checked;
     if(document.getElementById("metadataCheck").checked) {
         metadataMod.style.display = "block";
-        positionMod.style.display = "block";
     } else {
         metadataMod.style.display = "none";
-        positionMod.style.display = "none";
     }
 }
 
@@ -340,37 +365,45 @@ function loadPrevAsset() {
 }
 
 var HTML5PlayerControls = function() {
-    var that = this;
     this.init = function() {
         this.video = document.getElementById("video");
 
         // Buttons
         this.videoToggleButton = document.getElementById("videoToggleButton");
-        this.playButton = document.getElementById("playOrPauseButton");
+        this.ccButton = document.getElementById("ccButton");
+        
         this.rwdButton = document.getElementById("rewindButton");
         this.skipBwdButton = document.getElementById("skipBackwardButton");
+        this.playButton = document.getElementById("playOrPauseButton");
         this.skipFwdButton = document.getElementById("skipForwardButton");
         this.fwdButton = document.getElementById("fastForwardButton");
+        
         this.muteButton = document.getElementById("muteVideoButton");
-        this.ccButton = document.getElementById("ccButton");
-        this.autoVideoLogButton = document.getElementById("autoLogButton");
-        this.autoSeekButton = document.getElementById("autoSeekButton");
+        this.resizeButton = document.getElementById("resizeButton");
+        
+        this.cacheOnlyButton = document.getElementById("cacheOnlyCheck");
+        this.metadataLogButton = document.getElementById("metadataCheck");
+        this.autoSeekButton = document.getElementById("seekCheck");
+        this.jumpPositionInput = document.getElementById("jumpPosition");
         this.jumpButton = document.getElementById("jumpButton");
-        this.metadataLogButton = document.getElementById("metadataButton");
-        this.homeContentButton = document.getElementById('homeButton');
-
-        // Sliders
-        this.seekBar = document.getElementById("seekBar");
-        this.cacheOnlyButton = document.getElementById("cacheOnlyButton");
+        
         this.videoFileList = document.getElementById("videoURLs");
         this.audioTracksList = document.getElementById("audioTracks");
         this.ccTracksList = document.getElementById("ccTracks");
         this.ccStylesList = document.getElementById("ccStyles");
-        this.jumpPositionInput = document.getElementById("jumpPosition");
+        this.homeContentButton = document.getElementById('homeButton');
+
+        // Seekbar
+        this.seekBar = document.getElementById("seekBar");
 
         this.currentObj = this.playButton;
-        this.components = [this.playButton, this.videoToggleButton, this.rwdButton, this.skipBwdButton, this.skipFwdButton, this.fwdButton, this.muteButton, this.ccButton, this.audioTracksList, this.ccTracksList, this.ccStylesList, this.cacheOnlyButton, this.videoFileList, this.autoSeekButton, this.jumpPositionInput, this.jumpButton, this.autoVideoLogButton, this.metadataLogButton, this.homeContentButton];
-        this.currentPos = 0;
+        this.componentsTop = [ this.videoFileList, this.audioTracksList, this.ccTracksList, this.ccStylesList, this.homeContentButton];
+        this.componentsDebug = [ this.cacheOnlyButton, this.metadataLogButton, this.autoSeekButton, this.jumpPositionInput, this.jumpButton];
+        this.componentsBottom = [this.videoToggleButton, this.ccButton, this.rwdButton, this.skipBwdButton, this.playButton, this.skipFwdButton, this.fwdButton, this.muteButton, this.resizeButton];
+
+        this.currentPosTop = 0; // URL List button
+        this.currentPosBottom = 4; // Play button
+        this.currentPosDebug = 0; // Cache button
         this.dropDownListVisible = false;
         this.audioListVisible = false;
         this.ccListVisible = false;
@@ -381,68 +414,11 @@ var HTML5PlayerControls = function() {
         this.selectCCStyleListIndex = 0;
         this.prevObj = null;
         this.addFocus();
-        this.seekBar.style.backgroundColor = "red";
+        
+        //this.seekBar.style.backgroundColor = "red";
 
         document.getElementById('ffModal').style.display = "none";
         document.getElementById('ffSpeed').style.display = "none";
-
-        // Event listener for the play/pause button
-        this.playButton.addEventListener("click", function() {
-            playPause();
-        });
-
-        // Event listener for the home button
-        this.homeContentButton.addEventListener("click", function() {
-            goToHome();
-        });
-
-        // Event listener for the mute button
-        this.muteButton.addEventListener("click", function() {
-            mutePlayer();
-        });
-
-        // Event listener for the mute button
-        this.ccButton.addEventListener("click", function() {
-            toggleCC();
-        });
-
-        // Event listener for the rewind button
-        this.rwdButton.addEventListener("click", function() {
-            fastrwd();
-        });
-
-        // Event listener for the skip Backward button
-        this.skipBwdButton.addEventListener("click", function() {
-            skipBackward();
-        });
-
-        // Event listener for the skip Forward button
-        this.skipFwdButton.addEventListener("click", function() {
-            skipForward();
-        });
-
-        // Event listener for the fast Forward button
-        this.fwdButton.addEventListener("click", function() {
-            fastfwd();
-        });
-
-        this.seekBar.addEventListener("change", function() {
-            // Calculate the new time
-            var duration = playerObj.getDurationSec();
-            var time = duration * (seekBar.value / 100);
-            console.log("seek cursor time: " + time);
-            playerObj.seek(time);
-        });
-
-        // Pause the video when the seek handle is being dragged
-        this.seekBar.addEventListener("keydown", function() {
-            playerObj.pause();
-        });
-
-        // Play the video when the seek handle is dropped
-        this.seekBar.addEventListener("keyup", function() {
-            playerObj.play();
-        });
     };
 
     this.reset = function() {
@@ -462,40 +438,115 @@ var HTML5PlayerControls = function() {
     };
 
     this.keyUp = function() {
-        if ((this.components[this.currentPos] == this.audioTracksList) && (this.audioListVisible)) {
-            this.prevAudioSelect();
-        } else if ((this.components[this.currentPos] == this.videoFileList) && (this.dropDownListVisible)) {
-            this.prevVideoSelect();
-        } else if ((this.components[this.currentPos] == this.ccTracksList) && (this.ccListVisible)) {
-            this.prevCCSelect();
-        } else if ((this.components[this.currentPos] == this.ccStylesList) && (this.ccStyleListVisible)) {
-            this.prevCCStyleSelect();
-        } else if ((this.components[this.currentPos] == this.playButton) || (this.components[this.currentPos] == this.videoToggleButton) || (this.components[this.currentPos] == this.rwdButton) || (this.components[this.currentPos] == this.skipBwdButton) || (this.components[this.currentPos] == this.skipFwdButton) || (this.components[this.currentPos] == this.fwdButton) || (this.components[this.currentPos] == this.muteButton) || (this.components[this.currentPos] == this.ccButton)) {
-            //when a keyUp is received from the buttons in the bottom navigation bar
-            this.removeFocus();
-            this.currentObj = this.audioTracksList;
-            //move focus to the first element in the top navigation bar
-            this.currentPos = this.components.indexOf(this.audioTracksList);
-            this.addFocus();
+        // Hide main menu if visible
+        if(mainMenuToggle) {
+            //document.getElementById("bottomNavBar").style["-webkit-animation-name"] = "animatetobottom";
+            //document.getElementById("bottomNavBar").style["animation-name"] = "animatetobottom";
+            document.getElementById("bottomNavBar").style.display = "none";
+            mainMenuToggle = !mainMenuToggle;
         }
+
+        this.removeFocus();
+        // Set current Object to first element in top config nav bar
+        this.currentObj =  this.videoFileList;
+        this.addFocus();
+
+        if(!configMenuToggle) {
+            // Show config menu on keyup
+            document.getElementById("topNavBar").style.display = "block";
+            // Slide down animation
+            document.getElementById("topNavBar").style["-webkit-animation-name"] = "animatefromtop";
+            //document.getElementById("topNavBar").style["animation-name"] = "animatefromtop";
+            configMenuToggle = !configMenuToggle;
+        } else if(configMenuToggle && (!( this.dropDownListVisible|| this.audioListVisible || this.ccListVisible || this.ccStyleListVisible))) {
+            // Hide config menu if already visible and no other element is active
+            // Slide up animation
+            document.getElementById("topNavBar").style["-webkit-animation-name"] = "animatetotop";
+            //document.getElementById("topNavBar").style["animation-name"] = "animatetotop";
+            
+            setTimeout(function() {
+                document.getElementById("topNavBar").style.display = "none";
+            }, 400);
+
+            configMenuToggle = !configMenuToggle;
+        } else {
+            if ((this.componentsTop[this.currentPosTop] == this.audioTracksList) && (this.audioListVisible)) {
+                this.prevAudioSelect();
+            } else if ((this.componentsTop[this.currentPosTop] == this.videoFileList) && (this.dropDownListVisible)) {
+                this.prevVideoSelect();
+            } else if ((this.componentsTop[this.currentPosTop] == this.ccTracksList) && (this.ccListVisible)) {
+                this.prevCCSelect();
+            } else if ((this.componentsTop[this.currentPosTop] == this.ccStylesList) && (this.ccStyleListVisible)) {
+                this.prevCCStyleSelect();
+            } else if ((this.componentsTop[this.currentPosTop] == this.playButton) || (this.componentsTop[this.currentPosTop] == this.videoToggleButton) || (this.componentsTop[this.currentPosTop] == this.rwdButton) || (this.componentsTop[this.currentPosTop] == this.skipBwdButton) || (this.componentsTop[this.currentPosTop] == this.skipFwdButton) || (this.componentsTop[this.currentPosTop] == this.fwdButton) || (this.componentsTop[this.currentPosTop] == this.muteButton) || (this.componentsTop[this.currentPosTop] == this.ccButton)) {
+                //when a keyUp is received from the buttons in the bottom navigation bar
+                this.removeFocus();
+                this.currentObj = this.videoFileList;
+                //move focus to the first element in the top navigation bar
+                this.currentPosTop = this.componentsTop.indexOf(this.videoFileList);
+                this.addFocus();
+            }
+
+        }
+
     };
 
     this.keyDown = function() {
-        if ((this.components[this.currentPos] == this.audioTracksList) && (this.audioListVisible)) {
-            this.nextAudioSelect();
-        } else if ((this.components[this.currentPos] == this.videoFileList) && (this.dropDownListVisible)) {
-            this.nextVideoSelect();
-        } else if ((this.components[this.currentPos] == this.ccTracksList) && (this.ccListVisible)) {
-            this.nextCCSelect();
-        } else if ((this.components[this.currentPos] == this.ccStylesList) && (this.ccStyleListVisible)) {
-            this.nextCCStyleSelect();
-        } else if ((this.components[this.currentPos] == this.audioTracksList) || (this.components[this.currentPos] == this.ccTracksList) || (this.components[this.currentPos] == this.ccStylesList) || (this.components[this.currentPos] == this.videoFileList) || (this.components[this.currentPos] == this.cacheOnlyButton) || (this.components[this.currentPos] == this.autoSeekButton) || (this.components[this.currentPos] == this.jumpPositionInput) || (this.components[this.currentPos] == this.jumpButton) || (this.components[this.currentPos] == this.autoVideoLogButton) || (this.components[this.currentPos] == this.metadataLogButton) || (this.components[this.currentPos] == this.homeContentButton)) {
-            //when a keyDown is received from the buttons in the top navigation bar
-            this.removeFocus();
-            this.currentObj = this.playButton;
-            //move focus to the first element in the bottom navigation bar
-            this.currentPos = 0;
-            this.addFocus();
+        if(!configMenuToggle) {
+            // If config menu is hidden
+            if(!mainMenuToggle) {
+                // Show main menu buttons on keydown
+                document.getElementById("bottomNavBar").style.display = "block";
+                // Set current object to play button
+                this.removeFocus();
+                this.currentObj = this.playButton;
+                //move focus to the first element in the bottom navigation bar
+                this.currentPosBottom = 4;
+                this.addFocus();
+            } else if(mainMenuToggle) {
+                // Hide main menu if already visible
+                // Slide down animation
+                document.getElementById("bottomNavBar").style.display = "none";
+            }
+            mainMenuToggle = !mainMenuToggle;
+        } else {
+            // If any of the drop down list is active do traverse in them
+            if(this.dropDownListVisible || this.audioListVisible || this.ccListVisible || this.ccStyleListVisible) {
+                // If Config Menu is displayed
+                if ((this.componentsTop[this.currentPosTop] == this.audioTracksList) && (this.audioListVisible)) {
+                    this.nextAudioSelect();
+                } else if ((this.componentsTop[this.currentPosTop] == this.videoFileList) && (this.dropDownListVisible)) {
+                    this.nextVideoSelect();
+                } else if ((this.componentsTop[this.currentPosTop] == this.ccTracksList) && (this.ccListVisible)) {
+                    this.nextCCSelect();
+                } else if ((this.componentsTop[this.currentPosTop] == this.ccStylesList) && (this.ccStyleListVisible)) {
+                    this.nextCCStyleSelect();
+                } else if ((this.componentsTop[this.currentPosTop] == this.audioTracksList) || (this.componentsTop[this.currentPosTop] == this.ccTracksList) || (this.componentsTop[this.currentPosTop] == this.ccStylesList) || (this.componentsTop[this.currentPosTop] == this.videoFileList) || (this.componentsTop[this.currentPosTop] == this.cacheOnlyButton) || (this.componentsTop[this.currentPosTop] == this.autoSeekButton) || (this.componentsTop[this.currentPosTop] == this.jumpPositionInput) || (this.componentsTop[this.currentPosTop] == this.jumpButton) || (this.componentsTop[this.currentPosTop] == this.metadataLogButton) || (this.componentsTop[this.currentPosTop] == this.homeContentButton)) {
+                    //when a keyDown is received from the buttons in the top navigation bar
+                    this.removeFocus();
+                    this.currentObj = this.playButton;
+                    //move focus to the first element in the bottom navigation bar
+                    this.currentPosTop = 0;
+                    this.addFocus();
+                }
+            } else {
+                // Else close Config Menu and Show Main Menu
+                document.getElementById("topNavBar").style["-webkit-animation-name"] = "animatetotop";
+                //document.getElementById("topNavBar").style["animation-name"] = "animatetotop";
+                setTimeout(function() {
+                    document.getElementById("topNavBar").style.display = "none";
+                }, 400);
+                configMenuToggle = !configMenuToggle;
+
+                document.getElementById("bottomNavBar").style.display = "block";
+                // Set current object to play button
+                this.removeFocus();
+                this.currentObj = this.playButton;
+                //move focus to the first element in the bottom navigation bar
+                this.currentPosBottom = 4;
+                this.addFocus();
+                mainMenuToggle = !mainMenuToggle;
+            }
         }
     };
 
@@ -617,60 +668,42 @@ var HTML5PlayerControls = function() {
     };
 
     this.ok = function() {
-        switch (this.currentPos) {
-            case 0:
-                    playPause();
-                    break;
-            case 1:
-                    toggleVideo();
-                    break;
-            case 2:
-                    fastrwd();
-                    break;
-            case 3:
-                    skipBackward();
-                    break;
-            case 4:
-                    skipForward();
-                    break;
-            case 5:
-                    fastfwd();
-                    break;
-            case 6:
-                    mutePlayer();
-                    break;
-            case 7:
-                    toggleCC();
-                    break;
-            case 8:
-                    if (this.audioListVisible == false) {
-                        this.showAudioDropDown();
-                    } else {
-                        this.hideAudioDropDown();
-                        changeAudioTrack();
-                    }
-                    break;
-            case 9:
-                    if (this.ccListVisible == false) {
-                        this.showCCDropDown();
-                    } else {
-                        this.hideCCDropDown();
-                        changeCCTrack();
-                    }
-                    break;
-            case 10:
-                    if (this.ccStyleListVisible == false) {
-                        this.showCCStyleDropDown();
-                    } else {
-                        this.hideCCStyleDropDown();
-                        changeCCStyle();
-                    }
-                    break;
-            case 11:
-                    //Cache Only check box
-                    document.getElementById("cacheOnlyCheck").checked = !document.getElementById("cacheOnlyCheck").checked;
-                    break;
-            case 12:
+        if(mainMenuToggle) {
+            // If main menu nav bar is on display
+            switch (this.currentPosBottom) {
+                case 0:
+                        toggleVideo();
+                        break;
+                case 1:
+                        toggleCC();
+                        break;
+                case 2:
+                        fastrwd();
+                        break;
+                case 3:
+                        skipBackward();
+                        break;
+                case 4:
+                        playPause();
+                        break;
+                case 5:
+                        skipForward();
+                        break;
+                case 6:
+                        fastfwd();
+                        break;
+                case 7:
+                        mutePlayer();
+                        break;
+                case 8:
+                        resizeVideo();
+                        break;
+            };
+
+        } else if(configMenuToggle) {
+            // If config menu nav bar is on display
+            switch (this.currentPosTop) {
+                case 0:
                     if (this.dropDownListVisible == false) {
                         this.showDropDown();
                     } else {
@@ -678,45 +711,142 @@ var HTML5PlayerControls = function() {
                         getVideo(document.getElementById("cacheOnlyCheck").checked);
                     }
                     break;
-            case 13:
-                    document.getElementById("seekCheck").checked = !document.getElementById("seekCheck").checked;
-                    break;
-            case 15:
-                    jumpToPPosition();
-                    break;
-            case 16:
-                    toggleOverlay();
-                    break;
-            case 17:
-                    toggleTimedMetadata();
-                    break;
-            case 18:
-                    goToHome();
-                    break;
+                case 1:
+                        if (this.audioListVisible == false) {
+                            this.showAudioDropDown();
+                        } else {
+                            this.hideAudioDropDown();
+                            changeAudioTrack();
+                        }
+                        break;
+                case 2:
+                        if (this.ccListVisible == false) {
+                            this.showCCDropDown();
+                        } else {
+                            this.hideCCDropDown();
+                            changeCCTrack();
+                        }
+                        break;
+                case 3:
+                        if (this.ccStyleListVisible == false) {
+                            this.showCCStyleDropDown();
+                        } else {
+                            this.hideCCStyleDropDown();
+                            changeCCStyle();
+                        }
+                        break;
+                case 4:
+                        goToHome();
+                        break;
             };
+        }  else if(debugMenuToggle) {
+            // If debug menu nav bar is on display
+            switch (this.currentPosDebug) {
+                case 0: 
+                        document.getElementById("cacheOnlyCheck").checked = !document.getElementById("cacheOnlyCheck").checked;
+                        break;
+                case 1: 
+                        toggleTimedMetadata();
+                        break;  
+                case 2: 
+                        document.getElementById("seekCheck").checked = !document.getElementById("seekCheck").checked;
+                        break;
+                case 4: 
+                        jumpToPPosition();
+                        break;    
+                    
+            }
+        }
     };
 
     this.gotoNext = function() {
         this.removeFocus();
-        if (this.currentPos < this.components.length - 1) {
-            this.currentPos++;
-        } else {
-            this.currentPos = 0;
+        if(mainMenuToggle) {
+            // If main menu nav bar is on display
+            if (this.currentPosBottom < this.componentsBottom.length - 1) {
+                this.currentPosBottom++;
+            } else {
+                this.currentPosBottom = 0;
+            }
+            this.currentObj = this.componentsBottom[this.currentPosBottom];
+        } else if(configMenuToggle) {
+            // If config menu nav bar is on display
+            if (this.currentPosTop < this.componentsTop.length - 1) {
+                this.currentPosTop++;
+            } else {
+                this.currentPosTop = 0;
+            }
+            this.currentObj = this.componentsTop[this.currentPosTop];
+        } else if(debugMenuToggle) {
+            // If debug menu nav bar is on display
+            if (this.currentPosDebug < this.componentsDebug.length - 1) {
+                this.currentPosDebug++;
+            } else {
+                this.currentPosDebug = 0;
+            }
+            this.currentObj = this.componentsDebug[this.currentPosDebug];
+            addStyleToDebugButtons(this.currentPosDebug);
         }
-        this.currentObj = this.components[this.currentPos];
         this.addFocus();
     };
 
     this.gotoPrevious = function() {
         this.removeFocus();
-        if (this.currentPos > 0) {
-            this.currentPos--;
-        } else {
-            this.currentPos = this.components.length - 1;
-        }
-        this.currentObj = this.components[this.currentPos];
+        if(mainMenuToggle) {
+            // If main menu nav bar is on display
+            if (this.currentPosBottom > 0) {
+                this.currentPosBottom--;
+            } else {
+                this.currentPosBottom = this.componentsBottom.length - 1;
+            }
+            this.currentObj = this.componentsBottom[this.currentPosBottom];
+        } else if(configMenuToggle) {
+            // If config menu nav bar is on display
+            if (this.currentPosTop > 0) {
+                this.currentPosTop--;
+            } else {
+                this.currentPosTop = this.componentsTop.length - 1;
+            }
+            this.currentObj = this.componentsTop[this.currentPosTop];
+        } else if(debugMenuToggle) {
+            // If debug menu nav bar is on display
+            if (this.currentPosDebug > 0) {
+                this.currentPosDebug--;
+            } else {
+                this.currentPosDebug = this.componentsDebug.length - 1;
+            }
+            this.currentObj = this.componentsDebug[this.currentPosDebug];
+            addStyleToDebugButtons(this.currentPosDebug);
+        }    
         this.addFocus();
     };
+
+    function addStyleToDebugButtons(currentPosDebug) {
+        const root = document.querySelector(":root"); //grabbing the root element
+        switch(currentPosDebug) {
+            case 0: 
+                    root.style.setProperty("--pseudo-cache-backgroundcolor", '#6d6d6d');
+                    root.style.setProperty("--pseudo-seek-backgroundcolor", '#313232');
+                    root.style.setProperty("--pseudo-metadata-backgroundcolor", '#313232');
+                    break;
+            case 1:
+                    root.style.setProperty("--pseudo-cache-backgroundcolor", '#313232');
+                    root.style.setProperty("--pseudo-seek-backgroundcolor", '#6d6d6d');
+                    root.style.setProperty("--pseudo-metadata-backgroundcolor", '#313232');
+                    break;
+            case 2: 
+                    root.style.setProperty("--pseudo-cache-backgroundcolor", '#313232');
+                    root.style.setProperty("--pseudo-seek-backgroundcolor", '#313232');
+                    root.style.setProperty("--pseudo-metadata-backgroundcolor", '#6d6d6d');
+                    break;
+            case 3:
+            case 4:
+                    root.style.setProperty("--pseudo-cache-backgroundcolor", '#313232');
+                    root.style.setProperty("--pseudo-seek-backgroundcolor", '#313232');
+                    root.style.setProperty("--pseudo-metadata-backgroundcolor", '#313232');
+                    break;
+        }
+    }
 
     this.addFocus = function() {
         if (this.currentObj) {
@@ -828,8 +958,9 @@ var HTML5PlayerControls = function() {
         //If clicked OK on overlay modal hide it
         document.getElementById('errorModal').style.display = "none";
         this.currentObj = this.videoFileList;
+        this.currentPosTop = 0;
         // Move focus to the video url list
-        this.currentPos = this.components.indexOf(this.videoFileList);
+        this.currentPosTop = this.componentsTop.indexOf(this.videoFileList);
         this.addFocus();
         disableButtons = false;
     }
@@ -849,16 +980,12 @@ function changeButtonOpacity(opacity) {
     document.getElementById('ccButton').style.opacity = opacity;
     document.getElementById('ccTracks').style.opacity = opacity;
     document.getElementById('ccStyles').style.opacity = opacity;
-    document.getElementById('cacheOnlyButton').style.opacity = opacity;
-    document.getElementById('autoSeekButton').style.opacity = opacity;
-    document.getElementById('autoLogButton').style.opacity = opacity;
-    document.getElementById('metadataButton').style.opacity = opacity;
     document.getElementById('homeButton').style.opacity = opacity;
 }
 
 function overlayController() {
-    var navBar = document.getElementById('controlDiv');
-    var navBarNext = document.getElementById('controlDivNext');
+    var navBar = document.getElementById('bottomNavBar');
+    var navBarNext = document.getElementById('topNavBar');
     // Get the modal
     if(navBar.style.display == "block") {
         navBar.style.display = "none";
@@ -938,13 +1065,6 @@ function initPlayerControls() {
         });
     }
 
-    //to show the navBar initially
-    document.getElementById('controlDiv').style.display = "block";
-    document.getElementById('controlDivNext').style.display = "block";
-
-    //to hide the anomaly overlay widget initially
-    document.getElementById("logCheck").checked = false;
-
     //to load URL select field
 	if(urls) {
         // Iteratively adding all the options to videoURLs
@@ -952,7 +1072,38 @@ function initPlayerControls() {
             var option = document.createElement("option");
             option.value = urls[iter].url;
             option.text = urls[iter].name;
-            videoURLs.add(option);
+            document.getElementById("videoURLs").add(option);
         }
     }
 };
+
+
+// Functions
+
+// basic toggle (open/close) function
+// "classList.toggle(className)" toggles 'opened' class
+const toggleDropdown = (event) => {
+    const dropdown = document.querySelector('.dropdown');
+    event.stopPropagation();
+    dropdown.classList.toggle('opened');
+  };
+  // option selection from dropdown list
+  // used "event.currentTarget" to specify the selected option
+  // after option is chosen, its "textContent" value being copied to input's value
+  const selectOption = (event) => {
+    const input = document.querySelector('.input');
+    input.value = event.currentTarget.textContent;
+  };
+  
+  // we want the dropdown list to close when clicked outside of it
+  // ex: no option was selected
+  // we do a simple check below
+  // if dropdown list is in opened state
+  // then remove the ".opened" class
+  const closeDropdownFromOutside = () => {
+    const dropdown = document.querySelector('.dropdown');
+    if (dropdown.classList.contains('opened')) {
+      dropdown.classList.remove('opened');
+    }
+  };
+

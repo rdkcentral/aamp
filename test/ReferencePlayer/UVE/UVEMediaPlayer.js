@@ -540,4 +540,18 @@ class AAMPPlayer {
     setPreferredAudioLanguage(audioObj) {
         this.player.setPreferredAudioLanguage(audioObj);
     }
+
+    /**
+     * Get Player Statistics
+     */
+    getPlaybackStatistics() {
+        return this.player.getPlaybackStatistics();
+    }
+
+    /**
+     * Get Audio Track Info
+     */
+    getAudioTrackInfo() {
+        return this.player.getAudioTrackInfo();
+    }    
 };
