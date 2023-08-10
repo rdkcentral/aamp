@@ -1852,15 +1852,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int 
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 
 	double bufferValue = video->GetBufferedDuration();
-	double minBufferNeeded ;
-	if(aamp->GetLLDashServiceData()->lowLatencyMode)
-	{
-		minBufferNeeded	= mABRMinBuffer;
-	}
-	else
-	{
-		minBufferNeeded = video->fragmentDurationSeconds + aamp->mNetworkTimeoutMs/1000;
-	}
+	double minBufferNeeded  = mABRMinBuffer;
 	aamp->mhAbrManager.GetDesiredProfileOnBuffer(currProfileIndex,newProfileIndex,bufferValue,minBufferNeeded);
 }
 

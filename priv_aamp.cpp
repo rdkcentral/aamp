@@ -11624,36 +11624,26 @@ unsigned char* PrivateInstanceAAMP::ReplaceKeyIDPsshData(const unsigned char *In
  
 void PrivateInstanceAAMP::UpdateBufferBasedOnLiveOffset()
 {
-	if(GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset) > AAMP_DEFAULT_SETTING || GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset4K) > AAMP_DEFAULT_SETTING )
+	int maxbuffer,minbuffer;
+	double liveoffset =0,liveoffset4k=0;
+	liveoffset = GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffset);
+	liveoffset4k = GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffset4K);
+	maxbuffer = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp);
+	if(liveoffset4k <= maxbuffer)
 	{
-		int maxbuffer,minbuffer;
-		double liveoffset =0,liveoffset4k=0;
-		liveoffset = GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffset);
-		liveoffset4k = GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffset4K);
-		maxbuffer = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp);
-		if(GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset4K) > AAMP_DEFAULT_SETTING)
-		{
-			if(liveoffset4k < maxbuffer)
-			{
-				mBufferFor4kRampup = liveoffset4k -2 ;
-				mBufferFor4kRampdown = mBufferFor4kRampup - 5 ;
-				mBufferFor4kRampdown = mBufferFor4kRampdown < 2 ? 2 : mBufferFor4kRampdown;
-			}
-		}
-		if(GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset) > AAMP_DEFAULT_SETTING)
-		{
-			if(liveoffset < maxbuffer)
-			{
-				maxbuffer = liveoffset -2;
-				minbuffer = maxbuffer  -5 ;
-				minbuffer = minbuffer < 2 ? 2: minbuffer;
-				SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_MaxABRNWBufferRampUp,maxbuffer);
-				SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_MinABRNWBufferRampDown,minbuffer);
-			}
-		}
-
-
+		mBufferFor4kRampup = liveoffset4k -2 ;
+		mBufferFor4kRampdown = mBufferFor4kRampup - 5 ;
+		mBufferFor4kRampdown = mBufferFor4kRampdown < 2 ? 2 : mBufferFor4kRampdown;
 	}
+	if(liveoffset <= maxbuffer)
+	{
+		maxbuffer = liveoffset -2;
+		minbuffer = maxbuffer  -5 ;
+		minbuffer = minbuffer < 2 ? 2: minbuffer;
+		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_MaxABRNWBufferRampUp,maxbuffer);
+		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_MinABRNWBufferRampDown,minbuffer);
+	}
+
 }
 
 struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(MediaType fileType)
