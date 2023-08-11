@@ -1515,9 +1515,9 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 				}
 
 				if(_this->aamp->mSetPlayerRateAfterFirstframe
-#ifdef REALTEKCE
-				 ||((AAMP_SLOWMOTION_RATE == _this->aamp->playerrate) && (_this->aamp->rate != _this->aamp->playerrate))
-#endif /*REALTEKCE*/
+#if defined (REALTEKCE) || defined (BRCM)
+				||((AAMP_SLOWMOTION_RATE == _this->aamp->playerrate) || (_this->aamp->rate != _this->aamp->playerrate))
+#endif /*REALTEKCE || BCOM*/ 
 				 )
 				{
 					if(_this->aamp->mSetPlayerRateAfterFirstframe)
@@ -1529,7 +1529,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 							_this->aamp->SetAudioVolume(0);
 						}
 					}
-#ifdef REALTEKCE
+#if defined (REALTEKCE) || defined (BRCM)
 					else
 					{
 						if(false!=_this->aamp->mStreamSink->SetPlayBackRate(_this->aamp->rate))
