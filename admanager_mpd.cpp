@@ -688,8 +688,8 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 				{
 					//FOG already has the manifest. Releasing the one from CDN and using FOG's
 					xmlFreeTextReader(reader);
-					reader = xmlReaderForMemory(fogManifest.c_str(), (int) fogManifest.length(), NULL, NULL, 0);
 					manifest = fogManifest;
+					reader = xmlReaderForMemory(manifest.c_str(), (int) manifest.length(), NULL, NULL, 0);
 				}
 				else
 				{
