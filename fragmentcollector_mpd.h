@@ -960,6 +960,7 @@ private:
 	bool mMultiVideoAdaptationPresent;
 	double mLocalUtcTime;
 	ABRMode mABRMode;					 /**< ABR mode*/
+	size_t mLastManifestFileSize;
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_

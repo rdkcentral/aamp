@@ -1092,3 +1092,11 @@ std::unordered_map<std::string, std::vector<std::string>> AampMPDDownloader::get
 
 
 }
+/**
+ * @fn 	GetLastDownloadMPDSize
+ * @brief
+ */
+void AampMPDDownloader::GetLastDownloadedManifest(std::string& manifestBuffer)
+{
+	manifestBuffer = mMPDData->mMPDDownloadResponse->getString();
+}

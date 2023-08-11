@@ -1527,6 +1527,48 @@ public:
 
 };
 
+/**
+ *  @class AAMP_EVENT_MANIFEST_REFRESH_NOTIFY
+ * @brief Event listener impl for AAMP_EVENT_MANIFEST_REFRESH_NOTIFY event.
+ */
+
+class AAMP_JSListener_DashManifestRefreshNotify : public AAMP_JSEventListener
+{
+public:
+    /**
+     * @brief AAMP_EVENT_MANIFEST_REFRESH_NOTIFY Constructor
+     * @param[in] type event type
+     * @param[in] jsCallback callback to be registered as listener
+	 */
+	AAMP_JSListener_DashManifestRefreshNotify(PrivAAMPStruct_JS *obj, AAMPEventType type, JSObjectRef jsCallback)
+		: AAMP_JSEventListener(obj, type, jsCallback)
+    {
+    }
+
+    /**
+     * @brief Set properties to JS event object
+     * @param[in] ev AAMP event object
+     * @param[out] jsEventObj JS event object
+     */
+    void SetEventProperties(const AAMPEventPtr& ev, JSObjectRef jsEventObj)
+    {
+        ManifestRefreshEventPtr evt = std::dynamic_pointer_cast<ManifestRefreshEvent>(ev);
+		JSStringRef prop;
+		
+		prop = JSStringCreateWithUTF8CString("manifestDuration");
+        JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getManifestDuration()), kJSPropertyAttributeReadOnly, NULL);
+        JSStringRelease(prop);
+		
+		prop = JSStringCreateWithUTF8CString("manifestPublishedTime");
+        JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getManifestPublishedTime()), kJSPropertyAttributeReadOnly, NULL);
+        JSStringRelease(prop);
+		
+		prop = JSStringCreateWithUTF8CString("noOfPeriods");
+        JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getNoOfPeriods()), kJSPropertyAttributeReadOnly, NULL);
+        JSStringRelease(prop);
+	}
+
+};
 
 /**
  * @brief AAMP_JSEventListener Constructor
@@ -1703,6 +1745,9 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 			break;
 		case AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE:
 			pListener = new AAMP_Listener_ContentProtectionData(obj, type, jsCallback);
+			break;
+		case AAMP_EVENT_MANIFEST_REFRESH_NOTIFY:
+			pListener = new AAMP_JSListener_DashManifestRefreshNotify(obj, type, jsCallback);
 			break;
 		// Following events are not having payload and hence falls under default case
 		// AAMP_EVENT_EOS, AAMP_EVENT_TUNED, AAMP_EVENT_ENTERING_LIVE,

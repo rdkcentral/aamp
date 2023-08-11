@@ -4981,8 +4981,19 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 	// Need to check if same last Manifest is given or new refresh happened
 	if(tmpManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK)
 	{
+		uint64_t manifestDuration = 0;
 		mNetworkDownDetected = false;
 		ProcessMetadataFromManifest(tmpManifestDnldRespPtr , false);
+		if(mIsLiveManifest)
+		{
+			manifestDuration = mMPDParseHelper->GetTSBDepth();
+		}
+		else
+		{
+			manifestDuration = mMPDParseHelper->GetMediaPresentationDuration();
+		}
+		AAMPLOG_INFO( "Send RefreshNotify Dur[%" PRIu64 "] NoOfPeriods[%d] PubTime[%u]", manifestDuration,mMPDParseHelper->GetNumberOfPeriods(),tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime());
+		aamp->SendEvent((std::make_shared<ManifestRefreshEvent>(manifestDuration,mMPDParseHelper->GetNumberOfPeriods(),tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime())),AAMP_EVENT_ASYNC_MODE);
 	}
 	else
 	{

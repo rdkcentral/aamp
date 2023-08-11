@@ -1113,3 +1113,10 @@ void PrivateInstanceAAMP::NotifyVideoBasePTS(unsigned long long basepts, unsigne
 {
 }
 
+/**
+ * @brief Get Last downloaded manifest for DASH
+ * @return last downloaded manifest data
+ */
+void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string& manifestBuffer)
+{
+}

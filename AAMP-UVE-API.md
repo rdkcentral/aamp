@@ -58,6 +58,7 @@ CDAI support, configuration options for tune optimization
     - placementEnd
     - placementProgress
     - placementError
+    - manifestRefreshNotify
 
 
 **Version:** 0.9
@@ -1918,6 +1919,17 @@ Example:
 - Fired when AAMP encounters buffering mid-playback, buffering flag indicates buffer status.
     - FALSE -> No buffer for playback(Underflow)
     - TRUE -> Buffer available for playback
+
+---
+
+
+### ManifestRefresh
+
+**Event Payload:**
+- manifestRefreshNotify: number
+
+**Description:**
+- DASH Manifest refresh notification ( with manifest file size)
 
 ---
 

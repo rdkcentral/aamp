@@ -12229,3 +12229,16 @@ std::string PrivateInstanceAAMP::GetVideoPlaybackQuality()
 	}
 	return playbackQualityStr;
 }
+
+/**
+ * @brief Get Last downloaded manifest for DASH
+ * @return last downloaded manifest data
+ */
+void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string& manifestBuffer)
+{
+	/* verify the request only for DASH content */
+	if (mMediaFormat == eMEDIAFORMAT_DASH)
+	{
+		mMPDDownloaderInstance->GetLastDownloadedManifest(manifestBuffer);
+	}
+}

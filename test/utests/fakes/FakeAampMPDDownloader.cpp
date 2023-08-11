@@ -179,3 +179,11 @@ void AampMPDDownloader::UnRegisterCallback()
 {
 }
 
+/**
+ * @fn 	GetLastDownloadMPDSize
+ * @brief
+ */
+void AampMPDDownloader::GetLastDownloadedManifest(std::string& manifestBuffer)
+{
+}
+

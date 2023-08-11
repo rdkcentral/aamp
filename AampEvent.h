@@ -87,6 +87,7 @@ typedef enum
 	AAMP_EVENT_HTTP_RESPONSE_HEADER,        /**< 40, Http response header data */
 	AAMP_EVENT_WATERMARK_SESSION_UPDATE,    /**< 41, Update on Watermark Session*/
 	AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE,	/**< 42, Update on Content Protection Data on Dynamic Key Rotation*/
+	AAMP_EVENT_MANIFEST_REFRESH_NOTIFY,	/**< 43, DASH Manifest refresh notification*/
 	AAMP_MAX_NUM_EVENTS
 } AAMPEventType;
 
@@ -461,6 +462,15 @@ struct AAMPEvent
 			const char* streamType;		/**< Session StreamType */
 		} contentProtectionData;
 
+		/**
+		 * @brief Structure of the manifest file size update event
+		*/
+		struct
+		{
+			uint32_t manifestDuration;	/**< manifest file size */
+			uint32_t manifestPublishedTime;	/**< manifest published time */
+			int noOfPeriods;	/**< No.Of periods in manifest */
+		} manifestRefreshData;
 	} data;
 
 	/**
@@ -2186,6 +2196,47 @@ public:
 	const std::string &getStreamType() const;
 };
 
+/**
+ * @brief Class for the DASH manifest refresh notification
+ */
+class ManifestRefreshEvent: public AAMPEventObject
+{
+	uint32_t mManifestDuration;	/**< Manifest duration  */
+	uint32_t mManifestPublishedTime;	/** mpd published time data from the download manifest */
+	int mNoOfPeriods;	/**< No of periods count */
+public:
+	ManifestRefreshEvent() = delete;
+	ManifestRefreshEvent(const ManifestRefreshEvent&) = delete;
+	ManifestRefreshEvent& operator=(const ManifestRefreshEvent&) = delete;
+
+	/**
+	 * @fn ManifestRefreshEvent
+	 */
+	ManifestRefreshEvent(uint32_t manifestDuration, int noOfPeriods, uint32_t manifestPublishedTime);
+
+	/**
+	 * @brief ManifestRefreshEvent Destructor
+	 */
+	virtual ~ManifestRefreshEvent() { }
+
+	/**
+	 * @fn getManifestDuration
+	 */
+	uint32_t getManifestDuration() const;
+
+	/**
+	 * @fn getNoOfPeriods
+	 */
+	uint32_t getNoOfPeriods() const;
+
+	/**
+	 * @fn getManifestPublishedTime
+	 */
+	uint32_t getManifestPublishedTime() const;
+
+};
+
+
 
 using AAMPEventPtr = std::shared_ptr<AAMPEventObject>;
 using MediaErrorEventPtr = std::shared_ptr<MediaErrorEvent>;
@@ -2215,5 +2266,6 @@ using ContentGapEventPtr = std::shared_ptr<ContentGapEvent>;
 using HTTPResponseHeaderEventPtr = std::shared_ptr<HTTPResponseHeaderEvent>;
 using WatermarkSessionUpdateEventPtr = std::shared_ptr<WatermarkSessionUpdateEvent>;
 using ContentProtectionDataEventPtr = std::shared_ptr<ContentProtectionDataEvent>;
+using ManifestRefreshEventPtr = std::shared_ptr<ManifestRefreshEvent>;
 #endif /* __AAMP_EVENTS_H__ */
 

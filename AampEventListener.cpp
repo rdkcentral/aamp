@@ -277,6 +277,14 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 			event.data.contentProtectionData.streamType = ev->getStreamType().c_str();
 			break;
 		}
+		case AAMP_EVENT_MANIFEST_REFRESH_NOTIFY:
+		{
+			ManifestRefreshEventPtr ev = std::dynamic_pointer_cast<ManifestRefreshEvent>(e);
+			event.data.manifestRefreshData.manifestDuration = ev->getManifestDuration();
+			event.data.manifestRefreshData.noOfPeriods = ev->getNoOfPeriods();
+			event.data.manifestRefreshData.manifestPublishedTime = ev->getManifestPublishedTime();
+			break;
+		}
 		default:
 			// Some events without payload also falls here, for now
 			// Hence skipping adding an assert to purposefully crash if mapping is not done to Legacy event

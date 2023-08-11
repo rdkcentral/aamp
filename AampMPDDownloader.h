@@ -153,9 +153,7 @@ public:
 		mDashMpdDoc				=	nullptr;
 		mMPDParseHelper			=	new AampMPDParseHelper();
 		mLastPlaylistDownloadTimeMs     =       0;
-
 	}
-
 	_manifestDownloadResponse& operator=(const _manifestDownloadResponse& other)
 	{
 		_manifestDownloadResponse temp(other);
@@ -293,6 +291,12 @@ public:
 	 * @brief Return the Downloader disabled status
 	 */
 	bool IsDownloaderDisabled() {return mReleaseCalled;}
+	/**
+	 * @fn GetLastDownloadMPDSize
+	 * @brief Function to last downloaded manifest data
+	 */
+	void GetLastDownloadedManifest(std::string& manifestBuffer);
+	
 private:
 
 	/**
@@ -413,7 +417,6 @@ private:
 	bool mCheckedLLDData;
 	std::string mAppName;
 	AampLogManager *mLogObj;
-
 	ManifestUpdateCallbackFunc mManifestUpdateCb;
 	void *mManifestUpdateCbArg;
 

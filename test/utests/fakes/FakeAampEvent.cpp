@@ -322,6 +322,47 @@ ContentProtectionDataEvent::ContentProtectionDataEvent(const std::vector<uint8_t
 {
 }
 
+/*
+ * @brief ManifestRefreshEvent Constructor
+ */
+ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime):
+	AAMPEventObject(AAMP_EVENT_MANIFEST_REFRESH_NOTIFY)
+	, mManifestDuration(manifestDuration),mNoOfPeriods(noOfPeriods),mManifestPublishedTime(manifestPublishedTime)
+{
+
+}
+
+/**
+ * @brief Get ManifestFile Duration for Linear DASH
+ *
+ * @return ManifestFile Duration
+ */
+uint32_t ManifestRefreshEvent::getManifestDuration() const
+{
+   return mManifestDuration;
+}
+
+/**
+ * @brief Get No of Periods for Linear DASH
+ *
+ * @return NoOfPeriods
+ */
+uint32_t ManifestRefreshEvent::getNoOfPeriods() const
+{
+   return mNoOfPeriods;
+}
+
+/**
+ * @brief Get ManifestPuablishedTime for Linear DASH
+ *
+ * @return ManifestFile PublishedTime
+ */
+uint32_t ManifestRefreshEvent::getManifestPublishedTime() const
+{
+   return mManifestPublishedTime;
+}
+
+
 /**
  * @brief MetricsDataEvent Constructor
  */

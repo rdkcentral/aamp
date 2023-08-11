@@ -3940,6 +3940,11 @@ public:
          */
 	std::string GetVideoPlaybackQuality(void);
 
+	/**
+	 * @brief Get last downloaded manifest file for DASH
+	 */
+	void GetLastDownloadedManifest(std::string& manifestBuffer);
+
 private:
 
 	/**

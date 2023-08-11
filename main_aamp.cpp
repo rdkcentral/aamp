@@ -1958,18 +1958,14 @@ std::vector<BitsPerSecond> PlayerInstanceAAMP::GetVideoBitrates(void)
 std::string PlayerInstanceAAMP::GetManifest(void)
 {
 	ERROR_OR_IDLE_STATE_CHECK_VAL(std::string());
-	AampGrowableBuffer manifest;
-	if ((aamp->GetContentType() == ContentType_VOD) && (aamp->mMediaFormat == eMEDIAFORMAT_DASH))
+	if( aamp->mMediaFormat == eMEDIAFORMAT_DASH)
 	{
-		std::string manifestUrl = aamp->GetManifestUrl();
-		if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(manifestUrl, &manifest, manifestUrl))
-		{
-			/*char pointer to string conversion*/
-			std::string Manifest(manifest.GetPtr() ,manifest.GetLen() );
-			manifest.Free();
-			AAMPLOG_INFO("PlayerInstanceAAMP: manifest retrieved from cache");
-			return Manifest;
-		}
+		std::string Manifest;
+		Manifest.clear();
+		//Get last downloaded manifest
+		aamp->GetLastDownloadedManifest(Manifest);
+		AAMPLOG_INFO("PlayerInstanceAAMP: Retrieved manifest [len:%zu] \n",Manifest.length());
+		return Manifest;
 	}
 	return "";
 }
@@ -3253,7 +3249,3 @@ std::string PlayerInstanceAAMP::GetVideoPlaybackQuality(void)
 
 	return aamp->GetVideoPlaybackQuality();
 }
-
-/**
- * @}
- */

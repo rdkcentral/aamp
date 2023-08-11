@@ -366,6 +366,12 @@ void SmokeTestEventListener::Event(const AAMPEventPtr& e)
 				mAampPlayer.mPlayerInstanceAamp->ProcessContentProtectionDataConfig(json.c_str());
 				break;
 			}
+		case AAMP_EVENT_MANIFEST_REFRESH_NOTIFY:
+		{
+			ManifestRefreshEventPtr ev = std::dynamic_pointer_cast<ManifestRefreshEvent>(e);
+			printf("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriosd[%u]:PubTime[%u]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime());
+			break;
+		}
 		default:
 			break;
 	}
