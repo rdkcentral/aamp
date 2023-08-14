@@ -439,6 +439,9 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | sendLicenseResponseHeaders | Boolean | False | Optional field to enable headers in DRM metadata event after license request |
 | enableCMCD | Boolean | True | Optional field to enable/disable CMCD Metrics reporting from player |
 | userAgent | String |  | Optional The User-Agent request header for HTTP request  |
+| drmNetworkTimeout | Number | 5 | Network request timeout for DRM license (in seconds) |
+| drmStallTimeout | Number | 0 | Optional optimization - Allow fast-failure for class of curl-detectable mid-download stalls for DRM license request (in seconds) |
+| drmStartTimeout | Number | 0 | Optional optimization - Allow fast-failure for class of curl-detectable stall at start of DRM license request download (in seconds) |
 
 Example:
 ```js

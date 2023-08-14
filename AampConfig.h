@@ -283,6 +283,9 @@ typedef enum
 	eAAMPConfig_TLSVersion,							/**< TLS Version value*/
 	eAAMPConfig_GstVideoBufBytesForFogLive,                                 /**< Gstreamer Max Video buffering bytes for fog linear*/
 	eAAMPConfig_GstAudioBufBytesForFogLive,                                 /**< Gstreamer Max Audio buffering bytes for fog linear*/
+	eAAMPConfig_DrmNetworkTimeout,                                          /**< DRM license request timeout in sec*/
+	eAAMPConfig_DrmStallTimeout,                                            /**< Stall Timeout for DRM license request*/
+	eAAMPConfig_DrmStartTimeout,						/**< Start Timeout for DRM license request*/
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)

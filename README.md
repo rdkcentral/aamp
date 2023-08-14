@@ -214,6 +214,9 @@ downloadBufferChunks		Low Latency Fragment chunk cache length (defaults 20 chunk
 fragmentDownloadFailThreshold	Max retry attempts for non-init fragment curl timeout failures, range 1-10, default is 10.
 fogMaxConcurrentDownloads	Max concurrent download configured to Fog, default is 5
 TCPServerSinkPort   		See useTCPServerSink. Port number for video, audio will be video+1
+drmNetworkTimeout		Curl Download Timeout for DRM in seconds ,default is 5 sec
+drmStallTimeout			Timeout value for detection curl download stall for DRM in second,default is 0.
+drmStartTimeout            	Timeout value for curl download to start for DRM after connect in seconds,default is 0.			
 
 // String inputs
 licenseServerUrl		URL to be used for license requests for encrypted(PR/WV) assets

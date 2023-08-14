@@ -480,7 +480,7 @@ const char * AampDRMSessionManager::getAccessToken(int &tokenLen, int &error_cod
 		inpData->eRequestType = eCURL_GET;
 		inpData->iStallTimeout = 0; // 2sec
 		inpData->iStartTimeout = 0; // 2sec
-		inpData->iDownloadTimeout = DEFAULT_CURL_TIMEOUT; 
+		inpData->iDownloadTimeout =  DEFAULT_CURL_TIMEOUT;
 		inpData->bNeedDownloadMetrics = true;
 		inpData->bSSLVerifyPeer		=	bSslPeerVerify;
 		mAccessTokenConnector.Initialize(inpData);
@@ -859,10 +859,9 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 	// Initialize the Seesion Token Connector
 	DownloadConfigPtr inpData 	=	std::make_shared<DownloadConfig> ();
 	inpData->bIgnoreResponseHeader				=	!bNeedResponseHeadersTobeShared;
-	inpData->iDownloadTimeout					=	DEFAULT_CURL_TIMEOUT;
-	//SERXIONE-2731 Resetting startTimeout/StallTimeout value to zero for license download
-	inpData->iStallTimeout = 0;
-	inpData->iStartTimeout = 0;
+	inpData->iDownloadTimeout				=	aamp->mConfig->GetConfigValue(eAAMPConfig_DrmNetworkTimeout);
+	inpData->iStallTimeout = aamp->mConfig->GetConfigValue(eAAMPConfig_DrmStallTimeout);
+	inpData->iStartTimeout = aamp->mConfig->GetConfigValue(eAAMPConfig_DrmStartTimeout);
 	inpData->bNeedDownloadMetrics				=	true;
 	inpData->proxyName							=	licenseProxy;		
 	inpData->pCurl			=	CurlStore::GetCurlStoreInstance(aamp).GetCurlHandle(aamp, licenseRequest.url, eCURLINSTANCE_AES);

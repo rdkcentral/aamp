@@ -82,6 +82,7 @@
 #define AAMP_DEFAULT_PLAYBACK_OFFSET -99999            		/**< default 'unknown' offset value */
 #define AAMP_CDVR_LIVE_OFFSET 30        			/**< Live offset in seconds for CDVR hot recording */
 #define MIN_DASH_DRM_SESSIONS 3
+#define DEFAULT_DRM_NETWORK_TIMEOUT 5                           /** < default value for drmNetworkTimeout  - 5 sec */
 #ifdef XIONE_UK
 #define DEFAULT_CACHED_FRAGMENTS_PER_TRACK  3      	 	/**< Default cached fragements per track - decreased only for XIONE UK per XIONE-6823 */
 #else
