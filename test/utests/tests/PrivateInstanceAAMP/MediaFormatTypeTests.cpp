@@ -150,20 +150,35 @@ const char* hlsUrl[] =
 	}
 }
 
+// RecordedUrl tests
+TEST_F(MediaFormatTypeTests, RecordedUrl)
+{
+	MediaFormat mediaFormat;
+	static const struct
+	{
+		const char *url;
+		MediaFormat expectedMediaFormat;
+	} test_cases[] = 
+	{
+		// DELIA-62753
+		{ "http://127.0.0.1:9080/adrec?clientId=FOG_AAMP&recordedUrl=https%3A%2F%2Fads.com%2Fad.mpd",
+			eMEDIAFORMAT_DASH
+		},
+		{ "http://127.0.0.1:9080/adrec?clientId=FOG_AAMP&recordedUrl=https%3A%2F%2Fads.com%2Fad.m3u8",
+			eMEDIAFORMAT_HLS
+		},
+		{ "http://127.0.0.1:9080/adrec?clientId=FOG_AAMP&recordedUrl=https%3A%2F%2Fads.com%2Fad.mpd&analyticsUrl=https://analytics.com/log",
+			eMEDIAFORMAT_DASH
+		},
+		{ "http://127.0.0.1:9080/adrec?clientId=FOG_AAMP&recordedUrl=https%3A%2F%2Fads.com%2Fad.m3u8&analyticsUrl=https://analytics.com/log",
+			eMEDIAFORMAT_HLS
+		},
+	};
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	for (int i = 0; i < ARRAY_SIZE(test_cases); i++)
+	{
+		mediaFormat = mPrivateInstanceAAMP->GetMediaFormatType(test_cases[i].url);
+		EXPECT_EQ(mediaFormat, test_cases[i].expectedMediaFormat);
+	}
+}
 

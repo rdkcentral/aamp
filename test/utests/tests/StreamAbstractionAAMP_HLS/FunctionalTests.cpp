@@ -216,3 +216,36 @@ TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_multiple_mainfests)
     }
 }
 
+// Testing ABR manager is selected by default.
+TEST_F(FunctionalTests, ABRManagerMode)
+{
+	char manifest[] = MANIFEST_5SD_1A;
+
+	mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+
+	// Call the fake Tune() method with a non-local URL to setup Fog related flags.
+	mPrivateInstanceAAMP->Tune("https://ads.com/ad.m3u8", false);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+
+	mStreamAbstractionAAMP_HLS->ParseMainManifest();
+
+	EXPECT_EQ(mStreamAbstractionAAMP_HLS->GetABRMode(), StreamAbstractionAAMP::ABRMode::ABR_MANAGER);
+}
+
+// Testing Fog is selected to manage ABR.
+TEST_F(FunctionalTests, FogABRMode)
+{
+	char manifest[] = MANIFEST_5SD_1A;
+
+	mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+
+	// Call the fake Tune() method with a Fog TSB URL to setup Fog related flags.
+	mPrivateInstanceAAMP->Tune("http://127.0.0.1/tsb?clientId=FOG_AAMP&recordedUrl=https%3A%2F%2Fads.com%2Fad.m3u8", false);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+
+	mStreamAbstractionAAMP_HLS->ParseMainManifest();
+
+	EXPECT_EQ(mStreamAbstractionAAMP_HLS->GetABRMode(), StreamAbstractionAAMP::ABRMode::FOG_TSB);
+}

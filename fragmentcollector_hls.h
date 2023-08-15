@@ -804,6 +804,13 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 */
 		void UpdateFailedDRMStatus(LicensePreFetchObject *object) override { }
 
+		/**
+		 * @brief Get the ABR mode.
+		 *
+		 * @return the ABR mode.
+		 */
+		ABRMode GetABRMode() override;
+
 		//private:
 		// TODO: following really should be private, but need to be accessible from callbacks
 

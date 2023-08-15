@@ -229,6 +229,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 								int mpdStichingMode)
 
 {
+	// Set the Fog TSB flag based on the URL.
+	mTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
 }
 
 void PrivateInstanceAAMP::detach()

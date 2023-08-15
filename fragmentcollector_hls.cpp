@@ -7740,3 +7740,21 @@ void TrackState::getNextFetchRequestUri(void)
 		aamp->mCMCDCollector->CMCDSetNextObjectRequest("",0,(MediaType)type);
 	}
 }
+
+StreamAbstractionAAMP::ABRMode StreamAbstractionAAMP_HLS::GetABRMode()
+{
+	ABRMode mode;
+
+	if (aamp->IsTSBSupported())
+	{
+		// Fog manages ABR.
+		mode = ABRMode::FOG_TSB;
+	}
+	else
+	{
+		// ABR manager is used by AAMP.
+		mode = ABRMode::ABR_MANAGER;
+	}
+
+	return mode;
+}

@@ -5617,19 +5617,19 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 
 			size_t fogUrlEnd = urlStr.find("&", fogUrlStart); // end of recordedUrl
 
-			if(fogUrlEnd != std::string::npos)
+			if(urlStr.rfind("m3u8", fogUrlEnd) != std::string::npos)
 			{
-				if(urlStr.rfind("m3u8", fogUrlEnd) != std::string::npos)
-				{
-					rc = eMEDIAFORMAT_HLS;
-				}
-				else if(urlStr.rfind("mpd", fogUrlEnd)!=std::string::npos)
-				{
-					rc = eMEDIAFORMAT_DASH;
-				}
-
-				// should never get here with UNKNOWN format, but if we do, just fall through to normal locator scanning
+				rc = eMEDIAFORMAT_HLS;
 			}
+			else if(urlStr.rfind("mpd", fogUrlEnd)!=std::string::npos)
+			{
+				rc = eMEDIAFORMAT_DASH;
+			}
+			else
+			{
+				// should never get here with UNKNOWN format, but if we do, just fall through to normallocator scanning
+			}
+
 		}
 	}
 

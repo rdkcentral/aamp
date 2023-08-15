@@ -2161,7 +2161,7 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 		return retValue;
 	}
 
-	if (!aamp->IsTSBSupported())
+	if (GetABRMode() == ABRMode::ABR_MANAGER)
 	{
 		http_error = getOriginalCurlError(http_error);
 
@@ -2204,31 +2204,38 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
  */
 void StreamAbstractionAAMP::CheckForProfileChange(void)
 {
-	// FOG based
-	if(aamp->IsTSBSupported())
+	switch (GetABRMode())
 	{
-		// This is for FOG based download , where bandwidth is calculated based on downloaded fragment file name
-		// No profile change will be done or manifest download triggered based on profilechange
-		UpdateProfileBasedOnFragmentDownloaded();
-	}
-	else
-	{
-		MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-		if(video != NULL)
-		{
-			double totalFetchedDuration = video->GetTotalFetchedDuration();
-			long availBW = aamp->GetCurrentlyAvailableBandwidth();
-			bool checkProfileChange = aamp->mhAbrManager.CheckProfileChange(totalFetchedDuration,currentProfileIndex,availBW);
+		case ABRMode::FOG_TSB:
+			// This is for FOG based download , where bandwidth is calculated based on downloaded fragment file name
+			// No profile change will be done or manifest download triggered based on profilechange
+			UpdateProfileBasedOnFragmentDownloaded();
+			break;
 
-			if (checkProfileChange)
-			{
-				UpdateProfileBasedOnFragmentCache();
-			}
-		}
-		else
+		case ABRMode::ABR_MANAGER:
 		{
-			AAMPLOG_WARN("Video is null");  //CID:82070 - Null Returns
+			MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+			if(video != NULL)
+			{
+				double totalFetchedDuration = video->GetTotalFetchedDuration();
+				long availBW = aamp->GetCurrentlyAvailableBandwidth();
+				bool checkProfileChange = aamp->mhAbrManager.CheckProfileChange(totalFetchedDuration,currentProfileIndex,availBW);
+
+				if (checkProfileChange)
+				{
+					UpdateProfileBasedOnFragmentCache();
+				}
+			}
+			else
+			{
+				AAMPLOG_WARN("Video is null");  //CID:82070 - Null Returns
+			}
+			break;
 		}
+
+		default:
+			AAMPLOG_ERR("ABR mode not supported");
+			break;
 	}
 }
 
@@ -2342,6 +2349,11 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 		mABRHighBufferCounter = 0;
 		retVal = true;
 	}
+	else
+	{
+		/* No profile change. */
+	}
+
 	return retVal;
 }
 

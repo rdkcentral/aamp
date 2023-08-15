@@ -674,3 +674,80 @@ R"(<?xml version="1.0"?>
 	EXPECT_NE(mpd->GetPeriods().at(2)->GetId(), std::string());
 	EXPECT_NE(mpd->GetPeriods().at(0)->GetId(), mpd->GetPeriods().at(2)->GetId());
 }
+
+/**
+ * @brief ABR mode test.
+ *
+ * Verify that the ABR manager is selected to manage ABR.
+ */
+TEST_F(FunctionalTests, ABRManagerMode)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H10M54.00S" profiles="urn:mpeg:dash:profile:isoff-live:2011,http://dashif.org/guidelines/dash264">
+ <Period duration="PT1M0S">
+  <AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+   <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000">
+	<SegmentTemplate timescale="2500" media="video_$Number$.mp4" initialization="video_init.mp4">
+	 <SegmentTimeline>
+	  <S d="5000" r="29" />
+	 </SegmentTimeline>
+	</SegmentTemplate>
+   </Representation>
+  </AdaptationSet>
+ </Period>
+</MPD>
+)";
+
+	/* Initialize MPD. The video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	/* Verify that the ABR manager is selected. */
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetABRMode(), StreamAbstractionAAMP::ABRMode::ABR_MANAGER);
+}
+
+/**
+ * @brief ABR mode test.
+ *
+ * The DASH manifest has the fogtsb attribute set. Verify that Fog is selected
+ * to manage ABR.
+ */
+TEST_F(FunctionalTests, FogABRMode)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H10M54.00S" profiles="urn:mpeg:dash:profile:isoff-live:2011,http://dashif.org/guidelines/dash264" fogtsb="true">
+ <Period duration="PT1M0S">
+  <AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+   <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000">
+	<SegmentTemplate timescale="2500" media="video_$Number$.mp4" initialization="video_init.mp4">
+	 <SegmentTimeline>
+	  <S d="5000" r="29" />
+	 </SegmentTimeline>
+	</SegmentTemplate>
+   </Representation>
+  </AdaptationSet>
+ </Period>
+</MPD>
+)";
+
+	/* Initialize MPD. The video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	/* Verify that Fog is selected. */
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetABRMode(), StreamAbstractionAAMP::ABRMode::FOG_TSB);
+}

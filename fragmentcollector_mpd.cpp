@@ -147,6 +147,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,prevTimeScale(0)
 	,mMPDParseHelper(NULL)
 	,mLowLatencyMode(false)
+	,mABRMode(ABRMode::UNDEF)
 {
         FN_TRACE_F_MPD( __FUNCTION__ );
 	this->aamp = aamp;
@@ -7112,6 +7113,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 	if(mUpdateStreamInfo)
 	{
 		periodChanged = true;
+		mABRMode = ABRMode::UNDEF;
 	}
 
 	for (int i = 0; i < mNumberOfTracks; i++)
@@ -7169,6 +7171,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					GetABRManager().clearProfiles();
 					mBitrateIndexVector.clear();
 					mMaxTSBBandwidth = 0;
+					mABRMode = ABRMode::FOG_TSB;
 					for (int idx = 0; idx < representationCount; idx++)
 					{
 						Representation* representation = representations.at(idx);
@@ -7290,6 +7293,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					}
 					GetABRManager().clearProfiles();
 					mBitrateIndexVector.clear();
+					mABRMode = ABRMode::ABR_MANAGER;
 					int addedProfiles = 0;
 					int idx = 0;
 					std::map<int, struct ProfileInfo> iProfileMaps;

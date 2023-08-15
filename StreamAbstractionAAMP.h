@@ -734,6 +734,14 @@ private:
 class StreamAbstractionAAMP : public AampLicenseFetcher
 {
 public:
+	/** @brief ABR mode */
+	enum class ABRMode
+	{
+		UNDEF,
+		ABR_MANAGER,	/**< @brief ABR manager is used by AAMP. */
+		FOG_TSB			/**< @brief Fog manages ABR. */
+	};
+
 	/**
 	 * @fn StreamAbstractionAAMP
 	 * @param[in] aamp pointer to PrivateInstanceAAMP object associated with stream
@@ -1614,6 +1622,13 @@ public:
 	 *   @return - true indicating successful operation in passing options to the parser
 	 */
 	virtual bool SetTextStyle(const std::string &options);
+
+	/**
+	 * @brief Get the ABR mode.
+	 *
+	 * @return the ABR mode.
+	 */
+	virtual ABRMode GetABRMode() { return ABRMode::UNDEF; };
 
 protected:
 	/**

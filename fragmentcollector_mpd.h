@@ -441,6 +441,13 @@ public:
 	// TODO: Add implementation to mark the failed DRM's adaptation set as failed/un-usable
 	void UpdateFailedDRMStatus(LicensePreFetchObject *object) override;
 
+	/**
+	 * @brief Get the ABR mode.
+	 *
+	 * @return the ABR mode.
+	 */
+	ABRMode GetABRMode() override { return mABRMode; };
+
 	static void MPDUpdateCallback(void *);
 
 	// CMCD Get nor and nrr fields
@@ -952,6 +959,7 @@ private:
 	std::unique_ptr<SubtitleParser> mSubtitleParser;	/**< Parser for subtitle data*/
 	bool mMultiVideoAdaptationPresent;
 	double mLocalUtcTime;
+	ABRMode mABRMode;					 /**< ABR mode*/
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_

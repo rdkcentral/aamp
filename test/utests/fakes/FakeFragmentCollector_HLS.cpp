@@ -70,3 +70,5 @@ void StreamAbstractionAAMP_HLS::SeekPosUpdate(double secondsRelativeToTuneTime) 
 void StreamAbstractionAAMP_HLS::ChangeMuxedAudioTrackIndex(std::string& index) { }
 
 bool StreamAbstractionAAMP_HLS::Is4KStream(int &height, BitsPerSecond &bandwidth) { return false; }
+
+StreamAbstractionAAMP::ABRMode StreamAbstractionAAMP_HLS::GetABRMode() { return StreamAbstractionAAMP::ABRMode::ABR_MANAGER; }
