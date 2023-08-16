@@ -261,7 +261,6 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 					}
 
 					p2AdData.duration += periodDelta;
-
 					while(periodDelta > 0)
 					{
 						AdNode &curAd = abObj.ads->at(mPlacementObj.curAdIdx);
@@ -438,7 +437,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 				{
 					mPlacementObj = setPlacementObj(mPlacementObj.pendingAdbrkId,abObj.endPeriodId);
 				}
-				AAMPLOG_INFO("[CDAI]  num of adbrks avail: %d ",mAdtoInsertInNextBreakVec.size());
+                AAMPLOG_INFO("[CDAI]  num of adbrks avail: %lu ",mAdtoInsertInNextBreakVec.size());
 
 				mImmediateNextAdbreakAvailable = true;
 			}
@@ -460,6 +459,10 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 	if(mPeriodMap.end() != pit && !(pit->second.adBreakId.empty()))
 	{
 		//mBasePeriodId belongs to an Adbreak. Now we need to see whether any Ad is placed in the offset.
+		if(mPlacementObj.pendingAdbrkId != periodId)
+		{
+			AAMPLOG_INFO("[CDAI] PlacementObj open period(%s) and AdStart Period(%s) not equal ... may be BUG ",mPlacementObj.pendingAdbrkId.c_str(),periodId.c_str());
+		}
 		Period2AdData &curP2Ad = pit->second;
 		if(isAdBreakObjectExist(curP2Ad.adBreakId))
 		{
@@ -518,6 +521,25 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 			}
 		}
 	}
+    //reset the placementObj to current playing AdBreakId if it is not placed
+    if((adIdx != -1 && !breakId.empty()) && (mPlacementObj.pendingAdbrkId != periodId))
+    {
+        AAMPLOG_INFO("[CDAI] PlacementObj pendingAdbrkId(%s) and AdStart Period(%s) not equal",mPlacementObj.pendingAdbrkId.c_str(),periodId.c_str());
+        AdBreakObject &abObj = mAdBreaks[periodId];
+        AdNode &curAd = abObj.ads->at(adIdx);
+        if(!curAd.placed)
+        {
+            for(auto placementObj: mAdtoInsertInNextBreakVec)
+            {
+                if(periodId == placementObj.pendingAdbrkId)
+                {
+                    mPlacementObj = placementObj;
+                    AAMPLOG_INFO("[CDAI] change in pending AdBrkId to (%s) ",mPlacementObj.pendingAdbrkId.c_str());
+                    break;
+                }
+            }
+        }
+    }
 	return adIdx;
 }
 
@@ -781,6 +803,7 @@ void PrivateCDAIObjectMPD::FulFillAdObject()
 					mPlacementObj.curAdIdx = 0;
 					mPlacementObj.adNextOffset = 0;
 					mAdtoInsertInNextBreakVec.push_back(mPlacementObj);
+					AAMPLOG_WARN("Next available DAI Ad break = %s",mPlacementObj.pendingAdbrkId.c_str());
 				}
 				else
 				{
@@ -917,7 +940,7 @@ PlacementObj PrivateCDAIObjectMPD::setPlacementObj(std::string adBrkId,std::stri
 			}
 		}
 	}
-	AAMPLOG_INFO("[CDAI] Placed AdBrkId = %s ",nxtPlacementObj.pendingAdbrkId.c_str());
+	AAMPLOG_INFO("[CDAI] Placed AdBrkId = %s curAdIx = %d",nxtPlacementObj.pendingAdbrkId.c_str(),nxtPlacementObj.curAdIdx);
 	mAdBrkVecMtx.unlock();
 	return nxtPlacementObj;
 }

@@ -807,7 +807,11 @@ private:
 
 	bool PlacenextAdBrkifAvail(dash::mpd::IMPD *mpd);
 
-	std::mutex mStreamLock;
+	int getPeriodIdx(const std::string periodId);
+
+	int getValidperiodIdx(int periodIdx);
+
+    std::mutex mStreamLock;
 	bool fragmentCollectorThreadStarted;
 	std::set<std::string> mLangList;
 	double seekPosition;

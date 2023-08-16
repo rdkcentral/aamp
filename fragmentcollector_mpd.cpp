@@ -8800,21 +8800,27 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					}
 					//OUTSIDE_ADBREAK means the current ad break playback completed.
 					if(adStateChanged && AdState::OUTSIDE_ADBREAK == mCdaiObject->mAdState)
-					{
-						//If the next ad break is available,need to call onAdEvent again to play DAI ads from the next immediate ad break.
-						//Otherwise, player will switch to base period(source) of second ad break
-						PlacenextAdBrkifAvail(mpd);
-						//Just came out from the Adbreak. Need to search the right period
-						for(mIterPeriodIndex=0;mIterPeriodIndex < mNumberOfPeriods;  mIterPeriodIndex++)
-						{
-							if(mBasePeriodId == mpd->GetPeriods().at(mIterPeriodIndex)->GetId())
-							{
-								mCurrentPeriodIdx = mIterPeriodIndex;
-								AAMPLOG_INFO("[CDAI] Landed at the periodId[%d] ",mCurrentPeriodIdx);
+                    			{
+                        		//If the next ad break is available,need to call onAdEvent again to play DAI ads from the next immediate ad break.
+                        		//Otherwise, player will switch to base period(source) of second ad break
+                        			PlacenextAdBrkifAvail(mpd);
+                        			//Just came out from the Adbreak. Need to search the right period
+                        			for(mIterPeriodIndex=0;mIterPeriodIndex < mNumberOfPeriods;  mIterPeriodIndex++)
+                        			{
+                            				if(mBasePeriodId == mpd->GetPeriods().at(mIterPeriodIndex)->GetId())
+                            				{
+                                				mCurrentPeriodIdx =  getValidperiodIdx(mIterPeriodIndex);
+								if(mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))
+								{
+									AAMPLOG_WARN("Empty period(%s) at the end of manifest BasePeriodId (%s)",mpd->GetPeriods().at(mCurrentPeriodIdx)->GetId().c_str(),mpd->GetPeriods().at(mIterPeriodIndex)->GetId());
+									/*empty periods are at live edge or no valid next period avaialble
+									(all next periods are empty)wait for the manifest refresh to land at valid period */
+                                				}
 								break;
-							}
-						}
-					}
+                            				}
+                        			}
+                    			}
+
 					if(AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState)
 					{
 						mCurrentPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
@@ -8862,14 +8868,15 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							if(bmanifestupdate)
 							{
 								AAMPLOG_WARN("[CDAI] requires manifest update period ID \'%s\' not changed to \'%s\' [BasePeriodId=\'%s\']",currentPeriodId.c_str(),mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
-                                                        }
-                                                        else
-                                                        {
+                            				}
+                            				else
+                            				{
 								AAMPLOG_WARN("Period ID not changed from \'%s\' to \'%s\',since period is empty [BasePeriodId=\'%s\']", currentPeriodId.c_str(),mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
 								if(mIsLiveManifest && (mIterPeriodIndex > mUpperBoundaryPeriod))
 								{
 									// Update manifest and check for period validity in the next iteration
 									// For CDAI empty period at the end, we should re-iterate the loop
+									AAMPLOG_WARN("Period ID not changed WaitForManifestUpdate");
 									ReleasePlaylistLock();
 									if(AAMPStatusType::eAAMPSTATUS_OK != UpdateMPD())
 									{
@@ -10574,7 +10581,16 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 	{
 		return false;
 	}
-	std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+	int basePeriodIdx = getPeriodIdx(mBasePeriodId);
+	if(basePeriodIdx != -1)
+	{
+		if(mMPDParseHelper->IsEmptyPeriod(basePeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))
+		{
+			AAMPLOG_WARN("[CDAI] period [%s] is empty not processing adevents if any",mBasePeriodId.c_str());
+			return false;
+		}
+	}
+    std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
 	bool stateChanged = false;
 	AdState oldState = mCdaiObject->mAdState;
 	AAMPEventType reservationEvt2Send = AAMP_MAX_NUM_EVENTS; //None
@@ -12480,12 +12496,82 @@ bool StreamAbstractionAAMP_MPD::PlacenextAdBrkifAvail(IMPD *mpd)
 	bool adFound = mCdaiObject->HasDaiAd(mBasePeriodId);
 	if(adFound)
 	{
+		int basePeriodIdx = getPeriodIdx(mBasePeriodId);
+		if(basePeriodIdx != -1)
+		{
+			if(mMPDParseHelper->IsEmptyPeriod(basePeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))
+			{
+				AAMPLOG_WARN("[CDAI] period [%s] is empty not processing adevents if any",mBasePeriodId.c_str());
+				return adStateChanged;
+			}
+		}
 		AAMPLOG_WARN("[CDAI]Current Period : %s has DAI ADS .. PlaceAds",mBasePeriodId.c_str());
 		mBasePeriodOffset = 0;//Not considering the delta from previous period's duration.
 		mCdaiObject->PlaceAds(mpd);// to ensure the second ad break is placed to the ad object
 		adStateChanged = onAdEvent(AdEvent::DEFAULT);//to play Second immediate ad break
 	}
-	AAMPLOG_WARN("[CDAI] number of ads pending for playback :%d",mCdaiObject->mAdtoInsertInNextBreakVec.size());
+	AAMPLOG_WARN("[CDAI] total number of ads in AdBreakList:%lu",mCdaiObject->mAdtoInsertInNextBreakVec.size());
 	return adStateChanged;
+}
+
+/**
+* @fn getPeriodIdx
+* @brief Function to get base period index from mpd
+* @param[in] periodId.
+* @retval period index.
+*/
+int StreamAbstractionAAMP_MPD::getPeriodIdx(const std::string periodId)
+{
+	vector<IPeriod *> periods = mpd->GetPeriods();
+	int periodIter = (int)periods.size() - 1;
+	int PeriodIdx = -1;
+	while(periodIter >= 0)
+	{
+		if(periodId == periods.at(periodIter)->GetId())
+		{
+			PeriodIdx = periodIter;
+			break;
+		}
+		periodIter--;
+	}
+	return PeriodIdx;
+}
+
+/* one or more empty period(s) can appear at live edge.  player must not play into those periods until/unless those empty periods are instantiated.
+ any empty period followed by non-empty period will never be instantiated, will remain empty, and will eventually slide out of the live window.  These forever-empty periods must never be presented using alternate content, but should be skipped.
+ */
+int StreamAbstractionAAMP_MPD::getValidperiodIdx(int periodIdx)
+{
+	int periodIter = periodIdx;
+	if (!mMPDParseHelper->IsEmptyPeriod(periodIter, (rate != AAMP_NORMAL_PLAY_RATE)))
+	{
+		AAMPLOG_WARN("[CDAI] Landed at period (%s) periodIdx: %d",mpd->GetPeriods().at(periodIter)->GetId().c_str(),periodIter);
+		return periodIter;
+	}
+
+	if(periodIdx >= 0 && (periodIdx < mNumberOfPeriods))
+	{
+		AAMPLOG_WARN("[CDAI] current period is empty,check if the immediate next period is non-empty");
+		bool bvalidperiodfound = false;
+		int direction = 1;
+		if(rate < 0)
+			direction = -1;
+		periodIter += direction; //point periodIter to next period
+		while((periodIter < mNumberOfPeriods) && (periodIter >= 0))
+		{
+			if (!mMPDParseHelper->IsEmptyPeriod(periodIter, (rate != AAMP_NORMAL_PLAY_RATE))) //Is non-empty period followed by empty period
+			{
+				AAMPLOG_WARN("[CDAI] valid period(%s) after non-empty period(%s) found at index (%d)", mpd->GetPeriods().at(periodIter)->GetId().c_str(),mpd->GetPeriods().at(periodIdx)->GetId().c_str(),periodIter);
+				bvalidperiodfound = true;
+				break;
+			}
+			periodIter += direction;;
+		}
+		if(!bvalidperiodfound)
+		{
+			periodIter = periodIdx;
+		}
+	}
+	return periodIter;
 }
 
