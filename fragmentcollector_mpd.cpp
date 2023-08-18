@@ -8798,6 +8798,12 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						ReleasePlaylistLock();
 						break;
 					}
+
+					int basePeriodIdx = getPeriodIdx(mBasePeriodId);
+					if(basePeriodIdx != -1)
+					{
+						adStateChanged = (adStateChanged || mMPDParseHelper->IsEmptyPeriod(basePeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE))); 
+					}
 					//OUTSIDE_ADBREAK means the current ad break playback completed.
 					if(adStateChanged && AdState::OUTSIDE_ADBREAK == mCdaiObject->mAdState)
                     			{
@@ -8807,17 +8813,19 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
                         			//Just came out from the Adbreak. Need to search the right period
                         			for(mIterPeriodIndex=0;mIterPeriodIndex < mNumberOfPeriods;  mIterPeriodIndex++)
                         			{
-                            				if(mBasePeriodId == mpd->GetPeriods().at(mIterPeriodIndex)->GetId())
-                            				{
-                                				mCurrentPeriodIdx =  getValidperiodIdx(mIterPeriodIndex);
+							if(mBasePeriodId == mpd->GetPeriods().at(mIterPeriodIndex)->GetId())
+							{
+								mCurrentPeriodIdx =  getValidperiodIdx(mIterPeriodIndex);
+								mIterPeriodIndex  =  mCurrentPeriodIdx;
+								mBasePeriodId 	  =  mpd->GetPeriods().at(mCurrentPeriodIdx)->GetId();
 								if(mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))
 								{
 									AAMPLOG_WARN("Empty period(%s) at the end of manifest BasePeriodId (%s)",mpd->GetPeriods().at(mCurrentPeriodIdx)->GetId().c_str(),mpd->GetPeriods().at(mIterPeriodIndex)->GetId());
 									/*empty periods are at live edge or no valid next period avaialble
-									(all next periods are empty)wait for the manifest refresh to land at valid period */
-                                				}
+									all next periods are empty)wait for the manifest refresh to land at valid period */
+								}
 								break;
-                            				}
+							}
                         			}
                     			}
 
