@@ -8834,7 +8834,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 								mBasePeriodId 	  =  mpd->GetPeriods().at(mCurrentPeriodIdx)->GetId();
 								if(mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))
 								{
-									AAMPLOG_WARN("Empty period(%s) at the end of manifest BasePeriodId (%s)",mpd->GetPeriods().at(mCurrentPeriodIdx)->GetId().c_str(),mpd->GetPeriods().at(mIterPeriodIndex)->GetId());
+									AAMPLOG_WARN("Empty period(%s) at the end of manifest BasePeriodId (%s)",mpd->GetPeriods().at(mCurrentPeriodIdx)->GetId().c_str(),mpd->GetPeriods().at(mIterPeriodIndex)->GetId().c_str());
 									/*empty periods are at live edge or no valid next period avaialble
 									all next periods are empty)wait for the manifest refresh to land at valid period */
 								}
