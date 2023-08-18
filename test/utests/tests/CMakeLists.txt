@@ -1,6 +1,7 @@
 include(GoogleTest)
 
 add_subdirectory(AampCliSet)
+add_subdirectory(AampGrowableBuffer)
 add_subdirectory(Base64AAMP)
 add_subdirectory(AampUtilsTests)
 add_subdirectory(ConfigTests)

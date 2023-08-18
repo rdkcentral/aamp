@@ -26,38 +26,84 @@
 #define __AAMP_GROWABLE_BUFFER_H__
 
 #include <stddef.h>
-
+#include <cstring>
+#include <utility>
 
 class AampGrowableBuffer
 {
 public:
-    AampGrowableBuffer():ptr(NULL),len(0),avail(0){}
-    ~AampGrowableBuffer();
-    /*
-     RDKAAMP-581 [AAMP] tech debt - AampGrowableBuffer converted to class
-     commented out below line to fix component build failure in this ticket.
-     Uncommenting may cause errors.
-     */
-    //GrowableBuffer(const AampGrowableBuffer&) = delete;
-    AampGrowableBuffer(const AampGrowableBuffer&);
-    AampGrowableBuffer& operator=(const AampGrowableBuffer&);
-    void Free( void );
-    void ReserveBytes( size_t len );
-    void AppendBytes( const void *ptr, size_t len ); // append passed binary data to end of growable buffer, increasing underlying storage if required
-    void MoveBytes( const void *ptr, size_t len );
-    void AppendNulTerminator(void); // add final 0x00 character(s) so that the growable buffer can be used like a standard NUL-terminated C String
-    void Clear( void ); // sets logical buffer size back to zero, without releasing available pre-allocated memory; allows a growable buffer to be recycled
-    void Replace( AampGrowableBuffer *src );
-    void Transfer( void );
-    
-    char *GetPtr( void ) const { return (char *)ptr; } // accessor function for current growable buffer binary payload
-    size_t GetLen( void ) const { return len; } // accessor function for current logical growable buffer size
-    size_t GetAvail( void ) const { return avail; } // should be opaque, but used in logging
+	AampGrowableBuffer():ptr(NULL),len(0),avail(0){}
+	~AampGrowableBuffer();
+	/*
+	 RDKAAMP-581 [AAMP] tech debt - AampGrowableBuffer converted to class
+	 commented out below line to fix component build failure in this ticket.
+	 Uncommenting may cause errors.
+	 */
+	//GrowableBuffer(const AampGrowableBuffer&) = delete;
+
+	// // Copy constructor: deleted
+	// AampGrowableBuffer(const AampGrowableBuffer &) = delete;
+	// // Copy assignment: deleted
+	// AampGrowableBuffer& operator=(const AampGrowableBuffer &) = delete;
+
+	// Copy constructor
+	AampGrowableBuffer(const AampGrowableBuffer & other)
+	 : ptr(nullptr),
+	len{other.len},
+	avail(0)
+	{
+		ReserveBytes(len); // allocate the pointer and set avail
+		std::memcpy(ptr, other.ptr, len); // populate 
+	}
+	// Copy assignment
+	AampGrowableBuffer& operator=(const AampGrowableBuffer & other)
+	{
+		Free();
+		len = other.len;
+		ReserveBytes(len);
+		std::memcpy(ptr, other.ptr, len);
+		return *this;
+	}
+
+	// Move constructor
+	AampGrowableBuffer(AampGrowableBuffer && other) noexcept
+		: ptr {other.ptr},
+		len {other.len},
+		avail{other.avail}
+	{
+		other.ptr = nullptr;
+		other.len = 0;
+		other.avail = 0;
+	}
+	// Move assignement
+	AampGrowableBuffer& operator=(AampGrowableBuffer && other) noexcept
+	{
+		Free();
+		std::swap(ptr, other.ptr);
+		std::swap(len, other.len);
+		std::swap(avail, other.avail);
+		return *this;
+	}
+
+	void Free( void );
+	void ReserveBytes( size_t len );
+	void AppendBytes( const void *ptr, size_t len ); // append passed binary data to end of growable buffer, increasing underlying storage if required
+	void MoveBytes( const void *ptr, size_t len );
+	void AppendNulTerminator(void); // add final 0x00 character(s) so that the growable buffer can be used like a standard NUL-terminated C String
+	void Clear( void ); // sets logical buffer size back to zero, without releasing available pre-allocated memory; allows a growable buffer to be recycled
+	void Replace( AampGrowableBuffer *src );
+	void Transfer( void );
+	
+	char *GetPtr( void ) { return (char *)ptr; } // accessor function for current growable buffer binary payload
+	const char *GetPtr( void ) const { return static_cast<const char *>(ptr); } // accessor function for current growable buffer binary payload
+	size_t GetLen( void ) const { return len; } // accessor function for current logical growable buffer size
+	size_t GetAvail( void ) const { return avail; } // should be opaque, but used in logging
 
 private:
-    void *ptr;      /**< Pointer to buffer's memory location (gpointer) */
-    size_t len;     /**< Subset of allocated buffer that is populated and in use */
-    size_t avail;   /**< Available buffer size */
+	
+	void *ptr;      /**< Pointer to buffer's memory location (gpointer) */
+	size_t len;     /**< Subset of allocated buffer that is populated and in use */
+	size_t avail;   /**< Available buffer size */
 };
 
 #endif /* __AAMP_GROWABLE_BUFFER_H__ */
