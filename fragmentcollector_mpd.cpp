@@ -3392,6 +3392,12 @@ uint64_t GetFirstSegmentStartTime(IPeriod * period)
 			{
 				startTime = timelines.at(0)->GetStartTime();
 			}
+			uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
+			if(presentationTimeOffset > startTime)
+			{
+				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Presentation Time Offset %" PRIu64 " ahead of segment start %" PRIu64 ", Set PTO as start time", presentationTimeOffset, startTime);
+				startTime = presentationTimeOffset;
+			}
 		}
 	}
 	return startTime;
@@ -8908,6 +8914,12 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 									if(timelines.size() > 0)
 									{
 										segmentStartTime = timelines.at(0)->GetStartTime();
+									}
+									uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
+									if(presentationTimeOffset > segmentStartTime)
+									{
+										AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Presentation Time Offset %" PRIu64 " ahead of segment start Time %" PRIu64 ", Set PTO as segment start", presentationTimeOffset, segmentStartTime);
+										segmentStartTime = presentationTimeOffset;
 									}
 								}
 								/* Process the discontinuity,
