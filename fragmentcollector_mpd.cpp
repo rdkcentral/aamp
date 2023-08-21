@@ -8572,7 +8572,7 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 /**
  * @brief Fetches and caches audio fragment parallelly for video fragment.
  */
-void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, double delta, bool *waitForFreeFrag, bool *bCacheFullState)
+void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState)
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
@@ -8615,19 +8615,35 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 					AcquirePlaylistLock();
 					if(trickPlay && pMediaStreamContext->mDownloadedFragment.GetPtr() == NULL && !pMediaStreamContext->freshManifest)
 					{
+						double skipTime = 0;
+						if (delta)
+						{
+							skipTime = *delta;
+						}
 						//When player started in trickplay rate during player swithcing, make sure that we are showing atleast one frame (mainly to avoid cases where trickplay rate is so high that an ad could get skipped completely)
+						//TODO: Check for this conditon?? delta is always zero from FetcherLoop
 						if(aamp->playerStartedWithTrickPlay)
 						{
 							AAMPLOG_WARN("Played switched in trickplay, delta set to zero");
-							delta = 0;
+							skipTime = 0;
 							aamp->playerStartedWithTrickPlay = false;
 						}
-						else if((rate > 0 && delta <= 0) || (rate < 0 && delta >= 0))
+						else if((rate > 0 && skipTime <= 0) || (rate < 0 && skipTime >= 0))
 						{
-							delta = rate / vodTrickplayFPS;
+							skipTime = rate / vodTrickplayFPS;
 						}
 						double currFragTime = pMediaStreamContext->fragmentTime;
-						(void)SkipFragments(pMediaStreamContext, delta);
+						skipTime = SkipFragments(pMediaStreamContext, skipTime);
+						if (pMediaStreamContext->eos)
+						{
+							// If we reached end of period, only the remaining delta should be skipped in new period
+							// Otherwise we should skip based on formula rate/fps. This will also avoid any issues due to floating precision
+							*delta = skipTime;
+						}
+						else
+						{
+							*delta = 0;
+						}
 						mBasePeriodOffset += (pMediaStreamContext->fragmentTime - currFragTime);
 					}
 					ReleasePlaylistLock();
@@ -9117,14 +9133,14 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 												this,
 												trackIdx,
 												trickPlay,
-												delta,
+												&delta,
 												&waitForFreeFrag,
 												&cacheFullStatus[trackIdx]);
 								AAMPLOG_TRACE("Thread created for parallelDownload:AdvanceTrack [%d][%lu]", trackIdx, GetPrintableThreadID( *parallelDownload[trackIdx]));
 							}
 							else
 							{
-								AdvanceTrack(trackIdx, trickPlay, delta, &waitForFreeFrag, &cacheFullStatus[trackIdx]);
+								AdvanceTrack(trackIdx, trickPlay, &delta, &waitForFreeFrag, &cacheFullStatus[trackIdx]);
 								parallelDownload[trackIdx] = NULL;
 							}
 						}

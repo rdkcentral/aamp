@@ -466,7 +466,7 @@ private:
 	 * @fn AdvanceTrack
 	 * @return void
 	 */
-	void AdvanceTrack(int trackIdx, bool trickPlay, double delta, bool *waitForFreeFrag, bool *bCacheFullState);
+	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState);
 	/**
 	 * @fn FetcherLoop
 	 * @return void
