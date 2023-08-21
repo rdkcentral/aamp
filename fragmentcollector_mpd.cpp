@@ -8810,7 +8810,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
                     			{
                         		//If the next ad break is available,need to call onAdEvent again to play DAI ads from the next immediate ad break.
                         		//Otherwise, player will switch to base period(source) of second ad break
-                        			PlacenextAdBrkifAvail(mpd);
+                        			bool adPlaced = PlacenextAdBrkifAvail(mpd);
                         			//Just came out from the Adbreak. Need to search the right period
                         			for(mIterPeriodIndex=0;mIterPeriodIndex < mNumberOfPeriods;  mIterPeriodIndex++)
                         			{
@@ -8828,6 +8828,13 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 								break;
 							}
                         			}
+                                                if (adPlaced && rate < 0)
+                                                {
+                                                        // When the ad is placed and rate is less than zero, we need to update mBasePeriodOffset
+                                                        // Otherwise, it will exit the fetch loop after single fragment download, since mBasePeriodOffset is set to zero initially
+                                                        // This will cause the fragment collector to exit without pushing EOS if the first period in TSB is DAI ad
+                                                        mBasePeriodOffset += (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB())/1000.00);
+                                                }
                     			}
 
 					if(AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState)
@@ -8877,9 +8884,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							if(bmanifestupdate)
 							{
 								AAMPLOG_WARN("[CDAI] requires manifest update period ID \'%s\' not changed to \'%s\' [BasePeriodId=\'%s\']",currentPeriodId.c_str(),mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
-                            				}
-                            				else
-                            				{
+							}
+							else
+							{
 								AAMPLOG_WARN("Period ID not changed from \'%s\' to \'%s\',since period is empty [BasePeriodId=\'%s\']", currentPeriodId.c_str(),mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
 								if(mIsLiveManifest && (mIterPeriodIndex > mUpperBoundaryPeriod))
 								{
@@ -8893,7 +8900,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 									}
 									continue;
 								}
-
 							}
 						}
 
