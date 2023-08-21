@@ -901,7 +901,6 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 
 PlacementObj PrivateCDAIObjectMPD::setPlacementObj(std::string adBrkId,std::string endPeriodId)
 {
-	std::vector<PlacementObj>::iterator itr;
 	PlacementObj nxtPlacementObj = PlacementObj();
 	mAdBrkVecMtx.lock();
 	if(adBrkId == endPeriodId)
@@ -909,7 +908,7 @@ PlacementObj PrivateCDAIObjectMPD::setPlacementObj(std::string adBrkId,std::stri
 		AAMPLOG_INFO("[CDAI] Period %s playback remained endPeriodId : %s",adBrkId.c_str(),endPeriodId.c_str());
 		if(mAdtoInsertInNextBreakVec.size() > 1 )
 		{
-			for(itr = mAdtoInsertInNextBreakVec.begin();itr != mAdtoInsertInNextBreakVec.end();itr++)
+			for(auto itr = mAdtoInsertInNextBreakVec.begin();itr != mAdtoInsertInNextBreakVec.end();itr++)
 			{
 				if(adBrkId == itr->pendingAdbrkId)
 				{
@@ -930,14 +929,25 @@ PlacementObj PrivateCDAIObjectMPD::setPlacementObj(std::string adBrkId,std::stri
 	}
 	else
 	{
-		for(itr = mAdtoInsertInNextBreakVec.begin();itr != mAdtoInsertInNextBreakVec.end();itr++)
+		int adBrkIdx = -1;
+		for(int i = 0;i < mAdtoInsertInNextBreakVec.size();i++)
 		{
-			if(itr->pendingAdbrkId ==  endPeriodId)
+			if( mAdtoInsertInNextBreakVec[i].pendingAdbrkId ==  endPeriodId) //check if the next period has DAI Ad
 			{
-				nxtPlacementObj = (*itr);
+				nxtPlacementObj = mAdtoInsertInNextBreakVec[i]; //DAI Ad available,point nxtPlacementObj to the endPeriod
 				AAMPLOG_INFO("[CDAI] Placed AdBrkId = %s ",nxtPlacementObj.pendingAdbrkId.c_str());
 				break;
 			}
+			else if(mAdtoInsertInNextBreakVec[i].pendingAdbrkId == adBrkId)  // get the current PlaceAd Break Index
+			{
+				adBrkIdx = i;
+			}
+		}
+		//if curAdIdx = -1, check for the current Playing Adbreak Index , assign the nxtPlacementObj with the next avaiable adbreak in AdBreak List
+		if(nxtPlacementObj.curAdIdx == -1 && (adBrkIdx != -1 && ++adBrkIdx < mAdtoInsertInNextBreakVec.size()))
+		{
+			AAMPLOG_INFO("[CDAI] endPeriodId[%s] is not an DAI AD assign the placementObj with next available CDAI Ad[%s]",endPeriodId.c_str(),mAdtoInsertInNextBreakVec[adBrkIdx].pendingAdbrkId.c_str());
+			nxtPlacementObj = mAdtoInsertInNextBreakVec[adBrkIdx];
 		}
 	}
 	AAMPLOG_INFO("[CDAI] Placed AdBrkId = %s curAdIx = %d",nxtPlacementObj.pendingAdbrkId.c_str(),nxtPlacementObj.curAdIdx);
