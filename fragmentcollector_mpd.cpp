@@ -2345,6 +2345,7 @@ void StreamAbstractionAAMP_MPD::SkipToEnd( MediaStreamContext *pMediaStreamConte
 					repeatCount += (timeline->GetRepeatCount() + 1);
 				}
 				pMediaStreamContext->fragmentDescriptor.Number = pMediaStreamContext->fragmentDescriptor.Number + repeatCount - 1;
+				pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number;
 				pMediaStreamContext->timeLineIndex = (int)timelines.size() - 1;
 				pMediaStreamContext->fragmentRepeatCount = timelines.at(pMediaStreamContext->timeLineIndex)->GetRepeatCount();
 			}
