@@ -1,5 +1,5 @@
 /*
- * If not stated otherwise in this file or this component's license file the
+- * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
  * Copyright 2021 RDK Management
@@ -193,7 +193,7 @@ public:
      * @param[in] http error code
      * @return void
      */
-    void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) {};
+	void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) override {};
 
     MediaType mediaType;
     struct FragmentDescriptor fragmentDescriptor;

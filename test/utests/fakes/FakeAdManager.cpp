@@ -79,3 +79,13 @@ void PrivateCDAIObjectMPD::PrunePeriodMaps(std::vector<std::string> &newPeriodId
 void PrivateCDAIObjectMPD::ResetState()
 {
 }
+
+void PrivateCDAIObjectMPD::ErasefrmAdBrklist(const std::string adBrkId)
+{
+
+}
+
+bool PrivateCDAIObjectMPD::IsDAIAdAvailable(const std::string periodId)
+{
+	return false;
+}

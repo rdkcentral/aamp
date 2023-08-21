@@ -2397,7 +2397,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					pMediaStreamContext->adaptationSet->GetSegmentTemplate() );
 	if( segmentTemplates.HasSegmentTemplate() )
 	{
-		 AAMPLOG_INFO("Enter : Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentTime %f skipTime %f segNumber % " PRIu64" Ftime:%f" ,pMediaStreamContext->type,
+		 AAMPLOG_INFO("Enter : Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentTime %f skipTime %f segNumber %" PRIu64" Ftime:%f" ,pMediaStreamContext->type,
 								pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentTime, skipTime, pMediaStreamContext->fragmentDescriptor.Number,pMediaStreamContext->fragmentDescriptor.Time);
 
 		gboolean firstFrag = true;

@@ -19,3 +19,17 @@
 
 #include "AampMemoryUtils.h"
 
+/**
+ * @brief adds to memory count
+ */
+void NETMEMORY_PLUS( void )
+{
+}
+
+/**
+ * @brief subtracts from memory count
+ */
+void NETMEMORY_MINUS()
+{
+}
+
