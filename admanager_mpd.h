@@ -449,6 +449,10 @@ public:
         * @param[in] string basperiodId
         */
 	bool HasDaiAd(const std::string periodId);
+
+
+        //Place the end markers of adbreak
+        void setAdMarkers(uint64_t p2AdDataduration, double periodDelta);
 };
 
 

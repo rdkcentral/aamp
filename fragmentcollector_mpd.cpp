@@ -8903,9 +8903,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							{
 								AAMPLOG_WARN("[CDAI] requires manifest update period ID \'%s\' not changed to \'%s\' [BasePeriodId=\'%s\']",currentPeriodId.c_str(),mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
 							}
-							else
-							{
-								AAMPLOG_WARN("Period ID not changed from \'%s\' to \'%s\',since period is empty [BasePeriodId=\'%s\']", currentPeriodId.c_str(),mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
+                            				else
+                            				{
+								AAMPLOG_WARN("Period ID not changed from \'%s\' to \'%s\',since period is empty [BasePeriodId=\'%s\'] mIterPeriodIndex[%d] mUpperBoundaryPeriod[%d]", currentPeriodId.c_str(),mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str(), mIterPeriodIndex, mUpperBoundaryPeriod);
 								if(mIsLiveManifest && (mIterPeriodIndex > mUpperBoundaryPeriod))
 								{
 									// Update manifest and check for period validity in the next iteration
