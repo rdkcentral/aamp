@@ -53,6 +53,18 @@ long StreamAbstractionAAMP_VIDEOIN::GetMaxBitrate()
 void StreamAbstractionAAMP_VIDEOIN::SetVideoRectangle(int x, int y, int w, int h)
 {
 }
+AAMPStatusType StreamAbstractionAAMP_VIDEOIN::InitHelper(TuneType tuneType)
+{
+    return eAAMPSTATUS_OK;
+}
+
+void StreamAbstractionAAMP_VIDEOIN::StartHelper(int parameter, const std::string& someString)
+{
+}
+
+void StreamAbstractionAAMP_VIDEOIN::StopHelper(const std::string& someString)
+{
+}
 
 StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
                              : StreamAbstractionAAMP_VIDEOIN("HDMIIN", HDMIINPUT_CALLSIGN,logObj,aamp,seek_pos,rate)
@@ -76,25 +88,25 @@ void StreamAbstractionAAMP_HDMIIN::Stop(bool clearChannelData)
 {
 }
 
-StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                             : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", COMPOSITEINPUT_CALLSIGN, logObj, aamp,seek_pos,rate)
-{
-}
+ StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+                              : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", COMPOSITEINPUT_CALLSIGN, logObj, aamp,seek_pos,rate)
+ {
+ }
 
-StreamAbstractionAAMP_COMPOSITEIN::~StreamAbstractionAAMP_COMPOSITEIN()
-{
-}
+ StreamAbstractionAAMP_COMPOSITEIN::~StreamAbstractionAAMP_COMPOSITEIN()
+ {
+ }
 
-AAMPStatusType StreamAbstractionAAMP_COMPOSITEIN::Init(TuneType tuneType)
-{
-    return eAAMPSTATUS_OK;
-}
+ AAMPStatusType StreamAbstractionAAMP_COMPOSITEIN::Init(TuneType tuneType)
+ {
+     return eAAMPSTATUS_OK;
+ }
 
-void StreamAbstractionAAMP_COMPOSITEIN::Start(void)
-{
-}
+ void StreamAbstractionAAMP_COMPOSITEIN::Start(void)
+ {
+ }
 
-void StreamAbstractionAAMP_COMPOSITEIN::Stop(bool clearChannelData)
-{
-}
+ void StreamAbstractionAAMP_COMPOSITEIN::Stop(bool clearChannelData)
+ {
+ }
 

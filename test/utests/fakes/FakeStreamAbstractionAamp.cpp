@@ -24,6 +24,7 @@ MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP = nullptr;
 
 StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInstanceAAMP* aamp)
 {
+    mLogObj = logObj;
 }
 
 StreamAbstractionAAMP::~StreamAbstractionAAMP()
