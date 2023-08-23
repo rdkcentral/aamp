@@ -8765,12 +8765,14 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						AAMPLOG_WARN("Period(%s - %d/%d) Offset[%lf] IsLive(%d) IsCdvr(%d) ", mBasePeriodId.c_str(), mCurrentPeriodIdx, mNumberOfPeriods, mBasePeriodOffset, mIsLiveStream, aamp->IsInProgressCDVR());
 						vector <IAdaptationSet*> adapatationSets = newPeriod->GetAdaptationSets();
 						int adaptationSetCount = (int)adapatationSets.size();
-
-						if(0 == adaptationSetCount || (mMPDParseHelper->IsEmptyPeriod(mIterPeriodIndex, (rate != AAMP_NORMAL_PLAY_RATE))))
+						//Sky stream has tiny periods in their DAI streams to reflect audio codec change.
+						//So decided to skip any period those durations is less than 1000 ms
+						if(0 == adaptationSetCount || (mMPDParseHelper->IsEmptyPeriod(mIterPeriodIndex, (rate != AAMP_NORMAL_PLAY_RATE))) || (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) < THRESHOLD_TOIGNORE_TINYPERIOD))
 						{
 							/*To Handle non fog scenarios where empty periods are
 							* present after mpd update causing issues (DELIA-29879)
 							*/
+							AAMPLOG_INFO("Period %s skipped. Adaptation size:%d, isEmpty:%d duration %f (ms)",newPeriod->GetId().c_str(), adaptationSetCount,mMPDParseHelper->IsEmptyPeriod(mIterPeriodIndex, (rate != AAMP_NORMAL_PLAY_RATE)),(mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB())));
 							mIterPeriodIndex += direction;
 							ReleasePlaylistLock();
 							continue;
@@ -8878,7 +8880,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						}
 						/*DELIA-47914:  If next period is empty, period ID change is  not processing.
 						Will check the period change for the same period in the next iteration.*/
-						if((adaptationSetCount > 0 || !(mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))) && (!bmanifestupdate))
+						if((adaptationSetCount > 0 || !(mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))) && (!bmanifestupdate) && (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
 						{
 							AAMPLOG_WARN("Period ID changed from \'%s\' to \'%s\' [BasePeriodId=\'%s\']", currentPeriodId.c_str(),mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
 							currentPeriodId = mCurrentPeriod->GetId();
@@ -12583,15 +12585,15 @@ int StreamAbstractionAAMP_MPD::getPeriodIdx(const std::string periodId)
 int StreamAbstractionAAMP_MPD::getValidperiodIdx(int periodIdx)
 {
 	int periodIter = periodIdx;
-	if (!mMPDParseHelper->IsEmptyPeriod(periodIter, (rate != AAMP_NORMAL_PLAY_RATE)))
+	if(!mMPDParseHelper->IsEmptyPeriod(periodIter, (rate != AAMP_NORMAL_PLAY_RATE)) && (mMPDParseHelper->GetPeriodDuration(periodIter,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
 	{
-		AAMPLOG_WARN("[CDAI] Landed at period (%s) periodIdx: %d",mpd->GetPeriods().at(periodIter)->GetId().c_str(),periodIter);
+		AAMPLOG_WARN("[CDAI] Landed at period (%s) periodIdx: %d duration(ms):%f",mpd->GetPeriods().at(periodIter)->GetId().c_str(),periodIter,mMPDParseHelper->GetPeriodDuration(periodIter,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()));
 		return periodIter;
 	}
 
 	if(periodIdx >= 0 && (periodIdx < mNumberOfPeriods))
 	{
-		AAMPLOG_WARN("[CDAI] current period is empty,check if the immediate next period is non-empty");
+		AAMPLOG_WARN("[CDAI] current period [id: %s d:%f] is empty or tiny,check if the immediate next period is non-empty",mpd->GetPeriods().at(periodIter)->GetId().c_str(),mMPDParseHelper->GetPeriodDuration(periodIter,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()));
 		bool bvalidperiodfound = false;
 		int direction = 1;
 		if(rate < 0)

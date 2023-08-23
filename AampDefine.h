@@ -218,7 +218,7 @@
 #define AAMP_ROLE_SCORE 1000000ULL         /**< 4th priority to role/rendition matching **/
 #define AAMP_TYPE_SCORE 100000ULL          /**< 5th priority to type matching **/
 #define AAMP_CODEC_SCORE 1000ULL           /**< Lowest priority: matchng codec **/
-
+#define THRESHOLD_TOIGNORE_TINYPERIOD 500  /**<in milliseconds**/
 
 
 #define MAX_SESSION_ID_LENGTH 128                                /**<session id string length */
