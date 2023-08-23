@@ -33,13 +33,18 @@ fi
 #Function to build coverage tests. CWD should be test/utests/build. Pass in name of test build folder & name of test.
 build_test () {
 echo build $1 $2
-cd ./tests/$1
-make $2
-if [ "$?" -ne "0" ] && [ "$halt_on_error" -eq "1" ]; then
-  echo Halt on error $cov_name failed #$2 failed
-  exit $?
+if [ -d "./tests/$1" ]; then
+   cd ./tests/$1
+   make $2
+   if [ "$?" -ne "0" ] && [ "$halt_on_error" -eq "1" ]; then
+     echo Halt on error $cov_name failed #$2 failed
+     exit $?
+   fi
+   cd ../..
+   true
+else
+   false
 fi
-cd ../..
 }
 
 # Build and run microtests:
@@ -69,21 +74,29 @@ ctest -j 4 --output-on-failure --no-compress-output -T Test
 if [ "$build_coverage" -eq "1" ]; then
   echo Building coverage tests
   COMBINED="lcov "
-for TEST in $TESTLIST ; do
-  #Find the test name (in case it doesn't match the test folder name) by searching for EXEC_NAME and stripping final character
-  COVNAME=`cat $TESTDIR/tests/$TEST/CMakeLists.txt | grep "set(EXEC_NAME" | cut -c 15- | sed 's/.$//'`
-  COVNAME=$COVNAME"_coverage"
-  build_test $TEST $COVNAME
-  #Build up the command to create the combined report by adding each test name
-  COMBINED=$COMBINED" -a ./"$COVNAME".info"
-done
+  for TEST in $TESTLIST ; do
+    #Find the test name (in case it doesn't match the test folder name) by searching for EXEC_NAME and stripping final character
+    COVNAME=`cat $TESTDIR/tests/$TEST/CMakeLists.txt | grep "set(EXEC_NAME" | cut -c 15- | sed 's/.$//'`
+    COVNAME=$COVNAME"_coverage"
+    if build_test $TEST $COVNAME ; then
+       #Build up the command to create the combined report by adding each test name
+       COMBINED=$COMBINED" -a ./"$COVNAME".info"
+    else
+       COMBINED_MISSING+="${COVNAME//_coverage} "
+    fi
+  done
 
-#Create combined test report
-COMBINED=$COMBINED" -o combined.info"
-echo "Combined: "$COMBINED
-$COMBINED
-genhtml combined.info -o ../CombinedCoverage
-echo Building coverage tests complete
+  #Create combined test report
+  COMBINED=$COMBINED" -o combined.info"
+  echo "Combined: "$COMBINED
+  $COMBINED
+  genhtml combined.info -o ../CombinedCoverage
+  echo Building coverage tests complete
+  if [ ! -z "$COMBINED_MISSING" ] ; then
+     echo "!!!"
+     echo "Following tests were skipped, check tests/CMakeLists.txt to see if present: \"$COMBINED_MISSING\""
+     echo "!!!"
+  fi
 fi
 
 exit $?
