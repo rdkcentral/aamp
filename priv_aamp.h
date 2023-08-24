@@ -4157,6 +4157,7 @@ private:
 	long mCurrentLatency;
 	AampLogManager *mLogObj;
 	bool mApplyVideoRect; 			/**< Status to apply stored video rectagle */
+	bool mApplyContentRestriction;		/**< Status to apply content restriction */
 	videoRect mVideoRect;
 	std::unique_ptr<char[]> mData;
 	std::string mTextStyle;

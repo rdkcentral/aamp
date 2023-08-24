@@ -1230,6 +1230,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, playerStartedWithTrickPlay(false)
 	, mPlaybackMode("UNKNOWN")
 	, mApplyVideoRect(false)
+	, mApplyContentRestriction(false)
 	, mVideoRect{}
 	, mData()
 	, mIsInbandCC(true)
@@ -5663,6 +5664,15 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		}
 		AAMPLOG_INFO("Update SetVideoRectangle x:%d y:%d w:%d h:%d", mVideoRect.horizontalPos, mVideoRect.verticalPos, mVideoRect.width, mVideoRect.height);
 		mApplyVideoRect = false;
+	}
+	// To check and apply content restriction
+	if(mApplyContentRestriction)
+	{
+		if ((mMediaFormat == eMEDIAFORMAT_OTA))
+		{
+			mpStreamAbstractionAAMP->EnableContentRestrictions();
+		}
+		mApplyContentRestriction = false;
 	}
 	// do not change location of this set, it should be done after sending perviouse VideoEnd data which
 	// is done in TuneHelper->SendVideoEndEvent function.
@@ -10455,9 +10465,16 @@ void PrivateInstanceAAMP::DisableContentRestrictions(long grace, long time, bool
 void PrivateInstanceAAMP::EnableContentRestrictions()
 {
 	AcquireStreamLock();
+	PrivAAMPState state;
+	GetState(state);
 	if (mpStreamAbstractionAAMP)
 	{
 		mpStreamAbstractionAAMP->EnableContentRestrictions();
+	}
+	else
+	{
+		AAMPLOG_INFO("mpStreamAbstractionAAMP is not Ready, %d", state);
+		mApplyContentRestriction = true;
 	}
 	ReleaseStreamLock();
 }
