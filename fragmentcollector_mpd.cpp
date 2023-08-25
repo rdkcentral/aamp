@@ -12539,6 +12539,7 @@ bool StreamAbstractionAAMP_MPD::PlacenextAdBrkifAvail(IMPD *mpd)
 	if(adFound)
 	{
 		int basePeriodIdx = getPeriodIdx(mBasePeriodId);
+		mBasePeriodOffset = 0;
 		if(basePeriodIdx != -1)
 		{
 			if(mMPDParseHelper->IsEmptyPeriod(basePeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))
@@ -12548,7 +12549,6 @@ bool StreamAbstractionAAMP_MPD::PlacenextAdBrkifAvail(IMPD *mpd)
 			}
 		}
 		AAMPLOG_WARN("[CDAI]Current Period : %s has DAI ADS .. PlaceAds",mBasePeriodId.c_str());
-		mBasePeriodOffset = 0;//Not considering the delta from previous period's duration.
 		mCdaiObject->PlaceAds(mpd);// to ensure the second ad break is placed to the ad object
 		adStateChanged = onAdEvent(AdEvent::DEFAULT);//to play Second immediate ad break
 	}
