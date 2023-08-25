@@ -9276,6 +9276,15 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			} //Loop 2: End of Period while loop
 			if (exitFetchLoop || (rate < AAMP_NORMAL_PLAY_RATE && mIterPeriodIndex < 0) || (rate > 1 && mIterPeriodIndex >= mNumberOfPeriods) || (!mIsLiveManifest && waitForAdBreakCatchup != true))
 			{
+				// During rewind, due to miscalculations in fragmentTime, we could end up exiting collector loop without pushing EOS
+				// For the time being, will check additionally here to push EOS
+				if ((rate < AAMP_NORMAL_PLAY_RATE && mIterPeriodIndex < 0) &&
+					(!mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached))
+				{
+					AAMPLOG_INFO("EOS Reached. rate:%f mIterPeriodIndex:%d", rate, mIterPeriodIndex);
+					mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
+					mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
+				}
 				break;
 			}
 		}
