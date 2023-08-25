@@ -1617,9 +1617,9 @@ public:
 	 *   @param[in]  fpts - Presentation Time Stamp.
 	 *   @param[in]  fdts - Decode Time Stamp
 	 *   @param[in]  fDuration - Buffer duration.
-	 *   @return void
+	 *   @return True if the fragment has been successfully injected into gstreamer pipeline
 	 */
-	void SendStreamCopy(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration);
+	bool SendStreamCopy(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration);
 
 	/**
 	 *   @fn SendStreamTransfer
@@ -1629,7 +1629,7 @@ public:
 	 *   @param[in]  fpts - Presentation Time Stamp.
 	 *   @param[in]  fdts - Decode Time Stamp
 	 *   @param[in]  fDuration - Buffer duration.
-     	 *   @param[in]  initFragment - flag for buffer type (init, data)
+	 *   @param[in]  initFragment - flag for buffer type (init, data)
 	 *   @return void
 	 */
 	void SendStreamTransfer(MediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment = 0, bool discontinuity = false);
@@ -4050,6 +4050,21 @@ private:
 	 */
 	std::shared_ptr<ManifestDownloadConfig> prepareManifestDownloadConfig();
 
+	/**
+	 * @brief  Updates the PTS offset with the given value
+	 * 
+	 * @param value New value of the PTS offset
+	 */
+	void UpdatePTSOffsetFromTune(double value, bool is_set = false);
+
+	/**
+	 * @brief Provides the value of the currently cached PTS offset from tune
+	 * 
+	 * @return The current value of the PTS cache 
+	 */
+	double GetPTSOffsetFromTune() const { return m_PTSOffsetFromTune.load(); }
+
+
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
@@ -4137,6 +4152,10 @@ private:
 	std::vector<StreamBlacklistProfileInfo> mBlacklistedProfiles;
 	//std::vector<ProfilerBucketType> cachedMediaBucketTypes;
 	AampMPDDownloader *mMPDDownloaderInstance;
+
+	std::atomic<double> m_PTSOffsetFromTune {0.}; /**< PTS offset cache from Tune, is reset only on a `Stop` */
+
+	// double mCurrentMaxPTS;
 };
 
 #endif // PRIVAAMP_H

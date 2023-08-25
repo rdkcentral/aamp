@@ -25,10 +25,12 @@
 #ifndef AAMPGSTPLAYER_H
 #define AAMPGSTPLAYER_H
 
+#include "priv_aamp.h"
+#include "ID3Metadata.hpp"
+
 #include <stddef.h>
 #include <functional>
 #include <gst/gst.h>
-#include "priv_aamp.h"
 #include <pthread.h>
 
 /**
@@ -114,9 +116,6 @@ private:
 	gboolean SendQtDemuxOverrideEvent(MediaType mediaType, const void *ptr = nullptr, size_t len = 0);
 
 public:
-
-	/// Signature of function to call in case of an ID3 packet 
-	using id3_callback_t = std::function<void (MediaType mediaType, const uint8_t * ptr, size_t pkt_len, const SegmentInfo_t & info)>;
 
 	class PrivateInstanceAAMP *aamp;
 	/**

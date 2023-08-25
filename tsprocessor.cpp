@@ -36,6 +36,9 @@
 #include "tsprocessor.h"
 #include "AampUtils.h"
 
+#include "AampSegmentInfo.hpp"
+
+#include <iomanip>
 #include <unordered_set>
 
 /**
@@ -45,7 +48,7 @@
 void print_nop(const char *format, ...){}
 
 #ifdef LOG_ENABLE_TRACE
-#define TRACE1 AAMPLOG_TRACE("PC: TRACE1 %s:%d:"); AAMPLOG_TRACE
+#define TRACE1 AAMPLOG_TRACE("PC: TRACE1 "); AAMPLOG_TRACE
 #define TRACE2 AAMPLOG_TRACE("PC: TRACE2 "); AAMPLOG_TRACE
 #define TRACE3 AAMPLOG_TRACE("PC: TRACE3 "); AAMPLOG_TRACE
 #define TRACE4 AAMPLOG_TRACE("PC: TRACE4 "); AAMPLOG_TRACE
@@ -253,19 +256,20 @@ private:
 	bool reached_steady_state;
 
 	/**
-	 * @brief Sends elementary stream with proper PTS
-	 */
-	void send()
+	 * Checks whether the steady state has been reached
+	 * @returns True if the steady state has been reached
+	*/
+	bool CheckForSteadyState()
 	{
-		if( !reached_steady_state )
+		if (!reached_steady_state)
 		{
 			if ((base_pts > current_pts)
 				|| (current_dts && base_pts > current_dts))
 			{
-                WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " diff %f seconds length %d",
+				WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " diff %f seconds length %d",
 					type, position, base_pts.value, current_pts.value, (double)(base_pts - current_pts) / 90000, (int)es.GetLen() );
 				es.Clear();
-				return;
+				return false;
 			}
 
 			if (base_pts + uint33_t::half_max() > current_pts + uint33_t::half_max())
@@ -273,37 +277,58 @@ private:
 				WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " base_pts+half_max %" PRIu64 " current_pts+half_max %" PRIu64 ,
 					type, position, base_pts.value, current_pts.value, (base_pts+uint33_t::half_max()).value, (current_pts+uint33_t::half_max()).value);
 				es.Clear();
-				return;
+				return false;
 			}
 			reached_steady_state = true;
+			return true;
 		}
+		return true;
+	}
 
-		double pts = position;
-		double dts;
+	/**
+	 * @brief Updates internal PTS, DTS and duration and fills a @a SegmentInfo_t with the updated values
+	 * @return SegmentInfo_t containing current's segment PTS, DTS and duration
+	 */
+	SegmentInfo_t UpdateSegmentInfo() const
+	{
+		SegmentInfo_t ret {position, 0, duration};
 		if (!trickmode)
 		{
-			pts += (double)(current_pts - base_pts) / 90000;
+			ret.pts_ms += static_cast<double>(current_pts.value - base_pts.value) / 90000.;
 		}
 		if (!trickmode && current_dts)
 		{
-			dts = position + (double)(current_dts - base_pts) / 90000;
+			ret.dts_ms = position + static_cast<double>(current_dts.value - base_pts.value) / 90000.;
 		}
 		else
 		{
-			dts = pts;
+			ret.dts_ms = ret.pts_ms;
 		}
-		DEBUG_DEMUX("Send : pts %f dts %f", pts, dts);
-		DEBUG_DEMUX("position %f base_pts %llu current_pts %llu diff %f seconds length %d", position, base_pts, current_pts, (double)(current_pts - base_pts) / 90000, (int)es.GetLen() );
-		aamp->SendStreamCopy(type, es.GetPtr(), es.GetLen(), pts, dts, duration);
-		if (gpGlobalConfig->logging.info)
+
+		return ret;
+	}
+
+	/**
+	 * @brief Sends elementary stream with proper PTS
+	 */
+	void send()
+	{
+		if (CheckForSteadyState())
 		{
-			sentESCount++;
-			if(0 == (sentESCount % 150 ))
+			const auto info = UpdateSegmentInfo();
+
+			aamp->SendStreamCopy(type, es.GetPtr(), es.GetLen(), info.pts_ms, info.dts_ms, duration);
+
+			if (gpGlobalConfig->logging.info)
 			{
-				AAMPLOG_WARN("Demuxer:: type %d sent %d packets", (int)type, sentESCount);
+				sentESCount++;
+				if(0 == (sentESCount % 150 ))
+				{
+					AAMPLOG_INFO("Demuxer:: type %d sent %d packets", (int)type, sentESCount);
+				}
 			}
+			es.Clear();
 		}
-		es.Clear();
 	}
 
 public:
@@ -322,14 +347,24 @@ public:
 	}
 
 	/**
-	 * @brief Copy Constructor
+	 * @brief Copy Constructor: deleted
 	 */
 	Demuxer(const Demuxer&) = delete;
 
 	/**
-	 * @brief Assignment operator overloading
+	 * @brief Move Constructor: deleted
+	 */
+	Demuxer(Demuxer &&) noexcept = delete;
+
+	/**
+	 * @brief Copy assignment operator overloading: deleted
 	 */
 	Demuxer& operator=(const Demuxer&) = delete;
+
+	/**
+	 * @brief Move assignment operator overloading: deleted
+	 */
+	Demuxer& operator=(Demuxer &&) noexcept = delete;
 
 	/**
 	 * @brief Demuxer Destructor
@@ -339,7 +374,6 @@ public:
 		es.Free();
 		pes_header.Free();
 	}
-
 
 	/**
 	 * @brief Initialize demux
@@ -403,7 +437,7 @@ public:
 	{
 		if (!trickmode)
 		{
-			NOTICE("Type[%d], basePTS %llu final %d\n", (int)type, basePTS, (int)isFinal);
+			NOTICE("Type[%d], basePTS %llu final %d", (int)type, basePTS, (int)isFinal);
 		}
 		base_pts = basePTS;
 		finalized_base_pts = isFinal;
@@ -425,7 +459,7 @@ public:
 	 * @param[out] basePtsUpdated true if base PTS is updated
 	 * @param[in] ptsError true if encountered PTS error.
 	 */
-	void processPacket(unsigned char * packetStart, bool &basePtsUpdated, bool &ptsError, bool &isPacketIgnored, bool applyOffset)
+	void processPacket(unsigned char * packetStart, bool &basePtsUpdated, bool &ptsError, bool &isPacketIgnored, bool applyOffset, MediaProcessor::process_fcn_t processor)
 	{
 		int adaptation_fieldlen = 0;
 		basePtsUpdated = false;
@@ -445,7 +479,14 @@ public:
 			{
 				if (es.GetLen() > 0)
 				{
-					send();
+					if (processor)
+					{
+						send(processor);
+					}
+					else
+					{
+						send();
+					}
 				}
 				unsigned char* pesStart = packetStart + pesOffset;
 				if (IS_PES_PACKET_START(pesStart))
@@ -692,9 +733,37 @@ public:
 		}
 		else
 		{
-			INFO("No payload in packet packetStart[3] 0x%x", packetStart[3]);
+			AAMPLOG_INFO("No payload in packet packetStart[3] 0x%x", packetStart[3]);
 		}
 		ptsError = false;
+	}
+
+	/**
+	 * @brief Sends elementary stream with proper PTS
+	 * @param[in] processor Function to process the demuxed segment
+	 */
+	void send(MediaProcessor::process_fcn_t processor)
+	{
+		if (processor)
+		{
+			if (CheckForSteadyState())
+			{
+				// Copy the segment data into a vector and pass it to the processing function
+
+				uint8_t * data_ptr = reinterpret_cast<uint8_t *>(es.GetPtr());
+				const auto len = es.GetLen();
+				std::vector<uint8_t> buf(len);
+				const auto info {UpdateSegmentInfo()};
+
+				buf.assign(data_ptr, data_ptr + len);
+				processor(type, std::move(info), std::move(buf));
+				es.Clear();
+			}
+		}
+		else
+		{
+			send();
+		}
 	}
 
 	/** @brief Provides the @a MediaType of the demixer
@@ -704,14 +773,15 @@ public:
 
 	/**
 	 * @brief Consumes the cached data of the @a es buffer, if present
+	 * @note Note that the @a es buffer is "cleared" inside the @a send function
 	 * @return True if data was present
 	 * @return False if there was no data
 	 */
-	bool ConsumeCachedData()
+	bool ConsumeCachedData(MediaProcessor::process_fcn_t processor)
 	{
 		if (es.GetLen())
 		{
-			send();
+			send(processor);
 			return true;
 		}
 		return false;
@@ -920,7 +990,7 @@ TSProcessor::TSProcessor(AampLogManager *logObj, class PrivateInstanceAAMP *aamp
 	,m_audioGroupId()
 	,m_applyOffset(true)
 {
-	INFO("constructor - %p", this);
+	AAMPLOG_INFO(" constructor: %p", this);
 
 	memset(m_SPS, 0, 32 * sizeof(H264SPS));
 	memset(m_PPS, 0, 256 * sizeof(H264PPS));
@@ -969,7 +1039,7 @@ TSProcessor::TSProcessor(AampLogManager *logObj, class PrivateInstanceAAMP *aamp
  */
 TSProcessor::~TSProcessor()
 {
-	INFO("destructor - %p", this);
+	AAMPLOG_INFO("destructor: %p", this);
 	if (m_PatPmt)
 	{
 		free(m_PatPmt);
@@ -1700,7 +1770,7 @@ bool TSProcessor::throttle()
  * @brief Process buffers and update internal states related to media components
  * @retval false if operation is aborted.
  */
-bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt)
+bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt, bool discontinuity_pending)
 {
 	bool result = true;
 	unsigned char *packet, *bufferEnd;
@@ -1737,6 +1807,17 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 		AAMPLOG_WARN("packet=%p size=%d m_packetSize=%d", packet, size, m_packetSize);
 		dumpPacket(packet, m_packetSize);
 		assert(false);
+	}
+
+
+	if (discontinuity_pending)
+	{
+		AAMPLOG_INFO(" DBG :: Discontinuity pending, resetting m_havePAT & m_havePMT");
+
+		pthread_mutex_lock(&m_mutex);
+		m_havePAT = false;
+		m_havePMT = false;
+		pthread_mutex_unlock(&m_mutex);
 	}
 
 	bufferEnd = packet + size - m_ttsSize;
@@ -2151,7 +2232,7 @@ void TSProcessor::setupThrottle(int segmentDurationMsSigned)
  * @brief Demux TS and send elementary streams
  * @retval true on success, false on PTS error
  */
-bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, double duration, bool discontinuous, TrackToDemux trackToDemux)
+bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, double duration, bool discontinuous, MediaProcessor::process_fcn_t processor, TrackToDemux trackToDemux)
 {
 	int videoPid = -1, audioPid = -1, dsmccPid = -1;
 	unsigned long long firstPcr = 0;
@@ -2190,7 +2271,6 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 		}
 		if (discontinuous || !m_demuxInitialized )
 		{
-
 			if(discontinuous)
 			{
 				NOTICE("TSProcessor:%p discontinuous buffer- flushing audio demux", this);
@@ -2254,7 +2334,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 					}
 					if (m_dsmccDemuxer)
 					{
-						m_dsmccDemuxer->setBasePTS(firstPcr, false);
+						m_dsmccDemuxer->setBasePTS(firstPcr, true);
 					}
 					notifyPeerBasePTS = true;
 					m_demuxInitialized = true;
@@ -2267,7 +2347,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 			bool ptsError = false;  //CID:87386 , 86687 - Initialization
 			bool  basePTSUpdated = false;
 			bool isPacketIgnored = false;
-			demuxer->processPacket(packetStart, basePTSUpdated, ptsError, isPacketIgnored,m_applyOffset);
+			demuxer->processPacket(packetStart, basePTSUpdated, ptsError, isPacketIgnored, m_applyOffset, processor);
 
 			/* DELIA 47453 Audio is not playing in particular hls file.
 			 * We always choose the first audio pid to play the audio data, even if we
@@ -2349,7 +2429,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 	{
 		if (demuxer && demuxer->HasCachedData())
 		{
-			demuxer->ConsumeCachedData();
+			demuxer->ConsumeCachedData(processor);
 		}
 	}
 
@@ -2428,7 +2508,7 @@ void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPosito
 		if (eStreamOp_QUEUE_AUDIO == m_streamOperation)
 		{
 			aamp->SendStreamCopy((MediaType) m_track, m_queuedSegment, m_queuedSegmentLen, m_queuedSegmentPos,
-			        m_queuedSegmentPos, m_queuedSegmentDuration);
+					m_queuedSegmentPos, m_queuedSegmentDuration);
 		}
 		else if (eStreamOp_DEMUX_AUDIO == m_streamOperation)
 		{
@@ -2436,7 +2516,13 @@ void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPosito
 			{
 				m_audDemuxer->setBasePTS(basepts, true);
 			}
-			if(!demuxAndSend(m_queuedSegment, m_queuedSegmentLen, m_queuedSegmentPos, m_queuedSegmentDuration, m_queuedSegmentDiscontinuous ))
+
+			MediaProcessor::process_fcn_t processor = [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+			{
+				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			};
+
+			if(!demuxAndSend(m_queuedSegment, m_queuedSegmentLen, m_queuedSegmentPos, m_queuedSegmentDuration, m_queuedSegmentDiscontinuous, processor))
 			{
 				AAMPLOG_WARN("demuxAndSend");  //CID:90622- checked return
 			}
@@ -2479,7 +2565,7 @@ void TSProcessor::setBasePTS(double position, long long pts)
  * @brief Does configured operation on the segment and injects data to sink
  *        Process and send media fragment
  */
-bool TSProcessor::sendSegment(char *segment, size_t& size, double position, double duration, bool discontinuous, bool &ptsError)
+bool TSProcessor::sendSegment(char *segment, size_t& size, double position, double duration, bool discontinuous, MediaProcessor::process_fcn_t processor, bool &ptsError)
 {
 	bool insPatPmt = false;  //CID:84507 - Initialization
 	unsigned char * packetStart;
@@ -2531,7 +2617,7 @@ bool TSProcessor::sendSegment(char *segment, size_t& size, double position, doub
 		INFO("Discarding %d bytes at end", discardAtEnd);
 		len = len - discardAtEnd;
 	}
-	ret = processBuffer((unsigned char*)packetStart, len, insPatPmt);
+	ret = processBuffer((unsigned char*)packetStart, len, insPatPmt, discontinuous);
 	if (ret)
 	{
 		if (-1.0 == m_startPosition)
@@ -2586,17 +2672,17 @@ bool TSProcessor::sendSegment(char *segment, size_t& size, double position, doub
 					}
 					pthread_mutex_unlock(&m_mutex);
 				}
-				ret = demuxAndSend(packetStart, len, m_startPosition, duration, discontinuous);
+				ret = demuxAndSend(packetStart, len, m_startPosition, duration, discontinuous, processor);
 			}
 			else if(!ISCONFIGSET(eAAMPConfig_DemuxAudioBeforeVideo))
 			{
-				ret = demuxAndSend(packetStart, len, position, duration, discontinuous);
+				ret = demuxAndSend(packetStart, len, position, duration, discontinuous, processor);
 			}
 			else
 			{
 				WARNING("Sending Audio First");
-				ret = demuxAndSend(packetStart, len, position, duration, discontinuous, ePC_Track_Audio);
-				ret |= demuxAndSend(packetStart, len, position, duration, discontinuous, ePC_Track_Video);
+				ret = demuxAndSend(packetStart, len, position, duration, discontinuous, processor, ePC_Track_Audio);
+				ret |= demuxAndSend(packetStart, len, position, duration, discontinuous, processor, ePC_Track_Video);
 			}
 			ptsError = !ret;
 		}

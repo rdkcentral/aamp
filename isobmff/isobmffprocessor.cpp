@@ -66,7 +66,7 @@ IsoBmffProcessor::~IsoBmffProcessor()
 /**
  *  @brief Process and send ISOBMFF fragment
  */
-bool IsoBmffProcessor::sendSegment(char *segment, size_t& size, double position, double duration, bool discontinuous, bool &ptsError)
+bool IsoBmffProcessor::sendSegment(char *segment, size_t& size, double position, double duration, bool discontinuous, process_fcn_t processor, bool &ptsError)
 {
 	ptsError = false;
 	bool ret = true;

@@ -4728,7 +4728,12 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HLS || mMediaFormat == eMEDIAFORMAT_HLS_MP4)
 	{ // m3u8
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_HLS(mLogObj,this, playlistSeekPos, rate);
+		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_HLS(mLogObj,this, playlistSeekPos, rate,
+			std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this, 
+				std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
+			std::bind(&PrivateInstanceAAMP::UpdatePTSOffsetFromTune, this,
+				std::placeholders::_1, std::placeholders::_2)
+		);
 		if(NULL == mCdaiObject)
 		{
 			mCdaiObject = new CDAIObject(mLogObj, this);    //Placeholder to reject the SetAlternateContents()
@@ -6788,9 +6793,9 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 /**
  * @brief  API to send audio/video stream into the sink.
  */
-void PrivateInstanceAAMP::SendStreamCopy(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
+bool PrivateInstanceAAMP::SendStreamCopy(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
 {
-	mStreamSink->SendCopy(mediaType, ptr, len, fpts, fdts, fDuration);
+	return mStreamSink->SendCopy(mediaType, ptr, len, fpts, fdts, fDuration);
 }
 
 /**
@@ -11403,32 +11408,6 @@ void PrivateInstanceAAMP::UpdateBufferBasedOnLiveOffset()
 	}
 }
 
-// ID3 Metadata
-void PrivateInstanceAAMP::ID3MetadataHandler(MediaType mediaType, const uint8_t * ptr, size_t pkt_len, const SegmentInfo_t & info)
-{
-	const auto is_id3_listener_available = IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA);
-
-	if (is_id3_listener_available)
-	{
-		namespace aih = aamp::id3_metadata::helpers;
-		const auto data_len = aih::DataSize(ptr);
-	
-		std::vector<uint8_t> data (ptr, ptr + data_len);
-
-		if (data_len && mId3MetadataCache.CheckNewMetadata(mediaType, data))
-		{
-			AAMPLOG_WARN(" Found new ID3 tag # seek_pos: %f - fragment pts: %f", 
-				seek_pos_seconds, info.pts);
-
-			const auto timestamp_ms = static_cast<uint64_t>((info.pts + this->seek_pos_seconds) * 1000. + 0.5);
-			ReportID3Metadata(mediaType, std::move(data), 
-				nullptr, nullptr, timestamp_ms,
-				0, 0, 1000, 0
-			);
-		}
-	}
-}
-
 struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(MediaType fileType)
 {
 	struct curl_slist* httpHeaders = NULL;
@@ -11548,6 +11527,55 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(MediaType fileType)
 	}
 	return httpHeaders;
 }
+
+
+// -------------------------------------------------
+// ID3 Metadata
+
+void PrivateInstanceAAMP::UpdatePTSOffsetFromTune(double value, bool is_set)
+{
+	AAMPLOG_INFO(" Setting PTS offset: %f | %f", value, seek_pos_seconds);
+
+	if (is_set)
+	{
+		m_PTSOffsetFromTune.store(value);
+	}
+	else
+	{
+		// With C++20 we could use the cleaner option:
+		// m_PTSOffsetFromTune.fetch_add(value);
+		m_PTSOffsetFromTune.store(m_PTSOffsetFromTune.load() + value);
+	}
+}
+
+void PrivateInstanceAAMP::ID3MetadataHandler(MediaType mediaType, const uint8_t * ptr, size_t pkt_len, const SegmentInfo_t & info)
+{
+	const auto is_id3_listener_available = IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA);
+
+	if (is_id3_listener_available)
+	{
+		namespace aih = aamp::id3_metadata::helpers;
+		const auto data_len = aih::DataSize(ptr);
+	
+		std::vector<uint8_t> data (ptr, ptr + data_len);
+
+		if (data_len && mId3MetadataCache.CheckNewMetadata(mediaType, data))
+		{
+			const auto timestamp_ms = static_cast<uint64_t>((info.pts_ms + this->GetPTSOffsetFromTune()) * 1000. + 0.5);
+
+			std::stringstream ss;
+			ss << "timestamp: " << timestamp_ms << " - fragment pts: " << info.pts_ms << " ("
+				<< seek_pos_seconds << ") | data: " << aih::ToString(ptr, data_len);
+			AAMPLOG_WARN(" Found new ID3 tag # %s", ss.str().c_str());
+
+			ReportID3Metadata(mediaType, std::move(data), 
+				nullptr, nullptr, timestamp_ms,
+				0, 0, 1000, 0
+			);
+		}
+	}
+}
+
 /**
  * @brief Process the ID3 metadata from segment
  */

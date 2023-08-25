@@ -1534,7 +1534,8 @@ char *TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreDis
 					}
 					this->discontinuity = discontinuity || mSyncAfterDiscontinuityInProgress;
 					mSyncAfterDiscontinuityInProgress = false;
-					AAMPLOG_TRACE(" [%s] Discontinuity - %d", name, (int)this->discontinuity);
+					AAMPLOG_TRACE("  [%s] Discontinuity: %s", name, (discontinuity ? "true" : "false"));
+
 					if (type == eTRACK_AUDIO && this->discontinuity && fragmentEncChange && ISCONFIGSET(eAAMPConfig_ReconfigPipelineOnDiscontinuity))
 					{
 						fragmentEncChange = false;
@@ -2070,11 +2071,66 @@ void TrackState::FetchFragment()
 			aamp->UpdateVideoEndMetrics( (IS_FOR_IFRAME(iCurrentRate,type)? eMEDIATYPE_IFRAME:(MediaType)(type) ),
 									lbwd,
 									((iFogErrorCode > 0 ) ? iFogErrorCode : http_error),this->mEffectiveUrl,cachedFragment->duration,downloadTime,bKeyChanged,fragmentEncrypted);
+			
+			if(playContext && aamp->IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA) && (streamOutputFormat != FORMAT_ISO_BMFF))
+			{
+				// This sendSegment wont inject audio/video streams into pipeline.
+				AAMPLOG_INFO(" Processing info # discontinuity: %s - position: %f - duration: %f", (discontinuity ? "true" : "false"), position, duration);
+
+				// Update the global PTS value from offser and reset the local value
+				if (discontinuity && mPtsOffsetUpdate)
+				{
+					mPtsOffsetUpdate(mCurrentMaxPTS, false);
+					mCurrentMaxPTS = 0;
+				}
+
+				MediaProcessor::process_fcn_t processor = [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+				{
+					// Early emission of ID3 metadata event
+					if (type == eMEDIATYPE_DSM_CC)
+					{
+						if (mID3Handler)
+						{
+							namespace aih = aamp::id3_metadata::helpers;
+							const uint8_t * data_ptr = static_cast<const uint8_t*>(buf.data());
+							const auto data_len = buf.size();
+
+							if (aih::IsValidMediaType(type) &&
+								aih::IsValidHeader(data_ptr, data_len))
+							{
+								mID3Handler(type, data_ptr, data_len, info);
+							}
+						}
+					}
+					else if ((type == eMEDIATYPE_AUDIO) || (type == eMEDIATYPE_VIDEO))
+					{
+						// Update the local max PTS value
+						if (info.pts_ms > mCurrentMaxPTS)
+							mCurrentMaxPTS = info.pts_ms;
+					}
+				};
+
+				size_t len = cachedFragment->fragment.GetLen();
+				const double proc_position = context->mStartTimestampZero ? 0 : cachedFragment->position;
+
+				playContext->sendSegment(cachedFragment->fragment.GetPtr(),
+					len,
+					proc_position,
+					duration,
+					discontinuity,
+					processor,
+					ptsError
+				);
+
+				AAMPLOG_INFO(" %p [%u] - Completed processing fragment - maxPTS: %f - uri: %s", 
+					this, static_cast<uint16_t>(type), mCurrentMaxPTS, fragmentURI);
+			}
 		}
 		else
 		{
 			AAMPLOG_WARN("%s cachedFragment->fragment.ptr is NULL", name);
 		}
+
 #ifdef AAMP_DEBUG_INJECT
 		if ((1 << type) & AAMP_DEBUG_INJECT)
 		{
@@ -2102,14 +2158,30 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 		{
 			position = cachedFragment->position;
 		}
+
+		MediaProcessor::process_fcn_t processor = [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+		{
+			// This case has already been dealt with
+			if (type == eMEDIATYPE_DSM_CC && streamOutputFormat != FORMAT_ISO_BMFF)
+			{
+				// NOP
+			}
+			else
+			{
+				// Send to gstreamer
+				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			}
+		};
+
 		size_t len = cachedFragment->fragment.GetLen();
-		fragmentDiscarded = !playContext->sendSegment(
-													  cachedFragment->fragment.GetPtr(),
-													  len,
-													  position,
-													  cachedFragment->duration,
-													  cachedFragment->discontinuity,
-													  ptsError);
+		fragmentDiscarded = !playContext->sendSegment( cachedFragment->fragment.GetPtr(),
+					len,
+					position,
+					cachedFragment->duration,
+					cachedFragment->discontinuity,
+					processor,
+					ptsError
+					);
 	}
 	else
 	{
@@ -3925,7 +3997,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			{
 				trackName = "aux-audio";
 			}
-			trackState[iTrack] = new TrackState(mLogObj, (TrackType)iTrack, this, aamp, trackName);
+			trackState[iTrack] = new TrackState(mLogObj, (TrackType)iTrack, this, aamp, trackName, mID3Handler, mPtsOffsetUpdate);
 			TrackState *ts = trackState[iTrack];
 			ts->playlistPosition = -1;
 			ts->playTarget = seekPosition;
@@ -5340,12 +5412,17 @@ void TrackState::FragmentCollector(void)
 /**
  * @brief Constructor function
  */
-StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate) : StreamAbstractionAAMP(logObj, aamp),
+StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate,
+	id3_callback_t id3Handler,
+	ptsoffset_update_t ptsUpdate)
+: StreamAbstractionAAMP(logObj, aamp),
 	rate(rate), maxIntervalBtwPlaylistUpdateMs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS), mainManifest(), allowsCache(false), seekPosition(seekpos), mTrickPlayFPS(),
 	enableThrottle(false), firstFragmentDecrypted(false), mStartTimestampZero(false), mNumberOfTracks(0), midSeekPtsOffset(0),
 	lastSelectedProfileIndex(0), segDLFailCount(0), segDrmDecryptFailCount(0), mMediaCount(0),mProfileCount(0),
 	mLangList(),mIframeAvailable(false), thumbnailManifest(), indexedTileInfo(),
-	mFirstPTS(0),mDiscoCheckMutex()
+	mFirstPTS(0),mDiscoCheckMutex(),
+	mID3Handler{id3Handler},
+	mPtsOffsetUpdate{ptsUpdate}
 {
 #ifdef AAMP_HLS_DRM
 	if (aamp->mDRMSessionManager)
@@ -5379,7 +5456,10 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(AampLogManager *logObj, cla
 /**
  * @brief TrackState Constructor
  */
-TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstractionAAMP_HLS* parent, PrivateInstanceAAMP* aamp, const char* name) :
+TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstractionAAMP_HLS* parent, PrivateInstanceAAMP* aamp, const char* name,
+			id3_callback_t id3Handler,
+			ptsoffset_update_t ptsUpdate
+		) :
 		MediaTrack(logObj, type, aamp, name),
 		indexCount(0), currentIdx(0), indexFirstMediaSequenceNumber(0), fragmentURI(NULL), lastPlaylistDownloadTimeMS(0), lastPlaylistIndexedTimeMS(0),
 		byteRangeLength(0), byteRangeOffset(0), nextMediaSequenceNumber(0), playlistPosition(0), playTarget(0),playTargetBufferCalc(0),lastDownloadedIFrameTarget(-1),
@@ -5404,7 +5484,10 @@ TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstraction
 		,mProgramDateTime(0.0)
 		,mSkipSegmentOnError(true)
 		,playlistMediaType()
-		,fragmentEncChange(false)
+		,fragmentEncChange(false),
+		mID3Handler{id3Handler},
+		mPtsOffsetUpdate{ptsUpdate},
+		mCurrentMaxPTS{0}
 {
 	playlist.Clear();
 	index.Clear();

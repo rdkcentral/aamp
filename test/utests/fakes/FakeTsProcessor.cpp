@@ -29,7 +29,7 @@ TSProcessor::~TSProcessor()
 {
 }
 
-bool TSProcessor::sendSegment( char *segment, size_t& size, double position, double duration, bool discontinuous, bool &ptsError)
+bool TSProcessor::sendSegment( char *segment, size_t& size, double position, double duration, bool discontinuous, process_fcn_t processor, bool &ptsError)
 {
     return true;
 }

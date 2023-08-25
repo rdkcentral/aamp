@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <array>
 #include <vector>
-
+#include <functional>
 
 namespace aamp
 {
@@ -34,31 +34,70 @@ namespace id3_metadata
 {
 namespace helpers
 {
+/**
+ * @brief  Checks if the media type is compatible with an ID3 tag
+ * @param mediaType The segment's media type
+ * @return True if the media type is valid
+ */
 bool IsValidMediaType(MediaType mediaType);
 
+/** 
+ * @brief Checks if the packet's header is a valid ID3 packet's header
+ * @param[in] data The packet's data
+ * @param[in] data_len The packet's length
+ * @return True if the packet has a valid ID3 header
+ */ 
 bool IsValidHeader(const uint8_t* data, size_t data_len);
 
+/**
+ * @brief Extracts from the packet the size of the data
+ * @param[in] data The packet's data
+ * @return The size of the data in the ID3 packet
+*/
 size_t DataSize(const uint8_t *data);
 
+/**
+ * Converts the content of the ID3 tag into a std::string
+ * @param[in] data The packet's data
+ * @param[in] data_len The packet's length
+ */
 std::string ToString(const uint8_t* data, size_t data_len);
 
 } // namespace helpers
 
+/**
+ * Class for caching the metadata info
+ */
 class MetadataCache
 {
 public:
+	/// Default constructor
 	MetadataCache();
 	
+	/// Default destructor
 	~MetadataCache();
 	
+	/// Resets the cache
 	void Reset();
-	
+
+	/**
+	 * Checkes if the given metadata packet is already present in the cache
+	 * @param[in] mediaType The packet's media type
+	 * @param[in] data The packet's data
+	 * @return True if the packet is not present in the cache
+	 */	
 	bool CheckNewMetadata(MediaType mediaType, const std::vector<uint8_t> & data) const;
 	
+	/**
+	 * Updates the cache with the given packet
+	 * @param[in] mediaType The packet's media type
+	 * @param[in] data The data to insert into the cache
+	 */
 	void UpdateMedatadaCache(MediaType mediaType, std::vector<uint8_t> data);
 	
 private:
-	
+
+	///	Cache of ID3 data, for each media type
 	std::array<std::vector<uint8_t>, eMEDIATYPE_DEFAULT> mCache;
 	
 };
@@ -122,5 +161,11 @@ public:
 
 }// namespace id3_metadata
 } // namespace aamp
+
+// Forward declaration of SegmentInfo_t type
+class SegmentInfo_t;
+
+/// Signature of function to call to invoke to handle the ID3 metadata
+using id3_callback_t = std::function<void (MediaType mediaType, const uint8_t * ptr, size_t pkt_len, const SegmentInfo_t & info)>;
 
 #endif // AAMP_HELPERS_ID3METADATA_HPP

@@ -16,8 +16,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef AAMP_STREAM_INFO_HPP
-#define AAMP_STREAM_INFO_HPP
+#ifndef AAMP_SEGMENT_INFO_HPP
+#define AAMP_SEGMENT_INFO_HPP
 
 #include <stdlib.h>
 
@@ -25,50 +25,51 @@ struct SegmentInfo_t {
 	
 public:
 	
+	/** Default constructor */
 	SegmentInfo_t()
-	: pts{0.0},
-	dts{0.},
+	: pts_ms{0.0},
+	dts_ms{0.},
 	duration{0.},
-	pts_offset{0.},
 	isInitFragment{false},
 	hasDiscontinuity{false}
 	{}
 	
-	SegmentInfo_t(double _pts, double _dts, double _duration)
-	: pts{_pts},
-	dts{_dts},
+	/** Constructor 
+	 * @param[in] _pts_ms PTS of current segment converted in ms
+	 * @param[in] _dts_ms DTS of current segment converted in ms
+	 * @param[in] _duration Duration of current segment
+	*/
+	SegmentInfo_t(double _pts_ms, double _dts_ms, double _duration)
+	: pts_ms{_pts_ms},
+	dts_ms{_dts_ms},
 	duration{_duration},
-	pts_offset{0.},
 	isInitFragment{false},
 	hasDiscontinuity{false}
 	{}
 	
-	SegmentInfo_t(double _pts, double _dts, double _duration, double _pts_offset)
-	: pts{_pts},
-	dts{_dts},
-	duration{_duration},
-	pts_offset{_pts_offset},
-	isInitFragment{false},
-	hasDiscontinuity{false}
-	{}
 	
-	SegmentInfo_t(double _pts, double _dts, double _duration, bool _init_fragment, bool _discontinuity)
-	: pts{_pts},
-	dts{_dts},
+	/** Constructor 
+	 * @param[in] _pts_ms PTS of current segment converted in ms
+	 * @param[in] _dts_ms DTS of current segment converted in ms
+	 * @param[in] _duration Duration of current segment
+	 * @param[in] _init_fragment Flag to mark if a fragment is the init one
+	 * @param[in] _discontinuity Flag to report if the fragment is on a discontinuity
+	*/
+	SegmentInfo_t(double _pts_ms, double _dts_ms, double _duration, bool _init_fragment, bool _discontinuity)
+	: pts_ms{_pts_ms},
+	dts_ms{_dts_ms},
 	duration{_duration},
-	pts_offset{0.},
 	isInitFragment{_init_fragment},
 	hasDiscontinuity{_discontinuity}
 	{}
 	
 	
-	double pts;
-	double dts;
-	double duration;
-	double pts_offset;
-	bool isInitFragment;
-	bool hasDiscontinuity;
+	double pts_ms;			/**< PTS of current segment converted in ms */
+	double dts_ms;			/**< DTS of current segment converted in ms */
+	double duration;		/**< Duration of current segment */
+	bool isInitFragment;	/**< Flag to mark if a fragment is the init one */
+	bool hasDiscontinuity;	/**< Flag to report if the fragment is on a discontinuity */
 	
 };
 
-#endif // AAMP_STREAM_INFO_HPP
+#endif // AAMP_SEGMENT_INFO_HPP

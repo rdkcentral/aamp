@@ -25,7 +25,13 @@
 #ifndef __MEDIA_PROCESSOR_H__
 #define __MEDIA_PROCESSOR_H__
 
+#include "AampMediaType.h"
+#include "AampSegmentInfo.hpp"
+
+
 #include <stddef.h>
+#include <functional>
+#include <memory>
 
 /**
  * @enum _PlayMode
@@ -47,6 +53,10 @@ typedef enum _PlayMode
 class MediaProcessor
 {
 public:
+
+	/// @brief Function to use for processing the fragments
+	using process_fcn_t = std::function<void (MediaType, SegmentInfo_t, std::vector<uint8_t>)>;
+
 	/**
 	 * @brief MediaProcessor constructor
 	 */
@@ -77,7 +87,7 @@ public:
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	virtual bool sendSegment( char *segment, size_t& size, double position, double duration, bool discontinuous, bool &ptsError) = 0;
+	virtual bool sendSegment( char *segment, size_t& size, double position, double duration, bool discontinuous, process_fcn_t sender, bool &ptsError) = 0;
 
 	/**
 	 * @brief Set playback rate

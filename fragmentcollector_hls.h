@@ -35,13 +35,19 @@
 #ifndef FRAGMENTCOLLECTOR_HLS_H
 #define FRAGMENTCOLLECTOR_HLS_H
 
-#include <memory>
 #include "StreamAbstractionAAMP.h"
 #include "mediaprocessor.h"
 #include <sys/time.h>
 #include "HlsDrmBase.h"
 #include <atomic>
 #include "AampDRMLicPreFetcher.h"
+
+#include "ID3Metadata.hpp"
+
+#include <memory>
+#include <atomic>
+#include <deque>
+#include <tuple>
 
 #define FOG_FRAG_BW_IDENTIFIER "bandwidth-"
 #define FOG_FRAG_BW_IDENTIFIER_LEN 10
@@ -154,6 +160,9 @@ typedef enum
  * @}
  */
 
+/// Function to call to update the local PTS record
+using ptsoffset_update_t = std::function<void (double, bool)>;
+
 /**
  * \class TrackState
  * \brief State Machine for each Media Track
@@ -163,6 +172,7 @@ typedef enum
 class TrackState : public MediaTrack
 {
 	public:
+
 		/***************************************************************************
 		 * @fn TrackState
 		 *
@@ -172,7 +182,11 @@ class TrackState : public MediaTrack
 		 * @param[in] name Name of the track
 		 * @return void
 		 ***************************************************************************/
-		TrackState(AampLogManager *logObj, TrackType type, class StreamAbstractionAAMP_HLS* parent, PrivateInstanceAAMP* aamp, const char* name);
+		TrackState(AampLogManager *logObj, TrackType type, class StreamAbstractionAAMP_HLS* parent,
+			PrivateInstanceAAMP* aamp, const char* name,
+			id3_callback_t id3Handler = nullptr,
+			ptsoffset_update_t ptsUpdate = nullptr
+			);
 		/***************************************************************************
 		 * @fn ~TrackState
 		 * @brief copy constructor function
@@ -593,6 +607,12 @@ class TrackState : public MediaTrack
 		double mCulledSecondsAtStart;		/**< Total culled duration with this asset prior to streamer instantiation*/
 		bool mSkipSegmentOnError;		/**< Flag used to enable segment skip on fetch error */
 		MediaType playlistMediaType;		/**< Media type of playlist of this track */
+
+		id3_callback_t mID3Handler;				/**< Function to use to emit the ID3 event */
+		ptsoffset_update_t mPtsOffsetUpdate;	/**< Function to use to update the PTS offset */
+
+		double mCurrentMaxPTS;					/**< Max value of PTS since the last discontinuity */
+
 };
 
 class StreamAbstractionAAMP_HLS;
@@ -620,7 +640,11 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @param[in] rate Rate of playback
 		 * @return void
 		 ***************************************************************************/
-		StreamAbstractionAAMP_HLS(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+		StreamAbstractionAAMP_HLS(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,
+			double seekpos, float rate,
+			id3_callback_t id3Handler = nullptr,
+			ptsoffset_update_t ptsOffsetUpdate = nullptr
+		);
 		/*************************************************************************
 		 * @brief Copy constructor disabled
 		 *
@@ -984,6 +1008,9 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		bool mIframeAvailable;		/**< True if iframe available in the stream */
 		std::set<std::string> mLangList;/**< Available language list */
 		double mFirstPTS;		/**< First video PTS in seconds */
+
+		id3_callback_t mID3Handler;				/**< Function to use to emit the ID3 event */
+		ptsoffset_update_t mPtsOffsetUpdate;	/**< Function to use to update the PTS offset */
 };
 
 #endif // FRAGMENTCOLLECTOR_HLS_H

@@ -953,7 +953,7 @@ bool MediaTrack::InjectFragment()
 			{
 				if (cachedFragment->discontinuity)
 				{
-					AAMPLOG_WARN("[%s] Discontinuity present. uri %s", name, cachedFragment->uri);
+					AAMPLOG_WARN("[%s] Discontinuity present. uri %s", name, cachedFragment->uri.c_str());
 				}
 			}
 #endif
@@ -1024,7 +1024,7 @@ bool MediaTrack::InjectFragment()
 #ifdef AAMP_DEBUG_INJECT
 				if ((1 << type) & AAMP_DEBUG_INJECT)
 				{
-					AAMPLOG_WARN("[%s] Inject uri %s", name, cachedFragment->uri);
+					AAMPLOG_WARN("[%s] Inject uri %s", name, cachedFragment->uri.c_str());
 				}
 #endif
 				if (mSubtitleParser && type == eTRACK_SUBTITLE)
@@ -1413,7 +1413,7 @@ void MediaTrack::FlushFragmentChunks()
  */
 MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAAMP* aamp, const char* name) :
 		eosReached(false), enabled(false), numberOfFragmentsCached(0), numberOfFragmentChunksCached(0), fragmentIdxToInject(0), fragmentChunkIdxToInject(0),
-fragmentIdxToFetch(0), fragmentChunkIdxToFetch(0), abort(false), fragmentInjectorThreadID(), fragmentChunkInjectorThreadID(),bufferMonitorThreadID(), totalFragmentsDownloaded(0), totalFragmentChunksDownloaded(0),
+		fragmentIdxToFetch(0), fragmentChunkIdxToFetch(0), abort(false), fragmentInjectorThreadID(), fragmentChunkInjectorThreadID(),bufferMonitorThreadID(), totalFragmentsDownloaded(0), totalFragmentChunksDownloaded(0),
 		fragmentInjectorThreadStarted(false), fragmentChunkInjectorThreadStarted(false),bufferMonitorThreadStarted(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
 		sinkBufferIsFull(false), cachingCompleted(false), fragmentDurationSeconds(0),  segDLFailCount(0),segDrmDecryptFailCount(0),mSegInjectFailCount(0),
 		bufferStatus(BUFFER_STATUS_GREEN), prevBufferStatus(BUFFER_STATUS_GREEN),

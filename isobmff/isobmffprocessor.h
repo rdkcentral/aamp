@@ -89,10 +89,11 @@ public:
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] discontinuous - true if discontinuous fragment
+	 * @param[in] processor - Function to use for processing the fragments (only used by HLS/TS)
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	bool sendSegment(char *segment, size_t& size, double position, double duration, bool discontinuous, bool &ptsError) override;
+	bool sendSegment(char *segment, size_t& size, double position, double duration, bool discontinuous, process_fcn_t processor, bool &ptsError) override;
 
 	/**
 	 * @fn abort

@@ -22,6 +22,7 @@
 #include <sstream>
 #include <iomanip>
 #include <cstring>
+#include <utility>
 
 namespace aamp
 {
@@ -90,34 +91,46 @@ std::string ToString(const uint8_t* data, size_t data_len)
 	{
 		uint32_t size {0};
 		
-		size |= data[0] << 21;
-		size |= data[1] << 14;
-		size |= data[2] << 7;
-		size |= data[3];
+		size |= (data[0] & 0x7f) << 21;
+		size |= (data[1] & 0x7f) << 14;
+		size |= (data[2] & 0x7f) << 7;
+		size |= data[3] & 0x7f;
 		
 		return size;
 	};
 	
 	ss << data[0] << data[1] << data[2];    // ID3
-	ss << std::setfill('0') << std::setw(2);
-	ss << "v" << std::to_string(data[3]) << std::to_string(data[4]) << " ";   // Revision
+	ss << "v" << std::to_string(data[3]) << std::to_string(data[4]) << " hdr: ";   // Revision
 	for (auto idx = 5; idx < 10; idx++)
 	{
 		ss << std::to_string(data[idx]) << " ";
 	}
 	
-	auto frame_parser = [&ss, get_size](const uint8_t* data)
+	auto frame_parser = [get_size](const uint8_t* frame_ptr) -> std::pair<uint32_t, std::string>
 	{
-		const auto frame_size = get_size(&data[4]);
-		
-		ss << " - frame: " << data[0] << data[1] << data[2] << data[3];
-		
-		for (auto idx = 4; idx < 10; idx++)
+		std::string ret{};
+		const auto frame_size = get_size(&frame_ptr[4]);
+
+		// Print frame the header
 		{
-			ss << std::to_string(data[idx]) << " ";
+			const char * data_ptr = reinterpret_cast<const char*>(&frame_ptr[0]);
+			const std::string frame_id{data_ptr, 4};
+			ret += "- frame: " + frame_id + " [" + std::to_string(frame_size) + "] [";
+			for (auto idx = 4; idx < 9; idx++)
+			{
+				ret += std::to_string(data_ptr[idx]) + " ";
+			}
+			ret += std::to_string(data_ptr[9]) + "] ";
 		}
-		
-		return frame_size + 10;
+
+		// Print frame the content
+		{
+			const char * data_ptr = reinterpret_cast<const char*>(&frame_ptr[10]);
+			const std::string frame_data{data_ptr, frame_size};
+			ret += "data: " + frame_data + " ";
+		}		
+
+		return {frame_size + 10, ret};
 	};
 	
 	// // Frame (assuming no extended header...)
@@ -127,16 +140,16 @@ std::string ToString(const uint8_t* data, size_t data_len)
 	// {
 	// }
 	
-	int64_t unparsed = get_size(&data[6]);
-	//uint8_t * data_ptr = const_cast<uint8_t *>(data);
-	
-	while (unparsed > 0)
+	const uint32_t tag_size = get_size(&data[6]);
+	uint32_t parsed_size{10};
+
+	while (parsed_size < tag_size)
 	{
-		auto parsed_size = frame_parser(data);
-		
-		unparsed -= parsed_size;
+		const auto frame_ret = frame_parser(&data[parsed_size]);
+
+		ss << frame_ret.second;
+		parsed_size += frame_ret.first;
 	}
-	
 	
 	return ss.str();
 }

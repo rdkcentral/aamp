@@ -123,5 +123,11 @@ TEST_F(sendSegmentTests, esMP3test)
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePublishingMuxedAudio)).WillRepeatedly(Return(false));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamFormat(_,FORMAT_AUDIO_ES_MP3, _));
 
-    mTSProcessor->sendSegment((char*)segment, size, position, duration, discontinuous, ptsError);
+    mTSProcessor->sendSegment((char*)segment, size, position, duration, discontinuous, 
+        [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+        {
+            mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+        },
+        ptsError
+    );
 }

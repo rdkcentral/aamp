@@ -124,9 +124,10 @@ class TSProcessor : public MediaProcessor
        * @param[in] position Position of the segment in seconds
        * @param[in] duration Duration of the segment in seconds
        * @param[in] discontinuous true if fragment is discontinuous
+       * @param[in] processor - Function to use for the processing of fragments
        * @param[out] true on PTS error
        */
-      bool sendSegment( char *segment, size_t& size, double position, double duration, bool discontinuous, bool &ptsError) override;
+      bool sendSegment( char *segment, size_t& size, double position, double duration, bool discontinuous, process_fcn_t processor, bool &ptsError) override;
       /**
        * @fn setRate
        *
@@ -478,7 +479,7 @@ class TSProcessor : public MediaProcessor
        * @param[in] size lenght of the buffer
        * @param[out] insPatPmt indicates if PAT and PMT needs to inserted
        */
-      bool processBuffer(unsigned char *buffer, int size, bool &insPatPmt);
+      bool processBuffer(unsigned char *buffer, int size, bool &insPatPmt, bool discontinuity_pending);
       /**
        * @fn getCurrentTime
        */
@@ -506,7 +507,7 @@ class TSProcessor : public MediaProcessor
        * @param[in] discontinuous true if segment is discontinous
        * @param[in] trackToDemux media track to do the operation
        */
-      bool demuxAndSend(const void *ptr, size_t len, double fTimestamp, double fDuration, bool discontinuous, TrackToDemux trackToDemux = ePC_Track_Both);
+      bool demuxAndSend(const void *ptr, size_t len, double fTimestamp, double fDuration, bool discontinuous, MediaProcessor::process_fcn_t processor, TrackToDemux trackToDemux = ePC_Track_Both);
       /**
        * @fn msleep
        * @param[in] throttleDiff time in milliseconds
