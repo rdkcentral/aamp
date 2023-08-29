@@ -1,0 +1,215 @@
+/*
+* If not stated otherwise in this file or this component's license file the
+* following copyright and licenses apply:
+*
+* Copyright 2023 RDK Management
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+* http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
+#include <gtest/gtest.h>
+
+#include "../AampScheduler.h"
+#include "../AampConfig.h"
+#include "../AampEvent.h"
+
+AampLogManager *mLogObj=NULL;
+using namespace testing;
+AampConfig *gpGlobalConfig{nullptr};
+
+class AampSchedulerTests : public testing::Test {
+protected:
+    AampScheduler* m_as=nullptr;
+    void SetUp() override {
+    m_as = new AampScheduler();
+    }
+    void TearDown() override {
+    delete m_as;
+    m_as=nullptr;
+}
+};
+
+TEST_F(AampSchedulerTests,AsyncTaskObjoperatorTest_1)
+{
+    //Arrange:create local object
+    AsyncTaskObj obj(NULL,NULL,"SampleText",AAMP_TASK_ID_INVALID);
+
+    //Act:assign class object
+    AsyncTaskObj obj1=obj;
+}
+
+TEST_F(AampSchedulerTests,AsyncTaskObjoperatorTest_2)
+{
+    //Arrange:create local object
+    AsyncTaskObj obj2(NULL,NULL,"SampleText",1);
+
+    //Act:assign class object
+    AsyncTaskObj obj3=obj2;
+}
+
+TEST_F(AampSchedulerTests, destructorTest)
+{
+    //Act:call the stopscheduler function for clearing the resources
+    m_as->StopScheduler();
+}
+
+TEST_F(AampSchedulerTests, removeTasksTest1)
+{
+    //Arrange:declare local queue variable
+    std::deque<AsyncTaskObj> mTaskQueue;
+
+    //Act:call the functions on the variables
+    mTaskQueue.clear();
+    m_as->RemoveAllTasks();
+    m_as->SuspendScheduler();
+
+    //Assert:Check for the variable size
+    EXPECT_EQ(0,mTaskQueue.size());
+}
+
+TEST_F(AampSchedulerTests, removeTasksTest2)
+{
+    //Arrange:declare local variable with some raw data
+    std::deque<AsyncTaskObj> mTaskQueue;
+    AsyncTaskObj obj1(NULL,NULL,"SAMPLE",AAMP_TASK_ID_INVALID);
+    obj1.mId = 0;  obj1.mId = 0;
+
+    //Act:call the functions to push variables
+    mTaskQueue.push_back(obj1);
+    //Assert:Check for the variable size
+    EXPECT_NE(0,mTaskQueue.size());
+
+    //Assert:Check for the variable size
+    EXPECT_EQ(1,mTaskQueue.size());
+
+    //Act:call the functions on the variables
+    mTaskQueue.clear();
+    m_as->RemoveAllTasks();
+    m_as->SuspendScheduler();
+
+    //Assert:Check for the variable size
+    EXPECT_EQ(0,mTaskQueue.size());
+}
+
+TEST_F(AampSchedulerTests, removeallTasksTest)
+{
+    //Arrange:declare local variable with some raw data
+    std::deque<AsyncTaskObj> mTaskQueue;
+    AsyncTaskObj obj1(NULL,NULL,"SAMPLE",AAMP_TASK_ID_INVALID);
+    obj1.mId = 0;  obj1.mId = 0;
+
+    AsyncTaskObj obj2(NULL,NULL,"SAMPLETEXT",AAMP_TASK_ID_INVALID);
+    obj2.mId = 0;  obj2.mId = 0;
+
+    //Act:call the functions to push variables
+    mTaskQueue.push_back(obj1);
+    mTaskQueue.push_back(obj2);
+    //Assert:Check for the variable size
+    EXPECT_NE((int)mTaskQueue.size(),0);
+
+    //Act:call the RemoveAllTasks function
+    m_as->RemoveAllTasks();
+    m_as->SuspendScheduler();
+
+    //Assert:Check for the variable size
+    EXPECT_NE((int)mTaskQueue.size(),0);
+}
+
+TEST_F(AampSchedulerTests, StartSchedulerTest)
+{
+    //Arrange:declare local variable
+    bool flag=false;
+    //Act:call startscheduler function
+    m_as->StartScheduler();
+    //Assert:check the result
+    EXPECT_FALSE(flag);
+}
+
+TEST_F(AampSchedulerTests, RemoveTaskTest)
+{
+    //Arrange:declare local variable with some raw data
+    std::deque<AsyncTaskObj> mTaskQueue;
+    AsyncTaskObj obj1(NULL,NULL,"SAMPLE",AAMP_TASK_ID_INVALID);
+    obj1.mId = 0;
+    //Act:push the object into queue
+  	mTaskQueue.push_back(obj1);
+
+    //Assert:check for the retrun value
+    EXPECT_NE((int)mTaskQueue.size(),0);
+
+    int id = 1;
+    bool ret=m_as->RemoveTask(id);
+
+    //Assert:check for the retrun value
+    EXPECT_FALSE(ret);
+}
+
+TEST_F(AampSchedulerTests, RemoveTaskTest1)
+{
+    //Arrange:declare local variable with some raw data
+    std::deque<AsyncTaskObj> mTaskQueue;
+    AsyncTaskObj obj1(NULL,NULL,"SAMPLE",AAMP_TASK_ID_INVALID);
+    obj1.mId = 0;
+
+    //Act:push the object into queue
+  	mTaskQueue.push_back(obj1);
+
+    int id=2;
+    bool ret=m_as->RemoveTask(id);
+    //Assert:check for the retrun value
+    EXPECT_FALSE(ret);
+}
+
+TEST_F(AampSchedulerTests, RemoveTaskTest2)
+{
+    //Arrange:declare local variable with some raw data
+    std::deque<AsyncTaskObj> mTaskQueue;
+    AsyncTaskObj obj1(NULL,NULL,"SAMPLE",20);
+    AsyncTaskObj obj2(NULL,NULL,"SAMPLE",20);
+
+    //Act:push the object into queue
+  	mTaskQueue.push_back(obj1);
+    mTaskQueue.push_back(obj2);
+
+    m_as->SetState(eSTATE_INITIALIZING);
+    m_as->StartScheduler();
+
+    bool ret=m_as->RemoveTask(20);
+
+    //Assert:check for the retrun value
+    EXPECT_FALSE(ret);
+}
+
+TEST_F(AampSchedulerTests, EnableScheduleTaskTest)
+{
+    //Arrange:declare local variable
+    bool flag=true;
+
+    //Act:call EnableScheduleTask function
+    m_as->EnableScheduleTask();
+
+    //Assert:check for the retrun value
+    EXPECT_TRUE(flag);
+}
+
+TEST_F(AampSchedulerTests, SetStateTest)
+{
+    //Arrange:declare local variable
+    PrivAAMPState sstate = eSTATE_INITIALIZING;
+
+    //Act:call the setstate function with the local variable
+    m_as->SetState(sstate);
+
+    //Assert:check for the expected value
+    EXPECT_EQ(1,sstate);
+}
