@@ -72,6 +72,7 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 			event.data.progress.liveLatency = ev->getLiveLatency();
 			event.data.progress.profileBandwidth = ev->getProfileBandwidth();
 			event.data.progress.networkBandwidth = ev->getNetworkBandwidth();
+			event.data.progress.currentPlayRate = ev->getCurrentPlayRate();
             break;
 		}
 		case AAMP_EVENT_CC_HANDLE_RECEIVED:

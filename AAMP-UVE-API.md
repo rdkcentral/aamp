@@ -1781,6 +1781,7 @@ Example:
 - liveLatency : number
 - profileBandwidth : number
 - networkBandwidth : number
+- currentPlayRate : number
 
 **Description:** 
 - Supported UVE version 0.7 and above.

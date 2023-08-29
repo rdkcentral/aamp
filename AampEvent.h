@@ -243,6 +243,7 @@ struct AAMPEvent
 			double liveLatency;			/**< Live latency */
 			long profileBandwidth;      /**< Profile Bandwidth */
 			long networkBandwidth;      /**< Network Bandwidth*/
+			double currentPlayRate; /**< CurrentPlayRate */
 		} progress;
 
 		/**
@@ -666,6 +667,7 @@ class ProgressEvent: public AAMPEventObject
 	double mLiveLatency;		/**< Live latency */
 	long mProfileBandwidth;     /**<Profile Bandwidth */
 	long mNetworkBandwidth;     /**<Network Bandwidth */
+	double mCurrentPlayRate; /**<CurrentPlaybackRate */
 
 public:
 	ProgressEvent() = delete;
@@ -686,8 +688,10 @@ public:
 	 * @param[in]  liveLatency      - Live latency
 	 * @param[in]  profileBandwidth - profile Bandwidth
 	 * @param[in]  networkBandwidth - network Bandwidth
+	 * @param[in]  currentPlayRate - currentPlayRate
+
 	 */
-	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth);
+	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate);
 
 	/**
 	 * @brief ProgressEvent Destructor
@@ -751,6 +755,13 @@ public:
 	 * @fn getNetworkBandwidth
 	 */
 	long getNetworkBandwidth() const;
+
+	/**
+	 * @fn getCurrentPlayRate
+	 */
+	double getCurrentPlayRate() const;
+
+
 };
 
 /**

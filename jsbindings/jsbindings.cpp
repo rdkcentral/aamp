@@ -817,7 +817,13 @@ public:
 		name = JSStringCreateWithUTF8CString("networkBandwidth");
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getNetworkBandwidth()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
+
+		name = JSStringCreateWithUTF8CString("currentPlayRate");
+		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getCurrentPlayRate()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(name);
+
 	}
+
 };
 
 /**

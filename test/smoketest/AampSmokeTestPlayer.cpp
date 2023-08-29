@@ -298,7 +298,7 @@ void SmokeTestEventListener::Event(const AAMPEventPtr& e)
 				ProgressEventPtr ev = std::dynamic_pointer_cast<ProgressEvent>(e);
 				if(mAampPlayer.mEnableProgressLog)
 				{
-					printf("AAMP_EVENT_PROGRESS\n\tDuration=%lf\n\tposition=%lf\n\tstart=%lf\n\tend=%lf\n\tcurrRate=%f\n\tBufferedDuration=%lf\n\tPTS=%lld\n\ttimecode=%s\n\tprofileBandwidth=%ld\n\tnetworkBandwidth=%ld\n",ev->getDuration(),ev->getPosition(),ev->getStart(),ev->getEnd(),ev->getSpeed(),ev->getBufferedDuration(),ev->getPTS(),ev->getSEITimeCode(),ev->getProfileBandwidth(), ev->getNetworkBandwidth());
+					printf("AAMP_EVENT_PROGRESS\n\tDuration=%lf\n\tposition=%lf\n\tstart=%lf\n\tend=%lf\n\tcurrRate=%f\n\tBufferedDuration=%lf\n\tPTS=%lld\n\ttimecode=%s\n\tprofileBandwidth=%ld\n\tnetworkBandwidth=%ld\n\tcurrentPlayRate=%lf\n",ev->getDuration(),ev->getPosition(),ev->getStart(),ev->getEnd(),ev->getSpeed(),ev->getBufferedDuration(),ev->getPTS(),ev->getSEITimeCode(),ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate());
 
 				}
 			}

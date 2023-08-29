@@ -1162,7 +1162,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mRateCorrectionWait()
 	, mRateCorrectionTimeoutLock()
 	, mAbortRateCorrection (false)
-	, mCorrectionRate(0)
+	, mCorrectionRate(AAMP_NORMAL_PLAY_RATE)
 	, mPreviousAudioType (FORMAT_INVALID)
 	, mTsbRecordingId()
 	, mthumbIndexValue(-1)
@@ -1958,6 +1958,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		bool bProcessEvent = true;
 		double latency = 0;
 
+
 		// If tsb is not available for linear send -1  for start and end
 		// so that xre detect this as tsbless playabck
 		// Override above logic if mEnableSeekableRange is set, used by third-party apps
@@ -2058,7 +2059,30 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		{
 			mNetworkBandwidth = GetCurrentlyAvailableBandwidth();
 		}
-		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormatPosition, start, end, speed, videoPTS, bufferedDuration, seiTimecode.c_str(), latency, mpStreamAbstractionAAMP->GetVideoBitrate(), mNetworkBandwidth);
+		
+		double currentRate;
+		if(pipeline_paused)
+		{
+			currentRate = 0;
+		}
+		else if(mTrickplayInProgress)
+		{
+			currentRate = rate;
+		}
+		else if(mAampLLDashServiceData.lowLatencyMode)
+		{
+			currentRate = mLLDashCurrentPlayRate;
+		}
+		else if (!mAampLLDashServiceData.lowLatencyMode && ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection) )
+		{
+			currentRate = mCorrectionRate;
+		}
+		else
+		{
+	   		currentRate  = rate;
+		}
+
+		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormatPosition, start, end, speed, videoPTS, bufferedDuration, seiTimecode.c_str(), latency, mpStreamAbstractionAAMP->GetVideoBitrate(), mNetworkBandwidth ,currentRate);
 
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
@@ -2083,7 +2107,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 						seiTimecode.c_str(),
 						mpStreamAbstractionAAMP->GetVideoBitrate(),
 						mNetworkBandwidth,
-						mLLDashCurrentPlayRate); /** TODO non LLD support */
+						currentRate);
 				}
 			}
 

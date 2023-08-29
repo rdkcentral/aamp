@@ -95,7 +95,8 @@ protected:
             "00:00:00:00",  // sei timecode
             5.0,      // live latency
             500,   // profile bandwidth
-            1000   // network bandwidth
+            1000,  // network bandwidth
+            2      //currentPlayRate
         );
     }
 
@@ -119,6 +120,8 @@ TEST_F(ProgressEventTest, GetFunctionsTest) {
     EXPECT_DOUBLE_EQ(progressEvent->getLiveLatency(), 5.0);
     EXPECT_EQ(progressEvent->getProfileBandwidth(), 500);
     EXPECT_EQ(progressEvent->getNetworkBandwidth(), 1000);
+    EXPECT_EQ(progressEvent->getCurrentPlayRate(), 2);
+
 }
 // Test fixture for CCHandleEvent
 class CCHandleEventTest : public testing::Test {

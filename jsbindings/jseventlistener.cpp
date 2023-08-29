@@ -138,6 +138,12 @@ public:
 		prop = JSStringCreateWithUTF8CString("networkBandwidth");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getNetworkBandwidth()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("currentPlayRate");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getCurrentPlayRate()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+	
+
 	}
 };
 

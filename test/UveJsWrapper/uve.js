@@ -208,6 +208,7 @@ class AAMPDashJSPlayer {
                 eventObj.videoBufferedMiliseconds = 0; 
                 eventObj.profileBandwidth = 0;
                 eventObj.networkBandwidth = 0;
+                eventObj.currentPlayRate = 0;
                 eventCallback(eventObj);
             }.bind(this));
 
@@ -631,6 +632,7 @@ function mapVideotagEvents(player, playerName, eventName, eventCallback) {
             eventObj.videoBufferedMiliseconds = 0; 
             eventObj.profileBandwidth = 0;
             eventObj.networkBandwidth = 0;
+            eventObj.currentPlayRate = 0;
             eventCallback(eventObj);
         }.bind(this));
 
