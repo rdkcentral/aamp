@@ -4658,7 +4658,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 	AAMPLOG_INFO("AAMPGstPlayer: gst_event_new_instant_rate_change: %f ...V6", rate);
 	for (int iTrack = 0; iTrack < AAMP_TRACK_COUNT; iTrack++)
 	{
-		if(privateContext->stream[iTrack].source != NULL) 
+		if( (iTrack != (int)eMEDIATYPE_SUBTITLE) && privateContext->stream[iTrack].source != NULL) 
 		{
 			GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(privateContext->stream[iTrack].source), "src");
 			gst_pad_send_event(sourceEleSrcPad, gst_event_new_seek (rate, GST_FORMAT_TIME,
