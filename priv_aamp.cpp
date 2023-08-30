@@ -4386,7 +4386,17 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 #endif
 		if (!forceStop && ((!newTune && ISCONFIGSET_PRIV(eAAMPConfig_DemuxVideoHLSTrack)) || ISCONFIGSET_PRIV(eAAMPConfig_PreservePipeline)))
 		{
-			mStreamSink->Flush(0, rate);
+			if ((eMEDIAFORMAT_PROGRESSIVE == mMediaFormat) && (true == mSeekOperationInProgress))
+			{
+				AAMPLOG_TRACE("Skip mid-seek flushing of progressive pipeline to position 0");
+				// If format is progressive and we're doing a teardown to facilitate a seek operation, avoid a flushing seek to position 0.
+				// With progressive content, playbin will immediately start playback from position 0 and that may not be the desired position.
+				// TuneHelper() will perform a flushing seek to the correct position afterwards.
+			}
+			else
+			{
+				mStreamSink->Flush(0, rate);
+			}
 		}
 		else
 		{
