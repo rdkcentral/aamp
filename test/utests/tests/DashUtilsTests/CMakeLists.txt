@@ -22,6 +22,7 @@ set(UTESTS_ROOT "../../")
 set(EXEC_NAME DashUtilsTests)
 
 pkg_check_modules(LIBDASH REQUIRED libdash)
+pkg_check_modules(GTEST REQUIRED gtest)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
 
@@ -82,7 +83,7 @@ if (COVERAGE_ENABLED)
                               DEPENDENCIES ${EXEC_NAME})
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${LIBDASH_LDFLAGS} ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest )
+target_link_libraries(${EXEC_NAME} fakes -lpthread ${LIBDASH_LDFLAGS} ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock ${GTEST_LINK_LIBRARIES})
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 set_target_properties(${EXEC_NAME} PROPERTIES COMPILE_FLAGS -Wno-effc++)

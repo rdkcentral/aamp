@@ -14,7 +14,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 include(GoogleTest)
+pkg_check_modules(GMOCK REQUIRED gmock)
+pkg_check_modules(GTEST REQUIRED gtest)
+
+
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME AampEventAAMPTests)
@@ -52,5 +57,5 @@ if (COVERAGE_ENABLED)
                               EXECUTABLE ${EXEC_NAME}
                               DEPENDENCIES ${EXEC_NAME})
 endif()
-target_link_libraries(${EXEC_NAME} fakes -pthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest)
+target_link_libraries(${EXEC_NAME} fakes -pthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)

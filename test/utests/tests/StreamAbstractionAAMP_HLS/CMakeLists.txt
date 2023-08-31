@@ -28,16 +28,10 @@ include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_RO
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 
-# Mac OS X
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    include_directories(/usr/local/include)
-    include_directories(/usr/local/include/libdash)
-    set(OS_LD_FLAGS -L/usr/local/lib)
-
-else()
+if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     include_directories(${AAMP_ROOT}/Linux/include)
     set(OS_LD_FLAGS -luuid)
-endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})

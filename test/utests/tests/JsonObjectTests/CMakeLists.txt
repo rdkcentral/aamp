@@ -24,13 +24,9 @@ set(EXEC_NAME JsonObjectTests)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
-# Mac OS X
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    include_directories(/usr/local/include)
-    set(OS_LD_FLAGS -L/usr/local/lib)
-else()
+if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     include_directories(${AAMP_ROOT}/Linux/include)
-endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})

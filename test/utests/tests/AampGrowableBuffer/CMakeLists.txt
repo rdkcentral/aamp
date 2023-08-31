@@ -17,6 +17,9 @@
 
 include(GoogleTest)
 
+pkg_check_modules(GMOCK REQUIRED gmock)
+pkg_check_modules(GTEST REQUIRED gtest)
+
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME AampGrowableBufferTest)
@@ -68,7 +71,7 @@ if (COVERAGE_ENABLED)
                               DEPENDENCIES ${EXEC_NAME})
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes -pthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest)
+target_link_libraries(${EXEC_NAME} fakes -pthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 
 
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)

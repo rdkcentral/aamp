@@ -20,22 +20,21 @@ set(UTESTS_ROOT "../../")
 set(EXEC_NAME StreamAbstractionAAMP_MPD)
 
 pkg_check_modules(LIBDASH REQUIRED libdash)
+pkg_check_modules(GMOCK REQUIRED gmock)
+pkg_check_modules(GTEST REQUIRED gtest)
+pkg_check_modules(LIBCJSON REQUIRED libcjson)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 
-# Mac OS X
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    include_directories(/usr/local/include)
-    include_directories(/usr/local/include/libdash)
-    set(OS_LD_FLAGS -L/usr/local/lib)
-
-else()
+if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     include_directories(${AAMP_ROOT}/Linux/include)
     include_directories(${AAMP_ROOT}/Linux/include/libdash)
     set(OS_LD_FLAGS -luuid)
-endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+else()
+   include_directories(${AAMP_ROOT}/.libs/libdash/libdash/libdash/include)
+endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -81,7 +80,7 @@ if (COVERAGE_ENABLED)
                               DEPENDENCIES ${EXEC_NAME})
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${LIBDASH_LDFLAGS} ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lcjson)
+target_link_libraries(${EXEC_NAME} fakes -lpthread ${LIBDASH_LDFLAGS} ${GLIB_LDFLAGS} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES})
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 set_target_properties(${EXEC_NAME} PROPERTIES COMPILE_FLAGS "-Wno-effc++ -Wno-multichar")

@@ -15,6 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+pkg_check_modules(GMOCK REQUIRED gmock)
+pkg_check_modules(GTEST REQUIRED gtest)
+
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME TextStyleAttributesTests)
@@ -24,15 +27,9 @@ include_directories(${AAMP_ROOT}/subtitle)
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 
-# Mac OS X
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    include_directories(/usr/local/include)
-    include_directories(/usr/local/include/libdash)
-    set(OS_LD_FLAGS -L/usr/local/lib)
-
-else()
+if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     include_directories(${AAMP_ROOT}/Linux/include)
-endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -67,6 +64,6 @@ if (COVERAGE_ENABLED)
                               DEPENDENCIES ${EXEC_NAME})
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lpthread)
+target_link_libraries(${EXEC_NAME} fakes ${GLIB_LDFLAGS} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} -lpthread)
 
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
