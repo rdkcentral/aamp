@@ -346,6 +346,12 @@ harvest <harvestConfiguration> Initiate harvesting for space separated harvest c
 	harvestMode=Master harvestUrl=<url> harvestPath=<path> for Master mode(To download all available profiles)
 	harvestMode=Slave harvestUrl=<url> harvestConfig=65535 defaultBitrate=400000 defaultBitrate4K=400000 disableDecode=true harvestPath=<path> for Slave mode(To download selective profile)
 fog <url|host=ip:port> 'fog url' tune to arbitrary locator via fog. 'fog host=ip:port' set fog location (default: 127.0.0.1:9080)
+advert <params>
+	advert add <url> <duration> (add an advert url, duration is optional)
+	advert rm <url> (remove a matching url)
+	advert add <channel number> (add a url from the virtual channel map, if given channel number exists)
+	advert rm <index> (remove the url at the given index)
+	advert list (display the advert list)
 ```
 
 To add channelmap for CLI, enter channel entries in below format in /opt/aampcli.cfg

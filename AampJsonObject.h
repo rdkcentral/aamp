@@ -42,6 +42,7 @@ public:
 	~AampJsonObject();
 	AampJsonObject(const AampJsonObject&) = delete;
 	AampJsonObject& operator=(const AampJsonObject&) = delete;
+	AampJsonObject(AampJsonObject &&) = default;
 
 	enum ENCODING
 	{
@@ -113,7 +114,15 @@ public:
 	 *  @return true if successfully added, false otherwise
 	 */
 	bool get(const std::string& name, int& value);
-	
+
+	/**
+	 *  @brief Get a double value from JSON data
+	 *  @param name name for the property
+	 *  @param[out] value double value
+	 *  @return true if successfully retrieved, false otherwise
+	 */
+	bool get(const std::string& name, double& value);
+
 	/**
 	 * @fn get
 	 *
@@ -141,6 +150,14 @@ public:
 	 * @return true if successfully retrieved and decoded value, false otherwise
 	 */
 	bool get(const std::string& name, AampJsonObject &value);
+
+	/**
+	 *  @brief Get an array of objects from JSON data
+	 *  @param name name for the property
+	 *  @param[out] value JSON object array
+	 *  @return true if successfully retrieved, false otherwise
+	 */
+	bool get(const std::string& name, std::vector<AampJsonObject> &values);
 
 	/**
 	 *  @fn print

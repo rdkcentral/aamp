@@ -1350,5 +1350,44 @@ double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
 }
 
 /**
+ * @brief Get 32 bit MPEG CRC value
+ * @param[in] data buffer containing data
+ * @param[in] size length of data
+ * @param[in] initial optional initial CRC
+ * @retval 32 bit CRC value
+ */
+uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial)
+{
+	static uint32_t crc32_table[256];
+	static bool crc32_initialized;
+	uint32_t i;
+	uint32_t j;
+	uint32_t k;
+	uint32_t result = initial;
+
+	if (!crc32_initialized)
+	{
+		for (i = 0; i < 256; i++)
+		{
+			k = 0;
+			for (j = (i << 24) | 0x800000; j != 0x80000000; j <<= 1)
+			{
+				k = (k << 1) ^ (((k ^ j) & 0x80000000) ? 0x04c11db7 : 0);
+			}
+			crc32_table[i] = k;
+		}
+
+		crc32_initialized = true;
+	}
+
+	for (i = 0; i < size; i++)
+	{
+		result = (uint32_t)((result << 8) ^ crc32_table[(result >> 24) ^ data[i]]);
+	}
+
+	return result;
+}
+
+/**
  * EOF
  */

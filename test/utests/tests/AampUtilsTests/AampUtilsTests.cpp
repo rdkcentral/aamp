@@ -490,4 +490,27 @@ TEST(_AampUtils, GetPrintableThreadID)
 	EXPECT_EQ(result1, result2);
 }
 
+TEST(_AampUtils, CRC32)
+{
+	/* 8 bytes of data followed by 4 bytes CRC32. */
+	static const uint8_t data[12] =
+	{
+		0x01, 0x23, 0x45, 0x67,
+		0x89, 0xab, 0xcd, 0xef,
+		0x09, 0xee, 0xde, 0x06
+	};
+	uint32_t expected;
+	uint32_t value;
 
+	/* Test the CRC32 of the first 8 bytes. */
+	expected = ((uint32_t)data[8] << 24) + 
+			   ((uint32_t)data[9] << 16) +
+			   ((uint32_t)data[10] << 8) +
+			   ((uint32_t)data[11]);
+	value = aamp_ComputeCRC32(data, 8);
+	EXPECT_EQ(expected, value);
+
+	/* Test the CRC32 of the full 12 bytes. */
+	value = aamp_ComputeCRC32(data, 12);
+	EXPECT_EQ(0, value);
+}

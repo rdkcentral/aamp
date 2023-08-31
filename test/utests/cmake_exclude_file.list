@@ -9,7 +9,7 @@
     "${BASE_DIR}/drm/*"
     "${BASE_DIR}/isobmff/*"
     "${BASE_DIR}/subtec/subtecparser/*"
-    "${BASE_DIR}/test/aampcli/*"
+    "${BASE_DIR}/test/aampcli/Aampcli*"
     "${BASE_DIR}/test/utests/mocks/*"
     "${PROJECT_SOURCE_DIR}/tests/AampCliSet/*"
     "${PROJECT_SOURCE_DIR}/tests/Base64AAMP/*"

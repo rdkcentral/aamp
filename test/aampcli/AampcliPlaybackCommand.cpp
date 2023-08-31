@@ -26,6 +26,7 @@
 #include <regex>
 #include "Aampcli.h"
 #include "AampcliPlaybackCommand.h"
+#include "AampSCTE35.h"
 
 extern bool gAampcliQuietLogs;
 extern VirtualChannelMap mVirtualChannelMap;
@@ -35,7 +36,7 @@ extern void tsdemuxer_InduceRollover( bool enable );
 std::map<std::string,std::string> PlaybackCommand::playbackCommands = std::map<std::string,std::string>();
 std::vector<std::string> PlaybackCommand::commands(0);
 static std::string mFogHostPrefix="127.0.0.1:9080"; //Default host string for "fog" command
-std::vector<std::string> mAdvertList;
+std::vector<AdvertInfo> mAdvertList = std::vector<AdvertInfo>();
 
 void PlaybackCommand::getRange(const char* cmd, unsigned long& start, unsigned long& end, unsigned long& tail)
 {
@@ -458,15 +459,15 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 		std::string token;
 		std::getline(input, token, ' ');
 		assert(token == "advert");
+		int pos = mAdvertList.size() + 1;
 
 		if (std::getline(input, token, ' '))
 		{
 			if (token == "list")
 			{
-				int urlIndex = 0;
-				for ( auto adUrl : mAdvertList )
-				{
-					printf("[AAMP-CLI] advert %d: %s\n", urlIndex++, adUrl.c_str());
+				for (int i = 0; i < mAdvertList.size(); i++)
+                                {
+					printf("[AAMP-CLI] advert %d: url %s duration %d\n", i, (mAdvertList[i].url).c_str(), mAdvertList[i].duration);
 				}
 			}
 			else
@@ -475,13 +476,50 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 				std::string identifier;
 
 				// The next para should be a url or an index to a url
-				if (!std::getline(input, identifier))
+				if (!std::getline(input, identifier, ' '))
 				{
 					printf("[AAMP-CLI] ERROR - unable to parse url identifier\n");
 				}
 				else if (playerInstanceAamp->isTuneScheme(identifier.c_str()))
 				{
-					url = identifier;
+				// If we have a URL, add or remove it from the list
+					if (token == "add")
+					{
+						std::string duration;
+						AdvertInfo lAdvertInfo;
+						lAdvertInfo.url = identifier;
+
+						if (std::getline(input, duration, ' '))
+							lAdvertInfo.duration = std::stoi(duration);
+						else
+							lAdvertInfo.duration = 0;
+
+						mAdvertList.push_back(lAdvertInfo);	
+						printf("[AAMP-CLI] Added to advert list url: %s duration: %d\n", (lAdvertInfo.url).c_str(), lAdvertInfo.duration);
+					}
+					else if (token == "rm")
+					{
+						bool urlFlag = false;
+						for (auto itr = mAdvertList.begin(); itr != mAdvertList.end(); itr++) 
+						{
+							 if( identifier == itr->url)
+							 {
+								 mAdvertList.erase(itr);
+								 urlFlag = true;
+								 break;
+							 }
+						}
+						
+						if(!urlFlag)
+						{
+							printf("[AAMP-CLI] ERROR - no url '%s' in list\n", identifier.c_str());
+						}
+
+					}
+					else
+					{
+						printf("[AAMP-CLI] ERROR - unrecognised command 'advert %s'\n", token.c_str());
+					}
 				}
 				else if (isNumber(identifier.c_str()))
 				{
@@ -497,7 +535,12 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 							VirtualChannelInfo *info = mVirtualChannelMap.find(urlIndex);
 							if (info)
 							{
-								url = info->uri;
+								std::string duration;
+								AdvertInfo lAdvertInfo;
+								lAdvertInfo.url = info->uri;
+								lAdvertInfo.duration = 0;
+
+								mAdvertList.push_back(lAdvertInfo);	
 							}
 							else
 							{
@@ -509,10 +552,10 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 						else if (token == "rm")
 						{
 							// Remove a url by index
-							if (urlIndex < mAdvertList.size())
+
+							if (urlIndex < mAdvertList.size()) 
 							{
-								std::vector<std::string>::iterator pos = mAdvertList.begin() + urlIndex;
-								url = *pos;
+								mAdvertList.erase(mAdvertList.begin() + urlIndex);
 							}
 							else
 							{
@@ -529,38 +572,30 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 				{
 					printf("[AAMP-CLI] ERROR - param '%s'\n", identifier.c_str());
 				}
-
-				// If we have a URL, add or remove it from the list
-				if (playerInstanceAamp->isTuneScheme(url.c_str()))
-				{
-					if (token == "add")
-					{
-						mAdvertList.push_back(url);
-						printf("[AAMP-CLI] Added '%s' to advert list\n", url.c_str());
-					}
-					else if (token == "rm")
-					{
-						std::vector<std::string>::iterator pos = std::find(mAdvertList.begin(), mAdvertList.end(), url);
-						if (pos != mAdvertList.end())
-						{
-							mAdvertList.erase(pos);
-							printf("[AAMP-CLI] Removed '%s' from advert list\n", url.c_str());
-						}
-						else
-						{
-							printf("[AAMP-CLI] ERROR - no url '%s' in list\n", url.c_str());
-						}
-					}
-					else
-					{
-						printf("[AAMP-CLI] ERROR - unrecognised command 'advert %s'\n", token.c_str());
-					}
-				}
 			}
 		}
 		else
 		{
 			printf("[AAMP-CLI] ERROR - expected 'advert [list, add, rm]'\n");
+		}
+	}
+	else if( isCommandMatch(cmd, "scte35") )
+	{
+		std::istringstream input;
+		input.str(cmd);
+
+		std::string token;
+		std::getline(input, token, ' ');
+		assert(token == "scte35");
+
+		if (std::getline(input, token, ' '))
+		{
+			SCTE35SpliceInfo spliceInfo(token);
+			printf("%s\n", spliceInfo.getJsonString(true).c_str());
+		}
+		else
+		{
+			printf("[AAMP-CLI] ERROR - expected 'scte35 <base64>'\n");
 		}
 	}
 	else
@@ -689,6 +724,7 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("exit","Exit aampcli");
 	addCommand("harvest <configs>","harvest VOD or Live content; refer README.txt");
 	addCommand("advert <params>", "manage injected advert list - 'list', 'add <url or channel in virtual channel map>', 'rm <url or index into list>'");
+	addCommand("scte35 <base64>", "decode SCTE-35 signal base64 string");
 }
 
 void PlaybackCommand::addCommand(std::string command,std::string description)

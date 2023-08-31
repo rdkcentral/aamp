@@ -390,6 +390,7 @@ set(AAMP_CLI_HEADERS test/aampcli/Aampcli.h
 			test/aampcli/AampcliHarvester.h
 			test/aampcli/AampcliSmokeTest.h
 			test/aampcli/AampcliSubtecSimulator.h
+			test/aampcli/AampSCTE35.h
 			${AAMP_OS_SOURCES})
 set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp
 			test/aampcli/AampcliPlaybackCommand.cpp
@@ -401,6 +402,7 @@ set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp
 			test/aampcli/AampcliHarvester.cpp
 			test/aampcli/AampcliSmokeTest.cpp
 			test/aampcli/AampcliSubtecSimulator.cpp
+			test/aampcli/AampSCTE35.cpp
 			${AAMP_OS_SOURCES})
 
 

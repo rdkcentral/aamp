@@ -23,13 +23,14 @@
  */
 
 #include "Aampcli.h"
+#include "AampSCTE35.h"
 
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
 extern VirtualChannelMap mVirtualChannelMap;
 extern void tsdemuxer_InduceRollover( bool enable );
-extern std::vector<std::string> mAdvertList;
-uint32_t mAdvertIndex = 0;
+extern std::vector<AdvertInfo> mAdvertList;
+static int mAdvertIndex = 0;
 
 Aampcli :: Aampcli():
 	mInitialized(false),
@@ -426,6 +427,41 @@ int main(int argc, char **argv)
 	}
 }
 
+void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::string &url)
+{
+	bool loop = false;
+	std::string defUrl = "";
+	mAdvertIndex = (mAdvertIndex < mAdvertList.size()) ? mAdvertIndex : 0;	
+	while (mAdvertIndex < mAdvertList.size()) 
+	{
+		if(reqDuration == mAdvertList[mAdvertIndex].duration)
+		{
+			url = mAdvertList[mAdvertIndex].url;
+			adDuration = mAdvertList[mAdvertIndex].duration;
+			mAdvertIndex = mAdvertIndex + 1;
+			break;
+		}
+
+		if((defUrl.empty()) && (mAdvertList[mAdvertIndex].duration == 0))
+		{
+			defUrl = mAdvertList[mAdvertIndex].url;
+		}
+		
+		if(( loop == false) && ( mAdvertIndex + 1 == mAdvertList.size()))
+		{
+			mAdvertIndex = 0;
+			loop = true;
+		}
+		else
+			mAdvertIndex++;
+	}
+
+	if((adDuration == 0) && (!defUrl.empty()))
+	{
+		url = defUrl;
+	}
+}
+
 const char *MyAAMPEventListener::stringifyPrivAAMPState(PrivAAMPState state)
 {
 	static const char *stateName[] =
@@ -617,21 +653,46 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			TimedMetadataEventPtr ev =  std::dynamic_pointer_cast<TimedMetadataEvent>(e);
 			if( ev->getName() == "SCTE35" )
 			{
-				// Default value
-				std::string url = "https://ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd";
-				
-				// If we have an advwert list, use that
-				if (mAdvertList.size())
-				{
-					mAdvertIndex %= mAdvertList.size();
-					url = mAdvertList[mAdvertIndex];
-					mAdvertIndex++;
-				}
-				mAampcli.mSingleton->SetAlternateContents( ev->getId(),"ad1", url.c_str());
-			}
-		}
-			break;
+				printf("\n[AAMPCLI] AAMP_EVENT_TIMED_METADATA received\n");
+				/* Decode any SCTE35 splice info event. */
+				std::vector<SCTE35SpliceInfo::Summary> spliceInfoSummary;
+				SCTE35SpliceInfo spliceInfo(ev->getContent());
 
+				spliceInfo.getSummary(spliceInfoSummary);
+				for (auto &splice : spliceInfoSummary)
+				{
+					AAMPLOG_WARN("CDAI] splice info type %d, time %f, duration %f, id 0x%" PRIx32,
+						(int)splice.type, splice.time, splice.duration, splice.event_id);
+
+					if ((splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_ADVERTISEMENT_START) ||
+						(splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_PLACEMENT_OPPORTUNITY_START))
+					{
+						/* A set of ads should be selected for insertion based
+						 * on the splice info event type, id and duration.
+						 */
+						AAMPLOG_WARN("[CDAI] Dynamic ad start signalled");
+
+						// Default value
+						std::string url = "https://ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd";
+						uint32_t adDuration = 0;
+
+						//If we have an advert list, use that
+						if (mAdvertList.size())
+						{
+							mAampcli.getAdvertUrl(splice.duration, adDuration, url);
+						}
+
+						printf("\n[AAMPCLI] Advert ad url: %s, duration %d\n",url.c_str(),adDuration);
+						mAampcli.mSingleton->aamp->mCdaiObject->SetAlternateContents(ev->getId(), "ad1", url.c_str(), adDuration, adDuration);
+					}
+					else
+					{
+						AAMPLOG_INFO("[CDAI] No dynamic ad start signalled");
+					}
+				}
+			}
+			break;
+		}
 		case AAMP_EVENT_MANIFEST_REFRESH_NOTIFY:
 		{
 			std::string manifest;

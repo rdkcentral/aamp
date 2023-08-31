@@ -416,6 +416,28 @@ bool AampJsonObject::get(const std::string& name, AampJsonObject &value)
 }
 
 /**
+ *  @brief Get an array of objects from JSON data
+ *  @param name name for the property
+ *  @param[out] value JSON object array
+ *  @return true if successfully retrieved, false otherwise
+ */
+bool AampJsonObject::get(const std::string& name, std::vector<AampJsonObject> &values)
+{
+	cJSON *strObj = cJSON_GetObjectItem(mJsonObj, name.c_str());
+	cJSON *object = NULL;
+	bool retVal = true;
+	int idx = 0;
+
+	values.clear();
+	cJSON_ArrayForEach(object, strObj)
+	{
+		values.emplace_back();
+		values[idx++].set(this, object);
+	}
+	return retVal;
+}
+
+/**
  *  @brief Get a string value
  */
 bool AampJsonObject::get(const std::string& name, std::string& value)
@@ -447,6 +469,24 @@ bool AampJsonObject::get(const std::string& name, int& value)
 		 * Required version  1.7.13 **/
 		//retValue = cJSON_GetNumberValue(strObj);
 		value =  (int)strObj->valuedouble;
+		retValue = true;
+	}
+	return retValue;
+}
+
+/**
+ *  @brief Get a double value from JSON data
+ *  @param name name for the property
+ *  @param[out] value double value
+ *  @return true if successfully retrieved, false otherwise
+ */
+bool AampJsonObject::get(const std::string& name, double& value)
+{
+	cJSON *strObj = cJSON_GetObjectItem(mJsonObj, name.c_str());
+	bool retValue = false;
+	if (strObj && cJSON_IsNumber(strObj))
+	{
+		value = strObj->valuedouble;
 		retValue = true;
 	}
 	return retValue;

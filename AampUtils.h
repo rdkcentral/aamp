@@ -308,6 +308,16 @@ bool IsCompatibleMimeType(const std::string& mimeType, MediaType mediaType);
  * @return - computed fragment duration in double.
  */
 double ComputeFragmentDuration(uint32_t duration, uint32_t timeScale);
+
+/**
+ * @brief Get 32 bit MPEG CRC value
+ * @param[in] data buffer containing data
+ * @param[in] size length of data
+ * @param[in] initial initial CRC
+ * @retval 32 bit CRC value
+ */
+uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial = 0xffffffff);
+
 #define MAX_RANGE_STRING_CHARS 128
 
 #define WRITE_HASCII( DST, BYTE ) \

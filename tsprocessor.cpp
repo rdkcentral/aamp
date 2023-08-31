@@ -857,48 +857,6 @@ public:
 
 #define rmf_osal_memcpy(d, s, n, dc, sc)  memcpy(d, s, n)
 
-static unsigned long crc32_table[256];
-static int crc32_initialized = 0;
-
-
-/**
- * @brief Init CRC32 table
- */
-static void init_crc32()
-{
-	if (crc32_initialized) return;
-	unsigned int k, i, j;
-	for (i = 0; i < 256; i++)
-	{
-		k = 0;
-		for (j = (i << 24) | 0x800000; j != 0x80000000; j <<= 1)
-		{
-			k = (k << 1) ^ (((k ^ j) & 0x80000000) ? 0x04c11db7 : 0);
-		}
-		crc32_table[i] = k;
-	}
-	crc32_initialized = 1;
-}
-
-
-/**
- * @brief Get 32 bit CRC value
- * @param[in] data buffer containing data
- * @param[in] size length of data
- * @param[in] initial initial CRC
- * @retval 32 bit CRC value
- */
-static uint32_t get_crc32(unsigned char *data, int size, uint32_t initial = 0xffffffff)
-{
-	uint32_t result = initial;
-	init_crc32();
-	for ( int i = 0; i < size; i++)
-	{
-		result = (uint32_t)((result << 8) ^ crc32_table[(result >> 24) ^ data[i]]);
-	}
-	return result;
-}
-
 
 /**
  * @brief Dump TS packet
@@ -3867,7 +3825,7 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 			patPacket[i + 16] = (unsigned char)(0xFF & pmtPid);
 
 			// 4 bytes of CRC
-			crc = get_crc32(&patPacket[i + 5], 12);
+			crc = aamp_ComputeCRC32(&patPacket[i + 5], 12);
 			patPacket[i + 17] = (crc >> 24) & 0xFF;
 			patPacket[i + 18] = (crc >> 16) & 0xFF;
 			patPacket[i + 19] = (crc >> 8) & 0xFF;
@@ -3963,7 +3921,7 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 			crc = 0xffffffff;
 			while (crcLenTotal)
 			{
-				crc = get_crc32(crcData, crcLen, crc);
+				crc = aamp_ComputeCRC32(crcData, crcLen, crc);
 				crcData += crcLen;
 				crcLenTotal -= crcLen;
 				if (crcLenTotal < crcLen)

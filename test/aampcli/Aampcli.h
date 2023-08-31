@@ -39,6 +39,7 @@
 #include <main_aamp.h>
 #include "AampConfig.h"
 #include "AampDefine.h"
+#include "AdManagerBase.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampcliCommandHandler.h"
 #include "AampcliVirtualChannelMap.h"
@@ -78,6 +79,7 @@ class Aampcli
 		void initPlayerLoop(int argc, char **argv);
 		void newPlayerInstance( void );
 		int getApplicationDir( char *buffer, uint32_t size );
+		void getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::string &url);
 		Aampcli();
 		Aampcli(const Aampcli& aampcli);
 		Aampcli& operator=(const Aampcli& aampcli);

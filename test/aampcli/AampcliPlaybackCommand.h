@@ -27,6 +27,11 @@
 
 #include "AampcliCommand.h"
 
+typedef struct advertInfo
+{
+	std::string url;
+	uint32_t duration;
+}AdvertInfo;
 
 class PlaybackCommand : public Command
 {

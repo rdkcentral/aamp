@@ -15,7 +15,7 @@ AampConfig *gpGlobalConfig=NULL;
 
 TEST(_JsonObject, AampJsonObject_Test)
 {
-	const char *json = R"({"strarray":["de","en","es"],"string":"apple","int":123,"obj":{"A":65,"B":66},"raw":"chunky"})";
+	const char *json = R"({"strarray":["de","en","es"],"string":"apple","int":123,"obj":{"A":65,"B":66},"raw":"chunky","double":4.2,"objarray":[{"idx":0},{"idx":1},{"idx":2}]})";
 	
 	AampJsonObject *obj = new AampJsonObject(json);
 	bool rc;
@@ -50,6 +50,22 @@ TEST(_JsonObject, AampJsonObject_Test)
 	EXPECT_EQ( values[3], 'n' );
 	EXPECT_EQ( values[4], 'k' );
 	EXPECT_EQ( values[5], 'y' );
+
+	double dval = 0.0;
+	EXPECT_TRUE(obj->get("double", dval));
+	EXPECT_EQ(dval, 4.2);
+
+	std::vector<AampJsonObject> array;
+	int idx = -1;
+	EXPECT_TRUE(obj->get("objarray", array));
+	ASSERT_EQ(array.size(), 3);
+	EXPECT_TRUE(array[0].get("idx", idx));
+	EXPECT_EQ(idx, 0);
+	EXPECT_TRUE(array[1].get("idx", idx));
+	EXPECT_EQ(idx, 1);
+	EXPECT_TRUE(array[2].get("idx", idx));
+	EXPECT_EQ(idx, 2);
+
 	delete obj;
 }
 

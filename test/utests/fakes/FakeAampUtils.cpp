@@ -449,3 +449,8 @@ double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
 	}
 	return newduration;
 }
+
+uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial)
+{
+	return 0;
+}
