@@ -1916,9 +1916,11 @@ Example:
 
 **Description:** 
 - Supported UVE version 0.8 and above.
-- Fired when AAMP encounters buffering mid-playback, buffering flag indicates buffer status.
-    - FALSE -> No buffer for playback(Underflow)
-    - TRUE -> Buffer available for playback
+- Note that bufferingChanged events are generated only after streaming has started.
+- This is not generated at tune time, while video is paused, or while seeking.
+- buffering flag gives status:
+    - FALSE -> Video buffer has run dry and playback is stalled (Underflow)
+    - TRUE -> Playback has resumed (healthy buffering)
 
 ---
 
