@@ -5894,17 +5894,10 @@ static bool IsIframeTrack(IAdaptationSet *adaptationSet)
 					const std::string& schemeUri = xml->GetAttributeValue("schemeIdUri");
 					if (schemeUri == "http://dashif.org/guidelines/trickmode")
 					{
+						AAMPLOG_TRACE("AdaptationSet:%d is IframeTrack",adaptationSet->GetId());
 						return true;
 					}
-					else
-					{
-						AAMPLOG_WARN("skipping schemeUri %s", schemeUri.c_str());
-					}
 				}
-			}
-			else
-			{
-				AAMPLOG_TRACE("skipping name %s", xml->GetName().c_str());
 			}
 		}
 		else
