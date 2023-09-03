@@ -189,15 +189,38 @@ void Aampcli::runCommand( void* args )
 		{
 			break;
 		}
-		if( *buffer )
-		{ // non-empty line
-			add_history(buffer);
-			bool l_status = lCommandHandler.dispatchAampcliCommands(buffer,mAampcli.mSingleton);
+		char *ptr = buffer;
+		while( *ptr )
+		{
+			char *delim = strchr(ptr,'\n');
+			if( delim )
+			{
+				*delim = 0x00;
+			}
+			add_history(ptr);
+			bool l_status = lCommandHandler.dispatchAampcliCommands(ptr,mAampcli.mSingleton);
 			if( !l_status )
 			{
 				exit(0);
 			}
-		} // if( *buffer )
+			if( delim )
+			{
+				ptr = delim+1;
+			}
+			else
+			{
+				break;
+			}
+		}
+//		if( *buffer )
+//		{ // non-empty line
+//			add_history(buffer);
+//			bool l_status = lCommandHandler.dispatchAampcliCommands(buffer,mAampcli.mSingleton);
+//			if( !l_status )
+//			{
+//				exit(0);
+//			}
+//		} // if( *buffer )
 		free(buffer);
 	} // for(;;)
 } // Aampcli::runCommand
@@ -499,6 +522,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_EOS:
 			printf("[AAMPCLI] AAMP_EVENT_EOS\n");
 			break;
+
 		case AAMP_EVENT_PLAYLIST_INDEXED:
 			printf("[AAMPCLI] AAMP_EVENT_PLAYLIST_INDEXED\n");
 			break;

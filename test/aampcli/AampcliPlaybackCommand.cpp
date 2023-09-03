@@ -119,7 +119,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 
 	if( cmd[0]=='#' )
 	{
-		printf( "skipping comment\n" );
+		printf( "%s\n", cmd );
 	}
 	else if( isCommandMatch(cmd, "help") )
 	{
