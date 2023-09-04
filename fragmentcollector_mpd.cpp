@@ -2339,10 +2339,23 @@ void StreamAbstractionAAMP_MPD::SkipToEnd( MediaStreamContext *pMediaStreamConte
 			if(!timelines.empty())
 			{
 				uint32_t repeatCount = 0;
+				// Store the first 't' value in fragmentDescriptor.Time
+				ITimeline *firstTimeline = timelines.at(0);
+				map<string, string> attributeMap = firstTimeline->GetRawAttributes();
+				if(attributeMap.find("t") != attributeMap.end())
+				{
+					pMediaStreamContext->fragmentDescriptor.Time = static_cast<double>(firstTimeline->GetStartTime());
+				}
+				else
+				{
+					pMediaStreamContext->fragmentDescriptor.Time = 0;
+				}
+
 				for(int i = 0; i < timelines.size(); i++)
 				{
 					ITimeline *timeline = timelines.at(i);
 					repeatCount += (timeline->GetRepeatCount() + 1);
+					pMediaStreamContext->fragmentDescriptor.Time += ((timeline->GetRepeatCount() + 1) * timeline->GetDuration());
 				}
 				pMediaStreamContext->fragmentDescriptor.Number = pMediaStreamContext->fragmentDescriptor.Number + repeatCount - 1;
 				pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number;

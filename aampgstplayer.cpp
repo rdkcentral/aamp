@@ -132,11 +132,13 @@ struct media_stream
 	uint32_t timeScale;
 	int32_t trackId;							/**< Current Audio Track Id,so far it is implimented for AC4 track selection only */
 	bool resendQtDemuxOverride;					/**< Indicates if the qtdemux override event should be resend or not */
+	bool firstBufferProcessed;					/**< Indicates if the first buffer is processed in this stream */
 
 	media_stream() : sinkbin(NULL), source(NULL), format(FORMAT_INVALID),
 			 using_playersinkbin(FALSE), flush(false), resetPosition(false),
 			 bufferUnderrun(false), eosReached(false), sourceConfigured(false), sourceLock(PTHREAD_MUTEX_INITIALIZER)
 			, timeScale(1), trackId(-1), resendQtDemuxOverride(false)
+			, firstBufferProcessed(false)
 	{
 
 	}
@@ -2764,6 +2766,11 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 			// PROFILE_BUCKET_FIRST_BUFFER after successfull push of first gst buffer
 			if (isFirstBuffer == true && ret == GST_FLOW_OK)
 				this->aamp->profiler.ProfilePerformed(PROFILE_BUCKET_FIRST_BUFFER);
+
+			if (!stream->firstBufferProcessed && !initFragment)
+			{
+				stream->firstBufferProcessed = true;
+			}
 		}
 	}
 
@@ -2930,6 +2937,7 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 		stream->resetPosition = true;
 		stream->eosReached = false;
 		stream->resendQtDemuxOverride = false;
+		stream->firstBufferProcessed = false;
 	}
 
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -3026,7 +3034,7 @@ void AAMPGstPlayer::EndOfStreamReached(MediaType type)
 
 	media_stream *stream = &privateContext->stream[type];
 	stream->eosReached = true;
-	if ((stream->format != FORMAT_INVALID) && stream->resetPosition == true)
+	if ((stream->format != FORMAT_INVALID) && stream->firstBufferProcessed == false)
 	{
 		AAMPLOG_WARN("EOS received as first buffer ");
 		NotifyEOS();
@@ -3358,6 +3366,7 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 				LogStatus(element);
 				break;
 			case GST_STATE_CHANGE_SUCCESS:
+				AAMPLOG_TRACE("AAMPGstPlayer: %s is in success state : current %s  pending %s", SafeName(element).c_str(),gst_element_state_get_name(current), gst_element_state_get_name(pending));
 				break;
 			case GST_STATE_CHANGE_ASYNC:
 				if(syncOnlyTransition)
@@ -3375,10 +3384,18 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 		{
 			AAMPLOG_WARN("AAMPGstPlayer: Attempting to set %s state to %s", SafeName(element).c_str(), gst_element_state_get_name(targetState));
 		}
+		else
+		{
+			AAMPLOG_TRACE("AAMPGstPlayer: Attempting to set %s state to %s", SafeName(element).c_str(), gst_element_state_get_name(targetState));
+		}
 		rc = gst_element_set_state(element, targetState);					/* Set the state of the element to the targetState, this function is MT-safe*/
 		if(syncOnlyTransition)
 		{
 			AAMPLOG_WARN("AAMPGstPlayer: %s state set to %s",  SafeName(element).c_str(), gst_element_state_get_name(targetState));
+		}
+		else
+		{
+			AAMPLOG_TRACE("AAMPGstPlayer: %s state set to %s, rc:%d",  SafeName(element).c_str(), gst_element_state_get_name(targetState), rc);
 		}
 	}
 	else
@@ -3991,6 +4008,7 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 			privateContext->stream[i].flush = false;
 			privateContext->stream[i].eosReached = false;
 			privateContext->stream[i].resendQtDemuxOverride = false;
+			privateContext->stream[i].firstBufferProcessed = false;
 		}
 
 		AAMPLOG_INFO("AAMPGstPlayer: Pipeline flush seek - start = %f rate = %d", position, rate);
@@ -4025,15 +4043,15 @@ bool AAMPGstPlayer::Discontinuity(MediaType type)
 	FN_TRACE( __FUNCTION__ );
 	bool ret = false;
 	media_stream *stream = &privateContext->stream[type];
-	AAMPLOG_WARN("Entering AAMPGstPlayer: type(%d) format(%d) resetPosition(%d)", (int)type, stream->format, stream->resetPosition);
+	AAMPLOG_WARN("Entering AAMPGstPlayer: type(%d) format(%d) firstBufferProcessed(%d)", (int)type, stream->format, stream->firstBufferProcessed);
 	/*Handle discontinuity only if atleast one buffer is pushed*/
-	if (stream->format != FORMAT_INVALID && stream->resetPosition == true)
+	if (stream->format != FORMAT_INVALID && stream->firstBufferProcessed == false)
 	{
 		AAMPLOG_WARN("Discontinuity received before first buffer - ignoring");
 	}
 	else
 	{
-		AAMPLOG_TRACE("stream->format %d, stream->resetPosition %d, stream->flush %d", stream->format , stream->resetPosition, stream->flush);
+		AAMPLOG_TRACE("stream->format %d, stream->firstBufferProcessed %d, stream->flush %d", stream->format , stream->firstBufferProcessed, stream->flush);
 		AAMPGstPlayer_SignalEOS(stream->source);
 		// We are in buffering, but we received discontinuity, un-pause pipeline
 		StopBuffering(true);
