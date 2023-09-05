@@ -22,6 +22,7 @@
 
 #include <sstream>
 #include "Utils.h"
+#include "AampUtils.h"
 
 using namespace std;
 
@@ -85,23 +86,14 @@ double isoDurationToSeconds(const string &duration, double defaultValue) {
  * @retval  seconds
  */
 double isoDateTimeToEpochSeconds(string isotime, double defaultValue) {
-    if (isotime.empty()) return defaultValue;
 
-#ifdef WIN32
-	std::stringstream ss(isotime);
-	std::tm time = { 0 };
-	ss >> std::get_time(&time, "%Y-%m-%dT%H:%M:%SZ");
-#else
-	struct tm time = { 0 };
-	strptime(isotime.c_str(), "%Y-%m-%dT%H:%M:%SZ", &time);
-#endif
+    double ret_val = defaultValue;
 
-	time_t epoch_time = mktime(&time);
-#ifdef WIN32
-	return ((double)epoch_time);
-#else
-	return ((double)epoch_time - timezone);
-#endif
+    if (!isotime.empty())
+    {
+        ret_val = ISO8601DateTimeToUTCSeconds(isotime.c_str());
+    }
+    return ret_val;
 }
 
 /**
