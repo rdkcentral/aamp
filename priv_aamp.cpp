@@ -5341,18 +5341,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	//temporary hack for peacock
 	if (STARTS_WITH_IGNORE_CASE(mAppName.c_str(), "peacock"))
 	{
-		if(NULL == mAampCacheHandler)
-		{
-			mAampCacheHandler = new AampCacheHandler(mConfig->GetLoggerInstance());
-		}
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
-		// read the configured max drm session
-		int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
-		if(NULL == mDRMSessionManager)
-		{
-			mDRMSessionManager = new AampDRMSessionManager(mLogObj, maxDrmSession, this);
-		}
-#endif
         // Enable PTS Restamping only for Peacock App on BCOM
 #if defined(BRCM)
         SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, true);
@@ -7105,17 +7093,8 @@ void PrivateInstanceAAMP::Stop()
 		pipeline_paused = false;
 	}
 
-	//temporary hack for peacock
-	if (STARTS_WITH_IGNORE_CASE(mAppName.c_str(), "peacock"))
-	{
-		SAFE_DELETE(mAampCacheHandler);
-
 #if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
-		SAFE_DELETE(mDRMSessionManager);
-#endif
-	}
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
-	else if (mDRMSessionManager)
+	if (mDRMSessionManager)
 	{
 		/** Reset the license fetcher only DRM handle is deleting **/
 		mDRMSessionManager->Stop();
