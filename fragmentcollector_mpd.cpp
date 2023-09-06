@@ -5014,19 +5014,24 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 	// Need to check if same last Manifest is given or new refresh happened
 	if(tmpManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK)
 	{
-		uint64_t manifestDuration = 0;
 		mNetworkDownDetected = false;
 		ProcessMetadataFromManifest(tmpManifestDnldRespPtr , false);
-		if(mIsLiveManifest)
+		AampMPDParseHelper	*mMPDParser = tmpManifestDnldRespPtr->GetMPDParseHelper();
+
+		if(mMPDParser != NULL)
 		{
-			manifestDuration = mMPDParseHelper->GetTSBDepth();
+			uint64_t manifestDuration = 0;
+			if(mIsLiveManifest)
+			{
+				manifestDuration = mMPDParser->GetTSBDepth();
+			}
+			else
+			{
+				manifestDuration = mMPDParser->GetMediaPresentationDuration();
+			}
+			AAMPLOG_INFO( "Send RefreshNotify Dur[%" PRIu64 "] NoOfPeriods[%d] PubTime[%u]", manifestDuration,mMPDParser->GetNumberOfPeriods(),tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime());
+			aamp->SendEvent((std::make_shared<ManifestRefreshEvent>(manifestDuration,mMPDParser->GetNumberOfPeriods(),tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime())),AAMP_EVENT_ASYNC_MODE);
 		}
-		else
-		{
-			manifestDuration = mMPDParseHelper->GetMediaPresentationDuration();
-		}
-		AAMPLOG_INFO( "Send RefreshNotify Dur[%" PRIu64 "] NoOfPeriods[%d] PubTime[%u]", manifestDuration,mMPDParseHelper->GetNumberOfPeriods(),tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime());
-		aamp->SendEvent((std::make_shared<ManifestRefreshEvent>(manifestDuration,mMPDParseHelper->GetNumberOfPeriods(),tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime())),AAMP_EVENT_ASYNC_MODE);
 	}
 	else
 	{
