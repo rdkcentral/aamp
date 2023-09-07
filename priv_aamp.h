@@ -1598,6 +1598,10 @@ public:
 	 */
 	void UnlockGetPositionMilliseconds();
 
+	long long GetPositionRelativeToSeekMilliseconds(long long rate, long long trickStartUTCMS);
+	long long GetPositionRelativeToSeekMilliseconds(void){return GetPositionRelativeToSeekMilliseconds(rate, trickStartUTCMS);;}
+	double GetPositionRelativeToSeekSeconds(void){return static_cast<double>(GetPositionRelativeToSeekMilliseconds())/1000.0;;}
+
 	/**
 	 *   @fn GetPositionMilliseconds
 	 *

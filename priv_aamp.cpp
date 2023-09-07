@@ -6767,6 +6767,46 @@ void PrivateInstanceAAMP::UnlockGetPositionMilliseconds()
 	mGetPositionMillisecondsMutexSoft.unlock();
 }
 
+long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long rate, long long trickStartUTCMS)
+{
+	long long position = -1;
+	//DELIA-39530 - Audio only playback is un-tested. Hence disabled for now
+	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableGstPositionQuery) && !ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback) && !mAudioOnlyPb)
+	{
+		if (mStreamSink)
+		{
+			auto gstPosition = mStreamSink->GetPositionMilliseconds();
+
+			/* LLAMA-7124 - Prevent spurious values being returned by this function during seek.
+			* This fix is similar to LLAMA-8369 but applied at this lower level because
+			* PrivateInstanceAAMP::GetPositionMilliseconds() is called elsewhere e.g. setting seek_pos_seconds
+			* note for this to work correctly mState and seek_pos_seconds must updated atomically othewise
+			* spuriously low (mState = eSTATE_SEEKING before seek_pos_seconds updated) or
+			* spuriously high (seek_pos_seconds updated before mState = eSTATE_SEEKING) values could result.
+			*/
+			if(mState == eSTATE_SEEKING)
+			{
+				if(gstPosition!=0)
+				{
+					AAMPLOG_WARN("Ignoring gst position of %ldms and using seek_pos_seconds only until seek completes.", gstPosition);
+				}
+				position = 0;
+			}
+			else
+			{
+				position = gstPosition;
+			}
+		}
+	}
+	else
+	{
+		long long elapsedTime = aamp_GetCurrentTimeMS() - trickStartUTCMS;
+		position = (((elapsedTime > 1000) ? elapsedTime : 0) * rate);
+	}
+
+	return position;
+}
+
 /**
  * @brief Get current stream playback position in milliseconds
  */
@@ -6799,35 +6839,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		auto rate_copy = rate;
 		AAMPLOG_TRACE("rate=%f", rate_copy);
 
-		//DELIA-39530 - Audio only playback is un-tested. Hence disabled for now
-		if (ISCONFIGSET_PRIV(eAAMPConfig_EnableGstPositionQuery) && !ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback) && !mAudioOnlyPb)
-		{
-			auto gstPosition = mStreamSink->GetPositionMilliseconds();
-
-			/* LLAMA-7124 - Prevent spurious values being returned by this function during seek.
-			 * This fix is similar to LLAMA-8369 but applied at this lower level because
-			 * PrivateInstanceAAMP::GetPositionMilliseconds() is called elsewhere e.g. setting seek_pos_seconds
-			 * note for this to work correctly mState and seek_pos_seconds must updated atomically othewise
-			 * spuriously low (mState = eSTATE_SEEKING before seek_pos_seconds updated) or
-	 		 * spuriously high (seek_pos_seconds updated before mState = eSTATE_SEEKING) values could result.
-			 */
-			if(mState == eSTATE_SEEKING)
-			{
-				if(gstPosition!=0)
-				{
-					AAMPLOG_WARN("Ignoring gst position of %ldms and using seek_pos_seconds only until seek completes.", gstPosition);
-				}
-			}
-			else
-			{
-				positionMiliseconds += gstPosition;
-			}
-		}
-		else
-		{
-			long long elapsedTime = aamp_GetCurrentTimeMS() - trickStartUTCMS_copy;
-			positionMiliseconds += (((elapsedTime > 1000) ? elapsedTime : 0) * rate_copy);
-		}
+		positionMiliseconds+=GetPositionRelativeToSeekMilliseconds(rate_copy, trickStartUTCMS_copy);
 		if(AAMP_NORMAL_PLAY_RATE == rate_copy)
 		{
 			/*LLAMA-7124 - Standardised & tightened validity checking of previous position to

@@ -43,6 +43,7 @@
 
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
+#include "AampBufferControl.h"
 
 #ifdef __APPLE__
 	#include "gst/video/videooverlay.h"
@@ -138,11 +139,14 @@ struct media_stream
 	bool resendQtDemuxOverride;					/**< Indicates if the qtdemux override event should be resend or not */
 	bool firstBufferProcessed;					/**< Indicates if the first buffer is processed in this stream */
 
+	AampBufferControl::BufferControlMaster mBufferControl;
+
 	media_stream() : sinkbin(NULL), source(NULL), format(FORMAT_INVALID),
 			 using_playersinkbin(FALSE), flush(false), resetPosition(false),
 			 bufferUnderrun(false), eosReached(false), sourceConfigured(false), sourceLock(PTHREAD_MUTEX_INITIALIZER)
 			, timeScale(1), trackId(-1), resendQtDemuxOverride(false)
 			, firstBufferProcessed(false)
+			,mBufferControl()
 	{
 
 	}
@@ -543,29 +547,51 @@ static void analyze_streams(AAMPGstPlayer *_this)
 #endif
 }
 
+static MediaType GetMediaTypeForSource(const GstElement *source,const AAMPGstPlayer * _this )
+{
+	if(source && _this && _this->privateContext && _this->privateContext->stream)
+	{
+		for( int i=0; (i<AampBufferControl::BufferControlMaster::BUFFER_TRACK_COUNT); i++ )
+		{
+			/* eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_SUBTITLE, eMEDIATYPE_AUX_AUDIO */
+			MediaType mediaType = (MediaType)i;
+			if (source == _this->privateContext->stream[mediaType].source)
+			{
+				return mediaType;
+			}
+		}
+
+		AAMPLOG_WARN( "unmapped source!" );
+
+	}
+	else
+	{
+		AAMPLOG_WARN( "Null check failed." );
+	}
+
+	return eMEDIATYPE_DEFAULT;
+}
+
 /**
  * @brief Callback for appsrc "need-data" signal
  * @param[in] source pointer to appsrc instance triggering "need-data" signal
  * @param[in] size size of data required
  * @param[in] _this pointer to AAMPGstPlayer instance associated with the playback
  */
-static void need_data(GstElement *source, guint size, AAMPGstPlayer * _this)
+static void need_data(GstElement *source, guint size, AAMPGstPlayer *_this)
 {
- 	if (source == _this->privateContext->stream[eMEDIATYPE_SUBTITLE].source)
+	MediaType mediaType = GetMediaTypeForSource(source, _this);
+	if (mediaType != eMEDIATYPE_DEFAULT)
 	{
-		_this->aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE); // signal fragment downloader thread
-	}
-	else if (source == _this->privateContext->stream[eMEDIATYPE_AUDIO].source)
-	{
-		_this->aamp->ResumeTrackDownloads(eMEDIATYPE_AUDIO); // signal fragment downloader thread
-	}
-	else if (source == _this->privateContext->stream[eMEDIATYPE_AUX_AUDIO].source)
-	{
-		_this->aamp->ResumeTrackDownloads(eMEDIATYPE_AUX_AUDIO); // signal fragment downloader thread
-	}
-        else
-	{
-		_this->aamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO); // signal fragment downloader thread
+		struct media_stream *stream = &_this->privateContext->stream[mediaType];
+		if(stream)
+		{
+			stream->mBufferControl.needData(_this, mediaType);
+		}
+		else
+		{
+			AAMPLOG_WARN( "Null check failed." );
+		}
 	}
 }
 
@@ -575,26 +601,30 @@ static void need_data(GstElement *source, guint size, AAMPGstPlayer * _this)
  * @param[in] source pointer to appsrc instance triggering "enough-data" signal
  * @param[in] _this pointer to AAMPGstPlayer instance associated with the playback
  */
-static void enough_data(GstElement *source, AAMPGstPlayer * _this)
+static void enough_data(GstElement *source, AAMPGstPlayer *_this)
 {
-	if (_this->aamp->DownloadsAreEnabled()) // avoid processing enough data if the downloads are already disabled.
+	if(_this && _this->aamp)
 	{
-		if (source == _this->privateContext->stream[eMEDIATYPE_SUBTITLE].source)
+		if (_this->aamp->DownloadsAreEnabled()) // avoid processing enough data if the downloads are already disabled.
 		{
-			_this->aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE); // signal fragment downloader thread
+			MediaType mediaType = GetMediaTypeForSource(source, _this);
+			if (mediaType != eMEDIATYPE_DEFAULT)
+			{
+				struct media_stream *stream = &_this->privateContext->stream[mediaType];
+				if(stream)
+				{
+					stream->mBufferControl.enoughData(_this, mediaType);
+				}
+				else
+				{
+					AAMPLOG_WARN( "%s Null check failed.", getMediaTypeName(mediaType));
+				}
+			}
 		}
-		else if (source == _this->privateContext->stream[eMEDIATYPE_AUDIO].source)
-		{
-			_this->aamp->StopTrackDownloads(eMEDIATYPE_AUDIO); // signal fragment downloader thread
-		}
-		else if (source == _this->privateContext->stream[eMEDIATYPE_AUX_AUDIO].source)
-		{
-			_this->aamp->StopTrackDownloads(eMEDIATYPE_AUX_AUDIO); // signal fragment downloader thread
-		}
-		else
-		{
-			_this->aamp->StopTrackDownloads(eMEDIATYPE_VIDEO); // signal fragment downloader thread
-		}
+	}
+	else
+	{
+		AAMPLOG_WARN( "Null check failed." );
 	}
 }
 
@@ -841,6 +871,7 @@ static gboolean ProgressCallbackOnTimeout(gpointer user_data)
 	AAMPGstPlayer *_this = (AAMPGstPlayer *)user_data;
 	if (_this)
 	{
+		AampBufferControl::BufferControlMaster::UpdateAll(_this);
 		_this->aamp->ReportProgress();
 		AAMPLOG_TRACE("current %d, stored %d ", g_source_get_id(g_main_current_source()), _this->privateContext->periodicProgressCallbackIdleTaskId);
 	}
@@ -1232,7 +1263,7 @@ static void AAMPGstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0,
 		}
 
 		AAMPLOG_WARN("## Got Underflow message from %s type %d ##", GST_ELEMENT_NAME(object), type);
-
+		_this->privateContext->stream[type].mBufferControl.underflow(_this, type);
 		_this->privateContext->stream[type].bufferUnderrun = true;
 
 		if ((_this->privateContext->stream[type].eosReached) && (_this->privateContext->rate > 0))
@@ -2187,6 +2218,7 @@ void AAMPGstPlayer::TearDownStream(MediaType mediaType)
 {
 	FN_TRACE( __FUNCTION__ );
 	media_stream* stream = &privateContext->stream[mediaType];
+	stream->mBufferControl.teardownStart();
 	stream->bufferUnderrun = false;
 	stream->eosReached = false;
 	stream->flush = false;
@@ -2250,6 +2282,9 @@ void AAMPGstPlayer::TearDownStream(MediaType mediaType)
 	{
 		privateContext->subtitle_sink = NULL;
 	}
+
+	stream->mBufferControl.teardownEnd();
+
 	AAMPLOG_WARN("AAMPGstPlayer::TearDownStream: exit mediaType = %d", mediaType);
 }
 
@@ -2746,10 +2781,11 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 		stream->resendQtDemuxOverride = ((eMEDIAFORMAT_DASH == aamp->mMediaFormat) && (initFragment) && (0 == aamp->GetFirstPTS()));
 	}
 
-	if( aamp->DownloadsAreEnabled())
+	bool bPushBuffer = aamp->DownloadsAreEnabled();
+
+	if(bPushBuffer)
 	{
 		GstBuffer *buffer;
-		bool bPushBuffer = true;
 
 		if(copy)
 		{
@@ -2820,6 +2856,11 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 	}
 
 	pthread_mutex_unlock(&stream->sourceLock);
+
+	if(bPushBuffer)
+	{
+		stream->mBufferControl.notifyFragmentInject(this, mediaType, fpts, fdts, fDuration, (isFirstBuffer||discontinuity));
+	}
 
 	if (eMEDIATYPE_VIDEO == mediaType)
 	{	
@@ -3469,6 +3510,10 @@ void AAMPGstPlayer::Flush(void)
 void AAMPGstPlayer::PauseAndFlush(bool playAfterFlush)
 {
 	FN_TRACE( __FUNCTION__ );
+
+	//call prior to gstreamer flush
+	AampBufferControl::BufferControlMaster::ResetAll(privateContext);
+
 	aamp->SyncBegin();
 	AAMPLOG_WARN("Entering AAMPGstPlayer::PauseAndFlush() pipeline state %s",
 			gst_element_state_get_name(GST_STATE(privateContext->pipeline)));
@@ -4037,6 +4082,9 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 		{
 			playRate = rate;
 		}
+
+		//reset buffer control states prior to gstreamer flush so that the first needs_data event is caught
+		AampBufferControl::BufferControlMaster::ResetAll(privateContext);
 
 		if (!gst_element_seek(privateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 			position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
@@ -4906,4 +4954,108 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, const void
 	gst_object_unref(sourceEleSrcPad);
 	stream->resendQtDemuxOverride = false;
 	return enableOverride;
+}
+
+
+AampBufferControl::BufferControlExternalData::BufferControlExternalData(const AAMPGstPlayer* player, const MediaType mediaType):
+mRate(0),
+mTimeBasedBufferSeconds(0),
+mPipelineShouldBePlaying(false)
+{
+	if(player && player->aamp && player->aamp->mConfig && player->privateContext)
+	{
+		float x1_bufferSize = player->aamp->mConfig->GetConfigValue(eAAMPConfig_TimeBasedBufferSeconds);
+		mRate = player->aamp->rate;
+		float absRate = std::abs(mRate);
+		if(absRate>1)
+		{
+			//Increase buffer size during faster playback
+			mTimeBasedBufferSeconds= x1_bufferSize * absRate;
+		}
+		else
+		{
+			mTimeBasedBufferSeconds=x1_bufferSize;
+		}
+
+
+		mPipelineShouldBePlaying=!player->privateContext->paused;
+	}
+}
+
+void AampBufferControl::BufferControlExternalData::cacheExtraData(const AAMPGstPlayer* player, MediaType mediaType)
+{
+	mExtraDataCache.valid=true;
+	media_stream* stream=nullptr;
+	if(player && player->privateContext && player->privateContext->stream)
+	{
+		stream = &player->privateContext->stream[mediaType];
+	}
+
+	mExtraDataCache.StreamReady = stream && stream->sinkbin && stream->source && stream->sourceConfigured;
+
+
+	if(mExtraDataCache.StreamReady && player->aamp)
+	{
+		mExtraDataCache.ElapsedSeconds = std::abs(player->aamp->GetPositionRelativeToSeekSeconds());
+
+		GstState current;
+		GstState pending;
+		gst_element_get_state(stream->sinkbin, &current, &pending, 0);
+
+		/* Transitions to Paused can block due to lack of data
+		** state should match aamp target play/pause state*/
+		mExtraDataCache.GstWaitingForData =((pending==GST_STATE_PAUSED)||(mPipelineShouldBePlaying && (current!=GST_STATE_PLAYING)));
+		if(mExtraDataCache.GstWaitingForData)
+		{
+			AAMPLOG_WARN("BufferControlExternalData %s GStreamer (current %s, %s, should be %s))",
+			getMediaTypeName(mediaType),
+			gst_element_state_get_name(current),
+			gst_element_state_get_name(pending),
+			mPipelineShouldBePlaying?"GST_STATE_PLAYING":"GST_STATE_PAUSED");
+		}
+	}
+	else
+	{
+		mExtraDataCache.ElapsedSeconds =0;
+		mExtraDataCache.GstWaitingForData=false;
+	}
+}
+
+void AampBufferControl::BufferControlMaster::UpdateAll(const AAMPGstPlayer *player)
+{
+	if(player && player->privateContext && player->privateContext->stream)
+	{
+		for( int i=0; i<BUFFER_TRACK_COUNT; i++ )
+		{
+			MediaType mediaType = (MediaType)i;
+			struct media_stream *stream = &player->privateContext->stream[mediaType];
+			if(stream)
+			{
+				stream->mBufferControl.update(player, mediaType);
+			}
+			else
+			{
+				AAMPLOG_WARN( "%s Null check failed.", getMediaTypeName(mediaType));
+			}
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN( "Null check failed." );
+	}
+}
+
+void AampBufferControl::BufferControlMaster::ResetAll(AAMPGstPlayerPriv* player)
+{
+	if(player)
+	{
+		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
+		{
+			player->stream[i].mBufferControl.flush();
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN( "Null check failed." );
+	}
 }

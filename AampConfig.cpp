@@ -460,6 +460,8 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_DRM_NETWORK_TIMEOUT,"drmNetworkTimeout",eAAMPConfig_DrmNetworkTimeout,true,eCONFIG_RANGE_TIMEOUT},
 	{0,"drmStallTimeout",eAAMPConfig_DrmStallTimeout,true,eCONFIG_RANGE_TIMEOUT},
 	{0,"drmStartTimeout",eAAMPConfig_DrmStartTimeout,true,eCONFIG_RANGE_TIMEOUT},
+	{0,"timeBasedBufferSeconds",eAAMPConfig_TimeBasedBufferSeconds,true,eCONFIG_RANGE_PLAYBACK_OFFSET},
+
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },

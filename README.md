@@ -167,6 +167,7 @@ progressReportingInterval	Interval of progress reporting(in seconds.default is 1
 licenseRetryWaitTime		License retry wait interval(in msecs.default is 500msec)
 licenseKeyAcquireWaitTime	License key acquire wait time(in msecs.default is 5000msec)
 liveOffset    			live offset time in seconds, aamp starts live playback this much time before the live point.Default 15sec
+timeBasedBufferSeconds  time in seconds to buffer ahead of the current gst play position.  setting this value to <=0 disables time based buffering and byte based buffering is used instead.
 cdvrLiveOffset    		live offset time in seconds for cdvr, aamp starts live playback this much time before the live point for inprogress cdvr.Default 30 sec
 tuneEventConfig 		Send streamplaying for live/VOD when 
 					0 - playlist acquired 

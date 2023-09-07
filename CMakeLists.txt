@@ -185,6 +185,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					ThunderAccess.h
 					_base64.h
 					aampgstplayer.h
+                    AampBufferControl.h
 					admanager_mpd.h
 					base16.h
 					cocoa_window.h
@@ -251,6 +252,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					priv_aamp.cpp
 					main_aamp.cpp
 					aampgstplayer.cpp
+                    AampBufferControl.cpp
 					tsprocessor.cpp
 					drm/aes/aamp_aes.cpp
 					aamplogging.cpp
