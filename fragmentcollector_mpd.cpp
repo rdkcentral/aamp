@@ -1004,7 +1004,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 			if(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && AAMP_IS_LOG_WORTHY_ERROR(pMediaStreamContext->httpErrorCode) && (isInitializationSegment || pMediaStreamContext->segDLFailCount >= MAX_AD_SEG_DOWNLOAD_FAIL_COUNT))
 			{
 				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: [CDAI] Ad fragment not available. Playback failed.");
-				mCdaiObject->mAdFailed = true;
+				mCdaiObject->mAdBreaks[mBasePeriodId].mAdFailed = true;
 			}
 		}
 		retval = false;
@@ -9087,11 +9087,14 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					}
 					ReleasePlaylistLock();
 					FetchAndInjectInitFragments(discontinuity);
-					if(mCdaiObject->mAdFailed)
+					if(mCdaiObject->HasDaiAd(mBasePeriodId))
 					{
-						adStateChanged = onAdEvent(AdEvent::AD_FAILED);
-						mCdaiObject->mAdFailed = false;
-						continue;
+						if(mCdaiObject->mAdBreaks[mBasePeriodId].mAdFailed)
+						{
+							adStateChanged = onAdEvent(AdEvent::AD_FAILED);
+							mCdaiObject->mAdBreaks[mBasePeriodId].mAdFailed = false;
+							continue;
+						}
 					}
 					if(rate < 0 && periodChanged)
 					{
@@ -10709,6 +10712,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				else if(brkId.empty())
 				{
 					AAMPLOG_WARN("[CDAI]: ADBREAK[%s] ENDED. Playing the basePeriod[%s].", mCdaiObject->mCurPlayingBreakId.c_str(), mBasePeriodId.c_str());
+					mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdFailed = false;
 					mCdaiObject->mCurPlayingBreakId = "";
 					mCdaiObject->mCurAds = nullptr;
 					mCdaiObject->mCurAdIdx = -1;
@@ -10762,6 +10766,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			if(-1 == mCdaiObject->mCurAdIdx)
 			{
 				AAMPLOG_WARN("[CDAI]: BUG! BUG!! BUG!!! We should not come here.AdIdx[-1].");
+				mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdFailed = false;
 				mCdaiObject->mCurPlayingBreakId = "";
 				mCdaiObject->mCurAds = nullptr;
 				mCdaiObject->mCurAdIdx = -1;
@@ -10835,6 +10840,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 						mCdaiObject->mContentSeekOffset = 0; //Should continue tricking from the end of the previous period.
 					}
 					AAMPLOG_WARN("[CDAI]: All Ads in the ADBREAK[%s] FINISHED. Playing the basePeriod[%s] at Offset[%lf].", mCdaiObject->mCurPlayingBreakId.c_str(), mBasePeriodId.c_str(), mCdaiObject->mContentSeekOffset);
+					mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdFailed = false;
 					reservationEvt2Send = AAMP_EVENT_AD_RESERVATION_END;
 					adbreakId2Send = mCdaiObject->mCurPlayingBreakId;
 					sendImmediate = curAdFailed;	//Current Ad failed. Hence may not get discontinuity from gstreamer.

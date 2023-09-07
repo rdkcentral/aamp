@@ -178,11 +178,12 @@ struct AdBreakObject{
 	uint32_t                             adsDuration;     /**< Ads' duration in the Adbreak */
 	bool                        	     adjustEndPeriodOffset;     /**< endPeriodOffset needs be re-adjusted or not */
 	bool                                 mWaitForManifestUpdateFlag; /** upperboundary period matches the current playing period wait for the manifest update to continue playback */
-
+	bool                                 mAdFailed; /** Current Ad playback failed flag */
+	
 	/**
 	* @brief AdBreakObject default constructor
 	*/
-	AdBreakObject() : brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false), mWaitForManifestUpdateFlag(false)
+	AdBreakObject() : brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false), mWaitForManifestUpdateFlag(false), mAdFailed(false)
 	{
 	}
 
@@ -197,7 +198,7 @@ struct AdBreakObject{
 	*/
 	AdBreakObject(uint32_t _duration, std::shared_ptr<std::vector<AdNode>> _ads, std::string _endPeriodId,
 	uint64_t _endPeriodOffset, uint32_t _adsDuration)
-	: brkDuration(_duration), ads(_ads), endPeriodId(_endPeriodId), endPeriodOffset(_endPeriodOffset), adsDuration(_adsDuration), adjustEndPeriodOffset(false),mWaitForManifestUpdateFlag(false)
+	: brkDuration(_duration), ads(_ads), endPeriodId(_endPeriodId), endPeriodOffset(_endPeriodOffset), adsDuration(_adsDuration), adjustEndPeriodOffset(false),mWaitForManifestUpdateFlag(false), mAdFailed(false)
 	{
 	}
 };
@@ -289,7 +290,6 @@ public:
 	std::string                                    mCurPlayingBreakId;  /**< Currently playing Ad */
 	std::thread                                    mAdObjThreadID;      /**< ThreadId of Ad fulfillment */
 	bool                                           mAdObjThreadStarted; /**< Flag denotes if ad object thread is started */
-	bool                                           mAdFailed;           /**< Current Ad playback failed flag */
 	std::shared_ptr<std::vector<AdNode>>           mCurAds;             /**< Vector of ads from the current Adbreak */
 	int                                            mCurAdIdx;           /**< Currently playing Ad index */
 	AdFulfillObj                                   mAdFulfillObj;       /**< Temporary object for Ad fulfillment (to pass to the fulfillment thread) */
