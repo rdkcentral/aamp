@@ -68,7 +68,7 @@ endif()
 
 # Use the real cJSON library
 target_link_directories(${EXEC_NAME} PUBLIC ${LIBCJSON_LIBRARY_DIRS})
-target_link_libraries(${EXEC_NAME} cjson fakes ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lpthread)
+target_link_libraries(${EXEC_NAME} cjson fakes ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} -lgmock -lgtest -lpthread)
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 set_target_properties(${EXEC_NAME} PROPERTIES COMPILE_FLAGS "-Wno-multichar")

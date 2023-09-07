@@ -63,7 +63,7 @@ if (COVERAGE_ENABLED)
 endif()
 
 target_link_libraries(${EXEC_NAME} "cjson")
-target_link_libraries(${EXEC_NAME} ${GLIB_LDFLAGS} ${OS_LD_FLAGS} fakes -lgmock -lgtest -lpthread)
+target_link_libraries(${EXEC_NAME} ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} fakes -lgmock -lgtest -lpthread)
 
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
