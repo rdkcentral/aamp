@@ -2236,7 +2236,12 @@ Supported UVE version 0.8 and above
 
 | Name | Type | Description |
 | ---- | ---- | ------ |
-| reservationObject | Object | reservationObject provides context for alternate content to be played out at ad opportunities. |
+| reservationObject | Object | context for the alternate content to be played out for an advertisement opportunity. |
+| reservationObject.reservationId | String | ad break identifier |
+| reservationObject.reservationBehavior | Number | enum (unused)  |
+| reservationObject.placementRequest.id | String | advertisement identifier (used in callback) |
+| reservationObject.placementRequest.pts | Number | presentation time offset (unused) |
+| reservationObject.placementRequest.url | String | Ad manifest locator |
 | promiseCallback | Function | Signals success/failure while retrieving ad manifest and preparing for playback. |
 
 ---
