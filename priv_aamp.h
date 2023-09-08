@@ -256,9 +256,10 @@ struct PeriodInfo {
 	std::string periodId;
 	uint64_t startTime;
 	uint32_t timeScale;
+	double periodStartTime;
 	double duration;
 
-	PeriodInfo() : periodId(""), startTime(0), duration(0.0), timeScale(0)
+	PeriodInfo() : periodId(""), startTime(0), duration(0.0), timeScale(0), periodStartTime(0)
 	{
 	}
 };
