@@ -1926,10 +1926,13 @@ Example:
 ### ManifestRefresh
 
 **Event Payload:**
-- manifestRefreshNotify: number
+- manifestDuration: number (duration in seconds)
+- manifestPublishedTime: number (UTC seconds)
+- noOfPeriods: number (period count)
 
 **Description:**
-- DASH Manifest refresh notification ( with manifest file size)
+- sent when a live DASH manifest is refreshed
+
 
 ---
 
