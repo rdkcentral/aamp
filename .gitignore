@@ -8,3 +8,4 @@ test/VideoTestStream/dash/
 test/VideoTestStream/temp/
 test/VideoTestStream/text/
 *.mp4
+__pycache__
