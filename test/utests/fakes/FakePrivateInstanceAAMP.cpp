@@ -1060,7 +1060,9 @@ void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool stat
 void PrivateInstanceAAMP::ReportContentGap(long long timeMS, std::string id, double durationMS)
 {
 }
-
+void PrivateInstanceAAMP::SendMediaMetadataEvent()
+{
+}
 void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 {
 }
