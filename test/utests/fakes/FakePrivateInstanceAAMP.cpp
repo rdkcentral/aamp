@@ -1126,6 +1126,19 @@ void PrivateInstanceAAMP::NotifyVideoBasePTS(unsigned long long basepts, unsigne
 void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string& manifestBuffer)
 {
 }
-void PrivateInstanceAAMP::ResetDiscontinuityInTracks()
+
+void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, MediaType type, uint64_t timeStampOffset)
+{
+}
+
+void PrivateInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
+{
+}
+
+void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
+{
+}
+
+void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
 {
 }

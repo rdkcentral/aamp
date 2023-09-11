@@ -84,3 +84,8 @@ uint64_t IsoBmffBuffer::getSampleDurationInernal(const std::vector<Box*> *boxes)
 void IsoBmffBuffer::getSampleDuration(Box *box, uint64_t &fduration)
 {
 }
+
+bool IsoBmffBuffer::getTrack_id(uint32_t &track_id)
+{
+	return false;
+}

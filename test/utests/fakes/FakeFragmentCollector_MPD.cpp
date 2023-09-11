@@ -164,3 +164,23 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
 void StreamAbstractionAAMP_MPD::ProcessAllContenProtForMediaType(MediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs)
 {
 }
+
+const IAdaptationSet* StreamAbstractionAAMP_MPD::GetAdaptationSetAtIndex(int idx)
+{
+    return NULL;
+}
+
+dash::mpd::IMPD *StreamAbstractionAAMP_MPD::GetMPD( void )
+{
+	return mpd;
+}
+
+IPeriod *StreamAbstractionAAMP_MPD::GetPeriod( void )
+{
+	return NULL;
+}
+
+ProfileInfo StreamAbstractionAAMP_MPD::GetAdaptationSetAndRepresetationIndicesForProfile(int profileIndex)
+{
+    return mProfileMaps.at(0);
+}

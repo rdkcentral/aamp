@@ -281,3 +281,21 @@ bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
 {
     return false;
 }
+
+bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
+{
+    return false;
+}
+
+CachedFragmentChunk* MediaTrack::GetFetchChunkBuffer(bool initialize)
+{
+     return NULL;
+}
+
+void MediaTrack::UpdateTSAfterChunkFetch()
+{
+}
+
+void StreamAbstractionAAMP::UpdateRampdownProfileReason(void)
+{
+}
