@@ -1949,6 +1949,7 @@ void AAMPGstPlayer::DestroyPipeline()
 	}
 	if (privateContext->bus)
 	{
+		gst_bus_remove_watch(privateContext->bus);
 		gst_object_unref(privateContext->bus);		/* Decreases the reference count on privateContext->bus, in this case it will become zero,
 															the reference to privateContext->bus will be freed in gstreamer */
 		privateContext->bus = NULL;
@@ -3069,8 +3070,10 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 	AAMPLOG_WARN("entering AAMPGstPlayer_Stop keepLastFrame %d", keepLastFrame);
 
 	//XIONE-8595 - make the execution of this function more deterministic and reduce scope for potential pipeline lockups
-	gst_bus_remove_watch(privateContext->bus);		/* Remove the watch from bus so that gstreamer no longer sends messages to it */
-
+	if(privateContext->bus)
+	{
+		gst_bus_remove_watch(privateContext->bus);		/* Remove the watch from bus so that gstreamer no longer sends messages to it */
+	}
 	if(!keepLastFrame)
 	{
 		privateContext->firstFrameReceived = false;
