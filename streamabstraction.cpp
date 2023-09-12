@@ -23,6 +23,7 @@
  * @brief Definition of common class functions used by fragment collectors.
  */
 
+#include "AampStreamSinkManager.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampUtils.h"
 #include "isobmffprocessor.h"
@@ -423,7 +424,7 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 
 		if (ETIMEDOUT == pthreadReturnValue)
 		{
-			AAMPLOG_DEBUG("Timed out waiting for waitforplaystart");
+			AAMPLOG_TRACE("Timed out waiting for waitforplaystart");
 			ret = false;
 		}
 		else if (0 != pthreadReturnValue)
@@ -446,7 +447,7 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 
 			if (ETIMEDOUT == pthreadReturnValue)
 			{
-				AAMPLOG_DEBUG("Timed out waiting for fragmentInjected");
+				AAMPLOG_TRACE("Timed out waiting for fragmentInjected");
 				ret = false;
 			}
 			else if (0 != pthreadReturnValue)

@@ -36,6 +36,10 @@ public:
     MOCK_METHOD(bool, Pause, (bool pause, bool forceStopGstreamerPreBuffering), (override));
 
     MOCK_METHOD(bool , SetTextStyle, (const std::string &options), (override));
+
+    MOCK_METHOD(void, ChangeAamp, (PrivateInstanceAAMP *, AampLogManager *, id3_callback_t ));
+
+    MOCK_METHOD(void, SetEncryptedAamp, (PrivateInstanceAAMP *));
 };
 
 extern MockAAMPGstPlayer *g_mockAampGstPlayer;

@@ -209,6 +209,7 @@ typedef enum
 	eAAMPConfig_SendUserAgent,						/**< To enable/disable sending user agent in the DRM license request header. Default enabled */
 	eAAMPConfig_EnablePTSReStamp,					/** <Config to enable PTS restamping */
 	eAAMPConfig_TrackMemory,					/**< To enable/disable AampGrowableBuffer track memory */
+	eAAMPConfig_UseSinglePipeline,					/**< To enable/disable using a single gstreamer pipeline */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 } AAMPConfigSettingBool;
 #define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)

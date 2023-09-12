@@ -45,6 +45,7 @@
 #include "_base64.h"
 #include "base16.h"
 #include "aampgstplayer.h"
+#include "AampStreamSinkManager.h"
 #include "AampDRMSessionManager.h"
 #include "SubtecFactory.hpp"
 #include "AampGrowableBuffer.h"
@@ -297,7 +298,11 @@ static gboolean PrivateInstanceAAMP_Resume(gpointer ptr)
 
 	if (!aamp->mSeekFromPausedState && (aamp->rate == AAMP_NORMAL_PLAY_RATE))
 	{
-		retValue = aamp->mStreamSink->Pause(false, false);
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+		if(sink)
+		{
+			retValue = sink->Pause(false, false);
+		}
 		aamp->pipeline_paused = false;
 	}
 	else
@@ -1101,7 +1106,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
  */
 PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mLastTelemetryTimeMS(0), mDiscontinuityFound(false), mTelemetryInterval(0), mAbrBitrateData(), mLock(), mMutexAttr(),
 	mpStreamAbstractionAAMP(NULL), mInitSuccess(false), mVideoFormat(FORMAT_INVALID), mAudioFormat(FORMAT_INVALID), mDownloadsDisabled(),
-	mDownloadsEnabled(true), mStreamSink(NULL), profiler(), licenceFromManifest(false), previousAudioType(eAUDIO_UNKNOWN),isPreferredDRMConfigured(false),
+	mDownloadsEnabled(true), profiler(), licenceFromManifest(false), previousAudioType(eAUDIO_UNKNOWN),isPreferredDRMConfigured(false),
 	mbDownloadsBlocked(false), streamerIsActive(false), mTSBEnabled(false), mIscDVR(false), mLiveOffset(AAMP_LIVE_OFFSET),
 	seek_pos_seconds(-1), rate(0), pipeline_paused(false), mMaxLanguageCount(0), zoom_mode(VIDEO_ZOOM_FULL),
 	video_muted(false), subtitles_muted(true), audio_volume(100), subscribedTags(), manifestHeadersNeeded(), httpHeaderResponses(), timedMetadata(), timedMetadataNew(), IsTuneTypeNew(false), trickStartUTCMS(-1), durationSeconds(0.0), culledSeconds(0.0), culledOffset(0.0), maxRefreshPlaylistIntervalSecs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS/1000),
@@ -1368,8 +1373,10 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
 
-	mTrackGrowableBufMem = ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory);
+ 	mTrackGrowableBufMem = ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory);
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
+
+ 	UpdateUseSinglePipeline();
 }
 
 /**
@@ -1446,6 +1453,8 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 	SAFE_DELETE(mEventManager);
 	SAFE_DELETE(mCMCDCollector);
 
+	AampStreamSinkManager::GetInstance().DeleteStreamSink(this);
+
 	if (HasSidecarData())
 	{ // has sidecar data
 		if (mpStreamAbstractionAAMP)
@@ -1464,10 +1473,15 @@ static gboolean PrivateInstanceAAMP_PausePosition(gpointer ptr)
 
 	if  (pausePositionMilliseconds != AAMP_PAUSE_POSITION_INVALID_POSITION)
 	{
-		if (!aamp->mStreamSink->Pause(true, false))
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+		if (sink)
 		{
-			AAMPLOG_ERR("Pause failed");
+			if (!sink->Pause(true, false))
+			{
+				AAMPLOG_ERR("Pause failed");
+			}
 		}
+
 		aamp->pipeline_paused = true;
 
 		aamp->StopDownloads();
@@ -1774,7 +1788,11 @@ long long PrivateInstanceAAMP::GetVideoPTS(bool bAddVideoBasePTS)
 	 */
 	/*For DASH,mVideoBasePTS value will be zero */
 	long long videoPTS = -1;
-	videoPTS = mStreamSink->GetVideoPTS();
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		videoPTS = sink->GetVideoPTS();
+	}
 	if(bAddVideoBasePTS)
 		videoPTS += mVideoBasePTS;
 	AAMPLOG_WARN("Video-PTS=%lld, mVideoBasePTS=%lld Add VideoBase PTS[%d]",videoPTS,mVideoBasePTS,bAddVideoBasePTS);
@@ -1922,7 +1940,7 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 							((mCorrectionRate ==  maxPlaybackRate) && !isEnoughBuffer)) 
 					{
 						rateRequired = normalPlaybackRate;
-					}
+					}					
 
 					if (disableRateCorrectionTimeInSeconds > 0 && mDiscStartTime > 0 && true == mRateCorrectionDelay)
 					{
@@ -1940,18 +1958,22 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 						{
 							AAMPLOG_INFO("Rate correction is still disabled because still in discontinuity processing %ld", mDiscStartTime);
 						}
-					}
+					} 					
 
-					if( !mRateCorrectionDelay && (mCorrectionRate != rateRequired) && !mDiscontinuityTuneOperationInProgress)
-					{
-						if (mStreamSink->SetPlayBackRate(rateRequired))
+					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+					if (sink)
+ 					{
+ 						if( !mRateCorrectionDelay && (mCorrectionRate != rateRequired) && !mDiscontinuityTuneOperationInProgress)
 						{
-							mCorrectionRate = rateRequired;
-							UpdateVideoEndMetrics(rateRequired);
-							SendAnomalyEvent(ANOMALY_WARNING, "Rate changed to:%f", rateRequired);
-							AAMPLOG_WARN("Rate Changed to : %f Live latency : %lf", rateRequired, latency);
-							profiler.IncrementChangeCount(Count_RateCorrection);
-						}
+ 							if (sink->SetPlayBackRate(rateRequired))
+							{
+								mCorrectionRate = rateRequired;
+								UpdateVideoEndMetrics(rateRequired);
+								SendAnomalyEvent(ANOMALY_WARNING, "Rate changed to:%f", rateRequired);
+								AAMPLOG_WARN("Rate Changed to : %f Live latency : %lf", rateRequired, latency);
+								profiler.IncrementChangeCount(Count_RateCorrection);
+							}
+ 						}
 					}
 				}
 				else
@@ -1959,18 +1981,21 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 					if (mDisableRateCorrection && DownloadsAreEnabled() && (rate == AAMP_NORMAL_PLAY_RATE && mCorrectionRate != normalPlaybackRate))
 					{
 						//Rate correction stopping from correction rate so reset to normal
-						if (mStreamSink->SetPlayBackRate(normalPlaybackRate))
+ 						StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+						if (sink)
 						{
-							mCorrectionRate = normalPlaybackRate;
-							AAMPLOG_WARN("Rate Changed to : %f", mCorrectionRate);
-						}
-						else
-						{
-							AAMPLOG_ERR("Failed to reset the playback rate!!");	
-						}
-
+							if (sink->SetPlayBackRate(normalPlaybackRate))
+							{
+								mCorrectionRate = normalPlaybackRate;
+								AAMPLOG_WARN("Rate Changed to : %f", mCorrectionRate);
+							}
+							else
+							{
+								AAMPLOG_WARN("Failed to reset the playback rate!!");
+							}
+ 						}
 					}
-				}					
+				}
 			}
 		}
 	}
@@ -2040,7 +2065,11 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 				**to video PTS received from gstreamer
 				*/
 				/*For DASH,mVideoBasePTS value will be zero */
-				videoPTS = mStreamSink->GetVideoPTS() + mVideoBasePTS;
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					videoPTS = sink->GetVideoPTS() + mVideoBasePTS;
+				}
 		}
 
 		pthread_mutex_lock(&mStreamLock);
@@ -2566,12 +2595,20 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
  */
 bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
 {
-	if (true != mStreamSink->Pause(pause, forceStopGstreamerPreBuffering))
+	bool ret_val = true;
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
 	{
-		return false;
+		if (true != sink->Pause(pause, forceStopGstreamerPreBuffering))
+		{
+			ret_val = false;
+		}
+		else
+		{
+			pipeline_paused = pause;
+		}
 	}
-	pipeline_paused = pause;
-	return true;
+	return ret_val;
 }
 
 
@@ -2932,31 +2969,43 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 #ifndef AAMP_STOP_SINK_ON_SEEK
 			if (((mMediaFormat != eMEDIAFORMAT_HLS_MP4) && (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))) ||  mVideoFormat != FORMAT_ISO_BMFF )
 			{
-				if(mDiscontinuityFound)
+ 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
 				{
-					profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FLUSH);
-				}
-				if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))
-				{
-					mStreamSink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
-				}
-				if(mDiscontinuityFound)
-				{
-					profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
-				}
+					if(mDiscontinuityFound)
+					{
+						profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FLUSH);
+					}
+					if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))
+					{
+ 						sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+					}
+					if(mDiscontinuityFound)
+					{
+						profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
+					}
+ 				}
 			}
 #else
-			mStreamSink->Stop(true);
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
+				sink->Stop(true);
+			}
 #endif
 			mpStreamAbstractionAAMP->GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
-			mStreamSink->Configure(
-				mVideoFormat,
-				mAudioFormat,
-				mAuxFormat,
-				mSubtitleFormat,
-				mpStreamAbstractionAAMP->GetESChangeStatus(),
-				mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus(),
-				mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
+				sink->Configure(
+					mVideoFormat,
+					mAudioFormat,
+					mAuxFormat,
+					mSubtitleFormat,
+					mpStreamAbstractionAAMP->GetESChangeStatus(),
+					mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus(),
+					mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
+			}
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
 
 			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);
@@ -2978,7 +3027,10 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			}
 
 			mpStreamAbstractionAAMP->StartInjection();
-			mStreamSink->Stream();
+			if (sink)
+			{
+				sink->Stream();
+			}
 			mIsTrackIdMismatch = false;
 		}
 		else
@@ -3061,7 +3113,11 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS),AAMP_EVENT_ASYNC_MODE);
 			if (ContentType_EAS == mContentType) //Fix for DELIA-25590
 			{
-				mStreamSink->Stop(false);
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Stop(false);
+				}
 			}
 			SendAnomalyEvent(ANOMALY_TRACE, "Generating EOS event");
 			trickStartUTCMS = -1;
@@ -3334,7 +3390,10 @@ void PrivateInstanceAAMP::ResetProfileCache(void)
 	profiler.ProfileReset(PROFILE_BUCKET_FRAGMENT_SUBTITLE);
 	profiler.ProfileReset(PROFILE_BUCKET_FRAGMENT_AUXILIARY);
 }
-
+void PrivateInstanceAAMP::ActivatePlayer(void)
+{
+	AampStreamSinkManager::GetInstance().ActivatePlayer(this);
+}
 /**
  *  @brief Profile Player changed from background to foreground i.e prebuffred
  */
@@ -4587,7 +4646,11 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 			}
 			else
 			{
-				mStreamSink->Flush(0, rate);
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Flush(0, rate);
+				}
 			}
 		}
 		else
@@ -4606,7 +4669,11 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 #endif
 			if(!mbUsingExternalPlayer)
 			{
-				mStreamSink->Stop(!newTune);
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Stop(!newTune);
+				}
 			}
 		}
 	}
@@ -5228,7 +5295,11 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			//Live adjust or syncTrack occurred, sent an updated flush event
 			if ((!newTune) || ISCONFIGSET_PRIV(eAAMPConfig_PreservePipeline))
 			{
-				mStreamSink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				}
 			}
 		}
 		else if (mMediaFormat == eMEDIAFORMAT_DASH)
@@ -5240,21 +5311,34 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			   events to avoid the freeze
 			if (!(newTune || (eTUNETYPE_RETUNE == tuneType)) && !IsTSBSupported())
 			{
-				mStreamSink->Flush(updatedSeekPosition, rate);
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Flush(updatedSeekPosition, rate);
+				}
 			}
 			else
 			{
-				mStreamSink->Flush(0, rate);
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Flush(0, rate);
+				}
 			}
 				*/
-			if (mAampLLDashServiceData.lowLatencyMode || !ISCONFIGSET_PRIV(eAAMPConfig_EnableMediaProcessor))
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink && (mAampLLDashServiceData.lowLatencyMode || !ISCONFIGSET_PRIV(eAAMPConfig_EnableMediaProcessor)))
 			{
-				mStreamSink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
 			}
 		}
 		else if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 		{
-			mStreamSink->Flush(updatedSeekPosition, rate);
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
+				sink->Flush(updatedSeekPosition, rate);
+			}
 			// ff trick mode, mp4 content is single file and muted audio to avoid glitch
 			if (rate > AAMP_NORMAL_PLAY_RATE)
 			{
@@ -5266,12 +5350,16 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 #endif
 		if (!mbUsingExternalPlayer)
 		{
-			mStreamSink->SetVideoZoom(zoom_mode);
-			mStreamSink->SetVideoMute(video_muted);
-			mStreamSink->SetAudioVolume(volume);
-			if (mbPlayEnabled)
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
 			{
-				mStreamSink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus(), mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
+				sink->SetVideoZoom(zoom_mode);
+				sink->SetVideoMute(video_muted);
+				sink->SetAudioVolume(volume);
+				if (mbPlayEnabled)
+				{
+					sink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus(), mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
+				}
 			}
 		}
 		mpStreamAbstractionAAMP->ResetESChangeStatus();
@@ -5279,7 +5367,13 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		if (!mbUsingExternalPlayer)
 		{
 			if (mbPlayEnabled)
-				mStreamSink->Stream();
+			{	
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Stream();
+				}
+			}
 		}
 
 		if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
@@ -5304,9 +5398,13 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		// Pipeline is not configured if mbPlayEnabled is false, so not required
 		if (mbPlayEnabled && seekWhilePaused == false && pipeline_paused == true)
 		{
-			if(!mStreamSink->Pause(true, false))
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
 			{
-				AAMPLOG_INFO("mStreamSink Pause failed");
+				if(!sink->Pause(true, false))
+				{
+					AAMPLOG_INFO("GetStreamSink() Pause failed");
+				}
 			}
 		}
 	}
@@ -5555,13 +5653,19 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		AAMPLOG_WARN ("PTS Restamp and MediaProcessor enabled for DASH");
 	}
 
-	if (NULL == mStreamSink)
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink == nullptr)
 	{
-		mStreamSink = new AAMPGstPlayer(mLogObj, this, 
-			std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this, 
-				std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4)
-		);
+		AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj, this, 
+											   std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this, 
+											   		     std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
 	}
+
+	if(autoPlay)
+	{
+		ActivatePlayer();
+	}
+
 	/* Initialize gstreamer plugins with correct priority to co-exist with webkit plugins.
 	 * Initial priority of aamp plugins is PRIMARY which is less than webkit plugins.
 	 * if aamp->Tune is called, aamp plugins should be used, so set priority to a greater value
@@ -5831,7 +5935,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		}
 		else
 		{
-			mStreamSink->SetVideoRectangle(mVideoRect.horizontalPos, mVideoRect.verticalPos, mVideoRect.width, mVideoRect.height);
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
+				sink->SetVideoRectangle(mVideoRect.horizontalPos, mVideoRect.verticalPos, mVideoRect.width, mVideoRect.height);
+			}
 		}
 		AAMPLOG_INFO("Update SetVideoRectangle x:%d y:%d w:%d h:%d", mVideoRect.horizontalPos, mVideoRect.verticalPos, mVideoRect.width, mVideoRect.height);
 		mApplyVideoRect = false;
@@ -6022,25 +6130,28 @@ void PrivateInstanceAAMP::CheckForDiscontinuityStall(MediaType mediaType)
 {
 	AAMPLOG_DEBUG("Enter mediaType %d", mediaType);
 	int discontinuityTimeoutValue = GETCONFIGVALUE_PRIV(eAAMPConfig_DiscontinuityTimeout);
-	if(!(mStreamSink->CheckForPTSChangeWithTimeout(discontinuityTimeoutValue)))
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
 	{
-		pthread_mutex_lock(&mLock);
-
-		if (mDiscontinuityTuneOperationId != 0 || mDiscontinuityTuneOperationInProgress)
+		if(!(sink->CheckForPTSChangeWithTimeout(discontinuityTimeoutValue)))
 		{
-			AAMPLOG_WARN("PrivateInstanceAAMP: Ignored retune!! Discontinuity handler already spawned(%d) or inprogress(%d)",
-							mDiscontinuityTuneOperationId, mDiscontinuityTuneOperationInProgress);
+			pthread_mutex_lock(&mLock);
+
+			if (mDiscontinuityTuneOperationId != 0 || mDiscontinuityTuneOperationInProgress)
+			{
+				AAMPLOG_WARN("PrivateInstanceAAMP: Ignored retune!! Discontinuity handler already spawned(%d) or inprogress(%d)",
+								mDiscontinuityTuneOperationId, mDiscontinuityTuneOperationInProgress);
+				pthread_mutex_unlock(&mLock);
+				return;
+			}
+
 			pthread_mutex_unlock(&mLock);
-			return;
+			AAMPLOG_INFO("No change in PTS for more than %d ms, schedule retune!", discontinuityTimeoutValue);
+			ResetDiscontinuityInTracks();
+
+			ResetTrackDiscontinuityIgnoredStatus();
+			ScheduleRetune(eSTALL_AFTER_DISCONTINUITY, mediaType);
 		}
-
-		pthread_mutex_unlock(&mLock);
-
-		AAMPLOG_INFO("No change in PTS for more than %d ms, schedule retune!", discontinuityTimeoutValue);
-		ResetDiscontinuityInTracks();
-
-		ResetTrackDiscontinuityIgnoredStatus();
-		ScheduleRetune(eSTALL_AFTER_DISCONTINUITY, mediaType);
 	}
 	AAMPLOG_DEBUG("Exit mediaType %d", mediaType);
 }
@@ -6329,12 +6440,22 @@ void PrivateInstanceAAMP::detach()
 #ifdef USE_SECMANAGER
 		mDRMSessionManager->hideWatermarkOnDetach();
 #endif
-		mStreamSink->Stop(true);
+		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
+
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		if (sink)
+		{
+			sink->Stop(true);
+		}
 		mbPlayEnabled = false;
 		mbDetached=true;
 		mPlayerPreBuffered  = false;
 		mTelemetryInterval = 0;
 		//EnableDownloads();// enable downloads
+	}
+	else
+	{
+		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 	}
 }
 
@@ -6439,7 +6560,11 @@ void PrivateInstanceAAMP::PushFragment(MediaType mediaType, char *ptr, size_t le
 {
 	BlockUntilGstreamerWantsData(NULL, 0, 0);
 	SyncBegin();
-	mStreamSink->SendCopy(mediaType, ptr, len, fragmentTime, fragmentTime, fragmentDuration);
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->SendCopy(mediaType, ptr, len, fragmentTime, fragmentTime, fragmentDuration);
+	}
 	SyncEnd();
 }
 
@@ -6450,12 +6575,20 @@ void PrivateInstanceAAMP::PushFragment(MediaType mediaType, AampGrowableBuffer* 
 {
 	BlockUntilGstreamerWantsData(NULL, 0, 0);
 	SyncBegin();
-	if( mStreamSink->SendTransfer(mediaType, buffer->GetPtr(), buffer->GetLen(), fragmentTime, fragmentTime, fragmentDuration) )
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
 	{
-		buffer->Transfer();
+		if( sink->SendTransfer(mediaType, buffer->GetPtr(), buffer->GetLen(), fragmentTime, fragmentTime, fragmentDuration) )
+		{
+			buffer->Transfer();
+		}
+		else
+		{ // unable to transfer - free up the buffer we were passed.
+			buffer->Free();
+		}
 	}
 	else
-	{ // unable to transfer - free up the buffer we were passed.
+	{
 		buffer->Free();
 	}
 	//memset(buffer, 0x00, sizeof(AampGrowableBuffer));
@@ -6470,7 +6603,11 @@ void PrivateInstanceAAMP::EndOfStreamReached(MediaType mediaType)
 	if (mediaType != eMEDIATYPE_SUBTITLE)
 	{
 		SyncBegin();
-		mStreamSink->EndOfStreamReached(mediaType);
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		if (sink)
+		{
+			sink->EndOfStreamReached(mediaType);
+		}
 		SyncEnd();
 
 		// If EOS during Buffering, set Playing and let buffer to dry out
@@ -6726,7 +6863,7 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 	// for IP eSTATE_PREPARED is done after manifest parsing,
 	// Incase of ATSC or HDMI SetVideoRectangle should be called after StreamAbstractionAAMP_OTA::Start or StreamAbstractionAAMP_VIDEOIN::StartHelper which is called tune function after
 	// mpStreamAbstractionAAMP object is created, hence if mpStreamAbstractionAAMP is NULL then we should not call SetVideoRectangle and defer it, this happes when SetVideoRectangle called after load.
-	// for IP SetVideoRectangle should be called after mStreamSink created i.e > eSTATE_PREPARING
+	// for IP SetVideoRectangle should be called after GetStreamSink() created i.e > eSTATE_PREPARING
 	// hence in below "state" condition state check is done only for IP
 
 	if (mpStreamAbstractionAAMP && (isNonIPPlayback || state > eSTATE_PREPARING))
@@ -6737,7 +6874,11 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 		}
 		else
 		{
-			mStreamSink->SetVideoRectangle(x, y, w, h);
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
+				sink->SetVideoRectangle(x, y, w, h);
+			}
 		}
 	}
 	else
@@ -6752,7 +6893,11 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
  */
 void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 {
-	mStreamSink->SetVideoZoom(zoom);
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->SetVideoZoom(zoom);
+	}
 }
 
 /**
@@ -6760,7 +6905,11 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
  */
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
-	mStreamSink->SetVideoMute(muted);
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->SetVideoMute(muted);
+	}
 #ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
@@ -6776,7 +6925,11 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
  */
 void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
 {
-	mStreamSink->SetSubtitleMute(muted);
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->SetSubtitleMute(muted);
+	}
 }
 
 /**
@@ -6786,7 +6939,11 @@ void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
  */
 void PrivateInstanceAAMP::SetAudioVolume(int volume)
 {
-	mStreamSink->SetAudioVolume(volume);
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->SetAudioVolume(volume);
+	}
 }
 
 /**
@@ -6857,16 +7014,18 @@ void PrivateInstanceAAMP::InterruptableMsSleep(int timeInMs)
  */
 long long PrivateInstanceAAMP::GetDurationMs()
 {
+	long long ms = durationSeconds*1000.0;
+
 	if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 	{
-	 	long long ms = mStreamSink->GetDurationMilliseconds();
-	 	durationSeconds = ms/1000.0;
-	 	return ms;
+	 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		if (sink)
+		{
+			ms = sink->GetDurationMilliseconds();
+			durationSeconds = ms/1000.0;
+		}
 	}
-	else
-	{
-		return (long long)(durationSeconds*1000.0);
-	}
+	return ms;
 }
 
 /**
@@ -6876,24 +7035,25 @@ long long PrivateInstanceAAMP::GetDurationMs()
  */
 long long PrivateInstanceAAMP::DurationFromStartOfPlaybackMs()
 {
+	long long ms = durationSeconds*1000.0;
+
 	if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 	{
-		long long ms = mStreamSink->GetDurationMilliseconds();
-		durationSeconds = ms/1000.0;
-		return ms;
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		if (sink)
+		{
+			ms = sink->GetDurationMilliseconds();
+			durationSeconds = ms/1000.0;
+		}
 	}
 	else
 	{
 		if( mIsLive )
 		{
-			long long ms = (culledSeconds * 1000.0) + (durationSeconds * 1000.0);
-			return ms;
-		}
-		else
-		{
-			return (long long)(durationSeconds*1000.0);
+			ms = (culledSeconds * 1000.0) + (durationSeconds * 1000.0);
 		}
 	}
+	return ms;
 }
 
 /**
@@ -6948,9 +7108,10 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 	//DELIA-39530 - Audio only playback is un-tested. Hence disabled for now
 	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableGstPositionQuery) && !ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback) && !mAudioOnlyPb)
 	{
-		if (mStreamSink)
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		if (sink)
 		{
-			auto gstPosition = mStreamSink->GetPositionMilliseconds();
+			auto gstPosition = sink->GetPositionMilliseconds();
 
 			/* LLAMA-7124 - Prevent spurious values being returned by this function during seek.
 			* This fix is similar to LLAMA-8369 but applied at this lower level because
@@ -7015,6 +7176,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		AAMPLOG_TRACE("rate=%f", rate_copy);
 
 		positionMiliseconds+=GetPositionRelativeToSeekMilliseconds(rate_copy, trickStartUTCMS_copy);
+
 		if(AAMP_NORMAL_PLAY_RATE == rate_copy)
 		{
 			/*LLAMA-7124 - Standardised & tightened validity checking of previous position to
@@ -7081,7 +7243,13 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
  */
 bool PrivateInstanceAAMP::SendStreamCopy(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
 {
-	return mStreamSink->SendCopy(mediaType, ptr, len, fpts, fdts, fDuration);
+	bool rc = false;
+ 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+ 	if (sink)
+ 	{
+		rc = sink->SendCopy(mediaType, ptr, len, fpts, fdts, fDuration);
+ 	}
+	return rc;
 }
 
 /**
@@ -7089,23 +7257,23 @@ bool PrivateInstanceAAMP::SendStreamCopy(MediaType mediaType, const void *ptr, s
  */
 void PrivateInstanceAAMP::SendStreamTransfer(MediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment, bool discontinuity)
 {
-	if( mStreamSink->SendTransfer(mediaType, buffer->GetPtr(), buffer->GetLen(), fpts, fdts, fDuration, initFragment, discontinuity) )
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
 	{
-		buffer->Transfer();
+		if( sink->SendTransfer(mediaType, buffer->GetPtr(), buffer->GetLen(), fpts, fdts, fDuration, initFragment, discontinuity) )
+		{
+			buffer->Transfer();
+		}
+		else
+		{ // unable to transfer - free up the buffer we were passed.
+			buffer->Free();
+		}
+		//memset(buffer, 0x00, sizeof(AampGrowableBuffer));
 	}
 	else
-	{ // unable to transfer - free up the buffer we were passed.
+	{
 		buffer->Free();
 	}
-	//memset(buffer, 0x00, sizeof(AampGrowableBuffer));
-}
-
-/**
- * @brief Setting the stream sink
- */
-void PrivateInstanceAAMP::SetStreamSink(StreamSink* streamSink)
-{
-	mStreamSink = streamSink;
 }
 
 /**
@@ -7313,6 +7481,8 @@ void PrivateInstanceAAMP::Stop()
 	}
 
 	EnableDownloads();
+
+	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
 }
 
 /**
@@ -7571,32 +7741,34 @@ void PrivateInstanceAAMP::InitializeCC()
 		return;
 	}
 #endif
-	if (mStreamSink != NULL)
-	{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+
+		if (sink != NULL)
+		{
 #ifdef AAMP_CC_ENABLED
-		if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
-		{
-			AampCCManager::GetInstance()->Init((void *)mStreamSink->getCCDecoderHandle());
-
-			int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-			if (overrideCfg == 0)
+			if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
 			{
-				AAMPLOG_WARN("PrivateInstanceAAMP: CC format override to 608 present, selecting 608CC");
-				AampCCManager::GetInstance()->SetTrack("CC1");
-			}
+				AampCCManager::GetInstance()->Init((void *)sink->getCCDecoderHandle());
 
-		}
-		else
+				int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
+				if (overrideCfg == 0)
+				{
+					AAMPLOG_WARN("PrivateInstanceAAMP: CC format override to 608 present, selecting 608CC");
+					AampCCManager::GetInstance()->SetTrack("CC1");
+				}
+
+			}
+			else
 #endif
-		{
+			{
 #if defined FLEX2_RDK && defined AAMP_CC_ENABLED
-			AampCCManager::GetInstance()->Init((void *)mStreamSink->getCCDecoderHandle());
+				AampCCManager::GetInstance()->Init((void *)sink->getCCDecoderHandle());
 #else
-			CCHandleEventPtr event = std::make_shared<CCHandleEvent>(mStreamSink->getCCDecoderHandle());
-			mEventManager->SendEvent(event);
+				CCHandleEventPtr event = std::make_shared<CCHandleEvent>(sink->getCCDecoderHandle());
+				mEventManager->SendEvent(event);
 #endif
+			}
 		}
-	}
 }
 
 
@@ -7605,7 +7777,7 @@ void PrivateInstanceAAMP::InitializeCC()
  */
 void PrivateInstanceAAMP::NotifyFirstFrameReceived()
 {
-	AAMPLOG_DEBUG("NotifyFirstFrameReceived()");
+	AAMPLOG_TRACE("NotifyFirstFrameReceived()");
 
 	// In the middle of stop processing we can receive state changing callback (xione-7331)
 	PrivAAMPState state;
@@ -7621,6 +7793,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived()
 	{
 		SetState(eSTATE_PLAYING);
 	}
+
 	pthread_mutex_lock(&mMutexPlaystart);
 	pthread_cond_broadcast(&waitforplaystart);
 	pthread_mutex_unlock(&mMutexPlaystart);
@@ -7642,7 +7815,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived()
  */
 bool PrivateInstanceAAMP::Discontinuity(MediaType track, bool setDiscontinuityFlag)
 {
-	bool ret;
+	bool ret = false;
 
 	if (setDiscontinuityFlag)
 	{
@@ -7651,7 +7824,11 @@ bool PrivateInstanceAAMP::Discontinuity(MediaType track, bool setDiscontinuityFl
 	else
 	{
 		SyncBegin();
-		ret = mStreamSink->Discontinuity(track);
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		if (sink)
+		{
+			ret = sink->Discontinuity(track);
+		}
 		SyncEnd();
 	}
 
@@ -7896,7 +8073,13 @@ gint PrivateInstanceAAMP::AddHighIdleTask(IdleTask task, void* arg,DestroyTask d
  */
 bool PrivateInstanceAAMP::IsSinkCacheEmpty(MediaType mediaType)
 {
-	return mStreamSink->IsCacheEmpty(mediaType);
+	bool ret_val = false;
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		ret_val = sink->IsCacheEmpty(mediaType);
+	}
+	return ret_val;
 }
 
 /**
@@ -7904,7 +8087,11 @@ bool PrivateInstanceAAMP::IsSinkCacheEmpty(MediaType mediaType)
  */
 void PrivateInstanceAAMP::ResetEOSSignalledFlag()
 {
-	return mStreamSink->ResetEOSSignalledFlag();
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->ResetEOSSignalledFlag();
+	}
 }
 
 /**
@@ -7914,7 +8101,11 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 {
 	pthread_mutex_lock(&mFragmentCachingLock);
 	mFragmentCachingRequired = false;
-	mStreamSink->NotifyFragmentCachingComplete();
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->NotifyFragmentCachingComplete();
+	}
 	PrivAAMPState state;
 	GetState(state);
 	if (state == eSTATE_BUFFERING)
@@ -8317,7 +8508,11 @@ bool PrivateInstanceAAMP::IsFragmentCachingRequired()
  */
 void PrivateInstanceAAMP::GetPlayerVideoSize(int &width, int &height)
 {
-	mStreamSink->GetVideoSize(width, height);
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->GetVideoSize(width, height);
+	}
 }
 
 /**
@@ -8468,6 +8663,7 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed()
 		SetState(eSTATE_PLAYING);
 	}
 	trickStartUTCMS = aamp_GetCurrentTimeMS();
+	//Do not edit or remove this log - it is used in L2 test
 	AAMPLOG_WARN("seek pos %.3f", seek_pos_seconds);
 
 
@@ -8477,7 +8673,11 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed()
 		mDRMSessionManager->setVideoMute(video_muted, seek_pos_seconds);
 		mDRMSessionManager->setPlaybackSpeedState(rate,seek_pos_seconds, true);
 		int x,y,w,h;
-		sscanf(mStreamSink->GetVideoRectangle().c_str(),"%d,%d,%d,%d",&x,&y,&w,&h);
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		if (sink)
+		{
+			sscanf(sink->GetVideoRectangle().c_str(),"%d,%d,%d,%d",&x,&y,&w,&h);
+		}
 		AAMPLOG_WARN("calling setVideoWindowSize  w:%d x h:%d ",w,h);
 		mDRMSessionManager->setVideoWindowSize(w,h);
 	}
@@ -9079,9 +9279,10 @@ std::string PrivateInstanceAAMP::GetLicenseReqProxy()
  */
 void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
 {
-	if (mStreamSink)
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
 	{
-		mStreamSink->SignalTrickModeDiscontinuity();
+		sink->SignalTrickModeDiscontinuity();
 	}
 }
 
@@ -9277,17 +9478,18 @@ void PrivateInstanceAAMP::SendId3MetadataEvent(aamp::id3_metadata::CallbackData 
 void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
 {
 #ifndef AAMP_STOP_SINK_ON_SEEK
-	if (mStreamSink)
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
 	{
 		if(ISCONFIGSET_PRIV(eAAMPConfig_MidFragmentSeek) && position != 0 )
 		{
 			//RDK-26957 Adding midSeekPtsOffset to position value.
 			//Enables us to seek to the desired position in the mp4 fragment.
-			mStreamSink->SeekStreamSink(GetFirstPTS(), rate);
+			sink->SeekStreamSink(GetFirstPTS(), rate);
 		}
 		else
 		{
-			mStreamSink->SeekStreamSink(position, rate);
+			sink->SeekStreamSink(position, rate);
 		}
 	}
 #endif
@@ -9794,7 +9996,13 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
  */
 std::string PrivateInstanceAAMP::GetVideoRectangle()
 {
-	return mStreamSink->GetVideoRectangle();
+	std::string ret_val = "";
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		ret_val = sink->GetVideoRectangle();
+	}
+	return ret_val;
 }
 
 /**
@@ -9914,10 +10122,10 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 			{
 				mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 			}
-
-			if(mStreamSink)
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if(sink)
 			{
-				mStreamSink->NotifyFragmentCachingOngoing();
+				sink->NotifyFragmentCachingOngoing();
 			}
 			SetState(eSTATE_BUFFERING);
 		}
@@ -9953,7 +10161,11 @@ bool PrivateInstanceAAMP::TrackDownloadsAreEnabled(MediaType type)
  */
 void PrivateInstanceAAMP::StopBuffering(bool forceStop)
 {
-	mStreamSink->StopBuffering(forceStop);
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->StopBuffering(forceStop);
+	}
 }
 
 /**
@@ -10478,7 +10690,11 @@ void PrivateInstanceAAMP::SetTextStyle(const std::string &options)
 	{
 		// Try setting text style via gstreamer
 		AAMPLOG_WARN("Calling StreamSink::SetTextStyle(%s)", options.c_str());
-		retVal = mStreamSink->SetTextStyle(options);
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		if (sink)
+		{
+			retVal = sink->SetTextStyle(options);
+		}
 	}
 
 	if (retVal)
@@ -10595,7 +10811,11 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
 		{
 			bool newTune = IsNewTune();
 			pthread_mutex_unlock(&mLock);
-			mStreamSink->Stop(!newTune);
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
+				sink->Stop(!newTune);
+			}
 			pthread_mutex_lock(&mLock);
 			reconfigure = true;
 		}
@@ -10604,7 +10824,11 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
 	{
 		// Configure pipeline as TSProcessor might have detected the actual stream type
 		// or even presence of audio
-		mStreamSink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, false, mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		if (sink)
+		{
+			sink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, false, mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
+		}
 	}
 	pthread_mutex_unlock(&mLock);
 }
@@ -12428,6 +12652,18 @@ bool PrivateInstanceAAMP::HasSidecarData()
 	return false;
 }
 
+void PrivateInstanceAAMP::UpdateUseSinglePipeline()
+{
+	if (ISCONFIGSET_PRIV(eAAMPConfig_UseSinglePipeline))
+	{
+		AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
+	}
+	else
+	{
+		AAMPLOG_INFO("PLAYER[%d] eAAMPConfig_UseSinglePipeline not set", mPlayerId);
+	}
+}
+
 /**
  *   @brief To update the max DASH DRM sessions supported in AAMP
  */
@@ -12530,8 +12766,12 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 std::string PrivateInstanceAAMP::GetVideoPlaybackQuality()
 {
 	std::string playbackQualityStr="";
-	PlaybackQualityStruct* playbackQuality;
-	playbackQuality = mStreamSink->GetVideoPlaybackQuality();
+	PlaybackQualityStruct* playbackQuality = nullptr;
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		playbackQuality = sink->GetVideoPlaybackQuality();
+	}
 
 	if(playbackQuality)
 	{

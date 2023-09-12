@@ -64,6 +64,7 @@
 #include "tsprocessor.h"
 #include "isobmffprocessor.h"
 #include "AampUtils.h"
+#include "AampStreamSinkManager.h"
 
 #ifdef AAMP_HLS_DRM
 #include "AampDRMSessionManager.h"
@@ -5712,7 +5713,11 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 		if(aamp->fragmentCdmEncrypted)
 		{
 			// check for WV and PR , if anything to be flushed
-			aamp->mStreamSink->ClearProtectionEvent();
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+			if (sink)
+			{
+				sink->ClearProtectionEvent();
+			}
 		}
 		if(ISCONFIGSET(eAAMPConfig_UseSecManager))
 		{
@@ -5963,7 +5968,11 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 void StreamAbstractionAAMP_HLS::NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale)
 {
 	mFirstPTS = ((double)pts / (double)timeScale);
-	aamp->mStreamSink->SetSubtitlePtsOffset(static_cast<std::uint64_t>(mFirstPTS * 1000.0));
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+	if (sink)
+	{
+		sink->SetSubtitlePtsOffset(static_cast<std::uint64_t>(mFirstPTS * 1000.0));
+	}
 }
 
 /**

@@ -41,6 +41,7 @@
 #include "downloader/AampCurlStore.h"
 #include "AampDRMLicPreFetcherInterface.h"
 #include "AampDRMLicPreFetcher.h"
+#include "AampStreamSinkManager.h"
 
 //#define LOG_TRACE 1
 #define LICENCE_REQUEST_HEADER_ACCEPT "Accept:"
@@ -194,13 +195,17 @@ void AampDRMSessionManager::Stop()
  */
 void AampDRMSessionManager::QueueProtectionEvent(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type)
 {
-	if (drmHelper && aampInstance && aampInstance->mStreamSink)
+	if (drmHelper && aampInstance)
 	{
-		std::vector<uint8_t> data;
-		const char* systemId = drmHelper->getUuid().c_str();
-		drmHelper->createInitData(data);
-		AAMPLOG_INFO("Queueing protection event in mStreamSink for type:%d period id:%s and adaptation index:%u", type, periodId.c_str(), adapIdx);
-		aampInstance->mStreamSink->QueueProtectionEvent(systemId, data.data(), data.size(), type);
+		StreamSink* sink = AampStreamSinkManager::GetInstance().GetActiveStreamSink(aampInstance);
+		if (sink)
+		{
+			std::vector<uint8_t> data;
+			const char* systemId = drmHelper->getUuid().c_str();
+			drmHelper->createInitData(data);
+			AAMPLOG_INFO("Queueing protection event in StreamSink for type:%d period id:%s and adaptation index:%u", type, periodId.c_str(), adapIdx);
+			sink->QueueProtectionEvent(systemId, data.data(), data.size(), type);
+		}
 	}
 }
 

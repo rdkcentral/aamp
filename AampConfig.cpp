@@ -380,6 +380,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"sendUserAgentInLicense", eAAMPConfig_SendUserAgent, false},
 	{false,"enablePTSReStamp", eAAMPConfig_EnablePTSReStamp, true},
 	{false, "trackMemory", eAAMPConfig_TrackMemory, false},
+	{false, "useSinglePipeline", eAAMPConfig_UseSinglePipeline, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2

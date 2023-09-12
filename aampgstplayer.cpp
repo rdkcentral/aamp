@@ -30,6 +30,7 @@
 #include "AampUtils.h"
 #include "AampGstUtils.h"
 #include "TextStyleAttributes.h"
+#include "AampStreamSinkManager.h"
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
@@ -356,7 +357,7 @@ AAMPGstPlayer::AAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
         , std::function< void(uint8_t *, int, int, int) > exportFrames
 #endif
-	) : mLogObj(logObj), aamp(NULL), privateContext(NULL), mBufferingLock(), mProtectionLock(), PipelineSetToReady(false), trickTeardown(false)
+	) : mLogObj(logObj), aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL), mBufferingLock(), mProtectionLock(), PipelineSetToReady(false), trickTeardown(false)
 	, m_ID3MetadataHandler{id3HandlerCallback}
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
 	, cbExportYUVFrame(NULL)
@@ -367,6 +368,9 @@ AAMPGstPlayer::AAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp
 	if(privateContext)
 	{
 		this->aamp = aamp;
+
+		// Initially set to this instance, can be changed by SetEncryptedAamp
+		this->mEncryptedAamp = aamp;
 
 		pthread_mutex_init(&mBufferingLock, NULL);
 		pthread_mutex_init(&mProtectionLock, NULL);
@@ -1614,24 +1618,29 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 #endif /*REALTEKCE || BCOM*/ 
 				 )
 				{
-					if(_this->aamp->mSetPlayerRateAfterFirstframe)
+					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(_this->aamp);
+					if (sink)
 					{
-						_this->aamp->mSetPlayerRateAfterFirstframe=false;
-						if(false!=_this->aamp->mStreamSink->SetPlayBackRate(_this->aamp->playerrate))
+						if(_this->aamp->mSetPlayerRateAfterFirstframe)
 						{
-							_this->aamp->rate=_this->aamp->playerrate;
-							_this->aamp->SetAudioVolume(0);
+							_this->aamp->mSetPlayerRateAfterFirstframe=false;
+
+							if(false != sink->SetPlayBackRate(_this->aamp->playerrate))
+							{
+								_this->aamp->rate=_this->aamp->playerrate;
+								_this->aamp->SetAudioVolume(0);
+							}
 						}
-					}
 #if defined (REALTEKCE) || defined (BRCM)
-					else
-					{
-						if(false!=_this->aamp->mStreamSink->SetPlayBackRate(_this->aamp->rate))
+						else
 						{
-							_this->aamp->playerrate=_this->aamp->rate;
+							if(false != sink->SetPlayBackRate(_this->aamp->rate))
+							{
+								_this->aamp->playerrate=_this->aamp->rate;
+							}
 						}
+#endif /*REALTEKCE || BRCM */
 					}
-#endif /*REALTEKCE*/
 				}
 			}
 		}
@@ -1908,11 +1917,11 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 			   aamp_StartsWith(GST_OBJECT_NAME(msg->src), GstPluginNameCK) == true ||
 			   aamp_StartsWith(GST_OBJECT_NAME(msg->src), GstPluginNameVMX) == true)) 
 			{
-				AAMPLOG_WARN("AAMPGstPlayer setting aamp instance for %s decryptor", GST_OBJECT_NAME(msg->src));
+				AAMPLOG_WARN("AAMPGstPlayer setting encrypted aamp (%p) instance for %s decryptor", _this->mEncryptedAamp, GST_OBJECT_NAME(msg->src));
 				GValue val = { 0, };
 				g_value_init(&val, G_TYPE_POINTER);
-				g_value_set_pointer(&val, (gpointer) _this->aamp);
-				g_object_set_property(G_OBJECT(msg->src), "aamp",&val);
+				g_value_set_pointer(&val, (gpointer) _this->mEncryptedAamp);
+				g_object_set_property(G_OBJECT(msg->src), "aamp", &val);
 			}
 		}
 		break;
@@ -3568,6 +3577,31 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
     return rc;
 }
 
+/**
+  * @brief Set the instance of PrivateInstanceAAMP that has encrypted content, used in the context of 
+  * single pipeline.
+  * @param[in] aamp - Pointer to the instance of PrivateInstanceAAMP that has the encrypted content
+  */
+void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
+{
+	mEncryptedAamp = aamp;
+}
+
+/**
+  * @brief Change the instance of PrivateInstanceAAMP that is using the gstreamer
+  * pipeline, when it is being used as a single pipeline shared among multiple
+  * instances of PrivateInstanceAAMP
+  * @param[in] newAamp - pointer to new instance of PrivateInstanceAAMP
+  * @param[in] newLogObj  - pointer to the log manager for this instance of PrivateInstanceAAMP
+  * @param[in] id3HandlerCallback - the id3 callback handle associated with this instance of PrivateInstanceAAMP
+  */
+void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, AampLogManager *newLogObj, id3_callback_t id3HandlerCallback)
+{
+	aamp = newAamp;
+	mLogObj = newLogObj;
+	privateContext->decoderHandleNotified = false;
+	m_ID3MetadataHandler = id3HandlerCallback;
+}
 
 /**
  * @brief Flush the buffers in pipeline

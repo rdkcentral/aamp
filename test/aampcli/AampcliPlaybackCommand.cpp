@@ -27,6 +27,7 @@
 #include "Aampcli.h"
 #include "AampcliPlaybackCommand.h"
 #include "AampSCTE35.h"
+#include "AampStreamSinkManager.h"
 
 extern bool gAampcliQuietLogs;
 extern VirtualChannelMap mVirtualChannelMap;
@@ -162,6 +163,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 		{
 			printf( "sleeping for %f seconds\n", ms/1000.0 );
 			g_usleep (ms * 1000);
+			//Do not edit or remove this following printf - it is used in L2 test
 			printf( "sleep complete\n" );
 		}
 	}
@@ -182,7 +184,6 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 				{
 					printf( "Give valid player id range = 0..%lu\n", mAampcli.mPlayerInstances.size()-1 );
 				}
-
 			}
 			else
 			{
@@ -319,7 +320,11 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	}
 	else if (isCommandMatch(cmd, "flush") )
 	{
-		playerInstanceAamp->aamp->mStreamSink->Flush();
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(playerInstanceAamp->aamp);
+		if (sink)
+		{
+			sink->Flush();
+		}
 	}
 	else if (isCommandMatch(cmd, "stop") )
 	{

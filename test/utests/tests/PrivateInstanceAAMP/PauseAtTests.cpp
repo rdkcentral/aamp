@@ -31,6 +31,7 @@
 #include "MockAampScheduler.h"
 #include "MockAampEventManager.h"
 #include "MockStreamAbstractionAAMP.h"
+#include "MockAampStreamSinkManager.h"
 
 using ::testing::_;
 using ::testing::WithParamInterface;
@@ -39,6 +40,9 @@ using ::testing::DoAll;
 using ::testing::SetArgReferee;
 using ::testing::Invoke;
 using ::testing::Return;
+using ::testing::NiceMock;
+using ::testing::AnyNumber;
+
 
 #define WAIT_FOR_SCHEDUE_TASK_POLL_PERIOD_MS    (50)
 
@@ -76,15 +80,17 @@ protected:
         g_mockAampGstPlayer = new MockAAMPGstPlayer(mLogObj, mPrivateInstanceAAMP);
         g_mockAampEventManager = new MockAampEventManager();
         g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mLogObj, mPrivateInstanceAAMP);
+		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 
         mPrivateInstanceAAMP->SetScheduler(&mScheduler);
-        mPrivateInstanceAAMP->mStreamSink = g_mockAampGstPlayer;
         mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 
         // Called in destructor of PrivateInstanceAAMP
         // Done here because setting up the EXPECT_CALL in TearDown, conflicted with the mock
         // being called in the PausePosition thread.
         EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableCurlStore)).WillRepeatedly(Return(false));
+
+   		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
     }
 
     void TearDown() override
@@ -109,6 +115,9 @@ protected:
 
         delete g_mockAampConfig;
         g_mockAampConfig = nullptr;
+
+		delete g_mockAampStreamSinkManager;
+		g_mockAampStreamSinkManager = nullptr;
     }
 
 public:
