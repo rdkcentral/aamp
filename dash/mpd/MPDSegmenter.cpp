@@ -120,8 +120,6 @@ MPDSegmenter::SegmentVec MPDSegmenter::getSegments(double startTime, double endT
     // from A.3.4
     auto availabilityStart = root->getAvailabilityStartTime();  // Mandatory for dynamic streams
     if (availabilityStart == MPD_UNSET_DOUBLE) availabilityStart = 0; // Available since always (for static streams)
-    auto availabilityEnd = root->getAvailabilityEndTime();
-    if (availabilityEnd == MPD_UNSET_DOUBLE) availabilityEnd = 1e10;  // Unknown availability
     auto timeShiftBufferDepth = root->getTimeShiftBufferDepth();
     if (timeShiftBufferDepth == MPD_UNSET_DOUBLE) timeShiftBufferDepth = 1e10;  // Infinite duration if not set
 
@@ -170,13 +168,6 @@ MPDSegmenter::SegmentVec MPDSegmenter::getSegments(double startTime, double endT
         }
 
         if ((periodEnd == MPD_UNSET_DOUBLE || periodEnd <= 0) && lastPeriod) {
-
-            // try media presentation duration
-            if (minUpdatePeriod == MPD_UNSET_DOUBLE) {
-                // mediaPresentationDuration is mandatory in this case
-                periodEnd = availabilityStart + mediaPresentationDuration;
-            }
-
             // try based on fetch time.
             auto case_a = fetchTime + minUpdatePeriod;
             auto case_b = availabilityStart + mediaPresentationDuration;

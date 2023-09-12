@@ -118,12 +118,3 @@ static void gst_aamp_taskpool_class_init (GstAampTaskpoolClass * klass)
 static void gst_aamp_taskpool_init (GstAampTaskpool * pool)
 {
 }
-
-/**
- * @brief gst_aamp_taskpool_finalize
- * @param object
- */
-static void gst_aamp_taskpool_finalize(GObject * object)
-{
-    GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
-}

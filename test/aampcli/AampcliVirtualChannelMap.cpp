@@ -196,7 +196,6 @@ void VirtualChannelMap::print(unsigned long start, unsigned long end, unsigned l
 	{
 		if(tail >= mapSize)
 		{
-			tail = 0;
 			start = 0;
 		}
 		else

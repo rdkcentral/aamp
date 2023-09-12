@@ -939,14 +939,6 @@ void Harvester::harvestTerminateHandler(int signal)
 
 			if((itr != mHarvestInfo.end()) && (itr->second.harvestEndFlag == false))
 			{
-				// harvestFragmentsCount is the number of the last fragment received, counting down from mHarvestCountLimit.
-				// So it is 1 if all fragments have been collected. 0 means none received.
-				int fragmentCount = itr->second.harvestFragmentsCount;
-				if (fragmentCount > 0)
-				{
-					fragmentCount = mHarvester.mHarvestCountLimit - itr->second.harvestFragmentsCount +1;
-				}
-				
 				fprintf(fp, "\nMedia : %s\nBitrate : %lu\nTotal fragments count : %d\nError fragments count : %d\nFailure fragments count : %d\n", itr->second.media, itr->second.bitrate, mHarvester.mHarvestCountLimit - itr->second.harvestFragmentsCount, itr->second.harvestErrorCount, itr->second.harvestFailureCount);
 
 				itr->second.harvestEndFlag = true;

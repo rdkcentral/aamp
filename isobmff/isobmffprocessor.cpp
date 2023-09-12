@@ -400,7 +400,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(char *segment, size_t& size, dou
 		}
 		else
 		{
-			AAMPLOG_ERR("IsoBmffProcessor %s Error index = %" PRIu64 " ", IsoBmffProcessorTypeName[type],index);
+			AAMPLOG_ERR("IsoBmffProcessor %s Error index = %zu", IsoBmffProcessorTypeName[type],index);
 		}
 
 		/* Step 2.Handle Skipped Fragments if Any */
@@ -573,20 +573,20 @@ bool IsoBmffProcessor::pushInitAndSetRestampPTSAsBasePTS(uint64_t pts)
 		/* Indicates it is at the time of tune so copy the basepts*/
 		case eBMFFPROCESSOR_INIT_TIMESCALE:
 		{
-			AAMPLOG_INFO("IsoBmffProcessor %s case: %d", IsoBmffProcessorTypeName[type], timeScaleChangeState);
-			if( ( contentType == ContentType_SLE || contentType == ContentType_LINEAR )  && type == eBMFFPROCESSOR_TYPE_AUDIO )
-			{
-				sumPTS = pts;
-					startPos = sumPTS/((double)currTimeScale);
-			}
-			else
-			{
-				sumPTS = pts;
-				startPos = sumPTS/((double)currTimeScale);
-			}
-				AAMPLOG_INFO("IsoBmffProcessor %s eBMFFPROCESSOR_INIT_TIMESCALE: First Time startPos = %f sumPTS = %" PRIu64 " currTS = %u ",
-								IsoBmffProcessorTypeName[type], startPos, sumPTS, currTimeScale);
-		}
+                        AAMPLOG_INFO("IsoBmffProcessor %s case: %d", IsoBmffProcessorTypeName[type], timeScaleChangeState);
+                        if( ( contentType == ContentType_SLE || contentType == ContentType_LINEAR )  && type == eBMFFPROCESSOR_TYPE_AUDIO )
+                        {
+                                sumPTS = pts;
+                                startPos = sumPTS/((double)currTimeScale);
+                        }
+                        else
+                        {
+                                sumPTS = pts;
+                                startPos = sumPTS/((double)currTimeScale);
+                        }
+                                AAMPLOG_INFO("IsoBmffProcessor %s eBMFFPROCESSOR_INIT_TIMESCALE: First Time startPos = %f sumPTS = %" PRIu64 " currTS = %u ",
+                                                                IsoBmffProcessorTypeName[type], startPos, sumPTS, currTimeScale);
+                }
 		break;
 
 		/*Special case to avoid duplicate fragment followed by old init

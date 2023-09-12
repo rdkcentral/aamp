@@ -686,11 +686,13 @@ static bool ParseSegmentIndexBox( const char *start, size_t size, int segmentInd
 	if( version==0 )
 	{
 		earliest_presentation_time = Read32(f);
+		(void)earliest_presentation_time; // unused
 		first_offset = Read32(f);
 	}
 	else
 	{
 		earliest_presentation_time = Read64(f);
+		(void)earliest_presentation_time; // unused
 		first_offset = Read64(f);
 	}
 	unsigned int reserved = Read16(f); (void)reserved;
@@ -2182,7 +2184,16 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								/*Added this block to reduce the skip overhead for custom mpd after
 								 *MPD refresh
 								*/
-								int nextIndex = (int)((pMediaStreamContext->lastSegmentTime - startTime) / duration) - 5;
+								int nextIndex;
+								if( duration==0 )
+								{
+									AAMPLOG_WARN( "zero duration" );
+									nextIndex = -1;
+								}
+								else
+								{
+									nextIndex = (int)((pMediaStreamContext->lastSegmentTime - startTime) / duration) - 5;
+								}
 								while(nextIndex > 0 && nextIndex < listSize)
 								{
 									segmentURL = segmentURLs.at(nextIndex);

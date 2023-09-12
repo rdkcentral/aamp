@@ -1895,12 +1895,15 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 			}
 			switch (type)
 			{
-			case GST_STREAM_STATUS_TYPE_CREATE:
-				if (task && _this->privateContext->task_pool)
-				{
-					gst_task_set_pool(task, _this->privateContext->task_pool);
-				}
-			break;
+				case GST_STREAM_STATUS_TYPE_CREATE:
+					if (task && _this->privateContext->task_pool)
+					{
+						gst_task_set_pool(task, _this->privateContext->task_pool);
+					}
+					break;
+					
+				default:
+					break;
 			}
 		}
 		break;

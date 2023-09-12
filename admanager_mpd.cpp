@@ -606,7 +606,6 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	MPD* adMpd = NULL;
 	bool gotManifest = false;
 	int http_error = 0;
-	double downloadTime = 0;
 	std::string effectiveUrl;
 	//create MPD instance for ad manifest download
 	AampMPDDownloader *mAdDownloaderInstance = nullptr;
@@ -627,9 +626,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	mAdDownloaderInstance->Start();
 	mAdManifestDnldRespPtr = mAdDownloaderInstance->GetManifest(true, mAamp->mManifestTimeoutMs);
 
-	http_error		=	mAdManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
 	gotManifest		=	(mAdManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
-	downloadTime	=	mAdManifestDnldRespPtr->mMPDDownloadResponse->downloadCompleteMetrics.total;
 	effectiveUrl = mAdManifestDnldRespPtr->mMPDDownloadResponse->sEffectiveUrl;
 	if (gotManifest)
 	{
@@ -666,7 +663,6 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 			effectiveUrl.assign(channelUrl.c_str(), 0, ipend);
 			effectiveUrl.append("/adrec?clientId=FOG_AAMP&recordedUrl=");
 			effectiveUrl.append(encodedUrl.c_str());
-			http_error = 0;
 		
 			mAdManifestDnldRespPtr.reset(); // To Clear the previous downloadresponse value and set to nullptr 
 

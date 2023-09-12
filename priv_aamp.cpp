@@ -3580,7 +3580,6 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 	bool ret = false;
 	int downloadAttempt = 0;
 	int maxDownloadAttempt = 1;
-	CURL* curl = this->curl[curlInstance];
 	struct curl_slist* httpHeaders = NULL;
 	CURLcode res = CURLE_OK;
 	int fragmentDurationMs = (int)(fragmentDurationSeconds*1000);/*convert to MS */
@@ -3622,7 +3621,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 			//printf ("URL after appending uriParameter :: %s\n", remoteUrl.c_str());
 		}
 
-		curl = GetCurlInstanceForURL(remoteUrl,curlInstance);
+		CURL* curl = GetCurlInstanceForURL(remoteUrl,curlInstance);
 		
 		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaType, fileType, curlInstance,fragmentDurationSeconds, remoteUrl.c_str());
 		CurlCallbackContext context;
@@ -4621,12 +4620,10 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
     const char *envVal = getenv(env);
     if (envVal)
     {
-        int len;
-        char c;
-        len= strlen(envVal);
+        size_t len= strlen(envVal);
         if ( (len >= 3) && (envVal[1]==',') )
         {
-            c = envVal[0];
+            char c = envVal[0];
             /* parse thread policy value */
             switch(c)
             {
@@ -11961,7 +11958,6 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	std::string jsonStr;
 	AampJsonObject jsondata;
 	double tmpVar = 0;
-	int tmpLongVar = 0;
 	int maxdownload = 0;
 	std::string tmpStringVar = "";
 
@@ -11977,21 +11973,18 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	jsondata.add("manifestTimeoutMS", (long)CONVERT_SEC_TO_MS(tmpVar));
 
 	//downloadStallTimeout in sec
-	tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout);
-	jsondata.add("downloadStallTimeout", tmpLongVar);
+	jsondata.add("downloadStallTimeout", GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout));
 
-	tmpLongVar = 0;
 	//downloadStartTimeout sec
-	tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadStartTimeout);
-	jsondata.add("downloadStartTimeout", tmpLongVar);
+	jsondata.add("downloadStartTimeout", GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadStartTimeout));
 
 	//downloadLowBWTimeout sec, if default value is 0 sec then derived from network timeout
-	tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout);
-	if ((0 == tmpLongVar) && (AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout)))
+	int timeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout);
+	if ((0 == timeout) && (AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout)))
 	{
-		tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout) * LOW_BW_TIMEOUT_FACTOR;
+		timeout = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout) * LOW_BW_TIMEOUT_FACTOR;
 	}
-	jsondata.add("downloadLowBWTimeout", tmpLongVar);
+	jsondata.add("downloadLowBWTimeout", timeout);
 
 	//maxConcurrentDownloads
 	maxdownload = GETCONFIGVALUE_PRIV(eAAMPConfig_FogMaxConcurrentDownloads);
@@ -12025,12 +12018,10 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	jsondata.add("tsbInterruptHandling", ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling));
 
 	//minBitrate
-	tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_MinBitrate);
-	jsondata.add("minBitrate", tmpLongVar);
+	jsondata.add("minBitrate", GETCONFIGVALUE_PRIV(eAAMPConfig_MinBitrate));
 
 	//maxBitrate
-	tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxBitrate);
-	jsondata.add("maxBitrate", tmpLongVar);
+	jsondata.add("maxBitrate", GETCONFIGVALUE_PRIV(eAAMPConfig_MaxBitrate));
 
 	//enableABR
 	jsondata.add("enableABR", ISCONFIGSET_PRIV(eAAMPConfig_EnableABR));
@@ -12038,14 +12029,12 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	//LiveOffset
 	if (GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset) > AAMP_DEFAULT_SETTING )
 	{
-		tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp);
-		jsondata.add("abrMaxBuffer",tmpLongVar);
-		tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown);
-		jsondata.add("abrMinBuffer",tmpLongVar);
+		jsondata.add("abrMaxBuffer",GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp));
+		jsondata.add("abrMinBuffer",GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown));
 	}
 
 	//LiveOffset4k
-	tmpLongVar = 0;
+	//tmpLongVar = 0;
 	if(GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset4K) > AAMP_DEFAULT_SETTING)
 	{
 		if(mBufferFor4kRampup != 0)
@@ -12056,8 +12045,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	}
 
 	// RDKAAMP-1268: Harvest configuration
-	tmpLongVar = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
-	jsondata.add("harvestConfig",tmpLongVar);
+	jsondata.add("harvestConfig",GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig));
 
 	tmpStringVar = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);
 	jsondata.add("harvestPath",tmpStringVar);
