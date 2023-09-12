@@ -27,6 +27,7 @@
 #include "MockAampConfig.h"
 #include "MockAampGstPlayer.h"
 #include "MockStreamAbstractionAAMP.h"
+#include "MockAampStreamSinkManager.h"
 
 using ::testing::_;
 using ::testing::Return;
@@ -35,6 +36,7 @@ using ::testing::StrictMock;
 using ::testing::NiceMock;
 using ::testing::Throw;
 using ::testing::An;
+using ::testing::AnyNumber;
 
 class SetPreferredTextLanguagesTests : public ::testing::Test
 {
@@ -50,12 +52,14 @@ protected:
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockAampGstPlayer = new MockAAMPGstPlayer(mLogObj, mPrivateInstanceAAMP);
 		g_mockStreamAbstractionAAMP = new StrictMock<MockStreamAbstractionAAMP>(mLogObj, mPrivateInstanceAAMP);
+		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 
-		mPrivateInstanceAAMP->mStreamSink = g_mockAampGstPlayer;
 		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
 
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+
+   		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	}
 
 	void TearDown() override
@@ -77,6 +81,9 @@ protected:
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
+
+		delete g_mockAampStreamSinkManager;
+		g_mockAampStreamSinkManager = nullptr;
 	}
 
 public:

@@ -32,6 +32,7 @@
 #include "MockPrivateInstanceAAMP.h"
 #include "MockMediaStreamContext.h"
 #include "MockAampMPDDownloader.h"
+#include "MockAampStreamSinkManager.h"
 
 using ::testing::_;
 using ::testing::An;
@@ -115,7 +116,7 @@ protected:
 		g_mockAampUtils = nullptr;
 
 		g_mockAampGstPlayer = new MockAAMPGstPlayer(mLogObj, mPrivateInstanceAAMP);
-		mPrivateInstanceAAMP->mStreamSink = g_mockAampGstPlayer;
+
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
 
 		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
@@ -123,6 +124,8 @@ protected:
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 
 		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
+
+		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 
 		mStreamAbstractionAAMP_MPD = nullptr;
 
@@ -169,6 +172,9 @@ protected:
 
 		delete g_mockAampMPDDownloader;
 		g_mockAampMPDDownloader = nullptr;
+
+		delete g_mockAampStreamSinkManager;
+		g_mockAampStreamSinkManager = nullptr;
 
 		mManifest = nullptr;
 	}

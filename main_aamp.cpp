@@ -38,7 +38,7 @@
 #endif
 #include "helper/AampDrmHelper.h"
 #include "StreamAbstractionAAMP.h"
-#include "aampgstplayer.h"
+#include "AampStreamSinkManager.h"
 
 #include <dlfcn.h>
 #include <termios.h>
@@ -103,7 +103,7 @@ std::mutex PlayerInstanceAAMP::mPrvAampMtx;
  */
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(uint8_t *, int, int, int) > exportFrames
-	) : aamp(NULL), sp_aamp(nullptr), mInternalStreamSink(NULL), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
+	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
 
 //Need to do iarm initialization process before reading the tr181 aamp parameters.
@@ -179,15 +179,16 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 	if (NULL == streamSink)
 	{
-		mInternalStreamSink = new AAMPGstPlayer(mConfig.GetLoggerInstance(), aamp,
-			std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, aamp, 
-				std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4)
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
-			, exportFrames
+		AampStreamSinkManager::GetInstance().CreateStreamSink(mConfig.GetLoggerInstance(), aamp, 
+														    std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, aamp, 
+									  						std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4), 
+															exportFrames);
+#else
+		AampStreamSinkManager::GetInstance().CreateStreamSink(mConfig.GetLoggerInstance(), aamp, 
+														    std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, aamp, 
+									  						std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
 #endif
-		);
-
-		streamSink = mInternalStreamSink;
 	}
 	else
 	{
@@ -195,7 +196,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING, eAAMPConfig_AsyncTune, false);
 		mAsyncRunning = false;
 	}
-	aamp->SetStreamSink(streamSink);
 	aamp->SetScheduler(&mScheduler);
 	AsyncStartStop();
 }
@@ -227,7 +227,6 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
 		aamp = NULL;
 	}
-	SAFE_DELETE(mInternalStreamSink);
 
 	// Stop the scheduler 
 	mAsyncRunning = false;
@@ -623,6 +622,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 	if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
 	{
+		bool playAlreadyEnabled = aamp->mbPlayEnabled;
 		if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 		{
 			AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
@@ -635,11 +635,16 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			aamp->mbPlayEnabled = true;
 			if (AAMP_NORMAL_PLAY_RATE == rate)
 			{
+				aamp->ActivatePlayer();
 				aamp->LogPlayerPreBuffered();
-				aamp->mStreamSink->Configure(aamp->mVideoFormat, aamp->mAudioFormat, aamp->mAuxFormat, aamp->mSubtitleFormat, aamp->mpStreamAbstractionAAMP->GetESChangeStatus(), aamp->mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
-				aamp->ResumeDownloads(); //To make sure that the playback resumes after a player switch if player was in paused state before being at background
-				aamp->mpStreamAbstractionAAMP->StartInjection();
-				aamp->mStreamSink->Stream();
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+				if (sink)
+				{
+					sink->Configure(aamp->mVideoFormat, aamp->mAudioFormat, aamp->mAuxFormat, aamp->mSubtitleFormat, aamp->mpStreamAbstractionAAMP->GetESChangeStatus(), aamp->mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
+					aamp->ResumeDownloads(); //To make sure that the playback resumes after a player switch if player was in paused state before being at background
+					aamp->mpStreamAbstractionAAMP->StartInjection();
+					sink->Stream();
+				}
 				aamp->pipeline_paused = false;
 				aamp->mbSeeked = false;
 				return;
@@ -783,7 +788,11 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				if(!aamp->SetStateBufferingIfRequired())
 				{
 					aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
-					retValue = aamp->mStreamSink->Pause(false, false);
+					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+					if (sink)
+					{
+						retValue = sink->Pause(false, false);
+					}
 					aamp->NotifyFirstBufferProcessed(); //required since buffers are already cached in paused state
 				}
 				aamp->pipeline_paused = false;
@@ -796,7 +805,11 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 				aamp->StopDownloads();
-				retValue = aamp->mStreamSink->Pause(true, false);
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+				if (sink)
+				{
+					retValue = sink->Pause(true, false);
+				}
 				aamp->pipeline_paused = true;
 				if(aamp->GetLLDashServiceData()->lowLatencyMode)
 				{
@@ -815,6 +828,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->mbPlayEnabled = true;
 			}
 			
+			aamp->ActivatePlayer();
 			aamp->LogPlayerPreBuffered();
 			if (AAMP_NORMAL_PLAY_RATE != rate)
 			{
@@ -831,9 +845,18 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->mJumpToLiveFromPause = false;
 			}
 			/* if Gstreamer pipeline set to paused state by user, change it to playing state */
-			if( aamp->pipeline_paused == true )
+			if (playAlreadyEnabled && aamp->pipeline_paused == true)
 			{
-				(void)aamp->mStreamSink->Pause(false, false);
+				AAMPLOG_INFO("Play was already enabled, and pipeline paused - unpause");
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+				if (sink)
+				{
+					(void)sink->Pause(false, false);
+				}
+			}
+			else
+			{
+				AAMPLOG_INFO("Play was not already enabled(%d) or pipeline not paused(%d)", playAlreadyEnabled, aamp->pipeline_paused);
 			}
 			aamp->rate = rate;
 			aamp->pipeline_paused = false;
@@ -1292,7 +1315,11 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 				AAMPLOG_WARN("Pausing Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
 				aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 				aamp->StopDownloads();
-				(void)aamp->mStreamSink->Pause(true, false);
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+				if (sink)
+				{
+					(void)sink->Pause(true, false);
+				}
 				aamp->pipeline_paused = true;
 			}
 		}
@@ -2949,6 +2976,11 @@ bool PlayerInstanceAAMP::InitAAMPConfig(char *jsonStr)
 	if(GETCONFIGOWNER(eAAMPConfig_MaxDASHDRMSessions) == AAMP_APPLICATION_SETTING)
 	{
 		aamp->UpdateMaxDRMSessions();
+	}
+
+	if(GETCONFIGOWNER(eAAMPConfig_UseSinglePipeline) == AAMP_APPLICATION_SETTING)
+	{
+		aamp->UpdateUseSinglePipeline();
 	}
 
 	if(cfgdata != NULL)

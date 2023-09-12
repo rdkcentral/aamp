@@ -118,6 +118,8 @@ private:
 public:
 
 	class PrivateInstanceAAMP *aamp;
+	class PrivateInstanceAAMP *mEncryptedAamp;
+
 	/**
          * @fn Configure
          * @param[in] format video format
@@ -431,6 +433,22 @@ public:
 	 * returns video playback quality data
 	 */
 	PlaybackQualityStruct* GetVideoPlaybackQuality(void) override;
+
+	/**
+	 * @fn ChangeAamp
+	 * @brief Change the instance of PrivateInstanceAAMP that is using the gstreamer pipeline,
+	 * when it is being used as a single pipeline shared among multiple instances of PrivateInstanceAAMP
+   	 * @param[in] newAamp - pointer to new instance of PrivateInstanceAAMP
+   	 * @param[in] newLogObj  - pointer to the log manager for this instance of PrivateInstanceAAMP
+	 * @param[in] id3HandlerCallback - the id3 callback handle associated with this instance of PrivateInstanceAAMP
+	 */
+	void ChangeAamp(PrivateInstanceAAMP *newAamp, AampLogManager *newLogObj, id3_callback_t id3HandlerCallback);
+
+	/**
+	 * @fn SetEncryptedAamp
+   	 * @param[in] aamp - Pointer to the instance of PrivateInstanceAAMP that has the encrypted content
+	 */
+	void SetEncryptedAamp(PrivateInstanceAAMP *aamp);
 
 private:
 	/**

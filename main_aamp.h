@@ -2077,7 +2077,6 @@ private:
 	 */
 	void StopInternal(bool sendStateChangeEvent);
 
-	StreamSink* mInternalStreamSink;    /**< Pointer to stream sink */
 	void* mJSBinding_DL;                /**< Handle to AAMP plugin dynamic lib.  */
 	static std::mutex mPrvAampMtx;      /**< Mutex to protect aamp instance in GetState() */
 	bool mAsyncRunning;                 /**< Flag denotes if async mode is on or not */

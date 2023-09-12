@@ -208,6 +208,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampMPDParseHelper.h
 					AampLLDASHData.h
 					AampMPDUtils.h
+					AampStreamSinkManager.h
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -264,8 +265,9 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					dash/utils/StringEx.cpp
 					dash/utils/Path.cpp
 					AampMPDDownloader.cpp
-					AampMPDParseHelper.cpp	
+					AampMPDParseHelper.cpp
 					AampMPDUtils.cpp
+					AampStreamSinkManager.cpp
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)

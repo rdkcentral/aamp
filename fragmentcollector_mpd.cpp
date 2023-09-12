@@ -24,6 +24,7 @@
 
 #include "iso639map.h"
 #include "fragmentcollector_mpd.h"
+#include "AampStreamSinkManager.h"
 #include "MediaStreamContext.h"
 #include "AampFnLogger.h"
 #include "priv_aamp.h"
@@ -3786,7 +3787,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	aamp->CurlInit(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT, aamp->GetNetworkProxy());
 	mCdaiObject->ResetState();
 
-	aamp->mStreamSink->ClearProtectionEvent();
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+	if (sink)
+	{
+		sink->ClearProtectionEvent();
+	}
   #ifdef AAMP_MPD_DRM
 	AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
 	bool forceClearSession = (!ISCONFIGSET(eAAMPConfig_SetLicenseCaching) && (tuneType == eTUNETYPE_NEW_NORMAL));
@@ -4469,8 +4474,21 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		if (pushEncInitFragment && CheckForInitalClearPeriod())
 		{
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Pushing EncryptedHeaders");
-			if(PushEncryptedHeaders())
+			std::map<int, std::string> headers;
+
+			// Check if single pipeline has a main asset that has
+			// encrypted content whose init header urls have been saved
+			AampStreamSinkManager::GetInstance().GetEncryptedHeaders(headers);
+			if (!headers.empty())
 			{
+				PushEncryptedHeaders(headers);
+				aamp->mPipelineIsClear = false;
+				aamp->mEncryptedPeriodFound = false;
+			}
+			// Check if a period in a multi-period asset has an encrypted content
+			else if(GetEncryptedHeaders(headers))
+			{
+				PushEncryptedHeaders(headers);
 				aamp->mPipelineIsClear = false;
 				aamp->mEncryptedPeriodFound = false;
 			}
@@ -4479,6 +4497,16 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				AAMPLOG_INFO("Pipeline set as clear since no enc perid found");
 				//If no encrypted period is found, then update the pipeline status
 				aamp->mPipelineIsClear = true;
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Getting EncryptedHeaders");
+			std::map<int, std::string> headers;
+
+			if(GetEncryptedHeaders(headers))
+			{
+				AampStreamSinkManager::GetInstance().SetEncryptedHeaders(aamp, headers);
 			}
 		}
 #endif
@@ -8377,7 +8405,44 @@ bool StreamAbstractionAAMP_MPD::CheckForInitalClearPeriod()
  * @brief Push encrypted headers if available
  * return true for a successful encypted init fragment push
  */
-bool StreamAbstractionAAMP_MPD::PushEncryptedHeaders()
+void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>& mappedHeaders)
+{
+	FN_TRACE_F_MPD( __FUNCTION__ );
+
+	for (std::map<int, std::string>::iterator it=mappedHeaders.begin(); it!=mappedHeaders.end(); ++it)
+	{
+		int i = it->first;
+		std::string fragmentUrl = it->second;
+
+		//As a part of RDK-35897 update the next segment for download
+		//aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)fragmentDescriptor->Number,
+		//		fragmentDescriptor->Bandwidth,(MediaType)i);
+		if (mMediaStreamContext[i]->WaitForFreeFragmentAvailable())
+		{
+			AAMPLOG_WARN("Pushing encrypted header for %s fragmentUrl %s", getMediaTypeName(MediaType(i)), fragmentUrl.c_str());
+			//Set the last parameter (overWriteTrackId) true to overwrite the track id if ad and content has different track ids
+			bool temp = false;
+			try
+			{
+				temp =  mMediaStreamContext[i]->CacheFragment(fragmentUrl, (eCURLINSTANCE_VIDEO + mMediaStreamContext[i]->mediaType), mMediaStreamContext[i]->fragmentTime, 0.0, NULL, true, false, false, 0, 0, true);
+			}
+			catch(const std::regex_error& e)
+			{
+				AAMPLOG_ERR("regex exception in Calling CacheFragment: %s", e.what());
+			}
+			if(!temp)
+			{
+				AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), mMediaStreamContext[i]->fragmentTime); //CID:84438 - checked return
+			}
+		}
+	}
+}
+
+/**
+ * @brief Push encrypted headers if available
+ * return true for a successful encypted init fragment push
+ */
+bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& mappedHeaders)
 {
 	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool ret = false;
@@ -8465,20 +8530,8 @@ bool StreamAbstractionAAMP_MPD::PushEncryptedHeaders()
 										 FragmentDescriptor *fragmentDescriptorCMCD(fragmentDescriptor);
 										GetFragmentUrl(fragmentUrl,fragmentDescriptorCMCD , initialization);
 
+										mappedHeaders[i] = fragmentUrl;
 
-										//As a part of RDK-35897 update the next segment for download
-										//aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)fragmentDescriptor->Number,
-										//		fragmentDescriptor->Bandwidth,(MediaType)i);
-										if (mMediaStreamContext[i]->WaitForFreeFragmentAvailable())
-										{
-											AAMPLOG_WARN("Pushing encrypted header for %s", getMediaTypeName(MediaType(i)));
-											//Set the last parameter (overWriteTrackId) true to overwrite the track id if ad and content has different track ids
-											bool temp =  mMediaStreamContext[i]->CacheFragment(fragmentUrl, (eCURLINSTANCE_VIDEO + mMediaStreamContext[i]->mediaType), mMediaStreamContext[i]->fragmentTime, 0.0, NULL, true, false, false, 0, 0, true);
-											if(!temp)
-											{
-												AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), mMediaStreamContext[i]->fragmentTime); //CID:84438 - checked return
-											}
-										}
 										SAFE_DELETE(fragmentDescriptor);
 										ret = true;
 										encryptionFound = true;
@@ -8502,7 +8555,6 @@ bool StreamAbstractionAAMP_MPD::PushEncryptedHeaders()
 	}
 	return ret;
 }
-
 
 /**
  * @brief Fetches and caches audio fragment parallelly for video fragment.
@@ -9610,7 +9662,12 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		}
 	}
 
-	aamp->mStreamSink->ClearProtectionEvent();
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+	if (sink)
+	{
+		sink->ClearProtectionEvent();
+	}
+
 	if (clearChannelData)
 	{
 #ifdef AAMP_MPD_DRM
@@ -11582,16 +11639,21 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 								{
 									if ( pAampLLDashServiceData->maxPlaybackRate == aamp->GetLLDashCurrentPlayBackRate() )
 									{
-										if(false == aamp->mStreamSink->SetPlayBackRate(playRate))
+										StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+
+										if (sink)
 										{
-											AAMPLOG_WARN("[LATENCY_STATUS_%d] SetPlayBackRate: failed, rate:%f", latencyStatus,playRate);
-										}
-										else
-										{
-											rateCorrected = true;
-											aamp->UpdateVideoEndMetrics(playRate);
-											aamp->SendAnomalyEvent(ANOMALY_WARNING, "Rate changed to:%lf", playRate);
-											AAMPLOG_TRACE("[LATENCY_STATUS_%d] SetPlayBackRate: success", latencyStatus);
+											if(false == sink->SetPlayBackRate(playRate))
+											{
+												AAMPLOG_WARN("[LATENCY_STATUS_%d] SetPlayBackRate: failed, rate:%f", latencyStatus,playRate);
+											}
+											else
+											{
+												rateCorrected = true;
+												aamp->UpdateVideoEndMetrics(playRate);
+												aamp->SendAnomalyEvent(ANOMALY_WARNING, "Rate changed to:%lf", playRate);
+												AAMPLOG_TRACE("[LATENCY_STATUS_%d] SetPlayBackRate: success", latencyStatus);
+											}
 										}
 									}
 								}
@@ -11600,7 +11662,31 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 								{
 									if ( pAampLLDashServiceData->minPlaybackRate == aamp->GetLLDashCurrentPlayBackRate() )
 									{
-										if(false == aamp->mStreamSink->SetPlayBackRate(playRate))
+										StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+
+										if (sink)
+										{
+											if(false == sink->SetPlayBackRate(playRate))
+											{
+												AAMPLOG_WARN("[LATENCY_STATUS_%d] SetPlayBackRate: failed, rate:%f", latencyStatus,playRate);
+											}
+											else
+											{
+												rateCorrected = true;
+												AAMPLOG_TRACE("[LATENCY_STATUS_%d] SetPlayBackRate: success", latencyStatus);
+											}
+										}
+									}
+								}
+								break;
+								case LATENCY_STATUS_MIN:
+								case LATENCY_STATUS_MAX:
+								{
+									StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+
+									if (sink)
+									{
+										if(false == sink->SetPlayBackRate(playRate))
 										{
 											AAMPLOG_WARN("[LATENCY_STATUS_%d] SetPlayBackRate: failed, rate:%f", latencyStatus,playRate);
 										}
@@ -11609,20 +11695,6 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 											rateCorrected = true;
 											AAMPLOG_TRACE("[LATENCY_STATUS_%d] SetPlayBackRate: success", latencyStatus);
 										}
-									}
-								}
-								break;
-								case LATENCY_STATUS_MIN:
-								case LATENCY_STATUS_MAX:
-								{
-									if(false == aamp->mStreamSink->SetPlayBackRate(playRate))
-									{
-										AAMPLOG_WARN("[LATENCY_STATUS_%d] SetPlayBackRate: failed, rate:%f", latencyStatus,playRate);
-									}
-									else
-									{
-										rateCorrected = true;
-										AAMPLOG_TRACE("[LATENCY_STATUS_%d] SetPlayBackRate: success", latencyStatus);
 									}
 								}
 								break;
@@ -11647,16 +11719,21 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 		}
 		else
 		{
-			if((aamp->DownloadsAreEnabled() || aamp->mbSeeked) && aamp->mStreamSink && (rate == AAMP_NORMAL_PLAY_RATE && (DEFAULT_NORMAL_RATE_CORRECTION_SPEED != aamp->GetLLDashCurrentPlayBackRate())))
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+
+			if (sink)
 			{
-				if(aamp->mStreamSink->SetPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED))
+				if((aamp->DownloadsAreEnabled() || aamp->mbSeeked) && (rate == AAMP_NORMAL_PLAY_RATE && (DEFAULT_NORMAL_RATE_CORRECTION_SPEED != aamp->GetLLDashCurrentPlayBackRate())))
 				{
-					AAMPLOG_INFO("SetPlayBackRate: reset");
-					aamp->SetLLDashCurrentPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED);
-				}
-				else
-				{
-					AAMPLOG_WARN("SetPlayBackRate: reset failed");
+					if(sink->SetPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED))
+					{
+						AAMPLOG_INFO("SetPlayBackRate: reset");
+						aamp->SetLLDashCurrentPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED);
+					}
+					else
+					{
+						AAMPLOG_WARN("SetPlayBackRate: reset failed");
+					}
 				}
 			}
 			AAMPLOG_WARN("Stopping Thread");
@@ -12261,7 +12338,7 @@ void StreamAbstractionAAMP_MPD::ProcessAllContenProtForMediaType(MediaType type,
 				// Only enabled for video streams for now
 				if (eMEDIATYPE_VIDEO == type && !IsIframeTrack(adaptationSet))
 				{
-					// No need to queue protection event in mStreamSink for remaining adaptation sets
+					// No need to queue protection event in GetStreamSink() for remaining adaptation sets
 					// For encrypted iframe, the contentprotection is already queued in StreamSelection
 					QueueContentProtection(period, iAdaptationSet, type, false);
 				}

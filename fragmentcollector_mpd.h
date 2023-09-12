@@ -191,6 +191,7 @@ public:
          *
          */
 	StreamAbstractionAAMP_MPD& operator=(const StreamAbstractionAAMP_MPD&) = delete;
+
 	void Start() override;
 	/**
 	 * @fn Stop
@@ -618,9 +619,13 @@ private:
 	bool CheckForInitalClearPeriod();
 	/**
 	 * @fn PushEncryptedHeaders
+	 */
+	void PushEncryptedHeaders(std::map<int, std::string>& mappedHeaders);
+	/**
+	 * @fn GetEncryptedHeaders
 	 * @return bool
 	 */
-	bool PushEncryptedHeaders();
+	bool GetEncryptedHeaders(std::map<int, std::string>& mappedHeaders);
 	/**
 	 * @fn GetProfileIdxForBandwidthNotification
 	 * @param bandwidth - bandwidth to identify profile index from list

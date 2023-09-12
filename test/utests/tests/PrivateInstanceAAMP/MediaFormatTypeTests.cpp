@@ -49,10 +49,8 @@ protected:
 
         mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-        g_mockAampGstPlayer = new MockAAMPGstPlayer(mLogObj, mPrivateInstanceAAMP);
         g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mLogObj, mPrivateInstanceAAMP);
 
-        mPrivateInstanceAAMP->mStreamSink = g_mockAampGstPlayer;
         mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
     }
 
@@ -63,9 +61,6 @@ protected:
 
         delete g_mockStreamAbstractionAAMP;
         g_mockStreamAbstractionAAMP = nullptr;
-
-        delete g_mockAampGstPlayer;
-        g_mockAampGstPlayer = nullptr;
 
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
