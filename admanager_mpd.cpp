@@ -299,7 +299,6 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 								AAMPLOG_INFO("currperioddur : [%f] curAd.duration : %lld periodDelta : %f mPlacementObj.adNextOffset:%u diff : %lld",currperioddur,curAd.duration,periodDelta,mPlacementObj.adNextOffset,(curAd.duration - mPlacementObj.adNextOffset));
 								curAd.placed = true;
 								currentAdPeriodClosed = true;
-								isSrcdurnotequalstoaddur = false;
 								//Place the end markers of adbreak
 								setAdMarkers(p2AdData.duration,periodDelta);
 								AAMPLOG_INFO("[CDAI] Current Ad completely placed.end period:%s end period offset:%llu adjustEndPeriodOffset:%d",periodId.c_str(),abObj.endPeriodOffset,abObj.adjustEndPeriodOffset);
@@ -337,7 +336,6 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 						else
 						{
 							//No more ads to place & No sufficient space to finalize. Wait for next period/next mpd refresh.
-							isSrcdurnotequalstoaddur = false;
 							break;
 						}
 					}
