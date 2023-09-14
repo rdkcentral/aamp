@@ -24,6 +24,7 @@ The following streams are generated:
 - FragmentedMp4.m3u8
 - HlsTs.m3u8
 
+DASH manifests including SCTE-35 signals for dynamic ad insertion can also be generated.
 
 ## generate hls and dash stream
 
@@ -172,3 +173,88 @@ web server. Use the --all option to support all filename extensions.
 By default, only locally run applications can use the web server **server.py**.
 Use the --hostname 0.0.0.0 option to allow access from applications running on
 other machines.
+
+# SCTE-35 Ad Insertion
+
+DASH manifests including SCTE-35 signals for dynamic ad insertion can be
+generated and played by AAMP using the server.
+
+## Generating the DASH manifest
+
+Create a JSON file with a description of the ad break. For example,
+**tests/adbreak.json**:
+
+```
+[
+ {"type":"Break Start", "time":30.0, "duration":34.0, "event_id":1},
+ {"type":"Provider Advertisement Start", "time":32.0, "duration":30.0, "event_id":2},
+ {"type":"Provider Advertisement End", "time":62.0, "event_id":2},
+ {"type":"Break End", "time":64.0, "event_id":1}
+]
+```
+
+This describes a 34 second break containing a 30 second ad with id 2.
+
+On Ubuntu for example, generate a DASH manifest for this using the Python3
+script **helper/scte35.py**:
+
+```
+$ cd aamp/tests/VideoTestStream
+$ helper/scte35.py mpd tests/adbreak.json > adbreak.mpd
+```
+
+Merge this with the DASH manifest **main.mpd**:
+
+```
+$ helper/manifest.py merge adbreak.mpd main.mpd > main_with_adbreak.mpd
+```
+
+## Playing the DASH manifest
+
+To play this stream with ad, you will need to have generated the Video Test
+Stream using **generate-hls-dash.sh** as described above. You will also need
+the Video Test Stream server which supports DASH live simulation
+(see above).
+
+Configure AAMP to enable dynamic ad insertion. For example:
+
+```
+$ cat ~/aamp.cfg
+client-dai=true
+```
+
+For example, on Ubuntu, in one terminal window:
+
+```
+$ cd aamp
+$ LD_LIBRARY_PATH=./Linux/lib ./Linux/bin/aamp-cli
+```
+
+Add an ad to play - actually 30s of the Video Test Stream itself.
+
+```
+[AAMPCLI] Enter cmd: advert add http://localhost:8080/main.mpd?maxduration=30 30
+```
+
+In a second terminal window, start the server:
+
+```
+$ cd aamp/tests/VideoTestStream
+$ ./startserver.sh
+```
+
+In the first terminal window, quickly start playing the stream with the ad
+break simulating a live stream:
+
+```
+[AAMPCLI] Enter cmd: http://localhost:8080/main_with_adbreak.mpd?live=true
+```
+
+Do this quickly after starting the server, otherwise the playback point will be
+too close to the ad break for the ad substitution to succeed.
+
+At 32 seconds, the ad should be played, which is just the test stream starting
+from the beginning. After another 30 seconds, playback of the live stream should
+resume at position 00:01:02.
+
+Use the exit command to stop AAMP and Ctrl-C to terminate the server.
