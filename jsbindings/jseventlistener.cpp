@@ -1532,7 +1532,7 @@ public:
  * @brief Event listener impl for AAMP_EVENT_MANIFEST_REFRESH_NOTIFY event.
  */
 
-class AAMP_JSListener_DashManifestRefreshNotify : public AAMP_JSEventListener
+class AAMP_Listener_DashManifestRefreshNotify : public AAMP_JSEventListener
 {
 public:
     /**
@@ -1540,7 +1540,7 @@ public:
      * @param[in] type event type
      * @param[in] jsCallback callback to be registered as listener
 	 */
-	AAMP_JSListener_DashManifestRefreshNotify(PrivAAMPStruct_JS *obj, AAMPEventType type, JSObjectRef jsCallback)
+	AAMP_Listener_DashManifestRefreshNotify(PrivAAMPStruct_JS *obj, AAMPEventType type, JSObjectRef jsCallback)
 		: AAMP_JSEventListener(obj, type, jsCallback)
     {
     }
@@ -1747,7 +1747,7 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 			pListener = new AAMP_Listener_ContentProtectionData(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_MANIFEST_REFRESH_NOTIFY:
-			pListener = new AAMP_JSListener_DashManifestRefreshNotify(obj, type, jsCallback);
+			pListener = new AAMP_Listener_DashManifestRefreshNotify(obj, type, jsCallback);
 			break;
 		// Following events are not having payload and hence falls under default case
 		// AAMP_EVENT_EOS, AAMP_EVENT_TUNED, AAMP_EVENT_ENTERING_LIVE,
