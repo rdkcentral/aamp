@@ -714,7 +714,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 		if (!((aamp->rate == AAMP_NORMAL_PLAY_RATE && rate == 0) || (aamp->pipeline_paused && rate == AAMP_NORMAL_PLAY_RATE)))
 		{
 			// when switching from trick to play mode only
-			if(aamp->rate && ( AAMP_SLOWMOTION_RATE == rate || rate == AAMP_NORMAL_PLAY_RATE) && !aamp->pipeline_paused)
+			// only do this when overshootcorrection is specified by the application
+			if ((overshootcorrection > 0) &&
+				(aamp->rate && ( AAMP_SLOWMOTION_RATE == rate || rate == AAMP_NORMAL_PLAY_RATE) && !aamp->pipeline_paused))
 			{
 				const auto seek_pos_seconds_copy = aamp->seek_pos_seconds;	//ensure the same value of seek_pos_seconds used in the check is logged
 				if(!SeekInfo.isPositionValid(seek_pos_seconds_copy))
