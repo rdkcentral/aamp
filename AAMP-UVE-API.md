@@ -310,6 +310,13 @@ July 2023 Release update
 - API
     - getVideoPlaybackQuality
 
+**Version:** 5.8
+**Release Notes:**
+September 2023 Release update
+- API
+    - resetConfiguration
+    - getConfiguration
+
 <div style="page-break-after: always;"></div>
 
 ## Abbreviation Summary 
@@ -601,7 +608,7 @@ Usage example:
 - Optional API that can be used to quickly stop playback of active stream before transitioning to next prebuffered stream.
 
 ##### Example:
-
+```js
 
       {
           var player = new AAMPMediaPlayer();
@@ -617,6 +624,15 @@ Usage example:
           adPlayer.play(); // activate background player (fast transition)
           player.stop(); // release remaining resources for initial player instance
       }
+```
+---
+
+### resetConfiguration()
+- API that can be used to reset the player instance configuration to default values that can be called by the application any time necesssary.
+---
+
+### getConfiguration()
+- API that can be used to retrieve player configuration.
 
 ---
 

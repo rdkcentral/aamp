@@ -693,6 +693,66 @@ JSValueRef AAMPMediaPlayerJS_detach (JSContextRef ctx, JSObjectRef function, JSO
 }
 
 /**
+ * @brief API invoked from JS when executing AAMPMediaPlayer.getConfiguration()
+ * @param[in] ctx JS execution context
+ * @param[in] function JSObject that is the function being called
+ * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
+ * @param[in] argumentCount number of args
+ * @param[in] arguments[] JSValue array of args
+ * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
+ * @retval JSValue that is the function's return value
+ */
+JSValueRef AAMPMediaPlayerJS_getConfiguration (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+	LOG_TRACE("Enter");
+	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
+	if (!privObj || !privObj->_aamp)
+	{
+        	LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
+		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call getConfiguration() on instances of AAMPPlayer");
+		return JSValueMakeUndefined(ctx);
+	}
+	std::string value = privObj->_aamp->GetAAMPConfig();
+	if (!value.empty())
+	{
+        	LOG_INFO(privObj," _aamp->GetConfiguration() value=[%s]",value.c_str());
+		return aamp_CStringToJSValue(ctx, value.c_str());
+	}
+	else
+        {
+                LOG_WARN(privObj,"_aamp->GetConfiguration() value=NULL");
+        }
+    	LOG_TRACE("Exit");
+	return JSValueMakeUndefined(ctx);
+}
+
+/**
+ * @brief API invoked from JS when executing AAMPMediaPlayer.resetConfiguration()
+ * @param[in] ctx JS execution context
+ * @param[in] function JSObject that is the function being called
+ * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
+ * @param[in] argumentCount number of args
+ * @param[in] arguments[] JSValue array of args
+ * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
+ * @retval JSValue that is the function's return value
+ */
+JSValueRef AAMPMediaPlayerJS_resetConfiguration (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{   LOG_TRACE("Enter");
+	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
+	if (!privObj || !privObj->_aamp)
+	{
+		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
+		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call resetConfiguration() on instances of AAMPPlayer");
+		return JSValueMakeUndefined(ctx);
+	}
+	LOG_WARN(privObj," _aamp->resetConfiguration");
+	privObj->_aamp->ResetConfiguration();
+
+	LOG_TRACE("Exit");
+	return JSValueMakeUndefined(ctx);
+}
+
+/**
  * @brief API invoked from JS when executing AAMPMediaPlayer.pause()
  * @param[in] ctx JS execution context
  * @param[in] function JSObject that is the function being called
@@ -3458,6 +3518,8 @@ static const JSStaticFunction AAMPMediaPlayer_JS_static_functions[] = {
 	{ "configRuntimeDRM", AAMPMediaPlayerJS_setRuntimeDRMConfig, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "isOOBCCRenderingSupported", AAMPMediaPlayerJS_isOOBCCRenderingSupported, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "getVideoPlaybackQuality", AAMPMediaPlayerJS_getVideoPlaybackQuality, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
+	{ "getConfiguration", AAMPMediaPlayerJS_getConfiguration, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
+	{ "resetConfiguration", AAMPMediaPlayerJS_resetConfiguration, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ NULL, NULL, 0 },
 };
 

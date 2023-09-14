@@ -299,6 +299,32 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		playerInstanceAamp->SeekToLive();
 	}
+	else if (isCommandMatch(cmd, "setconfig") )
+	{
+		char* AAMPcfg=new char[10000];
+		printf("\n Enter Config Json String [e.g. {\"abr\":true,\"fog\":true}  ]: ");
+		scanf("%s",AAMPcfg);
+		if(AAMPcfg)
+		{
+			playerInstanceAamp->InitAAMPConfig(AAMPcfg);
+			printf("\nconfig set\n");
+		}
+		SAFE_DELETE_ARRAY(AAMPcfg);
+	}
+	else if (isCommandMatch(cmd, "getconfig") )
+	{
+		std::string cfgstring=playerInstanceAamp->GetAAMPConfig();
+		if(!cfgstring.empty())
+		{
+			printf("config:  \n%s\n",cfgstring.c_str());
+		}
+		else
+			printf("Error : Config is Empty ");
+	}
+	else if (isCommandMatch(cmd, "resetconfig") )
+	{
+		playerInstanceAamp->ResetConfiguration();
+	}
 	else if( isCommandMatch(cmd,"quiet") )
 	{
 		gAampcliQuietLogs = !gAampcliQuietLogs;
@@ -642,6 +668,9 @@ void PlaybackCommand::registerPlaybackCommands()
 	// simulated events
 	addCommand("retune","Retune to current locator");
 	addCommand("flush","Flush AV pipeline");
+	addCommand("setconfig","Set the Configuration of the player using a string in json format");
+	addCommand("getconfig","Get the current Configuration of the player instance");
+	addCommand("resetconfig","Reset the Configuration of the player instance");
 	addCommand("underflow","Simulate underflow");
 	addCommand("lock","Lock parental control");
 	addCommand("unlock <t>","Unlock parental control; <t> for timed unlock in seconds>");
