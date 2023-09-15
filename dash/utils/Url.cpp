@@ -60,6 +60,7 @@
 #include <cstdint>
 #include <iostream>
 #include "StringEx.h"
+#include <arpa/inet.h>
 
 #include "AampLogManager.h"
 #include "AampConfig.h"
@@ -454,109 +455,20 @@ namespace {
      * @retval  normalized lowered string
      */
     std::string normalize_IPv6(const char *s, const char *e) {
-        if (!is_ipv6(s, e)) {
-            AAMPLOG_ERR("%s", ("parse_error: IPv6 ["+std::string(s,e-s)+"] is invalid").c_str());
-            return std::string();
-        }
-        
-        if ((e-s)==2 && s[0]==':' && s[1]==':')
-            return std::string(s,e-s);
-
-        // Split IPv6 at colons
-        const char *p=s, *tokens[10];
-        if (*p==':')
-            ++p;
-        if (e[-1]==':')
-            --e;
-        const char *b=p;
-        size_t i=0;
-        while (p!=e) {
-            if (*p++==':') {
-                tokens[i++]=b;
-                b=p;
+        std::string rc("");
+        struct sockaddr_in6 saddr_in;
+        char pattern[INET6_ADDRSTRLEN] = {0};
+        size_t len = e-s;
+        if( len < INET6_ADDRSTRLEN )
+        {
+            memset( pattern, 0, INET6_ADDRSTRLEN);
+            memcpy( pattern, s, len );
+            if( inet_pton(AF_INET6, pattern, &saddr_in) )
+            {
+                rc = inet_ntop(AF_INET6, &saddr_in, pattern, INET6_ADDRSTRLEN);
             }
         }
-        if (i<8)
-            tokens[i++]=b;
-        tokens[i]=p;
-        size_t ntokens=i;
-
-        // Get IPv4 address which is normalized by default
-        const char *ipv4_b=nullptr, *ipv4_e=nullptr;
-        if ((tokens[ntokens]-tokens[ntokens-1])>5) {
-            ipv4_b=tokens[ntokens-1];
-            ipv4_e=tokens[ntokens];
-            --ntokens;
-        }
-
-        // Decode the fields
-        std::uint16_t fields[8];
-        size_t null_pos=8, null_len=0, nfields=0;
-        for(size_t i=0; i<ntokens; ++i) {
-            const char *p=tokens[i];
-            if (p==tokens[i+1] || *p==':')
-                null_pos=i;
-            else {
-                std::uint16_t field=get_hex_digit(*p++);
-                while (p!=tokens[i+1] && *p!=':')
-                    field=(field<<4)|get_hex_digit(*p++);
-                fields[nfields++]=field;
-            }
-        }
-        i = nfields;
-        nfields=(ipv4_b)?6:8;
-        if (i<nfields) {
-            size_t last=nfields;
-            if (i!=null_pos)
-                do fields[--last]=fields[--i]; while (i!=null_pos);
-            do fields[--last]=0; while (last!=null_pos);
-        }
-
-        // locate first longer sequence of zero
-        i=null_len=0;
-        null_pos=nfields;
-        size_t first=0;
-        for(;;) {
-            while (i<nfields && fields[i]!=0)
-                ++i;
-            if (i==nfields)
-                break;
-            first=i;
-            while (i<nfields && fields[i]==0)
-                ++i;
-            if ((i-first)>null_len) {
-                null_pos=first;
-                null_len=i-first;
-            }
-            if (i==nfields)
-                break;
-        }
-        if (null_len==1) {
-            null_pos=nfields;
-            null_len=1;
-        }
-
-        // Encode normalized IPv6
-        std::stringstream str;
-        if (null_pos==0) {
-            str << std::hex << ':';
-            i=null_len;
-        } else {
-            str << std::hex << fields[0];
-            for (i=1; i<null_pos; ++i)
-                str << ':' << fields[i];
-            if (i<nfields)
-                str << ':';
-            i+=null_len;
-            if (i==8 && null_len!=0)
-                str << ':';
-        }
-        for (; i<nfields; ++i)
-            str << ':' << fields[i];
-        if (ipv4_b)
-            str << ':' << std::string(ipv4_b, ipv4_e-ipv4_b);
-
-        return str.str();
+        return rc;
     }
 
 
