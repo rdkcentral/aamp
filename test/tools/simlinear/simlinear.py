@@ -64,8 +64,12 @@ list_of_rules = {}
 list_of_webServer = {}
 list_of_threads = {}
 list_of_processes = {}
+
+refreshVal = -1
+numOfRequests = 0
 # havest_process
 shutdown = False
+restart = True
 
 def normalize_query_param(value):
     """
@@ -260,6 +264,12 @@ class DASHServerHandler(BaseHTTPRequestHandler):
         """
         Handler for http get
         """
+        
+        global numOfRequests
+        global refreshVal
+        global list_of_threads
+        global restart
+        global shutdown
         # path=/some/kind/of/path?query
         # becomes some/kind/of/path
         path = self.path[1:].split("?")[0]
@@ -270,6 +280,21 @@ class DASHServerHandler(BaseHTTPRequestHandler):
 
         try:
             if self.path.endswith(".mpd"):
+                if refreshVal > 0:
+                    numOfRequests += 1
+                    print()
+                    print("Request:", numOfRequests)
+                    if numOfRequests == refreshVal:
+                        port = list(list_of_threads.keys())[0]
+                        self.send_response(408)
+                        self.end_headers()
+                        
+                        self.connection.close()
+                        
+                        restart = True
+                        shutdown = True
+                        
+                        return;
                 rtn = dash_server.dash_get_manifest(path)
                 if not rtn:
                     raise FileNotFoundError
@@ -329,6 +354,13 @@ class HLSServerHandler(BaseHTTPRequestHandler):
         """
         Handler for http get
         """
+        
+        global numOfRequests
+        global refreshVal
+        global list_of_threads
+        global restart
+        global shutdown
+        
         path = self.path[1:]
 
         if self.path.endswith(".mpd"):
@@ -337,6 +369,21 @@ class HLSServerHandler(BaseHTTPRequestHandler):
 
         try:
             if ".m3u8" in self.path:
+                if refreshVal > 0:
+                    numOfRequests += 1
+                    print()
+                    print("Request:", numOfRequests)
+                    if numOfRequests == refreshVal:
+                        port = list(list_of_threads.keys())[0]
+                        self.send_response(408)
+                        self.end_headers()
+                        
+                        self.connection.close()
+                        
+                        restart = True
+                        shutdown = True
+                        
+                        return;
                 rtn_path = hls_server.manifest_serve(path)
                 if not rtn_path:
                     raise FileNotFoundError
@@ -369,7 +416,7 @@ def start_web_server(port, abr_type):
     global list_of_webServer
 
     if port in list_of_webServer:
-        log.error(f"A server is allready assigned for port = {port}")
+        log.error(f"A server is already assigned for port = {port}")
         return
     elif abr_type == "HLS":
         # Start a HLS server
@@ -438,7 +485,7 @@ def init_routes():
             list_of_threads[port].start()
             return jsonify({"result": "success"}), 200
         else:
-            return jsonify({"result": "fail- port used allready"}), 400
+            return jsonify({"result": "fail- port used already"}), 400
 
     @app.route("/sim/stop", methods=["GET", "POST"])
     @use_args({"port": webargs.fields.Str(required=False)}, location="query")
@@ -737,49 +784,57 @@ if __name__ == "__main__":
     CMD_PORT=args.port
 
     app = Flask(__name__)
-
+    
     init_routes()
+    
+    while restart == True:
+    
+        restart = False
+      
+        if args.refresh:
+            refreshVal = args.refresh
 
-    if args.hls:
-        list_of_threads[args.hls] = threading.Thread(
-            target=lambda: start_web_server(args.hls, "HLS"), daemon=True
-        )
-        list_of_threads[args.hls].start()
-    elif args.dash:
-        if args.offset:
-            time_offset = duration_to_seconds(args.offset)
-            dash_server.set_offset_time(time_offset)
-            list_of_threads[args.dash] = threading.Thread(
-            target=lambda: start_web_server(args.dash, "DASH"), daemon=True
-        )
-        list_of_threads[args.dash].start()
-    else:
-        threading.Thread(
-            target=lambda: app.run(
-                host=hostName, port=CMD_PORT, debug=True, use_reloader=False
-            ),
-            daemon=True,
-        ).start()
-
-    while shutdown == False:
-        time.sleep(1)
-    if restart:
         if args.hls:
-            #list_of_threads[args.hls].join()
-            del list_of_threads[args.hls]
-            list_of_webServer[args.hls]["proc"].server_close()
-            del list_of_webServer[args.hls]
-                
+            list_of_threads[args.hls] = threading.Thread(
+                target=lambda: start_web_server(args.hls, "HLS"), daemon=True
+            )
+            list_of_threads[args.hls].start()
         elif args.dash:
-            #list_of_threads[args.dash].join()
-            del list_of_threads[args.dash]
-            list_of_webServer[args.dash]["proc"].server_close()
-            del list_of_webServer[args.dash]
-        shutdown = False
-        time.sleep(5)
-        print("Restarting...")
-    else:
-        print("Did get shutdown")
+            if args.offset:
+                time_offset = duration_to_seconds(args.offset)
+                dash_server.set_offset_time(time_offset)
+                list_of_threads[args.dash] = threading.Thread(
+                target=lambda: start_web_server(args.dash, "DASH"), daemon=True
+            )
+            list_of_threads[args.dash].start()
+        else:
+            threading.Thread(
+                target=lambda: app.run(
+                    host=hostName, port=CMD_PORT, debug=True, use_reloader=False
+                ),
+                daemon=True,
+            ).start()
+
+
+        while shutdown == False:
+            time.sleep(1)
+        if restart:
+            if args.hls:
+                #list_of_threads[args.hls].join()
+                del list_of_threads[args.hls]
+                list_of_webServer[args.hls]["proc"].server_close()
+                del list_of_webServer[args.hls]
+                
+            elif args.dash:
+                #list_of_threads[args.dash].join()
+                del list_of_threads[args.dash]
+                list_of_webServer[args.dash]["proc"].server_close()
+                del list_of_webServer[args.dash]
+            shutdown = False
+            time.sleep(5)
+            print("Restarting...")
+        else:
+            print("Did get shutdown")
     # app.run(debug=True,port = 5001)
 
     # time.sleep(5)
