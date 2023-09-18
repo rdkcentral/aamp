@@ -106,6 +106,10 @@ install_system_packages() {
     cd googletest
     git checkout $googletestreference
     mkdir build
+
+    # allow XCode to clean build folder
+    xattr -w com.apple.xcode.CreatedByBuildSystem true build
+
     cd build
     cmake ../
     make
