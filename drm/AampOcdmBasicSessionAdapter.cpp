@@ -57,7 +57,7 @@ int AAMPOCDMBasicSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV,
 	}
 	EncryptionScheme encScheme = AesCtr_Cenc;
 	EncryptionPattern pattern = {0};
-
+	/* CID:313823 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
 	int retvalue = opencdm_session_decrypt(m_pOpenCDMSession,
 										   dataToSend,
 										   sizeToSend,

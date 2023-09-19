@@ -304,6 +304,7 @@ int AAMPOCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuff
 		}
 		else
 #endif
+			/* CID:328751 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
 			retValue = opencdm_gstreamer_session_decrypt(m_pOpenCDMSession, buffer, subSamplesBuffer, subSampleCount, ivBuffer, keyIDBuffer, 0);
 		end_decrypt_time = GetCurrentTimeStampInMSec();
 		if (retValue != 0)
@@ -380,6 +381,7 @@ int AAMPOCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, c
 		start_decrypt_time = GetCurrentTimeStampInMSec();
 		EncryptionScheme encScheme = AesCtr_Cenc;
 		EncryptionPattern pattern = {0};
+		/* CID:313718 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
 		retValue = opencdm_session_decrypt(m_pOpenCDMSession, (uint8_t *)payloadData, payloadDataSize, encScheme, pattern, f_pbIV, f_cbIV, NULL, 0, 0);
 		if (retValue != 0)
 		{
