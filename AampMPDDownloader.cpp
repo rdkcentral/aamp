@@ -1004,11 +1004,14 @@ void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void 
 	std::unique_lock<std::mutex> lck2(mMPDNotifierMtx);
 	AAMPLOG_INFO("Register for Callback ");
 	if(fnPtr !=NULL && mManifestUpdateCb == NULL)
-	{
-		mManifestUpdateCb       =		fnPtr;
-		mManifestUpdateCbArg	=		cbArg;
+	{	
+		lck2.unlock(); 
 		if(mDownloadNotifierThread.joinable())
 			mDownloadNotifierThread.join();
+		lck2.lock();
+
+		mManifestUpdateCb       =		fnPtr;
+		mManifestUpdateCbArg	=		cbArg;
 		// Start thread for sending manifest updates
 		mDownloadNotifierThread = std::thread(&AampMPDDownloader::downloadNotifierThread, this);
 		AAMPLOG_INFO("Thread created for MPD Download notification [%lu]", GetPrintableThreadID(mDownloadNotifierThread));
