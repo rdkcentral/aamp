@@ -58,3 +58,32 @@ TEST_F(AampGstUtilsTests, esMP3test)
 
     EXPECT_TRUE(GetGstCaps(FORMAT_AUDIO_ES_MP3)==caps);
 }
+
+TEST_F(AampGstUtilsTests, GstCapsFormatsTest)
+{
+    GstCaps dummycapslist;
+    GstCaps *caps{&dummycapslist};
+    StreamOutputFormat GstCapsFormats[16] = {
+	FORMAT_MPEGTS,
+	FORMAT_ISO_BMFF,
+	FORMAT_AUDIO_ES_MP3,
+	FORMAT_AUDIO_ES_AAC,
+	FORMAT_AUDIO_ES_AC3,
+	FORMAT_AUDIO_ES_AC4,
+	FORMAT_SUBTITLE_TTML,
+	FORMAT_SUBTITLE_WEBVTT,
+	FORMAT_SUBTITLE_MP4,
+	FORMAT_AUDIO_ES_ATMOS,
+	FORMAT_AUDIO_ES_EC3,
+	FORMAT_VIDEO_ES_H264,
+	FORMAT_VIDEO_ES_HEVC,
+	FORMAT_VIDEO_ES_MPEG2,
+	FORMAT_UNKNOWN,
+	FORMAT_INVALID
+    };
+
+    for(int i=0;i<16;i++){
+    GetGstCaps(GstCapsFormats[i]);
+    ASSERT_FALSE(GetGstCaps(GstCapsFormats[i]));
+    }
+}
