@@ -111,7 +111,7 @@ public:
 	StreamInfo cacheFragStreamInfo; /**< Bitrate info of the fragment */
 	MediaType   type;               /**< MediaType info of the fragment */
 	
-    CachedFragment() : fragment(AampGrowableBuffer()), position(0.0), duration(0.0), initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()), type(eMEDIATYPE_DEFAULT)
+    CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0), initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()), type(eMEDIATYPE_DEFAULT)
     {
         memset(  &cacheFragStreamInfo, 0, sizeof(cacheFragStreamInfo) );
     }
@@ -128,7 +128,7 @@ public:
 	MediaType   type; 		/**< MediaType info of the fragment */
 	long long downloadStartTime;	/**< The start time of file download */
 	
-    CachedFragmentChunk() : fragmentChunk(AampGrowableBuffer()), type(eMEDIATYPE_DEFAULT), downloadStartTime(0){}
+    CachedFragmentChunk() : fragmentChunk(AampGrowableBuffer("cached-fragment-chunk")), type(eMEDIATYPE_DEFAULT), downloadStartTime(0){}
 };
 
 /**

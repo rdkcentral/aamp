@@ -68,7 +68,7 @@ void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGr
 				if(cacheStoreReady)
 				{
 					tmpData = new PlayListCachedData();
-					tmpData->mCachedBuffer = new AampGrowableBuffer();
+					tmpData->mCachedBuffer = new AampGrowableBuffer("playlist-cachedBuffer");
 					tmpData->mCachedBuffer->AppendBytes( buffer->GetPtr(), buffer->GetLen() );
 
 					tmpData->mEffectiveUrl = effectiveUrl;
@@ -425,7 +425,7 @@ void AampCacheHandler::InsertToInitFragCache(const std::string url, const AampGr
 	else
 	{
 		NewInitData = new playlistcacheddata();
-		NewInitData->mCachedBuffer = new AampGrowableBuffer();
+		NewInitData->mCachedBuffer = new AampGrowableBuffer("playlist-cached-data");
 		NewInitData->mCachedBuffer->AppendBytes( buffer->GetPtr(), buffer->GetLen() );
 
 		NewInitData->mEffectiveUrl = effectiveUrl;

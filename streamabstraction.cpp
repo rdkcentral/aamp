@@ -883,7 +883,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	{
 		AAMPLOG_TRACE("[%s] unparsed[%p] unparsed_size[%zu]", name,unParsedBuffer,unParsedBufferSize);
 
-		AampGrowableBuffer tempBuffer;
+		AampGrowableBuffer tempBuffer("tempBuffer");
 		//(&tempBuffer,0x00,sizeof(AampGrowableBuffer));
 		tempBuffer.AppendBytes(unParsedBuffer,unParsedBufferSize);
 		unparsedBufferChunk.Free();
@@ -1434,7 +1434,7 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 		discontinuityProcessed(false), ptsError(false), cachedFragment(NULL), name(name), type(type), aamp(aamp),
 		mutex(), fragmentFetched(), fragmentInjected(), abortInject(false),
 		mSubtitleParser(), refreshSubtitles(false), maxCachedFragmentsPerTrack(0),
-		totalMdatCount(0), cachedFragmentChunks{}, unparsedBufferChunk{}, parsedBufferChunk{}, fragmentChunkFetched(), fragmentChunkInjected(), abortInjectChunk(false), maxCachedFragmentChunksPerTrack(0),
+		totalMdatCount(0), cachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), abortInjectChunk(false), maxCachedFragmentChunksPerTrack(0),
 		noMDATCount(0), mLogObj(logObj)
 		,abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
@@ -3523,7 +3523,7 @@ void MediaTrack::PlaylistDownloader()
 		 */
 		if(aamp->DownloadsAreEnabled())
 		{
-			AampGrowableBuffer manifest;
+			AampGrowableBuffer manifest("download-PlaylistManifest");
 			// reset quickPlaylistDownload for live playlist
 			quickPlaylistDownload = false;
 			std::string manifestUrl = GetPlaylistUrl();

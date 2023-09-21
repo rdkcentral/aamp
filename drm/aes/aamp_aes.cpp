@@ -414,7 +414,7 @@ std::shared_ptr<AesDec> AesDec::GetInstance()
 AesDec::AesDec() : mpAamp(nullptr), mDrmState(eDRM_INITIALIZED),
 		mPrevDrmState(eDRM_INITIALIZED), mDrmUrl(""),
 		mCond(), mMutex(), mOpensslCtx(),
-		mDrmInfo(), mAesKeyBuf(), mCurlInstance(-1),
+		mDrmInfo(), mAesKeyBuf("aesKeyBuf"), mCurlInstance(-1),
 		licenseAcquisitionThreadId(),
 		licenseAcquisitionThreadStarted(false),
 		mAcquireKeyWaitTime(MAX_LICENSE_ACQ_WAIT_TIME)

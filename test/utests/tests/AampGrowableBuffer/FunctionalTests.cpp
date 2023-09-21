@@ -12,7 +12,7 @@ protected:
 };
 
 TEST_F(FunctionalTests, DestructorFunctionalTests) {
-    AampGrowableBuffer buffer;  // Create a new buffer for this test
+    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     // Act: Call the Free function
     buffer.~AampGrowableBuffer();
     // Assert: Check that properties are reset and memory is freed
@@ -22,7 +22,7 @@ TEST_F(FunctionalTests, DestructorFunctionalTests) {
 }
 
 TEST_F(FunctionalTests, FreeTest) {
-    AampGrowableBuffer buffer;  // Create a new buffer for this test
+    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     // Arrange: Allocate memory for the buffer and add some data
     buffer.ReserveBytes(10);
     buffer.AppendBytes("Test Data", 9);
@@ -37,7 +37,7 @@ TEST_F(FunctionalTests, FreeTest) {
 }
 
 TEST_F(FunctionalTests, ReserveBytesTest) {
-    AampGrowableBuffer buffer;  // Create a new buffer for this test
+    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     // Arrange: The buffer is set up in the fixture's SetUp()
     // Act: Call the ReserveBytes function
     size_t numBytesToReserve = 10;
@@ -50,7 +50,7 @@ TEST_F(FunctionalTests, ReserveBytesTest) {
 }
 
 TEST_F(FunctionalTests, AppendBytesTest) {
-    AampGrowableBuffer buffer;  // Create a new buffer for this test
+    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     // Arrange: The buffer is set up in the fixture's SetUp()
     const char* srcData = "Hello, World!";
     size_t srcLen = strlen(srcData);
@@ -65,7 +65,7 @@ TEST_F(FunctionalTests, AppendBytesTest) {
 }
 
 TEST_F(FunctionalTests, MoveBytesTest) {
-    AampGrowableBuffer buffer;  // Create a new buffer for this test
+    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     // Arrange: The buffer is set up in the fixture's SetUp()
     const char* srcData = "Hello, World!";
     size_t srcLen = strlen(srcData);
@@ -82,7 +82,7 @@ TEST_F(FunctionalTests, MoveBytesTest) {
 }
 
 TEST_F(FunctionalTests, AppendNulTerminatorTest) {
-    AampGrowableBuffer buffer;  // Create a new buffer for this test
+    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
 
     // Act: Call the AppendNulTerminator function
     buffer.AppendNulTerminator();
@@ -93,7 +93,7 @@ TEST_F(FunctionalTests, AppendNulTerminatorTest) {
 }
 
 TEST_F(FunctionalTests, ClearTest) {
-    AampGrowableBuffer buffer;  // Create a new buffer for this test
+    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     // Arrange: Add some data to the buffer
     buffer.AppendBytes("Test Data", 9);
 
@@ -104,10 +104,10 @@ TEST_F(FunctionalTests, ClearTest) {
 }
 
 TEST_F(FunctionalTests, ReplaceTest) {
-    AampGrowableBuffer buffer;  // Create a new buffer for this test
+    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     // Arrange: Set up two buffers - the source buffer and the destination buffer
     size_t numBytesToReserve = 10;
-    AampGrowableBuffer sourceBuffer;
+    AampGrowableBuffer sourceBuffer("buffer");
     sourceBuffer.AppendBytes("Hello", 5);
 
     // Act: Call the Replace function
@@ -126,7 +126,7 @@ TEST_F(FunctionalTests, ReplaceTest) {
 }
 
 TEST_F(FunctionalTests, TransferNonEmptyTest) {
-    AampGrowableBuffer buffer;  // Create a new buffer for this test
+    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     // Arrange: Add some data to the buffer
     buffer.AppendBytes("Test Data", 9);
 
@@ -142,7 +142,7 @@ TEST_F(FunctionalTests, TransferNonEmptyTest) {
 ////Test case is getting FAIL for UINT_MAX
 //TEST_F(FunctionalTests, ReserveBytesMaxNumBytesAssertTest) {
 
-//   AampGrowableBuffer buffer;  // Create a new buffer for this test
+//   AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
 //#if !defined(NDEBUG)
 //   ASSERT_DEATH(buffer.ReserveBytes(UINT_MAX), "");
 
@@ -154,7 +154,7 @@ TEST_F(FunctionalTests, TransferNonEmptyTest) {
 //These test cases cover larger buffer sizes (1K, 8K, 32K)
 
 TEST_F(FunctionalTests, Reserve1KBytesTest) {
-    AampGrowableBuffer buffer;  // Create a new buffer for this test
+    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     size_t numBytesToReserve = 1024; // 1K
 
     // Act: Call the ReserveBytes function
@@ -167,7 +167,7 @@ TEST_F(FunctionalTests, Reserve1KBytesTest) {
 }
 
 TEST_F(FunctionalTests, Reserve8KBytesTest) {
-    AampGrowableBuffer buffer;  // Create a new buffer for this test
+    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     size_t numBytesToReserve = 8192; // 8K
 
     // Act: Call the ReserveBytes function
@@ -180,7 +180,7 @@ TEST_F(FunctionalTests, Reserve8KBytesTest) {
 }
 
 TEST_F(FunctionalTests, Reserve32KBytesTest) {
-    AampGrowableBuffer buffer;  // Create a new buffer for this test
+    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     size_t numBytesToReserve = 32768; // 32K
 
     // Act: Call the ReserveBytes function
@@ -194,7 +194,7 @@ TEST_F(FunctionalTests, Reserve32KBytesTest) {
 
 //These test cases cover a series of appends
 TEST_F(FunctionalTests, SeriesOfAppendsTest) {
-    AampGrowableBuffer buffer;  // Create a new buffer for this test
+    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     const char* srcData = "Hello, World!";
     size_t srcLen = strlen(srcData);
 

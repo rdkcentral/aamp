@@ -60,7 +60,7 @@ public:
 
 TEST_F(ConstructorsTests, Copy)
 {
-	AampGrowableBuffer buf;
+	AampGrowableBuffer buf("buf-copyctor");
 
 	buf.ReserveBytes(data_len);
 	buf.AppendBytes(data_buf.data(), data_buf.size());
@@ -91,14 +91,14 @@ TEST_F(ConstructorsTests, Copy)
 
 	// Copy assignment
 	{
-		AampGrowableBuffer buf_assign{};
+		AampGrowableBuffer buf_assign("buf-copyassign");
 		buf_assign = buf;
 		tester(buf_assign);
 	}
 
 	// Copy assignment with replacement
 	{
-		AampGrowableBuffer buf_assign{};
+		AampGrowableBuffer buf_assign("buf-copyreplacement");
 		buf_assign.ReserveBytes(2*data_len);
 		buf_assign.AppendBytes(&data_buf[0], data_buf.size());
 
@@ -109,7 +109,7 @@ TEST_F(ConstructorsTests, Copy)
 
 TEST_F(ConstructorsTests, Move)
 {
-	AampGrowableBuffer buf;
+	AampGrowableBuffer buf("buf-move-ctor");
 
 	buf.ReserveBytes(data_len);
 	buf.AppendBytes(&data_buf[0], data_buf.size());
@@ -139,7 +139,7 @@ TEST_F(ConstructorsTests, Move)
 	// Move assignment
 	{
 		AampGrowableBuffer buf_copy{buf};
-		AampGrowableBuffer buf_assign{};
+		AampGrowableBuffer buf_assign("buf-moveassign");
 
 		buf_assign = std::move(buf_copy);
 		tester(buf_copy, buf_assign);
@@ -148,7 +148,7 @@ TEST_F(ConstructorsTests, Move)
 	// Move assignment with replacement
 	{
 		AampGrowableBuffer buf_copy{buf};
-		AampGrowableBuffer buf_assign{};
+		AampGrowableBuffer buf_assign("buf-movereplacement");
 		buf_assign.ReserveBytes(2*data_len);
 		buf_assign.AppendBytes(&data_buf[0], data_buf.size());
 

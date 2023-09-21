@@ -33,20 +33,6 @@
 #define SHMGET_RETRY_MAX 10
 #endif
 
-static int gNetMemoryCount;
-static int gNetMemoryHighWatermark;
-
-/**
- * @brief adds to memory count
- */
-void NETMEMORY_PLUS( void );
-
-/**
- * @brief subtracts from memory count
- */
-void NETMEMORY_MINUS( void );
-
-
 #ifdef USE_SECMANAGER
 /**
  * @fn aamp_CreateSharedMem

@@ -345,8 +345,8 @@ public:
 	 * @param[in] type Media type to be demuxed
 	 */
 	Demuxer(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,MediaType type) : mLogObj(logObj), aamp(aamp), pes_state(0),
-		pes_header_ext_len(0), pes_header_ext_read(0), pes_header(),
-		es(), position(0), duration(0), base_pts{0}, current_pts{0},
+		pes_header_ext_len(0), pes_header_ext_read(0), pes_header("pes_header"),
+		es("es"), position(0), duration(0), base_pts{0}, current_pts{0},
 		current_dts{0}, type(type), trickmode(false), finalized_base_pts(false),
 		sentESCount(0), allowPtsRewind(false), first_pts{0}, update_first_pts(false), reached_steady_state(false), esMutex()
 	{

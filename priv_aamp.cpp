@@ -149,6 +149,8 @@ static const char* strAAMPPipeName = "/tmp/ipc_aamp";
 static bool activeInterfaceWifi = false;
 
 static unsigned int ui32CurlTrace = 0;
+
+bool PrivateInstanceAAMP::mTrackGrowableBufMem;
 /**
  * @struct CurlCbContextSyncTime
  * @brief context during curl callbacks
@@ -1361,6 +1363,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
 
+	mTrackGrowableBufMem = ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory);
 }
 
 /**
@@ -5782,7 +5785,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 	if(rc == eMEDIAFORMAT_UNKNOWN)
 	{
 		// no extension - sniff first few bytes of file to disambiguate
-		AampGrowableBuffer sniffedBytes;
+		AampGrowableBuffer sniffedBytes("sniffedBytes");
 		std::string effectiveUrl;
 		int http_error;
 		double downloadTime;
@@ -9127,7 +9130,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 							newelem.type, newelem.url.c_str());
 						std::string playlistUrl;
 						std::string playlistEffectiveUrl;
-						AampGrowableBuffer playlistStore ;
+						AampGrowableBuffer playlistStore("playlistStore");
 						int http_code;
 						double downloadTime;
 						bool ret = false;

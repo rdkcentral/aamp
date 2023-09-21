@@ -4851,7 +4851,6 @@ void StreamAbstractionAAMP_MPD::ReleasePlaylistLock()
  */
 AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 {
-	//AampGrowableBuffer manifest;
 	AAMPStatusType ret = AAMPStatusType::eAAMPSTATUS_OK;
 	std::string manifestUrl = aamp->GetManifestUrl();
 

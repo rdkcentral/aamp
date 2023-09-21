@@ -23,44 +23,11 @@
  */
 
 #include "AampMemoryUtils.h"
-//#include "AampGrowableBuffer.h"
 #include "AampConfig.h"
 #include <assert.h>
 #include <glib.h>
 #include <errno.h>
 
-/**
- * @brief adds to memory count
- */
-void NETMEMORY_PLUS( void )
-{
-	gNetMemoryCount++;
-	if( gNetMemoryCount>gNetMemoryHighWatermark )
-	{
-		gNetMemoryHighWatermark = gNetMemoryCount;
-		AAMPLOG_WARN( "***gNetMemoryHighWatermark=%d", gNetMemoryHighWatermark );
-	}
-}
-
-/**
- * @brief subtracts from memory count
- */
-void NETMEMORY_MINUS()
-{
-    if (gNetMemoryCount > 0) // Check if gNetMemoryCount is greater than zero
-    {
-        gNetMemoryCount--;
-        if (gNetMemoryCount == 0)
-        {
-            AAMPLOG_WARN("***gNetMemoryCount=0");
-        }
-    }
-    else
-    {
-        AAMPLOG_WARN("gNetMemoryCount is already 0");
-    }
-    assert(gNetMemoryCount >= 0);
-}
 #ifdef USE_SECMANAGER
 
 /**

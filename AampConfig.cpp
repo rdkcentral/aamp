@@ -378,6 +378,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"mpdStichingSupport", eAAMPConfig_MPDStichingSupport, true},
 	{false,"sendUserAgentInLicense", eAAMPConfig_SendUserAgent, false},
 	{false,"enablePTSReStamp", eAAMPConfig_EnablePTSReStamp, true},
+	{false, "trackMemory", eAAMPConfig_TrackMemory, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -1777,6 +1778,7 @@ void AampConfig::ConfigureLogSettings()
 	logging.curlLicense			=	configValueBool[eAAMPConfig_CurlLicenseLogging].value;
 	logging.logMetadata			=	configValueBool[eAAMPConfig_MetadataLogging].value;
 	logging.id3    				= 	configValueBool[eAAMPConfig_ID3Logging].value;
+	logging.trackMemory			= 	configValueBool[eAAMPConfig_TrackMemory].value;
 
 }
 

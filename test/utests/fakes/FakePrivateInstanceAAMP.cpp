@@ -30,6 +30,8 @@
 
 MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
 
+bool PrivateInstanceAAMP::mTrackGrowableBufMem;
+
 PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mStreamSink(NULL),
 	profiler(),

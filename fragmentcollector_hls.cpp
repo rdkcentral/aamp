@@ -5048,7 +5048,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				std::string defaultIframePlaylistEffectiveUrl;
 				//To avoid clashing with the http error for master manifest
 				int http_error = 0;
-				AampGrowableBuffer defaultIframePlaylist;
+				AampGrowableBuffer defaultIframePlaylist("defaultIframePlaylist");
 				HlsStreamInfo *streamInfo = (HlsStreamInfo *)GetStreamInfo(iframeStreamIdx);
 				aamp_ResolveURL(defaultIframePlaylistUrl, aamp->GetManifestUrl(), streamInfo->uri, ISCONFIGSET(eAAMPConfig_PropogateURIParam));
 				AAMPLOG_TRACE("StreamAbstractionAAMP_HLS:: Downloading iframe playlist");
@@ -5424,10 +5424,10 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(AampLogManager *logObj, cla
 	id3_callback_t id3Handler,
 	ptsoffset_update_t ptsUpdate)
 : StreamAbstractionAAMP(logObj, aamp),
-	rate(rate), maxIntervalBtwPlaylistUpdateMs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS), mainManifest(), allowsCache(false), seekPosition(seekpos), mTrickPlayFPS(),
+	rate(rate), maxIntervalBtwPlaylistUpdateMs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS), mainManifest("mainManifest"), allowsCache(false), seekPosition(seekpos), mTrickPlayFPS(),
 	enableThrottle(false), firstFragmentDecrypted(false), mStartTimestampZero(false), mNumberOfTracks(0), midSeekPtsOffset(0),
 	lastSelectedProfileIndex(0), segDLFailCount(0), segDrmDecryptFailCount(0), mMediaCount(0),mProfileCount(0),
-	mLangList(),mIframeAvailable(false), thumbnailManifest(), indexedTileInfo(),
+	mLangList(),mIframeAvailable(false), thumbnailManifest("thumbnailManifest"), indexedTileInfo(),
 	mFirstPTS(0),mDiscoCheckMutex(),
 	mID3Handler{id3Handler},
 	mPtsOffsetUpdate{ptsUpdate}
@@ -5481,10 +5481,10 @@ TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstraction
 		mInjectInitFragment(false), mInitFragmentInfo(NULL), mDrmKeyTagCount(0), mIndexingInProgress(false), mForceProcessDrmMetadata(false),
 		mDuration(0), mLastMatchedDiscontPosition(-1), mCulledSeconds(0),mCulledSecondsOld(0),
 		mEffectiveUrl(""), mPlaylistUrl(""), mFragmentURIFromIndex(""),
-		mDiscontinuityIndexCount(0), mSyncAfterDiscontinuityInProgress(false), playlist(),
-		index(), targetDurationSeconds(1), mDeferredDrmKeyMaxTime(0), startTimeForPlaylistSync(0.0),
+		mDiscontinuityIndexCount(0), mSyncAfterDiscontinuityInProgress(false), playlist("playlist"),
+		index("playlist-index"), targetDurationSeconds(1), mDeferredDrmKeyMaxTime(0), startTimeForPlaylistSync(0.0),
 		context(parent), fragmentEncrypted(false), mKeyTagChanged(false), mLastKeyTagIdx(0), mDrmInfo(),
-		mDrmMetaDataIndexPosition(0), mDrmMetaDataIndex(), mDiscontinuityIndex(), mKeyHashTable(), mPlaylistMutex(),
+		mDrmMetaDataIndexPosition(0), mDrmMetaDataIndex("drm-metadata-index"), mDiscontinuityIndex("discontinuity-index"), mKeyHashTable(), mPlaylistMutex(),
 		mPlaylistIndexed(), mTrackDrmMutex(), mPlaylistType(ePLAYLISTTYPE_UNDEFINED), mReachedEndListTag(false),
 		mByteOffsetCalculation(false),mSkipAbr(false),
 		mCheckForInitialFragEnc(false), mFirstEncInitFragmentInfo(NULL), mDrmMethod(eDRM_KEY_METHOD_NONE)

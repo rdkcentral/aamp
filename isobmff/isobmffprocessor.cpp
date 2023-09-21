@@ -823,7 +823,7 @@ void IsoBmffProcessor::cacheInitSegment(char *segment, size_t size)
 {
 	// Save init segment for later. Init segment will be pushed once basePTS is calculated
 	AAMPLOG_INFO("IsoBmffProcessor::[%s] Caching init fragment", IsoBmffProcessorTypeName[type]);
-	AampGrowableBuffer *buffer = new AampGrowableBuffer();
+	AampGrowableBuffer *buffer = new AampGrowableBuffer("cached-init-segment");
 	buffer->AppendBytes(segment, size);
 	initSegment.push_back(buffer);
 }

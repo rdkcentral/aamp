@@ -28,11 +28,13 @@
 #include <stddef.h>
 #include <cstring>
 #include <utility>
+#include <assert.h>
+#include <stdio.h>
 
 class AampGrowableBuffer
 {
 public:
-	AampGrowableBuffer():ptr(NULL),len(0),avail(0){}
+	AampGrowableBuffer( const char *name ):ptr(NULL),len(0),avail(0){ this->name = name; }
 	~AampGrowableBuffer();
 	/*
 	 RDKAAMP-581 [AAMP] tech debt - AampGrowableBuffer converted to class
@@ -51,13 +53,13 @@ public:
 	 : ptr(nullptr),
 	len{other.len},
 	avail(0)
-	{
+	{ // never reached/used?
 		ReserveBytes(len); // allocate the pointer and set avail
-		std::memcpy(ptr, other.ptr, len); // populate 
+		std::memcpy(ptr, other.ptr, len); // populate
 	}
 	// Copy assignment
 	AampGrowableBuffer& operator=(const AampGrowableBuffer & other)
-	{
+	{ // never reached/used?
 		Free();
 		len = other.len;
 		ReserveBytes(len);
@@ -70,14 +72,14 @@ public:
 		: ptr {other.ptr},
 		len {other.len},
 		avail{other.avail}
-	{
+	{ // never reached/used
 		other.ptr = nullptr;
 		other.len = 0;
 		other.avail = 0;
 	}
 	// Move assignement
 	AampGrowableBuffer& operator=(AampGrowableBuffer && other) noexcept
-	{
+	{ // never reached/used
 		Free();
 		std::swap(ptr, other.ptr);
 		std::swap(len, other.len);
@@ -100,10 +102,43 @@ public:
 	size_t GetAvail( void ) const { return avail; } // should be opaque, but used in logging
 
 private:
-	
+	const char *name;
 	void *ptr;      /**< Pointer to buffer's memory location (gpointer) */
 	size_t len;     /**< Subset of allocated buffer that is populated and in use */
 	size_t avail;   /**< Available buffer size */
+	
+	static int gNetMemoryCount;
+	static int gNetMemoryHighWatermark;
+	
+	static void NETMEMORY_PLUS( void )
+	{
+		gNetMemoryCount++;
+		if( gNetMemoryCount>gNetMemoryHighWatermark )
+		{
+			gNetMemoryHighWatermark = gNetMemoryCount;
+			printf( "***gNetMemoryHighWatermark=%d\n", gNetMemoryHighWatermark );
+		}
+	}
+
+	/**
+	 * @brief subtracts from memory count
+	 */
+	static void NETMEMORY_MINUS( void )
+	{
+		if( gNetMemoryCount > 0 )
+		{
+			gNetMemoryCount--;
+			if( gNetMemoryCount == 0)
+			{
+				printf("***gNetMemoryCount=0\n");
+			}
+		}
+		else
+		{
+			printf("gNetMemoryCount is already 0");
+		}
+		assert( gNetMemoryCount >= 0 );
+	}
 };
 
 #endif /* __AAMP_GROWABLE_BUFFER_H__ */

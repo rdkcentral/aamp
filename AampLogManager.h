@@ -172,13 +172,14 @@ public:
 	bool curlLicense;    /**< Curl logs for License request*/
 	bool logMetadata;    /**< Timed metadata logs*/
 	bool id3;	     /**< Display ID3 tag from stream logs */
+	bool trackMemory;    /**< Track Growable Buffer Memory*/
 	static bool disableLogRedirection;
 	int  mPlayerId;	     /**< Store PlayerId*/
 	/**
 	 * @brief AampLogManager constructor
 	 */
 	AampLogManager() : aampLoglevel(eLOGLEVEL_WARN), info(false), debug(false), trace(false), gst(false), curl(false), progress(false), failover(false), curlHeader(false), 
-							logMetadata(false), curlLicense(false),stream(false), id3(false),mPlayerId(-1)
+							logMetadata(false), curlLicense(false),stream(false), id3(false),trackMemory(false),mPlayerId(-1)
 	{
 	}
 

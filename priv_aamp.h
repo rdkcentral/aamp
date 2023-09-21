@@ -1079,6 +1079,7 @@ public:
 
 	std::string seiTimecode; /**< SEI Timestamp information from Westeros */
 
+	static bool mTrackGrowableBufMem; /**< GROWABLE BUFFER Debug is enabled or not */
 	// ID3 metadata 
 	aamp::id3_metadata::MetadataCache mId3MetadataCache; /**< Metadata cache object for the JS event */
 

@@ -210,6 +210,7 @@ typedef enum
 	eAAMPConfig_MPDStichingSupport,					/**< To enable/disable MPD Stich functionality in the player. Default enabled */
 	eAAMPConfig_SendUserAgent,						/**< To enable/disable sending user agent in the DRM license request header. Default enabled */
 	eAAMPConfig_EnablePTSReStamp,					/** <Config to enable PTS restamping */
+	eAAMPConfig_TrackMemory,					/**< To enable/disable AampGrowableBuffer track memory */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 } AAMPConfigSettingBool;
 #define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)
