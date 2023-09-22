@@ -202,9 +202,11 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				mDownloadResponse->sEffectiveUrl	=	urlStr;
 				CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_URL, urlStr.c_str());
 			}
+			bool loopAgain = false;
 			do{
 				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
 				curlRetVal = curl_easy_perform(mCurl);
+				loopAgain = false;
 				//AAMPLOG_INFO("Download Status Ret:%d %s",mDownloadResponse->curlRetValue, urlStr.c_str());
 				if(curlRetVal == CURLE_OK)
 				{
@@ -218,19 +220,25 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 					{
 						httpRetVal = mDownloadResponse->iHttpRetValue = aamp_CurlEasyGetinfoInt(mCurl, CURLINFO_RESPONSE_CODE);
 					}
-
+					if(mDownloadResponse->iHttpRetValue == 408 && mDnldCfg->iDownloadRetryCount == 0)
+					{
+						mDnldCfg->iDownloadRetryCount++;
+					}
 					if (mDnldCfg->iDownloadRetryCount)
 					{
-						if(mDownloadResponse->iHttpRetValue != 200 &&
+						//DELIA-63160: make http 408 retry-worthy as well
+						if(mDownloadResponse->iHttpRetValue == 408 ||
+								(mDownloadResponse->iHttpRetValue != 200 &&
 								mDownloadResponse->iHttpRetValue != 204 &&
 								mDownloadResponse->iHttpRetValue != 206 &&
 								mDownloadResponse->iHttpRetValue >= 500 &&
-								mDownloadResponse->iHttpRetValue != 502)
+								mDownloadResponse->iHttpRetValue != 502))
 						{
 							mDnldCfg->iDownloadRetryCount--;
 							// TODO: Add the download delay between retries : Need to handle similar to InterruptableMsSleep
 							std::this_thread::sleep_for(std::chrono::milliseconds(mDnldCfg->iDownloadRetryWaitMs));
-							AAMPLOG_WARN("Download failed due to Server error. Retrying Attempt: %d!", mDnldCfg->iDownloadRetryCount);
+							AAMPLOG_WARN("Download failed due to Server error http-%d . Retrying Attempt: %d!",mDownloadResponse->iHttpRetValue,mDnldCfg->iDownloadRetryCount);
+							loopAgain = true; //retry on manifest download failure
 							continue;
 						}
 					}
@@ -244,12 +252,13 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 						if (curlRetVal == CURLE_COULDNT_CONNECT || curlRetVal == CURLE_OPERATION_TIMEDOUT || curlRetVal  == CURLE_PARTIAL_FILE)
 						{
 							mDnldCfg->iDownloadRetryCount--;
+							loopAgain = true;
 							continue;
 
 						}
 					}	
 				}
-			}while(0);
+			}while(loopAgain);
 
 			/*
 			 * Assigning curl error to http_code, for sending the error code as
