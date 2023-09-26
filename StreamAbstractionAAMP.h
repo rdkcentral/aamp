@@ -410,10 +410,10 @@ public:
 
 	/**
 	 * @fn UpdateTSAfterFetch
-	 *
+	 * @param[in] IsInitSegment - Set to true for initialization segments; otherwise, set to false
 	 * @return void
 	 */
-	void UpdateTSAfterFetch();
+	void UpdateTSAfterFetch(bool IsInitSegment);
 
 	/**
 	 * @fn UpdateTSAfterChunkFetch

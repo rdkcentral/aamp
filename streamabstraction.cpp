@@ -283,7 +283,7 @@ void MediaTrack::InjectFragmentChunkInternal(MediaType mediaType, AampGrowableBu
 /**
  *  @brief Updates internal state after a fragment fetch
  */
-void MediaTrack::UpdateTSAfterFetch()
+void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 {
 	bool notifyCacheCompleted = false;
 	pthread_mutex_lock(&mutex);
@@ -347,7 +347,10 @@ void MediaTrack::UpdateTSAfterFetch()
 			name, fragmentIdxToFetch, numberOfFragmentsCached);
 	}
 #endif
-	totalFragmentsDownloaded++;
+	if(!IsInitSegment)
+	{
+		totalFragmentsDownloaded++;
+	}
 	pthread_cond_signal(&fragmentFetched);
 	pthread_mutex_unlock(&mutex);
 	if(notifyCacheCompleted)

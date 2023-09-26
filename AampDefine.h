@@ -103,7 +103,7 @@
 #define AAMP_USERAGENT_BASE_STRING	"Mozilla/5.0 (Linux; x86_64 GNU/Linux) AppleWebKit/601.1 (KHTML, like Gecko) Version/8.0 Safari/601.1 WPE"	/**< Base User agent string,it will be appneded with AAMP_USERAGENT_SUFFIX */
 #define AAMP_USERAGENT_SUFFIX		" AAMP/"+AAMP_VERSION    /**< Version string of AAMP Player */
 #define DEFAULT_AAMP_ABR_THRESHOLD_SIZE (6000)			/**< aamp abr threshold size */
-#define DEFAULT_PREBUFFER_COUNT (2)
+#define DEFAULT_PREBUFFER_COUNT (1)				/**< Count of video segments to be downloaded until play state */
 #define AAMP_LOW_BUFFER_BEFORE_RAMPDOWN 10 			/**< 10sec buffer before rampdown */
 #define AAMP_HIGH_BUFFER_BEFORE_RAMPUP  15 			/**< 15sec buffer before rampup */
 #define MAX_DASH_DRM_SESSIONS 30

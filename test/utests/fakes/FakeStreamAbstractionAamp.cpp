@@ -201,7 +201,7 @@ void MediaTrack::StopPlaylistDownloaderThread()
 {
 }
 
-void MediaTrack::UpdateTSAfterFetch()
+void MediaTrack::UpdateTSAfterFetch(bool isInitSegment)
 {
 }
 

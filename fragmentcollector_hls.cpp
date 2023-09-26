@@ -2144,7 +2144,7 @@ void TrackState::FetchFragment()
 		}
 #endif
 		mSkipAbr = false; //To enable ABR since we have cached fragment after init fragment
-		UpdateTSAfterFetch();
+		UpdateTSAfterFetch(false);
 	}
 }
 
@@ -6631,7 +6631,7 @@ void TrackState::FetchInitFragment()
 			mCheckForInitialFragEnc = false; //Push encrypted header is a one-time operation
 			mFirstEncInitFragmentInfo = NULL; //reset init fragemnt, since ecnypted header already pushed
 
-			UpdateTSAfterFetch();
+			UpdateTSAfterFetch(true);
 		}
 		else if (type == eTRACK_VIDEO && aamp->CheckABREnabled() && !context->CheckForRampDownLimitReached())
 		{

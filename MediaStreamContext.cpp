@@ -308,7 +308,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
             // reset count on video fragment success
             context->mRampDownCount = 0;
         }
-        UpdateTSAfterFetch();
+        UpdateTSAfterFetch(initSegment);
         ret = true;
     }
     return ret;
