@@ -240,6 +240,7 @@ private:
 	int pes_header_ext_len;
 	int pes_header_ext_read;
 	AampGrowableBuffer pes_header;
+	pthread_mutex_t esMutex;
 	AampGrowableBuffer es;
 	double position;
 	double duration;
@@ -266,17 +267,21 @@ private:
 			if ((base_pts > current_pts)
 				|| (current_dts && base_pts > current_dts))
 			{
+				pthread_mutex_lock(&esMutex);
 				WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " diff %f seconds length %d",
 					type, position, base_pts.value, current_pts.value, (double)(base_pts - current_pts) / 90000, (int)es.GetLen() );
 				es.Clear();
+				pthread_mutex_unlock(&esMutex);
 				return false;
 			}
 
 			if (base_pts + uint33_t::half_max() > current_pts + uint33_t::half_max())
 			{
+				pthread_mutex_lock(&esMutex);
 				WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " base_pts+half_max %" PRIu64 " current_pts+half_max %" PRIu64 ,
 					type, position, base_pts.value, current_pts.value, (base_pts+uint33_t::half_max()).value, (current_pts+uint33_t::half_max()).value);
 				es.Clear();
+				pthread_mutex_unlock(&esMutex);
 				return false;
 			}
 			reached_steady_state = true;
@@ -316,9 +321,10 @@ private:
 		if (CheckForSteadyState())
 		{
 			const auto info = UpdateSegmentInfo();
-
+			
+			pthread_mutex_lock(&esMutex);
 			aamp->SendStreamCopy(type, es.GetPtr(), es.GetLen(), info.pts_ms, info.dts_ms, duration);
-
+			
 			if (gpGlobalConfig->logging.info)
 			{
 				sentESCount++;
@@ -328,6 +334,7 @@ private:
 				}
 			}
 			es.Clear();
+			pthread_mutex_unlock(&esMutex);
 		}
 	}
 
@@ -341,8 +348,9 @@ public:
 		pes_header_ext_len(0), pes_header_ext_read(0), pes_header(),
 		es(), position(0), duration(0), base_pts{0}, current_pts{0},
 		current_dts{0}, type(type), trickmode(false), finalized_base_pts(false),
-		sentESCount(0), allowPtsRewind(false), first_pts{0}, update_first_pts(false), reached_steady_state(false)
+		sentESCount(0), allowPtsRewind(false), first_pts{0}, update_first_pts(false), reached_steady_state(false), esMutex()
 	{
+		pthread_mutex_init(&esMutex, NULL);
 		init(0, 0, false, true);
 	}
 
@@ -371,6 +379,7 @@ public:
 	 */
 	~Demuxer()
 	{
+		pthread_mutex_destroy(&esMutex);
 		es.Free();
 		pes_header.Free();
 	}
@@ -407,11 +416,15 @@ public:
 	 */
 	void flush()
 	{
-		if (es.GetLen() > 0)
+		pthread_mutex_lock(&esMutex);
+		auto len = es.GetLen();
+		pthread_mutex_unlock(&esMutex);
+		if (len > 0)
 		{
 			INFO("demux : sending remaining bytes. es.len %d", (int)es.GetLen());
 			send();
 		}
+		
 		AAMPLOG_INFO("Demuxer::count %d in duration %f",sentESCount, duration);
 		reset();
 	}
@@ -422,7 +435,9 @@ public:
 	 */
 	void reset()
 	{
+		pthread_mutex_lock(&esMutex);
 		es.Free();
+		pthread_mutex_unlock(&esMutex);
 		pes_header.Free();
 		sentESCount = 0;
 	}
@@ -477,7 +492,10 @@ public:
 			/*Store the pts/dts*/
 			if (PAYLOAD_UNIT_START(packetStart))
 			{
-				if (es.GetLen() > 0)
+				pthread_mutex_lock(&esMutex);
+				auto len = es.GetLen();
+				pthread_mutex_unlock(&esMutex);
+				if (len > 0)
 				{
 					if (processor)
 					{
@@ -488,6 +506,7 @@ public:
 						send();
 					}
 				}
+				
 				unsigned char* pesStart = packetStart + pesOffset;
 				if (IS_PES_PACKET_START(pesStart))
 				{
@@ -720,7 +739,9 @@ public:
 					case PES_STATE_GETTING_ES:
 						/*Handle padding?*/
 						TRACE1("PES_STATE_GETTING_ES bytes_to_read = %d", size);
+						pthread_mutex_lock(&esMutex);
 						es.AppendBytes(data, size);
+						pthread_mutex_unlock(&esMutex);
 						size = 0;
 						break;
 					default:
@@ -749,7 +770,7 @@ public:
 			if (CheckForSteadyState())
 			{
 				// Copy the segment data into a vector and pass it to the processing function
-
+				pthread_mutex_lock(&esMutex);
 				uint8_t * data_ptr = reinterpret_cast<uint8_t *>(es.GetPtr());
 				const auto len = es.GetLen();
 				std::vector<uint8_t> buf(len);
@@ -758,6 +779,7 @@ public:
 				buf.assign(data_ptr, data_ptr + len);
 				processor(type, std::move(info), std::move(buf));
 				es.Clear();
+				pthread_mutex_unlock(&esMutex);
 			}
 		}
 		else
@@ -779,12 +801,16 @@ public:
 	 */
 	bool ConsumeCachedData(MediaProcessor::process_fcn_t processor)
 	{
-		if (es.GetLen())
+		bool rc = false;
+		pthread_mutex_lock(&esMutex);
+		auto len = es.GetLen();
+		pthread_mutex_unlock(&esMutex);
+		if (len)
 		{
 			send(processor);
-			return true;
+			rc = true;
 		}
-		return false;
+		return rc;
 	}
 
 	/**
