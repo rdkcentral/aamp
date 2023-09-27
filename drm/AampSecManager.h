@@ -210,13 +210,12 @@ private:
 	 */
 	void ModifyWatermarkPalette(int graphicId, int clutKey, int imageKey);
 
-	static AampSecManager *mInstance;       /**< singleton instance*/
 	PrivateInstanceAAMP* mAamp;             /**< Pointer to the PrivateInstanceAAMP*/
 	ThunderAccessAAMP mSecManagerObj;       /**< ThunderAccessAAMP object for communicating with SecManager*/
 	ThunderAccessAAMP mWatermarkPluginObj;  /**< ThunderAccessAAMP object for communicating with Watermark Plugin Obj*/
 	std::mutex mSecMutex;    	        /**< Lock for accessing mSecManagerObj*/
 	std::mutex mWatMutex;		        /**< Lock for accessing mWatermarkPluginObj*/
-	std::mutex mSpeedStateMutex;		/**< Lock for accessing mWatermarkPluginObj*/
+	std::mutex mSpeedStateMutex;		/**< mutex for setPlaybackSpeedState()*/
 	std::list<std::string> mRegisteredEvents;
 	bool mSchedulerStarted;
 };

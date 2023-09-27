@@ -27,18 +27,24 @@
 #include "_base64.h"
 #include <inttypes.h> // For PRId64
 
-AampSecManager* AampSecManager::mInstance = NULL;
+static AampSecManager *Instance = nullptr; /**< singleton instance*/
+
+/* DELIA-63204 - mutex GetInstance() & DestroyInstance() to improve thread safety
+ * There is still a race between using the pointer returned from GetInstance() and calling DestroyInstance()
+ * Raised DELIA-63431 to address this and associated issues.*/
+static std::mutex InstanceMutex;
 
 /**
  * @brief To get AampSecManager instance
  */
 AampSecManager* AampSecManager::GetInstance()
 {
-	if (mInstance == NULL)
+	std::lock_guard<std::mutex> lock{InstanceMutex};
+	if (Instance == nullptr)
 	{
-		mInstance = new AampSecManager();
+		Instance = new AampSecManager();
 	}
-	return mInstance;
+	return Instance;
 }
 
 /**
@@ -46,12 +52,13 @@ AampSecManager* AampSecManager::GetInstance()
  */
 void AampSecManager::DestroyInstance()
 {
-	if (mInstance)
+	std::lock_guard<std::mutex> lock{InstanceMutex};
+	if (Instance)
 	{
 		/* hide watermarking before secman shutdown */
-		mInstance->ShowWatermark(false);
-		delete mInstance;
-		mInstance = NULL;
+		Instance->ShowWatermark(false);
+		delete Instance;
+		Instance = nullptr;
 	}
 }
 
@@ -77,6 +84,34 @@ AampSecManager::AampSecManager() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSecMut
 	{
 		StartScheduler();
 		mSchedulerStarted = true;
+	}
+
+	/* DELIA-63204
+	* Release any unexpectedly open sessions.
+	* These could exist if a previous aamp session crashed
+	* 'firstInstance' check is a defensive measure allowing for the usage of
+	* GetInstance() & DestroyInstance() to change in the future
+	* InstanceMutex use in GetInstance() makes this thread safe
+	* (currently mSecMutex is also locked but ideally the scope of this would be reduced)*/
+	static bool firstInstance = true;
+	if(firstInstance)
+	{
+		firstInstance=false;
+		JsonObject result;
+		JsonObject param;
+		param["clientId"] = "aamp";
+		param["sessionId"] = 0; //Instructs closePlaybackSession to close all open 'aamp' sessions
+		AAMPLOG_WARN("SecManager call closePlaybackSession to ensure no old sessions exist.");
+		bool rpcResult = mSecManagerObj.InvokeJSONRPC("closePlaybackSession", param, result);
+
+		if (rpcResult && result["success"].Boolean())
+		{
+			AAMPLOG_WARN("old SecManager sessions removed");
+		}
+		else
+		{
+			AAMPLOG_WARN("no old SecManager sessions to remove");
+		}
 	}
 
 	RegisterAllEvents();
