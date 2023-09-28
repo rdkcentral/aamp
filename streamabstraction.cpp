@@ -2906,8 +2906,11 @@ void StreamAbstractionAAMP::CheckForMediaTrackInjectionStall(TrackType type)
 						}
 					}
 					// If discontinuity is not seen in future fragments or if the unblocked track has finished more than 2 * fragmentDurationSeconds,
-					// unblock this track
-					else if (((diff + cachedDuration) > (2 * track->fragmentDurationSeconds)))
+					// unblock this track.
+					// If the last downloaded content was an init fragment (likely due to an ABR change) the fragment duration  will be 0 before the
+					// condition is checked. So the following condition may be falsely satisfied in that case, leading to ignoring discontinuity process
+					// that is actually required.
+					else if ((otherTrack->fragmentDurationSeconds > 0) && ((diff + cachedDuration) > (2 * otherTrack->fragmentDurationSeconds)))
 					{
 						AAMPLOG_WARN("Discontinuity in track:%d does not have a discontinuity in other track (diff: %f, injectedDuration: %f, cachedDuration: %f)",
 								type, diff, otherTrackDuration, cachedDuration);
@@ -2920,7 +2923,7 @@ void StreamAbstractionAAMP::CheckForMediaTrackInjectionStall(TrackType type)
 				// In that case the diff value will go to negative and this CheckForMediaTrackInjectionStall() continuously called
 				// until stall happens from outside or explicitely aamp_stop() to be called from XRE or Apps,
 				// so need to control the stalling as soon as possible for the negative diff case from here.
-				else if ((diff < 0) && (abs(diff) > (2 * track->fragmentDurationSeconds)))
+				else if ((diff < 0) && (otherTrack->fragmentDurationSeconds > 0) && (abs(diff) > (2 * otherTrack->fragmentDurationSeconds)))
 				{
 					AAMPLOG_WARN("Discontinuity in track:%d does not have a discontinuity in other track (diff is negative: %f, injectedDuration: %f)",
 							type, diff, otherTrackDuration);
