@@ -7643,7 +7643,18 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					pMediaStreamContext->representationIndex = 0; //Fog custom mpd has single representation
 				}
 			}
-			pMediaStreamContext->representation = pMediaStreamContext->adaptationSet->GetRepresentation().at(pMediaStreamContext->representationIndex);
+                  	//The logic is added to avoid a crash in AAMP due to stream issue in charter HEVC stream.
+                  	//Player will be able to end the playback gracefully with the fix.
+			if(pMediaStreamContext->representationIndex < pMediaStreamContext->adaptationSet->GetRepresentation().size())
+			{
+				pMediaStreamContext->representation = pMediaStreamContext->adaptationSet->GetRepresentation().at(pMediaStreamContext->representationIndex);
+			}
+			else
+			{
+				AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
+				aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
+				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+			}
 
 			if (eMEDIATYPE_VIDEO == i && mMultiVideoAdaptationPresent)
 			{
