@@ -5668,7 +5668,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	// To check and apply content restriction
 	if(mApplyContentRestriction)
 	{
-		if ((mMediaFormat == eMEDIAFORMAT_OTA))
+		if (mMediaFormat == eMEDIAFORMAT_OTA)
 		{
 			mpStreamAbstractionAAMP->EnableContentRestrictions();
 		}
@@ -10456,6 +10456,7 @@ void PrivateInstanceAAMP::DisableContentRestrictions(long grace, long time, bool
 		}
 #endif
 	}
+	mApplyContentRestriction = false;
 	ReleaseStreamLock();
 }
 
@@ -10470,6 +10471,11 @@ void PrivateInstanceAAMP::EnableContentRestrictions()
 	if (mpStreamAbstractionAAMP)
 	{
 		mpStreamAbstractionAAMP->EnableContentRestrictions();
+		if( mMediaFormat != eMEDIAFORMAT_OTA )
+		{
+			AAMPLOG_INFO("MediaFormat: %d (%s) is not OTA ,ContentRestrictions is applied on next Tune request to OTA channel",mMediaFormat,mMediaFormatName[mMediaFormat]);
+			mApplyContentRestriction = true;
+		}
 	}
 	else
 	{
