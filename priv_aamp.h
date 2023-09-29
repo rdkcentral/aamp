@@ -80,7 +80,7 @@ typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 #define AAMP_LOW_BUFFER_BEFORE_RAMPDOWN 10 		/**< 10sec buffer before rampdown */
 #define AAMP_HIGH_BUFFER_BEFORE_RAMPUP  15 		/**< 15sec buffer before rampup */
 #define  AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD 3	/**< 3sec buffer befoe rampdown for lld */
-#define AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD	 5	/**< 5sec buffer before rampup for lld */
+#define AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD	 4	/**< 4sec buffer before rampup for lld */
 #define TIMEOUT_FOR_LLD	3				/**< 3sec lowbw ,stall and start timeout for lld */
 
 #define AAMP_USER_AGENT_MAX_CONFIG_LEN  512    /**< Max Chars allowed in aamp.cfg for user-agent */
