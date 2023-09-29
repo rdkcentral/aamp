@@ -8857,8 +8857,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 									// Update manifest and check for period validity in the next iteration
 									// For CDAI empty period at the end, we should re-iterate the loop
 									ReleasePlaylistLock();
-									playlistDownloaderContext->NotifyFragmentCollectorWait();
-									playlistDownloaderContext->WaitForManifestUpdate();
+									if(AAMPStatusType::eAAMPSTATUS_OK != UpdateMPD())
+									{
+        									aamp->InterruptableMsSleep(500); // Sleep for 500ms to avoid tight looping
+									}
 									continue;
 								}
 
