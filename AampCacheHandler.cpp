@@ -414,6 +414,9 @@ void AampCacheHandler::InsertToInitFragCache(const std::string url, const AampGr
 
 	pthread_mutex_lock(&mInitFragMutex);
 
+	//Initialize AampCacheHandler
+	Init();
+
 	InitFragCacheIter Iter = umInitFragCache.find(url);
 	if ( Iter != umInitFragCache.end() )
 	{
