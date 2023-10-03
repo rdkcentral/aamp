@@ -295,11 +295,26 @@ void AampBufferControl::BufferControlMaster::needData(const AAMPGstPlayer *playe
 	try
 	{
 		mMediaType=mediaType;
-		BufferControlExternalData externalData{player, mediaType};
 
 		std::lock_guard<std::mutex> lock(mMutex);
-		if(!mTeardownInProgress)
+		if(mTeardownInProgress)
 		{
+			/* RDKAAMP-1605
+			 * During teardown directly respond to needdata messages
+			 * this is consistent with behaviour prior to RDKAAMP-1343 &
+			 * prevents elements being starved of data during teardown
+			 * handling this through mpBufferingStrategy was considered
+			 * but handling this directly is simpler & should be more robust to change
+			 * RDKAAMP-1621 raised to consider direct EOS injection in place of this*/
+			bool downloadsJustEnabled = !mDownloadShouldBeEnabled.exchange(true);
+			if(downloadsJustEnabled)
+			{
+				AAMPLOG_WARN("BufferControlMaster %s starting downloads during teardown.", getThisMediaTypeName());
+			}
+		}
+		else
+		{
+			BufferControlExternalData externalData{player, mediaType};
 			createOrChangeStrategyIfRequired(externalData);
 			if(mpBufferingStrategy)
 			{
@@ -321,11 +336,23 @@ void AampBufferControl::BufferControlMaster::enoughData(const AAMPGstPlayer *pla
 	try
 	{
 		mMediaType=mediaType;
-		BufferControlExternalData externalData{player, mediaType};
 
 		std::lock_guard<std::mutex> lock(mMutex);
-		if(!mTeardownInProgress)
+		if(mTeardownInProgress)
 		{
+			/* RDKAAMP-1605
+			 * During teardown directly respond to needdata messages
+                         * this is consistent with behaviour prior to RDKAAMP-1343
+			 * also see comments in AampBufferControl::BufferControlMaster::needData()*/
+			bool downloadsJustDisabled = mDownloadShouldBeEnabled.exchange(false);
+			if(downloadsJustDisabled)
+			{
+				AAMPLOG_WARN("BufferControlMaster %s disabling downloads during teardown.", getThisMediaTypeName());
+			}
+		}
+		else
+		{
+			BufferControlExternalData externalData{player, mediaType};
 			createOrChangeStrategyIfRequired(externalData);
 			if(mpBufferingStrategy)
 			{
@@ -422,12 +449,12 @@ void AampBufferControl::BufferControlMaster::teardownStart()
 {
 	std::lock_guard<std::mutex> lock(mMutex);
 	mTeardownInProgress = true;
-	StopDownloads();
 }
 
 void AampBufferControl::BufferControlMaster::teardownEnd()
 {
 	std::lock_guard<std::mutex> lock(mMutex);
+	StopDownloads();
 	mpBufferingStrategy.reset();
 	mTeardownInProgress=false;
 }
