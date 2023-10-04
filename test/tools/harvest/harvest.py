@@ -48,14 +48,14 @@ multiple media types and bit rates, then these are all downloaded in parallel.
 Individual options detailed by invoking with --help 
 """
 
-NUM_DOWNLOADERS = 3
+NUM_DOWNLOADERS = 6
 
 
 def add_timestamp(filename):
     """
     Add date time stamp to filename
     """
-    return f"{filename}.orig{datetime.now().strftime('%y%m%d_%H%M%S')}"
+    return f"{filename}.orig{datetime.utcnow().strftime('%y%m%d_%H%M%S')}"
 
 
 def write_file(url, data):
@@ -122,7 +122,7 @@ class SegmentDownloader:
 
         while not (self.shutdown_when_empty and self.inqueue.empty()) and not self.shutdown_immediatly:
             try:
-                url = self.inqueue.get(timeout=1)
+                url = self.inqueue.get_nowait()
 
                 resp = self.requests_session.get(url)
 
@@ -240,7 +240,6 @@ class ManifestDownloader:
                     continue
 
                 cur_read = resp.content
-                # print("Checking", datetime.now().ctime())
 
                 if cur_read == last_read:
                     if last_change < 0 and not self.shutdown:
@@ -570,8 +569,8 @@ if __name__ == "__main__":
 
     log.info("Missing details %d", len(SegmentDownloader.missing))
     with open("missing_segments.txt", "a") as f:
-        f.write("Missing details " + str(len(SegmentDownloader.missing)) + "\n\n")
-        for filename in SegmentDownloader.missing:
+        f.write("Missing details " + str(len(set(SegmentDownloader.missing))) + "\n\n")
+        for filename in set(SegmentDownloader.missing):
             log.info("%s", filename)
             f.write(filename + "\n\n")
 

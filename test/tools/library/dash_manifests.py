@@ -47,6 +47,7 @@ class DASHManifest(Manifest):
         self.prd_start = {}  # Start point in timeline of each period
         self.time_offset = 0
         self.overall_dur = 0
+        self.remove_duplicate_req = {} # This is to handle 404 during All Profiles harvest.
 
         if content is None:
             with open(path, "rb") as f:
@@ -568,8 +569,7 @@ class DASHManifest(Manifest):
                     else:
                         end_num = start_num + int(dur / intv)
 
-                    if end_num <= seg_no:
-                        continue
+                    if end_num <= seg_no: print("Continue - Pass.")
 
                     # Generate the names of the files from increasing segement value using $Number$
                     for n in range(
@@ -585,8 +585,7 @@ class DASHManifest(Manifest):
                     # Run through the segments in the AdaptationSet
                     for seg in tlines:
                         end_num = start_num + int(seg.get("r", 0)) + 1
-                        if end_num <= seg_no:
-                            continue
+                        if end_num <= seg_no: print("Continue - Pass.")
 
                         intv = float(seg.get("d")) / ts
 
@@ -594,8 +593,19 @@ class DASHManifest(Manifest):
                         for num in range(
                             start_num if seg_no < start_num else seg_no, end_num
                         ):
-                            seg_list.add_file(fn_templ % num, intv, key)
+                            if end_num <= seg_no:
+                                temp_file_name = fn_templ.split("/")[-1].replace("%d", str(num)) 
 
+                                if temp_file_name not in self.remove_duplicate_req.keys(): 
+                                    seg_list.add_file(fn_templ % num, intv, key) 
+                                    self.remove_duplicate_req[temp_file_name] = str(1) 
+                                    
+                                else: 
+                                    self.remove_duplicate_req[temp_file_name] = str(int(self.remove_duplicate_req[temp_file_name]) + 1) 
+                                    
+                            else:
+                                seg_list.add_file(fn_templ % num, intv, key) 
+                                                                                            
                         seg_no = start_num = end_num
 
                 # Segmentlist and filename generation based upon $Time$
@@ -608,8 +618,7 @@ class DASHManifest(Manifest):
                         d = int(seg.get("d"))
 
                         next_t = t + d * (r + 1)
-                        if next_t <= seg_no:
-                            continue
+                        if next_t <= seg_no: print("Continue - Pass.")
 
                         intv = float(d) / ts
 
@@ -668,9 +677,7 @@ class DASHManifest(Manifest):
                             continue
 
                         idx += 1
-                        if idx <= seg_no:
-                            continue
-
+                        if idx <= seg_no: print("Continue - Pass.")
                         fn = segurl.get("media")
                         if abs_paths:
                             fn = self.abs_path(fn, segml_prefix)
