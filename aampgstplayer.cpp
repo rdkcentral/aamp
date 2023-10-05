@@ -820,6 +820,20 @@ static void httpsoup_source_setup (GstElement * element, GstElement * source, gp
 			AAMPLOG_WARN("httpsoup -> Set network proxy '%s'", networkProxyValue.c_str());
 		}
 	}
+	if (_this->aamp->mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)		//RDKTV-25340:setting souphttpsrc priority back to GST_RANK_PRIMARY
+	{
+		GstPluginFeature* pluginFeature = gst_registry_lookup_feature (gst_registry_get (), "souphttpsrc");
+		if (pluginFeature == NULL)
+		{
+			AAMPLOG_ERR("AAMPGstPlayer: souphttpsrc plugin feature not available;");
+		}
+		else
+		{
+			AAMPLOG_INFO("AAMPGstPlayer: souphttpsrc plugin priority set to GST_RANK_PRIMARY");
+			gst_plugin_feature_set_rank(pluginFeature, GST_RANK_PRIMARY );
+			gst_object_unref(pluginFeature);
+		}
+	}
 }
 
 
@@ -2461,6 +2475,17 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 		}
 		else
 		{
+			GstPluginFeature* pluginFeature = gst_registry_lookup_feature (gst_registry_get (), "souphttpsrc");		//RDKTV-25340:temporariliy increasing souphttpsrc priority
+			if (pluginFeature == NULL)
+			{
+				AAMPLOG_ERR("AAMPGstPlayer: souphttpsrc plugin feature not available;");
+			}
+			else
+			{
+				AAMPLOG_INFO("AAMPGstPlayer: souphttpsrc plugin priority set to GST_RANK_PRIMARY + 111");
+				gst_plugin_feature_set_rank(pluginFeature, GST_RANK_PRIMARY + 111);
+				gst_object_unref(pluginFeature);
+			}
 			g_object_set(stream->sinkbin, "uri", _this->aamp->GetManifestUrl().c_str(), NULL);
 			g_signal_connect (stream->sinkbin, "source-setup", G_CALLBACK (httpsoup_source_setup), _this);
 		}
