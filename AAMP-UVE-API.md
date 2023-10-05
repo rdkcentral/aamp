@@ -1505,6 +1505,17 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
         "penUnderline": false
     }
 
+##### Available values for options
+
+|Option name|Available values|Comments|
+|----|----|-----------|
+|fontStyle|"default","monospaced_serif/Monospaced serif","proportional_serif/Proportional serif","monospaced_sanserif/Monospaced sans serif","proportional_sanserif/Proportional sans serif","casual","cursive","smallcaps/small capital","auto"| "auto" value is not available for Xclass devices |
+|textEdgeColor/textForegroundColor/textBackgroundColor/windowBorderEdgeColor/windowFillColor|"black","white","red","green","blue","yellow","magenta","cyan","auto"| "auto" value and windowBorderEdgeColor option are not available for Xclass devices |
+|textEdgeStyle/windowBorderEdgeStyle|"none","raised","depressed","uniform","drop_shadow_left/Left drop shadow","drop_shadow_right/Right drop shadow","auto"| "auto" value and windowBorderEdgeStyle option are not available for Xclass devices |
+|textForegroundOpacity/textBackgroundOpacity/windowFillOpacity|"solid","flash","translucent","transparent","auto"| "flash" and "auto" values are not available for Xclass devices |
+|penItalicized/penUnderline|"false","true","auto"| These options are not available for Xclass devices |
+|penSize|"small","standard/medium","large","extra_large","auto"| "auto" value is not available for Xclass devices |
+
 ---
 
 ### getAvailableThumbnailTracks ( )
