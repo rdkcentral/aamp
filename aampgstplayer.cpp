@@ -211,8 +211,7 @@ struct AAMPGstPlayerPriv
         GstQuery *durationQuery; 			/**< pointer that holds a duration query object */
 	bool paused; 					/**< if pipeline is deliberately put in PAUSED state due to user interaction */
 	GstState pipelineState; 			/**< current state of pipeline */
-	guint firstVideoFrameDisplayedCallbackIdleTaskId; /**< ID of idle handler created for notifying state changed to Playing */
-	std::atomic<bool> firstVideoFrameDisplayedCallbackIdleTaskPending; /**< Set if any state changed to Playing callback is pending. */
+	TaskControlData firstVideoFrameDisplayedCallbackTask; /**< Task control data of the handler created for notifying state changed to Playing */
 #if defined(REALTEKCE)
 	bool firstTuneWithWesterosSinkOff; 		/**<  DELIA-33640: track if first tune was done for Realtekce build */
 #endif
@@ -241,8 +240,8 @@ struct AAMPGstPlayerPriv
 			playbackrate(AAMP_NORMAL_PLAY_RATE),
 			lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(AAMP_TASK_ID_INVALID),
 			numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL), durationQuery(NULL),
-			paused(false), pipelineState(GST_STATE_NULL), firstVideoFrameDisplayedCallbackIdleTaskId(AAMP_TASK_ID_INVALID),
-			firstVideoFrameDisplayedCallbackIdleTaskPending(false),
+			paused(false), pipelineState(GST_STATE_NULL),
+			firstVideoFrameDisplayedCallbackTask("FirstVideoFrameDisplayedCallback"),
 #if defined(REALTEKCE)
 			firstTuneWithWesterosSinkOff(false),
 #endif
@@ -934,8 +933,7 @@ static gboolean IdleCallbackFirstVideoFrameDisplayed(gpointer user_data)
 	if (_this)
 	{
 		_this->aamp->NotifyFirstVideoFrameDisplayed();
-		_this->privateContext->firstVideoFrameDisplayedCallbackIdleTaskPending = false;
-		_this->privateContext->firstVideoFrameDisplayedCallbackIdleTaskId = AAMP_TASK_ID_INVALID;
+		_this->IdleTaskRemove(_this->privateContext->firstVideoFrameDisplayedCallbackTask);
 	}
 	return G_SOURCE_REMOVE;
 }
@@ -991,15 +989,11 @@ void AAMPGstPlayer::NotifyFirstFrame(MediaType type)
 
 		IdleTaskAdd(privateContext->firstProgressCallbackIdleTask, IdleCallback);
 
-		if ( (!privateContext->firstVideoFrameDisplayedCallbackIdleTaskPending)
-				&& (aamp->IsFirstVideoFrameDisplayedRequired()) )
+		if (aamp->IsFirstVideoFrameDisplayedRequired())
 		{
-			privateContext->firstVideoFrameDisplayedCallbackIdleTaskPending = false;
-			privateContext->firstVideoFrameDisplayedCallbackIdleTaskId =
-				aamp->ScheduleAsyncTask(IdleCallbackFirstVideoFrameDisplayed, (void *)this, "FirstVideoFrameDisplayedCallback");
-			if(privateContext->firstVideoFrameDisplayedCallbackIdleTaskId != AAMP_TASK_ID_INVALID)
+			if ( !IdleTaskAdd(privateContext->firstVideoFrameDisplayedCallbackTask, IdleCallbackFirstVideoFrameDisplayed))
 			{
-				privateContext->firstVideoFrameDisplayedCallbackIdleTaskPending = true;
+				AAMPLOG_WARN("IdleCallbackFirstVideoFrameDisplayed was not added.");
 			}
 		}
 		PipelineSetToReady = false;
@@ -1569,12 +1563,9 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 				// First Video Frame Displayed callback for westeros-sink is initialized
 				// via OnFirstVideoFrameCallback()->NotifyFirstFrame() which is more accurate
 				if( (!_this->privateContext->using_westerossink)
-						&& (!_this->privateContext->firstVideoFrameDisplayedCallbackIdleTaskPending)
-						&& (_this->aamp->IsFirstVideoFrameDisplayedRequired()) )
+					&& (_this->aamp->IsFirstVideoFrameDisplayedRequired()) )
 				{
-					_this->privateContext->firstVideoFrameDisplayedCallbackIdleTaskPending = true;
-					_this->privateContext->firstVideoFrameDisplayedCallbackIdleTaskId =
-							_this->aamp->ScheduleAsyncTask(IdleCallbackFirstVideoFrameDisplayed, (void *)_this,"FirstVideoFrameDisplayedCallback");
+					_this->IdleTaskAdd(_this->privateContext->firstVideoFrameDisplayedCallbackTask, IdleCallbackFirstVideoFrameDisplayed);
 				}
 
 				if(_this->aamp->mSetPlayerRateAfterFirstframe
@@ -3230,13 +3221,8 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 		privateContext->firstFrameCallbackIdleTaskPending = false;
 		privateContext->firstFrameCallbackIdleTaskId = AAMP_TASK_ID_INVALID;
 	}
-	if (this->privateContext->firstVideoFrameDisplayedCallbackIdleTaskPending)
-	{
-		AAMPLOG_WARN("AAMPGstPlayer: Remove firstVideoFrameDisplayedCallbackIdleTaskId %d", privateContext->firstVideoFrameDisplayedCallbackIdleTaskId);
-		aamp->RemoveAsyncTask(privateContext->firstVideoFrameDisplayedCallbackIdleTaskId);
-		privateContext->firstVideoFrameDisplayedCallbackIdleTaskPending = false;
-		privateContext->firstVideoFrameDisplayedCallbackIdleTaskId = AAMP_TASK_ID_INVALID;
-	}
+	this->IdleTaskRemove(privateContext->firstVideoFrameDisplayedCallbackTask);
+
 	if (this->privateContext->pipeline)
 	{
 		privateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
