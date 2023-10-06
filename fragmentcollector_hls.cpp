@@ -6238,6 +6238,14 @@ void TrackState::UpdateDrmIV(const char *ptr)
 		free(mDrmInfo.iv);
 	}
 	mDrmInfo.iv = iv;
+#ifdef AAMP_VANILLA_AES_SUPPORT
+	//Update iv address in AesDec class
+	std::shared_ptr<AesDec> aesdec = std::dynamic_pointer_cast<AesDec> (mDrm);
+	if(aesdec)
+	{
+		aesdec->SetIV(mDrmInfo.iv);
+	}
+#endif
 	AAMPLOG_TRACE(" [%s] Exit mDrmInfo.iv %p", name, mDrmInfo.iv);
 }
 
