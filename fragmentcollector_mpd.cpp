@@ -1536,6 +1536,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							FetchAndInjectInitFragments();
 							UpdateRampdownProfileReason();
+							pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							return false;
 						}
 						else if( mCheckForRampdown && pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
@@ -1588,6 +1589,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							FetchAndInjectInitFragments();
 							UpdateRampdownProfileReason();
+                                                        pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							return false;
 						}
 					}
@@ -2151,6 +2153,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(bitrate);
 										FetchAndInjectInitFragments();
 										UpdateRampdownProfileReason();
+										pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 										return false; //Since we need to check WaitForFreeFragmentCache
 									}
 									AcquirePlaylistLock();
