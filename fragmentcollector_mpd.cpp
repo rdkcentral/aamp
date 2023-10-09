@@ -4442,11 +4442,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			{
 				if(0 != mCurrentPeriodIdx)
 				{
-					if ((eTUNETYPE_SEEKTOLIVE != tuneType) &&
-						(eTUNETYPE_SEEK != tuneType))
-					{ // LLAMA-9081
-						mMediaStreamContext[i]->fragmentTime = seekPosition;
-					}
+					mMediaStreamContext[i]->fragmentTime = seekPosition;
 				}
 				mMediaStreamContext[i]->periodStartOffset = currentPeriodStart;
 			}
