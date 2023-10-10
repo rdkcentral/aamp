@@ -40,9 +40,9 @@ using namespace std;
 using namespace WPEFramework;
 
 #define RDKSHELL_CALLSIGN "org.rdk.RDKShell.1"
+#define DS_CALLSIGN "org.rdk.DisplaySettings.1"
 
-#define UHD_4K_WIDTH 3840
-#define UHD_4K_HEIGHT 2160
+
 #endif
 
 
@@ -76,7 +76,8 @@ StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string 
                                videoInputPort(-1)
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
                                ,thunderAccessObj(callSign, logObj),
-				thunderRDKShellObj(RDKSHELL_CALLSIGN, logObj)
+				thunderRDKShellObj(RDKSHELL_CALLSIGN, logObj),
+				thunderDSAccessObj(DS_CALLSIGN, logObj)
 #endif
 {
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
@@ -150,6 +151,25 @@ void StreamAbstractionAAMP_VIDEOIN::Stop(bool clearChannelData)
 	AAMPLOG_WARN("%s Function not implemented",mName.c_str());
 }
 
+bool StreamAbstractionAAMP_VIDEOIN::GetResolutionFromDS(int & widthFromDS, int & heightFromDS)
+{
+#ifndef USE_CPP_THUNDER_PLUGIN_ACCESS
+	return false;
+#else
+	JsonObject param;
+	JsonObject result;
+	bool bRetVal = false;
+
+	if( thunderDSAccessObj.InvokeJSONRPC("getCurrentResolution", param, result) )
+	{
+		widthFromDS = result["w"].Number();
+		heightFromDS = result["h"].Number();
+		AAMPLOG_INFO("%s widthFromDS:%d heightFromDS:%d ",mName.c_str(),widthFromDS, heightFromDS);
+		bRetVal = true;
+	}
+	return bRetVal;
+#endif
+}
 
 bool StreamAbstractionAAMP_VIDEOIN::GetScreenResolution(int & screenWidth, int & screenHeight)
 {
@@ -179,14 +199,16 @@ void StreamAbstractionAAMP_VIDEOIN::SetVideoRectangle(int x, int y, int w, int h
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 	int screenWidth = 0;
 	int screenHeight = 0;
+	int widthFromDS = 0;
+	int heightFromDS = 0;
 	float width_ratio = 1.0, height_ratio = 1.0;
-	if(GetScreenResolution(screenWidth,screenHeight))
-        {
-		/*Temporary fix as hdmiin/composite in expects the scaling in 4k space*/
+	if(GetScreenResolution(screenWidth,screenHeight) && GetResolutionFromDS(widthFromDS,heightFromDS))
+    {
 		if((0 != screenWidth) && (0 != screenHeight))
 		{
-			width_ratio = UHD_4K_WIDTH / screenWidth;
-			height_ratio = UHD_4K_HEIGHT / screenHeight;
+			width_ratio = (float)widthFromDS /(float) screenWidth;
+			height_ratio =(float) heightFromDS / (float) screenHeight;
+			AAMPLOG_INFO("screenWidth:%d screenHeight:%d widthFromDS:%d heightFromDS:%d width_ratio:%f height_ratio:%f",screenWidth,screenHeight,widthFromDS,heightFromDS,width_ratio,height_ratio);
 		}
 	}
 

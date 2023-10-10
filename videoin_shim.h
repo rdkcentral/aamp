@@ -139,6 +139,7 @@ private:
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     ThunderAccessAAMP thunderAccessObj;
     ThunderAccessAAMP thunderRDKShellObj;
+    ThunderAccessAAMP thunderDSAccessObj;
     
     /**
      *  @fn OnInputStatusChanged
@@ -153,6 +154,7 @@ private:
     void OnSignalChanged(const JsonObject& parameters);
 #endif
     bool GetScreenResolution(int & screenWidth, int & screenHeight);
+    bool GetResolutionFromDS(int & widthFromDS, int & heightFromDS);
     int videoInputPort;
     std::string mName; // Used for logging
     std::list<std::string> mRegisteredEvents;
