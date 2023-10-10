@@ -3655,6 +3655,8 @@ void AAMPGstPlayer::PauseAndFlush(bool playAfterFlush)
 	rc = SetStateWithWarnings(this->privateContext->pipeline, stateBeforeFlush);
 	if (GST_STATE_CHANGE_ASYNC == rc)
 	{
+		/* CID:330432 Waiting while holding lock. Sleep introduced in validateStateWithMsTimeout to prevent continuous polling when synchronising pipeline state.
+		 * Too risky to remove mutex lock. It may be replaced if approach is redesigned in future */
 		if (GST_STATE_PAUSED != validateStateWithMsTimeout(this,GST_STATE_PAUSED, 50))
 		{
 			AAMPLOG_ERR("AAMPGstPlayer_Flush - validateStateWithMsTimeout - FAILED GstState %d", GST_STATE_PAUSED);
@@ -3849,6 +3851,8 @@ bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
 		GstStateChangeReturn rc = SetStateWithWarnings(this->privateContext->pipeline, nextState);
 		if (GST_STATE_CHANGE_ASYNC == rc)
 		{
+			/* CID:330433 Waiting while holding lock. Sleep introduced in validateStateWithMsTimeout to prevent continuous polling when synchronising pipeline state.
+			 * Too risky to remove mutex lock. It may be replaced if approach is redesigned in future */
 			/* wait a bit longer for the state change to conclude */
 			if (nextState != validateStateWithMsTimeout(this,nextState, 100))
 			{
