@@ -240,7 +240,14 @@ private:
 	int pes_header_ext_len;
 	int pes_header_ext_read;
 	AampGrowableBuffer pes_header;
-	pthread_mutex_t esMutex;
+	
+	/* All public methods should be locked using this mutex as
+	 * member data is highly coupled (especially in processdata()).
+	 * Concurrent access to member data is highly likely to corrupt or return corrupt data.
+	 * Testing shows that 4 threads can access one instance of this class.
+	 * setBasePTS(), getBasePTS() & HasCachedData() methods imply
+	 * that there are pre-existing interface races that this change does not address*/
+	std::mutex mMutex;
 	AampGrowableBuffer es;
 	double position;
 	double duration;
@@ -267,21 +274,17 @@ private:
 			if ((base_pts > current_pts)
 				|| (current_dts && base_pts > current_dts))
 			{
-				pthread_mutex_lock(&esMutex);
 				WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " diff %f seconds length %d",
 					type, position, base_pts.value, current_pts.value, (double)(base_pts - current_pts) / 90000, (int)es.GetLen() );
 				es.Clear();
-				pthread_mutex_unlock(&esMutex);
 				return false;
 			}
 
 			if (base_pts + uint33_t::half_max() > current_pts + uint33_t::half_max())
 			{
-				pthread_mutex_lock(&esMutex);
 				WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " base_pts+half_max %" PRIu64 " current_pts+half_max %" PRIu64 ,
 					type, position, base_pts.value, current_pts.value, (base_pts+uint33_t::half_max()).value, (current_pts+uint33_t::half_max()).value);
 				es.Clear();
-				pthread_mutex_unlock(&esMutex);
 				return false;
 			}
 			reached_steady_state = true;
@@ -321,10 +324,9 @@ private:
 		if (CheckForSteadyState())
 		{
 			const auto info = UpdateSegmentInfo();
-			
-			pthread_mutex_lock(&esMutex);
+
 			aamp->SendStreamCopy(type, es.GetPtr(), es.GetLen(), info.pts_ms, info.dts_ms, duration);
-			
+
 			if (gpGlobalConfig->logging.info)
 			{
 				sentESCount++;
@@ -334,7 +336,43 @@ private:
 				}
 			}
 			es.Clear();
-			pthread_mutex_unlock(&esMutex);
+		}
+	}
+
+	/**
+	 * @brief reset demux state
+	 */
+	void resetInternal()
+	{
+		es.Free();
+		pes_header.Free();
+		sentESCount = 0;
+	}
+
+	/**
+	 * @brief Sends elementary stream with proper PTS
+	 * @param[in] processor Function to process the demuxed segment
+	 */
+	void sendInternal(MediaProcessor::process_fcn_t processor)
+	{
+		if (processor)
+		{
+			if (CheckForSteadyState())
+			{
+				// Copy the segment data into a vector and pass it to the processing function
+				uint8_t * data_ptr = reinterpret_cast<uint8_t *>(es.GetPtr());
+				const auto len = es.GetLen();
+				std::vector<uint8_t> buf(len);
+				const auto info {UpdateSegmentInfo()};
+
+				buf.assign(data_ptr, data_ptr + len);
+				processor(type, std::move(info), std::move(buf));
+				es.Clear();
+			}
+		}
+		else
+		{
+			send();
 		}
 	}
 
@@ -345,12 +383,12 @@ public:
 	 * @param[in] type Media type to be demuxed
 	 */
 	Demuxer(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,MediaType type) : mLogObj(logObj), aamp(aamp), pes_state(0),
-		pes_header_ext_len(0), pes_header_ext_read(0), pes_header("pes_header"),
+		pes_header_ext_len(0), pes_header_ext_read(0), pes_header("pes_header"), mMutex(),
 		es("es"), position(0), duration(0), base_pts{0}, current_pts{0},
 		current_dts{0}, type(type), trickmode(false), finalized_base_pts(false),
-		sentESCount(0), allowPtsRewind(false), first_pts{0}, update_first_pts(false), reached_steady_state(false), esMutex()
+		sentESCount(0), allowPtsRewind(false), first_pts{0}, update_first_pts(false), reached_steady_state(false)
 	{
-		pthread_mutex_init(&esMutex, NULL);
+		//mutex in init
 		init(0, 0, false, true);
 	}
 
@@ -379,7 +417,7 @@ public:
 	 */
 	~Demuxer()
 	{
-		pthread_mutex_destroy(&esMutex);
+		std::lock_guard<std::mutex> lock{mMutex};
 		es.Free();
 		pes_header.Free();
 	}
@@ -393,6 +431,7 @@ public:
 	 */
 	void init(double position, double duration, bool trickmode, bool resetBasePTS)
 	{
+		std::lock_guard<std::mutex> lock{mMutex};
 		this->position = position;
 		this->duration = duration;
 		this->trickmode = trickmode;
@@ -416,17 +455,16 @@ public:
 	 */
 	void flush()
 	{
-		pthread_mutex_lock(&esMutex);
+		std::lock_guard<std::mutex> lock{mMutex};
 		auto len = es.GetLen();
-		pthread_mutex_unlock(&esMutex);
 		if (len > 0)
 		{
 			INFO("demux : sending remaining bytes. es.len %d", (int)es.GetLen());
 			send();
 		}
-		
+
 		AAMPLOG_INFO("Demuxer::count %d in duration %f",sentESCount, duration);
-		reset();
+		resetInternal();
 	}
 
 
@@ -435,11 +473,8 @@ public:
 	 */
 	void reset()
 	{
-		pthread_mutex_lock(&esMutex);
-		es.Free();
-		pthread_mutex_unlock(&esMutex);
-		pes_header.Free();
-		sentESCount = 0;
+		std::lock_guard<std::mutex> lock{mMutex};
+		resetInternal();
 	}
 
 
@@ -450,6 +485,7 @@ public:
 	 */
 	void setBasePTS(unsigned long long basePTS, bool isFinal)
 	{
+		std::lock_guard<std::mutex> lock{mMutex};
 		if (!trickmode)
 		{
 			NOTICE("Type[%d], basePTS %llu final %d", (int)type, basePTS, (int)isFinal);
@@ -464,6 +500,7 @@ public:
 	 */
 	unsigned long long getBasePTS()
 	{
+		std::lock_guard<std::mutex> lock{mMutex};
 		return base_pts.value;
 	}
 
@@ -476,6 +513,7 @@ public:
 	 */
 	void processPacket(unsigned char * packetStart, bool &basePtsUpdated, bool &ptsError, bool &isPacketIgnored, bool applyOffset, MediaProcessor::process_fcn_t processor)
 	{
+		std::lock_guard<std::mutex> lock{mMutex};
 		int adaptation_fieldlen = 0;
 		basePtsUpdated = false;
 		if (CONTAINS_PAYLOAD(packetStart))
@@ -492,21 +530,17 @@ public:
 			/*Store the pts/dts*/
 			if (PAYLOAD_UNIT_START(packetStart))
 			{
-				pthread_mutex_lock(&esMutex);
-				auto len = es.GetLen();
-				pthread_mutex_unlock(&esMutex);
-				if (len > 0)
+				if (es.GetLen() > 0)
 				{
 					if (processor)
 					{
-						send(processor);
+						sendInternal(processor);
 					}
 					else
 					{
 						send();
 					}
 				}
-				
 				unsigned char* pesStart = packetStart + pesOffset;
 				if (IS_PES_PACKET_START(pesStart))
 				{
@@ -661,7 +695,7 @@ public:
 				{
 					aamp->NotifyFirstVideoPTS(first_pts.value);
 					//Notifying BasePTS value for media progress event
-					aamp->NotifyVideoBasePTS(getBasePTS());
+					aamp->NotifyVideoBasePTS(base_pts.value);
 				}
 			}
 			/*PARSE PES*/
@@ -686,6 +720,11 @@ public:
 						break;
 					case PES_STATE_GETTING_HEADER:
 						bytes_to_read = (int)(PES_MIN_DATA - pes_header.GetLen());
+						if( bytes_to_read<=0 )
+						{
+							WARNING( "bad pes_header length" );
+							break;
+						}
 						if (size < bytes_to_read)
 						{
 							bytes_to_read = size;
@@ -739,9 +778,7 @@ public:
 					case PES_STATE_GETTING_ES:
 						/*Handle padding?*/
 						TRACE1("PES_STATE_GETTING_ES bytes_to_read = %d", size);
-						pthread_mutex_lock(&esMutex);
 						es.AppendBytes(data, size);
-						pthread_mutex_unlock(&esMutex);
 						size = 0;
 						break;
 					default:
@@ -759,39 +796,21 @@ public:
 		ptsError = false;
 	}
 
-	/**
-	 * @brief Sends elementary stream with proper PTS
-	 * @param[in] processor Function to process the demuxed segment
-	 */
 	void send(MediaProcessor::process_fcn_t processor)
 	{
-		if (processor)
-		{
-			if (CheckForSteadyState())
-			{
-				// Copy the segment data into a vector and pass it to the processing function
-				pthread_mutex_lock(&esMutex);
-				uint8_t * data_ptr = reinterpret_cast<uint8_t *>(es.GetPtr());
-				const auto len = es.GetLen();
-				std::vector<uint8_t> buf(len);
-				const auto info {UpdateSegmentInfo()};
-
-				buf.assign(data_ptr, data_ptr + len);
-				processor(type, std::move(info), std::move(buf));
-				es.Clear();
-				pthread_mutex_unlock(&esMutex);
-			}
-		}
-		else
-		{
-			send();
-		}
+		std::lock_guard<std::mutex> lock{mMutex};
+		sendInternal(processor);
 	}
 
 	/** @brief Provides the @a MediaType of the demixer
 	 * @return The MediaType of the demuxer
 	 */
-	MediaType GetType() const { return type; }
+	MediaType GetType() 
+	{
+		std::lock_guard<std::mutex> lock{mMutex};
+
+		return type;
+	}
 
 	/**
 	 * @brief Consumes the cached data of the @a es buffer, if present
@@ -801,16 +820,14 @@ public:
 	 */
 	bool ConsumeCachedData(MediaProcessor::process_fcn_t processor)
 	{
-		bool rc = false;
-		pthread_mutex_lock(&esMutex);
-		auto len = es.GetLen();
-		pthread_mutex_unlock(&esMutex);
-		if (len)
+		std::lock_guard<std::mutex> lock{mMutex};
+
+		if (es.GetLen())
 		{
-			send(processor);
-			rc = true;
+			sendInternal(processor);
+			return true;
 		}
-		return rc;
+		return false;
 	}
 
 	/**
@@ -818,13 +835,23 @@ public:
 	 * @return True if there is any cached data
 	 * @return False if there is no cached data
 	*/
-	bool HasCachedData() const { return !!es.GetLen(); }
+	bool HasCachedData() 
+	{
+
+		std::lock_guard<std::mutex> lock{mMutex};
+		return !!es.GetLen(); 
+	}
 
 	/**
 	 * @brief Provides the current size of the @a es buffer
 	 * @return The size of data contained in the @a es buffer
 	*/
-	size_t GetCachedDataSize() const { return es.GetLen(); }
+	size_t GetCachedDataSize() 
+	{
+
+		std::lock_guard<std::mutex> lock{mMutex};
+		return es.GetLen(); 
+	}
 
 };
 
