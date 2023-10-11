@@ -60,7 +60,6 @@ CDAI support, configuration options for tune optimization
     - placementError
     - manifestRefreshNotify
 
-
 **Version:** 0.9
 **Release Notes:** 
 "Player Switching" Feature
@@ -1894,7 +1893,17 @@ Example:
 
 **Description:** 
 - Supported UVE version 0.7 and above.
-- Fired as state changes across play/pause seek/not-seek quadruplet
+- Fired as player state changes while tuning, during steady state playback, or as trickplay commands (play, pause, seek) are processed.
+- Example sequences - refer getCurrentState() for details:
+    - while tuning: eSTATE_INITIALIZING -> eSTATE_INITIALIZED -> eSTATE_PREPARING -> eSTATE_PREPARED -> eSTATE_PLAYING
+    - seek command: -> eSTATE_SEEKING -> eSTATE_PLAYING
+    - seek while paused -> eSTATE_SEEKING -> eSTATE_PAUSED
+    - stop command: -> eSTATE_IDLE
+    - pause command: -> eSTATE_PAUSED
+    - playback rate changed back to 1x (normal) speed: -> eSTATE_PLAYING
+    - end of stream (EOS) reached: -> eSTATE_COMPLETE
+    - playback has stalled due to video buffer running out: -> eSTATE_BUFFERING
+    - buffering complete: -> eSTATE_PLAYING
 
 ---
 
@@ -1936,11 +1945,12 @@ Example:
 
 **Description:** 
 - Supported UVE version 0.8 and above.
-- Note that bufferingChanged events are generated only after streaming has started.
-- This is not generated at tune time, while video is paused, or while seeking.
+- bufferingChanged events are generated only after streaming has started.
+- bufferingChanged is not generated at tune time, while video is paused, or while seeking.
 - buffering flag gives status:
-    - FALSE -> Video buffer has run dry and playback is stalled (Underflow)
-    - TRUE -> Playback has resumed (healthy buffering)
+    - FALSE -> Video buffer has run dry post-tune and playback is stalled (underflow)
+    - TRUE -> Rebuffering is complete and video is again streaming (healthy buffering)
+- Note: bufferingChanged will be followed by a general playbackStateChanged event.
 
 ---
 
@@ -1954,7 +1964,6 @@ Example:
 
 **Description:**
 - sent when a live DASH manifest is refreshed
-
 
 ---
 
