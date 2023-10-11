@@ -384,11 +384,9 @@ void AampMPDDownloader::downloadMPDThread1()
 			// store the last manifestdownloadTime
 			mMPDData->mLastPlaylistDownloadTimeMs	=	aamp_GetCurrentTimeMS();
 			mMPDData->parseMPD();
-			if(firstDownload)
-			{
-				 // Check for LLD Manifest for first manifest download only . This is needed to determine the refresh parameters
-                                mIsLowLatency         =               isMPDLowLatency(mMPDData, mMPDData->mLLDashData);
-			}
+			// Check for low latency params in manifest
+			mIsLowLatency  = isMPDLowLatency(mMPDData, mMPDData->mLLDashData);
+
 			if(mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK)
 			{
 				readMPDData(mMPDData);
