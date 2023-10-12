@@ -88,6 +88,7 @@ typedef enum
 	AAMP_EVENT_WATERMARK_SESSION_UPDATE,    /**< 41, Update on Watermark Session*/
 	AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE,	/**< 42, Update on Content Protection Data on Dynamic Key Rotation*/
 	AAMP_EVENT_MANIFEST_REFRESH_NOTIFY,	/**< 43, DASH Manifest refresh notification*/
+	AAMP_EVENT_TUNE_TIME_METRICS,	/**< 44, Event when Tune time metric data sends*/
 	AAMP_MAX_NUM_EVENTS
 } AAMPEventType;
 
@@ -473,6 +474,14 @@ struct AAMPEvent
 			uint32_t manifestPublishedTime;	/**< manifest published time */
 			int noOfPeriods;	/**< No.Of periods in manifest */
 		} manifestRefreshData;
+
+		/**
+		 * @brief Structure of the tune time metric event
+		 */
+		struct
+		{
+			const char *mTuneMetricData;	/**< Tune timemetric data */
+		} tuneMetricData;
 	} data;
 
 	/**
@@ -2270,6 +2279,36 @@ public:
 
 };
 
+/**
+ * @class TuneTimeMetricsEvent
+ * @brief Class for the Tune Time Metrics Event
+ */
+class TuneTimeMetricsEvent: public AAMPEventObject
+{
+	std::string mTuneMetricsData;	/**< micro event data for profiling */
+
+public:
+	TuneTimeMetricsEvent() = delete;
+	TuneTimeMetricsEvent(const TuneTimeMetricsEvent&) = delete;
+	TuneTimeMetricsEvent& operator=(const TuneTimeMetricsEvent&) = delete;
+
+	/**
+	 * @fn TuneTimeMetricsEvent
+	 *
+	 * @param[in] profilingData - tune profiling data
+	 */
+	TuneTimeMetricsEvent(const std::string &profilingData);
+
+	/**
+	 * @brief TuneTimeMetricsEvent Destructor
+	 */
+	virtual ~TuneTimeMetricsEvent() { }
+
+	/**
+	 * @fn getTuneMetricsData
+	 */
+	const std::string &getTuneMetricsData() const;
+};
 
 
 using AAMPEventPtr = std::shared_ptr<AAMPEventObject>;
@@ -2301,5 +2340,6 @@ using HTTPResponseHeaderEventPtr = std::shared_ptr<HTTPResponseHeaderEvent>;
 using WatermarkSessionUpdateEventPtr = std::shared_ptr<WatermarkSessionUpdateEvent>;
 using ContentProtectionDataEventPtr = std::shared_ptr<ContentProtectionDataEvent>;
 using ManifestRefreshEventPtr = std::shared_ptr<ManifestRefreshEvent>;
+using TuneTimeMetricsEventPtr = std::shared_ptr<TuneTimeMetricsEvent>;
 #endif /* __AAMP_EVENTS_H__ */
 

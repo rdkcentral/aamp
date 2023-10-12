@@ -319,6 +319,22 @@ public:
 	 */
 	void getTuneEventsJSON(std::string &outSS, const std::string &streamType, const char *url, bool success);
 
+		/**
+	 * @fn GetTuneMetricInfoasJson
+	 *
+	 * @param[in] tuneMetricsData - tuneend metric data
+	 * @param[in] licenseAcqNWTime - license Acq Network Time
+	 * @param[in] playerPreBuffered - prebufferd mode
+	 * @param[in] durationSeconds - Asset duration in seconds
+	 * @param[in] interfaceWifi - Connection is wifi or not - wifi(1) ethernet(0)
+	 * @param[in] failureReason - Failure Reason
+	 * @param[in] appName - App name
+	 * @return string
+	 */
+	std::string GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetricsData, const char *tuneTimeStrPrefix,
+				unsigned int licenseAcqNWTime, bool playerPreBuffered,
+				unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string appName);
+
 	/**
 	 * @fn TuneBegin
 	 *
@@ -336,9 +352,10 @@ public:
 	 * @param[in] durationSeconds - Asset duration in seconds
 	 * @param[in] interfaceWifi - Active connection is Wifi or Ethernet
 	 * @param[in] failureReason - Aamp player failure reason
+	 * @param[out] tuneMetricData - Output JSON string
 	 * @return void
 	 */
-	void TuneEnd(TuneEndMetrics &mTuneendmetrics, std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi, std::string failureReason);
+	void TuneEnd(TuneEndMetrics &mTuneendmetrics, std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string *tuneMetricData);
 	/**
 	 * @fn GetClassicTuneTimeInfo
 	 *

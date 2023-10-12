@@ -59,6 +59,7 @@ CDAI support, configuration options for tune optimization
     - placementProgress
     - placementError
     - manifestRefreshNotify
+    - tuneMetricsData
 
 **Version:** 0.9
 **Release Notes:** 
@@ -1993,6 +1994,66 @@ Example:
 
 **Description:**
 - sent when a live DASH manifest is refreshed
+
+---
+
+### tuneMetricsData
+
+**Event Payload:**
+- tuneMetricsData: string
+
+**Description:**
+- Tune Metric Data notification with below metric informations
+	- pre -> prefix
+	- ver -> version for this protocol, initially zero
+	- bld -> build incremented when there are significant player changes/optimizations
+	- tbu -> tuneStartBaseUTCMS - when tune logically started from AAMP perspective
+	- mms -> ManifestDownloadStartTime - offset in milliseconds from tunestart when main manifest begins download
+	- mmt -> ManifestDownloadTotalTime - time (ms) taken for main manifest download, relative to ManifestDownloadStartTime
+	- mme -> ManifestDownloadFailCount - errors/retries occured during this operation
+	- vps -> video offset in milliseconds from tunestart when playlist subManifest begins download(in MS)
+	- vpt -> time (ms) taken for video playlist subManifest download, relative to PlaylistDownloadStartTime(in MS)
+	- vpe -> video playlist errors/retries occured during this operation
+	- aps -> audio offset in milliseconds from tunestart when playlist subManifest begins download(in MS)
+	- apt -> time (ms) taken for audio playlist subManifest download, relative to PlaylistDownloadStartTime(in MS)
+	- ape -> audio playlist errors/retries occured during this operation
+	- vis -> video init-segment relative start time(in MS)
+	- vit -> video init-segment total duration(in MS)
+	- vie -> video init-segment errors/retries occured during this operation
+	- ais -> audio init-segment relative start time(in MS)
+	- ait -> audio init-segment total duration(in MS)
+	- aie -> audio init-segment errors/retries occured during this operation
+	- vfs -> video fragment relative start time(in MS)
+	- vft -> video fragment total duration(in MS)
+	- vfe -> video fragment errors/retries occured during this operation
+	- vfb -> video bandwidth in bps
+	- afs -> audio fragment relative start time(in MS)
+	- aft -> audio fragment total duration(in MS)
+	- afe -> audio fragment errors/retries occured during this operation
+	- afb -> audio bandwidth in bps
+	- las -> drmLicenseRequestStart - offset in milliseconds from tunestart
+	- lat ->drmLicenseRequestTotalTime -time (ms) for license acquisition relative to drmLicenseRequestStart
+	- dfe ->drmFailErrorCode nonzero if drm license acquisition failed during tuning
+	- lpr -> LAPreProcDuration - License acquisition pre-processing duration in ms
+	- lnw -> LANetworkDuration - License acquisition network duration in ms
+	- lps -> LAPostProcDuration - License acquisition post-processing duration in ms
+	- vdd -> Video Decryption Duration - Video fragment decrypt duration in ms
+	- add -> Audio Decryption Duration - Audio fragment decrypt duration in ms
+	- gps -> gstPlaying: offset in ms from tunestart when pipeline first fed data
+	- gff -> gstFirstFrame: offset in ms from tunestart when first frame of video is decoded/presented
+	- cnt -> Content Type Eg: LINEAR, VOD, etc
+	- stt -> Media stream Type Eg: HLS, DASH, etc
+	- ftt -> firstTune - To identify the first tune after load
+	- pbm -> If Player was in prebufferd mode
+	- tpb -> time spent in prebufferd(BG) mode
+	- dus -> Asset duration in seconds
+	- ifw -> Connection is wifi or not - wifi(1) ethernet(0)
+	- tat -> TuneAttempts
+	- tst -> Tunestatus -success(1) failure (0)
+	- frs -> Failure Reason
+	- app -> AppName
+	- tsb -> TSBEnabled or not - enabled(1) not enabled(0)
+	- tot -> TotalTime -for failure and interrupt tune -it is time at which failure /interrupt reported
 
 ---
 

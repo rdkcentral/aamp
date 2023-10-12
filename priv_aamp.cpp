@@ -2542,6 +2542,18 @@ bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBu
 
 
 /**
+ * @brief providing the Tune Timemetric info
+ */
+void PrivateInstanceAAMP::SendTuneMetricsEvent(std::string &timeMetricData)
+{
+	// Providing the Tune Timemetric info as an event
+	TuneTimeMetricsEventPtr e = std::make_shared<TuneTimeMetricsEvent>(timeMetricData);
+
+	AAMPLOG_INFO("PrivateInstanceAAMP: Sending Tune Timemetric info event: %s", e->getTuneMetricsData().c_str());
+	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
+}
+
+/**
  * @brief Handles errors and sends events to application if required.
  * For download failures, use SendDownloadErrorEvent instead.
  */
@@ -3185,7 +3197,13 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	{
 		LogPlayerPreBuffered();        //Need to calculate prebufferedtime when tune interruption happens with playerprebuffer
 	}
-	profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi,mFailureReason);
+	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
+	std::string tuneData("");
+	profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	if(eventAvailStatus)
+	{
+		SendTuneMetricsEvent(tuneData);
+	}
 	AdditionalTuneFailLogEntries();
 }
 
@@ -3205,7 +3223,13 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	mTuneMetrics.mTuneAttempts 		 = mTuneAttempts;
 	mTuneMetrics.streamType 		 = streamType;
 	mTuneMetrics.mTSBEnabled                 = mTSBEnabled;
-	profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi,mFailureReason);
+	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
+	std::string tuneData("");
+	profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	if(eventAvailStatus)
+	{
+		SendTuneMetricsEvent(tuneData);
+	}
 	//update tunedManifestUrl if FOG was NOT used as manifestUrl might be updated with redirected url.
 	if(!IsTSBSupported())
 	{

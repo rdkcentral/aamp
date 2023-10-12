@@ -91,6 +91,7 @@ static EventTypeMap aamp_eventTypes[] =
 	{ AAMP_EVENT_CONTENT_GAP, "contentGap" },
 	{ AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE, "contentProtectionDataUpdate" },
 	{ AAMP_EVENT_MANIFEST_REFRESH_NOTIFY, "manifestRefresh"},
+	{ AAMP_EVENT_TUNE_TIME_METRICS, "tuneMetricsData" },
 	{ (AAMPEventType)0, "" }
 };
 
@@ -145,6 +146,7 @@ static EventTypeMap aampPlayer_eventTypes[] =
 	{ AAMP_EVENT_WATERMARK_SESSION_UPDATE, "watermarkSessionUpdate" },
 	{ AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE, "contentProtectionDataUpdate" },
 	{ AAMP_EVENT_MANIFEST_REFRESH_NOTIFY, "manifestRefresh"},
+	{ AAMP_EVENT_TUNE_TIME_METRICS, "tuneMetricsData" },
 	{ (AAMPEventType)0, "" }
 };
 

@@ -287,6 +287,12 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 			event.data.manifestRefreshData.manifestPublishedTime = ev->getManifestPublishedTime();
 			break;
 		}
+		case AAMP_EVENT_TUNE_TIME_METRICS:
+		{
+			TuneTimeMetricsEventPtr ev = std::dynamic_pointer_cast<TuneTimeMetricsEvent>(e);
+			event.data.tuneMetricData.mTuneMetricData = ev->getTuneMetricsData().c_str();
+			break;
+		}
 		default:
 			// Some events without payload also falls here, for now
 			// Hence skipping adding an assert to purposefully crash if mapping is not done to Legacy event

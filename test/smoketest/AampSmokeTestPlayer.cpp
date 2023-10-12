@@ -373,6 +373,12 @@ void SmokeTestEventListener::Event(const AAMPEventPtr& e)
 			printf("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriosd[%u]:PubTime[%u]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime());
 			break;
 		}
+		case AAMP_EVENT_TUNE_TIME_METRICS:
+		{
+			TuneTimeMetricsEventPtr ev = std::dynamic_pointer_cast<TuneTimeMetricsEvent>(e);
+			printf("[AAMPCLI] AAMP_EVENT_TUNE_TIME_METRICS\n\tData[%s]\n",ev->getTuneMetricsData().c_str());
+			break;
+		}
 		default:
 			break;
 	}

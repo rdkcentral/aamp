@@ -27,7 +27,7 @@ void ProfileEventAAMP::TuneBegin(void)
 {
 }
 
-void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi,std::string failureReason)
+void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi,std::string failureReason,std::string *tuneMetricData)
 {
 }
 

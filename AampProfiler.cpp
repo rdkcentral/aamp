@@ -41,6 +41,97 @@ ProfileEventAAMP::ProfileEventAAMP():
 {
 }
 
+std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetricsData, const char *tuneTimeStrPrefix,
+				unsigned int licenseAcqNWTime, bool playerPreBuffered,
+				unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string appName)
+{
+	//Convert to JSON format
+	std::string metrics = "";
+	cJSON *item = nullptr;
+	item = cJSON_CreateObject();
+
+	if( nullptr == item )
+	{
+		return metrics;
+	}
+
+	cJSON_AddStringToObject(item, "pre", tuneTimeStrPrefix);
+	cJSON_AddNumberToObject(item, "ver", AAMP_TUNETIME_VERSION);
+	cJSON_AddStringToObject(item, "bld", AAMP_VERSION);
+	cJSON_AddNumberToObject(item, "tbu", tuneStartBaseUTCMS);
+
+	cJSON_AddNumberToObject(item, "mms", buckets[PROFILE_BUCKET_MANIFEST].tStart);
+	cJSON_AddNumberToObject(item, "mmt", bucketDuration(PROFILE_BUCKET_MANIFEST));
+	cJSON_AddNumberToObject(item, "mme", buckets[PROFILE_BUCKET_MANIFEST].errorCount);
+
+	cJSON_AddNumberToObject(item, "vps", buckets[PROFILE_BUCKET_PLAYLIST_VIDEO].tStart);
+	cJSON_AddNumberToObject(item, "vpt", bucketDuration(PROFILE_BUCKET_PLAYLIST_VIDEO));
+	cJSON_AddNumberToObject(item, "vpe", buckets[PROFILE_BUCKET_PLAYLIST_VIDEO].errorCount);
+
+	cJSON_AddNumberToObject(item, "aps", buckets[PROFILE_BUCKET_PLAYLIST_AUDIO].tStart);
+	cJSON_AddNumberToObject(item, "apt", bucketDuration(PROFILE_BUCKET_PLAYLIST_AUDIO));
+	cJSON_AddNumberToObject(item, "ape", buckets[PROFILE_BUCKET_PLAYLIST_AUDIO].errorCount);
+
+	cJSON_AddNumberToObject(item, "vis", buckets[PROFILE_BUCKET_INIT_VIDEO].tStart);
+	cJSON_AddNumberToObject(item, "vit", bucketDuration(PROFILE_BUCKET_INIT_VIDEO));
+	cJSON_AddNumberToObject(item, "vie", buckets[PROFILE_BUCKET_INIT_VIDEO].errorCount);
+
+	cJSON_AddNumberToObject(item, "ais", buckets[PROFILE_BUCKET_INIT_AUDIO].tStart);
+	cJSON_AddNumberToObject(item, "ait", bucketDuration(PROFILE_BUCKET_INIT_AUDIO));
+	cJSON_AddNumberToObject(item, "aie", buckets[PROFILE_BUCKET_INIT_AUDIO].errorCount);
+
+	cJSON_AddNumberToObject(item, "vfs", buckets[PROFILE_BUCKET_FRAGMENT_VIDEO].tStart);
+	cJSON_AddNumberToObject(item, "vft", bucketDuration(PROFILE_BUCKET_FRAGMENT_VIDEO));
+	cJSON_AddNumberToObject(item, "vfe", buckets[PROFILE_BUCKET_FRAGMENT_VIDEO].errorCount);
+	cJSON_AddNumberToObject(item, "vfb", bandwidthBitsPerSecondVideo);
+
+	cJSON_AddNumberToObject(item, "afs", buckets[PROFILE_BUCKET_FRAGMENT_AUDIO].tStart);
+	cJSON_AddNumberToObject(item, "aft", bucketDuration(PROFILE_BUCKET_FRAGMENT_AUDIO));
+	cJSON_AddNumberToObject(item, "afe", buckets[PROFILE_BUCKET_FRAGMENT_AUDIO].errorCount);
+	cJSON_AddNumberToObject(item, "afb", bandwidthBitsPerSecondAudio);
+
+	cJSON_AddNumberToObject(item, "las", buckets[PROFILE_BUCKET_LA_TOTAL].tStart);
+	cJSON_AddNumberToObject(item, "lat", bucketDuration(PROFILE_BUCKET_LA_TOTAL));
+	cJSON_AddNumberToObject(item, "dfe", drmErrorCode);
+
+	cJSON_AddNumberToObject(item, "lpr", bucketDuration(PROFILE_BUCKET_LA_PREPROC));
+	cJSON_AddNumberToObject(item, "lnw", licenseAcqNWTime);
+	cJSON_AddNumberToObject(item, "lps", bucketDuration(PROFILE_BUCKET_LA_POSTPROC));
+
+	cJSON_AddNumberToObject(item, "vdd", bucketDuration(PROFILE_BUCKET_DECRYPT_VIDEO));
+	cJSON_AddNumberToObject(item, "add", bucketDuration(PROFILE_BUCKET_DECRYPT_AUDIO));
+
+	cJSON_AddNumberToObject(item, "gps", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart);
+	cJSON_AddNumberToObject(item, "gff", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_FRAME].tStart);
+
+	cJSON_AddNumberToObject(item, "cnt", tuneMetricsData.contentType);
+	cJSON_AddNumberToObject(item, "stt", tuneMetricsData.streamType);
+	cJSON_AddBoolToObject(item, "ftt", tuneMetricsData.mFirstTune);
+
+	cJSON_AddNumberToObject(item, "pbm", playerPreBuffered);
+	cJSON_AddNumberToObject(item, "tpb", playerPreBuffered ? buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : 0);
+
+	cJSON_AddNumberToObject(item, "dus", durationSeconds);
+	cJSON_AddNumberToObject(item, "ifw", interfaceWifi);
+
+	cJSON_AddNumberToObject(item, "tat", tuneMetricsData.mTuneAttempts);
+	cJSON_AddNumberToObject(item, "tst", tuneMetricsData.success);
+	cJSON_AddStringToObject(item, "frs", failureReason.c_str());
+	cJSON_AddStringToObject(item, "app", appName.c_str());
+
+	cJSON_AddNumberToObject(item, "tsb", tuneMetricsData.mTSBEnabled);
+	cJSON_AddNumberToObject(item, "tot", tuneMetricsData.mTotalTime);
+
+	char *jsonStr = cJSON_Print(item);
+	if (jsonStr)
+	{
+		metrics.assign(jsonStr);
+		free(jsonStr);
+	}
+	cJSON_Delete(item);
+	return metrics;
+}
+
 /**
  *  @brief Get tune time events in JSON format
  */
@@ -161,7 +252,7 @@ void ProfileEventAAMP::TuneBegin(void)
  * firstTune                      //Is it a first tune after reboot/crash.
  * <br>
  */
-void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi,std::string failureReason)
+void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string *tuneMetricData)
 {
 	if(!enabled )
 	{
@@ -240,7 +331,12 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		durationSeconds,interfaceWifi,
 		mTuneEndMetrics.mTuneAttempts, mTuneEndMetrics.success,failureReason.c_str(),appName.c_str(),
 		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mTSBEnabled,mTotalTime
-		);	
+		);
+		if( NULL != tuneMetricData)
+		{
+			//provided the time tune metric data as an json format to application
+			*tuneMetricData = GetTuneTimeMetricAsJson(mTuneEndMetrics, tuneTimeStrPrefix, licenseAcqNWTime, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, appName);
+		}
 }
 
 /**

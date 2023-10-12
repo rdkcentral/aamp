@@ -1424,6 +1424,14 @@ public:
 	 */
 	void SendBufferChangeEvent(bool bufferingStopped=false);
 
+	/**
+	 * @fn SendTuneMetricsEvent
+	 *
+	 * @param[in] timeMetricData- Providing the Tune Timemetric info as an event
+	 * @return void
+	 */
+	void SendTuneMetricsEvent(std::string &timeMetricData);
+
 	/* Buffer Under flow status flag, under flow Start(buffering stopped) is true and under flow end is false*/
 	bool mBufUnderFlowStatus;
 	bool GetBufUnderFlowStatus() { return mBufUnderFlowStatus; }

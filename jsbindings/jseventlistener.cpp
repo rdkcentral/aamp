@@ -1588,6 +1588,43 @@ public:
 };
 
 /**
+ *  @class AAMP_JSListener_TimeMetricData
+ * @brief Event listener impl for AAMP_Listener_TuneMetricData event.
+ */
+
+class AAMP_Listener_TuneMetricData : public AAMP_JSEventListener
+{
+public:
+    /**
+     * @brief AAMP_EVENT_MANIFEST_REFRESH_NOTIFY Constructor
+     * @param[in] type event type
+     * @param[in] jsCallback callback to be registered as listener
+	 */
+	AAMP_Listener_TuneMetricData(PrivAAMPStruct_JS *obj, AAMPEventType type, JSObjectRef jsCallback)
+		: AAMP_JSEventListener(obj, type, jsCallback)
+	{
+	}
+
+	/**
+	 * @brief Set properties to JS event object
+	 * @param[in] ev AAMP event object
+	 * @param[out] jsEventObj JS event object
+	 */
+	void SetEventProperties(const AAMPEventPtr& ev, JSObjectRef jsEventObj)
+	{
+		TuneTimeMetricsEventPtr evt = std::dynamic_pointer_cast<TuneTimeMetricsEvent>(ev);
+		JSStringRef prop;
+		const char* tuneMetricData = evt->getTuneMetricsData().c_str();
+
+		prop = JSStringCreateWithUTF8CString("tuneMetricsData");
+		LOG_TRACE("AAMP_Listener_TuneMetricData Tunemetric data %s", tuneMetricData);
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, tuneMetricData), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+    }
+
+};
+
+/**
  * @brief AAMP_JSEventListener Constructor
  */
 AAMP_JSEventListener::AAMP_JSEventListener(PrivAAMPStruct_JS *obj, AAMPEventType type, JSObjectRef jsCallback)
@@ -1624,7 +1661,6 @@ void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 	{
 		return;
 	}
-
 	JSObjectRef event = createNewAAMPJSEvent(p_obj->_ctx, aampPlayer_getNameFromEventType(evtType), false, false);
 	if (event)
 	{
@@ -1765,6 +1801,9 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 			break;
 		case AAMP_EVENT_MANIFEST_REFRESH_NOTIFY:
 			pListener = new AAMP_Listener_DashManifestRefreshNotify(obj, type, jsCallback);
+			break;
+		case AAMP_EVENT_TUNE_TIME_METRICS:
+			pListener = new AAMP_Listener_TuneMetricData(obj, type, jsCallback);
 			break;
 		// Following events are not having payload and hence falls under default case
 		// AAMP_EVENT_EOS, AAMP_EVENT_TUNED, AAMP_EVENT_ENTERING_LIVE,

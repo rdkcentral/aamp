@@ -702,6 +702,12 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			printf("\n [AAMPCLI] Dash  Manifest length [%zu]\n",manifest.length());
 			break;
 		}
+		case AAMP_EVENT_TUNE_TIME_METRICS:
+		{
+			TuneTimeMetricsEventPtr ev = std::dynamic_pointer_cast<TuneTimeMetricsEvent>(e);
+			printf("[AAMPCLI] AAMP_EVENT_TUNE_TIME_METRICS\n\tData[%s]\n",ev->getTuneMetricsData().c_str());
+			break;
+		}
 		default:
 			break;
 	}

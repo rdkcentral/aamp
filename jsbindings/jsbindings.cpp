@@ -1992,6 +1992,43 @@ public:
 };
 
 /**
+ * @class AAMP_JSListener_TuneMetricData
+ * @brief Event listener impl for provide tune timemetric data AAMP event
+ */
+class AAMP_JSListener_TuneMetricData: public AAMP_JSListener
+{
+public:
+
+	/**
+	 * @brief AAMP_JSListener_TuneMetricData Constructor
+	 * @param[in] aamp instance of AAMP_JS
+	 * @param[in] type event type
+	 * @param[in] jsCallback callback to be registered as listener
+	 */
+	AAMP_JSListener_TuneMetricData(AAMP_JS* aamp, AAMPEventType type, JSObjectRef jsCallback) : AAMP_JSListener(aamp, type, jsCallback)
+	{
+	}
+
+	/**
+	 * @brief Set JS event properties
+	 * @param[in] e AAMP event object
+	 * @param[in] context JS execution context
+	 * @param[out] eventObj JS event object
+	 */
+	void setEventProperties(const AAMPEventPtr& e, JSContextRef context, JSObjectRef eventObj)
+	{
+		TuneTimeMetricsEventPtr evt = std::dynamic_pointer_cast<TuneTimeMetricsEvent>(e);
+		JSStringRef prop;
+		const char* tuneMetricData = evt->getTuneMetricsData().c_str();
+		prop = JSStringCreateWithUTF8CString("tuneMetricsData");
+
+		LOG_TRACE("AAMP_JSListener_TuneMetricData Tunemetric data %s", tuneMetricData);
+		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, tuneMetricData), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+	}
+};
+
+/**
  * @brief Callback invoked from JS to add an event listener for a particular event
  * @param[in] context JS execution context
  * @param[in] function JSObject that is the function being called
@@ -2159,6 +2196,10 @@ void AAMP_JSListener::AddEventListener(AAMP_JS* aamp, AAMPEventType type, JSObje
 	else if(type == AAMP_EVENT_MANIFEST_REFRESH_NOTIFY)
 	{
 		pListener = new AAMP_JSListener_DashManifestRefreshNotify(aamp, type, jsCallback);
+	}
+	else if(type == AAMP_EVENT_TUNE_TIME_METRICS)
+	{
+		pListener = new AAMP_JSListener_TuneMetricData(aamp, type, jsCallback);
 	}
 	else
 	{
