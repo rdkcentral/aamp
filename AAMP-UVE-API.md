@@ -2007,11 +2007,25 @@ Example:
 - description: string
 - headers: array
 - responseData: string
+- networkMetrics: string
 
 **Description:** 
 - Supported UVE version 0.7 and above.
 - Fired when there is a change in DRM metadata (especially expiration of DRM auth data)
 - Refer sendLicenseResponseHeaders configuration for headers
+- Provides the DRM license response metrics information Json format with below key & value fields
+    - req -> requestType: DRM license request type(0 - getLicense/ 1 - getLicenseSec)
+    - res -> resCode: HTTP Response code
+    - tot -> totalTime: download time in Ms
+    - con -> download connection time
+    - str -> StartTransfer: time to start the data transfer
+    - res -> resolve: DNS resolution time
+    - acn -> Appconnect: time to establish the application-level connection
+    - ptr -> PreTransfer: request pretransfer time
+    - rdt -> Redirect: request redirect time
+    - dls -> DlSize: size of the downloaded resource
+    - rqs -> ReqSize: request size
+    - url -> request url
 
 ---
 

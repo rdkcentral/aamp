@@ -598,6 +598,7 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 	const char *requestMetadata[1][2];
 	uint8_t numberOfAccessAttributes = 0;
 	const char *accessAttributes[2][2] = {NULL, NULL, NULL, NULL};
+	long long tStartTime = 0, tEndTime = 0, downloadTimeMS=0;
 	std::string serviceZone, streamID;
 	if(aampInstance->mIsVSS)
 	{
@@ -643,6 +644,7 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 			mFirstFrameSeen = false;
 		}
 
+		tStartTime = NOW_STEADY_TS_MS;
 		bool res = AampSecManager::GetInstance()->AcquireLicense(aampInstance, licenseRequest.url.c_str(),
 																 requestMetadata,
 																 ((numberOfAccessAttributes == 0) ? NULL : accessAttributes),
@@ -654,8 +656,8 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 																 mSessionId,
 																 &licenseResponseStr, &licenseResponseLength,
 																 &statusCode, &reasonCode, &businessStatus, mIsVideoOnMute);
-
-
+		tEndTime = NOW_STEADY_TS_MS;
+		downloadTimeMS = tEndTime - tStartTime;
 		if (res)
 		{
 			AAMPLOG_WARN("acquireLicense via SecManager SUCCESS!");
@@ -695,6 +697,7 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 		unsigned int attemptCount = 0;
 		int sleepTime = aampInstance->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime) ;
 		if(sleepTime<=0) sleepTime = 100;
+		tStartTime = NOW_STEADY_TS_MS;
 		while (attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS)
 		{
 			attemptCount++;
@@ -706,7 +709,6 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 														 encodedChallengeData, strlen(encodedChallengeData), keySystem, mediaUsage,
 														 secclientSessionToken,
 														 &licenseResponseStr, &licenseResponseLength, &refreshDuration, &statusInfo);
-
 			if (((sec_client_result >= 500 && sec_client_result < 600)||
 				 (sec_client_result >= SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_TLS  && sec_client_result <= SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_GENERIC ))
 				&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS)
@@ -725,10 +727,14 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 				break;
 			}
 		}
-			AAMPLOG_TRACE("licenseResponse is %s", licenseResponseStr);
-			AAMPLOG_TRACE("licenseResponse len is %zd", licenseResponseLength);
-			AAMPLOG_TRACE("accessAttributesStatus is %d", statusInfo.accessAttributeStatus);
-			AAMPLOG_TRACE("refreshDuration is %d", refreshDuration);
+		tEndTime = NOW_STEADY_TS_MS;
+		downloadTimeMS = tEndTime - tStartTime;
+
+		AAMPLOG_TRACE("licenseResponse is %s", licenseResponseStr);
+		AAMPLOG_TRACE("licenseResponse len is %zd", licenseResponseLength);
+		AAMPLOG_TRACE("accessAttributesStatus is %d", statusInfo.accessAttributeStatus);
+		AAMPLOG_TRACE("refreshDuration is %d", refreshDuration);
+		AAMPLOG_TRACE("total download time is %lld", downloadTimeMS);
 
 		if (sec_client_result != SEC_CLIENT_RESULT_SUCCESS)
 		{
@@ -758,6 +764,8 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 	}
 #endif
 #endif
+	UpdateLicenseMetrics(DRM_GET_LICENSE_SEC, *httpCode, licenseRequest.url.c_str(), downloadTimeMS, eventHandle, nullptr );
+
 	free(encodedData);
 	free(encodedChallengeData);
 	return licenseResponse;
@@ -896,6 +904,7 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 	AAMPLOG_WARN(" Sending license request to server : %s ", licenseRequest.url.c_str());
 
 	unsigned int attemptCount = 0;
+	long long tStartTimeWithRetry = NOW_STEADY_TS_MS;
 	/* Check whether stopped or not before looping - download will be disabled */
 	while(attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && !licenseRequestAbort)
 	{
@@ -1001,7 +1010,10 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 		if(!loopAgain)
 			break;
 	}
+	long long tEndTimeWithRetry = NOW_STEADY_TS_MS;
+	long long totalDownloadTimeMS = tEndTimeWithRetry - tStartTimeWithRetry;
 
+	UpdateLicenseMetrics(DRM_GET_LICENSE, *httpCode, licenseRequest.url.c_str(), totalDownloadTimeMS, eventHandle, respData );
 
 	// TODO : Header Response to be set for failed DRM response also ??? 
 	if(bNeedResponseHeadersTobeShared && !respData->mResponseHeader.empty())
@@ -1953,5 +1965,53 @@ void AampDRMSessionManager::UpdateMaxDRMSessions(int maxSessions)
 		cachedKeyIDs            = new KeyID[mMaxDRMSessions];
 		mLicenseRenewalThreads.resize(mMaxDRMSessions);
 		AAMPLOG_INFO("Updated AampDRMSessionManager MaxSession to:%d", mMaxDRMSessions);
+	}
+}
+
+/**
+ * @brief To update the max DRM sessions supported
+ *
+ * @param[in] requestType DRM License type
+ * @param[in] statusCode response code
+ * @param[in] licenseRequestUrl max DRM Sessions
+ * @param[in] downloadTimeMS total download time
+ * @param[in] eventHandle - DRM Metadata event handle
+ * @param[in] respData - download response data
+ */
+void AampDRMSessionManager::UpdateLicenseMetrics(DrmRequestType requestType, int32_t statusCode, std::string licenseRequestUrl, long long downloadTimeMS, DrmMetaDataEventPtr eventHandle, DownloadResponsePtr respData )
+{
+	//Convert to JSON format
+	cJSON *item = nullptr;
+	if( nullptr == eventHandle)
+	{
+		return;
+	}
+	item = cJSON_CreateObject();
+	if( nullptr != item)
+	{
+		cJSON_AddNumberToObject(item, "req",requestType);
+		cJSON_AddNumberToObject(item, "res", statusCode);
+		cJSON_AddNumberToObject(item, "tot",downloadTimeMS);
+		cJSON_AddStringToObject(item, "url",licenseRequestUrl.c_str());
+
+		if( (nullptr != respData) && (DRM_GET_LICENSE == requestType))
+		{
+			cJSON_AddNumberToObject(item, "con", respData->downloadCompleteMetrics.connect);
+			cJSON_AddNumberToObject(item, "str", respData->downloadCompleteMetrics.startTransfer);
+			cJSON_AddNumberToObject(item, "res", respData->downloadCompleteMetrics.resolve);
+			cJSON_AddNumberToObject(item, "acn", respData->downloadCompleteMetrics.appConnect);
+			cJSON_AddNumberToObject(item, "ptr", respData->downloadCompleteMetrics.preTransfer);
+			cJSON_AddNumberToObject(item, "rdt", respData->downloadCompleteMetrics.redirect);
+			cJSON_AddNumberToObject(item, "dls", respData->downloadCompleteMetrics.dlSize);
+			cJSON_AddNumberToObject(item, "rqs", respData->downloadCompleteMetrics.reqSize);
+		}
+
+		char *jsonStr = cJSON_Print(item);
+		if (jsonStr)
+		{
+			eventHandle->setNetworkMetricData(jsonStr);
+			free(jsonStr);
+		}
+		cJSON_Delete(item);
 	}
 }

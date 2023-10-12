@@ -1039,14 +1039,21 @@ public:
 
 		int code = evt->getAccessStatusValue();
 		const char* description = evt->getAccessStatus().c_str();
+		const char* networkMetric = evt->getNetworkMetricData().c_str();
 
-                LOG_WARN_EX("AAMP_JSListener_DRMMetadata code %d Description %s", code, description);
+		LOG_WARN_EX("AAMP_JSListener_DRMMetadata code %d Description %s", code, description);
+		LOG_TRACE("AAMP_JSListener_DRMMetadata NetworkMetric %s", networkMetric);
+
 		name = JSStringCreateWithUTF8CString("code");
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, code), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("description");
 		JSObjectSetProperty(context, eventObj, name, aamp_CStringToJSValue(context, description), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(name);
+
+		name = JSStringCreateWithUTF8CString("networkMetrics");
+		JSObjectSetProperty(context, eventObj, name, aamp_CStringToJSValue(context, networkMetric), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		const std::vector<std::string> &headerVec = evt->getHeaderResponses();

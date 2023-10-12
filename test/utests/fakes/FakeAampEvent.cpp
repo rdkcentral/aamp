@@ -138,6 +138,15 @@ void DrmMetaDataEvent::setResponseData(const std::string &data)
 {
 }
 
+const std::string &DrmMetaDataEvent::getNetworkMetricData() const
+{
+	return mNetworkMetrics;
+}
+
+void DrmMetaDataEvent::setNetworkMetricData(const std::string &data)
+{
+}
+
 int DrmMetaDataEvent::getAccessStatusValue() const
 {
 	return 0;

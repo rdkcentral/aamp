@@ -103,6 +103,14 @@ typedef enum{
 }SessionMgrState;
 
 /**
+ *  @brief	Enum to represent DRM request type.
+ */
+typedef enum{
+	DRM_GET_LICENSE, /**< DRM get license request */
+	DRM_GET_LICENSE_SEC    /**< DRM get license SEC request */
+}DrmRequestType;
+
+/**
  *  @class	AampDRMSessionManager
  *  @brief	Controller for managing DRM sessions.
  */
@@ -437,6 +445,18 @@ public:
 	 * @param[in] maxSessions max DRM Sessions
 	 */
 	void UpdateMaxDRMSessions(int maxSessions);
+
+	/**
+	 * @brief To update the max DRM sessions supported
+	 *
+	 * @param[in] requestType DRM License type
+	 * @param[in] statusCode response code
+	 * @param[in] licenseRequestUrl max DRM Sessions
+	 * @param[in] downloadTimeMS total download time
+	 * @param[in] eventHandle - DRM Metadata event handle
+	 * @param[in] respData - download response data
+	 */
+	void UpdateLicenseMetrics(DrmRequestType requestType, int32_t statusCode, std::string licenseRequestUrl, long long downloadTimeMS, DrmMetaDataEventPtr eventHandle, DownloadResponsePtr respData );
 };
 
 /**

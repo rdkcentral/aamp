@@ -1040,6 +1040,24 @@ void DrmMetaDataEvent::setResponseCode(int code)
 }
 
 /**
+ * @brief Get Network Metric Data
+ *
+ * @return Network Metric Data string
+ */
+const std::string &DrmMetaDataEvent::getNetworkMetricData() const
+{
+	return mNetworkMetrics;
+}
+
+/**
+ * @brief Set Network Metric Data
+ */
+void DrmMetaDataEvent::setNetworkMetricData(const std::string &data)
+{
+	mNetworkMetrics = data;
+}
+
+/**
  * @brief Set Secmanager response code
  */
 void DrmMetaDataEvent::setSecManagerReasonCode(int32_t code)

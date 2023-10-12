@@ -1459,6 +1459,7 @@ class DrmMetaDataEvent: public AAMPEventObject
 	int32_t mBusinessStatus;	/**< secclient business reason  code */
 	std::vector<std::string> mHeaderResponses; /**< Header response strings */
 	std::string mResponseData;	/**< Response Data */
+	std::string mNetworkMetrics;	/**< Network metric Data */
 public:
 	DrmMetaDataEvent() = delete;
 	DrmMetaDataEvent(const DrmMetaDataEvent&) = delete;
@@ -1524,6 +1525,21 @@ public:
 	 * @return Response Data value
 	 */
 	const std::string &getResponseData() const;
+
+	/**
+	 * @brief Set Network Metric Data
+	 *
+	 * @param[in] status - Network Metric Data
+	 * @return void
+	 */
+	void setNetworkMetricData(const std::string &data);
+
+	/**
+	 * @brief Get Network Metric Data
+	 *
+	 * @return Network Metric Data value
+	 */
+	const std::string &getNetworkMetricData() const;
 
 	/**
 	 * @brief Get Access Status
