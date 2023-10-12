@@ -52,11 +52,6 @@ using namespace dash::helpers;
 
 /*Common MPD util functions (admanager_mpd.cpp and fragmentcollector_mpd.cpp */
 double aamp_GetPeriodNewContentDuration(dash::mpd::IMPD *mpd, IPeriod * period, uint64_t &curEndNumber);
-/**
- * @fn aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset
- * @param period period of segment
- */
-double aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeriod * period);
 
 /**
  * @fn aamp_GetDurationFromRepresentation
@@ -827,9 +822,9 @@ private:
 
 	bool PlacenextAdBrkifAvail(dash::mpd::IMPD *mpd);
 
-	int getPeriodIdx(const std::string periodId);
-
 	int getValidperiodIdx(int periodIdx);
+
+	void UpdateMPDPeriodDetails(std::vector<PeriodInfo>& currMPDPeriodDetails,uint64_t &durMs);
 
     std::mutex mStreamLock;
 	bool fragmentCollectorThreadStarted;
@@ -847,8 +842,6 @@ private:
 	int mCurrentPeriodIdx;
 	int mNumberOfPeriods;	// Number of periods in the updated manifest
 	int mIterPeriodIndex;	// FetcherLoop period iterator index
-	int mUpperBoundaryPeriod;	// Last playable period index
-	int mLowerBoundaryPeriod;	// First playable period index
 	double mEndPosition;
 	bool mIsLiveStream;    	    	   /**< Stream is live or not; won't change during runtime. */
 	bool mIsLiveManifest;   	   /**< Current manifest is dynamic or static; may change during runtime. eg: Hot DVR. */
@@ -899,22 +892,8 @@ private:
 	int mMaxTracks; /* Max number of tracks for this session */
 	double mDeltaTime;
 	bool mHasServerUtcTime;
-	bool mLiveTimeFragmentSync;
 	std::mutex playlistMutex;       /**< Mutex locked for accessing and updating mpd document */
 	uint32_t prevTimeScale;
-	/**
-	 * @fn GetPeriodStartTime
-	 * @param mpd : pointer manifest
-	 * @param periodIndex
-	 */	
-	double GetPeriodStartTime(IMPD *mpd, int periodIndex);
-	/**
-	 * @fn GetPeriodEndTime
-	 * @param mpd : pointer manifest
-	 * @param periodIndex Index of the current period
-	 * @param mpdRefreshTime : time when manifest was downloade
-	 */
-	double GetPeriodEndTime(IMPD *mpd, int periodIndex, uint64_t mpdRefreshTime);
 	/**
 	 * @fn isAdbreakStart
 	 * @param[in] period instance.

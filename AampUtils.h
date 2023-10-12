@@ -61,6 +61,7 @@ struct FormatMap
 	StreamOutputFormat format;
 };
 
+
 /*
 * @fn GetAudioFormatStringForCodec
 * @brief Function to get audio codec string from the map.
@@ -295,14 +296,6 @@ double ParseISO8601Duration(const char *ptr);
  * @retval the name of the mediaType
  */
 const char* getMediaTypeName( MediaType mediaType );
-
-/**
- * @brief Check if mime type is compatible with media type
- * @param mimeType mime type
- * @param mediaType media type
- * @retval true if compatible
- */
-bool IsCompatibleMimeType(const std::string& mimeType, MediaType mediaType);
 
 /**
  * @brief Computes the fragment duratioN.

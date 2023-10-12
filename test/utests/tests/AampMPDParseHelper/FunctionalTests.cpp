@@ -653,4 +653,441 @@ TEST_F(FunctionalTests, SegmentTimeline)
 	EXPECT_EQ(periodDuration, 9600);
 }
 
+/* @brief Test case for a single period with a starting time tag in a live stream*/
+TEST_F(FunctionalTests, SinglePeriod_withStartTimeTag_Live)
+{
+	AAMPStatusType status;
+	std::string fragmentUrl;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="p0" start="PT25S">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	
+	mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+	EXPECT_NE(mpd, nullptr);
+	EXPECT_EQ(mpd->GetPeriods().size(), 1);
+
+	uint64_t mpdDownloadTime ;
+	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
+	double periodStartTime = ParseHelper->GetPeriodStartTime(0,mpdDownloadTime);
+
+	// Check period startTime for index 0
+	// StartTime from the format "PT25S" 
+	EXPECT_EQ(periodStartTime, 25);
+}
+
+/* @brief Test case for a single period without starting time tag in a live stream. */
+TEST_F(FunctionalTests, SinglePeriod_withoutStartTimeTag_Live)
+{
+	AAMPStatusType status;
+	std::string fragmentUrl;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="p0">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	
+	mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+	EXPECT_NE(mpd, nullptr);
+	EXPECT_EQ(mpd->GetPeriods().size(), 1);
+
+	uint64_t mpdDownloadTime ;
+	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
+	double periodStartTime = ParseHelper->GetPeriodStartTime(0,mpdDownloadTime);
+ 
+	EXPECT_EQ(periodStartTime, 0);
+}
+
+/* @brief Test case for a Multiperiod asset without starting time tag in a live stream.*/
+TEST_F(FunctionalTests, MultiPeriod_withoutStartTag_Live)
+{
+	AAMPStatusType status;
+	std::string fragmentUrl;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z"  maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+	<Period id="p0" start="PT25S" duration="PT1M0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="5000" r="14" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="p1">
+		<AdaptationSet id="1" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="5000" r="14" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+	
+	mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+	EXPECT_NE(mpd, nullptr);
+	EXPECT_EQ(mpd->GetPeriods().size(), 2);
+
+	uint64_t mpdDownloadTime ;
+	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
+	double periodStartTime = ParseHelper->GetPeriodStartTime(1,mpdDownloadTime);
+
+	// Check period startTime for index 1 ,which is not present then periodStart will be completion time of periodstart[periodIndex-1] + periodDuration[periodIndex-1]
+	// if it is live then periodStart += mAvailabilityStartTime;
+	EXPECT_EQ(periodStartTime, 85);
+}
+
+
+/** @brief Test case for a single period asset to calculate PeriodEndTime with a start time ,mpd duration and without period duration */
+TEST_F(FunctionalTests, PeriodEndTime1)
+{
+	AAMPStatusType status;
+	std::string fragmentUrl;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" mediaPresentationDuration="PT0H1M0.032S" type="static">
+  <Period id="p0" start="PT25S">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	
+	mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+	EXPECT_NE(mpd, nullptr);
+	EXPECT_EQ(mpd->GetPeriods().size(), 1);
+
+	uint64_t mpdDownloadTime ;
+	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
+	double periodEndTime = ParseHelper->GetPeriodEndTime(0,mpdDownloadTime,false,false);
+
+	// To Check period Endime for index 0
+	// periodstartTime 25sec ,period duration = mpdduration = 60.032 sec => periodEndTime = 25+60.032= 85.032
+	EXPECT_EQ(periodEndTime, 85.032);
+}
+
+
+
+/** @brief Test case for a single period asset to calculate PeriodEndTime without a starting time and with period and mpd duration */
+TEST_F(FunctionalTests, PeriodEndTime_TestCase2)
+{
+	AAMPStatusType status;
+	std::string fragmentUrl;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" mediaPresentationDuration="PT0H1M0S" type="static">
+  <Period id="p0" duration="PT40S">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	
+	mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+	EXPECT_NE(mpd, nullptr);
+	EXPECT_EQ(mpd->GetPeriods().size(), 1);
+
+	uint64_t mpdDownloadTime ;
+	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
+	double periodEndTime = ParseHelper->GetPeriodEndTime(0,mpdDownloadTime,false,false);
+
+	// To Check period Endime for index 0
+	// If it's the last period either use (in this strict order!) the media presentation duration or the period's duration- As per this priority given to mpd duration 60s and periodStart 0s =>periodEndTime = periodStart + duration =60
+	EXPECT_EQ(periodEndTime,60);
+	
+}
+
+
+//Period EndTime calculation for multi period ,where second period is having startTime */
+TEST_F(FunctionalTests, PeriodEndTime_TestCase3)
+{
+	AAMPStatusType status;
+	std::string fragmentUrl;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="static">
+  <Period id="p0" duration="PT40S">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+  <Period id="p1" start="PT41S" duration="PT40S">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	
+	mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+	EXPECT_NE(mpd, nullptr);
+	EXPECT_EQ(mpd->GetPeriods().size(), 2);
+
+	uint64_t mpdDownloadTime ;
+	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
+	double periodEndTime = ParseHelper->GetPeriodEndTime(0,mpdDownloadTime,false,false);
+	// To Check period Endime for index 0 ,if it is not a last period ,then periodStartTime of next period is the endTime of current period
+	EXPECT_EQ(periodEndTime,41);
+}
+
+//Period EndTime calculation for multi period ,where second period is not having startTime */
+TEST_F(FunctionalTests, PeriodEndTime_TestCase4)
+{
+	AAMPStatusType status;
+	std::string fragmentUrl;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="static">
+  <Period id="p0" duration="PT40S">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+  <Period id="p1" duration="PT40S">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	
+	mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+	EXPECT_NE(mpd, nullptr);
+	EXPECT_EQ(mpd->GetPeriods().size(), 2);
+
+	uint64_t mpdDownloadTime ;
+	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
+	double periodEndTime = ParseHelper->GetPeriodEndTime(0,mpdDownloadTime,false,false);
+	// To Check period Endime for index 0 ,if it is not a last period ,then periodStartTime of next period is the endTime of current period
+	EXPECT_EQ(periodEndTime,40);
+}
+
+//Period EndTime calculation without startTime attribute and mpd duration*/
+TEST_F(FunctionalTests, PeriodEndTime_TestCase5)
+{
+	AAMPStatusType status;
+	std::string fragmentUrl;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="static">
+  <Period id="p0" duration="PT40S">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	
+	mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+	EXPECT_NE(mpd, nullptr);
+	EXPECT_EQ(mpd->GetPeriods().size(), 1);
+
+	uint64_t mpdDownloadTime ;
+	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
+	double periodEndTime = ParseHelper->GetPeriodEndTime(0,mpdDownloadTime,false,false);
+
+	// To Check period Endime for index 0
+	// If it's the last period either use (in this strict order!) the media presentation duration or the period's duration- Here mpd duration is not present so period duration =40s and periodStart 0s =>periodEndTime = periodStart + duration =40
+	EXPECT_EQ(periodEndTime,40);
+}
+/** TestCase to get the periodIdx with valid periodId */
+TEST_F(FunctionalTests, TestCase1_ForGetPeriodIdx)
+{
+	AAMPStatusType status;
+	std::string fragmentUrl;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" mediaPresentationDuration="PT0H1M0S" type="static">
+  <Period id="p0" duration="PT40S">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+		mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+	int periodIdx = ParseHelper->getPeriodIdx("p0");
+	EXPECT_EQ(periodIdx,0);
+}
+
+/** TestCase to get the periodIndex with invalid periodId */
+TEST_F(FunctionalTests, NegativeTestCase_ForGetPeriodIdx)
+{
+	AAMPStatusType status;
+	std::string fragmentUrl;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" mediaPresentationDuration="PT0H1M0S" type="static">
+  <Period id="p0" duration="PT40S">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+		mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+	int periodIdx = ParseHelper->getPeriodIdx("p000");
+	EXPECT_EQ(periodIdx,-1); //There is no period available with Id p000
+}
+
+//Check lower and upper boundary period for single period manifest
+TEST_F(FunctionalTests, TestCase1_For_UpdateBoundaryPeriod)
+{
+	AAMPStatusType status;
+	std::string fragmentUrl;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" mediaPresentationDuration="PT0H1M0S" type="static">
+  <Period id="p0" duration="PT40S">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+		mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+	ParseHelper->UpdateBoundaryPeriod(false);
+	EXPECT_EQ(0,ParseHelper->mLowerBoundaryPeriod);
+	EXPECT_EQ(0,ParseHelper->mUpperBoundaryPeriod);
+}
+
+
+
+//Check lower and upper boundary period for Multi period manifest
+TEST_F(FunctionalTests, TestCase2_For_UpdateBoundaryPeriod)
+{
+	AAMPStatusType status;
+	std::string fragmentUrl;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" mediaPresentationDuration="PT0H1M0S" type="static">
+  <Period id="p0">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+  <Period id="p1">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+  <Period id="p2">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+		mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+	ParseHelper->UpdateBoundaryPeriod(false);
+	EXPECT_EQ(0,ParseHelper->mLowerBoundaryPeriod);
+	EXPECT_EQ(2,ParseHelper->mUpperBoundaryPeriod);
+}
 

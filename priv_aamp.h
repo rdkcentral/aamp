@@ -246,23 +246,6 @@ struct AsyncEventDescriptor
 };
 
 /**
- * @struct PeriodInfo
- * @brief Stores details about available periods in mpd
- */
-
-struct PeriodInfo {
-	std::string periodId;
-	uint64_t startTime;
-	uint32_t timeScale;
-	double periodStartTime;
-	double duration;
-
-	PeriodInfo() : periodId(""), startTime(0), duration(0.0), timeScale(0), periodStartTime(0)
-	{
-	}
-};
-
-/**
  *  @struct EventBreakInfo
  *  @brief Stores the detail about the Event break info
  */

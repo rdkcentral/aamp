@@ -54,6 +54,7 @@
 #include <libxml/xmlreader.h>
 #include "AampDefine.h"
 #include "AampUtils.h"
+#include "AampMPDUtils.h"
 
 using namespace dash;
 using namespace dash::mpd;
@@ -337,6 +338,69 @@ public :
 	 * @param period period of segment
 	 */
 	double aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeriod * period);
+
+	/**
+	 * @brief Get start time of current period
+	 * @retval current period's start time
+	 */
+	double GetPeriodStartTime(int periodIndex,uint64_t mLastPlaylistDownloadTimeMs);
+
+	/**
+	 * @brief Get LiveTime Fragment Sync status.
+	 * @return LiveTime Fragment Sync status.
+	 */
+	bool GetLiveTimeFragmentSync() {return mLiveTimeFragmentSync;}
+
+	/**
+	 * @brief SetHasServerUtcTime 
+	 * @param True - if UTCTiming element is available in the manifest else false
+	 */
+	void SetHasServerUtcTime(bool hasServerUtcTime) { mHasServerUtcTime = hasServerUtcTime; }
+
+	/**
+	 * @fn SetLocalTimeDelta in Seconds
+	 * @params deltaTime - time difference between localUtctime and currentTime
+	 */
+	void SetLocalTimeDelta(double deltaTime) { mDeltaTime = deltaTime;}
+
+	/**
+	 * @brief Get end time of current period
+	 * @retval current period's end time
+	 */
+	double GetPeriodEndTime(int periodIndex,  uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB);
+
+	/**
+	 * @fn UpdateBoundaryPeriod - to  Calculate Upper and lower boundary of playable periods
+	 * @params - Is trickplay mode
+	 */
+	void UpdateBoundaryPeriod(bool IsTrickMode);
+
+	/**
+	 * @fn getPeriodIdx
+	 * @brief Function to get base period index from mpd
+	 * @param[in] periodId.
+	 * @retval period index.
+	 */
+	int getPeriodIdx(const std::string &periodId);
+
+	/**
+	 * @brief Extract bitrate info from custom mpd
+	 * @note Caller function should delete the vector elements after use.
+	 * @param adaptationSet : AdaptaionSet from which bitrate info is to be extracted
+	 * @param[out] representations : Representation vector gets updated with Available bit rates.
+	 */
+	vector<Representation *> GetBitrateInfoFromCustomMpd( const IAdaptationSet *adaptationSet);
+
+	int mUpperBoundaryPeriod;	// Last playable period index
+	int mLowerBoundaryPeriod;	// First playable period index
+
+	/**
+	 * @brief Set the MPD period details.
+	 * This function allows you to set the MPD period details using the provided vector of PeriodInfo objects.
+	 * @param currMPDDetails A vector containing the period details to be set.
+	 */
+	void SetMPDPeriodDetails(const std::vector<PeriodInfo> currMPDDetails){mMPDPeriodDetails =  currMPDDetails;}
+
 private:
 
 	/**
@@ -371,6 +435,14 @@ private:
 	PeriodEncryptedMap	mPeriodEncryptionMap;
 	/* Containter to store Period Empty map for MPD */
 	PeriodEmptyMap		mPeriodEmptyMap;
+	
+	bool mLiveTimeFragmentSync;
+	/*To check whether UTCTiming element is available in the manifest */
+	bool mHasServerUtcTime;
+	/* storage for time difference between LocalUtcTime and  currentTime */
+	double mDeltaTime;
+	/* Vector to store the current MPD period details */
+	std::vector<PeriodInfo> mMPDPeriodDetails;
 };
 
 

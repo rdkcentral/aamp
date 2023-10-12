@@ -40,6 +40,25 @@ using namespace dash::helpers;
 
 
 /**
+ * @struct PeriodInfo
+ * @brief Stores details about available periods in mpd
+ */
+
+struct PeriodInfo {
+        std::string periodId;
+        uint64_t startTime;
+        uint32_t timeScale;
+        double duration;
+        int periodIndex;
+        double periodStartTime;
+        double periodEndTime;
+
+        PeriodInfo() : periodId(""), startTime(0), duration(0.0), timeScale(0),periodIndex(-1),periodStartTime(-1),periodEndTime(-1)
+        {
+        }
+};
+
+/**
  * @brief Get xml node form reader
  *
  * @retval xml node
@@ -53,6 +72,23 @@ Node* MPDProcessNode(xmlTextReaderPtr *reader, std::string url, bool isAd=false)
  * @param node xml Node
  */
 void AddAttributesToNode(xmlTextReaderPtr *reader, Node *node);
+
+
+/**
+ * @brief Check if mime type is compatible with media type
+ * @param mimeType mime type
+ * @param mediaType media type
+ * @retval true if compatible
+ */
+bool IsCompatibleMimeType(const std::string& mimeType, MediaType mediaType);
+
+/**
+ * @brief Computes the fragment duratioN.
+ * @param duration of the fragment.
+ * @param timeScale value.
+ * @return - computed fragment duration in double.
+ */
+double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale );
 
 #endif /* __AAMP_MPD_UTILS_H__ */
 

@@ -153,3 +153,63 @@ void AddAttributesToNode(xmlTextReaderPtr *reader, Node *node)
 	}
 }
 
+
+/**
+ * @brief Check if mime type is compatible with media type
+ * @param mimeType mime type
+ * @param mediaType media type
+ * @retval true if compatible
+ */
+bool IsCompatibleMimeType(const std::string& mimeType, MediaType mediaType)
+{
+        //FN_TRACE_F_MPD( __FUNCTION__ );
+	bool isCompatible = false;
+
+	switch ( mediaType )
+	{
+		case eMEDIATYPE_VIDEO:
+			if (mimeType == "video/mp4")
+				isCompatible = true;
+			break;
+
+		case eMEDIATYPE_AUDIO:
+		case eMEDIATYPE_AUX_AUDIO:
+			if ((mimeType == "audio/webm") ||
+				(mimeType == "audio/mp4"))
+				isCompatible = true;
+			break;
+
+		case eMEDIATYPE_SUBTITLE:
+			if ((mimeType == "application/ttml+xml") ||
+				(mimeType == "text/vtt") ||
+				(mimeType == "application/mp4"))
+				isCompatible = true;
+			break;
+
+		default:
+			break;
+	}
+
+	return isCompatible;
+}
+
+/**
+ * @brief Computes the fragment duratioN.
+ * @param duration of the fragment.
+ * @param timeScale value.
+ * @return - computed fragment duration in double.
+ */
+double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
+{
+	double newduration = 2.0;
+	if( duration && timeScale )
+	{
+		newduration =  (double)duration / (double)timeScale;
+	}
+	else
+	{
+		AAMPLOG_ERR("Invalid %u %u",duration,timeScale);
+	}
+	return newduration;
+}
+

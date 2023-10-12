@@ -35,7 +35,7 @@ AampMPDParseHelper::AampMPDParseHelper() 	: mMPDInstance(NULL),mIsLiveManifest(f
 	mIsFogMPD(false),
 	mAvailabilityStartTime(0.0),mSegmentDurationSeconds(0),mTSBDepth(0.0),
 	mPresentationOffsetDelay(0.0),mMediaPresentationDuration(0),
-	mMyObjectMutex(),mPeriodEncryptionMap(),mNumberOfPeriods(0),mPeriodEmptyMap()
+	mMyObjectMutex(),mPeriodEncryptionMap(),mNumberOfPeriods(0),mPeriodEmptyMap(),mLiveTimeFragmentSync(false),mHasServerUtcTime(false),mUpperBoundaryPeriod(0),mLowerBoundaryPeriod(0),mMPDPeriodDetails()
 {
 
 }
@@ -114,7 +114,7 @@ bool AampMPDParseHelper::IsIframeTrack(IAdaptationSet *adaptationSet)
  *   @brief  Get Period Duration
  *   @retval period duration in milli seconds
  */
-double aamp_GetPeriodDuration(int periodIndex, uint64_t mpdDownloadTime)
+double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdDownloadTime)
 {
 	return 0.0;
 }
@@ -133,7 +133,7 @@ bool IsContentType(const IAdaptationSet *adaptationSet, MediaType mediaType )
  * @param mpd : pointer manifest
  * @param periodIndex Index of the current period
  */
-double GetPeriodDuration(int periodIndex, uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB)
+double AampMPDParseHelper::GetPeriodDuration(int periodIndex, uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB)
 {
 	return 0.0;
 }
@@ -142,7 +142,37 @@ double GetPeriodDuration(int periodIndex, uint64_t mLastPlaylistDownloadTimeMs, 
  * @fn aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset
  * @param period period of segment
  */
-double aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeriod * period)
+double AampMPDParseHelper::aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeriod * period)
 {
 	return 0.0;
 }
+
+/**
+ * @fn to Update the upper and lower boundary periods
+ * @param IsTrickMode A flag indicating whether playback is in trick mode or not
+ */
+void AampMPDParseHelper::UpdateBoundaryPeriod(bool IsTrickMode)
+{
+}
+
+/**
+ * @brief Get start time of current period
+ * @retval current period's start time
+ */
+double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlaylistDownloadTimeMs)
+{
+	return 0.0;
+}
+
+/**
+ * @fn getPeriodIdx
+ * @brief Function to get base period index from mpd
+ * @param[in] periodId.
+ * @retval period index.
+ */
+int AampMPDParseHelper::getPeriodIdx(const std::string &periodId)
+{
+	return 0;
+}
+
+
