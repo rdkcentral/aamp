@@ -1832,6 +1832,10 @@ void StreamAbstractionAAMP::UpdateProfileBasedOnFragmentDownloaded(void)
 void StreamAbstractionAAMP::UpdateRampdownProfileReason(void)
 {
 	mBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
+	if(aamp->IsTSBSupported() && (GetVideoBitrate()  < mTsbBandwidth))
+	{
+		mBitrateReason = eAAMP_BITRATE_CHANGE_BY_FOG_ABR;
+	}
 }
 
 /**
