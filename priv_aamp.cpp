@@ -4425,7 +4425,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 #else
 		const bool forceStop = false;
 #endif
-		if (!forceStop && ((!newTune && ISCONFIGSET_PRIV(eAAMPConfig_DemuxVideoHLSTrack)) || ISCONFIGSET_PRIV(eAAMPConfig_PreservePipeline)))
+		if (!forceStop && ((!newTune) || ISCONFIGSET_PRIV(eAAMPConfig_PreservePipeline)))
 		{
 			if ((eMEDIAFORMAT_PROGRESSIVE == mMediaFormat) && (true == mSeekOperationInProgress))
 			{
@@ -5069,7 +5069,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		if (mMediaFormat == eMEDIAFORMAT_HLS)
 		{
 			//Live adjust or syncTrack occurred, sent an updated flush event
-			if ((!newTune && ISCONFIGSET_PRIV(eAAMPConfig_DemuxVideoHLSTrack)) || ISCONFIGSET_PRIV(eAAMPConfig_PreservePipeline))
+			if ((!newTune) || ISCONFIGSET_PRIV(eAAMPConfig_PreservePipeline))
 			{
 				mStreamSink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
 			}

@@ -98,11 +98,8 @@ typedef enum
 	eAAMPConfig_Fog, 							/**< Enable / Disable FOG*/
 	eAAMPConfig_PrefetchIFramePlaylistDL,					/**< Enabled prefetching of I-Frame playlist*/
 	eAAMPConfig_PreservePipeline,						/**< Flush instead of teardown*/
-	eAAMPConfig_DemuxAudioHLSTrack ,					/**< Demux Audio track from HLS transport stream*/
-	eAAMPConfig_DemuxVideoHLSTrack ,					/**< Demux Video track from HLS transport stream*/
 	eAAMPConfig_Throttle,							/**< Regulate output data flow*/
 	eAAMPConfig_DemuxAudioBeforeVideo,					/**< Demux video track from HLS transport stream track mode*/
-	eAAMPConfig_DemuxHLSVideoTsTrackTM, 					/**< Send demuxed audio before video*/
 	eAAMPConfig_ForceEC3,							/**< Forcefully enable DDPlus*/
 	eAAMPConfig_DisableEC3, 						/**< Disable DDPlus*/
 	eAAMPConfig_DisableATMOS,						/**< Disable Dolby ATMOS*/

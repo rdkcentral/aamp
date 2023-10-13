@@ -3784,7 +3784,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	aamp->IsTuneTypeNew = newTune;
 	/* END: Added As Part of DELIA-28363 and DELIA-28247 */
 
-	TSProcessor* audioQueuedPC = NULL;
 	int http_error = 0;   //CID:81873 - Initialization
 	mainManifest.Clear();
 
@@ -4460,27 +4459,17 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						// Creation of playContext is required only for TS fragments
 						if (format == FORMAT_MPEGTS)
 						{
-							if (ISCONFIGSET(eAAMPConfig_DemuxAudioHLSTrack))
+							AAMPLOG_WARN("StreamAbstractionAAMP_HLS: Configure audio TS track demuxing");
+							ts->playContext = new TSProcessor(mLogObj, aamp, eStreamOp_DEMUX_AUDIO);
+							if(ts->playContext)
 							{
-								AAMPLOG_WARN("StreamAbstractionAAMP_HLS: Configure audio TS track demuxing");
-								ts->playContext = new TSProcessor(mLogObj, aamp, eStreamOp_DEMUX_AUDIO);
-								if(ts->playContext)
+								if (currentAudioProfileIndex >= 0 )
 								{
-									if (currentAudioProfileIndex >= 0 )
-									{
-										std::string groupId = mediaInfoStore[currentAudioProfileIndex].group_id;
-										ts->playContext->SetAudioGroupId(groupId);
-									}
+									std::string groupId = mediaInfoStore[currentAudioProfileIndex].group_id;
+									ts->playContext->SetAudioGroupId(groupId);
 								}
 							}
-							else
-							{
-								AAMPLOG_WARN("Configure audio TS track to queue");
-								ts->playContext = new TSProcessor(mLogObj, aamp, eStreamOp_QUEUE_AUDIO);
-								// Audio is muxed with video, no need to configure pipeline for the same
-								ts->streamOutputFormat = FORMAT_INVALID;
-								audioQueuedPC = static_cast<TSProcessor*> (ts->playContext);
-							}
+
 							if (ts->playContext)
 							{
 								ts->playContext->setRate(this->rate, PlayMode_normal);
@@ -4510,8 +4499,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						ts->enabled = false;
 					}
 				}
-				else if ((ISCONFIGSET(eAAMPConfig_DemuxVideoHLSTrack) && (rate == AAMP_NORMAL_PLAY_RATE))
-						|| (ISCONFIGSET(eAAMPConfig_DemuxHLSVideoTsTrackTM)&& (rate != AAMP_NORMAL_PLAY_RATE)))
+				else if (iTrack == eMEDIATYPE_VIDEO)
 				{
 					/*Populate format from codec data*/
 					format = GetStreamOutputFormatForTrack(eTRACK_VIDEO);
@@ -4593,21 +4581,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 							 streamInfoStore[currentProfileIndex].codecs);
 					}
 				}
-				else /*Video Track - No demuxing*/
-				{
-					if (audioQueuedPC)
-					{
-						AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : Configure video TS track eStreamOp_SEND_VIDEO_AND_QUEUED_AUDIO");
-						ts->playContext = new TSProcessor(mLogObj, aamp, eStreamOp_SEND_VIDEO_AND_QUEUED_AUDIO, eMEDIATYPE_VIDEO, audioQueuedPC);
-						ts->playContext->setThrottleEnable(this->enableThrottle);
-						ts->playContext->setRate(this->rate, PlayMode_normal);
-						playContextConfigured = true;
-					}
-					else
-					{
-						AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : Configure video TS track %p : No streamops", ts);
-					}
-				}
+								
 				if (!playContextConfigured && (ts->streamOutputFormat == FORMAT_MPEGTS))
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : track %p context configuring for eStreamOp_NONE", ts);

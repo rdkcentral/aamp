@@ -1793,16 +1793,11 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 	bool removePatPmt = false;
 	m_packetStartAfterFirstPTS = -1;
 
-	if ((m_playRate != 1.0) || (eStreamOp_SEND_VIDEO_AND_QUEUED_AUDIO == m_streamOperation))
+	if (m_playRate != 1.0) 
 	{
 		insPatPmt = true;
 		removePatPmt = true;
 		INFO("Replace PAT/PMT");
-	}
-	else if (eStreamOp_QUEUE_AUDIO == m_streamOperation)
-	{
-		removePatPmt = true;
-		INFO("Remove PAT/PMT");
 	}
 
 	bool doThrottle = m_throttle;
@@ -2517,11 +2512,6 @@ void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPosito
 			DEBUG("Update position from %f to %f", m_queuedSegmentPos, updatedStartPositon);
 			m_queuedSegmentPos = updatedStartPositon;
 		}
-		if (eStreamOp_QUEUE_AUDIO == m_streamOperation)
-		{
-			aamp->SendStreamCopy((MediaType) m_track, m_queuedSegment, m_queuedSegmentLen, m_queuedSegmentPos,
-					m_queuedSegmentPos, m_queuedSegmentDuration);
-		}
 		else if (eStreamOp_DEMUX_AUDIO == m_streamOperation)
 		{
 			if(basepts)
@@ -2697,46 +2687,6 @@ bool TSProcessor::sendSegment(char *segment, size_t& size, double position, doub
 				ret |= demuxAndSend(packetStart, len, position, duration, discontinuous, processor, ePC_Track_Video);
 			}
 			ptsError = !ret;
-		}
-		else if (eStreamOp_SEND_VIDEO_AND_QUEUED_AUDIO == m_streamOperation)
-		{
-			if (m_packetStartAfterFirstPTS != -1)
-			{
-
-				aamp->SendStreamCopy((MediaType)m_track, packetStart, m_packetStartAfterFirstPTS, position, position, duration);
-				m_peerTSProcessor->sendQueuedSegment();
-				aamp->SendStreamCopy((MediaType)m_track, packetStart + m_packetStartAfterFirstPTS,
-				len - m_packetStartAfterFirstPTS, position, position, duration);
-			}
-			else
-			{
-				ERROR("m_packetStartAfterFirstPTS Not updated");
-				aamp->SendStreamCopy((MediaType)m_track, packetStart + m_packetStartAfterFirstPTS,
-				len - m_packetStartAfterFirstPTS, position, position, duration);
-			}
-		}
-		else if (eStreamOp_QUEUE_AUDIO == m_streamOperation)
-		{
-			pthread_mutex_lock(&m_mutex);
-			if (m_queuedSegment)
-			{
-				ERROR("Queued buffer not NULL");
-				free(m_queuedSegment);
-			}
-			m_queuedSegment = (unsigned char *)malloc(len);
-			if (!m_queuedSegment)
-			{
-				ERROR("Failed to allocate memory");
-			}
-			else
-			{
-				memcpy(m_queuedSegment, packetStart, len);
-				m_queuedSegmentLen = len;
-				m_queuedSegmentPos = position;
-				m_queuedSegmentDuration = duration;
-				m_queuedSegmentDiscontinuous = discontinuous;
-			}
-			pthread_mutex_unlock(&m_mutex);
 		}
 		else
 		{
@@ -3606,16 +3556,8 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 	int audioComponentCount;
 	const RecordingComponent* audioComponents;
 
-	if (eStreamOp_SEND_VIDEO_AND_QUEUED_AUDIO == m_streamOperation)
-	{
-		m_peerTSProcessor->getAudioComponents(&audioComponents, audioComponentCount);
-		INFO("Got audioComponents from  audio track. audioComponentCount %d", audioComponentCount);
-	}
-	else
-	{
-		audioComponentCount = this->audioComponentCount;
-		audioComponents = this->audioComponents;
-	}
+	audioComponentCount = this->audioComponentCount;
+	audioComponents = this->audioComponents;
 
 	prognum = m_program;
 	pmtVersion = m_versionPMT;

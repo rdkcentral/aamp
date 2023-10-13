@@ -69,9 +69,6 @@ typedef enum
 	eStreamOp_DEMUX_AUDIO, 		/**< Demux and inject audio only*/
 	eStreamOp_DEMUX_VIDEO, 		/**< Demux and inject video only*/
 	eStreamOp_DEMUX_ALL, 		/**< Demux and inject audio and video*/
-	eStreamOp_QUEUE_AUDIO, 		/**< When video contains PAT/PMT, audio needs to be queued until video is processed
-					     used with playersinkbin*/
-	eStreamOp_SEND_VIDEO_AND_QUEUED_AUDIO, /**< Send queued audio after video*/
 	eStreamOp_DEMUX_AUX, 		/**< Demux and inject auxiliary audio only*/
 	eStreamOp_DEMUX_VIDEO_AND_AUX	/**< Demux and inject auxiliary audio and video*/
 	
