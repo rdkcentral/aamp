@@ -459,7 +459,6 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 		std::string token;
 		std::getline(input, token, ' ');
 		assert(token == "advert");
-		int pos = mAdvertList.size() + 1;
 
 		if (std::getline(input, token, ' '))
 		{
