@@ -15,6 +15,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+include(GoogleTest)
+pkg_check_modules(GMOCK REQUIRED gmock)
+pkg_check_modules(GTEST REQUIRED gtest)
+pkg_check_modules(GLIB REQUIRED glib-2.0)
+
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME StreamAbstractionAAMP_HLS)
@@ -31,7 +36,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 
 else()
     include_directories(${AAMP_ROOT}/Linux/include)
-    include_directories(${AAMP_ROOT}/Linux/include/libdash)
     set(OS_LD_FLAGS -luuid)
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 
@@ -68,7 +72,7 @@ if (COVERAGE_ENABLED)
                               DEPENDENCIES ${EXEC_NAME})
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest)
+target_link_libraries(${EXEC_NAME} fakes -pthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
