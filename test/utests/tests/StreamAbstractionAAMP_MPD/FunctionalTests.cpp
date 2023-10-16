@@ -134,14 +134,14 @@ protected:
 
 	void TearDown() override
 	{
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
-
 		if (mStreamAbstractionAAMP_MPD)
 		{
 			delete mStreamAbstractionAAMP_MPD;
 			mStreamAbstractionAAMP_MPD = nullptr;
 		}
+
+		delete mPrivateInstanceAAMP;
+		mPrivateInstanceAAMP = nullptr;
 
 		delete mCdaiObj;
 		mCdaiObj = nullptr;

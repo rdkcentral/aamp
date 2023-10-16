@@ -11,6 +11,8 @@ protected:
     }
 };
 
+constexpr size_t id3v2_header_size = 10u;  //  should be defined in ID3Metadata.hpp
+
 // Test case for IsValidMediaType function
 TEST_F(ID3MetadataTest, IsValidMediaTypeTest) {
     MediaType type = eMEDIATYPE_AUDIO;
@@ -26,9 +28,9 @@ TEST_F(ID3MetadataTest, IsValidMediaTypeTest) {
 
 // Test case for IsValidHeader function
 TEST_F(ID3MetadataTest, IsValidHeaderTest) {
-    uint8_t validHeader[] = { 'I', 'D', '3', 2, 2,0,0,0,0,0};
-    uint8_t invalidHeader[] = { 'a', 'b', 'c', 2,1,4,0,0,0,0};
-    uint8_t wrongidentifier[] =  {'I', 'D', '4', 2, 2,0,0,0,0,0};
+    uint8_t validHeader[id3v2_header_size]     = { 'I', 'D', '3', 2, 2,0,0,0,0,0};
+    uint8_t invalidHeader[id3v2_header_size]   = { 'a', 'b', 'c', 2, 1,4,0,0,0,0};
+    uint8_t wrongidentifier[id3v2_header_size] = { 'I', 'D', '4', 2, 2,0,0,0,0,0};
 
     EXPECT_TRUE(aamp::id3_metadata::helpers::IsValidHeader(validHeader, sizeof(validHeader)));
     EXPECT_FALSE(aamp::id3_metadata::helpers::IsValidHeader(invalidHeader, sizeof(invalidHeader)));
@@ -47,9 +49,8 @@ TEST_F(ID3MetadataTest, IsValidHeaderTest) {
 
 }
 
-constexpr size_t id3v2_header_size = 10u;
 TEST(DataSizeTest, ValidSyncSafeSize) {
-    uint8_t validHeader[] = { 'I', 'D', '3', 2, 0, 0, 0x7F, 0, 0, 0 };
+    uint8_t validHeader[id3v2_header_size] = { 'I', 'D', '3', 2, 0, 0, 0x7F, 0, 0, 0 };
     size_t dataSize = aamp::id3_metadata::helpers::DataSize(validHeader);
     
     size_t expectedSize = (0x7F << 21) | (0 << 14) | (0 << 7) | 0 | id3v2_header_size;
@@ -58,14 +59,14 @@ TEST(DataSizeTest, ValidSyncSafeSize) {
 
 // Test case for invalid syncsafe-encoded tag size (bit 7 set)
 TEST(DataSizeTest, InvalidSyncSafeSize) {
-    uint8_t invalidHeader[] = { 'I', 'D', '3', 2, 0, 0, 0x8F, 0, 0 };
+    uint8_t invalidHeader[id3v2_header_size] = { 'I', 'D', '3', 2, 0, 0, 0x8F, 0, 0, 0 };
     size_t dataSize = aamp::id3_metadata::helpers::DataSize(invalidHeader);
     EXPECT_EQ(dataSize, 0);
 }
 
 // Test case for zero tag size
 TEST(DataSizeTest, ZeroSize) {
-    uint8_t zeroSizeHeader[] = { 'I', 'D', '3', 2, 0, 0, 0, 0, 0, 0 };
+    uint8_t zeroSizeHeader[id3v2_header_size] = { 'I', 'D', '3', 2, 0, 0, 0, 0, 0, 0 };
     size_t dataSize = aamp::id3_metadata::helpers::DataSize(zeroSizeHeader);
     size_t expectedSize = id3v2_header_size;
     EXPECT_EQ(dataSize, expectedSize);

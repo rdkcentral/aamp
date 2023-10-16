@@ -59,7 +59,10 @@ TEST_F(FunctionalTests, AppendBytesTest) {
     buffer.AppendBytes(srcData, srcLen);
 
     // Assert: Check the effects of the AppendBytes function
-    EXPECT_STREQ(buffer.GetPtr(), srcData);   // Check if data was appended correctly
+    // These aren't null terminated strings, must use memcmp
+    int result = memcmp(buffer.GetPtr(), srcData, srcLen);
+    EXPECT_EQ(result, 0);                     // Check if data was appended correctly
+
     EXPECT_EQ(buffer.GetLen(), srcLen);       // Check if length is set correctly
     EXPECT_NE(buffer.GetAvail(), srcLen);     // Check if available space is reduced accordingly
 }
@@ -76,7 +79,9 @@ TEST_F(FunctionalTests, MoveBytesTest) {
     buffer.MoveBytes(srcData, srcLen);
 
     // Assert: Check the effects of the MoveBytes function
-    EXPECT_STREQ(buffer.GetPtr(), srcData);   // Check if data was moved correctly
+    // These aren't null terminated strings, must use memcmp
+    int result = memcmp(buffer.GetPtr(), srcData, srcLen);
+    EXPECT_EQ(result, 0);                     // Check if data was appended correctly
     EXPECT_EQ(buffer.GetLen(), srcLen);       // Check if length is set correctly
     EXPECT_EQ(buffer.GetAvail(), srcLen);     // Check if available space remains the same
 }
@@ -106,7 +111,6 @@ TEST_F(FunctionalTests, ClearTest) {
 TEST_F(FunctionalTests, ReplaceTest) {
     AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     // Arrange: Set up two buffers - the source buffer and the destination buffer
-    size_t numBytesToReserve = 10;
     AampGrowableBuffer sourceBuffer("buffer");
     sourceBuffer.AppendBytes("Hello", 5);
 
@@ -195,7 +199,7 @@ TEST_F(FunctionalTests, Reserve32KBytesTest) {
 //These test cases cover a series of appends
 TEST_F(FunctionalTests, SeriesOfAppendsTest) {
     AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
-    const char* srcData = "Hello, World!";
+    const char srcData[8192] = "Hello, World!";
     size_t srcLen = strlen(srcData);
 
     // Arrange: Reserve a large initial space
