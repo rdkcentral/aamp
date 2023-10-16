@@ -2491,6 +2491,19 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 			g_object_set(stream->sinkbin, "buffer-duration", 3000000000, NULL); //3000000000(ns), 3s
 		}
 #endif
+#ifdef UBUNTU
+		if (eMEDIATYPE_AUDIO == streamId)
+		{
+			// DELIA-63566: Deprecate using PulseAudio (if installed) on Ubuntu
+			GstPluginFeature* pluginFeature = gst_registry_lookup_feature(gst_registry_get(), "pulsesink");
+			if (pluginFeature != NULL)
+			{
+				AAMPLOG_INFO("AAMPGstPlayer: pulsesink plugin priority set to GST_RANK_SECONDARY");
+				gst_plugin_feature_set_rank(pluginFeature, GST_RANK_SECONDARY);
+				gst_object_unref(pluginFeature);
+			}
+		}
+#endif
 		gst_element_sync_state_with_parent(stream->sinkbin);
 	}
 	else
