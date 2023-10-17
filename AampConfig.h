@@ -514,10 +514,25 @@ public:
      	 * @return Void
      	 */
 	bool ReadAampCfgTxtFile();
+
+	/**
+	* @fn ReadAampCfgFromEnv
+	*
+	* @return Void
+	*/
+	void ReadAampCfgFromEnv();
+
+	/**
+	* @fn ProcessBase64AampCfg
+	* @return bool
+	*/
+	bool ProcessBase64AampCfg(const char * base64Config, size_t configLen,ConfigPriority cfgPriority);
+
 	/**
      	 * @fn ReadAampCfgJsonFile
     	 */
 	bool ReadAampCfgJsonFile();
+
 	/**
      	 * @fn ReadOperatorConfiguration
      	 * @return void

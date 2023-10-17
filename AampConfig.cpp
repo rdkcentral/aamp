@@ -1540,33 +1540,32 @@ bool AampConfig::ReadAampCfgTxtFile()
 }
 
 /**
- * @fn ReadBase64TR181Param reads Tr181 parameter at Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AAMP_CFG.b64Config
- * @return void
+ * @brief ProcessBase64AampCfg - Function to parse and process Base64 AampConfig
+ *
+ * @return true if Base64 process successfully
  */
-void AampConfig::ReadBase64TR181Param()
+bool AampConfig::ProcessBase64AampCfg(const char * base64Config, size_t configLen, ConfigPriority cfgPriority)
 {
-#ifdef IARM_MGR
-	size_t iConfigLen = 0;
-	char *	cloudConf = GetTR181AAMPConfig("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AAMP_CFG.b64Config", iConfigLen);
-	if(cloudConf && (iConfigLen > 0))
+	bool bCharCompliant = false;
+	if(base64Config && (configLen > 0))
 	{
-		bool bCharCompliant = true;
-		for (int i = 0; i < iConfigLen; i++)
+		bCharCompliant = true;
+		for (int i = 0; i < configLen; i++)
 		{
-			if (!( cloudConf[i] == 0xD || cloudConf[i] == 0xA) && // ignore LF and CR chars
-				((cloudConf[i] < 0x20) || (cloudConf[i] > 0x7E)))
+			if (!( base64Config[i] == 0xD || base64Config[i] == 0xA) && // ignore LF and CR chars
+				((base64Config[i] < 0x20) || (base64Config[i] > 0x7E)))
 			{
 				bCharCompliant = false;
-				AAMPLOG_ERR("Non Compliant char[0x%X] found, Ignoring whole config ",cloudConf[i]);
+				AAMPLOG_ERR("Non Compliant char[0x%X] found, Ignoring whole config ",base64Config[i]);
 				break;
 			}
 		}
 
 		if (bCharCompliant)
 		{
-			std::string strCfg(cloudConf,iConfigLen);
+			std::string strCfg(base64Config,configLen);
 			cJSON *cfgdata = cJSON_Parse(strCfg.c_str());
-			if(!ProcessConfigJson(cfgdata,AAMP_OPERATOR_SETTING))
+			if(!ProcessConfigJson(cfgdata,cfgPriority))
 			{
 				// Input received is not json format, parse as text
 				std::istringstream iSteam(strCfg);
@@ -1576,15 +1575,78 @@ void AampConfig::ReadBase64TR181Param()
 					if (line.length() > 0)
 					{
 						AAMPLOG_INFO("aamp-cmd:[%s]\n", line.c_str());
-						ProcessConfigText(line,AAMP_OPERATOR_SETTING);
+						ProcessConfigText(line,cfgPriority);
 					}
 				}
 			}
 		}
+	}
+	return bCharCompliant;
+}
+
+/**
+ * @fn ReadBase64TR181Param reads Tr181 parameter at Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AAMP_CFG.b64Config
+ * @return void
+ */
+void AampConfig::ReadBase64TR181Param()
+{
+#ifdef IARM_MGR
+	size_t iConfigLen = 0;
+	char *	cloudConf = GetTR181AAMPConfig("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AAMP_CFG.b64Config", iConfigLen);
+	if(NULL != cloudConf)
+	{
+		ProcessBase64AampCfg(cloudConf, iConfigLen,AAMP_OPERATOR_SETTING);
 		free(cloudConf); // allocated by base64_Decode in GetTR181AAMPConfig
 		ConfigureLogSettings();
 	}
 #endif
+}
+
+/**
+* @fn ReadAampCfgFromEnv parse and process AampCfg from environment variable
+* Ex usage : "AAMP_CFG_TEXT=info=true,progress=true" (pass as comma seperated text)
+*       ( or ) "AAMP_CFG_BASE64=aW5mbz10cnVlCnByb2dyZXNzPXRydWU=" (Base64 for info=true and progress=true)
+* @return Void
+*/
+void AampConfig::ReadAampCfgFromEnv()
+{
+	const char *envConf = getenv("AAMP_CFG_TEXT");
+	// First check for Comma seperated config text, this is done to make config  human readable
+	// e.g info=true,progress=true
+	if(NULL != envConf)
+	{
+		std::string strEnvConfig = envConf; // make sure we copy this as recommonded by getEnv doc
+		AAMPLOG_WARN("ReadAampCfgFromEnv:Text ENV:%s len:%lu ",strEnvConfig.c_str(),strEnvConfig.length());
+		std::stringstream ss (strEnvConfig);
+		std::string item;
+
+		while (getline (ss, item, ',')) { // split on comma and get as line
+			if (item.length() > 0)
+			{
+				ProcessConfigText(item,AAMP_DEV_CFG_SETTING);
+			}
+			else
+			{
+			}
+		}
+	}
+	else
+	{
+		// Now check for base64 based env, this is back up in case above string becomes big and becomes error prone, also  base64 covers json format as well.
+		envConf = getenv("AAMP_CFG_BASE64");
+		if(NULL != envConf)
+		{
+			std::string strEnvConfig = envConf; // make sure we copy this as recommonded by getEnv doc
+			size_t iConfigLen = strEnvConfig.length();
+			AAMPLOG_WARN("ReadAampCfgFromEnv:BASE64 ENV:%s len:%zu ",strEnvConfig.c_str(),iConfigLen);
+			char * strConfig = (char * ) base64_Decode(strEnvConfig.c_str(),&iConfigLen);
+			if( NULL != strConfig )
+			{
+				ProcessBase64AampCfg(strConfig, iConfigLen,AAMP_DEV_CFG_SETTING);
+				free(strConfig); // free mem allocated by base64_Decode
+			}
+		}
+	}
 }
 
 /**

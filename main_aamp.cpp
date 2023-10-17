@@ -143,14 +143,16 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		AAMPLOG_WARN("[AAMP_JS][%p]Creating GlobalConfig Instance[%p]",this,gpGlobalConfig);
 		if(!gpGlobalConfig->ReadAampCfgTxtFile())
 		{
-			gpGlobalConfig->ReadAampCfgJsonFile();
+			if(!gpGlobalConfig->ReadAampCfgJsonFile())
+			{
+				gpGlobalConfig->ReadAampCfgFromEnv();
+			}
 		}
 		gpGlobalConfig->ReadOperatorConfiguration();		
 		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();
 		::mLogObj = gpGlobalConfig->GetLoggerInstance();
 	}
-
 #ifdef SUPPORT_JS_EVENTS
 #ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so
 	const char* szJSLib = "libaampjsbindings.so";
@@ -176,7 +178,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	// start Scheduler Worker for task handling
  	mScheduler.SetLogger(mLogObj);
         mScheduler.StartScheduler();
-
 	if (NULL == streamSink)
 	{
 		mInternalStreamSink = new AAMPGstPlayer(mConfig.GetLoggerInstance(), aamp,

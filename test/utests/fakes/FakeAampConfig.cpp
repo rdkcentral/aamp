@@ -104,6 +104,15 @@ bool AampConfig::ReadAampCfgTxtFile()
     return false;
 }
 
+void AampConfig::ReadAampCfgFromEnv()
+{
+}
+
+bool AampConfig::ProcessBase64AampCfg(const char * base64Config, size_t configLen,ConfigPriority cfgPriority)
+{
+	return false;
+}
+
 void AampConfig::ReadOperatorConfiguration()
 {
 }
