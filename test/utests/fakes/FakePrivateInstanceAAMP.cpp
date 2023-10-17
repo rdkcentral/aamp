@@ -20,7 +20,6 @@
 #include "priv_aamp.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "AampMPDDownloader.h"
-#include "AampStreamSinkManager.h"
 
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
@@ -32,6 +31,7 @@
 MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
 
 PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
+	mStreamSink(NULL),
 	profiler(),
 	licenceFromManifest(false),
 	previousAudioType(eAUDIO_UNKNOWN),
@@ -164,15 +164,11 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 	return 0;
 }
 
-void PrivateInstanceAAMP::UpdateUseSinglePipeline( void )
-{
-}
-
 void PrivateInstanceAAMP::UpdateMaxDRMSessions( void )
 {
 }
 
-void PrivateInstanceAAMP::ActivatePlayer()
+void PrivateInstanceAAMP::SetStreamSink(StreamSink* streamSink)
 {
 }
 

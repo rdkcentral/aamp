@@ -191,18 +191,3 @@ PlaybackQualityStruct* AAMPGstPlayer::GetVideoPlaybackQuality(void)
 	return nullptr;
 }
 
-void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, AampLogManager *newLogObj, id3_callback_t id3HandlerCallback)
-{
-	if (g_mockAampGstPlayer != nullptr)
-	{
-		g_mockAampGstPlayer->ChangeAamp(newAamp, newLogObj, id3HandlerCallback);
-	}
-}
-
-void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
-{
-	if (g_mockAampGstPlayer != nullptr)
-	{
-		g_mockAampGstPlayer->SetEncryptedAamp(aamp);
-	}
-}

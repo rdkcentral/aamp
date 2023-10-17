@@ -23,7 +23,6 @@
  * @brief Definition of common class functions used by fragment collectors.
  */
 
-#include "AampStreamSinkManager.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampUtils.h"
 #include "isobmffbuffer.h"
@@ -416,7 +415,6 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 
 		if (ETIMEDOUT == pthreadReturnValue)
 		{
-			AAMPLOG_TRACE("Timed out waiting for waitforplaystart");
 			ret = false;
 		}
 		else if (0 != pthreadReturnValue)
@@ -439,7 +437,6 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 
 			if (ETIMEDOUT == pthreadReturnValue)
 			{
-				AAMPLOG_TRACE("Timed out waiting for fragmentInjected");
 				ret = false;
 			}
 			else if (0 != pthreadReturnValue)
@@ -1959,13 +1956,9 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 			//InsufficientBufferRule: Buffer is empty
 			if (aamp->GetLLDashCurrentPlayBackRate() == aamp->GetLLDashServiceData()->maxPlaybackRate )
 			{
-				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
-				if (sink)
-				{
-					sink->SetPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED);
-					aamp->SetLLDashCurrentPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED);
-					AAMPLOG_INFO("[DUBUG] Optimal buffer point Change the rate to Normal %lf",buffervalue);
-				}
+				aamp->mStreamSink->SetPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED);
+				aamp->SetLLDashCurrentPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED);
+				AAMPLOG_INFO("[DUBUG] Optimal buffer point Change the rate to Normal %lf",buffervalue);
 			}
 		}
 		

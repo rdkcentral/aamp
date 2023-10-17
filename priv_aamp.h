@@ -777,6 +777,7 @@ public:
 	pthread_cond_t mDownloadsDisabled;
 	bool mDownloadsEnabled;
 	std::map<MediaType, bool> mMediaDownloadsEnabled; /* Used to enable/Disable individual mediaType downloads */
+	StreamSink* mStreamSink;
 	HybridABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
 	ProfileEventAAMP profiler;
 	bool licenceFromManifest;
@@ -1633,6 +1634,14 @@ public:
 	void SendStreamTransfer(MediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment = 0, bool discontinuity = false);
 
 	/**
+	 * @fn SetStreamSink
+	 *
+	 * @param[in] streamSink - Pointer to the stream sink
+	 * @return void
+	 */
+	void SetStreamSink(StreamSink* streamSink);
+
+	/**
 	 * @fn IsLive
 	 *
 	 * @return True if stream is live, False if not
@@ -1847,8 +1856,6 @@ public:
 	 *   @return void
 	 */
 	void ResetProfileCache(void);
-
-	void ActivatePlayer();
 
 	/**
 	 *   @fn LogPlayerPreBuffered
@@ -3890,8 +3897,6 @@ public:
 	 * @retval returns size * nmemb
 	 */
 	size_t HandleSSLHeaderCallback ( const char *ptr, size_t size, size_t nmemb, void* userdata );
-
-	void UpdateUseSinglePipeline();
 
 	/**
 	 * @brief To update the max DASH DRM sessions supported in AAMP

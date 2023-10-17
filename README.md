@@ -150,7 +150,6 @@ gstSubtecEnabled		Enable/Disable subtec via gstreamer plugins (plugins in gst-pl
 sendLicenseResponseHeaders	Enable/Disable Sending License response header as a part of DRMMetadata event(Non SecClient/SecManager DRM license).
 useTCPServerSink		Enable "tcpserverSink" inconjunction with playbin. For use in automated testing when there is no window for video output
 sendUserAgentInLicense		Enable/disable sending user agent in the DRM license request header. Default disabled.
-useSinglePipeline		Enable/Disable using single gstreamer pipeline for main and secondary assets
 
 // Integer inputs
 ptsErrorThreshold		aamp maximum number of back-to-back pts errors to be considered for triggering a retune
