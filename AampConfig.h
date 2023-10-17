@@ -304,6 +304,8 @@ typedef enum
 	eAAMPConfig_LiveOffsetDriftCorrectionInterval,  			/**< Config to ovverride the allowed live offset drift **/
 	eAAMPConfig_LiveOffset4K,						/**< Live offset for 4K content;*/
 	eAAMPConfig_CDVRLiveOffset, 						/**< CDVR LIVE offset*/
+	eAAMPConfig_Curl_ConnectTimeout,					/**< Curl timeout for the connect phase*/
+	eAAMPConfig_Dns_CacheTimeout, 						/**< Curl life-time for DNS cache entries*/
 	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
 } AAMPConfigSettingFloat;
 #define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)

@@ -870,11 +870,12 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 	inpData->iDownloadTimeout				=	aamp->mConfig->GetConfigValue(eAAMPConfig_DrmNetworkTimeout);
 	inpData->iStallTimeout = aamp->mConfig->GetConfigValue(eAAMPConfig_DrmStallTimeout);
 	inpData->iStartTimeout = aamp->mConfig->GetConfigValue(eAAMPConfig_DrmStartTimeout);
+	inpData->iCurlConnectionTimeout =  aamp->mConfig->GetConfigValue(eAAMPConfig_Curl_ConnectTimeout);
 	inpData->bNeedDownloadMetrics				=	true;
 	inpData->proxyName							=	licenseProxy;		
 	inpData->pCurl			=	CurlStore::GetCurlStoreInstance(aamp).GetCurlHandle(aamp, licenseRequest.url, eCURLINSTANCE_AES);
 	inpData->sCustomHeaders	=	licenseRequest.headers;
-	
+	AAMPLOG_TRACE("DRMSession-getLicense download params - StallTimeout : %d StartTimeout : %d DownloadTimeout : %d CurlConnectionTimeout : %d ",inpData->iStallTimeout,inpData->iStartTimeout,inpData->iDownloadTimeout,inpData->iCurlConnectionTimeout);
 	if (aamp->mConfig->IsConfigSet(eAAMPConfig_CurlLicenseLogging))
 	{
 		inpData->bVerbose		=	true;

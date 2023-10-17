@@ -320,7 +320,7 @@ CURL* CurlStore::CurlEasyInitWithOpt ( void *privContext, const std::string &pro
 	PrivateInstanceAAMP *aamp = (PrivateInstanceAAMP *)privContext;
 	std::string UserAgentString;
 	UserAgentString=aamp->mConfig->GetUserAgentString();
-
+	uint32_t CurlConnectTimeout =  GETCONFIGVALUE(eAAMPConfig_Curl_ConnectTimeout);
 	CURL *curlEasyhdl = curl_easy_init();
 	if (ISCONFIGSET(eAAMPConfig_CurlLogging))
 	{
@@ -330,8 +330,8 @@ CURL* CurlStore::CurlEasyInitWithOpt ( void *privContext, const std::string &pro
 	CURL_EASY_SETOPT_FUNC(curlEasyhdl, CURLOPT_PROGRESSFUNCTION, progress_callback);
 	CURL_EASY_SETOPT_FUNC(curlEasyhdl, CURLOPT_HEADERFUNCTION, header_callback);
 	CURL_EASY_SETOPT_FUNC(curlEasyhdl, CURLOPT_WRITEFUNCTION, write_callback);
-	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
-	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_CONNECTTIMEOUT, DEFAULT_CURL_CONNECTTIMEOUT);
+	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_TIMEOUT,DEFAULT_CURL_TIMEOUT);
+	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_CONNECTTIMEOUT,CurlConnectTimeout );
 	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
 	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_FOLLOWLOCATION, 1 );
 	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_NOPROGRESS, 0 ); // enable progress meter (off by default)
@@ -346,6 +346,7 @@ CURL* CurlStore::CurlEasyInitWithOpt ( void *privContext, const std::string &pro
 
 	aamp->curlDLTimeout[instId] = DEFAULT_CURL_TIMEOUT * 1000;
 
+	AAMPLOG_TRACE("CurlConnectTimeout : %d CurlTimeout : %ld curlDLTimeout : %ld instId : %d set for curlEasyhdl : %p",CurlConnectTimeout,DEFAULT_CURL_TIMEOUT,aamp->curlDLTimeout[instId],instId,curlEasyhdl);
 	if (!proxyName.empty())
 	{
 		/* use this proxy */

@@ -37,7 +37,7 @@
 
 #define DEFAULT_CURL_TIMEOUT 5L		/**< Default timeout for Curl downloads */
 #define DEFAULT_CURL_CONNECTTIMEOUT 3L	/**< Curl socket connection timeout */
-
+#define DEFAULT_DNS_CACHE_TIMEOUT 3*60L	/***< Name resolve results for this number of seconds*/
 /**
  * @enum AampCurlStoreErrorCode
  * @brief Error codes returned by curlstore

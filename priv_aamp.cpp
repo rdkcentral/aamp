@@ -3777,7 +3777,6 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 
 				long long tStartTime = NOW_STEADY_TS_MS;
 				CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
-
 				if(!mAampLLDashServiceData.lowLatencyMode)
 				{
 					int insertDownloadDelay = GETCONFIGVALUE_PRIV(eAAMPConfig_DownloadDelay);
@@ -12255,6 +12254,9 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mHarvestConfig				=	GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	inpData->mHarvestCountLimit			=	GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit);
 	inpData->mHarvestPathConfigured		=	GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);
+	inpData->mDnldConfig->iCurlConnectionTimeout =  GETCONFIGVALUE_PRIV(eAAMPConfig_Curl_ConnectTimeout);
+	inpData->mDnldConfig->iDnsCacheTimeOut =   GETCONFIGVALUE_PRIV(eAAMPConfig_Dns_CacheTimeout);
+
 	std::string uriParameter = GETCONFIGVALUE_PRIV(eAAMPConfig_URIParameter);
 	// append custom uri parameter with remoteUrl at the end before curl request if curlHeader logging enabled.
 	if (ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) && (!uriParameter.empty()))

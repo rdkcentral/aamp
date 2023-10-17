@@ -482,6 +482,8 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{AAMP_DEFAULT_LIVE_OFFSET_DRIFT,"liveOffsetDriftCorrectionInterval",eAAMPConfig_LiveOffsetDriftCorrectionInterval,true,eCONFIG_RANGE_LIVEOFFSET}, //liveOffset by user
 	{AAMP_LIVE_OFFSET,"liveOffset4K",eAAMPConfig_LiveOffset4K,true,eCONFIG_RANGE_LIVEOFFSET}, //liveOffset for 4K by user
 	{AAMP_CDVR_LIVE_OFFSET,"cdvrLiveOffset",eAAMPConfig_CDVRLiveOffset,true,eCONFIG_RANGE_LIVEOFFSET},
+	{DEFAULT_CURL_CONNECTTIMEOUT,"connectTimeout",eAAMPConfig_Curl_ConnectTimeout,true},
+	{DEFAULT_DNS_CACHE_TIMEOUT,"dnsCacheTimeout",eAAMPConfig_Dns_CacheTimeout,true},
 };
 
 /**

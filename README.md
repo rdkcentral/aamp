@@ -218,6 +218,8 @@ TCPServerSinkPort   		See useTCPServerSink. Port number for video, audio will be
 drmNetworkTimeout		Curl Download Timeout for DRM in seconds ,default is 5 sec
 drmStallTimeout			Timeout value for detection curl download stall for DRM in second,default is 0.
 drmStartTimeout            	Timeout value for curl download to start for DRM after connect in seconds,default is 0.			
+connectTimeout			Curl socket connection timeout for fragment/playlist/manifest downloads. Default is 3 seconds
+dnsCacheTimeout			life-time for DNS cache entries ,Name resolve results are cached for manifest and used for this number of seconds,default is 180 seconds
 
 // String inputs
 licenseServerUrl		URL to be used for license requests for encrypted(PR/WV) assets

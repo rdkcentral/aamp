@@ -441,6 +441,8 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | drmNetworkTimeout | Number | 5 | Network request timeout for DRM license (in seconds) |
 | drmStallTimeout | Number | 0 | Optional optimization - Allow fast-failure for class of curl-detectable mid-download stalls for DRM license request (in seconds) |
 | drmStartTimeout | Number | 0 | Optional optimization - Allow fast-failure for class of curl-detectable stall at start of DRM license request download (in seconds) |
+| connectTimeout | Number | 3 | Curl socket connection timeout for fragment/playlist/manifest downloads (in seconds) |
+| dnsCacheTimeout | Number | 180 | life-time for DNS cache entries ,Name resolve results are cached for manifest and used for this number of seconds |
 
 Example:
 ```js

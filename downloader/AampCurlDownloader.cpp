@@ -63,6 +63,7 @@ void _downloadConfig::show()
 	AAMPLOG_INFO("curl : %p", pCurl);
 	AAMPLOG_INFO("userAgentString :%s",userAgentString.c_str());
 	AAMPLOG_INFO("proxyName :%s",proxyName.c_str());
+	AAMPLOG_INFO("iDnsCacheTimeOut :%ld",iDnsCacheTimeOut);
 
 	
 	if (sCustomHeaders.size() > 0)
@@ -284,7 +285,6 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 			// update the downlaod response metrics for success and failure case 
 			// and for last attempt only (if retries enabled)
 			updateResponseParams();
-				
 			mDownloadActive = false;		
 			mDownloadResponse->curlRetValue = curlRetVal;
 		}
@@ -458,8 +458,7 @@ void AampCurlDownloader::updateCurlParams()
 	CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_ACCEPT_ENCODING, "");//Enable all the encoding formats supported by client
 	//CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_SSL_CTX_FUNCTION, ssl_callback); //Check for downloads disabled in btw ssl handshake
 	//CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_SSL_CTX_DATA, aamp);
-	long dns_cache_timeout = 3*60;
-	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_DNS_CACHE_TIMEOUT, dns_cache_timeout);
+	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_DNS_CACHE_TIMEOUT,mDnldCfg->iDnsCacheTimeOut);
 	
 	if (!mDnldCfg->proxyName.empty())
 	{
