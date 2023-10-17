@@ -193,7 +193,10 @@ void PrivateInstanceAAMP::SetState(PrivAAMPState state)
 void PrivateInstanceAAMP::Stop()
 {
 }
+void PrivateInstanceAAMP::SetAudioTrack(int)
+{
 
+}
 bool PrivateInstanceAAMP::IsActiveInstancePresent()
 {
 	return true;
