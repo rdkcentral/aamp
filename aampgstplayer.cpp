@@ -52,6 +52,10 @@
 #include "aampoutputprotection.h"
 #endif
 
+#ifdef USE_EXTERNAL_STATS
+#include "aamp-xternal-stats.h"
+#endif
+
 /**
  * @enum GstPlayFlags 
  * @brief Enum of configuration flags used by playbin
@@ -1245,6 +1249,11 @@ static void AAMPGstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0,
 		else
 		{
 			AAMPLOG_WARN("Mediatype %d underrun, when eosReached is %d", type, _this->privateContext->stream[type].eosReached);
+
+#ifdef USE_EXTERNAL_STATS
+			INC_RETUNE_COUNT(type); // Increment the retune count for low level AV metric
+#endif
+
 			_this->aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, type);			/* Schedule a retune */
 		}
 	}
@@ -1289,6 +1298,10 @@ static void AAMPGstPlayer_OnGstDecodeErrorCb(GstElement* object, guint arg0, gpo
 	_this->privateContext->decodeErrorCBCount += 1;
 	if (deltaMS >= AAMP_MIN_DECODE_ERROR_INTERVAL)
 	{
+#ifdef USE_EXTERNAL_STATS
+		INC_DECODE_ERROR(); // Increment the decoder error for low level AV metric
+#endif
+
 		_this->aamp->SendAnomalyEvent(ANOMALY_WARNING, "Decode Error Message Callback=%d time=%d",_this->privateContext->decodeErrorCBCount, AAMP_MIN_DECODE_ERROR_INTERVAL);
 		_this->privateContext->decodeErrorMsgTimeMS = NOW_STEADY_TS_MS;
 		AAMPLOG_WARN("## Got Decode Error message from %s ## total_cb=%d timeMs=%d", GST_ELEMENT_NAME(object),  _this->privateContext->decodeErrorCBCount, AAMP_MIN_DECODE_ERROR_INTERVAL);
