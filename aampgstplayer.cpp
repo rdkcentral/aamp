@@ -23,6 +23,7 @@
  */
 
 #include "AampMemoryUtils.h"
+#include "gstaamptaskpool.h"
 #include "aampgstplayer.h"
 #include "AampFnLogger.h"
 #include "isobmffbuffer.h"
@@ -172,6 +173,7 @@ struct AAMPGstPlayerPriv
 	GstElement *video_sink; 			/**< Video sink used by pipeline. */
 	GstElement *audio_sink; 			/**< Audio sink used by pipeline. */
 	GstElement *subtitle_sink; 			/**< Subtitle sink used by pipeline. */
+	GstTaskPool *task_pool;				/**< Task pool in case RT priority is needed. */
 
 	int rate; 					/**< Current playback rate. */
 	double playbackrate; 				/**< playback rate in fractions */
@@ -224,7 +226,7 @@ struct AAMPGstPlayerPriv
 			total_bytes(0), n_audio(0), current_audio(0), 
 			periodicProgressCallbackIdleTaskId(AAMP_TASK_ID_INVALID),
 			bufferingTimeoutTimerId(AAMP_TASK_ID_INVALID), video_dec(NULL), audio_dec(NULL),TaskControlMutex(),firstProgressCallbackIdleTask("FirstProgressCallback"),
-			video_sink(NULL), audio_sink(NULL), subtitle_sink(NULL),
+			video_sink(NULL), audio_sink(NULL), subtitle_sink(NULL),task_pool(NULL),
 			rate(AAMP_NORMAL_PLAY_RATE), zoom(VIDEO_ZOOM_FULL), videoMuted(false), audioMuted(false), volumeMuteMutex(), subtitleMuted(false),
 			audioVolume(1.0), eosCallbackIdleTaskId(AAMP_TASK_ID_INVALID), eosCallbackIdleTaskPending(false),
 			firstFrameReceived(false), pendingPlayState(false), decoderHandleNotified(false),
@@ -266,6 +268,7 @@ static const char* GstPluginNamePR = "aampplayreadydecryptor";
 static const char* GstPluginNameWV = "aampwidevinedecryptor";
 static const char* GstPluginNameCK = "aampclearkeydecryptor";
 static const char* GstPluginNameVMX = "aampverimatrixdecryptor";
+
 
 /**
  * @brief Called from the mainloop when a message is available on the bus
@@ -1877,6 +1880,31 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 
 		break;
 
+	case GST_MESSAGE_STREAM_STATUS:
+		if(_this->privateContext->task_pool)
+		{
+			GstStreamStatusType type;
+			GstElement *owner;
+			const GValue *val;
+			GstTask *task = NULL;
+			gst_message_parse_stream_status (msg, &type, &owner);
+			val = gst_message_get_stream_status_object (msg);
+			if (G_VALUE_TYPE (val) == GST_TYPE_TASK)
+			{
+				task =(GstTask*) g_value_get_object (val);
+			}
+			switch (type)
+			{
+			case GST_STREAM_STATUS_TYPE_CREATE:
+				if (task && _this->privateContext->task_pool)
+				{
+					gst_task_set_pool(task, _this->privateContext->task_pool);
+				}
+			break;
+			}
+		}
+		break;
+
 	default:
 		break;
 	}
@@ -1904,6 +1932,11 @@ bool AAMPGstPlayer::CreatePipeline()
 	if (privateContext->pipeline)
 	{
 		privateContext->bus = gst_pipeline_get_bus(GST_PIPELINE(privateContext->pipeline));		/*Gets the GstBus of pipeline. The bus allows applications to receive GstMessage packets.*/
+		const char *envVal = getenv("AAMP_AV_PIPELINE_PRIORITY");
+		if(envVal)
+		{
+			privateContext->task_pool =  (GstTaskPool*)g_object_new (GST_TYPE_AAMP_TASKPOOL, NULL);
+		}
 		if (privateContext->bus)
 		{
 			guint busWatchId = gst_bus_add_watch(privateContext->bus, (GstBusFunc) bus_message, this); /* Creates a watch for privateContext->bus, invoking 'bus_message' when a asynchronous message on the bus is available */
@@ -1959,6 +1992,11 @@ void AAMPGstPlayer::DestroyPipeline()
 		gst_object_unref(privateContext->bus);		/* Decreases the reference count on privateContext->bus, in this case it will become zero,
 															the reference to privateContext->bus will be freed in gstreamer */
 		privateContext->bus = NULL;
+	}
+	if(privateContext->task_pool)
+	{
+		gst_object_unref(privateContext->task_pool);
+		privateContext->task_pool = NULL;
 	}
 
 	if (privateContext->positionQuery)
