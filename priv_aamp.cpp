@@ -5050,6 +5050,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 
 		AAMPLOG_INFO("TuneHelper - seek_pos: %f", seek_pos_seconds);
+		UpdatePTSOffsetFromTune(seek_pos_seconds, true);
 
 		// Set Pause on First Video frame if seeking and requested
 		if( mSeekOperationInProgress && seekWhilePaused )
@@ -11623,16 +11624,16 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(MediaType fileType)
 
 void PrivateInstanceAAMP::UpdatePTSOffsetFromTune(double value, bool is_set)
 {
-	AAMPLOG_INFO(" Setting PTS offset: %f | %f", value, seek_pos_seconds);
-
 	if (is_set)
 	{
+		AAMPLOG_INFO(" Setting PTS offset: %f | %f", value, seek_pos_seconds);
 		m_PTSOffsetFromTune.store(value);
 	}
 	else
 	{
 		// With C++20 we could use the cleaner option:
 		// m_PTSOffsetFromTune.fetch_add(value);
+		AAMPLOG_INFO(" Updating PTS offset: %f | %f", value, seek_pos_seconds);
 		m_PTSOffsetFromTune.store(m_PTSOffsetFromTune.load() + value);
 	}
 }
@@ -11650,12 +11651,13 @@ void PrivateInstanceAAMP::ID3MetadataHandler(MediaType mediaType, const uint8_t 
 
 		if (data_len && mId3MetadataCache.CheckNewMetadata(mediaType, data))
 		{
-			const auto timestamp_ms = static_cast<uint64_t>((info.pts_ms + this->GetPTSOffsetFromTune()) * 1000. + 0.5);
+			const auto offset = this->GetPTSOffsetFromTune();
+			const auto timestamp_ms = static_cast<uint64_t>((info.pts_ms + offset) * 1000. + 0.5);
 
 			std::stringstream ss;
-			ss << "timestamp: " << timestamp_ms << " - fragment pts: " << info.pts_ms << " ("
-				<< seek_pos_seconds << ") | data: " << aih::ToString(ptr, data_len);
-			AAMPLOG_WARN(" Found new ID3 tag # %s", ss.str().c_str());
+			ss << "timestamp: " << timestamp_ms << " - PTS: " << info.pts_ms << " "
+				<< offset << " [" << seek_pos_seconds << "] || data: " << aih::ToString(ptr, data_len);
+			AAMPLOG_WARN(" ID3 tag # %s", ss.str().c_str());
 
 			ReportID3Metadata(mediaType, std::move(data), 
 				nullptr, nullptr, timestamp_ms,
