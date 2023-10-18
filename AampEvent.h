@@ -298,6 +298,7 @@ struct AAMPEvent
 			int supportedSpeedCount;                                        /**< Supported playback speed count */
 			float supportedSpeeds[MAX_SUPPORTED_SPEED_COUNT];                 /**< Supported playback speeds */
 			double programStartTime;                                        /**< Program/Availability start time */
+			int tsbDepthMs;                                                 /**< TsbDepth in MilliSeconds*/
 		} metadata;
 
 		/**
@@ -827,6 +828,7 @@ class MediaMetadataEvent: public AAMPEventObject
 	std::string mAudioCodec; 		  /**< AudioCodec E.g AC3.*/
 	std::string mAudioMixType; 		  /**<  AudioMixType(- E.g STEREO. */
 	bool  isAtmos;  	 		  /**<  Is Atmos : 1 - True if audio playing is Dolby Atmos, 0 false ,  -1 indicates data not available */
+	int mTsbDepthMs;                /**<  TsbDepth in Milliseconds*/
 
 public:
 	MediaMetadataEvent() = delete;
@@ -844,7 +846,7 @@ public:
 	 * @param[in] DrmType  - DRM Type
 	 * @param[in] programStartTime  - Program/Availability start time
 	 */
-	MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime);
+	MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs);
 
 	/**
 	 * @brief MediaMetadataEvent Destructor
@@ -860,6 +862,11 @@ public:
 	 * @fn getProgramStartTime
 	 */
 	double getProgramStartTime() const;
+ 
+ 	/**
+	 * @fn getTsbDepth
+	 */
+	int getTsbDepth() const;
 
 	/**
 	 * @fn addLanguage

@@ -3941,6 +3941,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			}
 
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: MPD minupdateduration val %" PRIu64 " seconds mTSBDepth %f mPresentationOffsetDelay :%f StartTimeFirstPeriod: %lf offsetStartTime: %lf",  mMinUpdateDurationMs/1000, mTSBDepth, mPresentationOffsetDelay, mFirstPeriodStartTime, aamp->mProgressReportOffset);
+        	
+			aamp->mTsbDepthMs = CONVERT_SEC_TO_MS(mTSBDepth);
+			
 		}
 
 		for (int i = 0; i < mMaxTracks; i++)

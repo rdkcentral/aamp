@@ -485,7 +485,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				{
 					printf("[AAMPCLI] language: %s\n", languages[i].c_str());
 				}
-				printf("[AAMPCLI] AAMP_EVENT_MEDIA_METADATA\n\tDuration=%ld\n\twidth=%d\n\tHeight=%d\n\tHasDRM=%d\n\tProgreamStartTime=%f\n", ev->getDuration(), ev->getWidth(), ev->getHeight(), ev->hasDrm(), ev->getProgramStartTime());
+				printf("[AAMPCLI] AAMP_EVENT_MEDIA_METADATA\n\tDuration=%ld\n\twidth=%d\n\tHeight=%d\n\tHasDRM=%d\n\tProgreamStartTime=%f\n\tTsbDepthMs=%d\n", ev->getDuration(), ev->getWidth(), ev->getHeight(), ev->hasDrm(), ev->getProgramStartTime(), ev->getTsbDepth());
 				int bitrateCount = ev->getBitratesCount();
 				std::vector<BitsPerSecond> bitrates = ev->getBitrates();
 				printf("[AAMPCLI] Bitrates:\n");

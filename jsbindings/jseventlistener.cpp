@@ -491,6 +491,11 @@ public:
 		prop = JSStringCreateWithUTF8CString("mediaFormat");
                 JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getMediaFormat().c_str()), kJSPropertyAttributeReadOnly, NULL);
                 JSStringRelease(prop);
+        
+		//tsbdepth
+		prop = JSStringCreateWithUTF8CString("tsbDepthMs");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getTsbDepth()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
 
 	}
 };

@@ -254,6 +254,7 @@ static const ConfigLookupEntryString mConfigLookupTableString[AAMPCONFIG_STRING_
 	{"","LRHAcceptValue",eAAMPConfig_LRHAcceptValue,true},
 	{"","LRHContentType",eAAMPConfig_LRHContentType,true},
 	{"","gstlevel", eAAMPConfig_GstDebugLevel,false},
+	{"","tsbType", eAAMPConfig_TsbType, false},
 };
 
 /**

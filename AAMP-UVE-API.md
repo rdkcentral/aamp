@@ -443,6 +443,8 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | drmStartTimeout | Number | 0 | Optional optimization - Allow fast-failure for class of curl-detectable stall at start of DRM license request download (in seconds) |
 | connectTimeout | Number | 3 | Curl socket connection timeout for fragment/playlist/manifest downloads (in seconds) |
 | dnsCacheTimeout | Number | 180 | life-time for DNS cache entries ,Name resolve results are cached for manifest and used for this number of seconds |
+| tsbtype | String |  | Use the "tsbtype" configuration for each playback session, where "local" retains existing FOG streaming logic, "cloud" enables direct CDN streaming, and if "tsbtype" is not provided, default to "none," disabling TSB playback |
+
 
 Example:
 ```js
@@ -1836,11 +1838,12 @@ Example:
 - hasDrm: boolean
 - isLive: boolean
 - programStartTime: DRM: string[]
+- tsbDepth: number
 
 
 **Description:** 
 - Supported UVE version 0.7 and above.
-- Fired with metadata of the asset currently played, includes duration(in ms), audio language list, available bitrate list, hasDrm, supported playback speeds
+- Fired with metadata of the asset currently played, includes duration(in ms), audio language list, available bitrate list, hasDrm, supported playback speeds , tsbDepth
 
 ---
 

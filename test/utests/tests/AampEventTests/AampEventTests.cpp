@@ -145,7 +145,7 @@ TEST_F(CCHandleEventTest, GetCCHandleTest) {
 class MediaMetadataEventTest : public testing::Test {
 protected:
     void SetUp() override {
-        event = new MediaMetadataEvent(1000, 1920, 1080, true, true, "DRM Type", 123456.789);
+        event = new MediaMetadataEvent(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 1500);
     }
 
     void TearDown() override {
@@ -164,8 +164,9 @@ TEST_F(MediaMetadataEventTest, ConstructorAndGetterTest) {
     bool isLive = true;
     std::string drmType = "DRM Type";
     double programStartTime = 123456.789;
+    long tsbDepthSeconds = 1500;
 
-    MediaMetadataEvent event(duration, width, height, hasDrm, isLive, drmType, programStartTime);
+    MediaMetadataEvent event(duration, width, height, hasDrm, isLive, drmType, programStartTime, tsbDepthSeconds);
 
     EXPECT_EQ(event.getDuration(), duration);
     EXPECT_EQ(event.getWidth(), width);
@@ -174,10 +175,13 @@ TEST_F(MediaMetadataEventTest, ConstructorAndGetterTest) {
     EXPECT_EQ(event.isLive(), isLive);
     EXPECT_EQ(event.getDrmType(), drmType);
     EXPECT_EQ(event.getProgramStartTime(), programStartTime);
+    EXPECT_EQ(event.getTsbDepth(), tsbDepthSeconds);
+
+
 }
 // Test case for addLanguage, getLanguages, and getLanguagesCount methods
 TEST_F(MediaMetadataEventTest, LanguageMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 1500);
 
     event.addLanguage("English");
     event.addLanguage("Hindi");
@@ -191,7 +195,7 @@ TEST_F(MediaMetadataEventTest, LanguageMethodsTest) {
 }
 // Test case for addBitrate, getBitrates, and getBitratesCount methods
 TEST_F(MediaMetadataEventTest, BitrateMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 1500);
 
     event.addBitrate(1000000); // 1 Mbps
     event.addBitrate(2000000); // 2 Mbps
@@ -212,7 +216,7 @@ TEST_F(MediaMetadataEventTest, BitrateMethodsTest) {
     EXPECT_EQ(audioBitrates[1], 256000);
 }
 TEST_F(MediaMetadataEventTest, SupportedSpeedMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 1500);
 
     event.addSupportedSpeed(1.0);
     event.addSupportedSpeed(1.5);
@@ -227,7 +231,7 @@ TEST_F(MediaMetadataEventTest, SupportedSpeedMethodsTest) {
 
 // Test case for SetVideoMetaData method and related getter methods
 TEST_F(MediaMetadataEventTest, VideoMetaDataMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,1500);
 
     event.SetVideoMetaData(30.0, VideoScanType::eVIDEOSCAN_PROGRESSIVE, 16, 9, "MPEG2", "DOLBY_VISION", "PG", 123);
 
@@ -242,7 +246,7 @@ TEST_F(MediaMetadataEventTest, VideoMetaDataMethodsTest) {
 }
 // Test case for SetAudioMetaData method and related getter methods
 TEST_F(MediaMetadataEventTest, AudioMetaDataMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 1500);
 
     event.SetAudioMetaData("AA3", "STEREO", true);
 
@@ -252,7 +256,7 @@ TEST_F(MediaMetadataEventTest, AudioMetaDataMethodsTest) {
 }
 // Test case for getMediaFormat and setMediaFormat methods
 TEST_F(MediaMetadataEventTest, MediaFormatMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 1500);
 
     // Test setMediaFormat and then getMediaFormat
     event.setMediaFormat("HLS");

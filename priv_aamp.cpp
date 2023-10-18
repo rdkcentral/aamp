@@ -1264,6 +1264,8 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mId3MetadataCache{}
 	, mMPDDownloaderInstance(nullptr)
 	, mMPDStichOption(OPT_1_FULL_MANIFEST_TUNE),mMPDStichRefreshUrl("")
+	, mTsbType("none")
+	, mTsbDepthMs(0)
 {
 	mLogObj = mConfig->GetLoggerInstance();
 	//LazilyLoadConfigIfNeeded();
@@ -5272,6 +5274,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mManifestTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
 	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_PlaylistTimeout);
 	mPlaylistTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
+	mTsbType = GETCONFIGVALUE_PRIV(eAAMPConfig_TsbType);
+
 	if(mPlaylistTimeoutMs <= 0) mPlaylistTimeoutMs = mManifestTimeoutMs;
 	// Reset mProgramDateTime to 0 , to avoid spill over to next tune if same session is
 	// reused
@@ -5302,11 +5306,12 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mMPDStichRefreshUrl		=	refreshManifestUrl ? refreshManifestUrl : "";
 	mMPDStichOption			=	(MPDStichOptions) (mpdStichingMode % 2);
 
-
-	if((mAppName == "Viper") &&
+	if((mTsbType == "cloud") || 
+	   ((mAppName == "Viper") &&
 	   (mManifestUrl.find("chunked") != std::string::npos) &&
-	   (mManifestUrl.find("tsb?") != std::string::npos))
+	   (mManifestUrl.find("tsb?") != std::string::npos)))
 	{
+		
 		DeFog(mManifestUrl);
 		mainManifestUrl = mManifestUrl.c_str();
 		AAMPLOG_INFO("LLD trials Url Remapping done");
@@ -8489,8 +8494,8 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 	{
 		drmType = helper->friendlyName();
 	}
-
-	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime);
+	
+ 	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime, mTsbDepthMs);
 
 	for (auto iter = langList.begin(); iter != langList.end(); iter++)
 	{

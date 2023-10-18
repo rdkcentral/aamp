@@ -381,12 +381,12 @@ unsigned long CCHandleEvent::getCCHandle() const
 /**
  * @brief MediaMetadataEvent Constructor
  */
-MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime):
+MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs):
 		AAMPEventObject(AAMP_EVENT_MEDIA_METADATA), mDuration(duration),
 		mLanguages(), mBitrates(), mWidth(width), mHeight(height),
 		mHasDrm(hasDrm), mSupportedSpeeds(), mIsLive(isLive), mDrmType(DrmType), mProgramStartTime(programStartTime),
 		mPCRating(),mSsi(-1),mFrameRate(0),mVideoScanType(eVIDEOSCAN_UNKNOWN),mAspectRatioWidth(0),mAspectRatioHeight(0),
-		mVideoCodec(),mHdrType(),mAudioBitrates(),mAudioCodec(),mAudioMixType(),isAtmos(false),mMediaFormatName()
+		mVideoCodec(),mHdrType(),mAudioBitrates(),mAudioCodec(),mAudioMixType(),isAtmos(false),mMediaFormatName(), mTsbDepthMs(tsbDepthMs)
 {
 
 }
@@ -409,6 +409,16 @@ long MediaMetadataEvent::getDuration() const
 double MediaMetadataEvent::getProgramStartTime() const
 {
 	return mProgramStartTime;
+}
+
+/**
+ * @brief Get TsbDepth
+ *
+ * @return TsbDepthMs
+ */
+int MediaMetadataEvent::getTsbDepth() const
+{
+	return mTsbDepthMs;
 }
 
 /**

@@ -343,7 +343,9 @@ typedef enum
 	eAAMPConfig_LRHAcceptValue,							/**< Custom License Request Header Data */
 	eAAMPConfig_LRHContentType,							/**< Custom License Request ContentType Data */
 	eAAMPConfig_GstDebugLevel,							/**< gstreamer debug level as you'd define in GST_DEBUG */
-	eAAMPConfig_StringMaxValue							/**< Max value for string config always last element */
+	eAAMPConfig_TsbType,
+	eAAMPConfig_StringMaxValue,						/**< Max value for string config always last element */
+	
 } AAMPConfigSettingString;
 #define AAMPCONFIG_STRING_COUNT (eAAMPConfig_StringMaxValue)
 

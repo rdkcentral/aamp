@@ -811,6 +811,8 @@ public:
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
 	long mNetworkBandwidth;
+	std::string mTsbType;
+	int mTsbDepthMs;
 	/**
 	 * @brief A readonly, validatable position value.
 	 */
@@ -4163,7 +4165,7 @@ private:
 	AampMPDDownloader *mMPDDownloaderInstance;
 
 	std::atomic<double> m_PTSOffsetFromTune {0.}; /**< PTS offset cache from Tune, is reset only on a `Stop` */
-
+	
 	// double mCurrentMaxPTS;
 };
 

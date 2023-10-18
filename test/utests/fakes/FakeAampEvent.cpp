@@ -88,7 +88,7 @@ const std::string& ID3MetadataEvent::getSchemeIdUri() const
 	return mSchemeIdUri;
 }
 
-MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime):
+MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs):
 		AAMPEventObject(AAMP_EVENT_MEDIA_METADATA)
 {
 }
