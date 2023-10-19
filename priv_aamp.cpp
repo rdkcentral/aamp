@@ -1853,7 +1853,14 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 						bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
 					}
 					pthread_mutex_unlock(&mStreamLock);
-					bool isEnoughBuffer = bufferedDuration > (mLiveOffset / 2);
+					//If the player detect an empty period switch, it will set the  bufferduration as -1 even though  the player has content from previous period. 
+					//In this case, player should not increase the playback speed to catchup the latency.
+					//So Setting isEnoughBuffer  true by default and the value will update accordingly if only bufferduarion is greater than -1.
+					bool isEnoughBuffer = true;
+					if(bufferedDuration > -1.0)
+					{
+						bool isEnoughBuffer = bufferedDuration > (mLiveOffset / 2);
+					}	
 					double liveTime = (double)mNewSeekInfo.GetInfo().getUpdateTime()/1000.0;
 					double finalProgressTime = (mFirstFragmentTimeOffset) + ((double)mNewSeekInfo.GetInfo().getPosition()/1000.0);
 					double latency = liveTime - finalProgressTime;
