@@ -51,23 +51,6 @@ pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 
 include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
-if(FALSE) #RDKAAMP-1168: Temporary Code Change intend to remove meta layer patches, will be removed later
-if (CMAKE_WPEFRAMEWORK_REQUIRED)
-    message("CMAKE_WPEFRAMEWORK_REQUIRED set")
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
-find_package(WPEFramework REQUIRED)
-if (WPEFRAMEWORK_FOUND)
-    message("WPEFRAMEWORK_FOUND = ${WPEFRAMEWORK_FOUND}")
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR} PRIVATE ${WPEFRAMEWORK_INCLUDE_DIRS})
-else()
-    message(FATAL_ERROR "WPEFrameworkProtocols not found")
-endif()
-endif()
-
-if(CMAKE_QT5WEBKIT_JSBINDINGS)
-	message("CMAKE_QT5WEBKIT_JSBINDINGS set, require Qt5WebKit")
-endif()
-endif()
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
     message("CMAKE_WPEFRAMEWORK_REQUIRED set")

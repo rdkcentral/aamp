@@ -40,31 +40,6 @@ else()
     set(WPEFRAMEWORK_FOUND_TEXT "Not found")
 endif()
 
-if(FALSE) #RDKAAMP-1168: Temporary Code Change intend to remove meta layer patches, will be removed later
-if(PC_WPEFRAMEWORK_FOUND)
-    find_path(
-        WPEFRAMEWORK_INCLUDE_DIRS
-        NAMES plugins/plugins.h
-        HINTS ${PC_WPEFRAMEWORK_INCLUDEDIR} ${PC_WPEFRAMEWORK_INCLUDE_DIRS})
-
-    set(WPEFRAMEWORK_LIBS WPEFrameworkPlugins WPEFrameworkCore WPEFrameworkTracing WPEFrameworkProtocols WPEFrameworkSecurityUtil)
-    set(WPEFRAMEWORK_LIBRARY )
-    foreach(LIB ${WPEFRAMEWORK_LIBS})
-        find_library(WPEFRAMEWORK_LIBRARY_${LIB} NAMES ${LIB}
-            HINTS ${PC_WPEFRAMEWORK_LIBDIR} ${PC_WPEFRAMEWORK_LIBRARY_DIRS})
-        list(APPEND WPEFRAMEWORK_LIBRARY ${WPEFRAMEWORK_LIBRARY_${LIB}})
-    endforeach()
-
-    if("${WPEFRAMEWORK_INCLUDE_DIRS}" STREQUAL "" OR "${WPEFRAMEWORK_LIBRARY}" STREQUAL "")
-        set(WPEFRAMEWORK_FOUND_TEXT "Not found")
-    else()
-        set(WPEFRAMEWORK_FOUND_TEXT "Found")
-    endif()
-else()
-    set(WPEFRAMEWORK_FOUND_TEXT "Not found")
-endif()
-endif()
-
 if(PC_WPEFRAMEWORK_FOUND)
     find_path(
         WPEFRAMEWORK_INCLUDE_DIRS
