@@ -850,7 +850,7 @@ void PrivateCDAIObjectMPD::FulFillAdObject()
 				SAFE_DELETE(ad);
 			}
 			adBreakAssets->emplace_back(AdNode{false, false, mAdFulfillObj.adId, mAdFulfillObj.url, durationMs, bPeriodId, bOffset, ad});
-			AAMPLOG_WARN("New Ad successfully periodId : %s added[Id=%s, url=%s].", mAdFulfillObj.adId.c_str(),mAdFulfillObj.url.c_str(),periodId.c_str());
+			AAMPLOG_WARN("New Ad successfully for periodId : %s added[Id=%s, url=%s].",periodId.c_str(),mAdFulfillObj.adId.c_str(),mAdFulfillObj.url.c_str());
 
 			adStatus = true;
 		}

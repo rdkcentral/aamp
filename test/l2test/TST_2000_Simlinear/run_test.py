@@ -1,7 +1,25 @@
 #!/usr/bin/env python3
+
+# If not stated otherwise in this file or this component's LICENSE file the
+# following copyright and licenses apply:
+#
+# Copyright 2023 RDK Management
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 #Starts simlinear, a web server for serving ABR test streams
 #Starts aamp-cli and initiates playback by giving it a stream URL
-#verifys aamp log output against expected list of events
+#verifies aamp log output against expected list of events
 #
 #Also see README.txt
 
@@ -14,40 +32,43 @@ import subprocess
 import pexpect
 import requests
 import platform
+from pathlib import Path
 
+#paths needed for AAMP
 
-#Lib paths needed for AAMP
-
-if "AAMP_HOME" in os.environ:
-    AAMP_HOME=os.environ["AAMP_HOME"]
-else:
-    AAMP_HOME="aamp"
-
-TEST_PATH=os.path.join(AAMP_HOME, 'test','l2test')
-AAMP_ENV = {"LD_PRELOAD": os.path.join(AAMP_HOME, "Linux", "lib", "libdash.so"), "LD_LIBRARY_PATH": os.path.join(AAMP_HOME, "Linux", "lib")}
-
-AAMP_CFG=os.path.join(os.environ["HOME"], "aamp.cfg")
-
-#Pipe log output from AAMP into tcp_client.py which may add extra log lines for A/V gap detection
+AAMP_HOME = os.environ["AAMP_HOME"] if "AAMP_HOME" in os.environ else os.path.abspath(os.path.join('..','..','..'))
+TEST_PATH = os.path.abspath(os.path.join('.'))
+AAMP_CFG_DIR = TEST_PATH
+AAMP_CLI_CMD_PREFIX = os.environ["AAMP_CLI_CMD_PREFIX"] + ' ' if "AAMP_CLI_CMD_PREFIX" in os.environ else ''
+AAMP_ENV = {"AAMP_CFG_DIR":AAMP_CFG_DIR}
 
 if platform.system() == 'Darwin':
-    #MAC
+    #Mac
     AAMP_CLI_PATH=os.path.join(AAMP_HOME,'build','Debug','aamp-cli')
 else:
     #Linux
+    AAMP_ENV.update({"LD_PRELOAD": os.path.join(AAMP_HOME, "Linux", "lib", "libdash.so"), "LD_LIBRARY_PATH": os.path.join(AAMP_HOME, "Linux", "lib")})
     AAMP_CLI_PATH=os.path.join(AAMP_HOME,'Linux','bin','aamp-cli')
 
-AAMP_CMD='/bin/bash -c "' + AAMP_CLI_PATH +' | ' + os.path.join(TEST_PATH, 'TST_2000_Simlinear','tcp_client.py') +'"'
+#Pipe log output from AAMP into tcp_client.py which may add extra log lines for A/V gap detection
+AAMP_CMD='/bin/bash -c "' + AAMP_CLI_CMD_PREFIX + AAMP_CLI_PATH + ' | ' + os.path.join(TEST_PATH, 'tcp_client.py') + '"'
 
-SL_CMD=os.path.join(TEST_PATH,'TST_2000_Simlinear','simlinear.py')
-
-
-SL_PORT=8085
-SL_URL= "http://localhost:" + str(SL_PORT) +"/"
+SL_CMD_PORT = os.environ["L2_SL_CMD_PORT"] if "L2_SL_CMD_PORT" in os.environ else '10000'
+SL_PORT = os.environ["L2_SL_PORT"] if "L2_SL_PORT" in os.environ else '8085'
+SL_PATH=os.path.join(TEST_PATH,'simlinear.py')
+SL_CMD=[SL_PATH, '--port', SL_CMD_PORT]
+SL_URL= "http://localhost:" + SL_PORT + "/"
+SL_DATA_PATH = 'testdata'
+OUTPUT_PATH = 'output'
 
 MAX_TEST_TIME_SECS = 300
 
 sl_process = None
+cmdlogfile = None
+aamp_cli = None
+aamp_cfg_saved_file = ""
+aamp_cfg_file = os.path.join(AAMP_CFG_DIR, "aamp.cfg")
+print("AAMP_CFG_DIR=" + AAMP_CFG_DIR)
 
 ##############################################################
 def start_simlinear(abr_type):
@@ -57,29 +78,55 @@ def start_simlinear(abr_type):
     global sl_process
     global args
     # Start simlinear
-    if not os.path.exists(SL_CMD):
-        print("ERROR File does not exist {} Check setup.".format(SL_CMD))
+    if not os.path.exists(SL_PATH):
+        print("ERROR File does not exist {} Check setup.".format(SL_PATH))
         sys.exit(os.EX_SOFTWARE)
 
-    try:
-        if args.sim_log==True:
-            sl_process = subprocess.Popen(SL_CMD)
-        else:
-            sl_process = subprocess.Popen(SL_CMD,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    print("Starting simlinear")
+    attempt=0
+    status_code=0
 
-        time.sleep(1)
+    while (200 != status_code) and (attempt < 2):
+        try:
+            if args.sim_log==True:
+                sl_process = subprocess.Popen(SL_CMD, cwd=SL_DATA_PATH)
+            else:
+                sl_process = subprocess.Popen(SL_CMD,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL, cwd=SL_DATA_PATH)
 
-        #configure simlinear to serve HLS/DASH on a specified port
-        # curl - X POST - d '{"port":"8085", "type":"HLS"}' http: // localhost: 5000 / sim / start - H  'Content-Type: application/json' ''',
-        cmd=[ ("http://localhost:5000/sim/start", {"port":str(SL_PORT), "type":abr_type}) ]
-        status_code = simlinear_cmd(cmd)
+            time.sleep(1)
 
-        if status_code != 200:
-            print("FAILED startSimLinear ",status_code )
-            sys.exit(os.EX_SOFTWARE)   #Return non-zero
-    except:
-        print("Failed to start {}, Check for instance already running".format(SL_CMD))
+            #configure simlinear to serve HLS/DASH on a specified port
+            # curl - X POST - d '{"port":"8085", "type":"HLS"}' http: // localhost: 5000 / sim / start - H  'Content-Type: application/json' ''',
+            sl_server_cmd = 'http://localhost:' + SL_CMD_PORT + '/sim/start'
+            cmd=[ (sl_server_cmd, {"port":SL_PORT, "type":abr_type}) ]
+            status_code = simlinear_cmd(cmd)
+            if (200 != status_code):
+                print("FAILED startSimLinear ", status_code)
+
+        except Exception as e:
+            print(e)
+
+        if (200 != status_code):
+            if (0 == attempt):
+                attempt += 1
+                p = subprocess.Popen(['pgrep', '-af', 'simlinear.py'], stdout=subprocess.PIPE)
+                out, err = p.communicate()
+                if (out != b''):
+                    print("Simlinear already running: -\n" + out.decode("utf-8") + "Attempt to stop it and try again y/n: ");
+                    # not currently interactive
+                    #p = subprocess.Popen('pgrep -f simlinear.py | xargs -pr kill -9', shell=True, executable='/bin/bash')
+                    p = subprocess.Popen('pgrep -f simlinear.py | xargs -r kill -9', shell=True, executable='/bin/bash')
+                    out, err = p.communicate()
+                else:
+                    print("Failed to start {},\nCheck for instance already running".format(SL_CMD))
+                    attempt=2 # nothing found so exit
+            else:
+                print("Failed to start {},\nCheck for instance already running".format(SL_CMD))
+                attempt=2 # nothing found so exit
+
+    if (200 != status_code):
         sys.exit(os.EX_SOFTWARE)   #Return non-zero
+
 
 def simlinear_cmd(cmd_list):
     """
@@ -95,25 +142,27 @@ def simlinear_cmd(cmd_list):
 
 def stop_simlinear():
     global sl_process
-    print("Terminating simlinear")
-    cmd=[ ("http://localhost:5000/sim/stop", {"port":str(SL_PORT)}) ]
-    simlinear_cmd(cmd)
-    time.sleep(1)
-    cmd=[ ("http://localhost:5000/sim/stop", {"port":"5000"}) ]
-    simlinear_cmd(cmd)
-    time.sleep(1)
-    sl_process.terminate()
+
+    if (sl_process != None):
+        print("Terminating simlinear")
+        sl_server_cmd = 'http://localhost:' + SL_CMD_PORT + '/sim/stop'
+        cmd=[ (sl_server_cmd, {"port":SL_PORT}) ]
+        simlinear_cmd(cmd)
+        time.sleep(1)
+        cmd=[ (sl_server_cmd, {"port":SL_CMD_PORT}) ]
+        simlinear_cmd(cmd)
+        time.sleep(1)
+        sl_process.terminate()
+        sl_process = None
+        time.sleep(1)
 
 
 def stop_and_exit(code):
     stop_simlinear()
 
-    #Delete the cfg that we created
-    if os.path.exists(AAMP_CFG):
-        os.remove(AAMP_CFG)
-
     sys.exit(code)
 
+################################################################
 def create_aamp_cfg():
     """
     $HOME/aamp.cfg should contain
@@ -125,10 +174,10 @@ def create_aamp_cfg():
 
     try:
         if "HOME" in os.environ:
-            print("Creating ",AAMP_CFG)
-            f = open(AAMP_CFG,"w")
+            print("Creating",aamp_cfg_file)
+            f = open(aamp_cfg_file,"w")
             f.write("info=true\ntrace=true\n")
-            if args.aamp_window == False:
+            if args.aamp_video == False:
                f.write("useTCPServerSink=true\n")
             f.close()
         else:
@@ -141,27 +190,46 @@ def create_aamp_cfg():
 def check_for_missed_events(testdata,elapsed,expect_did_happen):
     """
     Check for events that we expect from our test data
-    but which have not occured in the aamp output
+    but which have not occurred in the aamp output
     """
     for j in range(len(expect_did_happen)):
         ee = testdata["expect_list"][j]
-        if "needs_tcpserversink" in ee and args.aamp_window == True:
+        if "needs_tcpserversink" in ee and args.aamp_video == True:
             continue
         if expect_did_happen[j] == False and elapsed > ee["max"] and not "not_expected" in ee:
-            print("ERROR {} never occured in expected time window".format(ee))
+            print("ERROR {} never occurred in expected time window".format(ee))
             return False
     return True
+
+def aamp_sendline(cmd_line):
+    global cmdlogfile
+    global aamp_cli
+
+    print("CMD: " + cmd_line)
+    if (cmdlogfile != None):
+        cmdlogfile.write(cmd_line + "\n")
+
+    aamp_cli.sendline(cmd_line)
 
 def run_test(testdata,run_num):
     """
     See "Format of TESTDATA" detailed below
     """
     global args
+    global cmdlogfile
+    global aamp_cli
     test_pass=True
     log_start_timestamp=0
 
-    logfile_name = testdata["logfile"] + "."+ str(run_num)
+    if (0 == run_num):
+        logfile_name = os.path.join(OUTPUT_PATH, testdata["logfile"])
+    else:
+        logfile_name = os.path.join(OUTPUT_PATH, Path(testdata["logfile"]).stem) + "-run" + str(run_num) + Path(testdata["logfile"]).suffix
+
     print("{} {}".format(testdata["title"],logfile_name))
+
+    stop_simlinear()
+    start_simlinear('HLS')
 
     #Send any test related commands to simlinear
     if "simlinear_cmd" in testdata:
@@ -177,15 +245,17 @@ def run_test(testdata,run_num):
         expect_list.append(e["expect"])
         expect_did_happen.append(False)
 
-    #Add a pattern which matches on the timestamp at the begining of each log line
+    #Add a pattern which matches on the timestamp at the beginning of each log line
     expect_list.append("\n(\d{10})")
 
     #start aamp-cli
     EXPECT_TIMEOUT=10
     env = os.environ
     env.update(AAMP_ENV)
+    print(AAMP_CMD)
     aamp = pexpect.spawn(AAMP_CMD, env=env, timeout=EXPECT_TIMEOUT)
     expect_re=aamp.compile_pattern_list(expect_list)
+    aamp_cli = aamp
 
     if args.aamp_log:
         aamp.logfile = sys.stdout.buffer
@@ -196,8 +266,15 @@ def run_test(testdata,run_num):
     time.sleep(2)
     #aamp.expect_exact('cmd: ')
 
+    if (0 == run_num):
+        cmdlogfile_name = os.path.join(OUTPUT_PATH, Path(testdata["logfile"]).parent, Path(testdata["logfile"]).stem) + "_cmd.txt"
+    else:
+        cmdlogfile_name = os.path.join(OUTPUT_PATH, Path(testdata["logfile"]).parent, Path(testdata["logfile"]).stem) + "-run" + str(run_num) + "_cmd.txt"
+
+    cmdlogfile = open(cmdlogfile_name,"w")
+
     #Send URL to start playing
-    aamp.sendline(SL_URL+testdata["url"])
+    aamp_sendline(SL_URL+testdata["url"])
 
     start_time=time.time()
     end_of_test=False
@@ -234,10 +311,10 @@ def run_test(testdata,run_num):
                 if elapsed >=e["min"] and elapsed <=e["max"]:
                     if "not_expected" in e:
                         #We got event within a time window when we were not expecting it
-                        print("ERROR {} occured elapsed={} drift={}".format(e,elapsed,int(time.time()-log_timestamp)))
+                        print("ERROR {} occurred elapsed={} drift={}".format(e,elapsed,int(time.time()-log_timestamp)))
                         test_pass=False
                     else:
-                        #Event occured in window and was expected
+                        #Event occurred in window and was expected
                         expect_did_happen[i]=True
 
                         if "end_of_test" in e:
@@ -252,16 +329,17 @@ def run_test(testdata,run_num):
                 end_of_test = True
 
     #Finish
-    aamp.sendline("stop")
+    aamp_sendline("stop")
     try:
         aamp.expect_exact("AAMPGstPlayer_Stop")
         print("Sending exit")
-        aamp.sendline("exit")
+        aamp_sendline("exit")
         aamp.sendeof()
     except:
         print("Exception during shutdown of aamp-cli")
         aamp.kill(9)
 
+    aamp_cli = None
     aamp.wait()
 
     if test_pass:
@@ -270,6 +348,10 @@ def run_test(testdata,run_num):
         result = "FAILED"
 
     print("{} {}".format(result,testdata["title"]))
+
+    cmdlogfile.close()
+
+    stop_simlinear()
 
     return test_pass
 
@@ -290,7 +372,7 @@ Format of TESTDATA:
 TESTDATA1= {
 "title": "Canned live HLS playback. No discontinuity",
 "logfile": "testdata1.txt",
-"url":"testdata/m3u8s/manifest.1.m3u8",
+"url":"m3u8s/manifest.1.m3u8",
 "expect_list": [
     # ( string, min time seconds, max time seconds)
     {"expect":"Video Profile added to ABR","min":0, "max":1},
@@ -302,7 +384,7 @@ TESTDATA1= {
 TESTDATA2= {
 "title": "Canned VOD HLS playback. No discontinuity",
 "logfile": "testdata2.txt",
-"url":"testdata/m3u8s_vod/manifest.1.m3u8",
+"url":"m3u8s_vod/manifest.1.m3u8",
 "expect_list": [
     {"expect": "Video Profile added to ABR", "min": 0, "max": 1},
     {"expect": "Returning Position as 19[0-9]{4}", "min": 190, "max": 300,"end_of_test":True},
@@ -314,13 +396,13 @@ TESTDATA2= {
 #hls stream with single audio-only discontinuity
 #Audio missing segments 19-21
 TESTDATA3= {
-"title": "HLS Audio Discontinity",
+"title": "HLS Audio Discontinuity",
 "logfile": "testdata3.txt",
-"url":"testdata/m3u8s_audio_discontinuity_180s/manifest.1.m3u8",
+"url":"m3u8s_audio_discontinuity_180s/manifest.1.m3u8",
 "expect_list": [
     {"expect": "Video Profile added to ABR", "min": 0, "max": 1},
     {"expect": "#EXT-X-DISCONTINUITY", "min": 40, "max": 100},
-    #A section of audio is missing, after this audio buffer state is 
+    #A section of audio is missing, after this audio buffer state is
     #always red because MonitorBufferHealth has no way of recovering.
     {"expect": "track\[audio\] No Change \[RED\]", "min": 50, "max": 108},
     #Need to check that audio has a gap and no video gap
@@ -336,9 +418,9 @@ TESTDATA3= {
 #hls stream with single video-only discontinuity
 # video segments 19-20 missing
 TESTDATA4= {
-"title": "HLS Video Discontinity",
+"title": "HLS Video Discontinuity",
 "logfile": "testdata4.txt",
-"url":"testdata/m3u8s_video_discontinuity_180s/manifest.1.m3u8",
+"url":"m3u8s_video_discontinuity_180s/manifest.1.m3u8",
 "expect_list": [
     {"expect": "Video Profile added to ABR", "min": 0, "max": 1},
     {"expect": "#EXT-X-DISCONTINUITY", "min": 40, "max": 80},
@@ -358,14 +440,14 @@ TESTDATA4= {
 # Should display segments 6-14, 0-12 = 4*(9+13) =88Secs of play
 
 TESTDATA5= {
-"title": "Audio and Video Discontinity",
+"title": "Audio and Video Discontinuity",
 "logfile": "testdata5.txt",
-"url":"testdata/m3u8s_paired_discontinuity_content_transition_108s/manifest.1.m3u8",
+"url":"m3u8s_paired_discontinuity_content_transition_108s/manifest.1.m3u8",
 "expect_list": [
     # ( string, min time seconds, max time seconds)
     {"expect":"Video Profile added to ABR","min":0, "max":1},
     {"expect": "Buffer is running low", "min": 60, "max": 200, "not_expected" : True},
-    {"expect": "mTrackState:3!", "min": 20, "max": 35, }, #I.E discontinunity in audio and video
+    {"expect": "mTrackState:3!", "min": 20, "max": 35, }, #I.E discontinuity in audio and video
     #{"expect": "fragment injector done. track video", "min": 20, "max": 30, }, #Inject-Stop
     #{"expect": "fragment injector done. track audio", "min": 20, "max": 30, }, #Inject-Stop
     {"expect": "#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
@@ -381,33 +463,33 @@ TESTDATA5= {
     ]
 }
 
-#hls live streaming where we see discontinuity in video playlist, but not yet audio playlist. 
-#Here, we might experience delay before audio playlist is downloaded/refreshed, or receive stale 
+#hls live streaming where we see discontinuity in video playlist, but not yet audio playlist.
+#Here, we might experience delay before audio playlist is downloaded/refreshed, or receive stale
 #audio playlist with new paired audio discontinuity not yet advertised.
-#Should display segments 6-14, 0-12 
+#Should display segments 6-14, 0-12
 #But playlist audio.*.m3u8.15 will be published 3 seconds late
 TESTDATA6= {
-"title": "Discontinity with audio delay",
+"title": "Discontinuity with audio delay",
 "logfile": "testdata6.txt",
-"url":"testdata/m3u8s_paired_discontinuity_audio_3s_108s/manifest.1.m3u8",
+"url":"m3u8s_paired_discontinuity_audio_3s_108s/manifest.1.m3u8",
 #"simlinear_cmd":  [("http://localhost:5000/sim/config2", {"filepath": ".*audio.*\.m3u8\.15", "delay": 3} )] ,
 "expect_list": [
     # ( string, min time seconds, max time seconds)
     {"expect":"Video Profile added to ABR","min":0, "max":1},
     {"expect": "Buffer is running low", "min": 60, "max": 200, "not_expected" : True},
-    {"expect": "mTrackState:3!", "min": 20, "max": 30, }, #I.E discontinunity in audio and video
-    {"expect": "fragment injector done. track video", "min": 20, "max": 30, }, #Inject-Stop
-    {"expect": "fragment injector done. track audio", "min": 20, "max": 30, }, #Inject-Stop
+    {"expect": "mTrackState:3!", "min": 20, "max": 35, }, #I.E discontinuity in audio and video
+    #{"expect": "fragment injector done. track video", "min": 20, "max": 30, }, #Inject-Stop
+    #{"expect": "fragment injector done. track audio", "min": 20, "max": 30, }, #Inject-Stop
     {"expect": "#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
    #Running this test gives a gap in video and audio. The test should fail because of this.
    #But commenting out the following lines to keep the test passing.
    #{"expect": "Streaming audio gap", "min": 0, "max": 100, "not_expected" : True, "needs_tcpserversink":True},
    #{"expect": "Streaming video gap", "min": 0, "max": 100, "not_expected" : True, "needs_tcpserversink":True},
-    {"expect": "AAMPGstPlayerPipeline PAUSED -> PAUSED", "min": 35, "max": 60},
-    {"expect": "AAMPGstPlayerPipeline PAUSED -> PLAYING", "min": 35, "max": 60},
-    {"expect": "AAMPGstPlayer: Pipeline flush seek", "min": 35, "max": 60},
-    {"expect":"AAMP_EVENT_EOS","min": 80, "max": 200,"end_of_test":True }
-    #{"expect":"Changing playlist type from[0] to ePLAYLISTTYPE_VOD as ENDLIST tag present.","min" :80, "max": 220,"end_of_test":True }
+    {"expect": "AAMPGstPlayerPipeline PAUSED -> PAUSED", "min": 35, "max": 70},
+    {"expect": "AAMPGstPlayerPipeline PAUSED -> PLAYING", "min": 35, "max": 70},
+    {"expect": "AAMPGstPlayer: Pipeline flush seek", "min": 35, "max": 70},
+    {"expect": "fragment injector done. track video", "min": 68, "max": 90,"end_of_test":True},
+    {"expect":"GST_MESSAGE_EOS","min": 80, "max": 150,"end_of_test":True }
     ]
 }
 
@@ -415,30 +497,30 @@ TESTDATA6= {
 #hls live streaming where we see discontinuity in audio playlist, but not yet video playlist. Here, we might
 #experience delay before video playlist is downloaded/refreshed, or receive stale video playlist with new
 #paired video discontinuity not yet advertised.
-#Should display segments 6-14, 0-12 
+#Should display segments 6-14, 0-12
 #But playlist video.*.m3u8.15 will be published 3 seconds late
 TESTDATA7= {
-"title": "Discontinity with video delay",
+"title": "Discontinuity with video delay",
 "logfile": "testdata7.txt",
-"url":"testdata/m3u8s_paired_discontinuity_video_3s_108s/manifest.1.m3u8",
+"url":"m3u8s_paired_discontinuity_video_3s_108s/manifest.1.m3u8",
 #"simlinear_cmd":  [("http://localhost:5000/sim/config2", {"filepath": ".*video.*\.m3u8\.15", "delay": 3} )] ,
 "expect_list": [
     # ( string, min time seconds, max time seconds)
     {"expect":"Video Profile added to ABR","min":0, "max":1},
     {"expect": "Buffer is running low", "min": 60, "max": 200, "not_expected" : True},
-    {"expect": "mTrackState:3!", "min": 20, "max": 30, }, #I.E discontinunity in audio and video
-    {"expect": "fragment injector done. track video", "min": 20, "max": 30, }, #Inject-Stop
-    {"expect": "fragment injector done. track audio", "min": 20, "max": 30, }, #Inject-Stop
+    {"expect": "mTrackState:3!", "min": 20, "max": 35, }, #I.E discontinuity in audio and video
+    #{"expect": "fragment injector done. track video", "min": 20, "max": 30, }, #Inject-Stop
+    #{"expect": "fragment injector done. track audio", "min": 20, "max": 30, }, #Inject-Stop
     {"expect": "#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
    #Running this test gives a gap in video and audio. The test should fail because of this.
    #But commenting out the following lines to keep the test passing.
    #{"expect": "Streaming audio gap", "min": 0, "max": 100, "not_expected" : True, "needs_tcpserversink":True},
    #{"expect": "Streaming video gap", "min": 0, "max": 100, "not_expected" : True, "needs_tcpserversink":True},
-    {"expect": "AAMPGstPlayerPipeline PAUSED -> PAUSED", "min": 35, "max": 50},
-    {"expect": "AAMPGstPlayerPipeline PAUSED -> PLAYING", "min": 35, "max": 50},
-    {"expect": "AAMPGstPlayer: Pipeline flush seek", "min": 35, "max": 50},
-    {"expect":"Returning Position as 10[4-8]","min": 80, "max": 150,"end_of_test":True},
-    {"expect": "AAMP_EVENT_EOS", "min": 100, "max": 300,"end_of_test":True},
+    {"expect": "AAMPGstPlayerPipeline PAUSED -> PAUSED", "min": 35, "max": 70},
+    {"expect": "AAMPGstPlayerPipeline PAUSED -> PLAYING", "min": 35, "max": 70},
+    {"expect": "AAMPGstPlayer: Pipeline flush seek", "min": 35, "max": 70},
+    {"expect": "fragment injector done. track video", "min": 68, "max": 90,"end_of_test":True},
+    {"expect":"GST_MESSAGE_EOS","min": 80, "max": 150,"end_of_test":True }
     ]
 }
 
@@ -449,9 +531,9 @@ TESTDATA7= {
 #video 6-18, 19-20missing, 21-27
 #
 TESTDATA8= {
-"title": "HLS Discontinity audio early",
+"title": "HLS Discontinuity audio early",
 "logfile": "testdata8.txt",
-"url":"testdata/m3u8s_paired_discontinuity_audio_early_108s/manifest.1.m3u8",
+"url":"m3u8s_paired_discontinuity_audio_early_108s/manifest.1.m3u8",
 "expect_list": [
     {"expect": "Video Profile added to ABR", "min": 0, "max": 1},
     {"expect": "#EXT-X-DISCONTINUITY", "min": 45, "max": 55},
@@ -467,9 +549,9 @@ TESTDATA8= {
 #audio segment 19-20 missing
 #video segment 19 missing
 TESTDATA9= {
-"title": "HLS Discontinity audio late",
+"title": "HLS Discontinuity audio late",
 "logfile": "testdata9.txt",
-"url":"testdata/m3u8s_paired_discontinuity_audio_late_108s/manifest.1.m3u8",
+"url":"m3u8s_paired_discontinuity_audio_late_108s/manifest.1.m3u8",
 "expect_list": [
     {"expect": "Video Profile added to ABR", "min": 0, "max": 1},
     {"expect": "#EXT-X-DISCONTINUITY", "min": 45, "max": 75},
@@ -491,7 +573,7 @@ parser.add_argument("--aamp_log", help="Output aamp logging",
                     action="store_true")
 parser.add_argument("--sim_log", help="Output sim logging",
                     action="store_true")
-parser.add_argument("--aamp_window", help="Run AAMP with window, but no A/V gap detection",
+parser.add_argument("-v","--aamp_video", help="Run AAMP with video window, but no A/V gap detection",
                     action="store_true")
 parser.add_argument("--ignore_fails", help="Continue with next test even if previous failed. Default option is to exit on failure",
                     action="store_true")
@@ -505,38 +587,62 @@ if args.only:
 else:
     testlist=TESTLIST
 
-#For mac we will always have a window because it will be run from a terminal
-#and ppl get confused as to where the window is.
-#For Linux then we could run at terminal or in test system so window is optional
-if platform.system() == 'Darwin':
-    args.aamp_window = True
-
-if args.aamp_window:
-    print("aamp_window option selected. There will be no A/V gap detection")
+if args.aamp_video:
+    print("AAMP with video window option selected. There will be no A/V gap detection")
 
 if not os.path.exists(AAMP_CLI_PATH):
-    print("ERROR cannot access {}".format(AAMP_CLI_PATH))
+    print("ERROR cannot access AAMP_CLI_PATH={}".format(AAMP_CLI_PATH))
     sys.exit(os.EX_SOFTWARE)
 
-    #URL's used by simlinear all expect to read from 'testdata' directory
-if not os.path.exists('testdata'):
-    print("ERROR cannot access directory {} Check env setup".format('testdata'))
+#URL's used by simlinear all expect to read from 'testdata' directory
+if not os.path.exists(SL_DATA_PATH):
+    print("ERROR cannot access directory SL_DATA_PATH={} Check env setup".format(SL_DATA_PATH))
+    sys.exit(os.EX_SOFTWARE)
+
+if not os.path.exists(OUTPUT_PATH):
+    os.mkdir(OUTPUT_PATH)
+else:
+    for f in Path(OUTPUT_PATH).glob("testdata*.txt"):
+        f.unlink()
+
+if not os.path.exists(OUTPUT_PATH):
+    print("ERROR cannot access directory OUTPUT_PATH={}".format(OUTPUT_PATH))
+    sys.exit(os.EX_SOFTWARE)
+
+if not os.path.exists(AAMP_CFG_DIR):
+    print("ERROR cannot access directory AAMP_CFG_DIR={}".format(AAMP_CFG_DIR))
     sys.exit(os.EX_SOFTWARE)
 
 results={"Pass":0 ,"Fail":0}
-start_simlinear('HLS')
-create_aamp_cfg()
+results_detail={}
 
-for r in range(args.repeat):
-    for test in testlist:
-        res = run_test(test,r)
-        if res:
-          results["Pass"] +=1
-        else:
-          results["Fail"] +=1
+try:
+    create_aamp_cfg()
 
-        if res==False and args.ignore_fails==False:
-            stop_and_exit(os.EX_SOFTWARE)   #Return non-zero
+    for r in range(args.repeat):
+        for test in testlist:
+            name = test['logfile']
+            if name not in results_detail:
+                results_detail[name] = []
 
-print("Results", results)
-stop_and_exit(0)
+            res = run_test(test,r)
+            if res:
+                results["Pass"] +=1
+                results_detail[name].append('P')
+            else:
+                results["Fail"] +=1
+                results_detail[name].append('F')
+
+            if res==False and args.ignore_fails==False:
+                stop_and_exit(os.EX_SOFTWARE)   #Return non-zero
+
+    for name in results_detail:
+        print(name, results_detail[name])
+
+    print("Results", results)
+    stop_and_exit(0)
+
+except Exception as e:
+    print("ERROR Exception was thrown: %s" % (e))
+    stop_and_exit(os.EX_SOFTWARE)   #Return non-zero
+

@@ -437,7 +437,7 @@ int main(int argc, char **argv)
 	}
 }
 
-void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::string &url)
+void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::string &url, std::string &adId)
 {
 	bool loop = false;
 	std::string defUrl = "";
@@ -447,6 +447,7 @@ void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::str
 		if(reqDuration == mAdvertList[mAdvertIndex].duration)
 		{
 			url = mAdvertList[mAdvertIndex].url;
+			adId = "ad" + std::to_string(mAdvertIndex);
 			adDuration = mAdvertList[mAdvertIndex].duration;
 			mAdvertIndex = mAdvertIndex + 1;
 			break;
@@ -463,12 +464,15 @@ void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::str
 			loop = true;
 		}
 		else
+		{
 			mAdvertIndex++;
+		}
 	}
 
 	if((adDuration == 0) && (!defUrl.empty()))
 	{
 		url = defUrl;
+		adId = "adDefault";
 	}
 }
 
@@ -657,11 +661,11 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				mAampcli.mSingleton->ProcessContentProtectionDataConfig(json.c_str());
 				break;
 			}
-			
+
 		case AAMP_EVENT_TIMED_METADATA:
 		{
 			TimedMetadataEventPtr ev =  std::dynamic_pointer_cast<TimedMetadataEvent>(e);
-			if( ev->getName() == "SCTE35" )
+			if ( ev->getName() == "SCTE35" )
 			{
 				printf("\n[AAMPCLI] AAMP_EVENT_TIMED_METADATA received\n");
 				/* Decode any SCTE35 splice info event. */
@@ -671,7 +675,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				spliceInfo.getSummary(spliceInfoSummary);
 				for (auto &splice : spliceInfoSummary)
 				{
-					AAMPLOG_WARN("CDAI] splice info type %d, time %f, duration %f, id 0x%" PRIx32,
+					AAMPLOG_WARN("[CDAI] splice info type %d, time %f, duration %f, id 0x%" PRIx32,
 						(int)splice.type, splice.time, splice.duration, splice.event_id);
 
 					if ((splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_ADVERTISEMENT_START) ||
@@ -684,16 +688,24 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 
 						// Default value
 						std::string url = "https://ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd";
+						std::string adId = "ad1";
 						uint32_t adDuration = 0;
-
 						//If we have an advert list, use that
 						if (mAdvertList.size())
 						{
-							mAampcli.getAdvertUrl(splice.duration, adDuration, url);
+							mAampcli.getAdvertUrl(splice.duration, adDuration, url, adId);
 						}
 
-						printf("\n[AAMPCLI] Advert ad url: %s, duration %d\n",url.c_str(),adDuration);
-						mAampcli.mSingleton->aamp->mCdaiObject->SetAlternateContents(ev->getId(), "ad1", url.c_str(), adDuration, adDuration);
+						if (url == "file://skip")
+						{
+							printf("[AMPCLI] AAMP_EVENT_TIMED_METADATA skip advert placement breakId=%s adId=%s\n", ev->getId().c_str(), adId.c_str());
+						}
+						else
+						{
+							printf("[AMPCLI] AAMP_EVENT_TIMED_METADATA place advert breakId=%s adId=%s duration=%d url=%s\n", ev->getId().c_str(), adId.c_str(), adDuration, url.c_str());
+							//mAampcli.mSingleton->SetAlternateContents( ev->getId(), adId, url);
+							mAampcli.mSingleton->aamp->mCdaiObject->SetAlternateContents(ev->getId(), adId, url, adDuration, adDuration);
+						}
 					}
 					else
 					{
@@ -703,11 +715,12 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			}
 			break;
 		}
+
 		case AAMP_EVENT_MANIFEST_REFRESH_NOTIFY:
 		{
 			std::string manifest;
 			ManifestRefreshEventPtr ev = std::dynamic_pointer_cast<ManifestRefreshEvent>(e);
-			printf("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriosd[%u]:PubTime[%u]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime());
+			printf("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime());
 			manifest = mAampcli.mSingleton->GetManifest();
 			printf("\n [AAMPCLI] Dash  Manifest length [%zu]\n",manifest.length());
 			break;
@@ -718,6 +731,56 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			printf("[AAMPCLI] AAMP_EVENT_TUNE_TIME_METRICS\n\tData[%s]\n",ev->getTuneMetricsData().c_str());
 			break;
 		}
+
+		case AAMP_EVENT_AD_RESOLVED:
+		{
+			AdResolvedEventPtr ev = std::dynamic_pointer_cast<AdResolvedEvent>(e);
+			printf("[AAMPCLI] AAMP_EVENT_AD_RESOLVED\n\tresolveStatus=%d\n\tadId=%s\n\tstart=%lu\n\tduration=%lu\n", ev->getResolveStatus(), ev->getAdId().c_str(), ev->getStart(), ev->getDuration());
+			break;
+		}
+
+		case AAMP_EVENT_AD_RESERVATION_START:
+		{
+			AdReservationEventPtr ev = std::dynamic_pointer_cast<AdReservationEvent>(e);
+			printf("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_START\n\tadBreakId=%s\n\tposition=%lu\n", ev->getAdBreakId().c_str(), ev->getPosition());
+			break;
+		}
+
+		case AAMP_EVENT_AD_RESERVATION_END:
+		{
+			AdReservationEventPtr ev = std::dynamic_pointer_cast<AdReservationEvent>(e);
+			printf("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_END\n\tadBreakId=%s\n\tposition=%lu\n", ev->getAdBreakId().c_str(), ev->getPosition());
+			break;
+		}
+
+		case AAMP_EVENT_AD_PLACEMENT_START:
+		{
+			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
+			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_START\n\tadId=%s\n\tposition=%u\n\toffset=%u\n\tduration=%u\n\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			break;
+		}
+
+		case AAMP_EVENT_AD_PLACEMENT_END:
+		{
+			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
+			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_END\n\tadId=%s\n\tposition=%u\n\toffset=%u\n\tduration=%u\n\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			break;
+		}
+
+		case AAMP_EVENT_AD_PLACEMENT_ERROR:
+		{
+			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
+			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_ERROR\n\tadId=%s\n\tposition=%u\n\toffset=%u\n\tduration=%u\n\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			break;
+		}
+
+		case AAMP_EVENT_AD_PLACEMENT_PROGRESS:
+		{
+			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
+			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_PROGRESS\n\tadId=%s\n\tposition=%u\n\toffset=%u\n\tduration=%u\n\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			break;
+		}
+
 		default:
 			break;
 	}

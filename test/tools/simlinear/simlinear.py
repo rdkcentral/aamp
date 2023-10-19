@@ -713,25 +713,28 @@ if __name__ == "__main__":
         default="127.0.0.1",
     )
     parser.add_argument(
-        "--dash", help="Direct start of DASH server with no control interface", type=int
+        "-p", "--port", help="Control interface port (default " + str(CMD_PORT) + ")", type=int, default=CMD_PORT
+    )
+    parser.add_argument(
+        "--dash", help="Direct start of DASH server on specified port with no control interface", type=int
     )
     parser.add_argument(
         "--ad_server", help="Ad-Server URL", type=str, default="" #RDKAAMP-1435
     )
     parser.add_argument(
-        "--hls", help="Direct start of HLS server with no control interface", type=int
+        "--hls", help="Direct start of HLS server on specified port with no control interface", type=int
     )
     parser.add_argument(
         "--refresh", help="after Nth manifest fresh, send HTTP 408 and restart simlinear", type=int
     )
-    
-
     parser.add_argument(
-        "--offset", help="offset time for dash to skip,  offset should be in hours:minutes:seconds or minutes:seconds or seconds.", default="0", type=str
+        "--offset", help="offset time for dash to skip, offset should be in hours:minutes:seconds or minutes:seconds or seconds.", default="0", type=str
     )
 
     args = parser.parse_args()
     hostName = args.interface
+
+    CMD_PORT=args.port
 
     app = Flask(__name__)
 

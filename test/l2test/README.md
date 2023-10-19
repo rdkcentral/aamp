@@ -1,186 +1,166 @@
-# How to run L2 testsuites
+# How to run L2 test suites
 
-<p>Generic script run_l2_aamp.py is available in  aamp/test/l2test folder.</p>
+Generic script run_l2_aamp.py is available in aamp/test/l2test folder.
 
-***Python 3 installation is required for the AAMP L2 framework*** 
+**Python 3 installation is required for the AAMP L2 framework** 
 
-<p>To install python3, run the below script for first time</p>
+To install required packages, run the below script for first time
 
-> ./l2framework_testenv.sh
+    ./l2framework_testenv.sh
 
-# To run on Ubuntu docker
+Activate python virtual environment "l2venv" that will have been created.
 
-# Environment setup
+    source l2venv/bin/activate
 
-<p> from ubuntu install docker and docker compose </p>
+# How to run L2 test suites
 
+**Tests that use environment variables**
+
+For tests that use environment variables, export them before running the test. For example: -
+
+    export TEST_STREAM_PATH=https://artifactory.host.com/artifactory/streams.tar.gz
+
+
+**To run all test suites without building, use the following command from aamp/test/l2test directory**
+
+    ./run_l2_aamp.py
+
+Tests that require a custom build will get skipped without the -b option.
+
+**To run all test suites displaying video without building, use the following run command**
+
+    ./run_l2_aamp.py -v
+
+**To build and run all test suites, use the following command**
+
+    ./run_l2_aamp.py -b
+
+**To build and run specified test suites, use the following command**
+
+    ./run_l2_aamp.py -b -t 1000 2000
+
+**To run specified test suites without making build, use the following command**
+
+    ./run_l2_aamp.py -t 1000 2000
+
+Tests that are being run with the current build may fail if the given build is incompatible with the test.
+
+**To run all test suites but exclude those specified, use the following command**
+
+    ./run_l2_aamp.py -e 1000 2000
+
+**To list test suites available with short description, use the following command**
+
+    ./run_l2_aamp.py -l
+
+**To get help about script, use the following command**
+
+    ./run_l2_aamp.py -h
+
+
+# How to run single L2 test suite for debug purposes
+
+From the chosen test suite directory aamp/test/l2test/TST_xxxx  
+Note if you have run the test with ./run_l2_aamp.py script already once you can skip steps 2 and 3.
+
+1.  Create and activate a Python virtual environment.
+
+    ```
+    python3 -m venv l2venv
+    source l2venv/bin/activate
+    ```
+
+2.  Find and install any required python packages. The following is used by run_l2_aamp.py, but can be done manually.
+
+    ```
+    python3 -m pip install pipreqs  (or pip3 install pipreqs)
+    pipreqs --mode gt .
+    python3 -m pip install -r requirements.txt  (or pip3 install -r requirements.txt)
+    ```
+
+3.  Run any prerequisite scripts for the test.
+
+    ```
+    ./prepare_testenv.sh
+    ./prerequisite.sh
+    ```
+
+4.  Then run the test and this step can be repeated as needed.
+
+    ```
+    ./run_test.py
+    ```
+    Some of the tests may accept options `./run_test.py -h` to list them.
+
+
+# To run using Ubuntu Docker
+
+### Environment setup
+
+From ubuntu install docker and docker compose.  
 https://docs.docker.com/engine/install/ubuntu/
 
-https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04
+Ubuntu 20.04: https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04
 
-<p> For creating docker image ,build and run test suites , from aamp/test/l2test path execute the below command. </p>
+For creating docker image, build and run test suites, execute the below command from the directory.  
+From aamp/test/l2test  
+Note: if docker is not in the sudo group you may need to prepend sudo to the commands or add it to the group.
 
-***To create a Docker image for the first time, simply run the command below***
+**To create a Docker image for the first time, simply run the command below**
 
->  sudo docker compose -f docker-compose_buildimage.yml up
+    docker compose -f docker-compose_buildimage.yml up
 
-***To check docker images created newly***
+**To list the docker images available**
 
-> sudo docker images
+    docker images
 
-***Tests that require environment variables***
 
-> TST_2000: requires TEST_STREAM_PATH set to the URL containing the test stream.
+**Tests that use environment variables**  
+Set environment variables in the aamp/test/l2test/.env file for docker runs. If a stream path needs to be given in the .env file before starting the test by performing the following command.
 
-***To append the teststream artifactory path in .env file***
+    echo "TEST_STREAM_PATH=https://artifactory.host.com/artifactory/streams.tar.gz" >> .env
 
-<p> For the first time, the artifactory path needs to be given in the.env file before starting the test by performing the following command. </p>
+**To run all test suites without building, use the following command**
 
-> echo "TEST_STREAM_PATH=https://artifactory.host.com/artifactory/streams.tar.gz" >> .env
+    docker compose -f docker-compose.yml up
 
-<p> If require to override the environment variables in .env file please use the below command</p>
+**To build and run all test suites, use the following command**
 
-> echo "TEST_STREAM_PATH=https://artifactory.host.com/artifactory/streams.tar.gz" > .env
+    optargs="-b" docker compose -f docker-compose.yml up
 
-***URL:specify the location where teststream stored***
+**To build and run specified test suites, use the following command**
 
-***To run all suite without making build,run the below command from l2test directory***
+    optargs="-b -t 1000 2000" docker compose -f docker-compose.yml up
 
-> sudo docker compose -f docker-compose.yml up
+Tests that are being run with the current build may fail if the given build is incompatible with the test.  
+See documentation above for more script options.
 
-***To run all suite with build,run the below command from l2test directory***
+`./run_l2_aamp.py $optargs` will accept the option argument from docker-compose.yml as an input.
 
-> sudo optargs="-b" docker compose -f docker-compose.yml up
+**After testing, run this to stop container**
 
-***To make build and run the specified suites ,use the following run command***
+    docker compose -f docker-compose.yml down
 
-> sudo optargs="-b -t 1000" docker compose -f docker-compose.yml up
+**To force docker to recreate the container add option below**
 
-***To make build and run mulitple suites ,use the following run command***
+    docker compose -f docker-compose.yml up --force-recreate
 
-> sudo optargs="-b -t 1000 2000" docker compose -f docker-compose.yml up
 
-***To run specified suite without making build ,use the following run command***
 
-> sudo optargs="-t 1000" docker compose -f docker-compose.yml up
-
-***To run mulitple suites without making build,use the following run command***
-
-> sudo optargs="-t 1000 2000" docker compose -f docker-compose.yml up
-
-<p> Tests that are being run with the current build may fail if the given build is incompatible with the test. <p>
-
-***To make build and run testsuites with exclusion tests specified***
-
-> sudo optargs="-b -dt 1000 2000" docker compose -f docker-compose.yml up
-
-***To run testsuites with exclusion tests specified***
-
-> sudo optargs="-dt 1000 2000" docker compose -f docker-compose.yml up
-
-***To list test suites with short description ,use the following run command***
-
-> sudo optargs="-lt" docker compose -f docker-compose.yml up 
-
-***To get help about script ,use the following run command***
-
-> sudo optargs="-h" docker compose -f docker-compose.yml up
-
-<p> ./run_l2_aamp.py $optargs will accept the option argument from docker-compose.yml as an input. <p>
 
 # How to add new test suite
 
-- Create new Testsuite folder under ***aamp/test/l2test***
+- Create new test suite folder under ***aamp/test/l2test***
 
-- The name of the testsuite folder should begin with ***"TST_,"*** followed by the 4digit number and feature name.
-
->>>***ex*** :TST_1000_Webvtt
+- The name of the test suite folder should begin with ***"TST_,"*** followed by the 4 digit number and feature/suite name. ***e.g. TST_1000_Webvtt*** 
 
 - ***run_test.py*** This is the python script that will be executed to run the test.
 
-- If a feature requires any build configuration, include the ***build config.json*** file, which contains the necessary build configuration.
+- If a feature requires any build configuration, include the ***build_config.json*** file, which contains the necessary build configuration.
+e.g. ***{ "CXXFLAGS" : "MAKE_SUBTEC_SIMULATOR_ENABLED"}*** the values from the parsed json file will be sent to the build_script.
 
->>> ex: ***{ "CXXFLAGS" : "MAKE_SUBTEC_SIMULATOR_ENABLED"}*** the values from the parsed json file will be sent to the build_script.
+- If the test suite needs to build up a test environment, include the install ***prepare_testenv.sh*** file, which specifies the additional infrastructure needed to perform the tests.
 
-- If the testsuite needs to build up a test environment, include the install test prepare_testenv.sh file, which specifies the additional infrastructure needed to perform the tests.
-
->>> ***ex*** :  sudo pip3 install pipreqs
-
-- If the testsuite has any prerequisites,include ***prerequisite.sh***.It specifies actions to be taken before starting a test run.
-
-
-# How to run L2 testsuites on MAC
-
-> TST_2000: requires TEST_STREAM_PATH set to the URL containing the test stream.
-
-***To export the teststream artifactory path***
-
-<p> For new session, the artifactory path needs to be specified before starting the test by performing the following command. </p>
-
-> export TEST_STREAM_PATH==https://artifactory.host.com/artifactory/streams.tar.gz
-
-***URL:specify the location where teststream stored***
-
-***To run all suite without making build,run the below command from l2test directory***
-
-> ./run_l2_aamp.py
-
-***To run all suite with build,run the below command from l2test directory***
-
-> ./run_l2_aamp.py -b
-
-***To make build and run the specified suites ,use the following run command***
-
-> ./run_l2_aamp.py -b -t 1000
-
-***To make build and run mulitple suites ,use the following run command***
-
-> ./run_l2_aamp.py -b -t 1000 2000
-
-***To run specified suite without making build ,use the following run command***
-
-> ./run_l2_aamp.py -t 1000
-
-***To run mulitple suites without making build,use the following run command***
-
-> ./run_l2_aamp.py -t 1000 2000
-
-<p> Tests that are being run with the current build may fail if the given build is incompatible with the test. <p>
-
-***To make build and run testsuites with exclusion tests specified***
-
-> ./run_l2_aamp.py -b -dt 1000 2000
-
-***To run testsuites with exclusion tests specified***
-
-> ./run_l2_aamp.py -dt 1000 2000
-
-***To list test suites with short description ,use the following run command***
-
-> ./run_l2_aamp.py -lt
-
-***To get help about script ,use the following run command***
-
-> ./run_l2_aamp.py -h
-
-# How to add new test suite
-
-- Create new Testsuite folder under ***aamp/test/l2test***
-
-- The name of the testsuite folder should begin with ***"TST_,"*** followed by the 4digit number and feature name.
-
->>>***ex*** :TST_1000_Webvtt
-
-- ***run_test.py*** This is the python script that will be executed to run the test.
-
-- If a feature requires any build configuration, include the ***build config.json*** file, which contains the necessary build configuration.
-
->>> ex: ***{ "CXXFLAGS" : "MAKE_SUBTEC_SIMULATOR_ENABLED"}*** the values from the parsed json file will be sent to the build_script.
-
-- If the testsuite needs to build up a test environment, include the install test prepare_testenv.sh file, which specifies the additional infrastructure needed to perform the tests.
-
->>> ***ex*** :  brew install pipreqs
-
-- If the testsuite has any prerequisites,include ***prerequisite.sh***.It specifies actions to be taken before starting a test run.
+- If the test suite has any prerequisites, include a ***prerequisite.sh***. It specifies actions to be taken before starting a test run.
 
 

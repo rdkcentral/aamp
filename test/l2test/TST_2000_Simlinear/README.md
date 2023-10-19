@@ -14,15 +14,15 @@
 
          python3 -m pip install pexpect requests flask webargs aiohttp
 
-2. Before start running test stream artifactory path needs to be specified in TEST_STREAM_PATH
+2. Before start running test stream artifactory path needs to be specified in TEST_2000_STREAM_PATH
 
     a. When running inside docker
 
-         echo "TEST_STREAM_PATH=https://artifactory.host.com/artifactory/stream_data.gz" >> .env
+         echo "TEST_2000_STREAM_PATH=https://artifactory.host.com/artifactory/stream_data.gz" >> .env
 
     b. When running on ubuntu (outside a docker container)
 
-         export TEST_STREAM_PATH=https://artifactory.host.com/artifactory/stream_data.gz
+         export TEST_2000_STREAM_PATH=https://artifactory.host.com/artifactory/stream_data.gz
 
 3. Archive file containing manifest data has been downloaded ( URL: from location where the file is stored ) and extracted into directory 'testdata'
 
@@ -38,7 +38,7 @@ audio                           m3u8s_orig                                   m3u
 m3u8s                           m3u8s_paired_discontinuity_audio_3s_108s     m3u8s_paired_discontinuity_audio_late_108s          m3u8s_video_discontinuity
 m3u8s_audio_discontinuity       m3u8s_paired_discontinuity_audio_early       m3u8s_paired_discontinuity_content_transition       m3u8s_video_discontinuity_180s
 m3u8s_audio_discontinuity_180s  m3u8s_paired_discontinuity_audio_early_108s  m3u8s_paired_discontinuity_content_transition_108s  m3u8s_vod
- ```     
+ ```
 ## Run the test
 ```
 $ ./aamp/test/simlinear/run_test/run_test.py
@@ -58,25 +58,23 @@ PASSED Canned live HLS playback. No discontinuity
  ...
 ```
 ## Details
-* By default aamp-cli runs without a window to output A/V so it can be run via Jenkins
+* By default aamp-cli runs without a video window to output A/V so it can be run via Jenkins
 
-* When running manually from a terminal then A/V output might be useful at the expense of
-
-A/V gap detection. This can be achieved by "run_test.py --aamp_window"
+* When running manually from a terminal then A/V output might be useful at the expense of A/V gap detection. This can be achieved by "run_test.py -v"
 
 Automated test setup when run_test.py is invoked:
 
                                    testdata
                                       |
                                       V
-                                -----------------
+                                 -----------------
                     |--launch->  | simlinear.py  |
-    ------------    |           -----------------
+    ------------    |            -----------------
     run_test .py|-> |                | http fetch
     ------------    |                V
-        ^           |          -----------           ---------------
+        ^           |           -----------            ---------------
         |           |-launch-> | aamp-cli  |--pipe--> | tcp_client.py |---> |
-        |                      -----------           ---------------        |
+        |                       -----------            ---------------      |
         |                            |                           ^          |
         |                       tcpserversink                    |          |
         |                            | ---------detect A/V gaps- |          |

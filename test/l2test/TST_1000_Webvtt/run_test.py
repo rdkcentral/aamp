@@ -18,7 +18,7 @@
 # limitations under the License.
 
 # Starts aamp-cli and initiates playback by giving it a stream URL
-# verifys aamp log output against expected list of events
+# verifies aamp log output against expected list of events
 
 import time
 import os
@@ -28,67 +28,38 @@ import subprocess
 
 import pexpect
 import requests
+import platform
+from pathlib import Path
 
-#Lib paths needed for AAMP
+#paths needed for AAMP
 
-if "AAMP_HOME" in os.environ:
-    AAMP_HOME = os.environ["AAMP_HOME"]
+AAMP_HOME = os.environ["AAMP_HOME"] if "AAMP_HOME" in os.environ else os.path.abspath(os.path.join('..','..','..'))
+TEST_PATH = os.path.abspath(os.path.join('.'))
+AAMP_CFG_DIR = TEST_PATH
+AAMP_CLI_CMD_PREFIX = os.environ["AAMP_CLI_CMD_PREFIX"] + ' ' if "AAMP_CLI_CMD_PREFIX" in os.environ else ''
+AAMP_ENV = {"AAMP_CFG_DIR":AAMP_CFG_DIR}
+
+if platform.system() == 'Darwin':
+    AAMP_CLI_PATH=os.path.join(AAMP_HOME, "build", "Debug", "aamp-cli")
 else:
-    AAMP_HOME = os.path.join(os.environ["PWD"], "..", "..", "..")
+    AAMP_ENV.update({"LD_PRELOAD": os.path.join(AAMP_HOME, "Linux", "lib", "libdash.so"), "LD_LIBRARY_PATH": os.path.join(AAMP_HOME, "Linux", "lib")})
+    AAMP_CLI_PATH=os.path.join(AAMP_HOME, "Linux", "bin", "aamp-cli")
 
-print("AAMP_HOME:",AAMP_HOME)
-
-if os.path.exists(os.path.join(AAMP_HOME, "Linux", "bin", "aamp-cli")):
-    AAMP_ENV = {"LD_PRELOAD": os.path.join(AAMP_HOME, "Linux", "lib", "libdash.so"), "LD_LIBRARY_PATH": os.path.join(AAMP_HOME, "Linux", "lib")}
-    AAMP_CMD = os.path.join(AAMP_HOME, "Linux", "bin", "aamp-cli")
-    print("Platform: Ubuntu")
-elif os.path.exists(os.path.join(AAMP_HOME, "build", "Debug", "aamp-cli")):
-    AAMP_ENV = ""
-    AAMP_CMD = os.path.join(AAMP_HOME, "build", "Debug", "aamp-cli")
-    print("Platform: Mac")
-else:
-    print("ERROR: aamp-cli not found")
-    sys.exit(os.EX_SOFTWARE)
+AAMP_CMD = '/bin/bash -c "' + AAMP_CLI_CMD_PREFIX + AAMP_CLI_PATH + '"'
 
 MAX_TEST_TIME_SECS = 15
+OUTPUT_PATH = 'output'
 
-aamp_cfg_file = os.path.join(os.environ["HOME"], "aamp.cfg")
 aamp_cfg_saved_file = ""
+aamp_cfg_file = os.path.join(AAMP_CFG_DIR, "aamp.cfg")
+print("AAMP_CFG_DIR=" + AAMP_CFG_DIR)
 
-################################################################
-def save_aamp_cfg():
-    try:
-        if "HOME" in os.environ:
-            if os.path.isfile(aamp_cfg_file):
-                # If aamp.cfg.saved already exists, try aamp.cfg.saved_1,
-                # aamp.cfg.saved_2... until we find one that does not exist.
-                global aamp_cfg_saved_file
-                aamp_cfg_saved_file = os.path.join(os.environ["HOME"], "aamp.cfg.saved")
-                temp_aamp_cfg_saved_file = aamp_cfg_saved_file
-                file_index = 1
-                while os.path.isfile(temp_aamp_cfg_saved_file):
-                    temp_aamp_cfg_saved_file = aamp_cfg_saved_file + "_" + str(file_index)
-                    file_index += 1
-                aamp_cfg_saved_file = temp_aamp_cfg_saved_file
-                print("Rename", aamp_cfg_file, "to", aamp_cfg_saved_file)
-                os.rename(aamp_cfg_file, aamp_cfg_saved_file)
-        else:
-            print("HOME env not set")
-            sys.exit(os.EX_SOFTWARE)
-    except Exception as e:
-        print("ERROR Exception was thrown in save_aamp_cfg(): %s" % (e))
-        sys.exit(os.EX_SOFTWARE)
+cmdlogfile = None
+aamp_cli = None
 
-def restore_aamp_cfg():
-    try:
-        if aamp_cfg_saved_file:
-            print("Restore", aamp_cfg_file, "from", aamp_cfg_saved_file)
-            os.rename(aamp_cfg_saved_file, aamp_cfg_file)
-        else:
-            os.remove(aamp_cfg_file)
-    except Exception as e:
-        print("ERROR Exception was thrown in restore_aamp_cfg(): %s" % (e))
-        sys.exit(os.EX_SOFTWARE)
+def stop_and_exit(code):
+    sys.exit(code)
+
 
 ################################################################
 #$HOME/aamp.cfg should contain
@@ -102,18 +73,32 @@ def create_aamp_cfg():
         if "HOME" in os.environ:
             print("Creating ", aamp_cfg_file)
             f = open(aamp_cfg_file, "w")
-            f.write("info=true\ntrace=true\nuseTCPServerSink=true\n")
+            f.write("info=true\ntrace=true\n")
+            if args.aamp_video == False:
+               f.write("useTCPServerSink=true\n")
             f.close()
         else:
             print("HOME env not set")
-            sys.exit(os.EX_SOFTWARE)
+            stop_and_exit(os.EX_SOFTWARE)
     except Exception as e:
         print("ERROR Exception was thrown in create_aamp_cfg(): %s" % (e))
-        sys.exit(os.EX_SOFTWARE)
+        stop_and_exit(os.EX_SOFTWARE)
+
+def aamp_sendline(cmd_line):
+    global cmdlogfile
+    global aamp_cli
+
+    if (cmdlogfile != None):
+        cmdlogfile.write(cmd_line + "\n")
+
+    aamp_cli.sendline(cmd_line)
 
 #####################################################################
 def run_test(testdata):
     global args
+    global cmdlogfile
+    global aamp_cli
+
     test_pass=True
     print("{} {}".format(testdata["title"],testdata["logfile"]))
 
@@ -121,13 +106,20 @@ def run_test(testdata):
 
     env = os.environ
     env.update(AAMP_ENV)
+    print(AAMP_CMD)
     aamp = pexpect.spawn(AAMP_CMD, env=env, timeout=10)
+    aamp_cli = aamp
+
+    logfile_name = os.path.join(OUTPUT_PATH, testdata["logfile"])
 
     if args.aamp_log:
         aamp.logfile = sys.stdout.buffer
     elif "logfile" in testdata:
-        logfile = open(testdata["logfile"],"wb")
+        logfile = open(logfile_name,"wb")
         aamp.logfile = logfile
+
+    cmdlogfile_name = os.path.join(OUTPUT_PATH, Path(testdata["logfile"]).parent, Path(testdata["logfile"]).stem) + "_cmd.txt"
+    cmdlogfile = open(cmdlogfile_name,"w")
 
     #Wait for prompt
     aamp.expect_exact('cmd: ')
@@ -148,7 +140,7 @@ def run_test(testdata):
                 break
             else:
                 elapsed = time.time()-start_time
-                print("Event {} occurs at elapsed={}".format(str(e).replace("\\", ""),elapsed) )
+                print("Event {} occurs at elapsed={}".format(str(e["expect"]).replace("\\", ""),elapsed) )
 
             finally:
                 if (time.time()-start_time) > MAX_TEST_TIME_SECS:
@@ -158,14 +150,17 @@ def run_test(testdata):
 
         if e.get('cmd') != None:
             elapsed = time.time()-start_time
-            print("Cmd {} sent at elapsed={}".format(str(e).replace("\\", ""),elapsed) )
-            aamp.sendline(e["cmd"])
+            print("Cmd {} sent at elapsed={}".format(str(e["cmd"]).replace("\\", ""),elapsed) )
+            aamp_sendline(e["cmd"])
 
     #Finish
-    aamp.sendline("exit")
+    aamp_sendline("exit")
 
     if (args.aamp_log == False) and ("logfile" in testdata):
         logfile.close()
+
+    aamp_cli = None
+    cmdlogfile.close()
 
     if test_pass:
         result = "PASSED"
@@ -247,14 +242,41 @@ TESTLIST = [TESTDATA1]
 parser = argparse.ArgumentParser()
 parser.add_argument("--aamp_log", help="Output aamp logging",
                     action="store_true")
+parser.add_argument("-v","--aamp_video", help="Run AAMP with video window, but no A/V gap detection",
+                    action="store_true")
 args = parser.parse_args()
 
-save_aamp_cfg()
-create_aamp_cfg()
+if args.aamp_video:
+    print("AAMP with video window option selected. There will be no A/V gap detection")
 
-for test in TESTLIST:
-    if run_test(test) == False:
-        restore_aamp_cfg()
-        sys.exit(os.EX_SOFTWARE)   #Return non-zero
+if not os.path.exists(AAMP_CLI_PATH):
+    print("ERROR cannot access AAMP_CLI_PATH={}".format(AAMP_CLI_PATH))
+    sys.exit(os.EX_SOFTWARE)
 
-restore_aamp_cfg()
+if not os.path.exists(OUTPUT_PATH):
+    os.mkdir(OUTPUT_PATH)
+else:
+    for f in Path(OUTPUT_PATH).glob("testdata*.txt"):
+        f.unlink()
+
+if not os.path.exists(OUTPUT_PATH):
+    print("ERROR cannot access directory OUTPUT_PATH={}".format(OUTPUT_PATH))
+    sys.exit(os.EX_SOFTWARE)
+
+if not os.path.exists(AAMP_CFG_DIR):
+    print("ERROR cannot access directory AAMP_CFG_DIR={}".format(AAMP_CFG_DIR))
+    sys.exit(os.EX_SOFTWARE)
+
+try:
+    create_aamp_cfg()
+
+    for test in TESTLIST:
+        if run_test(test) == False:
+            stop_and_exit(os.EX_SOFTWARE)   #Return non-zero
+
+    stop_and_exit(0)
+
+except Exception as e:
+    print("ERROR Exception was thrown: %s" % (e))
+    stop_and_exit(os.EX_SOFTWARE)   #Return non-zero
+

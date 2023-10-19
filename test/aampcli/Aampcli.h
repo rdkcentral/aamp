@@ -100,7 +100,7 @@ class Aampcli
 		void initPlayerLoop(int argc, char **argv);
 		void newPlayerInstance( std::string appName = "");
 		int getApplicationDir( char *buffer, uint32_t size );
-		void getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::string &url);
+		void getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::string &url, std::string &adId);
 		Aampcli();
 		Aampcli(const Aampcli& aampcli);
 		Aampcli& operator=(const Aampcli& aampcli);

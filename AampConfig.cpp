@@ -1467,7 +1467,9 @@ static std::string GetConfigPathHelper( const char *file )
 	std::string cfgPath;
 	const char *env_aamp_enable_opt = "true"; // default
 #ifdef AAMP_SIMULATOR_BUILD
-	cfgPath = getenv("HOME");
+	const char *cfgDir = getenv("AAMP_CFG_DIR"); // look for specified dir env
+	cfgPath = (nullptr != cfgDir) ? cfgDir : getenv("HOME"); // if not available try HOME
+	AAMPLOG_WARN("cfgPath=%s", cfgPath.c_str());
 	const char *prefix = "/opt/";
 	size_t len = strlen(prefix);
 	if( strlen(file)>=len && memcmp(file,prefix,len)==0 )
