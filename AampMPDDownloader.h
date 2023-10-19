@@ -296,6 +296,12 @@ public:
 	//copy assignment operator
 	AampMPDDownloader& operator=(const AampMPDDownloader&) = delete;
 	
+	/**
+	 * @fn SetCurrentPositionDeltaToManifestEnd
+	 * @brief function to set the delta between current position and manifestEnd
+	 */
+	void SetCurrentPositionDeltaToManifestEnd(int delta) {mCurrentposDeltaToManifestEnd = delta;}
+
 private:
 
 	/**
@@ -423,6 +429,7 @@ private:
 
 	bool mIsLowLatency;  /**< Flag indicating whether it is a low latency stream or not.*/
 	AampLLDashServiceData mLLDashData; /**< Parsed LLDash Data*/
+	int mCurrentposDeltaToManifestEnd; /* Delta between current pos and ManifestEnd */
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */

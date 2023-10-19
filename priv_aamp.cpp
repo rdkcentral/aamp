@@ -1980,36 +1980,26 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		double latency = 0;
 
 
-		// If tsb is not available for linear send -1  for start and end
-		// so that xre detect this as tsbless playabck
-		// Override above logic if mEnableSeekableRange is set, used by third-party apps
-		if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mTSBEnabled))
+		//DELIA-49735 - Report Progress report position based on Availability Start Time
+		start = (culledSeconds*1000.0);
+		if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && (mProgressReportOffset >= 0) && IsLiveStream() && !IsUninterruptedTSB())
 		{
-			start = -1;
-			end = -1;
+			end = (mAbsoluteEndPosition * 1000);
 		}
 		else
-		{	//DELIA-49735 - Report Progress report position based on Availability Start Time
-			start = (culledSeconds*1000.0);
-			if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && (mProgressReportOffset >= 0) && IsLiveStream() && !IsUninterruptedTSB())
-			{
-				end = (mAbsoluteEndPosition * 1000);
-			}
-			else
-			{
-				end = start + duration;
-			}
+		{
+			end = start + duration;
+		}
 
-			if (position > end)
-			{ // clamp end
-				//AAMPLOG_WARN("aamp clamp end");
-				position = end;
-			}
-			else if (position < start)
-			{ // clamp start
-				//AAMPLOG_WARN("aamp clamp start");
-				position = start;
-			}
+		if (position > end)
+		{ // clamp end
+			//AAMPLOG_WARN("aamp clamp end");
+			position = end;
+		}
+		else if (position < start)
+		{ // clamp start
+			//AAMPLOG_WARN("aamp clamp start");
+			position = start;
 		}
 
 		if(ISCONFIGSET_PRIV(eAAMPConfig_ReportVideoPTS))
@@ -2042,6 +2032,16 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		**  -Included for consistency with previous code but isn't directly related to reporting.
 		**  -A good candidate for future refactoring*/
 		mNewSeekInfo.Update(position, seek_pos_seconds);
+		int CurrentPositionDeltaToManifestEnd = end - position;
+		
+		// If tsb is not available for linear send -1  for start and end
+                // so that xre detect this as tsbless playabck
+                // Override above logic if mEnableSeekableRange is set, used by third-party apps
+                if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mTSBEnabled))
+                {
+                        start = -1;
+                        end = -1;
+                }
 
 		if(IsLiveStream())
 		{
@@ -2063,6 +2063,8 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			if(mMPDDownloaderInstance != nullptr)
 			{
 				mMPDDownloaderInstance->SetBufferAvailability((int)bufferedDuration);
+				mMPDDownloaderInstance->SetCurrentPositionDeltaToManifestEnd(CurrentPositionDeltaToManifestEnd);
+
 			}
 		}
 		double reportFormatPosition = position;

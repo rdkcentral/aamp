@@ -168,6 +168,7 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 	mLogObj(NULL),mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
 	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0),mIsLowLatency(false),
 	mLLDashData(),mMPDDnldDataMtx(),mMPDDnldDataCondVar()
+	,mCurrentposDeltaToManifestEnd(-1)
 {
 	AAMPLOG_INFO("%s\n",__FUNCTION__);
 }
@@ -909,7 +910,7 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(std::shared_ptr<Ma
 					float mFactor=0.0f;
 					if (mIsLowLatency)
 					{
-						mFactor = (bufferAvailable  > (minUpdateDuration * 2)) ? (float)(minUpdateDuration/1000) : 0.5;
+						mFactor = (bufferAvailable  > (minUpdateDuration * 2)) ? 1.0 : 0.5;
 					}
 					else
 					{
@@ -987,6 +988,13 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(std::shared_ptr<Ma
 				minDelayBetweenPlaylistUpdates = (uint32_t)MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
 			}
 		}
+
+		//When you have content to download in manifest ,no need to do frequent 500msec refresh
+		if (mIsLowLatency && minDelayBetweenPlaylistUpdates <= (uint32_t)MIN_DELAY_BETWEEN_MPD_UPDATE_MS && mCurrentposDeltaToManifestEnd > (long)((mLLDashData.fragmentDuration)*1000)*2)
+		{
+			minDelayBetweenPlaylistUpdates = (uint32_t)minUpdateDuration;
+		}
+
 		AAMPLOG_INFO("aamp playlist end refresh bufferMs(%d) delay(%u)", bufferAvailable,minDelayBetweenPlaylistUpdates);
 	}
 	return minDelayBetweenPlaylistUpdates;
