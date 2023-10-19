@@ -2827,6 +2827,12 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 #endif
 
 		AAMPLOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d", mediaType, initFragment);
+
+		// Send Fisrt PTS value to fix the subtitle sync issue for dash with single vtt file.
+		if((aamp->mMediaFormat == eMEDIAFORMAT_DASH) && (mediaType == eMEDIATYPE_SUBTITLE) && (stream->format == FORMAT_SUBTITLE_WEBVTT))
+		{
+			SetSubtitlePtsOffset(aamp->GetFirstPTS()*1000);
+		}
 	}
 
 	// Send the qtdemux override event for restamping PTS
