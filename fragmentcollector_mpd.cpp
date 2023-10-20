@@ -11670,9 +11670,11 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 					{
 						bool reportEvent = false;
 						double buffervalue = GetBufferedDuration();
-						double minbuffer = (double)pAampLLDashServiceData->targetLatency/2.0;
-						minbuffer = minbuffer > DEFAULT_MIN_BUFFER_LOW_LATENCY ? DEFAULT_MIN_BUFFER_LOW_LATENCY: minbuffer;
-						
+						double minbuffer = DEFAULT_MIN_BUFFER_LOW_LATENCY;
+						if (pAampLLDashServiceData->fragmentDuration > 0)
+						{
+							minbuffer = minbuffer > pAampLLDashServiceData->fragmentDuration?  pAampLLDashServiceData->fragmentDuration: minbuffer;
+						}
 						double segmentBufferValue = pAampLLDashServiceData->fragmentDuration*AAMP_LLD_MINIMUM_CACHE_SEGMENTS*1000; 
 						double targetBuffer = (segmentBufferValue >  (double)pAampLLDashServiceData->targetLatency) ?  pAampLLDashServiceData->targetLatency : segmentBufferValue;
 						bool isEnoughBuffer = (buffervalue*1000.00) > targetBuffer;
@@ -11697,10 +11699,10 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 							bufferLowCount = 0;
 						}
 
-					    AAMPLOG_INFO("currentLatency = %lf  AvailableBuffer %lf currentPlayRate=%lf bufferLowHitted = %d isEnoughBuffer = %d",
-							currentLatency, buffervalue, currPlaybackRate, bufferLowHitted, isEnoughBuffer);
+					    AAMPLOG_INFO("currentLatency = %.02lf  AvailableBuffer = %.02lf minbuffer = %.02lf currentPlaybackRate = %.02lf bufferLowHitted = %d isEnoughBuffer = %d latencyCorrected = %d bufferCorrectionStarted = %d",
+							currentLatency, buffervalue, minbuffer, currPlaybackRate, bufferLowHitted, isEnoughBuffer, latencyCorrected, bufferCorrectionStarted);
 
-						if ((currentLatency >= ((double) pAampLLDashServiceData->maxLatency )) && isEnoughBuffer)
+						if ((currentLatency > ((double) pAampLLDashServiceData->maxLatency )) && isEnoughBuffer)
 						{
 							if (latencyCorrected)
 							{
@@ -11712,7 +11714,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 						else if (currentLatency < ((double) pAampLLDashServiceData->minLatency) ||  
 						(bufferLowHitted && (currPlaybackRate != pAampLLDashServiceData->minPlaybackRate)) )
 						{
-							if (!bufferLowHitted)
+							if ((currentLatency < (double) pAampLLDashServiceData->minLatency) && !latencyCorrected)
 							{
 								/**< Rate change due to latency change; So report event; rare condition*/
 								latencyCorrected = true;
@@ -11732,7 +11734,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 							reportEvent = true;
 							playRate = normalPlaybackRate;
 						}
-						else if (((currentLatency >= (long)pAampLLDashServiceData->targetLatency) &&  currPlaybackRate == pAampLLDashServiceData->minPlaybackRate) && (buffervalue < minbuffer))
+						else if (((currentLatency >= (long)pAampLLDashServiceData->targetLatency) &&  currPlaybackRate == pAampLLDashServiceData->minPlaybackRate) && (buffervalue > minbuffer))
 						{
 							if (bufferCorrectionStarted)
 							{

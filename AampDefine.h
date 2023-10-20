@@ -169,8 +169,8 @@
 #define DEFAULT_NORMAL_RATE_CORRECTION_SPEED    1.00f	   	/**< Live Catchup Normal play rate */
 #define AAMP_LLD_LATENCY_MONITOR_INTERVAL 		(1)   		/**< Latency monitor interval for LLD*/
 #define AAMP_LLD_MINIMUM_CACHE_SEGMENTS 		(2)     	/**< Number of segments to be cached minimum before rate change*/
-#define AAMP_LLD_LOW_BUFF_CHECK_COUNT           (4)         /**< Count to confirm low buffer state for LLD stream playback*/
-#define DEFAULT_MIN_BUFFER_LOW_LATENCY          (3.0f)      /**< Default minimum buffer for Low latency stream*/
+#define AAMP_LLD_LOW_BUFF_CHECK_COUNT           (4)         /**< Count to confirm low buffer state for LLD stream playback; 4 sec to ABR; So Allow ABR first*/
+#define DEFAULT_MIN_BUFFER_LOW_LATENCY          (2.5f)      /**< Default minimum buffer for Low latency stream*/
 #define DEFAULT_ALLOWED_DELAY_LOW_LATENCY       (2.5f)      /**< Default allowed server delay for Low latency stream*/
 
 // DELIA-61708 audio drop workaround
