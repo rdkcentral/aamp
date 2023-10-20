@@ -542,6 +542,10 @@ static void ParseMediaAttributeCallback(char *attrName, char *delimEqual, char *
 		{
 			mediaInfo.isDefault = true;
 		}
+		else
+		{
+			mediaInfo.isDefault = false;
+		}
 	}
 	else if (AttributeNameMatch(attrName, "URI"))
 	{
@@ -7504,9 +7508,9 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 				std::string name = (media.name != NULL) ? std::string(media.name) : std::string();
 				std::string characteristics = (media.characteristics != NULL) ? std::string(media.characteristics) : std::string();
 				std::string codec = GetAudioFormatStringForCodec(media.audioFormat) ;
-				AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Audio Track - lang:%s, group_id:%s, name:%s, codec:%s, characteristics:%s, channels:%d",
-						language.c_str(), group_id.c_str(), name.c_str(), codec.c_str(), characteristics.c_str(), media.channels);
-				mAudioTracks.push_back(AudioTrackInfo(index, language, group_id, name, codec, characteristics, media.channels));
+				AAMPLOG_WARN("streamAbstractionAAMP_HLS:: Audio Track - lang:%s, group_id:%s, name:%s, codec:%s, characteristics:%s, channels:%d isDefault=%d",
+						language.c_str(), group_id.c_str(), name.c_str(), codec.c_str(), characteristics.c_str(), media.channels,media.isDefault);
+				mAudioTracks.push_back(AudioTrackInfo(index, language, group_id, name, codec, characteristics, media.channels,media.isDefault));
 			}
 			else if (media.type == eMEDIATYPE_SUBTITLE)
 			{

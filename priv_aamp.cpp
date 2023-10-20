@@ -9453,6 +9453,9 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 					{
 						cJSON_AddStringToObject(item, "Type", iter->mType.c_str());
 					}
+
+					cJSON_AddBoolToObject(item, "default", iter->isDefault);
+
 					cJSON_AddBoolToObject(item, "availability", iter->isAvailable);
 					if (!iter->accessibilityItem.getSchemeId().empty())
 					{

@@ -191,16 +191,24 @@ struct AudioTrackInfo
 	Accessibility accessibilityItem; 	/**< Field to store Accessibility Node */
 	std::string mType;			/**< Type field of track, to be populated by player */
 	bool isAvailable;
+	bool isDefault;
 
 	AudioTrackInfo() : index(), language(), rendition(), name(), codec(), characteristics(), channels(0), 
-	bandwidth(0),primaryKey(0), contentType(), mixType(), accessibilityType(), isMuxed(false), label(), mType(), accessibilityItem(), isAvailable(true) 
+	bandwidth(0),primaryKey(0), contentType(), mixType(), accessibilityType(), isMuxed(false), label(), mType(), accessibilityItem(), isAvailable(true),
+	isDefault(false) 
 	{
 	}
 
 	AudioTrackInfo(std::string idx, std::string lang, std::string rend, std::string trackName, std::string codecStr, std::string cha, int ch):
 		index(idx), language(lang), rendition(rend), name(trackName),
 		codec(codecStr), characteristics(cha), channels(ch), bandwidth(-1), primaryKey(0) , contentType(), mixType(), accessibilityType(), isMuxed(false), label(), mType(), accessibilityItem(),
-		isAvailable(true)
+		isAvailable(true),isDefault(false)
+	{
+	}
+	AudioTrackInfo(std::string idx, std::string lang, std::string rend, std::string trackName, std::string codecStr, std::string cha, int ch,bool Default):
+		index(idx), language(lang), rendition(rend), name(trackName),
+		codec(codecStr), characteristics(cha), channels(ch), bandwidth(-1), primaryKey(0) , contentType(), mixType(), accessibilityType(), isMuxed(false), label(), mType(), accessibilityItem(),
+		isAvailable(true),isDefault(Default)
 	{
 	}
 
@@ -208,42 +216,42 @@ struct AudioTrackInfo
 			index(idx), language(lang), rendition(rend), name(trackName),
 			codec(codecStr), characteristics(), channels(0), bandwidth(-1), primaryKey(pk),
                         contentType(conType), mixType(mixType), accessibilityType(), isMuxed(false), label(), mType(), accessibilityItem(),
-			isAvailable(true)
+			isAvailable(true),isDefault(false)
 	{
 	}
 
 	AudioTrackInfo(std::string idx, std::string lang, std::string rend, std::string trackName, std::string codecStr, long bw, std::string typ, bool available):
 		index(idx), language(lang), rendition(rend), name(trackName),
 		codec(codecStr), characteristics(), channels(0), bandwidth(bw),primaryKey(0), contentType(), mixType(), accessibilityType(typ), isMuxed(false), label(), mType(), accessibilityItem(),
-		isAvailable(true)
+		isAvailable(true),isDefault(false)
 	{
 	}
 
 	AudioTrackInfo(std::string idx, std::string lang, std::string rend, std::string trackName, std::string codecStr, long bw, int channel):
 		index(idx), language(lang), rendition(rend), name(trackName),
 		codec(codecStr), characteristics(), channels(channel), bandwidth(bw),primaryKey(0), contentType(), mixType(), accessibilityType(), isMuxed(false), label(), mType(), accessibilityItem(),
-		isAvailable(true)
+		isAvailable(true),isDefault(false)
 	{
 	}
 
 	AudioTrackInfo(std::string idx, std::string lang, std::string rend, std::string trackName, std::string codecStr, long bw, int channel, bool muxed, bool available):
 		index(idx), language(lang), rendition(rend), name(trackName),
 		codec(codecStr), characteristics(), channels(channel), bandwidth(bw),primaryKey(0), contentType(), mixType(), accessibilityType(), isMuxed(muxed), label(), mType(), accessibilityItem(),
-		isAvailable(available)
+		isAvailable(available),isDefault(false)
 	{
 	}
 
 	AudioTrackInfo(std::string idx, std::string lang, std::string rend, std::string trackName, std::string codecStr, long bw, std::string typ, bool muxed, std::string lab, std::string type, bool available):
 		index(idx), language(lang), rendition(rend), name(trackName),
 		codec(codecStr), characteristics(), channels(0), bandwidth(bw),primaryKey(0), contentType(), mixType(), accessibilityType(typ), isMuxed(muxed), label(lab), mType(type), accessibilityItem(),
-		isAvailable(available)
+		isAvailable(available),isDefault(false)
 	{
 	}
 
 	AudioTrackInfo(std::string idx, std::string lang, std::string rend, std::string trackName, std::string codecStr, long bw, std::string typ, bool muxed, std::string lab, std::string type, Accessibility accessbility, bool available):
 		index(idx), language(lang), rendition(rend), name(trackName),
 		codec(codecStr), characteristics(), channels(0), bandwidth(bw),primaryKey(0), contentType(), mixType(), accessibilityType(typ), isMuxed(muxed), label(lab), mType(type), accessibilityItem(accessbility),
-		isAvailable(available)
+		isAvailable(available),isDefault(false)
 	{
 	}
 
@@ -258,7 +266,8 @@ struct AudioTrackInfo
 			(isMuxed == track.isMuxed) &&
 			(label == track.label) &&
 			(mType == track.mType) &&
-			(accessibilityItem == track.accessibilityItem));
+			(accessibilityItem == track.accessibilityItem) &&
+			(isDefault == track.isDefault));
 	}
 
 	bool operator < (const AudioTrackInfo& track) const
