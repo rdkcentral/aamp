@@ -366,7 +366,7 @@ Usage example:
 
 | Name | Type | Description |
 | ---- | ---- | ---------- |
-| offset | Number | Offset from beginning of VOD asset. For live playback, offset is relative to eldest portion of initial window. Offset value should be in seconds. <br/>**Note:** that ability to seek is currently limited to fragment granularity. |
+| offset | Number | Offset from beginning of VOD asset. For live playback, offset is relative to eldest portion of initial window, or can pass -1 to seek to logical live edge. Offset value should be in seconds. <br/>**Note:** that ability to seek is by default limited to fragment granularity, though this can be enabled with config "seekMidFragment=true" |
 | keepPause | Boolean | Optional input . Default value is false, playback starts automatically after seek.<br/> If True, player will maintain paused state after seek execution if the state was in paused before seek call.  <br/>Available with version 2.6 |
 
 Example:
