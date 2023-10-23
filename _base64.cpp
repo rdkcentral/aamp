@@ -125,7 +125,7 @@ unsigned char *base64_Decode(const char *src, size_t *len, size_t srcLen)
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 	};
 	size_t numChars = (srcLen * 3) / 4; // initially round up to nearest 4 bytes, avoid losing precision
-	unsigned char *outData = (unsigned char *)malloc(numChars);
+	unsigned char *outData = (unsigned char *)malloc(numChars+1);
 	size_t outSize = 0; // output size
 	if (outData)
 	{
@@ -134,26 +134,32 @@ unsigned char *base64_Decode(const char *src, size_t *len, size_t srcLen)
 		const char *finish = src + srcLen;
 		while (src < finish)
 		{ // aaaaaa aabbbb bbbbcc cccccc
-			int data0 = mBase64CharToIndex[(unsigned char)src[0]];
-			int data1 = mBase64CharToIndex[(unsigned char)src[1]];
-			int data2 = mBase64CharToIndex[(unsigned char)src[2]];
-			int data3 = mBase64CharToIndex[(unsigned char)src[3]];
-			*dst++ = (data0 << 2) | (data1 >> 4);
-			if (data2 < 0)
+			int data[4] = {mBase64CharToIndex[(unsigned char)'='],mBase64CharToIndex[(unsigned char)'='],mBase64CharToIndex[(unsigned char)'='],mBase64CharToIndex[(unsigned char)'=']};	//initialized to padded value =
+
+			if(src < finish)
+				data[0] = mBase64CharToIndex[(unsigned char)src[0]];
+			if(src+1 < finish)
+				data[1] = mBase64CharToIndex[(unsigned char)src[1]];
+			if(src+2 < finish)
+				data[2] = mBase64CharToIndex[(unsigned char)src[2]];
+			if(src+3 < finish)
+				data[3] = mBase64CharToIndex[(unsigned char)src[3]];
+			*dst++ = (data[0] << 2) | (data[1] >> 4);
+			if (data[2] < 0)
 			{
 				outSize++;
 				break;
 			}
-			*dst++ = (data1 << 4) | (data2 >> 2);
-			if (data3 < 0)
+			*dst++ = (data[1] << 4) | (data[2] >> 2);
+			if (data[3] < 0)
 			{
 				outSize += 2;
 				break;
 			}
-			*dst++ = (data2 << 6) | (data3);
+			*dst++ = (data[2] << 6) | (data[3]);
 			src += 4;
 			outSize += 3;
-		}
+		}	
 		*len = outSize;
 	}
 	else

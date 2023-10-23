@@ -99,6 +99,7 @@ namespace base64Test {
 	TEST(_base64Suite, decode)
 	{
 		size_t len = 0;
+		size_t size = 0;
 		char *result;
 		
 		// padded output used truncated input of length 4
@@ -124,10 +125,22 @@ namespace base64Test {
 		memset(result, 0, len);
 		free(result);
 		
-		// empty input
-		result = (char *)::base64_Decode(base64Exp5, &len);
-		EXPECT_EQ(len, strlen((char *)base64Inp5)) << "The base64 decode of " << base64Exp5 << " is not correct";
-		EXPECT_EQ(len, strlen((char *)base64Inp5)) << "The base64 decode of " << base64Exp5 << " is not correct";
+		// Check for invalid sizes, should not trigger address sanitizer.
+		size = 1;
+		result = (char *)::base64_Decode(base64Exp4, &len, size);
+		EXPECT_EQ((unsigned char)result[0], 255) << "The base64 decode of " << base64Exp4 << " is not correct";
+		memset(result, 0, len);
+		free(result);
+		
+		size = 2;
+		result = (char *)::base64_Decode(base64Exp4, &len, size);
+		EXPECT_EQ(result[0], '_') << "The base64 decode of " << base64Exp4 << " is not correct";
+		memset(result, 0, len);
+		free(result);
+		
+		size = 3;
+		result = (char *)::base64_Decode(base64Exp4, &len, size);
+		EXPECT_EQ(result[0], '_') << "The base64 decode of " << base64Exp4 << " is not correct";
 		memset(result, 0, len);
 		free(result);
 		
@@ -162,7 +175,7 @@ namespace base64Test {
 		// all supported characters limited length
 		size = 3;
 		result = (char *)::base64_Decode(base64Exp2, &len, size);
-		cmp = strncmp(result, (char *)base64Inp2, size);
+		cmp = strncmp(result, (char *)base64Inp2, len);
 		EXPECT_EQ(cmp, 0) << "The base64 decode of " << base64Exp2 << " is not correct";
 		free(result);
 		
@@ -173,14 +186,7 @@ namespace base64Test {
 		EXPECT_EQ(cmp, 0) << "The base64 decode of " << base64Exp3 << " is not correct";
 		memset(result, 0, len);
 		free(result);
-		
-		// unsupported character should return empty result?
-		size = 1;
-		result = (char *)::base64_Decode(base64Exp4, &len, size);
-		EXPECT_EQ(memcmp(result, base64Inp4, strlen((char *)base64Inp4)), 0) << "The base64 decode of " << base64Exp4 << " is not correct";
-		memset(result, 0, len);
-		free(result);
-		
+				
 		// empty input
 		size = 0;
 		result = (char *)::base64_Decode(base64Exp5, &len, size);
