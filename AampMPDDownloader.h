@@ -136,7 +136,6 @@ typedef struct _manifestDownloadResponse
 	AAMPStatusType mMPDStatus;
 	Node *mRootNode;
 	std::shared_ptr<DashMPDDocument> mDashMpdDoc;
-	AampLLDashServiceData mLLDashData;
 	uint64_t mLastPlaylistDownloadTimeMs; // Last playlist refresh time
 private:
 	AampMPDParseHelper	*mMPDParseHelper;
@@ -423,6 +422,7 @@ private:
 	unsigned int mManifestRefreshCount; 	/**< counter which keeps the count of manifest/Playlist success refresh */
 
 	bool mIsLowLatency;  /**< Flag indicating whether it is a low latency stream or not.*/
+	AampLLDashServiceData mLLDashData; /**< Parsed LLDash Data*/
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */

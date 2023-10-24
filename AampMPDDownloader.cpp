@@ -297,6 +297,9 @@ void AampMPDDownloader::Release()
 			mMPDBufferQ.pop();
 		}
 
+		/**< Reset LLD Data*/
+		mLLDashData.clear();
+
 		AAMPLOG_INFO("Release Called in MPD Downloader - Exit %ld %ld", mMPDData.use_count(),mMPDDnldCfg.use_count());
 
 	}
@@ -384,8 +387,11 @@ void AampMPDDownloader::downloadMPDThread1()
 			// store the last manifestdownloadTime
 			mMPDData->mLastPlaylistDownloadTimeMs	=	aamp_GetCurrentTimeMS();
 			mMPDData->parseMPD();
-			// Check for low latency params in manifest
-			mIsLowLatency  = isMPDLowLatency(mMPDData, mMPDData->mLLDashData);
+			if(firstDownload)
+			{
+				 // Check for LLD Manifest for first manifest download only . This is needed to determine the refresh parameters
+                                mIsLowLatency         =               isMPDLowLatency(mMPDData, mLLDashData);
+			}
 
 			if(mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK)
 			{
@@ -769,8 +775,8 @@ bool AampMPDDownloader::IsMPDLowLatency(AampLLDashServiceData &LLDashData)
 	bool retVal = false;
 	if(mMPDData != nullptr)
 	{
-		retVal 		= 	mMPDData->mLLDashData.lowLatencyMode;
-		LLDashData	=	mMPDData->mLLDashData;
+		retVal 		= 	mLLDashData.lowLatencyMode;
+		LLDashData	=	mLLDashData;
 	}
 	return retVal;
 }
@@ -799,6 +805,15 @@ bool AampMPDDownloader::isMPDLowLatency(std::shared_ptr<ManifestDownloadResponse
 						{
 							ISegmentTemplate *pSegmentTemplate = NULL;
 							pSegmentTemplate = pFirstAdaptation->GetSegmentTemplate();
+							if(pSegmentTemplate == NULL)
+							{
+								IRepresentation *representation = NULL;
+								representation = pFirstAdaptation->GetRepresentation().at(0);
+								if( NULL != representation)
+								{
+									pSegmentTemplate = representation->GetSegmentTemplate();
+								}
+							}
 							if( NULL != pSegmentTemplate )
 							{
 								std::map<std::string, std::string> attributeMap = pSegmentTemplate->GetRawAttributes();
@@ -836,24 +851,9 @@ bool AampMPDDownloader::isMPDLowLatency(std::shared_ptr<ManifestDownloadResponse
 									break;
 								}
 							}
-							else
-							{
-								AAMPLOG_ERR("NULL segmenttemplate");
-							}
-						}
-						else
-						{
-							AAMPLOG_INFO("NULL adaptationSets");
+				
 						}
 					}
-					else
-					{
-						AAMPLOG_WARN("empty adaptationSets");
-					}
-				}
-				else
-				{
-					AAMPLOG_WARN("empty period ");
 				}
 			}
 			
@@ -862,14 +862,6 @@ bool AampMPDDownloader::isMPDLowLatency(std::shared_ptr<ManifestDownloadResponse
 				AAMPLOG_INFO("Latency availabilityTimeOffset attribute not available");
 			}
 		}
-		else
-		{
-			AAMPLOG_WARN("NULL mpd");
-		}
-	}
-	else
-	{
-		LLDashData.lowLatencyMode	=	false;
 	}
 	return isSuccess;
 }
@@ -963,8 +955,8 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(std::shared_ptr<Ma
 		{
 			if (mIsLowLatency)
 			{
-				long availTimeOffMs = (long)((mMPDData->mLLDashData.availabilityTimeOffset)*1000);
-				long maxSegDuration = (long)((mMPDData->mLLDashData.fragmentDuration)*1000);
+				long availTimeOffMs = (long)((mLLDashData.availabilityTimeOffset)*1000);
+				long maxSegDuration = (long)((mLLDashData.fragmentDuration)*1000);
 				if(minUpdateDuration > 0 && minUpdateDuration < maxSegDuration)
 				{
 					minDelayBetweenPlaylistUpdates = (uint32_t)minUpdateDuration;
