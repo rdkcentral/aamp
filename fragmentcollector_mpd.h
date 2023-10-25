@@ -91,11 +91,12 @@ public :
 	bool bUseMatchingBaseUrl;
 	int64_t nextfragmentNum;
 	double nextfragmentTime;
-	FragmentDescriptor() : manifestUrl(""), Bandwidth(0), Number(0), Time(0), RepresentationID(""),matchingBaseURL(""),bUseMatchingBaseUrl(false),nextfragmentNum(-1),nextfragmentTime(0)
+	uint32_t TimeScale;
+	FragmentDescriptor() : manifestUrl(""), Bandwidth(0), Number(0), Time(0), RepresentationID(""),matchingBaseURL(""),bUseMatchingBaseUrl(false),nextfragmentNum(-1),nextfragmentTime(0), TimeScale(1)
 	{
 	}
 	
-	FragmentDescriptor(const FragmentDescriptor& p) : manifestUrl(p.manifestUrl), Bandwidth(p.Bandwidth), RepresentationID(p.RepresentationID), Number(p.Number), Time(p.Time),matchingBaseURL(p.matchingBaseURL),bUseMatchingBaseUrl(p.bUseMatchingBaseUrl),nextfragmentNum(p.nextfragmentNum),nextfragmentTime(p.nextfragmentTime)
+	FragmentDescriptor(const FragmentDescriptor& p) : manifestUrl(p.manifestUrl), Bandwidth(p.Bandwidth), RepresentationID(p.RepresentationID), Number(p.Number), Time(p.Time),matchingBaseURL(p.matchingBaseURL),bUseMatchingBaseUrl(p.bUseMatchingBaseUrl),nextfragmentNum(p.nextfragmentNum),nextfragmentTime(p.nextfragmentTime), TimeScale(p.TimeScale)
 	{
 	}
 
@@ -107,8 +108,9 @@ public :
 		Number = p.Number;
 		Time = p.Time;
 		matchingBaseURL = p.matchingBaseURL;
-	        nextfragmentNum = p.nextfragmentNum;
-	        nextfragmentTime = p.nextfragmentTime;
+		nextfragmentNum = p.nextfragmentNum;
+		nextfragmentTime = p.nextfragmentTime;
+		TimeScale = p.TimeScale;
 		return *this;
 	}
 	std::string GetMatchingBaseUrl() const

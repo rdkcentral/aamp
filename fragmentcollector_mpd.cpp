@@ -148,7 +148,6 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,mMPDParseHelper(NULL)
 	,mLowLatencyMode(false)
 	,mABRMode(ABRMode::UNDEF)
-	,mFragmentTimeOffset(0)
 	,mLastManifestFileSize(0)
 {
         FN_TRACE_F_MPD( __FUNCTION__ );
@@ -967,29 +966,25 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 			pMediaStreamContext->initialization = std::string(fragmentUrl);
 		}
 	}
-	position = pMediaStreamContext->fragmentTime;
 
 	double duration = fragmentDuration;
 	if(rate > AAMP_NORMAL_PLAY_RATE)
 	{
+		position = pMediaStreamContext->fragmentTime;
 		position = position/rate;
 		AAMPLOG_INFO("StreamAbstractionAAMP_MPD: rate %f pMediaStreamContext->fragmentTime %f updated position %f",
 				rate, pMediaStreamContext->fragmentTime, position);
 		int  vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS); 
 		duration = duration/rate * vodTrickplayFPS;
 		//aamp->disContinuity();
+		position += mFirstFragPTS[pMediaStreamContext->mediaType];
 	}
-//	AAMPLOG_WARN("[%s] mFirstFragPTS %f  position %f -> %f ", pMediaStreamContext->name, mFirstFragPTS[pMediaStreamContext->mediaType], position, mFirstFragPTS[pMediaStreamContext->mediaType]+position);
-	position += mFirstFragPTS[pMediaStreamContext->mediaType];
-
-	// fragmentTime is set at the beginning of the playback, which then advances with every fragment download
-	// the offset is also added at the beginning when absolute timeline is disabled
-	// the offset will further mess up the position value because fragmentTime + mFirstFragPTS is the actual PTS of the fragment in period
-	// So deduct the offset here to align subtitles timestamps.
-	if (position > mFragmentTimeOffset)
+	else
 	{
-		position -= mFragmentTimeOffset;
+		position = ((double) pMediaStreamContext->fragmentDescriptor.Time) / ((double) pMediaStreamContext->fragmentDescriptor.TimeScale);
 	}
+	// AAMPLOG_WARN("[%s] mFirstFragPTS %f  position new:%f old:%f ", pMediaStreamContext->name, mFirstFragPTS[pMediaStreamContext->mediaType], position, mFirstFragPTS[pMediaStreamContext->mediaType]+pMediaStreamContext->fragmentTime);
+
 	bool fragmentCached = pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, position, duration, NULL, isInitializationSegment, discontinuity
 		,(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING), pto, scale);
 	// Check if we have downloaded the fragment and waiting for init fragment download on
@@ -4448,8 +4443,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					// position is adjusted in TuneHelper based on current period start,
 					// So just save fragmentTime.
 					seekPosition += currentPeriodStart;
-					// Save the offset. This is to be used later in CacheFragment
-					mFragmentTimeOffset = currentPeriodStart;
 				}
 			}
 			else if (!seekPosition)
@@ -7712,11 +7705,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 				aamp->mNextPeriodDuration = mPeriodDuration;
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
-				if(eMEDIATYPE_SUBTITLE == i && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled)
-				{
-					pMediaStreamContext->fragmentTime = mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentTime;
-					AAMPLOG_INFO("Resetting subititle track fragmentTime to %lf", pMediaStreamContext->fragmentTime);
-				}
 			}
 
 			SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),pMediaStreamContext->adaptationSet->GetSegmentTemplate());
@@ -7728,17 +7716,21 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				long int startNumber = segmentTemplates.GetStartNumber();
 				double fragmentDuration = 0;
 				bool timelineAvailable = true;
+				if (periodChanged)
+				{
+					pMediaStreamContext->fragmentDescriptor.TimeScale = segmentTemplates.GetTimescale();
+				}
 				if(NULL == segmentTimeline)
 				{
-                                        uint32_t timeScale = segmentTemplates.GetTimescale();
-                                        uint32_t duration = segmentTemplates.GetDuration();
-										fragmentDuration =  ComputeFragmentDuration(duration,timeScale);
-										timelineAvailable = false;
+					uint32_t timeScale = segmentTemplates.GetTimescale();
+					uint32_t duration = segmentTemplates.GetDuration();
+					fragmentDuration =  ComputeFragmentDuration(duration,timeScale);
+					timelineAvailable = false;
 
-                                        if( timeScale )
-                                        {
-                                                pMediaStreamContext->scaledPTO = (double)segmentTemplates.GetPresentationTimeOffset() / (double)timeScale;
-                                        }
+					if( timeScale )
+					{
+						pMediaStreamContext->scaledPTO = (double)segmentTemplates.GetPresentationTimeOffset() / (double)timeScale;
+					}
 					if(!aamp->IsLive())
 					{
 						if(segmentTemplates.GetPresentationTimeOffset())
