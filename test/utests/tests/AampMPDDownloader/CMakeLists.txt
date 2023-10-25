@@ -95,3 +95,4 @@ target_link_libraries(${EXEC_NAME} -lpthread ${LIBDASH_LDFLAGS} ${GLIB_LDFLAGS} 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+

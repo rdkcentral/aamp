@@ -1,21 +1,21 @@
 /*
-* If not stated otherwise in this file or this component's license file the
-* following copyright and licenses apply:
-*
-* Copyright 2023 RDK Management
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2023 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
@@ -29,76 +29,79 @@
 #include <unistd.h>
 
 using ::testing::_;
-using ::testing::WithParamInterface;
 using ::testing::An;
 using ::testing::DoAll;
-using ::testing::SetArgReferee;
 using ::testing::Invoke;
 using ::testing::Return;
+using ::testing::SetArgReferee;
+using ::testing::WithParamInterface;
 
 AampConfig *gpGlobalConfig{nullptr};
 AampLogManager *mLogObj{nullptr};
 
 std::string url1 = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd";
 std::string url2 = "http://g004-sle-us-cmaf-stg-cf.cdn.peacocktv.com/Content/CMAF_S2-CTR-4s-v2/Live/channel(UHDtoHDR10SLE3202382fd53b0ade)/60_master_2hr.m3u8?c3.ri=5002728478659375252&audio=all&subtitle=all&forcedNarrative=true";
-std::string url3 = "https://livesim.dashif.org/livesim/scte35_2/testpic_2s/Manifest.mpd" ;
+std::string url3 = "https://livesim.dashif.org/livesim/scte35_2/testpic_2s/Manifest.mpd";
 std::string url4 = "https://cdn-ec-pan-011.linear-nat-pil-hd.xcr.comcast.net/GOLFD_HD_NAT_16403_0_6257457287223774163.mpd";
 class FunctionalTests : public ::testing::Test
 {
 protected:
-	AampMPDDownloader *mAampMPDDownloader = nullptr;
+    AampMPDDownloader *mAampMPDDownloader = nullptr;
+    AampLogManager logObj;
+    std::string appName;
+    ManifestDownloadConfigPtr mpdDnldCfg;
+    ManifestDownloadResponsePtr dnldManifest;
+    void SetUp() override
+    {
+        mLogObj = new AampLogManager();
+        mAampMPDDownloader = new AampMPDDownloader();
+    }
 
-	void SetUp() override
-	{
-		mLogObj = new AampLogManager();
-		mAampMPDDownloader = new AampMPDDownloader();
-	}
+    void TearDown() override
+    {
+        delete mAampMPDDownloader;
+        mAampMPDDownloader = nullptr;
 
-	void TearDown() override
-	{
-		delete mAampMPDDownloader;
-		mAampMPDDownloader = nullptr;
+        delete mLogObj;
+        mLogObj = nullptr;
+    }
 
-		delete mLogObj;
-		mLogObj=nullptr;
-	}
 public:
-
+    int mLatencyValue;
 };
-
 
 TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_1)
 {
-	EXPECT_NO_THROW(mAampMPDDownloader->SetNetworkTimeout(5));
-	EXPECT_NO_THROW(mAampMPDDownloader->SetStallTimeout(5));
-	EXPECT_NO_THROW(mAampMPDDownloader->SetStartTimeout(5));
-	EXPECT_NO_THROW(mAampMPDDownloader->Release());
-	EXPECT_NO_THROW(mAampMPDDownloader->Start());
+    EXPECT_NO_THROW(mAampMPDDownloader->SetNetworkTimeout(5));
+    EXPECT_NO_THROW(mAampMPDDownloader->SetStallTimeout(5));
+    EXPECT_NO_THROW(mAampMPDDownloader->SetStartTimeout(5));
+    EXPECT_NO_THROW(mAampMPDDownloader->Release());
+    EXPECT_NO_THROW(mAampMPDDownloader->Start());
 }
 
 TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_2)
 {
-	//EXPECT_NO_THROW(mAampMPDDownloader->Initialize(nullptr));
-	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> ();
-	EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
-	EXPECT_NO_THROW(mAampMPDDownloader->Start());
+    // EXPECT_NO_THROW(mAampMPDDownloader->Initialize(nullptr));
+    std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>();
+    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
+    EXPECT_NO_THROW(mAampMPDDownloader->Start());
 
-	inpData->mTuneUrl = url1;
-	inpData->mDnldConfig->bNeedDownloadMetrics = true;
-	EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
-	EXPECT_NO_THROW(mAampMPDDownloader->Start());
-	EXPECT_NO_THROW(mAampMPDDownloader->Release());
+    inpData->mTuneUrl = url1;
+    inpData->mDnldConfig->bNeedDownloadMetrics = true;
+    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
+    EXPECT_NO_THROW(mAampMPDDownloader->Start());
+    EXPECT_NO_THROW(mAampMPDDownloader->Release());
 }
 
 TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_3)
 {
-	// VOD Test
-	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> ();
-	inpData->mTuneUrl = url2;
-	inpData->mDnldConfig->bNeedDownloadMetrics = true;
-	EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
-	EXPECT_NO_THROW(mAampMPDDownloader->Start());
-	EXPECT_NO_THROW(mAampMPDDownloader->Release());
+    // VOD Test
+    std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>();
+    inpData->mTuneUrl = url2;
+    inpData->mDnldConfig->bNeedDownloadMetrics = true;
+    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
+    EXPECT_NO_THROW(mAampMPDDownloader->Start());
+    EXPECT_NO_THROW(mAampMPDDownloader->Release());
 }
 // Commented below tests to avoid more wait duaration
 #if 0
@@ -172,3 +175,102 @@ TEST_F(FunctionalTests, AampMPDDownloader_PushDownloadDataToQueue)
 	mAampMPDDownloader->Release();
 }
 #endif
+TEST_F(FunctionalTests, InitializeWithValidConfig)
+{
+    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(mpdDnldCfg, &logObj, appName));
+}
+
+TEST_F(FunctionalTests, InitializeWithNullConfig)
+{
+    ManifestDownloadConfigPtr nullCfg = nullptr;
+    mAampMPDDownloader->Initialize(nullCfg, &logObj, appName);
+}
+
+TEST_F(FunctionalTests, SetBufferAvailabilityTest)
+{
+    int expectedLatency = 100;
+    EXPECT_NO_THROW(mAampMPDDownloader->SetBufferAvailability(expectedLatency));
+}
+
+TEST_F(FunctionalTests, SetBufferAvailability)
+{
+    int durationMilliSec = 1000;
+    mAampMPDDownloader->SetBufferAvailability(durationMilliSec);
+}
+
+TEST_F(FunctionalTests, GetManifestWhenNotReleased)
+{
+    ManifestDownloadResponsePtr response = mAampMPDDownloader->GetManifest(false, 1000, -1);
+    ASSERT_EQ(response->mMPDStatus, AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
+}
+
+TEST_F(FunctionalTests, GetManifestWithHttpErrorSimulation)
+{
+    ManifestDownloadResponsePtr respPtr = mAampMPDDownloader->GetManifest(false, 1000, 404);
+    ASSERT_EQ(respPtr->mMPDDownloadResponse->iHttpRetValue, 0);
+}
+
+TEST_F(FunctionalTests, GetManifestWithWaitTimeout)
+{
+    ManifestDownloadResponsePtr response = mAampMPDDownloader->GetManifest(true, 1000, -1);
+    ASSERT_EQ(response->mMPDDownloadResponse->iHttpRetValue, 0);
+}
+
+TEST_F(FunctionalTests, IsMPDLowLatencyWithData)
+{
+    AampLLDashServiceData llDashData;
+    llDashData.lowLatencyMode = true;
+    AampLLDashServiceData resultLLDashData;
+    bool retVal = mAampMPDDownloader->IsMPDLowLatency(resultLLDashData);
+}
+
+TEST_F(FunctionalTests, IsMPDLowLatencyWithoutData)
+{
+    AampLLDashServiceData resultLLDashData;
+    bool retVal = mAampMPDDownloader->IsMPDLowLatency(resultLLDashData);
+    ASSERT_FALSE(retVal);
+    ASSERT_EQ(resultLLDashData.lowLatencyMode, false);
+}
+
+TEST_F(FunctionalTests, ParseMpdDocumentTest)
+{
+    _manifestDownloadResponse response;
+    std::string sampleMpdString = "<MPD>...</MPD>";
+    response.parseMpdDocument();
+}
+
+TEST_F(FunctionalTests, CloneTest)
+{
+    _manifestDownloadResponse originalResponse;
+    std::shared_ptr<_manifestDownloadResponse> clonedResponse = originalResponse.clone();
+}
+
+TEST_F(FunctionalTests, ShowFunctionTest)
+{
+    _manifestDownloadResponse originalResponse;
+    originalResponse.show();
+}
+
+TEST_F(FunctionalTests, UnRegisterCallbackTest)
+{
+    mAampMPDDownloader->UnRegisterCallback();
+}
+
+TEST_F(FunctionalTests, RegisterCallbackTest)
+{
+    ManifestUpdateCallbackFunc callback = NULL;
+    void *callbackArg = NULL;
+    EXPECT_NO_THROW(mAampMPDDownloader->RegisterCallback(callback, callbackArg));
+}
+
+TEST_F(FunctionalTests, SetStallTimeout1)
+{
+    EXPECT_NO_THROW(mAampMPDDownloader->SetStallTimeout(5));
+}
+
+TEST_F(FunctionalTests, ParseMpdDocumentTest1)
+{
+    ManifestDownloadResponsePtr manifestResponse = std::make_shared<_manifestDownloadResponse>();
+    EXPECT_NO_THROW(manifestResponse->parseMpdDocument());
+}
+
