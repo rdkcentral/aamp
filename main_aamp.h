@@ -810,6 +810,14 @@ public:
 	void SetRate(float rate, int overshootcorrection=0);
 
 	/**
+	 *   @fn SetPlaybackSpeed
+	 *
+	 *   @param[in]  speed - rate to set playback speed.s
+	 *   @return void
+	 */
+	void SetPlaybackSpeed(float speed);
+
+	/**
 	 *   @fn PauseAt
 	 * 
 	 *       Any subsequent call to this method will override the previous call.

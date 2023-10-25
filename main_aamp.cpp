@@ -606,6 +606,20 @@ void PlayerInstanceAAMP::SetRate(float rate,int overshootcorrection)
 	}
 }
 
+/**
+ *  @brief Set playback speed.
+ */
+void PlayerInstanceAAMP::SetPlaybackSpeed (float speed)
+{
+	if (aamp)
+	{
+		AAMPLOG_INFO("PLAYER[%d] Change playback speed = %f", aamp->mPlayerId, speed);
+		if (aamp->mStreamSink && false == aamp->mStreamSink->SetPlayBackRate(speed))
+		{
+			AAMPLOG_WARN("PLAYER[%d] Change playback speed failed = %f", aamp->mPlayerId, speed);
+		}
+	}
+}
 
 /**
  *  @brief Set playback rate - Internal function

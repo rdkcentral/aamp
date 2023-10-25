@@ -104,6 +104,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	bool eventChange = false;
 	int keepPaused = 0;
 	int rate = 0;
+	float speed = 0.0;
 	double seconds = 0;
 	long unlockSeconds = 0;
 	long grace = 0;
@@ -266,6 +267,10 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	else if (sscanf(cmd, "rew %d", &rate) == 1)
 	{
 		playerInstanceAamp->SetRate((float)(-rate));
+	}
+	else if (sscanf(cmd, "speed %f", &speed) == 1)
+	{
+		playerInstanceAamp->SetPlaybackSpeed(speed);
 	}
 	else if (sscanf(cmd, "bps %d", &rate) == 1)
 	{
