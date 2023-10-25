@@ -987,16 +987,18 @@ TEST_F(FunctionalTests, SetTsbBandwidthBoundary)
     ASSERT_EQ(actualUpperBound_1, upperBound_1);
 
     // Test upper bound (e.g., LONG_MIN)
+    //LONG_MIN is the smallest negative value that can be represented in a long integer
     long lowerBound_2 = LONG_MIN;
     mStreamAbstractionAAMP_HLS->SetTsbBandwidth(lowerBound_2);
     long actualLowerBound_2 = mStreamAbstractionAAMP_HLS->GetTsbBandwidth();
-    ASSERT_EQ(actualLowerBound_2, lowerBound_2);
+    ASSERT_NE(actualLowerBound_2, lowerBound_2);
 
     // Test lower bound
     long lowerBound_1 = -12;
     mStreamAbstractionAAMP_HLS->SetTsbBandwidth(lowerBound_1);
     long actualLowerBound_1 = mStreamAbstractionAAMP_HLS->GetTsbBandwidth();
-    ASSERT_EQ(actualLowerBound_1, lowerBound_1);
+    //Bandwidth should not be negative
+    ASSERT_NE(actualLowerBound_1, lowerBound_1);
 }
 
 TEST_F(FunctionalTests, GetProfileCounttest)

@@ -847,7 +847,7 @@ public:
 	 * @param minbuffer The minimum buffer value to be set for ABR.
 	 * @return void
 	 */
-	void SetABRMinBuffer(int minbuffer) { mABRMinBuffer = minbuffer;}
+	void SetABRMinBuffer(int minbuffer) { if( minbuffer>=0 ) mABRMinBuffer = minbuffer;}
 
 	/**
 	 * @brief Sets the maximum buffer for ABR (Adaptive Bit Rate).
@@ -855,7 +855,8 @@ public:
 	 * @param maxbuffer The maximum buffer value to be set for ABR.
 	 * @return void
 	 */
-	void SetABRMaxBuffer(int maxbuffer) { mABRMaxBuffer = maxbuffer;}
+	void SetABRMaxBuffer(int maxbuffer) { if( maxbuffer>=0 ) mABRMaxBuffer = maxbuffer;}
+
 	/**
 	 *   @brief Waits audio track injection until caught up with video track.
 	 *          Used internally by injection logic
@@ -878,8 +879,7 @@ public:
 	 *   @param[in]  tsbBandwidth - Bandwidth of the track.
 	 *   @return void
 	 */
-	void SetTsbBandwidth(long tsbBandwidth){ mTsbBandwidth = tsbBandwidth;}
-
+	void SetTsbBandwidth(long tsbBandwidth){ if( tsbBandwidth >=0 ) mTsbBandwidth  = tsbBandwidth; }
 	/**
 	 *   @brief When TSB is involved, use this to get bandwidth to be reported.
 	 *
