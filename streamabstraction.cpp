@@ -35,6 +35,7 @@
 #include <cmath>
 
 #define AAMP_BUFFER_MONITOR_GREEN_THRESHOLD 4 //2 fragments for MSO specific linear streams.
+#define AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD 3 //LLD 3 sec minimum buffer
 //#define AAMP_DEBUG_INJECT_CHUNK
 //#define AAMP_DEBUG_FETCH_INJECT 1
 
@@ -117,20 +118,21 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 {
     BufferHealthStatus bStatus = BUFFER_STATUS_GREEN;
     double bufferedTime ;	
-    long long currentPlayPosition = aamp->GetPositionMilliseconds();
-    long long endPositionAvailable = (aamp->culledSeconds + aamp->durationSeconds)*1000;
     int CachedFragmentsOrChunks;
+	double thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD;
     if(aamp->GetLLDashServiceData()->lowLatencyMode)
     {
-	    bufferedTime 	    = (endPositionAvailable - currentPlayPosition);
-	    CachedFragmentsOrChunks = numberOfFragmentChunksCached ;
+		bufferedTime 	    = GetContext()->GetBufferedDuration(); /** To align with monitorLatency use same API*/
+	    CachedFragmentsOrChunks = 0; /**< No need check frgment cache for LLD;*/
+		thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
     }
     else
     {
 	    bufferedTime 	    = totalInjectedDuration - GetContext()->GetElapsedTime();
 	    CachedFragmentsOrChunks = numberOfFragmentsCached ;
     }
-    if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= AAMP_BUFFER_MONITOR_GREEN_THRESHOLD))
+
+    if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= thresholdBuffer))
     {
         AAMPLOG_WARN("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f",
                 name, bufferedTime, aamp->GetLLDashServiceData()->lowLatencyMode ? totalInjectedChunksDuration : totalInjectedDuration, GetContext()->GetElapsedTime());
