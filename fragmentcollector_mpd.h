@@ -660,6 +660,11 @@ private:
  	 */
 	void ApplyLiveOffsetWorkaroundForSAP(double seekPositionSeconds);
 	/**
+	 * @fn GetFirstValidCurrMPDPeriod
+	 * @param currMPDPeriodDetails vector containing the current MPD period info
+	 */
+	PeriodInfo GetFirstValidCurrMPDPeriod(std::vector<PeriodInfo> currMPDPeriodDetails);
+	/**
 	 * @fn GetCulledSeconds
 	 */
 	double GetCulledSeconds(std::vector<PeriodInfo> &currMPDPeriodDetails);

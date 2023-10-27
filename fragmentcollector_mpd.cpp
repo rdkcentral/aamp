@@ -7815,6 +7815,35 @@ IPeriod *StreamAbstractionAAMP_MPD::GetPeriod( void )
 }
 
 /**
+ * @brief get the first valid (non-empty) period from the current mpd period details
+ */
+PeriodInfo StreamAbstractionAAMP_MPD::GetFirstValidCurrMPDPeriod(std::vector<PeriodInfo> currMPDPeriodDetails)
+{
+	/* LLAMA-12256 : The culled value of a partciular period id is getting missed to add 
+	 * if the latest manifest refresh resulted in an MPD which contain the same period id with duration of 0 seconds.
+	 * The fix is added to skip those empty periods and mark the first non-empty period as current MPD period start for culled value calculation
+	 */
+	PeriodInfo validPeriod;
+	if(currMPDPeriodDetails.size() == 0)
+	{
+		AAMPLOG_WARN("No period found in the MPD");
+	}
+	else
+	{
+		validPeriod = currMPDPeriodDetails[0];
+		for(auto iter : currMPDPeriodDetails)
+		{
+			if(iter.duration > 0)
+			{
+				validPeriod = iter;
+				break;
+			}
+		}
+	}
+	return validPeriod;
+}
+
+/**
  * @brief Update culling state for live manifests
  */
 double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &currMPDPeriodDetails)
@@ -7834,7 +7863,7 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 			if (segmentTimeline)
 			{
 				int iter1 = 0;
-				PeriodInfo currFirstPeriodInfo = currMPDPeriodDetails.at(0);
+				PeriodInfo currFirstPeriodInfo = GetFirstValidCurrMPDPeriod(currMPDPeriodDetails);
 				while (iter1 < aamp->mMPDPeriodsInfo.size())
 				{
 					PeriodInfo prevPeriodInfo = aamp->mMPDPeriodsInfo.at(iter1);
