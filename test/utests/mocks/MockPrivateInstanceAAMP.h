@@ -42,6 +42,7 @@ public:
     MOCK_METHOD(void, SetStreamFormat, (StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat));
     
     MOCK_METHOD(std::string, GetAvailableAudioTracks, (bool allTrack));
+    MOCK_METHOD(int,GetAudioTrack,());
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

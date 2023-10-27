@@ -165,6 +165,9 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 {
 	return 0;
 }
+void PrivateInstanceAAMP::FlushStreamSink(double, double)
+{
+}
 
 void PrivateInstanceAAMP::UpdateMaxDRMSessions( void )
 {
@@ -173,7 +176,9 @@ void PrivateInstanceAAMP::UpdateMaxDRMSessions( void )
 void PrivateInstanceAAMP::SetStreamSink(StreamSink* streamSink)
 {
 }
-
+void PrivateInstanceAAMP::SendMediaMetadataEvent()
+{
+}
 void PrivateInstanceAAMP::GetState(PrivAAMPState& state)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
@@ -377,12 +382,14 @@ void SetPreferredLanguages(const char *languageList, const char *preferredRendit
 
 std::string PrivateInstanceAAMP::GetPreferredAudioProperties()
 {
-	return nullptr;
+	std::string audio_result = "AudioProperties";
+	return audio_result;
 }
 
 std::string PrivateInstanceAAMP::GetPreferredTextProperties()
 {
-	return nullptr;
+	std::string result = "TextProperties";
+	return result;
 }
 
 void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
@@ -396,7 +403,8 @@ DRMSystems PrivateInstanceAAMP::GetPreferredDRM()
 
 std::string PrivateInstanceAAMP::GetAvailableVideoTracks()
 {
-	return nullptr;
+	std::string s = "AvailableVideo";
+	return s;
 }
 
 void PrivateInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
@@ -405,12 +413,14 @@ void PrivateInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
 
 std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 {
-	return nullptr;
+	std::string result = "AudioTrack";
+	return result;
 }
 
 std::string PrivateInstanceAAMP::GetTextTrackInfo()
 {
-	return nullptr;
+	std::string text_result = "TextTrack";
+	return text_result;
 }
 
 int PrivateInstanceAAMP::GetTextTrack()
@@ -435,7 +445,8 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 
 std::string PrivateInstanceAAMP::GetVideoRectangle()
 {
-	return nullptr;
+	std::string video = "videorectangel"; 
+	return video;
 }
 
 void PrivateInstanceAAMP::SetAppName(std::string name)
@@ -462,17 +473,20 @@ void PrivateInstanceAAMP::SetTextStyle(const std::string &options)
 
 std::string PrivateInstanceAAMP::GetTextStyle()
 {
-	return nullptr;
+	std::string result = "sampleStyle";
+	return result;
 }
 
 std::string PrivateInstanceAAMP::GetThumbnailTracks()
 {
-	return nullptr;
+	std::string result = "ThumbnailTracks";
+	return result;
 }
 
 std::string PrivateInstanceAAMP::GetThumbnails(double tStart, double tEnd)
 {
-	return nullptr;
+	std::string result = "Thumbnail";
+	return result;
 }
 
 void PrivateInstanceAAMP::DisableContentRestrictions(long grace, long time, bool eventChange)
@@ -503,7 +517,8 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 
 std::string PrivateInstanceAAMP::GetPlaybackStats()
 {
-	return nullptr;
+	std::string result = "playbackstats";
+	return result;
 }
 
 void PrivateInstanceAAMP::individualization(const std::string& payload)
@@ -1060,9 +1075,7 @@ void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool stat
 void PrivateInstanceAAMP::ReportContentGap(long long timeMS, std::string id, double durationMS)
 {
 }
-void PrivateInstanceAAMP::SendMediaMetadataEvent()
-{
-}
+
 void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 {
 }
@@ -1107,7 +1120,8 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 
 std::string PrivateInstanceAAMP::GetVideoPlaybackQuality()
 {
-        return nullptr;
+	std::string result = "videoplayback";
+        return result;
 }
 
 void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat)

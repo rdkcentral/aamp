@@ -2027,8 +2027,8 @@ public:
 	 *   @return json string with video playback quality
 	 */
 	std::string GetVideoPlaybackQuality(void);
-private:
-	
+
+protected:
 	/**
 	 *   @fn IsValidRate
 	 *
