@@ -151,6 +151,12 @@ struct media_stream
 
 	}
 
+	~media_stream()
+	{
+		g_clear_object(&sinkbin);
+		g_clear_object(&source);
+	}
+
 	media_stream(const media_stream&)=delete;
 
 	media_stream& operator=(const media_stream&)=delete;
@@ -214,7 +220,7 @@ struct AAMPGstPlayerPriv
 	int numberOfVideoBuffersSent; 			/**< Number of video buffers sent to pipeline */
 	gint64 segmentStart; 				/**< segment start value; required when qtdemux is enabled and restamping is disabled */
 	GstQuery *positionQuery; 			/**< pointer that holds a position query object */
-        GstQuery *durationQuery; 			/**< pointer that holds a duration query object */
+	GstQuery *durationQuery; 			/**< pointer that holds a duration query object */
 	bool paused; 					/**< if pipeline is deliberately put in PAUSED state due to user interaction */
 	GstState pipelineState; 			/**< current state of pipeline */
 	TaskControlData firstVideoFrameDisplayedCallbackTask; /**< Task control data of the handler created for notifying state changed to Playing */
@@ -271,6 +277,23 @@ struct AAMPGstPlayerPriv
 		}
 	}
 	
+	~AAMPGstPlayerPriv()
+	{
+		g_clear_object(&pipeline);
+		g_clear_object(&bus);
+		g_clear_object(&video_dec);
+		g_clear_object(&audio_dec);
+		g_clear_object(&video_sink);
+		g_clear_object(&audio_sink);
+		g_clear_object(&subtitle_sink);
+		g_clear_object(&task_pool);
+		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
+		{
+			g_clear_object(&protectionEvent[i]);
+		}
+		g_clear_object(&positionQuery);
+		g_clear_object(&durationQuery);
+	}
 };
 
 static const char* GstPluginNamePR = "aampplayreadydecryptor";
@@ -1759,7 +1782,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 					g_object_get(_this->privateContext->pipeline, "video-sink", &videoSink, NULL); - reports NULL
 					note: alternate "window-set" works as well
 					*/
-					_this->privateContext->video_sink = (GstElement *) msg->src;
+					gst_object_replace((GstObject **)&_this->privateContext->video_sink, msg->src);
 					if (_this->privateContext->using_westerossink && !_this->aamp->mConfig->IsConfigSet(eAAMPConfig_EnableRectPropertyCfg))
 					{
 						AAMPLOG_WARN("AAMPGstPlayer - using westerossink, setting cached video mute and zoom");
@@ -1776,13 +1799,12 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 				}
 				else if (aamp_StartsWith(GST_OBJECT_NAME(msg->src), "brcmaudiosink") == true)
 				{
-					_this->privateContext->audio_sink = (GstElement *) msg->src;
-
+					gst_object_replace((GstObject **)&_this->privateContext->audio_sink, msg->src);
 					_this->setVolumeOrMuteUnMute();
 				}
 				else if (aamp_StartsWith(GST_OBJECT_NAME(msg->src), "amlhalasink") == true)
 				{
-					_this->privateContext->audio_sink = (GstElement *) msg->src;
+					gst_object_replace((GstObject **)&_this->privateContext->audio_sink, msg->src);
 					
 					g_object_set(_this->privateContext->audio_sink, "disable-xrun", TRUE, NULL);
 					// Apply audio settings that may have been set before pipeline was ready
@@ -1804,7 +1826,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 						|| aamp_StartsWith(GST_OBJECT_NAME(msg->src), "alsasink")
 						|| aamp_StartsWith(GST_OBJECT_NAME(msg->src), "fakesink") )
 				{
-					_this->privateContext->audio_sink = (GstElement *) msg->src;
+					gst_object_replace((GstObject **)&_this->privateContext->audio_sink, msg->src);
 					// Apply audio settings that may have been set before pipeline was ready
 					_this->setVolumeOrMuteUnMute();
 				}
@@ -1817,7 +1839,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 			{
 				if (AAMPGstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), _this))
 				{
-					_this->privateContext->video_dec = (GstElement *) msg->src;
+					gst_object_replace((GstObject **)&_this->privateContext->video_dec, msg->src);
 					type_check_instance("bus_sync_handle: video_dec ", _this->privateContext->video_dec);
 					g_signal_connect(_this->privateContext->video_dec, "first-video-frame-callback",
 									G_CALLBACK(AAMPGstPlayer_OnFirstVideoFrameCallback), _this);
@@ -1828,7 +1850,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 				}
 				else
 				{
-					_this->privateContext->audio_dec = (GstElement *) msg->src;
+					gst_object_replace((GstObject **)&_this->privateContext->audio_dec, msg->src);
 					type_check_instance("bus_sync_handle: audio_dec ", _this->privateContext->audio_dec);
 #if !defined(REALTEKCE)
 					g_signal_connect(msg->src, "first-audio-frame-callback",
@@ -2281,24 +2303,24 @@ void AAMPGstPlayer::TearDownStream(MediaType mediaType)
 			privateContext->decoderHandleNotified = false;
 		}
 		stream->format = FORMAT_INVALID;
-		stream->sinkbin = NULL;
-		stream->source = NULL;
+		g_clear_object(&stream->sinkbin);
+		g_clear_object(&stream->source);
 		stream->sourceConfigured = false;
 		pthread_mutex_unlock(&stream->sourceLock);
 	}
 	if (mediaType == eMEDIATYPE_VIDEO)
 	{
-		privateContext->video_dec = NULL;
-		privateContext->video_sink = NULL;
+		g_clear_object(&privateContext->video_dec);
+		g_clear_object(&privateContext->video_sink);
 	}
 	else if (mediaType == eMEDIATYPE_AUDIO)
 	{
-		privateContext->audio_dec = NULL;
-		privateContext->audio_sink = NULL;
+		g_clear_object(&privateContext->audio_dec);
+		g_clear_object(&privateContext->audio_sink);
 	}
 	else if (mediaType == eMEDIATYPE_SUBTITLE)
 	{
-		privateContext->subtitle_sink = NULL;
+		g_clear_object(&privateContext->subtitle_sink);
 	}
 
 	stream->mBufferControl.teardownEnd();
@@ -2354,9 +2376,10 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 					AAMPLOG_WARN("Cannot set up subtitle subtecbin");
 					return -1;
 				}
+				stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(stream->sinkbin));	/* Retain a counted reference to sinkbin. */
 				g_object_set(G_OBJECT(stream->sinkbin), "sync", FALSE, NULL);
 
-				stream->source = AAMPGstPlayer_GetAppSrc(_this, eMEDIATYPE_SUBTITLE);
+				stream->source = GST_ELEMENT(gst_object_ref_sink(AAMPGstPlayer_GetAppSrc(_this, eMEDIATYPE_SUBTITLE)));
 				gst_bin_add_many(GST_BIN(_this->privateContext->pipeline), stream->source, stream->sinkbin, NULL);		/* Add source and sink to the current pipeline */
 
 				if (!gst_element_link_many(stream->source, stream->sinkbin, NULL))			/* forms a GstElement link chain; linking stream->source to stream->sinkbin */
@@ -2367,13 +2390,13 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 
 				gst_element_sync_state_with_parent(stream->source);
 				gst_element_sync_state_with_parent(stream->sinkbin);
-				_this->privateContext->subtitle_sink = stream->sinkbin;
+				_this->privateContext->subtitle_sink = GST_ELEMENT(gst_object_ref(stream->sinkbin));
 				g_object_set(stream->sinkbin, "mute", _this->privateContext->subtitleMuted ? TRUE : FALSE, NULL);
 
 				return 0;
 #else
 				AAMPLOG_INFO("AAMPGstPlayer_SetupStream - subs using playbin");
-				stream->sinkbin = gst_element_factory_make("playbin", NULL);
+				stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));
 				auto vipertransform = gst_element_factory_make("vipertransform", NULL);
 				auto textsink = gst_element_factory_make("subtecsink", NULL);
 				auto subtitlebin = gst_bin_new("subtitlebin");
@@ -2388,7 +2411,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 		else
 		{
 			AAMPLOG_INFO("AAMPGstPlayer_SetupStream - using playbin");						/* Media is not subtitle, use the generic playbin */
-			stream->sinkbin = gst_element_factory_make("playbin", NULL);					/* Creates a new element of "playbin" type and returns a new GstElement */
+			stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));	/* Creates a new element of "playbin" type and returns a new GstElement */
 
 			if (_this->aamp->mConfig->IsConfigSet(eAAMPConfig_useTCPServerSink) )
 			{
@@ -2439,7 +2462,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 					g_object_set (G_OBJECT (appsink), "emit-signals", TRUE, "sync", TRUE, NULL);
 					g_signal_connect (appsink, "new-sample", G_CALLBACK (AAMPGstPlayer::AAMPGstPlayer_OnVideoSample), _this);
 					g_object_set(stream->sinkbin, "video-sink", appsink, NULL);
-					_this->privateContext->video_sink = appsink;
+					gst_object_replace(&_this->privateContext->video_sink, appsink);
 				}
 			}
 #endif
@@ -2523,7 +2546,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 	{
 		//TODO: For auxiliary audio playback, when using playersinkbin, we might have to set some additional
 		// properties, need to check
-		stream->source = AAMPGstPlayer_GetAppSrc(_this, streamId);
+		stream->source = GST_ELEMENT(gst_object_ref_sink(AAMPGstPlayer_GetAppSrc(_this, streamId)));
 		gst_bin_add(GST_BIN(_this->privateContext->pipeline), stream->source);
 		gst_element_sync_state_with_parent(stream->source);
 		stream->sinkbin = gst_element_factory_make("playersinkbin", NULL);
@@ -2532,6 +2555,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 			AAMPLOG_WARN("AAMPGstPlayer_SetupStream Cannot create sink");
 			return -1;
 		}
+		stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(stream->sinkbin));
 		g_signal_connect(stream->sinkbin, "event-callback", G_CALLBACK(AAMPGstPlayer_PlayersinkbinCB), _this);
 		gst_bin_add(GST_BIN(_this->privateContext->pipeline), stream->sinkbin);
 		gst_element_link(stream->source, stream->sinkbin);
@@ -3629,6 +3653,7 @@ long AAMPGstPlayer::GetDurationMilliseconds(void)
 					AAMPLOG_WARN("Duration query failed");
 				}
 				gst_query_unref(privateContext->durationQuery);		/* Decreases the refcount of the durationQuery. In this case the count will be zero, so it will be freed*/
+				privateContext->durationQuery = NULL;
 			}
 			else
 			{
