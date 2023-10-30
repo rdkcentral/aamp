@@ -382,6 +382,12 @@ void MediaStreamContext::ABRProfileChanged(void)
 
 			fragmentDescriptor.Bandwidth = representation->GetBandwidth();
             fragmentDescriptor.RepresentationID.assign(representation->GetId());
+            // Update timescale when video profile changes in ABR
+            SegmentTemplates segmentTemplates (representation->GetSegmentTemplate(), adaptationSet->GetSegmentTemplate());
+            if (segmentTemplates.HasSegmentTemplate())
+            {
+                fragmentDescriptor.TimeScale = segmentTemplates.GetTimescale();
+            }
             profileChanged = true;
         }
         else

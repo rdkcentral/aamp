@@ -149,6 +149,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,mLowLatencyMode(false)
 	,mABRMode(ABRMode::UNDEF)
 	,mLastManifestFileSize(0)
+	,mFirstVideoFragPTS(0)
 {
         FN_TRACE_F_MPD( __FUNCTION__ );
 	this->aamp = aamp;
@@ -160,10 +161,6 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	}
 #endif
 	memset(&mMediaStreamContext, 0, sizeof(mMediaStreamContext));
-	for (int i=0; i<AAMP_TRACK_COUNT; i++)
-	{
-		mFirstFragPTS[i] = 0.0;
-	}
 	GetABRManager().clearProfiles();
 	mLastPlaylistDownloadTimeMs = aamp_GetCurrentTimeMS();
 
@@ -953,7 +950,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	std::string fragmentUrl;
 	GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, media);
 	//CID:96900 - Removex the len variable which is initialized but not used
-	double position;
+	double position = ((double) pMediaStreamContext->fragmentDescriptor.Time) / ((double) pMediaStreamContext->fragmentDescriptor.TimeScale);
 	if(isInitializationSegment)
 	{
 		if(!(pMediaStreamContext->initialization.empty()) && (0 == pMediaStreamContext->initialization.compare(fragmentUrl))&& !discontinuity)
@@ -967,25 +964,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		}
 	}
 
-	double duration = fragmentDuration;
-	if(rate > AAMP_NORMAL_PLAY_RATE)
-	{
-		position = pMediaStreamContext->fragmentTime;
-		position = position/rate;
-		AAMPLOG_INFO("StreamAbstractionAAMP_MPD: rate %f pMediaStreamContext->fragmentTime %f updated position %f",
-				rate, pMediaStreamContext->fragmentTime, position);
-		int  vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS); 
-		duration = duration/rate * vodTrickplayFPS;
-		//aamp->disContinuity();
-		position += mFirstFragPTS[pMediaStreamContext->mediaType];
-	}
-	else
-	{
-		position = ((double) pMediaStreamContext->fragmentDescriptor.Time) / ((double) pMediaStreamContext->fragmentDescriptor.TimeScale);
-	}
-	// AAMPLOG_WARN("[%s] mFirstFragPTS %f  position new:%f old:%f ", pMediaStreamContext->name, mFirstFragPTS[pMediaStreamContext->mediaType], position, mFirstFragPTS[pMediaStreamContext->mediaType]+pMediaStreamContext->fragmentTime);
-
-	bool fragmentCached = pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, position, duration, NULL, isInitializationSegment, discontinuity
+	bool fragmentCached = pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, position, fragmentDuration, NULL, isInitializationSegment, discontinuity
 		,(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING), pto, scale);
 	// Check if we have downloaded the fragment and waiting for init fragment download on
 	// bitrate switching before caching it.
@@ -2469,18 +2448,22 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 								AAMPLOG_INFO("Player switched in rewind mode, adjusted skptime from %f to %f ", skipTime, skipTime - fragmentDuration);
 								skipTime -= fragmentDuration;
 							}
-							if (pMediaStreamContext->type == eTRACK_AUDIO && (mFirstFragPTS[eTRACK_VIDEO] || mFirstPTS || mVideoPosRemainder)){
+							if (pMediaStreamContext->type == eTRACK_AUDIO && (mFirstVideoFragPTS || mFirstPTS || mVideoPosRemainder)){
 								
 								/* need to adjust audio skipTime/seekPosition so 1st audio fragment sent matches start of 1st video fragment being sent */
-								double newSkipTime = skipTime + (mFirstFragPTS[eTRACK_VIDEO] - firstPTS); /* adjust for audio/video frag start PTS differences */
+								double newSkipTime = skipTime + (mFirstVideoFragPTS - firstPTS); /* adjust for audio/video frag start PTS differences */
 								newSkipTime -= mVideoPosRemainder;   /* adjust for mVideoPosRemainder, which is (video seekposition/skipTime - mFirstPTS) */
 								newSkipTime += fragmentDuration/4.0; /* adjust for case where video start is near end of current audio fragment by adding to the audio skipTime, pushing it into the next fragment, if close(within this adjustment) */
-								//							AAMPLOG_INFO("newSkiptime %f, skipTime %f  mFirstFragPTS[vid] %f  firstPTS %f  mFirstFragPTS[vid]-firstPTS %f mVideoPosRemainder %f  fragmentDuration/4.0 %f", newSkipTime, skipTime, mFirstFragPTS[eTRACK_VIDEO], firstPTS, mFirstFragPTS[eTRACK_VIDEO]-firstPTS, mVideoPosRemainder,  fragmentDuration/4.0);
+								//							AAMPLOG_INFO("newSkiptime %f, skipTime %f  mFirstFragPTS[vid] %f  firstPTS %f  mFirstFragPTS[vid]-firstPTS %f mVideoPosRemainder %f  fragmentDuration/4.0 %f", newSkipTime, skipTime, mFirstVideoFragPTS, firstPTS, mFirstVideoFragPTS-firstPTS, mVideoPosRemainder,  fragmentDuration/4.0);
 								skipTime = newSkipTime;
 							}
 						}
 						firstFrag = false;
-						mFirstFragPTS[pMediaStreamContext->mediaType] = firstPTS;
+						// Save the first video fragment PTS for checking alignment with audio first PTS
+						if (pMediaStreamContext->type == eTRACK_VIDEO)
+						{
+							mFirstVideoFragPTS = firstPTS;
+						}
 					}
 
 					if (skipToEnd)

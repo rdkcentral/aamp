@@ -967,10 +967,7 @@ bool MediaTrack::InjectFragment()
 			{
 				bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((MediaType)!type);
 				AAMPLOG_WARN("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack);
-				if (eTRACK_SUBTITLE != type)
-				{
-					cachedFragment->discontinuity = false;
-				}
+				cachedFragment->discontinuity = false;
 				ptsError = false;
 
 				/* GetESChangeStatus() check is specifically added to fix an audio loss issue (DELIA-55078) due to no reconfigure pipeline when there was an audio codec change for a very short period with no fragments.

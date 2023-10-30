@@ -848,7 +848,7 @@ private:
 	double mFirstPTS;
 	double mStartTimeOfFirstPTS;
 	double mVideoPosRemainder;
-	double mFirstFragPTS[AAMP_TRACK_COUNT];
+	double mFirstVideoFragPTS;
 	AudioType mAudioType;
 	int mPrevAdaptationSetCount;
 	std::vector<BitsPerSecond> mBitrateIndexVector;

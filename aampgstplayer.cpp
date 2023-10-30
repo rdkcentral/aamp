@@ -4568,6 +4568,8 @@ void AAMPGstPlayer::NotifyEOS()
 			Due to this 30 tick is reported. changing the logic to set task pending to true before adding the task in notifyEOS function
 			and making it pending task to false if task id is invalid and eoscallback is pending.*/
 			privateContext->eosCallbackIdleTaskPending = true;
+			// eosSignalled is reset once the async task is completed either in Configure/Flush/ResetEOSSignalled, so set the flag before scheduling the task
+			privateContext->eosSignalled = true;
 			privateContext->eosCallbackIdleTaskId = aamp->ScheduleAsyncTask(IdleCallbackOnEOS, (void *)this, "IdleCallbackOnEOS");
 			if (privateContext->eosCallbackIdleTaskId == AAMP_TASK_ID_INVALID && true == privateContext->eosCallbackIdleTaskPending)
 			{
@@ -4586,7 +4588,6 @@ void AAMPGstPlayer::NotifyEOS()
 			AAMPLOG_WARN("IdleCallbackOnEOS already registered previously, hence skip! eosCallbackIdleTaskPending(%d),eosCallbackIdleTaskId(%d)", 
 														(privateContext->eosCallbackIdleTaskPending ? 1 : 0),privateContext->eosCallbackIdleTaskId);
 		}
-		privateContext->eosSignalled = true;
 	}
 	else
 	{
