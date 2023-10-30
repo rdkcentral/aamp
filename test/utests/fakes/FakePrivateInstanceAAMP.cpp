@@ -1150,3 +1150,11 @@ void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
 void PrivateInstanceAAMP::ResumeTrackDownloads(MediaType)
 {
 }
+
+void PrivateInstanceAAMP::SetDiscontinuityParam()
+{
+}
+
+void PrivateInstanceAAMP::SetLatencyParam(double latency)
+{
+}

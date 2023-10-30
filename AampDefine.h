@@ -137,7 +137,7 @@
 #define MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (6000)
 #define MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (500) // 500mSec
 #define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
-
+#define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) /**< time interval for the telemetry reporting 300sec*/
 
 // Player supported play/trick-play rates.
 #define AAMP_RATE_TRICKPLAY_MAX		64

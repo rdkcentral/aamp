@@ -1099,7 +1099,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 /**
  * @brief PrivateInstanceAAMP Constructor
  */
-PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mAbrBitrateData(), mLock(), mMutexAttr(),
+PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mLastTelemetryTimeMS(0), mDiscontinuityFound(false), mTelemetryInterval(0), mAbrBitrateData(), mLock(), mMutexAttr(),
 	mpStreamAbstractionAAMP(NULL), mInitSuccess(false), mVideoFormat(FORMAT_INVALID), mAudioFormat(FORMAT_INVALID), mDownloadsDisabled(),
 	mDownloadsEnabled(true), mStreamSink(NULL), profiler(), licenceFromManifest(false), previousAudioType(eAUDIO_UNKNOWN),isPreferredDRMConfigured(false),
 	mbDownloadsBlocked(false), streamerIsActive(false), mTSBEnabled(false), mIscDVR(false), mLiveOffset(AAMP_LIVE_OFFSET),
@@ -1368,6 +1368,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
 
 	mTrackGrowableBufMem = ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory);
+	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
 }
 
 /**
@@ -1893,6 +1894,7 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 							UpdateVideoEndMetrics(rateRequired);
 							SendAnomalyEvent(ANOMALY_WARNING, "Rate changed to:%f", rateRequired);
 							AAMPLOG_INFO("Rate Changed to : %f ", rateRequired);
+							profiler.IncrementChangeCount(Count_RateCorrection);
 						}
 					}
 				}
@@ -2031,6 +2033,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			{
 				latency = end - position;
 			}
+			SetCurrentLatency(latency);
 			// update available buffer to Manifest refresh cycle .
 			if(mMPDDownloaderInstance != nullptr)
 			{
@@ -2099,6 +2102,15 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 						mNetworkBandwidth,
 						currentRate);
 				}
+			}
+
+			long long currTimeMS = aamp_GetCurrentTimeMS();
+			long long diff = currTimeMS - mLastTelemetryTimeMS;
+			if(mTelemetryInterval > 0 && (diff > mTelemetryInterval))
+			{
+				mLastTelemetryTimeMS = currTimeMS;
+				profiler.SetLatencyParam(latency);
+				profiler.GetTelemetryParam();
 			}
 
 			if (sync)
@@ -2850,7 +2862,15 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 #ifndef AAMP_STOP_SINK_ON_SEEK
 			if (mMediaFormat != eMEDIAFORMAT_HLS_MP4) // Avoid calling flush for fmp4 playback.
 			{
+				if(mDiscontinuityFound)
+				{
+					profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FLUSH);
+				}
 				mStreamSink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				if(mDiscontinuityFound)
+				{
+					profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
+				}
 			}
 #else
 			mStreamSink->Stop(true);
@@ -2865,6 +2885,11 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 				mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus(),
 				mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
+
+			if(mDiscontinuityFound)
+			{
+				profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FIRST_FRAME);
+			}
 			mpStreamAbstractionAAMP->StartInjection();
 			mStreamSink->Stream();
 			mIsTrackIdMismatch = false;
@@ -2919,7 +2944,11 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 	bool isLive = IsLive();
 
 	AAMPLOG_WARN("Enter . processingDiscontinuity %d isLive %d", isDiscontinuity, isLive);
-
+	mDiscontinuityFound = isDiscontinuity;
+	if(mDiscontinuityFound)
+	{
+		profiler.ProfileBegin(PROFILE_BUCKET_DISCO_TOTAL);
+	}
 	if (!isDiscontinuity)
 	{
 		/*
@@ -4759,6 +4788,12 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 	ui32CurlTrace=0;
 
+	if((mTelemetryInterval == 0) && mbPlayEnabled)
+	{
+		mTelemetryInterval = GETCONFIGVALUE_PRIV(eAAMPConfig_TelemetryInterval) * 1000;
+		mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
+	}
+
 	if (newTune)
 	{
 
@@ -6173,6 +6208,7 @@ void PrivateInstanceAAMP::detach()
 		mbPlayEnabled = false;
 		mbDetached=true;
 		mPlayerPreBuffered  = false;
+		mTelemetryInterval = 0;
 		//EnableDownloads();// enable downloads
 	}
 }
@@ -7020,7 +7056,14 @@ void PrivateInstanceAAMP::Stop()
 	}
 
 	UnblockWaitForDiscontinuityProcessToComplete();
-	StopRateCorrectionWokerthread();	
+	StopRateCorrectionWokerthread();
+	if(mTelemetryInterval > 0)
+	{
+		double latency = GetCurrentLatency();
+		profiler.SetLatencyParam(latency);
+		profiler.GetTelemetryParam();
+		mTelemetryInterval = 0;
+	}
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
@@ -7101,6 +7144,7 @@ void PrivateInstanceAAMP::Stop()
 	//mPreferredAudioTrack = AudioTrackInfo(); // reset
 	mPreferredTextTrack = TextTrackInfo(); // reset
 	// send signal to any thread waiting for play
+	mDiscontinuityFound = false;
 	pthread_mutex_lock(&mMutexPlaystart);
 	pthread_cond_broadcast(&waitforplaystart);
 	pthread_mutex_unlock(&mMutexPlaystart);
@@ -9030,6 +9074,23 @@ bool PrivateInstanceAAMP::WebVTTCueListenersRegistered(void)
 void PrivateInstanceAAMP::GetCustomLicenseHeaders(std::unordered_map<std::string, std::vector<std::string>>& customHeaders)
 {
 	customHeaders.insert(mCustomLicenseHeaders.begin(), mCustomLicenseHeaders.end());
+}
+
+/**
+ * @brief to mark the discontinuity switch and save the Parameters
+ */
+void PrivateInstanceAAMP::SetDiscontinuityParam()
+{
+	profiler.SetDiscontinuityParam();
+	mDiscontinuityFound = false;
+}
+
+/**
+ * @brief to mark the latency Parameters
+ */
+void PrivateInstanceAAMP::SetLatencyParam(double latency)
+{
+	profiler.SetLatencyParam(latency);
 }
 
 /**

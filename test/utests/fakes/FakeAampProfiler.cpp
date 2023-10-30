@@ -55,3 +55,18 @@ void ProfileEventAAMP::ProfileReset(ProfilerBucketType)
 {
 }
 
+void ProfileEventAAMP::SetLatencyParam(double)
+{
+}
+
+void ProfileEventAAMP::SetDiscontinuityParam()
+{
+}
+
+void ProfileEventAAMP::IncrementChangeCount(CountType)
+{
+}
+
+void ProfileEventAAMP::GetTelemetryParam()
+{
+}

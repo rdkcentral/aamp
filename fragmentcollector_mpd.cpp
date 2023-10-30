@@ -11790,6 +11790,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 
 							if ( rateCorrected )
 							{
+								aamp->profiler.IncrementChangeCount(Count_RateCorrection);
 								aamp->SetLLDashCurrentPlayBackRate(playRate);
 							}
 						}

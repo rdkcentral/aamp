@@ -576,7 +576,7 @@ class PrivateInstanceAAMP : public AampDrmCallbacks, public std::enable_shared_f
 
 	//The position previously reported by ReportProgress() (i.e. the position really sent, using SendEvent())
 	double mReportProgressPosn;
-
+	long long mLastTelemetryTimeMS;
 public:
 	/**
 	 * @brief Get profiler bucket type
@@ -756,6 +756,21 @@ public:
 
 	struct curl_slist* GetCustomHeaders(MediaType fileType);
 
+	/**
+	 * @fn SetDiscontinuityParam - to mark the discontinuity and save the details
+	 * @return void
+	 */
+	void SetDiscontinuityParam();
+
+	/**
+	 * @fn SetLatencyParam - to mark the latency details
+	 * @param latency - latency value
+	 * @return void
+	 */
+	void SetLatencyParam(double latency);
+
+	bool mDiscontinuityFound;
+	int mTelemetryInterval;
 	std::vector< std::pair<long long,long> > mAbrBitrateData;
 
 	pthread_mutex_t mLock;				/**< = PTHREAD_MUTEX_INITIALIZER; */

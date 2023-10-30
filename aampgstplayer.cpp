@@ -989,6 +989,11 @@ void AAMPGstPlayer::NotifyFirstFrame(MediaType type)
 
 	if (eMEDIATYPE_VIDEO == type)
 	{
+                if((aamp->mTelemetryInterval > 0) && aamp->mDiscontinuityFound)
+                {
+                        aamp->SetDiscontinuityParam();
+                }
+
 		AAMPLOG_WARN("AAMPGstPlayer_OnFirstVideoFrameCallback. got First Video Frame");
 
 		// DELIA-42262: No additional checks added here, since the NotifyFirstFrame will be invoked only once
@@ -2944,6 +2949,10 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 			if (!privateContext->using_westerossink)
 			{
 				aamp->NotifyFirstBufferProcessed();
+				if((aamp->mTelemetryInterval > 0) && aamp->mDiscontinuityFound)
+				{
+					aamp->SetDiscontinuityParam();
+				}
 			}
 
 #ifdef REALTEKCE // HACK: Have this hack until reakteck Westeros fixes missing first frame call back missing during trick play.

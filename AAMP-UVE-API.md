@@ -1,6 +1,6 @@
 
 # ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
-# V5.3
+# V5.11
  
 ## Overview
 
@@ -316,6 +316,18 @@ September 2023 Release update
     - resetConfiguration
     - getConfiguration
 
+**Version:** 5.10
+**Release Notes:**
+October 2023 Release update
+- Events:
+    - AAMP_EVENT_TUNE_TIME_METRICS(Updated the tune metric info)
+
+**Version:** 5.11
+**Release Notes:**
+November 2023 Release update
+- Configuration:
+    - telemetryInterval
+
 <div style="page-break-after: always;"></div>
 
 ## Abbreviation Summary 
@@ -444,6 +456,7 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | connectTimeout | Number | 3 | Curl socket connection timeout for fragment/playlist/manifest downloads (in seconds) |
 | dnsCacheTimeout | Number | 180 | life-time for DNS cache entries ,Name resolve results are cached for manifest and used for this number of seconds |
 | tsbtype | String |  | Use the "tsbtype" configuration for each playback session, where "local" retains existing FOG streaming logic, "cloud" enables direct CDN streaming, and if "tsbtype" is not provided, default to "none," disabling TSB playback |
+| telemetryInterval | Number | 300 | telemetry log interval . Default of 300 seconds . 0 to disable telemetry logging |
 
 
 Example:

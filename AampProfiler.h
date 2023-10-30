@@ -29,6 +29,7 @@
 #include <list>
 #include <sstream>
 #include <string>
+#include <cjson/cJSON.h>
 #include "AampLogManager.h"
 
 /**
@@ -72,7 +73,11 @@ typedef enum
 	PROFILE_BUCKET_FIRST_BUFFER,        /**< First buffer to gstreamer bucket*/
 	PROFILE_BUCKET_FIRST_FRAME,         /**< First frame displayed bucket*/
 	PROFILE_BUCKET_PLAYER_PRE_BUFFERED, /**< Prebuffer bucket ( BG to FG )*/
-	PROFILE_BUCKET_TYPE_COUNT           /**< Bucket count*/
+
+	PROFILE_BUCKET_DISCO_TOTAL,          /**< Discontinuity transition total bucket*/
+	PROFILE_BUCKET_DISCO_FLUSH,           /**< Discontinuity transition pipeline flush bucket*/
+	PROFILE_BUCKET_DISCO_FIRST_FRAME,      /**< Discontinuity transition first frame displayed bucket*/
+	PROFILE_BUCKET_TYPE_COUNT           /**< Bucket count*/	
 } ProfilerBucketType;
 
 /**
@@ -91,6 +96,17 @@ typedef enum
 	TuneTimeBackToXre,          /**< Tune status back to XRE time*/
 	TuneTimeMax                 /**< Max bucket type*/
 } ClassicProfilerBucketType;
+
+/**
+ * @enum ContentType
+ * @brief Asset's content types
+ */
+enum CountType
+{
+	Count_RateCorrection,        /**< 0 - Rate correction count */
+	Count_BufferChange,          /**< 1 - Buffer change count*/
+	Count_BitrateChange,         /**< 2 - Bitrate change count */
+};
 
 /**
  * @enum ContentType
@@ -211,7 +227,11 @@ private:
 	ProfilerBucketType mTuneFailBucketType; /**< ProfilerBucketType in case of error */
 	int mTuneFailErrorCode;			/**< tune Fail Error Code */
 	AampLogManager *mLogObj;
-
+	int rateCorrection;						/**< Rate correction change count */
+	int bitrateChange;						/**< Bitrate change count */						
+	int bufferChange;						/**< buffer change count */
+	cJSON *telemetryParam;					/**< telemetry json object */
+	std::mutex discontinuityParamMutex;		/**< mutex protecting discontinuity telemetry parameter */
 	/**
 	 * @brief Calculating effective time of two overlapping buckets.
 	 *
@@ -237,7 +257,12 @@ public:
 	/**
 	 * @brief ProfileEventAAMP Destructor
 	 */
-	~ProfileEventAAMP(){}
+	~ProfileEventAAMP(){
+		if(telemetryParam != NULL)
+		{
+			cJSON_Delete(telemetryParam);
+		}
+	}
 	/**
          * @brief Copy constructor disabled
          *
@@ -379,6 +404,33 @@ public:
 	void SetTuneFailCode(int tuneFailCode, ProfilerBucketType failBucketType);
 	
 	void SetLogger(AampLogManager *logObj) { mLogObj = logObj;}
+
+	/**
+	 * @fn SetDiscontinuityParam - to mark the discontinuity switch and save the parameters
+	 * @return void
+	 */
+	void SetDiscontinuityParam();
+
+	/**
+	 * @fn SetLatencyParam - to mark the latency parameters
+	 * @param latency - latency value
+	 * @return void
+	 */
+	void SetLatencyParam(double latency);
+
+	/**
+	 * @fn IncrementChangeCount - to increment the changes in buffer, ratecorrection and bitrate
+	 * @param[in] type - type (buffer/ratecorrection/bitrate)
+	 * @return void
+	 */
+	void IncrementChangeCount(CountType type);
+
+	/**
+	 * @fn GetTelemetryParam - to log the telemetry parameters
+	 * @return void
+	 */
+	void GetTelemetryParam();
+
 };
 
 #endif /* __AAMP_PROFILER_H__ */

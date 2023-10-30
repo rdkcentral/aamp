@@ -286,6 +286,7 @@ typedef enum
 	eAAMPConfig_DrmStallTimeout,                                            /**< Stall Timeout for DRM license request*/
 	eAAMPConfig_DrmStartTimeout,						/**< Start Timeout for DRM license request*/
 	eAAMPConfig_TimeBasedBufferSeconds,
+	eAAMPConfig_TelemetryInterval,						/**< time interval for the telemetry reporting*/
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)

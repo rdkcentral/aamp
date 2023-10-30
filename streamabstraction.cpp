@@ -172,6 +172,7 @@ void MediaTrack::MonitorBufferHealth()
 			{
 				AAMPLOG_WARN("aamp: track[%s] buffering %s->%s", name, GetBufferHealthStatusString(prevBufferStatus),
 						GetBufferHealthStatusString(bufferStatus));
+				aamp->profiler.IncrementChangeCount(Count_BufferChange);
 				prevBufferStatus = bufferStatus;
 			}
 			else
@@ -1756,6 +1757,7 @@ void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamIn
 			/* END: Added As Part of DELIA-28363 and DELIA-28247 */
 
 			// Send bitrate notification
+			aamp->profiler.IncrementChangeCount(Count_BitrateChange);
 			aamp->NotifyBitRateChangeEvent( (int)cacheFragStreamInfo.bandwidthBitsPerSecond,
 					cacheFragStreamInfo.reason, cacheFragStreamInfo.resolution.width,
 					cacheFragStreamInfo.resolution.height, cacheFragStreamInfo.resolution.framerate, position, lGetBWIndex);

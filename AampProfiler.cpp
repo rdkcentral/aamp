@@ -37,9 +37,8 @@
 ProfileEventAAMP::ProfileEventAAMP():
 	tuneStartMonotonicBase(0), tuneStartBaseUTCMS(0), bandwidthBitsPerSecondVideo(0),
         bandwidthBitsPerSecondAudio(0), buckets(), drmErrorCode(0), enabled(false), xreTimeBuckets(), tuneEventList(),
-	tuneEventListMtx(), mTuneFailBucketType(PROFILE_BUCKET_MANIFEST), mTuneFailErrorCode(0),mLogObj(NULL)
+	tuneEventListMtx(), mTuneFailBucketType(PROFILE_BUCKET_MANIFEST), mTuneFailErrorCode(0),mLogObj(NULL), rateCorrection(0), bitrateChange(0), bufferChange(0), telemetryParam(NULL), discontinuityParamMutex()
 {
-
 }
 
 /**
@@ -103,6 +102,14 @@ void ProfileEventAAMP::TuneBegin(void)
 	mTuneFailBucketType = PROFILE_BUCKET_MANIFEST;
 	mTuneFailErrorCode = 0;
 	tuneEventList.clear();
+	rateCorrection = 0;
+	bitrateChange = 0;
+	bufferChange = 0;
+	if(telemetryParam != NULL)
+	{
+		cJSON_Delete(telemetryParam);
+	}
+	telemetryParam = cJSON_CreateObject();
 }
 
 /**
@@ -363,6 +370,96 @@ void ProfileEventAAMP::SetTuneFailCode(int tuneFailCode, ProfilerBucketType fail
 		AAMPLOG_INFO("Tune Fail: ProfilerBucketType: %d, tuneFailCode: %d", failBucketType, tuneFailCode);
 		mTuneFailErrorCode = tuneFailCode;
 		mTuneFailBucketType = failBucketType;
+	}
+}
+
+/**
+ * @brief to mark the discontinuity switch and save the parameters
+ */
+void ProfileEventAAMP::SetDiscontinuityParam()
+{
+	ProfileEnd(PROFILE_BUCKET_DISCO_FIRST_FRAME);
+	ProfileEnd(PROFILE_BUCKET_DISCO_TOTAL);
+	std::lock_guard<std::mutex> lock(discontinuityParamMutex);
+	if(telemetryParam)
+	{
+		cJSON* discontinuity = cJSON_AddArrayToObject(telemetryParam, "disc");
+		if(discontinuity)
+		{
+			cJSON* item;
+			unsigned int total = bucketDuration(PROFILE_BUCKET_DISCO_TOTAL);
+			unsigned int flush = bucketDuration(PROFILE_BUCKET_DISCO_FLUSH);
+			unsigned int fframe = bucketDuration(PROFILE_BUCKET_DISCO_FIRST_FRAME);
+			unsigned int diff = total - (flush + fframe);
+			cJSON_AddItemToArray(discontinuity, item = cJSON_CreateObject());
+			cJSON_AddNumberToObject(item,"tt",total);
+			cJSON_AddNumberToObject(item,"ft",flush);
+			cJSON_AddNumberToObject(item,"fft",fframe);
+			cJSON_AddNumberToObject(item,"d",diff);
+			ProfileReset(PROFILE_BUCKET_DISCO_TOTAL);
+			ProfileReset(PROFILE_BUCKET_DISCO_FLUSH);
+			ProfileReset(PROFILE_BUCKET_DISCO_FIRST_FRAME);
+		}
+	}
+}
+
+/**
+ * @brief to mark the latency parameters
+ */
+void ProfileEventAAMP::SetLatencyParam(double latency)
+{
+	if(latency != 0)
+	{
+		cJSON_AddNumberToObject(telemetryParam,"lt",latency);
+	}
+	if(rateCorrection != 0)
+	{
+		cJSON_AddNumberToObject(telemetryParam,"rtc",rateCorrection);
+		rateCorrection = 0;
+	}
+	if(bitrateChange != 0)
+	{
+		cJSON_AddNumberToObject(telemetryParam,"btc",bitrateChange);
+		bitrateChange = 0;
+	}
+	if(bufferChange != 0)
+	{
+		cJSON_AddNumberToObject(telemetryParam,"bfc",bufferChange);
+		bufferChange = 0;
+	}
+}
+
+/**
+ * @brief IncrementChangeCount - to increment the changes in buffer, ratecorrection and bitrate
+ */
+void ProfileEventAAMP::IncrementChangeCount(CountType type)
+{
+	if(type == Count_RateCorrection)
+	{
+		rateCorrection++;
+	}
+	else if(type == Count_BitrateChange)
+	{
+		bitrateChange++;
+	}
+	else if(type == Count_BufferChange)
+	{
+		bufferChange++;
+	}
+}
+
+/**
+ * @brief to log the telemetry parameters
+ */
+void ProfileEventAAMP::GetTelemetryParam()
+{
+	std::lock_guard<std::mutex> lock(discontinuityParamMutex);
+	if(telemetryParam != NULL)
+	{
+		std::string jsonStr = cJSON_PrintUnformatted(telemetryParam);
+		AAMPLOG_WARN("Telemetry values %s", jsonStr.c_str());
+		cJSON_Delete(telemetryParam);
+		telemetryParam = cJSON_CreateObject();
 	}
 }
 
