@@ -1825,15 +1825,18 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection))
 	{
 		int latencyMonitorInterval = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyMonitorInterval);
+		double normalPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_NormalLatencyCorrectionPlaybackRate);
+		double maxPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxLatencyCorrectionPlaybackRate);
+		double minPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_MinLatencyCorrectionPlaybackRate);
 		while(!mAbortRateCorrection)
 		{
-			mCorrectionRate = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
+			mCorrectionRate = rate; /**< To align with main playback rate start with rate*/
+			double rateRequired = normalPlaybackRate; /**< Can be vary for debug*/
 			TimedWaitForLatencyCheck(500);
 			while(DownloadsAreEnabled())
 			{
 				InterruptableMsSleep(latencyMonitorInterval * 1000);
 				PrivAAMPState state;
-				double rateRequired = mCorrectionRate;
 				GetState(state);
 				if (!mAbortRateCorrection &&!mDisableRateCorrection && DownloadsAreEnabled() && state == eSTATE_PLAYING)
 				{
@@ -1862,17 +1865,17 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 					AAMPLOG_INFO("Current latency is : %lf and current rate is %f mLiveOffset:%lf mLiveOffsetDrift:%lf bufferedDuration:%lf", latency, mCorrectionRate, mLiveOffset, mLiveOffsetDrift, bufferedDuration);
 					if ((latency > (mLiveOffset + mLiveOffsetDrift)) && isEnoughBuffer)
 					{
-						rateRequired = DEFAULT_MAX_RATE_CORRECTION_SPEED;
+						rateRequired = maxPlaybackRate;
 					}
 					else if (latency < (mLiveOffset - mLiveOffsetDrift))
 					{
-						rateRequired = DEFAULT_MIN_RATE_CORRECTION_SPEED;
+						rateRequired = minPlaybackRate;
 					}
-					else if (((latency <= mLiveOffset) && mCorrectionRate ==  DEFAULT_MAX_RATE_CORRECTION_SPEED) ||
-							((latency >= mLiveOffset) && mCorrectionRate == DEFAULT_MIN_RATE_CORRECTION_SPEED) ||
-							((mCorrectionRate ==  DEFAULT_MAX_RATE_CORRECTION_SPEED) && !isEnoughBuffer)) 
+					else if (((latency <= mLiveOffset) && mCorrectionRate ==  maxPlaybackRate) ||
+							((latency >= mLiveOffset) && mCorrectionRate == minPlaybackRate) ||
+							((mCorrectionRate ==  maxPlaybackRate) && !isEnoughBuffer)) 
 					{
-						rateRequired = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
+						rateRequired = normalPlaybackRate;
 					}
 
 					if((mCorrectionRate != rateRequired) && mStreamSink && !mDiscontinuityTuneOperationInProgress)
@@ -1888,12 +1891,12 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 				}
 				else
 				{
-					if (mDisableRateCorrection && DownloadsAreEnabled() && (rate == AAMP_NORMAL_PLAY_RATE && mCorrectionRate != DEFAULT_NORMAL_RATE_CORRECTION_SPEED))
+					if (mDisableRateCorrection && DownloadsAreEnabled() && (rate == AAMP_NORMAL_PLAY_RATE && mCorrectionRate != normalPlaybackRate))
 					{
 						//Rate correction stopping from correction rate so reset to normal
-						if (mStreamSink->SetPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED))
+						if (mStreamSink->SetPlayBackRate(normalPlaybackRate))
 						{
-							mCorrectionRate = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
+							mCorrectionRate = normalPlaybackRate;
 							AAMPLOG_INFO("Rate Changed to : %f ", mCorrectionRate);
 						}
 						else

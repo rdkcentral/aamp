@@ -164,8 +164,8 @@
 #define DEFAULT_MIN_LOW_LATENCY			3					/**< min Default Latency */
 #define DEFAULT_MAX_LOW_LATENCY			9					/**< max Default Latency */
 #define DEFAULT_TARGET_LOW_LATENCY			6					/**< Target Default Latency */
-#define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.90f					/**< min Rate correction speed */
-#define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.10f					/**< max Rate correction speed */
+#define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.97f		/**< min Rate correction speed */
+#define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.03f		/**< max Rate correction speed */
 #define DEFAULT_NORMAL_RATE_CORRECTION_SPEED    1.00f	   	/**< Live Catchup Normal play rate */
 #define AAMP_LLD_LATENCY_MONITOR_INTERVAL 		(1)   		/**< Latency monitor interval for LLD*/
 #define AAMP_LLD_MINIMUM_CACHE_SEGMENTS 		(2)     	/**< Number of segments to be cached minimum before rate change*/
@@ -182,7 +182,7 @@
 #define DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE		(DEFAULT_AAMP_ABR_THRESHOLD_SIZE)	/**< aamp abr Chunk threshold size */
 #define DEFAULT_ABR_CHUNK_SPEEDCNT			10					/**< Chunk Speed Count Store Size */
 #define DEFAULT_ABR_ELAPSED_MILLIS_FOR_ESTIMATE		100					/**< Duration(ms) to check Chunk Speed */
-#define AAMP_LLDABR_MIN_BUFFER_VALUE			1.5f
+#define AAMP_LLDABR_MIN_BUFFER_VALUE			500.00f                  /** 0.5 sec */
 #define DEFAULT_ABR_BYTES_TRANSFERRED_FOR_ESTIMATE	(512 * 1024)				/**< 512K */
 #define MAX_MDAT_NOT_FOUND_COUNT			500					/**< Max MDAT not found count*/
 #define DEFAULT_CONTENT_PROTECTION_DATA_UPDATE_TIMEOUT	5000					/**< Default Timeout for Content Protection Data Update on Dynamic Key Rotation */

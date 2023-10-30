@@ -432,7 +432,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{MAX_GST_VIDEO_BUFFER_BYTES,"gstVideoBufBytes", eAAMPConfig_GstVideoBufBytes,false},
 	{MAX_GST_AUDIO_BUFFER_BYTES,"gstAudioBufBytes", eAAMPConfig_GstAudioBufBytes,false},
 	{DEFAULT_LATENCY_MONITOR_DELAY,"latencyMonitorDelay",eAAMPConfig_LatencyMonitorDelay,false},
-	{DEFAULT_LATENCY_MONITOR_INTERVAL,"latencyMonitorInterval",eAAMPConfig_LatencyMonitorInterval,false},
+	{AAMP_LLD_LATENCY_MONITOR_INTERVAL,"latencyMonitorInterval",eAAMPConfig_LatencyMonitorInterval,false},
 	{DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK,"downloadBufferChunks",eAAMPConfig_MaxFragmentChunkCached,false},
 	{DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE,"abrChunkThresholdSize",eAAMPConfig_ABRChunkThresholdSize,false},
 	{DEFAULT_MIN_LOW_LATENCY,"lowLatencyMinValue",eAAMPConfig_LLMinLatency,false},
@@ -485,6 +485,9 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{AAMP_CDVR_LIVE_OFFSET,"cdvrLiveOffset",eAAMPConfig_CDVRLiveOffset,true,eCONFIG_RANGE_LIVEOFFSET},
 	{DEFAULT_CURL_CONNECTTIMEOUT,"connectTimeout",eAAMPConfig_Curl_ConnectTimeout,true},
 	{DEFAULT_DNS_CACHE_TIMEOUT,"dnsCacheTimeout",eAAMPConfig_Dns_CacheTimeout,true},
+	{DEFAULT_MIN_RATE_CORRECTION_SPEED,"minLatencyCorrectionPlaybackRate",eAAMPConfig_MinLatencyCorrectionPlaybackRate,false},
+	{DEFAULT_MAX_RATE_CORRECTION_SPEED,"maxLatencyCorrectionPlaybackRate",eAAMPConfig_MaxLatencyCorrectionPlaybackRate,false},
+	{DEFAULT_NORMAL_RATE_CORRECTION_SPEED,"normalLatencyCorrectionPlaybackRate",eAAMPConfig_NormalLatencyCorrectionPlaybackRate,false},
 };
 
 /**

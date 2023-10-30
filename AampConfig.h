@@ -306,6 +306,9 @@ typedef enum
 	eAAMPConfig_CDVRLiveOffset, 						/**< CDVR LIVE offset*/
 	eAAMPConfig_Curl_ConnectTimeout,					/**< Curl timeout for the connect phase*/
 	eAAMPConfig_Dns_CacheTimeout, 						/**< Curl life-time for DNS cache entries*/
+	eAAMPConfig_MinLatencyCorrectionPlaybackRate,       /**< Latency adjust/buffer correction min playback rate*/
+	eAAMPConfig_MaxLatencyCorrectionPlaybackRate,       /**< Latency correction max playback rate*/
+	eAAMPConfig_NormalLatencyCorrectionPlaybackRate,    /**< Nomral playback rate for LLD stream; backdoor for debug*/
 	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
 } AAMPConfigSettingFloat;
 #define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)

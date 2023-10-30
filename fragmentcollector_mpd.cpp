@@ -11590,7 +11590,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 	FN_TRACE_F_MPD( __FUNCTION__ );
 	int latencyMonitorDelay = GETCONFIGVALUE(eAAMPConfig_LatencyMonitorDelay);
 	int latencyMonitorInterval = GETCONFIGVALUE(eAAMPConfig_LatencyMonitorInterval);
-	
+	double normalPlaybackRate =  GETCONFIGVALUE(eAAMPConfig_NormalLatencyCorrectionPlaybackRate);
 	assert(latencyMonitorDelay >= latencyMonitorInterval);
 
 	AAMPLOG_TRACE("latencyMonitorDelay %d latencyMonitorInterval=%d", latencyMonitorDelay,latencyMonitorInterval );
@@ -11607,7 +11607,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 	int monitorInterval = latencyMonitorInterval  * 1000;
 	AAMPLOG_INFO( "Speed correction state:%d", aamp->GetLLDashAdjustSpeed());
 
-	aamp->SetLLDashCurrentPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED);
+	aamp->SetLLDashCurrentPlayBackRate(normalPlaybackRate);
 
 	while(keepRunning)
 	{
@@ -11663,10 +11663,10 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 					if(ISCONFIGSET(eAAMPConfig_EnableLowLatencyCorrection) && 
 						pAampLLDashServiceData->minPlaybackRate !=0 && 
 						pAampLLDashServiceData->minPlaybackRate < pAampLLDashServiceData->maxPlaybackRate &&
-						pAampLLDashServiceData->minPlaybackRate < DEFAULT_NORMAL_RATE_CORRECTION_SPEED &&
+						pAampLLDashServiceData->minPlaybackRate < normalPlaybackRate &&
 						pAampLLDashServiceData->maxPlaybackRate !=0 && 
 						pAampLLDashServiceData->maxPlaybackRate > pAampLLDashServiceData->minPlaybackRate &&
-						pAampLLDashServiceData->maxPlaybackRate > DEFAULT_NORMAL_RATE_CORRECTION_SPEED)
+						pAampLLDashServiceData->maxPlaybackRate > normalPlaybackRate)
 					{
 						bool reportEvent = false;
 						double buffervalue = GetBufferedDuration();
@@ -11730,7 +11730,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 							/** latency corrected; stop max rate playback*/
 							latencyCorrected = true;
 							reportEvent = true;
-							playRate = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
+							playRate = normalPlaybackRate;
 						}
 						else if (((currentLatency >= (long)pAampLLDashServiceData->targetLatency) &&  currPlaybackRate == pAampLLDashServiceData->minPlaybackRate) && (buffervalue < minbuffer))
 						{
@@ -11739,14 +11739,14 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 								bufferCorrectionStarted = false;
 								reportEvent = false;
 								/** Buffer corrected, stop min playback; No need to send event **/
-								playRate = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
+								playRate = normalPlaybackRate;
 							}
 							else
 							{
 								/** rate corrected; stop min rate playback*/
 								latencyCorrected = true;
 								reportEvent = true;
-								playRate = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
+								playRate = normalPlaybackRate;
 							}
 						}
 						else if ((currPlaybackRate ==  pAampLLDashServiceData->maxPlaybackRate) && !isEnoughBuffer)
@@ -11754,7 +11754,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 							/**< Stop max plaback due to buffer low case; No need to send event*/
 							latencyCorrected = false;
 							reportEvent = false;
-							playRate = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
+							playRate = normalPlaybackRate;
 						}
 						else
 						{
@@ -11797,12 +11797,12 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 		}
 		else
 		{
-			if((aamp->DownloadsAreEnabled() || aamp->mbSeeked) && aamp->mStreamSink && (rate == AAMP_NORMAL_PLAY_RATE && (DEFAULT_NORMAL_RATE_CORRECTION_SPEED != aamp->GetLLDashCurrentPlayBackRate())))
+			if((aamp->DownloadsAreEnabled() || aamp->mbSeeked) && aamp->mStreamSink && (rate == AAMP_NORMAL_PLAY_RATE && (normalPlaybackRate != aamp->GetLLDashCurrentPlayBackRate())))
 			{
-				if(aamp->mStreamSink->SetPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED))
+				if(aamp->mStreamSink->SetPlayBackRate(normalPlaybackRate))
 				{
 					AAMPLOG_INFO("SetPlayBackRate: reset");
-					aamp->SetLLDashCurrentPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED);
+					aamp->SetLLDashCurrentPlayBackRate(normalPlaybackRate);
 				}
 				else
 				{
@@ -11979,12 +11979,12 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 
 			if ( 0 == stLLServiceData.maxPlaybackRate )
 			{
-				stLLServiceData.maxPlaybackRate = DEFAULT_MAX_RATE_CORRECTION_SPEED;
+				stLLServiceData.maxPlaybackRate = GETCONFIGVALUE(eAAMPConfig_MaxLatencyCorrectionPlaybackRate);
 			}
 
 			if ( 0 == stLLServiceData.minPlaybackRate )
 			{
-				stLLServiceData.minPlaybackRate = DEFAULT_MIN_RATE_CORRECTION_SPEED;
+				stLLServiceData.minPlaybackRate = GETCONFIGVALUE(eAAMPConfig_MinLatencyCorrectionPlaybackRate);;
 			}
 
 			minLatency = GETCONFIGVALUE(eAAMPConfig_LLMinLatency);
@@ -12083,7 +12083,6 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadStartTimeout,TIMEOUT_FOR_LLD);
 						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_CurlStallTimeout,TIMEOUT_FOR_LLD);
 						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadLowBWTimeout,TIMEOUT_FOR_LLD);
-						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_LatencyMonitorInterval,AAMP_LLD_LATENCY_MONITOR_INTERVAL);
 						SetABRMinBuffer(GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown));
 						SetABRMaxBuffer(GETCONFIGVALUE(eAAMPConfig_MaxABRNWBufferRampUp));
 						aamp->LoadAampAbrConfig();
@@ -12274,7 +12273,7 @@ bool StreamAbstractionAAMP_MPD::ParseMPDLLData(MPD* mpd, AampLLDashServiceData &
 			if(attributeMapRate.find("max") == attributeMapRate.end())
 			{
 				AAMPLOG_TRACE("Latency max attribute not available");
-				stAampLLDashServiceData.maxPlaybackRate = DEFAULT_MAX_RATE_CORRECTION_SPEED;
+				stAampLLDashServiceData.maxPlaybackRate = GETCONFIGVALUE(eAAMPConfig_MaxLatencyCorrectionPlaybackRate);
 			}
 			else
 			{
@@ -12284,7 +12283,7 @@ bool StreamAbstractionAAMP_MPD::ParseMPDLLData(MPD* mpd, AampLLDashServiceData &
 			if(attributeMapRate.find("min") == attributeMapRate.end())
 			{
 				AAMPLOG_TRACE("Latency min attribute not available");
-				stAampLLDashServiceData.minPlaybackRate = DEFAULT_MIN_RATE_CORRECTION_SPEED;
+				stAampLLDashServiceData.minPlaybackRate = GETCONFIGVALUE(eAAMPConfig_MinLatencyCorrectionPlaybackRate);;
 			}
 			else
 			{
