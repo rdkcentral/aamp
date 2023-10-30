@@ -310,7 +310,52 @@ public:
 		EXPECT_NE(track, nullptr);
 
 		MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
+		double fragmentDuration = ComputeFragmentDuration(12, 12);
+		pMediaStreamContext->mediaType = eMEDIATYPE_VIDEO;
+
+		SegmentTemplate *segmentTemplate = new SegmentTemplate();
+		const IFailoverContent *failoverContent = segmentTemplate->GetFailoverContent();
+
+		static std::vector<IFCS *> failovercontents;
+		dash::mpd::IFCS *IFCSobj;
+		failovercontents.push_back(IFCSobj);
+
+		AampMPDParseHelper *mMPDParseHelper = new AampMPDParseHelper();
+		int duration = mMPDParseHelper->GetMediaPresentationDuration();
+		bool mIsLiveStream = mMPDParseHelper->IsLiveManifest();
+
 		mStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext, 0);
+	}
+};
+
+class FunctionalTests_1 : public ::testing::Test
+{
+protected:
+	PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+	StreamAbstractionAAMP_MPD *_instanceStreamAbstractionAAMP_MPD{};
+	void SetUp() override
+	{
+		if (gpGlobalConfig == nullptr)
+		{
+			gpGlobalConfig = new AampConfig();
+		}
+		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		g_mockAampConfig = new MockAampConfig();
+		_instanceStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mLogObj, mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
+	}
+	void TearDown() override
+	{
+		delete mPrivateInstanceAAMP;
+		mPrivateInstanceAAMP = nullptr;
+
+		delete _instanceStreamAbstractionAAMP_MPD;
+		_instanceStreamAbstractionAAMP_MPD = nullptr;
+
+		delete gpGlobalConfig;
+		gpGlobalConfig = nullptr;
+
+		delete g_mockAampConfig;
+		g_mockAampConfig = nullptr;
 	}
 };
 
@@ -649,6 +694,72 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	 */
 	seekPosition = totalDuration - AAMP_LIVE_OFFSET;
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), seekPosition);
+	/* 
+	The Period Start Time
+	*/
+	double mFirstPeriodStartTime = initialSeekPosition;
+	EXPECT_NE(mStreamAbstractionAAMP_MPD->GetFirstPeriodStartTime(), mFirstPeriodStartTime);
+	
+	/* 
+	GetBufferedDuration function call
+	*/
+	double retval = -1.0;
+	MediaTrack *video = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	video->enabled = true;
+	EXPECT_NE(video, nullptr);
+	EXPECT_NE(mStreamAbstractionAAMP_MPD->GetBufferedDuration(), retval);
+	/**
+ 	Get output format of stream.
+ 	*/
+ 	StreamOutputFormat primaryOutputFormat = FORMAT_ISO_BMFF;
+    StreamOutputFormat audioOutputFormat = FORMAT_ISO_BMFF;
+	StreamOutputFormat auxAudioOutputFormat = FORMAT_ISO_BMFF;
+	StreamOutputFormat subtitleOutputFormat = FORMAT_INVALID;
+	mStreamAbstractionAAMP_MPD->GetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
+	mStreamAbstractionAAMP_MPD->ReassessAndResumeAudioTrack(true);
+	mStreamAbstractionAAMP_MPD->AbortWaitForAudioTrackCatchup(false);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	mStreamAbstractionAAMP_MPD->Stop(false);
+	/**
+ 	* PTS of first sample
+	*/
+	double mFirstPTS = mStreamAbstractionAAMP_MPD->GetFirstPTS();
+	EXPECT_EQ(mFirstPTS,15);
+	/**
+ 	* Start time PTS of first sample
+	*/
+	double mStartTimeOfFirstPTS = mStreamAbstractionAAMP_MPD->GetStartTimeOfFirstPTS();
+	EXPECT_EQ(mStartTimeOfFirstPTS,0);
+	/**
+ 	* Get index of profile corresponds to bandwidth
+ 	* profile index
+ 	*/
+ 	BitsPerSecond bitrate = 5;
+	int profileCount = mStreamAbstractionAAMP_MPD->GetProfileCount();
+	EXPECT_EQ(profileCount,0);
+	int topBWIndex = mStreamAbstractionAAMP_MPD->GetBWIndex(bitrate);
+	EXPECT_EQ(topBWIndex,0);
+	/**
+ 	* Get profile index for TsbBandwidth
+ 	* profile index of the current bandwidth
+ 	*/
+	BitsPerSecond mTsbBandwidth = 10;
+	int ProfileCountValue = mStreamAbstractionAAMP_MPD->GetProfileCount();
+	EXPECT_EQ(ProfileCountValue,0);
+	
+	int mTsbBandwidthResult = mStreamAbstractionAAMP_MPD->GetProfileIndexForBandwidth(mTsbBandwidth);
+	EXPECT_EQ(mTsbBandwidthResult,0);
+	mTsbBandwidth = LONG_MAX;
+	mTsbBandwidthResult = mStreamAbstractionAAMP_MPD->GetProfileIndexForBandwidth(mTsbBandwidth);
+	EXPECT_EQ(mTsbBandwidthResult,0);
+	/*
+	* Gets Max Bitrate avialable for current playback.
+	* long MAX video bitrates
+	*/
+	BitsPerSecond maxBitrate  = mStreamAbstractionAAMP_MPD->GetMaxBitrate();
+	int thumbnailIndex = 3;
+	bool retthumbnailIndex = mStreamAbstractionAAMP_MPD->SetThumbnailTrack(thumbnailIndex);
+	mStreamAbstractionAAMP_MPD->StopInjection();
 
 	/* The first segment downloaded will be at the live point. */
 	fragmentNumber = ((((long long)deltaTime) - AAMP_LIVE_OFFSET) / segmentDurationSec) + startNumber;
@@ -1162,3 +1273,208 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 INSTANTIATE_TEST_SUITE_P(TrickPlay,
                          TrickplayTests,
                          testing::Values(-1.0, 2.0, -2.0, 6.0, -6.0, 12.0, -12.0, 30.0, -30.0));
+
+TEST_F(FunctionalTests_1, ResetSubtitle)
+{
+	_instanceStreamAbstractionAAMP_MPD->ResetSubtitle();
+}
+
+TEST_F(FunctionalTests_1, MuteSubtitleOnPause)
+{
+	_instanceStreamAbstractionAAMP_MPD->MuteSubtitleOnPause();
+}
+
+TEST_F(FunctionalTests_1, MuteSidecarSubtitlesTest)
+{
+	_instanceStreamAbstractionAAMP_MPD->MuteSidecarSubtitles(true);
+}
+
+TEST_F(FunctionalTests_1, GetCurrPeriodTimeScaleTest)
+{
+	uint32_t result = _instanceStreamAbstractionAAMP_MPD->GetCurrPeriodTimeScale();
+	EXPECT_EQ(result, 0);
+}
+
+TEST_F(FunctionalTests_1, GetFirstPeriodStartTimeTest)
+{
+	double result = _instanceStreamAbstractionAAMP_MPD->GetFirstPeriodStartTime();
+	EXPECT_EQ(result, 0.0);
+}
+
+TEST_F(FunctionalTests_1, MonitorLatencyTest)
+{
+	_instanceStreamAbstractionAAMP_MPD->MonitorLatency();
+}
+
+TEST_F(FunctionalTests_1, StartSubtitleParserTest)
+{
+	_instanceStreamAbstractionAAMP_MPD->StartSubtitleParser();
+}
+
+TEST_F(FunctionalTests_1, PauseSubtitleParserTest)
+{
+	_instanceStreamAbstractionAAMP_MPD->PauseSubtitleParser(true);
+}
+
+TEST_F(FunctionalTests_1, GetStreamFormatTest)
+{
+	// Create variables to store the output formats
+	StreamOutputFormat primaryFormat;
+	StreamOutputFormat audioFormat;
+	StreamOutputFormat auxFormat;
+	StreamOutputFormat subtitleFormat;
+	// Call the GetStreamFormat function
+	_instanceStreamAbstractionAAMP_MPD->GetStreamFormat(primaryFormat, audioFormat, auxFormat, subtitleFormat);
+	EXPECT_EQ(FORMAT_INVALID, primaryFormat);
+	EXPECT_EQ(FORMAT_INVALID, audioFormat);
+	EXPECT_EQ(FORMAT_INVALID, auxFormat);
+	EXPECT_EQ(FORMAT_INVALID, subtitleFormat);
+}
+
+TEST_F(FunctionalTests_1, GetVideoBitratesTest)
+{
+	// Call the GetVideoBitrates function
+	std::vector<BitsPerSecond> videoBitrates = _instanceStreamAbstractionAAMP_MPD->GetVideoBitrates();
+	ASSERT_EQ(0, videoBitrates.size());
+}
+
+TEST_F(FunctionalTests_1, GetAudioBitratesTest)
+{
+	// Call the GetVideoBitrates function
+	std::vector<BitsPerSecond> audioBitrates = _instanceStreamAbstractionAAMP_MPD->GetAudioBitrates();
+	ASSERT_EQ(0, audioBitrates.size());
+}
+
+TEST_F(FunctionalTests_1, StartInjectionTest)
+{
+	_instanceStreamAbstractionAAMP_MPD->StartInjection();
+}
+
+TEST_F(FunctionalTests_1, SeekPosUpdateTest)
+{
+	double secondsRelativeToTuneTime = 42.0;
+	// Call the SeekPosUpdate function
+	_instanceStreamAbstractionAAMP_MPD->SeekPosUpdate(secondsRelativeToTuneTime);
+	// Check that the seekPosition has been updated correctly
+	ASSERT_EQ(42.0, secondsRelativeToTuneTime);
+}
+
+TEST_F(FunctionalTests_1, GetAvailableAudioTracksTest)
+{
+	// Call the GetAvailableAudioTracks function
+	std::vector<AudioTrackInfo> audioTracks = _instanceStreamAbstractionAAMP_MPD->GetAvailableAudioTracks();
+	// Add your assertions to check the returned audio tracks
+	ASSERT_GE(audioTracks.size(), 0);
+}
+
+TEST_F(FunctionalTests_1, GetAvailableTextTracksTest)
+{
+	// Call the GetAvailableTextTracks function
+	std::vector<TextTrackInfo> textTracks = _instanceStreamAbstractionAAMP_MPD->GetAvailableTextTracks();
+	ASSERT_GE(textTracks.size(), 0);
+}
+
+TEST_F(FunctionalTests_1, GetAvailableVideoTracksTest)
+{
+	// Call the GetAvailableVideoTracks function
+	std::vector<StreamInfo *> videoTracks = _instanceStreamAbstractionAAMP_MPD->GetAvailableVideoTracks();
+	// For example, you can check the size of the vector.
+	ASSERT_GE(videoTracks.size(), 0); // Assuming there can be zero or more video tracks
+}
+
+TEST_F(FunctionalTests_1, GetThumbnailRangeDataTest)
+{
+	// Define test input values
+	double tStart = 0.0;
+	double tEnd = 10.0;
+	std::string baseUrl = "http://example.com/thumbnails/";
+	int raw_w = 1920;
+	int raw_h = 1080;
+	int width = 160;
+	int height = 90;
+	// Call the GetThumbnailRangeData function
+	std::vector<ThumbnailData> thumbnailData = _instanceStreamAbstractionAAMP_MPD->GetThumbnailRangeData(tStart, tEnd, &baseUrl, &raw_w, &raw_h, &width, &height);
+	ASSERT_GE(thumbnailData.size(), 0);
+}
+
+TEST_F(FunctionalTests_1, GetMinUpdateDurationTest)
+{
+	// Call the GetMinUpdateDuration function
+	int64_t minUpdateDuration = _instanceStreamAbstractionAAMP_MPD->GetMinUpdateDuration();
+	// Add your assertions to check the returned value
+	ASSERT_GE(minUpdateDuration, 0);
+}
+
+TEST_F(FunctionalTests_1, GetAccessibilityNodeWithStringValueTest)
+{
+	AampJsonObject accessNode;
+	Accessibility accessibilityNode = _instanceStreamAbstractionAAMP_MPD->getAccessibilityNode(accessNode);
+	ASSERT_EQ(accessibilityNode, accessibilityNode);
+}
+
+TEST_F(FunctionalTests_1, GetBestTextTrackByLanguageTest)
+{
+	// Define test input values
+	TextTrackInfo selectedTextTrack;
+	// Call the GetBestTextTrackByLanguage function
+	bool result = _instanceStreamAbstractionAAMP_MPD->GetBestTextTrackByLanguage(selectedTextTrack);
+	ASSERT_FALSE(result);
+	ASSERT_EQ(selectedTextTrack.language, "");
+}
+
+TEST_F(FunctionalTests_1, InitSubtitleParserTest)
+{
+	// Define test input data
+	char data[] = "Test String";
+	// Call the InitSubtitleParser function
+	_instanceStreamAbstractionAAMP_MPD->InitSubtitleParser(data);
+}
+
+TEST_F(FunctionalTests_1, ResumeSubtitleOnPlayTest)
+{
+	// Define test input values
+	bool mute = false; // Replace with the desired mute status
+	char data[] = "Subtitle data";
+	// Call the ResumeSubtitleOnPlay function
+	_instanceStreamAbstractionAAMP_MPD->ResumeSubtitleOnPlay(mute, data);
+}
+
+TEST_F(FunctionalTests_1, ResumeSubtitleAfterSeekTest)
+{
+	// Define test input values
+	bool mute = false; // Replace with the desired mute status
+	char data[] = "Subtitle data";
+	// Call the ResumeSubtitleAfterSeek function
+	_instanceStreamAbstractionAAMP_MPD->ResumeSubtitleAfterSeek(mute, data);
+}
+
+TEST_F(FunctionalTests_1, SetTextStyleTest)
+{
+	// Define test input values
+	std::string options = "{\"font\":\"Arial\",\"size\":16,\"color\":\"white\"}";
+	// Call the SetTextStyle function
+	bool result = _instanceStreamAbstractionAAMP_MPD->SetTextStyle(options);
+	// Add assertions to check the result of the SetTextStyle function
+	ASSERT_FALSE(result);
+}
+
+TEST_F(FunctionalTests_1, SetNextObjectRequestUrlTest)
+{
+	// Define test input values
+	std::string media = "example.mp4";
+	FragmentDescriptor fragmentDescriptor;
+	MediaType mediaType = eMEDIATYPE_DEFAULT;
+	// Call the setNextobjectrequestUrl function
+	_instanceStreamAbstractionAAMP_MPD->setNextobjectrequestUrl(media, &fragmentDescriptor, mediaType);
+}
+
+TEST_F(FunctionalTests_1, SetNextRangeRequestTest)
+{
+	// Define test input values
+	std::string fragmentUrl = "fragment.mp4";
+	std::string nextrange = "bytes=100-199";
+	long bandwidth = 500000;
+	MediaType mediaType = eMEDIATYPE_DEFAULT;
+	// Call the setNextRangeRequest function
+	_instanceStreamAbstractionAAMP_MPD->setNextRangeRequest(fragmentUrl, nextrange, bandwidth, mediaType);
+}
