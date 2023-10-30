@@ -37,7 +37,7 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
                                                            cachedFragment->type == eMEDIATYPE_VIDEO)))
     {
  	    aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), (MediaType) type);
- 	    AAMPLOG_TRACE("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
+ 	    AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
         aamp->SendStreamTransfer((MediaType)type, &cachedFragment->fragment,
         cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
     }
@@ -57,7 +57,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 {
     // FN_TRACE_F_MPD( __FUNCTION__ );
     bool ret = false;
-	AAMPLOG_TRACE("Type[%d] fragmentUrl %s fragmentTime %f discontinuity %d pto %f  scale %u duration %f", type, fragmentUrl.c_str(), position, discontinuity, pto, scale, duration);
+	AAMPLOG_DEBUG("Type[%d] fragmentUrl %s fragmentTime %f discontinuity %d pto %f  scale %u duration %f", type, fragmentUrl.c_str(), position, discontinuity, pto, scale, duration);
 
     fragmentDurationSeconds = duration;
     ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
@@ -319,7 +319,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
  */
 bool MediaStreamContext::CacheFragmentChunk(MediaType actualType, char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime)
 {
-	AAMPLOG_TRACE("[%s] Chunk Buffer Length %zu Remote URL %s", name, size, remoteUrl.c_str());
+	AAMPLOG_DEBUG("[%s] Chunk Buffer Length %zu Remote URL %s", name, size, remoteUrl.c_str());
 
     bool ret = true;
     if (WaitForCachedFragmentChunkInjected())
@@ -335,7 +335,7 @@ bool MediaStreamContext::CacheFragmentChunk(MediaType actualType, char *ptr, siz
         cachedFragmentChunk->downloadStartTime = dnldStartTime;
 		cachedFragmentChunk->fragmentChunk.AppendBytes(ptr, size);
 
-        AAMPLOG_TRACE("[%s] cachedFragmentChunk %p ptr %p",name, cachedFragmentChunk, cachedFragmentChunk->fragmentChunk.GetPtr() );
+        AAMPLOG_DEBUG("[%s] cachedFragmentChunk %p ptr %p",name, cachedFragmentChunk, cachedFragmentChunk->fragmentChunk.GetPtr() );
 
         UpdateTSAfterChunkFetch();
     }
@@ -391,7 +391,7 @@ void MediaStreamContext::ABRProfileChanged(void)
     }
     else
     {
-        AAMPLOG_TRACE("StreamAbstractionAAMP_MPD:: Not switching ABR %dx%d[%d] ",
+        AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD:: Not switching ABR %dx%d[%d] ",
                 representation->GetWidth(), representation->GetHeight(), representation->GetBandwidth());
     }
 

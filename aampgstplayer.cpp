@@ -1369,7 +1369,7 @@ static gboolean buffering_timeout (gpointer data)
 			if (_this->privateContext->video_dec)
 			{
 				g_object_get(_this->privateContext->video_dec,"queued_frames",(uint*)&frames,NULL);				
-				AAMPLOG_TRACE("queued_frames: %i", frames);
+				AAMPLOG_DEBUG("queued_frames: %i", frames);
 			}
 			MediaFormat mediaFormatRet;
 			mediaFormatRet = _this->aamp->GetMediaFormatTypeEnum();
@@ -2795,7 +2795,7 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 		}
 #endif
 
-		AAMPLOG_TRACE("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d", mediaType, initFragment);
+		AAMPLOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d", mediaType, initFragment);
 	}
 
 	// Send the qtdemux override event for restamping PTS
@@ -2835,7 +2835,7 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 				GST_BUFFER_PTS(buffer) = pts;
 				GST_BUFFER_DTS(buffer) = dts;
 				GST_BUFFER_DURATION(buffer) = duration;
-				AAMPLOG_TRACE("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" ", mediaType, pts, dts);
+				AAMPLOG_DEBUG("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" ", mediaType, pts, dts);
 			}
 			else
 			{
@@ -2851,7 +2851,7 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 				GST_BUFFER_PTS(buffer) = pts;
 				GST_BUFFER_DTS(buffer) = dts;
 				GST_BUFFER_DURATION(buffer) = duration;
-				AAMPLOG_TRACE("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" ", mediaType, pts, dts);
+				AAMPLOG_DEBUG("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" ", mediaType, pts, dts);
 			}
 			else
 			{
@@ -3482,7 +3482,7 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 				LogStatus(element);
 				break;
 			case GST_STATE_CHANGE_SUCCESS:
-				AAMPLOG_TRACE("AAMPGstPlayer: %s is in success state : current %s  pending %s", SafeName(element).c_str(),gst_element_state_get_name(current), gst_element_state_get_name(pending));
+				AAMPLOG_DEBUG("AAMPGstPlayer: %s is in success state : current %s  pending %s", SafeName(element).c_str(),gst_element_state_get_name(current), gst_element_state_get_name(pending));
 				break;
 			case GST_STATE_CHANGE_ASYNC:
 				if(syncOnlyTransition)
@@ -3502,7 +3502,7 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 		}
 		else
 		{
-			AAMPLOG_TRACE("AAMPGstPlayer: Attempting to set %s state to %s", SafeName(element).c_str(), gst_element_state_get_name(targetState));
+			AAMPLOG_DEBUG("AAMPGstPlayer: Attempting to set %s state to %s", SafeName(element).c_str(), gst_element_state_get_name(targetState));
 		}
 		rc = gst_element_set_state(element, targetState);					/* Set the state of the element to the targetState, this function is MT-safe*/
 		if(syncOnlyTransition)
@@ -3511,7 +3511,7 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 		}
 		else
 		{
-			AAMPLOG_TRACE("AAMPGstPlayer: %s state set to %s, rc:%d",  SafeName(element).c_str(), gst_element_state_get_name(targetState), rc);
+			AAMPLOG_DEBUG("AAMPGstPlayer: %s state set to %s, rc:%d",  SafeName(element).c_str(), gst_element_state_get_name(targetState), rc);
 		}
 	}
 	else
@@ -4149,8 +4149,8 @@ bool AAMPGstPlayer::Discontinuity(MediaType type)
 	}
 	else
 	{
-		AAMPLOG_TRACE("stream->format %d, stream->firstBufferProcessed %d, stream->flush %d", stream->format , stream->firstBufferProcessed, stream->flush);
-	if( ISCONFIGSET(eAAMPConfig_EnablePTSReStamp)  && ( aamp->mVideoFormat == FORMAT_ISO_BMFF &&
+		AAMPLOG_DEBUG("stream->format %d, stream->firstBufferProcessed %d, stream->flush %d", stream->format , stream->firstBufferProcessed, stream->flush);
+		if( ISCONFIGSET(eAAMPConfig_EnablePTSReStamp)  && ( aamp->mVideoFormat == FORMAT_ISO_BMFF &&
 		( aamp->mMediaFormat == eMEDIAFORMAT_HLS_MP4 ) ) )
 		{
 			AAMPLOG_WARN("NO EOS: PTS-RESTAMP ENABLED");

@@ -82,6 +82,7 @@ do { \
  * @brief AAMP logging defines, this can be enabled through setLogLevel() as per the need
  */
 #define AAMPLOG_TRACE(FORMAT, ...) AAMPLOG(mLogObj,eLOGLEVEL_TRACE, "TRACE", FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_DEBUG(FORMAT, ...) AAMPLOG(mLogObj,eLOGLEVEL_DEBUG, "DEBUG", FORMAT, ##__VA_ARGS__)
 #define AAMPLOG_INFO(FORMAT, ...) AAMPLOG(mLogObj,eLOGLEVEL_INFO, "INFO", FORMAT, ##__VA_ARGS__)
 #define AAMPLOG_WARN(FORMAT, ...) AAMPLOG(mLogObj,eLOGLEVEL_WARN, "WARN", FORMAT, ##__VA_ARGS__)
 #define AAMPLOG_ERR(FORMAT, ...) AAMPLOG(mLogObj,eLOGLEVEL_ERROR, "ERROR", FORMAT, ##__VA_ARGS__)
@@ -90,6 +91,7 @@ do { \
  * @brief AAMP logging defines specifying the log obj
  */
 #define AAMPLOG_OBJ_TRACE(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_TRACE, "TRACE", FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_OBJ_DEBUG(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_DEBUG, "DEBUG", FORMAT, ##__VA_ARGS__)
 #define AAMPLOG_OBJ_INFO(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_INFO, "INFO", FORMAT, ##__VA_ARGS__)
 #define AAMPLOG_OBJ_WARN(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_WARN, "WARN", FORMAT, ##__VA_ARGS__)
 #define AAMPLOG_OBJ_ERR(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_ERROR, "ERROR", FORMAT, ##__VA_ARGS__)
@@ -106,6 +108,7 @@ do { \
 enum AAMP_LogLevel
 {
 	eLOGLEVEL_TRACE,    /**< Trace level */
+	eLOGLEVEL_DEBUG,	/**< Debug level */
 	eLOGLEVEL_INFO,     /**< Info level */
 	eLOGLEVEL_WARN,     /**< Warn level */
 	eLOGLEVEL_ERROR,    /**< Error level */

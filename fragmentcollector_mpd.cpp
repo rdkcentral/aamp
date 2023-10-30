@@ -2654,7 +2654,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						if( updateFirstPTS )
 						{
 							mFirstPTS += skipTime;
-							AAMPLOG_TRACE("Type[%d] updateFirstPTS: %f SkipTime: %f",pMediaStreamContext->type,mFirstPTS, skipTime);
+							AAMPLOG_DEBUG("Type[%d] updateFirstPTS: %f SkipTime: %f",pMediaStreamContext->type,mFirstPTS, skipTime);
 						}
 					}
 					if (skipTime >= segmentDuration)
@@ -6746,7 +6746,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		for (unsigned iAdaptationSet = 0; iAdaptationSet < numAdaptationSets; iAdaptationSet++)
 		{
 			IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);	
-			AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: Content type [%s] AdapSet [%d] ",
+			AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD: Content type [%s] AdapSet [%d] ",
 					adaptationSet->GetContentType().c_str(), iAdaptationSet);
 			if (IsContentType(adaptationSet, (MediaType)i ))
 			{
@@ -7148,7 +7148,7 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(MediaType mediaType)
 	auto adaptationSet = pMediaStreamContext->adaptationSet;
 
 	std::string mimeType = adaptationSet->GetMimeType();
-	AAMPLOG_TRACE("mimeType is %s", mimeType.c_str());
+	AAMPLOG_DEBUG("mimeType is %s", mimeType.c_str());
 
 	return mimeType;
 }
@@ -7745,7 +7745,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						{
 							uint64_t ptoFragmenNumber = 0;
 							ptoFragmenNumber = (pMediaStreamContext->scaledPTO / fragmentDuration) + 1;
-							AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: Track %d startnumber:%ld PTO specific fragment Number : %" PRIu64 , i,startNumber, ptoFragmenNumber);
+							AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD: Track %d startnumber:%ld PTO specific fragment Number : %" PRIu64 , i,startNumber, ptoFragmenNumber);
 							if(ptoFragmenNumber > startNumber)
 							{
 								startNumber = ptoFragmenNumber;
@@ -7759,10 +7759,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							if(periodChanged)
 							{
 								aamp->mNextPeriodScaledPtoStartTime = pMediaStreamContext->scaledPTO;
-								AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: Track %d Set mNextPeriodScaledPtoStartTime:%lf",i,aamp->mNextPeriodScaledPtoStartTime);
+								AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD: Track %d Set mNextPeriodScaledPtoStartTime:%lf",i,aamp->mNextPeriodScaledPtoStartTime);
 							}
-							AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: Track %d Set mFirstPTS:%lf",i,mFirstPTS);
-							AAMPLOG_TRACE("PTO= %" PRIu64 " tScale= %u", segmentTemplates.GetPresentationTimeOffset(), timeScale );
+							AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD: Track %d Set mFirstPTS:%lf",i,mFirstPTS);
+							AAMPLOG_DEBUG("PTO= %" PRIu64 " tScale= %u", segmentTemplates.GetPresentationTimeOffset(), timeScale );
 						}
 					}
 				}
@@ -9232,7 +9232,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						// If audio and video reached EOS then only break the fetch loop .
 						if(vEos && aEos)
 						{
-							AAMPLOG_TRACE("EOS - Exit fetch loop ");
+							AAMPLOG_DEBUG("EOS - Exit fetch loop ");
 							// Disabling this log to avoid flooding, as Fetcher loop maintains track EOS until
 							// playlist refreshes in parallel thread.
 							// Enable 'info' level to track EOS from PushNextFragment.
@@ -9287,11 +9287,11 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						// play cache is full , wait until cache is available to inject next, max wait of 1sec
 						int timeoutMs = MAX_WAIT_TIMEOUT_MS;
 						int trackIdx = (vEos && !aEos) ? eMEDIATYPE_AUDIO : eMEDIATYPE_VIDEO;
-						AAMPLOG_TRACE("Cache full state track(%d), no download until(%d) Time(%lld)",trackIdx,timeoutMs,aamp_GetCurrentTimeMS());
+						AAMPLOG_DEBUG("Cache full state track(%d), no download until(%d) Time(%lld)",trackIdx,timeoutMs,aamp_GetCurrentTimeMS());
 						bool temp =  mMediaStreamContext[trackIdx]->WaitForFreeFragmentAvailable(timeoutMs);
 						if(temp == false)
 						{
-							AAMPLOG_TRACE("Waiting for FreeFragmentAvailable");  //CID:82355 - checked return
+							AAMPLOG_DEBUG("Waiting for FreeFragmentAvailable");  //CID:82355 - checked return
 						}
 					}
 					else
@@ -9780,7 +9780,7 @@ StreamOutputFormat GetSubtitleFormat(std::string mimeType)
 	else
 		AAMPLOG_INFO("Not found mimeType %s", mimeType.c_str());
 
-	AAMPLOG_TRACE("Returning format %d for mimeType %s", format, mimeType.c_str());
+	AAMPLOG_DEBUG("Returning format %d for mimeType %s", format, mimeType.c_str());
 
 	return format;
 }

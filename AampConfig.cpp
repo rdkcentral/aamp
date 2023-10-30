@@ -1817,9 +1817,8 @@ void AampConfig::ConfigureLogSettings()
 	}
 	else if(configValueBool[eAAMPConfig_DebugLogging].value || logString.compare("debug") == 0)
 	{
-		// backward compatability . Trace ande debug does same job.
-		logging.info = false;
-		logging.setLogLevel(eLOGLEVEL_TRACE);
+		// backward compatability
+		logging.setLogLevel(eLOGLEVEL_DEBUG);
 		logging.debug = true;
 	}
 	else if((configValueBool[eAAMPConfig_InfoLogging].value || logString.compare("info") == 0))

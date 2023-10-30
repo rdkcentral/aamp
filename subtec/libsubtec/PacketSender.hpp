@@ -36,6 +36,7 @@
 #define AAMPLOG_INFO(...) printf
 #define AAMPLOG_TRACE(...) printf
 #define AAMPLOG_ERR(...) printf
+#define AAMPLOG_DEBUG(...) printf
 #else
 #include "priv_aamp.h"
 #endif

@@ -3238,7 +3238,7 @@ void PrivateInstanceAAMP::LogDrmDecryptEnd(ProfilerBucketType bucketType)
  */
 void PrivateInstanceAAMP::StopDownloads()
 {
-	AAMPLOG_TRACE ("PrivateInstanceAAMP");
+	AAMPLOG_DEBUG ("PrivateInstanceAAMP");
 	if (!mbDownloadsBlocked)
 	{
 		pthread_mutex_lock(&mLock);
@@ -3253,7 +3253,7 @@ void PrivateInstanceAAMP::StopDownloads()
  */
 void PrivateInstanceAAMP::ResumeDownloads()
 {
-	AAMPLOG_TRACE ("PrivateInstanceAAMP");
+	AAMPLOG_DEBUG ("PrivateInstanceAAMP");
 	if (mbDownloadsBlocked)
 	{
 		pthread_mutex_lock(&mLock);
@@ -3277,13 +3277,13 @@ void PrivateInstanceAAMP::StopTrackDownloads(MediaType type)
 #endif
 	if (!mbTrackDownloadsBlocked[type])
 	{
-		AAMPLOG_TRACE("gstreamer-enough-data from source[%d]", type);
+		AAMPLOG_DEBUG("gstreamer-enough-data from source[%d]", type);
 		pthread_mutex_lock(&mLock);
 		mbTrackDownloadsBlocked[type] = true;
 		pthread_mutex_unlock(&mLock);
 		NotifySinkBufferFull(type);
 	}
-	AAMPLOG_TRACE ("PrivateInstanceAAMP:: Enter. type = %d",  (int) type);
+	AAMPLOG_DEBUG ("PrivateInstanceAAMP:: Enter. type = %d",  (int) type);
 }
 
 /**
@@ -3300,13 +3300,13 @@ void PrivateInstanceAAMP::ResumeTrackDownloads(MediaType type)
 #endif
 	if (mbTrackDownloadsBlocked[type])
 	{
-		AAMPLOG_TRACE("gstreamer-needs-data from source[%d]", type);
+		AAMPLOG_DEBUG("gstreamer-needs-data from source[%d]", type);
 		pthread_mutex_lock(&mLock);
 		mbTrackDownloadsBlocked[type] = false;
 		//log_current_time("gstreamer-needs-data");
 		pthread_mutex_unlock(&mLock);
 	}
-	AAMPLOG_TRACE ("PrivateInstanceAAMP::Exit. type = %d",  (int) type);
+	AAMPLOG_DEBUG ("PrivateInstanceAAMP::Exit. type = %d",  (int) type);
 }
 
 /**
@@ -3314,7 +3314,7 @@ void PrivateInstanceAAMP::ResumeTrackDownloads(MediaType type)
  */
 void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int periodMs, int track)
 { // called from FragmentCollector thread; blocks until gstreamer wants data
-	AAMPLOG_TRACE("PrivateInstanceAAMP::Enter. type = %d and downloads:%d",  track, mbTrackDownloadsBlocked[track]);
+	AAMPLOG_DEBUG("PrivateInstanceAAMP::Enter. type = %d and downloads:%d",  track, mbTrackDownloadsBlocked[track]);
 	int elapsedMs = 0;
 	while (mbDownloadsBlocked || mbTrackDownloadsBlocked[track])
 	{
@@ -3334,7 +3334,7 @@ void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int peri
 		}
 		InterruptableMsSleep(10);
 	}
-	AAMPLOG_TRACE("PrivateInstanceAAMP::Exit. type = %d",  track);
+	AAMPLOG_DEBUG("PrivateInstanceAAMP::Exit. type = %d",  track);
 }
 
 /**
@@ -5853,7 +5853,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
  */
 void PrivateInstanceAAMP::CheckForDiscontinuityStall(MediaType mediaType)
 {
-	AAMPLOG_TRACE("Enter mediaType %d", mediaType);
+	AAMPLOG_DEBUG("Enter mediaType %d", mediaType);
 	int discontinuityTimeoutValue = GETCONFIGVALUE_PRIV(eAAMPConfig_DiscontinuityTimeout);
 	if(!(mStreamSink->CheckForPTSChangeWithTimeout(discontinuityTimeoutValue)))
 	{
@@ -5875,7 +5875,7 @@ void PrivateInstanceAAMP::CheckForDiscontinuityStall(MediaType mediaType)
 		ResetTrackDiscontinuityIgnoredStatus();
 		ScheduleRetune(eSTALL_AFTER_DISCONTINUITY, mediaType);
 	}
-	AAMPLOG_TRACE("Exit mediaType %d", mediaType);
+	AAMPLOG_DEBUG("Exit mediaType %d", mediaType);
 }
 
 /**
@@ -6897,7 +6897,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		}
 	}
 
-	AAMPLOG_TRACE("Returning Position as %lld (seek_pos_seconds = %f) and updating previous position.", positionMiliseconds, seek_pos_seconds_copy);
+	AAMPLOG_DEBUG("Returning Position as %lld (seek_pos_seconds = %f) and updating previous position.", positionMiliseconds, seek_pos_seconds_copy);
 	mPrevPositionMilliseconds.Update(positionMiliseconds ,seek_pos_seconds_copy);
 
 	if(locked)
@@ -7429,6 +7429,8 @@ void PrivateInstanceAAMP::InitializeCC()
  */
 void PrivateInstanceAAMP::NotifyFirstFrameReceived()
 {
+	AAMPLOG_DEBUG("NotifyFirstFrameReceived()");
+
 	// In the middle of stop processing we can receive state changing callback (xione-7331)
 	PrivAAMPState state;
 	GetState(state);
@@ -8875,7 +8877,7 @@ void PrivateInstanceAAMP::SetTunedManifestUrl(bool isrecordedUrl)
  */
 const char* PrivateInstanceAAMP::GetTunedManifestUrl()
 {
-	AAMPLOG_TRACE("PrivateInstanceAAMP::tunedManifestUrl:%s ", mTunedManifestUrl.c_str());
+	AAMPLOG_DEBUG("PrivateInstanceAAMP::tunedManifestUrl:%s ", mTunedManifestUrl.c_str());
 	return mTunedManifestUrl.c_str();
 }
 
