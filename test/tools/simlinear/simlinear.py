@@ -22,6 +22,7 @@ import webargs
 from webargs.flaskparser import use_args
 from library.manifests import read_harvest_details, ManifestServerCommon
 from collections import defaultdict
+from urllib.parse import urlparse
 
 """
 Simlinear API's:
@@ -123,14 +124,19 @@ def display_all_manifests(host, port, abr_type):
 
     filelist = []
     for path, dirs, files in os.walk('.'):
+        if path == "./tmp":
+            continue
         for fileName in files:
             if ((fileName not in filelist) and (ext in fileName)):
                 filelist.append(fileName)
     
     print("Serving manifests")
-    for fileName in filelist:
-        if ((fileName[0]!=".") and (fileName.endswith(ext))):
-            print(hostInfo + fileName)
+    for file in filelist:
+        file_path = os.path.dirname(file).lstrip(".").lstrip("/")
+        fileName = os.path.basename(file)
+        
+        if (("._" not in fileName) and (fileName.endswith(ext))):
+            print(hostInfo + file_path + "/" + fileName)
 
         if ((fileName[0]!=".") and (ext+'.' in fileName) and (".orig" not in fileName)):
             content = fileName.split(".")
@@ -141,9 +147,9 @@ def display_all_manifests(host, port, abr_type):
 
     for manifest in manifest_dict.keys():
         if(manifest_dict[manifest] > 1):
-            print(hostInfo + manifest + ext + " [1 - " + str(manifest_dict[manifest]) + ']')
+            print(hostInfo + file_path + "/" + manifest + ext + " [1 - " + str(manifest_dict[manifest]) + ']')
         else:
-            print(hostInfo + manifest + ext + "." + str(manifest_dict[manifest]))
+            print(hostInfo + file_path + "/" + manifest + ext + "." + str(manifest_dict[manifest]))
 
     
 #################################################################
@@ -272,6 +278,19 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                 rtn = {"path": path}
 
             if "contents" in rtn:
+                #RDKAAMP-1435
+                details = read_harvest_details()
+                if details['url'] is not None:
+                    baseURLs = re.findall(r'<BaseURL>([\S]*)<\/BaseURL>', rtn["contents"])
+                    if len(baseURLs) > 0:
+                        for baseURL in baseURLs:
+                            basURL_domain = urlparse(baseURL)
+                            if basURL_domain.netloc in details['url']:
+                                rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>http://{self.server.server_address[0]}:{self.server.server_address[1]}/{basURL_domain.netloc}", rtn["contents"])
+                            elif args.ad_server != "":
+                                # Replace BaseURL to Ad-Server
+                                rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>{args.ad_server}/{basURL_domain.netloc}", rtn["contents"])
+
                 contents = rtn["contents"].encode("utf-8")
             else:
                 with open(rtn["path"], "rb") as f:
@@ -695,6 +714,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--dash", help="Direct start of DASH server with no control interface", type=int
+    )
+    parser.add_argument(
+        "--ad_server", help="Ad-Server URL", type=str, default="" #RDKAAMP-1435
     )
     parser.add_argument(
         "--hls", help="Direct start of HLS server with no control interface", type=int

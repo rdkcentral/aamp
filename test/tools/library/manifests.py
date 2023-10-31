@@ -448,7 +448,9 @@ class SegmentList:
 
         if segment_name in self.segment_name_list:
             # log.info("Ignore duplicate %s",segment_name)
-            return
+            # Allow duplication of header segment. Since for some streams, header segments have same name for multiple periods
+            if  segment_duration > 0 :
+                return
 
         self.segment_name_list.append(segment_name)
 

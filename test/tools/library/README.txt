@@ -9,3 +9,11 @@ hls_manifest.py     ditto
 manifest.py         ditto  
 attriblist.py       ditto
 filesys_utils.py    ditto
+=====================================================================================
+manifests.py (~/aamp/test/tools/library/manifests.py)
+
+Duplication of segment name in segment list is restricted.
+
+Since for some streams, header segments have same name for multiple periods,
+added condition to allow duplication of header segment which has 0 duration.
+=====================================================================================

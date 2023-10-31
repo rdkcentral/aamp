@@ -23,6 +23,7 @@ import os
 import argparse
 import logging
 from urllib.parse import urlparse
+from generate_harvest_details import generate_harvest_details
 
 from library.manifests import (
     write_harvest_details,
@@ -231,6 +232,8 @@ if __name__ == "__main__":
         
     write_transcode_details()
 
+    generate_harvest_details()
+
     manifestFilename = get_manifest_path()
 
     if not os.path.exists(args.transcode):
@@ -280,8 +283,10 @@ if __name__ == "__main__":
             check_have_ffprobe()
             segment_names = []
             for segment_detail in segment_list.get_segments(segment_group):
-                segment_names.append(segment_detail["segment_name"])
-            # log.debug("segment_names %s",segment_names)
+                segment_url_properties = urlparse(segment_detail["segment_name"])
+                segment_url_path = f"{segment_url_properties.netloc}{segment_url_properties.path}"
+                segment_names.append(segment_url_path)
+                # log.debug("segment_names %s",segment_names)
             proc_list = mpeg_flist(segment_names, "./")
 
         base_dir = os.path.dirname(os.path.realpath(__file__))
