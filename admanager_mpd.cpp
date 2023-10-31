@@ -941,8 +941,8 @@ PlacementObj PrivateCDAIObjectMPD::setPlacementObj(std::string adBrkId,std::stri
 					{
 						nxtPlacementObj = (*itr);
 						AAMPLOG_INFO("[CDAI] PeriodId [%s] has source content next playbacklacementObj [%s]  ",adBrkId.c_str(),nxtPlacementObj.pendingAdbrkId.c_str());
-						break;
 					}
+					break;
 				}
 			}
 		}
