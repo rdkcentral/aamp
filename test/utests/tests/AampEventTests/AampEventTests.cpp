@@ -18,11 +18,37 @@ protected:
 
 };
 
-// getType() method of AAMPEventObject
+const AAMPEventType allEventTypes[] = {
+    AAMPEventType::AAMP_EVENT_ALL_EVENTS,
+    AAMPEventType::AAMP_EVENT_TUNED,
+    AAMPEventType::AAMP_EVENT_TUNE_FAILED,
+    AAMPEventType::AAMP_EVENT_SPEED_CHANGED,
+    AAMPEventType::AAMP_MAX_NUM_EVENTS
+};
+// Generate test cases for all enum values using a loop
 TEST_F(AAMPEventTests, GetTypeTest) {
-    AAMPEventType eventType = AAMPEventType::AAMP_EVENT_TUNED;
+    for (AAMPEventType eventType : allEventTypes) {
+        AAMPEventObject event(eventType);
+        EXPECT_EQ(event.getType(), eventType);
+    }
+}
+// getType() method of AAMPEventObject
+TEST_F(AAMPEventTests, GetTypeTest1) {
+    AAMPEventType eventType = AAMPEventType::AAMP_MAX_NUM_EVENTS;
     AAMPEventObject event(eventType);
     EXPECT_EQ(event.getType(), eventType);
+
+
+    AAMPEventObject event1(AAMPEventType::AAMP_EVENT_TUNED);
+    EXPECT_EQ(event1.getType(), AAMPEventType::AAMP_EVENT_TUNED);
+
+
+    AAMPEventObject event2(AAMPEventType::AAMP_EVENT_BLOCKED);
+    EXPECT_EQ(event2.getType(), AAMPEventType::AAMP_EVENT_BLOCKED);
+
+    
+    AAMPEventObject event3(AAMPEventType::AAMP_EVENT_PLAYLIST_INDEXED);
+    EXPECT_EQ(event3.getType(), AAMPEventType::AAMP_EVENT_PLAYLIST_INDEXED);
 }
 
 // Test fixture for MediaErrorEvent
@@ -30,7 +56,7 @@ class MediaErrorEventTest : public testing::Test{
 protected:
     
     void SetUp() override {
-        errorEvent = new MediaErrorEvent(AAMP_TUNE_FAILURE_UNKNOWN,10,"Test",false,10,10,10,"TestResult");
+        errorEvent = new MediaErrorEvent(AAMP_TUNE_FAILURE_UNKNOWN,1,"Test",false,0,0,0,"");
     }
     void TearDown() override {
         delete errorEvent;
@@ -58,6 +84,18 @@ TEST_F(MediaErrorEventTest, MediaErrorEventMethodsTest) {
     EXPECT_EQ(errorEvent.getClass(), 456);
     EXPECT_EQ(errorEvent.getReason(), 789);
     EXPECT_EQ(errorEvent.getBusinessStatus(), 987);
+}
+TEST_F(MediaErrorEventTest, MediaErrorEventMethodsanotherTest) {
+ 
+
+    EXPECT_EQ(errorEvent->getFailure(), AAMPTuneFailure::AAMP_TUNE_FAILURE_UNKNOWN);
+    EXPECT_EQ(errorEvent->getCode(), 1);
+    EXPECT_EQ(errorEvent->getDescription(), "Test");
+    EXPECT_EQ(errorEvent->getResponseData(), "");
+    EXPECT_FALSE(errorEvent->shouldRetry());
+    EXPECT_EQ(errorEvent->getClass(), 0);
+    EXPECT_EQ(errorEvent->getReason(), 0);
+    EXPECT_EQ(errorEvent->getBusinessStatus(), 0);
 }
 
 
@@ -145,7 +183,7 @@ TEST_F(CCHandleEventTest, GetCCHandleTest) {
 class MediaMetadataEventTest : public testing::Test {
 protected:
     void SetUp() override {
-        event = new MediaMetadataEvent(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 1500);
+        event = new MediaMetadataEvent(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
     }
 
     void TearDown() override {
@@ -164,9 +202,9 @@ TEST_F(MediaMetadataEventTest, ConstructorAndGetterTest) {
     bool isLive = true;
     std::string drmType = "DRM Type";
     double programStartTime = 123456.789;
-    long tsbDepthSeconds = 1500;
+    int tsbDepthMs = 123;
 
-    MediaMetadataEvent event(duration, width, height, hasDrm, isLive, drmType, programStartTime, tsbDepthSeconds);
+    MediaMetadataEvent event(duration, width, height, hasDrm, isLive, drmType, programStartTime,tsbDepthMs);
 
     EXPECT_EQ(event.getDuration(), duration);
     EXPECT_EQ(event.getWidth(), width);
@@ -175,27 +213,88 @@ TEST_F(MediaMetadataEventTest, ConstructorAndGetterTest) {
     EXPECT_EQ(event.isLive(), isLive);
     EXPECT_EQ(event.getDrmType(), drmType);
     EXPECT_EQ(event.getProgramStartTime(), programStartTime);
-    EXPECT_EQ(event.getTsbDepth(), tsbDepthSeconds);
-
-
 }
-// Test case for addLanguage, getLanguages, and getLanguagesCount methods
-TEST_F(MediaMetadataEventTest, LanguageMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 1500);
 
+TEST_F(MediaMetadataEventTest, EmptyLanguageListTest) {
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
+
+    const std::vector<std::string> &languages = event.getLanguages();
+    EXPECT_EQ(languages.size(), 0);
+}
+
+TEST_F(MediaMetadataEventTest, AddSingleLanguageTest) {
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
+
+    event.addLanguage("Spanish");
+
+    const std::vector<std::string> &languages = event.getLanguages();
+    EXPECT_EQ(languages.size(), 1);
+    EXPECT_EQ(languages[0], "Spanish");
+}
+
+TEST_F(MediaMetadataEventTest, AddMultipleLanguagesTest) {
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
+
+    event.addLanguage("French");
+    event.addLanguage("German");
+    event.addLanguage("Italian");
     event.addLanguage("English");
     event.addLanguage("Hindi");
 
     const std::vector<std::string> &languages = event.getLanguages();
-    EXPECT_EQ(languages.size(), 2);
-    EXPECT_EQ(languages[0], "English");
-    EXPECT_EQ(languages[1], "Hindi");
-
-    EXPECT_EQ(event.getLanguagesCount(), 2);
+    EXPECT_EQ(languages.size(), 5);
+    EXPECT_EQ(languages[0], "French");
+    EXPECT_EQ(languages[1], "German");
+    EXPECT_EQ(languages[2], "Italian");
+    EXPECT_EQ(languages[3], "English");
+    EXPECT_EQ(languages[4], "Hindi");
+    EXPECT_EQ(event.getLanguagesCount(), 5);
 }
 // Test case for addBitrate, getBitrates, and getBitratesCount methods
+TEST_F(MediaMetadataEventTest, BitrateMethodsBoundaryTest) {
+    // Create a MediaMetadataEvent instance
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
+
+    // Add bitrates with maximum and minimum values
+    event.addBitrate(1); // Minimum bitrate
+    event.addBitrate(std::numeric_limits<BitsPerSecond>::max()); // Maximum bitrate
+
+    const std::vector<BitsPerSecond> &bitrates = event.getBitrates();
+    ASSERT_EQ(bitrates.size(), 2);
+    EXPECT_EQ(bitrates[0], 1);
+    EXPECT_EQ(bitrates[1], std::numeric_limits<BitsPerSecond>::max());
+
+    // Add audio bitrates with maximum and minimum values
+    event.addAudioBitrate(1); // Minimum audio bitrate
+    event.addAudioBitrate(std::numeric_limits<BitsPerSecond>::max()); // Maximum audio bitrate
+
+    const std::vector<BitsPerSecond> &audioBitrates = event.getAudioBitrates();
+    EXPECT_EQ(audioBitrates.size(), 2);
+    EXPECT_EQ(audioBitrates[0], 1);
+    EXPECT_EQ(audioBitrates[1], std::numeric_limits<BitsPerSecond>::max());
+}
+
+TEST_F(MediaMetadataEventTest, BitrateMethodsNegativeTest) {
+    // Create a MediaMetadataEvent instance
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
+
+    // Add negative bitrates
+    event.addBitrate(-100); // Negative bitrate
+
+    const std::vector<BitsPerSecond> &bitrates = event.getBitrates();
+    EXPECT_EQ(bitrates.size(), 1);
+    EXPECT_EQ(bitrates[0], -100);
+
+   // Add negative audio bitrates
+    event.addAudioBitrate(-50); // Negative audio bitrate
+
+    const std::vector<BitsPerSecond> &audioBitrates = event.getAudioBitrates();
+    EXPECT_EQ(audioBitrates.size(), 1); 
+    
+}
+
 TEST_F(MediaMetadataEventTest, BitrateMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 1500);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     event.addBitrate(1000000); // 1 Mbps
     event.addBitrate(2000000); // 2 Mbps
@@ -216,7 +315,7 @@ TEST_F(MediaMetadataEventTest, BitrateMethodsTest) {
     EXPECT_EQ(audioBitrates[1], 256000);
 }
 TEST_F(MediaMetadataEventTest, SupportedSpeedMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 1500);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     event.addSupportedSpeed(1.0);
     event.addSupportedSpeed(1.5);
@@ -231,7 +330,7 @@ TEST_F(MediaMetadataEventTest, SupportedSpeedMethodsTest) {
 
 // Test case for SetVideoMetaData method and related getter methods
 TEST_F(MediaMetadataEventTest, VideoMetaDataMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,1500);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     event.SetVideoMetaData(30.0, VideoScanType::eVIDEOSCAN_PROGRESSIVE, 16, 9, "MPEG2", "DOLBY_VISION", "PG", 123);
 
@@ -246,7 +345,7 @@ TEST_F(MediaMetadataEventTest, VideoMetaDataMethodsTest) {
 }
 // Test case for SetAudioMetaData method and related getter methods
 TEST_F(MediaMetadataEventTest, AudioMetaDataMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 1500);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     event.SetAudioMetaData("AA3", "STEREO", true);
 
@@ -256,7 +355,7 @@ TEST_F(MediaMetadataEventTest, AudioMetaDataMethodsTest) {
 }
 // Test case for getMediaFormat and setMediaFormat methods
 TEST_F(MediaMetadataEventTest, MediaFormatMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 1500);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     // Test setMediaFormat and then getMediaFormat
     event.setMediaFormat("HLS");
@@ -299,7 +398,24 @@ TEST_F(BitrateChangeEventTest, BitrateChangeEventMethodsTest) {
     EXPECT_EQ(bitrateChangeEvent->getAspectRatioWidth(), 16);
     EXPECT_EQ(bitrateChangeEvent->getAspectRatioHeight(), 9);
 }
+// Test with a negative time value
+TEST_F(BitrateChangeEventTest, BitrateChangeEventNegativeTimeTest) {
+    BitrateChangeEvent event(-1000, 500000, "Negative time", 1920, 1080, 30.0, 5000.0, true, 1920, 1080, eVIDEOSCAN_PROGRESSIVE, 16, 9);
+    EXPECT_EQ(event.getTime(), -1000);
+}
 
+// Test with a zero bitrate value
+TEST_F(BitrateChangeEventTest, BitrateChangeEventZeroBitrateTest) {
+    BitrateChangeEvent event(1000, 0, "Zero bitrate", 1920, 1080, 30.0, 5000.0, true, 1920, 1080, eVIDEOSCAN_PROGRESSIVE, 16, 9);
+    EXPECT_EQ(event.getBitrate(), 0);
+}
+
+// Test with an empty description
+TEST_F(BitrateChangeEventTest, BitrateChangeEventEmptyDescriptionTest) {
+    BitrateChangeEvent event(1000, 500000, "", 1920, 1080, 30.0, 5000.0, true, 1920, 1080, eVIDEOSCAN_PROGRESSIVE, 16, 9);
+    EXPECT_EQ(event.getDescription(), "");
+   
+}
 // Test functions of TimedMetadataEventTest
 class TimedMetadataEventTest : public testing::Test {
 protected:
@@ -518,6 +634,14 @@ TEST_F(DrmMetaDataEventTest, SetVerboseErrorCodeTest) {
     EXPECT_EQ(drmMetaDataEvent->getSecManagerClassCode(), 200);
     EXPECT_EQ(drmMetaDataEvent->getSecManagerReasonCode(), 100);
     EXPECT_EQ(drmMetaDataEvent->getBusinessStatus(), 300);
+}
+
+TEST_F(DrmMetaDataEventTest, SetAndGetNetworkMetricData) {
+    const std::string networkMetricData = "SampleNetworkMetricData";
+
+    drmMetaDataEvent->setNetworkMetricData(networkMetricData);
+
+    EXPECT_EQ(drmMetaDataEvent->getNetworkMetricData(), networkMetricData);
 }
 
 // Test functions of AnomalyReportEvent
@@ -892,4 +1016,30 @@ TEST_F(ManifestRefreshEventTest, ConstructorTest) {
     EXPECT_EQ(event->getManifestDuration(), manifestDuration);
     EXPECT_EQ(event->getNoOfPeriods(), noOfPeriods);
     EXPECT_EQ(event->getManifestPublishedTime(), manifestPublishedTime);
+}
+
+class TuneTimeMetricsEventTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        
+        timeMetricData = "SampleTimeMetricsData";
+        event = new TuneTimeMetricsEvent(timeMetricData);
+    }
+
+    void TearDown() override {
+        
+        delete event;
+    }
+
+    TuneTimeMetricsEvent* event;
+    std::string timeMetricData;
+};
+
+TEST_F(TuneTimeMetricsEventTest, Constructor) {
+    EXPECT_EQ(event->getTuneMetricsData(), timeMetricData);
+}
+
+TEST_F(TuneTimeMetricsEventTest, GetTuneMetricsData) {
+    
+    EXPECT_EQ(event->getTuneMetricsData(), timeMetricData);
 }
