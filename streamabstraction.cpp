@@ -1870,16 +1870,19 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 		// steady state ,with no ABR cache available to determine actual bandwidth
 		// this state can happen due to timeouts
 		// Adding delta check: When bandwidth is higher than currentprofile bandwidth but insufficient to download both audio and video simultaneously, a delta less than 2000 kbps indicates a need for steady state rampdown.
-		if((nwBandwidth - currBandwidth) < STEADYSTATE_RAMPDOWN_DELTA && bufferValue < mABRMinBuffer && !video->IsInjectionAborted())
+		if(bufferValue < mABRMinBuffer && !video->IsInjectionAborted())
 		{
-			mABRLowBufferCounter++;
-			mABRHighBufferCounter = 0;
+			if(((aamp->GetLLDashServiceData()->lowLatencyMode && (nwBandwidth - currBandwidth) < STEADYSTATE_RAMPDOWN_DELTA)) || nwBandwidth == -1)
+			{
+				mABRLowBufferCounter++;
+				mABRHighBufferCounter = 0;
 
 				HybridABRManager::BitrateChangeReason mhBitrateReason;
 				mhBitrateReason = (HybridABRManager::BitrateChangeReason) mBitrateReason;
 				aamp->mhAbrManager.CheckRampdownFromSteadyState(currProfileIndex,newProfileIndex,mhBitrateReason,mABRLowBufferCounter);
 				mBitrateReason = (BitrateChangeReason) mhBitrateReason;
 				mABRLowBufferCounter = (mABRLowBufferCounter > mABRCacheLength)? 0 : mABRLowBufferCounter ;
+			}
 		}
 	}
 	else
