@@ -7828,11 +7828,14 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: NULL segmentTimeline. Hence modifying culling logic based on MPD availabilityStartTime, periodStartTime, fragment number and current time");
 				double newStartSegment = 0;
 				ISegmentTemplate *firstSegTempate = NULL;
+				int iter1 = 0;
+				PeriodInfo currFirstPeriodInfo = currMPDPeriodDetails.at(0);
 				
 				// Recalculate the new start fragment after periodic manifest updates
 				auto periods = mpd->GetPeriods();
 				for (auto period : periods)
 				{
+					currMPDPeriodDetails.at(iter1).periodStartTime = GetPeriodStartTime(mpd, iter1);
 					auto adaptationSets = period->GetAdaptationSets();
 					for(auto adaptation : adaptationSets)
 					{
@@ -7852,6 +7855,7 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 					{
 						break;
 					}
+					iter1++;
 				}
 
 				if(firstSegTempate)
@@ -7874,8 +7878,17 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 							AAMPLOG_WARN("StreamAbstractionAAMP_MPD: newStartTimeSeconds %f mPrevStartTimeSeconds %F", newStartSegment, mPrevStartTimeSeconds);
 						}
 					}  //CID:163916 - divide by zero
-					mPrevStartTimeSeconds = newStartSegment;
+					if(newStartSegment && mPrevStartTimeSeconds && (mPrevStartTimeSeconds > newStartSegment))
+					{
+						culled = currFirstPeriodInfo.periodStartTime - aamp->mMPDPeriodsInfo.at(0).periodStartTime;
+						AAMPLOG_WARN("StreamAbstractionAAMP_MPD:: discontinuity post-refresh %fs before %f (%f)" ,newStartTimeSeconds, mPrevStartTimeSeconds, culled);
+					}
+					else
+					{
+						mPrevStartTimeSeconds = newStartSegment;
+					}
 				}
+				aamp->mMPDPeriodsInfo = currMPDPeriodDetails;
 			}
 		}
 		else
