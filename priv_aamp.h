@@ -828,6 +828,7 @@ public:
 	long mNetworkBandwidth;
 	std::string mTsbType;
 	int mTsbDepthMs;
+	int mDownloadDelay;
 	/**
 	 * @brief A readonly, validatable position value.
 	 */

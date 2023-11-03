@@ -1270,6 +1270,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mTsbDepthMs(0)
 	, mDiscStartTime(0)
 	, mRateCorrectionDelay(false)
+	, mDownloadDelay(0)
 {
 	mLogObj = mConfig->GetLoggerInstance();
 	//LazilyLoadConfigIfNeeded();
@@ -4138,8 +4139,23 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 								ui32CurlTrace, resolve, connect, appConnect, redirect, preTransfer, startTransfer, curl,((res==CURLE_OK)?effectiveUrl.c_str():remoteUrl.c_str()));
 						++ui32CurlTrace;
 					}
-				}
 
+				}
+			 	//To handle initial fragment download delays before ABR starts	
+				if(GetLLDashServiceData()->lowLatencyMode && fileType == eMEDIATYPE_VIDEO)
+				{
+					double downloadTime = (double)(downloadTimeMS)/1000;
+					//DownloadTime greater than 60% of fragmentDuration are categorized as Delay in download
+					if(downloadTime > (fragmentDurationSeconds/100) * 60)
+					{
+						mDownloadDelay++;
+					}
+					else
+					{
+						mDownloadDelay = 0;
+					}
+
+				}
 				if(!loopAgain)
 					break;
 			}

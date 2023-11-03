@@ -1895,7 +1895,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 		// Adding delta check: When bandwidth is higher than currentprofile bandwidth but insufficient to download both audio and video simultaneously, a delta less than 2000 kbps indicates a need for steady state rampdown.
 		if(bufferValue < mABRMinBuffer && !video->IsInjectionAborted())
 		{
-			if(((aamp->GetLLDashServiceData()->lowLatencyMode && (nwBandwidth - currBandwidth) < STEADYSTATE_RAMPDOWN_DELTA)) || nwBandwidth == -1)
+			if(aamp->GetLLDashServiceData()->lowLatencyMode || nwBandwidth == -1)
 			{
 				mABRLowBufferCounter++;
 				mABRHighBufferCounter = 0;
@@ -2232,14 +2232,7 @@ void StreamAbstractionAAMP::CheckForProfileChange(void)
 			MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 			if(video != NULL)
 			{
-				double totalFetchedDuration = video->GetTotalFetchedDuration();
-				long availBW = aamp->GetCurrentlyAvailableBandwidth();
-				bool checkProfileChange = aamp->mhAbrManager.CheckProfileChange(totalFetchedDuration,currentProfileIndex,availBW);
-
-				if (checkProfileChange)
-				{
-					UpdateProfileBasedOnFragmentCache();
-				}
+				UpdateProfileBasedOnFragmentCache();
 			}
 			else
 			{
@@ -2330,7 +2323,23 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 {
 	bool retVal = false;
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	int desiredProfileIndex = GetDesiredProfileBasedOnCache();
+	int desiredProfileIndex = currentProfileIndex;
+	double totalFetchedDuration = video->GetTotalFetchedDuration();
+	long availBW = aamp->GetCurrentlyAvailableBandwidth();
+	bool checkProfileChange = aamp->mhAbrManager.CheckProfileChange(totalFetchedDuration,currentProfileIndex,availBW);
+	//For LLD, it's necessary to initiate a rampdown process when there is a consistent download delay in order to construct the buffer.
+	if (aamp->GetLLDashServiceData()->lowLatencyMode && !checkProfileChange && (aamp->mDownloadDelay >= (int)(floor(aamp->mLiveOffset / 2))))
+	{
+		desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
+		AAMPLOG_INFO("ProfileChange Due to Download Delay %lf totalFetchedDuration ,%d aamp->mDownloadDelay %lf aamp->mLiveOffset %d desiredProfileIndex",totalFetchedDuration,aamp->mDownloadDelay,aamp->mLiveOffset,desiredProfileIndex);
+		aamp->mDownloadDelay = 0;
+	}
+
+	if(checkProfileChange)
+	{
+		desiredProfileIndex = GetDesiredProfileBasedOnCache();
+	}
+
 	if (desiredProfileIndex != currentProfileIndex)
 	{
 #if 0 /* Commented since the same is supported via AAMP_LOG_ABR_INFO */
@@ -2368,7 +2377,7 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 	{
 		/* No profile change. */
 	}
-
+	
 	return retVal;
 }
 
