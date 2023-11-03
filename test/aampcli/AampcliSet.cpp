@@ -168,17 +168,31 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 
 				case 8:
 					{
-						char lisenceUrl[1024];
-						int drmType;
 						printf("[AAMPCLI] Matched Command LicenseServerUrl - %s\n", cmd);
-						if (sscanf(cmd, "set %s %s %d", command, lisenceUrl, &drmType) == 3){
-							playerInstanceAamp->SetLicenseServerURL(lisenceUrl,
-									(drmType == eDRM_PlayReady)?eDRM_PlayReady:eDRM_WideVine);
-						}
-						else
+						std::istringstream iss(cmd);
+						std::vector<std::string> tokens;
+						// split input into space-delimited tokens
+						do {
+							std::string token;
+							iss >> token;
+							tokens.push_back(token);
+						} while( iss );
+						if( tokens.size() == 5 )
+						{
+							const std::string &licenceUrl = tokens[2];
+							int drmType = atoi(tokens[3].c_str());
+							if( drmType>eDRM_NONE && drmType<eDRM_MAX_DRMSystems ){
+								playerInstanceAamp->SetLicenseServerURL( licenceUrl.c_str(), (DRMSystems)drmType );
+							}
+							else
+							{
+								printf( "[AAMPCLI] unsupported drmType; pass 1(eDRM_WideVine) or 2(eDRM_PlayReady)\n" );
+							}
+						} 
+						else 
 						{
 							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <license url in string> <value value==2? ?eDRM_PlayReady : eDRM_WideVine>\n", command);
+							printf("[AAMPCLI] Expected: set %s <licenseUrl> <drmType>\n", command);
 						}
 						break;
 					}
