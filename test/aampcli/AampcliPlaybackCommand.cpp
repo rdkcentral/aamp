@@ -542,9 +542,14 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 								std::string duration;
 								AdvertInfo lAdvertInfo;
 								lAdvertInfo.url = info->uri;
-								lAdvertInfo.duration = 0;
+								
+								if (std::getline(input, duration, ' '))
+									lAdvertInfo.duration = stoi(duration);
+								else
+									lAdvertInfo.duration = 0;
 
 								mAdvertList.push_back(lAdvertInfo);	
+								printf("[AAMP-CLI] Added to advert list url: %s duration: %d\n", (lAdvertInfo.url).c_str(), lAdvertInfo.duration);
 							}
 							else
 							{
