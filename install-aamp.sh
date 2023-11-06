@@ -11,6 +11,7 @@ googletestreference="tags/release-1.11.0"
 processtorun="aamp"
 subtecoption=""
 dontrunaampcli=false
+installed_pkgconfig="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
 
 
 # pull in general utility finctions
@@ -63,6 +64,8 @@ find_or_install_pkgs() {
             sudo ln -s $OPENSSL_PATH /usr/local/ssl
             export PKG_CONFIG_PATH="$OPENSSL_PATH/lib/pkgconfig" 
         fi
+        pkgdir="`brew --prefix ${pkg}`/lib/pkgconfig:" 
+        installed_pkgconfig=$pkgdir$installed_pkgconfig
     done
 }
 
@@ -85,23 +88,27 @@ install_system_packages() {
     fi
 
     #Check/Install base packages needed by aamp env
+    echo "Check/Install aamp development environment base packages"
+    find_or_install_pkgs json-glib cmake $defaultopensslversion libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac lcov gcovr
 
-    echo "Checking/removing ORC package which cause compile errors with gst-plugins-good"
-    brew list | grep -i orc
-    if [ $? -eq 0 ]; then
-        read -p "Found ORC, remove ORC package (Y/N)" remove_orc
-        case $remove_orc in
-            [Yy]* ) brew remove -f --ignore-dependencies orc 
-                ;;
-            * ) echo "Exiting without removal ..."
-                exit
-                ;;
-        esac
+    # ORC causes compile errors on x86_64 Mac, but not on ARM64
+    if [[ $arch == "x86_64" ]]; then
+        echo "Checking/removing ORC package which cause compile errors with gst-plugins-good"
+        brew list | grep -i orc
+        if [ $? -eq 0 ]; then
+            read -p "Found ORC, remove ORC package (Y/N)" remove_orc
+            case $remove_orc in
+                [Yy]* ) brew remove -f --ignore-dependencies orc 
+                    ;;
+                * ) echo "Exiting without removal ..."
+                    exit
+                    ;;
+            esac
+        fi
+    elif [[ $arch == "arm64" ]]; then
+        find_or_install_pkgs orc
     fi
      
-    echo "Check/Install aamp development environment base packages"
-    find_or_install_pkgs  json-glib cmake $defaultopensslversion libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config lcov gcovr
-
     do_clone https://github.com/google/googletest
     cd googletest
     git checkout $googletestreference
@@ -150,12 +157,19 @@ install_system_packages() {
         sudo installer -pkg gstreamer-1.0-devel-$defaultgstversion-x86_64.pkg  -target /
         rm gstreamer-1.0-devel-$defaultgstversion-x86_64.pkg
     elif [[ $arch == "arm64" ]]; then
-        curl -o gstreamer-1.0-$defaultgstversion-universal.pkg  https://urldefense.com/v3/__https://gstreamer.freedesktop.org/data/pkg/osx/$defaultgstversion/gstreamer-1.0-$defaultgstversion-universal.pkg
+        curl -o gstreamer-1.0-$defaultgstversion-universal.pkg  https://gstreamer.freedesktop.org/data/pkg/osx/$defaultgstversion/gstreamer-1.0-$defaultgstversion-universal.pkg
         sudo installer -pkg gstreamer-1.0-$defaultgstversion-universal.pkg -target /
         rm gstreamer-1.0-$defaultgstversion-universal.pkg
-        curl -o gstreamer-1.0-devel-$defaultgstversion-universal.pkg https://urldefense.com/v3/__https://gstreamer.freedesktop.org/data/pkg/osx/$defaultgstversion/gstreamer-1.0-devel-$defaultgstversion-universal.pkg
+        curl -o gstreamer-1.0-devel-$defaultgstversion-universal.pkg https://gstreamer.freedesktop.org/data/pkg/osx/$defaultgstversion/gstreamer-1.0-devel-$defaultgstversion-universal.pkg
         sudo installer -pkg gstreamer-1.0-devel-$defaultgstversion-universal.pkg  -target /
         rm gstreamer-1.0-devel-$defaultgstversion-universal.pkg
+        # Gstreamer has a broken .pc prefix that can't be worked around with meson
+        grep non_existent_on_purpose /Library/Frameworks/GStreamer.framework/Libraries/pkgconfig/*.pc
+        retVal=$?
+        if [ $retVal -eq 0 ]; then
+            echo "Fixing Gstreamer.framework .pc files."
+            sudo sed -i '.bak'  's#prefix=.*#prefix=/Library/Frameworks/GStreamer.framework/Versions/1.0#' /Library/Frameworks/GStreamer.framework/Libraries/pkgconfig/*
+        fi
     fi
 }
 
@@ -465,10 +479,23 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     patch -p1 < ../../OSx/patches/0014-qtdemux-clear-crypto-info-on-trak-switch_gst-1.16.patch
     patch -p1 < ../../OSx/patches/0021-qtdemux-aamp-tm-multiperiod_gst-1.16.patch
     sed -in 's/gstglproto_dep\x27], required: true/gstglproto_dep\x27], required: false/g' meson.build
-    meson --pkg-config-path /Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig build 
+
+    echo "Building gst-plugins-good with --pkg-config path $installed_pkgconfig..."
+    meson --pkg-config-path=$installed_pkgconfig build 
     ninja -C build
     ninja -C build install
-    sudo cp  /usr/local/lib/gstreamer-1.0/libgstisomp4.dylib /Library/Frameworks/GStreamer.framework/Versions/1.0/lib/gstreamer-1.0/libgstisomp4.dylib
+
+    # ARM vs x86 have different installation directories
+    if [ -d /usr/local/lib/gstreamer-1.0 ]; then
+        sudo cp  /usr/local/lib/gstreamer-1.0/libgstisomp4.dylib /Library/Frameworks/GStreamer.framework/Versions/1.0/lib/gstreamer-1.0/libgstisomp4.dylib
+    else
+        sudo cp  /opt/homebrew/lib/gstreamer-1.0/libgstisomp4.dylib /Library/Frameworks/GStreamer.framework/Versions/1.0/lib/gstreamer-1.0/libgstisomp4.dylib
+    fi
+    retVal=$?
+    if [ $retVal -ne 0 ]; then
+        echo "Error gst-plugins-good build failed."
+        exit
+    fi
     pwd
     cd ../
 
@@ -540,7 +567,8 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 
     mkdir -p build
    
-    cd build && PKG_CONFIG_PATH=/usr/local/opt/ossp-uuid/lib/pkgconfig:/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCOVERAGE_ENABLED=${COVERAGE} -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -G Xcode ../
+    # Would be nice to use $installed_pkfconfig here, but it results in link error, not finding libapp-1.0
+    cd build && PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCOVERAGE_ENABLED=${COVERAGE} -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -G Xcode ../
 
     # the cmake Xcode generator can not set this scheme property (Debug -> Options -> Console -> Use Terminal
     patch ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme < ../OSX/patches/aamp-cli.xscheme.patch 
