@@ -1131,6 +1131,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	,mPlaylistTimeoutMs(-1)
 	,mMutexPlaystart()
 	,mNetworkBandwidth(0)
+	,mTimeToTopProfile(0)
 #ifdef AAMP_HLS_DRM
 	, fragmentCdmEncrypted(false) ,drmParserMutex(), aesCtrAttrDataList()
 	, drmSessionThreadStarted(false), createDRMSessionThreadID()

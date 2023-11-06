@@ -81,6 +81,23 @@ typedef struct HlsStreamInfo: public StreamInfo
 	const char *closedCaptions;		/**< CC if present */
 	const char *subtitles;			/**< Subtitles */
 	StreamOutputFormat audioFormat; /**< Audio codec format*/
+
+	HlsStreamInfo():program_id(),audio(),codecs(),uri(),averageBandwidth(),closedCaptions(),subtitles(),audioFormat(){};
+
+	// Copy constructor
+    HlsStreamInfo(const HlsStreamInfo& other)
+        : 
+		StreamInfo(other), // Initialize base class members
+		program_id(other.program_id),
+		audio(other.audio),
+		codecs(other.codecs),
+		uri(other.uri),
+		averageBandwidth(other.averageBandwidth),
+		closedCaptions(other.closedCaptions),
+		subtitles(other.subtitles),
+		audioFormat(other.audioFormat){};
+
+	HlsStreamInfo& operator=(const HlsStreamInfo& other)=delete;
 } HlsStreamInfo;
 
 /**

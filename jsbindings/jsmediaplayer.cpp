@@ -22,8 +22,7 @@
  * @brief JavaScript bindings for AAMPMediaPlayer
  */
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-        #include "Module.h"
-	#include <core/core.h>
+    #include "Module.h"
 	#include "ThunderAccess.h"
 	#include "AampUtils.h"
 #endif

@@ -58,11 +58,9 @@ struct DrmSessionContext
 	DrmSessionContext() : sessionMutex(PTHREAD_MUTEX_INITIALIZER), drmSession(NULL),data(),mLicenseDownloader()
 	{
 	}
-	DrmSessionContext(const DrmSessionContext& other) : sessionMutex(other.sessionMutex), data(), drmSession(), mLicenseDownloader()
+	DrmSessionContext(const DrmSessionContext& other) : sessionMutex(other.sessionMutex), data(other.data), drmSession(other.drmSession),mLicenseDownloader()
 	{
-		// Releases memory allocated after destructing any of these objects
-		drmSession = other.drmSession;
-		data = other.data;
+		// Releases memory allocated after destructing any of these objects		
 	}
 	DrmSessionContext& operator=(const DrmSessionContext& other)
 	{

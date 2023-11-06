@@ -82,10 +82,19 @@ typedef struct _downloadConfig
 	{
 	}
 	
-	 _downloadConfig(const _downloadConfig& other) : _downloadConfig()
-    {
-        *this = other; 
-    }
+	 _downloadConfig(const _downloadConfig& other) 
+	 	:pCurl(),iDownloadTimeout(),
+			iLowBWTimeout(),iCurlConnectionTimeout(),
+			iStallTimeout(),iStartTimeout(),
+			bSSLVerifyPeer(),lSupportedTLSVersion(),
+			proxyName(),userAgentString(),
+			sCustomHeaders(),bVerbose(),
+			bIgnoreResponseHeader(),bNeedDownloadMetrics(),
+			eRequestType(),postData(),iDnsCacheTimeOut(),
+			iDownloadRetryCount(),iDownloadRetryWaitMs()
+    	{
+			*this=other;
+    	}
 
     _downloadConfig& operator=(const _downloadConfig& other) {
         _downloadConfig temp(other); // temp obj to copy

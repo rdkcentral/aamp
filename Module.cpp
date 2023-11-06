@@ -23,7 +23,9 @@
  */
 
 #include "Module.h"
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Weffc++"
 #include <core/core.h>
+#pragma GCC diagnostic pop
 
 MODULE_NAME_DECLARATION(BUILD_REFERENCE)

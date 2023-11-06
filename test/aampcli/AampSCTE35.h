@@ -323,6 +323,11 @@ public:
 	 */
 	bool checkOffset(size_t offset);
 
+	//copy constructor
+	SCTE35Decoder(const SCTE35Decoder&)=delete;
+	//copy assignment operator
+	SCTE35Decoder& operator=(const SCTE35Decoder&)=delete;
+
 private:
 	size_t mOffset;						/**< @brief Section data bit offset */
 	size_t mMaxOffset;					/**< @brief Section data maximum bit offset */
@@ -365,6 +370,11 @@ public:
 	 * @param[in] object Descriptor JSON object
 	 */
 	void add(cJSON *object);
+
+	//copy constructor
+	SCTE35DecoderDescriptorLoop(const SCTE35DecoderDescriptorLoop&)=delete;
+	//copy assignment operator
+	SCTE35DecoderDescriptorLoop& operator=(const SCTE35DecoderDescriptorLoop&)=delete;
 
 private:
 	std::string mKey;					/**< @brief Data element name */
@@ -447,6 +457,11 @@ public:
 	 * @param[out] summary A summary of the signal
 	 */
 	void getSummary(std::vector<Summary> &summary);
+
+	//copy constructor
+	SCTE35SpliceInfo(const SCTE35SpliceInfo&)=delete;
+	//copy assignment operator
+	SCTE35SpliceInfo& operator=(const SCTE35SpliceInfo&)=delete;
 
 private:
 	cJSON *mJsonObj;					/**< JSON representation of the signal */

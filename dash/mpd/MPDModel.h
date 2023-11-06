@@ -261,7 +261,7 @@ class DashMPDSupplementalProperty : public DashMPDElement<DashMPDAny> {
     std::string schemeIdUri;
 public:
     DashMPDSupplementalProperty(const shared_ptr<DashMPDAny> &parent, const DomElement &elem, int index)
-            : DashMPDElement(parent, elem, index) {
+            : DashMPDElement(parent, elem, index),value(),schemeIdUri() {
 		if (elem.isNull()) return;
 		if (elem.tagName() != "SupplementalProperty") {
 		    AAMPLOG_ERR("%s", ("IncorrectTagException:" + elem.tagName()).c_str());
@@ -281,7 +281,7 @@ class DashMPDLabel : public DashMPDElement<DashMPDAny> {
     std::string lang;
 public:
     DashMPDLabel(const shared_ptr<DashMPDAny> &parent, const DomElement &elem, int index)
-            : DashMPDElement(parent, elem, index) {
+            : DashMPDElement(parent, elem, index),lang() {
 		if (elem.isNull()) return;
 		if (elem.tagName() != "Label") {
 		    AAMPLOG_ERR("%s", ("IncorrectTagException:" + elem.tagName()).c_str());
@@ -301,7 +301,7 @@ class DashMPDRole : public DashMPDElement<DashMPDAny> {
     std::string schemeIdUri;
 public:
     DashMPDRole(const shared_ptr<DashMPDAny> &parent, const DomElement &elem, int index)
-            : DashMPDElement(parent, elem, index) {
+            : DashMPDElement(parent, elem, index),value(),schemeIdUri() {
 		if (elem.isNull()) return;
 		if (elem.tagName() != "Role") {
 		    AAMPLOG_ERR("%s", ("IncorrectTagException:" + elem.tagName()).c_str());
@@ -322,7 +322,7 @@ class DashMPDAccessibility : public DashMPDElement<DashMPDAny> {
     std::string schemeIdUri;
 public:
     DashMPDAccessibility(const shared_ptr<DashMPDAny> &parent, const DomElement &elem, int index)
-            : DashMPDElement(parent, elem, index) {
+            : DashMPDElement(parent, elem, index),value(),schemeIdUri() {
 		if (elem.isNull()) return;
 		if (elem.tagName() != "Accessibility") {
 		    AAMPLOG_ERR("%s", ("IncorrectTagException:" + elem.tagName()).c_str());
@@ -350,7 +350,8 @@ class DashMPDRoot : public DashMPDElement<DashMPDAny> {
 
 public:
 
-    DashMPDRoot(DomElement elem, const int &index) : DashMPDElement(std::shared_ptr<DashMPDAny>(), elem, index) {
+    DashMPDRoot(DomElement elem, const int &index) : DashMPDElement(std::shared_ptr<DashMPDAny>(), elem, index),
+                                                        periods(),supplementalProperties(),mBlockPeriodsUpdateMutex() {
         if (elem.isNull()) return;
         if (elem.tagName() != "MPD") {
             AAMPLOG_ERR("%s", ("IncorrectTagException:" + elem.tagName()).c_str());
@@ -464,7 +465,7 @@ class DashMPDSegmentTimeline : public DashMPDElement<DashMPDAny> {
     unsigned int timeLineId;
 public:
     DashMPDSegmentTimeline(const std::shared_ptr<DashMPDAny> &parent, DomElement &elem, const int &index)
-            : DashMPDElement(parent, elem, index) {
+            : DashMPDElement(parent, elem, index),timeLineSegments(),timeLineId(0) {
         if (elem.isNull()) return;
         if (elem.tagName() != "SegmentTimeline") {
             AAMPLOG_ERR("%s", ("IncorrectTagException:" + elem.tagName()).c_str());
@@ -497,7 +498,7 @@ private:
     long long repeat;
 public:
     DashMPDTimelineS(const shared_ptr<DashMPDSegmentTimeline> &parent, const DomElement &elem, int index, unsigned int segmentId = 0)
-            : DashMPDElement(parent, elem, index) {
+            : DashMPDElement(parent, elem, index),segmentId(),time(),duration(),repeat() {
         this->segmentId = segmentId;
         time = -1;
         duration = -1;
@@ -555,7 +556,7 @@ private:
     shared_ptr<DashMPDURLType> initialization;
 public:
     DashMPDSegmentBase(const std::shared_ptr<DashMPDAny> &parent, DomElement &elem, const int &index)
-            : DashMPDElement(parent, elem, index) {}
+            : DashMPDElement(parent, elem, index),initialization() {}
 
     long long int getTimeScale();
 
@@ -579,7 +580,7 @@ class DashMPDMultipleSegmentBase : public DashMPDSegmentBase {
 public:
 
     DashMPDMultipleSegmentBase(const std::shared_ptr<DashMPDAny> &parent, DomElement &elem, const int &index)
-            : DashMPDSegmentBase(parent, elem, index) {}
+            : DashMPDSegmentBase(parent, elem, index),segmentTimeline() {}
 
     shared_ptr<DashMPDSegmentTimeline> getSegmentTimeline();
 
@@ -607,7 +608,7 @@ class DashMPDSegmentURL : public DashMPDElement<DashMPDSegmentList> {
     std::string segmentPath;
 public:
     DashMPDSegmentURL(const shared_ptr<DashMPDSegmentList> &parent, const DomElement &elem, int index)
-            : DashMPDElement(parent, elem, index) {
+            : DashMPDElement(parent, elem, index),segmentPath() {
         if (elem.isNull()) return;
         if (elem.tagName() != "SegmentURL") {
             AAMPLOG_ERR("%s", ("IncorrectTagException:" + elem.tagName()).c_str());
@@ -638,7 +639,7 @@ class DashMPDSegmentList : public DashMPDMultipleSegmentBase {
     std::vector<shared_ptr<DashMPDSegmentURL>> segmentURLs;
 public:
     DashMPDSegmentList(const shared_ptr<DashMPDAny> &parent, DomElement &elem, const int &index)
-            : DashMPDMultipleSegmentBase(parent, elem, index) {}
+            : DashMPDMultipleSegmentBase(parent, elem, index),segmentURLs() {}
 
     std::vector<shared_ptr<DashMPDSegmentURL>>& getSegmentURLs();
 
@@ -660,7 +661,7 @@ class DashMPDSegmentTemplate : public DashMPDMultipleSegmentBase {
 public:
 
     DashMPDSegmentTemplate(const std::shared_ptr<DashMPDAny> &parent, DomElement &elem, const int &index)
-            : DashMPDMultipleSegmentBase(parent, elem, index) {
+            : DashMPDMultipleSegmentBase(parent, elem, index),startNumber(0),lastSegNumber(0) {
         startNumber = -1;
         lastSegNumber = -1;
         if (elem.isNull()) return;
@@ -721,7 +722,7 @@ class DashMPDPeriod : public DashMPDElement<DashMPDRoot> {
 public:
 
     DashMPDPeriod(const std::shared_ptr<DashMPDRoot> &parent, DomElement &elem, const int &index)
-            : DashMPDElement(parent, elem, index) {
+            : DashMPDElement(parent, elem, index),adaptationSets(),adaptationSetsKeyToIndexMap(),segmentLists() {
         if (elem.isNull()) return;
         if (elem.tagName() != "Period") {
             AAMPLOG_ERR("%s", ("IncorrectTagException:" + elem.tagName()).c_str());
@@ -832,7 +833,7 @@ class DashMPDEvent : public DashMPDElement<DashMPDEventStream> {
     std::string eventData;
 public:
     DashMPDEvent(const std::shared_ptr<DashMPDEventStream> &parent, DomElement &elem, const int &index)
-        : DashMPDElement(parent, elem, index) {
+        : DashMPDElement(parent, elem, index),presentationTime(0),duration(0),eventData() {
         if (elem.isNull()) return;
         if (elem.tagName() != "Event") {
             AAMPLOG_ERR("%s", ("IncorrectTagException:" + elem.tagName()).c_str());
@@ -859,7 +860,7 @@ class DashMPDEventStream : public DashMPDElement<DashMPDPeriod> {
 
 public:
     DashMPDEventStream(const std::shared_ptr<DashMPDPeriod> &parent, DomElement &elem, const int &index)
-        : DashMPDElement(parent, elem, index) {
+        : DashMPDElement(parent, elem, index),events(),timeScale(),schemeIdUri() {
         if (elem.isNull()) return;
         if (elem.tagName() != "EventStream") {
             AAMPLOG_ERR("%s", ("IncorrectTagException:" + elem.tagName()).c_str());
@@ -896,7 +897,8 @@ class DashMPDAdaptationSet : public DashMPDElement<DashMPDPeriod> {
     void updateRepresentationsKeyToIndexMap();
 public:
     DashMPDAdaptationSet(const std::shared_ptr<DashMPDPeriod> &parent, DomElement &elem, const int &index)
-            : DashMPDElement(parent, elem, index) {
+            : DashMPDElement(parent, elem, index),representations(),representationsKeyToIndexMap(),segmentTemplate(),segmentLists(),
+                                                    roles(),accessibilities(), labels(),supplementalProperties() {
         if (elem.isNull()) return;
         if (elem.tagName() != "AdaptationSet") {
             AAMPLOG_ERR("%s", ("IncorrectTagException:" + elem.tagName()).c_str());
@@ -1015,7 +1017,7 @@ class DashMPDRepresentation : public DashMPDElement<DashMPDAdaptationSet> {
 
 public:
     DashMPDRepresentation(const std::shared_ptr<DashMPDAdaptationSet> &parent, DomElement &elem, const int &index)
-            : DashMPDElement(parent, elem, index) {
+            : DashMPDElement(parent, elem, index),representationKey(),segmentTemplate(),segmentLists(),supplementalProperties() {
         if (elem.isNull()) return;
         if (elem.tagName() != "Representation") {
             AAMPLOG_ERR("%s", ("IncorrectTagException:" + elem.tagName()).c_str());
@@ -1106,9 +1108,7 @@ class DashMPDDocument {
 public:
     explicit DashMPDDocument(const string &content);
 
-    explicit DashMPDDocument( shared_ptr<DomDocument> xmlDoc) {
-        this->xmlDoc = xmlDoc;
-    };
+    explicit DashMPDDocument( shared_ptr<DomDocument> xmlDoc) :xmlDoc(xmlDoc),root() {};
     bool isValid();
 
     shared_ptr<DashMPDRoot> getRoot();
@@ -1199,6 +1199,10 @@ public:
      * The "Number" of the segment (in scaled values). Init segments are assigned -1
      */
     long long number = 0;
+
+    MPDSegment() : representationKey(), adaptationKey(), periodId(), isInit(false), url(), startTime(-1),
+                   availabilityStartTime(0), availabilityEndTime(0), duration(0), scaledDuration(0), rangeSpec(),
+                   scaledStart(0), number(0) {}
 };
 
 

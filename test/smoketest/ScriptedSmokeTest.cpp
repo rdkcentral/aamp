@@ -98,7 +98,6 @@ std::ostream& operator<<(std::ostream& os, const testInformation& info)
 }
 
 
-
 /**
  * @brief Get the currently selected aamp player instance
  * @retval pointer to aamp player instance

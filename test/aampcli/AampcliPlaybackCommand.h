@@ -31,6 +31,8 @@ typedef struct advertInfo
 {
 	std::string url;
 	uint32_t duration;
+
+	advertInfo():url(),duration(0){};
 }AdvertInfo;
 
 class PlaybackCommand : public Command

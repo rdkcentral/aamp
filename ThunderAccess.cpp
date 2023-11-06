@@ -23,10 +23,12 @@
  */
 #include "Module.h"
 #include "priv_aamp.h"
-#include <core/core.h>
-#include <websocket/websocket.h>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Weffc++"
 #include <securityagent/SecurityTokenUtil.h>
-#include <ThunderAccess.h>
+#pragma GCC diagnostic pop
+#include "ThunderAccess.h"
+
 
 using namespace std;
 using namespace WPEFramework;
@@ -42,6 +44,7 @@ typedef struct ThunderSecurity
     std::string securityToken;
     int tokenStatus;
     bool tokenQueried;
+    ThunderSecurity(): securityToken(), tokenStatus(0), tokenQueried(false) { };
 }ThunderSecurityData;
 
 ThunderSecurityData gSecurityData;
@@ -54,7 +57,7 @@ ThunderAccessAAMP::ThunderAccessAAMP(std::string callsign, AampLogManager *logOb
                  : remoteObject(NULL),
                    controllerObject(NULL),
                    pluginCallsign(callsign),
-		   mLogObj(logObj)
+                   mLogObj(logObj)
 {
     AAMPLOG_INFO( "[ThunderAccessAAMP]Inside");
 

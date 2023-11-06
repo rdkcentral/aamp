@@ -66,7 +66,8 @@ void AampSecManager::DestroyInstance()
  * @brief AampScheduler Constructor
  */
 AampSecManager::AampSecManager() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSecMutex(), mSchedulerStarted(false),
-				   mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_PLUGIN_CALLSIGN), mWatMutex(), mSpeedStateMutex()
+				   mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_PLUGIN_CALLSIGN), mWatMutex(), mSpeedStateMutex(),
+				   mAamp(NULL)
 {
 	
 	std::lock_guard<std::mutex> lock(mSecMutex);

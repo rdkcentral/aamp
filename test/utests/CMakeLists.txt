@@ -35,6 +35,7 @@ pkg_check_modules(LibXml2 REQUIRED libxml-2.0)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_GST1 -ggdb")
+STRING(REPLACE " -Werror=effc++" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}) #disabling effc++ compiler warnings for utest directory
 #if (CMAKE_PLATFORM_UBUNTU )
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wsuggest-override")
 #endif()
@@ -47,7 +48,7 @@ enable_testing()
 LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}")
 
 if (CMAKE_PLATFORM_UBUNTU)
-    link_directories(${GTEST_LIBRARY_DIRS} ${GMOCK_LIBRARY_DIRS})
+        link_directories(${GTEST_LIBRARY_DIRS} ${GMOCK_LIBRARY_DIRS})
 endif()
 add_subdirectory(tests)
 

@@ -110,8 +110,7 @@ xmlNs *DomDocument::getNamespace(DomNode *node, const string &ns) {
  * @brief   DomDocument constructor
  * @param   file_path file path to read
  */
-DomDocument::DomDocument(const string &file_path) {
-    _xmlDoc = xmlReadFile(file_path.c_str(), NULL, 0);
+DomDocument::DomDocument(const string &file_path) :_xmlDoc(xmlReadFile(file_path.c_str(), NULL, 0)){
     if (_xmlDoc == NULL) {
         AAMPLOG_ERR("Could not parse XML content");
     }

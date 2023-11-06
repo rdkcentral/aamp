@@ -25,9 +25,12 @@
 #ifndef THUNDERACCESS_H_
 #define THUNDERACCESS_H_
 
-#include <Module.h>
+#include "Module.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Weffc++"
 #include <core/core.h>
 #include <websocket/websocket.h>
+#pragma GCC diagnostic pop
 
 using namespace std;
 using namespace WPEFramework;

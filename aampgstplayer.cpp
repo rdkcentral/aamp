@@ -150,6 +150,12 @@ struct media_stream
 	{
 
 	}
+
+	media_stream(const media_stream&)=delete;
+
+	media_stream& operator=(const media_stream&)=delete;
+
+
 };
 
 /**
@@ -4990,7 +4996,8 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, const void
 AampBufferControl::BufferControlExternalData::BufferControlExternalData(const AAMPGstPlayer* player, const MediaType mediaType):
 mRate(0),
 mTimeBasedBufferSeconds(0),
-mPipelineShouldBePlaying(false)
+mPipelineShouldBePlaying(false),
+mExtraDataCache()
 {
 	if(player && player->aamp && player->aamp->mConfig && player->privateContext)
 	{

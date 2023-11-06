@@ -30,7 +30,6 @@
 #include <stdint.h>
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 #include "Module.h"
-#include <core/core.h>
 #include "ThunderAccess.h"
 using namespace std;
 
@@ -41,6 +40,7 @@ using namespace std;
 typedef struct RMFSettings
 {
 	std::string preferredLanguages;
+	RMFSettings(): preferredLanguages() { };
 }RMFGlobalSettings;
 
 /**

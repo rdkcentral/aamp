@@ -69,6 +69,10 @@ public:
     xmlNs* getNamespace(DomNode *node, const string &ns);
 
     ~DomDocument();
+
+    DomDocument(const DomDocument&) = delete;
+
+    DomDocument& operator=(const DomDocument&) = delete;
 };
 
 

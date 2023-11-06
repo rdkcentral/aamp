@@ -210,6 +210,12 @@ public :
 	AampMPDParseHelper(const AampMPDParseHelper& cachedMPD);
 
 	/**
+	 *  @ AampMPDParseHelper
+	 *  @brief Copy assignment operator
+	 */
+	AampMPDParseHelper& operator=(const AampMPDParseHelper&) = delete;
+	
+	/**
 	*   @fn Initialize
 	*   @brief  Initialize the parser with MPD instance 
 	* 	@param[in] instance - MPD instance to parse

@@ -79,16 +79,16 @@ public:
     };
 
     // Default constructor
-    Url() : m_parse(true),m_built(true),m_ip_v(-1) {}
+    Url() : m_parse(true),m_built(true),m_ip_v(-1),m_scheme(),m_user(),m_host(),m_port(),m_path(),m_query(),m_fragment(),m_url() {}
 
     // Copy initializer constructor
-    Url(const Url &url) : m_ip_v(-1) {assign(url);}
+    Url(const Url &url) : m_ip_v(-1),m_scheme(),m_user(),m_host(),m_port(),m_path(),m_query(),m_fragment(),m_url(),m_parse(),m_built() {assign(url);}
 
     // Move constructor
-    Url(Url&& url) : m_ip_v(-1) {assign(std::move(url));}
+    Url(Url&& url) : m_ip_v(-1),m_scheme(),m_user(),m_host(),m_port(),m_path(),m_query(),m_fragment(),m_url(),m_parse(),m_built() {assign(std::move(url));}
 
     // Construct Url with the given string
-    Url(const std::string &url_str) : m_url(url_str),m_parse(false),m_built(false),m_ip_v(-1) {}
+    Url(const std::string &url_str) :m_scheme(),m_user(),m_host(),m_port(),m_path(),m_query(),m_fragment(), m_url(url_str),m_parse(false),m_built(false),m_ip_v(-1) {}
 
     // Assign the given URL string
     Url &operator=(const std::string &url_str) {return str(url_str);}
@@ -147,13 +147,13 @@ public:
     class KeyVal {
     public:
         // Default constructor
-        KeyVal() {}
+        KeyVal():m_key(),m_val() {}
 
         // Construct with provided Key and Value strings
         KeyVal(const std::string &key, const std::string &val) : m_key(key),m_val(val) {}
 
         // Construct with provided Key string, val will be empty
-        KeyVal(const std::string &key) : m_key(key) {}
+        KeyVal(const std::string &key) : m_key(key),m_val() {}
 
         // Equality test operator
         bool operator==(const KeyVal &q) const {return m_key==q.m_key&&m_val==q.m_val;}

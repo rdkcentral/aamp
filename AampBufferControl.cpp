@@ -196,7 +196,8 @@ AampBufferControl::BufferControlTimeBased::BufferControlTimeBased(BufferControlM
 BufferControlByteBased(context),
 mInjectedStart(0),
 mInjectedStartSet(false),
-mInjectedEnd(0)
+mInjectedEnd(0),
+mLastInjectedDuration(0)
 {
 	AAMPLOG_WARN("BufferControlTimeBased %s strategy activated", getThisMediaTypeName());
 }

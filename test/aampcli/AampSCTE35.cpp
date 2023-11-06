@@ -21,29 +21,22 @@
 #include "AampSCTE35.h"
 #include "_base64.h"
 
-SCTE35Decoder::SCTE35Decoder(std::string string) : mParent(nullptr), mLoop(nullptr)
+SCTE35Decoder::SCTE35Decoder(std::string string) : mParent(nullptr), mLoop(nullptr),mOffset(0),mMaxOffset(),
+													mData(),mJsonObj(cJSON_CreateObject()),mKey()
 {
 	size_t len = 0;
 	mData = base64_Decode(string.c_str(), &len);
 	mMaxOffset = len*8;
-	mOffset = 0;
-	mJsonObj = cJSON_CreateObject();
 }
 
 SCTE35Decoder::SCTE35Decoder(SCTE35Decoder *parent, SCTE35DecoderDescriptorLoop *descriptorLoop, size_t loopMaxOffset) : mParent(parent), mLoop(descriptorLoop)
+							,mOffset(parent->mOffset),mMaxOffset(loopMaxOffset),mData(parent->mData),mJsonObj(cJSON_CreateObject()),mKey()
 {
-	mMaxOffset = loopMaxOffset;
-	mData = parent->mData;
-	mOffset = parent->mOffset;
-	mJsonObj = cJSON_CreateObject();
 }
 
 SCTE35Decoder::SCTE35Decoder(const char *key, SCTE35Decoder *parent, int len) : mParent(parent), mLoop(nullptr), mKey(key)
+								,mOffset(parent->mOffset),mMaxOffset(parent->mOffset + (len*8)),mData(parent->mData),mJsonObj(cJSON_CreateObject())
 {
-	mMaxOffset = parent->mOffset + (len*8);
-	mData = parent->mData;
-	mOffset = parent->mOffset;
-	mJsonObj = cJSON_CreateObject();
 }
 
 SCTE35Decoder::~SCTE35Decoder()
@@ -396,9 +389,9 @@ bool SCTE35Decoder::checkOffset(size_t mMaxOffset)
 SCTE35DecoderDescriptorLoop::SCTE35DecoderDescriptorLoop(const std::string &key, SCTE35Decoder *decoder, size_t maxOffset) :
 														 mKey(key),
 														 mDecoder(decoder),
-														 mMaxOffset(maxOffset)
+														 mMaxOffset(maxOffset),
+														 mObjects(cJSON_CreateArray())
 {
-	mObjects = cJSON_CreateArray();
 }
 
 SCTE35DecoderDescriptorLoop::~SCTE35DecoderDescriptorLoop()
@@ -616,10 +609,9 @@ static void SCTE35ParseSection(SCTE35Section *section)
 	section->End();
 }
 
-SCTE35SpliceInfo::SCTE35SpliceInfo(const std::string &string)
+SCTE35SpliceInfo::SCTE35SpliceInfo(const std::string &string) :mJsonObj(NULL)
 {
-	mJsonObj = NULL;
-
+	
 	try
 	{
 		std::unique_ptr<SCTE35Decoder> decoder(new SCTE35Decoder(string));

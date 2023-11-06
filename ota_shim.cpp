@@ -368,7 +368,8 @@ StreamAbstractionAAMP_OTA::StreamAbstractionAAMP_OTA(AampLogManager *logObj, cla
                             thunderRDKShellObj(RDKSHELL_CALLSIGN,logObj),
                             mPCRating(),mSsi(-1),mFrameRate(0),mVideoScanType(eVIDEOSCAN_UNKNOWN),mAspectRatioWidth(0),mAspectRatioHeight(0),
                             mVideoCodec(),mHdrType(),mAudioBitrate(0),mAudioCodec(),mAudioMixType(),mIsAtmos(false),
-                            miVideoWidth(0),miVideoHeight(0),miPrevmiVideoWidth(0),miPrevmiVideoHeight(0)
+                            miVideoWidth(0),miVideoHeight(0),miPrevmiVideoWidth(0),miPrevmiVideoHeight(0),
+                            mVideoBitrate(0),prevBlockedReason(),prevState()
 #endif
 { // STUB
 }

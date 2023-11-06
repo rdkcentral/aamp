@@ -34,7 +34,7 @@
 class AampGrowableBuffer
 {
 public:
-	AampGrowableBuffer( const char *name ):ptr(NULL),len(0),avail(0){ this->name = name; }
+	AampGrowableBuffer( const char *name ):ptr(NULL),len(0),avail(0),name(name){};
 	~AampGrowableBuffer();
 	/*
 	 RDKAAMP-581 [AAMP] tech debt - AampGrowableBuffer converted to class
@@ -52,7 +52,7 @@ public:
 	AampGrowableBuffer(const AampGrowableBuffer & other)
 	 : ptr(nullptr),
 	len{other.len},
-	avail(0)
+	avail(0),name{other.name}
 	{ // never reached/used?
 		ReserveBytes(len); // allocate the pointer and set avail
 		std::memcpy(ptr, other.ptr, len); // populate
@@ -71,7 +71,8 @@ public:
 	AampGrowableBuffer(AampGrowableBuffer && other) noexcept
 		: ptr {other.ptr},
 		len {other.len},
-		avail{other.avail}
+		avail{other.avail},
+		name{other.name}
 	{ // never reached/used
 		other.ptr = nullptr;
 		other.len = 0;

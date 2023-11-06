@@ -30,7 +30,6 @@
 #include <stdint.h>
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 #include "Module.h"
-#include <core/core.h>
 #include "ThunderAccess.h"
 #endif
 using namespace std;

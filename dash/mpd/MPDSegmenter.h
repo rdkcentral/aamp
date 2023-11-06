@@ -74,7 +74,7 @@ public:
      */
     RepresentationVec representations;
 
-    explicit MPDSegmenter(DashMPDDocument& mpdDocument) : mpdDocument(mpdDocument) {}
+    explicit MPDSegmenter(DashMPDDocument& mpdDocument) : mpdDocument(mpdDocument),representations() {}
 
     /**
      * Extract all known MPDSegments.

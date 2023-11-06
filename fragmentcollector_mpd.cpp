@@ -149,6 +149,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,mLowLatencyMode(false)
 	,mABRMode(ABRMode::UNDEF)
 	,mFragmentTimeOffset(0)
+	,mLastManifestFileSize(0)
 {
         FN_TRACE_F_MPD( __FUNCTION__ );
 	this->aamp = aamp;

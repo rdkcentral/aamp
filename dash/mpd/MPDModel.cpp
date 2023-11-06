@@ -1955,8 +1955,7 @@ void DashMPDSegmentTemplate::adjustCutoff(double time) {
  * @brief   DashMPDDocument Constructor
  * @param   content
  */
-DashMPDDocument::DashMPDDocument(const string &content) {
-    xmlDoc = make_shared<DomDocument>();
+DashMPDDocument::DashMPDDocument(const string &content) :xmlDoc(make_shared<DomDocument>()),root() {
     xmlDoc->setContent(content);
 }
 

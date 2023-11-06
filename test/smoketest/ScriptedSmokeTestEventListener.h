@@ -56,6 +56,11 @@ class ScriptedSmokeTestEventListener : public SmokeTestEventListener
 			return duration;
 		}
 
+	//copy constructor
+	ScriptedSmokeTestEventListener(const ScriptedSmokeTestEventListener&)=delete;
+	//copy assignment operator
+	ScriptedSmokeTestEventListener& operator=(const ScriptedSmokeTestEventListener&)=delete;
+
 	private:
 		class monitoredEventStatus
 		{
@@ -70,7 +75,9 @@ class ScriptedSmokeTestEventListener : public SmokeTestEventListener
 				name(eventName), 
 				received(false),
 				negative(negate),
-				data()
+				data(),
+				actual()
+
 			{
 				if (event == AAMP_EVENT_PROGRESS)
 				{

@@ -86,26 +86,18 @@ typedef struct _manifestDownloadConfig
 	AampCMCDCollector* mCMCDCollector; // new variable for cmcd header collector
 
 
-	_manifestDownloadConfig()
-	{
-		mDnldConfig 			= 	std::make_shared<DownloadConfig> ();
-		mTuneUrl 				= 	"";
-		mStichUrl 				= 	"";
-		mIsLLDConfigEnabled		=	false;
-		mCullManifestAtTuneStart=	false;
-		mTSBDuration			=	-1;
-		mStartPosnToTSB			=	-1;
-		mCMCDCollector			= 	nullptr;
-		mMPDStichOption			=	OPT_1_FULL_MANIFEST_TUNE;
-		mHarvestCountLimit		=	0;
-		mHarvestConfig			=	0;
-		mHarvestPathConfigured	=	"";
-	}
+	_manifestDownloadConfig() :mDnldConfig(std::make_shared<DownloadConfig> ()),mTuneUrl(),mStichUrl(),
+									mIsLLDConfigEnabled(false),	mCullManifestAtTuneStart(false),mTSBDuration(-1),
+									mStartPosnToTSB(-1),mCMCDCollector(nullptr),mMPDStichOption(OPT_1_FULL_MANIFEST_TUNE),
+									mHarvestCountLimit(0),mHarvestConfig(0),mHarvestPathConfigured() {}
 
-	_manifestDownloadConfig(const _manifestDownloadConfig &other)
-	{
-		*this = other;
-	}
+	_manifestDownloadConfig(const _manifestDownloadConfig& other): mDnldConfig(other.mDnldConfig),mTuneUrl(other.mTuneUrl),
+								mStichUrl(other.mStichUrl),mIsLLDConfigEnabled(other.mIsLLDConfigEnabled),
+								mCullManifestAtTuneStart(other.mCullManifestAtTuneStart), mTSBDuration(other.mTSBDuration),
+								mStartPosnToTSB(other.mStartPosnToTSB),mCMCDCollector(other.mCMCDCollector),
+								mMPDStichOption(other.mMPDStichOption),mHarvestCountLimit(other.mHarvestCountLimit),
+								mHarvestConfig(other.mHarvestConfig),mHarvestPathConfigured(other.mHarvestPathConfigured) {}
+
 
 	_manifestDownloadConfig& operator=(const _manifestDownloadConfig& other)
 	{
@@ -141,18 +133,9 @@ private:
 	AampMPDParseHelper	*mMPDParseHelper;
 
 public:
-	_manifestDownloadResponse()
-	{
-		mMPDDownloadResponse	=	std::make_shared<DownloadResponse> ();
-		mMPDInstance			=	nullptr;
-		mIsLiveManifest			=	false;
-		mMPDStatus				=	AAMPStatusType::eAAMPSTATUS_OK;
-		mRootNode				=	NULL;
-		mRefreshRequired		=	false;
-		mDashMpdDoc				=	nullptr;
-		mMPDParseHelper			=	new AampMPDParseHelper();
-		mLastPlaylistDownloadTimeMs     =       0;
-	}
+	_manifestDownloadResponse() : mMPDDownloadResponse(std::make_shared<DownloadResponse> ()),mMPDInstance(nullptr),mIsLiveManifest(false),
+									mMPDStatus(AAMPStatusType::eAAMPSTATUS_OK),mRootNode(NULL),mRefreshRequired(false),
+									mDashMpdDoc(nullptr),mMPDParseHelper(new AampMPDParseHelper()),mLastPlaylistDownloadTimeMs(0){}
 	_manifestDownloadResponse& operator=(const _manifestDownloadResponse& other)
 	{
 		_manifestDownloadResponse temp(other);
@@ -161,6 +144,18 @@ public:
 	}
 
 	~_manifestDownloadResponse();
+
+	_manifestDownloadResponse(const _manifestDownloadResponse& other)
+    : mMPDDownloadResponse(other.mMPDDownloadResponse),
+      mMPDInstance(other.mMPDInstance),
+      mIsLiveManifest(other.mIsLiveManifest),
+      mMPDStatus(other.mMPDStatus),
+      mRootNode(other.mRootNode),
+      mRefreshRequired(other.mRefreshRequired),
+      mDashMpdDoc(other.mDashMpdDoc),
+      mMPDParseHelper(new AampMPDParseHelper(*(other.mMPDParseHelper))), // Copy the content
+      mLastPlaylistDownloadTimeMs(other.mLastPlaylistDownloadTimeMs){}
+
 
 public:
 	/**
@@ -295,6 +290,11 @@ public:
 	 * @brief Function to last downloaded manifest data
 	 */
 	void GetLastDownloadedManifest(std::string& manifestBuffer);
+
+	//copy constructor 
+	AampMPDDownloader(const AampMPDDownloader&)=delete;
+	//copy assignment operator
+	AampMPDDownloader& operator=(const AampMPDDownloader&) = delete;
 	
 private:
 
