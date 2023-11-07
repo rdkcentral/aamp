@@ -1268,6 +1268,8 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mMPDStichOption(OPT_1_FULL_MANIFEST_TUNE),mMPDStichRefreshUrl("")
 	, mTsbType("none")
 	, mTsbDepthMs(0)
+	, mDiscStartTime(0)
+	, mRateCorrectionDelay(false)
 {
 	mLogObj = mConfig->GetLoggerInstance();
 	//LazilyLoadConfigIfNeeded();
@@ -1829,6 +1831,7 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 		double normalPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_NormalLatencyCorrectionPlaybackRate);
 		double maxPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxLatencyCorrectionPlaybackRate);
 		double minPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_MinLatencyCorrectionPlaybackRate);
+		int disableRateCorrectionTimeInSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_RateCorrectionDelay);
 		while(!mAbortRateCorrection)
 		{
 			mCorrectionRate = rate; /**< To align with main playback rate start with rate*/
@@ -1886,15 +1889,37 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 						rateRequired = normalPlaybackRate;
 					}
 
-					if((mCorrectionRate != rateRequired) && mStreamSink && !mDiscontinuityTuneOperationInProgress)
+					if (disableRateCorrectionTimeInSeconds > 0 && mDiscStartTime > 0 && true == mRateCorrectionDelay)
 					{
-						if (mStreamSink->SetPlayBackRate(rateRequired))
+						int deltaTime = (int)(NOW_STEADY_TS_SECS- mDiscStartTime);
+
+						AAMPLOG_INFO("mDiscStartTime %ld currenttime=%ld delta=%d disableRateCorrectionTimeInSeconds=%d", mDiscStartTime, NOW_STEADY_TS_SECS, deltaTime, disableRateCorrectionTimeInSeconds);
+
+						if ( deltaTime > disableRateCorrectionTimeInSeconds )
 						{
-							mCorrectionRate = rateRequired;
-							UpdateVideoEndMetrics(rateRequired);
-							SendAnomalyEvent(ANOMALY_WARNING, "Rate changed to:%f", rateRequired);
-							AAMPLOG_INFO("Rate Changed to : %f ", rateRequired);
-							profiler.IncrementChangeCount(Count_RateCorrection);
+							mRateCorrectionDelay = false;
+							mDiscStartTime = 0;
+							AAMPLOG_WARN("Rate correction is enabled after discontinuity processing");
+						}
+						else
+						{
+							AAMPLOG_INFO("Rate correction is still disabled because still in discontinuity processing %ld", mDiscStartTime);
+						}
+					}
+
+					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+					if (sink)
+					{
+						if( !mRateCorrectionDelay && (mCorrectionRate != rateRequired) && !mDiscontinuityTuneOperationInProgress)
+						{
+							if (sink->SetPlayBackRate(rateRequired))
+							{
+								mCorrectionRate = rateRequired;
+								UpdateVideoEndMetrics(rateRequired);
+								SendAnomalyEvent(ANOMALY_WARNING, "Rate changed to:%f", rateRequired);
+								AAMPLOG_WARN("Rate Changed to : %f Live latency : %lf", rateRequired, latency);
+								profiler.IncrementChangeCount(Count_RateCorrection);
+							}
 						}
 					}
 				}
@@ -1906,7 +1931,7 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 						if (mStreamSink->SetPlayBackRate(normalPlaybackRate))
 						{
 							mCorrectionRate = normalPlaybackRate;
-							AAMPLOG_INFO("Rate Changed to : %f ", mCorrectionRate);
+							AAMPLOG_WARN("Rate Changed to : %f", mCorrectionRate);
 						}
 						else
 						{
@@ -2886,10 +2911,26 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 				mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
 
+			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);
+			int  disableRateCorrectionTimeInSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_RateCorrectionDelay);
+			if( disableRateCorrectionTimeInSeconds > 0  && isRateCorrectionEnabled )
+			{
+				mRateCorrectionDelay = true;
+				mDiscStartTime = NOW_STEADY_TS_SECS;
+				AAMPLOG_WARN("Rate correction is disabled on discontinuity processing : %ld", mDiscStartTime);
+			}
+			else
+			{
+				AAMPLOG_WARN("DisableRateCorrectionTimeInSeconds : %d isRateCorrectionEnabled : %d", disableRateCorrectionTimeInSeconds, isRateCorrectionEnabled);
+			}
+
+			mpStreamAbstractionAAMP->StartInjection();
+
 			if(mDiscontinuityFound)
 			{
 				profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FIRST_FRAME);
 			}
+
 			mpStreamAbstractionAAMP->StartInjection();
 			mStreamSink->Stream();
 			mIsTrackIdMismatch = false;
