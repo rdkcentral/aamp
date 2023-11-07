@@ -1142,3 +1142,11 @@ void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
 void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
 {
 }
+
+/**
+ * @brief Resume downloads for a track.
+ * Called from StreamSink to control flow
+ */
+void PrivateInstanceAAMP::ResumeTrackDownloads(MediaType)
+{
+}
