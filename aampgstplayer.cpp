@@ -1677,13 +1677,20 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 	}
 
 	case GST_MESSAGE_CLOCK_LOST:
+	{
 		 /* In this case, the current clock as selected by the pipeline has become unusable. The pipeline will select a new clock on the next PLAYING state change.
-			As per the gstreamer.desktop org, the application should set the pipeline to PAUSED and back to PLAYING when GST_MESSAGE_CLOCK_LOST is received.*/
+			As per the gstreamer.desktop org, the application should set the pipeline to PAUSED and back to PLAYING when GST_MESSAGE_CLOCK_LOST is received.
+			During DASH playback (e.g. when the pipeline is torn down on transition to trickplay), this is done elsewhere. */
+		MediaFormat mediaFormat = _this->aamp->GetMediaFormatTypeEnum();				/* Get the Media format type of current media */
 		AAMPLOG_WARN("GST_MESSAGE_CLOCK_LOST");
-		// get new clock - needed?
-		SetStateWithWarnings(_this->privateContext->pipeline, GST_STATE_PAUSED);
-		SetStateWithWarnings(_this->privateContext->pipeline, GST_STATE_PLAYING);
+		if (mediaFormat != eMEDIAFORMAT_DASH)
+		{
+			// get new clock - needed?
+			SetStateWithWarnings(_this->privateContext->pipeline, GST_STATE_PAUSED);
+			SetStateWithWarnings(_this->privateContext->pipeline, GST_STATE_PLAYING);
+		}
 		break;
+	}
 
 	case GST_MESSAGE_RESET_TIME:		/* Message from pipeline to request resetting its running time */
 #ifdef TRACE
