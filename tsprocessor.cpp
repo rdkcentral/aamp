@@ -511,7 +511,7 @@ public:
 	 * @param[out] basePtsUpdated true if base PTS is updated
 	 * @param[in] ptsError true if encountered PTS error.
 	 */
-	void processPacket(unsigned char * packetStart, bool &basePtsUpdated, bool &ptsError, bool &isPacketIgnored, bool applyOffset, MediaProcessor::process_fcn_t processor)
+	void processPacket(const unsigned char * packetStart, bool &basePtsUpdated, bool &ptsError, bool &isPacketIgnored, bool applyOffset, MediaProcessor::process_fcn_t processor)
 	{
 		std::lock_guard<std::mutex> lock{mMutex};
 		int adaptation_fieldlen = 0;
@@ -541,7 +541,8 @@ public:
 						send();
 					}
 				}
-				unsigned char* pesStart = packetStart + pesOffset;
+
+				const unsigned char* pesStart = packetStart + pesOffset;
 				if (IS_PES_PACKET_START(pesStart))
 				{
 					if (PES_OPTIONAL_HEADER_PRESENT(pesStart))
@@ -700,7 +701,7 @@ public:
 			}
 			/*PARSE PES*/
 			{
-				unsigned char * data = packetStart + pesOffset;
+				unsigned char* data = const_cast<unsigned char*>(packetStart) + pesOffset;
 				int size = PACKET_SIZE - pesOffset;
 				int bytes_to_read;
 				if (PAYLOAD_UNIT_START(packetStart))
@@ -2299,7 +2300,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 	INFO("demuxAndSend : len  %d videoPid %d audioPid %d m_pcrPid %d videoComponentCount %d m_demuxInitialized = %d", (int)len, videoPid, audioPid, m_pcrPid, videoComponentCount, m_demuxInitialized);
 
 	std::unordered_set<Demuxer*> updated_demuxers{};
-	unsigned char * packetStart = (unsigned char *)ptr;
+	const unsigned char * packetStart = (const unsigned char *)ptr;
 	while (len >= PACKET_SIZE)
 	{
 		Demuxer* demuxer = NULL;

@@ -1996,10 +1996,22 @@ public:
 	/**
 	 *   @brief Register event listener
 	 *
+	 *   @param[in] type - Event type
+	 *   @param[in] listener - Handle to event listener
+	 *   @return void
+	 */
+	void RegisterEvent(AAMPEventType type, EventListener* listener)
+	{
+		mEventManager->AddEventListener(type, listener);
+	}
+
+	/**
+	 *   @brief Register all event listeners
+	 *
 	 *   @param[in] eventListener - Handle to event listener
 	 *   @return void
 	 */
-	void RegisterEvents(EventListener* eventListener)
+	void RegisterAllEvents(EventListener* eventListener)
 	{
 		mEventManager->AddListenerForAllEvents(eventListener);
 	}

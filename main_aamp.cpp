@@ -177,7 +177,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	mConfig.logging.setPlayerId(aamp->mPlayerId);
 	// start Scheduler Worker for task handling
  	mScheduler.SetLogger(mLogObj);
-        mScheduler.StartScheduler();
+	mScheduler.StartScheduler();
 	if (NULL == streamSink)
 	{
 		mInternalStreamSink = new AAMPGstPlayer(mConfig.GetLoggerInstance(), aamp,
@@ -422,9 +422,17 @@ void PlayerInstanceAAMP::detach()
 /**
  *  @brief Register event handler.
  */
+void PlayerInstanceAAMP::RegisterEvent(AAMPEventType type, EventListener* listener)
+{
+	aamp->RegisterEvent(type, listener);
+}
+
+/**
+ *  @brief Register event handler.
+ */
 void PlayerInstanceAAMP::RegisterEvents(EventListener* eventListener)
 {
-	aamp->RegisterEvents(eventListener);
+	aamp->RegisterAllEvents(eventListener);
 }
 
 /**

@@ -862,6 +862,15 @@ public:
 	void detach();
 
 	/**
+	 *   @brief Registers the event with the corresponding listener
+	 *
+	 *   @param[in]  type - Event type
+	 *   @param[in]  listener - pointer to implementation of EventListener to receive events.
+	 *   @return void
+	 */
+	void RegisterEvent(AAMPEventType type, EventListener* listener);
+
+	/**
 	 *   @fn RegisterEvents
 	 *
 	 *   @param[in]  eventListener - pointer to implementation of EventListener to receive events.

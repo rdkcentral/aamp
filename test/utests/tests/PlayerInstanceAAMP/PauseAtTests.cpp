@@ -224,7 +224,7 @@ TEST_F(PauseAtTests, PauseAt_Seek)
 TEST_F(PauseAtTests, RegisterEventsTests) {
     EventListener* eventListener = nullptr;
     mPlayerInstance-> RegisterEvents(eventListener);
-    aampObj->RegisterEvents(eventListener);
+    aampObj->RegisterAllEvents(eventListener);
 }
 
 TEST_F(PauseAtTests, UnRegisterEventsTests) {
