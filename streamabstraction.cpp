@@ -1560,13 +1560,13 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 {
 	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	pthread_mutex_lock(&mLock);
 	if(video != NULL)
 	{
 
 		struct timespec ts;
 		int ret = 0;
 
-		pthread_mutex_lock(&mLock);
 		double audioDuration = audio->GetTotalInjectedDuration();
 		double videoDuration = video->GetTotalInjectedDuration();
 
@@ -3111,13 +3111,13 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchupForAux()
 {
 	MediaTrack *aux = GetMediaTrack(eTRACK_AUX_AUDIO);
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	pthread_mutex_lock(&mLock);
 	if(video != NULL)
 	{
 
 		struct timespec ts;
 		int ret = 0;
 
-		pthread_mutex_lock(&mLock);
 		double auxDuration = aux->GetTotalInjectedDuration();
 		double videoDuration = video->GetTotalInjectedDuration();
 
