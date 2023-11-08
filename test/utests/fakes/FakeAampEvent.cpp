@@ -379,3 +379,7 @@ MetricsDataEvent::MetricsDataEvent(MetricsDataType dataType, const std::string &
 		AAMPEventObject(AAMP_EVENT_REPORT_METRICS_DATA)
 {
 }
+PrivAAMPState StateChangedEvent::getState() const
+{
+	return mState;
+}
