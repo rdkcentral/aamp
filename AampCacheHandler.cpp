@@ -33,72 +33,81 @@ void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGr
 	PlayListCachedData *tmpData,*newtmpData;
 	std::lock_guard<std::recursive_mutex> lock(mMutex);
 
-	//Initialize AampCacheHandler
-	Init();
-
-	// First check point , Caching is allowed only if its VOD and for Main Manifest(HLS) for both VOD/Live
-	// For Main manifest , fileType will bypass storing for live content
-	if(trackLiveStatus==false || fileType==eMEDIATYPE_MANIFEST)
+	if(buffer->GetLen()==0)
+	{
+		AAMPLOG_ERR("Insert to PlaylistCache Failed due to empty buffer ");
+	}
+	else
 	{
 
-		PlaylistCacheIter it = mPlaylistCache.find(url);
-		if (it != mPlaylistCache.end())
-		{
-			AAMPLOG_INFO("playlist %s already present in cache", url.c_str());
-		}
-		// insert only if buffer size is less than Max size
-		else
-		{
-			if(fileType==eMEDIATYPE_MANIFEST && mPlaylistCache.size())
-			{
-				// If new Manifest is inserted which is not present in the cache , flush out other playlist files related with old manifest,
-				ClearPlaylistCache();
-			}
-			// Dont check for CacheSize if Max is configured as unlimited 
-			if(mMaxPlaylistCacheSize == PLAYLIST_CACHE_SIZE_UNLIMITED || (mMaxPlaylistCacheSize != PLAYLIST_CACHE_SIZE_UNLIMITED  && buffer->GetLen() < mMaxPlaylistCacheSize))
-			{
-				// Before inserting into cache, need to check if max cache size will exceed or not on adding new data
-				// if more , need to pop out some from same type of playlist
-				bool cacheStoreReady = true;
-				if(mMaxPlaylistCacheSize != PLAYLIST_CACHE_SIZE_UNLIMITED  && ((mCacheStoredSize + buffer->GetLen()) > mMaxPlaylistCacheSize))
-				{
-					AAMPLOG_WARN("Count[%lu]Avail[%d]Needed[%zu] Reached max cache size", mPlaylistCache.size(),mCacheStoredSize,buffer->GetLen() );
-					cacheStoreReady = AllocatePlaylistCacheSlot(fileType,buffer->GetLen() );
-				}
-				if(cacheStoreReady)
-				{
-					tmpData = new PlayListCachedData();
-					tmpData->mCachedBuffer = new AampGrowableBuffer("playlist-cachedBuffer");
-					tmpData->mCachedBuffer->AppendBytes( buffer->GetPtr(), buffer->GetLen() );
+		//Initialize AampCacheHandler
+		Init();
 
-					tmpData->mEffectiveUrl = effectiveUrl;
-					tmpData->mFileType = fileType;
-					mPlaylistCache[url] = tmpData;
-					mCacheStoredSize += buffer->GetLen();
-					AAMPLOG_INFO("Inserted. url %s", url.c_str());
-					// There are cases where Main url and effective url will be different ( for Main manifest)
-					// Need to store both the entries with same content data 
-					// When retune happens within aamp due to failure , effective url wll be asked to read from cached manifest
-					// When retune happens from JS , regular Main url will be asked to read from cached manifest. 
-					// So need to have two entries in cache table but both pointing to same CachedBuffer (no space is consumed for storage)
-					{						
-						// if n only there is diff in url , need to store both
-						if(url != effectiveUrl)
+		// First check point , Caching is allowed only if its VOD and for Main Manifest(HLS) for both VOD/Live
+		// For Main manifest , fileType will bypass storing for live content
+		if(trackLiveStatus==false || fileType==eMEDIATYPE_MANIFEST)
+		{
+
+			PlaylistCacheIter it = mPlaylistCache.find(url);
+			if (it != mPlaylistCache.end())
+			{
+				AAMPLOG_INFO("playlist %s already present in cache", url.c_str());
+			}
+			// insert only if buffer size is less than Max size
+			else
+			{
+				if(fileType==eMEDIATYPE_MANIFEST && mPlaylistCache.size())
+				{
+					// If new Manifest is inserted which is not present in the cache , flush out other playlist files related with old manifest,
+					ClearPlaylistCache();
+				}
+				// Dont check for CacheSize if Max is configured as unlimited 
+				if(mMaxPlaylistCacheSize == PLAYLIST_CACHE_SIZE_UNLIMITED || (mMaxPlaylistCacheSize != PLAYLIST_CACHE_SIZE_UNLIMITED  && buffer->GetLen() < mMaxPlaylistCacheSize))
+				{
+					// Before inserting into cache, need to check if max cache size will exceed or not on adding new data
+					// if more , need to pop out some from same type of playlist
+					bool cacheStoreReady = true;
+					if(mMaxPlaylistCacheSize != PLAYLIST_CACHE_SIZE_UNLIMITED  && ((mCacheStoredSize + buffer->GetLen()) > mMaxPlaylistCacheSize))
+					{
+						AAMPLOG_WARN("Count[%lu]Avail[%d]Needed[%zu] Reached max cache size", mPlaylistCache.size(),mCacheStoredSize,buffer->GetLen() );
+						cacheStoreReady = AllocatePlaylistCacheSlot(fileType,buffer->GetLen() );
+					}
+					if(cacheStoreReady)
+					{
+						tmpData = new PlayListCachedData();
+						tmpData->mCachedBuffer = new AampGrowableBuffer("playlist-cachedBuffer");
+						tmpData->mCachedBuffer->AppendBytes( buffer->GetPtr(), buffer->GetLen() );
+
+						tmpData->mEffectiveUrl = effectiveUrl;
+						tmpData->mFileType = fileType;
+						mPlaylistCache[url] = tmpData;
+						mCacheStoredSize += buffer->GetLen();
+						AAMPLOG_INFO("Inserted. url %s", url.c_str());
+						// There are cases where Main url and effective url will be different ( for Main manifest)
+						// Need to store both the entries with same content data 
+						// When retune happens within aamp due to failure , effective url wll be asked to read from cached manifest
+						// When retune happens from JS , regular Main url will be asked to read from cached manifest. 
+						// So need to have two entries in cache table but both pointing to same CachedBuffer (no space is consumed for storage)
 						{
-							newtmpData = new PlayListCachedData();
-							// Not to allocate for Cachebuffer again , use the same buffer as above
-							newtmpData->mCachedBuffer = tmpData->mCachedBuffer;
-							newtmpData->mEffectiveUrl = effectiveUrl;
-							// This is a duplicate entry
-							newtmpData->mDuplicateEntry = true;
-							newtmpData->mFileType = fileType;
-							mPlaylistCache[effectiveUrl] = newtmpData;
-							AAMPLOG_INFO("Added an effective url entry %s", effectiveUrl.c_str());
+							// if n only there is diff in url , need to store both
+							if(url != effectiveUrl)
+							{
+								newtmpData = new PlayListCachedData();
+								// Not to allocate for Cachebuffer again , use the same buffer as above
+								newtmpData->mCachedBuffer = tmpData->mCachedBuffer;
+								newtmpData->mEffectiveUrl = effectiveUrl;
+								// This is a duplicate entry
+								newtmpData->mDuplicateEntry = true;
+								newtmpData->mFileType = fileType;
+								mPlaylistCache[effectiveUrl] = newtmpData;
+								AAMPLOG_INFO("Added an effective url entry %s", effectiveUrl.c_str());
+							}
 						}
 					}
 				}
 			}
 		}
+
 	}
 }
 
@@ -409,80 +418,90 @@ bool AampCacheHandler::IsUrlCached(std::string url)
 void AampCacheHandler::InsertToInitFragCache(const std::string url, const AampGrowableBuffer* buffer,
 						std::string effectiveUrl, MediaType fileType)
 {
-	InitFragCacheStruct *NewInitData;
-	InitFragTrackStruct *NewTrackQueueCache;
-
 	pthread_mutex_lock(&mInitFragMutex);
 
-	//Initialize AampCacheHandler
-	Init();
-
-	InitFragCacheIter Iter = umInitFragCache.find(url);
-	if ( Iter != umInitFragCache.end() )
+	if(buffer->GetLen()==0)
 	{
-		AAMPLOG_INFO("playlist %s already present in cache", url.c_str());
+		AAMPLOG_ERR("Insert to InitFragCache Failed due to empty buffer ");
 	}
+
 	else
 	{
-		NewInitData = new playlistcacheddata();
-		NewInitData->mCachedBuffer = new AampGrowableBuffer("playlist-cached-data");
-		NewInitData->mCachedBuffer->AppendBytes( buffer->GetPtr(), buffer->GetLen() );
 
-		NewInitData->mEffectiveUrl = effectiveUrl;
-		NewInitData->mFileType = fileType;
-		NewInitData->mDuplicateEntry = (effectiveUrl.length() && (effectiveUrl!=url));
+		InitFragCacheStruct *NewInitData;
+		InitFragTrackStruct *NewTrackQueueCache;
 
-		/* 
-		 * Check if queue created for given track type, if not create a queue
-		 * and add a corresponding url into a track queue.
-		 */
-		CacheTrackQueueIter IterCq = umCacheTrackQ.find(fileType);
-		if(IterCq == umCacheTrackQ.end())
+
+
+		//Initialize AampCacheHandler
+		Init();
+
+		InitFragCacheIter Iter = umInitFragCache.find(url);
+		if ( Iter != umInitFragCache.end() )
 		{
-			NewTrackQueueCache = new initfragtrackstruct();
-			NewTrackQueueCache->Trackqueue.push(url);
-
-			umCacheTrackQ[fileType]=NewTrackQueueCache;
+			AAMPLOG_INFO("playlist %s already present in cache", url.c_str());
 		}
 		else
 		{
-			NewTrackQueueCache = IterCq->second;
-			NewTrackQueueCache->Trackqueue.push(url);
+			NewInitData = new playlistcacheddata();
+			NewInitData->mCachedBuffer = new AampGrowableBuffer("playlist-cached-data");
+			NewInitData->mCachedBuffer->AppendBytes( buffer->GetPtr(), buffer->GetLen() );
+
+			NewInitData->mEffectiveUrl = effectiveUrl;
+			NewInitData->mFileType = fileType;
+			NewInitData->mDuplicateEntry = (effectiveUrl.length() && (effectiveUrl!=url));
+
+			/*
+			* Check if queue created for given track type, if not create a queue
+			* and add a corresponding url into a track queue.
+			*/
+			CacheTrackQueueIter IterCq = umCacheTrackQ.find(fileType);
+			if(IterCq == umCacheTrackQ.end())
+			{
+				NewTrackQueueCache = new initfragtrackstruct();
+				NewTrackQueueCache->Trackqueue.push(url);
+
+				umCacheTrackQ[fileType]=NewTrackQueueCache;
+			}
+			else
+			{
+				NewTrackQueueCache = IterCq->second;
+				NewTrackQueueCache->Trackqueue.push(url);
+			}
+
+
+			/*
+			* If track queue of given filetype reached maximum limit, remove the very first
+			* inserted entry & its duplicate entry from cache table.
+			*/
+			if ( NewTrackQueueCache->Trackqueue.size() > MaxInitCacheSlot )
+			{
+				RemoveInitFragCacheEntry ( fileType );
+			}
+
+			umInitFragCache[url] = NewInitData;
+			AAMPLOG_INFO("Inserted init url %s", url.c_str());
+
+
+			/*
+			* If current init fragment has any redirected url which is different, that must be
+			* inserted in cache table with same init fragment data of url and which will not inserted in track queue.
+			*/
+			if ( NewInitData->mDuplicateEntry )
+			{
+				InitFragCacheStruct *DupInitData;
+				DupInitData = new playlistcacheddata();
+				DupInitData->mCachedBuffer = NewInitData->mCachedBuffer;
+				DupInitData->mEffectiveUrl = effectiveUrl;
+				DupInitData->mFileType = fileType;
+				umInitFragCache[effectiveUrl] = DupInitData;
+				AAMPLOG_INFO("Inserted effective init url %s", url.c_str());
+			}
+
+			AAMPLOG_INFO("Size [CacheTable:%d,TrackQ:%d,CurrentTrack:%d,MaxLimit:%d]\n", (int)umInitFragCache.size(), (int)umCacheTrackQ.size(), (int)NewTrackQueueCache->Trackqueue.size(), MaxInitCacheSlot );
 		}
 
-
-		/* 
-		 * If track queue of given filetype reached maximum limit, remove the very first
-		 * inserted entry & its duplicate entry from cache table.
-		 */
-		if ( NewTrackQueueCache->Trackqueue.size() > MaxInitCacheSlot )
-		{
-			RemoveInitFragCacheEntry ( fileType );
-		}
-
-		umInitFragCache[url] = NewInitData;
-		AAMPLOG_INFO("Inserted init url %s", url.c_str());
-
-
-		/* 
-		 * If current init fragment has any redirected url which is different, that must be
-		 * inserted in cache table with same init fragment data of url and which will not inserted in track queue.
-		 */
-		if ( NewInitData->mDuplicateEntry )
-		{
-			InitFragCacheStruct *DupInitData;
-			DupInitData = new playlistcacheddata();
-			DupInitData->mCachedBuffer = NewInitData->mCachedBuffer;
-			DupInitData->mEffectiveUrl = effectiveUrl;
-			DupInitData->mFileType = fileType;
-			umInitFragCache[effectiveUrl] = DupInitData;
-	
-			AAMPLOG_INFO("Inserted effective init url %s", url.c_str());
-		}
-
-		AAMPLOG_INFO("Size [CacheTable:%d,TrackQ:%d,CurrentTrack:%d,MaxLimit:%d]\n", (int)umInitFragCache.size(), (int)umCacheTrackQ.size(), (int)NewTrackQueueCache->Trackqueue.size(), MaxInitCacheSlot );
 	}
-
 	pthread_mutex_unlock(&mInitFragMutex);
 }
 

@@ -67,11 +67,21 @@ TEST_F(AampCacheHandlerTest, InitFragCache)
     type = eMEDIATYPE_INIT_VIDEO;
 
     buffer = new AampGrowableBuffer("InitFragCache_Data");
-    // Inserting the Url and trying to retrieve
+    // Inserting the Url and trying to retrieve with empty buffer
     handler->InsertToInitFragCache(url1, buffer, effectiveUrl, type);
+    bool res01 = handler->RetrieveFromInitFragCache(url1, buffer, effectiveUrl);
+    EXPECT_FALSE(res01);
 
+    //initializing buffer
+    const char *srcData1[30] = {"HelloWorld"};
+    size_t arraySize1 = sizeof(srcData1) / sizeof(srcData1[0]);
+    buffer->AppendBytes(srcData1, arraySize1);
+    // Inserting the Url and trying to retrieve with non-empty buffer
+    handler->InsertToInitFragCache(url1, buffer, effectiveUrl, type);
     bool res1 = handler->RetrieveFromInitFragCache(url1, buffer, effectiveUrl);
     EXPECT_TRUE(res1);
+
+
     // Without Inserting the Url trying to retrieve
     bool res2 = handler->RetrieveFromInitFragCache(url2, buffer, effectiveUrl);
     EXPECT_FALSE(res2);
@@ -109,7 +119,17 @@ TEST_F(AampCacheHandlerTest, PlaylistCache)
     handler->InsertToPlaylistCache(url1, buffer, effectiveUrl, true, eMEDIATYPE_INIT_VIDEO);
     bool res1 = handler->IsUrlCached(url1);
     EXPECT_FALSE(res1);
-    // Inserting the playlist and trying to retrieve
+
+    // Inserting the Url and trying to retrieve with empty buffer
+    handler->InsertToPlaylistCache(url2, buffer, effectiveUrl, false, eMEDIATYPE_INIT_VIDEO);
+    bool res01 = handler->IsUrlCached(url2);
+    EXPECT_FALSE(res01);
+
+    //initializing buffer
+    const char *srcData3[30] = {"HelloWorld"};
+    size_t arraySize3 = sizeof(srcData3) / sizeof(srcData3[0]);
+    buffer->AppendBytes(srcData3, arraySize3);
+    // Inserting the playlist and trying to retrieve with non-empty buffer
     handler->InsertToPlaylistCache(url2, buffer, effectiveUrl, false, eMEDIATYPE_INIT_VIDEO);
     bool res2 = handler->IsUrlCached(url2);
     EXPECT_TRUE(res2);
