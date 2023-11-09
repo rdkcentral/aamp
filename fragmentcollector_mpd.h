@@ -916,7 +916,7 @@ private:
 	/**
 	 * @fn IndexNewMPDDocument
 	 */
-	void IndexNewMPDDocument(bool updateTrackInfo = true);
+	AAMPStatusType IndexNewMPDDocument(bool updateTrackInfo = true);
 	/**
 	 * @fn AcquirePlaylistLock
 	 */

@@ -4705,8 +4705,9 @@ bool StreamAbstractionAAMP_MPD::Is4KStream(int &height, BitsPerSecond &bandwidth
 /**
 * @brief Function to Parse/Index mpd document after being downloaded.
 */
-void StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackInfo)
+AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackInfo)
 {
+	AAMPStatusType ret = eAAMPSTATUS_OK;
 	int deltaInPeriodIndex = mCurrentPeriodIdx;
 	mNumberOfPeriods = 	mMPDParseHelper->GetNumberOfPeriods();
 	if(mIsLiveStream && updateTrackInfo)
@@ -4789,7 +4790,12 @@ void StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackInfo)
 				|| (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState && mUpdateStreamInfo))
 			{
 				AAMPLOG_TRACE("Indexing new mpd doc");
-				UpdateTrackInfo(true, true);
+				ret = UpdateTrackInfo(true, true);
+				if(ret != eAAMPSTATUS_OK)
+				{
+					AAMPLOG_WARN("manifest : %d error", ret);
+					return ret;	
+				}
 				for (int i = 0; i < mNumberOfTracks; i++)
 				{
 					mMediaStreamContext[i]->freshManifest = true;
@@ -4839,6 +4845,7 @@ void StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackInfo)
 			mLiveEndPosition = duration + mCulledSeconds;
 		}
 	}
+	return ret;
 }
 
 /**
@@ -8957,7 +8964,16 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					if(mUpdateStreamInfo && periodChanged)
 					{
 						bool resetTimeLineIndex = (mIsLiveStream || periodChanged);
-						UpdateTrackInfo(true, resetTimeLineIndex);
+						AAMPStatusType ret = eAAMPSTATUS_OK;
+						ret = UpdateTrackInfo(true, resetTimeLineIndex);
+						if(ret != eAAMPSTATUS_OK)
+						{
+							AAMPLOG_WARN("manifest : %d error", ret);
+							aamp->DisableDownloads();
+							ReleasePlaylistLock();
+							exitFetchLoop = true;
+							break;
+						}
 					}
 
 					if(mIsLiveStream)
@@ -9316,11 +9332,14 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: null mpd");
 		}
 
+		if( !exitFetchLoop)
+		{
 		AcquirePlaylistLock();
 		// Reset period info to go back to loop without UpdateTrackInfo.
 		IndexNewMPDDocument(false);
 		ReleasePlaylistLock();
-
+		}
+		
 		if (!aamp->DownloadsAreEnabled())
 		{
 			break;
@@ -9390,7 +9409,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 					{
 						AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
 						// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
-						IndexNewMPDDocument();
+						ret = IndexNewMPDDocument();
 					}
 				}
 
