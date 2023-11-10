@@ -43,6 +43,10 @@ STRING(REPLACE " -Werror=effc++" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}) #disabli
 add_definitions(-DENABLE_LOGGING)
 
 add_subdirectory(fakes)
+if (CMAKE_XCODE_BUILD_SYSTEM)
+  # ARM64 will fail to build utest schemes in XCode unless this is set
+  set(CMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE PRE_TEST)
+endif()
 
 enable_testing()
 LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}")
