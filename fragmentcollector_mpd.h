@@ -347,6 +347,14 @@ public:
 	 */
 	bool PushNextFragment( class MediaStreamContext *pMediaStreamContext, unsigned int curlInstance);
 	/**
+	 * @fn SkipFragments
+	 * @param pMediaStreamContext Media track object
+	 * @param skipTime time to skip in seconds
+	 * @param updateFirstPTS true to update first pts state variable
+	 * @param skipToEnd true to skip to the end of content
+ 	 */
+	double SkipFragments( class MediaStreamContext *pMediaStreamContext, double skipTime, bool updateFirstPTS = false, bool skipToEnd = false);
+	/**
 	 * @fn GetFirstPeriodStartTime
 	 */
 	double GetFirstPeriodStartTime(void) override;
@@ -638,13 +646,6 @@ private:
 	 * @fn UpdateTrackInfo
 	 */
 	AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex=false);
-	/**
-	 * @fn SkipFragments
-	 * @param pMediaStreamContext Media track object
-	 * @param skipTime time to skip in seconds
-	 * @param updateFirstPTS true to update first pts state variable
- 	 */
-	double SkipFragments( class MediaStreamContext *pMediaStreamContext, double skipTime, bool updateFirstPTS = false, bool skipToEnd = false);	
 	/**
 	 * @fn SkipToEnd
 	 * @param pMediaStreamContext Track object pointer

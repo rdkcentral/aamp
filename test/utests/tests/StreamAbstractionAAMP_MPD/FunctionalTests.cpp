@@ -43,11 +43,15 @@ using ::testing::WithArgs;
 using ::testing::WithoutArgs;
 using ::testing::AnyNumber;
 using ::testing::DoAll;
+using ::testing::Invoke;
 
 AampConfig *gpGlobalConfig{nullptr};
 AampLogManager *mLogObj{nullptr};
 
-class FunctionalTests : public ::testing::Test
+/**
+ * @brief Functional tests common base class.
+ */
+class FunctionalTestsBase
 {
 protected:
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -81,7 +85,8 @@ protected:
 		{eAAMPConfig_DisableATMOS, false},
 		{eAAMPConfig_DisableEC3, false},
 		{eAAMPConfig_DisableAC3, false},
-		{eAAMPConfig_EnableLowLatencyDash, false}
+		{eAAMPConfig_EnableLowLatencyDash, false},
+		{eAAMPConfig_EnableIgnoreEosSmallFragment, false}
 	};
 
 	BoolConfigSettings mBoolConfigSettings;
@@ -101,7 +106,7 @@ protected:
 
 	IntConfigSettings mIntConfigSettings;
 
-	void SetUp() override
+	void SetUp()
 	{
 		if(gpGlobalConfig == nullptr)
 		{
@@ -132,7 +137,7 @@ protected:
 		mIntConfigSettings = mDefaultIntConfigSettings;
 	}
 
-	void TearDown() override
+	void TearDown()
 	{
 		if (mStreamAbstractionAAMP_MPD)
 		{
@@ -249,9 +254,10 @@ public:
 	 * @param[in] manifest Manifest data
 	 * @param[in] tuneType Optional tune type
 	 * @param[in] seekPos Optional seek position in seconds
+	 * @param[in] rate Optional play rate
 	 * @return eAAMPSTATUS_OK on success or another value on error
 	 */
-	AAMPStatusType InitializeMPD(const char *manifest, TuneType tuneType = TuneType::eTUNETYPE_NEW_NORMAL, double seekPos = 0.0)
+	AAMPStatusType InitializeMPD(const char *manifest, TuneType tuneType = TuneType::eTUNETYPE_NEW_NORMAL, double seekPos = 0.0, float rate = AAMP_NORMAL_PLAY_RATE)
 	{
 		AAMPStatusType status;
 
@@ -273,7 +279,7 @@ public:
 		}
 
 		/* Create MPD instance. */
-		mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mLogObj, mPrivateInstanceAAMP, seekPos, AAMP_NORMAL_PLAY_RATE);
+		mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mLogObj, mPrivateInstanceAAMP, seekPos, rate);
 		mCdaiObj = new CDAIObjectMPD(mLogObj, mPrivateInstanceAAMP);
 		mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 
@@ -287,7 +293,7 @@ public:
 			.WillRepeatedly(SetArgReferee<0>(eSTATE_PREPARING));
 
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest (_, _, _))
-			.WillOnce(WithoutArgs(Invoke(this, &FunctionalTests::GetManifestForMPDDownloader)));
+			.WillOnce(WithoutArgs(Invoke(this, &FunctionalTestsBase::GetManifestForMPDDownloader)));
 
 		status = mStreamAbstractionAAMP_MPD->Init(tuneType);
 		return status;
@@ -305,6 +311,61 @@ public:
 
 		MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
 		mStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext, 0);
+	}
+};
+
+/**
+ * @brief Functional tests class.
+ */
+class FunctionalTests : public FunctionalTestsBase,
+						public ::testing::Test
+{
+protected:
+	void SetUp() override
+	{
+		FunctionalTestsBase::SetUp();
+	}
+
+	void TearDown() override
+	{
+		FunctionalTestsBase::TearDown();
+	}
+};
+
+/**
+ * @brief Parameterized trickplay tests class.
+ *
+ * Trickplay tests are instantiated multiple times with a range of play rates.
+ */
+class TrickplayTests : public FunctionalTestsBase,
+					   public ::testing::TestWithParam<float>
+{
+protected:
+	void SetUp() override
+	{
+		FunctionalTestsBase::SetUp();
+	}
+
+	void TearDown() override
+	{
+		FunctionalTestsBase::TearDown();
+	}
+
+public:
+	/**
+	 * @brief Skip fragments helper method
+	 *
+	 * @param[in] trackType Media track type
+	 * @param[in] skipTime Time to skip in seconds
+	 * @retval Return value of StreamAbstractionAAMP_MPD::SkipFragments.
+	 */
+	double SkipFragments(TrackType trackType, double skipTime)
+	{
+		MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(trackType);
+		EXPECT_NE(track, nullptr);
+
+		MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
+		return mStreamAbstractionAAMP_MPD->SkipFragments(pMediaStreamContext, skipTime);
 	}
 };
 
@@ -1016,3 +1077,88 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	mpd = mStreamAbstractionAAMP_MPD->GetMPD();
 	EXPECT_NE(mpd, nullptr);
 	}*/
+
+/**
+ * @brief IFrame trickplay cadence parameterized test.
+ *
+ * @param[in] param Play rate
+ *
+ * Verify the difference between successive IFrame indices in trickplay.
+ */
+TEST_P(TrickplayTests, Cadence)
+{
+	float rate;
+	char url[64];
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	double seekPosition = 30.0;
+	int fragmentNumber = 31;
+	double skipTime;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:xlink="http://www.w3.org/1999/xlink" xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT15M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="1" contentType="video" segmentAlignment="true" bitstreamSwitching="true" lang="und">
+			<EssentialProperty schemeIdUri="http://dashif.org/guidelines/trickmode" value="1"/>
+			<Representation id="4" mimeType="video/mp4" codecs="avc1.4d4016" bandwidth="800000" width="640" height="360" frameRate="1/1">
+				<SegmentTemplate timescale="16384" initialization="dash/iframe_init.m4s" media="dash/iframe_$Number%03d$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="16384" r="899"/>
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	/* Get the rate parameter. */
+	rate = GetParam();
+
+	/* Initialize MPD with seek position and play rate. The initialization
+	 * segment is cached.
+	 */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("dash/iframe_init.m4s");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest, TuneType::eTUNETYPE_NEW_NORMAL, seekPosition, rate);
+
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	/* Push the first video segment to present. */
+	(void)snprintf(url, sizeof(url), "%sdash/iframe_%03d.m4s", TEST_BASE_URL, fragmentNumber);
+	fragmentUrl = std::string(url);
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	PushNextFragment(eTRACK_VIDEO);
+
+	/* Skip segments which will not be pushed. */
+	skipTime = rate/TRICKPLAY_VOD_PLAYBACK_FPS;
+	(void)SkipFragments(eTRACK_VIDEO, skipTime);
+
+	/* Push the next video segment to present. */
+	if (rate > 0.0)
+	{
+		fragmentNumber += ((int)abs(skipTime) + 1);
+	}
+	else
+	{
+		fragmentNumber -= ((int)abs(skipTime) + 1);
+	}
+
+	(void)snprintf(url, sizeof(url), "%sdash/iframe_%03d.m4s", TEST_BASE_URL, fragmentNumber);
+	fragmentUrl = std::string(url);
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	PushNextFragment(eTRACK_VIDEO);
+}
+
+/**
+ * @brief Instantiate the trickplay tests with multiple play rates.
+ */
+INSTANTIATE_TEST_SUITE_P(TrickPlay,
+                         TrickplayTests,
+                         testing::Values(-1.0, 2.0, -2.0, 6.0, -6.0, 12.0, -12.0, 30.0, -30.0));
