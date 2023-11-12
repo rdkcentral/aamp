@@ -222,9 +222,9 @@ static uint33_t Extract33BitTimestamp( const unsigned char *ptr )
 template<class T, class U = T>
 T exchange(T& obj, U&& new_value)
 {
-    T old_value = std::move(obj);
-    obj = std::forward<U>(new_value);
-    return old_value;
+	T old_value = std::move(obj);
+	obj = std::forward<U>(new_value);
+	return old_value;
 }
 
 /**
@@ -806,7 +806,7 @@ public:
 	/** @brief Provides the @a MediaType of the demixer
 	 * @return The MediaType of the demuxer
 	 */
-	MediaType GetType() 
+	MediaType GetType()
 	{
 		std::lock_guard<std::mutex> lock{mMutex};
 
@@ -836,22 +836,22 @@ public:
 	 * @return True if there is any cached data
 	 * @return False if there is no cached data
 	*/
-	bool HasCachedData() 
+	bool HasCachedData()
 	{
 
 		std::lock_guard<std::mutex> lock{mMutex};
-		return !!es.GetLen(); 
+		return !!es.GetLen();
 	}
 
 	/**
 	 * @brief Provides the current size of the @a es buffer
 	 * @return The size of data contained in the @a es buffer
 	*/
-	size_t GetCachedDataSize() 
+	size_t GetCachedDataSize()
 	{
 
 		std::lock_guard<std::mutex> lock{mMutex};
-		return es.GetLen(); 
+		return es.GetLen();
 	}
 
 };
@@ -1495,7 +1495,7 @@ void TSProcessor::updatePATPMT()
 
 /**
  * @brief Send discontinuity packet. Not relevant for demux operations
- */ 
+ */
 void TSProcessor::sendDiscontinuity(double position)
 {
 
@@ -1793,7 +1793,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 	bool removePatPmt = false;
 	m_packetStartAfterFirstPTS = -1;
 
-	if (m_playRate != 1.0) 
+	if (m_playRate != 1.0)
 	{
 		insPatPmt = true;
 		removePatPmt = true;
@@ -2500,7 +2500,7 @@ void TSProcessor::flush()
 
 /**
  * @brief Send queued segment
- */ 
+ */
 void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPositon)
 {
 	WARNING("PC %p basepts %lld", this, basepts);
@@ -2602,9 +2602,14 @@ bool TSProcessor::sendSegment(char *segment, size_t& size, double position, doub
 	if ((packetStart[0] != 0x47) || ((packetStart[1] & 0x80) != 0x00) || ((packetStart[3] & 0xC0) != 0x00))
 	{
 		ERROR("Segment doesn't starts with valid TS packet, discarding. Dump first packet");
-		for (int i = 0; i < PACKET_SIZE; i++)
+		size_t n = size;
+		if( n>PACKET_SIZE )
 		{
-			printf("0x%2x ", packetStart[i]);
+			n = PACKET_SIZE;
+		}
+		for (int i = 0; i < n; i++)
+		{
+			printf("0x%02x ", packetStart[i]);
 		}
 		printf("\n");
 		pthread_mutex_lock(&m_mutex);
@@ -3477,7 +3482,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
  * @brief Set to the playback mode.
  *
  * @note Not relevant for demux operations
- */ 
+ */
 void TSProcessor::setPlayMode(PlayMode mode)
 {
 	INFO("setting playback mode to %s", (mode == PlayMode_normal) ? "PlayMode_normal" :
@@ -4031,7 +4036,7 @@ void TSProcessor::writeTimeStamp(unsigned char *p, int prefix, long long TS)
 
 /**
  * @brief Read PCR from a buffer
- */ 
+ */
 long long TSProcessor::readPCR(unsigned char *p)
 {
 	long long PCR = (((long long)(p[0] & 0xFF)) << (33 - 8)) |
@@ -4063,7 +4068,7 @@ void TSProcessor::writePCR(unsigned char *p, long long PCR, bool clearExtension)
 }
 
 /**
- * @brief Function to set offsetflag. if the value is fasle, no need to apply offset while doing pts restamping 
+ * @brief Function to set offsetflag. if the value is fasle, no need to apply offset while doing pts restamping
  */
 void TSProcessor::setApplyOffsetFlag(bool enable)
 {
@@ -4129,19 +4134,19 @@ static unsigned char nullPFrameHeader[] =
 };
 
 #define FLUSH_SLICE_BITS()                                \
-		      while ( bitcount > 8 )                              \
-			  		        {                                                   \
-         slice[i]= (((accum<<(32-bitcount))>>24)&0xFF);   \
-         ++i;                                             \
-         bitcount -= 8;                                   \
-			  		        }
+			  while ( bitcount > 8 )                              \
+							{                                                   \
+		 slice[i]= (((accum<<(32-bitcount))>>24)&0xFF);   \
+		 ++i;                                             \
+		 bitcount -= 8;                                   \
+							}
 #define FLUSH_ALL_SLICE_BITS()                            \
-		      while ( bitcount > 0 )                              \
-			  		        {                                                   \
-         slice[i]= (((accum<<(32-bitcount))>>24)&0xFF);   \
-         ++i;                                             \
-         bitcount -= 8;                                   \
-			  		        }
+			  while ( bitcount > 0 )                              \
+							{                                                   \
+		 slice[i]= (((accum<<(32-bitcount))>>24)&0xFF);   \
+		 ++i;                                             \
+		 bitcount -= 8;                                   \
+							}
 
 /**
  * @brief Create a Null P frame
@@ -4654,7 +4659,7 @@ int TSProcessor::getSExpGolomb(unsigned char *& p, int& bit)
 
 /**
  * @brief Get audio components
- */ 
+ */
 void TSProcessor::getAudioComponents(const RecordingComponent** audioComponentsPtr, int &count)
 {
 	count = audioComponentCount;
@@ -4792,3 +4797,4 @@ void TSProcessor::SetAudioGroupId(std::string& id)
 		m_audioGroupId = id;
 	}
 }
+
