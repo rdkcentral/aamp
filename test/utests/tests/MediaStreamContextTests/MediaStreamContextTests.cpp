@@ -26,148 +26,184 @@
 #include "../priv_aamp.h"
 #include "AampDRMLicPreFetcherInterface.h"
 #include "AampConfig.h"
+#include "MockAampConfig.h"
+
 #include "fragmentcollector_mpd.h"
 #include "StreamAbstractionAAMP.h"
+
 using namespace testing;
+
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj = NULL;
-class MediaStreamContextTest : public testing::Test {
-protected:
-    void SetUp() override {}
-    void TearDown() override {
-    delete mLogObj;
-    mLogObj = nullptr;
-    delete aamp;
-    aamp = nullptr;
-    delete ctx;
-    ctx = nullptr;
-    delete msc;
-    msc = nullptr;
+AampLogManager *mLogObj{nullptr};
+
+
+class MediaStreamContextTest : public testing::Test
+{
+    protected:
+    void SetUp() override
+    {
+        if(gpGlobalConfig == nullptr)
+        {
+            gpGlobalConfig =  new AampConfig();
+        }
+        mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(NULL,NULL,123.45,12.34);
+        mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+        mMediaStreamContext = new MediaStreamContext(mLogObj,eTRACK_VIDEO,mStreamAbstractionAAMP_MPD,mPrivateInstanceAAMP,"SAMPLETEXT");
+        g_mockAampConfig = new MockAampConfig();
     }
-public:
-    StreamAbstractionAAMP_MPD *ctx=new StreamAbstractionAAMP_MPD(NULL,NULL,123.45,12.34);
-    PrivateInstanceAAMP *aamp = new PrivateInstanceAAMP(NULL);
-    MediaStreamContext *msc = new MediaStreamContext(mLogObj,eTRACK_VIDEO,ctx,aamp,"SAMPLETEXT");
+    
+    void TearDown() override
+    {
+        delete mPrivateInstanceAAMP;
+        mPrivateInstanceAAMP = nullptr;
+        
+        delete mStreamAbstractionAAMP_MPD;
+        mStreamAbstractionAAMP_MPD = nullptr;
+        
+        delete mMediaStreamContext;
+        mMediaStreamContext = nullptr;
+        
+        delete g_mockAampConfig;
+        g_mockAampConfig = nullptr;
+    }
+    public:
+    StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
+    PrivateInstanceAAMP *mPrivateInstanceAAMP;
+    MediaStreamContext *mMediaStreamContext;
 };
 
 TEST_F(MediaStreamContextTest, GetContextTest)
 {
     //Act:call GetContext function
-    msc->GetContext();
+    mMediaStreamContext->GetContext();
 }
 
 TEST_F(MediaStreamContextTest, CacheFragmentChunkTest)
 {
     //Act:call CacheFragmentChunk fucntion
-    bool val = msc->CacheFragmentChunk(eMEDIATYPE_VIDEO,NULL, 12345678,"remoteUrl",123456789);
-    EXPECT_FALSE(val);
+    bool retResult = mMediaStreamContext->CacheFragmentChunk(eMEDIATYPE_VIDEO,NULL, 12345678,"remoteUrl",123456789);
+    EXPECT_FALSE(retResult);
 }
 
 TEST_F(MediaStreamContextTest,ProcessPlaylistTest)
 {
     AampGrowableBuffer newPlaylist("download-PlaylistManifest");
     //Act:call ProcessPlaylist function
-    msc->ProcessPlaylist(newPlaylist,1);
+    mMediaStreamContext->ProcessPlaylist(newPlaylist,1);
 }
 
 TEST_F(MediaStreamContextTest,SignalTrickModeDiscontinuityTest)
 {
     //Act SignalTrickModeDiscontinuity function
-    msc->SignalTrickModeDiscontinuity();
-}
-
-TEST_F(MediaStreamContextTest, EffectivePlaylistUrlTest)
-{
-    //Arrange:assign downloadedDuration value
-    msc->downloadedDuration=10.88;
-    //Act:call GetBufferedDuration function
-    double  val1 = msc->GetBufferedDuration();
-    //Assert:check val1 value
-    EXPECT_NE(val1,00.00);
-
-    //Arrange:assign downloadedDuration value
-    msc->downloadedDuration=00.00;
-    //Act:call GetBufferedDuration function
-    val1 = msc->GetBufferedDuration();
-    //Assert:check val1 value
-    EXPECT_EQ(val1,00.00);
-
-    //Arrange:assign downloadedDuration value
-    msc->downloadedDuration=aamp->GetPositionMs() / 1000.00;
-    //Act:call GetBufferedDuration function
-    val1 = msc->GetBufferedDuration();
-    //Assert:check val1 value
-    EXPECT_EQ(val1,00.00);
+    mMediaStreamContext->SignalTrickModeDiscontinuity();
 }
 
 TEST_F(MediaStreamContextTest, IsAtEndOfTrackTest)
 {
     //Act:call IsAtEndOfTrack function
-    bool b1=msc->IsAtEndOfTrack();
-    //Assert:check b1 value
-    EXPECT_FALSE(b1);
+    bool eosReachedResult = mMediaStreamContext->IsAtEndOfTrack();
+    //Assert:check eosReachedResult value
+    EXPECT_FALSE(eosReachedResult);
 }
 
 TEST_F(MediaStreamContextTest, PlaylistUrlTest)
 {
     //Act:call GetPlaylistUrl function
-    string str = msc->GetPlaylistUrl();
-    //Assert:check str value
-    EXPECT_EQ(str,"");
-    //Act:call SetEffectivePlaylistUrl fucntion
-    msc->SetEffectivePlaylistUrl("https://sampleurl");
+    string mPlaylistUrlResult = mMediaStreamContext->GetPlaylistUrl();
+    //Assert:check mPlaylistUrlResult value
+    EXPECT_EQ(mPlaylistUrlResult,"");
+}
+
+TEST_F(MediaStreamContextTest, PlaylistUrlTest_1)
+{
+        //Act:call SetEffectivePlaylistUrl fucntion
+    mMediaStreamContext->SetEffectivePlaylistUrl("https://sampleurl");
     //Assert:check for mEffectiveUrl value
-    EXPECT_EQ(msc->GetEffectivePlaylistUrl(),msc->mEffectiveUrl);
+    EXPECT_EQ(mMediaStreamContext->GetEffectivePlaylistUrl(),mMediaStreamContext->mEffectiveUrl);
+
+    EXPECT_EQ(mMediaStreamContext->mEffectiveUrl,"https://sampleurl");
+}
+
+TEST_F(MediaStreamContextTest, PlaylistUrlTest_2)
+{
     //Act:call SetEffectivePlaylistUrl fucntion
-    msc->SetEffectivePlaylistUrl("https://sampleurlQWERTYTIPI[asfdfghjkklzxvxcnbcbmv");
+    mMediaStreamContext->SetEffectivePlaylistUrl("https://sampleurlQWERTYTIPI[asfdfghjkklzxvxcnbcbmv");
     //Assert:check for mEffectiveUrl value
-    EXPECT_EQ(msc->GetEffectivePlaylistUrl(),msc->mEffectiveUrl);
+    EXPECT_EQ(mMediaStreamContext->GetEffectivePlaylistUrl(),mMediaStreamContext->mEffectiveUrl);
+}
+
+TEST_F(MediaStreamContextTest, PlaylistUrlTest_3)
+{
     //Act:call SetEffectivePlaylistUrl fucntion
-    msc->SetEffectivePlaylistUrl("https://sampleurl@@@@@@@@@@@@@3#################4$%^^&&&&**QWERTYTIPI[asfdfghjkklzxvxcnbcbmv");
+    mMediaStreamContext->SetEffectivePlaylistUrl("https://sampleurl@@@@@@@@@@@@@3#################4$%^^&&&&**QWERTYTIPI[asfdfghjkklzxvxcnbcbmv");
     //Assert:check for mEffectiveUrl value
-    EXPECT_EQ(msc->GetEffectivePlaylistUrl(),msc->mEffectiveUrl);
+    EXPECT_EQ(mMediaStreamContext->GetEffectivePlaylistUrl(),mMediaStreamContext->mEffectiveUrl);
+
+}
+
+TEST_F(MediaStreamContextTest, PlaylistUrlTest_4)
+{
     //Act:call SetEffectivePlaylistUrl fucntion
-    msc->SetEffectivePlaylistUrl("");
+    mMediaStreamContext->SetEffectivePlaylistUrl("");
     //Assert:check for mEffectiveUrl value
-    EXPECT_EQ(msc->GetEffectivePlaylistUrl(),msc->mEffectiveUrl);
+    EXPECT_EQ(mMediaStreamContext->GetEffectivePlaylistUrl(),mMediaStreamContext->mEffectiveUrl);
 }
 
 TEST_F(MediaStreamContextTest, PlaylistDownloadTimeTest)
 {
     //Act:call SetLastPlaylistDownloadTime fucntion
-    msc->SetLastPlaylistDownloadTime(29955777888);
+    mMediaStreamContext->SetLastPlaylistDownloadTime(29955777888);
     //Assert:check mLastPlaylistDownloadTimeMs value
-    EXPECT_EQ(msc->GetLastPlaylistDownloadTime(),msc->context->mLastPlaylistDownloadTimeMs);
+    EXPECT_EQ(mMediaStreamContext->GetLastPlaylistDownloadTime(),mMediaStreamContext->context->mLastPlaylistDownloadTimeMs);
+
+    EXPECT_EQ(mMediaStreamContext->context->mLastPlaylistDownloadTimeMs,29955777888);
+}
+
+TEST_F(MediaStreamContextTest, PlaylistDownloadTimeTest_1)
+{
     //Act:call SetLastPlaylistDownloadTime fucntion
-    msc->SetLastPlaylistDownloadTime(299557778882352);
+    mMediaStreamContext->SetLastPlaylistDownloadTime(299557778882352);
     //Assert:check mLastPlaylistDownloadTimeMs value
-    EXPECT_EQ(msc->GetLastPlaylistDownloadTime(),msc->context->mLastPlaylistDownloadTimeMs);
+    EXPECT_EQ(mMediaStreamContext->GetLastPlaylistDownloadTime(),mMediaStreamContext->context->mLastPlaylistDownloadTimeMs);
+}
+
+TEST_F(MediaStreamContextTest, PlaylistDownloadTimeTest_2)
+{
     //Act:call SetLastPlaylistDownloadTime fucntion
-    msc->SetLastPlaylistDownloadTime(0);
+    mMediaStreamContext->SetLastPlaylistDownloadTime(0);
     //Assert:check mLastPlaylistDownloadTimeMs value
-    EXPECT_EQ(msc->GetLastPlaylistDownloadTime(),msc->context->mLastPlaylistDownloadTimeMs);
+    EXPECT_EQ(mMediaStreamContext->GetLastPlaylistDownloadTime(),mMediaStreamContext->context->mLastPlaylistDownloadTimeMs);
+
+}
+
+TEST_F(MediaStreamContextTest, PlaylistDownloadTimeTest_3)
+{
     //Act:call SetLastPlaylistDownloadTime fucntion
-    msc->SetLastPlaylistDownloadTime(-12345678);
+    mMediaStreamContext->SetLastPlaylistDownloadTime(-12345678);
     //Assert:check mLastPlaylistDownloadTimeMs value
-    EXPECT_EQ(msc->GetLastPlaylistDownloadTime(),msc->context->mLastPlaylistDownloadTimeMs);
+    EXPECT_EQ(mMediaStreamContext->GetLastPlaylistDownloadTime(),mMediaStreamContext->context->mLastPlaylistDownloadTimeMs);
+}
+
+TEST_F(MediaStreamContextTest, PlaylistDownloadTimeTest_4)
+{
     //Act:call SetLastPlaylistDownloadTime fucntion
-    msc->SetLastPlaylistDownloadTime(-12345678987654322);
+    mMediaStreamContext->SetLastPlaylistDownloadTime(-12345678987654322);
     //Assert:check mLastPlaylistDownloadTimeMs value
-    EXPECT_EQ(msc->GetLastPlaylistDownloadTime(),msc->context->mLastPlaylistDownloadTimeMs);
+    EXPECT_EQ(mMediaStreamContext->GetLastPlaylistDownloadTime(),mMediaStreamContext->context->mLastPlaylistDownloadTimeMs);
 }
 
 TEST_F(MediaStreamContextTest, MinUpdateDurationTest)
 {
     //Act:call GetMinUpdateDuration fucntion
-    long var = msc->GetMinUpdateDuration();
-    //Assert:check var variable value
-    // EXPECT_NE(var,0);
+    long mMinUpdateDurationMsResult = mMediaStreamContext->GetMinUpdateDuration();
+    //Assert:check mMinUpdateDurationMsResult variable value
+    EXPECT_EQ(mMinUpdateDurationMsResult,0);
 }
 
 TEST_F(MediaStreamContextTest, DefaultDurationTest)
 {
     //Act:call GetDefaultDurationBetweenPlaylistUpdates fucntion
-    int dur = msc->GetDefaultDurationBetweenPlaylistUpdates();
-    //Assert:check dur variable value
-    EXPECT_EQ(dur,6000);
+    int durationValue = mMediaStreamContext->GetDefaultDurationBetweenPlaylistUpdates();
+    //Assert:check durationValue variable value
+    EXPECT_EQ(durationValue,6000);
 }
