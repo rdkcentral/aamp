@@ -4424,6 +4424,12 @@ bool AAMPGstPlayer::IsMS2V12Supported()
 void AAMPGstPlayer::InitializeAAMPGstreamerPlugins(AampLogManager *mLogObj)
 {
 	FN_TRACE( __FUNCTION__ );
+
+	// Ensure GST is initialized
+	if (gst_init_check(nullptr, nullptr, nullptr)) {
+		AAMPLOG_WARN("gst_init_check() failed");
+	}
+
 #ifdef AAMP_MPD_DRM
 	GstRegistry* registry = gst_registry_get();
 
