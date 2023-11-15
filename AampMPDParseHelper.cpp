@@ -541,27 +541,27 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 	bool liveTimeFragmentSync = false;
 	if(mMPDInstance != NULL)
 	{
-		const bool is_last_period = periodIndex == mNumberOfPeriods-1;
-
 		if(periodIndex < mNumberOfPeriods)
 		{
 			const std::string & durationStr = mMPDInstance->GetPeriods().at(periodIndex)->GetDuration();
-
-			// If it's the last period either use (in this strict order!) the media presentation duration or the period's duration.
-			if (is_last_period)
+			//Check for single period.
+			if (1 == mNumberOfPeriods && !mIsLiveManifest)
 			{
-				if(mMediaPresentationDuration != 0)
+				//Priority for MediaPresentationDuration if it is Single period VOD asset
+				if(mMediaPresentationDuration != 0 )
 				{
 					periodDurationMs = mMediaPresentationDuration;
-					return periodDurationMs;
+					AAMPLOG_WARN("period duration based on mMediaPresentationDuration =%f",periodDurationMs );
+					return mMediaPresentationDuration;
 				}
-				if(!durationStr.empty())
+				//Next priority for duration tag
+				else if(!durationStr.empty() )
 				{
 					periodDurationMs = ParseISO8601Duration(durationStr.c_str());
+					AAMPLOG_WARN("period duration based on duration field =%f",periodDurationMs );
 					return periodDurationMs;
 				}
 			}
-
 			// If it's not the last period or it is but both the duration and the mediaPresentationDuration are empty,
 			// calculate the duration from other manifest properties:
 			// 1. As the difference between the start of this period and the next
