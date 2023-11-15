@@ -3853,6 +3853,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 				httpHeaders = curl_slist_append(httpHeaders, Header->data);
 				Header = Header->next;
 			}
+			curl_slist_free_all(customHeaders);
 			if (httpHeaders != NULL)
 			{
 				CURL_EASY_SETOPT_LIST(curl, CURLOPT_HTTPHEADER, httpHeaders);
@@ -12470,7 +12471,9 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mDnldConfig->sCustomHeaders = sCustomHeaders;
 	inpData->mCMCDCollector = mCMCDCollector;
 	inpData->mIsLLDConfigEnabled	=	ISCONFIGSET_PRIV(eAAMPConfig_EnableLowLatencyDash);
-	
+
+	curl_slist_free_all(headers);
+
 	return inpData;
 }
 

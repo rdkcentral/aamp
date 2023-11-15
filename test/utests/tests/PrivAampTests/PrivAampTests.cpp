@@ -2322,6 +2322,7 @@ TEST_F(PrivAampTests,UpdateBufferBasedOnLiveOffsetTest)
 TEST_F(PrivAampTests,GetCustomHeadersTest)
 {
 	struct curl_slist* headers = p_aamp->GetCustomHeaders(eMEDIATYPE_MANIFEST);
+	curl_slist_free_all(headers);
 }
 
 TEST_F(PrivAampTests,ProcessID3MetadataTest)

@@ -754,6 +754,14 @@ public:
 	 */
 	void UpdateBufferBasedOnLiveOffset();
 
+	/**
+	 * @fn GetCustomHeaders - get CUrl headers for a media type request
+	 *
+	 * Free the returned list of CUrl headers using curl_slist_free_all.
+	 *
+	 * @param[in] fileType Media type
+	 * @return list of CUrl headers
+	 */
 	struct curl_slist* GetCustomHeaders(MediaType fileType);
 
 	/**
