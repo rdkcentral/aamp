@@ -1143,6 +1143,82 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 /**
+ * @brief SeekPosUpdate test.
+ *
+ * Verify SeekPosUpdate() behaviour.
+ */
+TEST_F(FunctionalTests, SeekPosUpdateTest)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+R"(<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H0M6.000S" maxSegmentDuration="PT0H0M2.000S" profiles="urn:mpeg:dash:profile:full:2011,urn:mpeg:dash:profile:cmaf:2019">
+  <Period duration="PT0H0M2.000S">
+    <AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000">
+        <SegmentTemplate timescale="2500" media="video_$Number$.mp4" initialization="video_init.mp4">
+          <SegmentTimeline>
+            <S d="5000" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="ad" duration="PT0H0M2.000S">
+    <AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000">
+        <SegmentTemplate timescale="2500" media="ad_$Number$.mp4" initialization="ad_init.mp4">
+          <SegmentTimeline>
+            <S d="5000" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period duration="PT0H0M2.000S">
+    <AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000">
+        <SegmentTemplate timescale="2500" media="video_$Number$.mp4" initialization="video_init.mp4">
+          <SegmentTimeline>
+            <S t="5000" d="5000" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+	/* Initialize MPD. The first video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+    // Initial seek position
+    double initialSeekPosition = 0.0;
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), initialSeekPosition);
+
+    // Update the seek position to a new value
+    double newSeekPosition1 = 12;
+    mStreamAbstractionAAMP_MPD->SeekPosUpdate(newSeekPosition1);
+
+    // Verify that the seek position has been updated correctly
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), newSeekPosition1);
+
+    // Update the seek position to a negative value ,should fail
+    double newSeekPosition2 = -12;
+	mStreamAbstractionAAMP_MPD->SeekPosUpdate(newSeekPosition2);
+
+    // Verify that the seek position is not updated as negative seekPos has been passed
+	EXPECT_NE(mStreamAbstractionAAMP_MPD->GetStreamPosition(), newSeekPosition2);
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), newSeekPosition1); // checking if unchanged
+}
+
+/**
  * @brief test for XML Parser to read and process CDATA section under EventStream
  *
  * The MPD initialization should be successful

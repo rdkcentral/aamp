@@ -612,11 +612,19 @@ TEST_F(FunctionalTests, SeekPosUpdateTest)
     EXPECT_EQ(mStreamAbstractionAAMP_HLS->GetStreamPosition(), initialSeekPosition);
 
     // Update the seek position to a new value
-    double newSeekPosition = -12;
-    mStreamAbstractionAAMP_HLS->SeekPosUpdate(newSeekPosition);
+    double newSeekPosition1 = 12;
+    mStreamAbstractionAAMP_HLS->SeekPosUpdate(newSeekPosition1);
 
     // Verify that the seek position has been updated correctly
-    EXPECT_EQ(mStreamAbstractionAAMP_HLS->GetStreamPosition(), newSeekPosition);
+    EXPECT_EQ(mStreamAbstractionAAMP_HLS->GetStreamPosition(), newSeekPosition1);
+
+    // Update the seek position to a negative value ,should fail
+    double newSeekPosition2 = -12;
+    mStreamAbstractionAAMP_HLS->SeekPosUpdate(newSeekPosition2);
+
+    // Verify that the seek position is not updated as negative seekPos has been passed
+    EXPECT_NE(mStreamAbstractionAAMP_HLS->GetStreamPosition(), newSeekPosition2);
+    EXPECT_EQ(mStreamAbstractionAAMP_HLS->GetStreamPosition(), newSeekPosition1); // checking if unchanged
 }
 
 TEST_F(FunctionalTests, GetLanguageCodeTest)

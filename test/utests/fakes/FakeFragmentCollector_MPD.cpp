@@ -184,3 +184,7 @@ ProfileInfo StreamAbstractionAAMP_MPD::GetAdaptationSetAndRepresetationIndicesFo
 {
     return mProfileMaps.at(0);
 }
+
+void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime)
+{
+}

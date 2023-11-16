@@ -7550,7 +7550,14 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
  */
 void StreamAbstractionAAMP_HLS::SeekPosUpdate(double secondsRelativeToTuneTime)
 {
-	seekPosition = secondsRelativeToTuneTime;
+	if(secondsRelativeToTuneTime>=0.0)
+	{
+		seekPosition = secondsRelativeToTuneTime;
+	}
+	else
+	{
+		AAMPLOG_WARN("Invalid seek position %f, ignored", secondsRelativeToTuneTime);
+	}
 }
 
 /**

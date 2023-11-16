@@ -12617,3 +12617,17 @@ int StreamAbstractionAAMP_MPD::getValidperiodIdx(int periodIdx)
 	return periodIter;
 }
 
+/**
+ * @brief Function to update seek position
+ * @param[in] secondsRelativeToTuneTime
+ */
+void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime){
+	if(secondsRelativeToTuneTime>=0.0)
+	{
+		seekPosition = secondsRelativeToTuneTime;
+	}
+	else
+	{
+		AAMPLOG_WARN("Invalid seek position %f, ignored", secondsRelativeToTuneTime);
+	}
+}

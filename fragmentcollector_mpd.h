@@ -257,7 +257,7 @@ public:
 	 */
 	void StartInjection(void) override;
 	double GetBufferedDuration() override;
-	void SeekPosUpdate(double secondsRelativeToTuneTime) override {seekPosition = secondsRelativeToTuneTime; }
+	void SeekPosUpdate(double secondsRelativeToTuneTime) override;
 	virtual void SetCDAIObject(CDAIObject *cdaiObj) override;
 	/**
 	 * @fn GetAvailableAudioTracks
