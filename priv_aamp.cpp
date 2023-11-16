@@ -1909,7 +1909,8 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 						// Correction with progress offset
 						latency += mProgressReportOffset;
 					}
-					AAMPLOG_INFO("Current latency is : %lf and current rate is %f mLiveOffset:%lf mLiveOffsetDrift:%lf bufferedDuration:%lf", latency, mCorrectionRate, mLiveOffset, mLiveOffsetDrift, bufferedDuration);
+					AAMPLOG_INFO("Current latency is %.02lf current playback rate is %.02lf maxLiveOffset is %.02lf sec, target LiveOffset is %.02lf sec, minLiveOffset is %.02lf sec AvailableBuffer = %.02lf",
+					latency, mCorrectionRate, (mLiveOffset + mLiveOffsetDrift ), mLiveOffset, (mLiveOffset - mLiveOffsetDrift), bufferedDuration );
 					if ((latency > (mLiveOffset + mLiveOffsetDrift)) && isEnoughBuffer)
 					{
 						rateRequired = maxPlaybackRate;

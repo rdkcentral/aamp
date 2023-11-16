@@ -11496,8 +11496,10 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 							bufferLowCount = 0;
 						}
 
-					    AAMPLOG_INFO("currentLatency = %.02lf  AvailableBuffer = %.02lf minbuffer = %.02lf currentPlaybackRate = %.02lf bufferLowHitted = %d isEnoughBuffer = %d latencyCorrected = %d bufferCorrectionStarted = %d",
-							currentLatency, buffervalue, minbuffer, currPlaybackRate, bufferLowHitted, isEnoughBuffer, latencyCorrected, bufferCorrectionStarted);
+					    AAMPLOG_INFO("Current latency is %.02lf current playback rate is %.02lf maxLiveOffset is %.02f sec, target LiveOffset is %.02f sec, minLiveOffset is %.02f sec" 
+						"AvailableBuffer = %.02lf minbuffer = %.02lf buffLowHit %d enoughBuff %d latCorr %d buffCorrStrtd %d",
+						(currentLatency/1000.00), currPlaybackRate, ((float)pAampLLDashServiceData->maxLatency/1000.00), ((float)pAampLLDashServiceData->targetLatency/1000.00), ((float)pAampLLDashServiceData->minLatency/1000.00),
+						buffervalue, minbuffer, bufferLowHitted, isEnoughBuffer, latencyCorrected, bufferCorrectionStarted);
 
 						if ((currentLatency > ((double) pAampLLDashServiceData->maxLatency )) && isEnoughBuffer)
 						{
