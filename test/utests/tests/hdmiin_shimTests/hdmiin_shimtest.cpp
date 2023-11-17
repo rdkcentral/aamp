@@ -73,14 +73,10 @@ TEST_F(StreamAbstractionAAMP_HDMIINTest,StopTest)
     HDMIinput->Stop(true);
 }
 
-/*
-While calling this function getting segment falt as in function defination aamp obj pointion to NULL
-Issue described in : DELIA-63273
-*/
-//TEST_F(StreamAbstractionAAMP_COMPOSITEINTEST, StartTest)
-//{    
-//     // Call the Startfunction 
-//     buffer->Start();
-//}
+TEST_F(StreamAbstractionAAMP_HDMIINTest, StartTest)
+{    
+     // Call the Startfunction 
+     HDMIinput->Start();
+}
 
 

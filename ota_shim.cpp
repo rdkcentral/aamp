@@ -427,74 +427,77 @@ void StreamAbstractionAAMP_OTA::Start(void)
 	{
 		AAMPLOG_WARN( "WAYLAND_DISPLAY: NULL!" );
 	}
-	std::string url = aamp->GetManifestUrl();
+	if(aamp)
+	{
+		std::string url = aamp->GetManifestUrl();
 #ifndef USE_CPP_THUNDER_PLUGIN_ACCESS
-        AAMPLOG_WARN( "[OTA_SHIM]Inside CURL ACCESS");
-	/*
-	Request : {"jsonrpc": "2.0","id": 4,"method": "Controller.1.activate", "params": { "callsign": "org.rdk.MediaPlayer" }}
-	Response : {"jsonrpc": "2.0","id": 4,"result": null}
-	*/
-	response = aamp_PostJsonRPC(id, "Controller.1.activate", "{\"callsign\":\"org.rdk.MediaPlayer\"}" );
-        AAMPLOG_WARN( "StreamAbstractionAAMP_OTA: response '%s'", response.c_str());
-        response.clear();
-	/*
-	Request : {"jsonrpc":"2.0", "id":3, "method":"org.rdk.MediaPlayer.1.create", "params":{ "id" : "MainPlayer", "tag" : "MyApp"} }
-	Response: { "jsonrpc":"2.0", "id":3, "result": { "success": true } }
-	*/
-	response = aamp_PostJsonRPC(id, "org.rdk.MediaPlayer.1.create", "{\"id\":\"MainPlayer\",\"tag\":\"MyApp\"}");
-        AAMPLOG_WARN( "StreamAbstractionAAMP_OTA: response '%s'", response.c_str());
-        response.clear();
-	// inform (MediaRite) player instance on which wayland display it should draw the video. This MUST be set before load/play is called.
-	/*
-	Request : {"jsonrpc":"2.0", "id":3, "method":"org.rdk.MediaPlayer.1.setWaylandDisplay", "params":{"id" : "MainPlayer","display" : "westeros-123"} }
-	Response: { "jsonrpc":"2.0", "id":3, "result": { "success": true} }
-	*/
-	response = aamp_PostJsonRPC( id, "org.rdk.MediaPlayer.1.setWaylandDisplay", "{\"id\":\"MainPlayer\",\"display\":\"" + waylandDisplay + "\"}" );
-        AAMPLOG_WARN( "StreamAbstractionAAMP_OTA: response '%s'", response.c_str());
-        response.clear();
-	/*
-	Request : {"jsonrpc":"2.0", "id":3, "method": "org.rdk.MediaPlayer.1.load", "params":{ "id":"MainPlayer", "url":"live://...", "autoplay": true} }
-	Response: { "jsonrpc":"2.0", "id":3, "result": { "success": true } }
-	*/
-	response = aamp_PostJsonRPC(id, "org.rdk.MediaPlayer.1.load","{\"id\":\"MainPlayer\",\"url\":\""+url+"\",\"autoplay\":true}" );
-        AAMPLOG_WARN( "StreamAbstractionAAMP_OTA: response '%s'", response.c_str());
-        response.clear();
-	/*
-	Request : {"jsonrpc":"2.0", "id":3, "method": "org.rdk.MediaPlayer.1.play", "params":{ "id":"MainPlayer"} }
-	Response: { "jsonrpc":"2.0", "id":3, "result": { "success": true } }
-	*/
+        	AAMPLOG_WARN( "[OTA_SHIM]Inside CURL ACCESS");
+		/*
+		Request : {"jsonrpc": "2.0","id": 4,"method": "Controller.1.activate", "params": { "callsign": "org.rdk.MediaPlayer" }}
+		Response : {"jsonrpc": "2.0","id": 4,"result": null}
+		*/
+		response = aamp_PostJsonRPC(id, "Controller.1.activate", "{\"callsign\":\"org.rdk.MediaPlayer\"}" );
+        	AAMPLOG_WARN( "StreamAbstractionAAMP_OTA: response '%s'", response.c_str());
+        	response.clear();
+		/*
+		Request : {"jsonrpc":"2.0", "id":3, "method":"org.rdk.MediaPlayer.1.create", "params":{ "id" : "MainPlayer", "tag" : "MyApp"} }
+		Response: { "jsonrpc":"2.0", "id":3, "result": { "success": true } }
+		*/
+		response = aamp_PostJsonRPC(id, "org.rdk.MediaPlayer.1.create", "{\"id\":\"MainPlayer\",\"tag\":\"MyApp\"}");
+       		AAMPLOG_WARN( "StreamAbstractionAAMP_OTA: response '%s'", response.c_str());
+        	response.clear();
+		// inform (MediaRite) player instance on which wayland display it should draw the video. This MUST be set before load/play is called.
+		/*
+		Request : {"jsonrpc":"2.0", "id":3, "method":"org.rdk.MediaPlayer.1.setWaylandDisplay", "params":{"id" : "MainPlayer","display" : "westeros-123"} }
+		Response: { "jsonrpc":"2.0", "id":3, "result": { "success": true} }
+		*/
+		response = aamp_PostJsonRPC( id, "org.rdk.MediaPlayer.1.setWaylandDisplay", "{\"id\":\"MainPlayer\",\"display\":\"" + waylandDisplay + "\"}" );
+        	AAMPLOG_WARN( "StreamAbstractionAAMP_OTA: response '%s'", response.c_str());
+        	response.clear();
+		/*
+		Request : {"jsonrpc":"2.0", "id":3, "method": "org.rdk.MediaPlayer.1.load", "params":{ "id":"MainPlayer", "url":"live://...", "autoplay": true} }
+		Response: { "jsonrpc":"2.0", "id":3, "result": { "success": true } }
+		*/
+		response = aamp_PostJsonRPC(id, "org.rdk.MediaPlayer.1.load","{\"id\":\"MainPlayer\",\"url\":\""+url+"\",\"autoplay\":true}" );
+        	AAMPLOG_WARN( "StreamAbstractionAAMP_OTA: response '%s'", response.c_str());
+        	response.clear();
+		/*
+		Request : {"jsonrpc":"2.0", "id":3, "method": "org.rdk.MediaPlayer.1.play", "params":{ "id":"MainPlayer"} }
+		Response: { "jsonrpc":"2.0", "id":3, "result": { "success": true } }
+		*/
   
-	// below play request harmless, but not needed, given use of autoplay above
-	// response = aamp_PostJsonRPC(id, "org.rdk.MediaPlayer.1.play", "{\"id\":\"MainPlayer\"}");
-        // AAMPLOG_WARN( "StreamAbstractionAAMP_OTA: response '%s'", response.c_str());
+		// below play request harmless, but not needed, given use of autoplay above
+		// response = aamp_PostJsonRPC(id, "org.rdk.MediaPlayer.1.play", "{\"id\":\"MainPlayer\"}");
+        	// AAMPLOG_WARN( "StreamAbstractionAAMP_OTA: response '%s'", response.c_str());
 
 #else
-	AAMPLOG_INFO( "[OTA_SHIM] url : %s ", url.c_str());
-	JsonObject result;
+		AAMPLOG_INFO( "[OTA_SHIM] url : %s ", url.c_str());
+		JsonObject result;
 
-	SetPreferredAudioLanguages();
+		SetPreferredAudioLanguages();
 
-	JsonObject createParam;
-	createParam["id"] = APP_ID;
-	createParam["tag"] = "MyApp";
-        thunderAccessObj.InvokeJSONRPC("create", createParam, result);
+		JsonObject createParam;
+		createParam["id"] = APP_ID;
+		createParam["tag"] = "MyApp";
+        	thunderAccessObj.InvokeJSONRPC("create", createParam, result);
 
-	JsonObject displayParam;
-	displayParam["id"] = APP_ID;
-	displayParam["display"] = waylandDisplay;
-        thunderAccessObj.InvokeJSONRPC("setWaylandDisplay", displayParam, result);
+		JsonObject displayParam;
+		displayParam["id"] = APP_ID;
+		displayParam["display"] = waylandDisplay;
+        	thunderAccessObj.InvokeJSONRPC("setWaylandDisplay", displayParam, result);
 
-	JsonObject loadParam;
-	loadParam["id"] = APP_ID;
-	loadParam["url"] = url;
-	loadParam["autoplay"] = true;
-	thunderAccessObj.InvokeJSONRPC("load", loadParam, result);
+		JsonObject loadParam;
+		loadParam["id"] = APP_ID;
+		loadParam["url"] = url;
+		loadParam["autoplay"] = true;
+		thunderAccessObj.InvokeJSONRPC("load", loadParam, result);
 
-	// below play request harmless, but not needed, given use of autoplay above
-	//JsonObject playParam;
-	//playParam["id"] = APP_ID;
-        //thunderAccessObj.InvokeJSONRPC("play", playParam, result);
+		// below play request harmless, but not needed, given use of autoplay above
+		//JsonObject playParam;
+		//playParam["id"] = APP_ID;
+        	//thunderAccessObj.InvokeJSONRPC("play", playParam, result);
 #endif
+	}
 }
 
 /**

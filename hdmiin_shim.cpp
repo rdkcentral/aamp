@@ -73,11 +73,14 @@ AAMPStatusType StreamAbstractionAAMP_HDMIIN::Init(TuneType tuneType)
  */
 void StreamAbstractionAAMP_HDMIIN::Start(void)
 {
-	const char *url = aamp->GetManifestUrl().c_str();
-	int hdmiInputPort = -1;
-	if( sscanf(url, "hdmiin://localhost/deviceid/%d", &hdmiInputPort ) == 1 )
+	if(aamp)
 	{
-		StartHelper(hdmiInputPort,"startHdmiInput");
+		const char *url = aamp->GetManifestUrl().c_str();
+		int hdmiInputPort = -1;
+		if( sscanf(url, "hdmiin://localhost/deviceid/%d", &hdmiInputPort ) == 1 )
+		{
+			StartHelper(hdmiInputPort,"startHdmiInput");
+		}
 	}
 }
 

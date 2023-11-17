@@ -63,11 +63,14 @@ AAMPStatusType StreamAbstractionAAMP_COMPOSITEIN::Init(TuneType tuneType)
  */
 void StreamAbstractionAAMP_COMPOSITEIN::Start(void)
 {
-	const char *url = aamp->GetManifestUrl().c_str();
-	int compositeInputPort = -1;
-	if( sscanf(url, "cvbsin://localhost/deviceid/%d", &compositeInputPort ) == 1 )
+	if(aamp)
 	{
-		StartHelper(compositeInputPort,"startCompositeInput");
+		const char *url = aamp->GetManifestUrl().c_str();
+		int compositeInputPort = -1;
+		if( sscanf(url, "cvbsin://localhost/deviceid/%d", &compositeInputPort ) == 1 )
+		{
+			StartHelper(compositeInputPort,"startCompositeInput");
+		}
 	}
 }
 

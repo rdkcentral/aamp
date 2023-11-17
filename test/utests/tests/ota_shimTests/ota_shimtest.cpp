@@ -67,10 +67,10 @@ Issue reported under : DELIA-63273
 */
 
 // Define a test case for the Start function
-// TEST_F(StreamAbstractionAAMP_OTATest, StartTest) {
-//     // Act:Call the Start function
-//    aamp_ota->Start();
-// }
+ TEST_F(StreamAbstractionAAMP_OTATest, StartTest) {
+     // Act:Call the Start function
+    aamp_ota->Start();
+ }
 
 TEST_F(StreamAbstractionAAMP_OTATest, GetStreamFormatTest)
 {
