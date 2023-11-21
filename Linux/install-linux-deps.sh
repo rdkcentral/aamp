@@ -60,6 +60,8 @@ install_package snapd
 install_package libcppunit-dev
 install_package wayland-protocols
 install_package libcppunit-dev
+install_package libjsoncpp-dev
+install_package libasio-dev
 
 ver=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
@@ -76,20 +78,6 @@ if [ ${ver:0:2} -eq 22 ]; then
 	    echo " sudo apt remove meson"
 	    echo " sudo pip3 install meson"
 	    echo " hash -r"
-	    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-	    exit 1
-	fi
-
-	# Temporary check for gcc version as subtec currently fails to build with gcc-11
-	# on 22.04. Once the build issues have been fixed this can be removed
-	gccver=$(g++ --version | awk '{ print $NF }' | head -n 1 | cut -d. -f1)
-	if [ $gccver -eq 11 ]; then
-	    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-	    echo "Currently subtec will not build with gcc-11"
-	    echo "Please install and use gcc-9 as follows:"
-	    echo " sudo apt update"
-	    echo " sudo apt install g++-9 -y"
-	    echo " sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 10"
 	    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
 	    exit 1
 	fi
