@@ -1893,7 +1893,7 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 					{
 						int deltaTime = (int)(NOW_STEADY_TS_SECS- mDiscStartTime);
 
-						AAMPLOG_INFO("mDiscStartTime %ld currenttime=%ld delta=%d disableRateCorrectionTimeInSeconds=%d", mDiscStartTime, NOW_STEADY_TS_SECS, deltaTime, disableRateCorrectionTimeInSeconds);
+						AAMPLOG_INFO("mDiscStartTime %ld currenttime=%lld delta=%d disableRateCorrectionTimeInSeconds=%d", mDiscStartTime, NOW_STEADY_TS_SECS, deltaTime, disableRateCorrectionTimeInSeconds);
 
 						if ( deltaTime > disableRateCorrectionTimeInSeconds )
 						{

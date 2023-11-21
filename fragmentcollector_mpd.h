@@ -464,6 +464,15 @@ public:
 	void setNextobjectrequestUrl(std::string media,const FragmentDescriptor *fragmentDescriptor,MediaType mediaType);
 	void setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,MediaType mediaType);
 
+	/*
+	* @fn AcquirePlaylistLock
+	*/
+	void AcquirePlaylistLock();
+	/*
+	 * @fn ReleasePlaylistLock
+	*/
+	void ReleasePlaylistLock();
+
 private:
 	/**
 	 * @fn printSelectedTrack
@@ -925,14 +934,6 @@ private:
 	 * @fn IndexNewMPDDocument
 	 */
 	AAMPStatusType IndexNewMPDDocument(bool updateTrackInfo = true);
-	/**
-	 * @fn AcquirePlaylistLock
-	 */
-	void AcquirePlaylistLock();
-	/**
-	 * @fn ReleasePlaylistLock
-	 */
-	void ReleasePlaylistLock();
 	
 	/**
 	 * @fn CreateDrmHelper
