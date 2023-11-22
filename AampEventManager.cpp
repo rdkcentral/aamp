@@ -48,7 +48,8 @@ guint AampEventManager::GetSourceID()
  */
 AampEventManager::AampEventManager(int playerId): mIsFakeTune(false),
 					mAsyncTuneEnabled(false),mEventPriority(G_PRIORITY_DEFAULT_IDLE),mMutexVar(),
-					mPlayerState(eSTATE_IDLE),mEventWorkerDataQue(),mPendingAsyncEvents(),mPlayerId(playerId)
+					mPlayerState(eSTATE_IDLE),mEventWorkerDataQue(),mPendingAsyncEvents(),mPlayerId(playerId),
+					mEventInProgress(AAMP_MAX_NUM_EVENTS)
 {
 	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
 	{
@@ -355,6 +356,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 {
 	AAMPEventType eventType = eventData->getType();
 	std::unique_lock<std::mutex> lock(mMutexVar);
+	mEventInProgress = eventType;
 #ifdef EVENT_DEBUGGING
 	long long startTime = NOW_STEADY_TS_MS;
 #endif
@@ -413,6 +415,9 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		pList = pCurrent->pNext;
 		SAFE_DELETE(pCurrent);
 	}
+	lock.lock();
+	mEventInProgress = AAMP_MAX_NUM_EVENTS;
+	lock.unlock();
 #ifdef EVENT_DEBUGGING
 	AAMPLOG_WARN("TimeTaken for Event %d SyncEvent [%d]",eventType, (NOW_STEADY_TS_MS - startTime));
 #endif

@@ -1755,6 +1755,7 @@ void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 	JSObjectRef event = createNewAAMPJSEvent(p_obj->_ctx, aampPlayer_getNameFromEventType(evtType), false, false);
 	if (event)
 	{
+		// We copy p_obj->_ctx locally here, since aamp_dispatchEventToJS() below can result in this event handler being deleted, invalidating 'p_obj'
 		JSGlobalContextRef ctx = p_obj->_ctx;
 		JSValueProtect(ctx, event);
 
@@ -1767,6 +1768,12 @@ void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 			AdResolvedEventPtr evt = std::dynamic_pointer_cast<AdResolvedEvent>(e);
 			std::string adId = evt->getAdId();
 			JSObjectRef cbObj = p_obj->getCallbackForAdId(adId);
+
+			// ***************** WARNING (future extensions) *******************
+			// Extending the code to use "p_obj" after aamp_dispatchEventToJS() may result in a crash if JS callback calls RemoveEventHandler or Deletes the Player instance!
+			// Note: RemoveEventHandler has been see to be called from the EOS JS callback.
+			// *****************************************************************
+
 			if (cbObj != NULL)
 			{
 				aamp_dispatchEventToJS(ctx, cbObj, event);

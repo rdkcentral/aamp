@@ -1661,6 +1661,19 @@ void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListe
 }
 
 /**
+ *  @brief Check which event is currently processed
+ */
+AAMPEventType PlayerInstanceAAMP::IsEventInProgress()
+{
+	AAMPEventType type = AAMP_MAX_NUM_EVENTS;
+	if(aamp)
+	{
+		type = aamp->IsEventInProgress();
+	}
+	return type;
+}
+
+/**
  *  @brief To check whether the asset is live or not.
  */
 bool PlayerInstanceAAMP::IsLive()

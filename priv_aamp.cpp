@@ -2480,6 +2480,14 @@ void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventList
 }
 
 /**
+ *  @brief Check which event is currently processed
+ */
+AAMPEventType PrivateInstanceAAMP::IsEventInProgress()
+{
+	return mEventManager->IsEventInProgress();
+}
+
+/**
  * @brief IsEventListenerAvailable Check if Event is registered
  */
 bool PrivateInstanceAAMP::IsEventListenerAvailable(AAMPEventType eventType)

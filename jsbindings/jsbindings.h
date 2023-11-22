@@ -23,6 +23,7 @@
 #include <JavaScriptCore/JavaScript.h>
 #include "main_aamp.h"
 #include <map>
+#include <vector>
 /*
  * @file jsbindings.h
  * @brief APIs exposed by the AAMP JS to inject different bindings.
@@ -33,7 +34,7 @@
  * @brief Private data structure for JS binding object
  */
 struct PrivAAMPStruct_JS {
-	PrivAAMPStruct_JS() : _ctx(), _aamp(NULL), _listeners()
+	PrivAAMPStruct_JS() : _ctx(), _aamp(NULL), _listeners(), _ex_listeners()
 	{
 	}
 	virtual ~PrivAAMPStruct_JS()
@@ -49,6 +50,7 @@ struct PrivAAMPStruct_JS {
 	PlayerInstanceAAMP* _aamp;
 
 	std::multimap<AAMPEventType, void*> _listeners;
+	std::vector<void*> _ex_listeners;  // Expired event listeners which were removed during an event transmission
 };
 
 /**
