@@ -4213,6 +4213,24 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 			playRate = rate;
 		}
 
+#ifdef UBUNTU
+		if ((stream->format == FORMAT_ISO_BMFF) && (eMEDIAFORMAT_PROGRESSIVE != aamp->mMediaFormat))
+		{
+			/* If PTS restamping is enabled, set the seek position to zero. */
+#ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
+			gboolean enableOverride = TRUE;
+#else
+			gboolean enableOverride = (rate != AAMP_NORMAL_PLAY_RATE);
+#endif
+
+			if (enableOverride)
+			{
+				AAMPLOG_INFO("Resetting seek position to zero");
+				position = 0;
+			}
+		}
+#endif /* UBUNTU */
+
 		//reset buffer control states prior to gstreamer flush so that the first needs_data event is caught
 		AampBufferControl::BufferControlMaster::ResetAll(privateContext);
 
