@@ -232,7 +232,7 @@ static const ConfigLookupEntryString mConfigLookupTableString[AAMPCONFIG_STRING_
 	{"","ckLicenseServerUrl",eAAMPConfig_CKLicenseServerUrl,false},
 	{"","prLicenseServerUrl",eAAMPConfig_PRLicenseServerUrl,false},
 	{"","wvLicenseServerUrl",eAAMPConfig_WVLicenseServerUrl,false},
-	{"","userAgent",eAAMPConfig_UserAgent,false},
+	{AAMP_USERAGENT_STRING,"userAgent",eAAMPConfig_UserAgent,false},
 	{"en,eng","preferredSubtitleLanguage",eAAMPConfig_SubTitleLanguage,false},
 	{"","customHeader",eAAMPConfig_CustomHeader,false},
 	{"","uriParameter",eAAMPConfig_URIParameter,false},
