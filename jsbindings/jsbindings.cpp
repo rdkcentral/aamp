@@ -56,6 +56,9 @@ extern "C"
  */
 struct AAMP_JS
 {
+	AAMP_JS() : _ctx(), _aamp(NULL), _listeners(NULL), iPlayerId(0), bInfoEnabled(false), _eventType(), _subscribedTags(), _promiseCallback(), _ex_listeners(NULL)
+	{
+	}
 	JSGlobalContextRef _ctx;
 	class PlayerInstanceAAMP* _aamp;
 	class AAMP_JSListener* _listeners;
@@ -64,6 +67,7 @@ struct AAMP_JS
 	JSObjectRef _eventType;
 	JSObjectRef _subscribedTags;
 	JSObjectRef _promiseCallback;	/* Callback function for JS promise resolve/reject.*/
+	std::vector<void*> _ex_listeners;  // Expired event listeners which were removed during an event transmission
 };
 
 /**
@@ -666,32 +670,45 @@ public:
 
 		JSObjectRef eventObj = JSObjectMake(_aamp->_ctx, Event_class_ref(), NULL);
 		if (eventObj) {
-			JSGlobalContextRef ctx = _aamp->_ctx;
-			JSValueProtect(ctx, eventObj);
+			JSValueProtect(_aamp->_ctx, eventObj);
 			JSStringRef name = JSStringCreateWithUTF8CString("type");
-			JSObjectSetProperty(ctx, eventObj, name, JSValueMakeNumber(ctx, evtType), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(_aamp->_ctx, eventObj, name, JSValueMakeNumber( _aamp->_ctx, evtType), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(name);
-			setEventProperties(e, ctx, eventObj);
+			setEventProperties(e, _aamp->_ctx, eventObj);
 			JSValueRef args[1] = { eventObj };
 			if (evtType == AAMP_EVENT_AD_RESOLVED)
 			{
 				if (_aamp->_promiseCallback != NULL)
 				{
-					JSObjectCallAsFunction(ctx, _aamp->_promiseCallback, NULL, 1, args, NULL);
+					JSObjectCallAsFunction(_aamp->_ctx, _aamp->_promiseCallback, NULL, 1, args, NULL);
 				}
 				else
 				{
-                                        LOG_WARN( _aamp,"No promise callback registered ctx=%p, jsCallback=%p", ctx, _aamp->_promiseCallback);
+					LOG_WARN( _aamp,"No promise callback registered ctx=%p, jsCallback=%p", _aamp->_ctx, _aamp->_promiseCallback);
 
 				}
 			}
 			else
 			{
-				JSObjectCallAsFunction(ctx, _jsCallback, NULL, 1, args, NULL);
+				JSObjectCallAsFunction(_aamp->_ctx, _jsCallback, NULL, 1, args, NULL);
 			}
-			JSValueUnprotect(ctx, eventObj);
+			JSValueUnprotect(_aamp->_ctx, eventObj);
 		}
-	}
+		// Release the AAMP_JSListener event listeners that were attempted to remove during the event
+		// Take a copy first since the vector may no longer be accessible after the first delete()
+		std::vector<void *> ex_listeners_copy = _aamp->_ex_listeners;
+		_aamp->_ex_listeners.clear();
+		for (int i=ex_listeners_copy.size(); i>0; i--)
+		{
+			AAMP_JSListener *listener=static_cast<AAMP_JSListener *>(ex_listeners_copy.back());
+			ex_listeners_copy.pop_back();
+			LOG_WARN_EX("Deferred deletion of an AAMP_JSListener. Type=%d, listener= %p", evtType, listener);
+			if (listener)
+			{
+				SAFE_DELETE(listener);
+			}
+                }
+        }
 
 	/**
 	 * @brief Set JS event properties
@@ -2303,9 +2320,23 @@ void AAMP_JSListener::RemoveEventListener(AAMP_JS* aamp, AAMPEventType type, JSO
 		if ((pListener->_type == type) && (pListener->_jsCallback == jsCallback))
 		{
 			*ppListener = pListener->_pNext;
-                        LOG_WARN_EX(" type=%d,pListener= %p", type, pListener);
-			aamp->_aamp->RemoveEventListener(type, pListener);
-			SAFE_DELETE(pListener);
+			LOG_WARN_EX(" type=%d, pListener= %p", type, pListener);
+			bool eventInProgress = false;
+			if (aamp->_aamp != NULL)
+			{
+				aamp->_aamp->RemoveEventListener(type, pListener);
+				eventInProgress = (type == aamp->_aamp->IsEventInProgress());
+			}
+			if (eventInProgress)
+			{
+				// Will be freed later after the event is completed
+				LOG_WARN_EX("Deferring deletion of an AAMP_JSListener. Type=%d,pListener= %p", type, pListener);
+				aamp->_ex_listeners.push_back(pListener);
+			}
+			else
+			{
+				SAFE_DELETE(pListener);
+			}
 			return;
 		}
 		ppListener = &pListener->_pNext;
@@ -4775,6 +4806,8 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 	AAMP_JSListener::AddEventListener(pAAMP, AAMP_EVENT_AD_RESOLVED, NULL);
 
 	JSObjectRef classObj = JSObjectMake(jsContext, AAMP_class_ref(), pAAMP);
+	LOG_WARN_EX("Protect context=%p, classObj=%p", jsContext, classObj);
+	JSValueProtect(jsContext, classObj);
 	JSObjectRef globalObj = JSContextGetGlobalObject(jsContext);
 	JSStringRef str = JSStringCreateWithUTF8CString("AAMP");
 	JSObjectSetProperty(jsContext, globalObj, str, classObj, kJSPropertyAttributeReadOnly, NULL);
@@ -4803,6 +4836,13 @@ void aamp_UnloadJS(void* context)
 				// So it makes sense to remove the object when webpage is unloaded.
 				AAMP_finalize(aampObj);
 			}
+
+			if (JSObjectIsConstructor(jsContext, aampObj))
+			{
+				LOG_WARN_EX("Unprotect context=%p, aamp=%p", jsContext, aamp);
+				JSValueUnprotect(jsContext, aamp);
+			}
+
 			//use JSObjectDeleteProperty instead of JSObjectSetProperty when trying to invalidate a read-only property
 			JSObjectDeleteProperty(jsContext, globalObj, str, NULL);
 			

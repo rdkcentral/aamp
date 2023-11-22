@@ -68,6 +68,7 @@ private:
 	typedef std::map<guint, bool> AsyncEventList;		  /**< Collection of Async tasks pending */
 	typedef std::map<guint, bool>::iterator AsyncEventListIter;
 	AsyncEventList	mPendingAsyncEvents;
+	AAMPEventType mEventInProgress;
 
 protected:
 	int mPlayerId;
@@ -207,6 +208,8 @@ public:
          *
          */
 	AampEventManager& operator=(const AampEventManager&) = delete;
+
+	AAMPEventType IsEventInProgress() { return mEventInProgress; }
 };
 
 

@@ -376,6 +376,11 @@ void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventList
 {
 }
 
+AAMPEventType PrivateInstanceAAMP::IsEventInProgress(void)
+{
+	return AAMP_MAX_NUM_EVENTS;
+}
+
 DrmHelperPtr PrivateInstanceAAMP::GetCurrentDRM(void)
 {
 	return nullptr;
