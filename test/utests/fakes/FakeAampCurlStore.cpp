@@ -19,7 +19,7 @@
 
 #include "AampCurlStore.h"
 
-CurlStore::CurlStore(void *pContext)
+CurlStore::CurlStore(PrivateInstanceAAMP *pAamp)
 {
 }
 
@@ -27,17 +27,17 @@ CurlStore::~CurlStore()
 {
 }
 
-void CurlStore::CurlInit(void *privContext, AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName, const std::string &RemoteHost)
+void CurlStore::CurlInit(PrivateInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName, const std::string &RemoteHost)
 {
 }
 
-void CurlStore::CurlTerm(void *privContext, AampCurlInstance startIdx, unsigned int instanceCount, const std::string &RemoteHost )
+void CurlStore::CurlTerm(PrivateInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, const std::string &RemoteHost )
 {
 }
 
-CurlStore& CurlStore::GetCurlStoreInstance ( void *pContext )
+CurlStore& CurlStore::GetCurlStoreInstance ( PrivateInstanceAAMP *pAamp )
 {
-	static CurlStore cs(pContext);
+	static CurlStore cs(pAamp);
 	return cs;
 }
 

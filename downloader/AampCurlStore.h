@@ -109,7 +109,7 @@ private:
 	CurlSockData umCurlSockDataStore;
 
 protected:
-	CurlStore(void* pContext);
+	CurlStore(PrivateInstanceAAMP *pAamp);
 	~CurlStore();
 
 public:
@@ -128,7 +128,7 @@ public:
 	 * @param[out] priv - curl easy handle from curl store will get stored in priv instance
 	 * @return AampCurlStoreErrorCode enum type
 	 */
-	AampCurlStoreErrorCode GetFromCurlStoreBulk ( const std::string &hostname, AampCurlInstance CurlIndex, int count, void *priv, bool HostCurlFd );
+	AampCurlStoreErrorCode GetFromCurlStoreBulk ( const std::string &hostname, AampCurlInstance CurlIndex, int count, PrivateInstanceAAMP *pAamp, bool HostCurlFd );
 
 	/**
 	 * @param[in] hostname - hostname part from url
@@ -145,7 +145,7 @@ public:
 	 * @param[out] priv - curl easy handles in priv instance, saved in curl store
 	 * @return void
 	 */
-	void KeepInCurlStoreBulk ( const std::string &hostname, AampCurlInstance CurlIndex, int count, void *priv, bool HostCurlFd );
+	void KeepInCurlStoreBulk ( const std::string &hostname, AampCurlInstance CurlIndex, int count, PrivateInstanceAAMP *pAamp, bool HostCurlFd );
 
 	/**
 	 * @param void
@@ -166,7 +166,7 @@ public:
 	 * @param[in] proxyName - proxy name
 	 * @return void
 	 */
-	void CurlInit(void *privContext, AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName, const std::string &remotehost=std::string("") );
+	void CurlInit(PrivateInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName, const std::string &remotehost=std::string("") );
 
 	/**
 	 * @param[out] privContext - priv aamp instance from which curl handles will be terminated or stored
@@ -174,7 +174,7 @@ public:
 	 * @param[in] instanceCount - No of curl handles
 	 * @return void
 	 */
-	void CurlTerm(void *privContext, AampCurlInstance startIdx, unsigned int instanceCount, const std::string &remotehost=std::string(""));
+	void CurlTerm(PrivateInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, const std::string &remotehost=std::string(""));
 
 	/**
 	 * @param[in] pAamp - Private aamp instance
@@ -182,7 +182,7 @@ public:
 	 * @param[in] startIdx - Index of curl instance.
 	 * @return - curl easy handle
 	 */
-	CURL* GetCurlHandle(void *pAamp, std::string url, AampCurlInstance startIdx );
+	CURL* GetCurlHandle(PrivateInstanceAAMP *pAamp, std::string url, AampCurlInstance startIdx );
 
 	/**
 	 * @param[in] pAamp - Private aamp instance
@@ -191,7 +191,7 @@ public:
 	 * @param[in] curl - curl handle to be saved
 	 * @return void
 	 */
-	void SaveCurlHandle ( void *pAamp, std::string url, AampCurlInstance startIdx, CURL *curl );
+	void SaveCurlHandle ( PrivateInstanceAAMP *pAamp, std::string url, AampCurlInstance startIdx, CURL *curl );
 
 	/**
 	 * @param[in] hostname - Host name to create a curl store
@@ -205,7 +205,7 @@ public:
 	 * @param[in] instId - Curl instance id
 	 * @return - Curl easy handle
 	 */
-	CURL* CurlEasyInitWithOpt ( void *privContext, const std::string &proxyName, int instId );
+	CURL* CurlEasyInitWithOpt ( PrivateInstanceAAMP *pAamp, const std::string &proxyName, int instId );
 
 	/**
 	 * @param[in] CurlSock - Curl socket struct
@@ -222,7 +222,7 @@ public:
 	 * @param[in] pContext - Private aamp instance
 	 * @return CurlStore - Singleton instance object
 	 */
-	static CurlStore& GetCurlStoreInstance(void* pContext);
+	static CurlStore& GetCurlStoreInstance(PrivateInstanceAAMP *pAamp);
 };
 
 /**

@@ -268,12 +268,11 @@ CurlSocketStoreStruct *CurlStore::CreateCurlStore ( const std::string &hostname 
  * @fn GetCurlHandle
  * @brief GetCurlHandle - Get a free curl easy handle for given url & curl index
  */
-CURL* CurlStore::GetCurlHandle(void *pAamp,std::string url, AampCurlInstance startIdx )
+CURL* CurlStore::GetCurlHandle(PrivateInstanceAAMP *aamp,std::string url, AampCurlInstance startIdx )
 {
 	CURL * curl = NULL;
 	assert (startIdx <= eCURLINSTANCE_MAX);
 
-	PrivateInstanceAAMP *aamp = (PrivateInstanceAAMP *)pAamp;
 	std::string HostName;
 	HostName = aamp_getHostFromURL ( url );
 
@@ -293,11 +292,10 @@ CURL* CurlStore::GetCurlHandle(void *pAamp,std::string url, AampCurlInstance sta
  * @fn SaveCurlHandle
  * @brief SaveCurlHandle - Save a curl easy handle for given host & curl index
  */
-void CurlStore::SaveCurlHandle (void *pAamp, std::string url, AampCurlInstance startIdx, CURL *curl )
+void CurlStore::SaveCurlHandle (PrivateInstanceAAMP *aamp, std::string url, AampCurlInstance startIdx, CURL *curl )
 {
 	assert (startIdx <= eCURLINSTANCE_MAX);
 
-	PrivateInstanceAAMP *aamp = (PrivateInstanceAAMP *)pAamp;
 	std::string HostName;
 	HostName = aamp_getHostFromURL ( url );
 
@@ -315,9 +313,8 @@ void CurlStore::SaveCurlHandle (void *pAamp, std::string url, AampCurlInstance s
  * @fn CurlEasyInitWithOpt
  * @brief CurlEasyInitWithOpt - Create a curl easy handle with set of aamp opts
  */
-CURL* CurlStore::CurlEasyInitWithOpt ( void *privContext, const std::string &proxyName, int instId )
+CURL* CurlStore::CurlEasyInitWithOpt ( PrivateInstanceAAMP *aamp, const std::string &proxyName, int instId )
 {
-	PrivateInstanceAAMP *aamp = (PrivateInstanceAAMP *)privContext;
 	std::string UserAgentString;
 	UserAgentString=aamp->mConfig->GetUserAgentString();
 	uint32_t CurlConnectTimeout =  GETCONFIGVALUE(eAAMPConfig_Curl_ConnectTimeout);
@@ -384,10 +381,8 @@ CURL* CurlStore::CurlEasyInitWithOpt ( void *privContext, const std::string &pro
  * @fn CurlInit
  * @brief CurlInit - Initialize or get easy handles for given host & curl index from curl store
  */
-void CurlStore::CurlInit(void *privContext, AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName, const std::string &RemoteHost)
+void CurlStore::CurlInit(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName, const std::string &RemoteHost)
 {
-	PrivateInstanceAAMP *aamp = (PrivateInstanceAAMP *)privContext;
-
 	int instanceEnd = startIdx + instanceCount;
 	assert (instanceEnd <= eCURLINSTANCE_MAX);
 
@@ -459,9 +454,8 @@ void CurlStore::CurlInit(void *privContext, AampCurlInstance startIdx, unsigned 
  * @fn CurlTerm
  * @brief CurlTerm - Terminate or store easy handles in curlstore
  */
-void CurlStore::CurlTerm(void *privContext, AampCurlInstance startIdx, unsigned int instanceCount, const std::string &RemoteHost )
+void CurlStore::CurlTerm(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, unsigned int instanceCount, const std::string &RemoteHost )
 {
-	PrivateInstanceAAMP *aamp = (PrivateInstanceAAMP *)privContext;
 	int instanceEnd = startIdx + instanceCount;
 	std::string HostName;
 	bool IsRemotehost = true, CurlFdHost=false;
@@ -501,12 +495,10 @@ void CurlStore::CurlTerm(void *privContext, AampCurlInstance startIdx, unsigned 
  * @fn CurlStore
  * @brief CurlStore constructor
  */
-CurlStore::CurlStore( void *pContext ):
+CurlStore::CurlStore( PrivateInstanceAAMP *aamp ):
 	umCurlSockDataStore(),
 	MaxCurlSockStore(MAX_CURL_SOCK_STORE)
 {
-	PrivateInstanceAAMP *aamp = static_cast<PrivateInstanceAAMP *>(pContext);
-
 	MaxCurlSockStore = GETCONFIGVALUE(eAAMPConfig_MaxCurlSockStore);
 	AAMPLOG_INFO("Max sock store size:%d", MaxCurlSockStore);
 }
@@ -544,9 +536,9 @@ CurlStore::~CurlStore()
  * @fn GetCurlStoreInstance
  * @brief GetCurlStoreInstance - Get static curlstore singleton object
  */
-CurlStore& CurlStore::GetCurlStoreInstance ( void *pContext )
+CurlStore& CurlStore::GetCurlStoreInstance ( PrivateInstanceAAMP *aamp )
 {
-	static CurlStore instance(pContext);
+	static CurlStore instance(aamp);
 
 	return instance;
 }
@@ -600,9 +592,8 @@ CURL *CurlStore::GetCurlHandleFromFreeQ ( CurlSocketStoreStruct *CurlSock, int i
  * @fn GetFromCurlStoreBulk
  * @brief GetFromCurlStoreBulk - Get free curl easy handle in bulk for given host & curl indices
  */
-AampCurlStoreErrorCode CurlStore::GetFromCurlStoreBulk ( const std::string &hostname, AampCurlInstance CurlIndex, int count, void *priv, bool CurlFdHost )
+AampCurlStoreErrorCode CurlStore::GetFromCurlStoreBulk ( const std::string &hostname, AampCurlInstance CurlIndex, int count, PrivateInstanceAAMP *aamp, bool CurlFdHost )
 {
-	PrivateInstanceAAMP *aamp = (PrivateInstanceAAMP*)priv;
 	AampCurlStoreErrorCode ret = eCURL_STORE_HOST_SOCK_AVAILABLE;
 
 	const std::lock_guard<std::mutex> lock(mCurlInstLock);
@@ -736,9 +727,8 @@ AampCurlStoreErrorCode CurlStore::GetFromCurlStore ( const std::string &hostname
  * @fn KeepInCurlStoreBulk
  * @brief KeepInCurlStoreBulk - Store curl easy handle in bulk for given host & curl index
  */
-void CurlStore::KeepInCurlStoreBulk ( const std::string &hostname, AampCurlInstance CurlIndex, int count, void *priv, bool CurlFdHost )
+void CurlStore::KeepInCurlStoreBulk ( const std::string &hostname, AampCurlInstance CurlIndex, int count, PrivateInstanceAAMP *aamp, bool CurlFdHost )
 {
-	PrivateInstanceAAMP *aamp =  (PrivateInstanceAAMP*)priv;
 	CurlSocketStoreStruct *CurlSock = NULL;
 
 	const std::lock_guard<std::mutex> lock(mCurlInstLock);
