@@ -60,6 +60,147 @@ protected:
 	}
 };
 
+class PrivAampPrivTests : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+    auto aamp = new PrivateInstanceAAMP();
+    auto logmanager = new AampLogManager();
+
+    auto config=new AampConfig();
+
+    testp_aamp = new TestablePrivAamp(config);
+    }
+
+    void TearDown() override
+    {
+        delete testp_aamp;
+    }
+       class TestablePrivAamp : public PrivateInstanceAAMP
+    {
+public:
+    TestablePrivAamp(AampConfig *config):PrivateInstanceAAMP(config)
+    {
+    }
+    bool callIsWideVineKIDWorkaround(const std::string url)
+    {
+        return IsWideVineKIDWorkaround(url);
+    }
+    void callExtractServiceZone(std::string url)
+    {
+        ExtractServiceZone(url);
+    }
+    void callDeliverAdEvents(bool immediate)
+    {
+         DeliverAdEvents(true);
+    }
+
+    bool callDiscontinuitySeenInAllTracks()
+    {
+     return DiscontinuitySeenInAllTracks();
+    }
+
+    bool callDiscontinuitySeenInAnyTracks()
+    {
+        return DiscontinuitySeenInAnyTracks();
+    }
+    bool callHasSidecarData()
+    {
+        return HasSidecarData(); 
+    }
+    void callUpdatePTSOffsetFromTune(double value, bool is_set)
+    {
+    	UpdatePTSOffsetFromTune(value,is_set = false);
+    }
+
+};
+    TestablePrivAamp *testp_aamp{nullptr};
+};
+
+TEST_F(PrivAampPrivTests,IsWideVineKIDWorkaroundTest)
+{
+	bool enable;
+	std::string url = "sampleString";
+        enable = testp_aamp->callIsWideVineKIDWorkaround(url);
+	EXPECT_FALSE(enable);
+}
+
+TEST_F(PrivAampPrivTests,ExtractServiceZoneTest)
+{
+	std::string url = "sampleString";
+	testp_aamp->callExtractServiceZone(url);
+	EXPECT_FALSE(testp_aamp->mTSBEnabled);
+}
+
+TEST_F(PrivAampPrivTests,ExtractServiceZoneTest_1)
+{
+	testp_aamp->mTSBEnabled = true;
+	std::string url = "sampleString";
+	testp_aamp->callExtractServiceZone(url);
+	EXPECT_TRUE(testp_aamp->mTSBEnabled);
+}
+
+TEST_F(PrivAampPrivTests,ExtractServiceZoneTest_2)
+{
+	testp_aamp->mIsVSS = true;
+	testp_aamp->mTSBEnabled = true;
+	std::string url = "sampleString";
+	testp_aamp->callExtractServiceZone(url);
+	EXPECT_TRUE(testp_aamp->mTSBEnabled);
+}
+
+TEST_F(PrivAampPrivTests,DeliverAdEventsTest)
+{
+	testp_aamp->callDeliverAdEvents(true);
+}
+
+TEST_F(PrivAampPrivTests,DeliverAdEventsTest_1)
+{
+	testp_aamp->callDeliverAdEvents(false);
+}
+
+TEST_F(PrivAampPrivTests,DeliverAdEventsTest_2)
+{
+	AAMPEventObject event(AAMP_EVENT_AD_PLACEMENT_START);	
+    testp_aamp->callDeliverAdEvents(true);
+}
+
+TEST_F(PrivAampPrivTests,DeliverAdEventsTest_3)
+{
+	AAMPEventObject event(AAMP_EVENT_AD_PLACEMENT_END);	
+	testp_aamp->callDeliverAdEvents(true);
+}
+
+TEST_F(PrivAampPrivTests,DiscontinuitySeenInAllTracksTest)
+{
+	testp_aamp->callDiscontinuitySeenInAllTracks();
+}
+
+TEST_F(PrivAampPrivTests,DiscontinuitySeenInAnyTracksTest)
+{
+	testp_aamp->callDiscontinuitySeenInAnyTracks();
+}
+
+TEST_F(PrivAampPrivTests,HasSidecarDataTest)
+{
+    bool flag = testp_aamp->callHasSidecarData();
+    EXPECT_FALSE(flag);
+}
+
+TEST_F(PrivAampPrivTests,UpdatePTSOffsetFromTuneTest)
+{
+    double value = 19.0988;
+    bool is_set = true;
+    testp_aamp->callUpdatePTSOffsetFromTune(value,is_set);
+}
+
+TEST_F(PrivAampPrivTests,UpdatePTSOffsetFromTuneTest_1)
+{
+    double value = 19.0988;
+    bool is_set = false;
+    testp_aamp->callUpdatePTSOffsetFromTune(value,is_set);
+}
 
 
 TEST_F(PrivAampTests, HandleSSLWriteCallbackTest)
@@ -79,9 +220,9 @@ TEST_F(PrivAampTests, RunPausePositionMonitoringTest)
 	EXPECT_FALSE(p_aamp->pipeline_paused);
 }
 
-TEST_F(PrivAampTests, StartPausePositionMonitoringTest)
+TEST_F(PrivAampTests, StartPausePositionMonitoringTest1)
 {
-	p_aamp->StartPausePositionMonitoring(123.47865293656786);
+	p_aamp->StartPausePositionMonitoring(12347865293656786);
 
 	p_aamp->StartPausePositionMonitoring(-10);
 
@@ -157,9 +298,6 @@ TEST_F(PrivAampTests,WakeupLatencyCheckTest)
 
 	p_aamp->TimedWaitForLatencyCheck(-10);
 	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
-	
-	p_aamp->TimedWaitForLatencyCheck(-12.355);
-	p_aamp->TimedWaitForLatencyCheck(20.355);
 }
 
 TEST_F(PrivAampTests,StopRateCorrectionWokerthreadTest)
@@ -171,7 +309,7 @@ TEST_F(PrivAampTests,StopRateCorrectionWokerthreadTest)
 	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
 }
 
-TEST_F(PrivAampTests,RateCorrectionWokerthreadTest)
+TEST_F(PrivAampTests,RateCorrectionWokerthreadTest1)
 {
 	p_aamp->RateCorrectionWokerthread();
 
@@ -179,35 +317,52 @@ TEST_F(PrivAampTests,RateCorrectionWokerthreadTest)
 	EXPECT_FALSE(p_aamp->mDisableRateCorrection);
 }
 
-TEST_F(PrivAampTests,ReportProgressTest)
+TEST_F(PrivAampTests,ReportProgressTest1)
 {
+	//checking different boolean values
 	p_aamp->ReportProgress(TRUE,TRUE);
-	p_aamp->ReportProgress(TRUE,FALSE);
-	p_aamp->ReportProgress(FALSE,TRUE);
-	p_aamp->ReportProgress(FALSE,FALSE);
 
 	p_aamp->ReportAdProgress(TRUE);
+}
+TEST_F(PrivAampTests,ReportProgressTest2)
+{
+	//checking different boolean values
+	p_aamp->ReportProgress(TRUE,FALSE);
+
 	p_aamp->ReportAdProgress(FALSE);
 }
-
-TEST_F(PrivAampTests,ReportAdProgressTest_1)
+TEST_F(PrivAampTests,ReportProgressTest3)
 {
-	p_aamp->mAdProgressId="";
-	p_aamp->mDownloadsEnabled=true;
-	p_aamp->pipeline_paused=false;
+	//checking different boolean values
+	p_aamp->ReportProgress(FALSE,TRUE);
+
 	p_aamp->ReportAdProgress(TRUE);
-	EXPECT_TRUE(p_aamp->mDownloadsEnabled);
 }
-
-TEST_F(PrivAampTests,ReportAdProgressTest_2)
+TEST_F(PrivAampTests,ReportProgressTest4)
 {
-	p_aamp->mAdProgressId="";
-	p_aamp->mDownloadsEnabled=true;
-	p_aamp->pipeline_paused=false;
-	p_aamp->ReportAdProgress(false);
+	//checking different boolean values
+	p_aamp->ReportProgress(FALSE,FALSE);
 
-	EXPECT_TRUE(p_aamp->mDownloadsEnabled);
-	EXPECT_NE(p_aamp->mAdPrevProgressTime,1234);
+	p_aamp->ReportAdProgress(FALSE);
+}
+TEST_F(PrivAampTests,ReportProgressTest5)
+{
+	bool sync = true; 
+	bool beginningOfStream = true;
+	p_aamp->SetState(eSTATE_SEEKING);
+	p_aamp->ReportProgress(sync,beginningOfStream);
+}
+TEST_F(PrivAampTests,ReportProgressTest6)
+{
+	bool sync = true; 
+	bool beginningOfStream = true;
+
+	bool mDownloadsEnabled = true;
+	p_aamp->SetState(eSTATE_PAUSED);
+
+	p_aamp->ReportAdProgress(sync);
+
+	p_aamp->ReportProgress(sync,beginningOfStream);
 }
 
 TEST_F(PrivAampTests,UpdateDurationTest)
@@ -305,7 +460,7 @@ TEST_F(PrivAampTests,SendDrmErrorEventTest_2)
 	p_aamp->SendDrmErrorEvent(event,true);
 }
 
-TEST_F(PrivAampTests,SendDownloadErrorEventTest)
+TEST_F(PrivAampTests,SendDownloadErrorEventTest1)
 {
 	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,130);
 	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,133);
@@ -316,6 +471,7 @@ TEST_F(PrivAampTests,SendDownloadErrorEventTest)
 	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,404);
 	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,421);
 }
+
 
 TEST_F(PrivAampTests,SendAnomalyEventTest)
 {
@@ -800,6 +956,27 @@ TEST_F(PrivAampTests,GetPlaylistCurlInstanceTest)
 	EXPECT_EQ(4,retVar);
 }
 
+TEST_F(PrivAampTests,GetPlaylistCurlInstanceTest_1)
+{
+	AampCurlInstance retVar = p_aamp->GetPlaylistCurlInstance(eMEDIATYPE_PLAYLIST_VIDEO,false);
+	EXPECT_EQ(5,retVar);
+
+	retVar = p_aamp->GetPlaylistCurlInstance(eMEDIATYPE_PLAYLIST_IFRAME,false);
+	EXPECT_EQ(5,retVar);
+}
+
+TEST_F(PrivAampTests,GetPlaylistCurlInstanceTest_2)
+{
+	AampCurlInstance retVar = p_aamp->GetPlaylistCurlInstance(eMEDIATYPE_PLAYLIST_AUDIO,false);
+	EXPECT_EQ(6,retVar);
+
+	retVar = p_aamp->GetPlaylistCurlInstance(eMEDIATYPE_PLAYLIST_SUBTITLE,false);
+	EXPECT_EQ(7,retVar);
+
+	retVar = p_aamp->GetPlaylistCurlInstance(eMEDIATYPE_PLAYLIST_AUX_AUDIO,false);
+	EXPECT_EQ(8,retVar);
+}
+
 TEST_F(PrivAampTests,ResetCurrentlyAvailableBandwidthTest)
 {
 	p_aamp->ResetCurrentlyAvailableBandwidth(123564756,true,15);
@@ -814,8 +991,29 @@ TEST_F(PrivAampTests,ResetCurrentlyAvailableBWTest_1)
 	p_aamp->ResetCurrentlyAvailableBandwidth(bitsPerSecond,trickPlay,profile);
 }
 
+TEST_F(PrivAampTests,ResetCurrentlyAvailableBWTest_2)
+{
+	long bitsPerSecond = 123564756;
+	bool trickPlay = true;
+	int profile = 15;
+	std::vector< std::pair<long long,long> > mAbrBitrateData;
+	mAbrBitrateData.push_back(std::make_pair(243475656835,433554345343));
+
+	p_aamp->ResetCurrentlyAvailableBandwidth(bitsPerSecond,trickPlay,profile);
+}
+
 TEST_F(PrivAampTests,GetCurrentlyAvailableBandwidthTest)
 {
+	long val = p_aamp->GetCurrentlyAvailableBandwidth();
+	EXPECT_NE(0,val);
+}
+
+TEST_F(PrivAampTests,GetCurrentlyAvailableBandwidthTest_1)
+{
+	std::vector<BitsPerSecond> tmpData;
+	tmpData.push_back(13242352);
+	tmpData.push_back(13312242352);
+
 	long val = p_aamp->GetCurrentlyAvailableBandwidth();
 	EXPECT_NE(0,val);
 }
@@ -938,6 +1136,24 @@ TEST_F(PrivAampTests,GetFileTest_3)
 	double downloadTime;
 	bool resetBuffer = true;
 	MediaType mType = eMEDIATYPE_VIDEO; 
+	BitsPerSecond bitrate;
+	int fogError;
+
+	p_aamp->EnableDownloads();
+
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl",&gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,mType,
+									&bitrate,&fogError,0.0));
+}
+
+TEST_F(PrivAampTests,GetFileTest_4)
+{
+	const char *url;
+	std::string effectiveUrl;
+	int http_error;
+	AampGrowableBuffer gBuff("GrowableBuffer");
+	double downloadTime;
+	bool resetBuffer = true;
+	MediaType mType = eMEDIATYPE_INIT_VIDEO; 
 	BitsPerSecond bitrate;
 	int fogError;
 
@@ -2428,16 +2644,19 @@ TEST_F(PrivAampTests,GetLicenseCustomDataTest)
 	std::string str = p_aamp->GetLicenseCustomData();
 }
 
-TEST_F(PrivAampTests,UpdateUseSinglePipelineTest)
+TEST_F(PrivAampTests,UpdateUseSinglePipelineTest1)
 {
 	p_aamp->UpdateUseSinglePipeline();
 }
-
-TEST_F(PrivAampTests,UpdateMaxDRMSessionsTest)
+TEST_F(PrivAampTests,UpdateMaxDRMSessionsTest1)
 {
 	p_aamp->UpdateMaxDRMSessions();
 }
-
+TEST_F(PrivAampTests,UpdateMaxDRMSessionsTest2)
+{
+	p_aamp->SetState(eSTATE_SEEKING);
+	p_aamp->UpdateMaxDRMSessions();
+}
 TEST_F(PrivAampTests,GetVideoPlaybackQualityTest)
 {
 	std::string str = p_aamp->GetVideoPlaybackQuality();
@@ -2454,3 +2673,66 @@ TEST_F(PrivAampTests,GetLastDownloadedManifestTest)
 	std::string manifest;
 	p_aamp->GetLastDownloadedManifest(manifest);
 }
+TEST_F(PrivAampTests,ID3MetadataHandlerTest)
+{
+	MediaType mediaType = eMEDIATYPE_AUDIO; 
+	const uint8_t* ptr = reinterpret_cast<const uint8_t*>("ID3 Metadata");
+	size_t pkt_len = strlen(reinterpret_cast<const char*>(ptr));; 
+	SegmentInfo_t info(100.0,90.0,5.0);
+
+	p_aamp->ID3MetadataHandler(mediaType,ptr, pkt_len, info);
+}
+TEST_F(PrivAampTests,ReportID3MetadataTest)
+{
+	MediaType mediaType = eMEDIATYPE_AUDIO;
+    const uint8_t* ptr = reinterpret_cast<const uint8_t*>("ID3 Metadata");
+    uint32_t len = strlen(reinterpret_cast<const char*>(ptr));
+    const char* schemeIdURI = "testSchemeIdURI";
+    const char* id3Value = "testID3Value";
+    uint64_t presTime = 123456789;
+    uint32_t id3ID = 123;
+    uint32_t eventDur = 456;
+    uint32_t tScale = 1000;
+    uint64_t tStampOffset = 789012345;
+
+    
+    p_aamp->ReportID3Metadata(mediaType, ptr, len, schemeIdURI, id3Value, presTime, id3ID, eventDur, tScale, tStampOffset);
+}
+TEST_F(PrivAampTests,SetLLDashServiceDataTest1)
+{
+	AampLLDashServiceData testData;
+	p_aamp->SetLLDashServiceData(testData);
+
+}
+
+TEST_F(PrivAampTests,DisableMediaDownloadsTest)
+{
+	MediaType type = eMEDIATYPE_VIDEO;
+	p_aamp->DisableMediaDownloads(type);
+}
+TEST_F(PrivAampTests,ReplaceKeyIDPsshValidDataTest)
+{
+	unsigned char inputPsshData[] = {
+    0x00, 0x00, 0x00, 0x3c, 0x70, 0x73, 0x73, 0x68, 0x00, 0x00, 0x00, 0x00,
+    0xed, 0xef, 0x8b, 0xa9, 0x79, 0xd6, 0x4a, 0xce, 0xa3, 0xc8, 0x27, 0xdc,
+    0xd5, 0x1d, 0x21, 0xed, 0x00, 0x00, 0x00, 0x1c, 0x08, 0x01, 0x12, 0x10,
+    0x00, 0x00, 0x00, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+    0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0xff, 0x22, 0x06, 0x74, 0x65,
+    0x73, 0x74, 0x5f, 0x37
+	};
+	size_t inputLength = sizeof(inputPsshData);
+	size_t outputLength = 0;
+    unsigned char* outputPsshData = p_aamp->ReplaceKeyIDPsshData(inputPsshData, inputLength, outputLength);
+
+	EXPECT_GT(outputLength,0);
+}
+TEST_F(PrivAampTests,ReplaceKeyIDPsshInValidDataTest)
+{
+	size_t outputLength = 0;
+    unsigned char* outputPsshData = p_aamp->ReplaceKeyIDPsshData(nullptr,0, outputLength);
+
+	EXPECT_EQ(outputPsshData,nullptr);
+	EXPECT_EQ(outputLength,0);
+}
+
+

@@ -4021,7 +4021,7 @@ public:
 	 */
 	bool IsGstreamerSubsEnabled(void);
 
-private:
+protected:
 
 	/**
 	 *   @fn IsWideVineKIDWorkaround
