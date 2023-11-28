@@ -731,6 +731,7 @@ Example:
 ### setVolume ( volume )
 - Supported UVE version 0.7 and above.
 - Sets the current volume (value between 0 and 100). Updated value reflected in subsequent calls to getVolume()
+- Returns true if setVolume has been performed.
 
 | Name | Type | Decription |
 | ---- | ---- | ---------- |
@@ -757,6 +758,7 @@ Example:
 ### setPlaybackRate( rate )
 - Supported UVE version 0.7 and above.
 - Change playback rate, supported speeds are given below
+- Returns true if setPlaybackRate has been performed.
 
 |Value |Description|
 |------|-----------|
@@ -791,6 +793,7 @@ Example:
 ### setVideoBitrate( bitrate )
 - Supported UVE version 0.7 and above.
 - Note : This will disable ABR functionality and lock the player to a single profile for the bitrate passed. To enable the ABR, call the API with 0.
+- Returns true if setVideoBitrate has been performed.
 
 |Name|Type|Description|
 |----|----|-----------|
@@ -981,6 +984,7 @@ Example:
 - This API will set the Video track(s) to select for playback.
 - Application to provide a list of profile bitrate to be included for playback
 - This will override the TV resolution based profile selection and MinBitRate/MaxBitRate based profiles
+- Returns true if setVideoTracks has been performed.
 
 ---
 
@@ -1164,6 +1168,7 @@ playerInstance.setAudioTrack( trackDescriptorObject );
 - This is functionally equivalent to passing a trackDescriptorObject to setAudioTrack above.
 - May be called pre-tune or post tune.
 - Behaviour is similar to setPreferredAudioLanguage ( JSON String)
+- Returns true if setPreferredAudioLanguage has been performed.
 
 |Name|Type|Description|
 |----|----|-----------|
@@ -1230,6 +1235,7 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 - Supported UVE version 3.0 and above.
 - Set the audio track language from the available audio tracks list.
 - Behavior is similar to setPreferredAudioLanguage.
+- Returns true if setAudioLanguage has been performed.
 
 |Name|Type|Description|
 |----|----|-----------|
@@ -1448,6 +1454,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 ### setTextTrack( trackIndex )
 - Supported UVE version 2.6 and above.
 - Select text track at trackIndex in the available text tracks list.
+- Returns true if setTextTrack has been performed.
 
 |Name|Type|Description|
 |----|----|-----------|
@@ -1560,6 +1567,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 
 ### setThumbnailTrack(index)
 - Set the desired thumbnail track from the list of available thumbnail track metadata.
+- Returns true if setThumbnailTrack has been performed.
 
 |Name|Type|Description|
 |----|----|-----------|
@@ -1619,7 +1627,8 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 ### configRuntimeDRM(enableConfiguration)
 - Supported UVE version 5.1 and above.
 - API to enable DRM Protection event to application for setting Key ID specific setting ( for key rotation)
-- Need to register for [contentProtectionDataUpdate](#contentprotectiondataupdate) event with event registration. 
+- Need to register for [contentProtectionDataUpdate](#contentprotectiondataupdate) event with event registration.
+- Returns true if configRuntimeDRM has been performed.
 
 |Name|Type|Description|
 |----|----|-----------|
@@ -1632,6 +1641,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 - Supported UVE version 5.1 and above.
 - Configure the DRM Data for license request for every KeyID reported to application
 - This API needs to be called before the ProtectionData Update timeout expires in the player . To set the timeout interval refer setContentProtectionDataUpdateTimeout.
+- Returns true if setContentProtectionDataUpdateTimeout has been performed.
 
 |Name|Type|Description|
 |----|----|-----------|
@@ -2357,6 +2367,7 @@ Supported for DASH Linear, working with period structure and SCTE35 markers, wit
 #### setSubscribedTags( tagNames )
 - Supported UVE version 0.8 and above.
 - Subscribe to specific tags / metadata in manifest
+- Returns true if setSubscribedTags has been performed.
 
 | Name | Type | Description |
 | ---- | ---- | ------ |
@@ -2574,6 +2585,7 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 
 ##### setAudioTrack
 - Set the index of the Audio track to be selected.
+- Returns true if setAudioTrack has been performed.
 
 ##### setAudioTrack
 - Set the Audio track to be selected by Language and Rendition.
@@ -2589,10 +2601,12 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 ```
 
 ##### setAudioLanguage
-- Set the language of the Audio track to be selected 
+- Set the language of the Audio track to be selected
+- Returns true if setAudioLanguage has been performed.
 
 ##### setVideoRect
 - Set display video rectangle coordinates. Default configuration (0,0,1280,720)
+- Returns true if setVideoRect has been performed.
 
 ##### getAvailableAudioTracks
 - Returns the available audio tracks information in JSON formatted list. Subset of parameters returned 
