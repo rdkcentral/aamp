@@ -142,8 +142,7 @@ window.onload = function() {
             }
 
         } catch (err) {
-            // errMessage(err) // show exception
-            errMessage("Video content might not be loaded");
+            console.log("Video content might not be loaded");
         }
     }
 
@@ -297,7 +296,7 @@ window.onload = function() {
             video.play();
             document.getElementById("playOrPauseIcon").src = "../icons/pause.png";
         } else {
-            errMessage("Enter a valid video URL"); // fail silently
+            console.log("Enter a valid video URL");
         }
     }
 

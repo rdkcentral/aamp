@@ -243,7 +243,9 @@ class AAMPPlayer {
      */
     stop() {
         // Turn OFF CC
-        XREReceiver.onEvent("onDecoderAvailable", { decoderHandle: null });
+        if(typeof(XREReceiver) !== "undefined") {
+            XREReceiver.onEvent("onDecoderAvailable", { decoderHandle: null });
+        }
         this.player.stop();
     }
 

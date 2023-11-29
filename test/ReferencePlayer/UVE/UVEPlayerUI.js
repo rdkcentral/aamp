@@ -53,7 +53,7 @@ function playPause() {
         document.getElementById("contentURL").innerHTML = "URL: " + urls[0].url;
         resetPlayer();
         resetUIOnNewAsset();
-        loadUrl(urls[0], true);
+        loadUrl(urls[0], false);
     } else {
         // If it was a trick play operation
         if ( playbackSpeeds[playbackRateIndex] != 1 ) {
@@ -130,7 +130,7 @@ function toggleCC() {
         if(enableNativeCC) {
             playerObj.setClosedCaptionStatus(true);
             playerObj.setTextStyleOptions(JSON.stringify(ccOptions));
-        } else {
+        } else if(typeof(XREReceiver) !== "undefined") {
             XREReceiver.onEvent("onClosedCaptions", { enable: true });
             XREReceiver.onEvent("onClosedCaptions", { setOptions: xreCCOptions});
         }
@@ -141,7 +141,7 @@ function toggleCC() {
         // CC OFF
         if(enableNativeCC) {
             playerObj.setClosedCaptionStatus(false);
-        } else {
+        } else if(typeof(XREReceiver) !== "undefined") {
             XREReceiver.onEvent("onClosedCaptions", { enable: false });
         }
         ccStatus = false;
@@ -171,8 +171,7 @@ function skipTime(tValue) {
             }
         }
     } catch (err) {
-        // errMessage(err) // show exception
-        errMessage("Video content might not be loaded: " + err);
+        console.log("Video content might not be loaded: " + err);
     }
 }
 
@@ -224,7 +223,7 @@ function getVideo(cache_only) {
 	        for ( urlIndex = 0; urlIndex < urls.length; urlIndex++) {
 	            if (newFileURLContent === urls[urlIndex].url) {
 	                console.log("FOUND at index: " + urlIndex);
-	                cacheStream(urls[urlIndex], (0 == urlIndex));
+	                cacheStream(urls[urlIndex], false);
 	                break;
 	            }
 	        }
@@ -236,13 +235,13 @@ function getVideo(cache_only) {
             for ( urlIndex = 0; urlIndex < urls.length; urlIndex++) {
                 if (newFileURLContent === urls[urlIndex].url) {
                     console.log("FOUND at index: " + urlIndex);
-                    loadUrl(urls[urlIndex], (0 == urlIndex));
+                    loadUrl(urls[urlIndex], false);
                     break;
                 }
             }
         }
     } else {
-        errMessage("Enter a valid video URL"); // fail silently
+        console.log("Enter a valid video URL");
     }
 }
 
@@ -269,7 +268,7 @@ function changeCCTrack() {
             let trackIdx = tracks.findIndex(tr => { return tr.type === "CLOSED-CAPTIONS" && tr.language === trackID; })
             console.log("Found trackIdx: " + trackIdx);
             playerObj.setTextTrack(trackIdx);
-        } else {
+        } else if(typeof(XREReceiver) !== "undefined") {
             XREReceiver.onEvent("onClosedCaptions", { setTrack: trackID });
         }
     }
@@ -292,7 +291,7 @@ function changeCCStyle() {
                     break;
         }
         console.log("Current closed caption style is :" + playerObj.getTextStyleOptions());
-    } else if((!enableNativeCC) && (ccStatus === true)) {
+    } else if((!enableNativeCC) && (ccStatus === true) && (typeof(XREReceiver) !== "undefined")) {
         switch(styleOption) {
             case 0:
                     XREReceiver.onEvent("onClosedCaptions", { setOptions: xreCCOptions});
@@ -343,7 +342,7 @@ function loadNextAsset() {
     if (urlIndex >= urls.length) {
         urlIndex = 0;
     }
-    loadUrl(urls[urlIndex], (0 == urlIndex));
+    loadUrl(urls[urlIndex], false);
 }
 
 function cacheNextAsset() {
@@ -351,7 +350,7 @@ function cacheNextAsset() {
     if (urlIndex >= urls.length) {
         urlIndex = 0;
     }
-    cacheStream(urls[urlIndex], (0 == urlIndex));
+    cacheStream(urls[urlIndex], false);
 }
 
 function loadPrevAsset() {
@@ -361,7 +360,7 @@ function loadPrevAsset() {
     if (urlIndex < 0) {
         urlIndex = urls.length - 1;
     }
-    loadUrl(urls[urlIndex], (0 == urlIndex));
+    loadUrl(urls[urlIndex], false);
 }
 
 var HTML5PlayerControls = function() {

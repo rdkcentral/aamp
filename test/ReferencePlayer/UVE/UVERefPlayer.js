@@ -132,7 +132,7 @@ var defaultInitConfig = {
     /**
      * offset from live point for live assets (seconds)
      */
-    liveOffset: 15,
+    liveOffset: 0,
 
     /**
      * preferred subtitle language
@@ -703,7 +703,9 @@ function mediaDurationChanged(event) {
 
 function decoderHandleAvailable(event) {
     console.log("decoderHandleAvailable " + event.decoderHandle);
-    XREReceiver.onEvent("onDecoderAvailable", { decoderHandle: event.decoderHandle });
+    if(typeof(XREReceiver) !== "undefined") {
+        XREReceiver.onEvent("onDecoderAvailable", { decoderHandle: event.decoderHandle });
+    }
 }
 
 function anomalyEventHandler(event) {
