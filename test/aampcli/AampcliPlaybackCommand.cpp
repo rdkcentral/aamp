@@ -110,7 +110,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	long grace = 0;
 	long time = -1;
 	int ms = 0;
-	int playerIndex = -1;
+	char playerId[50] = {'\0'};
 
 	// DELIA-61795 : Sanity check to make sure there is no space at beginning or end of cmd
 	std::string str(cmd);
@@ -145,7 +145,16 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	}
 	else if( isCommandMatch(cmd,"new") )
 	{
-		mAampcli.newPlayerInstance();
+		char playerName[50] = {'\0'};
+
+		if (sscanf(cmd, "new %49s", playerName) == 1)
+		{
+			mAampcli.newPlayerInstance(playerName);
+		}
+		else
+		{
+			mAampcli.newPlayerInstance();
+		}
 	}
 	else if( sscanf(cmd, "sleep %d", &ms ) == 1 )
 	{
@@ -156,34 +165,65 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 			printf( "sleep complete\n" );
 		}
 	}
-	else if( sscanf(cmd, "select %d", &playerIndex ) == 1 )
+	else if( sscanf(cmd, "select %49s", playerId ) == 1 )
 	{
-		if( (playerIndex > -1) && (playerIndex < mAampcli.mPlayerInstances.size() ))
+		if( playerId != NULL)
 		{
-			playerInstanceAamp = mAampcli.mPlayerInstances.at(playerIndex);
-			if (playerInstanceAamp->aamp)
+			auto playerInstanceItr = mAampcli.mPlayerInstances.end();
+			
+			if(isNumber(playerId))
 			{
-				printf( "selected player %d (at %p)\n", playerInstanceAamp->aamp->mPlayerId, playerInstanceAamp);
-				mAampcli.mSingleton=playerInstanceAamp;
+				int playerIndex = atoi(playerId);
+				if( (playerIndex > -1) && (playerIndex < mAampcli.mPlayerInstances.size() ))
+				{
+					playerInstanceItr = mAampcli.mPlayerInstances.find(playerIndex);
+				}
+				else
+				{
+					printf( "Give valid player id range = 0..%lu\n", mAampcli.mPlayerInstances.size()-1 );
+				}
+
 			}
 			else
 			{
-				printf( "error - player exists but is not valid/ready, playerInstanceAamp->aamp is not a valid ptr\n");
+				for( auto itr = mAampcli.mPlayerInstances.begin(); itr != mAampcli.mPlayerInstances.end(); itr++ )
+				{
+					if(playerId == itr->second.appName)
+						playerInstanceItr = itr;
+				}
 			}
-		}
-		else
-		{
-			printf( "valid range = 0..%lu\n", mAampcli.mPlayerInstances.size()-1 );
+
+			if(playerInstanceItr != mAampcli.mPlayerInstances.end())
+			{
+				playerInstanceAamp = playerInstanceItr->second.playerInstanceAAMP;
+				playerInstanceAamp->aamp->SetAppName(playerInstanceItr->second.appName);
+
+				if (playerInstanceAamp->aamp)
+				{
+					//Do not edit or remove this following printf - it is used in L2 test
+					printf( "selected player %d (at %p) %s\n", playerInstanceAamp->aamp->mPlayerId, playerInstanceAamp, (playerInstanceAamp->aamp->GetAppName()).c_str());
+					mAampcli.mSingleton=playerInstanceAamp;
+				}
+				else
+				{
+					printf( "error - player exists but is not valid/ready, playerInstanceAamp->aamp is not a valid ptr\n");
+				}
+			}
+			else
+			{
+				printf( "Give valid player name or id range = 0..%lu\n", mAampcli.mPlayerInstances.size()-1 );
+			}
+
 		}
 	}
 	else if( isCommandMatch(cmd, "select") )
 	{ // List available player instances
 		printf( "player instances:\n" );
-		playerIndex = 0;
-		for( auto playerInstance : mAampcli.mPlayerInstances )
+		
+		for( auto itr = mAampcli.mPlayerInstances.begin(); itr != mAampcli.mPlayerInstances.end(); itr++ )
 		{
-			printf( "\t%d", playerIndex++ );
-			if( playerInstance == playerInstanceAamp )
+			printf( "\t%d %s", itr->first, (itr->second.appName).c_str());
+			if( itr->second.playerInstanceAAMP == playerInstanceAamp )
 			{
 				printf( " (selected)");
 			}
@@ -332,10 +372,10 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	else if (isCommandMatch(cmd, "exit") )
 	{
 		playerInstanceAamp = NULL;
-		for( auto playerInstance : mAampcli.mPlayerInstances )
+		for( auto itr = mAampcli.mPlayerInstances.begin(); itr != mAampcli.mPlayerInstances.end(); itr++ )
 		{
-			playerInstance->Stop();
-			SAFE_DELETE( playerInstance );
+			itr->second.playerInstanceAAMP->Stop();
+			SAFE_DELETE( itr->second.playerInstanceAAMP );
 		}
 		termPlayerLoop();
 		return false;	//to exit

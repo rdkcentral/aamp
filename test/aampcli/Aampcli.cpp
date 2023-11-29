@@ -41,7 +41,7 @@ Aampcli :: Aampcli():
 	mEventListener(NULL),
 	mAampGstPlayerMainLoop(NULL),
 	mAampMainLoopThread(NULL),
-	mPlayerInstances(std::vector<PlayerInstanceAAMP*> ())
+	mPlayerInstances(std::map<int, PlayerInstancesInfo> ())
 {
 };
 
@@ -54,7 +54,7 @@ Aampcli::Aampcli(const Aampcli& aampcli):
 	mEventListener(NULL),
 	mAampGstPlayerMainLoop(NULL),
 	mAampMainLoopThread(NULL),
-	mPlayerInstances(std::vector<PlayerInstanceAAMP*> ())
+	mPlayerInstances(std::map<int, PlayerInstancesInfo> ())
 
 {
 	mSingleton = aampcli.mSingleton;
@@ -277,14 +277,23 @@ void Aampcli::initPlayerLoop(int argc, char **argv)
 	}
 }
 
-void Aampcli::newPlayerInstance( void )
+void Aampcli::newPlayerInstance( std::string appName)
 {
+	PlayerInstancesInfo playerInstancesInfo;
 	PlayerInstanceAAMP *player = new PlayerInstanceAAMP(
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
 			NULL
 			,Shader::updateYUVFrame
 #endif
 			);
+
+	if (!appName.empty())
+	{
+		printf(" Set player name %s\n", appName.c_str());
+		mSingleton->SetAppName(appName);
+		playerInstancesInfo.appName = appName;
+	}
+
 	if( !mEventListener )
 	{ // for now, use common event listener (could be instance specific)
 		printf( "allocating new MyAAMPEventListener\n");
@@ -293,7 +302,8 @@ void Aampcli::newPlayerInstance( void )
 	player->RegisterEvents(mEventListener);
 	auto playerIndex = mPlayerInstances.size();
 	printf( "new playerInstance; index=%lu\n", playerIndex );
-	mPlayerInstances.push_back(player);
+	playerInstancesInfo.playerInstanceAAMP = player;
+	mPlayerInstances.insert(std::make_pair(playerIndex,playerInstancesInfo));
 	mSingleton = player; // select
 	mSingleton->SetContentProtectionDataUpdateTimeout(0);
 }

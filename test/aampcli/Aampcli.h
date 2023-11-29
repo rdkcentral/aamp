@@ -59,6 +59,27 @@ class MyAAMPEventListener : public AAMPEventObjectListener
 		void Event(const AAMPEventPtr& e) override;
 };
 
+class PlayerInstancesInfo
+{
+	public:
+		std::string appName;
+		PlayerInstanceAAMP *playerInstanceAAMP;
+
+		PlayerInstancesInfo():appName(),playerInstanceAAMP(NULL){};
+
+		PlayerInstancesInfo(const PlayerInstancesInfo& playerInstancesInfo):appName(),playerInstanceAAMP(NULL)
+		{
+			appName = playerInstancesInfo.appName;
+			playerInstanceAAMP = playerInstancesInfo.playerInstanceAAMP;	
+		};
+
+		PlayerInstancesInfo& operator=(const PlayerInstancesInfo& playerInstancesInfo)
+		{
+			return *this;
+		};
+
+};
+
 class Aampcli
 {
 	public:
@@ -70,14 +91,14 @@ class Aampcli
 		MyAAMPEventListener *mEventListener;
 		GMainLoop *mAampGstPlayerMainLoop;
 		GThread *mAampMainLoopThread;
-		std::vector<PlayerInstanceAAMP*> mPlayerInstances;
+		std::map<int, PlayerInstancesInfo> mPlayerInstances;
 
 		static void runCommand( void* args );
 		static gpointer aampGstPlayerStreamThread( gpointer arg );
 		void doAutomation( int startChannel, int stopChannel, int maxTuneTimeS, int playTimeS, int betweenTimeS );
 		FILE * getConfigFile(const std::string& cfgFile);
 		void initPlayerLoop(int argc, char **argv);
-		void newPlayerInstance( void );
+		void newPlayerInstance( std::string appName = "");
 		int getApplicationDir( char *buffer, uint32_t size );
 		void getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::string &url);
 		Aampcli();
