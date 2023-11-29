@@ -1791,7 +1791,7 @@ void PrivateInstanceAAMP::StopRateCorrectionWokerthread(void)
 		}
 		catch (exception& exp)
 		{
-			AAMPLOG_WARN("Rate Correction Thread Failed to Stop : %s ", exp.what());
+			AAMPLOG_ERR("Rate Correction Thread Failed to Stop : %s ", exp.what());
 		}
 	}
 }
@@ -1815,7 +1815,7 @@ void PrivateInstanceAAMP::StartRateCorrectionWokerthread(void)
 	}
 	catch (exception& exp)
 	{
-		AAMPLOG_WARN("Rate Correction Thread Failed to start : %s ", exp.what());
+		AAMPLOG_ERR("Rate Correction Thread Failed to start : %s ", exp.what());
 	}
 }
 
@@ -1931,7 +1931,7 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 						}
 						else
 						{
-							AAMPLOG_WARN("Failed to reset the playback rate!!");	
+							AAMPLOG_ERR("Failed to reset the playback rate!!");	
 						}
 
 					}
@@ -3511,7 +3511,7 @@ void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instan
 	}
 	else
 	{
-		AAMPLOG_WARN("Failed to update timeout for curl instace %d",instance);
+		AAMPLOG_ERR("Failed to update timeout for curl instace %d",instance);
 	}
 }
 
@@ -4627,7 +4627,7 @@ bool PrivateInstanceAAMP::SetupPipeSession()
 		if (m_fd == -1)
 		{
 			// error
-			AAMPLOG_WARN("OpenPipe: Failed to open named pipe %s for writing errno = %d (%s)",
+			AAMPLOG_ERR("OpenPipe: Failed to open named pipe %s for writing errno = %d (%s)",
 				strAAMPPipeName, errno, strerror(errno));
 		}
 		else
@@ -4664,7 +4664,7 @@ void PrivateInstanceAAMP::SendMessageOverPipe(const char *str,int nToWrite)
 		if(nWritten != nToWrite)
 		{
 			// Error
-			AAMPLOG_WARN("Error writing data written = %d, size = %d errno = %d (%s)",
+			AAMPLOG_ERR("Error writing data written = %d, size = %d errno = %d (%s)",
 				nWritten, nToWrite, errno, strerror(errno));
 			if(errno == EPIPE)
 			{
@@ -4934,7 +4934,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if (mMediaFormat == eMEDIAFORMAT_DASH)
 	{
 		#if defined (INTELCE)
-			AAMPLOG_WARN("Error: Dash playback not available");
+			AAMPLOG_ERR("Error: Dash playback not available");
 			mInitSuccess = false;
 			SendErrorEvent(AAMP_TUNE_UNSUPPORTED_STREAM_TYPE);
 			return;
@@ -5052,7 +5052,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		// Check if the seek position is beyond the duration
 		if(retVal == eAAMPSTATUS_SEEK_RANGE_ERROR)
 		{
-			AAMPLOG_WARN("mpStreamAbstractionAAMP Init Failed.Seek Position(%f) out of range(%lld)",mpStreamAbstractionAAMP->GetStreamPosition(),(GetDurationMs()/1000));
+			AAMPLOG_ERR("mpStreamAbstractionAAMP Init Failed.Seek Position(%f) out of range(%lld)",mpStreamAbstractionAAMP->GetStreamPosition(),(GetDurationMs()/1000));
 			NotifyEOSReached();
 		}
 		else if(mIsFakeTune)
@@ -6796,7 +6796,7 @@ void PrivateInstanceAAMP::InterruptableMsSleep(int timeInMs)
 			}
 			else if (ETIMEDOUT != ret)
 			{
-				AAMPLOG_WARN("sleep - condition wait failed %s", strerror(ret));
+				AAMPLOG_ERR("sleep - condition wait failed %s", strerror(ret));
 			}
 		}
 		pthread_mutex_unlock(&mLock);
@@ -7751,7 +7751,7 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, MediaType 
 							else
 							{
 								gAAMPInstance->numPtsErrors = 0;
-								AAMPLOG_WARN("PrivateInstanceAAMP: Not scheduling reTune since (diff %lld > threshold %lld) numPtsErrors %d, ptsErrorThreshold %d.",
+								AAMPLOG_ERR("PrivateInstanceAAMP: Not scheduling reTune since (diff %lld > threshold %lld) numPtsErrors %d, ptsErrorThreshold %d.",
 									diffMs, GetLLDashServiceData()->lowLatencyMode?
 									AAMP_MAX_TIME_LL_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS:AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS,
 									gAAMPInstance->numPtsErrors, ptsErrorThresholdValue);
@@ -7766,7 +7766,7 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, MediaType 
 					}
 					else
 					{
-						AAMPLOG_WARN("PrivateInstanceAAMP: Schedule Retune errorType %d error %s", errorType, errorString);
+						AAMPLOG_ERR("PrivateInstanceAAMP: Schedule Retune errorType %d error %s", errorType, errorString);
 						gAAMPInstance->reTune = true;
 						AdditionalTuneFailLogEntries();
 						ScheduleAsyncTask(PrivateInstanceAAMP_Retune, (void *)this, "PrivateInstanceAAMP_Retune");

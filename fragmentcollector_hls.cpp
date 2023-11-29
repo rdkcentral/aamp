@@ -2001,11 +2001,11 @@ void TrackState::FetchFragment()
 				}
 				else if (decryption_error)
 				{
-					AAMPLOG_WARN("%s Error while decrypting fragments. failedCount:%d", name, segDLFailCount);
+					AAMPLOG_ERR("%s Error while decrypting fragments. failedCount:%d", name, segDLFailCount);
 				}
 				else if (AAMP_IS_LOG_WORTHY_ERROR(http_error))
 				{
-					AAMPLOG_WARN("Error on fetching %s fragment. failedCount:%d", name, segDLFailCount);
+					AAMPLOG_ERR("Error on fetching %s fragment. failedCount:%d", name, segDLFailCount);
 				}
 
 			}

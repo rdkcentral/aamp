@@ -835,7 +835,7 @@ static int replace(std::string& str, const std::string& from, const std::string&
 			}
 			else
 			{
-				AAMPLOG_WARN("Error at  next");  //CID:81346 - checked return
+				AAMPLOG_ERR("Error at  next");  //CID:81346 - checked return
 				break;
 			}
 		}
@@ -4921,7 +4921,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			{
 				aamp->UpdateDuration(0);
 				aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
-				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: manifest download failed");
+				AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
 				ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 			}
 		}
@@ -4955,7 +4955,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 	}
 	else if (AAMPStatusType::eAAMPSTATUS_OK != ret)
 	{
-		AAMPLOG_WARN("aamp: error on manifest fetch");
+		AAMPLOG_ERR("aamp: error on manifest fetch");
 	}
 
 	if(updateVideoEndMetrics)
@@ -4970,8 +4970,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 									 mManifestDnldRespPtr->mMPDDownloadResponse->mDownloadData.end());		
 		if(!downloadData.empty() && !manifestUrl.empty())
 		{			
-			AAMPLOG_WARN("ERROR: Invalid Playlist URL: %s ret:%d", manifestUrl.c_str(),ret);
-			AAMPLOG_WARN("ERROR: Invalid Playlist DATA: %s ", downloadData.c_str());
+			AAMPLOG_ERR("ERROR: Invalid Playlist URL: %s ret:%d", manifestUrl.c_str(),ret);
+			AAMPLOG_ERR("ERROR: Invalid Playlist DATA: %s ", downloadData.c_str());
 		}
 		if(ret == eAAMPSTATUS_MANIFEST_CONTENT_ERROR && http_error == 512)
 		{

@@ -277,7 +277,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
             }
             else if (AAMP_IS_LOG_WORTHY_ERROR(httpErrorCode))
             {
-                AAMPLOG_WARN("StreamAbstractionAAMP_MPD::Error on fetching %s fragment. failedCount:%d",
+                AAMPLOG_ERR("StreamAbstractionAAMP_MPD::Error on fetching %s fragment. failedCount:%d",
                          name, segDLFailCount);
                 // For init fragment, rampdown limit is reached. Send error event.
                 if(!playingAd && initSegment)

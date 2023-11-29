@@ -594,7 +594,7 @@ static MediaType GetMediaTypeForSource(const GstElement *source,const AAMPGstPla
 	}
 	else
 	{
-		AAMPLOG_WARN( "Null check failed." );
+		AAMPLOG_ERR( "Null check failed." );
 	}
 
 	return eMEDIATYPE_DEFAULT;
@@ -618,7 +618,7 @@ static void need_data(GstElement *source, guint size, AAMPGstPlayer *_this)
 		}
 		else
 		{
-			AAMPLOG_WARN( "Null check failed." );
+			AAMPLOG_ERR( "Null check failed." );
 		}
 	}
 }
@@ -645,14 +645,14 @@ static void enough_data(GstElement *source, AAMPGstPlayer *_this)
 				}
 				else
 				{
-					AAMPLOG_WARN( "%s Null check failed.", getMediaTypeName(mediaType));
+					AAMPLOG_ERR( "%s Null check failed.", getMediaTypeName(mediaType));
 				}
 			}
 		}
 	}
 	else
 	{
-		AAMPLOG_WARN( "Null check failed." );
+		AAMPLOG_ERR( "Null check failed." );
 	}
 }
 
@@ -1249,12 +1249,12 @@ GstFlowReturn AAMPGstPlayer::AAMPGstPlayer_OnVideoSample(GstElement* object, AAM
 				}
 				else
 				{
-					AAMPLOG_WARN("buffer map failed\n");
+					AAMPLOG_ERR("buffer map failed\n");
 				}
 			}
 			else
 			{
-				AAMPLOG_WARN("buffer NULL\n");
+				AAMPLOG_ERR("buffer NULL\n");
 			}
 			gst_sample_unref (sample);
 		}
@@ -1345,7 +1345,7 @@ static void AAMPGstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0,
 static void AAMPGstPlayer_OnGstPtsErrorCb(GstElement* object, guint arg0, gpointer arg1,
         AAMPGstPlayer * _this)
 {
-	AAMPLOG_WARN("## Got PTS error message from %s ##", GST_ELEMENT_NAME(object));
+	AAMPLOG_ERR("## Got PTS error message from %s ##", GST_ELEMENT_NAME(object));
 #ifdef REALTEKCE
 	if (AAMPGstPlayer_isVideoSink(GST_ELEMENT_NAME(object), _this))
 #else
@@ -1380,7 +1380,7 @@ static void AAMPGstPlayer_OnGstDecodeErrorCb(GstElement* object, guint arg0, gpo
 
 		_this->aamp->SendAnomalyEvent(ANOMALY_WARNING, "Decode Error Message Callback=%d time=%d",_this->privateContext->decodeErrorCBCount, AAMP_MIN_DECODE_ERROR_INTERVAL);
 		_this->privateContext->decodeErrorMsgTimeMS = NOW_STEADY_TS_MS;
-		AAMPLOG_WARN("## Got Decode Error message from %s ## total_cb=%d timeMs=%d", GST_ELEMENT_NAME(object),  _this->privateContext->decodeErrorCBCount, AAMP_MIN_DECODE_ERROR_INTERVAL);
+		AAMPLOG_ERR("## Got Decode Error message from %s ## total_cb=%d timeMs=%d", GST_ELEMENT_NAME(object),  _this->privateContext->decodeErrorCBCount, AAMP_MIN_DECODE_ERROR_INTERVAL);
 		_this->privateContext->decodeErrorCBCount = 0;
 	}
 }
@@ -1486,7 +1486,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 		else if (strstr(error->message, "Internal data stream error") && _this->aamp->mConfig->IsConfigSet(eAAMPConfig_RetuneForGSTError))
 		{
 			// This can be executed only for Peacock when it hits Internal data stream error.
-			AAMPLOG_WARN("Schedule retune for GstPipeline Error");
+			AAMPLOG_ERR("Schedule retune for GstPipeline Error");
 			_this->aamp->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
 		}
 		else if (strstr(error->message, "Error parsing H.264 stream"))
@@ -1744,7 +1744,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 		const GstStructure *msgS;
 		msgS = gst_message_get_structure (msg);
 		if (gst_structure_has_name (msgS, "HDCPProtectionFailure")) {
-			AAMPLOG_WARN("Received HDCPProtectionFailure event.Schedule Retune ");
+			AAMPLOG_ERR("Received HDCPProtectionFailure event.Schedule Retune ");
 			_this->Flush(0, AAMP_NORMAL_PLAY_RATE, true);
 			_this->aamp->ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR,eMEDIATYPE_VIDEO);
 		}
@@ -2045,12 +2045,12 @@ bool AAMPGstPlayer::CreatePipeline()
 		}
 		else
 		{
-			AAMPLOG_WARN("AAMPGstPlayer - gst_pipeline_get_bus failed");
+			AAMPLOG_ERR("AAMPGstPlayer - gst_pipeline_get_bus failed");
 		}
 	}
 	else
 	{
-		AAMPLOG_WARN("AAMPGstPlayer - gst_pipeline_new failed");
+		AAMPLOG_ERR("AAMPGstPlayer - gst_pipeline_new failed");
 	}
 
 	return ret;
@@ -2284,11 +2284,11 @@ void AAMPGstPlayer::TearDownStream(MediaType mediaType)
 			{
 				if (GST_STATE_CHANGE_FAILURE == SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL))
 				{
-					AAMPLOG_WARN("AAMPGstPlayer::TearDownStream: Failed to set NULL state for sinkbin");
+					AAMPLOG_ERR("AAMPGstPlayer::TearDownStream: Failed to set NULL state for sinkbin");
 				}
 				if (!gst_bin_remove(GST_BIN(privateContext->pipeline), GST_ELEMENT(stream->sinkbin)))			/* Removes the sinkbin element from the pipeline */
 				{
-					AAMPLOG_WARN("AAMPGstPlayer::TearDownStream:  Unable to remove sinkbin from pipeline");
+					AAMPLOG_ERR("AAMPGstPlayer::TearDownStream:  Unable to remove sinkbin from pipeline");
 				}
 			}
 			else
@@ -2300,11 +2300,11 @@ void AAMPGstPlayer::TearDownStream(MediaType mediaType)
 			{
 				if (GST_STATE_CHANGE_FAILURE == SetStateWithWarnings(GST_ELEMENT(stream->source), GST_STATE_NULL))
 				{
-					AAMPLOG_WARN("AAMPGstPlayer::TearDownStream: Failed to set NULL state for source");
+					AAMPLOG_ERR("AAMPGstPlayer::TearDownStream: Failed to set NULL state for source");
 				}
 				if (!gst_bin_remove(GST_BIN(privateContext->pipeline), GST_ELEMENT(stream->source)))			/* Removes the stream->source element from the pipeline */
 				{
-					AAMPLOG_WARN("AAMPGstPlayer::TearDownStream:  Unable to remove source from pipeline");
+					AAMPLOG_ERR("AAMPGstPlayer::TearDownStream:  Unable to remove source from pipeline");
 				}
 			}
 		}
@@ -2395,7 +2395,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 
 				if (!gst_element_link_many(stream->source, stream->sinkbin, NULL))			/* forms a GstElement link chain; linking stream->source to stream->sinkbin */
 				{
-					AAMPLOG_WARN("Failed to link subtitle elements");
+					AAMPLOG_ERR("Failed to link subtitle elements");
 					return -1;
 				}
 
@@ -2572,7 +2572,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 		gst_element_link(stream->source, stream->sinkbin);
 		if(!gst_element_link(stream->source, stream->sinkbin))
 		{
-			AAMPLOG_WARN("gst_element_link  is error");  //CID:90331- checked return
+			AAMPLOG_ERR("gst_element_link  is error");  //CID:90331- checked return
 		}
 		gst_element_sync_state_with_parent(stream->sinkbin);
 
@@ -2652,10 +2652,10 @@ void AAMPGstPlayer::SendGstEvents(MediaType mediaType)
 	{
 		AAMPLOG_WARN("flush pipeline");
 		gboolean ret = gst_pad_push_event(sourceEleSrcPad, gst_event_new_flush_start());	/* Allocates a new flush event and pushes it into the sourceEleSrcPad*/
-		if (!ret) AAMPLOG_WARN("flush start error");
+		if (!ret) AAMPLOG_ERR("flush start error");
 		GstEvent* event = gst_event_new_flush_stop(FALSE);
 		ret = gst_pad_push_event(sourceEleSrcPad, event);
-		if (!ret) AAMPLOG_WARN("flush stop error");
+		if (!ret) AAMPLOG_ERR("flush stop error");
 		stream->flush = false;
 	}
 
@@ -2703,7 +2703,7 @@ void AAMPGstPlayer::SendGstEvents(MediaType mediaType)
 			AAMPLOG_WARN("pushing protection event! mediatype: %d", mediaType);
 			if (!gst_pad_push_event(sourceEleSrcPad, gst_event_ref(event)))
 			{
-				AAMPLOG_WARN("push protection event failed!");
+				AAMPLOG_ERR("push protection event failed!");
 			}
 		}
 	}
@@ -2918,7 +2918,7 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 
 			if (ret != GST_FLOW_OK)
 			{
-				AAMPLOG_WARN("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
+				AAMPLOG_ERR("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
 				if (ret != GST_FLOW_EOS && ret !=  GST_FLOW_FLUSHING)
 					assert(false);
 			}
@@ -3138,7 +3138,7 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 			}
 			if (0 != AAMPGstPlayer_SetupStream(this, (MediaType)i))			/* Sets up the stream for the given MediaType */
 			{
-				AAMPLOG_WARN("AAMPGstPlayer: track %d failed", i);
+				AAMPLOG_ERR("AAMPGstPlayer: track %d failed", i);
 				//Don't kill the tune for subtitles
 				if (eMEDIATYPE_SUBTITLE != (MediaType)i)
 				{
@@ -3156,7 +3156,7 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 		this->privateContext->buffering_timeout_cnt = DEFAULT_BUFFERING_MAX_CNT;
 		if (SetStateWithWarnings(this->privateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
 		{
-			AAMPLOG_WARN("AAMPGstPlayer_Configure GST_STATE_PLAUSED failed");
+			AAMPLOG_ERR("AAMPGstPlayer_Configure GST_STATE_PAUSED failed");
 		}
 		privateContext->pendingPlayState = false;
 	}
@@ -3164,7 +3164,7 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 	{
 		if (SetStateWithWarnings(this->privateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
 		{
-			AAMPLOG_WARN("AAMPGstPlayer: GST_STATE_PLAYING failed");
+			AAMPLOG_ERR("AAMPGstPlayer: GST_STATE_PLAYING failed");
 		}
 		privateContext->pendingPlayState = false;
 	}
@@ -3503,7 +3503,7 @@ static GstState validateStateWithMsTimeout( AAMPGstPlayer *_this, GstState state
 	}
 	while ((gst_current != stateToValidate) && (gstGetStateCnt-- != 0));
 
-	AAMPLOG_WARN("validateStateWithMsTimeout - PIPELINE gst_element_get_state - FAILURE : State = %d, Pending = %d",
+	AAMPLOG_ERR("validateStateWithMsTimeout - PIPELINE gst_element_get_state - FAILURE : State = %d, Pending = %d",
 			gst_current, gst_pending);
 	return gst_current;
 }
@@ -3530,7 +3530,7 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 		switch(stateChangeReturn)
 		{
 			case GST_STATE_CHANGE_FAILURE:
-				AAMPLOG_WARN("AAMPGstPlayer: %s is in FAILURE state : current %s  pending %s", SafeName(element).c_str(),gst_element_state_get_name(current), gst_element_state_get_name(pending));
+				AAMPLOG_ERR("AAMPGstPlayer: %s is in FAILURE state : current %s  pending %s", SafeName(element).c_str(),gst_element_state_get_name(current), gst_element_state_get_name(pending));
 				LogStatus(element);
 				break;
 			case GST_STATE_CHANGE_SUCCESS:
@@ -3610,17 +3610,17 @@ void AAMPGstPlayer::PauseAndFlush(bool playAfterFlush)
 	{
 		if (GST_STATE_PAUSED != validateStateWithMsTimeout(this,GST_STATE_PAUSED, 50))
 		{
-			AAMPLOG_WARN("AAMPGstPlayer_Flush - validateStateWithMsTimeout - FAILED GstState %d", GST_STATE_PAUSED);
+			AAMPLOG_ERR("AAMPGstPlayer_Flush - validateStateWithMsTimeout - FAILED GstState %d", GST_STATE_PAUSED);
 		}
 	}
 	else if (GST_STATE_CHANGE_SUCCESS != rc)
 	{
-		AAMPLOG_WARN("AAMPGstPlayer_Flush - gst_element_set_state - FAILED rc %d", rc);
+		AAMPLOG_ERR("AAMPGstPlayer_Flush - gst_element_set_state - FAILED rc %d", rc);
 	}
 	gboolean ret = gst_element_send_event( GST_ELEMENT(privateContext->pipeline), gst_event_new_flush_start());
-	if (!ret) AAMPLOG_WARN("AAMPGstPlayer_Flush: flush start error");
+	if (!ret) AAMPLOG_ERR("AAMPGstPlayer_Flush: flush start error");
 	ret = gst_element_send_event(GST_ELEMENT(privateContext->pipeline), gst_event_new_flush_stop(TRUE));
-	if (!ret) AAMPLOG_WARN("AAMPGstPlayer_Flush: flush stop error");
+	if (!ret) AAMPLOG_ERR("AAMPGstPlayer_Flush: flush stop error");
 	if (playAfterFlush)
 	{
 		rc = SetStateWithWarnings(this->privateContext->pipeline, GST_STATE_PLAYING);
@@ -3630,14 +3630,14 @@ void AAMPGstPlayer::PauseAndFlush(bool playAfterFlush)
 #ifdef AAMP_WAIT_FOR_PLAYING_STATE
 			if (GST_STATE_PLAYING != validateStateWithMsTimeout( GST_STATE_PLAYING, 50))
 			{
-				AAMPLOG_WARN("AAMPGstPlayer_Flush - validateStateWithMsTimeout - FAILED GstState %d",
+				AAMPLOG_ERR("AAMPGstPlayer_Flush - validateStateWithMsTimeout - FAILED GstState %d",
 						GST_STATE_PLAYING);
 			}
 #endif
 		}
 		else if (GST_STATE_CHANGE_SUCCESS != rc)
 		{
-			AAMPLOG_WARN("AAMPGstPlayer_Flush - gst_element_set_state - FAILED rc %d", rc);
+			AAMPLOG_ERR("AAMPGstPlayer_Flush - gst_element_set_state - FAILED rc %d", rc);
 		}
 	}
 	this->privateContext->total_bytes = 0;
@@ -3671,7 +3671,7 @@ long AAMPGstPlayer::GetDurationMilliseconds(void)
 				}
 				else
 				{
-					AAMPLOG_WARN("Duration query failed");
+					AAMPLOG_ERR("Duration query failed");
 				}
 				gst_query_unref(privateContext->durationQuery);		/* Decreases the refcount of the durationQuery. In this case the count will be zero, so it will be freed*/
 				privateContext->durationQuery = NULL;
@@ -3805,12 +3805,12 @@ bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
 			/* wait a bit longer for the state change to conclude */
 			if (nextState != validateStateWithMsTimeout(this,nextState, 100))
 			{
-				AAMPLOG_WARN("AAMPGstPlayer_Pause - validateStateWithMsTimeout - FAILED GstState %d", nextState);
+				AAMPLOG_ERR("AAMPGstPlayer_Pause - validateStateWithMsTimeout - FAILED GstState %d", nextState);
 			}
 		}
 		else if (GST_STATE_CHANGE_SUCCESS != rc)
 		{
-			AAMPLOG_WARN("AAMPGstPlayer_Pause - gst_element_set_state - FAILED rc %d", rc);
+			AAMPLOG_ERR("AAMPGstPlayer_Pause - gst_element_set_state - FAILED rc %d", rc);
 		}
 		privateContext->buffering_target_state = nextState;
 		privateContext->paused = pause;
@@ -4171,8 +4171,8 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 
 		if (!gst_element_seek(privateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 			position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
-        	{
-			AAMPLOG_WARN("Seek failed");
+		{
+			AAMPLOG_ERR("Seek failed");
 		}
 #if defined (REALTEKCE)
 		if(bAsyncModify == TRUE)
@@ -4325,7 +4325,7 @@ PlaybackQualityStruct* AAMPGstPlayer::GetVideoPlaybackQuality(void)
 		}
 		else
 		{
-			AAMPLOG_WARN("Failed to get sink stats");
+			AAMPLOG_ERR("Failed to get sink stats");
 		}
 	}
 	return NULL;
@@ -4395,7 +4395,7 @@ void AAMPGstPlayer::NotifyFragmentCachingComplete()
 		AAMPLOG_WARN("AAMPGstPlayer: Setting pipeline to PLAYING state ");
 		if (SetStateWithWarnings(privateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
 		{
-			AAMPLOG_WARN("AAMPGstPlayer_Configure GST_STATE_PLAYING failed");
+			AAMPLOG_ERR("AAMPGstPlayer_Configure GST_STATE_PLAYING failed");
 		}
 		privateContext->pendingPlayState = false;
 	}
@@ -4895,7 +4895,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 	GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
 	if (!structure)
 	{
-		AAMPLOG_WARN("AAMPGstPlayer: Failed to create custom-instant-rate-change structure");
+		AAMPLOG_ERR("AAMPGstPlayer: Failed to create custom-instant-rate-change structure");
 		return false;
 	}
 
@@ -4905,7 +4905,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 	GstEvent * rate_event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure);
 	if (!rate_event)
 	{
-		AAMPLOG_WARN("AAMPGstPlayer: Failed to create rate_event");
+		AAMPLOG_ERR("AAMPGstPlayer: Failed to create rate_event");
 		/* cleanup */
 		gst_structure_free (structure);
 		return false;
@@ -4913,7 +4913,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 	int ret = gst_element_send_event( privateContext->pipeline, rate_event );
 	if(!ret)
 	{
-		AAMPLOG_WARN("AAMPGstPlayer: Rate change failed : %g [gst_element_send_event]", rate);
+		AAMPLOG_ERR("AAMPGstPlayer: Rate change failed : %g [gst_element_send_event]", rate);
 		return false;
 	}
 	gst_event_unref(rate_event);
@@ -4924,14 +4924,14 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 	GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
 	if (!structure)
 	{
-		AAMPLOG_WARN("failed to create custom-instant-rate-change structure");
+		AAMPLOG_ERR("failed to create custom-instant-rate-change structure");
 		return false;
 	}
 
 	GstEvent * rate_event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure);
 	if (!rate_event)
 	{
-		AAMPLOG_WARN("failed to create rate_event");
+		AAMPLOG_ERR("failed to create rate_event");
 		/* cleanup */
 		gst_structure_free (structure);
 		return false;
@@ -4942,7 +4942,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 	{
 		if (!gst_element_send_event(privateContext->video_dec,  gst_event_ref(rate_event)))
 		{
-			AAMPLOG_WARN("failed to push rate_event %p to video sink %p", (void*)rate_event, (void*)privateContext->video_dec);
+			AAMPLOG_ERR("failed to push rate_event %p to video sink %p", (void*)rate_event, (void*)privateContext->video_dec);
 		}
 	}
 
@@ -4950,7 +4950,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 	{
 		if (!gst_element_send_event(privateContext->audio_dec,  gst_event_ref(rate_event)))
 		{
-			AAMPLOG_WARN("failed to push rate_event %p to audio decoder %p", (void*)rate_event, (void*)privateContext->audio_dec);
+			AAMPLOG_ERR("failed to push rate_event %p to audio decoder %p", (void*)rate_event, (void*)privateContext->audio_dec);
 		}
 	}
 
@@ -5038,7 +5038,7 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, const void
 #endif
 		if (!gst_pad_push_event(sourceEleSrcPad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, eventStruct)))
 		{
-			AAMPLOG_WARN("Error on sending qtdemux override event");
+			AAMPLOG_ERR("Error on sending qtdemux override event");
 		}
 	}
 	gst_object_unref(sourceEleSrcPad);
@@ -5126,13 +5126,13 @@ void AampBufferControl::BufferControlMaster::UpdateAll(const AAMPGstPlayer *play
 			}
 			else
 			{
-				AAMPLOG_WARN( "%s Null check failed.", getMediaTypeName(mediaType));
+				AAMPLOG_ERR( "%s Null check failed.", getMediaTypeName(mediaType));
 			}
 		}
 	}
 	else
 	{
-		AAMPLOG_WARN( "Null check failed." );
+		AAMPLOG_ERR( "Null check failed." );
 	}
 }
 
@@ -5147,6 +5147,6 @@ void AampBufferControl::BufferControlMaster::ResetAll(AAMPGstPlayerPriv* player)
 	}
 	else
 	{
-		AAMPLOG_WARN( "Null check failed." );
+		AAMPLOG_ERR( "Null check failed." );
 	}
 }
