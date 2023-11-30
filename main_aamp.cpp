@@ -607,6 +607,22 @@ void PlayerInstanceAAMP::SetRate(float rate,int overshootcorrection)
 }
 
 /**
+ *  @brief Set userAgent.
+ */
+bool PlayerInstanceAAMP::SetUserAgent(std::string &userAgent)
+{
+	bool ret = false;
+	if(!userAgent.empty())
+	{
+		std::string userAgentString = userAgent + AAMP_USERAGENT_SUFFIX;
+		AAMPLOG_INFO("Setting userAgent : %s ",userAgentString.c_str());
+		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_UserAgent,userAgentString);
+		ret = true;
+	}
+	return ret;
+}
+
+/**
  *  @brief Set playback speed.
  */
 void PlayerInstanceAAMP::SetPlaybackSpeed (float speed)

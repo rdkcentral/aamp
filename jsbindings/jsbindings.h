@@ -80,4 +80,12 @@ void AAMPPlayer_LoadJS(void* context);
  */
 void AAMPPlayer_UnloadJS(void* context);
 
+
+/**
+ * @brief Reads useragent from browser
+ *
+ * @param[in] context JS execution context
+ */
+std::string GetBrowserUA(JSContextRef ctx);
+
 #endif// __JSBINDINGS_H__

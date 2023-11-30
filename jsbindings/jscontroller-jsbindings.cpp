@@ -33,6 +33,8 @@
 #include <stdio.h>
 #include <string.h>
 
+
+static std::string g_UserAgent;
 extern "C"
 {
 
@@ -46,7 +48,7 @@ extern "C"
 
 	void aamp_SetPageHttpHeaders(const char* headers);
 
-	void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *);
+	void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *);	
 }
 //global variable to hold the custom http headers
 static std::map<std::string, std::string> g_PageHttpHeaders;
@@ -532,6 +534,7 @@ void aamp_LoadJSController(JSGlobalContextRef context)
 	aampObj->_licenseServerUrl = std::string();
 
 	_globalController = aampObj;
+	g_UserAgent = "";
 
 	// DELIA-47534: For this ticket we have repurposed AAMP.version to return the UVE bindings version
 	// When at some point in future we deprecate legacy bindings or aamp_LoadJS() please don't forget
@@ -589,4 +592,36 @@ void aamp_UnloadJSController(JSGlobalContextRef context)
 
         
 	JSGarbageCollect(context);
+}
+
+
+/**
+ * @brief Read userAgent from browser
+ * @param[in] context JS execution context
+ */
+std::string GetBrowserUA(JSContextRef ctx)
+{
+	//Read only when g_UserAgent is empty
+        if(g_UserAgent.empty())
+        {
+                const char* userAgentStr = "window.navigator.userAgent";
+                JSStringRef script = JSStringCreateWithUTF8CString(userAgentStr);
+                JSValueRef propName = JSEvaluateScript(ctx, script, NULL, NULL, 0, NULL);
+                if(propName != NULL)
+                {
+                        if (JSValueIsString(ctx, propName))
+                        {
+                                char* value = aamp_JSValueToCString(ctx, propName, NULL);
+                                LOG_WARN_EX("Parsed value for property %s - %s","window.navigator.userAgent", value);
+                                // Setting user agent to global variable
+                                g_UserAgent = std::string(value);
+                        }
+                }
+                else
+                {
+                        LOG_ERROR_EX("Invalid value for property %s passed","window.navigator.userAgent");
+                }
+                JSStringRelease(script);
+        }
+        return g_UserAgent;
 }

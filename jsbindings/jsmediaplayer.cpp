@@ -42,7 +42,6 @@
 #include "AampCCManager.h"
 #endif
 
-
 extern "C"
 {
 	JS_EXPORT JSGlobalContextRef JSContextGetGlobalContext(JSContextRef);
@@ -746,6 +745,9 @@ JSValueRef AAMPMediaPlayerJS_resetConfiguration (JSContextRef ctx, JSObjectRef f
 	}
 	LOG_WARN(privObj," _aamp->resetConfiguration");
 	privObj->_aamp->ResetConfiguration();
+	//Read useragent from browser and apply it
+	std::string userAgent = GetBrowserUA(ctx);
+	privObj->_aamp->SetUserAgent(userAgent);
 
 	LOG_TRACE("Exit");
 	return JSValueMakeUndefined(ctx);
@@ -3737,6 +3739,9 @@ JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef c
 		privObj->_aamp->SetAppName(appName);
 	}
 	privObj->_listeners.clear();
+	//Read useragent from browser and apply it
+	std::string userAgent = GetBrowserUA(ctx);
+	privObj->_aamp->SetUserAgent(userAgent);
 
 	//Get PLAYER ID and store for future use in logging
 	privObj->iPlayerId = privObj->_aamp->GetId();

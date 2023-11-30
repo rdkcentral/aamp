@@ -819,6 +819,15 @@ public:
 	void SetRate(float rate, int overshootcorrection=0);
 
 	/**
+	 *   @fn SetUserAgent
+	 *
+	 *   @param[in]  userAgent - userAgent value read from browser
+	 *   @return bool
+	 */
+
+	bool SetUserAgent(std::string &userAgent);
+
+	/**
 	 *   @fn SetPlaybackSpeed
 	 *
 	 *   @param[in]  speed - rate to set playback speed.s
