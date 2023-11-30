@@ -70,7 +70,8 @@ private:
 	typedef std::map<guint, bool>::iterator AsyncEventListIter;
 	AsyncEventList	mPendingAsyncEvents;
 	AampLogManager *mLogObj;
-private:
+
+protected:
 	/**
 	 * @fn AsyncEvent
 	 * @return void

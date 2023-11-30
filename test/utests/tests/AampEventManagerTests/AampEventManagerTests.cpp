@@ -29,18 +29,102 @@ AampConfig *gpGlobalConfig{nullptr};
         
 class AampEventManagerTest : public Test {
 protected:
+    class TestableAampEventManager : public AampEventManager{
+        public:
+            TestableAampEventManager(AampLogManager *mLogObj) : AampEventManager(mLogObj)
+            {
+            }
+            void CallSetCallbackAsDispatched(guint id)
+            {
+                SetCallbackAsDispatched(id);
+            }
+            void CallSetCallbackAsPending(guint id)
+            {
+                SetCallbackAsPending(id);
+            }
+            guint CallGetSourceID()
+            {
+                return GetSourceID();
+            }
+            void CallSendEventASync(const AAMPEventPtr &eventData)
+            {
+                SendEventAsync(eventData);
+            }
+            void CallSendEventSync(const AAMPEventPtr &eventData)
+            {
+                SendEventSync(eventData);
+            }
+            void CallAsyncEvent()
+            {
+                AsyncEvent();
+            }
+    };
     void SetUp() override {
+        AampLogManager *mLogObj = new AampLogManager();
+        handler = new TestableAampEventManager(mLogObj);
     }
     void TearDown() override {
     delete handler;
     handler = nullptr;
     }
 public:
-	AampLogManager *mLogObj = new AampLogManager();
-	AampEventManager *handler = new AampEventManager(mLogObj);
-	EventListener* eventListener{nullptr};
-};
+	EventListener* eventListener;
 
+    TestableAampEventManager *handler;
+
+    class AbstractEventListner : public EventListener
+    {
+        public:
+        void SendEvent(const AAMPEventPtr &event){
+            
+        }
+    };
+    AbstractEventListner abstractlistener; 
+};
+TEST_F(AampEventManagerTest, SetCallbackAsDispatchedTest)
+{
+    guint id = 10;
+    handler->CallSetCallbackAsDispatched(id);
+}
+TEST_F(AampEventManagerTest, SetCallbackAsPendingTest)
+{
+    handler->CallSetCallbackAsPending(10);
+}
+TEST_F(AampEventManagerTest, CallGetSourceIDTest)
+{
+    EXPECT_EQ(handler->CallGetSourceID(),0);
+}
+TEST_F(AampEventManagerTest, CallSendEventAsyncTest1)
+{
+    AAMPEventPtr eventData;
+    eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED);
+    handler->CallSendEventASync(eventData);
+}
+TEST_F(AampEventManagerTest, CallSendEventAsyncTest2)
+{
+    AAMPEventPtr eventData;
+    eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED);
+    handler->SetPlayerState(eSTATE_RELEASED);
+    handler->CallSendEventASync(eventData);
+}
+TEST_F(AampEventManagerTest, CallSendEventsyncTest1)
+{
+    AAMPEventPtr eventData;
+    eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED);
+    handler->CallSendEventSync(eventData);
+}
+TEST_F(AampEventManagerTest, CallSendEventsyncTest2)
+{
+    AAMPEventPtr eventData;
+    eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED);
+    handler->SetPlayerState(eSTATE_RELEASED);
+    handler->CallSendEventSync(eventData);
+}
+
+TEST_F(AampEventManagerTest, CallAsyncEventTest1)
+{
+    handler->CallAsyncEvent();
+}
 TEST_F(AampEventManagerTest, IsEventListenerAvailableTest)
 {	
 	//Arrange: varible declaration
@@ -53,21 +137,30 @@ TEST_F(AampEventManagerTest, IsEventListenerAvailableTest)
 	}
 }
 
-TEST_F(AampEventManagerTest, SetFakeTuneFlagTest)
+TEST_F(AampEventManagerTest, SetFakeTuneFlagTest1)
 {
 	//Arrange:variable declaration
-	bool FakeTune=TRUE;
+	bool FakeTune=true;
 	// Act:call the SetFakeTuneFlag function
 	handler->SetFakeTuneFlag(FakeTune);
 }
-
-TEST_F(AampEventManagerTest, SetAsyncTuneStateTest)
+TEST_F(AampEventManagerTest, SetFakeTuneFlagTest2)
+{
+	//Arrange:variable declaration
+	bool FakeTune=false;
+	// Act:call the SetFakeTuneFlag function
+	handler->SetFakeTuneFlag(FakeTune);
+}
+TEST_F(AampEventManagerTest, SetAsyncTuneStateTest1)
 {
 	// Act: call the SetAsyncTuneState function
 	handler->SetAsyncTuneState(true);
+}
+TEST_F(AampEventManagerTest, SetAsyncTuneStateTest2)
+{
+	// Act: call the SetAsyncTuneState function
 	handler->SetAsyncTuneState(false);
 }
-
 TEST_F(AampEventManagerTest, SetPlayerStateTest)
 {
 	//Arrange: varible declaration
@@ -80,23 +173,30 @@ TEST_F(AampEventManagerTest, SetPlayerStateTest)
 	}
 }
 
-TEST_F(AampEventManagerTest,AddListenerForAllEventsTest)
+TEST_F(AampEventManagerTest,AddListenerForAllEventsTest1)
 {
 	//Arrange:declare the variable with size
 	handler->AddListenerForAllEvents(eventListener);
 }
-
+TEST_F(AampEventManagerTest,AddListenerForAllEventsTest2)
+{
+	handler->AddListenerForAllEvents(&abstractlistener);
+}
 TEST_F(AampEventManagerTest,AddEventListenerTest)
 {
 	handler->AddEventListener(AAMP_EVENT_ALL_EVENTS,eventListener);
 }
 
-TEST_F(AampEventManagerTest, RemoveListenerForAllEventsTest)
+TEST_F(AampEventManagerTest, RemoveListenerForAllEventsTest1)
 {
 	//Act: call the removeEventlistener function
+    eventListener = nullptr;
 	handler->RemoveListenerForAllEvents(eventListener);
 }
-
+TEST_F(AampEventManagerTest, RemoveListenerForAllEventsTest2)
+{ 
+	handler->RemoveListenerForAllEvents(&abstractlistener);
+}
 TEST_F(AampEventManagerTest,FlushPendingEventsTest)
 {
 
@@ -130,7 +230,14 @@ TEST_F(AampEventManagerTest, SendEventTest_1)
     handler->SendEvent(evntPtr,AAMPEventMode(i));
     }
 }
-
+// DELIA Ticket is created for below test case --> DELIA-64008 
+// TEST_F(AampEventManagerTest, SendEventTest_2)
+// {
+//     AAMPEventPtr evntPtr= std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS);
+//     handler->SetPlayerState(eSTATE_PLAYING);
+//     AAMPEventMode eventMode=AAMP_EVENT_ASYNC_MODE;
+//     handler->SendEvent(evntPtr,eventMode);
+// }
 TEST_F(AampEventManagerTest, RemoveListenerForAllEventsTest_1)
 {
     //Act: call the removeEventlistener function
@@ -146,7 +253,7 @@ TEST_F(AampEventManagerTest, RemoveListenerForAllEventsTest_1)
 TEST_F(AampEventManagerTest, IsSpecificEventListenerAvailableTest_1)
 {
     //Arrange: varible declaration
-    for(int i= AAMP_EVENT_ALL_EVENTS ; i<= AAMP_MAX_NUM_EVENTS ;i++)
+    for(int i= AAMP_EVENT_ALL_EVENTS ; i< AAMP_MAX_NUM_EVENTS ;i++)
     {
     //Act: call the IsSpecificEventListenerAvailable function
     bool val = handler->IsSpecificEventListenerAvailable(AAMPEventType(i));
@@ -154,4 +261,3 @@ TEST_F(AampEventManagerTest, IsSpecificEventListenerAvailableTest_1)
     EXPECT_FALSE(val);
     }
 }
-
