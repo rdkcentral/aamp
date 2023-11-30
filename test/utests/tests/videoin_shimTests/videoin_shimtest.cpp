@@ -1,3 +1,21 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2023 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <gtest/gtest.h>
 #include "videoin_shim.h"
 #include "priv_aamp.h"
@@ -13,31 +31,106 @@ AampConfig *gpGlobalConfig{nullptr};
 
 class StreamAbstractionAAMP_VIDEOINTest : public ::testing::Test
 {
-    
-    // public:
-    //  AAMPStatusType callInitHelper(TuneType tuneType) {
-    //     InitHelper(tuneType);
-    // }
-    protected:
+protected:
     void SetUp() override
     {
-    auto aamp = new PrivateInstanceAAMP();
-    auto logmanager = new AampLogManager();
-    std::string name = "Name"; // Provide the appropriate name
-    std::string callSign = "CallSign"; // Provide the appropriate callSign
-    videoinShim = new StreamAbstractionAAMP_VIDEOIN(name, callSign, logmanager, aamp, 0.0, 1.0);
-        
+        auto aamp = new PrivateInstanceAAMP();
+        auto logmanager = new AampLogManager();
+        std::string name = "Name";       // Provide the appropriate name
+        std::string callSign = "CallSign"; // Provide the appropriate callSign
+        videoinShim = new TestableStreamAbstraction(name, callSign, logmanager, aamp, 0.0, 1.0);
     }
 
     void TearDown() override
     {
-        //delete videoinShim;
+        delete videoinShim;
     }
 
-    StreamAbstractionAAMP_VIDEOIN *videoinShim;
+    class TestableStreamAbstraction : public StreamAbstractionAAMP_VIDEOIN
+    {
+    public:
+        TestableStreamAbstraction(const std::string &name, const std::string &callSign,
+                                  AampLogManager *logManager, PrivateInstanceAAMP *aamp,
+                                  double startTime, double playRate)
+            : StreamAbstractionAAMP_VIDEOIN(name, callSign, logManager, aamp, startTime, playRate)
+        {
+        }
+
+        AAMPStatusType CallInitHelper(TuneType tuneType)
+        {
+            return InitHelper(tuneType);
+        }
+
+        void CallStartHelper(int port, const std::string &methodName)
+        {
+            StartHelper(port, methodName);
+        }
+
+        void CallStopHelper(const std::string &methodName)
+        {
+            StopHelper(methodName);
+        }
+        bool callGetScreenResolution(int & screenWidth, int & screenHeight){
+            return GetScreenResolution(screenWidth,screenHeight);
+        }
+
+        bool callGetResolutionFromDS(int & widthFromDS, int & heightFromDS){
+            return GetResolutionFromDS(widthFromDS,heightFromDS);
+        }
+    };
+
+    TestableStreamAbstraction *videoinShim;
 };
 
-// Google Test for StreamAbstractionAAMP_VIDEOIN::Init
+
+TEST_F(StreamAbstractionAAMP_VIDEOINTest,InitHelpertest)
+{
+    TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+    AAMPStatusType result = videoinShim->CallInitHelper(tuneType);
+    EXPECT_EQ(result, eAAMPSTATUS_OK);
+}
+
+TEST_F(StreamAbstractionAAMP_VIDEOINTest,StartHelpertest)
+{
+    int port = 8080;
+    std::string startMethodName = "StartMethod";
+    videoinShim->CallStartHelper(port, startMethodName);
+}
+
+TEST_F(StreamAbstractionAAMP_VIDEOINTest,StopHelpertest)
+{
+   std::string stopMethodName = "StopMethod";
+    videoinShim->CallStopHelper(stopMethodName);
+}
+
+TEST_F(StreamAbstractionAAMP_VIDEOINTest,GetResolutionFromDStest){
+
+    int widthFromDS = 0;
+    int heightFromDS = 0;
+
+    // Call the function under test
+    bool result = videoinShim->callGetResolutionFromDS(widthFromDS, heightFromDS);
+
+    // Assert the result and any other expectations
+    ASSERT_FALSE(result);
+    EXPECT_EQ(widthFromDS, 0);
+    EXPECT_EQ(heightFromDS, 0);
+}
+
+TEST_F(StreamAbstractionAAMP_VIDEOINTest,GetScreenResolutiontest){
+
+    int widthFromDS = 0;
+    int heightFromDS = 0;
+
+    // Call the function under test
+    bool result = videoinShim->callGetScreenResolution(widthFromDS, heightFromDS);
+
+    // Assert the result and any other expectations
+    ASSERT_FALSE(result);
+    EXPECT_EQ(widthFromDS, 0);
+    EXPECT_EQ(heightFromDS, 0);
+}
+
 TEST_F(StreamAbstractionAAMP_VIDEOINTest, InitTest)
 {
     TuneType tuneType = eTUNETYPE_NEW_NORMAL; // Set the tuneType as needed
@@ -46,24 +139,19 @@ TEST_F(StreamAbstractionAAMP_VIDEOINTest, InitTest)
 
     EXPECT_EQ(result, eAAMPSTATUS_OK);
 }
-// Google Test for StreamAbstractionAAMP_VIDEOIN Destructor
 
-TEST_F(StreamAbstractionAAMP_VIDEOINTest,  DestructorTest)
-{
-    videoinShim->~StreamAbstractionAAMP_VIDEOIN();
-}
-// Google Test for StreamAbstractionAAMP_VIDEOIN Start 
 TEST_F(StreamAbstractionAAMP_VIDEOINTest,  StartTest)
 {
     videoinShim->Start();
 }
-// Google Test for StreamAbstractionAAMP_VIDEOIN Stop
+
 TEST_F(StreamAbstractionAAMP_VIDEOINTest,  StopTest)
 {
     videoinShim->Stop(true);
 }
+
 TEST_F(StreamAbstractionAAMP_VIDEOINTest,  GetStreamFormatTest){
-   
+
 
     // Initialize output format variables with some non-default values
     StreamOutputFormat primaryFormat = FORMAT_UNKNOWN;
@@ -79,39 +167,33 @@ TEST_F(StreamAbstractionAAMP_VIDEOINTest,  GetStreamFormatTest){
     ASSERT_EQ(audioFormat, FORMAT_INVALID);
 
 }
-TEST_F(StreamAbstractionAAMP_VIDEOINTest,  GetFirstPTSTest){
-   
-    double firstPTS = videoinShim->GetFirstPTS();
 
+TEST_F(StreamAbstractionAAMP_VIDEOINTest,  GetFirstPTSTest){
+
+    double firstPTS = videoinShim->GetFirstPTS();
     // Assert that the returned value is 0.0 (the expected stub value)
     ASSERT_DOUBLE_EQ(firstPTS, 0.0);
 
 }
+
 TEST_F(StreamAbstractionAAMP_VIDEOINTest,IsInitialCachingSupportedTest){
-   
-    
 
-      // Call the IsInitialCachingSupported function
+    // Call the IsInitialCachingSupported function
     bool initialCachingSupported = videoinShim->IsInitialCachingSupported();
-
     // Assert that the returned value is false (the expected stub value)
     ASSERT_FALSE(initialCachingSupported);
-
-
 }
 
 TEST_F(StreamAbstractionAAMP_VIDEOINTest,GetMaxBitrateTest){
-   
-   // Call the GetMaxBitrate function
-      BitsPerSecond maxBitrate = videoinShim->GetMaxBitrate();
 
+    // Call the GetMaxBitrate function
+      BitsPerSecond maxBitrate = videoinShim->GetMaxBitrate();
     // Assert that the returned value is 0 (the expected stub value)
     ASSERT_EQ(maxBitrate, 0);
 
 }
-// Define a test case for the SetVideoRectangle function
+
 TEST_F(StreamAbstractionAAMP_VIDEOINTest, SetVideoRectangleTest) {
-   
 
     // Set up the expected parameters
     int x = 10, y = 20, w = 640, h = 480; // Example values
