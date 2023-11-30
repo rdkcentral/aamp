@@ -175,7 +175,8 @@ public:
      *
      */
     void EnableContentRestrictions() override;
-private:
+//private:
+protected:
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     ThunderAccessAAMP thunderAccessObj;
     ThunderAccessAAMP mediaSettingsObj;

@@ -40,16 +40,73 @@ protected:
     {
         mPrivateInstanceAAMP = new PrivateInstanceAAMP();
         mLogObj = new AampLogManager();
-        aamp_ota = new StreamAbstractionAAMP_OTA(mLogObj, mPrivateInstanceAAMP, 0.0, 1.0);
+        aamp_ota = new TestableStreamAbstractionOTA(mLogObj, mPrivateInstanceAAMP, 0.0, 1.0);
     }
 
     void TearDown() override
     {
-        //delete aamp_ota;
+        delete aamp_ota;
     }
 
-    StreamAbstractionAAMP_OTA *aamp_ota;
+    class TestableStreamAbstractionOTA : public StreamAbstractionAAMP_OTA
+    {
+    public:
+        // Make the test class a friend of the StreamAbstractionAAMP_OTA class
+        friend class StreamAbstractionAAMP_OTATest;
+
+        TestableStreamAbstractionOTA(AampLogManager *logManager, PrivateInstanceAAMP *aamp,
+                                     double startTime, double playRate)
+            : StreamAbstractionAAMP_OTA(logManager, aamp, startTime, playRate)
+        {
+        }
+        void CallGetAudioTracks()
+        {
+            GetAudioTracks();
+        }
+
+        int CallGetAudioTrackInternal()
+        {
+            return GetAudioTrackInternal();
+        }
+
+        void CallNotifyAudioTrackChange(const std::vector<AudioTrackInfo> &tracks)
+        {
+            NotifyAudioTrackChange(tracks);
+        }
+
+        void CallGetTextTracks()
+        {
+            GetTextTracks();
+        }
+
+    };
+
+    PrivateInstanceAAMP *mPrivateInstanceAAMP;
+    AampLogManager *mLogObj;
+    TestableStreamAbstractionOTA *aamp_ota;
 };
+
+TEST_F(StreamAbstractionAAMP_OTATest, TestGetAudioTracks)
+{
+    aamp_ota->CallGetAudioTracks();
+}
+
+TEST_F(StreamAbstractionAAMP_OTATest, TestGetAudioTrackInternal)
+{
+    int result = aamp_ota->CallGetAudioTrackInternal();
+}
+
+TEST_F(StreamAbstractionAAMP_OTATest, TestNotifyAudioTrackChange)
+{
+
+    std::vector<AudioTrackInfo> tracks;
+    aamp_ota->CallNotifyAudioTrackChange(tracks);
+}
+
+TEST_F(StreamAbstractionAAMP_OTATest, TestGetTextTracks)
+{
+    aamp_ota->CallGetTextTracks();
+}
 
 // Define a test case for the Init function
 TEST_F(StreamAbstractionAAMP_OTATest, InitTest)
