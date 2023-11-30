@@ -1,0 +1,84 @@
+#include <cstdlib>
+#include <iostream>
+#include <string>
+#include <string.h>
+
+//include the google test dependencies
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+
+#include "AampLogManager.h"
+#include "MockAampConfig.h"
+#include "MockAampUtils.h"
+#include "AampMPDUtils.h"
+
+AampConfig *gpGlobalConfig{nullptr};
+AampLogManager *mLogObj{nullptr};
+
+class AampMPDUtils : public ::testing::Test
+{
+protected:
+	void SetUp() override
+	{
+	}
+
+	void TearDown() override
+	{
+	}
+};
+
+
+TEST(AampMPDUtils, IsCompatibleMimeTypeTest1)
+{
+    MediaType mediaType[21] = {
+    eMEDIATYPE_DEFAULT,
+    eMEDIATYPE_VIDEO,
+    eMEDIATYPE_AUDIO,
+    eMEDIATYPE_SUBTITLE,
+    eMEDIATYPE_AUX_AUDIO,
+    eMEDIATYPE_MANIFEST,
+    eMEDIATYPE_LICENCE,
+    eMEDIATYPE_IFRAME,
+    eMEDIATYPE_INIT_VIDEO,
+    eMEDIATYPE_INIT_AUDIO,
+    eMEDIATYPE_INIT_SUBTITLE,
+    eMEDIATYPE_INIT_AUX_AUDIO,
+    eMEDIATYPE_PLAYLIST_VIDEO,
+    eMEDIATYPE_PLAYLIST_AUDIO,
+    eMEDIATYPE_PLAYLIST_SUBTITLE,
+    eMEDIATYPE_PLAYLIST_AUX_AUDIO,
+    eMEDIATYPE_PLAYLIST_IFRAME,
+    eMEDIATYPE_INIT_IFRAME,
+    eMEDIATYPE_DSM_CC,
+    eMEDIATYPE_IMAGE,
+    eMEDIATYPE_DEFAULT
+    };
+    std::string mimeType = "test";
+    for(int i=0; i<21; i++){
+    bool minetype = IsCompatibleMimeType(mimeType,mediaType[i]);
+	EXPECT_FALSE(minetype);
+    }
+}
+
+TEST(AampMPDUtils, IsCompatibleMimeTypeTest2)
+{
+    MediaType mediaType = eMEDIATYPE_AUX_AUDIO;
+    std::string mimeType = "audio/webm";
+    bool result = IsCompatibleMimeType(mimeType,mediaType);
+	EXPECT_TRUE(result);
+}
+TEST(AampMPDUtils, IsCompatibleMimeTypeTest3)
+{
+    MediaType mediaType = eMEDIATYPE_SUBTITLE;
+    std::string mimeType = "application/ttml+xml";
+    bool minetype = IsCompatibleMimeType(mimeType,mediaType);
+	EXPECT_TRUE(minetype);
+}
+TEST(AampMPDUtils, ComputeFragmentDurationTest1)
+{
+	uint32_t duration = 0;
+	uint32_t timeScale = 50;
+
+	double result = ComputeFragmentDuration(duration,timeScale);
+	EXPECT_DOUBLE_EQ(result,2.0);
+}

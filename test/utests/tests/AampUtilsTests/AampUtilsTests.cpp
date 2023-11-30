@@ -21,6 +21,7 @@ class AampUtilsTests : public ::testing::Test
 {
 protected:
 	CURL *mCurlEasyHandle = nullptr;
+	//CURL *mCurlEasyHandle = nullptr;
 
 	void SetUp() override
 	{
@@ -83,7 +84,13 @@ TEST(_AampUtils, aamp_ResolveURL)
 	aamp_ResolveURL(dst, base, uri, true);
 }
 
-
+TEST(_AampUtils, aamp_ResolveURL1)
+{
+	const char* uri;
+	std::string dst;
+	std::string base; 
+	aamp_ResolveURL(dst, base, uri, true);
+}
 TEST(_AampUtils, aamp_IsAbsoluteURL)
 {
 	bool result;
@@ -110,7 +117,15 @@ TEST(_AampUtils, aamp_getHostFromURL)
 	url = "http://lin021-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/BOX_SD_SU_SKYUK_1802_0_9103338152997639163.mpd";
 	host = aamp_getHostFromURL(url);
 }
-
+// DELIA Ticket is created for below test case --> DELIA-64009
+// TEST(_AampUtils, aamp_getHostFromURL1)
+// {
+//     std::string url = "invalid_url";
+//     std::string host;
+//     EXPECT_THROW({
+//         host = aamp_getHostFromURL(url);
+//     }, std::runtime_error);
+// }
 TEST(_AampUtils, aamp_IsLocalHost)
 {
 	bool result;
@@ -353,6 +368,7 @@ TEST(_AampUtils, aamp_WriteFile)
 	fileType = eMEDIATYPE_MANIFEST;
 	result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "prefix");
 	EXPECT_FALSE(result);
+
 	fileName +="/MANIFEST.EXT";
 	result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "prefix");
 	EXPECT_TRUE(result);
@@ -361,7 +377,26 @@ TEST(_AampUtils, aamp_WriteFile)
 	result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "/");
 	EXPECT_FALSE(result);
 }
+TEST(_AampUtils, aamp_WriteFile1)
+{
+	std::string fileName = "example.txt?param=value";
+	MediaType filetype = eMEDIATYPE_MANIFEST;
+	unsigned int count  = 1;
+	bool result = aamp_WriteFile(fileName, teststr, strlen(teststr), filetype, count, "prefix");
+	EXPECT_FALSE(result);
+}
+TEST(_AampUtils, aamp_WriteFile2)
+{
+	std::string fileName = "http://www.example.com/manifest.mpd";
+    const char* data = "Manifest Data";
+    size_t len = strlen(data);
+    MediaType fileType = eMEDIATYPE_MANIFEST;
+    unsigned int count = 0;
+    const char* prefix = "prefix_";
 
+    bool result = aamp_WriteFile(fileName, data, len, fileType, count, prefix);
+	EXPECT_TRUE(result);
+}
 
 TEST(_AampUtils, getWorkingTrickplayRate)
 {
@@ -513,4 +548,72 @@ TEST(_AampUtils, CRC32)
 	/* Test the CRC32 of the full 12 bytes. */
 	value = aamp_ComputeCRC32(data, 12);
 	EXPECT_EQ(0, value);
+}
+TEST(_AampUtils, GetNetworkTimeTest1)
+{
+    std::string remoteUrl = "";
+    int *http_error = nullptr;
+    std::string NetworkProxy = "";
+    double result = GetNetworkTime(remoteUrl, http_error , NetworkProxy);
+	EXPECT_DOUBLE_EQ(result,0);
+}
+TEST(_AampUtils, GetNetworkTimeTest2)
+{
+	CURL *mCurlEasyHandle = nullptr;
+	std::string mUrl = "https://some.server/manifest.mpd";
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
+	respData->iHttpRetValue = 204;
+    std::string remoteUrl = "https://example.com";
+    int http_error = 0;
+    std::string NetworkProxy = "https://proxy.com";
+
+	//respData->iHttpRetValue == 204;
+    double result = GetNetworkTime(remoteUrl, &http_error , NetworkProxy);
+}
+TEST(_AampUtils, getMediaTypeNameTest)
+{
+    MediaType mediaType[21] = {
+    eMEDIATYPE_DEFAULT,
+    eMEDIATYPE_VIDEO,
+    eMEDIATYPE_AUDIO,
+    eMEDIATYPE_SUBTITLE,
+    eMEDIATYPE_AUX_AUDIO,
+    eMEDIATYPE_MANIFEST,
+    eMEDIATYPE_LICENCE,
+    eMEDIATYPE_IFRAME,
+    eMEDIATYPE_INIT_VIDEO,
+    eMEDIATYPE_INIT_AUDIO,
+    eMEDIATYPE_INIT_SUBTITLE,
+    eMEDIATYPE_INIT_AUX_AUDIO,
+    eMEDIATYPE_PLAYLIST_VIDEO,
+    eMEDIATYPE_PLAYLIST_AUDIO,
+    eMEDIATYPE_PLAYLIST_SUBTITLE,
+    eMEDIATYPE_PLAYLIST_AUX_AUDIO,
+    eMEDIATYPE_PLAYLIST_IFRAME,
+    eMEDIATYPE_INIT_IFRAME,
+    eMEDIATYPE_DSM_CC,
+    eMEDIATYPE_IMAGE,
+    eMEDIATYPE_DEFAULT
+    };
+
+    for(int i=0; i<21; i++){
+    const char* type = getMediaTypeName(mediaType[i]);
+    }
+}
+
+TEST(_AampUtils, ParseISO8601DurationTest1)
+{
+	const char* duration = "InvalidDuration";
+	double result = ParseISO8601Duration(duration);
+	EXPECT_DOUBLE_EQ(result,0.0);
+}
+TEST(_AampUtils, ParseISO8601DurationTest2)
+{
+	const char* duration = "P2Y3M4DT5H30M15.5S";
+	double result = ParseISO8601Duration(duration);
+}
+TEST(_AampUtils, ParseISO8601DurationTest3)
+{
+	const char* duration = "PT3H30M15.5S";
+	double result = ParseISO8601Duration(duration);
 }
