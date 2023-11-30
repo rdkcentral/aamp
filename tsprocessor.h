@@ -216,7 +216,7 @@ class TSProcessor : public MediaProcessor
        */
       void setBasePTS(double position, long long pts);
 
-   private:
+   protected:
       class PrivateInstanceAAMP *aamp;
       /**
        * @fn setPlayMode
