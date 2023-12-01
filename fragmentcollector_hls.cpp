@@ -344,8 +344,20 @@ static void ParseKeyAttributeCallback(char *attrName, char *delimEqual, char *fi
 	}
 	else if (AttributeNameMatch(attrName, "URI"))
 	{
-		const char *uri = GetAttributeValueString(valuePtr, fin);
-		ts->mDrmInfo.keyURI = uri;
+		if( *valuePtr != '\"' && ( memcmp( valuePtr, "NONE", 4 ) != 0 ))
+		{
+			// RDKAAMP-1844 : Handling keys with relative URIs
+			// This condition is used to extract key URI from unquoted / NONE strings
+			const char* uri = NULL;
+			uri = valuePtr;
+			*fin = 0x00;
+			ts->mDrmInfo.keyURI = uri;
+		}
+		else
+		{
+			const char *uri = GetAttributeValueString(valuePtr, fin);
+			ts->mDrmInfo.keyURI = uri;
+		}
 	}
 	else if (AttributeNameMatch(attrName, "IV"))
 	{ // 16 bytes
