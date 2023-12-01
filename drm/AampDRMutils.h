@@ -53,37 +53,94 @@
 #ifdef USE_SECMANAGER
 #define AAMP_SECMGR_INVALID_SESSION_ID (-1)
 
+class AampSecManager;
+
 /**
- * @brief To handle get/set/invalidate and enquiry about the state of a session ID from multiple threads
- */
-class SessionId
-{
+ * @brief Represents an aamp sec manager session, 
+ * Sessions are automatically closed there are no AampSecManagerSession objects that reference it*/
+class AampSecManagerSession
+{	
+	/* The coupling between AampSecManager & AampSecManagerSession is not ideal from an architecture standpoint but
+	 * it minimises changes to existing AampSecManager code:
+	 * ~SessionManager() calls AampSecManager::ReleaseSession()
+	 * AampSecManager::acquireLicence() creates instances of AampSecManagerSession*/
+	friend AampSecManager;
 private:
-	int64_t 	mSessionId;
-	std::mutex 	sessionIdMutex;
+	/**
+	 * @brief Responsible for closing the corresponding sec manager sessions when it is no longer used
+	 */
+	class SessionManager
+	{
+		private:
+		int64_t mID;
+		SessionManager(int64_t sessionID);
+		
+		public:
+		/**
+		 * @fn getInstance
+		 * @brief
+		 * Get a shared pointer to an object corresponding to the sessionID, creating a new one if required
+		*/
+		static std::shared_ptr<AampSecManagerSession::SessionManager> getInstance(int64_t sessionID);
 
+		int64_t getID(){return mID;}
+
+		//calls AampSecManager::ReleaseSession() on mID
+		~SessionManager();
+	};
+
+	std::shared_ptr<AampSecManagerSession::SessionManager> mpSessionManager;
+	mutable std::mutex sessionIdMutex;
+
+	/**
+ 	* @brief constructor for valid objects
+	* this will cause AampSecManager::ReleaseSession() to be called on sessionID
+	* when the last AampSecManagerSession, referencing is destroyed
+	* this is only intended to be used in AampSecManager::acquireLicence()
+	* it is the responsibility of AampSecManager::acquireLicence() to ensure sessionID is valid
+	*/
+	AampSecManagerSession(int64_t sessionID);
 public:
-	SessionId(): mSessionId(AAMP_SECMGR_INVALID_SESSION_ID), sessionIdMutex() {};
+	/**
+ 	* @brief constructor for an invalid object*/
+	AampSecManagerSession(): mpSessionManager(), sessionIdMutex() {};
 
-	void setSessionId(int64_t sessionId)
+	//allow copying, the secManager session will only be closed when all copies have gone out of scope
+	AampSecManagerSession(const AampSecManagerSession& other): mpSessionManager(), sessionIdMutex()
 	{
-		std::lock_guard<std::mutex>lock(sessionIdMutex);
-		mSessionId=sessionId;
+		std::lock(sessionIdMutex, other.sessionIdMutex);
+		std::lock_guard<std::mutex> thisLock(sessionIdMutex, std::adopt_lock);
+		std::lock_guard<std::mutex> otherLock(other.sessionIdMutex, std::adopt_lock);
+		mpSessionManager=other.mpSessionManager;
 	}
-	int64_t getSessionId(void)
+	AampSecManagerSession& operator=(const AampSecManagerSession& other)
 	{
-		std::lock_guard<std::mutex>lock(sessionIdMutex);
-		return mSessionId;
+		std::lock(sessionIdMutex, other.sessionIdMutex);
+		std::lock_guard<std::mutex> thisLock(sessionIdMutex, std::adopt_lock);
+		std::lock_guard<std::mutex> otherLock(other.sessionIdMutex, std::adopt_lock);
+		mpSessionManager=other.mpSessionManager;
+		return *this;
 	}
-	bool isSessionValid(void)
+
+	/**
+	 * @fn getSessionID
+	 * @brief
+	 * returns the session ID value for use with JSON API
+	 * The returned value should not be used outside the lifetime of
+	 * the AampSecManagerSession on which this method is called
+	 * otherwise the session may be closed before the ID can be used
+	 */
+	int64_t getSessionID(void) const;
+
+	bool isSessionValid(void) const
 	{
 		std::lock_guard<std::mutex>lock(sessionIdMutex);
-		return (mSessionId != AAMP_SECMGR_INVALID_SESSION_ID);
+		return (mpSessionManager.use_count()!=0);
 	}
 	void setSessionInvalid(void)
 	{
 		std::lock_guard<std::mutex>lock(sessionIdMutex);
-		mSessionId=AAMP_SECMGR_INVALID_SESSION_ID;
+		mpSessionManager.reset();
 	}
 };
 #endif

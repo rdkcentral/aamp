@@ -29,7 +29,7 @@
  */
 AampDrmSession::AampDrmSession(AampLogManager *logObj, const string &keySystem) : mLogObj(logObj), m_keySystem(keySystem),m_OutputProtectionEnabled(false)
 #ifdef USE_SECMANAGER
-		, mSessionId(AAMP_SECMGR_INVALID_SESSION_ID)
+		, mAampSecManagerSession()
 #endif
 {
 }
@@ -66,13 +66,3 @@ int AampDrmSession::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const uint8_
 	AAMPLOG_ERR("Standard decrypt method not implemented");
 	return -1;
 }
-
-#ifdef USE_SECMANAGER
-void AampDrmSession::setSessionId(int64_t sessionId)
-{
-	if (sessionId != AAMP_SECMGR_INVALID_SESSION_ID)
-	{
-		mSessionId = sessionId;
-	}
-}
-#endif

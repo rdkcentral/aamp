@@ -115,7 +115,7 @@ AampDRMSessionManager::AampDRMSessionManager(AampLogManager *logObj, int maxDrmS
 		,aampInstance(aamp)
 		,mLicensePrefetcher(nullptr)
 #ifdef USE_SECMANAGER
-		,mSessionId()
+		,mAampSecManagerSession()
 		,mIsVideoOnMute(false)
 		,mCurrentSpeed(0),
 		mFirstFrameSeen(false)
@@ -251,13 +251,6 @@ void AampDRMSessionManager::clearSessionData()
 	{
 		if (drmSessionContexts != NULL && drmSessionContexts[i].drmSession != NULL)
 		{
-#ifdef USE_SECMANAGER
-			// Cached session is about to be destroyed, send release to SecManager
-			if (drmSessionContexts[i].drmSession->getSessionId() != AAMP_SECMGR_INVALID_SESSION_ID)
-			{
-				AampSecManager::GetInstance()->ReleaseSession(drmSessionContexts[i].drmSession->getSessionId());
-			}
-#endif
 			drmSessionContexts[i].mLicenseDownloader.Release();
 			SAFE_DELETE(drmSessionContexts[i].drmSession);
 			drmSessionContexts[i] = DrmSessionContext();
@@ -346,13 +339,6 @@ void AampDRMSessionManager::clearDrmSession(bool forceClearSession)
 			if (drmSessionContexts[i].drmSession != NULL)
 			{
 				AAMPLOG_WARN("AampDRMSessionManager:: Clearing failed Session Data Slot : %d", i);
-#ifdef USE_SECMANAGER
-				// Cached session is about to be destroyed, send release to SecManager
-				if (drmSessionContexts[i].drmSession->getSessionId() != AAMP_SECMGR_INVALID_SESSION_ID)
-				{
-					AampSecManager::GetInstance()->ReleaseSession(drmSessionContexts[i].drmSession->getSessionId());
-				}
-#endif
 				SAFE_DELETE(drmSessionContexts[i].drmSession);
 				drmSessionContexts[i].mLicenseDownloader.Clear();
 			}
@@ -364,11 +350,12 @@ void AampDRMSessionManager::clearDrmSession(bool forceClearSession)
 void AampDRMSessionManager::setVideoWindowSize(int width, int height)
 {
 #ifdef USE_SECMANAGER
-	AAMPLOG_WARN("In AampDRMSessionManager:: setting video windor size w:%d x h:%d mMaxDRMSessions=%d mSessionId=[%" PRId64 "]",width,height,mMaxDRMSessions,mSessionId.getSessionId());
-	if(mSessionId.isSessionValid())
+	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
+	AAMPLOG_WARN("In AampDRMSessionManager:: setting video windor size w:%d x h:%d mMaxDRMSessions=%d sessionID=[%" PRId64 "]",width,height,mMaxDRMSessions,localSession.getSessionID());
+	if(localSession.isSessionValid())
 	{
 		AAMPLOG_WARN("In AampDRMSessionManager:: valid session ID. Calling setVideoWindowSize().");
-		AampSecManager::GetInstance()->setVideoWindowSize(mSessionId.getSessionId(), width, height);
+		AampSecManager::GetInstance()->setVideoWindowSize(localSession.getSessionID(), width, height);
 	}
 #endif
 }
@@ -381,9 +368,10 @@ void AampDRMSessionManager::setVideoMute(bool isVideoOnMute, double seek_pos_sec
 	AAMPLOG_WARN("Video mute status (new): %d, state changed: %.1s, pos: %f", isVideoOnMute, (isVideoOnMute == mIsVideoOnMute) ? "N":"Y", seek_pos_seconds);
 
 	mIsVideoOnMute = isVideoOnMute;
-	if(mSessionId.isSessionValid())
+	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
+	if(localSession.isSessionValid())
 	{
-		AampSecManager::GetInstance()->UpdateSessionState(mSessionId.getSessionId(), !mIsVideoOnMute);
+		AampSecManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), !mIsVideoOnMute);
 		if(!mIsVideoOnMute)
 		{
 			//this is required as secmanager waits for speed update to show wm once session is active
@@ -402,9 +390,10 @@ void AampDRMSessionManager::hideWatermarkOnDetach(void)
 {
 #ifdef USE_SECMANAGER
 	AAMPLOG_WARN("Clearing first frame flag and de-activating watermark.");
-	if(mSessionId.isSessionValid())
+	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
+	if(localSession.isSessionValid())
 	{
-		AampSecManager::GetInstance()->UpdateSessionState(mSessionId.getSessionId(), false);
+		AampSecManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
 	}
 	mFirstFrameSeen = false;
 #endif
@@ -415,7 +404,8 @@ void AampDRMSessionManager::setPlaybackSpeedState(int speed, double position, bo
 {
 #ifdef USE_SECMANAGER
 	bool isVideoOnMute=mIsVideoOnMute;
-	AAMPLOG_WARN("In AampDRMSessionManager::after calling setPlaybackSpeedState speed=%d position=%f mSessionId=[%" PRId64 "], mute: %d",speed, position, mSessionId.getSessionId(), isVideoOnMute);
+	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
+	AAMPLOG_WARN("In AampDRMSessionManager::after calling setPlaybackSpeedState speed=%d position=%f sessionID=[%" PRId64 "], mute: %d",speed, position, localSession.getSessionID(), isVideoOnMute);
 	mCurrentSpeed = speed;
 	if(firstFrameSeen)
 	{
@@ -426,16 +416,16 @@ void AampDRMSessionManager::setPlaybackSpeedState(int speed, double position, bo
 	{
 		AAMPLOG_INFO("First frame has previously been seen, we will send speed updates");
 	}
-	if(mSessionId.isSessionValid() && !mIsVideoOnMute && mFirstFrameSeen)
+	if(localSession.isSessionValid() && !mIsVideoOnMute && mFirstFrameSeen)
 	{
 		AAMPLOG_INFO("calling AampSecManager::setPlaybackSpeedState()");
-		AampSecManager::GetInstance()->setPlaybackSpeedState(mSessionId.getSessionId(), speed, position);
+		AampSecManager::GetInstance()->setPlaybackSpeedState(localSession.getSessionID(), speed, position);
 	}
 	else
 	{
 		bool firstFrameSeenCopy=mFirstFrameSeen;
 		isVideoOnMute=mIsVideoOnMute;
-		AAMPLOG_INFO("Not calling AampSecManager::setPlaybackSpeedState(), mSessionId=[%" PRId64 "], mIsVideoOnMute=%d, firstFrameSeen=%d", mSessionId.getSessionId(), isVideoOnMute, firstFrameSeenCopy);
+		AAMPLOG_INFO("Not calling AampSecManager::setPlaybackSpeedState(), sessionID=[%" PRId64 "], mIsVideoOnMute=%d, firstFrameSeen=%d", localSession.getSessionID(), isVideoOnMute, firstFrameSeenCopy);
 	}
 #endif
 }
@@ -636,7 +626,7 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 		int32_t reasonCode;
 		int32_t businessStatus;
 
-		if (!mSessionId.isSessionValid())
+		if (!mAampSecManagerSession.isSessionValid())
 		{
 			// if we're about to get a licence and are not re-using a session, then we have not seen the first video frame yet. Do not allow watermarking to get enabled yet.
 			bool videoMuteState = mIsVideoOnMute;
@@ -653,7 +643,7 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 																 keySystem,
 																 mediaUsage,
 																 secclientSessionToken, challengeInfo.accessToken.length(),
-																 mSessionId,
+																 mAampSecManagerSession,
 																 &licenseResponseStr, &licenseResponseLength,
 																 &statusCode, &reasonCode, &businessStatus, mIsVideoOnMute);
 		tEndTime = NOW_STEADY_TS_MS;
@@ -1174,11 +1164,12 @@ AampDrmSession* AampDRMSessionManager::createDrmSession(std::shared_ptr<AampDrmH
 	}
 
 #ifdef USE_SECMANAGER
-	// License acquisition was done, so mSessionId will be populated now
-	if (mSessionId.isSessionValid())
+	// License acquisition was done, so mAampSecManagerSession will be populated now
+	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
+	if (localSession.isSessionValid())
 	{
-		AAMPLOG_WARN(" Setting sessionId[%" PRId64 "] to current drmSession", mSessionId.getSessionId());
-		drmSessionContexts[selectedSlot].drmSession->setSessionId(mSessionId.getSessionId());
+		AAMPLOG_WARN(" Setting sessionId[%" PRId64 "] to current drmSession", localSession.getSessionID());
+		drmSessionContexts[selectedSlot].drmSession->setSecManSession(localSession);
 	}
 #endif
 
@@ -1323,14 +1314,14 @@ KeyState AampDRMSessionManager::getDrmSession(std::shared_ptr<AampDrmHelper> drm
 #ifdef USE_SECMANAGER
 				// Cached session is re-used, set its session ID to active.
 				// State management will be done from getLicenseSec function in case of KEY_INIT
-				if (drmSessionContexts[sessionSlot].drmSession->getSessionId() != AAMP_SECMGR_INVALID_SESSION_ID &&
-					!(mSessionId.isSessionValid()) )
+				auto slotSession = drmSessionContexts[sessionSlot].drmSession->getSecManSession();
+				if (slotSession.isSessionValid() && (!mAampSecManagerSession.isSessionValid()) )
 				{
-					// Set the drmSession's ID as mSessionId so that this code will not be repeated for multiple calls for createDrmSession					
-					mSessionId.setSessionId(drmSessionContexts[sessionSlot].drmSession->getSessionId());
+					// Set the drmSession's ID as mAampSecManagerSession so that this code will not be repeated for multiple calls for createDrmSession					
+					mAampSecManagerSession = slotSession;
 					bool videoMuteState = mIsVideoOnMute;
-					AAMPLOG_WARN("Activating re-used DRM, sessionId[%" PRId64 "], with video mute = %d", mSessionId.getSessionId(), videoMuteState);
-					AampSecManager::GetInstance()->UpdateSessionState(drmSessionContexts[sessionSlot].drmSession->getSessionId(), true);
+					AAMPLOG_WARN("Activating re-used DRM, sessionId[%" PRId64 "], with video mute = %d", slotSession.getSessionID(), videoMuteState);
+					AampSecManager::GetInstance()->UpdateSessionState(slotSession.getSessionID(), true);
 				}
 #endif
 				return KEY_READY;
@@ -1367,13 +1358,6 @@ KeyState AampDRMSessionManager::getDrmSession(std::shared_ptr<AampDrmHelper> drm
 			AAMPLOG_WARN("existing DRM session for %s has different key in slot %d", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str(), sessionSlot);
 		}
 		AAMPLOG_WARN("deleting existing DRM session for %s ", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
-#ifdef USE_SECMANAGER
-		// Cached session is about to be destroyed, send release to SecManager
-		if (drmSessionContexts[sessionSlot].drmSession->getSessionId() != AAMP_SECMGR_INVALID_SESSION_ID)
-		{
-			AampSecManager::GetInstance()->ReleaseSession(drmSessionContexts[sessionSlot].drmSession->getSessionId());
-		}
-#endif
 		SAFE_DELETE(drmSessionContexts[sessionSlot].drmSession);
 	}
 
@@ -1855,13 +1839,14 @@ bool AampDRMSessionManager::configureLicenseServerParameters(std::shared_ptr<Aam
 void AampDRMSessionManager::notifyCleanup()
 {
 #ifdef USE_SECMANAGER
-	if(mSessionId.isSessionValid())
+	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
+	if(localSession.isSessionValid())
 	{
 		// Set current session to inactive
-		AAMPLOG_WARN("De-activate DRM session [%" PRId64 "] and watermark", mSessionId.getSessionId() );
-		AampSecManager::GetInstance()->UpdateSessionState(mSessionId.getSessionId(), false);
+		AAMPLOG_WARN("De-activate DRM session [%" PRId64 "] and watermark", localSession.getSessionID() );
+		AampSecManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
 		// Reset the session ID, the session ID is preserved within AampDrmSession instances
-		mSessionId.setSessionInvalid();
+		mAampSecManagerSession.setSessionInvalid();	//note this doesn't necessarily close the session as the session ID is also saved in the slot
 		mCurrentSpeed = 0;
 		mFirstFrameSeen = false;
 	}

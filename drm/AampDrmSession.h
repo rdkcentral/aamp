@@ -72,7 +72,7 @@ protected:
 	std::string m_keySystem;
 	bool m_OutputProtectionEnabled;
 #ifdef USE_SECMANAGER
-	int64_t mSessionId;
+	AampSecManagerSession mAampSecManagerSession;
 #endif
 public:
 	AampLogManager *mLogObj;
@@ -180,8 +180,8 @@ public:
 	virtual void setKeyId(const std::vector<uint8_t>& keyId) {};
 #endif
 #ifdef USE_SECMANAGER
-	void setSessionId(int64_t sessionId);
-	int64_t getSessionId() const { return mSessionId; }
+	void setSecManSession(AampSecManagerSession session){mAampSecManagerSession=session;}
+	AampSecManagerSession getSecManSession() const { return mAampSecManagerSession;}
 #endif
 };
 #endif

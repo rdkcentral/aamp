@@ -142,7 +142,7 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 					const char* accessAttributes[][2], const char* contentMetdata, size_t contMetaLen,
 					const char* licenseRequest, size_t licReqLen, const char* keySystemId,
 					const char* mediaUsage, const char* accessToken, size_t accTokenLen,
-					SessionId &sessionId,
+					AampSecManagerSession &session,
 					char** licenseResponse, size_t* licenseResponseLength, int32_t* statusCode, int32_t* reasonCode, int32_t* businessStatus, bool isVideoMuted)
 {
 	// licenseUrl un-used now
@@ -192,10 +192,10 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 	param["mediaUsage"] = mediaUsage;
 	
 	// If sessionId is present, we are trying to acquire a new license within the same session
-	if (sessionId.isSessionValid())
+	if (session.isSessionValid())
 	{
 		apiName = "updatePlaybackSession";
-		param["sessionId"] = sessionId.getSessionId();
+		param["sessionId"] = session.getSessionID();
 	}
 
 #ifdef DEBUG_SECMAMANER
@@ -244,6 +244,8 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 				rpcResult = mSecManagerObj.InvokeJSONRPC(apiName, param, response, 10000);
 				if (rpcResult)
 				{
+					AampSecManagerSession newSession;
+
 				#ifdef DEBUG_SECMAMANER
 					std::string output;
 					response.ToString(output);
@@ -251,6 +253,11 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 				#endif
 					if (response["success"].Boolean())
 					{
+						/* DELIA-63205
+						* Ensure all sessions have a Session ID created to manage lifetime
+						* multiple object creation is OK as an existing instance should be returned*/
+						newSession = AampSecManagerSession(response["sessionId"].Number());
+
 						std::string license = response["license"].String();
 						AAMPLOG_TRACE("SecManager obtained license with length: %d and data: %s",license.size(), license.c_str());
 						if (!license.empty())
@@ -283,10 +290,11 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 							}
 						}
 					}
+
 					// Save session ID
-					if (!sessionId.isSessionValid())
+					if (newSession.isSessionValid() && !session.isSessionValid())
 					{
-						sessionId.setSessionId( response["sessionId"].Number() );
+						session = newSession;
 					}
 					
 				}

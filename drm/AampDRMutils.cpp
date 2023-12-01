@@ -29,6 +29,108 @@
 
 #include <uuid/uuid.h>
 #include <regex>
+#ifdef USE_SECMANAGER
+#include "AampSecManager.h"
+
+
+
+std::shared_ptr<AampSecManagerSession::SessionManager> AampSecManagerSession::SessionManager::getInstance(int64_t sessionID)
+{
+	std::shared_ptr<SessionManager> returnValue;
+
+	static std::mutex instancesMutex;
+	std::lock_guard<std::mutex> lock{instancesMutex};
+	static std::map<int64_t, std::weak_ptr<SessionManager>> instances;
+
+	//Remove pointers to expired instances
+	{
+		std::vector<int64_t> keysToRemove;
+		for (auto i : instances)
+		{
+			if(i.second.expired())
+			{
+				keysToRemove.push_back(i.first);
+			}
+		}
+		if(keysToRemove.size())
+		{
+			std::stringstream ss;
+			ss<<"AampSecManagerSession: "<<keysToRemove.size()<<" expired (";
+			for(auto key:keysToRemove)
+			{
+				ss<<key<<",";
+				instances.erase(key);
+			}
+
+			ss<<"), instances remaining."<< instances.size();
+			AAMPLOG_WARN("%s",ss.str().c_str());
+		}
+	}
+
+	/* Only create or retrieve instances for valid sessionIDs.
+	 * <0 is used as an invalid value e.g. AAMP_SECMGR_INVALID_SESSION_ID
+	 * 0 removes all sessions which is not the intended behaviour here*/
+	if(sessionID>0)
+	{
+		if(instances.count(sessionID)>0)
+		{
+			//get an existing pointer which may be no longer valid
+			returnValue = instances[sessionID].lock();
+
+			if(!returnValue)
+			{
+				//unexpected
+				AAMPLOG_WARN("AampSecManagerSession: session ID %lld reused or session closed too early.",
+				sessionID);
+			}
+		}
+
+		/* where an existing, valid instance is not available for sessionID
+		 * create a new instance & save a pointer to it for possible future reuse*/
+		if(!returnValue)
+		{
+			returnValue.reset(new SessionManager{sessionID});
+			instances[sessionID] = returnValue;
+			AAMPLOG_WARN("AampSecManagerSession: new instance created for ID:%lld, %d instances total.",
+			sessionID,
+			instances.size());
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("AampSecManagerSession: invalid ID:%lld.", sessionID);
+	}
+
+	return returnValue;
+}
+
+AampSecManagerSession::SessionManager::~SessionManager()
+{
+	if(mID>0)
+	{
+		AampSecManager::GetInstance()->ReleaseSession(mID);
+	}
+}
+
+AampSecManagerSession::SessionManager::SessionManager(int64_t sessionID):mID(sessionID){};
+
+AampSecManagerSession::AampSecManagerSession(int64_t sessionID):
+mpSessionManager(AampSecManagerSession::SessionManager::getInstance(sessionID)),
+sessionIdMutex()
+{};
+
+int64_t AampSecManagerSession::getSessionID(void) const
+{
+	std::lock_guard<std::mutex>lock(sessionIdMutex);
+	int64_t ID = AAMP_SECMGR_INVALID_SESSION_ID;
+	if(mpSessionManager)
+	{
+		ID = mpSessionManager->getID();
+	}
+
+	return ID;
+}
+#endif
 
 #define KEYID_TAG_START "<KID>"
 #define KEYID_TAG_END "</KID>"
