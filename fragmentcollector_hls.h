@@ -970,7 +970,8 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return StreamInfo for the index
 		 ***************************************************************************/
 		StreamInfo* GetStreamInfo(int idx) override;
-	private:
+	//private:
+	protected:
 		/***************************************************************************
 		 * @fn SyncTracks
 		 * @param useProgramDateTimeIfAvailable use program date time tag to sync if available

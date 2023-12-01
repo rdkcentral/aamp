@@ -1652,7 +1652,8 @@ protected:
 		return NULL;
 	}	
 
-private:
+//private:
+protected:
 
 	/**
 	 *   @fn GetDesiredProfileBasedOnCache
