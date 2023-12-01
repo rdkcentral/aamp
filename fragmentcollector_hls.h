@@ -74,7 +74,6 @@ typedef struct HlsStreamInfo: public StreamInfo
 { // #EXT-X-STREAM-INFs
 	long program_id;	/**< Program Id */
 	const char *audio;	/**< Audio */
-	const char *codecs;	/**< Codec String */
 	const char *uri;	/**< URI Information */
 
 	// rarely present
@@ -83,7 +82,7 @@ typedef struct HlsStreamInfo: public StreamInfo
 	const char *subtitles;			/**< Subtitles */
 	StreamOutputFormat audioFormat; /**< Audio codec format*/
 
-	HlsStreamInfo():program_id(),audio(),codecs(),uri(),averageBandwidth(),closedCaptions(),subtitles(),audioFormat(){};
+	HlsStreamInfo():program_id(),audio(),uri(),averageBandwidth(),closedCaptions(),subtitles(),audioFormat(){};
 
 	// Copy constructor
     HlsStreamInfo(const HlsStreamInfo& other)
@@ -91,7 +90,6 @@ typedef struct HlsStreamInfo: public StreamInfo
 		StreamInfo(other), // Initialize base class members
 		program_id(other.program_id),
 		audio(other.audio),
-		codecs(other.codecs),
 		uri(other.uri),
 		averageBandwidth(other.averageBandwidth),
 		closedCaptions(other.closedCaptions),

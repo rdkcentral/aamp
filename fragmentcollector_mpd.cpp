@@ -6781,7 +6781,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	{
 		if(audioTrack.index == aTrackIdx)
 		{
-			mMediaStreamContext[eMEDIATYPE_AUDIO]->SetCurrentBandWidth(audioTrack.bandwidth);
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->SetCurrentBandWidth((int)audioTrack.bandwidth);
 		}
 		bitratelist.push_back(audioTrack.bandwidth);
 	}

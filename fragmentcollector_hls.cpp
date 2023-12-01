@@ -846,7 +846,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 					{
 						streamInfo.bandwidthBitsPerSecond = streamInfo.averageBandwidth;
 					}
-					const FormatMap *map = GetAudioFormatForCodec(streamInfo.codecs);
+					const FormatMap *map = GetAudioFormatForCodec(streamInfo.codecs.c_str());
 					if( map )
 					{
 						streamInfo.audioFormat = map->format;
@@ -4521,7 +4521,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					else
 					{
 						AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : VideoTrack -couldn't determine format from streamInfo->codec %s",
-							 streamInfoStore[currentProfileIndex].codecs);
+							 streamInfoStore[currentProfileIndex].codecs.c_str() );
 					}
 				}
 								
@@ -5081,7 +5081,7 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 			}
 			else
 			{
-				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: %s format could not be determined. codecs %s", ts->name, streamInfoStore[currentProfileIndex].codecs);
+				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: %s format could not be determined. codecs %s", ts->name, streamInfoStore[currentProfileIndex].codecs.c_str() );
 			}
 		}
 	}
@@ -5774,14 +5774,9 @@ std::vector<BitsPerSecond> StreamAbstractionAAMP_HLS::GetVideoBitrates(void)
 ***************************************************************************/
 static bool isThumbnailStream( const HlsStreamInfo &streamInfo )
 {
-	bool ret = false;
-	if (streamInfo.codecs)
-	{
-		ret = SubStringMatch(streamInfo.codecs, streamInfo.codecs+4, "jpeg");
-	}
-	return ret;
+	const char *ptr = streamInfo.codecs.c_str();
+	return SubStringMatch(ptr,ptr+4,"jpeg");
 }
-
 
 /**
  * @brief Function to get available thumbnail tracks
@@ -7380,7 +7375,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 										break;
 
 									default:
-										AAMPLOG_WARN("unknown codec string to categorize :%s ",streamInfo.codecs);
+										AAMPLOG_WARN("unknown codec string to categorize :%s", streamInfo.codecs.c_str() );
 										break;
 								}
 
@@ -7828,11 +7823,11 @@ StreamOutputFormat StreamAbstractionAAMP_HLS::GetStreamOutputFormatForTrack(Trac
 	{
 		if (type == eTRACK_VIDEO)
 		{
-			map = GetVideoFormatForCodec(streamInfo->codecs);
+			map = GetVideoFormatForCodec(streamInfo->codecs.c_str());
 		}
 		else if ((type == eTRACK_AUDIO) || (type ==  eTRACK_AUX_AUDIO))
 		{
-			map = GetAudioFormatForCodec(streamInfo->codecs);
+			map = GetAudioFormatForCodec(streamInfo->codecs.c_str());
 		}
 	}
 	if (map)
