@@ -28,6 +28,7 @@
 #include "AampMemoryUtils.h"
 #include "priv_aamp.h"
 #include "AampJsonObject.h"
+#include "mediaprocessor.h"
 #include <map>
 #include <iterator>
 #include <vector>
@@ -679,6 +680,7 @@ public:
 	pthread_cond_t fragmentChunkFetched;/**< Signaled after a fragment Chunk is fetched*/
 	uint32_t totalMdatCount;            /**< Total MDAT Chunk Found*/
 	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processoing*/
+	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
 
 protected:
 	AampLogManager *mLogObj;
@@ -1650,7 +1652,14 @@ protected:
 	{
 		(void)idx;
 		return NULL;
-	}	
+	}
+
+	/**
+	 * @brief Initialize ISOBMFF Media Processor
+	 *
+	 * @return void
+	 */
+	void InitializeMediaProcessor();
 
 //private:
 protected:

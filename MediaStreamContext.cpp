@@ -33,19 +33,30 @@
 void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity)
 {
     //FN_TRACE_F_MPD( __FUNCTION__ );
-    if(!(aamp->GetLLDashServiceData()->lowLatencyMode  && (cachedFragment->type == eMEDIATYPE_AUDIO ||
-                                                           cachedFragment->type == eMEDIATYPE_VIDEO)))
-    {
- 	    aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), (MediaType) type);
- 	    AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
-        aamp->SendStreamTransfer((MediaType)type, &cachedFragment->fragment,
-        cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
-    }
-    else
-    {
-        AAMPLOG_TRACE("Full Fragment Send Ignored in LL Mode");
-    }
-    fragmentDiscarded = false;
+	if(!(aamp->GetLLDashServiceData()->lowLatencyMode  && (cachedFragment->type == eMEDIATYPE_AUDIO || cachedFragment->type == eMEDIATYPE_VIDEO)))
+	{
+		if(playContext)
+		{
+			MediaProcessor::process_fcn_t processor = [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+			{
+			};
+			size_t len = cachedFragment->fragment.GetLen();
+			fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment, cachedFragment->position, 
+                                                            cachedFragment->duration, isDiscontinuity, cachedFragment->initFragment, processor, ptsError);
+        }
+		else
+		{
+			aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), (MediaType) type);
+			AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
+			aamp->SendStreamTransfer((MediaType)type, &cachedFragment->fragment,
+			cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
+		}
+	}
+	else
+	{
+		AAMPLOG_TRACE("Full Fragment Send Ignored in LL Mode");
+	}
+	fragmentDiscarded = false;
 } // InjectFragmentInternal
 
 

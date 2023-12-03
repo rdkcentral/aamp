@@ -1713,6 +1713,19 @@ void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
 }
 
 /**
+ * @brief complete sending discontinuity data when PTS restamp enabled
+ */
+void PrivateInstanceAAMP::CompleteDiscontinutyDataDeliverForPTSRestamp(MediaType type)
+{
+	UnblockWaitForDiscontinuityProcessToComplete();
+	if( type == eMEDIATYPE_VIDEO )
+	{
+		AAMPLOG_WARN( "Deliver AD Events" );
+		DeliverAdEvents();
+	}
+}
+
+/**
  *   @brief GStreamer operation start
  */
 void PrivateInstanceAAMP::SyncBegin(void)
@@ -2896,13 +2909,16 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			// The same thread will be executing operations involving TeardownStream.
 			mpStreamAbstractionAAMP->StopInjection();
 #ifndef AAMP_STOP_SINK_ON_SEEK
-			if (mMediaFormat != eMEDIAFORMAT_HLS_MP4) // Avoid calling flush for fmp4 playback.
+			if (((mMediaFormat != eMEDIAFORMAT_HLS_MP4) && (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))) ||  mVideoFormat != FORMAT_ISO_BMFF )
 			{
 				if(mDiscontinuityFound)
 				{
 					profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FLUSH);
 				}
-				mStreamSink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))
+				{
+					mStreamSink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				}
 				if(mDiscontinuityFound)
 				{
 					profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
@@ -5210,7 +5226,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				mStreamSink->Flush(0, rate);
 			}
 				*/
-			mStreamSink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+			if (mAampLLDashServiceData.lowLatencyMode || !ISCONFIGSET_PRIV(eAAMPConfig_EnableMediaProcessor))
+			{
+				mStreamSink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+			}
 		}
 		else if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 		{
@@ -5507,6 +5526,13 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	mbUsingExternalPlayer = (mMediaFormat == eMEDIAFORMAT_OTA) || (mMediaFormat== eMEDIAFORMAT_HDMI) || (mMediaFormat==eMEDIAFORMAT_COMPOSITE) || \
 		(mMediaFormat == eMEDIAFORMAT_RMF);
+
+	// Enable the eAAMPConfig_EnableMediaProcessor if the PTS Restamp set for DASH.
+	if (ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == mMediaFormat))
+	{
+		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_EnableMediaProcessor, true);
+		AAMPLOG_WARN ("PTS Restamp and MediaProcessor enabled for DASH");
+	}
 
 	if (NULL == mStreamSink)
 	{
@@ -9236,7 +9262,7 @@ void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
 		{
 			//RDK-26957 Adding midSeekPtsOffset to position value.
 			//Enables us to seek to the desired position in the mp4 fragment.
-			mStreamSink->SeekStreamSink(position + GetFirstPTS(), rate);
+			mStreamSink->SeekStreamSink(GetFirstPTS(), rate);
 		}
 		else
 		{

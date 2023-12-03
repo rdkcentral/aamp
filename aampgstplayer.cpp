@@ -4198,10 +4198,10 @@ bool AAMPGstPlayer::Discontinuity(MediaType type)
 	else
 	{
 		AAMPLOG_DEBUG("stream->format %d, stream->firstBufferProcessed %d, stream->flush %d", stream->format , stream->firstBufferProcessed, stream->flush);
-		if( ISCONFIGSET(eAAMPConfig_EnablePTSReStamp)  && ( aamp->mVideoFormat == FORMAT_ISO_BMFF &&
-		( aamp->mMediaFormat == eMEDIAFORMAT_HLS_MP4 ) ) )
+		if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF))
 		{
 			AAMPLOG_WARN("NO EOS: PTS-RESTAMP ENABLED");
+			aamp->CompleteDiscontinutyDataDeliverForPTSRestamp(type);
 			ret = true;
 		}
 		else

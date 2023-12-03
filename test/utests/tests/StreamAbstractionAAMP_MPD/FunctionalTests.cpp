@@ -67,6 +67,7 @@ protected:
 	/** @brief Boolean AAMP configuration settings. */
 	const BoolConfigSettings mDefaultBoolConfigSettings =
 	{
+		{eAAMPConfig_EnableMediaProcessor, true},
 		{eAAMPConfig_EnableCMCD, false},
 		{eAAMPConfig_BulkTimedMetaReport, false},
 		{eAAMPConfig_EnableSCTE35PresentationTime, false},

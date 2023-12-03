@@ -2116,11 +2116,11 @@ void TrackState::FetchFragment()
 				size_t len = cachedFragment->fragment.GetLen();
 				const double proc_position = context->mStartTimestampZero ? 0 : cachedFragment->position;
 
-				playContext->sendSegment(cachedFragment->fragment.GetPtr(),
-					len,
+				playContext->sendSegment(&cachedFragment->fragment,
 					proc_position,
 					duration,
 					discontinuity,
+					cachedFragment->initFragment,
 					processor,
 					ptsError
 				);
@@ -2176,15 +2176,14 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			}
 		};
 
-		size_t len = cachedFragment->fragment.GetLen();
-		fragmentDiscarded = !playContext->sendSegment( cachedFragment->fragment.GetPtr(),
-					len,
-					position,
-					cachedFragment->duration,
-					isDiscontinuity,
-					processor,
-					ptsError
-					);
+		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment,
+			position,
+			cachedFragment->duration,
+			isDiscontinuity,
+					cachedFragment->initFragment,
+			processor,
+			ptsError
+			);
 	}
 	else
 	{
@@ -3973,78 +3972,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			AAMPLOG_INFO("Selected BitRate: %ld, Max BitRate: %ld", bandwidthBitsPerSecond, GetStreamInfo(GetMaxBWProfile())->bandwidthBitsPerSecond);
 			/* END: Added As Part of DELIA-28363 and DELIA-28247 */
 		}
-		for (int iTrack = AAMP_TRACK_COUNT - 1; iTrack >= 0; iTrack--)
-		{
-			const char* trackName = "subs";
-			if (eTRACK_VIDEO == iTrack)
-			{
-				if(trackState[eTRACK_AUDIO]->enabled)
-				{
-					trackName = "video";
-				}
-				else if (rate != AAMP_NORMAL_PLAY_RATE)
-				{
-					trackName = "iframe";
-				}
-				else
-				{
-					trackName = "muxed";
-				}
-			}
-			else if (eTRACK_AUDIO == iTrack)
-			{
-				trackName = "audio";
-			}
-			else if (eTRACK_AUX_AUDIO == iTrack)
-			{
-				trackName = "aux-audio";
-			}
-			trackState[iTrack] = new TrackState(mLogObj, (TrackType)iTrack, this, aamp, trackName, mID3Handler, mPtsOffsetUpdate);
-			TrackState *ts = trackState[iTrack];
-			ts->playlistPosition = -1;
-			ts->playTarget = seekPosition;
-			ts->playTargetBufferCalc = seekPosition;
-			if (iTrack == eTRACK_SUBTITLE && !aamp->IsSubtitleEnabled())
-			{
-				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::subtitles disabled by application");
-				ts->enabled = false;
-				ts->streamOutputFormat = FORMAT_INVALID;
-				continue;
-			}
-			if (iTrack == eTRACK_AUX_AUDIO)
-			{
-				if (!aamp->IsAuxiliaryAudioEnabled())
-				{
-					AAMPLOG_INFO("StreamAbstractionAAMP_HLS::auxiliary audio disabled");
-					ts->enabled = false;
-					ts->streamOutputFormat = FORMAT_INVALID;
-					continue;
-				}
-				else if (aamp->GetAuxiliaryAudioLanguage() == aamp->mAudioTuple.language)
-				{
-					AAMPLOG_INFO("StreamAbstractionAAMP_HLS::auxiliary audio same as primary audio, set forward audio flag");
-					ts->enabled = false;
-					ts->streamOutputFormat = FORMAT_INVALID;
-					SetAudioFwdToAuxStatus(true);
-					continue;
-				}
-			}
-			const char *uri = GetPlaylistURI((TrackType)iTrack, &ts->streamOutputFormat);
-			if (uri)
-			{
-				aamp_ResolveURL(ts->mPlaylistUrl, aamp->GetManifestUrl(), uri, ISCONFIGSET(eAAMPConfig_PropogateURIParam));
-				if(ts->streamOutputFormat != FORMAT_INVALID)
-				{
-					ts->enabled = true;
-					mNumberOfTracks++;
-				}
-				else
-				{
-					AAMPLOG_WARN("StreamAbstractionAAMP_HLS: %s format could not be determined. codecs %s", ts->name, streamInfoStore[currentProfileIndex].codecs);
-				}
-			}
-		}
-
+		InitTracks();
 		TrackState *audio = trackState[eMEDIATYPE_AUDIO];
 		TrackState *video = trackState[eMEDIATYPE_VIDEO];
 		TrackState *subtitle = trackState[eMEDIATYPE_SUBTITLE];
@@ -4318,15 +4246,11 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					}
 					else
 					{
-						AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : Track[%s] - FORMAT_ISO_BMFF", ts->name);
 						ts->streamOutputFormat = FORMAT_ISO_BMFF;
-						IsoBmffProcessor *processor = NULL;
 						if (eMEDIATYPE_VIDEO == iTrack)
 						{
-							processor = static_cast<IsoBmffProcessor*> (trackState[eMEDIATYPE_AUDIO]->playContext);
+							InitializeMediaProcessor();
 						}
-						ts->playContext = new IsoBmffProcessor(aamp, mLogObj, (IsoBmffProcessorType) iTrack, processor);
-						ts->playContext->setRate(this->rate, PlayMode_normal);
 					}
 					continue;
 				}
@@ -4419,7 +4343,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						if (format == FORMAT_MPEGTS)
 						{
 							AAMPLOG_WARN("Configure auxiliary audio TS track demuxing");
-							ts->playContext = new TSProcessor(mLogObj, aamp, eStreamOp_DEMUX_AUX);
+							ts->playContext = std::make_shared<TSProcessor>(mLogObj, aamp, eStreamOp_DEMUX_AUX);
 							if (ts->playContext)
 							{
 								ts->playContext->setRate(this->rate, PlayMode_normal);
@@ -4457,7 +4381,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						if (format == FORMAT_MPEGTS)
 						{
 							AAMPLOG_WARN("StreamAbstractionAAMP_HLS: Configure audio TS track demuxing");
-							ts->playContext = new TSProcessor(mLogObj, aamp, eStreamOp_DEMUX_AUDIO);
+							ts->playContext = std::make_shared<TSProcessor>(mLogObj, aamp, eStreamOp_DEMUX_AUDIO);
 							if(ts->playContext)
 							{
 								if (currentAudioProfileIndex >= 0 )
@@ -4539,7 +4463,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 							}
 						}
 						AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : Configure video TS track demuxing demuxOp %d", demuxOp);
-						ts->playContext = new TSProcessor(mLogObj, aamp, demuxOp, eMEDIATYPE_VIDEO, static_cast<TSProcessor*> (trackState[eMEDIATYPE_AUDIO]->playContext), static_cast<TSProcessor*> (trackState[eMEDIATYPE_AUX_AUDIO]->playContext));
+						ts->playContext = std::make_shared<TSProcessor>(mLogObj, aamp, demuxOp, eMEDIATYPE_VIDEO, std::static_pointer_cast<TSProcessor> (trackState[eMEDIATYPE_AUDIO]->playContext).get(), std::static_pointer_cast<TSProcessor>(trackState[eMEDIATYPE_AUX_AUDIO]->playContext).get());
 						if(ts->playContext)
 						{
 							if(!audioFormatMPEGTS)
@@ -4582,7 +4506,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				if (!playContextConfigured && (ts->streamOutputFormat == FORMAT_MPEGTS))
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : track %p context configuring for eStreamOp_NONE", ts);
-					ts->playContext = new TSProcessor(mLogObj, aamp, eStreamOp_NONE, iTrack);
+					ts->playContext = std::make_shared<TSProcessor>(mLogObj, aamp, eStreamOp_NONE, iTrack);
 					ts->playContext->setThrottleEnable(this->enableThrottle);
 					if (this->rate == AAMP_NORMAL_PLAY_RATE)
 					{
@@ -5069,6 +4993,85 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 }
 
 /***************************************************************************
+ * @brief  Function to initiate tracks
+ *
+ *************************************************************************/
+void StreamAbstractionAAMP_HLS::InitTracks()
+{
+	for (int iTrack = AAMP_TRACK_COUNT - 1; iTrack >= 0; iTrack--)
+	{
+		const char* trackName = "subs";
+		if (eTRACK_VIDEO == iTrack)
+		{
+			if(trackState[eTRACK_AUDIO]->enabled)
+			{
+				trackName = "video";
+			}
+			else if (rate != AAMP_NORMAL_PLAY_RATE)
+			{
+				trackName = "iframe";
+			}
+			else
+			{
+				trackName = "muxed";
+			}
+		}
+		else if (eTRACK_AUDIO == iTrack)
+		{
+			trackName = "audio";
+		}
+		else if (eTRACK_AUX_AUDIO == iTrack)
+		{
+			trackName = "aux-audio";
+		}
+		trackState[iTrack] = new TrackState(mLogObj, (TrackType)iTrack, this, aamp, trackName, mID3Handler, mPtsOffsetUpdate);
+		TrackState *ts = trackState[iTrack];
+		ts->playlistPosition = -1;
+		ts->playTarget = seekPosition;
+		ts->playTargetBufferCalc = seekPosition;
+		if (iTrack == eTRACK_SUBTITLE && !aamp->IsSubtitleEnabled())
+		{
+			AAMPLOG_INFO("StreamAbstractionAAMP_HLS::subtitles disabled by application");
+			ts->enabled = false;
+			ts->streamOutputFormat = FORMAT_INVALID;
+			continue;
+		}
+		if (iTrack == eTRACK_AUX_AUDIO)
+		{
+			if (!aamp->IsAuxiliaryAudioEnabled())
+			{
+				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::auxiliary audio disabled");
+				ts->enabled = false;
+				ts->streamOutputFormat = FORMAT_INVALID;
+				continue;
+			}
+			else if (aamp->GetAuxiliaryAudioLanguage() == aamp->mAudioTuple.language)
+			{
+				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::auxiliary audio same as primary audio, set forward audio flag");
+				ts->enabled = false;
+				ts->streamOutputFormat = FORMAT_INVALID;
+				SetAudioFwdToAuxStatus(true);
+				continue;
+			}
+		}
+		const char *uri = GetPlaylistURI((TrackType)iTrack, &ts->streamOutputFormat);
+		if (uri)
+		{
+			aamp_ResolveURL(ts->mPlaylistUrl, aamp->GetManifestUrl(), uri, ISCONFIGSET(eAAMPConfig_PropogateURIParam));
+			if(ts->streamOutputFormat != FORMAT_INVALID)
+			{
+				ts->enabled = true;
+				mNumberOfTracks++;
+			}
+			else
+			{
+				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: %s format could not be determined. codecs %s", ts->name, streamInfoStore[currentProfileIndex].codecs);
+			}
+		}
+	}
+}
+
+/***************************************************************************
 * @fn CachePlaylistThreadFunction
 * @brief Thread function created for PreCaching playlist
 *
@@ -5442,7 +5445,7 @@ TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstraction
 		MediaTrack(logObj, type, aamp, name),
 		indexCount(0), currentIdx(0), indexFirstMediaSequenceNumber(0), fragmentURI(NULL), lastPlaylistDownloadTimeMS(0), lastPlaylistIndexedTimeMS(0),
 		byteRangeLength(0), byteRangeOffset(0), nextMediaSequenceNumber(0), playlistPosition(0), playTarget(0),playTargetBufferCalc(0),lastDownloadedIFrameTarget(-1),
-		streamOutputFormat(FORMAT_INVALID), playContext(NULL),
+		streamOutputFormat(FORMAT_INVALID),
 		playTargetOffset(0),
 		discontinuity(false),
 		refreshPlaylist(false), fragmentCollectorThreadID(), isFirstFragmentAfterABR(false),
@@ -5497,7 +5500,6 @@ TrackState::~TrackState()
 		cachedFragment[j].fragment.Free();
 	}
 	FlushIndex();
-	SAFE_DELETE(playContext);
 
 	if (mCMSha1Hash)
 	{

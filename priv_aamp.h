@@ -3870,7 +3870,12 @@ public:
 	 * @fn UnblockWaitForDiscontinuityProcessToComplete
 	 */
 	void UnblockWaitForDiscontinuityProcessToComplete(void);
-        
+
+	/**
+	 * @fn CompleteDiscontinutyDataDeliverForPTSRestamp
+	 */
+	void CompleteDiscontinutyDataDeliverForPTSRestamp(MediaType type);
+     
 	/**
 	 * @fn GetLicenseCustomData
 	 *

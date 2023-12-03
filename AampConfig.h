@@ -204,6 +204,7 @@ typedef enum
 	eAAMPConfig_SendLicenseResponseHeaders,					/**<Config to enable adding license response headers with drm metadata event */
 	eAAMPConfig_SuppressDecode,					/**< To Suppress Decode of segments for playback . Test only Downloader */
 	eAAMPConfig_ReconfigPipelineOnDiscontinuity,				/*** Enable/Disable reconfigure pipeline on discontinuity */
+	eAAMPConfig_EnableMediaProcessor,					/** <Config to enable injection through MediaProcessor */
 	eAAMPConfig_MPDStichingSupport,					/**< To enable/disable MPD Stich functionality in the player. Default enabled */
 	eAAMPConfig_SendUserAgent,						/**< To enable/disable sending user agent in the DRM license request header. Default enabled */
 	eAAMPConfig_EnablePTSReStamp,					/** <Config to enable PTS restamping */

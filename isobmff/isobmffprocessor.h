@@ -37,7 +37,8 @@
 enum IsoBmffProcessorType
 {
 	eBMFFPROCESSOR_TYPE_VIDEO = 0,
-	eBMFFPROCESSOR_TYPE_AUDIO = 1
+	eBMFFPROCESSOR_TYPE_AUDIO = 1,
+	eBMFFPROCESSOR_TYPE_SUBTITILE = 2
 };
 
 /**
@@ -47,10 +48,10 @@ enum IsoBmffProcessorType
 typedef struct
 {
 	MediaType type;
-	char *segment;
-	size_t size;
+	AampGrowableBuffer *buffer;
 	double position;
 	double duration;
+	bool isDiscontinuity;
 }stInitRestampSegment;
 
 /**
@@ -82,7 +83,7 @@ public:
 	 * @param[in] trackType - track type (A/V)
 	 * @param[in] peerBmffProcessor - peer instance of IsoBmffProcessor
 	 */
-	IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj=NULL, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, IsoBmffProcessor* peerBmffProcessor = NULL);
+	IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj=NULL, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, IsoBmffProcessor* peerBmffProcessor = NULL, MediaProcessor* peerSubProcessor = NULL);
 
 	/**
 	 * @fn ~IsoBmffProcessor
@@ -111,17 +112,17 @@ public:
 	/**
 	 * @fn sendSegment
 	 *
-	 * @param[in] segment - fragment buffer pointer
-	 * @param[in] size - fragment buffer size
+	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] discontinuous - true if discontinuous fragment
+	 * @param[in] isInit - flag for buffer type (init, data)
 	 * @param[in] processor - Function to use for processing the fragments (only used by HLS/TS)
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	bool sendSegment(char *segment, size_t& size, double position, double duration, bool discontinuous, process_fcn_t processor, bool &ptsError) override;
-
+	bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, bool discontinuous,
+						bool isInit,process_fcn_t processor, bool &ptsError) override;
 	/**
 	 * @fn abort
 	 *
@@ -145,7 +146,48 @@ public:
 	 */
 	void setRate(double rate, PlayMode mode) override;
 
+	/**
+	* @brief Function to abort wait for injecting the segment
+	*/
+	void abortInjectionWait() override;
+
+	uint64_t getBasePTS()
+	{
+		return basePTS;
+	}
+
+	uint64_t getSumPTS()
+	{
+		return sumPTS;
+	}
+
+	timeScaleChangeStateType getTimeScaleChangeState()
+	{
+		return timeScaleChangeState;
+	}
+
+	uint32_t getTimeScale()
+	{
+		return timeScale;
+	}
+
+	uint32_t getCurrentTimeScale()
+	{
+		return currTimeScale;
+	}
 private:
+
+	/**
+	 * @fn sendStream
+	 *
+	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in] position - position of fragment
+	 * @param[in] duration - duration of fragment
+	 * @param[in] discontinuous - true if discontinuous fragment
+	 * @param[in] isInit - flag for buffer type (init, data)
+	 * @return void
+	 */
+	void sendStream(AampGrowableBuffer *pBuffer,double position, double duration,bool discontinuous,bool isInit);
 
 	/**
 	 * @brief Set peer instance of IsoBmffProcessor
@@ -182,27 +224,26 @@ private:
 	/**
 	 * @fn setTuneTimePTS
 	 *
-	 * @param[in] segment - fragment buffer pointer
-	 * @param[in] size - fragment buffer size
+	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] discontinuous - true if discontinuous fragment
-	 * @param[out] ptsError - flag indicates if any PTS error occurred
+	 * @param[in] isInit - flag for buffer type (init, data)
 	 * @return false if base was set, true otherwise
 	 */
-	bool setTuneTimePTS(char *segment, size_t& size, double position, double duration, bool discontinuous, bool &ptsError);
+	bool setTuneTimePTS(AampGrowableBuffer *pBuffer, double position, double duration, bool discontinuous, bool isInit);
 
 	/**
 	 * @fn restampPTSAndSendSegment
 	 *
-	 * @param[in] segment - fragment buffer pointer
-	 * @param[in] size - fragment buffer size
+	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] isDiscontinuity - true if discontinuity fragment
+	 * @param[in] isInit - flag for buffer type (init, data)
 	 * @return void
 	 */
-	void restampPTSAndSendSegment(char *segment, size_t& size, double position, double duration,bool isDiscontinuity);
+	void restampPTSAndSendSegment(AampGrowableBuffer *pBuffer, double position, double duration,bool isDiscontinuity,bool isInit);
 
 	/**
 	 * @fn cacheInitBufferForRestampingPTS
@@ -214,7 +255,7 @@ private:
 	 * @param[in] isAbrChangedTimeScale - indicates is timescale changed due to abr
 	 * @return void
 	 */
-	void cacheInitBufferForRestampingPTS(char *segment, size_t& size,uint32_t tScale,double position,bool isAbrChangedTimeScale=false);
+	void cacheInitBufferForRestampingPTS(char *segment, size_t size,uint32_t tScale,double position,bool isAbrChangedTimeScale=false);
 
 	/**
 	 * @fn handleSkipFragments
@@ -265,7 +306,7 @@ private:
 	 * @param[in] duartion - duartion of the position
 	 * @return void
 	 */
-	void cacheRestampInitSegment(MediaType type,char *segment,size_t size,double pos,double duration);
+	void cacheRestampInitSegment(MediaType type,char *segment,size_t size,double pos,double duration,bool isDiscontinuity);
 
 	/**
 	 * @fn pushRestampInitSegment
@@ -308,6 +349,7 @@ private:
 	PrivateInstanceAAMP *p_aamp;
 	timeScaleChangeStateType timeScaleChangeState;
 	ContentType contentType;
+	MediaFormat mediaFormat;
 
 	uint32_t timeScale;
 	uint32_t currTimeScale;
@@ -325,6 +367,7 @@ private:
 	uint64_t maxTrackDurationFromISOBufferInTS;
 
 	IsoBmffProcessor *peerProcessor;
+	MediaProcessor *peerSubtitleProcessor;
 	IsoBmffProcessorType type;
 
 	bool isRestampConfigEnabled;

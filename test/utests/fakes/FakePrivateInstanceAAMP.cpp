@@ -499,6 +499,11 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 	return eMEDIAFORMAT_UNKNOWN;
 }
 
+MediaFormat PrivateInstanceAAMP::GetMediaFormatTypeEnum() const
+{
+	return eMEDIAFORMAT_UNKNOWN;
+}
+
 void PrivateInstanceAAMP::SetEventPriorityAsyncTune(bool bValue)
 {
 }
@@ -1000,6 +1005,10 @@ void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
 {
 }
 
+void PrivateInstanceAAMP::CompleteDiscontinutyDataDeliverForPTSRestamp(MediaType type)
+{
+}
+
 void PrivateInstanceAAMP::SendAnomalyEvent(AAMPAnomalyMessageType type, const char* format, ...)
 {
 }
@@ -1174,5 +1183,9 @@ void PrivateInstanceAAMP::SetDiscontinuityParam()
 }
 
 void PrivateInstanceAAMP::SetLatencyParam(double latency)
+{
+}
+
+void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
 {
 }

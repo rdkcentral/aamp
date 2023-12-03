@@ -114,17 +114,21 @@ class TSProcessor : public MediaProcessor
        * @fn ~TSProcessor
        */
       ~TSProcessor();
+
       /**
        * @fn sendSegment
-       * @param[in] segment Buffer containing the data segment
-       * @param[in] size Specifies size of the segment in bytes.
-       * @param[in] position Position of the segment in seconds
-       * @param[in] duration Duration of the segment in seconds
-       * @param[in] discontinuous true if fragment is discontinuous
-       * @param[in] processor - Function to use for the processing of fragments
-       * @param[out] true on PTS error
+       *
+       * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+       * @param[in] position - position of fragment
+       * @param[in] duration - duration of fragment
+       * @param[in] discontinuous - true if discontinuous fragment
+       * @param[in] isInit - flag for buffer type (init, data)
+       * @param[in] processor - Function to use for processing the fragments (only used by HLS/TS)
+       * @param[out] ptsError - flag indicates if any PTS error occurred
+       * @return true if fragment was sent, false otherwise
        */
-      bool sendSegment( char *segment, size_t& size, double position, double duration, bool discontinuous, process_fcn_t processor, bool &ptsError) override;
+      bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, bool discontinuous,
+                           bool isInit, process_fcn_t processor, bool &ptsError) override;
       /**
        * @fn setRate
        *
@@ -133,7 +137,7 @@ class TSProcessor : public MediaProcessor
        * PlayMode_retimestamp_IPB, PlayMode_retimestamp_IandP or PlayMode_reverse_GOP.
        *
        */
-      void setRate(double rate, PlayMode mode) override;    
+      void setRate(double rate, PlayMode mode) override;
       /**
        * @fn setThrottleEnable 
        * @param[in] enable true to enable throttle, false to disable
@@ -190,11 +194,16 @@ class TSProcessor : public MediaProcessor
        * @param[in] string - id
        */
       void SetAudioGroupId(std::string& id) override;
-	/**
-	* @brief Function to set a flag to identify both the av tracks are in TS format or not
-	* @param[in] bool  - true/false
-	*/
+      /**
+      * @brief Function to set a flag to identify both the av tracks are in TS format or not
+      * @param[in] bool  - true/false
+      */
       void setApplyOffsetFlag(bool enable) override;
+
+      /**
+       * @brief Function to abort wait for injecting the segment
+       */
+      void abortInjectionWait() override { }
 
    protected:
       /**

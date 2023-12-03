@@ -210,6 +210,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampMPDParseHelper.h
 					AampLLDASHData.h
 					AampMPDUtils.h
+					ElementaryProcessor.h
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -270,6 +271,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					AampMPDDownloader.cpp
 					AampMPDParseHelper.cpp	
 					AampMPDUtils.cpp
+					ElementaryProcessor.cpp
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)

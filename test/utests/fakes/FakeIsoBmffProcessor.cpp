@@ -19,11 +19,12 @@
 
 #include "isobmffprocessor.h"
 
-IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor)
+IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor, MediaProcessor* peerSubProcessor)
 {
 }
 
-bool IsoBmffProcessor::sendSegment(char *segment, size_t& size, double position, double duration, bool discontinuous, process_fcn_t processor, bool &ptsError)
+bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, bool discontinuous,
+						                bool isInit, process_fcn_t processor, bool &ptsError)
 {
     return true;
 }
@@ -37,6 +38,10 @@ void IsoBmffProcessor::reset()
 }
 
 void IsoBmffProcessor::setRate(double rate, PlayMode mode)
+{
+}
+
+void IsoBmffProcessor::abortInjectionWait()
 {
 }
 

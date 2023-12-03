@@ -473,6 +473,14 @@ public:
 	*/
 	void ReleasePlaylistLock();
 
+	 /*
+	 * @fn NotifyFirstVideoPTS
+	 * @param[in] pts base pts
+	 * @param[in] timeScale time scale
+	 * @return void
+	 */
+	void NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale) override;
+
 private:
 	/**
 	 * @fn printSelectedTrack

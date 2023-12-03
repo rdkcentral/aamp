@@ -30,6 +30,7 @@
 #include "AampDRMSessionManager.h"
 #include "AampConstants.h"
 #include "SubtecFactory.hpp"
+#include "isobmffprocessor.h"
 #include <stdlib.h>
 #include <string.h>
 #include "_base64.h"
@@ -4475,6 +4476,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				GetCulledSeconds(currMPDPeriodDetails);
 				aamp->UpdateRefreshPlaylistInterval((float)mMinUpdateDurationMs / 1000);
 				mProgramStartTime = mAvailabilityStartTime;
+			}
+			if(!mLowLatencyMode && ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
+			{
+				InitializeMediaProcessor();
 			}
 		}
 		else
@@ -9737,6 +9742,10 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
 		if(track)
 		{
+			if(track->playContext)
+			{
+				track->playContext->abort();
+			}
 			track->AbortWaitForCachedAndFreeFragment(true);
 		}
 	}
@@ -10418,6 +10427,10 @@ void StreamAbstractionAAMP_MPD::StopInjection(void)
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
 		if(track && track->Enabled())
 		{
+			if(track->playContext)
+			{
+				track->playContext->abort();
+			}
 			track->AbortWaitForCachedFragment();
 			aamp->StopTrackInjection((MediaType) iTrack);
 			track->StopInjectLoop();
@@ -10425,7 +10438,6 @@ void StreamAbstractionAAMP_MPD::StopInjection(void)
 			{
 				track->StopInjectChunkLoop();
 			}
-
 		}
 	}
 }
@@ -12645,6 +12657,7 @@ int StreamAbstractionAAMP_MPD::getValidperiodIdx(int periodIdx)
 
 /**
  * @brief Function to update seek position
+ *         Kept public as its called from outside StreamAbstraction class
  * @param[in] secondsRelativeToTuneTime
  */
 void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime){
@@ -12656,4 +12669,15 @@ void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime){
 	{
 		AAMPLOG_WARN("Invalid seek position %f, ignored", secondsRelativeToTuneTime);
 	}
+}
+
+/**
+ * @brief Function to notify first video pts value from tsprocessor/demux
+ *
+ * @param[in] pts
+ * @param[in] timescale
+ */
+void StreamAbstractionAAMP_MPD::NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale)
+{
+	mFirstPTS = ((double)pts / (double)timeScale);
 }

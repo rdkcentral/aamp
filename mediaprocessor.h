@@ -27,11 +27,13 @@
 
 #include "AampMediaType.h"
 #include "AampSegmentInfo.hpp"
-
+#include "AampGrowableBuffer.h"
 
 #include <stddef.h>
 #include <functional>
 #include <memory>
+#include <vector>
+
 
 /**
  * @enum _PlayMode
@@ -79,15 +81,17 @@ public:
 	/**
 	 * @fn sendSegment
 	 *
-	 * @param[in] segment - fragment buffer pointer
-	 * @param[in] size - fragment buffer size
+	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] discontinuous - true if discontinuous fragment
+	 * @param[in] isInit - flag for buffer type (init, data)
+	 * @param[in] processor - Function to use for processing the fragments (only used by HLS/TS)
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	virtual bool sendSegment( char *segment, size_t& size, double position, double duration, bool discontinuous, process_fcn_t sender, bool &ptsError) = 0;
+	virtual bool sendSegment(AampGrowableBuffer* pBuffer,double position,double duration, bool discontinuous,
+								bool isInit,process_fcn_t processor, bool &ptsError) = 0;
 
 	/**
 	 * @brief Set playback rate
@@ -145,5 +149,10 @@ public:
         * @param[in] bool - true/false
         */
 	virtual void setApplyOffsetFlag(bool enable){};
+
+	/**
+	* @brief Function to abort wait for injecting the segment
+	*/
+	virtual void abortInjectionWait() = 0;
 };
 #endif /* __MEDIA_PROCESSOR_H__ */

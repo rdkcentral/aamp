@@ -2567,11 +2567,13 @@ void TSProcessor::setBasePTS(double position, long long pts)
  * @brief Does configured operation on the segment and injects data to sink
  *        Process and send media fragment
  */
-bool TSProcessor::sendSegment(char *segment, size_t& size, double position, double duration, bool discontinuous, MediaProcessor::process_fcn_t processor, bool &ptsError)
+bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, bool discontinuous,
+								bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	bool insPatPmt = false;  //CID:84507 - Initialization
 	unsigned char * packetStart;
-	int len = (int)size;
+	char *segment = pBuffer->GetPtr();
+	int len = (int)(pBuffer->GetLen());
 	bool ret = false;
 	ptsError = false;
 	pthread_mutex_lock(&m_mutex);
@@ -2602,7 +2604,7 @@ bool TSProcessor::sendSegment(char *segment, size_t& size, double position, doub
 	if ((packetStart[0] != 0x47) || ((packetStart[1] & 0x80) != 0x00) || ((packetStart[3] & 0xC0) != 0x00))
 	{
 		ERROR("Segment doesn't starts with valid TS packet, discarding. Dump first packet");
-		size_t n = size;
+		size_t n = (size_t)(pBuffer->GetLen());
 		if( n>PACKET_SIZE )
 		{
 			n = PACKET_SIZE;

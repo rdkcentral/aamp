@@ -25,6 +25,8 @@
 
 #include "StreamAbstractionAAMP.h"
 #include "AampUtils.h"
+#include "isobmffprocessor.h"
+#include "ElementaryProcessor.h"
 #include "isobmffbuffer.h"
 #include "AampCacheHandler.h"
 #include <assert.h>
@@ -1009,13 +1011,15 @@ bool MediaTrack::InjectFragment()
 				}
 				else
 				{
-					if( ISCONFIGSET(eAAMPConfig_EnablePTSReStamp)  && ( aamp->mVideoFormat == FORMAT_ISO_BMFF && 
-						( aamp->mMediaFormat == eMEDIAFORMAT_HLS_MP4 ) ) )
+					if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
 					{
 						context->ProcessDiscontinuity(type);
 						isDiscontinuity = true;
-						context->resetDiscontinuityTrackState();
-						aamp->ResetDiscontinuityInTracks();
+						if(type != eTRACK_SUBTITLE)
+						{
+							context->resetDiscontinuityTrackState();
+							aamp->ResetDiscontinuityInTracks();
+						}
 						AAMPLOG_WARN("track %s - Discontinuity @position - %f", name, cachedFragment->position);
 					}
 					else
@@ -1447,6 +1451,7 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 		,abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
 		,frDownloadWait(),prevDownloadStartTime(-1)
+		,playContext(nullptr)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	cachedFragment = new CachedFragment[maxCachedFragmentsPerTrack];
@@ -3310,6 +3315,48 @@ bool StreamAbstractionAAMP::IsSeekedToLive(double seekPosition)
 		AAMPLOG_INFO("SeekPostion[%lf] is not in live range, endPos[%lf]-mLiveOffset(%lf) i.e:%lf",seekPosition,endPos,aamp->mLiveOffset,endPos-aamp->mLiveOffset);
 	}
 	return ret;
+}
+
+/**
+ * @brief Initialize ISOBMFF Media Processor
+ *
+ * @return void
+ */
+void StreamAbstractionAAMP::InitializeMediaProcessor()
+{
+	std::shared_ptr<IsoBmffProcessor> peerProcessor = nullptr;
+	std::shared_ptr<MediaProcessor> peerSubtitleProcessor = nullptr;
+	StreamOutputFormat videoFormat, audioFormat, auxAudioFormat, subtitleFormat;
+	GetStreamFormat(videoFormat, audioFormat, auxAudioFormat, subtitleFormat);
+	for (int i = eMEDIATYPE_SUBTITLE; i >= eMEDIATYPE_VIDEO; i--)
+	{
+		MediaTrack *track = GetMediaTrack((TrackType) i);
+		if(track && track->enabled)
+		{
+			AAMPLOG_WARN("StreamAbstractionAAMP : Track[%s] - FORMAT_ISO_BMFF", track->name);
+			if(eMEDIATYPE_SUBTITLE != i)
+			{
+				track->playContext = std::make_shared<IsoBmffProcessor>(aamp, mLogObj, (IsoBmffProcessorType) i, peerProcessor.get(), peerSubtitleProcessor.get());
+				track->playContext->setRate(aamp->rate, PlayMode_normal);
+				if(eMEDIATYPE_AUDIO == i)
+				{
+					peerProcessor = std::static_pointer_cast<IsoBmffProcessor> (track->playContext);
+				}
+			}
+			else
+			{
+				if(FORMAT_SUBTITLE_MP4 == subtitleFormat)
+				{
+					track->playContext = std::make_shared<IsoBmffProcessor>(aamp, mLogObj, (IsoBmffProcessorType) i);
+				}
+				else
+				{
+					track->playContext = std::make_shared<ElementaryProcessor>(aamp, mLogObj);
+				}
+				peerSubtitleProcessor = track->playContext;
+			}
+		}
+	}
 }
 
 /**

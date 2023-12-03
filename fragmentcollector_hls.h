@@ -577,7 +577,6 @@ class TrackState : public MediaTrack
 		double targetDurationSeconds;			 /**< copy of \#EXT-X-TARGETDURATION to manage playlist refresh frequency */
 		int mDeferredDrmKeyMaxTime;			 /**< copy of \#EXT-X-X1-LIN DRM refresh randomization Max time interval */
 		StreamOutputFormat streamOutputFormat;	 /**< type of data encoded in each fragment */
-		MediaProcessor* playContext;			 /**< state for s/w demuxer / pts/pcr restamper module */
 		double startTimeForPlaylistSync;		 /**< used for time-based track synchronization when switching between playlists */
 		double playTargetOffset;				 /**< For correcting timestamps of streams with audio and video tracks */
 		bool discontinuity;						 /**< Set when discontinuity is found in track*/
@@ -961,6 +960,12 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 *
 		 *************************************************************************/
 		void InitiateDrmProcess();
+
+		/***************************************************************************
+		 * @brief  Function to initiate tracks
+		 *
+		 *************************************************************************/
+		void InitTracks();
 
 	protected:
 		/***************************************************************************

@@ -1046,13 +1046,17 @@ TEST_F(sendSegmentTests, SendSegmentTest)
 {
 	size_t size = 100;
 	char segment[100];
+	AampGrowableBuffer buf("ts-processor-buffer-send-test");
+	buf.AppendBytes(segment,size);
 	double position = 0.0;
 	double duration = 10.0;
 	bool discontinuous = false;
+	bool init = false;
 	bool ptsError = true;
 	bool result;
-	result = mTSProcessor->sendSegment(segment, size, position, duration, discontinuous, nullptr, ptsError);
+	result = mTSProcessor->sendSegment(&buf, position, duration, discontinuous,init, nullptr, ptsError);
 	ASSERT_FALSE(result);
+	buf.Free();
 }
 
 TEST_F(sendSegmentTests, SetApplyOffsetFlagFalse)
@@ -1090,24 +1094,27 @@ TEST_F(sendSegmentTests, esMP3test)
 		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
 		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff
 	};
-	size_t size = sizeof(segment);
+	AampGrowableBuffer buffer("tsProcessor PAT/PMT test");
 	double position = 0;
 	double duration = 2.43;            /*Duration of the stream from which the segment data is extracted*/
 	bool discontinuous = false;
+	bool init = false;
 	bool ptsError = false;
+	buffer.AppendBytes(segment,tsPacketLength*2);
 
 	/*A thread was waiting for base PTS, in order to get around it eAAMPConfig_AudioOnlyPlayback is configured true*/
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AudioOnlyPlayback)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePublishingMuxedAudio)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamFormat(_,FORMAT_AUDIO_ES_MP3, _));
 
-	mTSProcessor->sendSegment((char*)segment, size, position, duration, discontinuous,
+	mTSProcessor->sendSegment(&buffer, position, duration, discontinuous,init,
 		[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 		{
 			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
 		},
 		ptsError
 	);
+	buffer.Free();
 }
 
 TEST_F(sendSegmentTests, SetRateTest)

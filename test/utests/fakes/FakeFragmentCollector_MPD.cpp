@@ -188,3 +188,7 @@ ProfileInfo StreamAbstractionAAMP_MPD::GetAdaptationSetAndRepresetationIndicesFo
 void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime)
 {
 }
+
+void StreamAbstractionAAMP_MPD::NotifyFirstVideoPTS(unsigned long long, unsigned long)
+{
+}

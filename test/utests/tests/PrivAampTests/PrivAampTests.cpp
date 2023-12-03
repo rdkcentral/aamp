@@ -109,6 +109,11 @@ TEST_F(PrivAampTests,WaitForDiscontinuityProcessToCompleteTest)
 	p_aamp->UnblockWaitForDiscontinuityProcessToComplete();
 }
 
+TEST_F(PrivAampTests,CompleteDiscontinutyDataDeliverForPTSRestamp)
+{
+	p_aamp->CompleteDiscontinutyDataDeliverForPTSRestamp(eMEDIATYPE_VIDEO);
+	p_aamp->CompleteDiscontinutyDataDeliverForPTSRestamp(eMEDIATYPE_AUDIO);
+}
 
 TEST_F(PrivAampTests,SetIsPeriodChangeMarkedTest)
 {
