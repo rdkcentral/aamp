@@ -879,9 +879,12 @@ bool MediaTrack::ProcessFragmentChunk()
 		//isobufTest.printBoxes();
 		isobufTest.destroyBoxes();
 #endif
-		AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%ld fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
-		InjectFragmentChunkInternal((MediaType)type,&parsedBufferChunk , fpts, fpts, fduration);
-		totalInjectedChunksDuration += fduration;
+		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
+		{
+			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%ld fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
+			InjectFragmentChunkInternal((MediaType)type,&parsedBufferChunk , fpts, fpts, fduration);
+			totalInjectedChunksDuration += fduration;
+		}
 	}
 
 	// Move unparsed data sections to beginning
