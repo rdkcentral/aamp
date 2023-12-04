@@ -27,16 +27,10 @@ pkg_check_modules(GTEST REQUIRED gtest)
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
 
 # Mac OS X
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    include_directories(/usr/local/include)
-    include_directories(/usr/local/include/libdash)
-    set(OS_LD_FLAGS -L/usr/local/lib)
-
-else()
+if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     include_directories(${AAMP_ROOT}/Linux/include)
-    include_directories(${AAMP_ROOT}/Linux/include/libdash)
     set(OS_LD_FLAGS -luuid)
-endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})

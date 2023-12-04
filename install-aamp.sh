@@ -1,13 +1,16 @@
 #!/bin/bash
 # This script will setup basic environment and fetch aamp code
 # for a vanilla Big Sur/Monterey system to be ready for development
+
 #######################Default Values##################
 aamposxinstallerver="0.11"
 defaultbuilddir=aamp-devenv-$(date +"%Y-%m-%d-%H-%M")
 defaultcodebranch="dev_sprint_23_1"
 defaultchannellistfile="$HOME/aampcli.csv"
 defaultopensslversion="openssl@1.1"
+defaultlibdashversion="libdash = 3.0"
 googletestreference="tags/release-1.11.0"
+
 processtorun="aamp"
 subtecoption=""
 dontrunaampcli=false
@@ -499,18 +502,25 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     pwd
     cd ../
 
-    echo "Install libdash"
-    sudo rm -rf /usr/local/include/libdash
-    mkdir temp
-    cp ../install_libdash.sh ./temp
-    cd temp
-
-    sudo bash ./install_libdash.sh
+    echo "Checking for libdash installation"
+    pkg-config --exists $defaultlibdashversion
     if [ $? != 0 ]; then
-        echo "libdash installation FAILED"
-        exit 0
+        # This cleanup is a NOP, but useful for reference
+        sudo rm -rf /usr/local/include/libdash
+        sudo rm -f /usr/local/lib/pkgconfig/libdash.pc
+        mkdir temp
+        cp ../install_libdash.sh ./temp
+        cd temp
+
+        sudo bash ./install_libdash.sh
+        if [ $? != 0 ]; then
+            echo "libdash installation FAILED"
+            exit 0
+        fi
+        cd ..
+    else
+        echo "$defaultlibdashversion is already installed."
     fi
-    cd ..
 
     pwd
     do_clone_rdk_repo $codebranch aampabr

@@ -31,7 +31,6 @@ include_directories(${AAMP_ROOT}/subtec/subtecparser)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     include_directories(${AAMP_ROOT}/Linux/include)
-    include_directories(${AAMP_ROOT}/Linux/include/libdash)
 endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
 
 include_directories(${GTEST_INCLUDE_DIRS})

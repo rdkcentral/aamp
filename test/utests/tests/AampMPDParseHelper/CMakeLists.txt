@@ -33,16 +33,14 @@ include_directories(${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/d
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     include_directories(${AAMP_ROOT}/Linux/include)
-    include_directories(${AAMP_ROOT}/Linux/include/libdash)
     set(OS_LD_FLAGS -luuid)
-else()
-   include_directories(${AAMP_ROOT}/.libs/libdash/libdash/libdash/include)
 endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(${LIBDASH_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 

@@ -40,12 +40,11 @@ include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(${LIBDASH_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
-include_directories(${AAMP_ROOT}/Linux/include/libdash)
-include_directories(/usr/local/include/libdash)
 
 set(TEST_SOURCES    PrivAampTests.cpp
                     PrivAampAAMPTests.cpp)

@@ -19,6 +19,7 @@ include(GoogleTest)
 
 pkg_check_modules(GMOCK REQUIRED gmock)
 pkg_check_modules(GTEST REQUIRED gtest)
+pkg_check_modules(GLIB REQUIRED glib-2.0)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
@@ -31,10 +32,7 @@ include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_RO
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     include_directories(${AAMP_ROOT}/Linux/include)
-    #    include_directories(${AAMP_ROOT}/Linux/include/libdash)
     set(OS_LD_FLAGS -luuid)
-else()
-   include_directories(${AAMP_ROOT}/.libs/libdash/libdash/libdash/include)
 endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
 
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -72,7 +70,7 @@ if (COVERAGE_ENABLED)
 endif()
 
 add_compile_definitions(TESTS_DIR="${TEST_FILES_DIR}")
-target_link_libraries(${EXEC_NAME} fakes ${GLIB_LDFLAGS} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} -lpthread)
+target_link_libraries(${EXEC_NAME} fakes ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} -lpthread)
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 

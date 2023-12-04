@@ -17,6 +17,7 @@
 
 pkg_check_modules(GMOCK REQUIRED gmock)
 pkg_check_modules(GTEST REQUIRED gtest)
+pkg_check_modules(LIBDASH REQUIRED libdash)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
@@ -28,7 +29,6 @@ include_directories(${AAMP_ROOT}/subtec/subtecparser)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     include_directories(${AAMP_ROOT}/Linux/include)
-    include_directories(${AAMP_ROOT}/Linux/include/libdash)
     set(OS_LD_FLAGS -luuid)
 endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
 
