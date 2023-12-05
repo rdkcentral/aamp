@@ -4852,22 +4852,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		aux->lastPlaylistDownloadTimeMS = audio->lastPlaylistDownloadTimeMS;
 		/*Use start timestamp as zero when audio is not elementary stream*/
 		mStartTimestampZero = ((video->streamOutputFormat == FORMAT_ISO_BMFF || audio->streamOutputFormat == FORMAT_ISO_BMFF) || (rate == AAMP_NORMAL_PLAY_RATE && (!audio->enabled || audio->playContext)));
-		if (subtitle->enabled && subtitle->mSubtitleParser)
-		{
-			//Need to set reportProgressOffset to subtitleParser
-			//playTarget becomes seek_pos_seconds and playlistPosition is the acutal position in playlist
-			//TODO: move call GetNextFragmentUriFromPlaylist() to the sync operation btw muxed and subtitle
-			if (!audio->enabled)
-			{
-				bool reloadUri = false;
-				video->fragmentURI = video->GetNextFragmentUriFromPlaylist(reloadUri, true);
-				video->playTarget = video->playlistPosition;
-				video->playTargetBufferCalc = video->playTarget;
-			}
-			double offset = (video->playlistPosition - seekPosition) * 1000.0;
-			AAMPLOG_WARN("StreamAbstractionAAMP_HLS: Setting setProgressEventOffset value of %.3f ms", offset);
-			subtitle->mSubtitleParser->setProgressEventOffset(offset);
-		}
 
 		if (rate == AAMP_NORMAL_PLAY_RATE)
 		{
@@ -4940,6 +4924,15 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				SeekPosUpdate(video->playTarget);
 			}
 			AAMPLOG_WARN("seekPosition updated with corrected playtarget : %f midSeekPtsOffset : %f",seekPosition,midSeekPtsOffset);
+		}
+
+		if (subtitle->enabled && subtitle->mSubtitleParser)
+		{
+			//Need to set reportProgressOffset to subtitleParser
+			//playTarget becomes seek_pos_seconds and playlistPosition is the acutal position in playlist
+			double offset = (subtitle->playlistPosition - seekPosition) * 1000.0;
+			AAMPLOG_WARN("StreamAbstractionAAMP_HLS: Setting setProgressEventOffset value of %.3f ms", offset);
+			subtitle->mSubtitleParser->setProgressEventOffset(offset);
 		}
 
 		// negative buffer calculation fix

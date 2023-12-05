@@ -5230,9 +5230,12 @@ void AampBufferControl::BufferControlMaster::UpdateAll(const AAMPGstPlayer *play
 		{
 			MediaType mediaType = (MediaType)i;
 			struct media_stream *stream = &player->privateContext->stream[mediaType];
-			if(stream)
+			if(stream )
 			{
-				stream->mBufferControl.update(player, mediaType);
+				if( stream->format != FORMAT_INVALID)
+				{
+					stream->mBufferControl.update(player, mediaType);
+				}
 			}
 			else
 			{
