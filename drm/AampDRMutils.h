@@ -26,6 +26,7 @@
 #ifndef AampDRMutils_h
 #define AampDRMutils_h
 
+#include <atomic>
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -72,18 +73,21 @@ private:
 	class SessionManager
 	{
 		private:
-		int64_t mID;
-		SessionManager(int64_t sessionID);
-		
+		int64_t mID;	//set once undermutex in constructor
+		std::atomic<std::size_t> mInputSummaryHash;	//can be changed by setInputSummaryHash
+		SessionManager(int64_t sessionID, std::size_t inputSummaryHash);
+
 		public:
 		/**
 		 * @fn getInstance
 		 * @brief
 		 * Get a shared pointer to an object corresponding to the sessionID, creating a new one if required
 		*/
-		static std::shared_ptr<AampSecManagerSession::SessionManager> getInstance(int64_t sessionID);
+		static std::shared_ptr<AampSecManagerSession::SessionManager> getInstance(int64_t sessionID, std::size_t inputSummaryHash);
 
 		int64_t getID(){return mID;}
+		std::size_t getInputSummaryHash(){return mInputSummaryHash.load();}
+		void setInputSummaryHash(std::size_t inputSummaryHash);
 
 		//calls AampSecManager::ReleaseSession() on mID
 		~SessionManager();
@@ -99,7 +103,7 @@ private:
 	* this is only intended to be used in AampSecManager::acquireLicence()
 	* it is the responsibility of AampSecManager::acquireLicence() to ensure sessionID is valid
 	*/
-	AampSecManagerSession(int64_t sessionID);
+	AampSecManagerSession(int64_t sessionID, std::size_t inputSummaryHash);
 public:
 	/**
  	* @brief constructor for an invalid object*/
@@ -131,6 +135,7 @@ public:
 	 * otherwise the session may be closed before the ID can be used
 	 */
 	int64_t getSessionID(void) const;
+	std::size_t getInputSummaryHash();
 
 	bool isSessionValid(void) const
 	{
@@ -141,6 +146,22 @@ public:
 	{
 		std::lock_guard<std::mutex>lock(sessionIdMutex);
 		mpSessionManager.reset();
+	}
+
+	std::string ToString()
+	{
+		std::stringstream ss;
+		ss<<"Session ";
+		auto id = getSessionID();	//ID retrieved under mutex
+		if(id != AAMP_SECMGR_INVALID_SESSION_ID)
+		{
+			ss<<id<<" valid";
+		}
+		else
+		{
+			ss<<"invalid";
+		}
+		return ss.str();
 	}
 };
 #endif

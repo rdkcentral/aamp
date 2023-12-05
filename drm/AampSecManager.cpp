@@ -134,11 +134,73 @@ AampSecManager::~AampSecManager()
 
 	UnRegisterAllEvents();
 }
+static std::size_t getInputSummaryHash(const char* moneyTraceMetdata[][2], const char* contentMetdata,
+					size_t contMetaLen, const char* licenseRequest, const char* keySystemId,
+					const char* mediaUsage, const char* accessToken, bool isVideoMuted)
+{
+	std::stringstream ss;
+	ss<< moneyTraceMetdata[0][1]<<isVideoMuted<<//sessionConfiguration (only variables)
+	//ignoring hard coded aspectDimensions 
+	keySystemId<<mediaUsage<<accessToken<<contentMetdata<<licenseRequest;
+
+	std::string InputSummary =  ss.str();
+
+	auto returnHash = std::hash<std::string>{}(InputSummary);
+	ss<<"SecManager input summary hash: "<<returnHash << "(" << InputSummary << ")";
+	AAMPLOG_MIL("%s", ss.str().c_str());
+
+	return returnHash;
+}
+
+
+bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licenseUrl, const char* moneyTraceMetdata[][2],
+					const char* accessAttributes[][2], const char* contentMetdata, size_t contMetaLen,
+					const char* licenseRequest, size_t licReqLen, const char* keySystemId,
+					const char* mediaUsage, const char* accessToken, size_t accTokenLen,
+					AampSecManagerSession &session,
+					char** licenseResponse, size_t* licenseResponseLength, int32_t* statusCode, int32_t* reasonCode, int32_t* businessStatus, bool isVideoMuted)
+{
+	bool success = false;
+
+	auto inputSummaryHash = getInputSummaryHash(moneyTraceMetdata, contentMetdata,
+					contMetaLen, licenseRequest, keySystemId,
+					mediaUsage, accessToken, isVideoMuted);
+
+	if(!session.isSessionValid())
+	{
+		AAMPLOG_MIL("%s, open new session.", session.ToString().c_str());
+	}
+	else if(inputSummaryHash==session.getInputSummaryHash())
+	{
+		AAMPLOG_MIL("%s, & input data matches, set session to active.", session.ToString().c_str());
+		success = UpdateSessionState(session.getSessionID(), true);
+	}
+	else
+	{
+		AAMPLOG_MIL("%s but the input data has changed, update session.", session.ToString().c_str());
+	}
+
+	if(!success)
+	{
+		/*old AcquireLicense() code used for open & update (expected operation) and
+		 * if setPlaybackSessionState doesn't have the expected result*/
+		success = AcquireLicenseOpenOrUpdate(aamp, licenseUrl, moneyTraceMetdata,
+					accessAttributes, contentMetdata, contMetaLen,
+					licenseRequest, licReqLen, keySystemId,
+					mediaUsage, accessToken, accTokenLen,
+					session,
+					licenseResponse, licenseResponseLength, statusCode, reasonCode,
+					businessStatus, isVideoMuted);
+	}
+
+	return success;
+}
+
 
 /**
  * @brief To acquire license from SecManager
  */
-bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licenseUrl, const char* moneyTraceMetdata[][2],
+bool AampSecManager::AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const char* licenseUrl, const char* moneyTraceMetdata[][2],
 					const char* accessAttributes[][2], const char* contentMetdata, size_t contMetaLen,
 					const char* licenseRequest, size_t licReqLen, const char* keySystemId,
 					const char* mediaUsage, const char* accessToken, size_t accTokenLen,
@@ -201,7 +263,7 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 #ifdef DEBUG_SECMAMANER
 	std::string params;
 	param.ToString(params);
-	AAMPLOG_WARN("SecManager openPlaybackSession param: %s", params.c_str());
+	AAMPLOG_WARN("SecManager %s param: %s",apiName, params.c_str());
 #endif
 	
 	{
@@ -238,7 +300,7 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 			//Retry delay
 			int sleepTime = GETCONFIGVALUE(eAAMPConfig_LicenseRetryWaitTime);
 			if(sleepTime<=0) sleepTime = 100;
-			//invoke "openPlaybackSession" with retries for specific error cases
+			//invoke "openPlaybackSession" or "updatePlaybackSession" with retries for specific error cases
 			do
 			{
 				rpcResult = mSecManagerObj.InvokeJSONRPC(apiName, param, response, 10000);
@@ -249,14 +311,19 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 				#ifdef DEBUG_SECMAMANER
 					std::string output;
 					response.ToString(output);
-					AAMPLOG_WARN("SecManager openPlaybackSession o/p: %s",output.c_str());
+					AAMPLOG_WARN("SecManager %s o/p: %s",apiName, output.c_str());
 				#endif
 					if (response["success"].Boolean())
 					{
 						/* DELIA-63205
 						* Ensure all sessions have a Session ID created to manage lifetime
-						* multiple object creation is OK as an existing instance should be returned*/
-						newSession = AampSecManagerSession(response["sessionId"].Number());
+						* multiple object creation is OK as an existing instance should be returned
+						* where input data changes e.g. following a call to updatePlaybackSession
+						* the input data to the shared session is updated here*/
+						newSession = AampSecManagerSession(response["sessionId"].Number(), 
+						getInputSummaryHash(moneyTraceMetdata, contentMetdata,
+						contMetaLen, licenseRequest, keySystemId,
+						mediaUsage, accessToken, isVideoMuted));
 
 						std::string license = response["license"].String();
 						AAMPLOG_TRACE("SecManager obtained license with length: %d and data: %s",license.size(), license.c_str());
@@ -350,7 +417,7 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 		}
 		else
 		{
-			AAMPLOG_ERR("SecManager Failed to copy access token to the shared memory, open playback session is aborted statusCode: %d, reasonCode: %d", *statusCode, *reasonCode);
+			AAMPLOG_ERR("SecManager Failed to copy access token to the shared memory, %s is aborted statusCode: %d, reasonCode: %d", apiName, *statusCode, *reasonCode);
 		}
 	}
 	return ret;
@@ -359,8 +426,9 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 /**
  * @brief To update session state to SecManager
  */
-void AampSecManager::UpdateSessionState(int64_t sessionId, bool active)
+bool AampSecManager::UpdateSessionState(int64_t sessionId, bool active)
 {
+	bool success = false;
 	bool rpcResult = false;
 	JsonObject result;
 	JsonObject param;
@@ -383,7 +451,11 @@ void AampSecManager::UpdateSessionState(int64_t sessionId, bool active)
 
 	if (rpcResult)
 	{
-		if (!result["success"].Boolean())
+		if (result["success"].Boolean())
+		{
+			success = true;
+		}
+		else
 		{
 			std::string responseStr;
 			result.ToString(responseStr);
@@ -394,6 +466,8 @@ void AampSecManager::UpdateSessionState(int64_t sessionId, bool active)
 	{
 		AAMPLOG_ERR("%s:%d SecManager setPlaybackSessionState failed for ID: %" PRId64 " and active: %d", __FUNCTION__, __LINE__, sessionId, active);
 	}
+
+	return success;
 }
 
 /**

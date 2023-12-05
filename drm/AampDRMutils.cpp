@@ -34,7 +34,7 @@
 
 
 
-std::shared_ptr<AampSecManagerSession::SessionManager> AampSecManagerSession::SessionManager::getInstance(int64_t sessionID)
+std::shared_ptr<AampSecManagerSession::SessionManager> AampSecManagerSession::SessionManager::getInstance(int64_t sessionID, std::size_t inputSummaryHash)
 {
 	std::shared_ptr<SessionManager> returnValue;
 
@@ -63,7 +63,7 @@ std::shared_ptr<AampSecManagerSession::SessionManager> AampSecManagerSession::Se
 			}
 
 			ss<<"), instances remaining."<< instances.size();
-			AAMPLOG_WARN("%s",ss.str().c_str());
+			AAMPLOG_MIL("%s",ss.str().c_str());
 		}
 	}
 
@@ -85,11 +85,20 @@ std::shared_ptr<AampSecManagerSession::SessionManager> AampSecManagerSession::Se
 			}
 		}
 
-		/* where an existing, valid instance is not available for sessionID
-		 * create a new instance & save a pointer to it for possible future reuse*/
-		if(!returnValue)
+		if(returnValue)
 		{
-			returnValue.reset(new SessionManager{sessionID});
+			if(returnValue->getInputSummaryHash()!=inputSummaryHash)
+			{
+				//this should only occur after a successful updatePlaybackSession
+				AAMPLOG_MIL("AampSecManagerSession: session ID %lld input data changed.", sessionID);
+				returnValue->setInputSummaryHash(inputSummaryHash);
+			}
+		}
+		else
+		{
+			/* where an existing, valid instance is not available for sessionID
+			* create a new instance & save a pointer to it for possible future reuse*/
+			returnValue.reset(new SessionManager{sessionID, inputSummaryHash});
 			instances[sessionID] = returnValue;
 			AAMPLOG_WARN("AampSecManagerSession: new instance created for ID:%lld, %d instances total.",
 			sessionID,
@@ -111,11 +120,22 @@ AampSecManagerSession::SessionManager::~SessionManager()
 		AampSecManager::GetInstance()->ReleaseSession(mID);
 	}
 }
+void AampSecManagerSession::SessionManager::setInputSummaryHash(std::size_t inputSummaryHash)
+{
+	mInputSummaryHash=inputSummaryHash;
+	std::stringstream ss;
+	ss<<"Input summary hash updated to: "<<inputSummaryHash << "for ID "<<mID;
+	AAMPLOG_MIL("%s", ss.str().c_str());
+}
 
-AampSecManagerSession::SessionManager::SessionManager(int64_t sessionID):mID(sessionID){};
 
-AampSecManagerSession::AampSecManagerSession(int64_t sessionID):
-mpSessionManager(AampSecManagerSession::SessionManager::getInstance(sessionID)),
+AampSecManagerSession::SessionManager::SessionManager(int64_t sessionID, std::size_t inputSummaryHash):
+mID(sessionID),
+mInputSummaryHash(inputSummaryHash)
+{};
+
+AampSecManagerSession::AampSecManagerSession(int64_t sessionID, std::size_t inputSummaryHash):
+mpSessionManager(AampSecManagerSession::SessionManager::getInstance(sessionID, inputSummaryHash)),
 sessionIdMutex()
 {};
 
@@ -129,6 +149,18 @@ int64_t AampSecManagerSession::getSessionID(void) const
 	}
 
 	return ID;
+}
+
+std::size_t AampSecManagerSession::getInputSummaryHash()
+{
+	std::lock_guard<std::mutex>lock(sessionIdMutex);
+	std::size_t hash=0;
+	if(mpSessionManager)
+	{
+		hash = mpSessionManager->getInputSummaryHash();
+	}
+
+	return hash;
 }
 #endif
 

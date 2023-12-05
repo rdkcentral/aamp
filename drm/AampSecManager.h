@@ -89,7 +89,7 @@ public:
 	 * @param[in] sessionId - session id
 	 * @param[in] active - true if session is active, false otherwise
 	 */
-	void UpdateSessionState(int64_t sessionId, bool active);
+	bool UpdateSessionState(int64_t sessionId, bool active);
 
 	/**
 	 * @fn setVideoWindowSize
@@ -115,6 +115,16 @@ public:
 	bool loadClutWatermark(int64_t sessionId, int64_t graphicId, int64_t watermarkClutBufferKey, int64_t watermarkImageBufferKey, int64_t clutPaletteSize, const char* clutPaletteFormat, int64_t watermarkWidth, int64_t watermarkHeight, float aspectRatio);
 
 private:
+
+	/* Run AcquireLicenseOpenOrUpdate is the old AcquireLicense code
+	 * It is used by AcquireLicense() to for opening sessions & for calling update when this is required*/
+	bool AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const char* licenseUrl, const char* moneyTraceMetdata[][2],
+						const char* accessAttributes[][2], const char* contentMetadata, size_t contentMetadataLen,
+						const char* licenseRequest, size_t licenseRequestLen, const char* keySystemId,
+						const char* mediaUsage, const char* accessToken, size_t accessTokenLen,
+						AampSecManagerSession &session,
+						char** licenseResponse, size_t* licenseResponseLength,
+						int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus, bool isVideoMuted);
 
 	/**
 	 * @fn ReleaseSession - this should only be used by AampSecManagerSession::SessionManager::~SessionManager();
