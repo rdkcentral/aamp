@@ -741,7 +741,8 @@ Example:
 
 ### setVideoMute( state )
 - Supported UVE version 0.7 and above.
-- Black out video for parental control purposes or enable the video playback . 
+- Black out video for parental control purposes or enable the video playback .
+- Returns true if setVideoMute has been performed.
 
 | Name | Type | Decription |
 | ---- | ---- | ---------- |
@@ -899,6 +900,7 @@ Example:
 ### setVideoZoom( videoZoom )
 - Supported UVE version 0.7 and above.
 - Set video zoom, by default its set to “full”
+- Returns true if setVideoZoom has been performed.
 
 |Name|Type|Description|
 |----|----|-----------|
@@ -1465,6 +1467,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 ### setClosedCaptionStatus ( status )
 - Supported UVE version 2.6 and above.
 - Set the ClosedCaption rendering to on/off.
+- Returns true if setClosedCaptionStatus has been performed.
 
 |Name|Type|Description|
 |----|----|-----------|
@@ -1487,6 +1490,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 ### setTextStyleOptions ( options )
 - Supported UVE version 2.6 and above.
 - Set the ClosedCaption style options to be used for rendering.
+- Returns true if setTextStyleOptions has been performed.
 
 |Name|Type|Description|
 |----|----|-----------|

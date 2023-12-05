@@ -1982,28 +1982,30 @@ JSValueRef AAMPMediaPlayerJS_getSupportedKeySystems (JSContextRef ctx, JSObjectR
 JSValueRef AAMPMediaPlayerJS_setVideoMute (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
 	LOG_TRACE("Enter");
+	bool bRet = false;
 	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
 	if (!privObj || !privObj->_aamp)
 	{
 		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
 		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call setVideoMute() on instances of AAMPPlayer");
-		return JSValueMakeUndefined(ctx);
-	}
-
-	if (argumentCount == 1)
-	{
-		bool videoMute = JSValueToBoolean(ctx, arguments[0]);
-		privObj->_aamp->SetVideoMute(videoMute);
-		// privObj->_aamp->SetSubtitleMute(videoMute);
-         	LOG_WARN(privObj,"Invoked setVideoMute %d",videoMute);
 	}
 	else
 	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
-		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setVideoMute() - 1 argument required");
+		if (argumentCount == 1)
+		{
+			bool videoMute = JSValueToBoolean(ctx, arguments[0]);
+			privObj->_aamp->SetVideoMute(videoMute);
+			bRet = true;
+			LOG_WARN(privObj,"Invoked setVideoMute %d",videoMute);
+		}
+		else
+		{
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setVideoMute() - 1 argument required");
+		}
 	}
 	LOG_TRACE("Exit");
-	return JSValueMakeUndefined(ctx);
+	return JSValueMakeBoolean(ctx, bRet);
 }
 
 
@@ -2412,37 +2414,40 @@ JSValueRef AAMPMediaPlayerJS_setVideoRect (JSContextRef ctx, JSObjectRef functio
 JSValueRef AAMPMediaPlayerJS_setVideoZoom (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
 	LOG_TRACE("Enter");
+	bool bRet = false;
 	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
 	if (!privObj || !privObj->_aamp)
 	{
 		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
 		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call setVideoZoom() on instances of AAMPPlayer");
-		return JSValueMakeUndefined(ctx);
-	}
-
-	if (argumentCount == 1)
-	{
-		VideoZoomMode zoom;
-		char* zoomStr = aamp_JSValueToCString(ctx, arguments[0], exception);
-		if (0 == strcmp(zoomStr, "none"))
-		{
-			zoom = VIDEO_ZOOM_NONE;
-		}
-		else
-		{
-			zoom = VIDEO_ZOOM_FULL;
-		}
-        	LOG_WARN(privObj,"_aamp->SetVideoZoom(%d)", static_cast<int>(zoom));
-		privObj->_aamp->SetVideoZoom(zoom);
-		SAFE_DELETE_ARRAY(zoomStr);
 	}
 	else
 	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
-		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setVideoZoom() - 1 argument required");
+		if (argumentCount == 1)
+		{
+			VideoZoomMode zoom;
+			char* zoomStr = aamp_JSValueToCString(ctx, arguments[0], exception);
+			if (0 == strcmp(zoomStr, "none"))
+			{
+				zoom = VIDEO_ZOOM_NONE;
+			}
+			else
+			{
+				zoom = VIDEO_ZOOM_FULL;
+			}
+			LOG_WARN(privObj,"_aamp->SetVideoZoom(%d)", static_cast<int>(zoom));
+			privObj->_aamp->SetVideoZoom(zoom);
+			bRet = true;
+			SAFE_DELETE_ARRAY(zoomStr);
+		}
+		else
+		{
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setVideoZoom() - 1 argument required");
+		}
 	}
 	LOG_TRACE("Exit");
-	return JSValueMakeUndefined(ctx);
+	return JSValueMakeBoolean(ctx, bRet);
 }
 
 
@@ -2986,28 +2991,30 @@ static JSValueRef AAMPMediaPlayerJS_notifyReservationCompletion(JSContextRef ctx
 JSValueRef AAMPMediaPlayerJS_setClosedCaptionStatus(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
 	LOG_TRACE("Enter");
+	bool bRet = false;
 	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
 	if (!privObj || !privObj->_aamp)
 	{
 		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
 		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call setClosedCaptionStatus() on instances of AAMPPlayer");
-		return JSValueMakeUndefined(ctx);
-	}
-
-	if (argumentCount != 1)
-	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
-		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setClosedCaptionStatus() - 1 argument required");
 	}
 	else
 	{
-                
-		bool enabled = JSValueToBoolean(ctx, arguments[0]);
-        	LOG_WARN(privObj,"_aamp->SetCCStatus(%d)", enabled);
-		privObj->_aamp->SetCCStatus(enabled);
+		if (argumentCount != 1)
+		{
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setClosedCaptionStatus() - 1 argument required");
+		}
+		else
+		{
+			bool enabled = JSValueToBoolean(ctx, arguments[0]);
+			LOG_WARN(privObj,"_aamp->SetCCStatus(%d)", enabled);
+			privObj->_aamp->SetCCStatus(enabled);
+			bRet = true;
+		}
 	}
 	LOG_TRACE("Exit");
-	return JSValueMakeUndefined(ctx);
+	return JSValueMakeBoolean(ctx, bRet);
 }
 
 
@@ -3024,36 +3031,39 @@ JSValueRef AAMPMediaPlayerJS_setClosedCaptionStatus(JSContextRef ctx, JSObjectRe
 JSValueRef AAMPMediaPlayerJS_setTextStyleOptions(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
 	LOG_TRACE("Enter");
+	bool bRet = false;
 	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
 	if (!privObj || !privObj->_aamp)
 	{
 		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
 		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call setTextStyleOptions() on instances of AAMPPlayer");
-		return JSValueMakeUndefined(ctx);
-	}
-
-	if (argumentCount != 1)
-	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
-		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setTextStyleOptions() - 1 argument required");
 	}
 	else
 	{
-		if (JSValueIsString(ctx, arguments[0]))
+		if (argumentCount != 1)
 		{
-			const char *options = aamp_JSValueToCString(ctx, arguments[0], NULL);
-            		LOG_WARN(privObj," _aamp->SetTextStyle(%s)", options);
-			privObj->_aamp->SetTextStyle(std::string(options));
-			SAFE_DELETE_ARRAY(options);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setTextStyleOptions() - 1 argument required");
 		}
 		else
 		{
-            		LOG_ERROR(privObj,"InvalidArgument - Argument should be a JSON formatted string!");
-			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Argument should be a JSON formatted string!");
+			if (JSValueIsString(ctx, arguments[0]))
+			{
+				const char *options = aamp_JSValueToCString(ctx, arguments[0], NULL);
+				LOG_WARN(privObj," _aamp->SetTextStyle(%s)", options);
+				privObj->_aamp->SetTextStyle(std::string(options));
+				bRet = true;
+				SAFE_DELETE_ARRAY(options);
+			}
+			else
+			{
+				LOG_ERROR(privObj,"InvalidArgument - Argument should be a JSON formatted string!");
+				*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Argument should be a JSON formatted string!");
+			}
 		}
 	}
 	LOG_TRACE("Exit");
-	return JSValueMakeUndefined(ctx);
+	return JSValueMakeBoolean(ctx, bRet);
 }
 
 
