@@ -1489,6 +1489,12 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 			AAMPLOG_WARN("Schedule retune for GstPipeline Error");
 			_this->aamp->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
 		}
+		else if (strstr(error->message, "Error parsing H.264 stream"))
+		{
+			//Do nothing. Temporary workaround for DELIA-63777, where forwarding this error causes a freeze on Foxtel xione.
+			//To be removed when root cause determined in DELIA-63987.
+			AAMPLOG_WARN("%s", errorDesc);
+		}
 		else
 		{
 			_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc);			/* Forward the information to handle error */
