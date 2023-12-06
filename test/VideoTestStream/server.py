@@ -340,6 +340,7 @@ if __name__ == "__main__":
     group.add_argument("--live", action="store_true", help="emulate a live test stream (HLS only)")
     parser.add_argument("--time", action="store_true", help="add EXT-X-PROGRAM-DATE-TIME tags to HLS (or live) event playlists (enabled for live)")
     parser.add_argument("--discontinuity", action="store_true", help="add EXT-X-DISCONTINUITY tags to HLS event playlists")
+    parser.add_argument("--hostname", help="server socket host name (default %s)" % (hostName))
     parser.add_argument("--port", type=int, help="HTTP server port number")
     parser.add_argument("--mintime", type=float, help="starting event (or live) duration in seconds (default %d)" % (TestServer.minTime))
     parser.add_argument("--livewindow", type=float, help="live window in seconds (default %d)" % (TestServer.liveWindow))
@@ -358,6 +359,9 @@ if __name__ == "__main__":
 
     if args.discontinuity:
         TestServer.addDiscontinuities = True
+
+    if args.hostname:
+        hostName = args.hostname
 
     if args.port:
         serverPort = args.port
