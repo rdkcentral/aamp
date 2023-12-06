@@ -2252,7 +2252,7 @@ static GstElement* AAMPGstPlayer_GetAppSrc(AAMPGstPlayer *_this, MediaType media
 	{
 		auto stream_format = _this->privateContext->stream[eMEDIATYPE_SUBTITLE].format;
 
-		if (stream_format == FORMAT_SUBTITLE_MP4)
+		if (stream_format == FORMAT_SUBTITLE_MP4 || (_this->aamp->mMediaFormat == eMEDIAFORMAT_DASH && stream_format == FORMAT_SUBTITLE_WEBVTT))
 		{
 			AAMPLOG_INFO("Subtitle seeking first PTS %.2f/%" GST_TIME_FORMAT " seek_pos_seconds %02f", _this->aamp->GetFirstPTS(), GST_TIME_ARGS(_this->aamp->GetFirstPTS() * GST_SECOND), _this->aamp->seek_pos_seconds);
 			gst_element_seek_simple(GST_ELEMENT(source), GST_FORMAT_TIME, GST_SEEK_FLAG_NONE, _this->aamp->GetFirstPTS() * GST_SECOND);
@@ -2839,11 +2839,6 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 
 		AAMPLOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d", mediaType, initFragment);
 
-		// Send Fisrt PTS value to fix the subtitle sync issue for dash with single vtt file.
-		if((aamp->mMediaFormat == eMEDIAFORMAT_DASH) && (mediaType == eMEDIATYPE_SUBTITLE) && (stream->format == FORMAT_SUBTITLE_WEBVTT))
-		{
-			SetSubtitlePtsOffset(aamp->GetFirstPTS()*1000);
-		}
 	}
 
 	// Send the qtdemux override event for restamping PTS

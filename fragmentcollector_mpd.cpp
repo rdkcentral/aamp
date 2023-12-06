@@ -2866,7 +2866,16 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 		}
 		else
 		{
-			AAMPLOG_ERR("not-yet-supported mpd format");
+			if(pMediaStreamContext->mediaType == eMEDIATYPE_SUBTITLE)
+			{
+				//Updating fragmentTime and fragmentDescriptor.Time with fisrtPTS
+				//CacheFragment is called with both fragmentTime and fragmentDescriptor.Time
+				pMediaStreamContext->fragmentTime = GetFirstPTS();
+				pMediaStreamContext->fragmentDescriptor.Time = GetFirstPTS();
+
+			}
+			else
+				AAMPLOG_ERR("not-yet-supported mpd format");
 		}
 		}
 	}
