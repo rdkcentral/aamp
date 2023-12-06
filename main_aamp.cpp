@@ -3008,6 +3008,14 @@ bool PlayerInstanceAAMP::InitAAMPConfig(char *jsonStr)
 		}
 		cJSON_Delete(cfgdata);
 	}
+
+	if(NULL == aamp->curlhost[0] && mConfig.IsConfigSet(eAAMPConfig_EnableCurlStore))
+	{
+		for (int i = 0; i < eCURLINSTANCE_MAX; i++)
+		{
+			aamp->curlhost[i] = new eCurlHostMap();
+		}
+	}
 	return retVal;
 }
 

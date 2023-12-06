@@ -1271,6 +1271,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mDiscStartTime(0)
 	, mRateCorrectionDelay(false)
 	, mDownloadDelay(0)
+	, curlhost{}
 {
 	mLogObj = mConfig->GetLoggerInstance();
 	//LazilyLoadConfigIfNeeded();
