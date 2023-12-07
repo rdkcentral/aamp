@@ -117,6 +117,7 @@ class ManifestServerCommon:
     time_of_first_manifest = 0
     time_started_serving = 0
     time_offset = 0
+    serving_manifest_id = 1 # RDKAAMP-1833
     # { path_to_manifest: [(ts from mf,path_to_manifest_increment),() ... ]
     manifest_list = {}
     
@@ -223,6 +224,16 @@ class ManifestServerCommon:
             self.time_started_serving = 0
             return path
         file_timestamps = self.get_list_of_manifest_timestamps(path)
+
+        # RDKAAMP-1833
+        pub_times = [f[0] for f in file_timestamps]
+        if len(set(pub_times)) <= 1:
+            self.serving_manifest_id
+            for timestamp, manifest_file in file_timestamps:
+                if manifest_file.endswith(f".{self.serving_manifest_id}"):
+                    break
+            self.serving_manifest_id += 1 
+            return manifest_file
         if len(file_timestamps) == 0:
             # No manifests - need return 404
             log.info("Not found index %s", path)

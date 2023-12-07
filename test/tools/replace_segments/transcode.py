@@ -20,6 +20,8 @@
 #
 import sys
 import os
+import shutil 
+import subprocess
 import argparse
 import logging
 from urllib.parse import urlparse
@@ -36,7 +38,6 @@ from library.hls_manifests import HLSManifest, HLSMainManifest
 from library.dash_manifests import DASHManifest
 from library.manifests import write_transcode_details
 from mp4_tools import *
-
 
 HELP = """
 This utility is used for inspecting and modifying download media streams. Although it
@@ -169,9 +170,9 @@ def check_have_ffprobe():
     if rtn.returncode != 0:
         log.error("Cannot run ffprobe. Is ffmpeg installed?")
         exit(1)
+#####################################################
 
 
-#######################################################
 logging.basicConfig(
     format="%(funcName)-15s:%(lineno)04d %(message)s",
     stream=sys.stdout,
@@ -240,6 +241,69 @@ if __name__ == "__main__":
         log.error("Cannot find %s", args.transcode)
         exit(1)
 
+    #RDKAAMP-1645 - Stop restart of donor video on every Period change --- Replication/Concatenation Part 
+    org_donor_file = args.transcode
+    file_name = os.path.basename(org_donor_file) 
+    dir_name = os.path.dirname(org_donor_file) 
+    input_text_file = '/temp_file_names_to_merge.txt' 
+    input_text_path = dir_name + input_text_file 
+    donor_concat_flag = 0 
+    rept_no = 0  
+    target_donor_duration = 3600 # in Seconds = 60 Mins.
+    
+    if (os.path.exists("/".join(os.path.abspath(os.path.dirname(__file__)).split("/")[:-1]) + "/harvest/htsfa_input.txt")) : 
+        read_donor_dur = open("/".join(os.path.abspath(os.path.dirname(__file__)).split("/")[:-1]) + "/harvest/htsfa_input.txt", 'r') 
+        read_donor_dur.readline() # read "stream"
+        read_donor_dur.readline() # read "duration"
+        read_donor_dur.readline() # read "bitrate"
+        read_donor_dur.readline() # read "donor"
+        read_donor_dur.readline() # read "fog"
+        read_donor_dur.readline() # read "aamp"
+        donor_duration = read_donor_dur.readline().strip() 
+        if (int(donor_duration.split("==")[-1]) > 0) : 
+            target_donor_duration = int(donor_duration.split("==")[-1]) + 900 # Adding 15 Minutes more on top of provided/expected donor duration 
+    
+    print ("=" * 58) 
+    print("1. Refreshing Donor File...")
+    if (os.path.exists(org_donor_file)) and (os.path.exists((dir_name + "/" + "org_" + file_name))) : 
+        os.remove(org_donor_file) 
+        os.rename(dir_name + "/" + "org_" + file_name, org_donor_file) 
+        
+    donor_duration = get_video_duration(org_donor_file) 
+    if (donor_duration < target_donor_duration) : 
+        rept_no = int(target_donor_duration // donor_duration) + 2 
+        donor_concat_flag = 1
+        
+    if(donor_concat_flag == 1) : 
+        print("2. Creating Required TXT File & Replicating Donor File...") 
+        for crt in range (1, rept_no+1) : 
+            con_file = open(dir_name + input_text_file, 'a') 
+            con_file_name = dir_name + "/" + file_name.split(".")[0] + "_" + str(crt) + "." + file_name.split(".")[-1] 
+            con_file.write("file '" + con_file_name + "'\n") 
+            t_source = org_donor_file 
+            t_destination = con_file_name 
+            shutil.copyfile(t_source, t_destination)
+            con_file.close() 
+            
+        print("3. Renaming Donor File...") 
+        rename_so = org_donor_file
+        rename_de = dir_name + "/" + "org_" + file_name 
+        os.rename(rename_so, rename_de) 
+
+        print("4. Concatenating Replicated Donor Files...") 
+        subp = subprocess.Popen(["ffmpeg", "-f", "concat", "-safe", "0", "-i",  input_text_path, "-c", "copy", org_donor_file], 
+                                                      stdout=subprocess.DEVNULL, 
+                                                      stderr=subprocess.DEVNULL) 
+        subp.wait() 
+        
+        print("5. Deleting Intermediate TXT & Temp Donor Files...") 
+        os.remove(dir_name + input_text_file) 
+        for df in range (1, rept_no+1) : 
+            del_file_name = dir_name + "/" + file_name.split(".")[0] + "_" + str(df) + "." + file_name.split(".")[-1] 
+            os.remove(del_file_name) 
+        print ("=" * 58) 
+    ####################################################### 
+    
     if manifestFilename.endswith(".m3u8") or ".m3u8." in manifestFilename:
         segment_list = get_hls_segments_from_multiple_manifests(manifestFilename)
 
@@ -283,10 +347,13 @@ if __name__ == "__main__":
             check_have_ffprobe()
             segment_names = []
             for segment_detail in segment_list.get_segments(segment_group):
-                segment_url_properties = urlparse(segment_detail["segment_name"])
-                segment_url_path = f"{segment_url_properties.netloc}{segment_url_properties.path}"
-                segment_names.append(segment_url_path)
-                # log.debug("segment_names %s",segment_names)
+                if segment_detail["segment_name"].startswith("http"):
+                    segment_url_properties = urlparse(segment_detail["segment_name"])
+                    segment_url_path = f"{segment_url_properties.netloc}{segment_url_properties.path}"
+                    segment_names.append(segment_url_path)
+                else:
+                    segment_names.append(segment_detail["segment_name"])
+                log.debug("segment_names %s",segment_names)
             proc_list = mpeg_flist(segment_names, "./")
 
         base_dir = os.path.dirname(os.path.realpath(__file__))
@@ -298,4 +365,15 @@ if __name__ == "__main__":
             attrs,
         )
 
+    #RDKAAMP-1645 - Stop restart of donor video on every Period change --- Reset back to original state 
+    if(donor_concat_flag == 1) : 
+        print ("=" * 58) 
+        print("6. Deleting Concatenated Donor File...") 
+        os.remove(org_donor_file) 
+
+        print("7. Resetting Donor File Name...") 
+        os.rename(rename_de, rename_so) 
+        print ("=" * 58) 
+    #######################################################
+    
     exit(0)

@@ -40,4 +40,27 @@ Patch is added to generate harvest_details.json if the same is not found and to 
 python ~/comcast/aamp/test/tools/replace_segments/transcode.py -a --transcode /home/m
 utsl02618/Desktop/doner_videos/big_buck_bunny_720p_surround.mp4 > ./transcode.log
  ===================================================================================
+RDKAAMP-1645 Modify transcoder to not restart donor video at start of each period and not reset time stamp in overlay
 
+1 Modified mp4_tools.py.
+   - Code enhanced with new method get_video_duration(file_path), to get the duration of an AV file.
+   - Code enhanced with new method mesr_time_adj(donor_file, tot_dur_pids, cur_sample_dur), to skip the start position on donor.
+   - It also checks that the new period starts is longer/shorter than the leftout part of donor; and if the period is longer than doner then what is the difference value.
+   - Code enhanced with new method tot_dur_format(cur_tot_dur), to get required Time Format.
+   - Code also enhanced to focus on Period change; and handle the Audio/Video media types separately to address correct new start time on donor.
+
+2 Modified transcode.py.
+   - Enhanced with new method "get_video_duration(file_path)".
+   - Code enhanced to increase the size of Donor file & manage relative files/folders.
+   - Enhanced temp files/folders clean up.
+   
+3 Modified segment_audio.sh - ffmpeg command enhanced 
+   - Handles scenario when harvested content smaller than donor.
+   - Handles scenario when harvested content larger than donor - new period starts & it is greater than remaining part of donor.
+   - Handles scenario when harvested content larger than donor - current period not yet ended & donor needs to retart from beginning.
+
+4 Modified segment_video.sh - ffmpeg command enhanced 
+   - Handles scenario when harvested content smaller than donor.
+   - Handles scenario when harvested content larger than donor - new period starts & it is greater than remaining part of donor.
+   - Handles scenario when harvested content larger than donor - current period not yet ended & donor needs to retart from beginning.
+ =======================================================================================

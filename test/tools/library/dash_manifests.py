@@ -133,7 +133,7 @@ class DASHManifest(Manifest):
                         pass
 
                     elif templ.tag.endswith("BaseURL"):
-                        self.urls[adpset] = templ
+                        self.urls[adpset] = templ.text
 
                 # Index each Representation within an AdaptationSet
                 for rept in adpset:
@@ -495,7 +495,16 @@ class DASHManifest(Manifest):
         for period, adpset in self.adpsets:
             prefix = self.urls[period].text if period in self.urls else ""
             if prefix == "":
-                prefix = self.base_url.text if self.base_url is not None else ""
+		# RDKAAMP-1833
+                prefix = ""
+                if self.base_url is not None:
+                    prefix = self.base_url.text
+                else:
+                    for adp in adpset:
+                        if adp.tag.endswith("BaseURL"):
+                            self.base_url = adp
+                            self.urls[adpset] = adp.text 
+                            prefix = self.base_url.text
 
             encrypted = adpset in self.adp_crypt
             adpset_ts = 1

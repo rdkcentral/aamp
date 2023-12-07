@@ -1057,34 +1057,52 @@ class transcode_flist(object):
 
     def media_attribs(self, attrs=None):
         """
-        Return the attributes for the target based upon the imput files.
+        Return the attributes for the target based upon the input files.
         """
         ffprobe_on = ""
-        if self.init_file is None:
-            subp = subprocess.Popen(
-                [
-                    "ffprobe -hide_banner -show_format -show_streams -count_frames -pretty -of xml %s 2>/dev/null"
-                    % (self.flist[0])
-                ],
-                shell=True,
-                stdout=subprocess.PIPE,
-            )
-            ffprobe_on = self.flist[0]
-        else:
-            subp = subprocess.Popen(
-                [
-                    "cat %s %s | ffprobe -hide_banner -show_streams -count_frames -show_format -pretty -of xml - 2>/dev/null"
-                    % (self.init_file, self.flist[0])
-                ],
-                shell=True,
-                stdout=subprocess.PIPE,
-            )
-            ffprobe_on = self.init_file
+	
+	# RDKAAMP-1819
+        fps_list = []
 
+        attr_fps = "25"
+
+        for i in range(min(len(self.flist), 5)-1, -1, -1):
+            if self.init_file is None:
+                subp = subprocess.Popen(
+                    [
+                        "ffprobe -hide_banner -show_format -show_streams -count_frames -pretty -of xml %s 2>/dev/null"
+                        % (self.flist[i])
+                    ],
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                )
+                ffprobe_on = self.flist[i]
+            else:
+                subp = subprocess.Popen(
+                    [
+                        "cat %s %s | ffprobe -hide_banner -show_streams -count_frames -show_format -pretty -of xml - 2>/dev/null"
+                        % (self.init_file, self.flist[i])
+                    ],
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                )
+                ffprobe_on = self.init_file
+
+            tree = ET.parse(subp.stdout)
+            root = tree.getroot()
+            for elem in root:
+                if elem.tag.endswith("streams"):
+                    for stream in elem:
+                        if stream.get("codec_type", "") == "video":
+                            parts = stream.get("r_frame_rate", attr_fps).split("/", 1)
+                            fps = int(parts[0])
+                            if len(parts) > 1:
+                                fps /= int(parts[1])
+                            print(f"New {fps = }")
+                            fps_list.append(str(max(min(fps, 100), 10)))
+        
         header_codec = self.get_header_codec(ffprobe_on)
         
-        tree = ET.parse(subp.stdout)
-        root = tree.getroot()
 
         rates = {}  # Bit rates for each stream
         codecs = {}  # Codec for each stream
@@ -1096,7 +1114,6 @@ class transcode_flist(object):
         numb_frames = 0  # Number of frames in segment
 
         attr_rate = None
-        attr_fps = "25"
         attr_dim = ""
 
         if attrs is not None and hasattr(attrs, "TYPE") and hasattr(attrs, "BANDWIDTH"):
@@ -1122,12 +1139,7 @@ class transcode_flist(object):
                         codecs[med_type] = header_codec
 
                     if med_type == "video":
-                        parts = stream.get("r_frame_rate", attr_fps).split("/", 1)
-                        fps = int(parts[0])
-                        if len(parts) > 1:
-                            fps /= int(parts[1])
-
-                        fps = str(max(min(fps, 100), 10))
+                        fps = max(fps_list,key=fps_list.count)	# RDKAAMP-1819
                         if "nb_read_frames" in stream.attrib:
                             numb_frames = int(stream.get("nb_read_frames"))
 
@@ -1352,12 +1364,91 @@ def set_workdir():
         os.environ["MPEG_WORKDIR"] = WORK_DIR = os.getcwd() + "/tmp"
 
 
+# RDKAAMP-1645 - Stop restart of donor video on every Period change 
+tot_duration_pids_video = 0 
+tot_duration_pids_audio = 0 
+transcode_flag_video = ""
+transcode_flag_audio = "" 
+
+def get_video_duration(file_path):
+    try:
+        subp = subprocess.Popen(
+            [
+                f"cat {file_path} | ffprobe -hide_banner -show_format -pretty -of xml - 2>/dev/null"
+            ],
+            shell=True,
+            stdout=subprocess.PIPE,
+        )
+        tree = ET.parse(subp.stdout)
+        root = tree.getroot()
+        duration = "00:00:00.000"
+        for elem in root:
+            if elem.tag.endswith("format"):
+                duration = elem.get("duration", "00:00:00.000")
+        subp.wait()
+        duration = datetime.strptime(duration,'%H:%M:%S.%f')
+        duration = timedelta(hours=duration.hour, minutes=duration.minute, seconds=duration.second, microseconds=duration.microsecond).total_seconds()
+        return duration
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+
+def mesr_time_adj(donor_file, tot_dur_pids, cur_sample_dur):
+#def mesr_time_adj(donor_file, tot_dur_pids):
+    donor_duration = get_video_duration(donor_file) 
+    reset_donor_start_posi = 0 
+    
+    if (tot_dur_pids > donor_duration) : 
+        reset_donor_start_posi = tot_dur_pids % donor_duration 
+    elif(tot_dur_pids < donor_duration) and (float(tot_dur_pids) > 0.0) : 
+        reset_donor_start_posi = tot_dur_pids 
+    elif(tot_dur_pids == donor_duration) or (float(tot_dur_pids) == 0.0) : 
+        reset_donor_start_posi = 0.0 
+    
+    if (reset_donor_start_posi < 0.0) : 
+        reset_donor_start_posi = donor_duration - abs(reset_donor_start_posi) 
+    
+    chk_flag = "no" 
+    sample_dur_last_part = "" 
+    
+    if(donor_duration - reset_donor_start_posi) < cur_sample_dur : 
+        chk_flag = "yes" 
+        sample_dur_last_part = tot_dur_format(cur_sample_dur  - (donor_duration - reset_donor_start_posi)) 
+    
+    #if (reset_donor_start_posi > 0) :     
+    h = int(reset_donor_start_posi // 3600) 
+    m = int((reset_donor_start_posi - (h * 3600)) // 60) 
+    s = round((reset_donor_start_posi - (h * 3600)) - (m * 60), 3) 
+    #s = int((reset_donor_start_posi - (h * 3600)) - (m * 60)) 
+    #time="00:05:00.000" 
+    set_start_time = str(h).zfill(2) + ":" + str(m).zfill(2) + ":" + str(s).zfill(2) 
+    
+    rtn_list = [set_start_time, chk_flag, sample_dur_last_part] 
+    
+    return rtn_list 
+    #return set_start_time 
+    #else : 
+    #    set_start_time = "00:00:00" 
+    #    return set_start_time 
+
+def tot_dur_format(cur_tot_dur) : 
+    h = int(cur_tot_dur // 3600) 
+    m = int((cur_tot_dur - (h * 3600)) // 60) 
+    s = round((cur_tot_dur - (h * 3600)) - (m * 60), 3) 
+    #s = int((cur_tot_dur - (h * 3600)) - (m * 60))
+    cur_format = str(h).zfill(2) + ":" + str(m).zfill(2) + ":" + str(s).zfill(2) 
+    return cur_format 
+
 def do_transcode(base_dir, proc_list, skeleton, attrs=None, no_trans=False):
     """
     Given an class trancode_flist, use this as a template for generating replacement
     media files from a skeleton media file base upon bit rates etc. Then resegment
     the output files to match the originals.
     """
+    # RDKAAMP-1645 - Stop restart of donor video on every Period change 
+    global tot_duration_pids_video, tot_duration_pids_audio, transcode_flag_video, transcode_flag_audio 
+    
     if proc_list.tot_duration < 0.5:
         return
 
@@ -1392,25 +1483,73 @@ def do_transcode(base_dir, proc_list, skeleton, attrs=None, no_trans=False):
 
     else:
         for med_type in rates:
-            display_text="Pid{} {}k".format(getattr(attrs,"period_id","?") ,rates[med_type])
-            log.info("Starting transcoding from:%s", skeleton)
-            subp = subprocess.Popen(
-                [
-                    "%s/segment_%s.sh" % (base_dir, med_type),
-                    skeleton,
-                    str(proc_list.tot_duration + 1),
-                    rates[med_type],
-                    codecs[med_type],
-                    pts,
-                    dim,
-                    fps,
-                    iframe_pos,
-                    display_text
-                ],
-                shell=False,
-            )
-            subp.wait()
-
+            display_text="Pid{} {}k".format(getattr(attrs,"period_id","?") ,rates[med_type]) 
+            log.info("Starting transcoding from:%s", skeleton) 
+            
+            # RDKAAMP-1645 - Stop restart of donor video on every Period change 
+            current_Pid = display_text.split(" ")[0] 
+            cur_sample_duration = "" 
+            tot_dur_time_fmt = "" 
+            skip_duration_list = [] 
+            
+            if (med_type == "video") and (transcode_flag_video != current_Pid) : 
+                transcode_flag_video = current_Pid 
+                cur_sample_duration = tot_dur_format(proc_list.tot_duration + 1) 
+                tot_dur_time_fmt = tot_dur_format(tot_duration_pids_video) 
+                #skip_duration_list = mesr_time_adj(skeleton, tot_duration_pids_video) 
+                skip_duration_list.extend(mesr_time_adj(skeleton, tot_duration_pids_video, proc_list.tot_duration + 1)) 
+                tot_duration_pids_video = tot_duration_pids_video + proc_list.tot_duration + 1 
+                
+                subp = subprocess.Popen(
+                    [
+                        "%s/segment_%s.sh" % (base_dir, med_type),
+                        skeleton,
+                        str(cur_sample_duration),
+                        rates[med_type],
+                        codecs[med_type],
+                        pts,
+                        dim,
+                        fps,
+                        iframe_pos,
+                        display_text,
+                        str(tot_dur_time_fmt),
+                        skip_duration_list[0],
+                        skip_duration_list[1],
+                        skip_duration_list[2]
+                    ],
+                    shell=False,
+                ) 
+                subp.wait()
+            
+            elif (med_type == "audio") and (transcode_flag_audio != current_Pid) : 
+                transcode_flag_audio = current_Pid 
+                cur_sample_duration = tot_dur_format(proc_list.tot_duration + 1) 
+                tot_dur_time_fmt = tot_dur_format(tot_duration_pids_audio) 
+                #skip_duration_list = mesr_time_adj(skeleton, tot_duration_pids_audio) 
+                skip_duration_list.extend(mesr_time_adj(skeleton, tot_duration_pids_audio, proc_list.tot_duration + 1)) 
+                tot_duration_pids_audio = tot_duration_pids_audio + proc_list.tot_duration + 1 
+                
+                subp = subprocess.Popen(
+                    [
+                        "%s/segment_%s.sh" % (base_dir, med_type),
+                        skeleton,
+                        str(cur_sample_duration),
+                        rates[med_type],
+                        codecs[med_type],
+                        pts,
+                        dim,
+                        fps,
+                        iframe_pos,
+                        display_text,
+                        str(tot_dur_time_fmt),
+                        skip_duration_list[0],
+                        skip_duration_list[1],
+                        skip_duration_list[2]
+                    ],
+                    shell=False,
+                ) 
+                subp.wait()
+            
     tmp_flist = os.listdir(WORK_DIR)
     tmp_flist.sort()
     skel_flist = ""

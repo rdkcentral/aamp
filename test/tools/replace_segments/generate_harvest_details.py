@@ -24,6 +24,7 @@ def get_mpd_list(search_path = os.getcwd()):
             mpd_base_dir.append(os.path.dirname(mpd))
         pattern = ".orig[0-9_]+"
         all_mpds = sorted(all_mpds,key=lambda x: not re.search(pattern, x))
+        all_mpds.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
         mpd_base_dir = max(set(mpd_base_dir), key=mpd_base_dir.count)
         all_mpds = [m for m in all_mpds if mpd_base_dir in m and not re.search(pattern, m)]
     except Exception as e:
@@ -45,7 +46,7 @@ def check_header_file(search_path = os.getcwd(), representation_id=""):
         print(f"Error -> {e}")
         return False
 
-def remove_non_harvested_representations(period):
+def remove_non_harvested_representations(period, available_segment_paths):
     """
     Removes representations (from manifest files) which are not harvested
 
@@ -63,6 +64,7 @@ def remove_non_harvested_representations(period):
             if period_child.tag.endswith('AdaptationSet'):
                 adpset = period_child
                 repr_set = []
+                initialization = ""
                 for adpset_child in adpset:
                     if "AD" in period_id:                    
                         if adpset_child.tag.endswith('Representation'):
@@ -72,9 +74,9 @@ def remove_non_harvested_representations(period):
                             for repr_child in repr:
                                 if repr_child.tag.endswith('SegmentTemplate'):
                                     seg_template = repr_child
-                                    initialization = seg_template.attrib.get('initialization')
+                                    initialization_str = seg_template.attrib.get('initialization')
                                     if check_header_file(search_path=segment_dir_path, representation_id = initialization):
-                                        seg_tmpl_set.append(initialization)
+                                        seg_tmpl_set.append(initialization_str)
                                     else:
                                         seg_template.tag = re.sub('SegmentTemplate','SegmentTemplate_BYPASSED', seg_template.tag)
                             if len(seg_tmpl_set) == 0:
@@ -84,6 +86,19 @@ def remove_non_harvested_representations(period):
                     else:
                         if adpset_child.tag.endswith('SegmentTemplate'):
                             seg_template = adpset_child
+                            init = seg_template.attrib.get('initialization',"")
+                            if "$" not in init:
+                                initialization = init
+
+                for adpset_child in adpset:
+                    if "AD" not in period_id:
+                        if initialization != "":
+                            for ap in available_segment_paths:
+                                if initialization in ap:
+                                    repr_set.append(initialization)
+                                    break
+                            else:
+                               break 
                         elif adpset_child.tag.endswith('Representation'):
                             repr = adpset_child
                             repr_id = repr.attrib.get('id')
@@ -95,7 +110,13 @@ def remove_non_harvested_representations(period):
                     adpset.tag = re.sub('AdaptationSet','AdaptationSet_BYPASSED',adpset.tag)
 
 
-       
+def get_segments_path(dash):
+    available_segments = []
+    for seg_list in dash.get_seg_list(abs_paths=True):
+        if os.path.isfile(seg_list["segment_name"]):
+            available_segments.append(seg_list["segment_name"])
+    # print(f"{available_segments = }")
+    return available_segments
 
 
 def generate_harvest_details(root_dir = os.getcwd()):
@@ -128,12 +149,14 @@ def generate_harvest_details(root_dir = os.getcwd()):
                     if templ.tag.endswith("BaseURL"):
                         url_properties = urlparse(templ.text)
                         segment_directories.append(f"{url_properties.netloc}{url_properties.path}")
-                remove_non_harvested_representations(period)
+                available_segment_paths = get_segments_path(dash)
+                
+                remove_non_harvested_representations(period, available_segment_paths)
+        
         with open(mpd, "w") as f_stream:
             f_stream.write(str(dash))
-
-    mpd_file_path_details = os.path.splitext(mpd_list[0].replace(".mpd",""))
-    original_mpd_name = f'{mpd_file_path_details[0]}.mpd'
+    original_mpd_name = f'{mpd_list[0].split(".mpd.",1)[0]}.mpd'
+    # unique_segment_directories = max(set(segment_directories), key=segment_directories.count)
     unique_segment_directories = {i:segment_directories.count(i) for i in set(segment_directories)}
     contains_ad_segments = False
     if len(unique_segment_directories) > 1:
