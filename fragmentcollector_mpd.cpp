@@ -5068,6 +5068,17 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 						}
 					}
 				}
+				else if(tmpManifestDnldRespPtr->mMPDStatus == eAAMPSTATUS_MANIFEST_PARSE_ERROR)
+				{
+					aamp->SendErrorEvent(AAMP_TUNE_INVALID_MANIFEST_FAILURE); //corrupt or invalid manifest
+					AAMPLOG_ERR("Invalid manifest, parse failed");
+				}
+				else if(tmpManifestDnldRespPtr->mMPDStatus == eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
+				{
+					//Unknown Manifest content
+					aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
+					AAMPLOG_ERR("Unknown manifest content");
+				}
 				else
 				{
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
