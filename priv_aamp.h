@@ -56,6 +56,7 @@
 #include <memory>
 #include <inttypes.h>
 #include <type_traits>
+#include <chrono>
 #include "AampRfc.h"
 #include "AampEventManager.h"
 #include <HybridABRManager.h>
@@ -562,6 +563,7 @@ class PrivateInstanceAAMP : public AampDrmCallbacks, public std::enable_shared_f
 	//The position previously reported by ReportProgress() (i.e. the position really sent, using SendEvent())
 	double mReportProgressPosn;
 	long long mLastTelemetryTimeMS;
+	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
 public:
 	/**
 	 * @brief Get profiler bucket type
@@ -1536,10 +1538,10 @@ public:
 
 	/**
 	*   @fn GetVideoPTS
-	*   @param[in] bAddVideoBasePTS - Flag to include base PTS
 	*   @return long long - Video PTS
 	*/
-	long long GetVideoPTS(bool bAddVideoBasePTS);
+	long long GetVideoPTS();
+
 	/**
 	 *   @fn ReportProgress
  	 *   @param[in]  sync - Flag to indicate that event should be synchronous
@@ -3993,10 +3995,10 @@ public:
 		return mMPDDownloaderInstance;
 	}
 
-        /**
-         *     @fn GetVideoPlaybackQuality
-         *     @return video playback quality data string.
-         */
+	/**
+	 * @fn GetVideoPlaybackQuality
+	 * @return video playback quality data string.
+	 */
 	std::string GetVideoPlaybackQuality(void);
 
 	/**
@@ -4010,6 +4012,11 @@ public:
 	 * @return bool - true if gstsubtec flag enabled and vttcueevent listener not registered.
 	 */
 	bool IsGstreamerSubsEnabled(void);
+
+	/**
+	 * @brief Signal the clock to subtitle module
+	 */
+	void SignalSubtitleClock();
 
 protected:
 

@@ -224,6 +224,7 @@ drmStartTimeout            	Timeout value for curl download to start for DRM aft
 connectTimeout			Curl socket connection timeout for fragment/playlist/manifest downloads. Default is 3 seconds
 dnsCacheTimeout			life-time for DNS cache entries ,Name resolve results are cached for manifest and used for this number of seconds,default is 180 seconds
 telemetryInterval		Time interval for the telemetry reporting in seconds. Default is 300 seconds.Telemetry is disabled if set to 0
+subtitleClockSyncInterval   Time interval for synchronizing the clock with subtitle module. Default of 30 seconds
 
 // String inputs
 licenseServerUrl		URL to be used for license requests for encrypted(PR/WV) assets

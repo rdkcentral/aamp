@@ -701,6 +701,11 @@ public:
 	 *   @return current video playback quality
 	 */
 	virtual PlaybackQualityStruct* GetVideoPlaybackQuality() { return NULL; };
+
+	/**
+	 * @brief Signal the new clock to subtitle module
+	 */
+	virtual void SignalSubtitleClock() {};
 };
 
 

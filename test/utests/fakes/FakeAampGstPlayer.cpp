@@ -206,3 +206,8 @@ void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 		g_mockAampGstPlayer->SetEncryptedAamp(aamp);
 	}
 }
+
+void AAMPGstPlayer::SignalSubtitleClock()
+{
+}
+

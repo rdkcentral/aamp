@@ -461,11 +461,9 @@ TEST_F(PrivAampTests,SyncBeginTest)
 }
 TEST_F(PrivAampTests,GetVideoPTSTest)
 {
-	long long videoPTS = p_aamp->GetVideoPTS(TRUE);
-	long long videoPTS1 = p_aamp->GetVideoPTS(FALSE);
+	uint64_t videoPTS = p_aamp->GetVideoPTS();
 
-	EXPECT_EQ(videoPTS,-1);
-	EXPECT_EQ(videoPTS1,-1);
+	EXPECT_EQ(videoPTS,0);
 }
 TEST_F(PrivAampTests,WakeupLatencyCheckTest)
 {

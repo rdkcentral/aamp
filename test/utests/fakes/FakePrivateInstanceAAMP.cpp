@@ -1218,3 +1218,11 @@ bool PrivateInstanceAAMP::GetIsPeriodChangeMarked()
 	return mIsPeriodChangeMarked;
 }
 
+long long PrivateInstanceAAMP::GetVideoPTS()
+{
+	return 0;
+}
+
+void PrivateInstanceAAMP::SignalSubtitleClock()
+{
+}

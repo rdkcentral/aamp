@@ -213,6 +213,14 @@ void MediaTrack::MonitorBufferHealth()
 
 			}
 
+			// At the moment this looks like a nice place to signal clock to subtec
+			// There is no added delay expected in this operation. Fetch PTS, send to Subtec
+			// Enable clock sync when mediaprocessor is enabled. For QTDEMUX_OVERRIDE_ENABLED platforms, video pts received from GST is relative from playback start,
+			// so we need mediaprocessor to set the base video pts so that correct pts can be signalled to subtec
+			if (type == eTRACK_SUBTITLE && enabled && aamp->IsGstreamerSubsEnabled() && ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
+			{
+				aamp->SignalSubtitleClock();
+			}
 		}
 		else
 		{

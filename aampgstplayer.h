@@ -449,6 +449,12 @@ public:
 	 */
 	void SetEncryptedAamp(PrivateInstanceAAMP *aamp);
 
+	/**
+	 * @fn SignalSubtitleClock
+	 * @brief Signal the new clock to subtitle module
+	 */
+	void SignalSubtitleClock() override;
+
 private:
 	/**
      	 * @fn PauseAndFlush 

@@ -1279,6 +1279,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mWaitForDiscoToComplete()
 	, mDiscoCompleteLock()
 	, mIsPeriodChangeMarked(false)
+	, m_lastSubClockSyncTime()
 {
 	mLogObj = mConfig->GetLoggerInstance();
 	//LazilyLoadConfigIfNeeded();
@@ -1778,28 +1779,6 @@ void PrivateInstanceAAMP::SyncBegin(void)
 void PrivateInstanceAAMP::SyncEnd(void)
 {
 	pthread_mutex_unlock(&mLock);
-}
-
-/**
- * @brief Report progress event
- */
-long long PrivateInstanceAAMP::GetVideoPTS(bool bAddVideoBasePTS)
-{
-	/*For HLS, tsprocessor.cpp removes the base PTS value and sends to gstreamer.
-	 **In order to report PTS of video currently being played out, we add the base PTS
-	 **to video PTS received from gstreamer
-	 */
-	/*For DASH,mVideoBasePTS value will be zero */
-	long long videoPTS = -1;
-	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-	if (sink)
-	{
-		videoPTS = sink->GetVideoPTS();
-	}
-	if(bAddVideoBasePTS)
-		videoPTS += mVideoBasePTS;
-	AAMPLOG_WARN("Video-PTS=%lld, mVideoBasePTS=%lld Add VideoBase PTS[%d]",videoPTS,mVideoBasePTS,bAddVideoBasePTS);
-	return videoPTS;
 }
 
 /**
@@ -3030,6 +3009,8 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 				profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FIRST_FRAME);
 			}
 
+			// Reset clock sync on discontinuity processing. Segment event as part of flush will send a new timestamp packet to subtec.
+			m_lastSubClockSyncTime = std::chrono::system_clock::now();
 			mpStreamAbstractionAAMP->StartInjection();
 			if (sink)
 			{
@@ -4621,6 +4602,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 		mpStreamAbstractionAAMP->Stop(false);
 		SAFE_DELETE(mpStreamAbstractionAAMP);
 	}
+	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
 	pthread_mutex_lock(&mLock);
 	mVideoFormat = FORMAT_INVALID;
@@ -9379,7 +9361,16 @@ void PrivateInstanceAAMP::NotifyFirstVideoPTS(unsigned long long pts, unsigned l
  */
 void PrivateInstanceAAMP::NotifyVideoBasePTS(unsigned long long basepts, unsigned long timeScale)
 {
-	mVideoBasePTS = basepts;
+	// mVideoBasePTS should be in 90KHz clock because GST gives it in the same range
+	// Convert to 90KHz clock if not already
+	if (timeScale != 90000)
+	{
+		mVideoBasePTS = (unsigned long long) (((double)basepts / (double)timeScale) * 90000);
+	}
+	else
+	{
+		mVideoBasePTS = basepts;
+	}
 	AAMPLOG_INFO("mVideoBasePTS::%llus", mVideoBasePTS);
 }
 
@@ -12850,3 +12841,57 @@ bool PrivateInstanceAAMP::IsGstreamerSubsEnabled(void)
 	return (ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled) && !WebVTTCueListenersRegistered());
 }
 
+/**
+ * @brief Signal the clock to subtitle module
+ */
+void PrivateInstanceAAMP::SignalSubtitleClock()
+{
+	bool doSync = false;
+	// Sent clock only if subtitle track injection is unblocked. otherwise this instance might be detached/flushed
+	if (!mTrackInjectionBlocked[eTRACK_SUBTITLE] && !pipeline_paused)
+	{
+		if (m_lastSubClockSyncTime.time_since_epoch().count() == 0)
+		{
+			m_lastSubClockSyncTime = std::chrono::system_clock::now();
+		}
+		else
+		{
+			// Interval expired
+			uint64_t elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - m_lastSubClockSyncTime).count();
+			if (elapsedTime > GETCONFIGVALUE_PRIV(eAAMPConfig_SubtitleClockSyncInterval))
+			{
+				AAMPLOG_INFO("Timer expired, signalling clock to subtitle module");
+				doSync = true;
+				// Update the timestamp
+				m_lastSubClockSyncTime = std::chrono::system_clock::now();
+			}
+		}
+		if (doSync)
+		{
+			if (IsGstreamerSubsEnabled())
+			{
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if(sink)
+				{
+					sink->SignalSubtitleClock();
+				}
+			}
+			// TODO: Implement for subtitle parser. It looks like subtitle parser is using position instead of pts
+		}
+	}
+}
+
+long long PrivateInstanceAAMP::GetVideoPTS()
+{
+	long long pts = mVideoBasePTS;
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if(sink)
+	{
+		long long sinkPTS = sink->GetVideoPTS();
+		if (sinkPTS > 0)
+		{
+			pts += sinkPTS;
+		}
+	}
+	return pts;
+}
