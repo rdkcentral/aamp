@@ -1908,19 +1908,15 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 						}
 					}
 
-					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-					if (sink)
+					if( !mRateCorrectionDelay && (mCorrectionRate != rateRequired) && !mDiscontinuityTuneOperationInProgress)
 					{
-						if( !mRateCorrectionDelay && (mCorrectionRate != rateRequired) && !mDiscontinuityTuneOperationInProgress)
+						if (mStreamSink->SetPlayBackRate(rateRequired))
 						{
-							if (sink->SetPlayBackRate(rateRequired))
-							{
-								mCorrectionRate = rateRequired;
-								UpdateVideoEndMetrics(rateRequired);
-								SendAnomalyEvent(ANOMALY_WARNING, "Rate changed to:%f", rateRequired);
-								AAMPLOG_WARN("Rate Changed to : %f Live latency : %lf", rateRequired, latency);
-								profiler.IncrementChangeCount(Count_RateCorrection);
-							}
+							mCorrectionRate = rateRequired;
+							UpdateVideoEndMetrics(rateRequired);
+							SendAnomalyEvent(ANOMALY_WARNING, "Rate changed to:%f", rateRequired);
+							AAMPLOG_WARN("Rate Changed to : %f Live latency : %lf", rateRequired, latency);
+							profiler.IncrementChangeCount(Count_RateCorrection);
 						}
 					}
 				}
