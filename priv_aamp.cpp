@@ -5646,13 +5646,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mbUsingExternalPlayer = (mMediaFormat == eMEDIAFORMAT_OTA) || (mMediaFormat== eMEDIAFORMAT_HDMI) || (mMediaFormat==eMEDIAFORMAT_COMPOSITE) || \
 		(mMediaFormat == eMEDIAFORMAT_RMF);
 
-	// Enable the eAAMPConfig_EnableMediaProcessor if the PTS Restamp set for DASH.
-	if (ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == mMediaFormat))
-	{
-		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_EnableMediaProcessor, true);
-		AAMPLOG_WARN ("PTS Restamp and MediaProcessor enabled for DASH");
-	}
-
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink == nullptr)
 	{
@@ -5782,6 +5775,22 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	if (ContentType_CDVR == mContentType)
 	{
 		mIscDVR = true;
+	}
+
+#ifdef SKY_UK_PTS_RESTAMP_ENABLED
+	if (ContentType_LINEAR == mContentType)
+	{
+		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_EnablePTSReStamp, true);
+	}
+
+	AAMPLOG_WARN("ContentType(%d) EnablePTSReStamp(%d)", mContentType, GETCONFIGVALUE_PRIV(eAAMPConfig_EnablePTSReStamp));
+#endif
+
+	// Enable the eAAMPConfig_EnableMediaProcessor if the PTS Restamp set for DASH.
+	if (ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == mMediaFormat))
+	{
+		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_EnableMediaProcessor, true);
+		AAMPLOG_WARN ("PTS Restamp and MediaProcessor enabled for DASH");
 	}
 
 	SetLowLatencyServiceConfigured(false);
