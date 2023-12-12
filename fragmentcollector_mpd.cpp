@@ -2009,7 +2009,12 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				else if(!segmentURLs.empty())
 				{
 					ISegmentURL *segmentURL = segmentURLs.at(pMediaStreamContext->fragmentIndex);
-					ISegmentURL *nextsegmentURL = segmentURLs.at(pMediaStreamContext->nextfragmentIndex);
+					ISegmentURL *nextsegmentURL = NULL;
+					// Avoid setting the nextfragmentIndex url when it reaches the last fragmentIndex
+					if(pMediaStreamContext->nextfragmentIndex < segmentURLs.size())
+					{
+						nextsegmentURL = segmentURLs.at(pMediaStreamContext->nextfragmentIndex);
+					}
 					if(segmentURL != NULL)
 					{
 
@@ -6753,7 +6758,11 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	if(1 == mNumberOfTracks && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
 	{ // what about audio+subtitles?
 		if(newTune)
+		{
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Audio only period");
+			// set audio only playback flag to true
+			aamp->mAudioOnlyPb = true;
+		}
 		mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled = mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled;
 		mMediaStreamContext[eMEDIATYPE_VIDEO]->adaptationSetIdx = mMediaStreamContext[eMEDIATYPE_AUDIO]->adaptationSetIdx;
 		mMediaStreamContext[eMEDIATYPE_VIDEO]->representationIndex = mMediaStreamContext[eMEDIATYPE_AUDIO]->representationIndex;

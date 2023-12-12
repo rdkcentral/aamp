@@ -1767,6 +1767,13 @@ public:
 	void SetAudioTrack(int trackId);
 
 	/**
+	 *   @fn SetAudioOnlyPlayback
+	 *
+	 *   @param[in] audioOnlyPlayback - true if audio only playback
+	 */
+	void SetAudioOnlyPlayback(bool audioOnlyPlayback);
+ 
+	/**
 	 *   @fn GetAudioTrack
 	 *
 	 *   @return int - index of current audio track in available track list

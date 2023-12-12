@@ -2394,6 +2394,15 @@ void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string renditi
 }
 
 /**
+ *   @brief Set audio only playback
+ *   @param[in] audioOnlyPlayback - true if audio only playback
+ */
+void PlayerInstanceAAMP::SetAudioOnlyPlayback(bool audioOnlyPlayback)
+{
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING, eAAMPConfig_AudioOnlyPlayback, audioOnlyPlayback);
+}
+
+/**
  *  @brief Set audio track by audio parameters like language , rendition, codec etc..
  */
 void PlayerInstanceAAMP::SetAudioTrackInternal(std::string language,  std::string rendition, std::string type, std::string codec, unsigned int channel, std::string label)
