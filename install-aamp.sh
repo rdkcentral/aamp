@@ -186,7 +186,7 @@ install_subtec() {
 
     if [ ! -d glib ]; then
         echo "Installing glib..."
-        do_clone https://gitlab.gnome.org/GNOME/glib.git
+        do_clone https://gitlab.gnome.org/GNOME/glib.git -b 2.78.0
     fi
     cd glib
     meson build && cd build
