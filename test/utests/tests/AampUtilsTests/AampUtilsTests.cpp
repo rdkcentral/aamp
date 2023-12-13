@@ -364,6 +364,7 @@ TEST(_AampUtils, aamp_WriteFile)
 	MediaType fileType = eMEDIATYPE_PLAYLIST_VIDEO;
 	result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "prefix");
 	EXPECT_TRUE(result);
+
 	//For coverage, expect to be rejected because no "/" or"." in filename
 	fileType = eMEDIATYPE_MANIFEST;
 	result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "prefix");
@@ -372,10 +373,20 @@ TEST(_AampUtils, aamp_WriteFile)
 	fileName +="/MANIFEST.EXT";
 	result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "prefix");
 	EXPECT_TRUE(result);
-	//For coverage - attempt to create folder in "/"
-	fileType = eMEDIATYPE_PLAYLIST_VIDEO;
-	result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "/");
-	EXPECT_FALSE(result);
+
+        //For coverage - attempt to create folder in "/"
+        fileType = eMEDIATYPE_PLAYLIST_VIDEO;
+        result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "/");
+        auto me = getuid();
+        if (me == 0) // i am (g)root
+        {
+            EXPECT_TRUE(result);
+            std::remove(fileName.c_str());  // don't leave it if successful
+        }
+        else
+        {
+            EXPECT_FALSE(result);
+        }
 }
 TEST(_AampUtils, aamp_WriteFile1)
 {

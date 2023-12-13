@@ -34,10 +34,8 @@ include_directories(${LIBDASH_INCLUDE_DIRS})
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     include_directories(/usr/local/include)
-    include_directories(/usr/local/include/libdash)
 else()
     include_directories(${AAMP_ROOT}/Linux/include)
-    include_directories(${AAMP_ROOT}/Linux/include/libdash)
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 
 include_directories(${UTESTS_ROOT}/mocks)

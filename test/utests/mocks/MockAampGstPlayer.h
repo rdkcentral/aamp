@@ -23,7 +23,7 @@
 #include <gmock/gmock.h>
 #include "aampgstplayer.h"
 
-auto mock_id3_callback = [](MediaType , const uint8_t * , size_t , const SegmentInfo_t &, const char * scheme_uri){ };
+static auto mock_id3_callback = [](MediaType , const uint8_t * , size_t , const SegmentInfo_t &, const char * scheme_uri){ };
 
 class MockAAMPGstPlayer : public AAMPGstPlayer
 {

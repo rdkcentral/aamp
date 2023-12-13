@@ -58,7 +58,16 @@ mkdir -p build
 cd build
 cmake ..
 make
-cp bin/libdash.dylib /usr/local/lib/
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    cp bin/libdash.dylib /usr/local/lib/
+elif [[ "$OSTYPE" == "linux"* ]]; then
+    cp bin/libdash.so /usr/local/lib/
+else
+    echo "WARNING - unrecognised platform!"
+    exit
+fi
+
 mkdir /usr/local/include
 mkdir /usr/local/include/libdash
 mkdir /usr/local/include/libdash/xml
