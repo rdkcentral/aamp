@@ -30,7 +30,7 @@ namespace id3_metadata
 {
 namespace helpers
 {
-constexpr size_t min_id3_header_length = 3u;
+constexpr size_t min_id3_header_length = 4u;
 constexpr size_t id3v2_header_size = 10u;
 
 
@@ -50,7 +50,7 @@ bool IsValidHeader(const uint8_t* data, size_t data_len)
 			return true;
 		}
 	}
-	
+
 	return false;
 }
 

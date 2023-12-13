@@ -44,8 +44,8 @@ TEST_F(ID3MetadataTest, IsValidHeaderTest) {
     //While calling IsValidHeader function for below test case it is getting fail.
     //Issue mention in the : DELIA-63554
 
-    // uint8_t exactlyMinHeader[] = { 'I', 'D', '3', 2, 2 };;
-    // EXPECT_FALSE(aamp::id3_metadata::helpers::IsValidHeader(exactlyMinHeader, 3));
+    uint8_t exactlyMinHeader[] = { 'I', 'D', '3'};
+    EXPECT_FALSE(aamp::id3_metadata::helpers::IsValidHeader(exactlyMinHeader,3));
 
 }
 
