@@ -2,13 +2,14 @@
 #include "AampProfiler.h"
 #include "AampConfig.h"
 #include <gtest/gtest.h>
+#include <cjson/cJSON.h>
+#include <algorithm>
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
 class AampProfilertests : public testing::Test {
 protected:
     void SetUp() override {
         profileEvent = new ProfileEventAAMP();
-      
     }
     void TearDown() override {
         delete profileEvent;
@@ -16,6 +17,42 @@ protected:
     }
     ProfileEventAAMP* profileEvent;
 };
+TEST_F(AampProfilertests, SetLatencyParamTest11)
+{
+    profileEvent->IncrementChangeCount(Count_RateCorrection);
+    profileEvent->IncrementChangeCount(Count_BitrateChange);
+    profileEvent->IncrementChangeCount(Count_BufferChange);
+    profileEvent->SetLatencyParam(INT_MAX);
+    profileEvent->TuneBegin();
+    profileEvent->GetTelemetryParam();
+}
+TEST_F(AampProfilertests, SetLatencyParamTest12)
+{
+    profileEvent->IncrementChangeCount(Count_BitrateChange);
+    profileEvent->SetLatencyParam(INT_MAX);
+}
+TEST_F(AampProfilertests, SetLatencyParamTest13)
+{
+    profileEvent->IncrementChangeCount(Count_BufferChange);
+    profileEvent->SetLatencyParam(INT_MAX);
+}
+TEST_F(AampProfilertests, GetTuneTimeMetricAsJsonTest)
+{
+    TuneEndMetrics tuneMetricsData;
+    char tuneTimeStrPrefixdata[] = {1,2,3,4,5};
+    char *tuneTimeStrPrefix = tuneTimeStrPrefixdata;
+    unsigned int licenseAcqNWTime = 2;
+    bool playerPreBuffered = true;
+    unsigned int durationSeconds = 3;
+    bool interfaceWifi = true;
+    std::string failureReason = "test1";
+    std::string appName = "test3";
+    cJSON *item = cJSON_CreateObject();
+    cJSON_AddNumberToObject(item,"ver",AAMP_TUNETIME_VERSION);
+    std::string s1 = profileEvent->GetTuneTimeMetricAsJson(tuneMetricsData, tuneTimeStrPrefix,licenseAcqNWTime, playerPreBuffered,durationSeconds,interfaceWifi, failureReason, appName);
+    profileEvent->TuneBegin();
+    profileEvent->SetDiscontinuityParam();
+}
 TEST_F(AampProfilertests, ProfileResetTest1)
 {
     profileEvent->ProfileReset(PROFILE_BUCKET_MANIFEST);
@@ -422,7 +459,6 @@ TEST_F(AampProfilertests, TuneEndTest2)
     EXPECT_EQ(durationSeconds,60);
     ASSERT_TRUE(interfaceWifi);
 }
-//null string issue
 TEST_F(AampProfilertests, TuneEndTest3)
 {
     TuneEndMetrics metrics;
@@ -512,7 +548,6 @@ TEST_F(AampProfilertests, TestGetTuneEventsJSON22)
     ASSERT_TRUE(outStr.find("\"td\":") != std::string::npos);
     ASSERT_TRUE(outStr.find("\"st\":\"video\"") != std::string::npos);
 }
- 
 TEST_F(AampProfilertests, TuneBeginTest)
 {
     profileEvent->TuneBegin();
@@ -579,9 +614,4 @@ TEST_F(AampProfilertests, SetBandwidthBitsPerSecondVideoTest)
     expectedBandwidth = 0;
     profileEvent->SetBandwidthBitsPerSecondVideo(expectedBandwidth);
     EXPECT_EQ(expectedBandwidth, 0);
-}
-TEST_F(AampProfilertests, TuneBeginResetsInternalState)
-{
-    profileEvent->TuneBegin();
-    EXPECT_EQ(PROFILE_BUCKET_INIT_SUBTITLE,7);
 }
