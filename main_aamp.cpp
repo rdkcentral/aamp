@@ -1119,6 +1119,16 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 		{
 			isSeekToLiveOrEnd = true;
 		}
+		//This is workaround for partner app that is sometimes passing negative value for seek position,
+          	//when trying to seek to beginning of VOD content. Default aamp behavior has been to treat seek(-1) as a seek to live.
+          	//We have an explicit seek to live api that should be instead used.
+
+		if(!aamp->IsLive() && aamp->mMediaFormat != eMEDIAFORMAT_DASH && secondsRelativeToTuneTime < 0)
+		{
+			AAMPLOG_WARN("The seek value set to 0 because the seek value is negative");
+			isSeekToLiveOrEnd = false;
+			secondsRelativeToTuneTime = 0;
+		}
 
 		AAMPLOG_WARN("aamp_Seek(%f) and seekToLiveOrEnd(%d) state(%d), keep paused(%d)", secondsRelativeToTuneTime, isSeekToLiveOrEnd,state, keepPaused);
 
