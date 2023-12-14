@@ -203,6 +203,10 @@ protected:
 			bool sleepValue = msleep(throttleDiff);
 			return sleepValue;
       	}
+      	
+      	double getApparentFrameRate() const {
+            return m_apparentFrameRate;
+        }
     };
 
 	void SetUp() override
@@ -1012,7 +1016,15 @@ TEST_F(sendSegmentTests, FilterAudioCodecBasedOnConfig_ATMOSEnabled11)
 
 TEST_F(sendSegmentTests, setFrameRateForTMTests)
 {
-   mTSProcessor->setFrameRateForTM(-12);
+	double rate;
+	mTSProcessor->setFrameRateForTM(20);
+	rate = mTSProcessor->getApparentFrameRate();
+	EXPECT_EQ(rate,20);
+
+	mTSProcessor->setFrameRateForTM(-12);
+	rate = mTSProcessor->getApparentFrameRate();
+	EXPECT_NE(rate,-12);
+
 }
 
 TEST_F(sendSegmentTests, FilterAudioCodecBasedOnConfig_ATMOSEnabled12)

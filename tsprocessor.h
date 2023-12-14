@@ -150,7 +150,10 @@ class TSProcessor : public MediaProcessor
        */
       void setFrameRateForTM( int frameRate) override
       {
-         m_apparentFrameRate = frameRate;
+      	 if(frameRate > 0)
+      	 {
+           m_apparentFrameRate = frameRate;
+        }
       }
       /**
        * @fn abort
