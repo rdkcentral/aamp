@@ -2982,6 +2982,7 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 			{
 				mTrackState = (MediaTrackDiscontinuityState) (mTrackState & ~state);
 				AAMPLOG_WARN("track:%d discontinuity processing ignored! reset mTrackState to: %d!", type, mTrackState);
+				aamp->UnblockWaitForDiscontinuityProcessToComplete();
 			}
 			else if (isMuxedAndAudioDiscoIgnored && type == eTRACK_VIDEO)
 			{
