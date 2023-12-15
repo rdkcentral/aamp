@@ -263,11 +263,15 @@ std::string aamp_getHostFromURL(std::string url)
 				host = url.substr(start_pos, (pos - start_pos));
 			}
 		}
+		else
+		{
+			throw std::runtime_error("Invalid URL:" + url);
+		}
 	}
-	catch(...)
-    	{
-        	AAMPLOG_ERR("Regex error Exception caught \n");  //CID:83946 - Uncaught exception
-    	}
+	catch (const std::exception &e)
+	{
+		AAMPLOG_ERR("Exception caught: %s\n", e.what());
+	}
 	return host;
 }
 

@@ -116,16 +116,16 @@ TEST(_AampUtils, aamp_getHostFromURL)
 	//http instead of https - for coverage
 	url = "http://lin021-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/BOX_SD_SU_SKYUK_1802_0_9103338152997639163.mpd";
 	host = aamp_getHostFromURL(url);
+	EXPECT_STREQ(host.c_str(),"lin021-gb-s8-prd-ak.cdn01.skycdp.com");
 }
-// DELIA Ticket is created for below test case --> DELIA-64009
-// TEST(_AampUtils, aamp_getHostFromURL1)
-// {
-//     std::string url = "invalid_url";
-//     std::string host;
-//     EXPECT_THROW({
-//         host = aamp_getHostFromURL(url);
-//     }, std::runtime_error);
-// }
+
+TEST(_AampUtils, aamp_getHostFromURL1)
+{
+	std::string url = "invalid_url";
+	std::string host = aamp_getHostFromURL(url);
+	EXPECT_STREQ(host.c_str(), "");
+}
+
 TEST(_AampUtils, aamp_IsLocalHost)
 {
 	bool result;
