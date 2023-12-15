@@ -132,6 +132,7 @@ typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 
 #define MUTE_SUBTITLES_TRACKID (-1)
 #define LOW_BW_TIMEOUT_FACTOR 0.4
+#define DEFAULT_LOW_BW_TIMEOUT 4
 
 /**
  * @brief Structure of X-Start HLS Tag

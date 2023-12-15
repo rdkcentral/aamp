@@ -3940,6 +3940,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 				if ((0 == lowBWTimeout) && (AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout)))
 				{
 					lowBWTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout) * LOW_BW_TIMEOUT_FACTOR;
+					lowBWTimeout = std::max(DEFAULT_LOW_BW_TIMEOUT, lowBWTimeout);
 				}
 				progressCtx.lowBWTimeout = lowBWTimeout;
 			}
@@ -12660,6 +12661,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	if ((0 == timeout) && (AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout)))
 	{
 		timeout = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout) * LOW_BW_TIMEOUT_FACTOR;
+		timeout = std::max(DEFAULT_LOW_BW_TIMEOUT, timeout);
 	}
 	jsondata.add("downloadLowBWTimeout", timeout);
 
