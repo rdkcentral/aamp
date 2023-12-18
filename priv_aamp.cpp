@@ -2923,8 +2923,6 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 				AAMPLOG_WARN("DisableRateCorrectionTimeInSeconds : %d isRateCorrectionEnabled : %d", disableRateCorrectionTimeInSeconds, isRateCorrectionEnabled);
 			}
 
-			mpStreamAbstractionAAMP->StartInjection();
-
 			if(mDiscontinuityFound)
 			{
 				profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FIRST_FRAME);
