@@ -824,8 +824,11 @@ bool AampMPDDownloader::isMPDLowLatency(std::shared_ptr<ManifestDownloadResponse
 									LLDashData.availabilityTimeOffset = pSegmentTemplate->GetAvailabilityTimeOffset();
 									LLDashData.availabilityTimeComplete = pSegmentTemplate->GetAvailabilityTimeComplete();
 									AAMPLOG_INFO("AvailabilityTimeOffset=%lf AvailabilityTimeComplete=%d",
-													pSegmentTemplate->GetAvailabilityTimeOffset(),pSegmentTemplate->GetAvailabilityTimeComplete());
-									LLDashData.lowLatencyMode	=	isSuccess	=	true;
+										LLDashData.availabilityTimeOffset,LLDashData.availabilityTimeComplete);
+									if (LLDashData.availabilityTimeOffset > 0.0)
+									{
+										LLDashData.lowLatencyMode	=	isSuccess	=	true;
+									}
 									if( isSuccess )
 									{
 										uint32_t timeScale=0;
