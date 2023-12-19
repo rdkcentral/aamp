@@ -233,6 +233,12 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						break;
 					}
 
+				case 37:
+					{
+						printf("[AAMPCLI] WEBVTT/TTML support: \"%s\"\n", playerInstanceAamp->IsOOBCCRenderingSupported() ? "Enabled" : "Disabled");
+						break;
+					}
+
 				default:
 					printf("[AAMPCLI] Invalid get command %s\n", cmd);
 					break;
@@ -302,6 +308,7 @@ void Get::registerGetCommands()
 	addCommand(34,"availableVideoTracks","Get All Available Video Tracks information from manifest");
 	addCommand(35,"live","Report if playback is logically from live edge");
 	addCommand(36,"playbackQuality","Get playback quality info");
+	addCommand(37,"isOOBCCRenderingSupported","Get the status of out of band caption rendering support");
 	commands.push_back("help");
 }
 
