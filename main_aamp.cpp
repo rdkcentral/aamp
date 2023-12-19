@@ -2507,6 +2507,14 @@ void PlayerInstanceAAMP::SetNewAdBreakerConfig(bool bValue)
 }
 
 /**
+ *   @brief Set json formatted base64 license data payload
+ */
+void PlayerInstanceAAMP::Setb64LicenseWrapping(bool bValue)
+{
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING, eAAMPConfig_Base64LicenseWrapping, bValue);
+}
+
+/**
  *  @brief Get available video tracks.
  */
 std::string PlayerInstanceAAMP::GetAvailableVideoTracks()

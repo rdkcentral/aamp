@@ -117,6 +117,7 @@ typedef enum
 	eAAMPConfig_ForceHttp,							/**< Force HTTP*/
 	eAAMPConfig_InternalReTune, 						/**< Internal re-tune on underflows/ pts errors*/
 	eAAMPConfig_AudioOnlyPlayback,						/**< AAMP Audio Only Playback*/
+	eAAMPConfig_Base64LicenseWrapping,					/**< Encode and decode the license data in base64 format*/
 	eAAMPConfig_GStreamerBufferingBeforePlay,				/**< Enable pre buffering logic which ensures minimum buffering is done before pipeline play*/
 	eAAMPConfig_EnablePROutputProtection,					/**< Playready output protection config */
 	eAAMPConfig_ReTuneOnBufferingTimeout,					/**< Re-tune on buffering timeout */

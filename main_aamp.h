@@ -1558,7 +1558,15 @@ public:
 	 *   @return void
 	 */
 	void SetNewAdBreakerConfig(bool bValue);
-
+    
+	/**
+	 *   @fn Setb64LicenseWrapping
+	 *   @param[in] bValue - true if json formatted base64 license data payload is expected
+	 *
+	 *   @return void
+	 */
+	void Setb64LicenseWrapping(bool bValue);
+    
 	/**
 	 *   @fn GetAvailableVideoTracks
 	 *

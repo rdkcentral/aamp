@@ -886,7 +886,24 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 	if(licenseRequest.method == AampLicenseRequest::POST)
 	{
 		inpData->eRequestType 	=	eCURL_POST;
-		inpData->postData		=	licenseRequest.payload;
+		if(ISCONFIGSET(eAAMPConfig_Base64LicenseWrapping))
+		{
+			std::string WrapPayload;
+			WrapPayload.append("{\"licenseChallenge\":\"");
+			char *b64_licenseChallenge = base64_Encode(reinterpret_cast<const unsigned char*>(licenseRequest.payload.c_str()), licenseRequest.payload.length());
+			if(b64_licenseChallenge)
+			{
+				WrapPayload.append(b64_licenseChallenge);
+				free(b64_licenseChallenge);
+			}
+			WrapPayload.append("\"}");
+			inpData->postData               =       WrapPayload;
+			AAMPLOG_INFO(" Sending license request payload to server : %s ", WrapPayload.c_str());
+		}
+		else
+		{
+			inpData->postData             =       licenseRequest.payload;
+		}
 	}
 	else
 	{
@@ -1618,7 +1635,7 @@ KeyState AampDRMSessionManager::handleLicenseResponse(std::shared_ptr<AampDrmHel
 				aamp->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
 			}
 #if !defined(USE_SECCLIENT) && !defined(USE_SECMANAGER)
-			if (!drmHelper->getDrmMetaData().empty())
+			if (!drmHelper->getDrmMetaData().empty() || ISCONFIGSET(eAAMPConfig_Base64LicenseWrapping))
 			{
 				/*
 					Licence response from MDS server is in JSON form
