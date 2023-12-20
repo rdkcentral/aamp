@@ -6782,6 +6782,10 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	std::vector<BitsPerSecond> bitratelist;
 	for (auto &audioTrack : aTracks)
 	{
+		if(audioTrack.index == aTrackIdx)
+		{
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->SetCurrentBandWidth(audioTrack.bandwidth);
+		}
 		bitratelist.push_back(audioTrack.bandwidth);
 	}
 	aamp->mCMCDCollector->SetBitrates(eMEDIATYPE_AUDIO, bitratelist);
