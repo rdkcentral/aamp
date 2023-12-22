@@ -10772,6 +10772,14 @@ bool PrivateInstanceAAMP::IsDiscontinuityIgnoredForOtherTrack(MediaType track)
 }
 
 /**
+ *  @brief Check whether the given track discontinuity ignored for current track.
+ */
+bool PrivateInstanceAAMP::IsDiscontinuityIgnoredForCurrentTrack(MediaType track)
+{
+	return (mIsDiscontinuityIgnored[track]);
+}
+
+/**
  *  @brief Reset discontinuity ignored flag for audio and video tracks
  */
 void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatus(void)
@@ -10780,6 +10788,14 @@ void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatus(void)
 	mIsDiscontinuityIgnored[eTRACK_AUDIO] = false;
 	mIsDiscontinuityIgnored[eTRACK_SUBTITLE] = false;
 	mIsDiscontinuityIgnored[eTRACK_AUX_AUDIO] = false;
+}
+
+/**
+ *  @brief Reset discontinuity ignored flag for current track
+ */
+void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatusForTrack(MediaType track )
+{
+	 mIsDiscontinuityIgnored[track] = false;
 }
 
 /**

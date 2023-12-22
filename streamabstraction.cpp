@@ -1050,14 +1050,26 @@ bool MediaTrack::InjectFragment()
 				{
 					if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
 					{
+
 						context->ProcessDiscontinuity(type);
-						isDiscontinuity = true;
+						bool isDiscontinuityIgnoredForCurrentTrack = aamp->IsDiscontinuityIgnoredForCurrentTrack((MediaType)type);
+						if( true != isDiscontinuityIgnoredForCurrentTrack )
+						{
+							isDiscontinuity = true;
+							AAMPLOG_WARN("track %s discontinuity not ignored = %d - discontinuity @position - %f", name, isDiscontinuityIgnoredForCurrentTrack, cachedFragment->position);
+						}
+						else
+						{
+							isDiscontinuity = false;
+							AAMPLOG_WARN("track %s - discontinuity ignored = %d continue without discontinuity @position - %f", name, isDiscontinuityIgnoredForCurrentTrack, cachedFragment->position);	
+						}
+
 						if(type != eTRACK_SUBTITLE)
 						{
 							context->resetDiscontinuityTrackState();
 							aamp->ResetDiscontinuityInTracks();
 						}
-						AAMPLOG_WARN("track %s - Discontinuity @position - %f", name, cachedFragment->position);
+
 					}
 					else
 					{

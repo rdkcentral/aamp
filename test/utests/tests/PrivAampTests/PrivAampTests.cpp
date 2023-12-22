@@ -2638,6 +2638,14 @@ TEST_F(PrivAampTests,SetTrackDiscontinuityIgnoredStatusTest)
 	p_aamp->ResetTrackDiscontinuityIgnoredStatus();
 }
 
+TEST_F(PrivAampTests,IsDiscontinuityIgnoredForCurrentTrackTest)
+{
+	p_aamp->SetTrackDiscontinuityIgnoredStatus(eMEDIATYPE_VIDEO);
+	EXPECT_TRUE(p_aamp->IsDiscontinuityIgnoredForCurrentTrack(eMEDIATYPE_VIDEO));
+
+	p_aamp->ResetTrackDiscontinuityIgnoredStatusForTrack(eMEDIATYPE_VIDEO);
+}
+
 TEST_F(PrivAampTests,IsAudioOrVideoOnlyTest)
 {
 	EXPECT_FALSE(p_aamp->IsAudioOrVideoOnly(FORMAT_INVALID,FORMAT_INVALID,FORMAT_INVALID));

@@ -2115,11 +2115,25 @@ public:
 	bool IsDiscontinuityIgnoredForOtherTrack(MediaType track);
 
 	/**
+	 *    @fn IsDiscontinuityIgnoredForCurrentTrack
+	 *
+	 *    @return true - if the discontinuity already ignored.
+	 */
+	bool IsDiscontinuityIgnoredForCurrentTrack(MediaType track);
+
+	/**
 	 *    @fn ResetTrackDiscontinuityIgnoredStatus
 	 *
 	 *    @return void
 	 */
 	void ResetTrackDiscontinuityIgnoredStatus(void);
+
+	/**
+	 *    @fn ResetTrackDiscontinuityIgnoredStatusForTrack
+	 *
+	 *    @return void
+	 */
+	void ResetTrackDiscontinuityIgnoredStatusForTrack(MediaType track);
 
 	/**
 	 *   @fn ResetDiscontinuityInTracks

@@ -959,6 +959,11 @@ bool PrivateInstanceAAMP::IsDiscontinuityIgnoredForOtherTrack(MediaType track)
     return true;
 }
 
+bool PrivateInstanceAAMP::IsDiscontinuityIgnoredForCurrentTrack(MediaType track)
+{
+    return true;
+}
+
 bool PrivateInstanceAAMP::IsDiscontinuityProcessPending()
 {
     return true;
@@ -987,6 +992,10 @@ void PrivateInstanceAAMP::ResetEOSSignalledFlag()
 }
 
 void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatus(void)
+{
+}
+
+void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatusForTrack(MediaType track)
 {
 }
 
