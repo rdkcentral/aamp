@@ -1,6 +1,6 @@
 
 # ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
-# V5.11
+# V5.12
  
 ## Overview
 
@@ -10,10 +10,8 @@ UVE is a flexible, full-featured video playback API designed for use from JavaSc
 ### Advanced Adaptive Media Player (AAMP)
 AAMP is an open source native video engine that is built on top of GStreamer and optimized for performance, memory use, and code size.  On RDK platforms, UVE-JS is the primary recommended way to interact with AAMP.  AAMP's JavaScript bindings are made available using WebKit Injectedbundle.
 
-
-
 ## Target Audience
-This document is targeted to application developers  who are interested in evaluating/adopting AAMP for their media player applications on settops running RDKV based firmware.  UVE implementations also exist which can be used in non-RDK browsers.
+This document is targeted to application developers  who are interested in evaluating/adopting AAMP for their media player applications on settops running RDKV based firmware.  UVE API wrapper also exists which can be used in non-RDK browsers.
 
 ## Features
 - Formats: HLS, DASH, Fragmented MP4 HLS,  Progressive MP4
@@ -25,313 +23,7 @@ This document is targeted to application developers  who are interested in evalu
 - DD+, Dolby ATMOS, AC4 Support
 - Low Latency DASH
 
-## Roadmap
-- DVB, EBU-TT captions
-
-<div style="page-break-after: always;"></div>
-
-## Release Version History
-
-**Version:** 0.7
-**Release Notes:** 
-Initial draft of UVE APIs implemented
-
-**Version:** 0.8
-**Release Notes:** 
-CDAI support, configuration options for tune optimization
-- API:
-    - setAlternateContent
-    - notifyReservationCompletion
-    - addCustomHTTPHeader
-- Configuration:
-    - stereoOnly
-    - bulkTimedMetadata
-    - useWesterosSink
-    - parallelPlaylistDownload
-- Events:
-    - bufferingChanged
-    - timedMetadata
-    - adResolved
-    - reservationStart
-    - reservationEnd
-    - placementStart
-    - placementEnd
-    - placementProgress
-    - placementError
-    - manifestRefreshNotify
-    - tuneMetricsData
-
-**Version:** 0.9
-**Release Notes:** 
-"Player Switching" Feature
-- load (autoplay=false support)
-- detach() method
-
-
-**Version:** 1.0
-**Release Notes:** 
-Added support to get available audio track and closed captioning info
-- API:
-    - getAvailableAudioTracks
-    - getAvailableTextTracks
-- Configuration:
-    - playlistTimeout
-    - parallelPlaylistRefresh
-    - useAverageBandwidth
-    - preCachePlaylistTime
-    - progressReportingInterval
-    - useRetuneForUnpairedDiscontinuity
-    - drmDecryptFailThreshold
-
-
-**Version:** 2.4
-**Release Notes:** 
-April 2020 Release Update
-- Configuration
-    - initialBuffer
-    - useMatchingBaseUrl
-    - initFragmentRetryCount
-- Event Notification
-
-**Version:** 2.6
-**Release Notes:** 
-June 2020 Release Update
-Seek while paused, get/set audio and text track supported
-- API:
-    - getAudioTrack
-    - setAudioTrack
-    - getTextTrack
-    - setTextTrack
-    - setClosedCaptionStatus
-    - setTextStyleOptions
-    - getTextStyleOptions
-- Configuration:
-    - nativeCCRendering
-    - langCodePreference
-    - descriptiveTrackName
-
-**Version:** 2.7
-**Release Notes:** 
-Aug 2020 Release Update
-- Configuration
-    - Deprecated useWesterosSink
-
-
-**Version:** 2.9
-**Release Notes:** 
-Sept 2020 Release Update
-- Configuration
-    - authToken
-    - useRetuneForGstInternalError
-
-
-**Version:** 3
-**Release Notes:** 
-Oct 2020 Release update.
-- Updated getAvailableAudioTracks / getAvailableTextTracks 
-- API:
-    - setAudioLanguage
-- Configuration:
-    - propagateUriParameters
-    - reportVideoPTS
-ATSC – UVE Features Added .
-
-**Version:** 3.1
-**Release Notes:** 
-Jan 2021 Release update.
-ATSC New APIs / Events
-- API:
-    - getAvailableThumbnailTracks
-    - setThumbnailTrack
-    - getThumbnail
-- Configuration:
-    - sslVerifyPeer
-    - persistBitrateOverSeek
-    - setLicenseCaching
-    - maxPlaylistCacheSize
-    - enableSeekableRange
-
-**Version:** 3.2
-**Release Notes:** 
-Mar 2021 Release update
-- API
-    - setPreferredAudioLanguage
-    - setAudioTrack
-- Configuration:
-    - livePauseBehavior
-    - limitResolution
-
-**Version:** 3.3
-**Release Notes:** 
-May 2021 Release update
-- Configuration:
-    - useAbsoluteTimeline 
-    - asyncTune
-- Events :
-    - Updated bitrateChanged for ATSC
-
-**Version:** 3.4
-**Release Notes:** 
-- Events :
-    - audioTracksChanged
-    - textTracksChanged
-    - seeked
-    - vttCueDataListener
-    - id3Metadata
-
-**Version:** 3.5
-**Release Notes:** 
-Aug 2021 Release update
-- API
-    - load (updated)
-    - setPreferredAudioLanguage (updated)
-    - getAvailableAudioTracks (updated)
-    - getAvailableTextTracks (updated)
-    - downloadBuffer default value(updated)
-- Events :
-    - id3Metadata
-
-**Version:** 3.6
-**Release Notes:** 
-Sept 2021 Release update
-- Configuration
-    - disable4K
-    - sharedSSL
-    - preferredAudioRendition
-    - preferredAudioCodec
-- Events:
-    - mediaMetadata (updated)
-
-**Version:** 4.1
-**Release Notes:** 
-Jan 2022 Release update
-- API
-    - subscribeResponseHeaders
-- Configuration
-    - supportTLS
-    - maxInitFragCachePerTrack
-    - fragmentDownloadFailThreshold
-    - tsbInterruptHandling
-    - sslVerifyPeer (updated)
-- Events:
-     - AAMP_TUNE_UNSUPPORTED_AUDIO_TYPE (updated error code)
-     - AAMP_TUNE_UNSUPPORTED_STREAM_TYPE (updated error code)
-     - AAMP_EVENT_CONTENT_GAP
-     - AAMP_EVENT_HTTP_RESPONSE_HEADER
-
-**Version:** 4.2
-**Release Notes:** 
-Feb 2022 Release update
-- API
-    - getAudioTrackInfo
-    - getPreferredAudioProperties
-- Configuration
-     - Updated asyncTune default state to True
-     - useSecManager
-- Events:
-    - AAMP_EVENT_WATERMARK_SESSION_UPDATE
-
-**Version:** 4.3
-**Release Notes:** 
-Mar 2022 Release update
-- API
-    - getPlaybackStatistics
-- Configuration
-    - customLicenseData
-    - Updated asyncTune default state to False
-
-**Version:** 4.4
-**Release Notes:** 
-Apr 2022 Release update
-Support for AC4 Audio 
-- API
-    - getAvailableVideoTracks
-    - setVideoTracks
-- Configuration
-    - disableAC4
-    - asyncTune default state to True•	
-
-**Version:** 4.5
-**Release Notes:** 
-May  2022 Release update
-- API
-    - setPreferredTextLanguage
-    - getTextTrackInfo
-    - getPreferredTextProperties
-    - setPreferredAudioLanguage ( updated)
-- Configuration
-    - persistProfileAcrossTune
-
-**Version:** 4.6
-**Release Notes:** 
-Jun  2022 Release update
-- API
-- Configuration
-    - preferredAudioRendition
-    - preferredAudioCodec
-    - preferredAudioLabel
-    - preferredAudioType
-
-**Version:** 4.12
-**Release Notes:** 
-Dec  2022 Release update
-- API
-- Configuration
-    - persistHighNetworkBandwidth
-    - persistLowNetworkBandwidth
-    - customHeaderLicense
-
-**Version:** 5.1
-**Release Notes:** 
-Jan  2023 Release update
-- API
-    - setContentProtectionDataConfig
-    - setContentProtectionDataUpdateTimeout
-- Configuration
-    - configRuntimeDRM
-
-**Version:** 5.3
-**Release Notes:** 
-Mar  2023 Release update
-- Configuration
-    - enableCMCD
-- Event
-    - playbackProgressUpdate ( updated for new field )
-    
-**Version:** 5.6
-**Release Notes:**
-Jun  2023 Release update
-- API
-    - getPlaybackStatistics ( updated example )
-
-**Version:** 5.7
-**Release Notes:**
-July 2023 Release update
-- API
-    - getVideoPlaybackQuality
-
-**Version:** 5.8
-**Release Notes:**
-September 2023 Release update
-- API
-    - resetConfiguration
-    - getConfiguration
-
-**Version:** 5.10
-**Release Notes:**
-October 2023 Release update
-- Events:
-    - AAMP_EVENT_TUNE_TIME_METRICS(Updated the tune metric info)
-
-**Version:** 5.11
-**Release Notes:**
-November 2023 Release update
-- Configuration:
-    - telemetryInterval
-
-<div style="page-break-after: always;"></div>
-
-## Abbreviation Summary 
+## Acronyms 
     - AAMP      Advanced Adaptive Media Player
     - UVE       Universal Video Engine
     - JS        Javascript
@@ -458,6 +150,11 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | dnsCacheTimeout | Number | 180 | life-time for DNS cache entries ,Name resolve results are cached for manifest and used for this number of seconds |
 | tsbtype | String |  | Use the "tsbtype" configuration for each playback session, where "local" retains existing FOG streaming logic, "cloud" enables direct CDN streaming, and if "tsbtype" is not provided, default to "none," disabling TSB playback |
 | telemetryInterval | Number | 300 | telemetry log interval . Default of 300 seconds . 0 to disable telemetry logging |
+| sendUserAgentInLicense | Boolean | False | Optional field to enable sending User Agent string in license request also |
+| useSinglePipeline | Boolean | False | Optional field to enable single pipeline while switching between multiple player instances( Ad & Content) to avoid delay in flush operations. Used primarily for Client Side Ad-Insertion with multi-player usage |
+| mpdStichingSupport | Boolean | True | Optional field to enable/disable DASH MPD stitching functionality with dual manifest ( one manifest used during tune and another manifest during refresh ) |
+| enablePTSReStamp | Boolean | False | Optional field to enable/disable PTS Re-stamping functionality across discontinuity while moving from Content to Ads or vice-versa |
+
 
 
 Example:
@@ -3126,4 +2823,306 @@ HLS Linear:
 ```
 
 
+## Release Versions
 
+**Version:** 0.7
+**Release Notes:** 
+Initial draft of UVE APIs implemented
+
+**Version:** 0.8
+**Release Notes:** 
+CDAI support, configuration options for tune optimization
+- API:
+    - setAlternateContent
+    - notifyReservationCompletion
+    - addCustomHTTPHeader
+- Configuration:
+    - stereoOnly
+    - bulkTimedMetadata
+    - useWesterosSink
+    - parallelPlaylistDownload
+- Events:
+    - bufferingChanged
+    - timedMetadata
+    - adResolved
+    - reservationStart
+    - reservationEnd
+    - placementStart
+    - placementEnd
+    - placementProgress
+    - placementError
+    - manifestRefreshNotify
+    - tuneMetricsData
+
+**Version:** 0.9
+**Release Notes:** 
+"Player Switching" Feature
+- load (autoplay=false support)
+- detach() method
+
+**Version:** 1.0
+**Release Notes:** 
+Added support to get available audio track and closed captioning info
+- API:
+    - getAvailableAudioTracks
+    - getAvailableTextTracks
+- Configuration:
+    - playlistTimeout
+    - parallelPlaylistRefresh
+    - useAverageBandwidth
+    - preCachePlaylistTime
+    - progressReportingInterval
+    - useRetuneForUnpairedDiscontinuity
+    - drmDecryptFailThreshold
+
+**Version:** 2.4
+**Release Notes:** 
+April 2020
+- Configuration
+    - initialBuffer
+    - useMatchingBaseUrl
+    - initFragmentRetryCount
+- Event Notification
+
+**Version:** 2.6
+**Release Notes:** 
+June 2020
+Seek while paused, get/set audio and text track supported
+- API:
+    - getAudioTrack
+    - setAudioTrack
+    - getTextTrack
+    - setTextTrack
+    - setClosedCaptionStatus
+    - setTextStyleOptions
+    - getTextStyleOptions
+- Configuration:
+    - nativeCCRendering
+    - langCodePreference
+    - descriptiveTrackName
+
+**Version:** 2.7
+**Release Notes:** 
+Aug 2020
+- Configuration
+    - Deprecated useWesterosSink
+
+**Version:** 2.9
+**Release Notes:** 
+Sept 2020
+- Configuration
+    - authToken
+    - useRetuneForGstInternalError
+
+**Version:** 3
+**Release Notes:** 
+Oct 2020
+- Updated getAvailableAudioTracks / getAvailableTextTracks 
+- API:
+    - setAudioLanguage
+- Configuration:
+    - propagateUriParameters
+    - reportVideoPTS
+ATSC – UVE Features Added .
+
+**Version:** 3.1
+**Release Notes:** 
+Jan 2021
+ATSC New APIs / Events
+- API:
+    - getAvailableThumbnailTracks
+    - setThumbnailTrack
+    - getThumbnail
+- Configuration:
+    - sslVerifyPeer
+    - persistBitrateOverSeek
+    - setLicenseCaching
+    - maxPlaylistCacheSize
+    - enableSeekableRange
+
+**Version:** 3.2
+**Release Notes:** 
+Mar 2021
+- API
+    - setPreferredAudioLanguage
+    - setAudioTrack
+- Configuration:
+    - livePauseBehavior
+    - limitResolution
+
+**Version:** 3.3
+**Release Notes:** 
+May 2021
+- Configuration:
+    - useAbsoluteTimeline 
+    - asyncTune
+- Events :
+    - Updated bitrateChanged for ATSC
+
+**Version:** 3.4
+**Release Notes:**
+- Events :
+    - audioTracksChanged
+    - textTracksChanged
+    - seeked
+    - vttCueDataListener
+    - id3Metadata
+
+**Version:** 3.5
+**Release Notes:** 
+Aug 2021
+- API
+    - load (updated)
+    - setPreferredAudioLanguage (updated)
+    - getAvailableAudioTracks (updated)
+    - getAvailableTextTracks (updated)
+    - downloadBuffer default value(updated)
+- Events :
+    - id3Metadata
+
+**Version:** 3.6
+**Release Notes:** 
+Sep 2021
+- Configuration
+    - disable4K
+    - sharedSSL
+    - preferredAudioRendition
+    - preferredAudioCodec
+- Events:
+    - mediaMetadata (updated)
+
+**Version:** 4.1
+**Release Notes:** 
+Jan 2022
+- API
+    - subscribeResponseHeaders
+- Configuration
+    - supportTLS
+    - maxInitFragCachePerTrack
+    - fragmentDownloadFailThreshold
+    - tsbInterruptHandling
+    - sslVerifyPeer (updated)
+- Events:
+     - AAMP_TUNE_UNSUPPORTED_AUDIO_TYPE (updated error code)
+     - AAMP_TUNE_UNSUPPORTED_STREAM_TYPE (updated error code)
+     - AAMP_EVENT_CONTENT_GAP
+     - AAMP_EVENT_HTTP_RESPONSE_HEADER
+
+**Version:** 4.2
+**Release Notes:** 
+Feb 2022
+- API
+    - getAudioTrackInfo
+    - getPreferredAudioProperties
+- Configuration
+     - Updated asyncTune default state to True
+     - useSecManager
+- Events:
+    - AAMP_EVENT_WATERMARK_SESSION_UPDATE
+
+**Version:** 4.3
+**Release Notes:** 
+Mar 2022
+- API
+    - getPlaybackStatistics
+- Configuration
+    - customLicenseData
+    - Updated asyncTune default state to False
+
+**Version:** 4.4
+**Release Notes:** 
+Apr 2022
+Support for AC4 Audio 
+- API
+    - getAvailableVideoTracks
+    - setVideoTracks
+- Configuration
+    - disableAC4
+    - asyncTune default state to True•	
+
+**Version:** 4.5
+**Release Notes:** 
+May 2022
+- API
+    - setPreferredTextLanguage
+    - getTextTrackInfo
+    - getPreferredTextProperties
+    - setPreferredAudioLanguage ( updated)
+- Configuration
+    - persistProfileAcrossTune
+
+**Version:** 4.6
+**Release Notes:** 
+Jun 2022
+- API
+- Configuration
+    - preferredAudioRendition
+    - preferredAudioCodec
+    - preferredAudioLabel
+    - preferredAudioType
+
+**Version:** 4.12
+**Release Notes:** 
+Dec 2022
+- API
+- Configuration
+    - persistHighNetworkBandwidth
+    - persistLowNetworkBandwidth
+    - customHeaderLicense
+
+**Version:** 5.1
+**Release Notes:** 
+Jan 2023
+- API
+    - setContentProtectionDataConfig
+    - setContentProtectionDataUpdateTimeout
+- Configuration
+    - configRuntimeDRM
+
+**Version:** 5.3
+**Release Notes:** 
+Mar 2023
+- Configuration
+    - enableCMCD
+- Event
+    - playbackProgressUpdate ( updated for new field )
+    
+**Version:** 5.6
+**Release Notes:**
+Jun 2023
+- API
+    - getPlaybackStatistics ( updated example )
+
+**Version:** 5.7
+**Release Notes:**
+Jul 2023
+- API
+    - getVideoPlaybackQuality
+
+**Version:** 5.8
+**Release Notes:**
+Sep 2023
+- API
+    - resetConfiguration
+    - getConfiguration
+
+**Version:** 5.10
+**Release Notes:**
+Oct 2023
+- Events:
+    - AAMP_EVENT_TUNE_TIME_METRICS(Updated the tune metric info)
+
+**Version:** 5.11
+**Release Notes:**
+Nov 2023
+- Configuration:
+    - telemetryInterval
+
+**Version:** 5.12
+**Release Notes:**
+Dec 2023
+- Configuration:
+    - useSinglePipeline
+    - sendUserAgentInLicense
+    - mpdStichingSupport
+    - enablePTSReStamp
