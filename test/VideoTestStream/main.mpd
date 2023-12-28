@@ -7,34 +7,45 @@
 	  <Representation id="1080p" mimeType="video/mp4" codecs="avc1.4d4028" bandwidth="5000000" width="1920" height="1080" frameRate="25/1">
 		<SegmentTemplate timescale="12800" initialization="dash/1080p_init.m4s" media="dash/1080p_$Number%03d$.m4s" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="25600" r="29"/>
+			  <S t="0" d="25600" r="448" />
+			  <S d="25344" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
 	  <Representation id="720p" mimeType="video/mp4" codecs="avc1.4d401f" bandwidth="2800000" width="1280" height="720" frameRate="25/1">
 		<SegmentTemplate timescale="12800" initialization="dash/720p_init.m4s" media="dash/720p_$Number%03d$.m4s" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="25600" r="29"/>
+			  <S t="0" d="25600" r="448" />
+			  <S d="25344" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
 	  <Representation id="480p" mimeType="video/mp4" codecs="avc1.4d401e" bandwidth="1400000" width="842" height="474" frameRate="25/1">
 		<SegmentTemplate timescale="12800" initialization="dash/480p_init.m4s" media="dash/480p_$Number%03d$.m4s" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="25600" r="29"/>
+			  <S t="0" d="25600" r="448" />
+			  <S d="25344" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
 	  <Representation id="360p" mimeType="video/mp4" codecs="avc1.4d401e" bandwidth="800000" width="640" height="360" frameRate="25/1">
 		<SegmentTemplate timescale="12800" initialization="dash/360p_init.m4s" media="dash/360p_$Number%03d$.m4s" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="25600" r="29"/>
+			  <S t="0" d="25600" r="448" />
+			  <S d="25344" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
 	</AdaptationSet>
-	<AdaptationSet id="1" contentType="video" segmentAlignment="true" bitstreamSwitching="true" lang="und"><EssentialProperty schemeIdUri="http://dashif.org/guidelines/trickmode" value="1"/><Representation id="4" mimeType="video/mp4" codecs="avc1.4d4016" bandwidth="800000" width="640" height="360" frameRate="1/1"><SegmentTemplate timescale="12800" initialization="dash/iframe_init.m4s" media="dash/iframe_$Number%03d$.m4s" startNumber="1"><SegmentTimeline><S t="0" d="25600" r="29"/></SegmentTimeline></SegmentTemplate></Representation>
-		</AdaptationSet>
+	<AdaptationSet id="1" contentType="video" segmentAlignment="true" bitstreamSwitching="true" lang="und"><EssentialProperty schemeIdUri="http://dashif.org/guidelines/trickmode" value="1"/>
+		<Representation id="4" mimeType="video/mp4" codecs="avc1.4d4016" bandwidth="800000" width="640" height="360" frameRate="1/1">
+			<SegmentTemplate timescale="12800" initialization="dash/iframe_init.m4s" media="dash/iframe_$Number%03d$.m4s" startNumber="1">
+				<SegmentTimeline>
+					<S t="0" d="25600" r="449"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+		</Representation>
+	</AdaptationSet>
 	<AdaptationSet id="2" contentType="audio" segmentAlignment="true" bitstreamSwitching="true" lang="eng">
 	  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
 	  <Representation id="English" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="288000" audioSamplingRate="48000">
@@ -42,7 +53,7 @@
 		<SegmentTemplate timescale="48000" initialization="dash/en_init.m4s" media="dash/en_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
 			  <S t="0" d="95232" />
-			  <S d="96256" r="27" />
+			  <S d="96256" r="446" />
 			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
@@ -55,7 +66,7 @@
 		<SegmentTemplate timescale="48000" initialization="dash/en_init.m4s" media="dash/en_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
 			  <S t="0" d="95232" />
-			  <S d="96256" r="27" />
+			  <S d="96256" r="446" />
 			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
@@ -68,7 +79,7 @@
 		<SegmentTemplate timescale="48000" initialization="dash/de_init.m4s" media="dash/de_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
 			  <S t="0" d="95232" />
-			  <S d="96256" r="27" />
+			  <S d="96256" r="446" />
 			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
@@ -81,7 +92,7 @@
 		<SegmentTemplate timescale="48000" initialization="dash/de_init.m4s" media="dash/de_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
 			  <S t="0" d="95232" />
-			  <S d="96256" r="27" />
+			  <S d="96256" r="446" />
 			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
@@ -94,7 +105,7 @@
 		<SegmentTemplate timescale="48000" initialization="dash/es_init.m4s" media="dash/es_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
 			  <S t="0" d="95232" />
-			  <S d="96256" r="27" />
+			  <S d="96256" r="446" />
 			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
@@ -107,7 +118,7 @@
 		<SegmentTemplate timescale="48000" initialization="dash/es_init.m4s" media="dash/es_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
 			  <S t="0" d="95232" />
-			  <S d="96256" r="27" />
+			  <S d="96256" r="446" />
 			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
@@ -120,7 +131,7 @@
 		<SegmentTemplate timescale="48000" initialization="dash/fr_init.m4s" media="dash/fr_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
 			  <S t="0" d="95232" />
-			  <S d="96256" r="27" />
+			  <S d="96256" r="446" />
 			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
@@ -133,7 +144,7 @@
 		<SegmentTemplate timescale="48000" initialization="dash/fr_init.m4s" media="dash/fr_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
 			  <S t="0" d="95232" />
-			  <S d="96256" r="27" />
+			  <S d="96256" r="446" />
 			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
@@ -146,7 +157,7 @@
 		<SegmentTemplate timescale="48000" initialization="dash/pl_init.m4s" media="dash/pl_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
 			  <S t="0" d="95232" />
-			  <S d="96256" r="27" />
+			  <S d="96256" r="446" />
 			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
@@ -159,7 +170,7 @@
 		<SegmentTemplate timescale="48000" initialization="dash/pl_init.m4s" media="dash/pl_$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
 			  <S t="0" d="95232" />
-			  <S d="96256" r="27" />
+			  <S d="96256" r="446" />
 			  <S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
@@ -170,7 +181,7 @@
 	  <Representation id="English WebVTT captions" mimeType="text/vtt" codecs="wvtt" bandwidth="400">
 		<SegmentTemplate timescale="1" media="dash/en_$Number%03d$.vtt" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="2" r="29" />
+			  <S t="0" d="2" r="449" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -180,7 +191,7 @@
 	  <Representation id="German WebVTT captions" mimeType="text/vtt" codecs="wvtt" bandwidth="400">
 		<SegmentTemplate timescale="1" media="dash/de_$Number%03d$.vtt" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="2" r="29" />
+			  <S t="0" d="2" r="449" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -190,7 +201,7 @@
 	  <Representation id="Spanish WebVTT captions" mimeType="text/vtt" codecs="wvtt" bandwidth="400">
 		<SegmentTemplate timescale="1" media="dash/es_$Number%03d$.vtt" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="2" r="29" />
+			  <S t="0" d="2" r="449" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -200,7 +211,7 @@
 	  <Representation id="French WebVTT captions" mimeType="text/vtt" codecs="wvtt" bandwidth="400">
 		<SegmentTemplate timescale="1" media="dash/fr_$Number%03d$.vtt" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="2" r="29" />
+			  <S t="0" d="2" r="449" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -210,7 +221,7 @@
 	  <Representation id="Polish WebVTT captions" mimeType="text/vtt" codecs="wvtt" bandwidth="400">
 		<SegmentTemplate timescale="1" media="dash/pl_$Number%03d$.vtt" startNumber="1">
 		  <SegmentTimeline>
-			<S t="0" d="2" r="29" />
+			<S t="0" d="2" r="449" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>

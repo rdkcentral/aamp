@@ -5,7 +5,8 @@ LANG_639_3=(eng fra deu spa pol)
 LANG_639_2=(en fr de es pl)
 LANG_FULL_NAME=(English French German Spanish Polish)
 
-VIDEO_LENGTH_SEC=60
+# 15 minutes
+VIDEO_LENGTH_SEC=900
 VIDEO_SEGMENT_SEC=2
 IFRAME_CADENCE_SEC=2
 AUDIO_SEGMENT_SEC=2
