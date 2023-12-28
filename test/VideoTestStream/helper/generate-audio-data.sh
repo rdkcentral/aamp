@@ -27,7 +27,16 @@ do
 
         # populate index.txt
         echo "" > $AUDIO_PATH/${LANG_639_2[$I]}/index.txt
-	    for J in $(seq 1 $((VIDEO_LENGTH_SEC/60)))
+
+        # Calculate the number of minutes
+        minutes=$((VIDEO_LENGTH_SEC/60))
+
+        # Ensure the loop runs at least once
+        if [ $minutes -eq 0 ]; then
+            minutes=1
+        fi
+
+	for J in $(seq 1 $minutes)
         do
             for K in {0..59}
             do
