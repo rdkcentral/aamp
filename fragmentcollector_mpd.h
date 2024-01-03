@@ -478,7 +478,7 @@ public:
 	 */
 	void NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale) override;
 
-private:
+protected:
 	/**
 	 * @fn printSelectedTrack
 	 * @param[in] trackIndex - selected track index
