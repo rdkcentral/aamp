@@ -180,3 +180,125 @@ TEST_F(AampCacheHandlerTest, PlaylistCache)
     bool res9 = handler->IsUrlCached(url7);
     EXPECT_TRUE(res9);
 }
+
+TEST_F(AampCacheHandlerTest, StartPlaylistCachetest)
+{
+    handler->StartPlaylistCache();
+}
+
+TEST_F(AampCacheHandlerTest, StopPlaylistCachetest)
+{
+    handler->StopPlaylistCache();
+}
+
+class AampCacheHandlerTest_1 : public ::testing::Test
+{
+protected:
+    class TestableAampCacheHandler : public AampCacheHandler
+    {
+    public:
+        TestableAampCacheHandler(AampLogManager *logObj)
+            : AampCacheHandler(logObj)
+        {
+        }
+
+        // Expose the protected functions for testing
+        void CallInit()
+        {
+            Init();
+        }
+
+        void CallClearCacheHandler()
+        {
+            ClearCacheHandler();
+        }
+
+        void CallAsyncCacheCleanUpTask()
+        {
+            AsyncCacheCleanUpTask();
+        }
+
+        void CallClearPlaylistCache()
+        {
+            ClearPlaylistCache();
+        }
+
+        bool CallAllocatePlaylistCacheSlot(MediaType fileType, size_t newLen)
+        {
+            return AllocatePlaylistCacheSlot(fileType, newLen);
+        }
+
+        void CallClearInitFragCache()
+        {
+            ClearInitFragCache();
+        }
+
+        void CallRemoveInitFragCacheEntry(MediaType fileType)
+        {
+            RemoveInitFragCacheEntry(fileType);
+        }
+    };
+
+    AampLogManager *mLogObj;
+    TestableAampCacheHandler *mTestableAampCacheHandler;
+
+    void SetUp() override
+    {
+        mLogObj = new AampLogManager();
+        mTestableAampCacheHandler = new TestableAampCacheHandler(mLogObj);
+    }
+
+    void TearDown() override
+    {
+        delete mTestableAampCacheHandler;
+        mTestableAampCacheHandler = nullptr;
+
+        delete mLogObj;
+        mLogObj = nullptr;
+    }
+};
+
+TEST_F(AampCacheHandlerTest_1, TestInit)
+{
+    mTestableAampCacheHandler->CallInit();
+
+}
+
+TEST_F(AampCacheHandlerTest_1, TestClearCacheHandler)
+{
+    mTestableAampCacheHandler->CallClearCacheHandler();
+
+}
+
+TEST_F(AampCacheHandlerTest_1, TestAsyncCacheCleanUpTask)
+{
+    mTestableAampCacheHandler->CallAsyncCacheCleanUpTask();
+
+}
+
+TEST_F(AampCacheHandlerTest_1, TestClearPlaylistCache)
+{
+    mTestableAampCacheHandler->CallClearPlaylistCache();
+
+}
+
+TEST_F(AampCacheHandlerTest_1, TestAllocatePlaylistCacheSlot)
+{
+    MediaType fileType = MediaType::eMEDIATYPE_DEFAULT; // or any other valid media type
+    size_t newLen = 100; // or any other valid size
+    bool result = mTestableAampCacheHandler->CallAllocatePlaylistCacheSlot(fileType, newLen);
+
+}
+
+TEST_F(AampCacheHandlerTest_1, TestClearInitFragCache)
+{
+    mTestableAampCacheHandler->CallClearInitFragCache();
+
+}
+
+TEST_F(AampCacheHandlerTest_1, TestRemoveInitFragCacheEntry)
+{
+    MediaType fileType = MediaType::eMEDIATYPE_DEFAULT; // or any other valid media type
+    mTestableAampCacheHandler->CallRemoveInitFragCacheEntry(fileType);
+
+}

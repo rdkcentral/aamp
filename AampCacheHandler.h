@@ -134,7 +134,8 @@ private:
 	bool bInitFragCache;
 	int MaxInitCacheSlot;						/**< Max no of init fragment per track */
 
-private:
+//private:
+protected:
 
 	/**
 	* @fn Init
