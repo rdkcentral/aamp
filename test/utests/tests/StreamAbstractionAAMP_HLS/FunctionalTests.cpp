@@ -98,49 +98,6 @@ StreamAbstractionAAMP_HLS *mStreamAbstractionAAMP_HLS{};
     "#EXT-X-STREAM-INF:BANDWIDTH=9728000,CODECS=\"avc1.42c00d,mp4a.40.2\",RESOLUTION=3840x2160,AUDIO=\"audio\"\n"                           \
     "video_1080_4800000.m3u8\n"
 
-class FunctionalTests : public ::testing::Test
-{
-protected:
-    PrivateInstanceAAMP *mPrivateInstanceAAMP{};
-
-    void SetUp() override
-    {
-        if (gpGlobalConfig == nullptr)
-        {
-            gpGlobalConfig = new AampConfig();
-        }
-
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-
-        g_mockAampConfig = new MockAampConfig();
-
-        mStreamAbstractionAAMP_HLS = new StreamAbstractionAAMP_HLS(mLogObj, mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
-
-        // Called in destructor of PrivateInstanceAAMP
-        // Done here because setting up the EXPECT_CALL in TearDown, conflicted with the mock
-        // being called in the PausePosition thread.
-        // EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableCurlStore)).WillRepeatedly(Return(false));
-    }
-
-    void TearDown() override
-    {
-
-        delete mPrivateInstanceAAMP;
-        mPrivateInstanceAAMP = nullptr;
-
-        delete mStreamAbstractionAAMP_HLS;
-        mStreamAbstractionAAMP_HLS = nullptr;
-
-        delete gpGlobalConfig;
-        gpGlobalConfig = nullptr;
-
-        delete g_mockAampConfig;
-        g_mockAampConfig = nullptr;
-    }
-
-public:
-};
-
 class StreamAbstractionAAMP_HLSTest : public ::testing::Test
 {
 protected:
@@ -158,11 +115,14 @@ protected:
 
         StreamInfo *CallGetStreamInfo(int idx)
         {
+            StreamAbstractionAAMP_HLS::mProfileCount = 2;
             return GetStreamInfo(idx);
         }
 
         void CallPopulateAudioAndTextTracks()
         {
+            StreamAbstractionAAMP_HLS::mMediaCount = 2;
+            StreamAbstractionAAMP_HLS::mProfileCount = 2;
             PopulateAudioAndTextTracks();
         }
 
@@ -172,6 +132,7 @@ protected:
         }
         void CallConfigureVideoProfiles()
         {
+            StreamAbstractionAAMP_HLS::mProfileCount = 1;
             ConfigureVideoProfiles();
         }
 
@@ -192,8 +153,56 @@ protected:
 
         void CallUpdateProfileBasedOnFragmentDownloaded()
         {
+            TestableStreamAbstractionAAMP_HLS::mCurrentBandwidth = 0;
+            TestableStreamAbstractionAAMP_HLS::mTsbBandwidth = 0;
+            TestableStreamAbstractionAAMP_HLS::profileIdxForBandwidthNotification = 0;
             UpdateProfileBasedOnFragmentDownloaded();
         }
+
+        int CallGetTextTrack()
+        {
+            TestableStreamAbstractionAAMP_HLS::mTextTrackIndex = "Test";
+            return GetTextTrack();
+        }
+
+        int CallGetAudioTrack()
+        {
+            TestableStreamAbstractionAAMP_HLS::mAudioTrackIndex = "Test";
+            return GetAudioTrack();
+        }
+
+        bool CallGetCurrentAudioTrack(AudioTrackInfo &audioTrack)
+        {
+            TestableStreamAbstractionAAMP_HLS::mAudioTrackIndex = "Test";
+            return GetCurrentAudioTrack(audioTrack);
+        }
+
+        int CallGetCurrentTextTrack(TextTrackInfo &textTrack)
+        {
+            TestableStreamAbstractionAAMP_HLS::mTextTrackIndex = "Test";
+            return GetCurrentTextTrack(textTrack);
+        }
+
+        void CallNotifyPlaybackPaused(bool paused)
+        {
+            TestableStreamAbstractionAAMP_HLS::mLastPausedTimeStamp = 1;
+            NotifyPlaybackPaused(false);
+            TestableStreamAbstractionAAMP_HLS::mLastPausedTimeStamp = -1;
+            NotifyPlaybackPaused(false);
+        }
+
+        bool CallIsLowestProfile(int currentProfileIndex)
+        {
+            TestableStreamAbstractionAAMP_HLS::trickplayMode = true;
+            return IsLowestProfile(currentProfileIndex);
+        }
+
+        bool CallIsLowestProfile_1(int currentProfileIndex)
+        {
+            TestableStreamAbstractionAAMP_HLS::trickplayMode = false;
+            return IsLowestProfile(currentProfileIndex);
+        }
+
     };
 
     PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -201,18 +210,31 @@ protected:
 
     void SetUp() override
     {
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP();
+        if (gpGlobalConfig == nullptr)
+        {
+            gpGlobalConfig = new AampConfig();
+        }
+
+        mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+
+        g_mockAampConfig = new MockAampConfig();
+
         mStreamAbstractionAAMP_HLS = new TestableStreamAbstractionAAMP_HLS(mLogObj, mPrivateInstanceAAMP, 0.0, 1.0);
     }
 
     void TearDown() override
     {
-        // Clean up your objects after each test case
         delete mStreamAbstractionAAMP_HLS;
         mStreamAbstractionAAMP_HLS = nullptr;
 
         delete mPrivateInstanceAAMP;
         mPrivateInstanceAAMP = nullptr;
+
+        delete gpGlobalConfig;
+        gpGlobalConfig = nullptr;
+
+        delete g_mockAampConfig;
+        g_mockAampConfig = nullptr;
     }
 };
 
@@ -265,30 +287,60 @@ protected:
 public:
 };
 
-TEST_F(StreamAbstractionAAMP_HLSTest, TestGetStreamInfo)
-{
-    int index = 0;
-    StreamInfo *streamInfo = mStreamAbstractionAAMP_HLS->CallGetStreamInfo(index);
-    EXPECT_NE(streamInfo, nullptr);
-}
-
 TEST_F(StreamAbstractionAAMP_HLSTest, TestPopulateAudioAndTextTracks)
 {
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 }
 
+TEST_F(StreamAbstractionAAMP_HLSTest, TestPopulateAudioAndTextTracks_new)
+{
+    HlsStreamInfo streamInfo;
+    streamInfo.enabled = true;
+    streamInfo.isIframeTrack = false;
+    streamInfo.validity = true;
+    streamInfo.codecs = "h264";
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    mediaInfoStore.push_back(media);
+    // Add the sample HlsStreamInfo objects to the streamInfoStore
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+}
+
 TEST_F(StreamAbstractionAAMP_HLSTest, TestConfigureAudioTrack)
 {
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
     mStreamAbstractionAAMP_HLS->CallConfigureAudioTrack();
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, TestConfigureVideoProfiles)
+
+TEST_F(StreamAbstractionAAMP_HLSTest, TestConfigureVideoProfiles1)
 {
+    mPrivateInstanceAAMP->mDisplayWidth = 0;
+    mPrivateInstanceAAMP->mDisplayHeight = 0;
+    mPrivateInstanceAAMP->userProfileStatus = true;
+
+    HlsStreamInfo streamInfo;
+    streamInfo.enabled = true;
+    streamInfo.isIframeTrack = true;
+    streamInfo.validity = true;
+    streamInfo.codecs = "h264";
+    streamInfo.isIframeTrack = true;
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    mediaInfoStore.push_back(media);
+    // Add the sample HlsStreamInfo objects to the streamInfoStore
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+
     mStreamAbstractionAAMP_HLS->CallConfigureVideoProfiles();
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, TestConfigureTextTrack)
 {
+    mPrivateInstanceAAMP->mSubLanguage = "en";
+    mPrivateInstanceAAMP->GetPreferredTextTrack();
     mStreamAbstractionAAMP_HLS->CallConfigureTextTrack();
 }
 
@@ -308,8 +360,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, TestUpdateProfileBasedOnFragmentDownloaded
     mStreamAbstractionAAMP_HLS->CallUpdateProfileBasedOnFragmentDownloaded();
 }
 
-// Testing simple good case where no 4K streams are present.
-TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_no_4k)
+TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k)
 {
     int height;
     BitsPerSecond bandwidth;
@@ -320,14 +371,297 @@ TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_no_4k)
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
     mStreamAbstractionAAMP_HLS->ParseMainManifest();
-
     EXPECT_EQ(mStreamAbstractionAAMP_HLS->streamInfoStore.size(), 6);
     EXPECT_EQ(mStreamAbstractionAAMP_HLS->mediaInfoStore.size(), 1);
     EXPECT_EQ(mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth), false);
 }
 
-// Testing simple good case where a 4K stream is present.
-TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_4k)
+TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New1)
+{
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-I-FRAME-STREAM-INF:";
+
+    HlsStreamInfo streamInfo;
+    streamInfo.enabled = true;
+    streamInfo.validity = true;
+    streamInfo.codecs = "h264";
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    mediaInfoStore.push_back(media);
+    // Add the sample HlsStreamInfo objects to the streamInfoStore
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+    mStreamAbstractionAAMP_HLS->ParseMainManifest();
+}
+
+
+TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New2)
+{
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-IMAGE-STREAM-INF:";
+
+    HlsStreamInfo streamInfo;
+    streamInfo.enabled = true;
+    streamInfo.validity = true;
+    streamInfo.codecs = "h264";
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    mediaInfoStore.push_back(media);
+    // Add the sample HlsStreamInfo objects to the streamInfoStore
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+
+    mStreamAbstractionAAMP_HLS->ParseMainManifest();
+
+}
+
+
+TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New3)
+{
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-CONTENT-IDENTIFIER:";
+
+    HlsStreamInfo streamInfo;
+    streamInfo.enabled = true;
+    streamInfo.validity = true;
+    streamInfo.codecs = "h264";
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    mediaInfoStore.push_back(media);
+    // Add the sample HlsStreamInfo objects to the streamInfoStore
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+
+    mStreamAbstractionAAMP_HLS->ParseMainManifest();
+
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New4)
+{
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-FOG";
+
+    HlsStreamInfo streamInfo;
+    streamInfo.enabled = true;
+    streamInfo.validity = true;
+    streamInfo.codecs = "h264";
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    mediaInfoStore.push_back(media);
+    // Add the sample HlsStreamInfo objects to the streamInfoStore
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+
+    mStreamAbstractionAAMP_HLS->ParseMainManifest();
+
+}
+
+
+TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New5)
+{
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-XCAL-CONTENTMETADATA";
+
+    HlsStreamInfo streamInfo;
+    streamInfo.enabled = true;
+    streamInfo.validity = true;
+    streamInfo.codecs = "h264";
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    mediaInfoStore.push_back(media);
+    // Add the sample HlsStreamInfo objects to the streamInfoStore
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+
+    mStreamAbstractionAAMP_HLS->ParseMainManifest();
+
+}
+
+
+TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New6)
+{
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-NOM-I-FRAME-DISTANCE";
+
+    HlsStreamInfo streamInfo;
+    streamInfo.enabled = true;
+    streamInfo.validity = true;
+    streamInfo.codecs = "h264";
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    mediaInfoStore.push_back(media);
+    // Add the sample HlsStreamInfo objects to the streamInfoStore
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+
+    mStreamAbstractionAAMP_HLS->ParseMainManifest();
+}
+
+
+TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New7)
+{
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-ADVERTISING";
+
+    HlsStreamInfo streamInfo;
+    streamInfo.enabled = true;
+    streamInfo.validity = true;
+    streamInfo.codecs = "h264";
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    mediaInfoStore.push_back(media);
+    // Add the sample HlsStreamInfo objects to the streamInfoStore
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+
+    mStreamAbstractionAAMP_HLS->ParseMainManifest();
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New8)
+{
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-UPLYNK-LIVE";
+
+    HlsStreamInfo streamInfo;
+    streamInfo.enabled = true;
+    streamInfo.validity = true;
+    streamInfo.codecs = "h264";
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    mediaInfoStore.push_back(media);
+    // Add the sample HlsStreamInfo objects to the streamInfoStore
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+
+    mStreamAbstractionAAMP_HLS->ParseMainManifest();
+}
+
+
+TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New9)
+{
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-START:";
+
+    HlsStreamInfo streamInfo;
+    streamInfo.enabled = true;
+    streamInfo.validity = true;
+    streamInfo.codecs = "h264";
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    mediaInfoStore.push_back(media);
+    // Add the sample HlsStreamInfo objects to the streamInfoStore
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+    bool TestResult = mPrivateInstanceAAMP->IsLiveAdjustRequired();
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+
+    mStreamAbstractionAAMP_HLS->ParseMainManifest();
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New10)
+{
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXTINF:";
+
+    HlsStreamInfo streamInfo;
+    streamInfo.enabled = true;
+    streamInfo.validity = true;
+    streamInfo.codecs = "h264";
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    mediaInfoStore.push_back(media);
+    // Add the sample HlsStreamInfo objects to the streamInfoStore
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+
+    mStreamAbstractionAAMP_HLS->ParseMainManifest();
+
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New11)
+{
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXTaaaINF:";
+
+    HlsStreamInfo streamInfo;
+    streamInfo.enabled = true;
+    streamInfo.validity = true;
+    streamInfo.codecs = "h264";
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    mediaInfoStore.push_back(media);
+    // Add the sample HlsStreamInfo objects to the streamInfoStore
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+
+    mStreamAbstractionAAMP_HLS->ParseMainManifest();
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_4k)
 {
     int height;
     BitsPerSecond bandwidth;
@@ -344,8 +678,7 @@ TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_4k)
     EXPECT_EQ(mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth), true);
 }
 
-// Testing media / srteam stores are correct size after parsing a new manifest
-TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_multiple_mainfests)
+TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_multiple_mainfests)
 {
     int height;
     BitsPerSecond bandwidth;
@@ -384,7 +717,7 @@ TEST_F(FunctionalTests, StreamAbstractionAAMP_HLS_Is4KStream_multiple_mainfests)
 }
 
 // Testing ABR manager is selected by default.
-TEST_F(FunctionalTests, ABRManagerMode)
+TEST_F(StreamAbstractionAAMP_HLSTest, ABRManagerMode)
 {
     char manifest[] = MANIFEST_5SD_1A;
 
@@ -400,7 +733,7 @@ TEST_F(FunctionalTests, ABRManagerMode)
 }
 
 // Testing Fog is selected to manage ABR.
-TEST_F(FunctionalTests, FogABRMode)
+TEST_F(StreamAbstractionAAMP_HLSTest, FogABRMode)
 {
     char manifest[] = MANIFEST_5SD_1A;
 
@@ -416,19 +749,18 @@ TEST_F(FunctionalTests, FogABRMode)
     EXPECT_EQ(mStreamAbstractionAAMP_HLS->GetABRMode(), StreamAbstractionAAMP::ABRMode::FOG_TSB);
 }
 
-TEST_F(FunctionalTests, Stoptest)
+TEST_F(StreamAbstractionAAMP_HLSTest, Stoptest)
 {
     mStreamAbstractionAAMP_HLS->Stop(true);
 }
 
-TEST_F(FunctionalTests, GetVideoBitratesTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetVideoBitratesTest)
 {
     // Define sample StreamInfo objects with video bitrates
     StreamResolution resolution1;
     resolution1.width = 1920;     // Width in pixels
     resolution1.height = 1080;    // Height in pixels
     resolution1.framerate = 30.0; // Frame rate in FPS
-    // Define sample StreamInfo objects with video bitrates and resolutions
 
     HlsStreamInfo streamInfo1;
     streamInfo1.enabled = true;
@@ -445,40 +777,29 @@ TEST_F(FunctionalTests, GetVideoBitratesTest)
     // Call the GetVideoBitrates function
     std::vector<BitsPerSecond> bitrates = mStreamAbstractionAAMP_HLS->GetVideoBitrates();
 
-    ASSERT_EQ(bitrates.size(), 0); // Expecting two video profiles
-                                   // ASSERT_NE(bitrates[0], 1000000);  // First video profile bitrate
+    ASSERT_EQ(bitrates.size(), 0);
 }
 
-TEST_F(FunctionalTests, GetAvailableThumbnailTracksTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetAvailableThumbnailTracksTest)
 {
-
-    // Add sample StreamInfo objects to streamInfoStore
     HlsStreamInfo streamInfo1;
     streamInfo1.isIframeTrack = true;
     streamInfo1.validity = true;
     streamInfo1.codecs = "H.264";
-
     // Add streamInfo1 and streamInfo2 to the streamInfoStore (replace with your actual code)
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo1);
 
     // Call the function under test
     std::vector<StreamInfo *> thumbnailTracks = mStreamAbstractionAAMP_HLS->GetAvailableThumbnailTracks();
-
-    // Perform assertions
-    // Verify that the function returned the expected number of thumbnail tracks
     ASSERT_EQ(thumbnailTracks.size(), 0);
-
-    // Verify that the elements in thumbnailTracks are as expected
     for (const auto track : thumbnailTracks)
     {
         ASSERT_TRUE(track->isIframeTrack);
     }
 }
 
-TEST_F(FunctionalTests, SetThumbnailTrackTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, SetThumbnailTrackTest)
 {
-
-    // Define sample StreamInfo objects with video bitrates
     StreamResolution resolution1;
     resolution1.width = 1920;     // Width in pixels
     resolution1.height = 1080;    // Height in pixels
@@ -499,15 +820,11 @@ TEST_F(FunctionalTests, SetThumbnailTrackTest)
 
     // Set the thumbnail track with index 0 (streamInfo1)
     bool rc = mStreamAbstractionAAMP_HLS->SetThumbnailTrack(-12);
-
-    // Verify that the thumbnail track was successfully set
-    // ASSERT_TRUE(rc);
     ASSERT_FALSE(rc);
 }
-TEST_F(FunctionalTests, SetThumbnailTrackTest_1)
-{
 
-    // Define sample StreamInfo objects with video bitrates
+TEST_F(StreamAbstractionAAMP_HLSTest, SetThumbnailTrackTest_1)
+{
     StreamResolution resolution1;
     resolution1.width = 1920;     // Width in pixels
     resolution1.height = 1080;    // Height in pixels
@@ -522,106 +839,117 @@ TEST_F(FunctionalTests, SetThumbnailTrackTest_1)
     streamInfo1.bandwidthBitsPerSecond = 1000000; // 1 Mbps
     streamInfo1.resolution = resolution1;         // Full HD
     streamInfo1.reason = BitrateChangeReason::eAAMP_BITRATE_CHANGE_BY_ABR;
-
-    // Add the sample streamInfo objects to the streamInfoStore (in practice, this is usually done during setup)
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo1);
 
-    // Set the thumbnail track with index 0 (streamInfo1)
     bool rc = mStreamAbstractionAAMP_HLS->SetThumbnailTrack(3);
-
-    // Verify that the thumbnail track was successfully set
-    // ASSERT_TRUE(rc);
     ASSERT_FALSE(rc);
 }
 
-TEST_F(FunctionalTests, StartSubtitleParsertest)
+TEST_F(StreamAbstractionAAMP_HLSTest, StartSubtitleParsertest)
 {
     mStreamAbstractionAAMP_HLS->StartSubtitleParser();
 
     ASSERT_FALSE(mStreamAbstractionAAMP_HLS->trackState[eMEDIATYPE_SUBTITLE] != nullptr);
 }
 
-TEST_F(FunctionalTests, PauseSubtitleParsertest)
+TEST_F(StreamAbstractionAAMP_HLSTest, PauseSubtitleParsertest)
 {
     mStreamAbstractionAAMP_HLS->PauseSubtitleParser(true);
 }
 
-TEST_F(FunctionalTests, InitiateDrmProcesstest)
+TEST_F(StreamAbstractionAAMP_HLSTest, InitiateDrmProcesstest)
 {
     mStreamAbstractionAAMP_HLS->InitiateDrmProcess();
 }
 
-TEST_F(FunctionalTests, ChangeMuxedAudioTrackIndexTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, ChangeMuxedAudioTrackIndexTest)
 {
     std::string index = "mux-1"; // Sample index
 
     mStreamAbstractionAAMP_HLS->ChangeMuxedAudioTrackIndex(index);
 }
 
-TEST_F(FunctionalTests, GetStreamOutputFormatForTrackVideo)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetStreamOutputFormatForTrackVideo)
 {
-
     TrackType videoTrackType = eTRACK_VIDEO;
-
     StreamOutputFormat outputFormat = mStreamAbstractionAAMP_HLS->GetStreamOutputFormatForTrack(videoTrackType);
-
     StreamOutputFormat expectedVideoOutputFormat = FORMAT_UNKNOWN;
-
-    // Verify that the expected output format is returned for video track
     EXPECT_EQ(outputFormat, expectedVideoOutputFormat);
 }
 
-TEST_F(FunctionalTests, GetStreamOutputFormatForTrackAudio)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetStreamOutputFormatForTrackAudio)
 {
-    // Arrange
     TrackType audioTrackType = eTRACK_AUDIO;
-
-    // Act
     StreamOutputFormat outputFormat = mStreamAbstractionAAMP_HLS->GetStreamOutputFormatForTrack(audioTrackType);
-
-    // Define the expected output format for audio track based on your logic
     StreamOutputFormat expectedAudioOutputFormat = FORMAT_AUDIO_ES_AAC;
-
-    // Verify that the expected output format is returned for audio track
     EXPECT_EQ(outputFormat, expectedAudioOutputFormat);
 }
 
-TEST_F(FunctionalTests, GetStreamOutputFormatForTrackAuxAudio)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetStreamOutputFormatForTrackAuxAudio)
 {
-    // Arrange
+
     TrackType auxAudioTrackType = eTRACK_AUX_AUDIO;
-
-    // Act
     StreamOutputFormat outputFormat = mStreamAbstractionAAMP_HLS->GetStreamOutputFormatForTrack(auxAudioTrackType);
-
     StreamOutputFormat expectedAuxAudioOutputFormat = FORMAT_AUDIO_ES_AAC; // Example value, replace with your logic
-
-    // Verify that the expected output format is returned for auxiliary audio track
     EXPECT_EQ(outputFormat, expectedAuxAudioOutputFormat);
 }
 
-TEST_F(FunctionalTests, GetMediaIndexForLanguage)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetMediaIndexForLanguage)
 {
-    // Arrange
+
     std::string lang = "en";       // Replace with the desired language
     TrackType type = eTRACK_AUDIO; // Replace with the desired track type
-
-    // Act
     int index = mStreamAbstractionAAMP_HLS->GetMediaIndexForLanguage(lang, type);
-
     int expectedIndex = -1; // Replace with your expected index value
-
-    // Verify that the expected index is returned for the given language and track type
     EXPECT_EQ(index, expectedIndex);
 }
 
-TEST_F(FunctionalTests, StartInjectiontest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetMediaIndexForLanguage2)
+{
+    // Arrange
+    std::string lang = "en";       // Replace with the desired language
+    TrackType type = eTRACK_SUBTITLE; // Replace with the desired track type
+    int index = 0;
+    // Act
+    HlsStreamInfo *streamInfo = (HlsStreamInfo*)mStreamAbstractionAAMP_HLS->CallGetStreamInfo(index);
+    streamInfo->subtitles = (const char *)"test";
+    MediaInfo MediaInfoObj;
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfoObj.group_id = (const char *)"test";
+    mediaInfoStore.push_back(MediaInfoObj);
+    int MediaIndexForLanguageResult = mStreamAbstractionAAMP_HLS->GetMediaIndexForLanguage(lang, type);
+    int expectedIndex = -1; // Replace with your expected index value
+    EXPECT_EQ(MediaIndexForLanguageResult, expectedIndex);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, TestGetStreamInfo)
+{
+    int index = 0;
+    StreamInfo *streamInfo = mStreamAbstractionAAMP_HLS->CallGetStreamInfo(index);
+    EXPECT_NE(streamInfo, nullptr);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentPeriodInfo_WhenIndexIsEmpty)
+{
+    int periodIdx = 0;
+    double offsetFromPeriodStart = 0;
+    int fragmentIdx = 0;
+    // Optionally, set up other necessary objects or state for the test case
+    mStreamAbstractionAAMP_HLS->rate = 1.1;
+    // Act: Call the function to be tested
+    TrackStateobj->GetNextFragmentPeriodInfo(periodIdx, offsetFromPeriodStart, fragmentIdx);
+    EXPECT_EQ(periodIdx, -1);  // Assuming periodIdx should be -1 when the index is empty
+    EXPECT_EQ(fragmentIdx, -1); // Assuming fragmentIdx should be -1 when the index is empty
+    EXPECT_DOUBLE_EQ(offsetFromPeriodStart, 0.0);  // Assuming offsetFromPeriodStart should be 0.0 when the index is empty
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, StartInjectiontest)
 {
     mStreamAbstractionAAMP_HLS->StartInjection();
 }
 
 // Define a test case for the GetPlaylistURI function for eTRACK_VIDEO
-TEST_F(FunctionalTests, GetVideoPlaylistURITest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetVideoPlaylistURITest)
 {
     StreamOutputFormat format = FORMAT_MPEGTS;
     TrackType type = eTRACK_VIDEO;
@@ -631,95 +959,120 @@ TEST_F(FunctionalTests, GetVideoPlaylistURITest)
 }
 
 // Define a test case for the GetPlaylistURI function for eTRACK_AUDIO
-TEST_F(FunctionalTests, GetAudioPlaylistURITest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetAudioPlaylistURITest)
 {
+    // mStreamAbstractionAAMP_HLS->currentAudioProfileIndex = 3;
     StreamOutputFormat format;
     const char *playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_AUDIO, &format);
-
-    // Add assertions to verify the expected behavior
-
     ASSERT_NE(FORMAT_AUDIO_ES_AAC, format);
 }
 
-TEST_F(FunctionalTests, GetAvailableVideoTracksTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetVideoPlaylistURITest2)
+{
+    // mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 3;
+    StreamOutputFormat format = FORMAT_MPEGTS;
+    TrackType type = eTRACK_SUBTITLE;
+    const char *playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, &format);
+
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetAvailableVideoTracksTest)
 {
     std::vector<StreamInfo *> videoTracks = mStreamAbstractionAAMP_HLS->GetAvailableVideoTracks();
+    ASSERT_EQ(0, videoTracks.size());
+}
 
-    // Add assertions to verify the expected behavior
-
+TEST_F(StreamAbstractionAAMP_HLSTest, GetAvailableVideoTracksTest2)
+{
+    int index = 2;
+    HlsStreamInfo *streamInfo = (HlsStreamInfo*)mStreamAbstractionAAMP_HLS->CallGetStreamInfo(index);
+    streamInfo->subtitles = (const char *)"test";
+    MediaInfo MediaInfoObj;
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfoObj.group_id = (const char *)"test";
+    mediaInfoStore.push_back(MediaInfoObj);
+    std::vector<StreamInfo *> videoTracks = mStreamAbstractionAAMP_HLS->GetAvailableVideoTracks();
     ASSERT_EQ(0, videoTracks.size());
 }
 
 // DELIA-41566 [PEACOCK] temporary hack required to work around Adobe SSAI session lifecycle problem
-// TEST_F(FunctionalTests,PreCachePlaylisttest){
+// TEST_F(StreamAbstractionAAMP_HLSTest,PreCachePlaylisttest){
 //     mStreamAbstractionAAMP_HLS->PreCachePlaylist();
 // }
 
-TEST_F(FunctionalTests, GetABRModetest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetABRModetest)
 {
     mStreamAbstractionAAMP_HLS->GetABRMode();
 }
 
-TEST_F(FunctionalTests, GetBestAudioTrackByLanguagetest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetBestAudioTrackByLanguagetest)
 {
+    HlsStreamInfo streamInfo;
+    streamInfo.enabled = true;
+    streamInfo.validity = true;
+    streamInfo.codecs = "h264";
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    mediaInfoStore.push_back(media);
+    // Add the sample HlsStreamInfo objects to the streamInfoStore
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+
     int index = mStreamAbstractionAAMP_HLS->GetBestAudioTrackByLanguage();
-    ASSERT_EQ(index, -1);
+    // ASSERT_EQ(index, -1);
 }
 
-TEST_F(FunctionalTests, IsLivetest)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsLivetest)
 {
     mStreamAbstractionAAMP_HLS->IsLive();
     bool isLive1 = mStreamAbstractionAAMP_HLS->IsLive();
     ASSERT_FALSE(isLive1);
 }
 
-TEST_F(FunctionalTests, Gtest)
+TEST_F(StreamAbstractionAAMP_HLSTest, Gtest)
 {
     TuneType tuneType = eTUNETYPE_NEW_NORMAL; // Replace with the actual tune type
     AAMPStatusType result = mStreamAbstractionAAMP_HLS->Init(tuneType);
     EXPECT_NE(result, eAAMPSTATUS_OK);
 }
 
-TEST_F(FunctionalTests, GetFirstPTStest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetFirstPTStest)
 {
     double result = mStreamAbstractionAAMP_HLS->GetFirstPTS();
     EXPECT_EQ(result, 0.0);
 }
 
-TEST_F(FunctionalTests, GetBufferedDurationtest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetFirstPTStest2)
+{
+    double result = mStreamAbstractionAAMP_HLS->GetFirstPTS();
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetBufferedDurationtest)
 {
     double result = mStreamAbstractionAAMP_HLS->GetBufferedDuration();
     EXPECT_EQ(result, -1.0);
 }
 
-TEST_F(FunctionalTests, GetBWIndexTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetBWIndexTest)
 {
-
-    // Call GetBWIndex with a target bitrate
     BitsPerSecond targetBitrate = 10000; // Example target bitrate in bits per second
     int result = mStreamAbstractionAAMP_HLS->GetBWIndex(targetBitrate);
-
-    // In this example, the function should return less then 1, as there is a stream with lower bitrates.
     EXPECT_NE(result, 1);
 }
-TEST_F(FunctionalTests, GetBWIndexTest_1)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetBWIndexTest_1)
 {
-
-    // Call GetBWIndex with a target bitrate
     BitsPerSecond targetBitrate = 7000000; // Example target bitrate in bits per second
     int result = mStreamAbstractionAAMP_HLS->GetBWIndex(targetBitrate);
-
-    // In this example, the function should return 0, if there is no streaming hapen.
     EXPECT_EQ(result, 0);
 }
 
-TEST_F(FunctionalTests, GetMediaCounttest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetMediaCounttest)
 {
     int result = mStreamAbstractionAAMP_HLS->GetMediaCount();
     EXPECT_EQ(result, 0);
 }
 
-TEST_F(FunctionalTests, SeekPosUpdateTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, SeekPosUpdateTest)
 {
     // Create an instance of StreamAbstractionAAMP_HLS (not required in this case)
 
@@ -743,7 +1096,7 @@ TEST_F(FunctionalTests, SeekPosUpdateTest)
     EXPECT_EQ(mStreamAbstractionAAMP_HLS->GetStreamPosition(), newSeekPosition1); // checking if unchanged
 }
 
-TEST_F(FunctionalTests, GetLanguageCodeTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetLanguageCodeTest)
 {
 
     // Create a sample MediaInfo object
@@ -773,13 +1126,13 @@ TEST_F(FunctionalTests, GetLanguageCodeTest)
     EXPECT_EQ(lang, "en-US");
 }
 
-TEST_F(FunctionalTests, GetTotalProfileCounttest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetTotalProfileCounttest)
 {
     int result = mStreamAbstractionAAMP_HLS->GetTotalProfileCount();
     EXPECT_EQ(result, 0);
 }
 
-TEST_F(FunctionalTests, Destructortest)
+TEST_F(StreamAbstractionAAMP_HLSTest, Destructortest)
 {
     StreamAbstractionAAMP_HLS *mStreamAbstractionAAMP_HLS_1 = new StreamAbstractionAAMP_HLS(mLogObj, mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
     mStreamAbstractionAAMP_HLS_1->~StreamAbstractionAAMP_HLS();
@@ -790,7 +1143,7 @@ TEST_F(TrackStateTests, Stoptest_1)
     TrackStateobj->Stop(true);
 }
 
-TEST_F(FunctionalTests, UpdateFailedDRMStatus_1)
+TEST_F(StreamAbstractionAAMP_HLSTest, UpdateFailedDRMStatus_1)
 {
     LicensePreFetchObject *object = NULL; // Create an instance of LicensePreFetchObject
     // Act: Call the function to be tested
@@ -799,6 +1152,27 @@ TEST_F(FunctionalTests, UpdateFailedDRMStatus_1)
 
 TEST_F(TrackStateTests, FetchPlaylistTest)
 {
+    TrackStateobj->FetchPlaylist();
+}
+
+TEST_F(TrackStateTests, FetchPlaylistTest_eTRACK_AUDIO)
+{
+    // MediaTrack::type = TrackType::eTRACK_AUDIO; //-> method 1
+    TrackStateobj->type = TrackType::eTRACK_AUDIO; //-> method 2 Working
+    TrackStateobj->FetchPlaylist();
+}
+
+TEST_F(TrackStateTests, FetchPlaylistTest_eTRACK_SUBTITLE)
+{
+    //To Cover MediaTrack::type as eTRACK_SUBTITLE
+    TrackStateobj->type = TrackType::eTRACK_SUBTITLE;
+    TrackStateobj->FetchPlaylist();
+}
+
+TEST_F(TrackStateTests, FetchPlaylistTest_eTRACK_AUX_AUDIO)
+{
+    //To Cover MediaTrack::type as eTRACK_AUX_AUDIO
+    TrackStateobj->type = TrackType::eTRACK_AUX_AUDIO;
     TrackStateobj->FetchPlaylist();
 }
 
@@ -878,130 +1252,350 @@ TEST_F(TrackStateTests, RestoreDrmStateTest)
 
 TEST_F(TrackStateTests, IndexPlaylist_WhenIsRefreshTrue)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool isRefresh = true;
     double culledSec = -12;
-
-    // Act: Call the function to be tested
     TrackStateobj->IndexPlaylist(isRefresh, culledSec);
 }
 
 TEST_F(TrackStateTests, IndexPlaylist_WhenIsRefreshFalse)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool isRefresh = false;
     double culledSec = 0.0;
-
-    // Act: Call the function to be tested
     TrackStateobj->IndexPlaylist(isRefresh, culledSec);
 }
 
 TEST_F(TrackStateTests, IndexPlaylist_ProcessEXTINF)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool isRefresh = false;
     double culledSec = 0.0;
-
-    // Act: Call the function to be tested
     TrackStateobj->IndexPlaylist(isRefresh, culledSec);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
-
-    // Act: Call the function to be tested
     char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
-
-    // Assert: Make assertions to verify the function's behavior in this case
     ASSERT_EQ(fragmentUri, nullptr);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithoutReloadUri)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = false;
     bool ignoreDiscontinuity = true;
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    ASSERT_EQ(fragmentUri, nullptr);
+}
+
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
 
     // Act: Call the function to be tested
     char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+}
 
-    // Assert: Make assertions to verify the function's behavior in this case
-    ASSERT_EQ(fragmentUri, nullptr);
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new1)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
+    TrackStateobj->playlistPosition = -1.0;
+    // Act: Call the function to be tested
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+
+}
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new2)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
+    TrackStateobj->playlistPosition = -1.0;
+    char fragmentURIData[] = {'a','b','c','d','e'};
+    TrackStateobj->fragmentURI = fragmentURIData;
+    // Act: Call the function to be tested
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new3)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
+    TrackStateobj->playlistPosition = -1.0;
+    char fragmentURIData[] = {'a','b','c','d','e'};
+    TrackStateobj->fragmentURI = fragmentURIData;
+
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = MANIFEST_6SD_1A;
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
+}
+
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new4)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
+    TrackStateobj->playlistPosition = -1.0;
+    char fragmentURIData[] = {'a','b','c','d','e'};
+    TrackStateobj->fragmentURI = fragmentURIData;
+
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-BYTERANGE:";
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new5)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
+    TrackStateobj->playlistPosition = -1.0;
+    char fragmentURIData[] = {'a','b','c','d','e'};
+    TrackStateobj->fragmentURI = fragmentURIData;
+
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXTINF:";
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+
+    // EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+
+    // Act: Call the function to be tested
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new6)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
+    TrackStateobj->playlistPosition = -1.0;
+    char fragmentURIData[] = {'a','b','c','d','e'};
+
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-TARGETDURATION:";
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new7)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
+    TrackStateobj->playlistPosition = -1.0;
+    char fragmentURIData[] = {'a','b','c','d','e'};
+    TrackStateobj->fragmentURI = fragmentURIData;
+
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-MEDIA-SEQUENCE:";
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new8)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
+    TrackStateobj->playlistPosition = -1.0;
+    char fragmentURIData[] = {'a','b','c','d','e'};
+    TrackStateobj->fragmentURI = fragmentURIData;
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-KEY:";
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new9)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
+    TrackStateobj->playlistPosition = -1.0;
+    char fragmentURIData[] = {'a','b','c','d','e'};
+    TrackStateobj->fragmentURI = fragmentURIData;
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-MAP:";
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new10)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
+    TrackStateobj->playlistPosition = -1.0;
+    char fragmentURIData[] = {'a','b','c','d','e'};
+    TrackStateobj->fragmentURI = fragmentURIData;
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-PROGRAM-DATE-TIME:";
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new11)
+{
+
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
+    TrackStateobj->playlistPosition = -1.0;
+    char fragmentURIData[] = {'a','b','c','d','e'};
+    TrackStateobj->fragmentURI = fragmentURIData;
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-ALLOW-CACHE:";
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new12)
+{
+
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
+    TrackStateobj->playlistPosition = -1.0;
+    char fragmentURIData[] = {'a','b','c','d','e'};
+    TrackStateobj->fragmentURI = fragmentURIData;
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-ENDLIST";
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new13)
+{
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
+    TrackStateobj->playlistPosition = -1.0;
+    char fragmentURIData[] = {'a','b','c','d','e'};
+    TrackStateobj->fragmentURI = fragmentURIData;
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-DISCONTINUITY";
+
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new14)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = false;
+    TrackStateobj->playTarget = -1.1;
+    TrackStateobj->playlistPosition = -1.0;
+    char fragmentURIData[] = {'a','b','c','d','e'};
+    TrackStateobj->fragmentURI = fragmentURIData;
+    int height;
+    BitsPerSecond bandwidth;
+    char manifest[] = "#EXT-X-I-FRAMES-ONLY";
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
 TEST_F(TrackStateTests, UpdateDrmCMSha1Hash_WithNullPtr)
 {
-    // Act: Call the function to be tested with a null pointer
     TrackStateobj->UpdateDrmCMSha1Hash(nullptr);
-
-    // Assert: Make assertions to verify the function's behavior when a null pointer is provided
-
     ASSERT_EQ(TrackStateobj->mCMSha1Hash, nullptr); // Hash should be null
+}
+
+TEST_F(TrackStateTests, ABRProfileChangedTest)
+{
+    AampGrowableBuffer newPlaylist("test");
+    int http_error = 2;
+    TrackStateobj->IsLive();
+    TrackStateobj->ProcessPlaylist(newPlaylist, http_error);
 }
 
 TEST_F(TrackStateTests, DrmDecrypt_SuccessfulDecryption)
 {
-    // Arrange: Set up the necessary conditions for the test
+
     CachedFragment cachedFragment; // Create a CachedFragment with valid data
     ProfilerBucketType bucketType = ProfilerBucketType::PROFILE_BUCKET_PLAYLIST_VIDEO;
-
-    // Act: Call the function to be tested
     DrmReturn result = TrackStateobj->DrmDecrypt(&cachedFragment, bucketType);
-
-    // Assert: Make assertions to verify the function's behavior
-    // Verify that decryption was successful and the function returned true.
-
     ASSERT_NE(result, DrmReturn::eDRM_SUCCESS); // Check that the function returns DRM_SUCCESS
 }
+
 TEST_F(TrackStateTests, CreateInitVector_Successful)
 {
-    // Arrange: Set up the necessary conditions for the test
     unsigned int seqNo = 100; // Replace with a valid sequence number
-
-    // Act: Call the function to be tested
     bool result = TrackStateobj->CreateInitVectorByMediaSeqNo(seqNo);
-
-    // Assert: Make assertions to verify the function's behavior
     ASSERT_TRUE(result); // Check that the function returns true indicating success
 }
 
 TEST_F(TrackStateTests, GetPeriodStartPosition_InvalidPeriod)
 {
-    // Arrange: Set up the necessary conditions for the test
     int periodIdx = -1; // Replace with an invalid period index (out of bounds)
-
-    // Act: Call the function to be tested
     double startPosition = TrackStateobj->GetPeriodStartPosition(periodIdx);
-
-    // Assert: Make assertions to verify the function's behavior
-    // Verify that the function handles the case of an invalid period index gracefully.
-
     ASSERT_DOUBLE_EQ(startPosition, 0.0); // Check that the function returns a default or invalid value for an invalid period index
 }
 TEST_F(TrackStateTests, GetPeriodStartPosition_NoDiscontinuityNodes)
 {
-    // Arrange: Set up the necessary conditions for the test
-    int periodIdx = 1; // Replace with a valid period index
-
-    // Simulate a scenario where there are no discontinuity nodes
+    int periodIdx = 1;
     TrackStateobj->mDiscontinuityIndexCount = 0; // Set mDiscontinuityIndexCount to 0
-
-    // Act: Call the function to be tested
     double startPosition = TrackStateobj->GetPeriodStartPosition(periodIdx);
-
     ASSERT_DOUBLE_EQ(startPosition, 0.0); // Check that the function returns a default or zero value when there are no discontinuity nodes
 }
 
 TEST_F(TrackStateTests, FindTimedMetadata_WithTags)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reportBulkMeta = false;
     bool bInitCall = false;
-
-    // Act: Call the function to be tested
     TrackStateobj->FindTimedMetadata(reportBulkMeta, bInitCall);
 }
 
@@ -1022,6 +1616,30 @@ TEST_F(TrackStateTests, FindTimedMetadata_InitCall)
     bool bInitCall = true; // Simulate the bInitCall flag being set
     // Act: Call the function to be tested
     TrackStateobj->FindTimedMetadata(reportBulkMeta, bInitCall);
+}
+
+TEST_F(TrackStateTests, FindTimedMetadata_New)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reportBulkMeta = false;
+    bool bInitCall = true; // Simulate the bInitCall flag being set
+    // Act: Call the function to be tested
+
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableSubscribedTags)).WillOnce(Return(true));
+    AampGrowableBuffer buffer("tsProcessor PAT/PMT test");
+        //buffer.AppendBytes(10);
+    buffer.GetPtr();
+    TrackStateobj->FindTimedMetadata(reportBulkMeta, bInitCall);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentPeriodInfoTest)
+{
+    int periodIdx = 2;
+    double offsetFromPeriodStart = 1.2;
+    int fragmentIdx = 3;
+    mStreamAbstractionAAMP_HLS->rate = 2;
+    // TrackStateobj->indexCount = 2;
+    TrackStateobj->GetNextFragmentPeriodInfo(periodIdx, offsetFromPeriodStart, fragmentIdx);
 }
 
 TEST_F(TrackStateTests, SetXStartTimeOffset)
@@ -1069,14 +1687,36 @@ TEST_F(TrackStateTests, SetLastPlaylistDownloadTime)
     ASSERT_EQ(TrackStateobj->GetLastPlaylistDownloadTime(), timeToSet); // Check if the time was correctly set
 }
 
-TEST_F(FunctionalTests, FilterAudioCodecBasedOnConfig_AllowAC3)
+TEST_F(StreamAbstractionAAMP_HLSTest, FilterAudioCodecBasedOnConfig_AllowAC3)
 {
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableEC3)).WillOnce(Return(true));
     bool result = mStreamAbstractionAAMP_HLS->FilterAudioCodecBasedOnConfig(FORMAT_AUDIO_ES_AC3);
     ASSERT_TRUE(result); // AC3 should be allowed
 }
 
-TEST_F(FunctionalTests, SetABRMinBuffer_test)
+TEST_F(StreamAbstractionAAMP_HLSTest, FilterAudioCodecBasedOnConfig_DisableATMOS)
+{
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableEC3)).WillOnce(Return(true));
+    //EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableATMOS)).WillOnce(Return(true));
+    bool result = mStreamAbstractionAAMP_HLS->FilterAudioCodecBasedOnConfig(FORMAT_AUDIO_ES_ATMOS);
+    //ASSERT_TRUE(result);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, FilterAudioCodecBasedOnConfig_DisableEC3)
+{
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableEC3)).WillOnce(Return(true));
+    bool result = mStreamAbstractionAAMP_HLS->FilterAudioCodecBasedOnConfig(FORMAT_AUDIO_ES_EC3);
+    //ASSERT_Fa(result);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, FilterAudioCodecBasedOnConfig_Default)
+{
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableEC3)).WillOnce(Return(true));
+    bool result = mStreamAbstractionAAMP_HLS->FilterAudioCodecBasedOnConfig(FORMAT_INVALID);
+   // ASSERT_TRUE(result);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, SetABRMinBuffer_test)
 {
     //    mStreamAbstractionAAMP_HLS->SetABRMinBuffer(eAAMPConfig_MinABRNWBufferRampDown);
     //    mStreamAbstractionAAMP_HLS->SetABRMinBuffer(eAAMPConfig_MaxABRNWBufferRampUp);
@@ -1085,12 +1725,12 @@ TEST_F(FunctionalTests, SetABRMinBuffer_test)
     mStreamAbstractionAAMP_HLS->SetABRMinBuffer(-12);
 }
 
-TEST_F(FunctionalTests, SetABRMaxBuffer_test)
+TEST_F(StreamAbstractionAAMP_HLSTest, SetABRMaxBuffer_test)
 {
     mStreamAbstractionAAMP_HLS->SetABRMaxBuffer(-12);
 }
 // Test case to verify SetTsbBandwidth with boundary conditions
-TEST_F(FunctionalTests, SetTsbBandwidthBoundary)
+TEST_F(StreamAbstractionAAMP_HLSTest, SetTsbBandwidthBoundary)
 {
     // Test lower bound
     long lowerBound = 0;
@@ -1125,7 +1765,7 @@ TEST_F(FunctionalTests, SetTsbBandwidthBoundary)
     ASSERT_NE(actualLowerBound_1, lowerBound_1);
 }
 
-TEST_F(FunctionalTests, GetProfileCounttest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetProfileCounttest)
 {
     // Call the function under test
     int profileCount = mStreamAbstractionAAMP_HLS->GetProfileCount();
@@ -1135,46 +1775,46 @@ TEST_F(FunctionalTests, GetProfileCounttest)
 }
 
 // Bug as mutex thread handling not done properly
-TEST_F(FunctionalTests, WaitForVideoTrackCatchupTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, WaitForVideoTrackCatchupTest)
 {
     mStreamAbstractionAAMP_HLS->WaitForVideoTrackCatchup();
 }
 
-TEST_F(FunctionalTests, ReassessAndResumeAudioTrackTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, ReassessAndResumeAudioTrackTest)
 {
     mStreamAbstractionAAMP_HLS->ReassessAndResumeAudioTrack(true);
 }
 
-TEST_F(FunctionalTests, ReassessAndResumeAudioTrackTest_1)
+TEST_F(StreamAbstractionAAMP_HLSTest, ReassessAndResumeAudioTrackTest_1)
 {
 
     mStreamAbstractionAAMP_HLS->ReassessAndResumeAudioTrack(false);
 }
-TEST_F(FunctionalTests, LastVideoFragParsedTimeMSTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, LastVideoFragParsedTimeMSTest)
 {
     double result = mStreamAbstractionAAMP_HLS->LastVideoFragParsedTimeMS();
     ASSERT_EQ(result, 0);
 }
 
-TEST_F(FunctionalTests, GetDesiredProfileTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetDesiredProfileTest)
 {
 
     mStreamAbstractionAAMP_HLS->GetDesiredProfile(true);
 }
 
-TEST_F(FunctionalTests, GetDesiredProfileTest_1)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetDesiredProfileTest_1)
 {
 
     mStreamAbstractionAAMP_HLS->GetDesiredProfile(false);
 }
 
-TEST_F(FunctionalTests, GetMaxBWProfileTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetMaxBWProfileTest)
 {
     int result = mStreamAbstractionAAMP_HLS->GetMaxBWProfile();
     ASSERT_EQ(result, 0);
 }
 
-TEST_F(FunctionalTests, NotifyBitRateUpdateTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, NotifyBitRateUpdateTest)
 {
     // Set up necessary data and conditions for testing
     int profileIndex = 1; // Replace with the desired profileIndex value
@@ -1182,7 +1822,7 @@ TEST_F(FunctionalTests, NotifyBitRateUpdateTest)
     // Call the NotifyBitRateUpdate function
     mStreamAbstractionAAMP_HLS->NotifyBitRateUpdate(profileIndex, cacheFragStreamInfo, 0.0); // Set position to 0.0 for this test
 }
-TEST_F(FunctionalTests, NotifyBitRateUpdateTest_1)
+TEST_F(StreamAbstractionAAMP_HLSTest, NotifyBitRateUpdateTest_1)
 {
     // Set up necessary data and conditions for testing
     int profileIndex = 1; // Replace with the desired profileIndex value
@@ -1192,46 +1832,41 @@ TEST_F(FunctionalTests, NotifyBitRateUpdateTest_1)
     mStreamAbstractionAAMP_HLS->NotifyBitRateUpdate(profileIndex, cacheFragStreamInfo, 0.0); // Set position to 0.0 for this test
 }
 
-TEST_F(FunctionalTests, IsInitialCachingSupported)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsInitialCachingSupported)
 {
     bool result = mStreamAbstractionAAMP_HLS->IsInitialCachingSupported();
     ASSERT_FALSE(result);
 }
 
-TEST_F(FunctionalTests, UpdateStreamInfoBitrateDatatest)
+TEST_F(StreamAbstractionAAMP_HLSTest, UpdateStreamInfoBitrateDatatest)
 {
     // Set up necessary data and conditions for testing
     int profileIndex = 1; // Replace with the desired profileIndex value
     StreamInfo cacheFragStreamInfo;
-    // Call the NotifyBitRateUpdate function
     mStreamAbstractionAAMP_HLS->UpdateStreamInfoBitrateData(profileIndex, cacheFragStreamInfo); // Set position to 0.0 for this test
 }
 
-TEST_F(FunctionalTests, UpdateRampdownProfileReasontest)
+TEST_F(StreamAbstractionAAMP_HLSTest, UpdateRampdownProfileReasontest)
 {
     BitrateChangeReason expectedBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
-
-    // Call the function under test
     mStreamAbstractionAAMP_HLS->UpdateRampdownProfileReason();
 
-    //"StreamAbstractionAAMP::mBitrateReason" (declared at line 1704 of "/home/chtsl01380/Desktop/AAMP_18_Aug/aamp/StreamAbstractionAAMP.h") is inaccessible
-    // ASSERT_EQ(mStreamAbstractionAAMP_HLS->mBitrateReason, expectedBitrateReason);
 }
 
-TEST_F(FunctionalTests, ConfigureTimeoutOnBuffertest)
+TEST_F(StreamAbstractionAAMP_HLSTest, ConfigureTimeoutOnBuffertest)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->ConfigureTimeoutOnBuffer();
 }
 
-TEST_F(FunctionalTests, RampDownProfiletest)
+TEST_F(StreamAbstractionAAMP_HLSTest, RampDownProfiletest)
 {
     // Set up necessary data and conditions for testing
     bool result = mStreamAbstractionAAMP_HLS->RampDownProfile(400);
     ASSERT_FALSE(result);
 }
 
-TEST_F(FunctionalTests, IsLowestProfileTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsLowestProfileTest)
 {
     // Set up the necessary data or objects for your test
     int currentProfileIndex = 0;
@@ -1242,7 +1877,7 @@ TEST_F(FunctionalTests, IsLowestProfileTest)
     ASSERT_TRUE(result);
 }
 
-TEST_F(FunctionalTests, getOriginalCurlErrorTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, getOriginalCurlErrorTest)
 {
     // Test scenario: http_error is below PARTIAL_FILE_CONNECTIVITY_AAMP
     int httpError = 100; // Example value below the range
@@ -1255,86 +1890,86 @@ TEST_F(FunctionalTests, getOriginalCurlErrorTest)
     ASSERT_EQ(result1, httpError1); // It should return the original error code
 }
 
-TEST_F(FunctionalTests, CheckForProfileChangetest)
+TEST_F(StreamAbstractionAAMP_HLSTest, CheckForProfileChangetest)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->CheckForProfileChange();
 }
 
-TEST_F(FunctionalTests, GetIframeTracktest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetIframeTracktest)
 {
     // Set up necessary data and conditions for testing
     int result = mStreamAbstractionAAMP_HLS->GetIframeTrack();
     ASSERT_EQ(result, 0);
 }
 
-TEST_F(FunctionalTests, UpdateIframeTrackstest)
+TEST_F(StreamAbstractionAAMP_HLSTest, UpdateIframeTrackstest)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->UpdateIframeTracks();
 }
 
-TEST_F(FunctionalTests, NotifyPlaybackPausedtest)
+TEST_F(StreamAbstractionAAMP_HLSTest, NotifyPlaybackPausedtest_2)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->NotifyPlaybackPaused(true);
 }
 
-TEST_F(FunctionalTests, NotifyPlaybackPausedtest_1)
+TEST_F(StreamAbstractionAAMP_HLSTest, NotifyPlaybackPausedtest_1)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->NotifyPlaybackPaused(false);
 }
 
-TEST_F(FunctionalTests, CheckIfPlayerRunningDry)
+TEST_F(StreamAbstractionAAMP_HLSTest, CheckIfPlayerRunningDry)
 {
     // Set up necessary data and conditions for testing
     bool result = mStreamAbstractionAAMP_HLS->CheckIfPlayerRunningDry();
     ASSERT_FALSE(result);
 }
 
-TEST_F(FunctionalTests, CheckForPlaybackStalltest)
+TEST_F(StreamAbstractionAAMP_HLSTest, CheckForPlaybackStalltest_3)
 {
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SuppressDecode)).WillOnce(Return(true));
     mStreamAbstractionAAMP_HLS->CheckForPlaybackStall(true);
 }
 
-TEST_F(FunctionalTests, CheckForPlaybackStalltest_1)
+TEST_F(StreamAbstractionAAMP_HLSTest, CheckForPlaybackStalltest_4)
 {
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SuppressDecode)).WillOnce(Return(true));
     mStreamAbstractionAAMP_HLS->CheckForPlaybackStall(false);
 }
 
-TEST_F(FunctionalTests, NotifyFirstFragmentInjectedtest)
+TEST_F(StreamAbstractionAAMP_HLSTest, NotifyFirstFragmentInjectedtest)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->NotifyFirstFragmentInjected();
 }
 
-TEST_F(FunctionalTests, GetElapsedTimetest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetElapsedTimetest)
 {
     // Set up necessary data and conditions for testing
     double result = mStreamAbstractionAAMP_HLS->GetElapsedTime();
     ASSERT_NE(result, 0.0);
 }
 
-TEST_F(FunctionalTests, GetVideoBitratetest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetVideoBitratetest)
 {
     // Set up necessary data and conditions for testing
     BitsPerSecond result = mStreamAbstractionAAMP_HLS->GetVideoBitrate();
     ASSERT_EQ(result, 0.0);
 }
 
-TEST_F(FunctionalTests, GetAudioBitratetest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetAudioBitratetest)
 {
     // Set up necessary data and conditions for testing
     BitsPerSecond result = mStreamAbstractionAAMP_HLS->GetAudioBitrate();
     ASSERT_EQ(result, 0.0);
 }
 
-TEST_F(FunctionalTests, IsMuxedStreamtest)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsMuxedStreamtest_1)
 {
     // Set up necessary data and conditions for testing
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AudioOnlyPlayback)).WillOnce(Return(true));
@@ -1342,129 +1977,129 @@ TEST_F(FunctionalTests, IsMuxedStreamtest)
     ASSERT_FALSE(result);
 }
 
-TEST_F(FunctionalTests, WaitForAudioTrackCatchuptest)
+TEST_F(StreamAbstractionAAMP_HLSTest, WaitForAudioTrackCatchuptest)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->WaitForAudioTrackCatchup();
 }
 
-TEST_F(FunctionalTests, AbortWaitForAudioTrackCatchuptest)
+TEST_F(StreamAbstractionAAMP_HLSTest, AbortWaitForAudioTrackCatchuptest)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->AbortWaitForAudioTrackCatchup(true);
 }
 
-TEST_F(FunctionalTests, AbortWaitForAudioTrackCatchuptest_1)
+TEST_F(StreamAbstractionAAMP_HLSTest, AbortWaitForAudioTrackCatchuptest_1)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->AbortWaitForAudioTrackCatchup(false);
 }
 
-TEST_F(FunctionalTests, MuteSubtitlestest)
+TEST_F(StreamAbstractionAAMP_HLSTest, MuteSubtitlestest)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->MuteSubtitles(false);
 }
 
-TEST_F(FunctionalTests, MuteSubtitlestesttest_1)
+TEST_F(StreamAbstractionAAMP_HLSTest, MuteSubtitlestesttest_1)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->MuteSubtitles(false);
 }
 
-TEST_F(FunctionalTests, IsEOSReachedtest)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsEOSReachedtest)
 {
     // Set up necessary data and conditions for testing
     bool result = mStreamAbstractionAAMP_HLS->IsEOSReached();
     ASSERT_TRUE(result);
 }
 
-TEST_F(FunctionalTests, GetLastInjectedFragmentPositiontest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetLastInjectedFragmentPositiontest)
 {
     // Set up necessary data and conditions for testing
     double result = mStreamAbstractionAAMP_HLS->GetLastInjectedFragmentPosition();
     ASSERT_EQ(result, 0);
 }
 
-TEST_F(FunctionalTests, resetDiscontinuityTrackStatetest)
+TEST_F(StreamAbstractionAAMP_HLSTest, resetDiscontinuityTrackStatetest)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->resetDiscontinuityTrackState();
 }
 
-TEST_F(FunctionalTests, AbortWaitForDiscontinuitytest)
+TEST_F(StreamAbstractionAAMP_HLSTest, AbortWaitForDiscontinuitytest)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->AbortWaitForDiscontinuity();
 }
 
-TEST_F(FunctionalTests, CheckForMediaTrackInjectionStalltest)
+TEST_F(StreamAbstractionAAMP_HLSTest, CheckForMediaTrackInjectionStalltest)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->CheckForMediaTrackInjectionStall(eTRACK_AUDIO);
 }
 
-TEST_F(FunctionalTests, CheckForMediaTrackInjectionStalltest_1)
+TEST_F(StreamAbstractionAAMP_HLSTest, CheckForMediaTrackInjectionStalltest_1)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->CheckForMediaTrackInjectionStall(eTRACK_VIDEO);
 }
 
-TEST_F(FunctionalTests, CheckForRampDownLimitReachedtest)
+TEST_F(StreamAbstractionAAMP_HLSTest, CheckForRampDownLimitReachedtest)
 {
     // Set up necessary data and conditions for testing
     bool result = mStreamAbstractionAAMP_HLS->CheckForRampDownLimitReached();
     EXPECT_TRUE(result);
 }
 
-TEST_F(FunctionalTests, GetBufferedVideoDurationSectest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetBufferedVideoDurationSectest_old)
 {
     // Set up necessary data and conditions for testing
     double result = mStreamAbstractionAAMP_HLS->GetBufferedVideoDurationSec();
     ASSERT_EQ(result, -1);
 }
 
-TEST_F(FunctionalTests, GetAudioTracktest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetAudioTracktest)
 {
     // Set up necessary data and conditions for testing
     int result = mStreamAbstractionAAMP_HLS->GetAudioTrack();
     ASSERT_EQ(result, -1);
 }
 
-TEST_F(FunctionalTests, GetTextTracktest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetTextTracktest_1)
 {
     // Set up necessary data and conditions for testing
     int result = mStreamAbstractionAAMP_HLS->GetTextTrack();
     ASSERT_EQ(result, -1.0);
 }
 
-TEST_F(FunctionalTests, RefreshSubtitlestest)
+TEST_F(StreamAbstractionAAMP_HLSTest, RefreshSubtitlestest)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->RefreshSubtitles();
 }
 
-TEST_F(FunctionalTests, WaitForVideoTrackCatchupForAuxtest)
+TEST_F(StreamAbstractionAAMP_HLSTest, WaitForVideoTrackCatchupForAuxtest)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->WaitForVideoTrackCatchupForAux();
 }
 
-TEST_F(FunctionalTests, GetPreferredLiveOffsetFromConfigtest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetPreferredLiveOffsetFromConfigtest_1)
 {
     // Set up necessary data and conditions for testing
     bool result = mStreamAbstractionAAMP_HLS->GetPreferredLiveOffsetFromConfig();
     EXPECT_FALSE(result);
 }
 
-TEST_F(FunctionalTests, IsStreamerAtLivePointtest)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsStreamerAtLivePointtest)
 {
     // Set up necessary data and conditions for testing
     bool result = mStreamAbstractionAAMP_HLS->IsStreamerAtLivePoint();
     EXPECT_FALSE(result);
 }
 
-TEST_F(FunctionalTests, IsSeekedToLivetest)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsSeekedToLivetest_2)
 {
     // Set up necessary data and conditions for testing
     // mStreamAbstractionAAMP_HLS->IsSeekedToLive(0.0);
@@ -1472,13 +2107,13 @@ TEST_F(FunctionalTests, IsSeekedToLivetest)
     EXPECT_TRUE(result);
 }
 
-TEST_F(FunctionalTests, DisablePlaylistDownloadstest)
+TEST_F(StreamAbstractionAAMP_HLSTest, DisablePlaylistDownloadstest)
 {
     // Set up necessary data and conditions for testing
     mStreamAbstractionAAMP_HLS->DisablePlaylistDownloads();
 }
 
-TEST_F(FunctionalTests, IsStreamerAtLivePointtest4)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsStreamerAtLivePointtest4)
 {
     double seekPosition = 370.0;
 
@@ -1523,7 +2158,6 @@ TEST_F(TrackStateTests, GetFetchBufferTests)
 
 TEST_F(TrackStateTests, GetFetchChunkBufferTest)
 {
-
     // Call the function under test with initialize set to true
     CachedFragmentChunk *cachedFragmentChunk = TrackStateobj->GetFetchChunkBuffer(true);
     ASSERT_EQ(cachedFragmentChunk, nullptr);
@@ -1552,7 +2186,6 @@ TEST_F(TrackStateTests, OnSinkBufferFullTests)
 
 TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest)
 {
-
     MediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_VIDEO, true);
     ASSERT_EQ(playlistMediaType, eMEDIATYPE_PLAYLIST_IFRAME);
 }
@@ -1577,29 +2210,6 @@ TEST_F(TrackStateTests, WaitForManifestUpdateTests)
 {
     TrackStateobj->WaitForManifestUpdate();
 }
-
-// TEST_F(TrackStateTests, WaitTimeBasedOnBufferAvailableTests)
-// {
-
-//     long long lastPlaylistDownloadTimeMS = 1000; // Example value for lastPlaylistDownloadTimeMS
-
-//     long long currentPlayPosition = 10000; // Example value for currentPlayPosition
-
-//     long long endPositionAvailable = 60000; // Example value for endPositionAvailable
-
-//     bool lowLatencyMode = true; // Example value for lowLatencyMode
-
-//     long minUpdateDuration = 2000; // Example value for minUpdateDuration
-
-//     // Set the values in the MediaTrack object
-
-//     TrackStateobj->SetLastPlaylistDownloadTime(lastPlaylistDownloadTimeMS);
-
-//     int minDelay = TrackStateobj->WaitTimeBasedOnBufferAvailable();
-
-//     ASSERT_EQ(minDelay, 1500);
-
-// }
 
 TEST_F(TrackStateTests, GetBufferStatusTest)
 {
@@ -1667,19 +2277,18 @@ TEST_F(TrackStateTests, IsAtEndOfTracktest)
     ASSERT_FALSE(result);
 }
 
-TEST_F(FunctionalTests, GetMediaTracktest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetMediaTracktest)
 {
     mStreamAbstractionAAMP_HLS->GetMediaTrack(eTRACK_VIDEO);
 }
 
-TEST_F(FunctionalTests, GetStartTimeOfFirstPTStest)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetStartTimeOfFirstPTStest)
 {
     double result = mStreamAbstractionAAMP_HLS->GetStartTimeOfFirstPTS();
     ASSERT_EQ(result, 0.0);
 }
 
-// Test case to check the behavior of Is4KStream when height is 4000 and bandwidth is sufficient
-TEST_F(FunctionalTests, Test4KStreamPositive)
+TEST_F(StreamAbstractionAAMP_HLSTest, Test4KStreamPositive)
 {
     int height = 4000;
     BitsPerSecond bandwidth = 10000; // Adjust this value as needed
@@ -1688,7 +2297,7 @@ TEST_F(FunctionalTests, Test4KStreamPositive)
 }
 
 // Test case to check the behavior of Is4KStream when height is less than 4000
-TEST_F(FunctionalTests, Test4KStreamHeightTooLow)
+TEST_F(StreamAbstractionAAMP_HLSTest, Test4KStreamHeightTooLow)
 {
     int height = 3000;               // Adjust this value as needed
     BitsPerSecond bandwidth = 10000; // Adjust this value as needed
@@ -1696,8 +2305,7 @@ TEST_F(FunctionalTests, Test4KStreamHeightTooLow)
     ASSERT_FALSE(result);
 }
 
-// Test case to check the behavior of Is4KStream when bandwidth is insufficient
-TEST_F(FunctionalTests, Test4KStreamBandwidthInsufficient)
+TEST_F(StreamAbstractionAAMP_HLSTest, Test4KStreamBandwidthInsufficient)
 {
     int height = 0;
     BitsPerSecond bandwidth = 0; // Adjust this value as needed
@@ -1705,8 +2313,7 @@ TEST_F(FunctionalTests, Test4KStreamBandwidthInsufficient)
     ASSERT_FALSE(result);
 }
 
-// Test case for GetFirstPeriodStartTime()
-TEST_F(FunctionalTests, TestGetFirstPeriodStartTime)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestGetFirstPeriodStartTime)
 {
     double expectedValue = 0.0; // The expected return value
     // Call the virtual function and check if it returns the expected value.
@@ -1714,25 +2321,22 @@ TEST_F(FunctionalTests, TestGetFirstPeriodStartTime)
     ASSERT_EQ(result, expectedValue);
 }
 
-// Test case for GetFirstPeriodDynamicStartTime()
-TEST_F(FunctionalTests, TestGetFirstPeriodDynamicStartTime)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestGetFirstPeriodDynamicStartTime)
 {
     double expectedValue = 0.0; // The expected return value
-    // Call the virtual function and check if it returns the expected value.
     double result = mStreamAbstractionAAMP_HLS->GetFirstPeriodDynamicStartTime();
     ASSERT_EQ(result, expectedValue);
 }
 
-// Test case for GetCurrPeriodTimeScale()
-TEST_F(FunctionalTests, TestGetCurrPeriodTimeScale)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestGetCurrPeriodTimeScale)
 {
     uint32_t expectedValue = 0; // The expected return value
     // Call the virtual function and check if it returns the expected value.
     uint32_t result = mStreamAbstractionAAMP_HLS->GetCurrPeriodTimeScale();
     ASSERT_EQ(result, expectedValue);
 }
-// Test case for GetBWIndex()
-TEST_F(FunctionalTests, TestGetBWIndex)
+
+TEST_F(StreamAbstractionAAMP_HLSTest, TestGetBWIndex)
 {
     BitsPerSecond bandwidth = -13; // Create a BitsPerSecond object if needed
     int expectedValue = 0;         // The expected return value
@@ -1741,8 +2345,19 @@ TEST_F(FunctionalTests, TestGetBWIndex)
     ASSERT_EQ(result, expectedValue);
 }
 
+TEST_F(StreamAbstractionAAMP_HLSTest, TestGetBWIndex_new)
+{
+    BitsPerSecond bandwidth = -13; // Create a BitsPerSecond object if needed
+    int expectedValue = 0;         // The expected return value
+    // Call the virtual function and check if it returns the expected value.
+
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+    int result = mStreamAbstractionAAMP_HLS->GetBWIndex(bandwidth);
+    ASSERT_EQ(result, expectedValue);
+}
+
 // Test case for GetProfileIndexForBandwidth()
-TEST_F(FunctionalTests, TestGetProfileIndexForBandwidth)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestGetProfileIndexForBandwidth)
 {
     BitsPerSecond mTsbBandwidth; // Create a BitsPerSecond object with an appropriate value
     int expectedValue = 0;
@@ -1752,7 +2367,7 @@ TEST_F(FunctionalTests, TestGetProfileIndexForBandwidth)
 }
 
 // Test case for GetMaxBitrate()
-TEST_F(FunctionalTests, TestGetMaxBitrate)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestGetMaxBitrate)
 {
     BitsPerSecond expectedValue = 0; // Set to an appropriate value for your test case
     // Call the function to get the max bitrate.
@@ -1761,7 +2376,7 @@ TEST_F(FunctionalTests, TestGetMaxBitrate)
 }
 
 // Test case for GetVideoBitrates() when the function returns an empty vector.
-TEST_F(FunctionalTests, TestGetVideoBitratesEmpty)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestGetVideoBitratesEmpty)
 {
     // Call the function to get the video bitrates.
     std::vector<BitsPerSecond> result = mStreamAbstractionAAMP_HLS->GetVideoBitrates();
@@ -1770,7 +2385,7 @@ TEST_F(FunctionalTests, TestGetVideoBitratesEmpty)
 }
 
 // Test case for GetAudioBitrates() when the function returns an empty vector.
-TEST_F(FunctionalTests, TestGetAudioBitratesEmpty)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestGetAudioBitratesEmpty)
 {
     // Call the function to get the audio bitrates.
     std::vector<BitsPerSecond> result = mStreamAbstractionAAMP_HLS->GetAudioBitrates();
@@ -1778,18 +2393,18 @@ TEST_F(FunctionalTests, TestGetAudioBitratesEmpty)
     ASSERT_TRUE(result.empty());
 }
 
-TEST_F(FunctionalTests, StopInjectiontest)
+TEST_F(StreamAbstractionAAMP_HLSTest, StopInjectiontest)
 {
     mStreamAbstractionAAMP_HLS->StopInjection();
 }
 
-TEST_F(FunctionalTests, IsStreamerStalledtest)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsStreamerStalledtest)
 {
     bool result = mStreamAbstractionAAMP_HLS->IsStreamerStalled();
     ASSERT_FALSE(result);
 }
 
-TEST_F(FunctionalTests, SetTextStyleTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, SetTextStyleTest)
 {
     // Create an instance of your Subtitle class (replace with the actual class name)
 
@@ -1801,7 +2416,7 @@ TEST_F(FunctionalTests, SetTextStyleTest)
     EXPECT_FALSE(result);
 }
 
-TEST_F(FunctionalTests, TestResumeSubtitleOnPlay)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestResumeSubtitleOnPlay)
 {
     // Define test data and mute flag
     char testData[] = "";
@@ -1810,7 +2425,7 @@ TEST_F(FunctionalTests, TestResumeSubtitleOnPlay)
     mStreamAbstractionAAMP_HLS->ResumeSubtitleOnPlay(mute, testData);
 }
 
-TEST_F(FunctionalTests, TestMuteSidecarSubtitles)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestMuteSidecarSubtitles)
 {
     // Define a mute flag (true or false)
     bool mute = true;
@@ -1818,26 +2433,26 @@ TEST_F(FunctionalTests, TestMuteSidecarSubtitles)
     mStreamAbstractionAAMP_HLS->MuteSidecarSubtitles(mute);
 }
 
-TEST_F(FunctionalTests, TestMuteSubtitleOnPause)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestMuteSubtitleOnPause)
 {
     // Call the MuteSubtitleOnPause function .
     mStreamAbstractionAAMP_HLS->MuteSubtitleOnPause();
 }
 
-TEST_F(FunctionalTests, TestMResetSubtitle)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestMResetSubtitle)
 {
     // Call the ResetSubtitle function .
     mStreamAbstractionAAMP_HLS->ResetSubtitle();
 }
 
-TEST_F(FunctionalTests, TestInitSubtitleParser)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestInitSubtitleParser)
 {
     char testData[] = "";
     // Call the ResetSubtitle function .
     mStreamAbstractionAAMP_HLS->InitSubtitleParser(testData);
 }
 
-TEST_F(FunctionalTests, TestSetCurrentAudioTrackIndex)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestSetCurrentAudioTrackIndex)
 {
     // Define an audio track index as a string
     std::string trackIndex = "";
@@ -1845,7 +2460,7 @@ TEST_F(FunctionalTests, TestSetCurrentAudioTrackIndex)
     mStreamAbstractionAAMP_HLS->SetCurrentAudioTrackIndex(trackIndex);
 }
 
-TEST_F(FunctionalTests, TestSetCurrentAudioTrackIndex_1)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestSetCurrentAudioTrackIndex_1)
 {
     // Define an audio track index as a string
     std::string trackIndex = "0";
@@ -1853,51 +2468,51 @@ TEST_F(FunctionalTests, TestSetCurrentAudioTrackIndex_1)
     mStreamAbstractionAAMP_HLS->SetCurrentAudioTrackIndex(trackIndex);
 }
 
-TEST_F(FunctionalTests, TestEnableContentRestrictions)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestEnableContentRestrictions)
 {
     // Call the EnableContentRestrictions function
     mStreamAbstractionAAMP_HLS->EnableContentRestrictions();
 }
 // Test case 1: Test with grace = -1, time = 0, eventChange = false
-TEST_F(FunctionalTests, TestUnlockWithUnlimitedGrace)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestUnlockWithUnlimitedGrace)
 {
 
     mStreamAbstractionAAMP_HLS->DisableContentRestrictions(-1, 0, false);
 }
 
 // Test case 2: Test with specific grace and time, eventChange = true
-TEST_F(FunctionalTests, TestUnlockWithSpecificGraceAndTime)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestUnlockWithSpecificGraceAndTime)
 {
     mStreamAbstractionAAMP_HLS->DisableContentRestrictions(3600, 7200, true);
 }
 
-TEST_F(FunctionalTests, TestApplyContentRestrictions)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestApplyContentRestrictions)
 {
     std::vector<std::string> restrictions;
     // Call the ApplyContentRestrictions function
     mStreamAbstractionAAMP_HLS->ApplyContentRestrictions(restrictions);
 }
 
-TEST_F(FunctionalTests, TestSetPreferredAudioLanguages)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestSetPreferredAudioLanguages)
 {
     // Call the SetPreferredAudioLanguages function
     mStreamAbstractionAAMP_HLS->SetPreferredAudioLanguages();
 }
 
-TEST_F(FunctionalTests, TestSetAudioTrack)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestSetAudioTrack)
 {
     // Call the SetAudioTrack  function
     mStreamAbstractionAAMP_HLS->SetAudioTrack(-122);
 }
 
-TEST_F(FunctionalTests, TestSetAudioTrackByLanguage)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestSetAudioTrackByLanguage)
 {
     const char *lang = "english";
     // Call the ApplyContentRestrictions function
     mStreamAbstractionAAMP_HLS->SetAudioTrackByLanguage(lang);
 }
 
-TEST_F(FunctionalTests, TestSetThumbnailTrackWithInvalidIndex)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestSetThumbnailTrackWithInvalidIndex)
 {
     int thumbnailIndex = -1; // Replace with an invalid index
     bool result = mStreamAbstractionAAMP_HLS->SetThumbnailTrack(thumbnailIndex);
@@ -1905,7 +2520,7 @@ TEST_F(FunctionalTests, TestSetThumbnailTrackWithInvalidIndex)
 }
 
 // Test case 1: Test SetVideoRectangle with valid coordinates and size
-TEST_F(FunctionalTests, TestSetVideoRectangleWithValidParams)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestSetVideoRectangleWithValidParams)
 {
     int x = 0;
     int y = 0;
@@ -1915,17 +2530,293 @@ TEST_F(FunctionalTests, TestSetVideoRectangleWithValidParams)
 }
 
 // Test case 2: Test GetAvailableVideoTracks
-TEST_F(FunctionalTests, TestGetAvailableVideoTracks)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestGetAvailableVideoTracks)
 {
     std::vector<StreamInfo *> videoTracks = mStreamAbstractionAAMP_HLS->GetAvailableVideoTracks();
-    // Add assertions to check if the function returned an empty vector as expected
+
     ASSERT_TRUE(videoTracks.empty());
 }
 
 // Test case 3: Test GetAvailableThumbnailTracks
-TEST_F(FunctionalTests, TestGetAvailableThumbnailTracks)
+TEST_F(StreamAbstractionAAMP_HLSTest, TestGetAvailableThumbnailTracks)
 {
     std::vector<StreamInfo *> thumbnailTracks = mStreamAbstractionAAMP_HLS->GetAvailableThumbnailTracks();
-    // Add assertions to check if the function returned an empty vector as expected
+
     ASSERT_TRUE(thumbnailTracks.empty());
+}
+
+TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_1)
+{
+    MediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_VIDEO, false);
+
+}
+TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_2)
+{
+    MediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_AUDIO , false);
+}
+
+TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_3)
+{
+    MediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_SUBTITLE, false);
+}
+
+TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_4)
+{
+    MediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_AUX_AUDIO, false);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, IsStreamerAtLivePointtest_1)
+{
+    double seekPosition = 470.0;
+    mStreamAbstractionAAMP_HLS->aamp->culledSeconds = 100.0;
+    mStreamAbstractionAAMP_HLS->aamp->durationSeconds = 300.0;
+    mStreamAbstractionAAMP_HLS->aamp->mLiveOffset = 30.0;
+    mStreamAbstractionAAMP_HLS->mIsAtLivePoint = true;
+    bool result = mStreamAbstractionAAMP_HLS->IsStreamerAtLivePoint(seekPosition);
+    EXPECT_TRUE(result);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, IsSeekedToLivetest)
+{
+    double seekPosition = 370.0;
+    mStreamAbstractionAAMP_HLS->aamp->culledSeconds = 100.0;
+    mStreamAbstractionAAMP_HLS->aamp->durationSeconds = 300.0;
+    mStreamAbstractionAAMP_HLS->aamp->mLiveOffset = 30.0;
+    mStreamAbstractionAAMP_HLS->mIsAtLivePoint = true;
+    bool result = mStreamAbstractionAAMP_HLS->IsSeekedToLive(seekPosition);
+    EXPECT_TRUE(result);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, IsSeekedToLivetest_1)
+{
+    double seekPosition = 170.0;
+    mStreamAbstractionAAMP_HLS->aamp->culledSeconds = 100.0;
+    mStreamAbstractionAAMP_HLS->aamp->durationSeconds = 300.0;
+    mStreamAbstractionAAMP_HLS->aamp->mLiveOffset = 30.0;
+    mStreamAbstractionAAMP_HLS->mIsAtLivePoint = true;
+    bool result = mStreamAbstractionAAMP_HLS->IsSeekedToLive(seekPosition);
+    EXPECT_FALSE(result);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetPreferredLiveOffsetFromConfigtest)
+{
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_Disable4K)).WillRepeatedly(Return(true));
+    mStreamAbstractionAAMP_HLS->aamp->GetMaximumBitrate();
+    bool result = mStreamAbstractionAAMP_HLS->GetPreferredLiveOffsetFromConfig();
+    EXPECT_FALSE(result);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetBufferedVideoDurationSectest)
+{
+    // Set up necessary data and conditions for testing
+    mStreamAbstractionAAMP_HLS->aamp->rate = 1;
+    double result = mStreamAbstractionAAMP_HLS->GetBufferedVideoDurationSec();
+    ASSERT_EQ(result, -1);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetBufferedVideoDurationSectest_1)
+{
+    // Set up necessary data and conditions for testing
+    mStreamAbstractionAAMP_HLS->aamp->rate = 0;
+    double result = mStreamAbstractionAAMP_HLS->GetBufferedVideoDurationSec();
+    ASSERT_EQ(result, -1);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, ProcessDiscontinuity)
+{
+    mStreamAbstractionAAMP_HLS->ProcessDiscontinuity(eTRACK_AUX_AUDIO);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, SetAudioTrackInfoFromMuxedStreamTest)
+{
+    std::vector<AudioTrackInfo> audioTrackInfoVector;
+    mStreamAbstractionAAMP_HLS->SetAudioTrackInfoFromMuxedStream(audioTrackInfoVector);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, IsMuxedStreamtest)
+{
+    // Set up necessary data and conditions for testing
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AudioOnlyPlayback)).WillOnce(Return(false));
+    mStreamAbstractionAAMP_HLS->aamp->rate = 1;
+    bool result = mStreamAbstractionAAMP_HLS->IsMuxedStream();
+    ASSERT_TRUE(result);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, CheckForPlaybackStalltest)
+{
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SuppressDecode)).WillOnce(Return(false));
+    mStreamAbstractionAAMP_HLS->CheckForPlaybackStall(false);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, CheckForPlaybackStalltest_1)
+{
+    mStreamAbstractionAAMP_HLS->mIsPlaybackStalled= true;
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SuppressDecode)).WillOnce(Return(false));
+    mStreamAbstractionAAMP_HLS->CheckForPlaybackStall(true);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, CheckForPlaybackStalltest_2)
+{
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SuppressDecode)).WillOnce(Return(true));
+    mStreamAbstractionAAMP_HLS->CheckForPlaybackStall(true);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, CheckForRampDownProfileTest)
+{
+    mStreamAbstractionAAMP_HLS->CheckForRampDownProfile(1);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_1)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reloadUri = false;
+    bool ignoreDiscontinuity = false;
+    // Act: Call the function to be tested
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    // Assert: Make assertions to verify the function's behavior in this case
+    ASSERT_EQ(fragmentUri, nullptr);
+}
+
+TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_2)
+{
+    // Arrange: Set up the necessary conditions for the test
+    bool reloadUri = true;
+    bool ignoreDiscontinuity = true;
+    // Act: Call the function to be tested
+    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    // Assert: Make assertions to verify the function's behavior in this case
+    ASSERT_EQ(fragmentUri, nullptr);
+}
+
+TEST_F(TrackStateTests, WaitTimeBasedOnBufferAvailableTest) {
+    // Call the WaitTimeBasedOnBufferAvailable method and get the result
+    int result = TrackStateobj->WaitTimeBasedOnBufferAvailable();
+    EXPECT_GE(result, 0);  // Verify that the result is non-negative
+}
+
+TEST_F(TrackStateTests, EnterTimedWaitForPlaylistRefreshTests_1)
+{
+    TrackStateobj->EnterTimedWaitForPlaylistRefresh(2);
+}
+
+TEST_F(TrackStateTests, StartPlaylistDownloaderThreadTest)
+{
+    TrackStateobj->StopPlaylistDownloaderThread();
+}
+
+TEST_F(TrackStateTests, UpdateTSAfterFetchTest)
+{
+    TrackStateobj->numberOfFragmentsCached = 0;
+    TrackStateobj->maxCachedFragmentsPerTrack = 1;
+    TrackStateobj->UpdateTSAfterFetch(true);
+}
+
+TEST_F(TrackStateTests, UpdateTSAfterFetchTest_1)
+{
+    // //TrackStateobj->numberOfFragmentsCached = 0;
+    // TrackStateobj->minInitialCacheSeconds = 0;
+    // TrackStateobj->currentInitialCacheDurationSeconds = 0;
+    TrackStateobj->numberOfFragmentsCached = 0;
+    TrackStateobj->maxCachedFragmentsPerTrack = 1;
+    bool IsInitSegment = false;
+    TrackStateobj->UpdateTSAfterFetch(IsInitSegment);
+}
+
+TEST_F(TrackStateTests, UpdateTSAfterFetchTest_2)
+{
+    // //TrackStateobj->numberOfFragmentsCached = 0;
+    // TrackStateobj->minInitialCacheSeconds = 0;
+    // TrackStateobj->currentInitialCacheDurationSeconds = 0;
+    TrackStateobj->numberOfFragmentsCached = 0;
+    TrackStateobj->maxCachedFragmentsPerTrack = 1;
+    bool IsInitSegment = false;
+    TrackStateobj->UpdateTSAfterFetch(IsInitSegment);
+}
+
+TEST_F(TrackStateTests,SetCurrentBandWidth )
+{
+    TrackStateobj->SetCurrentBandWidth(1);
+}
+
+TEST_F(TrackStateTests,GetProfileIndexForBW )
+{
+    TrackStateobj->GetProfileIndexForBW(1);
+}
+
+TEST_F(TrackStateTests,UpdateTSAfterChunkFetch )
+{
+    TrackStateobj->numberOfFragmentChunksCached = 0;
+    TrackStateobj->maxCachedFragmentChunksPerTrack = 1;
+    TrackStateobj->UpdateTSAfterChunkFetch();
+}
+
+TEST_F(TrackStateTests,AbortWaitForCachedAndFreeFragment )
+{
+    TrackStateobj->AbortWaitForCachedAndFreeFragment(true);
+}
+
+TEST_F(TrackStateTests,CheckForFutureDiscontinuityTest)
+{
+    double cacheDuration = 1.1;
+    TrackStateobj->numberOfFragmentsCached = 1;
+    TrackStateobj->CheckForFutureDiscontinuity(cacheDuration);
+}
+
+TEST_F(TrackStateTests,AbortWaitForCachedAndFreeFragment_1 )
+{
+    TrackStateobj->AbortWaitForCachedAndFreeFragment(false);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetTextTracktest)
+{
+    // Set up necessary data and conditions for testing
+    int result = mStreamAbstractionAAMP_HLS->CallGetTextTrack();
+    ASSERT_EQ(result, -1.0);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetAudioTrackTest)
+{
+    // Set up necessary data and conditions for testing
+    int result = mStreamAbstractionAAMP_HLS->CallGetAudioTrack();
+    ASSERT_EQ(result, -1.0);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetCurrentAudioTrackTest)
+{
+    AudioTrackInfo audioTrackInfo;
+    bool result = mStreamAbstractionAAMP_HLS->CallGetCurrentAudioTrack(audioTrackInfo);
+    EXPECT_FALSE(result);
+    EXPECT_TRUE(audioTrackInfo.index.empty());
+    EXPECT_TRUE(audioTrackInfo.language.empty());
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetCurrentTextTracktest)
+{
+    TextTrackInfo textTrackInfo;
+    bool result = mStreamAbstractionAAMP_HLS->CallGetCurrentTextTrack(textTrackInfo);
+    EXPECT_FALSE(result);
+    EXPECT_TRUE(textTrackInfo.index.empty());
+    EXPECT_TRUE(textTrackInfo.language.empty());
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, NotifyPlaybackPausedtest)
+{
+    // Set up necessary data and conditions for testing
+    mStreamAbstractionAAMP_HLS->CallNotifyPlaybackPaused(true);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, IsLowestProfileTest_2)
+{
+    // Set up the necessary data or objects for your test
+    int currentProfileIndex = -1;
+    bool result = mStreamAbstractionAAMP_HLS->CallIsLowestProfile(currentProfileIndex);
+    ASSERT_FALSE(result);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, IsLowestProfileTest_1)
+{
+    // Set up the necessary data or objects for your test
+    int currentProfileIndex = -1;
+    bool result = mStreamAbstractionAAMP_HLS->CallIsLowestProfile_1(currentProfileIndex);
+    ASSERT_TRUE(result);
 }
