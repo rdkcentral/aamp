@@ -296,6 +296,6 @@ void MediaTrack::UpdateTSAfterChunkFetch()
 {
 }
 
-void StreamAbstractionAAMP::UpdateRampdownProfileReason(void)
+void StreamAbstractionAAMP::UpdateRampUpOrDownProfileReason(void)
 {
 }

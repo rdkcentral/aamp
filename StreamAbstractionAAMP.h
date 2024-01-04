@@ -1026,11 +1026,11 @@ public:
 	int GetDesiredProfile(bool getMidProfile);
 
 	/**
-	 *   @fn UpdateRampdownProfileReason
+	 *   @fn UpdateRampUpOrDownProfileReason
 	 *
 	 *   @return void
 	 */
-	void UpdateRampdownProfileReason(void);
+	void UpdateRampUpOrDownProfileReason(void);
 
 	/**
 	 *   @fn NotifyBitRateUpdate
@@ -1141,7 +1141,7 @@ public:
 	int mRampDownCount;		        /**< Total number of rampdowns */
 	double mProgramStartTime;	        /**< Indicate program start time or availability start time */
 	int mTsbMaxBitrateProfileIndex;		/**< Indicates the index of highest profile in the saved stream info */
-
+	bool mUpdateReason;			/**< flag to update the bitrate change reason */
 
 	/**
 	 *   @brief Get profile index of highest bandwidth

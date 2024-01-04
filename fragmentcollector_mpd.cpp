@@ -1456,7 +1456,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							pMediaStreamContext->profileChanged = true;
 							profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							FetchAndInjectInitFragments();
-							UpdateRampdownProfileReason();
+							UpdateRampUpOrDownProfileReason();
 							pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							return false;
 						}
@@ -1509,7 +1509,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							pMediaStreamContext->profileChanged = true;
 							profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							FetchAndInjectInitFragments();
-							UpdateRampdownProfileReason();
+							UpdateRampUpOrDownProfileReason();
                                                         pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							return false;
 						}
@@ -2082,7 +2082,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										// CID:306172 - Value not atomically updated
 										ReleasePlaylistLock();
 										FetchAndInjectInitFragments();
-										UpdateRampdownProfileReason();
+										UpdateRampUpOrDownProfileReason();
 										pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 										return false; //Since we need to check WaitForFreeFragmentCache
 									}

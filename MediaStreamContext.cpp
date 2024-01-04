@@ -212,7 +212,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
         AAMPLOG_INFO("Bitrate changed from %u to %ld",fragmentDescriptor.Bandwidth, bitrate);
         fragmentDescriptor.Bandwidth = (uint32_t)bitrate;
 	context->SetTsbBandwidth(bitrate);
-	context->UpdateRampdownProfileReason();
+	context->mUpdateReason = true;
 	mDownloadedFragment.Replace(&cachedFragment->fragment);
 	ret = false;
     }

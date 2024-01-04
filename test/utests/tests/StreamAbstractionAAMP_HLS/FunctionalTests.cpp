@@ -1846,11 +1846,10 @@ TEST_F(StreamAbstractionAAMP_HLSTest, UpdateStreamInfoBitrateDatatest)
     mStreamAbstractionAAMP_HLS->UpdateStreamInfoBitrateData(profileIndex, cacheFragStreamInfo); // Set position to 0.0 for this test
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, UpdateRampdownProfileReasontest)
+TEST_F(StreamAbstractionAAMP_HLSTest, UpdateRampUpOrDownProfileReasontest)
 {
     BitrateChangeReason expectedBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
-    mStreamAbstractionAAMP_HLS->UpdateRampdownProfileReason();
-
+    mStreamAbstractionAAMP_HLS->UpdateRampUpOrDownProfileReason();
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, ConfigureTimeoutOnBuffertest)

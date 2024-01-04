@@ -1628,7 +1628,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInst
 		mAudioTrackIndex(), mTextTrackIndex(),
 		mAuxCond(), mFwdAudioToAux(false), mLogObj(logObj),
 		mAudioTracksAll(), mTextTracksAll(),
-		mTsbMaxBitrateProfileIndex(-1),
+		mTsbMaxBitrateProfileIndex(-1),mUpdateReason(false),
 		mID3Handler{mID3Handler}
 {
 	mLastVideoFragParsedTimeMS = aamp_GetCurrentTimeMS();
@@ -1842,14 +1842,15 @@ void StreamAbstractionAAMP::UpdateProfileBasedOnFragmentDownloaded(void)
 }
 
 /**
- *  @brief Update rampdown profile on network failure
+ *  @brief Update rampdown or Up profile  reason
  */
-void StreamAbstractionAAMP::UpdateRampdownProfileReason(void)
+void StreamAbstractionAAMP::UpdateRampUpOrDownProfileReason(void)
 {
 	mBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
-	if(aamp->IsTSBSupported() && (GetVideoBitrate()  < mTsbBandwidth))
+	if(mUpdateReason && aamp->IsTSBSupported())
 	{
 		mBitrateReason = eAAMP_BITRATE_CHANGE_BY_FOG_ABR;
+		mUpdateReason = false;
 	}
 }
 
