@@ -88,7 +88,7 @@ public:
 	 */
 	// IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj=NULL, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, IsoBmffProcessor* peerBmffProcessor = NULL, MediaProcessor* peerSubProcessor = NULL);
 	IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj, id3_callback_t id3_hdl, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO,
-		IsoBmffProcessor* peerBmffProcessor = NULL, MediaProcessor* peerSubProcessor = NULL);
+		IsoBmffProcessor* peerBmffProcessor = NULL, IsoBmffProcessor* peerSubProcessor = NULL);
 
 	/**
 	 * @fn ~IsoBmffProcessor
@@ -183,6 +183,37 @@ public:
 
 
 	std::pair<uint64_t, bool> GetBasePTS();
+
+	/**
+	* @brief Function to enable/disable the processor
+	* @param[in] enable true to enable, false otherwise
+	*/
+	void enable(bool enable) override { enabled = enable; }
+
+	/**
+	* @brief Function to set a track offset for restamping
+	* @param[in] offset offset value in seconds
+	*/
+	void setTrackOffset(double offset) override { trackOffsetInSecs = offset; }
+	
+	/**
+	 * @brief Set peer subtitle instance of IsoBmffProcessor
+	 *
+	 * @param[in] processor - peer instance
+	 */
+	void setPeerSubtitleProcessor(IsoBmffProcessor *processor);
+	
+	/**
+	* @brief Function to add peer listener to a media processor
+	* These listeners will be notified when the basePTS processing is complete
+	* @param[in] processor processor instance
+	*/
+	void addPeerListener(MediaProcessor *processor);
+
+	/**
+	* @brief Initialize the processor to advance to restamp phase directly
+	*/
+	void initProcessorForRestamp();
 
 private:
 
@@ -357,7 +388,6 @@ private:
 
 	PrivateInstanceAAMP *p_aamp;
 	timeScaleChangeStateType timeScaleChangeState;
-	ContentType contentType;
 	MediaFormat mediaFormat;
 
 	uint32_t timeScale;
@@ -369,6 +399,7 @@ private:
 	double prevDuration;
 	double maxDurationFromManifest;
 	double playRate;
+	double trackOffsetInSecs;
 
 	uint64_t basePTS;
 	uint64_t sumPTS;
@@ -376,7 +407,7 @@ private:
 	uint64_t maxTrackDurationFromISOBufferInTS;
 
 	IsoBmffProcessor *peerProcessor;
-	MediaProcessor *peerSubtitleProcessor;
+	IsoBmffProcessor *peerSubtitleProcessor;
 	IsoBmffProcessorType type;
 
 	bool isRestampConfigEnabled;
@@ -384,9 +415,11 @@ private:
 	bool initSegmentProcessComplete;
 	bool scalingOfPTSComplete;
 	bool abortAll;
+	bool enabled;
 
 	std::vector<AampGrowableBuffer *> initSegment;
 	std::vector<stInitRestampSegment *> resetPTSInitSegment;
+	std::vector<MediaProcessor *> peerListeners;
 
 	pthread_mutex_t m_mutex;
 	pthread_cond_t m_cond;

@@ -42,20 +42,24 @@ static const char *IsoBmffProcessorTypeName[] =
  *  @brief IsoBmffProcessor constructor
  */
 IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj, 
-	id3_callback_t id3_hdl, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor, MediaProcessor* peerSubProcessor)
+	id3_callback_t id3_hdl, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
 	: p_aamp(aamp), type(trackType), peerProcessor(peerBmffProcessor), peerSubtitleProcessor(peerSubProcessor), basePTS(0),
 	processPTSComplete(false), timeScale(0), initSegment(), resetPTSInitSegment(),
 	playRate(1.0f), abortAll(false), m_mutex(), m_cond(),initSegmentProcessComplete(false),
-	isRestampConfigEnabled(false),contentType(ContentType_UNKNOWN),
+	isRestampConfigEnabled(false),
 	mLogObj(logObj),
 	sumPTS(0),prevPTS(0),currTimeScale(0),sumOfTrackDurationFromISOBuffer(0.0f),startPos(0.0f),
 	prevPosition(-1),maxDurationFromManifest(-1),scalingOfPTSComplete(false),timeScaleChangeState(eBMFFPROCESSOR_INIT_TIMESCALE),
-	prevDuration(0.0),maxTrackDurationFromISOBufferInTS(0),mediaFormat(eMEDIAFORMAT_UNKNOWN)
+	prevDuration(0.0),maxTrackDurationFromISOBufferInTS(0),mediaFormat(eMEDIAFORMAT_UNKNOWN), enabled(true), trackOffsetInSecs(0.0), peerListeners()
 {
 	AAMPLOG_WARN("IsoBmffProcessor:: Created IsoBmffProcessor(%p) for type:%d and peerProcessor(%p)", this, type, peerBmffProcessor);
 	if (peerProcessor)
 	{
 		peerProcessor->setPeerProcessor(this);
+	}
+	if (peerSubtitleProcessor)
+	{
+		peerSubtitleProcessor->setPeerProcessor(this);
 	}
 	pthread_mutex_init(&m_mutex, NULL);
 	pthread_cond_init(&m_cond, NULL);
@@ -66,8 +70,7 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManag
 	if(p_aamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 	{
 		isRestampConfigEnabled = true;
-		contentType = p_aamp->GetContentType();
-		AAMPLOG_WARN("IsoBmffProcessor:: %s contentType = %d mediaFormat = %d PTS RE-STAMP ENABLED", IsoBmffProcessorTypeName[type],contentType,mediaFormat);
+		AAMPLOG_WARN("IsoBmffProcessor:: %s mediaFormat = %d PTS RE-STAMP ENABLED", IsoBmffProcessorTypeName[type],mediaFormat);
 	}
 	else
 	{
@@ -94,12 +97,16 @@ IsoBmffProcessor::~IsoBmffProcessor()
 bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,double duration, bool discontinuous,
 									bool isInit, process_fcn_t processor, bool &ptsError)
 {
+	AAMPLOG_INFO("IsoBmffProcessor:: %s sending segment at pos:%f dur:%f", IsoBmffProcessorTypeName[type], position, duration);
 	bool ret = true;
 	ptsError = false;
-	ret = setTuneTimePTS(pBuffer,position,duration,discontinuous,isInit);
+	if (!initSegmentProcessComplete)
+	{
+		ret = setTuneTimePTS(pBuffer,position,duration,discontinuous,isInit);
+	}
 	if (ret)
 	{
-		if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE) && (eBMFFPROCESSOR_TYPE_SUBTITILE != type))
+		if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
 		{
 			restampPTSAndSendSegment(pBuffer,position,duration,discontinuous,isInit);
 		}
@@ -121,28 +128,8 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 
 	AAMPLOG_INFO("IsoBmffProcessor:: %s sending segment at pos:%f dur:%f", IsoBmffProcessorTypeName[type], position, duration);
 
-	// Logic for Subtitle Track
-	if (type == eBMFFPROCESSOR_TYPE_SUBTITILE)
-	{
-		if (!processPTSComplete)
-		{
-			// Wait for video to parse PTS
-			pthread_mutex_lock(&m_mutex);
-			if (!processPTSComplete)
-			{
-				AAMPLOG_INFO(" [%s][%p] Going into wait for PTS processing to complete", IsoBmffProcessorTypeName[type], this);
-				pthread_cond_wait(&m_cond, &m_mutex);
-			}
-			if (abortAll)
-			{
-				ret = false;
-			}
-			pthread_mutex_unlock(&m_mutex);
-		}
-	}
-
-	// Logic for Audio Track
-	if (type == eBMFFPROCESSOR_TYPE_AUDIO)
+	// Logic for Audio & Subtitle Track
+	if (type == eBMFFPROCESSOR_TYPE_AUDIO || type == eBMFFPROCESSOR_TYPE_SUBTITILE)
 	{
 		if (!processPTSComplete)
 		{
@@ -300,8 +287,17 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					}
 					if(peerSubtitleProcessor)
 					{
-						peerSubtitleProcessor->abortInjectionWait();
+						peerSubtitleProcessor->setBasePTS(basePTS, timeScale);
 					}
+					if (!peerListeners.empty())
+					{
+						for (auto peer : peerListeners)
+						{
+							peer->abortInjectionWait();
+						}
+					}
+					// This is one-time operation
+					peerListeners.clear();
 
 					pushInitSegment(pos);
 					initSegmentProcessComplete = true;
@@ -351,13 +347,12 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 		if (buffer.getTimeScale(tScale))
 		{
 			maxTrackDurationFromISOBufferInTS = 0;
-			peerProcessor-> maxTrackDurationFromISOBufferInTS = 0;
+			peerProcessor->maxTrackDurationFromISOBufferInTS = 0;
 			maxDurationFromManifest = 0.0;
 			peerProcessor->maxDurationFromManifest = 0.0;
 
 			AAMPLOG_INFO("IsoBmffProcessor %s  general init freshTS = %u isDiscontinuity = %d",IsoBmffProcessorTypeName[type],tScale,isDiscontinuity);
 
-			/*check is current time scale same. If same then save the init fragment*/
 			if(sumPTS == 0 && timeScaleChangeState == eBMFFPROCESSOR_INIT_TIMESCALE)
 			{
 				AAMPLOG_WARN("IsoBmffProcessor %s  its First Init Time video already pushed push audio now timeScaleChangeState=%d",
@@ -367,6 +362,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 				p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (MediaType)type);
 				sendStream(pBuffer,position,duration,isDiscontinuity,isInit);
 			}
+			/*check is current time scale same. If same then save the init fragment*/
 			else if ( currTimeScale == tScale && sumPTS != 0 && isDiscontinuity == false )
 			{
 				clearRestampInitSegment();
@@ -438,7 +434,12 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 				/*Copy the maximum duration which will be used when handling the skip fragment */
 				maxTrackDurationFromISOBufferInTS = durationFromFragment;
 			}
-			AAMPLOG_TRACE("IsoBmffProcessor %s duartion= %" PRIu64 " ", IsoBmffProcessorTypeName[type],durationFromFragment);
+			AAMPLOG_TRACE("IsoBmffProcessor %s duration= %" PRIu64 " ", IsoBmffProcessorTypeName[type],durationFromFragment);
+			if (durationFromFragment == 0)
+			{
+				// If we can't deduce duration from fragment, use manifest provided one
+				durationFromFragment = (duration * (double)currTimeScale);
+			}
 		}
 		else
 		{
@@ -477,8 +478,8 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 			AAMPLOG_ERR("IsoBmffProcessor %s Failed to process pts from buffer at pos = %f and dur = %f", IsoBmffProcessorTypeName[type], position, duration);
 		}
 	
-		AAMPLOG_INFO("IsoBmffProcessor %s Before restamp: dur = %f maxDur = %f prevPos = %f currenPos = %f currTS = %u currentPTS = %" PRIu64 " basePTS=%" PRIu64 "	\
-						sumPTS = %" PRIu64 " PrevPTS = %" PRIu64 " TSChangeState = %d",	IsoBmffProcessorTypeName[type], duration, maxDurationFromManifest,	\
+		AAMPLOG_INFO("IsoBmffProcessor %s Before restamp: dur = %f maxDur = %f prevPos = %f currenPos = %f currTS = %u currentPTS = %" PRIu64 " basePTS=%" PRIu64 ""
+						"sumPTS = %" PRIu64 " PrevPTS = %" PRIu64 " TSChangeState = %d",	IsoBmffProcessorTypeName[type], duration, maxDurationFromManifest,
 						prevPosition, position, currTimeScale, currentPTS, basePTS, sumPTS, prevPTS, timeScaleChangeState);
 
 		/* 	
@@ -501,18 +502,18 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 		{
 			//Step 5.Now time to restamp the PTS
 			buffer.restampPTS(sumPTS,currentPTS,(uint8_t *)(pBuffer->GetPtr()),(uint32_t)(pBuffer->GetLen()));
-
+			double newPos = ((double)sumPTS / (double) currTimeScale);
 			prevPTS = currentPTS;
 
 			sumPTS +=durationFromFragment;
-			sumOfTrackDurationFromISOBuffer += (  durationFromFragment / (double)currTimeScale );
+			sumOfTrackDurationFromISOBuffer += ((double)durationFromFragment / (double)currTimeScale);
 
-			AAMPLOG_INFO("IsoBmffProcessor %s fragment restamp complete maxTrackDurationFromISOBufferInTS = %" PRIu64 " sumOfTrackDurationFromISOBuffer = %lf durationFromFragment = %" PRIu64 " currentPTS = %" PRIu64 " \
-							restampedPTS = %" PRIu64 " sumPTS = %" PRIu64 " ", IsoBmffProcessorTypeName[type],maxTrackDurationFromISOBufferInTS, sumOfTrackDurationFromISOBuffer, durationFromFragment, currentPTS, \
-							sumPTS-durationFromFragment, sumPTS);
+			AAMPLOG_INFO("IsoBmffProcessor %s fragment restamp complete maxTrackDurationFromISOBufferInTS = %" PRIu64 " sumOfTrackDurationFromISOBuffer = %lf durationFromFragment = %" PRIu64 " currentPTS = %" PRIu64 ""
+							" restampedPTS = %" PRIu64 " sumPTS = %" PRIu64 " position = %.02lf newPos = %0.2lf", IsoBmffProcessorTypeName[type],maxTrackDurationFromISOBufferInTS, sumOfTrackDurationFromISOBuffer, durationFromFragment, currentPTS,
+							sumPTS-durationFromFragment, sumPTS, position, newPos);
 
 			p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (MediaType)type);
-			sendStream(pBuffer,position,duration,isDiscontinuity,isInit);
+			sendStream(pBuffer,newPos,duration,isDiscontinuity,isInit);
 		}
 		prevPosition = position;
 		prevDuration = duration;
@@ -620,20 +621,12 @@ bool IsoBmffProcessor::pushInitAndSetRestampPTSAsBasePTS(uint64_t pts)
 		/* Indicates it is at the time of tune so copy the basepts*/
 		case eBMFFPROCESSOR_INIT_TIMESCALE:
 		{
-                        AAMPLOG_INFO("IsoBmffProcessor %s case: %d", IsoBmffProcessorTypeName[type], timeScaleChangeState);
-                        if( ( contentType == ContentType_SLE || contentType == ContentType_LINEAR )  && type == eBMFFPROCESSOR_TYPE_AUDIO )
-                        {
-                                sumPTS = pts;
-                                startPos = sumPTS/((double)currTimeScale);
-                        }
-                        else
-                        {
-                                sumPTS = pts;
-                                startPos = sumPTS/((double)currTimeScale);
-                        }
-                                AAMPLOG_INFO("IsoBmffProcessor %s eBMFFPROCESSOR_INIT_TIMESCALE: First Time startPos = %f sumPTS = %" PRIu64 " currTS = %u ",
-                                                                IsoBmffProcessorTypeName[type], startPos, sumPTS, currTimeScale);
-                }
+			AAMPLOG_INFO("IsoBmffProcessor %s case: %d", IsoBmffProcessorTypeName[type], timeScaleChangeState);
+			sumPTS = pts;
+			startPos = sumPTS/((double)currTimeScale);
+			AAMPLOG_INFO("IsoBmffProcessor %s eBMFFPROCESSOR_INIT_TIMESCALE: First Time startPos = %f sumPTS = %" PRIu64 " currTS = %u ",
+									IsoBmffProcessorTypeName[type], startPos, sumPTS, currTimeScale);
+		}
 		break;
 
 		/*Special case to avoid duplicate fragment followed by old init
@@ -701,7 +694,7 @@ bool IsoBmffProcessor::continueInjectionInSameTimeScale(uint64_t pts)
 bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 {
 	bool ret=true;
-	if( type == eBMFFPROCESSOR_TYPE_AUDIO )
+	if( type == eBMFFPROCESSOR_TYPE_AUDIO || type == eBMFFPROCESSOR_TYPE_SUBTITILE)
 	{
 		AAMPLOG_WARN("IsoBmffProcessor %s  Before push init when startPos=%f peerStartPos=%f pts = %" PRIu64 " sumPTS = %" PRIu64 " peerSumPTS = %" PRIu64 " \
 		basePTS = %" PRIu64 " ", IsoBmffProcessorTypeName[type], startPos, peerProcessor->startPos, pts, sumPTS, peerProcessor->sumPTS, basePTS);
@@ -716,22 +709,29 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 		//Now video and audio pts is in sync. push it
 		if( pts != 0 )
 		{
-			AAMPLOG_INFO("IsoBmffProcessor %s  contentType = %d startPos = %f PeerStartPos = %f",
-							IsoBmffProcessorTypeName[type], contentType, startPos, peerProcessor->startPos);
+			AAMPLOG_INFO("IsoBmffProcessor %s  startPos = %f PeerStartPos = %f trackOffsetInSecs = %lf",
+							IsoBmffProcessorTypeName[type], startPos, peerProcessor->startPos, trackOffsetInSecs);
+			if (sumPTS == 0)
+			{
+				sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
+			}
+			else
+			{
+				sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale) + (trackOffsetInSecs * currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
+			}
+			startPos = peerProcessor->startPos + trackOffsetInSecs; // startpos will never change
 
-			sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
-			startPos = peerProcessor->startPos; // startpos will never change
-
-			AAMPLOG_WARN("IsoBmffProcessor %s  contentType = %d startPos = %f PeerStartPos = %f sumPTS = %" PRIu64 " peersumPTS = %" PRIu64 " ",
-							IsoBmffProcessorTypeName[type], contentType, startPos, peerProcessor->startPos, sumPTS, peerProcessor->sumPTS);
+			AAMPLOG_WARN("IsoBmffProcessor %s  startPos = %f PeerStartPos = %f sumPTS = %" PRIu64 " peersumPTS = %" PRIu64 " trackOffsetInSecs = %lf",
+							IsoBmffProcessorTypeName[type], startPos, peerProcessor->startPos, sumPTS, peerProcessor->sumPTS, trackOffsetInSecs);
 		}
 
 		pushInitSegment(startPos);
 		basePTS = sumPTS;
 		resetRestampVariables(); //reset the audio track variables
-		peerProcessor->resetRestampVariables(); //reset the video track variables
+		if (type != eBMFFPROCESSOR_TYPE_SUBTITILE)
+			peerProcessor->resetRestampVariables(); //reset the video track variables
 	}
-	if( type == eBMFFPROCESSOR_TYPE_VIDEO )
+	else if( type == eBMFFPROCESSOR_TYPE_VIDEO )
 	{
 		AAMPLOG_INFO("IsoBmffProcessor %s  Before push init when startPos=%f peerStartPos = %f pts = %" PRIu64 " sumPTS = %" PRIu64 " peerSumPTS = %" PRIu64 " basePTS = %" PRIu64 " ",
 						IsoBmffProcessorTypeName[type],startPos,peerProcessor->startPos,pts,sumPTS,peerProcessor->sumPTS,basePTS);
@@ -747,7 +747,15 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 			ret = continueInjectionInSameTimeScale(pts);
 		}
 		basePTS = sumPTS;
-		peerProcessor->setRestampBasePTS(sumPTS);
+		if (peerProcessor)
+		{
+			peerProcessor->setRestampBasePTS(sumPTS);
+		}
+		// peerSubtitleProcessor has to be enabled to signal the values. In DASH, some periods will not have subtitle track
+		if (peerSubtitleProcessor && peerSubtitleProcessor->enabled)
+		{
+			peerSubtitleProcessor->setRestampBasePTS(sumPTS);
+		}
 	}
 	AAMPLOG_INFO("IsoBmffProcessor %s  After push init when startPos=%f peerStartPos=%f sumPTS=%" PRIu64 " peerSumPTS=%" PRIu64 " basePTS=%" PRIu64 " ",
 	IsoBmffProcessorTypeName[type],startPos,peerProcessor->startPos,sumPTS,peerProcessor->sumPTS,basePTS);
@@ -969,4 +977,49 @@ void IsoBmffProcessor::clearInitSegment()
 			it = initSegment.erase(it);
 		}
 	}
+}
+
+/**
+ * @brief Set peer subtitle instance of IsoBmffProcessor
+ *
+ * @param[in] processor - peer instance
+ */
+void IsoBmffProcessor::setPeerSubtitleProcessor(IsoBmffProcessor *processor)
+{
+	peerSubtitleProcessor = processor;
+	// Video is master for all other tracks. If video segment processing is completed,
+	// then subtitle processor needs to be updated as well
+	if (peerSubtitleProcessor)
+	{
+		peerSubtitleProcessor->setPeerProcessor(this);
+		if ((type == eBMFFPROCESSOR_TYPE_VIDEO))
+		{
+			peerSubtitleProcessor->initProcessorForRestamp();
+		}
+	}
+}
+
+/**
+* @brief Function to add peer listener to a media processor
+* These listeners will be notified when the basePTS processing is complete
+* @param[in] processor processor instance
+*/
+void IsoBmffProcessor::addPeerListener(MediaProcessor *processor)
+{
+	if (processor)
+	{
+		peerListeners.push_back(processor);
+	}
+}
+
+/**
+ * @brief Initialize the processor to advance to restamp phase directly
+ */
+void IsoBmffProcessor::initProcessorForRestamp()
+{
+	// basePTS signalling will not happen anymore as video pts processing is complete
+	initSegmentProcessComplete = true;
+	// We need to get the sumPTS from video to start restamping subtitles
+	// Hence setting timeScale changed state to complete
+	timeScaleChangeState = eBMFFPROCESSOR_TIMESCALE_COMPLETE;
 }

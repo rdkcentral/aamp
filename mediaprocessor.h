@@ -145,14 +145,26 @@ public:
 	virtual void SetAudioGroupId(std::string& id){};
 
 	/**
-        * @brief Function to set a offsetflag. if the value is fasle, no need to apply offset while doing pts restamping
-        * @param[in] bool - true/false
-        */
+	* @brief Function to set a offsetflag. if the value is fasle, no need to apply offset while doing pts restamping
+	* @param[in] bool - true/false
+	*/
 	virtual void setApplyOffsetFlag(bool enable){};
 
 	/**
 	* @brief Function to abort wait for injecting the segment
 	*/
 	virtual void abortInjectionWait() = 0;
+
+	/**
+	* @brief Function to enable/disable the processor
+	* @param[in] enable true to enable, false otherwise
+	*/
+	virtual void enable(bool enable) = 0;
+
+	/**
+	* @brief Function to set a track offset for restamping
+	* @param[in] offset offset value in seconds
+	*/
+	virtual void setTrackOffset(double offset) = 0;
 };
 #endif /* __MEDIA_PROCESSOR_H__ */

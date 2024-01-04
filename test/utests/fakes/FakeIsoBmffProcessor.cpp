@@ -19,7 +19,7 @@
 
 #include "isobmffprocessor.h"
 
-IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj, id3_callback_t id3_hdl, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor, MediaProcessor* peerSubProcessor)
+IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj, id3_callback_t id3_hdl, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
 {
 }
 
@@ -46,5 +46,16 @@ void IsoBmffProcessor::abortInjectionWait()
 }
 
 IsoBmffProcessor::~IsoBmffProcessor()
+{
+}
+
+void IsoBmffProcessor::setPeerSubtitleProcessor(IsoBmffProcessor *processor)
+{
+}
+
+void IsoBmffProcessor::addPeerListener(MediaProcessor *processor)
+{
+}
+void IsoBmffProcessor::initProcessorForRestamp()
 {
 }

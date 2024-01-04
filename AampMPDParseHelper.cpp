@@ -1177,3 +1177,72 @@ std::vector<Representation *>  AampMPDParseHelper::GetBitrateInfoFromCustomMpd( 
 	 return representations;
 }
 
+/**
+ *   @brief  GetFirstSegment start time from period
+ *   @param  period
+ *   @param  type media type
+ *   @retval start time
+ */
+double AampMPDParseHelper::GetFirstSegmentScaledStartTime(IPeriod * period, MediaType type)
+{
+	double scaledStartTime = -1;
+	const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
+
+	const ISegmentTemplate *representation = NULL;
+	const ISegmentTemplate *adaptationSet = NULL;
+	if( adaptationSets.size() > 0 )
+	{
+		IAdaptationSet * firstAdaptation = adaptationSets.at(0);
+		if (type != eMEDIATYPE_DEFAULT)
+		{
+			for (auto adaptation : adaptationSets)
+			{
+				if (IsContentType(adaptation, type))
+				{
+					firstAdaptation = adaptation;
+					break;
+				}
+			}
+		}
+		if(firstAdaptation != NULL)
+		{
+			adaptationSet = firstAdaptation->GetSegmentTemplate();
+			const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+			if (representations.size() > 0)
+			{
+				representation = representations.at(0)->GetSegmentTemplate();
+			}
+		}
+	}
+	SegmentTemplates segmentTemplates(representation,adaptationSet);
+
+	if (segmentTemplates.HasSegmentTemplate())
+	{
+		uint64_t startTime = 0;
+		const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
+		if (segmentTimeline)
+		{
+			std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
+			if(timelines.size() > 0)
+			{
+				startTime = timelines.at(0)->GetStartTime();
+			}
+			uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
+			if(presentationTimeOffset > startTime)
+			{
+				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Presentation Time Offset %" PRIu64 " ahead of segment start %" PRIu64 ", Set PTO as start time", presentationTimeOffset, startTime);
+				startTime = presentationTimeOffset;
+			}
+			scaledStartTime = ((double) startTime / (double)segmentTemplates.GetTimescale());
+		}
+		else
+		{
+			startTime = segmentTemplates.GetPresentationTimeOffset();
+			if (startTime > 0)
+			{
+				scaledStartTime = ((double) startTime / (double)segmentTemplates.GetTimescale());
+			}
+		}
+	}
+	return scaledStartTime;
+}

@@ -401,6 +401,14 @@ public :
 	 */
 	void SetMPDPeriodDetails(const std::vector<PeriodInfo> currMPDDetails){mMPDPeriodDetails =  currMPDDetails;}
 
+	/**
+	 * @brief  GetFirstSegment start time from period
+	 * @param  period
+	 * @param  type media type
+	 * @retval start time
+	 */
+	double GetFirstSegmentScaledStartTime(IPeriod * period, MediaType type = eMEDIATYPE_DEFAULT);
+
 private:
 
 	/**

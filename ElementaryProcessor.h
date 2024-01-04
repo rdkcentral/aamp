@@ -113,6 +113,18 @@ public:
 	*/
 	void abortInjectionWait() override;
 
+	/**
+	* @brief Function to enable/disable the processor
+	* @param[in] enable true to enable, false otherwise
+	*/
+	void enable(bool enable) override { };
+
+	/**
+	* @brief Function to set a track offset for restamping
+	* @param[in] offset offset value in seconds
+	*/
+	void setTrackOffset(double offset) override { };
+
 	uint64_t getBasePTS()
 	{
 		return basePTS;

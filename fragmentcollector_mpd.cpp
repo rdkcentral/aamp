@@ -6708,6 +6708,15 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 				AAMPLOG_WARN("Queueing content protection from StreamSelection for type:%d", i);
 				QueueContentProtection(period, selAdaptationSetIndex, (MediaType)i);
 			}
+			// Check if the track was enabled mid-playback, eg - subtitles. Then we might need to start injection loop
+			// For now, do this only for subtitles
+			if (!newTune && (i == eMEDIATYPE_SUBTITLE) &&
+					!pMediaStreamContext->isFragmentInjectorThreadStarted())
+			{
+				AAMPLOG_WARN("Subtitle track enabled, but fragmentInjection loop not yet started! Starting now..");
+				aamp->ResumeTrackInjection(eMEDIATYPE_SUBTITLE);
+				pMediaStreamContext->StartInjectLoop();
+			}
 			mNumberOfTracks++;
 		}
 		else if (encryptedIframeTrackPresent) //Process content protection for encyrpted Iframe
@@ -6746,6 +6755,12 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 			{
 				aamp->SendSupportedSpeedsChangedEvent(aamp->mIsIframeTrackPresent);
 			}
+		}
+
+		// Enable/ disable subtitle mediastream context based on stream selection status
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (i == eMEDIATYPE_SUBTITLE) && pMediaStreamContext->playContext)
+		{
+			pMediaStreamContext->playContext->enable(pMediaStreamContext->enabled);
 		}
 	} // next track
 #ifdef AAMP_MPD_DRM
@@ -8706,6 +8721,14 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							exitFetchLoop = true;
 							break;
 						}
+						if(!mLowLatencyMode && ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
+						{
+							InitializeMediaProcessor();
+						}
+						if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (rate == AAMP_NORMAL_PLAY_RATE) && mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
+						{
+							SetSubtitleTrackOffset();
+						}
 					}
 
 					if(mIsLiveStream)
@@ -9569,7 +9592,10 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	}
 
 	//Bleurgh - check whether the ugly hack above is in operation
-	if (mMediaStreamContext[eMEDIATYPE_SUBTITLE] && mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type != eTRACK_AUX_AUDIO)
+	// This is again a dirty hack, the check for PTS restamp enabled. TODO: We need to remove this in future
+	// For cases where subtitles is enabled mid-playback, we need to configure the pipeline at the beginning. FORMAT_SUBTITLE_MP4 will be set
+	if (mMediaStreamContext[eMEDIATYPE_SUBTITLE] && (mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled || ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+			&& mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type != eTRACK_AUX_AUDIO)
 	{
 		AAMPLOG_WARN("Entering GetCurrentMimeType");
 		auto mimeType = GetCurrentMimeType(eMEDIATYPE_SUBTITLE);
@@ -12436,4 +12462,24 @@ uint32_t StreamAbstractionAAMP_MPD::GetSegmentRepeatCount(MediaStreamContext *pM
 	}
 
 	return repeatCount;
+}
+
+/**
+* @fn SetSubtitleTrackOffset
+* @brief Function to calculate the start time offset between subtitle and video tracks
+*/
+void StreamAbstractionAAMP_MPD::SetSubtitleTrackOffset()
+{
+	double videoSegmentStartTime = mMPDParseHelper->GetFirstSegmentScaledStartTime(mCurrentPeriod, eMEDIATYPE_VIDEO);
+	double subtitleSegmentStartTime = mMPDParseHelper->GetFirstSegmentScaledStartTime(mCurrentPeriod, eMEDIATYPE_SUBTITLE);
+
+	if (videoSegmentStartTime != -1 && subtitleSegmentStartTime != -1)
+	{
+		AAMPLOG_INFO("Calculating offset, videoSegmentStartTime=%lf, subtitleSegmentStartTime=%lf", videoSegmentStartTime, subtitleSegmentStartTime);
+		double offsetInSecs = subtitleSegmentStartTime - videoSegmentStartTime;
+		if (mMediaStreamContext[eMEDIATYPE_SUBTITLE]->playContext)
+		{
+			mMediaStreamContext[eMEDIATYPE_SUBTITLE]->playContext->setTrackOffset(offsetInSecs);
+		}
+	}
 }

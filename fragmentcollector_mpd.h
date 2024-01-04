@@ -832,6 +832,12 @@ protected:
 
 	void UpdateMPDPeriodDetails(std::vector<PeriodInfo>& currMPDPeriodDetails,uint64_t &durMs);
 
+	/**
+	* @fn SetSubtitleTrackOffset
+	* @brief Function to calculate the start time offset between subtitle and video tracks
+	*/
+	void SetSubtitleTrackOffset();
+
     std::mutex mStreamLock;
 	bool fragmentCollectorThreadStarted;
 	std::set<std::string> mLangList;

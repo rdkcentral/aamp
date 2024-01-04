@@ -3499,7 +3499,7 @@ void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int peri
 	{
 		if (!mDownloadsEnabled || mTrackInjectionBlocked[track])
 		{
-			AAMPLOG_WARN("PrivateInstanceAAMP: interrupted. mDownloadsEnabled:%d mTrackInjectionBlocked:%d", mDownloadsEnabled, mTrackInjectionBlocked[track]);
+			AAMPLOG_WARN("PrivateInstanceAAMP: track:%d interrupted. mDownloadsEnabled:%d mTrackInjectionBlocked:%d", track, mDownloadsEnabled, mTrackInjectionBlocked[track]);
 			break;
 		}
 		if (cb && periodMs)
@@ -10773,6 +10773,8 @@ void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatus(void)
 {
 	mIsDiscontinuityIgnored[eTRACK_VIDEO] = false;
 	mIsDiscontinuityIgnored[eTRACK_AUDIO] = false;
+	mIsDiscontinuityIgnored[eTRACK_SUBTITLE] = false;
+	mIsDiscontinuityIgnored[eTRACK_AUX_AUDIO] = false;
 }
 
 /**

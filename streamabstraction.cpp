@@ -997,8 +997,12 @@ bool MediaTrack::InjectFragment()
 
 					if (!isDiscoIgnoredForOtherTrack)
 					{
-						// set discontinuity ignored flag to check and avoid paired discontinuity processing of other track.
-						aamp->SetTrackDiscontinuityIgnoredStatus((MediaType)type);
+						// Subtitles never have any discontinuity pairing logic. Ignore for it now
+						if (type != eTRACK_SUBTITLE)
+						{
+							// set discontinuity ignored flag to check and avoid paired discontinuity processing of other track.
+							aamp->SetTrackDiscontinuityIgnoredStatus((MediaType)type);
+						}
 					}
 					else
 					{
@@ -3334,39 +3338,55 @@ bool StreamAbstractionAAMP::IsSeekedToLive(double seekPosition)
  */
 void StreamAbstractionAAMP::InitializeMediaProcessor()
 {
-	std::shared_ptr<IsoBmffProcessor> peerProcessor = nullptr;
-	std::shared_ptr<MediaProcessor> peerSubtitleProcessor = nullptr;
+	std::shared_ptr<IsoBmffProcessor> peerAudioProcessor = nullptr;
+	std::shared_ptr<IsoBmffProcessor> peerSubtitleProcessor = nullptr;
+	std::shared_ptr<MediaProcessor> subtitleESProcessor = nullptr;
 	StreamOutputFormat videoFormat, audioFormat, auxAudioFormat, subtitleFormat;
 	GetStreamFormat(videoFormat, audioFormat, auxAudioFormat, subtitleFormat);
 	for (int i = eMEDIATYPE_SUBTITLE; i >= eMEDIATYPE_VIDEO; i--)
 	{
 		MediaTrack *track = GetMediaTrack((TrackType) i);
-		if(track && track->enabled)
+		// Some tracks can get enabled later during playback, example subtitle tracks in ad->content transition. Avoid overwriting playContext instance
+		if(track && track->enabled && track->playContext == nullptr)
 		{
 			AAMPLOG_WARN("StreamAbstractionAAMP : Track[%s] - FORMAT_ISO_BMFF", track->name);
 
 			if(eMEDIATYPE_SUBTITLE != i)
 			{
-				track->playContext = std::make_shared<IsoBmffProcessor>(aamp, mLogObj, mID3Handler, 
-					(IsoBmffProcessorType) i, peerProcessor.get(), peerSubtitleProcessor.get());
+				std::shared_ptr<IsoBmffProcessor> processor = std::make_shared<IsoBmffProcessor>(aamp, mLogObj, mID3Handler, 
+					(IsoBmffProcessorType) i, peerAudioProcessor.get(), peerSubtitleProcessor.get());
 				track->SourceFormat(FORMAT_ISO_BMFF);
+				track->playContext = std::static_pointer_cast<MediaProcessor>(processor);
 				track->playContext->setRate(aamp->rate, PlayMode_normal);
 				if(eMEDIATYPE_AUDIO == i)
 				{
-					peerProcessor = std::static_pointer_cast<IsoBmffProcessor> (track->playContext);
+					peerAudioProcessor = processor;
+				}
+				else if (eMEDIATYPE_VIDEO == i && subtitleESProcessor)
+				{
+					processor->addPeerListener(subtitleESProcessor.get());
 				}
 			}
 			else
 			{
 				if(FORMAT_SUBTITLE_MP4 == subtitleFormat)
 				{
-					track->playContext = std::make_shared<IsoBmffProcessor>(aamp, mLogObj, nullptr, (IsoBmffProcessorType) i);
+					peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, mLogObj, nullptr, (IsoBmffProcessorType) i);
+					track->playContext = std::static_pointer_cast<MediaProcessor>(peerSubtitleProcessor);
+					track->playContext->setRate(aamp->rate, PlayMode_normal);
 				}
 				else
 				{
-					track->playContext = std::make_shared<ElementaryProcessor>(aamp, mLogObj);
+					subtitleESProcessor = std::make_shared<ElementaryProcessor>(aamp, mLogObj);
+					track->playContext = subtitleESProcessor;
 				}
-				peerSubtitleProcessor = track->playContext;
+
+				// If video playcontext is already created, attach subtitle processor to it.
+				MediaTrack *videoTrack = GetMediaTrack(eTRACK_VIDEO);
+				if (videoTrack && videoTrack->enabled && videoTrack->playContext)
+				{
+					std::static_pointer_cast<IsoBmffProcessor> (videoTrack->playContext)->setPeerSubtitleProcessor(peerSubtitleProcessor.get());
+				}
 			}
 		}
 	}

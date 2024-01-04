@@ -175,4 +175,13 @@ int AampMPDParseHelper::getPeriodIdx(const std::string &periodId)
 	return 0;
 }
 
-
+/**
+ * @brief  GetFirstSegment start time from period
+ * @param  period
+ * @param  type media type
+ * @retval start time
+ */
+double AampMPDParseHelper::GetFirstSegmentScaledStartTime(IPeriod * period, MediaType type)
+{
+	return 0;
+}
