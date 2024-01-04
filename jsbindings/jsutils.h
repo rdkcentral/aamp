@@ -38,10 +38,12 @@
 /**Defining LOG macros for logging with Playerid in consideration**/
 #define LOG_INFO(AAMP_JS_OBJECT,FORMAT, ...)  if(AAMP_JS_OBJECT && AAMP_JS_OBJECT->bInfoEnabled) {  jsBindingLogprintf(( (NULL != AAMP_JS_OBJECT)? AAMP_JS_OBJECT->iPlayerId : PLAYER_ID_NA  ),"INFO",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__); }
 #define LOG_ERROR(AAMP_JS_OBJECT,FORMAT, ...)   jsBindingLogprintf(( (NULL != AAMP_JS_OBJECT)?AAMP_JS_OBJECT->iPlayerId : PLAYER_ID_NA  ),"ERR",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__)
+#define LOG_MIL(AAMP_JS_OBJECT,FORMAT, ...) jsBindingLogprintf(( (NULL != AAMP_JS_OBJECT)?AAMP_JS_OBJECT->iPlayerId : PLAYER_ID_NA  ),"MIL",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__)
 #define LOG_WARN(AAMP_JS_OBJECT,FORMAT, ...) jsBindingLogprintf(((NULL != AAMP_JS_OBJECT)?AAMP_JS_OBJECT->iPlayerId : PLAYER_ID_NA  ),"WARN",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__)
 
 /**Defining LOG macros where AAMP-JS object is not relevant**/
 #define LOG_WARN_EX(FORMAT, ...)   jsBindingLogprintf(PLAYER_ID_NA,"WARN",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__)
+#define LOG_MIL_EX(FORMAT, ...)   jsBindingLogprintf(PLAYER_ID_NA,"MIL",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__)
 #define LOG_ERROR_EX(FORMAT, ...)   jsBindingLogprintf(PLAYER_ID_NA,"ERR",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__)
 
 #ifdef TRACE

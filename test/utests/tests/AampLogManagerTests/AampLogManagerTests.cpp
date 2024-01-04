@@ -62,6 +62,18 @@ TEST_F(AampLogManagerTest, isLogLevelAllowed_Test2)
 }
 
 /**
+ * Testcase for isLogLevelAllowed function for Milestone log level
+ * It is expected to return true, as MIL is higher level than the default level allowed WARN
+**/
+TEST_F(AampLogManagerTest, isLogLevelAllowed_MIL)
+{
+    AampLogManager logmanager;
+    AAMP_LogLevel chkLevel = eLOGLEVEL_MIL;
+
+    EXPECT_EQ(logmanager.isLogLevelAllowed(chkLevel), true);
+}
+
+/**
  * TEST_F GTest-Testcase for setLogLevel function for AampLogManagerTest file
 **/
 TEST_F(AampLogManagerTest, setLogLevel_Test1)
@@ -91,6 +103,36 @@ TEST_F(AampLogManagerTest, setLogLevel_Test2)
 
     //Assert: checking values are equal or not
 	//EXPECT_NE(AampLogManager::aampLoglevel,chkLevel);
+}
+
+/**
+ * Testcase for setLogLevel MIL followed by isLogLevelAllowed MIL
+ * isLogLevelAllowed is expected to return true
+**/
+TEST_F(AampLogManagerTest, setLogLevelMil_isLogLevelAllowedMil)
+{
+    AampLogManager logmanager;
+    AAMP_LogLevel setLevel = eLOGLEVEL_MIL;
+    AAMP_LogLevel chkLevel = eLOGLEVEL_MIL;
+
+    logmanager.setLogLevel(setLevel);
+
+    EXPECT_EQ(true, logmanager.isLogLevelAllowed(chkLevel));
+}
+
+/**
+ * Testcase for setLogLevel ERROR followed by isLogLevelAllowed MIL
+ * isLogLevelAllowed is expected to return false, as ERROR is higher level than MIL
+**/
+TEST_F(AampLogManagerTest, setLogLevelError_isLogLevelAllowedMil)
+{
+    AampLogManager logmanager;
+    AAMP_LogLevel setLevel = eLOGLEVEL_ERROR;
+    AAMP_LogLevel chkLevel = eLOGLEVEL_MIL;
+
+    logmanager.setLogLevel(setLevel);
+
+    EXPECT_EQ(false, logmanager.isLogLevelAllowed(chkLevel));
 }
 
 /**
