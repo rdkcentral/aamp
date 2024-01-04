@@ -75,6 +75,53 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 
 | Property | Type | Default Value | Description |
 | ----- | ----- | ----- | ----- |
+| abr | Boolean | True | Configuration to enable/disable adaptive bitrate logic. |
+| abrCacheLength | Number | 3 | Length of abr cache for network bandwidth calculation. |
+| abrCacheLife | Number | 5000 | Lifetime value for abr cache for network bandwidth calculation (in milli secs). |
+| abrCacheOutlier | Number | 5000000 | Outlier difference which will be ignored from network bandwidth calculation (default: 5 MB in bytes). |
+| abrNwConsistency | Number | 2 | Number of checks before profile incr/decr by 1. This is to avoid frequenct profile switching with network change. |
+| abrSkipDuration | Number | 6 | Minimum duration of fragment to be downloaded before triggering abr (in secs). |
+| audioOnlyPlayback | Boolean | False | Configuration to enable/disable Audio only Playback. |
+| cdvrLiveOffset | Number | 30 | Live offset time in seconds for cdvr, aamp starts live playback this much time before the live point for inprogress cdvr. |
+| customHeader | String | - | Custom header data to be appended to curl request. |
+| contentProtectionDataUpdateTimeout | Number | 5000ms | Timeout for Content Protection Data Update on Dynamic Key Rotation. Player waits for [setContentProtectionDataConfig]()#setcontentprotectiondataconfig_json-string)  API update within the timeout interval .On timeout use last configured values. Also refer API [setContentProtectionDataUpdateTimeout](#setcontentprotectiondataupdatetimeout_timeout)  |
+| disableLowLatencyABR | Boolean | False | Configuration to enable/disable Low Latency ABR. |
+| disablePlaylistIndexEvent | Boolean | True | Configuration to enable/disable generation of playlist indexed event by AAMP on tune/trickplay/seek. |
+| downloadBufferChunks | Number | 20 | Low Latency Fragment chunk cache length. |
+| enableLowLatencyCorrection | Boolean | False | Configuration to enable/disable Low Latency Correction. |
+| enableLowLatencyDash | Boolean | True | Configuration to enable/disable Low Latency Dash. |
+| enableSubscribedTags | Boolean | True | Configuration to enable/disable subscribed tags. |
+| enableVideoEndEvent | Boolean | True | Configuration to enable/disable Video End event generation. |
+| enableVideoRectangle | Boolean | True | Configuration to enable/disable setting of rectangle property for sink element. |
+| forceHttp | Boolean | False | Configuration to enable/disable forcing of HTTP protocol for HTTPS URLs. |
+| fragmentRetryLimit | Number | -1 | Set fragment rampdown/retry limit for video fragment failure. |
+| id3 | Boolean | False | Configuration to enable/disable ID3 tag. |
+| iframeDefaultBitrate | Number | 0 | Default bitrate for iframe track selection for non-4K assets. |
+| iframeDefaultBitrate4K | Number | 0 | Default bitrate for iframe track selection for 4K assets. |
+| initRampdownLimit | Number | 0 | Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time. |
+| latencyMonitorDelay | Number | 9 | Low Latency Monitor delay. |
+| latencyMonitorInterval | Number | 6 | Low Latency Monitor Interval. |
+| licenseAnonymousRequest | Boolean | False | Configuration to enable/disable acquiring of license without token. |
+| licenseKeyAcquireWaitTime | Number | 5000 | License key acquire wait time in msecs. |
+| licenseRetryWaitTime | Number | 500 | License retry wait interval in msecs. |
+| licenseServerUrl | String | - | URL to be used for license requests for encrypted(PR/WV) assets. |
+| linearTrickPlayFps | Number | 8 | Specify the framerate for Linear trickplay. |
+| maxABRBufferRampup | Number | 15 | Maximum ABR Buffer for Rampup in secs. |
+| minABRBufferRampdown | Number | 10 | Minimum ABR Buffer for Rampdown in secs. |
+| playreadyOutputProtection | Boolean | False | Configuration to enable/disable HDCP output protection for DASH-PlayReady playback. |
+| preferredDrm | Number | 2 | Preferred DRM for playback. Refer Preferred DRM table below for available values. 0 -No DRM  , 1 - Widevine, 2 - PlayReady ( Default), 3 - Consec, 4 - AdobeAccess, 5 - Vanilla AES, 6 - ClearKey |
+| ceaFormat | Number | -1 | Preferred CEA option for CC. Default stream based. 0 - CEA 608, 1 - CEA 708  |
+| preFetchIframePlaylist | Boolean | False | Configuration to enable/disable prefetching of I-Frame playlist. |
+| preplayBuffercount | Number | 1 | Count of segments to be downloaded until play state. |
+| ptsErrorThreshold | Number | 4 | Maximum number of back-to-back pts errors to be considered for triggering a retune. |
+| seekMidFragment | Boolean | False | Configuration to enable/disable mid-Fragment seek. |
+| segmentInjectFailThreshold | Number | 10 | Configuration to enable/disable mid-Fragment seek. |
+| sendUserAgentInLicense | Boolean | False | Configuration to enable/disable sending user agent in the DRM license request header. |
+| stallTimeout | Number | 10000 | Stall detection timeout in milli secs. |
+| thresholdSizeABR | Number | 6000 | ABR threshold size. |
+| uriParameter | String | - | Uri parameter data to be appended on download-url during curl request. |
+| waitTimeBeforeRetryHttp5xx | Number | 1000 | Wait time before retry for 5xx http errors in milli secs. |
+| wifiCurlHeader | Boolean | False | Configuration to enable/disable wifi custom curl header inclusion. |
 | initialBitrate | Number | 2500000 | Initial bitrate (bps) for playback |
 | initialBitrate4K | Number | 13000000 | Initial bitrate (bps) for 4k video playback |
 | minBitrate | Number | - | Input for minimum profile clamping (in bps).Default is lowest bitrate profile in the manifest |
@@ -124,8 +171,8 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | customHeaderLicense | String |  | Optional field to provide custom header data to add in license request during tune. This can be set with addCustomHTTPHeader API during playback for license rotation if required|
 | setLicenseCaching | Boolean | True | Optional field to disable License Caching in player . By default 3 DRM Sessions are Cached . |
 | authToken | String | - | Optional field to set AuthService token for license acquisition(version 2.7) |
-| configRuntimeDRM | Boolean | False | Optional field to  enable DRM notification and get Application configuration for every license request. Also refer [API](#configruntimedrmenableconfiguration)|
-| preferredAudioLanguage | String | en | ISO-639 audio language preference; for more than one language, provide comma delimited list from highest to lowest priority: ‘<HIGHEST>,<...>,<LOWEST>’.Preferred language can be set using APIs [setAudioTrack](#setaudiotrackindex-)/[setAudioLanguage](#setaudiolanguage-language-)/[setPreferredAudioLanguage](#setpreferredaudiolanguage-languages-rendition-accessibility)[](#setaudiolanguage-language-) |
+| configRuntimeDRM | Boolean | False | Optional field to  enable DRM notification and get Application configuration for every license request. Also refer [API](#configruntimedrm_enableconfiguration)|
+| preferredAudioLanguage | String | en | ISO-639 audio language preference; for more than one language, provide comma delimited list from highest to lowest priority: ‘<HIGHEST>,<...>,<LOWEST>’.Preferred language can be set using APIs [setAudioTrack](#setaudiotrack_index)/[setAudioLanguage](#setaudiolanguage_language)/[setPreferredAudioLanguage](#setpreferredaudiolanguage_languages_rendition_accessibility_codeclist_label) |
 | stereoOnly | Boolean | False | Optional forcing of playback to only select stereo audio track  available starting with version 0.8 |
 | disableEC3 | Boolean | False | Optional field to disable selection of EC3/AC3 audio track |
 | disableATMOS | Boolean | False | Optional field to disable selection of ATMOS audio track |
@@ -135,7 +182,6 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | preferredAudioLabel | String |  | Optional field to set label of desired audio track in the available audio tracks list. Same can be done with setAudioTrack API also|
 | preferredAudioType | String |  | Optional preferred accessibility type for descriptive audio in the available audio tracks list. Same can be done with setAudioTrack API also|
 | langCodePreference | Number | 0 | Set the preferred format for language codes in other events/APIs (version 2.6) NO_LANGCODE_PREFERENCE = 0, 3_CHAR_BIBLIOGRAPHIC_LANGCODE = 1, 3_CHAR_TERMINOLOGY_LANGCODE = 2, 2_CHAR_LANGCODE = 3 |
-| descriptiveTrackName | Boolean | False | Use descriptive audio track naming format which is a combination of <lang>-<role> (version 2.6) |
 | preferredSubtitleLanguage | String | en | ISO-639 language code used with VTT OOB captions |
 | nativeCCRendering | Boolean | False | Use native ClosedCaption support in AAMP (version 2.6) |
 | enableLiveLatencyCorrection | Boolean | False | Optional field to enable live latency correction for non-Low Latency streams |
@@ -183,6 +229,7 @@ DRM configuration options are passed to AAMP using the setDRMConfig method. Para
 | ---- | ---- | ----- |
 | com.microsoft.playready | String | License server endpoint to use with PlayReady DRM. Example: http://test.playready.microsoft.com/service/rightsmanager.asmx |
 | com.widevine.alpha | String | License server endpoint to use with Widevine DRM. Example: https://widevine-proxy.appspot.com/proxy |
+| org.w3.clearkey | String | License server endpoint to use with Clearkey DRM. |
 | preferredKeysystem | String | Used to disambiguate which DRM type to use, when manifest advertises multiple supported DRM systems. Example: com.widevine.alpha |
 | customLicenseData | String | Optional field to provide Custom data for license request |
 
@@ -1325,7 +1372,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 
 ---
 
-### configRuntimeDRM(enableConfiguration)
+### configRuntimeDRM (enableConfiguration)
 - Supported UVE version 5.1 and above.
 - API to enable DRM Protection event to application for setting Key ID specific setting ( for key rotation)
 - Need to register for [contentProtectionDataUpdate](#contentprotectiondataupdate) event with event registration.
@@ -1341,7 +1388,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 ### setContentProtectionDataConfig(json string)
 - Supported UVE version 5.1 and above.
 - Configure the DRM Data for license request for every KeyID reported to application
-- This API needs to be called before the ProtectionData Update timeout expires in the player . To set the timeout interval refer setContentProtectionDataUpdateTimeout.
+- This API needs to be called before the ProtectionData Update timeout expires in the player . To set the timeout interval refer [setContentProtectionDataUpdateTimeout](#setcontentprotectiondataupdatetimeout_timeout).
 - Returns true if setContentProtectionDataUpdateTimeout has been performed.
 
 |Name|Type|Description|
@@ -3099,7 +3146,7 @@ Jul 2023
 - API
     - getVideoPlaybackQuality
 
-**Version:** 5.8
+**Version:** 5.9
 **Release Notes:**
 Sep 2023
 - API
@@ -3110,7 +3157,7 @@ Sep 2023
 **Release Notes:**
 Oct 2023
 - Events:
-    - AAMP_EVENT_TUNE_TIME_METRICS(Updated the tune metric info)
+    - tuneMetricsData(Updated the tune metric info)
 
 **Version:** 5.11
 **Release Notes:**

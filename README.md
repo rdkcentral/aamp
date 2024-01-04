@@ -105,7 +105,6 @@ fragmp4LicensePrefetch		Enable/Disable fragment mp4 license prefetching.Default 
 gstPositionQueryEnable		GStreamer position query will be used for progress report events.Default true for non-Intel platforms
 playreadyOutputProtection  	Enable/Disable HDCP output protection for DASH-PlayReady playback. Default false
 enableVideoEndEvent		Enable/Disable Video End event generation; Default true
-enableTuneProfiling		Enable/Disable Video End event generation; Default false
 playreadyOutputProtection	Enable/Disable output protection for PlayReady DRM.Default false
 descriptiveAudioTrack   	Enable/Disable role in audio track selection.syntax <langcode>-<role> instead of just <langcode>.Default false
 decoderUnavailableStrict	Reports decoder unavailable GST Warning as aamp error. Default false
@@ -145,7 +144,6 @@ disableLowLatencyABR		Enable/Disable Low Latency ABR. Default is true
 enableLowLatencyCorrection	Enable/Disable Low Latency Correction. Default is false
 enableFogConfig			Enable/Disable setting player configurations to Fog. Default is true
 suppressDecode			Enable/Disable setting to suppress decode of content for playback, only Downloader test. Default is false
-persistProfileAcrossTune        Enable/Disable persist bandwidth across tunes .Default is false
 gstSubtecEnabled		Enable/Disable subtec via gstreamer plugins (plugins in gst-plugins-rdk-aamp repo)
 sendLicenseResponseHeaders	Enable/Disable Sending License response header as a part of DRMMetadata event(Non SecClient/SecManager DRM license).
 useTCPServerSink		Enable "tcpserverSink" inconjunction with playbin. For use in automated testing when there is no window for video output
@@ -208,7 +206,6 @@ minABRBufferRampdown		Minimum ABR Buffer for Rampdown.Default is 10sec
 maxABRBufferRampup		Maximum ABR Buffer for Rampup.Default is 15sec
 preplayBuffercount		Count of segments to be downloaded until play state.Default is 2
 downloadDelay			Delay for downloads to simulate network latency.Default is 0
-onTuneRate			Tune rate.Default is INT_MAX
 dashMaxDrmSessions		Max drm sessions that can be cached by AampDRMSessionManager.Default is 3
 log				New Configuration to override info/debug/trace.Default is 0
 livePauseBehavior               Player paused state behavior.Default is 0(ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE)
