@@ -230,14 +230,14 @@ TEST_F(AampEventManagerTest, SendEventTest_1)
     handler->SendEvent(evntPtr,AAMPEventMode(i));
     }
 }
-// DELIA Ticket is created for below test case --> DELIA-64008 
-// TEST_F(AampEventManagerTest, SendEventTest_2)
-// {
-//     AAMPEventPtr evntPtr= std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS);
-//     handler->SetPlayerState(eSTATE_PLAYING);
-//     AAMPEventMode eventMode=AAMP_EVENT_ASYNC_MODE;
-//     handler->SendEvent(evntPtr,eventMode);
-// }
+
+TEST_F(AampEventManagerTest, SendEventTest_2)
+{
+    AAMPEventPtr evntPtr= std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS);
+    handler->SetPlayerState(eSTATE_PLAYING);
+    handler->SendEvent(evntPtr,(AAMPEventMode)4);
+}
+
 TEST_F(AampEventManagerTest, RemoveListenerForAllEventsTest_1)
 {
     //Act: call the removeEventlistener function
