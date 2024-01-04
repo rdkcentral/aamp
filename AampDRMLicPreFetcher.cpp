@@ -78,6 +78,13 @@ AampLicensePreFetcher::~AampLicensePreFetcher()
 		mPreFetchThread.join();
 		mPreFetchThreadStarted = false;
 	}
+	if (mVssPreFetchThreadStarted)
+	{
+		mQVssCond.notify_one();
+		AAMPLOG_WARN("Joining mVssFetchThread");
+		mVssPreFetchThread.join();
+		mVssPreFetchThreadStarted = false;
+	}
 }
 
 /**
@@ -299,7 +306,7 @@ void AampLicensePreFetcher::VssPreFetchThread()
 				{
                                         if (mCommonKeyDuration > 0)
                                         {
-                                                int deferTime = aamp_GetDeferTimeMs(mCommonKeyDuration);
+                                                int deferTime = aamp_GetDeferTimeMs(static_cast<long>(mCommonKeyDuration)); // DELIA-63888
                                                 // Going to sleep for deferred key process
                                                 mPrivAAMP->InterruptableMsSleep(deferTime);
                                                 AAMPLOG_TRACE("Sleep over for deferred time:%d", deferTime);
