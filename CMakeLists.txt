@@ -790,6 +790,17 @@ set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
 target_link_libraries(aamp-cli subtec)
 target_link_libraries(aamp subtec)
 
+set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LDFLAGS} ${GSTREAMERBASE_LDFLAGS} ${LIBDASH_LIBRARIES} ${CURL_LIBRARIES})
+set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h)
+set(GSTTESTHARNESS_SOURCES test/gstTestHarness/gst-port.cpp
+                           test/gstTestHarness/gst-test.cpp)
+
+add_executable(gstTestHarness ${GSTTESTHARNESS_HEADERS} ${GSTTESTHARNESS_SOURCES})
+target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")
+# XCode schema target
+xcode_define_schema(gstTestHarness)
+
+install(TARGETS gstTestHarness DESTINATION bin)
 install(TARGETS aamp-cli DESTINATION bin)
 install(TARGETS playbintest DESTINATION bin)
 
