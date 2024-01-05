@@ -25,12 +25,15 @@
 #include <unordered_map>
 #include <memory>
 
+#include "MockAampLogManager.h"
 #include "priv_aamp.h"
 #include "AampLogManager.h"
 
 //Enable the define below to get AAMP logging out when running tests
 //#define ENABLE_LOGGING
 #define TEST_LOG_LEVEL eLOGLEVEL_TRACE
+
+std::shared_ptr<MockAampLogManager> g_mockAampLogManager = nullptr;
 
 /**
  * @brief Log file and cfg directory path - To support dynamic directory configuration
@@ -53,6 +56,10 @@ std::string AampLogManager::getHexDebugStr(const std::vector<uint8_t>& data)
 
 void AampLogManager::setLogLevel(AAMP_LogLevel newLevel)
 {
+	if (g_mockAampLogManager != nullptr)
+	{
+		g_mockAampLogManager->setLogLevel(newLevel);
+	}
 }
 
 void logprintf(int playerId, const char* levelstr, const char* file, int line, const char *format, ...)

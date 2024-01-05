@@ -103,14 +103,6 @@ protected:
     }
 };
 
-
-//For linkage.
-bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
-{
-	return true;
-}
-
-
 static void process_harvester_report(std::string &filename, vector<string> &master_cmd, vector<string> &slave_cmds)
 {
     std::map<std::string, std::string> taggedURLList;

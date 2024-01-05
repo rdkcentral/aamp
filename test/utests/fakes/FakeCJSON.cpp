@@ -47,9 +47,24 @@ CJSON_PUBLIC(int) cJSON_GetArraySize(const cJSON *array)
     return 0;
 }
 
+CJSON_PUBLIC(cJSON *) cJSON_GetArrayItem(const cJSON *array, int index)
+{
+	return nullptr;
+}
+
+CJSON_PUBLIC(cJSON_bool) cJSON_IsArray(const cJSON * const item)
+{
+    return cJSON_False;
+}
+
 CJSON_PUBLIC(cJSON_bool) cJSON_IsNumber(const cJSON * const item)
 {
     return cJSON_False;
+}
+
+CJSON_PUBLIC(cJSON_bool) cJSON_IsTrue(const cJSON * const item)
+{
+	return cJSON_False;
 }
 
 CJSON_PUBLIC(const char *) cJSON_GetErrorPtr(void)

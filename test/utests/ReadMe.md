@@ -26,13 +26,17 @@ AAMP installed using install-aamp.sh script which:
 
 From the *utests* folder run:
 
+```
 ./run.sh
+```
 
 ## Check line coverage in microtests:
 
 From the *utests* directory, run:
 
+```
 ./run.sh -c
+```
 
 The aggregated results can be found in the following html file:
 *utests/CombinedCoverage/index.html*
@@ -45,29 +49,39 @@ This takes considerably longer than running the script with no options
 
 From the *utests* folder run:
 
+```
 mkdir build
 cd build
 cmake ../
 make
 ctest
+```
 
 ## Some examples of additional parameters that can be used with ctest
 
 To output logging run ctest with verbose option:
 
+```
 ctest --verbose
+```
 
 To output logging when a test fails :
 
+```
 ctest --output-on-failure
+```
 
 Tests can be run in parallel using -j option, for example:
 
+```
 ctest -j 4
+```
 
 Specific tests can be run using ctest's regex selectors, see ctest --help. For example:
 
+```
 ctest -R PrivateInstance.*PositionAlready
+```
 
 ## Directory Structure
 
@@ -100,7 +114,7 @@ The CMakeLists.txt contains the instructions for creating the module's target. e
 - Necessary include paths for that module
 - The module source file
 - The google test file(s)
-- The directive, gtest_discover_tests, to discover google tests from the test executable 
+- The directive, gtest_discover_tests, to discover google tests from the test executable
 
 General guidance:
  - A test class for each area of functionality of the module under test.
@@ -110,4 +124,3 @@ General guidance:
 It may be desired to use the real implementation of an external class, rather than the mock; which can be done in CMakeLists.txt. Also if some tests are best implemented using a mock, and others using the real implementation then it should be possible to create multiple executables configured as such.
 
 For guidance on creating GoogleTest please see [GoogleTest User's Guide](https://google.github.io/googletest/).
-

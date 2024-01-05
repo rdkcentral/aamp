@@ -214,3 +214,12 @@ void AAMPGstPlayer::SignalSubtitleClock()
 void AAMPGstPlayer::FlushAudio()
 {
 }
+
+bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
+{
+	if (g_mockAampGstPlayer != nullptr)
+	{
+		return g_mockAampGstPlayer->IsCodecSupported(codecName);
+	}
+	return false;
+}

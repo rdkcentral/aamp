@@ -40,8 +40,7 @@ set(TEST_SOURCES ConfigTests.cpp
                  ConfigRun.cpp)
 
 add_executable(${EXEC_NAME}
-               ${TEST_SOURCES}
-               ${AAMP_SOURCES})
+               ${TEST_SOURCES})
 target_link_directories(${EXEC_NAME} PUBLIC ${LIBCJSON_LIBRARY_DIRS})
 
 if (CMAKE_XCODE_BUILD_SYSTEM)

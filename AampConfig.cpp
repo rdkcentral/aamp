@@ -1846,7 +1846,10 @@ void AampConfig::ConfigureLogSettings()
 	{
 		logging.setLogLevel(eLOGLEVEL_ERROR);
 	}
-
+	else
+	{
+		// No log level has been set
+	}
 
 	// This is pending to handle the ownership rights , whether App can set following config
 	logging.failover			=	configValueBool[eAAMPConfig_FailoverLogging].value;

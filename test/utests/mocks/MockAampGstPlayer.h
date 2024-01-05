@@ -37,9 +37,11 @@ public:
 
     MOCK_METHOD(bool , SetTextStyle, (const std::string &options), (override));
 
-    MOCK_METHOD(void, ChangeAamp, (PrivateInstanceAAMP *, AampLogManager *, id3_callback_t ));
+    MOCK_METHOD(void, ChangeAamp, (PrivateInstanceAAMP *, AampLogManager *, id3_callback_t));
 
     MOCK_METHOD(void, SetEncryptedAamp, (PrivateInstanceAAMP *));
+
+    MOCK_METHOD(bool, IsCodecSupported, (const std::string &codecName));
 };
 
 extern MockAAMPGstPlayer *g_mockAampGstPlayer;

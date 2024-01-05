@@ -3,8 +3,17 @@
 #include <string.h>
 #include <limits>
 
+#include "MockAampGstPlayer.h"
+#include "MockAampLogManager.h"
+#include "AampLogManager.h"
+
 //include the google test dependencies
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
+
+using ::testing::Return;
+using ::testing::StrictMock;
+using ::testing::_;
 
 // unit under test
 #include <AampConfig.cpp>
@@ -17,11 +26,36 @@
 AampConfig *gpGlobalConfig=NULL;
 AampLogManager *mLogObj=NULL;
 
+class AampConfigTests : public ::testing::Test
+{
+protected:
+	std::unique_ptr<AampConfig> mAampConfig{};
+
+	void SetUp() override
+	{
+		mAampConfig = std::unique_ptr<AampConfig>(new AampConfig());
+
+		g_mockAampLogManager = std::make_shared<StrictMock<MockAampLogManager>>();
+
+		g_mockAampGstPlayer = new MockAAMPGstPlayer(mLogObj, nullptr);
+	}
+
+	void TearDown() override
+	{
+		delete g_mockAampGstPlayer;
+		g_mockAampGstPlayer = nullptr;
+
+		g_mockAampLogManager = nullptr;
+
+		mAampConfig = nullptr;
+	}
+};
+
+
 const double minDouble = std::numeric_limits<double>::lowest();
 const double maxDouble = std::numeric_limits<double>::max();
-static bool CodecSupport = true;
 
-TEST(_Config, configStringToBool)
+TEST_F(AampConfigTests, configStringToBool)
 {
 	EXPECT_TRUE(ConfigLookup::ConfigStringValueToBool("True"));
 	EXPECT_TRUE(ConfigLookup::ConfigStringValueToBool("1"));
@@ -30,7 +64,7 @@ TEST(_Config, configStringToBool)
 	EXPECT_FALSE(ConfigLookup::ConfigStringValueToBool(nullptr));
 }
 
-TEST(_Config, Process)
+TEST_F(AampConfigTests, Process)
 {
 	AampConfig aampConfig;
 	ConfigLookup lookUp;
@@ -129,7 +163,7 @@ static void deleteObject(cJSON* obj)
 	delete obj;
 }
 
-TEST(_Config, ProcessJson)
+TEST_F(AampConfigTests, ProcessJson)
 {
 	AampConfig aampConfig;
 	ConfigLookup lookUp;
@@ -176,7 +210,7 @@ TEST(_Config, ProcessJson)
 }
 
 
-TEST(_Config, ProcessJsonSearch)
+TEST_F(AampConfigTests, ProcessJsonSearch)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -226,7 +260,7 @@ TEST(_Config, ProcessJsonSearch)
 	}
 }
 
-TEST(_Config, OperatorEqual)
+TEST_F(AampConfigTests, OperatorEqual)
 {
 	AampConfig aampConfigL, aampConfigR;
 	aampConfigL.Initialize();
@@ -263,22 +297,27 @@ TEST(_Config, OperatorEqual)
 	}
 }
 
-TEST(_Config, ReadDeviceCapability)
+TEST_F(AampConfigTests, ReadDeviceCapability)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
-	//Cause IsCodecSupported to return true, so disabled config should be false
-	CodecSupport = true;
+
+	// IsCodecSupported returns true, so disabled config should be false
+	EXPECT_CALL(*g_mockAampGstPlayer, IsCodecSupported("ac-4")).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampGstPlayer, IsCodecSupported("ac-3")).WillOnce(Return(true));
 	aampConfig.ReadDeviceCapability();
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableAC4),false);
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableAC3),false);
-	CodecSupport = false;
+
+	// IsCodecSupported returns false, so disabled config should be true
+	EXPECT_CALL(*g_mockAampGstPlayer, IsCodecSupported("ac-4")).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampGstPlayer, IsCodecSupported("ac-3")).WillOnce(Return(false));
 	aampConfig.ReadDeviceCapability();
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableAC4),true);
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableAC3),true);
 }
 
-TEST(_Config, GetUserAgentString)
+TEST_F(AampConfigTests, GetUserAgentString)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -324,7 +363,7 @@ static void testBoolFail(AampConfig& aampConfig, ConfigPriority owner)
 	}
 }
 
-TEST(_Config, configSetGetBool)
+TEST_F(AampConfigTests, configSetGetBool)
 {
 	//Test with default owner then a higher priority owner which should succeed. Test with lower priority owner to ensure it isn't allowed to overwrite settings.
 	AampConfig aampConfig;
@@ -441,7 +480,7 @@ static void testIntFail(AampConfig& aampConfig, ConfigPriority owner)
 	}
 }
 
-TEST(_Config, configSetGetInt)
+TEST_F(AampConfigTests, configSetGetInt)
 {
 	//Test with default owner then a higher priority owner which should succeed. Test with lower priority owner to ensure it isn't allowed to overwrite settings.
 	AampConfig aampConfig;
@@ -562,7 +601,7 @@ static void testFloatFail(AampConfig& aampConfig, ConfigPriority owner)
 	}
 }
 
-TEST(_Config, configSetGetFloat)
+TEST_F(AampConfigTests, configSetGetFloat)
 {
 	//Test with default owner then a higher priority owner which should succeed. Test with lower priority owner to ensure it isn't allowed to overwrite settings.
 	AampConfig aampConfig;
@@ -609,7 +648,7 @@ static void testStringFail(AampConfig& aampConfig, ConfigPriority owner)
 	}
 }
 
-TEST(_Config, configSetGetString)
+TEST_F(AampConfigTests, configSetGetString)
 {
 	//Test with default owner then a higher priority owner which should succeed. Test with lower priority owner to ensure it isn't allowed to overwrite settings.
 	AampConfig aampConfig;
@@ -623,7 +662,7 @@ TEST(_Config, configSetGetString)
 	EXPECT_EQ(aampConfig.GetConfigOwner(cfg), AAMP_CUSTOM_DEV_CFG_SETTING) << "Owner unexpectedly changed for: " << cfg;
 }
 
-TEST(_Config, ProcessConfigTextBlankString)
+TEST_F(AampConfigTests, ProcessConfigTextBlankString)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -632,7 +671,7 @@ TEST(_Config, ProcessConfigTextBlankString)
 }
 
 //With no value supplied, the resulting value expected to be toggle/inverted of existing value
-TEST(_Config, ProcessConfigTextNoValue)
+TEST_F(AampConfigTests, ProcessConfigTextNoValue)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -643,7 +682,7 @@ TEST(_Config, ProcessConfigTextNoValue)
 	EXPECT_NE(bResult, bResult2);
 }
 
-TEST(_Config, ProcessConfigTextValidProperty)
+TEST_F(AampConfigTests, ProcessConfigTextValidProperty)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -654,7 +693,7 @@ TEST(_Config, ProcessConfigTextValidProperty)
 }
 
 //With no value supplied, the resulting value expected to be toggle/inverted of existing value
-TEST(_Config, ProcessConfigTextNoValue2)
+TEST_F(AampConfigTests, ProcessConfigTextNoValue2)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -665,7 +704,7 @@ TEST(_Config, ProcessConfigTextNoValue2)
 	EXPECT_NE(bResult, bResult2);
 }
 
-TEST(_Config, ProcessConfigTextWhiteSpace)
+TEST_F(AampConfigTests, ProcessConfigTextWhiteSpace)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -673,7 +712,7 @@ TEST(_Config, ProcessConfigTextWhiteSpace)
 	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
 }
 
-TEST(_Config, ProcessConfigTextNewLine)
+TEST_F(AampConfigTests, ProcessConfigTextNewLine)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -681,7 +720,7 @@ TEST(_Config, ProcessConfigTextNewLine)
 	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
 }
 
-TEST(_Config, ProcessConfigTextNoKeyOnlyValue)
+TEST_F(AampConfigTests, ProcessConfigTextNoKeyOnlyValue)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -748,7 +787,7 @@ R"(
 )";
 
 
-TEST(_Config, ProcessConfigJson)
+TEST_F(AampConfigTests, ProcessConfigJson)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -762,11 +801,14 @@ TEST(_Config, ProcessConfigJson)
 	cJSON *cfgdata = cJSON_Parse(custom.c_str());
 	aampConfig.ProcessConfigJson(cfgdata, AAMP_DEV_CFG_SETTING);
 	//This should have set customFound to true, so call CustomSearch here
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(_));
 	EXPECT_EQ(aampConfig.CustomSearch(url, playerId, appname), true);
 	url = "";
 	appname = "Peacock";
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(_));
 	EXPECT_EQ(aampConfig.CustomSearch(url, playerId, appname), true);
 	playerId = 1;
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(_));
 	EXPECT_EQ(aampConfig.CustomSearch(url, playerId, appname), true);
 		
 	//Test channel map code
@@ -774,7 +816,7 @@ TEST(_Config, ProcessConfigJson)
 	aampConfig.ProcessConfigJson(cfgdata, AAMP_DEV_CFG_SETTING);
 }
 
-TEST(_Config, GetAampConfigJSONStr)
+TEST_F(AampConfigTests, GetAampConfigJSONStr)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -782,7 +824,7 @@ TEST(_Config, GetAampConfigJSONStr)
 	aampConfig.GetAampConfigJSONStr(str);
 }
 
-TEST(_Config, ReadAampCfgJsonFile)
+TEST_F(AampConfigTests, ReadAampCfgJsonFile)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -792,11 +834,12 @@ TEST(_Config, ReadAampCfgJsonFile)
 		fprintf(fp, "test\n");
 		fclose(fp);
 	}
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(_));
 	bool retVal = aampConfig.ReadAampCfgJsonFile();
 	EXPECT_EQ(retVal, true);
 }
 
-TEST(_Config, ReadAampCfgTxtFile)
+TEST_F(AampConfigTests, ReadAampCfgTxtFile)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -808,12 +851,13 @@ TEST(_Config, ReadAampCfgTxtFile)
 		fprintf(fp, "trace=true\n");
 		fprintf(fp, "export AAMP_DEBUG_FETCH_INJECT=true\n");
 		fclose(fp);
-	}	
+	}
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(_));
 	bool retVal = aampConfig.ReadAampCfgTxtFile();
 	EXPECT_EQ(retVal, true);
 }
 
-TEST(_Config, ProcessConfigText)
+TEST_F(AampConfigTests, ProcessConfigText)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -831,7 +875,7 @@ TEST(_Config, ProcessConfigText)
 }
 
 
-TEST(_Config, ReadOperatorConfiguration)
+TEST_F(AampConfigTests, ReadOperatorConfiguration)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -840,11 +884,12 @@ TEST(_Config, ReadOperatorConfiguration)
 	setenv("CLIENT_SIDE_DAI", "true", 1);
 	setenv("AAMP_ENABLE_WESTEROS_SINK", "1", 1);
 	setenv("LOW_LATENCY_DASH", "1", 1);
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(_)).Times(1);
 	aampConfig.ReadOperatorConfiguration();
 	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_InitialBuffer),100);
 }
 
-TEST(_Config, ShowMiscConfiguration)
+TEST_F(AampConfigTests, ShowMiscConfiguration)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -857,7 +902,7 @@ TEST(_Config, ShowMiscConfiguration)
 }
 
 //Test RestoreConfiguration restores the value of previous owner for all different types
-TEST(_Config, RestoreConfiguration)
+TEST_F(AampConfigTests, RestoreConfiguration)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -894,16 +939,20 @@ TEST(_Config, RestoreConfiguration)
 	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WarnLogging, false);
 	aampConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING, mLogObj);
 	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WarnLogging, true);
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(eLOGLEVEL_WARN));
 	aampConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING, mLogObj);
 	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_InfoLogging, true);
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(eLOGLEVEL_INFO));
 	aampConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING, mLogObj);
 	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DebugLogging, true);
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(eLOGLEVEL_DEBUG));
 	aampConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING, mLogObj);
 	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_TraceLogging, true);
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(eLOGLEVEL_TRACE));
 	aampConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING, mLogObj);
 }
 
-TEST(_Config, DoCustomSetting)
+TEST_F(AampConfigTests, DoCustomSetting)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
@@ -913,21 +962,157 @@ TEST(_Config, DoCustomSetting)
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableEC3), false);
 	//Make a config change that DoCustomSetting should ignore
 	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_StereoOnly,false);
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(_));
 	aampConfig.DoCustomSetting(AAMP_DEFAULT_SETTING);
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableEC3), false) << "DoCustomSetting changed a setting unexpectedly";
 	//Make a config change that should cause DoCustomSetting to change a setting
 	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_StereoOnly,true);
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(_));
 	aampConfig.DoCustomSetting(AAMP_DEFAULT_SETTING);
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableEC3), true) << "DoCustomSetting failed to make a change";
 	aampConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_AuthToken, "test");
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(_));
 	aampConfig.DoCustomSetting(AAMP_DEFAULT_SETTING);
 }
 
-//For linkage. Also used by ReadDeviceCapability test.
-bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
+/*
+	Test IsConfigSet function without calling Initialize
+	It is expected to return false for any config
+*/
+TEST_F(AampConfigTests, IsConfigSetNoInitialize)
 {
-	return CodecSupport;
+	ASSERT_EQ(false, mAampConfig->IsConfigSet(eAAMPConfig_TraceLogging));
+	ASSERT_EQ(false, mAampConfig->IsConfigSet(eAAMPConfig_InfoLogging));
+	ASSERT_EQ(false, mAampConfig->IsConfigSet(eAAMPConfig_WarnLogging));
 }
 
+/*
+	Test IsConfigSet function with the default values
+	Log configs are expected to be disabled except warn logging
+*/
+TEST_F(AampConfigTests, IsConfigSetDefault)
+{
+	mAampConfig->Initialize();
 
+	ASSERT_EQ(false, mAampConfig->IsConfigSet(eAAMPConfig_TraceLogging));
+	ASSERT_EQ(false, mAampConfig->IsConfigSet(eAAMPConfig_InfoLogging));
+	ASSERT_EQ(true, mAampConfig->IsConfigSet(eAAMPConfig_WarnLogging));
+}
 
+/*
+	Test GetConfigValue function without calling Initialize
+	All config values are expected to be false or empty string
+*/
+TEST_F(AampConfigTests, GetConfigValueNoInitialize)
+{
+	ASSERT_EQ(false, mAampConfig->GetConfigValue(eAAMPConfig_TraceLogging));
+	ASSERT_EQ(false, mAampConfig->GetConfigValue(eAAMPConfig_InfoLogging));
+	ASSERT_EQ(false, mAampConfig->GetConfigValue(eAAMPConfig_WarnLogging));
+
+	ASSERT_EQ("", mAampConfig->GetConfigValue(eAAMPConfig_LogLevel));
+}
+
+/*
+	Test GetConfigValue function with the default values
+	Log configs are expected to be disabled except warn logging and log level is expected to be an empty string
+*/
+TEST_F(AampConfigTests, GetConfigValueDefault)
+{
+	mAampConfig->Initialize();
+
+	ASSERT_EQ(false, mAampConfig->GetConfigValue(eAAMPConfig_TraceLogging));
+	ASSERT_EQ(false, mAampConfig->GetConfigValue(eAAMPConfig_InfoLogging));
+	ASSERT_EQ(true, mAampConfig->GetConfigValue(eAAMPConfig_WarnLogging));
+
+	ASSERT_EQ("", mAampConfig->GetConfigValue(eAAMPConfig_LogLevel));
+}
+
+/*
+	Test ConfigureLogSettings function without calling Initialize
+	The method setLogLevel should not be called
+*/
+TEST_F(AampConfigTests, ConfigureLogSettingsNoInitialize)
+{
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(_)).Times(0);
+	mAampConfig->ConfigureLogSettings();
+}
+
+/*
+	Test ConfigureLogSettings function with the default values
+	The default log level (WARN) is expected
+*/
+TEST_F(AampConfigTests, ConfigureLogSettingsDefault)
+{
+	mAampConfig->Initialize();
+
+	// Default log level is WARN
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(eLOGLEVEL_WARN));
+	mAampConfig->ConfigureLogSettings();
+}
+
+/*
+	Test ConfigureLogSettings function after clearing eAAMPConfig_WarnLogging
+	No log level is expected, so setLogLevel should not be called.
+*/
+TEST_F(AampConfigTests, ConfigureLogSettingsNoWarn)
+{
+	mAampConfig->Initialize();
+
+	mAampConfig->SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WarnLogging, false);
+	ASSERT_EQ(false, mAampConfig->GetConfigValue(eAAMPConfig_WarnLogging));
+
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(_)).Times(0);
+	mAampConfig->ConfigureLogSettings();
+}
+
+/*
+	Test ConfigureLogSettings function after setting the log configuration to "trace"
+	TRACE log level is expected
+*/
+TEST_F(AampConfigTests, ConfigureLogSettingsTrace)
+{
+	std::string logLevel{"trace"};
+
+	mAampConfig->Initialize();
+
+	mAampConfig->SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_LogLevel, logLevel.c_str());
+	ASSERT_EQ(logLevel.c_str(), mAampConfig->GetConfigValue(eAAMPConfig_LogLevel));
+
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(eLOGLEVEL_TRACE));
+	mAampConfig->ConfigureLogSettings();
+}
+
+/*
+	Test ConfigureLogSettings function after setting the log configuration to "info"
+	INFO log level is expected
+*/
+TEST_F(AampConfigTests, ConfigureLogSettingsInfo)
+{
+	std::string logLevel{"info"};
+
+	mAampConfig->Initialize();
+
+	mAampConfig->SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_LogLevel, logLevel.c_str());
+	ASSERT_EQ(logLevel.c_str(), mAampConfig->GetConfigValue(eAAMPConfig_LogLevel));
+
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(eLOGLEVEL_INFO));
+	mAampConfig->ConfigureLogSettings();
+}
+
+/*
+	Test ConfigureLogSettings function after setting the log configuration to "error"
+	Default value (WARN) is lower than ERROR, so the default log level is expected
+*/
+TEST_F(AampConfigTests, ConfigureLogSettingsError)
+{
+	std::string logLevel{"error"};
+
+	mAampConfig->Initialize();
+
+	mAampConfig->SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_LogLevel, logLevel.c_str());
+	ASSERT_EQ(logLevel.c_str(), mAampConfig->GetConfigValue(eAAMPConfig_LogLevel));
+
+	// Default log level is WARN
+	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(eLOGLEVEL_WARN));
+	mAampConfig->ConfigureLogSettings();
+}
