@@ -463,8 +463,6 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     fi
 
 
-
-
     #cleanup old libs builds
     if [ -d "./.libs" ]; then
 	    sudo rm -rf ./.libs
@@ -472,12 +470,15 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     
     mkdir .libs
     cd .libs
-	
+
+    echo "Clone systemd repo required for microtests"
+    do_clone https://github.com/systemd/systemd.git
+
     install_system_packages
-     
+
     #Build aamp dependent modules
     echo "git clone and install aamp dependencies"
-	
+
     echo "Fetch,aamp custom patch(qtdemux),build and install gst-plugins-good-$defaultgstversion.tar.xz ..." 
     pwd
     curl -o gst-plugins-good-$defaultgstversion.tar.xz https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-$defaultgstversion.tar.xz

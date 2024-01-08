@@ -29,9 +29,11 @@ include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_RO
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 
-if(CMAKE_SYSTEM_NAME STREQUAL Linux)
+if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+    include_directories(${AAMP_ROOT}/.libs/systemd/src)
+else()
     include_directories(${AAMP_ROOT}/Linux/include)
-endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
+endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -46,6 +48,8 @@ set(TEST_SOURCES AampLogManagerTests.cpp
 
 
 set(AAMP_SOURCES ${AAMP_ROOT}/aamplogging.cpp)
+
+add_definitions(-DUSE_SYSTEMD_JOURNAL_PRINT)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

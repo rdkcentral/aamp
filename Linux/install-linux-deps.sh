@@ -62,6 +62,7 @@ install_package wayland-protocols
 install_package libcppunit-dev
 install_package libjsoncpp-dev
 install_package libasio-dev
+install_package libsystemd-dev
 
 ver=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 

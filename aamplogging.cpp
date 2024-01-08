@@ -36,6 +36,9 @@ using namespace std;
 #include <systemd/sd-journal.h>
 #endif
 
+// If a log line is too long, truncate it and add this long line suffix at the end
+#define	LONG_LINE_SUFFIX "(...)"
+
 /**
  * @brief Log file and cfg directory path - To support dynamic directory configuration
  */
@@ -446,16 +449,33 @@ void logprintf(int playerId, const char* levelstr, const char* file, int line, c
 	char gDebugPrintBuffer[MAX_DEBUG_LOG_BUFF_SIZE];
 	std::ostringstream ossthread;
 	ossthread << std::this_thread::get_id();
-	int len = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer), "[AAMP-PLAYER][%d][%s][%s][%s][%d]",
+	int len_header = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer), "[AAMP-PLAYER][%d][%s][%s][%s][%d]",
 					playerId, levelstr, ossthread.str().c_str(), file, line);
-	if ((len <= 0) || (len > sizeof(gDebugPrintBuffer)))
+	int len_message = 0;
+	if (len_header >= sizeof(gDebugPrintBuffer))
 	{
-		// Log line too long to fit in buffer, print line and file, in that order, to help identify it in the code.
-		(void)snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer), "[%d][%s]Log line too long",line,file);
+		// Header is too long to print in one log line, no space left for the message
 	}
 	else
 	{
-		(void)vsnprintf(gDebugPrintBuffer+len, MAX_DEBUG_LOG_BUFF_SIZE-len, format, args);
+		if (len_header < 0)
+		{
+			// Encoding error, let's print only the message
+			len_header = 0;
+		}
+
+		len_message = vsnprintf(gDebugPrintBuffer+len_header, MAX_DEBUG_LOG_BUFF_SIZE-len_header, format, args);
+		if (len_message < 0)
+		{
+			// Encoding error, let's print only the header
+			len_message = 0;
+		}
+	}
+	int len_total = len_header + len_message;
+	if (len_total >= sizeof(gDebugPrintBuffer))
+	{
+		// If the log line is too long, truncate it and add the long line suffix at the end
+		(void)snprintf(gDebugPrintBuffer + MAX_DEBUG_LOG_BUFF_SIZE - sizeof(LONG_LINE_SUFFIX), sizeof(LONG_LINE_SUFFIX), LONG_LINE_SUFFIX);
 	}
 	gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE-1)] = 0;
 	va_end(args);
@@ -487,7 +507,7 @@ void logprintf(int playerId, const char* levelstr, const char* file, int line, c
 	{
 		logprintline(f, t, gDebugPrintBuffer);
 		(void)fclose(f);
-    }
+	}
 #endif
 }
 

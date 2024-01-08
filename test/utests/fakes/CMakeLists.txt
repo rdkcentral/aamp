@@ -34,6 +34,7 @@ include_directories(${LIBDASH_INCLUDE_DIRS})
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     include_directories(/usr/local/include)
+    include_directories(${AAMP_ROOT}/.libs/systemd/src)
 else()
     include_directories(${AAMP_ROOT}/Linux/include)
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
