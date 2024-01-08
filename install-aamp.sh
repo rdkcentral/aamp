@@ -5,7 +5,7 @@
 #######################Default Values##################
 aamposxinstallerver="0.11"
 defaultbuilddir=aamp-devenv-$(date +"%Y-%m-%d-%H-%M")
-defaultcodebranch="dev_sprint_23_1"
+defaultcodebranch="dev_sprint_24_1"
 defaultchannellistfile="$HOME/aampcli.csv"
 defaultopensslversion="openssl@1.1"
 defaultlibdashversion="libdash = 3.0"
