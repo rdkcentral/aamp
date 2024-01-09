@@ -1121,6 +1121,10 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(MediaType fileType)
        return NULL;
 }
 
+void PrivateInstanceAAMP::ResetDiscontinuityInTracks() 
+{
+}
+
 std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDownloadConfig()
 {
 	return NULL;

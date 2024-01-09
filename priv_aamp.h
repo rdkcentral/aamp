@@ -1209,7 +1209,7 @@ public:
 	 * @param[in] userData - DrmSession data
 	 * @return void
 	 */	
-	void LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelper,void* userData);
+	void LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelper,void* userData) override;
 	/**
 	 * @fn CurlTerm
 	 *

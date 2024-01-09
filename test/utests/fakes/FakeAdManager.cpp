@@ -33,7 +33,7 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &adBreakId, const std
 }
 
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(AampLogManager* logObj, PrivateInstanceAAMP* aamp) : mLogObj(logObj),mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdtoInsertInNextBreak(), mAdObjThreadStarted(false),mImmediateNextAdbreakAvailable(false)
+					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mImmediateNextAdbreakAvailable(false),mAdtoInsertInNextBreakVec(),mAdBrkVecMtx()
 {
 }
 
@@ -85,7 +85,7 @@ void PrivateCDAIObjectMPD::ErasefrmAdBrklist(const std::string adBrkId)
 
 }
 
-bool PrivateCDAIObjectMPD::IsDAIAdAvailable(const std::string periodId)
+bool PrivateCDAIObjectMPD::HasDaiAd(const std::string periodId)
 {
 	return false;
 }

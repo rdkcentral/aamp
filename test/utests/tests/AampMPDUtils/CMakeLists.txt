@@ -27,7 +27,7 @@ pkg_check_modules(GTEST REQUIRED gtest)
 pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
 
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)

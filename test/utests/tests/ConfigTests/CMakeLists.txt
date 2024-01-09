@@ -39,13 +39,6 @@ include_directories(${UTESTS_ROOT}/mocks)
 set(TEST_SOURCES ConfigTests.cpp
                  ConfigRun.cpp)
 
-#MV:TODO
-set(AAMP_SOURCES ${AAMP_ROOT}/Linux/cJSON/cJSON.c ${AAMP_ROOT}/Linux/cJSON/cJSON_Utils.c)
-#aampgstplayer.cpp)
-
-#set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
-#		${AAMP_ROOT}/iso639map.cpp)
-
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
