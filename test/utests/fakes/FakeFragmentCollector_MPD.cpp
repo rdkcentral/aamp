@@ -19,7 +19,7 @@
 
 #include "fragmentcollector_mpd.h"
 
-StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate, id3_callback_t id3Handler)
     : StreamAbstractionAAMP(logObj, aamp)
 {
 }

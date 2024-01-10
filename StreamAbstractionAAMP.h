@@ -29,6 +29,7 @@
 #include "priv_aamp.h"
 #include "AampJsonObject.h"
 #include "mediaprocessor.h"
+#include "AdManagerBase.h"
 #include <map>
 #include <iterator>
 #include <vector>
@@ -109,7 +110,7 @@ public:
 	bool discontinuity;         /**< PTS discontinuity status */
 	int profileIndex;           /**< Profile index; Updated internally */
 #ifdef AAMP_DEBUG_INJECT
-	std::string uri;            /**< Fragment url */
+	std::string uri = {};            /**< Fragment url */
 #endif
 	StreamInfo cacheFragStreamInfo; /**< Bitrate info of the fragment */
 	MediaType   type;               /**< MediaType info of the fragment */
@@ -584,6 +585,8 @@ public:
 	 */
 	void FlushFragmentChunks();
 
+	void SourceFormat(StreamOutputFormat fmt) { mSourceFormat = fmt; }
+
 protected:
 
 	/**
@@ -654,6 +657,7 @@ protected:
 	 */
 	virtual void SignalTrickModeDiscontinuity(){};
 
+
 private:
 	/**
 	 * @fn GetBufferHealthStatusString
@@ -695,6 +699,8 @@ protected:
 	bool abortInject;                   /**< Abort inject operations if flag is set*/
 	bool abortInjectChunk;              /**< Abort inject operations if flag is set*/
 
+	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
+
 private:
 	pthread_cond_t fragmentFetched;     	/**< Signaled after a fragment is fetched*/
 	pthread_cond_t fragmentInjected;    	/**< Signaled after a fragment is injected*/
@@ -730,6 +736,7 @@ private:
 	std::mutex dwnldMutex;					/**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/
 	bool fragmentCollectorWaitingForPlaylistUpdate;	/**< Flag to indicate that the fragment collecor is waiting for ongoing playlist download, used for profile changes*/
 	std::condition_variable frDownloadWait;	/**< Conditional variable for signalling timed wait*/
+
 };
 
 /**
@@ -750,7 +757,7 @@ public:
 	 * @fn StreamAbstractionAAMP
 	 * @param[in] aamp pointer to PrivateInstanceAAMP object associated with stream
 	 */
-	StreamAbstractionAAMP(AampLogManager *logObj, PrivateInstanceAAMP* aamp);
+	StreamAbstractionAAMP(AampLogManager *logObj, PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler = nullptr);
 
 	/**
 	 * @fn ~StreamAbstractionAAMP
@@ -1723,6 +1730,9 @@ protected:
 	std::string mAudioTrackIndex;                 /**< Current audio track index in track list */
 	std::string mTextTrackIndex;                  /**< Current text track index in track list */
 	bool mFwdAudioToAux;                          /**< If audio buffers are to be forwarded to auxiliary pipeline, happens if both are playing same language */
+
+	id3_callback_t mID3Handler;				/**< Function to be used to emit the ID3 event */
+
 };
 
 #endif // STREAMABSTRACTIONAAMP_H

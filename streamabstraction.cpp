@@ -1448,8 +1448,9 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 		mutex(), fragmentFetched(), fragmentInjected(), abortInject(false),
 		mSubtitleParser(), refreshSubtitles(false), maxCachedFragmentsPerTrack(0),
 		totalMdatCount(0), cachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), abortInjectChunk(false), maxCachedFragmentChunksPerTrack(0),
-		noMDATCount(0), mLogObj(logObj)
-		,abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
+		noMDATCount(0),
+		mLogObj(logObj),
+		abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
 		,frDownloadWait(),prevDownloadStartTime(-1)
 		,playContext(nullptr)
@@ -1458,7 +1459,6 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 	cachedFragment = new CachedFragment[maxCachedFragmentsPerTrack];
 	for(int X =0; X< maxCachedFragmentsPerTrack; ++X){
 		cachedFragment[X].fragment.Clear();
-		//memset(&cachedFragment[X], 0, sizeof(CachedFragment));
 	}
 
 	if(aamp->GetLLDashServiceData()->lowLatencyMode)
@@ -1613,7 +1613,7 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 /**
  * @brief StreamAbstractionAAMP constructor.
  */
-StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInstanceAAMP* aamp):
+StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler):
 		trickplayMode(false), currentProfileIndex(0), mCurrentBandwidth(0),currentAudioProfileIndex(-1),currentTextTrackProfileIndex(-1),
 		mTsbBandwidth(0),mNwConsistencyBypass(true), profileIdxForBandwidthNotification(0),
 		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false),mAudiostateChangeCount(0),
@@ -1626,10 +1626,10 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInst
 		mRampDownLimit(-1), mRampDownCount(0),mABRMaxBuffer(0), mABRCacheLength(0), mABRMinBuffer(0), mABRNwConsistency(0),
 		mBitrateReason(eAAMP_BITRATE_CHANGE_BY_TUNE),
 		mAudioTrackIndex(), mTextTrackIndex(),
-		mAuxCond(), mFwdAudioToAux(false), mLogObj(logObj)
-		, mAudioTracksAll()
-		, mTextTracksAll(),
-		mTsbMaxBitrateProfileIndex(-1)
+		mAuxCond(), mFwdAudioToAux(false), mLogObj(logObj),
+		mAudioTracksAll(), mTextTracksAll(),
+		mTsbMaxBitrateProfileIndex(-1),
+		mID3Handler{mID3Handler}
 {
 	mLastVideoFragParsedTimeMS = aamp_GetCurrentTimeMS();
 	AAMPLOG_TRACE("StreamAbstractionAAMP");
@@ -3335,9 +3335,12 @@ void StreamAbstractionAAMP::InitializeMediaProcessor()
 		if(track && track->enabled)
 		{
 			AAMPLOG_WARN("StreamAbstractionAAMP : Track[%s] - FORMAT_ISO_BMFF", track->name);
+
 			if(eMEDIATYPE_SUBTITLE != i)
 			{
-				track->playContext = std::make_shared<IsoBmffProcessor>(aamp, mLogObj, (IsoBmffProcessorType) i, peerProcessor.get(), peerSubtitleProcessor.get());
+				track->playContext = std::make_shared<IsoBmffProcessor>(aamp, mLogObj, mID3Handler, 
+					(IsoBmffProcessorType) i, peerProcessor.get(), peerSubtitleProcessor.get());
+				track->SourceFormat(FORMAT_ISO_BMFF);
 				track->playContext->setRate(aamp->rate, PlayMode_normal);
 				if(eMEDIATYPE_AUDIO == i)
 				{
@@ -3348,7 +3351,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor()
 			{
 				if(FORMAT_SUBTITLE_MP4 == subtitleFormat)
 				{
-					track->playContext = std::make_shared<IsoBmffProcessor>(aamp, mLogObj, (IsoBmffProcessorType) i);
+					track->playContext = std::make_shared<IsoBmffProcessor>(aamp, mLogObj, nullptr, (IsoBmffProcessorType) i);
 				}
 				else
 				{

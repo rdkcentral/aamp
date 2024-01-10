@@ -210,7 +210,9 @@ typedef enum
 	eAAMPConfig_EnablePTSReStamp,					/** <Config to enable PTS restamping */
 	eAAMPConfig_TrackMemory,					/**< To enable/disable AampGrowableBuffer track memory */
 	eAAMPConfig_UseSinglePipeline,					/**< To enable/disable using a single gstreamer pipeline */
+	eAAMPConfig_EarlyID3Processing,					/**< To enable/disable early ID3 processing */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
+
 } AAMPConfigSettingBool;
 #define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)
 

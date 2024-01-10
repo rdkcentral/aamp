@@ -62,6 +62,8 @@
 
 #include "AampCurlStore.h"
 
+#include <iomanip>
+
 #ifdef IARM_MGR
 #include "host.hpp"
 #include "manager.hpp"
@@ -1377,6 +1379,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
 
  	UpdateUseSinglePipeline();
+	AAMPLOG_WARN(" Early processing enabled: %s", (ISCONFIGSET_PRIV(eAAMPConfig_EarlyID3Processing) ? "true" : "false"));
 }
 
 /**
@@ -1946,7 +1949,8 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 					{
 						int deltaTime = (int)(NOW_STEADY_TS_SECS- mDiscStartTime);
 
-						AAMPLOG_INFO("mDiscStartTime %ld currenttime=%lld delta=%d disableRateCorrectionTimeInSeconds=%d", mDiscStartTime, NOW_STEADY_TS_SECS, deltaTime, disableRateCorrectionTimeInSeconds);
+						AAMPLOG_INFO("mDiscStartTime %ld currenttime=%" PRId64 " delta=%d disableRateCorrectionTimeInSeconds=%d", 
+							mDiscStartTime, NOW_STEADY_TS_SECS, deltaTime, disableRateCorrectionTimeInSeconds);
 
 						if ( deltaTime > disableRateCorrectionTimeInSeconds )
 						{
@@ -5045,7 +5049,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			SendErrorEvent(AAMP_TUNE_UNSUPPORTED_STREAM_TYPE);
 			return;
 		#else
-			mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(mLogObj,this, playlistSeekPos, rate);
+			mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(mLogObj,this, playlistSeekPos, rate,
+			std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this, 
+				std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5)
+			);
 			if (NULL == mCdaiObject)
 			{
 				mCdaiObject = new CDAIObjectMPD(mLogObj, this); // special version for DASH
@@ -5056,7 +5063,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	{ // m3u8
 		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_HLS(mLogObj,this, playlistSeekPos, rate,
 			std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this, 
-				std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
+				std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5),
 			std::bind(&PrivateInstanceAAMP::UpdatePTSOffsetFromTune, this,
 				std::placeholders::_1, std::placeholders::_2)
 		);
@@ -5651,7 +5658,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	{
 		AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj, this, 
 											   std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this, 
-											   		     std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+											   		     std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
 	}
 
 	if(autoPlay)
@@ -12075,23 +12082,23 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(MediaType fileType)
 // -------------------------------------------------
 // ID3 Metadata
 
-void PrivateInstanceAAMP::UpdatePTSOffsetFromTune(double value, bool is_set)
+void PrivateInstanceAAMP::UpdatePTSOffsetFromTune(double value_sec, bool is_set)
 {
 	if (is_set)
 	{
-		AAMPLOG_INFO(" Setting PTS offset: %f | %f", value, seek_pos_seconds);
-		m_PTSOffsetFromTune.store(value);
+		AAMPLOG_INFO(" Setting PTS offset: %f | %f", value_sec, seek_pos_seconds);
+		m_PTSOffsetFromTune.store(value_sec);
 	}
 	else
 	{
-		// With C++20 we could use the cleaner option:
+		// With C++20 we will be able to use the better option:
 		// m_PTSOffsetFromTune.fetch_add(value);
-		AAMPLOG_INFO(" Updating PTS offset: %f | %f", value, seek_pos_seconds);
-		m_PTSOffsetFromTune.store(m_PTSOffsetFromTune.load() + value);
+		AAMPLOG_INFO(" Updating PTS offset in seconds: %f | %f", value_sec, seek_pos_seconds);
+		m_PTSOffsetFromTune.store(m_PTSOffsetFromTune.load() + value_sec);
 	}
 }
 
-void PrivateInstanceAAMP::ID3MetadataHandler(MediaType mediaType, const uint8_t * ptr, size_t pkt_len, const SegmentInfo_t & info)
+void PrivateInstanceAAMP::ID3MetadataHandler(MediaType mediaType, const uint8_t * ptr, size_t pkt_len, const SegmentInfo_t & info, const char * scheme_uri)
 {
 	const auto is_id3_listener_available = IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA);
 
@@ -12105,10 +12112,10 @@ void PrivateInstanceAAMP::ID3MetadataHandler(MediaType mediaType, const uint8_t 
 		if (data_len && mId3MetadataCache.CheckNewMetadata(mediaType, data))
 		{
 			const auto offset = this->GetPTSOffsetFromTune();
-			const auto timestamp_ms = static_cast<uint64_t>((info.pts_ms + offset) * 1000. + 0.5);
+			const auto timestamp_ms = static_cast<uint64_t>((info.pts_s + offset) * 1000. + 0.5);
 
 			std::stringstream ss;
-			ss << "timestamp: " << timestamp_ms << " - PTS: " << info.pts_ms << " "
+			ss << "timestamp: " << timestamp_ms << " - PTS: " << info.pts_s << " "
 				<< offset << " [" << seek_pos_seconds << "] || data: " << aih::ToString(ptr, data_len);
 			AAMPLOG_WARN(" ID3 tag # %s", ss.str().c_str());
 
@@ -12128,32 +12135,38 @@ void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, MediaTy
 	namespace aih = aamp::id3_metadata::helpers;
 
 	// Logic for ID3 metadata
-	if(segment && mEventManager->IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA))
+	const auto early_processing = mConfig->IsConfigSet(eAAMPConfig_EarlyID3Processing);
+	if (!early_processing && segment && mEventManager->IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA))
 	{
+		uint8_t * seg_buffer = reinterpret_cast<uint8_t *>(segment);
+
 		IsoBmffBuffer buffer(mLogObj);
-		buffer.setBuffer((uint8_t *)segment, size);
+		buffer.setBuffer(seg_buffer, size);
 		buffer.parseBuffer();
 		if(!buffer.isInitSegment())
 		{
 			uint8_t* message = nullptr;
 			uint32_t messageLen = 0;
-			uint8_t* schemeIDUri = nullptr;
+			uint8_t * schemeIDUri = nullptr;
 			uint8_t* value = nullptr;
 			uint64_t presTime = 0;
 			uint32_t timeScale = 0;
 			uint32_t eventDuration = 0;
 			uint32_t id = 0;
-			if(buffer.getEMSGData(message, messageLen, schemeIDUri, value, presTime, timeScale, eventDuration, id))
+
+			if (buffer.getEMSGData(message, messageLen, schemeIDUri, value, presTime, timeScale, eventDuration, id))
 			{
-				if(message && messageLen > 0 && aih::IsValidHeader(message, messageLen))
+				if (message && messageLen > 0 && aih::IsValidHeader(message, messageLen))
 				{
 					AAMPLOG_TRACE("PrivateInstanceAAMP: Found ID3 metadata[%d]", type);
+
+					const char * scheme_uri = const_cast<const char *>(reinterpret_cast<char *>(schemeIDUri));
 					if(mMediaFormat == eMEDIAFORMAT_DASH)
 					{
-						ReportID3Metadata(type, message, messageLen, (char*)(schemeIDUri), (char*)(value), presTime, id, eventDuration, timeScale, GetMediaStreamContext(type)->timeStampOffset);
+						ReportID3Metadata(type, message, messageLen, scheme_uri, (char*)(value), presTime, id, eventDuration, timeScale, GetMediaStreamContext(type)->timeStampOffset);
 					}else
 					{
-						ReportID3Metadata(type, message, messageLen, (char*)(schemeIDUri), (char*)(value), presTime, id, eventDuration, timeScale);
+						ReportID3Metadata(type, message, messageLen, scheme_uri, (char*)(value), presTime, id, eventDuration, timeScale, timeStampOffset);
 					}
 				}
 			}

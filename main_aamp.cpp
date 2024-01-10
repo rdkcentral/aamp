@@ -180,15 +180,15 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	mScheduler.StartScheduler();
 	if (NULL == streamSink)
 	{
+		auto id3_metadata_handler = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, aamp,
+			std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
+
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
 		AampStreamSinkManager::GetInstance().CreateStreamSink(mConfig.GetLoggerInstance(), aamp, 
-														    std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, aamp, 
-									  						std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4), 
+														    id3_metadata_handler, 
 															exportFrames);
 #else
-		AampStreamSinkManager::GetInstance().CreateStreamSink(mConfig.GetLoggerInstance(), aamp, 
-														    std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, aamp, 
-									  						std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+		AampStreamSinkManager::GetInstance().CreateStreamSink(mConfig.GetLoggerInstance(), aamp, id3_metadata_handler);
 #endif
 	}
 	else

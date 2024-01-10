@@ -2801,7 +2801,7 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 			aih::IsValidHeader(static_cast<const uint8_t*>(ptr), len))
 		{
 			m_ID3MetadataHandler(mediaType, static_cast<const uint8_t*>(ptr), len,
-				{fpts, fdts, fDuration});
+				{fpts, fdts, fDuration}, nullptr);
 		}
 	}
 

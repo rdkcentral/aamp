@@ -20,6 +20,7 @@
 #define AAMP_SEGMENT_INFO_HPP
 
 #include <stdlib.h>
+#include <iostream>
 
 struct SegmentInfo_t {
 	
@@ -27,21 +28,21 @@ public:
 	
 	/** Default constructor */
 	SegmentInfo_t()
-	: pts_ms{0.0},
-	dts_ms{0.},
+	: pts_s{0.0},
+	dts_s{0.},
 	duration{0.},
 	isInitFragment{false},
 	hasDiscontinuity{false}
 	{}
 	
 	/** Constructor 
-	 * @param[in] _pts_ms PTS of current segment converted in ms
-	 * @param[in] _dts_ms DTS of current segment converted in ms
+	 * @param[in] _pts_s PTS of current segment converted in s
+	 * @param[in] _dts_s DTS of current segment converted in s
 	 * @param[in] _duration Duration of current segment
 	*/
-	SegmentInfo_t(double _pts_ms, double _dts_ms, double _duration)
-	: pts_ms{_pts_ms},
-	dts_ms{_dts_ms},
+	SegmentInfo_t(double _pts_s, double _dts_s, double _duration)
+	: pts_s{_pts_s},
+	dts_s{_dts_s},
 	duration{_duration},
 	isInitFragment{false},
 	hasDiscontinuity{false}
@@ -49,27 +50,38 @@ public:
 	
 	
 	/** Constructor 
-	 * @param[in] _pts_ms PTS of current segment converted in ms
-	 * @param[in] _dts_ms DTS of current segment converted in ms
+	 * @param[in] _pts_s PTS of current segment converted in s
+	 * @param[in] _dts_s DTS of current segment converted in s
 	 * @param[in] _duration Duration of current segment
 	 * @param[in] _init_fragment Flag to mark if a fragment is the init one
 	 * @param[in] _discontinuity Flag to report if the fragment is on a discontinuity
 	*/
-	SegmentInfo_t(double _pts_ms, double _dts_ms, double _duration, bool _init_fragment, bool _discontinuity)
-	: pts_ms{_pts_ms},
-	dts_ms{_dts_ms},
+	SegmentInfo_t(double _pts_s, double _dts_s, double _duration, bool _init_fragment, bool _discontinuity)
+	: pts_s{_pts_s},
+	dts_s{_dts_s},
 	duration{_duration},
 	isInitFragment{_init_fragment},
 	hasDiscontinuity{_discontinuity}
 	{}
 	
 	
-	double pts_ms;			/**< PTS of current segment converted in ms */
-	double dts_ms;			/**< DTS of current segment converted in ms */
+	double pts_s;			/**< PTS of current segment converted in s */
+	double dts_s;			/**< DTS of current segment converted in s */
 	double duration;		/**< Duration of current segment */
 	bool isInitFragment;	/**< Flag to mark if a fragment is the init one */
 	bool hasDiscontinuity;	/**< Flag to report if the fragment is on a discontinuity */
 	
 };
+
+inline std::string ToString(const SegmentInfo_t & info)
+{
+	std::string ret{};
+
+	ret = "PTS: " + std::to_string(info.pts_s) + " - DTS: " + std::to_string(info.dts_s)
+		+ " - Duration: " + std::to_string(info.duration) + " [" + (info.isInitFragment ? "true" : "false")
+		+ " | " + (info.hasDiscontinuity ? "true" : "false") + "]";
+
+	return ret;
+}
 
 #endif // AAMP_SEGMENT_INFO_HPP

@@ -1,0 +1,281 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2023 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+#include "MetadataProcessor.hpp"
+
+#include "isobmff/isobmffprocessor.h"
+#include "tsprocessor.h"
+
+#include "ID3Metadata.hpp"
+
+#include "StreamAbstractionAAMP.h"
+
+#include <iomanip>
+#include <assert.h>
+
+class CachedFragment;
+
+namespace {
+
+	static const char *ProcessorTypeName[] =
+	{
+		"video", "audio", "subtitle", "metadata"
+	};
+}
+
+
+namespace aamp
+{
+
+IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(AampLogManager *logObj, id3_callback_t id3_hdl,
+	ptsoffset_update_t ptsoffset_callback, std::weak_ptr<IsoBmffProcessor> video_processor)
+	: MetadataProcessorIntf(logObj, id3_hdl, ptsoffset_callback),
+	MetadataProcessorImpl(video_processor),
+	processPTSComplete(false)
+{ }
+
+void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
+		MediaType type,
+		bool discontinuity, 
+		const double proc_position,
+		bool & ptsError, 
+		const std::string & uri)
+{
+	AAMPLOG_INFO(" [metadata][%p] Processing metadata.", this);
+	AAMPLOG_INFO(" [metadata][%p] - Starting processing fragment - uri: %s", this, uri.c_str());
+
+	char * data_ptr = const_cast<char *>(cachedFragment->fragment.GetPtr());
+	auto data_len = cachedFragment->fragment.GetLen();
+
+	if (discontinuity && mPtsOffsetUpdate)
+	{
+		mPtsOffsetUpdate(mCurrentMaxPTS, false);
+		mCurrentMaxPTS = 0;
+	}	
+
+	if (!processPTSComplete)
+	{
+		if (!SetTuneTimePTS())
+		{
+			return;
+		}
+	}
+
+	AAMPLOG_INFO(" [metadata][%p] Has valid PTS, processing the fragment", this);
+
+	ProcessID3Metadata(type, data_ptr, data_len);
+}
+
+bool IsoBMFFMetadataProcessor::SetTuneTimePTS()
+{
+	bool ret = false;
+
+	AAMPLOG_INFO(" [metadata] Setting tune time PTS...");
+
+	// Wait for video to parse PTS
+	if (!processPTSComplete)
+	{
+		AAMPLOG_INFO(" [metadata][%p] Trying to obtain base PTS value.", this);
+
+		if (auto video = mVideoProcessor.lock())
+		{
+			const auto pts = video->GetBasePTS();
+			if (pts.second)
+			{
+				mBasePTS = pts.first;
+				processPTSComplete = true;
+				ret = true;
+
+				AAMPLOG_INFO(" [metadata][%p]  Base PTS value: %" PRIu64 " ", this, pts.first);
+			}
+			else
+			{
+				AAMPLOG_INFO(" [metadata] Base PTS not yet available.");
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN(" [metadata][%p] Cannot lock() video processor!", this);
+		}
+
+		AAMPLOG_INFO(" [metadata][%p] Tune time PTS processing completed.", this);
+	}
+
+	AAMPLOG_WARN(" [metadata][%p] Tune time result: %" PRIu64 " | %s", this, mBasePTS, (processPTSComplete ? "true" : "false"));
+
+	return ret;
+}
+
+void IsoBMFFMetadataProcessor::ProcessID3Metadata(MediaType type, const char * data_ptr, size_t data_len)
+{
+	namespace aih = aamp::id3_metadata::helpers;
+
+	if (data_ptr)
+	{
+		uint8_t * seg_buffer = const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(data_ptr));
+
+		IsoBmffBuffer buffer(mLogObj);
+		buffer.setBuffer(seg_buffer, data_len);
+		buffer.parseBuffer();
+		if(!buffer.isInitSegment())
+		{
+			uint8_t* message = nullptr;
+			uint32_t messageLen = 0;
+			uint8_t * schemeIDUri = nullptr;
+			uint8_t* value = nullptr;
+			uint64_t presTime = 0;
+			uint32_t timeScale = 0;
+			uint32_t eventDuration = 0;
+			uint32_t id = 0;
+			if (buffer.getEMSGData(message, messageLen, schemeIDUri, value, presTime, timeScale, eventDuration, id))
+			{
+				if (message && messageLen > 0 && aih::IsValidHeader(message, messageLen))
+				{
+					AAMPLOG_TRACE(" Found ID3 metadata[%d]", type);
+
+					AAMPLOG_INFO(" packet size: %lu | message size: %u", data_len, messageLen);
+					std::stringstream ss;
+					ss << "Found ID3 metadata - PTS: " << presTime << " - timeScale: " << timeScale << " - duration: " << eventDuration;
+					AAMPLOG_INFO(" %s", ss.str().c_str());
+
+					const bool dbg_print{false};
+					if (dbg_print)
+					{
+						size_t curOffset = 0;
+						//Box* chunkedBox{};
+						while (curOffset < data_len)
+						{
+							uint8_t * box_ptr = seg_buffer + curOffset;
+							Box *box = Box::constructBox(box_ptr, (uint32_t)(data_len - curOffset), mLogObj, false, -1);
+
+							box->setOffset((uint32_t)curOffset);
+							const auto box_size = box->getSize();
+
+							if (IS_TYPE(box->getType(), Box::EMSG))
+							{
+								uint8_t * ptr = seg_buffer + curOffset;
+								const uint8_t * src_box_ptr = ptr;
+								std::stringstream ss;
+
+								ss << std::setfill ('0') << std::setw(2) << std::hex;
+								for (auto i = 0; i < box_size; i++, box_ptr++)
+								{
+									ss << static_cast<uint16_t>(*box_ptr) << " ";
+								}
+
+								AAMPLOG_INFO(" EMSG box %p -> %p", src_box_ptr, box_ptr);
+								AAMPLOG_INFO(" EMSG box [%lu][%u]: %s", curOffset, box_size, ss.str().c_str());
+							}
+							else
+							{
+								AAMPLOG_INFO(" %s box [%lu][%u]", box->getBoxType(), curOffset, box_size);
+							}
+
+							curOffset += box->getSize();
+						}
+					}
+
+					const double delta_pts = static_cast<double>(presTime - mBasePTS) / static_cast<double>(timeScale);
+					const SegmentInfo_t info {delta_pts, delta_pts, static_cast<double>(eventDuration)};
+
+					AAMPLOG_INFO(" Found ID3 metadata - Delta PTS (s): %lf", delta_pts);
+
+					if (mID3Handler)
+					{
+						mID3Handler(type, message, messageLen, std::move(info), (const char *)schemeIDUri );
+					}
+					else
+					{
+						AAMPLOG_ERR(" DBG *** Metadata handler is undefined!");
+					}
+				}
+			}
+		}
+	}	
+}
+
+
+
+TSMetadataProcessor::TSMetadataProcessor(AampLogManager *logObj, id3_callback_t id3_hdl,
+	ptsoffset_update_t ptsoffset_callback,
+	std::shared_ptr<TSProcessor> video_processor)
+	: MetadataProcessorIntf(logObj, id3_hdl, ptsoffset_callback),
+	MetadataProcessorImpl(std::move(video_processor))
+{ }
+
+void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
+		MediaType type,
+		bool discontinuity, 
+		const double proc_position,
+		bool & ptsError, 
+		const std::string & uri // Debug only
+	)
+{
+	AAMPLOG_INFO(" [metadata][%p] - Starting processing fragment - uri: %s", this, uri.c_str());
+
+	if (discontinuity && mPtsOffsetUpdate)
+	{
+		mPtsOffsetUpdate(mCurrentMaxPTS, false);
+		mCurrentMaxPTS = 0;
+	}
+
+	MediaProcessor::process_fcn_t processor = [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+	{
+		// Early emission of ID3 metadata event
+		if (type == eMEDIATYPE_DSM_CC)
+		{
+			if (mID3Handler)
+			{
+				namespace aih = aamp::id3_metadata::helpers;
+				const uint8_t * data_ptr = static_cast<const uint8_t*>(buf.data());
+				const auto data_len = buf.size();
+
+				if (aih::IsValidMediaType(type) &&
+					aih::IsValidHeader(data_ptr, data_len))
+				{
+					mID3Handler(type, data_ptr, data_len, info, nullptr);
+				}
+			}
+		}
+		else if ((type == eMEDIATYPE_AUDIO) || (type == eMEDIATYPE_VIDEO))
+		{
+			// Update the local max PTS value
+			if (info.pts_s > mCurrentMaxPTS)
+				mCurrentMaxPTS = info.pts_s;
+		}
+	};
+
+	size_t len = cachedFragment->fragment.GetLen();
+
+	AampGrowableBuffer * frag_ptr = const_cast<AampGrowableBuffer *>(&cachedFragment->fragment);
+	mVideoProcessor->sendSegment(frag_ptr,
+		proc_position,
+		cachedFragment->duration,
+		discontinuity,
+		false,
+		processor,
+		ptsError
+	);
+
+	AAMPLOG_INFO(" [metadata][%p] - Terminated processing fragment - uri: %s", this, uri.c_str());
+
+}
+
+
+}

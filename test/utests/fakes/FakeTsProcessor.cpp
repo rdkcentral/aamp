@@ -20,8 +20,9 @@
 #include "main_aamp.h"
 #include "AampLogManager.h"
 #include "tsprocessor.h"
+#include "ID3Metadata.hpp"
 
-TSProcessor::TSProcessor(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, int track, TSProcessor* peerTSProcessor, TSProcessor* auxTSProcessor)
+TSProcessor::TSProcessor(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, id3_callback_t id3_hdl, int track, TSProcessor* peerTSProcessor, TSProcessor* auxTSProcessor)
 {
 }
 

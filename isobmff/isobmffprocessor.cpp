@@ -23,6 +23,8 @@
 */
 
 #include "isobmffprocessor.h"
+#include "StreamAbstractionAAMP.h"
+
 #include <pthread.h>
 #include <assert.h>
 
@@ -33,13 +35,14 @@
 
 static const char *IsoBmffProcessorTypeName[] =
 {
-    "video", "audio", "subtitle"
+    "video", "audio", "subtitle", "metadata"
 };
 
 /**
  *  @brief IsoBmffProcessor constructor
  */
-IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor, MediaProcessor* peerSubProcessor)
+IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj, 
+	id3_callback_t id3_hdl, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor, MediaProcessor* peerSubProcessor)
 	: p_aamp(aamp), type(trackType), peerProcessor(peerBmffProcessor), peerSubtitleProcessor(peerSubProcessor), basePTS(0),
 	processPTSComplete(false), timeScale(0), initSegment(), resetPTSInitSegment(),
 	playRate(1.0f), abortAll(false), m_mutex(), m_cond(),initSegmentProcessComplete(false),
@@ -127,7 +130,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 			pthread_mutex_lock(&m_mutex);
 			if (!processPTSComplete)
 			{
-				AAMPLOG_INFO("ElementaryProcessor Going into wait for PTS processing to complete");
+				AAMPLOG_INFO(" [%s][%p] Going into wait for PTS processing to complete", IsoBmffProcessorTypeName[type], this);
 				pthread_cond_wait(&m_cond, &m_mutex);
 			}
 			if (abortAll)
@@ -830,6 +833,19 @@ void IsoBmffProcessor::setBasePTS(uint64_t pts, uint32_t tScale)
 	processPTSComplete = true;
 	pthread_cond_signal(&m_cond);
 	pthread_mutex_unlock(&m_mutex);
+}
+
+std::pair<uint64_t, bool> IsoBmffProcessor::GetBasePTS()
+{
+	std::pair<uint64_t, bool> ret{0, false};
+	pthread_mutex_lock(&m_mutex);
+	if (processPTSComplete)
+	{
+		ret.first = basePTS;
+		ret.second = true;
+	}
+	pthread_mutex_unlock(&m_mutex);
+	return ret;
 }
 
 /**

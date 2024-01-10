@@ -58,8 +58,11 @@ class IsoBmffProcessorTests : public ::testing::Test
 			mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 			g_mockAampConfig = new MockAampConfig();
 			EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
-			mAudIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, mLogObj, eBMFFPROCESSOR_TYPE_AUDIO);
-			mIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, mLogObj, eBMFFPROCESSOR_TYPE_VIDEO, static_cast<IsoBmffProcessor*> (mAudIsoBmffProcessor));
+
+			id3_callback_t id3Handler = nullptr;
+
+			mAudIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, mLogObj, id3Handler, eBMFFPROCESSOR_TYPE_AUDIO);
+			mIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, mLogObj, id3Handler, eBMFFPROCESSOR_TYPE_VIDEO, static_cast<IsoBmffProcessor*> (mAudIsoBmffProcessor));
 		}
 
 		void TearDown() override
@@ -181,7 +184,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests)
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -199,7 +202,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests)
 	mIsoBmffProcessor->sendSegment(&buffer, duration, 0, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -219,7 +222,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests)
 	mIsoBmffProcessor->sendSegment(&buffer, position, duration, discontinuous, false, 
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -255,7 +258,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -272,7 +275,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -292,7 +295,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -315,7 +318,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, aSegDuration, discontinuous,false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -339,7 +342,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, 0, discontinuous,true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -356,7 +359,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, discontinuous,false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -393,7 +396,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_2)
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, discontinuous,true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -410,7 +413,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_2)
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -434,7 +437,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_2)
 			mIsoBmffProcessor->sendSegment(&buffer, position, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -452,7 +455,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_2)
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -489,7 +492,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -506,7 +509,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -530,7 +533,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -549,7 +552,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -586,7 +589,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4)
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -604,7 +607,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4)
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -627,7 +630,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4)
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -651,7 +654,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4)
 	mIsoBmffProcessor->sendSegment(&buffer, position, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -674,7 +677,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4)
 	mIsoBmffProcessor->sendSegment(&buffer, position, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -693,7 +696,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4)
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -729,7 +732,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_2)
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -746,7 +749,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_2)
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -768,7 +771,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_2)
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration-1, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -805,7 +808,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -822,7 +825,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -840,7 +843,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -862,7 +865,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, aSegDuration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -886,7 +889,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -910,7 +913,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -927,7 +930,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -945,7 +948,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -967,7 +970,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, aSegDuration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -1002,7 +1005,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_4)
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -1019,7 +1022,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_4)
 	mIsoBmffProcessor->sendSegment(&buffer, position, duration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -1038,7 +1041,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_4)
 	mIsoBmffProcessor->sendSegment(&buffer, position, duration, discontinuous, false,   
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -1059,7 +1062,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_4)
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, discontinuous, true,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);
@@ -1075,7 +1078,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_4)
 	mIsoBmffProcessor->sendSegment(&buffer, position, duration, discontinuous, false,
 			[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			},
 			ptsError
 			);

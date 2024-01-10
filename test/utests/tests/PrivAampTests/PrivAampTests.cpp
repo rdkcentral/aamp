@@ -2800,7 +2800,8 @@ TEST_F(PrivAampTests,ID3MetadataHandlerTest)
 	size_t pkt_len = strlen(reinterpret_cast<const char*>(ptr));; 
 	SegmentInfo_t info(100.0,90.0,5.0);
 
-	p_aamp->ID3MetadataHandler(mediaType,ptr, pkt_len, info);
+	const char * scheme_uri = "";
+	p_aamp->ID3MetadataHandler(mediaType,ptr, pkt_len, info, scheme_uri);
 }
 TEST_F(PrivAampTests,ReportID3MetadataTest)
 {

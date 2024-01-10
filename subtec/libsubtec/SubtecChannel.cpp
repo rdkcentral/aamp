@@ -18,6 +18,7 @@
 */
 
 #include <memory>
+#include "AampUtils.h"
 
 #include "PacketSender.hpp"
 #include "SubtecChannel.hpp"
@@ -26,14 +27,6 @@
 #include "WebVttPacket.hpp"
 #include "ClosedCaptionsPacket.hpp"
 
-namespace
-{
-    template<typename T, typename ...Args>
-    std::unique_ptr<T> make_unique(Args&& ...args)
-    {
-        return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
-    }
-}
 
 std::unique_ptr<SubtecChannel> SubtecChannel::SubtecChannelFactory(ChannelType type)
 {
@@ -42,10 +35,10 @@ std::unique_ptr<SubtecChannel> SubtecChannel::SubtecChannelFactory(ChannelType t
     switch (type)
     {
         case ChannelType::TTML:
-            subtecChannel = make_unique<TtmlChannel>();
+            subtecChannel = aamp_utils::make_unique<TtmlChannel>();
             break;
         case ChannelType::WEBVTT:
-            subtecChannel = make_unique<WebVttChannel>();
+            subtecChannel = aamp_utils::make_unique<WebVttChannel>();
             break;
         case ChannelType::CC:
             break;
@@ -78,14 +71,14 @@ template<typename PacketType, typename ...Args>
 void SubtecChannel::sendPacket(Args && ...args)
 {
     std::unique_lock<std::mutex> lock(mChannelMtx);
-    PacketSender::Instance()->SendPacket(make_unique<PacketType>(m_channelId, m_counter++, std::forward<Args>(args)...));
+    PacketSender::Instance()->SendPacket(aamp_utils::make_unique<PacketType>(m_channelId, m_counter++, std::forward<Args>(args)...));
 }
 
 void SubtecChannel::SendResetAllPacket()
 {
     std::unique_lock<std::mutex> lock(mChannelMtx);
     m_counter = 1;
-    PacketSender::Instance()->SendPacket(make_unique<ResetAllPacket>());
+    PacketSender::Instance()->SendPacket(aamp_utils::make_unique<ResetAllPacket>());
 }
 
 void SubtecChannel::SendResetChannelPacket() {

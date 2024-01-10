@@ -166,6 +166,6 @@ public:
 class SegmentInfo_t;
 
 /// Signature of function to call to invoke to handle the ID3 metadata
-using id3_callback_t = std::function<void (MediaType mediaType, const uint8_t * ptr, size_t pkt_len, const SegmentInfo_t & info)>;
+using id3_callback_t = std::function<void (MediaType mediaType, const uint8_t * ptr, size_t pkt_len, const SegmentInfo_t & info, const char * scheme_uri)>;
 
 #endif // AAMP_HELPERS_ID3METADATA_HPP

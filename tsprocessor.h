@@ -26,6 +26,7 @@
 #define _TSPROCESSOR_H
 
 #include "mediaprocessor.h"
+#include "ID3Metadata.hpp"
 #include "uint33_t.h"
 #include <stdio.h>
 #include <pthread.h>
@@ -99,7 +100,7 @@ class TSProcessor : public MediaProcessor
        * @param[in] track MediaType to be operated on. Not relavent for demux operation
        * @param[in] peerTSProcessor Peer TSProcessor used along with this in case of separate audio/video playlists
        */
-      TSProcessor(AampLogManager *logObj, class PrivateInstanceAAMP *aamp, StreamOperation streamOperation, int track = 0, TSProcessor* peerTSProcessor = NULL, TSProcessor* auxTSProcessor = NULL);
+      TSProcessor(AampLogManager *logObj, class PrivateInstanceAAMP *aamp, StreamOperation streamOperation, id3_callback_t id3_hdl, int track = 0, TSProcessor* peerTSProcessor = NULL, TSProcessor* auxTSProcessor = NULL);
       /**
        * @brief Copy constructor disabled
        *

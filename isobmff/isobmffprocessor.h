@@ -28,6 +28,7 @@
 #include "isobmffbuffer.h"
 #include "mediaprocessor.h"
 #include "priv_aamp.h"
+
 #include <pthread.h>
 
 /**
@@ -38,7 +39,9 @@ enum IsoBmffProcessorType
 {
 	eBMFFPROCESSOR_TYPE_VIDEO = 0,
 	eBMFFPROCESSOR_TYPE_AUDIO = 1,
-	eBMFFPROCESSOR_TYPE_SUBTITILE = 2
+	eBMFFPROCESSOR_TYPE_SUBTITILE = 2,
+	eBMFFPROCESSOR_TYPE_METADATA = 17
+
 };
 
 /**
@@ -83,7 +86,9 @@ public:
 	 * @param[in] trackType - track type (A/V)
 	 * @param[in] peerBmffProcessor - peer instance of IsoBmffProcessor
 	 */
-	IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj=NULL, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, IsoBmffProcessor* peerBmffProcessor = NULL, MediaProcessor* peerSubProcessor = NULL);
+	// IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj=NULL, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, IsoBmffProcessor* peerBmffProcessor = NULL, MediaProcessor* peerSubProcessor = NULL);
+	IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj, id3_callback_t id3_hdl, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO,
+		IsoBmffProcessor* peerBmffProcessor = NULL, MediaProcessor* peerSubProcessor = NULL);
 
 	/**
 	 * @fn ~IsoBmffProcessor
@@ -175,6 +180,10 @@ public:
 	{
 		return currTimeScale;
 	}
+
+
+	std::pair<uint64_t, bool> GetBasePTS();
+
 private:
 
 	/**

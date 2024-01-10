@@ -173,7 +173,8 @@ public:
 	 * @param seek_pos Seek position
 	 * @param rate playback rate
 	 */
-	StreamAbstractionAAMP_MPD(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+	StreamAbstractionAAMP_MPD(AampLogManager *logObj, class PrivateInstanceAAMP *aamp, double seekpos, float rate,
+		id3_callback_t id3Handler = nullptr);
 	/**
 	 * @fn ~StreamAbstractionAAMP_MPD
 	 */

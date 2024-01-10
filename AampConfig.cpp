@@ -381,6 +381,10 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"enablePTSReStamp", eAAMPConfig_EnablePTSReStamp, true},
 	{false, "trackMemory", eAAMPConfig_TrackMemory, false},
 	{false, "useSinglePipeline", eAAMPConfig_UseSinglePipeline, false},
+	// ideally would be named enableEarlyId3Processing for clarity, but to avoid partner confusion leaving original spelling for now
+	// this will eventually be default enbled and deprecated as a configuration  
+	{false, "earlyProcessing", eAAMPConfig_EarlyID3Processing, false},
+
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2

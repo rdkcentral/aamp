@@ -302,15 +302,15 @@ private:
 		SegmentInfo_t ret {position, 0, duration};
 		if (!trickmode)
 		{
-			ret.pts_ms += static_cast<double>(current_pts.value - base_pts.value) / 90000.;
+			ret.pts_s += static_cast<double>(current_pts.value - base_pts.value) / 90000.;
 		}
 		if (!trickmode && current_dts)
 		{
-			ret.dts_ms = position + static_cast<double>(current_dts.value - base_pts.value) / 90000.;
+			ret.dts_s = position + static_cast<double>(current_dts.value - base_pts.value) / 90000.;
 		}
 		else
 		{
-			ret.dts_ms = ret.pts_ms;
+			ret.dts_s = ret.pts_s;
 		}
 
 		return ret;
@@ -325,7 +325,7 @@ private:
 		{
 			const auto info = UpdateSegmentInfo();
 
-			aamp->SendStreamCopy(type, es.GetPtr(), es.GetLen(), info.pts_ms, info.dts_ms, duration);
+			aamp->SendStreamCopy(type, es.GetPtr(), es.GetLen(), info.pts_s, info.dts_s, duration);
 
 			if (gpGlobalConfig->logging.info)
 			{
@@ -966,7 +966,8 @@ static StreamOutputFormat getStreamFormatForCodecType(int streamType)
 /**
  * @brief TSProcessor Constructor
  */
-TSProcessor::TSProcessor(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, int track, TSProcessor* peerTSProcessor, TSProcessor* auxTSProcessor)
+TSProcessor::TSProcessor(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, id3_callback_t id3_hdl, 
+	int track, TSProcessor* peerTSProcessor, TSProcessor* auxTSProcessor)
 	: m_needDiscontinuity(true),
 	m_PatPmtLen(0), m_PatPmt(0), m_PatPmtTrickLen(0), m_PatPmtTrick(0), m_PatPmtPcrLen(0), m_PatPmtPcr(0),
 	m_nullPFrame(0), m_nullPFrameLength(0), m_nullPFrameNextCount(0), m_nullPFrameOffset(0),
@@ -1819,7 +1820,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 
 	if (discontinuity_pending)
 	{
-		AAMPLOG_INFO(" DBG :: Discontinuity pending, resetting m_havePAT & m_havePMT");
+		AAMPLOG_INFO(" Discontinuity pending, resetting m_havePAT & m_havePMT");
 
 		pthread_mutex_lock(&m_mutex);
 		m_havePAT = false;
@@ -2521,7 +2522,7 @@ void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPosito
 
 			MediaProcessor::process_fcn_t processor = [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			};
 
 			if(!demuxAndSend(m_queuedSegment, m_queuedSegmentLen, m_queuedSegmentPos, m_queuedSegmentDuration, m_queuedSegmentDiscontinuous, processor))

@@ -47,7 +47,7 @@ protected:
         friend class sendSegmentTests;
 		//Constructor for Testclass
         TestTSProcessor(AampLogManager *mLogObj, class PrivateInstanceAAMP *mPrivateInstanceAAMP, StreamOperation streamOperation)
-	    : TSProcessor(mLogObj, mPrivateInstanceAAMP, eStreamOp_DEMUX_AUDIO)
+	    : TSProcessor(mLogObj, mPrivateInstanceAAMP, eStreamOp_DEMUX_AUDIO, nullptr)
         {
         }
 
@@ -1110,7 +1110,7 @@ TEST_F(sendSegmentTests, esMP3test)
 	mTSProcessor->sendSegment(&buffer, position, duration, discontinuous,init,
 		[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 		{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 		},
 		ptsError
 	);

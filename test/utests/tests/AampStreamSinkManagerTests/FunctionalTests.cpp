@@ -64,8 +64,9 @@ protected:
 
         g_mockAampGstPlayer = new MockAAMPGstPlayer(mLogObj1, mPrivateInstanceAAMP1);
 
-        mId3HandlerCallback1 = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, mPrivateInstanceAAMP1, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
-        mId3HandlerCallback2 = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, mPrivateInstanceAAMP2, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
+        const auto id3_callback = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, mPrivateInstanceAAMP1, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
+        mId3HandlerCallback1 = id3_callback;
+        mId3HandlerCallback2 = id3_callback;
     }
 
     void TearDown() override

@@ -43,6 +43,7 @@
 #include "AampDRMLicPreFetcher.h"
 
 #include "ID3Metadata.hpp"
+#include "MetadataProcessor.hpp"
 
 #include <memory>
 #include <atomic>
@@ -641,15 +642,8 @@ class TrackState : public MediaTrack
 		double mCulledSecondsAtStart;		/**< Total culled duration with this asset prior to streamer instantiation*/
 		bool mSkipSegmentOnError;		/**< Flag used to enable segment skip on fetch error */
 		MediaType playlistMediaType;		/**< Media type of playlist of this track */
-
-		id3_callback_t mID3Handler;				/**< Function to use to emit the ID3 event */
-		ptsoffset_update_t mPtsOffsetUpdate;	/**< Function to use to update the PTS offset */
-
-		double mCurrentMaxPTS;					/**< Max value of PTS since the last discontinuity */
-
 };
 
-class StreamAbstractionAAMP_HLS;
 class PrivateInstanceAAMP;
 /**
  * \class StreamAbstractionAAMP_HLS
@@ -978,6 +972,9 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 *************************************************************************/
 		void InitTracks();
 
+
+		const std::unique_ptr<aamp::MetadataProcessorIntf> & GetMetadataProcessor(StreamOutputFormat fmt);
+
 	protected:
 		/***************************************************************************
 		 * @fn GetStreamInfo
@@ -1050,8 +1047,11 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		std::set<std::string> mLangList;/**< Available language list */
 		double mFirstPTS;		/**< First video PTS in seconds */
 
-		id3_callback_t mID3Handler;				/**< Function to use to emit the ID3 event */
 		ptsoffset_update_t mPtsOffsetUpdate;	/**< Function to use to update the PTS offset */
+
+		std::mutex mMP_mutex;  // protects mMetadataProcessor
+ 		std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
+
 };
 
 #endif // FRAGMENTCOLLECTOR_HLS_H

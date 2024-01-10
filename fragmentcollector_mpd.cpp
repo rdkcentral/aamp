@@ -118,7 +118,8 @@ static bool IsIframeTrack(IAdaptationSet *adaptationSet);
 /**
  * @brief StreamAbstractionAAMP_MPD Constructor
  */
-StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate): StreamAbstractionAAMP(logObj, aamp),
+StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, class PrivateInstanceAAMP *aamp, double seek_pos, float rate, id3_callback_t id3Handler)
+	: StreamAbstractionAAMP(logObj, aamp, id3Handler),
 	fragmentCollectorThreadStarted(false), mLangList(), seekPosition(seek_pos), rate(rate), fragmentCollectorThreadID(),
 	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false),
 	mStreamInfo(NULL), mPrevStartTimeSeconds(0), mPrevLastSegurlMedia(""), mPrevLastSegurlOffset(0),

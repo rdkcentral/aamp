@@ -314,6 +314,15 @@ double ComputeFragmentDuration(uint32_t duration, uint32_t timeScale);
  */
 uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial = 0xffffffff);
 
+namespace aamp_utils
+{
+    template<typename T, typename ...Args>
+    std::unique_ptr<T> make_unique(Args&& ...args)
+    {
+        return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+    }
+}
+
 #define MAX_RANGE_STRING_CHARS 128
 
 #define WRITE_HASCII( DST, BYTE ) \

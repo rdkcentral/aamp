@@ -1145,7 +1145,7 @@ public:
      * @param[in] len - Metadata packet length
      * @param info - Stream current data
      */
-    void ID3MetadataHandler(MediaType mediaType, const uint8_t* ptr, size_t len, const SegmentInfo_t & info);
+    void ID3MetadataHandler(MediaType mediaType, const uint8_t* ptr, size_t len, const SegmentInfo_t & info, const char * scheme_uri);
 
 	/**
 	 * @fn CurlInit

@@ -1111,7 +1111,7 @@ bool PrivateInstanceAAMP::IsEventListenerAvailable(AAMPEventType eventType)
 	return false;
 }
 
-void PrivateInstanceAAMP::ID3MetadataHandler(MediaType, const uint8_t *, size_t, const SegmentInfo_t &)
+void PrivateInstanceAAMP::ID3MetadataHandler(MediaType, const uint8_t *, size_t, const SegmentInfo_t &, const char * scheme_uri)
 {
 }
 
