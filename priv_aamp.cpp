@@ -8691,7 +8691,7 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed()
 	{
 		mDRMSessionManager->setVideoMute(video_muted, seek_pos_seconds);
 		mDRMSessionManager->setPlaybackSpeedState(rate,seek_pos_seconds, true);
-		int x,y,w,h;
+		int x = 0,y = 0,w = 0,h = 0;
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 		if (sink)
 		{
