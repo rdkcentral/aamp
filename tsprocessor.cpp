@@ -2601,6 +2601,22 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 	m_framesProcessedInSegment = 0;
 	m_lastPTSOfSegment = -1;
 	packetStart = (unsigned char *)segment;
+
+	// It seems some ts have an invalid packet at the start, so try skipping it
+	while (((packetStart[0] != 0x47) || ((packetStart[1] & 0x80) != 0x00) || ((packetStart[3] & 0xC0) != 0x00)) && (len > 188))
+	{
+		packetStart += 188; // Just jump a packet
+		len -= 188;
+		if ((((char *)packetStart - segment) > 376) ||
+			(len < 188))
+		{
+			ERROR("No valid ts packet found near the start of the segment");
+			packetStart = (unsigned char *)segment;
+			len = (int)(pBuffer->GetLen());
+			break;
+		}
+	}
+
 	if ((packetStart[0] != 0x47) || ((packetStart[1] & 0x80) != 0x00) || ((packetStart[3] & 0xC0) != 0x00))
 	{
 		ERROR("Segment doesn't starts with valid TS packet, discarding. Dump first packet");

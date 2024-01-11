@@ -345,18 +345,21 @@ static void ParseKeyAttributeCallback(char *attrName, char *delimEqual, char *fi
 	}
 	else if (AttributeNameMatch(attrName, "URI"))
 	{
+		const char* uri = NULL;
 		if( *valuePtr != '\"' && ( memcmp( valuePtr, "NONE", 4 ) != 0 ))
 		{
 			// RDKAAMP-1844 : Handling keys with relative URIs
 			// This condition is used to extract key URI from unquoted / NONE strings
-			const char* uri = NULL;
 			uri = valuePtr;
 			*fin = 0x00;
-			ts->mDrmInfo.keyURI = uri;
 		}
 		else
 		{
-			const char *uri = GetAttributeValueString(valuePtr, fin);
+			uri = GetAttributeValueString(valuePtr, fin);
+		}
+		if( uri )
+		{
+			ts->mIVKeyChanged = (ts->mDrmInfo.keyURI != uri);
 			ts->mDrmInfo.keyURI = uri;
 		}
 	}
@@ -2587,7 +2590,11 @@ void TrackState::IndexPlaylist(bool IsRefresh, double &culledSec)
 					keyinfo.mKeyTagStr.resize(len);
 					memcpy((char*)keyinfo.mKeyTagStr.data(),key,len);
 
-					ParseAttrList(key, ParseKeyAttributeCallback, this);
+					if (!mDrm) // we don't want to keep calling this on updating the playlist as it may update the key info incorrectly
+					           // if there are are multiple keys in the manifest
+					{
+						ParseAttrList(key, ParseKeyAttributeCallback, this);
+					}
 					//Each fragment should store the corresponding keytag indx to decrypt, MetaIdx may work with
 					// adobe mapping , then if or any attribute of Key tag is different ?
 					// At present , second Key parsing is done inside GetNextFragmentUriFromPlaylist(that saved)
@@ -5478,7 +5485,7 @@ TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstraction
 		mEffectiveUrl(""), mPlaylistUrl(""), mFragmentURIFromIndex(""),
 		mDiscontinuityIndexCount(0), mSyncAfterDiscontinuityInProgress(false), playlist("playlist"),
 		index("playlist-index"), targetDurationSeconds(1), mDeferredDrmKeyMaxTime(0), startTimeForPlaylistSync(0.0),
-		context(parent), fragmentEncrypted(false), mKeyTagChanged(false), mLastKeyTagIdx(0), mDrmInfo(),
+		context(parent), fragmentEncrypted(false), mKeyTagChanged(false), mIVKeyChanged(false), mLastKeyTagIdx(0), mDrmInfo(),
 		mDrmMetaDataIndexPosition(0), mDrmMetaDataIndex("drm-metadata-index"), mDiscontinuityIndex("discontinuity-index"), mKeyHashTable(), mPlaylistMutex(),
 		mPlaylistIndexed(), mTrackDrmMutex(), mPlaylistType(ePLAYLISTTYPE_UNDEFINED), mReachedEndListTag(false),
 		mByteOffsetCalculation(false),mSkipAbr(false),
@@ -6018,10 +6025,11 @@ DrmReturn TrackState::DrmDecrypt( CachedFragment * cachedFragment, ProfilerBucke
 			// For DAI scenaio-> Clear to Encrypted or Encrypted to Clear can happen.
 			//      For Encr to clear,not to set SetDrmContext
 			//      For Clear to Encr,SetDrmContext is called.If same hash then not SetDecrypto called
-			if (fragmentEncrypted && (!mDrm || mKeyTagChanged))
+			if (fragmentEncrypted && (!mDrm || mKeyTagChanged || mIVKeyChanged))
 			{
 				SetDrmContext();
 				mKeyTagChanged = false;
+				mIVKeyChanged = false;
 			}
 			if(mDrm)
 			{
@@ -6224,7 +6232,6 @@ void TrackState::UpdateDrmIV(const char *ptr)
 	{
 		if(0 != memcmp(mDrmInfo.iv, iv, DRM_IV_LEN))
 		{
-			AAMPLOG_TRACE("Different DRM IV - ");
 #ifdef TRACE
 			for (int i = 0; i< DRM_IV_LEN*2; i++)
 			{
@@ -6232,20 +6239,28 @@ void TrackState::UpdateDrmIV(const char *ptr)
 			}
 			printf("\n");
 #endif
+			free(mDrmInfo.iv);
+			mDrmInfo.iv = iv;
+            mIVKeyChanged = true;
 		}
 		else
 		{
 			AAMPLOG_TRACE(" Same DRM IV");
 		}
-		free(mDrmInfo.iv);
 	}
-	mDrmInfo.iv = iv;
+	else
+	{
+		mDrmInfo.iv = iv;
+        mIVKeyChanged = true;
+	}
+	
 #ifdef AAMP_VANILLA_AES_SUPPORT
 	//Update iv address in AesDec class
 	std::shared_ptr<AesDec> aesdec = std::dynamic_pointer_cast<AesDec> (mDrm);
 	if(aesdec)
 	{
-		aesdec->SetIV(mDrmInfo.iv);
+// Set all the key info in the fetcher loop so IV and URI keep in sync
+//        	aesdec->SetIV(mDrmInfo.iv);
 	}
 #endif
 	AAMPLOG_TRACE(" [%s] Exit mDrmInfo.iv %p", name, mDrmInfo.iv);

@@ -593,6 +593,7 @@ class TrackState : public MediaTrack
 		StreamAbstractionAAMP_HLS* context;		 /**< To get  settings common across tracks*/
 		bool fragmentEncrypted;					 /**< In DAI, ad fragments can be clear. Set if current fragment is encrypted*/
 		bool mKeyTagChanged;					 /**< Flag to indicate Key tag got changed for decryption context setting */
+		bool mIVKeyChanged;                      /**< Flag to indicate Key info got changed (may be able to use existing flag with some restructuring) */
 		int mLastKeyTagIdx ;					 /**< Variable to hold the last keyTag index,to check if key tag changed */
 		struct DrmInfo mDrmInfo;			 /**< Structure variable to hold Drm Information */
 		char* mCMSha1Hash;					 /**< variable to store ShaID*/
