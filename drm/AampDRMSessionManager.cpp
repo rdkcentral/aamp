@@ -853,7 +853,6 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 		int32_t *httpCode, MediaType streamType, PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr eventHandle, AampCurlDownloader *pLicenseDownloader, std::string licenseProxy)
 {
 
-	CURL *curl;
 	CURLcode res;
 	double totalTime = 0;
 	DrmData * keyInfo = NULL;
@@ -1025,7 +1024,7 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 	}
 
 	// Return the Curl instance back to Curl Store after use . 
-	CurlStore::GetCurlStoreInstance(aamp).SaveCurlHandle(aamp, licenseRequest.url, eCURLINSTANCE_AES, curl);
+	CurlStore::GetCurlStoreInstance(aamp).SaveCurlHandle(aamp, licenseRequest.url, eCURLINSTANCE_AES, inpData->pCurl);
 	// Filled in KeyInfo is returned back 
 	return keyInfo;
 }
