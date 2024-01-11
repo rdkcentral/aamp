@@ -2651,7 +2651,7 @@ double AAMPGstPlayer::RecalculatePTS(MediaType mediaType, const void *ptr, size_
  * @fn SendGstEvents
  * @param[in] mediaType stream type
  */
-void AAMPGstPlayer::SendGstEvents(MediaType mediaType)
+void AAMPGstPlayer::SendGstEvents(MediaType mediaType, GstClockTime pts)
 {
 	media_stream* stream = &privateContext->stream[mediaType];
 	gboolean enableOverride = FALSE;
@@ -2668,7 +2668,7 @@ void AAMPGstPlayer::SendGstEvents(MediaType mediaType)
 		stream->flush = false;
 	}
 
-	enableOverride = SendQtDemuxOverrideEvent(mediaType);
+	enableOverride = SendQtDemuxOverrideEvent(mediaType, pts);
 
 	if (mediaType == eMEDIATYPE_VIDEO)
 	{
@@ -2829,11 +2829,11 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 	if (isFirstBuffer)
 	{
 		//Send Gst Event when first buffer received after new tune, seek or period change
-		SendGstEvents(mediaType);
+		SendGstEvents(mediaType, pts);
 
 		if (mediaType == eMEDIATYPE_AUDIO && ForwardAudioBuffersToAux())
 		{
-			SendGstEvents(eMEDIATYPE_AUX_AUDIO);
+			SendGstEvents(eMEDIATYPE_AUX_AUDIO, pts);
 		}
 
 #if defined(AMLOGIC)
@@ -2846,7 +2846,7 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 		}
 #endif
 
-		AAMPLOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d", mediaType, initFragment);
+		AAMPLOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT "", mediaType, initFragment, pts);
 
 	}
 
@@ -2854,10 +2854,10 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 	if (stream->resendQtDemuxOverride)
 	{
 		AAMPLOG_INFO("mediaType[%d] SendHelper: resending the qtdemux override event", mediaType);
-		(void)SendQtDemuxOverrideEvent(mediaType, ptr, len);
+		(void)SendQtDemuxOverrideEvent(mediaType, pts, ptr, len);
 		if (mediaType == eMEDIATYPE_AUDIO && ForwardAudioBuffersToAux())
 		{
-			(void)SendQtDemuxOverrideEvent(eMEDIATYPE_AUX_AUDIO, ptr, len);
+			(void)SendQtDemuxOverrideEvent(eMEDIATYPE_AUX_AUDIO, pts, ptr, len);
 		}
 	}
 	// Check if the override event needs to be sent again when we receive the actual buffer  
@@ -5029,11 +5029,12 @@ bool AAMPGstPlayer::SetTextStyle(const std::string &options)
 /**
  * @fn SendQtDemuxOverrideEvent
  * @param[in] mediaType stream type
+ * @param[in] pts position value of buffer
  * @param[in] ptr buffer pointer
  * @param[in] len length of buffer
  * @ret TRUE if override is enabled, FALSE otherwise
  */
-gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, const void *ptr, size_t len)
+gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, GstClockTime pts, const void *ptr, size_t len)
 {
 	media_stream* stream = &privateContext->stream[mediaType];
 	gboolean enableOverride = FALSE;
@@ -5057,6 +5058,12 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, const void
 		if ( privateContext->rate == AAMP_NORMAL_PLAY_RATE )
 		{
 			guint64 basePTS = aamp->GetFirstPTS() * GST_SECOND;
+			// When media processor is enabled, pts value will be inferred from fragment
+			if (ISCONFIGSET(eAAMPConfig_EnableMediaProcessor) && pts != 0)
+			{
+				AAMPLOG_WARN("Set override event's basePTS [ %" G_GUINT64_FORMAT "] -> [ %" G_GUINT64_FORMAT "]", basePTS, pts);
+				basePTS = pts;
+			}
 			if(0 == basePTS && ptr && len > 0)
 			{
 				basePTS = RecalculatePTS(mediaType, ptr, len) * GST_SECOND;

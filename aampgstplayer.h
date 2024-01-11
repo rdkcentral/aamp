@@ -87,8 +87,9 @@ private:
 	/**
 	 * @fn SendGstEvents
 	 * @param[in] mediaType stream type
+	 * @param[in] pts position value of first buffer
 	 */
-	void SendGstEvents(MediaType mediaType);
+	void SendGstEvents(MediaType mediaType, GstClockTime pts);
 
 	/**
 	 * @fn RecalculatePTS
@@ -109,11 +110,12 @@ private:
 	/**
 	 * @fn SendQtDemuxOverrideEvent
 	 * @param[in] mediaType stream type
+	 * @param[in] pts position value of buffer
 	 * @param[in] ptr buffer pointer
 	 * @param[in] len length of buffer
 	 * @ret TRUE if override is enabled, FALSE otherwise
 	 */
-	gboolean SendQtDemuxOverrideEvent(MediaType mediaType, const void *ptr = nullptr, size_t len = 0);
+	gboolean SendQtDemuxOverrideEvent(MediaType mediaType, GstClockTime pts, const void *ptr = nullptr, size_t len = 0);
 
 public:
 

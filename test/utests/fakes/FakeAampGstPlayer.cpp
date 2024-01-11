@@ -181,7 +181,7 @@ bool AAMPGstPlayer::SetTextStyle(const std::string &options)
 	return false;
 }
 
-gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, const void *ptr, size_t len)
+gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, GstClockTime pts, const void *ptr, size_t len)
 {
 	return FALSE;
 }

@@ -84,11 +84,11 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManag
  */
 IsoBmffProcessor::~IsoBmffProcessor()
 {
+	AAMPLOG_DEBUG("IsoBmffProcessor %s instance (%p) getting destroyed", IsoBmffProcessorTypeName[type], this);
 	clearInitSegment();
 	clearRestampInitSegment();
 	pthread_mutex_destroy(&m_mutex);
 	pthread_cond_destroy(&m_cond);
-	isRestampConfigEnabled = false;
 }
 
 /**
@@ -986,6 +986,7 @@ void IsoBmffProcessor::clearInitSegment()
  */
 void IsoBmffProcessor::setPeerSubtitleProcessor(IsoBmffProcessor *processor)
 {
+	AAMPLOG_DEBUG("Set peerSubtitleProcessor(%p) for %s instance(%p)", processor, IsoBmffProcessorTypeName[type], this);
 	peerSubtitleProcessor = processor;
 	// Video is master for all other tracks. If video segment processing is completed,
 	// then subtitle processor needs to be updated as well
