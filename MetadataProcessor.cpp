@@ -137,7 +137,7 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(MediaType type, const char * d
 		{
 			uint8_t* message = nullptr;
 			uint32_t messageLen = 0;
-			uint8_t * schemeIDUri = nullptr;
+			char * schemeIDUri = nullptr;
 			uint8_t* value = nullptr;
 			uint64_t presTime = 0;
 			uint32_t timeScale = 0;
@@ -154,11 +154,10 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(MediaType type, const char * d
 					ss << "Found ID3 metadata - PTS: " << presTime << " - timeScale: " << timeScale << " - duration: " << eventDuration;
 					AAMPLOG_INFO(" %s", ss.str().c_str());
 
-					const bool dbg_print{false};
+					constexpr bool dbg_print{false};
 					if (dbg_print)
 					{
 						size_t curOffset = 0;
-						//Box* chunkedBox{};
 						while (curOffset < data_len)
 						{
 							uint8_t * box_ptr = seg_buffer + curOffset;
@@ -192,17 +191,17 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(MediaType type, const char * d
 					}
 
 					const double delta_pts = static_cast<double>(presTime - mBasePTS) / static_cast<double>(timeScale);
-					const SegmentInfo_t info {delta_pts, delta_pts, static_cast<double>(eventDuration)};
 
 					AAMPLOG_INFO(" Found ID3 metadata - Delta PTS (s): %lf", delta_pts);
 
 					if (mID3Handler)
 					{
-						mID3Handler(type, message, messageLen, std::move(info), (const char *)schemeIDUri );
+						const SegmentInfo_t info {delta_pts, delta_pts, static_cast<double>(eventDuration)};
+						mID3Handler(type, message, messageLen, std::move(info), {schemeIDUri} );
 					}
 					else
 					{
-						AAMPLOG_ERR(" DBG *** Metadata handler is undefined!");
+						AAMPLOG_ERR(" Metadata handler is undefined!");
 					}
 				}
 			}
@@ -276,6 +275,5 @@ void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedF
 	AAMPLOG_INFO(" [metadata][%p] - Terminated processing fragment - uri: %s", this, uri.c_str());
 
 }
-
 
 }

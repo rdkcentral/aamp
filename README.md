@@ -151,6 +151,7 @@ sendLicenseResponseHeaders	Enable/Disable Sending License response header as a p
 useTCPServerSink		Enable "tcpserverSink" inconjunction with playbin. For use in automated testing when there is no window for video output
 sendUserAgentInLicense		Enable/disable sending user agent in the DRM license request header. Default disabled.
 useSinglePipeline		Enable/Disable using single gstreamer pipeline for main and secondary assets
+earlyProcessing			Enable/Disable processing fragments on download to extract ID3 metadata
 
 // Integer inputs
 ptsErrorThreshold		aamp maximum number of back-to-back pts errors to be considered for triggering a retune

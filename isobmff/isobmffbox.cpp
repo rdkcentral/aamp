@@ -95,7 +95,7 @@ uint32_t Box::getOffset() const
 /**
  *  @brief To check if box has any child boxes
  */
-bool Box::hasChildren()
+bool Box::hasChildren() const
 {
 	return false;
 }
@@ -103,7 +103,7 @@ bool Box::hasChildren()
 /**
  *  @brief Get children of this box
  */
-const std::vector<Box*> *Box::getChildren()
+const std::vector<Box*> *Box::getChildren() const
 {
 	return NULL;
 }
@@ -119,7 +119,7 @@ uint32_t Box::getSize() const
 /**
  *  @brief Get box type
  */
-const char *Box::getType()
+const char *Box::getType() const
 {
 	return type;
 }
@@ -284,7 +284,7 @@ void GenericContainerBox::addChildren(Box *box)
 /**
  *  @brief To check if box has any child boxes
  */
-bool GenericContainerBox::hasChildren()
+bool GenericContainerBox::hasChildren() const
 {
 	return true;
 }
@@ -292,7 +292,7 @@ bool GenericContainerBox::hasChildren()
 /**
  *  @brief Get children of this box
  */
-const std::vector<Box*> *GenericContainerBox::getChildren()
+const std::vector<Box*> *GenericContainerBox::getChildren() const
 {
 	return &children;
 }
@@ -619,15 +619,15 @@ uint64_t EmsgBox::getPresentationTime()
 /**
  *  @brief Set schemeIdUri
  */
-void EmsgBox::setSchemeIdUri(uint8_t* schemeIdURI)
+void EmsgBox::setSchemeIdUri(char * scheme_uri)
 {
-	schemeIdUri = schemeIdURI;
+	schemeIdUri = scheme_uri;
 }
 
 /**
  *  @brief Get schemeIdUri
  */
-uint8_t* EmsgBox::getSchemeIdUri()
+char * EmsgBox::getSchemeIdUri() const
 {
 	return schemeIdUri;
 }
@@ -690,7 +690,7 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 	uint32_t evtDur;
 	uint32_t boxId;
 
-	uint8_t* schemeId = nullptr;
+	char * schemeId = nullptr;
 	uint8_t* schemeIdValue = nullptr;
 
 	uint8_t* message = nullptr;
@@ -710,7 +710,7 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 		int schemeIdLen = ReadCStringLen(ptr, remainingSize);
 		if(schemeIdLen > 0)
 		{
-			schemeId = (uint8_t*) malloc(sizeof(uint8_t)*schemeIdLen);
+			schemeId = (char*) malloc(sizeof(char)*schemeIdLen);
 			READ_U8(schemeId, ptr, schemeIdLen);
 			remainingSize -= (sizeof(uint8_t) * schemeIdLen);
 			int schemeIdValueLen = ReadCStringLen(ptr, remainingSize);
@@ -727,7 +727,7 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 		int schemeIdLen = ReadCStringLen(ptr, remainingSize);
 		if(schemeIdLen > 0)
 		{
-			schemeId = (uint8_t*) malloc(sizeof(uint8_t)*schemeIdLen);
+			schemeId = (char*) malloc(sizeof(uint8_t)*schemeIdLen);
 			READ_U8(schemeId, ptr, schemeIdLen);
 			remainingSize -= (sizeof(uint8_t) * schemeIdLen);
 			int schemeIdValueLen = ReadCStringLen(ptr, remainingSize);

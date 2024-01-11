@@ -46,7 +46,7 @@ void IsoBmffBuffer::destroyBoxes()
 {
 }
 
-bool IsoBmffBuffer::getEMSGData(uint8_t* &message, uint32_t &messageLen, uint8_t* &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id)
+bool IsoBmffBuffer::getEMSGData(uint8_t* &message, uint32_t &messageLen, char * &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id)
 {
     return false;
 }

@@ -380,7 +380,7 @@ bool IsoBmffBuffer::isInitSegment()
 /**
  *  @brief Get emsg informations
  */
-bool IsoBmffBuffer::getEMSGInfoInternal(const std::vector<Box*> *boxes, uint8_t* &message, uint32_t &messageLen, uint8_t* &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id, bool &foundEmsg)
+bool IsoBmffBuffer::getEMSGInfoInternal(const std::vector<Box*> *boxes, uint8_t* &message, uint32_t &messageLen, char * &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id, bool &foundEmsg)
 {
 	bool ret = false;
 	for (size_t i = 0; (false == foundEmsg) && i < boxes->size(); i++)
@@ -410,7 +410,7 @@ bool IsoBmffBuffer::getEMSGInfoInternal(const std::vector<Box*> *boxes, uint8_t*
 /**
  *  @brief Get information from EMSG box
  */
-bool IsoBmffBuffer::getEMSGData(uint8_t* &message, uint32_t &messageLen, uint8_t* &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id)
+bool IsoBmffBuffer::getEMSGData(uint8_t* &message, uint32_t &messageLen, char * &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id)
 {
 	bool foundEmsg = false;
 	return getEMSGInfoInternal(&boxes, message, messageLen, schemeIdUri, value, presTime, timeScale, eventDuration, id, foundEmsg);

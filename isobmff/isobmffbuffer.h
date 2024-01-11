@@ -236,7 +236,7 @@ public:
 	 * @param[out] id - ID of metadata
 	 * @return true if parse was successful. false otherwise
 	 */
-	bool getEMSGData(uint8_t* &message, uint32_t &messageLen, uint8_t* &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id);
+	bool getEMSGData(uint8_t* &message, uint32_t &messageLen, char * &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id);
 
 	/**
 	 * @fn getEMSGInfoInternal
@@ -253,7 +253,7 @@ public:
 	 * @param[out] foundEmsg - flag indicates if EMSG box was seen
 	 * @return true if parse was successful. false otherwise
 	 */
-	bool getEMSGInfoInternal(const std::vector<Box*> *boxes, uint8_t* &message, uint32_t &messageLen, uint8_t* &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id, bool &foundEmsg);
+	bool getEMSGInfoInternal(const std::vector<Box*> *boxes, uint8_t* &message, uint32_t &messageLen, char * &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id, bool &foundEmsg);
 	
 	/**
 	 * @fn getMdatBoxCount

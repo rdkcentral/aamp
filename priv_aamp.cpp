@@ -12147,26 +12147,24 @@ void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, MediaTy
 		{
 			uint8_t* message = nullptr;
 			uint32_t messageLen = 0;
-			uint8_t * schemeIDUri = nullptr;
+			char * schemeIDUri = nullptr;
 			uint8_t* value = nullptr;
 			uint64_t presTime = 0;
 			uint32_t timeScale = 0;
 			uint32_t eventDuration = 0;
 			uint32_t id = 0;
-
 			if (buffer.getEMSGData(message, messageLen, schemeIDUri, value, presTime, timeScale, eventDuration, id))
 			{
 				if (message && messageLen > 0 && aih::IsValidHeader(message, messageLen))
 				{
 					AAMPLOG_TRACE("PrivateInstanceAAMP: Found ID3 metadata[%d]", type);
 
-					const char * scheme_uri = const_cast<const char *>(reinterpret_cast<char *>(schemeIDUri));
 					if(mMediaFormat == eMEDIAFORMAT_DASH)
 					{
-						ReportID3Metadata(type, message, messageLen, scheme_uri, (char*)(value), presTime, id, eventDuration, timeScale, GetMediaStreamContext(type)->timeStampOffset);
+						ReportID3Metadata(type, message, messageLen, schemeIDUri, (char*)(value), presTime, id, eventDuration, timeScale, GetMediaStreamContext(type)->timeStampOffset);
 					}else
 					{
-						ReportID3Metadata(type, message, messageLen, scheme_uri, (char*)(value), presTime, id, eventDuration, timeScale, timeStampOffset);
+						ReportID3Metadata(type, message, messageLen, schemeIDUri, (char*)(value), presTime, id, eventDuration, timeScale, timeStampOffset);
 					}
 				}
 			}

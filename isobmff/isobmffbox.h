@@ -151,14 +151,14 @@ public:
 	 * @fn hasChildren
 	 * @return true if this box has other boxes as children
 	 */
-	virtual bool hasChildren();
+	virtual bool hasChildren() const;
 
 	/**
 	 * @fn getChildren
 	 *
 	 * @return array of child boxes
 	 */
-	virtual const std::vector<Box*> *getChildren();
+	virtual const std::vector<Box*> *getChildren() const;
 
 	/**
 	 * @fn getSize
@@ -172,7 +172,7 @@ public:
 	 *
 	 * @return box type
 	 */
-	const char *getType();
+	const char *getType() const;
 
         /**
          * @fn getBoxType
@@ -232,14 +232,14 @@ public:
 	 *
 	 * @return true if this box has other boxes as children
 	 */
-	bool hasChildren() override;
+	bool hasChildren() const override;
 
 	/**
 	 * @fn getChildren
 	 *
 	 * @return array of child boxes
 	 */
-	const std::vector<Box*> *getChildren() override;
+	const std::vector<Box*> *getChildren() const override;
 
 	/**
 	 * @fn constructContainer
@@ -477,7 +477,7 @@ private:
 	uint32_t id;
 	uint32_t presentationTimeDelta; // This is added in emsg box v1
 	uint64_t presentationTime;	// This is included in emsg box v0
-	uint8_t* schemeIdUri;
+	char * schemeIdUri;
 	uint8_t* value;
 	// Message data
 	uint8_t* messageData;
@@ -602,14 +602,14 @@ public:
 	 * @param[in] schemeIdUri - schemeIdUri pointer
 	 * @return void
 	 */
-	void setSchemeIdUri(uint8_t* schemeIdURI);
+	void setSchemeIdUri(char * schemeIdURI);
 
 	/**
 	 * @fn getSchemeIdUri
 	 *
 	 * @return schemeIdUri value
 	 */
-	uint8_t* getSchemeIdUri();
+	char * getSchemeIdUri() const;
 
 	/**
 	 * @fn setValue
