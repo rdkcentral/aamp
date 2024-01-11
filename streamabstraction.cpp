@@ -1096,7 +1096,14 @@ bool MediaTrack::InjectFragment()
 
 				if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 				{
-					InjectFragmentInternal(cachedFragment, fragmentDiscarded,isDiscontinuity);
+					if(AAMP_NORMAL_PLAY_RATE==aamp->rate)
+					{
+						InjectFragmentInternal(cachedFragment, fragmentDiscarded,isDiscontinuity);
+					}
+					else
+					{
+						InjectFragmentInternal(cachedFragment, fragmentDiscarded,cachedFragment->discontinuity);
+					}
 				}
 				if (eTRACK_VIDEO == type && GetContext()->GetProfileCount())
 				{

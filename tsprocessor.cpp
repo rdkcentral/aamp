@@ -1964,7 +1964,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 			INFO("Reset m_startPosition to %f", position);
 			m_startPosition = position;
 		}
-		double updatedPosition = m_startPosition + (position - m_startPosition) / m_playRate;
+		double updatedPosition = (position - m_startPosition) / m_playRate;
 		INFO("updatedPosition = %f Position = %f m_startPosition = %f m_playRate = %f", updatedPosition, position, m_startPosition, m_playRate);
 		position = updatedPosition;
 
