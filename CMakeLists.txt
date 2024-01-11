@@ -216,6 +216,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					MetadataProcessor.hpp
 					tsDemuxer.hpp
 					tsFragmentProcessor.hpp
+					AampTime.h
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
