@@ -420,13 +420,10 @@ public:
 				double pts = tsDemux->getPts(i);
 				double dts = tsDemux->getDts(i);
 				assert( len>0 );
-				//pts -= 0.94; // hack - match aamp behavior
-				//printf( "%4d SendStreamCopy len=%ld pts=%f dts=%f\n", (i+1), len, pts, dts );
 				gpointer ptr = g_malloc(len);
 				if( ptr )
 				{
-					dts = pts; // hack: use pts instead of dts
-					double duration = 0; // hack - use zero instead of SEGMENT_DURATION_SECONDS
+					double duration = 0; // logically, subset of SEGMENT_DURATION_SECONDS
 					memcpy( ptr, tsDemux->getPtr(i), len );
 					context->pipeline->SendBuffer( mediaType, ptr, len,
 												  pts+pts_offset,

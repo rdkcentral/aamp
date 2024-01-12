@@ -799,7 +799,8 @@ target_link_libraries(aamp-cli subtec)
 target_link_libraries(aamp subtec)
 
 set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LDFLAGS} ${GSTREAMERBASE_LDFLAGS} ${LIBDASH_LIBRARIES} ${CURL_LIBRARIES})
-set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h)
+set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
+                           test/gstTestHarness/tsdemux.hpp )
 set(GSTTESTHARNESS_SOURCES test/gstTestHarness/gst-port.cpp
                            test/gstTestHarness/gst-test.cpp)
 

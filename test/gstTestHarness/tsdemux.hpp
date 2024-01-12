@@ -426,11 +426,7 @@ private:
 					timestamp = parseTimestamp();
 					//printf( "pts=%lld\n", timestamp );
 					part.pts = timestamp/90000.0;
-					
-					if( tsPart.size()>0 )
-					{
-						part.dts = tsPart[tsPart.size()-1].dts;
-					}
+					part.dts = part.pts;
 					break;
 					
 				case 3:
