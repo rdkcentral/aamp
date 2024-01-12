@@ -118,15 +118,10 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 	{
 		ret.pts_s += static_cast<double>(current_pts.value - base_pts.value) / 90000.;
 	}
-	if (!trickmode && current_dts)
+	if (!trickmode)
 	{
 		ret.dts_s = position + static_cast<double>(current_dts.value - base_pts.value) / 90000.;
 	}
-	else
-	{
-		ret.dts_s = ret.pts_s;
-	}
-
 	return ret;
 }
 
@@ -378,9 +373,8 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 						current_dts = Extract33BitTimestamp(&pesStart[14]);
 					}
 					else
-					{
-						AAMPLOG_DEBUG("DTS NOT present pesStart[7] & 0x80 = 0x%x pesStart[9]&0xF0 = 0x%x",
-							pesStart[7] & 0x80, (pesStart[9] & 0x20));
+					{ // if dts not explicit in pes header, spec says dts=pts
+						current_dts = current_pts;
 					}
 				}
 				else
