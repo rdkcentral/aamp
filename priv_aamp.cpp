@@ -6955,11 +6955,14 @@ void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
  */
 void PrivateInstanceAAMP::SetAudioVolume(int volume)
 {
-	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-	if (sink)
+	if(volume >=0)
 	{
-		sink->SetAudioVolume(volume);
-	}
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		if (sink)
+		{
+			sink->SetAudioVolume(volume);
+		}
+	}	
 }
 
 /**
