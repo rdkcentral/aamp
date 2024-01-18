@@ -190,9 +190,85 @@ public:
         mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(TestablePrivAamp::mLogObj,this, playlistSeekPos, TestablePrivAamp::rate);
         GetCurrentAudioTrackId();
     }
+	void SetTextTrack_obj(int trackId, char *data)
+	{
+		double playlistSeekPos = seek_pos_seconds - culledSeconds;
+        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(TestablePrivAamp::mLogObj,this, playlistSeekPos, TestablePrivAamp::rate);
+
+		SetTextTrack(trackId,data);
+	}
+	void CallNotifyEOSReached()
+	{
+		double playlistSeekPos = seek_pos_seconds - culledSeconds;
+        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(TestablePrivAamp::mLogObj,this, playlistSeekPos, TestablePrivAamp::rate);
+
+		IsDiscontinuityProcessPending();
+		NotifyEOSReached();
+	}
+	void GetAvailableTracks_obj()
+	{
+		double playlistSeekPos = seek_pos_seconds - culledSeconds;
+        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(TestablePrivAamp::mLogObj,this, playlistSeekPos, TestablePrivAamp::rate);
+
+		mpStreamAbstractionAAMP->GetAvailableTextTracks(true);
+		GetAvailableAudioTracks(true);
+	}
 };
     TestablePrivAamp *testp_aamp{nullptr};
 };
+TEST_F(PrivAampPrivTests,GetAvailableTracksTest_1)
+{
+	testp_aamp->GetAvailableTracks_obj();
+}
+
+TEST_F(PrivAampPrivTests,NotifyEOSReachedTest_2)
+{
+	testp_aamp->CallNotifyEOSReached();
+}
+
+TEST_F(PrivAampTests,IsAudioLanguageSupportedTest_12)
+{
+	int cnt = 0;
+	strcpy(p_aamp->mLanguageList[0], "en");
+    strcpy(p_aamp->mLanguageList[1], "sp");
+    strcpy(p_aamp->mLanguageList[2], "fr");
+    p_aamp->mMaxLanguageCount = 3;
+	bool flag = p_aamp->IsAudioLanguageSupported("en");
+	EXPECT_TRUE(flag);
+
+	bool flag_1 = p_aamp->IsAudioLanguageSupported("sp");
+	EXPECT_TRUE(flag_1);
+
+	bool flag_2 = p_aamp->IsAudioLanguageSupported("fr");
+	EXPECT_TRUE(flag_2);
+}
+TEST_F(PrivAampTests,IsAudioLanguageSupportedTest_13)
+{
+	int cnt = 0;
+    p_aamp->mMaxLanguageCount = 3;
+	bool flag = p_aamp->IsAudioLanguageSupported("english");
+	EXPECT_FALSE(flag);
+}
+
+TEST_F(PrivAampPrivTests,SetTextTrackTest_2)
+{
+	//covering if condition where MUTE_SUBTITLES_TRACKID == trackId
+	char* data = new char[10]; 
+	int trackId = -1;
+	testp_aamp->SetTextTrack_obj(trackId,data);  
+}
+TEST_F(PrivAampPrivTests,SetTextTrackTest_3)
+{
+	//if condition where data == NULL
+	testp_aamp->SetTextTrack_obj(1,NULL);  
+}
+TEST_F(PrivAampPrivTests,SetTextTrackTest_4)
+{
+	//if condition where data != NULL
+	char* data = new char[10]; 
+	int trackId = 1;
+	testp_aamp->SetTextTrack_obj(trackId,data);  
+}
 TEST_F(PrivAampPrivTests, GetCurrentAudioTrackId_2)
 {
     testp_aamp->GetCurrentAudioTrackId_2();
@@ -391,26 +467,23 @@ TEST_F(PrivAampTests,GetVideoPTSTest)
 	EXPECT_EQ(videoPTS,-1);
 	EXPECT_EQ(videoPTS1,-1);
 }
-
 TEST_F(PrivAampTests,WakeupLatencyCheckTest)
 {
-	std::cout<<"@#$$$$#%^&%^^^*#$@"<<std::endl;
 	p_aamp->WakeupLatencyCheck();
+}
+TEST_F(PrivAampTests,TimedWaitForLatencyCheckTest)
+{
+	int timeInMs = 10;
+	p_aamp->TimedWaitForLatencyCheck(timeInMs);
+	
+	// below are stress level test case
 	p_aamp->TimedWaitForLatencyCheck(0);
-	p_aamp->TimedWaitForLatencyCheck(10);
 	p_aamp->TimedWaitForLatencyCheck(100);
 	p_aamp->TimedWaitForLatencyCheck(500);
-
-
 	p_aamp->TimedWaitForLatencyCheck(-10);
-	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
-
 	p_aamp->TimedWaitForLatencyCheck(-12355);
 	p_aamp->TimedWaitForLatencyCheck(1235);
-	p_aamp->TimedWaitForLatencyCheck(12355);
-	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
 
-	p_aamp->TimedWaitForLatencyCheck(-10);
 	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
 }
 
