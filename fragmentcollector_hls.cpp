@@ -2781,12 +2781,12 @@ void TrackState::ABRProfileChanged()
 		refreshPlaylist = true;
 		/*For some VOD assets, different video profiles have different DRM meta-data.*/
 		mForceProcessDrmMetadata = true;
+		pthread_mutex_unlock(&mutex);
 	}
 	else
 	{
 		AAMPLOG_WARN(" GetPlaylistURI  is null");  //CID:83060 - Null Returns
 	}
-	pthread_mutex_unlock(&mutex);
 
 }
 

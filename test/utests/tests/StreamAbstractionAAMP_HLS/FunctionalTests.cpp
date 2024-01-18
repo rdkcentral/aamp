@@ -1562,6 +1562,14 @@ TEST_F(TrackStateTests, ABRProfileChangedTest)
     TrackStateobj->ProcessPlaylist(newPlaylist, http_error);
 }
 
+TEST_F(TrackStateTests, ABRProfileChangedTest2)
+{
+    HlsStreamInfo streamInfo;
+    streamInfo.uri="https://example/main.m3u8";
+    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+    TrackStateobj->ABRProfileChanged();
+}
+
 TEST_F(TrackStateTests, DrmDecrypt_SuccessfulDecryption)
 {
 
