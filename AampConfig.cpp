@@ -384,6 +384,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	// ideally would be named enableEarlyId3Processing for clarity, but to avoid partner confusion leaving original spelling for now
 	// this will eventually be default enbled and deprecated as a configuration  
 	{false, "earlyProcessing", eAAMPConfig_EarlyID3Processing, false},
+	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, false},
 
 };
 

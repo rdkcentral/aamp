@@ -1650,6 +1650,7 @@ JSValueRef AAMPMediaPlayerJS_setAudioTrack (JSContextRef ctx, JSObjectRef functi
 			if (index >= 0)
 			{
 				{
+					LOG_WARN(privObj," _aamp->SetAudioTrack(%d)", index);
 					privObj->_aamp->SetAudioTrack(index);
 					bRet = true;
 				}

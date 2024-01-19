@@ -211,6 +211,7 @@ typedef enum
 	eAAMPConfig_TrackMemory,					/**< To enable/disable AampGrowableBuffer track memory */
 	eAAMPConfig_UseSinglePipeline,					/**< To enable/disable using a single gstreamer pipeline */
 	eAAMPConfig_EarlyID3Processing,					/**< To enable/disable early ID3 processing */
+	eAAMPConfig_SeamlessAudioSwitch,					/**< To enable audio Restart - Currently supported for HLS_MP4 on same codec streams*/
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;

@@ -465,6 +465,12 @@ public:
 	virtual void Flush(double position = 0, int rate = AAMP_NORMAL_PLAY_RATE, bool shouldTearDown = true){}
 
 	/**
+         *   @brief Flush the audio playbin
+         *   @return void
+         */
+	virtual void FlushAudio(){}
+
+	/**
 	 *   @brief Set player rate to audio/video sink
 	 *
 	 *   @param[in]  rate - Speed
@@ -1597,9 +1603,10 @@ public:
 	 *   @param[in] labelList - string with comma-delimited label list
 	 *             from most to least preferred: "label1,label2". Set NULL to clear current list.
 	 *   @param[in] accessibilityItem - preferred accessibilityNode with scheme id and value
+	 *   @param[in] preferredName - preferred name of track
 	 *   @return void
 	 */
-	void SetPreferredLanguages(const char* languageList, const char *preferredRendition = NULL, const char *preferredType = NULL, const char* codecList = NULL, const char* labelList = NULL, const Accessibility *accessibilityItem = NULL);
+	void SetPreferredLanguages(const char* languageList, const char *preferredRendition = NULL, const char *preferredType = NULL, const char* codecList = NULL, const char* labelList = NULL, const Accessibility *accessibilityItem = NULL, const char *preferredName = NULL);
 
 
 	/**

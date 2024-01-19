@@ -587,6 +587,16 @@ public:
 
 	void SourceFormat(StreamOutputFormat fmt) { mSourceFormat = fmt; }
 
+	/**
+	 * @brief API to wait thread until the fragment cached after audio reconfiguration
+	 */
+	void WaitForCachedAudioFragmentAvailable(void);
+
+	/**
+	 * @brief To Load New Audio on seamless audio switch 
+	 */
+	void LoadNewAudio(bool val);
+
 protected:
 
 	/**
@@ -602,6 +612,12 @@ protected:
 	 * @return void
 	 */
 	void UpdateTSAfterChunkInject();
+
+        /**
+         * @brief API to notify the after Aamp Audio fragment cached
+         */
+        void NotifyCachedAudioFragmentAvailable(void);
+
 
 	/**
 	 * @fn WaitForCachedFragmentAvailable
@@ -679,13 +695,13 @@ public:
 	TrackType type;                     /**< Media type of the track*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;    /**< Parser for subtitle data*/
 	bool refreshSubtitles;              /**< Switch subtitle track in the FetchLoop */
+	bool refreshAudio;		    /** Switch audio track in the FetcherLoop */
 	int maxCachedFragmentsPerTrack;
 	int maxCachedFragmentChunksPerTrack;
 	pthread_cond_t fragmentChunkFetched;/**< Signaled after a fragment Chunk is fetched*/
 	uint32_t totalMdatCount;            /**< Total MDAT Chunk Found*/
 	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processoing*/
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
-
 protected:
 	AampLogManager *mLogObj;
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
@@ -698,6 +714,8 @@ protected:
 	bool ptsError;                      /**< flag to indicate if last injected fragment has ptsError */
 	bool abortInject;                   /**< Abort inject operations if flag is set*/
 	bool abortInjectChunk;              /**< Abort inject operations if flag is set*/
+	pthread_mutex_t audioMutex;             /**< protection of audio track reconfiguration */
+	bool loadNewAudio;              /**< Flag to indicate new audio loading started on seamless audio switch */
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
 
@@ -736,7 +754,7 @@ private:
 	std::mutex dwnldMutex;					/**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/
 	bool fragmentCollectorWaitingForPlaylistUpdate;	/**< Flag to indicate that the fragment collecor is waiting for ongoing playlist download, used for profile changes*/
 	std::condition_variable frDownloadWait;	/**< Conditional variable for signalling timed wait*/
-
+	pthread_cond_t audioFragmentCached;  /**< Signal after a audio fragment cached after reconfigure */
 };
 
 /**
@@ -1119,6 +1137,7 @@ public:
 
 	virtual double GetFirstPeriodStartTime() { return 0; }
 	virtual double GetFirstPeriodDynamicStartTime() { return 0; }
+	virtual void RefreshAudio() {};
 	virtual uint32_t GetCurrPeriodTimeScale()  { return 0; }
 	/**
 	 *   @fn CheckForRampDownLimitReached
@@ -1420,7 +1439,6 @@ public:
 	 *   @return void
 	 */
 	void RefreshSubtitles();
-
 	/**
 	 * @brief setVideoRectangle sets the position coordinates (x,y) & size (w,h) for OTA streams only
 	 *

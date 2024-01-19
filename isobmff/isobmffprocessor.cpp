@@ -49,7 +49,7 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManag
 	isRestampConfigEnabled(false),
 	mLogObj(logObj),
 	sumPTS(0),prevPTS(0),currTimeScale(0),sumOfTrackDurationFromISOBuffer(0.0f),startPos(0.0f),
-	prevPosition(-1),maxDurationFromManifest(-1),scalingOfPTSComplete(false),timeScaleChangeState(eBMFFPROCESSOR_INIT_TIMESCALE),
+	prevPosition(-1), resetSumPTS(false), maxDurationFromManifest(-1),scalingOfPTSComplete(false),timeScaleChangeState(eBMFFPROCESSOR_INIT_TIMESCALE),
 	prevDuration(0.0),maxTrackDurationFromISOBufferInTS(0),mediaFormat(eMEDIAFORMAT_UNKNOWN), enabled(true), trackOffsetInSecs(0.0), peerListeners()
 {
 	AAMPLOG_WARN("IsoBmffProcessor:: Created IsoBmffProcessor(%p) for type:%d and peerProcessor(%p)", this, type, peerBmffProcessor);
@@ -454,7 +454,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 		int fragmentDownloadFailThreshold = p_aamp->mConfig->GetConfigValue(eAAMPConfig_FragmentDownloadFailThreshold);
 		float maxPossibleSkipFragmentDuration = fragmentDownloadFailThreshold * maxDurationFromManifest;
 		//Added Floating point EPSILON in order to avoid handling skipPosition even diffPosition and MaxDuration are same 19.2
-		if( prevPosition != -1 && diffDuration != duration  && diffDuration > (maxDurationFromManifest+FLOATING_POINT_EPSILON) && (diffDuration < maxPossibleSkipFragmentDuration))
+		if( prevPosition != -1 && diffDuration != duration  && ((diffDuration > (maxDurationFromManifest+FLOATING_POINT_EPSILON) && (diffDuration < maxPossibleSkipFragmentDuration))))
 		{
 			uint64_t skippedPTS = handleSkipFragments(diffDuration);
 			sumPTS += skippedPTS; //Update the sumPTS
@@ -465,6 +465,16 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 		else
 		{
 			AAMPLOG_INFO("IsoBmffProcessor %s Avoiding handleSkipFragments maxPossibleSkipFragmentDuration = %.12f", IsoBmffProcessorTypeName[type], maxPossibleSkipFragmentDuration);
+			if(resetSumPTS)
+			{
+				resetSumPTS = false;
+				AAMPLOG_INFO(" Resetting SumPTS as current PTS on audio restart ");
+				uint64_t currentPTS = 0;
+				buffer.getFirstPTS(currentPTS);
+				sumPTS = currentPTS;
+				sumOfTrackDurationFromISOBuffer = sumPTS / (double)currTimeScale;
+			}
+
 		}
 
 		/*Step 3. Get current PTS */
@@ -535,7 +545,7 @@ uint64_t IsoBmffProcessor::handleSkipFragments(float diffDuration)
 
 	uint64_t skippedPTS = 0;
 	float skippedDuration = diffDuration - prevDuration;
-	skippedPTS = ceil(skippedDuration * (double)currTimeScale);
+	skippedPTS = abs(ceil(skippedDuration * (double)currTimeScale));
 	uint64_t maxTrackDuartionFromManifestInTS = maxDurationFromManifest * currTimeScale;
 
 	AAMPLOG_INFO("IsoBmffProcessor %s diffDuration = %lf skippedDuration = %.12f maxDurationFromManifestInTS = %" PRIu64 " maxTrackDurationFromISOBufferInTS =  %" PRIu64 " skippedPTS =  %" PRIu64 " ",

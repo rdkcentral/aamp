@@ -114,6 +114,17 @@ public:
 	 */
 	void setFrameRateForTM (int frameRate) override { };
 
+        /**
+         * @brief Reset sumPTS on audioOnlyRestart
+         *
+         * @param[in] reset - true/false
+         * @return void
+         */
+	void resetSumPTSOnAudioRestart(bool reset)
+	{
+		resetSumPTS = reset;
+	}
+
 	/**
 	 * @fn sendSegment
 	 *
@@ -416,6 +427,7 @@ private:
 	bool scalingOfPTSComplete;
 	bool abortAll;
 	bool enabled;
+	bool resetSumPTS;
 
 	std::vector<AampGrowableBuffer *> initSegment;
 	std::vector<stInitRestampSegment *> resetPTSInitSegment;

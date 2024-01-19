@@ -3012,6 +3012,12 @@ int StreamAbstractionAAMP_HLS::GetBestAudioTrackByLanguage( void )
 				{ // bonus for designated "default"
 					score += 10;
 				}
+                                if( !aamp->preferredNameString.empty() &&
+                                                aamp->preferredNameString.compare(mediaInfo.name)==0 )
+                                {
+                                        score += 100; // small bonus for name match
+                                }
+
 			}
 
 			AAMPLOG_INFO( "track#%d score = %d", i, score );
@@ -5280,6 +5286,16 @@ void TrackState::RunFetchLoop()
 					mInjectInitFragment = false;
 				}
 			}
+			if(refreshAudio)
+                        {
+                                SwitchAudioTrack();
+                                refreshAudio = false;
+                                abort = false;
+				if(!fragmentURI)
+				{
+					skipFetchFragment =true;
+				}
+                        }
 
 			if (!skipFetchFragment)
 			{
@@ -7542,6 +7558,59 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 	AAMPLOG_WARN("TextTrack Selected :%d", currentTextTrackProfileIndex);
 }
 
+void StreamAbstractionAAMP_HLS::RefreshAudio()
+{
+        TrackState *track = trackState[eTRACK_AUDIO];
+        if(track && track->Enabled())
+        {
+                track->refreshAudio = true;
+                track->AbortWaitForCachedAndFreeFragment(true);
+                aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
+		if(aamp->IsLive())
+		{
+			track->AbortWaitForPlaylistDownload();
+			track->AbortFragmentDownloaderWait();
+		}
+	}
+}
+
+void TrackState::SwitchAudioTrack()
+{
+	if (eTRACK_AUDIO == type)
+	{
+		pthread_mutex_lock(&mutex);
+
+		AAMPLOG_INFO("Preparing to flush fragments and switch playlist");
+		LoadNewAudio(true);
+		FlushFragments();
+		context->ReassessAndResumeAudioTrack(true);
+		context->ConfigureAudioTrack();
+		context->PopulateAudioAndTextTracks();
+		aamp_ResolveURL(mPlaylistUrl, aamp->GetManifestUrl(), context->GetPlaylistURI(type),ISCONFIGSET(eAAMPConfig_PropogateURIParam));
+		if(aamp->IsLive())
+		{
+			// Abort ongoing playlist download if any.
+			aamp->DisableMediaDownloads(playlistMediaType);
+			// Notify that fragment collector is waiting
+			NotifyFragmentCollectorWait();
+			WaitForManifestUpdate();
+		}
+		else
+		{
+			PlaylistDownloader();
+		}
+                double gstSeek = aamp->GetPositionSeconds();
+		playTarget = gstSeek;
+		bool reloadUri = false;
+		AcquirePlaylistLock();
+		fragmentURI = GetNextFragmentUriFromPlaylist(reloadUri,true);
+		ReleasePlaylistLock();
+                playTarget = playlistPosition;
+                playTargetBufferCalc = playTarget;
+                context->SeekPosUpdate(gstSeek);
+		pthread_mutex_unlock(&mutex);
+	}
+}
 
 /**
  * @brief Function to populate available audio and text tracks info from manifest

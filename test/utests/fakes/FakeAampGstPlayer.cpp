@@ -211,3 +211,6 @@ void AAMPGstPlayer::SignalSubtitleClock()
 {
 }
 
+void AAMPGstPlayer::FlushAudio()
+{
+}

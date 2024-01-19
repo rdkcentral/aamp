@@ -2478,9 +2478,9 @@ std::string PlayerInstanceAAMP::GetPreferredTextProperties()
 /**
  *  @brief Set optional preferred language list
  */
-void PlayerInstanceAAMP::SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char* codecList, const char* labelList, const Accessibility *accessibilityItem)
+void PlayerInstanceAAMP::SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char* codecList, const char* labelList, const Accessibility *accessibilityItem, const char *preferredName)
 {
-	aamp->SetPreferredLanguages(languageList, preferredRendition, preferredType, codecList, labelList, accessibilityItem);
+	aamp->SetPreferredLanguages(languageList, preferredRendition, preferredType, codecList, labelList, accessibilityItem, preferredName);
 }
 
 /**
@@ -2657,12 +2657,12 @@ void PlayerInstanceAAMP::SetAudioTrack(int trackId)
 						[tracks , trackId](void *data)
 						{
 							PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
-							instance->SetPreferredLanguages(tracks[trackId].language.c_str(), tracks[trackId].rendition.c_str(), tracks[trackId].accessibilityType.c_str(), tracks[trackId].codec.c_str(), tracks[trackId].label.c_str(), &tracks[trackId].accessibilityItem);
+							instance->SetPreferredLanguages(tracks[trackId].language.c_str(), tracks[trackId].rendition.c_str(), tracks[trackId].accessibilityType.c_str(), tracks[trackId].codec.c_str(), tracks[trackId].label.c_str(), &tracks[trackId].accessibilityItem, tracks[trackId].name.c_str());
 						}, (void *) this,__FUNCTION__));
 			}
 			else
 			{
-				SetPreferredLanguages(tracks[trackId].language.c_str(), tracks[trackId].rendition.c_str(), tracks[trackId].accessibilityType.c_str(), tracks[trackId].codec.c_str(), tracks[trackId].label.c_str(), &tracks[trackId].accessibilityItem);
+				SetPreferredLanguages(tracks[trackId].language.c_str(), tracks[trackId].rendition.c_str(), tracks[trackId].accessibilityType.c_str(), tracks[trackId].codec.c_str(), tracks[trackId].label.c_str(), &tracks[trackId].accessibilityItem, tracks[trackId].name.c_str());
 			}
 		}
 	} // end of if

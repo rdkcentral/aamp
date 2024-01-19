@@ -299,3 +299,11 @@ void MediaTrack::UpdateTSAfterChunkFetch()
 void StreamAbstractionAAMP::UpdateRampUpOrDownProfileReason(void)
 {
 }
+
+void MediaTrack::WaitForCachedAudioFragmentAvailable()
+{
+}
+
+void MediaTrack::LoadNewAudio(bool)
+{
+}

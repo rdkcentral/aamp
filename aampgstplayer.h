@@ -436,6 +436,11 @@ public:
 	PlaybackQualityStruct* GetVideoPlaybackQuality(void) override;
 
 	/**
+	 * @fn FlushAudio
+	 */
+	void FlushAudio() override;
+
+	/**
 	 * @fn ChangeAamp
 	 * @brief Change the instance of PrivateInstanceAAMP that is using the gstreamer pipeline,
 	 * when it is being used as a single pipeline shared among multiple instances of PrivateInstanceAAMP

@@ -2262,4 +2262,3 @@ TEST_F(PauseAtTests, TuneTest3)
 
     mPlayerInstance->Tune(maxManifestUrl, &maxContentType, maxFirstAttempt, maxFinalAttempt, &maxTraceUUID, maxAudioDecoderStreamSync);
 }
-

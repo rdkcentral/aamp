@@ -2827,3 +2827,33 @@ TEST_F(StreamAbstractionAAMP_HLSTest, IsLowestProfileTest_1)
     bool result = mStreamAbstractionAAMP_HLS->CallIsLowestProfile_1(currentProfileIndex);
     ASSERT_TRUE(result);
 }
+
+TEST_F(StreamAbstractionAAMP_HLSTest, RefreshAudioTest)
+{
+    const char *lang = "english";
+    std::vector<MediaInfo> mediaInfoStore;
+    MediaInfo media;
+    media.type = eMEDIATYPE_AUDIO;
+    media.language = lang;
+    media.audioFormat = FORMAT_AUDIO_ES_EC3;
+    media.characteristics = "";
+    mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(media);
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+    mStreamAbstractionAAMP_HLS->CallConfigureAudioTrack();
+
+    EXPECT_EQ(0,mStreamAbstractionAAMP_HLS->currentAudioProfileIndex);
+    
+    media.type = eMEDIATYPE_AUDIO;
+    lang = "spanish";
+    media.language = lang;
+    mStreamAbstractionAAMP_HLS->aamp->preferredLanguagesList.push_back(lang);
+    media.audioFormat = FORMAT_AUDIO_ES_EC3;
+    media.characteristics = "";
+
+    mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(media);
+
+    mStreamAbstractionAAMP_HLS->RefreshAudio();
+    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+    mStreamAbstractionAAMP_HLS->CallConfigureAudioTrack();
+    EXPECT_EQ(1,mStreamAbstractionAAMP_HLS->currentAudioProfileIndex);
+}

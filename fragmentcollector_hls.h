@@ -561,6 +561,12 @@ class TrackState : public MediaTrack
 		void SwitchSubtitleTrack();
 
 		void getNextFetchRequestUri(); //CMCD Get next object request url(nor)
+		/***************************************************************************
+                 * @fn SwitchAudioTrack
+                 *
+                 * @return void
+                 ***************************************************************************/
+		void SwitchAudioTrack();
 
 	public:
 		std::string mEffectiveUrl;		 /**< uri associated with downloaded playlist (takes into account 302 redirect) */
@@ -862,7 +868,6 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return the ABR mode.
 		 */
 		ABRMode GetABRMode() override;
-
 		//private:
 		// TODO: following really should be private, but need to be accessible from callbacks
 
@@ -975,6 +980,25 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 
 		const std::unique_ptr<aamp::MetadataProcessorIntf> & GetMetadataProcessor(StreamOutputFormat fmt);
 
+                /***************************************************************************
+                 * @fn RefreshAudio
+                 *
+                 * @return void
+                 ***************************************************************************/
+		void RefreshAudio() override;
+
+		/***************************************************************************
+		 * @fn PopulateAudioAndTextTracks
+		 *
+		 * @return void
+		 ***************************************************************************/
+		void PopulateAudioAndTextTracks();
+		/***************************************************************************
+		 * @fn ConfigureAudioTrack
+		 *
+		 * @return void
+		 ***************************************************************************/
+		void ConfigureAudioTrack();
 	protected:
 		/***************************************************************************
 		 * @fn GetStreamInfo
@@ -1003,18 +1027,6 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return eAAMPSTATUS_OK on success
 		 ***************************************************************************/
 		AAMPStatusType SyncTracksForDiscontinuity();
-		/***************************************************************************
-		 * @fn PopulateAudioAndTextTracks
-		 *
-		 * @return void
-		 ***************************************************************************/
-		void PopulateAudioAndTextTracks();
-		/***************************************************************************
-		 * @fn ConfigureAudioTrack
-		 *
-		 * @return void
-		 ***************************************************************************/
-		void ConfigureAudioTrack();
 		/***************************************************************************
 		 * @fn ConfigureVideoProfiles
 		 *

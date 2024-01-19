@@ -119,6 +119,14 @@ public:
 	virtual void setFrameRateForTM (int frameRate) = 0;
 
 	/**
+	 * @brief Reset sumPTS on SeamlessAudioSwitch 
+	 *
+	 * @param[in] reset - true/false
+	 * @return void
+	 */
+	virtual void resetSumPTSOnAudioRestart(bool reset) {};
+
+	/**
 	 * @brief Abort all operations
 	 *
 	 * @return void

@@ -365,12 +365,36 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 	{
 		totalFragmentsDownloaded++;
 	}
+
+	if(loadNewAudio && (eTRACK_AUDIO == type) && !IsInitSegment)
+	{
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+		if (sink)
+                {
+                        sink->FlushAudio();
+                }
+		aamp->ResumeTrackInjection((MediaType)eMEDIATYPE_AUDIO);
+		if(playContext)
+		{
+			playContext->resetSumPTSOnAudioRestart(true);
+		}
+		NotifyCachedAudioFragmentAvailable();
+		loadNewAudio = false;
+	}
 	pthread_cond_signal(&fragmentFetched);
 	pthread_mutex_unlock(&mutex);
 	if(notifyCacheCompleted)
 	{
 		aamp->NotifyFragmentCachingComplete();
 	}
+}
+
+/**
+ * @brief Process New Audio On Lang Switch 
+ */
+void MediaTrack::LoadNewAudio(bool val)
+{
+	loadNewAudio = val;
 }
 
 /**
@@ -1175,6 +1199,36 @@ void MediaTrack::StartInjectLoop()
 }
 
 /**
+ * @brief Wait till the new Audio fragment cache available
+ * after clearing the existing buffer
+ */
+void MediaTrack::WaitForCachedAudioFragmentAvailable()
+{
+       AAMPLOG_WARN("Enter WaitForCachedAudioFragmentAvailable");
+       pthread_mutex_lock(&audioMutex);
+       int ret = 0;
+       ret = pthread_cond_wait(&audioFragmentCached, &audioMutex);
+       if (0 != ret)
+       {
+	       AAMPLOG_WARN("[%s] [WARN] pthread_cond_wait(audioFragmentCached) returned %s", name, strerror(ret));
+       }
+       AAMPLOG_DEBUG("[%s] wait complete for audioFragmentCached", name);
+
+       pthread_mutex_unlock(&audioMutex);
+}
+
+/**
+ * @brief Notify the new Audio fragment cache available
+ * after clearing the existing buffer
+ */
+void MediaTrack::NotifyCachedAudioFragmentAvailable()
+{
+        pthread_mutex_lock(&audioMutex);
+        pthread_cond_signal(&audioFragmentCached);
+        pthread_mutex_unlock(&audioMutex);
+}
+
+/**
  *  @brief Start fragment Chunk injector loop
  */
 void MediaTrack::StartInjectChunkLoop()
@@ -1221,9 +1275,16 @@ void MediaTrack::RunInjectLoop()
     totalInjectedDuration = 0;
     while (aamp->DownloadsAreEnabled() && keepInjecting)
     {
-        if (!InjectFragment())
+	if(type == eTRACK_AUDIO && (loadNewAudio || refreshAudio))
+	{
+		WaitForCachedAudioFragmentAvailable();
+	}
+	if (!InjectFragment())
         {
-            keepInjecting = false;
+		if(!(loadNewAudio || refreshAudio))
+		{
+			keepInjecting = false;
+		}
         }
         if (notifyFirstFragment && type != eTRACK_SUBTITLE)
         {
@@ -1250,10 +1311,10 @@ void MediaTrack::RunInjectLoop()
                 {
                     pContext->WaitForAudioTrackCatchup();
                 }
-				else if (eTRACK_AUX_AUDIO == type)
-				{
-					pContext->WaitForVideoTrackCatchupForAux();
-				}
+		else if (eTRACK_AUX_AUDIO == type)
+		{
+			pContext->WaitForVideoTrackCatchupForAux();
+		}
             }
             else
             {
@@ -1264,6 +1325,7 @@ void MediaTrack::RunInjectLoop()
     abortInject = true;
     AAMPLOG_WARN("fragment injector done. track %s", name);
 }
+
 
 /**
  * @brief Run fragment injector loop.
@@ -1327,7 +1389,6 @@ bool MediaTrack::Enabled()
 {
 	return enabled;
 }
-
 
 /**
  *  @brief Get buffer to store the downloaded fragment content to cache next fragment
@@ -1410,6 +1471,7 @@ void MediaTrack::FlushFragments()
 	for (int i = 0; i < maxCachedFragmentsPerTrack; i++)
 	{
 		cachedFragment[i].fragment.Free();
+		memset(&cachedFragment[i], 0, sizeof(CachedFragment));
 	}
 	fragmentIdxToInject = 0;
 	fragmentIdxToFetch = 0;
@@ -1458,9 +1520,9 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 		bandwidthBitsPerSecond(0), totalFetchedDuration(0),
 		discontinuityProcessed(false), ptsError(false), cachedFragment(NULL), name(name), type(type), aamp(aamp),
 		mutex(), fragmentFetched(), fragmentInjected(), abortInject(false),
-		mSubtitleParser(), refreshSubtitles(false), maxCachedFragmentsPerTrack(0),
+		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false), maxCachedFragmentsPerTrack(0),
 		totalMdatCount(0), cachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), abortInjectChunk(false), maxCachedFragmentChunksPerTrack(0),
-		noMDATCount(0),
+		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(),
 		mLogObj(logObj),
 		abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
@@ -1487,7 +1549,10 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 
 	pthread_cond_init(&fragmentFetched, NULL);
 	pthread_cond_init(&fragmentInjected, NULL);
+	pthread_cond_init(&audioFragmentCached, NULL);
 	pthread_mutex_init(&mutex, NULL);
+	pthread_mutex_init(&audioMutex, NULL);
+
 }
 
 
@@ -1535,7 +1600,9 @@ MediaTrack::~MediaTrack()
 
 	pthread_cond_destroy(&fragmentFetched);
 	pthread_cond_destroy(&fragmentInjected);
+	pthread_cond_destroy(&audioFragmentCached);
 	pthread_mutex_destroy(&mutex);
+	pthread_mutex_destroy(&audioMutex);
 }
 
 /**
@@ -3593,7 +3660,10 @@ void MediaTrack::PlaylistDownloader()
 					liveRefreshTimeOutInMs = WaitTimeBasedOnBufferAvailable();
 				}
 				AAMPLOG_INFO("Refreshing playlist at %d ", liveRefreshTimeOutInMs);
-				EnterTimedWaitForPlaylistRefresh(liveRefreshTimeOutInMs);
+				if(!refreshAudio)
+				{
+					EnterTimedWaitForPlaylistRefresh(liveRefreshTimeOutInMs);
+				}
 			}
 			firstTimeDownload = false;
 		}

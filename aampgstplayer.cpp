@@ -3604,6 +3604,24 @@ void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, AampLogManager *new
 }
 
 /**
+ * @brief Flush the audio playbin
+ */
+void AAMPGstPlayer::FlushAudio()
+{
+	aamp->SyncBegin();
+	AAMPLOG_MIL("Entering AAMPGstPlayer::FlushAudio() pipeline state %s",
+			gst_element_state_get_name(GST_STATE(privateContext->pipeline)));
+	double pos=aamp->GetPositionSeconds();
+	media_stream *stream = &this->privateContext->stream[eMEDIATYPE_AUDIO];
+
+	gst_element_seek_simple (GST_ELEMENT(stream->sinkbin), GST_FORMAT_TIME,
+			GST_SEEK_FLAG_FLUSH, pos * GST_SECOND);
+
+	AAMPLOG_MIL("Exiting AAMPGstPlayer::FlushAudio() pipeline state: %s pos: %lf", gst_element_state_get_name(GST_STATE(privateContext->pipeline)), pos);
+	aamp->SyncEnd();
+}
+
+/**
  * @brief Flush the buffers in pipeline
  */
 void AAMPGstPlayer::Flush(void)

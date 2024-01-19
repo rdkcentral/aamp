@@ -943,6 +943,7 @@ public:
 	std::string preferredTypeString; 			/**< unparsed string with preferred accessibility type */
 	std::string preferredCodecString; 			/**< unparsed string with preferred codecs in format "codec1,codec2,.." */
 	std::vector<std::string> preferredCodecList; 	 	/**<String array to store codec preference */
+	std::string preferredNameString;			/**< unparsed string with preferred name of track */
 	std::string preferredTextLanguagesString; 		/**< unparsed string with preferred languages in format "lang1,lang2,.." */
 	std::vector<std::string> preferredTextLanguagesList;	/**< list of preferred text languages from most-preferred to the least*/
 	std::string preferredTextRenditionString; 		/**< String value for rendition */
@@ -3591,9 +3592,10 @@ public:
 	 *   @param[in] codecList  - preferred codec list
 	 *   @param[in] labelList  - preferred label list
 	 *   @param[in] accessibilityItem - preferred accessibilityNode with scheme id and value
+	 *   @param[in] preferredName - preferred name of track
 	 *   @return void
 	 */
-	void SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char *codecList, const char *labelList, const Accessibility *accessibilityItem = NULL);
+	void SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char *codecList, const char *labelList, const Accessibility *accessibilityItem = NULL, const char *preferredName = NULL);
 
 	/**
 	 *   @brief Set the scheduler instance to schedule tasks
