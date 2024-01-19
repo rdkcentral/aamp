@@ -40,7 +40,7 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 set(TEST_SOURCES TsProcessorTests.cpp
                  sendSegmentTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/tsprocessor.cpp )
+set(AAMP_SOURCES ${AAMP_ROOT}/tsprocessor.cpp ${AAMP_ROOT}/tsDemuxer.cpp )
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

@@ -52,7 +52,7 @@ IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(AampLogManager *logObj, id3_c
 
 void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
 		MediaType type,
-		bool discontinuity, 
+		bool discontinuity_pending, 
 		const double proc_position,
 		bool & ptsError, 
 		const std::string & uri)
@@ -63,11 +63,14 @@ void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * ca
 	char * data_ptr = const_cast<char *>(cachedFragment->fragment.GetPtr());
 	auto data_len = cachedFragment->fragment.GetLen();
 
-	if (discontinuity && mPtsOffsetUpdate)
+	if (discontinuity_pending && mPtsOffsetUpdate)
 	{
-		mPtsOffsetUpdate(mCurrentMaxPTS, false);
+		AAMPLOG_INFO(" [metadata][%p] - Processing discontinuity with current PTS: %" PRIu64 " | %f", this, mCurrentMaxPTS, mCurrentMaxPTS_s);
+
+		mPtsOffsetUpdate(mCurrentMaxPTS_s, false);
 		mCurrentMaxPTS = 0;
-	}	
+		mCurrentMaxPTS_s = 0.;
+	}
 
 	if (!processPTSComplete)
 	{
@@ -197,7 +200,7 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(MediaType type, const char * d
 					if (mID3Handler)
 					{
 						const SegmentInfo_t info {delta_pts, delta_pts, static_cast<double>(eventDuration)};
-						mID3Handler(type, message, messageLen, std::move(info), {schemeIDUri} );
+						mID3Handler(type, message, messageLen, std::move(info), schemeIDUri );
 					}
 					else
 					{
@@ -206,7 +209,7 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(MediaType type, const char * d
 				}
 			}
 		}
-	}	
+	}
 }
 
 
@@ -216,22 +219,29 @@ TSMetadataProcessor::TSMetadataProcessor(AampLogManager *logObj, id3_callback_t 
 	std::shared_ptr<TSProcessor> video_processor)
 	: MetadataProcessorIntf(logObj, id3_hdl, ptsoffset_callback),
 	MetadataProcessorImpl(std::move(video_processor))
-{ }
+{
+	mProcessor = aamp_utils::make_unique<aamp_ts::TSFragmentProcessor>(mLogObj);
+}
 
 void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
 		MediaType type,
-		bool discontinuity, 
-		const double proc_position,
+		bool discontinuity_pending, 
+		double proc_position,
 		bool & ptsError, 
 		const std::string & uri // Debug only
 	)
 {
 	AAMPLOG_INFO(" [metadata][%p] - Starting processing fragment - uri: %s", this, uri.c_str());
 
-	if (discontinuity && mPtsOffsetUpdate)
+	if (discontinuity_pending)
 	{
-		mPtsOffsetUpdate(mCurrentMaxPTS, false);
+		AAMPLOG_INFO(" [metadata][%p] - Processing discontinuity with current PTS: %" PRIu64 " | %f",
+			this, mCurrentMaxPTS, mCurrentMaxPTS_s);
+
+		if (mPtsOffsetUpdate)
+			mPtsOffsetUpdate(mCurrentMaxPTS_s, false);
 		mCurrentMaxPTS = 0;
+		mCurrentMaxPTS_s = 0.;
 	}
 
 	MediaProcessor::process_fcn_t processor = [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
@@ -255,23 +265,22 @@ void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedF
 		else if ((type == eMEDIATYPE_AUDIO) || (type == eMEDIATYPE_VIDEO))
 		{
 			// Update the local max PTS value
-			if (info.pts_s > mCurrentMaxPTS)
-				mCurrentMaxPTS = info.pts_s;
+			if (info.pts_s > mCurrentMaxPTS_s)
+			{
+				AAMPLOG_DEBUG(" [%d] Updating max PTS %f -> %f", static_cast<int16_t>(type), mCurrentMaxPTS_s, info.pts_s);
+				mCurrentMaxPTS_s = info.pts_s;
+			}
 		}
 	};
 
-	size_t len = cachedFragment->fragment.GetLen();
-
-	AampGrowableBuffer * frag_ptr = const_cast<AampGrowableBuffer *>(&cachedFragment->fragment);
-	mVideoProcessor->sendSegment(frag_ptr,
+	const AampGrowableBuffer & frag_ptr = cachedFragment->fragment;
+	mProcessor->ProcessFragment(frag_ptr,
 		proc_position,
 		cachedFragment->duration,
-		discontinuity,
-		false,
-		processor,
-		ptsError
-	);
+		discontinuity_pending,
+		processor);
 
+	AAMPLOG_INFO(" [metadata][%p] - Max PTS: %f", this, mCurrentMaxPTS_s);
 	AAMPLOG_INFO(" [metadata][%p] - Terminated processing fragment - uri: %s", this, uri.c_str());
 
 }

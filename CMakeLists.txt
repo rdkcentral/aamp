@@ -214,6 +214,8 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					ElementaryProcessor.h
 					AampStreamSinkManager.h
 					MetadataProcessor.hpp
+					tsDemuxer.hpp
+					tsFragmentProcessor.hpp
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -277,6 +279,8 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					ElementaryProcessor.cpp
 					AampStreamSinkManager.cpp
 					MetadataProcessor.cpp
+					tsDemuxer.cpp
+					tsFragmentProcessor.cpp
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)

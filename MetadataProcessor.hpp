@@ -26,6 +26,10 @@
 #define __METADATAPROCESSOR_HPP__
 
 #include "mediaprocessor.h"
+
+#include "tsDemuxer.hpp"
+#include "tsFragmentProcessor.hpp"
+
 #include "priv_aamp.h"
 #include <pthread.h>
 
@@ -36,6 +40,7 @@ class IsoBmffProcessor;
 class TSProcessor;
 class CachedFragment;
 
+class Demuxer;
 namespace aamp
 {
 
@@ -83,7 +88,7 @@ public:
 	 */
 	virtual void ProcessFragmentMetadata(const CachedFragment * cachedFragment,
 		MediaType type,
-		bool discontinuity, 
+		bool discontinuity_pending, 
 		const double proc_position,
 		bool & ptsError, 
 		const std::string & uri) = 0;
@@ -164,7 +169,7 @@ public:
 
 	virtual void ProcessFragmentMetadata(const CachedFragment * cachedFragment,
 		MediaType type,
-		bool discontinuity, 
+		bool discontinuity_pending, 
 		const double proc_position,
 		bool & ptsError, 
 		const std::string & uri) override;
@@ -225,10 +230,17 @@ public:
 
 	virtual void ProcessFragmentMetadata(const CachedFragment * cachedFragment,
 		MediaType type,
-		bool discontinuity, 
+		bool discontinuity_pending, 
 		const double proc_position,
 		bool & ptsError, 
 		const std::string & uri) override;
+
+private:
+
+	// std::unique_ptr<Demuxer> mDsmccDemuxer {nullptr};
+
+	std::unique_ptr<aamp_ts::TSFragmentProcessor> mProcessor {nullptr};
+
 };
 
 

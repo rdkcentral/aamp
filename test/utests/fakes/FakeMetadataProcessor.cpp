@@ -56,5 +56,4 @@ void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedF
 		bool & ptsError, 
 		const std::string & uri)
 {}
-
 }

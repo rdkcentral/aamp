@@ -28,6 +28,8 @@
 #include "mediaprocessor.h"
 #include "ID3Metadata.hpp"
 #include "uint33_t.h"
+#include "main_aamp.h"
+
 #include <stdio.h>
 #include <pthread.h>
 
@@ -46,6 +48,8 @@ struct RecordingComponent
 	int pid; 			/**< PID associated to the audio, video or data component */
 	char *associatedLanguage; 	/**< Language such as eng, hin, etc */
 	unsigned int descriptorTags; 	/**< Descriptor tags, each byte value will represent one descriptor tag up to max MAX_DESCRIPTOR (4)*/
+
+   RecordingComponent() : siType{0}, elemStreamType{0}, pid{0}, associatedLanguage{nullptr}, descriptorTags{0} {}
 };
 
 
