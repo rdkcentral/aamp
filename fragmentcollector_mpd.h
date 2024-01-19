@@ -900,6 +900,9 @@ protected:
 	bool mHasServerUtcTime;
 	std::mutex playlistMutex;       /**< Mutex locked for accessing and updating mpd document */
 	uint32_t prevTimeScale;
+	bool mIsFcsRepresentation;
+	int mFcsRepresentationId;
+	std::vector<IFCS *>mFcsSegments;
 	/**
 	 * @fn isAdbreakStart
 	 * @param[in] period instance.
