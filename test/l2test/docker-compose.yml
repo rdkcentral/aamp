@@ -1,13 +1,63 @@
-
 version: "3.9"
 services:
+  simlinear:
+    image: ${DOCKER_REPO}simlinear
+    read_only: true
+    # The stream content data to be served by simlinear needs to be in the working directory.
+    volumes:
+      - ${TEST_STREAM_PATH}:/test_streams
+    working_dir: /test_streams
+    command: bash -c "/opt/app/simlinear.py -i 0.0.0.0"
+    environment:
+      - PYTHONUNBUFFERED=1
+    env_file:
+      - .env
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  abrtestproxy:
+    image: ${DOCKER_REPO}abr-test-proxy
+    working_dir: /home
+    command: bash -c "/usr/local/bin/run.sh"
+    #uncomment to make the proxy visible outside of docker
+    #ports:
+    #  - "8080:8080"
+    #  - "8081:8081"
+    environment:
+      - PYTHONUNBUFFERED=1
+    env_file:
+      - .env
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+      - CHOWN
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+
   aamp:
     image: l2test-aamp:latest
     volumes:
       - ../../:/aamp
     working_dir: /aamp/test/l2test/
     command: bash -c "python3 run_l2_aamp.py $optargs"
+    depends_on:
+      - simlinear
+      - abrtestproxy
     environment:
       - PYTHONUNBUFFERED=1
     env_file:
       - .env
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+      - KILL

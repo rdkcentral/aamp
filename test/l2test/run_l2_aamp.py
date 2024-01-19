@@ -124,6 +124,11 @@ for num in testsuitenumbers:
     testsuite = [i for i in testdir if i.startswith(searchtestnum)]
     #Checking test suite folder is available
     if (testsuite):
+        # Hard coded for now until we have a prerequisits strategy.
+        if (testsuite[0].startswith("TST_3000") and ("RUNNING_IN_DOCKER" not in os.environ)):
+            print("Excluding docker required test:", testsuite)
+            testsuite_excluded.append(testsuite[0])
+            continue;
         #Checking whether specific build description available
         check_config_file = os.path.isfile(os.path.join(l2testdir, testsuite[0], "build_config.json"))
         check_postscript_file = os.path.isfile(os.path.join(l2testdir, testsuite[0], "postscript.sh"))
@@ -432,3 +437,4 @@ for num in testsuitenumbers:
         shutil.make_archive(testsuite[0],'zip', os.path.join(l2testdir, directory, testsuite[0]))
         shutil.rmtree(os.path.join(l2testdir, directory,testsuite[0]))
 
+sys.exit(results["Fail"])

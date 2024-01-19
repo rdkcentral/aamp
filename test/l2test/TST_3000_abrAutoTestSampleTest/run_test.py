@@ -26,7 +26,7 @@
 
 import sys
 import os
-sys.path.append("../abrTestingProxy")
+sys.path.append("../../tools/abrTestingProxy/")
 
 import time
 import argparse
@@ -40,31 +40,34 @@ import proxy_ctrl
 
 
 #Lib paths needed for AAMP
-
-if "AAMP_HOME" in os.environ:
-    AAMP_HOME=os.environ["AAMP_HOME"]
-else:
-    AAMP_HOME="aamp"
-
-AAMP_ENV={"LD_PRELOAD": f"{AAMP_HOME}/Linux/lib/libdash.so","LD_LIBRARY_PATH":f"{AAMP_HOME}/Linux/lib" }
+AAMP_HOME = os.environ["AAMP_HOME"] if "AAMP_HOME" in os.environ else os.path.abspath(os.path.join('..','..','..'))
+TEST_PATH = os.path.abspath(os.path.join('.'))
+AAMP_CFG_DIR = TEST_PATH
+AAMP_CLI_CMD_PREFIX = os.environ["AAMP_CLI_CMD_PREFIX"] + ' ' if "AAMP_CLI_CMD_PREFIX" in os.environ else ''
+AAMP_ENV = {"AAMP_CFG_DIR":AAMP_CFG_DIR}
 
 if platform.system() == 'Darwin':
     #MAC
-    aamp_cli_path=AAMP_HOME+ '/build/Debug/aamp-cli'
+    AAMP_CLI_PATH=os.path.join(AAMP_HOME,'build','Debug','aamp-cli')
 else:
     #Linux
-    aamp_cli_path=AAMP_HOME+ '/Linux/bin/aamp-cli'
+    AAMP_ENV.update({"LD_PRELOAD": os.path.join(AAMP_HOME, "Linux", "lib", "libdash.so"), "LD_LIBRARY_PATH": os.path.join(AAMP_HOME, "Linux", "lib")})
+    AAMP_CLI_PATH=os.path.join(AAMP_HOME,'Linux','bin','aamp-cli')
 
-AAMP_CMD=f'/bin/bash -c "{aamp_cli_path}"'
+AAMP_CMD='/bin/bash -c "' + AAMP_CLI_CMD_PREFIX + AAMP_CLI_PATH + '"'
 
 SL_PORT=8085
 SL_URL= f"http://simlinear:{str(SL_PORT)}/"
+OUTPUT_PATH = 'output'
 
 MAX_TEST_TIME_SECS = 300
 
 sl_process = {}
 
 proxy = proxy_ctrl.ProxyCtrl()
+
+aamp_cfg_file = os.path.join(AAMP_CFG_DIR, "aamp.cfg")
+print("AAMP_CFG_DIR=" + AAMP_CFG_DIR)
 
 ##############################################################
 def start_simlinear(abr_type):
@@ -95,9 +98,10 @@ def stop_simlinear():
     cmd=[ ("http://simlinear:5000/sim/stop", {"port":str(SL_PORT)}) ]
     simlinear_cmd(cmd)
     time.sleep(1)
-    cmd=[ ("http://simlinear:5000/sim/stop", {"port":"5000"}) ]
-    simlinear_cmd(cmd)
-    time.sleep(1)
+# Stops the control port, don't want to do that in a container as it will exit the simlinear container, stopping futher tests
+#    cmd=[ ("http://simlinear:5000/sim/stop", {"port":"5000"}) ]
+#    simlinear_cmd(cmd)   # Stops the control port, don;t want to do that in a container as it will stop future tests
+#    time.sleep(1)
 
 def stop_and_exit(code):
     stop_simlinear()
@@ -110,12 +114,12 @@ def create_aamp_cfg():
     trace=true
     Otherwise aamp-cli will not output the logging required for test validation.
     useTCPServerSink=true See RDKAAMP-48
+    networkProxy=http://abrtestproxy:8080
     """
     try:
         if "HOME" in os.environ:
-            file=os.environ["HOME"] + "/aamp.cfg"
-            print("Creating ",file)
-            f = open(file,"w")
+            print("Creating",aamp_cfg_file)
+            f = open(aamp_cfg_file,"w")
             f.write("info=true\ntrace=true\nnetworkProxy=http://abrtestproxy:8080/\nuseTCPServerSink=true\n")
             f.close()
         else:
@@ -147,7 +151,11 @@ def run_test(testdata,run_num):
     test_pass=True
     log_start_timestamp=0
 
-    logfile_name = testdata["logfile"] + "."+ str(run_num)
+    if (0 == run_num):
+        logfile_name = os.path.join(OUTPUT_PATH, testdata["logfile"])
+    else:
+        logfile_name = os.path.join(OUTPUT_PATH, Path(testdata["logfile"]).stem) + "-run" + str(run_num) + Path(testdata["logfile"]).suffix
+
     print("{} {}".format(testdata["title"],logfile_name))
 
     #Send any test related commands to simlinear
@@ -171,6 +179,7 @@ def run_test(testdata,run_num):
     EXPECT_TIMEOUT=10
     env = os.environ
     env.update(AAMP_ENV)
+    print("AAMP_CMD:",AAMP_CMD)
     aamp = pexpect.spawn(AAMP_CMD, env=env, timeout=EXPECT_TIMEOUT)
     expect_re=aamp.compile_pattern_list(expect_list)
 
@@ -291,15 +300,15 @@ TESTDATA1= {
     # ( string, min time seconds, max time seconds)
     {"expect": "Video Profile added to ABR", "min": 0, "max": 1},
     {"expect": "http://simlinear:8085/testdata/m3u8s/discontinuity_test_video_1080_4800000.m3u8", "min": 0, "max": 4}, # Ramp up to the highest bitrate within 3 segment duration (~6 seconds)
-    {"expect": "Next fragment url ../video/1080_4800000/hls/segment_10.ts", "min": 0, "max": 8, "set_rate": 700},      # First few segment requests should be settled faster than real time and the speed ramped up
-    {"expect": "Next fragment url ../video/180_250000/hls/segment_15.ts", "min": 0, "max": 36, "set_rate": 1700},
-    {"expect": "Next fragment url ../video/270_400000/hls/segment_22.ts", "min": 50, "max": 60, "set_rate": 2100},
-    {"expect": "Next fragment url ../video/360_800000/hls/segment_27.ts", "min": 65, "max": 80, "set_rate": 20000},
-    {"expect": "Next fragment url ../video/1080_4800000/hls/segment_32.ts", "min": 90, "max": 100, "add_rule": ["token1", ".*video/1080_4800000.*_33.ts", "404", "10"]},
-    {"expect": "msg:CDN:VIDEO,HTTP-404 url:http://simlinear:8085/testdata/m3u8s/../video/1080_4800000/hls/segment_33.ts", "min": 90, "max": 100, "remove_rule": "token1"},
+    {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/1080_4800000/hls/segment_10.ts", "min": 0, "max": 8, "set_rate": 700},      # First few segment requests should be settled faster than real time and the speed ramped up
+    {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/180_250000/hls/segment_15.ts", "min": 0, "max": 36, "set_rate": 1000},
+    {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/270_400000/hls/segment_22.ts", "min": 50, "max": 60, "set_rate": 2100},
+    {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/360_800000/hls/segment_27.ts", "min": 65, "max": 80, "set_rate": 20000},
+    {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/1080_4800000/hls/segment_32.ts", "min": 90, "max": 100, "add_rule": ["token1", ".*video/1080_4800000.*_33.ts", "404", "10"]},
+    {"expect": "msg:CDN:VIDEO,HTTP-404 url:http://simlinear:8085/testdata/m3u8s/../video/1080_4800000/hls/segment_33.ts", "min": 90, "max": 104, "remove_rule": "token1"},
     {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/720_2400000/hls/segment_33.ts", "min": 90, "max": 104, "add_rule": ["token2", ".*video/.*_35.ts", "404", "2"]},
     {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/540_1200000/hls/segment_35.ts", "min": 90, "max": 112},
-    {"expect": "Next fragment url ../video/1080_4800000/hls/segment_40.ts", "min": 100, "max": 135, "add_rule": ["token3", ".*video/.*_41.ts", "55", "1"]},
+    {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/1080_4800000/hls/segment_40.ts", "min": 100, "max": 135, "add_rule": ["token3", ".*video/.*_41.ts", "55", "1"]},
     {"expect": "Anomaly evt:1 msg:CDN:VIDEO,Curl-55 url:http://simlinear:8085/testdata/m3u8s/../video/1080_4800000/hls/segment_41.ts", "min": 100, "max": 143},
     {"expect": "Buffer is running low", "min": 0, "max": 200, "not_expected" : True},
     {"expect": "fragment injector done. track video", "min": 150, "max": 250, "end_of_test": True }
@@ -350,6 +359,7 @@ if args.aamp_window:
 results={"Pass":0 ,"Fail":0}
 create_aamp_cfg()
 start_simlinear('HLS')
+
 for r in range(args.repeat):
     for test in testlist:
         res = run_test(test,r)
@@ -359,6 +369,7 @@ for r in range(args.repeat):
           results["Fail"] +=1
 
         if res==False and args.ignore_fails==False:
+            print("Results", results)
             stop_and_exit(os.EX_SOFTWARE)   #Return non-zero
 
 print("Results", results)
