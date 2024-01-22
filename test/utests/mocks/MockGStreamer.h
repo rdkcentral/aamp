@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2023 RDK Management
+ * Copyright 2024 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,21 @@
  * limitations under the License.
  */
 
-#include "AampGstUtils.h"
+#ifndef AAMP_MOCK_GSTREAMER_H
+#define AAMP_MOCK_GSTREAMER_H
 
-GstCaps *GetGstCaps(StreamOutputFormat format)
+#include <gmock/gmock.h>
+#include <gst/gstcaps.h>
+
+class MockGStreamer
 {
-	return nullptr;
-}
+public:
+	MOCK_METHOD(GstCaps *, gst_caps_new_simple,
+				(const char *media_type, const char *fieldname, GType var, const int val,
+				 void *ptr));
+	MOCK_METHOD(void, gst_debug_set_threshold_from_string, (const gchar *list, gboolean reset));
+};
+
+extern MockGStreamer *g_mockGStreamer;
+
+#endif /* AAMP_MOCK_GSTREAMER_H */

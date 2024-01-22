@@ -20,15 +20,15 @@
 #include <gtest/gtest.h>
 #include "AampBufferControl.h"
 #include "AampConfig.h"
-#include "MockAampBufferControl.h"
+
 using namespace testing;
 AampLogManager *mLogObj{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
 class BufferControlExternalDataTest : public testing::Test
 {
     public:
-    AAMPGstPlayer* player;
-    MediaType mediaType=eMEDIATYPE_DEFAULT;
+    AAMPGstPlayer* player = nullptr;
+    MediaType mediaType = eMEDIATYPE_DEFAULT;
     AampBufferControl::BufferControlMaster context;
 
     protected:
@@ -64,7 +64,7 @@ class BufferControlExternalDataTest : public testing::Test
 TEST_F(BufferControlExternalDataTest, mBufferControlactionDownloadsTest1)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     MediaType mediaType = eMEDIATYPE_DEFAULT;
     bool downloadsEnabled = true;
 
@@ -79,7 +79,7 @@ TEST_F(BufferControlExternalDataTest, mBufferControlactionDownloadsTest1)
 TEST_F(BufferControlExternalDataTest, mBufferControlactionDownloadsTest2)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     bool downloadsEnabled = true;
     MediaType mediaType[21] = {
     eMEDIATYPE_DEFAULT,
@@ -117,7 +117,7 @@ TEST_F(BufferControlExternalDataTest, mBufferControlactionDownloadsTest2)
 TEST_F(BufferControlExternalDataTest, mBufferControlactionDownloadsTest3)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     MediaType mediaType = eMEDIATYPE_DEFAULT;
     bool downloadsEnabled = false;
 
@@ -150,7 +150,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterflushTest)
 TEST_F(BufferControlExternalDataTest, BufferControlMasterneedDataTest1)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     MediaType mediaType = eMEDIATYPE_DEFAULT;
 
     //Act: Call the function for test
@@ -163,7 +163,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterneedDataTest1)
 TEST_F(BufferControlExternalDataTest, BufferControlMasterneedDataTest2)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     MediaType mediaType[21] = {
     eMEDIATYPE_DEFAULT,
     eMEDIATYPE_VIDEO,
@@ -200,7 +200,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterneedDataTest2)
 TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTest1)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     MediaType mediaType = eMEDIATYPE_DEFAULT;
     double fpts = 22.2;
     double fdts = 33.3;
@@ -221,7 +221,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTes
 TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTest2)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     MediaType mediaType = eMEDIATYPE_DEFAULT;
     double fpts = DBL_MAX;
     double fdts = DBL_MAX;
@@ -239,7 +239,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTes
 TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTest3)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     MediaType mediaType = eMEDIATYPE_DEFAULT;
     double fpts = DBL_MIN;
     double fdts = DBL_MIN;
@@ -258,7 +258,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTes
 TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTest4)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     MediaType mediaType = eMEDIATYPE_DEFAULT;
     double fpts = 0.0;
     double fdts = 0.0;
@@ -279,7 +279,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTes
 TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTest5)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     double fpts = 1.2;
     double fdts = 1.3;
     double duration = 1.4;
@@ -327,7 +327,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTes
 TEST_F(BufferControlExternalDataTest, BufferControlMasterenoughDataTest1)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     MediaType mediaType = eMEDIATYPE_DEFAULT;
 
     //Act: Call the function for test
@@ -340,7 +340,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterenoughDataTest1)
 TEST_F(BufferControlExternalDataTest, BufferControlMasterenoughDataTest2)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     MediaType mediaType[21] = {
     eMEDIATYPE_DEFAULT,
     eMEDIATYPE_VIDEO,
@@ -378,7 +378,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterenoughDataTest2)
 TEST_F(BufferControlExternalDataTest, BufferControlMasterunderflowTest1)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     MediaType mediaType=eMEDIATYPE_DEFAULT;
 
     //Act: Call the function for test
@@ -388,7 +388,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterunderflowTest1)
 TEST_F(BufferControlExternalDataTest, BufferControlMasterunderflowTest2)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     MediaType mediaType[21] = {
     eMEDIATYPE_DEFAULT,
     eMEDIATYPE_VIDEO,
@@ -425,7 +425,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterunderflowTest2)
 TEST_F(BufferControlExternalDataTest, BufferControlMasterupdateTest1)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     MediaType mediaType=eMEDIATYPE_DEFAULT;
 
     //Act: Call the function for test
@@ -438,7 +438,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterupdateTest1)
 TEST_F(BufferControlExternalDataTest, BufferControlMasterupdateTest2)
 {
     // Arrange: Creating the variables for passing to arguments
-    AAMPGstPlayer* player;
+    AAMPGstPlayer* player = nullptr;
     MediaType mediaType[21] = {
     eMEDIATYPE_DEFAULT,
     eMEDIATYPE_VIDEO,

@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2023 RDK Management
+ * Copyright 2024 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
  * limitations under the License.
  */
 
-#include "AampGstUtils.h"
+#include "gstaamptaskpool.h"
 
-GstCaps *GetGstCaps(StreamOutputFormat format)
+GType gst_aamp_taskpool_get_type(void)
 {
-	return nullptr;
+	return 0;
 }

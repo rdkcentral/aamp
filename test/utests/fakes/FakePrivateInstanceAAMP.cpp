@@ -443,12 +443,12 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 	}else {
 		return "";
 	}
-	
+
 }
 
 std::string PrivateInstanceAAMP::GetVideoRectangle()
 {
-	std::string video = "videorectangel"; 
+	std::string video = "videorectangel";
 	return video;
 }
 
@@ -1146,7 +1146,7 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(MediaType fileType)
        return NULL;
 }
 
-void PrivateInstanceAAMP::ResetDiscontinuityInTracks() 
+void PrivateInstanceAAMP::ResetDiscontinuityInTracks()
 {
 }
 
@@ -1246,4 +1246,80 @@ long long PrivateInstanceAAMP::GetVideoPTS()
 
 void PrivateInstanceAAMP::SignalSubtitleClock()
 {
+}
+
+int PrivateInstanceAAMP::ScheduleAsyncTask(IdleTask task, void *arg, std::string taskName)
+{
+	return 0;
+}
+
+bool PrivateInstanceAAMP::RemoveAsyncTask(int taskId)
+{
+	return false;
+}
+
+void PrivateInstanceAAMP::NotifyFirstFrameReceived()
+{
+}
+
+void PrivateInstanceAAMP::NotifyEOSReached()
+{
+}
+
+void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
+{
+}
+
+void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
+{
+}
+
+void PrivateInstanceAAMP::LogFirstFrame(void)
+{
+}
+
+void PrivateInstanceAAMP::LogTuneComplete(void)
+{
+}
+
+void PrivateInstanceAAMP::InitializeCC()
+{
+}
+
+bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
+{
+	return false;
+}
+
+void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
+{
+}
+
+double PrivateInstanceAAMP::GetFirstPTS()
+{
+	return 0;
+}
+
+int PrivateInstanceAAMP::GetCurrentAudioTrackId()
+{
+	return 0;
+}
+
+void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
+{
+}
+
+bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
+{
+	return false;
+}
+
+void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
+{
+}
+
+long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long rate,
+																	 long long trickStartUTCMS)
+{
+	return 0;
 }

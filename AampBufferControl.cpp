@@ -443,9 +443,10 @@ void AampBufferControl::BufferControlMaster::underflow(const AAMPGstPlayer *play
 		//unexpected
 		AAMPLOG_ERR("caught %s", e.what());
 	}
-	
+
 	BufferControlExternalData::actionDownloads(player, mediaType, mDownloadShouldBeEnabled);
 }
+
 void AampBufferControl::BufferControlMaster::teardownStart()
 {
 	std::lock_guard<std::mutex> lock(mMutex);
@@ -464,4 +465,4 @@ void AampBufferControl::BufferControlMaster::flush()
 {
 	std::lock_guard<std::mutex> lock(mMutex);
 	mpBufferingStrategy.reset();
-};
+}

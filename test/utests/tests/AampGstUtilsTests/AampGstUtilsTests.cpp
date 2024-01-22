@@ -22,7 +22,7 @@
 #include <chrono>
 
 #include "AampGstUtils.h"
-#include "MockAampGstUtils.h"
+#include "MockGStreamer.h"
 
 using ::testing::_;
 using ::testing::Return;
@@ -37,13 +37,13 @@ protected:
 
     void SetUp() override
     {
-        g_mockAampGstUtils = new MockAampGstUtils();
+        g_mockGStreamer = new MockGStreamer();
     }
 
     void TearDown() override
     {
-        delete g_mockAampGstUtils;
-        g_mockAampGstUtils = nullptr;
+        delete g_mockGStreamer;
+        g_mockGStreamer = nullptr;
     }
 
 public:
@@ -54,7 +54,7 @@ TEST_F(AampGstUtilsTests, esMP3test)
 {
     GstCaps dummycaps;
     GstCaps *caps{&dummycaps};
-    EXPECT_CALL(*g_mockAampGstUtils,gst_caps_new_simple(StrEq("audio/mpeg"),StrEq("mpegversion"), G_TYPE_INT, 1, NULL)).WillOnce(Return(caps));
+    EXPECT_CALL(*g_mockGStreamer,gst_caps_new_simple(StrEq("audio/mpeg"),StrEq("mpegversion"), G_TYPE_INT, 1, NULL)).WillOnce(Return(caps));
 
     EXPECT_TRUE(GetGstCaps(FORMAT_AUDIO_ES_MP3)==caps);
 }

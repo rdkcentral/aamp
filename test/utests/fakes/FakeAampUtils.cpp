@@ -22,9 +22,9 @@
 
 MockAampUtils *g_mockAampUtils = nullptr;
 
-/** 
+/**
  * @enum HarvestConfigType
- * @brief Harvest Configuration type 
+ * @brief Harvest Configuration type
  */
 enum HarvestConfigType
 {
@@ -104,7 +104,7 @@ int getHarvestConfigForMedia(MediaType fileType)
 	{
 		case eMEDIATYPE_VIDEO:
 			harvestType = eHARVEST_ENABLE_VIDEO;
-			break; 
+			break;
 
 		case eMEDIATYPE_INIT_VIDEO:
 			harvestType = eHARVEST_ENABLE_INIT_VIDEO;
@@ -112,59 +112,59 @@ int getHarvestConfigForMedia(MediaType fileType)
 
 		case eMEDIATYPE_AUDIO:
 			harvestType = eHARVEST_ENABLE_AUDIO;
-			break; 
-		
+			break;
+
 		case eMEDIATYPE_INIT_AUDIO:
 			harvestType = eHARVEST_ENABLE_INIT_AUDIO;
-			break; 
-		
+			break;
+
 		case eMEDIATYPE_SUBTITLE:
 			harvestType = eHARVEST_ENABLE_SUBTITLE;
-			break; 
+			break;
 
 		case eMEDIATYPE_INIT_SUBTITLE:
 			harvestType = eHARVEST_ENABLE_INIT_SUBTITLE;
-			break; 
+			break;
 
 		case eMEDIATYPE_MANIFEST:
 			harvestType = eHARVEST_ENABLE_MANIFEST;
-			break; 
+			break;
 
 		case eMEDIATYPE_LICENCE:
 			harvestType = eHARVEST_ENABLE_LICENCE;
-			break; 
+			break;
 
 		case eMEDIATYPE_IFRAME:
 			harvestType = eHARVEST_ENABLE_IFRAME;
-			break; 
-		
+			break;
+
 		case eMEDIATYPE_INIT_IFRAME:
 			harvestType = eHARVEST_ENABLE_INIT_IFRAME;
 			break;
 
 		case eMEDIATYPE_PLAYLIST_VIDEO:
 			harvestType = eHARVEST_ENABLE_PLAYLIST_VIDEO;
-			break; 
+			break;
 
 		case eMEDIATYPE_PLAYLIST_AUDIO:
 			harvestType = eHARVEST_ENABLE_PLAYLIST_AUDIO;
-			break; 
+			break;
 
 		case eMEDIATYPE_PLAYLIST_SUBTITLE:
 			harvestType = eHARVEST_ENABLE_PLAYLIST_SUBTITLE;
-			break; 
-		
+			break;
+
 		case eMEDIATYPE_PLAYLIST_IFRAME:
 			harvestType = eHARVEST_ENABLE_PLAYLIST_IFRAME;
-			break;  
+			break;
 
-		case eMEDIATYPE_DSM_CC: 
+		case eMEDIATYPE_DSM_CC:
 			harvestType = eHARVEST_ENABLE_DSM_CC;
-			break; 
+			break;
 
 		default:
 			harvestType = eHARVEST_DISABLE_DEFAULT;
-			break; 
+			break;
 	}
 	return (int)harvestType;
 }
@@ -489,4 +489,21 @@ const char* getMediaTypeName( MediaType mediaType )
 uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial)
 {
 	return 0;
+}
+
+const char *GetDrmSystemName(DRMSystems drmSystem)
+{
+	const char *temp = "";
+	return temp;
+}
+
+const char *GetDrmSystemID(DRMSystems drmSystem)
+{
+	const char *temp = "";
+	return temp;
+}
+
+bool aamp_StartsWith(const char *inputStr, const char *prefix)
+{
+	return false;
 }
