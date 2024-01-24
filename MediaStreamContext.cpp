@@ -40,7 +40,6 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 			MediaProcessor::process_fcn_t processor = [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
 			};
-			size_t len = cachedFragment->fragment.GetLen();
 			fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment, cachedFragment->position, 
                                                             cachedFragment->duration, isDiscontinuity, cachedFragment->initFragment, processor, ptsError);
         }

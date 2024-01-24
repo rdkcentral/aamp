@@ -295,13 +295,13 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 							if((isSrcdurnotequalstoaddur) && ((curAd.duration - mPlacementObj.adNextOffset) <= OFFSET_ALIGN_FACTOR))
 							{ // check if the current source period duration < current period ad duration and it is lest than offset factor - LLAMA-11817
 								AAMPLOG_INFO("nextperiod : %s with valid duration  available",periods.at(iter)->GetId().c_str());
-								AAMPLOG_INFO("currperioddur : [%f] curAd.duration : %lu periodDelta : %f mPlacementObj.adNextOffset:%u diff : %ld",
+								AAMPLOG_INFO("currperioddur : [%f] curAd.duration : %" PRIu64 " periodDelta : %f mPlacementObj.adNextOffset:%u diff : %" PRIu64 ,
 									currperioddur, curAd.duration, periodDelta, mPlacementObj.adNextOffset, (curAd.duration - mPlacementObj.adNextOffset));
 								curAd.placed = true;
 								currentAdPeriodClosed = true;
 								//Place the end markers of adbreak
 								setAdMarkers(p2AdData.duration,periodDelta);
-								AAMPLOG_INFO("[CDAI] Current Ad completely placed.end period:%s end period offset:%lu adjustEndPeriodOffset:%d",
+								AAMPLOG_INFO("[CDAI] Current Ad completely placed.end period:%s end period offset:%" PRIu64 " adjustEndPeriodOffset:%d",
 									periodId.c_str(), abObj.endPeriodOffset, abObj.adjustEndPeriodOffset);
 								break;
 							}

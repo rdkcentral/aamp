@@ -993,7 +993,7 @@ void IsoBmffProcessor::setPeerSubtitleProcessor(IsoBmffProcessor *processor)
 	if (peerSubtitleProcessor)
 	{
 		peerSubtitleProcessor->setPeerProcessor(this);
-		if ((type == eBMFFPROCESSOR_TYPE_VIDEO))
+		if( type == eBMFFPROCESSOR_TYPE_VIDEO )
 		{
 			peerSubtitleProcessor->initProcessorForRestamp();
 		}

@@ -207,7 +207,6 @@ void AampCMCDCollector::CMCDGetHeaders(MediaType fileType , std::vector<std::str
 	if(bCMCDEnabled)
 	{
 		// To find the execution time of CMCD Header packing during download operation
-		long long begin = NOW_STEADY_TS_MS;
 		std::unordered_map<std::string, std::vector<std::string>> CMCDCustomHeaders;
 		StreamTypeCMCDIter it=mCMCDStreamData.find(fileType);
 		CMCDHeaders *pCMCDMetrics=NULL;
@@ -274,7 +273,7 @@ void AampCMCDCollector::SetBitrates(MediaType fileType,const std::vector<BitsPer
 			AAMPLOG_INFO("[CMCD][%d]Top Bitrate %ld",fileType,maxBitrate);
 			if(fileType == eMEDIATYPE_VIDEO || fileType == eMEDIATYPE_AUDIO)
 			{
-				pCMCDMetrics->SetTopBitrate(maxBitrate/1000);
+				pCMCDMetrics->SetTopBitrate( (int)(maxBitrate/1000) );
 			}
 		}
 		else

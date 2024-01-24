@@ -31,15 +31,6 @@
 
 class CachedFragment;
 
-namespace {
-
-	static const char *ProcessorTypeName[] =
-	{
-		"video", "audio", "subtitle", "metadata"
-	};
-}
-
-
 namespace aamp
 {
 

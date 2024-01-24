@@ -103,12 +103,6 @@ void print_nop(const char *format, ...){}
 // #define MAX_PTS (uint33_t::max_value().value)
 constexpr uint64_t max_pts_value = uint33_t::max_value().value;
 
-/** Maximum descriptor present for a elementary stream */
-// #define MAX_DESCRIPTOR (4)
-constexpr auto max_es_descriptor = 4u;
-
-
-
 /**
  * @brief std::exchange for pre-c++14 compiler
  * @param obj	-	object whose value to replace

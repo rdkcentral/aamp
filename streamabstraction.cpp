@@ -1885,7 +1885,6 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 {
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	double bufferValue = video->GetBufferedDuration();
-	long currBandwidth = GetStreamInfo(currProfileIndex)->bandwidthBitsPerSecond;
 	if(bufferValue > 0 && currProfileIndex == newProfileIndex)
 	{
 		AAMPLOG_INFO("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);

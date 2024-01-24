@@ -2152,8 +2152,6 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 		AAMPLOG_INFO(" %p [%u] - Starting fragment injection - uri: %s", 
 			this, static_cast<uint16_t>(type), cachedFragment->uri.c_str());
 #endif
-
-		size_t len = cachedFragment->fragment.GetLen();
 		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment,
 			position,
 			cachedFragment->duration,

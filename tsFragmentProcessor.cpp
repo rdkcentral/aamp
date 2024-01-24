@@ -74,16 +74,6 @@ namespace {
 			printf("%s\n", buff);
 		}
 	}
-
-	static void dumpPackets(unsigned char *packets, int len, int packetSize)
-	{
-		while (len)
-		{
-			dump_DbgPacket(packets, packetSize);
-			len -= packetSize;
-			packets += packetSize;
-		}
-	}
 }
 
 TSFragmentProcessor::TSFragmentProcessor(AampLogManager *logObj)
@@ -134,9 +124,6 @@ bool TSFragmentProcessor::ProcessFragment(const AampGrowableBuffer & fragment,
 	constexpr int m_ttsSize {0};
 	const size_t frag_size = fragment.GetLen();
 	const uint8_t * base_frag_ptr = reinterpret_cast<const uint8_t *>(fragment.GetPtr());
-	const uint8_t * packet_end = base_frag_ptr + frag_size - m_ttsSize;
-
-	bool result = true;
 	uint8_t * curr_packet_ptr = const_cast<uint8_t *>(base_frag_ptr) + m_ttsSize;
 	size_t curr_packet_len = frag_size;
 
@@ -527,11 +514,11 @@ void TSFragmentProcessor::DemuxFragment(const uint8_t * base_packet_ptr, size_t 
 					firstPcr = (unsigned long long) curr_ptr[6] << 25 | (unsigned long long) curr_ptr[7] << 17
 						| (unsigned long long) curr_ptr[8] << 9 | curr_ptr[9] << 1 | (curr_ptr[10] & (0x80)) >> 7;
 
-					AAMPLOG_DEBUG(" Packet: %lu - set base PTS from first PCR: %lu [%d]", packet_cnt, firstPcr, pid);
+					AAMPLOG_DEBUG(" Packet: %" PRIu64 " - set base PTS from first PCR: %" PRIu64 " [%d]", packet_cnt, firstPcr, pid);
 
 					if (mDsmccDemuxer)
 					{
-						AAMPLOG_DEBUG(" Set base PTS for DSMCC demuxer from firstPCR: %lu - pid: %d", firstPcr, pid);
+						AAMPLOG_DEBUG(" Set base PTS for DSMCC demuxer from firstPCR: %" PRIu64 " - pid: %d", firstPcr, pid);
 						mDsmccDemuxer->setBasePTS(firstPcr, true);
 					}
 					m_demuxInitialized = true;

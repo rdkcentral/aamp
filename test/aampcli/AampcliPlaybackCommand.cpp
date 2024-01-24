@@ -169,7 +169,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	}
 	else if( sscanf(cmd, "select %49s", playerId ) == 1 )
 	{
-		if( playerId != NULL)
+		if( playerId[0] )
 		{
 			auto playerInstanceItr = mAampcli.mPlayerInstances.end();
 			
