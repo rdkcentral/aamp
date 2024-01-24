@@ -227,21 +227,19 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 				AAMPLOG_WARN("IsoBmffProcessor %s Failed to process pts from buffer at pos:%f and dur:%f", IsoBmffProcessorTypeName[type], position, duration);
 			}
 
-			pthread_mutex_lock(&m_mutex);
-			if (abortAll)
-			{
-				ret = false;
-			}
-			pthread_mutex_unlock(&m_mutex);
-
 			if (ret && processPTSComplete)
 			{
-				if (timeScale == 0)
+				bool sendError = false;
+				pthread_mutex_lock(&m_mutex);
+				if (abortAll)
+				{
+					ret = false;
+				}
+				if (ret && timeScale == 0)
 				{
 					if (initSegment.empty())
 					{
-						AAMPLOG_WARN("IsoBmffProcessor %s Init segment missing during PTS processing!",  IsoBmffProcessorTypeName[type]);
-						p_aamp->SendErrorEvent(AAMP_TUNE_MP4_INIT_FRAGMENT_MISSING);
+						sendError = true;
 						ret = false;
 					}
 					else
@@ -259,13 +257,14 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 							AAMPLOG_ERR("IsoBmffProcessor %s TimeScale value missing in init segment and mp4 fragment, setting to a default of 1!",  IsoBmffProcessorTypeName[type]);
 							timeScale = 1; // to avoid div-by-zero errors later. MDHD and MVHD are mandatory boxes, but lets relax for now
 						}
-
 					}
 				}
+				pthread_mutex_unlock(&m_mutex);
 
-				if (ret)
+				if (ret && !abortAll)
 				{
 					double pos = ((double)basePTS / (double)timeScale);
+					// For post processing, release mutex
 					// If AAMP override hack is enabled for this platform, then we need to pass the basePTS value to
 					// PrivateInstanceAAMP since PTS will be restamped in qtdemux. This ensures proper pts value is sent in progress event.
 #ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
@@ -302,10 +301,15 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					pushInitSegment(pos);
 					initSegmentProcessComplete = true;
 				}
+				if (sendError)
+				{
+					AAMPLOG_WARN("IsoBmffProcessor %s Init segment missing during PTS processing!",  IsoBmffProcessorTypeName[type]);
+					p_aamp->SendErrorEvent(AAMP_TUNE_MP4_INIT_FRAGMENT_MISSING);
+				}
 			}
 		}
 	}
-	return ret;
+	return (ret && !abortAll);
 }
 
 /**
