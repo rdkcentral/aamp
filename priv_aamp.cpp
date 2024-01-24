@@ -3315,7 +3315,6 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	{
 		SetTunedManifestUrl(); /* Redirect URL in case on VOD */
 	}
-
 	if (!mTuneCompleted)
 	{
 		if(mLogTune)
@@ -3326,9 +3325,9 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 				profiler.GetClassicTuneTimeInfo(mTuneMetrics.success, mTuneAttempts, mfirstTuneFmt, mPlayerLoadTime, streamType, IsLive(), durationSeconds, classicTuneStr);
 				SendMessage2Receiver(E_AAMP2Receiver_TUNETIME,classicTuneStr);
 			}
-			mTuneCompleted = true;
 			mFirstTune = false;
 		}
+		mTuneCompleted = true;
 		AAMPAnomalyMessageType eMsgType = AAMPAnomalyMessageType::ANOMALY_TRACE;
 		if(mTuneAttempts > 1 )
 		{
