@@ -1,5 +1,4 @@
 include(GoogleTest)
-
 add_subdirectory(AampEventTests)
 add_subdirectory(AampCliSet)
 add_subdirectory(AampGrowableBuffer)
@@ -43,6 +42,7 @@ add_subdirectory(AampBufferControlTests)
 add_subdirectory(fragmentcollector_progressiveTests)
 add_subdirectory(AampMPDUtils)
 add_subdirectory(PrivAampTests)
+add_subdirectory(IsoBmffBufferTests)
 add_subdirectory(IsoBmffProcessorTests)
 add_subdirectory(AampStreamSinkManagerTests)
 add_subdirectory(ElementaryProcessorTests)

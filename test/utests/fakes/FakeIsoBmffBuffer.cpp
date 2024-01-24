@@ -18,6 +18,9 @@
 */
 
 #include "isobmffbuffer.h"
+#include "MockIsoBmffBuffer.h"
+
+MockIsoBmffBuffer *g_mockIsoBmffBuffer = nullptr;
 
 IsoBmffBuffer::~IsoBmffBuffer()
 {
@@ -25,7 +28,14 @@ IsoBmffBuffer::~IsoBmffBuffer()
 
 bool IsoBmffBuffer::isInitSegment()
 {
-    return false;
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->isInitSegment();
+    }
+    else
+    {
+        return false;
+    }
 }
 
 void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
@@ -39,7 +49,14 @@ bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 
 bool IsoBmffBuffer::getTimeScale(uint32_t &timeScale)
 {
-    return false;
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->getTimeScale(timeScale);
+    }
+    else
+    {
+        return false;
+    }
 }
 
 void IsoBmffBuffer::destroyBoxes()
@@ -63,7 +80,14 @@ bool IsoBmffBuffer::getFirstPTSInternal(const std::vector<Box*> *boxes, uint64_t
 
 bool IsoBmffBuffer::getFirstPTS(uint64_t &pts)
 {
-    return true;
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->getFirstPTS(pts);
+    }
+    else
+    {
+        return false;
+    }
 }
 
 bool IsoBmffBuffer::getMdatBoxCount(size_t &count)
@@ -83,9 +107,29 @@ uint64_t IsoBmffBuffer::getSampleDurationInernal(const std::vector<Box*> *boxes)
 
 void IsoBmffBuffer::getSampleDuration(Box *box, uint64_t &fduration)
 {
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->getSampleDuration(box, fduration);
+    }
 }
 
 bool IsoBmffBuffer::getTrack_id(uint32_t &track_id)
 {
 	return false;
+}
+
+void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz)
+{
+}
+
+Box* IsoBmffBuffer::getBox(const char *name, size_t &index)
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->getBox(name, index);
+    }
+    else
+    {
+        return NULL;
+    }
 }

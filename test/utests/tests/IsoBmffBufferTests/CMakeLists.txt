@@ -23,7 +23,8 @@ pkg_check_modules(GLIB REQUIRED glib-2.0)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME IsoBmffProcessorTests)
+set(EXEC_NAME IsoBmffBufferTests)
+set(TEST_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/testFiles")
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle)
 #include_directories(${AAMP_ROOT}/subtec/libsubtec)
@@ -43,10 +44,10 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${UTESTS_ROOT}/mocks)
 include_directories(${TEST_FILES_DIR})
 
-set(TEST_SOURCES FunctionalTests.cpp
-		 IsoBmffProcessorTests.cpp)
+set(TEST_SOURCES IsoBmffBufferTests.cpp
+		 IsoBmffBufferAAMPTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/isobmff/isobmffprocessor.h ${AAMP_ROOT}/isobmff/isobmffprocessor.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp ${AAMP_ROOT}/isobmff/isobmffbox.h ${AAMP_ROOT}/isobmff/isobmffbox.cpp ${AAMP_ROOT}/isobmff/isobmffbuffer.h ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp ${AAMP_ROOT}/AampUtils.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

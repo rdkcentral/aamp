@@ -507,7 +507,11 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 
 MediaFormat PrivateInstanceAAMP::GetMediaFormatTypeEnum() const
 {
-	return eMEDIAFORMAT_UNKNOWN;
+	if (g_mockPrivateInstanceAAMP != nullptr) {
+		return g_mockPrivateInstanceAAMP->GetMediaFormatTypeEnum();
+	} else {
+		return eMEDIAFORMAT_UNKNOWN;
+	}
 }
 
 void PrivateInstanceAAMP::SetEventPriorityAsyncTune(bool bValue)
@@ -615,6 +619,10 @@ void PrivateInstanceAAMP::UpdateDuration(double seconds)
 
 void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char * description, bool isRetryEnabled, int32_t secManagerClassCode, int32_t secManagerReasonCode, int32_t secClientBusinessStatus, const std::string &responseData)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SendErrorEvent(tuneFailure, description, isRetryEnabled, secManagerClassCode, secManagerReasonCode, secClientBusinessStatus, responseData);
+	}
 }
 
 void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
@@ -992,6 +1000,10 @@ void PrivateInstanceAAMP::SendStalledErrorEvent()
 
 void PrivateInstanceAAMP::SendStreamTransfer(MediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment, bool discontinuity)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, initFragment, discontinuity);
+	}
 }
 
 void PrivateInstanceAAMP::SetTrackDiscontinuityIgnoredStatus(MediaType track)

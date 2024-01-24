@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's license file the
 * following copyright and licenses apply:
 *
-* Copyright 2023 RDK Management
+* Copyright 2024 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,11 +17,25 @@
 * limitations under the License.
 */
 
-#include <gtest/gtest.h>
+#ifndef AAMP_MOCK_ISOBMFF_BUFFER_H
+#define AAMP_MOCK_ISOBMFF_BUFFER_H
 
-int main(int argc, char** argv)
+#include <gmock/gmock.h>
+#include "isobmff/isobmffbuffer.h"
+
+class MockIsoBmffBuffer : public IsoBmffBuffer
 {
-    testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
+public:
 
+    MOCK_METHOD(bool, getFirstPTS, (uint64_t&));
+
+    MOCK_METHOD(bool, getTimeScale, (uint32_t&));
+
+    MOCK_METHOD(bool, isInitSegment, ());
+    MOCK_METHOD(Box*, getBox, (const char *, size_t &));
+    MOCK_METHOD(void, getSampleDuration, (Box *, uint64_t &));
+};
+
+extern MockIsoBmffBuffer *g_mockIsoBmffBuffer;
+
+#endif /* AAMP_MOCK_ISOBMFF_BUFFER_H */
