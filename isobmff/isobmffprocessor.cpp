@@ -618,7 +618,7 @@ void IsoBmffProcessor::cacheInitBufferForRestampingPTS(char *segment, size_t siz
 	{
 		AAMPLOG_INFO("IsoBmffProcessor %s  abr changed with new timescale", IsoBmffProcessorTypeName[type]);
 	}
-	AAMPLOG_WARN("IsoBmffProcessor %s  scalingOfPTSComplete = %d maxTrackDurationFromISOBufferInTS = %" PRIu64 " ",IsoBmffProcessorTypeName[type], scalingOfPTSComplete,maxTrackDurationFromISOBufferInTS);
+	AAMPLOG_WARN("IsoBmffProcessor %s maxTrackDurationFromISOBufferInTS = %" PRIu64 " ",IsoBmffProcessorTypeName[type], maxTrackDurationFromISOBufferInTS);
 }
 
 /**
@@ -824,8 +824,8 @@ void IsoBmffProcessor::resetRestampVariables()
 	pthread_mutex_lock(&m_mutex);
 	scalingOfPTSComplete=false;
 	prevPTS = 0;
-	pthread_mutex_unlock(&m_mutex);
 	AAMPLOG_INFO("IsoBmffProcessor %s scalingOfPTSComplete = %d basePTS = %" PRIu64 " ",IsoBmffProcessorTypeName[type], scalingOfPTSComplete, basePTS);
+	pthread_mutex_unlock(&m_mutex);
 }
 
 /**
