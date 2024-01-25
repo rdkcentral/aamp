@@ -11406,7 +11406,8 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 	AAMPLOG_INFO( "Speed correction state:%d", aamp->GetLLDashAdjustSpeed());
 
 	aamp->SetLLDashCurrentPlayBackRate(normalPlaybackRate);
-
+	bool bufferCorrectionStarted = false;
+	bool reportEvent = false;
 	while(keepRunning)
 	{
 		aamp->InterruptableMsSleep(monitorInterval);
@@ -11466,7 +11467,6 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 						pAampLLDashServiceData->maxPlaybackRate > pAampLLDashServiceData->minPlaybackRate &&
 						pAampLLDashServiceData->maxPlaybackRate > normalPlaybackRate)
 					{
-						bool reportEvent = false;
 						double buffervalue = GetBufferedDuration();
 						double minbuffer = DEFAULT_MIN_BUFFER_LOW_LATENCY;
 						if (pAampLLDashServiceData->fragmentDuration > 0)
@@ -11477,7 +11477,6 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 						double targetBuffer = (segmentBufferValue >  (double)pAampLLDashServiceData->targetLatency) ?  pAampLLDashServiceData->targetLatency : segmentBufferValue;
 						bool isEnoughBuffer = (buffervalue*1000.00) > targetBuffer;
 						bool bufferLowHitted = false; 
-						bool bufferCorrectionStarted = false;
 						static int bufferLowCount = 0;
 
 						double currPlaybackRate = aamp->GetLLDashCurrentPlayBackRate();

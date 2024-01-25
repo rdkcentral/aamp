@@ -1899,7 +1899,7 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 					bool isEnoughBuffer = true;
 					if(bufferedDuration > -1.0)
 					{
-						bool isEnoughBuffer = bufferedDuration > (mLiveOffset / 2);
+						isEnoughBuffer = bufferedDuration > (mLiveOffset / 2);
 					}	
 					double liveTime = (double)mNewSeekInfo.GetInfo().getUpdateTime()/1000.0;
 					double finalProgressTime = (mFirstFragmentTimeOffset) + ((double)mNewSeekInfo.GetInfo().getPosition()/1000.0);
@@ -11588,7 +11588,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 								((languagePresent && !languageAvailabilityInManifest) ||
 								 (renditionPresent && !renditionAvailabilityInManifest) ||
 								 (accessibilityTypePresent && !accessibilityAvailabilityInManifest) ||
-								 (labelPresent && !labelAvailabilityInManifest)))
+								 (labelPresent && !labelAvailabilityInManifest) ||
+								 (namePresent && !nameAvailabilityInManifest)))
 						{
 							ReloadTSB();
 						}

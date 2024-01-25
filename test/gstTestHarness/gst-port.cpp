@@ -56,7 +56,7 @@ public:
 		assert( pad );
 		pts_offset = pts;
 		gint64 offs = pts * 1000000000LL;
-		printf( "gst_pad_set_offset(%lld)\n", offs );
+		printf("gst_pad_set_offset(%" G_GINT64_FORMAT ")\n", offs );
 		gst_pad_set_offset( pad, offs );
 	}
 	
@@ -328,7 +328,7 @@ private:
 
 static GstPadProbeReturn MyPadProbeCallback( GstPad * pad, GstPadProbeInfo * info, MediaStream *stream )
 { // C to C++ glue
-	printf( "pad probe: type=%d size=%d data=%p offset=%llu id=%lu\n",
+	printf("pad probe: type=%d size=%d data=%p offset=%" G_GUINT64_FORMAT " id=%lu\n",
 		   info->type,
 		   info->size,
 		   info->data,

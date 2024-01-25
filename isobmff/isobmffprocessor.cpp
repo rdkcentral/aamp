@@ -704,35 +704,40 @@ bool IsoBmffProcessor::continueInjectionInSameTimeScale(uint64_t pts)
 bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 {
 	bool ret=true;
+	AAMPLOG_INFO("IsoBmffProcessor %s  Before push init when startPos=%f pts = %" PRIu64 " sumPTS = %" PRIu64 " basePTS = %" PRIu64 " ", IsoBmffProcessorTypeName[type],startPos,pts,sumPTS,basePTS);
 	if( type == eBMFFPROCESSOR_TYPE_AUDIO || type == eBMFFPROCESSOR_TYPE_SUBTITILE)
 	{
-		AAMPLOG_WARN("IsoBmffProcessor %s  Before push init when startPos=%f peerStartPos=%f pts = %" PRIu64 " sumPTS = %" PRIu64 " peerSumPTS = %" PRIu64 " \
-		basePTS = %" PRIu64 " ", IsoBmffProcessorTypeName[type], startPos, peerProcessor->startPos, pts, sumPTS, peerProcessor->sumPTS, basePTS);
-
+		if(peerProcessor)
+   	 	{
+			AAMPLOG_WARN("peerStartPos=%f peerSumPTS=%" PRIu64 "", peerProcessor->startPos, peerProcessor->sumPTS);
+		}
 		waitForVideoPTS();  //wait for video init to arrive
-
 		/*
 		BasePTS is derived from video timescale. There might be chances audio timescale is diffrent.
 		always good to sync the basePTS for audio timescale as well to avoid surprises 
 		*/
-
 		//Now video and audio pts is in sync. push it
 		if( pts != 0 )
 		{
-			AAMPLOG_INFO("IsoBmffProcessor %s  startPos = %f PeerStartPos = %f trackOffsetInSecs = %lf",
+			if(peerProcessor)
+			{
+				AAMPLOG_INFO("IsoBmffProcessor %s  startPos = %f PeerStartPos = %f trackOffsetInSecs = %lf",
 							IsoBmffProcessorTypeName[type], startPos, peerProcessor->startPos, trackOffsetInSecs);
-			if (sumPTS == 0)
-			{
-				sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
-			}
-			else
-			{
-				sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale) + (trackOffsetInSecs * currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
-			}
-			startPos = peerProcessor->startPos + trackOffsetInSecs; // startpos will never change
 
-			AAMPLOG_WARN("IsoBmffProcessor %s  startPos = %f PeerStartPos = %f sumPTS = %" PRIu64 " peersumPTS = %" PRIu64 " trackOffsetInSecs = %lf",
-							IsoBmffProcessorTypeName[type], startPos, peerProcessor->startPos, sumPTS, peerProcessor->sumPTS, trackOffsetInSecs);
+				if (sumPTS == 0)
+				{
+					sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
+				}
+				else
+				{
+					sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale) + (trackOffsetInSecs * currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
+				}
+				startPos = peerProcessor->startPos + trackOffsetInSecs; // startpos will never change
+
+				AAMPLOG_INFO("peerStartPos=%f peerSumPTS=%" PRIu64 "", peerProcessor->startPos, peerProcessor->sumPTS);
+			}
+			AAMPLOG_WARN("IsoBmffProcessor %s  startPos = %f sumPTS = %" PRIu64 " trackOffsetInSecs = %lf",
+							IsoBmffProcessorTypeName[type], startPos, sumPTS, trackOffsetInSecs);
 		}
 
 		pushInitSegment(startPos);
@@ -743,9 +748,10 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 	}
 	else if( type == eBMFFPROCESSOR_TYPE_VIDEO )
 	{
-		AAMPLOG_INFO("IsoBmffProcessor %s  Before push init when startPos=%f peerStartPos = %f pts = %" PRIu64 " sumPTS = %" PRIu64 " peerSumPTS = %" PRIu64 " basePTS = %" PRIu64 " ",
-						IsoBmffProcessorTypeName[type],startPos,peerProcessor->startPos,pts,sumPTS,peerProcessor->sumPTS,basePTS);
-
+		if(peerProcessor)
+		{
+			AAMPLOG_INFO("peerStartPos=%f peerSumPTS=%" PRIu64 "", peerProcessor->startPos, peerProcessor->sumPTS);
+		}
 		/*
 		Push in order
 		1. Main init(ad<->to<->content transition)
@@ -767,8 +773,12 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 			peerSubtitleProcessor->setRestampBasePTS(sumPTS);
 		}
 	}
-	AAMPLOG_INFO("IsoBmffProcessor %s  After push init when startPos=%f peerStartPos=%f sumPTS=%" PRIu64 " peerSumPTS=%" PRIu64 " basePTS=%" PRIu64 " ",
-	IsoBmffProcessorTypeName[type],startPos,peerProcessor->startPos,sumPTS,peerProcessor->sumPTS,basePTS);
+	AAMPLOG_INFO("IsoBmffProcessor %s  After push init when startPos=%f sumPTS=%" PRIu64 " basePTS=%" PRIu64 " ",
+	IsoBmffProcessorTypeName[type],startPos,sumPTS,basePTS);
+	if(peerProcessor)
+	{
+		AAMPLOG_INFO("peerStartPos=%f peerSumPTS=%" PRIu64 "", peerProcessor->startPos, peerProcessor->sumPTS);
+	}
 	return ret;
 }
 

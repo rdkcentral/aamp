@@ -144,19 +144,19 @@ unsigned char *base64_Decode(const char *src, size_t *len, size_t srcLen)
 				data[2] = mBase64CharToIndex[(unsigned char)src[2]];
 			if(src+3 < finish)
 				data[3] = mBase64CharToIndex[(unsigned char)src[3]];
-			*dst++ = (data[0] << 2) | (data[1] >> 4);
+			*dst++ = ((unsigned)data[0] << 2) | ((unsigned)data[1] >> 4);
 			if (data[2] < 0)
 			{
 				outSize++;
 				break;
 			}
-			*dst++ = (data[1] << 4) | (data[2] >> 2);
+			*dst++ = ((unsigned)data[1] << 4) | ((unsigned)data[2] >> 2);
 			if (data[3] < 0)
 			{
 				outSize += 2;
 				break;
 			}
-			*dst++ = (data[2] << 6) | (data[3]);
+			*dst++ = ((unsigned)data[2] << 6) | ((unsigned)data[3]);
 			src += 4;
 			outSize += 3;
 		}	

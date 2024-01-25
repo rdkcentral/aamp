@@ -727,7 +727,7 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 		int schemeIdLen = ReadCStringLen(ptr, remainingSize);
 		if(schemeIdLen > 0)
 		{
-			schemeId = (char*) malloc(sizeof(uint8_t)*schemeIdLen);
+			schemeId = (char*) malloc(sizeof(char)*schemeIdLen);
 			READ_U8(schemeId, ptr, schemeIdLen);
 			remainingSize -= (sizeof(uint8_t) * schemeIdLen);
 			int schemeIdValueLen = ReadCStringLen(ptr, remainingSize);
