@@ -751,7 +751,14 @@ BitsPerSecond PrivateInstanceAAMP::GetMinimumBitrate()
 
 long long PrivateInstanceAAMP::GetPositionMs()
 {
-    return 0;
+	long long positionMs = 0;
+
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		positionMs = g_mockPrivateInstanceAAMP->GetPositionMs();
+	}
+
+	return positionMs;
 }
 
 bool PrivateInstanceAAMP::IsAuxiliaryAudioEnabled(void)

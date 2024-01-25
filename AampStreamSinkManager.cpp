@@ -25,8 +25,8 @@
 #include "AampStreamSinkManager.h"
 #include "priv_aamp.h"
 
-AampStreamSinkManager::AampStreamSinkManager() : 
-	mGstPlayer(nullptr), 
+AampStreamSinkManager::AampStreamSinkManager() :
+	mGstPlayer(nullptr),
 	mClientStreamSinkMap(),
 	mActiveGstPlayersMap(),
 	mInactiveGstPlayersMap(),
@@ -165,7 +165,7 @@ void AampStreamSinkManager::CreateStreamSink(AampLogManager *logObj, PrivateInst
 		case ePIPELINEMODE_MULTI:
 		{
 			//Do not edit or remove this log - it is used in L2 test
-			AAMPLOG_WARN("AampStreamSinkManager(%p)::%s %s Pipeline mode, creating GstPlayer for PLAYER[%d]", this, __FUNCTION__, 
+			AAMPLOG_WARN("AampStreamSinkManager(%p)::%s %s Pipeline mode, creating GstPlayer for PLAYER[%d]", this, __FUNCTION__,
 						 mPipelineMode == ePIPELINEMODE_UNDEFINED ? "Undefined" : "Multi", aamp->mPlayerId);
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
 			AAMPGstPlayer *gstPlayer = new AAMPGstPlayer(logObj, aamp, id3HandlerCallback, exportFrames);
@@ -436,10 +436,12 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 
 void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp)
 {
-	AAMPLOG_INFO("AampStreamSinkManager(%p)::%s Setting PLAYER[%d] active", this, __FUNCTION__, aamp->mPlayerId);
+	double position = aamp->GetPositionMs() / 1000.00;
+
+	AAMPLOG_INFO("AampStreamSinkManager(%p)::%s Setting PLAYER[%d] active, position(%f)", this, __FUNCTION__, aamp->mPlayerId, position);
 
 	mGstPlayer->ChangeAamp(aamp, mInactiveGstPlayersMap[aamp]->GetLogManager(), mInactiveGstPlayersMap[aamp]->GetID3MetadataHandler());
-	mGstPlayer->Flush(0, aamp->rate, true);
+	mGstPlayer->Flush(position, aamp->rate, true);
 	mGstPlayer->SetSubtitleMute(aamp->subtitles_muted);
 }
 

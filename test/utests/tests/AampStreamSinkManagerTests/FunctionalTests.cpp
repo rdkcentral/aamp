@@ -27,8 +27,11 @@
 #include "aampgstplayer.h"
 #include "MockAampGstPlayer.h"
 #include "MockStreamSink.h"
+#include "MockPrivateInstanceAAMP.h"
 
 using ::testing::_;
+using ::testing::NiceMock;
+using ::testing::Return;
 
 AampConfig *gpGlobalConfig=NULL;
 AampLogManager *mLogObj=NULL;
@@ -62,6 +65,8 @@ protected:
         mPrivateInstanceAAMP2 = new PrivateInstanceAAMP(gpGlobalConfig);
         mPrivateInstanceAAMP2->mPlayerId = 2;
 
+        g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+
         g_mockAampGstPlayer = new MockAAMPGstPlayer(mLogObj1, mPrivateInstanceAAMP1);
 
         const auto id3_callback = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, mPrivateInstanceAAMP1, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
@@ -71,6 +76,9 @@ protected:
 
     void TearDown() override
     {
+        delete g_mockPrivateInstanceAAMP;
+        g_mockPrivateInstanceAAMP = nullptr;
+
         delete mPrivateInstanceAAMP1;
         mPrivateInstanceAAMP1 = nullptr;
 
@@ -244,7 +252,13 @@ TEST_F(AampStreamSinkManagerTests, ChangeAampTests)
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, mLogObj1, _)).Times(0);
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP1);
 
+    /* AampStreamSinkManager::SetActive() calls PrivateInstanceAAMP::GetPositionMs() to get the current position of the
+    second AAMP private instance and AAMPGstPlayer::Flush() with the position in seconds. */
+    long long positionMs = 5000;
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMs()).WillOnce(Return(positionMs));
+    double positionSec = (positionMs / 1000.0);
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, mLogObj2, _)).Times(1);
+    EXPECT_CALL(*g_mockAampGstPlayer, Flush(positionSec, _, true)).Times(1);
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP2);
 }
 
