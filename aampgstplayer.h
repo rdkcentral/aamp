@@ -434,6 +434,11 @@ public:
          *
          */
     static bool IsMS2V12Supported();
+	/**
+        *   @fn SignalConnect
+	    *   @note wraps g_signal_connect, adds functionality required by DisconnectSignals()
+	 */
+	void SignalConnect(gpointer instance, const gchar *detailed_signal, GCallback c_handler, gpointer data);
 
 	/**
 		* @brief Set the text style of the subtitle to the options passed
@@ -526,6 +531,20 @@ private:
      	 * @return bool - true if audio to be forwarded
      	 */
 	bool ForwardAudioBuffersToAux();
+
+	/**
+         *   @fn DisconnectSignals
+	     *   @brief runs g_signal_handler_disconnect() for signals connected using SignalConnect() since
+	     *  this function was last called unless
+	     *  these were subsequently removed using RemoveSignalsFromDisconnectList()
+	     */
+	void DisconnectSignals();
+
+	/**
+	     *   @fn RemoveSignalsFromDisconnectList
+	     *   @brief Prevents signals associated with the supplied element from being disconnected by DisconnectSignals
+	     */
+	void RemoveSignalsFromDisconnectList(const gpointer pElementOrBin);
 
 	/**
 	 * @fn RemoveProbes

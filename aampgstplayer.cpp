@@ -23,6 +23,7 @@
  */
 
 #include "AampMemoryUtils.h"
+#include "AampHandlerControl.h"
 #include "gstaamptaskpool.h"
 #include "aampgstplayer.h"
 #include "isobmffbuffer.h"
@@ -40,6 +41,7 @@
 #include "priv_aamp.h"
 #include <pthread.h>
 #include <atomic>
+#include <algorithm>
 
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
@@ -234,8 +236,34 @@ struct AAMPGstPlayerPriv
 	bool firstAudioFrameReceived; 			/**< flag that denotes if first audio frame was notified */
 	int  NumberOfTracks;	      			/**< Indicates the number of tracks */
  	PlaybackQualityStruct playbackQuality;		/**< video playback quality info */
+
+	struct CallbackData
+	{
+		gpointer instance;
+		gulong id;
+		std::string name;
+		CallbackData(gpointer _instance, gulong _id, std::string _name):instance(_instance), id(_id), name(_name){};
+		CallbackData(const CallbackData& original):instance(original.instance), id(original.id), name(original.name){};
+    	CallbackData(CallbackData&& original):instance(original.instance), id(original.id), name(original.name){};
+    	CallbackData& operator=(const CallbackData&) = delete;
+    	CallbackData& operator=(CallbackData&& original)
+		{
+			instance = std::move(original.instance);
+			id = std::move(original.id);
+			name = std::move(original.name);
+			return *this;
+		}
+    	~CallbackData(){};
+	};
+	std::mutex mSignalVectorAccessMutex;
+	std::vector<CallbackData> mCallBackIdentifiers;
+	AampHandlerControl aSyncControl;
+	AampHandlerControl syncControl;
+	AampHandlerControl callbackControl;
+
 	bool filterAudioDemuxBuffers;			/**< flag to filter audio demux buffers */
- 	AAMPGstPlayerPriv() : pipeline(NULL), bus(NULL), current_rate(0),
+
+	AAMPGstPlayerPriv() : pipeline(NULL), bus(NULL), current_rate(0),
 			total_bytes(0), n_audio(0), current_audio(0),
 			periodicProgressCallbackIdleTaskId(AAMP_TASK_ID_INVALID),
 			bufferingTimeoutTimerId(AAMP_TASK_ID_INVALID), video_dec(NULL), audio_dec(NULL),TaskControlMutex(),firstProgressCallbackIdleTask("FirstProgressCallback"),
@@ -257,8 +285,9 @@ struct AAMPGstPlayerPriv
 #endif
 			decodeErrorMsgTimeMS(0), decodeErrorCBCount(0),
 			progressiveBufferingEnabled(false), progressiveBufferingStatus(false)
- 			, forwardAudioBuffers (false), enableSEITimeCode(true),firstVideoFrameReceived(false),firstAudioFrameReceived(false),NumberOfTracks(0),playbackQuality{},
+			, forwardAudioBuffers (false), enableSEITimeCode(true),firstVideoFrameReceived(false),firstAudioFrameReceived(false),NumberOfTracks(0),playbackQuality{},
 			filterAudioDemuxBuffers(false)
+			,aSyncControl(), syncControl(),callbackControl()
  	{
 		memset(videoRectangle, '\0', VIDEO_COORDINATES_SIZE);
                 /* DELIA-45366-default video scaling should take into account actual graphics
@@ -395,6 +424,130 @@ AAMPGstPlayer::~AAMPGstPlayer()
 	SAFE_DELETE(privateContext);
 	pthread_mutex_destroy(&mBufferingLock);
 	pthread_mutex_destroy(&mProtectionLock);
+}
+
+void AAMPGstPlayer::SignalConnect(gpointer instance, const gchar *detailed_signal, GCallback c_handler, gpointer data)
+{	
+	{
+		const std::lock_guard<std::mutex> lock(privateContext->mSignalVectorAccessMutex);
+		auto id = g_signal_connect(instance, detailed_signal, c_handler, data);
+		if(0<id)
+		{
+			AAMPLOG_MIL("AAMPGstPlayer: Connected %s", detailed_signal);
+			AAMPGstPlayerPriv::CallbackData Identifier{instance, id, detailed_signal};
+			privateContext->mCallBackIdentifiers.push_back(Identifier);
+		}
+		else
+		{
+			AAMPLOG_WARN("AAMPGstPlayer: Could not connect %s", detailed_signal);
+		}
+	}
+	privateContext->callbackControl.enable();
+}
+
+static constexpr int RECURSION_LIMIT = 10;
+
+/**
+ *  @brief GetElementPointers adds the supplied element/bin and any child elements up to RECURSION_LIMIT depth to elements
+ */
+static void GetElementPointers(gpointer pElementOrBin, std::set<gpointer>& elements, int& recursionCount)
+{
+	recursionCount++;
+	if(RECURSION_LIMIT < recursionCount)
+	{
+		AAMPLOG_ERR("recursion limit exceeded");
+	}
+	else if(GST_IS_ELEMENT(pElementOrBin))
+	{
+		elements.insert(pElementOrBin);
+		if(GST_IS_BIN(pElementOrBin))
+		{
+			for (auto currentListItem = GST_BIN_CHILDREN(reinterpret_cast<_GstElement*>(pElementOrBin));
+			currentListItem;
+			currentListItem = currentListItem->next)
+			{
+				auto currentChildElement = currentListItem->data;
+				if (nullptr != currentChildElement)
+				{
+					//Recursive function call to support nesting of gst elements up RECURSION_LIMIT
+					GetElementPointers(currentChildElement, elements, recursionCount);
+				}
+			}
+		}
+	}
+
+	recursionCount--;
+}
+
+/**
+ *  @brief GetElementPointers returns a set of pointers to the supplied element/bin and any child elements up to RECURSION_LIMIT depth
+ */
+static std::set<gpointer>  GetElementPointers(gpointer pElementOrBin)
+{
+	int recursionCount = 0;
+	std::set<gpointer> elements;
+	GetElementPointers(pElementOrBin, elements, recursionCount);
+	return elements;
+}
+
+void AAMPGstPlayer::RemoveSignalsFromDisconnectList(gpointer pElementOrBin)
+{
+	const std::lock_guard<std::mutex> lock(privateContext->mSignalVectorAccessMutex);
+	if(pElementOrBin)
+	{
+		const auto originalSize = privateContext->mCallBackIdentifiers.size();
+		privateContext->mCallBackIdentifiers.erase(std::remove_if(
+			privateContext->mCallBackIdentifiers.begin(), 
+			privateContext->mCallBackIdentifiers.end(),
+			[pElementOrBin](AAMPGstPlayerPriv::CallbackData const & element) {return element.instance == pElementOrBin;}),
+			privateContext->mCallBackIdentifiers.end());
+		const auto newSize = privateContext->mCallBackIdentifiers.size();
+		unsigned int entriesRemoved = static_cast<unsigned int>(originalSize-newSize);
+		if(entriesRemoved)
+		{
+			AAMPLOG_INFO("%u entries removed.", entriesRemoved);
+		}
+	}
+}
+
+void AAMPGstPlayer::DisconnectSignals()
+{
+	const std::lock_guard<std::mutex> lock(privateContext->mSignalVectorAccessMutex);
+	if(ISCONFIGSET(eAAMPConfig_enableDisconnectSignals))
+	{
+		std::set<gpointer> elements = GetElementPointers(privateContext->pipeline);
+
+		for(auto data: privateContext->mCallBackIdentifiers)
+		{
+			if (data.instance == nullptr)
+			{
+				AAMPLOG_ERR("AAMPGstPlayer: %s signal handler, connected instance pointer is null", data.name.c_str());
+			}
+			else if(data.id == 0)
+			{
+				AAMPLOG_ERR("AAMPGstPlayer: %s signal handler id is 0", data.name.c_str());
+			}
+			else if(!elements.count(data.instance))
+			{
+				// This is expected following some tune failures
+				AAMPLOG_WARN("AAMPGstPlayer: %s signal handler, connected instance is not in the pipeline", data.name.c_str());
+			}
+			else if(!g_signal_handler_is_connected(data.instance, data.id))
+			{
+				AAMPLOG_ERR("AAMPGstPlayer: %s signal handler not connected", data.name.c_str());
+			}
+			else
+			{
+				AAMPLOG_WARN("AAMPGstPlayer: disconnecting %s signal handler", data.name.c_str());
+				g_signal_handler_disconnect(data.instance, data.id);
+			}
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("eAAMPConfig_enableDisconnectSignals==false. Signals have not been disconnected.");
+	}
+	privateContext->mCallBackIdentifiers.clear();
 }
 
 /**
@@ -594,6 +747,7 @@ static MediaType GetMediaTypeForSource(const GstElement *source, const AAMPGstPl
  */
 static void need_data(GstElement *source, guint size, AAMPGstPlayer *_this)
 {
+	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	auto mLogObj = _this->mLogObj; // map correct log context
 	MediaType mediaType = GetMediaTypeForSource(source, _this);
 	if (mediaType != eMEDIATYPE_DEFAULT)
@@ -618,6 +772,7 @@ static void need_data(GstElement *source, guint size, AAMPGstPlayer *_this)
  */
 static void enough_data(GstElement *source, AAMPGstPlayer *_this)
 {
+	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	if(_this && _this->aamp)
 	{
 		auto mLogObj = _this->mLogObj; // map correct log context
@@ -653,6 +808,7 @@ static void enough_data(GstElement *source, AAMPGstPlayer *_this)
  */
 static gboolean appsrc_seek(GstAppSrc *src, guint64 offset, AAMPGstPlayer * _this)
 {
+	HANDLER_CONTROL_HELPER(_this->privateContext->callbackControl, TRUE);
 #ifdef TRACE
 	auto mLogObj = _this->mLogObj; // map correct log context
 	AAMPLOG_MIL("appsrc %p seek-signal - offset %" G_GUINT64_FORMAT, src, offset);
@@ -721,9 +877,10 @@ static void InitializeSource(AAMPGstPlayer *_this, GObject *source, MediaType me
 	media_stream *stream = &_this->privateContext->stream[mediaType];
 	GstCaps * caps = NULL;
 	bool isFogEnabled = _this->aamp->mTSBEnabled;
-	g_signal_connect(source, "need-data", G_CALLBACK(need_data), _this);		/* Sets up the call back function for need data event */
-	g_signal_connect(source, "enough-data", G_CALLBACK(enough_data), _this);	/* Sets up the call back function for enough data event */
-	g_signal_connect(source, "seek-data", G_CALLBACK(appsrc_seek), _this);		/* Sets up the call back function for seek data event */
+
+	_this->SignalConnect(source, "need-data", G_CALLBACK(need_data), _this);		/* Sets up the call back function for need data event */
+	_this->SignalConnect(source, "enough-data", G_CALLBACK(enough_data), _this);	/* Sets up the call back function for enough data event */
+	_this->SignalConnect(source, "seek-data", G_CALLBACK(appsrc_seek), _this);		/* Sets up the call back function for seek data event */
 	gst_app_src_set_stream_type(GST_APP_SRC(source), GST_APP_STREAM_TYPE_SEEKABLE);
 	if (eMEDIATYPE_VIDEO == mediaType )
 	{
@@ -785,6 +942,7 @@ static void InitializeSource(AAMPGstPlayer *_this, GObject *source, MediaType me
  */
 static void found_source(GObject * object, GObject * orig, GParamSpec * pspec, AAMPGstPlayer * _this )
 {
+	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	auto mLogObj = _this->mLogObj; // map correct log context
 	MediaType mediaType = eMEDIATYPE_DEFAULT;
 	if (object == G_OBJECT(_this->privateContext->stream[eMEDIATYPE_VIDEO].sinkbin))
@@ -829,6 +987,7 @@ static void found_source(GObject * object, GObject * orig, GParamSpec * pspec, A
 static void httpsoup_source_setup (GstElement * element, GstElement * source, gpointer data)
 {
 	AAMPGstPlayer * _this = (AAMPGstPlayer *)data;
+	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	auto mLogObj = _this->mLogObj; // map correct log context
 
 	if (!strcmp(GST_ELEMENT_NAME(source), "source"))
@@ -1152,6 +1311,7 @@ static void AAMPGstPlayer_OnFirstVideoFrameCallback(GstElement* object, guint ar
 	AAMPGstPlayer * _this)
 
 {
+	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	_this->privateContext->firstVideoFrameReceived = true;
 	_this->NotifyFirstFrame(eMEDIATYPE_VIDEO);
 
@@ -1170,6 +1330,7 @@ static void AAMPGstPlayer_redButtonCallback(GstElement* object, guint hours, gui
        AAMPGstPlayer *_this = (AAMPGstPlayer *)user_data;
        if (_this)
        {
+		HANDLER_CONTROL_HELPER_CALLBACK_VOID();
                char buffer[16];
                snprintf(buffer,16,"%d:%d:%d",hours,minutes,seconds);
                _this->aamp->seiTimecode.assign(buffer);
@@ -1186,6 +1347,7 @@ static void AAMPGstPlayer_redButtonCallback(GstElement* object, guint hours, gui
 static void AAMPGstPlayer_OnAudioFirstFrameAudDecoder(GstElement* object, guint arg0, gpointer arg1,
         AAMPGstPlayer * _this)
 {
+	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	_this->privateContext->firstAudioFrameReceived = true;
 	_this->NotifyFirstFrame(eMEDIATYPE_AUDIO);
 }
@@ -1315,6 +1477,7 @@ static gboolean VideoDecoderPtsCheckerForEOS(gpointer user_data)
  */
 GstFlowReturn AAMPGstPlayer::AAMPGstPlayer_OnVideoSample(GstElement* object, AAMPGstPlayer * _this)
 {
+	HANDLER_CONTROL_HELPER(_this->privateContext->callbackControl, GST_FLOW_OK);
 	using ::mLogObj; //To use global log object
 	GstSample *sample;
 	GstBuffer *buffer;
@@ -1370,6 +1533,7 @@ GstFlowReturn AAMPGstPlayer::AAMPGstPlayer_OnVideoSample(GstElement* object, AAM
 static void AAMPGstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0, gpointer arg1,
         AAMPGstPlayer * _this)
 {
+	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	if (_this->aamp->mConfig->IsConfigSet(eAAMPConfig_DisableUnderflow))
 	{ // optionally ignore underflow
 		AAMPLOG_WARN("##  [WARN] Ignored underflow from %s, disableUnderflow config enabled ##", GST_ELEMENT_NAME(object));
@@ -1438,6 +1602,7 @@ static void AAMPGstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0,
 static void AAMPGstPlayer_OnGstPtsErrorCb(GstElement* object, guint arg0, gpointer arg1,
         AAMPGstPlayer * _this)
 {
+	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	AAMPLOG_ERR("## Got PTS error message from %s ##", GST_ELEMENT_NAME(object));
 #ifdef REALTEKCE
 	if (AAMPGstPlayer_isVideoSink(GST_ELEMENT_NAME(object), _this))
@@ -1463,6 +1628,7 @@ static void AAMPGstPlayer_OnGstPtsErrorCb(GstElement* object, guint arg0, gpoint
 static void AAMPGstPlayer_OnGstDecodeErrorCb(GstElement* object, guint arg0, gpointer arg1,
         AAMPGstPlayer * _this)
 {
+	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	long long deltaMS = NOW_STEADY_TS_MS - _this->privateContext->decodeErrorMsgTimeMS;
 	_this->privateContext->decodeErrorCBCount += 1;
 	if (deltaMS >= AAMP_MIN_DECODE_ERROR_INTERVAL)
@@ -1554,6 +1720,7 @@ static gboolean buffering_timeout (gpointer data)
  */
 static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _this)
 {
+	HANDLER_CONTROL_HELPER( _this->privateContext->aSyncControl, FALSE);
 	auto mLogObj = _this->mLogObj; // map correct log context
 	GError *error;
 	gchar *dbg_info;
@@ -1786,15 +1953,15 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 		{
             if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
 			{
-				g_signal_connect(msg->src, "buffer-underflow-callback",
+				_this->SignalConnect(msg->src, "buffer-underflow-callback",
 					G_CALLBACK(AAMPGstPlayer_OnGstBufferUnderflowCb), _this);			/* Sets up the call back function on 'buffer-underflow-callback' event */
-				g_signal_connect(msg->src, "pts-error-callback",
+				_this->SignalConnect(msg->src, "pts-error-callback",
 					G_CALLBACK(AAMPGstPlayer_OnGstPtsErrorCb), _this);
 #if !defined(REALTEKCE)
 				// To register decode-error-callback for video decoder source alone
 				if (AAMPGstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), _this))
 				{
-					g_signal_connect(msg->src, "decode-error-callback",
+					_this->SignalConnect(msg->src, "decode-error-callback",
 						G_CALLBACK(AAMPGstPlayer_OnGstDecodeErrorCb), _this);
 				}
 #endif
@@ -1884,6 +2051,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
  */
 static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _this)
 {
+	HANDLER_CONTROL_HELPER( _this->privateContext->syncControl, GST_BUS_PASS);
 	switch(GST_MESSAGE_TYPE(msg))
 	{
 	case GST_MESSAGE_STATE_CHANGED:
@@ -1974,7 +2142,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 				{
 					gst_object_replace((GstObject **)&_this->privateContext->video_dec, msg->src);
 					type_check_instance("bus_sync_handle: video_dec ", _this->privateContext->video_dec);
-					g_signal_connect(_this->privateContext->video_dec, "first-video-frame-callback",
+					_this->SignalConnect(_this->privateContext->video_dec, "first-video-frame-callback",
 									G_CALLBACK(AAMPGstPlayer_OnFirstVideoFrameCallback), _this);
 #if !defined(REALTEKCE)
                                         g_object_set(msg->src, "report_decode_errors", TRUE, NULL);
@@ -1986,7 +2154,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 					gst_object_replace((GstObject **)&_this->privateContext->audio_dec, msg->src);
 					type_check_instance("bus_sync_handle: audio_dec ", _this->privateContext->audio_dec);
 #if !defined(REALTEKCE)
-					g_signal_connect(msg->src, "first-audio-frame-callback",
+					_this->SignalConnect(msg->src, "first-audio-frame-callback",
 									G_CALLBACK(AAMPGstPlayer_OnAudioFirstFrameAudDecoder), _this);
 #endif
 					int trackId = _this->privateContext->stream[eMEDIATYPE_AUDIO].trackId;
@@ -2008,7 +2176,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 				if(_this->privateContext->enableSEITimeCode)
 				{
 					g_object_set(msg->src, "enable-timecode", 1, NULL);
-					g_signal_connect(msg->src, "timecode-callback",
+					_this->SignalConnect(msg->src, "timecode-callback",
 									G_CALLBACK(AAMPGstPlayer_redButtonCallback), _this);
 				}
 #if !defined(REALTEKCE)
@@ -2018,7 +2186,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 			}
 
 			if ((NULL != msg->src) && aamp_StartsWith(GST_OBJECT_NAME(msg->src), "rtkaudiosink"))
-				g_signal_connect(msg->src, "first-audio-frame",
+				_this->SignalConnect(msg->src, "first-audio-frame",
 					G_CALLBACK(AAMPGstPlayer_OnAudioFirstFrameAudDecoder), _this);
 #endif
 			/*This block is added to share the PrivateInstanceAAMP object
@@ -2131,8 +2299,10 @@ bool AAMPGstPlayer::CreatePipeline()
 		}
 		if (privateContext->bus)
 		{
+			privateContext->aSyncControl.enable();
 			guint busWatchId = gst_bus_add_watch(privateContext->bus, (GstBusFunc) bus_message, this); /* Creates a watch for privateContext->bus, invoking 'bus_message' when a asynchronous message on the bus is available */
 			(void)busWatchId;
+			privateContext->syncControl.enable();
 			gst_bus_set_sync_handler(privateContext->bus, (GstBusSyncHandler) bus_sync_handler, this, NULL);	/* Assigns a synchronous bus_sync_handler for synchronous messages */
 			privateContext->buffering_enabled = ISCONFIGSET(eAAMPConfig_GStreamerBufferingBeforePlay);
 			privateContext->buffering_in_progress = false;
@@ -2295,6 +2465,7 @@ void AAMPGstPlayer::ClearProtectionEvent()
 static void AAMPGstPlayer_PlayersinkbinCB(GstElement * playersinkbin, gint status,  void* arg)
 {
 	AAMPGstPlayer *_this = (AAMPGstPlayer *)arg;
+	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	switch (status)
 	{
 		case GSTPLAYERSINKBIN_EVENT_HAVE_VIDEO:
@@ -2364,6 +2535,8 @@ static GstElement* AAMPGstPlayer_GetAppSrc(AAMPGstPlayer *_this, MediaType media
 	}
 	return source;
 }
+
+static void AAMPGstPlayer_SignalEOS(media_stream* stream);
 
 /**
  * @fn RemoveProbes
@@ -2463,6 +2636,7 @@ void AAMPGstPlayer::TearDownStream(MediaType mediaType)
 static void callback_element_added (GstElement * element, GstElement * source, gpointer data)
 {
     AAMPGstPlayer * _this = (AAMPGstPlayer *)data;
+	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
     AAMPLOG_INFO("callback_element_added: %s",GST_ELEMENT_NAME(source));
     if (element == _this->privateContext->stream[eMEDIATYPE_AUX_AUDIO].sinkbin)
     {
@@ -2605,7 +2779,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 					GstCaps *caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "I420", NULL);
 					gst_app_sink_set_caps (GST_APP_SINK(appsink), caps);
 					g_object_set (G_OBJECT (appsink), "emit-signals", TRUE, "sync", TRUE, NULL);
-					g_signal_connect (appsink, "new-sample", G_CALLBACK (AAMPGstPlayer::AAMPGstPlayer_OnVideoSample), _this);
+					SignalConnect(appsink, "new-sample", G_CALLBACK (AAMPGstPlayer::AAMPGstPlayer_OnVideoSample, _this);
 					g_object_set(stream->sinkbin, "video-sink", appsink, NULL);
 					gst_object_replace(&_this->privateContext->video_sink, appsink);
 				}
@@ -2621,7 +2795,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 	
 				g_object_set(stream->sinkbin, "audio-sink", audiosink, NULL);				/* In the stream->sinkbin, set the audio-sink property to audiosink */
 #if defined(REALTEKCE)
-				g_signal_connect (stream->sinkbin, "element-setup",G_CALLBACK (callback_element_added), _this);
+				_this->SignalConnect(stream->sinkbin, "element-setup",G_CALLBACK (callback_element_added), _this);
 #endif
 				AAMPLOG_MIL("AAMPGstPlayer_SetupStream - using audsrvsink");
 			}
@@ -2643,7 +2817,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 		if((mediaFormat != eMEDIAFORMAT_PROGRESSIVE) ||  _this->aamp->mConfig->IsConfigSet(eAAMPConfig_UseAppSrcForProgressivePlayback))
 		{
 			g_object_set(stream->sinkbin, "uri", "appsrc://", NULL);			/* Assign uri property to appsrc, this will enable data insertion into pipeline */
-			g_signal_connect(stream->sinkbin, "deep-notify::source", G_CALLBACK(found_source), _this);
+			_this->SignalConnect(stream->sinkbin, "deep-notify::source", G_CALLBACK(found_source), _this);
 		}
 		else
 		{
@@ -2659,7 +2833,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 				gst_object_unref(pluginFeature);
 			}
 			g_object_set(stream->sinkbin, "uri", _this->aamp->GetManifestUrl().c_str(), NULL);
-			g_signal_connect (stream->sinkbin, "source-setup", G_CALLBACK (httpsoup_source_setup), _this);
+			_this->SignalConnect(stream->sinkbin, "source-setup", G_CALLBACK (httpsoup_source_setup), _this);
 		}
 
 		if ((mediaFormat == eMEDIAFORMAT_DASH || mediaFormat == eMEDIAFORMAT_HLS_MP4) &&
@@ -2708,7 +2882,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 			return -1;
 		}
 		stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(stream->sinkbin));
-		g_signal_connect(stream->sinkbin, "event-callback", G_CALLBACK(AAMPGstPlayer_PlayersinkbinCB), _this);
+		_this->SignalConnect(stream->sinkbin, "event-callback", G_CALLBACK(AAMPGstPlayer_PlayersinkbinCB), _this);
 		gst_bin_add(GST_BIN(_this->privateContext->pipeline), stream->sinkbin);
 		gst_element_link(stream->source, stream->sinkbin);
 		if(!gst_element_link(stream->source, stream->sinkbin))
@@ -3385,19 +3559,46 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 
 /**
  * @fn AAMPGstPlayer_SignalEOS
- * @brief To signal EOS to a particular appsrc instance
- * @param[in] source pointer to appsrc instance
+ * @brief Signal EOS to the appsrc associated with the supplied media stream
+ * @param[in] media_stream the media stream to inject EOS into
  */
-static void AAMPGstPlayer_SignalEOS(GstElement *source )
+static void AAMPGstPlayer_SignalEOS(media_stream& stream)
 {
-	if (source )
+	if (stream.source)
 	{
-		GstFlowReturn ret;
-		g_signal_emit_by_name(source, "end-of-stream", &ret);		/* Emits "end-of-stream" signal from the source */
+		auto ret = gst_app_src_end_of_stream(GST_APP_SRC_CAST(stream.source));
+		//GST_FLOW_OK is expected in PAUSED or PLAYING states; GST_FLOW_FLUSHING is expected in other states.
 		if (ret != GST_FLOW_OK)
 		{
 			AAMPLOG_WARN("gst_app_src_push_buffer  error: %d", ret);
 		}
+	}
+}
+
+static void AAMPGstPlayer_SignalEOS(media_stream* stream)
+{
+	if(stream)
+	{
+		AAMPGstPlayer_SignalEOS(*stream);
+	}
+}
+
+/**
+ *  @brief inject EOS for all media types to ensure the pipeline can be set to NULL quickly*/
+static void AAMPGstPlayer_SignalEOS(AAMPGstPlayerPriv* privateContext)
+{
+	AAMPLOG_MIL("AAMPGstPlayer: Inject EOS into all streams.");
+
+	if(privateContext && privateContext->pipeline)
+	{
+		for(int mediaType=eMEDIATYPE_VIDEO; mediaType<=eMEDIATYPE_AUX_AUDIO; mediaType++)
+		{
+			AAMPGstPlayer_SignalEOS(privateContext->stream[mediaType]);
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("AAMPGstPlayer: null pointer check failed");
 	}
 }
 
@@ -3436,15 +3637,15 @@ void AAMPGstPlayer::EndOfStreamReached(MediaType type)
 	else
 	{
 		NotifyFragmentCachingComplete();		/*Set pipeline to PLAYING state once fragment caching is complete*/
-		AAMPGstPlayer_SignalEOS(stream->source);
+		AAMPGstPlayer_SignalEOS(stream);
 
 		/*For trickmodes, give EOS to audio source*/
 		if (AAMP_NORMAL_PLAY_RATE != privateContext->rate)
 		{
-			AAMPGstPlayer_SignalEOS(privateContext->stream[eMEDIATYPE_AUDIO].source);
+			AAMPGstPlayer_SignalEOS(privateContext->stream[eMEDIATYPE_AUDIO]);
 			if (privateContext->stream[eMEDIATYPE_SUBTITLE].source)
 			{
-				AAMPGstPlayer_SignalEOS(privateContext->stream[eMEDIATYPE_SUBTITLE].source);
+				AAMPGstPlayer_SignalEOS(privateContext->stream[eMEDIATYPE_SUBTITLE]);
 			}
 		}
 		else
@@ -3454,7 +3655,7 @@ void AAMPGstPlayer::EndOfStreamReached(MediaType type)
 				(privateContext->stream[eMEDIATYPE_SUBTITLE].source))
 			{
 				privateContext->stream[eMEDIATYPE_SUBTITLE].eosReached = true;
-				AAMPGstPlayer_SignalEOS(privateContext->stream[eMEDIATYPE_SUBTITLE].source);
+				AAMPGstPlayer_SignalEOS(privateContext->stream[eMEDIATYPE_SUBTITLE]);
 			}
 		}
 
@@ -3470,11 +3671,15 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 {
 	AAMPLOG_MIL("entering AAMPGstPlayer_Stop keepLastFrame %d", keepLastFrame);
 
-	//XIONE-8595 - make the execution of this function more deterministic and reduce scope for potential pipeline lockups
+	/* XIONE-8595 & XIONE-9099 - make the execution of this function more deterministic and
+	 *  reduce scope for potential pipeline lockups*/
+	privateContext->syncControl.disable();
+	privateContext->aSyncControl.disable();
 	if(privateContext->bus)
 	{
 		gst_bus_remove_watch(privateContext->bus);		/* Remove the watch from bus so that gstreamer no longer sends messages to it */
 	}
+
 	if(!keepLastFrame)
 	{
 		privateContext->firstFrameReceived = false;
@@ -3514,11 +3719,31 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 	}
 	this->IdleTaskRemove(privateContext->firstVideoFrameDisplayedCallbackTask);
 
+	/* XIONE-9099 - Prevent potential side effects of injecting EOS and
+	 * make the stop process more deterministic by:
+			1) Confirming that bus handlers (disabled above) have completed
+			2) disabling and disconnecting signals
+			3) confirming that all signal handlers have completed.
+	 * This should complete very quickly and
+	 * should not have a significant performance impact.*/
+	privateContext->syncControl.waitForDone(50, "bus_sync_handler");
+	privateContext->aSyncControl.waitForDone(50, "bus_message");
+	privateContext->callbackControl.disable();
+	DisconnectSignals();
+	privateContext->aSyncControl.waitForDone(100, "callback handler");
+
 	// Remove probes before setting the pipeline to NULL
 	RemoveProbes();
 
 	if (this->privateContext->pipeline)
 	{
+		const auto EOSMode = GETCONFIGVALUE(eAAMPConfig_EOSInjectionMode);
+		if(EOS_INJECTION_MODE_STOP_ONLY == EOSMode)
+		{
+			//XIONE-9099 - Ensure prompt transition to GST_STATE_NULL
+			AAMPGstPlayer_SignalEOS(this->privateContext);
+		}
+
 		privateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
 		SetStateWithWarnings(this->privateContext->pipeline, GST_STATE_NULL);
 		AAMPLOG_MIL("AAMPGstPlayer: Pipeline state set to null");
@@ -3681,6 +3906,7 @@ static std::string GetStatus(gpointer pElementOrBin, int& recursionCount, gpoint
 				auto currentChildElement = currentListItem->data;
 				if (nullptr != currentChildElement)
 				{
+					//Recursive function call to support nesting of gst elements up RECURSION_LIMIT
 					returnStringBuilder += GetStatus(currentChildElement, recursionCount, pBin);
 				}
 			}
@@ -4521,7 +4747,7 @@ bool AAMPGstPlayer::Discontinuity(MediaType type)
 		}
 		else
 		{
-			AAMPGstPlayer_SignalEOS(stream->source);
+			AAMPGstPlayer_SignalEOS(stream);
 			// We are in buffering, but we received discontinuity, un-pause pipeline
 			StopBuffering(true);
 			ret = true;
@@ -4529,7 +4755,7 @@ bool AAMPGstPlayer::Discontinuity(MediaType type)
 			//If we have an audio discontinuity, signal subtec as well
 			if ((type == eMEDIATYPE_AUDIO) && (privateContext->stream[eMEDIATYPE_SUBTITLE].source))
 			{
-				AAMPGstPlayer_SignalEOS(privateContext->stream[eMEDIATYPE_SUBTITLE].source);
+				AAMPGstPlayer_SignalEOS(privateContext->stream[eMEDIATYPE_SUBTITLE]);
 			}
 		}
 	}

@@ -223,6 +223,10 @@ connectTimeout			Curl socket connection timeout for fragment/playlist/manifest d
 dnsCacheTimeout			life-time for DNS cache entries ,Name resolve results are cached for manifest and used for this number of seconds,default is 180 seconds
 telemetryInterval		Time interval for the telemetry reporting in seconds. Default is 300 seconds.Telemetry is disabled if set to 0
 subtitleClockSyncInterval   Time interval for synchronizing the clock with subtitle module. Default of 30 seconds
+preferredAbsoluteReporting	User preferred absolute progress reporting format, Default eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START
+EOSInjectionMode		replaces enableEOSInjectionDuringStop
+					0 - Old behaviour - EOS is injected at the end of asset and on discontinuity only.
+					1 - EOS is injected during stop in addition to the old behaviour.
 
 // String inputs
 licenseServerUrl		URL to be used for license requests for encrypted(PR/WV) assets

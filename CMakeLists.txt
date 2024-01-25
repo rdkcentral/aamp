@@ -220,6 +220,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					tsDemuxer.hpp
 					tsFragmentProcessor.hpp
 					AampTime.h
+					AampHandlerControl.h
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -230,6 +231,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					AampGrowableBuffer.cpp
 					AampScheduler.cpp
 					AampUtils.cpp
+					AampHandlerControl.cpp
 					AampJsonObject.cpp
 					AampProfiler.cpp
 					AampEvent.cpp

@@ -649,6 +649,11 @@ void gst_debug_set_threshold_from_string(const gchar *list, gboolean reset)
 	}
 }
 
+GstFlowReturn gst_app_src_end_of_stream (GstAppSrc * appsrc)
+{
+	return GST_FLOW_OK;
+}
+
 gulong gst_pad_add_probe (GstPad * pad,
                    GstPadProbeType mask,
                    GstPadProbeCallback callback,

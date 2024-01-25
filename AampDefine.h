@@ -382,6 +382,28 @@ enum MPDStichOptions
 	OPT_2_SMALL_MANIFEST_TUNE = 1,     /**< Tune with small manifest URL and stich full content manifest */
 };
 
+/**
+ * @brief Enumeration for Absolute Progress Reporting Format
+ */
+enum AbsoluteProgressReportFormat
+{
+    eABSOLUTE_PROGRESS_EPOCH,                       /**< Report epoch value including AvailabilityStartTime*/
+    eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START,  /**< Exclude AvailabilityStartTime from progress reporting for linear*/
+    eABSOLUTE_PROGRESS_MAX
+};
+
+enum EOSInjectionModeCode
+{
+	/* EOS events are only injected into the gstreamer pipeline by
+	 * AAMPGstPlayer::EndOfStreamReached() & AAMPGstPlayer::Discontinuity().
+	 * This was the only behaviour before XIONE-9099.*/
+	EOS_INJECTION_MODE_NO_EXTRA,
+
+	/* In addition to the EOS_INJECTION_MODE_NO_EXTRA cases
+	 * EOS is injected in AAMPGstPlayer::Stop() prior to setting the state to null.
+	 * This is the default behaviour after XIONE-9099.*/
+	EOS_INJECTION_MODE_STOP_ONLY,
+};
 #endif
 
 
