@@ -1872,11 +1872,20 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 		double maxPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxLatencyCorrectionPlaybackRate);
 		double minPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_MinLatencyCorrectionPlaybackRate);
 		int disableRateCorrectionTimeInSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_RateCorrectionDelay);
+		int latencyMonitorDelay = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyMonitorDelay);
+		AAMPLOG_TRACE("latencyMonitorDelay %d latencyMonitorInterval=%d", latencyMonitorDelay,latencyMonitorInterval );
+		double latencyMonitorScheduleTime = latencyMonitorDelay - latencyMonitorInterval;
+		//To handle latencyMonitorDelay < latencyMonitorInterval case
+		if( latencyMonitorScheduleTime < 0)
+		{ // clamp!
+			AAMPLOG_INFO("unexpected latencyMonitorScheduleTime(%lf) sec", latencyMonitorScheduleTime );
+			latencyMonitorScheduleTime = 0.5; //TimedWaitForLatencyCheck here is 500 ms
+		}
 		while(!mAbortRateCorrection)
 		{
 			mCorrectionRate = rate; /**< To align with main playback rate start with rate*/
 			double rateRequired = normalPlaybackRate; /**< Can be vary for debug*/
-			TimedWaitForLatencyCheck(500);
+			TimedWaitForLatencyCheck(latencyMonitorScheduleTime*1000);
 			while(DownloadsAreEnabled())
 			{
 				InterruptableMsSleep(latencyMonitorInterval * 1000);

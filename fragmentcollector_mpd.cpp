@@ -11313,16 +11313,22 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 	int latencyMonitorDelay = GETCONFIGVALUE(eAAMPConfig_LatencyMonitorDelay);
 	int latencyMonitorInterval = GETCONFIGVALUE(eAAMPConfig_LatencyMonitorInterval);
 	double normalPlaybackRate =  GETCONFIGVALUE(eAAMPConfig_NormalLatencyCorrectionPlaybackRate);
-	assert(latencyMonitorDelay >= latencyMonitorInterval);
 
 	AAMPLOG_TRACE("latencyMonitorDelay %d latencyMonitorInterval=%d", latencyMonitorDelay,latencyMonitorInterval );
-	unsigned int latencyMontiorScheduleTime = latencyMonitorDelay - latencyMonitorInterval;
+	double latencyMonitorScheduleTime = latencyMonitorDelay - latencyMonitorInterval;
+	//To handle latencyMonitorDelay <latencyMonitorInterval case
+	if( latencyMonitorScheduleTime < 0 )
+	{ // clamp!
+		AAMPLOG_INFO("unexpected latencyMonitorScheduleTime(%lf)", latencyMonitorScheduleTime );
+		latencyMonitorScheduleTime = 0.5 ; //TimedWaitForLatencyCheck is 500ms 
+	}
+	
 	bool keepRunning = false;
 	bool latencyCorrected = true;
 	if(aamp->DownloadsAreEnabled())
 	{
-		AAMPLOG_TRACE("latencyMontiorScheduleTime %d", latencyMontiorScheduleTime );
-		aamp->InterruptableMsSleep(latencyMontiorScheduleTime *1000);
+		AAMPLOG_TRACE("latencyMonitorScheduleTime %lf", latencyMonitorScheduleTime );
+		aamp->InterruptableMsSleep(latencyMonitorScheduleTime *1000);
 		keepRunning = true;
 	}
 	AAMPLOG_TRACE("keepRunning : %d", keepRunning);
