@@ -112,28 +112,37 @@ install_system_packages() {
         find_or_install_pkgs orc
     fi
      
-    do_clone https://github.com/google/googletest
-    cd googletest
-    git checkout $googletestreference
-    mkdir build
+    echo "Checking for gtest installation"
+    pkg-config --exists gtest
+    if [ $? != 0 ]; then
+        do_clone https://github.com/google/googletest
+        cd googletest
+        git checkout $googletestreference
+        mkdir build
 
-    # allow XCode to clean build folder
-    xattr -w com.apple.xcode.CreatedByBuildSystem true build
+        cd build
+        cmake ../
+        make
+        sudo make install
+        cd ../../
+    else
+        echo "google test is already installed."
+    fi
 
-    cd build
-    cmake ../
-    make
-    sudo make install
-    cd ../../
 
-    do_clone https://github.com/DaveGamble/cJSON.git
-    cd cJSON
-    mkdir build
-    cd build
-    cmake ../
-    make
-    sudo make install
-    cd ../../
+    pkg-config --exists libcjson
+    if [ $? != 0 ]; then
+        do_clone https://github.com/DaveGamble/cJSON.git
+        cd cJSON
+        mkdir build
+        cd build
+        cmake ../
+        make
+        sudo make install
+        cd ../../
+    else
+        echo "libcjson is already installed."
+    fi
 
     #Install Gstreamer and plugins if not installed
     if [ -f  /Library/Frameworks/GStreamer.framework/Versions/1.0/bin/gst-launch-1.0 ];then
@@ -143,14 +152,6 @@ install_system_packages() {
         fi
     fi
     echo "Installing GStreamer packages..."
-    #brew remove -f  --ignore-dependencies gstreamer gst-validate gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-validate gst-libav gst-devtools
-    #sudo rm -rf /usr/local/lib/gstreamer-1.0
-    #curl -o gstreamer-1.0-1.18.6-x86_64.pkg  https://gstreamer.freedesktop.org/data/pkg/osx/1.18.6/gstreamer-1.0-1.18.6-x86_64.pkg
-    #sudo installer -pkg gstreamer-1.0-1.18.6-x86_64.pkg -target /
-    #rm gstreamer-1.0-1.18.6-x86_64.pkg
-    #curl -o gstreamer-1.0-devel-1.18.6-x86_64.pkg https://gstreamer.freedesktop.org/data/pkg/osx/1.18.6/gstreamer-1.0-devel-1.18.6-x86_64.pkg
-    #sudo installer -pkg gstreamer-1.0-devel-1.18.6-x86_64.pkg  -target /
-    #rm gstreamer-1.0-devel-1.18.6-x86_64.pkg
     
     if [[ $arch == "x86_64" ]]; then
         curl -o gstreamer-1.0-$defaultgstversion-x86_64.pkg  https://gstreamer.freedesktop.org/data/pkg/osx/$defaultgstversion/gstreamer-1.0-$defaultgstversion-x86_64.pkg
@@ -283,8 +284,15 @@ install_and_build_subtec() {
         # sidecar subtitle files using the set textTrack <filename> command. These
         # settings are large enough to load the files generated in the directory
         # test/VideoTestStream/text. Repeat this if your Mac is restarted.
-        sudo sysctl net.local.dgram.maxdgram=102400
-        sudo sysctl net.local.dgram.recvspace=204800
+        if [ "$(sysctl -n net.local.dgram.maxdgram)" -lt 102400 ]; then
+            echo "To support the loading of sidecar subtitle files, increase the Unix domain maxdgram"
+            sudo sysctl net.local.dgram.maxdgram=102400
+        fi
+
+        if [ "$(sysctl -n net.local.dgram.recvspace)" -lt 204800 ]; then
+            echo "To support the loading of sidecar subtitle files, increase the Unix domain recvspace"
+            sudo sysctl net.local.dgram.recvspace=204800
+        fi
     fi
 
     popd
@@ -433,7 +441,6 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 
     echo $OSTYPE
 
-
     #Check if Xcode is installed
     if xpath=$( xcode-select --print-path ) &&
       test -d "${xpath}" && test -x "${xpath}" ; then
@@ -576,6 +583,8 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     fi
 
     mkdir -p build
+    # allow XCode to clean build folder
+    xattr -w com.apple.xcode.CreatedByBuildSystem true build
    
     # Would be nice to use $installed_pkfconfig here, but it results in link error, not finding libapp-1.0
     cd build && PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCOVERAGE_ENABLED=${COVERAGE} -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -G Xcode ../
@@ -606,9 +615,11 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Starting Xcode, open aamp/build/AAMP.xcodeproj project file OR Execute ./aamp-cli or /playbintest <url> binaries"
     echo "Opening AAMP project in Xcode..."
     
-    if ps -o comm= $$ | grep -q '\-bash'; then
-        echo "Already in bash"
+    # Changed "\-bash" as that signifies login shell, running ./install-aamp.sh (as opposed to source install-aamp.sh) and that would not be the case
+    if ps -o comm= $$ | grep -q "bash"; then
+        echo "Running in bash"
     else
+        echo "Changing login shell to bash"
         chsh -s /bin/bash
     fi
 
