@@ -1379,6 +1379,10 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
  	mTrackGrowableBufMem = ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory);
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
 
+#ifdef ENABLE_USE_SINGLE_PIPELINE
+	SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSinglePipeline, true);
+#endif
+
  	UpdateUseSinglePipeline();
 	AAMPLOG_WARN(" Early processing enabled: %s", (ISCONFIGSET_PRIV(eAAMPConfig_EarlyID3Processing) ? "true" : "false"));
 }
@@ -5775,7 +5779,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		mIscDVR = true;
 	}
 
-#ifdef SKY_UK_PTS_RESTAMP_ENABLED
+#ifdef ENABLE_PTS_RESTAMP
 	if (ContentType_LINEAR == mContentType)
 	{
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_EnablePTSReStamp, true);
