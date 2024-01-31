@@ -5345,7 +5345,11 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			{
 				sink->SetVideoZoom(zoom_mode);
 				sink->SetVideoMute(video_muted);
-				SetCCStatus(video_muted ? false : !subtitles_muted);
+				if (mApplyCachedVideoMute)
+				{
+					mApplyCachedVideoMute = false;
+					SetCCStatus(video_muted ? false : !subtitles_muted);
+				}
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
