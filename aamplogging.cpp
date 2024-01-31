@@ -441,7 +441,6 @@ void logprintline(FILE *f, struct timeval t, const char* printBuffer)
  */
 void logprintf(int playerId, const char* levelstr, const char* file, int line, const char *format, ...)
 {
-	if( gAampcliQuietLogs ) return;
 	va_list args;
 	va_start(args, format);
 	char gDebugPrintBuffer[MAX_DEBUG_LOG_BUFF_SIZE];
@@ -475,7 +474,11 @@ void logprintf(int playerId, const char* levelstr, const char* file, int line, c
 
 	struct timeval t;
 	gettimeofday(&t, NULL);
-	logprintline(stdout, t, gDebugPrintBuffer);
+    
+    if( !gAampcliQuietLogs )
+    {
+        logprintline(stdout, t, gDebugPrintBuffer);
+    }
 
 #ifdef AAMP_SIMULATOR_BUILD
 	// When running the simulator also print the log to a file
@@ -484,7 +487,7 @@ void logprintf(int playerId, const char* levelstr, const char* file, int line, c
 	{
 		logprintline(f, t, gDebugPrintBuffer);
 		(void)fclose(f);
-			}
+    }
 #endif
 }
 
