@@ -534,3 +534,75 @@ StreamSink* AampStreamSinkManager::GetStreamSink(PrivateInstanceAAMP *aamp)
 	return sink_ptr;
 }
 
+StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aamp)
+{
+	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+
+	StreamSink *sink_ptr = nullptr;
+
+	if ((mPipelineMode == ePIPELINEMODE_SINGLE) && mActiveGstPlayersMap.empty())
+	{
+		AAMPLOG_WARN("AampStreamSinkManager(%p)::%s No active player, returning single-pipeline sink for PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+		sink_ptr = mGstPlayer;
+	}
+	else
+	{
+		AAMPLOG_INFO("AampStreamSinkManager(%p)::%s Getting stream sink for PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+		sink_ptr = GetStreamSink(aamp);
+	}
+
+	return sink_ptr;
+}
+
+void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
+{
+	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+
+	switch (mPipelineMode)
+	{
+		case ePIPELINEMODE_SINGLE:
+		{
+			if (mActiveGstPlayersMap.empty())
+			{
+				if (mGstPlayer == nullptr)
+				{
+					AAMPLOG_ERR(
+						"AampStreamSinkManager(%p)::%s No single pipeline stream sink PLAYER[%d]",
+						this, __FUNCTION__, aamp->mPlayerId);
+				}
+				else if (mInactiveGstPlayersMap.count(aamp) == 0)
+				{
+					AAMPLOG_ERR(
+						"AampStreamSinkManager(%p)::%s No inactive stream sink for PLAYER[%d]",
+						this, __FUNCTION__, aamp->mPlayerId);
+				}
+				else
+				{
+					AAMPLOG_WARN(
+						"AampStreamSinkManager(%p)::%s Single pipeline stream sink with no active players, update player to PLAYER[%d]",
+						this, __FUNCTION__, aamp->mPlayerId);
+
+					mGstPlayer->ChangeAamp(aamp, mInactiveGstPlayersMap[aamp]->GetLogManager(),
+										   mInactiveGstPlayersMap[aamp]->GetID3MetadataHandler());
+				}
+			}
+			else
+			{
+				AAMPLOG_INFO(
+					"AampStreamSinkManager(%p)::%s Active stream sink exists, do not update PLAYER[%d]",
+					this, __FUNCTION__, aamp->mPlayerId);
+			}
+		}
+		break;
+
+		case ePIPELINEMODE_UNDEFINED:
+		case ePIPELINEMODE_MULTI:
+		{
+			AAMPLOG_INFO("AampStreamSinkManager(%p)::%s %s Pipeline mode, do not update PLAYER[%d]",
+						 this, __FUNCTION__,
+						 mPipelineMode == ePIPELINEMODE_UNDEFINED ? "Undefined" : "Multi",
+						 aamp->mPlayerId);
+		}
+		break;
+	}
+}

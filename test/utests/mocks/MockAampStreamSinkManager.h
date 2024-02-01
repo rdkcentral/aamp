@@ -39,10 +39,12 @@ public:
 	MOCK_METHOD(void, DeactivatePlayer, (PrivateInstanceAAMP *, bool));
 	MOCK_METHOD(StreamSink*, GetActiveStreamSink, (PrivateInstanceAAMP *));
 	MOCK_METHOD(StreamSink*, GetStreamSink, (PrivateInstanceAAMP *));
+	MOCK_METHOD(StreamSink*, GetStoppingStreamSink, (PrivateInstanceAAMP *));
 
 	MOCK_METHOD(void, SetEncryptedHeaders, (PrivateInstanceAAMP *, (std::map<int, std::string>)& ));
 	MOCK_METHOD(void, GetEncryptedHeaders, ((std::map<int, std::string>)&));
 	MOCK_METHOD(void, SetActive, (PrivateInstanceAAMP *));
+	MOCK_METHOD(void, UpdateTuningPlayer, (PrivateInstanceAAMP *));
 };
 
 extern MockAampStreamSinkManager *g_mockAampStreamSinkManager;

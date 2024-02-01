@@ -103,3 +103,11 @@ StreamSink* AampStreamSinkManager::GetStreamSink(PrivateInstanceAAMP *aamp)
     return nullptr;
 }
 
+StreamSink* AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aamp)
+{
+    return nullptr;
+}
+
+void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
+{
+}

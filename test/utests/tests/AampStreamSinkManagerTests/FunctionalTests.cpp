@@ -126,6 +126,82 @@ TEST_F(AampStreamSinkManagerTests, CheckSetSinglePipelineMode)
     EXPECT_EQ(sink1, sink2);
 }
 
+/* Test Procedure: -
+    @brief If there are no active players then mGstPlayer should be returned.
+*/
+TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_SinglePipelineMode_NoActivePlayers)
+{
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, true);
+    StreamSink *sink2 = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(mPrivateInstanceAAMP1);
+
+    EXPECT_EQ(sink1, sink2);
+}
+
+/* Test Procedure: -
+    @brief  When there is an active player GetStoppingStreamSink functions the same as GetStreamSink.
+*/
+TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_SinglePipelineMode_ActivePlayers)
+{
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+    StreamSink *sink2 = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(mPrivateInstanceAAMP1);
+
+    EXPECT_EQ(sink1, sink2);
+}
+
+/* Test Procedure: -
+    @brief When the active map is empty, but there is an available player, use that.
+*/
+TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_SinglePipelineMode_UseInactivePlayer)
+{
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, true);
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, mLogObj1, _)).Times(1);
+    AampStreamSinkManager::GetInstance().UpdateTuningPlayer(mPrivateInstanceAAMP1);
+}
+
+/* Test Procedure: -
+    @brief Test UpdateTuningPlayer where we wouldn't expect the player to be changed.
+*/
+TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_SinglePipelineMode_NoChange)
+{
+	/* Undefined pipeline */
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, mLogObj1, _)).Times(0);
+    AampStreamSinkManager::GetInstance().UpdateTuningPlayer(mPrivateInstanceAAMP1);
+
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
+
+    /* Single pipeline not yet created */
+    AampStreamSinkManager::GetInstance().UpdateTuningPlayer(mPrivateInstanceAAMP1);
+
+    /* Active player exists */
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().UpdateTuningPlayer(mPrivateInstanceAAMP1);
+
+	/* No inactive stream sink for player
+	 * Another player must exist so that the single pipeline isn't destroyed when the active player is deleted,
+	 * so create a second player, which is currently inactive. */
+	AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj2, mPrivateInstanceAAMP2, mId3HandlerCallback2);
+	AampStreamSinkManager::GetInstance().DeleteStreamSink(mPrivateInstanceAAMP1);
+	AampStreamSinkManager::GetInstance().UpdateTuningPlayer(mPrivateInstanceAAMP1);
+}
+
+/* Test Procedure: -
+    @brief Test UpdateTuningPlayer, we wouldn't expect the player to change in multi pipeline mode.
+*/
+TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_MultiPipelineMode_NoChange)
+{
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+	AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP1);
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, mLogObj1, _)).Times(0);
+    AampStreamSinkManager::GetInstance().UpdateTuningPlayer(mPrivateInstanceAAMP1);
+}
+
 /*
     @brief: - Tests the scenario when single PrivateInstanceAAMP is deleted, the sink is deleted.
     Test Procedure: -
@@ -141,6 +217,7 @@ TEST_F(AampStreamSinkManagerTests, DeleteStreamSinkTest1)
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
     EXPECT_EQ(sink1, nullptr);
 }
+
 /*
     @brief: - Tests the scenario when two PrivateInstanceAAMP exists and one of them is active
               then deleting the inactive PrivateInstanceAAMP has no effect on active instance
@@ -205,6 +282,19 @@ TEST_F(AampStreamSinkManagerTests, CheckMultiPipelineMode)
 
     EXPECT_NE(sink1, sink2);
 }
+
+/* Test Procedure: -
+    @brief In MultiPipeline mode GetStoppingStreamSink returns the same as GetStreamSink
+*/
+TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_MultiPipelineMode)
+{
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+    StreamSink *sink2 = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(mPrivateInstanceAAMP1);
+
+    EXPECT_EQ(sink1, sink2);
+}
+
 /* Test Procedure: -
     @brief Without Creating any sink; call GetStreamSink; nullptr should be returned
 */
@@ -221,7 +311,6 @@ TEST_F(AampStreamSinkManagerTests, MultiPipelineMode_CheckGetStreamSink1)
 */
 TEST_F(AampStreamSinkManagerTests, MultiPipelineMode_CheckGetStreamSink2)
 {
-
     AAMPGstPlayer gstPlayerobj {mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1};
     AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
 

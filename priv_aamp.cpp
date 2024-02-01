@@ -783,7 +783,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 		}
 	}
 
-	// This implementation is needed for HLS which still uses GetFile 
+	// This implementation is needed for HLS which still uses GetFile
 	// Check for http header tags, only if event listener for HTTPResponseHeaderEvent is available
 	if (eMEDIATYPE_MANIFEST == context->fileType && context->aamp->IsEventListenerAvailable(AAMP_EVENT_HTTP_RESPONSE_HEADER))
 	{
@@ -1424,8 +1424,8 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 	pthread_mutex_destroy(&mEventLock);
 	pthread_mutex_destroy(&mStreamLock);
 	pthread_mutexattr_destroy(&mMutexAttr);
-	
-	
+
+
 #ifdef AAMP_HLS_DRM
 	aesCtrAttrDataList.clear();
 	pthread_mutex_destroy(&drmParserMutex);
@@ -1893,14 +1893,14 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 						bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
 					}
 					pthread_mutex_unlock(&mStreamLock);
-					//If the player detect an empty period switch, it will set the  bufferduration as -1 even though  the player has content from previous period. 
+					//If the player detect an empty period switch, it will set the  bufferduration as -1 even though  the player has content from previous period.
 					//In this case, player should not increase the playback speed to catchup the latency.
 					//So Setting isEnoughBuffer  true by default and the value will update accordingly if only bufferduarion is greater than -1.
 					bool isEnoughBuffer = true;
 					if(bufferedDuration > -1.0)
 					{
 						isEnoughBuffer = bufferedDuration > (mLiveOffset / 2);
-					}	
+					}
 					double liveTime = (double)mNewSeekInfo.GetInfo().getUpdateTime()/1000.0;
 					double finalProgressTime = (mFirstFragmentTimeOffset) + ((double)mNewSeekInfo.GetInfo().getPosition()/1000.0);
 					double latency = liveTime - finalProgressTime;
@@ -1921,16 +1921,16 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 					}
 					else if (((latency <= mLiveOffset) && mCorrectionRate ==  maxPlaybackRate) ||
 							((latency >= mLiveOffset) && mCorrectionRate == minPlaybackRate) ||
-							((mCorrectionRate ==  maxPlaybackRate) && !isEnoughBuffer)) 
+							((mCorrectionRate ==  maxPlaybackRate) && !isEnoughBuffer))
 					{
 						rateRequired = normalPlaybackRate;
-					}					
+					}
 
 					if (disableRateCorrectionTimeInSeconds > 0 && mDiscStartTime > 0 && true == mRateCorrectionDelay)
 					{
 						int deltaTime = (int)(NOW_STEADY_TS_SECS- mDiscStartTime);
 
-						AAMPLOG_INFO("mDiscStartTime %ld currenttime=%" PRId64 " delta=%d disableRateCorrectionTimeInSeconds=%d", 
+						AAMPLOG_INFO("mDiscStartTime %ld currenttime=%" PRId64 " delta=%d disableRateCorrectionTimeInSeconds=%d",
 							mDiscStartTime, NOW_STEADY_TS_SECS, deltaTime, disableRateCorrectionTimeInSeconds);
 
 						if ( deltaTime > disableRateCorrectionTimeInSeconds )
@@ -1943,7 +1943,7 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 						{
 							AAMPLOG_INFO("Rate correction is still disabled because still in discontinuity processing %ld", mDiscStartTime);
 						}
-					} 					
+					}
 
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 					if (sink)
@@ -1986,7 +1986,7 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 	}
 	else
 	{
-		AAMPLOG_WARN("Rate Correction Ingored Due to Rate Correction disabled from config;  EnableLiveLatencyCorrection [%d]", 
+		AAMPLOG_WARN("Rate Correction Ingored Due to Rate Correction disabled from config;  EnableLiveLatencyCorrection [%d]",
 		ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection));
 	}
 }
@@ -2078,7 +2078,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		**  -A good candidate for future refactoring*/
 		mNewSeekInfo.Update(position, seek_pos_seconds);
 		int CurrentPositionDeltaToManifestEnd = end - position;
-		
+
 		// If tsb is not available for linear send -1  for start and end
                 // so that xre detect this as tsbless playabck
                 // Override above logic if mEnableSeekableRange is set, used by third-party apps
@@ -2124,7 +2124,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		{
 			mNetworkBandwidth = GetCurrentlyAvailableBandwidth();
 		}
-		
+
 		double currentRate;
 		if(pipeline_paused)
 		{
@@ -3797,7 +3797,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 		bool isDownloadStalled = false;
 		CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE;
 		double connectTime = 0;
-		
+
 		std::string uriParameter = GETCONFIGVALUE_PRIV(eAAMPConfig_URIParameter);
 		// append custom uri parameter with remoteUrl at the end before curl request if curlHeader logging enabled.
 		if (ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) && (!uriParameter.empty()) && fileType == eMEDIATYPE_MANIFEST)
@@ -3812,7 +3812,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 		}
 
 		CURL* curl = GetCurlInstanceForURL(remoteUrl,curlInstance);
-		
+
 		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaType, fileType, curlInstance,fragmentDurationSeconds, remoteUrl.c_str());
 		CurlCallbackContext context;
 		if (curl)
@@ -3858,7 +3858,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 				{
 					progressCtx.remoteUrl = remoteUrl;
 				}
-				
+
 				MediaTrack* mediaTrack =  mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO);
 				if(mediaTrack){
 					bufferRedStatus = (mediaTrack->GetBufferStatus() == BUFFER_STATUS_RED);
@@ -3877,10 +3877,10 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 				}
 				currentBitrate  = ((int)mpStreamAbstractionAAMP->GetAudioBitrate())/1000;
 				mCMCDCollector->SetTrackData(fileType,bufferRedStatus,bufferedDuration,currentBitrate,IsMuxed);
-				
+
 			}
-			
-			
+
+
 
 			//Disable download stall detection checks for FOG playback done by JS PP
 			if(fileType == eMEDIATYPE_MANIFEST || fileType == eMEDIATYPE_PLAYLIST_VIDEO ||
@@ -4242,7 +4242,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 					}
 
 				}
-			 	//To handle initial fragment download delays before ABR starts	
+			 	//To handle initial fragment download delays before ABR starts
 				if(GetLLDashServiceData()->lowLatencyMode && fileType == eMEDIATYPE_VIDEO)
 				{
 					double downloadTime = (double)(downloadTimeMS)/1000;
@@ -4507,7 +4507,7 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 		inpData->proxyName        = GetNetworkProxy();
 		T1.Initialize(inpData);
 		T1.Download(remoteUrl, respData);
-		
+
 		if(respData->iHttpRetValue == 200)
 		{
 			std::string dataStr =  std::string( respData->mDownloadData.begin(), respData->mDownloadData.end());
@@ -4656,7 +4656,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 #endif
 			if(!mbUsingExternalPlayer)
 			{
-				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(this);
 				if (sink)
 				{
 					sink->Stop(!newTune);
@@ -5033,7 +5033,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			return;
 		#else
 			mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(mLogObj,this, playlistSeekPos, rate,
-			std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this, 
+			std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
 				std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5)
 			);
 			if (NULL == mCdaiObject)
@@ -5045,7 +5045,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	else if (mMediaFormat == eMEDIAFORMAT_HLS || mMediaFormat == eMEDIAFORMAT_HLS_MP4)
 	{ // m3u8
 		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_HLS(mLogObj,this, playlistSeekPos, rate,
-			std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this, 
+			std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
 				std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5),
 			std::bind(&PrivateInstanceAAMP::UpdatePTSOffsetFromTune, this,
 				std::placeholders::_1, std::placeholders::_2)
@@ -5362,7 +5362,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		if (!mbUsingExternalPlayer)
 		{
 			if (mbPlayEnabled)
-			{	
+			{
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 				if (sink)
 				{
@@ -5479,7 +5479,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *pTraceID,
 								bool audioDecoderStreamSync,
 								const char *refreshManifestUrl,
-								int mpdStichingMode)								
+								int mpdStichingMode)
 {
 	int iCacheMaxSize = 0;
 	double tmpVar=0;
@@ -5564,12 +5564,12 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mMPDStichRefreshUrl		=	refreshManifestUrl ? refreshManifestUrl : "";
 	mMPDStichOption			=	(MPDStichOptions) (mpdStichingMode % 2);
 
-	if((mTsbType == "cloud") || 
+	if((mTsbType == "cloud") ||
 	   ((mAppName == "Viper") &&
 	   (mManifestUrl.find("chunked") != std::string::npos) &&
 	   (mManifestUrl.find("tsb?") != std::string::npos)))
 	{
-		
+
 		DeFog(mManifestUrl);
 		mainManifestUrl = mManifestUrl.c_str();
 		AAMPLOG_INFO("LLD trials Url Remapping done");
@@ -5580,8 +5580,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	std::string sTraceId = (pTraceID?pTraceID:"unknown");
 	//CMCD to be enabled for player direct downloads, not for Fog . All downloads in Fog , CMCD response to be done in Fog.
 	mCMCDCollector->Initialize((ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD) && !mTSBEnabled),sTraceId);
-// RDKAAMP-1315 : This feature RDKAAMP-1315 is causing trickplay issues for client dai 
-// hence removing code which reads this config from tune url , Ideally it should be fixed by app and not to enable this feature 
+// RDKAAMP-1315 : This feature RDKAAMP-1315 is causing trickplay issues for client dai
+// hence removing code which reads this config from tune url , Ideally it should be fixed by app and not to enable this feature
 //	SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_InterruptHandling, (mTSBEnabled && strcasestr(mainManifestUrl, "networkInterruption=true")));
 	if(!ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling))
 	{
@@ -5644,14 +5644,18 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink == nullptr)
 	{
-		AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj, this, 
-											   std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this, 
+		AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj, this,
+											   std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
 											   		     std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
 	}
 
-	if(autoPlay)
+	if (autoPlay)
 	{
 		ActivatePlayer();
+	}
+	else
+	{
+		AampStreamSinkManager::GetInstance().UpdateTuningPlayer(this);
 	}
 
 	/* Initialize gstreamer plugins with correct priority to co-exist with webkit plugins.
@@ -6950,7 +6954,7 @@ void PrivateInstanceAAMP::SetAudioVolume(int volume)
 		{
 			sink->SetAudioVolume(volume);
 		}
-	}	
+	}
 }
 
 /**
@@ -7340,7 +7344,7 @@ void PrivateInstanceAAMP::Stop()
 		mAutoResumeTaskPending = false;
 	}
 
-	DisableDownloads();	
+	DisableDownloads();
 	//DELIA-60010 : Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
 	if(IsTSBSupported())
 	{
@@ -7385,7 +7389,7 @@ void PrivateInstanceAAMP::Stop()
 		SAFE_DELETE(mpStreamAbstractionAAMP);
 		ReleaseStreamLock();
 	}
-	// stop the mpd update immediately after Stream abstraction delete 
+	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
 	{
 		mMPDDownloaderInstance->Release();
@@ -7415,7 +7419,7 @@ void PrivateInstanceAAMP::Stop()
 		}
 		mPendingAsyncEvents.clear();
 	}
-	pthread_mutex_unlock(&mEventLock);	
+	pthread_mutex_unlock(&mEventLock);
 	// Streamer threads are stopped when we reach here, thread synchronization not required
 	if (timedMetadata.size() > 0)
 	{
@@ -7452,7 +7456,7 @@ void PrivateInstanceAAMP::Stop()
 	{
 		mPreCachePlaylistThreadId.join();
 	}
-	
+
 	if (mAampCacheHandler)
 	{
 		mAampCacheHandler->StopPlaylistCache();
@@ -7471,7 +7475,7 @@ void PrivateInstanceAAMP::Stop()
 	}
 #endif
 
-	SAFE_DELETE(mCdaiObject);	
+	SAFE_DELETE(mCdaiObject);
 
 #if 0
 	/* Clear the session data*/
@@ -8893,7 +8897,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 	{
 		drmType = helper->friendlyName();
 	}
-	
+
  	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime, mTsbDepthMs);
 
 	for (auto iter = langList.begin(); iter != langList.end(); iter++)
@@ -9441,7 +9445,7 @@ void PrivateInstanceAAMP::SetLatencyParam(double latency)
 void PrivateInstanceAAMP::SendId3MetadataEvent(aamp::id3_metadata::CallbackData * id3Metadata)
 {
 	if(id3Metadata) {
-		ID3MetadataEventPtr e = std::make_shared<ID3MetadataEvent>(id3Metadata->mData, 
+		ID3MetadataEventPtr e = std::make_shared<ID3MetadataEvent>(id3Metadata->mData,
 			id3Metadata->schemeIdUri,
 			id3Metadata->value,
 			id3Metadata->timeScale,
@@ -9457,7 +9461,7 @@ void PrivateInstanceAAMP::SendId3MetadataEvent(aamp::id3_metadata::CallbackData 
 			std::ostringstream tag;
 
 			tag << "ID3 tag length: " << metadataLen;
-		
+
 			if (metadataLen > 0 )
 			{
 				tag << " payload: ";
@@ -12017,9 +12021,9 @@ unsigned char* PrivateInstanceAAMP::ReplaceKeyIDPsshData(const unsigned char *In
 	return NULL;
 }
 /*
- * @brief UpdateBufferBasedOnLiveOffset - fn to modify maxbuffer and minbuffer based on liveoffset 
+ * @brief UpdateBufferBasedOnLiveOffset - fn to modify maxbuffer and minbuffer based on liveoffset
  */
- 
+
 void PrivateInstanceAAMP::UpdateBufferBasedOnLiveOffset()
 {
 	int maxbuffer,minbuffer;
@@ -12192,7 +12196,7 @@ void PrivateInstanceAAMP::ID3MetadataHandler(MediaType mediaType, const uint8_t 
 	{
 		namespace aih = aamp::id3_metadata::helpers;
 		const auto data_len = aih::DataSize(ptr);
-	
+
 		std::vector<uint8_t> data (ptr, ptr + data_len);
 
 		if (data_len && mId3MetadataCache.CheckNewMetadata(mediaType, data))
@@ -12205,7 +12209,7 @@ void PrivateInstanceAAMP::ID3MetadataHandler(MediaType mediaType, const uint8_t 
 				<< offset << " [" << seek_pos_seconds << "] || data: " << aih::ToString(ptr, data_len);
 			AAMPLOG_WARN(" ID3 tag # %s", ss.str().c_str());
 
-			ReportID3Metadata(mediaType, std::move(data), 
+			ReportID3Metadata(mediaType, std::move(data),
 				nullptr, nullptr, timestamp_ms,
 				0, 0, 1000, 0
 			);
@@ -12262,17 +12266,17 @@ void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, MediaTy
  * @brief Report ID3 metadata events
  */
 void PrivateInstanceAAMP::ReportID3Metadata(MediaType mediaType, const uint8_t* ptr, uint32_t len,
-	const char* schemeIdURI, const char* id3Value, uint64_t presTime, 
+	const char* schemeIdURI, const char* id3Value, uint64_t presTime,
 	uint32_t id3ID, uint32_t eventDur, uint32_t tScale, uint64_t tStampOffset)
 {
 	std::vector<uint8_t> data (ptr, ptr + len);
-	ReportID3Metadata(mediaType, std::move(data), 
-		schemeIdURI, id3Value, presTime, 
+	ReportID3Metadata(mediaType, std::move(data),
+		schemeIdURI, id3Value, presTime,
 		id3ID, eventDur, tScale, tStampOffset);
 }
 
 void PrivateInstanceAAMP::ReportID3Metadata(MediaType mediaType, std::vector<uint8_t> data,
-	const char* schemeIdURI, const char* id3Value, uint64_t presTime, 
+	const char* schemeIdURI, const char* id3Value, uint64_t presTime,
 	uint32_t id3ID, uint32_t eventDur, uint32_t tScale, uint64_t tStampOffset)
 {
 	namespace ai = aamp::id3_metadata;
@@ -12280,13 +12284,13 @@ void PrivateInstanceAAMP::ReportID3Metadata(MediaType mediaType, std::vector<uin
 	mId3MetadataCache.UpdateMedatadaCache(mediaType, data);
 
 	ai::CallbackData id3Metadata {
-		std::move(data), 
-		static_cast<const char*>(schemeIdURI), 
-		static_cast<const char*>(id3Value), 
+		std::move(data),
+		static_cast<const char*>(schemeIdURI),
+		static_cast<const char*>(id3Value),
 		presTime,
-		id3ID, 
-		eventDur, 
-		tScale, 
+		id3ID,
+		eventDur,
+		tScale,
 		tStampOffset};
 
 	SendId3MetadataEvent(&id3Metadata);
@@ -12570,7 +12574,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 
 	//enableABR
 	jsondata.add("enableABR", ISCONFIGSET_PRIV(eAAMPConfig_EnableABR));
-	
+
 	//LiveOffset
 	if (GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset) > AAMP_DEFAULT_SETTING )
 	{
@@ -12706,7 +12710,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	inpData->postData	=	jsonStr;
 	T1.Initialize(inpData);
 	T1.Download(remoteUrl, respData);
-	
+
 	return respData->iHttpRetValue;
 }
 
@@ -12800,7 +12804,7 @@ void PrivateInstanceAAMP::UpdateMaxDRMSessions()
  */
 std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDownloadConfig()
 {
-	// initialize the MPD Downloader instance 
+	// initialize the MPD Downloader instance
 	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> ();
 	inpData->mTuneUrl 	= GetManifestUrl();
 	if(!mMPDStichRefreshUrl.empty() && ISCONFIGSET_PRIV(eAAMPConfig_MPDStichingSupport))

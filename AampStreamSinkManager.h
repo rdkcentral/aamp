@@ -116,7 +116,7 @@ public:
 	 */
 	void Clear();
 	/**
-	 *  @fn GetStreamSink
+	 *  @fn GetActiveStreamSink
 	 *  @brief Gets the active StreamSink pointer; for single pipeline mode this is the main StreamSink pointer,
 	 * 	for multipipeline this is the StreamSink that matches the passed PrivateInstanceAAMP. If no Sink found, nullptr is returned.
 	 *  @param[in] aamp - the PrivateInstanceAAMP, the active stream sink of which is required (for multipipeline)
@@ -130,6 +130,24 @@ public:
 	 *  @param[out] - return Streamsink from active map if present, otherwise from the map of inactive sink, otherwsie nullptr
 	 */
 	virtual StreamSink* GetStreamSink(PrivateInstanceAAMP *aamp);
+	/**
+	 *  @fn GetStoppingStreamSink
+	 *  @brief Gets the stream sink to stop for the given PrivateInstanceAAMP. In single-pipeline mode,
+	 * 		   if there are no active stream sinks, then the single pipeline stream sink will be returned.
+	 *  @param[in] aamp - the PrivateInstanceAAMP that represents the player being stopped
+	 *  @param[out] - return the stream sink to stop - either the single pipeline stream sink,
+	 * 				  or the stream sink associated with the given player (may be nullptr if couldn't be found)
+	 */
+	virtual StreamSink* GetStoppingStreamSink(PrivateInstanceAAMP *aamp);
+	/**
+	 *  @fn UpdateTuningPlayer
+	 *  @brief Updates the player associated with the single pipeline stream sink, if there are
+	 * 		   currently no active players already using the single pipeline.
+	 *         Has no effect if not in single pipeline mode, or if there is already a player active
+	 *         (which will be the case if the client is pre-loading an asset for smooth ad transition).
+	 *  @param[in] aamp - the PrivateInstanceAAMP that represents the player being tuned
+	 */
+	virtual void UpdateTuningPlayer(PrivateInstanceAAMP *aamp);
 
 protected:
 

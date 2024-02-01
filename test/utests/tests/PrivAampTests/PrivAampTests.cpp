@@ -34,8 +34,11 @@
 #include "MockAampConfig.h"
 #include "MockAampGstPlayer.h"
 #include "MockStreamAbstractionAAMP.h"
+#include "MockAampStreamSinkManager.h"
 #include "fragmentcollector_mpd.h"
 
+using ::testing::NiceMock;
+using ::testing::Return;
 
 AampLogManager *mLogObj{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
@@ -49,6 +52,8 @@ protected:
 	{
 		p_aamp =  new PrivateInstanceAAMP();
 		mLogObj = new AampLogManager();
+		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(mLogObj, p_aamp);
+		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 	}
 
 	void TearDown() override
@@ -58,6 +63,12 @@ protected:
 
 		delete mLogObj;
 		mLogObj = nullptr;
+
+		delete g_mockAampGstPlayer;
+		g_mockAampGstPlayer = nullptr;
+
+		delete g_mockAampStreamSinkManager;
+		g_mockAampStreamSinkManager = nullptr;
 	}
 };
 
@@ -108,7 +119,7 @@ public:
     }
     bool callHasSidecarData()
     {
-        return HasSidecarData(); 
+        return HasSidecarData();
     }
     void callUpdatePTSOffsetFromTune(double value, bool is_set)
     {
@@ -253,21 +264,21 @@ TEST_F(PrivAampTests,IsAudioLanguageSupportedTest_13)
 TEST_F(PrivAampPrivTests,SetTextTrackTest_2)
 {
 	//covering if condition where MUTE_SUBTITLES_TRACKID == trackId
-	char* data = new char[10]; 
+	char* data = new char[10];
 	int trackId = -1;
-	testp_aamp->SetTextTrack_obj(trackId,data);  
+	testp_aamp->SetTextTrack_obj(trackId,data);
 }
 TEST_F(PrivAampPrivTests,SetTextTrackTest_3)
 {
 	//if condition where data == NULL
-	testp_aamp->SetTextTrack_obj(1,NULL);  
+	testp_aamp->SetTextTrack_obj(1,NULL);
 }
 TEST_F(PrivAampPrivTests,SetTextTrackTest_4)
 {
 	//if condition where data != NULL
-	char* data = new char[10]; 
+	char* data = new char[10];
 	int trackId = 1;
-	testp_aamp->SetTextTrack_obj(trackId,data);  
+	testp_aamp->SetTextTrack_obj(trackId,data);
 }
 TEST_F(PrivAampPrivTests, GetCurrentAudioTrackId_2)
 {
@@ -341,13 +352,13 @@ TEST_F(PrivAampPrivTests,DeliverAdEventsTest_1)
 
 TEST_F(PrivAampPrivTests,DeliverAdEventsTest_2)
 {
-	AAMPEventObject event(AAMP_EVENT_AD_PLACEMENT_START);	
+	AAMPEventObject event(AAMP_EVENT_AD_PLACEMENT_START);
     testp_aamp->callDeliverAdEvents(true);
 }
 
 TEST_F(PrivAampPrivTests,DeliverAdEventsTest_3)
 {
-	AAMPEventObject event(AAMP_EVENT_AD_PLACEMENT_END);	
+	AAMPEventObject event(AAMP_EVENT_AD_PLACEMENT_END);
 	testp_aamp->callDeliverAdEvents(true);
 }
 
@@ -473,7 +484,7 @@ TEST_F(PrivAampTests,TimedWaitForLatencyCheckTest)
 {
 	int timeInMs = 10;
 	p_aamp->TimedWaitForLatencyCheck(timeInMs);
-	
+
 	// below are stress level test case
 	p_aamp->TimedWaitForLatencyCheck(0);
 	p_aamp->TimedWaitForLatencyCheck(100);
@@ -532,14 +543,14 @@ TEST_F(PrivAampTests,ReportProgressTest4)
 }
 TEST_F(PrivAampTests,ReportProgressTest5)
 {
-	bool sync = true; 
+	bool sync = true;
 	bool beginningOfStream = true;
 	p_aamp->SetState(eSTATE_SEEKING);
 	p_aamp->ReportProgress(sync,beginningOfStream);
 }
 TEST_F(PrivAampTests,ReportProgressTest6)
 {
-	bool sync = true; 
+	bool sync = true;
 	bool beginningOfStream = true;
 
 	bool mDownloadsEnabled = true;
@@ -612,7 +623,7 @@ TEST_F(PrivAampTests,AddEventListenerTest)
 
 	flag = p_aamp->IsEventListenerAvailable(AAMP_MAX_NUM_EVENTS);
 	EXPECT_FALSE(flag);
-	
+
 	flag = p_aamp->IsEventListenerAvailable((AAMPEventType(39)));
 	EXPECT_FALSE(flag);
 
@@ -649,7 +660,7 @@ TEST_F(PrivAampTests,SendDownloadErrorEventTest1)
 {
 	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,130);
 	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,133);
-	
+
 	p_aamp->SendDownloadErrorEvent((AAMPTuneFailure)38,130);
 	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,100);
 
@@ -664,7 +675,7 @@ TEST_F(PrivAampTests,SendAnomalyEventTest)
 
 	p_aamp->IsEventListenerAvailable(AAMP_EVENT_REPORT_ANOMALY);
 	p_aamp->SendAnomalyEvent(ANOMALY_ERROR,"error event");
-	
+
 	p_aamp->IsEventListenerAvailable(AAMP_MAX_NUM_EVENTS);
 
 	p_aamp->IsEventListenerAvailable(AAMP_EVENT_REPORT_ANOMALY);
@@ -682,7 +693,7 @@ TEST_F(PrivAampTests,UpdateRefreshPlaylistIntervalTest)
 	p_aamp->UpdateRefreshPlaylistInterval(12.123456789999);
 	p_aamp->UpdateRefreshPlaylistInterval(12.123456789123456789);
 	p_aamp->UpdateRefreshPlaylistInterval(0);
-	
+
 	p_aamp->UpdateRefreshPlaylistInterval(-12.43265);
 }
 
@@ -725,7 +736,7 @@ TEST_F(PrivAampTests,SendErrorEventTest_1)
 	p_aamp->ReloadTSB();
 
 	p_aamp->SetState(eSTATE_PREPARED);
-	
+
 	p_aamp->SendErrorEvent(AAMP_TUNE_PLAYBACK_STALLED, "UNKNOWNString");
 	p_aamp->SendErrorEvent(AAMP_TUNE_FAILURE_UNKNOWN);
 
@@ -990,13 +1001,13 @@ TEST_F(PrivAampTests,StopDownloadsTest)
 }
 
 TEST_F(PrivAampTests,ResumeDownloadsTest)
-{	
+{
 	p_aamp->ResumeDownloads();
 	EXPECT_FALSE(p_aamp->mbDownloadsBlocked);
 }
 
 TEST_F(PrivAampTests,ResumeDownloadsTest_1)
-{	
+{
 	EXPECT_FALSE(p_aamp->mbDownloadsBlocked);
 
 	p_aamp->StopDownloads();
@@ -1297,7 +1308,7 @@ TEST_F(PrivAampTests,GetFileTest_1)
 	int http_error;
 	AampGrowableBuffer gBuff("GrowableBuffer");
 	double downloadTime;
-	MediaType mType = eMEDIATYPE_VIDEO; 
+	MediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
 EXPECT_FALSE(p_aamp->GetFile("remoteurl",&gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,mType,
@@ -1312,7 +1323,7 @@ TEST_F(PrivAampTests,GetFileTest_2)
 	AampGrowableBuffer gBuff("GrowableBuffer");
 	double downloadTime;
 	bool resetBuffer = true;
-	MediaType mType = eMEDIATYPE_VIDEO; 
+	MediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
 EXPECT_FALSE(p_aamp->GetFile("remoteurl",&gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,mType,
@@ -1326,7 +1337,7 @@ TEST_F(PrivAampTests,GetFileTest_3)
 	AampGrowableBuffer gBuff("GrowableBuffer");
 	double downloadTime;
 	bool resetBuffer = true;
-	MediaType mType = eMEDIATYPE_VIDEO; 
+	MediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
 
@@ -1344,7 +1355,7 @@ TEST_F(PrivAampTests,GetFileTest_4)
 	AampGrowableBuffer gBuff("GrowableBuffer");
 	double downloadTime;
 	bool resetBuffer = true;
-	MediaType mType = eMEDIATYPE_INIT_VIDEO; 
+	MediaType mType = eMEDIATYPE_INIT_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
 
@@ -1362,8 +1373,15 @@ TEST_F(PrivAampTests,GetOnVideoEndSessionStatDataTest)
 
 TEST_F(PrivAampTests,TeardownStreamTest)
 {
-	p_aamp->TeardownStream(true);
+	bool newTune = true;
+
+	p_aamp->TeardownStream(newTune);
 	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
+
+	// The first call to TeardownStream on a PrivateInstanceAamp will not stop the AAMPGstPlayer, so call it again
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStoppingStreamSink(p_aamp)).WillOnce(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampGstPlayer, Stop(!newTune));
+	p_aamp->TeardownStream(newTune);
 }
 
 TEST_F(PrivAampTests,TeardownStreamTest_1)
@@ -1387,9 +1405,9 @@ TEST_F(PrivAampTests,TeardownStreamTest_2)
 	PrivAAMPState state = eSTATE_IDLE;
 	p_aamp->SetState(state);
 	p_aamp->ScheduleRetune(errorType,trackType);
-	
+
 	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
-	
+
 	p_aamp->TeardownStream(false);
 	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
 }
@@ -1469,11 +1487,13 @@ TEST_F(PrivAampTests, ReloadTSBTest)
 
 TEST_F(PrivAampTests, TuneTest)
 {
+	EXPECT_CALL(*g_mockAampStreamSinkManager, ActivatePlayer(p_aamp));
 	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0);
 }
 
 TEST_F(PrivAampTests, TuneTest_1)
 {
+	EXPECT_CALL(*g_mockAampStreamSinkManager, UpdateTuningPlayer(p_aamp));
 	p_aamp->Tune("sampleUrl",false,NULL,true,false,NULL,true,NULL,0);
 }
 
@@ -1536,7 +1556,7 @@ TEST_F(PrivAampTests, GetContentTypeTest)
 	type=p_aamp->GetContentType();
 	EXPECT_EQ(type,i);
 	}
-	
+
 	p_aamp->SetContentType("SLE");
 	type=p_aamp->GetContentType();
 	EXPECT_EQ(type,15);
@@ -1545,7 +1565,7 @@ TEST_F(PrivAampTests, GetContentTypeTest)
 	p_aamp->SetContentType("QWERTY");
 	type=p_aamp->GetContentType();
 	EXPECT_EQ(type,0);
-	
+
 	p_aamp->SetContentType("");
 	type=p_aamp->GetContentType();
 	EXPECT_EQ(type,0);
@@ -1602,7 +1622,7 @@ TEST_F(PrivAampTests,GetMaximumBitrateTest)
 TEST_F(PrivAampTests,PushFragmentTest)
 {
 	MediaType mediaType = eMEDIATYPE_SUBTITLE;
-	char *ptr; 
+	char *ptr;
 	size_t len;
 	double fragmentTime;
 	double fragmentDuration;
@@ -1667,7 +1687,7 @@ TEST_F(PrivAampTests,UpdatePreferredAudioListTest_1)
 	p_aamp->preferredCodecString="codec3,";
 
 	p_aamp->UpdatePreferredAudioList();
-	
+
 	EXPECT_FALSE(p_aamp->preferredCodecString.empty());
 	EXPECT_NE(p_aamp->preferredCodecList.size(),0);
 }
@@ -1964,7 +1984,7 @@ TEST_F(PrivAampTests,ReportTimedMetadataTest_1)
 TEST_F(PrivAampTests,ReportBulkTimedMetadataTest)
 {
 	p_aamp->ReportBulkTimedMetadata();
-	
+
 	EXPECT_NE(p_aamp->mTimedMetadataStartTime,0);
 
 	EXPECT_EQ(p_aamp->mTimedMetadataDuration,0);
@@ -2105,7 +2125,7 @@ TEST_F(PrivAampTests,SendTunedEventTest_1)
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, true);
 
-	EXPECT_TRUE(p_aamp->SendTunedEvent(true));	
+	EXPECT_TRUE(p_aamp->SendTunedEvent(true));
 }
 
 TEST_F(PrivAampTests,SendVideoEndEventTest)
@@ -2382,7 +2402,7 @@ TEST_F(PrivAampTests,SendAdPlacementEventTest)
 	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,"adStringid",234,5678,true,0);
 	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,"adStringid",234,5678,false,0);
 	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_ERROR,"adStringid",234,5678,true,0);
-	
+
 	EXPECT_NE(p_aamp->mAdEventsQ.size(),0);
 }
 
@@ -2548,7 +2568,7 @@ TEST_F(PrivAampTests,TrackDownloadsAreEnabledTest)
     EXPECT_FALSE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_LICENCE));
     EXPECT_FALSE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_PLAYLIST_AUX_AUDIO));
     EXPECT_FALSE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_DEFAULT));
-    
+
     EXPECT_TRUE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_AUX_AUDIO));
     EXPECT_TRUE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO));
 }
@@ -2595,7 +2615,7 @@ TEST_F(PrivAampTests,SetTextTrackTest)
     p_aamp->SetTextTrack(-1,NULL);
     int val = p_aamp->GetTextTrack();
     EXPECT_EQ(-1,val);
-    
+
     p_aamp->SetTextTrack(1,NULL);
     val = p_aamp->GetTextTrack();
     EXPECT_EQ(-1,val);
@@ -2826,7 +2846,7 @@ TEST_F(PrivAampTests,GetPeriodDurationTimeValueTest)
 	EXPECT_EQ(val,0);
 	EXPECT_EQ(val1,0);
 	EXPECT_EQ(val2,0);
-	
+
 	EXPECT_STRNE("sample",str.c_str());
 }
 
@@ -2874,9 +2894,9 @@ TEST_F(PrivAampTests,GetLastDownloadedManifestTest)
 }
 TEST_F(PrivAampTests,ID3MetadataHandlerTest)
 {
-	MediaType mediaType = eMEDIATYPE_AUDIO; 
+	MediaType mediaType = eMEDIATYPE_AUDIO;
 	const uint8_t* ptr = reinterpret_cast<const uint8_t*>("ID3 Metadata");
-	size_t pkt_len = strlen(reinterpret_cast<const char*>(ptr));; 
+	size_t pkt_len = strlen(reinterpret_cast<const char*>(ptr));;
 	SegmentInfo_t info(100.0,90.0,5.0);
 
 	const char * scheme_uri = "";
@@ -2895,7 +2915,7 @@ TEST_F(PrivAampTests,ReportID3MetadataTest)
     uint32_t tScale = 1000;
     uint64_t tStampOffset = 789012345;
 
-    
+
     p_aamp->ReportID3Metadata(mediaType, ptr, len, schemeIdURI, id3Value, presTime, id3ID, eventDur, tScale, tStampOffset);
 }
 TEST_F(PrivAampTests,SetLLDashServiceDataTest1)
@@ -2944,7 +2964,7 @@ TEST_F(PrivAampTests,IsAudioOrVideoOnlyTest1)
 	StreamOutputFormat audioFormat_result=  FORMAT_INVALID;
 
 	StreamOutputFormat auxFormat_result=  FORMAT_INVALID;
-	
+
 	bool result = p_aamp->IsAudioOrVideoOnly(videoFormat_result,audioFormat_result,auxFormat_result);
 
 	EXPECT_TRUE(result);
@@ -2960,7 +2980,7 @@ TEST_F(PrivAampTests,IsAudioOrVideoOnlyTest2)
 	StreamOutputFormat audioFormat_result=  FORMAT_INVALID;
 
 	StreamOutputFormat auxFormat_result=  FORMAT_INVALID;
-	
+
 	bool result = p_aamp->IsAudioOrVideoOnly(videoFormat_result,audioFormat_result,auxFormat_result);
 
 	EXPECT_TRUE(result);
@@ -2976,7 +2996,7 @@ TEST_F(PrivAampTests,IsAudioOrVideoOnlyTest3)
 	StreamOutputFormat audioFormat_result=  FORMAT_INVALID;
 
 	StreamOutputFormat auxFormat_result=  FORMAT_INVALID;
-	
+
 	bool result = p_aamp->IsAudioOrVideoOnly(videoFormat_result,audioFormat_result,auxFormat_result);
 
 	EXPECT_TRUE(result);
@@ -2994,7 +3014,7 @@ TEST_F(PrivAampTests,GetLicenseServerUrlForDrmTest2)
 }
 TEST_F(PrivAampTests,SendTuneMetricsEventTest)
 {
-	std::string timeMetricData = "Sample time metric data"; 
+	std::string timeMetricData = "Sample time metric data";
    p_aamp->SendTuneMetricsEvent(timeMetricData);
 }
 
@@ -3029,21 +3049,21 @@ TEST_F(PrivAampTests,SetLatencyParamTest1)
 {
     p_aamp->SetLatencyParam(2.223);
 }
-TEST_F(PrivAampTests, SetLatencyParamTest2) 
+TEST_F(PrivAampTests, SetLatencyParamTest2)
 {
 	double latency = DBL_MAX;
-	p_aamp->SetLatencyParam(latency); 
+	p_aamp->SetLatencyParam(latency);
 }
 
-TEST_F(PrivAampTests, SetLatencyParamTest3) 
-{ 
+TEST_F(PrivAampTests, SetLatencyParamTest3)
+{
 	double latency = DBL_MIN;
-	p_aamp->SetLatencyParam(latency); 
+	p_aamp->SetLatencyParam(latency);
 }
 
-TEST_F(PrivAampTests, SetLatencyParamTest4) 
-{ 
-	p_aamp->SetLatencyParam(-5.5); 
+TEST_F(PrivAampTests, SetLatencyParamTest4)
+{
+	p_aamp->SetLatencyParam(-5.5);
 }
 TEST_F(PrivAampTests, ConvertSpeedToStr1)
  {
@@ -3086,14 +3106,14 @@ TEST_F(PrivAampTests, UpdateVideoEndMetricsTest_13)
 }
 
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest1)
-{ 
+{
 	// covering eMEDIATYPE_MANIFEST switch case
 	p_aamp->UpdateVideoEndMetrics(12.34567);
 
-	MediaType mediaType = eMEDIATYPE_MANIFEST; 
-	BitsPerSecond bitrate = 500000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_MANIFEST;
+	BitsPerSecond bitrate = 500000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = DBL_MAX;
 	double curlDownloadTime = DBL_MAX;
 	bool keyChanged = true;
@@ -3103,13 +3123,13 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest1)
 }
 
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest2)
-{ 
+{
 	// covering eMEDIATYPE_PLAYLIST_VIDEO switch case
 
-	MediaType mediaType = eMEDIATYPE_PLAYLIST_VIDEO; 
-	BitsPerSecond bitrate = 500000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_PLAYLIST_VIDEO;
+	BitsPerSecond bitrate = 500000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = DBL_MIN;
 	double curlDownloadTime = DBL_MIN;
 	bool keyChanged = true;
@@ -3118,13 +3138,13 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest2)
 	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, duration, curlDownloadTime);
 }
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest3)
-{ 
+{
 	// covering eMEDIATYPE_PLAYLIST_AUDIO switch case
 
-	MediaType mediaType = eMEDIATYPE_PLAYLIST_AUDIO; 
-	BitsPerSecond bitrate = 500000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_PLAYLIST_AUDIO;
+	BitsPerSecond bitrate = 500000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = 20.15;
 	double curlDownloadTime = 10.98;
 	bool keyChanged = true;
@@ -3133,13 +3153,13 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest3)
 	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, duration, curlDownloadTime);
 }
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest4)
-{ 
+{
 	// covering eMEDIATYPE_PLAYLIST_AUX_AUDIO switch case
 
-	MediaType mediaType = eMEDIATYPE_PLAYLIST_AUX_AUDIO; 
-	BitsPerSecond bitrate = 500000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_PLAYLIST_AUX_AUDIO;
+	BitsPerSecond bitrate = 500000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = 20.15;
 	double curlDownloadTime = 10.98;
 	bool keyChanged = false;
@@ -3148,13 +3168,13 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest4)
 	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, duration, curlDownloadTime);
 }
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest5)
-{ 
+{
 	// covering eMEDIATYPE_PLAYLIST_IFRAME switch case
 
-	MediaType mediaType = eMEDIATYPE_PLAYLIST_IFRAME; 
-	BitsPerSecond bitrate = 500000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_PLAYLIST_IFRAME;
+	BitsPerSecond bitrate = 500000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = 20.15;
 	double curlDownloadTime = 10.98;
 	bool keyChanged = true;
@@ -3163,13 +3183,13 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest5)
 	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, duration, curlDownloadTime);
 }
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest6)
-{ 
+{
 	// covering eMEDIATYPE_VIDEO switch case
 
-	MediaType mediaType = eMEDIATYPE_VIDEO; 
-	BitsPerSecond bitrate = 500000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_VIDEO;
+	BitsPerSecond bitrate = 500000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = 20.15;
 	double curlDownloadTime = 10.98;
 	bool keyChanged = true;
@@ -3178,13 +3198,13 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest6)
 	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, duration, curlDownloadTime);
 }
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest7)
-{ 
+{
 	// covering eMEDIATYPE_AUDIO switch case
 
-	MediaType mediaType = eMEDIATYPE_AUDIO; 
-	BitsPerSecond bitrate = 100000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_AUDIO;
+	BitsPerSecond bitrate = 100000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = 20.15;
 	double curlDownloadTime = 10.98;
 	bool keyChanged = true;
@@ -3193,13 +3213,13 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest7)
 	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, duration, curlDownloadTime);
 }
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest8)
-{ 
+{
 	// covering eMEDIATYPE_AUX_AUDIO switch case
 
-	MediaType mediaType = eMEDIATYPE_AUX_AUDIO; 
-	BitsPerSecond bitrate = 200000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_AUX_AUDIO;
+	BitsPerSecond bitrate = 200000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = 20.15;
 	double curlDownloadTime = 10.98;
 	bool keyChanged = true;
@@ -3208,13 +3228,13 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest8)
 	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, duration, curlDownloadTime);
 }
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest9)
-{ 
+{
 	// covering eMEDIATYPE_IFRAME switch case
 
-	MediaType mediaType = eMEDIATYPE_IFRAME; 
-	BitsPerSecond bitrate = 2500000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_IFRAME;
+	BitsPerSecond bitrate = 2500000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = DBL_MIN;
 	double curlDownloadTime = DBL_MAX;
 	bool keyChanged = true;
@@ -3223,13 +3243,13 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest9)
 	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, duration, curlDownloadTime);
 }
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest10)
-{ 
+{
 	// covering eMEDIATYPE_INIT_IFRAME switch case
 
-	MediaType mediaType = eMEDIATYPE_INIT_IFRAME; 
-	BitsPerSecond bitrate = 500000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_INIT_IFRAME;
+	BitsPerSecond bitrate = 500000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = 10.15;
 	double curlDownloadTime = 8.98;
 	bool keyChanged = true;
@@ -3239,13 +3259,13 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest10)
 }
 
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest11)
-{ 
+{
 	// covering eMEDIATYPE_INIT_VIDEO switch case
 
-	MediaType mediaType = eMEDIATYPE_INIT_VIDEO; 
-	BitsPerSecond bitrate = 500000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_INIT_VIDEO;
+	BitsPerSecond bitrate = 500000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = 20.15;
 	double curlDownloadTime = 10.98;
 	bool keyChanged = false;
@@ -3254,13 +3274,13 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest11)
 	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, duration, curlDownloadTime);
 }
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest12)
-{ 
+{
 	// covering eMEDIATYPE_INIT_AUDIO switch case
 
-	MediaType mediaType = eMEDIATYPE_INIT_AUDIO; 
-	BitsPerSecond bitrate = 500000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_INIT_AUDIO;
+	BitsPerSecond bitrate = 500000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = 20.15;
 	double curlDownloadTime = 10.98;
 	bool keyChanged = true;
@@ -3269,12 +3289,12 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest12)
 	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, duration, curlDownloadTime);
 }
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest13)
-{ 
+{
 	// covering eMEDIATYPE_INIT_AUX_AUDIO switch case
-	MediaType mediaType = eMEDIATYPE_INIT_AUX_AUDIO; 
-	BitsPerSecond bitrate = 500000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_INIT_AUX_AUDIO;
+	BitsPerSecond bitrate = 500000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = 20.15;
 	double curlDownloadTime = 11.8;
 	bool keyChanged = false;
@@ -3283,12 +3303,12 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest13)
 	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, duration, curlDownloadTime);
 }
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest14)
-{ 
+{
 	// covering eMEDIATYPE_SUBTITLE switch case
-	MediaType mediaType = eMEDIATYPE_SUBTITLE; 
-	BitsPerSecond bitrate = 500000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_SUBTITLE;
+	BitsPerSecond bitrate = 500000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = 20.15;
 	double curlDownloadTime = 8.98;
 	bool keyChanged = false;
@@ -3297,13 +3317,13 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest14)
 	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, duration, curlDownloadTime);
 }
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest15)
-{ 
+{
 	// covering eMEDIATYPE_DEFAULT switch case
 
-	MediaType mediaType = eMEDIATYPE_DEFAULT; 
-	BitsPerSecond bitrate = 500000; 
-	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND; 
-	std::string strUrl = "strUrl"; 
+	MediaType mediaType = eMEDIATYPE_DEFAULT;
+	BitsPerSecond bitrate = 500000;
+	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
+	std::string strUrl = "strUrl";
 	double duration = 20.15;
 	double curlDownloadTime = 8.98;
 	bool keyChanged = false;
@@ -3387,19 +3407,19 @@ TEST_F(PrivAampTests, ConvertSpeedToStr2)
 {
     char buffer[100];
 	char* ConvertSpeedToStr(long bps, char *str);
-    ConvertSpeedToStr(800000, buffer); 
+    ConvertSpeedToStr(800000, buffer);
 }
 TEST_F(PrivAampTests, ConvertSpeedToStr3)
 {
     char buffer[100];
 	char* ConvertSpeedToStr(long bps, char *str);
-    ConvertSpeedToStr(80000000, buffer); 
+    ConvertSpeedToStr(80000000, buffer);
 }
 TEST_F(PrivAampTests, ConvertSpeedToStr4)
 {
     char buffer[100];
 	char* ConvertSpeedToStr(long bps, char *str);
-    ConvertSpeedToStr(8000000000, buffer); 
+    ConvertSpeedToStr(8000000000, buffer);
 }
 
 TEST_F(PrivAampTests,NotifyFirstVideoFrameDisplayedTest3)
@@ -3443,7 +3463,7 @@ TEST_F(PrivAampTests, HandleSSLHeaderCallback_ValidHeader_1)
 }
 TEST_F(PrivAampTests, AddHighIdleTaskTest)
 {
-	IdleTask task; 
+	IdleTask task;
 	void* arg = nullptr;
 	DestroyTask dtask;
 
@@ -3553,5 +3573,3 @@ TEST_F(PrivAampTests,GetLastDownloadedManifestTest1)
 	p_aamp->mMediaFormat=eMEDIAFORMAT_DASH;
 	p_aamp->GetLastDownloadedManifest(manifest);
 }
-
-
