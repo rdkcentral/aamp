@@ -2903,7 +2903,27 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 			{
 				AAMPLOG_ERR("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
 				if (ret != GST_FLOW_EOS && ret !=  GST_FLOW_FLUSHING)
-					assert(false);
+				{
+					if (mediaType == eMEDIATYPE_SUBTITLE)
+					{
+						if (!stream->source)
+						{
+							AAMPLOG_ERR("Error pushing subtitle fragment, appsrc is NULL");
+						}
+						else if (!GST_IS_APP_SRC(stream->source))
+						{
+							AAMPLOG_ERR("Error pushing subtitle fragment, appsrc is INVALID");
+						}
+						else
+						{
+							AAMPLOG_ERR("Error pushing subtitle fragment");
+						}
+					}
+					else
+					{
+						assert(false);
+					}
+				}
 			}
 			else if (stream->bufferUnderrun)
 			{
