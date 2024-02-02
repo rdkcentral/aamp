@@ -7147,7 +7147,6 @@ long long PrivateInstanceAAMP::GetPositionMs()
 
 bool PrivateInstanceAAMP::LockGetPositionMilliseconds()
 {
-	std::lock_guard<std::mutex> functionLock{mGetPositionMillisecondsMutexHard};
 	if(!mGetPositionMillisecondsMutexSoft.try_lock())
 	{
 		//In situations that could have deadlocked, continue & make a log entry instead.
@@ -7159,8 +7158,6 @@ bool PrivateInstanceAAMP::LockGetPositionMilliseconds()
 
 void PrivateInstanceAAMP::UnlockGetPositionMilliseconds()
 {
-	std::lock_guard<std::mutex> functionLock{mGetPositionMillisecondsMutexHard};
-
 	//Avoid the posibility of unlocking an unlocked mutex (undefined behaviour).
 	if(mGetPositionMillisecondsMutexSoft.try_lock())
 	{
