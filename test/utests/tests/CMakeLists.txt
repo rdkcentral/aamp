@@ -1,9 +1,9 @@
 include(GoogleTest)
+
 add_subdirectory(AampEventTests)
 add_subdirectory(AampCliSet)
 add_subdirectory(AampGrowableBuffer)
 add_subdirectory(AampCacheHandlerTests)
-add_subdirectory(AampcliHarvesterTests)
 add_subdirectory(videoin_shimTests)
 add_subdirectory(AampGstPlayer)
 add_subdirectory(Base64AAMP)

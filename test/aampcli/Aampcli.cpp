@@ -363,8 +363,6 @@ int main(int argc, char **argv)
 
     gApplicationPath = argv[0];
 
-	signal(SIGINT, Harvester::harvestTerminateHandler);
-
 	printf("**************************************************************************\n");
 	printf("** ADVANCED ADAPTIVE MEDIA PLAYER (AAMP) - COMMAND LINE INTERFACE (CLI) **\n");
 	printf("**************************************************************************\n");

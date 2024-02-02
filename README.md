@@ -346,8 +346,19 @@ exit        Gracefully exit application
 sap <lang>  Select alternate audio language track.
 bps <val>   Set video bitrate in bps
 harvest <harvestConfiguration> Initiate harvesting for space separated harvest configuration such as 
-	harvestMode=Master harvestUrl=<url> harvestPath=<path> for Master mode(To download all available profiles)
-	harvestMode=Slave harvestUrl=<url> harvestConfig=65535 defaultBitrate=400000 defaultBitrate4K=400000 disableDecode=true harvestPath=<path> for Slave mode(To download selective profile)
+	 ex: harvest harvestUrl=https://cpetestutility.stb.r53.xcal.tv/multilang/main.mpd harvestConfig=65535 harvestPath=/home/path
+	     harvestUrl=<url> //url to download
+	     harvestConfig=65535 // to select content type to download (65535 to download all content type manifests,video and audio fragments)
+	     harvestPath=<path> // give local directory to download the content
+	     Optional params that can be given  
+	     harvestDuration=60 // to download content for given duration
+	     harvestCountLimit=100 // number of fragments to harvest
+	     abr=false // default set to false to lock abr and download single profile
+	     suppressDecode=true // To stop playback during download
+	     defaultBitrate=400000 // give 0 to download lowest profile and 99999999 to download highest profile
+	     defaultBitrate4K=400000 // give  0 to download lowest profile and 99999999 to download highest profile
+	     preferredAudioLanguage=lan // give any audio content language to download
+	     trackId=1 // give trackid to download particular track
 fog <url|host=ip:port> 'fog url' tune to arbitrary locator via fog. 'fog host=ip:port' set fog location (default: 127.0.0.1:9080)
 advert <params>
 	advert add <url> <duration> (add an advert url, duration is optional)

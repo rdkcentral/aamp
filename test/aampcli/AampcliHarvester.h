@@ -43,20 +43,8 @@
     #endif
 #endif
 
-// A large count limit if not specified or if duration specified.
+/// A large count limit if not specified or if duration specified.
 #define DEFAULT_HARVEST_COUNT_LIMIT (9999999)
-
-typedef struct harvestProfileDetails
-{
-	bool harvestEndFlag;
-	char media[7];
-	int harvestConfig;
-	int harvestFragmentsCount;
-	int harvestErrorCount;
-	int harvestFailureCount;
-	int harvestTrackId;
-	long bitrate;
-}HarvestProfileDetails;
 
 class Harvester : public Command
 {
@@ -64,57 +52,16 @@ class Harvester : public Command
 	public:
 		// static so can be used to size arrays below
 		static const int mHarvestCommandLength = 4096;
-		static const int mHarvestSlaveThreadCount = 50;
-		static const int mHarvestSubsThreadCount = 10;
 	
-		// static so can be used in static function harvestTerminateHandler
-		static bool mHarvestReportFlag;
-		static std::string mHarvestPath;
-		static std::mutex mHarvestInfoMutex;
-		static std::map<std::thread::id, harvestProfileDetails> mHarvestInfo;
-		static std::vector<std::thread::id> mHarvestThreadId;
-	
-		// static as used by slave harvester
 		static PlayerInstanceAAMP *mPlayerInstanceAamp;
 	
-		char mExePathName[PATH_MAX];
-		int mHarvestDuration;
-		int mHarvestCountLimit;
-		int mHarvestConfig;
-		int mTCPServerSinkPort;
-		bool mUseTCPServerSink;
-		bool mSuppressDecode;
-
-		std::thread mMasterHarvesterThreadID;
-		std::thread mSlaveHarvesterThreadID;
-		std::thread mReportThread;
-		std::thread mSlaveIFrameThread;
-		std::thread mSlaveVideoThreads[mHarvestSlaveThreadCount];
-		std::thread mSlaveAudioThreads[mHarvestSlaveThreadCount];
-		std::thread mSlaveSubtitleThreads[mHarvestSubsThreadCount];
+		std::thread mHarvestThreadID;
 		
 		// static so can be passed to thread()
-		static void masterHarvester(void * arg);
-		static void slaveHarvester(void * arg);
-		static void slaveDataOutput(void * arg);
-		// static so can be passed to signal()
-		static void harvestTerminateHandler(int signal);
-	
-		long getNumberFromString(std::string buffer);
-		void writeHarvestReport(const char * arg, bool master);
-		bool getHarvestReportDetails(char *buffer);
-		FILE *createSlaveHarvester(std::map<std::string, std::string> cmdlineParams, int harvestConfig, long bitRate=0,
-								   std::string language = "", int trackId=-1);
-		bool createSlaveDataReader(FILE *pSlaveHarvester, std::thread& dataReader);
-		void writeHarvestErrorReport(HarvestProfileDetails, char *buffer);
-		void writeHarvestEndReport(HarvestProfileDetails, char *buffer);
+		static void Harvest(void * arg);
 		
-		void getExecutablePath();
 		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
 		Harvester();
-
-		std::vector<AudioTrackInfo> GetAudioTracks();
-		std::vector<TextTrackInfo> GetTextTracks();
 };
 
 
