@@ -300,8 +300,14 @@ void Aampcli::newPlayerInstance( std::string appName)
 		mEventListener = new MyAAMPEventListener();
 	}
 	player->RegisterEvents(mEventListener);
-	auto playerIndex = mPlayerInstances.size();
-	printf( "new playerInstance; index=%lu\n", playerIndex );
+	int playerIndex = (int)mPlayerInstances.size();
+	
+	while(mPlayerInstances.count(playerIndex))
+	{
+		playerIndex++;
+	}
+
+	printf( "new playerInstance; index=%d\n", playerIndex );
 	playerInstancesInfo.playerInstanceAAMP = player;
 	mPlayerInstances.insert(std::make_pair(playerIndex,playerInstancesInfo));
 	mSingleton = player; // select

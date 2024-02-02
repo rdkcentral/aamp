@@ -235,6 +235,52 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		playerInstanceAamp->detach();
 	}
+    else if( sscanf(cmd, "release %49s", playerId ) == 1)
+	{
+		auto playerInstanceItr = mAampcli.mPlayerInstances.end();
+		
+		if(isNumber(playerId))
+		{
+			int playerIndex = atoi(playerId);
+			if( (playerIndex > -1) )
+			{
+				playerInstanceItr = mAampcli.mPlayerInstances.find(playerIndex);
+			}
+			else
+			{
+				printf( "Give valid player id range = 0..%lu\n", mAampcli.mPlayerInstances.size()-1 );
+				return true;
+			}
+		}
+		else
+		{
+			for( auto itr = mAampcli.mPlayerInstances.begin(); itr != mAampcli.mPlayerInstances.end(); itr++ )
+			{
+				if(playerId == itr->second.appName)
+					playerInstanceItr = itr;
+			}
+			if (playerInstanceItr == mAampcli.mPlayerInstances.end())
+			{
+				printf("Could not find player '%s'\n", playerId);
+				return true;
+			}
+		}
+		
+		if (playerInstanceItr->second.playerInstanceAAMP == playerInstanceAamp)
+		{
+			printf( "Can not release the active player.\n");
+			return true;
+		}
+		
+		if (playerInstanceItr != mAampcli.mPlayerInstances.end())
+		{
+			PlayerInstanceAAMP *player = playerInstanceItr->second.playerInstanceAAMP;
+			
+			mAampcli.mPlayerInstances.erase(playerInstanceItr->first);
+			player->UnRegisterEvents(mAampcli.mEventListener);
+			delete(player);
+		}
+	}
 	else if( playerInstanceAamp->isTuneScheme(cmd) )
 	{
 		playerInstanceAamp->Tune(cmd,mAampcli.mbAutoPlay);
@@ -792,6 +838,7 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("harvest <configs>","harvest VOD or Live content; refer README.txt");
 	addCommand("advert <params>", "manage injected advert list - 'list', 'add <url or channel in virtual channel map>', 'rm <url or index into list>'");
 	addCommand("scte35 <base64>", "decode SCTE-35 signal base64 string");
+	addCommand("release <playerid/playername>", "to remove the player");
 }
 
 void PlaybackCommand::addCommand(std::string command,std::string description)

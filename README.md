@@ -357,6 +357,10 @@ advert <params>
 	advert add <channel number> (add a url from the virtual channel map, if given channel number exists)
 	advert rm <index> (remove the url at the given index)
 	advert list (display the advert list)
+new <name>	create a new player instance with optional name
+select <val|name> move player val or name to foreground. With no option list all players
+detach		move current foreground player to background
+release <val|name>	delete detached player val or name
 ```
 
 To add channelmap for CLI, enter channel entries in below format in /opt/aampcli.cfg
