@@ -3723,6 +3723,11 @@ void MediaTrack::PlaylistDownloader()
 					aamp->EnableMediaDownloads(mediaType);
 				}
 				gotManifest = aamp->GetFile(manifestUrl, &manifest, effectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true, mediaType);
+				if(loadNewAudio && (manifestUrl != GetPlaylistUrl()))
+				{
+					//new Playlist updated in mid
+					continue;
+				}
 
 				//update videoend info
 				aamp->UpdateVideoEndMetrics(mediaType,0,http_error,effectiveUrl,downloadTime);

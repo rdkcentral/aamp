@@ -2856,7 +2856,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		}
 		if( mDuration > 0.0f )
 		{
-			if (IsLive())
+			if (IsLive() && !refreshAudio)
 			{
 				fragmentURI = FindMediaForSequenceNumber();
 			}
@@ -5261,6 +5261,16 @@ void TrackState::RunFetchLoop()
 		while (!abortedDownload && fragmentURI && aamp->DownloadsAreEnabled())
 		{
 			skipFetchFragment = false;
+                        if(refreshAudio)
+                        {
+                                SwitchAudioTrack();
+                                refreshAudio = false;
+                                abort = false;
+                                if(!fragmentURI)
+                                {
+                                        break;
+                                }
+                        }
 			if (mInjectInitFragment)
 			{
 				// DELIA-40273: mInjectInitFragment marks if init fragment has to be pushed whereas mInitFragmentInfo
@@ -5286,16 +5296,6 @@ void TrackState::RunFetchLoop()
 					mInjectInitFragment = false;
 				}
 			}
-			if(refreshAudio)
-                        {
-                                SwitchAudioTrack();
-                                refreshAudio = false;
-                                abort = false;
-				if(!fragmentURI)
-				{
-					skipFetchFragment =true;
-				}
-                        }
 
 			if (!skipFetchFragment)
 			{
@@ -7587,6 +7587,7 @@ void TrackState::SwitchAudioTrack()
 		context->ConfigureAudioTrack();
 		context->PopulateAudioAndTextTracks();
 		aamp_ResolveURL(mPlaylistUrl, aamp->GetManifestUrl(), context->GetPlaylistURI(type),ISCONFIGSET(eAAMPConfig_PropogateURIParam));
+		mInjectInitFragment = true;
 		if(aamp->IsLive())
 		{
 			// Abort ongoing playlist download if any.
@@ -7599,11 +7600,15 @@ void TrackState::SwitchAudioTrack()
 		{
 			PlaylistDownloader();
 		}
-                double gstSeek = aamp->GetPositionSeconds();
+		double gstSeek = aamp->GetPositionSeconds() - aamp->culledSeconds;
+		if(gstSeek < 0)
+		{
+			gstSeek = aamp->GetPositionSeconds();
+		}
 		playTarget = gstSeek;
 		bool reloadUri = false;
 		AcquirePlaylistLock();
-		fragmentURI = GetNextFragmentUriFromPlaylist(reloadUri,true);
+		fragmentURI = GetNextFragmentUriFromPlaylist(reloadUri, true);
 		ReleasePlaylistLock();
                 playTarget = playlistPosition;
                 playTargetBufferCalc = playTarget;
