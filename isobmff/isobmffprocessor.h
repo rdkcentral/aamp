@@ -120,7 +120,7 @@ public:
          * @param[in] reset - true/false
          * @return void
          */
-	void resetSumPTSOnAudioRestart(bool reset)
+	void resetSumPTSOnAudioRestart(bool reset) override
 	{
 		resetSumPTS = reset;
 	}
@@ -432,6 +432,7 @@ private:
 	std::vector<AampGrowableBuffer *> initSegment;
 	std::vector<stInitRestampSegment *> resetPTSInitSegment;
 	std::vector<MediaProcessor *> peerListeners;
+	std::mutex initSegmentTransferMutex;
 
 	pthread_mutex_t m_mutex;
 	pthread_cond_t m_cond;

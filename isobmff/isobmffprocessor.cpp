@@ -50,7 +50,8 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManag
 	mLogObj(logObj),
 	sumPTS(0),prevPTS(0),currTimeScale(0),sumOfTrackDurationFromISOBuffer(0.0f),startPos(0.0f),
 	prevPosition(-1), resetSumPTS(false), maxDurationFromManifest(-1),scalingOfPTSComplete(false),timeScaleChangeState(eBMFFPROCESSOR_INIT_TIMESCALE),
-	prevDuration(0.0),maxTrackDurationFromISOBufferInTS(0),mediaFormat(eMEDIAFORMAT_UNKNOWN), enabled(true), trackOffsetInSecs(0.0), peerListeners()
+	prevDuration(0.0),maxTrackDurationFromISOBufferInTS(0),mediaFormat(eMEDIAFORMAT_UNKNOWN), enabled(true), trackOffsetInSecs(0.0), peerListeners(),
+	initSegmentTransferMutex()
 {
 	AAMPLOG_WARN("IsoBmffProcessor:: Created IsoBmffProcessor(%p) for type:%d and peerProcessor(%p)", this, type, peerBmffProcessor);
 	if (peerProcessor)
@@ -834,7 +835,6 @@ void IsoBmffProcessor::resetRestampVariables()
 void IsoBmffProcessor::reset()
 {
 	AAMPLOG_INFO("IsoBmffProcessor %s reset called",IsoBmffProcessorTypeName[type]);
-	clearInitSegment();
 	resetRestampVariables();
 	pthread_mutex_lock(&m_mutex);
 	basePTS = 0;
@@ -910,6 +910,7 @@ void IsoBmffProcessor::setRestampBasePTS(uint64_t pts)
  */
 void IsoBmffProcessor::cacheRestampInitSegment(MediaType type,char *segment,size_t size,double pos,double duration,bool isDiscontinuity)
 {
+	std::lock_guard<std::mutex> lock(initSegmentTransferMutex);
 	stInitRestampSegment *pSt = new stInitRestampSegment;
 	memset(pSt,0,sizeof(stInitRestampSegment));
 	pSt->buffer =  new AampGrowableBuffer("cached-restamp-init-segment");
@@ -926,6 +927,7 @@ void IsoBmffProcessor::cacheRestampInitSegment(MediaType type,char *segment,size
  */
 void IsoBmffProcessor::cacheInitSegment(char *segment, size_t size)
 {
+	std::lock_guard<std::mutex> lock(initSegmentTransferMutex);
 	// Save init segment for later. Init segment will be pushed once basePTS is calculated
 	AAMPLOG_INFO("IsoBmffProcessor::[%s] Caching init fragment", IsoBmffProcessorTypeName[type]);
 	AampGrowableBuffer *buffer = new AampGrowableBuffer("cached-init-segment");
@@ -938,6 +940,7 @@ void IsoBmffProcessor::cacheInitSegment(char *segment, size_t size)
  */
 void IsoBmffProcessor::pushRestampInitSegment()
 {
+	std::lock_guard<std::mutex> lock(initSegmentTransferMutex);
 	if (resetPTSInitSegment.size() > 0)
 	{
 		for (auto it = resetPTSInitSegment.begin(); it != resetPTSInitSegment.end();)
@@ -958,6 +961,7 @@ void IsoBmffProcessor::pushInitSegment(double position)
 {
 	// Push init segment now, duration = 0
 	AAMPLOG_WARN("IsoBmffProcessor:: [%s] Push init fragment", IsoBmffProcessorTypeName[type]);
+	std::lock_guard<std::mutex> lock(initSegmentTransferMutex);
 	if (initSegment.size() > 0)
 	{
 		for (auto it = initSegment.begin(); it != initSegment.end();)
@@ -975,6 +979,7 @@ void IsoBmffProcessor::pushInitSegment(double position)
  */
 void IsoBmffProcessor::clearRestampInitSegment()
 {
+	std::lock_guard<std::mutex> lock(initSegmentTransferMutex);
 	if (resetPTSInitSegment.size() > 0)
 	{
 		for (auto it = resetPTSInitSegment.begin(); it != resetPTSInitSegment.end();)
@@ -992,6 +997,7 @@ void IsoBmffProcessor::clearRestampInitSegment()
  */
 void IsoBmffProcessor::clearInitSegment()
 {
+	std::lock_guard<std::mutex> lock(initSegmentTransferMutex);
 	if (initSegment.size() > 0)
 	{
 		for (auto it = initSegment.begin(); it != initSegment.end();)
