@@ -2429,6 +2429,11 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						}
 						else
 						{
+							if (updateFirstPTS)
+							{
+								pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time;
+								pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time + duration;
+							}
 							pMediaStreamContext->fragmentTime += fragmentDuration;
 							pMediaStreamContext->fragmentTime = ceil(pMediaStreamContext->fragmentTime * 1000.0) / 1000.0;
 							pMediaStreamContext->fragmentDescriptor.Time += duration;
@@ -2450,6 +2455,11 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					//fragment duration is optimized to 1.190600. so adding floating point precision.
 					else if (skipTime >= fragmentDuration - FLOATING_POINT_EPSILON)
 					{
+						if (updateFirstPTS)
+						{
+							pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time;
+							pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time + duration;
+						}
 						skipTime -= fragmentDuration;
 						pMediaStreamContext->fragmentTime += fragmentDuration;
 						pMediaStreamContext->fragmentDescriptor.Time += duration;
@@ -2464,6 +2474,11 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					}
 					else if (-(skipTime) >= fragmentDuration)
 					{
+						if (updateFirstPTS)
+						{
+							pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time;
+							pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time + duration;
+						}
 						skipTime += fragmentDuration;
 						pMediaStreamContext->fragmentTime -= fragmentDuration;
 						pMediaStreamContext->fragmentDescriptor.Time -= duration;
