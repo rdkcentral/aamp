@@ -46,11 +46,6 @@
 #include "AampSegmentInfo.hpp"
 #include "AampBufferControl.h"
 
-#ifdef __APPLE__
-	#include "gst/video/videooverlay.h"
-	guintptr (*gCbgetWindowContentView)() = NULL;
-#endif
-
 #ifdef AAMP_MPD_DRM
 #include "aampoutputprotection.h"
 #endif
@@ -1945,23 +1940,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 		}
 
 		break;
-#ifdef __APPLE__
-    case GST_MESSAGE_ELEMENT:
-                if (
-#ifdef RENDER_FRAMES_IN_APP_CONTEXT
-		(nullptr == _this->cbExportYUVFrame) &&
-#endif
-			gCbgetWindowContentView && gst_is_video_overlay_prepare_window_handle_message(msg))
-		{
-			AAMPLOG_MIL("Received prepare-window-handle. Attaching video to window handle=%lu",(*gCbgetWindowContentView)());
-			/*
-			DELIA-58839 [OSX] [AAMP Simulator] Mac OS Ventura Update - gst_gl_window_cocoa_queue_resize crash when playing streams
-			Commented out line below, gst_video_overlay_set_window_handle, to temporarily avoid crash on MacOS 13 or higher. Expect line to be reinstated or permanent fix to be found in the future.
-			*/
-			//gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (GST_MESSAGE_SRC (msg)), (*gCbgetWindowContentView)());
-		}
-		break;
-#endif
+
 	case GST_MESSAGE_ASYNC_DONE:
 		AAMPLOG_INFO("Received GST_MESSAGE_ASYNC_DONE message");
 		if (_this->privateContext->buffering_in_progress)

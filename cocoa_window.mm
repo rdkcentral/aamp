@@ -23,7 +23,6 @@
 
 #import <Cocoa/Cocoa.h>
 #import "cocoa_window.h"
-extern guintptr (*gCbgetWindowContentView)();
 
 @interface VideoWindow: NSWindow <NSApplicationDelegate>
 {
@@ -94,7 +93,6 @@ int createAndRunCocoaWindow()
 
     [gCocoaWindow orderFront:nil];
     [gCocoaWindow setLevel: NSNormalWindowLevel];
-    gCbgetWindowContentView = &getWindowContentView;
     [application run];
     return 0;
 }
