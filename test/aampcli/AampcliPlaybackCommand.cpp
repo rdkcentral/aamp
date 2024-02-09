@@ -96,6 +96,35 @@ static void buildFogUrl(const std::string host, const char* url, std::string& fo
 	fogUrl += outStr;
 }
 
+PlayerInstanceAAMP * PlaybackCommand::findPlayerInstance( const char *playerRef )
+{
+	if( playerRef[0] )
+	{
+		if(isNumber(playerRef))
+		{
+			int playerId = atoi(playerRef);
+			for( auto player : mAampcli.mPlayerInstances )
+			{
+				if( player->GetId() == playerId )
+				{
+					return player;
+				}
+			}
+		}
+		else
+		{
+			for( auto player : mAampcli.mPlayerInstances )
+			{
+				if( player->GetAppName() == playerRef )
+				{
+					return player;
+				}
+			}
+		}
+	}
+	return NULL;
+}
+
 /**
  * @brief Process command
  * @param cmd command
@@ -111,7 +140,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	long grace = 0;
 	long time = -1;
 	int ms = 0;
-	char playerId[50] = {'\0'};
+	char playerRef[50] = {'\0'};
 
 	// DELIA-61795 : Sanity check to make sure there is no space at beginning or end of cmd
 	std::string str(cmd);
@@ -167,118 +196,68 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 			printf( "sleep complete\n" );
 		}
 	}
-	else if( sscanf(cmd, "select %49s", playerId ) == 1 )
+	else if( sscanf(cmd, "select %49s", playerRef ) == 1 )
 	{
-		if( playerId[0] )
+		PlayerInstanceAAMP *found = findPlayerInstance(playerRef);
+		if( found )
 		{
-			auto playerInstanceItr = mAampcli.mPlayerInstances.end();
-			
-			if(isNumber(playerId))
-			{
-				int playerIndex = atoi(playerId);
-				if( (playerIndex > -1) && (playerIndex < mAampcli.mPlayerInstances.size() ))
-				{
-					playerInstanceItr = mAampcli.mPlayerInstances.find(playerIndex);
-				}
-				else
-				{
-					printf( "Give valid player id range = 0..%lu\n", mAampcli.mPlayerInstances.size()-1 );
-				}
+			if( found->aamp )
+			{ //Do not edit or remove this following printf - it is used in L2 test
+				printf( "selected player %d (at %p) %s\n",
+					   found->GetId(),
+					   found,
+					   found->GetAppName().c_str() );
+				
+				mAampcli.mSingleton = found;
 			}
 			else
 			{
-				for( auto itr = mAampcli.mPlayerInstances.begin(); itr != mAampcli.mPlayerInstances.end(); itr++ )
-				{
-					if(playerId == itr->second.appName)
-						playerInstanceItr = itr;
-				}
+				printf( "error - player exists but is not valid/ready, playerInstanceAamp->aamp is not a valid ptr\n");
 			}
-
-			if(playerInstanceItr != mAampcli.mPlayerInstances.end())
-			{
-				playerInstanceAamp = playerInstanceItr->second.playerInstanceAAMP;
-				playerInstanceAamp->aamp->SetAppName(playerInstanceItr->second.appName);
-
-				if (playerInstanceAamp->aamp)
-				{
-					//Do not edit or remove this following printf - it is used in L2 test
-					printf( "selected player %d (at %p) %s\n", playerInstanceAamp->aamp->mPlayerId, playerInstanceAamp, (playerInstanceAamp->aamp->GetAppName()).c_str());
-					mAampcli.mSingleton=playerInstanceAamp;
-				}
-				else
-				{
-					printf( "error - player exists but is not valid/ready, playerInstanceAamp->aamp is not a valid ptr\n");
-				}
-			}
-			else
-			{
-				printf( "Give valid player name or id range = 0..%lu\n", mAampcli.mPlayerInstances.size()-1 );
-			}
-
+		}
+		else
+		{
+			printf( "No player with ID or name '%s'\n", playerRef);
 		}
 	}
 	else if( isCommandMatch(cmd, "select") )
 	{ // List available player instances
 		printf( "player instances:\n" );
-		
-		for( auto itr = mAampcli.mPlayerInstances.begin(); itr != mAampcli.mPlayerInstances.end(); itr++ )
+		for( auto player : mAampcli.mPlayerInstances )
 		{
-			printf( "\t%d %s", itr->first, (itr->second.appName).c_str());
-			if( itr->second.playerInstanceAAMP == playerInstanceAamp )
+			printf( "\t%d %s", player->GetId(), player->GetAppName().c_str() );
+			if( player == playerInstanceAamp )
 			{
 				printf( " (selected)");
 			}
-			printf( "\n ");
+			if( !player->aamp )
+			{
+				printf( " (!)" );
+			}
+			printf( "\n");
 		}
 	}
 	else if( isCommandMatch(cmd,"detach") )
 	{
 		playerInstanceAamp->detach();
 	}
-    else if( sscanf(cmd, "release %49s", playerId ) == 1)
+    else if( sscanf(cmd, "release %49s", playerRef ) == 1)
 	{
-		auto playerInstanceItr = mAampcli.mPlayerInstances.end();
-		
-		if(isNumber(playerId))
+		PlayerInstanceAAMP *found = findPlayerInstance(playerRef);
+		if( found )
 		{
-			int playerIndex = atoi(playerId);
-			if( (playerIndex > -1) )
+			if( found == playerInstanceAamp)
 			{
-				playerInstanceItr = mAampcli.mPlayerInstances.find(playerIndex);
-			}
-			else
-			{
-				printf( "Give valid player id range = 0..%lu\n", mAampcli.mPlayerInstances.size()-1 );
+				printf( "Can not release the active player.\n");
 				return true;
 			}
-		}
-		else
-		{
-			for( auto itr = mAampcli.mPlayerInstances.begin(); itr != mAampcli.mPlayerInstances.end(); itr++ )
+			auto it = std::find(mAampcli.mPlayerInstances.begin(), mAampcli.mPlayerInstances.end(), found );
+			if (it != mAampcli.mPlayerInstances.end())
 			{
-				if(playerId == itr->second.appName)
-					playerInstanceItr = itr;
+				mAampcli.mPlayerInstances.erase(it);
 			}
-			if (playerInstanceItr == mAampcli.mPlayerInstances.end())
-			{
-				printf("Could not find player '%s'\n", playerId);
-				return true;
-			}
-		}
-		
-		if (playerInstanceItr->second.playerInstanceAAMP == playerInstanceAamp)
-		{
-			printf( "Can not release the active player.\n");
-			return true;
-		}
-		
-		if (playerInstanceItr != mAampcli.mPlayerInstances.end())
-		{
-			PlayerInstanceAAMP *player = playerInstanceItr->second.playerInstanceAAMP;
-			
-			mAampcli.mPlayerInstances.erase(playerInstanceItr->first);
-			player->UnRegisterEvents(mAampcli.mEventListener);
-			delete(player);
+			found->UnRegisterEvents(mAampcli.mEventListener);
+			delete(found);
 		}
 	}
 	else if( playerInstanceAamp->isTuneScheme(cmd) )
@@ -423,10 +402,10 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	else if (isCommandMatch(cmd, "exit") )
 	{
 		playerInstanceAamp = NULL;
-		for( auto itr = mAampcli.mPlayerInstances.begin(); itr != mAampcli.mPlayerInstances.end(); itr++ )
+		for( auto player: mAampcli.mPlayerInstances )
 		{
-			itr->second.playerInstanceAAMP->Stop();
-			SAFE_DELETE( itr->second.playerInstanceAAMP );
+			player->Stop();
+			SAFE_DELETE( player );
 		}
 		termPlayerLoop();
 		return false;	//to exit
@@ -589,13 +568,13 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 						else
 							lAdvertInfo.duration = 0;
 
-						mAdvertList.push_back(lAdvertInfo);	
+						mAdvertList.push_back(lAdvertInfo);
 						printf("[AAMP-CLI] Added to advert list url: %s duration: %d\n", (lAdvertInfo.url).c_str(), lAdvertInfo.duration);
 					}
 					else if (token == "rm")
 					{
 						bool urlFlag = false;
-						for (auto itr = mAdvertList.begin(); itr != mAdvertList.end(); itr++) 
+						for (auto itr = mAdvertList.begin(); itr != mAdvertList.end(); itr++)
 						{
 							 if( identifier == itr->url)
 							 {
@@ -604,7 +583,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 								 break;
 							 }
 						}
-						
+
 						if(!urlFlag)
 						{
 							printf("[AAMP-CLI] ERROR - no url '%s' in list\n", identifier.c_str());
@@ -633,18 +612,18 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 								std::string duration;
 								AdvertInfo lAdvertInfo;
 								lAdvertInfo.url = info->uri;
-								
+
 								if (std::getline(input, duration, ' '))
 									lAdvertInfo.duration = stoi(duration);
 								else
 									lAdvertInfo.duration = 0;
 
-								mAdvertList.push_back(lAdvertInfo);	
+								mAdvertList.push_back(lAdvertInfo);
 								printf("[AAMP-CLI] Added to advert list url: %s duration: %d\n", (lAdvertInfo.url).c_str(), lAdvertInfo.duration);
 							}
 							else
 							{
-								printf("[AAMP-CLI] ERROR - invalid index into virtual channel map %d\n", urlIndex);		
+								printf("[AAMP-CLI] ERROR - invalid index into virtual channel map %d\n", urlIndex);
 							}
 						}
 
@@ -653,13 +632,13 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 						{
 							// Remove a url by index
 
-							if (urlIndex < mAdvertList.size()) 
+							if (urlIndex < mAdvertList.size())
 							{
 								mAdvertList.erase(mAdvertList.begin() + urlIndex);
 							}
 							else
 							{
-								printf("[AAMP-CLI] ERROR - invalid url index %d\n", urlIndex);		
+								printf("[AAMP-CLI] ERROR - invalid url index %d\n", urlIndex);
 							}
 						}
 					}

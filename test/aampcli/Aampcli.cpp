@@ -41,7 +41,7 @@ Aampcli :: Aampcli():
 	mEventListener(NULL),
 	mAampGstPlayerMainLoop(NULL),
 	mAampMainLoopThread(NULL),
-	mPlayerInstances(std::map<int, PlayerInstancesInfo> ())
+	mPlayerInstances()
 {
 };
 
@@ -54,8 +54,7 @@ Aampcli::Aampcli(const Aampcli& aampcli):
 	mEventListener(NULL),
 	mAampGstPlayerMainLoop(NULL),
 	mAampMainLoopThread(NULL),
-	mPlayerInstances(std::map<int, PlayerInstancesInfo> ())
-
+	mPlayerInstances()
 {
 	mSingleton = aampcli.mSingleton;
 	mEventListener = aampcli.mEventListener;
@@ -279,7 +278,6 @@ void Aampcli::initPlayerLoop(int argc, char **argv)
 
 void Aampcli::newPlayerInstance( std::string appName)
 {
-	PlayerInstancesInfo playerInstancesInfo;
 	PlayerInstanceAAMP *player = new PlayerInstanceAAMP(
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
 			NULL
@@ -290,8 +288,7 @@ void Aampcli::newPlayerInstance( std::string appName)
 	if (!appName.empty())
 	{
 		printf(" Set player name %s\n", appName.c_str());
-		mSingleton->SetAppName(appName);
-		playerInstancesInfo.appName = appName;
+		player->SetAppName(appName);
 	}
 
 	if( !mEventListener )
@@ -300,16 +297,9 @@ void Aampcli::newPlayerInstance( std::string appName)
 		mEventListener = new MyAAMPEventListener();
 	}
 	player->RegisterEvents(mEventListener);
-	int playerIndex = (int)mPlayerInstances.size();
-	
-	while(mPlayerInstances.count(playerIndex))
-	{
-		playerIndex++;
-	}
-
-	printf( "new playerInstance; index=%d\n", playerIndex );
-	playerInstancesInfo.playerInstanceAAMP = player;
-	mPlayerInstances.insert(std::make_pair(playerIndex,playerInstancesInfo));
+	int playerId = player->GetId();
+	printf( "new playerInstance; id=%d\n", playerId );
+	mPlayerInstances.push_back(player);
 	mSingleton = player; // select
 	mSingleton->SetContentProtectionDataUpdateTimeout(0);
 }
@@ -447,8 +437,8 @@ void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::str
 {
 	bool loop = false;
 	std::string defUrl = "";
-	mAdvertIndex = (mAdvertIndex < mAdvertList.size()) ? mAdvertIndex : 0;	
-	while (mAdvertIndex < mAdvertList.size()) 
+	mAdvertIndex = (mAdvertIndex < mAdvertList.size()) ? mAdvertIndex : 0;
+	while (mAdvertIndex < mAdvertList.size())
 	{
 		if(reqDuration == mAdvertList[mAdvertIndex].duration)
 		{
@@ -463,7 +453,7 @@ void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::str
 		{
 			defUrl = mAdvertList[mAdvertIndex].url;
 		}
-		
+
 		if(( loop == false) && ( mAdvertIndex + 1 == mAdvertList.size()))
 		{
 			mAdvertIndex = 0;

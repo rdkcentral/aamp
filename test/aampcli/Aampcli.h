@@ -59,27 +59,6 @@ class MyAAMPEventListener : public AAMPEventObjectListener
 		void Event(const AAMPEventPtr& e) override;
 };
 
-class PlayerInstancesInfo
-{
-	public:
-		std::string appName;
-		PlayerInstanceAAMP *playerInstanceAAMP;
-
-		PlayerInstancesInfo():appName(),playerInstanceAAMP(NULL){};
-
-		PlayerInstancesInfo(const PlayerInstancesInfo& playerInstancesInfo):appName(),playerInstanceAAMP(NULL)
-		{
-			appName = playerInstancesInfo.appName;
-			playerInstanceAAMP = playerInstancesInfo.playerInstanceAAMP;	
-		};
-
-		PlayerInstancesInfo& operator=(const PlayerInstancesInfo& playerInstancesInfo)
-		{
-			return *this;
-		};
-
-};
-
 class Aampcli
 {
 	public:
@@ -91,7 +70,7 @@ class Aampcli
 		MyAAMPEventListener *mEventListener;
 		GMainLoop *mAampGstPlayerMainLoop;
 		GThread *mAampMainLoopThread;
-		std::map<int, PlayerInstancesInfo> mPlayerInstances;
+		std::vector<PlayerInstanceAAMP *> mPlayerInstances;
 
 		static void runCommand( void* args );
 		static gpointer aampGstPlayerStreamThread( gpointer arg );

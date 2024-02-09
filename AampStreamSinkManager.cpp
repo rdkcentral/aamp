@@ -211,6 +211,7 @@ void AampStreamSinkManager::SetStreamSink(PrivateInstanceAAMP *aamp, StreamSink 
 
 void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 {
+	//Do not edit or remove this log - it is used in L2 test
 	AAMPLOG_WARN("AampStreamSinkManager(%p)::%s DeleteStreamSink for PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
 
 	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);

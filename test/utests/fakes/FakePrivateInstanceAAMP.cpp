@@ -456,6 +456,12 @@ void PrivateInstanceAAMP::SetAppName(std::string name)
 {
 }
 
+std::string PrivateInstanceAAMP::GetAppName()
+{
+	std::string name = "appName";
+	return name;
+}
+
 int PrivateInstanceAAMP::GetAudioTrack()
 {
 	return 0;

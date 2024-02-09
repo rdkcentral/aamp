@@ -2585,6 +2585,14 @@ void PlayerInstanceAAMP::SetAppName(std::string name)
 	aamp->SetAppName(name);
 }
 
+ /**
+  *  @brief Return the associated application name
+  */
+std::string PlayerInstanceAAMP::GetAppName()
+{
+	return aamp->GetAppName();
+}
+
 /**
  *  @brief Enable/disable the native CC rendering feature
  */

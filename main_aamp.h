@@ -1591,6 +1591,7 @@ public:
 	 *   @return void
 	 */
 	void SetAppName(std::string name);
+	std::string GetAppName();
 
 	/**
 	 *   @fn SetPreferredLanguages

@@ -46,6 +46,8 @@ class PlaybackCommand : public Command
 		static void showHelp(void);
 		void termPlayerLoop();
 		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
+		PlayerInstanceAAMP * findPlayerInstance( const char *playerRef );
+
 private:
 		void getRange(const char* cmd, unsigned long& start, unsigned long& end, unsigned long& tail);
 		static void addCommand(std::string command,std::string description);

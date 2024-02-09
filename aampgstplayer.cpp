@@ -576,7 +576,7 @@ static void analyze_streams(AAMPGstPlayer *_this)
 
 static MediaType GetMediaTypeForSource(const GstElement *source,const AAMPGstPlayer * _this )
 {
-	if(source && _this && _this->privateContext && _this->privateContext->stream)
+	if(source && _this && _this->privateContext )
 	{
 		for( int i=0; (i<AampBufferControl::BufferControlMaster::BUFFER_TRACK_COUNT); i++ )
 		{
@@ -5166,7 +5166,7 @@ void AampBufferControl::BufferControlExternalData::cacheExtraData(const AAMPGstP
 {
 	mExtraDataCache.valid=true;
 	media_stream* stream=nullptr;
-	if(player && player->privateContext && player->privateContext->stream)
+	if(player && player->privateContext )
 	{
 		stream = &player->privateContext->stream[mediaType];
 	}
@@ -5203,7 +5203,7 @@ void AampBufferControl::BufferControlExternalData::cacheExtraData(const AAMPGstP
 
 void AampBufferControl::BufferControlMaster::UpdateAll(const AAMPGstPlayer *player)
 {
-	if(player && player->privateContext && player->privateContext->stream)
+	if(player && player->privateContext )
 	{
 		for( int i=0; i<BUFFER_TRACK_COUNT; i++ )
 		{
