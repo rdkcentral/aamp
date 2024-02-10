@@ -25,8 +25,6 @@
 #ifndef __AAMP_SCHEDULER_H__
 #define __AAMP_SCHEDULER_H__
 
-//#define __UNIT_TESTING__
-
 #include <functional>
 #include <mutex>
 #include <condition_variable>
@@ -35,17 +33,9 @@
 #include <utility>
 #include "AampDefine.h"
 #include "AampEvent.h"
-#ifndef __UNIT_TESTING__
+
 #include "AampConfig.h"
 #include "AampLogManager.h"
-#else
-#include <unistd.h>
-#define AAMPLOG_WARN(FORMAT, ...) { printf(FORMAT,##__VA_ARGS__);printf("\n");}
-#define AAMPLOG_INFO(FORMAT, ...) { printf(FORMAT,##__VA_ARGS__);printf("\n");}
-#define AAMPLOG_ERR(FORMAT, ...)  { printf(FORMAT,##__VA_ARGS__);printf("\n");}
-#define AAMPLOG_TRACE(FORMAT, ...)  { printf(FORMAT,##__VA_ARGS__);printf("\n");}
-#define AAMPLOG_DEBUG(FORMAT, ...)  { printf(FORMAT,##__VA_ARGS__);printf("\n");}
-#endif
 #define AAMP_SCHEDULER_ID_MAX_VALUE INT_MAX  // 10000
 #define AAMP_SCHEDULER_ID_DEFAULT 1		//ID ranges from DEFAULT to MAX
 
@@ -169,11 +159,7 @@ public:
 	 */   
 	void SetLogger(AampLogManager *logObj) { mLogObj = logObj;}
 protected:
-#ifndef __UNIT_TESTING__
 	AampLogManager *mLogObj;
-#else
-    void *mLogObj;
-#endif
 
 	/**
 	 * @fn ExecuteAsyncTask

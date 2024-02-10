@@ -6,62 +6,6 @@
 #include "priv_aamp.h"
 #include "AampLogManager.h"
 
-
-// Logging defines
-
-void print_nop(const char *format, ...){}
-
-#ifdef LOG_ENABLE_TRACE
-#define TRACE1 AAMPLOG_TRACE("PC: TRACE1 "); AAMPLOG_TRACE
-#define TRACE2 AAMPLOG_TRACE("PC: TRACE2 "); AAMPLOG_TRACE
-#define TRACE3 AAMPLOG_TRACE("PC: TRACE3 "); AAMPLOG_TRACE
-#define TRACE4 AAMPLOG_TRACE("PC: TRACE4 "); AAMPLOG_TRACE
-#else
-#define TRACE1  print_nop
-#define TRACE2  print_nop
-#define TRACE3  print_nop
-#define TRACE4  print_nop
-#endif
-
-#ifndef LOG_ENABLE
-#define DEBUG print_nop
-#define INFO print_nop
-#else
-#define INFO AAMPLOG_INFO("PC: INFO " ); AAMPLOG_INFO
-#define DEBUG AAMPLOG_TRACE("PC: DEBUG " ); AAMPLOG_TRACE
-#endif
-
-#define LOG_WARNINGS_AND_ERRORS
-
-#undef ERROR
-
-#ifndef LOG_WARNINGS_AND_ERRORS
-#define NOTICE print_nop
-#define WARNING print_nop
-#define ERROR print_nop
-#define FATAL print_nop
-#else
-#define NOTICE(FORMAT, ...) 	AAMPLOG(mLogObj, eLOGLEVEL_INFO, "INFO", FORMAT, ##__VA_ARGS__)
-#define WARNING(FORMAT, ...) 	AAMPLOG(mLogObj, eLOGLEVEL_WARN, "WARN", FORMAT, ##__VA_ARGS__)
-#define ERROR(FORMAT, ...) 	AAMPLOG(mLogObj, eLOGLEVEL_ERROR, "ERROR", FORMAT, ##__VA_ARGS__)
-#endif
-
-#ifdef DEBUG_DEMUX_TRACK
-#define DEBUG_DEMUX(a...) { \
-	if (type == DEBUG_DEMUX_TRACK || DEBUG_DEMUX_TRACK == 0xff) \
-	{ \
-		AAMPLOG_WARN("PC: DEBUG_DEMUX Track %d : ", DEBUG_DEMUX_TRACK );\
-		printf(a); \
-	}\
-	else \
-	{ \
-		DEBUG(a); \
-	}\
-}
-#else
-#define DEBUG_DEMUX DEBUG
-#endif
-
 // TS Demuxing defines
 
 #define PES_STATE_WAITING_FOR_HEADER  0
@@ -81,23 +25,6 @@ void print_nop(const char *format, ...){}
 // #define PES_MIN_DATA (PES_HEADER_LENGTH+3)
 
 #define MAX_FIRST_PTS_OFFSET (uint33_t{45000}) /*500 ms*/
-
-// //
-
-#define DUMP_PACKET 0
-
-// #define PACKET_SIZE (188)
-// #define MAX_PACKET_SIZE (208)
-// #define FIXED_FRAME_RATE (10)
-// #define FRAME_WIDTH_MAX (1920)
-// #define FRAME_HEIGHT_MAX (1080)
-// #define WAIT_FOR_DATA_MILLISEC 100
-// #define WAIT_FOR_DATA_MAX_RETRIES 1
-
-// #define MAX_PMT_SECTION_SIZE (1021)
-// #define PATPMT_MAX_SIZE (2*1024)
-// #define PAT_SPTS_SIZE (13)
-// #define PAT_TABLE_ENTRY_SIZE (4)
 
 /** Maximum PTS value */
 // #define MAX_PTS (uint33_t::max_value().value)
@@ -165,7 +92,7 @@ bool Demuxer::CheckForSteadyState()
 		if ((base_pts > current_pts)
 			|| (current_dts && base_pts > current_dts))
 		{
-			WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " diff %f seconds length %d",
+			AAMPLOG_WARN("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " diff %f seconds length %d",
 				type, position, base_pts.value, current_pts.value, (double)(base_pts - current_pts) / 90000, (int)es.GetLen() );
 			es.Clear();
 			return false;
@@ -173,7 +100,7 @@ bool Demuxer::CheckForSteadyState()
 
 		if (base_pts + uint33_t::half_max() > current_pts + uint33_t::half_max())
 		{
-			WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " base_pts+half_max %" PRIu64 " current_pts+half_max %" PRIu64 ,
+			AAMPLOG_WARN("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " base_pts+half_max %" PRIu64 " current_pts+half_max %" PRIu64 ,
 				type, position, base_pts.value, current_pts.value, (base_pts+uint33_t::half_max()).value, (current_pts+uint33_t::half_max()).value);
 			es.Clear();
 			return false;
@@ -273,7 +200,7 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 	finalized_base_pts = false;
 	sentESCount = 0;
 	pes_state = PES_STATE_WAITING_FOR_HEADER;
-	DEBUG_DEMUX("init : position %f, duration %f resetBasePTS %d", position, duration, resetBasePTS);
+	AAMPLOG_DEBUG("init : position %f, duration %f resetBasePTS %d", position, duration, resetBasePTS);
 }
 
 void Demuxer::flush()
@@ -282,7 +209,7 @@ void Demuxer::flush()
 	auto len = es.GetLen();
 	if (len > 0)
 	{
-		INFO("demux : sending remaining bytes. es.len %d", (int)es.GetLen());
+		AAMPLOG_INFO("demux : sending remaining bytes. es.len %d", (int)es.GetLen());
 		send();
 	}
 
@@ -301,7 +228,7 @@ void Demuxer::setBasePTS(unsigned long long basePTS, bool isFinal)
 	std::lock_guard<std::mutex> lock{mMutex};
 	if (!trickmode)
 	{
-		NOTICE("Type[%d], basePTS %llu final %d", (int)type, basePTS, (int)isFinal);
+		AAMPLOG_INFO("Type[%d], basePTS %llu final %d", (int)type, basePTS, (int)isFinal);
 	}
 	base_pts = basePTS;
 	finalized_base_pts = isFinal;
@@ -355,10 +282,10 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 						auto prev_pts = exchange(current_pts, timeStamp);
 						if(prev_pts > current_pts && prev_pts - current_pts > uint33_t::half_max())
 						{//pts may come out of order so prev>current is not sufficient to detect the rollover
-							WARNING("PTS Rollover type:%d %" PRIu64 " -> %" PRIu64 , type, prev_pts.value, current_pts.value);
+							AAMPLOG_WARN("PTS Rollover type:%d %" PRIu64 " -> %" PRIu64 , type, prev_pts.value, current_pts.value);
 						}
 						current_pts = timeStamp;
-						DEBUG("PTS updated %" PRIu64 , current_pts.value);
+						AAMPLOG_DEBUG("PTS updated %" PRIu64 , current_pts.value);
 						if(!finalized_base_pts)
 						{
 							finalized_base_pts = true;
@@ -371,7 +298,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 									if(applyOffset)
 									{
 										base_pts = current_pts - MAX_FIRST_PTS_OFFSET;
-										WARNING("Type[%d] base_pts not initialized, updated to %" PRIu64 , type, base_pts.value);
+										AAMPLOG_WARN("Type[%d] base_pts not initialized, updated to %" PRIu64 , type, base_pts.value);
 									}
 									else
 									{
@@ -398,7 +325,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 										{
 											base_pts = current_pts;
 										}
-										WARNING("Type[%d] current_pts[%" PRIu64 "] < base_pts[%" PRIu64 "], base_pts[%" PRIu64 "]->[%" PRIu64 "]",
+										AAMPLOG_WARN("Type[%d] current_pts[%" PRIu64 "] < base_pts[%" PRIu64 "], base_pts[%" PRIu64 "]->[%" PRIu64 "]",
 											type, current_pts.value, base_pts.value, orig_base_pts.value, base_pts.value);
 									}
 									else /*current_pts >= base_pts*/
@@ -416,12 +343,12 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 											{
 												base_pts = current_pts;
 											}
-											NOTICE("Type[%d] delta[%" PRIu64 "] > MAX_FIRST_PTS_OFFSET, current_pts[%" PRIu64 "] base_pts[%" PRIu64 "]->[%" PRIu64 "]",
+											AAMPLOG_INFO("Type[%d] delta[%" PRIu64 "] > MAX_FIRST_PTS_OFFSET, current_pts[%" PRIu64 "] base_pts[%" PRIu64 "]->[%" PRIu64 "]",
 												type, delta.value, current_pts.value, orig_base_pts.value, base_pts.value);
 										}
 										else
 										{
-											NOTICE("Type[%d] PTS in range.delta[%" PRIu64 "] <= MAX_FIRST_PTS_OFFSET base_pts[%" PRIu64 "]",
+											AAMPLOG_INFO("Type[%d] PTS in range.delta[%" PRIu64 "] <= MAX_FIRST_PTS_OFFSET base_pts[%" PRIu64 "]",
 												type, delta.value, base_pts.value);
 										}
 									}
@@ -430,11 +357,11 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 							if (-1 == base_pts)
 							{
 								base_pts = timeStamp;
-								WARNING("base_pts not available, updated to pts %" PRIu64 , timeStamp.value);
+								AAMPLOG_WARN("base_pts not available, updated to pts %" PRIu64 , timeStamp.value);
 							}
 							else if (base_pts > timeStamp)
 							{
-								WARNING("base_pts update from %" PRIu64 " to %" PRIu64 , base_pts.value, timeStamp.value);
+								AAMPLOG_WARN("base_pts update from %" PRIu64 " to %" PRIu64 , base_pts.value, timeStamp.value);
 								base_pts = timeStamp;
 							}
 							basePtsUpdated = true;
@@ -442,7 +369,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					}
 					else
 					{
-						WARNING("PTS NOT present pesStart[7] & 0x80 = 0x%x pesStart[9]&0xF0 = 0x%x",
+						AAMPLOG_WARN("PTS NOT present pesStart[7] & 0x80 = 0x%x pesStart[9]&0xF0 = 0x%x",
 							pesStart[7] & 0x80, (pesStart[9] & 0x20));
 					}
 
@@ -452,18 +379,18 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					}
 					else
 					{
-						DEBUG("DTS NOT present pesStart[7] & 0x80 = 0x%x pesStart[9]&0xF0 = 0x%x",
+						AAMPLOG_DEBUG("DTS NOT present pesStart[7] & 0x80 = 0x%x pesStart[9]&0xF0 = 0x%x",
 							pesStart[7] & 0x80, (pesStart[9] & 0x20));
 					}
 				}
 				else
 				{
-					WARNING("Optional pes header NOT present pesStart[6] & 0xC0 = 0x%x", pesStart[6] & 0xC0);
+					AAMPLOG_WARN("Optional pes header NOT present pesStart[6] & 0xC0 = 0x%x", pesStart[6] & 0xC0);
 				}
 			}
 			else
 			{
-				WARNING("Packet start prefix check failed 0x%x 0x%x 0x%x adaptation_fieldlen %d", pesStart[0],
+				AAMPLOG_WARN("Packet start prefix check failed 0x%x 0x%x 0x%x adaptation_fieldlen %d", pesStart[0],
 					pesStart[1], pesStart[2], adaptation_fieldlen);
 
 				/* DELIA 47453 video stops playing when ad fragments are injected
@@ -482,12 +409,12 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					*/
 				if( current_pts == 0 )
 				{
-					WARNING("Avoiding PTS check when new audio or video TS packet is received without proper PES data");
+					AAMPLOG_WARN("Avoiding PTS check when new audio or video TS packet is received without proper PES data");
 					isPacketIgnored = true;
 					return;
 				}
 			}
-			DEBUG(" PES_PAYLOAD_LENGTH %d", PES_PAYLOAD_LENGTH(pesStart));
+			AAMPLOG_DEBUG(" PES_PAYLOAD_LENGTH %d", PES_PAYLOAD_LENGTH(pesStart));
 		}
 		if ((first_pts == 0) && !update_first_pts)
 		{
@@ -510,7 +437,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 			{
 				pes_state = PES_STATE_GETTING_HEADER;
 				pes_header.Clear();
-				DEBUG_DEMUX("Payload Unit Start");
+				AAMPLOG_DEBUG("Payload Unit Start");
 			}
 
 			while (size > 0)
@@ -518,21 +445,21 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 				switch (pes_state)
 				{
 				case PES_STATE_WAITING_FOR_HEADER:
-					WARNING("PES_STATE_WAITING_FOR_HEADER , discard data. type =%d size = %d", (int)type, size);
+					AAMPLOG_WARN("PES_STATE_WAITING_FOR_HEADER , discard data. type =%d size = %d", (int)type, size);
 					size = 0;
 					break;
 				case PES_STATE_GETTING_HEADER:
 					bytes_to_read = (int)(aamp_ts::pes_min_data - pes_header.GetLen());
 					if( bytes_to_read<=0 )
 					{
-						WARNING( "bad pes_header length" );
+						AAMPLOG_WARN( "bad pes_header length" );
 						break;
 					}
 					if (size < bytes_to_read)
 					{
 						bytes_to_read = size;
 					}
-					DEBUG("PES_STATE_GETTING_HEADER. size = %d, bytes_to_read =%d", size, bytes_to_read);
+					AAMPLOG_DEBUG("PES_STATE_GETTING_HEADER. size = %d, bytes_to_read =%d", size, bytes_to_read);
 					pes_header.AppendBytes( data, bytes_to_read);
 					data += bytes_to_read;
 					size -= bytes_to_read;
@@ -540,7 +467,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					{
 						if (!IS_PES_PACKET_START(pes_header.GetPtr()))
 						{
-							WARNING("Packet start prefix check failed 0x%x 0x%x 0x%x", pes_header.GetPtr()[0],
+							AAMPLOG_WARN("Packet start prefix check failed 0x%x 0x%x 0x%x", pes_header.GetPtr()[0],
 								pes_header.GetPtr()[1], pes_header.GetPtr()[2]);
 							pes_state = PES_STATE_WAITING_FOR_HEADER;
 							break;
@@ -550,13 +477,13 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 							pes_state = PES_STATE_GETTING_HEADER_EXTENSION;
 							pes_header_ext_len = PES_OPTIONAL_HEADER_LENGTH(pes_header.GetPtr());
 							pes_header_ext_read = 0;
-							DEBUG(
+							AAMPLOG_DEBUG(
 								"Optional header preset len = %d. Switching to PES_STATE_GETTING_HEADER_EXTENSION",
 								pes_header_ext_len);
 						}
 						else
 						{
-							WARNING(
+							AAMPLOG_WARN(
 								"Optional header not preset pesStart[6] 0x%x bytes_to_read %d- switching to PES_STATE_WAITING_FOR_HEADER",
 								pes_header.GetPtr()[6], bytes_to_read);
 							pes_state = PES_STATE_WAITING_FOR_HEADER;
@@ -575,18 +502,18 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					if (pes_header_ext_read == pes_header_ext_len)
 					{
 						pes_state = PES_STATE_GETTING_ES;
-						DEBUG("Optional header read. switch to PES_STATE_GETTING_ES");
+						AAMPLOG_DEBUG("Optional header read. switch to PES_STATE_GETTING_ES");
 					}
 					break;
 				case PES_STATE_GETTING_ES:
 					/*Handle padding?*/
-					TRACE1("PES_STATE_GETTING_ES bytes_to_read = %d", size);
+					AAMPLOG_TRACE("PES_STATE_GETTING_ES bytes_to_read = %d", size);
 					es.AppendBytes(data, size);
 					size = 0;
 					break;
 				default:
 					pes_state = PES_STATE_WAITING_FOR_HEADER;
-					ERROR("Invalid pes_state. type =%d size = %d", (int)type, size);
+					AAMPLOG_ERR("Invalid pes_state. type =%d size = %d", (int)type, size);
 					break;
 				}
 			}

@@ -43,51 +43,6 @@
 #include <iomanip>
 #include <unordered_set>
 
-
-namespace {
-
-	void print_nop(const char *format, ...){}
-
-}
-
-#ifdef LOG_ENABLE_TRACE
-#define TRACE1 AAMPLOG_TRACE("PC: TRACE1 "); AAMPLOG_TRACE
-#define TRACE2 AAMPLOG_TRACE("PC: TRACE2 "); AAMPLOG_TRACE
-#define TRACE3 AAMPLOG_TRACE("PC: TRACE3 "); AAMPLOG_TRACE
-#define TRACE4 AAMPLOG_TRACE("PC: TRACE4 "); AAMPLOG_TRACE
-#else
-#define TRACE1  print_nop
-#define TRACE2  print_nop
-#define TRACE3  print_nop
-#define TRACE4  print_nop
-#endif
-
-#ifndef LOG_ENABLE
-#define DEBUG print_nop
-#define INFO print_nop
-#else
-#define INFO AAMPLOG_INFO("PC: INFO " ); AAMPLOG_INFO
-#define DEBUG AAMPLOG_TRACE("PC: DEBUG " ); AAMPLOG_TRACE
-#endif
-
-#define LOG_WARNINGS_AND_ERRORS
-
-#undef ERROR
-#ifndef LOG_WARNINGS_AND_ERRORS
-#define NOTICE print_nop
-#define WARNING print_nop
-#define ERROR print_nop
-#define FATAL print_nop
-#else
-
-#define NOTICE(FORMAT, ...) 	AAMPLOG(mLogObj, eLOGLEVEL_INFO, "INFO", FORMAT, ##__VA_ARGS__)
-#define WARNING(FORMAT, ...) 	AAMPLOG(mLogObj, eLOGLEVEL_WARN, "WARN", FORMAT, ##__VA_ARGS__)
-#define ERROR(FORMAT, ...) 	AAMPLOG(mLogObj, eLOGLEVEL_ERROR, "ERROR", FORMAT, ##__VA_ARGS__)
-#endif
-
-
-#define DUMP_PACKET 0
-
 #define PACKET_SIZE (188)
 #define MAX_PACKET_SIZE (208)
 #define FIXED_FRAME_RATE (10)
@@ -119,26 +74,9 @@ namespace {
 #define DEFAULT_THROTTLE_DELAY_IGNORED_MS 200
 #define DEFAULT_THROTTLE_DELAY_FOR_DISCONTINUITY_MS 2000
 
-
 #define DESCRIPTOR_TAG_SUBTITLE 0x59
 #define DESCRIPTOR_TAG_AC3 0x6A
 #define DESCRIPTOR_TAG_EAC3 0x7A
-//#define DEBUG_DEMUX_TRACK 1
-#ifdef DEBUG_DEMUX_TRACK
-#define DEBUG_DEMUX(a...) { \
-	if (type == DEBUG_DEMUX_TRACK || DEBUG_DEMUX_TRACK == 0xff) \
-	{ \
-		AAMPLOG_WARN("PC: DEBUG_DEMUX Track %d : ", DEBUG_DEMUX_TRACK );\
-		printf(a); \
-	}\
-	else \
-	{ \
-		DEBUG(a); \
-	}\
-}
-#else
-#define DEBUG_DEMUX DEBUG
-#endif
 
 /**
  * @enum StreamType
@@ -170,58 +108,6 @@ enum StreamType
 
 
 #define rmf_osal_memcpy(d, s, n, dc, sc)  memcpy(d, s, n)
-
-
-/**
- * @brief Dump TS packet
- * @param[in] packet buffer containing packet
- * @param[in] packetSize length of packet
- */
-static void dumpPacket(unsigned char *packet, int packetSize)
-{
-	if (DUMP_PACKET)
-	{
-		int i;
-		char buff[1024];
-
-		int col = 0;
-		int buffPos = 0;
-		buff[buffPos] = 0x00;
-		for (i = 0; i < packetSize; ++i)
-		{
-			buffPos += snprintf(&buff[buffPos], (sizeof(buff) - buffPos), "%02X\n", packet[i]);
-			++col;
-			if (col == 8)
-			{
-				strcat(buff, " ");
-				buffPos += 1;
-			}
-			if (col == 16)
-			{
-				buffPos += snprintf(&buff[buffPos], (sizeof(buff) - buffPos), "\n");
-				col = 0;
-			}
-		}
-		printf("%s\n", buff);
-	}
-}
-
-
-/**
- * @brief dump TS packets
- * @param[in] packets buffer containing packets
- * @param[in] len length of packets
- * @param[in] packetSize size of TS packet
- */
-static void dumpPackets(unsigned char *packets, int len, int packetSize)
-{
-	while (len)
-	{
-		dumpPacket(packets, packetSize);
-		len -= packetSize;
-		packets += packetSize;
-	}
-}
 
 /**
  * @brief Get the format for a stream type
@@ -492,7 +378,7 @@ void TSProcessor::insertPCR(unsigned char *packet, int pid)
 	packet[i + 4] = 0xB7; // 1 byte of adaptation data, but require length of 183 when no payload is indicated
 	packet[i + 5] = 0x10; // PCR
 	currPCR = ((m_currRateAdjustedPTS - 10000) & 0x1FFFFFFFFLL);
-	TRACE1("TSProcessor::insertPCR: m_currRateAdjustedPTS= %llx currPCR= %llx", m_currRateAdjustedPTS, currPCR);
+	AAMPLOG_TRACE("TSProcessor::insertPCR: m_currRateAdjustedPTS= %llx currPCR= %llx", m_currRateAdjustedPTS, currPCR);
 	writePCR(&packet[i + 6], currPCR, true);
 	for (int i = 6 + 6 + m_ttsSize; i < m_packetSize; i++)
 	{
@@ -560,7 +446,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 			}
 			else
 			{
-				WARNING("Warning: RecordContext: pmt contains more than %d video PIDs", MAX_PIDS);
+				AAMPLOG_WARN("Warning: RecordContext: pmt contains more than %d video PIDs", MAX_PIDS);
 			}
 			break;
 		case eSTREAM_TYPE_H264: // H.264 Video
@@ -574,7 +460,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 			}
 			else
 			{
-				WARNING("Warning: RecordContext: pmt contains more than %d video PIDs", MAX_PIDS);
+				AAMPLOG_WARN("Warning: RecordContext: pmt contains more than %d video PIDs", MAX_PIDS);
 			}
 			break;
 		case eSTREAM_TYPE_PES_PRIVATE:
@@ -593,17 +479,17 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 				{
 					descrTag = programInfo[descIdx];
 					descrLen = programInfo[descIdx + 1];
-					NOTICE("descrTag 0x%x descrLen %d", descrTag, descrLen);
+					AAMPLOG_INFO("descrTag 0x%x descrLen %d", descrTag, descrLen);
 					if (descrTag == DESCRIPTOR_TAG_AC3)
 					{
-						NOTICE("descrTag 0x%x descrLen %d. marking as audio component", descrTag, descrLen);
+						AAMPLOG_INFO("descrTag 0x%x descrLen %d. marking as audio component", descrTag, descrLen);
 						isAudio = true;
 						audioFormat = FORMAT_AUDIO_ES_AC3;
 						break;
 					}
 					if (descrTag == DESCRIPTOR_TAG_EAC3)
 					{
-						NOTICE("descrTag 0x%x descrLen %d. marking as audio component", descrTag, descrLen);
+						AAMPLOG_INFO("descrTag 0x%x descrLen %d. marking as audio component", descrTag, descrLen);
 						isAudio = true;
 						audioFormat = FORMAT_AUDIO_ES_EC3;
 						break;
@@ -665,7 +551,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 			}
 			else
 			{
-				WARNING("Warning: RecordContext: pmt contains more than %d audio PIDs", MAX_PIDS);
+				AAMPLOG_WARN("Warning: RecordContext: pmt contains more than %d audio PIDs", MAX_PIDS);
 			}
 			break;
 
@@ -679,7 +565,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 			break;
 
 		default:
-			DEBUG("RecordContext: pmt contains unused stream type 0x%x", streamType);
+			AAMPLOG_DEBUG("RecordContext: pmt contains unused stream type 0x%x", streamType);
 			break;
 		}
 		programInfo += (5 + len);
@@ -689,7 +575,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 	if (videoComponentCount > 0)
 	{
 		m_videoPid = videoComponents[0].pid;
-		NOTICE( "[%p] found %d video pids in program %d with pcr pid %d video pid %d",
+		AAMPLOG_INFO( "[%p] found %d video pids in program %d with pcr pid %d video pid %d",
 			this, videoComponentCount, m_program, pcrPid, m_videoPid);
 	}
 	if (audioComponentCount > 0)
@@ -709,7 +595,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 			StreamOutputFormat streamtype = getStreamFormatForCodecType(audioComponents[i].elemStreamType);
 			std::string codec = GetAudioFormatStringForCodec(streamtype);
 			audioTracks.push_back(AudioTrackInfo(index, language, group_id, name, codec, characteristics, 0));
-			NOTICE( "[%p] found audio#%d in program %d with pcr pid %d audio pid %d lan:%s codec:%s group:%s",
+			AAMPLOG_INFO( "[%p] found audio#%d in program %d with pcr pid %d audio pid %d lan:%s codec:%s group:%s",
 				this, i, m_program, pcrPid, audioComponents[i].pid, language.c_str(), codec.c_str(), group_id.c_str());
 		}
 		if(ISCONFIGSET(eAAMPConfig_EnablePublishingMuxedAudio))
@@ -756,7 +642,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 
 	if (m_dsmccComponentFound)
 	{
-		NOTICE( "[%p] found dsmcc pid in program %d with pcr pid %d dsmcc pid %d",
+		AAMPLOG_INFO( "[%p] found dsmcc pid in program %d with pcr pid %d dsmcc pid %d",
 			this, m_program, pcrPid, m_dsmccComponent.pid);
 	}
 
@@ -766,7 +652,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 		{
 			if (pcrPid == audioComponents[audioIndex].pid)
 			{
-				INFO("RecordContext: indexing audio");
+				AAMPLOG_INFO("RecordContext: indexing audio");
 				m_indexAudio = true;
 
 				break;
@@ -882,7 +768,7 @@ void TSProcessor::sendDiscontinuity(double position)
 		}
 		m_continuityCounters[discPid] = 0x00;
 
-		TRACE1("emit pcr discontinuity");
+		AAMPLOG_TRACE("emit pcr discontinuity");
 		if (!m_demux)
 		{
 			aamp->SendStreamCopy((MediaType)m_track, discontinuityPacket, m_packetSize, position, position, 0);
@@ -909,7 +795,7 @@ void TSProcessor::sendDiscontinuity(double position)
 			}
 			m_continuityCounters[discPid] = 0x01;
 
-			TRACE1("supply new pcr value");
+			AAMPLOG_TRACE("supply new pcr value");
 
 			if (!m_demux)
 			{
@@ -989,7 +875,7 @@ bool TSProcessor::throttle()
 		if (contentTime != -1LL)
 		{
 			long long now, contentTimeDiff, realTimeDiff;
-			TRACE2("contentTime %lld (%lld ms) m_playRate %f", contentTime, contentTime / 90, m_playRate);
+			AAMPLOG_TRACE("contentTime %lld (%lld ms) m_playRate %f", contentTime, contentTime / 90, m_playRate);
 
 			// Convert from 90KHz milliseconds
 			contentTime = (contentTime / 90LL);
@@ -1014,23 +900,23 @@ bool TSProcessor::throttle()
 								if (throttleDiff > m_throttleMaxDelayMs)
 								{
 									// Don't delay more than 500 ms in any given request
-									TRACE2("TSProcessor::fillBuffer: throttle: cap %lld to %d ms", throttleDiff, m_throttleMaxDelayMs);
+									AAMPLOG_TRACE("TSProcessor::fillBuffer: throttle: cap %lld to %d ms", throttleDiff, m_throttleMaxDelayMs);
 									throttleDiff = m_throttleMaxDelayMs;
 								}
 								else
 								{
-									TRACE2("TSProcessor::fillBuffer: throttle: sleep %lld ms", throttleDiff);
+									AAMPLOG_TRACE("TSProcessor::fillBuffer: throttle: sleep %lld ms", throttleDiff);
 								}
 								aborted = msleep(throttleDiff);
 							}
 							else
 							{
-								INFO("throttleDiff negative? %lld", throttleDiff);
+								AAMPLOG_INFO("throttleDiff negative? %lld", throttleDiff);
 							}
 						}
 						else
 						{
-							TRACE2("realTimeDiff %lld", realTimeDiff);
+							AAMPLOG_TRACE("realTimeDiff %lld", realTimeDiff);
 						}
 					}
 					else if ((contentTimeDiff < -m_throttleDelayForDiscontinuityMs) || (contentTimeDiff > m_throttleDelayForDiscontinuityMs))
@@ -1038,21 +924,21 @@ bool TSProcessor::throttle()
 						// There has been some timing irregularity such as a PTS discontinuity.
 						// Establish a new throttling time base.
 						m_haveThrottleBase = false;
-						INFO(" contentTimeDiff( %lld) greater than threshold (%d) - probable pts discontinuity", contentTimeDiff, m_throttleDelayForDiscontinuityMs);
+						AAMPLOG_INFO(" contentTimeDiff( %lld) greater than threshold (%d) - probable pts discontinuity", contentTimeDiff, m_throttleDelayForDiscontinuityMs);
 					}
 					else
 					{
-						INFO(" Out of throttle window - contentTimeDiff %lld realTimeDiff  %lld", contentTimeDiff, realTimeDiff);
+						AAMPLOG_INFO(" Out of throttle window - contentTimeDiff %lld realTimeDiff  %lld", contentTimeDiff, realTimeDiff);
 					}
 				}
 				else
 				{
-					TRACE2(" m_lastThrottleContentTime %lld", m_lastThrottleContentTime);
+					AAMPLOG_TRACE(" m_lastThrottleContentTime %lld", m_lastThrottleContentTime);
 				}
 			}
 			else
 			{
-				INFO("Do not have ThrottleBase");
+				AAMPLOG_INFO("Do not have ThrottleBase");
 			}
 
 			if (!m_haveThrottleBase)
@@ -1073,7 +959,7 @@ bool TSProcessor::throttle()
 				if (nextFrameTime > now)
 				{
 					long long throttleDiff = nextFrameTime - now;
-					INFO("Wait %llu ms ", throttleDiff);
+					AAMPLOG_INFO("Wait %llu ms ", throttleDiff);
 					aborted = msleep(throttleDiff);
 				}
 			}
@@ -1081,14 +967,14 @@ bool TSProcessor::throttle()
 		}
 		else
 		{
-			INFO("contentTime not updated yet");
+			AAMPLOG_INFO("contentTime not updated yet");
 		}
 	}
 	else
 	{
-		TRACE1("Throttle not enabled");
+		AAMPLOG_TRACE("Throttle not enabled");
 	}
-	TRACE4("Exit");
+	AAMPLOG_TRACE("Exit");
 	return aborted;
 }
 
@@ -1111,7 +997,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 	{
 		insPatPmt = true;
 		removePatPmt = true;
-		INFO("Replace PAT/PMT");
+		AAMPLOG_INFO("Replace PAT/PMT");
 	}
 
 	bool doThrottle = m_throttle;
@@ -1124,9 +1010,8 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 	// For the moment, insist on buffers being TS packet aligned
 	if (!((packet[0] == 0x47) && ((size%m_packetSize) == 0)))
 	{
-		ERROR("Error: data buffer not TS packet aligned");
+		AAMPLOG_ERR("Error: data buffer not TS packet aligned");
 		AAMPLOG_WARN("packet=%p size=%d m_packetSize=%d", packet, size, m_packetSize);
-		dumpPacket(packet, m_packetSize);
 		assert(false);
 	}
 
@@ -1145,7 +1030,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 	while (packet < bufferEnd)
 	{
 		pid = (((packet[1] << 8) | packet[2]) & 0x1FFF);
-		TRACE4("pid = %d, m_ttsSize %d", pid, m_ttsSize);
+		AAMPLOG_TRACE("pid = %d, m_ttsSize %d", pid, m_ttsSize);
 
 		if (m_checkContinuity)
 		{
@@ -1156,7 +1041,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 				expected = ((expected + 1) & 0xF); //CID:94829 - No effect
 				if (expected != continuity)
 				{
-					WARNING("input SPTS discontinuity on pid %X (%d instead of %d) offset %llx",
+					AAMPLOG_WARN("input SPTS discontinuity on pid %X (%d instead of %d) offset %llx",
 						pid, continuity, expected, (long long)(packetCount*m_packetSize));
 				}
 
@@ -1186,11 +1071,9 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 						int current = (version & 0x01);
 						version = ((version >> 1) & 0x1F);
 
-						TRACE4("PAT current version %d existing version %d", version, m_versionPAT);
+						AAMPLOG_TRACE("PAT current version %d existing version %d", version, m_versionPAT);
 						if (!m_havePAT || (current && (version != m_versionPAT)))
 						{
-							dumpPacket(packet, m_packetSize);
-
 							int length = ((packet[payloadOffset + 2] & 0x0F) << 8) + (packet[payloadOffset + 3]);
 
 							if (length >= PAT_SPTS_SIZE)
@@ -1215,44 +1098,43 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 								{
 									if (length > PAT_SPTS_SIZE)
 									{
-										WARNING("RecordContext: PAT is MPTS, using program %d.", m_program);
+										AAMPLOG_WARN("RecordContext: PAT is MPTS, using program %d.", m_program);
 									}
 									if (m_havePMT)
 									{
-										INFO("RecordContext: pmt change detected in pat");
+										AAMPLOG_INFO("RecordContext: pmt change detected in pat");
 										m_havePMT = false;
 										goto done;
 									}
 									m_havePMT = false;
-									DEBUG("RecordContext: acquired PAT version %d program %X pmt pid %X", version, m_program, m_pmtPid);
+									AAMPLOG_DEBUG("RecordContext: acquired PAT version %d program %X pmt pid %X", version, m_program, m_pmtPid);
 								}
 								else
 								{
-									WARNING("Warning: RecordContext: ignoring pid 0 TS packet with suspect program %x and pmtPid %x", m_program, m_pmtPid);
-									dumpPacket(packet, m_packetSize);
+									AAMPLOG_WARN("Warning: RecordContext: ignoring pid 0 TS packet with suspect program %x and pmtPid %x", m_program, m_pmtPid);
 									m_program = -1;
 									m_pmtPid = -1;
 								}
 							}
 							else
 							{
-								WARNING("Warning: RecordContext: ignoring pid 0 TS packet with length of %d - not SPTS?", length);
+								AAMPLOG_WARN("Warning: RecordContext: ignoring pid 0 TS packet with length of %d - not SPTS?", length);
 							}
 						}
 					}
 					else
 					{
-						WARNING("Warning: RecordContext: ignoring pid 0 TS packet with tableid of %x", tableid);
+						AAMPLOG_WARN("Warning: RecordContext: ignoring pid 0 TS packet with tableid of %x", tableid);
 					}
 				}
 				else
 				{
-					WARNING("Warning: RecordContext: ignoring pid 0 TS packet with adaptation of %x", adaptation);
+					AAMPLOG_WARN("Warning: RecordContext: ignoring pid 0 TS packet with adaptation of %x", adaptation);
 				}
 			}
 			else
 			{
-				WARNING("Warning: RecordContext: ignoring pid 0 TS with no payload indicator");
+				AAMPLOG_WARN("Warning: RecordContext: ignoring pid 0 TS with no payload indicator");
 			}
 			/*For trickmodes, remove PAT/PMT*/
 			if (removePatPmt)
@@ -1264,7 +1146,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 		}
 		else if (pid == m_pmtPid)
 		{
-			TRACE4("Got PMT : m_pmtPid %d", m_pmtPid);
+			AAMPLOG_TRACE("Got PMT : m_pmtPid %d", m_pmtPid);
 			adaptation = ((packet[3] & 0x30) >> 4);
 			if (adaptation & 0x01)
 			{
@@ -1288,14 +1170,12 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 							int current = (version & 0x01);
 							version = ((version >> 1) & 0x1F);
 
-							TRACE4("PMT current version %d existing version %d", version, m_versionPMT);
+							AAMPLOG_TRACE("PMT current version %d existing version %d", version, m_versionPMT);
 							if (!m_havePMT || (current && (version != m_versionPMT)))
 							{
-								dumpPacket(packet, m_packetSize);
-
 								if (m_havePMT && (version != m_versionPMT))
 								{
-									INFO("RecordContext: pmt change detected: version %d -> %d", m_versionPMT, version);
+									AAMPLOG_INFO("RecordContext: pmt change detected: version %d -> %d", m_versionPMT, version);
 									m_havePMT = false;
 									goto done;
 								}
@@ -1316,10 +1196,10 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 											m_pmtCollector = (unsigned char*)malloc(MAX_PMT_SECTION_SIZE);
 											if (!m_pmtCollector)
 											{
-												ERROR("Error: unable to allocate pmt collector buffer - ignoring large pmt (section length %d)", sectionLength);
+												AAMPLOG_ERR("Error: unable to allocate pmt collector buffer - ignoring large pmt (section length %d)", sectionLength);
 												goto done;
 											}
-											INFO("RecordContext: allocating pmt collector buffer %p", m_pmtCollector);
+											AAMPLOG_INFO("RecordContext: allocating pmt collector buffer %p", m_pmtCollector);
 										}
 										// section data starts after table id, section length and pointer field
 										int sectionOffset = payloadOffset + 4;
@@ -1329,24 +1209,23 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 										m_pmtCollectorSectionLength = sectionLength;
 										m_pmtCollectorOffset = sectionAvail;
 										m_pmtCollectorNextContinuity = ((packet[3] + 1) & 0xF);
-										INFO("RecordContext: starting to collect multi-packet pmt: section length %d", sectionLength);
+										AAMPLOG_INFO("RecordContext: starting to collect multi-packet pmt: section length %d", sectionLength);
 									}
 									else
 									{
-										WARNING("Warning: RecordContext: ignoring oversized pmt (section length %d)", sectionLength);
+										AAMPLOG_WARN("Warning: RecordContext: ignoring oversized pmt (section length %d)", sectionLength);
 									}
 								}
 							}
 						}
 						else
 						{
-							WARNING("Warning: RecordContext: ignoring pmt TS packet with mismatched program of %x (expecting %x)", program, m_program);
-							dumpPacket(packet, m_packetSize);
+							AAMPLOG_WARN("Warning: RecordContext: ignoring pmt TS packet with mismatched program of %x (expecting %x)", program, m_program);
 						}
 					}
 					else
 					{
-						TRACE1("Warning: RecordContext: ignoring pmt TS packet with tableid of %x", tableid);
+						AAMPLOG_TRACE("Warning: RecordContext: ignoring pmt TS packet with tableid of %x", tableid);
 					}
 				}
 				else
@@ -1357,7 +1236,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 						int continuity = (packet[3] & 0xF);
 						if (((continuity + 1) & 0xF) == m_pmtCollectorNextContinuity)
 						{
-							WARNING("Warning: RecordContext: next packet of multi-packet pmt has wrong continuity count %d (expecting %d)",
+							AAMPLOG_WARN("Warning: RecordContext: next packet of multi-packet pmt has wrong continuity count %d (expecting %d)",
 								m_pmtCollectorNextContinuity, continuity);
 							// Assume continuity counts for all packets of this pmt will remain the same.
 							// Allow this since it has been observed in the field
@@ -1385,20 +1264,20 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 						}
 						else
 						{
-							ERROR("Error: RecordContext: aborting multi-packet pmt due to discontinuity error: expected %d got %d",
+							AAMPLOG_ERR("Error: RecordContext: aborting multi-packet pmt due to discontinuity error: expected %d got %d",
 								m_pmtCollectorNextContinuity, continuity);
 							m_pmtCollectorOffset = 0;
 						}
 					}
 					else if (!m_havePMT)
 					{
-						WARNING("Warning: RecordContext: ignoring unexpected pmt TS packet without payload start indicator");
+						AAMPLOG_WARN("Warning: RecordContext: ignoring unexpected pmt TS packet without payload start indicator");
 					}
 				}
 			}
 			else
 			{
-				WARNING("Warning: RecordContext: ignoring unexpected pmt TS packet without payload indicator");
+				AAMPLOG_WARN("Warning: RecordContext: ignoring unexpected pmt TS packet without payload indicator");
 			}
 			/*For trickmodes, remove PAT/PMT*/
 			if (removePatPmt)
@@ -1422,9 +1301,9 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 				{
 					if (!m_scrambledWarningIssued)
 					{
-						TRACE3("RecordingContext: video pid %x transport_scrambling_control bits are non-zero (%02x)- is data still scrambled?", pid, packet[3]);
+						AAMPLOG_TRACE("RecordingContext: video pid %x transport_scrambling_control bits are non-zero (%02x)- is data still scrambled?", pid, packet[3]);
 						m_scrambledWarningIssued = true;
-						TRACE3("[found scrambled data, NOT writing idx,mpg files, returning(true)... ");
+						AAMPLOG_TRACE("[found scrambled data, NOT writing idx,mpg files, returning(true)... ");
 					}
 				}
 				m_scrambledWarningIssued = false;
@@ -1477,7 +1356,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 										}
 										else
 										{
-											INFO("RecordContext: pts discontinuity: %llx to %llx", m_currentPTS.value, PTS.value);
+											AAMPLOG_INFO("RecordContext: pts discontinuity: %llx to %llx", m_currentPTS.value, PTS.value);
 											m_currentPTS = PTS;
 										}
 									}
@@ -1487,7 +1366,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 										if (m_actualStartPTS == uint33_t::max_value())
 										{
 											m_actualStartPTS = PTS;
-											TRACE2("Updated m_actualStartPTS to %lld", m_actualStartPTS.value);
+											AAMPLOG_TRACE("Updated m_actualStartPTS to %lld", m_actualStartPTS.value);
 										}
 									}
 
@@ -1505,7 +1384,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 			{
 				if (throttle())
 				{
-					INFO("throttle aborted");
+					AAMPLOG_INFO("throttle aborted");
 					m_haveThrottleBase = false;
 					m_lastThrottleContentTime = -1;
 					result = false;
@@ -1546,7 +1425,7 @@ void TSProcessor::setupThrottle(int segmentDurationMsSigned)
 	m_throttleMaxDiffSegments = m_throttleMaxDelayMs;
 	m_throttleDelayIgnoredMs = DEFAULT_THROTTLE_DELAY_IGNORED_MS;
 	m_throttleDelayForDiscontinuityMs = segmentDurationMs * 10;
-	TRACE1("segmentDurationMs %d", segmentDurationMs);
+	AAMPLOG_TRACE("segmentDurationMs %d", segmentDurationMs);
 }
 
 /**
@@ -1576,7 +1455,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 		{
 			if (discontinuous && (1.0 == m_playRate))
 			{
-				NOTICE("TSProcessor:%p discontinuous buffer- flushing video demux", this);
+				AAMPLOG_INFO("TSProcessor:%p discontinuous buffer- flushing video demux", this);
 			}
 			m_vidDemuxer->flush();
 			m_vidDemuxer->init(position, duration, isTrickMode, true);
@@ -1594,7 +1473,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 		{
 			if(discontinuous)
 			{
-				NOTICE("TSProcessor:%p discontinuous buffer- flushing audio demux", this);
+				AAMPLOG_INFO("TSProcessor:%p discontinuous buffer- flushing audio demux", this);
 			}
 			m_audDemuxer->flush();
 			m_audDemuxer->init(position, duration, isTrickMode, (eStreamOp_DEMUX_AUDIO != m_streamOperation));
@@ -1606,7 +1485,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 	{
 		m_demuxInitialized = true;
 	}
-	INFO("demuxAndSend : len  %d videoPid %d audioPid %d m_pcrPid %d videoComponentCount %d m_demuxInitialized = %d", (int)len, videoPid, audioPid, m_pcrPid, videoComponentCount, m_demuxInitialized);
+	AAMPLOG_INFO("demuxAndSend : len  %d videoPid %d audioPid %d m_pcrPid %d videoComponentCount %d m_demuxInitialized = %d", (int)len, videoPid, audioPid, m_pcrPid, videoComponentCount, m_demuxInitialized);
 
 	std::unordered_set<Demuxer*> updated_demuxers{};
 	const unsigned char * packetStart = (const unsigned char *)ptr;
@@ -1643,7 +1522,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
   //CID:98793 - Uncaught expression results
 					if (m_playRate == 1.0)
 					{
-						NOTICE("firstPcr %llu", firstPcr);
+						AAMPLOG_INFO("firstPcr %llu", firstPcr);
 					}
 					if (m_vidDemuxer)
 					{
@@ -1682,14 +1561,14 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 				if( (audioComponentCount > 0) && (m_AudioTrackIndexToPlay < audioComponentCount-1) )
 				{
 					m_AudioTrackIndexToPlay++;
-					WARNING("Switched to next audio pid, since no PES data in current pid");
+					AAMPLOG_WARN("Switched to next audio pid, since no PES data in current pid");
 				}
 			}
 
 			// Process PTS updates and errors only for audio and video demuxers
 			if(!m_demuxInitialized && !dsmccDemuxerUsed)
 			{
-				WARNING("PCR not available before ES packet, updating firstPCR");
+				AAMPLOG_WARN("PCR not available before ES packet, updating firstPCR");
 				m_demuxInitialized = true;
 				notifyPeerBasePTS = true;
 				firstPcr = demuxer->getBasePTS();
@@ -1699,12 +1578,12 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 			{
 				if (m_audDemuxer && (m_audDemuxer != demuxer) && (eStreamOp_DEMUX_AUDIO != m_streamOperation))
 				{
-					INFO("Using first video pts as base pts");
+					AAMPLOG_INFO("Using first video pts as base pts");
 					m_audDemuxer->setBasePTS(demuxer->getBasePTS(), true);
 				}
 				else if (m_vidDemuxer && (m_vidDemuxer != demuxer) && (eStreamOp_DEMUX_VIDEO != m_streamOperation))
 				{
-					WARNING("Using first audio pts as base pts");
+					AAMPLOG_WARN("Using first audio pts as base pts");
 					m_vidDemuxer->setBasePTS(demuxer->getBasePTS(), true);
 				}
 
@@ -1725,7 +1604,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 			}
 			if (ptsError && !dsmccDemuxerUsed && !basePtsUpdatedFromCurrentSegment)
 			{
-				WARNING("PTS error, discarding segment");
+				AAMPLOG_WARN("PTS error, discarding segment");
 				ret = false;
 				break;
 			}
@@ -1739,7 +1618,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 		}
 		else
 		{
-			INFO("demuxAndSend : discarded packet with pid %d", pid);
+			AAMPLOG_INFO("demuxAndSend : discarded packet with pid %d", pid);
 		}
 
 		packetStart += PACKET_SIZE;
@@ -1762,7 +1641,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
  */
 void TSProcessor::reset()
 {
-	INFO("PC reset");
+	AAMPLOG_INFO("PC reset");
 	pthread_mutex_lock(&m_mutex);
 	if (m_vidDemuxer)
 	{
@@ -1790,7 +1669,7 @@ void TSProcessor::reset()
  */
 void TSProcessor::flush()
 {
-	INFO("PC flush");
+	AAMPLOG_INFO("PC flush");
 	pthread_mutex_lock(&m_mutex);
 	if (m_vidDemuxer)
 	{
@@ -1817,13 +1696,13 @@ void TSProcessor::flush()
  */
 void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPositon)
 {
-	WARNING("PC %p basepts %lld", this, basepts);
+	AAMPLOG_WARN("PC %p basepts %lld", this, basepts);
 	pthread_mutex_lock(&m_mutex);
 	if (m_queuedSegment)
 	{
 		if (-1 != updatedStartPositon)
 		{
-			DEBUG("Update position from %f to %f", m_queuedSegmentPos, updatedStartPositon);
+			AAMPLOG_DEBUG("Update position from %f to %f", m_queuedSegmentPos, updatedStartPositon);
 			m_queuedSegmentPos = updatedStartPositon;
 		}
 		else if (eStreamOp_DEMUX_AUDIO == m_streamOperation)
@@ -1845,14 +1724,14 @@ void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPosito
 		}
 		else
 		{
-			ERROR("sendQueuedSegment invoked in Invalid stream operation");
+			AAMPLOG_ERR("sendQueuedSegment invoked in Invalid stream operation");
 		}
 		free(m_queuedSegment);
 		m_queuedSegment = NULL;
 	}
 	else
 	{
-		WARNING("No pending buffer");
+		AAMPLOG_WARN("No pending buffer");
 	}
 	pthread_mutex_unlock(&m_mutex);
 }
@@ -1865,7 +1744,7 @@ void TSProcessor::setBasePTS(double position, long long pts)
 	pthread_mutex_lock(&m_mutex);
 	m_basePTSFromPeer = pts;
 	m_startPosition = position;
-	INFO("pts = %lld", pts);
+	AAMPLOG_INFO("pts = %lld", pts);
 	if (m_audDemuxer)
 	{
 		m_audDemuxer->flush();
@@ -1893,19 +1772,19 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 	pthread_mutex_lock(&m_mutex);
 	if (!m_enabled)
 	{
-		INFO("Not Enabled, Returning");
+		AAMPLOG_INFO("Not Enabled, Returning");
 		pthread_mutex_unlock(&m_mutex);
 		return false;
 	}
 	m_processing = true;
 	if ((m_playModeNext != m_playMode) || (m_playRateNext != m_playRate))
 	{
-		TRACE1("change play mode");
+		AAMPLOG_TRACE("change play mode");
 		m_playMode = m_playModeNext;
 
 		m_playRate = m_playRateNext;
 		m_absPlayRate = fabs(m_playRate);
-		INFO("playback changed to rate %f mode %d", m_playRate, m_playMode);
+		AAMPLOG_INFO("playback changed to rate %f mode %d", m_playRate, m_playMode);
 		m_haveEmittedIFrame = false;
 		m_currFrameOffset = -1LL;
 		m_nullPFrameNextCount = 0;
@@ -1924,7 +1803,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 		if ((((char *)packetStart - segment) > 376) ||
 			(len < 188))
 		{
-			ERROR("No valid ts packet found near the start of the segment");
+			AAMPLOG_ERR("No valid ts packet found near the start of the segment");
 			packetStart = (unsigned char *)segment;
 			len = (int)(pBuffer->GetLen());
 			break;
@@ -1933,17 +1812,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 
 	if ((packetStart[0] != 0x47) || ((packetStart[1] & 0x80) != 0x00) || ((packetStart[3] & 0xC0) != 0x00))
 	{
-		ERROR("Segment doesn't starts with valid TS packet, discarding. Dump first packet");
-		size_t n = (size_t)(pBuffer->GetLen());
-		if( n>PACKET_SIZE )
-		{
-			n = PACKET_SIZE;
-		}
-		for (int i = 0; i < n; i++)
-		{
-			printf("0x%02x ", packetStart[i]);
-		}
-		printf("\n");
+		AAMPLOG_ERR("Segment doesn't starts with valid TS packet, discarding.");
 		pthread_mutex_lock(&m_mutex);
 		m_processing = false;
 		pthread_cond_signal(&m_throttleCond);
@@ -1953,7 +1822,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 	if (len % m_packetSize)
 	{
 		int discardAtEnd = len % m_packetSize;
-		INFO("Discarding %d bytes at end", discardAtEnd);
+		AAMPLOG_INFO("Discarding %d bytes at end", discardAtEnd);
 		len = len - discardAtEnd;
 	}
 	ret = processBuffer((unsigned char*)packetStart, len, insPatPmt, discontinuous);
@@ -1961,11 +1830,11 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 	{
 		if (-1.0 == m_startPosition)
 		{
-			INFO("Reset m_startPosition to %f", position);
+			AAMPLOG_INFO("Reset m_startPosition to %f", position);
 			m_startPosition = position;
 		}
 		double updatedPosition = (position - m_startPosition) / m_playRate;
-		INFO("updatedPosition = %f Position = %f m_startPosition = %f m_playRate = %f", updatedPosition, position, m_startPosition, m_playRate);
+		AAMPLOG_INFO("updatedPosition = %f Position = %f m_startPosition = %f m_playRate = %f", updatedPosition, position, m_startPosition, m_playRate);
 		position = updatedPosition;
 
 		if (m_needDiscontinuity&& !m_demux)
@@ -1981,7 +1850,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 				int secSize = insertPatPmt(sec, (m_playMode != PlayMode_normal), PATPMT_MAX_SIZE);
 				aamp->SendStreamCopy((MediaType)m_track, sec, secSize, position, position, 0);
 				free(sec);
-				TRACE1("Send PAT/PMT");
+				AAMPLOG_TRACE("Send PAT/PMT");
 			}
 		}
 		if (m_demux)
@@ -2001,7 +1870,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 
 						if (!m_enabled)
 						{
-							INFO("Not Enabled, Returning");
+							AAMPLOG_INFO("Not Enabled, Returning");
 							m_processing = false;
 							pthread_cond_signal(&m_throttleCond);
 							pthread_mutex_unlock(&m_mutex);
@@ -2019,7 +1888,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 			}
 			else
 			{
-				WARNING("Sending Audio First");
+				AAMPLOG_WARN("Sending Audio First");
 				ret = demuxAndSend(packetStart, len, position, duration, discontinuous, processor, ePC_Track_Audio);
 				ret |= demuxAndSend(packetStart, len, position, duration, discontinuous, processor, ePC_Track_Video);
 			}
@@ -2136,7 +2005,7 @@ bool TSProcessor::processStartCode(unsigned char *buffer, bool& keepScanning, in
 				newBuff = (unsigned char *)calloc(newSize,sizeof(unsigned char));
 				if (!newBuff)
 				{
-					ERROR("Error: unable to allocate emulation prevention buffer");
+					AAMPLOG_ERR("Error: unable to allocate emulation prevention buffer");
 					break;
 				}
 				if (m_emulationPrevention)
@@ -2299,7 +2168,7 @@ bool TSProcessor::processStartCode(unsigned char *buffer, bool& keepScanning, in
 			m_frameHeight = ((((int)buffer[INDEX(5)]) & 0x0F) << 8) | ((int)buffer[INDEX(6)]);
 			if ((m_nullPFrameWidth != m_frameWidth) || (m_nullPFrameHeight != m_frameHeight))
 			{
-				INFO("TSProcessor: sequence frame size %dx%d", m_frameWidth, m_frameHeight);
+				AAMPLOG_INFO("TSProcessor: sequence frame size %dx%d", m_frameWidth, m_frameHeight);
 			}
 			keepScanning = false;
 		}
@@ -2374,7 +2243,7 @@ void TSProcessor::checkIfInterlaced(unsigned char *packet, int length)
 							copyLen = m_scanRemainderLimit + (m_scanRemainderLimit - m_scanRemainderSize);
 							if (copyLen > packetEnd - (packet + payload))
 							{
-								INFO("scan copyLen adjusted from %d to %d", copyLen, (int)(packetEnd - (packet + payload)));
+								AAMPLOG_INFO("scan copyLen adjusted from %d to %d", copyLen, (int)(packetEnd - (packet + payload)));
 								copyLen = (int)(packetEnd - (packet + payload));
 							}
 							rmf_osal_memcpy(remainder + m_scanRemainderSize, packet + payload, copyLen, m_scanRemainderLimit * 3 - m_scanRemainderSize, packetEnd - (packet + payload));
@@ -2395,7 +2264,7 @@ void TSProcessor::checkIfInterlaced(unsigned char *packet, int length)
 						else
 						{
 							m_scanRemainderSize = 0;
-							INFO("TSProcessor::checkIfInterlaced: scan skipped");
+							AAMPLOG_INFO("TSProcessor::checkIfInterlaced: scan skipped");
 							//TEMP
 							if (m_scanSkipPacketsEnabled){
 								FILE *pFile = fopen("/opt/trick-scan.dat\n", "wb");
@@ -2403,7 +2272,7 @@ void TSProcessor::checkIfInterlaced(unsigned char *packet, int length)
 								{
 									fwrite(packet, 1, m_packetSize - m_ttsSize, pFile);
 									fclose(pFile);
-									INFO("scan skipped: packet writing to /opt/trick-scan.dat");
+									AAMPLOG_INFO("scan skipped: packet writing to /opt/trick-scan.dat");
 								}
 							}
 							//TEMP
@@ -2463,7 +2332,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 	if (m_isH264 && !m_isInterlacedKnown)
 	{
 		checkIfInterlaced(packet, length);
-		TRACE1("m_isH264 = %s m_isInterlacedKnown = %s m_isInterlaced %s", m_isH264 ? "true" : "false",
+		AAMPLOG_TRACE("m_isH264 = %s m_isInterlacedKnown = %s m_isInterlaced %s", m_isH264 ? "true" : "false",
 			m_isInterlacedKnown ? "true" : "false", m_isInterlaced ? "true" : "false");
 	}
 
@@ -2473,7 +2342,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 
 	if (!m_haveBaseTime) m_basePCR = -1LL;
 
-	TRACE4("reTimestamp: packet %p length %d", packet, length);
+	AAMPLOG_TRACE("reTimestamp: packet %p length %d", packet, length);
 	for (int i = 0; i < length; i += m_packetSize)
 	{
 		packet += m_ttsSize;
@@ -2519,7 +2388,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 						  m_haveBaseTime = true;
 						  m_baseTime = PCR;
 						  m_segmentBaseTime = m_baseTime;
-						  INFO("have baseTime %llx from pid %x PCR", m_baseTime, pid);
+						  AAMPLOG_INFO("have baseTime %llx from pid %x PCR", m_baseTime, pid);
 					  }
 					  if (m_basePCR < 0) m_basePCR = PCR;
 					  if (m_playMode == PlayMode_retimestamp_Ionly)
@@ -2601,7 +2470,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 									  m_haveBaseTime = true;
 									  m_baseTime = ((PTS - ((long long)(90000 / (m_apparentFrameRate*rm)))) & 0x1FFFFFFFFLL);
 									  m_segmentBaseTime = m_baseTime;
-									  TRACE2("have baseTime %llx from pid %x PTS", m_baseTime, pid);
+									  AAMPLOG_TRACE("have baseTime %llx from pid %x PTS", m_baseTime, pid);
 								  }
 								  timeOffset = PTS - m_baseTime;
 								  if (m_playRate < 0) timeOffset = -timeOffset;
@@ -2613,23 +2482,23 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 										  if (m_currRateAdjustedPCR != 0)
 										  {
 											  rateAdjustedPTS = ((m_currRateAdjustedPCR + 10000) & 0x1FFFFFFFFLL);
-											  TRACE2("Updated rateAdjustedPTS to %lld m_currRateAdjustedPCR %lld", rateAdjustedPTS, m_currRateAdjustedPCR);
+											  AAMPLOG_TRACE("Updated rateAdjustedPTS to %lld m_currRateAdjustedPCR %lld", rateAdjustedPTS, m_currRateAdjustedPCR);
 										  }
 										  else
 										  {
 											  rateAdjustedPTS = PTS;
-											  TRACE2("Updated rateAdjustedPTS to %lld m_currRateAdjustedPCR %lld", rateAdjustedPTS, m_currRateAdjustedPCR);
+											  AAMPLOG_TRACE("Updated rateAdjustedPTS to %lld m_currRateAdjustedPCR %lld", rateAdjustedPTS, m_currRateAdjustedPCR);
 										  }
 										  m_haveUpdatedFirstPTS = true;
 									  }
 									  else
 									  {
 										  rateAdjustedPTS = ((m_currRateAdjustedPTS + interFrameDelay) & 0x1FFFFFFFFLL);
-										  TRACE2("Updated rateAdjustedPTS to %lld m_currRateAdjustedPTS %lld interFrameDelay %lld", rateAdjustedPTS, m_currRateAdjustedPTS, interFrameDelay);
+										  AAMPLOG_TRACE("Updated rateAdjustedPTS to %lld m_currRateAdjustedPTS %lld interFrameDelay %lld", rateAdjustedPTS, m_currRateAdjustedPTS, interFrameDelay);
 										  /*Don't increment pts with interFrameDelay if already done for the segment.*/
 										  if (m_framesProcessedInSegment > 0)
 										  {
-											  TRACE4("Not incrementing pts with interFrameDelay as already done for the segment");
+											  AAMPLOG_TRACE("Not incrementing pts with interFrameDelay as already done for the segment");
 											  if (m_playRate != 0)
 											  {
 												  rateAdjustedPTS = m_currRateAdjustedPTS + ((PTS - m_lastPTSOfSegment) / m_playRate);
@@ -2656,13 +2525,13 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 								  if (pid == m_pcrPid)
 								  {
 									  m_throttlePTS = rateAdjustedPTS;
-									  TRACE2("Updated throttlePTS to %lld", m_throttlePTS.value);
+									  AAMPLOG_TRACE("Updated throttlePTS to %lld", m_throttlePTS.value);
 								  }
 								  writeTimeStamp(&packet[tsbase], packet[tsbase] >> 4, rateAdjustedPTS);
 								  m_lastPTSOfSegment = PTS;
 								  m_framesProcessedInSegment++;
 
-								  TRACE2("rateAdjustedPTS %lld (%lld ms)", rateAdjustedPTS, rateAdjustedPTS / 90);
+								  AAMPLOG_TRACE("rateAdjustedPTS %lld (%lld ms)", rateAdjustedPTS, rateAdjustedPTS / 90);
 							  }
 							  tsbase += 5;
 						  }
@@ -2696,7 +2565,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 						  if (packet[payload + 7] & 0x02)
 						  {
 							  // CRC flag is set.  Following the PES header will be the CRC for the previous PES packet
-							  WARNING("Warning: PES packet has CRC flag set");
+							  AAMPLOG_WARN("Warning: PES packet has CRC flag set");
 						  }
 						  payload = payload + 9 + pesHeaderDataLen;
 						  (void)tsbase; // Avoid a warning as the last value set may not be used.
@@ -2718,7 +2587,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 						  copyLen = 2 * m_scanRemainderLimit + (m_scanRemainderLimit - m_scanRemainderSize);
 						  if (copyLen > packetEnd - (packet + payload))
 						  {
-							  INFO("scan copyLen adjusted from %d to %d", copyLen, (int)(packetEnd - (packet + payload)));
+							  AAMPLOG_INFO("scan copyLen adjusted from %d to %d", copyLen, (int)(packetEnd - (packet + payload)));
 							  copyLen = (int)(packetEnd - (packet + payload));
 						  }
 						  rmf_osal_memcpy(remainder + m_scanRemainderSize, packet + payload, copyLen, m_scanRemainderLimit * 3 - m_scanRemainderSize, packetEnd - (packet + payload));
@@ -2741,7 +2610,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 					  else
 					  {
 						  m_scanRemainderSize = 0;
-						  INFO("TSProcessor::reTimestamp: scan skipped");
+						  AAMPLOG_INFO("TSProcessor::reTimestamp: scan skipped");
 						  //TEMP
 						  if (m_scanSkipPacketsEnabled){
 							  FILE *pFile = fopen("/opt/trick-scan.dat", "wb");
@@ -2749,7 +2618,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 							  {
 								  fwrite(packet, 1, m_packetSize - m_ttsSize, pFile);
 								  fclose(pFile);
-								  INFO("scan skipped: packet writing to /opt/trick-scan.dat");
+								  AAMPLOG_INFO("scan skipped: packet writing to /opt/trick-scan.dat");
 							  }
 						  }
 						  //TEMP
@@ -2784,7 +2653,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 						  }
 						  else
 						  {
-							  INFO("Scan reached out of bound packet packetScanPosition=%p", packetScanPosition);
+							  AAMPLOG_INFO("Scan reached out of bound packet packetScanPosition=%p", packetScanPosition);
 							  m_scanRemainderSize = 0;
 							  packetScanPosition = packetEnd;
 						  }
@@ -2802,7 +2671,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 		  {
 			  m_currRateAdjustedPCR = ((long long)(m_currRateAdjustedPCR + (90000 / (m_apparentFrameRate*rm) + m_pcrPerPTSCount * 8)) & 0x1FFFFFFFFLL);
 		  }
-		  TRACE2("m_currRateAdjustedPCR %lld(%lld ms) diff %lld ms", m_currRateAdjustedPCR, m_currRateAdjustedPCR / 90, (m_currRateAdjustedPCR - m_prevRateAdjustedPCR) / 90);
+		  AAMPLOG_TRACE("m_currRateAdjustedPCR %lld(%lld ms) diff %lld ms", m_currRateAdjustedPCR, m_currRateAdjustedPCR / 90, (m_currRateAdjustedPCR - m_prevRateAdjustedPCR) / 90);
 		  m_prevRateAdjustedPCR = m_currRateAdjustedPCR;
 		  writePCR(&packet[6], m_currRateAdjustedPCR, ((m_absPlayRate >= 4.0) ? true : false));
 	  }
@@ -2817,7 +2686,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
  */
 void TSProcessor::setPlayMode(PlayMode mode)
 {
-	INFO("setting playback mode to %s", (mode == PlayMode_normal) ? "PlayMode_normal" :
+	AAMPLOG_INFO("setting playback mode to %s", (mode == PlayMode_normal) ? "PlayMode_normal" :
 		(mode == PlayMode_retimestamp_IPB) ? "PlayMode_retimestamp_IPB" :
 		(mode == PlayMode_retimestamp_IandP) ? "PlayMode_retimestamp_IandP" :
 		(mode == PlayMode_retimestamp_Ionly) ? "PlayMode_retimestamp_Ionly" :
@@ -2836,7 +2705,7 @@ void TSProcessor::abortUnlocked()
 	while (m_processing)
 	{
 		pthread_cond_signal(&m_throttleCond);
-		INFO("Waiting for processing to end");
+		AAMPLOG_INFO("Waiting for processing to end");
 		pthread_cond_wait(&m_throttleCond, &m_mutex);
 	}
 }
@@ -2863,7 +2732,7 @@ void TSProcessor::setRate(double rate, PlayMode mode)
 	m_havePMT = false;
 	abortUnlocked();
 	m_playRateNext = rate;
-	INFO("set playback rate to %f", m_playRateNext);
+	AAMPLOG_INFO("set playback rate to %f", m_playRateNext);
 	setPlayMode(mode);
 	m_enabled = true;
 	m_startPosition = -1.0;
@@ -2876,7 +2745,7 @@ void TSProcessor::setRate(double rate, PlayMode mode)
  */
 void TSProcessor::setThrottleEnable(bool enable)
 {
-	INFO("TSProcessor::setThrottleEnable enable=%d", enable);
+	AAMPLOG_INFO("TSProcessor::setThrottleEnable enable=%d", enable);
 	m_throttle = enable;
 }
 
@@ -2904,12 +2773,12 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 
 	if (videoComponentCount == 0)
 	{
-		DEBUG("no video, so keep audio in trick mode PMT");
+		AAMPLOG_DEBUG("no video, so keep audio in trick mode PMT");
 		trick = false;
 	}
 	if ((videoComponentCount == 0) && (audioComponentCount == 0))
 	{
-		ERROR("generatePATandPMT: insufficient stream information - no PAT/PMT?");
+		AAMPLOG_ERR("generatePATandPMT: insufficient stream information - no PAT/PMT?");
 	}
 
 	if (videoComponentCount > 0)
@@ -2950,7 +2819,7 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 				}
 				if (pcrPidFound)
 				{
-					INFO("It is possibly MC Channel..");
+					AAMPLOG_INFO("It is possibly MC Channel..");
 					m_isMCChannel = true;
 				}
 				if (i < audioComponentCount) continue;
@@ -2974,7 +2843,7 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 			}
 			if (pcrPidFound)
 			{
-				INFO("It is possibly MC Channel..");
+				AAMPLOG_INFO("It is possibly MC Channel..");
 				m_isMCChannel = true;
 			}
 		}
@@ -2982,7 +2851,7 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 
 	if (bHandleMCTrick && (!trick))
 	{
-		DEBUG("For MC channel where in audio is the PCR PID, ensure that VID PID is used as PCR PID during trick mode and change the PMT Version.");
+		AAMPLOG_DEBUG("For MC channel where in audio is the PCR PID, ensure that VID PID is used as PCR PID during trick mode and change the PMT Version.");
 		pcrPidFound = false;
 		pmtVersion++;
 	}
@@ -2992,7 +2861,7 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 		/* If it is MC channel where in audio is the PCR PID && trick is true (ie no audio during trick), then the VID PID will become new PCR PID; So please update the PMT Version */
 		if (trick)
 		{
-			INFO("If it is MC channel where in audio is the PCR PID && trick is true (ie no audio during trick), then the VID PID will become new PCR PID; So update the PMT Version by 1");
+			AAMPLOG_INFO("If it is MC channel where in audio is the PCR PID && trick is true (ie no audio during trick), then the VID PID will become new PCR PID; So update the PMT Version by 1");
 			pmtVersion++;
 		}
 
@@ -3015,7 +2884,7 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 
 	if ((pmtPid < 0x1fff) && (pcrPid < 0x1fff))
 	{
-		DEBUG("using pmt pid %04x pcr pid %04X", pmtPid, pcrPid);
+		AAMPLOG_DEBUG("using pmt pid %04x pcr pid %04X", pmtPid, pcrPid);
 
 		m_pcrPid = pcrPid;
 
@@ -3036,7 +2905,7 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 
 		pmtSize += 4; //crc
 
-		DEBUG("pmt payload size %d bytes", pmtSize);
+		AAMPLOG_DEBUG("pmt payload size %d bytes", pmtSize);
 		int pmtPacketCount = 1;
 		i = pmtSize - (m_packetSize - 17 - m_ttsSize);
 		while (i > 0)
@@ -3046,12 +2915,12 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 		}
 		if (pmtPacketCount > 1)
 		{
-			WARNING("================= pmt requires %d packets =====================", pmtPacketCount);
+			AAMPLOG_WARN("================= pmt requires %d packets =====================", pmtPacketCount);
 		}
 
 		int patpmtLen = (pmtPacketCount + 1)*m_packetSize*sizeof(unsigned char);
 		unsigned char *patpmt = (unsigned char*)malloc(patpmtLen);
-		TRACE1("patpmtLen %d, patpmt %p", patpmtLen, patpmt);
+		AAMPLOG_TRACE("patpmtLen %d, patpmt %p", patpmtLen, patpmt);
 		if (patpmt)
 		{
 			int temp;
@@ -3220,8 +3089,7 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 				pmtPacket[i] = 0xFF;
 			}
 
-			TRACE1("generated PAT and PMT:");
-			dumpPackets(patpmt, patpmtLen, m_packetSize);
+			AAMPLOG_TRACE("generated PAT and PMT:");
 
 			*buflen = patpmtLen;
 			*buff = patpmt;
@@ -3231,36 +3099,34 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 				// Setup pid filter for trick mode.  Block all pids except for
 				// pat, pmt, pcr, video
 				memset(m_pidFilterTrick, 0, sizeof(m_pidFilterTrick));
-				TRACE1("pass pat %04x, pmt %04x pcr %04x", 0, pmtPid, pcrPid);
+				AAMPLOG_TRACE("pass pat %04x, pmt %04x pcr %04x", 0, pmtPid, pcrPid);
 				m_pidFilterTrick[pcrPid] = 1;
 				for (i = 0; i < videoComponentCount; ++i)
 				{
 					int videoPid = videoComponents[i].pid;
-					TRACE1("video %04x", videoPid);
+					AAMPLOG_TRACE("video %04x", videoPid);
 					m_pidFilterTrick[videoPid] = 1;
 				}
-				TRACE4("");
 			}
 			else
 			{
 				// Setup pid filter.  Block all pids except for
 				// pcr, video, audio
 				memset(m_pidFilter, 0, sizeof(m_pidFilter));
-				TRACE1("pass pat %04x, pcr %04x", 0, pcrPid);
+				AAMPLOG_TRACE("pass pat %04x, pcr %04x", 0, pcrPid);
 				m_pidFilter[pcrPid] = 1;
 				for (i = 0; i < videoComponentCount; ++i)
 				{
 					int videoPid = videoComponents[i].pid;
-					TRACE1("video %04x", videoPid);
+					AAMPLOG_TRACE("video %04x", videoPid);
 					m_pidFilter[videoPid] = 1;
 				}
 				for (i = 0; i < audioComponentCount; ++i)
 				{
 					int audioPid = audioComponents[i].pid;
-					TRACE1("audio %04x", audioPid);
+					AAMPLOG_TRACE("audio %04x", audioPid);
 					m_pidFilter[audioPid] = 1;
 				}
-				TRACE4("");
 			}
 
 			result = true;
@@ -3269,7 +3135,7 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 
 	m_patCounter = m_pmtCounter = 0;
 
-	INFO("TSProcessor::generatePATandPMT: trick %d prognum %d pmtpid: %X pcrpid: %X pmt section len %d video %d audio %d",
+	AAMPLOG_INFO("TSProcessor::generatePATandPMT: trick %d prognum %d pmtpid: %X pcrpid: %X pmt section len %d video %d audio %d",
 		trick, prognum, pmtPid, pcrPid, pmtSectionLen,
 		videoComponentCount, audioComponentCount);
 
@@ -3321,17 +3187,17 @@ bool TSProcessor::readTimeStamp(unsigned char *p, long long& TS)
 	if ((p[4] & 0x01) != 1)
 	{
 		result = false;
-		WARNING("TS:============ TS p[4] bit 0 not 1");
+		AAMPLOG_WARN("TS:============ TS p[4] bit 0 not 1");
 	}
 	if ((p[2] & 0x01) != 1)
 	{
 		result = false;
-		WARNING("TS:============ TS p[2] bit 0 not 1");
+		AAMPLOG_WARN("TS:============ TS p[2] bit 0 not 1");
 	}
 	if ((p[0] & 0x01) != 1)
 	{
 		result = false;
-		WARNING("TS:============ TS p[0] bit 0 not 1");
+		AAMPLOG_WARN("TS:============ TS p[0] bit 0 not 1");
 	}
 	switch ((p[0] & 0xF0) >> 4)
 	{
@@ -3341,7 +3207,7 @@ bool TSProcessor::readTimeStamp(unsigned char *p, long long& TS)
 		break;
 	default:
 		result = false;
-		WARNING("TS:============ TS p[0] YYYY bits have value %X", p[0]);
+		AAMPLOG_WARN("TS:============ TS p[0] YYYY bits have value %X", p[0]);
 		break;
 	}
 
@@ -3620,14 +3486,6 @@ unsigned char* TSProcessor::createNullPFrame(int width, int height, int *nullPFr
 			}
 		}
 		memset(&nullPFrame[i], 0xFF, m_packetSize - (i%m_packetSize));
-
-#if 1
-		for (i = 0; i < numTSPackets; ++i)
-		{
-			dumpPacket(&nullPFrame[i*m_packetSize], m_packetSize);
-		}
-#endif
-
 		*nullPFrameLen = (numTSPackets*m_packetSize);
 	}
 
@@ -3843,7 +3701,7 @@ bool TSProcessor::processSeqParameterSet(unsigned char *p, int length)
 
 					//CID:94243,97970 - Removed the num_units_in_tick,time_scale variable which is initialized but not used
 					unsigned int trick_time_scale = m_apparentFrameRate * 2 * 1000;
-					DEBUG("put trick_time_scale=%d at %p mask %X", trick_time_scale, timeScaleP, timeScaleMask);
+					AAMPLOG_DEBUG("put trick_time_scale=%d at %p mask %X", trick_time_scale, timeScaleP, timeScaleMask);
 					putBits(timeScaleP, timeScaleMask, 32, trick_time_scale);
 
 					result = true;
@@ -3852,7 +3710,7 @@ bool TSProcessor::processSeqParameterSet(unsigned char *p, int length)
 		}
 	}
 
-	TRACE2("TSProcessor: H.264 sequence frame size %dx%d interlaced=%d update SPS %d", m_frameWidth, m_frameHeight, m_isInterlaced, result);
+	AAMPLOG_TRACE("TSProcessor: H.264 sequence frame size %dx%d interlaced=%d update SPS %d", m_frameWidth, m_frameHeight, m_isInterlaced, result);
 
 	return result;
 }
