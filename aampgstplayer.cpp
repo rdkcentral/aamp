@@ -25,7 +25,6 @@
 #include "AampMemoryUtils.h"
 #include "gstaamptaskpool.h"
 #include "aampgstplayer.h"
-#include "AampFnLogger.h"
 #include "isobmffbuffer.h"
 #include "AampUtils.h"
 #include "AampGstUtils.h"
@@ -358,7 +357,6 @@ AAMPGstPlayer::AAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp
 	, cbExportYUVFrame(NULL)
 #endif
 {
-	FN_TRACE( __FUNCTION__ );
 	privateContext = new AAMPGstPlayerPriv();
 	if(privateContext)
 	{
@@ -393,7 +391,6 @@ AAMPGstPlayer::AAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp
  */
 AAMPGstPlayer::~AAMPGstPlayer()
 {
-	FN_TRACE( __FUNCTION__ );
 	DestroyPipeline();
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		pthread_mutex_destroy(&privateContext->stream[i].sourceLock);
@@ -407,7 +404,6 @@ AAMPGstPlayer::~AAMPGstPlayer()
  */
 bool AAMPGstPlayer::IdleTaskAdd(TaskControlData& taskDetails, BackgroundTask funcPtr)
 {
-	FN_TRACE( __FUNCTION__ );
 	bool ret = false;
 	std::lock_guard<std::mutex> lock(privateContext->TaskControlMutex);
 
@@ -439,7 +435,6 @@ bool AAMPGstPlayer::IdleTaskAdd(TaskControlData& taskDetails, BackgroundTask fun
  */
 bool AAMPGstPlayer::IdleTaskRemove(TaskControlData& taskDetails)
 {
-	FN_TRACE( __FUNCTION__ );
 	bool ret = false;
 	std::lock_guard<std::mutex> lock(privateContext->TaskControlMutex);
 
@@ -464,7 +459,6 @@ bool AAMPGstPlayer::IdleTaskRemove(TaskControlData& taskDetails)
  */
 void AAMPGstPlayer::IdleTaskClearFlags(TaskControlData& taskDetails)
 {
-	FN_TRACE( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(privateContext->TaskControlMutex);
 	if ( 0 != taskDetails.taskID )
 	{
@@ -483,7 +477,6 @@ void AAMPGstPlayer::IdleTaskClearFlags(TaskControlData& taskDetails)
  */
 void AAMPGstPlayer::TimerAdd(GSourceFunc funcPtr, int repeatTimeout, guint& taskId, gpointer user_data, const char* timerName)
 {
-	FN_TRACE( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(privateContext->TaskControlMutex);
 	if (funcPtr && user_data)
 	{
@@ -509,7 +502,6 @@ void AAMPGstPlayer::TimerAdd(GSourceFunc funcPtr, int repeatTimeout, guint& task
  */
 void AAMPGstPlayer::TimerRemove(guint& taskId, const char* timerName)
 {
-	FN_TRACE( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(privateContext->TaskControlMutex);
 	if ( 0 != taskId )
 	{
@@ -528,7 +520,6 @@ void AAMPGstPlayer::TimerRemove(guint& taskId, const char* timerName)
  */
 bool AAMPGstPlayer::TimerIsRunning(guint& taskId)
 {
-	FN_TRACE( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(privateContext->TaskControlMutex);
 
 	return (AAMP_TASK_ID_INVALID != taskId);
@@ -540,7 +531,6 @@ bool AAMPGstPlayer::TimerIsRunning(guint& taskId)
  */
 static void analyze_streams(AAMPGstPlayer *_this)
 {
-	FN_TRACE( __FUNCTION__ );
 #ifdef SUPPORT_MULTI_AUDIO
 	GstElement *sinkbin = _this->privateContext->stream[eMEDIATYPE_VIDEO].sinkbin;
 
@@ -971,7 +961,6 @@ static gboolean IdleCallbackFirstVideoFrameDisplayed(gpointer user_data)
  */
 void AAMPGstPlayer::NotifyFirstFrame(MediaType type)
 {
-	FN_TRACE( __FUNCTION__ );
 	bool firstBufferNotified=false;
 
 	// RDK-34481 :LogTuneComplete will be noticed after getting video first frame.
@@ -1220,7 +1209,6 @@ static gboolean VideoDecoderPtsCheckerForEOS(gpointer user_data)
  */
 GstFlowReturn AAMPGstPlayer::AAMPGstPlayer_OnVideoSample(GstElement* object, AAMPGstPlayer * _this)
 {
-	FN_TRACE( __FUNCTION__ );
 	using ::mLogObj; //To use global log object
 	GstSample *sample;
 	GstBuffer *buffer;
@@ -1990,7 +1978,6 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
  */
 bool AAMPGstPlayer::CreatePipeline()
 {
-	FN_TRACE( __FUNCTION__ );
 	bool ret = false;
 	/* Destroy any existing pipeline before creating a new one */
 	if (privateContext->pipeline || privateContext->bus)
@@ -2049,7 +2036,6 @@ bool AAMPGstPlayer::CreatePipeline()
  */
 void AAMPGstPlayer::DestroyPipeline()
 {
-	FN_TRACE( __FUNCTION__ );
 	if (privateContext->pipeline)
 	{
 		/*DELIA-56028 - "Destroying gstreamer pipeline" should only be logged when there is a pipeline to destroy
@@ -2089,7 +2075,6 @@ void AAMPGstPlayer::DestroyPipeline()
  */
 unsigned long AAMPGstPlayer::getCCDecoderHandle()
 {
-	FN_TRACE( __FUNCTION__ );
 	gpointer dec_handle = NULL;
 	if (this->privateContext->stream[eMEDIATYPE_VIDEO].using_playersinkbin && this->privateContext->stream[eMEDIATYPE_VIDEO].sinkbin != NULL)
 	{
@@ -2114,7 +2099,6 @@ unsigned long AAMPGstPlayer::getCCDecoderHandle()
  */
 void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *initData, size_t initDataSize, MediaType type)
 {
-	FN_TRACE( __FUNCTION__ );
 #ifdef AAMP_MPD_DRM
 	/* There is a possibility that only single protection event is queued for multiple type since they are encrypted using same id.
 	 * Don't worry if you see only one protection event queued here.
@@ -2157,7 +2141,6 @@ void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *i
  */
 void AAMPGstPlayer::ClearProtectionEvent()
 {
-	FN_TRACE( __FUNCTION__ );
 	pthread_mutex_lock(&mProtectionLock);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
@@ -2255,7 +2238,6 @@ static GstElement* AAMPGstPlayer_GetAppSrc(AAMPGstPlayer *_this, MediaType media
  */
 void AAMPGstPlayer::TearDownStream(MediaType mediaType)
 {
-	FN_TRACE( __FUNCTION__ );
 	media_stream* stream = &privateContext->stream[mediaType];
 	stream->mBufferControl.teardownStart();
 	stream->bufferUnderrun = false;
@@ -2705,7 +2687,6 @@ void AAMPGstPlayer::SendGstEvents(MediaType mediaType, GstClockTime pts)
  */
 void AAMPGstPlayer::SendNewSegmentEvent(MediaType mediaType, GstClockTime startPts ,GstClockTime stopPts)
 {
-        FN_TRACE( __FUNCTION__ );
         media_stream* stream = &privateContext->stream[mediaType];
         GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
         if (stream->format == FORMAT_ISO_BMFF)
@@ -2739,7 +2720,6 @@ void AAMPGstPlayer::SendNewSegmentEvent(MediaType mediaType, GstClockTime startP
  */
 bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, bool initFragment, bool discontinuity)
 {
-	FN_TRACE( __FUNCTION__ );
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
 		if (eMEDIATYPE_VIDEO == mediaType)
@@ -2982,7 +2962,6 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
  */
 bool AAMPGstPlayer::SendCopy(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
 {
-	FN_TRACE( __FUNCTION__ );
 	return SendHelper( mediaType, ptr, len, fpts, fdts, fDuration, true /*copy*/ );
 }
 
@@ -2991,7 +2970,6 @@ bool AAMPGstPlayer::SendCopy(MediaType mediaType, const void *ptr, size_t len, d
  */
 bool AAMPGstPlayer::SendTransfer(MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment, bool discontinuity)
 {
-	FN_TRACE( __FUNCTION__ );
 	return SendHelper( mediaType, ptr, len, fpts, fdts, fDuration, false /*transfer*/, initFragment, discontinuity );
 }
 
@@ -3000,7 +2978,6 @@ bool AAMPGstPlayer::SendTransfer(MediaType mediaType, void *ptr, size_t len, dou
  */
 void AAMPGstPlayer::Stream()
 {
-	FN_TRACE( __FUNCTION__ );
 }
 
 
@@ -3009,7 +2986,6 @@ void AAMPGstPlayer::Stream()
  */
 void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation)
 {
-	FN_TRACE( __FUNCTION__ );
 	AAMPLOG_MIL("videoFormat %d audioFormat %d auxFormat %d subFormat %d",format, audioFormat, auxFormat, subFormat);
 	StreamOutputFormat newFormat[AAMP_TRACK_COUNT];
 	newFormat[eMEDIATYPE_VIDEO] = format;
@@ -3205,7 +3181,6 @@ static void AAMPGstPlayer_SignalEOS(GstElement *source )
  */
 void AAMPGstPlayer::EndOfStreamReached(MediaType type)
 {
-	FN_TRACE( __FUNCTION__ );
 	AAMPLOG_MIL("entering AAMPGstPlayer_EndOfStreamReached type %d", (int)type);
 
 	media_stream *stream = &privateContext->stream[type];
@@ -3250,7 +3225,6 @@ void AAMPGstPlayer::EndOfStreamReached(MediaType type)
  */
 void AAMPGstPlayer::Stop(bool keepLastFrame)
 {
-	FN_TRACE( __FUNCTION__ );
 	AAMPLOG_MIL("entering AAMPGstPlayer_Stop keepLastFrame %d", keepLastFrame);
 
 	//XIONE-8595 - make the execution of this function more deterministic and reduce scope for potential pipeline lockups
@@ -3625,7 +3599,6 @@ void AAMPGstPlayer::FlushAudio()
  */
 void AAMPGstPlayer::Flush(void)
 {
-	FN_TRACE( __FUNCTION__ );
 	if (privateContext->pipeline)
 	{
 		PauseAndFlush(false);
@@ -3637,8 +3610,6 @@ void AAMPGstPlayer::Flush(void)
  */
 void AAMPGstPlayer::PauseAndFlush(bool playAfterFlush)
 {
-	FN_TRACE( __FUNCTION__ );
-
 	//call prior to gstreamer flush
 	AampBufferControl::BufferControlMaster::ResetAll(privateContext);
 
@@ -3700,7 +3671,6 @@ void AAMPGstPlayer::PauseAndFlush(bool playAfterFlush)
  */
 long AAMPGstPlayer::GetDurationMilliseconds(void)
 {
-	FN_TRACE( __FUNCTION__ );
 	long rc = 0;
 	if( privateContext->pipeline )
 	{
@@ -3746,7 +3716,6 @@ long AAMPGstPlayer::GetDurationMilliseconds(void)
  */
 long AAMPGstPlayer::GetPositionMilliseconds(void)
 {
-	FN_TRACE( __FUNCTION__ );
 	long rc = 0;
 	if (privateContext->pipeline == NULL)
 	{
@@ -3825,7 +3794,6 @@ long AAMPGstPlayer::GetPositionMilliseconds(void)
  */
 bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
 {
-	FN_TRACE( __FUNCTION__ );
 	bool retValue = true;
 
 	aamp->SyncBegin();					/* Obtains a mutex lock */
@@ -3896,7 +3864,6 @@ bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
  */
 void AAMPGstPlayer::SetVideoRectangle(int x, int y, int w, int h)
 {
-	FN_TRACE( __FUNCTION__ );
 	int currentX = 0, currentY = 0, currentW = 0, currentH = 0;
 
 	if (strcmp(privateContext->videoRectangle, "") != 0)
@@ -3941,7 +3908,6 @@ void AAMPGstPlayer::SetVideoRectangle(int x, int y, int w, int h)
  */
 void AAMPGstPlayer::SetVideoZoom(VideoZoomMode zoom)
 {
-	FN_TRACE( __FUNCTION__ );
 	media_stream *stream = &privateContext->stream[eMEDIATYPE_VIDEO];
 	AAMPLOG_INFO("SetVideoZoom :: ZoomMode %d, using_playersinkbin = %d, video_sink =%p",
 			zoom, stream->using_playersinkbin, privateContext->video_sink);
@@ -3959,8 +3925,6 @@ void AAMPGstPlayer::SetVideoZoom(VideoZoomMode zoom)
 
 void AAMPGstPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 {
-	FN_TRACE( __FUNCTION__ );
-
 	if (privateContext->subtitle_sink)
 	{
 		AAMPLOG_INFO("pts_offset %" G_GUINT64_FORMAT ", seek_pos_seconds %2f, subtitle_sink =%p", pts_offset, aamp->seek_pos_seconds, privateContext->subtitle_sink);
@@ -3973,7 +3937,6 @@ void AAMPGstPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 
 void AAMPGstPlayer::SetSubtitleMute(bool muted)
 {
-	FN_TRACE( __FUNCTION__ );
 	privateContext->subtitleMuted = muted;
 
 	if (privateContext->subtitle_sink)
@@ -3991,8 +3954,6 @@ void AAMPGstPlayer::SetSubtitleMute(bool muted)
  */
 void AAMPGstPlayer::SetVideoMute(bool muted)
 {
-	FN_TRACE( __FUNCTION__ );
-	
 	//AAMPLOG_MIL(" mute == %s", muted?"true":"false");
 	
 	media_stream *stream = &privateContext->stream[eMEDIATYPE_VIDEO];
@@ -4014,8 +3975,6 @@ void AAMPGstPlayer::SetVideoMute(bool muted)
  */
 void AAMPGstPlayer::SetAudioVolume(int volume)
 {
-	FN_TRACE( __FUNCTION__ );
-
 	privateContext->audioVolume = volume / 100.0;
 	setVolumeOrMuteUnMute();
 
@@ -4027,7 +3986,6 @@ void AAMPGstPlayer::SetAudioVolume(int volume)
 void AAMPGstPlayer::setVolumeOrMuteUnMute(void)
 {
 	const std::lock_guard<std::mutex> lock(privateContext->volumeMuteMutex);
-	FN_TRACE( __FUNCTION__ );
 	GstElement *gSource = NULL;
 	char *propertyName = NULL;
 	media_stream *stream = &privateContext->stream[eMEDIATYPE_AUDIO];
@@ -4093,7 +4051,6 @@ void AAMPGstPlayer::setVolumeOrMuteUnMute(void)
  */
 void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
-	FN_TRACE( __FUNCTION__ );
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
 		return;
@@ -4259,7 +4216,6 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
  */
 bool AAMPGstPlayer::Discontinuity(MediaType type)
 {
-	FN_TRACE( __FUNCTION__ );
 	bool ret = false;
 	media_stream *stream = &privateContext->stream[type];
 	AAMPLOG_MIL("Entering AAMPGstPlayer: type(%d) format(%d) firstBufferProcessed(%d)", (int)type, stream->format, stream->firstBufferProcessed);
@@ -4301,7 +4257,6 @@ bool AAMPGstPlayer::Discontinuity(MediaType type)
  */
 bool AAMPGstPlayer::CheckForPTSChangeWithTimeout(long timeout)
 {
-	FN_TRACE( __FUNCTION__ );
 	bool ret = true;
 	gint64 currentPTS = GetVideoPTS();			/* Gets the currentPTS from the 'video-pts' property of the element */
 	if (currentPTS != 0)
@@ -4336,7 +4291,6 @@ bool AAMPGstPlayer::CheckForPTSChangeWithTimeout(long timeout)
  */
 long long AAMPGstPlayer::GetVideoPTS(void)
 {
-	FN_TRACE( __FUNCTION__ );
 	gint64 currentPTS = 0;
 	GstElement *element;
 #if defined (REALTEKCE)
@@ -4411,7 +4365,6 @@ void AAMPGstPlayer::ResetEOSSignalledFlag()
  */
 bool AAMPGstPlayer::IsCacheEmpty(MediaType mediaType)
 {
-	FN_TRACE( __FUNCTION__ );
 	bool ret = true;
 	media_stream *stream = &privateContext->stream[mediaType];
 	if (stream->source)
@@ -4457,7 +4410,6 @@ bool AAMPGstPlayer::IsCacheEmpty(MediaType mediaType)
  */
 void AAMPGstPlayer::NotifyFragmentCachingComplete()
 {
-	FN_TRACE( __FUNCTION__ );
 	if(privateContext->pendingPlayState)
 	{
 		AAMPLOG_MIL("AAMPGstPlayer: Setting pipeline to PLAYING state ");
@@ -4478,7 +4430,6 @@ void AAMPGstPlayer::NotifyFragmentCachingComplete()
  */
 void AAMPGstPlayer::NotifyFragmentCachingOngoing()
 {
-	FN_TRACE( __FUNCTION__ );
 	if(!privateContext->paused)
 	{
 		Pause(true, true);
@@ -4491,7 +4442,6 @@ void AAMPGstPlayer::NotifyFragmentCachingOngoing()
  */
 void AAMPGstPlayer::GetVideoSize(int &width, int &height)
 {
-	FN_TRACE( __FUNCTION__ );
 	int x;
 	int y;
 	int w = 0;
@@ -4515,7 +4465,6 @@ void AAMPGstPlayer::GetVideoSize(int &width, int &height)
 
 bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
 {
-	FN_TRACE( __FUNCTION__ );
 	bool retValue = false;
 	GstRegistry* registry = gst_registry_get(); 
 	for (std::string &componentName: gmapDecoderLoookUptable[codecName])
@@ -4550,8 +4499,6 @@ bool AAMPGstPlayer::IsMS2V12Supported()
  */
 void AAMPGstPlayer::InitializeAAMPGstreamerPlugins(AampLogManager *mLogObj)
 {
-	FN_TRACE( __FUNCTION__ );
-
 	// Ensure GST is initialized
 	if (gst_init_check(nullptr, nullptr, nullptr)) {
 		AAMPLOG_WARN("gst_init_check() failed");
@@ -4647,7 +4594,6 @@ void AAMPGstPlayer::InitializeAAMPGstreamerPlugins(AampLogManager *mLogObj)
  */
 void AAMPGstPlayer::NotifyEOS()
 {
-	FN_TRACE( __FUNCTION__ );
 	if (!privateContext->eosSignalled)
 	{
 		if (!privateContext->eosCallbackIdleTaskPending)
@@ -4718,7 +4664,6 @@ static void DumpFile(const char* fileName)
  */
 void AAMPGstPlayer::DumpDiagnostics()
 {
-	FN_TRACE( __FUNCTION__ );
 	AAMPLOG_MIL("video_dec %p audio_dec %p video_sink %p audio_sink %p numberOfVideoBuffersSent %d",
 			privateContext->video_dec, privateContext->audio_dec, privateContext->video_sink,
 			privateContext->audio_sink, privateContext->numberOfVideoBuffersSent);
@@ -4734,7 +4679,6 @@ void AAMPGstPlayer::DumpDiagnostics()
  */
 void AAMPGstPlayer::SignalTrickModeDiscontinuity()
 {
-	FN_TRACE( __FUNCTION__ );
 	media_stream* stream = &privateContext->stream[eMEDIATYPE_VIDEO];
 	if (stream && (privateContext->rate != AAMP_NORMAL_PLAY_RATE) )
 	{
@@ -4758,7 +4702,6 @@ void AAMPGstPlayer::SignalTrickModeDiscontinuity()
  */
 void AAMPGstPlayer::SeekStreamSink(double position, double rate)
 {
-	FN_TRACE( __FUNCTION__ );
 	// shouldTearDown is set to false, because in case of a new tune pipeline
 	// might not be in a playing/paused state which causes Flush() to destroy
 	// pipeline. This has to be avoided.
@@ -4771,7 +4714,6 @@ void AAMPGstPlayer::SeekStreamSink(double position, double rate)
  */
 std::string AAMPGstPlayer::GetVideoRectangle()
 {
-	FN_TRACE( __FUNCTION__ );
 	return std::string(privateContext->videoRectangle);
 }
 
@@ -4780,7 +4722,6 @@ std::string AAMPGstPlayer::GetVideoRectangle()
  */
 void AAMPGstPlayer::StopBuffering(bool forceStop)
 {
-	FN_TRACE( __FUNCTION__ );
 	pthread_mutex_lock(&mBufferingLock);
 	//Check if we are in buffering
 	if (ISCONFIGSET(eAAMPConfig_ReportBufferEvent) && privateContext->video_dec && aamp->GetBufUnderFlowStatus())
@@ -5036,7 +4977,6 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
   */
 bool AAMPGstPlayer::SetTextStyle(const std::string &options)
 {
-	FN_TRACE( __FUNCTION__ );
 	bool ret = false;
 
 	if (privateContext->subtitle_sink)

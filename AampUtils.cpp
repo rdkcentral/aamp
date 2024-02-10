@@ -1277,7 +1277,6 @@ double ParseISO8601Duration(const char *ptr)
  */
 const char* getMediaTypeName( MediaType mediaType )
 {
-	//FN_TRACE_F_MPD( __FUNCTION__ );
 	switch(mediaType)
 	{
 		case eMEDIATYPE_VIDEO:

@@ -78,7 +78,6 @@ public:
 
 	void addAttributesToNode(xmlTextReaderPtr *reader, Node *node)
 	{
-		//FN_TRACE_F_MPD( __FUNCTION__ );
 		if (xmlTextReaderHasAttributes(*reader))
 		{
 			while (xmlTextReaderMoveToNextAttribute(*reader))

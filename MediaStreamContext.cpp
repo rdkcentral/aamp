@@ -32,7 +32,6 @@
  */
 void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity)
 {
-    //FN_TRACE_F_MPD( __FUNCTION__ );
 	if(!(aamp->GetLLDashServiceData()->lowLatencyMode  && (cachedFragment->type == eMEDIATYPE_AUDIO || cachedFragment->type == eMEDIATYPE_VIDEO)))
 	{
 		if(playContext)
@@ -65,7 +64,6 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int curlInstance, double position, double duration, const char *range, bool initSegment, bool discontinuity
     , bool playingAd, double pto, uint32_t scale, bool overWriteTrackId)
 {
-    // FN_TRACE_F_MPD( __FUNCTION__ );
     bool ret = false;
 	AAMPLOG_DEBUG("Type[%d] fragmentUrl %s fragmentTime %f discontinuity %d pto %f  scale %u duration %f", type, fragmentUrl.c_str(), position, discontinuity, pto, scale, duration);
 
@@ -439,7 +437,6 @@ double MediaStreamContext::GetBufferedDuration()
  */
 void MediaStreamContext::SignalTrickModeDiscontinuity()
 {
-     //       FN_TRACE_F_MPD( __FUNCTION__ );
     aamp->SignalTrickModeDiscontinuity();
 }
 
@@ -448,7 +445,6 @@ void MediaStreamContext::SignalTrickModeDiscontinuity()
  */
 bool MediaStreamContext::IsAtEndOfTrack()
 {
-    //        FN_TRACE_F_MPD( __FUNCTION__ );
     return eosReached;
 }
 

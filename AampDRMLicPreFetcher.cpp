@@ -18,7 +18,6 @@
 */
 
 #include "AampDRMLicPreFetcher.h"
-#include "AampFnLogger.h"
 #include "AampDrmSession.h"
 #include "AampDRMSessionManager.h"
 #include "AampUtils.h"	// for aamp_GetDeferTimeMs
@@ -55,7 +54,6 @@ AampLicensePreFetcher::AampLicensePreFetcher(AampLogManager *logObj, PrivateInst
 		mQVssCond(),
 		mVssPreFetchThreadStarted(false)
 {
-	FN_TRACE_F_LIC_PREFETCH( __FUNCTION__ );
 	mTrackStatus.fill(false);
 }
 
@@ -65,7 +63,6 @@ AampLicensePreFetcher::AampLicensePreFetcher(AampLogManager *logObj, PrivateInst
  */
 AampLicensePreFetcher::~AampLicensePreFetcher()
 {
-	FN_TRACE_F_LIC_PREFETCH( __FUNCTION__ );
 	DeInit();
 	{
 		std::lock_guard<std::mutex>lock(mQMutex);
@@ -95,7 +92,6 @@ AampLicensePreFetcher::~AampLicensePreFetcher()
  */
 bool AampLicensePreFetcher::Init()
 {
-	FN_TRACE_F_LIC_PREFETCH( __FUNCTION__ );
 	bool ret = true;
 	if (mPreFetchThreadStarted || mVssPreFetchThreadStarted)
 	{
@@ -118,7 +114,6 @@ bool AampLicensePreFetcher::Init()
  */
 bool AampLicensePreFetcher::QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type, bool isVssPeriod)
 {
-	FN_TRACE_F_LIC_PREFETCH( __FUNCTION__ );
 	bool ret = true;
 	if(!mExitLoop)
 	{
@@ -176,7 +171,6 @@ bool AampLicensePreFetcher::QueueContentProtection(std::shared_ptr<AampDrmHelper
  */
 bool AampLicensePreFetcher::DeInit()
 {
-	FN_TRACE_F_LIC_PREFETCH( __FUNCTION__ );
 	bool ret = true;
 	/** Clear the queue **/
 	while (!mFetchQueue.empty())
@@ -199,7 +193,6 @@ bool AampLicensePreFetcher::DeInit()
  */
 void AampLicensePreFetcher::PreFetchThread()
 {
-	FN_TRACE_F_LIC_PREFETCH( __FUNCTION__ );
 	if(aamp_pthread_setname(pthread_self(), "aampfMP4DRM"))
 	{
 		AAMPLOG_ERR("aamp_pthread_setname failed");
@@ -270,7 +263,6 @@ void AampLicensePreFetcher::PreFetchThread()
  */
 void AampLicensePreFetcher::VssPreFetchThread()
 {
-	FN_TRACE_F_LIC_PREFETCH( __FUNCTION__ );
 	if(aamp_pthread_setname(pthread_self(), "aampfMP4DRM"))
 	{
 		AAMPLOG_ERR("aamp_pthread_setname failed");
@@ -351,8 +343,6 @@ void AampLicensePreFetcher::VssPreFetchThread()
  */
 void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, DrmMetaDataEventPtr event)
 {
-	FN_TRACE_F_LIC_PREFETCH( __FUNCTION__ );
-
 	AAMPTuneFailure failure = event->getFailure();
 	bool isRetryEnabled = false;
 	bool selfAbort = (failure == AAMP_TUNE_DRM_SELF_ABORT);
@@ -423,8 +413,6 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
  */
 bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 {
-	FN_TRACE_F_LIC_PREFETCH( __FUNCTION__ );
-
 	bool ret = false;
 #if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 	bool isSecClientError = true;

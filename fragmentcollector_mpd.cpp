@@ -26,7 +26,6 @@
 #include "fragmentcollector_mpd.h"
 #include "AampStreamSinkManager.h"
 #include "MediaStreamContext.h"
-#include "AampFnLogger.h"
 #include "priv_aamp.h"
 #include "AampDRMSessionManager.h"
 #include "AampConstants.h"
@@ -157,7 +156,6 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,mFcsRepresentationId(-1)
 	,mFcsSegments()
 {
-        FN_TRACE_F_MPD( __FUNCTION__ );
 	this->aamp = aamp;
 #ifdef AAMP_MPD_DRM
 	if (aamp->mDRMSessionManager)
@@ -239,7 +237,6 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
  */
 static bool IsAtmosAudio(const IMPDElement *nodePtr)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool isAtmos = false;
 
 	if (!nodePtr){
@@ -335,7 +332,6 @@ static AudioType getCodecType(string & codecValue, const IMPDElement *rep)
 bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType, 
 	uint32_t &selectedRepBandwidth, long &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool& disabled)
 {
-    FN_TRACE_F_MPD( __FUNCTION__ );
 	bool isTrackSelected = false;
 	if( aamp->preferredCodecList.size() > 0 )
 	{
@@ -448,7 +444,6 @@ void StreamAbstractionAAMP_MPD::GetPreferredTextRepresentation(IAdaptationSet *a
 static int GetDesiredCodecIndex(IAdaptationSet *adaptationSet, AudioType &selectedCodecType, uint32_t &selectedRepBandwidth,
 				bool disableEC3,bool disableATMOS, bool disableAC4,bool disableAC3,  bool &disabled)
 {
-        FN_TRACE_F_MPD( __FUNCTION__ );
 	int selectedRepIdx = -1;
 	if(adaptationSet != NULL)
 	{
@@ -512,7 +507,6 @@ static int GetDesiredCodecIndex(IAdaptationSet *adaptationSet, AudioType &select
  */
 static int GetDesiredVideoCodecIndex(IAdaptationSet *adaptationSet)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	const std::vector<IRepresentation *> representation = adaptationSet->GetRepresentation();
 	int selectedRepIdx = -1;
 	for (int representationIndex = 0; representationIndex < representation.size(); representationIndex++)
@@ -599,7 +593,6 @@ static uint64_t Read64( const char **pptr)
  */
 static bool ParseSegmentIndexBox( const char *start, size_t size, int segmentIndex, unsigned int *referenced_size, float *referenced_duration, unsigned int *firstOffset)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	if (!start)
 	{
 		// If the fragment pointer is NULL then return from here, no need to process it further.
@@ -677,7 +670,6 @@ static bool ParseSegmentIndexBox( const char *start, size_t size, int segmentInd
  */
 static int replace(std::string& str, const std::string& from, uint64_t toNumber )
 {
-	//FN_TRACE_F_MPD( __FUNCTION__ );
 	int rc = 0;
 	size_t tokenLength = from.length();
 
@@ -756,7 +748,6 @@ static int replace(std::string& str, const std::string& from, uint64_t toNumber 
  */
 static int replace(std::string& str, const std::string& from, const std::string& toString )
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	int rc = 0;
 	size_t tokenLength = from.length();
 
@@ -802,7 +793,6 @@ static int replace(std::string& str, const std::string& from, const std::string&
  */
 void StreamAbstractionAAMP_MPD::GetFragmentUrl( std::string& fragmentUrl, const FragmentDescriptor *fragmentDescriptor, std::string media)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	std::string constructedUri = fragmentDescriptor->GetMatchingBaseUrl();
 	if( media.empty() )
 	{
@@ -850,7 +840,6 @@ void StreamAbstractionAAMP_MPD::GetFragmentUrl( std::string& fragmentUrl, const 
  */
 static AampCurlInstance getCurlInstanceByMediaType(MediaType type)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	AampCurlInstance instance;
 
 	switch (type)
@@ -875,7 +864,6 @@ static AampCurlInstance getCurlInstanceByMediaType(MediaType type)
 
 static void deIndexTileInfo(std::vector<TileInfo> &indexedTileInfo)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	AAMPLOG_WARN("indexedTileInfo size=%lu",indexedTileInfo.size());
 	for(int i=0;i<indexedTileInfo.size();i++)
 	{
@@ -895,7 +883,6 @@ static void deIndexTileInfo(std::vector<TileInfo> &indexedTileInfo)
  */
 bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool discontinuity, double pto , uint32_t scale)
 { // given url, synchronously download and transmit associated fragment
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool retval = true;
 	std::string fragmentUrl;
 	GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, media);
@@ -966,7 +953,6 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
  */
 bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMediaStreamContext, unsigned int curlInstance)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool retval=false;
 	bool fcsContent=false;
 	AcquirePlaylistLock();
@@ -2268,7 +2254,6 @@ void StreamAbstractionAAMP_MPD::ApplyLiveOffsetWorkaroundForSAP( double seekPosi
  */
 void StreamAbstractionAAMP_MPD::SkipToEnd( MediaStreamContext *pMediaStreamContext)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),
 					pMediaStreamContext->adaptationSet->GetSegmentTemplate() );
 	if( segmentTemplates.HasSegmentTemplate() )
@@ -2342,7 +2327,6 @@ void StreamAbstractionAAMP_MPD::SkipToEnd( MediaStreamContext *pMediaStreamConte
  */
 double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStreamContext, double skipTime, bool updateFirstPTS, bool skipToEnd)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	if( !pMediaStreamContext->representation )
 	{ // avoid crash with video-only content
 		return 0.0;
@@ -2895,7 +2879,6 @@ void StreamAbstractionAAMP_MPD::ProcessManifestHeaderResponse(std::shared_ptr<Ma
 */
 void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( std::shared_ptr<ManifestDownloadResponse> mpdDnldResp, bool init)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	vector<std::string> locationUrl;
 	// Store the mpd pointer which is already parsed in the MPDDownloader
 	dash::mpd::IMPD *tmpMPD			=	mpdDnldResp->mMPDInstance.get();
@@ -2939,7 +2922,6 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( std::shared_ptr<Man
 */
 AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( std::shared_ptr<ManifestDownloadResponse> mpdDnldResp, bool init)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	AAMPStatusType ret = eAAMPSTATUS_MANIFEST_PARSE_ERROR;
 	vector<std::string> locationUrl;
 	// Store the mpd pointer which is already parsed in the MPDDownloader
@@ -2995,7 +2977,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( std::shared_ptr<Ma
  */
 static void ParseXmlNS(const std::string& fullName, std::string& ns, std::string& name)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	size_t found = fullName.find(':');
 	if (found != std::string::npos)
 	{
@@ -3016,7 +2997,6 @@ static void ParseXmlNS(const std::string& fullName, std::string& ns, std::string
  */
 int StreamAbstractionAAMP_MPD::GetDrmPrefs(const std::string& uuid)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	auto iter = mDrmPrefs.find(uuid);
 
 	if (iter != mDrmPrefs.end())
@@ -3033,7 +3013,6 @@ int StreamAbstractionAAMP_MPD::GetDrmPrefs(const std::string& uuid)
  */
 std::string StreamAbstractionAAMP_MPD::GetPreferredDrmUUID()
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	int selectedPref = 0;
 	std::string selectedUuid = "";
 	for (auto iter : mDrmPrefs)
@@ -3052,8 +3031,7 @@ std::string StreamAbstractionAAMP_MPD::GetPreferredDrmUUID()
  */
 std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * adaptationSet,MediaType mediaType)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
-	const vector<IDescriptor*> contentProt = mMPDParseHelper->GetContentProtection(adaptationSet); 
+	const vector<IDescriptor*> contentProt = mMPDParseHelper->GetContentProtection(adaptationSet);
 	unsigned char* data = NULL;
 	unsigned char *outData = NULL;
 	size_t outDataLen  = 0;
@@ -3334,7 +3312,6 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
 */
 void StreamAbstractionAAMP_MPD::ProcessVssLicenseRequset()
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	AAMPLOG_WARN("MPD DRM not enabled");
 }
 
@@ -3343,7 +3320,6 @@ void StreamAbstractionAAMP_MPD::ProcessVssLicenseRequset()
  */
 void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, MediaType mediaType, bool qGstProtectEvent, bool isVssPeriod)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	AAMPLOG_WARN("MPD DRM not enabled");
 }
 #endif
@@ -3356,7 +3332,6 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
  */
 uint64_t GetFirstSegmentStartTime(IPeriod * period)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	uint64_t startTime = 0;
 	const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
 
@@ -3435,8 +3410,6 @@ uint32_t GetPeriodSegmentTimeScale(IPeriod * period)
 
 double aamp_GetPeriodNewContentDuration(dash::mpd::IMPD *mpd, IPeriod * period, uint64_t &curEndNumber)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
-
 	double durationMs = 0;
 	bool found = false;
 	std::string tempString = period->GetDuration();
@@ -3528,7 +3501,6 @@ double aamp_GetPeriodNewContentDuration(dash::mpd::IMPD *mpd, IPeriod * period, 
  */
 void ParseCCStreamIDAndLang(std::string input, std::string &id, std::string &lang)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	// Expected formats : 	eng;deu
 	// 			CC1=eng;CC2=deu
 	//			1=lang:eng;2=lang:deu
@@ -3565,7 +3537,6 @@ void ParseCCStreamIDAndLang(std::string input, std::string &id, std::string &lan
  */
 AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool forceSpeedsChangedEvent = false;
 	AAMPStatusType retval = eAAMPSTATUS_OK;
 	aamp->CurlInit(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT, aamp->GetNetworkProxy());
@@ -4309,7 +4280,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
  */
 uint64_t aamp_GetDurationFromRepresentation(dash::mpd::IMPD *mpd)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	uint64_t durationMs = 0;
 	if(mpd == NULL) {
 		AAMPLOG_WARN("mpd is null");  //CID:82158 - Null Returns
@@ -4415,7 +4385,6 @@ uint64_t aamp_GetDurationFromRepresentation(dash::mpd::IMPD *mpd)
  */
 bool StreamAbstractionAAMP_MPD::Is4KStream(int &height, BitsPerSecond &bandwidth)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool Stream4k = false;
 	//2. Is this 4K stream? if so get height width information
 	for (auto period : mpd->GetPeriods())
@@ -4958,7 +4927,6 @@ bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
  */
 void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool init, bool reportBulkMeta)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	std::vector<Node*> subNodes = root->GetSubNodes();
 
 
@@ -5215,7 +5183,6 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
  */
 void StreamAbstractionAAMP_MPD::ProcessPeriodSupplementalProperty(Node* node, std::string& AdID, uint64_t startMS, uint64_t durationMS, bool isInit, bool reportBulkMeta)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	if (node->HasAttribute("schemeIdUri")) {
 		const std::string& schemeIdUri = node->GetAttributeValue("schemeIdUri");
 		
@@ -5297,7 +5264,6 @@ void StreamAbstractionAAMP_MPD::ProcessPeriodSupplementalProperty(Node* node, st
  */
 void StreamAbstractionAAMP_MPD::ProcessPeriodAssetIdentifier(Node* node, uint64_t startMS, uint64_t durationMS, std::string& AssetID, std::string& ProviderID, bool isInit, bool reportBulkMeta)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	if (node->HasAttribute("schemeIdUri")) {
 		const std::string& schemeIdUri = node->GetAttributeValue("schemeIdUri");
 		if ((schemeIdUri == "urn:cablelabs:md:xsd:content:3.0") && node->HasAttribute("value")) {
@@ -5392,7 +5358,6 @@ void StreamAbstractionAAMP_MPD::ProcessPeriodAssetIdentifier(Node* node, uint64_
  */
 bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t startOffsetMS, IPeriod * period, bool reportBulkMeta)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool ret = false;
 
 	const std::string &prdId = period->GetId();
@@ -5486,7 +5451,6 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
  */
 void StreamAbstractionAAMP_MPD::ProcessStreamRestrictionList(Node* node, const std::string& AdID, uint64_t startMS, bool isInit, bool reportBulkMeta)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	std::vector<Node*> children = node->GetSubNodes();
 	if(!children.empty())
 		{
@@ -5513,7 +5477,6 @@ void StreamAbstractionAAMP_MPD::ProcessStreamRestrictionList(Node* node, const s
  */
 void StreamAbstractionAAMP_MPD::ProcessStreamRestriction(Node* node, const std::string& AdID, uint64_t startMS, bool isInit, bool reportBulkMeta)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	std::vector<Node*> children = node->GetSubNodes();
 	for (size_t i=0; i < children.size(); i++) {
 		Node* child = children.at(i);
@@ -5540,7 +5503,6 @@ void StreamAbstractionAAMP_MPD::ProcessStreamRestriction(Node* node, const std::
  */
 void StreamAbstractionAAMP_MPD::ProcessStreamRestrictionExt(Node* node, const std::string& AdID, uint64_t startMS, bool isInit, bool reportBulkMeta)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	std::vector<Node*> children = node->GetSubNodes();
 	for (size_t i=0; i < children.size(); i++) {
 		Node* child = children.at(i);
@@ -5560,7 +5522,6 @@ void StreamAbstractionAAMP_MPD::ProcessStreamRestrictionExt(Node* node, const st
  */
 void StreamAbstractionAAMP_MPD::ProcessTrickModeRestriction(Node* node, const std::string& AdID, uint64_t startMS, bool isInit, bool reportBulkMeta)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	double start = startMS / 1000.0f;
 
 	std::string trickMode;
@@ -5616,7 +5577,6 @@ void StreamAbstractionAAMP_MPD::ProcessTrickModeRestriction(Node* node, const st
  */
 void StreamAbstractionAAMP_MPD::TrackDownloader(int trackIdx, std::string initialization)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	double fragmentDuration = 0.0;
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 
@@ -5639,7 +5599,6 @@ void StreamAbstractionAAMP_MPD::TrackDownloader(int trackIdx, std::string initia
  */
 static bool IsIframeTrack(IAdaptationSet *adaptationSet)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	const std::vector<INode *> subnodes = adaptationSet->GetAdditionalSubNodes();
 	for (unsigned i = 0; i < subnodes.size(); i++)
 	{
@@ -5673,7 +5632,6 @@ static bool IsIframeTrack(IAdaptationSet *adaptationSet)
  */
 std::string StreamAbstractionAAMP_MPD::GetLanguageForAdaptationSet(IAdaptationSet *adaptationSet)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	std::string lang = adaptationSet->GetLang();
 	// If language from adaptation is undefined , retain the current player language
 	// Not to change the language .
@@ -5713,7 +5671,6 @@ std::string StreamAbstractionAAMP_MPD::GetLanguageForAdaptationSet(IAdaptationSe
  */
 const IAdaptationSet* StreamAbstractionAAMP_MPD::GetAdaptationSetAtIndex(int idx)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	assert(idx < mCurrentPeriod->GetAdaptationSets().size());
 	return mCurrentPeriod->GetAdaptationSets().at(idx);
 }
@@ -5725,7 +5682,6 @@ const IAdaptationSet* StreamAbstractionAAMP_MPD::GetAdaptationSetAtIndex(int idx
  */
 struct ProfileInfo StreamAbstractionAAMP_MPD::GetAdaptationSetAndRepresetationIndicesForProfile(int profileIndex)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	assert(profileIndex < GetProfileCount());
 	return mProfileMaps.at(profileIndex);
 }
@@ -5735,7 +5691,6 @@ struct ProfileInfo StreamAbstractionAAMP_MPD::GetAdaptationSetAndRepresetationIn
  */
 void StreamAbstractionAAMP_MPD::UpdateLanguageList()
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	size_t numPeriods = mMPDParseHelper->GetNumberOfPeriods();
 	for (unsigned iPeriod = 0; iPeriod < numPeriods; iPeriod++)
 	{
@@ -5774,8 +5729,7 @@ void StreamAbstractionAAMP_MPD::UpdateLanguageList()
 int StreamAbstractionAAMP_MPD::GetBestAudioTrackByLanguage( int &desiredRepIdx, AudioType &CodecType, 
 std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 {
-    FN_TRACE_F_MPD( __FUNCTION__ );
-	int bestTrack = -1;
+    int bestTrack = -1;
 	unsigned long long bestScore = 0;
 	AudioTrackInfo selectedAudioTrack; /**< Selected Audio track information */
 	IPeriod *period = mCurrentPeriod;
@@ -6008,8 +5962,7 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
  */
 bool StreamAbstractionAAMP_MPD::GetBestTextTrackByLanguage( TextTrackInfo &selectedTextTrack)
 {
-    FN_TRACE_F_MPD( __FUNCTION__ );
-	bool bestTrack = false;
+    bool bestTrack = false;
 	unsigned long long bestScore = 0;
 	IPeriod *period = mCurrentPeriod;
 	if(!period)
@@ -6419,7 +6372,6 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
  */
 void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsChangedEvent)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	std::vector<AudioTrackInfo> aTracks;
 	std::vector<TextTrackInfo> tTracks;
 	TextTrackInfo selectedTextTrack;
@@ -6830,7 +6782,6 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
  */
 int StreamAbstractionAAMP_MPD::GetProfileIdxForBandwidthNotification(uint32_t bandwidth)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	int profileIndex = 0; // Keep default index as 0
 
 	std::vector<BitsPerSecond>::iterator it = std::find(mBitrateIndexVector.begin(), mBitrateIndexVector.end(), (long)bandwidth);
@@ -6879,7 +6830,6 @@ static bool IsWebmVideoCodec(const std::string &codec )
  */
 AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	AAMPStatusType ret = eAAMPSTATUS_OK;
 	long defaultBitrate = aamp->GetDefaultBitrate();
 	long iframeBitrate = aamp->GetIframeBitrate();
@@ -7555,7 +7505,6 @@ PeriodInfo StreamAbstractionAAMP_MPD::GetFirstValidCurrMPDPeriod(std::vector<Per
  */
 double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &currMPDPeriodDetails)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	double newStartTimeSeconds = 0;
 	double culled = 0;
 	MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_VIDEO];
@@ -7870,7 +7819,6 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
  */
 void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool discontinuity)
 {
-		FN_TRACE_F_MPD( __FUNCTION__ );
 		std::thread trackDownloadThreadID;
 		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 
@@ -8160,7 +8108,6 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
  */
 bool StreamAbstractionAAMP_MPD::CheckForInitalClearPeriod()
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool ret = true;
 	for(int i = 0; i < mNumberOfTracks; i++)
 	{
@@ -8184,8 +8131,6 @@ bool StreamAbstractionAAMP_MPD::CheckForInitalClearPeriod()
  */
 void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>& mappedHeaders)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
-
 	for (std::map<int, std::string>::iterator it=mappedHeaders.begin(); it!=mappedHeaders.end(); ++it)
 	{
 		int i = it->first;
@@ -8221,7 +8166,6 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
  */
 bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& mappedHeaders)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool ret = false;
 	//Find the first period with contentProtection
 	size_t numPeriods = mMPDParseHelper->GetNumberOfPeriods();  //CID:96576 - Removed the  headerCount variable which is initialized but not used
@@ -8338,7 +8282,6 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
  */
 void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 	bool isAllowNextFrag = true;
 	int  maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached); 
@@ -8464,7 +8407,6 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
  */
 void StreamAbstractionAAMP_MPD::FetcherLoop()
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	aamp_pthread_setname(pthread_self(), "aampMPDFetcher");
 
 	bool exitFetchLoop = false;
@@ -9156,7 +9098,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
  */
 void StreamAbstractionAAMP_MPD::GetAvailableVSSPeriods(std::vector<IPeriod*>& PeriodIds)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	//for(IPeriod* tempPeriod : mpd->GetPeriods())
 	int numPeriods = (int)PeriodIds.size();
 	for(int periodIter = 0; periodIter < numPeriods; periodIter++)
@@ -9225,7 +9166,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
  */
 bool StreamAbstractionAAMP_MPD::CheckForVssTags()
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool isVss = false;
 	IMPDElement* nodePtr = mpd;
 
@@ -9277,7 +9217,6 @@ bool StreamAbstractionAAMP_MPD::CheckForVssTags()
  */
 std::string StreamAbstractionAAMP_MPD::GetVssVirtualStreamID()
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	std::string ret;
 	IMPDElement* nodePtr = mpd;
 
@@ -9411,7 +9350,6 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
  */
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 	{
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
@@ -9493,7 +9431,6 @@ void StreamAbstractionAAMP_MPD::Start(void)
  */
 void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	aamp->DisableDownloads();
 	ReassessAndResumeAudioTrack(true);
 	AbortWaitForAudioTrackCatchup(false);
@@ -9598,7 +9535,6 @@ StreamOutputFormat GetSubtitleFormat(std::string mimeType)
  */
 void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
 		primaryOutputFormat = FORMAT_ISO_BMFF;
@@ -9655,13 +9591,11 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
  */
 MediaTrack* StreamAbstractionAAMP_MPD::GetMediaTrack(TrackType type)
 {
-	//FN_TRACE_F_MPD( __FUNCTION__ );
 	return mMediaStreamContext[type];
 }
 
 double StreamAbstractionAAMP_MPD::GetBufferedDuration()
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	double retval = -1.0;
 	if (video && video->enabled)
@@ -9679,7 +9613,6 @@ double StreamAbstractionAAMP_MPD::GetBufferedDuration()
  */
 double StreamAbstractionAAMP_MPD::GetStreamPosition()
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	return seekPosition;
 }
 
@@ -9699,7 +9632,6 @@ double StreamAbstractionAAMP_MPD::GetFirstPeriodStartTime(void)
  */
 int StreamAbstractionAAMP_MPD::GetProfileCount()
 {
-	//FN_TRACE_F_MPD( __FUNCTION__ );
 	int ret = 0;
 	bool isFogTsb = mIsFogTSB && !mAdPlayingFromCDN;
 
@@ -9721,7 +9653,6 @@ int StreamAbstractionAAMP_MPD::GetProfileCount()
  */
 int StreamAbstractionAAMP_MPD::GetProfileIndexForBandwidth( BitsPerSecond mTsbBandwidth)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	int profileIndex = 0;
 	bool isFogTsb = mIsFogTSB && !mAdPlayingFromCDN;
 
@@ -9749,7 +9680,6 @@ int StreamAbstractionAAMP_MPD::GetProfileIndexForBandwidth( BitsPerSecond mTsbBa
  */
 StreamInfo* StreamAbstractionAAMP_MPD::GetStreamInfo(int idx)
 {
-	//FN_TRACE_F_MPD( __FUNCTION__ );
 	bool isFogTsb = mIsFogTSB && !mAdPlayingFromCDN;
 	assert(idx < GetProfileCount());
 	if (isFogTsb)
@@ -9776,7 +9706,6 @@ StreamInfo* StreamAbstractionAAMP_MPD::GetStreamInfo(int idx)
  */
 double StreamAbstractionAAMP_MPD::GetFirstPTS()
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	return mFirstPTS;
 }
 
@@ -9796,7 +9725,6 @@ double StreamAbstractionAAMP_MPD::GetStartTimeOfFirstPTS()
  */
 int StreamAbstractionAAMP_MPD::GetBWIndex(BitsPerSecond bitrate)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	int topBWIndex = 0;
 	int profileCount = GetProfileCount();
 	if (profileCount)
@@ -9819,7 +9747,6 @@ int StreamAbstractionAAMP_MPD::GetBWIndex(BitsPerSecond bitrate)
  */
 std::vector<BitsPerSecond> StreamAbstractionAAMP_MPD::GetVideoBitrates(void)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	std::vector<BitsPerSecond> bitrates;
 	int profileCount = GetProfileCount();
 	bitrates.reserve(profileCount);
@@ -9843,7 +9770,6 @@ std::vector<BitsPerSecond> StreamAbstractionAAMP_MPD::GetVideoBitrates(void)
 */
 BitsPerSecond StreamAbstractionAAMP_MPD::GetMaxBitrate()
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	BitsPerSecond maxBitrate = 0;
 	if( mIsFogTSB )
 	{
@@ -9864,7 +9790,6 @@ BitsPerSecond StreamAbstractionAAMP_MPD::GetMaxBitrate()
  */
 std::vector<BitsPerSecond> StreamAbstractionAAMP_MPD::GetAudioBitrates(void)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	std::vector<BitsPerSecond> audioBitrate;
 	int trackSize = (int)mAudioTracks.size();
 	if(trackSize)
@@ -9882,7 +9807,6 @@ std::vector<BitsPerSecond> StreamAbstractionAAMP_MPD::GetAudioBitrates(void)
 
 static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vector<TileInfo> &indexedTileInfo,std::vector<StreamInfo*> &thumbnailtrack)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool trackEmpty = thumbnailtrack.empty();
 	AampMPDParseHelper *MPDParseHelper = nullptr;
 	MPDParseHelper  = new AampMPDParseHelper();
@@ -10053,7 +9977,6 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
  */
 std::vector<StreamInfo*> StreamAbstractionAAMP_MPD::GetAvailableThumbnailTracks(void)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	if(thumbnailtrack.empty())
 	{
 		indexThumbnails(mpd, -1, indexedTileInfo, thumbnailtrack);
@@ -10069,7 +9992,6 @@ std::vector<StreamInfo*> StreamAbstractionAAMP_MPD::GetAvailableThumbnailTracks(
  */
 bool StreamAbstractionAAMP_MPD::SetThumbnailTrack(int thumbnailIndex)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool ret = false;
 	if(aamp->mthumbIndexValue != thumbnailIndex)
 	{
@@ -10099,8 +10021,7 @@ bool StreamAbstractionAAMP_MPD::SetThumbnailTrack(int thumbnailIndex)
  */
 std::vector<ThumbnailData> StreamAbstractionAAMP_MPD::GetThumbnailRangeData(double tStart, double tEnd, std::string *baseurl, int *raw_w, int *raw_h, int *width, int *height)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
-        std::vector<ThumbnailData> data;
+	std::vector<ThumbnailData> data;
 	if(indexedTileInfo.empty())
 	{
 		if(aamp->mthumbIndexValue >= 0)
@@ -10191,8 +10112,7 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_MPD::GetThumbnailRangeData(doub
  */
 void StreamAbstractionAAMP_MPD::StopInjection(void)
 {
-        FN_TRACE_F_MPD( __FUNCTION__ );
-	//invoked at times of discontinuity. Audio injection loop might have already exited here
+    //invoked at times of discontinuity. Audio injection loop might have already exited here
 	ReassessAndResumeAudioTrack(true);
 	for (int iTrack = 0; iTrack < mNumberOfTracks; iTrack++)
 	{
@@ -10219,7 +10139,6 @@ void StreamAbstractionAAMP_MPD::StopInjection(void)
  */
 void StreamAbstractionAAMP_MPD::StartInjection(void)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	mTrackState = eDISCONTIUITY_FREE;
 	for (int iTrack = 0; iTrack < mNumberOfTracks; iTrack++)
 	{
@@ -10240,7 +10159,6 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 
 void StreamAbstractionAAMP_MPD::SetCDAIObject(CDAIObject *cdaiObj)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	if(cdaiObj)
 	{
 		CDAIObjectMPD *cdaiObjMpd = static_cast<CDAIObjectMPD *>(cdaiObj);
@@ -10253,7 +10171,6 @@ void StreamAbstractionAAMP_MPD::SetCDAIObject(CDAIObject *cdaiObj)
  */
 bool StreamAbstractionAAMP_MPD::isAdbreakStart(IPeriod *period, uint64_t &startMS, std::vector<EventBreakInfo> &eventBreakVec)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	const std::vector<IEventStream *> &eventStreams = period->GetEventStreams();
 	bool ret = false;
 	uint32_t duration = 0;
@@ -10438,14 +10355,12 @@ bool StreamAbstractionAAMP_MPD::isAdbreakStart(IPeriod *period, uint64_t &startM
  */
 bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	double adOffset  = 0.0;   //CID:89257 - Intialization
 	return onAdEvent(evt, adOffset);
 }
 
 bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	if(!ISCONFIGSET(eAAMPConfig_EnableClientDai))
 	{
 		return false;
@@ -10840,7 +10755,6 @@ void StreamAbstractionAAMP_MPD::printSelectedTrack(const std::string &trackIndex
  */
 void StreamAbstractionAAMP_MPD::SetAudioTrackInfo(const std::vector<AudioTrackInfo> &tracks, const std::string &trackIndex)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool tracksChanged = false;
 	int audioIndex = -1;
 
@@ -10934,7 +10848,6 @@ static std::string getRole(INode *nodePtr)
 
 void StreamAbstractionAAMP_MPD::ParseAvailablePreselections(IMPDElement *period, std::vector<AudioTrackInfo> & audioAC4Tracks)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	std::vector<INode*> childNodeList = period->GetAdditionalSubNodes();
 	if (childNodeList.size() > 0)
 	{
@@ -11084,7 +10997,6 @@ std::vector<TextTrackInfo>& StreamAbstractionAAMP_MPD::GetAvailableTextTracks(bo
 
 void StreamAbstractionAAMP_MPD::SetTextTrackInfo(const std::vector<TextTrackInfo> &tracks, const std::string &trackIndex)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	bool tracksChanged = false;
 	int textTrack = -1;
 
@@ -11119,7 +11031,6 @@ void StreamAbstractionAAMP_MPD::SetTextTrackInfo(const std::vector<TextTrackInfo
  */
 bool StreamAbstractionAAMP_MPD::IsMatchingLanguageAndMimeType(MediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	   bool ret = false;
 	   std::string adapLang = GetLanguageForAdaptationSet(adaptationSet);
 	   AAMPLOG_INFO("type %d inlang %s current lang %s", type, lang.c_str(), adapLang.c_str());
@@ -11381,7 +11292,6 @@ double StreamAbstractionAAMP_MPD::GetEncoderDisplayLatency()
  */
 void StreamAbstractionAAMP_MPD::StartLatencyMonitorThread()
 {
-    FN_TRACE_F_MPD( __FUNCTION__ );
     assert(!latencyMonitorThreadStarted);
     try
 	{
@@ -11400,7 +11310,6 @@ void StreamAbstractionAAMP_MPD::StartLatencyMonitorThread()
  */
 void StreamAbstractionAAMP_MPD::MonitorLatency()
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	int latencyMonitorDelay = GETCONFIGVALUE(eAAMPConfig_LatencyMonitorDelay);
 	int latencyMonitorInterval = GETCONFIGVALUE(eAAMPConfig_LatencyMonitorInterval);
 	double normalPlaybackRate =  GETCONFIGVALUE(eAAMPConfig_NormalLatencyCorrectionPlaybackRate);
@@ -12211,7 +12120,6 @@ bool StreamAbstractionAAMP_MPD::SetTextStyle(const std::string &options)
  */
 void StreamAbstractionAAMP_MPD::ProcessAllContenProtForMediaType(MediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	// Select the current period
 	IPeriod *period = mCurrentPeriod;
 	bool chosenAdaptationPresent = !chosenAdaptationIdxs.empty();
@@ -12258,7 +12166,6 @@ void StreamAbstractionAAMP_MPD::ProcessAllContenProtForMediaType(MediaType type,
  // TODO: Add implementation to mark the failed DRM's adaptation set as failed/un-usable
 void StreamAbstractionAAMP_MPD::UpdateFailedDRMStatus(LicensePreFetchObject *object)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	IPeriod *period = nullptr;
 	std::vector<BitsPerSecond> profilesToRemove;
 	bool updateABR = false;
@@ -12333,7 +12240,6 @@ static std::string getrelativenorurl(std::string media)
 
 void StreamAbstractionAAMP_MPD::setNextobjectrequestUrl(std::string media,const FragmentDescriptor *fragmentDescriptor,MediaType mediaType)
 {
-	FN_TRACE_F_MPD( __FUNCTION__ );
 	if( !media.empty() )
 	{
 		replace(media, "Bandwidth", fragmentDescriptor->Bandwidth);

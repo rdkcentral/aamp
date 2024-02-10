@@ -134,7 +134,6 @@ Node* MPDProcessNode(xmlTextReaderPtr *reader, std::string url, bool isAd)
  */
 void AddAttributesToNode(xmlTextReaderPtr *reader, Node *node)
 {
-	//FN_TRACE_F_MPD( __FUNCTION__ );
 	if (xmlTextReaderHasAttributes(*reader))
 	{
 		while (xmlTextReaderMoveToNextAttribute(*reader))
@@ -162,7 +161,6 @@ void AddAttributesToNode(xmlTextReaderPtr *reader, Node *node)
  */
 bool IsCompatibleMimeType(const std::string& mimeType, MediaType mediaType)
 {
-        //FN_TRACE_F_MPD( __FUNCTION__ );
 	bool isCompatible = false;
 
 	switch ( mediaType )

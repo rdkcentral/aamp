@@ -468,7 +468,6 @@ void trim(std::string& src)
  */
 const char* getMediaTypeName( MediaType mediaType )
 {
-	//FN_TRACE_F_MPD( __FUNCTION__ );
 	switch(mediaType)
 	{
 		case eMEDIATYPE_VIDEO:

@@ -27,30 +27,6 @@
 #include <vector>
 #include "AampLogManager.h"
 
-#if 0
-#define MAX_DEBUG_LOG_BUFF_SIZE 1024
-
-class FnLogger {
-public:
-	FnLogger( std::string const & pMsg1,std::string const & pMsg2  ) : msg1(pMsg1),msg2(pMsg2)
-	{   AAMPLOG_INFO("%s Enter ===> %s(): ", msg1.c_str(), msg2.c_str()); }
-	~FnLogger()
-	{   AAMPLOG_INFO("%s Exit <=== %s(): ", msg1.c_str(), msg2.c_str()); }
-	std::string msg1;
-	std::string msg2;
-};
-#endif
-
-#ifndef LOG_FN_TRACE_CURL_DOWNLOAD
-#define LOG_FN_TRACE_CURL_DOWNLOAD 0
-#endif
-#if LOG_FN_TRACE_CURL_DOWNLOAD
-#define FN_TRACE_CURL_DOWNLOAD(x) FnLogger l_##x##_scope("[F-CURL-DOWNLOAD]",x);
-#else
-#define FN_TRACE_CURL_DOWNLOAD(x)
-#endif
-
-
 void _downloadConfig::show()
 {
 	AAMPLOG_INFO("iDownloadTimeout : %u", iDownloadTimeout);
@@ -156,14 +132,12 @@ AampCurlDownloader::AampCurlDownloader() : mCurlMutex(),m_threadName(""),mDownlo
 
 {
 	// All download related configs are read here
-	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);	
 	AAMPLOG_INFO("Create Curl Downloader Instance ");
 }
 
 
 AampCurlDownloader::~AampCurlDownloader()
 {
-	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
 	mDownloadActive = false;
 	
 	if(mCreatedNewFd && mCurl)
@@ -179,13 +153,11 @@ AampCurlDownloader::~AampCurlDownloader()
 
 bool AampCurlDownloader::IsDownloadActive()
 {
-	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
 	return mDownloadActive;
 }
 
 int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<DownloadResponse> dnldData )
 {
-	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
 	int httpRetVal=0;
 	int curlRetVal=0;
 	if(urlStr.size() == 0 || dnldData == nullptr)
@@ -349,7 +321,6 @@ void AampCurlDownloader::updateResponseParams()
 
 void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 {
-	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
 	if(dnldCfg == nullptr)
 		return;
 	
@@ -386,7 +357,6 @@ void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 
 void AampCurlDownloader::Release()
 {
-	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDownloadActive = false;
 	mDownloadUpdatedTime = 0 ;
@@ -402,7 +372,6 @@ void AampCurlDownloader::Release()
 
 void AampCurlDownloader::Clear()
 {
-	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDownloadActive = false;
 	mDownloadUpdatedTime = 0 ;
@@ -416,8 +385,6 @@ void AampCurlDownloader::Clear()
 
 void AampCurlDownloader::updateCurlParams()
 {
-	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
-
 	if(mDnldCfg->bVerbose)
 	{
 		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_VERBOSE, 1L);
@@ -515,7 +482,6 @@ size_t AampCurlDownloader::WriteCallback(void *buffer, size_t sz, size_t nmemb, 
 
 size_t AampCurlDownloader::write_callback(void *buffer, size_t sz, size_t nmemb)
 {
-	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
 	size_t retSize = sz * nmemb;
 
 	if(retSize)
@@ -546,7 +512,6 @@ size_t AampCurlDownloader::HeaderCallback(void *buffer, size_t sz, size_t nmemb,
 
 size_t AampCurlDownloader::header_callback(void *buffer, size_t sz, size_t nmemb)
 {
-	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
 	size_t retSize = sz * nmemb;
 	
 	if(retSize)
@@ -592,7 +557,6 @@ int AampCurlDownloader::progress_callback(
 					 double ulnow // uploaded bytes so far
 )
 {
-	FN_TRACE_CURL_DOWNLOAD(__FUNCTION__);
 	int rc = 0;
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	if (!mDownloadActive)
