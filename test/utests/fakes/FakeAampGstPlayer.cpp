@@ -46,6 +46,11 @@ bool AAMPGstPlayer::SendTransfer(MediaType mediaType, void *ptr, size_t len, dou
 	return true;
 }
 
+bool AAMPGstPlayer::PipelineConfiguredForMedia(MediaType type)
+{
+	return true;
+}
+
 void AAMPGstPlayer::EndOfStreamReached(MediaType mediaType)
 {
 }

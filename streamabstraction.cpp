@@ -1015,7 +1015,12 @@ bool MediaTrack::InjectFragment()
 				 * The totalInjectedDuration will be 0 for the very short duration periods if the single fragment is not injected or failed (due to fragment download failures).
 				 * In that case, if there is an audio codec change is detected for this period, it could cause audio loss since ignoring the discontinuity to be processed since totalInjectedDuration is 0.
 				 */
-				if (totalInjectedDuration == 0 && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus())
+				/* PipelineValid is used here to avoid skipping the discontinuity if the pipeline has not been configured for the media type.
+				 * This was seen with subtites where switching to a period with subtitles enabled from one without could result in fragments being pushed
+				 * to an appsrc that wasn't configured (very timing dependent). In this case we want to process the discontinuity and configure the pipeline.
+				 * (DELIA-64449)
+				 */
+				if (totalInjectedDuration == 0 && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus() && aamp->PipelineValid((MediaType)type))
 				{
 					stopInjection = false;
 
@@ -1037,7 +1042,7 @@ bool MediaTrack::InjectFragment()
 
 					AAMPLOG_WARN("ignoring %s discontinuity since no buffer pushed before!", name);
 				}
-				else if (isDiscoIgnoredForOtherTrack && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus())
+				else if (isDiscoIgnoredForOtherTrack && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus() && aamp->PipelineValid((MediaType)type))
 				{
 					AAMPLOG_WARN("discontinuity ignored for other AV track , no need to process %s track", name);
 					stopInjection = false;
@@ -1048,6 +1053,11 @@ bool MediaTrack::InjectFragment()
 				}
 				else
 				{
+					if (!aamp->PipelineValid((MediaType)type))
+					{
+						AAMPLOG_WARN("Pipeline not yet configured for %s! Process discontinuity...", name);
+					}
+
 					if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
 					{
 

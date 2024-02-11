@@ -1174,6 +1174,11 @@ std::string PrivateInstanceAAMP::GetVideoPlaybackQuality()
         return result;
 }
 
+bool PrivateInstanceAAMP::PipelineValid(MediaType track)
+{
+	return true;
+}
+
 void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)

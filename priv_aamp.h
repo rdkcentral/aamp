@@ -3519,6 +3519,14 @@ public:
 	void SetSessionToken(std::string &sessionToken);
 
 	/**
+	 *   @fn PipelineValid
+	 *
+	 *   @param[in] track - media type
+	 *   @return bool
+	 */
+	bool PipelineValid(MediaType track);
+
+	/**
 	 *   @fn SetStreamFormat
 	 *
 	 *   @param[in] videoFormat - video stream format

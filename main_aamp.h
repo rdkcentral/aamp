@@ -432,6 +432,14 @@ public:
 	virtual bool SendTransfer( MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment = false, bool discontinuity = false)= 0;
 
 	/**
+	 *   @brief  Checks pipeline is configured for media type
+	 *
+	 *   @param[in]  mediaType - Media Type
+	 *   @return void
+	 */
+	virtual bool PipelineConfiguredForMedia(MediaType type){return true;}
+
+	/**
 	 *   @brief  Notifies EOS to sink
 	 *
 	 *   @param[in]  mediaType - Media Type

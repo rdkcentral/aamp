@@ -153,6 +153,11 @@ public:
          */
 	bool SendTransfer(MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment = false, bool discontinuity = false) override;
 	/**
+         * @fn PipelineConfiguredForMedia
+         * @param[in] type stream type
+         */
+	bool PipelineConfiguredForMedia(MediaType type) override;
+	/**
          * @fn EndOfStreamReached
          * @param[in] type stream type
          */

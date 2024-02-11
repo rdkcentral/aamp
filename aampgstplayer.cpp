@@ -2883,25 +2883,21 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 			{
 				AAMPLOG_ERR("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
 				if (ret != GST_FLOW_EOS && ret !=  GST_FLOW_FLUSHING)
-				{
+				{ // an unexpected error has occured
 					if (mediaType == eMEDIATYPE_SUBTITLE)
-					{
+					{ // DELIA-64505: occurs sometimes when injecting subtitle fragments
 						if (!stream->source)
 						{
-							AAMPLOG_ERR("Error pushing subtitle fragment, appsrc is NULL");
+							AAMPLOG_ERR("subtitle appsrc is NULL");
 						}
 						else if (!GST_IS_APP_SRC(stream->source))
 						{
-							AAMPLOG_ERR("Error pushing subtitle fragment, appsrc is INVALID");
-						}
-						else
-						{
-							AAMPLOG_ERR("Error pushing subtitle fragment");
+							AAMPLOG_ERR("subtitle appsrc is invalid");
 						}
 					}
 					else
-					{
-						assert(false);
+					{ // if we get here, something has gone terribly wrong
+						assert(0);
 					}
 				}
 			}
@@ -3174,6 +3170,24 @@ static void AAMPGstPlayer_SignalEOS(GstElement *source )
 			AAMPLOG_WARN("gst_app_src_push_buffer  error: %d", ret);
 		}
 	}
+}
+
+/**
+ *  @brief Checks to see if the pipeline is configured for specified media type
+ */
+bool AAMPGstPlayer::PipelineConfiguredForMedia(MediaType type)
+{
+	bool pipelineConfigured = true;
+
+	if( type != eMEDIATYPE_SUBTITLE || aamp->IsGstreamerSubsEnabled() )
+	{
+		media_stream *stream = &privateContext->stream[type];
+		if (stream)
+		{
+			pipelineConfigured = stream->sourceConfigured;
+		}
+	}
+	return pipelineConfigured;
 }
 
 /**

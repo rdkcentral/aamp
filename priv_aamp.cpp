@@ -10802,6 +10802,20 @@ void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatusForTrack(MediaType
 }
 
 /**
+ *  @brief Check the pipeline is valid for the media type
+ */
+bool PrivateInstanceAAMP::PipelineValid(MediaType track)
+{
+	bool isValid = false;
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		isValid = sink->PipelineConfiguredForMedia(track);
+	}
+	return isValid;
+}
+
+/**
  * @brief Set stream format for audio/video tracks
  */
 void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat)
