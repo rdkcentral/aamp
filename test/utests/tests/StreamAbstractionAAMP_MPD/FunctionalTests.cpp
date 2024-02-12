@@ -122,7 +122,7 @@ protected:
 
                 g_mockAampUtils = nullptr;
 
-                g_mockAampGstPlayer = new MockAAMPGstPlayer(mLogObj, mPrivateInstanceAAMP);
+                g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
 
                 mPrivateInstanceAAMP->mIsDefaultOffset = true;
 

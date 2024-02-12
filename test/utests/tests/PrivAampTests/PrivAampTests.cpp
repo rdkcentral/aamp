@@ -52,7 +52,7 @@ protected:
 	{
 		p_aamp =  new PrivateInstanceAAMP();
 		mLogObj = new AampLogManager();
-		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(mLogObj, p_aamp);
+		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(p_aamp);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 	}
 

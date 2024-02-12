@@ -363,6 +363,7 @@ static gboolean PrivateInstanceAAMP_ProcessDiscontinuity(gpointer ptr)
 static gboolean PrivateInstanceAAMP_Retune(gpointer ptr)
 {
 	PrivateInstanceAAMP* aamp = (PrivateInstanceAAMP*) ptr;
+	auto mLogObj = aamp->mLogObj; // map correct log context
 	bool activeAAMPFound = false;
 	bool reTune = false;
 	gActivePrivAAMP_t *gAAMPInstance = NULL;
@@ -710,6 +711,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 	if( user_data )
 	{
 		CurlCallbackContext *context = static_cast<CurlCallbackContext *>(user_data);
+		auto mLogObj = context->aamp->mLogObj; // map correct log context
 		httpRespHeaderData *httpHeader = context->responseHeaderData;
 		size_t startPos = 0;
 		size_t endPos = len-2; // strip CRLF
@@ -1289,6 +1291,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mIsFlushFdsInCurlStore(false)
 {
 	mLogObj = mConfig->GetLoggerInstance();
+	mLogObj->setPlayerId(mPlayerId); // update logger with incremented PLAYERID_CNTR
 	//LazilyLoadConfigIfNeeded();
 	mAampCacheHandler = new AampCacheHandler(mConfig->GetLoggerInstance());
 #ifdef AAMP_CC_ENABLED
@@ -1391,7 +1394,6 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 #endif
 
  	UpdateUseSinglePipeline();
-	AAMPLOG_WARN(" Early processing enabled: %s", (ISCONFIGSET_PRIV(eAAMPConfig_EarlyID3Processing) ? "true" : "false"));
 }
 
 /**
@@ -1483,6 +1485,7 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 static gboolean PrivateInstanceAAMP_PausePosition(gpointer ptr)
 {
 	PrivateInstanceAAMP* aamp = (PrivateInstanceAAMP* )ptr;
+	auto mLogObj = aamp->mLogObj; // map correct log context
 	long long pausePositionMilliseconds = aamp->mPausePositionMilliseconds;
 	aamp->mPausePositionMilliseconds = AAMP_PAUSE_POSITION_INVALID_POSITION;
 
@@ -5701,7 +5704,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink == nullptr)
 	{
-		AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj, this,
+		AampStreamSinkManager::GetInstance().CreateStreamSink( this,
 											   std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
 											   		     std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
 	}

@@ -81,7 +81,7 @@ TEST_F(AAMPGstPlayerTests, Constructor)
 				gst_debug_set_threshold_from_string(StrEq(debug_level.c_str()), reset));
 
 	// Code under test
-	AAMPGstPlayer player{nullptr, mPrivateInstanceAAMP, nullptr};
+	AAMPGstPlayer player{mPrivateInstanceAAMP,nullptr};
 }
 
 /* Table with different parameter sets to be passed into mAAMPGstPlayer->Configure(...) */
@@ -124,7 +124,7 @@ TEST_P(AAMPGstPlayerTestsP, Configure)
 
 	Config_Params *setup = &tbl[idx];
 
-	mAAMPGstPlayer = new AAMPGstPlayer{nullptr, mPrivateInstanceAAMP, nullptr};
+	mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
 	// Expectations
 	// CreatePipeline()
 	EXPECT_CALL(*g_mockGStreamer, gst_pipeline_new(StrEq("AAMPGstPlayerPipeline")))

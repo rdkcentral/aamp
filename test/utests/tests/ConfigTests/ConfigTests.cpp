@@ -37,7 +37,7 @@ protected:
 
 		g_mockAampLogManager = std::make_shared<StrictMock<MockAampLogManager>>();
 
-		g_mockAampGstPlayer = new MockAAMPGstPlayer(mLogObj, nullptr);
+		g_mockAampGstPlayer = new MockAAMPGstPlayer(nullptr);
 	}
 
 	void TearDown() override

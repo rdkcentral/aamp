@@ -91,6 +91,7 @@ static size_t StreamWriteCallback( void *ptr, size_t size, size_t nmemb, void *u
 {
     StreamWriteCallbackContext *context = (StreamWriteCallbackContext *)userdata;
     struct PrivateInstanceAAMP *aamp = context->aamp;
+	auto mLogObj = aamp->mLogObj; // map correct log context
     //pthread_mutex_lock(&context->aamp->mLock);
     if( context->aamp->mDownloadsEnabled)
     {

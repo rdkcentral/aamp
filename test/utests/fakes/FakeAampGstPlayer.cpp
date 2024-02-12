@@ -24,7 +24,7 @@
 
 MockAAMPGstPlayer *g_mockAampGstPlayer = nullptr;
 
-AAMPGstPlayer::AAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback)
+AAMPGstPlayer::AAMPGstPlayer( PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback)
 {
 }
 
@@ -204,11 +204,11 @@ PlaybackQualityStruct* AAMPGstPlayer::GetVideoPlaybackQuality(void)
 	return nullptr;
 }
 
-void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, AampLogManager *newLogObj, id3_callback_t id3HandlerCallback)
+void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	if (g_mockAampGstPlayer != nullptr)
 	{
-		g_mockAampGstPlayer->ChangeAamp(newAamp, newLogObj, id3HandlerCallback);
+		g_mockAampGstPlayer->ChangeAamp(newAamp, id3HandlerCallback);
 	}
 }
 

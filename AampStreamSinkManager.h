@@ -55,7 +55,7 @@ public:
 	 *  @param[in] exportFrames -
 #endif
 	 */
-	virtual void CreateStreamSink(AampLogManager *logObj, PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback
+	virtual void CreateStreamSink( PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
 					  , std::function< void(uint8_t *, int, int, int) > exportFrames = nullptr
 #endif

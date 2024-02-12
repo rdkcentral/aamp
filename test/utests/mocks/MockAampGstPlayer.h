@@ -29,7 +29,7 @@ class MockAAMPGstPlayer : public AAMPGstPlayer
 {
 public:
 
-    MockAAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp) : AAMPGstPlayer(logObj, aamp, mock_id3_callback) { }
+    MockAAMPGstPlayer( PrivateInstanceAAMP *aamp) : AAMPGstPlayer( aamp, mock_id3_callback) { }
 
     MOCK_METHOD(long, GetPositionMilliseconds, (), (override));
 
@@ -37,7 +37,7 @@ public:
 
     MOCK_METHOD(bool , SetTextStyle, (const std::string &options), (override));
 
-    MOCK_METHOD(void, ChangeAamp, (PrivateInstanceAAMP *, AampLogManager *, id3_callback_t));
+    MOCK_METHOD(void, ChangeAamp, (PrivateInstanceAAMP *, id3_callback_t));
 
     MOCK_METHOD(void, Flush, (double position, int rate, bool shouldTearDown), (override));
 

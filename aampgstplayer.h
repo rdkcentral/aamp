@@ -362,11 +362,10 @@ public:
 	/**
 	 * Constructor
 	 * 
-	 * @param[in] logObj Log handle
 	 * @param[in] aamp Pointer to parent aamp instance
 	 * @param[in] id3HandlerCallback Function to call to generate the JS event for in ID3 packet 
 	 */
-	AAMPGstPlayer(AampLogManager *logObj, PrivateInstanceAAMP *aamp
+	AAMPGstPlayer( PrivateInstanceAAMP *aamp
 	, id3_callback_t id3HandlerCallback
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
 	, std::function< void(uint8_t *, int, int, int) > exportFrames = nullptr
@@ -460,10 +459,9 @@ public:
 	 * @brief Change the instance of PrivateInstanceAAMP that is using the gstreamer pipeline,
 	 * when it is being used as a single pipeline shared among multiple instances of PrivateInstanceAAMP
    	 * @param[in] newAamp - pointer to new instance of PrivateInstanceAAMP
-   	 * @param[in] newLogObj  - pointer to the log manager for this instance of PrivateInstanceAAMP
 	 * @param[in] id3HandlerCallback - the id3 callback handle associated with this instance of PrivateInstanceAAMP
 	 */
-	void ChangeAamp(PrivateInstanceAAMP *newAamp, AampLogManager *newLogObj, id3_callback_t id3HandlerCallback);
+	void ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback);
 
 	/**
 	 * @fn SetEncryptedAamp
@@ -531,9 +529,11 @@ private:
 
 	pthread_mutex_t mBufferingLock;
 	pthread_mutex_t mProtectionLock;
-	AampLogManager *mLogObj;
 
 	id3_callback_t m_ID3MetadataHandler; /**< Function to call to generate the JS event for in ID3 packet */
+	
+public:
+	AampLogManager *mLogObj;
 };
 
 #endif // AAMPGSTPLAYER_H

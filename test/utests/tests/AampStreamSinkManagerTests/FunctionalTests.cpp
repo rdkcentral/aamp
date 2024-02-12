@@ -45,6 +45,8 @@ protected:
     id3_callback_t mId3HandlerCallback2;
     AampLogManager *mLogObj1{};
     AampLogManager *mLogObj2{};
+	AampConfig mConfig1{};
+	AampConfig mConfig2{};
 
     void SetUp() override
     {
@@ -52,22 +54,22 @@ protected:
         {
             gpGlobalConfig =  new AampConfig();
         }
-
-        mLogObj1 = new AampLogManager();
-        mLogObj1->setPlayerId(1);
-
-        mLogObj2 = new AampLogManager();
-        mLogObj2->setPlayerId(2);
-
-        mPrivateInstanceAAMP1 = new PrivateInstanceAAMP(gpGlobalConfig);
+		
+		mConfig1 = *gpGlobalConfig;
+		mLogObj1 = mConfig1.GetLoggerInstance();
+		mLogObj1->setPlayerId(1);
+        mPrivateInstanceAAMP1 = new PrivateInstanceAAMP(&mConfig1);
         mPrivateInstanceAAMP1->mPlayerId = 1;
 
-        mPrivateInstanceAAMP2 = new PrivateInstanceAAMP(gpGlobalConfig);
+		mConfig2 = *gpGlobalConfig;
+		mLogObj2 = mConfig2.GetLoggerInstance();
+		mLogObj2->setPlayerId(2);
+        mPrivateInstanceAAMP2 = new PrivateInstanceAAMP(&mConfig2);
         mPrivateInstanceAAMP2->mPlayerId = 2;
 
         g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 
-        g_mockAampGstPlayer = new MockAAMPGstPlayer(mLogObj1, mPrivateInstanceAAMP1);
+        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP1);
 
         const auto id3_callback = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, mPrivateInstanceAAMP1, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
         mId3HandlerCallback1 = id3_callback;
@@ -90,13 +92,6 @@ protected:
 
         delete g_mockAampGstPlayer;
         g_mockAampGstPlayer = nullptr;
-
-        delete mLogObj1;
-        mLogObj1 = nullptr;
-
-        delete mLogObj2;
-        mLogObj2 = nullptr;
-
         AampStreamSinkManager::GetInstance().Clear();
     }
 
@@ -116,10 +111,10 @@ public:
 TEST_F(AampStreamSinkManagerTests, CheckSetSinglePipelineMode)
 {
     AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
 
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj2, mPrivateInstanceAAMP2, mId3HandlerCallback2);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP2);
     StreamSink *sink2 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP2);
 
@@ -132,7 +127,7 @@ TEST_F(AampStreamSinkManagerTests, CheckSetSinglePipelineMode)
 TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_SinglePipelineMode_NoActivePlayers)
 {
     AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
     AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, true);
     StreamSink *sink2 = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(mPrivateInstanceAAMP1);
@@ -146,7 +141,7 @@ TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_SinglePipelineMode_NoAc
 TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_SinglePipelineMode_ActivePlayers)
 {
     AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
     StreamSink *sink2 = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(mPrivateInstanceAAMP1);
 
@@ -159,9 +154,9 @@ TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_SinglePipelineMode_Acti
 TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_SinglePipelineMode_UseInactivePlayer)
 {
     AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
     AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, true);
-    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, mLogObj1, _)).Times(1);
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(1);
     AampStreamSinkManager::GetInstance().UpdateTuningPlayer(mPrivateInstanceAAMP1);
 }
 
@@ -171,7 +166,7 @@ TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_SinglePipelineMode_UseInac
 TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_SinglePipelineMode_NoChange)
 {
 	/* Undefined pipeline */
-    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, mLogObj1, _)).Times(0);
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(0);
     AampStreamSinkManager::GetInstance().UpdateTuningPlayer(mPrivateInstanceAAMP1);
 
     AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
@@ -180,13 +175,13 @@ TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_SinglePipelineMode_NoChang
     AampStreamSinkManager::GetInstance().UpdateTuningPlayer(mPrivateInstanceAAMP1);
 
     /* Active player exists */
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
     AampStreamSinkManager::GetInstance().UpdateTuningPlayer(mPrivateInstanceAAMP1);
 
 	/* No inactive stream sink for player
 	 * Another player must exist so that the single pipeline isn't destroyed when the active player is deleted,
 	 * so create a second player, which is currently inactive. */
-	AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj2, mPrivateInstanceAAMP2, mId3HandlerCallback2);
+	AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
 	AampStreamSinkManager::GetInstance().DeleteStreamSink(mPrivateInstanceAAMP1);
 	AampStreamSinkManager::GetInstance().UpdateTuningPlayer(mPrivateInstanceAAMP1);
 }
@@ -196,9 +191,9 @@ TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_SinglePipelineMode_NoChang
 */
 TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_MultiPipelineMode_NoChange)
 {
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
 	AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP1);
-    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, mLogObj1, _)).Times(0);
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(0);
     AampStreamSinkManager::GetInstance().UpdateTuningPlayer(mPrivateInstanceAAMP1);
 }
 
@@ -211,7 +206,7 @@ TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_MultiPipelineMode_NoChange
 TEST_F(AampStreamSinkManagerTests, DeleteStreamSinkTest1)
 {
     AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
     AampStreamSinkManager::GetInstance().DeleteStreamSink(mPrivateInstanceAAMP1);
 
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
@@ -230,11 +225,11 @@ TEST_F(AampStreamSinkManagerTests, DeleteStreamSinkTest1)
 TEST_F(AampStreamSinkManagerTests, DeleteStreamSinkTest2)
 {
 
-    AAMPGstPlayer gstPlayerobj {mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1};
+    AAMPGstPlayer gstPlayerobj { mPrivateInstanceAAMP1, mId3HandlerCallback1};
 
     AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj2, mPrivateInstanceAAMP2, mId3HandlerCallback2);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
     AampStreamSinkManager::GetInstance().DeleteStreamSink(mPrivateInstanceAAMP2);
 
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
@@ -251,11 +246,11 @@ TEST_F(AampStreamSinkManagerTests, DeleteStreamSinkTest2)
 */
 TEST_F(AampStreamSinkManagerTests, Deactivateplayer)
 {
-    AampStreamSinkInactive inactiveSink {mLogObj1, mId3HandlerCallback1};
-    AAMPGstPlayer gstPlayerobj {mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1};
+    AampStreamSinkInactive inactiveSink {mPrivateInstanceAAMP1->mLogObj, mId3HandlerCallback1};
+    AAMPGstPlayer gstPlayerobj { mPrivateInstanceAAMP1, mId3HandlerCallback1};
 
     AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
     EXPECT_EQ(typeid(gstPlayerobj), typeid(*sink1));
 
@@ -273,8 +268,8 @@ TEST_F(AampStreamSinkManagerTests, Deactivateplayer)
 */
 TEST_F(AampStreamSinkManagerTests, CheckMultiPipelineMode)
 {
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj2, mPrivateInstanceAAMP2, mId3HandlerCallback2);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
 
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP2);
@@ -288,7 +283,7 @@ TEST_F(AampStreamSinkManagerTests, CheckMultiPipelineMode)
 */
 TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_MultiPipelineMode)
 {
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
     StreamSink *sink2 = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(mPrivateInstanceAAMP1);
 
@@ -311,8 +306,8 @@ TEST_F(AampStreamSinkManagerTests, MultiPipelineMode_CheckGetStreamSink1)
 */
 TEST_F(AampStreamSinkManagerTests, MultiPipelineMode_CheckGetStreamSink2)
 {
-    AAMPGstPlayer gstPlayerobj {mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1};
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AAMPGstPlayer gstPlayerobj { mPrivateInstanceAAMP1, mId3HandlerCallback1};
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
 
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
     EXPECT_EQ(typeid(gstPlayerobj), typeid(*sink1));
@@ -332,13 +327,13 @@ TEST_F(AampStreamSinkManagerTests, ChangeAampTests)
 {
     AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
 
-    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, mLogObj1, _)).Times(0);
-    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, mLogObj2, _)).Times(0);
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(0);
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, _)).Times(0);
 
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj2, mPrivateInstanceAAMP2, mId3HandlerCallback2);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
 
-    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, mLogObj1, _)).Times(0);
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(0);
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP1);
 
     /* AampStreamSinkManager::SetActive() calls PrivateInstanceAAMP::GetPositionMs() to get the current position of the
@@ -346,7 +341,7 @@ TEST_F(AampStreamSinkManagerTests, ChangeAampTests)
     long long positionMs = 5000;
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMs()).WillOnce(Return(positionMs));
     double positionSec = (positionMs / 1000.0);
-    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, mLogObj2, _)).Times(1);
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, _)).Times(1);
     EXPECT_CALL(*g_mockAampGstPlayer, Flush(positionSec, _, true)).Times(1);
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP2);
 }
@@ -369,8 +364,8 @@ TEST_F(AampStreamSinkManagerTests, CheckEncyptedHeaders)
 
     AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
 
-    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, mLogObj1, _)).Times(0);
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(0);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
 
     EXPECT_CALL(*g_mockAampGstPlayer, SetEncryptedAamp(mPrivateInstanceAAMP1));
     AampStreamSinkManager::GetInstance().SetEncryptedHeaders(mPrivateInstanceAAMP1, set_headers);
@@ -394,11 +389,11 @@ TEST_F(AampStreamSinkManagerTests, CheckEncyptedHeaders)
 */
 TEST_F(AampStreamSinkManagerTests, CheckGetActiveStreamSink)
 {
-    AAMPGstPlayer gstPlayerobj {mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1};
+    AAMPGstPlayer gstPlayerobj {mPrivateInstanceAAMP1, mId3HandlerCallback1};
 
     AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj2, mPrivateInstanceAAMP2, mId3HandlerCallback2);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
 
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetActiveStreamSink(mPrivateInstanceAAMP1);
     ASSERT_NE(nullptr, sink1);
@@ -455,8 +450,8 @@ TEST_F(AampStreamSinkManagerTests, CheckSetStreamSink)
 */
 TEST_F(AampStreamSinkManagerTests, CheckMultipipeline1)
 {
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj2, mPrivateInstanceAAMP2, mId3HandlerCallback2);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
 
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
     StreamSink *sink2 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP2);
@@ -483,7 +478,7 @@ TEST_F(AampStreamSinkManagerTests, CheckMultipipeline1)
 */
 TEST_F(AampStreamSinkManagerTests,  CheckMultipipeline2)
 {
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
 
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
     StreamSink *sink;
@@ -493,7 +488,7 @@ TEST_F(AampStreamSinkManagerTests,  CheckMultipipeline2)
     sink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
     EXPECT_EQ(sink, nullptr);
 
-    AampStreamSinkManager::GetInstance().CreateStreamSink(mLogObj1, mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
 
     sink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
     ASSERT_NE(nullptr, sink);

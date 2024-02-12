@@ -103,7 +103,7 @@ std::mutex PlayerInstanceAAMP::mPrvAampMtx;
  */
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(uint8_t *, int, int, int) > exportFrames
-	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
+	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler(), mLogObj()
 {
 
 //Need to do iarm initialization process before reading the tr181 aamp parameters.
@@ -137,7 +137,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	{
 		gpGlobalConfig =  new AampConfig();
 		::mLogObj = gpGlobalConfig->GetLoggerInstance();
-
 		// Init the default values
 		gpGlobalConfig->Initialize();
 		gpGlobalConfig->ReadDeviceCapability();
@@ -170,11 +169,11 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	// Copy the default configuration to session configuration .
 	// App can modify the configuration set
 	mConfig = *gpGlobalConfig;
-  
+	mLogObj = mConfig.GetLoggerInstance(); // intialize instance-specific logger
+
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
-	mLogObj = mConfig.GetLoggerInstance();	
-	mConfig.logging.setPlayerId(aamp->mPlayerId);
+	
 	// start Scheduler Worker for task handling
  	mScheduler.SetLogger(mLogObj);
 	mScheduler.StartScheduler();
@@ -184,11 +183,11 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 			std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
 
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
-		AampStreamSinkManager::GetInstance().CreateStreamSink(mConfig.GetLoggerInstance(), aamp, 
+		AampStreamSinkManager::GetInstance().CreateStreamSink( aamp, 
 														    id3_metadata_handler, 
 															exportFrames);
 #else
-		AampStreamSinkManager::GetInstance().CreateStreamSink(mConfig.GetLoggerInstance(), aamp, id3_metadata_handler);
+		AampStreamSinkManager::GetInstance().CreateStreamSink( aamp, id3_metadata_handler);
 #endif
 	}
 	else
@@ -209,7 +208,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
  */
 PlayerInstanceAAMP::~PlayerInstanceAAMP()
 {
-	mLogObj = gpGlobalConfig->GetLoggerInstance();
 #ifdef AAMP_CC_ENABLED
 	AampCCManager::GetInstance()->SetLogger(mLogObj);
 #endif
@@ -962,6 +960,7 @@ void PlayerInstanceAAMP::PauseAtInternal(double position)
 static gboolean SeekAfterPrepared(gpointer ptr)
 {
 	PrivateInstanceAAMP* aamp = (PrivateInstanceAAMP*) ptr;
+	auto mLogObj = aamp->mLogObj; // map correct log context
 	bool sentSpeedChangedEv = false;
 	bool isSeekToLiveOrEnd = false;
 	TuneType tuneType = eTUNETYPE_SEEK;

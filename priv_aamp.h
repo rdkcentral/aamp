@@ -995,7 +995,7 @@ public:
 	long curlDLTimeout[eCURLINSTANCE_MAX]; 			/**< To store donwload timeout of each curl instance*/
 	std::string mSubLanguage;
 	bool mPlayerPreBuffered;	     			/**< Player changed from BG to FG */
-	int mPlayerId;	
+	int mPlayerId;
 	int mDrmDecryptFailCount;				/**< Sets retry count for DRM decryption failure */
 	
 	int mCurrentAudioTrackId;				/**< Current audio  track id read from trak box of init fragment */
@@ -4255,7 +4255,6 @@ protected:
 	bool bLowLatencyStartABR;
 	bool mLiveOffsetAppRequest;
 	long mCurrentLatency;
-	AampLogManager *mLogObj;
 	bool mApplyVideoRect; 			/**< Status to apply stored video rectagle */
 	bool mApplyContentRestriction;		/**< Status to apply content restriction */
 	videoRect mVideoRect;
@@ -4271,6 +4270,9 @@ protected:
 	std::mutex  mDiscoCompleteLock; 					/**< Lock the period jump if discontinuity already in progress */
 	std::condition_variable mWaitForDiscoToComplete;	/**< Conditional wait for period jump */
 	bool mIsPeriodChangeMarked; 						/**< Mark if a period change occurred */
+	
+public:
+	AampLogManager *mLogObj;
 };
 
 #endif // PRIVAAMP_H
