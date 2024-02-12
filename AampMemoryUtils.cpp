@@ -53,12 +53,12 @@ void * aamp_CreateSharedMem( size_t shmLen, key_t & shmKey)
 				shmPointer = shmat(shmId, NULL, 0 );
 				if( shmPointer != (void *)-1 )
 				{ // success!
-					AAMPLOG_WARN("%s:%d Shared memory shmId=%d ptr=%p created for the key, %u\n",
-								 __FUNCTION__, __LINE__, shmId, shmPointer, shmKey);
+					AAMPLOG_WARN("Shared memory shmId=%d ptr=%p created for the key, %u\n",
+								 shmId, shmPointer, shmKey);
 				}
 				else
 				{
-					AAMPLOG_ERR("%s:%d shmat err=%d shmId=%d\n", __FUNCTION__, __LINE__, errno, shmId );
+					AAMPLOG_ERR("shmat err=%d shmId=%d\n", errno, shmId );
 					aamp_CleanUpSharedMem( shmPointer, shmKey, shmLen);
 					shmPointer = NULL;
 				}
@@ -66,13 +66,13 @@ void * aamp_CreateSharedMem( size_t shmLen, key_t & shmKey)
 			}
 			else
 			{
-				AAMPLOG_ERR("%s:%d shmget err=%d", __FUNCTION__, __LINE__, errno);
+				AAMPLOG_ERR("shmget err=%d", errno);
 			}
 		}
 	}
 	else
 	{
-		AAMPLOG_ERR("%s:%d invalid shmLen=%zu", __FUNCTION__, __LINE__, shmLen);
+		AAMPLOG_ERR("invalid shmLen=%zu", shmLen);
 	}
 	return shmPointer;
 }
@@ -86,24 +86,24 @@ void aamp_CleanUpSharedMem(void* shmPointer, key_t shmKey, size_t shmLen)
 	{ // detach shared memory
 		if( -1 == shmdt(shmPointer) )
 		{
-			AAMPLOG_ERR("%s:%d shmdt failure %d for key %u \n", __FUNCTION__, __LINE__, errno, shmKey);
+			AAMPLOG_ERR("shmdt failure %d for key %u \n", errno, shmKey);
 		}
 		int shmId = shmget(shmKey, shmLen, SHM_ACCESS_PERMISSION);
 		if( shmId != -1 )
 		{ // mark segment to be destroyed
 			if( -1 == shmctl(shmId, IPC_RMID, NULL) )
 			{
-				AAMPLOG_ERR("%s:%d shmctl err=%d shmId=%d\n", __FUNCTION__, __LINE__, errno, shmId );
+				AAMPLOG_ERR("shmctl err=%d shmId=%d\n", errno, shmId );
 			}
 		}
 		else
 		{
-			AAMPLOG_ERR("%s:%d  bad shmKey=%u\n", __FUNCTION__, __LINE__, shmKey);
+			AAMPLOG_ERR("bad shmKey=%u\n", shmKey);
 		}
 	}
 	else
 	{
-		AAMPLOG_ERR("%s:%d bad shmPointer=%p\n", __FUNCTION__, __LINE__, shmPointer );
+		AAMPLOG_ERR("bad shmPointer=%p\n", shmPointer );
 	}
 }
 

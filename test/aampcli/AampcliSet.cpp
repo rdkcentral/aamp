@@ -34,7 +34,7 @@ std::vector<std::string> Set::commands(0);
 
 bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 {
-	printf("%s:%d:cmd %s\n", __FUNCTION__, __LINE__,cmd);
+	printf("cmd %s\n",cmd);
 	char command[100];
 	int setCmd = 0;
 	int rate = 0;
@@ -59,7 +59,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 
 		if(0 == strncmp("help", command, 4))
 		{
-			printf("%s:%d:in help %s\n", __FUNCTION__, __LINE__,cmd);
+			printf("in help %s\n",cmd);
 			ShowHelpSet();
 		}
 		else

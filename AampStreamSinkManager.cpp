@@ -87,12 +87,12 @@ void AampStreamSinkManager::SetSinglePipelineMode(void)
 	{
 		case ePIPELINEMODE_UNDEFINED:
 		{
-			AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Pipeline mode set to Single", this, __FUNCTION__);
+			AAMPLOG_WARN("AampStreamSinkManager(%p) Pipeline mode set to Single", this );
 			mPipelineMode = ePIPELINEMODE_SINGLE;
 
 			if (!mEncryptedHeaders.empty())
 			{
-				AAMPLOG_ERR("AampStreamSinkManager(%p)::%s Encrypted headers already been set", this, __FUNCTION__);
+				AAMPLOG_ERR("AampStreamSinkManager(%p) Encrypted headers already been set", this );
 			}
 
 			// Retain first GstPlayer player, remove others
@@ -105,7 +105,7 @@ void AampStreamSinkManager::SetSinglePipelineMode(void)
 
 				for (; it != mActiveGstPlayersMap.end();)
 				{
-					AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Deleting GstPlayer created for PLAYER[%d]", this, __FUNCTION__, it->first->mPlayerId);
+					AAMPLOG_WARN("AampStreamSinkManager(%p) Deleting GstPlayer created for PLAYER[%d]", this, it->first->mPlayerId);
 					delete(it->second);
 					it = mActiveGstPlayersMap.erase(it);
 				}
@@ -115,13 +115,13 @@ void AampStreamSinkManager::SetSinglePipelineMode(void)
 
 		case ePIPELINEMODE_SINGLE:
 		{
-			AAMPLOG_TRACE("AampStreamSinkManager(%p)::%s Pipeline mode already set as Single", this, __FUNCTION__);
+			AAMPLOG_TRACE("AampStreamSinkManager(%p) Pipeline mode already set as Single", this );
 		}
 		break;
 
 		case ePIPELINEMODE_MULTI:
 		{
-			AAMPLOG_ERR("AampStreamSinkManager(%p)::%s Pipeline mode already set Multi", this, __FUNCTION__);
+			AAMPLOG_ERR("AampStreamSinkManager(%p) Pipeline mode already set Multi", this );
 		}
 		break;
 	}
@@ -145,7 +145,7 @@ void AampStreamSinkManager::CreateStreamSink(AampLogManager *logObj, PrivateInst
 			if (mGstPlayer == nullptr)
 			{
 				//Do not edit or remove this log - it is used in L2 test
-				AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Single Pipeline mode, creating GstPlayer for PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, creating GstPlayer for PLAYER[%d]", this, aamp->mPlayerId);
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
 				mGstPlayer = new AAMPGstPlayer(logObj, aamp, id3HandlerCallback, exportFrames);
 #else
@@ -156,7 +156,7 @@ void AampStreamSinkManager::CreateStreamSink(AampLogManager *logObj, PrivateInst
 			else
 			{
 				//Do not edit or remove this log - it is used in L2 test
-				AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Single Pipeline mode, not creating GstPlayer for PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, not creating GstPlayer for PLAYER[%d]", this, aamp->mPlayerId);
 			}
 		}
 		break;
@@ -165,7 +165,7 @@ void AampStreamSinkManager::CreateStreamSink(AampLogManager *logObj, PrivateInst
 		case ePIPELINEMODE_MULTI:
 		{
 			//Do not edit or remove this log - it is used in L2 test
-			AAMPLOG_WARN("AampStreamSinkManager(%p)::%s %s Pipeline mode, creating GstPlayer for PLAYER[%d]", this, __FUNCTION__,
+			AAMPLOG_WARN("AampStreamSinkManager(%p) %s Pipeline mode, creating GstPlayer for PLAYER[%d]", this,
 						 mPipelineMode == ePIPELINEMODE_UNDEFINED ? "Undefined" : "Multi", aamp->mPlayerId);
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
 			AAMPGstPlayer *gstPlayer = new AAMPGstPlayer(logObj, aamp, id3HandlerCallback, exportFrames);
@@ -180,7 +180,7 @@ void AampStreamSinkManager::CreateStreamSink(AampLogManager *logObj, PrivateInst
 
 void AampStreamSinkManager::SetStreamSink(PrivateInstanceAAMP *aamp, StreamSink *clientSink)
 {
-	AAMPLOG_WARN("AampStreamSinkManager(%p)::%s SetStreamSink for PLAYER[%d] clientSink %p", this, __FUNCTION__, aamp->mPlayerId, clientSink);
+	AAMPLOG_WARN("AampStreamSinkManager(%p) SetStreamSink for PLAYER[%d] clientSink %p", this, aamp->mPlayerId, clientSink);
 
 	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
 
@@ -188,13 +188,13 @@ void AampStreamSinkManager::SetStreamSink(PrivateInstanceAAMP *aamp, StreamSink 
 	{
 		case ePIPELINEMODE_SINGLE:
 		{
-			AAMPLOG_ERR("AampStreamSinkManager(%p)::%s Single Pipeline mode, when setting client StreamSink", this, __FUNCTION__);
+			AAMPLOG_ERR("AampStreamSinkManager(%p) Single Pipeline mode, when setting client StreamSink", this );
 		}
 		break;
 
 		case ePIPELINEMODE_UNDEFINED:
 		{
-			AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Undefined Pipeline, forcing to Multi Pipeline PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+			AAMPLOG_WARN("AampStreamSinkManager(%p) Undefined Pipeline, forcing to Multi Pipeline PLAYER[%d]", this, aamp->mPlayerId);
 			mPipelineMode = ePIPELINEMODE_MULTI;
 		}
 		break;
@@ -212,7 +212,7 @@ void AampStreamSinkManager::SetStreamSink(PrivateInstanceAAMP *aamp, StreamSink 
 void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 {
 	//Do not edit or remove this log - it is used in L2 test
-	AAMPLOG_WARN("AampStreamSinkManager(%p)::%s DeleteStreamSink for PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+	AAMPLOG_WARN("AampStreamSinkManager(%p) DeleteStreamSink for PLAYER[%d]", this, aamp->mPlayerId);
 
 	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
 
@@ -225,7 +225,7 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 			{
 				/* Erase the map of active player*/
 				mActiveGstPlayersMap.erase(aamp);
-				AAMPLOG_WARN("AampStreamSinkManager(%p)::%s No active players present", this, __FUNCTION__);
+				AAMPLOG_WARN("AampStreamSinkManager(%p) No active players present", this );
 			}
 
 			if (mInactiveGstPlayersMap.count(aamp))
@@ -237,11 +237,11 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 
 			if (mInactiveGstPlayersMap.size())
 			{
-				AAMPLOG_WARN("AampStreamSinkManager(%p)::%s %ld Inactive players present", this, __FUNCTION__, mInactiveGstPlayersMap.size());
+				AAMPLOG_WARN("AampStreamSinkManager(%p) %ld Inactive players present", this, mInactiveGstPlayersMap.size());
 			}
 			else
 			{
-				AAMPLOG_WARN("AampStreamSinkManager(%p)::%s No inactive players present, deleting GStreamer Pipeline PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+				AAMPLOG_WARN("AampStreamSinkManager(%p) No inactive players present, deleting GStreamer Pipeline PLAYER[%d]", this, aamp->mPlayerId);
 				delete(mGstPlayer);
 				mGstPlayer = nullptr;
 				mPipelineMode = ePIPELINEMODE_UNDEFINED;
@@ -286,24 +286,24 @@ void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::
 		case ePIPELINEMODE_UNDEFINED:
 		case ePIPELINEMODE_MULTI:
 		{
-			AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Ignore set encrypted headers", this, __FUNCTION__);
+			AAMPLOG_WARN("AampStreamSinkManager(%p) Ignore set encrypted headers", this );
 		}
 		break;
 		case ePIPELINEMODE_SINGLE:
 		{
 			if (!mEncryptedHeaders.empty())
 			{
-				AAMPLOG_INFO("AampStreamSinkManager(%p)::%s Encrypted headers have already been set PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+				AAMPLOG_INFO("AampStreamSinkManager(%p) Encrypted headers have already been set PLAYER[%d]", this, aamp->mPlayerId);
 			}
 			else if (mGstPlayer != nullptr)
 			{
-				AAMPLOG_INFO("AampStreamSinkManager(%p)::%s Set encrypted player to PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+				AAMPLOG_INFO("AampStreamSinkManager(%p) Set encrypted player to PLAYER[%d]", this, aamp->mPlayerId);
 				mGstPlayer->SetEncryptedAamp(aamp);
 				mEncryptedHeaders = mappedHeaders;
 			}
 			else
 			{
-				AAMPLOG_ERR("AampStreamSinkManager(%p)::%s No active StreamSink PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+				AAMPLOG_ERR("AampStreamSinkManager(%p) No active StreamSink PLAYER[%d]", this, aamp->mPlayerId);
 			}
 		}
 		break;
@@ -328,7 +328,7 @@ void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string>& mapp
 	}
 	else
 	{
-		AAMPLOG_INFO("AampStreamSinkManager(%p)::%s Encrypted headers already injected", this, __FUNCTION__);
+		AAMPLOG_INFO("AampStreamSinkManager(%p) Encrypted headers already injected", this );
 		mappedHeaders.clear();
 	}
 }
@@ -347,21 +347,21 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 		{
 			if (mActiveGstPlayersMap.size() == 0)
 			{
-				AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Single Pipeline mode, no current active PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, no current active PLAYER[%d]", this, aamp->mPlayerId);
 			}
 			else if (mActiveGstPlayersMap.begin()->first == aamp)
 			{
 				if (stop)
 				{
 					//Do not edit or remove this log - it is used in L2 test
-					AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Single Pipeline mode, deactivating and stopping active PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, deactivating and stopping active PLAYER[%d]", this, aamp->mPlayerId);
 					mEncryptedHeadersInjected = false;
 					mEncryptedHeaders.clear();
 				}
 				else
 				{
 					//Do not edit or remove this log - it is used in L2 test
-					AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Single Pipeline mode, deactivating active PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, deactivating active PLAYER[%d]", this, aamp->mPlayerId);
 				}
 				mActiveGstPlayersMap.erase(aamp);
 			}
@@ -369,7 +369,7 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 			{
 				// Can happen when Stop is called after Detach has already been called
 				//Do not edit or remove this log - it is used in L2 test
-				AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Single Pipeline mode, asked to deactivate PLAYER[%d] when current active PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId, mActiveGstPlayersMap.begin()->first->mPlayerId);
+				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, asked to deactivate PLAYER[%d] when current active PLAYER[%d]", this, aamp->mPlayerId, mActiveGstPlayersMap.begin()->first->mPlayerId);
 			}
 		}
 		break;
@@ -387,16 +387,16 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 			if (mActiveGstPlayersMap.size() == 0)
 			{
 				//Do not edit or remove this log - it is used in L2 test
-				AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Single Pipeline mode, no current active player", this, __FUNCTION__);
+				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, no current active player", this );
 			}
 			else if (mActiveGstPlayersMap.begin()->first == aamp)
 			{
-				AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Single Pipeline mode, already active PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, already active PLAYER[%d]", this, aamp->mPlayerId);
 			}
 			else
 			{
 				//Do not edit or remove this log - it is used in L2 test
-				AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Single Pipeline mode, resetting current active PLAYER[%d]", this, __FUNCTION__, mActiveGstPlayersMap.begin()->first->mPlayerId);
+				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, resetting current active PLAYER[%d]", this, mActiveGstPlayersMap.begin()->first->mPlayerId);
 				mActiveGstPlayersMap.clear();
 			}
 
@@ -405,14 +405,14 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 				if (mGstPlayer != nullptr)
 				{
 					//Do not edit or remove this log - it is used in L2 test
-					AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Single Pipeline mode, setting active PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, setting active PLAYER[%d]", this, aamp->mPlayerId);
 
 					mActiveGstPlayersMap.insert({aamp, mGstPlayer});
 					SetActive(aamp);
 				}
 				else
 				{
-					AAMPLOG_ERR("AampStreamSinkManager(%p)::%s Single Pipeline mode, mGstPlayer is null, can't set active PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+					AAMPLOG_ERR("AampStreamSinkManager(%p) Single Pipeline mode, mGstPlayer is null, can't set active PLAYER[%d]", this, aamp->mPlayerId);
 				}
 			}
 		}
@@ -421,7 +421,7 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 		case ePIPELINEMODE_UNDEFINED:
 		{
 			//Do not edit or remove this log - it is used in L2 test
-			AAMPLOG_WARN("AampStreamSinkManager(%p)::%s Undefined Pipeline, forcing to Multi Pipeline PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+			AAMPLOG_WARN("AampStreamSinkManager(%p) Undefined Pipeline, forcing to Multi Pipeline PLAYER[%d]", this, aamp->mPlayerId);
 			mPipelineMode = ePIPELINEMODE_MULTI;
 		}
 		break;
@@ -429,7 +429,7 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 		case ePIPELINEMODE_MULTI:
 		{
 			//Do not edit or remove this log - it is used in L2 test
-			AAMPLOG_INFO("AampStreamSinkManager(%p)::%s Multi Pipeline mode, do nothing PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+			AAMPLOG_INFO("AampStreamSinkManager(%p) Multi Pipeline mode, do nothing PLAYER[%d]", this, aamp->mPlayerId);
 		}
 		break;
 	}
@@ -439,7 +439,7 @@ void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp)
 {
 	double position = aamp->GetPositionMs() / 1000.00;
 
-	AAMPLOG_INFO("AampStreamSinkManager(%p)::%s Setting PLAYER[%d] active, position(%f)", this, __FUNCTION__, aamp->mPlayerId, position);
+	AAMPLOG_INFO("AampStreamSinkManager(%p) Setting PLAYER[%d] active, position(%f)", this, aamp->mPlayerId, position);
 
 	mGstPlayer->ChangeAamp(aamp, mInactiveGstPlayersMap[aamp]->GetLogManager(), mInactiveGstPlayersMap[aamp]->GetID3MetadataHandler());
 	mGstPlayer->Flush(position, aamp->rate, true);
@@ -468,17 +468,17 @@ StreamSink* AampStreamSinkManager::GetActiveStreamSink(PrivateInstanceAAMP *aamp
 		{
 			if (mClientStreamSinkMap.count(aamp))
 			{
-				AAMPLOG_TRACE("AampStreamSinkManager(%p)::%s Returning matching client Stream Sink", this, __FUNCTION__);
+				AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning matching client Stream Sink", this );
 				sink_ptr = mClientStreamSinkMap[aamp];
 			}
 			else if (mActiveGstPlayersMap.count(aamp))
 			{
-				AAMPLOG_TRACE("AampStreamSinkManager(%p)::%s Returning matching Stream Sink", this, __FUNCTION__);
+				AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning matching Stream Sink", this );
 				sink_ptr = mActiveGstPlayersMap[aamp];
 			}
 			else
 			{
-				AAMPLOG_ERR("AampStreamSinkManager(%p)::%s Stream Sink not found", this, __FUNCTION__);
+				AAMPLOG_ERR("AampStreamSinkManager(%p) Stream Sink not found", this );
 			}
 		}
 		break;
@@ -486,17 +486,17 @@ StreamSink* AampStreamSinkManager::GetActiveStreamSink(PrivateInstanceAAMP *aamp
 		{
 			if (!mActiveGstPlayersMap.empty())
 			{
-				AAMPLOG_TRACE("AampStreamSinkManager(%p)::%s Returning active Stream Sink found", this, __FUNCTION__);
+				AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning active Stream Sink found", this );
 				sink_ptr = mActiveGstPlayersMap.begin()->second;
 			}
 			else if (mGstPlayer != nullptr)
 			{
-				AAMPLOG_TRACE("AampStreamSinkManager(%p)::%s No active Stream Sink found, returning mGstPlayer", this, __FUNCTION__);
+				AAMPLOG_TRACE("AampStreamSinkManager(%p) No active Stream Sink found, returning mGstPlayer", this );
 				sink_ptr = mGstPlayer;
 			}
 			else
 			{
-				AAMPLOG_ERR("AampStreamSinkManager(%p)::%s Active Stream Sink not found", this, __FUNCTION__);
+				AAMPLOG_ERR("AampStreamSinkManager(%p) Active Stream Sink not found", this );
 			}
 		}
 		break;
@@ -513,23 +513,23 @@ StreamSink* AampStreamSinkManager::GetStreamSink(PrivateInstanceAAMP *aamp)
 
 	if (mClientStreamSinkMap.count(aamp) != 0)
 	{
-		AAMPLOG_TRACE("AampStreamSinkManager(%p)::%s Returning client Stream Sink found for PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+		AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning client Stream Sink found for PLAYER[%d]", this, aamp->mPlayerId);
 		sink_ptr = mClientStreamSinkMap[aamp];
 	}
 	else if (mActiveGstPlayersMap.count(aamp) != 0)
 	{
-		AAMPLOG_TRACE("AampStreamSinkManager(%p)::%s Returning active Stream Sink found for PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+		AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning active Stream Sink found for PLAYER[%d]", this, aamp->mPlayerId);
 		sink_ptr = mActiveGstPlayersMap[aamp];
 	}
 	else if (mInactiveGstPlayersMap.count(aamp) != 0)
 	{
-		AAMPLOG_TRACE("AampStreamSinkManager(%p)::%s Returning inactive Stream Sink found or PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+		AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning inactive Stream Sink found or PLAYER[%d]", this, aamp->mPlayerId);
 		sink_ptr = mInactiveGstPlayersMap[aamp];
 	}
 	else
 	{
 		// If not found, best not to dereference the pointer in case invalid
-		AAMPLOG_ERR("AampStreamSinkManager(%p)::%s Stream Sink for aamp(%p) not found", this, __FUNCTION__, aamp);
+		AAMPLOG_ERR("AampStreamSinkManager(%p) Stream Sink for aamp(%p) not found", this, aamp);
 	}
 
 	return sink_ptr;
@@ -543,12 +543,12 @@ StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aa
 
 	if ((mPipelineMode == ePIPELINEMODE_SINGLE) && mActiveGstPlayersMap.empty())
 	{
-		AAMPLOG_WARN("AampStreamSinkManager(%p)::%s No active player, returning single-pipeline sink for PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+		AAMPLOG_WARN("AampStreamSinkManager(%p) No active player, returning single-pipeline sink for PLAYER[%d]", this, aamp->mPlayerId);
 		sink_ptr = mGstPlayer;
 	}
 	else
 	{
-		AAMPLOG_INFO("AampStreamSinkManager(%p)::%s Getting stream sink for PLAYER[%d]", this, __FUNCTION__, aamp->mPlayerId);
+		AAMPLOG_INFO("AampStreamSinkManager(%p) Getting stream sink for PLAYER[%d]", this, aamp->mPlayerId);
 		sink_ptr = GetStreamSink(aamp);
 	}
 
@@ -568,20 +568,20 @@ void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
 				if (mGstPlayer == nullptr)
 				{
 					AAMPLOG_ERR(
-						"AampStreamSinkManager(%p)::%s No single pipeline stream sink PLAYER[%d]",
-						this, __FUNCTION__, aamp->mPlayerId);
+						"AampStreamSinkManager(%p) No single pipeline stream sink PLAYER[%d]",
+						this, aamp->mPlayerId);
 				}
 				else if (mInactiveGstPlayersMap.count(aamp) == 0)
 				{
 					AAMPLOG_ERR(
-						"AampStreamSinkManager(%p)::%s No inactive stream sink for PLAYER[%d]",
-						this, __FUNCTION__, aamp->mPlayerId);
+						"AampStreamSinkManager(%p) No inactive stream sink for PLAYER[%d]",
+						this, aamp->mPlayerId);
 				}
 				else
 				{
 					AAMPLOG_WARN(
-						"AampStreamSinkManager(%p)::%s Single pipeline stream sink with no active players, update player to PLAYER[%d]",
-						this, __FUNCTION__, aamp->mPlayerId);
+						"AampStreamSinkManager(%p) Single pipeline stream sink with no active players, update player to PLAYER[%d]",
+						this, aamp->mPlayerId);
 
 					mGstPlayer->ChangeAamp(aamp, mInactiveGstPlayersMap[aamp]->GetLogManager(),
 										   mInactiveGstPlayersMap[aamp]->GetID3MetadataHandler());
@@ -590,8 +590,8 @@ void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
 			else
 			{
 				AAMPLOG_INFO(
-					"AampStreamSinkManager(%p)::%s Active stream sink exists, do not update PLAYER[%d]",
-					this, __FUNCTION__, aamp->mPlayerId);
+					"AampStreamSinkManager(%p) Active stream sink exists, do not update PLAYER[%d]",
+					this, aamp->mPlayerId);
 			}
 		}
 		break;
@@ -599,8 +599,8 @@ void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
 		case ePIPELINEMODE_UNDEFINED:
 		case ePIPELINEMODE_MULTI:
 		{
-			AAMPLOG_INFO("AampStreamSinkManager(%p)::%s %s Pipeline mode, do not update PLAYER[%d]",
-						 this, __FUNCTION__,
+			AAMPLOG_INFO("AampStreamSinkManager(%p) %s Pipeline mode, do not update PLAYER[%d]",
+						 this,
 						 mPipelineMode == ePIPELINEMODE_UNDEFINED ? "Undefined" : "Multi",
 						 aamp->mPlayerId);
 		}

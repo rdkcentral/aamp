@@ -189,6 +189,7 @@ bool ScriptedSmokeTest::getScriptDirectory()
 		scriptDirectory = smoketestDirectory;
 	}
 
+	printf("Smoketest directory path %s\n",smoketestDirectory.c_str());
 	return isFile(smoketestDirectory.c_str(), true);
 }
 
@@ -257,7 +258,7 @@ bool ScriptedSmokeTest::getInteger(std::string &text, int &value)
 	}
 	else
 	{
-		printf("%s:%d: ERROR: '%s' is not a valid int!\n",__FUNCTION__,__LINE__, text.c_str());
+		printf("ERROR: '%s' is not a valid int!\n", text.c_str());
 	}
 	return false;
 }
@@ -277,7 +278,7 @@ bool ScriptedSmokeTest::getInteger(std::string &text, uint32_t &value)
 	}
 	else
 	{
-		printf("%s:%d: ERROR: '%s' is not a valid uint!\n",__FUNCTION__,__LINE__, text.c_str());
+		printf("ERROR: '%s' is not a valid uint!\n", text.c_str());
 	}
 	return false;
 }	
@@ -297,7 +298,7 @@ bool ScriptedSmokeTest::getInteger(std::string &text, double &value)
 	}
 	else
 	{
-		printf("%s:%d: ERROR: '%s' is not a valid double!\n",__FUNCTION__,__LINE__, text.c_str());
+		printf("ERROR: '%s' is not a valid double!\n", text.c_str());
 	}
 	return false;
 }	
@@ -329,7 +330,7 @@ bool ScriptedSmokeTest::getEnvironmentVariable(std::string &name, std::string &v
 	char *envvar = getenv(name.c_str());
 	if (envvar)
 	{
-		printf("%s:%d: Got variable '%s' from environment: '%s'\n",__FUNCTION__,__LINE__, name.c_str(), envvar);
+		printf("Got variable '%s' from environment: '%s'\n", name.c_str(), envvar);
 		value = envvar;
 		return true;
 	}
@@ -365,12 +366,12 @@ bool ScriptedSmokeTest::getValueParameter(std::stringstream &stringStream, std::
 			{
 				if (name.empty())
 				{
-					printf("%s:%d: ERROR: Syntax error: '%s:%s'\n",__FUNCTION__,__LINE__, name.c_str(), value.c_str());
+					printf("ERROR: Syntax error: '%s:%s'\n", name.c_str(), value.c_str());
 					return false;
 				}
 				else if (!brackets && (stage == VALUE))
 				{
-					printf("%s:%d: ERROR: Syntax error: '%s:%s'\n",__FUNCTION__,__LINE__, name.c_str(), value.c_str());
+					printf("ERROR: Syntax error: '%s:%s'\n", name.c_str(), value.c_str());
 					return false;
 				}
 				else if (++brackets == 1)
@@ -383,7 +384,7 @@ bool ScriptedSmokeTest::getValueParameter(std::stringstream &stringStream, std::
 			{
 				if (!brackets)
 				{
-					printf("%s:%d: ERROR: Syntax error: '%s:%s'\n",__FUNCTION__,__LINE__, name.c_str(), value.c_str());
+					printf("ERROR: Syntax error: '%s:%s'\n", name.c_str(), value.c_str());
 					return false;
 				}
 				else if (--brackets == 0)
@@ -395,7 +396,7 @@ bool ScriptedSmokeTest::getValueParameter(std::stringstream &stringStream, std::
 			{
 				if (name.empty())
 				{
-					printf("%s:%d: ERROR: Syntax error: '%s:%s'\n",__FUNCTION__,__LINE__, name.c_str(), value.c_str());
+					printf("ERROR: Syntax error: '%s:%s'\n", name.c_str(), value.c_str());
 					return false;
 				}
 				else if ((stage == NAME) &&
@@ -431,7 +432,7 @@ bool ScriptedSmokeTest::getValueParameter(std::stringstream &stringStream, std::
 			}
 			else
 			{
-				printf("%s:%d: ERROR: Syntax error: '%s:%s'\n",__FUNCTION__,__LINE__, name.c_str(), value.c_str());
+				printf("ERROR: Syntax error: '%s:%s'\n", name.c_str(), value.c_str());
 				return false;
 			}
 		}
@@ -626,7 +627,7 @@ bool ScriptedSmokeTest::checkTargetDevice(std::string &filename)
 						target.erase(0, 1);
 						if (device == target)
 						{
-							printf("%s:%d: WARNING: Skipping test for device '%s' (target '%s')\n",__FUNCTION__,__LINE__, device.c_str(), target.c_str());
+							printf("WARNING: Skipping test for device '%s' (target '%s')\n", device.c_str(), target.c_str());
 							return false;
 						}
 					}
@@ -636,7 +637,7 @@ bool ScriptedSmokeTest::checkTargetDevice(std::string &filename)
 						
 						if (device == target)
 						{
-							printf("%s:%d: INFO: Target device matched '%s'\n",__FUNCTION__,__LINE__, device.c_str());
+							printf("INFO: Target device matched '%s'\n", device.c_str());
 							return true;
 						}
 					}
@@ -721,7 +722,7 @@ bool ScriptedSmokeTest::getIterationInfo(std::ifstream &script, int iteration)
 			// We always expect at least one tag
 			if (!getValueParameter(lineStream, tag))
 			{
-				printf("%s:%d: ERROR: Invalid 'SET_VAR_TAGS(%s)'\n",__FUNCTION__,__LINE__, var.c_str());
+				printf("ERROR: Invalid 'SET_VAR_TAGS(%s)'\n", var.c_str());
 				return false;
 			}
 
@@ -730,7 +731,7 @@ bool ScriptedSmokeTest::getIterationInfo(std::ifstream &script, int iteration)
 			{
 				if (!getValueParameter(lineStream, tag))
 				{
-					printf("%s:%d: WARNING: too few tags in 'SET_VAR_TAGS(%s)'\n",__FUNCTION__,__LINE__, var.c_str());
+					printf("WARNING: too few tags in 'SET_VAR_TAGS(%s)'\n", var.c_str());
 				}
 			}
 			tagMap[var] = tag;
@@ -750,7 +751,7 @@ std::vector<testInformation> ScriptedSmokeTest::getTestInformation()
 
 	if (!getScriptDirectory())
 	{
-		printf("%s:%d: ERROR - unabe to find script directory\n",__FUNCTION__,__LINE__);
+		printf("ERROR - unabe to find script directory\n");
 		return testList;
 	}
 
@@ -835,7 +836,7 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 	int lineNumber = 0;
 	bool abortOnError = false;
 
-	printf("%s:%d: Run script %s...\n",__FUNCTION__,__LINE__, filename);
+	printf("Run script %s...\n", filename);
 	std::ifstream script(getScriptFilePath(filename));
 	if (script.good())
 	{
@@ -855,7 +856,7 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 			std::string token;
 			lineNumber++;
 
-			printf("%s:%d: >>> %s\n",__FUNCTION__,__LINE__, cmd.str().c_str());
+			printf(">>> %s\n", cmd.str().c_str());
 
 			if ((line.length() > 0) && (line[0] == '#'))
 			{
@@ -870,17 +871,17 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 				{
 					if (!getUintParameter(cmd, currentPlayerId))
 					{
-						printf("%s:%d: Failed to get player id\n",__FUNCTION__,__LINE__);
+						printf("Failed to get player id\n");
 						scriptOk = false;
 					}
 					else
 					{
-						printf("%s:%d: Select player %d\n",__FUNCTION__,__LINE__, currentPlayerId);
+						printf("Select player %d\n", currentPlayerId);
 
 						// Check the selected player is valid
 						if (!getCurrentPlayer() || !getCurrentListener())
 						{
-							printf("%s:%d: Invalid player id (%d)\n",__FUNCTION__,__LINE__, currentPlayerId);
+							printf("Invalid player id (%d)\n", currentPlayerId);
 							scriptOk = false;
 						}
 					}
@@ -888,23 +889,23 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 				else if (token == "new") // create a new player
 				{
 					currentPlayerId = mAampPlayer.newPlayer();
-					printf("%s:%d: New player created and selected %d\n",__FUNCTION__,__LINE__, currentPlayerId);
+					printf("New player created and selected %d\n", currentPlayerId);
 				}
 				else if (token == "loopstart") // start of a loop
 				{
 					if (loopcount >= 0) // currently looping?
 					{
-						printf("%s:%d: Invalid loop start\n",__FUNCTION__,__LINE__);
+						printf("Invalid loop start\n");
 						scriptOk = false;
 					}
 					else if (!getIntParameter(cmd, loopcount))
 					{
-						printf("%s:%d: Failed to get loop count\n",__FUNCTION__,__LINE__);
+						printf("Failed to get loop count\n");
 						scriptOk = false;
 					}
 					else if (loopcount <= 0)
 					{
-						printf("%s:%d: Invalid loop count (%d)\n",__FUNCTION__,__LINE__, loopcount);
+						printf("Invalid loop count (%d)\n", loopcount);
 						scriptOk = false;
 					}
 					else
@@ -916,7 +917,7 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 				{
 					if (loopcount < 0)
 					{
-						printf("%s:%d: Invalid loop end\n",__FUNCTION__,__LINE__);
+						printf("Invalid loop end\n");
 						scriptOk = false;
 					}
 					else if (--loopcount)
@@ -925,7 +926,7 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 					}
 					else
 					{
-						printf("%s:%d: Loop complete\n",__FUNCTION__,__LINE__);
+						printf("Loop complete\n");
 						loopcount = -1;
 					}
 				}
@@ -938,12 +939,12 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 					uint32_t seconds = 0;
 					if (!getUintParameter(cmd, seconds))
 					{
-						printf("%s:%d: Failed to get seconds\n",__FUNCTION__,__LINE__);
+						printf("Failed to get seconds\n");
 						scriptOk = false;
 					}
 					else
 					{
-						printf("%s:%d: Sleep for %d...\n",__FUNCTION__,__LINE__, seconds);
+						printf("Sleep for %d...\n", seconds);
 						sleep(seconds);
 					}
 				}
@@ -964,14 +965,14 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 					playerInstance = getCurrentPlayer();
 					if (playerInstance == NULL)
 					{
-						printf("%s:%d: Invalid player %d\n",__FUNCTION__,__LINE__, currentPlayerId);
+						printf("Invalid player %d\n", currentPlayerId);
 						scriptOk = false;
 						break;
 					}
 					listener = getCurrentListener();
 					if (listener == NULL)
 					{
-						printf("%s:%d: Invalid listener %d\n",__FUNCTION__,__LINE__, currentPlayerId);
+						printf("Invalid listener %d\n", currentPlayerId);
 						scriptOk = false;
 						break;
 					}
@@ -994,7 +995,7 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 							}
 							else
 							{
-								printf("%s:%d: Script failed: %s\n\n",__FUNCTION__,__LINE__, message.c_str());
+								printf("Script failed: %s\n\n", message.c_str());
 							}
 
 							scriptOk = false;
@@ -1005,7 +1006,7 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 						std::string message;
 						if (!listener->SetFailEvents(cmd))
 						{
-							printf("%s:%d: Failed to get set fail events\n",__FUNCTION__,__LINE__);
+							printf("Failed to get set fail events\n");
 							scriptOk = false;
 						}
 					}
@@ -1097,7 +1098,7 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 							}
 							else
 							{
-								printf("%s:%d: Script failed: %s\n\n",__FUNCTION__,__LINE__, message.c_str());
+								printf("Script failed: %s\n\n", message.c_str());
 							}
 
 							scriptOk = false;
@@ -1106,7 +1107,7 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 
 					else
 					{
-						printf("%s:%d: ERROR: unrecognised command '%s'\n",__FUNCTION__,__LINE__, token.c_str());
+						printf("ERROR: unrecognised command '%s'\n", token.c_str());
 						scriptOk = false;
 					}
 				}
@@ -1130,7 +1131,7 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 					}
 					else
 					{
-						printf("%s:%d: Script failed: %s\n\n",__FUNCTION__,__LINE__, message.c_str());
+						printf("Script failed: %s\n\n", message.c_str());
 					}
 
 					scriptOk = false;
@@ -1140,19 +1141,19 @@ bool ScriptedSmokeTest::runScript(const char *filename, int iteration, bool gtes
 	}
 	else
 	{
-		printf("%s:%d: Failed to open script\n",__FUNCTION__,__LINE__);
+		printf("Failed to open script\n");
 		scriptOk = false;
 	}
 
 	// Delete player instances that have been created
 	mAampPlayer.resetPlayers();
 
-	printf("\n%s:%d: >>> Script %s\n\n",__FUNCTION__,__LINE__, scriptOk?"SUCCEEDED":"FAILED");
+	printf(">>> Script %s\n\n", scriptOk?"SUCCEEDED":"FAILED");
 	if (!scriptOk)
 	{
 		if (abortOnError)
 		{
-			printf("\n%s:%d: >>> Script has SET_STOP_ON_ERROR so skipping following tests\n\n",__FUNCTION__,__LINE__);
+			printf(">>> Script has SET_STOP_ON_ERROR so skipping following tests\n\n");
 			setAbortTests();
 		}
 
@@ -1177,12 +1178,12 @@ bool ScriptedSmokeTest::process_tune(std::stringstream &args, PlayerInstanceAAMP
 
 	if (!getValueParameter(args, url))
 	{
-		printf("%s:%d: Failed to get url\n",__FUNCTION__,__LINE__);
+		printf("Failed to get url\n");
 		scriptOk = false;
 	}
 	else if (!getUintParameter(args, autoplay))
 	{
-		printf("%s:%d: Failed to get autoplay, default to 1\n",__FUNCTION__,__LINE__);
+		printf("Failed to get autoplay, default to 1\n");
 		autoplay = 1;
 	}
 
@@ -1193,7 +1194,7 @@ bool ScriptedSmokeTest::process_tune(std::stringstream &args, PlayerInstanceAAMP
 		// First see if it is an exported variable
 		if (getEnvironmentVariable(var, url))
 		{
-			printf("%s:%d: Got url from environment: '%s'\n",__FUNCTION__,__LINE__, url.c_str());
+			printf("Got url from environment: '%s'\n", url.c_str());
 		}
 		else
 		{
@@ -1208,20 +1209,20 @@ bool ScriptedSmokeTest::process_tune(std::stringstream &args, PlayerInstanceAAMP
 				if (tagIter != taggedURLList.end())
 				{
 					// Found it so we'll set the URL from the tagged URL entry
-					printf("%s:%d: Got url from var (%s -> %s -> %s)\n",__FUNCTION__,__LINE__, 
+					printf("Got url from var (%s -> %s -> %s)\n",
 						var.c_str(), tag.c_str(), url.c_str());
 					url = tagIter->second;
 				}
 				else
 				{
 					// We failed to find it so we'll just try to use the 'tag' as the URL
-					printf("%s:%d: Unable to find the tag '%s' so using it as url\n",__FUNCTION__,__LINE__, tag.c_str());
+					printf("Unable to find the tag '%s' so using it as url\n", tag.c_str());
 					url = tag;
 				}
 			}
 			else
 			{
-				printf("%s:%d: Failed to resolve environment variable '%s'\n",__FUNCTION__,__LINE__, url.c_str());
+				printf("Failed to resolve environment variable '%s'\n", url.c_str());
 				scriptOk = false;
 			}
 		}
@@ -1229,7 +1230,7 @@ bool ScriptedSmokeTest::process_tune(std::stringstream &args, PlayerInstanceAAMP
 
 	if (scriptOk)
 	{
-		printf("%s:%d: Tune to '%s'\n",__FUNCTION__,__LINE__, url.c_str());
+		printf("Tune to '%s'\n", url.c_str());
 		player->Tune(url.c_str(), autoplay);
 	}
 
@@ -1244,7 +1245,7 @@ bool ScriptedSmokeTest::process_tune(std::stringstream &args, PlayerInstanceAAMP
  */
 bool ScriptedSmokeTest::process_stop(std::stringstream &args, PlayerInstanceAAMP *player)
 {
-	printf("%s:%d: Stop\n",__FUNCTION__,__LINE__);
+	printf("Stop\n");
 	player->Stop();
 	return true;
 }
@@ -1257,7 +1258,7 @@ bool ScriptedSmokeTest::process_stop(std::stringstream &args, PlayerInstanceAAMP
  */
 bool ScriptedSmokeTest::process_detach(std::stringstream &args, PlayerInstanceAAMP *player)
 {
-	printf("%s:%d: Detach\n",__FUNCTION__,__LINE__);
+	printf("Detach\n");
 	player->detach();
 	return true;
 }
@@ -1274,12 +1275,12 @@ bool ScriptedSmokeTest::process_setrate(std::stringstream &args, PlayerInstanceA
 	int rate = 1;
 	if (!getIntParameter(args, rate))
 	{
-		printf("%s:%d: Failed to get rate\n",__FUNCTION__,__LINE__);
+		printf("Failed to get rate\n");
 		scriptOk = false;
 	}
 	else
 	{
-		printf("%s:%d: SetRate(%d)\n",__FUNCTION__,__LINE__, rate);
+		printf("SetRate(%d)\n", rate);
 		player->SetRate(rate);
 	}
 	return scriptOk;
@@ -1297,12 +1298,12 @@ bool ScriptedSmokeTest::process_ff(std::stringstream &args, PlayerInstanceAAMP *
 	uint32_t rate = 1;
 	if (!getUintParameter(args, rate))
 	{
-		printf("%s:%d: Failed to get rate\n",__FUNCTION__,__LINE__);
+		printf("Failed to get rate\n");
 		scriptOk = false;
 	}
 	else
 	{
-		printf("%s:%d: ff(%d)\n",__FUNCTION__,__LINE__, rate);
+		printf("ff(%d)\n", rate);
 		player->SetRate(rate);
 	}
 	return scriptOk;
@@ -1320,12 +1321,12 @@ bool ScriptedSmokeTest::process_rew(std::stringstream &args, PlayerInstanceAAMP 
 	uint32_t rate = 1;
 	if (!getUintParameter(args, rate))
 	{
-		printf("%s:%d: Failed to get rate\n",__FUNCTION__,__LINE__);
+		printf("Failed to get rate\n");
 		scriptOk = false;
 	}
 	else
 	{
-		printf("%s:%d: rew(%d)\n",__FUNCTION__,__LINE__, rate);
+		printf("rew(%d)\n", rate);
 		player->SetRate(rate);
 	}
 	return scriptOk;
@@ -1342,12 +1343,12 @@ bool ScriptedSmokeTest::process_pause(std::stringstream &args, PlayerInstanceAAM
 	uint32_t position = 0;
 	if (getUintParameter(args, position))
 	{
-		printf("%s:%d: PauseAt(%d)\n",__FUNCTION__,__LINE__, position);
+		printf("PauseAt(%d)\n", position);
 		player->PauseAt(position);
 	}
 	else
 	{
-		printf("%s:%d: Pause\n",__FUNCTION__,__LINE__);
+		printf("Pause\n");
 		player->SetRate(0);
 	}
 	return true;
@@ -1361,7 +1362,7 @@ bool ScriptedSmokeTest::process_pause(std::stringstream &args, PlayerInstanceAAM
  */
 bool ScriptedSmokeTest::process_play(std::stringstream &args, PlayerInstanceAAMP *player)
 {
-	printf("%s:%d: Play\n",__FUNCTION__,__LINE__);
+	printf("Play\n");
 	player->SetRate(1);
 	return true;
 }
@@ -1382,7 +1383,7 @@ bool ScriptedSmokeTest::process_seek(std::stringstream &args, PlayerInstanceAAMP
 
 	if (!getValueParameter(args, name, value, true, false)) // could be 'name(value)'
 	{
-		printf("%s:%d: Failed to get position param\n",__FUNCTION__,__LINE__);
+		printf("Failed to get position param\n");
 		scriptOk = false;
 	}
 	else if (getEnvironmentVariableName(name))
@@ -1405,13 +1406,13 @@ bool ScriptedSmokeTest::process_seek(std::stringstream &args, PlayerInstanceAAMP
 			}
 			else
 			{
-				printf("%s:%d: ERROR accessing event listener\n",__FUNCTION__,__LINE__);
+				printf("ERROR accessing event listener\n");
 				scriptOk = false;
 			}
 		}
 		else
 		{
-			printf("%s:%d: Unrecognised environment variable '%s'\n",__FUNCTION__,__LINE__, name.c_str());
+			printf("Unrecognised environment variable '%s'\n", name.c_str());
 			scriptOk = false;
 		}
 
@@ -1424,7 +1425,7 @@ bool ScriptedSmokeTest::process_seek(std::stringstream &args, PlayerInstanceAAMP
 	}
 	else if (!getInteger(name, position))
 	{
-		printf("%s:%d: Failed to get position from '%s'\n",__FUNCTION__,__LINE__, name.c_str());
+		printf("Failed to get position from '%s'\n", name.c_str());
 		scriptOk = false;
 	}
 
@@ -1432,11 +1433,11 @@ bool ScriptedSmokeTest::process_seek(std::stringstream &args, PlayerInstanceAAMP
 	{
 		if (!getUintParameter(args, keepPaused))
 		{
-			printf("%s:%d: Failed to get keepPaused, default to 0\n",__FUNCTION__,__LINE__);
+			printf("Failed to get keepPaused, default to 0\n");
 			keepPaused = 0;
 		}
 
-		printf("%s:%d: Seek(%d)\n",__FUNCTION__,__LINE__, position);
+		printf("Seek(%d)\n", position);
 		player->Seek(position, keepPaused);
 	}
 
@@ -1455,12 +1456,12 @@ bool ScriptedSmokeTest::process_async(std::stringstream &args, PlayerInstanceAAM
 	uint32_t asyncEnabled = 0;
 	if (!getUintParameter(args, asyncEnabled))
 	{
-		printf("%s:%d: Failed to get async enabled\n",__FUNCTION__,__LINE__);
+		printf("Failed to get async enabled\n");
 		scriptOk = false;
 	}
 	else
 	{
-		printf("%s:%d: Sleep for %d...\n",__FUNCTION__,__LINE__, asyncEnabled);
+		printf("Sleep for %d...\n", asyncEnabled);
 		player->SetAsyncTuneConfig(asyncEnabled);
 	}
 	return scriptOk;
@@ -1505,7 +1506,7 @@ bool ScriptedSmokeTest::process_config(std::stringstream &args, PlayerInstanceAA
 
 	if (config.size() > 2)
 	{
-		printf("%s:%d: Set config %s...\n",__FUNCTION__,__LINE__, config.c_str());
+		printf("Set config %s...\n", config.c_str());
 		player->InitAAMPConfig((char *)config.c_str());
 	}
 
@@ -1527,12 +1528,12 @@ bool ScriptedSmokeTest::process_setaudiotrack(std::stringstream &args, PlayerIns
 	std::string value;
 	if (!getValueParameter(args, param, value, true, false)) // get the argumnet
 	{
-		printf("%s:%d: Failed to get audio track\n",__FUNCTION__,__LINE__);
+		printf("Failed to get audio track\n");
 		scriptOk = false;
 	}
 	else if (getInteger(param, track)) // if the argument is an integer call SetAudioTrack(track)
 	{
-		printf("%s:%d: Set audio track %d...\n",__FUNCTION__,__LINE__, track);
+		printf("Set audio track %d...\n", track);
 		player->SetAudioTrack(track);
 	}
 	else // assume a set of arguments of the form 'name(value)' eg 'language(eng,spa)'
@@ -1565,7 +1566,7 @@ bool ScriptedSmokeTest::process_setaudiotrack(std::stringstream &args, PlayerIns
 			{
 				if (!getInteger(param, channel))
 				{
-					printf("%s:%d: Unknown channel for SetAudioTrack(), '%s'\n",__FUNCTION__,__LINE__, param.c_str());
+					printf("Unknown channel for SetAudioTrack(), '%s'\n", param.c_str());
 					scriptOk = false;
 					break;
 				}
@@ -1576,7 +1577,7 @@ bool ScriptedSmokeTest::process_setaudiotrack(std::stringstream &args, PlayerIns
 			}
 			else
 			{
-				printf("%s:%d: Unknown argumnet for SetAudioTrack(), '%s'\n",__FUNCTION__,__LINE__, param.c_str());
+				printf("Unknown argumnet for SetAudioTrack(), '%s'\n", param.c_str());
 				scriptOk = false;
 				break;
 			}
@@ -1584,7 +1585,7 @@ bool ScriptedSmokeTest::process_setaudiotrack(std::stringstream &args, PlayerIns
 
 		if (scriptOk)
 		{
-			printf("%s:%d: Set audio track (%s, %s, %s, %s, %d, %s)...\n",__FUNCTION__,__LINE__, 
+			printf("Set audio track (%s, %s, %s, %s, %d, %s)...\n",
 			       language.c_str(), rendition.c_str(), type.c_str(), codec.c_str(), channel, label.c_str());
 			player->SetAudioTrack(language, rendition, type, codec, channel, label);
 		}
@@ -1604,12 +1605,12 @@ bool ScriptedSmokeTest::process_settextrack(std::stringstream &args, PlayerInsta
 	uint32_t track = 0;
 	if (!getUintParameter(args, track))
 	{
-		printf("%s:%d: Failed to get text track\n",__FUNCTION__,__LINE__);
+		printf("Failed to get text track\n");
 		scriptOk = false;
 	}
 	else
 	{
-		printf("%s:%d: Set text track %d...\n",__FUNCTION__,__LINE__, track);
+		printf("Set text track %d...\n", track);
 		player->SetTextTrack(track);
 	}
 	return scriptOk;
@@ -1634,7 +1635,7 @@ bool ScriptedSmokeTest::do_check(std::stringstream &args, PlayerInstanceAAMP *pl
 
 	if (!getValueParameter(args, type, settings))
 	{
-		printf("%s:%d: ERROR - could not extract 'name(value)' to check\n",__FUNCTION__,__LINE__);
+		printf("ERROR - could not extract 'name(value)' to check\n");
 		scriptOk = false;
 	}
 	else if (type == "audio")
@@ -1667,7 +1668,7 @@ bool ScriptedSmokeTest::do_check(std::stringstream &args, PlayerInstanceAAMP *pl
 	}
 	else
 	{
-		printf("%s:%d: ERROR - unsupported check '%s'\n",__FUNCTION__,__LINE__, type.c_str());
+		printf("ERROR - unsupported check '%s'\n", type.c_str());
 		return false;
 	}
 
@@ -1710,7 +1711,7 @@ bool ScriptedSmokeTest::do_check(std::stringstream &args, PlayerInstanceAAMP *pl
 						}
 						else
 						{
-							printf("%s:%d: ERROR - unsupported json type (%d)\n",__FUNCTION__,__LINE__, jsonSetting->type);
+							printf("ERROR - unsupported json type (%d)\n", jsonSetting->type);
 							actual = "<unsupported>";
 							scriptOk = false;
 						}

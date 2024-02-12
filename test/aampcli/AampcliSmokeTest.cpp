@@ -47,7 +47,7 @@ void SmokeTest::loadSmokeTestUrls()
 
         if ( (fp = mAampcli.getConfigFile(smokeurlFile)) != NULL)
         { 
-                printf("%s:%d: opened smoketest file\n",__FUNCTION__,__LINE__);
+                printf("opened smoketest file\n");
          
 		while(!feof(fp))
 		{
@@ -116,7 +116,7 @@ void SmokeTest::vodTune(const char *stream)
 
 	if(NULL == url)
 	{
-		printf("%s:%d: URL is InValid\n",__FUNCTION__,__LINE__);
+		printf("URL is InValid\n");
 		return;
 	}
 	
@@ -132,7 +132,7 @@ void SmokeTest::vodTune(const char *stream)
 		sleep(5);
 		if(mPlayerInstanceAamp->GetState() == eSTATE_COMPLETE)
 		{
-			printf("%s:%d: Tune sub task started\n",__FUNCTION__,__LINE__);
+			printf("Tune sub task started\n");
 			mPlayerInstanceAamp->Tune(url);
 			mPlayerInstanceAamp->SetRate(0); // To pause 
 			mPlayerInstanceAamp->SetRate(4); // To fastforward 
@@ -143,7 +143,7 @@ void SmokeTest::vodTune(const char *stream)
 			mPlayerInstanceAamp->Stop();
 			sleep(3);
 
-			printf("%s:%d: Tune %s completed\n",__FUNCTION__,__LINE__,stream);
+			printf("Tune %s completed\n",stream);
 			break;
 		}
 
@@ -197,7 +197,7 @@ bool SmokeTest::createTestFilePath(std::string &filePath)
 	}
 	else
 	{
-		printf("%s:%d: Path not found\n",__FUNCTION__,__LINE__);
+		printf("Path not found\n");
 		return false;
 	}
 #else
@@ -208,7 +208,7 @@ bool SmokeTest::createTestFilePath(std::string &filePath)
 	{
 		if(mkdir(filePath.c_str(), 0777) == -1)
 		{
-			printf("%s:%d: Error :  %s\n",__FUNCTION__,__LINE__,strerror(errno));
+			printf("Error :  %s\n",strerror(errno));
 			return false;
 		}
 	}

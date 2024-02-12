@@ -71,7 +71,7 @@ public:
         filename = "mpd-dump.mpd";
         static int seqNum = 1;
         string completeFilePath = "/tmp/dump/" + filename + "-" + to_string(seqNum);
-        AAMPLOG_INFO("%s dumping manifest %s", __FUNCTION__, completeFilePath.c_str());
+        AAMPLOG_INFO("dumping manifest %s", completeFilePath.c_str());
         FILE *outputFile = fopen(completeFilePath.c_str(), "w");
         seqNum++;
         fwrite(newDocument->toString().c_str(), newDocument->toString().length(), 1, outputFile);

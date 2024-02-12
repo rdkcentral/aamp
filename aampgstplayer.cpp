@@ -2196,7 +2196,7 @@ static void AAMPGstPlayer_PlayersinkbinCB(GstElement * playersinkbin, gint statu
 			AAMPLOG_WARN("## Got PTS error message from audio pipeline ##");
 			break;
 		default:
-			GST_INFO("%s status = 0x%x (Unknown)\n", __FUNCTION__, status);
+			AAMPLOG_WARN("status = 0x%x (Unknown)\n", status);
 			break;
 	}
 }
@@ -4581,11 +4581,11 @@ void AAMPGstPlayer::InitializeAAMPGstreamerPlugins(AampLogManager *mLogObj)
 
 	if (pluginFeature == NULL)
 	{
-		AAMPLOG_ERR("AAMPGstPlayer::%s():%d %s plugin feature not available", __FUNCTION__, __LINE__, GstPluginNameVMX);
+		AAMPLOG_ERR("AAMPGstPlayer %s plugin feature not available", GstPluginNameVMX);
 	}
 	else
 	{
-		AAMPLOG_MIL("AAMPGstPlayer::%s():%d %s plugin priority set to GST_RANK_PRIMARY + 111", __FUNCTION__, __LINE__, GstPluginNameVMX);
+		AAMPLOG_MIL("AAMPGstPlayer %s plugin priority set to GST_RANK_PRIMARY + 111", GstPluginNameVMX);
 		gst_plugin_feature_set_rank(pluginFeature, GST_RANK_PRIMARY + 111);
 		gst_object_unref(pluginFeature);
 	}

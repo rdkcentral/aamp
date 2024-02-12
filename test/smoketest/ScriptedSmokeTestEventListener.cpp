@@ -206,7 +206,7 @@ bool ScriptedSmokeTestEventListener::extractPositionArgs(std::stringstream &argS
 	}
 	else
 	{
-		printf("%s:%d: Unable to get position from stream\n", __FUNCTION__,__LINE__);
+		printf("Unable to get position from stream\n" );
 	}
 	return retval;
 }
@@ -232,7 +232,7 @@ bool ScriptedSmokeTestEventListener::extractSpeedArgs(std::stringstream &argStre
 	}
 	else
 	{
-		printf("%s:%d: Unable to get speed from stream\n", __FUNCTION__,__LINE__);
+		printf("Unable to get speed from stream\n" );
 	}
 	return retval;
 }
@@ -544,7 +544,7 @@ bool ScriptedSmokeTestEventListener::createEventList(std::stringstream &argStrea
 		// unrecognised
 		else
 		{
-			printf("%s:%d: ERROR - unrecognised event '%s'\n",__FUNCTION__,__LINE__, event.c_str());
+			printf("ERROR - unrecognised event '%s'\n", event.c_str());
 			retval = false;
 		}
 	}
@@ -619,7 +619,7 @@ bool ScriptedSmokeTestEventListener::WaitForEvent(std::stringstream &argStream, 
 	// First param is a timeout value
 	if (!ScriptedSmokeTest::getUintParameter(argStream, timeout))
 	{
-		printf("%s:%d: Failed to get timeout\n",__FUNCTION__,__LINE__);
+		printf("Failed to get timeout\n");
 		return false;
 	}
 	// If we are not already monitoring for some events then configure the events
@@ -628,7 +628,7 @@ bool ScriptedSmokeTestEventListener::WaitForEvent(std::stringstream &argStream, 
 	{
 		if (!createEventList(argStream, monitoredEvents))
 		{
-			printf("%s:%d: ERROR - failed to get ctreate event list\n",__FUNCTION__,__LINE__);
+			printf("ERROR - failed to get ctreate event list\n");
 			return false;
 		}
 	}
@@ -636,7 +636,7 @@ bool ScriptedSmokeTestEventListener::WaitForEvent(std::stringstream &argStream, 
 	// At this point we should have some events configured to look for
 	if ( !monitoredEvents.size())
 	{
-		printf("%s:%d: ERROR - no events in monitored list\n",__FUNCTION__,__LINE__);
+		printf("ERROR - no events in monitored list\n");
 		return false;
 	}
 
@@ -666,7 +666,7 @@ bool ScriptedSmokeTestEventListener::WaitForEvent(std::stringstream &argStream, 
 		retval = checkEventList(monitoredEvents, status);
 
 		status += retval?"SUCCEEDED":"FAILED";
-		printf("%s:%d: %s\n",__FUNCTION__,__LINE__, status.c_str());
+		printf("%s\n", status.c_str());
 	}
 
 	return retval;

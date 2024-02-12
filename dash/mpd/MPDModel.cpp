@@ -837,7 +837,7 @@ double DashMPDPeriod::getStart() {
             _periodStart = previousPeriod->getStart() + previousPeriod->getDuration();
         }
         catch(const std::out_of_range& e) {
-           AAMPLOG_ERR("%s @%d : OUT OF RANGE Error. DashMPDPeriod vector index used; index = %d. Returning %f.", __FUNCTION__ , __LINE__, index, _periodStart );
+           AAMPLOG_ERR("OUT OF RANGE Error. DashMPDPeriod vector index used; index = %d. Returning %f.", index, _periodStart );
         }
     }
     return _periodStart;
@@ -1026,13 +1026,13 @@ void DashMPDPeriod::updateStartTimeToPTSOffset()
         {
             // Adjusting start time based on removed segments at the time of download
             // This ensures proper period start time value.
-            AAMPLOG_TRACE("%s presentationoffset:%lld, firstFragmentTime:%lld", __FUNCTION__, presentationTimeOffset, fistFragmentTime);
+            AAMPLOG_TRACE("presentationoffset:%lld, firstFragmentTime:%lld", presentationTimeOffset, fistFragmentTime);
             double delta = (double)(fistFragmentTime - presentationTimeOffset) / (double)segTemplate->getTimeScale();
             auto periodStart = this->getStart();
             if(periodStart != (periodStart+delta))
             {
                 this->setStart(periodStart+delta);
-                AAMPLOG_TRACE("%s: Adjusting period startTime (period:%s) :%lf => %lf(+%lf)", __FUNCTION__, this->getId().c_str(), periodStart, this->getStart(), delta);
+                AAMPLOG_TRACE("Adjusting period startTime (period:%s) :%lf => %lf(+%lf)", this->getId().c_str(), periodStart, this->getStart(), delta);
             }
         }
     }
@@ -1089,7 +1089,7 @@ void DashMPDPeriod::updateStartTime()
                     }
                 }
                 catch(const std::out_of_range& e) {
-                    AAMPLOG_ERR("%s @%d : OUT OF RANGE Error. DashMPDPeriod vector index used; index = %d.", __FUNCTION__ , __LINE__, index );
+                    AAMPLOG_ERR("OUT OF RANGE Error. DashMPDPeriod vector index used; index = %d.", index );
                 }
             }
         }
@@ -1398,7 +1398,7 @@ void DashMPDRoot::setAvailabilityEndTime(double epochSeconds) {
     if (epochSecondsToIsoDateTime(epochSeconds, isoDateTime)) {
         SET_ATTRIBUTE_DOUBLE("availabilityEndTime", epochSeconds, isoDateTime);
     } else {
-        AAMPLOG_ERR("%s:%d Failed to convert %lf to iso datetime", __FUNCTION__, __LINE__, epochSeconds);
+        AAMPLOG_ERR("Failed to convert %lf to iso datetime", epochSeconds);
     }
 }
 
@@ -1482,7 +1482,7 @@ void DashMPDRoot::setAvailabilityStartTime(double availStartTime) {
     if (epochSecondsToIsoDateTime(availStartTime, isoDateTime)) {
         SET_ATTRIBUTE_DOUBLE("availabilityStartTime", availStartTime, isoDateTime);
     } else {
-        AAMPLOG_ERR("%s:%d Failed to convert %lf to iso datetime", __FUNCTION__, __LINE__, availStartTime);
+        AAMPLOG_ERR("Failed to convert %lf to iso datetime", availStartTime);
     }
 }
 
@@ -2151,10 +2151,10 @@ long long int  DashMPDMultipleSegmentBase::getDuration() {
 		Duration =  stoll(val);
 	}
 	catch(const std::out_of_range) {
-		AAMPLOG_ERR("%s:%d Out of range: %s", __FUNCTION__, __LINE__, val.c_str());
+		AAMPLOG_ERR("Out of range: %s", val.c_str());
 	}
 	catch(const std::invalid_argument) {
-		AAMPLOG_ERR("%s:%d Invalid argument: %s", __FUNCTION__, __LINE__, val.c_str());
+		AAMPLOG_ERR("Invalid argument: %s", val.c_str());
 	}
     }
     return Duration;

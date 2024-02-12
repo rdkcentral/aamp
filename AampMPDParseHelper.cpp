@@ -60,7 +60,6 @@ AampMPDParseHelper::AampMPDParseHelper(const AampMPDParseHelper& cachedMPD) : mI
 					   mPeriodEmptyMap(cachedMPD.mPeriodEmptyMap) , mMPDInstance(NULL),mLiveTimeFragmentSync(cachedMPD.mLiveTimeFragmentSync),mHasServerUtcTime(cachedMPD.mHasServerUtcTime),mUpperBoundaryPeriod(cachedMPD.mUpperBoundaryPeriod),mLowerBoundaryPeriod(cachedMPD.mLowerBoundaryPeriod),mMPDPeriodDetails(cachedMPD.mMPDPeriodDetails),mDeltaTime(cachedMPD.mDeltaTime)
 
 {
-	//AAMPLOG_INFO("%s\n",__FUNCTION__);
 }
 
 /**

@@ -170,7 +170,6 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 	mLLDashData(),mMPDDnldDataMtx(),mMPDDnldDataCondVar()
 	,mCurrentposDeltaToManifestEnd(-1)
 {
-	AAMPLOG_INFO("%s\n",__FUNCTION__);
 }
 
 /**
@@ -179,7 +178,6 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 */
 AampMPDDownloader::~AampMPDDownloader()
 {
-	AAMPLOG_INFO("%s",__FUNCTION__);
 	// Clear the queue and release all the objects
 	Release();
 	// reset the pointers , its shared pointer, it will released automatically

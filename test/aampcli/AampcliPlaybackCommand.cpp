@@ -741,7 +741,7 @@ void PlaybackCommand::termPlayerLoop()
 		g_main_loop_quit(mAampcli.mAampGstPlayerMainLoop);
 		g_thread_join(mAampcli.mAampMainLoopThread);
 		gst_deinit ();
-		printf("[AAMPCLI] %s(): Exit\n", __FUNCTION__);
+		printf("[AAMPCLI] Exit\n");
 	}
 }
 

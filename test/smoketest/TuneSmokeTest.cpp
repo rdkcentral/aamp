@@ -65,7 +65,7 @@ void SmokeTest::loadSmokeTestUrls()
 
         if ( (fp = mAampPlayer.getConfigFile(smokeurlFile)) != NULL)
         { 
-                printf("%s:%d: opened smoketest file\n",__FUNCTION__,__LINE__);
+			printf("opened smoketest file\n");
          
 		while(!feof(fp))
 		{
@@ -147,7 +147,7 @@ void SmokeTest::vodTune(const char *stream)
 		double targetPositionSec = durationSec - (double)(1*60);  // 1 min before EOS
 		if (positionSec < targetPositionSec)
 		{
-			printf("%s:%d: seek to %f of %f\n",__FUNCTION__,__LINE__, targetPositionSec, durationSec);
+			printf("seek to %f of %f\n", targetPositionSec, durationSec);
 			mAampPlayer.mPlayerInstanceAamp->Seek(targetPositionSec);
 		}
 	}
@@ -157,7 +157,7 @@ void SmokeTest::vodTune(const char *stream)
 		sleep(5);
 		if(mAampPlayer.mPlayerInstanceAamp->GetState() == eSTATE_COMPLETE)
 		{
-			printf("%s:%d: Tune sub task started\n",__FUNCTION__,__LINE__);
+			printf("Tune sub task started\n");
 			mAampPlayer.mPlayerInstanceAamp->Tune(url);
 			mAampPlayer.mPlayerInstanceAamp->SetRate(0); // To pause 
 			mAampPlayer.mPlayerInstanceAamp->SetRate(4); // To fastforward 
@@ -168,14 +168,14 @@ void SmokeTest::vodTune(const char *stream)
 			mAampPlayer.mPlayerInstanceAamp->Stop();
 			sleep(3);
 
-			printf("%s:%d: Tune %s completed\n",__FUNCTION__,__LINE__,stream);
+			printf("Tune %s completed\n",stream);
 			break;
 		}
 
 		currentTime = time(NULL);               // seconds since the start of epoch
 		if((currentTime - initialTime) > 10*60) // give up at 10 minutes
 		{
-			printf("%s:%d: Giving up on test -- exceeded 10 minutes.\n",__FUNCTION__,__LINE__);
+			printf("Giving up on test -- exceeded 10 minutes.\n");
 			break;
 		}
 	}
@@ -246,7 +246,7 @@ bool SmokeTest::getFilePath(std::string &filePath)
 	}
 	else
 	{
-		printf("%s:%d: Path not found \n",__FUNCTION__,__LINE__);
+		printf("Path not found \n");
 		return false;
 	}
 #else
@@ -342,7 +342,7 @@ bool SmokeTest::readVodData(const char *stream)
 		}
 		else
 		{
-			printf("%s:%d: %s file not found \n",__FUNCTION__,__LINE__,stream);
+			printf("%s file not found \n",stream);
 			return false;
 		}
 	}
@@ -399,7 +399,7 @@ bool SmokeTest::readLiveData(const char *stream)
 		}
 		else
 		{
-			printf("%s:%d: %s file not found \n",__FUNCTION__,__LINE__,stream);
+			printf("%s file not found \n",stream);
 			return false;
 		}
 	}

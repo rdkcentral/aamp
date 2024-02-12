@@ -70,23 +70,23 @@ bool Harvester::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp
 	
 	if( PlaybackCommand::isCommandMatch(harvestCmd,"harvestMode=Master") )
 	{
-		printf("%s:%d: thread create:MasterHarvester thread\n", __FUNCTION__, __LINE__);
+		printf("thread create:MasterHarvester thread\n");
 		try {
 			mMasterHarvesterThreadID = std::thread (&Harvester::masterHarvester, harvestCmd);
 		}
 		catch (std::exception& e)
 		{
-			printf("%s:%d: Error at thread create:MasterHarvester thread : %s\n", __FUNCTION__, __LINE__, e.what());
+			printf("Error at thread create:MasterHarvester thread : %s\n", e.what());
 		}
 	}
 	else if( PlaybackCommand::isCommandMatch(harvestCmd,"harvestMode=Slave") )
 	{
-		printf("%s:%d: thread create:SlaveHarvester thread\n", __FUNCTION__, __LINE__);
+		printf("thread create:SlaveHarvester thread\n" );
 		try {
 			mSlaveHarvesterThreadID =  std::thread (&Harvester::slaveHarvester, harvestCmd);
 		}catch (std::exception& e)
 		{
-			printf("%s:%d: Error at  thread create:SlaveHarvester thread : %s\n", __FUNCTION__, __LINE__, e.what());
+			printf("Error at  thread create:SlaveHarvester thread : %s\n", e.what());
 		}
 	}
 	else
@@ -218,7 +218,7 @@ void Harvester::masterHarvester(void * arg)
 
 	if(aamp_pthread_setname(pthread_self(), "MasterHarvester"))
 	{
-		printf("%s:%d: aamp_pthread_setname failed\n",__FUNCTION__,__LINE__);
+		printf("aamp_pthread_setname failed\n" );
 	}
 
 	mHarvester.getExecutablePath();
@@ -242,7 +242,7 @@ void Harvester::masterHarvester(void * arg)
 		}
 		else
 		{
-			printf("%s:%d: Error in command param %s\n",__FUNCTION__,__LINE__,param.c_str());
+			printf("Error in command param %s\n", param.c_str());
 			return;
 		}
 		// Set master harvestPath if passed in as parameter
@@ -357,7 +357,7 @@ void Harvester::masterHarvester(void * arg)
 	if(cmdlineParams.find("harvestUrl") != cmdlineParams.end())
 	{
 		masterCmd += " harvestUrl=" + cmdlineParams["harvestUrl"];
-		printf("%s:%d: Config process of master harvest command %s \n", __FUNCTION__, __LINE__, masterCmd.c_str());
+		printf("Config process of master harvest command %s \n", masterCmd.c_str());
 		
 		mHarvester.mPlayerInstanceAamp->Tune(cmdlineParams["harvestUrl"].c_str());
 
@@ -369,7 +369,7 @@ void Harvester::masterHarvester(void * arg)
 		}
 		catch (std::exception& e)
 		{
-			printf("%s:%d: Error at startHarvestReport : %s\n",__FUNCTION__,__LINE__, e.what());
+			printf("Error at startHarvestReport : %s\n", e.what());
 		}
 		
 		// if iframe enabled, then harvest
@@ -386,7 +386,7 @@ void Harvester::masterHarvester(void * arg)
 			}
 			else
 			{
-				printf("%s:%d: could not create slave harvest process for iframe.", __FUNCTION__, __LINE__);
+				printf("could not create slave harvest process for iframe." );
 			}
 		}
 
@@ -409,7 +409,7 @@ void Harvester::masterHarvester(void * arg)
 
 			if ((mHarvester.mPlayerInstanceAamp->GetState() != eSTATE_COMPLETE) && (mHarvester.mPlayerInstanceAamp->GetState() > eSTATE_PLAYING))
 			{
-				printf("%s:%d: Tune stopped\n",__FUNCTION__,__LINE__);
+				printf("Tune stopped\n" );
 				mHarvester.mPlayerInstanceAamp->Tune(cmdlineParams["harvestUrl"].c_str());
 			}
 
@@ -525,7 +525,7 @@ void Harvester::masterHarvester(void * arg)
 					}
 					else
 					{
-						printf("%s:%d: could not create slave harvest process for video.", __FUNCTION__, __LINE__);
+						printf("could not create slave harvest process for video." );
 					}
 				}
 				cacheVideoBitrates = tempVideoBitrates;
@@ -553,7 +553,7 @@ void Harvester::masterHarvester(void * arg)
 					}
 					else
 					{
-						printf("%s:%d: could not create slave harvest process for audio.", __FUNCTION__, __LINE__);
+						printf("could not create slave harvest process for audio." );
 					}
 				}
 
@@ -582,7 +582,7 @@ void Harvester::masterHarvester(void * arg)
 					}
 					else
 					{
-						printf("%s:%d: could not create slave harvest process for subtitle.", __FUNCTION__, __LINE__);
+						printf("could not create slave harvest process for subtitle." );
 					}
 				}
 
@@ -638,7 +638,7 @@ void Harvester::masterHarvester(void * arg)
             }
 		}
 		
-		printf("%s:%d all harvesting complete.\n", __FUNCTION__, __LINE__);
+		printf("all harvesting complete.\n" );
 
 		// Clear static member data for next run
 		mHarvestInfo.clear();
@@ -650,7 +650,7 @@ void Harvester::masterHarvester(void * arg)
 	}
 	else
 	{
-		printf("%s:%d: harvestUrl not found\n",__FUNCTION__,__LINE__);
+		printf("harvestUrl not found\n" );
 	}
 
 	return;
@@ -667,7 +667,7 @@ void Harvester::slaveHarvester(void * arg)
 
 	if(aamp_pthread_setname(pthread_self(), "SlaveHarvester"))
 	{
-		printf("%s:%d: SlaveHarvester_thread aamp_pthread_setname failed\n",__FUNCTION__,__LINE__);
+		printf("SlaveHarvester_thread aamp_pthread_setname failed\n" );
 	}
 
 	while(std::getline(ss, item, ' ')) {
@@ -688,7 +688,7 @@ void Harvester::slaveHarvester(void * arg)
 		}
 		else
 		{
-			printf("%s:%d: Error in command param %s\n",__FUNCTION__,__LINE__,param.c_str());
+			printf("Error in command param %s\n",param.c_str());
 			return;
 		}
 
@@ -711,7 +711,7 @@ void Harvester::slaveHarvester(void * arg)
 		int trackId = stoi(cmdlineParams["trackId"]);
 		sleep(5);
 		mHarvester.mPlayerInstanceAamp->SetAudioTrack(trackId);
-		printf("%s:%d: Harvest audio trackId %d\n",__FUNCTION__,__LINE__,trackId);
+		printf("Harvest audio trackId %d\n",trackId);
 	}
 	else if(harvestConfig & (getHarvestConfigForMedia(eMEDIATYPE_SUBTITLE)))
 	{
@@ -719,7 +719,7 @@ void Harvester::slaveHarvester(void * arg)
 		sleep(5);
 		mHarvester.mPlayerInstanceAamp->SetCCStatus(true);
 		mHarvester.mPlayerInstanceAamp->SetTextTrack(trackId);
-		printf("%s:%d: Harvest subtitle trackId %d\n",__FUNCTION__,__LINE__,trackId);
+		printf("Harvest subtitle trackId %d\n",trackId);
 	}
 
 	int harvestDuration = mHarvester.mPlayerInstanceAamp->mConfig.GetConfigValue(eAAMPConfig_HarvestDuration);
@@ -731,7 +731,7 @@ void Harvester::slaveHarvester(void * arg)
 
 		if(mHarvester.mPlayerInstanceAamp->GetState() == eSTATE_COMPLETE)
 		{
-			printf("%s:%d: Tune completed exiting harvesting mode\n",__FUNCTION__,__LINE__);
+			printf("Tune completed exiting harvesting mode\n" );
 			break;
 		}
 
@@ -750,7 +750,7 @@ void Harvester::slaveHarvester(void * arg)
 		int currHarvestCount = mHarvester.mPlayerInstanceAamp->aamp->GetHarvestRemainingFragmentCount();
 		if (currHarvestCount == 0)
 		{
-			printf("%s:%d: Harvest count completed, exiting harvesting mode.\n",__FUNCTION__,__LINE__);
+			printf("Harvest count completed, exiting harvesting mode.\n" );
 			sleep(5);  // allow logs to propogate to slaveDataOutput
 			break;
 		}
@@ -760,7 +760,7 @@ void Harvester::slaveHarvester(void * arg)
 	
 		if ((harvestDuration > 0) && (currentTime - initialTime) > harvestDuration)
 		{
-			printf("%s:%d: Harvest time completed, exiting harvest mode.\n",__FUNCTION__,__LINE__);
+			printf("Harvest time completed, exiting harvest mode.\n" );
 			sleep(5); // allow logs to propagate to slaveDataOutput
 			break;
 		}
@@ -777,7 +777,7 @@ void Harvester::slaveDataOutput(void * arg)
 	bool active = false;
 	if(aamp_pthread_setname(pthread_self(), "SlaveOutput"))
 	{
-		printf("%s:%d: aamp_pthread_setname failed\n",__FUNCTION__, __LINE__);
+		printf("aamp_pthread_setname failed\n");
 	}
 
 	while (!feof(pipe))
@@ -785,12 +785,12 @@ void Harvester::slaveDataOutput(void * arg)
 		if (fgets(buffer, 500, pipe) != NULL)
 		{
 			active = mHarvester.getHarvestReportDetails(buffer);
-			printf("%s:%d: [0x%p] %s",__FUNCTION__, __LINE__,pipe,buffer);
+			printf("[0x%p] %s",pipe,buffer);
 		}
 		
 		if (active == false) // end this thread
 		{
-			printf("%s:%d: EndOfHarvestReached harvesting complete, exiting thread.\n",__FUNCTION__, __LINE__);
+			printf("EndOfHarvestReached harvesting complete, exiting thread.\n");
 			break;
 		}
 	}
@@ -799,7 +799,7 @@ void Harvester::slaveDataOutput(void * arg)
 	{
 		strncpy(buffer,"EndOfStreamReached", sizeof(buffer)-1);
 		mHarvester.getHarvestReportDetails(buffer);
-		printf("%s:%d: EndOfHarvestReached harvesting complete, exiting thread.\n",__FUNCTION__, __LINE__);
+		printf("EndOfHarvestReached harvesting complete, exiting thread.\n");
 	}
 
 	return;
@@ -867,7 +867,7 @@ bool Harvester::getHarvestReportDetails(char *buffer)
 	itr = mHarvestInfo.find(threadId);
 	if (itr == mHarvestInfo.end())		// unexpected, could return false as not active?
 	{
-		printf("%s:%d: did not find thread in mHarvestInfo list.\n",__FUNCTION__, __LINE__);
+		printf("did not find thread in mHarvestInfo list.\n");
 		return true;
 	}
 
@@ -1021,7 +1021,7 @@ void Harvester::harvestTerminateHandler(int signal)
 		fclose(fp);
 	}
 
-	printf("%s:%d: Signal handler\n",__FUNCTION__, __LINE__);
+	printf("Signal handler\n");
 	
 	exit(signal);
 }
@@ -1092,7 +1092,7 @@ FILE * Harvester::createSlaveHarvester(std::map<std::string, std::string> cmdlin
 		slaveCmd = slaveCmd + " trackId="+std::to_string(trackId);
 	}
 
-	printf("%s:%d: Create process of slave harvest command %s \n", __FUNCTION__, __LINE__, slaveCmd.c_str());
+	printf("Create process of slave harvest command %s \n", slaveCmd.c_str());
 	mHarvester.writeHarvestReport((char *)slaveCmd.c_str(), false);
 	
 	if(cmdlineParams.find("noHarvest") == cmdlineParams.end())
@@ -1111,7 +1111,7 @@ bool Harvester::createSlaveDataReader(FILE *pSlaveHarvester, std::thread& dataRe
 	}
 	catch (std::exception& e)
 	{
-		printf("%s:%d: Error at thread create: slaveDataOutput thread : %s\n",__FUNCTION__,__LINE__, e.what());
+		printf("Error at thread create: slaveDataOutput thread : %s\n", e.what());
 		failed = true;
 	}
 
@@ -1130,7 +1130,7 @@ bool Harvester::createSlaveDataReader(FILE *pSlaveHarvester, std::thread& dataRe
 				mHarvestThreadId.push_back(threadId);
 			}
 		}
-		printf("%s:%d: Successfully launched harvest data reader.\n",__FUNCTION__,__LINE__);
+		printf("Successfully launched harvest data reader.\n" );
 		return true;
 	}
 	return false;
