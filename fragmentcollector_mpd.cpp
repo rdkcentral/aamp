@@ -8950,13 +8950,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					// So after video downloads loop was exiting without audio fetch causing audio drop .
 					// Now wait for both video and audio to reach EOS before moving to next period or exit.
 					AcquirePlaylistLock();
-					if ( eAAMPSTATUS_MANIFEST_CONTENT_ERROR == UpdateMPD())
-					{
-						aamp->DisableDownloads();
-						ReleasePlaylistLock();
-						AAMPLOG_WARN("Exiting from fetcher loop due to manifest content error");
-						break;
-					}
+					UpdateMPD();
 					bool vEos = mMediaStreamContext[eMEDIATYPE_VIDEO]->eos;
 					bool audioEnabled = (mMediaStreamContext[eMEDIATYPE_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled);
 					bool aEos = (audioEnabled && mMediaStreamContext[eMEDIATYPE_AUDIO]->eos);
@@ -9105,32 +9099,18 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 
 		if( !exitFetchLoop)
 		{
-            		AcquirePlaylistLock();
-            		// Reset period info to go back to loop without UpdateTrackInfo.
-			if( eAAMPSTATUS_OK != IndexNewMPDDocument(false) );
-			{
-				aamp->DisableDownloads();
-				ReleasePlaylistLock();
-				AAMPLOG_WARN("Exit fetcher loop due to manifest error");
-				break;
-			}
-			ReleasePlaylistLock();
+		AcquirePlaylistLock();
+		// Reset period info to go back to loop without UpdateTrackInfo.
+		IndexNewMPDDocument(false);
+		ReleasePlaylistLock();
 		}
 		
 		if (!aamp->DownloadsAreEnabled())
 		{
 			break;
 		}
-		AcquirePlaylistLock();
-		if ( eAAMPSTATUS_MANIFEST_CONTENT_ERROR == UpdateMPD())
-		{
-			aamp->DisableDownloads();
-			ReleasePlaylistLock();
-			AAMPLOG_WARN("Exiting from fetcher loop due to manifest content error");
-			break;
-		}
+		UpdateMPD();
 		mpdChanged = true;
-          	ReleasePlaylistLock();
 	}		//Loop 1
 	while (!exitFetchLoop);
 	AAMPLOG_WARN("MPD fragment collector done");
