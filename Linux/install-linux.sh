@@ -6,12 +6,21 @@ echo $aampdir
 linuxbuilddir=$aampdir/Linux
 defaultcodebranch=dev_sprint_23_1
 googletestreference="tags/release-1.11.0"
+defaultprotobufreference="3.11.x"
+defaultrialtoreference="v0.2.2"
 
 # pull in general utility finctions
 source $aampdir/install-script-utilities.sh
 
 
-while getopts ":d:b:g:" opt; do
+# Parse optional command line parameters
+# Note that options inherited from install-aamp.sh will not be processed here
+if  [[ $1 = "rialto" ]]; then
+    buildrialto=true
+    shift
+fi
+
+while getopts ":d:b:g:p:r:" opt; do
   case ${opt} in
     d ) # process option d install base directory name
     linuxbuilddir=${OPTARG}
@@ -23,8 +32,19 @@ while getopts ":d:b:g:" opt; do
     g ) # process option g googletest reference
     googletestreference=${OPTARG}
       ;;
-    * ) echo "Usage: $0 [-b aamp branch name] [-d local setup directory name] [-g googletest reference]"
-     exit
+    p ) # process option p protobuf reference
+      protobufreference=${OPTARG}
+      echo "protobufreference : ${OPTARG}"
+      ;;
+    r ) # process option r rialto reference
+      rialtoreference=${OPTARG}
+      echo "rialtoreference : ${OPTARG}"
+      ;;
+    * )
+      echo "Usage: $0 [rialto] [-b aamp branch name]"
+      echo "                        [-d local setup directory name]"
+      echo "                        [-g googletest reference] [-p protobuf reference] [-r rialto reference]"
+      exit
       ;;
   esac
 done
@@ -35,7 +55,20 @@ if [[ $codebranch == "" ]]; then
     echo "using default code branch: $defaultcodebranch"
 fi
 
+if [[ $buildrialto == "" ]]; then
+    buildrialto=false
+fi
+
+if [[ $protobufreference == "" ]]; then
+    protobufreference=$defaultprotobufreference
+fi
+
+if [[ $rialtoreference == "" ]]; then
+    rialtoreference=$defaultrialtoreference
+fi
+
 mkdir -p $linuxbuilddir
+mkdir -p $linuxbuilddir/bin
 cd $linuxbuilddir
 echo "linuxbuilddir: $linuxbuilddir"
 
@@ -44,10 +77,30 @@ do_clone_rdk_repo $codebranch aampabr
 do_clone_rdk_repo $codebranch gst-plugins-rdk-aamp
 
 
-if [ -d "cJSON" ]; then
-    echo "exist cJSON"
-else
-    do_clone https://github.com/DaveGamble/cJSON
+do_clone_github_repo https://github.com/DaveGamble/cJSON cJSON
+
+if [ $buildrialto = true ]; then
+    do_clone_github_repo https://github.com/protocolbuffers/protobuf.git protobuf -b $protobufreference --recursive
+
+    if [ -d "rialto" ]; then
+        echo "rialto exists"
+    else
+        do_clone https://github.com/rdkcentral/rialto.git rialto
+        pushd rialto
+            echo "Checkout rialto '$rialtoreference'"
+            git checkout $rialtoreference
+        popd
+    fi
+
+    if [ -d "rialto-gstreamer" ]; then
+        echo "rialto-gstreamer exists"
+    else
+        do_clone https://github.com/rdkcentral/rialto-gstreamer.git rialto-gstreamer
+        pushd rialto-gstreamer
+            echo "Checkout rialto-gstreamer '$rialtoreference'"
+            git checkout $rialtoreference
+        popd
+    fi
 fi
 
 do_clone_rdk_repo $codebranch aampmetrics
@@ -69,7 +122,6 @@ else
         git checkout $googletestreference
     popd
 fi
-
 
 #### CLONE_PACKAGES
 
@@ -121,9 +173,10 @@ function build_repo()
 {
     echo "Building $1 "
     pushd $1
+        shift
         mkdir -p build
         cd build
-        env PKG_CONFIG_PATH=$linuxbuilddir/lib/pkgconfig cmake .. -DCMAKE_LIBRARY_PATH=$linuxbuilddir/lib -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_INSTALL_PREFIX=$linuxbuilddir
+        env PKG_CONFIG_PATH=$linuxbuilddir/lib/pkgconfig cmake .. -DCMAKE_LIBRARY_PATH=$linuxbuilddir/lib -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_INSTALL_PREFIX=$linuxbuilddir "$@"
         make
         make install
     popd
@@ -134,6 +187,19 @@ function build_repo()
 build_repo cJSON
 build_repo aampabr
 build_repo aampmetrics
+
+if [ $buildrialto = true ]; then
+    echo "Building protobuf"
+    pushd protobuf
+    ./autogen.sh
+    ./configure --prefix=$linuxbuilddir
+    make
+    make install
+    popd
+
+    build_repo rialto -DNATIVE_BUILD=ON -DRIALTO_BUILD_TYPE=Debug
+    build_repo rialto-gstreamer -DCMAKE_INCLUDE_PATH="${linuxbuilddir}/rialto/stubs/opencdm/;${linuxbuilddir}/rialto/media/public/include/" -DCMAKE_LIBRARY_PATH="${linuxbuilddir}/rialto/build/stubs/opencdm;${linuxbuilddir}/rialto/build/media/client/main/" -DNATIVE_BUILD=ON
+fi
 
 
 ###Build gtest

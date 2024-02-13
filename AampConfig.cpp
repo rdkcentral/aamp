@@ -219,6 +219,12 @@ struct ConfigLookupEntryString
 #define DEFAULT_VALUE_USE_SECMANAGER false
 #endif
 
+#ifdef USE_RIALTO_OCDM
+#define DEFAULT_VALUE_USE_RIALTO_SINK true
+#else
+#define DEFAULT_VALUE_USE_RIALTO_SINK false
+#endif
+
 /**
  * @brief AAMPConfigSettingString metadata
  * note that order must match the actual order of the enum; this is enforced with asserts to catch any wrong/missing declarations
@@ -385,7 +391,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	// this will eventually be default enbled and deprecated as a configuration  
 	{false, "earlyProcessing", eAAMPConfig_EarlyID3Processing, false},
 	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, false},
-
+	{DEFAULT_VALUE_USE_RIALTO_SINK, "useRialtoSink", eAAMPConfig_useRialtoSink, false}
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2

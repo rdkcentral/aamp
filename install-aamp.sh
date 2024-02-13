@@ -15,6 +15,9 @@ processtorun="aamp"
 subtecoption=""
 dontrunaampcli=false
 installed_pkgconfig="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
+buildrialto=false
+protobufreference="3.11.x"
+rialtoreference="v0.2.2"
 
 
 # pull in general utility finctions
@@ -314,10 +317,15 @@ if  [[ $1 = "subtec" ]]; then
     fi
 fi
 
+if  [[ $1 = "rialto" ]]; then
+    buildrialto=true
+    shift
+fi
+
 echo "Ver=$aamposxinstallerver"
 
-#Optional Command-line support for -b <aamp code branch> and -d <build directory> 
-while getopts ":d:b:cf:n" opt; do
+# Parse optiona command line parameters
+while getopts ":d:b:cf:np:r:" opt; do
   case ${opt} in
     d ) # process option d install base directory name
 	builddir=${OPTARG}
@@ -338,11 +346,32 @@ while getopts ":d:b:cf:n" opt; do
         dontrunaampcli=true
         echo "Skip AAMPCli : ${dontrunaampcli}"
         ;;
-    * ) echo "Usage: $0 [subtec [clean]] [-b aamp branch name] [-d local setup directory name] [-f compiler flags] [-n]"
+    r )
+        rialtoreference=${OPTARG}
+    	echo "rialto tag : ${rialtoreference}"
+        ;;
+    p )
+        protobufreference=${OPTARG}
+    	echo "protobuf branch : ${protobufreference}"
+        ;;
+    * )
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            echo "Usage: $0 [subtec [clean]] [-b aamp branch name] [-d local setup directory name] [-f compiler flags] [-n]"
+        else
+            echo "Usage: $0 [subtec [clean]] [rialto [-r rialto tag] [-p protobuf branch name]]"
+            echo "                       [-b aamp branch name] [-d local setup directory name]"
+            echo "                       [-f compiler flags]"
+        fi
         echo
-        echo "Note:  Subtec is built by default but can be rebuilt separately with the subtec option "
-        echo "       ('clean' will delete the subtec source and reinstall before building):"
+        echo "Note:  Subtec is built by default but can be rebuilt separately with the subtec"
+        echo "       option ('clean' will delete the subtec source and reinstall before"
+        echo "       building):"
         echo "             ./install-aamp [subtec [clean]] [-b branch] [-d directory]"
+        if [[ "$OSTYPE" != "darwin"* ]]; then
+            echo
+            echo "       Rialto is built with the 'rialto' option. Use '-r' to set the rialto tag, "
+            echo "       '-p' to set the Protobuf branch used for Rialto."
+        fi
         exit
       ;;
   esac
@@ -674,7 +703,14 @@ elif [[ "$OSTYPE" == "linux"* ]]; then
 
     #cat ../../../aampmetrics.patch > patches/aampmetrics.patch
     source install-linux-deps.sh
-    source install-linux.sh -b $codebranch -g $googletestreference
+
+    if [ $buildrialto = true ]; then
+        echo "Installing linux with rialto"
+        source install-linux.sh rialto -b $codebranch -g $googletestreference -p $protobufreference -r $rialtoreference
+    else
+        echo "Installing linux without rialto"
+        source install-linux.sh -b $codebranch -g $googletestreference
+    fi
 
     cd ../
     echo "Building aamp-cli..."

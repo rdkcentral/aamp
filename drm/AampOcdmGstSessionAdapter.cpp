@@ -367,6 +367,9 @@ int AAMPOCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, c
 			return HDCP_COMPLIANCE_CHECK_FAILURE;
 		}
 		pthread_mutex_lock(&decryptMutex);
+#ifdef USE_RIALTO_OCDM
+		AAMPLOG_ERR("opencdm_session_decrypt not implemented");
+#else
 		start_decrypt_time = GetCurrentTimeStampInMSec();
 		EncryptionScheme encScheme = AesCtr_Cenc;
 		EncryptionPattern pattern = {0};
@@ -395,6 +398,7 @@ int AAMPOCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, c
 				retValue = HDCP_COMPLIANCE_CHECK_FAILURE;
 			}
 		}
+#endif /* USE_RIALTO_OCDM */
 
 		pthread_mutex_unlock(&decryptMutex);
 	}

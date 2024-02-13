@@ -140,10 +140,15 @@ void AAMPOCDMSessionAdapter::generateAampDRMSession(const uint8_t *f_pbInitData,
 		const unsigned char *customDataMessage = customData.empty() ? nullptr:reinterpret_cast<const unsigned char *>(customData.c_str()) ;
 		const uint16_t customDataMessageLength = customData.length();
 		AAMPLOG_INFO("data length : %d: ", customDataMessageLength);
-#ifdef USE_THUNDER_OCDM_API_0_2
-	OpenCDMError ocdmRet = opencdm_construct_session(m_pOpenCDMSystem, LicenseType::Temporary, "video/mp4",
+#ifdef USE_RIALTO_OCDM
+		const char *initDataType = "cenc";
 #else
-    OpenCDMError ocdmRet = opencdm_construct_session(m_pOpenCDMSystem, m_keySystem.c_str(), LicenseType::Temporary, "video/mp4",
+		const char *initDataType = "video/mp4";
+#endif
+#ifdef USE_THUNDER_OCDM_API_0_2
+	OpenCDMError ocdmRet = opencdm_construct_session(m_pOpenCDMSystem, LicenseType::Temporary, initDataType,
+#else
+    OpenCDMError ocdmRet = opencdm_construct_session(m_pOpenCDMSystem, m_keySystem.c_str(), LicenseType::Temporary, initDataType,
 #endif
 
 				  const_cast<unsigned char*>(f_pbInitData), f_cbInitData,

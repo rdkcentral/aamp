@@ -33,5 +33,14 @@ function do_clone_rdk_repo() {
     return 0
 }
 
-
-
+# do_clone_github_repo <repo> <dir> [...]
+# Clone a repo from github into a directory
+# If the destination <dir> already exists then skip the clone
+function do_clone_github_repo() {
+    if [ -d $2 ]; then
+        echo "Repo in '$2' already exists"
+        return 1
+    else
+        do_clone "$@"
+    fi
+}

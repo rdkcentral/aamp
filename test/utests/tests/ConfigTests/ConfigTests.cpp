@@ -950,6 +950,14 @@ TEST_F(AampConfigTests, RestoreConfiguration)
 	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_TraceLogging, true);
 	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(eLOGLEVEL_TRACE));
 	aampConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING, mLogObj);
+
+	bool bResult = aampConfig.GetConfigValue(eAAMPConfig_useRialtoSink);
+	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_useRialtoSink, false);
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useRialtoSink), false);
+	aampConfig.SetConfigValue(AAMP_STREAM_SETTING, eAAMPConfig_useRialtoSink, true);
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useRialtoSink), true);
+	aampConfig.RestoreConfiguration(AAMP_STREAM_SETTING, mLogObj);
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useRialtoSink), false) << "Failed to restore previous owner's setting";
 }
 
 TEST_F(AampConfigTests, DoCustomSetting)
@@ -984,6 +992,7 @@ TEST_F(AampConfigTests, IsConfigSetNoInitialize)
 	ASSERT_EQ(false, mAampConfig->IsConfigSet(eAAMPConfig_TraceLogging));
 	ASSERT_EQ(false, mAampConfig->IsConfigSet(eAAMPConfig_InfoLogging));
 	ASSERT_EQ(false, mAampConfig->IsConfigSet(eAAMPConfig_WarnLogging));
+	ASSERT_EQ(false, mAampConfig->IsConfigSet(eAAMPConfig_useRialtoSink));
 }
 
 /*
@@ -997,6 +1006,7 @@ TEST_F(AampConfigTests, IsConfigSetDefault)
 	ASSERT_EQ(false, mAampConfig->IsConfigSet(eAAMPConfig_TraceLogging));
 	ASSERT_EQ(false, mAampConfig->IsConfigSet(eAAMPConfig_InfoLogging));
 	ASSERT_EQ(true, mAampConfig->IsConfigSet(eAAMPConfig_WarnLogging));
+	ASSERT_EQ(false, mAampConfig->IsConfigSet(eAAMPConfig_useRialtoSink));
 }
 
 /*
@@ -1008,6 +1018,7 @@ TEST_F(AampConfigTests, GetConfigValueNoInitialize)
 	ASSERT_EQ(false, mAampConfig->GetConfigValue(eAAMPConfig_TraceLogging));
 	ASSERT_EQ(false, mAampConfig->GetConfigValue(eAAMPConfig_InfoLogging));
 	ASSERT_EQ(false, mAampConfig->GetConfigValue(eAAMPConfig_WarnLogging));
+	ASSERT_EQ(false, mAampConfig->GetConfigValue(eAAMPConfig_useRialtoSink));
 
 	ASSERT_EQ("", mAampConfig->GetConfigValue(eAAMPConfig_LogLevel));
 }
@@ -1023,6 +1034,7 @@ TEST_F(AampConfigTests, GetConfigValueDefault)
 	ASSERT_EQ(false, mAampConfig->GetConfigValue(eAAMPConfig_TraceLogging));
 	ASSERT_EQ(false, mAampConfig->GetConfigValue(eAAMPConfig_InfoLogging));
 	ASSERT_EQ(true, mAampConfig->GetConfigValue(eAAMPConfig_WarnLogging));
+	ASSERT_EQ(false, mAampConfig->GetConfigValue(eAAMPConfig_useRialtoSink));
 
 	ASSERT_EQ("", mAampConfig->GetConfigValue(eAAMPConfig_LogLevel));
 }
