@@ -399,12 +399,10 @@ static void ParseTileInfCallback(char *attrName, char *delimEqual, char *fin, vo
 	if (AttributeNameMatch(attrName, "LAYOUT"))
 	{
 		sscanf(valuePtr, "%dx%d", &var->numCols, &var->numRows);
-		traceprintf("In rows:%d cols:%d",var->numRows, var->numCols);
 	}
 	else if (AttributeNameMatch(attrName, "DURATION"))
 	{
 		var->posterDuration = atof(valuePtr);
-		traceprintf("In duration:%f",var->duration);
 	}
 }
 

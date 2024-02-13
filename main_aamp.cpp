@@ -136,6 +136,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	if(gpGlobalConfig == NULL)
 	{
 		gpGlobalConfig =  new AampConfig();
+		::mLogObj = gpGlobalConfig->GetLoggerInstance();
 
 		// Init the default values
 		gpGlobalConfig->Initialize();
@@ -151,7 +152,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		gpGlobalConfig->ReadOperatorConfiguration();		
 		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();
-		::mLogObj = gpGlobalConfig->GetLoggerInstance();
 	}
 #ifdef SUPPORT_JS_EVENTS
 #ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so

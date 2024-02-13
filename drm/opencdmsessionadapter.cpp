@@ -108,7 +108,6 @@ void AAMPOCDMSessionAdapter::generateAampDRMSession(const uint8_t *f_pbInitData,
 	AAMPLOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 
 	pthread_mutex_lock(&decryptMutex);
-
 	if (m_pOpenCDMSystem == nullptr)
 	{
 		AAMPLOG_WARN("OpenCDM system not present, unable to generate DRM session");
@@ -121,7 +120,8 @@ void AAMPOCDMSessionAdapter::generateAampDRMSession(const uint8_t *f_pbInitData,
 		m_OCDMSessionCallbacks.process_challenge_callback = [](OpenCDMSession* session, void* userData, const char destUrl[], const uint8_t challenge[], const uint16_t challengeSize) {
 			AAMPOCDMSessionAdapter* userSession = reinterpret_cast<AAMPOCDMSessionAdapter*>(userData);
 			userSession->timeBeforeCallback = ((aamp_GetCurrentTimeMS())-(userSession->timeBeforeCallback));
-			AAMPLOG_OBJ_WARN(userSession->mLogObj, "Duration for process_challenge_callback %lld",(userSession->timeBeforeCallback));
+			auto mLogObj = userSession->mLogObj;
+			AAMPLOG_WARN( "Duration for process_challenge_callback %lld",(userSession->timeBeforeCallback));
 			userSession->processOCDMChallenge(destUrl, challenge, challengeSize);
 		};
 

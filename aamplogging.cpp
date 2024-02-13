@@ -107,7 +107,7 @@ void AampLogManager::LogNetworkLatency(const char* url, int downloadTime, int do
 
 	ParseContentUrl(url, contentType, location, symptom, type);
 
-	AAMPLOG(this, eLOGLEVEL_WARN, "WARN", "AAMPLogNetworkLatency downloadTime=%d downloadThreshold=%d type='%s' location='%s' symptom='%s' url='%s'",
+	AAMPLOG(this, eLOGLEVEL_WARN, "AAMPLogNetworkLatency downloadTime=%d downloadThreshold=%d type='%s' location='%s' symptom='%s' url='%s'",
 		downloadTime, downloadThresholdTimeoutMs, contentType.c_str(), location.c_str(), symptom.c_str(), url);
 }
 
@@ -128,7 +128,7 @@ void AampLogManager::LogNetworkError(const char* url, AAMPNetworkErrorType error
 		{
 			if(errorCode >= 400)
 			{
-				AAMPLOG(this, eLOGLEVEL_ERROR, "ERROR", "AAMPLogNetworkError error='http error %d' type='%s' location='%s' symptom='%s' url='%s'",
+				AAMPLOG(this, eLOGLEVEL_ERROR, "AAMPLogNetworkError error='http error %d' type='%s' location='%s' symptom='%s' url='%s'",
 					errorCode, contentType.c_str(), location.c_str(), symptom.c_str(), url );
 			}
 		}
@@ -138,7 +138,7 @@ void AampLogManager::LogNetworkError(const char* url, AAMPNetworkErrorType error
 		{
 			if(errorCode > 0)
 			{
-				AAMPLOG(this, eLOGLEVEL_ERROR, "ERROR", "AAMPLogNetworkError error='timeout %d' type='%s' location='%s' symptom='%s' url='%s'",
+				AAMPLOG(this, eLOGLEVEL_ERROR, "AAMPLogNetworkError error='timeout %d' type='%s' location='%s' symptom='%s' url='%s'",
 					errorCode, contentType.c_str(), location.c_str(), symptom.c_str(), url );
 			}
 		}
@@ -148,7 +148,7 @@ void AampLogManager::LogNetworkError(const char* url, AAMPNetworkErrorType error
 		{
 			if(errorCode > 0)
 			{
-				AAMPLOG(this, eLOGLEVEL_ERROR, "ERROR", "AAMPLogNetworkError error='curl error %d' type='%s' location='%s' symptom='%s' url='%s'",
+				AAMPLOG(this, eLOGLEVEL_ERROR, "AAMPLogNetworkError error='curl error %d' type='%s' location='%s' symptom='%s' url='%s'",
 					errorCode, contentType.c_str(), location.c_str(), symptom.c_str(), url );
 			}
 		}
@@ -343,7 +343,7 @@ void AampLogManager::LogDRMError(int major, int minor)
 		description = "Unrecognized error. Please report this to the STB IP-Video team.";
 	}
 
-	AAMPLOG(this, eLOGLEVEL_ERROR, "ERROR", "AAMPLogDRMError error=%d.%d description='%s'", major, minor, description.c_str());
+	AAMPLOG(this, eLOGLEVEL_ERROR, "AAMPLogDRMError error=%d.%d description='%s'", major, minor, description.c_str());
 }
 
 /**
@@ -402,7 +402,7 @@ void AampLogManager::LogABRInfo(AAMPAbrInfo *pstAbrInfo)
 			symptom += " (or) freeze/buffering";
 		}
 
-		AAMPLOG(this, eLOGLEVEL_WARN, "WARN", "AAMPLogABRInfo : switching to '%s' profile '%d -> %d' currentBandwidth[%ld]->desiredBandwidth[%ld] nwBandwidth[%ld] reason='%s' symptom='%s'",
+		AAMPLOG(this, eLOGLEVEL_WARN, "AAMPLogABRInfo : switching to '%s' profile '%d -> %d' currentBandwidth[%ld]->desiredBandwidth[%ld] nwBandwidth[%ld] reason='%s' symptom='%s'",
 			profile.c_str(), pstAbrInfo->currentProfileIndex, pstAbrInfo->desiredProfileIndex, pstAbrInfo->currentBandwidth,
 			pstAbrInfo->desiredBandwidth, pstAbrInfo->networkBandwidth, reason.c_str(), symptom.c_str());
 	}
@@ -442,15 +442,27 @@ void logprintline(FILE *f, struct timeval t, const char* printBuffer)
 /**
  * @brief Print logs to console / log file
  */
-void logprintf(int playerId, const char* levelstr, const char* file, int line, const char *format, ...)
+void logprintf(int playerId, AAMP_LogLevel logLevelIndex, const char* file, int line, const char *format, ...)
 {
+	static const char *mLogLevelStr[NUM_AAMP_LOG_LEVELS] =
+	{
+		"TRACE", // eLOGLEVEL_TRACE
+		"DEBUG", // eLOGLEVEL_DEBUG
+		"INFO",  // eLOGLEVEL_INFO
+		"WARN",  // eLOGLEVEL_WARN
+		"MIL",   // eLOGLEVEL_MIL
+		"ERROR", // eLOGLEVEL_ERROR
+	};
+	// logLevelIndex is enum, so lookup in mLogLevelStr should always be safe, but we include sanity check for good measure
+	const char *logLevelName = (logLevelIndex<ARRAY_SIZE(mLogLevelStr))?mLogLevelStr[logLevelIndex]:"?";
+	
+	
 	va_list args;
 	va_start(args, format);
 	char gDebugPrintBuffer[MAX_DEBUG_LOG_BUFF_SIZE];
 	std::ostringstream ossthread;
 	ossthread << std::this_thread::get_id();
-	int len_header = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer), "[AAMP-PLAYER][%d][%s][%s][%s][%d]",
-					playerId, levelstr, ossthread.str().c_str(), file, line);
+	int len_header = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer), "[AAMP-PLAYER][%d][%s][%s][%s][%d]", playerId, logLevelName, ossthread.str().c_str(), file, line);
 	int len_message = 0;
 	if (len_header >= sizeof(gDebugPrintBuffer))
 	{

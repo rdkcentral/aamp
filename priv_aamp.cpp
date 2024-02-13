@@ -4276,7 +4276,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 						// example 18(0) if connection failure with PARTIAL_FILE code
 						timeoutClass = "(" + to_string(reqSize > 0) + ")";
 					}
-					AAMPLOG(mLogObj, reqEndLogLevel, "WARN", "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s%c%s",
+					AAMPLOG(mLogObj, reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s%c%s",
 							appName.c_str(), mediaType, fileType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize,downloadbps,
 							(((fileType == eMEDIATYPE_VIDEO) || (fileType == eMEDIATYPE_INIT_VIDEO) || (fileType == eMEDIATYPE_PLAYLIST_VIDEO)) ? mpStreamAbstractionAAMP->GetVideoBitrate() : 0), // Video fragment current bitrate
 							((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
@@ -5210,13 +5210,13 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		{
 			if(retVal == eAAMPSTATUS_FAKE_TUNE_COMPLETE)
 			{
-				AAMPLOG(mLogObj, eLOGLEVEL_FATAL, "FATAL", "Fake tune completed");
+				AAMPLOG_MIL( "Fake tune completed");
 			}
 			else
 			{
 				SetState(eSTATE_COMPLETE);
 				mEventManager->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS));
-				AAMPLOG(mLogObj, eLOGLEVEL_FATAL, "FATAL", "Stopping fake tune playback");
+				AAMPLOG_MIL( "Stopping fake tune playback");
 			}
 		}
 		else if (DownloadsAreEnabled())
@@ -5607,8 +5607,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mIsFakeTune = strcasestr(mainManifestUrl, "fakeTune=true");
 	if(mIsFakeTune)
 	{
-		mConfig->logging.setLogLevel(eLOGLEVEL_FATAL);
-		gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_FATAL);
+		mConfig->logging.setLogLevel(eLOGLEVEL_ERROR);
+		gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_ERROR);
 	}
 	mEventManager->SetFakeTuneFlag(mIsFakeTune);
 

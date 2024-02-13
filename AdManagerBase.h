@@ -27,6 +27,7 @@
 #define ADMANAGERBASE_H_
 
 #include "priv_aamp.h"
+#include "AampLogManager.h"
 
 /**
  * @enum AdState

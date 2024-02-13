@@ -34,34 +34,25 @@
 /*================================== AAMP Log Manager =========================================*/
 
 /**
- * @brief Direct call for trace printf, can be enabled b defining TRACE here
- */
-#ifdef TRACE
-#define traceprintf printf
-#else
-#define traceprintf(FORMAT, ...)
-#endif
-
-/**
- * @brief Macro for validating the log level to be enabled
+ * @brief convenience macro for logging framework
  *
- * if mConfig or gpGlobalConfig is not initialized, skip logging
- * if mconfig or gpGlobalConfig is initialized,  check the LogLevel
+ * @param MYLOGOBJ  picks up local or global mLogObj pointer.
+ * In most cases, we end up with the mLogObj pointer for the player-instance-specific variant having valid playerId
+ * If not available, automatically falls back to global mLogObj with default playerId -1
+ * in the unlikely event that global mLogObj is null, nothing will be logged
+ *
+ * @param level gives priority for the logging, which is filtered via isLogLevelAlloed
+ * This parameter also is used as indirection to get a human readable for log level name i.e. "INFO" "WARN"
+ *
+ * @param FORMAT is standard printf style format string followed by arguments
  */
-#define AAMPLOG( MYLOGOBJ, LEVEL, LEVELSTR, FORMAT, ... ) \
+#define AAMPLOG( MYLOGOBJ, LEVEL, FORMAT, ... ) \
 do { \
-	int PLAYERID; \
-	if( MYLOGOBJ ) \
-	{ \
-		if( !MYLOGOBJ->isLogLevelAllowed(LEVEL) ) break; \
-		PLAYERID = MYLOGOBJ->getPlayerId(); \
+	if( MYLOGOBJ ) { \
+		if( MYLOGOBJ->isLogLevelAllowed(LEVEL) ) { \
+			logprintf( MYLOGOBJ->getPlayerId(), LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
+		} \
 	} \
-	else \
-	{ \
-		if( !gpGlobalConfig->logging.isLogLevelAllowed(LEVEL) ) break; \
-		PLAYERID = -1; \
-	} \
-	logprintf( PLAYERID, LEVELSTR, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
 } while(0)
 
 /**
@@ -69,35 +60,24 @@ do { \
  */
 #define AAMP_LOG_NETWORK_LATENCY	mLogObj->LogNetworkLatency
 #define AAMP_LOG_NETWORK_ERROR		mLogObj->LogNetworkError
-#define AAMP_LOG_DRM_ERROR		gpGlobalConfig->logging.LogDRMError
-#define AAMP_LOG_ABR_INFO		mLogObj->LogABRInfo
+#define AAMP_LOG_DRM_ERROR			gpGlobalConfig->logging.LogDRMError
+#define AAMP_LOG_ABR_INFO			mLogObj->LogABRInfo
 #define AAMP_IS_LOG_WORTHY_ERROR	mLogObj->isLogworthyErrorCode
 
 #define AAMPLOG_FAILOVER(FORMAT, ...) \
 		if (mLogObj && mLogObj->failover) { \
-				logprintf(mLogObj->getPlayerId(), "FAILOVER",__FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
+				logprintf(mLogObj->getPlayerId(), eLOGLEVEL_WARN, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
 		}
 
 /**
  * @brief AAMP logging defines, this can be enabled through setLogLevel() as per the need
  */
-#define AAMPLOG_TRACE(FORMAT, ...) AAMPLOG(mLogObj,eLOGLEVEL_TRACE, "TRACE", FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_DEBUG(FORMAT, ...) AAMPLOG(mLogObj,eLOGLEVEL_DEBUG, "DEBUG", FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_INFO(FORMAT, ...) AAMPLOG(mLogObj,eLOGLEVEL_INFO, "INFO", FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_WARN(FORMAT, ...) AAMPLOG(mLogObj,eLOGLEVEL_WARN, "WARN", FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_MIL(FORMAT, ...) AAMPLOG(mLogObj,eLOGLEVEL_MIL, "MIL", FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_ERR(FORMAT, ...) AAMPLOG(mLogObj,eLOGLEVEL_ERROR, "ERROR", FORMAT, ##__VA_ARGS__)
-
-/**
- * @brief AAMP logging defines specifying the log obj
- */
-#define AAMPLOG_OBJ_TRACE(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_TRACE, "TRACE", FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_OBJ_DEBUG(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_DEBUG, "DEBUG", FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_OBJ_INFO(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_INFO, "INFO", FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_OBJ_WARN(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_WARN, "WARN", FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_OBJ_MIL(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_MIL, "MIL", FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_OBJ_ERR(OBJ, FORMAT, ...) AAMPLOG(OBJ, eLOGLEVEL_ERROR, "ERROR", FORMAT, ##__VA_ARGS__)
-
+#define AAMPLOG_TRACE(FORMAT, ...) AAMPLOG(mLogObj, eLOGLEVEL_TRACE, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_DEBUG(FORMAT, ...) AAMPLOG(mLogObj, eLOGLEVEL_DEBUG, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_INFO(FORMAT, ...)  AAMPLOG(mLogObj, eLOGLEVEL_INFO, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_WARN(FORMAT, ...)  AAMPLOG(mLogObj, eLOGLEVEL_WARN, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_MIL(FORMAT, ...)   AAMPLOG(mLogObj, eLOGLEVEL_MIL, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_ERR(FORMAT, ...)   AAMPLOG(mLogObj, eLOGLEVEL_ERROR, FORMAT, ##__VA_ARGS__)
 
 /**
  * @brief maximum supported mediatype for latency logging
@@ -115,8 +95,8 @@ enum AAMP_LogLevel
 	eLOGLEVEL_WARN,     /**< Warn level */
 	eLOGLEVEL_MIL,      /**< Milestone level */
 	eLOGLEVEL_ERROR,    /**< Error level */
-	eLOGLEVEL_FATAL     /**< Fatal log level */
 };
+#define NUM_AAMP_LOG_LEVELS (eLOGLEVEL_ERROR+1)
 
 /**
  * @brief Log level network error enum
@@ -306,7 +286,7 @@ extern AampLogManager *mLogObj;
  * @param[in] format - printf style string
  * @return void
  */
-extern void logprintf(int playerId,const char* levelstr,const char* file, int line,const char *format, ...)  __attribute__ ((format (printf, 5, 6)));;
+extern void logprintf(int playerId, AAMP_LogLevel level, const char* file, int line,const char *format, ...)  __attribute__ ((format (printf, 5, 6)));;
 
 /**
  * @fn DumpBlob
