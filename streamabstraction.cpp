@@ -1510,6 +1510,16 @@ void MediaTrack::FlushFragments()
 	totalInjectedDuration = 0;
 }
 
+ /**
+ *  @brief ResetTrackDuration resets track duration based on new playtarget found
+ *  Currently intended for use on seamless audio track change
+ */
+void MediaTrack::ResetTrackDuration(double duration)
+{
+	totalFetchedDuration = duration;
+	totalInjectedDuration = duration;
+	totalFragmentsDownloaded = duration / fragmentDurationSeconds; 
+}
 /**
  *  @brief Flushes all cached fragment Chunks
  */

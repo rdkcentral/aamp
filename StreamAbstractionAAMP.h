@@ -596,6 +596,10 @@ public:
 	 * @brief To Load New Audio on seamless audio switch 
 	 */
 	void LoadNewAudio(bool val);
+	/**
+	 * @brief To Reset Track's Fetch and Inject duration after clearing buffer fragments 
+	 */
+	void ResetTrackDuration(double duration);
 
 protected:
 

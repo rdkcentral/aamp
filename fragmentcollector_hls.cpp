@@ -2897,8 +2897,8 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 				return;
 			}
 			manifestDLFailCount++;
-
-			if(fragmentURI == NULL && (manifestDLFailCount > MAX_MANIFEST_DOWNLOAD_RETRY))//No more fragments to download
+			//Send Error Event when new audio playlist fails after audio track change on seamlessAudioSwitch
+			if((fragmentURI == NULL && (manifestDLFailCount > MAX_MANIFEST_DOWNLOAD_RETRY)) || (refreshAudio && loadNewAudio))//No more fragments to download
 			{
 				aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
 				return;
@@ -7578,7 +7578,9 @@ void TrackState::SwitchAudioTrack()
 		FlushFragments();
 		context->ReassessAndResumeAudioTrack(true);
 		context->ConfigureAudioTrack();
-		context->PopulateAudioAndTextTracks();
+		//Update audio track index and notify based on new track configured in ConfigureAudioTrack, Populating AudioandTextTracks will again append to the older vector
+		aamp->mCurrentAudioTrackIndex = context->currentAudioProfileIndex;
+		aamp->NotifyAudioTracksChanged();
 		aamp_ResolveURL(mPlaylistUrl, aamp->GetManifestUrl(), context->GetPlaylistURI(type),ISCONFIGSET(eAAMPConfig_PropogateURIParam));
 		mInjectInitFragment = true;
 		if(aamp->IsLive())
@@ -7593,19 +7595,40 @@ void TrackState::SwitchAudioTrack()
 		{
 			PlaylistDownloader();
 		}
-		double gstSeek = aamp->GetPositionSeconds() - aamp->culledSeconds;
+		//Abort the playback when new audio playlist download fails as we do in InitTracks, to avoid continuing with older audio
+		if(!context->aamp->DownloadsAreEnabled())
+		{
+			NotifyCachedAudioFragmentAvailable();
+			pthread_mutex_unlock(&mutex);
+			return;
+		}
+		double gstSeek = aamp->GetPositionSeconds();
+		TrackState *other = context->trackState[eTRACK_VIDEO];
+		if(other && other->enabled)
+		{
+			other->AcquirePlaylistLock();
+			double delta = mProgramDateTime - other->mProgramDateTime;
+			gstSeek = gstSeek - (aamp->culledSeconds + delta);
+			other->ReleasePlaylistLock();
+                }
+		else
+		{
+			gstSeek = gstSeek - aamp->culledSeconds;
+                }
 		if(gstSeek < 0)
 		{
-			gstSeek = aamp->GetPositionSeconds();
+			gstSeek = 0;
 		}
+		AAMPLOG_WARN("Updated gstSeek %lf to find new playTarget", gstSeek);
 		playTarget = gstSeek;
 		bool reloadUri = false;
 		AcquirePlaylistLock();
 		fragmentURI = GetNextFragmentUriFromPlaylist(reloadUri, true);
 		ReleasePlaylistLock();
                 playTarget = playlistPosition;
-                playTargetBufferCalc = playTarget;
-                context->SeekPosUpdate(gstSeek);
+		playTargetBufferCalc = playTarget;
+		ResetTrackDuration(playTarget);
+		context->SeekPosUpdate(gstSeek);
 		pthread_mutex_unlock(&mutex);
 	}
 }
