@@ -62,7 +62,7 @@
  * Variable initialization for various audio formats
  * There are no registered codecs parameters for mp1, mp2, mp3, mpg, mpeg
  */
-const FormatMap mAudioFormatMap[] =
+static const FormatMap mAudioFormatMap[] =
 {
 	{ "mp4a.40.2", FORMAT_AUDIO_ES_AAC },
 	{ "mp4a.40.5", FORMAT_AUDIO_ES_AAC },
@@ -79,7 +79,7 @@ const FormatMap mAudioFormatMap[] =
 /*
  * Variable initialization for various video formats
  */
-const FormatMap mVideoFormatMap[] =
+static const FormatMap mVideoFormatMap[] =
 {
 	{ "avc1.", FORMAT_VIDEO_ES_H264 },
 	{ "hvc1.", FORMAT_VIDEO_ES_HEVC },

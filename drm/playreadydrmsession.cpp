@@ -41,7 +41,7 @@ DRM_RESULT dr;
 
 // The default location of CDM DRM store.
 // /opt/drm/playready/drmstore.dat
-const DRM_WCHAR g_rgwchCDMDrmStoreName[] =
+static const DRM_WCHAR g_rgwchCDMDrmStoreName[] =
 { WCHAR_CAST('/'), WCHAR_CAST('o'), WCHAR_CAST('p'), WCHAR_CAST('t'),
 		WCHAR_CAST('/'), WCHAR_CAST('d'), WCHAR_CAST('r'), WCHAR_CAST('m'),
 		WCHAR_CAST('/'), WCHAR_CAST('p'), WCHAR_CAST('l'), WCHAR_CAST('a'),
@@ -52,17 +52,17 @@ const DRM_WCHAR g_rgwchCDMDrmStoreName[] =
 		WCHAR_CAST('d'), WCHAR_CAST('a'), WCHAR_CAST('t'), WCHAR_CAST('\0') };
 // default PR DRM path
 // /opt/drm/playready
-const DRM_WCHAR g_rgwchCDMDrmPath[] =
+static const DRM_WCHAR g_rgwchCDMDrmPath[] =
 { WCHAR_CAST('/'), WCHAR_CAST('o'), WCHAR_CAST('p'), WCHAR_CAST('t'),
 		WCHAR_CAST('/'), WCHAR_CAST('d'), WCHAR_CAST('r'), WCHAR_CAST('m'),
 		WCHAR_CAST('/'), WCHAR_CAST('p'), WCHAR_CAST('l'), WCHAR_CAST('a'),
 		WCHAR_CAST('y'), WCHAR_CAST('r'), WCHAR_CAST('e'), WCHAR_CAST('a'),
 		WCHAR_CAST('d'), WCHAR_CAST('y'), WCHAR_CAST('\0') };
 
-const DRM_CONST_STRING g_dstChainTitle = CREATE_DRM_STRING(
+static const DRM_CONST_STRING g_dstChainTitle = CREATE_DRM_STRING(
 		g_rgwchCDMDrmStoreName);
-const DRM_CONST_STRING g_dstrCDMDrmPath = CREATE_DRM_STRING(g_rgwchCDMDrmPath);
-const DRM_CONST_STRING *g_rgpdstrRights[1] =
+static const DRM_CONST_STRING g_dstrCDMDrmPath = CREATE_DRM_STRING(g_rgwchCDMDrmPath);
+static const DRM_CONST_STRING *g_rgpdstrRights[1] =
 { &g_dstrWMDRM_RIGHT_PLAYBACK };
 
 

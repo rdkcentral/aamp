@@ -770,7 +770,7 @@ public:
 	{
 		size_t cmdLen = strlen(cmdBuf);
 		bool isTuneScheme = false;
-		const char *protocol[] = { "http:","https:","live:","hdmiin:","file:","mr:","tune:" };
+		static const char *protocol[]  = { "http:","https:","live:","hdmiin:","file:","mr:","tune:" };
 		for( int i=0; i<sizeof(protocol)/sizeof(protocol[0]); i++ )
 		{
 			size_t protocolLen = strlen(protocol[i]);

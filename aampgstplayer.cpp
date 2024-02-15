@@ -338,7 +338,7 @@ static void type_check_instance( const char * str, GstElement * elem);
 static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState targetState);
 
 #define PLUGINS_TO_LOWER_RANK_MAX    2
-const char *plugins_to_lower_rank[PLUGINS_TO_LOWER_RANK_MAX] = {
+static const char *plugins_to_lower_rank[PLUGINS_TO_LOWER_RANK_MAX] = {
 	"aacparse",
 	"ac3parse",
 };

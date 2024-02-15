@@ -924,7 +924,7 @@ typedef struct
 	const char *language;
 } PeriodInfo;
 
-const PeriodInfo mPeriodInfo[] =
+static const PeriodInfo mPeriodInfo[] =
 {
 	{ 10, 5, eVIDEORESOLUTION_720P,  "fr" },
 	{  0, 2, eVIDEORESOLUTION_360P,  "es" },
