@@ -224,6 +224,16 @@ public:
 		mpStreamAbstractionAAMP->GetAvailableTextTracks(true);
 		GetAvailableAudioTracks(true);
 	}
+
+    std::unordered_map<std::string, std::vector<std::string>> GetCustomHeaders()
+    {
+        return mCustomHeaders;
+    }
+    std::unordered_map<std::string, std::vector<std::string>> GetCustomLicenseHeaders()
+    {
+        return mCustomLicenseHeaders;
+    }
+        
 };
     TestablePrivAamp *testp_aamp{nullptr};
 };
@@ -401,6 +411,54 @@ TEST_F(PrivAampPrivTests,UpdatePTSOffsetFromTuneTest_1)
     double value = 19.0988;
     bool is_set = false;
     testp_aamp->callUpdatePTSOffsetFromTune(value,is_set);
+}
+
+TEST_F(PrivAampPrivTests,RemoveCustomHTTPHeaderTest)
+{
+    std::vector<std::string> headerValue;
+    headerValue.push_back("sample");
+    headerValue.push_back("sample:text");
+    headerValue.push_back("");
+    headerValue.push_back("sampletext&&&&S&&&&&&&&&&&&&&&&&&*&&&&&&&&&&&&&&&&&&&&&&&@$#^^^^^^^^^^^^^^^^^^^^^^^");
+ 
+    std::unordered_map<std::string, std::vector<std::string>> result;
+    
+    // Check is in License, but not Custom header
+    testp_aamp->AddCustomHTTPHeader("string:",headerValue,true);
+    
+    result = testp_aamp->GetCustomHeaders();
+    EXPECT_TRUE (result.find("string:") == result.end());
+    
+    result = testp_aamp->GetCustomLicenseHeaders();
+    EXPECT_FALSE (result.find("string:") == result.end());
+    
+    testp_aamp->AddCustomHTTPHeader("string:",headerValue,false);
+    
+    // See if present in both now
+    result = testp_aamp->GetCustomHeaders();
+    EXPECT_FALSE (result.find("string:") == result.end());
+    
+    result = testp_aamp->GetCustomLicenseHeaders();
+    EXPECT_FALSE (result.find("string:") == result.end());
+    
+    // Now remove it from License
+    headerValue.clear();
+    testp_aamp->AddCustomHTTPHeader("string:",headerValue,true);
+    
+    result = testp_aamp->GetCustomHeaders();
+    EXPECT_FALSE (result.find("string:") == result.end());
+    
+    result = testp_aamp->GetCustomLicenseHeaders();
+    EXPECT_TRUE (result.find("string:") == result.end());
+   
+    // Remove from Custom
+    testp_aamp->AddCustomHTTPHeader("string:",headerValue,false);
+    
+    result = testp_aamp->GetCustomHeaders();
+    EXPECT_TRUE (result.find("string:") == result.end());
+    
+    result = testp_aamp->GetCustomLicenseHeaders();
+    EXPECT_TRUE (result.find("string:") == result.end());
 }
 
 
