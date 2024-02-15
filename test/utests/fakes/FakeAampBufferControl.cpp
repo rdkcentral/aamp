@@ -46,10 +46,6 @@ void AampBufferControl::BufferControlMaster::enoughData(const AAMPGstPlayer *pla
 {
 }
 
-void AampBufferControl::BufferControlMaster::UpdateAll(const AAMPGstPlayer *player)
-{
-}
-
 void AampBufferControl::BufferControlMaster::underflow(const AAMPGstPlayer *player,
 													   const MediaType mediaType)
 {
@@ -70,6 +66,10 @@ void AampBufferControl::BufferControlMaster::notifyFragmentInject(const AAMPGstP
 {
 }
 
-void AampBufferControl::BufferControlMaster::ResetAll(AAMPGstPlayerPriv *player)
+void AampBufferControl::BufferControlMaster::update(const AAMPGstPlayer *player, const MediaType mediaType)
+{
+}
+
+void AampBufferControl::BufferControlMaster::flush()
 {
 }

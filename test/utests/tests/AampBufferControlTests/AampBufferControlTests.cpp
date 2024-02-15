@@ -519,8 +519,6 @@ TEST_F(BufferControlExternalDataTest, BufferControlTimeBasedupdateTest)
 {
     // Arrange: Creating the variables for passing to arguments
     AampBufferControl::BufferControlExternalData externalData(player, mediaType);
-    AampBufferControl::BufferControlExternalData::ExtraData ExtraDataObject;
-    ExtraDataObject.StreamReady = 1 ;
     auto extraData = mBufferControl->getExtraDataCache();
     extraData.StreamReady = 1;
 

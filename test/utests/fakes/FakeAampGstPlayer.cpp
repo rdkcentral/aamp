@@ -232,3 +232,7 @@ bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
 	}
 	return false;
 }
+
+void AAMPGstPlayer::GetBufferControlData(MediaType mediaType, BufferControlData &data) const
+{
+}

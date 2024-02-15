@@ -61,8 +61,18 @@ struct TaskControlData
  * @param[in] arg - Arguments
  * @return Idle task status
  */
-typedef int(*BackgroundTask)(void* arg);
+typedef int (*BackgroundTask)(void *arg);
 
+/**
+ * @struct BufferControlData
+ * @brief data needed for buffer control purposes
+ */
+struct BufferControlData
+{
+	bool StreamReady = false;
+	double ElapsedSeconds = 0;
+	bool GstWaitingForData = false;
+};
 
 /**
  * @class AAMPGstPlayer
@@ -467,6 +477,14 @@ public:
 	 */
 	void SignalSubtitleClock() override;
 
+/**
+	 * @fn GetBufferControlData
+	 * @brief Gets the data needed for buffer control purposes
+	 * @param[in] mediaType - Media stream type
+	 * @param[out] data - Data needed for buffer control
+	 */
+	void GetBufferControlData(MediaType mediaType, BufferControlData &data) const;
+
 private:
 	/**
      	 * @fn PauseAndFlush 
@@ -519,4 +537,3 @@ private:
 };
 
 #endif // AAMPGSTPLAYER_H
-

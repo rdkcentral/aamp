@@ -45,10 +45,7 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 set(TEST_SOURCES AampBufferControlTests.cpp
                 AampBufferControlAampTests.cpp)
 
-# The buffer control implementation is currently split between the files below
-set(AAMP_SOURCES ${AAMP_ROOT}/AampBufferControl.cpp
-                 ${AAMP_ROOT}/aampgstplayer.cpp
-                 )
+set(AAMP_SOURCES ${AAMP_ROOT}/AampBufferControl.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

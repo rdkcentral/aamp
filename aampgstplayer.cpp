@@ -54,7 +54,7 @@
 #endif
 
 /**
- * @enum GstPlayFlags 
+ * @enum GstPlayFlags
  * @brief Enum of configuration flags used by playbin
  */
 typedef enum {
@@ -102,12 +102,12 @@ typedef enum {
 
 /**
  * @name gmapDecoderLoookUptable
- * 
- * @brief Decoder map list lookup table 
- * convert from codec to string map list of gstreamer 
+ *
+ * @brief Decoder map list lookup table
+ * convert from codec to string map list of gstreamer
  * component.
  */
-static std::map <std::string, std::vector<std::string>> gmapDecoderLoookUptable = 
+static std::map <std::string, std::vector<std::string>> gmapDecoderLoookUptable =
 {
 	{"ac-3", {"omxac3dec", "avdec_ac3", "avdec_ac3_fixed"}},
 	{"ac-4", {"omxac4dec"}}
@@ -171,7 +171,7 @@ struct AAMPGstPlayerPriv
 	media_stream stream[AAMP_TRACK_COUNT];
 	GstElement *pipeline; 				/**< GstPipeline used for playback. */
 	GstBus *bus;					/**< Bus for receiving GstEvents from pipeline. */
-	int current_rate; 
+	int current_rate;
 	guint64 total_bytes;
 	gint n_audio; 					/**< Number of audio tracks. */
 	gint current_audio; 				/**< Offset of current audio track. */
@@ -233,7 +233,7 @@ struct AAMPGstPlayerPriv
 	int  NumberOfTracks;	      			/**< Indicates the number of tracks */
  	PlaybackQualityStruct playbackQuality;		/**< video playback quality info */
  	AAMPGstPlayerPriv() : pipeline(NULL), bus(NULL), current_rate(0),
-			total_bytes(0), n_audio(0), current_audio(0), 
+			total_bytes(0), n_audio(0), current_audio(0),
 			periodicProgressCallbackIdleTaskId(AAMP_TASK_ID_INVALID),
 			bufferingTimeoutTimerId(AAMP_TASK_ID_INVALID), video_dec(NULL), audio_dec(NULL),TaskControlMutex(),firstProgressCallbackIdleTask("FirstProgressCallback"),
 			video_sink(NULL), audio_sink(NULL), subtitle_sink(NULL),task_pool(NULL),
@@ -271,7 +271,7 @@ struct AAMPGstPlayerPriv
 			protectionEvent[i] = NULL;
 		}
 	}
-	
+
 	~AAMPGstPlayerPriv()
 	{
 		g_clear_object(&pipeline);
@@ -322,7 +322,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
  */
 static gboolean buffering_timeout (gpointer data);
 
-/** 
+/**
  * @brief check if elemement is instance (BCOM-3563)
  */
 static void type_check_instance( const char * str, GstElement * elem);
@@ -564,26 +564,24 @@ static void analyze_streams(AAMPGstPlayer *_this)
 #endif
 }
 
-static MediaType GetMediaTypeForSource(const GstElement *source,const AAMPGstPlayer * _this )
+static MediaType GetMediaTypeForSource(const GstElement *source, const AAMPGstPlayer *_this)
 {
-	if(source && _this && _this->privateContext )
+	if (source && _this)
 	{
-		for( int i=0; (i<AampBufferControl::BufferControlMaster::BUFFER_TRACK_COUNT); i++ )
+		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
 			/* eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_SUBTITLE, eMEDIATYPE_AUX_AUDIO */
-			MediaType mediaType = (MediaType)i;
-			if (source == _this->privateContext->stream[mediaType].source)
+			if (source == _this->privateContext->stream[i].source)
 			{
-				return mediaType;
+				return static_cast<MediaType>(i);
 			}
 		}
 
-		AAMPLOG_WARN( "unmapped source!" );
-
+		AAMPLOG_WARN("unmapped source!");
 	}
 	else
 	{
-		AAMPLOG_ERR( "Null check failed." );
+		AAMPLOG_ERR("Null check failed.");
 	}
 
 	return eMEDIATYPE_DEFAULT;
@@ -671,15 +669,15 @@ static GstPadProbeReturn AAMPGstPlayer_HandleInstantRateChangeSeekProbe(GstPad* 
 {
     GstEvent *event = GST_PAD_PROBE_INFO_EVENT(info);
     GstSegment *segment = reinterpret_cast<GstSegment*>(data);
-    
-    switch ( GST_EVENT_TYPE(event) ) 
+
+    switch ( GST_EVENT_TYPE(event) )
     {
     	case GST_EVENT_SEEK:
     	    break;
     	case  GST_EVENT_SEGMENT:
     	    gst_event_copy_segment(event, segment);
     	default:
-    	    AAMPLOG_INFO("In default case of  GST_EVENT_TYPE in padprobeReturn"); 
+    	    AAMPLOG_INFO("In default case of  GST_EVENT_TYPE in padprobeReturn");
             return GST_PAD_PROBE_OK;
     };
 
@@ -688,15 +686,15 @@ static GstPadProbeReturn AAMPGstPlayer_HandleInstantRateChangeSeekProbe(GstPad* 
     gst_event_parse_seek (event, &rate, nullptr, &flags, nullptr, nullptr, nullptr, nullptr);
     AAMPLOG_TRACE("rate %f segment->rate %f segment->format %d %d", rate, segment->rate, segment->format, GST_FORMAT_TIME);
 
-    if (!!(flags & GST_SEEK_FLAG_INSTANT_RATE_CHANGE)) 
+    if (!!(flags & GST_SEEK_FLAG_INSTANT_RATE_CHANGE))
     {
         gdouble rateMultiplier = rate / segment->rate;
         GstEvent *rateChangeEvent =
             gst_event_new_instant_rate_change(rateMultiplier, static_cast<GstSegmentFlags>(flags));
-        
+
         gst_event_set_seqnum (rateChangeEvent, gst_event_get_seqnum (event));
         GstPad *peerPad = gst_pad_get_peer(pad);
-        
+
         if ( gst_pad_send_event (peerPad, rateChangeEvent) != TRUE )
             GST_PAD_PROBE_INFO_FLOW_RETURN(info) = GST_FLOW_NOT_SUPPORTED;
 
@@ -902,7 +900,10 @@ static gboolean ProgressCallbackOnTimeout(gpointer user_data)
 	AAMPGstPlayer *_this = (AAMPGstPlayer *)user_data;
 	if (_this)
 	{
-		AampBufferControl::BufferControlMaster::UpdateAll(_this);
+		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
+		{
+			_this->privateContext->stream[i].mBufferControl.update(_this, static_cast<MediaType>(i));
+		}
 		_this->aamp->ReportProgress();
 		AAMPLOG_TRACE("current %d, stored %d ", g_source_get_id(g_main_current_source()), _this->privateContext->periodicProgressCallbackIdleTaskId);
 	}
@@ -997,7 +998,7 @@ void AAMPGstPlayer::NotifyFirstFrame(MediaType type)
 			privateContext->decoderHandleNotified = true;
 			privateContext->firstFrameCallbackIdleTaskPending = false;
 			privateContext->firstFrameCallbackIdleTaskId = aamp->ScheduleAsyncTask(IdleCallbackOnFirstFrame, (void *)this, "FirstFrameCallback");
-			// Wait for scheduler response , if failed to create task for wrong state , not to make pending flag as true 
+			// Wait for scheduler response , if failed to create task for wrong state , not to make pending flag as true
 			if(privateContext->firstFrameCallbackIdleTaskId != AAMP_TASK_ID_INVALID)
 			{
 				privateContext->firstFrameCallbackIdleTaskPending = true;
@@ -1005,7 +1006,7 @@ void AAMPGstPlayer::NotifyFirstFrame(MediaType type)
 		}
 		else if (PipelineSetToReady)
 		{
-			//If pipeline is set to ready forcefully due to change in track_id, then re-initialize CC 
+			//If pipeline is set to ready forcefully due to change in track_id, then re-initialize CC
 			aamp->InitializeCC();
 		}
 
@@ -1030,7 +1031,7 @@ void AAMPGstPlayer::NotifyFirstFrame(MediaType type)
 				privateContext->decoderHandleNotified = true;
 				privateContext->firstFrameCallbackIdleTaskPending = false;
 				privateContext->firstFrameCallbackIdleTaskId = aamp->ScheduleAsyncTask(IdleCallbackOnFirstFrame, (void *)this, "FirstFrameCallback");
-				// Wait for scheduler response , if failed to create task for wrong state , not to make pending flag as true 
+				// Wait for scheduler response , if failed to create task for wrong state , not to make pending flag as true
 				if(privateContext->firstFrameCallbackIdleTaskId != AAMP_TASK_ID_INVALID)
 				{
 					privateContext->firstFrameCallbackIdleTaskPending = true;
@@ -1383,7 +1384,7 @@ static gboolean buffering_timeout (gpointer data)
 			int frames = -1;
 			if (_this->privateContext->video_dec)
 			{
-				g_object_get(_this->privateContext->video_dec,"queued_frames",(uint*)&frames,NULL);				
+				g_object_get(_this->privateContext->video_dec,"queued_frames",(uint*)&frames,NULL);
 				AAMPLOG_DEBUG("queued_frames: %i", frames);
 			}
 			MediaFormat mediaFormatRet;
@@ -1506,7 +1507,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 		g_clear_error(&error);						/* Frees the resources allocated to error and sets error to NULL */
 		g_free(dbg_info);							/* Frees memory resources used by dbg_info */
 		break;
-		
+
 	case GST_MESSAGE_EOS:
 		/**
 		 * pipeline event: end-of-stream reached
@@ -1598,7 +1599,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 				if(_this->aamp->mSetPlayerRateAfterFirstframe
 #if defined (REALTEKCE) || defined (BRCM)
 				||((AAMP_SLOWMOTION_RATE == _this->aamp->playerrate) && (_this->aamp->rate == AAMP_NORMAL_PLAY_RATE))
-#endif /*REALTEKCE || BCOM*/ 
+#endif /*REALTEKCE || BCOM*/
 				 )
 				{
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(_this->aamp);
@@ -1646,7 +1647,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 #if defined (AMLOGIC) && GST_CHECK_VERSION(1,18,0)
 		else if (NULL != msg->src)
 		{
-			
+
 			if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
 			{
 				GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(msg->src), "src");
@@ -1808,7 +1809,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 				else if (aamp_StartsWith(GST_OBJECT_NAME(msg->src), "amlhalasink") == true)
 				{
 					gst_object_replace((GstObject **)&_this->privateContext->audio_sink, msg->src);
-					
+
 					g_object_set(_this->privateContext->audio_sink, "disable-xrun", TRUE, NULL);
 					// Apply audio settings that may have been set before pipeline was ready
 					_this->setVolumeOrMuteUnMute();
@@ -1846,7 +1847,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 					type_check_instance("bus_sync_handle: video_dec ", _this->privateContext->video_dec);
 					g_signal_connect(_this->privateContext->video_dec, "first-video-frame-callback",
 									G_CALLBACK(AAMPGstPlayer_OnFirstVideoFrameCallback), _this);
-#if !defined(REALTEKCE)                               
+#if !defined(REALTEKCE)
                                         g_object_set(msg->src, "report_decode_errors", TRUE, NULL);
 #endif
 
@@ -1858,11 +1859,11 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 #if !defined(REALTEKCE)
 					g_signal_connect(msg->src, "first-audio-frame-callback",
 									G_CALLBACK(AAMPGstPlayer_OnAudioFirstFrameAudDecoder), _this);
-#endif				
+#endif
 					int trackId = _this->privateContext->stream[eMEDIATYPE_AUDIO].trackId;
 					if (trackId >= 0) /** AC4 track selected **/
 					{
-#if !defined(BRCM) /** AC4 support added for non Broadcom platforms */				
+#if !defined(BRCM) /** AC4 support added for non Broadcom platforms */
 						AAMPLOG_INFO("Selecting AC4 Track Id : %d", trackId);
 						g_object_set(msg->src, "ac4-presentation-group-index", trackId, NULL);
 #else
@@ -1898,7 +1899,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 			  (aamp_StartsWith(GST_OBJECT_NAME(msg->src), GstPluginNamePR) == true ||
 			   aamp_StartsWith(GST_OBJECT_NAME(msg->src), GstPluginNameWV) == true ||
 			   aamp_StartsWith(GST_OBJECT_NAME(msg->src), GstPluginNameCK) == true ||
-			   aamp_StartsWith(GST_OBJECT_NAME(msg->src), GstPluginNameVMX) == true)) 
+			   aamp_StartsWith(GST_OBJECT_NAME(msg->src), GstPluginNameVMX) == true))
 			{
 				AAMPLOG_MIL("AAMPGstPlayer setting encrypted aamp (%p) instance for %s decryptor", _this->mEncryptedAamp, GST_OBJECT_NAME(msg->src));
 				GValue val = { 0, };
@@ -1909,7 +1910,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 		}
 		break;
 	case GST_MESSAGE_NEED_CONTEXT:
-		
+
 		/*
 		 * Code to avoid logs flooding with NEED-CONTEXT message for DRM systems
 		 */
@@ -1922,7 +1923,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 			GstStructure* contextStructure = gst_context_writable_structure(context);	/* Gets a writeable structure of context, context still own the structure*/
 			gst_structure_set(contextStructure, "decryption-system-id", G_TYPE_STRING, GetDrmSystemID(_this->aamp->GetPreferredDRM()),  NULL);
 			gst_element_set_context(GST_ELEMENT(GST_MESSAGE_SRC(msg)), context);
-/* TODO: Fix this once preferred DRM is correct 			
+/* TODO: Fix this once preferred DRM is correct
 			_this->aamp->setCurrentDrm(_this->aamp->GetPreferredDRM());
  */
 		}
@@ -1959,7 +1960,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 						gst_task_set_pool(task, _this->privateContext->task_pool);
 					}
 					break;
-					
+
 				default:
 					break;
 			}
@@ -3625,7 +3626,10 @@ void AAMPGstPlayer::Flush(void)
 void AAMPGstPlayer::PauseAndFlush(bool playAfterFlush)
 {
 	//call prior to gstreamer flush
-	AampBufferControl::BufferControlMaster::ResetAll(privateContext);
+	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
+	{
+		privateContext->stream[i].mBufferControl.flush();
+	}
 
 	aamp->SyncBegin();
 	AAMPLOG_MIL("Entering AAMPGstPlayer::PauseAndFlush() pipeline state %s",
@@ -4178,6 +4182,8 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 			privateContext->stream[i].eosReached = false;
 			privateContext->stream[i].resendQtDemuxOverride = false;
 			privateContext->stream[i].firstBufferProcessed = false;
+			//reset buffer control states prior to gstreamer flush so that the first needs_data event is caught
+			privateContext->stream[i].mBufferControl.flush();
 		}
 
 		AAMPLOG_INFO("AAMPGstPlayer: Pipeline flush seek - start = %f rate = %d", position, rate);
@@ -4204,9 +4210,6 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 			}
 		}
 #endif /* UBUNTU */
-
-		//reset buffer control states prior to gstreamer flush so that the first needs_data event is caught
-		AampBufferControl::BufferControlMaster::ResetAll(privateContext);
 
 		if (!gst_element_seek(privateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 			position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
@@ -5110,47 +5113,14 @@ void AAMPGstPlayer::SignalSubtitleClock()
 	}
 }
 
-AampBufferControl::BufferControlExternalData::BufferControlExternalData(const AAMPGstPlayer* player, const MediaType mediaType):
-mRate(0),
-mTimeBasedBufferSeconds(0),
-mPipelineShouldBePlaying(false),
-mExtraDataCache()
+void AAMPGstPlayer::GetBufferControlData(MediaType mediaType, BufferControlData &data) const
 {
-	if(player && player->aamp && player->aamp->mConfig && player->privateContext)
+	const media_stream *stream = &privateContext->stream[mediaType];
+
+	data.StreamReady = stream->sinkbin && stream->sourceConfigured;
+	if (data.StreamReady)
 	{
-		float x1_bufferSize = player->aamp->mConfig->GetConfigValue(eAAMPConfig_TimeBasedBufferSeconds);
-		mRate = player->aamp->rate;
-		float absRate = std::abs(mRate);
-		if(absRate>1)
-		{
-			//Increase buffer size during faster playback
-			mTimeBasedBufferSeconds= x1_bufferSize * absRate;
-		}
-		else
-		{
-			mTimeBasedBufferSeconds=x1_bufferSize;
-		}
-
-
-		mPipelineShouldBePlaying=!player->privateContext->paused;
-	}
-}
-
-void AampBufferControl::BufferControlExternalData::cacheExtraData(const AAMPGstPlayer* player, MediaType mediaType)
-{
-	mExtraDataCache.valid=true;
-	media_stream* stream=nullptr;
-	if(player && player->privateContext )
-	{
-		stream = &player->privateContext->stream[mediaType];
-	}
-
-	mExtraDataCache.StreamReady = stream && stream->sinkbin && stream->source && stream->sourceConfigured;
-
-
-	if(mExtraDataCache.StreamReady && player->aamp)
-	{
-		mExtraDataCache.ElapsedSeconds = std::abs(player->aamp->GetPositionRelativeToSeekSeconds());
+		data.ElapsedSeconds = std::abs(aamp->GetPositionRelativeToSeekSeconds());
 
 		GstState current;
 		GstState pending;
@@ -5158,61 +5128,20 @@ void AampBufferControl::BufferControlExternalData::cacheExtraData(const AAMPGstP
 
 		/* Transitions to Paused can block due to lack of data
 		** state should match aamp target play/pause state*/
-		mExtraDataCache.GstWaitingForData =((pending==GST_STATE_PAUSED)||(mPipelineShouldBePlaying && (current!=GST_STATE_PLAYING)));
-		if(mExtraDataCache.GstWaitingForData)
+		bool pipelineShouldBePlaying = !privateContext->paused;
+		data.GstWaitingForData = ((pending == GST_STATE_PAUSED) ||
+								  (pipelineShouldBePlaying && (current != GST_STATE_PLAYING)));
+		if (data.GstWaitingForData)
 		{
 			AAMPLOG_WARN("BufferControlExternalData %s GStreamer (current %s, %s, should be %s))",
-			getMediaTypeName(mediaType),
-			gst_element_state_get_name(current),
+			getMediaTypeName(mediaType), gst_element_state_get_name(current),
 			gst_element_state_get_name(pending),
-			mPipelineShouldBePlaying?"GST_STATE_PLAYING":"GST_STATE_PAUSED");
+			pipelineShouldBePlaying ? "GST_STATE_PLAYING" : "GST_STATE_PAUSED");
 		}
 	}
 	else
 	{
-		mExtraDataCache.ElapsedSeconds =0;
-		mExtraDataCache.GstWaitingForData=false;
-	}
-}
-
-void AampBufferControl::BufferControlMaster::UpdateAll(const AAMPGstPlayer *player)
-{
-	if(player && player->privateContext )
-	{
-		for( int i=0; i<BUFFER_TRACK_COUNT; i++ )
-		{
-			MediaType mediaType = (MediaType)i;
-			struct media_stream *stream = &player->privateContext->stream[mediaType];
-			if(stream )
-			{
-				if( stream->format != FORMAT_INVALID)
-				{
-					stream->mBufferControl.update(player, mediaType);
-				}
-			}
-			else
-			{
-				AAMPLOG_ERR( "%s Null check failed.", getMediaTypeName(mediaType));
-			}
-		}
-	}
-	else
-	{
-		AAMPLOG_ERR( "Null check failed." );
-	}
-}
-
-void AampBufferControl::BufferControlMaster::ResetAll(AAMPGstPlayerPriv* player)
-{
-	if(player)
-	{
-		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
-		{
-			player->stream[i].mBufferControl.flush();
-		}
-	}
-	else
-	{
-		AAMPLOG_ERR( "Null check failed." );
+		data.ElapsedSeconds = 0;
+		data.GstWaitingForData = false;
 	}
 }

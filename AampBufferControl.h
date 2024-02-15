@@ -35,25 +35,16 @@ namespace AampBufferControl
 	/* A standardised way of accessing data from other modules */
 	class BufferControlExternalData
 	{
-
-	public:
-		struct ExtraData
-		{
-			bool valid=false;	//true when cacheExtraData() has been called
-			bool StreamReady=0;
-			double ElapsedSeconds=0;
-			bool GstWaitingForData=false;
-		};
 	private:
 		float mRate;
 		float mTimeBasedBufferSeconds;
-		bool mPipelineShouldBePlaying;
-		ExtraData mExtraDataCache;
+		BufferControlData mExtraDataCache;
+		bool mCacheValid;
 
 
 	public:
 		BufferControlExternalData(const AAMPGstPlayer* player, const MediaType mediaType);
-		
+
 		float getRate() const {return mRate;}
 		float getTimeBasedBufferSeconds() const {return mTimeBasedBufferSeconds;}
 		bool ShouldBeTimeBased()const {return (mTimeBasedBufferSeconds>0);}
@@ -64,7 +55,7 @@ namespace AampBufferControl
 		void cacheExtraData(const AAMPGstPlayer* player, const MediaType mediaType);
 
 		//returned value is only valid when cacheExtraData() has been called
-		ExtraData getExtraDataCache() const;
+		BufferControlData getExtraDataCache() const;
 
 		static void	actionDownloads(const AAMPGstPlayer* player, const MediaType mediaType, const bool downloadsEnabled);
 	};
@@ -249,8 +240,7 @@ namespace AampBufferControl
 
 		MediaType getMediaType() const {return mMediaType;}
 		const char* getThisMediaTypeName() const {return getMediaTypeName(getMediaType());}
-		
-		static constexpr int BUFFER_TRACK_COUNT = 4; // use first four MediaType
+
 		BufferControlMaster();
 
 		/**
@@ -287,16 +277,6 @@ namespace AampBufferControl
 		void update(const AAMPGstPlayer* player, const MediaType mediaType);
 
 		void notifyFragmentInject(const AAMPGstPlayer* player,  const MediaType mediaType,  const double fpts,  const double fdts,  const double duration,  const bool firstBuffer);
-
-		/**
-		 * @brief call update for all media types
-		 */
-		static void UpdateAll(const AAMPGstPlayer* player);
-
-		/**
-		 * @brief call on pipeline flush to reset the internal state of all media types
-		 */
-		static void ResetAll(AAMPGstPlayerPriv* player);
 	};
 };
 #endif

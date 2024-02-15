@@ -21,6 +21,28 @@
 #include "AampConfig.h"
 #include "StreamAbstractionAAMP.h"
 
+AampBufferControl::BufferControlExternalData::BufferControlExternalData(const AAMPGstPlayer* player,
+																		const MediaType mediaType)
+	: mRate(0), mTimeBasedBufferSeconds(0), mExtraDataCache(), mCacheValid(false)
+{
+	if (player && player->aamp && player->aamp->mConfig)
+	{
+		float x1_bufferSize =
+			player->aamp->mConfig->GetConfigValue(eAAMPConfig_TimeBasedBufferSeconds);
+		mRate = player->aamp->rate;
+		float absRate = std::abs(mRate);
+		if (absRate > 1)
+		{
+			// Increase buffer size during faster playback
+			mTimeBasedBufferSeconds = x1_bufferSize * absRate;
+		}
+		else
+		{
+			mTimeBasedBufferSeconds = x1_bufferSize;
+		}
+	}
+}
+
 void AampBufferControl::BufferControlExternalData::actionDownloads(const AAMPGstPlayer* player, const MediaType mediaType, bool downloadsEnabled)
 {
 	if(player && player->aamp)
@@ -36,15 +58,21 @@ void AampBufferControl::BufferControlExternalData::actionDownloads(const AAMPGst
 	}
 }
 
-AampBufferControl::BufferControlExternalData::ExtraData AampBufferControl::BufferControlExternalData::getExtraDataCache() const
+void AampBufferControl::BufferControlExternalData::cacheExtraData(const AAMPGstPlayer* player,
+																  const MediaType mediaType)
 {
-	if(!mExtraDataCache.valid)
+	player->GetBufferControlData(mediaType, mExtraDataCache);
+	mCacheValid = true;
+}
+
+BufferControlData AampBufferControl::BufferControlExternalData::getExtraDataCache() const
+{
+	if (!mCacheValid)
 	{
 		AAMPLOG_ERR("BufferControlExternalData invalid data.");
 	}
 	return mExtraDataCache;
-	}
-
+}
 
 AampBufferControl::BufferControlByteBased::BufferControlByteBased(BufferControlMaster& context):
 BufferControlStrategyBase(context)

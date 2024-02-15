@@ -39,11 +39,7 @@ set(TEST_SOURCES FunctionalTests.cpp
                  AampGstPlayerTests.cpp
                  )
 
-# The gstreamer player implementation currently includes parts of the buffer control implementation,
-# so include that here as the test can't mix buffer control fakes and real implementation.
-set(AAMP_SOURCES ${AAMP_ROOT}/aampgstplayer.cpp
-                 ${AAMP_ROOT}/AampBufferControl.cpp
-                 )
+set(AAMP_SOURCES ${AAMP_ROOT}/aampgstplayer.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
