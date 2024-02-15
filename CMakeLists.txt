@@ -143,6 +143,7 @@ include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${OPENSSL_INCLUDE_DIRS})
 include_directories(${OPENGL_INCLUDE_DIRS})
 include_directories(${GLEW_INCLUDE_DIRS})
+
 # Sets the include paths to Linux/includem. By making it a system include the headers won't report any errors ( effc++ )
 include_directories(SYSTEM ${LIBCJSON_INCLUDE_DIRS})
 
@@ -348,6 +349,7 @@ if (CMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED)
 endif()
 
 set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${GSTREAMERBASE_LIBRARIES} ${GSTREAMER_LIBRARIES} ${CURL_LIBRARIES} ${LIBDASH_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl -labr ${UUID_LINK_LIBRARIES} ${SEC_CLIENT_LIB} -lcjson)
+
 set(PLAYBINTEST_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LIBRARIES})
 
 if (CMAKE_AMLOGIC_SOC)

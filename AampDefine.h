@@ -228,9 +228,6 @@
 
 #define MAX_SESSION_ID_LENGTH 128                                /**<session id string length */
 
-//DELIA-53727 change this into #define to extract the raw YCrCb colors from each frame of video
-#undef RENDER_FRAMES_IN_APP_CONTEXT
-
 /**
  * @brief Enumeration for TUNED Event Configuration
  */

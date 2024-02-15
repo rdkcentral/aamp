@@ -1,0 +1,191 @@
+<html>
+	<head>
+		<script>
+			var months =
+			[
+			 "Jan","Feb","Mar",
+			 "Apr","May","Jun",
+			 "Jul","Aug","Sep",
+			 "Oct","Nov","Dec"
+			 ];
+			 
+			 function ParseReceiverLogTimestamp( line )
+			 {
+				 try
+				 {
+					 part = line.split(" ");
+					 if( part[0].endsWith(":") )
+					 { // new simulator format: <sec>:<ms>:
+						 part = part[0].split(".");
+						 var s = parseInt(part[0]);
+						 var ms = parseInt(part[1]);
+						 return s*1000+ms;
+					 }
+					 else if( part[1]==":" )
+					 { // simulator format - <sec>:<ms>
+						 part = part[0].split(":");
+						 var s = parseInt(part[0]);
+						 var ms = parseInt(part[1]);
+						 return s*1000+ms;
+					 }
+					 else if( part[2]==":" )
+					 {
+						 var s = parseInt(part[0]);
+						 var ms = parseInt(part[1]);
+						 return s*1000+ms;
+					 }
+					 
+					 // format used on settop (GMT time)
+					 var idx = 0;
+					 var year = parseInt(part[idx++]);
+					 if( isNaN(year) )
+					 { // year missing (fog logs)
+						 year = new Date().getFullYear();
+						 idx--;
+					 }
+					 var month = months.indexOf(part[idx++]);
+					 var day = parseInt(part[idx++]);
+					 var time = part[idx++].split(":");
+					 var hour = parseInt(time[0]);
+					 var minute = parseInt(time[1]);
+					 var seconds = parseFloat(time[2]);
+					 var s = Math.floor(seconds);
+					 var ms = Math.floor((seconds - s)*1000);
+					 return Date.UTC(year, month, day, hour, minute, s, ms );
+				 }
+				 catch( e )
+				 {
+					 //console.log( "ParseReceiverLogTimestamp error with: <LINE>" + line + "</LINE>" );
+					 return 0;
+				 }
+			 }
+			
+			var ctx;
+			
+			const SCALE = 40;
+			function t2x( s )
+			{
+				return 32+s*SCALE;
+			}
+			function t2y( s )
+			{
+				return myCanvas.height-16-s*SCALE-16;
+			}
+			function Plot( text )
+			{
+				myCanvas.width = 4000;
+				myCanvas.height = 1000;
+				ctx.clearRect( 0,0,myCanvas.width, myCanvas.height );
+				let t = 0;
+				let yprev = 0;
+				let toggle = true;
+				ctx.font = "12px serif";
+
+				ctx.fillStyle = "black";
+				ctx.textAlign = "center";
+				let y = t2y(0);
+				for( t=0; t<myCanvas.width/SCALE; t++ )
+				{
+					let x = t2x(t);
+					ctx.fillRect( x, y, 1, 4 );
+					ctx.fillText( t, x, y+14 );
+				}
+				ctx.textAlign = "left";
+				ctx.fillText( "mediaTime", 32, myCanvas.height-2 );
+				{
+					ctx.save();
+					 ctx.translate(14,myCanvas.height/2);
+					 ctx.rotate(-Math.PI/2);
+					 ctx.textAlign = "center";
+					 ctx.fillText("elapsed time", 0, 0);
+					 ctx.restore();
+				}
+				
+				t = 0;
+				ctx.textAlign = "right";
+				let left = t2x(0);
+				for(;;)
+				{
+					let y = t2y(t);
+					if( toggle )
+					{
+						ctx.fillStyle = "#eeeeee";
+						ctx.fillRect(left,yprev,myCanvas.width-left,SCALE);
+					}
+					ctx.fillStyle = "black";
+					ctx.fillRect( left-4, y, 4, 1 );
+					ctx.fillText( t, left-5, y+6 );
+					toggle = !toggle;
+					yprev = y;
+					if( y <0 ) break;
+					t++;
+				}
+				const prefix = "[updateYUVFrame][419]";
+				let data = text.split("\n");
+				ctx.fillStyle = "red";
+				ctx.strokeStyle = "black";
+				let utcStart = null;
+				let prevMediaTime = 0;
+				let prevUtc = 0;
+				for( var i=0; i<data.length; i++ )
+				{
+					let line = data[i];
+					let delim = line.indexOf(prefix);
+					if( delim>=0 )
+					{
+						let utc = ParseReceiverLogTimestamp(line)/1000;//Number(line.substr(0,14));
+						delim += prefix.length;
+						let part = line.substr(delim,12).split(":");
+						let hour = Number(part[0]);
+						let minute = Number(part[1]);
+						let second = Number(part[2]);
+						let mediaTime = (second+minute*60+hour*3600);
+						let speed = (mediaTime - prevMediaTime) / (utc-prevUtc);
+						let x = t2x(mediaTime);
+						if( utcStart==null )
+						{
+							utcStart = utc;
+						}
+						let y =  t2y(utc-utcStart);
+						ctx.fillRect(left,y,x-left,1);
+						ctx.fillRect(x-2,y-2,5,5);
+						
+						prevMediaTime = mediaTime;
+						prevUtc = utc;
+					}
+				}
+			}
+			
+			function dropHandler(e) {
+				e.preventDefault();
+				
+				var file = e.dataTransfer.files[0];
+				var reader = new FileReader();
+				reader.onload = function(event) {
+					Plot( event.target.result );
+				};
+				reader.readAsText(file);
+			};
+			
+			function dragOverHandler(ev) {
+				ev.preventDefault();
+			}
+			
+			window.onload = function()
+			{
+				ctx = myCanvas.getContext("2d");
+				ctx.fillStyle = "gold";
+				ctx.fillRect( 0,0,myCanvas.width, myCanvas.height );
+				ctx.fillStyle = "black";
+				ctx.textAlign = "left";
+				ctx.font = "bold 48px serif";
+				ctx.fillText("drag log file here", 0, myCanvas.height/2 );
+			}
+
+		</script>
+	</head>
+	<body>
+		<canvas id="myCanvas" width="640" height="480" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);" style="border:1px solid #000000;"/>
+		<br/>
+	</body>
+</html>
