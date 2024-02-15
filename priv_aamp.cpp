@@ -1280,6 +1280,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mDiscoCompleteLock()
 	, mIsPeriodChangeMarked(false)
 	, m_lastSubClockSyncTime()
+	, mIsLoggingNeeded(false)
 {
 	mLogObj = mConfig->GetLoggerInstance();
 	//LazilyLoadConfigIfNeeded();
@@ -2159,7 +2160,29 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 				mFirstProgress = false;
 				AAMPLOG_WARN("Send first progress event with position %ld", (long)(reportFormatPosition / 1000));
 			}
+			
+		
+			if(mAampLLDashServiceData.lowLatencyMode && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
+			{
+				int abrMinBuffer = GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown);
+				bool bufferBelowMin = bufferedDuration < (abrMinBuffer * 1000);
 
+				if (bufferBelowMin && !mIsLoggingNeeded)
+				{
+					mIsLoggingNeeded = true;
+					mConfig->logging.setLogLevel(eLOGLEVEL_INFO);
+					gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_INFO);
+					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, true);
+				}
+				else if (!bufferBelowMin && mIsLoggingNeeded)
+				{
+					mIsLoggingNeeded = false;
+					mConfig->logging.setLogLevel(eLOGLEVEL_WARN);
+					gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_WARN);
+					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
+				}
+			}
+	
 			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 			{
 				static int tick;
@@ -4910,6 +4933,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		/** Enabled rate Correction by default, seek case and live added later point  **/
 		AAMPLOG_INFO("Live latency correction is disabled for seek by default!!");
 		mDisableRateCorrection = true;
+		//Logging should be deactivated if the buffer exceeds the minimum buffer size or if seeking occurs
+		if(mIsLoggingNeeded && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING) 
+		{
+			mConfig->logging.setLogLevel(eLOGLEVEL_WARN);
+			gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_WARN);
+			SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
+			mIsLoggingNeeded = false;
+		}
 	}
 	else
 	{
@@ -13034,3 +13065,4 @@ long long PrivateInstanceAAMP::GetVideoPTS()
 	}
 	return pts;
 }
+

@@ -1085,6 +1085,7 @@ public:
 	std::string mFogDownloadFailReason; /** Identify Fog Manifest Download Failure Reason*/
 	int mBufferFor4kRampup; 		    /** Max Buffer for rampup used for 4k stream */
 	int mBufferFor4kRampdown; 	    /** Min Buffer for rampdown used for 4k Stream */
+	bool mIsLoggingNeeded;               /** Enable/disable logging for LLD based on buffer */
 
 	AampCMCDCollector *mCMCDCollector;
 
