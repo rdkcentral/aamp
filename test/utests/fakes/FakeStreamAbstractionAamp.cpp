@@ -185,7 +185,7 @@ void MediaTrack::StartPlaylistDownloaderThread()
 {
 }
 
-MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAAMP* aamp, const char* name) : parsedBufferChunk("parsedBufferChunk"), unparsedBufferChunk("unparsedBufferChunk")
+MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAAMP* aamp, const char* name) : parsedBufferChunk("parsedBufferChunk"), unparsedBufferChunk("unparsedBufferChunk"), mLogObj(logObj), name(name)
 {
 }
 

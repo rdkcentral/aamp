@@ -197,7 +197,7 @@ TEST_F(MediaStreamContextTest, MinUpdateDurationTest)
     //Act:call GetMinUpdateDuration fucntion
     long mMinUpdateDurationMsResult = mMediaStreamContext->GetMinUpdateDuration();
     //Assert:check mMinUpdateDurationMsResult variable value
-    EXPECT_EQ(mMinUpdateDurationMsResult,0);
+    EXPECT_EQ(mMinUpdateDurationMsResult, DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS);
 }
 
 TEST_F(MediaStreamContextTest, DefaultDurationTest)
