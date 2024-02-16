@@ -35,6 +35,11 @@ bool AampLicensePreFetcher::Init()
 	return false;
 }
 
+bool KeyIsQueued(LicensePreFetchObjectPtr &fetchObject)
+{
+	return false;
+}
+
 bool AampLicensePreFetcher::QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type, bool isVssPeriod)
 {
 	return false;

@@ -103,6 +103,32 @@ bool AampLicensePreFetcher::Init()
 }
 
 /**
+ * @brief Check to see if a key is already on the queue
+ * 
+ * @param fetchObject the key object to look for
+ * @return true if key is on the queue
+ * @return false if key is not on the queue
+ */
+bool AampLicensePreFetcher::KeyIsQueued(LicensePreFetchObjectPtr &fetchObject)
+{
+	std::vector<uint8_t> fetchKeyIdArray;
+	std::vector<uint8_t> queuedKeyIdArray;
+
+	fetchObject->mHelper->getKey(fetchKeyIdArray);
+	for (auto queuedObject : mFetchQueue)
+	{
+		queuedObject->mHelper->getKey(queuedKeyIdArray);
+		if ((queuedObject->mType == fetchObject->mType) &&
+			(queuedKeyIdArray == fetchKeyIdArray))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+
+/**
  * @brief Queue a content protection info to be processed later
  * 
  * @param drmHelper AampDrmHelper shared_ptr
@@ -140,6 +166,14 @@ bool AampLicensePreFetcher::QueueContentProtection(std::shared_ptr<AampDrmHelper
 			else
 			{
 				std::lock_guard<std::mutex>lock(mQMutex);
+
+				// Don't add the key if it is already on the queue
+				if (KeyIsQueued(fetchObject))
+				{
+					AAMPLOG_INFO("Key already queued for %d", fetchObject->mType);
+					return true;
+				}
+
 				mFetchQueue.push_back(fetchObject);
 				if (!mPreFetchThreadStarted)
 				{
@@ -207,8 +241,7 @@ void AampLicensePreFetcher::PreFetchThread()
 		}
 		else
 		{
-			LicensePreFetchObjectPtr obj = mFetchQueue.front();
-			mFetchQueue.pop_front();
+			LicensePreFetchObjectPtr obj = mFetchQueue.front(); // Leave the request on the queue
 			queueLock.unlock();
 
 			if (!mExitLoop)
@@ -252,6 +285,7 @@ void AampLicensePreFetcher::PreFetchThread()
 				}
 			}
 			queueLock.lock();
+			mFetchQueue.pop_front(); // Remove the request now we have processed it
 		}
 	}
 }
@@ -371,8 +405,16 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 			// Check if the mFetchQueue has a request for this track type queued
 			// TODO: Check for race conditions between license acquisition and adding into fetch queue
 			std::lock_guard<std::mutex>lock(mQMutex);
+
 			for (auto obj : mFetchQueue)
 			{
+				if (obj == fetchObj)
+				{
+					// The current key is still on the queue so if pointers match we will ignore this check
+					// (this shoud be the first item in the queue)
+					continue;
+				}
+
 				if (obj->mType == fetchObj->mType)
 				{
 					skipErrorEvent = true;

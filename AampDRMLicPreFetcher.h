@@ -137,6 +137,15 @@ public:
 	bool Init();
 
 	/**
+	 * @brief Check to see if a key is already on the queue
+	 * 
+	 * @param fetchObject the key object to look for
+	 * @return true if key is on the queue
+	 * @return false if key is not on the queue
+	 */
+	bool KeyIsQueued(LicensePreFetchObjectPtr &fetchObject);
+
+	/**
 	 * @brief Queue a content protection info to be processed later
 	 * 
 	 * @param drmHelper AampDrmHelper shared_ptr
