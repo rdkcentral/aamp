@@ -37,7 +37,7 @@ TESTDATA1= {
 
    # Create main content player - Player 1
    {"cmd":"new"},
-   {"expect":"CreateStreamSink Single Pipeline mode, not creating GstPlayer for PLAYER\[1\]"},
+   {"expect":"Single Pipeline mode, not creating GstPlayer for PLAYER\[1\]"},
 
    # Toggle autoplay off
    {"cmd":"autoplay"},
@@ -51,17 +51,17 @@ TESTDATA1= {
    {"expect":"selected player 1"},
    {"cmd":"https://cpetestutility.stb.r53.xcal.tv/AAMP/tools/aamptest/ads/ad1/hsar1039-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad7/ed9e9eba-e818-413f-97ea-10cb3559ac31/1628085935274/AD/HD/manifest.mpd"},
    {"cmd":"detach"},
-   {"expect":"DeactivatePlayer Single Pipeline mode, asked to deactivate PLAYER\[1\] when current active PLAYER\[0\]"},
+   {"expect":"Single Pipeline mode, asked to deactivate PLAYER\[1\] when current active PLAYER\[0\]"},
 
    # Load and play pre-roll ad - Player 2
    {"cmd":"new"},
-   {"expect":"CreateStreamSink Single Pipeline mode, not creating GstPlayer for PLAYER\[2\]"},
+   {"expect":"Single Pipeline mode, not creating GstPlayer for PLAYER\[2\]"},
    {"cmd":"select 2"},
    {"expect":"selected player 2"},
    {"cmd":"https://cpetestutility.stb.r53.xcal.tv/AAMP/tools/aamptest/ads/ad4/hsar1099-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad19/7b048ca3-6cf7-43c8-98a3-b91c09ed59bb/1628252309135/AD/HD/manifest.mpd"},
    {"cmd":"play"},
-   {"expect":"ActivatePlayer Single Pipeline mode, resetting current active PLAYER\[0\]"},
-   {"expect":"ActivatePlayer Single Pipeline mode, setting active PLAYER\[2\]"},
+   {"expect":"Single Pipeline mode, resetting current active PLAYER\[0\]"},
+   {"expect":"Single Pipeline mode, setting active PLAYER\[2\]"},
    {"expect":"NotifyFirstBufferProcessed"},
 
    # Play ad for a bit
@@ -70,23 +70,23 @@ TESTDATA1= {
 
    # Transition from pre-roll ad to main content
    {"cmd":"detach"},
-   {"expect":"DeactivatePlayer Single Pipeline mode, deactivating active PLAYER\[2\]"},
+   {"expect":"Single Pipeline mode, deactivating active PLAYER\[2\]"},
    {"cmd":"select 1"},
    {"expect":"selected player 1"},
    {"cmd":"play"},
-   {"expect":"ActivatePlayer Single Pipeline mode, no current active player"},
-   {"expect":"ActivatePlayer Single Pipeline mode, setting active PLAYER\[1\]"},
+   {"expect":"Single Pipeline mode, no current active player"},
+   {"expect":"Single Pipeline mode, setting active PLAYER\[1\]"},
    {"expect":"NotifyFirstBufferProcessed"},
 
    # Stop and destroy ad player 2
    {"cmd":"select 2"},
    {"expect":"selected player 2"},
    {"cmd":"stop"},
-   {"expect":"DeactivatePlayer Single Pipeline mode, asked to deactivate PLAYER\[2\] when current active PLAYER\[1\]"},
+   {"expect":"Single Pipeline mode, asked to deactivate PLAYER\[2\] when current active PLAYER\[1\]"},
    {"cmd":"select 1"},
    {"expect":"selected player 1"},
    {"cmd":"release 2"},
-   {"expect":"DeleteStreamSink DeleteStreamSink for PLAYER\[2\]"},
+   {"expect":"DeleteStreamSink for PLAYER\[2\]"},
 
    # Play main content for a bit
    {"cmd":"sleep 3000"},
@@ -97,7 +97,7 @@ TESTDATA1= {
 
    # Pre-load mid-roll ad - Player 3
    {"cmd":"new"},
-   {"expect":"CreateStreamSink Single Pipeline mode, not creating GstPlayer for PLAYER\[3\]"},
+   {"expect":"Single Pipeline mode, not creating GstPlayer for PLAYER\[3\]"},
    {"cmd":"select 3"},
    {"expect":"selected player 3"},
    {"cmd":"https://cpetestutility.stb.r53.xcal.tv/AAMP/tools/aamptest/ads/ad2/hsar1039-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad1/7849033a-530a-43ce-ac01-fc4518674ed0/1628085609056/AD/HD/manifest.mpd"},
@@ -110,12 +110,12 @@ TESTDATA1= {
    {"cmd":"select 1"},
    {"expect":"selected player 1"},
    {"cmd":"detach"},
-   {"expect":"DeactivatePlayer Single Pipeline mode, deactivating active PLAYER\[1\]"},
+   {"expect":"Single Pipeline mode, deactivating active PLAYER\[1\]"},
    {"cmd":"select 3"},
    {"expect":"selected player 3"},
    {"cmd":"play"},
-   {"expect":"ActivatePlayer Single Pipeline mode, no current active player"},
-   {"expect":"ActivatePlayer Single Pipeline mode, setting active PLAYER\[3\]"},
+   {"expect":"Single Pipeline mode, no current active player"},
+   {"expect":"Single Pipeline mode, setting active PLAYER\[3\]"},
    {"expect":"NotifyFirstBufferProcessed"},
 
    # Play ad for a bit - Player 3
@@ -124,7 +124,7 @@ TESTDATA1= {
 
    # Pre-load mid-roll ad - Player 4
    {"cmd":"new"},
-   {"expect":"CreateStreamSink Single Pipeline mode, not creating GstPlayer for PLAYER\[4\]"},
+   {"expect":"Single Pipeline mode, not creating GstPlayer for PLAYER\[4\]"},
    {"cmd":"select 4"},
    {"expect":"selected player 4"},
    {"cmd":"https://cpetestutility.stb.r53.xcal.tv/AAMP/tools/aamptest/ads/ad3/hsar1039-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd"},
@@ -137,23 +137,23 @@ TESTDATA1= {
    {"cmd":"select 3"},
    {"expect":"selected player 3"},
    {"cmd":"detach"},
-   {"expect":"DeactivatePlayer Single Pipeline mode, deactivating active PLAYER\[3\]"},
+   {"expect":"Single Pipeline mode, deactivating active PLAYER\[3\]"},
    {"cmd":"select 4"},
    {"expect":"selected player 4"},
    {"cmd":"play"},
-   {"expect":"ActivatePlayer Single Pipeline mode, no current active player"},
-   {"expect":"ActivatePlayer Single Pipeline mode, setting active PLAYER\[4\]"},
+   {"expect":"Single Pipeline mode, no current active player"},
+   {"expect":"Single Pipeline mode, setting active PLAYER\[4\]"},
    {"expect":"NotifyFirstBufferProcessed"},
 
    # Stop and destroy ad player 3
    {"cmd":"select 3"},
    {"expect":"selected player 3"},
    {"cmd":"stop"},
-   {"expect":"DeactivatePlayer Single Pipeline mode, asked to deactivate PLAYER\[3\] when current active PLAYER\[4\]"},
+   {"expect":"Single Pipeline mode, asked to deactivate PLAYER\[3\] when current active PLAYER\[4\]"},
    {"cmd":"select 4"},
    {"expect":"selected player 4"},
    {"cmd":"release 3"},
-   {"expect":"DeleteStreamSink DeleteStreamSink for PLAYER\[3\]"},
+   {"expect":"DeleteStreamSink for PLAYER\[3\]"},
 
    # Play ad for a bit - Player 4
    {"cmd":"sleep 3000"},
@@ -163,23 +163,23 @@ TESTDATA1= {
    {"cmd":"select 4"},
    {"expect":"selected player 4"},
    {"cmd":"detach"},
-   {"expect":"DeactivatePlayer Single Pipeline mode, deactivating active PLAYER\[4\]"},
+   {"expect":"Single Pipeline mode, deactivating active PLAYER\[4\]"},
    {"cmd":"select 1"},
    {"expect":"selected player 1"},
    {"cmd":"play"},
-   {"expect":"ActivatePlayer Single Pipeline mode, no current active player"},
-   {"expect":"ActivatePlayer Single Pipeline mode, setting active PLAYER\[1\]"},
+   {"expect":"Single Pipeline mode, no current active player"},
+   {"expect":"Single Pipeline mode, setting active PLAYER\[1\]"},
    {"expect":"NotifyFirstBufferProcessed"},
 
    # Stop and destroy ad player 4
    {"cmd":"select 4"},
    {"expect":"selected player 4"},
    {"cmd":"stop"},
-   {"expect":"DeactivatePlayer Single Pipeline mode, asked to deactivate PLAYER\[4\] when current active PLAYER\[1\]"},
+   {"expect":"Single Pipeline mode, asked to deactivate PLAYER\[4\] when current active PLAYER\[1\]"},
    {"cmd":"select 1"},
    {"expect":"selected player 1"},
    {"cmd":"release 4"},
-   {"expect":"DeleteStreamSink DeleteStreamSink for PLAYER\[4\]"},
+   {"expect":"DeleteStreamSink for PLAYER\[4\]"},
 
    # Play main content for a bit - Player 1
    {"cmd":"seek 10"},
@@ -192,17 +192,17 @@ TESTDATA1= {
    # Transition from main content to post-roll ad
    # (The client detaches the main content player at EOS and doesn't pre-load the post-roll ad)
    {"cmd":"detach"},
-   {"expect":"DeactivatePlayer Single Pipeline mode, deactivating active PLAYER\[1\]"},
+   {"expect":"Single Pipeline mode, deactivating active PLAYER\[1\]"},
 
    # Load and play post-roll ad - Player 5
    {"cmd":"new"},
-   {"expect":"CreateStreamSink Single Pipeline mode, not creating GstPlayer for PLAYER\[5\]"},
+   {"expect":"Single Pipeline mode, not creating GstPlayer for PLAYER\[5\]"},
    {"cmd":"select 5"},
    {"expect":"selected player 5"},
    {"cmd":"https://cpetestutility.stb.r53.xcal.tv/AAMP/tools/aamptest/ads/ad4/hsar1099-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad19/7b048ca3-6cf7-43c8-98a3-b91c09ed59bb/1628252309135/AD/HD/manifest.mpd"},
    {"cmd":"play"},
-   {"expect":"ActivatePlayer Single Pipeline mode, no current active player"},
-   {"expect":"ActivatePlayer Single Pipeline mode, setting active PLAYER\[5\]"},
+   {"expect":"Single Pipeline mode, no current active player"},
+   {"expect":"Single Pipeline mode, setting active PLAYER\[5\]"},
 
    # Play ad for a bit - Player 5
    {"cmd":"sleep 3000"},
@@ -214,29 +214,29 @@ TESTDATA1= {
    # Transition from post-roll ad to new main content or episode
    # (The client detaches the ad player at EOS)
    {"cmd":"detach"},
-   {"expect":"DeactivatePlayer Single Pipeline mode, deactivating active PLAYER\[5\]"},
+   {"expect":"Single Pipeline mode, deactivating active PLAYER\[5\]"},
 
    # Stop Player 1
    {"cmd":"select 1"},
    {"expect":"selected player 1"},
    {"cmd":"stop"},
-   {"expect":"DeactivatePlayer Single Pipeline mode, no current active PLAYER\[1\]"},
+   {"expect":"Single Pipeline mode, no current active PLAYER\[1\]"},
 
    # Stop and destroy ad player 5
    {"cmd":"select 5"},
    {"expect":"selected player 5"},
    {"cmd":"stop"},
-   {"expect":"DeactivatePlayer Single Pipeline mode, no current active PLAYER\[5\]"},
+   {"expect":"Single Pipeline mode, no current active PLAYER\[5\]"},
    {"cmd":"select 1"},
    {"expect":"selected player 1"},
    {"cmd":"release 5"},
-   {"expect":"DeleteStreamSink DeleteStreamSink for PLAYER\[5\]"},
+   {"expect":"DeleteStreamSink for PLAYER\[5\]"},
 
    # New episode or main content for Player 1
    {"cmd":"https://cpetestutility.stb.r53.xcal.tv/AAMP/tools/aamptest/ads/ad2/hsar1039-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad1/7849033a-530a-43ce-ac01-fc4518674ed0/1628085609056/AD/HD/manifest.mpd"},
    {"cmd":"play"},
-   {"expect":"ActivatePlayer Single Pipeline mode, no current active player"},
-   {"expect":"ActivatePlayer Single Pipeline mode, setting active PLAYER\[1\]"},
+   {"expect":"Single Pipeline mode, no current active player"},
+   {"expect":"Single Pipeline mode, setting active PLAYER\[1\]"},
 
    # Play main content for a bit - Player 1
    {"cmd":"sleep 3000"},
@@ -246,18 +246,18 @@ TESTDATA1= {
    ############# New main content following main content #############
 
    {"cmd":"stop"},
-   {"expect":"DeactivatePlayer Single Pipeline mode, deactivating and stopping active PLAYER\[1\]"},
+   {"expect":"Single Pipeline mode, deactivating and stopping active PLAYER\[1\]"},
    {"cmd":"https://cpetestutility.stb.r53.xcal.tv/AAMP/tools/aamptest/ads/ad1/hsar1039-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad7/ed9e9eba-e818-413f-97ea-10cb3559ac31/1628085935274/AD/HD/manifest.mpd"},
    {"cmd":"play"},
-   {"expect":"ActivatePlayer Single Pipeline mode, no current active player"},
-   {"expect":"ActivatePlayer Single Pipeline mode, setting active PLAYER\[1\]"},
+   {"expect":"Single Pipeline mode, no current active player"},
+   {"expect":"Single Pipeline mode, setting active PLAYER\[1\]"},
    {"expect":"NotifyFirstBufferProcessed"},
 
    # Play main content for a bit - Player 1
    {"cmd":"sleep 3000"},
    {"expect":"sleep complete"},
    {"cmd":"stop"},
-   {"expect":"DeactivatePlayer Single Pipeline mode, deactivating and stopping active PLAYER\[1\]"},
+   {"expect":"Single Pipeline mode, deactivating and stopping active PLAYER\[1\]"},
 ]
 }
 
