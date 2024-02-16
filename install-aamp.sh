@@ -92,7 +92,7 @@ install_system_packages() {
 
     #Check/Install base packages needed by aamp env
     echo "Check/Install aamp development environment base packages"
-    find_or_install_pkgs json-glib cmake $defaultopensslversion libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac lcov gcovr
+    find_or_install_pkgs json-glib cmake $defaultopensslversion libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr
 
     # ORC causes compile errors on x86_64 Mac, but not on ARM64
     if [[ $arch == "x86_64" ]]; then
@@ -188,11 +188,11 @@ install_subtec() {
     if [ ! -d glib ]; then
         echo "Installing glib..."
         do_clone https://gitlab.gnome.org/GNOME/glib.git -b 2.78.0
+        cd glib
+        meson build && cd build
+        meson compile
+        cd ../../
     fi
-    cd glib
-    meson build && cd build
-    meson compile
-    cd ../../
     
     sed -i '' 's:COMMAND gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code SubtitleDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/SubtitleDbusInterface.xml:COMMAND '"$PWD"'/glib/build/gio/gdbus-2.0/codegen/gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code SubtitleDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/SubtitleDbusInterface.xml:g' subtec-app/subttxrend-dbus/CMakeLists.txt
     
@@ -268,6 +268,8 @@ install_and_build_subtec() {
     else
         echo "Patching subtec-app..."
         git apply OSX/patches/subttxrend-app-packet.patch --directory subtec-app
+        git apply OSX/patches/subttxrend-app-cmake.patch  --directory subtec-app
+        git apply OSX/patches/websocket-ipplayer2-utils.patch --directory subtec-app/websocket-ipplayer2-utils
 
         cd subtec-app/subttxrend-app/x86_builder/
         PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:$PKG_CONFIG_PATH ./build.sh fast
@@ -471,8 +473,10 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     mkdir .libs
     cd .libs
 
-    echo "Clone systemd repo required for microtests"
-    do_clone https://github.com/systemd/systemd.git
+    if [ ! -d ./systemd ]; then
+        echo "Clone systemd repo required for microtests"
+        do_clone https://github.com/systemd/systemd.git
+    fi
 
     install_system_packages
 
