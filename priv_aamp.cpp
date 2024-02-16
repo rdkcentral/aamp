@@ -1284,6 +1284,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mIsPeriodChangeMarked(false)
 	, m_lastSubClockSyncTime()
 	, mIsLoggingNeeded(false)
+	, mIsFlushFdsInCurlStore(false)
 {
 	mLogObj = mConfig->GetLoggerInstance();
 	//LazilyLoadConfigIfNeeded();
@@ -3651,14 +3652,14 @@ void PrivateInstanceAAMP::CurlTerm(AampCurlInstance startIdx, unsigned int insta
 		{
 			if(curlhost[i]->curl)
 			{
-				CurlStore::GetCurlStoreInstance(this).CurlTerm(this, (AampCurlInstance)i, 1, curlhost[i]->hostname);
+				CurlStore::GetCurlStoreInstance(this).CurlTerm(this, (AampCurlInstance)i, 1, mIsFlushFdsInCurlStore, curlhost[i]->hostname);
 			}
 			curlhost[i]->isRemotehost=true;
 			curlhost[i]->redirect=true;
 		}
 	}
 
-	CurlStore::GetCurlStoreInstance(this).CurlTerm(this, startIdx, instanceCount);
+	CurlStore::GetCurlStoreInstance(this).CurlTerm(this, startIdx, instanceCount,  mIsFlushFdsInCurlStore);
 }
 
 /**
@@ -4839,7 +4840,7 @@ CURL * PrivateInstanceAAMP::GetCurlInstanceForURL(std::string &remoteUrl,unsigne
 		{
 			if(NULL != curlhost[curlInstance]->curl)
 			{
-				CurlStore::GetCurlStoreInstance(this).CurlTerm(this, (AampCurlInstance)curlInstance, 1, curlhost[curlInstance]->hostname);
+				CurlStore::GetCurlStoreInstance(this).CurlTerm(this, (AampCurlInstance)curlInstance, 1, false, curlhost[curlInstance]->hostname);
 			}
 
 			curlhost[curlInstance]->hostname = aamp_getHostFromURL(remoteUrl);
@@ -7537,6 +7538,7 @@ void PrivateInstanceAAMP::Stop()
 		SAFE_DELETE(mMPDDownloaderInstance);
 	}
 
+	SetFlushFdsNeededInCurlStore(false);
 	EnableDownloads();
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);

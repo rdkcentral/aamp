@@ -4645,6 +4645,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			else
 			{
 				aamp->UpdateDuration(0);
+				aamp->SetFlushFdsNeededInCurlStore(true);
 				aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
 				AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
 				ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
@@ -4654,6 +4655,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			aamp->UpdateDuration(0);
 			AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
+			aamp->SetFlushFdsNeededInCurlStore(true);
 			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 		}
 	}
@@ -4806,6 +4808,7 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 				}
 				else
 				{
+					aamp->SetFlushFdsNeededInCurlStore(true);
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
 					AAMPLOG_ERR("manifest download failed");
 				}

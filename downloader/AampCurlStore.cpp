@@ -454,7 +454,7 @@ void CurlStore::CurlInit(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
  * @fn CurlTerm
  * @brief CurlTerm - Terminate or store easy handles in curlstore
  */
-void CurlStore::CurlTerm(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, unsigned int instanceCount, const std::string &RemoteHost )
+void CurlStore::CurlTerm(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, unsigned int instanceCount, bool isFlushFds,const std::string &RemoteHost )
 {
 	int instanceEnd = startIdx + instanceCount;
 	std::string HostName;
@@ -475,6 +475,10 @@ void CurlStore::CurlTerm(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
 	{
 		AAMPLOG_INFO("Store unused curl handle:%p in Curlstore for inst:%d-%d", aamp->curl[startIdx], startIdx, instanceEnd );
 		KeepInCurlStoreBulk ( HostName, startIdx, instanceEnd, aamp, CurlFdHost);
+		if( true == isFlushFds )
+		{
+			FlushCurlSockForHost(HostName);
+		}
 		ShowCurlStoreData(ISCONFIGSET(eAAMPConfig_TraceLogging));
 	}
 	else
@@ -524,7 +528,11 @@ CurlStore::~CurlStore()
 
 		if(CurlSock->mCurlShared)
 		{
+			CurlDataShareLock *locks = CurlSock->pstShareLocks;
 			(void)curl_share_cleanup(CurlSock->mCurlShared);
+			pthread_mutex_destroy(&locks->mCurlSharedlock);
+			pthread_mutex_destroy(&locks->mDnsCurlShareMutex);
+			pthread_mutex_destroy(&locks->mSslCurlShareMutex);
 			SAFE_DELETE(CurlSock->pstShareLocks);
 		}
 
@@ -864,6 +872,63 @@ void CurlStore::RemoveCurlSock ( void )
 }
 
 /**
+ * @fn FlushCurlSockForHost
+ * @brief FlushCurlSockForHost - remove entry of host upon certain network error
+ */
+void CurlStore::FlushCurlSockForHost(const std::string &hostname)
+{
+	const std::lock_guard<std::mutex> lock(mCurlInstLock);
+	CurlSockDataIter removeIter = umCurlSockDataStore.find(hostname);
+
+	if( umCurlSockDataStore.end() != removeIter )
+	{
+		CurlSocketStoreStruct *RmCurlSock = removeIter->second;
+		AAMPLOG_WARN("Removing host:%s UserCount:%d", (removeIter->first).c_str(), RmCurlSock->mCurlStoreUserCount);
+
+		for(auto it = RmCurlSock->mFreeQ.begin(); it != RmCurlSock->mFreeQ.end(); )
+		{
+			if(it->curl)
+			{
+				AAMPLOG_INFO("Removing host:%s curlInstance:%d:%p", (removeIter->first).c_str(), it->curlId,it->curl);
+				curl_easy_cleanup(it->curl);
+				it->curl = NULL;
+			}
+			it=RmCurlSock->mFreeQ.erase(it);
+		}
+		std::deque<CurlHandleStruct>().swap(RmCurlSock->mFreeQ);
+
+		if(RmCurlSock->mCurlStoreUserCount <=  0 ) 
+		{
+			if(RmCurlSock->mCurlShared)
+			{
+				AAMPLOG_INFO("cleaning up curl shared context %p",RmCurlSock->mCurlShared);
+				CurlDataShareLock *locks = RmCurlSock->pstShareLocks;
+				curl_share_cleanup(RmCurlSock->mCurlShared);
+
+				pthread_mutex_destroy(&locks->mCurlSharedlock);
+				pthread_mutex_destroy(&locks->mDnsCurlShareMutex);
+				pthread_mutex_destroy(&locks->mSslCurlShareMutex);
+				SAFE_DELETE(RmCurlSock->pstShareLocks);
+			}
+			else
+			{
+				AAMPLOG_WARN("no curl shared context avilable for %s",(removeIter->first).c_str());
+			}
+			SAFE_DELETE(RmCurlSock);
+			umCurlSockDataStore.erase(removeIter);
+		}
+		else
+		{
+			AAMPLOG_WARN("mCurlStoreUserCountis still %d.someone is using wait for them to complete the task",RmCurlSock->mCurlStoreUserCount);
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("Either hostname %s is removed already or not present", hostname.c_str());
+	}
+}
+
+/**
  * @fn ShowCurlStoreData
  * @brief ShowCurlStoreData - Print curl store details
  */
@@ -882,7 +947,7 @@ void CurlStore::ShowCurlStoreData ( bool trace )
 
 			for(auto it = CurlSock->mFreeQ.begin(); it != CurlSock->mFreeQ.end(); ++it)
 			{
-				AAMPLOG_TRACE("CurlFd:%p Time:%lld Inst:%d", it->curl, it->eHdlTimestamp, it->curlId);
+				AAMPLOG_INFO("CurlFd:%p Time:%lld Inst:%d", it->curl, it->eHdlTimestamp, it->curlId);
 			}
 		}
 	}

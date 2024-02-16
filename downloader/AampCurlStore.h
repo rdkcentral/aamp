@@ -108,6 +108,11 @@ private:
 	typedef std::unordered_map <std::string, CurlSocketStoreStruct*>::iterator CurlSockDataIter;
 	CurlSockData umCurlSockDataStore;
 
+	/**
+	 * @param[in] hostname - hostname part from url
+	 */
+	void FlushCurlSockForHost(const std::string &hostname);
+
 protected:
 	CurlStore(PrivateInstanceAAMP *pAamp);
 	~CurlStore();
@@ -172,9 +177,11 @@ public:
 	 * @param[out] privContext - priv aamp instance from which curl handles will be terminated or stored
 	 * @param[in] startIdx - Index of Curl instance
 	 * @param[in] instanceCount - No of curl handles
+	 * @param[in] isFlushFds - indicates to flush the fds corresponding to remotehost
+	 * @param[in] remotehost - remote host address
 	 * @return void
 	 */
-	void CurlTerm(PrivateInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, const std::string &remotehost=std::string(""));
+	void CurlTerm(PrivateInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, bool isFlushFds=false, const std::string &remotehost=std::string(""));
 
 	/**
 	 * @param[in] pAamp - Private aamp instance

@@ -1095,6 +1095,8 @@ public:
 	// ID3 metadata 
 	aamp::id3_metadata::MetadataCache mId3MetadataCache; /**< Metadata cache object for the JS event */
 
+	bool mIsFlushFdsInCurlStore;	/**< Mark to clear curl store instance in case of playback stopped due to download Error */
+
 	/**
 	 * @fn ProcessID3Metadata
 	 *
@@ -1521,6 +1523,17 @@ public:
 	 * @return void
 	 */
 	void UpdateDuration(double seconds);
+
+	/**
+	 * @fn SetFlushCurlStoreFdToClose
+	 *
+	 * @param[in] isFlush - true if fds need to be deleted else false
+	 * @return void
+	 */
+	void SetFlushFdsNeededInCurlStore(bool isFlush)
+	{
+		mIsFlushFdsInCurlStore=isFlush;
+	}
 
 	/**
 	 * @fn UpdateCullingState

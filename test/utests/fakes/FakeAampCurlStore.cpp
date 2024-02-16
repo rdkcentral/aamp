@@ -31,7 +31,7 @@ void CurlStore::CurlInit(PrivateInstanceAAMP *pAamp, AampCurlInstance startIdx, 
 {
 }
 
-void CurlStore::CurlTerm(PrivateInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, const std::string &RemoteHost )
+void CurlStore::CurlTerm(PrivateInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, bool isCloseFd,const std::string &RemoteHost )
 {
 }
 
