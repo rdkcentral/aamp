@@ -4056,6 +4056,13 @@ public:
 	 */
 	void SignalSubtitleClock();
 
+	/**
+	 * @brief Apply CC/Subtitle mute but preserve the original status
+	 * This function should be called after acquiring StreamLock
+	 * @param[in] muted true if CC/Subtitle is to be muted, false otherwise
+	 */
+	void CacheAndApplySubtitleMute(bool muted);
+
 protected:
 
 	/**

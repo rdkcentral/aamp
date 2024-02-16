@@ -45,6 +45,7 @@ set(TEST_SOURCES PauseAtTests.cpp
                  TextStyleTests.cpp
                  MediaFormatTypeTests.cpp
                  IsPeriodChangeMarkedTests.cpp
+                 SubtitleMuteTests.cpp
                  PrivateInstanceAAMPTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp)

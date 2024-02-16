@@ -52,6 +52,10 @@ double StreamAbstractionAAMP::GetBufferedVideoDurationSec()
 
 void StreamAbstractionAAMP::MuteSubtitles(bool mute)
 {
+    if (g_mockStreamAbstractionAAMP != nullptr)
+    {
+        g_mockStreamAbstractionAAMP->MuteSubtitles(mute);
+    }
 }
 
 void StreamAbstractionAAMP::RefreshSubtitles()

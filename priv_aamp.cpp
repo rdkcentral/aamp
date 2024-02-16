@@ -5403,7 +5403,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				if (mApplyCachedVideoMute)
 				{
 					mApplyCachedVideoMute = false;
-					SetCCStatus(video_muted ? false : !subtitles_muted);
+					CacheAndApplySubtitleMute(video_muted);
 				}
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
@@ -5983,7 +5983,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		{
 			//There two fns are being called in PlayerInstanceAAMP::SetVideoMute
 			SetVideoMute(video_muted);
-			SetCCStatus(video_muted ? false : !subtitles_muted);
+			CacheAndApplySubtitleMute(video_muted);
 		}
 	}
 	ReleaseStreamLock();
@@ -13102,3 +13102,22 @@ long long PrivateInstanceAAMP::GetVideoPTS()
 	return pts;
 }
 
+/**
+ * @brief Apply CC/Subtitle mute but preserve the original status
+ * This function should be called after acquiring StreamLock
+ * This function is used to mute/unmute CC/Subtitle when video is muted/unmuted
+ * @param[in] muted true if CC/Subtitle is to be muted, false otherwise
+ */
+void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
+{
+	bool subtitles_are_logically_muted = subtitles_muted;
+	if (muted)
+	{	// hiding video plane
+		SetCCStatus(false); // hide subtitle plane (along with video)
+		subtitles_muted = subtitles_are_logically_muted;
+	}
+	else
+	{	// we are unmuting video; also unmute subtitles if appropriate
+		SetCCStatus(!subtitles_are_logically_muted);
+	}
+}

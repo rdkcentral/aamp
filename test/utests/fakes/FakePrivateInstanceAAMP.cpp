@@ -1342,3 +1342,7 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 {
 	return 0;
 }
+
+void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
+{
+}

@@ -115,6 +115,10 @@ void AAMPGstPlayer::SetVideoMute(bool muted)
 
 void AAMPGstPlayer::SetSubtitleMute(bool muted)
 {
+	if (g_mockAampGstPlayer != nullptr)
+	{
+		g_mockAampGstPlayer->SetSubtitleMute(muted);
+	}
 }
 
 void AAMPGstPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)

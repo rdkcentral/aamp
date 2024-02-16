@@ -80,6 +80,8 @@ public:
     MOCK_METHOD(std::vector<AudioTrackInfo> &, GetAvailableAudioTracks, (bool allTrack), (override));
 
 	MOCK_METHOD(std::vector<TextTrackInfo> &, GetAvailableTextTracks, (bool allTrack), (override));
+
+    MOCK_METHOD(void, MuteSubtitles, (bool));
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;
