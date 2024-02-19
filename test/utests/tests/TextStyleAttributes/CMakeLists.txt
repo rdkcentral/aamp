@@ -38,7 +38,7 @@ include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 
 
-set(TEST_SOURCES    GetAttributesFontSizeTests.cpp
+set(TEST_SOURCES    GetTextStyleAttributesTests.cpp
                     TextStyleAttributesTests.cpp)
 
 

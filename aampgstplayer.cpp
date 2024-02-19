@@ -5004,12 +5004,23 @@ bool AAMPGstPlayer::SetTextStyle(const std::string &options)
 
 		if (textStyleAttributes.getAttributes(options, attributesValues, attributesMask) == 0)
 		{
-			if (attributesMask & (1 << TextStyleAttributes::FONT_SIZE_ARR_POSITION))
+			if (attributesMask)
 			{
-				guint font_size = attributesValues[TextStyleAttributes::FONT_SIZE_ARR_POSITION];
-
-				AAMPLOG_INFO("AAMPGstPlayer: font-site set to %u", font_size);
-				g_object_set(privateContext->subtitle_sink, "font-size", font_size, NULL);
+				GstStructure *attributes = gst_structure_new ("Attributes",
+						"font_color", G_TYPE_UINT, attributesValues[TextStyleAttributes::FONT_COLOR_ARR_POSITION],
+						"background_color", G_TYPE_UINT, attributesValues[TextStyleAttributes::BACKGROUND_COLOR_ARR_POSITION],
+						"font_opacity", G_TYPE_UINT, attributesValues[TextStyleAttributes::FONT_OPACITY_ARR_POSITION],
+						"background_opacity", G_TYPE_UINT, attributesValues[TextStyleAttributes::BACKGROUND_OPACITY_ARR_POSITION],
+						"font_style", G_TYPE_UINT, attributesValues[TextStyleAttributes::FONT_STYLE_ARR_POSITION],
+						"font_size", G_TYPE_UINT, attributesValues[TextStyleAttributes::FONT_SIZE_ARR_POSITION],
+						"window_color", G_TYPE_UINT, attributesValues[TextStyleAttributes::WIN_COLOR_ARR_POSITION],
+						"window_opacity", G_TYPE_UINT, attributesValues[TextStyleAttributes::WIN_OPACITY_ARR_POSITION],
+						"edge_type", G_TYPE_UINT, attributesValues[TextStyleAttributes::EDGE_TYPE_ARR_POSITION],
+						"edge_color", G_TYPE_UINT, attributesValues[TextStyleAttributes::EDGE_COLOR_ARR_POSITION],
+						"attribute_mask", G_TYPE_UINT, attributesMask,
+						NULL);
+				g_object_set(privateContext->subtitle_sink, "attribute-values", attributes, NULL);
+				gst_structure_free (attributes);
 			}
 		}
 		ret = true;
