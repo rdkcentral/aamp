@@ -19,7 +19,7 @@
 
 #include "AampProfiler.h"
 
-ProfileEventAAMP::ProfileEventAAMP()
+ProfileEventAAMP::ProfileEventAAMP() : telemetryParam(nullptr)
 {
 }
 
