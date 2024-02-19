@@ -2338,21 +2338,61 @@ JSValueRef AAMPMediaPlayerJS_removeCustomHTTPHeader (JSContextRef ctx, JSObjectR
 	{
 		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
 		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call removeCustomHTTPHeader() on instances of AAMPPlayer");
-		return JSValueMakeUndefined(ctx);
-	}
-
-	if (argumentCount == 1)
-	{
-		char *name = aamp_JSValueToCString(ctx, arguments[0], exception);
-		std::string headerName(name);
-                LOG_WARN(privObj,"_aamp->AddCustomHTTPHeader(%s)", headerName.c_str());
-		privObj->_aamp->AddCustomHTTPHeader(headerName, std::vector<std::string>());
-		SAFE_DELETE_ARRAY(name);
 	}
 	else
 	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
-		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute removeCustomHTTPHeader() - 1 argument required");
+		bool isLicenseHeader=false; // default: CDN-only
+		std::string headerName;
+		bool ok = false;
+		switch( argumentCount )
+		{
+			case 0:
+				LOG_WARN(privObj,"_aamp->removeCustomHTTPHeader called with no params. Remove all." );
+				privObj->_aamp->AddCustomHTTPHeader(headerName, std::vector<std::string>(), false); // CDN requests
+				privObj->_aamp->AddCustomHTTPHeader(headerName, std::vector<std::string>(), true); // licence requests
+				break;
+				
+			case 1:
+				if (JSValueIsBoolean(ctx, arguments[0])){
+					isLicenseHeader = JSValueToBoolean(ctx, arguments[0]);
+					ok = true;
+				}
+				else if( JSValueIsString(ctx, arguments[0]) ){
+					char *name = aamp_JSValueToCString(ctx, arguments[0], exception);
+					headerName.assign(name);
+					SAFE_DELETE_ARRAY(name);
+					ok = true;
+				}
+				else {
+					LOG_ERROR(privObj,"_aamp->removeCustomHTTPHeader called with unsupported type." );
+					*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "removeCustomHTTPHeader() - usupported type");
+				}
+				break;
+				
+			case 2:
+				if( JSValueIsString(ctx, arguments[0]) && JSValueIsBoolean(ctx, arguments[1]) ){
+					char *name = aamp_JSValueToCString(ctx, arguments[0], exception);
+					headerName.assign(name);
+					SAFE_DELETE_ARRAY(name);
+					isLicenseHeader = JSValueToBoolean(ctx, arguments[1]);
+					ok = true;
+				}
+				else {
+					LOG_ERROR(privObj,"_aamp->removeCustomHTTPHeader called with unsupported types." );
+					*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "removeCustomHTTPHeader() - unsupported types");
+				}
+				break;
+				
+			default:
+				LOG_ERROR(privObj,"_aamp->removeCustomHTTPHeader(). InvalidArgument - argumentCount=%d, expected: 0-2", argumentCount);
+				*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "removeCustomHTTPHeader() - too many arguments");
+				break;
+		}
+		if( ok )
+		{
+			LOG_WARN(privObj,"_aamp->removeCustomHTTPHeader(%s) requestType=%s", headerName.c_str(), isLicenseHeader?"License":"CDN");
+			privObj->_aamp->AddCustomHTTPHeader(headerName, std::vector<std::string>(), isLicenseHeader);
+		}
 	}
 	LOG_TRACE("Exit");
 	return JSValueMakeUndefined(ctx);

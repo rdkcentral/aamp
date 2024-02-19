@@ -8574,17 +8574,40 @@ void PrivateInstanceAAMP::SetCallbackAsPending(guint id)
  */
 void PrivateInstanceAAMP::AddCustomHTTPHeader(std::string headerName, std::vector<std::string> headerValue, bool isLicenseHeader)
 {
-	// Header name should be ending with :
-	if(headerName.back() != ':')
+	const char *headerValueAsString = NULL;
+	switch( headerValue.size() )
 	{
+		case 0:
+			headerValueAsString = "<clear>";
+			break;
+		case 1:
+			headerValueAsString = headerValue[0].c_str();
+			break;
+		default:
+			headerValueAsString = "<array>";
+			break;
+	}
+	AAMPLOG_MIL( "header=%s value=%s requestType=%s",
+				headerName.c_str(),
+				headerValueAsString,
+				isLicenseHeader?"License":"CDN" );
+	
+	bool emptyHeader = (headerName.empty() || (0 == headerName.compare(":")) );
+	bool emptyValue  = (headerValue.size() == 0);
+
+	if(headerName.back() != ':')
+	{ // must end with ":"
 		headerName += ':';
 	}
-
 	if (isLicenseHeader)
-	{
-		if (headerValue.size() != 0)
+	{ // requestType = License
+		if ( !emptyValue )
 		{
 			mCustomLicenseHeaders[headerName] = headerValue;
+		}
+		else if (emptyHeader)
+		{
+			mCustomLicenseHeaders.clear();
 		}
 		else
 		{
@@ -8592,10 +8615,14 @@ void PrivateInstanceAAMP::AddCustomHTTPHeader(std::string headerName, std::vecto
 		}
 	}
 	else
-	{
-		if (headerValue.size() != 0)
+	{ // requestType = CDN
+		if ( !emptyValue )
 		{
 			mCustomHeaders[headerName] = headerValue;
+		}
+		else if (emptyHeader)
+		{
+			mCustomHeaders.clear();
 		}
 		else
 		{

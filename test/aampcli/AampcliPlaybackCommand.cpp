@@ -410,14 +410,61 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 		termPlayerLoop();
 		return false;	//to exit
 	}
-	else if( isCommandMatch(cmd, "customheader") )
+	else if ( 0 == strncmp(cmd, "customheader", 12) )
 	{
+		std::string headerName;
 		std::vector<std::string> headerValue;
+		char* cmdptr;
+		int parameter=0;
+		bool isLicenceHeader=false;
+		cmdptr = strtok (const_cast<char*>(cmd)," ,");
+
 		printf("[AAMPCLI] customheader Command is %s\n" , cmd);
-		playerInstanceAamp->AddCustomHTTPHeader(
-												"", // headerName(?)
-												headerValue,
-												false); // isLicenseHeader
+
+		std::string subString;
+		
+		// accepts just one headervalue for now, not an array.
+		// header value of '.' -> remove the header, else it adds it		
+		while (cmdptr)
+		{
+			subString.assign(cmdptr);
+			printf("parameter %d, value %.80s\n", parameter, subString.c_str());
+			if ( 3==parameter )
+			{
+				if ((0 == subString.compare(0,4,"true") ))
+				{
+					printf("isLicenceHeader=true\n");
+					isLicenceHeader=true;
+				}
+				else
+				{
+					printf("isLicenceHeader=false\n");
+					isLicenceHeader=false;
+				}
+			}
+			else if ( 1==parameter )
+			{
+				headerName.assign(subString);
+				printf("headerName=%.80s\n", headerName.c_str());
+			}
+			else if ( 2==parameter )
+			{
+				// pass "." to as value to remove the header instead
+				if (0==subString.compare("."))
+				{
+					printf("headerValue empty. Header to be removed.\n");
+				}
+				else
+				{
+					headerValue.push_back(subString);
+					printf("headerValue=%.80s\n", headerValue.back().c_str());
+				}
+			}
+			parameter++;
+			cmdptr = strtok (NULL, " ,");
+		}
+		printf("isLicenceHeader=%d\n", isLicenceHeader);
+		playerInstanceAamp->AddCustomHTTPHeader(headerName, headerValue, isLicenceHeader);
 	}
 	else if( sscanf(cmd, "unlock %ld", &unlockSeconds) >= 1 )
 	{

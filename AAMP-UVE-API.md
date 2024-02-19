@@ -619,7 +619,7 @@ Example:
 			top: 0;
 			background-color: rgb(9, 62, 148);
 		}
-​
+
 		#video {
 			position: absolute;
 		}
@@ -652,7 +652,7 @@ Example:
 
 ---
 
-### addCustomHTTPHeader( headerName, headerValue, isLicenseRequest )
+### addCustomHTTPHeader( headerName, headerValue, requestType )
 - Supported UVE version 0.8 and above.
 - Add custom headers to HTTP requests
 
@@ -660,7 +660,8 @@ Example:
 |----|----|-----------|
 | headerName | String | HTTP header name |
 | headerValue | String | HTTP header value |
-| isLicenseRequest | Boolean | Optional field (defaults is false) If True, HTTP header is for exclusive use with license requests (Widevine/PlayReady)|
+| headerValue | String Array | Alternate parameter type for multi-value HTTP headers |
+| requestType | Boolean | Optional field for scope.  If False (default), the custom HTTP header is applied only to subsequent CDN requests; If True, the custom HTTP header is applied only to subsequent license requests (i.e. Widevine/PlayReady) |
 
 Example:
 ```js
@@ -685,13 +686,37 @@ Example:
 ```
 ---
 
-### removeCustomHTTPHeader( headerName )
+### removeCustomHTTPHeader( headerName, requestType )
 - Supported UVE version 0.8 and above.
-- Remove a custom header set previously.  If called with no arguments, will remove all custom headers.
+- Remove a previously set custom header.  If called with no arguments, will completely reset custom header use for the player instance, removing all custom headers for both license and CDN requests.
 
 |Name|Type|Description|
 |----|----|-----------|
-| headerName | String | HTTP header name |
+| headerName | String | Optional field: HTTP header name. If not set then all headers will be removed |
+| requestType | Boolean | Optional field for scope.  If False (default), applies only to CDN requests; If True, applies only to License server requests (i.e. Widevine/PlayReady).
+
+Examples:
+```
+	// remove all custom headers (from CDN and license requests)
+	player.removeCustomHTTPHeader();
+	
+	// remove custom header "foo" from  CDN requests (not license requests)
+	player.removeCustomHTTPHeader( "foo" ); 
+	
+	// remove custom header "foo" from  CDN requests only
+	player.removeCustomHTTPHeader( "foo", false );
+	
+	// remove custom header "foo" from  license requests only
+	player.removeCustomHTTPHeader( "foo", true ); 
+	
+	// remove all custom headers from CDN requests only
+	player.removeCustomHTTPHeader( false ); 
+	
+	// remove all custom headers from license requests only
+	player.removeCustomHTTPHeader( true ); 
+```
+
+---
 
 ---
 
