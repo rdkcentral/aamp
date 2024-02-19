@@ -21,41 +21,40 @@ import os
 import sys
 import platform
 import pexpect
-import argparse
 import time
 import subprocess
-import json
-
-AAMP_HOME = os.environ["AAMP_HOME"] if "AAMP_HOME" in os.environ else os.path.abspath(
-        os.path.join('..', '..', '..'))
+from inspect import getsourcefile
 
 class Simlinear:
     """
     Methods related to starting or stopping simlinear
     """
-    def __init__(self, cmd_line_opts):
-        self.args = cmd_line_opts
+    def __init__(self, test_dir_path, pytestconfig):
+        self.pytestconfig = pytestconfig
+        self.test_dir_path = test_dir_path
+        self.aamp_home = get_aamp_home()
+        self.output_path = os.path.join(self.test_dir_path, "output")
         self.SL_PORT = os.environ["L2_SL_PORT"] if "L2_SL_PORT" in os.environ else '8085'
-        self.SL_PATH = os.path.join(AAMP_HOME, 'test', 'tools', 'simlinear', 'simlinear.py')
+        self.simlinear_path = os.path.join(self.aamp_home, 'test', 'tools', 'simlinear', 'simlinear.py')
 
         self.SL_URL = "http://localhost:" + self.SL_PORT + "/"
-        self.SL_DATA_PATH = 'testdata'
-        self.OUTPUT_PATH = os.path.abspath(os.path.join('.','output'))
-        os.makedirs(self.OUTPUT_PATH , exist_ok=True)
+        self.SL_DATA_PATH = os.path.join(self.test_dir_path, 'testdata')
+
         self.simlogfile = None  # file object for logging
         self.sl_process = None
+        self.paths = None
+
 
     def start(self, abr_type, logfile_name='simlinear_log.txt'):
         """
         Start simlinear web server as a separate process
         """
         if abr_type != 'DASH' and abr_type != 'HLS':
-            print("ERROR unknown abr_type ", abr_type)
-            sys.exit(os.EX_SOFTWARE)
+            assert 0, "ERROR unknown abr_type {}".format(abr_type)
 
-        if not os.path.exists(self.SL_PATH):
-            print("ERROR File does not exist {} Check setup.".format(self.SL_PATH))
-            sys.exit(os.EX_SOFTWARE)
+        assert os.path.exists(self.simlinear_path), (
+            "ERROR File does not exist {} Check setup.".format(self.simlinear_path))
+
 
         # Kill any existing simlinear process that might have got left running
         # from a previous abnormal exit
@@ -69,93 +68,143 @@ class Simlinear:
 
         print("Starting simlinear")
         abr_opt = '--dash' if abr_type == 'DASH' else '--hls'
-        simlinear_cmd = [self.SL_PATH, abr_opt, self.SL_PORT]
+        simlinear_cmd = [self.simlinear_path, abr_opt, self.SL_PORT]
 
         try:
-            if self.args.sim_log is True:
+            if self.pytestconfig.config.getoption('sim_log'):
                 self.sl_process = subprocess.Popen(simlinear_cmd, cwd=self.SL_DATA_PATH)
             else:
-                self.simlogfile = open(os.path.join(self.OUTPUT_PATH, logfile_name), "wb")
+                self.simlogfile = open(os.path.join(self.output_path, logfile_name), "wb")
                 self.sl_process = subprocess.Popen(simlinear_cmd, stdout=self.simlogfile, stderr=self.simlogfile,
                                                    cwd=self.SL_DATA_PATH)
         except Exception as e:
-            print(e)
-            sys.exit(os.EX_SOFTWARE)
+            assert 0, "{} gives {}".format(simlinear_cmd, e)
 
         time.sleep(3)  # Takes time to startup because of listing out manifests! misses URL maybe
 
     def stop(self):
+        """
+        Terminate the simlinear process
+        """
         if self.sl_process:
             print("Terminating simlinear")
             self.sl_process.terminate()
         if self.simlogfile:
             self.simlogfile.close()
-##################################################################################################################
+
+###################################################################################################################
 
 
 class Aamp:
     """
     Methods related to starting and interacting with aamp-cli
     """
-    def __init__(self, cmd_line_opts):
-        self.args = cmd_line_opts
 
+    def __init__(self, pytestconfig=None):
+        self.pytestconfig = pytestconfig
+        self.aamp_home = get_aamp_home()
         self.AAMP_ENV = {}
-        self.OUTPUT_PATH = os.path.abspath(os.path.join('.', 'output'))
         aamp_cli_cmd_prefix = os.environ["AAMP_CLI_CMD_PREFIX"] + ' ' if "AAMP_CLI_CMD_PREFIX" in os.environ else ''
-        os.makedirs(self.OUTPUT_PATH, exist_ok=True)
+        
         if platform.system() == 'Darwin':
-            aamp_cli_path = os.path.join(AAMP_HOME, "build", "Debug", "aamp-cli")
+            aamp_cli_path = os.path.join(self.aamp_home, "build", "Debug", "aamp-cli")
         else:
-            self.AAMP_ENV.update({"LD_PRELOAD": os.path.join(AAMP_HOME, "Linux", "lib", "libdash.so"),
-                                  "LD_LIBRARY_PATH": os.path.join(AAMP_HOME, "Linux", "lib")})
-            aamp_cli_path = os.path.join(AAMP_HOME, "Linux", "bin", "aamp-cli")
+            self.AAMP_ENV.update({"LD_PRELOAD": os.path.join(self.aamp_home, "Linux", "lib", "libdash.so"),
+                                  "LD_LIBRARY_PATH": os.path.join(self.aamp_home, "Linux", "lib")})
+            aamp_cli_path = os.path.join(self.aamp_home, "Linux", "bin", "aamp-cli")
 
         self.AAMP_CMD = '/bin/bash -c "' + aamp_cli_cmd_prefix + aamp_cli_path + '"'
 
-        # Set aamp to read aamp.cfg from under l2test so that it does not conflict
-        # with $HOME/aamp.cfg that a user may have
-        tes_path = os.path.abspath(os.path.join('.'))
-        aamp_cfg_dir = tes_path
-        self.AAMP_ENV.update({"AAMP_CFG_DIR": aamp_cfg_dir})
-        self.aamp_cfg_file = os.path.join(aamp_cfg_dir, "aamp.cfg")
-
+        self.simlinear = None
+        self.output_path = None
+        self.aamp_cfg_file = None
+        self.test_dir_path = None
         self.aamp_pexpect = None
         self.logfile = None
         self.EXPECT_TIMEOUT = 10
 
+    def run_prerequisite(self, script="prerequisite.sh"):
+        """
+        Invoke prerequisite.sh if it exists
+        """
+        path = os.path.join(self.test_dir_path, script)
+        prerequisite = os.path.isfile(path)
+        if prerequisite is False:
+            print("no prerequisites defined {}".format(path))
+        else:
+            print("Running prerequisite {}".format(path))
+            # os.chmod('prerequisite.sh', stat.S_IRWXU)
+            ret = subprocess.run('./{}'.format(script), shell=True, cwd=self.test_dir_path)
+            assert ret.returncode == 0, "{} failed".format(path)
+
+    def set_paths(self, path_of_test_nnn_py):
+        head, tail = os.path.split(path_of_test_nnn_py)
+        print("head", head)
+        self.test_dir_path = head
+        aamp_cfg_dir = self.test_dir_path
+        # Set aamp to read aamp.cfg from under l2test so that it does not conflict
+        # with $HOME/aamp.cfg that a user may have
+        self.AAMP_ENV.update({"AAMP_CFG_DIR": aamp_cfg_dir})
+        self.aamp_cfg_file = os.path.join(aamp_cfg_dir, "aamp.cfg")
+
+        self.output_path = os.path.join(self.test_dir_path, "output")
+        os.makedirs(self.output_path, exist_ok=True)
+
+        self.run_prerequisite()
+
     def start_aamp(self, logfile_name='logfile.log'):
+        """
+        Start aamp-cli process and keep connection to stdin stdout via
+        pexpect
+        """
         env = os.environ
         env.update(self.AAMP_ENV)
         print(self.AAMP_CMD)
         print(self.AAMP_ENV)
-        self.aamp_pexpect = pexpect.spawn(self.AAMP_CMD, env=env, timeout=self.EXPECT_TIMEOUT)
+        self.aamp_pexpect = pexpect.spawn(self.AAMP_CMD, env=env, timeout=self.EXPECT_TIMEOUT, cwd=self.test_dir_path)
 
-        if self.args.aamp_log:
+        if self.pytestconfig.config.getoption('aamp_log'):
             self.aamp_pexpect.logfile = sys.stdout.buffer
         else:
-            self.logfile = open(os.path.join(self.OUTPUT_PATH, logfile_name), "wb")
+            self.logfile = open(os.path.join(self.output_path, logfile_name), "wb")
             self.aamp_pexpect.logfile = self.logfile
 
-        self.aamp_pexpect.expect_exact('cmd: ')
+        try:
+            self.aamp_pexpect.expect_exact('cmd: ')
+        except Exception as e:
+            assert 0, "Cannot start aamp {}".format(e)
+            self.aamp_pexpect = None
 
     def exit_aamp(self):
         print("Exiting aamp-cli")
-        try:
-            self.sendline("stop")
-            self.sendline("exit")
-            self.aamp_pexpect.sendeof()
-        except Exception as e:
-            print("Exception during shutdown of aamp-cli", e)
-            self.aamp_pexpect.kill(9)
+        if self.aamp_pexpect:
+            try:
+                self.sendline("stop")
+                time.sleep(0.5)
+                self.sendline("exit")
+                time.sleep(0.5)
+                self.aamp_pexpect.sendeof()
+                time.sleep(0.5)
+            except pexpect.EOF:
+                pass
+            except Exception as e:
+                self.aamp_pexpect.kill(9)
+                assert 0, "Exception during shutdown of aamp-cli {}".format(e)
         if self.logfile:
             self.logfile.close()
 
+        if self.simlinear:
+            self.simlinear.stop()
+            self.simlinear = None
+
     def sendline(self, cmd_line):
+        """
+        Send a command to aamp-cli
+        """
         print("sendline", cmd_line)
         self.aamp_pexpect.sendline(cmd_line)
 
-    def create_aamp_cfg(self,cfg_setting):
+    def create_aamp_cfg(self, cfg_setting):
         """
         aamp.cfg should contain
         info=true
@@ -168,13 +217,15 @@ class Aamp:
             f = open(self.aamp_cfg_file, "w")
             if cfg_setting:
                 f.write(cfg_setting)
-            if self.args.aamp_video is False:
-                f.write("useTCPServerSink=true\n")
+            if self.pytestconfig.config.getoption('aamp_video') is True:
+                pass
+            else:
+                f.write("useTCPServerSink=true\nTCPServerSinkPort=0\n")
             f.close()
 
         except Exception as e:
-            print("ERROR Exception was thrown", e)
-            sys.exit(os.EX_SOFTWARE)
+            assert 0, "ERROR Exception was thrown".format(e)
+
 
     def run_expect_a(self, testdata):
         """
@@ -192,7 +243,7 @@ class Aamp:
              {"expect":"line expected from aamp"},
         ]
         """
-        test_pass = True
+
         print("{} {}".format(testdata["title"], testdata.get("logfile", '')))
 
         max_test_time_seconds = testdata.get("max_test_time_seconds", 15)
@@ -206,42 +257,27 @@ class Aamp:
         for idx, e in enumerate(testdata["expect_list"]):
             if e.get('expect') is not None:
                 try:
-                    self.aamp_pexpect.expect(e['expect'],timeout=max_test_time_seconds)
+                    self.aamp_pexpect.expect(e['expect'], timeout=max_test_time_seconds)
                 except pexpect.TIMEOUT:
-                    print("ERROR TIMEOUT was thrown idx={}:{}".format(idx, str(self.aamp_pexpect)))
-                    test_pass = False
-                    break
+                    assert 0, "ERROR TIMEOUT was thrown idx={}:{}".format(idx, e['expect'])
                 except Exception as e:
-                    print("ERROR Exception was thrown idx={}:{}".format(idx, str(e)))
-                    test_pass = False
-                    break
+                    assert 0, "ERROR Exception was thrown idx={}:{}".format(idx, str(e))
                 else:
                     elapsed = time.time() - start_time
                     print("Event idx={} {} occurs at elapsed={}".format
                           (idx, str(e["expect"]).replace("\\", ""), elapsed))
 
                 finally:
-                    if (time.time() - start_time) > max_test_time_seconds:
-                        print("ERROR Max test time exceeded")
-                        test_pass = False
-                        break
+
+                    elapsed = time.time() - start_time
+                    assert elapsed < (max_test_time_seconds*2), (
+                        "ERROR Max test time exceeded elapsed={}".format(elapsed))
 
             if e.get('cmd') is not None:
                 elapsed = time.time() - start_time
-                print("Cmd idx={} {} sent at elapsed={}".format(idx, str(e["cmd"]).replace("\\", ""), elapsed))
+                print("Cmd idx={} {} sent at elapsed={}"
+                      .format(idx, str(e["cmd"]).replace("\\", ""), elapsed))
                 self.sendline(e["cmd"])
-
-        # Finish
-        self.exit_aamp()
-
-        if test_pass:
-            result = "PASSED"
-        else:
-            result = "FAILED"
-
-        print("{} {}".format(result, testdata["title"]))
-
-        return test_pass
 
     def check_for_missed_events(self, testdata, elapsed, expect_did_happen):
         """
@@ -251,9 +287,7 @@ class Aamp:
         for j in range(len(expect_did_happen)):
             ee = testdata["expect_list"][j]
             if expect_did_happen[j] is False and elapsed > ee["max"] and "not_expected" not in ee:
-                print("ERROR {} never occurred in expected time window".format(ee))
-                return False
-        return True
+                assert 0, "ERROR {} never occurred in expected time window".format(ee)
 
     def run_expect_b(self, testdata):
         """
@@ -279,26 +313,28 @@ class Aamp:
                                             # List of regular expressions to expect
                                             # with min max when it is expected to occur
                                             # The first expect in the list is used to set the time reference to 0
-        {"expect": r"track\[audio\] buffering GREEN->YELLOW", "min": 10, "max": 75, "not_expected" : True},
+        {"expect": r"track[audio] buffering GREEN->YELLOW", "min": 10, "max": 75, "not_expected" : True},
                                             # not_expected used to indicate pattern no expected in this time frame
-        {"expect": r"#EXT-X-DISCONTINUITY", "min": 40, "max": 100},
+        {"expect": r"#EXT-X-DISCONTINUITY", "min": 40, "max": 100
+                                            "callback" :func
+                                            "callback_arg" : 123},
+                                            # Allows test to specify a func to call when a match occurs
+                                            # In this example results in func(match,123) getting called
 
 
 
          { ... "end_of_test":True}          # End the test cause exit when matching expression encountered
         """
 
-        test_pass = True
         log_start_timestamp = 0
         log_timestamp = 0
-        simlinear = None
 
         print("{} {}".format(testdata["title"], testdata.get("logfile", '')))
         max_test_time_seconds = testdata.get("max_test_time_seconds", 15)
 
-        if testdata['simlinear_type']:
-            simlinear = Simlinear(self.args)
-            simlinear.start(testdata['simlinear_type'], logfile_name='simlinear_' + testdata['logfile'])
+        if testdata.get('simlinear_type'):
+            self.simlinear = Simlinear(self.test_dir_path, self.pytestconfig)
+            self.simlinear.start(testdata['simlinear_type'], logfile_name='simlinear_' + testdata['logfile'])
 
         expect_list = []
         expect_did_happen = []
@@ -326,14 +362,16 @@ class Aamp:
         expect_re = self.aamp_pexpect.compile_pattern_list(expect_list)
 
         # Send URL to start playing
-        if simlinear:
-            self.sendline(simlinear.SL_URL+testdata["url"])
+        assert 'url' in testdata, "No url specified in test data"
+
+        if self.simlinear:
+            self.sendline(self.simlinear.SL_URL+testdata["url"])
         else:
             self.sendline(testdata["url"])
 
         start_time = time.time()
         end_of_test = False
-        while end_of_test is False and test_pass is True:
+        while end_of_test is False:
             try:
                 i = self.aamp_pexpect.expect_list(expect_re)
             except pexpect.TIMEOUT:
@@ -341,14 +379,11 @@ class Aamp:
                 # Use it to do some housekeeping
                 # We check that all expected log output has occurred.
                 elapsed_since_start = log_timestamp - log_start_timestamp + self.EXPECT_TIMEOUT
-                if self.check_for_missed_events(testdata, elapsed_since_start, expect_did_happen) is False:
-                    test_pass = False
+                self.check_for_missed_events(testdata, elapsed_since_start, expect_did_happen)
 
             except Exception as e:
-                print("ERROR Exception was thrown:", e)
-                test_pass = False
-                end_of_test = True
-                break
+                assert 0, "ERROR Exception was thrown {}".format(e)
+
             else:
                 if i == len(expect_list)-1:
                     # last entry in our list which is the timestamp pattern
@@ -369,50 +404,33 @@ class Aamp:
                     if elapsed >= e["min"] and elapsed <= e["max"]:
                         if "not_expected" in e:
                             # We got event within a time window when we were not expecting it
-                            print("ERROR {} occurred elapsed={}".format(e, elapsed))
-                            test_pass = False
+                            assert 0, "ERROR {} occurred elapsed={}".format(e, elapsed)
                         else:
                             # Event occurred in window and was expected
                             expect_did_happen[i] = True
 
+                            if "callback" in e:
+                                print("Have callback")
+                                e["callback"](match, e.get("callback_arg"))
+
                             if "end_of_test" in e:
-                                if self.check_for_missed_events(testdata, elapsed, expect_did_happen) is False:
-                                    test_pass = False
+                                self.check_for_missed_events(testdata, elapsed, expect_did_happen)
                                 end_of_test = True
 
             finally:
-                if (time.time()-start_time) > max_test_time_seconds:
-                    print("ERROR Max test time exceeded")
-                    test_pass = False
-                    end_of_test = True
-
-        # Finish
-        self.exit_aamp()
-
-        if test_pass:
-            result = "PASSED"
-        else:
-            result = "FAILED"
-
-        print("{} {}".format(result, testdata["title"]))
-
-        if simlinear:
-            simlinear.stop()
-
-        return test_pass
+                elapsed = time.time()-start_time
+                assert elapsed < max_test_time_seconds, "ERROR Max test time exceeded elapsed={}".format(elapsed)
 
 
-def parse_cmd_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--aamp_log", help="Output aamp logging",
-                        action="store_true")
-    parser.add_argument("--sim_log", help="Output sim logging",
-                        action="store_true")
-    parser.add_argument("-v", "--aamp_video", help="Run AAMP with video window, but no A/V gap detection",
-                        action="store_true")
-    parser.add_argument("--ignore_fails",
-                        help="Continue with next test even if previous failed. Default option is to exit on failure",
-                        action="store_true")
-    parser.add_argument('--repeat', type=int, default=1, help='Repeat the set of tests n times')
+def get_aamp_home():
+    """
+    Search up directories looking for 'aamp'
+    Will not work if somebody renames aamp to something else
+    """
+    path = os.path.abspath(getsourcefile(lambda: 0))
+    while path:
+        head, tail = os.path.split(path)
+        if tail == "aamp":
+            return path
+        path = head
 
-    return parser.parse_args()

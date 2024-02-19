@@ -21,16 +21,9 @@ subtitles can be used to run this test.
 
 ## Run l2test using script:
 
-From the *test/l2test/TST_1001_Webvtt* folder run:
+From the *test/l2test/ folder run:
 
-./run_test.py
-
-## Example:
-
-    cd aamp
-    bash install-aamp.sh
-    cd test/l2test/test/l2test/TST_1001_Webvtt
-    ./run_test.py
+./run_l2_test.py -t 1001
 
 ## Note Running on Mac
 

@@ -3,18 +3,11 @@
 
 + simlinear.py  Webserver for serving manifest data.
 
-+ tcp_client.py Detects A/V gaps via gstreamer tcpserversink
-
 + run_test.py  Causes aamp-cli to play manifest HLS test sets containing discontinuities.Checks log messages output from aamp are as expected. For each test gives PASS/FAIL result
 
+## Pre-requisites to run this test. See prerequisites.sh
 
-## Pre-requisites to run this test
-
-1. python3 and required modules installed.
-
-         python3 -m pip install pexpect requests flask webargs aiohttp
-
-2. Before start running test stream artifactory path needs to be specified in TEST_2000_STREAM_PATH
+1. Before start running test stream artifactory path needs to be specified in TEST_2000_STREAM_PATH
 
     a. When running inside docker
 
@@ -24,7 +17,7 @@
 
          export TEST_2000_STREAM_PATH=https://artifactory.host.com/artifactory/stream_data.gz
 
-3. Archive file containing manifest data has been downloaded ( URL: from location where the file is stored ) and extracted into directory 'testdata'
+2. Archive file containing manifest data has been downloaded ( URL: from location where the file is stored ) and extracted into directory 'testdata'
 
 # aamp repository downloaded and aamp-cli built
 This will result in the following directory structure:
@@ -39,9 +32,13 @@ m3u8s                           m3u8s_paired_discontinuity_audio_3s_108s     m3u
 m3u8s_audio_discontinuity       m3u8s_paired_discontinuity_audio_early       m3u8s_paired_discontinuity_content_transition       m3u8s_video_discontinuity_180s
 m3u8s_audio_discontinuity_180s  m3u8s_paired_discontinuity_audio_early_108s  m3u8s_paired_discontinuity_content_transition_108s  m3u8s_vod
  ```
-## Run the test
-```
-$ ./aamp/test/simlinear/run_test/run_test.py
+## Run l2test using script:
+
+From the *test/l2test/ folder run:
+
+./run_l2_test.py -t 2000
+...
+
 Creating  /home/user/aamp.cfg
 Canned live HLS playback. No discontinuity testdata1.txt
 http://localhost:5000/sim/start {'port': '8085', 'type': 'HLS'} 200
@@ -72,13 +69,13 @@ Automated test setup when run_test.py is invoked:
     ------------    |            -----------------
     run_test .py|-> |                | http fetch
     ------------    |                V
-        ^           |           -----------            ---------------
-        |           |-launch-> | aamp-cli  |--pipe--> | tcp_client.py |---> |
-        |                       -----------            ---------------      |
-        |                            |                           ^          |
-        |                       tcpserversink                    |          |
-        |                            | ---------detect A/V gaps- |          |
-        |                                                                   |
-        |                                                                   |
-        |                                                                   |
-        | -----------------log messages --<---------------------------------|
+        ^           |           -----------           
+        |           |-launch-> | aamp-cli  |
+        |                       -----------            
+        |                            |                    
+        |                            |
+        |                            |         
+        |                            |
+        |                            |
+        |                            |
+        | -------log messages --<----|

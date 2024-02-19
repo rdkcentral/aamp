@@ -8,6 +8,12 @@ if [ "$TEST_2000_STREAM_PATH" == "" ]; then
     TEST_2000_STREAM_PATH="https://cpetestutility.stb.r53.xcal.tv/AAMP/simlinear/aamptest/streams/simlinear/streams09-Jan2023.tar.gz"
 fi
 
+#Stop multiple fetching of data if we already have it
+file=$(basename ${TEST_2000_STREAM_PATH})
+if [ -f $file ]; then
+    echo "$file exists, not fetching again"
+    exit 0
+fi
 if (curl -O  -X GET $TEST_2000_STREAM_PATH);then
     echo "Test referring :" $TEST_2000_STREAM_PATH
 else

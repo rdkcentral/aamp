@@ -18,13 +18,6 @@ https://cpetestutility.stb.r53.xcal.tv/AAMP/tools/aamptest/ads/ad3/hsar1039-soip
 
 ## Run l2test using script:
 
-From the *test/l2test/TST_1003_CDAI* folder run:
+From the *test/l2test/ folder run:
 
-./run_test.py
-
-## Example:
-
-    cd aamp
-    bash install-aamp.sh
-    cd test/l2test/TST_1003_CDAI
-    ./run_test.py
+./run_l2_test.py -t 1003

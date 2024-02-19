@@ -23,11 +23,9 @@
 #
 # Also see README.txt
 
-
+from inspect import getsourcefile
 import os
-import sys
-import framework
-
+import pytest
 
 ###############################################################################
 
@@ -43,7 +41,7 @@ TESTDATA1 = {
     # ( string, min time seconds, max time seconds)
     {"expect":"Video Profile added to ABR","min":0, "max":1},
     {"expect": r"Returning Position as (\d+) ","min":0, "max":300},
-    {"expect": "fragment injector done. track video", "min": 150, "max": 250,"end_of_test":True }
+    {"expect": r"fragment injector done. track video", "min": 150, "max": 250,"end_of_test":True }
     ]
 }
 
@@ -55,10 +53,10 @@ TESTDATA2 = {
 "max_test_time_seconds": 300,
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
-    {"expect": "Video Profile added to ABR", "min": 0, "max": 1},
+    {"expect": r"Video Profile added to ABR", "min": 0, "max": 1},
     {"expect": r"Returning Position as (\d+) ","min":0, "max":300},
-    {"expect": "Returning Position as 19[0-9]{4}", "min": 190, "max": 300,"end_of_test":True},
-    {"expect": "totalInjectedDuration 21[0-1]", "min": 190, "max": 300,"end_of_test":True},
+    {"expect": r"Returning Position as 19[0-9]{4}", "min": 190, "max": 300,"end_of_test":True},
+    {"expect": r"totalInjectedDuration 21[0-1]", "min": 190, "max": 300,"end_of_test":True},
 ]
 }
 
@@ -73,14 +71,14 @@ TESTDATA3= {
 "max_test_time_seconds": 300,
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
-    {"expect": "Video Profile added to ABR", "min": 0, "max": 1},
-    {"expect": "#EXT-X-DISCONTINUITY", "min": 40, "max": 100},
+    {"expect": r"Video Profile added to ABR", "min": 0, "max": 1},
+    {"expect": r"#EXT-X-DISCONTINUITY", "min": 40, "max": 100},
     #A section of audio is missing, after this audio buffer state is
     #always red because MonitorBufferHealth has no way of recovering.
-    {"expect": "track\[audio\] No Change \[RED\]", "min": 50, "max": 108},
+    {"expect": r"track\[audio\] No Change \[RED\]", "min": 50, "max": 108},
     #Need to check that audio has a gap and no video gap
 
-    {"expect": "Returning Position as 1[4-5][0-9]{4}", "min": 120, "max": 300,"end_of_test":True},
+    {"expect": r"Returning Position as 1[4-5][0-9]{4}", "min": 120, "max": 300,"end_of_test":True},
 
 ]
 }
@@ -95,13 +93,12 @@ TESTDATA4= {
 "max_test_time_seconds": 300,
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
-    {"expect": "Video Profile added to ABR", "min": 0, "max": 1},
-    {"expect": "#EXT-X-DISCONTINUITY", "min": 40, "max": 80},
-    {"expect": "Ignoring discontinuity as audio track does not have discontinuity", "min": 50, "max": 150},
-    {"expect": "track\[audio\] buffering GREEN->YELLOW", "min": 10, "max": 75, "not_expected" : True},
-    {"expect": "Returning Position as 148", "min": 120, "max": 300,"end_of_test":True},
-    {"expect": "AAMP_EVENT_EOS", "min": 100, "max": 300,"end_of_test":True}
-
+    {"expect": r"Video Profile added to ABR", "min": 0, "max": 1},
+    {"expect": r"#EXT-X-DISCONTINUITY", "min": 40, "max": 80},
+    {"expect": r"Ignoring discontinuity as audio track does not have discontinuity", "min": 50, "max": 150},
+    {"expect": r"track\[audio\] buffering GREEN->YELLOW", "min": 10, "max": 75, "not_expected" : True},
+    {"expect": r"Returning Position as 148", "min": 120, "max": 300,"end_of_test":True},
+    {"expect": r"AAMP_EVENT_EOS", "min": 100, "max": 300,"end_of_test":True}
 ]
 }
 
@@ -117,16 +114,16 @@ TESTDATA5= {
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
     # ( string, min time seconds, max time seconds)
-    {"expect": "Video Profile added to ABR","min":0, "max":1},
+    {"expect": r"Video Profile added to ABR","min":0, "max":1},
     {"expect": r"Returning Position as (\d+) ", "min": 0, "max": 300},
-    {"expect": "Buffer is running low", "min": 60, "max": 200, "not_expected" : True},
-    {"expect": "mTrackState:3!", "min": 20, "max": 35, }, #I.E discontinuity in audio and video
-    {"expect": "#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
-    {"expect": "AAMPGstPlayerPipeline PAUSED -> PAUSED", "min": 35, "max": 70},
-    {"expect": "AAMPGstPlayerPipeline PAUSED -> PLAYING", "min": 35, "max": 70},
-    {"expect": "AAMPGstPlayer: Pipeline flush seek", "min": 35, "max": 70},
-    {"expect": "fragment injector done. track video", "min": 68, "max": 90,"end_of_test":True},
-    {"expect": "GST_MESSAGE_EOS","min": 80, "max": 150,"end_of_test":True }
+    {"expect": r"Buffer is running low", "min": 60, "max": 200, "not_expected" : True},
+    {"expect": r"mTrackState:3!", "min": 20, "max": 35, }, #I.E discontinuity in audio and video
+    {"expect": r"#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
+    {"expect": r"AAMPGstPlayerPipeline PAUSED -> PAUSED", "min": 35, "max": 70},
+    {"expect": r"AAMPGstPlayerPipeline PAUSED -> PLAYING", "min": 35, "max": 70},
+    {"expect": r"AAMPGstPlayer: Pipeline flush seek", "min": 35, "max": 70},
+    {"expect": r"fragment injector done. track video", "min": 68, "max": 90,"end_of_test":True},
+    {"expect": r"GST_MESSAGE_EOS","min": 80, "max": 150,"end_of_test":True }
     ]
 }
 
@@ -144,16 +141,16 @@ TESTDATA6= {
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
     # ( string, min time seconds, max time seconds)
-    {"expect": "Video Profile added to ABR","min":0, "max":1},
+    {"expect": r"Video Profile added to ABR","min":0, "max":1},
     {"expect": r"Returning Position as (\d+) ", "min": 0, "max": 300},
-    {"expect": "Buffer is running low", "min": 60, "max": 200, "not_expected" : True},
-    {"expect": "mTrackState:3!", "min": 20, "max": 35, }, #I.E discontinuity in audio and video
-    {"expect": "#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
-    {"expect": "AAMPGstPlayerPipeline PAUSED -> PAUSED", "min": 35, "max": 70},
-    {"expect": "AAMPGstPlayerPipeline PAUSED -> PLAYING", "min": 35, "max": 70},
-    {"expect": "AAMPGstPlayer: Pipeline flush seek", "min": 35, "max": 70},
-    {"expect": "fragment injector done. track video", "min": 68, "max": 90,"end_of_test":True},
-    {"expect": "GST_MESSAGE_EOS","min": 80, "max": 150,"end_of_test":True }
+    {"expect": r"Buffer is running low", "min": 60, "max": 200, "not_expected" : True},
+    {"expect": r"mTrackState:3!", "min": 20, "max": 35, }, #I.E discontinuity in audio and video
+    {"expect": r"#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
+    {"expect": r"AAMPGstPlayerPipeline PAUSED -> PAUSED", "min": 35, "max": 70},
+    {"expect": r"AAMPGstPlayerPipeline PAUSED -> PLAYING", "min": 35, "max": 70},
+    {"expect": r"AAMPGstPlayer: Pipeline flush seek", "min": 35, "max": 70},
+    {"expect": r"fragment injector done. track video", "min": 68, "max": 90,"end_of_test":True},
+    {"expect": r"GST_MESSAGE_EOS","min": 80, "max": 150,"end_of_test":True }
     ]
 }
 
@@ -172,16 +169,16 @@ TESTDATA7= {
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
     # ( string, min time seconds, max time seconds)
-    {"expect": "Video Profile added to ABR","min":0, "max":1},
+    {"expect": r"Video Profile added to ABR","min":0, "max":1},
     {"expect": r"Returning Position as (\d+) ", "min": 0, "max": 300},
-    {"expect": "Buffer is running low", "min": 60, "max": 200, "not_expected" : True},
-    {"expect": "mTrackState:3!", "min": 20, "max": 35, }, #I.E discontinuity in audio and video
-    {"expect": "#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
-    {"expect": "AAMPGstPlayerPipeline PAUSED -> PAUSED", "min": 35, "max": 70},
-    {"expect": "AAMPGstPlayerPipeline PAUSED -> PLAYING", "min": 35, "max": 70},
-    {"expect": "AAMPGstPlayer: Pipeline flush seek", "min": 35, "max": 70},
-    {"expect": "fragment injector done. track video", "min": 68, "max": 90,"end_of_test":True},
-    {"expect": "GST_MESSAGE_EOS","min": 80, "max": 150,"end_of_test":True }
+    {"expect": r"Buffer is running low", "min": 60, "max": 200, "not_expected" : True},
+    {"expect": r"mTrackState:3!", "min": 20, "max": 35, }, #I.E discontinuity in audio and video
+    {"expect": r"#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
+    {"expect": r"AAMPGstPlayerPipeline PAUSED -> PAUSED", "min": 35, "max": 70},
+    {"expect": r"AAMPGstPlayerPipeline PAUSED -> PLAYING", "min": 35, "max": 70},
+    {"expect": r"AAMPGstPlayer: Pipeline flush seek", "min": 35, "max": 70},
+    {"expect": r"fragment injector done. track video", "min": 68, "max": 90,"end_of_test":True},
+    {"expect": r"GST_MESSAGE_EOS","min": 80, "max": 150,"end_of_test":True }
     ]
 }
 
@@ -199,11 +196,11 @@ TESTDATA8= {
 "max_test_time_seconds": 300,
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
-    {"expect": "Video Profile added to ABR", "min": 0, "max": 1},
-    {"expect": "#EXT-X-DISCONTINUITY", "min": 45, "max": 55},
+    {"expect": r"Video Profile added to ABR", "min": 0, "max": 1},
+    {"expect": r"#EXT-X-DISCONTINUITY", "min": 45, "max": 55},
     #Gap of 4 secs for 1 missing video segment when we have corresponding audio
     #marker to end test
-    {"expect": "Returning Position as 104000","min": 80, "max": 150,"end_of_test":True }
+    {"expect": r"Returning Position as 104000","min": 80, "max": 150,"end_of_test":True }
 ]
 }
 
@@ -218,12 +215,12 @@ TESTDATA9= {
 "max_test_time_seconds": 300,
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
-    {"expect": "Video Profile added to ABR", "min": 0, "max": 1},
+    {"expect": r"Video Profile added to ABR", "min": 0, "max": 1},
     {"expect": r"Returning Position as (\d+) ", "min": 0, "max": 300},
-    {"expect": "#EXT-X-DISCONTINUITY", "min": 45, "max": 75},
+    {"expect": r"#EXT-X-DISCONTINUITY", "min": 45, "max": 75},
     # Gap of 4 secs for 1 missing audio segment when we have video
     # But commenting out the following line to keep the test passing.
-    {"expect": "Changing playlist type from\[0\] to ePLAYLISTTYPE_VOD as ENDLIST tag present.","min" :80, "max": 200,"end_of_test":True }
+    {"expect": r"Changing playlist type from\[0\] to ePLAYLISTTYPE_VOD as ENDLIST tag present.","min" :80, "max": 200,"end_of_test":True }
 ]
 }
 
@@ -233,9 +230,19 @@ TESTLIST = [TESTDATA1,TESTDATA2,TESTDATA3,TESTDATA4,TESTDATA5,TESTDATA6,TESTDATA
 
 ############################################################
 
-args = framework.parse_cmd_args()
 
-for t in TESTLIST:
-    aamp = framework.Aamp(args)
-    if aamp.run_expect_b(t) is False:
-        sys.exit(os.EX_SOFTWARE)   #Return non-zero
+"""
+With this fixture we cause the test to be called 
+with each entry in TESTLIST
+"""
+@pytest.fixture(params=TESTLIST)
+def test_data(request):
+    return request.param
+
+
+def test_2000(aamp_setup_teardown, test_data):
+    aamp = aamp_setup_teardown
+    print(test_data['title'])
+    aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
+    aamp.run_expect_b(test_data)
+

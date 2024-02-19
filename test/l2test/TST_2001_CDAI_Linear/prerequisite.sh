@@ -8,6 +8,13 @@ if [ "$TEST_2001_STREAM_PATH" == "" ]; then
     TEST_2001_STREAM_PATH="https://cpetestutility.stb.r53.xcal.tv/AAMP/simlinear/SkyAtlantic/30t-2/skyatlantic-30t-2.tgz"
 fi
 
+#Stop multiple fetching of data if we already have it
+file=$(basename ${TEST_2001_STREAM_PATH})
+if [ -f $file ]; then
+    echo "$file exists, not fetching again"
+    exit 0
+fi
+
 if [ "$TEST_2001_ADS_PATH" == "" ]; then
     TEST_2001_ADS_PATH="https://cpetestutility.stb.r53.xcal.tv"
 fi

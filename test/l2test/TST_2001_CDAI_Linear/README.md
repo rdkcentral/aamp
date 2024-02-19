@@ -18,11 +18,7 @@
 
 ## Pre-requisites to run this test
 
-1. python3 and required modules installed.
-
-         python3 -m pip install pexpect requests flask webargs aiohttp
-
-2. Streams for this test will be downloaded from https://cpetestutility.stb.r53.xcal.tv
+1. Streams for this test will be downloaded from https://cpetestutility.stb.r53.xcal.tv
    but location can be overridden by specifying TEST_2001_STREAM_PATH if required.
 
     a. When running inside docker: -
@@ -33,25 +29,15 @@
 
         export TEST_2001_STREAM_PATH=https://artifactory.host.com/artifactory/stream_data.gz
 
-3. Archive file containing manifest data has been downloaded ( URL: from location where the file is stored )
+2. Archive file containing manifest data has been downloaded ( URL: from location where the file is stored )
    and extracted into directory 'testdata'
 
-# aamp repository downloaded and aamp-cli built
-This will result in the following directory structure:
-```
-$ ls -l
-drwxrwxr-x aamp            <-- aamp repository containing a built aamp-cli
-drwxrwxr-x testdata        <-- manifest test data obtained from artifactory or other location where it is kept
-```
-## Run the test
-```
-$ ./aamp/test/l2test/TST_2001_CDAI_Linear/run_test.py
-```
 
-Or when running manually while viewing the video.
-```
-$ ./aamp/test/l2test/TST_2001_CDAI_Linear/run_test.py -v
-```
+## Run l2test using script:
+
+From the *test/l2test/ folder run:
+
+./run_l2_test.py -t 2001
 
 ## Details
 * By default aamp-cli runs without a video window to output A/V so it can be run via Jenkins

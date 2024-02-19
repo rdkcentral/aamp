@@ -1,6 +1,6 @@
 # AAMP WebVTT L2 test
 
-This python3 L2 test verifies WebVTT functionality. In particular it was
+This python3 L2 test verifies WebVTT functionality. In particular, it was
 introduced to verify the following feature:
 <RDK-37719> [UVE] support ability to override WebVTT caption styling
 
@@ -17,13 +17,8 @@ subtitles can be used to run this test.
 
 ## Run l2test using script:
 
-From the *test/l2test/TST_1000_Webvtt* folder run:
+From the *test/l2test/ folder run:
 
-./run_test.py
+./run_l2_test.py -t 1000
 
-## Example:
 
-    cd aamp
-    bash install-aamp.sh
-    cd test/l2test/TST_1001_Webvtt
-    ./run_test.py
