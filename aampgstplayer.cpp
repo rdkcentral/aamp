@@ -675,7 +675,7 @@ static GstPadProbeReturn AAMPGstPlayer_HandleInstantRateChangeSeekProbe(GstPad* 
     	case GST_EVENT_SEEK:
     	    break;
     	case  GST_EVENT_SEGMENT:
-    	    gst_event_copy_segment(event, segment);
+    	    gst_event_copy_segment(event, segment); //intentional fall through as the variable segment is used to persist data
     	default:
     	    AAMPLOG_INFO("In default case of  GST_EVENT_TYPE in padprobeReturn");
             return GST_PAD_PROBE_OK;
