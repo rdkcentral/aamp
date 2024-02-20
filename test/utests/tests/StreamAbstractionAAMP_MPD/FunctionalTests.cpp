@@ -985,7 +985,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
         * Start time PTS of first sample
         */
         double mStartTimeOfFirstPTS = mStreamAbstractionAAMP_MPD->GetStartTimeOfFirstPTS();
-        EXPECT_EQ(mStartTimeOfFirstPTS,0);
+        EXPECT_EQ(mStartTimeOfFirstPTS, ((availabilityStartTime + periodDuration) * 1000));
         /**
         * Get index of profile corresponds to bandwidth
         * profile index
