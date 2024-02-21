@@ -374,6 +374,9 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 	PrivAAMPState state;
 	if(aamp){
 
+	/* Set single pipeline according to the configuration */
+	aamp->UpdateUseSinglePipeline();
+
 	aamp->StopPausePositionMonitoring("Tune() called");
 
 	aamp->GetState(state);
@@ -3030,11 +3033,6 @@ bool PlayerInstanceAAMP::InitAAMPConfig(char *jsonStr)
 	if(GETCONFIGOWNER(eAAMPConfig_MaxDASHDRMSessions) == AAMP_APPLICATION_SETTING)
 	{
 		aamp->UpdateMaxDRMSessions();
-	}
-
-	if(GETCONFIGOWNER(eAAMPConfig_UseSinglePipeline) == AAMP_APPLICATION_SETTING)
-	{
-		aamp->UpdateUseSinglePipeline();
 	}
 
 	if(cfgdata != NULL)

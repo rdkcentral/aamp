@@ -32,7 +32,7 @@ AampStreamSinkManager::~AampStreamSinkManager()
 {
 }
 
-void AampStreamSinkManager::SetSinglePipelineMode(void)
+void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 {
 }
 

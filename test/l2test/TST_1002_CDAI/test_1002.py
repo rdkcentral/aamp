@@ -36,7 +36,7 @@ TESTDATA1= {
    {"cmd": 'setconfig {"info":true,"trace":true,"useSinglePipeline":true}'},  # must use " not ' in json
    # Create main content player - Player 1
    {"cmd":"new"},
-   {"expect": r"Single Pipeline mode, not creating GstPlayer for PLAYER\[1\]"},
+   {"expect":r"Undefined Pipeline mode, creating GstPlayer for PLAYER\[1\]"},
 
    # Toggle autoplay off
    {"cmd":"autoplay"},
@@ -47,21 +47,29 @@ TESTDATA1= {
    # Load main content - Player 1
    # (the main content must be loaded before the pre-roll)
    {"cmd":"select 1"},
+   {"cmd": 'setconfig {"info":true,"trace":true,"useSinglePipeline":true}'},  # must use " not ' in json
+
    {"expect": r"selected player 1"},
    {"cmd":"https://cpetestutility.stb.r53.xcal.tv/AAMP/tools/aamptest/ads/ad1/hsar1039-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad7/ed9e9eba-e818-413f-97ea-10cb3559ac31/1628085935274/AD/HD/manifest.mpd"},
+   {"expect":r"Pipeline mode set to Single"},
+   {"expect":r"Deleting GstPlayer created for PLAYER\[0\]"},
+   {"expect":r"Retaining GstPlayer created for PLAYER\[1\]"},
+
    {"cmd":"detach"},
-   {"expect": r"Single Pipeline mode, asked to deactivate PLAYER\[1\] when current active PLAYER\[0\]"},
+   {"expect":r"Single Pipeline mode, deactivating active PLAYER\[1\]"},
 
    # Load and play pre-roll ad - Player 2
    {"cmd":"new"},
    {"expect": r"Single Pipeline mode, not creating GstPlayer for PLAYER\[2\]"},
    {"cmd":"select 2"},
+   {"cmd": 'setconfig {"info":true,"trace":true,"useSinglePipeline":true}'},  # must use " not ' in json
+
    {"expect": r"selected player 2"},
    {"cmd":"https://cpetestutility.stb.r53.xcal.tv/AAMP/tools/aamptest/ads/ad4/hsar1099-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad19/7b048ca3-6cf7-43c8-98a3-b91c09ed59bb/1628252309135/AD/HD/manifest.mpd"},
    {"cmd":"play"},
-   {"expect": r"Single Pipeline mode, resetting current active PLAYER\[0\]"},
-   {"expect": r"Single Pipeline mode, setting active PLAYER\[2\]"},
-   {"expect": r"NotifyFirstBufferProcessed"},
+   {"expect":r"Single Pipeline mode, no current active player"},
+   {"expect":r"Single Pipeline mode, setting active PLAYER\[2\]"},
+   {"expect":r"NotifyFirstBufferProcessed"},
 
    # Play ad for a bit
    {"cmd":"sleep 3000"},
@@ -98,6 +106,8 @@ TESTDATA1= {
    {"cmd":"new"},
    {"expect": r"Single Pipeline mode, not creating GstPlayer for PLAYER\[3\]"},
    {"cmd":"select 3"},
+   {"cmd": 'setconfig {"info":true,"trace":true,"useSinglePipeline":true}'},  # must use " not ' in json
+
    {"expect": r"selected player 3"},
    {"cmd":"https://cpetestutility.stb.r53.xcal.tv/AAMP/tools/aamptest/ads/ad2/hsar1039-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad1/7849033a-530a-43ce-ac01-fc4518674ed0/1628085609056/AD/HD/manifest.mpd"},
 
@@ -125,6 +135,8 @@ TESTDATA1= {
    {"cmd":"new"},
    {"expect": r"Single Pipeline mode, not creating GstPlayer for PLAYER\[4\]"},
    {"cmd":"select 4"},
+   {"cmd": 'setconfig {"info":true,"trace":true,"useSinglePipeline":true}'},  # must use " not ' in json
+
    {"expect": r"selected player 4"},
    {"cmd":"https://cpetestutility.stb.r53.xcal.tv/AAMP/tools/aamptest/ads/ad3/hsar1039-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd"},
 
@@ -197,6 +209,8 @@ TESTDATA1= {
    {"cmd":"new"},
    {"expect": r"Single Pipeline mode, not creating GstPlayer for PLAYER\[5\]"},
    {"cmd":"select 5"},
+   {"cmd": 'setconfig {"info":true,"trace":true,"useSinglePipeline":true}'},  # must use " not ' in json
+
    {"expect": r"selected player 5"},
    {"cmd":"https://cpetestutility.stb.r53.xcal.tv/AAMP/tools/aamptest/ads/ad4/hsar1099-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad19/7b048ca3-6cf7-43c8-98a3-b91c09ed59bb/1628252309135/AD/HD/manifest.mpd"},
    {"cmd":"play"},

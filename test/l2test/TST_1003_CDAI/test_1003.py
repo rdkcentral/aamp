@@ -25,7 +25,7 @@ TESTDATA1= {
 "title": "CDAI Multi Pipeline - Multiple Assets",
 "logfile": "testdata1.txt",
 "max_test_time_seconds": 60,
-"aamp_cfg": "info=true\ntrace=true\n",
+"aamp_cfg": "info=true\ntrace=true\nuseSinglePipeline=false\n",
 "expect_list": [
    {"cmd": "new"},
    {"expect": r"Undefined Pipeline mode, creating GstPlayer for PLAYER\[1\]"},

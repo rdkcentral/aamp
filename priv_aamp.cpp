@@ -1389,12 +1389,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 
  	mTrackGrowableBufMem = ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory);
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
-
-#ifdef ENABLE_USE_SINGLE_PIPELINE
-	SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSinglePipeline, true);
-#endif
-
- 	UpdateUseSinglePipeline();
+	
 }
 
 /**
@@ -12902,7 +12897,7 @@ void PrivateInstanceAAMP::UpdateUseSinglePipeline()
 {
 	if (ISCONFIGSET_PRIV(eAAMPConfig_UseSinglePipeline))
 	{
-		AampStreamSinkManager::GetInstance().SetSinglePipelineMode();
+		AampStreamSinkManager::GetInstance().SetSinglePipelineMode(this);
 	}
 	else
 	{

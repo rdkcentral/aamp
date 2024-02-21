@@ -43,8 +43,9 @@ public:
 	/**
 	 *  @fn SetSinglePipelineMode
 	 *  @brief Sets the GStreamer pipeline mode to single.
+	 *  @param[in] aamp - the PrivateInstanceAAMP, the player that is activating single pipeline
 	 */
-	virtual void SetSinglePipelineMode(void);
+	virtual void SetSinglePipelineMode(PrivateInstanceAAMP *aamp);
 	/**
 	 *  @fn CreateStreamSink
 	 *  @brief Creates the StreamSink that will be associated with the instance of PrivateInstanceAAMP passed

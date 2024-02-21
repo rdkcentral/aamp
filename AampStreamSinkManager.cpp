@@ -79,7 +79,7 @@ void AampStreamSinkManager::Clear(void)
 	mEncryptedHeadersInjected = false;
 }
 
-void AampStreamSinkManager::SetSinglePipelineMode(void)
+void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 {
 	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
 
@@ -95,17 +95,18 @@ void AampStreamSinkManager::SetSinglePipelineMode(void)
 				AAMPLOG_ERR("AampStreamSinkManager(%p) Encrypted headers already been set", this );
 			}
 
-			// Retain first GstPlayer player, remove others
-			if (!mActiveGstPlayersMap.empty())
+			// Retain matching GstPlayer player, remove others
+			for (auto it = mActiveGstPlayersMap.begin(); it != mActiveGstPlayersMap.end();)
 			{
-				auto it = mActiveGstPlayersMap.begin();
-
-				mGstPlayer = it->second;
-				it++;
-
-				for (; it != mActiveGstPlayersMap.end();)
+				auto mLogObj = it->first->mLogObj; // map correct log context
+				if (aamp == it->first)
 				{
-					auto mLogObj = it->first->mLogObj; // map correct log context
+					AAMPLOG_WARN("AampStreamSinkManager(%p) Retaining GstPlayer created for PLAYER[%d]", this, it->first->mPlayerId);
+					mGstPlayer = it->second;
+					it++;
+				}
+				else
+				{
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Deleting GstPlayer created for PLAYER[%d]", this, it->first->mPlayerId);
 					delete(it->second);
 					it = mActiveGstPlayersMap.erase(it);
