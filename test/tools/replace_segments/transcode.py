@@ -340,7 +340,7 @@ if __name__ == "__main__":
             for segment_detail in segment_list.get_segments(segment_group):
                 tup = (segment_detail["segment_name"], segment_detail["duration"])
                 segment_and_duration.append(tup)
-            log.info("segment_and_duration %S", segment_and_duration)
+            # log.info("segment_and_duration %S", segment_and_duration)
             proc_list = fromman_fileList(segment_and_duration, "./")
         else:
             # Derive the segment durations from the original segment length

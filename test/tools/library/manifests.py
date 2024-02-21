@@ -440,6 +440,11 @@ class SegmentList:
             if hasattr(attrs, "height"):
                 attrs.RESOLUTION = attrs.width + "x" + attrs.height
 
+            if hasattr(attrs, "pts") and self.attributes.get(segment_group, 0) != 0: # RDKAAMP-1834
+                delattr(attrs, "pts")
+                attrs.pts = self.attributes[segment_group].pts
+
+
         self.attributes[segment_group] = copy.copy(attrs)
 
     def add_init(self, fn, segment_group):

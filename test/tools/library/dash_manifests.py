@@ -522,6 +522,7 @@ class DASHManifest(Manifest):
                     adpset_ts = float(templ.get("timescale", 1))
                     adpset_dur = float(templ.get("duration", 1))
 
+            pts = 0.0 # RDKAAMP-1834
             # Run through each of the Representations for this AdaptationSet with templates
             for fn_templ, templ, rband, rid, do_number in self.parse_template(
                 adpset, field="media"
@@ -534,10 +535,15 @@ class DASHManifest(Manifest):
                 if abs_paths:
                     fn_templ = self.abs_path(fn_templ, self.urls.get(adpset, prefix))
 
+                tlines = self.tlines[templ] # RDKAAMP-1834
+                    
                 # Handle first time for this template within a Represetation
                 if seg_no < 0:
                     attrs = AttribList(adpset.attrib)
                     setattr(attrs,"period_id",period_id)
+                    if pts == 0.0:
+                        pts = float(tlines[0].get('t', 0))
+                        setattr(attrs,"pts", pts )
                     for rept, chek_rband in self.repts[adpset]:
                         if rband != chek_rband:
                             continue

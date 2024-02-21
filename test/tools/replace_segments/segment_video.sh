@@ -45,7 +45,7 @@
     else
         ffmpeg -hide_banner -loglevel panic -an -sn -ss ${11} -t ${2} -i ${1} \
 		-s ${6} -r ${7:-25} -b:v ${3}k -codec:v ${4:-h264} $iframe -force_key_frames ${8:-expr:gte(t,n_forced*1)} \
-		-vf "drawtext=fontsize=30: box=1: x=(w-text_w)/2:y=(h-text_h)/2: text='${9} %{pts\:flt\:0}'" \
+		-vf "drawtext=fontsize=30: box=1: x=(w-text_w)/2:y=(h-text_h)/2: text='${9} %{pts\:flt\:0} | %{pts\:gmtime\:${14}\:%M\\\\\:%S}'" \
 		-f dash -seg_duration 6 -use_template 1 -use_timeline 0 -hls_playlist 1 $dir/convert_video.mpd
 	exit $?
     fi 

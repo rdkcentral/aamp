@@ -1123,6 +1123,8 @@ class transcode_flist(object):
                 attr_fps = attrs.FPS
             if hasattr(attrs, "RESOLUTION"):
                 attr_dim = attrs.RESOLUTION
+            if hasattr(attrs, "pts"): # RDKAAMP-1834
+                pts = attrs.pts
 
         for elem in root:
             if elem.tag.endswith("streams"):
@@ -1172,11 +1174,20 @@ class transcode_flist(object):
             log.info("Resolving from manifest:%s", attrs)
             med_type = attrs.TYPE
             rates[med_type] = "%d Kbit" % attr_rate
-            codecs[med_type] = ""
+            codecs[med_type] = getattr(attrs,"codecs", "") # RDKAAMP-1834
 
             if med_type == "video":
+		# To get video codec name from codec_string. Manifest contains codec string like hvc1.1.6.L63.90 which can not be passed to ffmpeg
+                if codecs[med_type].lower().startswith(("hev1","hvc1")): # RDKAAMP-1834 
+                    codecs[med_type] = "hevc"
                 fps = attr_fps
                 dim = attr_dim
+            if med_type == "audio": # RDKAAMP-1834 
+		# To get audio codec name from codec_string. Manifest contains codec string like mp4a.40.5 or ec-3 which can not be passed to ffmpeg
+                if codecs[med_type].lower().startswith("mp4a"):
+                    codecs[med_type] = "aac"
+                if codecs[med_type].lower().startswith("ec-3"):
+                    codecs[med_type] = "eac3"
 
         else:
             log.error("Could not identify media rates for audio/video from manifest")
@@ -1495,6 +1506,7 @@ def do_transcode(base_dir, proc_list, skeleton, attrs=None, no_trans=False):
             if (med_type == "video") and (transcode_flag_video != current_Pid) : 
                 transcode_flag_video = current_Pid 
                 cur_sample_duration = tot_dur_format(proc_list.tot_duration + 1) 
+                elapsed_seconds = tot_duration_pids_video # RDKAAMP-1918
                 tot_dur_time_fmt = tot_dur_format(tot_duration_pids_video) 
                 #skip_duration_list = mesr_time_adj(skeleton, tot_duration_pids_video) 
                 skip_duration_list.extend(mesr_time_adj(skeleton, tot_duration_pids_video, proc_list.tot_duration + 1)) 
@@ -1515,7 +1527,8 @@ def do_transcode(base_dir, proc_list, skeleton, attrs=None, no_trans=False):
                         str(tot_dur_time_fmt),
                         skip_duration_list[0],
                         skip_duration_list[1],
-                        skip_duration_list[2]
+                        skip_duration_list[2],
+                        str(elapsed_seconds) # RDKAAMP-1918
                     ],
                     shell=False,
                 ) 
