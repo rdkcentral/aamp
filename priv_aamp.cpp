@@ -658,7 +658,10 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 			MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->fileType);
 			if(mCtx)
 			{
+				// Release PrivateInstanceAAMP mutex to unblock async APIs
+				pthread_mutex_unlock(&context->aamp->mLock);
 				mCtx->CacheFragmentChunk(context->fileType, ptr, numBytesForBlock,context->remoteUrl,context->downloadStartTime);
+				pthread_mutex_lock(&context->aamp->mLock);
 			}
 		}
 	}
