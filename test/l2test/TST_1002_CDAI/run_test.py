@@ -32,9 +32,9 @@ TESTDATA1= {
 "title": "CDAI Single Pipeline - Multiple Assets",
 "logfile": "testdata1.txt",
 "max_test_time_seconds": 60,
-"aamp_cfg": "info=true\ntrace=true\nuseSinglePipeline=true\n",
-"expect_list": [
 
+"expect_list": [
+   {"cmd": 'setconfig {"info":true,"trace":true,"useSinglePipeline":true}'},  # must use " not ' in json
    # Create main content player - Player 1
    {"cmd":"new"},
    {"expect":"Single Pipeline mode, not creating GstPlayer for PLAYER\[1\]"},

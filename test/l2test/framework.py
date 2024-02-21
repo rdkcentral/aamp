@@ -196,7 +196,7 @@ class Aamp:
         print("{} {}".format(testdata["title"], testdata.get("logfile", '')))
 
         max_test_time_seconds = testdata.get("max_test_time_seconds", 15)
-        self.create_aamp_cfg(testdata['aamp_cfg'])
+        self.create_aamp_cfg(testdata.get('aamp_cfg'))
 
         # start aamp-cli
         self.start_aamp()
@@ -311,7 +311,7 @@ class Aamp:
         expect_list.append(r"\n(\d{10})")
 
         # start aamp-cli
-        self.create_aamp_cfg(testdata['aamp_cfg'])
+        self.create_aamp_cfg(testdata.get('aamp_cfg'))
 
         # A test can start aamp early to giv it some commands, in which case no need to start here
         if self.aamp_pexpect is None:

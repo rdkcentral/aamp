@@ -370,15 +370,18 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	}
 	else if (isCommandMatch(cmd, "setconfig") )
 	{
-		char* AAMPcfg=new char[10000];
-		printf("\n Enter Config Json String [e.g. {\"abr\":true,\"fog\":true}  ]: ");
-		scanf("%s",AAMPcfg);
-		if(AAMPcfg)
+		//look for first char of json
+		char *json = (char *)strchr(cmd,'{');
+		bool goodJson = false;
+		if (json)
 		{
-			playerInstanceAamp->InitAAMPConfig(AAMPcfg);
-			printf("\nconfig set\n");
+			goodJson = playerInstanceAamp->InitAAMPConfig(json);
 		}
-		SAFE_DELETE_ARRAY(AAMPcfg);
+
+		if (!goodJson)
+		{
+			printf("Invalid json, note the use of dbl quotes. E.G\nsetconfig {\"info\":true}\n");
+		}
 	}
 	else if (isCommandMatch(cmd, "getconfig") )
 	{
@@ -835,7 +838,7 @@ void PlaybackCommand::registerPlaybackCommands()
 	// simulated events
 	addCommand("retune","Retune to current locator");
 	addCommand("flush","Flush AV pipeline");
-	addCommand("setconfig","Set the Configuration of the player using a string in json format");
+	addCommand("setconfig <json>","Set the Configuration of the player using a string in json format");
 	addCommand("getconfig","Get the current Configuration of the player instance");
 	addCommand("resetconfig","Reset the Configuration of the player instance");
 	addCommand("underflow","Simulate underflow");

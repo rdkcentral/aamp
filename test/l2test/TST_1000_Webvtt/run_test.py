@@ -29,8 +29,8 @@ TESTDATA1= {
 "title": "Setting WebVTT font size",
 "logfile": "testdata1.txt",
 "max_test_time_seconds": 15,
-"aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
+    {"cmd":'setconfig {"info":true,"trace":true}'}, # must use " not ' in json
     {"cmd":"set subtecSimulator 1"},
     {"expect":"SubtecSimulatorThread - listening for packets",},
     {"cmd":"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
