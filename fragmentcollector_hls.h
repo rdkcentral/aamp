@@ -45,6 +45,8 @@
 #include "ID3Metadata.hpp"
 #include "MetadataProcessor.hpp"
 
+#include "AampTime.h"
+
 #include <memory>
 #include <atomic>
 #include <deque>
@@ -86,7 +88,7 @@ typedef struct HlsStreamInfo: public StreamInfo
 
 	// Copy constructor
     HlsStreamInfo(const HlsStreamInfo& other)
-        : 
+        :
 		StreamInfo(other), // Initialize base class members
 		program_id(other.program_id),
 		audio(other.audio),
@@ -130,7 +132,7 @@ struct IndexNode
 	IndexNode() : completionTimeSecondsFromStart(0), mediaSequenceNumber(-1), pFragmentInfo(NULL), drmMetadataIdx(-1), initFragmentPtr(NULL)
 	{
 	}
-	double completionTimeSecondsFromStart;	/**< Time of index from start */
+	AampTime completionTimeSecondsFromStart;	/**< Time of index from start */
 	long long mediaSequenceNumber;		/**< Media sequence number>*/
 	const char *pFragmentInfo;		/**< Fragment Information pointer */
 	int drmMetadataIdx;			/**< DRM Index for Fragment */
@@ -147,7 +149,7 @@ struct KeyTagStruct
 	{
 	}
 	std::string mShaID;	   /**< ShaID of Key tag */
-	double mKeyStartDuration;  /**< duration in playlist where Keytag starts */
+	AampTime mKeyStartDuration;  /**< duration in playlist where Keytag starts */
 	std::string mKeyTagStr;	   /**< String to store key tag,needed for trickplay */
 };
 
@@ -158,9 +160,9 @@ struct KeyTagStruct
 struct DiscontinuityIndexNode
 {
 	int fragmentIdx;			 /**< Idx of fragment in index table*/
-	double position;			 /**< Time of index from start */
-	double fragmentDuration;	 /**< Fragment duration of current discontinuity index */
-	double discontinuityPDT;	 /**< Program Date time value */
+	AampTime position;			 /**< Time of index from start */
+	AampTime fragmentDuration;	 /**< Fragment duration of current discontinuity index */
+	AampTime discontinuityPDT;	 /**< Program Date time value */
 };
 
 /**
@@ -255,9 +257,9 @@ class TrackState : public MediaTrack
 		 * @fn IndexPlaylist
 		 * @brief Function to parse playlist
 		 *
-		 * @return double total duration from playlist
+		 * @param AampTime total duration from playlist
 		 ***************************************************************************/
-		void IndexPlaylist(bool IsRefresh, double &culledSec);
+		void IndexPlaylist(bool IsRefresh, AampTime &culledSec);
 		/***************************************************************************
 		 * @fn ABRProfileChanged
 		 *
@@ -313,14 +315,14 @@ class TrackState : public MediaTrack
 		 * @param[out] offsetFromPeriodStart Offset from start position of the period
 		 * @param[out] fragmentIdx Fragment index
 		 ****************************************************************************/
-		void GetNextFragmentPeriodInfo(int &periodIdx, double &offsetFromPeriodStart, int &fragmentIdx);
+		void GetNextFragmentPeriodInfo(int &periodIdx, AampTime &offsetFromPeriodStart, int &fragmentIdx);
 
 		/***************************************************************************
 		 * @fn GetPeriodStartPosition
 		 * @param[in] periodIdx Period Index
 		 * @return void
 		 ***************************************************************************/
-		double GetPeriodStartPosition(int periodIdx);
+		AampTime GetPeriodStartPosition(int periodIdx);
 
 		/***************************************************************************
 		 * @fn GetNumberOfPeriods
@@ -340,7 +342,7 @@ class TrackState : public MediaTrack
 		 * @param [out] isDiffChkReq indicates is diffBetweenDiscontinuities check required
 		 * @return true if discontinuity present around given position
 		 ***************************************************************************/
-		bool HasDiscontinuityAroundPosition(double position, bool useStartTime, double &diffBetweenDiscontinuities, double playPosition,double inputCulledSec,double inputProgramDateTime,bool &isDiffChkReq);
+		bool HasDiscontinuityAroundPosition(AampTime position, bool useStartTime, AampTime &diffBetweenDiscontinuities, AampTime playPosition,AampTime inputCulledSec,AampTime inputProgramDateTime,bool &isDiffChkReq);
 
 		/***************************************************************************
 		 * @fn StartInjection
@@ -395,14 +397,14 @@ class TrackState : public MediaTrack
 		 *
 		 * @return void
 		 ***************************************************************************/
-		void SetXStartTimeOffset(double offset) { mXStartTimeOFfset = offset; }
+		void SetXStartTimeOffset(AampTime offset) { mXStartTimeOFfset = offset; }
 		/***************************************************************************
 		 * @fn SetXStartTimeOffset
 		 * @brief Function to retune XStart Time Offset
 		 *
 		 * @return Start time
 		 ***************************************************************************/
-		double GetXStartTimeOffset() { return mXStartTimeOFfset;}
+		AampTime GetXStartTimeOffset() { return mXStartTimeOFfset;}
 		/***************************************************************************
 		 * @fn GetBufferedDuration
 		 *
@@ -501,7 +503,7 @@ class TrackState : public MediaTrack
 		 * @param[out] decryption_error decryption error
 		 * @return bool true on success else false
 		 ***************************************************************************/
-		bool FetchFragmentHelper(int &http_error, bool &decryption_error, bool & bKeyChanged, int * fogError, double &downloadTime);
+		bool FetchFragmentHelper(int &http_error, bool &decryption_error, bool & bKeyChanged, int * fogError, AampTime &downloadTime);
 		/***************************************************************************
 		 * @fn RefreshPlaylist
 		 *
@@ -576,7 +578,7 @@ class TrackState : public MediaTrack
 		std::string mPlaylistUrl;		 /**< uri associated with downloaded playlist */
 		AampGrowableBuffer playlist;		 /**< downloaded playlist contents */
 
-		double mProgramDateTime;
+		AampTime mProgramDateTime;
 		AampGrowableBuffer index;			 /**< packed IndexNode records for associated playlist */
 		int indexCount;				 /**< number of indexed fragments in currently indexed playlist */
 		int currentIdx;				 /**< index for currently-presenting fragment used during FF/REW (-1 if undefined) */
@@ -590,15 +592,15 @@ class TrackState : public MediaTrack
 		long long lastPlaylistIndexedTimeMS;	 /**< UTC time at which last playlist indexed */
 
 		long long nextMediaSequenceNumber;		 /**< media sequence number following current fragment-of-interest */
-		double playlistPosition;				 /**< playlist-relative time of most recent fragment-of-interest; -1 if undefined */
-		double playTarget;						 /**< initially relative seek time (seconds) based on playlist window, but updated as a play_target */
-		double playTargetBufferCalc;
-		double lastDownloadedIFrameTarget;	 /**< stores last downloaded iframe segment target value for comparison */
-		double targetDurationSeconds;			 /**< copy of \#EXT-X-TARGETDURATION to manage playlist refresh frequency */
+		AampTime playlistPosition;				 /**< playlist-relative time of most recent fragment-of-interest; -1 if undefined */
+		AampTime playTarget;					 /**< initially relative seek time (seconds) based on playlist window, but updated as a play_target */
+		AampTime playTargetBufferCalc;
+		AampTime lastDownloadedIFrameTarget;	 /**< stores last downloaded iframe segment target value for comparison */
+		AampTime targetDurationSeconds;			 /**< copy of \#EXT-X-TARGETDURATION to manage playlist refresh frequency */
 		int mDeferredDrmKeyMaxTime;			 /**< copy of \#EXT-X-X1-LIN DRM refresh randomization Max time interval */
 		StreamOutputFormat streamOutputFormat;	 /**< type of data encoded in each fragment */
-		double startTimeForPlaylistSync;		 /**< used for time-based track synchronization when switching between playlists */
-		double playTargetOffset;				 /**< For correcting timestamps of streams with audio and video tracks */
+		AampTime startTimeForPlaylistSync;		 /**< used for time-based track synchronization when switching between playlists */
+		AampTime playTargetOffset;				 /**< For correcting timestamps of streams with audio and video tracks */
 		bool discontinuity;						 /**< Set when discontinuity is found in track*/
 		StreamAbstractionAAMP_HLS* context;		 /**< To get  settings common across tracks*/
 		bool fragmentEncrypted;					 /**< In DAI, ad fragments can be clear. Set if current fragment is encrypted*/
@@ -615,7 +617,7 @@ class TrackState : public MediaTrack
 		bool mIndexingInProgress;				 /**< indicates if indexing is in progress*/
 		AampGrowableBuffer mDiscontinuityIndex;		 /**< discontinuity start position mapping of associated playlist */
 		int mDiscontinuityIndexCount;			 /**< number of records in discontinuity position index */
-		double mDuration;						 /** Duration of the track*/
+		AampTime mDuration;						 /** Duration of the track*/
 		typedef std::vector<KeyTagStruct> KeyHashTable;
 		typedef std::vector<KeyTagStruct>::iterator KeyHashTableIter;
 		KeyHashTable mKeyHashTable;
@@ -638,17 +640,17 @@ class TrackState : public MediaTrack
 		pthread_mutex_t mPlaylistMutex;			/**< protect playlist update */
 		pthread_cond_t mPlaylistIndexed;		/**< Notifies after a playlist indexing operation */
 		pthread_mutex_t mTrackDrmMutex;			/**< protect DRM Interactions for the track */
-		double mLastMatchedDiscontPosition;		/**< Holds discontinuity position last matched	by other track */
-		double mCulledSeconds;					/**< Total culled duration in this streamer instance*/
-		double mCulledSecondsOld;				/**< Total culled duration in this streamer instance*/
+		AampTime mLastMatchedDiscontPosition;		/**< Holds discontinuity position last matched	by other track */
+		AampTime mCulledSeconds;					/**< Total culled duration in this streamer instance*/
+		AampTime mCulledSecondsOld;				/**< Total culled duration in this streamer instance*/
 		bool mSyncAfterDiscontinuityInProgress; /**< Indicates if a synchronization after discontinuity tag is in progress*/
 		PlaylistType mPlaylistType;		/**< Playlist Type */
 		bool mReachedEndListTag;		/**< Flag indicating if End list tag reached in parser */
 		bool mByteOffsetCalculation;			/**< Flag used to calculte byte offset from byte length for fragmented streams */
 		bool mSkipAbr;							/**< Flag that denotes if previous cached fragment is init fragment or not */
 		const char* mFirstEncInitFragmentInfo;	/**< Holds first encrypted init fragment Information index*/
-		double mXStartTimeOFfset;		/**< Holds value of time offset from X-Start tag */
-		double mCulledSecondsAtStart;		/**< Total culled duration with this asset prior to streamer instantiation*/
+		AampTime mXStartTimeOFfset;		/**< Holds value of time offset from X-Start tag */
+		AampTime mCulledSecondsAtStart;		/**< Total culled duration with this asset prior to streamer instantiation*/
 		bool mSkipSegmentOnError;		/**< Flag used to enable segment skip on fetch error */
 		AampMediaType playlistMediaType;		/**< Media type of playlist of this track */
 };
@@ -733,7 +735,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 *
 		 * @return seek position
 		 ***************************************************************************/
-		double GetStreamPosition() override { return seekPosition; }
+		double GetStreamPosition() override { return seekPosition.inSeconds(); }
 		/***************************************************************************
 		 * @fn GetFirstPTS
 		 *
@@ -876,14 +878,14 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 
 		TrackState* trackState[AAMP_TRACK_COUNT]{};	/**< array to store all tracks of a stream */
 		float rate;					/**< Rate of playback  */
-		float maxIntervalBtwPlaylistUpdateMs;		/**< Interval between playlist update */
+		int maxIntervalBtwPlaylistUpdateMs;		/**< Interval between playlist update */
 		AampGrowableBuffer mainManifest;			/**< Main manifest buffer holder */
 		bool allowsCache;				/**< Flag indicating if playlist needs to be cached or not */
 		std::vector<HlsStreamInfo> streamInfoStore{};	/**< Store of multiple stream information */
 		std::vector<MediaInfo> mediaInfoStore{};		/**< Store of multiple media within stream */
 
-		double seekPosition;				/**< Seek position for playback */
-		double midSeekPtsOffset;			/**< PTS offset for Mid Fragment seek  */
+		AampTime seekPosition;				/**< Seek position for playback */
+		AampTime midSeekPtsOffset;			/**< PTS offset for Mid Fragment seek  */
 		int mTrickPlayFPS;				/**< Trick play frames per stream */
 		bool enableThrottle;				/**< Flag indicating throttle enable/disable */
 		bool firstFragmentDecrypted;			/**< Flag indicating if first fragment is decrypted for stream */
@@ -1060,7 +1062,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		int mProfileCount;		/**< Number of Video/Iframe in the stream */
 		bool mIframeAvailable;		/**< True if iframe available in the stream */
 		std::set<std::string> mLangList;/**< Available language list */
-		double mFirstPTS;		/**< First video PTS in seconds */
+		AampTime mFirstPTS;		/**< First video PTS */
 
 		ptsoffset_update_t mPtsOffsetUpdate;	/**< Function to use to update the PTS offset */
 

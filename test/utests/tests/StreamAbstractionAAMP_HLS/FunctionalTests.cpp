@@ -936,7 +936,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, TestGetStreamInfo)
 TEST_F(TrackStateTests, GetNextFragmentPeriodInfo_WhenIndexIsEmpty)
 {
     int periodIdx = 0;
-    double offsetFromPeriodStart = 0;
+    AampTime offsetFromPeriodStart = 0;
     int fragmentIdx = 0;
     // Optionally, set up other necessary objects or state for the test case
     mStreamAbstractionAAMP_HLS->rate = 1.1;
@@ -944,7 +944,7 @@ TEST_F(TrackStateTests, GetNextFragmentPeriodInfo_WhenIndexIsEmpty)
     TrackStateobj->GetNextFragmentPeriodInfo(periodIdx, offsetFromPeriodStart, fragmentIdx);
     EXPECT_EQ(periodIdx, -1);  // Assuming periodIdx should be -1 when the index is empty
     EXPECT_EQ(fragmentIdx, -1); // Assuming fragmentIdx should be -1 when the index is empty
-    EXPECT_DOUBLE_EQ(offsetFromPeriodStart, 0.0);  // Assuming offsetFromPeriodStart should be 0.0 when the index is empty
+    EXPECT_DOUBLE_EQ(offsetFromPeriodStart.inSeconds(), 0.0);  // Assuming offsetFromPeriodStart should be 0.0 when the index is empty
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, StartInjectiontest)
@@ -1185,8 +1185,8 @@ TEST_F(TrackStateTests, FetchPlaylistTest_eTRACK_AUX_AUDIO)
 
 TEST_F(TrackStateTests, GetPeriodStartPositionTest)
 {
-    double result = TrackStateobj->GetPeriodStartPosition(1000);
-    ASSERT_EQ(result, 0);
+    AampTime result{TrackStateobj->GetPeriodStartPosition(1000)};
+    ASSERT_TRUE(result == 0.0);
 }
 
 TEST_F(TrackStateTests, GetNumberOfPeriodsTest)
@@ -1224,8 +1224,8 @@ TEST_F(TrackStateTests, IsLiveTest)
 
 TEST_F(TrackStateTests, GetXStartTimeOffsettest)
 {
-    double result = TrackStateobj->GetXStartTimeOffset();
-    ASSERT_EQ(result, 0);
+    AampTime result{TrackStateobj->GetXStartTimeOffset()};
+    ASSERT_TRUE(result == 0.0);
 }
 
 TEST_F(TrackStateTests, GetBufferedDurationtest_1)
@@ -1260,21 +1260,21 @@ TEST_F(TrackStateTests, RestoreDrmStateTest)
 TEST_F(TrackStateTests, IndexPlaylist_WhenIsRefreshTrue)
 {
     bool isRefresh = true;
-    double culledSec = -12;
+    AampTime culledSec = -12;
     TrackStateobj->IndexPlaylist(isRefresh, culledSec);
 }
 
 TEST_F(TrackStateTests, IndexPlaylist_WhenIsRefreshFalse)
 {
     bool isRefresh = false;
-    double culledSec = 0.0;
+    AampTime culledSec = 0.0;
     TrackStateobj->IndexPlaylist(isRefresh, culledSec);
 }
 
 TEST_F(TrackStateTests, IndexPlaylist_ProcessEXTINF)
 {
     bool isRefresh = false;
-    double culledSec = 0.0;
+    AampTime culledSec = 0.0;
     TrackStateobj->IndexPlaylist(isRefresh, culledSec);
 }
 
@@ -1596,15 +1596,15 @@ TEST_F(TrackStateTests, CreateInitVector_Successful)
 TEST_F(TrackStateTests, GetPeriodStartPosition_InvalidPeriod)
 {
     int periodIdx = -1; // Replace with an invalid period index (out of bounds)
-    double startPosition = TrackStateobj->GetPeriodStartPosition(periodIdx);
-    ASSERT_DOUBLE_EQ(startPosition, 0.0); // Check that the function returns a default or invalid value for an invalid period index
+    AampTime startPosition = TrackStateobj->GetPeriodStartPosition(periodIdx);
+    ASSERT_DOUBLE_EQ(startPosition.inSeconds(), 0.0); // Check that the function returns a default or invalid value for an invalid period index
 }
 TEST_F(TrackStateTests, GetPeriodStartPosition_NoDiscontinuityNodes)
 {
     int periodIdx = 1;
     TrackStateobj->mDiscontinuityIndexCount = 0; // Set mDiscontinuityIndexCount to 0
-    double startPosition = TrackStateobj->GetPeriodStartPosition(periodIdx);
-    ASSERT_DOUBLE_EQ(startPosition, 0.0); // Check that the function returns a default or zero value when there are no discontinuity nodes
+    AampTime startPosition = TrackStateobj->GetPeriodStartPosition(periodIdx);
+    ASSERT_DOUBLE_EQ(startPosition.inSeconds(), 0.0); // Check that the function returns a default or zero value when there are no discontinuity nodes
 }
 
 TEST_F(TrackStateTests, FindTimedMetadata_WithTags)
@@ -1650,7 +1650,7 @@ TEST_F(TrackStateTests, FindTimedMetadata_New)
 TEST_F(TrackStateTests, GetNextFragmentPeriodInfoTest)
 {
     int periodIdx = 2;
-    double offsetFromPeriodStart = 1.2;
+    AampTime offsetFromPeriodStart = 1.2;
     int fragmentIdx = 3;
     mStreamAbstractionAAMP_HLS->rate = 2;
     // TrackStateobj->indexCount = 2;
@@ -1661,9 +1661,9 @@ TEST_F(TrackStateTests, SetXStartTimeOffset)
 {
     // Arrange: Set up the necessary conditions for the test
     // double offset = 123.45; // Choose a test offset value
-    double offset = -12; // Choose a test offset value
+    AampTime offset = -12; // Choose a test offset value
     // Act: Call the function to be tested
-    TrackStateobj->SetXStartTimeOffset(offset);
+    TrackStateobj->SetXStartTimeOffset(offset.inSeconds());
 
     ASSERT_EQ(TrackStateobj->GetXStartTimeOffset(), offset); // Check if the offset matches what was set
 }
@@ -2849,7 +2849,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, RefreshAudioTest)
     mStreamAbstractionAAMP_HLS->CallConfigureAudioTrack();
 
     EXPECT_EQ(0,mStreamAbstractionAAMP_HLS->currentAudioProfileIndex);
-    
+
     media.type = eMEDIATYPE_AUDIO;
     lang = "spanish";
     media.language = lang;
