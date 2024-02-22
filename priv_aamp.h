@@ -1117,7 +1117,7 @@ public:
 	 * @param[in] tStampOffset - timestampOffset 
 	 * @return void
 	 */
-	void ReportID3Metadata(MediaType mediaType, const uint8_t* ptr, uint32_t len, 
+	void ReportID3Metadata(MediaType mediaType, const uint8_t* ptr, size_t len, 
 		const char* schemeIdURI = NULL, const char* id3Value = NULL, uint64_t presTime = 0, 
 		uint32_t id3ID = 0, uint32_t eventDur = 0, uint32_t tScale = 0, uint64_t tStampOffset = 0);
 

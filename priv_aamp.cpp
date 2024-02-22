@@ -12393,7 +12393,7 @@ void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, MediaTy
 /**
  * @brief Report ID3 metadata events
  */
-void PrivateInstanceAAMP::ReportID3Metadata(MediaType mediaType, const uint8_t* ptr, uint32_t len,
+void PrivateInstanceAAMP::ReportID3Metadata(MediaType mediaType, const uint8_t* ptr, size_t len,
 	const char* schemeIdURI, const char* id3Value, uint64_t presTime,
 	uint32_t id3ID, uint32_t eventDur, uint32_t tScale, uint64_t tStampOffset)
 {

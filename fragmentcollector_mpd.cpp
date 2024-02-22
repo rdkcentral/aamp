@@ -4650,7 +4650,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			else
 			{
 				aamp->UpdateDuration(0);
-				aamp->SetFlushFdsNeededInCurlStore(true);
 				aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
 				AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
 				ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
@@ -4660,7 +4659,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			aamp->UpdateDuration(0);
 			AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
-			aamp->SetFlushFdsNeededInCurlStore(true);
 			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 		}
 	}
@@ -4813,7 +4811,6 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 				}
 				else
 				{
-					aamp->SetFlushFdsNeededInCurlStore(true);
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
 					AAMPLOG_ERR("manifest download failed");
 				}
@@ -11331,19 +11328,18 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 	double normalPlaybackRate =  GETCONFIGVALUE(eAAMPConfig_NormalLatencyCorrectionPlaybackRate);
 
 	AAMPLOG_TRACE("latencyMonitorDelay %d latencyMonitorInterval=%d", latencyMonitorDelay,latencyMonitorInterval );
-	double latencyMonitorScheduleTime = latencyMonitorDelay - latencyMonitorInterval;
-	//To handle latencyMonitorDelay <latencyMonitorInterval case
-	if( latencyMonitorScheduleTime < 0 )
+	int latencyMonitorScheduleTime = latencyMonitorDelay - latencyMonitorInterval;
+	if( latencyMonitorScheduleTime < 500 )
 	{ // clamp!
-		AAMPLOG_INFO("unexpected latencyMonitorScheduleTime(%lf)", latencyMonitorScheduleTime );
-		latencyMonitorScheduleTime = 0.5 ; //TimedWaitForLatencyCheck is 500ms 
+		AAMPLOG_INFO("unexpected latencyMonitorScheduleTime(%d)", latencyMonitorScheduleTime );
+		latencyMonitorScheduleTime = 500;  
 	}
 	
 	bool keepRunning = false;
 	bool latencyCorrected = true;
 	if(aamp->DownloadsAreEnabled())
 	{
-		AAMPLOG_TRACE("latencyMonitorScheduleTime %lf", latencyMonitorScheduleTime );
+		AAMPLOG_TRACE("latencyMonitorScheduleTime %d", latencyMonitorScheduleTime );
 		aamp->InterruptableMsSleep(latencyMonitorScheduleTime *1000);
 		keepRunning = true;
 	}

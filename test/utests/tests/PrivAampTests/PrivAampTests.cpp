@@ -2993,7 +2993,7 @@ TEST_F(PrivAampTests,ReportID3MetadataTest)
 {
 	MediaType mediaType = eMEDIATYPE_AUDIO;
     const uint8_t* ptr = reinterpret_cast<const uint8_t*>("ID3 Metadata");
-    uint32_t len = strlen(reinterpret_cast<const char*>(ptr));
+    size_t len = strlen(reinterpret_cast<const char*>(ptr));
     const char* schemeIdURI = "testSchemeIdURI";
     const char* id3Value = "testID3Value";
     uint64_t presTime = 123456789;
