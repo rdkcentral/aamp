@@ -83,7 +83,7 @@ bool aamp_IsLocalHost ( std::string Hostname )
 
 struct timespec aamp_GetTimespec(int timeInMs)
 {
-	struct timespec tspec;
+	static struct timespec tspec;
 	return tspec;
 }
 
@@ -314,8 +314,7 @@ void aamp_ResolveURL(std::string& dst, std::string base, const char *uri , bool 
 
 const char * GetAudioFormatStringForCodec ( StreamOutputFormat input)
 {
-    const char *codec = "UNKNOWN";
-    return codec;
+    return "UNKNOWN";
 }
 
 std::string Getiso639map_NormalizeLanguageCode(std::string  lang,LangCodePreference preferLangFormat )
@@ -492,14 +491,12 @@ uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial)
 
 const char *GetDrmSystemName(DRMSystems drmSystem)
 {
-	const char *temp = "";
-	return temp;
+	return "";
 }
 
 const char *GetDrmSystemID(DRMSystems drmSystem)
 {
-	const char *temp = "";
-	return temp;
+	return "";
 }
 
 bool aamp_StartsWith(const char *inputStr, const char *prefix)

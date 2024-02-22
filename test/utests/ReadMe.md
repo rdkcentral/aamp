@@ -124,3 +124,9 @@ General guidance:
 It may be desired to use the real implementation of an external class, rather than the mock; which can be done in CMakeLists.txt. Also if some tests are best implemented using a mock, and others using the real implementation then it should be possible to create multiple executables configured as such.
 
 For guidance on creating GoogleTest please see [GoogleTest User's Guide](https://google.github.io/googletest/).
+
+### Running debugger
+
+gdb can be run on an individual test via:
+cd build/tests/SomeTest
+gdb ...

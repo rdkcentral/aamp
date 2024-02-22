@@ -30,6 +30,18 @@ public:
 				(const char *media_type, const char *fieldname, GType var, const int val,
 				 void *ptr));
 	MOCK_METHOD(void, gst_debug_set_threshold_from_string, (const gchar *list, gboolean reset));
+	MOCK_METHOD(GstElement *, gst_pipeline_new, (const gchar *name));
+	MOCK_METHOD(GstBus *, gst_pipeline_get_bus, (GstPipeline *pipeline));
+	MOCK_METHOD(guint , gst_bus_add_watch, (GstBus *bus, GstBusFunc func, gpointer user_data));
+	MOCK_METHOD(void, gst_bus_set_sync_handler, (GstBus *bus, GstBusSyncHandler func, gpointer user_data,  GDestroyNotify notify));
+	MOCK_METHOD(GstQuery *, gst_query_new_position, (GstFormat format));
+	MOCK_METHOD(GstStateChangeReturn, gst_element_get_state, (GstElement *element, GstState *state, GstState *pending,
+										   GstClockTime timeout));
+	MOCK_METHOD(GstElement *, gst_element_factory_make, (const gchar *factoryname,const gchar *name));
+	MOCK_METHOD(GstStateChangeReturn, gst_element_set_state,(GstElement *element, GstState state));
+	MOCK_METHOD(gboolean, gst_bin_add, (GstBin *bin, GstElement *element));
+	MOCK_METHOD(void, gst_object_unref,(gpointer object));
+	MOCK_METHOD(void, gst_mini_object_unref,(GstMiniObject *mini_object));
 };
 
 extern MockGStreamer *g_mockGStreamer;
