@@ -596,7 +596,6 @@ uint64_t IsoBmffBuffer::getSampleDurationInernal(const std::vector<Box*> *boxes)
 			return getSampleDurationInernal(box->getChildren());
 		}
 	}
-	AAMPLOG_ERR("Failed to find sample_duration from the segment");
 	return 0;
 }
 
