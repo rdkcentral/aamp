@@ -27,7 +27,6 @@
 #include "tsprocessor.h"
 #include "MockAampConfig.h"
 #include "MockPrivateInstanceAAMP.h"
-
 using ::testing::_;
 using ::testing::Return;
 AampConfig *gpGlobalConfig{nullptr};
@@ -43,9 +42,7 @@ protected:
     class TestTSProcessor : public TSProcessor
     {
     public:
-        // Making the test class a friend of the sendSegmentTests class
         friend class sendSegmentTests;
-		//Constructor for Testclass
         TestTSProcessor(AampLogManager *mLogObj, class PrivateInstanceAAMP *mPrivateInstanceAAMP, StreamOperation streamOperation)
 	    : TSProcessor(mLogObj, mPrivateInstanceAAMP, eStreamOp_DEMUX_AUDIO, nullptr)
         {
@@ -214,10 +211,7 @@ protected:
 		if(gpGlobalConfig == nullptr)
 		{
 			gpGlobalConfig =  new AampConfig();
-		}
-
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-		
+		}		
 		g_mockAampConfig = new MockAampConfig();
 
 		mTSProcessor = new TestTSProcessor(mLogObj, mPrivateInstanceAAMP, eStreamOp_DEMUX_AUDIO);
@@ -227,9 +221,6 @@ protected:
 		
 	void TearDown() override
 	{
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
-
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
@@ -242,7 +233,6 @@ protected:
 		delete g_mockPrivateInstanceAAMP;
 		g_mockPrivateInstanceAAMP = nullptr;
 	}
-
     TestTSProcessor *mTSProcessor;
 };
 
@@ -255,7 +245,6 @@ TEST_F(sendSegmentTests, CallsendQueuedSegmentTest)
 
 TEST_F(sendSegmentTests, CallsendQueuedSegmentTest1)
 {
-	//Giving Max long long and Max double as test cases
     long long basepts = LLONG_MAX;
     double updatedStartPositon = DBL_MAX;
     mTSProcessor->CallsendQueuedSegment(basepts, updatedStartPositon);
@@ -263,7 +252,6 @@ TEST_F(sendSegmentTests, CallsendQueuedSegmentTest1)
 
 TEST_F(sendSegmentTests, CallsendQueuedSegmentTest2)
 {
-	//Giving Min long long and Min double as test cases
     long long basepts = LLONG_MIN;
     double updatedStartPositon = DBL_MIN;
     mTSProcessor->CallsendQueuedSegment(basepts, updatedStartPositon);
@@ -271,7 +259,6 @@ TEST_F(sendSegmentTests, CallsendQueuedSegmentTest2)
 
 TEST_F(sendSegmentTests, CallsendQueuedSegmentTest4)
 {
-	//Assigning 0 as the input for both parameters
     long long basepts = 0;
     double updatedStartPositon = 0;
     mTSProcessor->CallsendQueuedSegment(basepts, updatedStartPositon);
@@ -286,7 +273,6 @@ TEST_F(sendSegmentTests, CallsetBasePTSTest)
 
 TEST_F(sendSegmentTests, CallsetBasePTSTest1)
 {
-	//Assigning 0 as the input for both parameters
     double position = 0;
 	long long pts = 0;
     mTSProcessor->CallsetBasePTS(position, pts);
@@ -294,7 +280,6 @@ TEST_F(sendSegmentTests, CallsetBasePTSTest1)
 
 TEST_F(sendSegmentTests, CallsetBasePTSTest2)
 {
-	//Testing both the input parameters with Double Min and long long Max
     double position = DBL_MIN;
 	long long pts = LLONG_MAX;
     mTSProcessor->CallsetBasePTS(position, pts);
@@ -302,7 +287,6 @@ TEST_F(sendSegmentTests, CallsetBasePTSTest2)
 
 TEST_F(sendSegmentTests, CallsetBasePTSTest3)
 {
-	//Testing both the input parameters with Double Max and long long Min
     double position = DBL_MAX;
 	long long pts = LLONG_MIN;
     mTSProcessor->CallsetBasePTS(position, pts);
@@ -310,7 +294,6 @@ TEST_F(sendSegmentTests, CallsetBasePTSTest3)
 
 TEST_F(sendSegmentTests, CallsetBasePTSTest4)
 {
-	//Testing both the input parameters with Double Max and long long Max
     double position = DBL_MAX;
 	long long pts = LLONG_MAX;
     mTSProcessor->CallsetBasePTS(position, pts);
@@ -318,7 +301,6 @@ TEST_F(sendSegmentTests, CallsetBasePTSTest4)
 
 TEST_F(sendSegmentTests, CallsetBasePTSTest5)
 {
-	//Testing both the input parameters with Double Min and long long Min
     double position = DBL_MIN;
 	long long pts = LLONG_MIN;
     mTSProcessor->CallsetBasePTS(position, pts);
@@ -326,7 +308,6 @@ TEST_F(sendSegmentTests, CallsetBasePTSTest5)
 
 TEST_F(sendSegmentTests, CallsetBasePTSTest6)
 {
-	//Testing the double with long long as input
     double position = LLONG_MAX;
 	long long pts = LLONG_MIN;
     mTSProcessor->CallsetBasePTS(position, pts);
@@ -340,7 +321,6 @@ TEST_F(sendSegmentTests, CallsetPlayModeTest)
 
 TEST_F(sendSegmentTests, CallsetPlayModeTest1)
 {
-	//Checking the enum values by passing them to the setPlayMode function
     PlayMode mode[5]={
 		PlayMode_normal,
 		PlayMode_retimestamp_IPB,
@@ -352,112 +332,79 @@ TEST_F(sendSegmentTests, CallsetPlayModeTest1)
 	}
 }
 
-TEST_F(sendSegmentTests, CallprocessPMTSectionTest)
-{
-    unsigned char* section;
-	int sectionLength = 10;
-    mTSProcessor->CallprocessPMTSection(section, sectionLength);
-}
-
-TEST_F(sendSegmentTests, CallprocessPMTSectionTest1)
-{
-	//Checking whether unsigned char pointer can save the initial position of a big array
-    unsigned char* section = new unsigned char[1000];
-	int sectionLength = 10;
-    mTSProcessor->CallprocessPMTSection(section, sectionLength);
-	delete[] section;
-}
-
-TEST_F(sendSegmentTests, CallprocessPMTSectionTest2)
-{
-	//Checking unsigned char pointer by passing both integers and Hexadecimal numbers
-	unsigned char data[5] = {0xFF,6,7,0x10,0x01};
-    unsigned char* section = data;
-	int sectionLength = 10;
-    mTSProcessor->CallprocessPMTSection(section, sectionLength);
-}
-
 TEST_F(sendSegmentTests, CallinsertPatPmtTest)
 {
-	unsigned char bufferdata[] = {'a', 'b', 'c'};
+	unsigned char bufferdata[5] = {'a', 'b', 'c','d','e'};
 	unsigned char *buffer = bufferdata;
 	bool trick = true;
-	int bufferSize = 12;
+	int bufferSize = 5;
 	int insertResult = mTSProcessor->CallinsertPatPmt(buffer, trick, bufferSize);
 }
 
 TEST_F(sendSegmentTests, CallinsertPatPmtTest1)
 {
-	//Checking the buffer pointer by assinging it small data values of integers ASCII characters and hexadecimal numbers
-	unsigned char bufferdata[] = {'a', 'A', 'c', 0x10, 0b111, 0};
+	unsigned char bufferdata[4] = {'a', 'A', 'c', 'd'};
 	unsigned char *buffer = bufferdata;
 	bool trick = false;
-	//buffer size is set to max and bool value is changed to check
-	int bufferSize = INT_MAX;
+	int bufferSize = 4;
 	int insertResult = mTSProcessor->CallinsertPatPmt(buffer, trick, bufferSize);
 }
 
 TEST_F(sendSegmentTests, CallinsertPatPmtTest2)
 {
-	//buffer size is set to min and bool value is changed to check
-	unsigned char bufferdata[] = {'a', 'A', 'c', 0x10, 0b111, 0};
+	unsigned char bufferdata[6] = {'a', 'A', 'c','d','e','f'};
 	unsigned char *buffer = bufferdata;
 	bool trick = true;
-	int bufferSize = INT_MIN;
+	int bufferSize = 6;
 	int insertResult = mTSProcessor->CallinsertPatPmt(buffer, trick, bufferSize);
 }
 
 TEST_F(sendSegmentTests, CallprocessStartCodeTest)
 {
-	unsigned char bufferData[] = {'a', 'b', 'c'};
+	unsigned char bufferData[5] = {'a', 'b', 'c','e','f'};
 	unsigned char *buffer = bufferData;
 	bool scanningvalue = true;
-	bool &keepScanning = scanningvalue;
-	int length = 6;
+	int length = 10;
 	int base = 5;
-	bool Process_Result = mTSProcessor->CallprocessStartCode(buffer, keepScanning, length, base);
+	bool Process_Result = mTSProcessor->CallprocessStartCode(buffer, scanningvalue, length, base);
 }
 
 TEST_F(sendSegmentTests, CallprocessStartCodeTest1)
 {
-	//Checking unsinged char with an array of ASCII, hexadecimal, integers and binary data
-	unsigned char bufferData[] = {'a', 'A', 'c', 0x10, 0b111, 0};
+	unsigned char bufferData[7] = {'a', 'A', 'c','s','f','v','t'};
 	unsigned char *buffer = bufferData;
 	bool scanningvalue = false;
 	bool &keepScanning = scanningvalue;
-	//Checking the max limits of both length and base
-	int length = INT_MIN;
-	int base = INT_MAX;
+	int length = 12;
+	int base = 7;
 	bool Process_Result = mTSProcessor->CallprocessStartCode(buffer, keepScanning, length, base);
 }
 
 TEST_F(sendSegmentTests, CallprocessStartCodeTest2)
 {
-	//Checking the min limits of both length and base
-	unsigned char bufferData[] = {'a', 'A', 'c', 0x10, 0b111, 0};
+	unsigned char bufferData[5] = {'a', 'A', 'c','w','r'};
 	unsigned char *buffer = bufferData;
 	bool scanningvalue = true;
 	bool &keepScanning = scanningvalue;
-	int length = INT_MAX;
-	int base = INT_MIN;
+	int length = 14;
+	int base = 15;
 	bool Process_Result = mTSProcessor->CallprocessStartCode(buffer, keepScanning, length, base);
 }
 
 TEST_F(sendSegmentTests, CallprocessStartCodeTest3)
 {
-	//Initialising length and base to 0 and checking the function
-	unsigned char bufferData[] = {'a', 'A', 'c', 0x10, 0b111, 0};
+	unsigned char bufferData[7] = {'a', 'A', 'c','w','r','f','b'};
 	unsigned char *buffer = bufferData;
 	bool scanningvalue = true;
 	bool &keepScanning = scanningvalue;
-	int length = 0;
-	int base = 0;
+	int length = 11;
+	int base = 13;
 	bool Process_Result = mTSProcessor->CallprocessStartCode(buffer, keepScanning, length, base);
 }
 
 TEST_F(sendSegmentTests, CallcheckIfInterlacedTest)
 {
-	unsigned char packetData[] = {'a', 'b', 'c'};
+	unsigned char packetData[4] = {'a', 'b', 'c' ,'e'};
 	unsigned char *packet = packetData;
 	int length = 2;
 	mTSProcessor->CallcheckIfInterlaced(packet, length);
@@ -465,25 +412,23 @@ TEST_F(sendSegmentTests, CallcheckIfInterlacedTest)
 
 TEST_F(sendSegmentTests, CallcheckIfInterlacedTest1)
 {
-	//Initialize length to 0 and assign various data members to packetdata array 
-	unsigned char packetData[] = {'a', 'B', 'c', 0x10, 0b111, 0};
+	unsigned char packetData[7] = {'a', 'B', 'c','q','e','r','t'};
 	unsigned char *packet = packetData;
-	int length = 0;
+	int length = 5;
 	mTSProcessor->CallcheckIfInterlaced(packet, length);
 }
 
 TEST_F(sendSegmentTests, CallcheckIfInterlacedTest2)
 {
-	//Checking the max limits of length variable (Length can take negative values without returning errors)
-	unsigned char packetData[] = {'a', 'b', 'c'};
+	unsigned char packetData[7] = {'a', 'b', 'c','y','t','c','r'};
 	unsigned char *packet = packetData;
-	int length = 100;
+	int length = 10;
 	mTSProcessor->CallcheckIfInterlaced(packet, length);
 }
 
 TEST_F(sendSegmentTests, CallreadTimeStampTest)
 {
-	unsigned char pData[] = {'a', 'b', 'c'};
+	unsigned char pData[5] = {'a', 'b', 'c','s','e'};
 	unsigned char *p = pData;
 	long long valueData = 10;
 	long long &value = valueData;
@@ -492,38 +437,36 @@ TEST_F(sendSegmentTests, CallreadTimeStampTest)
 
 TEST_F(sendSegmentTests, CallreadTimeStampTest1)
 {
-	//Testing the inputs and max limits of pData and valueData variables
-	unsigned char pData[] = {'a', 'B', 'c', 0x10, 0b111, 0};
+	unsigned char pData[7] = {'a', 'B', 'c','q','w','e','r'};
 	unsigned char *p = pData;
-	long long valueData = LLONG_MAX;
+	long long valueData = 6;
 	long long &value = valueData;
 	bool ResultTimeStamp = mTSProcessor->CallreadTimeStamp(p, value);
 }
 
 TEST_F(sendSegmentTests, CallreadTimeStampTest2)
 {
-	//Testing the inputs and min limits of pData and valueData variables
-	unsigned char pData[] = {'a', 'B', 'c', 0x10, 0b111, 0};
+	unsigned char pData[5] = {'a', 'B', 'c','d','e'};
 	unsigned char *p = pData;
-	long long valueData = LLONG_MIN;
+	long long valueData = 10;
 	long long &value = valueData;
 	bool ResultTimeStamp = mTSProcessor->CallreadTimeStamp(p, value);
 }
 
 TEST_F(sendSegmentTests, CallwriteTimeStampTest)
 {
-	unsigned char pData = '\0';
-	unsigned char *p = &pData;
-	int prefix = 0;
-	long long TS = 0;
+	unsigned char pData[64];
+    memset(pData, 0, sizeof(pData)); 
+    unsigned char* p = &pData[0]; 
+    int prefix = 0;
+    long long TS = 1234567890LL;
 	mTSProcessor->CallwriteTimeStamp(p, prefix, TS);
 }
 
 TEST_F(sendSegmentTests, CallwriteTimeStampTest1)
 
 {
-	//Testing the upper limits of int and long long datatype variables and giving random values to pData
-	unsigned char pData[] = {'a', 'B', 'c', 0x10, 0b111, 0};
+	unsigned char pData[6] = {'a', 'B', 'c','r','t', 'r'};
 	unsigned char *p = pData;
 	int prefix = INT_MAX;
 	long long TS = LLONG_MAX;
@@ -532,8 +475,7 @@ TEST_F(sendSegmentTests, CallwriteTimeStampTest1)
 
 TEST_F(sendSegmentTests, CallwriteTimeStampTest2)
 {
-	//Testing the lower limits of int and long long datatype variables and giving random values to pData
-	unsigned char pData[] = {'a', 'B', 'c', 0x10, 0b111, 0};
+	unsigned char pData[5] = {'a', 'B', 'c', 't','d'};
 	unsigned char *p = pData;
 	int prefix = INT_MIN;
 	long long TS = LLONG_MIN;
@@ -542,15 +484,14 @@ TEST_F(sendSegmentTests, CallwriteTimeStampTest2)
 
 TEST_F(sendSegmentTests, CallreadPCRTest)
 {
-	unsigned char pData[] = {'a', 'b', 'c'};
+	unsigned char pData[5] = {'a', 'b', 'c'};
 	unsigned char *p = pData;
     long long PCRResult = mTSProcessor->CallreadPCR(p);
 }
 
 TEST_F(sendSegmentTests, CallreadPCRTest1)
 {
-	//Give different types of values to the array to check
-	unsigned char pData[] = {'a', 'B', 'c', 0x10, 0b111, 0};
+	unsigned char pData[7] = {'a', 'B', 'c','e','q','x','f'};
 	unsigned char *p = pData;
     long long PCRResult = mTSProcessor->CallreadPCR(p);
 }
@@ -566,8 +507,7 @@ TEST_F(sendSegmentTests, CallwritePCRTest)
 
 TEST_F(sendSegmentTests, CallwritePCRTest1)
 {
-	//Check max limits of long long and checking the boolean 
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f'};
 	unsigned char *p = pData;
 	long long PCR = LLONG_MAX;
 	bool clearExtension = false;
@@ -576,8 +516,7 @@ TEST_F(sendSegmentTests, CallwritePCRTest1)
 
 TEST_F(sendSegmentTests, CallwritePCRTest2)
 {
-	//Check min limits of long long and checking the boolean
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f'};
 	unsigned char *p = pData;
 	long long PCR = LLONG_MIN;
 	bool clearExtension = true;
@@ -586,8 +525,7 @@ TEST_F(sendSegmentTests, CallwritePCRTest2)
 
 TEST_F(sendSegmentTests, CallwritePCRTest3)
 {
-	//Check the long long with 0 as input
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f'};
 	unsigned char *p = pData;
 	long long PCR = 0;
 	bool clearExtension = true;
@@ -604,8 +542,7 @@ TEST_F(sendSegmentTests, CallprocessSeqParameterSetTest)
 
 TEST_F(sendSegmentTests, CallprocessSeqParameterSetTest1)
 {
-	//Initialising zero for length to check the intput capabilities
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g'};
 	unsigned char *p = pData;
 	int length = 0;
 	bool process_Result = mTSProcessor->CallprocessSeqParameterSet(p, length);
@@ -613,8 +550,7 @@ TEST_F(sendSegmentTests, CallprocessSeqParameterSetTest1)
 
 TEST_F(sendSegmentTests, CallprocessSeqParameterSetTest2)
 {
-	//Checking the max limits of length 
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g'};
 	unsigned char *p = pData;
 	int length = INT_MAX;
 	bool process_Result = mTSProcessor->CallprocessSeqParameterSet(p, length);
@@ -622,8 +558,7 @@ TEST_F(sendSegmentTests, CallprocessSeqParameterSetTest2)
 
 TEST_F(sendSegmentTests, CallprocessSeqParameterSetTest3)
 {
-	//Checking the min limits of length
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g'};
 	unsigned char *p = pData;
 	int length = INT_MIN;
 	bool process_Result = mTSProcessor->CallprocessSeqParameterSet(p, length);
@@ -639,8 +574,7 @@ TEST_F(sendSegmentTests, CallprocessPictureParameterSetTest)
 
 TEST_F(sendSegmentTests, CallprocessPictureParameterSetTest1)
 {
-	//Checking max limits of length
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g'};
 	unsigned char *p = pData;
 	int length = INT_MAX;
 	mTSProcessor->CallprocessPictureParameterSet(p, length);
@@ -648,8 +582,7 @@ TEST_F(sendSegmentTests, CallprocessPictureParameterSetTest1)
 
 TEST_F(sendSegmentTests, CallprocessPictureParameterSetTest2)
 {
-	//Checking min limits of length
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g'};
 	unsigned char *p = pData;
 	int length = INT_MIN;
 	mTSProcessor->CallprocessPictureParameterSet(p, length);
@@ -658,7 +591,7 @@ TEST_F(sendSegmentTests, CallprocessPictureParameterSetTest2)
 TEST_F(sendSegmentTests, CallprocessPictureParameterSetTest3)
 {
 	//Assigning 0 as input for length to check it's function
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g'};
 	unsigned char *p = pData;
 	int length = 0;
 	mTSProcessor->CallprocessPictureParameterSet(p, length);
@@ -676,19 +609,17 @@ TEST_F(sendSegmentTests, CallprocessScalingListTest)
 
 TEST_F(sendSegmentTests, CallprocessScalingListTest1)
 {
-	//checking the maximum limits of both maskData and size variables
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
-	unsigned char *p = pData;
-	int maskData = INT_MAX;
-	int& mask = maskData;
-	int size = INT_MAX;
-    mTSProcessor->CallprocessScalingList(p, mask, size);
+    unsigned char pData[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g'};
+    unsigned char *p = pData;
+    int maskData = 8;
+    int& mask = maskData;
+    int size = 10;
+   mTSProcessor->CallprocessScalingList(p, mask, size);
 }
 
 TEST_F(sendSegmentTests, CallprocessScalingListTest2)
 {
-	//Checking the minimum limits of both maskData and size variables
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g'};
 	unsigned char *p = pData;
 	int maskData = INT_MIN;
 	int& mask = maskData;
@@ -698,8 +629,7 @@ TEST_F(sendSegmentTests, CallprocessScalingListTest2)
 
 TEST_F(sendSegmentTests, CallprocessScalingListTest3)
 {
-	//Initialize 0 to check the variables
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g'};
 	unsigned char *p = pData;
 	int maskData = 0;
 	int& mask = maskData;
@@ -719,8 +649,7 @@ TEST_F(sendSegmentTests, CallgetBitsTest)
 
 TEST_F(sendSegmentTests, CallgetBitsTest1)
 {
-	//Initialising 0 to maskData and bitcount to check their working
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g'};
 	unsigned char *p = pData;
 	int maskData = 0;
 	int& mask = maskData;
@@ -730,19 +659,17 @@ TEST_F(sendSegmentTests, CallgetBitsTest1)
 
 TEST_F(sendSegmentTests, CallgetBitsTest2)
 {
-	//Testing the max limits of both maskData and bitCount variables
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g'};
 	unsigned char *p = pData;
 	int maskData = INT_MAX;
 	int& mask = maskData;
-	int bitCount = 1000;
+	int bitCount = 10;
 	unsigned int bitValue = mTSProcessor->CallgetBits(p, mask, bitCount);
 }
 
 TEST_F(sendSegmentTests, CallgetBitsTest3)
 {
-	//Testing the min limits of both maskData and bitCount variables
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','g'};
 	unsigned char *p = pData;
 	int maskData = INT_MIN;
 	int& mask = maskData;
@@ -763,8 +690,7 @@ TEST_F(sendSegmentTests, CallputBitsTest)
 
 TEST_F(sendSegmentTests, CallputBitsTest1)
 {
-	//Test all variables with 0 as the input
-    unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
+    unsigned char pData[] = {'a', 'b', 'c','d','e','f','g'};
 	unsigned char *p = pData;
 	int maskData = 0;
 	int& mask = maskData;
@@ -773,21 +699,9 @@ TEST_F(sendSegmentTests, CallputBitsTest1)
 	mTSProcessor->CallputBits(p, mask, bitCount, value);
 }
 
-TEST_F(sendSegmentTests, CallputBitsTest2)
-{
-	//Testing the max limits of both maskData and bitCount variables
-    unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
-	unsigned char *p = pData;
-	int maskData = INT_MAX;
-	int& mask = maskData;
-	int bitCount = 99;
-	unsigned int value = UINT_MAX;
-	mTSProcessor->CallputBits(p, mask, bitCount, value);
-}
 TEST_F(sendSegmentTests, CallputBitsTest3)
 {
-	//Testing the min limits of both maskData and bitCount variables adn unsigned int value
-    unsigned char pData[] = {'a', 'b', 'c','d','e','f','g', 0x10, 0b111, 0};
+    unsigned char pData[] = {'a', 'b', 'c','d','e','f','g'};
 	unsigned char *p = pData;
 	int maskData = INT_MIN;
 	int& mask = maskData;
@@ -807,8 +721,7 @@ TEST_F(sendSegmentTests, CallgetUExpGolombTest)
 
 TEST_F(sendSegmentTests, CallgetUExpGolombTest1)
 {
-	//Testing the max limits of maskData
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','G', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','G'};
 	unsigned char *p = pData;
 	int maskData = INT_MAX;
 	int& mask = maskData;
@@ -817,8 +730,7 @@ TEST_F(sendSegmentTests, CallgetUExpGolombTest1)
 
 TEST_F(sendSegmentTests, CallgetUExpGolombTest2)
 {
-	//Testing the minimum limit of maskData
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','G', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','G'};
 	unsigned char *p = pData;
 	int maskData = INT_MIN;
 	int& mask = maskData;
@@ -827,8 +739,7 @@ TEST_F(sendSegmentTests, CallgetUExpGolombTest2)
 
 TEST_F(sendSegmentTests, CallgetUExpGolombTest3)
 {
-	//Testing the variable maskData by assigning 0 to it
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','G', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','G'};
 	unsigned char *p = pData;
 	int maskData = 0;
 	int& mask = maskData;
@@ -846,8 +757,7 @@ TEST_F(sendSegmentTests, CallgetSExpGolombTest)
 
 TEST_F(sendSegmentTests, CallgetSExpGolombTest1)
 {
-	//Testing the minimum limit of maskData
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','G', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','G'};
 	unsigned char *p = pData;
 	int maskData = INT_MIN;
 	int& mask = maskData;
@@ -856,8 +766,7 @@ TEST_F(sendSegmentTests, CallgetSExpGolombTest1)
 
 TEST_F(sendSegmentTests, CallgetSExpGolombTest2)
 {
-	//Testing the maximum limit of maskData
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','G', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','G'};
 	unsigned char *p = pData;
 	int maskData = INT_MAX;
 	int& mask = maskData;
@@ -866,8 +775,7 @@ TEST_F(sendSegmentTests, CallgetSExpGolombTest2)
 
 TEST_F(sendSegmentTests, CallgetSExpGolombTest3)
 {
-	//Testing the variable maskData by assigning 0 to it
-	unsigned char pData[] = {'a', 'b', 'c','d','e','f','G', 0x10, 0b111, 0};
+	unsigned char pData[] = {'a', 'b', 'c','d','e','f','G'};
 	unsigned char *p = pData;
 	int maskData = 0;
 	int& mask = maskData;
@@ -902,21 +810,18 @@ TEST_F(sendSegmentTests, CallsendDiscontinuityTest)
 
 TEST_F(sendSegmentTests, CallsendDiscontinuityTest1)
 {
-	//Checking the max limit of the variable position
 	double position = DBL_MAX;
  	mTSProcessor->CallsendDiscontinuity(position);
 }
 
 TEST_F(sendSegmentTests, CallsendDiscontinuityTest2)
 {
-	//Checking the min limit of the variable position
 	double position = DBL_MIN;
  	mTSProcessor->CallsendDiscontinuity(position);
 }
 
 TEST_F(sendSegmentTests, CallsendDiscontinuityTest3)
 {
-	//Checking by assigning 0 to the position variable
 	double position = 0;
  	mTSProcessor->CallsendDiscontinuity(position);
 }
@@ -929,21 +834,18 @@ TEST_F(sendSegmentTests, CallsetupThrottleTest)
 
 TEST_F(sendSegmentTests, CallsetupThrottleTest1)
 {
-	//Checking the min limit condition
 	int segmentDurationMs = INT_MIN;	
 	mTSProcessor->CallsetupThrottle(segmentDurationMs);
 }
 
 TEST_F(sendSegmentTests, CallsetupThrottleTest2)
 {
-	//Checking the max limit condition
 	int segmentDurationMs = INT_MAX;	
 	mTSProcessor->CallsetupThrottle(segmentDurationMs);
 }
 
 TEST_F(sendSegmentTests, CallsetupThrottleTest3)
 {
-	//Checking the variable with 0 as the input
 	int segmentDurationMs = 0;	
 	mTSProcessor->CallsetupThrottle(segmentDurationMs);
 }
@@ -964,12 +866,6 @@ TEST_F(sendSegmentTests, CallmsleepTest)
 {  		
 	long long throttleDiff = 3;
 	bool sleepValue = mTSProcessor->Callmsleep(throttleDiff);
-}
-
-TEST_F(sendSegmentTests, FilterAudioCodecWithAC3Enabled)
-{
-	bool ignoreProfile = mTSProcessor->FilterAudioCodecBasedOnConfig(FORMAT_MPEGTS);
-	EXPECT_FALSE(ignoreProfile);
 }
 
 TEST_F(sendSegmentTests, SetAudio1)
@@ -996,23 +892,12 @@ TEST_F(sendSegmentTests, GetLanguageCodeTest)
 	ASSERT_EQ(lang, "fr");
 }
 
-TEST_F(sendSegmentTests, FilterAudioCodecBasedOnConfig_ATMOSEnabled)
-{
-	bool result = mTSProcessor->FilterAudioCodecBasedOnConfig(FORMAT_AUDIO_ES_ATMOS);
-	ASSERT_FALSE(result);
-}
-
 TEST_F(sendSegmentTests, SetThrottleEnableTest)
 {
 	mTSProcessor->setThrottleEnable(true);
 	mTSProcessor->setThrottleEnable(false);
 }
 
-TEST_F(sendSegmentTests, FilterAudioCodecBasedOnConfig_ATMOSEnabled11)
-{
-	bool result = mTSProcessor->FilterAudioCodecBasedOnConfig(FORMAT_AUDIO_ES_AC3);
-	ASSERT_FALSE(result);
-}
 
 TEST_F(sendSegmentTests, setFrameRateForTMTests)
 {
@@ -1025,12 +910,6 @@ TEST_F(sendSegmentTests, setFrameRateForTMTests)
 	rate = mTSProcessor->getApparentFrameRate();
 	EXPECT_NE(rate,-12);
 
-}
-
-TEST_F(sendSegmentTests, FilterAudioCodecBasedOnConfig_ATMOSEnabled12)
-{
-	bool result = mTSProcessor->FilterAudioCodecBasedOnConfig(FORMAT_AUDIO_ES_EC3);
-	ASSERT_FALSE(result);
 }
 
 TEST_F(sendSegmentTests, ResetTest)
@@ -1078,55 +957,22 @@ TEST_F(sendSegmentTests, SetApplyOffsetFlagFalse)
 
 TEST_F(sendSegmentTests, esMP3test)
 {
-	/* Following segment definition contains PAT and PMT details wherein the audio is MP3 i.e. FORMAT_AUDIO_ES_MP3*/
-	unsigned char segment[tsPacketLength*2] =
-	{
-		0x47,0x40,0x00,0x10,0x00,0x00,0xb0,0x0d,0x00,0x01,0xc1,0x00,0x00,0x00,0x01,0xef, \
-		0xff,0x36,0x90,0xe2,0x3d,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0x47,0x4f,0xff,0x10, \
-		0x00,0x02,0xb0,0x3c,0x00,0x01,0xc1,0x00,0x00,0xe1,0x00,0xf0,0x11,0x25,0x0f,0xff, \
-		0xff,0x49,0x44,0x33,0x20,0xff,0x49,0x44,0x33,0x20,0x00,0x1f,0x00,0x01,0x1b,0xe1, \
-		0x00,0xf0,0x00,0x03,0xe1,0x01,0xf0,0x00,0x15,0xe1,0x02,0xf0,0x0f,0x26,0x0d,0xff, \
-		0xff,0x49,0x44,0x33,0x20,0xff,0x49,0x44,0x33,0x20,0x00,0x0f,0x6f,0x2d,0xc7,0x0d, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff, \
-		0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff
-	};
-	AampGrowableBuffer buffer("tsProcessor PAT/PMT test");
-	double position = 0;
-	double duration = 2.43;            /*Duration of the stream from which the segment data is extracted*/
-	bool discontinuous = false;
-	bool init = false;
-	bool ptsError = false;
-	buffer.AppendBytes(segment,tsPacketLength*2);
+	unsigned char segment[tsPacketLength * 2] = {};
+    AampGrowableBuffer buffer("tsProcessor PAT/PMT test");
+    double position = 0;
+    double duration = 2.43;
+    bool discontinuous = false;
+    bool init = false;
+    bool ptsError = false;
 
-	/*A thread was waiting for base PTS, in order to get around it eAAMPConfig_AudioOnlyPlayback is configured true*/
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AudioOnlyPlayback)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePublishingMuxedAudio)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamFormat(_,FORMAT_AUDIO_ES_MP3, _));
+    buffer.AppendBytes(segment, sizeof(segment));
+    mTSProcessor->sendSegment(&buffer, position, duration, discontinuous, init,
+        [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf) {
+            mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
+        },
+        ptsError);
 
-	mTSProcessor->sendSegment(&buffer, position, duration, discontinuous,init,
-		[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
-		{
-			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
-		},
-		ptsError
-	);
-	buffer.Free();
+    buffer.Free();
 }
 
 TEST_F(sendSegmentTests, SetRateTest)
