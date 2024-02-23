@@ -1733,7 +1733,7 @@ JSValueRef AAMPMediaPlayerJS_setTextTrack (JSContextRef ctx, JSObjectRef functio
 			int index = (int) JSValueToNumber(ctx, arguments[0], NULL);
 			if (index >= MUTE_SUBTITLES_TRACKID) // -1 disable subtitles, >0 subtitle track index
 			{
-				LOG_WARN(privObj,"_aamp->SetAudioTrack(%d)", index);
+				LOG_WARN(privObj,"_aamp->SetTextTrack(%d)", index);
 				privObj->_aamp->SetTextTrack(index);
 				bRet = true;
 			}

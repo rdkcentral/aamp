@@ -265,7 +265,7 @@ function changeCCTrack() {
         if(enableNativeCC) {
             //Find trackIndex of CC track with language
             let tracks = JSON.parse(playerObj.getAvailableTextTracks(true));
-            let trackIdx = tracks.findIndex(tr => { return tr.type === "CLOSED-CAPTIONS" && tr.language === trackID; })
+            let trackIdx = tracks.findIndex(tr => { return tr['sub-type'] === "CLOSED-CAPTIONS" && tr.language === trackID; })
             console.log("Found trackIdx: " + trackIdx);
             playerObj.setTextTrack(trackIdx);
         } else if(typeof(XREReceiver) !== "undefined") {
