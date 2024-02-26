@@ -433,12 +433,19 @@ void AampMPDDownloader::downloadMPDThread1()
 		else
 		{
 			// Failure in request
-			AAMPLOG_ERR("curl request %s %s Error Code [%u]",mMPDDnldCfg->mTuneUrl.c_str(), (mMPDData->mMPDDownloadResponse->iHttpRetValue < 100) ? "Curl" : "HTTP", mMPDData->mMPDDownloadResponse->iHttpRetValue);
+			std::string mEffectiveUrl = mMPDData->mMPDDownloadResponse->sEffectiveUrl;	//Effective URL could be different than tuneURL after redirection
+
+			if(mEffectiveUrl.empty())
+			{
+				mEffectiveUrl = mMPDDnldCfg->mTuneUrl;
+			}
+
+			AAMPLOG_ERR("curl request %s %s Error Code [%u]",mEffectiveUrl.c_str(), (mMPDData->mMPDDownloadResponse->iHttpRetValue < 100) ? "Curl" : "HTTP", mMPDData->mMPDDownloadResponse->iHttpRetValue);
 
 			mMPDData->mMPDStatus	=	AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 			if(mMPDData->mMPDDownloadResponse->iHttpRetValue != 200 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 204 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 206)
-			{
-				AAMP_LOG_NETWORK_ERROR (mMPDDnldCfg->mTuneUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
+			{ 
+				AAMP_LOG_NETWORK_ERROR (mEffectiveUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
 				//Use DownloadResponse Show call instead of printheaderresponse fn -since it is not scope
 				mMPDData->mMPDDownloadResponse->show();
 			}

@@ -4032,19 +4032,6 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 						http_code = GetCurlResponseCode(curl);
 					}
 					char *effectiveUrlPtr = NULL;
-					if (http_code != 200 && http_code != 204 && http_code != 206)
-					{
-						AAMP_LOG_NETWORK_ERROR (remoteUrl.c_str(), AAMPNetworkErrorHttp, http_code, fileType);
-						print_headerResponse(context.allResponseHeaders, fileType);
-
-						if((http_code >= 500 && http_code != 502) && downloadAttempt < maxDownloadAttempt)
-						{
-							int waitTimeBeforeRetryHttp5xxMSValue = GETCONFIGVALUE_PRIV(eAAMPConfig_Http5XXRetryWaitInterval);
-							InterruptableMsSleep(waitTimeBeforeRetryHttp5xxMSValue);
-							AAMPLOG_WARN("Download failed due to Server error. Retrying Attempt:%d!", downloadAttempt);
-							loopAgain = true;
-						}
-					}
 					if(http_code == 204)
 					{
 						if ( (httpRespHeaders[curlInstance].type == eHTTPHEADERTYPE_EFF_LOCATION) && (httpRespHeaders[curlInstance].data.length() > 0) )
@@ -4106,6 +4093,20 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 						{
 							curlhost[curlInstance]->redirect = true;
 						}
+					}					
+					if (http_code != 200 && http_code != 204 && http_code != 206)
+					{
+						AAMP_LOG_NETWORK_ERROR (effectiveUrl.empty() ? remoteUrl.c_str() : effectiveUrl.c_str(), // Effective URL could be different than remoteURL
+						AAMPNetworkErrorHttp, http_code, fileType);
+						print_headerResponse(context.allResponseHeaders, fileType);
+
+						if((http_code >= 500 && http_code != 502) && downloadAttempt < maxDownloadAttempt)
+						{
+							int waitTimeBeforeRetryHttp5xxMSValue = GETCONFIGVALUE_PRIV(eAAMPConfig_Http5XXRetryWaitInterval);
+							InterruptableMsSleep(waitTimeBeforeRetryHttp5xxMSValue);
+							AAMPLOG_WARN("Download failed due to Server error. Retrying Attempt:%d!", downloadAttempt);
+							loopAgain = true;
+						}
 					}
 
 					// check if redirected url is pointing to fog / local ip
@@ -4148,7 +4149,14 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 					//Log errors due to curl stall/start detection abort
 					if (AAMP_IS_LOG_WORTHY_ERROR(res) || progressCtx.abortReason != eCURL_ABORT_REASON_NONE)
 					{
-						AAMP_LOG_NETWORK_ERROR (remoteUrl.c_str(), AAMPNetworkErrorCurl, (int)(progressCtx.abortReason == eCURL_ABORT_REASON_NONE ? res : CURLE_PARTIAL_FILE), fileType);
+						std::string mEffectiveUrl;
+						mEffectiveUrl.assign(aamp_CurlEasyGetinfoString(curl, CURLINFO_EFFECTIVE_URL));
+						if(mEffectiveUrl.empty())
+						{
+							mEffectiveUrl.assign(remoteUrl);
+						}
+						AAMP_LOG_NETWORK_ERROR (mEffectiveUrl.c_str(), // Effective URL could be different than remoteURL
+						AAMPNetworkErrorCurl, (int)(progressCtx.abortReason == eCURL_ABORT_REASON_NONE ? res : CURLE_PARTIAL_FILE), fileType);
 						print_headerResponse(context.allResponseHeaders, fileType);
 					}
 
