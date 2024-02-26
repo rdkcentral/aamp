@@ -29,13 +29,35 @@ static void need_data_cb(GstElement *appSrc, guint length, MediaStream *stream )
 static void enough_data_cb(GstElement *appSrc, MediaStream *stream );
 static gboolean appsrc_seek_cb(GstElement * appSrc, guint64 offset, MediaStream *stream );
 static void found_source_cb(GObject * object, GObject * orig, GParamSpec * pspec, class MediaStream *stream );
+static void element_setup_cb(GstElement * playbin, GstElement * element, class MediaStream *stream);
+static void pad_added_cb(GstElement* object, GstPad* arg0, class MediaStream *stream);
 static GstPadProbeReturn MyPadProbeCallback( GstPad * pad, GstPadProbeInfo * info, class MediaStream *stream );
+static GstPadProbeReturn MyDemuxPadProbeCallback( GstPad * pad, GstPadProbeInfo * info, class MediaStream *stream );
 static void MyDestroyDataNotify( gpointer data );
+
+/**
+ * @brief Check if string start with a prefix
+ *
+ * @retval TRUE if substring is found in bigstring
+ */
+static bool startsWith( const char *inputStr, const char *prefix )
+{
+	bool rc = true;
+	while( *prefix )
+	{
+		if( *inputStr++ != *prefix++ )
+		{
+			rc = false;
+			break;
+		}
+	}
+	return rc;
+}
 
 class MediaStream
 {
 public:
-	MediaStream( MediaType mediaType, class PipelineContext *context ) : isConfigured(false), sinkbin(NULL), source(NULL), required_caps(NULL), rate(), start(), stop(), pts_offset(), context(context), mediaType(mediaType), pts(), dts(), duration() {
+	MediaStream( MediaType mediaType, class PipelineContext *context ) : isConfigured(false), sinkbin(NULL), source(NULL), required_caps(NULL), rate(), start(), stop(), pts_offset(), context(context), mediaType(mediaType), pts(), dts(), duration(), startPos(-1) {
 	}
 	
 	
@@ -48,6 +70,15 @@ public:
 		if( pad )
 		{
 			gst_object_unref( pad );
+		}
+
+		if( qtdemux_probe_id )
+		{
+			gst_pad_remove_probe( qtdemux_pad, qtdemux_probe_id );
+		}
+		if( qtdemux_pad )
+		{
+			gst_object_unref( qtdemux_pad );
 		}
 	}
 	
@@ -165,6 +196,7 @@ public:
 			gst_bin_add(GST_BIN(pipeline), sinkbin);
 			g_object_set( sinkbin, "uri", "appsrc://", NULL);
 			g_signal_connect( sinkbin, "deep-notify::source", G_CALLBACK(found_source_cb), this );
+			g_signal_connect( sinkbin, "element_setup", G_CALLBACK(element_setup_cb), this );
 			DumpFlags();
 		}
 	}
@@ -270,12 +302,67 @@ public:
 		}
 		assert( rc );
 	}
-	
+
+	void element_setup( GstElement * playbin, GstElement * element)
+	{
+		gchar* elemName = gst_element_get_name(element);
+		g_print( "MediaStream::element_setup : %s\n", elemName ? elemName : "NULL");
+		if (elemName && startsWith(elemName, "qtdemux"))
+		{
+			g_signal_connect(element, "pad-added", G_CALLBACK(pad_added_cb), this);
+		}
+		g_free(elemName);
+	}
+
+	void pad_added(GstElement* object, GstPad* arg0)
+	{
+		gchar* elemName = gst_element_get_name(object);
+		gchar* padName = gst_pad_get_name(arg0);
+		g_print( "MediaStream::pad_added : %s %s\n", elemName ? elemName : "NULL", padName ? padName : "NULL");
+		qtdemux_pad = arg0;
+		gst_object_ref(qtdemux_pad); // we need to ref here to hold on to this instance till unref
+		qtdemux_probe_id = gst_pad_add_probe( qtdemux_pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback)MyDemuxPadProbeCallback, this, MyDestroyDataNotify );
+
+		g_free(elemName);
+		g_free(padName);
+	}
+
 	void PadProbeCallback( void )
 	{
 		context->PadProbeCallback( mediaType );
 	}
-	
+
+	GstPadProbeReturn DemuxProbeCallback( GstBuffer* buffer )
+	{
+		if (startPos >= 0)
+		{
+			double pts = ((double) GST_BUFFER_PTS(buffer) / (double) GST_SECOND);
+			if (pts < startPos)
+			{
+				printf("DemuxProbeCallback: %s buffer: start pos=%f dropping pts=%f\n", getMediaTypeAsString(), startPos, pts);
+				return GST_PAD_PROBE_DROP;
+			}
+		}
+		return GST_PAD_PROBE_OK;
+	}
+
+	void Flush ( double pos )
+	{
+		gboolean rc = gst_element_seek(
+								GST_ELEMENT(source),
+								1.0,
+								GST_FORMAT_TIME,
+								GST_SEEK_FLAG_FLUSH,
+								GST_SEEK_TYPE_SET, pos * GST_SECOND,
+								GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE );
+		assert( rc );
+	}
+
+	void SetStartPos(double pos)
+	{
+		startPos = pos;
+	}
+
 	//copy constructor
 	MediaStream(const MediaStream&)=delete;
 	//copy assignment operator
@@ -285,6 +372,8 @@ private:
 	
 	GstPad* pad = NULL;
 	gulong probe_id = 0;
+	GstPad* qtdemux_pad = NULL;
+	gulong qtdemux_probe_id = 0;
 	bool isConfigured; // avoid double configure
 	double rate;
 	gint64 start;
@@ -295,6 +384,7 @@ private:
 	MediaType mediaType;
 	GstElement *sinkbin;
 	GstElement *source;
+	double startPos;
 		
 	void DumpFlags( void )
 	{
@@ -336,6 +426,18 @@ static GstPadProbeReturn MyPadProbeCallback( GstPad * pad, GstPadProbeInfo * inf
 		   info->id );
 	stream->PadProbeCallback();
 	return GST_PAD_PROBE_OK;
+}
+
+static GstPadProbeReturn MyDemuxPadProbeCallback( GstPad * pad, GstPadProbeInfo * info, MediaStream *stream )
+{ // C to C++ glue
+	// printf("pad probe: type=%d size=%d data=%p offset=%" G_GUINT64_FORMAT " id=%lu\n",
+	// 	   info->type,
+	// 	   info->size,
+	// 	   info->data,
+	// 	   info->offset,
+	// 	   info->id );
+	GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+	return stream->DemuxProbeCallback(buffer);
 }
 
 static void MyDestroyDataNotify( gpointer data )
@@ -382,6 +484,16 @@ static gboolean appsrc_seek_cb( GstElement * appSrc, guint64 offset, MediaStream
 static void found_source_cb(GObject * object, GObject * orig, GParamSpec * pspec, class MediaStream *stream )
 { // C to C++ glue
 	stream->found_source( object, orig, pspec );
+}
+
+static void element_setup_cb(GstElement * playbin, GstElement * element, class MediaStream *stream)
+{
+	stream->element_setup( playbin, element);
+}
+
+static void pad_added_cb(GstElement* object, GstPad* arg0, class MediaStream *stream)
+{
+	stream->pad_added(object, arg0);
 }
 
 gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline )
@@ -517,6 +629,13 @@ void Pipeline::Flush( double segment_rate, double segment_start, double segment_
 							  stop );
 	}
 	assert( rc );
+}
+
+void Pipeline::Flush( MediaType mediaType, double pos )
+{
+	printf( "Pipeline::Flush(mediaType=%d, pos=%f)\n", mediaType, pos );
+	mediaStream[mediaType]->Flush(pos);
+	mediaStream[mediaType]->SetStartPos(pos);
 }
 
 long long Pipeline::GetPositionMilliseconds()

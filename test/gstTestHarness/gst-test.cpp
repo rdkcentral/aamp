@@ -319,10 +319,20 @@ gpointer ReadFile( const char *path, gsize *pLen )
 		
 		context.clear();
 		CURLcode rc = curl_easy_perform(context.curl);
-		if (CURLE_OK == rc )
+		if (CURLE_OK == rc)
 		{
-			ptr = (gpointer)context.buffer;
-			len = context.size;
+			long response_code = 0;
+			(void)curl_easy_getinfo(context.curl, CURLINFO_RESPONSE_CODE, &response_code);
+			if (response_code == 200)
+			{
+				ptr = (gpointer)context.buffer;
+				len = context.size;
+			}
+			else
+			{
+				printf( "http error: %ld %s\n", response_code, path );
+				g_free(context.buffer);
+			}
 		}
 		else
 		{
@@ -1320,6 +1330,26 @@ public:
 		
 		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
 	}
+
+	void TestSeamlessAudioSwitch()
+	{
+		// Get current position
+		double position = pipelineContext.pipeline->GetPositionMilliseconds() / 1000.0;
+
+		Track &audio = track[eMEDIATYPE_AUDIO];
+		int startIndex = position / SEGMENT_DURATION_SECONDS;
+		int count = AV_SEGMENT_LOAD_COUNT - startIndex;
+		printf( "position=%lf startIndex=%d count:%d\n", position, startIndex, count );
+
+		// Flush current audio buffers
+		audio.Flush();
+		// Queue new audio track
+		audio.QueueAudioHeader( "en" );
+		audio.QueueAudioSegment( "en", startIndex, count );
+
+		double newPosition = pipelineContext.pipeline->GetPositionMilliseconds() / 1000.0;
+		pipelineContext.pipeline->Flush( eMEDIATYPE_AUDIO, newPosition );
+	}
 	
 	void LoadIframes( void )
 	{
@@ -1416,7 +1446,7 @@ public:
 		
 		printf( "dai // multi-period test exercising discontinuity handling with EOS signaling and flush\n" );
 		printf( "dai2 // optimized multi-period test using pts restamping\n" );
-		
+
 		printf( "gap <video> <audio> // play specified 4s gap bookended by 4s audio/video\n" );
 		printf( "   // content - fill with normal video/audio\n" );
 		printf( "   // event - use gstreamer gap event\n" );
@@ -1445,6 +1475,7 @@ public:
 		// misc post-tune commands
 		printf( "step // step one frame at a time (while paused)\n" );
 		printf( "sap // replace current audio with French\n" );
+		printf( "sap2 // switch audio to English using seamless audio switching\n" );
 		printf( "dump // generate gst-test.dot\n" );
 		printf( "position // log position changes\n" );
 		
@@ -1734,6 +1765,10 @@ public:
 		else if( strcmp( str,"exit")==0 )
 		{
 			g_main_loop_quit(main_loop);
+		}
+		else if( strcmp(str,"sap2")==0 )
+		{
+			TestSeamlessAudioSwitch();
 		}
 		else if( str[0] )
 		{

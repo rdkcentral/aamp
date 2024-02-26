@@ -73,6 +73,7 @@ public:
 	PipelineState GetPipelineState( void );
 	void Configure( MediaType mediaType, const char *required_caps );
 	void Flush( double rate, double start, double stop, double baseTime, double pts_offset );
+	void Flush( MediaType type, double pos );
 	void InstantaneousRateChange( double newRate );
 	void DumpDOT( void );
 	void SendBuffer( MediaType mediaType, void * ptr, size_t len );
