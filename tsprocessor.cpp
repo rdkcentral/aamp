@@ -1880,17 +1880,17 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 					}
 					pthread_mutex_unlock(&m_mutex);
 				}
-				ret = demuxAndSend(packetStart, len, m_startPosition, duration, discontinuous, processor);
+				ret = demuxAndSend(packetStart, len, m_startPosition, duration, discontinuous, std::move(processor));
 			}
 			else if(!ISCONFIGSET(eAAMPConfig_DemuxAudioBeforeVideo))
 			{
-				ret = demuxAndSend(packetStart, len, position, duration, discontinuous, processor);
+				ret = demuxAndSend(packetStart, len, position, duration, discontinuous, std::move(processor));
 			}
 			else
 			{
 				AAMPLOG_WARN("Sending Audio First");
 				ret = demuxAndSend(packetStart, len, position, duration, discontinuous, processor, ePC_Track_Audio);
-				ret |= demuxAndSend(packetStart, len, position, duration, discontinuous, processor, ePC_Track_Video);
+				ret |= demuxAndSend(packetStart, len, position, duration, discontinuous, std::move(processor), ePC_Track_Video);
 			}
 			ptsError = !ret;
 		}
