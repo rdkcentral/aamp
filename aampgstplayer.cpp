@@ -4450,6 +4450,15 @@ void AAMPGstPlayer::SetSubtitleMute(bool muted)
 }
 
 /**
+ * @brief Reset first frame
+ */
+void AAMPGstPlayer::ResetFirstFrame(void)
+{
+	AAMPLOG_WARN("Reset first frame");
+	privateContext->firstFrameReceived = false;
+}
+
+/**
  * @brief Set video mute
  */
 void AAMPGstPlayer::SetVideoMute(bool muted)
