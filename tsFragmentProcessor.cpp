@@ -78,6 +78,7 @@ namespace {
 
 TSFragmentProcessor::TSFragmentProcessor(AampLogManager *logObj)
 	: mLogObj {logObj},
+	m_pmtCollector(NULL),
 	m_videoComponentCount{0},
 	m_audioComponentCount{0},
 	m_dsmccComponentFound{false}
