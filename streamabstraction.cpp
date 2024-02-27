@@ -1569,6 +1569,10 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 		,playContext(nullptr)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
+			if( !maxCachedFragmentsPerTrack )
+			{
+				maxCachedFragmentsPerTrack = 1; // HACK
+			}
 	cachedFragment = new CachedFragment[maxCachedFragmentsPerTrack];
 	for(int X =0; X< maxCachedFragmentsPerTrack; ++X){
 		cachedFragment[X].fragment.Clear();

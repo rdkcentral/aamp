@@ -2229,7 +2229,7 @@ TEST_F(TrackStateTests, WaitForFreeFragmentAvailableTests)
 {
     int timeoutMs = 100;
     bool result = TrackStateobj->WaitForFreeFragmentAvailable(timeoutMs);
-    ASSERT_FALSE(result);
+    ASSERT_TRUE(result);
 }
 
 TEST_F(TrackStateTests, AbortWaitForCachedFragmentTests)

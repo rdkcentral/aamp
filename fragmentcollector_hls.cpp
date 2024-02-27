@@ -7989,11 +7989,6 @@ StreamAbstractionAAMP::ABRMode StreamAbstractionAAMP_HLS::GetABRMode()
 
 bool TrackState::IsExtXByteRange(const char *fragmentInfo, size_t *byteRangeLength, size_t *byteRangeOffset)
 {
-	if (!memcmp(fragmentInfo, "#EXT-X-BYTERANGE:", 17))
-	{
-		sscanf( fragmentInfo+17, "%zu@%zu", byteRangeLength, byteRangeOffset );
-		return true;
-	}
-
-    return false;
+	int n = sscanf( fragmentInfo, "#EXT-X-BYTERANGE:%zu@%zu", byteRangeLength, byteRangeOffset );
+	return n==2;
 }

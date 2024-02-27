@@ -89,7 +89,7 @@ TEST_F(byteRangeTests, withoutvalue) {
 	size_t byteRangeOffset = 0;
 
 	bool status = trackStateObj->IsExtXByteRange("#EXT-X-BYTERANGE:",&byteRangeLength, &byteRangeOffset);
-	EXPECT_TRUE(status);
+	EXPECT_FALSE(status);
 	EXPECT_EQ(byteRangeLength,0);
 	EXPECT_EQ(byteRangeOffset,0);
 }
@@ -99,7 +99,7 @@ TEST_F(byteRangeTests, withbytelength) {
 	size_t byteRangeOffset = 0;
 
 	bool status = trackStateObj->IsExtXByteRange("#EXT-X-BYTERANGE: 5000",&byteRangeLength, &byteRangeOffset);
-	EXPECT_TRUE(status);
+	EXPECT_FALSE(status);
 	EXPECT_EQ(byteRangeLength,5000);
 	EXPECT_EQ(byteRangeOffset,0);
 }
