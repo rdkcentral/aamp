@@ -363,6 +363,9 @@ protected:
                 delete gpGlobalConfig;
                 gpGlobalConfig = nullptr;
 
+                delete mLogObj;
+                mLogObj = nullptr;
+
         }
 };
 

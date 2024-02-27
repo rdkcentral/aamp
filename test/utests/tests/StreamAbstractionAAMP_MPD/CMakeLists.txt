@@ -55,6 +55,7 @@ set (DASH_PARSER_SOURCES ${AAMP_ROOT}/dash/xml/DomDocument.cpp
 
 set(TEST_SOURCES FunctionalTests.cpp
                  LinearFOGTests.cpp
+                 AudioOnlyTests.cpp
                  StreamAbstractionAAMP_MPD.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDParseHelper.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${DASH_PARSER_SOURCES})
