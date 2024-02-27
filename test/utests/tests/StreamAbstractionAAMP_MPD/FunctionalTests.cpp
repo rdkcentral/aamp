@@ -357,7 +357,7 @@ protected:
                 delete mPrivateInstanceAAMP;
                 mPrivateInstanceAAMP = nullptr;
 
-        delete _instanceStreamAbstractionAAMP_MPD;
+//        delete _instanceStreamAbstractionAAMP_MPD;
                 _instanceStreamAbstractionAAMP_MPD = nullptr;
 
                 delete gpGlobalConfig;

@@ -3042,7 +3042,10 @@ const char *StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 	case eTRACK_VIDEO:
 		{
 			HlsStreamInfo *streamInfo  = (HlsStreamInfo *)GetStreamInfo(currentProfileIndex);
-			playlistURI = streamInfo->uri;
+			if( streamInfo )
+			{
+				playlistURI = streamInfo->uri;
+			}
 			if (format)
 			{
 				*format = FORMAT_MPEGTS;
@@ -7824,7 +7827,7 @@ StreamInfo * StreamAbstractionAAMP_HLS::GetStreamInfo(int idx)
 	{
 		userData = aamp->mhAbrManager.getUserDataOfProfile(idx);
 	}
-	if(userData >= 0)
+	if(userData >= 0 && userData<streamInfoStore.size() )
 	{
 		sInfo = &streamInfoStore[userData];
 	}

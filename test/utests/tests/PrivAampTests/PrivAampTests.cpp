@@ -2006,18 +2006,24 @@ TEST_F(PrivAampTests,stopTest_1)
 
 TEST_F(PrivAampTests,SaveTimedMetadateTest)
 {
-    p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@","savemetadatacontent", 100);
-    p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@","savemetadatacontent", 100,NULL,10);
-    p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@","savemetadatacontent", 100,NULL,0);
+	const char *szContent = "savemetadatacontent";
+	int nb = (int)strlen(szContent);
+	
+    p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@",szContent, nb );
+    p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@",szContent, nb,NULL,10);
+    p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@",szContent, nb,NULL,0);
 
     EXPECT_NE(p_aamp->timedMetadata.size(),0);
 }
 
 TEST_F(PrivAampTests,SaveNewTimedMetadataTest)
 {
-    p_aamp->SaveNewTimedMetadata(0, "somesampleString#@$##@","savemetadatacontent", 100);
-    p_aamp->SaveNewTimedMetadata(0, "somesampleString#@$##@","savemetadatacontent", 100,NULL,10);
-    p_aamp->SaveNewTimedMetadata(0, "somesampleString#@$##@","savemetadatacontent", 100,NULL,0);
+	const char *szContent = "savemetadatacontent";
+	int nb = (int)strlen(szContent);
+
+    p_aamp->SaveNewTimedMetadata(0, "somesampleString#@$##@", szContent, nb);
+    p_aamp->SaveNewTimedMetadata(0, "somesampleString#@$##@", szContent, nb, NULL,10);
+    p_aamp->SaveNewTimedMetadata(0, "somesampleString#@$##@", szContent, nb, NULL,0);
 
 	EXPECT_NE(p_aamp->timedMetadataNew.size(),0);
 }
@@ -2027,7 +2033,7 @@ TEST_F(PrivAampTests,ReportTimedMetadataTest)
 	p_aamp->ReportTimedMetadata(false);
 	EXPECT_NE(p_aamp->mTimedMetadataStartTime,0);
 
-	p_aamp->ReportTimedMetadata(12325454,"sample","sample1",15,true,"sample2",21.332);
+	p_aamp->ReportTimedMetadata(12325454,"sample","sample1",7,true,"sample2",21.332);
 }
 
 TEST_F(PrivAampTests,ReportTimedMetadataTest_1)
@@ -2036,7 +2042,7 @@ TEST_F(PrivAampTests,ReportTimedMetadataTest_1)
 	p_aamp->ReportTimedMetadata(true);
 	EXPECT_NE(p_aamp->mTimedMetadataStartTime,0);
 
-	p_aamp->ReportTimedMetadata(12325454,"sample","sample1",15,false,"sample2",21.332);
+	p_aamp->ReportTimedMetadata(12325454,"sample","sample1",7,false,"sample2",21.332);
 }
 
 TEST_F(PrivAampTests,ReportBulkTimedMetadataTest)
@@ -3519,8 +3525,8 @@ TEST_F(PrivAampTests, HandleSSLHeaderCallback_ValidHeader_1)
     const char *ptr = "Header: Value\r\n";
     size_t size = 1;
     size_t nmemb = 1;
-    void* user_data;
-    size_t result = p_aamp->HandleSSLHeaderCallback(ptr, size, nmemb, &user_data);
+    void* user_data = NULL;
+    size_t result = p_aamp->HandleSSLHeaderCallback(ptr, size, nmemb, user_data);
 }
 TEST_F(PrivAampTests, AddHighIdleTaskTest)
 {

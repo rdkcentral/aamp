@@ -706,152 +706,154 @@ static void print_headerResponse(std::vector<std::string> &allResponseHeaders, M
  */
 size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t size, size_t nmemb, void* user_data )
 {
-	CurlCallbackContext *context = static_cast<CurlCallbackContext *>(user_data);
-	httpRespHeaderData *httpHeader = context->responseHeaderData;
 	size_t len = nmemb * size;
-	size_t startPos = 0;
-	size_t endPos = len-2; // strip CRLF
-
-	bool isBitrateHeader = false;
-	bool isFogRecordingIdHeader = false;
-	bool isProfileCapHeader = false;
-
-	if( len<2 || ptr[endPos] != '\r' || ptr[endPos+1] != '\n' )
-	{ // only proceed if this is a CRLF terminated curl header, as expected
-		return len;
-	}
-
-	if (context->aamp->mConfig->IsConfigSet(eAAMPConfig_CurlHeader) && ptr[0] &&
-		(eMEDIATYPE_VIDEO == context->fileType || eMEDIATYPE_PLAYLIST_VIDEO == context->fileType))
+	if( user_data )
 	{
-		std::string temp = std::string(ptr,endPos);
-		context->allResponseHeaders.push_back(temp);
-	}
-
-	// As per Hypertext Transfer Protocol ==> Field names are case-insensitive
-	// HTTP/1.1 4.2 Message Headers : Each header field consists of a name followed by a colon (":") and the field value. Field names are case-insensitive
-	if (STARTS_WITH_IGNORE_CASE(ptr, FOG_REASON_STRING))
-	{
-		httpHeader->type = eHTTPHEADERTYPE_FOG_REASON;
-		startPos = STRLEN_LITERAL(FOG_REASON_STRING);
-	}
-	else if (STARTS_WITH_IGNORE_CASE(ptr, CURLHEADER_X_REASON))
-	{
-		httpHeader->type = eHTTPHEADERTYPE_XREASON;
-		startPos = STRLEN_LITERAL(CURLHEADER_X_REASON);
-	}
-	else if (STARTS_WITH_IGNORE_CASE(ptr, BITRATE_HEADER_STRING))
-	{
-		startPos = STRLEN_LITERAL(BITRATE_HEADER_STRING);
-		isBitrateHeader = true;
-	}
-	else if (STARTS_WITH_IGNORE_CASE(ptr, SET_COOKIE_HEADER_STRING))
-	{
-		httpHeader->type = eHTTPHEADERTYPE_COOKIE;
-		startPos = STRLEN_LITERAL(SET_COOKIE_HEADER_STRING);
-	}
-	else if (STARTS_WITH_IGNORE_CASE(ptr, LOCATION_HEADER_STRING))
-	{
-		httpHeader->type = eHTTPHEADERTYPE_EFF_LOCATION;
-		startPos = STRLEN_LITERAL(LOCATION_HEADER_STRING);
-	}
-	else if (STARTS_WITH_IGNORE_CASE(ptr, FOG_RECORDING_ID_STRING))
-	{
-		startPos = STRLEN_LITERAL(FOG_RECORDING_ID_STRING);
-		isFogRecordingIdHeader = true;
-	}
-	else if (STARTS_WITH_IGNORE_CASE(ptr, CONTENT_ENCODING_STRING ))
-	{
-		// Enabled IsEncoded as Content-Encoding header is present
-		// The Content-Encoding entity header incidcates media is compressed
-		context->downloadIsEncoded = true;
-	}
-	else if (context->aamp->mConfig->IsConfigSet(eAAMPConfig_LimitResolution) && context->aamp->IsFirstRequestToFog() && STARTS_WITH_IGNORE_CASE(ptr, CAPPED_PROFILE_STRING ))
-	{
-		startPos = STRLEN_LITERAL(CAPPED_PROFILE_STRING);
-		isProfileCapHeader = true;
-	}
-	else if (STARTS_WITH_IGNORE_CASE(ptr, TRANSFER_ENCODING_STRING ))
-	{
-		context->chunkedDownload = true;
-	}
-	else if (0 == context->buffer->GetAvail() )
-	{
-		if (STARTS_WITH_IGNORE_CASE(ptr, CONTENTLENGTH_STRING))
-		{
-			int contentLengthStartPosition = STRLEN_LITERAL(CONTENTLENGTH_STRING);
-			const char * contentLengthStr = ptr + contentLengthStartPosition;
-			context->contentLength = atoi(contentLengthStr);
+		CurlCallbackContext *context = static_cast<CurlCallbackContext *>(user_data);
+		httpRespHeaderData *httpHeader = context->responseHeaderData;
+		size_t startPos = 0;
+		size_t endPos = len-2; // strip CRLF
+		
+		bool isBitrateHeader = false;
+		bool isFogRecordingIdHeader = false;
+		bool isProfileCapHeader = false;
+		
+		if( len<2 || ptr[endPos] != '\r' || ptr[endPos+1] != '\n' )
+		{ // only proceed if this is a CRLF terminated curl header, as expected
+			return len;
 		}
-	}
-
-	// This implementation is needed for HLS which still uses GetFile
-	// Check for http header tags, only if event listener for HTTPResponseHeaderEvent is available
-	if (eMEDIATYPE_MANIFEST == context->fileType && context->aamp->IsEventListenerAvailable(AAMP_EVENT_HTTP_RESPONSE_HEADER))
-	{
-		std::vector<std::string> responseHeaders = context->aamp->manifestHeadersNeeded;
-		if (responseHeaders.size() > 0)
+		
+		if (context->aamp->mConfig->IsConfigSet(eAAMPConfig_CurlHeader) && ptr[0] &&
+			(eMEDIATYPE_VIDEO == context->fileType || eMEDIATYPE_PLAYLIST_VIDEO == context->fileType))
 		{
-			for (int header=0; header < responseHeaders.size(); header++) {
-				std::string headerType = responseHeaders[header].c_str();
-				// check if subscribed header is available
-				if (0 == strncasecmp(ptr, headerType.c_str() , headerType.length()))
-				{
-					startPos = headerType.length();
-					// strip only the header value from the response
-					context->aamp->httpHeaderResponses[headerType] = std::string( ptr + startPos + 2, endPos - startPos - 2).c_str();
-					AAMPLOG_INFO("httpHeaderResponses");
-					for (auto const& pair: context->aamp->httpHeaderResponses) {
-						AAMPLOG_INFO("{ %s, %s }", pair.first.c_str(), pair.second.c_str());
+			std::string temp = std::string(ptr,endPos);
+			context->allResponseHeaders.push_back(temp);
+		}
+		
+		// As per Hypertext Transfer Protocol ==> Field names are case-insensitive
+		// HTTP/1.1 4.2 Message Headers : Each header field consists of a name followed by a colon (":") and the field value. Field names are case-insensitive
+		if (STARTS_WITH_IGNORE_CASE(ptr, FOG_REASON_STRING))
+		{
+			httpHeader->type = eHTTPHEADERTYPE_FOG_REASON;
+			startPos = STRLEN_LITERAL(FOG_REASON_STRING);
+		}
+		else if (STARTS_WITH_IGNORE_CASE(ptr, CURLHEADER_X_REASON))
+		{
+			httpHeader->type = eHTTPHEADERTYPE_XREASON;
+			startPos = STRLEN_LITERAL(CURLHEADER_X_REASON);
+		}
+		else if (STARTS_WITH_IGNORE_CASE(ptr, BITRATE_HEADER_STRING))
+		{
+			startPos = STRLEN_LITERAL(BITRATE_HEADER_STRING);
+			isBitrateHeader = true;
+		}
+		else if (STARTS_WITH_IGNORE_CASE(ptr, SET_COOKIE_HEADER_STRING))
+		{
+			httpHeader->type = eHTTPHEADERTYPE_COOKIE;
+			startPos = STRLEN_LITERAL(SET_COOKIE_HEADER_STRING);
+		}
+		else if (STARTS_WITH_IGNORE_CASE(ptr, LOCATION_HEADER_STRING))
+		{
+			httpHeader->type = eHTTPHEADERTYPE_EFF_LOCATION;
+			startPos = STRLEN_LITERAL(LOCATION_HEADER_STRING);
+		}
+		else if (STARTS_WITH_IGNORE_CASE(ptr, FOG_RECORDING_ID_STRING))
+		{
+			startPos = STRLEN_LITERAL(FOG_RECORDING_ID_STRING);
+			isFogRecordingIdHeader = true;
+		}
+		else if (STARTS_WITH_IGNORE_CASE(ptr, CONTENT_ENCODING_STRING ))
+		{
+			// Enabled IsEncoded as Content-Encoding header is present
+			// The Content-Encoding entity header incidcates media is compressed
+			context->downloadIsEncoded = true;
+		}
+		else if (context->aamp->mConfig->IsConfigSet(eAAMPConfig_LimitResolution) && context->aamp->IsFirstRequestToFog() && STARTS_WITH_IGNORE_CASE(ptr, CAPPED_PROFILE_STRING ))
+		{
+			startPos = STRLEN_LITERAL(CAPPED_PROFILE_STRING);
+			isProfileCapHeader = true;
+		}
+		else if (STARTS_WITH_IGNORE_CASE(ptr, TRANSFER_ENCODING_STRING ))
+		{
+			context->chunkedDownload = true;
+		}
+		else if (0 == context->buffer->GetAvail() )
+		{
+			if (STARTS_WITH_IGNORE_CASE(ptr, CONTENTLENGTH_STRING))
+			{
+				int contentLengthStartPosition = STRLEN_LITERAL(CONTENTLENGTH_STRING);
+				const char * contentLengthStr = ptr + contentLengthStartPosition;
+				context->contentLength = atoi(contentLengthStr);
+			}
+		}
+		
+		// This implementation is needed for HLS which still uses GetFile
+		// Check for http header tags, only if event listener for HTTPResponseHeaderEvent is available
+		if (eMEDIATYPE_MANIFEST == context->fileType && context->aamp->IsEventListenerAvailable(AAMP_EVENT_HTTP_RESPONSE_HEADER))
+		{
+			std::vector<std::string> responseHeaders = context->aamp->manifestHeadersNeeded;
+			if (responseHeaders.size() > 0)
+			{
+				for (int header=0; header < responseHeaders.size(); header++) {
+					std::string headerType = responseHeaders[header].c_str();
+					// check if subscribed header is available
+					if (0 == strncasecmp(ptr, headerType.c_str() , headerType.length()))
+					{
+						startPos = headerType.length();
+						// strip only the header value from the response
+						context->aamp->httpHeaderResponses[headerType] = std::string( ptr + startPos + 2, endPos - startPos - 2).c_str();
+						AAMPLOG_INFO("httpHeaderResponses");
+						for (auto const& pair: context->aamp->httpHeaderResponses) {
+							AAMPLOG_INFO("{ %s, %s }", pair.first.c_str(), pair.second.c_str());
+						}
 					}
 				}
 			}
 		}
-	}
-
-	if(startPos > 0)
-	{
-		while( endPos>startPos && ptr[endPos-1] == ' ' )
-		{ // strip trailing whitespace
-			endPos--;
-		}
-		while( startPos < endPos && ptr[startPos] == ' ')
-		{ // strip leading whitespace
-			startPos++;
-		}
-
-		if(isBitrateHeader)
+		
+		if(startPos > 0)
 		{
-			const char * strBitrate = ptr + startPos;
-			context->bitrate = atol(strBitrate);
-			AAMPLOG_TRACE("Parsed HTTP %s: %" BITSPERSECOND_FORMAT, isBitrateHeader? "Bitrate": "False", context->bitrate);
-		}
-		else if(isFogRecordingIdHeader)
-		{
-			context->aamp->mTsbRecordingId = string( ptr + startPos, endPos - startPos );
-			AAMPLOG_TRACE("Parsed Fog-Id : %s", context->aamp->mTsbRecordingId.c_str());
-		}
-		else if(isProfileCapHeader)
-		{
-			const char * strProfileCap = ptr + startPos;
-			context->aamp->mProfileCappedStatus = atol(strProfileCap)? true : false;
-			AAMPLOG_TRACE("Parsed Profile-Capped Header : %d", context->aamp->mProfileCappedStatus);
-		}
-		else
-		{
-			httpHeader->data = string( ptr + startPos, endPos - startPos );
-			if(httpHeader->type != eHTTPHEADERTYPE_EFF_LOCATION)
-			{ //Append delimiter ";"
-				httpHeader->data += ';';
+			while( endPos>startPos && ptr[endPos-1] == ' ' )
+			{ // strip trailing whitespace
+				endPos--;
+			}
+			while( startPos < endPos && ptr[startPos] == ' ')
+			{ // strip leading whitespace
+				startPos++;
+			}
+			
+			if(isBitrateHeader)
+			{
+				const char * strBitrate = ptr + startPos;
+				context->bitrate = atol(strBitrate);
+				AAMPLOG_TRACE("Parsed HTTP %s: %" BITSPERSECOND_FORMAT, isBitrateHeader? "Bitrate": "False", context->bitrate);
+			}
+			else if(isFogRecordingIdHeader)
+			{
+				context->aamp->mTsbRecordingId = string( ptr + startPos, endPos - startPos );
+				AAMPLOG_TRACE("Parsed Fog-Id : %s", context->aamp->mTsbRecordingId.c_str());
+			}
+			else if(isProfileCapHeader)
+			{
+				const char * strProfileCap = ptr + startPos;
+				context->aamp->mProfileCappedStatus = atol(strProfileCap)? true : false;
+				AAMPLOG_TRACE("Parsed Profile-Capped Header : %d", context->aamp->mProfileCappedStatus);
+			}
+			else
+			{
+				httpHeader->data = string( ptr + startPos, endPos - startPos );
+				if(httpHeader->type != eHTTPHEADERTYPE_EFF_LOCATION)
+				{ //Append delimiter ";"
+					httpHeader->data += ';';
+				}
+			}
+			
+			if(gpGlobalConfig->logging.trace)
+			{
+				AAMPLOG_TRACE("Parsed HTTP %s header: %s", httpHeader->type==eHTTPHEADERTYPE_COOKIE? "Cookie": "X-Reason", httpHeader->data.c_str());
 			}
 		}
-
-		if(gpGlobalConfig->logging.trace)
-		{
-			AAMPLOG_TRACE("Parsed HTTP %s header: %s", httpHeader->type==eHTTPHEADERTYPE_COOKIE? "Cookie": "X-Reason", httpHeader->data.c_str());
-		}
 	}
-
 	return len;
 }
 

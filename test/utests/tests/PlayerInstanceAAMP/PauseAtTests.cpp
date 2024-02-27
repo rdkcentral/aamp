@@ -1397,14 +1397,14 @@ TEST_F(PauseAtTests, SetPreferredSubtitleLanguageIdleState1)
 TEST_F(PauseAtTests, SetPreferredSubtitleLanguageIdleState2) 
 {
     //cchecking maximum char
-    char language = CHAR_MAX;  
-    mPlayerInstance->SetPreferredSubtitleLanguage(&language);
+	char language[] = { CHAR_MAX, 0x00 };
+    mPlayerInstance->SetPreferredSubtitleLanguage(language);
 }
 TEST_F(PauseAtTests, SetPreferredSubtitleLanguageIdleState3) 
 {
     //cchecking minimum char
-    char language = CHAR_MIN;  
-    mPlayerInstance->SetPreferredSubtitleLanguage(&language);
+	char language[] = { CHAR_MIN, 0x00 };  
+    mPlayerInstance->SetPreferredSubtitleLanguage(language);
 }
 TEST_F(PauseAtTests, SetParallelPlaylistDLTest1)
 {
