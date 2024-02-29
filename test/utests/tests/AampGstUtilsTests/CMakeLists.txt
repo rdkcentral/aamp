@@ -22,7 +22,7 @@ pkg_check_modules(GTEST REQUIRED gtest)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME AampGstUtilsAAMPTests)
+set(EXEC_NAME AampGstUtilsTests)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     include_directories(${AAMP_ROOT}/Linux/include)

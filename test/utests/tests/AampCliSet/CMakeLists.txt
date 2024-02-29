@@ -22,7 +22,7 @@ pkg_check_modules(GTEST REQUIRED gtest)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME AampCliSetTests)
+set(EXEC_NAME AampCliSet)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/test/aampcli ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper)
 

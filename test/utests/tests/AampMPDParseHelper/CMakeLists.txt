@@ -17,7 +17,7 @@
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME AampMPDParseHelperTest)
+set(EXEC_NAME AampMPDParseHelper)
 
 pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(LibXml2 REQUIRED libxml-2.0)
@@ -80,7 +80,7 @@ if (COVERAGE_ENABLED)
     include(CodeCoverage)
     APPEND_COVERAGE_COMPILER_FLAGS()
     #Set NO_EXCLUDE_DIR to the location of this test so it doesn't get excluded & include common exclude files:
-    set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/AampMPDParseHelperTest/*")
+    set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/AampMPDParseHelper/*")
     include("${PROJECT_SOURCE_DIR}/cmake_exclude_file.list")
     SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
                               EXECUTABLE ${EXEC_NAME}

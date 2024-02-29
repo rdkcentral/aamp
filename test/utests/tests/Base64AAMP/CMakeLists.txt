@@ -22,7 +22,7 @@ pkg_check_modules(GTEST REQUIRED gtest)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME Base64AAMPTests)
+set(EXEC_NAME Base64AAMP)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle)
 

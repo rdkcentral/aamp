@@ -23,7 +23,7 @@ pkg_check_modules(GLIB REQUIRED glib-2.0)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME ID3MetaDataID3MetaTests)
+set(EXEC_NAME ID3MetaDataTests)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/test/aampcli ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper)
 

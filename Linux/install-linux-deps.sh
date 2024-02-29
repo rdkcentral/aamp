@@ -63,6 +63,7 @@ install_package libcppunit-dev
 install_package libjsoncpp-dev
 install_package libasio-dev
 install_package libsystemd-dev
+install_package jq
 
 ver=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 

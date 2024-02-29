@@ -20,7 +20,7 @@ pkg_check_modules(GTEST REQUIRED gtest)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME TextStyleAttributesTests)
+set(EXEC_NAME TextStyleAttributes)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/test/aampcli ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper)
 include_directories(${AAMP_ROOT}/subtitle)

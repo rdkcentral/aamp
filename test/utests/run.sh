@@ -3,16 +3,44 @@
 # Use option: -c to additionally build coverage tests
 # Use option: -h to halt coverage tests on error
 
+# If a test crashes or has AS trap, provide an error test report
+error_report() 
+{
+cat << EOF > test_details.json
+{
+  "tests": 1,
+  "failures": 0,
+  "disabled": 0,
+  "errors": 1,
+  "timestamp": "`date`",
+  "time": "0s",
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "$1",
+      "tests": 1,
+      "failures": 0,
+      "disabled": 0,
+      "errors": 1
+    }
+  ]
+}
+EOF
+}
+
 # RDKAAMP-884 "corrupt arc tag"
 find . -name "*.gcda" -print0 | xargs -0 rm
 
 build_coverage=0
 halt_on_error=0
 
-while getopts "ch" opt; do
+while getopts "ceh" opt; do
   case ${opt} in
     c ) echo Do build coverage
         build_coverage=1
+      ;;
+    e ) echo RDK-E build
+        rdke_build=1
       ;;
     h ) echo Halt on error
         halt_on_error=1
@@ -22,13 +50,11 @@ while getopts "ch" opt; do
   esac
 done
 
-if [ "$build_coverage" -eq "1" ]; then
-  #Create a list of all folders in tests (in aamp/test/utests, not in build folder)
-  #(In development, to build just a single test, TESTLIST can be replaced with a single test folder, e.g. "AampCliSet)"
-  TESTLIST=`find ./tests/* -type d | cut -c 9-`
-  TESTDIR=$PWD
-  echo "Coverage test list: "$TESTLIST
-fi
+#Create a list of all folders in tests (in aamp/test/utests, not in build folder)
+#(In development, to build just a single test, TESTLIST can be replaced with a single test folder, e.g. "AampCliSet)"
+TESTLIST=`find ./tests/* -maxdepth 0 -type d | cut -c 9-`
+TESTDIR=$PWD
+echo "Test list: "$TESTLIST
 
 #Function to build coverage tests. CWD should be test/utests/build. Pass in name of test build folder & name of test.
 build_test () {
@@ -67,7 +93,24 @@ fi
 
 make
 
-ctest -j 4 --output-on-failure --no-compress-output -T Test
+if [ "$rdke_build" -eq "1" ]; then
+	echo "RDKE build"
+
+	for TEST in $TESTLIST ; do
+      		echo "TEST IS $TEST in $PWD"
+      		pushd tests/$TEST
+      		./$TEST --gtest_output=json || true  # Don't exit script if a test crashes
+                if [ ! -f test_detail.json ]; then
+                    error_report $TEST
+                fi
+      		popd
+    	done
+
+	find . -name test_detail\*.json | xargs cat |  jq -s '{test_cases_results: {tests: map(.tests) | add,failures: map(.failures) | add,disabled: map(.disabled) | add,errors: map(.errors) | add,time: ((map(.time | rtrimstr("s") | tonumber) | add) | tostring + "s"),name: .[0].name,testsuites: map(.testsuites[])}}' > combinedReport.json
+
+else
+    ctest -j 4 --output-on-failure --no-compress-output -T Test
+fi
 
 # Build coverage tests if option selected
 

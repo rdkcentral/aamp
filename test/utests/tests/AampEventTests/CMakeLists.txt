@@ -22,7 +22,7 @@ pkg_check_modules(GLIB REQUIRED glib-2.0)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME AampEventAAMPTests)
+set(EXEC_NAME AampEventTests)
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/test/aampcli ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper)
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)

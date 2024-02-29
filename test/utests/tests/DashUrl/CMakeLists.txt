@@ -22,7 +22,7 @@ pkg_check_modules(GMOCK REQUIRED gmock)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME DashUrlTests)
+set(EXEC_NAME DashUrl)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle)
 

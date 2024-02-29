@@ -21,7 +21,7 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME AampCurlDownloaderTest)
+set(EXEC_NAME AampCurlDownloader)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader)
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
@@ -59,7 +59,7 @@ if (COVERAGE_ENABLED)
     include(CodeCoverage)
     APPEND_COVERAGE_COMPILER_FLAGS()
     #Set NO_EXCLUDE_DIR to the location of this test so it doesn't get excluded & include common exclude files:
-    set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/AampCurlDownloaderTest/*")
+    set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/AampCurlDownloader/*")
     include("${PROJECT_SOURCE_DIR}/cmake_exclude_file.list")    
     SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
                               EXECUTABLE ${EXEC_NAME}

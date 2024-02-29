@@ -23,7 +23,7 @@ pkg_check_modules(GLIB REQUIRED glib-2.0)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME base16Tests.cpp)
+set(EXEC_NAME base16Tests)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle)
 include_directories(${AAMP_ROOT}/subtec/libsubtec)

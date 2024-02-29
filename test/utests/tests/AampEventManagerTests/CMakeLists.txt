@@ -23,7 +23,7 @@ pkg_check_modules(GLIB REQUIRED glib-2.0)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME AampEventManagerAampTests)
+set(EXEC_NAME AampEventManagerTests)
 
 
 pkg_check_modules(LIBDASH REQUIRED libdash)

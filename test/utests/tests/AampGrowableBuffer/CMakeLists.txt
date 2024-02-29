@@ -22,7 +22,7 @@ pkg_check_modules(GTEST REQUIRED gtest)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME AampGrowableBufferTest)
+set(EXEC_NAME AampGrowableBuffer)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/downloader ${AAMP_ROOT}/subtitle)
 

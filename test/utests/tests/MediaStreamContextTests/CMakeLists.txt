@@ -23,7 +23,7 @@ pkg_check_modules(GLIB REQUIRED glib-2.0)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME MediaStreamContextAampTests)
+set(EXEC_NAME MediaStreamContextTests)
 
 pkg_check_modules(LIBDASH REQUIRED libdash)
 

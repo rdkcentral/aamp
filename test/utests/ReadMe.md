@@ -21,6 +21,7 @@ NOTE: Writing microtests is a really useful tool in improving code quality but i
 AAMP installed using install-aamp.sh script which:
  - installs headers from dependent libraries
  - installs GoogleTest and GoogleMock
+ - installs jq
 
 ## Build and run microtests using script:
 
@@ -29,6 +30,11 @@ From the *utests* folder run:
 ```
 ./run.sh
 ```
+## To run tests and generate combined report in json format
+
+./run.sh -e 
+
+Report can be found in utests/TestReport.json
 
 ## Check line coverage in microtests:
 
@@ -111,6 +117,7 @@ See [CMake Modules - GoogleTest](https://cmake.org/cmake/help/latest/module/Goog
 One or more Googletest executables generated from CMake.
 
 The CMakeLists.txt contains the instructions for creating the module's target. e.g.
+- EXEC_NAME to be same as directory name //Required to generate json report
 - Necessary include paths for that module
 - The module source file
 - The google test file(s)
