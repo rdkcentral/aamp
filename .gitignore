@@ -9,3 +9,7 @@ test/VideoTestStream/temp/
 test/VideoTestStream/text/
 *.mp4
 __pycache__
+
+glib/
+subtec-app/
+Linux/googletest/
