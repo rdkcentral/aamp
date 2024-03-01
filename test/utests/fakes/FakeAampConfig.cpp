@@ -22,7 +22,7 @@
 
 MockAampConfig *g_mockAampConfig = nullptr;
 
-AampConfig::AampConfig()
+AampConfig::AampConfig():mLogObj(),logging()
 {
 }
 

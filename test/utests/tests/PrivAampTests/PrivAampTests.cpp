@@ -2549,8 +2549,11 @@ TEST_F(PrivAampTests,WebVTTCueListenersRegisteredTest)
 
 TEST_F(PrivAampTests,SendId3MetadataEventTest)
 {
-    aamp::id3_metadata::CallbackData * id3Metadata;
-    p_aamp->SendId3MetadataEvent(id3Metadata);
+  uint mData[4] = {1,2,3,4};
+  aamp::id3_metadata::CallbackData id3Metadata((const uint8_t*) &mData, (uint32_t) 4,
+                         (const char*) "schemeIdURI", (const char*) "id3Value", (uint64_t) 12334566,
+                         (uint32_t) 5555, (uint32_t) 1234, (uint32_t) 2, (uint64_t) 98765);
+  p_aamp->SendId3MetadataEvent(&id3Metadata);
 }
 
 TEST_F(PrivAampTests,FlushStreamSinkTest)

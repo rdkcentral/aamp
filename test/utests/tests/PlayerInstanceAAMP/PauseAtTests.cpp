@@ -45,7 +45,7 @@ protected:
         }
 
         mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-        AampLogManager *mLogObj;
+        AampLogManager *mLogObj = NULL;
         mPlayerInstance = new PlayerInstanceAAMP();
         g_mockAampConfig = new MockAampConfig();
         g_mockAampScheduler = new MockAampScheduler();

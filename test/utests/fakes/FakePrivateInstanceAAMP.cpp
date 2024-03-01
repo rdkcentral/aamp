@@ -134,7 +134,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mMPDDownloaderInstance(new AampMPDDownloader()),
 	mDiscoCompleteLock(),
 	mWaitForDiscoToComplete(),
-	mIsPeriodChangeMarked(false)
+	mIsPeriodChangeMarked(false),
+	mpStreamAbstractionAAMP()
 {
 	pthread_cond_init(&waitforplaystart, NULL);
 	pthread_mutex_init(&mMutexPlaystart, NULL);
