@@ -1346,3 +1346,8 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
 {
 }
+
+void PrivateInstanceAAMP::FlushAudio(double pos)
+{
+}
+

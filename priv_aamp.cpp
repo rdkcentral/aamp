@@ -1257,6 +1257,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mDynamicDrmUpdateLock()
 	, mDynamicDrmCache()
 	, mAudioComponentCount(-1)
+	, mAudioDelta(0)
 	, mVideoComponentCount(-1)
 	, mAudioOnlyPb(false)
 	, mVideoOnlyPb(false)
@@ -9580,6 +9581,18 @@ void PrivateInstanceAAMP::SendId3MetadataEvent(aamp::id3_metadata::CallbackData 
 	}
 }
 
+/**
+ * @brief Flush the audio stream sink
+ * @param[in]  position - playback position
+ */
+void  PrivateInstanceAAMP::FlushAudio(double pos)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->FlushAudio(pos);
+	}
+}
 /**
  * @brief Sending a flushing seek to stream sink with given position
  */

@@ -124,8 +124,7 @@ public:
 	 * @param[in] reset - true/false
 	 * @return void
 	 */
-	virtual void resetSumPTSOnAudioRestart(bool reset) {};
-
+	virtual void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position) {};
 	/**
 	 * @brief Abort all operations
 	 *

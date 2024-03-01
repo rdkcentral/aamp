@@ -452,7 +452,7 @@ public:
 	/**
 	 * @fn FlushAudio
 	 */
-	void FlushAudio() override;
+	void FlushAudio(double pos) override;
 
 	/**
 	 * @fn ChangeAamp
@@ -526,6 +526,12 @@ private:
      	 * @return bool - true if audio to be forwarded
      	 */
 	bool ForwardAudioBuffersToAux();
+
+	/**
+	 * @fn RemoveProbes
+	 * @brief Remove probes from the pipeline
+	 */
+	void RemoveProbes();
 
 	pthread_mutex_t mBufferingLock;
 	pthread_mutex_t mProtectionLock;

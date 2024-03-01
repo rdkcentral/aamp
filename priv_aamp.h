@@ -1075,7 +1075,8 @@ public:
 	pthread_cond_t mWaitForDynamicDRMToUpdate;
 	bool mAudioComponentCount;
 	bool mVideoComponentCount;
-	bool mAudioOnlyPb;					/**< To indicate Audio Only Playback */
+	bool mAudioOnlyPb;
+	double mAudioDelta;					/** To indicate audio playlist delta */	
 	bool mVideoOnlyPb;					/**< To indicate Video Only Playback */
 	int mCurrentAudioTrackIndex;				/**< Keep current selected audio track index */
 	int mCurrentTextTrackIndex;				/**< Keep current selected text track index*/
@@ -3115,6 +3116,12 @@ public:
 	 *	 @return void
 	 */
 	void SetNewAdBreakerConfig(bool bValue);
+
+	/**
+	 * @brief Flush the audio stream sink
+	 * @param[in]  position - playback position
+	 */
+	void FlushAudio(double pos);
 
 	/**
 	 *   @fn FlushStreamSink

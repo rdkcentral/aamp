@@ -115,16 +115,12 @@ public:
 	void setFrameRateForTM (int frameRate) override { };
 
         /**
-         * @brief Reset sumPTS on audioOnlyRestart
+         * @brief Reset PTS on audioSwitch
          *
          * @param[in] reset - true/false
          * @return void
          */
-	void resetSumPTSOnAudioRestart(bool reset) override
-	{
-		resetSumPTS = reset;
-	}
-
+	void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position);
 	/**
 	 * @fn sendSegment
 	 *

@@ -129,7 +129,11 @@ typedef struct MediaInfo
  */
 struct IndexNode
 {
+	IndexNode() : completionTimeSecondsFromStart(0), mediaSequenceNumber(-1), pFragmentInfo(NULL), drmMetadataIdx(-1), initFragmentPtr(NULL)
+	{
+	}
 	double completionTimeSecondsFromStart;	/**< Time of index from start */
+	int mediaSequenceNumber;		/**< Media sequence number>*/
 	const char *pFragmentInfo;		/**< Fragment Information pointer */
 	int drmMetadataIdx;			/**< DRM Index for Fragment */
 	const char *initFragmentPtr;		/**< Fragmented MP4 specific pointer to associated (preceding) initialization fragment */
@@ -561,11 +565,12 @@ class TrackState : public MediaTrack
 		void SwitchSubtitleTrack();
 
 		void getNextFetchRequestUri(); //CMCD Get next object request url(nor)
+
 		/***************************************************************************
-                 * @fn SwitchAudioTrack
-                 *
-                 * @return void
-                 ***************************************************************************/
+		 * @fn SwitchAudioTrack
+		 *
+		 * @return void
+		 ***************************************************************************/
 		void SwitchAudioTrack();
 
 	public:

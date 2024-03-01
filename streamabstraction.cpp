@@ -349,6 +349,18 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 					name, currentInitialCacheDurationSeconds, minInitialCacheSeconds);
 		}
 	}
+	if(loadNewAudio && (eTRACK_AUDIO == type) && !IsInitSegment)
+	{
+		CachedFragment* cachedFragment = &this->cachedFragment[fragmentIdxToFetch];
+		if(playContext)
+		{
+			playContext->resetPTSOnAudioSwitch(&cachedFragment->fragment, cachedFragment->position);
+		}
+		aamp->ResumeTrackInjection((MediaType)eMEDIATYPE_AUDIO);
+		NotifyCachedAudioFragmentAvailable();
+		loadNewAudio = false;
+		aamp->mDisableRateCorrection = false;
+	}
 	fragmentIdxToFetch++;
 	if (fragmentIdxToFetch == maxCachedFragmentsPerTrack)
 	{
@@ -366,21 +378,6 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 		totalFragmentsDownloaded++;
 	}
 
-	if(loadNewAudio && (eTRACK_AUDIO == type) && !IsInitSegment)
-	{
-		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
-		if (sink)
-                {
-                        sink->FlushAudio();
-                }
-		aamp->ResumeTrackInjection((MediaType)eMEDIATYPE_AUDIO);
-		if(playContext)
-		{
-			playContext->resetSumPTSOnAudioRestart(true);
-		}
-		NotifyCachedAudioFragmentAvailable();
-		loadNewAudio = false;
-	}
 	pthread_cond_signal(&fragmentFetched);
 	pthread_mutex_unlock(&mutex);
 	if(notifyCacheCompleted)
@@ -1135,6 +1132,7 @@ bool MediaTrack::InjectFragment()
 				if (!fragmentDiscarded)
 				{
 					totalInjectedDuration += cachedFragment->duration;
+					lastInjectedPosition = cachedFragment->position;
 					mSegInjectFailCount = 0;
 				}
 				else
@@ -1302,6 +1300,7 @@ void MediaTrack::RunInjectLoop()
 		}
     }
     totalInjectedDuration = 0;
+    lastInjectedPosition = 0;
     while (aamp->DownloadsAreEnabled() && keepInjecting)
     {
 	if(type == eTRACK_AUDIO && (loadNewAudio || refreshAudio))
@@ -1382,6 +1381,7 @@ void MediaTrack::RunInjectChunkLoop()
  */
 void MediaTrack::StopInjectLoop()
 {
+	NotifyCachedAudioFragmentAvailable();
 	if(fragmentInjectorThreadStarted && fragmentInjectorThreadID.joinable())
 	{
 		fragmentInjectorThreadID.join();
@@ -1505,21 +1505,30 @@ void MediaTrack::FlushFragments()
 	fragmentIdxToInject = 0;
 	fragmentIdxToFetch = 0;
 	numberOfFragmentsCached = 0;
-	totalFetchedDuration = 0;
-	totalFragmentsDownloaded = 0;
-	totalInjectedDuration = 0;
+	if(!seamlessAudioSwitchInProgress)
+	{
+		totalFetchedDuration = 0;
+		totalFragmentsDownloaded = 0;
+		totalInjectedDuration = 0;
+	}
 }
 
  /**
- *  @brief ResetTrackDuration resets track duration based on new playtarget found
+ *  @brief OffsetTrackParams To set Track's Fetch and Inject duration after playlist update
  *  Currently intended for use on seamless audio track change
  */
-void MediaTrack::ResetTrackDuration(double duration)
+void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInjectedDuration, int deltaFragmentsDownloaded)
 {
-	totalFetchedDuration = duration;
-	totalInjectedDuration = duration;
-	totalFragmentsDownloaded = duration / fragmentDurationSeconds; 
+	AAMPLOG_MIL("Before Track Change totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetchedDuration,totalInjectedDuration, totalFragmentsDownloaded);
+
+	totalFetchedDuration -= deltaFetchedDuration;
+	// injected and fetched duration should be same
+	totalInjectedDuration -= deltaInjectedDuration;
+	totalFragmentsDownloaded -= deltaFragmentsDownloaded;
+
+	AAMPLOG_MIL("New totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetchedDuration,totalInjectedDuration, totalFragmentsDownloaded);
 }
+
 /**
  *  @brief Flushes all cached fragment Chunks
  */
@@ -1566,7 +1575,7 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 		abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
 		,frDownloadWait(),prevDownloadStartTime(-1)
-		,playContext(nullptr)
+		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 			if( !maxCachedFragmentsPerTrack )
@@ -1706,10 +1715,10 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 
 		while ((audioDuration > (videoDuration + video->fragmentDurationSeconds)) && aamp->DownloadsAreEnabled() && !audio->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
 		{
-	#ifdef AAMP_DEBUG_FETCH_INJECT
+#ifdef AAMP_DEBUG_FETCH_INJECT
 			AAMPLOG_WARN("waiting for cond - audioDuration %f videoDuration %f video->fragmentDurationSeconds %f",
 				audioDuration, videoDuration,video->fragmentDurationSeconds);
-	#endif
+#endif
 			ts = aamp_GetTimespec(100);
 
 			ret = pthread_cond_timedwait(&mCond, &mLock, &ts);
@@ -3704,7 +3713,9 @@ void MediaTrack::PlaylistDownloader()
 					liveRefreshTimeOutInMs = WaitTimeBasedOnBufferAvailable();
 				}
 				AAMPLOG_INFO("Refreshing playlist at %d ", liveRefreshTimeOutInMs);
-				if(!refreshAudio)
+				// Intricate timing issues exist, where we could enter timed wait even though we signalled
+				// AbortWaitForPlaylistDownload from switch audio track. Seamless audio switch needs to happen immediately
+				if (!seamlessAudioSwitchInProgress)
 				{
 					EnterTimedWaitForPlaylistRefresh(liveRefreshTimeOutInMs);
 				}
@@ -3760,9 +3771,11 @@ void MediaTrack::PlaylistDownloader()
 					aamp->EnableMediaDownloads(mediaType);
 				}
 				gotManifest = aamp->GetFile(manifestUrl, &manifest, effectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true, mediaType);
-				if(loadNewAudio && (manifestUrl != GetPlaylistUrl()))
+				if(seamlessAudioSwitchInProgress && (manifestUrl != GetPlaylistUrl()))
 				{
-					//new Playlist updated in mid
+					//new Playlist updated in mid.
+					quickPlaylistDownload = true;
+					//To avoid below signalling to fragment collector
 					continue;
 				}
 

@@ -2404,8 +2404,6 @@ void TrackState::IndexPlaylist(bool IsRefresh, double &culledSec)
 			return;
 		}
 		IndexNode node;
-		node.completionTimeSecondsFromStart = 0.0;
-		node.pFragmentInfo = NULL;
 		int drmMetadataIdx = -1;
 		//CID:100252,131 , 93918 - Removed the deferDrmVal,endOfTopTags and deferDrmTagPresent variable whcih is initialized but never used
 		bool mediaSequence = false;
@@ -2458,12 +2456,17 @@ void TrackState::IndexPlaylist(bool IsRefresh, double &culledSec)
 					node.completionTimeSecondsFromStart = totalDuration;
 					node.drmMetadataIdx = drmMetadataIdx;
 					node.initFragmentPtr = initFragmentPtr;
+					if (node.mediaSequenceNumber != -1)
+					{
+						node.mediaSequenceNumber++;
+					}
 					index.AppendBytes( &node, sizeof(node) );
 				}
 				else if(startswith(&ptr,"-X-MEDIA-SEQUENCE:"))
 				{
 					indexFirstMediaSequenceNumber = atoll(ptr);
 					mediaSequence = true;
+					node.mediaSequenceNumber = indexFirstMediaSequenceNumber;
 					if(ISCONFIGSET(eAAMPConfig_StreamLogging))
 					{
 						AAMPLOG_WARN("%s First Media Sequence Number :%lld",name,indexFirstMediaSequenceNumber);
@@ -2854,7 +2857,8 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		}
 		if( mDuration > 0.0f )
 		{
-			if (IsLive() && !refreshAudio)
+			// If we are loading new audio playlist for seamless switching, we should not seek based on sequence number
+			if (IsLive() && !seamlessAudioSwitchInProgress)
 			{
 				fragmentURI = FindMediaForSequenceNumber();
 			}
@@ -2896,7 +2900,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 			}
 			manifestDLFailCount++;
 			//Send Error Event when new audio playlist fails after audio track change on seamlessAudioSwitch
-			if((fragmentURI == NULL && (manifestDLFailCount > MAX_MANIFEST_DOWNLOAD_RETRY)) || (refreshAudio && loadNewAudio))//No more fragments to download
+			if((fragmentURI == NULL && (manifestDLFailCount > MAX_MANIFEST_DOWNLOAD_RETRY)) || (seamlessAudioSwitchInProgress))//No more fragments to download
 			{
 				aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
 				return;
@@ -5252,19 +5256,19 @@ void TrackState::RunFetchLoop()
 
 	for (;;)
 	{
-		while (!abortedDownload && fragmentURI && aamp->DownloadsAreEnabled())
+		while (!abortedDownload && (fragmentURI || refreshAudio) && aamp->DownloadsAreEnabled())
 		{
 			skipFetchFragment = false;
-                        if(refreshAudio)
-                        {
-                                SwitchAudioTrack();
-                                refreshAudio = false;
-                                abort = false;
-                                if(!fragmentURI)
-                                {
-                                        break;
-                                }
-                        }
+			if(refreshAudio)
+			{
+				SwitchAudioTrack();
+				refreshAudio = false;
+				abort = false;
+				if(!fragmentURI)
+				{
+					break;
+				}
+			}
 			if (mInjectInitFragment)
 			{
 				// DELIA-40273: mInjectInitFragment marks if init fragment has to be pushed whereas mInitFragmentInfo
@@ -6672,7 +6676,6 @@ void TrackState::FetchInitFragment()
 			mSkipAbr = true; //Skip ABR, since last fragment cached is init fragment.
 			mCheckForInitialFragEnc = false; //Push encrypted header is a one-time operation
 			mFirstEncInitFragmentInfo = NULL; //reset init fragemnt, since ecnypted header already pushed
-
 			UpdateTSAfterFetch(true);
 		}
 		else if (type == eTRACK_VIDEO && aamp->CheckABREnabled() && !context->CheckForRampDownLimitReached())
@@ -7554,15 +7557,15 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 
 void StreamAbstractionAAMP_HLS::RefreshAudio()
 {
-        TrackState *track = trackState[eTRACK_AUDIO];
-        if(track && track->Enabled())
-        {
-                track->refreshAudio = true;
-                track->AbortWaitForCachedAndFreeFragment(true);
-                aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
+	TrackState *track = trackState[eTRACK_AUDIO];
+	if(track && track->Enabled())
+	{
+		track->refreshAudio = true;
+		track->AbortWaitForCachedAndFreeFragment(true);
+		aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
+		aamp->mDisableRateCorrection = true;
 		if(aamp->IsLive())
 		{
-			track->AbortWaitForPlaylistDownload();
 			track->AbortFragmentDownloaderWait();
 		}
 	}
@@ -7574,20 +7577,35 @@ void TrackState::SwitchAudioTrack()
 	{
 		pthread_mutex_lock(&mutex);
 
+		// We have an age-old issue to tackle here. playTarget and playlistPosition are hypothetical values as soon as the live window advances
+		// mediaSequence number is the source of truth for the playlist position thereafter. Hence we need to find the diff between
+		// relative positions in the playlist to find the jump
+
+		// Cache old values before playlist update
+		int oldMediaSequenceNumber = nextMediaSequenceNumber - 1;
+		// Relative position in playlist
+		double oldPosInPlaylist = GetCompletionTimeForFragment(this, oldMediaSequenceNumber);
+		double oldPlaylistPosition = playlistPosition;
+
 		AAMPLOG_INFO("Preparing to flush fragments and switch playlist");
 		LoadNewAudio(true);
+		seamlessAudioSwitchInProgress = true;
+
 		FlushFragments();
 		context->ReassessAndResumeAudioTrack(true);
 		context->ConfigureAudioTrack();
+
 		//Update audio track index and notify based on new track configured in ConfigureAudioTrack, Populating AudioandTextTracks will again append to the older vector
 		aamp->mCurrentAudioTrackIndex = context->currentAudioProfileIndex;
 		aamp->NotifyAudioTracksChanged();
+
 		aamp_ResolveURL(mPlaylistUrl, aamp->GetManifestUrl(), context->GetPlaylistURI(type),ISCONFIGSET(eAAMPConfig_PropogateURIParam));
 		mInjectInitFragment = true;
 		if(aamp->IsLive())
 		{
-			// Abort ongoing playlist download if any.
+			// Abort ongoing playlist download or wait for refresh if any.
 			aamp->DisableMediaDownloads(playlistMediaType);
+			AbortWaitForPlaylistDownload();
 			// Notify that fragment collector is waiting
 			NotifyFragmentCollectorWait();
 			WaitForManifestUpdate();
@@ -7596,40 +7614,70 @@ void TrackState::SwitchAudioTrack()
 		{
 			PlaylistDownloader();
 		}
+
 		//Abort the playback when new audio playlist download fails as we do in InitTracks, to avoid continuing with older audio
 		if(!context->aamp->DownloadsAreEnabled())
 		{
 			NotifyCachedAudioFragmentAvailable();
+			seamlessAudioSwitchInProgress = false;
 			pthread_mutex_unlock(&mutex);
 			return;
 		}
+
+		// Get the current playback position, we need to seek to this in the new playlist
 		double gstSeek = aamp->GetPositionSeconds();
-		TrackState *other = context->trackState[eTRACK_VIDEO];
-		if(other && other->enabled)
+		TrackState *video = context->trackState[eTRACK_VIDEO];
+		if(video && video->enabled)
 		{
-			other->AcquirePlaylistLock();
-			double delta = mProgramDateTime - other->mProgramDateTime;
+			video->AcquirePlaylistLock();
+			// Adjust for video and audio playlist start time difference and culled seconds
+			double delta = mProgramDateTime - video->mProgramDateTime;
+			AAMPLOG_DEBUG("gstSeek:%lf, mProgramDateTime:%lf, video->mProgramDateTime:%lf, culledSeconds:%f, delta:%lf", gstSeek, mProgramDateTime, video->mProgramDateTime, aamp->culledSeconds, delta);
 			gstSeek = gstSeek - (aamp->culledSeconds + delta);
-			other->ReleasePlaylistLock();
-                }
+			video->ReleasePlaylistLock();
+		}
 		else
 		{
 			gstSeek = gstSeek - aamp->culledSeconds;
-                }
+			AAMPLOG_DEBUG("gstSeek:%lf, culledSeconds:%lf", gstSeek, aamp->culledSeconds);
+		}
+
 		if(gstSeek < 0)
 		{
 			gstSeek = 0;
 		}
-		AAMPLOG_WARN("Updated gstSeek %lf to find new playTarget", gstSeek);
+		AAMPLOG_MIL("Updated gstSeek %lf to find new playTarget. Current Playtarget %lf , playlistPosition %lf", gstSeek, playTarget, oldPlaylistPosition);
+
+		AcquirePlaylistLock();
+		// Iterate from the beginning of the playlist again
 		playTarget = gstSeek;
 		bool reloadUri = false;
-		AcquirePlaylistLock();
+
 		fragmentURI = GetNextFragmentUriFromPlaylist(reloadUri, true);
-		ReleasePlaylistLock();
-                playTarget = playlistPosition;
+		AAMPLOG_DEBUG("After GetNextFragmentUriFromPlaylist Playtarget %lf , playlistPosition %lf", playTarget, playlistPosition);
+		aamp->mAudioDelta = gstSeek - playTarget;
+
+		// Diff in playlist position. Diff in PDT should be used here???
+		double diffInFetchedDuration = (oldPosInPlaylist - GetCompletionTimeForFragment(this, nextMediaSequenceNumber - 1));
+		int diffFragmentsDownloaded = (oldMediaSequenceNumber - (nextMediaSequenceNumber - 1));
+		AAMPLOG_INFO("oldMediaSequenceNumber %d, newMediaSequenceNumber %d, oldPosInPlaylist %lf, newPosInPlaylist %lf", oldMediaSequenceNumber, (nextMediaSequenceNumber-1), oldPosInPlaylist, GetCompletionTimeForFragment(this, nextMediaSequenceNumber - 1));
+		AAMPLOG_INFO("Calculated diffInFetchDuration %lf", diffInFetchedDuration);
+		// Try to keep the same playlist position
+		// This is because we are using playTarget as position values in cacheFragment
+		playlistPosition = oldPlaylistPosition - diffInFetchedDuration;
+		playTarget = playlistPosition;
 		playTargetBufferCalc = playTarget;
-		ResetTrackDuration(playTarget);
-		context->SeekPosUpdate(gstSeek);
+               playTargetOffset = 0; // needed?
+               double diffInInjectedDuration = (GetLastInjectedFragmentPosition() - playTarget);
+               AAMPLOG_INFO("Calculated diffInFetchDuration %lf diffInInjectedDuration %lf", diffInFetchedDuration, diffInInjectedDuration);
+
+		AAMPLOG_MIL("Updated Playtarget %lf , playlistPosition %lf", playTarget, playlistPosition);
+
+		// Reset before we release the playlist lock, to avoid any race conditions
+		seamlessAudioSwitchInProgress = false;
+		ReleasePlaylistLock();
+
+		OffsetTrackParams(diffInFetchedDuration, diffInInjectedDuration, diffFragmentsDownloaded);
 		pthread_mutex_unlock(&mutex);
 	}
 }

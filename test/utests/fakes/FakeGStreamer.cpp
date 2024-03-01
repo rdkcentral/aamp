@@ -648,3 +648,30 @@ void gst_debug_set_threshold_from_string(const gchar *list, gboolean reset)
 		g_mockGStreamer->gst_debug_set_threshold_from_string(list, reset);
 	}
 }
+
+gulong gst_pad_add_probe (GstPad * pad,
+                   GstPadProbeType mask,
+                   GstPadProbeCallback callback,
+                   gpointer user_data,
+                   GDestroyNotify destroy_data)
+{
+	TRACE_FUNC();
+	return 0;
+}
+
+GstCaps *gst_pad_get_current_caps (GstPad * pad)
+{
+	TRACE_FUNC();
+	return NULL;
+}
+
+gchar *gst_caps_to_string (const GstCaps * caps)
+{
+        TRACE_FUNC();
+        return NULL;
+}
+
+void gst_pad_remove_probe (GstPad * pad, gulong id)
+{
+        TRACE_FUNC();
+}

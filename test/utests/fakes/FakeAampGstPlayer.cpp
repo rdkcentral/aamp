@@ -220,11 +220,11 @@ void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 	}
 }
 
-void AAMPGstPlayer::SignalSubtitleClock()
+void AAMPGstPlayer::FlushAudio(double pos)
 {
 }
 
-void AAMPGstPlayer::FlushAudio()
+void AAMPGstPlayer::SignalSubtitleClock()
 {
 }
 
@@ -238,5 +238,9 @@ bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
 }
 
 void AAMPGstPlayer::GetBufferControlData(MediaType mediaType, BufferControlData &data) const
+{
+}
+
+void RemoveProbes()
 {
 }

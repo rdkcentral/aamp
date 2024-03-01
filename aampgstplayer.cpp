@@ -133,7 +133,8 @@ struct media_stream
 	int32_t trackId;							/**< Current Audio Track Id,so far it is implimented for AC4 track selection only */
 	bool resendQtDemuxOverride;					/**< Indicates if the qtdemux override event should be resend or not */
 	bool firstBufferProcessed;					/**< Indicates if the first buffer is processed in this stream */
-
+	GstPad *demuxPad;							/**< Demux src pad >*/
+	gulong demuxProbeId;						/**< Demux pad probe ID >*/
 	AampBufferControl::BufferControlMaster mBufferControl;
 
 	media_stream() : sinkbin(NULL), source(NULL), format(FORMAT_INVALID),
@@ -141,7 +142,7 @@ struct media_stream
 			 bufferUnderrun(false), eosReached(false), sourceConfigured(false), sourceLock(PTHREAD_MUTEX_INITIALIZER)
 			, timeScale(1), trackId(-1), resendQtDemuxOverride(false)
 			, firstBufferProcessed(false)
-			,mBufferControl()
+			,mBufferControl(), demuxPad(NULL), demuxProbeId(0)
 	{
 
 	}
@@ -233,6 +234,7 @@ struct AAMPGstPlayerPriv
 	bool firstAudioFrameReceived; 			/**< flag that denotes if first audio frame was notified */
 	int  NumberOfTracks;	      			/**< Indicates the number of tracks */
  	PlaybackQualityStruct playbackQuality;		/**< video playback quality info */
+	bool filterAudioDemuxBuffers;			/**< flag to filter audio demux buffers */
  	AAMPGstPlayerPriv() : pipeline(NULL), bus(NULL), current_rate(0),
 			total_bytes(0), n_audio(0), current_audio(0),
 			periodicProgressCallbackIdleTaskId(AAMP_TASK_ID_INVALID),
@@ -255,7 +257,8 @@ struct AAMPGstPlayerPriv
 #endif
 			decodeErrorMsgTimeMS(0), decodeErrorCBCount(0),
 			progressiveBufferingEnabled(false), progressiveBufferingStatus(false)
- 			, forwardAudioBuffers (false), enableSEITimeCode(true),firstVideoFrameReceived(false),firstAudioFrameReceived(false),NumberOfTracks(0),playbackQuality{}
+ 			, forwardAudioBuffers (false), enableSEITimeCode(true),firstVideoFrameReceived(false),firstAudioFrameReceived(false),NumberOfTracks(0),playbackQuality{},
+			filterAudioDemuxBuffers(false)
  	{
 		memset(videoRectangle, '\0', VIDEO_COORDINATES_SIZE);
                 /* DELIA-45366-default video scaling should take into account actual graphics
@@ -859,6 +862,96 @@ static void httpsoup_source_setup (GstElement * element, GstElement * source, gp
 	}
 }
 
+
+static GstPadProbeReturn AAMPGstPlayer_DemuxPadProbeCallback(GstPad * pad, GstPadProbeInfo * info, AAMPGstPlayer * _this)
+{
+	GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+	if (_this)
+	{
+		// Filter audio buffers until video PTS is reached
+		if (_this->privateContext->filterAudioDemuxBuffers &&
+			pad == _this->privateContext->stream[eMEDIATYPE_AUDIO].demuxPad)
+		{
+			// PTS in nanoseconds
+			gint64 currentPTS = (((double)_this->GetVideoPTS() / (double)90000) * GST_SECOND);
+			if (GST_BUFFER_PTS(buffer) < currentPTS)
+			{
+				AAMPLOG_WARN("Dropping buffer: currentPTS=%" G_GINT64_FORMAT " buffer pts=%" G_GINT64_FORMAT, currentPTS, GST_BUFFER_PTS(buffer));
+				return GST_PAD_PROBE_DROP;
+			}
+			else
+			{
+				AAMPLOG_WARN("Resetting filterAudioDemuxBuffers buffer pts=%" G_GINT64_FORMAT, GST_BUFFER_PTS(buffer));
+				_this->privateContext->filterAudioDemuxBuffers = false;
+			}
+		}
+	}
+	return GST_PAD_PROBE_OK;
+}
+
+static void AAMPGstPlayer_OnDemuxPadAddedCb(GstElement* demux, GstPad* newPad, AAMPGstPlayer * _this)
+{
+	if (_this)
+	{
+		// We need to identify which stream the demux belongs to.
+		// We can't use a CAPS based check, for use-cases such as aux-audio
+		GstElement *parent = GST_ELEMENT_PARENT(demux);
+		bool found = false;
+		while (parent)
+		{
+			if (aamp_StartsWith(GST_ELEMENT_NAME(parent), "playbin"))
+			{
+				for (int i = 0; i < AAMP_TRACK_COUNT; i++)
+				{
+					media_stream *stream = &_this->privateContext->stream[i];
+					if (parent == stream->sinkbin)
+					{
+						if (stream->demuxPad == NULL)
+						{
+							stream->demuxPad = newPad;
+							stream->demuxProbeId = gst_pad_add_probe(newPad,
+									GST_PAD_PROBE_TYPE_BUFFER,
+									(GstPadProbeCallback)AAMPGstPlayer_DemuxPadProbeCallback,
+									_this,
+									NULL);
+							AAMPLOG_WARN("Added probe to qtdemux type[%d] src pad: %s", i, GST_PAD_NAME(newPad));
+						}
+						else
+						{
+							AAMPLOG_WARN("Ignoring additional pad");
+						}
+						found = true;
+					}
+				}
+				break;
+			}
+			AAMPLOG_TRACE("Got Parent: %s", GST_ELEMENT_NAME(parent));
+			parent = GST_ELEMENT_PARENT(parent);
+		}
+		if (!found)
+		{
+			GstCaps* caps = gst_pad_get_current_caps(newPad);
+			gchar *capsStr = gst_caps_to_string(caps);
+			AAMPLOG_WARN("No matching stream found for demux: %s and caps: %s", GST_ELEMENT_NAME(demux), capsStr);
+			g_free(capsStr);
+			if (caps)
+			{
+				gst_caps_unref(caps);
+			}
+		}
+	}
+}
+
+static void element_setup_cb(GstElement * playbin, GstElement * element, AAMPGstPlayer *_this)
+{
+	gchar* elemName = gst_element_get_name(element);
+	if (elemName && aamp_StartsWith(elemName, "qtdemux"))
+	{
+		AAMPLOG_WARN( "Add pad-added callback to demux:%s\n", elemName);
+		g_signal_connect(element, "pad-added", G_CALLBACK(AAMPGstPlayer_OnDemuxPadAddedCb), _this);
+	}
+	g_free(elemName);
+}
 
 /**
  * @brief Idle callback to notify first frame rendered event
@@ -2279,6 +2372,24 @@ static GstElement* AAMPGstPlayer_GetAppSrc(AAMPGstPlayer *_this, MediaType media
 }
 
 /**
+ * @fn RemoveProbes
+ * @brief Remove probes from the pipeline
+ */
+void AAMPGstPlayer::RemoveProbes()
+{
+	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
+	{
+		media_stream* stream = &privateContext->stream[(MediaType)i];
+		if (stream->demuxProbeId && stream->demuxPad)
+		{
+			gst_pad_remove_probe (stream->demuxPad, stream->demuxProbeId);
+		}
+		stream->demuxProbeId = 0;
+		stream->demuxPad = NULL;
+	}
+}
+
+/**
  *  @brief Cleanup resources and flags for a particular stream type
  */
 void AAMPGstPlayer::TearDownStream(MediaType mediaType)
@@ -2555,6 +2666,13 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 			}
 			g_object_set(stream->sinkbin, "uri", _this->aamp->GetManifestUrl().c_str(), NULL);
 			g_signal_connect (stream->sinkbin, "source-setup", G_CALLBACK (httpsoup_source_setup), _this);
+		}
+
+		if ((mediaFormat == eMEDIAFORMAT_DASH || mediaFormat == eMEDIAFORMAT_HLS_MP4) &&
+				_this->aamp->mConfig->IsConfigSet(eAAMPConfig_SeamlessAudioSwitch))
+		{
+			// Send the media_stream object so that qtdemux can be instantly mapped to media type without caps/parent check
+			g_signal_connect(stream->sinkbin, "element_setup", G_CALLBACK(element_setup_cb), _this);
 		}
 
 #if defined(REALTEKCE)
@@ -3402,6 +3520,9 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 	}
 	this->IdleTaskRemove(privateContext->firstVideoFrameDisplayedCallbackTask);
 
+	// Remove probes before setting the pipeline to NULL
+	RemoveProbes();
+
 	if (this->privateContext->pipeline)
 	{
 		privateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
@@ -3708,21 +3829,42 @@ void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3H
 
 /**
  * @brief Flush the audio playbin
+ * @param[in] pos - position to seek to after flush
  */
-void AAMPGstPlayer::FlushAudio()
+void AAMPGstPlayer::FlushAudio(double pos)
 {
 	aamp->SyncBegin();
-	AAMPLOG_MIL("Entering AAMPGstPlayer::FlushAudio() pipeline state %s",
-			gst_element_state_get_name(GST_STATE(privateContext->pipeline)));
-	double pos=aamp->GetPositionSeconds();
+	double startPosition = 0;
+	AAMPLOG_MIL("Entering AAMPGstPlayer::FlushAudio() pipeline state %s pos %lf",
+			gst_element_state_get_name(GST_STATE(privateContext->pipeline)), pos);
+
 	media_stream *stream = &this->privateContext->stream[eMEDIATYPE_AUDIO];
+	double rate = (double)AAMP_NORMAL_PLAY_RATE;
+#ifdef AMLOGIC
+	g_object_set(G_OBJECT(this->privateContext->audio_sink), "seamless-switch" , TRUE, NULL );
+#endif
+	privateContext->filterAudioDemuxBuffers = true;
 
-	gst_element_seek_simple (GST_ELEMENT(stream->sinkbin), GST_FORMAT_TIME,
-			GST_SEEK_FLAG_FLUSH, pos * GST_SECOND);
+	pos = pos + aamp->mAudioDelta;
+	gst_element_seek_simple (GST_ELEMENT(stream->source),
+							GST_FORMAT_TIME,
+							GST_SEEK_FLAG_FLUSH,
+							pos * GST_SECOND);
+        if(aamp->mCorrectionRate != rate)
+        {
+		AAMPLOG_MIL("Reset Rate Correction to 1");
+                aamp->mCorrectionRate = rate;
+        }
 
-	AAMPLOG_MIL("Exiting AAMPGstPlayer::FlushAudio() pipeline state: %s pos: %lf", gst_element_state_get_name(GST_STATE(privateContext->pipeline)), pos);
+#ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
+	startPosition = (pos - aamp->GetFirstPTS());
+#else
+	startPosition = pos;
+#endif
+	AAMPLOG_MIL("Exiting AAMPGstPlayer::FlushAudio() pipeline state: %s startPosition: %lf AudioDelta %lf", gst_element_state_get_name(GST_STATE(privateContext->pipeline)), startPosition, aamp->mAudioDelta);
 	aamp->SyncEnd();
 }
+
 
 /**
  * @brief Flush the buffers in pipeline
@@ -3919,6 +4061,7 @@ long AAMPGstPlayer::GetPositionMilliseconds(void)
 
 		//positionQuery is not unref-ed here, because it could be reused for future position queries
 	}
+
 	return rc;
 }
 
@@ -4367,6 +4510,7 @@ bool AAMPGstPlayer::Discontinuity(MediaType type)
 	bool ret = false;
 	media_stream *stream = &privateContext->stream[type];
 	AAMPLOG_MIL("Entering AAMPGstPlayer: type(%d) format(%d) firstBufferProcessed(%d)", (int)type, stream->format, stream->firstBufferProcessed);
+
 	/*Handle discontinuity only if atleast one buffer is pushed*/
 	if (stream->format != FORMAT_INVALID && stream->firstBufferProcessed == false)
 	{

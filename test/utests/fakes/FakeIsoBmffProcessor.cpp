@@ -59,3 +59,8 @@ void IsoBmffProcessor::addPeerListener(MediaProcessor *processor)
 void IsoBmffProcessor::initProcessorForRestamp()
 {
 }
+
+void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position)
+{
+}
+

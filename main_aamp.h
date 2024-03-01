@@ -473,10 +473,11 @@ public:
 	virtual void Flush(double position = 0, int rate = AAMP_NORMAL_PLAY_RATE, bool shouldTearDown = true){}
 
 	/**
-         *   @brief Flush the audio playbin
-         *   @return void
-         */
-	virtual void FlushAudio(){}
+	 *   @brief Flush the audio playbin
+	 *   @param[in]  position - playback position
+	 *   @return void
+	 */
+	virtual void FlushAudio(double position = 0){}
 
 	/**
 	 *   @brief Set player rate to audio/video sink

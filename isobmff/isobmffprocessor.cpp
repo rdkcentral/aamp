@@ -121,6 +121,39 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
 }
 
 /**
+ *  @brief Update PTS and send pts for flush audio
+ */
+void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position)
+{
+	IsoBmffBuffer buffer(mLogObj);
+	buffer.setBuffer((uint8_t *)pBuffer->GetPtr(), pBuffer->GetLen());
+	buffer.parseBuffer();
+	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
+	{
+		float diffDuration = position - prevPosition;
+		uint64_t skippedPTS = handleSkipFragments(diffDuration);
+		sumPTS -= skippedPTS;
+
+		double pos = ((double)sumPTS / (double)currTimeScale);
+		p_aamp->FlushAudio(pos);
+
+		sumOfTrackDurationFromISOBuffer = sumPTS / (double)currTimeScale;
+		prevPosition = position;
+	}
+	else
+	{
+		uint64_t currentPTS = 0;
+
+		if(buffer.getFirstPTS(currentPTS))
+		{
+			double pos = (double)currentPTS / (double)currTimeScale;
+			p_aamp->FlushAudio(pos);
+			AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u",currentPTS,currTimeScale);
+		}
+	}
+}
+
+/**
  *  @brief Process and set tune time PTS
  */
 bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double position, double duration, bool discontinuous, bool isInit)
@@ -470,16 +503,6 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 		else
 		{
 			AAMPLOG_INFO("IsoBmffProcessor %s Avoiding handleSkipFragments maxPossibleSkipFragmentDuration = %.12f", IsoBmffProcessorTypeName[type], maxPossibleSkipFragmentDuration);
-			if(resetSumPTS)
-			{
-				resetSumPTS = false;
-				AAMPLOG_INFO(" Resetting SumPTS as current PTS on audio restart ");
-				uint64_t currentPTS = 0;
-				buffer.getFirstPTS(currentPTS);
-				sumPTS = currentPTS;
-				sumOfTrackDurationFromISOBuffer = sumPTS / (double)currTimeScale;
-			}
-
 		}
 
 		/*Step 3. Get current PTS */

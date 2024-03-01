@@ -596,10 +596,11 @@ public:
 	 * @brief To Load New Audio on seamless audio switch 
 	 */
 	void LoadNewAudio(bool val);
+
 	/**
-	 * @brief To Reset Track's Fetch and Inject duration after clearing buffer fragments 
+	 * @brief To set Track's Fetch and Inject duration after playlist update
 	 */
-	void ResetTrackDuration(double duration);
+	void OffsetTrackParams(double deltaFetchedDuration, double deltaInjectedDuration, int deltaFragmentsDownloaded);
 
 protected:
 
@@ -677,6 +678,7 @@ protected:
 	 */
 	virtual void SignalTrickModeDiscontinuity(){};
 
+	double GetLastInjectedFragmentPosition() { return lastInjectedPosition; }
 
 private:
 	/**
@@ -699,7 +701,7 @@ public:
 	TrackType type;                     /**< Media type of the track*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;    /**< Parser for subtitle data*/
 	bool refreshSubtitles;              /**< Switch subtitle track in the FetchLoop */
-	bool refreshAudio;		    /** Switch audio track in the FetcherLoop */
+	bool refreshAudio;                  /** Switch audio track in the FetcherLoop */
 	int maxCachedFragmentsPerTrack;
 	int maxCachedFragmentChunksPerTrack;
 	pthread_cond_t fragmentChunkFetched;/**< Signaled after a fragment Chunk is fetched*/
@@ -719,7 +721,8 @@ protected:
 	bool abortInject;                   /**< Abort inject operations if flag is set*/
 	bool abortInjectChunk;              /**< Abort inject operations if flag is set*/
 	pthread_mutex_t audioMutex;             /**< protection of audio track reconfiguration */
-	bool loadNewAudio;              /**< Flag to indicate new audio loading started on seamless audio switch */
+	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
+	bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
 
@@ -759,6 +762,7 @@ private:
 	bool fragmentCollectorWaitingForPlaylistUpdate;	/**< Flag to indicate that the fragment collecor is waiting for ongoing playlist download, used for profile changes*/
 	std::condition_variable frDownloadWait;	/**< Conditional variable for signalling timed wait*/
 	pthread_cond_t audioFragmentCached;  /**< Signal after a audio fragment cached after reconfigure */
+	double lastInjectedPosition;             /**< Last injected position */
 };
 
 /**
