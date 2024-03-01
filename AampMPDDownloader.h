@@ -64,6 +64,7 @@
 #include "AampMPDUtils.h"
 
 typedef void (*ManifestUpdateCallbackFunc)(void *);
+typedef std::shared_ptr<AampMPDParseHelper> AampMPDParseHelperPtr;
 
 /**
  * @struct _manifestDownloadConfig
@@ -130,12 +131,12 @@ typedef struct _manifestDownloadResponse
 	std::shared_ptr<DashMPDDocument> mDashMpdDoc;
 	uint64_t mLastPlaylistDownloadTimeMs; // Last playlist refresh time
 private:
-	AampMPDParseHelper	*mMPDParseHelper;
+	AampMPDParseHelperPtr	mMPDParseHelper;
 
 public:
 	_manifestDownloadResponse() : mMPDDownloadResponse(std::make_shared<DownloadResponse> ()),mMPDInstance(nullptr),mIsLiveManifest(false),
 									mMPDStatus(AAMPStatusType::eAAMPSTATUS_OK),mRootNode(NULL),mRefreshRequired(false),
-									mDashMpdDoc(nullptr),mMPDParseHelper(new AampMPDParseHelper()),mLastPlaylistDownloadTimeMs(0){}
+									mDashMpdDoc(nullptr),mMPDParseHelper(std::make_shared<AampMPDParseHelper>()),mLastPlaylistDownloadTimeMs(0){}
 	_manifestDownloadResponse& operator=(const _manifestDownloadResponse& other)
 	{
 		_manifestDownloadResponse temp(other);
@@ -153,7 +154,7 @@ public:
       mRootNode(other.mRootNode),
       mRefreshRequired(other.mRefreshRequired),
       mDashMpdDoc(other.mDashMpdDoc),
-      mMPDParseHelper(new AampMPDParseHelper(*(other.mMPDParseHelper))), // Copy the content
+      mMPDParseHelper(std::make_shared<AampMPDParseHelper>(*(other.mMPDParseHelper))), // Copy the content
       mLastPlaylistDownloadTimeMs(other.mLastPlaylistDownloadTimeMs){}
 
 
@@ -184,9 +185,9 @@ public:
 	/**
 	 * @brief Retrieves the MPD parse helper.
 	 *
-	 * @return A pointer to the AampMPDParseHelper.
+	 * @return A shared pointer to the AampMPDParseHelper.
 	 */
-	AampMPDParseHelper	*GetMPDParseHelper() { return mMPDParseHelper;}
+	AampMPDParseHelperPtr 	GetMPDParseHelper() { return mMPDParseHelper;}
 }ManifestDownloadResponse;
 
 typedef std::shared_ptr<ManifestDownloadResponse> ManifestDownloadResponsePtr;

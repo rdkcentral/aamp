@@ -4743,7 +4743,7 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 	{
 		mNetworkDownDetected = false;
 		ProcessMetadataFromManifest(tmpManifestDnldRespPtr , false);
-		AampMPDParseHelper	*mMPDParser = tmpManifestDnldRespPtr->GetMPDParseHelper();
+		AampMPDParseHelperPtr	mMPDParser = tmpManifestDnldRespPtr->GetMPDParseHelper();
 
 		if(mMPDParser != NULL)
 		{

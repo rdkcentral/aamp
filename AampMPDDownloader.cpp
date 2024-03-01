@@ -55,10 +55,7 @@ void _manifestDownloadResponse::show()
 	{
 		SAFE_DELETE(mRootNode);
 	}
-	if(mMPDParseHelper)
-	{
-		SAFE_DELETE(mMPDParseHelper);
-	}
+
 	mMPDDownloadResponse	=	NULL;
 	mDashMpdDoc	=	NULL;
 
@@ -84,7 +81,7 @@ std::shared_ptr<_manifestDownloadResponse> _manifestDownloadResponse::clone()
 	}
 	clonedDoc->mMPDDownloadResponse = std::make_shared<DownloadResponse>(*this->mMPDDownloadResponse);
 	clonedDoc->mMPDDownloadResponse->mDownloadData = mMPDDownloadResponse->mDownloadData;
-	clonedDoc->mMPDParseHelper = new AampMPDParseHelper(*this->mMPDParseHelper);
+	clonedDoc->mMPDParseHelper = std::make_shared<AampMPDParseHelper>(*this->mMPDParseHelper);
 	clonedDoc->mRootNode = NULL;
 	clonedDoc->parseMPD();
 	AAMPLOG_TRACE("Exit");

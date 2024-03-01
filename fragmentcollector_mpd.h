@@ -846,7 +846,7 @@ protected:
 	std::thread fragmentCollectorThreadID;
 	ManifestDownloadResponsePtr mManifestDnldRespPtr ; 
 	bool    mManifestUpdateHandleFlag;
-	AampMPDParseHelper	*mMPDParseHelper;
+	AampMPDParseHelperPtr	mMPDParseHelper;
 	bool mLowLatencyMode;	
 	dash::mpd::IMPD *mpd;
 	class MediaStreamContext *mMediaStreamContext[AAMP_TRACK_COUNT];
