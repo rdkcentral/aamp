@@ -132,7 +132,7 @@ def display_all_manifests(host, port, abr_type):
             continue
         for fileName in files:
             if ((fileName not in filelist) and (ext in fileName)):
-                filelist.append(fileName)
+                filelist.append(os.path.relpath(path + "/"+ fileName))
     
     print("Serving manifests")
     for file in filelist:
@@ -142,7 +142,7 @@ def display_all_manifests(host, port, abr_type):
         if (("._" not in fileName) and (fileName.endswith(ext))):
             print(hostInfo + file_path + "/" + fileName)
 
-        if ((fileName[0]!=".") and (ext+'.' in fileName) and (".orig" not in fileName)):
+        if (("._" not in fileName) and (ext+'.' in fileName) and (".orig" not in fileName)):
             content = fileName.split(".")
             try:
                 manifest_dict[content[0]] = manifest_dict.get(content[0]) + 1
