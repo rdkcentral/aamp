@@ -83,6 +83,9 @@ TESTDATA1 = {
 
 # Cannot get to run on mac
 # ==60199==ERROR: Interceptors are not working. This may be because AddressSanitizer is loaded too late
+
+
+@pytest.mark.ci_test_set
 @pytest.mark.skipif(platform.system() == 'Darwin', reason="Not working on mac")
 def test_1001(aamp_setup_teardown):
     aamp = aamp_setup_teardown

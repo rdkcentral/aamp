@@ -280,13 +280,16 @@ def http_setup_teardown():
     yield
     print("Cleanup")
     stop_httpserver()
+
+
+@pytest.mark.ci_test_set
 def test_2001_0(http_setup_teardown, aamp_setup_teardown):
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
     aamp.run_expect_b(TESTDATA0)
 
 
-
+@pytest.mark.ci_test_set
 def test_2001_1(http_setup_teardown, aamp_setup_teardown):
     start_httpserver()
     aamp = aamp_setup_teardown

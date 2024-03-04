@@ -142,7 +142,9 @@ if 'VIRTUAL_ENV' not in os.environ:
 argParser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                     description=textwrap.dedent('''\
                                     Run L2 AAMP test(s)
-
+                                    
+                                    Additional arguments not listed in this help will be passed onto pytest
+                                    
                                     examples:
                                       run_l2_aamp.py -b            # build aamp, run all tests
                                       run_l2_aamp.py               # run all tests without rebuilding
@@ -156,7 +158,7 @@ argParser.add_argument("-l", "--list_tests", help="List selected tests without r
 argParser.add_argument("-t", "--testsuites_run", nargs='*', help="specify test suite numbers to run")
 argParser.add_argument("-v", "--aamp_video", help="run AAMP with video window, but no A/V gap detection",
                        action="store_true")
-args = argParser.parse_args()
+args, other_args = argParser.parse_known_args()
 
 # install pip modules before trying to import them
 install_python_packages()
@@ -205,7 +207,7 @@ os.chdir(l2testdir)
 xml_results_file = 'junit_results.xml'
 json_results_file = 'results.json'
 # Give pytest the list of dirs
-opt = ['--junitxml={}'.format(xml_results_file)] + testsuitedirs_to_run
+opt = ['--junitxml={}'.format(xml_results_file)] + other_args + testsuitedirs_to_run
 if args.aamp_video:
     opt.append('--aamp_video')
 print(opt)

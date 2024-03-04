@@ -20,7 +20,7 @@
 
 from inspect import getsourcefile
 import os
-
+import pytest
 # Note:
 # This test requires a DASH stream with no subtitles (if it has subtitles, the
 # SubtecSimulatorThread starts before the tuned event is received and the test fails).
@@ -74,8 +74,7 @@ TESTDATA1 = {
 }
 
 ############################################################
-
-
+@pytest.mark.ci_test_set
 def test_1000(aamp_setup_teardown):
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))

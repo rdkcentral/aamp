@@ -56,10 +56,14 @@ For tests that use environment variables, export them before running the test. F
 
     ./run_l2_aamp.py -l
 
+**To run the subset of tests choosen to be used in ci**
+
+    ./run_l2_aamp.py -m ci_test_set
+
 **To get help about script, use the following command**
 
     ./run_l2_aamp.py -h
-
+    
 ## Test output log files
 
 Each test will output log files to a subdirectory 'output' E.G

@@ -19,6 +19,7 @@
 
 from inspect import getsourcefile
 import os
+import pytest
 
 TESTDATA1= {
 "title": "CDAI Multi Pipeline - Multiple Assets",
@@ -110,6 +111,7 @@ TESTDATA1= {
 ############################################################
 
 
+@pytest.mark.ci_test_set
 def test_1003(aamp_setup_teardown):
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
