@@ -97,6 +97,5 @@ def test_1001(aamp_setup_teardown):
 
     aamp.AAMP_ENV.update({"GST_PLUGIN_PATH": lib_path})
 
-    assert os.path.exists(lib_path), "Missing subtec plugin, did it get built? {}".format
+    assert os.path.exists(lib_path), "Missing subtec plugin, did it get built? {}".format(lib_path)
     aamp.run_expect_a(TESTDATA1)
-

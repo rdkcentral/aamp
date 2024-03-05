@@ -8,9 +8,24 @@ introduced to verify the following feature:
 
 AAMP installed using install-aamp.sh script.
 
-GStreamer Subtec plugin built and installed, see:
+GStreamer Subtec plugin built and installed.
+If the GStreamer Subtec plugin is not built before running the test, this error will be reported:
 
-gst-plugins-rdk-aamp/gst_subtec/Readme.md
+> "Missing subtec plugin, did it get built?"
+
+Options to build and install GStreamer Subtec plugin:
+
+* Follow the instructions in:
+
+      gst-plugins-rdk-aamp/gst_subtec/Readme.md
+
+* Execute the post script for this test:
+
+      cd aamp/test/l2test/TST_1001_Webvtt && bash ./postscript.sh
+
+* Run the test with the build option (takes longer because it also build AAMP):
+
+      ./run_l2_test.py -b -t 1001
 
 This test plays the following stream:
 https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8
@@ -23,7 +38,7 @@ subtitles can be used to run this test.
 
 From the *test/l2test/ folder run:
 
-./run_l2_test.py -t 1001
+    ./run_l2_test.py -t 1001
 
 ## Note Running on Mac
 
