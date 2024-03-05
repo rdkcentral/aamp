@@ -29,13 +29,13 @@
 #include <assert.h>
 
 
-#define COMPOSITEINPUT_CALLSIGN "org.rdk.CompositeInput.1"
+#define COMPOSITEINPUT_CALLSIGN "org.rdk.AVInput.1"
 
 /**
  * @brief StreamAbstractionAAMP_COMPOSITEIN Constructor
  */
 StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                             : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", COMPOSITEINPUT_CALLSIGN, logObj, aamp,seek_pos,rate)
+                             : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", COMPOSITEINPUT_CALLSIGN, logObj, aamp,seek_pos,rate,"COMPOSITE")
 {
 	aamp->SetContentType("COMPOSITE_IN");
 }
@@ -69,7 +69,7 @@ void StreamAbstractionAAMP_COMPOSITEIN::Start(void)
 		int compositeInputPort = -1;
 		if( sscanf(url, "cvbsin://localhost/deviceid/%d", &compositeInputPort ) == 1 )
 		{
-			StartHelper(compositeInputPort,"startCompositeInput");
+			StartHelper(compositeInputPort);
 		}
 	}
 }
@@ -79,7 +79,7 @@ void StreamAbstractionAAMP_COMPOSITEIN::Start(void)
  */
 void StreamAbstractionAAMP_COMPOSITEIN::Stop(bool clearChannelData)
 {
-	StopHelper("stopCompositeInput");
+	StopHelper();
 }
 
 

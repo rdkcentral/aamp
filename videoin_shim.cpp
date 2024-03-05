@@ -68,12 +68,13 @@ AAMPStatusType StreamAbstractionAAMP_VIDEOIN::InitHelper(TuneType tuneType)
 /**
  * @brief StreamAbstractionAAMP_VIDEOIN Constructor
  */
-StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, const std::string callSign, AampLogManager *logObj,  class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, const std::string callSign, AampLogManager *logObj,  class PrivateInstanceAAMP *aamp,double seek_pos, float rate, const std::string type)
                                : mName(name),
                                mRegisteredEvents(),
                                StreamAbstractionAAMP(logObj, aamp),
                                mTuned(false),
-                               videoInputPort(-1)
+                               videoInputPort(-1),
+                               videoInputType(type)
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
                                ,thunderAccessObj(callSign, logObj),
 				thunderRDKShellObj(RDKSHELL_CALLSIGN, logObj),
@@ -111,15 +112,17 @@ void StreamAbstractionAAMP_VIDEOIN::Start(void)
 /**
  *  @brief  calls start on video in specified by port and method name
  */
-void StreamAbstractionAAMP_VIDEOIN::StartHelper(int port, const std::string & methodName)
+void StreamAbstractionAAMP_VIDEOIN::StartHelper(int port)
 {
-	AAMPLOG_WARN("%s method:%s port:%d",mName.c_str(),methodName.c_str(),port);
+	AAMPLOG_WARN("%s port:%d",mName.c_str(),port);
 
 	videoInputPort = port;
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 		JsonObject param;
 		JsonObject result;
+		const std::string & methodName = "startInput";
 		param["portId"] = videoInputPort;
+		param["typeOfInput"] = videoInputType;
 		thunderAccessObj.InvokeJSONRPC(methodName, param, result);
 #endif
 }
@@ -127,15 +130,17 @@ void StreamAbstractionAAMP_VIDEOIN::StartHelper(int port, const std::string & me
 /**
  *  @brief  Stops streaming.
  */
-void StreamAbstractionAAMP_VIDEOIN::StopHelper(const std::string & methodName)
+void StreamAbstractionAAMP_VIDEOIN::StopHelper()
 {
 	if( videoInputPort>=0 )
 	{
-		AAMPLOG_WARN("%s method:%s",mName.c_str(),methodName.c_str());
+		AAMPLOG_WARN("%s ",mName.c_str());
 
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     		JsonObject param;
     		JsonObject result;
+			const std::string methodName = "stopInput";
+			param["typeOfInput"] = videoInputType;
     		thunderAccessObj.InvokeJSONRPC(methodName, param, result);
 #endif
 
@@ -218,7 +223,8 @@ void StreamAbstractionAAMP_VIDEOIN::SetVideoRectangle(int x, int y, int w, int h
 	param["y"] = (int) (y * height_ratio);
 	param["w"] = (int) (w * width_ratio);
 	param["h"] = (int) (h * height_ratio);
-	AAMPLOG_WARN("%s x:%d y:%d w:%d h:%d w-ratio:%f h-ratio:%f",mName.c_str(),x,y,w,h,width_ratio,height_ratio);
+	param["typeOfInput"] = videoInputType;
+	AAMPLOG_WARN("%s type:%s x:%d y:%d w:%d h:%d w-ratio:%f h-ratio:%f",mName.c_str(),videoInputType.c_str(),y,w,h,width_ratio,height_ratio);
 	thunderAccessObj.InvokeJSONRPC("setVideoRectangle", param, result);
 #endif
 }

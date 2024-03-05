@@ -36,9 +36,10 @@ protected:
     {
         auto aamp = new PrivateInstanceAAMP();
         auto logmanager = new AampLogManager();
+        std::string type = "HDMI";
         std::string name = "Name";       // Provide the appropriate name
         std::string callSign = "CallSign"; // Provide the appropriate callSign
-        videoinShim = new TestableStreamAbstraction(name, callSign, logmanager, aamp, 0.0, 1.0);
+        videoinShim = new TestableStreamAbstraction(name, callSign, logmanager, aamp, 0.0, 1.0, type);
     }
 
     void TearDown() override
@@ -51,8 +52,8 @@ protected:
     public:
         TestableStreamAbstraction(const std::string &name, const std::string &callSign,
                                   AampLogManager *logManager, PrivateInstanceAAMP *aamp,
-                                  double startTime, double playRate)
-            : StreamAbstractionAAMP_VIDEOIN(name, callSign, logManager, aamp, startTime, playRate)
+                                  double startTime, double playRate, const std::string &type)
+            : StreamAbstractionAAMP_VIDEOIN(name, callSign, logManager, aamp, startTime, playRate, type)
         {
         }
 
@@ -61,14 +62,14 @@ protected:
             return InitHelper(tuneType);
         }
 
-        void CallStartHelper(int port, const std::string &methodName)
+        void CallStartHelper(int port)
         {
-            StartHelper(port, methodName);
+            StartHelper(port);
         }
 
-        void CallStopHelper(const std::string &methodName)
+        void CallStopHelper()
         {
-            StopHelper(methodName);
+            StopHelper();
         }
         bool callGetScreenResolution(int & screenWidth, int & screenHeight){
             return GetScreenResolution(screenWidth,screenHeight);
@@ -93,14 +94,12 @@ TEST_F(StreamAbstractionAAMP_VIDEOINTest,InitHelpertest)
 TEST_F(StreamAbstractionAAMP_VIDEOINTest,StartHelpertest)
 {
     int port = 8080;
-    std::string startMethodName = "StartMethod";
-    videoinShim->CallStartHelper(port, startMethodName);
+    videoinShim->CallStartHelper(port);
 }
 
 TEST_F(StreamAbstractionAAMP_VIDEOINTest,StopHelpertest)
 {
-   std::string stopMethodName = "StopMethod";
-    videoinShim->CallStopHelper(stopMethodName);
+    videoinShim->CallStopHelper();
 }
 
 TEST_F(StreamAbstractionAAMP_VIDEOINTest,GetResolutionFromDStest){

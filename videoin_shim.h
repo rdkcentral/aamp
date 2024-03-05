@@ -47,7 +47,7 @@ public:
      * @param seekpos Seek position
      * @param rate playback rate
      */
-    StreamAbstractionAAMP_VIDEOIN(const std::string name, const std::string callSign, AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+    StreamAbstractionAAMP_VIDEOIN(const std::string name, const std::string callSign, AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate, const std::string type);
     /**
      * @fn ~StreamAbstractionAAMP_VIDEOIN
      */
@@ -114,11 +114,11 @@ protected:
     /**
      *   @fn StartHelper
      */
-    void StartHelper(int port, const std::string & methodName);
+    void StartHelper(int port);
     /**
      *   @fn StopHelper
      */
-    void StopHelper(const std::string & methodName) ;
+    void StopHelper() ;
     bool mTuned;
 
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
@@ -156,6 +156,7 @@ protected:
     bool GetScreenResolution(int & screenWidth, int & screenHeight);
     bool GetResolutionFromDS(int & widthFromDS, int & heightFromDS);
     int videoInputPort;
+    std::string videoInputType;
     std::string mName; // Used for logging
     std::list<std::string> mRegisteredEvents;
 };

@@ -31,16 +31,16 @@
 #include "AampUtils.h"
 
 /**
-* HdmiInput thunder plugin reference: https://wiki.rdkcentral.com/display/RDK/HDMI++Input
+* AVInput thunder plugin reference: https://rdkcentral.github.io/rdkservices/#/api/AVInputPlugin
 */
 
-#define HDMIINPUT_CALLSIGN "org.rdk.HdmiInput.1"
+#define HDMIINPUT_CALLSIGN "org.rdk.AVInput.1"
 
 /**
  * @brief StreamAbstractionAAMP_HDMIIN Constructor
  */
 StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                             : StreamAbstractionAAMP_VIDEOIN("HDMIIN", HDMIINPUT_CALLSIGN,logObj,aamp,seek_pos,rate)
+                             : StreamAbstractionAAMP_VIDEOIN("HDMIIN", HDMIINPUT_CALLSIGN,logObj,aamp,seek_pos,rate,"HDMI")
 {
 	aamp->SetContentType("HDMI_IN");
 }
@@ -79,7 +79,7 @@ void StreamAbstractionAAMP_HDMIIN::Start(void)
 		int hdmiInputPort = -1;
 		if( sscanf(url, "hdmiin://localhost/deviceid/%d", &hdmiInputPort ) == 1 )
 		{
-			StartHelper(hdmiInputPort,"startHdmiInput");
+			StartHelper(hdmiInputPort);
 		}
 	}
 }
@@ -89,7 +89,7 @@ void StreamAbstractionAAMP_HDMIIN::Start(void)
  */
 void StreamAbstractionAAMP_HDMIIN::Stop(bool clearChannelData)
 {
-	StopHelper("stopHdmiInput");
+	StopHelper();
 }
 
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS

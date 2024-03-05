@@ -24,7 +24,7 @@
 #define HDMIINPUT_CALLSIGN "org.rdk.HdmiInput.1"
 #define COMPOSITEINPUT_CALLSIGN "org.rdk.CompositeInput.1"
 
-StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, const std::string callSign, AampLogManager *logObj,  class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, const std::string callSign, AampLogManager *logObj,  class PrivateInstanceAAMP *aamp,double seek_pos, float rate, const std::string type)
                                : StreamAbstractionAAMP(logObj, aamp)
 {
 }
@@ -58,16 +58,16 @@ AAMPStatusType StreamAbstractionAAMP_VIDEOIN::InitHelper(TuneType tuneType)
     return eAAMPSTATUS_OK;
 }
 
-void StreamAbstractionAAMP_VIDEOIN::StartHelper(int parameter, const std::string& someString)
+void StreamAbstractionAAMP_VIDEOIN::StartHelper(int parameter)
 {
 }
 
-void StreamAbstractionAAMP_VIDEOIN::StopHelper(const std::string& someString)
+void StreamAbstractionAAMP_VIDEOIN::StopHelper()
 {
 }
 
 StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                             : StreamAbstractionAAMP_VIDEOIN("HDMIIN", HDMIINPUT_CALLSIGN,logObj,aamp,seek_pos,rate)
+                             : StreamAbstractionAAMP_VIDEOIN("HDMIIN", HDMIINPUT_CALLSIGN,logObj,aamp,seek_pos,rate,"HDMI")
 {
 }
 
@@ -89,7 +89,7 @@ void StreamAbstractionAAMP_HDMIIN::Stop(bool clearChannelData)
 }
 
  StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                              : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", COMPOSITEINPUT_CALLSIGN, logObj, aamp,seek_pos,rate)
+                              : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", COMPOSITEINPUT_CALLSIGN, logObj, aamp,seek_pos,rate,"COMPOSITE")
  {
  }
 
