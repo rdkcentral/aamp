@@ -876,7 +876,13 @@ class output_mp4_seg(object):
         fn = self.output_parm.get_init_fn() if self.do_init else next(self.out_iter)
  
         log.info("Open for write %s",fn)
-        self.fout = open(fn, "wb")
+        try: # RDKAAMP-1834 To create missing directory structure to store the segments
+            self.fout = open(fn, "wb")
+        except FileNotFoundError:
+            dirname = f"{os.getcwd()}/{os.path.dirname(fn)}"
+            if not os.path.isdir(dirname):
+                os.makedirs(dirname, exist_ok=True)
+            self.fout = open(fn, "wb")
         self.flist.append(fn)
 
     def copy_file(self, fin):
