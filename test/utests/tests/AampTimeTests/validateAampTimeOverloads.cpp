@@ -318,3 +318,32 @@ TEST_F(validateAampTimeOverloads, testMultiplication)
 
 	// double lvalue, object rvalue not implemented
 }
+
+TEST_F(validateAampTimeOverloads, testIntegerHelpers)
+{
+	AampTime a(2.4);
+	AampTime b(1.9999);
+	AampTime c(0.1);
+	AampTime d{0.0001};
+
+	ASSERT_EQ(a.seconds(), 2);
+	ASSERT_EQ(a.milliseconds(), 2400);
+	ASSERT_EQ(b.seconds(), 1);
+	ASSERT_EQ(b.milliseconds(), 1999);
+	ASSERT_EQ(c.seconds(), 0);
+	ASSERT_EQ(c.milliseconds(), 100);
+	ASSERT_EQ(d.seconds(), 0);
+	ASSERT_EQ(d.milliseconds(), 0);
+	ASSERT_EQ(a.nearestSecond(), 2);
+	ASSERT_EQ(b.nearestSecond(), 2);
+	ASSERT_EQ(c.nearestSecond(), 0);
+}
+
+
+TEST_F(validateAampTimeOverloads, testCasting)
+{
+	AampTime a{2.4};
+
+	ASSERT_DOUBLE_EQ((double)a, 2.4);
+	ASSERT_EQ((int64_t)a, 2);
+}

@@ -18,14 +18,15 @@
  */
 
 /**
- * @file AampCacheHandler.h
- * @brief Cache handler for AAMP
+ * @file AampBufferControl.h
+ * @brief Provides Buffer control
  */
 
 #ifndef __AAMP_BUFFER_CONTROL_H__
 #define __AAMP_BUFFER_CONTROL_H__
 
 #include "aampgstplayer.h"
+#include "AampTime.h"
 
 class AAMPGstPlayerPriv;
 struct media_stream;
@@ -172,19 +173,19 @@ namespace AampBufferControl
 	 **/
 	class BufferControlTimeBased : public BufferControlByteBased
 	{
-		double mInjectedEnd;
-		double mInjectedStart;
+		AampTime mInjectedEnd;
+		AampTime mInjectedStart;
 		bool mInjectedStartSet;
-		double mLastInjectedDuration;
+		AampTime mLastInjectedDuration;
 
 		void updateInternal( const BufferControlExternalData& externalData);
-		double getInjectedSeconds() const
+		AampTime getInjectedSeconds() const
 		{
 			if(mInjectedStartSet)
 			{
-				//This deliberatly does not include the duration of the last fragment
+				//This deliberately does not include the duration of the last fragment
 				//it's safer to underestimate the duration slightly (than to stop downloading prematurely)
-				return std::abs(mInjectedEnd-mInjectedStart);
+				return abs(mInjectedEnd-mInjectedStart);
 			}
 			else
 			{
