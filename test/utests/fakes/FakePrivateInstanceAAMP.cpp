@@ -1230,7 +1230,11 @@ void PrivateInstanceAAMP::SetDiscontinuityParam()
 {
 }
 
-void PrivateInstanceAAMP::SetLatencyParam(double latency)
+void PrivateInstanceAAMP::SetLatencyParam(double latency, double buff, double rate, double bw)
+{
+}
+
+void PrivateInstanceAAMP::SetLLDLowBufferParam(double latency, double buff, double rate, double bw, double buffLowCount)
 {
 }
 

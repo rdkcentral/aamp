@@ -2251,7 +2251,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			if(mTelemetryInterval > 0 && (diff > mTelemetryInterval))
 			{
 				mLastTelemetryTimeMS = currTimeMS;
-				profiler.SetLatencyParam(latency);
+				profiler.SetLatencyParam(latency, (double)(bufferedDuration/1000.0), currentRate, mNetworkBandwidth);
 				profiler.GetTelemetryParam();
 			}
 
@@ -7595,8 +7595,13 @@ void PrivateInstanceAAMP::Stop()
 	StopRateCorrectionWokerthread();
 	if(mTelemetryInterval > 0)
 	{
+		double bufferedDuration = 0.0;
+		if (mpStreamAbstractionAAMP)
+		{
+			bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
+		}
 		double latency = GetCurrentLatency();
-		profiler.SetLatencyParam(latency);
+		profiler.SetLatencyParam(latency, bufferedDuration, rate, mNetworkBandwidth);
 		profiler.GetTelemetryParam();
 		mTelemetryInterval = 0;
 	}
@@ -9733,9 +9738,17 @@ void PrivateInstanceAAMP::SetDiscontinuityParam()
 /**
  * @brief to mark the latency Parameters
  */
-void PrivateInstanceAAMP::SetLatencyParam(double latency)
+void PrivateInstanceAAMP::SetLatencyParam(double latency, double buffer, double playbackRate, double bw)
 {
-	profiler.SetLatencyParam(latency);
+	profiler.SetLatencyParam(latency, buffer, playbackRate, bw);
+}
+
+/**
+ * @brief to mark the lld low buffer info
+ */
+void  PrivateInstanceAAMP::SetLLDLowBufferParam(double latency, double buff, double rate, double bw, double buffLowCount)
+{
+	profiler.SetLLDLowBufferParam( latency,  buff,  rate,  bw,  buffLowCount);
 }
 
 /**
