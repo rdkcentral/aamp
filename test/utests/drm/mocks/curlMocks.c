@@ -1,3 +1,22 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2024 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include <curl/curl.h>
 #include <stdarg.h>
 #include <string.h>
@@ -26,7 +45,7 @@ static struct Curl_share
 } f_mockShare;
 
 /* BEGIN - methods to access mock functionality */
-void MockCurlSetPerformCallback(MockCurlPerformCallback mockPerformCallback, void* userData)
+void MockCurlSetPerformCallback(MockCurlPerformCallback mockPerformCallback, void *userData)
 {
 	f_mockInstance.mockPerformCallback = mockPerformCallback;
 	f_mockInstance.mockPerformUserData = userData;
@@ -37,15 +56,18 @@ void MockCurlReset(void)
 	memset(&f_mockInstance, 0, sizeof(f_mockInstance));
 }
 
-const MockCurlOpts* MockCurlGetOpts(void)
+const MockCurlOpts *MockCurlGetOpts(void)
 {
 	return &f_mockInstance.opts;
 }
+
 /* END - methods to access mock functionality */
 
 CURL *curl_easy_init(void)
 {
-	return NULL;
+	/* AAMP expects the curl handle to be non-NULL, so set it to a valid address */
+	static int curl_handle;
+	return &curl_handle;
 }
 
 CURLcode curl_easy_setopt(CURL *curl, CURLoption option, ...)
@@ -93,7 +115,9 @@ CURLcode curl_easy_perform(CURL *curl)
 {
 	if (f_mockInstance.mockPerformCallback)
 	{
-		f_mockInstance.mockPerformCallback(curl, f_mockInstance.opts.writeFunction, f_mockInstance.opts.writeData, f_mockInstance.mockPerformUserData);
+		f_mockInstance.mockPerformCallback(curl, f_mockInstance.opts.writeFunction,
+										   f_mockInstance.opts.writeData,
+										   f_mockInstance.mockPerformUserData);
 	}
 	return CURLE_OK;
 }
@@ -109,7 +133,7 @@ CURLcode curl_easy_getinfo(CURL *curl, CURLINFO info, ...)
 	switch (info)
 	{
 		case CURLINFO_RESPONSE_CODE:
-			*((long*)paramp) = 200;
+			*((int *)paramp) = 200;
 			break;
 	}
 
@@ -146,18 +170,18 @@ void curl_free(void *p)
 	free(p);
 }
 
-struct curl_slist *curl_slist_append(struct curl_slist * list, const char * val)
+struct curl_slist *curl_slist_append(struct curl_slist *list, const char *val)
 {
 	if (f_mockInstance.opts.headerCount < MOCK_CURL_MAX_HEADERS)
 	{
 		size_t dataSize = strlen(val);
-		char *header = (char*)&f_mockInstance.opts.headers[f_mockInstance.opts.headerCount++];
+		char *header = (char *)&f_mockInstance.opts.headers[f_mockInstance.opts.headerCount++];
 		memcpy(header, val, dataSize);
 	}
 	return NULL;
 }
 
-void curl_slist_free_all(struct curl_slist * list)
+void curl_slist_free_all(struct curl_slist *list)
 {
 	f_mockInstance.opts.headerCount = 0u;
 }

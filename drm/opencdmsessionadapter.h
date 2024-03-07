@@ -39,7 +39,7 @@ public:
 	virtual ~Event() {
 		pthread_cond_destroy(&condition);
 		pthread_mutex_destroy(&lock);
-               pthread_condattr_destroy(&condAttr); 
+               pthread_condattr_destroy(&condAttr);
 	}
 
 	inline bool wait(const uint32_t waitTime)
@@ -80,7 +80,7 @@ public:
 /**
  * @class AAMPOCDMSessionAdapter
  * @brief Open CDM DRM session
- */ 
+ */
 class AAMPOCDMSessionAdapter : public AampDrmSession
 {
 protected:
