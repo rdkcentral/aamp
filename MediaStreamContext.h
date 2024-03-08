@@ -209,7 +209,7 @@ public:
     AampGrowableBuffer mDownloadedFragment;
 
     double fragmentTime; // Absolute Fragment time from Availability start
-    double downloadedDuration;
+    std::atomic<double> downloadedDuration;
     double periodStartOffset;
     uint64_t timeStampOffset;
 	AampGrowableBuffer IDX;
