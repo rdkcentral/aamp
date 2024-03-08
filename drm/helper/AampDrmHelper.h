@@ -84,7 +84,7 @@ public:
 	
 	const std::string EMPTY_STRING;
 	AampLogManager *mLogObj;
-	AampDrmHelper(const struct DrmInfo drmInfo, AampLogManager *logObj) : mLogObj(logObj), mDrmInfo(drmInfo), TIMEOUT_SECONDS(5000U), EMPTY_DRM_METADATA(), EMPTY_STRING() ,bOutputProtectionEnabled(false) {};
+	AampDrmHelper(const struct DrmInfo drmInfo, AampLogManager *logObj) : mLogObj(logObj), mDrmInfo(drmInfo), TIMEOUT_SECONDS(5000U), EMPTY_DRM_METADATA(), EMPTY_STRING() ,bOutputProtectionEnabled(false) {}
 	AampDrmHelper(const AampDrmHelper&) = delete;
 	AampDrmHelper& operator=(const AampDrmHelper&) = delete;
 	
@@ -118,7 +118,7 @@ public:
 	 * @brief Determine whether HDCP 2.2 protection is required to be active
 	 * @return true if HDCP 2.2 protection is required, false otherwise
 	 */
-	virtual bool isHdcp22Required() const { return bOutputProtectionEnabled; };
+	virtual bool isHdcp22Required() const { return bOutputProtectionEnabled; }
 
 	/**
 	 * @brief Returns the content specific DRM metadata
@@ -170,13 +170,13 @@ public:
          * @brief Get the key IDs
          * @param keyIDs The map containing Key ID vector of binary data
          */
-	virtual void getKeys(std::map<int, std::vector<uint8_t>>& keyIDs) const {};
+	virtual void getKeys(std::map<int, std::vector<uint8_t>>& keyIDs) const {}
 
 	/**
 	 * @brief Get the UUID
 	 * @return the UUID
 	 */
-	virtual const std::string& getUuid() const { return mDrmInfo.systemUUID; };
+	virtual const std::string& getUuid() const { return mDrmInfo.systemUUID; }
 
 	/**
 	 * @brief Determines if the DRM itself fetches the license or if AAMP should use
@@ -185,7 +185,7 @@ public:
 	 * Default is to return false
 	 * @return true if the DRM acquires the license, false if AAMP should do it
 	 */
-	virtual bool isExternalLicense() const { return false; };
+	virtual bool isExternalLicense() const { return false; }
 
 	/**
 	 * @brief Generate the request details for the DRM license
@@ -198,7 +198,7 @@ public:
 	 * @brief Transform the license response from the server into the necessary format for OCDM
 	 * @param licenseResponse license response from the server to transform
 	 */
-	virtual void transformLicenseResponse(std::shared_ptr<DrmData> licenseResponse) const {};
+	virtual void transformLicenseResponse(std::shared_ptr<DrmData> licenseResponse) const {}
 
 	/**
 	 * @brief Get the memory system used to transform data for transmission
@@ -215,7 +215,7 @@ public:
 	/**
 	 * @brief Cancels a DRM session
 	 */
-	virtual void cancelDrmSession() { };
+	virtual void cancelDrmSession() { }
 
 	/**
 	 * @brief Checks if the helper can cancel a session, or if the caller should do it
@@ -235,7 +235,7 @@ public:
 	 */
 	void setOutputProtectionFlag(bool bValue) { bOutputProtectionEnabled = bValue;}
 public:
-	virtual ~AampDrmHelper() {};
+	virtual ~AampDrmHelper() {}
 
 protected:
 	const DrmInfo mDrmInfo;
@@ -284,7 +284,7 @@ public:
 	 */
 	int getWeighting() { return mWeighting; }
 
-	virtual ~AampDrmHelperFactory() {};
+	virtual ~AampDrmHelperFactory() {}
 
 protected:
 	AampDrmHelperFactory(int weighting = DEFAULT_WEIGHTING);
@@ -305,7 +305,7 @@ public:
 	/**
 	 * @brief AampDrmHelperEngine constructor
 	 */
-	AampDrmHelperEngine() : factories() {};
+	AampDrmHelperEngine() : factories() {}
 	/**
 	 * @fn hasDRM
 	 * @param systemId the UUID from the PSSH or manifest
