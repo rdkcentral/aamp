@@ -131,11 +131,11 @@ public:
     	AAMPOCDMSessionAdapter(const AAMPOCDMSessionAdapter&) = delete;
 	AAMPOCDMSessionAdapter& operator=(const AAMPOCDMSessionAdapter&) = delete;
 	void generateAampDRMSession(const uint8_t *f_pbInitData,
-	uint32_t f_cbInitData, std::string &customData);
-	DrmData * aampGenerateKeyRequest(string& destinationURL, uint32_t timeout);
-	int aampDRMProcessKey(DrmData* key, uint32_t timeout);
-	KeyState getState();
-	void clearDecryptContext();
+		uint32_t f_cbInitData, std::string &customData) override; 
+	DrmData * aampGenerateKeyRequest(string& destinationURL, uint32_t timeout) override;
+	int aampDRMProcessKey(DrmData* key, uint32_t timeout) override;
+	KeyState getState() override;
+	void clearDecryptContext() override;
 	void setKeyId(const std::vector<uint8_t>& keyId);
 	bool waitForState(KeyState state, const uint32_t timeout) override;
 };

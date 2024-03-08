@@ -19,6 +19,7 @@ int AAMPOCDMBasicSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV,
 	uint8_t *dataToSend = const_cast<uint8_t *>(payloadData);
 	uint32_t sizeToSend = payloadDataSize;
 	std::vector<uint8_t> vdata;
+
 	if (m_drmHelper->getMemorySystem() != nullptr)
 	{
 		if (!m_drmHelper->getMemorySystem()->encode(payloadData, payloadDataSize, vdata))

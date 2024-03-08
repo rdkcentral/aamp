@@ -30,6 +30,8 @@ include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${LIBDASH_INCLUDE_DIRS})
+include_directories(${UTESTS_ROOT}/ocdm)
+include_directories(${UTESTS_ROOT}/mocks)
 
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
@@ -39,7 +41,7 @@ else()
     include_directories(${AAMP_ROOT}/Linux/include)
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 
-include_directories(${UTESTS_ROOT}/mocks)
+
 
 add_library(fakes ${fakes_SRC})
 set_target_properties(fakes PROPERTIES FOLDER "utests")
