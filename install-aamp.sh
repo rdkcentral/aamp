@@ -273,6 +273,7 @@ install_and_build_subtec() {
         git apply OSX/patches/subttxrend-app-packet.patch --directory subtec-app
         git apply OSX/patches/subttxrend-app-cmake.patch  --directory subtec-app
         git apply OSX/patches/websocket-ipplayer2-utils.patch --directory subtec-app/websocket-ipplayer2-utils
+        git apply OSX/patches/JsonHelper.patch --directory subtec-app/websocket-ipplayer2-utils/src/ipp2
 
         cd subtec-app/subttxrend-app/x86_builder/
         PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:$PKG_CONFIG_PATH ./build.sh fast
