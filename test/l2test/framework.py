@@ -113,6 +113,7 @@ class Aamp:
                                   "LD_LIBRARY_PATH": os.path.join(self.aamp_home, "Linux", "lib")})
             aamp_cli_path = os.path.join(self.aamp_home, "Linux", "bin", "aamp-cli")
 
+        assert os.path.exists(aamp_cli_path), "ERROR {} does not exist".format(aamp_cli_path)
         self.AAMP_CMD = '/bin/bash -c "' + aamp_cli_cmd_prefix + aamp_cli_path + '"'
 
         self.simlinear = None

@@ -25,9 +25,7 @@ import shutil
 import textwrap
 import json
 import xml.etree.ElementTree as ET
-
-testsuitenumbers = []
-TST_DIR_PREFIX = 'TST_'
+import re
 
 
 def str_to_int(in_dict):
@@ -89,6 +87,7 @@ def install_python_packages():
                 print("ERROR python3 -m pip install failed")
                 exit(1)
 
+
 def build_aamp():
     print("Build AAMP")
     os.chdir(aampdir)
@@ -102,7 +101,7 @@ def build_aamp():
 
 class Unbuffered:
     """
-    Capture stdout/stderr and write it to file as well like tee
+    Capture stdout/stderr and write it to file as well, like tee
     """
     def __init__(self, stream):
         self.stream = stream
@@ -110,7 +109,7 @@ class Unbuffered:
 
     def write(self, data):
         self.stream.write(data)
-        #self.stream.flush()
+        # self.stream.flush()
         self.te.write(data)    # Write the data of stdout here to a text file as well
 
     def flush(self):
@@ -154,7 +153,6 @@ argParser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpF
                                     '''), epilog=epilog_txt)
 argParser.add_argument("-b", "--build", help="Build aamp before running tests", action="store_true")
 argParser.add_argument("-e", "--testsuites_exclude", nargs='*', help="specify test suite numbers to skip")
-argParser.add_argument("-l", "--list_tests", help="List selected tests without running", action="store_true")
 argParser.add_argument("-t", "--testsuites_run", nargs='*', help="specify test suite numbers to run")
 argParser.add_argument("-v", "--aamp_video", help="run AAMP with video window, but no A/V gap detection",
                        action="store_true")
@@ -165,38 +163,36 @@ install_python_packages()
 import pytest
 print("Path of AAMP:", aampdir)
 
+
 # Get list of test dirs
-testsuitedirs = [i for i in os.listdir(l2testdir) if i.startswith(TST_DIR_PREFIX)]
-print("testsuitedirs", testsuitedirs)
+test_suite_dirs = {}  # E.G{ 1001: 'TEXT_1001_something' ...}
+test_suite_dirs_to_run = []
+for directory in os.listdir(l2testdir):
+    m = re.match(r'[A-Z_\-]+(\d{4,})', directory)
+    if os.path.isfile(directory):
+        pass
+    elif m:
+        num = m.group(1)
+        if num in test_suite_dirs:
+            print("ERROR Duplicate numbers from directories {} {} expecting unique".format
+                  (test_suite_dirs[num], directory))
+            exit(1)
+        if args.testsuites_run:
+            if num in args.testsuites_run:
+                test_suite_dirs[num] = directory
+        elif args.testsuites_exclude:
+            if num not in args.testsuites_exclude:
+                test_suite_dirs[num] = directory
+        else:
+            test_suite_dirs[num] = directory
+    else:
+        print("{} is not recognised as a directory containing tests".format(directory))
+print("test_suite_dirs", test_suite_dirs)
 
-if args.testsuites_run:
-    print("To run the specified suites", args.testsuites_run)
-    testsuitenumbers = args.testsuites_run
-else:
-    # Generate list of numbers from test dirs we have discovered
-    for test_dir in testsuitedirs:
-        if test_dir.startswith(TST_DIR_PREFIX):
-            testsuitenumbers.append(test_dir[4:8])
+for num in sorted(test_suite_dirs.keys()):
+    test_suite_dirs_to_run.append(test_suite_dirs[num])
 
-    testsuitenumbers.sort()  # sort list if it was discovered not specified.
-
-# Remove selected test numbers
-if args.testsuites_exclude:
-    testsuitenumbers = [a for a in testsuitenumbers if a not in args.testsuites_exclude]
-
-# Generate list of dirs corresponding to test numbers
-testsuitedirs_to_run = []
-for num in testsuitenumbers:
-    tst_num = TST_DIR_PREFIX + num
-    for a in testsuitedirs:
-        if a.startswith(tst_num):
-            testsuitedirs_to_run.append(a)
-
-print("testsuitedirs_to_run", testsuitedirs_to_run)
-
-# List and exit with -l option
-if args.list_tests:
-    exit()
+print("test_suite_dirs_to_run", test_suite_dirs_to_run)
 
 # Build aamp
 if args.build:
@@ -207,20 +203,19 @@ os.chdir(l2testdir)
 xml_results_file = 'junit_results.xml'
 json_results_file = 'results.json'
 # Give pytest the list of dirs
-opt = ['--junitxml={}'.format(xml_results_file)] + other_args + testsuitedirs_to_run
+opt = ['--junitxml={}'.format(xml_results_file)] + other_args + test_suite_dirs_to_run
 if args.aamp_video:
     opt.append('--aamp_video')
 print(opt)
 ret_code = pytest.main(opt)
 
-print("testsuitedirs_to_run", testsuitedirs_to_run)
+print("test_suite_dirs_to_run", test_suite_dirs_to_run)
 # Copy and archive the test logs under result directory
 # Better if this was done by jenkins
-for test_dir in testsuitedirs_to_run:
+for test_dir in test_suite_dirs_to_run:
     output = os.path.join(test_dir, 'output')
     if os.path.isdir(output):
         shutil.make_archive(os.path.join('result', test_dir), 'zip', output)
 
 junit_to_json(xml_results_file, json_results_file)
 sys.exit(ret_code)
-

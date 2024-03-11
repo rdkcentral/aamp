@@ -52,11 +52,10 @@ For tests that use environment variables, export them before running the test. F
 
     ./run_l2_aamp.py -e 1000 2000
 
-**To list test suites available with short description, use the following command**
+**To run the subset of tests chosen to be used in ci**
 
-    ./run_l2_aamp.py -l
-
-**To run the subset of tests choosen to be used in ci**
+Command line arguments other than -e -t -v -b get passed into pytest. Consult pytest documentation for these. 
+The option -t -e select an intial set of tests and then pytest options may further restrict that set.
 
     ./run_l2_aamp.py -m ci_test_set
 
@@ -97,7 +96,7 @@ https://docs.docker.com/engine/install/ubuntu/
 
 Ubuntu 20.04: https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04
 
-For creating docker image, build and run test suites, execute the below command from the directory.  
+For creating docker image, build and run test suites, execute the below command from the directory.
 From aamp/test/l2test  
 Note: if docker is not in the sudo group you may need to prepend sudo to the commands or add it to the group.
 
@@ -110,7 +109,7 @@ Note: if docker is not in the sudo group you may need to prepend sudo to the com
     docker images
 
 
-**Tests that use environment variables**  
+**Tests that use environment variables**
 Set environment variables in the aamp/test/l2test/.env file for docker runs. If a stream path needs to be given in the .env file before starting the test by performing the following command.
 
     echo "TEST_STREAM_PATH=https://artifactory.host.com/artifactory/streams.tar.gz" >> .env
@@ -127,7 +126,7 @@ Set environment variables in the aamp/test/l2test/.env file for docker runs. If 
 
     optargs="-b -t 1000 2000" docker compose -f docker-compose.yml up
 
-Tests that are being run with the current build may fail if the given build is incompatible with the test.  
+Tests that are being run with the current build may fail if the given build is incompatible with the test.
 See documentation above for more script options.
 
 `./run_l2_aamp.py $optargs` will accept the option argument from docker-compose.yml as an input.
@@ -141,20 +140,17 @@ See documentation above for more script options.
     docker compose -f docker-compose.yml up --force-recreate
 
 
-
-
 # How to add new test suite
 
+- Update the shared .xls to allocate a new test suite name
+  
 - Create new test suite folder under ***aamp/test/l2test***
 
-- The name of the test suite folder should begin with ***"TST_,"*** followed by the 4 digit number and feature/suite name. ***e.g. TST_1000_Webvtt*** 
+- The name of the test suite folder should correspond to the entry in the .xsl and contain a unique 4+ digit number. ***e.g. AAMP-TUNE-1000_Webvtt*** 
 
-- ***run_test.py*** This is the python script that will be executed to run the test.
+- Copy in needed files from some other test as a starting point.
 
-- If a feature requires any build configuration, include the ***build_config.json*** file, which contains the necessary build configuration.
-e.g. ***{ "CXXFLAGS" : "MAKE_SUBTEC_SIMULATOR_ENABLED"}*** the values from the parsed json file will be sent to the build_script.
-
-- If the test suite needs to build up a test environment, include the install ***prepare_testenv.sh*** file, which specifies the additional infrastructure needed to perform the tests.
+- Note that test_xxxx.py will have to be named so that the number matches that of the containing directory.
 
 - If the test suite has any prerequisites, include a ***prerequisite.sh***. It specifies actions to be taken before starting a test run.
 
