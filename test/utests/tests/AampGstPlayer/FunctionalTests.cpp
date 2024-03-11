@@ -47,10 +47,11 @@ protected:
 
 	void SetUp() override
 	{
+		mLogObj = new AampLogManager();
 		g_mockGStreamer = new NiceMock<MockGStreamer>();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
-		
+		mPrivateInstanceAAMP->mLogObj = mLogObj;
 	}
 
 	void TearDown() override
@@ -60,12 +61,20 @@ protected:
 
 		delete g_mockGStreamer;
 		g_mockGStreamer = nullptr;
-	
+
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
+
+		delete mLogObj;
+		mLogObj = nullptr;
+
 	}
 
 public:
+	static gboolean ProgressCallbackOnTimeout(gpointer user_data)
+	{
+		return FALSE;
+	}
 };
 
 TEST_F(AAMPGstPlayerTests, Constructor)
@@ -224,6 +233,78 @@ TEST_P(AAMPGstPlayerTestsP, Configure)
 		.Times(1); /* AKA gst_query_unref()*/
 	delete mAAMPGstPlayer;
 	mAAMPGstPlayer = nullptr;
+}
+
+TEST_F(AAMPGstPlayerTests, TimerAdd)
+{
+	// Setup
+	gpointer user_data = nullptr;
+	gboolean reset{TRUE};
+	int repeatTimeout = 100;
+	guint taskId = 0;
+	GstElement dummyelement; 
+
+	std::string debug_level{"test_level"};
+
+	// Expectations
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstDebugLevel)).WillOnce(Return(debug_level));
+
+	EXPECT_CALL(*g_mockGStreamer,gst_debug_set_threshold_from_string(StrEq(debug_level.c_str()), reset));
+
+	mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
+
+	// Code under test - Callback Pointer = Null, user_data = Null
+	mAAMPGstPlayer->TimerAdd(nullptr, repeatTimeout, taskId, user_data, "TimerAdd");
+	EXPECT_EQ(0,taskId);
+
+	// Code under test - user_data = Null
+	mAAMPGstPlayer->TimerAdd(ProgressCallbackOnTimeout, repeatTimeout, taskId, user_data, "TimerAdd");
+	EXPECT_EQ(0,taskId);
+
+	user_data = &dummyelement;
+	taskId = 1;
+
+	// Code under test - taskId = 1 timer already added
+	mAAMPGstPlayer->TimerAdd(ProgressCallbackOnTimeout, repeatTimeout, taskId, user_data, "TimerAdd");
+	EXPECT_EQ(1,taskId);
+
+	taskId = 0;
+
+	// Code under test - Success Path
+	mAAMPGstPlayer->TimerAdd(ProgressCallbackOnTimeout, repeatTimeout, taskId, user_data, "TimerAdd");
+	EXPECT_EQ(1,taskId);
+
+	//Tidy Up
+	delete mAAMPGstPlayer;
+}
+
+TEST_F(AAMPGstPlayerTests, TimerRemove)
+{
+	// Setup
+	std::string debug_level{"test_level"};
+	gboolean reset{TRUE};
+	guint taskId = 0;
+
+	// Expectations
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstDebugLevel))
+				.WillOnce(Return(debug_level));
+	EXPECT_CALL(*g_mockGStreamer,
+				gst_debug_set_threshold_from_string(StrEq(debug_level.c_str()), reset));
+
+	mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
+
+	// Code under test - taskId = 0 timer not added to be removed
+	mAAMPGstPlayer->TimerRemove(taskId, "TimerRemove");
+	EXPECT_EQ(0,taskId);
+
+	taskId = 1;
+
+	// Code under test - Success Path
+	mAAMPGstPlayer->TimerRemove(taskId, "TimerRemove");
+	EXPECT_EQ(0,taskId);
+
+	//Tidy Up
+	delete mAAMPGstPlayer;
 }
 
 INSTANTIATE_TEST_SUITE_P(AAMPGstPlayer,AAMPGstPlayerTestsP, testing::Values(0,1));
