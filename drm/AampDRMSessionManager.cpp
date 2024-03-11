@@ -1115,7 +1115,8 @@ AampDrmSession* AampDRMSessionManager::createDrmSession(std::shared_ptr<AampDrmH
 	 * Create drm session without primaryKeyId markup OR retrieve old DRM session.
 	 */
 	code = getDrmSession(drmHelper, selectedSlot, eventHandle, aampInstance);
-
+	/* To fetch correct codec type in tune time metrics when drm data is not given in manifest*/
+	aampInstance->setCurrentDrm(drmHelper);
 	/**
 	 * KEY_READY code indicates that a previously created session is being reused.
 	 */
