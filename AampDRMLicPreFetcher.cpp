@@ -207,14 +207,19 @@ bool AampLicensePreFetcher::DeInit()
 {
 	bool ret = true;
 	/** Clear the queue **/
-	while (!mFetchQueue.empty())
 	{
-		mFetchQueue.pop_front();
+		std::lock_guard<std::mutex>lock(mQMutex);
+
+		while (!mFetchQueue.empty())
+		{
+			mFetchQueue.pop_front();
+		}
+		while (!mVssFetchQueue.empty())
+		{
+			mVssFetchQueue.pop_front();
+		}
 	}
-	while (!mVssFetchQueue.empty())
-	{
-		mVssFetchQueue.pop_front();
-	}
+	
 	mTrackStatus.fill(false);
 	mFetchInstance = nullptr;
 	return ret;
@@ -285,7 +290,12 @@ void AampLicensePreFetcher::PreFetchThread()
 				}
 			}
 			queueLock.lock();
-			mFetchQueue.pop_front(); // Remove the request now we have processed it
+
+			// Remove the request now we have processed it
+			if (!mFetchQueue.empty())
+			{
+				mFetchQueue.pop_front();
+			}
 		}
 	}
 }
