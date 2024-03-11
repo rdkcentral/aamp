@@ -48,7 +48,7 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManag
 	playRate(1.0f), abortAll(false), m_mutex(), m_cond(),initSegmentProcessComplete(false),
 	isRestampConfigEnabled(false),
 	mLogObj(logObj),
-	sumPTS(0),prevPTS(0),currTimeScale(0),sumOfTrackDurationFromISOBuffer(0.0f),startPos(0.0f),
+	sumPTS(0),prevPTS(UINT64_MAX),currTimeScale(0),sumOfTrackDurationFromISOBuffer(0.0f),startPos(0.0f),
 	prevPosition(-1), resetSumPTS(false), maxDurationFromManifest(-1),scalingOfPTSComplete(false),timeScaleChangeState(eBMFFPROCESSOR_INIT_TIMESCALE),
 	prevDuration(0.0),maxTrackDurationFromISOBufferInTS(0),mediaFormat(eMEDIAFORMAT_UNKNOWN), enabled(true), trackOffsetInSecs(0.0), peerListeners(),
 	initSegmentTransferMutex()
@@ -847,7 +847,7 @@ void IsoBmffProcessor::resetRestampVariables()
 	clearRestampInitSegment();
 	pthread_mutex_lock(&m_mutex);
 	scalingOfPTSComplete=false;
-	prevPTS = 0;
+	prevPTS = UINT64_MAX;
 	AAMPLOG_INFO("IsoBmffProcessor %s scalingOfPTSComplete = %d basePTS = %" PRIu64 " ",IsoBmffProcessorTypeName[type], scalingOfPTSComplete, basePTS);
 	pthread_mutex_unlock(&m_mutex);
 }
