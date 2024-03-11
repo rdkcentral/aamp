@@ -1,0 +1,47 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>TST_2010_UVE_SinglePipeline</title>
+    <link rel="stylesheet" href="TST_UVE_style.css">
+    <script src="TST_UVE_utils.js"></script>
+    <script src="TST_UVE_vidcap.js"></script>
+    <script src="TST_UVE_PipelineTests.js"></script>
+</head>
+<script>
+
+// ------------------------------------------------------------------------------------
+// Main and Ad content swap with SinglePipeline mode enabled
+// ------------------------------------------------------------------------------------
+// Performs playback of main content, before playing 3 adverts in turn and switching
+// back to the main content.  In single pipeline mode there should be no black screen
+// shown between each playback, which is present in multi-pipeline mode.
+//
+// If the test is run with an external video capture device, the video is recorded and
+// the presence of blank screens between playback sessions is analysed.
+// In SinglePipeline = TRUE, no black screens are expected between content.
+// In SinglePipeline = FALSE, between 5 and 50 blank frames are expected between content.
+// ------------------------------------------------------------------------------------
+
+// Run the test when the page loads
+window.onload = function() {
+    TST_UVE_PipelineTests("TST_2010_UVE_SinglePipeline", true)
+}
+
+</script>
+<body>
+    <div id="videoContainer">
+        <video style="height:100%; width:100%; position:absolute; bottom:0; left:0">
+            <source src="dummy.mp4" type=video/ave> <!-- hole punching -->
+        </video>
+        <video id="dummyVideo" autoplay="autoplay" style="position: absolute; top: 0px; left: 0px; width: 100%; height: 100%;">
+            <source src="rec://srv/cur" type="video/x-dvb"/>
+        </video>
+    </div>
+    <div id="testModal">
+        <p id="testData"></p>
+    </div>
+    <div id="infoModal">
+        <p id="infoData"></p>
+    </div>
+</body>
+</html>
