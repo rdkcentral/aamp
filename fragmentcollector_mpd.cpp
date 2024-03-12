@@ -1296,7 +1296,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						double positionInPeriod = 0;
 						uint64_t ret = pMediaStreamContext->lastSegmentDuration;
 						// CID:186808 - Invalid iterator comparison
-						map<string, string> attributeMap = timeline->GetRawAttributes();
+						map<string, string> attributeMap = firstTimeline->GetRawAttributes();
 						if((attributeMap.find("t") != attributeMap.end()) && (ret > 0))
 						{
 							// 't' in first timeline is expected.
