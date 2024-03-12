@@ -56,6 +56,10 @@
 #include "aampoutputprotection.h"
 #endif
 
+#ifdef AAMP_TELEMETRY_SUPPORT
+#include <AampTelemetry2.hpp>
+#endif //AAMP_TELEMETRY_SUPPORT
+
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
 
@@ -2733,6 +2737,41 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 
 		SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 		mFailureReason=tuneFailureMap[tuneFailure].description;
+		
+#ifdef AAMP_TELEMETRY_SUPPORT
+		AAMPTelemetry2 at2(mAppName);
+	
+		std::string telemetryName;
+		
+		if(this->mTuneCompleted)
+		{
+			telemetryName = "VideoPlaybackFailure";
+		}
+		else
+		{
+			telemetryName = "VideoStartFailure";
+		}
+
+		std::map<std::string, int> intData;
+		intData["err"] = tuneFailure; 	// Error code from AAMPTuneFailure enum
+		intData["cat"] = code; 			// Error Categary from tuneFailureMap.code;
+		
+		// Sec Manager Codes used when sec manager is used.
+		if(secManagerClassCode >0)
+		{
+			intData["cls"] = secManagerClassCode; // sec manager class
+		}
+		if(secManagerReasonCode >0)
+		{
+			intData["smc"] = secManagerReasonCode; // sec manager reason code
+		}
+		if(secClientBusinessStatus >0)
+		{
+			intData["sbc"] = secClientBusinessStatus; // sec manager Business Status
+		}
+
+		at2.send(telemetryName,intData,{/* string data */},{/* float data */});
+#endif // AAMP_TELEMETRY_SUPPORT
 	}
 	else
 	{

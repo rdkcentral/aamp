@@ -26,6 +26,9 @@
 #include "AampConstants.h"
 #include "AampUtils.h"
 #include "AampConfig.h"
+#ifdef AAMP_TELEMETRY_SUPPORT
+#include "AampTelemetry2.hpp"
+#endif //AAMP_TELEMETRY_SUPPORT
 
 #include <algorithm>
 
@@ -122,10 +125,18 @@ std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetrics
 	cJSON_AddNumberToObject(item, "tsb", tuneMetricsData.mTSBEnabled);
 	cJSON_AddNumberToObject(item, "tot", tuneMetricsData.mTotalTime);
 
-	char *jsonStr = cJSON_Print(item);
+	//lets use cJSON_PrintUnformatted , cJSON_Print is formated adds whitespace n hence takes more memory also eats up more logs if logged.
+	char *jsonStr = cJSON_PrintUnformatted(item);
+
 	if (jsonStr)
 	{
 		metrics.assign(jsonStr);
+
+#ifdef AAMP_TELEMETRY_SUPPORT
+		AAMPTelemetry2 at2;
+		at2.send("VideoStartTime", jsonStr);
+#endif // AAMP_TELEMETRY_SUPPORT
+
 		free(jsonStr);
 	}
 	cJSON_Delete(item);
@@ -332,10 +343,15 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		mTuneEndMetrics.mTuneAttempts, mTuneEndMetrics.success,failureReason.c_str(),appName.c_str(),
 		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mTSBEnabled,mTotalTime
 		);
+
+		// Telemetery is generated in GetTuneTimeMetricAsJson hence calling always,
+		std::string metricsDataJson = GetTuneTimeMetricAsJson(mTuneEndMetrics, tuneTimeStrPrefix, licenseAcqNWTime, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, appName);
+
+		// tuneMetricData could be NULL if application has not registered for tuneMetrics event,
 		if( NULL != tuneMetricData)
 		{
 			//provided the time tune metric data as an json format to application
-			*tuneMetricData = GetTuneTimeMetricAsJson(mTuneEndMetrics, tuneTimeStrPrefix, licenseAcqNWTime, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, appName);
+			*tuneMetricData = metricsDataJson;
 		}
 }
 
