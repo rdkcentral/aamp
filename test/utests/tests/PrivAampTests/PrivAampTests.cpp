@@ -50,7 +50,8 @@ class PrivAampTests : public ::testing::Test
 protected:
 	void SetUp() override
 	{
-		p_aamp =  new PrivateInstanceAAMP();
+        auto config=new AampConfig();
+        p_aamp = new PrivateInstanceAAMP(config);
 		mLogObj = new AampLogManager();
 		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(p_aamp);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
@@ -77,11 +78,11 @@ class PrivAampPrivTests : public ::testing::Test
 protected:
     void SetUp() override
     {
-    auto aamp = new PrivateInstanceAAMP();
+    auto config=new AampConfig();
+    auto aamp = new PrivateInstanceAAMP(config);
     auto logmanager = new AampLogManager();
 
-    auto config=new AampConfig();
-
+ 
     testp_aamp = new TestablePrivAamp(config);
     }
 
@@ -3103,7 +3104,8 @@ TEST_F(PrivAampTests,mediaType2BucketTest_122)
 
 TEST_F(PrivAampTests, GetCustomLicenseHeaders_EmptyMap)
 {
-    PrivateInstanceAAMP aamp;
+    auto config=new AampConfig();
+    PrivateInstanceAAMP aamp(config);
     std::unordered_map<std::string, std::vector<std::string>> customHeaders;
     aamp.GetCustomLicenseHeaders(customHeaders);
     EXPECT_TRUE(customHeaders.empty());
