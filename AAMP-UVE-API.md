@@ -1823,9 +1823,14 @@ Example:
 	- vdd -> Video Decryption Duration - Video fragment decrypt duration in ms
 	- add -> Audio Decryption Duration - Audio fragment decrypt duration in ms
 	- gps -> gstPlaying: offset in ms from tunestart when pipeline first fed data
-	- gff -> gstFirstFrame: offset in ms from tunestart when first frame of video is decoded/presented
-	- cnt -> Content Type Eg: LINEAR, VOD, etc
-	- stt -> Media stream Type Eg: HLS, DASH, etc
+	- gff -> Total tune time if successful - offset in ms from tunestart to when first frame of video is decoded/presented.
+	- cnt -> Content Type
+		- Content Types: Unknown(0), CDVR(1), VOD(2), Linear(3), IVOD(4), EAS(5), Camera(6), DVR(7), MDVR(8), IPDVR(9), PPV(10), OTT(11), OTA(12), HDMI Input(13), COMPOSITE Input(14), SLE(15). Refer [load](#load-uri_autoplay_tuneparams) API
+	- stt -> Media stream Type + Drm codec Type
+		- Media stream Types: DASH (20), HLS(10), PROGRESSIVE(30),  HLS_MP4(40), Others(0)
+		- DRM codec Types: Clear Key(0),  Widevine(1) ,  PlayReady(2), Vanilla AES(3)
+		- Example:
+			stt for playready dash stream = 22 =  20 (DASH ) + 2 ( PlayReady Codec type )
 	- ftt -> firstTune - To identify the first tune after load
 	- pbm -> If Player was in prebufferd mode
 	- tpb -> time spent in prebufferd(BG) mode
