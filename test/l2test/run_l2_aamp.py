@@ -65,8 +65,9 @@ def junit_to_json(xml_file, json_file):
     testsuites.append(ts_json)
     tss_json = str_to_int(ts.attrib)
     tss_json.update({'testsuites': testsuites})
+    final_json = {'test_cases_results': tss_json}
     with open(json_file, 'w') as f:
-        f.write(json.dumps(tss_json, indent=4))
+        f.write(json.dumps(final_json, indent=4))
 
 
 def install_python_packages():
