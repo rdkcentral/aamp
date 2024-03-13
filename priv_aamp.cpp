@@ -11733,7 +11733,14 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						{
 							ReloadTSB();
 						}
-						TuneHelper(eTUNETYPE_SEEK);
+						if(mDisableRateCorrection)
+						{
+							TuneHelper(eTUNETYPE_SEEK);
+						}
+						else
+						{
+							TuneHelper(eTUNETYPE_SEEKTOLIVE);
+						}
 					}
 					discardEnteringLiveEvt = false;
 					ReleaseStreamLock();
