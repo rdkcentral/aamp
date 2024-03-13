@@ -7582,7 +7582,7 @@ void TrackState::SwitchAudioTrack()
 		// relative positions in the playlist to find the jump
 
 		// Cache old values before playlist update
-		int oldMediaSequenceNumber = nextMediaSequenceNumber - 1;
+		long long oldMediaSequenceNumber = nextMediaSequenceNumber - 1;
 		// Relative position in playlist
 		double oldPosInPlaylist = GetCompletionTimeForFragment(this, oldMediaSequenceNumber);
 		double oldPlaylistPosition = playlistPosition;
@@ -7659,8 +7659,8 @@ void TrackState::SwitchAudioTrack()
 
 		// Diff in playlist position. Diff in PDT should be used here???
 		double diffInFetchedDuration = (oldPosInPlaylist - GetCompletionTimeForFragment(this, nextMediaSequenceNumber - 1));
-		int diffFragmentsDownloaded = (oldMediaSequenceNumber - (nextMediaSequenceNumber - 1));
-		AAMPLOG_INFO("oldMediaSequenceNumber %d, newMediaSequenceNumber %d, oldPosInPlaylist %lf, newPosInPlaylist %lf", oldMediaSequenceNumber, (nextMediaSequenceNumber-1), oldPosInPlaylist, GetCompletionTimeForFragment(this, nextMediaSequenceNumber - 1));
+		int diffFragmentsDownloaded = (int)(oldMediaSequenceNumber - (nextMediaSequenceNumber - 1));
+		AAMPLOG_INFO("oldMediaSequenceNumber %lld, newMediaSequenceNumber %lld, oldPosInPlaylist %lf, newPosInPlaylist %lf", oldMediaSequenceNumber, (nextMediaSequenceNumber-1), oldPosInPlaylist, GetCompletionTimeForFragment(this, nextMediaSequenceNumber - 1));
 		AAMPLOG_INFO("Calculated diffInFetchDuration %lf", diffInFetchedDuration);
 		// Try to keep the same playlist position
 		// This is because we are using playTarget as position values in cacheFragment
