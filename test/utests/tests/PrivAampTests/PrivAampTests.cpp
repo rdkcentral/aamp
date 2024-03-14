@@ -47,10 +47,11 @@ class PrivAampTests : public ::testing::Test
 {
     public:
     PrivateInstanceAAMP *p_aamp{nullptr};
-protected:
+	AampConfig *config{nullptr};
+	protected:
 	void SetUp() override
 	{
-        auto config=new AampConfig();
+        config=new AampConfig();
         p_aamp = new PrivateInstanceAAMP(config);
 		mLogObj = new AampLogManager();
 		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(p_aamp);
@@ -59,36 +60,54 @@ protected:
 
 	void TearDown() override
 	{
+        delete g_mockAampStreamSinkManager;
+        g_mockAampStreamSinkManager = nullptr;
+        
+        delete g_mockAampGstPlayer;
+        g_mockAampGstPlayer = nullptr;
+        
+        delete mLogObj;
+        mLogObj = nullptr;
+        
         delete p_aamp;
-		p_aamp = nullptr;
+        p_aamp = nullptr;
+        
+		delete config;
+		config = nullptr;
 
-		delete mLogObj;
-		mLogObj = nullptr;
-
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
-
-		delete g_mockAampStreamSinkManager;
-		g_mockAampStreamSinkManager = nullptr;
 	}
 };
 
 class PrivAampPrivTests : public ::testing::Test
 {
-protected:
+	public:
+    PrivateInstanceAAMP *aamp{nullptr};
+	AampConfig *config{nullptr};
+	AampLogManager *logmanager{nullptr};
+	protected:
     void SetUp() override
     {
-    auto config=new AampConfig();
-    auto aamp = new PrivateInstanceAAMP(config);
-    auto logmanager = new AampLogManager();
+    config=new AampConfig();
+    aamp = new PrivateInstanceAAMP(config);
+    logmanager = new AampLogManager();
 
- 
     testp_aamp = new TestablePrivAamp(config);
     }
 
     void TearDown() override
     {
+		delete config;
+		config = nullptr;
+
+		delete aamp;
+		aamp = nullptr;
+
+		delete logmanager;
+		logmanager = nullptr;
+
         delete testp_aamp;
+		testp_aamp = nullptr;
+
     }
        class TestablePrivAamp : public PrivateInstanceAAMP
     {
