@@ -31,8 +31,10 @@ static gboolean appsrc_seek_cb(GstElement * appSrc, guint64 offset, MediaStream 
 static void found_source_cb(GObject * object, GObject * orig, GParamSpec * pspec, class MediaStream *stream );
 static void element_setup_cb(GstElement * playbin, GstElement * element, class MediaStream *stream);
 static void pad_added_cb(GstElement* object, GstPad* arg0, class MediaStream *stream);
+static void pad_added_cb2(GstElement* object, GstPad* arg0, class MediaStream *stream);
 static GstPadProbeReturn MyPadProbeCallback( GstPad * pad, GstPadProbeInfo * info, class MediaStream *stream );
 static GstPadProbeReturn MyDemuxPadProbeCallback( GstPad * pad, GstPadProbeInfo * info, class MediaStream *stream );
+static GstPadProbeReturn QtMonitorProbeCallback( GstPad * pad, GstPadProbeInfo * info, class MediaStream *stream );
 static void MyDestroyDataNotify( gpointer data );
 
 /**
@@ -76,9 +78,17 @@ public:
 		{
 			gst_pad_remove_probe( qtdemux_pad, qtdemux_probe_id );
 		}
+		if( qtdemux_probe_id2 )
+		{
+			gst_pad_remove_probe( qtdemux_pad2, qtdemux_probe_id2 );
+		}
 		if( qtdemux_pad )
 		{
 			gst_object_unref( qtdemux_pad );
+		}
+		if( qtdemux_pad2 )
+		{
+			gst_object_unref( qtdemux_pad2 );
 		}
 	}
 	
@@ -193,6 +203,7 @@ public:
 			isConfigured = true;
 			this->required_caps = media_type;
 			sinkbin = gst_element_factory_make("playbin", NULL);
+			this->pipeline=pipeline;
 			gst_bin_add(GST_BIN(pipeline), sinkbin);
 			g_object_set( sinkbin, "uri", "appsrc://", NULL);
 			g_signal_connect( sinkbin, "deep-notify::source", G_CALLBACK(found_source_cb), this );
@@ -306,12 +317,26 @@ public:
 	void element_setup( GstElement * playbin, GstElement * element)
 	{
 		gchar* elemName = gst_element_get_name(element);
-		g_print( "MediaStream::element_setup : %s\n", elemName ? elemName : "NULL");
+		gchar* elemParent = gst_element_get_name(gst_element_get_parent(element));
+		g_print( "MediaStream:element_setup  : %s ( by %s )\n", elemName ? elemName : "NULL",elemParent ? elemParent : "NULL");
 		if (elemName && startsWith(elemName, "qtdemux"))
 		{
 			g_signal_connect(element, "pad-added", G_CALLBACK(pad_added_cb), this);
 		}
-		g_free(elemName);
+		if (elemName && startsWith(elemName, "multiqueue"))
+		{
+			g_signal_connect(element, "pad-added", G_CALLBACK(pad_added_cb2), this);
+		}
+		g_free(elemName);g_free(elemParent);
+	}
+
+	void pad_added2(GstElement* object, GstPad* arg0)
+	{
+		gchar* elemName = gst_element_get_name(object);
+		gchar* padName = gst_pad_get_name(arg0);
+		g_print( "Multiqueue ::pad_added : %s %s\n", elemName ? elemName : "NULL", padName ? padName : "NULL");
+		qtdemux_pad2= gst_element_get_static_pad(object, "sink_0");
+		qtdemux_probe_id2=gst_pad_add_probe( qtdemux_pad2, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, (GstPadProbeCallback)QtMonitorProbeCallback, this, MyDestroyDataNotify );
 	}
 
 	void pad_added(GstElement* object, GstPad* arg0)
@@ -363,6 +388,11 @@ public:
 		startPos = pos;
 	}
 
+	GstElement* getPipeline()
+	{
+		return pipeline;
+	}
+
 	//copy constructor
 	MediaStream(const MediaStream&)=delete;
 	//copy assignment operator
@@ -373,7 +403,9 @@ private:
 	GstPad* pad = NULL;
 	gulong probe_id = 0;
 	GstPad* qtdemux_pad = NULL;
+	GstPad* qtdemux_pad2 = NULL;
 	gulong qtdemux_probe_id = 0;
+	gulong qtdemux_probe_id2 = 0;
 	bool isConfigured; // avoid double configure
 	double rate;
 	gint64 start;
@@ -383,6 +415,7 @@ private:
 	class PipelineContext *context;
 	MediaType mediaType;
 	GstElement *sinkbin;
+	GstElement *pipeline;
 	GstElement *source;
 	double startPos;
 		
@@ -416,6 +449,52 @@ private:
 	}
 };
 
+GstElement* createAudioParser(GstCaps* audioCaps) {
+    GstElement* parser = nullptr;
+    GList* parsers = gst_element_factory_list_get_elements(GST_ELEMENT_FACTORY_TYPE_PARSER, GST_RANK_MARGINAL);
+
+    for (GList* walk = parsers; !parser && walk; walk = g_list_next(walk)) {
+        GstElementFactory* factory = reinterpret_cast<GstElementFactory*>(walk->data);
+
+        if (gst_element_factory_can_sink_all_caps(factory, audioCaps)) {
+            parser = gst_element_factory_create(factory, nullptr);
+            if (parser) {
+                g_print("Found parser element: %s\n", gst_element_factory_get_longname(factory));
+				g_print("Found parser element: %s\n", gst_element_get_name(parser));
+            } else {
+                g_printerr("Failed to create parser element\n");
+            }
+        }
+    }
+
+    gst_plugin_feature_list_free(parsers);
+
+    return parser;
+}
+
+GstElement* createAudioDecoder(GstCaps* audioCaps) {
+    GstElement* decoder = nullptr;
+    GList* decoders = gst_element_factory_list_get_elements(GST_ELEMENT_FACTORY_TYPE_DECODER, GST_RANK_MARGINAL);
+
+	for (GList* walk = decoders; !decoder && walk; walk = g_list_next(walk)) {
+        GstElementFactory* factory = reinterpret_cast<GstElementFactory*>(walk->data);
+
+        if (gst_element_factory_can_sink_all_caps(factory, audioCaps)) {
+            decoder = gst_element_factory_create(factory, nullptr);
+            if (decoder) {
+                g_print("Found decoder element: %s\n", gst_element_factory_get_longname(factory));
+                g_print("Found decoder element: %s\n", gst_element_get_name(decoder));
+            } else {
+                g_printerr("Failed to create decoder element\n");
+            }
+        }
+    }
+
+    gst_plugin_feature_list_free(decoders);
+
+    return decoder;
+}
+
 static GstPadProbeReturn MyPadProbeCallback( GstPad * pad, GstPadProbeInfo * info, MediaStream *stream )
 { // C to C++ glue
 	printf("pad probe: type=%d size=%d data=%p offset=%" G_GUINT64_FORMAT " id=%lu\n",
@@ -438,6 +517,128 @@ static GstPadProbeReturn MyDemuxPadProbeCallback( GstPad * pad, GstPadProbeInfo 
 	// 	   info->id );
 	GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
 	return stream->DemuxProbeCallback(buffer);
+}
+
+GstPadProbeReturn QtMonitorProbeCallback(GstPad *pad, GstPadProbeInfo *info, MediaStream *stream)
+{
+	GstEvent *event = GST_PAD_PROBE_INFO_EVENT(info);
+    if (GST_EVENT_TYPE(event) == GST_EVENT_CAPS) {
+		gchar * qname;
+        GstCaps *caps;
+        gst_event_parse_caps(event, &caps);
+
+        GstStructure *structure = gst_caps_get_structure(caps, 0);
+        const gchar *media_type = gst_structure_get_name(structure);
+
+		GstElement *pipeline = stream->getPipeline();
+		GstElement *mqueue =  gst_pad_get_parent_element(pad);
+
+		GstBin *parent_bin = GST_BIN(gst_element_get_parent(mqueue));
+		GstPad* queuesrc = gst_element_get_static_pad(mqueue, "src_0");
+		GstPad* queuesink = gst_element_get_static_pad(mqueue, "sink_0");
+		GstPad* currentparsersink = gst_pad_get_peer(queuesrc);
+
+        if (g_str_has_prefix(media_type,"audio") && !gst_pad_query_accept_caps(currentparsersink,caps)) {
+            g_print("Detected codec change to %s\n",media_type);
+
+            // Create new parser and decoder elements
+			 g_print("creating parser element \n");
+            GstElement *newparser = createAudioParser(caps);
+			 g_print("creating decoder element\n");
+            GstElement *newdecoder = createAudioDecoder(caps);
+
+            if (!newparser || !newdecoder) {
+                g_printerr("Failed to create new elements\n");
+            }
+			else
+			{
+				g_print("New elements created successfully\n");
+				g_print("Adding to decodebin\n");
+				gst_bin_add_many(parent_bin, newparser, newdecoder, NULL);
+			}
+
+ 			// Link newparser and newdecoder
+            if (!gst_element_link_many(newparser, newdecoder, NULL)) {
+                g_printerr("Failed to link new parser and decoder elements\n");
+            }
+			else
+			{
+				g_print("New parser and decoder elements linked successfully\n");
+			}
+
+            // Get existing aacparse and avdec_aac elements
+            GstElement *oldparser = gst_pad_get_parent_element(currentparsersink);
+			GstPad* oldparsersrc = gst_element_get_static_pad(oldparser, "src");
+			GstPad* olddecodersink = gst_pad_get_peer(oldparsersrc);
+			GstElement *olddecoder = gst_pad_get_parent_element(olddecodersink);
+			GstPad* olddecsrc = gst_element_get_static_pad(olddecoder, "src");
+			GstPad* audiosink = gst_pad_get_peer(olddecsrc);
+
+			// Unlink old parser from queue
+			if(!gst_pad_unlink(queuesrc, currentparsersink))
+			{
+				g_printerr("Failed to unlink old parser\n");
+			}
+			else
+			{
+				g_print("old parser unlinked successfully\n");
+			}
+
+			GstPad* newpsink = gst_element_get_static_pad(newparser, "sink");
+
+			// Link queue to new parser
+            if (!gst_pad_link(queuesrc, newpsink)) {
+                g_printerr("Failed to link queue to newparser\n");
+            }
+			else
+			{
+				g_print("New parser linked to queue successfully \n");
+			}
+
+			// Unlink old decoder from audio sink
+			if(!gst_pad_unlink(olddecsrc, audiosink))
+			{
+				g_printerr("Failed to unlink old decoder\n");
+			}
+			else
+			{
+				g_print("old decoder unlinked successfully\n");
+			}
+
+
+			// Link new decoder to audio sink
+			g_print("Trying to link to audio sink (%s) \n",gst_pad_get_name(audiosink));
+			GstPad *audiosrc = gst_element_get_static_pad(newdecoder, "src");
+			if(!gst_pad_link(audiosrc, audiosink))
+			{
+				g_printerr("Failed to link to audio sink\n");
+			}
+			else
+			{
+				g_print("audio sink linked to decoder successfully\n");
+			}
+
+			gst_element_set_state(newparser, GST_STATE_PLAYING);
+			gst_element_set_state(newdecoder, GST_STATE_PLAYING);
+            gst_element_set_state(pipeline, GST_STATE_PLAYING);
+
+            // Cleanup
+			gst_bin_remove_many(parent_bin, oldparser, olddecoder, NULL);
+
+			gst_element_set_state(oldparser, GST_STATE_NULL);
+			gst_element_set_state(olddecoder, GST_STATE_NULL);
+			gst_object_unref(olddecoder);
+			gst_object_unref(oldparser);
+
+            g_print("Pipeline reconfigured for %s decoding\n",media_type);
+			return GST_PAD_PROBE_OK;
+        }
+
+		gst_object_unref(mqueue);
+        gst_caps_unref(caps);
+    }
+
+    return GST_PAD_PROBE_OK;
 }
 
 static void MyDestroyDataNotify( gpointer data )
@@ -494,6 +695,11 @@ static void element_setup_cb(GstElement * playbin, GstElement * element, class M
 static void pad_added_cb(GstElement* object, GstPad* arg0, class MediaStream *stream)
 {
 	stream->pad_added(object, arg0);
+}
+
+static void pad_added_cb2(GstElement* object, GstPad* arg0, class MediaStream *stream)
+{
+	stream->pad_added2(object, arg0);
 }
 
 gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline )
@@ -653,7 +859,7 @@ static void HandleGstMessageError( GstMessage *msg, const char *messageName )
 	GError *error = NULL;
 	gchar *dbg_info = NULL;
 	gst_message_parse_error(msg, &error, &dbg_info);
-	g_printerr("%s: t%s %s\n", messageName, GST_OBJECT_NAME(msg->src), error->message);
+	g_printerr("%s: %s %s\n", messageName, GST_OBJECT_NAME(msg->src), error->message);
 	g_clear_error(&error);
 	g_free(dbg_info);
 }
