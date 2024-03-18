@@ -3190,9 +3190,18 @@ std::string PlayerInstanceAAMP::GetPlaybackStats()
 
 void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuffer)
 {
-	ERROR_STATE_CHECK_VOID();
 	AAMPLOG_INFO("ProcessContentProtectionDataConfig received DRM config data from app");
 	if(aamp){
+		//In case of tune failure, It is necessary to trigger the release of the mWaitForDynamicDRMToUpdate condition
+		//wait before exiting the API.
+		//Otherwise it may result in crash by the player attempting to access the cleared DRMSession after the timeout.
+		//The timeout may happen in next tune.
+		PrivAAMPState state = GetState();
+		if (eSTATE_ERROR == state)
+		{
+			aamp->ReleaseDynamicDRMToUpdateWait();
+			return;
+		}
 		std::vector<uint8_t> tempKeyId;
 		DynamicDrmInfo dynamicDrmCache;
 		if(aamp->vDynamicDrmData.size()>9)
@@ -3216,6 +3225,7 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 			}
 			else {
 				AAMPLOG_WARN("Response message doesn't have keyID ignoring the message");
+				aamp->ReleaseDynamicDRMToUpdateWait();
 				return;
 			}
 			
@@ -3309,14 +3319,17 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 				SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_CKLicenseServerUrl,clearkeyurl);
 				SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_CustomLicenseData,customdata);
 				SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_AuthToken,authToken);
-				pthread_mutex_lock(&aamp->mDynamicDrmUpdateLock);
-				pthread_cond_signal(&aamp->mWaitForDynamicDRMToUpdate);
+				aamp->ReleaseDynamicDRMToUpdateWait();
 				AAMPLOG_WARN("Updated new Content Protection Data Configuration");
-				pthread_mutex_unlock(&aamp->mDynamicDrmUpdateLock);
 			}
 
 		}
 		cJSON_Delete(cfgdata);
+	}
+	else
+	{
+		AAMPLOG_WARN("AAMP OBJECT IS NULL");
+		return;
 	}
 }
 

@@ -4076,6 +4076,13 @@ public:
 	 */
 	void CacheAndApplySubtitleMute(bool muted);
 
+	/**
+	  * @fn ReleaseDynamicDRMToUpdateWait
+	  *
+	  * @param Void
+	  */
+	 void ReleaseDynamicDRMToUpdateWait();
+
 protected:
 
 	/**

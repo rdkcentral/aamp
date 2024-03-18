@@ -7433,6 +7433,7 @@ void PrivateInstanceAAMP::Stop()
 #if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 		if (mDRMSessionManager)
 		{
+			ReleaseDynamicDRMToUpdateWait();
 			mDRMSessionManager->setLicenseRequestAbort(true);
 		}
 #endif
@@ -13155,4 +13156,17 @@ void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
 	{	// we are unmuting video; also unmute subtitles if appropriate
 		SetCCStatus(!subtitles_are_logically_muted);
 	}
+}
+
+/**
+ *   @brief To release mWaitForDynamicDRMToUpdate condition wait.
+ *
+ *   @param[in] void
+ */
+void PrivateInstanceAAMP::ReleaseDynamicDRMToUpdateWait()
+{
+	pthread_mutex_lock(&mDynamicDrmUpdateLock);
+	pthread_cond_signal(&mWaitForDynamicDRMToUpdate);
+	pthread_mutex_unlock(&mDynamicDrmUpdateLock);
+	AAMPLOG_INFO("Signal sent for mWaitForDynamicDRMToUpdate");
 }

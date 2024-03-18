@@ -1357,3 +1357,6 @@ void PrivateInstanceAAMP::FlushAudio(double pos)
 {
 }
 
+void PrivateInstanceAAMP::ReleaseDynamicDRMToUpdateWait(void)
+{
+}
