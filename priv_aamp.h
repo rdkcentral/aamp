@@ -2573,6 +2573,13 @@ public:
 	double GetFirstPTS();
 
 	/**
+         *   @fn GetMidSeekPosOffset 
+         *
+         *   @return PTS offset for mid fragment seek
+         */
+	double GetMidSeekPosOffset();
+
+	/**
 	 *   @fn IsLiveAdjustRequired
 	 *
 	 *   @return False if the content is either vod/ivod/cdvr/ip-dvr/eas

@@ -1319,6 +1319,11 @@ double PrivateInstanceAAMP::GetFirstPTS()
 	return 0;
 }
 
+double PrivateInstanceAAMP::GetMidSeekPosOffset()
+{
+	return 0;
+}
+
 int PrivateInstanceAAMP::GetCurrentAudioTrackId()
 {
 	return 0;

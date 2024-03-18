@@ -5579,6 +5579,16 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, GstClockTi
 			{
 				AAMPLOG_WARN("Set override event's basePTS [ %" G_GUINT64_FORMAT "] -> [ %" G_GUINT64_FORMAT "]", basePTS, pts);
 				basePTS = pts;
+				if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
+				{
+					double midFragSeekVal = aamp->GetMidSeekPosOffset();
+					if(midFragSeekVal > 0)
+					{
+						guint64 midSeekOffset = midFragSeekVal*GST_SECOND;
+						AAMPLOG_WARN("midSeekOffset = [ %" G_GUINT64_FORMAT "]",midSeekOffset);
+						basePTS += midSeekOffset;
+					}
+				}
 			}
 			if(0 == basePTS && ptr && len > 0)
 			{

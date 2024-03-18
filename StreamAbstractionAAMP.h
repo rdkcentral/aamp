@@ -877,6 +877,16 @@ public:
 	}
 	
 	/**
+	*   @brief  Get PTS offset for MidFragment Seek
+	*
+	*   @return seek PTS offset for midfragment seek
+	*/
+	virtual double GetMidSeekPosOffset()
+	{
+		return 0.0;
+	}
+
+	/**
 	 * @brief Sets the minimum buffer for ABR (Adaptive Bit Rate).
 	 *
 	 * @param minbuffer The minimum buffer value to be set for ABR.

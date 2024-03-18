@@ -9721,6 +9721,15 @@ double StreamAbstractionAAMP_MPD::GetFirstPTS()
 {
 	return mFirstPTS;
 }
+/**
+ *   @brief  Get PTS offset for MidFragment Seek
+ *
+ *   @return seek PTS offset for midfragment seek
+ */
+double StreamAbstractionAAMP_MPD::GetMidSeekPosOffset()
+{
+	return mVideoPosRemainder;
+}
 
 /**
  *   @brief  Get Start time PTS of first sample.

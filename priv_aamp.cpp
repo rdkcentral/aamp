@@ -8918,6 +8918,15 @@ double PrivateInstanceAAMP::GetFirstPTS()
 }
 
 /**
+ * @brief  Get PTS offset for MidFragment
+ */
+double PrivateInstanceAAMP::GetMidSeekPosOffset()
+{
+	assert(NULL != mpStreamAbstractionAAMP);
+	return mpStreamAbstractionAAMP->GetMidSeekPosOffset();
+}
+
+/**
  * @brief Check if Live Adjust is required for current content. ( For "vod/ivod/ip-dvr/cdvr/eas", Live Adjust is not required ).
  */
 bool PrivateInstanceAAMP::IsLiveAdjustRequired()
