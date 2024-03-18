@@ -1000,7 +1000,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				if ((pMediaStreamContext->timeLineIndex >= timelines.size()) || (pMediaStreamContext->timeLineIndex < 0)
 						||(AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState &&
 							((rate > AAMP_NORMAL_PLAY_RATE && pMediaStreamContext->fragmentTime >= mLiveEndPosition)
-							 ||(rate < 0 && pMediaStreamContext->fragmentTime <= 0))))
+							 ||(rate < 0 && pMediaStreamContext->fragmentTime <= mPeriodStartTime))))
 				{
 					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%lu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
 					pMediaStreamContext->eos = true;
@@ -1415,25 +1415,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							}
 
 							// pMediaStreamContext->downloadedDuration is introduced to calculate the bufferedduration value.
-							// Update position in period after fragment download
-							positionInPeriod += fragmentDuration;
-							if(aamp->IsUninterruptedTSB() || (mIsLiveStream && !mIsLiveManifest && !ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline)))
-							{
-								// Fog linear, or cDVR changed from static => dynamic without abstimeline reporting.
-								pMediaStreamContext->downloadedDuration = pMediaStreamContext->fragmentTime + aamp->culledOffset;
-							}
-							else if(mIsLiveStream && ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline))
-							{
-								// Non-fog Linear with absolute position reporting
-								pMediaStreamContext->downloadedDuration = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime) + positionInPeriod;
-							}
-							else
-							{
-								// For VOD and non-fog linear without Absolute timeline
-								// calculate relative position in manifest
-								// For VOD, culledSeconds will be 0, and for linear it is added to first period start
-								pMediaStreamContext->downloadedDuration = aamp->culledSeconds + mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs) - mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs) + positionInPeriod;
-							}
+							//Absolute position reporting
+							pMediaStreamContext->downloadedDuration = pMediaStreamContext->fragmentTime;
 							ReleasePlaylistLock();
 						}
 						else if((mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.GetPtr() )
@@ -1789,27 +1772,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 
 				AcquirePlaylistLock();
 				string startTimeStringValue = mpd->GetPeriods().at(mCurrentPeriodIdx)->GetStart();
-				double periodstartValue = 0;
-				if(mIsLiveStream && ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline))
-				{
-					// DELIA-52320: Non-fog Linear with absolute position reporting
-					if(!startTimeStringValue.empty())
-					{
-						periodstartValue = (ParseISO8601Duration(startTimeStringValue.c_str()))/1000;
-						pMediaStreamContext->downloadedDuration = periodstartValue + positionInPeriod + fragmentDuration;
-					}
-					else
-					{
-						pMediaStreamContext->downloadedDuration = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime) + positionInPeriod + fragmentDuration;
-					}
-				}
-				else
-				{
-					// For VOD and non-fog linear without Absolute timeline
-					// calculate relative position in manifest
-					// For VOD, culledSeconds will be 0, and for linear it is added to first period start
-					pMediaStreamContext->downloadedDuration = aamp->culledSeconds + mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs) - mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs) + positionInPeriod + fragmentDuration;
-				}
+				pMediaStreamContext->downloadedDuration = pMediaStreamContext->fragmentTime;
 				if( mCheckForRampdown )
 				{
 					ReleasePlaylistLock();
@@ -2200,7 +2163,10 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 		{
 			double skipTime = seekPositionSeconds;
 			if (mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentTime != seekPositionSeconds)
-				skipTime = mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentTime;
+			{
+				//Take subtitle Skip time from audio fragmentTime
+				skipTime = mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentTime - mPeriodStartTime;
+			}
 			SkipFragments(mMediaStreamContext[i], skipTime, true);
 		}
 		else
@@ -2240,7 +2206,8 @@ void StreamAbstractionAAMP_MPD::ApplyLiveOffsetWorkaroundForSAP( double seekPosi
 				}
 				mMediaStreamContext[i]->fragmentDescriptor.Number = (long long)((currentplaybacktime - mPeriodStartTime) / fragmentDuration) + startNumber - 1;
 				mMediaStreamContext[i]->fragmentDescriptor.Time = currentplaybacktime - fragmentDuration;
-				mMediaStreamContext[i]->fragmentTime = seekPositionSeconds/fragmentDuration - fragmentDuration;
+				// This is incomplete workaround, need full API rework
+				mMediaStreamContext[i]->fragmentTime = mMediaStreamContext[i]->fragmentDescriptor.Time = currentplaybacktime - fragmentDuration;
 				mMediaStreamContext[i]->lastSegmentNumber= mMediaStreamContext[i]->fragmentDescriptor.Number;
 				AAMPLOG_INFO("moffsetFromStart:%f startNumber:%ld mPeriodStartTime:%f fragmentDescriptor.Number:%" PRIu64 " >fragmentDescriptor.Time:%f  mLiveOffset:%f seekPositionSeconds:%f"
 				,aamp->mOffsetFromTunetimeForSAPWorkaround,startNumber,mPeriodStartTime, mMediaStreamContext[i]->fragmentDescriptor.Number,mMediaStreamContext[i]->fragmentDescriptor.Time,aamp->mLiveOffset,seekPositionSeconds);
@@ -2600,10 +2567,15 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						
 						pMediaStreamContext->fragmentDescriptor.Number += number;
 						pMediaStreamContext->fragmentDescriptor.Time += fragmentTimeFromNumber;
-						pMediaStreamContext->fragmentTime = fragmentTimeFromNumber;
+						pMediaStreamContext->fragmentTime = mPeriodStartTime + fragmentTimeFromNumber;
 
 						pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number;
 						skipTime -= fragmentTimeFromNumber;
+						if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
+						{
+							mVideoPosRemainder = skipTime;
+							AAMPLOG_INFO("[%s] mFirstPTS %f  mVideoPosRemainder %f", pMediaStreamContext->name, mFirstPTS, mVideoPosRemainder);
+						}
 						break;
 					}
 					else if (-(skipTime) >= segmentDuration)
@@ -2626,6 +2598,11 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					}
 					else if(abs(skipTime) < segmentDuration)
 					{
+						if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
+						{
+							mVideoPosRemainder = skipTime;
+							AAMPLOG_INFO("[%s] mFirstPTS %f  mVideoPosRemainder %f", pMediaStreamContext->name, mFirstPTS, mVideoPosRemainder);
+						}
 						break;
 					}
 				}
@@ -2711,7 +2688,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				mFirstPTS = fragmentTime;
 				//updated seeked position
 				pMediaStreamContext->fragmentIndex = fragmentIndex;
-				pMediaStreamContext->fragmentTime = fragmentTime -  presentationTimeOffsetSec;
+				pMediaStreamContext->fragmentTime = mPeriodStartTime + (fragmentTime -  presentationTimeOffsetSec);
 			}
 			else
 			{
@@ -3606,7 +3583,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 		mIsLiveStream = mMPDParseHelper->IsLiveManifest();
 		aamp->SetIsLive(mIsLiveStream);
-		aamp->SetIsLiveStream(mIsLiveStream);		
+		if(newTune)
+		{
+			aamp->SetIsLiveStream(mIsLiveStream);
+		}
 		if(mMPDParseHelper->IsFogMPD())
 		{
 			mCdaiObject->mIsFogTSB = mIsFogTSB	=  true;
@@ -3660,11 +3640,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: AvailabilityStartTime=%f", mAvailabilityStartTime);
 
 			mFirstPeriodStartTime = mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs);
-			if(ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) && (aamp->mProgressReportOffset < 0))
+			if(aamp->mProgressReportOffset < 0)
 			{
-				// mProgressReportOffset calculated only once
-				// Default value will be -1, since 0 is a possible offset.
-				aamp->mProgressReportOffset = mFirstPeriodStartTime - mAvailabilityStartTime;
+				// Progress offset for relative position, default value will be -1, since 0 is a possible offset.
+				aamp->mProgressReportOffset = mFirstPeriodStartTime;
+				aamp->mProgressReportAvailabilityOffset = mAvailabilityStartTime;
 			}
 
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: MPD minupdateduration val %" PRIu64 " seconds mTSBDepth %f mPresentationOffsetDelay :%f StartTimeFirstPeriod: %lf offsetStartTime: %lf",  mMinUpdateDurationMs/1000, mTSBDepth, mPresentationOffsetDelay, mFirstPeriodStartTime, aamp->mProgressReportOffset);
@@ -3692,13 +3672,14 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		int numPeriods = (int)mMPDParseHelper->GetNumberOfPeriods();
 		bool seekPeriods = true;
 
-		if (ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) && mIsLiveStream && !aamp->IsUninterruptedTSB())
+		if (!aamp->IsUninterruptedTSB())
 		{
 			double culled = aamp->culledSeconds;
 			UpdateCulledAndDurationFromPeriodInfo(currMPDPeriodDetails);
 			culled = aamp->culledSeconds - culled;
 			if (culled > 0 && !newTune)
 			{
+				// Adjust the additional culled seconds from offset
 				offsetFromStart -= culled;
 				if(offsetFromStart < 0)
 				{
@@ -3737,12 +3718,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					periodStartMs = nextPeriodStart;
 				}
 
-				if(ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) && aamp->IsLiveStream() && !aamp->IsUninterruptedTSB() && iPeriod == 0)
+				if(aamp->IsLiveStream() && !aamp->IsUninterruptedTSB() && iPeriod == 0)
 				{
 					// Adjust start time wrt presentation time offset.
-					if(!mIsLiveStream)
+					if(!aamp->IsLive())
 					{
-						// Content moved from Live to VOD, and then TearDown performed
 						periodStartMs += aamp->culledSeconds;
 					}
 					else
@@ -3779,20 +3759,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 						}
 					}
 					prevPeriodEndMs = periodEnd; // store for future use
-					// Save period start time as first PTS for absolute progress reporting.
-					if(ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) && !mIsLiveStream)
-					{
-						// For VOD, take start time as diff between current start and first period start.
-						mStartTimeOfFirstPTS = periodStartMs - ((mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime) * 1000);
-					}
-					if(mIsLiveStream)
-					{
-						currentPeriodStart = periodStartSeconds;
-					}
-					else
-					{
-						currentPeriodStart = periodStartSeconds - (mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
-					}
+					currentPeriodStart = periodStartSeconds;
 					mCurrentPeriodIdx = iPeriod;
 					if (periodDurationSeconds <= offsetFromStart && iPeriod < (numPeriods - 1))
 					{
@@ -3847,7 +3814,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		if (mIsLiveStream)
 		{
 			double duration = (double) durationMs / 1000;
-			mLiveEndPosition = duration;
+			mLiveEndPosition = aamp->mAbsoluteEndPosition;
 			bool liveAdjust = (eTUNETYPE_NEW_NORMAL == tuneType) && aamp->IsLiveAdjustRequired();
 			
 			if (eTUNETYPE_SEEKTOLIVE == tuneType)
@@ -4008,10 +3975,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		{
 			mCurrentPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
 		}
-		if(ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) && !aamp->IsUninterruptedTSB() && mIsLiveStream)
+
+		if(!aamp->IsUninterruptedTSB())
 		{
-			// For live stream, take period start time
-			mStartTimeOfFirstPTS = (mPeriodStartTime - mAvailabilityStartTime) * 1000;
+			mStartTimeOfFirstPTS = mPeriodStartTime * 1000;
 		}
 
 		if(mCurrentPeriod != NULL)
@@ -4158,27 +4125,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				else
 				{
 					// eAAMPConfig_MidFragmentSeek && eTUNETYPE_SEEKTOLIVE
-					seekPosition = offsetFromStart;
-				}
-
-				if((0 != mCurrentPeriodIdx && !ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline)) || aamp->IsUninterruptedTSB())
-				{
-					// Avoid adding period start time for Absolute progress reporting,
-					// position is adjusted in TuneHelper based on current period start,
-					// So just save fragmentTime.
-					seekPosition += currentPeriodStart;
+					seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime + mVideoPosRemainder;
 				}
 			}
 			else if (!seekPosition)
 			{
-				seekPosition = offsetFromStart;
+				seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime + mVideoPosRemainder;
 			}
 			for (int i = 0; i < mNumberOfTracks; i++)
 			{
-				if(0 != mCurrentPeriodIdx)
-				{
-					mMediaStreamContext[i]->fragmentTime = seekPosition;
-				}
 				mMediaStreamContext[i]->periodStartOffset = currentPeriodStart;
 			}
 			if(mLowLatencyMode)
@@ -4186,7 +4141,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				aamp->mLLActualOffset = seekPosition;
 				AAMPLOG_INFO("LL-Dash speed correction %s", aamp->GetLLDashAdjustSpeed()? "enabled":"disabled");
 			}
-			AAMPLOG_INFO("offsetFromStart(%f) seekPosition(%f) currentPeriodStart(%f)", offsetFromStart,seekPosition, currentPeriodStart);
+			AAMPLOG_INFO("offsetFromStart(%f) seekPosition(%lf) currentPeriodStart(%lf)", offsetFromStart,seekPosition, currentPeriodStart);
 
 			if (newTune )
 			{
@@ -4538,7 +4493,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 				aamp->UpdateCullingState(culled);
 				mCulledSeconds += culled;
 			}
-			if(ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) && !aamp->IsUninterruptedTSB())
+			if(!aamp->IsUninterruptedTSB())
 			{
 				UpdateCulledAndDurationFromPeriodInfo(currMPDPeriodDetails);
 			}
@@ -7383,6 +7338,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 				aamp->mNextPeriodDuration = mPeriodDuration;
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
+				pMediaStreamContext->fragmentTime = mPeriodStartTime;
+				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, updating fragmentTime to %lf", i, pMediaStreamContext->fragmentTime);
 			}
 
 			SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),pMediaStreamContext->adaptationSet->GetSegmentTemplate());
@@ -7447,7 +7404,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				if(aamp->mFirstFragmentTimeOffset < 0 && mLowLatencyMode)
 				{
 					aamp->mFirstFragmentTimeOffset = liveSync? (((double)(pMediaStreamContext->fragmentDescriptor.Number - startNumber)  * fragmentDuration) + mAvailabilityStartTime)  : mFirstPeriodStartTime;
-					AAMPLOG_INFO("mFirstFragmentTimeOffset:%lf mReportProgressOffset:%lf", aamp->mFirstFragmentTimeOffset, aamp->mProgressReportOffset);
+					AAMPLOG_INFO("mFirstFragmentTimeOffset:%lf mProgressReportOffset:%lf", aamp->mFirstFragmentTimeOffset, aamp->mProgressReportOffset);
 				}
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d timeLineIndex %d fragmentDescriptor.Number %" PRIu64 " mFirstPTS:%lf", i, pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Number, mFirstPTS);
 			}
@@ -7553,7 +7510,15 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 					}
 					else
 					{
-						culled += (prevPeriodInfo.duration / 1000);
+						double deltaStartTime = currFirstPeriodInfo.periodStartTime - prevPeriodInfo.periodStartTime;
+						if(prevPeriodInfo.duration <= deltaStartTime)
+						{
+							culled += (prevPeriodInfo.duration / 1000);
+						}
+						else
+						{
+							culled += deltaStartTime;
+						}
 						iter1++;
 						AAMPLOG_WARN("PeriodId %s , with last known duration %f seems to have got culled",
 										prevPeriodInfo.periodId.c_str(), (prevPeriodInfo.duration / 1000));
@@ -7768,7 +7733,7 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 				break;
 			}
 		}
-		double firstPeriodStart = mMPDParseHelper->GetPeriodStartTime(firstPeriodIdx,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime;
+		double firstPeriodStart = mMPDParseHelper->GetPeriodStartTime(firstPeriodIdx,mLastPlaylistDownloadTimeMs);
 		double lastPeriodStart = 0;
 		if (firstPeriodIdx == lastPeriodIdx)
 		{
@@ -7782,7 +7747,7 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 		{
 			// Expecting no delta between final period PTSOffset and segment start if
 			// first and last periods are different.
-			lastPeriodStart = mMPDParseHelper->GetPeriodStartTime(lastPeriodIdx,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime;
+			lastPeriodStart = mMPDParseHelper->GetPeriodStartTime(lastPeriodIdx,mLastPlaylistDownloadTimeMs);
 		}
 		double culled = firstPeriodStart - aamp->culledSeconds;
 		if (culled != 0 && mIsLiveManifest)
@@ -8788,35 +8753,19 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 									{
 										mFirstPTS = (double)segmentStartTime/(double)segmentTemplates.GetTimescale();
 									}  //CID:186900 - divide by zero
-									double startTime = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
-									if((startTime != 0) && !aamp->IsUninterruptedTSB())
+									if(!aamp->IsUninterruptedTSB())
 									{
-										if (ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) && aamp->IsLiveStream())
-										{
 											// Save period start time as first PTS for live stream for absolute progress reporting.
-											mStartTimeOfFirstPTS = startTime * 1000;
-										}
-										else
-										{
-											mStartTimeOfFirstPTS = ((aamp->culledSeconds + startTime - (mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime)) * 1000);
-										}
+											mStartTimeOfFirstPTS = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs) * 1000;
 									}
 								}
 								else if(nextSegmentTime != segmentStartTime)
 								{
 									discontinuity = true;
-									double startTime = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
-									if((startTime != 0) && !mIsFogTSB)
+									if(!aamp->IsUninterruptedTSB())
 									{
-										if (ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) && aamp->IsLiveStream())
-										{
 											// Save period start time as first PTS for live stream for absolute progress reporting.
-											mStartTimeOfFirstPTS = startTime * 1000;
-										}
-										else
-										{
-											mStartTimeOfFirstPTS = ((aamp->culledSeconds + startTime - (mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime)) * 1000);
-										}
+											mStartTimeOfFirstPTS = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs) * 1000;
 									}
 									AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected");
 								}
@@ -8851,9 +8800,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					}
 					if(rate < 0 && periodChanged)
 					{
-						AcquirePlaylistLock();
-						SkipToEnd(mMediaStreamContext[eMEDIATYPE_VIDEO]);
-						ReleasePlaylistLock();
+						SeekInPeriod(0,true);
 					}
 				}
 
@@ -8937,8 +8884,8 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 								((rate > 0 && mCurrentPeriodIdx >= mMPDParseHelper->mUpperBoundaryPeriod) || (rate < 0 && mMPDParseHelper->mLowerBoundaryPeriod == mCurrentPeriodIdx)));
 
 						bool eosAdPlayback = (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState &&
-								((rate > 0 && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime >= mLiveEndPosition)
-								||(rate < 0 && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime <= 0 && (mMPDParseHelper->mLowerBoundaryPeriod == mCurrentPeriodIdx ))));//For rewinding, EOS does not need to be set unless the current period is a lower period.
+								((rate > 0 && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime >= aamp->mAbsoluteEndPosition)
+								||(rate < 0 && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime <= aamp->culledSeconds && ( mMPDParseHelper->mLowerBoundaryPeriod == mCurrentPeriodIdx ))));//For rewinding, EOS does not need to be set unless the current period is a lower period.
 						if((!mIsLiveManifest || (rate != AAMP_NORMAL_PLAY_RATE))
 							&& (eosOutSideAd || eosAdPlayback))
 						{
@@ -11337,18 +11284,19 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 	double normalPlaybackRate =  GETCONFIGVALUE(eAAMPConfig_NormalLatencyCorrectionPlaybackRate);
 
 	AAMPLOG_TRACE("latencyMonitorDelay %d latencyMonitorInterval=%d", latencyMonitorDelay,latencyMonitorInterval );
-	int latencyMonitorScheduleTime = latencyMonitorDelay - latencyMonitorInterval;
-	if( latencyMonitorScheduleTime < 500 )
+	double latencyMonitorScheduleTime = latencyMonitorDelay - latencyMonitorInterval;
+	//To handle latencyMonitorDelay <latencyMonitorInterval case
+	if( latencyMonitorScheduleTime < 0 )
 	{ // clamp!
-		AAMPLOG_INFO("unexpected latencyMonitorScheduleTime(%d)", latencyMonitorScheduleTime );
-		latencyMonitorScheduleTime = 500;  
+		AAMPLOG_INFO("unexpected latencyMonitorScheduleTime(%lf)", latencyMonitorScheduleTime );
+		latencyMonitorScheduleTime = 0.5 ; //TimedWaitForLatencyCheck is 500ms 
 	}
 	
 	bool keepRunning = false;
 	bool latencyCorrected = true;
 	if(aamp->DownloadsAreEnabled())
 	{
-		AAMPLOG_TRACE("latencyMonitorScheduleTime %d", latencyMonitorScheduleTime );
+		AAMPLOG_TRACE("latencyMonitorScheduleTime %lf", latencyMonitorScheduleTime );
 		aamp->InterruptableMsSleep(latencyMonitorScheduleTime *1000);
 		keepRunning = true;
 	}
@@ -11393,18 +11341,17 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 						double liveTime = (double)aamp->mNewSeekInfo.GetInfo().getUpdateTime()/1000.0 + mDeltaTime;
 						double finalProgressTime = (aamp->mFirstFragmentTimeOffset) + ((double)aamp->mNewSeekInfo.GetInfo().getPosition()/1000.0);
 						currentLatency = (liveTime - finalProgressTime) * 1000;
-						if(ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) && (aamp->mProgressReportOffset >= 0))
+						if(aamp->mProgressReportOffset >= 0)
 						{
 							// Correction with progress offset
 							currentLatency += (aamp->mProgressReportOffset * 1000);
 						}
-						AAMPLOG_TRACE("LiveLatency=%lf currentPlayRate=%lf",currentLatency, playRate);
 					}
 					else
 					{
 						currentLatency = ((aamp->DurationFromStartOfPlaybackMs()) - aamp->GetPositionMs());
-						AAMPLOG_TRACE("LiveLatency=%lf currentPlayRate=%lf dur:%lld pos:%lld",currentLatency, playRate, aamp->DurationFromStartOfPlaybackMs(), aamp->GetPositionMs());
 					}
+					AAMPLOG_TRACE("LiveLatency=%lf currentPlayRate=%lf dur:%lld pos:%lld",currentLatency, playRate, aamp->DurationFromStartOfPlaybackMs(), aamp->GetPositionMs());
 #if 0
 					long encoderDisplayLatency = 0;
 					encoderDisplayLatency = (long)( GetEncoderDisplayLatency() * 1000)+currentLatency;

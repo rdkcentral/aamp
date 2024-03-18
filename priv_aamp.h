@@ -1035,6 +1035,7 @@ public:
 	int mDisplayHeight; 					/**< Display resolution height */
 	bool mProfileCappedStatus; 				/**< Profile capped status by resolution or bitrate */
 	double mProgressReportOffset; 				/**< Offset time for progress reporting */
+	double mProgressReportAvailabilityOffset; 	/**< Offset time for progress reporting from availability start */
 	double mAbsoluteEndPosition; 				/**< Live Edge position for absolute reporting */
 	double mFirstFragmentTimeOffset;			/**< Offset time for first fragment injected */
 	AampConfig *mConfig;
@@ -1691,12 +1692,12 @@ public:
          */
 	bool IsAudioPlayContextCreationSkipped(void);
 
-        /**
-         * @fn IsLiveStream
-         *
-         * @return True or False
-         */
-        bool IsLiveStream(void);
+	/**
+	 * @fn IsLiveStream
+	 *
+	 * @return True if first tuned manifest is live, False otherwise
+	 */
+	bool IsLiveStream(void);
 
 	/**
 	 * @fn Stop
@@ -1724,7 +1725,7 @@ public:
 	 *
 	 * @return True or False
 	 */
-	bool IsUninterruptedTSB() {return (IsTSBSupported() && !ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling));}
+	bool IsUninterruptedTSB() {return (IsTSBSupported() && !IsLive());}
 
 	/**
 	 * @brief Checking whether CDVR Stream or not
@@ -2799,7 +2800,7 @@ public:
 	std::string GetLicenseReqProxy();
 
 	/**
-	 *   @brief Set is Live flag
+	 *   @brief Set is Live flag, Current manifest type
 	 *
 	 *   @param[in] isLive - is Live flag
 	 *   @return void
@@ -2807,18 +2808,18 @@ public:
 	void SetIsLive(bool isLive)  {mIsLive = isLive; }
 
 	/**
-     	 *   @brief Set is Audio play context is skipped, due to Audio HLS file is ES Format type.
-    	 *
-     	 *   @param[in] isAudioContextSkipped - is audio context creation skipped.
-     	 *   @return void
-     	 */
+	 *   @brief Set is Audio play context is skipped, due to Audio HLS file is ES Format type.
+	 *
+	 *   @param[in] isAudioContextSkipped - is audio context creation skipped.
+	 *   @return void
+	 */
 	void SetAudioPlayContextCreationSkipped( bool isAudioContextSkipped ) { mIsAudioContextSkipped = isAudioContextSkipped; }
 
-    	/**
-     	 *   @brief Set isLiveStream flag
-    	 *
-    	 *   @param[in] isLiveStream - is Live stream flag
-    	 *   @return void
+	/**
+	 *   @brief Set isLiveStream flag, This keeps the history of first tuned manifest type
+	 *
+	 *   @param[in] isLiveStream - is Live stream flag
+	 *   @return void
 	 */
 	void SetIsLiveStream(bool isLiveStream)  {mIsLiveStream = isLiveStream; }
 

@@ -1140,13 +1140,22 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			}
 		}
 
-		if(ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) && 
-		   ISCONFIGSET(eAAMPConfig_InterruptHandling) && 
-		   aamp->IsTSBSupported() &&
-		   !isSeekToLiveOrEnd)
+		if(ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) &&
+			(aamp->mProgressReportOffset > 0) &&
+			(eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START == GETCONFIGVALUE(eAAMPConfig_PreferredAbsoluteProgressReporting)) &&
+			!isSeekToLiveOrEnd)
 		{
+			// Absolute timeline, but Preferred reporting is from availabilityStartTime
+			// Culled seconds (tsbStart) is in epoch, so convert secondsRelativeToTuneTime to epoch number
+			secondsRelativeToTuneTime += aamp->mProgressReportAvailabilityOffset;
+			AAMPLOG_WARN("aamp_Seek position adjusted to absolute value: %lf", secondsRelativeToTuneTime);
+		}
+		else if ((!ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) || !aamp->IsLiveStream()) && aamp->mProgressReportOffset > 0)
+		{
+			// Relative reporting
+			// Convert to epoch using offset for all VOD contents and live with relative positions
 			secondsRelativeToTuneTime += aamp->mProgressReportOffset;
-			AAMPLOG_WARN("aamp_Seek position adjusted to absolute value for TSB : %lf", secondsRelativeToTuneTime);
+			AAMPLOG_WARN("aamp_Seek position adjusted to absolute value: %lf", secondsRelativeToTuneTime);
 		}
 
 		if (aamp->IsLive() && aamp->mpStreamAbstractionAAMP && aamp->mpStreamAbstractionAAMP->IsStreamerAtLivePoint(secondsRelativeToTuneTime))
@@ -1836,7 +1845,20 @@ void PlayerInstanceAAMP::SetInitFragTimeoutRetryCount(int count)
 double PlayerInstanceAAMP::GetPlaybackPosition()
 {
 	ERROR_STATE_CHECK_VAL(0.00);
-	return aamp->GetPositionSeconds();
+	double ret = aamp->GetPositionSeconds();
+	if ((!ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) || !aamp->IsLiveStream()) && aamp->mProgressReportOffset > 0)
+	{
+		// Adjust progress positions for VOD, Linear without absolute timeline
+		ret -= aamp->mProgressReportOffset;
+	}
+	else if(ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) &&
+		aamp->mProgressReportOffset > 0 && aamp->IsLiveStream() &&
+		eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START == GETCONFIGVALUE(eAAMPConfig_PreferredAbsoluteProgressReporting))
+	{
+		// Adjust progress positions for linear stream with absolute timeline config from AST
+		ret -= aamp->mProgressReportAvailabilityOffset;
+	}
+	return ret;
 }
 
 /**

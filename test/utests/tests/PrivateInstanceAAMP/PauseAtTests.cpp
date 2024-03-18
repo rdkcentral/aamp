@@ -431,6 +431,7 @@ TEST_F(PauseAtTests, PausePosition_Trickmode)
 
     EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS))
       .WillRepeatedly(Return(trickplayFPS));
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseAbsoluteTimeline)).WillRepeatedly(Return(false));
 
     // Calls from PrivateInstanceAAMP::GetPositionMilliseconds
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery)).WillRepeatedly(Return(true));

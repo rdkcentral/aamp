@@ -208,7 +208,7 @@ public:
     bool discontinuity;
     AampGrowableBuffer mDownloadedFragment;
 
-    double fragmentTime;
+    double fragmentTime; // Absolute Fragment time from Availability start
     double downloadedDuration;
     double periodStartOffset;
     uint64_t timeStampOffset;

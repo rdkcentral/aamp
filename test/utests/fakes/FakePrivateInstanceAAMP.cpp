@@ -135,6 +135,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mDiscoCompleteLock(),
 	mWaitForDiscoToComplete(),
 	mIsPeriodChangeMarked(false),
+	mProgressReportAvailabilityOffset(-1),
 	mpStreamAbstractionAAMP()
 {
 	pthread_cond_init(&waitforplaystart, NULL);

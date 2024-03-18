@@ -1199,7 +1199,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, preferredTextLabelString("")
 	, preferredTextAccessibilityNode()
 	, preferredNameString("")
-	, mProgressReportOffset(-1), mFirstFragmentTimeOffset(-1)
+	, mProgressReportOffset(-1), mFirstFragmentTimeOffset(-1), mProgressReportAvailabilityOffset(-1)
 	, mAutoResumeTaskId(AAMP_TASK_ID_INVALID), mAutoResumeTaskPending(false), mScheduler(NULL), mEventLock(), mEventPriority(G_PRIORITY_DEFAULT_IDLE)
 	, mStreamLock()
 	, mConfig (config),mSubLanguage(), mHarvestCountLimit(0), mHarvestConfig(0)
@@ -1922,7 +1922,7 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 					double liveTime = (double)mNewSeekInfo.GetInfo().getUpdateTime()/1000.0;
 					double finalProgressTime = (mFirstFragmentTimeOffset) + ((double)mNewSeekInfo.GetInfo().getPosition()/1000.0);
 					double latency = liveTime - finalProgressTime;
-					if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && (mProgressReportOffset >= 0))
+					if(mProgressReportOffset >= 0)
 					{
 						// Correction with progress offset
 						latency += mProgressReportOffset;
@@ -2041,7 +2041,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 
 		//DELIA-49735 - Report Progress report position based on Availability Start Time
 		start = (culledSeconds*1000.0);
-		if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && (mProgressReportOffset >= 0) && IsLiveStream() && !IsUninterruptedTSB())
+		if((mProgressReportOffset >= 0) && !IsUninterruptedTSB())
 		{
 			end = (mAbsoluteEndPosition * 1000);
 		}
@@ -2111,7 +2111,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			if(mFirstFragmentTimeOffset > 0)
 			{
 				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - ((mFirstFragmentTimeOffset*1000) + mNewSeekInfo.GetInfo().getPosition()));
-				if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && (mProgressReportOffset >= 0))
+				if(mProgressReportOffset >= 0)
 				{
 					// Correction with progress offset
 					latency += (mProgressReportOffset * 1000);
@@ -2131,13 +2131,23 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			}
 		}
 		double reportFormatPosition = position;
-		if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling) && mTSBEnabled)
+		if ((!ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) || !IsLiveStream()) && mProgressReportOffset > 0)
 		{
+			// Adjust progress positions for VOD, Linear without absolute timeline
 			start -= (mProgressReportOffset * 1000);
 			reportFormatPosition -= (mProgressReportOffset * 1000);
 			end -= (mProgressReportOffset * 1000);
-
 		}
+		else if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) &&
+			mProgressReportOffset > 0 && IsLiveStream() &&
+			eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START == GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAbsoluteProgressReporting))
+		{
+			// Adjust progress positions for linear stream with absolute timeline config from AST
+			start -= (mProgressReportAvailabilityOffset * 1000);
+			reportFormatPosition -= (mProgressReportAvailabilityOffset * 1000);
+			end -= (mProgressReportAvailabilityOffset * 1000);
+		}
+
 		if(GetCurrentlyAvailableBandwidth() != -1)
 		{
 			mNetworkBandwidth = GetCurrentlyAvailableBandwidth();
@@ -5270,27 +5280,19 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 		int volume = audio_volume;
 		double updatedSeekPosition = mpStreamAbstractionAAMP->GetStreamPosition();
-		seek_pos_seconds = updatedSeekPosition + culledSeconds;
-		// Adjust seek_pos_second based on adjusted stream position and discontinuity start time for absolute progress reports
-		if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && !ISCONFIGSET_PRIV(eAAMPConfig_MidFragmentSeek) && !IsUninterruptedTSB())
+		if(mMediaFormat != eMEDIAFORMAT_DASH)
 		{
-			double startTimeOfDiscontinuity = mpStreamAbstractionAAMP->GetStartTimeOfFirstPTS() / 1000;
-			if(startTimeOfDiscontinuity > 0)
-			{
-				seek_pos_seconds = startTimeOfDiscontinuity + updatedSeekPosition;
-				if(!IsLive())
-				{
-					// For dynamic => static cases, add culled seconds
-					// For normal VOD, culledSeconds is expected to be 0.
-					seek_pos_seconds += culledSeconds;
-				}
-				AAMPLOG_WARN("Position adjusted discontinuity start: %lf, Abs position: %lf", startTimeOfDiscontinuity, seek_pos_seconds);
-			}
+			seek_pos_seconds = updatedSeekPosition + culledSeconds;
+		}
+		else
+		{
+			// For absolute timeline reporting, culledSecond is considered as manifest start time.
+			seek_pos_seconds = updatedSeekPosition;
 		}
 		culledOffset = culledSeconds;
 		UpdateProfileCappedStatus();
 #ifndef AAMP_STOP_SINK_ON_SEEK
-		AAMPLOG_WARN("Updated seek_pos_seconds %f culledSeconds :%f", seek_pos_seconds,culledSeconds);
+		AAMPLOG_WARN("Updated seek_pos_seconds %f culledSeconds/start :%f", seek_pos_seconds, culledSeconds);
 #endif
 		mpStreamAbstractionAAMP->GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
 		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d", mVideoFormat, mAudioFormat, mAuxFormat);
@@ -5315,7 +5317,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					duartion = GetDurationMs();
 			}
 			mFirstFragmentTimeOffset = (double)(aamp_GetCurrentTimeMS() - duartion)/1000.0;
-			AAMPLOG_INFO("[DEBUG] Updated FirstFragmentTimeOffset:%lf %lld %lld", mFirstFragmentTimeOffset,aamp_GetCurrentTimeMS(),duartion);
+			AAMPLOG_INFO("Updated FirstFragmentTimeOffset:%lf %lld %lld", mFirstFragmentTimeOffset,aamp_GetCurrentTimeMS(),duartion);
 			StartRateCorrectionWokerthread();
 		}
 
@@ -7275,23 +7277,12 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		}
 		else
 		{
-			if (!mIsLiveStream)
+			// Optimization, culledSeconds will be 0 for VOD
+			long long contentEndMs = GetDurationMs() + (culledSeconds * 1000.0);
+			if(positionMiliseconds > contentEndMs)
 			{
-				long long durationMs  = GetDurationMs();
-				if(positionMiliseconds > durationMs)
-				{
-					AAMPLOG_WARN("Correcting positionMiliseconds %lld to duration %lld", positionMiliseconds, durationMs);
-					positionMiliseconds = durationMs;
-				}
-			}
-			else
-			{
-				long long tsbEndMs = GetDurationMs() + (culledSeconds * 1000.0);
-				if(positionMiliseconds > tsbEndMs)
-				{
-					AAMPLOG_WARN("Correcting positionMiliseconds %lld to tsbEndMs %lld", positionMiliseconds, tsbEndMs);
-					positionMiliseconds = tsbEndMs;
-				}
+				AAMPLOG_WARN("Correcting positionMiliseconds %lld to contentEndMs %lld", positionMiliseconds, contentEndMs);
+				positionMiliseconds = contentEndMs;
 			}
 		}
 	}
@@ -7494,6 +7485,7 @@ void PrivateInstanceAAMP::Stop()
 	durationSeconds = 0;
 	mProgressReportOffset = -1;
 	mFirstFragmentTimeOffset = -1;
+	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
 	// Set the state to eSTATE_IDLE
 	// directly setting state variable . Calling SetState will trigger event :(

@@ -840,7 +840,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
          * time shift buffer.
          */
         seekPosition = ((timeShiftBufferDepth - AAMP_LIVE_OFFSET)/segmentDurationSec)*segmentDurationSec;
-        EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), seekPosition);
+        EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), ((currentTime - timeShiftBufferDepth) + seekPosition));
 
         /* The first segment downloaded will be at the live point. */
         fragmentNumber = ((((long long)deltaTime) - AAMP_LIVE_OFFSET) / segmentDurationSec) + startNumber;
@@ -949,7 +949,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
          * the available content. This may be in the middle of a fragment.
          */
         seekPosition = totalDuration - AAMP_LIVE_OFFSET;
-        EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), seekPosition);
+        EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), ((currentTime - totalDuration) + seekPosition));
         /*
         The Period Start Time
         */
