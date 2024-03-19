@@ -31,6 +31,7 @@
 #include <thread>
 #include "AampLogManager.h"
 #include "AampUtils.h"
+#include "AampMPDPeriodInfo.h"
 
 using namespace dash;
 using namespace std;
@@ -38,25 +39,6 @@ using namespace dash::mpd;
 using namespace dash::xml;
 using namespace dash::helpers;
 
-
-/**
- * @struct PeriodInfo
- * @brief Stores details about available periods in mpd
- */
-
-struct PeriodInfo {
-        std::string periodId;
-        uint64_t startTime;
-        uint32_t timeScale;
-        double duration;
-        int periodIndex;
-        double periodStartTime;
-        double periodEndTime;
-
-        PeriodInfo() : periodId(""), startTime(0), duration(0.0), timeScale(0),periodIndex(-1),periodStartTime(-1),periodEndTime(-1)
-        {
-        }
-};
 
 /**
  * @brief Get xml node form reader
@@ -91,4 +73,3 @@ bool IsCompatibleMimeType(const std::string& mimeType, MediaType mediaType);
 double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale );
 
 #endif /* __AAMP_MPD_UTILS_H__ */
-

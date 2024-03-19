@@ -214,6 +214,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampMPDParseHelper.h
 					AampLLDASHData.h
 					AampMPDUtils.h
+					AampMPDPeriodInfo.h
 					ElementaryProcessor.h
 					AampStreamSinkManager.h
 					MetadataProcessor.hpp
@@ -824,7 +825,7 @@ install(TARGETS playbintest DESTINATION bin)
 
 install(TARGETS aamp DESTINATION lib PUBLIC_HEADER DESTINATION include PRIVATE_HEADER DESTINATION include)
 install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h AampDefine.h AampEventListener.h drm/AampMemorySystem.h drm/AampDRMSessionManager.h AampDrmSystems.h AampMediaType.h
-  drm/AampDrmData.h drm/AampDrmInfo.h drm/AampDrmMediaFormat.h AampDrmCallbacks.h AampLogManager.h 
+  drm/AampDrmData.h drm/AampDrmInfo.h drm/AampDrmMediaFormat.h AampDrmCallbacks.h AampLogManager.h
   drm/AampDrmSession.h drm/ClearKeyDrmSession.h drm/AampDRMutils.h drm/aampdrmsessionfactory.h
   drm/helper/AampDrmHelper.h subtitle/vttCue.h AampUtils.h
   AampMemoryUtils.h AampProfiler.h AampConstants.h iso639map.h AampRfc.h AampGstUtils.h AampGrowableBuffer.h
@@ -839,6 +840,7 @@ install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h Aam
   AampDRMLicPreFetcherInterface.h
   AampMPDDownloader.h
   AampMPDParseHelper.h
+  AampMPDPeriodInfo.h
   AampLLDASHData.h
   DESTINATION include)
 
@@ -860,4 +862,3 @@ endif()
 message("LIBAAMP_DEFINES is ${LIBAAMP_DEFINES}")
 message("LIBAAMP_SOURCES is ${LIBAAMP_SOURCES}")
 message("LIBAAMP_HELP_SOURCES is ${LIBAAMP_HELP_SOURCES}")
-
