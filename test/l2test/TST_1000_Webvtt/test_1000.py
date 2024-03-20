@@ -27,7 +27,6 @@ import pytest
 
 TESTDATA1 = {
 "title": "Setting WebVTT font size",
-"logfile": "testdata1.txt",
 "max_test_time_seconds": 15,
 "expect_list": [
     {"cmd":'setconfig {"info":true,"trace":true}'}, # must use " not ' in json

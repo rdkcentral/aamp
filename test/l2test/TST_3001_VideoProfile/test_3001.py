@@ -44,7 +44,7 @@ def test_3001(aamp_setup_teardown):
     for idx, test_sequence in enumerate(commands):
 
         full_test_data["expect_list"] = test_sequence
-        full_test_data["logfile"] = "multiprofile_" + str(idx) + ".log",
+        full_test_data["logfile"] = "multiprofile_" + str(idx) + ".log"
 
         aamp = aamp_setup_teardown
         aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))

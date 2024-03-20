@@ -101,7 +101,6 @@ def stop_httpserver():
 
 TESTDATA0 = {
 "title": "Linear CDAI TESTDATA0 alternating",
-"logfile": "testdata0.txt",
 "url": "v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd",
 'simlinear_type': 'DASH',
 "max_test_time_seconds": 300,
@@ -178,7 +177,6 @@ TESTDATA0 = {
 
 TESTDATA1 = {
 "title": "Linear CDAI TESTDATA1 back2back",
-"logfile": "testdata1.txt",
 "url": "v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd",
 'simlinear_type': 'DASH',
 "max_test_time_seconds": 300,

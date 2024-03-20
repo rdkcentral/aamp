@@ -65,7 +65,7 @@ def test_13001(aamp_setup_teardown):
     for idx, testSequence in enumerate(testSequenceList):
 
         fullTestData["expect_list"] = testSequence
-        fullTestData["logfile"] = "CurrentAudioBitrate_" + str(idx) + ".log",
+        fullTestData["logfile"] = "CurrentAudioBitrate_" + str(idx) + ".log"
 
         aamp = aamp_setup_teardown
         aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))

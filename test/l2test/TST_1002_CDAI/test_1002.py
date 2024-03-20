@@ -29,7 +29,6 @@ import pytest
 
 TESTDATA1= {
 "title": "CDAI Single Pipeline - Multiple Assets",
-"logfile": "testdata1.txt",
 "max_test_time_seconds": 60,
 
 "expect_list": [

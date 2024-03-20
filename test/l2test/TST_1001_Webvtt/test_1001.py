@@ -32,7 +32,6 @@ import pytest
 # via Gstreamer subtecbin plugin.
 TESTDATA1 = {
 "title": "Setting WebVTT font size AAMP - GStreamer - Subtec",
-"logfile": "testdata1.txt",
 "max_test_time_seconds":60,
 "aamp_cfg": "info=true\ntrace=true\ngstSubtecEnabled=true\n",
 "expect_list": [

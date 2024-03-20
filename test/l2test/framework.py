@@ -25,6 +25,7 @@ import time
 import subprocess
 from inspect import getsourcefile
 
+
 class Simlinear:
     """
     Methods related to starting or stopping simlinear
@@ -44,8 +45,7 @@ class Simlinear:
         self.sl_process = None
         self.paths = None
 
-
-    def start(self, abr_type, logfile_name='simlinear_log.txt'):
+    def start(self, abr_type, logfile_name):
         """
         Start simlinear web server as a separate process
         """
@@ -54,7 +54,6 @@ class Simlinear:
 
         assert os.path.exists(self.simlinear_path), (
             "ERROR File does not exist {} Check setup.".format(self.simlinear_path))
-
 
         # Kill any existing simlinear process that might have got left running
         # from a previous abnormal exit
@@ -116,6 +115,8 @@ class Aamp:
         assert os.path.exists(aamp_cli_path), "ERROR {} does not exist".format(aamp_cli_path)
         self.AAMP_CMD = '/bin/bash -c "' + aamp_cli_cmd_prefix + aamp_cli_path + '"'
 
+        # Generate a unique logfile name based on current test name
+        self.logfile_name = os.environ.get('PYTEST_CURRENT_TEST').split(':')[-1].split(' ')[0] + ".log"
         self.simlinear = None
         self.output_path = None
         self.aamp_cfg_file = None
@@ -153,7 +154,7 @@ class Aamp:
 
         self.run_prerequisite()
 
-    def start_aamp(self, logfile_name='logfile.log'):
+    def start_aamp(self):
         """
         Start aamp-cli process and keep connection to stdin stdout via
         pexpect
@@ -167,14 +168,13 @@ class Aamp:
         if self.pytestconfig.config.getoption('aamp_log'):
             self.aamp_pexpect.logfile = sys.stdout.buffer
         else:
-            self.logfile = open(os.path.join(self.output_path, logfile_name), "wb")
+            self.logfile = open(os.path.join(self.output_path, self.logfile_name), "wb")
             self.aamp_pexpect.logfile = self.logfile
 
         try:
             self.aamp_pexpect.expect_exact('cmd: ')
         except Exception as e:
             assert 0, "Cannot start aamp {}".format(e)
-            self.aamp_pexpect = None
 
     def exit_aamp(self):
         print("Exiting aamp-cli")
@@ -227,13 +227,12 @@ class Aamp:
         except Exception as e:
             assert 0, "ERROR Exception was thrown".format(e)
 
-
     def run_expect_a(self, testdata):
         """
         Provides a simple sequential cmd and expected response structure for test data.
         Format of testdata for run_expect_a()
         "title": "Title of the test"
-        "logfile": "log1.txt"              # name to use for logfile
+        "logfile": "log1.txt"              # Optional
         "max_test_time_seconds": 30        # Optional, The max time the test is allowed to run before fail, default 15
         "aamp_cfg": "info=true\ntrace=true\n", # Values to set in aamp.cfg
         "expect_list": [                   # Simple list with cmds to send to aamp or log lines to
@@ -244,8 +243,9 @@ class Aamp:
              {"expect":"line expected from aamp"},
         ]
         """
-
-        print("{} {}".format(testdata["title"], testdata.get("logfile", '')))
+        if 'logfile' in testdata:
+            self.logfile_name = testdata["logfile"]
+        print("{} {}".format(testdata["title"],self.logfile_name))
 
         max_test_time_seconds = testdata.get("max_test_time_seconds", 15)
         self.create_aamp_cfg(testdata.get('aamp_cfg'))
@@ -295,7 +295,7 @@ class Aamp:
         Offers more capability for checking logs against expected timing relative to the start of the test.
         Format of testdata for run_expect_b()
         "title": "HLS Audio Discontinuity",
-        "logfile": "testdata3.txt",         # Optional, ensures log files from successive test in do not overwrite
+        "logfile": "testdata3.txt",         # Optional
         "max_test_time_seconds": 15         # Optional, The max time the test is allowed to run before fail
         "aamp_cfg": "info=true\ntrace=true\n", # Values to set in aamp.cfg
         "cmdlist": [                        # Optional, list of commands to give to aamp-cli before starting test proper
@@ -329,13 +329,15 @@ class Aamp:
 
         log_start_timestamp = 0
         log_timestamp = 0
+        if 'logfile' in testdata:
+            self.logfile_name = testdata["logfile"]
+        print("{} {}".format(testdata["title"],self.logfile_name))
 
-        print("{} {}".format(testdata["title"], testdata.get("logfile", '')))
         max_test_time_seconds = testdata.get("max_test_time_seconds", 15)
 
         if testdata.get('simlinear_type'):
             self.simlinear = Simlinear(self.test_dir_path, self.pytestconfig)
-            self.simlinear.start(testdata['simlinear_type'], logfile_name='simlinear_' + testdata['logfile'])
+            self.simlinear.start(testdata['simlinear_type'], logfile_name='simlinear_' + self.logfile_name)
 
         expect_list = []
         expect_did_happen = []
@@ -352,7 +354,7 @@ class Aamp:
 
         # A test can start aamp early to giv it some commands, in which case no need to start here
         if self.aamp_pexpect is None:
-            self.start_aamp('aamp_' + testdata['logfile'])
+            self.start_aamp()
 
         # Optional list of commands to give to aamp before starting test proper
         aamp_cmdlist = testdata.get('cmdlist', [])
@@ -434,4 +436,3 @@ def get_aamp_home():
         if tail == "aamp":
             return path
         path = head
-

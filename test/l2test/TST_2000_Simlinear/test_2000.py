@@ -32,7 +32,6 @@ import pytest
 
 TESTDATA1 = {
 "title": "Canned live HLS playback. No discontinuity",
-"logfile": "testdata1.txt",
 "url": "m3u8s/manifest.1.m3u8",
 "simlinear_type": "HLS",
 "max_test_time_seconds": 300,
@@ -47,7 +46,6 @@ TESTDATA1 = {
 
 TESTDATA2 = {
 "title": "Canned VOD HLS playback. No discontinuity",
-"logfile": "testdata2.txt",
 "url": "m3u8s_vod/manifest.1.m3u8",
 "simlinear_type": "HLS",
 "max_test_time_seconds": 300,
@@ -65,7 +63,6 @@ TESTDATA2 = {
 #Audio missing segments 19-21
 TESTDATA3= {
 "title": "HLS Audio Discontinuity",
-"logfile": "testdata3.txt",
 "url": "m3u8s_audio_discontinuity_180s/manifest.1.m3u8",
 "simlinear_type": "HLS",
 "max_test_time_seconds": 300,
@@ -87,7 +84,6 @@ TESTDATA3= {
 # video segments 19-20 missing
 TESTDATA4= {
 "title": "HLS Video Discontinuity",
-"logfile": "testdata4.txt",
 "url": "m3u8s_video_discontinuity_180s/manifest.1.m3u8",
 "simlinear_type": "HLS",
 "max_test_time_seconds": 300,
@@ -107,7 +103,6 @@ TESTDATA4= {
 
 TESTDATA5= {
 "title": "Audio and Video Discontinuity",
-"logfile": "testdata5.txt",
 "url": "m3u8s_paired_discontinuity_content_transition_108s/manifest.1.m3u8",
 "simlinear_type": "HLS",
 "max_test_time_seconds": 300,
@@ -134,7 +129,6 @@ TESTDATA5= {
 #But playlist audio.*.m3u8.15 will be published 3 seconds late
 TESTDATA6= {
 "title": "Discontinuity with audio delay",
-"logfile": "testdata6.txt",
 "url": "m3u8s_paired_discontinuity_audio_3s_108s/manifest.1.m3u8",
 "simlinear_type": "HLS",
 "max_test_time_seconds": 300,
@@ -162,7 +156,6 @@ TESTDATA6= {
 #But playlist video.*.m3u8.15 will be published 3 seconds late
 TESTDATA7= {
 "title": "Discontinuity with video delay",
-"logfile": "testdata7.txt",
 "url": "m3u8s_paired_discontinuity_video_3s_108s/manifest.1.m3u8",
 "simlinear_type": "HLS",
 "max_test_time_seconds": 300,
@@ -190,7 +183,6 @@ TESTDATA7= {
 #
 TESTDATA8= {
 "title": "HLS Discontinuity audio early",
-"logfile": "testdata8.txt",
 "url": "m3u8s_paired_discontinuity_audio_early_108s/manifest.1.m3u8",
 "simlinear_type": "HLS",
 "max_test_time_seconds": 300,
@@ -209,7 +201,6 @@ TESTDATA8= {
 #video segment 19 missing
 TESTDATA9= {
 "title": "HLS Discontinuity audio late",
-"logfile": "testdata9.txt",
 "url":"m3u8s_paired_discontinuity_audio_late_108s/manifest.1.m3u8",
 "simlinear_type": "HLS",
 "max_test_time_seconds": 300,
