@@ -19,27 +19,34 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-
+#include "MockGLib.h"
 #include "AampGrowableBuffer.h"
-
 #include "MockAampConfig.h"
 #include "MockPrivateInstanceAAMP.h"
 
+#include <functional>
 #include <cmath>
 
+
+using ::testing::NiceMock;
 using ::testing::_;
 using ::testing::Return;
-
 
 class ConstructorsTests : public ::testing::Test
 {
 protected:
 	ConstructorsTests()
 	: data_buf(data_len)
-	{}
+	{
+		callMalloc = [](size_t size){ return malloc(size); };
+		callRealloc = [](gpointer ptr, size_t size){ return realloc(ptr, size); };
+		callFree = [](gpointer ptr){ free(ptr); return; };
+	}
 
 	void SetUp() override
 	{
+		g_mockGLib = new NiceMock<MockGLib>();
+
 		data_buf.reserve(data_len);
 		for (auto & data : data_buf)
 		{
@@ -49,20 +56,26 @@ protected:
 
 	void TearDown() override
 	{
+		delete g_mockGLib;
 	}
 
 	std::vector<char> data_buf;
 	static constexpr uint16_t data_len = 128;
 
 public:
-
+	std::function<gpointer (size_t)>callMalloc;
+	std::function<gpointer (gpointer, size_t)>callRealloc;
+	std::function<void (gpointer)>callFree;
 };
 
 TEST_F(ConstructorsTests, Copy)
 {
 	AampGrowableBuffer buf("buf-copyctor");
 
+	EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillRepeatedly(callMalloc);
 	buf.ReserveBytes(data_len);
+
+	EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillRepeatedly(callRealloc);
 	buf.AppendBytes(data_buf.data(), data_buf.size());
 
 	auto tester = [this, &buf](AampGrowableBuffer & test_buf)
@@ -82,12 +95,14 @@ TEST_F(ConstructorsTests, Copy)
 			EXPECT_EQ(*bufcopy_ptr++, data_buf[idx]);
 		}
 	};
+	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
 
 	// Copy constructor
 	{
 		AampGrowableBuffer buf_ctor{buf};
 		tester(buf_ctor);
 	}
+	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
 
 	// Copy assignment
 	{
@@ -95,23 +110,27 @@ TEST_F(ConstructorsTests, Copy)
 		buf_assign = buf;
 		tester(buf_assign);
 	}
+	EXPECT_CALL(*g_mockGLib, g_free(_)).Times(2).WillRepeatedly(callFree);
 
 	// Copy assignment with replacement
 	{
 		AampGrowableBuffer buf_assign("buf-copyreplacement");
 		buf_assign.ReserveBytes(2*data_len);
 		buf_assign.AppendBytes(&data_buf[0], data_buf.size());
-
 		buf_assign = buf;
 		tester(buf_assign);
 	}
+	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
 }
 
 TEST_F(ConstructorsTests, Move)
 {
 	AampGrowableBuffer buf("buf-move-ctor");
 
+	EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillRepeatedly(callMalloc);
 	buf.ReserveBytes(data_len);
+
+	EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillRepeatedly(callRealloc);
 	buf.AppendBytes(&data_buf[0], data_buf.size());
 
 	auto tester = [this](const AampGrowableBuffer & src_buf, AampGrowableBuffer & test_buf)
@@ -129,6 +148,7 @@ TEST_F(ConstructorsTests, Move)
 			EXPECT_EQ(*bufcopy_ptr++, data_buf[idx]);
 		}
 	};
+	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
 
 	// Move constructor
 	{
@@ -136,6 +156,8 @@ TEST_F(ConstructorsTests, Move)
 		AampGrowableBuffer buf_ctor{std::move(buf_copy)};
 		tester(buf_copy, buf_ctor);
 	}
+	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
+
 	// Move assignment
 	{
 		AampGrowableBuffer buf_copy{buf};
@@ -144,15 +166,18 @@ TEST_F(ConstructorsTests, Move)
 		buf_assign = std::move(buf_copy);
 		tester(buf_copy, buf_assign);
 	}
+	EXPECT_CALL(*g_mockGLib, g_free(_)).Times(2).WillRepeatedly(callFree);
 
 	// Move assignment with replacement
 	{
 		AampGrowableBuffer buf_copy{buf};
 		AampGrowableBuffer buf_assign("buf-movereplacement");
+
 		buf_assign.ReserveBytes(2*data_len);
 		buf_assign.AppendBytes(&data_buf[0], data_buf.size());
 
 		buf_assign = std::move(buf_copy);
 		tester(buf_copy, buf_assign);
 	}
+	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
 }

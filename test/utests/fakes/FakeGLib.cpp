@@ -20,6 +20,9 @@
 #include <glib-object.h>
 #include <glib.h>
 #include <iostream>
+
+#include "MockGLib.h"
+
 using namespace std;
 
 #if 0
@@ -27,6 +30,8 @@ using namespace std;
 #else
 #define TRACE_FUNC() ((void)0)
 #endif
+
+MockGLib *g_mockGLib = nullptr;
 
 void g_object_set(gpointer object, const gchar *first_property_name, ...)
 {
@@ -110,4 +115,93 @@ gpointer g_object_new(GType object_type, const gchar *first_property_name, ...)
 void g_object_unref(gpointer object)
 {
 	TRACE_FUNC();
+}
+
+guint g_timeout_add(guint interval, GSourceFunc function, gpointer data)
+{
+	guint retval = 0;
+
+	if (g_mockGLib != nullptr)
+	{
+		retval = g_mockGLib->g_timeout_add(interval, function, data);
+	}
+
+	return retval;
+}
+
+gboolean g_source_remove(guint tag)
+{
+	gboolean retval = FALSE;
+
+	if (g_mockGLib != nullptr)
+	{
+		retval = g_mockGLib->g_source_remove(tag);
+	}
+	return retval;
+}
+
+GSource *g_main_current_source(void)
+{
+	return nullptr;
+}
+
+guint g_source_get_id(GSource *source)
+{
+	return 0;
+}
+
+void g_printerr(const gchar *format, ...)
+{
+
+}
+
+void g_clear_error(GError **err)
+{
+
+}
+
+void g_free(gpointer mem)
+{
+	if (g_mockGLib != nullptr)
+	{
+		g_mockGLib->g_free(mem);
+	}
+}
+
+int g_strcmp0(const char *str1, const char *str2)
+{
+	return 0;
+}
+
+guint g_timeout_add_full(gint priority, guint interval, GSourceFunc function, gpointer data, GDestroyNotify notify)
+{
+	return 0;
+}
+
+void g_usleep(gulong microseconds)
+{
+
+}
+
+gpointer g_malloc(gsize	 n_bytes)
+{
+	gpointer ptr;
+
+	if (g_mockGLib != nullptr)
+	{
+		ptr = g_mockGLib->g_malloc(n_bytes);
+	}
+	return ptr;
+}
+
+gpointer g_realloc (gpointer mem, gsize n_bytes)
+{
+	gpointer ptr;
+
+	if (g_mockGLib != nullptr)
+	{
+		ptr = g_mockGLib->g_realloc(mem, n_bytes);
+	}
+	return ptr;
+
 }

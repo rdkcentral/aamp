@@ -22,6 +22,7 @@
 
 #include "aampgstplayer.h"
 #include "MockGStreamer.h"
+#include "MockGLib.h"
 #include "MockAampConfig.h"
 
 using ::testing::NiceMock;
@@ -36,8 +37,6 @@ using ::testing::SetArgPointee;
 AampLogManager *mLogObj{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
 
-
-
 class AAMPGstPlayerTests : public ::testing::Test
 {
 
@@ -49,6 +48,7 @@ protected:
 	{
 		mLogObj = new AampLogManager();
 		g_mockGStreamer = new NiceMock<MockGStreamer>();
+		g_mockGLib = new NiceMock<MockGLib>();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
 		mPrivateInstanceAAMP->mLogObj = mLogObj;
@@ -58,6 +58,9 @@ protected:
 	{
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
+
+		delete g_mockGLib;
+		g_mockGLib = nullptr;
 
 		delete g_mockGStreamer;
 		g_mockGStreamer = nullptr;
@@ -254,10 +257,12 @@ TEST_F(AAMPGstPlayerTests, TimerAdd)
 	mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
 
 	// Code under test - Callback Pointer = Null, user_data = Null
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)) .Times(0);
 	mAAMPGstPlayer->TimerAdd(nullptr, repeatTimeout, taskId, user_data, "TimerAdd");
 	EXPECT_EQ(0,taskId);
 
 	// Code under test - user_data = Null
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)) .Times(0);
 	mAAMPGstPlayer->TimerAdd(ProgressCallbackOnTimeout, repeatTimeout, taskId, user_data, "TimerAdd");
 	EXPECT_EQ(0,taskId);
 
@@ -265,12 +270,14 @@ TEST_F(AAMPGstPlayerTests, TimerAdd)
 	taskId = 1;
 
 	// Code under test - taskId = 1 timer already added
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)) .Times(0);
 	mAAMPGstPlayer->TimerAdd(ProgressCallbackOnTimeout, repeatTimeout, taskId, user_data, "TimerAdd");
 	EXPECT_EQ(1,taskId);
 
 	taskId = 0;
 
 	// Code under test - Success Path
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)) .WillOnce(Return(1));
 	mAAMPGstPlayer->TimerAdd(ProgressCallbackOnTimeout, repeatTimeout, taskId, user_data, "TimerAdd");
 	EXPECT_EQ(1,taskId);
 
@@ -288,10 +295,10 @@ TEST_F(AAMPGstPlayerTests, TimerRemove)
 	// Expectations
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstDebugLevel))
 				.WillOnce(Return(debug_level));
-	EXPECT_CALL(*g_mockGStreamer,
-				gst_debug_set_threshold_from_string(StrEq(debug_level.c_str()), reset));
+	EXPECT_CALL(*g_mockGStreamer, gst_debug_set_threshold_from_string(StrEq(debug_level.c_str()), reset));
 
 	mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
+	EXPECT_CALL(*g_mockGLib, g_source_remove(_)) .Times(0);
 
 	// Code under test - taskId = 0 timer not added to be removed
 	mAAMPGstPlayer->TimerRemove(taskId, "TimerRemove");
@@ -300,6 +307,7 @@ TEST_F(AAMPGstPlayerTests, TimerRemove)
 	taskId = 1;
 
 	// Code under test - Success Path
+	EXPECT_CALL(*g_mockGLib, g_source_remove(_)) .WillOnce(Return(TRUE));
 	mAAMPGstPlayer->TimerRemove(taskId, "TimerRemove");
 	EXPECT_EQ(0,taskId);
 
