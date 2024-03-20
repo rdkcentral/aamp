@@ -1618,7 +1618,14 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 		}
 		else
 		{
-			AAMPLOG_INFO("demuxAndSend : discarded packet with pid %d", pid);
+			if((pid == 0)||(pid == m_pmtPid))
+			{
+				AAMPLOG_TRACE("demuxAndSend : discarded PAT or PMT packet with pid %d", pid);
+			}
+			else
+			{
+				AAMPLOG_INFO("demuxAndSend : discarded packet with pid %d", pid);
+			}
 		}
 
 		packetStart += PACKET_SIZE;
