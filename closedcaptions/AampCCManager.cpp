@@ -629,7 +629,6 @@ void AampCCManagerBase::SetTrickplayStatus(bool on)
  */
 void AampCCManagerBase::SetParentalControlStatus(bool locked)
 {
-	EnsureInitialized();
 	AAMPLOG_WARN("AampCCManagerBase:: lock status(%s)", (locked)?"true":"false");
 	if (locked)
 	{
