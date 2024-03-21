@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 # This script will build and run microtests.
 # Use option: -c to additionally build coverage tests
 # Use option: -h to halt coverage tests on error
@@ -29,10 +29,11 @@ EOF
 }
 
 # RDKAAMP-884 "corrupt arc tag"
-find . -name "*.gcda" -print0 | xargs -0 rm
+(find . -name "*.gcda" -print0 | xargs -0 rm) || true
 
 build_coverage=0
 halt_on_error=0
+rdke_build=0
 
 while getopts "ceh" opt; do
   case ${opt} in
@@ -54,24 +55,21 @@ done
 #(In development, to build just a single test, TESTLIST can be replaced with a single test folder, e.g. "AampCliSet)"
 TESTLIST=`find ./tests/* -maxdepth 0 -type d | cut -c 9-`
 TESTDIR=$PWD
-echo "Test list: "$TESTLIST
+AAMPDIR=$(realpath ${TESTDIR}/../..)
 
-#Function to build coverage tests. CWD should be test/utests/build. Pass in name of test build folder & name of test.
-build_test () {
-echo build $1 $2
-if [ -d "./tests/$1" ]; then
-   cd ./tests/$1
-   make $2
-   if [ "$?" -ne "0" ] && [ "$halt_on_error" -eq "1" ]; then
-     echo Halt on error $cov_name failed #$2 failed
-     exit $?
-   fi
-   cd ../..
-   true
-else
-   false
+echo "Test list: "$TESTLIST
+AAMP_BUILD_GCNO=""
+
+if [ "$build_coverage" -eq "1" ]; then
+    #Find where aamp .gcno files get put when aamp-cli is built via install-aamp.sh -c
+    A_GCNO=$(find ${AAMPDIR}/build -name 'AampConfig*gcno' -print -quit)
+
+    if [ -z "$A_GCNO" ]; then
+        echo "ERROR need to run 'install-aamp.sh -c' first to get baseline list of aamp files for coverage"
+        exit 1
+    fi 
+    AAMP_BUILD_GCNO=$(dirname $A_GCNO)
 fi
-}
 
 # Build and run microtests:
 set -e
@@ -112,34 +110,28 @@ else
     ctest -j 4 --output-on-failure --no-compress-output -T Test --testdir build --output-junit ctest-results.xml
 fi
 
-# Build coverage tests if option selected
-
 if [ "$build_coverage" -eq "1" ]; then
-  echo Building coverage tests
-  COMBINED="lcov "
-  for TEST in $TESTLIST ; do
-    #Find the test name (in case it doesn't match the test folder name) by searching for EXEC_NAME and stripping final character
-    COVNAME=`cat $TESTDIR/tests/$TEST/CMakeLists.txt | grep "set(EXEC_NAME" | cut -c 15- | sed 's/.$//'`
-    COVNAME=$COVNAME"_coverage"
-    if build_test $TEST $COVNAME ; then
-       #Build up the command to create the combined report by adding each test name
-       COMBINED=$COMBINED" -a ./"$COVNAME".info"
-    else
-       COMBINED_MISSING+="${COVNAME//_coverage} "
-    fi
-  done
+#We are in utests/build 
 
-  #Create combined test report
-  COMBINED=$COMBINED" -o combined.info"
-  echo "Combined: "$COMBINED
-  $COMBINED
-  genhtml combined.info -o ../CombinedCoverage
-  echo Building coverage tests complete
-  if [ ! -z "$COMBINED_MISSING" ] ; then
-     echo "!!!"
-     echo "Following tests were skipped, check tests/CMakeLists.txt to see if present: \"$COMBINED_MISSING\""
-     echo "!!!"
-  fi
+LCOV=lcov
+
+#Get initial baseline of files from aamp-cli build
+$LCOV --initial $IGNORE --directory ${AAMP_BUILD_GCNO} -b $AAMPDIR --capture --output-file baseline.info
+
+#Get a list of dirs which contain coverage data for aamp source files.
+TEST_DIRS=$(find tests -name '*.dir' -type d | grep -v _coverage.dir )
+COMBINE=""
+for DIR in $TEST_DIRS; do
+  info_file=$DIR/TEST.info
+  cmd="$LCOV --directory $DIR -b $TESTDIR --capture --output-file ${info_file}"
+  echo $cmd
+  $cmd
+  COMBINE=$COMBINE" -a $info_file"
+done
+$LCOV $COMBINE -a baseline.info --output-file all.info.1
+$LCOV --remove all.info.1 --output-file all.info "*/aamp/test/*" "*/aamp/Linux/*" "*/aamp/subtec/subtecparser/*" "/usr/*"
+genhtml --demangle-cpp -o ../CombinedCoverage all.info
+echo "Coverage written to $PWD/CombinedCoverage"
 fi
 
-exit $?
+

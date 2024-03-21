@@ -18,7 +18,7 @@ NOTE: Writing microtests is a really useful tool in improving code quality but i
 
 ## Pre-requisites to building:
 
-AAMP installed using install-aamp.sh script which:
+AAMP installed using install-aamp.sh (-c if code coverage is neeeded) script which:
  - installs headers from dependent libraries
  - installs GoogleTest and GoogleMock
  - installs jq
@@ -37,6 +37,9 @@ From the *utests* folder run:
 Report can be found in utests/TestReport.json
 
 ## Check line coverage in microtests:
+
+For code coverage install-aamp.sh -c 
+must have been run first to generate a baseline set of aamp files.
 
 From the *utests* directory, run:
 
@@ -136,4 +139,5 @@ For guidance on creating GoogleTest please see [GoogleTest User's Guide](https:/
 
 gdb can be run on an individual test via:
 cd build/tests/SomeTest
-gdb ...
+gdb ..
+.
