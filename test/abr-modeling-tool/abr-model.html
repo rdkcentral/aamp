@@ -1,0 +1,208 @@
+<html>
+	<head>
+		<script src="manifest.js"></script>
+		<script src="abrmanager.js"></script>
+		<script src="gfxutils.js"></script>
+		
+		<script>
+			var mAbrState;
+			
+			var mABRHighBufferCounter;
+			var mABRLowBufferCounter;
+			var mMaxBufferCountCheck;
+			var mNwConsistencyBypass;
+			
+			function Log( text )
+			{ // append to textarea element, to avoid having to browse console log
+				myText.value += text +"\n";
+			}
+			
+			function ABRGetCurrentTimeMS()
+			{
+				// return Date.now(); // simulation is not base on real world clock time
+				return mAbrState.elapsedTimeMs; //simulated clock
+			}
+			
+			function GetNetworkThroughputBps( t_ms )
+			{ // walk timeline of network impairment to find effective network BW for given time
+				let t_s = t_ms/1000;
+				var bps = 0;
+				for( var i=0; i<mAbrState.networkThroughputTimeline.length; i++ )
+				{
+					var tNext = mAbrState.networkThroughputTimeline[i].time;
+					if( tNext > t_s )
+					{
+						break;
+					}
+					bps = mAbrState.networkThroughputTimeline[i].bps;
+				}
+				//console.log( "t=" + t_s + ", bps=" + bps );
+				return bps;
+			}
+			
+			
+			function modelSegmentDownloadTime()
+			{ // model network performance
+				// we can introduce noise or simulate impairment here based on real device-measured delays
+				let networkThroughputBps = GetNetworkThroughputBps(mAbrState.elapsedTimeMs);
+				const bytesPerMs = networkThroughputBps/8000;
+				const fixedLatencyMs = mAbrState.networkLatencyMs; // optional fixed latency per download
+				let numBytes = manifest[mAbrState.profile].bytes;
+				let downloadTimeMs = numBytes/bytesPerMs+fixedLatencyMs;
+				
+				UpdateABRBitrateDataBasedOnCacheLife();
+				let downloadBps = CheckAbrThresholdSize(numBytes, downloadTimeMs, manifest[mAbrState.profile].bandwidth, fragmentDurationMs );
+				UpdateABRBitrateDataBasedOnCacheLength(downloadBps);
+				mAbrState.networkBandwidth = UpdateABRBitrateDataBasedOnCacheOutlier();
+				Log( JSON.stringify(mAbrState.bitrateData) + "-->" + mAbrState.networkBandwidth );
+				
+				mAbrState.desiredProfile = mAbrState.profile;
+				if( lockABR.checked )
+				{
+				}
+				else if( useHybridABR.checked )
+				{
+					mAbrState.desiredProfile = GetDesiredProfileBasedOnCache();
+				}
+				else if( CheckProfileChange() )
+				{
+					mAbrState.desiredProfile = getProfileIndexByBitrateRampUpOrDown();
+				}
+				return downloadTimeMs;
+			}
+			
+			function getFile()
+			{
+				let maxBufferedMs = mAbrState.targetBuffering;
+				if( mAbrState.bufferedMs>maxBufferedMs )
+				{ // throttle if buffers full
+					var waitMs = mAbrState.bufferedMs - maxBufferedMs;
+					networkDelay( waitMs, false );
+				}
+				
+				for(;;)
+				{
+					let downloadTimeMs = modelSegmentDownloadTime();
+					let color = "green"; // good
+					if( downloadTimeMs>mAbrState.CURL_FRAGMENT_DL_TIMEOUT )
+					{ // timeout
+						downloadTimeMs = mAbrState.CURL_FRAGMENT_DL_TIMEOUT; // clamp
+						if( mAbrState.downloadLowBWTimeout>0 )
+						{
+							downloadTimeMs = mAbrState.downloadLowBWTimeout;
+						}
+						// show failed download
+						networkDelay( downloadTimeMs, true, "#ffdddd" );
+						mAbrState.bufferedMs -= fragmentDurationMs;
+						if( mAbrState.profile>0 )
+						{ // ramp down & retry
+							mAbrState.profile--;
+							continue;
+						}
+						return;
+					}
+					networkDelay( downloadTimeMs, true );
+					mAbrState.profile = mAbrState.desiredProfile;
+					return;
+				}
+			}
+			
+			function LoadConfig()
+			{
+				mAbrState = {};
+				let table = document.getElementById("config");
+				let rows = table.rows;
+				for( var iRow=0; iRow<rows.length; iRow++ )
+				{
+					let input = rows[iRow].cells[1].children[0];
+					if( input.type == "number" )
+					{
+						mAbrState[input.id] = Number(input.value);
+					}
+					else if( input.type == "checkbox" )
+					{
+						mAbrState[input.id] = Number(input.checked);
+					}
+					else if( input.type == "textarea")
+					{
+						mAbrState[input.id] = JSON.parse(input.value)
+					}
+					else
+					{
+						alert( "unk config type: " + input.type );
+					}
+					console.log( input.id + ":=" + input.value );
+				}
+			}
+			
+			function modelABR()
+			{
+				LoadConfig();
+				myText.value = "";
+				drawBackdrop();
+				
+				mAbrState.bufferedMs = 0;
+				mAbrState.profile = mAbrState.initialProfile;
+				mAbrState.elapsedTimeMs = 0;
+				mAbrState.profileChangeUpCount = 0;
+				mAbrState.profileChangeDownCount = 0;
+				mAbrState.bitrateData = [];
+				mAbrState.loop = 1;
+				
+				mAbrState.nwConsistencyCnt = 0;
+				mAbrState.mNwConsistencyBypass = true;
+				mAbrState.mABRHighBufferCounter = 0;
+				mAbrState.mABRLowBufferCounter = 0;
+				mAbrState.mMaxBufferCountCheck = 0;
+				
+				mAbrBitrateData = [];
+				loop = 0;
+				
+				for( var i=0; i<50; i++ )
+				{
+					getFile();
+				}
+			}
+			window.onload = function()
+			{
+				modelABR();
+			}
+		</script>
+	</head>
+	
+	<body>
+		<canvas id="downloadActivityCanvas" style="border:1px solid #000000;" width="4096" height="200"></canvas>
+		<br/>
+		<canvas id="bufferHealthCanvas" style="border:1px solid #000000;" width="4096" height="170"></canvas>
+		<hr/>
+		<canvas id="networkBandwidthCanvas" style="border:1px solid #000000;" width="4096" height="200"></canvas>
+		<br/>
+
+		<input type="button" onclick="modelABR();" value="Begin ABR Simulator"/><br/>
+		
+		<table id="config">
+			<tr>
+				<td>network throughput(bps)</td><td>
+					<textarea id="networkThroughputTimeline" cols="32" rows="6">[{"time":0,"bps":4000000},{"time":10, "bps":900000},{"time":30,"bps":4000000}]</textarea></td></tr>
+			<tr><td>initial profile index<td><input type="number" id="initialProfile" value="1"/></td></tr>
+			<tr><td>Lock ABR<td><input type="checkbox" id="lockABR"/>Enable</td></tr>
+			<tr><td>network latency(ms)<td><input type="number" id="networkLatencyMs" value="0"/></td></tr>
+			<tr><td>Use New (Hybrid) ABR<td><input type="checkbox" id="useHybridABR" checked/>Enable</td></tr>
+			<tr><td>Low BW Timeout(ms)<td><input type="number" id="downloadLowBWTimeout" value="3000"/></td></tr>
+			<tr><td>Curl Fragment Download Timeout(ms)</td><td><input type="number" id="CURL_FRAGMENT_DL_TIMEOUT" value="10000"/></td></tr>
+			<tr><td>target buffering(ms)</td><td><input type="number" id="targetBuffering" value="15000"/></td></tr>
+			<tr><td>ABR cache life(ms)</td><td><input type="number" id="ABR_CACHE_LIFE" value="5000"/></td></tr>
+			<tr><td>ABR outlier(MB)</td><td><input type="number" id="ABR_OUTLIER" value="5000000"/></td></tr>
+			<tr><td>ABR initial skip duration(ms)</td><td><input type="number" id="ABR_SKIP_DURATION" value="6000"/></tr>
+			<tr><td>ABR network consistency count</td><td><input type="number" id="ABR_NW_CONSISTENCY_CNT" value="2"/></td></tr>
+			<tr><td>BUFFER_HEALTH_MONITOR_DELAY(ms)</td><td><input type="number" id="BUFFER_HEALTH_MONITOR_DELAY" value="10000"/></td></tr>
+			<tr><td>BUFFER_HEALTH_MONITOR_INTERVAL(ms)</td><td><input type="number" id="BUFFER_HEALTH_MONITOR_INTERVAL" value="5000"/></td></tr>
+			<tr><td>ABR cache length</td><td><input type="number" id="ABR_CACHE_LENGTH" value="3"/></td></tr>
+			<tr><td>AAMP_LOW_BUFFER_BEFORE_RAMPDOWN(ms)</td><td><input type="number" id="mABRMinBuffer" value="10000"/></td></tr>
+			<tr><td>AAMP_HIGH_BUFFER_BEFORE_RAMPUP(ms)</td><td><input type="number" id="mABRMaxBuffer" value="15000"/></td></tr>
+		</table>
+		
+		<hr/>
+		<textarea id="myText" rows="20" cols="160"></textarea>
+	</body>
+</html>
