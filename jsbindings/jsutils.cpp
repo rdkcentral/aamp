@@ -40,6 +40,32 @@
 
 #define MAX_DEBUG_LOG_BUFF_SIZE 1024
 
+VideoZoomMode MapZoomMode( const char *zoomStr )
+{
+	VideoZoomMode zoom = VIDEO_ZOOM_FULL; // default
+	if( zoomStr )
+	{
+		static const char *name[]
+		{
+			"none", // VIDEO_ZOOM_NONE
+			"direct", // VIDEO_ZOOM_DIRECT
+			"normal", // VIDEO_ZOOM_NORMAL
+			"stretch", // VIDEO_ZOOM_16X9_STRETCH
+			"pillar", // VIDEO_ZOOM_4x3_PILLAR_BOX
+			"full", // VIDEO_ZOOM_FULL
+			"global", // VIDEO_ZOOM_GLOBAL
+		};
+		for( int i=0; i<ARRAY_SIZE(name); i++ )
+		{
+			if (0 == strcmp(zoomStr, name[i]) )
+			{
+				zoom = (VideoZoomMode)i;
+			}
+		}
+	}
+	return zoom;
+}
+
 /**
  * @struct EventTypeMap
  * @brief Struct to map names of AAMP events and JS events

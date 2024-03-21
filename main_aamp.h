@@ -115,8 +115,13 @@ enum StreamOutputFormat
  */
 enum VideoZoomMode
 {
-	VIDEO_ZOOM_FULL,    /**< Video Zoom Enabled */
-	VIDEO_ZOOM_NONE     /**< Video Zoom Disabled */
+	VIDEO_ZOOM_NONE,    /**< Video Zoom None */
+	VIDEO_ZOOM_DIRECT,  /**< Video Zoom Direct */
+	VIDEO_ZOOM_NORMAL,  /**< Video Zoom Normal */
+	VIDEO_ZOOM_16X9_STRETCH, /**< Video Zoom 16x9 stretch */
+	VIDEO_ZOOM_4x3_PILLAR_BOX, /**< Video Zoom 4x3 pillar box */
+	VIDEO_ZOOM_FULL, /**< Video Zoom Full */
+	VIDEO_ZOOM_GLOBAL/**< Video Zoom Global */
 };
 
 

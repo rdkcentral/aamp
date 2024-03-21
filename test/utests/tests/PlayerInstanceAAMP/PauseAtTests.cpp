@@ -590,15 +590,34 @@ TEST_F(PauseAtTests, SetVideoRectangleTest3) {
 
     mPlayerInstance->SetVideoRectangle(x, y, w, h);
 }
-TEST_F(PauseAtTests, SetVideoZoomTest1) {
-    
-    VideoZoomMode zoom = VIDEO_ZOOM_FULL;
-    mPlayerInstance->SetVideoZoom(zoom);
-}
-TEST_F(PauseAtTests, SetVideoZoomTest2) {
-    
+
+TEST_F(PauseAtTests, SetVideoZoomTest0) {
     VideoZoomMode zoom = VIDEO_ZOOM_NONE;
     mPlayerInstance->SetVideoZoom(zoom);
+}
+TEST_F(PauseAtTests, SetVideoZoomTest1) {
+	VideoZoomMode zoom = VIDEO_ZOOM_DIRECT;
+	mPlayerInstance->SetVideoZoom(zoom);
+}
+TEST_F(PauseAtTests, SetVideoZoomTest2) {
+	VideoZoomMode zoom = VIDEO_ZOOM_NORMAL;
+	mPlayerInstance->SetVideoZoom(zoom);
+}
+TEST_F(PauseAtTests, SetVideoZoomTest3) {
+	VideoZoomMode zoom = VIDEO_ZOOM_16X9_STRETCH;
+	mPlayerInstance->SetVideoZoom(zoom);
+}
+TEST_F(PauseAtTests, SetVideoZoomTest4) {
+	VideoZoomMode zoom = VIDEO_ZOOM_4x3_PILLAR_BOX;
+	mPlayerInstance->SetVideoZoom(zoom);
+}
+TEST_F(PauseAtTests, SetVideoZoomTest5) {
+	VideoZoomMode zoom = VIDEO_ZOOM_FULL;
+	mPlayerInstance->SetVideoZoom(zoom);
+}
+TEST_F(PauseAtTests, SetVideoZoomTest6) {
+	VideoZoomMode zoom = VIDEO_ZOOM_GLOBAL;
+	mPlayerInstance->SetVideoZoom(zoom);
 }
 
 TEST_F(PauseAtTests, SetVideoMute_NotNullAamp1) {

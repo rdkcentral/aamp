@@ -2768,17 +2768,8 @@ static JSValueRef AAMP_setZoom(JSContextRef context, JSObjectRef function, JSObj
 	}
 	else
 	{
-		VideoZoomMode zoom;
 		char* zoomStr = aamp_JSValueToCString(context, arguments[0], exception);
-        	LOG_WARN(pAAMP,"zoomStr %s", zoomStr);
-		if (0 == strcmp(zoomStr, "none"))
-		{
-			zoom = VIDEO_ZOOM_NONE;
-		}
-		else
-		{
-			zoom = VIDEO_ZOOM_FULL;
-		}
+		VideoZoomMode zoom = MapZoomMode( zoomStr );
 		pAAMP->_aamp->SetVideoZoom(zoom);
 		SAFE_DELETE_ARRAY(zoomStr);
 	}
