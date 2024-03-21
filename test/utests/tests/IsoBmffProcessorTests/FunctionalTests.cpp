@@ -127,6 +127,9 @@ TEST_F(IsoBmffProcessorTests, abortTests1)
 //Race condition between setTuneTimePTS and reset calls
 TEST_F(IsoBmffProcessorTests, abortTests2)
 {
+	// with the changes in LLAMA-13575 it is no longer possible to abort() during getTimeScale()
+	GTEST_SKIP() << "test not valid with LLAMA-13575 changes";
+
 	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests2");
 	bool ptsError = false;
 
@@ -145,6 +148,9 @@ TEST_F(IsoBmffProcessorTests, abortTests2)
 //Race condition between setTuneTimePTS and reset calls
 TEST_F(IsoBmffProcessorTests, abortTests3)
 {
+	// with the changes in LLAMA-13575 it is no longer possible to abort() during getTimeScale()
+	GTEST_SKIP() << "test not valid with LLAMA-13575 changes";
+	
 	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests3");
 	bool ptsError = false;
 

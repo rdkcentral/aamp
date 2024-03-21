@@ -261,6 +261,13 @@ private:
 	void resetRestampVariables();
 
 	/**
+	 * @fn internalResetRestampVariables
+	 *
+	 * @return void
+	 */
+	void internalResetRestampVariables();
+
+	/**
 	 * @fn setRestampBasePTS
 	 *
 	 * @param[in] pts - base PTS value after re-stamping
@@ -421,9 +428,10 @@ private:
 	bool processPTSComplete;
 	bool initSegmentProcessComplete;
 	bool scalingOfPTSComplete;
-	bool abortAll;
-	bool enabled;
+	bool stopped; // flag to indicate if the module is active
+	bool aborted; // flag to indicate an abort() has occured
 	bool resetSumPTS;
+	bool enabled;
 
 	std::vector<AampGrowableBuffer *> initSegment;
 	std::vector<stInitRestampSegment *> resetPTSInitSegment;
