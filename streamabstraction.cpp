@@ -2196,9 +2196,19 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 			}
 		}
 	}
-	else
+	else if (video)
 	{
-		desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
+		double buffervalue = video->GetBufferedDuration();
+		if(buffervalue > mABRMaxBuffer)
+		{
+			desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
+		}
+		else
+		{
+			
+			desiredProfileIndex = GetProfileIndexForBandwidth(aamp->mhAbrManager.FragmentfailureRampdown(buffervalue,currentProfileIndex));
+			
+		}
 	}
 	if (desiredProfileIndex != currentProfileIndex)
 	{

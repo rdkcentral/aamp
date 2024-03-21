@@ -97,3 +97,7 @@ void HybridABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcach
 {
 }
 
+long HybridABRManager::FragmentfailureRampdown(int buffer,int currentprofileindex)
+{
+	return 0;
+}
