@@ -1,0 +1,68 @@
+[
+    
+    [
+        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+        {"cmd": "set 42 2"},
+        {"expect": "Matched Command AudioTrack - set 42 2"},
+        {"cmd": "get 26"},
+        {"expect": "\"language\":\t\"eng\","},
+        {"expect": "\"codec\":\t\"mp4a.40.2\","},
+        {"expect": "\"bandwidth\":\t288000,"},
+		{"expect": "\"type\":\t\"audio\""},
+        {"cmd": "sleep 3000"},
+        {"cmd": "stop"},
+        {"expect": "AAMP_EVENT_STATE_CHANGED: IDLE"}
+    ],
+    [
+        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+        {"cmd": "set 42 0"},
+        {"expect": "Matched Command AudioTrack - set 42 0"},
+        {"cmd": "get 26"},
+        {"expect": "\"language\":\t\"ger\","},
+        {"expect": "\"codec\":\t\"mp4a.40.2\","},
+        {"expect": "\"bandwidth\":\t288000,"},
+		{"expect": "\"type\":\t\"audio\""},
+        {"cmd": "sleep 3000"},
+        {"cmd": "stop"},
+        {"expect": "AAMP_EVENT_STATE_CHANGED: IDLE"}
+    ],
+    [
+        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+        {"cmd": "set 42 4"},
+        {"expect": "Matched Command AudioTrack - set 42 4"},
+        {"cmd": "get 26"},
+        {"expect": "\"language\":\t\"spa\","},
+        {"expect": "\"codec\":\t\"mp4a.40.2\","},
+        {"expect": "\"bandwidth\":\t288000,"},
+		{"expect": "\"type\":\t\"audio\""},
+        {"cmd": "sleep 3000"},
+        {"cmd": "stop"},
+        {"expect": "AAMP_EVENT_STATE_CHANGED: IDLE"}
+    ],
+    [
+        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+        {"cmd": "set 42 6"},
+        {"expect": "Matched Command AudioTrack - set 42 6"},
+        {"cmd": "get 26"},
+        {"expect": "\"language\":\t\"fra\","},
+        {"expect": "\"codec\":\t\"mp4a.40.2\","},
+        {"expect": "\"bandwidth\":\t288000,"},
+		{"expect": "\"type\":\t\"audio\""},
+        {"cmd": "sleep 3000"},
+        {"cmd": "stop"},
+        {"expect": "AAMP_EVENT_STATE_CHANGED: IDLE"}
+    ],
+    [
+        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+        {"cmd": "set 42 8"},
+        {"expect": "Matched Command AudioTrack - set 42 8"},
+        {"cmd": "get 26"},
+        {"expect": "\"language\":\t\"pol\","},
+        {"expect": "\"codec\":\t\"mp4a.40.2\","},
+        {"expect": "\"bandwidth\":\t288000,"},
+		{"expect": "\"type\":\t\"audio\""},
+        {"cmd": "sleep 3000"},
+        {"cmd": "stop"},
+        {"expect": "AAMP_EVENT_STATE_CHANGED: IDLE"}
+    ]
+]
