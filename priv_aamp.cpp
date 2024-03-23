@@ -12523,6 +12523,7 @@ bool PrivateInstanceAAMP::GetLowLatencyServiceConfigured()
 void PrivateInstanceAAMP::SetLowLatencyServiceConfigured(bool bConfig)
 {
 	bLowLatencyServiceConfigured = bConfig;
+	mhAbrManager.SetLowLatencyServiceConfigured(bConfig);
 }
 /**
  *  @brief Get Current Latency

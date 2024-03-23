@@ -11837,6 +11837,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadLowBWTimeout,TIMEOUT_FOR_LLD);
 						
 						SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_ManifestTimeout,MANIFEST_TIMEOUT_FOR_LLD);
+						SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_ABRBufferCounter,ABR_BUFFER_COUNTER_FOR_LLD);
 						uint32_t manifestDwnldTimeout = (uint32_t) GETCONFIGVALUE(eAAMPConfig_ManifestTimeout); /** Reread the value to get the preferred value set by config*/
 						dnldInstance->SetNetworkTimeout(manifestDwnldTimeout);
 						AAMPLOG_INFO("Updated Manifest Timeout to %d for LLD", manifestDwnldTimeout);

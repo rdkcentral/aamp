@@ -487,6 +487,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_SUBTITLE_CLOCK_SYNC_INTERVAL,"subtitleClockSyncInterval",eAAMPConfig_SubtitleClockSyncInterval,true},
 	{eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START,"preferredAbsoluteReporting",eAAMPConfig_PreferredAbsoluteProgressReporting,true, eCONFIG_RANGE_ANY},
 	{EOS_INJECTION_MODE_STOP_ONLY,"EOSInjectionMode", eAAMPConfig_EOSInjectionMode,true},
+	{DEFAULT_ABR_BUFFER_COUNTER,"abrBufferCounter", eAAMPConfig_ABRBufferCounter,true},
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },

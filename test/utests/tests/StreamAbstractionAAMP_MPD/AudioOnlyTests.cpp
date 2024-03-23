@@ -104,7 +104,8 @@ protected:
                 {eAAMPConfig_RampDownLimit, -1},
                 {eAAMPConfig_MaxFragmentCached, DEFAULT_CACHED_FRAGMENTS_PER_TRACK},
                 {eAAMPConfig_PrePlayBufferCount, DEFAULT_PREBUFFER_COUNT},
-                {eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS}
+                {eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
+                {eAAMPConfig_ABRBufferCounter,DEFAULT_ABR_BUFFER_COUNTER}
         };
 
         IntConfigSettings mIntConfigSettings;
