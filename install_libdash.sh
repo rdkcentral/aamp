@@ -54,6 +54,7 @@ patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0008-DELIA-53263-Use
 patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0009-RDK-35134-Support-for-FailoverContent.patch
 patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0010-RDKAAMP-121-Failover-Tag-on-SegmentTemplate.patch
 patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0011-RDKAAMP-61-AAMP-low-latency-dash-stream-evaluation.patch	
+patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0012-To-retrieves-the-text-content-of-CDATA-section.patch
 mkdir -p build
 cd build
 cmake ..
