@@ -27,7 +27,8 @@
 
 #include "mediaprocessor.h"
 #include "priv_aamp.h"
-#include <pthread.h>
+#include <mutex>
+#include <condition_variable>
 
 /**
  * @class ElementaryProcessor
@@ -176,10 +177,10 @@ private:
     bool processPTSComplete;
 	bool abortAll;
 
-	pthread_mutex_t m_mutex;
-	pthread_cond_t m_cond;
+	std::mutex accessMutex;
+	std::condition_variable abortSignal;
+
 	AampLogManager *mLogObj;
 };
 
 #endif /* __ELEMENTARYPROCESSOR_H__ */
-

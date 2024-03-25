@@ -27,14 +27,12 @@
 #include <assert.h>
 
 ElementaryProcessor::ElementaryProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj)
-: p_aamp(aamp), basePTS(0), playRate(1.0f), abortAll(false), m_mutex(), m_cond(), contentType(ContentType_UNKNOWN),
+: p_aamp(aamp), basePTS(0), playRate(1.0f), abortAll(false), contentType(ContentType_UNKNOWN),
 	mLogObj(logObj), processPTSComplete(false),mediaFormat(eMEDIAFORMAT_UNKNOWN)
 {
     mediaFormat = p_aamp->GetMediaFormatTypeEnum();
 
 	AAMPLOG_WARN("ElementaryProcessor:: Created ElementaryProcessor(%p) for mediaformat %d", this,mediaFormat);
-	pthread_mutex_init(&m_mutex, NULL);
-	pthread_cond_init(&m_cond, NULL);
 }
 
 /**
@@ -42,8 +40,6 @@ ElementaryProcessor::ElementaryProcessor(class PrivateInstanceAAMP *aamp, AampLo
  */
 ElementaryProcessor::~ElementaryProcessor()
 {
-	pthread_mutex_destroy(&m_mutex);
-	pthread_cond_destroy(&m_cond);
 }
 
 /**
@@ -89,21 +85,21 @@ bool ElementaryProcessor::setTuneTimePTS(char *segment, const size_t& size, doub
 	AAMPLOG_INFO("ElementaryProcessor:: sending segment at pos:%f dur:%f", position, duration);
 
 	// Logic for Audio Track
-	if (!processPTSComplete)
+	// Wait for video to parse PTS
+	std::unique_lock<std::mutex> guard(accessMutex);
+
+	if(!processPTSComplete)
 	{
-		// Wait for video to parse PTS
-		pthread_mutex_lock(&m_mutex);
-		if (!processPTSComplete)
-		{
-			AAMPLOG_INFO("ElementaryProcessor Going into wait for PTS processing to complete");
-			pthread_cond_wait(&m_cond, &m_mutex);
-		}
-		if (abortAll)
-		{
-			ret = false;
-		}
-		pthread_mutex_unlock(&m_mutex);
+		AAMPLOG_INFO("ElementaryProcessor Going into wait for PTS processing to complete");
+		// Or abort raised
+		abortSignal.wait(guard);
 	}
+
+	if (abortAll)
+	{
+		ret = false;
+	}
+
 	return ret;
 }
 
@@ -112,10 +108,11 @@ bool ElementaryProcessor::setTuneTimePTS(char *segment, const size_t& size, doub
 */
 void ElementaryProcessor::abortInjectionWait()
 {
-	pthread_mutex_lock(&m_mutex);
-	processPTSComplete = true;
-	pthread_cond_signal(&m_cond);
-	pthread_mutex_unlock(&m_mutex);
+	{
+		std::lock_guard<std::mutex> guard(accessMutex);
+		processPTSComplete = true;
+	}
+	abortSignal.notify_one();
 }
 
 /**
@@ -124,10 +121,12 @@ void ElementaryProcessor::abortInjectionWait()
 void ElementaryProcessor::abort()
 {
 	AAMPLOG_WARN("ElementaryProcessor::abort() called ");
-	pthread_mutex_lock(&m_mutex);
-	abortAll = true;
-	pthread_cond_signal(&m_cond);
-	pthread_mutex_unlock(&m_mutex);
+	{
+		std::lock_guard<std::mutex> guard(accessMutex);
+		abortAll = true;
+	}
+	abortSignal.notify_one();
+
 	reset();
 }
 
@@ -137,11 +136,10 @@ void ElementaryProcessor::abort()
 void ElementaryProcessor::reset()
 {
 	AAMPLOG_INFO("ElementaryProcessor reset called");
-	pthread_mutex_lock(&m_mutex);
+	std::lock_guard<std::mutex> guard(accessMutex);
 	basePTS = 0;
 	processPTSComplete = false;
 	abortAll = false;
-	pthread_mutex_unlock(&m_mutex);
 }
 
 /**
