@@ -30,11 +30,13 @@
 #include <assert.h>
 #include "AampUtils.h"
 
+
 /**
 * AVInput thunder plugin reference: https://rdkcentral.github.io/rdkservices/#/api/AVInputPlugin
 */
 
 #define HDMIINPUT_CALLSIGN "org.rdk.AVInput.1"
+StreamAbstractionAAMP_HDMIIN* StreamAbstractionAAMP_HDMIIN::mHdmiinInstance = NULL;
 
 /**
  * @brief StreamAbstractionAAMP_HDMIIN Constructor
@@ -51,6 +53,7 @@ StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(AampLogManager *logOb
 StreamAbstractionAAMP_HDMIIN::~StreamAbstractionAAMP_HDMIIN()
 {
 	AAMPLOG_WARN("destructor ");
+	mHdmiinInstance = NULL;
 }
 
 /**
@@ -59,12 +62,15 @@ StreamAbstractionAAMP_HDMIIN::~StreamAbstractionAAMP_HDMIIN()
 AAMPStatusType StreamAbstractionAAMP_HDMIIN::Init(TuneType tuneType)
 {
 	AAMPStatusType retval = eAAMPSTATUS_OK;
-	retval = InitHelper(tuneType);
+	if(false == mIsInitialized)
+	{
+		retval = InitHelper(tuneType);
 
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-	std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> videoInfoUpdatedMethod = std::bind(&StreamAbstractionAAMP_HDMIIN::OnVideoStreamInfoUpdate, this, std::placeholders::_1);
-	RegisterEvent("videoStreamInfoUpdate", videoInfoUpdatedMethod);
+		std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> videoInfoUpdatedMethod = std::bind(&StreamAbstractionAAMP_HDMIIN::OnVideoStreamInfoUpdate, this, std::placeholders::_1);
+		RegisterEvent("videoStreamInfoUpdate", videoInfoUpdatedMethod);
 #endif
+	}
 	return retval;
 }
 
@@ -92,6 +98,36 @@ void StreamAbstractionAAMP_HDMIIN::Stop(bool clearChannelData)
 	StopHelper();
 }
 
+/**
+ *   @brief get StreamAbstractionAAMP_HDMIIN instance
+ */
+
+StreamAbstractionAAMP_HDMIIN * StreamAbstractionAAMP_HDMIIN::GetInstance(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+{
+	if( mHdmiinInstance == NULL)
+	{
+		mHdmiinInstance = new StreamAbstractionAAMP_HDMIIN(logObj,aamp,seekpos,rate);
+	}
+	else
+	{
+		// Reuse existing instance and set new aamp and logObj
+		mHdmiinInstance->aamp = aamp;
+		mHdmiinInstance->mLogObj = logObj;
+		mHdmiinInstance->aamp->SetContentType("HDMI_IN");
+	}
+	return mHdmiinInstance;
+}
+
+/**
+ *   @brief Clear aamp and LogObj of HdmiinInstance
+ */
+void StreamAbstractionAAMP_HDMIIN::ResetInstance()
+{
+	//clear aamp and logObj
+	mHdmiinInstance->aamp = NULL;
+	mHdmiinInstance->mLogObj = NULL;
+}
+
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 
 /**
@@ -99,19 +135,22 @@ void StreamAbstractionAAMP_HDMIIN::Stop(bool clearChannelData)
  */
 void StreamAbstractionAAMP_HDMIIN::OnVideoStreamInfoUpdate(const JsonObject& parameters)
 {
-        std::string message;
-        parameters.ToString(message);
-        AAMPLOG_WARN("%s",message.c_str());
+	if(aamp)
+	{
+		std::string message;
+		parameters.ToString(message);
+		AAMPLOG_WARN("%s",message.c_str());
 
-        JsonObject videoInfoObj = parameters;
-        VideoScanType videoScanType = (videoInfoObj["progressive"].Boolean() ? eVIDEOSCAN_PROGRESSIVE : eVIDEOSCAN_INTERLACED);
+	        JsonObject videoInfoObj = parameters;
+		VideoScanType videoScanType = (videoInfoObj["progressive"].Boolean() ? eVIDEOSCAN_PROGRESSIVE : eVIDEOSCAN_INTERLACED);
 
-	double frameRate = 0.0;
-	double frameRateN = static_cast<double> (videoInfoObj["frameRateN"].Number());
-	double frameRateD = static_cast<double> (videoInfoObj["frameRateD"].Number());
-	if((0 != frameRateN) && (0 != frameRateD))
-		frameRate = frameRateN / frameRateD;
+		double frameRate = 0.0;
+		double frameRateN = static_cast<double> (videoInfoObj["frameRateN"].Number());
+		double frameRateD = static_cast<double> (videoInfoObj["frameRateD"].Number());
+		if((0 != frameRateN) && (0 != frameRateD))
+			frameRate = frameRateN / frameRateD;
 
-	aamp->NotifyBitRateChangeEvent(0, eAAMP_BITRATE_CHANGE_BY_HDMIIN, videoInfoObj["width"].Number(), videoInfoObj["height"].Number(), frameRate, 0, false, videoScanType, 0, 0);
+		aamp->NotifyBitRateChangeEvent(0, eAAMP_BITRATE_CHANGE_BY_HDMIIN, videoInfoObj["width"].Number(), videoInfoObj["height"].Number(), frameRate, 0, false, videoScanType, 0, 0);
+	}
 }
 #endif

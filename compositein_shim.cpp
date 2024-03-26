@@ -30,6 +30,7 @@
 
 
 #define COMPOSITEINPUT_CALLSIGN "org.rdk.AVInput.1"
+StreamAbstractionAAMP_COMPOSITEIN* StreamAbstractionAAMP_COMPOSITEIN::mCompositeinInstance = NULL;
 
 /**
  * @brief StreamAbstractionAAMP_COMPOSITEIN Constructor
@@ -46,6 +47,7 @@ StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(AampLogMana
 StreamAbstractionAAMP_COMPOSITEIN::~StreamAbstractionAAMP_COMPOSITEIN()
 {
 	AAMPLOG_WARN("destructor ");
+	mCompositeinInstance = NULL;
 }
 
 /**
@@ -82,4 +84,32 @@ void StreamAbstractionAAMP_COMPOSITEIN::Stop(bool clearChannelData)
 	StopHelper();
 }
 
+/**
+ * @brief get StreamAbstractionAAMP_COMPOSITEIN instance
+ */
+StreamAbstractionAAMP_COMPOSITEIN * StreamAbstractionAAMP_COMPOSITEIN::GetInstance(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+{
+	if(mCompositeinInstance == NULL)
+	{
+		mCompositeinInstance = new StreamAbstractionAAMP_COMPOSITEIN(logObj,aamp,seekpos,rate);
+	}
+	else
+	{
+		// Reuse existing instance and set new aamp and logObj
+		mCompositeinInstance->aamp = aamp;
+		mCompositeinInstance->mLogObj = logObj;
+		mCompositeinInstance->aamp->SetContentType("COMPOSITE_IN");
+	}
 
+	return mCompositeinInstance;
+}
+
+/**
+*  @brief Clear aamp and LogObj of CompositeInInstance
+*/
+void StreamAbstractionAAMP_COMPOSITEIN::ResetInstance()
+{
+	//clear aamp and logObj
+	mCompositeinInstance->aamp = NULL;
+	mCompositeinInstance->mLogObj = NULL;
+}

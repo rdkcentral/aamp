@@ -42,12 +42,15 @@ class StreamAbstractionAAMP_COMPOSITEIN : public StreamAbstractionAAMP_VIDEOIN
 {
 public:
     /**
-     * @fn StreamAbstractionAAMP_COMPOSITEIN
-     * @param aamp pointer to PrivateInstanceAAMP object associated with player
-     * @param seekpos Seek position
-     * @param rate playback rate
-     */
-    StreamAbstractionAAMP_COMPOSITEIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+    *   @brief get StreamAbstractionAAMP_COMPOSITEIN instance
+    */
+    static StreamAbstractionAAMP_COMPOSITEIN * GetInstance(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+
+    /**
+    *  @brief Clear aamp and LogObj of CompositeInInstance
+    */
+    static void ResetInstance();
+
     /**
      * @fn ~StreamAbstractionAAMP_COMPOSITEIN
      */
@@ -76,6 +79,16 @@ public:
      * @fn Stop
      */
     void Stop(bool clearChannelData) override;
+
+    private:
+    /**
+     * @fn StreamAbstractionAAMP_COMPOSITEIN
+     * @param aamp pointer to PrivateInstanceAAMP object associated with player
+     * @param seekpos Seek position
+     * @param rate playback rate
+     */
+     StreamAbstractionAAMP_COMPOSITEIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+     static StreamAbstractionAAMP_COMPOSITEIN* mCompositeinInstance;
 };
 
 #endif // COMPOSITEIN_SHIM_H_

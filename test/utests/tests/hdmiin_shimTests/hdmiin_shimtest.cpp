@@ -39,12 +39,13 @@ protected:
     {
         mPrivateInstanceAAMP = new PrivateInstanceAAMP();
         mLogObj = new AampLogManager();
-        HDMIinput= new StreamAbstractionAAMP_HDMIIN(mLogObj, mPrivateInstanceAAMP, 0.0, 1.0);
+        HDMIinput= StreamAbstractionAAMP_HDMIIN::GetInstance(mLogObj, mPrivateInstanceAAMP, 0.0, 1.0);
     }
 
     void TearDown() override
     {
-        delete HDMIinput;
+        StreamAbstractionAAMP_HDMIIN::ResetInstance();
+        //HDMIinput->~StreamAbstractionAAMP_HDMIIN(); // FIXME!
     }
 
     StreamAbstractionAAMP_HDMIIN *HDMIinput;
@@ -52,9 +53,9 @@ protected:
 
 TEST_F(StreamAbstractionAAMP_HDMIINTest, DestructorTest)
 {
-    StreamAbstractionAAMP_HDMIIN* HDMIinput_1 = new StreamAbstractionAAMP_HDMIIN(mLogObj, mPrivateInstanceAAMP, 0.0, 1.0);
-    // Act: Call the destructor explicitly
-    HDMIinput_1->~StreamAbstractionAAMP_HDMIIN();
+    StreamAbstractionAAMP_HDMIIN* HDMIinput_1 = StreamAbstractionAAMP_HDMIIN::GetInstance(mLogObj, mPrivateInstanceAAMP, 0.0, 1.0);
+    StreamAbstractionAAMP_HDMIIN::ResetInstance();
+    //HDMIinput_1->~StreamAbstractionAAMP_HDMIIN(); // FIXME!
 }
 
 TEST_F(StreamAbstractionAAMP_HDMIINTest, InitRegistersEvents)

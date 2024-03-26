@@ -4664,7 +4664,21 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 	if (mpStreamAbstractionAAMP)
 	{
 		mpStreamAbstractionAAMP->Stop(false);
-		SAFE_DELETE(mpStreamAbstractionAAMP);
+
+		if(mContentType == ContentType_HDMIIN)
+		{
+			StreamAbstractionAAMP_HDMIIN::ResetInstance();
+			mpStreamAbstractionAAMP = NULL;
+		}
+		else if(mContentType == ContentType_COMPOSITEIN)
+		{
+			StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
+			mpStreamAbstractionAAMP = NULL;
+		}
+		else
+		{
+			SAFE_DELETE(mpStreamAbstractionAAMP);
+		}
 	}
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
@@ -5138,7 +5152,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HDMI)
 	{
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_HDMIIN(mLogObj,this, playlistSeekPos, rate);
+		mpStreamAbstractionAAMP = StreamAbstractionAAMP_HDMIIN::GetInstance(mLogObj,this, playlistSeekPos, rate);
 		if (NULL == mCdaiObject)
 		{
 			mCdaiObject = new CDAIObject(mLogObj, this);    //Placeholder to reject the SetAlternateContents()
@@ -5164,7 +5178,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 #endif //USE_CPP_THUNDER_PLUGIN_ACCESS
 	else if (mMediaFormat == eMEDIAFORMAT_COMPOSITE)
 	{
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_COMPOSITEIN(mLogObj,this, playlistSeekPos, rate);
+		mpStreamAbstractionAAMP = StreamAbstractionAAMP_COMPOSITEIN::GetInstance(mLogObj,this, playlistSeekPos, rate);
 		if (NULL == mCdaiObject)
 		{
 			mCdaiObject = new CDAIObject(mLogObj, this);    //Placeholder to reject the SetAlternateContents()
@@ -7175,6 +7189,7 @@ bool PrivateInstanceAAMP::LockGetPositionMilliseconds()
 
 void PrivateInstanceAAMP::UnlockGetPositionMilliseconds()
 {
+
 	//Avoid the posibility of unlocking an unlocked mutex (undefined behaviour).
 	if(mGetPositionMillisecondsMutexSoft.try_lock())
 	{
@@ -7446,7 +7461,20 @@ void PrivateInstanceAAMP::Stop()
 		AcquireStreamLock();
 		//Deleting mpStreamAbstractionAAMP here will prevent the extra stop call in TeardownStream()
 		//and will avoid enableDownlaod() call being made unnecessarily
-		SAFE_DELETE(mpStreamAbstractionAAMP);
+		if(mContentType == ContentType_HDMIIN)
+		{
+			StreamAbstractionAAMP_HDMIIN::ResetInstance();
+			mpStreamAbstractionAAMP = NULL;
+		}
+		else if(mContentType == ContentType_COMPOSITEIN)
+		{
+			StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
+			mpStreamAbstractionAAMP = NULL;
+		}
+		else
+		{
+			SAFE_DELETE(mpStreamAbstractionAAMP);
+		}
 		ReleaseStreamLock();
 	}
 	// stop the mpd update immediately after Stream abstraction delete

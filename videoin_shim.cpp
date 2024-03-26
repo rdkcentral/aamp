@@ -59,9 +59,13 @@ AAMPStatusType StreamAbstractionAAMP_VIDEOIN::Init(TuneType tuneType)
 AAMPStatusType StreamAbstractionAAMP_VIDEOIN::InitHelper(TuneType tuneType)
 {
 	AAMPStatusType retval = eAAMPSTATUS_OK;
+	if(false == mIsInitialized)
+	{
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
         RegisterAllEvents();
 #endif
+		mIsInitialized = true;
+	}
 	return retval;
 }
 
@@ -74,9 +78,10 @@ StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string 
                                StreamAbstractionAAMP(logObj, aamp),
                                mTuned(false),
                                videoInputPort(-1),
-                               videoInputType(type)
+                               videoInputType(type),
+				mIsInitialized(false)
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-                               ,thunderAccessObj(callSign, logObj),
+                                ,thunderAccessObj(callSign, logObj),
 				thunderRDKShellObj(RDKSHELL_CALLSIGN, logObj),
 				thunderDSAccessObj(DS_CALLSIGN, logObj)
 #endif
@@ -304,25 +309,28 @@ void StreamAbstractionAAMP_VIDEOIN::RegisterAllEvents ()
  */
 void StreamAbstractionAAMP_VIDEOIN::OnInputStatusChanged(const JsonObject& parameters)
 {
-	std::string message;
-	parameters.ToString(message);
-	AAMPLOG_WARN("%s",message.c_str());
-
-	std::string strStatus = parameters["status"].String();
-
-	if(0 == strStatus.compare("started"))
+	if(NULL != aamp)
 	{
-		if(!mTuned){
-			aamp->SendTunedEvent(false);
-			mTuned = true;
-			aamp->LogFirstFrame();
-			aamp->LogTuneComplete();
+		std::string message;
+		parameters.ToString(message);
+		AAMPLOG_WARN("%s",message.c_str());
+
+		std::string strStatus = parameters["status"].String();
+
+		if(0 == strStatus.compare("started"))
+		{
+			if(!mTuned){
+				aamp->SendTunedEvent(false);
+				mTuned = true;
+				aamp->LogFirstFrame();
+				aamp->LogTuneComplete();
+			}
+			aamp->SetState(eSTATE_PLAYING);
 		}
-		aamp->SetState(eSTATE_PLAYING);
-	}
-	else if(0 == strStatus.compare("stopped"))
-	{
-		aamp->SetState(eSTATE_STOPPED);
+		else if(0 == strStatus.compare("stopped"))
+		{
+			aamp->SetState(eSTATE_STOPPED);
+		}
 	}
 }
 
@@ -331,37 +339,40 @@ void StreamAbstractionAAMP_VIDEOIN::OnInputStatusChanged(const JsonObject& param
  */
 void StreamAbstractionAAMP_VIDEOIN::OnSignalChanged (const JsonObject& parameters)
 {
-	std::string message;
-	parameters.ToString(message);
-	AAMPLOG_WARN("%s",message.c_str());
+	if(NULL != aamp)
+	{
+		std::string message;
+		parameters.ToString(message);
+		AAMPLOG_WARN("%s",message.c_str());
 
-	std::string strReason;
-	std::string strStatus = parameters["signalStatus"].String();
+		std::string strReason;
+		std::string strStatus = parameters["signalStatus"].String();
 
-	if(0 == strStatus.compare("noSignal"))
-	{
-		strReason = "NO_SIGNAL";
-	}
-	else if (0 == strStatus.compare("unstableSignal"))
-	{
-		strReason = "UNSTABLE_SIGNAL";
-	}
-	else if (0 == strStatus.compare("notSupportedSignal"))
-	{
-		strReason = "NOT_SUPPORTED_SIGNAL";
-	}
-	else if (0 == strStatus.compare("stableSignal"))
-	{
-		// Only Generate after started event, this can come after temp loss of signal.
-		if(mTuned){
-			aamp->SetState(eSTATE_PLAYING);
+		if(0 == strStatus.compare("noSignal"))
+		{
+			strReason = "NO_SIGNAL";
 		}
-	}
+		else if (0 == strStatus.compare("unstableSignal"))
+		{
+			strReason = "UNSTABLE_SIGNAL";
+		}
+		else if (0 == strStatus.compare("notSupportedSignal"))
+		{
+			strReason = "NOT_SUPPORTED_SIGNAL";
+		}
+		else if (0 == strStatus.compare("stableSignal"))
+		{
+			// Only Generate after started event, this can come after temp loss of signal.
+			if(mTuned){
+				aamp->SetState(eSTATE_PLAYING);
+			}
+		}
 
-	if(!strReason.empty())
-	{
-		AAMPLOG_WARN("GENERATING BLOCKED EVNET :%s",strReason.c_str());
-		aamp->SendBlockedEvent(strReason);
+		if(!strReason.empty())
+		{
+			AAMPLOG_WARN("GENERATING BLOCKED EVNET :%s",strReason.c_str());
+			aamp->SendBlockedEvent(strReason);
+		}
 	}
 }
 #endif
