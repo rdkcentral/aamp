@@ -1624,6 +1624,34 @@ public:
 
 };
 
+/// -----------------------------------------------------------------------------------------
+
+class AAMP_Listener_DefaultEvent : public AAMP_JSEventListener
+{
+public:
+    /**
+     * @brief AAMP_EVENT_MANIFEST_REFRESH_NOTIFY Constructor
+     * @param[in] type event type
+     * @param[in] jsCallback callback to be registered as listener
+	 */
+	AAMP_Listener_DefaultEvent(PrivAAMPStruct_JS *obj, AAMPEventType type, JSObjectRef jsCallback)
+		: AAMP_JSEventListener(obj, type, jsCallback)
+	{
+	}
+
+	/**
+	 * @brief Set properties to JS event object
+	 * @param[in] evt AAMP event object
+	 * @param[out] jsEventObj JS event object
+	 */
+	void SetEventProperties(const AAMPEventPtr& evt, JSObjectRef jsEventObj)
+	{
+	}
+
+};
+
+/// -----------------------------------------------------------------------------------------
+
 /**
  * @brief AAMP_JSEventListener Constructor
  */
@@ -1666,7 +1694,10 @@ void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 	{
 		JSGlobalContextRef ctx = p_obj->_ctx;
 		JSValueProtect(ctx, event);
+
+		AAMP_JSEventListener::SetEventProperties(e, event);
 		SetEventProperties(e, event);
+
 		//send this event through promise callback if an event listener is not registered
 		if (p_type == AAMP_EVENT_AD_RESOLVED && p_jsCallback == NULL)
 		{
@@ -1680,8 +1711,7 @@ void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 			}
 			else
 			{
-
-                                LOG_ERROR_EX("No promise callback registered ctx=%p, jsCallback=%p", ctx, cbObj);
+				LOG_ERROR_EX("No promise callback registered ctx=%p, jsCallback=%p", ctx, cbObj);
 			}
 		}
 		else if (p_jsCallback != NULL)
@@ -1690,21 +1720,27 @@ void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 		}
 		else
 		{
-			
-                        LOG_WARN_EX("Callback registered is (%p) for event=%d", p_jsCallback, p_type);
-
+			LOG_WARN_EX("Callback registered is (%p) for event=%d", p_jsCallback, p_type);
 		}
 		JSValueUnprotect(ctx, event);
 	}
 }
 
+void AAMP_JSEventListener::SetEventProperties(const AAMPEventPtr& evt, JSObjectRef jsEventObj)
+{
+	JSStringRef prop;
+
+	prop = JSStringCreateWithUTF8CString("sessionId");
+	JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->GetSessionId().c_str()), kJSPropertyAttributeReadOnly, NULL);
+	JSStringRelease(prop);
+}
 
 /**
  * @brief Adds a JS function as listener for a particular event
  */
 void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventType type, JSObjectRef jsCallback)
 {
-        LOG_TRACE("(%p, %d, %p)", obj, type, jsCallback);
+	LOG_TRACE("(%p, %d, %p)", obj, type, jsCallback);
 
 	AAMP_JSEventListener* pListener = NULL;
 
@@ -1761,8 +1797,6 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 		case AAMP_EVENT_BITRATE_CHANGED:
 			pListener = new AAMP_Listener_BitrateChanged(obj, type, jsCallback);
 			break;
-		// Following events are not having payload and hence falls under default case
-		// AAMP_EVENT_EOS, AAMP_EVENT_TUNED, AAMP_EVENT_ENTERING_LIVE
 		case AAMP_EVENT_AD_RESOLVED:
 			pListener = new AAMP_Listener_AdResolved(obj, type, jsCallback);
 			break;
@@ -1809,7 +1843,8 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 		// AAMP_EVENT_EOS, AAMP_EVENT_TUNED, AAMP_EVENT_ENTERING_LIVE,
 		// AAMP_EVENT_AUDIO_TRACKS_CHANGED, AAMP_EVENT_TEXT_TRACKS_CHANGED
 		default:
-			pListener = new AAMP_JSEventListener(obj, type, jsCallback);
+			// pListener = new AAMP_JSEventListener(obj, type, jsCallback);
+			pListener = new AAMP_Listener_DefaultEvent(obj, type, jsCallback);
 			break;
 	}
 

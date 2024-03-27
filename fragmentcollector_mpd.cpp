@@ -4017,7 +4017,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		}
 		else if(mNumberOfTracks)
 		{
-			aamp->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_PLAYLIST_INDEXED),AAMP_EVENT_ASYNC_MODE);
+			aamp->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_PLAYLIST_INDEXED, aamp->GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 			if (eTUNED_EVENT_ON_PLAYLIST_INDEXED == aamp->GetTuneEventConfig(mIsLiveStream))
 			{
 				if (aamp->SendTunedEvent())
@@ -4715,7 +4715,7 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 				manifestDuration = mMPDParser->GetMediaPresentationDuration();
 			}
 			AAMPLOG_INFO( "Send RefreshNotify Dur[%" PRIu64 "] NoOfPeriods[%d] PubTime[%u]", manifestDuration,mMPDParser->GetNumberOfPeriods(),tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime());
-			aamp->SendEvent((std::make_shared<ManifestRefreshEvent>(manifestDuration,mMPDParser->GetNumberOfPeriods(),tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime())),AAMP_EVENT_ASYNC_MODE);
+			aamp->SendEvent(std::make_shared<ManifestRefreshEvent>(manifestDuration,mMPDParser->GetNumberOfPeriods(),tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime(), aamp->GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 		}
 	}
 	else

@@ -812,7 +812,8 @@ public:
 				const char *traceUUID = NULL,
 				bool audioDecoderStreamSync = true,
 				const char *refreshManifestUrl = NULL,
-				int mpdStichingMode = 0 );
+				int mpdStichingMode = 0,
+				std::string sid = std::string{} );
 
 	/**
 	 *   @brief Stop playback and release resources.
@@ -2074,6 +2075,11 @@ public:
 	 */
 	std::string GetVideoPlaybackQuality(void);
 
+	/**
+	 *  @brief Returns the session ID from the internal player, if present, or an empty string, if not.
+	 */
+	std::string GetSessionId() const;
+
 protected:
 	/**
 	 *   @fn IsValidRate
@@ -2097,7 +2103,8 @@ protected:
 						const char *traceUUID,
 						bool audioDecoderStreamSync,
 						const char *refreshManifestUrl = NULL,
-						int mpdStichingMode = 0 );
+						int mpdStichingMode = 0,
+						std::string sid = {} );
 	/**
          *   @fn SetRateInternal
          *
