@@ -26,6 +26,11 @@ function do_clone()
 function do_clone_rdk_repo() {
     if [ -d $2 ]; then
         echo "Repo '$2' already exists"
+        pushd $2
+        git fetch
+        git checkout $1
+        git pull
+        popd
         return 1
     else
         do_clone -b $1 https://code.rdkcentral.com/r/rdk/components/generic/$2
