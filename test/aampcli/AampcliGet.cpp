@@ -34,7 +34,9 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 	int getCmd = 0;
 	if( sscanf(cmd, "get %s", command) == 1 )
 	{
-		if(isdigit(command[0]))
+		const bool is_digit {static_cast<bool>(isdigit(command[0]))};
+
+		if(is_digit)
 		{
 			getCmd = atoi(command);
 		}
@@ -63,8 +65,13 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 					break;
 
 				case 33:
-					sscanf(cmd, "get %d %d %d",&opt, &value1, &value2);
-					printf("[AAMPCLI] GETTING THUMBNAIL TIME RANGE DATA for duration(%d,%d): %s\n",value1,value2,playerInstanceAamp->GetThumbnails(value1, value2).c_str());
+					if (is_digit)
+						sscanf(cmd, "get %d %d %d",&opt, &value1, &value2);
+					else
+						sscanf(cmd, "get thumbnailData %d %d", &value1, &value2);
+
+					printf("[AAMPCLI] GETTING THUMBNAIL TIME RANGE DATA for duration (%d,%d): %s\n complete.\n",
+						value1, value2, playerInstanceAamp->GetThumbnails(value1, value2).c_str());
 					break;
 
 				case 24:

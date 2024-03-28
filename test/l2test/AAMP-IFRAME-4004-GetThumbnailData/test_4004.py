@@ -30,11 +30,12 @@ import json
 
 from inspect import getsourcefile
 
-test_sequence = []
+
+test_sequence =[]
 sleep_time=5000
 
+
 def Generate_ExpectList(url):
-    
     data = [
         {"cmd": url},
         {"expect": "IP_AAMP_TUNETIME"},
@@ -45,9 +46,10 @@ def Generate_ExpectList(url):
     ]
     return data
 
+
 def tracks_parser(regex_match):
+
     '''Extracts from the thumbnail configuration the number of tracks
-    
     :param regex_match: the regex returned by pexpect.expect containing the thumbnail configuration
     :type regex_match: regex
     '''
@@ -56,9 +58,11 @@ def tracks_parser(regex_match):
     track_count = len(tracks_info)
 
     for idx in range(track_count):
-        test_sequence['expect_list'].insert(-1, {"cmd": "sleep {}".format(sleep_time)})
         test_sequence['expect_list'].insert(-1, {"cmd": "set thumbnailTrack {}".format(idx)})
         test_sequence['expect_list'].insert(-1, {"expect": r" SetThumbnailTrack \[{}\] result: success".format(idx)})
+        test_sequence['expect_list'].insert(-1, {"cmd": "get thumbnailData 0 120"})
+        test_sequence['expect_list'].insert(-1, {"expect": r" GETTING THUMBNAIL TIME RANGE DATA for duration \(.*\): (.*) complete\.", "callback": ranges_parser})
+        test_sequence['expect_list'].insert(-1, {"cmd": "sleep {}".format(sleep_time)})
     
 
 stream_configuration=[
@@ -69,28 +73,43 @@ stream_configuration=[
     {"url":"https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x16/cmaf/mpeg_6sec/master_cmaf.m3u8"},
     {"url":"https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x10/cmaf/mpeg_6sec/master_cmaf.m3u8"},
     {"url":"https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x6/cmaf/mpeg_6sec/master_cmaf.m3u8"},
+
 ]
+
+def ranges_parser(regex_match):
+    '''Checks that the returned JSON object contains at least a tile.
+    :param regex_match: the regex returned by pexpect.expect containing the thumbnail data
+    :type regex_match: regex
+    '''
+
+    ranges_info = json.loads(regex_match.group(1))
+
+    if ranges_info.get('tile') is not None:
+        tiles = ranges_info.get('tile')
+
+    else:
+        raise Exception ("No tiles found in the interval")
+
 
 @pytest.fixture(params = stream_configuration)
 def test_data(request):
     return request.param
 
-def test_4003(aamp_setup_teardown, test_data):
+
+def test_4004(aamp_setup_teardown, test_data):
     '''For each of the assets this test: 
     * Plays the asset
     * Extracts the number of thumbanail tracks 
     * Sets each thumbnail track
     * Check that AAMP returns a "success" from the set command
-    
-    This approach makes it easy to extend this test to different assets in the future, 
-    provided that the information on the trasks is extracted correctly by the `get thumbnailConfig` command.
+    * Checks that the thumbnail data contains at least a tile
     '''
 
     global test_sequence
 
     single_test_data = {
-        "title": "Test SetThumbnailTrack API",
-        "max_test_time_seconds": 60,
+        "title": "Test get thumbnailData API",
+        "max_test_time_seconds": 30,
         "aamp_cfg": "info=true\ntrace=true\n",
         "expect_list": Generate_ExpectList(test_data["url"])
     }
@@ -99,6 +118,5 @@ def test_4003(aamp_setup_teardown, test_data):
 
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-
     aamp.run_expect_a(test_sequence)
 

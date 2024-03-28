@@ -6823,9 +6823,9 @@ std::string PrivateInstanceAAMP::GetThumbnailTracks()
 					char * tracks_str = cJSON_PrintUnformatted(root);
 					if (tracks_str)
 					{
-						AAMPLOG_TRACE(" Current TumbnailTracks: %s .", tracks_str);
-						cJSON_free(tracks_str);
+						AAMPLOG_TRACE(" Current ThumbnailTracks: %s .", tracks_str);
 					}
+					cJSON_free(tracks_str);
 				}
 
 				cJSON_Delete(root);
@@ -6844,7 +6844,7 @@ std::string PrivateInstanceAAMP::GetThumbnails(double tStart, double tEnd)
 {
 	std::string rc;
 	AcquireStreamLock();
-	if(mpStreamAbstractionAAMP)
+	if(mpStreamAbstractionAAMP && mthumbIndexValue != -1)
 	{
 		std::string baseurl;
 		int raw_w = 0, raw_h = 0, width = 0, height = 0;
@@ -6889,6 +6889,11 @@ std::string PrivateInstanceAAMP::GetThumbnails(double tStart, double tEnd)
 			cJSON_Delete(root);
 		}
 	}
+	else if (mthumbIndexValue == -1)
+	{
+		AAMPLOG_WARN(" No thumbnail track is currently selected: no information is available.");
+	}
+
 	ReleaseStreamLock();
 	return rc;
 }
