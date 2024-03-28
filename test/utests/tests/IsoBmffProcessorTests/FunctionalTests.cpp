@@ -52,6 +52,7 @@ class IsoBmffProcessorTests : public ::testing::Test
 		IsoBmffProcessor *mSubIsoBmffProcessor{};
 		PrivateInstanceAAMP *mPrivateInstanceAAMP{};
 		MediaProcessor::process_fcn_t mProcessorFn{};
+		std::thread asyncTask;
 		void SetUp() override
 		{
 			mLogObj = new AampLogManager();
@@ -127,20 +128,23 @@ TEST_F(IsoBmffProcessorTests, abortTests1)
 //Race condition between setTuneTimePTS and reset calls
 TEST_F(IsoBmffProcessorTests, abortTests2)
 {
-	// with the changes in LLAMA-13575 it is no longer possible to abort() during getTimeScale()
-	GTEST_SKIP() << "test not valid with LLAMA-13575 changes";
-
 	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests2");
 	bool ptsError = false;
 
 	mIsoBmffProcessor->setRate(AAMP_NORMAL_PLAY_RATE, PlayMode_normal);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce([this](uint32_t timescale) { timescale = 1000; this->mIsoBmffProcessor->abort(); return true; });
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce([this](uint32_t timescale) { 
+		timescale = 1000;
+		// Call abort() in an async task to avoid mutex deadlock
+		this->asyncTask = std::thread([this]{ this->mIsoBmffProcessor->abort(); });
+		return true; 
+	});
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, true, true, mProcessorFn, ptsError);
 
 	// EXPECT_EQ(this->mIsoBmffProcessor->getInitSegmentCacheSize(), 0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _)).Times(0);
+	this->asyncTask.join();
 	buffer.Free();
 }
 
@@ -148,9 +152,6 @@ TEST_F(IsoBmffProcessorTests, abortTests2)
 //Race condition between setTuneTimePTS and reset calls
 TEST_F(IsoBmffProcessorTests, abortTests3)
 {
-	// with the changes in LLAMA-13575 it is no longer possible to abort() during getTimeScale()
-	GTEST_SKIP() << "test not valid with LLAMA-13575 changes";
-	
 	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests3");
 	bool ptsError = false;
 
@@ -160,12 +161,19 @@ TEST_F(IsoBmffProcessorTests, abortTests3)
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, true, true, mProcessorFn, ptsError);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly([this](uint64_t pts) { pts = 10000; this->mIsoBmffProcessor->abort(); return true; });
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly([this](uint64_t pts) {
+		pts = 10000;
+		// Call abort() (once) in an async task to avoid mutex deadlock
+		if (!this->asyncTask.joinable())
+			this->asyncTask = std::thread([this]{ this->mIsoBmffProcessor->abort(); });
+		return true; 
+	});
 
 	bool ret = mIsoBmffProcessor->sendSegment(&buffer, 0, 0, true, true, mProcessorFn, ptsError);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _)).Times(0);
+	this->asyncTask.join();
 	buffer.Free();
 }
 
