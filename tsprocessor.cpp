@@ -1356,7 +1356,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 										}
 										else
 										{
-											AAMPLOG_INFO("RecordContext: pts discontinuity: %llx to %llx", m_currentPTS.value, PTS.value);
+											AAMPLOG_INFO("RecordContext: pts discontinuity: %" PRIu64 " to %" PRIu64, m_currentPTS.value, PTS.value);
 											m_currentPTS = PTS;
 										}
 									}
@@ -1366,7 +1366,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 										if (m_actualStartPTS == uint33_t::max_value())
 										{
 											m_actualStartPTS = PTS;
-											AAMPLOG_TRACE("Updated m_actualStartPTS to %lld", m_actualStartPTS.value);
+											AAMPLOG_TRACE("Updated m_actualStartPTS to %" PRIu64, m_actualStartPTS.value);
 										}
 									}
 
@@ -2532,7 +2532,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 								  if (pid == m_pcrPid)
 								  {
 									  m_throttlePTS = rateAdjustedPTS;
-									  AAMPLOG_TRACE("Updated throttlePTS to %lld", m_throttlePTS.value);
+									  AAMPLOG_TRACE("Updated throttlePTS to %" PRIu64, m_throttlePTS.value);
 								  }
 								  writeTimeStamp(&packet[tsbase], packet[tsbase] >> 4, rateAdjustedPTS);
 								  m_lastPTSOfSegment = PTS;

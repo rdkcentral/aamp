@@ -120,7 +120,7 @@ public:
          * @param[in] reset - true/false
          * @return void
          */
-	void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position);
+	void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position) override;
 	/**
 	 * @fn sendSegment
 	 *
