@@ -197,6 +197,13 @@ install_subtec() {
         cd ../../
     fi
     
+    echo "Patching subtec-app..."
+    git apply OSX/patches/subttxrend-app-packet.patch --directory subtec-app
+    git apply OSX/patches/subttxrend-app-cmake.patch  --directory subtec-app
+    git apply OSX/patches/websocket-ipplayer2-utils.patch --directory subtec-app/websocket-ipplayer2-utils
+    git apply OSX/patches/JsonHelper.patch --directory subtec-app/websocket-ipplayer2-utils/src/ipp2
+
+
     sed -i '' 's:COMMAND gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code SubtitleDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/SubtitleDbusInterface.xml:COMMAND '"$PWD"'/glib/build/gio/gdbus-2.0/codegen/gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code SubtitleDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/SubtitleDbusInterface.xml:g' subtec-app/subttxrend-dbus/CMakeLists.txt
     
     sed -i '' 's:COMMAND gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code TeletextDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/TeletextDbusInterface.xml:COMMAND '"$PWD"'/glib/build/gio/gdbus-2.0/codegen/gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code TeletextDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/TeletextDbusInterface.xml:g' subtec-app/subttxrend-dbus/CMakeLists.txt
@@ -269,12 +276,6 @@ install_and_build_subtec() {
     if [ ! -d "subtec-app/subttxrend-app/x86_builder/" ]; then
         echo "Subtec-app is not correctly installed."
     else
-        echo "Patching subtec-app..."
-        git apply OSX/patches/subttxrend-app-packet.patch --directory subtec-app
-        git apply OSX/patches/subttxrend-app-cmake.patch  --directory subtec-app
-        git apply OSX/patches/websocket-ipplayer2-utils.patch --directory subtec-app/websocket-ipplayer2-utils
-        git apply OSX/patches/JsonHelper.patch --directory subtec-app/websocket-ipplayer2-utils/src/ipp2
-
         cd subtec-app/subttxrend-app/x86_builder/
         PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:$PKG_CONFIG_PATH ./build.sh fast
 
