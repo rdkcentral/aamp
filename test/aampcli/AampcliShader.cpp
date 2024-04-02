@@ -58,7 +58,8 @@ std::string aamp_GetLocalPath( const char *filename )
 #include "jpeglib.h"
 #endif
 
-#if defined(__APPLE__) || defined(UBUNTU)
+// temporarily exclude Ubuntu, to avoid ubuntu L2 tests failing when run in container
+#if defined(__APPLE__) // || defined(UBUNTU)
 #define USE_OPENGL
 // for now, use with simulator only, to avoid device compilation issues
 #endif
