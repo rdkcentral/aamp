@@ -26,6 +26,7 @@ import time
 import re
 import copy
 import logging
+import getpass
 from enum import Enum
 from pathlib import Path
 
@@ -68,7 +69,7 @@ def write_harvest_details(more_details, ftype):
         if each == "--jira":
             foundjira = True
         
-    user = os.getlogin()
+    user = getpass.getuser()
     data = {"recording_start_time": time_str, "args": sys.argv, "playback_command": playback, "significance": significance, "jira_ticket": ticket, "user": user}
     data.update(more_details)
 
@@ -90,7 +91,7 @@ def write_transcode_details():
     Record some useful details about this harvest
     """
     time_str = datetime.utcnow().isoformat()
-    user = os.getlogin()
+    user = getpass.getuser()
     data = {"transcode_start_time": time_str, "args": sys.argv, "user": user}
     #data.update(more_details)
 

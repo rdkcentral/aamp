@@ -542,7 +542,8 @@ class DASHManifest(Manifest):
                     attrs = AttribList(adpset.attrib)
                     setattr(attrs,"period_id",period_id)
                     if pts == 0.0:
-                        pts = float(tlines[0].get('t', 0))
+                        if tlines:
+                            pts = float(tlines[0].get('t', 0))
                         setattr(attrs,"pts", pts )
                     for rept, chek_rband in self.repts[adpset]:
                         if rband != chek_rband:
