@@ -30,7 +30,7 @@ import pytest
 from inspect import getsourcefile
 
 #Test stream
-DASH_TEST_STREAM = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/foxtel-10/single-period.mpd"
+DASH_TEST_STREAM = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/foxtel-10/single-period.mpd"
 
 test_data=[
 { "url":DASH_TEST_STREAM}

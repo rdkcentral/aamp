@@ -5,7 +5,7 @@ echo $(pwd)
 mkdir -p $(pwd)/testdata
 
 if [ "$TEST_2000_STREAM_PATH" == "" ]; then
-    TEST_2000_STREAM_PATH="https://cpetestutility.stb.r53.xcal.tv/AAMP/simlinear/aamptest/streams/simlinear/streams09-Jan2023.tar.gz"
+    TEST_2000_STREAM_PATH="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/simlinear/streams09-Jan2023.tar.gz"
 fi
 
 #Stop multiple fetching of data if we already have it

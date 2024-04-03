@@ -52,7 +52,7 @@ async function TST_2009_UVE_AampDRMPlayback() {
     await aamp_player.player.setContentProtectionDataUpdateTimeout(20);
 
 
-    // Load the DRM URL, but dont start the playback
+    // Load the DRM URL, but don't start the playback
     TST_INFO("Tune to URL");
     await aamp_player.Load(DRM_url, false, true);
 
@@ -80,7 +80,7 @@ async function TST_2009_UVE_AampDRMPlayback() {
     await aamp_player.VerifyPlayback(10, 1);
 
 
-    // DRM specific playback is now ongoing, verify some auxilary APIs using this stream
+    // DRM specific playback is now ongoing, verify some auxiliary APIs using this stream
     // ---------------------------------------------------------------------------------
 
 

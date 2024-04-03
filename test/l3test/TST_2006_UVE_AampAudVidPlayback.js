@@ -36,7 +36,7 @@ var audioTracks = [
   }
 ];
 
-const TST_2006_url = "https://cpetestutility.stb.r53.xcal.tv/multilang/main.m3u8";
+const TST_2006_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/multilang/main.m3u8";
 
 class AAMPPlayer2 extends AAMPPlayer{
     constructor(player_name) {
