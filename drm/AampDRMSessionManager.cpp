@@ -2023,3 +2023,4 @@ void AampDRMSessionManager::UpdateLicenseMetrics(DrmRequestType requestType, int
 		cJSON_Delete(item);
 	}
 }
+

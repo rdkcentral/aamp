@@ -572,25 +572,12 @@ void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int tot
 	{
 		reqEndLogLevel = eLOGLEVEL_WARN;
 	}
-	if(mLogObj)
-	{
-		AAMPLOG(mLogObj, reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%d,%.500s",
+	AAMPLOG(mLogObj, reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%d,%.500s",
 			appName.c_str(), eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST, http_code, timeoutClass.c_str(), totalPerformRequest, total,
 			dnldPtr->downloadCompleteMetrics.connect, dnldPtr->downloadCompleteMetrics.startTransfer, dnldPtr->downloadCompleteMetrics.resolve,
 			dnldPtr->downloadCompleteMetrics.appConnect, dnldPtr->downloadCompleteMetrics.preTransfer, dnldPtr->downloadCompleteMetrics.redirect,
 			dnldPtr->downloadCompleteMetrics.dlSize, dnldPtr->downloadCompleteMetrics.reqSize, dnldPtr->downloadCompleteMetrics.downloadbps,
 			0, dnldPtr->sEffectiveUrl.c_str());
-	}
-	else
-	{
-		AAMPLOG_INFO("HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%d,%.500s",
-			appName.c_str(), eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST, http_code, timeoutClass.c_str(), totalPerformRequest, total,
-			dnldPtr->downloadCompleteMetrics.connect, dnldPtr->downloadCompleteMetrics.startTransfer, dnldPtr->downloadCompleteMetrics.resolve,
-			dnldPtr->downloadCompleteMetrics.appConnect, dnldPtr->downloadCompleteMetrics.preTransfer, dnldPtr->downloadCompleteMetrics.redirect,
-			dnldPtr->downloadCompleteMetrics.dlSize, dnldPtr->downloadCompleteMetrics.reqSize, dnldPtr->downloadCompleteMetrics.downloadbps,
-			0, dnldPtr->sEffectiveUrl.c_str());
-	}
-
 }
 
 

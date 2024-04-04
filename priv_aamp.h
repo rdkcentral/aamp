@@ -112,11 +112,6 @@ typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 /*#define AAMP_DEBUG_FETCH_INJECT 0x001 */
 
 /**
- * @brief Max debug log buffer size
- */
-#define MAX_DEBUG_LOG_BUFF_SIZE 1024
-
-/**
  * @brief Max URL log size
  */
 #define MAX_URL_LOG_SIZE 960				/**< Considering "aamp_tune" and [AAMP-PLAYER] pretext */

@@ -25,7 +25,7 @@
 #include <cstdarg>
 
 
-#define MAX_DEBUG_LOG_BUFF_SIZE 1024
+#define MAX_DEBUG_LOG_BUFF_SIZE 512
 
 
 MockSdJournal *g_mockSdJournal = nullptr;

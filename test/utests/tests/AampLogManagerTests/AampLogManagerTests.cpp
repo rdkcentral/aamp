@@ -35,8 +35,6 @@ using ::testing::HasSubstr;
 using ::testing::NiceMock;
 using ::testing::SizeIs;
 
-#define MAX_DEBUG_LOG_BUFF_SIZE 1024
-
 AampConfig *gpGlobalConfig{nullptr};
 AampLogManager *mLogObj = NULL;
 
@@ -1018,22 +1016,6 @@ TEST_F(AampLogManagerTest, setPlayerId_AAMPLOG_MIL)
                                                                           HasSubstr("[MIL]"),
                                                                           HasSubstr(message.c_str()))));
     AAMPLOG_MIL("%s", message.c_str());
-}
-
-/*
-    Test logprintf called with a bogus log level
-    sd_journal_print is expected to be called with the header text truncated and (...)
-*/
-TEST_F(AampLogManagerTest, logprintf_BadLogLevel)
-{
-    int playerId = 10;
-    std::string file("test.cpp");
-    int line = 2;
-    std::string message("message");
-
-    /* The printed log line must contain the player ID and [?] */
-    EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(playerId) + "]"), HasSubstr("[?]"))));
-    logprintf(playerId, (AAMP_LogLevel)1000, file.c_str(), line, "%s", message.c_str());
 }
 
 TEST_F(AampLogManagerTest, logprintf_TRACE)

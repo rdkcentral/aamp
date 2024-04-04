@@ -439,47 +439,49 @@ void logprintline(FILE *f, struct timeval t, const char* printBuffer)
 	(void)fprintf(f, "%ld.%03ld: %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, printBuffer);
 }
 
+static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
+{
+	"TRACE", // eLOGLEVEL_TRACE
+	"DEBUG", // eLOGLEVEL_DEBUG
+	"INFO",  // eLOGLEVEL_INFO
+	"WARN",  // eLOGLEVEL_WARN
+	"MIL",   // eLOGLEVEL_MIL
+	"ERROR", // eLOGLEVEL_ERROR
+};
+
 /**
  * @brief Print logs to console / log file
  */
 void logprintf(int playerId, AAMP_LogLevel logLevelIndex, const char* file, int line, const char *format, ...)
 {
-	static const char *mLogLevelStr[NUM_AAMP_LOG_LEVELS] =
-	{
-		"TRACE", // eLOGLEVEL_TRACE
-		"DEBUG", // eLOGLEVEL_DEBUG
-		"INFO",  // eLOGLEVEL_INFO
-		"WARN",  // eLOGLEVEL_WARN
-		"MIL",   // eLOGLEVEL_MIL
-		"ERROR", // eLOGLEVEL_ERROR
-	};
-	// logLevelIndex is enum, so lookup in mLogLevelStr should always be safe, but we include sanity check for good measure
-	const char *logLevelName = (logLevelIndex<ARRAY_SIZE(mLogLevelStr))?mLogLevelStr[logLevelIndex]:"?";
-	
-	
+	// logLevelIndex is enum, so lookup in mLogLevelStr should always be safe
+	assert( logLevelIndex<ARRAY_SIZE(mLogLevelStr) );
 	va_list args;
 	va_start(args, format);
 	char gDebugPrintBuffer[MAX_DEBUG_LOG_BUFF_SIZE];
 	std::ostringstream ossthread;
 	ossthread << std::this_thread::get_id();
-	int len_header = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer), "[AAMP-PLAYER][%d][%s][%s][%s][%d]", playerId, logLevelName, ossthread.str().c_str(), file, line);
+	int len_header = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer),
+							  "[AAMP-PLAYER][%d][%s][%s][%s][%d]",
+							  playerId,
+							  mLogLevelStr[logLevelIndex],
+							  ossthread.str().c_str(),
+							  file,
+							  line);
 	int len_message = 0;
 	if (len_header >= sizeof(gDebugPrintBuffer))
-	{
-		// Header is too long to print in one log line, no space left for the message
+	{ // Header is too long to print in one log line, no space left for the message
 	}
 	else
 	{
 		if (len_header < 0)
-		{
-			// Encoding error, let's print only the message
+		{ // Encoding error, let's print only the message
 			len_header = 0;
 		}
 
 		len_message = vsnprintf(gDebugPrintBuffer+len_header, MAX_DEBUG_LOG_BUFF_SIZE-len_header, format, args);
 		if (len_message < 0)
-		{
-			// Encoding error, let's print only the header
+		{ // Encoding error, let's print only the header
 			len_message = 0;
 		}
 	}
@@ -489,7 +491,7 @@ void logprintf(int playerId, AAMP_LogLevel logLevelIndex, const char* file, int 
 		// If the log line is too long, truncate it and add the long line suffix at the end
 		(void)snprintf(gDebugPrintBuffer + MAX_DEBUG_LOG_BUFF_SIZE - sizeof(LONG_LINE_SUFFIX), sizeof(LONG_LINE_SUFFIX), LONG_LINE_SUFFIX);
 	}
-	gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE-1)] = 0;
+	//gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE-1)] = 0;
 	va_end(args);
 
 #if (defined (USE_SYSTEMD_JOURNAL_PRINT) || defined (USE_SYSLOG_HELPER_PRINT))

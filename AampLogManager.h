@@ -48,11 +48,10 @@
  */
 #define AAMPLOG( MYLOGOBJ, LEVEL, FORMAT, ... ) \
 do { \
-	if( MYLOGOBJ ) { \
-		if( MYLOGOBJ->isLogLevelAllowed(LEVEL) ) { \
-			logprintf( MYLOGOBJ->getPlayerId(), LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
-		} \
-	} \
+	if( !MYLOGOBJ ) break; \
+	if( !MYLOGOBJ->isLogLevelAllowed(LEVEL) ) break; \
+	int PLAYERID = MYLOGOBJ->getPlayerId(); \
+	logprintf( PLAYERID, LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
 } while(0)
 
 /**
@@ -96,7 +95,6 @@ enum AAMP_LogLevel
 	eLOGLEVEL_MIL,      /**< Milestone level */
 	eLOGLEVEL_ERROR,    /**< Error level */
 };
-#define NUM_AAMP_LOG_LEVELS (eLOGLEVEL_ERROR+1)
 
 /**
  * @brief Log level network error enum
@@ -279,6 +277,12 @@ private:
 
 extern AampLogManager *mLogObj;
 
+/**
+ * @brief Max debug log buffer size
+ */
+#define MAX_DEBUG_LOG_BUFF_SIZE 512
+
+
 /* Context-free utility function */
 
 /**
@@ -286,7 +290,7 @@ extern AampLogManager *mLogObj;
  * @param[in] format - printf style string
  * @return void
  */
-extern void logprintf(int playerId, AAMP_LogLevel level, const char* file, int line,const char *format, ...)  __attribute__ ((format (printf, 5, 6)));;
+extern void logprintf(int playerId, AAMP_LogLevel level, const char* file, int line,const char *format, ...)  __attribute__ ((format (printf, 5, 6)));
 
 /**
  * @fn DumpBlob
