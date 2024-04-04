@@ -708,6 +708,8 @@ public:
 	uint32_t totalMdatCount;            /**< Total MDAT Chunk Found*/
 	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processoing*/
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
+        bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
+
 protected:
 	AampLogManager *mLogObj;
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
@@ -722,7 +724,6 @@ protected:
 	bool abortInjectChunk;              /**< Abort inject operations if flag is set*/
 	pthread_mutex_t audioMutex;             /**< protection of audio track reconfiguration */
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
-	bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
 

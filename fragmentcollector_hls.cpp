@@ -7559,7 +7559,7 @@ void StreamAbstractionAAMP_HLS::RefreshAudio()
 		track->AbortWaitForCachedAndFreeFragment(true);
 		aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
 		aamp->mDisableRateCorrection = true;
-		if(aamp->IsLive())
+		if(aamp->IsLive() && !track->seamlessAudioSwitchInProgress)
 		{
 			track->AbortFragmentDownloaderWait();
 		}
@@ -7654,7 +7654,7 @@ void TrackState::SwitchAudioTrack()
 
 		// Diff in playlist position. Diff in PDT should be used here???
 		double diffInFetchedDuration = (oldPosInPlaylist - GetCompletionTimeForFragment(this, nextMediaSequenceNumber - 1));
-		int diffFragmentsDownloaded = (int)(oldMediaSequenceNumber - (nextMediaSequenceNumber - 1));
+		int diffFragmentsDownloaded = (int)(oldMediaSequenceNumber - (nextMediaSequenceNumber - 2));//diff with 2 -> nextMediaSeqNo is always ahead of one fragment hence -1, and, we are yet to download the new MediaSeqNo whereas oldMediaSeq is based on already downloaded fragment hence -2.
 		AAMPLOG_INFO("oldMediaSequenceNumber %lld, newMediaSequenceNumber %lld, oldPosInPlaylist %lf, newPosInPlaylist %lf", oldMediaSequenceNumber, (nextMediaSequenceNumber-1), oldPosInPlaylist, GetCompletionTimeForFragment(this, nextMediaSequenceNumber - 1));
 		AAMPLOG_INFO("Calculated diffInFetchDuration %lf", diffInFetchedDuration);
 		// Try to keep the same playlist position
