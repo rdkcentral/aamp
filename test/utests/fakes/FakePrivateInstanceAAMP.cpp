@@ -1242,6 +1242,15 @@ void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
 }
 
 /**
+ * @brief to check gstsubtec flag and vttcueventlistener
+ */
+
+bool PrivateInstanceAAMP::IsGstreamerSubsEnabled(void)
+{
+        return false;
+}
+
+/**
  * @brief Set Discontinuity handling period change marked flag
  * @param[in] value Period change marked flag
  */
