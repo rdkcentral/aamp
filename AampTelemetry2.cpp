@@ -119,8 +119,8 @@ bool AAMPTelemetry2::send( const std::string &markerName, const std::map<std::st
 #else
 		bRet = true;
 #endif
+		cJSON_free(jsonString);
 		cJSON_Delete(root);
-		free(jsonString);
 	}
 	
 	return bRet;

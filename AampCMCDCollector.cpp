@@ -82,71 +82,83 @@ void AampCMCDCollector::Initialize(bool enableDisable , std::string &traceId)
 		pCMCDMetrics = new ManifestCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
 		pCMCDMetrics->SetMediaType("MANIFEST");
+		delete mCMCDStreamData[eMEDIATYPE_MANIFEST];
 		mCMCDStreamData[eMEDIATYPE_MANIFEST] = pCMCDMetrics;
 		// for Video
 		pCMCDMetrics = new VideoCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
 		pCMCDMetrics->SetMediaType("VIDEO");
+		delete mCMCDStreamData[eMEDIATYPE_VIDEO];
 		mCMCDStreamData[eMEDIATYPE_VIDEO] = pCMCDMetrics;
 		// for Video Init
 		pCMCDMetrics = new VideoCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
 		pCMCDMetrics->SetMediaType("INIT_VIDEO");
+		delete mCMCDStreamData[eMEDIATYPE_INIT_VIDEO];
 		mCMCDStreamData[eMEDIATYPE_INIT_VIDEO] = pCMCDMetrics;
 		// for Video Iframe
 		pCMCDMetrics = new VideoCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
 		pCMCDMetrics->SetMediaType("VIDEO");
+		delete mCMCDStreamData[eMEDIATYPE_IFRAME];
 		mCMCDStreamData[eMEDIATYPE_IFRAME] = pCMCDMetrics;
 		// for Audio
 		pCMCDMetrics = new AudioCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
 		pCMCDMetrics->SetMediaType("AUDIO");
+		delete mCMCDStreamData[eMEDIATYPE_AUDIO];
 		mCMCDStreamData[eMEDIATYPE_AUDIO] = pCMCDMetrics;
 		// for Audio Init
 		pCMCDMetrics = new AudioCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
 		pCMCDMetrics->SetMediaType("INIT_AUDIO");
+		delete mCMCDStreamData[eMEDIATYPE_INIT_AUDIO];
 		mCMCDStreamData[eMEDIATYPE_INIT_AUDIO] = pCMCDMetrics;
 		// for Aux Audio
 		pCMCDMetrics = new AudioCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
 		pCMCDMetrics->SetMediaType("AUXAUDIO");
+		delete mCMCDStreamData[eMEDIATYPE_AUX_AUDIO];
 		mCMCDStreamData[eMEDIATYPE_AUX_AUDIO] = pCMCDMetrics;
 		// for Aux Audio Init
 		pCMCDMetrics = new AudioCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
 		pCMCDMetrics->SetMediaType("INIT_AUDIO");
+		delete mCMCDStreamData[eMEDIATYPE_INIT_AUX_AUDIO];
 		mCMCDStreamData[eMEDIATYPE_INIT_AUX_AUDIO] = pCMCDMetrics;
 		// for Subtitle
 		pCMCDMetrics = new SubtitleCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
 		pCMCDMetrics->SetMediaType("SUBTITLE");
+		delete mCMCDStreamData[eMEDIATYPE_SUBTITLE];
 		mCMCDStreamData[eMEDIATYPE_SUBTITLE] = pCMCDMetrics;
 		// for Subtitle Init
 		pCMCDMetrics = new SubtitleCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
 		pCMCDMetrics->SetMediaType("SUBTITLE");
+		delete mCMCDStreamData[eMEDIATYPE_INIT_SUBTITLE];
 		mCMCDStreamData[eMEDIATYPE_INIT_SUBTITLE] = pCMCDMetrics;
 
 		// for Video Playlist
 		pCMCDMetrics = new ManifestCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
 		pCMCDMetrics->SetMediaType("PLAYLIST_VIDEO");
+		delete mCMCDStreamData[eMEDIATYPE_PLAYLIST_VIDEO];
 		mCMCDStreamData[eMEDIATYPE_PLAYLIST_VIDEO] = pCMCDMetrics;
 
 		// for Audio Playlist
 		pCMCDMetrics = new ManifestCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
 		pCMCDMetrics->SetMediaType("PLAYLIST_AUDIO");
+		delete mCMCDStreamData[eMEDIATYPE_PLAYLIST_AUDIO];
 		mCMCDStreamData[eMEDIATYPE_PLAYLIST_AUDIO] = pCMCDMetrics;
 
 		// for Subtitle Playlist
 		pCMCDMetrics = new ManifestCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
 		pCMCDMetrics->SetMediaType("PLAYLIST_SUBTITLE");
+		delete mCMCDStreamData[eMEDIATYPE_PLAYLIST_SUBTITLE];
 		mCMCDStreamData[eMEDIATYPE_PLAYLIST_SUBTITLE] = pCMCDMetrics;
-
 	}
 }
 

@@ -127,7 +127,6 @@ std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetrics
 
 	//lets use cJSON_PrintUnformatted , cJSON_Print is formated adds whitespace n hence takes more memory also eats up more logs if logged.
 	char *jsonStr = cJSON_PrintUnformatted(item);
-
 	if (jsonStr)
 	{
 		metrics.assign(jsonStr);
@@ -137,7 +136,7 @@ std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetrics
 		at2.send("VideoStartTime", jsonStr);
 #endif // AAMP_TELEMETRY_SUPPORT
 
-		free(jsonStr);
+		cJSON_free(jsonStr);
 	}
 	cJSON_Delete(item);
 	return metrics;
@@ -568,8 +567,9 @@ void ProfileEventAAMP::GetTelemetryParam()
 	std::lock_guard<std::mutex> lock(discontinuityParamMutex);
 	if(telemetryParam != NULL)
 	{
-		std::string jsonStr = cJSON_PrintUnformatted(telemetryParam);
-		AAMPLOG_WARN("Telemetry values %s", jsonStr.c_str());
+		char *jsonStr = cJSON_PrintUnformatted(telemetryParam);
+		AAMPLOG_WARN("Telemetry values %s", jsonStr );
+		cJSON_free( jsonStr );
 		cJSON_Delete(telemetryParam);
 		telemetryParam = cJSON_CreateObject();
 	}

@@ -4627,7 +4627,9 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 				}
 				else
 				{
-					data = cJSON_PrintUnformatted(root);
+					char *jsonStr = cJSON_PrintUnformatted(root);
+					data = jsonStr;
+					cJSON_free( jsonStr );
 					cJSON_Delete(root);
 				}
 			}
@@ -6822,8 +6824,8 @@ std::string PrivateInstanceAAMP::GetThumbnailTracks()
 					if (tracks_str)
 					{
 						AAMPLOG_TRACE(" Current TumbnailTracks: %s .", tracks_str);
+						cJSON_free(tracks_str);
 					}
-					cJSON_free(tracks_str);
 				}
 
 				cJSON_Delete(root);
@@ -7717,7 +7719,7 @@ void PrivateInstanceAAMP::ReportBulkTimedMetadata()
 				// Sending BulkTimedMetaData event as synchronous event.
 				// SCTE35 events are async events in TimedMetadata, and this event is sending only from HLS
 				mEventManager->SendEvent(eventData);
-				free(bulkData);
+				cJSON_free(bulkData);
 			}
 			cJSON_Delete(root);
 		}
