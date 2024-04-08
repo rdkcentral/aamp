@@ -2626,6 +2626,11 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
 
 	SetBufUnderFlowStatus(bufferingStopped);
 	AAMPLOG_INFO("PrivateInstanceAAMP: Sending Buffer Change event status (Buffering): %s", (e->buffering() ? "End": "Start"));
+#ifdef AAMP_TELEMETRY_SUPPORT
+	AAMPTelemetry2 at2(mAppName);
+	std::string telemetryName = bufferingStopped?"VideoBufferingStart":"VideoBufferingEnd";
+	at2.send(telemetryName,{/*int data*/},{/*string data*/},{/*float data*/});
+#endif //AAMP_TELEMETRY_SUPPORT
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 }
 
@@ -2811,6 +2816,27 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
 	{
 		AAMPEventPtr event = std::make_shared<BitrateChangeEvent>((int)aamp_GetCurrentTimeMS(), bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight,
 			GetSessionId());
+#ifdef AAMP_TELEMETRY_SUPPORT
+	AAMPTelemetry2 at2(mAppName);
+	std::string telemetryName;
+	telemetryName = "VideoBitrateChange";
+	std::map<std::string, int> bitrateData;
+	bitrateData["bit"] = (int)bitrate;
+	bitrateData["wdh"] = width;
+	bitrateData["hth"] = height;
+	bitrateData["pcap"] = mProfileCappedStatus;
+	bitrateData["tw"] = mDisplayWidth;
+	bitrateData["th"] = mDisplayHeight;
+	bitrateData["sct"] = scantype;
+	bitrateData["asw"] = aspectRatioWidth;
+	bitrateData["ash"] = aspectRatioHeight;
+	std::map<std::string, std::string> bitrateDesc;
+	bitrateDesc["desc"] = BITRATEREASON2STRING(reason);
+	std::map<std::string, float> bitrateFloat;
+	bitrateFloat["frt"] = frameRate;
+	bitrateFloat["pos"] = position;
+	at2.send(telemetryName,bitrateData,bitrateDesc,bitrateFloat);
+#endif //AAMP_TELEMETRY_SUPPORT
 
 		/* START: Added As Part of DELIA-28363 and DELIA-28247 */
 		if(GetBWIndex)

@@ -60,3 +60,48 @@ TEST_F(AampTelemetryTest, Send_3)
 	floatData["xyz"] = 2.2;
 	EXPECT_EQ(true,telemetry.send(markername,intData,stringData,floatData));
 }
+
+TEST_F(AampTelemetryTest, Send_4)
+{
+	std::string markername = "VideoBufferingStart";
+	std::map<std::string,int>intData;
+	intData["buffer"]=1;
+	std::map<std::string,std::string>stringData;
+	stringData["abc"] = "def";
+	std::map<std::string,float>floatData;
+	floatData["xyz"]=2.2;
+	EXPECT_EQ(true,telemetry.send(markername,intData,stringData,floatData));
+}
+
+TEST_F(AampTelemetryTest, Send_5)
+{
+	std::string markername = "VideoBufferingEnd";
+	std::map<std::string,int>intData;
+	intData["buffer"]=1;
+	std::map<std::string,std::string>stringData;
+	stringData["abc"] = "def";
+	std::map<std::string,float>floatData;
+	floatData["xyz"]=2.2;
+	EXPECT_EQ(true,telemetry.send(markername,intData,stringData,floatData));
+}
+
+TEST_F(AampTelemetryTest, Send_6)
+{
+	std::string markername = "VideoBitrateChange";
+	std::map<std::string, int> bitrateData;
+	bitrateData["bit"] =1650064;
+	bitrateData["wdh"] =640;
+	bitrateData["hth"] =266;
+	bitrateData["pcap"] =0;
+	bitrateData["tw"] =0;
+	bitrateData["th"] =0;
+	bitrateData["sct"] =2;
+	bitrateData["asw"] =0;
+	bitrateData["ash"] =0;
+	std::map<std::string, std::string> bitrateDesc;
+	bitrateDesc["desc"] ="Reset to default bitrate due to tune";
+	std::map<std::string, float> bitrateFloat;
+	bitrateFloat["frt"] =25;
+	bitrateFloat["pos"] = 102;
+	EXPECT_EQ(true,telemetry.send(markername,bitrateData,bitrateDesc,bitrateFloat));
+}
