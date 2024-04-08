@@ -343,7 +343,7 @@ TEST(_AampUtils, getHarvestConfigForMedia)
 		eHARVEST_ENABLE_INIT_SUBTITLE, eHARVEST_ENABLE_MANIFEST, eHARVEST_ENABLE_LICENCE, eHARVEST_ENABLE_IFRAME, eHARVEST_ENABLE_INIT_IFRAME,
 		eHARVEST_ENABLE_PLAYLIST_VIDEO, eHARVEST_ENABLE_PLAYLIST_AUDIO, eHARVEST_ENABLE_PLAYLIST_SUBTITLE, eHARVEST_ENABLE_PLAYLIST_IFRAME,
 		eHARVEST_ENABLE_DSM_CC, eHARVEST_DISABLE_DEFAULT, eHARVEST_DISABLE_DEFAULT};
-	MediaType fileType[] = {eMEDIATYPE_VIDEO, eMEDIATYPE_INIT_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_INIT_AUDIO, eMEDIATYPE_SUBTITLE,
+	AampMediaType fileType[] = {eMEDIATYPE_VIDEO, eMEDIATYPE_INIT_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_INIT_AUDIO, eMEDIATYPE_SUBTITLE,
 		eMEDIATYPE_INIT_SUBTITLE, eMEDIATYPE_MANIFEST, eMEDIATYPE_LICENCE, eMEDIATYPE_IFRAME, eMEDIATYPE_INIT_IFRAME,
 		eMEDIATYPE_PLAYLIST_VIDEO, eMEDIATYPE_PLAYLIST_AUDIO, eMEDIATYPE_PLAYLIST_SUBTITLE,	eMEDIATYPE_PLAYLIST_IFRAME,
 		eMEDIATYPE_DSM_CC, eMEDIATYPE_IMAGE, eMEDIATYPE_DEFAULT};
@@ -361,7 +361,7 @@ TEST(_AampUtils, aamp_WriteFile)
 	bool result;
 	std::string fileName = "http://aamp_utils_test";
 	int count=10;
-	MediaType fileType = eMEDIATYPE_PLAYLIST_VIDEO;
+	AampMediaType fileType = eMEDIATYPE_PLAYLIST_VIDEO;
 	result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "prefix");
 	EXPECT_TRUE(result);
 
@@ -391,7 +391,7 @@ TEST(_AampUtils, aamp_WriteFile)
 TEST(_AampUtils, aamp_WriteFile1)
 {
 	std::string fileName = "example.txt?param=value";
-	MediaType filetype = eMEDIATYPE_MANIFEST;
+	AampMediaType filetype = eMEDIATYPE_MANIFEST;
 	unsigned int count  = 1;
 	bool result = aamp_WriteFile(fileName, teststr, strlen(teststr), filetype, count, "prefix");
 	EXPECT_FALSE(result);
@@ -401,7 +401,7 @@ TEST(_AampUtils, aamp_WriteFile2)
 	std::string fileName = "http://www.example.com/manifest.mpd";
     const char* data = "Manifest Data";
     size_t len = strlen(data);
-    MediaType fileType = eMEDIATYPE_MANIFEST;
+    AampMediaType fileType = eMEDIATYPE_MANIFEST;
     unsigned int count = 0;
     const char* prefix = "prefix_";
 
@@ -583,7 +583,7 @@ TEST(_AampUtils, GetNetworkTimeTest2)
 }
 TEST(_AampUtils, getMediaTypeNameTest)
 {
-    MediaType mediaType[21] = {
+    AampMediaType mediaType[21] = {
     eMEDIATYPE_DEFAULT,
     eMEDIATYPE_VIDEO,
     eMEDIATYPE_AUDIO,

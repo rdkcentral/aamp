@@ -27,7 +27,7 @@ class MockAampBufferControl : public AampBufferControl::BufferControlExternalDat
 {
 public:
 
-    MockAampBufferControl(const AAMPGstPlayer* player, const MediaType mediaType) : BufferControlExternalData(player, mediaType) { }
+    MockAampBufferControl(const AAMPGstPlayer* player, const AampMediaType mediaType) : BufferControlExternalData(player, mediaType) { }
 
     MOCK_METHOD(void, needData, ());
 

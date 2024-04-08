@@ -87,7 +87,7 @@ public:
 	 * @param uri The current fragment's URI - for debug only.
 	 */
 	virtual void ProcessFragmentMetadata(const CachedFragment * cachedFragment,
-		MediaType type,
+		AampMediaType type,
 		bool discontinuity_pending, 
 		const double proc_position,
 		bool & ptsError, 
@@ -168,7 +168,7 @@ public:
 	IsoBMFFMetadataProcessor& operator=(const IsoBMFFMetadataProcessor &) = delete;
 
 	virtual void ProcessFragmentMetadata(const CachedFragment * cachedFragment,
-		MediaType type,
+		AampMediaType type,
 		bool discontinuity_pending, 
 		const double proc_position,
 		bool & ptsError, 
@@ -183,11 +183,11 @@ private:
 	/**
 	 * @brief Processes the IsoBMFF stream to extract ID3 metadata
 	 * 
-	 * @param type MediaType
+	 * @param type AampMediaType
 	 * @param data_ptr Pointer to the segment's data
 	 * @param data_len Length of the segment
 	 */
-	void ProcessID3Metadata(MediaType type, const char * data_ptr, size_t data_len);
+	void ProcessID3Metadata(AampMediaType type, const char * data_ptr, size_t data_len);
 
     /// Flag for tracking whether the current PTS is valid (initialised) or not
     bool processPTSComplete;
@@ -229,7 +229,7 @@ public:
 	TSMetadataProcessor& operator=(const TSMetadataProcessor &) = delete;
 
 	virtual void ProcessFragmentMetadata(const CachedFragment * cachedFragment,
-		MediaType type,
+		AampMediaType type,
 		bool discontinuity_pending, 
 		const double proc_position,
 		bool & ptsError, 

@@ -966,7 +966,7 @@ TEST_F(sendSegmentTests, esMP3test)
  
     buffer.AppendBytes(segment, sizeof(segment));
     mTSProcessor->sendSegment(&buffer, position, duration, discontinuous, init,
-        [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf) {
+        [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf) {
             mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
         },
         ptsError);

@@ -39,7 +39,7 @@ namespace helpers
  * @param mediaType The segment's media type
  * @return True if the media type is valid
  */
-bool IsValidMediaType(MediaType mediaType);
+bool IsValidMediaType(AampMediaType mediaType);
 
 /** 
  * @brief Checks if the packet's header is a valid ID3 packet's header
@@ -86,14 +86,14 @@ public:
 	 * @param[in] data The packet's data
 	 * @return True if the packet is not present in the cache
 	 */	
-	bool CheckNewMetadata(MediaType mediaType, const std::vector<uint8_t> & data) const;
+	bool CheckNewMetadata(AampMediaType mediaType, const std::vector<uint8_t> & data) const;
 	
 	/**
 	 * Updates the cache with the given packet
 	 * @param[in] mediaType The packet's media type
 	 * @param[in] data The data to insert into the cache
 	 */
-	void UpdateMedatadaCache(MediaType mediaType, std::vector<uint8_t> data);
+	void UpdateMedatadaCache(AampMediaType mediaType, std::vector<uint8_t> data);
 	
 private:
 
@@ -166,6 +166,6 @@ public:
 class SegmentInfo_t;
 
 /// Signature of function to call to invoke to handle the ID3 metadata
-using id3_callback_t = std::function<void (MediaType mediaType, const uint8_t * ptr, size_t pkt_len, const SegmentInfo_t & info, const char * scheme_uri)>;
+using id3_callback_t = std::function<void (AampMediaType mediaType, const uint8_t * ptr, size_t pkt_len, const SegmentInfo_t & info, const char * scheme_uri)>;
 
 #endif // AAMP_HELPERS_ID3METADATA_HPP

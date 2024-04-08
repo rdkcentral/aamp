@@ -232,12 +232,12 @@ struct timespec aamp_GetTimespec(int timeInMs);
  * @param count - for manifest or playlist update
  * @param prefix - prefix name
  */
-bool aamp_WriteFile(std::string fileName, const char* data, size_t len, MediaType &fileType, unsigned int count,const char *prefix);
+bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMediaType &fileType, unsigned int count,const char *prefix);
 /**
  * @fn getHarvestConfigForMedia
  * @param fileType - meida file type
  */
-int getHarvestConfigForMedia(MediaType fileType);
+int getHarvestConfigForMedia(AampMediaType fileType);
 /**
  * @fn getWorkingTrickplayRate
  * @param rate input rate
@@ -295,7 +295,7 @@ double ParseISO8601Duration(const char *ptr);
  * @param mediaType media type
  * @retval the name of the mediaType
  */
-const char* getMediaTypeName( MediaType mediaType );
+const char* getMediaTypeName( AampMediaType mediaType );
 
 /**
  * @brief Computes the fragment duratioN.

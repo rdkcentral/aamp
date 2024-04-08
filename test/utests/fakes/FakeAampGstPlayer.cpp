@@ -36,22 +36,22 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 {
 }
 
-bool AAMPGstPlayer::SendCopy( MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration)
+bool AAMPGstPlayer::SendCopy( AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration)
 {
 	return true;
 }
 
-bool AAMPGstPlayer::SendTransfer(MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment, bool discontinuity)
 {
 	return true;
 }
 
-bool AAMPGstPlayer::PipelineConfiguredForMedia(MediaType type)
+bool AAMPGstPlayer::PipelineConfiguredForMedia(AampMediaType type)
 {
 	return true;
 }
 
-void AAMPGstPlayer::EndOfStreamReached(MediaType mediaType)
+void AAMPGstPlayer::EndOfStreamReached(AampMediaType mediaType)
 {
 }
 
@@ -133,7 +133,7 @@ void AAMPGstPlayer::SetAudioVolume(int volume)
 {
 }
 
-bool AAMPGstPlayer::Discontinuity( MediaType mediaType)
+bool AAMPGstPlayer::Discontinuity( AampMediaType mediaType)
 {
 	return true;
 }
@@ -143,7 +143,7 @@ bool AAMPGstPlayer::CheckForPTSChangeWithTimeout(long timeout)
 	return true;
 }
 
-bool AAMPGstPlayer::IsCacheEmpty(MediaType mediaType)
+bool AAMPGstPlayer::IsCacheEmpty(AampMediaType mediaType)
 {
 	return true;
 }
@@ -164,7 +164,7 @@ void AAMPGstPlayer::GetVideoSize(int &w, int &h)
 {
 }
 
-void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *ptr, size_t len, MediaType type)
+void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *ptr, size_t len, AampMediaType type)
 {
 }
 
@@ -198,7 +198,7 @@ bool AAMPGstPlayer::SetTextStyle(const std::string &options)
 	return false;
 }
 
-gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, GstClockTime pts, const void *ptr, size_t len)
+gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(AampMediaType mediaType, GstClockTime pts, const void *ptr, size_t len)
 {
 	return FALSE;
 }
@@ -241,7 +241,7 @@ bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
 	return false;
 }
 
-void AAMPGstPlayer::GetBufferControlData(MediaType mediaType, BufferControlData &data) const
+void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlData &data) const
 {
 }
 

@@ -384,7 +384,7 @@ protected:
                 {
                 }
 
-                void CallPrintSelectedTrack(const std::string &trackIndex, MediaType media)
+                void CallPrintSelectedTrack(const std::string &trackIndex, AampMediaType media)
                 {
                         printSelectedTrack(trackIndex, media);
                 }
@@ -498,7 +498,7 @@ protected:
                         return GetProfileIdxForBandwidthNotification(bandwidth);
                 }
 
-                std::string CallGetCurrentMimeType(MediaType mediaType)
+                std::string CallGetCurrentMimeType(AampMediaType mediaType)
                 {
                         return GetCurrentMimeType(mediaType);
                 }
@@ -535,12 +535,12 @@ protected:
                         return GetLatencyStatus();
                 }
 
-                void CallQueueContentProtection(IPeriod *period, uint32_t adaptationSetIdx, MediaType mediaType, bool qGstProtectEvent = true, bool isVssPeriod = false)
+                void CallQueueContentProtection(IPeriod *period, uint32_t adaptationSetIdx, AampMediaType mediaType, bool qGstProtectEvent = true, bool isVssPeriod = false)
                 {
                         QueueContentProtection(period, adaptationSetIdx, mediaType, qGstProtectEvent, isVssPeriod);
                 }
 
-                void CallProcessAllContenProtForMediaType(MediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs)
+                void CallProcessAllContenProtForMediaType(AampMediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs)
                 {
                         ProcessAllContenProtForMediaType(type, priorityAdaptationIdx, chosenAdaptationIdxs);
                 }
@@ -1795,7 +1795,7 @@ TEST_F(FunctionalTests_1, SetNextObjectRequestUrlTest)
         // Define test input values
         std::string media = "example.mp4";
         FragmentDescriptor fragmentDescriptor;
-        MediaType mediaType = eMEDIATYPE_DEFAULT;
+        AampMediaType mediaType = eMEDIATYPE_DEFAULT;
         // Call the setNextobjectrequestUrl function
         _instanceStreamAbstractionAAMP_MPD->setNextobjectrequestUrl(media, &fragmentDescriptor, mediaType);
 }
@@ -1806,14 +1806,14 @@ TEST_F(FunctionalTests_1, SetNextRangeRequestTest)
         std::string fragmentUrl = "fragment.mp4";
         std::string nextrange = "bytes=100-199";
         long bandwidth = 500000;
-        MediaType mediaType = eMEDIATYPE_DEFAULT;
+        AampMediaType mediaType = eMEDIATYPE_DEFAULT;
         // Call the setNextRangeRequest function
         _instanceStreamAbstractionAAMP_MPD->setNextRangeRequest(fragmentUrl, nextrange, bandwidth, mediaType);
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, PrintSelectedTrackTest)
 {
-        mStreamAbstractionAAMP_MPD->CallPrintSelectedTrack("2", MediaType::eMEDIATYPE_SUBTITLE);
+        mStreamAbstractionAAMP_MPD->CallPrintSelectedTrack("2", AampMediaType::eMEDIATYPE_SUBTITLE);
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, FetcherLoopTest)
@@ -1887,7 +1887,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetProfileIdxForBandwidthNotificationTest)
 
 TEST_F(StreamAbstractionAAMP_MPDTest, GetCurrentMimeTypeTest)
 {
-        MediaType mediaType = eMEDIATYPE_DEFAULT;
+        AampMediaType mediaType = eMEDIATYPE_DEFAULT;
         std::string result = mStreamAbstractionAAMP_MPD->CallGetCurrentMimeType(mediaType);
 }
 
@@ -1941,7 +1941,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, QueueContentProtectionTest)
 {
         IPeriod *period;
         uint32_t adaptationSetIdx = 1;
-        MediaType mediaType = eMEDIATYPE_DEFAULT;
+        AampMediaType mediaType = eMEDIATYPE_DEFAULT;
         bool qGstProtectEvent = true;
         bool isVssPeriod = true;
         mStreamAbstractionAAMP_MPD->CallQueueContentProtection(period, adaptationSetIdx, mediaType, qGstProtectEvent, isVssPeriod);
@@ -1949,7 +1949,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, QueueContentProtectionTest)
 
 TEST_F(StreamAbstractionAAMP_MPDTest, ProcessAllContenProtForMediaTypeTest)
 {
-        MediaType type = eMEDIATYPE_DEFAULT;
+        AampMediaType type = eMEDIATYPE_DEFAULT;
         uint32_t priorityAdaptationIdx = 12;
         std::set<uint32_t> chosenAdaptationIdxs;
         mStreamAbstractionAAMP_MPD->CallProcessAllContenProtForMediaType(type, priorityAdaptationIdx, chosenAdaptationIdxs);

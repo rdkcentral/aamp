@@ -178,7 +178,7 @@ public:
 	 * @param[in] type - media type
 	 * @return void
 	 */
-	void LogNetworkLatency(const char* url, int downloadTime, int downloadThresholdTimeoutMs, MediaType type);
+	void LogNetworkLatency(const char* url, int downloadTime, int downloadThresholdTimeoutMs, AampMediaType type);
 
 	/**
 	 * @fn LogNetworkError
@@ -189,7 +189,7 @@ public:
 	 * @param[in] type - media type
 	 * @return void
 	 */
-	void LogNetworkError(const char* url, AAMPNetworkErrorType errorType, int errorCode, MediaType type);
+	void LogNetworkError(const char* url, AAMPNetworkErrorType errorType, int errorCode, AampMediaType type);
 
 	/**
 	 * @fn ParseContentUrl
@@ -201,7 +201,7 @@ public:
 	 * @param[in] type - media type
 	 * @return void
 	 */
-	void ParseContentUrl(const char* url, std::string& contentType, std::string& location, std::string& symptom, MediaType type);
+	void ParseContentUrl(const char* url, std::string& contentType, std::string& location, std::string& symptom, AampMediaType type);
 
 	/**
 	 * @fn LogDRMError

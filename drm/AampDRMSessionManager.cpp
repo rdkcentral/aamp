@@ -193,7 +193,7 @@ void AampDRMSessionManager::Stop()
  * @param type media type
  * @return none
  */
-void AampDRMSessionManager::QueueProtectionEvent(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type)
+void AampDRMSessionManager::QueueProtectionEvent(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type)
 {
 	if (drmHelper && aampInstance)
 	{
@@ -241,7 +241,7 @@ void AampDRMSessionManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
  * @return true if successfully queued
  * @return false if error occurred
  */
-bool AampDRMSessionManager::QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type, bool isVssPeriod)
+bool AampDRMSessionManager::QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
 {
 	return mLicensePrefetcher->QueueContentProtection(drmHelper, periodId, adapIdx, type, isVssPeriod);
 }
@@ -850,7 +850,7 @@ void AampDRMSessionManager::renewLicense(std::shared_ptr<AampDrmHelper> drmHelpe
  *  @brief Get DRM license key from DRM server.
  */
 DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
-		int32_t *httpCode, MediaType streamType, PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr eventHandle, AampCurlDownloader *pLicenseDownloader, std::string licenseProxy)
+		int32_t *httpCode, AampMediaType streamType, PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr eventHandle, AampCurlDownloader *pLicenseDownloader, std::string licenseProxy)
 {
 
 	CURLcode res;
@@ -1058,7 +1058,7 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
  */
 AampDrmSession * AampDRMSessionManager::createDrmSession(
 		const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
-		uint16_t initDataLen, MediaType streamType,
+		uint16_t initDataLen, AampMediaType streamType,
 		PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr e, const unsigned char* contentMetadataPtr,
 		bool isPrimarySession)
 {
@@ -1102,7 +1102,7 @@ AampDrmSession * AampDRMSessionManager::createDrmSession(
 /**
  *  @brief Create DrmSession by using the AampDrmHelper object
  */
-AampDrmSession* AampDRMSessionManager::createDrmSession(std::shared_ptr<AampDrmHelper> drmHelper, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, MediaType streamType)
+AampDrmSession* AampDRMSessionManager::createDrmSession(std::shared_ptr<AampDrmHelper> drmHelper, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, AampMediaType streamType)
 {
 	if (!drmHelper || !eventHandle || !aampInstance)
 	{
@@ -1449,7 +1449,7 @@ KeyState AampDRMSessionManager::initializeDrmSession(std::shared_ptr<AampDrmHelp
  * @brief sent license challenge to the DRM server and provide the respone to CDM
  */
 KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, int &cdmError,
-		DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, MediaType streamType, bool isLicenseRenewal)
+		DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, AampMediaType streamType, bool isLicenseRenewal)
 {
 	shared_ptr<DrmData> licenseResponse;
 	int32_t httpResponseCode = -1;
@@ -1875,7 +1875,7 @@ void AampDRMSessionManager::notifyCleanup()
 #endif
 }
 
-void AampDRMSessionManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, std::vector<uint8_t> keyId, MediaType streamType)
+void AampDRMSessionManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, std::vector<uint8_t> keyId, AampMediaType streamType)
 {
 	std::string contentType = sessionTypeName[streamType];
 	int iter1 = 0;

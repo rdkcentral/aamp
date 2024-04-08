@@ -56,7 +56,7 @@ public:
      *   @fn SendCopy
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual bool SendCopy( MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration)
+	virtual bool SendCopy( AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 		return false;
@@ -65,7 +65,7 @@ public:
      *   @fn SendTransfer
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual bool SendTransfer( MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double duration, bool initFragment = false, bool discontinuity = false)
+	virtual bool SendTransfer( AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double duration, bool initFragment = false, bool discontinuity = false)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 		return false;
@@ -74,7 +74,7 @@ public:
      *   @fn EndOfStreamReached
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual void EndOfStreamReached(MediaType mediaType)
+	virtual void EndOfStreamReached(AampMediaType mediaType)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 	}
@@ -217,7 +217,7 @@ public:
      *   @fn Discontinuity
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual bool Discontinuity( MediaType mediaType)
+	virtual bool Discontinuity( AampMediaType mediaType)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 		return false;
@@ -235,7 +235,7 @@ public:
      *   @fn IsCacheEmpty
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual bool IsCacheEmpty(MediaType mediaType)
+	virtual bool IsCacheEmpty(AampMediaType mediaType)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 		return false;
@@ -276,7 +276,7 @@ public:
      *   @fn QueueProtectionEvent
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual void QueueProtectionEvent(const char *protSystemId, const void *ptr, size_t len, MediaType type)
+	virtual void QueueProtectionEvent(const char *protSystemId, const void *ptr, size_t len, AampMediaType type)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 	}

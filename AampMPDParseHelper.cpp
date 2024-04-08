@@ -450,7 +450,7 @@ bool AampMPDParseHelper::IsIframeTrack(IAdaptationSet *adaptationSet)
  * @retval true if adaptation set is of the given media type
  */
 
-bool AampMPDParseHelper::IsContentType(const IAdaptationSet *adaptationSet, MediaType mediaType )
+bool AampMPDParseHelper::IsContentType(const IAdaptationSet *adaptationSet, AampMediaType mediaType )
 {
 	const char *name = getMediaTypeName(mediaType);
 	if (strcmp(name, "UNKNOWN") != 0)
@@ -1180,7 +1180,7 @@ std::vector<Representation *>  AampMPDParseHelper::GetBitrateInfoFromCustomMpd( 
  *   @param  type media type
  *   @retval start time
  */
-double AampMPDParseHelper::GetFirstSegmentScaledStartTime(IPeriod * period, MediaType type)
+double AampMPDParseHelper::GetFirstSegmentScaledStartTime(IPeriod * period, AampMediaType type)
 {
 	double scaledStartTime = -1;
 	const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();

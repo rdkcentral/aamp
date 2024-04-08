@@ -41,7 +41,7 @@ struct LicensePreFetchObject
 	std::shared_ptr<AampDrmHelper> mHelper; /** drm helper for the content protection*/
 	std::string mPeriodId;                  /** Period ID*/
 	uint32_t mAdaptationIdx;                /** Adapatation Index*/
-	MediaType mType;                        /** Stream type*/
+	AampMediaType mType;                        /** Stream type*/
 	int mId;                                /** Object ID*/
 	static int staticId;
 	bool mIsVssPeriod;
@@ -55,7 +55,7 @@ struct LicensePreFetchObject
 	 * @param isVssPeriod flag denotes if this is for a VSS period
 	 * @param type media type
 	 */
-	LicensePreFetchObject(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type, bool isVssPeriod): mHelper(drmHelper),
+	LicensePreFetchObject(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod): mHelper(drmHelper),
 															mPeriodId(periodId),
 															mAdaptationIdx(adapIdx),
 															mType(type),
@@ -156,7 +156,7 @@ public:
 	 * @return true if successfully queued
 	 * @return false if error occurred
 	 */
-	bool QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type, bool isVssPeriod = false);
+	bool QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod = false);
 
 	/**
 	 * @brief De-initialize/free resources

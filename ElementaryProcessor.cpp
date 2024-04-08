@@ -66,11 +66,11 @@ void ElementaryProcessor::sendStream(AampGrowableBuffer *pBuffer,double position
 {
 	if(mediaFormat == eMEDIAFORMAT_DASH)
 	{
-		p_aamp->SendStreamTransfer((MediaType)eMEDIATYPE_SUBTITLE, pBuffer,position, position, duration, isInit, discontinuous);
+		p_aamp->SendStreamTransfer((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer,position, position, duration, isInit, discontinuous);
 	}
 	else
 	{
-		p_aamp->SendStreamCopy((MediaType)eMEDIATYPE_SUBTITLE, pBuffer->GetPtr(), pBuffer->GetLen(), position, position, duration);
+		p_aamp->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer->GetPtr(), pBuffer->GetLen(), position, position, duration);
 	}
 }
 

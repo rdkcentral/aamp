@@ -34,7 +34,7 @@ constexpr size_t min_id3_header_length = 4u;
 constexpr size_t id3v2_header_size = 10u;
 
 
-bool IsValidMediaType(MediaType mediaType)
+bool IsValidMediaType(AampMediaType mediaType)
 {
 	return mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_DSM_CC;
 }
@@ -175,13 +175,13 @@ void MetadataCache::Reset()
 	}
 }
 
-bool MetadataCache::CheckNewMetadata(MediaType mediaType, const std::vector<uint8_t> & data) const
+bool MetadataCache::CheckNewMetadata(AampMediaType mediaType, const std::vector<uint8_t> & data) const
 {
 	const auto & cache = mCache[mediaType];
 	return (data != cache);
 }
 
-void MetadataCache::UpdateMedatadaCache(MediaType mediaType, std::vector<uint8_t> data)
+void MetadataCache::UpdateMedatadaCache(AampMediaType mediaType, std::vector<uint8_t> data)
 {
 	auto & cache = mCache[mediaType];
 	cache.clear();

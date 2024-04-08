@@ -30,7 +30,7 @@ protected:
 
 TEST(AampMPDUtils, IsCompatibleMimeTypeTest1)
 {
-    MediaType mediaType[21] = {
+    AampMediaType mediaType[21] = {
     eMEDIATYPE_DEFAULT,
     eMEDIATYPE_VIDEO,
     eMEDIATYPE_AUDIO,
@@ -62,14 +62,14 @@ TEST(AampMPDUtils, IsCompatibleMimeTypeTest1)
 
 TEST(AampMPDUtils, IsCompatibleMimeTypeTest2)
 {
-    MediaType mediaType = eMEDIATYPE_AUX_AUDIO;
+    AampMediaType mediaType = eMEDIATYPE_AUX_AUDIO;
     std::string mimeType = "audio/webm";
     bool result = IsCompatibleMimeType(mimeType,mediaType);
 	EXPECT_TRUE(result);
 }
 TEST(AampMPDUtils, IsCompatibleMimeTypeTest3)
 {
-    MediaType mediaType = eMEDIATYPE_SUBTITLE;
+    AampMediaType mediaType = eMEDIATYPE_SUBTITLE;
     std::string mimeType = "application/ttml+xml";
     bool minetype = IsCompatibleMimeType(mimeType,mediaType);
 	EXPECT_TRUE(minetype);

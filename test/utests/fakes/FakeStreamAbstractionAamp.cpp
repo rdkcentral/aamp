@@ -168,7 +168,7 @@ CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
     return NULL;
 }
 
-MediaType MediaTrack::GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe)
+AampMediaType MediaTrack::GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe)
 {
     return eMEDIATYPE_DEFAULT;
 }

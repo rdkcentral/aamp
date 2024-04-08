@@ -51,7 +51,7 @@ bool AampHlsDrmSessionManager::isDrmSupported(const struct DrmInfo& drmInfo) con
 /**
  * @brief createSession create session for DRM
  */
-std::shared_ptr<HlsDrmBase> AampHlsDrmSessionManager::createSession(PrivateInstanceAAMP* aampInstance, const struct DrmInfo& drmInfo,MediaType streamType, AampLogManager *mLogObj)
+std::shared_ptr<HlsDrmBase> AampHlsDrmSessionManager::createSession(PrivateInstanceAAMP* aampInstance, const struct DrmInfo& drmInfo, AampMediaType streamType, AampLogManager *mLogObj)
 {
 	std::shared_ptr<HlsDrmBase> bridge = nullptr;
 	std::shared_ptr<AampDrmHelper> drmHelper = AampDrmHelperEngine::getInstance().createHelper(drmInfo, mLogObj);

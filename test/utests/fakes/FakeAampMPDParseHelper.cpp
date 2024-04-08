@@ -123,7 +123,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
  * @brief Check if adaptation set is of a given media type
  * @retval true if adaptation set is of the given media type
  */
-bool IsContentType(const IAdaptationSet *adaptationSet, MediaType mediaType )
+bool IsContentType(const IAdaptationSet *adaptationSet, AampMediaType mediaType )
 {
 	return false;
 }
@@ -181,7 +181,7 @@ int AampMPDParseHelper::getPeriodIdx(const std::string &periodId)
  * @param  type media type
  * @retval start time
  */
-double AampMPDParseHelper::GetFirstSegmentScaledStartTime(IPeriod * period, MediaType type)
+double AampMPDParseHelper::GetFirstSegmentScaledStartTime(IPeriod * period, AampMediaType type)
 {
 	return 0;
 }

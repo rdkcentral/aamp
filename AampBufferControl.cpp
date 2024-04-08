@@ -22,7 +22,7 @@
 #include "StreamAbstractionAAMP.h"
 
 AampBufferControl::BufferControlExternalData::BufferControlExternalData(const AAMPGstPlayer* player,
-																		const MediaType mediaType)
+																		const AampMediaType mediaType)
 	: mRate(0), mTimeBasedBufferSeconds(0), mExtraDataCache(), mCacheValid(false)
 {
 	if (player && player->aamp && player->aamp->mConfig)
@@ -43,7 +43,7 @@ AampBufferControl::BufferControlExternalData::BufferControlExternalData(const AA
 	}
 }
 
-void AampBufferControl::BufferControlExternalData::actionDownloads(const AAMPGstPlayer* player, const MediaType mediaType, bool downloadsEnabled)
+void AampBufferControl::BufferControlExternalData::actionDownloads(const AAMPGstPlayer* player, const AampMediaType mediaType, bool downloadsEnabled)
 {
 	if(player && player->aamp)
 	{
@@ -59,7 +59,7 @@ void AampBufferControl::BufferControlExternalData::actionDownloads(const AAMPGst
 }
 
 void AampBufferControl::BufferControlExternalData::cacheExtraData(const AAMPGstPlayer* player,
-																  const MediaType mediaType)
+																  const AampMediaType mediaType)
 {
 	player->GetBufferControlData(mediaType, mExtraDataCache);
 	mCacheValid = true;
@@ -319,7 +319,7 @@ void AampBufferControl::BufferControlMaster::createOrChangeStrategyIfRequired(Bu
 	}
 }
 
-void AampBufferControl::BufferControlMaster::needData(const AAMPGstPlayer *player, const MediaType mediaType)
+void AampBufferControl::BufferControlMaster::needData(const AAMPGstPlayer *player, const AampMediaType mediaType)
 {
 	try
 	{
@@ -360,7 +360,7 @@ void AampBufferControl::BufferControlMaster::needData(const AAMPGstPlayer *playe
 	BufferControlExternalData::actionDownloads(player, mediaType, mDownloadShouldBeEnabled);
 }
 
-void AampBufferControl::BufferControlMaster::enoughData(const AAMPGstPlayer *player, const MediaType mediaType)
+void AampBufferControl::BufferControlMaster::enoughData(const AAMPGstPlayer *player, const AampMediaType mediaType)
 {
 	try
 	{
@@ -398,7 +398,7 @@ void AampBufferControl::BufferControlMaster::enoughData(const AAMPGstPlayer *pla
 	BufferControlExternalData::actionDownloads(player, mediaType, mDownloadShouldBeEnabled);
 }
 
-void AampBufferControl::BufferControlMaster::update(const AAMPGstPlayer *player, const MediaType mediaType)
+void AampBufferControl::BufferControlMaster::update(const AAMPGstPlayer *player, const AampMediaType mediaType)
 {
 	try
 	{
@@ -428,7 +428,7 @@ void AampBufferControl::BufferControlMaster::update(const AAMPGstPlayer *player,
 	BufferControlExternalData::actionDownloads(player, mediaType, mDownloadShouldBeEnabled);
 }
 
-void AampBufferControl::BufferControlMaster::notifyFragmentInject(const AAMPGstPlayer* player,  const MediaType mediaType, double fpts, double fdts, double duration, bool firstBuffer)
+void AampBufferControl::BufferControlMaster::notifyFragmentInject(const AAMPGstPlayer* player,  const AampMediaType mediaType, double fpts, double fdts, double duration, bool firstBuffer)
 {
 	try
 	{
@@ -455,7 +455,7 @@ void AampBufferControl::BufferControlMaster::notifyFragmentInject(const AAMPGstP
 	BufferControlExternalData::actionDownloads(player, mediaType, mDownloadShouldBeEnabled);
 }
 
-void AampBufferControl::BufferControlMaster::underflow(const AAMPGstPlayer *player, const MediaType mediaType)
+void AampBufferControl::BufferControlMaster::underflow(const AAMPGstPlayer *player, const AampMediaType mediaType)
 {
 	try
 	{

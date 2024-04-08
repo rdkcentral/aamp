@@ -138,7 +138,7 @@ bool AampLicensePreFetcher::KeyIsQueued(LicensePreFetchObjectPtr &fetchObject)
  * @return true if successfully queued
  * @return false if error occurred
  */
-bool AampLicensePreFetcher::QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, MediaType type, bool isVssPeriod)
+bool AampLicensePreFetcher::QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
 {
 	bool ret = true;
 	if(!mExitLoop)

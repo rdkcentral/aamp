@@ -89,7 +89,7 @@ protected:
 //     double duration = 1.3;
 //     bool discontinuous = true;
 //     bool ptsError = true;
-//     //mPrivateInstanceAAMP->SendStreamCopy((MediaType)eMEDIATYPE_SUBTITLE, segment, size, position, position, duration);
+//     //mPrivateInstanceAAMP->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, segment, size, position, position, duration);
 //     bool TuneTimePTSResult = mElementaryProcessor->CallsetTuneTimePTS(segment, size, position, duration, discontinuous, ptsError);       
 // }
 
@@ -104,7 +104,7 @@ protected:
     // bool discontinuous = true;
     // MediaProcessor::process_fcn_t processor;
     // bool ptsError = true;
-    //mPrivateInstanceAAMP->SendStreamCopy((MediaType)eMEDIATYPE_SUBTITLE, segment, size, position, position, duration);
+    //mPrivateInstanceAAMP->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, segment, size, position, position, duration);
     //bool TuneTimePTSResult = mElementaryProcessor->sendSegment(segment, size, position, duration, discontinuous, processor, ptsError);    
 // }
 
@@ -120,7 +120,7 @@ protected:
 // 	bool ptsError = false;
 // 	buffer.AppendBytes(segment,tsPacketLength*2);
 // 	mElementaryProcessor->sendSegment(&buffer, position, duration, discontinuous,isInit,
-// 		[this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+// 		[this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 // 		{
 // 			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
 // 		},

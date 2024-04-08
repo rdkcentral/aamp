@@ -798,7 +798,7 @@ static inline void createdir(const char *dirpath)
  * @brief Get harvest config corresponds to Media type
  * @return harvestType
  */
-int getHarvestConfigForMedia(MediaType fileType)
+int getHarvestConfigForMedia(AampMediaType fileType)
 {
 	enum HarvestConfigType harvestType = eHARVEST_ENABLE_DEFAULT;
 	switch(fileType)
@@ -873,7 +873,7 @@ int getHarvestConfigForMedia(MediaType fileType)
 /**
  * @brief Write - file to storage
  */
-bool aamp_WriteFile(std::string fileName, const char* data, size_t len, MediaType &fileType, unsigned int count,const char *prefix)
+bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMediaType &fileType, unsigned int count,const char *prefix)
 {
 	bool retVal=false;	
 	{
@@ -1275,7 +1275,7 @@ double ParseISO8601Duration(const char *ptr)
  * @param mediaType media type
  * @retval the name of the mediaType
  */
-const char* getMediaTypeName( MediaType mediaType )
+const char* getMediaTypeName( AampMediaType mediaType )
 {
 	switch(mediaType)
 	{

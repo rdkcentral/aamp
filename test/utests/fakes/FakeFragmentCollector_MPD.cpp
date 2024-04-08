@@ -159,11 +159,11 @@ void StreamAbstractionAAMP_MPD::UpdateFailedDRMStatus(LicensePreFetchObject *obj
 {
 }
 
-void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, MediaType mediaType, bool qGstProtectEvent, bool isVssPeriod)
+void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, AampMediaType mediaType, bool qGstProtectEvent, bool isVssPeriod)
 {
 }
 
-void StreamAbstractionAAMP_MPD::ProcessAllContenProtForMediaType(MediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs)
+void StreamAbstractionAAMP_MPD::ProcessAllContenProtForMediaType(AampMediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs)
 {
 }
 

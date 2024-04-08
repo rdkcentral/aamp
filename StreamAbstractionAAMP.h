@@ -113,7 +113,7 @@ public:
 	std::string uri = {};            /**< Fragment url */
 #endif
 	StreamInfo cacheFragStreamInfo; /**< Bitrate info of the fragment */
-	MediaType   type;               /**< MediaType info of the fragment */
+	AampMediaType   type;               /**< AampMediaType info of the fragment */
 	
     CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0), initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()), type(eMEDIATYPE_DEFAULT)
     {
@@ -129,7 +129,7 @@ class CachedFragmentChunk
 {
 public:
 	AampGrowableBuffer fragmentChunk;   /**< Buffer to keep fragment content */
-	MediaType   type; 		/**< MediaType info of the fragment */
+	AampMediaType   type; 		/**< AampMediaType info of the fragment */
 	long long downloadStartTime;	/**< The start time of file download */
 	
     CachedFragmentChunk() : fragmentChunk(AampGrowableBuffer("cached-fragment-chunk")), type(eMEDIATYPE_DEFAULT), downloadStartTime(0){}
@@ -342,7 +342,7 @@ public:
 	 *
 	 * @return Mediatype
 	 */
-	MediaType GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe);
+	AampMediaType GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe);
 
 	/**
 	 * @fn NotifyFragmentCollectorWait
@@ -666,7 +666,7 @@ protected:
 	 * @param[out] fragmentChunkDiscarded - true if fragment is discarded.
 	 * @return void
 	 */
-	void InjectFragmentChunkInternal(MediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration);
+	void InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration);
 
 
 	static int GetDeferTimeMs(long maxTimeSeconds);

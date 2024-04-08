@@ -63,7 +63,7 @@ TEST_F(AampCacheHandlerTest, InitFragCache)
 
     AampGrowableBuffer *buffer;
     std::string effectiveUrl;
-    MediaType type;
+    AampMediaType type;
     type = eMEDIATYPE_INIT_VIDEO;
 
     buffer = new AampGrowableBuffer("InitFragCache_Data");
@@ -110,7 +110,7 @@ TEST_F(AampCacheHandlerTest, PlaylistCache)
     AampGrowableBuffer *buffer;
     std::string effectiveUrl;
     bool trackLiveStatus;
-    MediaType type;
+    AampMediaType type;
 
     buffer = new AampGrowableBuffer("PlaylistCache_Data");
 
@@ -223,7 +223,7 @@ protected:
             ClearPlaylistCache();
         }
 
-        bool CallAllocatePlaylistCacheSlot(MediaType fileType, size_t newLen)
+        bool CallAllocatePlaylistCacheSlot(AampMediaType fileType, size_t newLen)
         {
             return AllocatePlaylistCacheSlot(fileType, newLen);
         }
@@ -233,7 +233,7 @@ protected:
             ClearInitFragCache();
         }
 
-        void CallRemoveInitFragCacheEntry(MediaType fileType)
+        void CallRemoveInitFragCacheEntry(AampMediaType fileType)
         {
             RemoveInitFragCacheEntry(fileType);
         }
@@ -284,7 +284,7 @@ TEST_F(AampCacheHandlerTest_1, TestClearPlaylistCache)
 
 TEST_F(AampCacheHandlerTest_1, TestAllocatePlaylistCacheSlot)
 {
-    MediaType fileType = MediaType::eMEDIATYPE_DEFAULT; // or any other valid media type
+    AampMediaType fileType = AampMediaType::eMEDIATYPE_DEFAULT; // or any other valid media type
     size_t newLen = 100; // or any other valid size
     bool result = mTestableAampCacheHandler->CallAllocatePlaylistCacheSlot(fileType, newLen);
 
@@ -298,7 +298,7 @@ TEST_F(AampCacheHandlerTest_1, TestClearInitFragCache)
 
 TEST_F(AampCacheHandlerTest_1, TestRemoveInitFragCacheEntry)
 {
-    MediaType fileType = MediaType::eMEDIATYPE_DEFAULT; // or any other valid media type
+    AampMediaType fileType = AampMediaType::eMEDIATYPE_DEFAULT; // or any other valid media type
     mTestableAampCacheHandler->CallRemoveInitFragCacheEntry(fileType);
 
 }

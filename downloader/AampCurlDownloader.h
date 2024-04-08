@@ -69,7 +69,7 @@ typedef struct _downloadConfig
 	bool	bNeedDownloadMetrics;
 	long 	iDnsCacheTimeOut;
 
-	//MediaType fileType;
+	//AampMediaType fileType;
 	std::unordered_map<std::string, std::vector<std::string>> sCustomHeaders;
 	std::string userAgentString;
 	std::string postData;

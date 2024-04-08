@@ -138,7 +138,7 @@ enum AuthTokenErrors {
 typedef struct PreCacheUrlData
 {
 	std::string url;
-	MediaType type;
+	AampMediaType type;
 	PreCacheUrlData():url(""),type(eMEDIATYPE_VIDEO)
 	{
 	}
@@ -416,7 +416,7 @@ public:
 	 *   @param[in]  fDuration - Buffer duration.
 	 *   @return void
 	 */
-	virtual bool SendCopy( MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)= 0;
+	virtual bool SendCopy( AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)= 0;
 
 	/**
 	 *   @brief  API to send audio/video buffer into the sink.
@@ -429,7 +429,7 @@ public:
          *   @param[in]  initFragment - flag for buffer type (init, data)
 	 *   @return void
 	 */
-	virtual bool SendTransfer( MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment = false, bool discontinuity = false)= 0;
+	virtual bool SendTransfer( AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment = false, bool discontinuity = false)= 0;
 
 	/**
 	 *   @brief  Checks pipeline is configured for media type
@@ -437,7 +437,7 @@ public:
 	 *   @param[in]  mediaType - Media Type
 	 *   @return void
 	 */
-	virtual bool PipelineConfiguredForMedia(MediaType type){return true;}
+	virtual bool PipelineConfiguredForMedia(AampMediaType type){return true;}
 
 	/**
 	 *   @brief  Notifies EOS to sink
@@ -445,7 +445,7 @@ public:
 	 *   @param[in]  mediaType - Media Type
 	 *   @return void
 	 */
-	virtual void EndOfStreamReached(MediaType mediaType){}
+	virtual void EndOfStreamReached(AampMediaType mediaType){}
 
 	/**
 	 *   @brief Start the stream
@@ -594,7 +594,7 @@ public:
 	 *   @param[in]  mediaType - Media Type
 	 *   @return TRUE if discontinuity processed
 	 */
-	virtual bool Discontinuity( MediaType mediaType) = 0;
+	virtual bool Discontinuity( AampMediaType mediaType) = 0;
 
 
 	/**
@@ -611,7 +611,7 @@ public:
 	 *   @param[in]  mediaType - Media Type
 	 *   @return true: empty, false: not empty
 	 */
-	virtual bool IsCacheEmpty(MediaType mediaType){ return true; };
+	virtual bool IsCacheEmpty(AampMediaType mediaType){ return true; };
 
 	/**
 	 * @brief Reset EOS SignalledFlag
@@ -649,7 +649,7 @@ public:
 	 *   @param[in]  len - Length of the protection data.
 	 *   @return void
 	 */
-	virtual void QueueProtectionEvent(const char *protSystemId, const void *ptr, size_t len, MediaType type) {};
+	virtual void QueueProtectionEvent(const char *protSystemId, const void *ptr, size_t len, AampMediaType type) {};
 
 	/**
 	 *   @brief Clear the protection event.

@@ -99,14 +99,14 @@ void DumpBlob(const unsigned char *ptr, size_t len)
 /**
  *  @brief Print the network error level logging for triage purpose
  */
-void AampLogManager::LogNetworkError(const char* url, AAMPNetworkErrorType errorType, int errorCode, MediaType type)
+void AampLogManager::LogNetworkError(const char* url, AAMPNetworkErrorType errorType, int errorCode, AampMediaType type)
 {
 }
 
 /**
  *  @brief Print the network latency level logging for triage purpose
  */
-void AampLogManager::LogNetworkLatency(const char* url, int downloadTime, int downloadThresholdTimeoutMs, MediaType type)
+void AampLogManager::LogNetworkLatency(const char* url, int downloadTime, int downloadThresholdTimeoutMs, AampMediaType type)
 {
 }
 

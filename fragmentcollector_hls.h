@@ -105,7 +105,7 @@ typedef struct HlsStreamInfo: public StreamInfo
  */
 typedef struct MediaInfo
 { // #EXT-X-MEDIA
-	MediaType type;			/**< Media Type */
+	AampMediaType type;			/**< Media Type */
 	const char *group_id;		/**< Group ID */
 	const char *name;		/**< Name of Media */
 	const char *language;		/**< Language */
@@ -650,7 +650,7 @@ class TrackState : public MediaTrack
 		double mXStartTimeOFfset;		/**< Holds value of time offset from X-Start tag */
 		double mCulledSecondsAtStart;		/**< Total culled duration with this asset prior to streamer instantiation*/
 		bool mSkipSegmentOnError;		/**< Flag used to enable segment skip on fetch error */
-		MediaType playlistMediaType;		/**< Media type of playlist of this track */
+		AampMediaType playlistMediaType;		/**< Media type of playlist of this track */
 };
 
 class PrivateInstanceAAMP;

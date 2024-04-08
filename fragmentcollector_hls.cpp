@@ -1768,7 +1768,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			std::string tempEffectiveUrl;
 			AAMPLOG_TRACE(" Calling Getfile . buffer %p avail %d", &cachedFragment->fragment, (int)cachedFragment->fragment.GetAvail());
 			bool fetched = aamp->GetFile(fragmentUrl, &cachedFragment->fragment,
-			 tempEffectiveUrl, &http_error, &downloadTime, range, type, false, (MediaType)(type), NULL, NULL, fragmentDurationSeconds);
+			 tempEffectiveUrl, &http_error, &downloadTime, range, type, false, (AampMediaType)(type), NULL, NULL, fragmentDurationSeconds);
 			//Workaround for 404 of subtitle fragments
 			//TODO: This needs to be handled at server side and this workaround has to be removed
 			if (!fetched && http_error == 404 && type == eTRACK_SUBTITLE)
@@ -2023,7 +2023,7 @@ void TrackState::FetchFragment()
 			// hence getting from context which is updated in FetchFragmentHelper
 			long lbwd = aamp->IsTSBSupported() ? context->GetTsbBandwidth() : this->GetCurrentBandWidth();
 			//update videoend info
-			aamp->UpdateVideoEndMetrics( (IS_FOR_IFRAME(iCurrentRate,type)? eMEDIATYPE_IFRAME:(MediaType)(type) ),
+			aamp->UpdateVideoEndMetrics( (IS_FOR_IFRAME(iCurrentRate,type)? eMEDIATYPE_IFRAME:(AampMediaType)(type) ),
 									lbwd,
 									((iFogErrorCode > 0 ) ? iFogErrorCode : http_error),this->mEffectiveUrl,fragmentDurationSeconds,downloadTime, bKeyChanged,fragmentEncrypted);
 
@@ -2074,7 +2074,7 @@ void TrackState::FetchFragment()
 			long lbwd = aamp->IsTSBSupported() ? context->GetTsbBandwidth() : this->GetCurrentBandWidth();
 
 			//update videoend info
-			aamp->UpdateVideoEndMetrics( (IS_FOR_IFRAME(iCurrentRate,type)? eMEDIATYPE_IFRAME:(MediaType)(type) ),
+			aamp->UpdateVideoEndMetrics( (IS_FOR_IFRAME(iCurrentRate,type)? eMEDIATYPE_IFRAME:(AampMediaType)(type) ),
 									lbwd,
 									((iFogErrorCode > 0 ) ? iFogErrorCode : http_error),this->mEffectiveUrl,cachedFragment->duration,downloadTime,bKeyChanged,fragmentEncrypted);
 
@@ -2085,7 +2085,7 @@ void TrackState::FetchFragment()
 				{
 					AAMPLOG_INFO(" Processing info # discontinuity: %s - position: %f - duration: %f", (discontinuity ? "true" : "false"), position, duration);
 
-					const MediaType media_type = static_cast<MediaType>(type);
+					const AampMediaType media_type = static_cast<AampMediaType>(type);
 					const double proc_position = context->mStartTimestampZero ? 0 : cachedFragment->position;
 
 					metadata_processor->ProcessFragmentMetadata(cachedFragment, media_type, 
@@ -2133,7 +2133,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			position = cachedFragment->position;
 		}
 
-		MediaProcessor::process_fcn_t processor = [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 		{
 			// This case has already been dealt with
 			if (type == eMEDIATYPE_DSM_CC && streamOutputFormat != FORMAT_ISO_BMFF)
@@ -2168,7 +2168,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 	{
 		fragmentDiscarded = false;
 		aamp->SendStreamCopy(
-							 (MediaType)type,
+							 (AampMediaType)type,
 							 cachedFragment->fragment.GetPtr(),
 							 cachedFragment->fragment.GetLen(),
 							 cachedFragment->position,
@@ -2298,7 +2298,7 @@ void TrackState::SetDrmContext()
 	{
 		// OCDM-based DRM decryption is available via the HLS OCDM bridge
 		AAMPLOG_INFO("Drm support available");
-		mDrm = AampHlsDrmSessionManager::getInstance().createSession(aamp, mDrmInfo,(MediaType)(type),mLogObj);
+		mDrm = AampHlsDrmSessionManager::getInstance().createSession(aamp, mDrmInfo,(AampMediaType)(type),mLogObj);
 		if (!mDrm)
 		{
 			AAMPLOG_WARN("Failed to create Drm Session");
@@ -2685,7 +2685,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, double &culledSec)
 		aamp->SetIsLive(context->IsLive());
 		if(!IsLive())
 		{
-			aamp->getAampCacheHandler()->InsertToPlaylistCache(mPlaylistUrl, &playlist, mEffectiveUrl,IsLive(),(MediaType)type);
+			aamp->getAampCacheHandler()->InsertToPlaylistCache(mPlaylistUrl, &playlist, mEffectiveUrl,IsLive(),(AampMediaType)type);
 		}
 		if(eTRACK_VIDEO == type)
 		{
@@ -3540,7 +3540,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 	//Sync using sequence number since startTime is not available or not desired
 	if (!startTimeAvailable || !useProgramDateTimeIfAvailable)
 	{
-		MediaType mediaType;
+		AampMediaType mediaType;
 #ifdef TRACE
 		AAMPLOG_WARN("sync using sequence number. A %lld V %lld a-f-uri %s v-f-uri %s", mediaSequenceNumber[eMEDIATYPE_AUDIO], mediaSequenceNumber[eMEDIATYPE_VIDEO],
 				audio->fragmentURI, video->fragmentURI);
@@ -5567,7 +5567,7 @@ void TrackState::Stop(bool clearDRM)
 		fragmentCollectorThreadStarted = false;
 	}
 
-	aamp->StopTrackInjection((MediaType) type);
+	aamp->StopTrackInjection((AampMediaType) type);
 	StopInjectLoop();
 
 	//To be called after StopInjectLoop to avoid cues to be injected after cleanup
@@ -5637,7 +5637,7 @@ void TrackState::Start(void)
 
 	if(aamp->IsPlayEnabled())
 	{
-		aamp->ResumeTrackInjection((MediaType) type);
+		aamp->ResumeTrackInjection((AampMediaType) type);
 		StartInjectLoop();
 	}
 }
@@ -6302,7 +6302,7 @@ void TrackState::FetchPlaylist()
 	int  main_error = 0;
 
 	ProfilerBucketType bucketId = PROFILE_BUCKET_PLAYLIST_VIDEO; //type == eTRACK_VIDEO, eTRACK_AUDIO,...
-	MediaType mType = eMEDIATYPE_PLAYLIST_VIDEO;
+	AampMediaType mType = eMEDIATYPE_PLAYLIST_VIDEO;
 
 	if (type == eTRACK_AUDIO)
 	{
@@ -6647,7 +6647,7 @@ void TrackState::FetchInitFragment()
 			forcePushEncryptedHeader = false;
 		}
 
-		ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia((MediaType)type, true);
+		ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia((AampMediaType)type, true);
 		aamp->profiler.ProfileBegin(bucketType);
 		if(FetchInitFragmentHelper(http_code, forcePushEncryptedHeader))
 		{
@@ -6807,7 +6807,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			AAMPLOG_WARN("TrackState::[%s] init-fragment = %s", name, fragmentUrl.c_str());
 			int iCurrentRate = aamp->rate; //  Store it as back up, As sometimes by the time File is downloaded, rate might have changed due to user initiated Trick-Play
 
-			MediaType actualType = eMEDIATYPE_INIT_VIDEO;
+			AampMediaType actualType = eMEDIATYPE_INIT_VIDEO;
 			if(IS_FOR_IFRAME(iCurrentRate,type))
 			{
 				actualType = eMEDIATYPE_INIT_IFRAME;
@@ -6901,7 +6901,7 @@ void StreamAbstractionAAMP_HLS::StopInjection(void)
 void TrackState::StopInjection()
 {
 	AbortWaitForCachedFragment();
-	aamp->StopTrackInjection((MediaType) type);
+	aamp->StopTrackInjection((AampMediaType) type);
 	if (playContext)
 	{
 		playContext->abort();
@@ -6917,7 +6917,7 @@ void TrackState::StartInjection()
 {
 	AAMPLOG_INFO("StartInjection()");
 
-	aamp->ResumeTrackInjection((MediaType) type);
+	aamp->ResumeTrackInjection((AampMediaType) type);
 	if (playContext)
 	{
 		playContext->reset();
@@ -7951,7 +7951,7 @@ void TrackState::getNextFetchRequestUri(void)
 	{
 		currfragurl.assign(fragmentURI,strlen(fragmentURI));
 		currfragurl = getNextobjrelativeUrl(currfragurl,false);
-		aamp->mCMCDCollector->CMCDSetNextObjectRequest(currfragurl,0,(MediaType)type);
+		aamp->mCMCDCollector->CMCDSetNextObjectRequest(currfragurl,0,(AampMediaType)type);
 		return;
 	}
 	if (!playlist.GetLen())
@@ -8005,11 +8005,11 @@ void TrackState::getNextFetchRequestUri(void)
 		{
 			nextfragurl = getNextobjrelativeUrl(nextfragurl,false);
 		}
-		aamp->mCMCDCollector->CMCDSetNextObjectRequest(nextfragurl,0,(MediaType)type);
+		aamp->mCMCDCollector->CMCDSetNextObjectRequest(nextfragurl,0,(AampMediaType)type);
 	}
 	else
 	{
-		aamp->mCMCDCollector->CMCDSetNextObjectRequest("",0,(MediaType)type);
+		aamp->mCMCDCollector->CMCDSetNextObjectRequest("",0,(AampMediaType)type);
 	}
 }
 

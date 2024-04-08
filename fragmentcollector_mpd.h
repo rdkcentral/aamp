@@ -385,11 +385,11 @@ public:
 	/**
 	 * @fn ParseTrackInformation
 	 * @param adaptationSet Adaptation Node
-	 * @param MediaType type of media
+	 * @param AampMediaType type of media
 	 * @param[out] aTracks audio tracks
 	 * @param[out] tTracks text tracks
 	 */
-	void ParseTrackInformation(IAdaptationSet *adaptationSet, uint32_t iAdaptationIndex, MediaType media, std::vector<AudioTrackInfo> &aTracks, std::vector<TextTrackInfo> &tTracks);
+	void ParseTrackInformation(IAdaptationSet *adaptationSet, uint32_t iAdaptationIndex, AampMediaType media, std::vector<AudioTrackInfo> &aTracks, std::vector<TextTrackInfo> &tTracks);
 	uint64_t mLastPlaylistDownloadTimeMs; // Last playlist refresh time
 
 	//Apis for sidecar caption support
@@ -462,8 +462,8 @@ public:
 	static void MPDUpdateCallback(void *);
 
 	// CMCD Get nor and nrr fields
-	void setNextobjectrequestUrl(std::string media,const FragmentDescriptor *fragmentDescriptor,MediaType mediaType);
-	void setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,MediaType mediaType);
+	void setNextobjectrequestUrl(std::string media,const FragmentDescriptor *fragmentDescriptor,AampMediaType mediaType);
+	void setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,AampMediaType mediaType);
 
 	/*
 	* @fn AcquirePlaylistLock
@@ -488,7 +488,7 @@ protected:
 	 * @param[in] trackIndex - selected track index
 	 * @param[in] media - Media type
 	 */
-	void printSelectedTrack(const std::string &trackIndex, MediaType media);
+	void printSelectedTrack(const std::string &trackIndex, AampMediaType media);
 	/**
 	 * @fn AdvanceTrack
 	 * @return void
@@ -660,10 +660,10 @@ protected:
 	int GetProfileIdxForBandwidthNotification(uint32_t bandwidth);
 	/**
 	 * @fn GetCurrentMimeType
-	 * @param MediaType type of media
+	 * @param AampMediaType type of media
 	 * @retval mimeType
 	 */
-	std::string GetCurrentMimeType(MediaType mediaType);
+	std::string GetCurrentMimeType(AampMediaType mediaType);
 	/**
 	 * @fn UpdateTrackInfo
 	 */
@@ -759,7 +759,7 @@ protected:
 	 * @param[in] adaptationSet - adaptation to be checked for
 	 * @param[out] representionIndex - represention within adaptation with matching params
 	 */
-	bool IsMatchingLanguageAndMimeType(MediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex);
+	bool IsMatchingLanguageAndMimeType(AampMediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex);
 	/**
 	 * @fn GetFragmentUrl
 	 * @param[out] fragmentUrl fragment url
@@ -806,7 +806,7 @@ protected:
 	 * @param - Do need to reset vector?
 	 * @retun none
 	 */
-	void PopulateTrackInfo(MediaType media, bool reset=false);
+	void PopulateTrackInfo(AampMediaType media, bool reset=false);
 
 	/**
 	 * @fn QueueContentProtection
@@ -818,7 +818,7 @@ protected:
 	 * @brief queue content protection for the given adaptation set
 	 * @retval true on success
 	 */
-	void QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, MediaType mediaType, bool qGstProtectEvent = true, bool isVssPeriod = false);
+	void QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, AampMediaType mediaType, bool qGstProtectEvent = true, bool isVssPeriod = false);
 
 	/**
 	 * @fn ProcessAllContenProtForMediaType
@@ -828,7 +828,7 @@ protected:
 	 * @brief process content protection of all the adaptation for the given media type
 	 * @retval none
 	 */
-	void ProcessAllContenProtForMediaType(MediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs);
+	void ProcessAllContenProtForMediaType(AampMediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs);
 
 	bool PlacenextAdBrkifAvail(dash::mpd::IMPD *mpd);
 
@@ -946,7 +946,7 @@ protected:
 	 * @param adaptationSet Adaptation set object
 	 * @param mediaType type of track
 	 */
-	std::shared_ptr<AampDrmHelper> CreateDrmHelper(const IAdaptationSet * adaptationSet,MediaType mediaType);
+	std::shared_ptr<AampDrmHelper> CreateDrmHelper(const IAdaptationSet * adaptationSet,AampMediaType mediaType);
 
 	/**
 	* @fn CheckForVssTags

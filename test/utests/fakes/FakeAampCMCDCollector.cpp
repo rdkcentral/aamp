@@ -60,7 +60,7 @@ void AampCMCDCollector::Initialize(bool enableDisable , std::string &traceId)
 *
 * @return None
 */
-void AampCMCDCollector::CMCDSetNextObjectRequest(std::string url,long CMCDBandwidth,MediaType mediaT)
+void AampCMCDCollector::CMCDSetNextObjectRequest(std::string url,long CMCDBandwidth,AampMediaType mediaT)
 {
 }
 
@@ -69,7 +69,7 @@ void AampCMCDCollector::CMCDSetNextObjectRequest(std::string url,long CMCDBandwi
 * @return None
 */
 
-void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,long bandwidth,MediaType mediaType)
+void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,long bandwidth,AampMediaType mediaType)
 {
 }
 /**
@@ -77,7 +77,7 @@ void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,long bandw
 *
 * @return None
 */
-void AampCMCDCollector::CMCDGetHeaders(MediaType fileType , std::vector<std::string> &customHeader)
+void AampCMCDCollector::CMCDGetHeaders(AampMediaType fileType , std::vector<std::string> &customHeader)
 {
  }
  
@@ -87,14 +87,14 @@ void AampCMCDCollector::CMCDGetHeaders(MediaType fileType , std::vector<std::str
 *
 * @return None
 */
-void AampCMCDCollector::CMCDSetNetworkMetrics(MediaType fileType,  int startTransferTime, int totalTime, int dnsLookUpTime)
+void AampCMCDCollector::CMCDSetNetworkMetrics(AampMediaType fileType,  int startTransferTime, int totalTime, int dnsLookUpTime)
 {
 }
 
 /**
 * @brief Collect and send all key-value pairs for CMCD headers.
 */
-void AampCMCDCollector::SetBitrates(MediaType fileType,const std::vector<BitsPerSecond> bitrateList)
+void AampCMCDCollector::SetBitrates(AampMediaType fileType,const std::vector<BitsPerSecond> bitrateList)
 {
 }
 
@@ -103,7 +103,7 @@ void AampCMCDCollector::SetBitrates(MediaType fileType,const std::vector<BitsPer
 /**
 * @brief Collect and send all key-value pairs for CMCD headers.
 */
-void AampCMCDCollector::SetTrackData(MediaType fileType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed)
+void AampCMCDCollector::SetTrackData(AampMediaType fileType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed)
 {
 
 }

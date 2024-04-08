@@ -87,7 +87,7 @@ private:
 	uint33_t current_dts;
 	uint33_t first_pts;
 	bool update_first_pts;
-	MediaType type;
+	AampMediaType type;
 	bool trickmode;
 	bool finalized_base_pts;
 	int sentESCount;
@@ -128,7 +128,7 @@ public:
 	 * @param[in] aamp pointer to PrivateInstanceAAMP object associated with demux
 	 * @param[in] type Media type to be demuxed
 	 */
-	Demuxer(AampLogManager *logObj, class PrivateInstanceAAMP *aamp, MediaType type)
+	Demuxer(AampLogManager *logObj, class PrivateInstanceAAMP *aamp, AampMediaType type)
 	 : mLogObj(logObj), aamp(aamp), pes_state(0),
 		pes_header_ext_len(0), pes_header_ext_read(0), pes_header("pes_header"), mMutex(),
 		es("es"), position(0), duration(0), base_pts{0}, current_pts{0},
@@ -220,10 +220,10 @@ public:
 		sendInternal(processor);
 	}
 
-	/** @brief Provides the @a MediaType of the demixer
-	 * @return The MediaType of the demuxer
+	/** @brief Provides the @a AampMediaType of the demixer
+	 * @return The AampMediaType of the demuxer
 	 */
-	MediaType GetType()
+	AampMediaType GetType()
 	{
 		std::lock_guard<std::mutex> lock{mMutex};
 		return type;

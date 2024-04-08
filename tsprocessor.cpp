@@ -771,7 +771,7 @@ void TSProcessor::sendDiscontinuity(double position)
 		AAMPLOG_TRACE("emit pcr discontinuity");
 		if (!m_demux)
 		{
-			aamp->SendStreamCopy((MediaType)m_track, discontinuityPacket, m_packetSize, position, position, 0);
+			aamp->SendStreamCopy((AampMediaType)m_track, discontinuityPacket, m_packetSize, position, position, 0);
 		}
 		if (haveInsertPCR)
 		{
@@ -799,7 +799,7 @@ void TSProcessor::sendDiscontinuity(double position)
 
 			if (!m_demux)
 			{
-				aamp->SendStreamCopy((MediaType)m_track, discontinuityPacket, m_packetSize, position, position, 0);
+				aamp->SendStreamCopy((AampMediaType)m_track, discontinuityPacket, m_packetSize, position, position, 0);
 			}
 		}
 	}
@@ -1719,7 +1719,7 @@ void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPosito
 				m_audDemuxer->setBasePTS(basepts, true);
 			}
 
-			MediaProcessor::process_fcn_t processor = [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+			MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
 				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			};
@@ -1855,7 +1855,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 			{
 				updatePATPMT();
 				int secSize = insertPatPmt(sec, (m_playMode != PlayMode_normal), PATPMT_MAX_SIZE);
-				aamp->SendStreamCopy((MediaType)m_track, sec, secSize, position, position, 0);
+				aamp->SendStreamCopy((AampMediaType)m_track, sec, secSize, position, position, 0);
 				free(sec);
 				AAMPLOG_TRACE("Send PAT/PMT");
 			}
@@ -1903,7 +1903,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 		}
 		else
 		{
-			aamp->SendStreamCopy((MediaType)m_track, packetStart, len, position, position, duration);
+			aamp->SendStreamCopy((AampMediaType)m_track, packetStart, len, position, position, duration);
 		}
 	}
 	if (-1 != duration)

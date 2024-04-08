@@ -159,7 +159,7 @@ void AddAttributesToNode(xmlTextReaderPtr *reader, Node *node)
  * @param mediaType media type
  * @retval true if compatible
  */
-bool IsCompatibleMimeType(const std::string& mimeType, MediaType mediaType)
+bool IsCompatibleMimeType(const std::string& mimeType, AampMediaType mediaType)
 {
 	bool isCompatible = false;
 
