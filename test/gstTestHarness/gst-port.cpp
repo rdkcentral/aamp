@@ -357,16 +357,19 @@ public:
 		context->PadProbeCallback( mediaType );
 	}
 
-	GstPadProbeReturn DemuxProbeCallback( GstBuffer* buffer )
+	GstPadProbeReturn DemuxProbeCallback( GstBuffer* buffer , GstPad* pad )
 	{
 		if (startPos >= 0)
 		{
+			gchar* padName = gst_pad_get_name(pad);
 			double pts = ((double) GST_BUFFER_PTS(buffer) / (double) GST_SECOND);
-			if (pts < startPos)
+			if ((pts < startPos) & startsWith(padName, "audio"))
 			{
 				printf("DemuxProbeCallback: %s buffer: start pos=%f dropping pts=%f\n", getMediaTypeAsString(), startPos, pts);
+				g_free(padName);
 				return GST_PAD_PROBE_DROP;
 			}
+			g_free(padName);
 		}
 		return GST_PAD_PROBE_OK;
 	}
@@ -516,7 +519,7 @@ static GstPadProbeReturn MyDemuxPadProbeCallback( GstPad * pad, GstPadProbeInfo 
 	// 	   info->offset,
 	// 	   info->id );
 	GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
-	return stream->DemuxProbeCallback(buffer);
+	return stream->DemuxProbeCallback(buffer,pad);
 }
 
 GstPadProbeReturn QtMonitorProbeCallback(GstPad *pad, GstPadProbeInfo *info, MediaStream *stream)
