@@ -2096,6 +2096,23 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		**  -A good candidate for future refactoring*/
 		mNewSeekInfo.Update(position, seek_pos_seconds);
 		int CurrentPositionDeltaToManifestEnd = end - position;
+		double reportFormatPosition = position;
+		if ((!ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) || !IsLiveStream()) && mProgressReportOffset > 0)
+		{
+			// Adjust progress positions for VOD, Linear without absolute timeline
+			start -= (mProgressReportOffset * 1000);
+			reportFormatPosition -= (mProgressReportOffset * 1000);
+			end -= (mProgressReportOffset * 1000);
+		}
+		else if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) &&
+			mProgressReportOffset > 0 && IsLiveStream() &&
+			eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START == GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAbsoluteProgressReporting))
+		{
+			// Adjust progress positions for linear stream with absolute timeline config from AST
+			start -= (mProgressReportAvailabilityOffset * 1000);
+			reportFormatPosition -= (mProgressReportAvailabilityOffset * 1000);
+			end -= (mProgressReportAvailabilityOffset * 1000);
+		}
 
 		// If tsb is not available for linear send -1  for start and end
                 // so that xre detect this as tsbless playabck
@@ -2129,23 +2146,6 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 				mMPDDownloaderInstance->SetCurrentPositionDeltaToManifestEnd(CurrentPositionDeltaToManifestEnd);
 
 			}
-		}
-		double reportFormatPosition = position;
-		if ((!ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) || !IsLiveStream()) && mProgressReportOffset > 0)
-		{
-			// Adjust progress positions for VOD, Linear without absolute timeline
-			start -= (mProgressReportOffset * 1000);
-			reportFormatPosition -= (mProgressReportOffset * 1000);
-			end -= (mProgressReportOffset * 1000);
-		}
-		else if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) &&
-			mProgressReportOffset > 0 && IsLiveStream() &&
-			eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START == GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAbsoluteProgressReporting))
-		{
-			// Adjust progress positions for linear stream with absolute timeline config from AST
-			start -= (mProgressReportAvailabilityOffset * 1000);
-			reportFormatPosition -= (mProgressReportAvailabilityOffset * 1000);
-			end -= (mProgressReportAvailabilityOffset * 1000);
 		}
 
 		if(GetCurrentlyAvailableBandwidth() != -1)
