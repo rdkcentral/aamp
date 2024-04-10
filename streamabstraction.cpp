@@ -1301,6 +1301,7 @@ void MediaTrack::RunInjectLoop()
     }
     totalInjectedDuration = 0;
     lastInjectedPosition = 0;
+    totalMissingDuration = 0;
     while (aamp->DownloadsAreEnabled() && keepInjecting)
     {
 	if(type == eTRACK_AUDIO && (loadNewAudio || refreshAudio))
@@ -1365,6 +1366,7 @@ void MediaTrack::RunInjectChunkLoop()
 	bool keepInjectingChunk = true;
 
 	totalInjectedChunksDuration = 0;
+	totalMissingDuration = 0;
 	while (aamp->DownloadsAreEnabled() && keepInjectingChunk)
 	{
 		if (!InjectFragmentChunk())
@@ -1510,6 +1512,7 @@ void MediaTrack::FlushFragments()
 		totalFetchedDuration = 0;
 		totalFragmentsDownloaded = 0;
 		totalInjectedDuration = 0;
+		totalMissingDuration = 0;
 	}
 }
 
@@ -1552,6 +1555,7 @@ void MediaTrack::FlushFragmentChunks()
 	numberOfFragmentChunksCached = 0;
 	totalFragmentChunksDownloaded = 0;
 	totalInjectedChunksDuration = 0;
+	totalMissingDuration = 0;
 	pthread_mutex_unlock(&mutex);
 }
 
@@ -1560,7 +1564,7 @@ void MediaTrack::FlushFragmentChunks()
  *  @brief MediaTrack Constructor
  */
 MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAAMP* aamp, const char* name) :
-		eosReached(false), enabled(false), numberOfFragmentsCached(0), numberOfFragmentChunksCached(0), fragmentIdxToInject(0), fragmentChunkIdxToInject(0),
+		eosReached(false), enabled(false), numberOfFragmentsCached(0), numberOfFragmentChunksCached(0), fragmentIdxToInject(0), fragmentChunkIdxToInject(0), totalMissingDuration(0),
 		fragmentIdxToFetch(0), fragmentChunkIdxToFetch(0), abort(false), fragmentInjectorThreadID(), fragmentChunkInjectorThreadID(),bufferMonitorThreadID(), totalFragmentsDownloaded(0), totalFragmentChunksDownloaded(0),
 		fragmentInjectorThreadStarted(false), fragmentChunkInjectorThreadStarted(false),bufferMonitorThreadStarted(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
 		sinkBufferIsFull(false), cachingCompleted(false), fragmentDurationSeconds(0),  segDLFailCount(0),segDrmDecryptFailCount(0),mSegInjectFailCount(0),
@@ -1668,8 +1672,8 @@ void StreamAbstractionAAMP::ReassessAndResumeAudioTrack(bool abort)
 	if( audio && video )
 	{
 		pthread_mutex_lock(&mLock);
-		double audioDuration = audio->GetTotalInjectedDuration();
-		double videoDuration = video->GetTotalInjectedDuration();
+		double audioDuration = audio->GetTotalInjectedDuration() + audio->GetTotalMissingDuration();
+		double videoDuration = video->GetTotalInjectedDuration() + video->GetTotalMissingDuration();
 		if(audioDuration < (videoDuration + (2 * video->fragmentDurationSeconds)) || !aamp->DownloadsAreEnabled() || video->IsDiscontinuityProcessed() || abort || video->IsAtEndOfTrack())
 		{
 			pthread_cond_signal(&mCond);
@@ -1680,13 +1684,13 @@ void StreamAbstractionAAMP::ReassessAndResumeAudioTrack(bool abort)
 		}
 		if (aux && aux->enabled)
 		{
-			double auxDuration = aux->GetTotalInjectedDuration();
+			double auxDuration = aux->GetTotalInjectedDuration() + aux->GetTotalMissingDuration();
 			if (auxDuration < (videoDuration + (2 * video->fragmentDurationSeconds)) || !aamp->DownloadsAreEnabled() || video->IsDiscontinuityProcessed() || abort || video->IsAtEndOfTrack())
 			{
 				pthread_cond_signal(&mAuxCond);
 #ifdef AAMP_DEBUG_FETCH_INJECT
-				AAMPLOG_WARN("signalling cond - auxDuration %f videoDuration %f",
-					auxDuration, videoDuration);
+				AAMPLOG_WARN("signalling cond - auxDuration %f videoDuration %f, audio->GetTotalMissingDuration=%.3f, video->GetTotalMissingDuration=%.3f",
+					auxDuration, videoDuration, audio->GetTotalMissingDuration(), video->GetTotalMissingDuration());
 #endif
 			}
 		}
@@ -1710,18 +1714,20 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 		struct timespec ts;
 		int ret = 0;
 
-		double audioDuration = audio->GetTotalInjectedDuration();
-		double videoDuration = video->GetTotalInjectedDuration();
+		double audioDuration = audio->GetTotalInjectedDuration() + audio->GetTotalMissingDuration();
+		double videoDuration = video->GetTotalInjectedDuration() + video->GetTotalMissingDuration();
 
+		int delayTimePerIteration=100, delayTimeTotal=0;
 		while ((audioDuration > (videoDuration + video->fragmentDurationSeconds)) && aamp->DownloadsAreEnabled() && !audio->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
 		{
 #ifdef AAMP_DEBUG_FETCH_INJECT
-			AAMPLOG_WARN("waiting for cond - audioDuration %f videoDuration %f video->fragmentDurationSeconds %f",
-				audioDuration, videoDuration,video->fragmentDurationSeconds);
+			AAMPLOG_WARN("waiting for cond - audioDuration %f videoDuration %f audio->fragmentDurationSeconds %f, video->GetTotalMissingDuration = %.3f, video->GetTotalMissingDuration = %.3f",
+				audioDuration, videoDuration,video->fragmentDurationSeconds, audio->GetTotalMissingDuration(), video->GetTotalMissingDuration());
 #endif
-			ts = aamp_GetTimespec(100);
+			ts = aamp_GetTimespec(delayTimePerIteration);
 
 			ret = pthread_cond_timedwait(&mCond, &mLock, &ts);
+			delayTimeTotal+=delayTimePerIteration;
 
 			if (ret == 0)
 			{
@@ -1730,6 +1736,14 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 			if (ret != ETIMEDOUT)
 			{
 				AAMPLOG_WARN("error while calling pthread_cond_timedwait - %s", strerror(ret));
+			}
+			else
+			{
+				if (! (delayTimeTotal%1000) )
+				{
+					AAMPLOG_DEBUG("Blocked on Inside mSubCond with audio:%f and video:%f, audio->GetTotalMissingDuration=%.3f, video->GetTotalMissingDuration=%.3f, for %d (ms)",
+						audioDuration, videoDuration, audio->GetTotalMissingDuration(), video->GetTotalMissingDuration(), delayTimeTotal);
+				}
 			}
 		}
 	}
@@ -2736,19 +2750,21 @@ void StreamAbstractionAAMP::WaitForAudioTrackCatchup()
                 return;
 	}
 	pthread_mutex_lock(&mLock);
-	double audioDuration = audio->GetTotalInjectedDuration();
-	double subtitleDuration = subtitle->GetTotalInjectedDuration();
+	double audioDuration = audio->GetTotalInjectedDuration() + audio->GetTotalMissingDuration();
+	double subtitleDuration = subtitle->GetTotalInjectedDuration() + subtitle->GetTotalMissingDuration();
+
 	//Allow subtitles to be ahead by 5 seconds compared to audio
+	int delayTimePerIteration=100, delayTimeTotal=0;
 	while ((subtitleDuration > (audioDuration + audio->fragmentDurationSeconds + 15.0)) && aamp->DownloadsAreEnabled() && !subtitle->IsDiscontinuityProcessed() && !audio->IsInjectionAborted())
 	{
-		AAMPLOG_DEBUG("Blocked on Inside mSubCond with sub:%f and audio:%f", subtitleDuration, audioDuration);
 	#ifdef AAMP_DEBUG_FETCH_INJECT
 		AAMPLOG_WARN("waiting for mSubCond - subtitleDuration %f audioDuration %f",
 			subtitleDuration, audioDuration);
 	#endif
-		ts = aamp_GetTimespec(100);
+		ts = aamp_GetTimespec(delayTimePerIteration);
 
 		ret = pthread_cond_timedwait(&mSubCond, &mLock, &ts);
+		delayTimeTotal+=delayTimePerIteration;
 
 		if (ret == 0)
 		{
@@ -2758,7 +2774,14 @@ void StreamAbstractionAAMP::WaitForAudioTrackCatchup()
 		{
 			AAMPLOG_WARN("error while calling pthread_cond_timedwait - %s", strerror(ret));
 		}
-		audioDuration = audio->GetTotalInjectedDuration();
+		else
+		{
+			if (! (delayTimeTotal%1000) )
+			{
+				AAMPLOG_DEBUG("Blocked on Inside mSubCond with sub:%f and audio:%f, subtitle->GetTotalMissingDuration=%.3f, audio->GetTotalMissingDuration=%.3f, for %d (ms)",
+					subtitleDuration, audioDuration, subtitle->GetTotalMissingDuration(), audio->GetTotalMissingDuration(), delayTimeTotal);
+			}
+		}
 	}
 	pthread_mutex_unlock(&mLock);
 }
@@ -3288,19 +3311,20 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchupForAux()
 
 		struct timespec ts;
 		int ret = 0;
+		double auxDuration = aux->GetTotalInjectedDuration() + aux->GetTotalMissingDuration();
+		double videoDuration = video->GetTotalInjectedDuration() + video->GetTotalMissingDuration();
 
-		double auxDuration = aux->GetTotalInjectedDuration();
-		double videoDuration = video->GetTotalInjectedDuration();
-
+		int delayTimePerIteration=100, delayTimeTotal=0;
 		while ((auxDuration > (videoDuration + video->fragmentDurationSeconds)) && aamp->DownloadsAreEnabled() && !aux->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
 		{
 	#ifdef AAMP_DEBUG_FETCH_INJECT
-			AAMPLOG_WARN("waiting for cond - auxDuration %f videoDuration %f video->fragmentDurationSeconds %f",
-				auxDuration, videoDuration, video->fragmentDurationSeconds);
+			AAMPLOG_WARN("waiting for cond - auxDuration %f videoDuration %f video->fragmentDurationSeconds %f, aux->GetTotalMissingDuration=%.3f, video->GetTotalMissingDuration()=%.3f",
+				auxDuration, videoDuration, video->fragmentDurationSeconds, aux->GetTotalMissingDuration(), video->GetTotalMissingDuration());
 	#endif
-			ts = aamp_GetTimespec(100);
+			ts = aamp_GetTimespec(delayTimePerIteration);
 
 			ret = pthread_cond_timedwait(&mAuxCond, &mLock, &ts);
+			delayTimeTotal+=delayTimePerIteration;
 
 			if (ret == 0)
 			{
@@ -3311,6 +3335,14 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchupForAux()
 			{
 				AAMPLOG_WARN("error while calling pthread_cond_timedwait - %s", strerror(ret));
 			}
+		else
+		{
+			if (! (delayTimeTotal%1000) )
+			{
+				AAMPLOG_DEBUG("Blocked on Inside mSubCond with aux:%f and video:%f, aux->GetTotalMissingDuration=%.3f, video->GetTotalMissingDuration=%.3f, for %d (ms)",
+					auxDuration, videoDuration, aux->GetTotalMissingDuration(), video->GetTotalMissingDuration(), delayTimeTotal);
+			}
+		}
 	#endif
 		}
 	}

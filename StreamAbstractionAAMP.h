@@ -399,6 +399,20 @@ public:
 	double GetTotalInjectedChunkDuration() { return totalInjectedChunksDuration; };
 
 	/**
+	 * @brief Get total fragment time NOT injected duration (missing fragments, e.g. due to 404 from fog or failed to download)
+	 *
+	 * @return Total duration in seconds
+	 */
+	double GetTotalMissingDuration() { return totalMissingDuration; };
+
+	/**
+	 * @brief Set total fragment time NOT injected (missing fragments, e.g. due to 404 from fog or failed to download)
+	 *
+	 * @return Total duration in seconds
+	 */
+	void SetTotalMissingDuration(double missingDuration) { totalMissingDuration = missingDuration; };
+
+	/**
 	 * @fn RunInjectLoop
 	 *
 	 * @return void
@@ -741,6 +755,7 @@ private:
 	bool bufferMonitorThreadStarted;    	/**< Buffer Monitor thread started or not */
 	double totalInjectedDuration;       	/**< Total fragment injected duration*/
 	double totalInjectedChunksDuration;  	/**< Total fragment injected chunk duration*/
+	double totalMissingDuration;  			/**< Total fragment missing (e.g. 404 error from fog/not available at cdn) duration */
 	int currentInitialCacheDurationSeconds; /**< Current cached fragments duration before playing*/
 	bool sinkBufferIsFull;                	/**< True if sink buffer is full and do not want new fragments*/
 	bool cachingCompleted;              	/**< Fragment caching completed or not*/
