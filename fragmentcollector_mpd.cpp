@@ -1764,12 +1764,6 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
 				}
 				retval = FetchFragment(pMediaStreamContext, media, fragmentDuration, false, curlInstance, false, pto, scale);
-				double positionInPeriod = 0;
-				if(pMediaStreamContext->lastSegmentNumber > startNumber)
-				{
-					positionInPeriod = (pMediaStreamContext->lastSegmentNumber - startNumber) * fragmentDuration;
-				}
-
 				AcquirePlaylistLock();
 				string startTimeStringValue = mpd->GetPeriods().at(mCurrentPeriodIdx)->GetStart();
 				pMediaStreamContext->downloadedDuration = pMediaStreamContext->fragmentTime;
