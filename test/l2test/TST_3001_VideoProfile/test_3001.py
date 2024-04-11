@@ -23,121 +23,42 @@
 
 import os
 import sys
+import json
 
 from inspect import getsourcefile
-import pytest
 
-TESTDATA1 = {
+full_test_data = {
+    "title": "Test multi video profile",
     "max_test_time_seconds": 90,
-    "title": "TESTDATA1",
-    "aamp_cfg": "info=true\ntrace=true\nabr=false\n",
-    "expect_list":
-    [
-        {"cmd": "bps 800000"},
-        {"expect": "Set video bitrate"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.m3u8"},
-        {"expect": "Inserted. url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/hls/360p.m3u8"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t800000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"},
-        {"cmd": "sleep 1000"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
-        {"expect": "Inserted init url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/dash/360p_init.m4s"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t800000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"}
-    ]
-}
-TESTDATA2 = {
-    "max_test_time_seconds": 90,
-    "title": "TESTDATA2",
-    "aamp_cfg": "info=true\ntrace=true\nabr=false\n",
-    "expect_list":
-    [
-        {"cmd": "bps 1400000"},
-        {"expect": "Set video bitrate"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.m3u8"},
-        {"expect": "Inserted. url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/hls/480p.m3u8"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t1400000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"},
-        {"cmd": "sleep 1000"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
-        {"expect": "Inserted init url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/dash/480p_init.m4s"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t1400000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"}
-    ]
-}
-TESTDATA3 = {
-    "max_test_time_seconds": 90,
-    "title": "TESTDATA3",
-    "aamp_cfg": "info=true\ntrace=true\nabr=false\n",
-    "expect_list":
-    [
-        {"cmd": "bps 2800000"},
-        {"expect": "Set video bitrate"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.m3u8"},
-        {"expect": "Inserted. url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/hls/720p.m3u8"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t2800000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"},
-        {"cmd": "sleep 1000"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
-        {"expect": "Inserted init url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/dash/720p_init.m4s"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t2800000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"}
-    ]
-}
-TESTDATA4 = {
-    "max_test_time_seconds": 90,
-    "title": "TESTDATA4",
-    "aamp_cfg": "info=true\ntrace=true\nabr=false\n",
-    "expect_list":
-        [
-        {"cmd": "bps 5000000"},
-        {"expect": "Set video bitrate"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.m3u8"},
-        {"expect": "Inserted. url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/hls/1080p.m3u8"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t5000000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"},
-        {"cmd": "sleep 1000"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
-        {"expect": "Inserted init url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/dash/1080p_init.m4s"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t5000000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"}
-    ]
+    "aamp_cfg": "info=true\ntrace=true\nabr=false\n"
 }
 
-TESTDATA = [TESTDATA1,TESTDATA2,TESTDATA3,TESTDATA4]
+def test_3001(aamp_setup_teardown):
 
-@pytest.fixture(params=TESTDATA)
-def test_data(request):
-    return request.param
+    with open("TST_3001_VideoProfile/commands.json") as f:
+        commands = json.loads(f.read())
 
-def test_3001(aamp_setup_teardown, test_data):
+    failed_indices = []
+    failed_test = False
 
-    aamp = aamp_setup_teardown
-    aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    aamp.run_expect_a(test_data)
+    for idx, test_sequence in enumerate(commands):
+
+        full_test_data["expect_list"] = test_sequence
+        full_test_data["logfile"] = "multiprofile_" + str(idx) + ".log"
+
+        aamp = aamp_setup_teardown
+        aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
+        aamp.create_aamp_cfg(full_test_data.get('aamp_cfg'))
+
+        if aamp.run_expect_a(full_test_data) is False:
+            failed_test = True
+            failed_indices.append(idx)
+
+    if failed_test:
+        err_str = ""
+        for idx in failed_indices:
+            err_str = err_str + " " + str(idx)
+        print("\nFailed profiles: {}".format(err_str))
+        sys.exit(os.EX_SOFTWARE)   #Return non-zero
 
 
