@@ -2249,14 +2249,21 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 			AAMPLOG_DEBUG(" profileIdxForBandwidthNotification updated to %d ",  profileIdxForBandwidthNotification);
 			ret = true;
 			long newBW = GetStreamInfo(profileIdxForBandwidthNotification)->bandwidthBitsPerSecond;
-			video->SetCurrentBandWidth( (int)newBW );
-			aamp->ResetCurrentlyAvailableBandwidth(newBW,false,profileIdxForBandwidthNotification);
-			mBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
+			if(video)
+			{
+				video->SetCurrentBandWidth( (int)newBW );
+				aamp->ResetCurrentlyAvailableBandwidth(newBW,false,profileIdxForBandwidthNotification);
+				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
 
-			// Send abr notification to XRE
-			video->ABRProfileChanged();
-			mABRLowBufferCounter = 0 ;
-			mABRHighBufferCounter = 0;
+				// Send abr notification to XRE
+				video->ABRProfileChanged();
+				mABRLowBufferCounter = 0 ;
+				mABRHighBufferCounter = 0;
+			}
+			else
+			{
+				AAMPLOG_WARN("Video is null");
+			}
 		}
 		else
 		{
