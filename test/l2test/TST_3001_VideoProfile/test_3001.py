@@ -20,124 +20,68 @@
 # Starts aamp-cli and initiates playback by giving it a stream URL
 # verifies aamp log output against expected list of events
 
-
 import os
-import sys
-
-from inspect import getsourcefile
 import pytest
 
-TESTDATA1 = {
-    "max_test_time_seconds": 90,
-    "title": "TESTDATA1",
-    "aamp_cfg": "info=true\ntrace=true\nabr=false\n",
-    "expect_list":
-    [
-        {"cmd": "bps 800000"},
-        {"expect": "Set video bitrate"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.m3u8"},
-        {"expect": "Inserted. url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/hls/360p.m3u8"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t800000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"},
-        {"cmd": "sleep 1000"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd"},
-        {"expect": "Inserted init url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/dash/360p_init.m4s"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t800000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"}
-    ]
-}
-TESTDATA2 = {
-    "max_test_time_seconds": 90,
-    "title": "TESTDATA2",
-    "aamp_cfg": "info=true\ntrace=true\nabr=false\n",
-    "expect_list":
-    [
-        {"cmd": "bps 1400000"},
-        {"expect": "Set video bitrate"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.m3u8"},
-        {"expect": "Inserted. url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/hls/480p.m3u8"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t1400000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"},
-        {"cmd": "sleep 1000"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd"},
-        {"expect": "Inserted init url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/dash/480p_init.m4s"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t1400000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"}
-    ]
-}
-TESTDATA3 = {
-    "max_test_time_seconds": 90,
-    "title": "TESTDATA3",
-    "aamp_cfg": "info=true\ntrace=true\nabr=false\n",
-    "expect_list":
-    [
-        {"cmd": "bps 2800000"},
-        {"expect": "Set video bitrate"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.m3u8"},
-        {"expect": "Inserted. url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/hls/720p.m3u8"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t2800000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"},
-        {"cmd": "sleep 1000"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd"},
-        {"expect": "Inserted init url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/dash/720p_init.m4s"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t2800000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"}
-    ]
-}
-TESTDATA4 = {
-    "max_test_time_seconds": 90,
-    "title": "TESTDATA4",
-    "aamp_cfg": "info=true\ntrace=true\nabr=false\n",
-    "expect_list":
-        [
-        {"cmd": "bps 5000000"},
-        {"expect": "Set video bitrate"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.m3u8"},
-        {"expect": "Inserted. url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/hls/1080p.m3u8"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t5000000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"},
-        {"cmd": "sleep 1000"},
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd"},
-        {"expect": "Inserted init url https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/dash/1080p_init.m4s"},
-        {"expect": "IP_AAMP_TUNETIME"},
-        {"expect": "\"vfb\":\\t5000000"},
-        {"cmd": "sleep 30000"},
-        {"cmd": "stop"},
-        {"expect": "aamp_stop PlayerState=8"}
-    ]
-}
+from inspect import getsourcefile
 
-TESTDATA = [TESTDATA1,TESTDATA2,TESTDATA3,TESTDATA4]
+base_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/"
 
-@pytest.fixture(params=TESTDATA)
+url_info = [
+    {"url": base_url + "main.m3u8", "fct": lambda fmt : f'Inserted. url ' + base_url + f'hls/{fmt}.m3u8'},
+    {"url": base_url + "main.mpd", "fct": lambda fmt : f'Inserted init url ' + base_url + f'dash/{fmt}_init.m4s'},
+]
+
+bitrate_info = [
+    {"bitrate":800000, "format":"360p"},
+    {"bitrate":1400000, "format":"480p"},
+    {"bitrate":2800000, "format":"720p"},
+    {"bitrate":5000000, "format":"1080p"},
+]
+
+@pytest.fixture(params=bitrate_info)
 def test_data(request):
     return request.param
 
 def test_3001(aamp_setup_teardown, test_data):
+    '''Tests the playback of a specific video profile.'''
+    
+    def Generate_ExpectList(info):
+        ''' Generates the commands list to be used in this test.'''
+    
+        bitrate = info.get("bitrate", 0)
+        data_fmt = info.get("format", "")
+        
+        assert bitrate > 0, "Bitrate data missing from configuration."
+        assert not data_fmt == "", "Packet format data missing from configuration."
+
+        data = [
+            {"cmd": "bps {}".format(bitrate)},
+            {"expect": "Set video bitrate"},
+        ]
+
+        def Generate_AssetList(index, d, br, fmt):
+            '''Generates the commands list specific for asset at index #'''
+            
+            d.append({"cmd": url_info[index]["url"]})
+            d.append({"expect": "{}".format(url_info[index]["fct"](fmt))})
+            d.append({"expect": r"\[SendTuneMetricsEvent\].*\"vfb\":{}".format(br)})
+            d.append({"cmd": "sleep 30000"})
+            d.append({"cmd": "stop"})
+            d.append({"expect": r'aamp_stop PlayerState=8'})
+
+        Generate_AssetList(0, data, bitrate, data_fmt)
+        Generate_AssetList(1, data, bitrate, data_fmt)
+        
+        return data
+
+    single_test_data = {
+        "title": "Test playback of Video Profile at {} bps".format(test_data["bitrate"]),
+        "max_test_time_seconds": 90,
+        "aamp_cfg": "abr=false\ninfo=true\n",
+        "expect_list": Generate_ExpectList(test_data),
+    }
 
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    aamp.run_expect_a(test_data)
-
-
+    aamp.run_expect_a(single_test_data)
