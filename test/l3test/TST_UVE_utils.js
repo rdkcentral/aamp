@@ -1,6 +1,7 @@
 // Main test asset URL
-var mainContentUrl = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd";
-var adUrl = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/Ad-generated-30s/ad-generated-30s.mpd"
+var mainContentUrl = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd";
+var adUrl = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/Ad-generated-30s/ad-generated-30s.mpd"
+
 
 // Signal the start of the Test to the log (Specific string monitored by CI)
 // Updates the running test number to the screen

@@ -64,7 +64,7 @@ TESTDATA1= {
     {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/180_250000/hls/segment_15.ts",
      "min": 0, "max": 36,  "callback": set_rate, "callback_arg": 1000},
     {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/270_400000/hls/segment_22.ts",
-     "min": 50, "max": 60, "callback": set_rate, "callback_arg": 2100},
+     "min": 50, "max": 60, "callback": set_rate, "callback_arg": 1900},
     {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/360_800000/hls/segment_27.ts",
      "min": 65, "max": 80, "callback": set_rate, "callback_arg": 20000},
     {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/1080_4800000/hls/segment_32.ts",

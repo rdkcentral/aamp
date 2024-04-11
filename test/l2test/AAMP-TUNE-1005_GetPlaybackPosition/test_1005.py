@@ -80,7 +80,7 @@ def test_1005(aamp_setup_teardown,test_data):
             {"cmd": "pause"},
             {"expect": "rate=0.000000"},
             {"cmd": "get playbackPosition"},
-            {"expect": "PLAYBACK POSITION = (\d+\.\d+)", "callback": read_position},
+            {"expect": r"PLAYBACK POSITION = (\d+\.\d+)", "callback": read_position},
             {"expect": "AAMP_EVENT_PROGRESS"},
             {"cmd": "sleep 2000"},
             {"cmd": "stop"},

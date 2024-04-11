@@ -19,7 +19,7 @@ include(GoogleTest)
 pkg_check_modules(GMOCK REQUIRED gmock)
 pkg_check_modules(GTEST REQUIRED gtest)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
-pkg_check_modules(LIBDASH required libdash)
+pkg_check_modules(LIBDASH REQUIRED libdash)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
