@@ -3282,7 +3282,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 		StopBuffering(false);
 	}
 
-	return true;
+	return bPushBuffer;
 }
 
 /**
