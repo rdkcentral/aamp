@@ -2868,6 +2868,9 @@ bool PlayerInstanceAAMP::SetThumbnailTrack(int thumbIndex)
 		ret = aamp->mpStreamAbstractionAAMP->SetThumbnailTrack(thumbIndex);
 	}
 	aamp->ReleaseStreamLock();
+
+	AAMPLOG_INFO(" SetThumbnailTrack [%d] result: %s", thumbIndex, (ret ? "success" : "fail"));
+	
 	return ret;
 }
 
