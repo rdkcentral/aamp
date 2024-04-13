@@ -220,7 +220,7 @@ public:
      	 *
 	 *   @return void
 	 */
-	void InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,AampMediaType mediaType=eMEDIATYPE_DEFAULT);
+	void InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,AampMediaType mediaType );
 
 	/**
 	 *   @fn RetrieveFromPlaylistCache

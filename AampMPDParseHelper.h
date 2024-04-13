@@ -407,7 +407,7 @@ public :
 	 * @param  type media type
 	 * @retval start time
 	 */
-	double GetFirstSegmentScaledStartTime(IPeriod * period, AampMediaType type = eMEDIATYPE_DEFAULT);
+	double GetFirstSegmentScaledStartTime(IPeriod * period, AampMediaType type);
 
 private:
 

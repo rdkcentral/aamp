@@ -173,7 +173,7 @@ void getDefaultHarvestPath(std::string &value)
 {
 }
 
-bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMediaType &mediaType, unsigned int count,const char *prefix)
+bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMediaType mediaType, unsigned int count,const char *prefix)
 {
     return false;
 }

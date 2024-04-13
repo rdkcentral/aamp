@@ -232,7 +232,8 @@ struct timespec aamp_GetTimespec(int timeInMs);
  * @param count - for manifest or playlist update
  * @param prefix - prefix name
  */
-bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMediaType &mediaType, unsigned int count,const char *prefix);
+bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMediaType mediaType, unsigned int count,const char *prefix);
+
 /**
  * @fn getHarvestConfigForMedia
  * @param mediaType - meida file type

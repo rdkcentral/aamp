@@ -643,18 +643,18 @@ void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int insta
 {
 }
 
-bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl,
+bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl,
                 int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
-                bool resetBuffer, AampMediaType mediaType, BitsPerSecond *bitrate, int * fogError,
+                bool resetBuffer, BitsPerSecond *bitrate, int * fogError,
                 double fragmentDurationSeconds)
 {
 	bool rv = false;
 
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		rv = g_mockPrivateInstanceAAMP->GetFile(remoteUrl, buffer, effectiveUrl,
+		rv = g_mockPrivateInstanceAAMP->GetFile(remoteUrl, mediaType, buffer, effectiveUrl,
 				 								http_error, downloadTime, range, curlInstance,
-												resetBuffer, mediaType, bitrate, fogError,
+												resetBuffer, bitrate, fogError,
 												fragmentDurationSeconds);
 	}
 

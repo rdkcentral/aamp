@@ -1653,7 +1653,7 @@ char *TrackState::FindMediaForSequenceNumber()
 /**
  * @brief Helper function to download fragment
  */
-bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bool & bKeyChanged, int * fogError, AampTime &downloadTime)
+bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bool & bKeyChanged, int * fogError, double &downloadTime)
 {
 #ifdef TRACE
 		AAMPLOG_WARN("FetchFragmentHelper Enter: pos %f start %f frag-duration %f fragmentURI %s",
@@ -1770,12 +1770,11 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			// if fragment URI uses relative path, we don't want to replace effective URI
 			std::string tempEffectiveUrl;
 			AAMPLOG_TRACE(" Calling Getfile . buffer %p avail %d", &cachedFragment->fragment, (int)cachedFragment->fragment.GetAvail());
-			double tempDownloadTime{0.0};
-			bool fetched = aamp->GetFile(fragmentUrl, &cachedFragment->fragment,
-										 tempEffectiveUrl, &http_error, &tempDownloadTime, range, type, false, (AampMediaType)(type), NULL, NULL, fragmentDurationSeconds);
-			downloadTime = tempDownloadTime;
-			// Workaround for 404 of subtitle fragments
-			// TODO: This needs to be handled at server side and this workaround has to be removed
+			double downloadTime = 0;
+			bool fetched = aamp->GetFile(fragmentUrl, (AampMediaType)(type), &cachedFragment->fragment,
+			 tempEffectiveUrl, &http_error, &downloadTime, range, type, false, NULL, NULL, fragmentDurationSeconds);
+			//Workaround for 404 of subtitle fragments
+			//TODO: This needs to be handled at server side and this workaround has to be removed
 			if (!fetched && http_error == 404 && type == eTRACK_SUBTITLE)
 			{
 				cachedFragment->fragment.AppendBytes( "WEBVTT", 7);
@@ -1950,7 +1949,7 @@ void TrackState::FetchFragment()
 {
 	int timeoutMs = -1;
 	int http_error = 0;
-	AampTime downloadTime{};
+	double downloadTime = 0;
 	bool decryption_error = false;
 	if (IsLive())
 	{
@@ -2030,7 +2029,7 @@ void TrackState::FetchFragment()
 			//update videoend info
 			aamp->UpdateVideoEndMetrics((IS_FOR_IFRAME(iCurrentRate, type) ? eMEDIATYPE_IFRAME : (AampMediaType)(type)),
 										lbwd,
-										((iFogErrorCode > 0) ? iFogErrorCode : http_error), this->mEffectiveUrl, fragmentDurationSeconds, downloadTime.inSeconds(), bKeyChanged, fragmentEncrypted);
+										((iFogErrorCode > 0) ? iFogErrorCode : http_error), this->mEffectiveUrl, fragmentDurationSeconds, downloadTime, bKeyChanged, fragmentEncrypted);
 			return;
 		}
 
@@ -2080,7 +2079,7 @@ void TrackState::FetchFragment()
 			// update videoend info
 			aamp->UpdateVideoEndMetrics( (IS_FOR_IFRAME(iCurrentRate,type)? eMEDIATYPE_IFRAME:(AampMediaType)(type) ),
 									lbwd,
-									((iFogErrorCode > 0 ) ? iFogErrorCode : http_error), this->mEffectiveUrl, cachedFragment->duration, downloadTime.inSeconds(), bKeyChanged, fragmentEncrypted);
+									((iFogErrorCode > 0 ) ? iFogErrorCode : http_error), this->mEffectiveUrl, cachedFragment->duration, downloadTime, bKeyChanged, fragmentEncrypted);
 
 			const auto early_processing = aamp->mConfig->IsConfigSet(eAAMPConfig_EarlyID3Processing);
 			if (early_processing && playContext && aamp->IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA))
@@ -3812,7 +3811,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	}
 
 	bool updateVideoEndMetrics = false;
-	AampTime mainManifestdownloadTime{};
+	double mainManifestdownloadTime = 0;
 	int parseTimeMs = 0;
 	if (!this->mainManifest.GetLen() )
 	{
@@ -3821,9 +3820,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		// take the original url before its gets changed in GetFile
 		std::string mainManifestOrigUrl = aamp->GetManifestUrl();
 		aamp->SetCurlTimeout(aamp->mManifestTimeoutMs, eCURLINSTANCE_MANIFEST_MAIN);
-		double tempMainManifestdownloadTime{};
-		(void)aamp->GetFile(aamp->GetManifestUrl(), &this->mainManifest, aamp->GetManifestUrl(), &http_error, &tempMainManifestdownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN, true, eMEDIATYPE_MANIFEST, NULL, NULL, 0); // CID:82578 - checked return
-		mainManifestdownloadTime = tempMainManifestdownloadTime;
+		(void) aamp->GetFile(aamp->GetManifestUrl(), eMEDIATYPE_MANIFEST, &this->mainManifest, aamp->GetManifestUrl(), &http_error, &mainManifestdownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN, true,NULL,NULL,0);//CID:82578 - checked return
 		// Set playlist curl timeouts.
 		for (int i = eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO; i < (eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO + AAMP_TRACK_COUNT); i++)
 		{
@@ -4970,7 +4967,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				bool bFiledownloaded = false;
 				if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(defaultIframePlaylistUrl, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl) == false){
 					double tempDownloadTime{0.0};
-					bFiledownloaded = aamp->GetFile(defaultIframePlaylistUrl, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl, &http_error, &tempDownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN);
+					bFiledownloaded = aamp->GetFile(defaultIframePlaylistUrl, eMEDIATYPE_PLAYLIST_IFRAME, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl, &http_error, &tempDownloadTime, NULL,eCURLINSTANCE_MANIFEST_MAIN);
 					AampTime downloadTime{tempDownloadTime};
 					//update videoend info
 					ManifestData manifestData(downloadTime.milliseconds(), defaultIframePlaylist.GetLen());
@@ -5007,8 +5004,8 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	if(updateVideoEndMetrics)
 	{
 		//update videoend info
-		ManifestData manifestData(mainManifestdownloadTime.milliseconds(), this->mainManifest.GetLen(), parseTimeMs);
-		aamp->UpdateVideoEndMetrics( eMEDIATYPE_MANIFEST,0,http_error,aamp->GetManifestUrl(), mainManifestdownloadTime.inSeconds(), &manifestData);
+		ManifestData manifestData((long)(mainManifestdownloadTime*1000), this->mainManifest.GetLen(), parseTimeMs);
+		aamp->UpdateVideoEndMetrics( eMEDIATYPE_MANIFEST,0,http_error,aamp->GetManifestUrl(), mainManifestdownloadTime, &manifestData);
 	}
 	return retval;
 }
@@ -5872,7 +5869,7 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 				AampTime downloadTime{};
 				std::string tempEffectiveUrl;
 				double tempDownloadTime;
-				if (aamp->GetFile(url, &thumbnailManifest, tempEffectiveUrl, &http_error, &tempDownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN, true, eMEDIATYPE_PLAYLIST_IFRAME))
+				if( aamp->GetFile(url, eMEDIATYPE_PLAYLIST_IFRAME, &thumbnailManifest, tempEffectiveUrl, &http_error, &tempDownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN,true) )
 				{
 					downloadTime = tempDownloadTime;
 					AAMPLOG_WARN("In StreamAbstractionAAMP_HLS: Configured Thumbnail");
@@ -6331,9 +6328,8 @@ void TrackState::FetchPlaylist()
 	aamp->profiler.ProfileBegin(bucketId);
 
 	double tempDownloadTime{};
-	(void)aamp->GetFile(mPlaylistUrl, &playlist, mEffectiveUrl, &http_error, &tempDownloadTime, NULL, (unsigned int)dnldCurlInstance, true, mType);
+	(void) aamp->GetFile(mPlaylistUrl, mType, &playlist, mEffectiveUrl, &http_error, &tempDownloadTime, NULL, (unsigned int)dnldCurlInstance, true );
 	downloadTime = tempDownloadTime;
-
 	// update videoend info
 	main_error = context->getOriginalCurlError(http_error);
 
@@ -6849,8 +6845,8 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			if ( !fetched )
 			{
 				double tempDownloadTime{0.0};
-				fetched = aamp->GetFile(fragmentUrl, &cachedFragment->fragment, tempEffectiveUrl, &http_code, &tempDownloadTime, range,
-										type, false, actualType);
+				fetched = aamp->GetFile(fragmentUrl, actualType, &cachedFragment->fragment, tempEffectiveUrl, &http_code, &tempDownloadTime, range,
+						type, false );
 				AampTime downloadTime{tempDownloadTime};
 
 #ifdef CHECK_PERFORMANCE

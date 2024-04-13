@@ -3874,10 +3874,7 @@ const char* PrivateInstanceAAMP::MediaTypeString(AampMediaType mediaType)
 /**
  * @brief Download a file from the CDN
  */
-bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl,
-				int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
-				bool resetBuffer, AampMediaType mediaType, BitsPerSecond *bitrate, int * fogError,
-				double fragmentDurationSeconds)
+bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int * http_error, double *downloadTime, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationSeconds)
 {
 	MediaTypeTelemetry mediaTypeTelemetry = aamp_GetMediaTypeForTelemetry(mediaType);
 	replace( remoteUrl, " ", "%20" ); // CURL gives error if passed URL containing whitespace
@@ -4301,18 +4298,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 					{
 						http_code = res;
 					}
-#if 0
-					if (isDownloadStalled)
-					{
-						AAMPLOG_INFO("Curl download stall detected - curl result:%d abortReason:%d downloadTimeMS:%lld curlTimeout:%ld", res, progressCtx.abortReason,
-								downloadTimeMS, curlDownloadTimeoutMS);
-						//To avoid updateBasedonFragmentCached being called on rampdown and to be discarded from ABR
-						http_code = CURLE_PARTIAL_FILE;
-					}
-#endif
 				}
-
-
 				double total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize;
 				long reqSize, downloadbps = 0;
 				AAMP_LogLevel reqEndLogLevel = eLOGLEVEL_INFO;
@@ -6244,6 +6230,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 		CurlInit(eCURLINSTANCE_MANIFEST_MAIN, 1, GetNetworkProxy());
 		EnableMediaDownloads(eMEDIATYPE_MANIFEST);
 		bool gotManifest = GetFile(url,
+							eMEDIATYPE_MANIFEST,
 							&sniffedBytes,
 							effectiveUrl,
 							&http_error,
@@ -6252,10 +6239,9 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 							// TODO: ideally could use "0-6" for range but write_callback sometimes not called before curl returns http 206
 							eCURLINSTANCE_MANIFEST_MAIN,
 							false,
-							eMEDIATYPE_MANIFEST,
 							&bitrate,
 							&fogError,
-							0.0);
+							0.0 );
 
 		if(gotManifest)
 		{
@@ -6686,7 +6672,7 @@ BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate4K()
 void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)
 {
 	profiler.ProfileBegin(bucketType);
-	if (!GetFile(fragmentUrl, fragment, effectiveUrl, http_code, downloadTime, range, curlInstance, true, mediaType,NULL,fogError))
+	if (!GetFile(fragmentUrl, mediaType, fragment, effectiveUrl, http_code, downloadTime, range, curlInstance, true, NULL,fogError))
 	{
 		profiler.ProfileError(bucketType, *http_code);
 		profiler.ProfileEnd(bucketType);
@@ -6705,7 +6691,7 @@ bool PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::strin
 {
 	bool ret = true;
 	profiler.ProfileBegin(bucketType);
-	if (!GetFile(fragmentUrl, fragment, effectiveUrl, http_code, downloadTime, range, curlInstance, false,mediaType, bitrate, NULL, fragmentDurationSeconds))
+	if (!GetFile(fragmentUrl, mediaType, fragment, effectiveUrl, http_code, downloadTime, range, curlInstance, false, bitrate, NULL, fragmentDurationSeconds))
 	{
 		ret = false;
 		profiler.ProfileError(bucketType, *http_code);
@@ -9787,7 +9773,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 						bool ret = false;
 						// Using StreamLock to avoid StreamAbstractionAAMP deletion when external player commands or stop call received
 						AcquireStreamLock();
-						ret = GetFile(newelem.url, &playlistStore, playlistEffectiveUrl, &http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true, newelem.type);
+						ret = GetFile(newelem.url, newelem.type, &playlistStore, playlistEffectiveUrl, &http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true );
 						ReleaseStreamLock();
 						if(ret != false)
 						{
