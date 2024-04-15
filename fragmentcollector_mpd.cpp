@@ -8083,11 +8083,15 @@ bool StreamAbstractionAAMP_MPD::CheckForInitalClearPeriod()
 	bool ret = true;
 	for(int i = 0; i < mNumberOfTracks; i++)
 	{
-		vector<IDescriptor*> contentProt = mMPDParseHelper->GetContentProtection(mMediaStreamContext[i]->adaptationSet);
-		if(0 != contentProt.size())
+		auto adaptSet = mMediaStreamContext[i]->adaptationSet;
+		if( adaptSet )
 		{
-			ret = false;
-			break;
+			vector<IDescriptor*> contentProt = mMPDParseHelper->GetContentProtection(adaptSet);
+			if(0 != contentProt.size())
+			{
+				ret = false;
+				break;
+			}
 		}
 	}
 	if(ret)
