@@ -3020,7 +3020,7 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 	bool forceSelectDRM = false; 
 	const char *pMp4Protection = "mpeg:dash:mp4protection";
 
-	AAMPLOG_TRACE("[HHH] contentProt.size= %d", contentProt.size());
+	AAMPLOG_TRACE("[HHH] contentProt.size= %lu", contentProt.size());
 	for (unsigned iContentProt = 0; iContentProt < contentProt.size(); iContentProt++)
 	{
 		// extract the UUID
@@ -3096,7 +3096,7 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 		{
 			if (data)
 			{
-				contentMetadata = aamp_ExtractWVContentMetadataFromPssh((const char*)data, dataLength);
+				contentMetadata = aamp_ExtractWVContentMetadataFromPssh((const char*)data, (int)dataLength);
 				free(data);
                                 data = NULL;
 			}
@@ -3139,7 +3139,7 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 		{
 			tmpDrmHelper = AampDrmHelperEngine::getInstance().createHelper(drmInfo, mLogObj);
 
-			if (!tmpDrmHelper->parsePssh(data, dataLength))
+			if (!tmpDrmHelper->parsePssh(data, (uint32_t)dataLength))
 			{
 				AAMPLOG_WARN("(%s) Failed to Parse PSSH from the DRM InitData", getMediaTypeName(mediaType));
 			}
@@ -3149,7 +3149,6 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 					AAMPLOG_INFO("(%s) If Widevine DRM Selected due to Widevine KeyID workaround",
 						getMediaTypeName(mediaType));
 					drmHelper = tmpDrmHelper;
-					forceSelectDRM = false; /* reset flag */
 					/** No need to progress further**/
 					free(data);
 					data = NULL;

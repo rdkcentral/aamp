@@ -216,7 +216,7 @@ const std::string &DrmData::getData()
  */
 int DrmData::getDataLength()
 {
-	return (this->data.length());
+	return (int)this->data.length();
 }
 
 /**
@@ -283,7 +283,6 @@ std::string aamp_ExtractWVContentMetadataFromPssh(const char* psshData, int data
 {
 	//WV PSSH format 4+4+4+16(system id)+4(data size)
 	uint32_t header = 28;
-	unsigned char* content_id = NULL;
 	std::string metadata;
 	uint32_t  content_id_size =
                     (uint32_t)((psshData[header] & 0x000000FFu) << 24 |
@@ -304,23 +303,3 @@ std::string aamp_ExtractWVContentMetadataFromPssh(const char* psshData, int data
 	return metadata;
 }
 //End of special for Widevine
-
-/**
- * @brief Get the base URI of a resource
- *
- * @param uri URI of a resource
- * @param originOnly if true, only the domain (and port, if present) is returned.
- *					 if false, the full parent path of the resource is returned
- * @return base URI
- */
-static std::string aamp_getBaseUri(std::string uri, bool originOnly)
-{
-	std::smatch results;
-	if (std::regex_match(uri, results, std::regex("(" + PROTOCOL_REGEX + "[^/]+)/.*")))
-	{
-		return originOnly ? results[1].str() : uri.substr(0, uri.rfind("/"));
-	}
-
-	return uri;
-}
-

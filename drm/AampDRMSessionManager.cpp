@@ -59,8 +59,6 @@
 
 static const char *sessionTypeName[] = {"video", "audio", "subtitle", "aux-audio"};
 
-static pthread_mutex_t drmSessionMutex = PTHREAD_MUTEX_INITIALIZER;
-
 KeyID::KeyID() : creationTime(0), isFailedKeyId(false), isPrimaryKeyId(false), data()
 {
 }
@@ -446,11 +444,11 @@ void AampDRMSessionManager::setPlaybackSpeedState(int speed, double position, bo
 string _extractSubstring(string parentStr, string startStr, string endStr)
 {
 	string ret = "";
-	int startPos = parentStr.find(startStr);
+	auto startPos = parentStr.find(startStr);
 	if(string::npos != startPos)
 	{
-		int offset = strlen(startStr.c_str());
-		int endPos = parentStr.find(endStr, startPos + offset + 1);
+		auto offset = strlen(startStr.c_str());
+		auto endPos = parentStr.find(endStr, startPos + offset + 1);
 		if(string::npos != endPos)
 		{
 			ret = parentStr.substr(startPos + offset, endPos - (startPos + offset));
@@ -502,7 +500,7 @@ const char * AampDRMSessionManager::getAccessToken(int &tokenLen, int &error_cod
 						accessToken = (char*)malloc(len+1);
 						if(accessToken)
 						{
-							accessTokenLen = len;
+							accessTokenLen = (int)len;
 							memcpy( accessToken, token.c_str(), len );
 							accessToken[len] = 0x00;
 							AAMPLOG_WARN(" Received session token from auth service in [%f]",respData->downloadCompleteMetrics.total);
@@ -989,8 +987,8 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 				AAMPLOG_WARN(" acquireLicense SUCCESS! license request attempt %d; response code : http %d", attemptCount, *httpCode);
 				keyInfo = new DrmData();
 				std::string keyData;
-				int keyLen = pLicenseDownloader->GetDataString(keyData);
-				keyInfo->setData((unsigned char *)keyData.c_str(),keyLen);
+				auto keyLen = pLicenseDownloader->GetDataString(keyData);
+				keyInfo->setData((unsigned char *)keyData.c_str(),(int)keyLen);
 			}
 		}
 		
@@ -1007,7 +1005,7 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 			// example 18(0) if connection failure with PARTIAL_FILE code
 			timeoutClass = "(" + to_string(respData->downloadCompleteMetrics.reqSize > 0) + ")";
 		}
-		AAMPLOG_WARN("HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s",
+		AAMPLOG_WARN("HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%d,%d,%.500s",
 						appName.c_str(),
 						eMEDIATYPE_TELEMETRY_DRM,
 						eMEDIATYPE_LICENCE,//streamType,
@@ -1015,8 +1013,8 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 						respData->downloadCompleteMetrics.startTransfer, respData->downloadCompleteMetrics.resolve, respData->downloadCompleteMetrics.appConnect,
 						respData->downloadCompleteMetrics.preTransfer, respData->downloadCompleteMetrics.redirect, respData->downloadCompleteMetrics.dlSize,
 						respData->downloadCompleteMetrics.reqSize,
-						0.0, // downloadbps, include so we get consistent HttpRequestEnd format, but no urgency to populate here
-						0.0, // video fragment bitrate, n/a
+						0, // downloadbps, include so we get consistent HttpRequestEnd format, but no urgency to populate here
+						0, // video fragment bitrate, n/a
 						licenseRequest.url.c_str());
 
 		if(!loopAgain)
@@ -1207,7 +1205,6 @@ KeyState AampDRMSessionManager::getDrmSession(std::shared_ptr<AampDrmHelper> drm
 	KeyState code = KEY_ERROR;
 	bool keySlotFound = false;
 	bool isCachedKeyId = false;
-	unsigned char *keyId = NULL;
 
 	std::vector<uint8_t> keyIdArray;
 	std::map<int, std::vector<uint8_t>> keyIdArrays;
@@ -1425,7 +1422,7 @@ KeyState AampDRMSessionManager::initializeDrmSession(std::shared_ptr<AampDrmHelp
 	AampMutexHold sessionMutex(drmSessionContexts[sessionSlot].sessionMutex);
 	std::string customData = aampInstance->GetLicenseCustomData();
 	AAMPLOG_INFO("DRM session Custom Data - %s ", customData.empty()?"NULL":customData.c_str());
-	drmSessionContexts[sessionSlot].drmSession->generateAampDRMSession(drmInitData.data(), drmInitData.size(), customData);
+	drmSessionContexts[sessionSlot].drmSession->generateAampDRMSession(drmInitData.data(), (uint32_t)drmInitData.size(), customData);
 
 	code = drmSessionContexts[sessionSlot].drmSession->getState();
 	if (code != KEY_INIT)
@@ -1515,7 +1512,7 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 				else
 				{
 					sessionToken = (char *)aampInstance->mSessionToken.c_str();
-					tokenLen = aampInstance->mSessionToken.size();
+					tokenLen = (int)aampInstance->mSessionToken.size();
 					AAMPLOG_WARN("Got Access Token from External App");
 				}
 				if (NULL == sessionToken)
@@ -1561,8 +1558,6 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 				 * Configure the License acquisition parameters
 				 */
 				std::string licenseServerProxy;
-				bool isContentMetadataAvailable = configureLicenseServerParameters(drmHelper, licenseRequest, licenseServerProxy, challengeInfo, aampInstance);
-
 				/**
 				 * Perform License acquistion by invoking http license request to license server
 				 */
@@ -1572,6 +1567,7 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 					aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_NETWORK);
 				}
 #if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
+				bool isContentMetadataAvailable = configureLicenseServerParameters(drmHelper, licenseRequest, licenseServerProxy, challengeInfo, aampInstance);
 				if (isContentMetadataAvailable)
 				{
 					eventHandle->setSecclientError(true);
@@ -1651,7 +1647,7 @@ KeyState AampDRMSessionManager::handleLicenseResponse(std::shared_ptr<AampDrmHel
 					std::vector<uint8_t> keyData;
 					if (!jsonObj.get(LICENCE_RESPONSE_JSON_LICENCE_KEY, keyData, AampJsonObject::ENCODING_BASE64))
 					{
-						AAMPLOG_WARN("Unable to retrieve license from JSON response", jsonStr.c_str());
+						AAMPLOG_WARN("Unable to retrieve license from JSON response (%s)", jsonStr.c_str());
 					}
 					else
 					{
@@ -1660,7 +1656,7 @@ KeyState AampDRMSessionManager::handleLicenseResponse(std::shared_ptr<AampDrmHel
 				}
 				catch (AampJsonParseException& e)
 				{
-					AAMPLOG_WARN("Failed to parse JSON response", jsonStr.c_str());
+					AAMPLOG_WARN("Failed to parse JSON response (%s)", jsonStr.c_str());
 				}
 			}
 #endif
@@ -1675,9 +1671,7 @@ KeyState AampDRMSessionManager::handleLicenseResponse(std::shared_ptr<AampDrmHel
 				aamp->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
 			}
 			AAMPLOG_ERR("Error!! Invalid License Response was provided by the Server");
-
-			bool SecAuthFailure = false, SecTimeout = false;
-
+			
 			//Handle secmaanger specific error codes here
 			if(ISCONFIGSET(eAAMPConfig_UseSecManager))
 			{

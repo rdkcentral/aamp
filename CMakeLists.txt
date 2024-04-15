@@ -438,24 +438,19 @@ set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp
 # Session based stats for latency histogram
 set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lmetrics")
 
-if(CMAKE_USE_OPENCDM OR CMAKE_USE_OPENCDM_ADAPTER OR CMAKE_CDM_DRM)
-    # Sources common to all forms of OpenCDM and CDM
-    message("Using some form of OpenCDM or CDM")
-    set(LIBAAMP_DRM_SOURCES drm/AampDRMSessionManager.cpp
-                            drm/AampDrmSession.cpp
-                            drm/aampdrmsessionfactory.cpp
-                            drm/aampoutputprotection.cpp
-                            drm/helper/AampDrmHelperFactory.cpp
-                            drm/AampDRMutils.cpp
-    )
-    if(CMAKE_USE_THUNDER_OCDM_API_0_2)
-        set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_THUNDER_OCDM_API_0_2")
-    endif()
+# Sources common to all forms of OpenCDM and CDM
+set(LIBAAMP_DRM_SOURCES drm/AampDRMSessionManager.cpp
+						drm/AampDrmSession.cpp
+						drm/aampdrmsessionfactory.cpp
+						drm/aampoutputprotection.cpp
+						drm/helper/AampDrmHelperFactory.cpp
+						drm/AampDRMutils.cpp
+)
+if(CMAKE_USE_THUNDER_OCDM_API_0_2)
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_THUNDER_OCDM_API_0_2")
 endif()
 
-if(CMAKE_CDM_DRM)
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_MPD_DRM=1")
-endif()
+set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_MPD_DRM=1")
 
 if(CMAKE_USE_OPENCDM OR CMAKE_USE_OPENCDM_ADAPTER)
     message("OpenCDM support enabled")

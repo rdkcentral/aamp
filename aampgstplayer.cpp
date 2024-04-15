@@ -2400,14 +2400,14 @@ void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *i
 	}
 	pthread_mutex_unlock(&mProtectionLock); 
 
-	AAMPLOG_MIL("Queueing protection event for type(%d) keysystem(%s) initData(%p) initDataSize(%d)", type, protSystemId, initData, initDataSize);
+	AAMPLOG_MIL("Queueing protection event for type(%d) keysystem(%s) initData(%p) initDataSize(%zu)", type, protSystemId, initData, initDataSize);
 
 	/* Giving invalid initData into ProtectionEvent causing "GStreamer-CRITICAL" assertion error. So if the initData is valid then its good to call the ProtectionEvent further. */
 	if (initData && initDataSize)
 	{
 		GstBuffer *pssi;
 
-		pssi = gst_buffer_new_wrapped(g_memdup (initData, initDataSize), initDataSize);
+		pssi = gst_buffer_new_wrapped(g_memdup (initData, (guint)initDataSize), (gsize)initDataSize);
 		pthread_mutex_lock(&mProtectionLock);
 		if (this->aamp->IsDashAsset())
 		{
