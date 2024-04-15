@@ -185,8 +185,11 @@ def transcode(test_dir, url):
         log.write(f"Transcode duration {elapsed} secs\n".encode())
         log.close()
         print(f"Transcode duration {elapsed} secs\n")
-    except:
-        print("FAILED transcode non zero exit see logfile {}".format(log))
+    except Exception:
+        with open(logfile, "r") as error_content:
+            error = error_content.read()
+            print("Transcode error: ", error)
+        print("FAILED transcode non zero exit see logfile {}".format(logfile))
         return False
     return True
 

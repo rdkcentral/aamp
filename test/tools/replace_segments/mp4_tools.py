@@ -23,6 +23,7 @@ import os
 from datetime import datetime, timedelta
 import logging
 import subprocess
+import platform
 from pathlib import Path
 import xml.etree.ElementTree as ET
 from library.filesys_utils import *
@@ -1407,8 +1408,18 @@ def get_video_duration(file_path):
         duration = timedelta(hours=duration.hour, minutes=duration.minute, seconds=duration.second, microseconds=duration.microsecond).total_seconds()
         return duration
     except Exception as e:
-        print(f"Error: {e}")
-        return None
+        try:
+            subprocess.run(['ffmpeg', '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            print(f"Error: {e}")
+            
+        except FileNotFoundError:
+            if platform.system() == "Darwin":
+                # MAC
+                print("ffmpeg not found. Please install it using 'brew install ffmpeg'.")
+            else:
+                # Linux
+                print("ffmpeg not found. Please install it using 'sudo apt install ffmpeg'.")
+        sys.exit(1)
 
 
 def mesr_time_adj(donor_file, tot_dur_pids, cur_sample_dur):
