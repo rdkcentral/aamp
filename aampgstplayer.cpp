@@ -4256,7 +4256,8 @@ long AAMPGstPlayer::GetPositionMilliseconds(void)
 			rate = 1; // MP4 position query alaways return absolute value
 		}
 
-#if !defined(REALTEKCE)	// Pos always start from "0" in Realtek
+#if !defined(REALTEKCE)	|| defined(FLEX2_RDK) // Pos always start from "0" in Realtek
+		//ES1-701 - With AMP_QTDEMUX_OVERRIDE disabled , pos does not start with "0"
 		if (privateContext->segmentStart > 0)
 		{
 			// DELIA-39530 - Deduct segment.start to find the actual time of media that's played.
