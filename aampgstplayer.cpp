@@ -52,7 +52,10 @@
 #endif
 
 #ifdef USE_EXTERNAL_STATS
+// narrowly define MediaType for backwards compatibility
+#define MediaType AampMediaType
 #include "aamp-xternal-stats.h"
+#undef MediaType
 #endif
 
 /**
