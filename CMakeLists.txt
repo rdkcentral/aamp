@@ -44,7 +44,13 @@ else()
 	pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
 endif()
 
-pkg_check_modules(CURL REQUIRED libcurl)
+if(APPLE)
+	# libcurl < 8.5 exhibits memory leaks. On Ubuntu 22.04 can't update beyond 7.81.0-1ubuntu1.16 without building from source
+	pkg_check_modules(CURL REQUIRED libcurl>=8.5)
+else()
+	pkg_check_modules(CURL REQUIRED libcurl)
+endif()
+
 pkg_check_modules(LibXml2 REQUIRED libxml-2.0)
 pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
@@ -348,7 +354,7 @@ if (CMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED)
     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DENABLE_AAMP_QTDEMUX_OVERRIDE=1")
 endif()
 
-set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${GSTREAMERBASE_LIBRARIES} ${GSTREAMER_LIBRARIES} ${CURL_LIBRARIES} ${LIBDASH_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl -labr ${UUID_LINK_LIBRARIES} ${SEC_CLIENT_LIB} -lcjson)
+set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${GSTREAMERBASE_LIBRARIES} ${GSTREAMER_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl -labr ${UUID_LINK_LIBRARIES} ${SEC_CLIENT_LIB} -lcjson)
 
 set(PLAYBINTEST_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LIBRARIES})
 
@@ -820,7 +826,7 @@ set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
 target_link_libraries(aamp-cli subtec)
 target_link_libraries(aamp subtec)
 
-set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LDFLAGS} ${GSTREAMERBASE_LDFLAGS} ${LIBDASH_LIBRARIES} ${CURL_LIBRARIES})
+set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LDFLAGS} ${GSTREAMERBASE_LDFLAGS} ${LIBDASH_LIBRARIES} ${CURL_LINK_LIBRARIES})
 set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
                            test/gstTestHarness/tsdemux.hpp )
 set(GSTTESTHARNESS_SOURCES test/gstTestHarness/gst-port.cpp

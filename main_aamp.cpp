@@ -135,6 +135,10 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
 	{
+		curl_global_init(CURL_GLOBAL_DEFAULT);
+		auto vers = curl_version_info(CURLVERSION_NOW);
+		printf( "curl version: %s\n", vers->version );
+		
 		gpGlobalConfig =  new AampConfig();
 		::mLogObj = gpGlobalConfig->GetLoggerInstance();
 		// Init the default values

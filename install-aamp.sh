@@ -95,7 +95,7 @@ install_system_packages() {
 
     #Check/Install base packages needed by aamp env
     echo "Check/Install aamp development environment base packages"
-    find_or_install_pkgs json-glib cmake $defaultopensslversion libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq glm
+    find_or_install_pkgs json-glib cmake $defaultopensslversion libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq glm curl
 
     # ORC causes compile errors on x86_64 Mac, but not on ARM64
     if [[ $arch == "x86_64" ]]; then
@@ -623,7 +623,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     xattr -w com.apple.xcode.CreatedByBuildSystem true build
    
     # Would be nice to use $installed_pkfconfig here, but it results in link error, not finding libapp-1.0
-    cd build && PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCOVERAGE_ENABLED=${COVERAGE} -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -G Xcode ../
+    cd build && PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/opt/homebrew/opt/curl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCOVERAGE_ENABLED=${COVERAGE} -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -G Xcode ../
 
     # the cmake Xcode generator can not set this scheme property (Debug -> Options -> Console -> Use Terminal
     patch ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme < ../OSX/patches/aamp-cli.xscheme.patch 
