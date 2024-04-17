@@ -27,7 +27,7 @@ import argparse
 import pexpect
 
 HELP = """
-Used to test the 'tool chain' of harvest, transcode, and playback with a list of URLs
+1. Used to test the 'tool chain' of harvest, transcode, and playback with a list of URLs
 contained in this script
 
 for each URL
@@ -51,6 +51,12 @@ test_toolchain.py --maxtime 60 --only skycdp --video big_buck_bunny.mp4
 
 Harvest 240S of specified URL (Not from internal list) and transcode.
 test_toolchain.py --video ~/big_buck_bunny_720p_surround.mp4 --maxtime 240 https://lin012-gb-s8-prd-ll.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd
+
+2. Also used to test Video test streams.
+    1. generate-hls-dash.sh is executed from test/VideoTestStream to harvest manifests.
+    2. Simlinear server is started to host required URLs.
+    3. URLs are run one-by-one in aamp-cli to test the playback.
+
 
 """
 sl_process = None
@@ -215,7 +221,7 @@ def run_aamp(test_dir, url):
     env.update(AAMP_ENV)
     # print(aamp_cmd)
     aamp = pexpect.spawn(aamp_cmd, env=env)
-    aamp.logfile = aamp.logfile = open(os.path.join(test_dir, "aamp.log"), "wb")
+    aamp.logfile = open(os.path.join(test_dir, "aamp.log"), "wb")
     # Wait for prompt
     time.sleep(2)
     aamp.expect_exact("cmd: ")
@@ -245,6 +251,7 @@ def run_aamp(test_dir, url):
                             url_404, elapsed
                         )
                     )
+
 
         except pexpect.TIMEOUT:
             pass
@@ -325,11 +332,14 @@ def harvest(test_dir, data):
     return test_passed
 
 
+exitStatus = 0
+failedTests = set()
 #############################################
 def test(test_urls):
     """
     Work through a list of URL's and perform harvest, transcode(optional)  and playback
     """
+    global exitStatus
 
     for idx, data in enumerate(test_urls):
         url = data["URL"]
@@ -341,6 +351,8 @@ def test(test_urls):
         passed = True
         if harvest(test_dir, data) is False:
             passed = False
+            failedTests.add(test_dir)
+            exitStatus = 1
             continue
 
         # Transcode the encrypted streams
@@ -348,6 +360,8 @@ def test(test_urls):
             # check_segments_changed(test_dir, is_before=True)
             if transcode(test_dir, url) is False:
                 passed = False
+                failedTests.add(test_dir)
+                exitStatus = 1
                 continue
             # if check_segments_changed(test_dir) is False:
             #   passed = False
@@ -356,11 +370,45 @@ def test(test_urls):
         if args.no_aamp is False:
             if aamp_and_simlinear(test_dir, url) is False:
                 passed = False
+                failedTests.add(test_dir)
+                exitStatus = 1
 
         if passed:
             print("PASSED {} \n\n".format(test_dir))
+            
         else:
             print("FAILED {} \n\n".format(test_dir))
+            failedTests.add(test_dir)
+            exitStatus = 1
+
+def test_VideoTestStream():
+
+    global exitStatus
+    print("Starting VideoTestStreams")
+    os.chdir('../../VideoTestStream')
+
+    print("Harvesting...")
+    os.system('./generate-hls-dash.sh')
+
+    print("Starting simlinear server...")
+    server_process = subprocess.Popen(['./startserver.sh'], shell=True)
+
+    os.chdir('../tools/library')
+    for idx, url in enumerate(VIDEO_TEST_STREAM_URLS):
+        test_url = url["URL"]
+        test_dir = "VideoTestStream_test{}".format(idx)
+        os.makedirs(test_dir, exist_ok=True)
+        if run_aamp(test_dir, test_url): 
+            print("PASSED {} \n\n".format(test_dir))
+                
+        else:
+            print("FAILED {} \n\n".format(test_dir))
+            failedTests.add(test_dir)
+            exitStatus = 1
+
+    print("Stopping simlinear server")
+    server_process.terminate()
+    server_process.kill()
 
 
 #####################################################################
@@ -383,11 +431,11 @@ TEST_URLS = [
         "harvest_opt": ["--bandwidths", "562800", "--bandwidths", "1328400"],
     },
     #Encrypted
-    {
-        "notes": "Sky Witness",
-        "URL": "https://lin012-gb-s8-prd-ll.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd",
-        "is_encrypted": True,
-    },
+    # {
+    #     "notes": "Sky Witness",
+    #     "URL": "https://lin012-gb-s8-prd-ll.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd",
+    #     "is_encrypted": True,
+    # },
     {
         "notes": "Sky Atlantic",
         "URL": "https://lin012-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd",
@@ -424,14 +472,53 @@ TEST_URLS = [
         "is_encrypted": True,
     },
     # $Time$ template
-    {
-        "URL": "https://814bffb9b389f652.mediapackage.ap-southeast-2.amazonaws.com/out/v1/eae9d7726eb249f68920dd21203bdb9a/index.mpd",
-        "harvest_opt": ["--bandwidths", "249984"],
-        "notes": "harvest can take ~30mins because of the large segment buffer in the manifest",
-    },
+    # {
+    #     "URL": "https://814bffb9b389f652.mediapackage.ap-southeast-2.amazonaws.com/out/v1/eae9d7726eb249f68920dd21203bdb9a/index.mpd",
+    #     "harvest_opt": ["--bandwidths", "249984"],
+    #     "notes": "harvest can take ~30mins because of the large segment buffer in the manifest",
+    # },
     # HLS
     {
         "URL": "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8",
+    },
+    # Charter
+    # {
+    #     #Segment Timeline
+    #     "URL": "https://edge-mm.spectrum.net/linear.stvacdn.spectrum.com/LIVE/5165/bpk-tv/23944/drm/manifest.mpd?caid=SPNWTLH_LIVE&vcid=8a74c70f-824a-39b1-9cfc-eba713c47c24&bg_id=&dm=TV&csid=stva_xumo_tv_live&z5=90005&omap=https&lat=0&iptvCustomer=true&adId=d45b7b9b-4edb-42e1-afcb-25a47da7a4d6&vprn=1061240904163944211&pvrn=6400399863942088015",
+    #     "is_encrypted": True,
+    # },
+    {
+        #Live
+        "URL": "https://linear.stvacdn.spectrum.com/LIVE/5105/bpk-tv/10370/drm/manifest.mpd?iptvCustomer=true&adId=d45b7b9b-4edb-42e1-afcb-25a47da7a4d6",
+        "is_encrypted": True,
+    },
+    # {
+    #     #VOD
+    #     "URL": "https://e9amrtwbb6.execute-api.us-east-1.amazonaws.com/plbk-cga21.ladc.ca.charter.com/9eb6774d-93e4-44b6-a817-1205f56f3004/manifest.mpd?iptvCustomer=true",
+    #     "is_encrypted": True,
+    # }
+]
+
+# VideoTestStream
+"""
+These are kept separate from rest of the URLs because the testing flow is different.
+(No harvest and transcode is needed)
+"""
+VIDEO_TEST_STREAM_URLS = [
+    {
+        "URL": "http://127.0.0.1:8080/main.m3u8",
+    },
+    {
+        "URL": "http://127.0.0.1:8080/main.mpd",
+    },
+    {
+        "URL": "http://127.0.0.1:8080/main_mp4.m3u8",
+    },
+    {
+        "URL": "http://127.0.0.1:8080/main_mp4.m3u8",
+    },
+    {
+        "URL": "http://127.0.0.1:8080/main_mux.m3u3",
     },
 ]
 
@@ -485,22 +572,35 @@ because it has read and buffered all harvested segments
 """
 min_time_to_404 = 1
 
-if args.url:
-    test_urls1 = [{"URL": args.url, "is_encrypted": True}]
-elif args.only:
-    test_urls1 = []
-    for x in TEST_URLS:
-        if args.only in x["URL"]:
-            test_urls1.append(x)
-else:
-    test_urls1 = TEST_URLS
-
-try:
-    if args.repeat_forever:
-        while test(test_urls1) is False:
-            pass
+if __name__ == "__main__":
+    if args.url:
+        test_urls1 = [{"URL": args.url, "is_encrypted": True}]
+    elif args.only:
+        test_urls1 = []
+        for x in TEST_URLS:
+            if args.only in x["URL"]:
+                test_urls1.append(x)
     else:
-        test(test_urls1)
-finally:
-    # Try and ensure simlinear is not left running
-    stop_simlinear()
+        test_urls1 = TEST_URLS
+
+    try:
+        if args.repeat_forever:
+            while test(test_urls1) is False:
+                pass
+        else:
+            test(test_urls1)
+    finally:
+        # Try and ensure simlinear is not left running
+        stop_simlinear()
+
+    # Run VideoTestStream tests
+    test_VideoTestStream()
+
+    if failedTests:
+        print("FAILED TESTS: \n")
+        for test in failedTests:
+            print(test, '\n')
+    else:
+        print("ALL TESTS PASSED")
+
+    sys.exit(exitStatus)
