@@ -51,7 +51,7 @@ namespace subtecConnector
             return CC_VL_OS_API_RESULT_FAILED;
 
 		 const auto startResult = media_closeCaptionStart(handle);
-         AAMPLOG_WARN("media_closeCaptionStart return value = %d", registerResult);
+         AAMPLOG_WARN("media_closeCaptionStart return value = %d", startResult);
 
         if(startResult != 0)
             return CC_VL_OS_API_RESULT_FAILED;
