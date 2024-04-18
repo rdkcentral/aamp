@@ -914,12 +914,13 @@ static void InitializeSource(AAMPGstPlayer *_this, GObject *source, AampMediaTyp
 																					detected it sets its src pad caps to the found media type*/
 	}
 
-#if defined(AAMP_SIMULATOR_BUILD) && (!defined(ENABLE_AAMP_QTDEMUX_OVERRIDE))
+#if defined(AAMP_SIMULATOR_BUILD)
 	/* If qtdemux PTS restamping is not enabled and play starts at a non-zero stream time, then
 	 * seek to the start time, otherwise gstreamer will block until the running time matches the
 	 * stream time.
 	 */
-	if ((eMEDIATYPE_VIDEO == mediaType) || (eMEDIATYPE_AUDIO == mediaType) || (eMEDIATYPE_AUX_AUDIO == mediaType))
+	if (!(_this->aamp->mConfig->IsConfigSet(eAAMPConfig_QtDemuxOverrideEnabled)) &&
+		((eMEDIATYPE_VIDEO == mediaType) || (eMEDIATYPE_AUDIO == mediaType) || (eMEDIATYPE_AUX_AUDIO == mediaType)))
 	{
 		gint64 firstTime = (gint64)(_this->aamp->GetFirstPTS()*GST_SECOND);
 		if( firstTime>0 )
@@ -4078,11 +4079,14 @@ void AAMPGstPlayer::FlushAudio(double pos)
                 aamp->mCorrectionRate = rate;
         }
 
-#ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
-	startPosition = (pos - aamp->GetFirstPTS());
-#else
-	startPosition = pos;
-#endif
+	if(ISCONFIGSET(eAAMPConfig_QtDemuxOverrideEnabled))
+	{
+		startPosition = (pos - aamp->GetFirstPTS());
+	}
+	else
+	{
+		startPosition = pos;
+	}
 	AAMPLOG_MIL("Exiting AAMPGstPlayer::FlushAudio() pipeline state: %s startPosition: %lf AudioDelta %lf", gst_element_state_get_name(GST_STATE(privateContext->pipeline)), startPosition, aamp->mAudioDelta);
 	aamp->SyncEnd();
 }
@@ -4268,8 +4272,9 @@ long AAMPGstPlayer::GetPositionMilliseconds(void)
 			rate = 1; // MP4 position query alaways return absolute value
 		}
 
-#if !defined(REALTEKCE)	// Pos always start from "0" in Realtek
-		if (privateContext->segmentStart > 0)
+#if !defined(REALTEKCE)	|| defined(FLEX2_RDK) // Pos always start from "0" in Realtek
+		/*ES1-701 - With AMP_QTDEMUX_OVERRIDE disabled , pos does not start with "0" , AAMP_QTDEMUX_OVERRIDE is disabled for Charter App(Temporary Hack) in Flex2-RTK*/
+		if (privateContext->segmentStart > 0 && (!ISCONFIGSET(eAAMPConfig_QtDemuxOverrideEnabled)))
 		{
 			// DELIA-39530 - Deduct segment.start to find the actual time of media that's played.
 			rc = (GST_TIME_AS_MSECONDS(pos) - privateContext->segmentStart) * rate;
@@ -4279,7 +4284,7 @@ long AAMPGstPlayer::GetPositionMilliseconds(void)
 		{
 			rc = GST_TIME_AS_MSECONDS(pos) * rate;
 		}
-		//AAMPLOG_MIL("AAMPGstPlayer: pos - %" G_GINT64_FORMAT " rc - %ld", GST_TIME_AS_MSECONDS(pos), rc);
+		//AAMPLOG_MIL("AAMPGstPlayer: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
 
 		//positionQuery is not unref-ed here, because it could be reused for future position queries
 	}
@@ -4701,12 +4706,16 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 			if (privateContext->usingRialtoSink)
 #endif
 			{
-				/* If PTS restamping is enabled, set the seek position to zero. */
-#ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
 				gboolean enableOverride = TRUE;
-#else
-				gboolean enableOverride = (rate != AAMP_NORMAL_PLAY_RATE);
-#endif
+				/* If PTS restamping is enabled, set the seek position to zero. */
+				if(ISCONFIGSET(eAAMPConfig_QtDemuxOverrideEnabled))
+				{
+					enableOverride = TRUE;
+				}
+				else
+				{
+					enableOverride = (rate != AAMP_NORMAL_PLAY_RATE);
+				}
 
 				if (enableOverride)
 				{
@@ -4715,7 +4724,6 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 				}
 			}
 		}
-
 		if (!gst_element_seek(privateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 			position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 		{
@@ -5561,19 +5569,22 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(AampMediaType mediaType, GstClo
 	if (stream->format == FORMAT_ISO_BMFF && mediaType != eMEDIATYPE_SUBTITLE)
 	{
 		int vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS);
-#ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
-		enableOverride = TRUE;
-#else
-		enableOverride = (privateContext->rate != AAMP_NORMAL_PLAY_RATE);
-#endif
+		if(ISCONFIGSET(eAAMPConfig_QtDemuxOverrideEnabled))
+		{
+			enableOverride = TRUE;
+		}
+		else
+		{
+			enableOverride = (privateContext->rate != AAMP_NORMAL_PLAY_RATE);
+		}
 		/* 	The below statement creates a new eventStruct with the name 'aamp_override' and sets its three variables as follows:-
 			1) the variable 'enable' has datatype of G_TYPE_BOOLEAN and has value enableOverride.
 			2) the variable 'rate' has datatype of G_TYPE_FLOAT and is set to (float)privateContext->rate.
 			3) the variable 'aampplayer' has datatype of G_TYPE_BOOLEAN and a value of TRUE.
 		*/
 		GstStructure * eventStruct = gst_structure_new("aamp_override", "enable", G_TYPE_BOOLEAN, enableOverride, "rate", G_TYPE_FLOAT, (float)privateContext->rate, "aampplayer", G_TYPE_BOOLEAN, TRUE, "fps", G_TYPE_UINT, (guint)vodTrickplayFPS, NULL);
-#ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
-		if ( privateContext->rate == AAMP_NORMAL_PLAY_RATE )
+		if ( privateContext->rate == AAMP_NORMAL_PLAY_RATE &&
+			(ISCONFIGSET(eAAMPConfig_QtDemuxOverrideEnabled)))
 		{
 			guint64 basePTS = aamp->GetFirstPTS() * GST_SECOND;
 			// When media processor is enabled, pts value will be inferred from fragment
@@ -5599,7 +5610,6 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(AampMediaType mediaType, GstClo
 			AAMPLOG_MIL("Set override event's basePTS [ %" G_GUINT64_FORMAT "]", basePTS);
 			gst_structure_set (eventStruct, "basePTS", G_TYPE_UINT64, basePTS, NULL);
 		}
-#endif
 		if (!gst_pad_push_event(sourceEleSrcPad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, eventStruct)))
 		{
 			AAMPLOG_ERR("Error on sending qtdemux override event");
