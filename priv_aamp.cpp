@@ -6764,16 +6764,6 @@ std::string PrivateInstanceAAMP::GetThumbnailTracks()
 					op.assign(jsonStr);
 					free(jsonStr);
 				}
-
-				{
-					char * tracks_str = cJSON_PrintUnformatted(root);
-					if (tracks_str)
-					{
-						AAMPLOG_TRACE(" Current TumbnailTracks: %s .", tracks_str);
-					}
-					cJSON_free(tracks_str);
-				}
-
 				cJSON_Delete(root);
 			}
 		}
