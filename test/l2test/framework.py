@@ -265,8 +265,14 @@ class Aamp:
                     assert 0, "ERROR Exception was thrown idx={}:{}".format(idx, str(e))
                 else:
                     elapsed = time.time() - start_time
+                    match = self.aamp_pexpect.match
                     print("Event idx={} {} occurs at elapsed={}".format
                           (idx, str(e["expect"]).replace("\\", ""), elapsed))
+                    if "callback" in e:
+                          print("Have callback")
+                          e["callback"](match)
+
+
 
                 finally:
 

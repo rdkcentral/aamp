@@ -877,6 +877,16 @@ public:
 	}
 	
 	/**
+	*   @brief  Get PTS offset for MidFragment Seek
+	*
+	*   @return seek PTS offset for midfragment seek
+	*/
+	virtual double GetMidSeekPosOffset()
+	{
+		return 0.0;
+	}
+
+	/**
 	 * @brief Sets the minimum buffer for ABR (Adaptive Bit Rate).
 	 *
 	 * @param minbuffer The minimum buffer value to be set for ABR.
@@ -1733,6 +1743,7 @@ protected:
 	int mMaxBufferCountCheck;
 	int mABRMaxBuffer;	            /**< ABR ramp up buffer*/
 	int mABRCacheLength;		    /**< ABR cache length*/
+	int mABRBufferCounter;              /**< ABR Buffer Counter*/
 	int mABRMinBuffer;		    /**< ABR ramp down buffer*/
 	int mABRNwConsistency;		    /**< ABR Network consistency*/
 	bool mESChangeStatus;               /**< flag value which is used to call pipeline configuration if the audio type changed in mid stream */

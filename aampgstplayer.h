@@ -236,6 +236,10 @@ public:
          */
 	void SetVideoZoom(VideoZoomMode zoom) override;
 	/**
+         * @fn ResetFirstFrame
+         */
+	void ResetFirstFrame(void);
+	/**
          * @fn SetVideoMute
          * @param[in] muted true to mute video otherwise false
          */

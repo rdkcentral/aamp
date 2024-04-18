@@ -135,6 +135,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mDiscoCompleteLock(),
 	mWaitForDiscoToComplete(),
 	mIsPeriodChangeMarked(false),
+	mProgressReportAvailabilityOffset(-1),
 	mpStreamAbstractionAAMP()
 {
 	pthread_cond_init(&waitforplaystart, NULL);
@@ -1319,6 +1320,11 @@ double PrivateInstanceAAMP::GetFirstPTS()
 	return 0;
 }
 
+double PrivateInstanceAAMP::GetMidSeekPosOffset()
+{
+	return 0;
+}
+
 int PrivateInstanceAAMP::GetCurrentAudioTrackId()
 {
 	return 0;
@@ -1351,3 +1357,6 @@ void PrivateInstanceAAMP::FlushAudio(double pos)
 {
 }
 
+void PrivateInstanceAAMP::ReleaseDynamicDRMToUpdateWait(void)
+{
+}

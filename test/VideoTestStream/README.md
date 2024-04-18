@@ -11,9 +11,9 @@ The following streams are generated:
 - main_mp4.m3u8 // fragmented HLS mp4
 - main.m3u8 // HLS ts with demux audio
 - main_mux.m3u8 // HLS ts with muxed audio
+- mainduration.mpd //DASH manifest for duration based stream generation
 
-**generate-hls-dash-4k.sh** is variation on **generate-hls-dash.sh** and is used to generate an animated test pattern with more realistic
-segment sizes and includes a 4k resolution profile.
+**generate-hls-dash-4k.sh** is variation on **generate-hls-dash.sh** and is used to generate an animated test pattern with more realistic segment sizes and includes a 4k resolution profile.
 
 The following streams are generated:
 - SegmentTemplate.mpd
@@ -25,14 +25,20 @@ The following streams are generated:
 - HlsTs.m3u8
 
 
-## generate-hls-dash.h
+## generate hls and dash stream
 
 To generate the video test stream on Ubuntu for example:
 
 ```
 $ cd aamp/tests/VideoTestStream
-$ ./generate-hls-dash.h
+$ ./generate-hls-dash.sh
 ```
+
+##Options:
+
+./generate-hls-dash.sh -h		//show help message
+./generate-hls-dash.sh -d 60		//generate video for given duration
+./generate-hls-dash.sh -f imagename	//generate video with given image
 
 ### Known Limitations
 
@@ -49,7 +55,7 @@ $ sudo sysctl net.local.dgram.recvspace=204800
 The DASH manifest **main.mpd** and HLS master playlists **main.m3u8**, **main_mp4.m3u8** and
 **main_mux.m3u8** are not generated. If you change the generated video test stream
 parameters used by **generate-hls-dash.sh** you may need to edit these files.
-
+The DASH manifest **mainduration.mpd** is generated from main.mpd with given duration.
 
 ## startserver.sh
 
@@ -82,6 +88,8 @@ The following URIs are supported:
 -- HLS TS format muxed audio and video stream.
 - http://127.0.0.1:8080/main_mp4.m3u8
 -- HLS MP4 format stream.
+- http://127.0.0.1:8080/mainduration.mpd
+-- DASH manifest for duration based stream generation.
 
 Press Ctrl-C to terminate the server.
 

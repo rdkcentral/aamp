@@ -13,3 +13,4 @@ rm SegmentBase.mpd
 rm SegmentList.mpd
 rm SegmentTemplate.mpd
 rm SegmentTimeline.mpd
+rm mainduration.mpd

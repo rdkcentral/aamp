@@ -113,6 +113,10 @@ void AAMPGstPlayer::SetVideoMute(bool muted)
 {
 }
 
+void AAMPGstPlayer::ResetFirstFrame(void)
+{
+}
+
 void AAMPGstPlayer::SetSubtitleMute(bool muted)
 {
 	if (g_mockAampGstPlayer != nullptr)

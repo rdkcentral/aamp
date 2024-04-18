@@ -76,6 +76,7 @@ typedef enum
 	eCONFIG_RANGE_CEA_PREFERRED, // -1..5
 	eCONFIG_RANGE_PLAYBACK_OFFSET, // -99999..INT_MAX
 	eCONFIG_RANGE_HARVEST_DURATION, // -1...10 HRS
+	eCONFIG_RANGE_ABSOLUTE_REPORTING, // eABSOLUTE_PROGRESS_EPOCH..eABSOLUTE_PROGRESS_MAX
 	eCONFIG_RANGE_MAX_VALUE,
 } ConfigValidRange;
 #define CONFIG_RANGE_ENUM_COUNT (eCONFIG_RANGE_MAX_VALUE)
@@ -113,6 +114,7 @@ static const struct
 	{ -1, 5, eCONFIG_RANGE_CEA_PREFERRED },
 	{AAMP_DEFAULT_PLAYBACK_OFFSET, INT_MAX, eCONFIG_RANGE_PLAYBACK_OFFSET },
 	{-1, 60*60*10, eCONFIG_RANGE_HARVEST_DURATION },
+	{eABSOLUTE_PROGRESS_EPOCH, eABSOLUTE_PROGRESS_MAX, eCONFIG_RANGE_ABSOLUTE_REPORTING},
 };
 
 static ConfigPriority customOwner;
@@ -485,8 +487,9 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{0,"rateCorrectionDelay", eAAMPConfig_RateCorrectionDelay,true},
 	{-1,"harvestDuration",eAAMPConfig_HarvestDuration,false,eCONFIG_RANGE_HARVEST_DURATION},
 	{DEFAULT_SUBTITLE_CLOCK_SYNC_INTERVAL,"subtitleClockSyncInterval",eAAMPConfig_SubtitleClockSyncInterval,true},
-	{eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START,"preferredAbsoluteReporting",eAAMPConfig_PreferredAbsoluteProgressReporting,true, eCONFIG_RANGE_ANY},
+	{eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START,"preferredAbsoluteReporting",eAAMPConfig_PreferredAbsoluteProgressReporting,true, eCONFIG_RANGE_ABSOLUTE_REPORTING},
 	{EOS_INJECTION_MODE_STOP_ONLY,"EOSInjectionMode", eAAMPConfig_EOSInjectionMode,true},
+	{DEFAULT_ABR_BUFFER_COUNTER,"abrBufferCounter", eAAMPConfig_ABRBufferCounter,true},
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },

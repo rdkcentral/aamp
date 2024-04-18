@@ -300,6 +300,7 @@ typedef enum
 	eAAMPConfig_SubtitleClockSyncInterval,			/**< time interval for synchronizing subtitle clock */
 	eAAMPConfig_PreferredAbsoluteProgressReporting, /**< Preferred settings for absolute progress reporting**/
 	eAAMPConfig_EOSInjectionMode,				/**< Determines when EOS is injected. See definition of EOSInjectionModeCode.*/
+	eAAMPConfig_ABRBufferCounter,				/** Counter for ABR steadystate rampup/rampdown*/
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)

@@ -41,13 +41,17 @@ using namespace std;
 class StreamAbstractionAAMP_HDMIIN : public StreamAbstractionAAMP_VIDEOIN
 {
 public:
+
     /**
-     * @fn StreamAbstractionAAMP_HDMIIN
-     * @param aamp pointer to PrivateInstanceAAMP object associated with player
-     * @param seekpos Seek position
-     * @param rate playback rate
-     */	
-    StreamAbstractionAAMP_HDMIIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+     *   @brief get StreamAbstractionAAMP_HDMIIN instance
+     */
+    static StreamAbstractionAAMP_HDMIIN* GetInstance(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+
+    /**
+     *@brief Clear aamp and LogObj of HdmiinInstance
+     */
+    static void ResetInstance();
+
     /**
      * @fn ~StreamAbstractionAAMP_HDMIIN 
      */    
@@ -78,6 +82,15 @@ public:
     void Stop(bool clearChannelData) override;
 
 private:
+    /**
+     * @fn StreamAbstractionAAMP_HDMIIN
+     * @param aamp pointer to PrivateInstanceAAMP object associated with player
+     * @param seekpos Seek position
+     * @param rate playback rate
+     */
+    StreamAbstractionAAMP_HDMIIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+
+    static StreamAbstractionAAMP_HDMIIN* mHdmiinInstance;
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     /*Event Handler*/
     /**

@@ -1,0 +1,209 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>TST_2005_UVE_AampVideoModificationApis</title>
+    <link rel="stylesheet" href="TST_UVE_style.css">
+    <script type="text/javascript" src="TST_UVE_utils.js" ></script>
+</head>
+<script>
+
+// ------------------------------------------------------------------------------------
+// Plays video content and uses UVE APIs to get video properties and modify the size
+// and position of the video on the screen
+// ------------------------------------------------------------------------------------
+// The video is zoomed and unzoomed and moved into a window on the screen.
+// ------------------------------------------------------------------------------------
+
+var subContentUrl = "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8";
+
+const expectedTracksData = [
+  {"bandwidth": 258157, "width": 422, "height": 180, "framerate": 25, "enabled": 1,"index":"0"},
+  {"bandwidth": 520929, "width": 638, "height": 272, "framerate": 25, "enabled": 1,"index":"1"},
+  {"bandwidth": 831270, "width": 638, "height": 272, "framerate": 25, "enabled": 1,"index":"2"},
+  {"bandwidth": 1144430, "width": 958, "height": 408, "framerate": 25, "enabled": 0,"index":"3"},
+  {"bandwidth": 1558322, "width": 1277, "height": 554, "framerate": 25, "enabled": 0,"index":"4"},
+  {"bandwidth": 4149264, "width": 1921, "height": 818, "framerate": 25, "enabled": 0,"index":"5"},
+  {"bandwidth": 6214307, "width": 1921, "height": 818, "framerate": 25, "enabled": 0,"index":"6"},
+  {"bandwidth": 10285391, "width": 4096, "height": 1744, "framerate": 25, "enabled": 0,"index":"7"}
+];
+
+const playbackStatistics = [
+  {
+    "timeInTopProfile": 156,
+    "duration": 156,
+    "profileStepDown_Network": 0,
+    "displayWidth": 1920,
+    "displayHeight": 1080,
+    "profileCappingPresent": 0,
+    "mediaType": "HLS",
+    "playbackMode": "VOD",
+    "totalError": 0,
+    "languageSupported": { "audio1": "dubbing", "audio2": "en" },
+    "main": {
+      "profiles": {
+        "0": {
+          "manifestStat": {
+            "latencyReport": { "timeWindow_2": 1 },
+            "sessionSummary": { "200": 1 },
+            "info": { "DownloadTimeMs": 516, "ParseTimeMs": 0, "Size": 2320 }
+          }
+        }
+      }
+    },
+    "video": {
+      "profiles": {
+        "831270": {
+          "manifestStat": {
+            "latencyReport": { "timeWindow_0": 1 },
+            "sessionSummary": { "200": 1 },
+            "info": { "DownloadTimeMs": 70, "Size": 13283 }
+          },
+          "fragmentStat": {
+            "media": {
+              "latencyReport": { "timeWindow_0": 71, "timeWindow_1": 7 },
+              "sessionSummary": { "200": 78 }
+            }
+          },
+          "width": 638,
+          "height": 272
+        }
+      }
+    },
+    "audio1": {
+      "profiles": {
+        "0": {
+          "manifestStat": {
+            "latencyReport": { "timeWindow_0": 1 },
+            "sessionSummary": { "200": 1 },
+            "info": { "DownloadTimeMs": 70, "Size": 14465 }
+          },
+          "fragmentStat": {
+            "media": {
+              "latencyReport": { "timeWindow_0": 61, "timeWindow_1": 5 },
+              "sessionSummary": { "200": 66 }
+            }
+          }
+        }
+      }
+    },
+    "version": "2.0",
+    "creationTime": "2023-07-21.06:18:55"
+  }
+];
+
+
+async function TST_2005_UVE_AampVideoModificationApis() {
+    TST_START("TST_2005_UVE_AampVideoModificationApis");
+    var aamp_player = new AAMPPlayer("MAIN-PLAYER");
+
+    // adding the http header
+    TST_INFO("addCustomHTTPHeader");
+    await aamp_player.TST_AddCustomHTTPHeader("X-AxDRM-Message", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9", true);
+
+    // removing http header
+    TST_INFO("removeCustomHTTPHeader");
+    await aamp_player.TST_RemoveCustomHTTPHeader("X-AxDRM-Message");
+
+    // Load and Play the subContentUrl, wait 10s and verify position updated
+    TST_INFO("Tune to URL");
+    await aamp_player.Load(subContentUrl);
+    await aamp_player.VerifyPlayback(5, 1);
+
+    // get available video tracks
+    TST_INFO("getAvailableVideoTracks");
+    var availableVideoTracks = [];
+    var actualTracksData = await aamp_player.TST_GetAvailableVideoTracks(availableVideoTracks);
+    TST_ASSERT(JSON.stringify(actualTracksData) == JSON.stringify(expectedTracksData), "Video tracks not matched");
+    await aamp_player.VerifyPlayback(5,1);
+
+    TST_INFO("getPlaybackStatistics");
+    var actualStatistics = await aamp_player.player.getPlaybackStatistics();
+    console.log("actual " + actualStatistics);
+    const displayWidthValue = playbackStatistics.some(stat => stat.displayWidth == 1920);
+    const displayHeightValue = playbackStatistics.some(stat => stat.displayHeight == 1080);
+    const mediaTypeValue = playbackStatistics.some(stat => stat.mediaType == "HLS");
+    const playbackModeValue = playbackStatistics.some(stat => stat.playbackMode == "VOD");
+    const totalError = playbackStatistics.some(stat => stat.totalError == 0);
+    TST_ASSERT(displayWidthValue, "displayWidthValue exists");
+    TST_ASSERT(displayHeightValue, "displayHeightValue exists");
+    TST_ASSERT(mediaTypeValue, "mediaTypeValue exists");
+    TST_ASSERT(playbackModeValue, "playbackModeValue exists");
+    TST_ASSERT(totalError, "totalError exists");
+    await aamp_player.VerifyPlayback(4,1);
+
+    TST_INFO("getVideoBitrates");
+    let videoBitrates = await aamp_player.TST_GetVideoBitrates();
+    TST_ASSERT(videoBitrates.includes(258157), "avlBitrates should contain 258157");
+    TST_ASSERT(videoBitrates.includes(520929), "avlBitrates should contain 520929");
+    TST_ASSERT(videoBitrates.includes(831270), "avlBitrates should contain 831270");
+
+    TST_INFO("TST_GetCurrentVideoBitrate");
+    const availableBitrates = [258157, 520929, 831270];
+    const currentVideoBitrate = await aamp_player.TST_GetCurrentVideoBitrate();
+    const isBitrateAvailable = availableBitrates.indexOf(currentVideoBitrate) !== -1;
+    TST_ASSERT(isBitrateAvailable, "Current video bitrate not found in the available bitrates list.");
+
+    //sets the video track
+    TST_INFO("setVideoTrack");
+    bitrateList = [258157,520929,831270,500000,467567];
+    await aamp_player.TST_SetVideoTracks(bitrateList);
+    await aamp_player.VerifyPlayback(6,1);
+
+    TST_INFO("TST_GetCurrentVideoBitrate");
+    const availBitrates = [258157, 520929, 831270];
+    const curVidBitrate = await aamp_player.TST_GetCurrentVideoBitrate();
+    const isBitrateAvail = availBitrates.indexOf(curVidBitrate) !== -1;
+    TST_ASSERT(isBitrateAvail, "Current video bitrate not found in the available bitrates list.");
+
+    // video zoom disabled
+    TST_INFO("setVideoZoom disabled");
+    await aamp_player.TST_SetVideoZoom("none");
+    await aamp_player.VerifyPlayback(10,1);
+
+    // video zoom enabled
+    TST_INFO("setVideoZoom enabled");
+    await aamp_player.TST_SetVideoZoom("full");
+    await aamp_player.VerifyPlayback(10,1);
+
+    // sets the coordinates of the video rectangle.
+    TST_INFO("setVideoRect");
+    await aamp_player.TST_SetVideoRect(50, 80, 800, 1000);
+    var expected_coordinates = [50, 80, 800, 1000];
+    var actual_coordinates = await aamp_player.player.getVideoRectangle();
+    console.log("actual " + actual_coordinates);
+    console.log("expected " + expected_coordinates);
+    TST_ASSERT(actual_coordinates== expected_coordinates, "Coordinates are not matched");
+    await aamp_player.VerifyPlayback(10, 1);
+
+    // Stop the playback and destroy the AAMP Player
+    TST_INFO("Stop the playback");
+    await aamp_player.Stop();
+    aamp_player.destroy();
+    TST_END()
+}
+
+
+// Run the test when the page loads
+window.onload = function() {
+    TST_2005_UVE_AampVideoModificationApis()
+}
+
+
+</script>
+<body>
+    <div id="videoContainer">
+        <video style="height:100%; width:100%; position:absolute; bottom:0; left:0">
+            <source src="dummy.mp4" type=video/ave> <!-- hole punching -->
+        </video>
+        <video id="dummyVideo" autoplay="autoplay" style="position: absolute; top: 0px; left: 0px; width: 100%; height: 100%;">
+            <source src="rec://srv/cur" type="video/x-dvb"/>
+        </video>
+    </div>
+    <div id="testModal">
+        <p id="testData"></p>
+    </div>
+    <div id="infoModal">
+        <p id="infoData"></p>
+    </div>
+</body>
+</html>

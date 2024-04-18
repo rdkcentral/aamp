@@ -1773,6 +1773,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInst
 	pthread_cond_init(&mStateCond, NULL);
 	mMaxBufferCountCheck = GETCONFIGVALUE(eAAMPConfig_ABRCacheLength);
 	mABRCacheLength = mMaxBufferCountCheck;
+	mABRBufferCounter = GETCONFIGVALUE(eAAMPConfig_ABRBufferCounter);
 	mABRMaxBuffer = GETCONFIGVALUE(eAAMPConfig_MaxABRNWBufferRampUp);
 	mABRMinBuffer = GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown);
 	mABRNwConsistency = GETCONFIGVALUE(eAAMPConfig_ABRNWConsistency);
@@ -2007,7 +2008,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 	if(bufferValue > 0 && currProfileIndex == newProfileIndex)
 	{
 		AAMPLOG_INFO("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);
-		if(bufferValue > mABRMaxBuffer)
+		if(bufferValue > mABRMaxBuffer && !aamp->GetLLDashServiceData()->lowLatencyMode)
 		{
 			mABRHighBufferCounter++;
 			mABRLowBufferCounter = 0 ;
@@ -2036,7 +2037,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 				mhBitrateReason = (HybridABRManager::BitrateChangeReason) mBitrateReason;
 				aamp->mhAbrManager.CheckRampdownFromSteadyState(currProfileIndex,newProfileIndex,mhBitrateReason,mABRLowBufferCounter);
 				mBitrateReason = (BitrateChangeReason) mhBitrateReason;
-				mABRLowBufferCounter = (mABRLowBufferCounter > mABRCacheLength)? 0 : mABRLowBufferCounter ;
+				mABRLowBufferCounter = (mABRLowBufferCounter >= mABRBufferCounter)? 0 : mABRLowBufferCounter ;
 			}
 		}
 	}
@@ -2138,8 +2139,14 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 			// Ramp up/down (do ABR)
 			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexByBitrateRampUpOrDown(currentProfileIndex,
 					currentBandwidth, networkBandwidth, nwConsistencyCnt);
-
-			AAMPLOG_INFO("currBW:%ld NwBW=%ld currProf:%d desiredProf:%d",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex);
+                        AAMP_LogLevel logLevel = eLOGLEVEL_INFO;
+			if(aamp->IsTuneTypeNew)
+			{
+				logLevel = eLOGLEVEL_MIL;
+			}
+			
+			AAMPLOG(mLogObj, logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer  %lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,buffervalue/1000);
+			
 			if (currentProfileIndex != desiredProfileIndex)
 			{
 				// There is a chance that desiredProfileIndex is reset in below GetDesiredProfileOnBuffer call

@@ -51,7 +51,7 @@ public:
     /**
      * @fn ~StreamAbstractionAAMP_VIDEOIN
      */
-    ~StreamAbstractionAAMP_VIDEOIN();
+    virtual ~StreamAbstractionAAMP_VIDEOIN();
     /**     
      * @brief Copy constructor disabled
      *
@@ -159,6 +159,7 @@ protected:
     std::string videoInputType;
     std::string mName; // Used for logging
     std::list<std::string> mRegisteredEvents;
+    bool mIsInitialized;
 };
 
 #endif // VIDEOIN_SHIM_H_

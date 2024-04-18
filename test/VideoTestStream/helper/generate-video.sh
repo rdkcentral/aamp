@@ -5,7 +5,7 @@ FILE_LOOP=loop.mp4
 if [ -f "$FILE_LOOP" ]; then
 	echo "$FILE_LOOP exists"
 else
-	ffmpeg -loop 1 -i testpat.jpg -c:v libx264 -t $VIDEO_LENGTH_SEC -pix_fmt yuv420p -vf scale=1920:1080 -r $FPS $FILE_LOOP
+	ffmpeg -loop 1 -i $IMG_NAME -c:v libx264 -t $VIDEO_LENGTH_SEC -pix_fmt yuv420p -vf scale=1920:1080 -r $FPS $FILE_LOOP
 fi
 
 # generate profiles

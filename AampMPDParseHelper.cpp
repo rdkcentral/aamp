@@ -1002,13 +1002,12 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 									double periodStart = 0;
 									periodStart = ParseISO8601Duration( periodStartStr.c_str() );
 									double periodEndTime = mpdDownloadTime + mMinUpdateDurationMs;
-									double periodStartTime = mAvailabilityStartTime + periodStart;
+									double periodStartTime = (mAvailabilityStartTime * 1000) + periodStart;
 									std::string tsbDepth = mMPDInstance->GetTimeShiftBufferDepth();
 									AAMPLOG_INFO("periodStart=%lf availabilityStartTime=%lf minUpdatePeriod=%" PRIu64 " mpdDownloadTime=%" PRIu64 " tsbDepth:%s",
 												 periodStart, mAvailabilityStartTime, mMinUpdateDurationMs, mpdDownloadTime, tsbDepth.c_str());
-									if(periodStartTime == mAvailabilityStartTime)
+									if(periodStartTime == (mAvailabilityStartTime * 1000))
 									{
-
 										// period starting from availability start time
 										if(!tsbDepth.empty())
 										{
@@ -1017,11 +1016,11 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 										//If MPD@timeShiftBufferDepth is not present, the period duration is should be based on the MPD@availabilityStartTime; and should not result in a value of 0. 
 										else
 										{
-											durationMs = mAvailabilityStartTime;
+											durationMs = mpdDownloadTime - (mAvailabilityStartTime * 1000);
 										}
 										if((mpdDownloadTime - durationMs) < mAvailabilityStartTime && !tsbDepth.empty())
 										{
-											durationMs = mpdDownloadTime - mAvailabilityStartTime;
+											durationMs = mpdDownloadTime - (mAvailabilityStartTime * 1000);
 										}
 									}
 									else

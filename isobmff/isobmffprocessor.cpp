@@ -45,7 +45,7 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManag
 	id3_callback_t id3_hdl, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
 	: p_aamp(aamp), type(trackType), peerProcessor(peerBmffProcessor), peerSubtitleProcessor(peerSubProcessor), basePTS(0),
 	processPTSComplete(false), timeScale(0), initSegment(), resetPTSInitSegment(),
-	playRate(1.0f), abortAll(false), m_mutex(), m_cond(),initSegmentProcessComplete(false),
+	playRate(1.0f), stopped(false), aborted(false), m_mutex(), m_cond(),initSegmentProcessComplete(false),
 	isRestampConfigEnabled(false),
 	mLogObj(logObj),
 	sumPTS(0),prevPTS(UINT64_MAX),currTimeScale(0),sumOfTrackDurationFromISOBuffer(0.0f),startPos(0.0f),
@@ -162,6 +162,10 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 
 	AAMPLOG_INFO("IsoBmffProcessor:: %s sending segment at pos:%f dur:%f", IsoBmffProcessorTypeName[type], position, duration);
 
+	pthread_mutex_lock(&m_mutex);
+	ret = !stopped;  // check the module is active
+	aborted = false; // clear the aborted flag to check for an abort() during processing
+
 	// Logic for Audio & Subtitle Track
 	if (type == eBMFFPROCESSOR_TYPE_AUDIO || type == eBMFFPROCESSOR_TYPE_SUBTITILE)
 	{
@@ -187,19 +191,19 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 			else
 			{
 				// Wait for video to parse PTS
-				pthread_mutex_lock(&m_mutex);
 				if (!processPTSComplete)
 				{
 					AAMPLOG_INFO("IsoBmffProcessor %s Going into wait for PTS processing to complete",  IsoBmffProcessorTypeName[type]);
 					pthread_cond_wait(&m_cond, &m_mutex);
 				}
-				if (abortAll)
+				if (aborted) // check there wasn't an abort during the wait
 				{
+					AAMPLOG_INFO("IsoBmffProcessor %s aborting PTS processing",  IsoBmffProcessorTypeName[type]);
 					ret = false;
 				}
-				pthread_mutex_unlock(&m_mutex);
 			}
 		}
+		
 		if (ret && !initSegmentProcessComplete)
 		{
 			if (processPTSComplete)
@@ -250,26 +254,13 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 			uint64_t fPts = 0;
 			if (buffer.getFirstPTS(fPts))
 			{
-				pthread_mutex_lock(&m_mutex);
+				bool sendError = false;
+
 				basePTS = fPts;
 				processPTSComplete = true;
-				pthread_mutex_unlock(&m_mutex);
 				AAMPLOG_WARN("IsoBmffProcessor %s Base PTS (%" PRIu64 ") set", IsoBmffProcessorTypeName[type], basePTS);
-			}
-			else
-			{
-				AAMPLOG_WARN("IsoBmffProcessor %s Failed to process pts from buffer at pos:%f and dur:%f", IsoBmffProcessorTypeName[type], position, duration);
-			}
 
-			if (ret && processPTSComplete)
-			{
-				bool sendError = false;
-				pthread_mutex_lock(&m_mutex);
-				if (abortAll)
-				{
-					ret = false;
-				}
-				if (ret && timeScale == 0)
+				if (timeScale == 0)
 				{
 					if (initSegment.empty())
 					{
@@ -293,14 +284,16 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 						}
 					}
 				}
-				pthread_mutex_unlock(&m_mutex);
 
-				if (ret && !abortAll)
+				if (ret)
 				{
 					double pos = ((double)basePTS / (double)timeScale);
 					// For post processing, release mutex
 					// If AAMP override hack is enabled for this platform, then we need to pass the basePTS value to
 					// PrivateInstanceAAMP since PTS will be restamped in qtdemux. This ensures proper pts value is sent in progress event.
+
+					pthread_mutex_unlock(&m_mutex);
+
 #ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
 					p_aamp->NotifyFirstVideoPTS(basePTS, timeScale);
 					// Here, basePTS might not be based on a 90KHz clock, whereas gst videosink might be.
@@ -332,18 +325,34 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					// This is one-time operation
 					peerListeners.clear();
 
-					pushInitSegment(pos);
-					initSegmentProcessComplete = true;
+					pthread_mutex_lock(&m_mutex);
+
+					if (!aborted)
+					{
+						pushInitSegment(pos);
+						initSegmentProcessComplete = true;
+					}
 				}
+
 				if (sendError)
 				{
 					AAMPLOG_WARN("IsoBmffProcessor %s Init segment missing during PTS processing!",  IsoBmffProcessorTypeName[type]);
 					p_aamp->SendErrorEvent(AAMP_TUNE_MP4_INIT_FRAGMENT_MISSING);
 				}
 			}
+			else
+			{
+				AAMPLOG_WARN("IsoBmffProcessor %s Failed to process pts from buffer at pos:%f and dur:%f", IsoBmffProcessorTypeName[type], position, duration);
+			}
+
 		}
 	}
-	return (ret && !abortAll);
+
+	ret = ret && !aborted;
+
+	pthread_mutex_unlock(&m_mutex);
+
+	return (ret);
 }
 
 /**
@@ -832,10 +841,23 @@ void IsoBmffProcessor::abort()
 {
 	AAMPLOG_WARN(" %s IsoBmffProcessor::abort() called ", IsoBmffProcessorTypeName[type]);
 	pthread_mutex_lock(&m_mutex);
-	abortAll = true;
+	stopped = true;
+	aborted = true;
 	pthread_cond_signal(&m_cond);
 	pthread_mutex_unlock(&m_mutex);
 	reset();
+}
+
+/**
+ *  @brief reset all restamp variables (internal function without mtx lock)
+ */
+void IsoBmffProcessor::internalResetRestampVariables()
+{
+	clearInitSegment();
+	clearRestampInitSegment();
+	scalingOfPTSComplete=false;
+	prevPTS = UINT64_MAX;
+	AAMPLOG_INFO("IsoBmffProcessor %s scalingOfPTSComplete = %d basePTS = %" PRIu64 " ",IsoBmffProcessorTypeName[type], scalingOfPTSComplete, basePTS);
 }
 
 /**
@@ -843,12 +865,8 @@ void IsoBmffProcessor::abort()
  */
 void IsoBmffProcessor::resetRestampVariables()
 {
-	clearInitSegment();
-	clearRestampInitSegment();
 	pthread_mutex_lock(&m_mutex);
-	scalingOfPTSComplete=false;
-	prevPTS = UINT64_MAX;
-	AAMPLOG_INFO("IsoBmffProcessor %s scalingOfPTSComplete = %d basePTS = %" PRIu64 " ",IsoBmffProcessorTypeName[type], scalingOfPTSComplete, basePTS);
+	internalResetRestampVariables();
 	pthread_mutex_unlock(&m_mutex);
 }
 
@@ -858,12 +876,12 @@ void IsoBmffProcessor::resetRestampVariables()
 void IsoBmffProcessor::reset()
 {
 	AAMPLOG_INFO("IsoBmffProcessor %s reset called",IsoBmffProcessorTypeName[type]);
-	resetRestampVariables();
 	pthread_mutex_lock(&m_mutex);
+	internalResetRestampVariables();
 	basePTS = 0;
 	timeScale = 0;
 	processPTSComplete = false;
-	abortAll = false;
+	stopped = false;
 	initSegmentProcessComplete = false;
 	pthread_mutex_unlock(&m_mutex);
 }

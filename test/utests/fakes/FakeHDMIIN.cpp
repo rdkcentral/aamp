@@ -88,6 +88,15 @@ void StreamAbstractionAAMP_HDMIIN::Stop(bool clearChannelData)
 {
 }
 
+StreamAbstractionAAMP_HDMIIN* StreamAbstractionAAMP_HDMIIN::GetInstance(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+{
+    return nullptr;
+}
+
+void StreamAbstractionAAMP_HDMIIN::ResetInstance()
+{
+}
+
  StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
                               : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", COMPOSITEINPUT_CALLSIGN, logObj, aamp,seek_pos,rate,"COMPOSITE")
  {
@@ -109,4 +118,13 @@ void StreamAbstractionAAMP_HDMIIN::Stop(bool clearChannelData)
  void StreamAbstractionAAMP_COMPOSITEIN::Stop(bool clearChannelData)
  {
  }
+
+StreamAbstractionAAMP_COMPOSITEIN* StreamAbstractionAAMP_COMPOSITEIN::GetInstance(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+{
+    return nullptr;
+}
+
+void StreamAbstractionAAMP_COMPOSITEIN::ResetInstance()
+{
+}
 

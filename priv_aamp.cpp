@@ -1199,7 +1199,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, preferredTextLabelString("")
 	, preferredTextAccessibilityNode()
 	, preferredNameString("")
-	, mProgressReportOffset(-1), mFirstFragmentTimeOffset(-1)
+	, mProgressReportOffset(-1), mFirstFragmentTimeOffset(-1), mProgressReportAvailabilityOffset(-1)
 	, mAutoResumeTaskId(AAMP_TASK_ID_INVALID), mAutoResumeTaskPending(false), mScheduler(NULL), mEventLock(), mEventPriority(G_PRIORITY_DEFAULT_IDLE)
 	, mStreamLock()
 	, mConfig (config),mSubLanguage(), mHarvestCountLimit(0), mHarvestConfig(0)
@@ -1922,7 +1922,7 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 					double liveTime = (double)mNewSeekInfo.GetInfo().getUpdateTime()/1000.0;
 					double finalProgressTime = (mFirstFragmentTimeOffset) + ((double)mNewSeekInfo.GetInfo().getPosition()/1000.0);
 					double latency = liveTime - finalProgressTime;
-					if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && (mProgressReportOffset >= 0))
+					if(mProgressReportOffset >= 0)
 					{
 						// Correction with progress offset
 						latency += mProgressReportOffset;
@@ -2041,7 +2041,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 
 		//DELIA-49735 - Report Progress report position based on Availability Start Time
 		start = (culledSeconds*1000.0);
-		if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && (mProgressReportOffset >= 0) && IsLiveStream() && !IsUninterruptedTSB())
+		if((mProgressReportOffset >= 0) && !IsUninterruptedTSB())
 		{
 			end = (mAbsoluteEndPosition * 1000);
 		}
@@ -2096,6 +2096,23 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		**  -A good candidate for future refactoring*/
 		mNewSeekInfo.Update(position, seek_pos_seconds);
 		int CurrentPositionDeltaToManifestEnd = end - position;
+		double reportFormatPosition = position;
+		if ((!ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) || !IsLiveStream()) && mProgressReportOffset > 0)
+		{
+			// Adjust progress positions for VOD, Linear without absolute timeline
+			start -= (mProgressReportOffset * 1000);
+			reportFormatPosition -= (mProgressReportOffset * 1000);
+			end -= (mProgressReportOffset * 1000);
+		}
+		else if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) &&
+			mProgressReportOffset > 0 && IsLiveStream() &&
+			eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START == GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAbsoluteProgressReporting))
+		{
+			// Adjust progress positions for linear stream with absolute timeline config from AST
+			start -= (mProgressReportAvailabilityOffset * 1000);
+			reportFormatPosition -= (mProgressReportAvailabilityOffset * 1000);
+			end -= (mProgressReportAvailabilityOffset * 1000);
+		}
 
 		// If tsb is not available for linear send -1  for start and end
                 // so that xre detect this as tsbless playabck
@@ -2111,7 +2128,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			if(mFirstFragmentTimeOffset > 0)
 			{
 				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - ((mFirstFragmentTimeOffset*1000) + mNewSeekInfo.GetInfo().getPosition()));
-				if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && (mProgressReportOffset >= 0))
+				if(mProgressReportOffset >= 0)
 				{
 					// Correction with progress offset
 					latency += (mProgressReportOffset * 1000);
@@ -2130,14 +2147,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 
 			}
 		}
-		double reportFormatPosition = position;
-		if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling) && mTSBEnabled)
-		{
-			start -= (mProgressReportOffset * 1000);
-			reportFormatPosition -= (mProgressReportOffset * 1000);
-			end -= (mProgressReportOffset * 1000);
 
-		}
 		if(GetCurrentlyAvailableBandwidth() != -1)
 		{
 			mNetworkBandwidth = GetCurrentlyAvailableBandwidth();
@@ -4256,7 +4266,11 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 				}
 				// Store the CMCD data irrespetive of logging level
 				mCMCDCollector->CMCDSetNetworkMetrics(fileType , (int)(startTransfer*1000),(int)(total*1000),(int)(resolve*1000));
-
+				// IsTuneTypeNew set to false in streamabstraction.cpp once top profile has been reached
+				if(IsTuneTypeNew)
+				{
+					reqEndLogLevel = eLOGLEVEL_MIL;
+				}
 				if (gpGlobalConfig->logging.isLogLevelAllowed(reqEndLogLevel))
 				{
 					double totalPerformRequest = (double)(downloadTimeMS)/1000;
@@ -4278,18 +4292,18 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 						// example 18(0) if connection failure with PARTIAL_FILE code
 						timeoutClass = "(" + to_string(reqSize > 0) + ")";
 					}
+					
 					AAMPLOG(mLogObj, reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s%c%s",
 							appName.c_str(), mediaType, fileType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize,downloadbps,
 							(((fileType == eMEDIATYPE_VIDEO) || (fileType == eMEDIATYPE_INIT_VIDEO) || (fileType == eMEDIATYPE_PLAYLIST_VIDEO)) ? mpStreamAbstractionAAMP->GetVideoBitrate() : 0), // Video fragment current bitrate
 							((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
-							range?';':' ', range?range:"" );
+							range?';':' ', range?range:"");
 					if(ui32CurlTrace < 10 )
 					{
 						AAMPLOG_INFO("%d.CurlTrace:Dns:%2.4f, Conn:%2.4f, Ssl:%2.4f, Redir:%2.4f, Pre:Start[%2.4f:%2.4f], Hdl:%p, Url:%s",
 								ui32CurlTrace, resolve, connect, appConnect, redirect, preTransfer, startTransfer, curl,((res==CURLE_OK)?effectiveUrl.c_str():remoteUrl.c_str()));
 						++ui32CurlTrace;
 					}
-
 				}
 			 	//To handle initial fragment download delays before ABR starts
 				if(GetLLDashServiceData()->lowLatencyMode && fileType == eMEDIATYPE_VIDEO)
@@ -4650,7 +4664,21 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 	if (mpStreamAbstractionAAMP)
 	{
 		mpStreamAbstractionAAMP->Stop(false);
-		SAFE_DELETE(mpStreamAbstractionAAMP);
+
+		if(mContentType == ContentType_HDMIIN)
+		{
+			StreamAbstractionAAMP_HDMIIN::ResetInstance();
+			mpStreamAbstractionAAMP = NULL;
+		}
+		else if(mContentType == ContentType_COMPOSITEIN)
+		{
+			StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
+			mpStreamAbstractionAAMP = NULL;
+		}
+		else
+		{
+			SAFE_DELETE(mpStreamAbstractionAAMP);
+		}
 	}
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
@@ -5124,7 +5152,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HDMI)
 	{
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_HDMIIN(mLogObj,this, playlistSeekPos, rate);
+		mpStreamAbstractionAAMP = StreamAbstractionAAMP_HDMIIN::GetInstance(mLogObj,this, playlistSeekPos, rate);
 		if (NULL == mCdaiObject)
 		{
 			mCdaiObject = new CDAIObject(mLogObj, this);    //Placeholder to reject the SetAlternateContents()
@@ -5150,7 +5178,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 #endif //USE_CPP_THUNDER_PLUGIN_ACCESS
 	else if (mMediaFormat == eMEDIAFORMAT_COMPOSITE)
 	{
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_COMPOSITEIN(mLogObj,this, playlistSeekPos, rate);
+		mpStreamAbstractionAAMP = StreamAbstractionAAMP_COMPOSITEIN::GetInstance(mLogObj,this, playlistSeekPos, rate);
 		if (NULL == mCdaiObject)
 		{
 			mCdaiObject = new CDAIObject(mLogObj, this);    //Placeholder to reject the SetAlternateContents()
@@ -5266,27 +5294,19 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 		int volume = audio_volume;
 		double updatedSeekPosition = mpStreamAbstractionAAMP->GetStreamPosition();
-		seek_pos_seconds = updatedSeekPosition + culledSeconds;
-		// Adjust seek_pos_second based on adjusted stream position and discontinuity start time for absolute progress reports
-		if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && !ISCONFIGSET_PRIV(eAAMPConfig_MidFragmentSeek) && !IsUninterruptedTSB())
+		if(mMediaFormat != eMEDIAFORMAT_DASH)
 		{
-			double startTimeOfDiscontinuity = mpStreamAbstractionAAMP->GetStartTimeOfFirstPTS() / 1000;
-			if(startTimeOfDiscontinuity > 0)
-			{
-				seek_pos_seconds = startTimeOfDiscontinuity + updatedSeekPosition;
-				if(!IsLive())
-				{
-					// For dynamic => static cases, add culled seconds
-					// For normal VOD, culledSeconds is expected to be 0.
-					seek_pos_seconds += culledSeconds;
-				}
-				AAMPLOG_WARN("Position adjusted discontinuity start: %lf, Abs position: %lf", startTimeOfDiscontinuity, seek_pos_seconds);
-			}
+			seek_pos_seconds = updatedSeekPosition + culledSeconds;
+		}
+		else
+		{
+			// For absolute timeline reporting, culledSecond is considered as manifest start time.
+			seek_pos_seconds = updatedSeekPosition;
 		}
 		culledOffset = culledSeconds;
 		UpdateProfileCappedStatus();
 #ifndef AAMP_STOP_SINK_ON_SEEK
-		AAMPLOG_WARN("Updated seek_pos_seconds %f culledSeconds :%f", seek_pos_seconds,culledSeconds);
+		AAMPLOG_WARN("Updated seek_pos_seconds %f culledSeconds/start :%f", seek_pos_seconds, culledSeconds);
 #endif
 		mpStreamAbstractionAAMP->GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
 		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d", mVideoFormat, mAudioFormat, mAuxFormat);
@@ -5311,7 +5331,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					duartion = GetDurationMs();
 			}
 			mFirstFragmentTimeOffset = (double)(aamp_GetCurrentTimeMS() - duartion)/1000.0;
-			AAMPLOG_INFO("[DEBUG] Updated FirstFragmentTimeOffset:%lf %lld %lld", mFirstFragmentTimeOffset,aamp_GetCurrentTimeMS(),duartion);
+			AAMPLOG_INFO("Updated FirstFragmentTimeOffset:%lf %lld %lld", mFirstFragmentTimeOffset,aamp_GetCurrentTimeMS(),duartion);
 			StartRateCorrectionWokerthread();
 		}
 
@@ -7159,6 +7179,7 @@ bool PrivateInstanceAAMP::LockGetPositionMilliseconds()
 
 void PrivateInstanceAAMP::UnlockGetPositionMilliseconds()
 {
+
 	//Avoid the posibility of unlocking an unlocked mutex (undefined behaviour).
 	if(mGetPositionMillisecondsMutexSoft.try_lock())
 	{
@@ -7271,23 +7292,12 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		}
 		else
 		{
-			if (!mIsLiveStream)
+			// Optimization, culledSeconds will be 0 for VOD
+			long long contentEndMs = GetDurationMs() + (culledSeconds * 1000.0);
+			if(positionMiliseconds > contentEndMs)
 			{
-				long long durationMs  = GetDurationMs();
-				if(positionMiliseconds > durationMs)
-				{
-					AAMPLOG_WARN("Correcting positionMiliseconds %lld to duration %lld", positionMiliseconds, durationMs);
-					positionMiliseconds = durationMs;
-				}
-			}
-			else
-			{
-				long long tsbEndMs = GetDurationMs() + (culledSeconds * 1000.0);
-				if(positionMiliseconds > tsbEndMs)
-				{
-					AAMPLOG_WARN("Correcting positionMiliseconds %lld to tsbEndMs %lld", positionMiliseconds, tsbEndMs);
-					positionMiliseconds = tsbEndMs;
-				}
+				AAMPLOG_WARN("Correcting positionMiliseconds %lld to contentEndMs %lld", positionMiliseconds, contentEndMs);
+				positionMiliseconds = contentEndMs;
 			}
 		}
 	}
@@ -7428,6 +7438,7 @@ void PrivateInstanceAAMP::Stop()
 #if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 		if (mDRMSessionManager)
 		{
+			ReleaseDynamicDRMToUpdateWait();
 			mDRMSessionManager->setLicenseRequestAbort(true);
 		}
 #endif
@@ -7440,7 +7451,20 @@ void PrivateInstanceAAMP::Stop()
 		AcquireStreamLock();
 		//Deleting mpStreamAbstractionAAMP here will prevent the extra stop call in TeardownStream()
 		//and will avoid enableDownlaod() call being made unnecessarily
-		SAFE_DELETE(mpStreamAbstractionAAMP);
+		if(mContentType == ContentType_HDMIIN)
+		{
+			StreamAbstractionAAMP_HDMIIN::ResetInstance();
+			mpStreamAbstractionAAMP = NULL;
+		}
+		else if(mContentType == ContentType_COMPOSITEIN)
+		{
+			StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
+			mpStreamAbstractionAAMP = NULL;
+		}
+		else
+		{
+			SAFE_DELETE(mpStreamAbstractionAAMP);
+		}
 		ReleaseStreamLock();
 	}
 	// stop the mpd update immediately after Stream abstraction delete
@@ -7490,6 +7514,7 @@ void PrivateInstanceAAMP::Stop()
 	durationSeconds = 0;
 	mProgressReportOffset = -1;
 	mFirstFragmentTimeOffset = -1;
+	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
 	// Set the state to eSTATE_IDLE
 	// directly setting state variable . Calling SetState will trigger event :(
@@ -8911,6 +8936,15 @@ double PrivateInstanceAAMP::GetFirstPTS()
 {
 	assert(NULL != mpStreamAbstractionAAMP);
 	return mpStreamAbstractionAAMP->GetFirstPTS();
+}
+
+/**
+ * @brief  Get PTS offset for MidFragment
+ */
+double PrivateInstanceAAMP::GetMidSeekPosOffset()
+{
+	assert(NULL != mpStreamAbstractionAAMP);
+	return mpStreamAbstractionAAMP->GetMidSeekPosOffset();
 }
 
 /**
@@ -12523,6 +12557,7 @@ bool PrivateInstanceAAMP::GetLowLatencyServiceConfigured()
 void PrivateInstanceAAMP::SetLowLatencyServiceConfigured(bool bConfig)
 {
 	bLowLatencyServiceConfigured = bConfig;
+	mhAbrManager.SetLowLatencyServiceConfigured(bConfig);
 }
 /**
  *  @brief Get Current Latency
@@ -13139,4 +13174,17 @@ void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
 	{	// we are unmuting video; also unmute subtitles if appropriate
 		SetCCStatus(!subtitles_are_logically_muted);
 	}
+}
+
+/**
+ *   @brief To release mWaitForDynamicDRMToUpdate condition wait.
+ *
+ *   @param[in] void
+ */
+void PrivateInstanceAAMP::ReleaseDynamicDRMToUpdateWait()
+{
+	pthread_mutex_lock(&mDynamicDrmUpdateLock);
+	pthread_cond_signal(&mWaitForDynamicDRMToUpdate);
+	pthread_mutex_unlock(&mDynamicDrmUpdateLock);
+	AAMPLOG_INFO("Signal sent for mWaitForDynamicDRMToUpdate");
 }

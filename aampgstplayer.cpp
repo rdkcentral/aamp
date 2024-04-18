@@ -2768,7 +2768,6 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
 				g_object_set(stream->sinkbin, "video-sink", vidsink, NULL);
 			}
 #endif // BRCM
-
 #ifdef RENDER_FRAMES_IN_APP_CONTEXT
 			{
 				if (eMEDIATYPE_VIDEO == streamId)
@@ -4427,7 +4426,7 @@ void AAMPGstPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 {
 	if (privateContext->subtitle_sink)
 	{
-		AAMPLOG_INFO("pts_offset %" G_GUINT64_FORMAT ", seek_pos_seconds %2f, subtitle_sink =%p", pts_offset, aamp->seek_pos_seconds, privateContext->subtitle_sink);
+		AAMPLOG_INFO("pts_offset %" PRIu64 ", seek_pos_seconds %2f, subtitle_sink =%p", pts_offset, aamp->seek_pos_seconds, privateContext->subtitle_sink);
 		//We use seek_pos_seconds as an offset durinig seek, so we subtract that here to get an offset from zero position
 		g_object_set(privateContext->subtitle_sink, "pts-offset", static_cast<std::uint64_t>(pts_offset), NULL);
 	}
@@ -4447,6 +4446,15 @@ void AAMPGstPlayer::SetSubtitleMute(bool muted)
 	}
 	else
 		AAMPLOG_INFO("subtitle_sink is NULL");
+}
+
+/**
+ * @brief Reset first frame
+ */
+void AAMPGstPlayer::ResetFirstFrame(void)
+{
+	AAMPLOG_WARN("Reset first frame");
+	privateContext->firstFrameReceived = false;
 }
 
 /**
@@ -5570,6 +5578,16 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, GstClockTi
 			{
 				AAMPLOG_WARN("Set override event's basePTS [ %" G_GUINT64_FORMAT "] -> [ %" G_GUINT64_FORMAT "]", basePTS, pts);
 				basePTS = pts;
+				if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
+				{
+					double midFragSeekVal = aamp->GetMidSeekPosOffset();
+					if(midFragSeekVal > 0)
+					{
+						guint64 midSeekOffset = midFragSeekVal*GST_SECOND;
+						AAMPLOG_WARN("midSeekOffset = [ %" G_GUINT64_FORMAT "]",midSeekOffset);
+						basePTS += midSeekOffset;
+					}
+				}
 			}
 			if(0 == basePTS && ptr && len > 0)
 			{

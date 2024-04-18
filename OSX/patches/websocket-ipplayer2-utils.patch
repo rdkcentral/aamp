@@ -1,8 +1,6 @@
-diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 22f4af2..45e1fb3 100644
---- a/CMakeLists.txt
-+++ b/CMakeLists.txt
-@@ -44,11 +44,12 @@ option(ENABLE_MEMTRACE "Enable memtrace tool" OFF)
+--- a/CMakeLists.txt	2024-03-11 11:08:58.219462578 +0000
++++ b/CMakeLists.txt	2024-03-11 11:12:02.253972378 +0000
+@@ -44,11 +44,13 @@
  #
  set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
  #
@@ -11,9 +9,9 @@ index 22f4af2..45e1fb3 100644
  find_package(LibGioUnix REQUIRED)
  find_package(Boost REQUIRED)
  find_package(Curl REQUIRED)
--find_package(JsonCpp REQUIRED)
-+#find_package(JsonCpp REQUIRED)
-+
++if(CMAKE_SYSTEM_NAME STREQUAL Linux)
+ find_package(JsonCpp REQUIRED)
++endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
  
  if(BUILD_PC)
      add_definitions("-DFEATURE_SET_AS_ADDRESS=1")

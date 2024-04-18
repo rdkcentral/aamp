@@ -46,6 +46,8 @@ double StreamAbstractionAAMP_MPD::GetStreamPosition() { return 0; }
 
 double StreamAbstractionAAMP_MPD::GetFirstPTS() { return 0; }
 
+double StreamAbstractionAAMP_MPD::GetMidSeekPosOffset() { return 0; }
+
 double StreamAbstractionAAMP_MPD::GetStartTimeOfFirstPTS() { return 0; }
 
 MediaTrack* StreamAbstractionAAMP_MPD::GetMediaTrack(TrackType type) { return nullptr; }

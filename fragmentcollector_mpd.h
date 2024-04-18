@@ -223,6 +223,10 @@ public:
 	 */
 	double GetFirstPTS() override;
 	/**
+         * @fn GetMidSeekPosOffset 
+         */
+	double GetMidSeekPosOffset() override;
+	/**
 	 * @fn GetStartTimeOfFirstPTS
 	 */
 	double GetStartTimeOfFirstPTS() override;

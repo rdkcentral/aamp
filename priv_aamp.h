@@ -86,6 +86,7 @@ typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 #define AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD	 4	/**< 4sec buffer before rampup for lld */
 #define TIMEOUT_FOR_LLD	3				/**< 3sec lowbw ,stall and start timeout for lld */
 #define MANIFEST_TIMEOUT_FOR_LLD 3      /**< 3 sec timeout for manifest refresh in case of LLD*/
+#define ABR_BUFFER_COUNTER_FOR_LLD 3		/** Counter for steady state rampup/rampdown for lld */
 
 #define AAMP_USER_AGENT_MAX_CONFIG_LEN  512    /**< Max Chars allowed in aamp.cfg for user-agent */
 #define SERVER_UTCTIME_DIRECT "urn:mpeg:dash:utc:direct:2014"
@@ -1034,6 +1035,7 @@ public:
 	int mDisplayHeight; 					/**< Display resolution height */
 	bool mProfileCappedStatus; 				/**< Profile capped status by resolution or bitrate */
 	double mProgressReportOffset; 				/**< Offset time for progress reporting */
+	double mProgressReportAvailabilityOffset; 	/**< Offset time for progress reporting from availability start */
 	double mAbsoluteEndPosition; 				/**< Live Edge position for absolute reporting */
 	double mFirstFragmentTimeOffset;			/**< Offset time for first fragment injected */
 	AampConfig *mConfig;
@@ -1690,12 +1692,12 @@ public:
          */
 	bool IsAudioPlayContextCreationSkipped(void);
 
-        /**
-         * @fn IsLiveStream
-         *
-         * @return True or False
-         */
-        bool IsLiveStream(void);
+	/**
+	 * @fn IsLiveStream
+	 *
+	 * @return True if first tuned manifest is live, False otherwise
+	 */
+	bool IsLiveStream(void);
 
 	/**
 	 * @fn Stop
@@ -1723,7 +1725,7 @@ public:
 	 *
 	 * @return True or False
 	 */
-	bool IsUninterruptedTSB() {return (IsTSBSupported() && !ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling));}
+	bool IsUninterruptedTSB() {return (IsTSBSupported() && !IsLive());}
 
 	/**
 	 * @brief Checking whether CDVR Stream or not
@@ -2572,6 +2574,13 @@ public:
 	double GetFirstPTS();
 
 	/**
+         *   @fn GetMidSeekPosOffset 
+         *
+         *   @return PTS offset for mid fragment seek
+         */
+	double GetMidSeekPosOffset();
+
+	/**
 	 *   @fn IsLiveAdjustRequired
 	 *
 	 *   @return False if the content is either vod/ivod/cdvr/ip-dvr/eas
@@ -2791,7 +2800,7 @@ public:
 	std::string GetLicenseReqProxy();
 
 	/**
-	 *   @brief Set is Live flag
+	 *   @brief Set is Live flag, Current manifest type
 	 *
 	 *   @param[in] isLive - is Live flag
 	 *   @return void
@@ -2799,18 +2808,18 @@ public:
 	void SetIsLive(bool isLive)  {mIsLive = isLive; }
 
 	/**
-     	 *   @brief Set is Audio play context is skipped, due to Audio HLS file is ES Format type.
-    	 *
-     	 *   @param[in] isAudioContextSkipped - is audio context creation skipped.
-     	 *   @return void
-     	 */
+	 *   @brief Set is Audio play context is skipped, due to Audio HLS file is ES Format type.
+	 *
+	 *   @param[in] isAudioContextSkipped - is audio context creation skipped.
+	 *   @return void
+	 */
 	void SetAudioPlayContextCreationSkipped( bool isAudioContextSkipped ) { mIsAudioContextSkipped = isAudioContextSkipped; }
 
-    	/**
-     	 *   @brief Set isLiveStream flag
-    	 *
-    	 *   @param[in] isLiveStream - is Live stream flag
-    	 *   @return void
+	/**
+	 *   @brief Set isLiveStream flag, This keeps the history of first tuned manifest type
+	 *
+	 *   @param[in] isLiveStream - is Live stream flag
+	 *   @return void
 	 */
 	void SetIsLiveStream(bool isLiveStream)  {mIsLiveStream = isLiveStream; }
 
@@ -4066,6 +4075,13 @@ public:
 	 * @param[in] muted true if CC/Subtitle is to be muted, false otherwise
 	 */
 	void CacheAndApplySubtitleMute(bool muted);
+
+	/**
+	  * @fn ReleaseDynamicDRMToUpdateWait
+	  *
+	  * @param Void
+	  */
+	 void ReleaseDynamicDRMToUpdateWait();
 
 protected:
 

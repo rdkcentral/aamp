@@ -39,7 +39,7 @@ static struct SubtecSimulatorState
 	bool started;
 	pthread_t threadId;
 	int sockfd;
-} mSubtecSimulatorState;
+} mSubtecSimulatorState = {};
 
 static bool read32(const unsigned char *ptr, size_t len, std::uint32_t &ret32)
 {
@@ -269,13 +269,11 @@ bool StartSubtecSimulator( const char *socket_path )
 			socklen_t len = sizeof(serverAddr);
 			if( bind( state->sockfd, (struct sockaddr*)&serverAddr, len ) == 0 )
 			{
+				state->started = true; //assume it is going to start
 				if( pthread_create(&state->threadId, NULL, &SubtecSimulatorThread, (void *)state) )
 				{
 					printf( "SubtecSimulatorThread create() error: %d\n", errno );
-				}
-				else
-				{
-					state->started = true;
+					state->started = false;
 				}
 			}
 			else

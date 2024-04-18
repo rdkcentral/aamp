@@ -104,7 +104,8 @@ protected:
                 {eAAMPConfig_RampDownLimit, -1},
                 {eAAMPConfig_MaxFragmentCached, DEFAULT_CACHED_FRAGMENTS_PER_TRACK},
                 {eAAMPConfig_PrePlayBufferCount, DEFAULT_PREBUFFER_COUNT},
-                {eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS}
+                {eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
+                {eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER}
         };
 
         IntConfigSettings mIntConfigSettings;
@@ -839,7 +840,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
          * time shift buffer.
          */
         seekPosition = ((timeShiftBufferDepth - AAMP_LIVE_OFFSET)/segmentDurationSec)*segmentDurationSec;
-        EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), seekPosition);
+        EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), ((currentTime - timeShiftBufferDepth) + seekPosition));
 
         /* The first segment downloaded will be at the live point. */
         fragmentNumber = ((((long long)deltaTime) - AAMP_LIVE_OFFSET) / segmentDurationSec) + startNumber;
@@ -948,7 +949,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
          * the available content. This may be in the middle of a fragment.
          */
         seekPosition = totalDuration - AAMP_LIVE_OFFSET;
-        EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), seekPosition);
+        EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), ((currentTime - totalDuration) + seekPosition));
         /*
         The Period Start Time
         */
@@ -984,7 +985,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
         * Start time PTS of first sample
         */
         double mStartTimeOfFirstPTS = mStreamAbstractionAAMP_MPD->GetStartTimeOfFirstPTS();
-        EXPECT_EQ(mStartTimeOfFirstPTS,0);
+        EXPECT_EQ(mStartTimeOfFirstPTS, ((availabilityStartTime + periodDuration) * 1000));
         /**
         * Get index of profile corresponds to bandwidth
         * profile index

@@ -1,0 +1,125 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>TST_2006_UVE_AampAudVidPlayback</title>
+    <link rel="stylesheet" href="TST_UVE_style.css">
+    <script type="text/javascript" src="TST_UVE_utils.js" ></script>
+    <script type="text/javascript" src="TST_2006_UVE_AampAudVidPlayback.js" ></script>
+</head>
+<script>
+
+// ------------------------------------------------------------------------------------
+// Plays video stream and verify various Audio and Video related UVE APIs
+// ------------------------------------------------------------------------------------
+// This test calls and verifies the UVE subtitle related APIs
+//    -initConfig
+//    -setVideoMute
+//    -setVolume
+//    -getVolume
+//    -setAudioLanguage
+//    -setPreferredAudioLanguage
+//    -getVideoBitrates
+//    -getDurationSec
+// ------------------------------------------------------------------------------------
+
+async function TST_2006_UVE_AampAudVidPlayback() {
+    TST_START("TST_2006_UVE_AampAudVidPlayback");
+    var aamp_player = new AAMPPlayer2("MAIN-PLAYER");
+
+    // Initialise the config
+    TST_INFO("initConfig");
+    var playerInitConfig = {initialBitrate: 2500000,offset: 0,networkTimeout: 10,preferredAudioLanguage: "spa"};
+    await aamp_player.player.initConfig(playerInitConfig);
+
+    // Load and Play the main content URL, wait 10s and verify position updated
+    TST_INFO("Tune to URL");
+    await aamp_player.Load(TST_2006_url);
+    await aamp_player.VerifyPlayback(10, 1);
+
+    // mute the video
+    TST_INFO("mute video");
+    await aamp_player.player.setVideoMute(true);
+    await aamp_player.VerifyPlayback(10, 1);
+
+    // unmute the video
+    TST_INFO("unmute video");
+    await aamp_player.player.setVideoMute(false);
+    await aamp_player.VerifyPlayback(10, 1);
+
+    // sets the audio language
+    TST_INFO("setAudioLanguage");
+    let TrackList = await aamp_player.TST_GetAudioTrackInfo();
+    TST_ASSERT(TrackList[0].language == "spa", "Language should be 'spa'");
+    await aamp_player.player.setAudioLanguage("eng");
+    TrackList = await aamp_player.TST_GetAudioTrackInfo();
+    TST_ASSERT(TrackList[0].language == "eng", "Language should be 'eng'");
+    await aamp_player.VerifyPlayback(4,1);
+
+    // sets the preferred audio language
+    TST_INFO("setPreferredAudioLanguage");
+    let preferredAudioProperties = await aamp_player.TST_GetPreferredAudioProperties();
+    TST_ASSERT(preferredAudioProperties["preferred-audio-languages"] == "eng","Language should be 'eng'");
+    await aamp_player.player.setPreferredAudioLanguage("ger","alternate");
+    preferredAudioProperties = await aamp_player.TST_GetPreferredAudioProperties();
+    TST_ASSERT(preferredAudioProperties["preferred-audio-languages"] == "ger","Language should be 'ger'");
+    await aamp_player.VerifyPlayback(4,1);
+
+    // Get the available bit rates
+    TST_INFO("getVideoBitrates");
+    let Bitrates = await aamp_player.TST_GetVideoBitrates();
+    TST_ASSERT(Bitrates.includes(800000), "avlBitrates should contain 800000");
+    TST_ASSERT(Bitrates.includes(1400000), "avlBitrates should contain 1400000");
+    TST_ASSERT(Bitrates.includes(2800000), "avlBitrates should contain 2800000");
+
+    // gets the duration of content in seconds
+    TST_INFO("getDurationSec");
+    dur = await aamp_player.TST_GetDurationSec();
+    TST_ASSERT(dur == 900, "Duration should be 900 seconds");
+
+    // To check whether volume set properly or not
+    TST_INFO("check audio volume");
+    await aamp_player.TST_CheckSetAudioVolume();
+    await aamp_player.VerifyPlayback(10, 1);
+
+    // To check available audio tracks are properly retrieved or not
+    TST_INFO("checkAvailableAudioTracks")
+    await aamp_player.TST_CheckAvailableAudioTracks();
+    await aamp_player.VerifyPlayback(10,1);
+
+    // To check audio track set correctly or not
+    TST_INFO("checkSetAudioTrack");
+    await aamp_player.TST_CheckSetAudioTrack("spa","mp4a.40.2","mono","true");
+    await aamp_player.VerifyPlayback(10,1);
+
+    // Stop the playback and destroy the AAMP Player
+    TST_INFO("Stop the playback");
+    await aamp_player.Stop();
+    aamp_player.destroy();
+    TST_END()
+}
+
+
+    // Run the test when the page loads
+    window.onload = function() {
+    TST_2006_UVE_AampAudVidPlayback()
+}
+
+
+</script>
+<body>
+    <div id="videoContainer">
+        <video style="height:100%; width:100%; position:absolute; bottom:0; left:0">
+            <source src="dummy.mp4" type=video/ave> <!-- hole punching -->
+        </video>
+        <video id="dummyVideo" autoplay="autoplay" style="position: absolute; top: 0px; left: 0px; width: 100%; height: 100%;">
+            <source src="rec://srv/cur" type="video/x-dvb"/>
+        </video>
+    </div>
+    <div id="testModal">
+        <p id="testData"></p>
+    </div>
+    <div id="infoModal">
+        <p id="infoData"></p>
+    </div>
+</body>
+</html>
