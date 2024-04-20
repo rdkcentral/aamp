@@ -376,7 +376,16 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 /**
  * @brief AAMPGstPlayer Constructor
  */
-AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames) : mLogObj(aamp->mLogObj), aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL), mBufferingLock(), mProtectionLock(), PipelineSetToReady(false), trickTeardown(false), m_ID3MetadataHandler{id3HandlerCallback}, cbExportYUVFrame(NULL)
+AAMPGstPlayer::AAMPGstPlayer( PrivateInstanceAAMP *aamp
+	, id3_callback_t id3HandlerCallback
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
+        , std::function< void(uint8_t *, int, int, int) > exportFrames
+#endif
+	) : mLogObj(aamp->mLogObj), aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL), mBufferingLock(), mProtectionLock(), PipelineSetToReady(false), trickTeardown(false)
+	, m_ID3MetadataHandler{id3HandlerCallback}
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
+	, cbExportYUVFrame(NULL)
+#endif
 {
 	privateContext = new AAMPGstPlayerPriv();
 	if(privateContext)
@@ -391,7 +400,9 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 			pthread_mutex_init(&privateContext->stream[i].sourceLock, NULL);
 
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
 		this->cbExportYUVFrame = exportFrames;
+#endif
 
 		std::string debugLevel = GETCONFIGVALUE(eAAMPConfig_GstDebugLevel);
 		if (!debugLevel.empty())
@@ -1462,16 +1473,22 @@ static gboolean VideoDecoderPtsCheckerForEOS(gpointer user_data)
 	return G_SOURCE_REMOVE;
 }
 
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
+
 /**
  *  @brief Callback function to get video frames
  */
 GstFlowReturn AAMPGstPlayer::AAMPGstPlayer_OnVideoSample(GstElement* object, AAMPGstPlayer * _this)
 {
 	HANDLER_CONTROL_HELPER(_this->privateContext->callbackControl, GST_FLOW_OK);
+	using ::mLogObj; //To use global log object
+	GstSample *sample;
+	GstBuffer *buffer;
+	GstMapInfo map;
+
 	if(_this && _this->cbExportYUVFrame)
 	{
-		auto mLogObj = _this->mLogObj; // map mLogObj
-		GstSample *sample = gst_app_sink_pull_sample (GST_APP_SINK (object));
+		sample = gst_app_sink_pull_sample (GST_APP_SINK (object));
 		if (sample)
 		{
 			int width, height;
@@ -1479,13 +1496,14 @@ GstFlowReturn AAMPGstPlayer::AAMPGstPlayer_OnVideoSample(GstElement* object, AAM
 			GstStructure *capsStruct = gst_caps_get_structure(caps,0);
 			gst_structure_get_int(capsStruct,"width",&width);
 			gst_structure_get_int(capsStruct,"height",&height);
-			GstBuffer *buffer = gst_sample_get_buffer(sample);
+			//AAMPLOG_MIL("StrCAPS=%s\n", gst_caps_to_string(caps));
+			buffer = gst_sample_get_buffer (sample);
 			if (buffer)
 			{
-				GstMapInfo map;
 				if (gst_buffer_map(buffer, &map, GST_MAP_READ))
 				{
-					_this->cbExportYUVFrame(map.data, (int)map.size, width, height);
+					_this->cbExportYUVFrame(map.data, map.size, width, height);
+
 					gst_buffer_unmap(buffer, &map);
 				}
 				else
@@ -1497,7 +1515,7 @@ GstFlowReturn AAMPGstPlayer::AAMPGstPlayer_OnVideoSample(GstElement* object, AAM
 			{
 				AAMPLOG_ERR("buffer NULL\n");
 			}
-			gst_sample_unref(sample);
+			gst_sample_unref (sample);
 		}
 		else
 		{
@@ -1506,6 +1524,7 @@ GstFlowReturn AAMPGstPlayer::AAMPGstPlayer_OnVideoSample(GstElement* object, AAM
 	}
 	return GST_FLOW_OK;
 }
+#endif
 
 /**
  * @brief Callback invoked when facing an underflow
@@ -2752,7 +2771,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 				g_object_set(stream->sinkbin, "video-sink", vidsink, NULL);
 			}
 #endif // BRCM
-			if( _this->cbExportYUVFrame )
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
 			{
 				if (eMEDIATYPE_VIDEO == streamId)
 				{
@@ -2761,15 +2780,13 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 					assert(appsink);
 					GstCaps *caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "I420", NULL);
 					gst_app_sink_set_caps (GST_APP_SINK(appsink), caps);
-					g_object_set (G_OBJECT(appsink), "emit-signals", TRUE, "sync", TRUE, NULL);
-					_this->SignalConnect(appsink, "new-sample", G_CALLBACK (AAMPGstPlayer::AAMPGstPlayer_OnVideoSample), _this);
+					g_object_set (G_OBJECT (appsink), "emit-signals", TRUE, "sync", TRUE, NULL);
+					SignalConnect(appsink, "new-sample", G_CALLBACK (AAMPGstPlayer::AAMPGstPlayer_OnVideoSample, _this);
 					g_object_set(stream->sinkbin, "video-sink", appsink, NULL);
-					GstObject **oldobj = (GstObject **)&_this->privateContext->video_sink;
-					GstObject *newobj = (GstObject *)appsink;
-					gst_object_replace( oldobj, newobj );
+					gst_object_replace(&_this->privateContext->video_sink, appsink);
 				}
 			}
-
+#endif
 			if (eMEDIATYPE_AUX_AUDIO == streamId)
 			{
 				// We need to route audio through audsrvsink

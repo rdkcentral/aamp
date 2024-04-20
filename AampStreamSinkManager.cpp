@@ -129,7 +129,11 @@ void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 	}
 }
 
-void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames)
+void AampStreamSinkManager::CreateStreamSink( PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
+					, std::function< void(uint8_t *, int, int, int) > exportFrames = nullptr
+#endif
+				)
 {
 	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
@@ -145,7 +149,11 @@ void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_call
 			{
 				//Do not edit or remove this log - it is used in L2 test
 				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, creating GstPlayer for PLAYER[%d]", this, aamp->mPlayerId);
-				mGstPlayer = new AAMPGstPlayer(aamp, id3HandlerCallback, exportFrames);
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
+				mGstPlayer = new AAMPGstPlayer( aamp, id3HandlerCallback, exportFrames);
+#else
+				mGstPlayer = new AAMPGstPlayer( aamp, id3HandlerCallback);
+#endif
 				mActiveGstPlayersMap.insert({aamp, mGstPlayer});
 			}
 			else
@@ -162,7 +170,11 @@ void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_call
 			//Do not edit or remove this log - it is used in L2 test
 			AAMPLOG_WARN("AampStreamSinkManager(%p) %s Pipeline mode, creating GstPlayer for PLAYER[%d]", this,
 						 mPipelineMode == ePIPELINEMODE_UNDEFINED ? "Undefined" : "Multi", aamp->mPlayerId);
-			AAMPGstPlayer *gstPlayer = new AAMPGstPlayer(aamp, id3HandlerCallback, exportFrames);
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
+			AAMPGstPlayer *gstPlayer = new AAMPGstPlayer( aamp, id3HandlerCallback, exportFrames);
+#else
+			AAMPGstPlayer *gstPlayer = new AAMPGstPlayer( aamp, id3HandlerCallback);
+#endif
 			mActiveGstPlayersMap.insert({aamp, gstPlayer});
 		}
 		break;

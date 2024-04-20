@@ -24,7 +24,7 @@
 
 MockAAMPGstPlayer *g_mockAampGstPlayer = nullptr;
 
-AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames )
+AAMPGstPlayer::AAMPGstPlayer( PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback)
 {
 }
 

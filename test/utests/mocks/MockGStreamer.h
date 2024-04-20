@@ -22,7 +22,6 @@
 
 #include <gmock/gmock.h>
 #include <gst/gstcaps.h>
-#include <gst/app/gstappsink.h>
 
 class MockGStreamer
 {
@@ -43,20 +42,6 @@ public:
 	MOCK_METHOD(gboolean, gst_bin_add, (GstBin *bin, GstElement *element));
 	MOCK_METHOD(void, gst_object_unref,(gpointer object));
 	MOCK_METHOD(void, gst_mini_object_unref,(GstMiniObject *mini_object));
-	
-	MOCK_METHOD(GstSample *,gst_app_sink_pull_sample,(GstAppSink *appsink));
-	MOCK_METHOD(GstStructure *,gst_app_sink_set_caps,(GstAppSink *appsink, const GstCaps *caps));
-	MOCK_METHOD(GstStructure *,gst_caps_get_structure,(const GstCaps *caps, guint index));
-	
-	/*
-gst_app_sink_get_type
-gst_app_sink_pull_sample
-gst_app_sink_set_caps
-gst_caps_get_structure
-gst_sample_get_buffer
-gst_sample_get_caps
-gst_structure_get_int
-	 */
 };
 
 extern MockGStreamer *g_mockGStreamer;

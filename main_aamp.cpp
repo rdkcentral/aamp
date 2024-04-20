@@ -102,7 +102,7 @@ std::mutex PlayerInstanceAAMP::mPrvAampMtx;
  *  @brief PlayerInstanceAAMP Constructor.
  */
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
-	, std::function< void(const unsigned char *, int, int, int) > exportFrames
+	, std::function< void(uint8_t *, int, int, int) > exportFrames
 	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler(), mLogObj()
 {
 
@@ -186,7 +186,13 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		auto id3_metadata_handler = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, aamp,
 			std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
 
-		AampStreamSinkManager::GetInstance().CreateStreamSink(aamp, id3_metadata_handler, exportFrames);
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
+		AampStreamSinkManager::GetInstance().CreateStreamSink( aamp, 
+														    id3_metadata_handler, 
+															exportFrames);
+#else
+		AampStreamSinkManager::GetInstance().CreateStreamSink( aamp, id3_metadata_handler);
+#endif
 	}
 	else
 	{

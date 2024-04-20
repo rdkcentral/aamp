@@ -36,7 +36,11 @@ void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 {
 }
 
-void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames )
+void AampStreamSinkManager::CreateStreamSink( PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
+                    , std::function< void(uint8_t *, int, int, int) > exportFrames = nullptr
+#endif
+                )
 {
 }
 

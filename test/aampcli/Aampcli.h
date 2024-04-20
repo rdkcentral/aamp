@@ -48,6 +48,10 @@
 #include "AampcliShader.h"
 #include "AampcliHarvester.h"
 
+#ifdef __APPLE__
+#import <cocoa_window.h>
+#endif
+
 class MyAAMPEventListener : public AAMPEventObjectListener
 {
 	public:

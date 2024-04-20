@@ -26,9 +26,9 @@
 
 @interface VideoWindow: NSWindow <NSApplicationDelegate>
 {
-    bool m_windowActive;
+    gboolean m_windowActive;
 }
-- (bool) isActive;
+- (gboolean) isActive;
 - (id) initializeWindow:(NSRect) cordinates;
 @end
 
@@ -52,7 +52,7 @@ static NSApplication* application;
 
 - (BOOL) windowShouldClose:(id)sender
 {
-    m_windowActive = false;
+    m_windowActive = FALSE;
     return YES;
 }
 
@@ -67,14 +67,19 @@ static NSApplication* application;
     return YES;
 }
 
-- (bool) isActive
+- (gboolean) isActive
 {
     return m_windowActive;
 }
 
 @end
 
-void osx_createAppWindow( int argc, char **argv )
+guintptr getWindowContentView()
+{
+    return (guintptr)[gCocoaWindow contentView];
+}
+
+int createAndRunCocoaWindow()
 {
     NSRect windowCordinates;
     windowCordinates.size.width = 640;
@@ -89,9 +94,21 @@ void osx_createAppWindow( int argc, char **argv )
     [gCocoaWindow orderFront:nil];
     [gCocoaWindow setLevel: NSNormalWindowLevel];
     [application run];
+    return 0;
 }
 
-void osx_destroyAppWindow()
+void setSimulatorWindowTitle( const char *title )
+{
+	if( gCocoaWindow )
+	{
+		NSString *nsTitle = [NSString stringWithUTF8String:title];
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[gCocoaWindow setTitle:nsTitle];
+		});
+	}
+}
+
+void terminateCocoaWindow()
 {
 	if( gCocoaWindow )
 	{

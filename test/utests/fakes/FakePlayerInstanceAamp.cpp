@@ -22,7 +22,7 @@
 
 MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 
-	PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink, std::function< void(const unsigned char *, int, int, int) > exportFrames) {  }
+	PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink, std::function< void(uint8_t *, int, int, int) > exportFrames) {  }
 	PlayerInstanceAAMP::~PlayerInstanceAAMP() {  }
 
 	void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,

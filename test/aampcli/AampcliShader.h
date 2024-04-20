@@ -25,12 +25,57 @@
 #ifndef AAMPCLISHADER_H
 #define AAMPCLISHADER_H
 
-#include <functional>
+#include <mutex>
+#include "AampDefine.h"
 
-extern std::function<void(const unsigned char *, int, int, int)> gpUpdateYUV;
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
+#ifdef __APPLE__
+#define GL_SILENCE_DEPRECATION
+#include <OpenGL/gl3.h>
+#include <GLUT/glut.h>
+#else	//Linux
+#include <GL/glew.h>
+#include <GL/gl.h>
+#include <GL/freeglut.h>
+#endif
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#endif
 
-// abstraction
-extern void createAppWindow( int argc, char **argv );
-extern void destroyAppWindow( void );
+
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
+#define ATTRIB_VERTEX 0
+#define ATTRIB_TEXTURE 1
+#endif
+
+
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
+typedef struct{
+	int width = 0;
+	int height = 0;
+	uint8_t *yuvBuffer = NULL;
+}AppsinkData;
+
+class Shader
+{
+	public:
+		static const int FPS = 60;
+		static AppsinkData appsinkData;
+		static std::mutex appsinkData_mutex;
+		static GLuint mProgramID;
+		static GLuint id_y, id_u, id_v; // texture id
+		static GLuint textureUniformY, textureUniformU,textureUniformV;
+		static GLuint _vertexArray;
+		static GLuint _vertexBuffer[2];
+		static GLfloat currentAngleOfRotation;
+
+		GLuint LoadShader(GLenum type);
+		void InitShaders();
+		static void glRender(void);
+		static void updateYUVFrame(uint8_t *buffer, int size, int width, int height);
+		static void timer(int v);
+};
+#endif
 
 #endif // AAMPCLISHADER_H

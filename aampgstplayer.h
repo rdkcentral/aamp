@@ -369,7 +369,12 @@ public:
 	 * @param[in] aamp Pointer to parent aamp instance
 	 * @param[in] id3HandlerCallback Function to call to generate the JS event for in ID3 packet 
 	 */
-	AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames = nullptr);
+	AAMPGstPlayer( PrivateInstanceAAMP *aamp
+	, id3_callback_t id3HandlerCallback
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
+	, std::function< void(uint8_t *, int, int, int) > exportFrames = nullptr
+#endif
+	);
 	AAMPGstPlayer(const AAMPGstPlayer&) = delete;
 	AAMPGstPlayer& operator=(const AAMPGstPlayer&) = delete;
 	/**
@@ -399,8 +404,8 @@ public:
      	 *   @return void
      	 */
 	void SignalTrickModeDiscontinuity() override;
-	
-	std::function< void(const unsigned char *, int, int, int) > cbExportYUVFrame;
+#ifdef RENDER_FRAMES_IN_APP_CONTEXT
+	std::function< void(uint8_t *, int, int, int) > cbExportYUVFrame;
 	/**
      	 * @fn AAMPGstPlayer_OnVideoSample
      	 * @param[in] object - pointer to appsink instance triggering "new-sample" signal
@@ -408,7 +413,7 @@ public:
      	 * @retval GST_FLOW_OK
      	 */
 	static GstFlowReturn AAMPGstPlayer_OnVideoSample(GstElement* object, AAMPGstPlayer * _this);
-
+#endif
     	/**
      	 * @fn SeekStreamSink
      	 * @param position playback seek position

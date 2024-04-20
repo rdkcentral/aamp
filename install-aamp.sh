@@ -95,7 +95,7 @@ install_system_packages() {
 
     #Check/Install base packages needed by aamp env
     echo "Check/Install aamp development environment base packages"
-    find_or_install_pkgs json-glib cmake $defaultopensslversion libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq glm curl
+    find_or_install_pkgs json-glib cmake $defaultopensslversion libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq curl
 
     # ORC causes compile errors on x86_64 Mac, but not on ARM64
     if [[ $arch == "x86_64" ]]; then
