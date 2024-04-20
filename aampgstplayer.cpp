@@ -1467,7 +1467,6 @@ static gboolean VideoDecoderPtsCheckerForEOS(gpointer user_data)
  */
 GstFlowReturn AAMPGstPlayer::AAMPGstPlayer_OnVideoSample(GstElement* object, AAMPGstPlayer * _this)
 {
-#if defined(__APPLE__)
 	HANDLER_CONTROL_HELPER(_this->privateContext->callbackControl, GST_FLOW_OK);
 	if(_this && _this->cbExportYUVFrame)
 	{
@@ -1505,7 +1504,6 @@ GstFlowReturn AAMPGstPlayer::AAMPGstPlayer_OnVideoSample(GstElement* object, AAM
 			AAMPLOG_WARN("sample NULL\n");
 		}
 	}
-#endif
 	return GST_FLOW_OK;
 }
 
@@ -2754,8 +2752,6 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 				g_object_set(stream->sinkbin, "video-sink", vidsink, NULL);
 			}
 #endif // BRCM
-			
-#if defined(__APPLE__)
 			if( _this->cbExportYUVFrame )
 			{
 				if (eMEDIATYPE_VIDEO == streamId)
@@ -2773,8 +2769,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 					gst_object_replace( oldobj, newobj );
 				}
 			}
-#endif
-			
+
 			if (eMEDIATYPE_AUX_AUDIO == streamId)
 			{
 				// We need to route audio through audsrvsink
