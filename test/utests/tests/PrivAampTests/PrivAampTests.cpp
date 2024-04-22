@@ -43,8 +43,6 @@ using ::testing::Return;
 AampLogManager *mLogObj{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
 
-const std::string session_id {"0259343c-cffc-4659-bcd8-97f9dd36f6b1"};
-
 class PrivAampTests : public ::testing::Test
 {
     public:
@@ -89,13 +87,11 @@ class PrivAampPrivTests : public ::testing::Test
 	protected:
     void SetUp() override
     {
-		config=new AampConfig();
-		aamp = new PrivateInstanceAAMP(config);
-		logmanager = new AampLogManager();
+    config=new AampConfig();
+    aamp = new PrivateInstanceAAMP(config);
+    logmanager = new AampLogManager();
 
-		testp_aamp = new TestablePrivAamp(config);
-
-		aamp->SetSessionId(session_id);
+    testp_aamp = new TestablePrivAamp(config);
     }
 
     void TearDown() override
@@ -386,13 +382,13 @@ TEST_F(PrivAampPrivTests,DeliverAdEventsTest_1)
 
 TEST_F(PrivAampPrivTests,DeliverAdEventsTest_2)
 {
-	AAMPEventObject event(AAMP_EVENT_AD_PLACEMENT_START, session_id);
+	AAMPEventObject event(AAMP_EVENT_AD_PLACEMENT_START);
     testp_aamp->callDeliverAdEvents(true);
 }
 
 TEST_F(PrivAampPrivTests,DeliverAdEventsTest_3)
 {
-	AAMPEventObject event(AAMP_EVENT_AD_PLACEMENT_END, session_id);
+	AAMPEventObject event(AAMP_EVENT_AD_PLACEMENT_END);
 	testp_aamp->callDeliverAdEvents(true);
 }
 
@@ -721,20 +717,20 @@ TEST_F(PrivAampTests,AddEventListenerTest)
 
 TEST_F(PrivAampTests,SendDrmErrorEventTest)
 {
-	DrmMetaDataEventPtr event = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, true, session_id);
+	DrmMetaDataEventPtr event = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, true);
 	p_aamp->SendDrmErrorEvent(event,true);
 	p_aamp->SendDrmErrorEvent(event,false);
 }
 
 TEST_F(PrivAampTests,SendDrmErrorEventTest_1)
 {
-	DrmMetaDataEventPtr event = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, true, session_id);
+	DrmMetaDataEventPtr event = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, true);
 	p_aamp->SendDrmErrorEvent(event,true);
 }
 
 TEST_F(PrivAampTests,SendDrmErrorEventTest_2)
 {
-	DrmMetaDataEventPtr event = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, true, session_id);
+	DrmMetaDataEventPtr event = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, true);
 	p_aamp->SendDrmErrorEvent(event,true);
 }
 
@@ -841,16 +837,16 @@ TEST_F(PrivAampTests,SendEventTest)
 TEST_F(PrivAampTests,SendEventTest_1)
 {
 	AAMPEventPtr eventData;
-	eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED, session_id);
+	eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED);
 	p_aamp->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
 
-	eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED, session_id);
+	eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED);
 	p_aamp->SendEvent(eventData,AAMP_EVENT_ASYNC_MODE);
 
-	eventData = std::make_shared<AAMPEventObject>(AAMP_MAX_NUM_EVENTS, session_id);
+	eventData = std::make_shared<AAMPEventObject>(AAMP_MAX_NUM_EVENTS);
 	p_aamp->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
 
-	eventData = std::make_shared<AAMPEventObject>(AAMP_MAX_NUM_EVENTS, session_id);
+	eventData = std::make_shared<AAMPEventObject>(AAMP_MAX_NUM_EVENTS);
 	p_aamp->SendEvent(eventData,AAMP_EVENT_ASYNC_MODE);
 }
 
@@ -917,31 +913,31 @@ TEST_F(PrivAampTests,NotifySpeedChangedTest_3)
 
 TEST_F(PrivAampTests,SendDRMMetaDataTest)
 {
-	DrmMetaDataEventPtr drm = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, true, session_id);
+	DrmMetaDataEventPtr drm = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, true);
 	p_aamp->SendDRMMetaData(drm);
 }
 
 TEST_F(PrivAampTests,SendDRMMetaDataTest_1)
 {
-	DrmMetaDataEventPtr drm = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_INIT_FAILED, "", 0, 0, true, session_id);
+	DrmMetaDataEventPtr drm = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_INIT_FAILED, "", 0, 0, true);
 	p_aamp->SendDRMMetaData(drm);
 }
 TEST_F(PrivAampTests,SendDRMMetaDataTest_2)
 {
-	DrmMetaDataEventPtr drm = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, session_id);
+	DrmMetaDataEventPtr drm = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false);
 	p_aamp->SendDRMMetaData(drm);
 
-	drm = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_LICENCE_REQUEST_FAILED, "", 0, 0, false, session_id);
+	drm = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_LICENCE_REQUEST_FAILED, "", 0, 0, false);
 	p_aamp->SendDRMMetaData(drm);
 }
 
 TEST_F(PrivAampTests,SendDrmErrorEventTest_3)
 {
-	DrmMetaDataEventPtr event = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, true, session_id);
-	p_aamp->SendDrmErrorEvent(event,true);
+DrmMetaDataEventPtr event = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, true);
+p_aamp->SendDrmErrorEvent(event,true);
 
-	event = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, session_id);
-	p_aamp->SendDrmErrorEvent(event,true);
+event = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false);
+p_aamp->SendDrmErrorEvent(event,true);
 }
 
 TEST_F(PrivAampTests,IsDiscontinuityProcessPendingTest)
@@ -1538,7 +1534,7 @@ TEST_F(PrivAampTests, TuneHelperTest_2)
 	bool flag = p_aamp->IsNewTune();
 	EXPECT_TRUE(flag);
 
-	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id);
+	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0);
 
 	p_aamp->mMediaFormat=eMEDIAFORMAT_HDMI;
 	p_aamp->TuneHelper(tuneType,true);
@@ -1570,13 +1566,13 @@ TEST_F(PrivAampTests, ReloadTSBTest)
 TEST_F(PrivAampTests, TuneTest)
 {
 	EXPECT_CALL(*g_mockAampStreamSinkManager, ActivatePlayer(p_aamp));
-	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id);
+	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0);
 }
 
 TEST_F(PrivAampTests, TuneTest_1)
 {
 	EXPECT_CALL(*g_mockAampStreamSinkManager, UpdateTuningPlayer(p_aamp));
-	p_aamp->Tune("sampleUrl",false,NULL,true,false,NULL,true,NULL,0, session_id);
+	p_aamp->Tune("sampleUrl",false,NULL,true,false,NULL,true,NULL,0);
 }
 
 TEST_F(PrivAampTests, GetLangCodePreferenceTest)
@@ -3568,7 +3564,7 @@ TEST_F(PrivAampTests, TuneHelperTest_11)
 	bool flag = p_aamp->IsNewTune();
 	EXPECT_TRUE(flag);
 
-	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id);
+	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0);
 
 	//covering if condition for mMediaFormat=eMEDIAFORMAT_PROGRESSIVE
 	p_aamp->mMediaFormat=eMEDIAFORMAT_PROGRESSIVE;

@@ -2179,7 +2179,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 	   		currentRate  = rate;
 		}
 
-		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormatPosition, start, end, speed, videoPTS, bufferedDuration, seiTimecode.c_str(), latency, mpStreamAbstractionAAMP->GetVideoBitrate(), mNetworkBandwidth, currentRate, GetSessionId());
+		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormatPosition, start, end, speed, videoPTS, bufferedDuration, seiTimecode.c_str(), latency, mpStreamAbstractionAAMP->GetVideoBitrate(), mNetworkBandwidth ,currentRate);
 
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
@@ -2270,7 +2270,7 @@ void PrivateInstanceAAMP::ReportAdProgress(bool sync)
 		}
 		mAdPrevProgressTime = curTime;
 
-		AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, (uint32_t)(mAdCurOffset * 100) / mAdDuration, GetSessionId());
+		AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, (uint32_t)(mAdCurOffset * 100) / mAdDuration);
 		if(sync)
 		{
 			mEventManager->SendEvent(evt,AAMP_EVENT_SYNC_MODE);
@@ -2595,7 +2595,7 @@ void PrivateInstanceAAMP::SendAnomalyEvent(AAMPAnomalyMessageType type, const ch
 		msgData[(MAX_ANOMALY_BUFF_SIZE-1)] = 0;
 		vsnprintf(msgData, (MAX_ANOMALY_BUFF_SIZE-1), format, args);
 
-		AnomalyReportEventPtr e = std::make_shared<AnomalyReportEvent>(type, msgData, GetSessionId());
+		AnomalyReportEventPtr e = std::make_shared<AnomalyReportEvent>(type, msgData);
 
 		AAMPLOG_INFO("Anomaly evt:%d msg:%s", e->getSeverity(), msgData);
 		SendEvent(e,AAMP_EVENT_ASYNC_MODE);
@@ -2622,7 +2622,7 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
 	// Buffering stop notification need to be inverted to indicate if buffer available or not
 	// BufferChangeEvent with False = Underflow / non-availability of buffer to play
 	// BufferChangeEvent with True  = Availability of buffer to play
-	BufferingChangedEventPtr e = std::make_shared<BufferingChangedEvent>(!bufferingStopped, GetSessionId());
+	BufferingChangedEventPtr e = std::make_shared<BufferingChangedEvent>(!bufferingStopped);
 
 	SetBufUnderFlowStatus(bufferingStopped);
 	AAMPLOG_INFO("PrivateInstanceAAMP: Sending Buffer Change event status (Buffering): %s", (e->buffering() ? "End": "Start"));
@@ -2657,7 +2657,7 @@ bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBu
 void PrivateInstanceAAMP::SendTuneMetricsEvent(std::string &timeMetricData)
 {
 	// Providing the Tune Timemetric info as an event
-	TuneTimeMetricsEventPtr e = std::make_shared<TuneTimeMetricsEvent>(timeMetricData, GetSessionId());
+	TuneTimeMetricsEventPtr e = std::make_shared<TuneTimeMetricsEvent>(timeMetricData);
 
 	AAMPLOG_INFO("PrivateInstanceAAMP: Sending Tune Timemetric info event: %s", e->getTuneMetricsData().c_str());
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
@@ -2719,7 +2719,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 			code = tuneFailureMap[AAMP_TUNE_FAILURE_UNKNOWN].code;
 			errorDescription = tuneFailureMap[AAMP_TUNE_FAILURE_UNKNOWN].description;
 		}
-		MediaErrorEventPtr e = std::make_shared<MediaErrorEvent>(tuneFailure, code, errorDescription, isRetryEnabled, secManagerClassCode, secManagerReasonCode, secClientBusinessStatus, responseData, GetSessionId());
+		MediaErrorEventPtr e = std::make_shared<MediaErrorEvent>(tuneFailure, code, errorDescription, isRetryEnabled, secManagerClassCode, secManagerReasonCode, secClientBusinessStatus, responseData );
 		SendAnomalyEvent(ANOMALY_ERROR, "Error[%d]:%s", tuneFailure, e->getDescription().c_str());
 		if (!mAppName.empty())
 		{
@@ -2809,8 +2809,7 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
 {
 	if(mEventManager->IsEventListenerAvailable(AAMP_EVENT_BITRATE_CHANGED))
 	{
-		AAMPEventPtr event = std::make_shared<BitrateChangeEvent>((int)aamp_GetCurrentTimeMS(), bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight,
-			GetSessionId());
+		AAMPEventPtr event = std::make_shared<BitrateChangeEvent>((int)aamp_GetCurrentTimeMS(), bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 
 		/* START: Added As Part of DELIA-28363 and DELIA-28247 */
 		if(GetBWIndex)
@@ -2907,11 +2906,11 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	if(ISCONFIGSET_PRIV(eAAMPConfig_RepairIframes))
 	{
 		AAMPLOG_WARN("mRepairIframes is set, sending pseudo rate %f for the actual rate %f", getPseudoTrickplayRate(rate), rate);
-		SendEvent(std::make_shared<SpeedChangedEvent>(getPseudoTrickplayRate(rate), GetSessionId()),AAMP_EVENT_ASYNC_MODE);
+		SendEvent(std::make_shared<SpeedChangedEvent>(getPseudoTrickplayRate(rate)),AAMP_EVENT_ASYNC_MODE);
 	}
 	else
 	{
-		SendEvent(std::make_shared<SpeedChangedEvent>(rate, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
+		SendEvent(std::make_shared<SpeedChangedEvent>(rate),AAMP_EVENT_ASYNC_MODE);
 	}
 #ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
@@ -3187,7 +3186,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		if (!isLive && rate > 0)
 		{
 			SetState(eSTATE_COMPLETE);
-			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
+			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS),AAMP_EVENT_ASYNC_MODE);
 			if (ContentType_EAS == mContentType) //Fix for DELIA-25590
 			{
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -3247,7 +3246,7 @@ void PrivateInstanceAAMP::NotifyOnEnteringLive()
 	{
 		return;
 	}
-	SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_ENTERING_LIVE, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
+	SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_ENTERING_LIVE),AAMP_EVENT_ASYNC_MODE);
 }
 
 /**
@@ -4734,7 +4733,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 		// Don't send event if nativeCCRendering is ON
 		if (!ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
 		{
-			CCHandleEventPtr event = std::make_shared<CCHandleEvent>(0, GetSessionId());
+			CCHandleEventPtr event = std::make_shared<CCHandleEvent>(0);
 			mEventManager->SendEvent(event);
 			AAMPLOG_WARN("Sent AAMP_EVENT_CC_HANDLE_RECEIVED with NULL handle");
 		}
@@ -5287,7 +5286,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			else
 			{
 				SetState(eSTATE_COMPLETE);
-				mEventManager->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()));
+				mEventManager->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS));
 				AAMPLOG_MIL( "Stopping fake tune playback");
 			}
 		}
@@ -5598,8 +5597,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *pTraceID,
 								bool audioDecoderStreamSync,
 								const char *refreshManifestUrl,
-								int mpdStichingMode,
-								std::string sid)							
+								int mpdStichingMode)
 {
 	int iCacheMaxSize = 0;
 	double tmpVar=0;
@@ -5623,8 +5621,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	mConfig->logging.setLogLevel(eLOGLEVEL_INFO);
 	gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_INFO);
-
-	SetSessionId(std::move(sid));
 
 	seek_pos_seconds = GETCONFIGVALUE_PRIV(eAAMPConfig_PlaybackOffset);
 	preferredRenditionString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioRendition);
@@ -6087,15 +6083,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	// is done in TuneHelper->SendVideoEndEvent function.
 	this->mTraceUUID = sTraceId;
 
-}
-
-/**
- *  @brief Sets the session ID
- */
-void PrivateInstanceAAMP::SetSessionId(std::string sid)
-{
-	// AAMPLOG_INFO(" DBG :: Session ID set to `%s`", sid.c_str());
-	mSessionId = std::move(sid);
 }
 
 /**
@@ -7715,7 +7702,7 @@ void PrivateInstanceAAMP::ReportBulkTimedMetadata()
 			char* bulkData = cJSON_PrintUnformatted(root);
 			if(bulkData)
 			{
-				BulkTimedMetadataEventPtr eventData = std::make_shared<BulkTimedMetadataEvent>(std::string(bulkData), GetSessionId());
+				BulkTimedMetadataEventPtr eventData = std::make_shared<BulkTimedMetadataEvent>(std::string(bulkData));
 				AAMPLOG_INFO("Sending bulkTimedData");
 				if (ISCONFIGSET_PRIV(eAAMPConfig_MetadataLogging))
 				{
@@ -7792,7 +7779,7 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 	if (bFireEvent)
 	{
 		//DELIA-40019: szContent should not contain any tag name and ":" delimiter. This is not checked in JS event listeners
-		TimedMetadataEventPtr eventData = std::make_shared<TimedMetadataEvent>(((szName == NULL) ? "" : szName), ((id == NULL) ? "" : id), 	timeMilliseconds, durationMS, content, GetSessionId());
+		TimedMetadataEventPtr eventData = std::make_shared<TimedMetadataEvent>(((szName == NULL) ? "" : szName), ((id == NULL) ? "" : id), timeMilliseconds, durationMS, content);
 
 		if (ISCONFIGSET_PRIV(eAAMPConfig_MetadataLogging))
 		{
@@ -7881,7 +7868,7 @@ void PrivateInstanceAAMP::ReportContentGap(long long timeMilliseconds, std::stri
 
 	if (bFireEvent)
 	{
-		ContentGapEventPtr eventData = std::make_shared<ContentGapEvent>(timeMilliseconds, durationMS, GetSessionId());
+		ContentGapEventPtr eventData = std::make_shared<ContentGapEvent>(timeMilliseconds, durationMS);
 		AAMPLOG_INFO("aamp contentGap: start: %lld duration: %ld", timeMilliseconds, (long) durationMS);
 		mEventManager->SendEvent(eventData);
 	}
@@ -7924,7 +7911,7 @@ void PrivateInstanceAAMP::InitializeCC()
 #if defined FLEX2_RDK && defined AAMP_CC_ENABLED
 				AampCCManager::GetInstance()->Init((void *)sink->getCCDecoderHandle());
 #else
-				CCHandleEventPtr event = std::make_shared<CCHandleEvent>(sink->getCCDecoderHandle(), GetSessionId());
+				CCHandleEventPtr event = std::make_shared<CCHandleEvent>(sink->getCCDecoderHandle());
 				mEventManager->SendEvent(event);
 #endif
 			}
@@ -8185,7 +8172,7 @@ void PrivateInstanceAAMP::SetState(PrivAAMPState state)
 	if ( (state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
 		&& mState == eSTATE_SEEKING && (mEventManager->IsEventListenerAvailable(AAMP_EVENT_SEEKED)))
 	{
-		SeekedEventPtr event = std::make_shared<SeekedEvent>(GetPositionMilliseconds(), GetSessionId());
+		SeekedEventPtr event = std::make_shared<SeekedEvent>(GetPositionMilliseconds());
 		mEventManager->SendEvent(event,AAMP_EVENT_SYNC_MODE);
 
 	}
@@ -8199,11 +8186,11 @@ void PrivateInstanceAAMP::SetState(PrivAAMPState state)
 	{
 		if (mState == eSTATE_PREPARING)
 		{
-			StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(eSTATE_INITIALIZED, GetSessionId());
+			StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(eSTATE_INITIALIZED);
 			mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
 		}
 
-		StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(mState, GetSessionId());
+		StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(mState);
 		mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
 	}
 }
@@ -8296,7 +8283,7 @@ bool PrivateInstanceAAMP::SendTunedEvent(bool isSynchronous)
 
 	if(ret)
 	{
-		AAMPEventPtr ev = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED, GetSessionId());
+		AAMPEventPtr ev = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED);
 		mEventManager->SendEvent(ev , AAMP_EVENT_SYNC_MODE);
 	}
 	return ret;
@@ -8357,7 +8344,7 @@ bool PrivateInstanceAAMP::SendVideoEndEvent()
 	if(strVideoEndJson)
 	{
 		AAMPLOG_INFO("VideoEnd:%s", strVideoEndJson);
-		MetricsDataEventPtr e = std::make_shared<MetricsDataEvent>(MetricsDataType::AAMP_DATA_VIDEO_END, this->mTraceUUID, strVideoEndJson, GetSessionId());
+		MetricsDataEventPtr e = std::make_shared<MetricsDataEvent>(MetricsDataType::AAMP_DATA_VIDEO_END, this->mTraceUUID, strVideoEndJson);
 		SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 		free(strVideoEndJson);
 		ret = true;
@@ -9050,7 +9037,7 @@ bool PrivateInstanceAAMP::IsLiveAdjustRequired()
 void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 {
 	for (auto const& pair: httpHeaderResponses) {
-		HTTPResponseHeaderEventPtr event = std::make_shared<HTTPResponseHeaderEvent>(pair.first.c_str(), pair.second, GetSessionId());
+		HTTPResponseHeaderEventPtr event = std::make_shared<HTTPResponseHeaderEvent>(pair.first.c_str(), pair.second);
 		AAMPLOG_INFO("HTTPResponseHeader evt Header:%s Response:%s", event->getHeader().c_str(), event->getResponse().c_str());
 		SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 	}
@@ -9083,7 +9070,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 		drmType = helper->friendlyName();
 	}
 
- 	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime, mTsbDepthMs, GetSessionId());
+ 	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime, mTsbDepthMs);
 
 	for (auto iter = langList.begin(); iter != langList.end(); iter++)
 	{
@@ -9138,7 +9125,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
  */
 void PrivateInstanceAAMP::SendSupportedSpeedsChangedEvent(bool isIframeTrackPresent)
 {
-	SupportedSpeedsChangedEventPtr event = std::make_shared<SupportedSpeedsChangedEvent>(GetSessionId());
+	SupportedSpeedsChangedEventPtr event = std::make_shared<SupportedSpeedsChangedEvent>();
 	std::vector<float> supportedPlaybackSpeeds { -64, -32, -16, -4, -1, 0, 0.5, 1, 4, 16, 32, 64 };
 
 	//Iframe track present and hence playbackRate change is supported
@@ -9178,7 +9165,7 @@ void PrivateInstanceAAMP::SendSupportedSpeedsChangedEvent(bool isIframeTrackPres
  */
 void PrivateInstanceAAMP::SendBlockedEvent(const std::string & reason, const std::string currentLocator)
 {
-	BlockedEventPtr event = std::make_shared<BlockedEvent>(reason, currentLocator, GetSessionId());
+	BlockedEventPtr event = std::make_shared<BlockedEvent>(reason, currentLocator);
 	SendEvent(event,AAMP_EVENT_SYNC_MODE);
 #ifdef AAMP_CC_ENABLED
 	if (0 == reason.compare("SERVICE_PIN_LOCKED"))
@@ -9196,7 +9183,7 @@ void PrivateInstanceAAMP::SendBlockedEvent(const std::string & reason, const std
  */
 void PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system)
 {
-	WatermarkSessionUpdateEventPtr event = std::make_shared<WatermarkSessionUpdateEvent>(sessionHandle, status, system, GetSessionId());
+	WatermarkSessionUpdateEventPtr event = std::make_shared<WatermarkSessionUpdateEvent>(sessionHandle, status, system);
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }
 
@@ -9265,7 +9252,7 @@ void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool stat
 {
 	if (mDownloadsEnabled)	//Send it, only if Stop not called
 	{
-		AdResolvedEventPtr e = std::make_shared<AdResolvedEvent>(status, adId, startMS, durationMs, GetSessionId());
+		AdResolvedEventPtr e = std::make_shared<AdResolvedEvent>(status, adId, startMS, durationMs);
 		AAMPLOG_WARN("PrivateInstanceAAMP: [CDAI] Sent resolved status=%d for adId[%s]", status, adId.c_str());
 		SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 	}
@@ -9315,7 +9302,7 @@ void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::
 	{
 		AAMPLOG_INFO("PrivateInstanceAAMP: [CDAI] Pushed [%s] of adBreakId[%s] to Queue.", ADEVENT2STRING(type), adBreakId.c_str());
 
-		AdReservationEventPtr e = std::make_shared<AdReservationEvent>(type, adBreakId, position, GetSessionId());
+		AdReservationEventPtr e = std::make_shared<AdReservationEvent>(type, adBreakId, position);
 
 		{
 			{
@@ -9340,7 +9327,7 @@ void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::st
 	{
 		AAMPLOG_INFO("PrivateInstanceAAMP: [CDAI] Pushed [%s] of adId[%s] to Queue.", ADEVENT2STRING(type), adId.c_str());
 
-		AdPlacementEventPtr e = std::make_shared<AdPlacementEvent>(type, adId, position, GetSessionId(), adOffset * 1000 /*MS*/, adDuration, error_code);
+		AdPlacementEventPtr e = std::make_shared<AdPlacementEvent>(type, adId, position, adOffset * 1000 /*MS*/, adDuration, error_code);
 
 		{
 			{
@@ -9576,7 +9563,7 @@ void PrivateInstanceAAMP::SendVTTCueDataAsEvent(VTTCue* cue)
 	//This function is called from an idle handler and hence we call SendEventSync
 	if (mEventManager->IsEventListenerAvailable(AAMP_EVENT_WEBVTT_CUE_DATA))
 	{
-		WebVttCueEventPtr ev = std::make_shared<WebVttCueEvent>(cue, GetSessionId());
+		WebVttCueEventPtr ev = std::make_shared<WebVttCueEvent>(cue);
 		mEventManager->SendEvent(ev,AAMP_EVENT_SYNC_MODE);
 	}
 }
@@ -9637,8 +9624,7 @@ void PrivateInstanceAAMP::SendId3MetadataEvent(aamp::id3_metadata::CallbackData 
 			id3Metadata->presentationTime,
 			id3Metadata->eventDuration,
 			id3Metadata->id,
-			id3Metadata->timestampOffset,
-			GetSessionId());
+			id3Metadata->timestampOffset);
 		if (ISCONFIGSET_PRIV(eAAMPConfig_ID3Logging))
 		{
 			std::vector<uint8_t> metadata = e->getMetadata();
@@ -10244,7 +10230,7 @@ std::string PrivateInstanceAAMP::GetAppName()
  */
 void PrivateInstanceAAMP::individualization(const std::string& payload)
 {
-	DrmMessageEventPtr event = std::make_shared<DrmMessageEvent>(payload, GetSessionId());
+	DrmMessageEventPtr event = std::make_shared<DrmMessageEvent>(payload);
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }
 
@@ -10878,7 +10864,7 @@ bool PrivateInstanceAAMP::GetCCStatus(void)
  */
 void PrivateInstanceAAMP::NotifyAudioTracksChanged()
 {
-	SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_AUDIO_TRACKS_CHANGED, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
+	SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_AUDIO_TRACKS_CHANGED),AAMP_EVENT_ASYNC_MODE);
 }
 
 /**
@@ -10886,7 +10872,7 @@ void PrivateInstanceAAMP::NotifyAudioTracksChanged()
  */
 void PrivateInstanceAAMP::NotifyTextTracksChanged()
 {
-	SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_TEXT_TRACKS_CHANGED, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
+	SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_TEXT_TRACKS_CHANGED),AAMP_EVENT_ASYNC_MODE);
 }
 
 /**

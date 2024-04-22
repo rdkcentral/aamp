@@ -101,7 +101,7 @@ std::map<const int32_t, std::pair<const int32_t, const int32_t>> secClientSeMana
 /**
  * @brief AAMPEventObject Constructor
  */
-AAMPEventObject::AAMPEventObject(AAMPEventType type, std::string sid): mType(type), mSessionID{std::move(sid)}
+AAMPEventObject::AAMPEventObject(AAMPEventType type): mType(type)
 {
 
 }
@@ -119,8 +119,8 @@ AAMPEventType AAMPEventObject::getType() const
 /**
  * @brief MediaErrorEvent Constructor
  */
-MediaErrorEvent::MediaErrorEvent(AAMPTuneFailure failure, int code, const std::string &desc, bool shouldRetry, int classCode, int reason, int businessStatus, const std::string &responseData, std::string sid):
-		AAMPEventObject(AAMP_EVENT_TUNE_FAILED, std::move(sid)), mFailure(failure), mCode(code),
+MediaErrorEvent::MediaErrorEvent(AAMPTuneFailure failure, int code, const std::string &desc, bool shouldRetry, int classCode, int reason, int businessStatus, const std::string &responseData):
+		AAMPEventObject(AAMP_EVENT_TUNE_FAILED), mFailure(failure), mCode(code),
 		mDescription(desc), mShouldRetry(shouldRetry), mSecManagerClass(classCode), mSecManagerReasonCode(reason), mBusinessStatus(businessStatus), mResponseData(responseData)
 {
 
@@ -202,8 +202,8 @@ int32_t MediaErrorEvent::getBusinessStatus() const
 /**
  * @brief SpeedChangedEvent Constructor
  */
-SpeedChangedEvent::SpeedChangedEvent(float rate, std::string sid):
-		AAMPEventObject(AAMP_EVENT_SPEED_CHANGED, std::move(sid)), mRate(rate)
+SpeedChangedEvent::SpeedChangedEvent(float rate):
+		AAMPEventObject(AAMP_EVENT_SPEED_CHANGED), mRate(rate)
 {
 
 }
@@ -222,9 +222,8 @@ float SpeedChangedEvent::getRate() const
  * @brief ProgressEvent Constructor
  *
  */
-ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, 
-	std::string sid):
-		AAMPEventObject(AAMP_EVENT_PROGRESS, std::move(sid)), mDuration(duration),
+ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate):
+		AAMPEventObject(AAMP_EVENT_PROGRESS), mDuration(duration),
 		mPosition(position), mStart(start),
 		mEnd(end), mSpeed(speed), mPTS(pts),
 		mBufferedDuration(bufferedDuration),
@@ -350,7 +349,7 @@ long ProgressEvent::getNetworkBandwidth() const
 /**
  * @brief Get CurrentPlayRate  
  *
- * @return CurrentPlayRate
+ * @return CurrentPlayRate  
  */
 double ProgressEvent::getCurrentPlayRate() const
 {
@@ -363,8 +362,8 @@ double ProgressEvent::getCurrentPlayRate() const
  *
  * @param[in] handle - Handle to close caption
  */
-CCHandleEvent::CCHandleEvent(unsigned long handle, std::string sid):
-		AAMPEventObject(AAMP_EVENT_CC_HANDLE_RECEIVED, std::move(sid)), mHandle(handle)
+CCHandleEvent::CCHandleEvent(unsigned long handle):
+		AAMPEventObject(AAMP_EVENT_CC_HANDLE_RECEIVED), mHandle(handle)
 {
 
 }
@@ -382,8 +381,8 @@ unsigned long CCHandleEvent::getCCHandle() const
 /**
  * @brief MediaMetadataEvent Constructor
  */
-MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid):
-		AAMPEventObject(AAMP_EVENT_MEDIA_METADATA, std::move(sid)), mDuration(duration),
+MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs):
+		AAMPEventObject(AAMP_EVENT_MEDIA_METADATA), mDuration(duration),
 		mLanguages(), mBitrates(), mWidth(width), mHeight(height),
 		mHasDrm(hasDrm), mSupportedSpeeds(), mIsLive(isLive), mDrmType(DrmType), mProgramStartTime(programStartTime),
 		mPCRating(),mSsi(-1),mFrameRate(0),mVideoScanType(eVIDEOSCAN_UNKNOWN),mAspectRatioWidth(0),mAspectRatioHeight(0),
@@ -589,8 +588,8 @@ void MediaMetadataEvent::SetAudioMetaData(const std::string &audioCodec,const st
 /**
  * @brief BitrateChangeEvent Constructor
  */
-BitrateChangeEvent::BitrateChangeEvent(int time, BitsPerSecond bitrate, const std::string &desc, int width, int height, double frameRate, double position, bool cappedProfile, int displayWidth, int displayHeight, VideoScanType videoScanType, int aspectRatioWidth, int aspectRatioHeight, std::string sid):
-		AAMPEventObject(AAMP_EVENT_BITRATE_CHANGED, std::move(sid)), mTime(time),
+BitrateChangeEvent::BitrateChangeEvent(int time, BitsPerSecond bitrate, const std::string &desc, int width, int height, double frameRate, double position, bool cappedProfile, int displayWidth, int displayHeight, VideoScanType videoScanType, int aspectRatioWidth, int aspectRatioHeight):
+		AAMPEventObject(AAMP_EVENT_BITRATE_CHANGED), mTime(time),
 		mBitrate(bitrate), mDescription(desc), mWidth(width),
 		mHeight(height), mFrameRate(frameRate), mPosition(position), mCappedProfile(cappedProfile), mDisplayWidth(displayWidth), mDisplayHeight(displayHeight), mVideoScanType(videoScanType), mAspectRatioWidth(aspectRatioWidth), mAspectRatioHeight(aspectRatioHeight)
 {
@@ -730,8 +729,8 @@ int BitrateChangeEvent::getAspectRatioHeight() const
 /**
  * @brief TimedMetadataEvent Constructor
  */
-TimedMetadataEvent::TimedMetadataEvent(const std::string &name, const std::string &id, double time, double duration, const std::string &content, std::string sid):
-		AAMPEventObject(AAMP_EVENT_TIMED_METADATA, std::move(sid)), mName(name), mId(id),
+TimedMetadataEvent::TimedMetadataEvent(const std::string &name, const std::string &id, double time, double duration, const std::string &content):
+		AAMPEventObject(AAMP_EVENT_TIMED_METADATA), mName(name), mId(id),
 		mTime(time), mDuration(duration), mContent(content)
 {
 
@@ -790,8 +789,8 @@ const std::string &TimedMetadataEvent::getContent() const
 /**
  * @brief BulkTimedMetadataEvent Constructor
  */
-BulkTimedMetadataEvent::BulkTimedMetadataEvent(const std::string &content, std::string sid):
-		AAMPEventObject(AAMP_EVENT_BULK_TIMED_METADATA, std::move(sid)), mContent(content)
+BulkTimedMetadataEvent::BulkTimedMetadataEvent(const std::string &content):
+		AAMPEventObject(AAMP_EVENT_BULK_TIMED_METADATA), mContent(content)
 {
 
 }
@@ -809,8 +808,8 @@ const std::string &BulkTimedMetadataEvent::getContent() const
 /**
  * @brief StateChangedEvent Constructor
  */
-StateChangedEvent::StateChangedEvent(PrivAAMPState state, std::string sid):
-		AAMPEventObject(AAMP_EVENT_STATE_CHANGED, std::move(sid)), mState(state)
+StateChangedEvent::StateChangedEvent(PrivAAMPState state):
+		AAMPEventObject(AAMP_EVENT_STATE_CHANGED), mState(state)
 {
 
 }
@@ -828,8 +827,8 @@ PrivAAMPState StateChangedEvent::getState() const
 /**
  * @brief SupportedSpeedsChangedEvent Constructor
  */
-SupportedSpeedsChangedEvent::SupportedSpeedsChangedEvent(std::string sid):
-		AAMPEventObject(AAMP_EVENT_SPEEDS_CHANGED, std::move(sid)), mSupportedSpeeds()
+SupportedSpeedsChangedEvent::SupportedSpeedsChangedEvent():
+		AAMPEventObject(AAMP_EVENT_SPEEDS_CHANGED), mSupportedSpeeds()
 {
 
 }
@@ -865,8 +864,8 @@ int SupportedSpeedsChangedEvent::getSupportedSpeedCount() const
 /**
  * @brief SeekedEvent Constructor
  */
-SeekedEvent::SeekedEvent(double positionMS, std::string sid):
-		AAMPEventObject(AAMP_EVENT_SEEKED, std::move(sid)), mPosition(positionMS)
+SeekedEvent::SeekedEvent(double positionMS):
+		AAMPEventObject(AAMP_EVENT_SEEKED), mPosition(positionMS)
 {
 
 }
@@ -884,8 +883,8 @@ double SeekedEvent::getPosition() const
 /**
  * @brief TuneProfilingEvent Constructor
  */
-TuneProfilingEvent::TuneProfilingEvent(std::string &profilingData, std::string sid):
-		AAMPEventObject(AAMP_EVENT_TUNE_PROFILING, std::move(sid)), mProfilingData(profilingData)
+TuneProfilingEvent::TuneProfilingEvent(std::string &profilingData):
+		AAMPEventObject(AAMP_EVENT_TUNE_PROFILING), mProfilingData(profilingData)
 {
 
 }
@@ -903,8 +902,8 @@ const std::string &TuneProfilingEvent::getProfilingData() const
 /**
  * @brief BufferingChangedEvent Constructor
  */
-BufferingChangedEvent::BufferingChangedEvent(bool buffering, std::string sid):
-		AAMPEventObject(AAMP_EVENT_BUFFERING_CHANGED, std::move(sid)), mBuffering(buffering)
+BufferingChangedEvent::BufferingChangedEvent(bool buffering):
+		AAMPEventObject(AAMP_EVENT_BUFFERING_CHANGED), mBuffering(buffering)
 {
 
 }
@@ -922,8 +921,8 @@ bool BufferingChangedEvent::buffering() const
 /**
  * @brief DrmMetaDataEvent Constructor
  */
-DrmMetaDataEvent::DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, int responseCode, bool secclientErr, std::string sid):
-	AAMPEventObject(AAMP_EVENT_DRM_METADATA, std::move(sid)), mFailure(failure), mAccessStatus(accessStatus),
+DrmMetaDataEvent::DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, int responseCode, bool secclientErr):
+	AAMPEventObject(AAMP_EVENT_DRM_METADATA), mFailure(failure), mAccessStatus(accessStatus),
 	mAccessStatusValue(statusValue), mResponseCode(responseCode), mSecclientError(secclientErr), mSecManagerReasonCode(-1), mSecManagerClass(-1),
 	mBusinessStatus(-1), mHeaderResponses(),mResponseData(),mNetworkMetrics()
 {
@@ -1153,8 +1152,8 @@ void DrmMetaDataEvent::setHeaderResponses(const std::vector<std::string> &respon
 /**
  * @brief AnomalyReportEvent Constructor
  */
-AnomalyReportEvent::AnomalyReportEvent(int severity, const std::string &msg, std::string sid):
-		AAMPEventObject(AAMP_EVENT_REPORT_ANOMALY, std::move(sid)), mSeverity(severity), mMsg(msg)
+AnomalyReportEvent::AnomalyReportEvent(int severity, const std::string &msg):
+		AAMPEventObject(AAMP_EVENT_REPORT_ANOMALY), mSeverity(severity), mMsg(msg)
 {
 
 }
@@ -1182,8 +1181,8 @@ const std::string &AnomalyReportEvent::getMessage() const
 /**
  * @brief WebVttCueEvent Constructor
  */
-WebVttCueEvent::WebVttCueEvent(VTTCue* cueData, std::string sid):
-		AAMPEventObject(AAMP_EVENT_WEBVTT_CUE_DATA, std::move(sid)), mCueData(cueData)
+WebVttCueEvent::WebVttCueEvent(VTTCue* cueData):
+		AAMPEventObject(AAMP_EVENT_WEBVTT_CUE_DATA), mCueData(cueData)
 {
 
 }
@@ -1201,8 +1200,8 @@ VTTCue* WebVttCueEvent::getCueData() const
 /**
  * @brief AdResolvedEvent Constructor
  */
-AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid):
-		AAMPEventObject(AAMP_EVENT_AD_RESOLVED, std::move(sid)), mResolveStatus(resolveStatus), mAdId(adId),
+AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs):
+		AAMPEventObject(AAMP_EVENT_AD_RESOLVED), mResolveStatus(resolveStatus), mAdId(adId),
 		mStartMS(startMS), mDurationMs(durationMs)
 {
 
@@ -1251,8 +1250,8 @@ uint64_t AdResolvedEvent::getDuration() const
 /**
  * @brief AdReservationEvent Constructor
  */
-AdReservationEvent::AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, std::string sid):
-		AAMPEventObject(evtType, std::move(sid)), mAdBreakId(breakId), mPosition(position)
+AdReservationEvent::AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position):
+		AAMPEventObject(evtType), mAdBreakId(breakId), mPosition(position)
 {
 
 }
@@ -1280,8 +1279,8 @@ uint64_t AdReservationEvent::getPosition() const
 /**
  * @brief AdPlacementEvent Constructor
  */
-AdPlacementEvent::AdPlacementEvent(AAMPEventType evtType, const std::string &adId, uint32_t position, std::string sid, uint32_t offset, uint32_t duration, int errorCode):
-		AAMPEventObject(evtType, std::move(sid)), mAdId(adId), mPosition(position),
+AdPlacementEvent::AdPlacementEvent(AAMPEventType evtType, const std::string &adId, uint32_t position, uint32_t offset, uint32_t duration, int errorCode):
+		AAMPEventObject(evtType), mAdId(adId), mPosition(position),
 		mOffset(offset), mDuration(duration), mErrorCode(errorCode)
 {
 
@@ -1340,8 +1339,8 @@ int AdPlacementEvent::getErrorCode() const
 /**
  * @brief MetricsDataEvent Constructor
  */
-MetricsDataEvent::MetricsDataEvent(MetricsDataType dataType, const std::string &uuid, const std::string &data, std::string sid):
-		AAMPEventObject(AAMP_EVENT_REPORT_METRICS_DATA, std::move(sid)), mMetricsDataType(dataType),
+MetricsDataEvent::MetricsDataEvent(MetricsDataType dataType, const std::string &uuid, const std::string &data):
+		AAMPEventObject(AAMP_EVENT_REPORT_METRICS_DATA), mMetricsDataType(dataType),
 		mMetricUUID(uuid), mMetricsData(data)
 {
 
@@ -1380,8 +1379,8 @@ const std::string &MetricsDataEvent::getMetricsData() const
 /**
  * @brief ID3MetadataEvent Constructor
  */
-ID3MetadataEvent::ID3MetadataEvent(const std::vector<uint8_t> &metadata, const std::string &schIDUri, std::string &id3Value, uint32_t timeScale, uint64_t presentationTime, uint32_t eventDuration, uint32_t id, uint64_t timestampOffset, std::string sid):
-		AAMPEventObject(AAMP_EVENT_ID3_METADATA, std::move(sid)), mMetadata(metadata), mId(id), mTimeScale(timeScale), mSchemeIdUri(schIDUri), mValue(id3Value), mEventDuration(eventDuration), mPresentationTime(presentationTime), mTimestampOffset(timestampOffset)
+ID3MetadataEvent::ID3MetadataEvent(const std::vector<uint8_t> &metadata, const std::string &schIDUri, std::string &id3Value, uint32_t timeScale, uint64_t presentationTime, uint32_t eventDuration, uint32_t id, uint64_t timestampOffset):
+		AAMPEventObject(AAMP_EVENT_ID3_METADATA), mMetadata(metadata), mId(id), mTimeScale(timeScale), mSchemeIdUri(schIDUri), mValue(id3Value), mEventDuration(eventDuration), mPresentationTime(presentationTime), mTimestampOffset(timestampOffset)
 {
 
 }
@@ -1479,8 +1478,8 @@ const std::string& ID3MetadataEvent::getValue() const
 /**
  * @brief DrmMessageEvent Constructor
  */
-DrmMessageEvent::DrmMessageEvent(const std::string &msg, std::string sid):
-		AAMPEventObject(AAMP_EVENT_DRM_MESSAGE, std::move(sid)), mMessage(msg)
+DrmMessageEvent::DrmMessageEvent(const std::string &msg):
+		AAMPEventObject(AAMP_EVENT_DRM_MESSAGE), mMessage(msg)
 {
 
 }
@@ -1498,8 +1497,8 @@ const std::string &DrmMessageEvent::getMessage() const
 /**
  * @brief ContentGapEvent Constructor
  */
-ContentGapEvent::ContentGapEvent(double time, double duration, std::string sid):
-		AAMPEventObject(AAMP_EVENT_CONTENT_GAP, std::move(sid))
+ContentGapEvent::ContentGapEvent(double time, double duration):
+		AAMPEventObject(AAMP_EVENT_CONTENT_GAP)
 		, mTime(time), mDuration(duration)
 {
 
@@ -1528,8 +1527,8 @@ double ContentGapEvent::getDuration() const
 /**
  * @brief HTTPResponseHeaderEvent Constructor
  */
-HTTPResponseHeaderEvent::HTTPResponseHeaderEvent(const std::string &header, const std::string &response, std::string sid):
-		AAMPEventObject(AAMP_EVENT_HTTP_RESPONSE_HEADER, std::move(sid))
+HTTPResponseHeaderEvent::HTTPResponseHeaderEvent(const std::string &header, const std::string &response):
+		AAMPEventObject(AAMP_EVENT_HTTP_RESPONSE_HEADER)
 		, mHeaderName(header), mHeaderResponse(response)
 {
 
@@ -1561,8 +1560,8 @@ const std::string &HTTPResponseHeaderEvent::getResponse() const
  * @param[in] keyID - Current Session KeyID
  * @param[in] streamType        - Current StreamType
  */
-ContentProtectionDataEvent::ContentProtectionDataEvent(const std::vector<uint8_t> &keyID, const std::string &streamType, std::string sid):
-	AAMPEventObject(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE, std::move(sid))
+ContentProtectionDataEvent::ContentProtectionDataEvent(const std::vector<uint8_t> &keyID, const std::string &streamType):
+	AAMPEventObject(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE)
 	, mKeyID(keyID), mStreamType(streamType)
 {
 
@@ -1591,8 +1590,8 @@ const std::string &ContentProtectionDataEvent::getStreamType() const
 /*
  * @brief ManifestRefreshEvent Constructor
  */
-ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, std::string sid):
-	AAMPEventObject(AAMP_EVENT_MANIFEST_REFRESH_NOTIFY, std::move(sid))
+ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime):
+	AAMPEventObject(AAMP_EVENT_MANIFEST_REFRESH_NOTIFY)
 	, mManifestDuration(manifestDuration),mNoOfPeriods(noOfPeriods),mManifestPublishedTime(manifestPublishedTime)
 {
 
@@ -1631,8 +1630,8 @@ uint32_t ManifestRefreshEvent::getManifestPublishedTime() const
 /**
  * @brief TuneTimeMetricsEvent Constructor
  */
-TuneTimeMetricsEvent::TuneTimeMetricsEvent(const std::string &timeMetricData, std::string sid):
-		AAMPEventObject(AAMP_EVENT_TUNE_TIME_METRICS, std::move(sid)), mTuneMetricsData(timeMetricData)
+TuneTimeMetricsEvent::TuneTimeMetricsEvent(const std::string &timeMetricData):
+		AAMPEventObject(AAMP_EVENT_TUNE_TIME_METRICS), mTuneMetricsData(timeMetricData)
 {
 
 }

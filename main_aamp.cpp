@@ -333,9 +333,7 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *traceUUID,
 								bool audioDecoderStreamSync,
 								const char *refreshManifestUrl,
-								int mpdStichingMode,
-								std::string sid
-								)
+								int mpdStichingMode)
 {
 #ifdef AMLOGIC
 	ManageAsyncTuneConfig(mainManifestUrl);
@@ -347,20 +345,20 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 		const std::string sTraceUUID = (traceUUID != NULL)? std::string(traceUUID) : std::string();
 
 		mScheduler.ScheduleTask(AsyncTaskObj(
-			[manifest, autoPlay , cType, bFirstAttempt, bFinalAttempt, sTraceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, sid](void *data)
+			[manifest, autoPlay , cType, bFirstAttempt, bFinalAttempt, sTraceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode](void *data)
 			{
 				PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
 				const char * trace_uuid = sTraceUUID.empty() ? nullptr : sTraceUUID.c_str();
 
 				instance->TuneInternal(manifest.c_str(), autoPlay, cType.c_str(), bFirstAttempt,
-										bFinalAttempt, trace_uuid, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid));
+										bFinalAttempt, trace_uuid, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode);
 			},
 			(void *) this,
 			__FUNCTION__));
 	}
 	else
 	{
-		TuneInternal(mainManifestUrl, autoPlay , contentType, bFirstAttempt, bFinalAttempt,traceUUID,audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid));
+		TuneInternal(mainManifestUrl, autoPlay , contentType, bFirstAttempt, bFinalAttempt,traceUUID,audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode);
 	}
 }
 
@@ -375,50 +373,39 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 										const char *traceUUID,
 										bool audioDecoderStreamSync,
 										const char *refreshManifestUrl,
-										int mpdStichingMode,
-										std::string sid
-										)
+										int mpdStichingMode)
 {
 	PrivAAMPState state;
 	if(aamp){
 
 	/* Set single pipeline according to the configuration */
-		aamp->UpdateUseSinglePipeline();
+	aamp->UpdateUseSinglePipeline();
 
-		aamp->StopPausePositionMonitoring("Tune() called");
+	aamp->StopPausePositionMonitoring("Tune() called");
 
-		aamp->GetState(state);
-		bool IsOTAtoOTA =  false;
+	aamp->GetState(state);
+	bool IsOTAtoOTA =  false;
 
-		if((aamp->IsOTAContent()) && (NULL != mainManifestUrl))
+	if((aamp->IsOTAContent()) && (NULL != mainManifestUrl))
+	{
+		/* OTA to OTA tune does not need to call stop. */
+		std::string urlStr(mainManifestUrl); // for convenience, convert to std::string
+		if((urlStr.rfind("live:",0)==0) || (urlStr.rfind("tune:",0)==0))
 		{
-			/* OTA to OTA tune does not need to call stop. */
-			std::string urlStr(mainManifestUrl); // for convenience, convert to std::string
-			if((urlStr.rfind("live:",0)==0) || (urlStr.rfind("tune:",0)==0))
-			{
-				IsOTAtoOTA = true;
-			}
+			IsOTAtoOTA = true;
 		}
+	}
 
-		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA))
-		{
-			//Calling tune without closing previous tune
-			StopInternal(false);
-		}
-		aamp->getAampCacheHandler()->StartPlaylistCache();
-		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid));
+	if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA))
+	{
+		//Calling tune without closing previous tune
+		StopInternal(false);
+	}
+	aamp->getAampCacheHandler()->StartPlaylistCache();
+	aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt,traceUUID,audioDecoderStreamSync,refreshManifestUrl,mpdStichingMode);
 	}
 }
 
-/**
- *  @brief Returns the session ID from the internal player, if present, or an empty string, if not.
- */
-std::string PlayerInstanceAAMP::GetSessionId() const {
-	if (sp_aamp)
-		return sp_aamp->GetSessionId();
-	else
-		return std::string{};
-}
 
 /**
  *  @brief Soft stop the player instance.

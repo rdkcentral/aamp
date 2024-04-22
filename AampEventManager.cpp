@@ -385,12 +385,11 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 	{
 		if (eventType != AAMP_EVENT_STATE_CHANGED)
 		{
-			AAMPLOG_INFO("(type=%d)(session_id=%s)", eventType, eventData->GetSessionId().c_str());
+			AAMPLOG_INFO("(type=%d)", eventType);
 		}
 		else
 		{
-			AAMPLOG_WARN("(type=%d)(state=%d)(session_id=%s)", eventType, std::dynamic_pointer_cast<StateChangedEvent>(eventData)->getState(),
-				eventData->GetSessionId().c_str());
+			AAMPLOG_WARN("(type=%d)(state=%d)", eventType, std::dynamic_pointer_cast<StateChangedEvent>(eventData)->getState());
 		}
 	}
 

@@ -241,9 +241,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *pTraceID,
 								bool audioDecoderStreamSync,
 								const char *refreshManifestUrl,
-								int mpdStichingMode,
-								std::string sid
-								)
+								int mpdStichingMode)
 
 {
 	// Set the Fog TSB flag based on the URL.
