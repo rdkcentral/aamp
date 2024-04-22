@@ -1328,7 +1328,7 @@ KeyState AampDRMSessionManager::getDrmSession(std::shared_ptr<AampDrmHelper> drm
 			KeyState existingState = drmSessionContexts[sessionSlot].drmSession->getState();
 			if (existingState == KEY_READY)
 			{
-				AAMPLOG_WARN("Found drm session READY with same keyID %s - Reusing drm session", keyIdDebugStr.c_str());
+				AAMPLOG_INFO("Found drm session READY with same keyID %s - Reusing drm session", keyIdDebugStr.c_str());
 #ifdef USE_SECMANAGER
 				// Cached session is re-used, set its session ID to active.
 				// State management will be done from getLicenseSec function in case of KEY_INIT
