@@ -798,7 +798,7 @@ void AampDRMSessionManager::licenseRenewalThread(std::shared_ptr<AampDrmHelper> 
 #if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 	isSecClientError = true;
 #endif
-	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, aampInstance->GetSessionId());
+	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError);
 	int cdmError = -1;
 	KeyState code = acquireLicense(drmHelper, sessionSlot, cdmError, e, aampInstance, eMEDIATYPE_LICENCE, true);
 	if (code != KEY_READY)
@@ -1905,7 +1905,7 @@ void AampDRMSessionManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aam
 		iter1++;
 	}
 	if(!DRM_Config_Available) {
-		ContentProtectionDataEventPtr eventData = std::make_shared<ContentProtectionDataEvent>(keyId, contentType, aampInstance->GetSessionId());
+		ContentProtectionDataEventPtr eventData = std::make_shared<ContentProtectionDataEvent>(keyId, contentType);
 		std::string keyIdDebugStr = AampLogManager::getHexDebugStr(keyId);
 		pthread_mutex_lock(&aampInstance->mDynamicDrmUpdateLock);
 		int pthreadReturnValue = 0;

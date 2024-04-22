@@ -594,10 +594,6 @@ public:
 	 * @param[in] bFinalAttempt - Final retry/attempt.
 	 * @param[in] audioDecoderStreamSync - Enable or disable audio decoder stream sync,
 	 *                set to 'false' if audio fragments come with additional padding at the end (BCOM-4203)
-	 * 
-	 * @param[in] refreshManifestUrl - 
-	 * @param[in] mpdStichingMode - 
-	 * @param[in] sid - Session ID defined by the player
 	 * @return void
 	 */
 	void Tune(const char *url,
@@ -608,9 +604,7 @@ public:
 				const char *sessionUUID = NULL,
 				bool audioDecoderStreamSync = true,
 				const char *refreshManifestUrl = NULL,
-				int mpdStichingMode = 0,
-				std::string sid = {}
-				);
+				int mpdStichingMode = 0 );
 
 	/**
 	 * @brief API Used to reload TSB with new session
@@ -1259,28 +1253,7 @@ public:
 	 *
 	 * @param[out] string - TraceUUID
 	 */
-	const std::string & GetTraceUUID() const { return mTraceUUID; }
-
-	/**
-	 * @fn SetSessionId
-	 * @brief Sets the session id
-	 * @param[in] sid - Session ID
-	 * 
-	*/
-	void SetSessionId(std::string sid);
-
-	/**
-	 * @fn GetSessionId
-	 * 
-	 * @brief Returns the value of the current session id
-	 * 
-	 * @returns The current session ID
-	*/
-	const std::string & GetSessionId() const
-	{
-		// AAMPLOG_INFO(" DBG :: Session ID is read.");
-		return mSessionId;
-	}
+	const std::string & getUUID() const { return mTraceUUID;}
 
 	/**
 	 * @fn GetOnVideoEndSessionStatData
@@ -4312,12 +4285,11 @@ protected:
 	AampMPDDownloader *mMPDDownloaderInstance;
 
 	std::atomic<double> m_PTSOffsetFromTune {0.}; /**< PTS offset cache from Tune, is reset only on a `Stop` */
-	
+
+	// double mCurrentMaxPTS;
 	std::mutex  mDiscoCompleteLock; 					/**< Lock the period jump if discontinuity already in progress */
 	std::condition_variable mWaitForDiscoToComplete;	/**< Conditional wait for period jump */
 	bool mIsPeriodChangeMarked; 						/**< Mark if a period change occurred */
-
-	std::string mSessionId;		/**< ID of the current session as set by the player */
 
 public:
 	AampLogManager *mLogObj;

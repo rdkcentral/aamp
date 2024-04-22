@@ -18,9 +18,6 @@ protected:
 
 };
 
-// Randomly generated UUIDv4
-const std::string session_id {"12192978-da71-4da7-8335-76fbd9ae2ae9"};
-
 const AAMPEventType allEventTypes[] = {
     AAMPEventType::AAMP_EVENT_ALL_EVENTS,
     AAMPEventType::AAMP_EVENT_TUNED,
@@ -30,29 +27,27 @@ const AAMPEventType allEventTypes[] = {
 };
 // Generate test cases for all enum values using a loop
 TEST_F(AAMPEventTests, GetTypeTest) {
-
     for (AAMPEventType eventType : allEventTypes) {
-        AAMPEventObject event(eventType, session_id);
+        AAMPEventObject event(eventType);
         EXPECT_EQ(event.getType(), eventType);
-        EXPECT_EQ(event.GetSessionId(), session_id);
     }
 }
 // getType() method of AAMPEventObject
 TEST_F(AAMPEventTests, GetTypeTest1) {
     AAMPEventType eventType = AAMPEventType::AAMP_MAX_NUM_EVENTS;
-    AAMPEventObject event(eventType, session_id);
+    AAMPEventObject event(eventType);
     EXPECT_EQ(event.getType(), eventType);
-    EXPECT_EQ(event.GetSessionId(), session_id);
 
-    AAMPEventObject event1(AAMPEventType::AAMP_EVENT_TUNED, session_id);
+
+    AAMPEventObject event1(AAMPEventType::AAMP_EVENT_TUNED);
     EXPECT_EQ(event1.getType(), AAMPEventType::AAMP_EVENT_TUNED);
 
 
-    AAMPEventObject event2(AAMPEventType::AAMP_EVENT_BLOCKED, session_id);
+    AAMPEventObject event2(AAMPEventType::AAMP_EVENT_BLOCKED);
     EXPECT_EQ(event2.getType(), AAMPEventType::AAMP_EVENT_BLOCKED);
 
     
-    AAMPEventObject event3(AAMPEventType::AAMP_EVENT_PLAYLIST_INDEXED, session_id);
+    AAMPEventObject event3(AAMPEventType::AAMP_EVENT_PLAYLIST_INDEXED);
     EXPECT_EQ(event3.getType(), AAMPEventType::AAMP_EVENT_PLAYLIST_INDEXED);
 }
 
@@ -61,7 +56,7 @@ class MediaErrorEventTest : public testing::Test{
 protected:
     
     void SetUp() override {
-        errorEvent = new MediaErrorEvent(AAMP_TUNE_FAILURE_UNKNOWN,1,"Test",false,0,0,0,"", session_id);
+        errorEvent = new MediaErrorEvent(AAMP_TUNE_FAILURE_UNKNOWN,1,"Test",false,0,0,0,"");
     }
     void TearDown() override {
         delete errorEvent;
@@ -78,8 +73,7 @@ TEST_F(MediaErrorEventTest, MediaErrorEventMethodsTest) {
         456, 
         789, 
         987, 
-        "response data",
-        std::string{}
+        "response data" 
     );
 
     EXPECT_EQ(errorEvent.getFailure(), AAMPTuneFailure::AAMP_TUNE_INIT_FAILED);
@@ -90,10 +84,9 @@ TEST_F(MediaErrorEventTest, MediaErrorEventMethodsTest) {
     EXPECT_EQ(errorEvent.getClass(), 456);
     EXPECT_EQ(errorEvent.getReason(), 789);
     EXPECT_EQ(errorEvent.getBusinessStatus(), 987);
-    EXPECT_EQ(errorEvent.GetSessionId(), "");
 }
- 
 TEST_F(MediaErrorEventTest, MediaErrorEventMethodsanotherTest) {
+ 
 
     EXPECT_EQ(errorEvent->getFailure(), AAMPTuneFailure::AAMP_TUNE_FAILURE_UNKNOWN);
     EXPECT_EQ(errorEvent->getCode(), 1);
@@ -103,7 +96,6 @@ TEST_F(MediaErrorEventTest, MediaErrorEventMethodsanotherTest) {
     EXPECT_EQ(errorEvent->getClass(), 0);
     EXPECT_EQ(errorEvent->getReason(), 0);
     EXPECT_EQ(errorEvent->getBusinessStatus(), 0);
-    EXPECT_EQ(errorEvent->GetSessionId(), session_id);
 }
 
 
@@ -111,7 +103,7 @@ TEST_F(MediaErrorEventTest, MediaErrorEventMethodsanotherTest) {
 class SpeedChangedEventTest : public testing::Test {
 protected:
     void SetUp() override {
-        speedEvent = new SpeedChangedEvent(2.0, session_id);  
+        speedEvent = new SpeedChangedEvent(2.0);  
     }
 
     void TearDown() override {
@@ -142,8 +134,7 @@ protected:
             5.0,      // live latency
             500,   // profile bandwidth
             1000,  // network bandwidth
-            2,      //currentPlayRate
-            session_id // Session ID
+            2      //currentPlayRate
         );
     }
 
@@ -174,7 +165,7 @@ TEST_F(ProgressEventTest, GetFunctionsTest) {
 class CCHandleEventTest : public testing::Test {
 protected:
     void SetUp() override {
-        ccHandleEvent = new CCHandleEvent(12345, session_id);
+        ccHandleEvent = new CCHandleEvent(12345);  
     }
 
     void TearDown() override {
@@ -192,7 +183,7 @@ TEST_F(CCHandleEventTest, GetCCHandleTest) {
 class MediaMetadataEventTest : public testing::Test {
 protected:
     void SetUp() override {
-        event = new MediaMetadataEvent(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+        event = new MediaMetadataEvent(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
     }
 
     void TearDown() override {
@@ -213,7 +204,7 @@ TEST_F(MediaMetadataEventTest, ConstructorAndGetterTest) {
     double programStartTime = 123456.789;
     int tsbDepthMs = 123;
 
-    MediaMetadataEvent event(duration, width, height, hasDrm, isLive, drmType, programStartTime, tsbDepthMs, session_id);
+    MediaMetadataEvent event(duration, width, height, hasDrm, isLive, drmType, programStartTime,tsbDepthMs);
 
     EXPECT_EQ(event.getDuration(), duration);
     EXPECT_EQ(event.getWidth(), width);
@@ -225,14 +216,14 @@ TEST_F(MediaMetadataEventTest, ConstructorAndGetterTest) {
 }
 
 TEST_F(MediaMetadataEventTest, EmptyLanguageListTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     const std::vector<std::string> &languages = event.getLanguages();
     EXPECT_EQ(languages.size(), 0);
 }
 
 TEST_F(MediaMetadataEventTest, AddSingleLanguageTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     event.addLanguage("Spanish");
 
@@ -242,7 +233,7 @@ TEST_F(MediaMetadataEventTest, AddSingleLanguageTest) {
 }
 
 TEST_F(MediaMetadataEventTest, AddMultipleLanguagesTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     event.addLanguage("French");
     event.addLanguage("German");
@@ -262,7 +253,7 @@ TEST_F(MediaMetadataEventTest, AddMultipleLanguagesTest) {
 // Test case for addBitrate, getBitrates, and getBitratesCount methods
 TEST_F(MediaMetadataEventTest, BitrateMethodsBoundaryTest) {
     // Create a MediaMetadataEvent instance
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     // Add bitrates with maximum and minimum values
     event.addBitrate(1); // Minimum bitrate
@@ -285,7 +276,7 @@ TEST_F(MediaMetadataEventTest, BitrateMethodsBoundaryTest) {
 
 TEST_F(MediaMetadataEventTest, BitrateMethodsNegativeTest) {
     // Create a MediaMetadataEvent instance
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     // Add negative bitrates
     event.addBitrate(-100); // Negative bitrate
@@ -303,7 +294,7 @@ TEST_F(MediaMetadataEventTest, BitrateMethodsNegativeTest) {
 }
 
 TEST_F(MediaMetadataEventTest, BitrateMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     event.addBitrate(1000000); // 1 Mbps
     event.addBitrate(2000000); // 2 Mbps
@@ -324,7 +315,7 @@ TEST_F(MediaMetadataEventTest, BitrateMethodsTest) {
     EXPECT_EQ(audioBitrates[1], 256000);
 }
 TEST_F(MediaMetadataEventTest, SupportedSpeedMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     event.addSupportedSpeed(1.0);
     event.addSupportedSpeed(1.5);
@@ -339,7 +330,7 @@ TEST_F(MediaMetadataEventTest, SupportedSpeedMethodsTest) {
 
 // Test case for SetVideoMetaData method and related getter methods
 TEST_F(MediaMetadataEventTest, VideoMetaDataMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     event.SetVideoMetaData(30.0, VideoScanType::eVIDEOSCAN_PROGRESSIVE, 16, 9, "MPEG2", "DOLBY_VISION", "PG", 123);
 
@@ -354,7 +345,7 @@ TEST_F(MediaMetadataEventTest, VideoMetaDataMethodsTest) {
 }
 // Test case for SetAudioMetaData method and related getter methods
 TEST_F(MediaMetadataEventTest, AudioMetaDataMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     event.SetAudioMetaData("AA3", "STEREO", true);
 
@@ -364,7 +355,7 @@ TEST_F(MediaMetadataEventTest, AudioMetaDataMethodsTest) {
 }
 // Test case for getMediaFormat and setMediaFormat methods
 TEST_F(MediaMetadataEventTest, MediaFormatMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789,123);
 
     // Test setMediaFormat and then getMediaFormat
     event.setMediaFormat("HLS");
@@ -382,7 +373,7 @@ class BitrateChangeEventTest : public testing::Test {
 protected:
     void SetUp() override {
        
-        bitrateChangeEvent = new BitrateChangeEvent(1000, 500000, "Bitrate change", 1920, 1080, 30.0, 5000.0, true, 1920, 1080, eVIDEOSCAN_PROGRESSIVE, 16, 9, session_id);
+        bitrateChangeEvent = new BitrateChangeEvent(1000, 500000, "Bitrate change", 1920, 1080, 30.0, 5000.0, true, 1920, 1080, eVIDEOSCAN_PROGRESSIVE, 16, 9);
     }
 
     void TearDown() override {
@@ -409,19 +400,19 @@ TEST_F(BitrateChangeEventTest, BitrateChangeEventMethodsTest) {
 }
 // Test with a negative time value
 TEST_F(BitrateChangeEventTest, BitrateChangeEventNegativeTimeTest) {
-    BitrateChangeEvent event(-1000, 500000, "Negative time", 1920, 1080, 30.0, 5000.0, true, 1920, 1080, eVIDEOSCAN_PROGRESSIVE, 16, 9, session_id);
+    BitrateChangeEvent event(-1000, 500000, "Negative time", 1920, 1080, 30.0, 5000.0, true, 1920, 1080, eVIDEOSCAN_PROGRESSIVE, 16, 9);
     EXPECT_EQ(event.getTime(), -1000);
 }
 
 // Test with a zero bitrate value
 TEST_F(BitrateChangeEventTest, BitrateChangeEventZeroBitrateTest) {
-    BitrateChangeEvent event(1000, 0, "Zero bitrate", 1920, 1080, 30.0, 5000.0, true, 1920, 1080, eVIDEOSCAN_PROGRESSIVE, 16, 9, session_id);
+    BitrateChangeEvent event(1000, 0, "Zero bitrate", 1920, 1080, 30.0, 5000.0, true, 1920, 1080, eVIDEOSCAN_PROGRESSIVE, 16, 9);
     EXPECT_EQ(event.getBitrate(), 0);
 }
 
 // Test with an empty description
 TEST_F(BitrateChangeEventTest, BitrateChangeEventEmptyDescriptionTest) {
-    BitrateChangeEvent event(1000, 500000, "", 1920, 1080, 30.0, 5000.0, true, 1920, 1080, eVIDEOSCAN_PROGRESSIVE, 16, 9, session_id);
+    BitrateChangeEvent event(1000, 500000, "", 1920, 1080, 30.0, 5000.0, true, 1920, 1080, eVIDEOSCAN_PROGRESSIVE, 16, 9);
     EXPECT_EQ(event.getDescription(), "");
    
 }
@@ -430,7 +421,7 @@ class TimedMetadataEventTest : public testing::Test {
 protected:
     void SetUp() override {
         
-        timedMetadataEvent = new TimedMetadataEvent("Metadata name", "12345", 10.0, 3000.0, "Hello", session_id);
+        timedMetadataEvent = new TimedMetadataEvent("Metadata name", "12345", 10.0, 3000.0, "Hello");
     }
 
     void TearDown() override {
@@ -454,7 +445,7 @@ class BulkTimedMetadataEventTest : public testing::Test {
 protected:
     void SetUp() override {
         
-        bulkTimedMetadataEvent = new BulkTimedMetadataEvent("Hello World", session_id);
+        bulkTimedMetadataEvent = new BulkTimedMetadataEvent("Hello World");
     }
 
     void TearDown() override {
@@ -473,7 +464,7 @@ class StateChangedEventTest : public testing::Test {
 protected:
     void SetUp() override {
         
-        stateChangedEvent = new StateChangedEvent(PrivAAMPState::eSTATE_PLAYING, session_id);
+        stateChangedEvent = new StateChangedEvent(PrivAAMPState::eSTATE_PLAYING);
     }
 
     void TearDown() override {
@@ -492,7 +483,7 @@ class SupportedSpeedsChangedEventTest : public testing::Test {
 protected:
     void SetUp() override {
        
-        supportedSpeedsChangedEvent = new SupportedSpeedsChangedEvent(session_id);
+        supportedSpeedsChangedEvent = new SupportedSpeedsChangedEvent();
         supportedSpeedsChangedEvent->addSupportedSpeed(1.0);
         supportedSpeedsChangedEvent->addSupportedSpeed(0.5);
     }
@@ -520,7 +511,7 @@ class SeekedEventTest : public testing::Test {
 protected:
     void SetUp() override {
         
-        seekedEvent = new SeekedEvent(500.0, session_id); 
+        seekedEvent = new SeekedEvent(500.0); 
     }
 
     void TearDown() override {
@@ -539,7 +530,7 @@ protected:
     void SetUp() override {
         
         std::string profilingData = "profiling data";
-        tuneProfilingEvent = new TuneProfilingEvent(profilingData, session_id);
+        tuneProfilingEvent = new TuneProfilingEvent(profilingData);
     }
 
     void TearDown() override {
@@ -558,7 +549,7 @@ class BufferingChangedEventTest : public testing::Test {
 protected:
     void SetUp() override {
         
-        bufferingChangedEvent = new BufferingChangedEvent(true, session_id); 
+        bufferingChangedEvent = new BufferingChangedEvent(true); 
     }
 
     void TearDown() override {
@@ -577,7 +568,7 @@ class DrmMetaDataEventTest : public testing::Test {
 protected:
     void SetUp() override {
         
-        drmMetaDataEvent = new DrmMetaDataEvent(AAMPTuneFailure::AAMP_TUNE_UNTRACKED_DRM_ERROR, "AccessStatus", 200, 0, false, session_id);
+        drmMetaDataEvent = new DrmMetaDataEvent(AAMPTuneFailure::AAMP_TUNE_UNTRACKED_DRM_ERROR, "AccessStatus", 200, 0, false);
     }
 
     void TearDown() override {
@@ -658,7 +649,7 @@ class AnomalyReportEventTest : public testing::Test {
 protected:
     void SetUp() override {
        
-        anomalyReportEvent = new AnomalyReportEvent(2,"anomaly message", session_id); 
+        anomalyReportEvent = new AnomalyReportEvent(2,"anomaly message"); 
     }
 
     void TearDown() override {
@@ -670,7 +661,7 @@ protected:
 
 // Testing AnomalyReportEvent
 TEST(AnomalyReportEventTest, AnomalyReportEventMethodsTest) {
-    AnomalyReportEvent anomalyReportEvent(2, "anomaly message", session_id);
+    AnomalyReportEvent anomalyReportEvent(2, "anomaly message");
 
     EXPECT_EQ(anomalyReportEvent.getSeverity(), 2);
     EXPECT_EQ(anomalyReportEvent.getMessage(), "anomaly message");
@@ -682,7 +673,7 @@ protected:
     void SetUp() override {
         
         cueData = new VTTCue(0.0,2.5,"cue Text","settings");
-        webVttCueEvent = new WebVttCueEvent(cueData, session_id); 
+        webVttCueEvent = new WebVttCueEvent(cueData); 
     }
 
     void TearDown() override {
@@ -702,7 +693,7 @@ class AdResolvedEventTest : public testing::Test {
 protected:
     void SetUp() override {
         
-        adResolvedEvent = new AdResolvedEvent(true,"ad123",1000,15000, session_id); 
+        adResolvedEvent = new AdResolvedEvent(true,"ad123",1000,15000); 
     }
 
     void TearDown() override {
@@ -713,7 +704,7 @@ protected:
 };
 // Testing AdResolvedEvent
 TEST_F(AdResolvedEventTest, AdResolvedEventMethodsTest) {
-    AdResolvedEvent adResolvedEvent(true, "ad123", 1000, 15000, session_id);
+    AdResolvedEvent adResolvedEvent(true, "ad123", 1000, 15000);
 
     EXPECT_TRUE(adResolvedEvent.getResolveStatus());
     EXPECT_EQ(adResolvedEvent.getAdId(), "ad123");
@@ -727,7 +718,7 @@ protected:
         
         adBreakId = "break_id";
         position = 12345;
-        adReservationEvent = new AdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, adBreakId, position, session_id);
+        adReservationEvent = new AdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, adBreakId, position);
     }
 
     void TearDown() override {
@@ -756,7 +747,7 @@ protected:
         offset = 1000;
         duration = 3000;
         errorCode = 0;
-        adPlacementEvent = new AdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, adId, position, session_id, offset, duration, errorCode);
+        adPlacementEvent = new AdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, adId, position, offset, duration, errorCode);
     }
 
     void TearDown() override {
@@ -788,7 +779,7 @@ protected:
         dataType = MetricsDataType::AAMP_DATA_NONE;
         metricUUID = "uuid";
         metricsData = "metrics_data";
-        metricsDataEvent = new MetricsDataEvent(dataType, metricUUID, metricsData, session_id);
+        metricsDataEvent = new MetricsDataEvent(dataType, metricUUID, metricsData);
     }
 
     void TearDown() override {
@@ -821,7 +812,7 @@ protected:
         eventDuration = 500;
         presentationTime = 123456789;
         timestampOffset = 987654321;
-        id3MetadataEvent = new ID3MetadataEvent(metadata, schemeIdUri, id3Value, timeScale, presentationTime, eventDuration, id, timestampOffset, session_id);
+        id3MetadataEvent = new ID3MetadataEvent(metadata, schemeIdUri, id3Value, timeScale, presentationTime, eventDuration, id, timestampOffset);
     }
 
     void TearDown() override {
@@ -858,7 +849,7 @@ protected:
     void SetUp() override {
         
         drmMessage = "DRM message";
-        drmMessageEvent = new DrmMessageEvent(drmMessage, session_id);
+        drmMessageEvent = new DrmMessageEvent(drmMessage);
     }
 
     void TearDown() override {
@@ -891,8 +882,10 @@ protected:
 
 TEST_F(BlockedEventTest, ConstructorAndGetters)
 {
-    BlockedEvent blockedEvent(reason, locator, session_id);
+    
+    BlockedEvent blockedEvent(reason, locator);
 
+    
     EXPECT_EQ(blockedEvent.getReason(), reason);
     EXPECT_EQ(blockedEvent.getLocator(), locator);
 }
@@ -904,7 +897,7 @@ protected:
         
         contentGapTime = 123.45;
         contentGapDuration = 67.89;
-        contentGapEvent = new ContentGapEvent(contentGapTime, contentGapDuration, session_id);
+        contentGapEvent = new ContentGapEvent(contentGapTime, contentGapDuration);
     }
 
     void TearDown() override {
@@ -928,7 +921,7 @@ protected:
         // Initialize any data for testing
         headerName = "Header_name";
         headerResponse = "Header_Response";
-        httpResponseHeaderEvent = new HTTPResponseHeaderEvent(headerName, headerResponse, session_id);
+        httpResponseHeaderEvent = new HTTPResponseHeaderEvent(headerName, headerResponse);
     }
 
     void TearDown() override {
@@ -966,7 +959,7 @@ protected:
 TEST_F(WatermarkSessionUpdateEventTest, WatermarkSessionTestMethod)
 {
     
-    WatermarkSessionUpdateEvent event(sessionHandle, status, system, session_id);
+    WatermarkSessionUpdateEvent event(sessionHandle, status, system);
 
     
     EXPECT_EQ(event.getSessionHandle(), sessionHandle);
@@ -980,7 +973,7 @@ protected:
         
         keyID = {1,2,3};
         streamType = "Stream";
-        contentProtectionDataEvent = new ContentProtectionDataEvent(keyID, streamType, session_id);
+        contentProtectionDataEvent = new ContentProtectionDataEvent(keyID, streamType);
     }
 
     void TearDown() override {
@@ -1005,7 +998,7 @@ protected:
         manifestDuration = 100;
         noOfPeriods = 3;
         manifestPublishedTime = 12345;
-        event = new ManifestRefreshEvent(manifestDuration, noOfPeriods, manifestPublishedTime, session_id);
+        event = new ManifestRefreshEvent(manifestDuration, noOfPeriods, manifestPublishedTime);
     }
 
     void TearDown() override {
@@ -1030,7 +1023,7 @@ protected:
     void SetUp() override {
         
         timeMetricData = "SampleTimeMetricsData";
-        event = new TuneTimeMetricsEvent(timeMetricData, session_id);
+        event = new TuneTimeMetricsEvent(timeMetricData);
     }
 
     void TearDown() override {

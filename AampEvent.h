@@ -26,11 +26,9 @@
 #define __AAMP_EVENTS_H__
 
 #include "vttCue.h" //Required for VTTCue
-#include "ABRManager.h"
-
 #include <memory>
 #include <vector>
-#include <string>
+#include "ABRManager.h"
 
 // Macros required for backward compatible AAMPEventListener implementation
 #define MAX_LANGUAGE_COUNT 16
@@ -523,7 +521,6 @@ struct AAMPEvent
 class AAMPEventObject
 {
 	AAMPEventType mType;		/**< Event type */
-	std::string mSessionID {};
 
 public:
 
@@ -542,10 +539,10 @@ public:
 	/**
 	 * @fn AAMPEventObject
 	 */ 	 
-	AAMPEventObject(AAMPEventType type, std::string sid);
+	AAMPEventObject(AAMPEventType type);
 
 	/**
-	 * @brief AAMPEventObject Destructor
+	 * @brief AAMPEvent Destructor
 	 */
 	virtual ~AAMPEventObject() { }
 
@@ -553,10 +550,6 @@ public:
 	 * @fn getType
 	 */
 	AAMPEventType getType() const;
-
-
-	const std::string & GetSessionId() const { return mSessionID; }
-	
 };
 
 /**
@@ -588,7 +581,7 @@ public:
 	 * @param[in] desc        - Error description
 	 * @param[in] shouldRetry - Retry or not
 	 */
-	MediaErrorEvent(AAMPTuneFailure failure, int code, const std::string &desc, bool shouldRetry, int32_t classCode, int32_t reason, int32_t businessStatus, const std::string &responseData, std::string sid);
+	MediaErrorEvent(AAMPTuneFailure failure, int code, const std::string &desc, bool shouldRetry, int32_t classCode, int32_t reason, int32_t businessStatus, const std::string &responseData);
 
 	/**
 	 * @brief MediaErrorEvent Destructor
@@ -654,7 +647,7 @@ public:
 	 *
 	 * @param[in]  rate - New speed
 	 */
-	SpeedChangedEvent(float rate, std::string sid);
+	SpeedChangedEvent(float rate);
 
 	/**
 	 * @brief SpeedChangedEvent Destructor
@@ -708,7 +701,7 @@ public:
 	 * @param[in]  currentPlayRate - currentPlayRate
 
 	 */
-	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid);
+	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate);
 
 	/**
 	 * @brief ProgressEvent Destructor
@@ -797,7 +790,7 @@ public:
 	/**
 	 * @fn CCHandleEvent
 	 */
-	CCHandleEvent(unsigned long handle, std::string sid);
+	CCHandleEvent(unsigned long handle);
 
 	/**
 	 * @brief CCHandleEvent Destructor
@@ -862,7 +855,7 @@ public:
 	 * @param[in] DrmType  - DRM Type
 	 * @param[in] programStartTime  - Program/Availability start time
 	 */
-	MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid);
+	MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs);
 
 	/**
 	 * @brief MediaMetadataEvent Destructor
@@ -1132,7 +1125,7 @@ public:
 	 * @param[in] position   - Aspect Ratio Width
 	 * @param[in] position   - Aspect Ratio Height
 	 */
-	BitrateChangeEvent(int time, BitsPerSecond bitrate, const std::string &desc, int width, int height, double frameRate, double position, bool mCappedProfile, int mDisplayWidth, int mDisplayHeight, VideoScanType videoScanType, int aspectRatioWidth, int aspectRatioHeight, std::string sid);
+	BitrateChangeEvent(int time, BitsPerSecond bitrate, const std::string &desc, int width, int height, double frameRate, double position, bool mCappedProfile, int mDisplayWidth, int mDisplayHeight, VideoScanType videoScanType, int aspectRatioWidth, int aspectRatioHeight);
 
 	/**
 	 * @brief BitrateChangeEvent Destructor
@@ -1229,7 +1222,7 @@ public:
 	 * @param[in] duration   - Duration of event
 	 * @param[in] content   - Content field of the TimedMetadata
 	 */
-	TimedMetadataEvent(const std::string &name, const std::string &id, double time, double duration, const std::string &content, std::string sid);
+	TimedMetadataEvent(const std::string &name, const std::string &id, double time, double duration, const std::string &content);
 
 	/**
 	 * @brief TimedMetadataEvent Destructor
@@ -1280,7 +1273,7 @@ public:
 	 *
 	 * @param[in] content - metadata serialized in JSON format
 	 */
-	BulkTimedMetadataEvent(const std::string &content, std::string sid);
+	BulkTimedMetadataEvent(const std::string &content);
 
 	/**
 	 * @brief BulkTimedMetadataEvent Destructor
@@ -1311,7 +1304,7 @@ public:
 	 *
 	 * @param[in] state - New player state
 	 */
-	StateChangedEvent(PrivAAMPState state, std::string sid);
+	StateChangedEvent(PrivAAMPState state);
 
 	/**
 	 * @brief StateChangedEvent Destructor
@@ -1349,7 +1342,7 @@ public:
 	/**
 	 * @fn SupportedSpeedsChangedEvent
 	 */
-	SupportedSpeedsChangedEvent(std::string sid);
+	SupportedSpeedsChangedEvent();
 
 	/**
 	 * @brief SupportedSpeedsChangedEvent Destructor
@@ -1391,7 +1384,7 @@ public:
 	/**
 	 * @fn SeekedEvent
 	 */
-	SeekedEvent(double positionMS, std::string sid);
+	SeekedEvent(double positionMS);
 
 	/**
 	 * @brief SeekedEvent Destructor
@@ -1422,7 +1415,7 @@ public:
 	 *
 	 * @param[in] profilingData - tune profiling data
 	 */
-	TuneProfilingEvent(std::string &profilingData, std::string sid);
+	TuneProfilingEvent(std::string &profilingData);
 
 	/**
 	 * @brief TuneProfilingEvent Destructor
@@ -1453,7 +1446,7 @@ public:
 	 *
 	 * @param[in] buffering - Buffering status
 	 */
-	BufferingChangedEvent(bool buffering, std::string sid);
+	BufferingChangedEvent(bool buffering);
 
 	/**
 	 * @brief BufferingChangedEvent Destructor
@@ -1497,7 +1490,7 @@ public:
 	 * @param[in] responseCode - Response code
 	 * @param[in] secclientErr - Is secclient error
 	 */
-	DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, int responseCode, bool secclientErr, std::string sid);
+	DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, int responseCode, bool secclientErr);
 
 	/**
 	 * @brief DrmMetaDataEvent Destructor
@@ -1684,7 +1677,7 @@ public:
 	 * @param[in]  severity - Severity of message
 	 * @param[in]  msg      - Anomaly message
 	 */
-	AnomalyReportEvent(int severity, const std::string &msg, std::string sid);
+	AnomalyReportEvent(int severity, const std::string &msg);
 
 	/**
 	 * @brief AnomalyReportEvent Destructor
@@ -1720,7 +1713,7 @@ public:
 	 *
 	 * @param[in] cueData - Pointer to VTT cue data
 	 */
-	WebVttCueEvent(VTTCue* cueData, std::string sid);
+	WebVttCueEvent(VTTCue* cueData);
 
 	/**
 	 * @brief WebVttCueEvent Destructor
@@ -1757,7 +1750,7 @@ public:
 	 * @param[in] startMS       - Start position of Ad (relative to reservation start)
 	 * @param[in] durationMs    - Duration of the Ad in MS
 	 */
-	AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid);
+	AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs);
 
 	/**
 	 * @brief AdResolvedEvent Destructor
@@ -1807,7 +1800,7 @@ public:
 	 * @param[in] breakId  - Unique identifier of Ad reservation.
 	 * @param[in] position - Postion of reservation in content's PTS
 	 */
-	AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, std::string sid);
+	AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position);
 
 	/**
 	 * @brief AdReservationEvent Destructor
@@ -1852,7 +1845,7 @@ public:
 	 * @param[in] duration  - Ad's duration in MS
 	 * @param[in] errorCode - Error code, in case of placement error
 	 */
-	AdPlacementEvent(AAMPEventType evtType, const std::string &adId, uint32_t position, std::string sid, uint32_t offset=0, uint32_t duration=0, int errorCode=0);
+	AdPlacementEvent(AAMPEventType evtType, const std::string &adId, uint32_t position, uint32_t offset=0, uint32_t duration=0, int errorCode=0);
 
 	/**
 	 * @brief AdPlacementEvent Destructor
@@ -1907,7 +1900,7 @@ public:
 	 * @param[in]  uuid     - unique identifier
 	 * @param[in]  data     - Metrics data
 	 */
-	MetricsDataEvent(MetricsDataType dataType, const std::string &uuid, const std::string &data, std::string sid);
+	MetricsDataEvent(MetricsDataType dataType, const std::string &uuid, const std::string &data);
 
 	/**
 	 * @brief MetricsDataEvent Destructor
@@ -1961,7 +1954,7 @@ public:
 	 * @param[in] id - id of ID3 data
 	 * @param[in] timestampOffset
 	 */
-	ID3MetadataEvent(const std::vector<uint8_t> &metadata, const std::string &schIDUri, std::string &id3Value, uint32_t timeScale, uint64_t presentationTime, uint32_t eventDuration, uint32_t id, uint64_t timestampOffset, std::string sid);
+	ID3MetadataEvent(const std::vector<uint8_t> &metadata, const std::string &schIDUri, std::string &id3Value, uint32_t timeScale, uint64_t presentationTime, uint32_t eventDuration, uint32_t id, uint64_t timestampOffset);
 
 	/**
 	 * @brief ID3MetadataEvent Destructor
@@ -2032,7 +2025,7 @@ public:
 	 *
 	 * @param[in] msg - DRM message
 	 */
-	DrmMessageEvent(const std::string &msg, std::string sid);
+	DrmMessageEvent(const std::string &msg);
 
 	/**
 	 * @brief DrmMessageEvent Destructor
@@ -2063,7 +2056,7 @@ public:
 	 * @brief BlockedEvent Constructor
 	 * @param[in] reason     - Blocked Reason
 	 */
-	BlockedEvent(const std::string &reason, const std::string &currentLocator, std::string sid) : AAMPEventObject(AAMP_EVENT_BLOCKED, std::move(sid = {})) , mReason(reason) , mCurrentLocator(currentLocator)
+	BlockedEvent(const std::string &reason, const std::string &currentLocator ) : AAMPEventObject(AAMP_EVENT_BLOCKED) , mReason(reason) , mCurrentLocator(currentLocator)
 	{}
 
 	/**
@@ -2099,7 +2092,7 @@ public:
 	 * @param[in] time      - Time of event
 	 * @param[in] duration   - Duration of event
 	 */
-	ContentGapEvent(double time, double duration, std::string sid);
+	ContentGapEvent(double time, double duration);
 
 	/**
 	 * @brief ContentGapEvent Destructor
@@ -2137,7 +2130,7 @@ public:
 	 * @param[in] name         - HTTPResponseHeader name
 	 * @param[in] response     - HTTPResponseHeader response
 	 */
-	HTTPResponseHeaderEvent(const std::string &name, const std::string &response, std::string sid);
+	HTTPResponseHeaderEvent(const std::string &name, const std::string &response);
 
 	/**
 	 * @brief HTTPResponseHeaderEvent Destructor
@@ -2176,7 +2169,7 @@ public:
          * @param[in]  status - Status of the watermark session
          * @param[in]  system - Watermarking protection provider
          */
-        WatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system, std::string sid) : AAMPEventObject(AAMP_EVENT_WATERMARK_SESSION_UPDATE, std::move(sid = {})) , mSessionHandle(sessionHandle), mStatus(status), mSystem(system)
+        WatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system) : AAMPEventObject(AAMP_EVENT_WATERMARK_SESSION_UPDATE) , mSessionHandle(sessionHandle), mStatus(status), mSystem(system)
         {}
 
         /**
@@ -2225,7 +2218,7 @@ public:
 	 * @param[in] streamType - Current StreamType
 	 */
 
-	ContentProtectionDataEvent(const std::vector<uint8_t> &keyID, const std::string &streamType, std::string sid);
+	ContentProtectionDataEvent(const std::vector<uint8_t> &keyID, const std::string &streamType);
 
 	/**
 	 * @brief ContentProtectionDataEvent Destructor
@@ -2262,7 +2255,7 @@ public:
 	/**
 	 * @fn ManifestRefreshEvent
 	 */
-	ManifestRefreshEvent(uint32_t manifestDuration, int noOfPeriods, uint32_t manifestPublishedTime, std::string sid);
+	ManifestRefreshEvent(uint32_t manifestDuration, int noOfPeriods, uint32_t manifestPublishedTime);
 
 	/**
 	 * @brief ManifestRefreshEvent Destructor
@@ -2304,7 +2297,7 @@ public:
 	 *
 	 * @param[in] profilingData - tune profiling data
 	 */
-	TuneTimeMetricsEvent(const std::string &profilingData, std::string sid);
+	TuneTimeMetricsEvent(const std::string &profilingData);
 
 	/**
 	 * @brief TuneTimeMetricsEvent Destructor
