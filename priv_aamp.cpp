@@ -4360,21 +4360,8 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 					}
 
 				}
-				if( (!loopAgain) || (downloadAttempt >= maxDownloadAttempt) )
-				{
-					// Failing a fragment, so track this as missing injected buffer time for given track.
-					if( (404 == http_code) || (CURLE_OPERATION_TIMEDOUT == res) )
-					{
-						if( fileType<=eMEDIATYPE_AUX_AUDIO )
-						{
-							MediaTrack* mediaTrack=mpStreamAbstractionAAMP->GetMediaTrack((TrackType)fileType);
-							double duration = mediaTrack->GetTotalMissingDuration() + fragmentDurationSeconds;
-							mediaTrack->SetTotalMissingDuration(duration);
-							AAMPLOG_WARN("HTTP 404 curl 28 - Failed fragment duration has been added to missed fragments duration, media type %d, total = %.3f", fileType, duration );
-						}
-					}
+				if(!loopAgain)
 					break;
-				}
 			}
 		}
 
