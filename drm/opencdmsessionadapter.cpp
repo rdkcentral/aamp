@@ -74,7 +74,7 @@ void AAMPOCDMSessionAdapter::initAampDRMSystem()
 		m_pOpenCDMSystem = opencdm_create_system(m_keySystem.c_str());
 #else
 		m_pOpenCDMSystem = opencdm_create_system();
-#endif
+#endif		
 		if (m_pOpenCDMSystem == nullptr) {
 			AAMPLOG_ERR("opencdm_create_system() FAILED");
 		}
@@ -92,9 +92,7 @@ AAMPOCDMSessionAdapter::~AAMPOCDMSessionAdapter()
 	pthread_mutex_destroy(&decryptMutex);
 
 	if (m_pOpenCDMSystem) {
-#ifdef USE_THUNDER_OCDM_API_0_2
 		opencdm_destruct_system(m_pOpenCDMSystem);
-#endif
 		m_pOpenCDMSystem = NULL;
 	}
 
@@ -152,6 +150,7 @@ void AAMPOCDMSessionAdapter::generateAampDRMSession(const uint8_t *f_pbInitData,
 #else
     OpenCDMError ocdmRet = opencdm_construct_session(m_pOpenCDMSystem, m_keySystem.c_str(), LicenseType::Temporary, initDataType,
 #endif
+
 				  const_cast<unsigned char*>(f_pbInitData), f_cbInitData,
 				  customDataMessage, customDataMessageLength,
 				  &m_OCDMSessionCallbacks,
@@ -243,7 +242,7 @@ DrmData * AAMPOCDMSessionAdapter::aampGenerateKeyRequest(string& destinationURL,
 				(void) m_challenge.erase(0, m_challenge.find(delimiter) + delimiter.length());
 			}
 
-			result = new DrmData(reinterpret_cast<unsigned char*>(const_cast<char*>(m_challenge.c_str())), (int)m_challenge.length());
+			result = new DrmData(reinterpret_cast<unsigned char*>(const_cast<char*>(m_challenge.c_str())), m_challenge.length());
 			destinationURL.assign((m_destUrl.c_str()));
 			AAMPLOG_WARN("destinationURL is %s (default value used as drm server)", destinationURL.c_str());
 			m_eKeyState = KEY_PENDING;
