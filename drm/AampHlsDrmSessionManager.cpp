@@ -58,7 +58,7 @@ std::shared_ptr<HlsDrmBase> AampHlsDrmSessionManager::createSession(PrivateInsta
 	aampInstance->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
 
 	aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
-	DrmMetaDataEventPtr event = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false);
+	DrmMetaDataEventPtr event = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, aampInstance->GetSessionId());
 	mDrmSession = aampInstance->mDRMSessionManager->createDrmSession(drmHelper, event, aampInstance, streamType);
 	if (!mDrmSession)
 	{

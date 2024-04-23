@@ -479,6 +479,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 	char* contentType = NULL;
 	char* strTraceId = NULL;
 	int mpdStichingMode = 0;
+	std::string sid{};
 
 	switch(argumentCount)
 	{
@@ -533,6 +534,15 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 			}
 			JSStringRelease(paramName);
 
+			{
+				paramName = JSStringCreateWithUTF8CString("sessionId");
+				paramValue = JSObjectGetProperty(ctx, argument, paramName, NULL);
+				if (JSValueIsString(ctx, paramValue))
+				{
+					sid = {aamp_JSValueToCString(ctx, paramValue, NULL)};
+				}
+				JSStringRelease(paramName);
+			}
 		}
 		case 2:
 			autoPlay = JSValueToBoolean(ctx, arguments[1]);
@@ -543,8 +553,8 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 
 			{
 				char* url = aamp_JSValueToCString(ctx, arguments[0], exception);
-				LOG_WARN(privObj,"_aamp->Tune(%d, %s, %d, %d, %s)", autoPlay, contentType, bFirstAttempt, bFinalAttempt,strTraceId);
-				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt,strTraceId,audioDecoderStreamSync,url2,mpdStichingMode);
+				LOG_WARN(privObj,"_aamp->Tune(%d, %s, %d, %d, %s) - sid: %s", autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, sid.c_str());
+				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, audioDecoderStreamSync, url2, mpdStichingMode, std::move(sid));
 
 			}
 
@@ -563,6 +573,35 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
         SAFE_DELETE_ARRAY(contentType);
         SAFE_DELETE_ARRAY(strTraceId);
 
+	return JSValueMakeUndefined(ctx);
+}
+
+
+JSValueRef AAMPMediaPlayerJS_getSessionID(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, 
+	size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
+	if (!privObj || !privObj->_aamp)
+	{
+		LOG_ERROR_EX( "JSObjectGetPrivate returned NULL!");
+		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call load() on instances of AAMPPlayer");
+		return JSValueMakeUndefined(ctx);
+	}
+
+	LOG_INFO(privObj," aamp->GetSessionId()");
+
+	const std::string & value = privObj->_aamp->GetSessionId();
+	if (!value.empty())
+	{
+		const auto * c_value = value.c_str();
+		LOG_INFO(privObj," _aamp->GetSessionID() value = [%s]", c_value);
+		return aamp_CStringToJSValue(ctx, c_value);
+	}
+	else
+	{
+		LOG_WARN(privObj,"_aamp->GetSessionID() empty UUID");
+	}
+	LOG_TRACE("Exit");
 	return JSValueMakeUndefined(ctx);
 }
 
@@ -3633,6 +3672,9 @@ static const JSStaticFunction AAMPMediaPlayer_JS_static_functions[] = {
 	{ "getVideoPlaybackQuality", AAMPMediaPlayerJS_getVideoPlaybackQuality, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "getConfiguration", AAMPMediaPlayerJS_getConfiguration, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "resetConfiguration", AAMPMediaPlayerJS_resetConfiguration, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
+
+	{ "getSessionID", AAMPMediaPlayerJS_getSessionID, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
+
 	{ NULL, NULL, 0 },
 };
 

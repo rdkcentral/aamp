@@ -83,9 +83,10 @@ public:
 	 */
 	void Event(const AAMPEventPtr& e);
 
-	virtual void SetEventProperties(const AAMPEventPtr& ev, JSObjectRef jsEventObj)
-	{
-	}
+	/**
+	 * 
+	*/
+	virtual void SetEventProperties(const AAMPEventPtr& ev, JSObjectRef jsEventObj);
 
 public:
 	PrivAAMPStruct_JS* p_obj;   /**< JS execution context to use */

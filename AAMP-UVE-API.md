@@ -269,7 +269,7 @@ Begin streaming the specified content.
 | ---- | ---- | ---------- |
 | uri | String | URI of the Media to be played by the Video Engine |
 | autoplay | Boolean | optional 2nd parameter (defaults to true). If false, causes stream to be prerolled/prebuffered only, but not automatically presented. Available starting with version 0.8 |
-| tuneParams | Object | optional 3rd parameter; The tuneParams Object includes four elements contentType, traceId, isInitialAttempt and isFinalAttempt.  Details provided in below table |
+| tuneParams | Object | optional 3rd parameter; The tuneParams Object includes four elements contentType, traceId, isInitialAttempt, isFinalAttempt and sessionId. Details provided in below table |
 
 | Name | Type | Description |
 | ---- | ---- | ---------- |
@@ -277,7 +277,7 @@ Begin streaming the specified content.
 | traceID | String | Trace ID which is unique for a tune |
 | isInitialAttempt | Boolean | Flag indicates if it’s the first tune initiated, tune is neither a retry nor a rollback |
 | isFinalAttempt | Boolean | Flag indicates if the current tune is the final retry attempt, count has reached the maximum tune retry limit |
-
+| sessionId | String | ID of the Session set by the Video Engine to identify each player. All events emitted by a player will contain a property reporting the player's ID; if the sessionId is not set, then the sessionId will be an empty string. |
 
 |ContentType|Description|
 |-----------|-----------|
@@ -308,6 +308,19 @@ Example:
 	    var url2 = "https://cpetestutility.stb.r53.xcal.tv/multilang/main1.m3u8";
 	    player1.load(url1); // for immediate playback 
 	    player2.load(url2,false); // for background buffering,no playback. 
+    }
+    // support for multiple player instances with session ID
+    {
+	    var player1 = new AAMPMediaPlayer();
+	    var player2 = new AAMPMediaPlayer();
+	    var url1 = "https://cpetestutility.stb.r53.xcal.tv/multilang/main.m3u8";
+	    var url2 = "https://cpetestutility.stb.r53.xcal.tv/multilang/main1.m3u8";
+
+	    var params_1 = { sessionId: "12192978-da71-4da7-8335-76fbd9ae2ae9" };
+	    var params_2 = { sessionId: "6e3c49cb-6254-4324-9f5e-bddef465bdff" };
+
+	    player1.load(url1, true, params_1); // for immediate playback 
+	    player2.load(url2, false, params_2); // for background buffering,no playback. 
     }
 ```
 
@@ -1548,6 +1561,7 @@ Example:
 - shouldRetry: boolean
 - code: number
 - description: string
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 
 
 **Description:** 
@@ -1561,6 +1575,7 @@ Example:
 **Event Payload:** 
 - speed: number
 - reason: string
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 
 **Description:** 
 - Supported UVE version 0.7 and above.
@@ -1577,6 +1592,9 @@ Example:
 
 ### playlistIndexed
 
+**Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
+
 **Description:** 
 - Fired after manifest / playlist parsing completed
 
@@ -1585,6 +1603,7 @@ Example:
 ### playbackProgressUpdate
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - durationMiliseconds: number
 - positionMiliseconds: number
 - playbackSpeed: number
@@ -1608,6 +1627,7 @@ Example:
 ### decoderAvailable
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - decoderHandle: number
 
 **Description:** 
@@ -1626,6 +1646,7 @@ Example:
 ### mediaMetadata
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - durationMiliseconds: number
 - languages: string[]
 - bitrates: number[]
@@ -1655,6 +1676,7 @@ Example:
 ### bitrateChanged
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - time: number
 - bitRate: number
 - description: string
@@ -1675,6 +1697,7 @@ Example:
 ### timedMetadata
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - time: number
 - duration: number
 - name: string
@@ -1692,6 +1715,7 @@ Example:
 ### bulkTimedMetadata
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - content: string
 
 **Description:** 
@@ -1702,6 +1726,7 @@ Example:
 ### playbackStateChanged
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - state: [number](#getcurrentstate)
 
 **Description:** 
@@ -1723,6 +1748,7 @@ Example:
 ### speedsChanged
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - playbackSpeeds: number[]
 
 **Description:** 
@@ -1734,6 +1760,7 @@ Example:
 ### seeked
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - Position: number
 
 **Description:** 
@@ -1744,6 +1771,7 @@ Example:
 ### tuneProfiling
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - microdata:string
 
 **Description:** 
@@ -1754,6 +1782,7 @@ Example:
 ### bufferingChanged
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - buffering: bool
 
 **Description:** 
@@ -1770,7 +1799,8 @@ Example:
 
 ### ManifestRefresh
 
-**Event Payload:**
+**Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - manifestDuration: number (duration in seconds)
 - manifestPublishedTime: number (UTC seconds)
 - noOfPeriods: number (period count)
@@ -1782,7 +1812,8 @@ Example:
 
 ### tuneMetricsData
 
-**Event Payload:**
+**Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - tuneMetricsData: string
 
 **Description:**
@@ -1854,12 +1885,18 @@ Example:
 
 ### audioTracksChanged
 
+**Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
+
 **Description:** 
 - Fired when Audio track is changed during playback
 
 ---
 
 ### textTracksChanged
+
+**Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 
 **Description:** 
 - Fired when Text track is changed during playback
@@ -1890,6 +1927,7 @@ Example:
 ### drmMetadata
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - code: number
 - description: string
 - headers: array
@@ -1919,6 +1957,7 @@ Example:
 ### anomalyReport
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - severity: string
 - description:string
 
@@ -1930,6 +1969,7 @@ Example:
 ### vttCueDataListener
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - start : number
 - duration: number
 - text:string
@@ -1944,6 +1984,7 @@ Example:
 ### adResolved
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - resolvedStatus: bool
 - placementId: string
 - placementStartTime: number
@@ -1958,6 +1999,7 @@ Example:
 ### reservationStart
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - adbreakId: string
 - time: number
 
@@ -1970,6 +2012,7 @@ Example:
 ### reservationEnd
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - adbreakId: string
 - time: number
 
@@ -1982,6 +2025,7 @@ Example:
 ### placementStart
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - adId: string
 - time: number
 
@@ -1994,6 +2038,7 @@ Example:
 ### placementEnd
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - adId: string
 - time: number
 
@@ -2006,6 +2051,7 @@ Example:
 ### placementError
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - adId: string
 - time: number
 - error: number
@@ -2019,6 +2065,7 @@ Example:
 ### placementProgress
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - adId: string
 - time: number
 
@@ -2031,6 +2078,7 @@ Example:
 ### metricsData
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - metricType:string
 - traceID:string
 - metricData:string
@@ -2043,6 +2091,7 @@ Example:
 ### id3Metadata
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - schemeIdUri : string
 - value : string
 - timescale : number
@@ -2061,6 +2110,7 @@ Example:
 ### drmMessage
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - data:string
 
 **Description:** 
@@ -2071,6 +2121,7 @@ Example:
 ### blocked
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - reason:string
 
 **Description:** 
@@ -2081,6 +2132,7 @@ Example:
 ### contentGap
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - time:number
 - duration:number
 
@@ -2093,6 +2145,7 @@ Example:
 ### httpResponseHeader
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - header:string
 - response:string
 
@@ -2105,6 +2158,7 @@ Example:
 ### watermarkSessionUpdate
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - sessionHandle:string
 - status:string
 - system:string
@@ -2117,6 +2171,7 @@ Example:
 ### contentProtectionDataUpdate
 
 **Event Payload:** 
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - keyID : vector<uint8_t>
 - streamType : string 
 
@@ -2127,7 +2182,7 @@ Example:
 Example:
 {"keyID":
 [102,101,97,53,53,48,48,54,45,51,102,48,102,45,99,101,97,99,45,55,54,99,48,45,5
-1,55,50,98,99,50,54,100,48,55,100,50,0],"streamType":"VIDEO"}
+1,55,50,98,99,50,54,100,48,55,100,50,0],"streamType":"VIDEO", "sessionId":""}
 ```
 ---
 

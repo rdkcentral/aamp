@@ -26,7 +26,9 @@ using namespace testing;
 using namespace std;
 
 AampConfig *gpGlobalConfig{nullptr};
-        
+
+const std::string session_id {"6e3c49cb-6254-4324-9f5e-bddef465bdff"};
+
 class AampEventManagerTest : public Test {
 protected:
     class TestableAampEventManager : public AampEventManager{
@@ -97,26 +99,26 @@ TEST_F(AampEventManagerTest, CallGetSourceIDTest)
 TEST_F(AampEventManagerTest, CallSendEventAsyncTest1)
 {
     AAMPEventPtr eventData;
-    eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED);
+    eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED, session_id);
     handler->CallSendEventASync(eventData);
 }
 TEST_F(AampEventManagerTest, CallSendEventAsyncTest2)
 {
     AAMPEventPtr eventData;
-    eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED);
+    eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED, session_id);
     handler->SetPlayerState(eSTATE_RELEASED);
     handler->CallSendEventASync(eventData);
 }
 TEST_F(AampEventManagerTest, CallSendEventsyncTest1)
 {
     AAMPEventPtr eventData;
-    eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED);
+    eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED, session_id);
     handler->CallSendEventSync(eventData);
 }
 TEST_F(AampEventManagerTest, CallSendEventsyncTest2)
 {
     AAMPEventPtr eventData;
-    eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED);
+    eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED, session_id);
     handler->SetPlayerState(eSTATE_RELEASED);
     handler->CallSendEventSync(eventData);
 }
@@ -223,7 +225,7 @@ TEST_F(AampEventManagerTest,AddEventListenerTest_1)
 TEST_F(AampEventManagerTest, SendEventTest_1)
 {
     //Arrange:variable declaration
-    AAMPEventPtr evntPtr= std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS);
+    AAMPEventPtr evntPtr= std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, session_id);
     for(int i= AAMP_EVENT_DEFAULT_MODE ; i<= AAMP_EVENT_ASYNC_MODE ;i++)
     {
     // Act: call the SendEvent function
@@ -233,7 +235,7 @@ TEST_F(AampEventManagerTest, SendEventTest_1)
 
 TEST_F(AampEventManagerTest, SendEventTest_2)
 {
-    AAMPEventPtr evntPtr= std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS);
+    AAMPEventPtr evntPtr= std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, session_id);
     handler->SetPlayerState(eSTATE_PLAYING);
     handler->SendEvent(evntPtr,(AAMPEventMode)4);
 }
