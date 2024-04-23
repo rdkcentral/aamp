@@ -471,7 +471,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 #else
 	bool isSecClientError = false;
 #endif
-	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError);
+	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, mPrivAAMP->GetSessionId());
 
 	if (mPrivAAMP == nullptr)
 	{
@@ -516,7 +516,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	if(mPrivAAMP->mIsFakeTune)
 	{
 		mPrivAAMP->SetState(eSTATE_COMPLETE);
-		mPrivAAMP->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS));
+		mPrivAAMP->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, mPrivAAMP->GetSessionId()));
 	}
 	return ret;
 }

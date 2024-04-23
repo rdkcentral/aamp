@@ -47,6 +47,8 @@ public:
     MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampGrowableBuffer*, double, double, double, bool, bool));
     MOCK_METHOD(MediaFormat,GetMediaFormatTypeEnum,());
     MOCK_METHOD(long long, GetPositionMs, ());
+
+    MOCK_METHOD(const std::string &, GetSessionId, ());
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

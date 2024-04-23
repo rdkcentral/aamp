@@ -303,7 +303,7 @@ void StreamAbstractionAAMP_OTA::SendMediaMetadataEvent()
 {
 	if(aamp->IsEventListenerAvailable(AAMP_EVENT_MEDIA_METADATA))
 	{
-		MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(-1/*duration*/, miVideoWidth, miVideoHeight, false/*hasDrm*/,true/*isLive*/, ""/*drmtype*/, -1/*programStartTime*/,0/*tsbdepth*/);
+		MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(-1/*duration*/, miVideoWidth, miVideoHeight, false/*hasDrm*/,true/*isLive*/, ""/*drmtype*/, -1/*programStartTime*/,0/*tsbdepth*/, std::string{});
 
 		// This is video bitrate
 		event->addBitrate(mVideoBitrate);
