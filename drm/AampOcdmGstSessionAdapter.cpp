@@ -104,7 +104,7 @@ void LogPerformanceExt(const char *strFunc, uint64_t msStart, uint64_t msEnd, SE
 				double avgTime = (double) stats[idx].nTimeTotal / (double) stats[idx].nCallsTotal;
 				if (avgTime >= DECRYPT_AVG_TIME_THRESHOLD)
 				{
-					AAMPLOG_WARN("%s Thread ID %X (%d) Avg Time %0.2lf ms, Avg Bytes %llu  calls (%llu) Interval avg time %0.2lf, Interval avg bytes %llu",
+					AAMPLOG_WARN("%s Thread ID %p (%d) Avg Time %0.2lf ms, Avg Bytes %llu  calls (%llu) Interval avg time %0.2lf, Interval avg bytes %llu",
 							strFunc, stats[idx].threadID, idx, avgTime, stats[idx].nBytesTotal / stats[idx].nCallsTotal, stats[idx].nCallsTotal, (double) stats[idx].nTimeInterval / (double) INTERVAL, stats[idx].nBytesInterval / INTERVAL);
 				}
 				stats[idx].nBytesInterval = 0;
@@ -276,9 +276,6 @@ int AAMPOCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuff
 
 	if (m_pOpenCDMSession)
 	{
-		uint64_t start_decrypt_time;
-		uint64_t end_decrypt_time;
-
 		if (!verifyOutputProtection())
 		{
 			return HDCP_COMPLIANCE_CHECK_FAILURE;
@@ -292,7 +289,7 @@ int AAMPOCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuff
 		ExtractSEI(buffer);
 #endif
 		pthread_mutex_lock(&decryptMutex);
-		start_decrypt_time = GetCurrentTimeStampInMSec();
+		uint64_t start_decrypt_time = GetCurrentTimeStampInMSec();
 
 #if defined(AMLOGIC)
 		/* Added GST_IS_CAPS check also before passing gst caps to OCDM decrypt() as gst_caps_is_empty returns false when caps object is not of 
@@ -306,7 +303,7 @@ int AAMPOCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuff
 #endif
 			/* CID:328751 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
 			retValue = opencdm_gstreamer_session_decrypt(m_pOpenCDMSession, buffer, subSamplesBuffer, subSampleCount, ivBuffer, keyIDBuffer, 0);
-		end_decrypt_time = GetCurrentTimeStampInMSec();
+		uint64_t end_decrypt_time = GetCurrentTimeStampInMSec();
 		if (retValue != 0)
 		{
 			GstMapInfo keyIDMap;
@@ -359,9 +356,6 @@ int AAMPOCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, c
 
 	if (m_pOpenCDMSession)
 	{
-		uint64_t start_decrypt_time;
-		uint64_t end_decrypt_time;
-
 		if (!verifyOutputProtection())
 		{
 			return HDCP_COMPLIANCE_CHECK_FAILURE;
@@ -370,7 +364,6 @@ int AAMPOCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, c
 #ifdef USE_RIALTO_OCDM
 		AAMPLOG_ERR("opencdm_session_decrypt not implemented");
 #else
-		start_decrypt_time = GetCurrentTimeStampInMSec();
 		EncryptionScheme encScheme = AesCtr_Cenc;
 		EncryptionPattern pattern = {0};
 		/* CID:313718 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
