@@ -139,7 +139,8 @@ bool AampOutputProtection::IsMS2V12Supported()
 	try {
 		//Get the HDMI port
 		device::Manager::Initialize();
-		::device::VideoOutputPort &vPort = ::device::Host::getInstance().getVideoOutputPort("HDMI0");
+        	std::string strVideoPort = device::Host::getInstance().getDefaultVideoPortName();
+		::device::VideoOutputPort &vPort = ::device::Host::getInstance().getVideoOutputPort(strVideoPort);
 		int caps;
 		vPort.getAudioOutputPort().getAudioCapabilities(&caps);
 		if(((caps & dsAUDIOSUPPORT_MS12V2) == dsAUDIOSUPPORT_MS12V2))
@@ -178,7 +179,8 @@ void AampOutputProtection::SetHDMIStatus()
     try {
         //Get the HDMI port
 	device::Manager::Initialize();
-        ::device::VideoOutputPort &vPort = ::device::Host::getInstance().getVideoOutputPort("HDMI0");
+        std::string strVideoPort = device::Host::getInstance().getDefaultVideoPortName();
+        ::device::VideoOutputPort &vPort = ::device::Host::getInstance().getVideoOutputPort(strVideoPort);
         isConnected        = vPort.isDisplayConnected();
         hdcpProtocol       = (dsHdcpProtocolVersion_t)vPort.getHDCPProtocol();
         if(isConnected) {
