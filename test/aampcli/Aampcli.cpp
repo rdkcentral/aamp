@@ -41,8 +41,7 @@ Aampcli :: Aampcli():
 	mEventListener(NULL),
 	mAampGstPlayerMainLoop(NULL),
 	mAampMainLoopThread(NULL),
-	mPlayerInstances(),
-	mPlayerSessionID()
+	mPlayerInstances()
 {
 };
 
@@ -55,8 +54,7 @@ Aampcli::Aampcli(const Aampcli& aampcli):
 	mEventListener(NULL),
 	mAampGstPlayerMainLoop(NULL),
 	mAampMainLoopThread(NULL),
-	mPlayerInstances(),
-	mPlayerSessionID(aampcli.mPlayerSessionID)
+	mPlayerInstances()
 {
 	mSingleton = aampcli.mSingleton;
 	mEventListener = aampcli.mEventListener;
@@ -302,7 +300,6 @@ void Aampcli::newPlayerInstance( std::string appName)
 	int playerId = player->GetId();
 	printf( "new playerInstance; id=%d\n", playerId );
 	mPlayerInstances.push_back(player);
-	mPlayerSessionID.push_back({});
 	mSingleton = player; // select
 	mSingleton->SetContentProtectionDataUpdateTimeout(0);
 }
@@ -350,43 +347,6 @@ int Aampcli::getApplicationDir( char *buffer, uint32_t size )
 
 	return (int)strnlen(buffer, size);
 }
-
-bool Aampcli::SetSessionId(std::string sid)
-{
-	const auto playerId = mSingleton->GetId();
-
-	if (mPlayerSessionID.size() >= playerId)
-	{
-		mPlayerSessionID[playerId] = std::move(sid);
-		std::cout << "[AAMPCLI] SessionId - " << playerId << " # " << mPlayerSessionID[playerId] << std::endl;
-	}
-
-	return true;
-}
-
-std::string Aampcli::GetSessionId() const 
-{
-	const auto playerId = mSingleton->GetId();
-
-	if (mPlayerSessionID.size() >= playerId)
-	{
-		return mPlayerSessionID[playerId];
-	}
-
-	return {};
-}
-
-
-std::string Aampcli::GetSessionId(size_t index) const 
-{
-	if (mPlayerSessionID.size() > index)
-	{
-		return mPlayerSessionID[index];
-	}
-
-	return {};
-}
-
 
 
 /**
@@ -621,7 +581,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 #endif
 				if(mAampcli.mEnableProgressLog)
 				{
-					printf("[AAMPCLI] AAMP_EVENT_PROGRESS\n\tDuration=%lf\n\tposition=%lf\n\tstart=%lf\n\tend=%lf\n\tcurrRate=%f\n\tBufferedDuration=%lf\n\tPTS=%lld\n\ttimecode=%s\n\tlatency=%lf\n\tprofileBandwidth=%ld\n\tnetworkBandwidth=%ld\n\tcurrentPlayRate=%lf\n\tsessionId=%s\n",ev->getDuration(),ev->getPosition(),ev->getStart(),ev->getEnd(),ev->getSpeed(),ev->getBufferedDuration(),ev->getPTS(),ev->getSEITimeCode(), ev->getLiveLatency(), ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());
+					printf("[AAMPCLI] AAMP_EVENT_PROGRESS\n\tDuration=%lf\n\tposition=%lf\n\tstart=%lf\n\tend=%lf\n\tcurrRate=%f\n\tBufferedDuration=%lf\n\tPTS=%lld\n\ttimecode=%s\n\tlatency=%lf\n\tprofileBandwidth=%ld\n\tnetworkBandwidth=%ld\n\tcurrentPlayRate=%lf\n",ev->getDuration(),ev->getPosition(),ev->getStart(),ev->getEnd(),ev->getSpeed(),ev->getBufferedDuration(),ev->getPTS(),ev->getSEITimeCode(), ev->getLiveLatency(), ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate());
 				}
 			}
 			break;

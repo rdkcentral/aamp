@@ -262,18 +262,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	}
 	else if( playerInstanceAamp->isTuneScheme(cmd) )
 	{
-		const auto sid = mAampcli.GetSessionId();
-		if (sid.empty())
-		{
-			playerInstanceAamp->Tune(cmd, mAampcli.mbAutoPlay);
-		}
-		else
-		{
-			playerInstanceAamp->Tune(cmd, mAampcli.mbAutoPlay,
-				nullptr, true, false, nullptr, true, nullptr, 0,
-				std::move(sid));
-		}
-
+		playerInstanceAamp->Tune(cmd,mAampcli.mbAutoPlay);
 	}
 	else if( isCommandMatch(cmd, "next") )
 	{
@@ -738,30 +727,6 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 			printf("[AAMP-CLI] ERROR - expected 'scte35 <base64>'\n");
 		}
 	}
-	else if (isCommandMatch(cmd,"sessionid"))
-	{
-		char sid[128] = {'\0'};
-
-		printf("[AAMPCLI] Matched Command SessionID - %s\n", cmd);
-		const auto res = sscanf(cmd, "sessionid %127s", sid);
-
-		if (res == 1)
-		{
-			mAampcli.SetSessionId({sid});
-		}
-		else
-		{
-			for (const auto & inst : mAampcli.mPlayerInstances)
-			{
-				if (inst)
-				{
-					const auto index = inst->GetId();
-					printf("[AAMPCLI] Player: %d - %s | %s\n", index,
-						mAampcli.GetSessionId(index).c_str(), inst->GetSessionId().c_str());
-				}
-			}
-		}
-	}
 	else
 	{
 		printf( "[AAMP-CLI] unmatched command: %s\n", cmd );
@@ -858,8 +823,6 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("prev","Tune previous virtual channel");
 	addCommand("<url>","Tune to arbitrary locator");
 	addCommand("fog <url|host=ip:port>", "'fog url' tune to arbitrary locator via fog. 'fog host=ip:port' set fog location (default: 127.0.0.1:9080)");
-
-	addCommand("sessionid [<sid>]", "Session ID to be passed to the player with the next tune command. If called without argument, will print the current Session IDs of all players.");
 
 	// trickplay
 	addCommand("play","Continue existing playback");
