@@ -87,6 +87,7 @@ private:
     std::condition_variable mCv;
     std::mutex mStartMutex;
     int mSockBufSize;
+    int mPktWriteFailCtr;
 protected:
     PacketSender() : 
         mSendThread(), 
@@ -96,6 +97,7 @@ protected:
         mPktMutex(), 
         mCv(),
         mStartMutex(),
-        mSockBufSize(0)
+        mSockBufSize(0),
+        mPktWriteFailCtr(0)
         {}
 };
