@@ -53,9 +53,10 @@ TESTDATA1 = {
 
         {"expect": r"Returning Position as 3(\d{3}) "},
         
+        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/en_02(\d){1}\.mp3\?hello_1"},
+        
         {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/(1080|720|480|360)p_02(\d){1}\.m4s\?hello_1"},
 
-        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/en_02(\d){1}\.mp3\?hello_1"},
         
     ]
 }
