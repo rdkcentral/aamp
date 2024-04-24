@@ -60,6 +60,12 @@ endif()
 if (COVERAGE_ENABLED)
     include(CodeCoverage)
     APPEND_COVERAGE_COMPILER_FLAGS()
+    #Set NO_EXCLUDE_DIR to the location of this test so it doesn't get excluded & include common exclude files:
+    set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/StreamAbstractionAAMP_HLS/*")
+    include("${PROJECT_SOURCE_DIR}/cmake_exclude_file.list")    
+    SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
+                              EXECUTABLE ${EXEC_NAME}
+                              DEPENDENCIES ${EXEC_NAME})
 endif()
 
 
