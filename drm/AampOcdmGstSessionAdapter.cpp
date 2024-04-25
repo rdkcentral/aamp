@@ -297,7 +297,12 @@ int AAMPOCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuff
 		   type GST_TYPE_CAPS. This will avoid crash when caps is not of type GST_TYPE_CAPS. */
 		if (AAMPOCDMGSTSessionDecrypt && !gst_caps_is_empty(caps) && GST_IS_CAPS(caps))
 		{
-			AAMPLOG_TRACE("Caps is %s", gst_caps_to_string(caps));
+			char *s = gst_caps_to_string(caps);
+			if( s )
+			{
+				AAMPLOG_TRACE("Caps is %s", s);
+				g_free( s );
+			}
 			retValue = AAMPOCDMGSTSessionDecrypt(m_pOpenCDMSession, buffer, subSamplesBuffer, subSampleCount, ivBuffer, keyIDBuffer, 0, caps);
 		}
 		else
