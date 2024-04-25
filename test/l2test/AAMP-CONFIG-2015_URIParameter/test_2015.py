@@ -53,10 +53,15 @@ TESTDATA1 = {
 
         {"expect": r"Returning Position as 3(\d{3}) "},
         
-        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/en_02(\d){1}\.mp3\?hello_1"},
-        
-        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/(1080|720|480|360)p_02(\d){1}\.m4s\?hello_1"},
 
+        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/en_0[0-4](\d){1}\.mp3\?hello_1"}, 
+        
+
+        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/(1080|720|480|360)p_0[0-4](\d){1}\.m4s\?hello_1"},
+
+        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/en_0[0-4](\d){1}\.mp3\?hello_1"}, 
+
+        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/(1080|720|480|360)p_0[0-4](\d){1}\.m4s\?hello_1"},
         
     ]
 }
@@ -75,3 +80,4 @@ def test_2015(aamp_setup_teardown, test_data):
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
     aamp.run_expect_a(test_data)
+
