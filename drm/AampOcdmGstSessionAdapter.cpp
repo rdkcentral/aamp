@@ -4,6 +4,7 @@
  */
 
 #include <sys/time.h>
+#include <inttypes.h>
 #include "AampOcdmGstSessionAdapter.h"
 
 #ifdef AMLOGIC
@@ -104,8 +105,8 @@ void LogPerformanceExt(const char *strFunc, uint64_t msStart, uint64_t msEnd, SE
 				double avgTime = (double) stats[idx].nTimeTotal / (double) stats[idx].nCallsTotal;
 				if (avgTime >= DECRYPT_AVG_TIME_THRESHOLD)
 				{
-					AAMPLOG_WARN("%s Thread ID %p (%d) Avg Time %0.2lf ms, Avg Bytes %llu  calls (%llu) Interval avg time %0.2lf, Interval avg bytes %llu",
-							strFunc, stats[idx].threadID, idx, avgTime, stats[idx].nBytesTotal / stats[idx].nCallsTotal, stats[idx].nCallsTotal, (double) stats[idx].nTimeInterval / (double) INTERVAL, stats[idx].nBytesInterval / INTERVAL);
+					AAMPLOG_WARN("%s Thread ID %zu (%d) Avg Time %0.2lf ms, Avg Bytes %" PRIu64 "  calls (%" PRIu64 ") Interval avg time %0.2lf, Interval avg bytes %" PRIu64,
+							strFunc, GetPrintableThreadID(stats[idx].threadID), idx, avgTime, stats[idx].nBytesTotal / stats[idx].nCallsTotal, stats[idx].nCallsTotal, (double) stats[idx].nTimeInterval / (double) INTERVAL, stats[idx].nBytesInterval / INTERVAL);
 				}
 				stats[idx].nBytesInterval = 0;
 				stats[idx].nTimeInterval = 0;
