@@ -2826,12 +2826,19 @@ void StreamAbstractionAAMP_MPD::ProcessManifestHeaderResponse(std::shared_ptr<Ma
 
 			for ( std::string header : headersNeeded )
 			{
+				header.erase(std::remove_if(header.begin(), header.end(), ::isspace),header.end()); // normalize - strip whitespace
 				for ( std::string availHeader : manifestResponseHeader )
 				{
-					if(STARTS_WITH_IGNORE_CASE(availHeader.c_str(), header.c_str()))
+					auto delim = availHeader.find(':');
+					if (delim != std::string::npos)
 					{
-						aamp->httpHeaderResponses[header] =	 availHeader.substr(header.length()+2);
-						break;
+						std:string headerString = availHeader.substr(0, delim); // normalize - strip whitespace
+						headerString.erase(std::remove_if(headerString.begin(), headerString.end(), ::isspace),headerString.end());
+						if(headerString == header)
+						{
+							aamp->httpHeaderResponses[header] = availHeader.substr(header.length()+2);
+							break;
+						}
 					}
 				}
 			}
