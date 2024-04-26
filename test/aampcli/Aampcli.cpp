@@ -73,12 +73,8 @@ Aampcli :: ~Aampcli()
 
 void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS, int playTimeS, int betweenTimeS )
 {
-#if defined (__APPLE__) || defined(UBUNTU)
-	std::string outPath(getenv("HOME"));
-#else
-	std::string outPath("/opt");
-#endif
-	outPath += "/test-results.csv";
+
+	std::string outPath = aamp_GetConfigPath("/opt/test-results.csv");
 	const char *mod = "wb"; // initially clear file
 	CommandHandler lCommandHandler;
 
@@ -233,14 +229,8 @@ FILE * Aampcli::getConfigFile(const std::string& cfgFile)
 	{
 		return NULL;
 	}
-#if defined(__APPLE__) || defined(UBUNTU)
-	std::string cfgBasePath(getenv("HOME"));
-	std::string cfgPath = cfgBasePath + cfgFile;
-	FILE *f = fopen(cfgPath.c_str(), "rb");
-#else
-	std::string cfgPath = "/opt" + cfgFile;
-	FILE *f = fopen(cfgPath.c_str(), "rb");
-#endif
+	std::string path = aamp_GetConfigPath(cfgFile);
+	FILE *f = fopen(path.c_str(), "rb");
 
 	return f;
 }
@@ -411,8 +401,8 @@ int main(int argc, char **argv)
 	mAampcli.newPlayerInstance();
 
 	// Read/create virtual channel map
-	const std::string cfgCSV("/aampcli.csv");
-	const std::string cfgLegacy("/aampcli.cfg");
+	const std::string cfgCSV("/opt/aampcli.csv");
+	const std::string cfgLegacy("/opt/aampcli.cfg");
 	FILE *f;
 	if ( (f = mAampcli.getConfigFile(cfgCSV)) != NULL)
 	{ // open virtual map from csv file

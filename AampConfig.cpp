@@ -1491,30 +1491,6 @@ void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 	}
 }
 
-static std::string GetConfigPathHelper( const char *file )
-{
-	std::string cfgPath;
-	const char *env_aamp_enable_opt = "true"; // default
-#ifdef AAMP_SIMULATOR_BUILD
-	const char *cfgDir = getenv("AAMP_CFG_DIR"); // look for specified dir env
-	cfgPath = (nullptr != cfgDir) ? cfgDir : getenv("HOME"); // if not available try HOME
-	AAMPLOG_WARN("cfgPath=%s", cfgPath.c_str());
-	const char *prefix = "/opt/";
-	size_t len = strlen(prefix);
-	if( strlen(file)>=len && memcmp(file,prefix,len)==0 )
-	{ // skip leading /opt in simulator
-		file += len-1;
-	}
-#elif defined(AAMP_CPC) // in Comcast builds AAMP_ENABLE_OPT_OVERRIDE defined only in PROD builds
-	env_aamp_enable_opt = getenv("AAMP_ENABLE_OPT_OVERRIDE");
-#endif
-	if(env_aamp_enable_opt)
-	{
-		cfgPath += file;
-	}
-	return cfgPath;
-}
-
 /**
  * @brief ReadAampCfgJsonFile - Function to parse and process configuration file in json format
  *
@@ -1523,8 +1499,8 @@ static std::string GetConfigPathHelper( const char *file )
 bool AampConfig::ReadAampCfgJsonFile()
 {
 	bool retVal=false;
-	std::string cfgPath = GetConfigPathHelper(AAMP_JSON_PATH);
-	
+	std::string cfgPath = aamp_GetConfigPath(AAMP_JSON_PATH);
+
 	if (!cfgPath.empty())
 	{
 		std::ifstream f(cfgPath, std::ifstream::in | std::ifstream::binary);
@@ -1560,7 +1536,8 @@ bool AampConfig::ReadAampCfgJsonFile()
 bool AampConfig::ReadAampCfgTxtFile()
 {
 	bool retVal = false;
-	std::string cfgPath = GetConfigPathHelper(AAMP_CFG_PATH);
+	std::string cfgPath = aamp_GetConfigPath(AAMP_CFG_PATH);
+
 	if (!cfgPath.empty())
 	{
 		std::ifstream f(cfgPath, std::ifstream::in | std::ifstream::binary);

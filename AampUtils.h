@@ -332,4 +332,20 @@ namespace aamp_utils
 	*DST++ = "0123456789abcdef"[BYTE&0xf]; \
 }
 
+/**
+ * @brief Account for various overrides and env variables to give path to file
+ * @param[in] filename A file which may not exist if the intention is to write
+ * On simulator
+ * "/opt/somefile.txt -> "$AAMP_CFG_DIR/somefile.txt" or "$HOME/somefile.txt"
+ * "a_file.txt"       ->  "$AAMP_CFG_DIR/a_file.txt" or "$HOME/a_file.txt"
+ * "/abc/a_file.txt"  ->  "$AAMP_CFG_DIR/abc/a_file.txt" or "$HOME/abc/a_file.txt"
+ *
+ * On production build
+ * filename is not modified
+ *
+ * @retval a full path
+ */
+std::string aamp_GetConfigPath( const std::string &filename );
+
+
 #endif  /* __AAMP_UTILS_H__ */

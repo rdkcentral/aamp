@@ -27,14 +27,8 @@
 
 #include <limits.h>
 
-#if defined(UNIT_TEST_ENABLED) || defined(UTEST)
-#define AAMP_CFG_PATH "aamp.cfg"
-#define AAMP_JSON_PATH "aampcfg.json"
-#else
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
-#endif
-
 
 #define AAMP_VERSION "6.5"
 #define AAMP_TUNETIME_VERSION 5

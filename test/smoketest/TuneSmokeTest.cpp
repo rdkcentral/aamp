@@ -237,21 +237,7 @@ void SmokeTest::getTuneDetails()
 
 bool SmokeTest::getFilePath(std::string &filePath)
 {
-#ifdef SIMULATOR_BUILD
-	char *ptr = getenv("HOME");
-	if(ptr)
-	{
-		filePath.append(ptr); 
-		filePath += "/smoketest/";
-	}
-	else
-	{
-		printf("Path not found \n");
-		return false;
-	}
-#else
-	filePath = "/opt/smoketest/";
-#endif
+	filePath = aamp_GetConfigPath("/opt/smoketest");
 	return true;
 }
 
