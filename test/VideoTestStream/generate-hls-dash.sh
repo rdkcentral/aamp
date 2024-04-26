@@ -60,6 +60,7 @@ source helper/generate-audio-manifests.sh
 source helper/generate-text-data.sh
 if [ "$RUN_HLS" == 1 ]; then
 	source helper/generate-muxed-video.sh
+	source helper/generate-hls-manifest.sh
 fi
 
 if [ "$RUN_DASH" == 1 ]; then

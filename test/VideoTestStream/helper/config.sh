@@ -35,3 +35,8 @@ IMG_NAME="testpat.jpg"
 RUN_DASH=1
 RUN_HLS=1
 
+#AUDIO_CODEC can be "aac" "ac3" "eac3" 
+AUDIO_CODEC="aac"
+
+#VIDEO_CODEC can be "h264" "hevc" "hevc -tag:v hev1" 
+VIDEO_CODEC="h264"

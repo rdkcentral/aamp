@@ -13,4 +13,5 @@ rm SegmentBase.mpd
 rm SegmentList.mpd
 rm SegmentTemplate.mpd
 rm SegmentTimeline.mpd
-rm mainduration.mpd
+rm mainDynamic.mpd
+rm mainDynamic.m3u8
