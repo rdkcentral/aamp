@@ -32,6 +32,7 @@ pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(LibXml2 REQUIRED libxml-2.0)
+pkg_check_modules(LIBCJSON REQUIRED libcjson)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

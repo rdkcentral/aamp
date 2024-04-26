@@ -29,15 +29,12 @@ set(EXEC_NAME AampTelemetryTests)
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle)
 include_directories(${AAMPCLI_ROOT})
 
-if(CMAKE_SYSTEM_NAME STREQUAL Linux)
-    include_directories(${AAMP_ROOT}/Linux/include)
-endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
-
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
+include_directories(${LIBCJSON_INCLUDE_DIRS})
 
 set(TEST_SOURCES AampTelemetryTests.cpp
                  TelemetryTests.cpp)

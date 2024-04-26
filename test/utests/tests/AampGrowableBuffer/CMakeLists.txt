@@ -26,20 +26,11 @@ set(EXEC_NAME AampGrowableBuffer)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/downloader ${AAMP_ROOT}/subtitle)
 
-# Mac OS X
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    include_directories(/usr/local/include)
-    set(OS_LD_FLAGS -L/usr/local/lib)
-
-else()
-    include_directories(${AAMP_ROOT}/Linux/include)
-    set(OS_LD_FLAGS -luuid)
-endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 

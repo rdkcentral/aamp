@@ -94,7 +94,7 @@ def test_1001(aamp_setup_teardown):
     if platform.system() == 'Darwin':
         lib_path = os.path.join(aamp.aamp_home, "build", "Debug", "lib", "gstreamer-1.0")
     else:
-        lib_path = os.path.join(aamp.aamp_home, "Linux", "lib", "gstreamer-1.0")
+        lib_path = os.path.join(aamp.aamp_home, ".libs", "lib", "gstreamer-1.0")
 
     aamp.AAMP_ENV.update({"GST_PLUGIN_PATH": lib_path})
 

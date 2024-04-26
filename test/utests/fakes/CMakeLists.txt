@@ -35,13 +35,11 @@ include_directories(${UTESTS_ROOT}/mocks)
 
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    include_directories(/usr/local/include)
     include_directories(${AAMP_ROOT}/.libs/systemd/src)
-else()
-    include_directories(${AAMP_ROOT}/Linux/include)
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 
-
+include_directories(${AAMP_ROOT}/.libs/include)
+include_directories(${UTESTS_ROOT}/mocks)
 
 add_library(fakes ${fakes_SRC})
 set_target_properties(fakes PROPERTIES FOLDER "utests")

@@ -25,8 +25,24 @@ function(xcode_define_schema new_schema)
 endfunction()
 
 if(APPLE)
-	set(CMAKE_C_COMPILER "/usr/bin/cc")
-	set(CMAKE_CXX_COMPILER "/usr/bin/c++")
+    set(CMAKE_C_COMPILER "/usr/bin/cc")
+    set(CMAKE_CXX_COMPILER "/usr/bin/c++")
+
+    set(CMAKE_MACOSX_RPATH 1) 
+    # use, i.e. don't skip the full RPATH for the build tree
+    set(CMAKE_SKIP_BUILD_RPATH FALSE)
+
+    list(APPEND CMAKE_BUILD_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
+ 
+    # when building, don't use the install RPATH already
+    # (but later on when installing)
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+    set(CMAKE_INSTALL_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
+ 
+    # add the automatically determined parts of the RPATH
+    # which point to directories outside the build tree to the install RPATH
+    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 endif()
 project (AAMP)
 cmake_minimum_required (VERSION 2.6)
@@ -42,6 +58,7 @@ else()
 	message("using gstreamer-1.0")
 	pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 	pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
+        pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
 endif()
 
 if(APPLE)
@@ -110,11 +127,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
         COMMAND bash -c "xcrun --show-sdk-path" OUTPUT_VARIABLE osxSdkPath OUTPUT_STRIP_TRAILING_WHITESPACE
     )
     set(OS_CXX_FLAGS "${OS_CXX_FLAGS}  -std=c++14 -g -x objective-c++ -Wno-inconsistent-missing-override -F${osxSdkPath}/System/Library/Frameworks")
-    set(OS_LD_FLAGS "${OS_LD_FLAGS} -F${osxSdkPath}/System/Library/Frameworks -framework Cocoa -L${osxSdkPath}/../MacOSX.sdk/usr/lib -L/usr/local/lib/")
+    set(OS_LD_FLAGS "${OS_LD_FLAGS} -F${osxSdkPath}/System/Library/Frameworks -framework Cocoa -L${osxSdkPath}/../MacOSX.sdk/usr/lib -L.libs/lib -L/usr/local/lib/")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${osxSdkPath}/../MacOSX.sdk -I/usr/local/include")
     string(STRIP ${OS_LD_FLAGS} OS_LD_FLAGS)
-    set(AAMP_CLI_LD_FLAGS "${AAMP_CLI_LD_FLAGS} -lgstvideo-1.0")
-    string(STRIP ${AAMP_CLI_LD_FLAGS} AAMP_CLI_LD_FLAGS)
+    set(AAMP_CLI_LD_FLAGS "${AAMP_CLI_LD_FLAGS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
+    string(STRIP "${AAMP_CLI_LD_FLAGS}" AAMP_CLI_LD_FLAGS)
     set(AAMP_OS_SOURCES cocoa_window.mm)
     link_directories(${OPENSSL_LIBRARY_DIRS})
     set(CMAKE_THREAD_LIBS_INIT "-lpthread")
@@ -149,6 +166,8 @@ include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${OPENSSL_INCLUDE_DIRS})
 include_directories(${OPENGL_INCLUDE_DIRS})
 include_directories(${GLEW_INCLUDE_DIRS})
+# Locally built/installed dependencies are here
+include_directories(.libs/include)
 
 # Sets the include paths to Linux/includem. By making it a system include the headers won't report any errors ( effc++ )
 include_directories(SYSTEM ${LIBCJSON_INCLUDE_DIRS})
@@ -361,8 +380,7 @@ if (CMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED)
     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DENABLE_AAMP_QTDEMUX_OVERRIDE=1")
 endif()
 
-set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${GSTREAMERBASE_LIBRARIES} ${GSTREAMER_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl -labr ${UUID_LINK_LIBRARIES} ${SEC_CLIENT_LIB} -lcjson)
-
+set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl -labr ${SEC_CLIENT_LIB})
 set(PLAYBINTEST_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LIBRARIES})
 
 if (CMAKE_AMLOGIC_SOC)
@@ -836,7 +854,7 @@ set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
 target_link_libraries(aamp-cli subtec)
 target_link_libraries(aamp subtec)
 
-set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LDFLAGS} ${GSTREAMERBASE_LDFLAGS} ${LIBDASH_LIBRARIES} ${CURL_LINK_LIBRARIES})
+set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${LIBDASH_LIBRARIES} ${CURL_LINK_LIBRARIES})
 set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
                            test/gstTestHarness/gst-test.h
                            test/gstTestHarness/tsdemux.hpp
@@ -887,10 +905,10 @@ install(FILES AampRfc.h DESTINATION include)
 endif()
 
 if (SMOKETEST_ENABLED)
-	add_subdirectory(test/smoketest)
+	add_subdirectory(test/smoketest EXCLUDE_FROM_ALL)
 endif()
 if (UTEST_ENABLED)
-	add_subdirectory(test/utests)
+	add_subdirectory(test/utests EXCLUDE_FROM_ALL)
 endif()
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )

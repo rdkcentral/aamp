@@ -29,9 +29,9 @@ Run AAMP, for example:
 
 	$ cd aamp
 	$ RIALTO_SOCKET_PATH=/tmp/rialto-0 \
-	  LD_LIBRARY_PATH=$PWD/Linux/lib \
-	  GST_PLUGIN_PATH=$PWD/Linux/lib/gstreamer-1.0 \
-	  $PWD/Linux/bin/aamp-cli \
+	  LD_LIBRARY_PATH=$PWD/.libs/lib \
+	  GST_PLUGIN_PATH=$PWD/.libs/lib/gstreamer-1.0 \
+	  $PWD/build/aamp-cli \
 	  https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd
 
 The gstreamer test harness can also be run using the Rialto test server.
@@ -40,8 +40,8 @@ Then, for example:
 
 	$ cd aamp
 	$ RIALTO_SOCKET_PATH=/tmp/rialto-0 \
-	  LD_LIBRARY_PATH=$PWD/Linux/lib \
-	  GST_PLUGIN_PATH=$PWD/Linux/lib/gstreamer-1.0 \
+	  LD_LIBRARY_PATH=$PWD/.libs/lib \
+	  GST_PLUGIN_PATH=$PWD/.libs/lib/gstreamer-1.0 \
 	  $PWD/Linux/bin/gstTestHarness
 
 Run some test harness commands, for example:
