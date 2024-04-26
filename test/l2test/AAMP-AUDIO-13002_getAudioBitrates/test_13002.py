@@ -22,8 +22,6 @@
 
 
 import os
-import sys
-import json
 import re
 import pytest
 
@@ -53,5 +51,4 @@ def test_13002(aamp_setup_teardown,test_data):
         ]}
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    aamp.create_aamp_cfg(test_data.get('aamp_cfg'))
     aamp.run_expect_a(TESTDATA)

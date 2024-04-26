@@ -89,12 +89,15 @@ def install_python_packages():
                 exit(1)
 
 
-def build_aamp():
+def build_aamp(other_args):
     print("Build AAMP")
+    opts = ""
+    if "--coverage" in other_args:
+        opts = "-c"
     os.chdir(aampdir)
     print(os.getcwd())
     sys.stdout.flush()
-    subprocess.run('bash install-aamp.sh -d $(pwd -P) -n || true', shell=True)
+    subprocess.run('bash install-aamp.sh {} -d $(pwd -P) -n || true'.format(opts), shell=True)
     # Build the subtec plugin that is needed for one of the tests.
     p = os.path.join(l2testdir, 'TST_1001_Webvtt')
     subprocess.run('./postscript.sh', shell=True, cwd=p)
@@ -197,7 +200,7 @@ print("test_suite_dirs_to_run", test_suite_dirs_to_run)
 
 # Build aamp
 if args.build:
-    build_aamp()
+    build_aamp(other_args)
 
 os.chdir(l2testdir)
 
