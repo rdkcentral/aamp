@@ -11612,7 +11612,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			bool nameAvailabilityInManifest = false;
 
 			std::string trackIndexStr;
-			bool codecChange = false;
+			bool codecChange = true;
 
 			if (trackIndex >= 0)
 			{
@@ -11626,30 +11626,15 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 
 				char *newCodec = nullptr;
 				//If codec is already set, check the new codec against the older and ensure any change. If not set, read through the audio track info and found the codec against the new language set
-				if(preferredCodecString.empty())
+				if(!preferredCodecString.empty())
 				{
-					for (auto& track : trackInfo) {
-						if (track.index  !=  std::to_string(trackIndex) && track.language == preferredLanguagesString)
-						{
-							newCodec = const_cast<char*>(track.codec.c_str());
-							break;
-						}
-					}
-
-					if (newCodec != nullptr && std::string(newCodec) != currentPrefCodec) {
-						codecChange = true;
-					}
-				}
-				else
-				{
-					if(preferredCodecString != currentPrefCodec)
+					if(preferredCodecString == currentPrefCodec)
 					{
-						codecChange =true;
+						codecChange = false;
 					}
 					AAMPLOG_WARN("PreferredCodecString %s existing Codec %s",preferredCodecString.c_str(),currentPrefCodec);
 				}
 				
-
 				// Logic to check whether the given language is present in the available tracks,
 				// if available, it should not match with current preferredLanguagesString, then call tune to reflect the language change.
 				// if not available, then avoid calling tune.
