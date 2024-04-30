@@ -229,33 +229,22 @@ bool aamp_IsAbsoluteURL( const std::string &url )
 std::string aamp_getHostFromURL(std::string url)
 {
 	std::string host = "";
-	try
-	{
-		std::size_t start_pos = std::string::npos;
-		if(url.rfind("http://", 0) == 0)
-		{ // starts with http://
-			start_pos = 7;
-		}
-		else if(url.rfind("https://", 0) == 0)
-		{ // starts with https://
-			start_pos = 8;
-		}
-		if(start_pos != std::string::npos)
-		{
-			std::size_t pos = url.find('/', start_pos);
-			if(pos != std::string::npos)
-			{
-				host = url.substr(start_pos, (pos - start_pos));
-			}
-		}
-		else if(url.rfind("file://", 0) != 0)
-		{
-			throw std::runtime_error("Invalid URL:" + url);
-		}
+	std::size_t start_pos = std::string::npos;
+	if(url.rfind("http://", 0) == 0)
+	{ // starts with http://
+		start_pos = 7;
 	}
-	catch (const std::exception &e)
+	else if(url.rfind("https://", 0) == 0)
+	{ // starts with https://
+		start_pos = 8;
+	}
+	if(start_pos != std::string::npos)
 	{
-		AAMPLOG_ERR("Exception caught: %s\n", e.what());
+		std::size_t pos = url.find('/', start_pos);
+		if(pos != std::string::npos)
+		{
+			host = url.substr(start_pos, (pos - start_pos));
+		}
 	}
 	return host;
 }
