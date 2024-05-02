@@ -838,9 +838,19 @@ target_link_libraries(aamp subtec)
 
 set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LDFLAGS} ${GSTREAMERBASE_LDFLAGS} ${LIBDASH_LIBRARIES} ${CURL_LINK_LIBRARIES})
 set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
-                           test/gstTestHarness/tsdemux.hpp )
+                           test/gstTestHarness/gst-test.h
+                           test/gstTestHarness/tsdemux.hpp
+                           test/gstTestHarness/dash_adapter.hpp
+                           test/gstTestHarness/downloader.hpp
+                           test/gstTestHarness/stream_utils.hpp
+                           test/gstTestHarness/string_utils.hpp
+                           test/gstTestHarness/turbo_xml.hpp )
 set(GSTTESTHARNESS_SOURCES test/gstTestHarness/gst-port.cpp
-                           test/gstTestHarness/gst-test.cpp)
+                           test/gstTestHarness/gst-test.cpp
+                           test/gstTestHarness/dash_adapter.cpp
+                           test/gstTestHarness/downloader.cpp
+                           test/gstTestHarness/stream_utils.cpp
+						   test/gstTestHarness/string_utils.cpp)
 
 add_executable(gstTestHarness ${GSTTESTHARNESS_HEADERS} ${GSTTESTHARNESS_SOURCES})
 target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")

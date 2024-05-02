@@ -22,8 +22,15 @@
 ### help
 > show available commands
 
+### load <vodurl>
+> load and play content from specified DASH manifest.
+> * Good compatibility with minimal, streamlined implementation, able to play most clear vod content
+> * Note: Uses pts restamping approach similar to existing dai2 test for fast period transiitions across discontinuities without need for explicit flush
+> * Note: Currently has limitations: no ABR, arbitrary AdaptationSet selection, no DRM support, seek not yet implemented, but as a milestone, useful for testing
+> * Note: playback can be interrupted with existing 'flush' command
+
 ### format mp4
-> default; use/inject DASH .mp4 segments for tests
+> default; use/inject DASH .mp4 segments for tests.
 
 ### format ts
 > use/inject whole HLS .ts segments for tests; this works on Ubuntu via GstTSDemux (gstreamer demuxer from gst-plugins-bad), but not yet in other builds
