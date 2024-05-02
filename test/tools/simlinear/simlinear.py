@@ -305,16 +305,17 @@ class DASHServerHandler(BaseHTTPRequestHandler):
             if "contents" in rtn:
                 #RDKAAMP-1435
                 details = read_harvest_details()
-                if details['url'] is not None:
-                    baseURLs = re.findall(r'<BaseURL>([\S]*)<\/BaseURL>', rtn["contents"])
-                    if len(baseURLs) > 0:
-                        for baseURL in baseURLs:
-                            basURL_domain = urlparse(baseURL)
-                            if basURL_domain.netloc in details['url']:
-                                rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>http://{self.server.server_address[0]}:{self.server.server_address[1]}/{basURL_domain.netloc}", rtn["contents"])
-                            elif args.ad_server != "":
-                                # Replace BaseURL to Ad-Server
-                                rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>{args.ad_server}/{basURL_domain.netloc}", rtn["contents"])
+                if details != {}:
+                    if details['url'] is not None:
+                        baseURLs = re.findall(r'<BaseURL>([\S]*)<\/BaseURL>', rtn["contents"])
+                        if len(baseURLs) > 0:
+                            for baseURL in baseURLs:
+                                basURL_domain = urlparse(baseURL)
+                                if basURL_domain.netloc in details['url']:
+                                    rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>http://{self.server.server_address[0]}:{self.server.server_address[1]}/{basURL_domain.netloc}", rtn["contents"])
+                                elif args.ad_server != "":
+                                    # Replace BaseURL to Ad-Server
+                                    rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>{args.ad_server}/{basURL_domain.netloc}", rtn["contents"])
 
                 contents = rtn["contents"].encode("utf-8")
             else:
@@ -784,6 +785,12 @@ if __name__ == "__main__":
     CMD_PORT=args.port
 
     app = Flask(__name__)
+
+    details = read_harvest_details()
+    if details != {}:
+        print("Found Harvest Details")
+    else:
+        print("WARNING: missing harvest details, playback may be impacted.")
     
     init_routes()
     

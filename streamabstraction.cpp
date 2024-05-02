@@ -194,7 +194,7 @@ void MediaTrack::MonitorBufferHealth()
 			pthread_mutex_lock(&mutex);
 			if((!aamp->pipeline_paused) && aamp->IsDiscontinuityProcessPending() && discontinuityTimeoutValue)
 			{
-				aamp->CheckForDiscontinuityStall((MediaType)type);
+				aamp->CheckForDiscontinuityStall((AampMediaType)type);
 			}
 
 			// If underflow occurred and cached fragments are full
@@ -287,7 +287,7 @@ void MediaTrack::UpdateTSAfterChunkInject()
  * @brief  To be implemented by derived classes to receive cached fragment Chunk
  *         Receives cached fragment and injects to sink.
  */
-void MediaTrack::InjectFragmentChunkInternal(MediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration)
+void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration)
 {
 	aamp->SendStreamTransfer(mediaType, buffer,
                      fpts, fdts, fDuration);
@@ -356,7 +356,7 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 		{
 			playContext->resetPTSOnAudioSwitch(&cachedFragment->fragment, cachedFragment->position);
 		}
-		aamp->ResumeTrackInjection((MediaType)eMEDIATYPE_AUDIO);
+		aamp->ResumeTrackInjection((AampMediaType)eMEDIATYPE_AUDIO);
 		NotifyCachedAudioFragmentAvailable();
 		loadNewAudio = false;
 		aamp->mDisableRateCorrection = false;
@@ -914,7 +914,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%ld fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
-			InjectFragmentChunkInternal((MediaType)type,&parsedBufferChunk , fpts, fpts, fduration);
+			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration);
 			totalInjectedChunksDuration += fduration;
 		}
 	}
@@ -1003,7 +1003,7 @@ bool MediaTrack::InjectFragment()
 #endif
 			if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == context->aamp->rate))
 			{
-				bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((MediaType)!type);
+				bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((AampMediaType)!type);
 				AAMPLOG_WARN("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack);
 				cachedFragment->discontinuity = false;
 				ptsError = false;
@@ -1017,7 +1017,7 @@ bool MediaTrack::InjectFragment()
 				 * to an appsrc that wasn't configured (very timing dependent). In this case we want to process the discontinuity and configure the pipeline.
 				 * (DELIA-64449)
 				 */
-				if (totalInjectedDuration == 0 && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus() && aamp->PipelineValid((MediaType)type))
+				if (totalInjectedDuration == 0 && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus() && aamp->PipelineValid((AampMediaType)type))
 				{
 					stopInjection = false;
 
@@ -1027,7 +1027,7 @@ bool MediaTrack::InjectFragment()
 						if (type != eTRACK_SUBTITLE)
 						{
 							// set discontinuity ignored flag to check and avoid paired discontinuity processing of other track.
-							aamp->SetTrackDiscontinuityIgnoredStatus((MediaType)type);
+							aamp->SetTrackDiscontinuityIgnoredStatus((AampMediaType)type);
 						}
 					}
 					else
@@ -1039,7 +1039,7 @@ bool MediaTrack::InjectFragment()
 
 					AAMPLOG_WARN("ignoring %s discontinuity since no buffer pushed before!", name);
 				}
-				else if (isDiscoIgnoredForOtherTrack && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus() && aamp->PipelineValid((MediaType)type))
+				else if (isDiscoIgnoredForOtherTrack && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus() && aamp->PipelineValid((AampMediaType)type))
 				{
 					AAMPLOG_WARN("discontinuity ignored for other AV track , no need to process %s track", name);
 					stopInjection = false;
@@ -1050,7 +1050,7 @@ bool MediaTrack::InjectFragment()
 				}
 				else
 				{
-					if (!aamp->PipelineValid((MediaType)type))
+					if (!aamp->PipelineValid((AampMediaType)type))
 					{
 						AAMPLOG_WARN("Pipeline not yet configured for %s! Process discontinuity...", name);
 					}
@@ -1059,7 +1059,7 @@ bool MediaTrack::InjectFragment()
 					{
 
 						context->ProcessDiscontinuity(type);
-						bool isDiscontinuityIgnoredForCurrentTrack = aamp->IsDiscontinuityIgnoredForCurrentTrack((MediaType)type);
+						bool isDiscontinuityIgnoredForCurrentTrack = aamp->IsDiscontinuityIgnoredForCurrentTrack((AampMediaType)type);
 						if( true != isDiscontinuityIgnoredForCurrentTrack )
 						{
 							isDiscontinuity = true;
@@ -1161,7 +1161,7 @@ bool MediaTrack::InjectFragment()
 				if(pContext != NULL)
 				{
 					int rate = GetContext()->aamp->rate;
-					aamp->EndOfStreamReached((MediaType)type);
+					aamp->EndOfStreamReached((AampMediaType)type);
 					/*For muxed streams, provide EOS for audio track as well since
 					 * no separate MediaTrack for audio is present*/
 					MediaTrack* audio = GetContext()->GetMediaTrack(eTRACK_AUDIO);
@@ -1190,7 +1190,7 @@ bool MediaTrack::InjectFragment()
 		{
 			//Save the playback rate prior to sending EOS
 			int rate = GetContext()->aamp->rate;
-			aamp->EndOfStreamReached((MediaType)type);
+			aamp->EndOfStreamReached((AampMediaType)type);
 			/*For muxed streams, provide EOS for audio track as well since
 			 * no separate MediaTrack for audio is present*/
 			MediaTrack* audio = GetContext()->GetMediaTrack(eTRACK_AUDIO);
@@ -2249,14 +2249,21 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 			AAMPLOG_DEBUG(" profileIdxForBandwidthNotification updated to %d ",  profileIdxForBandwidthNotification);
 			ret = true;
 			long newBW = GetStreamInfo(profileIdxForBandwidthNotification)->bandwidthBitsPerSecond;
-			video->SetCurrentBandWidth( (int)newBW );
-			aamp->ResetCurrentlyAvailableBandwidth(newBW,false,profileIdxForBandwidthNotification);
-			mBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
+			if(video)
+			{
+				video->SetCurrentBandWidth( (int)newBW );
+				aamp->ResetCurrentlyAvailableBandwidth(newBW,false,profileIdxForBandwidthNotification);
+				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
 
-			// Send abr notification to XRE
-			video->ABRProfileChanged();
-			mABRLowBufferCounter = 0 ;
-			mABRHighBufferCounter = 0;
+				// Send abr notification to XRE
+				video->ABRProfileChanged();
+				mABRLowBufferCounter = 0 ;
+				mABRHighBufferCounter = 0;
+			}
+			else
+			{
+				AAMPLOG_WARN("Video is null");
+			}
 		}
 		else
 		{
@@ -2993,7 +3000,7 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 		{
 			pthread_mutex_unlock(&mStateLock);
 
-			ret = aamp->Discontinuity((MediaType) type, false);
+			ret = aamp->Discontinuity((AampMediaType) type, false);
 			//Discontinuity ignored, so we need to remove state from mTrackState
 			if (ret == false)
 			{
@@ -3005,7 +3012,7 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 			{
 				// In muxed stream, set the audio track's mProcessingDiscontinuity flag to true to unblock the ProcessPendingDiscontinuity if video track discontinuity-EOS processing succeeded
 				AAMPLOG_WARN("set muxed track audio discontinuity flag to true since video discontinuity processing succeeded.");
-				aamp->Discontinuity((MediaType) eTRACK_AUDIO, true);
+				aamp->Discontinuity((AampMediaType) eTRACK_AUDIO, true);
 			}
 
 			pthread_mutex_lock(&mStateLock);
@@ -3115,12 +3122,12 @@ void StreamAbstractionAAMP::CheckForMediaTrackInjectionStall(TrackType type)
 						{
 							AAMPLOG_WARN("Schedule retune since for discontinuity in track:%d other track doesn't have a discontinuity (diff: %f, injectedDuration: %f, cachedDuration: %f)",
 									type, diff, otherTrackDuration, cachedDuration);
-							aamp->ScheduleRetune(eSTALL_AFTER_DISCONTINUITY, (MediaType) type);
+							aamp->ScheduleRetune(eSTALL_AFTER_DISCONTINUITY, (AampMediaType) type);
 						}
 						else
 						{
 							//Check for PTS change for 1 second
-							aamp->CheckForDiscontinuityStall((MediaType) type);
+							aamp->CheckForDiscontinuityStall((AampMediaType) type);
 						}
 					}
 					else
@@ -3134,7 +3141,7 @@ void StreamAbstractionAAMP::CheckForMediaTrackInjectionStall(TrackType type)
 						if(aamp->IsDashAsset())
 						{
 							AAMPLOG_WARN("Ignoring discontinuity in DASH period for track:%d",type);
-							aamp->SetTrackDiscontinuityIgnoredStatus((MediaType)type);
+							aamp->SetTrackDiscontinuityIgnoredStatus((AampMediaType)type);
 						}
 						mTrackState = (MediaTrackDiscontinuityState) (mTrackState & ~state);
 						pthread_cond_signal(&mStateCond);
@@ -3532,9 +3539,9 @@ void StreamAbstractionAAMP::InitializeMediaProcessor()
 /**
  * @brief Returns playlist type of track
  */
-MediaType MediaTrack::GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe)
+AampMediaType MediaTrack::GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe)
 {
-		MediaType playlistType = eMEDIATYPE_MANIFEST;
+		AampMediaType playlistType = eMEDIATYPE_MANIFEST;
 		// For DASH, return playlist type as manifest
 		if(eMEDIAFORMAT_DASH != aamp->mMediaFormat)
 		{
@@ -3646,7 +3653,7 @@ void MediaTrack::WaitForManifestUpdate()
  */
 void MediaTrack::PlaylistDownloader()
 {
-	MediaType mediaType = GetPlaylistMediaTypeFromTrack(type, IS_FOR_IFRAME(aamp->rate,type));
+	AampMediaType mediaType = GetPlaylistMediaTypeFromTrack(type, IS_FOR_IFRAME(aamp->rate,type));
 	std::string trackName = aamp->MediaTypeString(mediaType);
 	int updateDuration = 0, liveRefreshTimeOutInMs = 0 ;
 	updateDuration = GetDefaultDurationBetweenPlaylistUpdates();

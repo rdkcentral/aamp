@@ -28,7 +28,7 @@
 /**
  *  @brief Retrieve playlist from cache  
  */
-void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,MediaType fileType)
+void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,AampMediaType fileType)
 {
 	PlayListCachedData *tmpData,*newtmpData;
 	std::lock_guard<std::recursive_mutex> lock(mMutex);
@@ -191,7 +191,7 @@ void AampCacheHandler::ClearPlaylistCache()
 /**
  *  @brief AllocatePlaylistCacheSlot Allocate Slot for adding new playlist
  */
-bool AampCacheHandler::AllocatePlaylistCacheSlot(MediaType fileType,size_t newLen)
+bool AampCacheHandler::AllocatePlaylistCacheSlot(AampMediaType fileType,size_t newLen)
 {
 	bool retVal = true;
 	size_t freedSize=0;
@@ -416,7 +416,7 @@ bool AampCacheHandler::IsUrlCached(std::string url)
  *  @brief Insert init fragment into cache table
  */
 void AampCacheHandler::InsertToInitFragCache(const std::string url, const AampGrowableBuffer* buffer,
-						std::string effectiveUrl, MediaType fileType)
+						std::string effectiveUrl, AampMediaType fileType)
 {
 	pthread_mutex_lock(&mInitFragMutex);
 
@@ -540,7 +540,7 @@ bool AampCacheHandler::RetrieveFromInitFragCache(const std::string url, AampGrow
  *  @brief Removes very first inserted entry ( and duplicate entry, if present)  of given filetype
  *         from fragment cache table in FIFO order, also removes the corresponding url from track queue.
  */ 
-void AampCacheHandler::RemoveInitFragCacheEntry ( MediaType fileType )
+void AampCacheHandler::RemoveInitFragCacheEntry ( AampMediaType fileType )
 {
 	CacheTrackQueueIter IterCq = umCacheTrackQ.find(fileType);
 	if(IterCq == umCacheTrackQ.end())

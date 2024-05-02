@@ -135,6 +135,10 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
 	{
+		curl_global_init(CURL_GLOBAL_DEFAULT);
+		auto vers = curl_version_info(CURLVERSION_NOW);
+		printf( "curl version: %s\n", vers->version );
+		
 		gpGlobalConfig =  new AampConfig();
 		::mLogObj = gpGlobalConfig->GetLoggerInstance();
 		// Init the default values
@@ -665,6 +669,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 	if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
 	{
+		bool playAlreadyEnabled = aamp->mbPlayEnabled;
 		if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 		{
 			AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
@@ -887,6 +892,20 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				tuneTypePlay = eTUNETYPE_SEEKTOLIVE;
 				aamp->mJumpToLiveFromPause = false;
+			}
+			/* if Gstreamer pipeline set to paused state by user, change it to playing state */
+			if (playAlreadyEnabled && aamp->pipeline_paused == true)
+			{
+				AAMPLOG_INFO("Play was already enabled, and pipeline paused - unpause");
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+				if (sink)
+				{
+					(void)sink->Pause(false, false);
+				}
+			}
+			else
+			{
+				AAMPLOG_INFO("Play was not already enabled(%d) or pipeline not paused(%d)", playAlreadyEnabled, aamp->pipeline_paused);
 			}
 			aamp->rate = rate;
 			aamp->pipeline_paused = false;
@@ -2846,6 +2865,9 @@ bool PlayerInstanceAAMP::SetThumbnailTrack(int thumbIndex)
 		ret = aamp->mpStreamAbstractionAAMP->SetThumbnailTrack(thumbIndex);
 	}
 	aamp->ReleaseStreamLock();
+
+	AAMPLOG_INFO(" SetThumbnailTrack [%d] result: %s", thumbIndex, (ret ? "success" : "fail"));
+	
 	return ret;
 }
 

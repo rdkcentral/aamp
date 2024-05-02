@@ -57,7 +57,7 @@ class MediaProcessor
 public:
 
 	/// @brief Function to use for processing the fragments
-	using process_fcn_t = std::function<void (MediaType, SegmentInfo_t, std::vector<uint8_t>)>;
+	using process_fcn_t = std::function<void (AampMediaType, SegmentInfo_t, std::vector<uint8_t>)>;
 
 	/**
 	 * @brief MediaProcessor constructor

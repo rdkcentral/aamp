@@ -42,7 +42,7 @@ IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(AampLogManager *logObj, id3_c
 { }
 
 void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
-		MediaType type,
+		AampMediaType type,
 		bool discontinuity_pending, 
 		const double proc_position,
 		bool & ptsError, 
@@ -116,7 +116,7 @@ bool IsoBMFFMetadataProcessor::SetTuneTimePTS()
 	return ret;
 }
 
-void IsoBMFFMetadataProcessor::ProcessID3Metadata(MediaType type, const char * data_ptr, size_t data_len)
+void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const char * data_ptr, size_t data_len)
 {
 	namespace aih = aamp::id3_metadata::helpers;
 
@@ -215,7 +215,7 @@ TSMetadataProcessor::TSMetadataProcessor(AampLogManager *logObj, id3_callback_t 
 }
 
 void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
-		MediaType type,
+		AampMediaType type,
 		bool discontinuity_pending, 
 		double proc_position,
 		bool & ptsError, 
@@ -235,7 +235,7 @@ void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedF
 		mCurrentMaxPTS_s = 0.;
 	}
 
-	MediaProcessor::process_fcn_t processor = [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+	MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 	{
 		// Early emission of ID3 metadata event
 		if (type == eMEDIATYPE_DSM_CC)

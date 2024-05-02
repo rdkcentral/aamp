@@ -79,7 +79,7 @@ public:
 	 * @param[in] mediaT - media type
 	 * @return None
 	 */
-	void CMCDSetNextObjectRequest(std::string url,long CMCDBandwidth,MediaType mediaT=eMEDIATYPE_VIDEO);
+	void CMCDSetNextObjectRequest(std::string url,long CMCDBandwidth,AampMediaType mediaT=eMEDIATYPE_VIDEO);
     
     	/**
 	* @brief CMCDSetNextRangeRequest Store the next range relative to the current url
@@ -89,7 +89,7 @@ public:
 	* @param[in] mediaT - media type
 	* @return None
 	*/
-	void CMCDSetNextRangeRequest(std::string nextrange,long bandwidth,MediaType mediaType);
+	void CMCDSetNextRangeRequest(std::string nextrange,long bandwidth,AampMediaType mediaType);
 
 	/**
 	 * @brief Initialize AampCMCD Collector instance
@@ -106,15 +106,15 @@ public:
 	 * @param[in] NetworkMetrics - Network Metrics to store 
 	 * @return None
 	 */
-	void CMCDSetNetworkMetrics(MediaType fileType, int startTransferTime, int totalTime, int dnsLookUpTime);
+	void CMCDSetNetworkMetrics(AampMediaType fileType, int startTransferTime, int totalTime, int dnsLookUpTime);
 	/**
 	 * @brief CMCDGetHeaders Get the CMCD headers to add in downlaod request
 	 *
 	 * @return None
 	 */
-	void CMCDGetHeaders(MediaType fileType ,  std::vector<std::string> &customHeader);
-	void SetBitrates(MediaType fileType,const std::vector<BitsPerSecond> bitrates);
-	void SetTrackData(MediaType fileType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed=false);
+	void CMCDGetHeaders(AampMediaType fileType ,  std::vector<std::string> &customHeader);
+	void SetBitrates(AampMediaType fileType,const std::vector<BitsPerSecond> bitrates);
+	void SetTrackData(AampMediaType fileType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed=false);
 private:
 	AampLogManager *mLogObj; 	   /**< Logger instance for CMCDCollector */
 	bool bCMCDEnabled;			/**< CMCD enable/disable flag  */

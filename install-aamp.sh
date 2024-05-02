@@ -5,7 +5,7 @@
 #######################Default Values##################
 aamposxinstallerver="0.11"
 defaultbuilddir=aamp-devenv-$(date +"%Y-%m-%d-%H-%M")
-defaultcodebranch="dev_sprint_24_1"
+defaultcodebranch="dev_sprint_24_2"
 defaultchannellistfile="$HOME/aampcli.csv"
 defaultopensslversion="openssl@1.1"
 defaultlibdashversion="libdash = 3.0"
@@ -95,7 +95,7 @@ install_system_packages() {
 
     #Check/Install base packages needed by aamp env
     echo "Check/Install aamp development environment base packages"
-    find_or_install_pkgs json-glib cmake $defaultopensslversion libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq
+    find_or_install_pkgs json-glib cmake $defaultopensslversion libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq curl
 
     # ORC causes compile errors on x86_64 Mac, but not on ARM64
     if [[ $arch == "x86_64" ]]; then
@@ -197,6 +197,13 @@ install_subtec() {
         cd ../../
     fi
     
+    echo "Patching subtec-app..."
+    git apply OSX/patches/subttxrend-app-packet.patch --directory subtec-app
+    git apply OSX/patches/subttxrend-app-cmake.patch  --directory subtec-app
+    git apply OSX/patches/websocket-ipplayer2-utils.patch --directory subtec-app/websocket-ipplayer2-utils
+    git apply OSX/patches/JsonHelper.patch --directory subtec-app/websocket-ipplayer2-utils/src/ipp2
+
+
     sed -i '' 's:COMMAND gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code SubtitleDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/SubtitleDbusInterface.xml:COMMAND '"$PWD"'/glib/build/gio/gdbus-2.0/codegen/gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code SubtitleDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/SubtitleDbusInterface.xml:g' subtec-app/subttxrend-dbus/CMakeLists.txt
     
     sed -i '' 's:COMMAND gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code TeletextDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/TeletextDbusInterface.xml:COMMAND '"$PWD"'/glib/build/gio/gdbus-2.0/codegen/gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code TeletextDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/TeletextDbusInterface.xml:g' subtec-app/subttxrend-dbus/CMakeLists.txt
@@ -269,12 +276,6 @@ install_and_build_subtec() {
     if [ ! -d "subtec-app/subttxrend-app/x86_builder/" ]; then
         echo "Subtec-app is not correctly installed."
     else
-        echo "Patching subtec-app..."
-        git apply OSX/patches/subttxrend-app-packet.patch --directory subtec-app
-        git apply OSX/patches/subttxrend-app-cmake.patch  --directory subtec-app
-        git apply OSX/patches/websocket-ipplayer2-utils.patch --directory subtec-app/websocket-ipplayer2-utils
-        git apply OSX/patches/JsonHelper.patch --directory subtec-app/websocket-ipplayer2-utils/src/ipp2
-
         cd subtec-app/subttxrend-app/x86_builder/
         PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:$PKG_CONFIG_PATH ./build.sh fast
 
@@ -622,7 +623,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     xattr -w com.apple.xcode.CreatedByBuildSystem true build
    
     # Would be nice to use $installed_pkfconfig here, but it results in link error, not finding libapp-1.0
-    cd build && PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCOVERAGE_ENABLED=${COVERAGE} -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -G Xcode ../
+    cd build && PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/opt/homebrew/opt/curl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCOVERAGE_ENABLED=${COVERAGE} -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -G Xcode ../
 
     # the cmake Xcode generator can not set this scheme property (Debug -> Options -> Console -> Use Terminal
     patch ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme < ../OSX/patches/aamp-cli.xscheme.patch 

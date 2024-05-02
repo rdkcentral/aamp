@@ -92,14 +92,14 @@ private:
          * @param[in] copy to map or transfer the buffer
          * @param[in] initFragment flag for buffer type (init, data)
          */
-	bool SendHelper(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration, bool copy, bool initFragment = 0, bool discontinuity = false);
+	bool SendHelper(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration, bool copy, bool initFragment = 0, bool discontinuity = false);
 
 	/**
 	 * @fn SendGstEvents
 	 * @param[in] mediaType stream type
 	 * @param[in] pts position value of first buffer
 	 */
-	void SendGstEvents(MediaType mediaType, GstClockTime pts);
+	void SendGstEvents(AampMediaType mediaType, GstClockTime pts);
 
 	/**
 	 * @fn RecalculatePTS
@@ -107,7 +107,7 @@ private:
 	 * @param[in] ptr buffer pointer
 	 * @param[in] len length of buffer
 	 */
-	double RecalculatePTS(MediaType mediaType, const void *ptr, size_t len);
+	double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len);
 
 	/**
          * @fn SendNewSegmentEvent
@@ -115,7 +115,7 @@ private:
          * @param[in] startPts Start Position of first buffer
          * @param[in] stopPts Stop position of last buffer
          */
-	void SendNewSegmentEvent(MediaType mediaType, GstClockTime startPts ,GstClockTime stopPts = 0);
+	void SendNewSegmentEvent(AampMediaType mediaType, GstClockTime startPts ,GstClockTime stopPts = 0);
 
 	/**
 	 * @fn SendQtDemuxOverrideEvent
@@ -125,7 +125,7 @@ private:
 	 * @param[in] len length of buffer
 	 * @ret TRUE if override is enabled, FALSE otherwise
 	 */
-	gboolean SendQtDemuxOverrideEvent(MediaType mediaType, GstClockTime pts, const void *ptr = nullptr, size_t len = 0);
+	gboolean SendQtDemuxOverrideEvent(AampMediaType mediaType, GstClockTime pts, const void *ptr = nullptr, size_t len = 0);
 
 public:
 
@@ -151,7 +151,7 @@ public:
          * @param[in] fdts DTS of buffer (in sec)
          * @param[in] fDuration duration of buffer (in sec)
          */
-	bool SendCopy(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration) override;
+	bool SendCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration) override;
 	/**
          * @fn SendTransfer
          * @param[in] mediaType stream type
@@ -161,17 +161,17 @@ public:
          * @param[in] fDuration duration of buffer (in sec)
          * @param[in] initFragment flag for buffer type (init, data)
          */
-	bool SendTransfer(MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment = false, bool discontinuity = false) override;
+	bool SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment = false, bool discontinuity = false) override;
 	/**
          * @fn PipelineConfiguredForMedia
          * @param[in] type stream type
          */
-	bool PipelineConfiguredForMedia(MediaType type) override;
+	bool PipelineConfiguredForMedia(AampMediaType type) override;
 	/**
          * @fn EndOfStreamReached
          * @param[in] type stream type
          */
-	void EndOfStreamReached(MediaType type) override;
+	void EndOfStreamReached(AampMediaType type) override;
 	/**
          * @fn Stream
          */
@@ -229,7 +229,7 @@ public:
          * @param mediaType Media stream type
          * @retval true if discontinuity processed
          */
-	bool Discontinuity( MediaType mediaType) override;
+	bool Discontinuity( AampMediaType mediaType) override;
 	/**
          * @fn SetVideoZoom
          * @param[in] zoom zoom setting to be set
@@ -269,7 +269,7 @@ public:
          * @param[in] mediaType stream type
          * @retval true if cache empty
          */
-	bool IsCacheEmpty(MediaType mediaType) override;
+	bool IsCacheEmpty(AampMediaType mediaType) override;
 	/**
          * @fn ResetEOSSignalledFlag
          */
@@ -301,7 +301,7 @@ public:
          * @param[in] len initDataSize DRM initialization data size
          * @param[in] type Media type
          */
-	void QueueProtectionEvent(const char *protSystemId, const void *ptr, size_t len, MediaType type) override;
+	void QueueProtectionEvent(const char *protSystemId, const void *ptr, size_t len, AampMediaType type) override;
 	/**
          * @fn ClearProtectionEvent
          */
@@ -393,7 +393,7 @@ public:
      	 * @fn NotifyFirstFrame
      	 * @param[in] type media type of the frame which is decoded, either audio or video.
      	 */
-	void NotifyFirstFrame(MediaType type);
+	void NotifyFirstFrame(AampMediaType type);
 	/**
      	 * @fn DumpDiagnostics
     	 *
@@ -490,7 +490,7 @@ public:
 	 * @param[in] mediaType - Media stream type
 	 * @param[out] data - Data needed for buffer control
 	 */
-	void GetBufferControlData(MediaType mediaType, BufferControlData &data) const;
+	void GetBufferControlData(AampMediaType mediaType, BufferControlData &data) const;
 
 private:
 	/**
@@ -502,7 +502,7 @@ private:
      	 * @fn TearDownStream
      	 * @param[in] mediaType stream type
      	 */
-	void TearDownStream(MediaType mediaType);
+	void TearDownStream(AampMediaType mediaType);
 	/**
      	 * @fn CreatePipeline
      	 */
@@ -522,7 +522,7 @@ private:
      	 * @param[in] mediaType - source element for media type
      	 * @return bool - true if source setup completed within timeout
      	 */
-	bool WaitForSourceSetup(MediaType mediaType);
+	bool WaitForSourceSetup(AampMediaType mediaType);
 	/**
      	 * @fn ForwardBuffersToAuxPipeline
     	 *

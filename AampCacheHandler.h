@@ -39,7 +39,7 @@
 typedef struct playlistcacheddata{
 	std::string mEffectiveUrl;
 	AampGrowableBuffer* mCachedBuffer;
-	MediaType mFileType;
+	AampMediaType mFileType;
 	bool mDuplicateEntry;
 
 	playlistcacheddata() : mEffectiveUrl(""), mCachedBuffer(NULL), mFileType(eMEDIATYPE_DEFAULT),mDuplicateEntry(false)
@@ -126,8 +126,8 @@ private:
 
 	typedef std::unordered_map <std::string, InitFragCacheStruct*> InitFragCache ;
 	typedef std::unordered_map <std::string, InitFragCacheStruct*>::iterator InitFragCacheIter;
-	typedef std::unordered_map <MediaType, InitFragTrackStruct*, std::hash<int>> CacheTrackQueue;
-	typedef std::unordered_map <MediaType, InitFragTrackStruct*, std::hash<int>>::iterator CacheTrackQueueIter;
+	typedef std::unordered_map <AampMediaType, InitFragTrackStruct*, std::hash<int>> CacheTrackQueue;
+	typedef std::unordered_map <AampMediaType, InitFragTrackStruct*, std::hash<int>>::iterator CacheTrackQueueIter;
 	InitFragCache umInitFragCache;
 	CacheTrackQueue umCacheTrackQ;
 	pthread_mutex_t mInitFragMutex;
@@ -165,7 +165,7 @@ protected:
 	 *
 	 *   @return bool Success or Failure
 	 */
-	bool AllocatePlaylistCacheSlot(MediaType fileType,size_t newLen);
+	bool AllocatePlaylistCacheSlot(AampMediaType fileType,size_t newLen);
 
 	/**
 	 *   @fn ClearInitFragCache
@@ -181,7 +181,7 @@ protected:
 	 * 
 	 *   @return void
 	 */
-	void RemoveInitFragCacheEntry ( MediaType fileType );
+	void RemoveInitFragCacheEntry ( AampMediaType fileType );
 
 public:
 
@@ -220,7 +220,7 @@ public:
      	 *
 	 *   @return void
 	 */
-	void InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,MediaType fileType=eMEDIATYPE_DEFAULT);
+	void InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,AampMediaType fileType=eMEDIATYPE_DEFAULT);
 
 	/**
 	 *   @fn RetrieveFromPlaylistCache
@@ -267,7 +267,7 @@ public:
      	 *
 	 *   @return void
 	 */
-	void InsertToInitFragCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,MediaType fileType);
+	void InsertToInitFragCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,AampMediaType fileType);
 
 	/**
 	 *   @fn RetrieveFromInitFragCache

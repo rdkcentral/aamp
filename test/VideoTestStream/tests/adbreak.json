@@ -1,0 +1,6 @@
+[
+ {"type":"Break Start", "time":30.0, "duration":34.0, "event_id":1},
+ {"type":"Provider Advertisement Start", "time":32.0, "duration":30.0, "event_id":2},
+ {"type":"Provider Advertisement End", "time":62.0, "event_id":2},
+ {"type":"Break End", "time":64.0, "event_id":1}
+]

@@ -32,7 +32,7 @@ TESTDATA1 = {
     {"cmd":'setconfig {"info":true,"trace":true}'}, # must use " not ' in json
     {"cmd": "set subtecSimulator 1"},
     {"expect": r"SubtecSimulatorThread - listening for packets",},
-    {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+    {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd"},
     {"expect": r"AAMP_EVENT_TUNED"},
     {"cmd": "set textTrack data/test.vtt"},
     {"expect": r"webvtt data received from application",},

@@ -28,7 +28,7 @@ IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(AampLogManager *logObj, id3_c
 {}
 
 void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
-		MediaType type,
+		AampMediaType type,
 		bool discontinuity, 
 		const double proc_position,
 		bool & ptsError, 
@@ -40,7 +40,7 @@ bool IsoBMFFMetadataProcessor::SetTuneTimePTS()
 	return true;
 }
 
-void IsoBMFFMetadataProcessor::ProcessID3Metadata(MediaType type, const char * data_ptr, size_t data_len)
+void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const char * data_ptr, size_t data_len)
 {}
 
 TSMetadataProcessor::TSMetadataProcessor(AampLogManager *logObj, id3_callback_t id3_hdl,
@@ -50,7 +50,7 @@ TSMetadataProcessor::TSMetadataProcessor(AampLogManager *logObj, id3_callback_t 
 {}
 
 void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
-		MediaType type,
+		AampMediaType type,
 		bool discontinuity, 
 		const double proc_position,
 		bool & ptsError, 

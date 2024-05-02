@@ -52,7 +52,10 @@
 #endif
 
 #ifdef USE_EXTERNAL_STATS
+// narrowly define MediaType for backwards compatibility
+#define MediaType AampMediaType
 #include "aamp-xternal-stats.h"
+#undef MediaType
 #endif
 
 /**
@@ -715,7 +718,7 @@ static void analyze_streams(AAMPGstPlayer *_this)
 #endif
 }
 
-static MediaType GetMediaTypeForSource(const GstElement *source, const AAMPGstPlayer *_this)
+static AampMediaType GetMediaTypeForSource(const GstElement *source, const AAMPGstPlayer *_this)
 {
 	if (source && _this)
 	{
@@ -725,7 +728,7 @@ static MediaType GetMediaTypeForSource(const GstElement *source, const AAMPGstPl
 			/* eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_SUBTITLE, eMEDIATYPE_AUX_AUDIO */
 			if (source == _this->privateContext->stream[i].source)
 			{
-				return static_cast<MediaType>(i);
+				return static_cast<AampMediaType>(i);
 			}
 		}
 
@@ -749,7 +752,7 @@ static void need_data(GstElement *source, guint size, AAMPGstPlayer *_this)
 {
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	auto mLogObj = _this->mLogObj; // map correct log context
-	MediaType mediaType = GetMediaTypeForSource(source, _this);
+	AampMediaType mediaType = GetMediaTypeForSource(source, _this);
 	if (mediaType != eMEDIATYPE_DEFAULT)
 	{
 		struct media_stream *stream = &_this->privateContext->stream[mediaType];
@@ -778,7 +781,7 @@ static void enough_data(GstElement *source, AAMPGstPlayer *_this)
 		auto mLogObj = _this->mLogObj; // map correct log context
 		if (_this->aamp->DownloadsAreEnabled()) // avoid processing enough data if the downloads are already disabled.
 		{
-			MediaType mediaType = GetMediaTypeForSource(source, _this);
+			AampMediaType mediaType = GetMediaTypeForSource(source, _this);
 			if (mediaType != eMEDIATYPE_DEFAULT)
 			{
 				struct media_stream *stream = &_this->privateContext->stream[mediaType];
@@ -871,7 +874,7 @@ static GstPadProbeReturn AAMPGstPlayer_HandleInstantRateChangeSeekProbe(GstPad* 
  * @param[in] source pointer to appsrc instance to be initialized
  * @param[in] mediaType stream type
  */
-static void InitializeSource(AAMPGstPlayer *_this, GObject *source, MediaType mediaType = eMEDIATYPE_VIDEO)
+static void InitializeSource(AAMPGstPlayer *_this, GObject *source, AampMediaType mediaType = eMEDIATYPE_VIDEO)
 {
 	auto mLogObj = _this->mLogObj; // map correct log context
 	media_stream *stream = &_this->privateContext->stream[mediaType];
@@ -911,12 +914,13 @@ static void InitializeSource(AAMPGstPlayer *_this, GObject *source, MediaType me
 																					detected it sets its src pad caps to the found media type*/
 	}
 
-#if defined(AAMP_SIMULATOR_BUILD) && (!defined(ENABLE_AAMP_QTDEMUX_OVERRIDE))
+#if defined(AAMP_SIMULATOR_BUILD)
 	/* If qtdemux PTS restamping is not enabled and play starts at a non-zero stream time, then
 	 * seek to the start time, otherwise gstreamer will block until the running time matches the
 	 * stream time.
 	 */
-	if ((eMEDIATYPE_VIDEO == mediaType) || (eMEDIATYPE_AUDIO == mediaType) || (eMEDIATYPE_AUX_AUDIO == mediaType))
+	if (!(_this->aamp->mConfig->IsConfigSet(eAAMPConfig_QtDemuxOverrideEnabled)) &&
+		((eMEDIATYPE_VIDEO == mediaType) || (eMEDIATYPE_AUDIO == mediaType) || (eMEDIATYPE_AUX_AUDIO == mediaType)))
 	{
 		gint64 firstTime = (gint64)(_this->aamp->GetFirstPTS()*GST_SECOND);
 		if( firstTime>0 )
@@ -944,7 +948,7 @@ static void found_source(GObject * object, GObject * orig, GParamSpec * pspec, A
 {
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	auto mLogObj = _this->mLogObj; // map correct log context
-	MediaType mediaType = eMEDIATYPE_DEFAULT;
+	AampMediaType mediaType = eMEDIATYPE_DEFAULT;
 	if (object == G_OBJECT(_this->privateContext->stream[eMEDIATYPE_VIDEO].sinkbin))
 	{
 		AAMPLOG_MIL("Found source for video");
@@ -1158,7 +1162,7 @@ static gboolean ProgressCallbackOnTimeout(gpointer user_data)
 		auto mLogObj = _this->mLogObj; // map correct log context
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
-			_this->privateContext->stream[i].mBufferControl.update(_this, static_cast<MediaType>(i));
+			_this->privateContext->stream[i].mBufferControl.update(_this, static_cast<AampMediaType>(i));
 		}
 		_this->aamp->ReportProgress();
 		AAMPLOG_TRACE("current %d, stored %d ", g_source_get_id(g_main_current_source()), _this->privateContext->periodicProgressCallbackIdleTaskId);
@@ -1217,7 +1221,7 @@ static gboolean IdleCallbackFirstVideoFrameDisplayed(gpointer user_data)
 /**
  *  @brief Notify first Audio and Video frame through an idle function to make the playersinkbin halding same as normal(playbin) playback.
  */
-void AAMPGstPlayer::NotifyFirstFrame(MediaType type)
+void AAMPGstPlayer::NotifyFirstFrame(AampMediaType type)
 {
 	bool firstBufferNotified=false;
 
@@ -1541,7 +1545,7 @@ static void AAMPGstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0,
 	else
 	{
 		//TODO - Handle underflow
-		MediaType type = eMEDIATYPE_DEFAULT;  //CID:89173 - Resolve Uninit
+		AampMediaType type = eMEDIATYPE_DEFAULT;  //CID:89173 - Resolve Uninit
 		AAMPGstPlayerPriv *privateContext = _this->privateContext;
 #ifdef REALTEKCE
 		if (AAMPGstPlayer_isVideoSink(GST_ELEMENT_NAME(object), _this))
@@ -2399,7 +2403,7 @@ unsigned long AAMPGstPlayer::getCCDecoderHandle()
 /**
  *  @brief Generate a protection event
  */
-void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *initData, size_t initDataSize, MediaType type)
+void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *initData, size_t initDataSize, AampMediaType type)
 {
 #ifdef AAMP_MPD_DRM
 	/* There is a possibility that only single protection event is queued for multiple type since they are encrypted using same id.
@@ -2414,14 +2418,14 @@ void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *i
 	}
 	pthread_mutex_unlock(&mProtectionLock); 
 
-	AAMPLOG_MIL("Queueing protection event for type(%d) keysystem(%s) initData(%p) initDataSize(%d)", type, protSystemId, initData, initDataSize);
+	AAMPLOG_MIL("Queueing protection event for type(%d) keysystem(%s) initData(%p) initDataSize(%zu)", type, protSystemId, initData, initDataSize);
 
 	/* Giving invalid initData into ProtectionEvent causing "GStreamer-CRITICAL" assertion error. So if the initData is valid then its good to call the ProtectionEvent further. */
 	if (initData && initDataSize)
 	{
 		GstBuffer *pssi;
 
-		pssi = gst_buffer_new_wrapped(g_memdup (initData, initDataSize), initDataSize);
+		pssi = gst_buffer_new_wrapped(g_memdup (initData, (guint)initDataSize), (gsize)initDataSize);
 		pthread_mutex_lock(&mProtectionLock);
 		if (this->aamp->IsDashAsset())
 		{
@@ -2511,7 +2515,7 @@ static void AAMPGstPlayer_PlayersinkbinCB(GstElement * playersinkbin, gint statu
  * @param[in] mediaType media type
  * @retval pointer to appsrc instance
  */
-static GstElement* AAMPGstPlayer_GetAppSrc(AAMPGstPlayer *_this, MediaType mediaType)
+static GstElement* AAMPGstPlayer_GetAppSrc(AAMPGstPlayer *_this, AampMediaType mediaType)
 {
 	GstElement *source;
 	source = gst_element_factory_make("appsrc", NULL);
@@ -2546,7 +2550,7 @@ void AAMPGstPlayer::RemoveProbes()
 {
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
-		media_stream* stream = &privateContext->stream[(MediaType)i];
+		media_stream* stream = &privateContext->stream[(AampMediaType)i];
 		if (stream->demuxProbeId && stream->demuxPad)
 		{
 			gst_pad_remove_probe (stream->demuxPad, stream->demuxProbeId);
@@ -2559,7 +2563,7 @@ void AAMPGstPlayer::RemoveProbes()
 /**
  *  @brief Cleanup resources and flags for a particular stream type
  */
-void AAMPGstPlayer::TearDownStream(MediaType mediaType)
+void AAMPGstPlayer::TearDownStream(AampMediaType mediaType)
 {
 	media_stream* stream = &privateContext->stream[mediaType];
 	stream->mBufferControl.teardownStart();
@@ -2663,7 +2667,7 @@ static void callback_element_added (GstElement * element, GstElement * source, g
  * @param[in] streamId stream type
  * @retval 0, if setup successfully. -1, for failure
  */
-static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
+static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamId)
 {
 	auto mLogObj = _this->mLogObj; // map correct log context
 	media_stream* stream = &_this->privateContext->stream[streamId];
@@ -2905,7 +2909,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, MediaType streamId)
  * @param[in] ptr buffer pointer
  * @param[in] len length of buffer
  */
-double AAMPGstPlayer::RecalculatePTS(MediaType mediaType, const void *ptr, size_t len)
+double AAMPGstPlayer::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len)
 {
 	double ret = 0;
 	uint32_t timeScale = 0;
@@ -2956,7 +2960,7 @@ double AAMPGstPlayer::RecalculatePTS(MediaType mediaType, const void *ptr, size_
  * @fn SendGstEvents
  * @param[in] mediaType stream type
  */
-void AAMPGstPlayer::SendGstEvents(MediaType mediaType, GstClockTime pts)
+void AAMPGstPlayer::SendGstEvents(AampMediaType mediaType, GstClockTime pts)
 {
 	media_stream* stream = &privateContext->stream[mediaType];
 	gboolean enableOverride = FALSE;
@@ -3029,7 +3033,7 @@ void AAMPGstPlayer::SendGstEvents(MediaType mediaType, GstClockTime pts)
 /**
  *  @brief Send new segment event to pipeline
  */
-void AAMPGstPlayer::SendNewSegmentEvent(MediaType mediaType, GstClockTime startPts ,GstClockTime stopPts)
+void AAMPGstPlayer::SendNewSegmentEvent(AampMediaType mediaType, GstClockTime startPts ,GstClockTime stopPts)
 {
         media_stream* stream = &privateContext->stream[mediaType];
         GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
@@ -3062,7 +3066,7 @@ void AAMPGstPlayer::SendNewSegmentEvent(MediaType mediaType, GstClockTime startP
 /**
  *  @brief Inject stream buffer to gstreamer pipeline
  */
-bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, bool initFragment, bool discontinuity)
 {
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
@@ -3294,13 +3298,13 @@ bool AAMPGstPlayer::SendHelper(MediaType mediaType, const void *ptr, size_t len,
 		StopBuffering(false);
 	}
 
-	return true;
+	return bPushBuffer;
 }
 
 /**
  *  @brief inject HLS/ts elementary stream buffer to gstreamer pipeline
  */
-bool AAMPGstPlayer::SendCopy(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
+bool AAMPGstPlayer::SendCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
 {
 	return SendHelper( mediaType, ptr, len, fpts, fdts, fDuration, true /*copy*/ );
 }
@@ -3308,7 +3312,7 @@ bool AAMPGstPlayer::SendCopy(MediaType mediaType, const void *ptr, size_t len, d
 /**
  *  @brief inject mp4 segment to gstreamer pipeline
  */
-bool AAMPGstPlayer::SendTransfer(MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment, bool discontinuity)
 {
 	return SendHelper( mediaType, ptr, len, fpts, fdts, fDuration, false /*transfer*/, initFragment, discontinuity );
 }
@@ -3427,7 +3431,7 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
                 configureStream[i] = true;
             else
             {
-                TearDownStream((MediaType) i);
+                TearDownStream((AampMediaType) i);
                 configureStream[i] = false;
             }
         }
@@ -3458,7 +3462,7 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 			media_stream *stream = &privateContext->stream[i];
 			if (stream->format != FORMAT_INVALID)
 			{
-				TearDownStream((MediaType) i);
+				TearDownStream((AampMediaType) i);
 			}
 
 			if (newFormat[i] != FORMAT_INVALID)
@@ -3477,7 +3481,7 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 			(trickTeardown && (eMEDIATYPE_AUDIO == i)))
 		{
 			trickTeardown = false;
-			TearDownStream((MediaType) i);
+			TearDownStream((AampMediaType) i);
 			stream->format = newFormat[i];
 			stream->trackId = aamp->GetCurrentAudioTrackId();
 	#ifdef USE_PLAYERSINKBIN
@@ -3491,11 +3495,11 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 			{
 				stream->using_playersinkbin = FALSE;
 			}
-			if (0 != AAMPGstPlayer_SetupStream(this, (MediaType)i))			/* Sets up the stream for the given MediaType */
+			if (0 != AAMPGstPlayer_SetupStream(this, (AampMediaType)i))			/* Sets up the stream for the given AampMediaType */
 			{
 				AAMPLOG_ERR("AAMPGstPlayer: track %d failed", i);
 				//Don't kill the tune for subtitles
-				if (eMEDIATYPE_SUBTITLE != (MediaType)i)
+				if (eMEDIATYPE_SUBTITLE != (AampMediaType)i)
 				{
 					return;
 				}
@@ -3604,7 +3608,7 @@ static void AAMPGstPlayer_SignalEOS(AAMPGstPlayerPriv* privateContext)
 /**
  *  @brief Checks to see if the pipeline is configured for specified media type
  */
-bool AAMPGstPlayer::PipelineConfiguredForMedia(MediaType type)
+bool AAMPGstPlayer::PipelineConfiguredForMedia(AampMediaType type)
 {
 	bool pipelineConfigured = true;
 
@@ -3622,7 +3626,7 @@ bool AAMPGstPlayer::PipelineConfiguredForMedia(MediaType type)
 /**
  *  @brief Starts processing EOS for a particular stream type
  */
-void AAMPGstPlayer::EndOfStreamReached(MediaType type)
+void AAMPGstPlayer::EndOfStreamReached(AampMediaType type)
 {
 	AAMPLOG_MIL("entering AAMPGstPlayer_EndOfStreamReached type %d", (int)type);
 
@@ -4075,11 +4079,14 @@ void AAMPGstPlayer::FlushAudio(double pos)
                 aamp->mCorrectionRate = rate;
         }
 
-#ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
-	startPosition = (pos - aamp->GetFirstPTS());
-#else
-	startPosition = pos;
-#endif
+	if(ISCONFIGSET(eAAMPConfig_QtDemuxOverrideEnabled))
+	{
+		startPosition = (pos - aamp->GetFirstPTS());
+	}
+	else
+	{
+		startPosition = pos;
+	}
 	AAMPLOG_MIL("Exiting AAMPGstPlayer::FlushAudio() pipeline state: %s startPosition: %lf AudioDelta %lf", gst_element_state_get_name(GST_STATE(privateContext->pipeline)), startPosition, aamp->mAudioDelta);
 	aamp->SyncEnd();
 }
@@ -4265,8 +4272,9 @@ long AAMPGstPlayer::GetPositionMilliseconds(void)
 			rate = 1; // MP4 position query alaways return absolute value
 		}
 
-#if !defined(REALTEKCE)	// Pos always start from "0" in Realtek
-		if (privateContext->segmentStart > 0)
+#if !defined(REALTEKCE)	|| defined(FLEX2_RDK) // Pos always start from "0" in Realtek
+		/*ES1-701 - With AMP_QTDEMUX_OVERRIDE disabled , pos does not start with "0" , AAMP_QTDEMUX_OVERRIDE is disabled for Charter App(Temporary Hack) in Flex2-RTK*/
+		if (privateContext->segmentStart > 0 && (!ISCONFIGSET(eAAMPConfig_QtDemuxOverrideEnabled)))
 		{
 			// DELIA-39530 - Deduct segment.start to find the actual time of media that's played.
 			rc = (GST_TIME_AS_MSECONDS(pos) - privateContext->segmentStart) * rate;
@@ -4276,7 +4284,7 @@ long AAMPGstPlayer::GetPositionMilliseconds(void)
 		{
 			rc = GST_TIME_AS_MSECONDS(pos) * rate;
 		}
-		//AAMPLOG_MIL("AAMPGstPlayer: pos - %" G_GINT64_FORMAT " rc - %ld", GST_TIME_AS_MSECONDS(pos), rc);
+		//AAMPLOG_MIL("AAMPGstPlayer: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
 
 		//positionQuery is not unref-ed here, because it could be reused for future position queries
 	}
@@ -4698,12 +4706,16 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 			if (privateContext->usingRialtoSink)
 #endif
 			{
-				/* If PTS restamping is enabled, set the seek position to zero. */
-#ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
 				gboolean enableOverride = TRUE;
-#else
-				gboolean enableOverride = (rate != AAMP_NORMAL_PLAY_RATE);
-#endif
+				/* If PTS restamping is enabled, set the seek position to zero. */
+				if(ISCONFIGSET(eAAMPConfig_QtDemuxOverrideEnabled))
+				{
+					enableOverride = TRUE;
+				}
+				else
+				{
+					enableOverride = (rate != AAMP_NORMAL_PLAY_RATE);
+				}
 
 				if (enableOverride)
 				{
@@ -4712,7 +4724,6 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 				}
 			}
 		}
-
 		if (!gst_element_seek(privateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 			position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 		{
@@ -4733,7 +4744,7 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 /**
  *  @brief Process discontinuity for a stream type
  */
-bool AAMPGstPlayer::Discontinuity(MediaType type)
+bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 {
 	bool ret = false;
 	media_stream *stream = &privateContext->stream[type];
@@ -4883,7 +4894,7 @@ void AAMPGstPlayer::ResetEOSSignalledFlag()
 /**
  *  @brief Check if cache empty for a media type
  */
-bool AAMPGstPlayer::IsCacheEmpty(MediaType mediaType)
+bool AAMPGstPlayer::IsCacheEmpty(AampMediaType mediaType)
 {
 	bool ret = true;
 	media_stream *stream = &privateContext->stream[mediaType];
@@ -5320,7 +5331,7 @@ void type_check_instance(const char * str, GstElement * elem)
 /**
  * @brief Wait for source element to be configured.
  */
-bool AAMPGstPlayer::WaitForSourceSetup(MediaType mediaType)
+bool AAMPGstPlayer::WaitForSourceSetup(AampMediaType mediaType)
 {
 	bool ret = false;
 	int timeRemaining = GETCONFIGVALUE(eAAMPConfig_SourceSetupTimeout);
@@ -5419,7 +5430,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 			gst_pad_send_event(sourceEleSrcPad, gst_event_new_seek (rate, GST_FORMAT_TIME,
 				static_cast<GstSeekFlags>(GST_SEEK_FLAG_INSTANT_RATE_CHANGE), GST_SEEK_TYPE_NONE,
 				0, GST_SEEK_TYPE_NONE, 0));
-			AAMPLOG_INFO("Seeking in %s ( %d )", aamp->MediaTypeString(static_cast<MediaType>(iTrack)), iTrack);
+			AAMPLOG_INFO("Seeking in %s ( %d )", aamp->MediaTypeString(static_cast<AampMediaType>(iTrack)), iTrack);
 		}
 	}
     AAMPLOG_MIL ("Current rate: %g", rate);
@@ -5549,7 +5560,7 @@ bool AAMPGstPlayer::SetTextStyle(const std::string &options)
  * @param[in] len length of buffer
  * @ret TRUE if override is enabled, FALSE otherwise
  */
-gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, GstClockTime pts, const void *ptr, size_t len)
+gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(AampMediaType mediaType, GstClockTime pts, const void *ptr, size_t len)
 {
 	media_stream* stream = &privateContext->stream[mediaType];
 	gboolean enableOverride = FALSE;
@@ -5558,19 +5569,22 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, GstClockTi
 	if (stream->format == FORMAT_ISO_BMFF && mediaType != eMEDIATYPE_SUBTITLE)
 	{
 		int vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS);
-#ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
-		enableOverride = TRUE;
-#else
-		enableOverride = (privateContext->rate != AAMP_NORMAL_PLAY_RATE);
-#endif
+		if(ISCONFIGSET(eAAMPConfig_QtDemuxOverrideEnabled))
+		{
+			enableOverride = TRUE;
+		}
+		else
+		{
+			enableOverride = (privateContext->rate != AAMP_NORMAL_PLAY_RATE);
+		}
 		/* 	The below statement creates a new eventStruct with the name 'aamp_override' and sets its three variables as follows:-
 			1) the variable 'enable' has datatype of G_TYPE_BOOLEAN and has value enableOverride.
 			2) the variable 'rate' has datatype of G_TYPE_FLOAT and is set to (float)privateContext->rate.
 			3) the variable 'aampplayer' has datatype of G_TYPE_BOOLEAN and a value of TRUE.
 		*/
 		GstStructure * eventStruct = gst_structure_new("aamp_override", "enable", G_TYPE_BOOLEAN, enableOverride, "rate", G_TYPE_FLOAT, (float)privateContext->rate, "aampplayer", G_TYPE_BOOLEAN, TRUE, "fps", G_TYPE_UINT, (guint)vodTrickplayFPS, NULL);
-#ifdef ENABLE_AAMP_QTDEMUX_OVERRIDE
-		if ( privateContext->rate == AAMP_NORMAL_PLAY_RATE )
+		if ( privateContext->rate == AAMP_NORMAL_PLAY_RATE &&
+			(ISCONFIGSET(eAAMPConfig_QtDemuxOverrideEnabled)))
 		{
 			guint64 basePTS = aamp->GetFirstPTS() * GST_SECOND;
 			// When media processor is enabled, pts value will be inferred from fragment
@@ -5596,7 +5610,6 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(MediaType mediaType, GstClockTi
 			AAMPLOG_MIL("Set override event's basePTS [ %" G_GUINT64_FORMAT "]", basePTS);
 			gst_structure_set (eventStruct, "basePTS", G_TYPE_UINT64, basePTS, NULL);
 		}
-#endif
 		if (!gst_pad_push_event(sourceEleSrcPad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, eventStruct)))
 		{
 			AAMPLOG_ERR("Error on sending qtdemux override event");
@@ -5642,7 +5655,7 @@ void AAMPGstPlayer::SignalSubtitleClock()
 	}
 }
 
-void AAMPGstPlayer::GetBufferControlData(MediaType mediaType, BufferControlData &data) const
+void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlData &data) const
 {
 	const media_stream *stream = &privateContext->stream[mediaType];
 

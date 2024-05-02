@@ -18,14 +18,15 @@
  */
 
 /**
- * @file AampCacheHandler.h
- * @brief Cache handler for AAMP
+ * @file AampBufferControl.h
+ * @brief Provides Buffer control
  */
 
 #ifndef __AAMP_BUFFER_CONTROL_H__
 #define __AAMP_BUFFER_CONTROL_H__
 
 #include "aampgstplayer.h"
+#include "AampTime.h"
 
 class AAMPGstPlayerPriv;
 struct media_stream;
@@ -43,7 +44,7 @@ namespace AampBufferControl
 
 
 	public:
-		BufferControlExternalData(const AAMPGstPlayer* player, const MediaType mediaType);
+		BufferControlExternalData(const AAMPGstPlayer* player, const AampMediaType mediaType);
 
 		float getRate() const {return mRate;}
 		float getTimeBasedBufferSeconds() const {return mTimeBasedBufferSeconds;}
@@ -52,12 +53,12 @@ namespace AampBufferControl
 
 		/* Fetch data that is only required for BufferControlTimeBased::updateInternal
 		** i.e. when ShouldBeTimeBased() == true*/
-		void cacheExtraData(const AAMPGstPlayer* player, const MediaType mediaType);
+		void cacheExtraData(const AAMPGstPlayer* player, const AampMediaType mediaType);
 
 		//returned value is only valid when cacheExtraData() has been called
 		BufferControlData getExtraDataCache() const;
 
-		static void	actionDownloads(const AAMPGstPlayer* player, const MediaType mediaType, const bool downloadsEnabled);
+		static void	actionDownloads(const AAMPGstPlayer* player, const AampMediaType mediaType, const bool downloadsEnabled);
 	};
 
 	class BufferControlMaster;
@@ -172,19 +173,19 @@ namespace AampBufferControl
 	 **/
 	class BufferControlTimeBased : public BufferControlByteBased
 	{
-		double mInjectedEnd;
-		double mInjectedStart;
+		AampTime mInjectedEnd;
+		AampTime mInjectedStart;
 		bool mInjectedStartSet;
-		double mLastInjectedDuration;
+		AampTime mLastInjectedDuration;
 
 		void updateInternal( const BufferControlExternalData& externalData);
-		double getInjectedSeconds() const
+		AampTime getInjectedSeconds() const
 		{
 			if(mInjectedStartSet)
 			{
-				//This deliberatly does not include the duration of the last fragment
+				//This deliberately does not include the duration of the last fragment
 				//it's safer to underestimate the duration slightly (than to stop downloading prematurely)
-				return std::abs(mInjectedEnd-mInjectedStart);
+				return abs(mInjectedEnd-mInjectedStart);
 			}
 			else
 			{
@@ -226,7 +227,7 @@ namespace AampBufferControl
 		std::atomic<bool> mTeardownInProgress;   // true during stream teardown, control access with mMutex
 		std::mutex mMutex;          // Objects will be used by both periodic calls & gst callbacks
 
-		std::atomic<MediaType> mMediaType;
+		std::atomic<AampMediaType> mMediaType;
 		std::atomic<bool> mDownloadShouldBeEnabled;
 
 		/**
@@ -238,7 +239,7 @@ namespace AampBufferControl
 		void ResumeDownloads(){mDownloadShouldBeEnabled=true;};
 		void StopDownloads(){mDownloadShouldBeEnabled=false;};
 
-		MediaType getMediaType() const {return mMediaType;}
+		AampMediaType getMediaType() const {return mMediaType;}
 		const char* getThisMediaTypeName() const {return getMediaTypeName(getMediaType());}
 
 		BufferControlMaster();
@@ -265,18 +266,18 @@ namespace AampBufferControl
 		 * change state &/or strategy as required
 		 * starts/stops downloads as required
 		**/
-		void needData(const AAMPGstPlayer* player, const MediaType mediaType);
-		void enoughData(const AAMPGstPlayer* player, const MediaType mediaType);
-		void underflow(const AAMPGstPlayer* player, const MediaType mediaType);
+		void needData(const AAMPGstPlayer* player, const AampMediaType mediaType);
+		void enoughData(const AAMPGstPlayer* player, const AampMediaType mediaType);
+		void underflow(const AAMPGstPlayer* player, const AampMediaType mediaType);
 
 		/**
 		 * @brief Generic update
 		 * change state &/or strategy as required
 		 * starts/stops downloads as required
 		*/
-		void update(const AAMPGstPlayer* player, const MediaType mediaType);
+		void update(const AAMPGstPlayer* player, const AampMediaType mediaType);
 
-		void notifyFragmentInject(const AAMPGstPlayer* player,  const MediaType mediaType,  const double fpts,  const double fdts,  const double duration,  const bool firstBuffer);
+		void notifyFragmentInject(const AAMPGstPlayer* player,  const AampMediaType mediaType,  const double fpts,  const double fdts,  const double duration,  const bool firstBuffer);
 	};
 };
 #endif

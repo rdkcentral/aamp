@@ -570,7 +570,7 @@ public:
 	 * @param[in] isInitializationSegment - Initialization segment or not
 	 * @return Bucket type
 	 */
-	ProfilerBucketType GetProfilerBucketForMedia(MediaType mediaType, bool isInitializationSegment)
+	ProfilerBucketType GetProfilerBucketForMedia(AampMediaType mediaType, bool isInitializationSegment)
 	{
 		switch (mediaType)
 		{
@@ -682,7 +682,7 @@ public:
 	 * @param[in] fileType - Media filetype
 	 * @return Profiler bucket type
 	 */
-	ProfilerBucketType mediaType2Bucket(MediaType fileType);
+	ProfilerBucketType mediaType2Bucket(AampMediaType fileType);
 
        /**
          * @brief to set the vod-tune-event according to the player
@@ -703,18 +703,18 @@ public:
 	/**
 	 * @fn EnableMediaDownloads
 	 *
-	 * @param[in] MediaType - playlist type
+	 * @param[in] AampMediaType - playlist type
 	 * @return void
 	 */
-	void EnableMediaDownloads(MediaType type);
+	void EnableMediaDownloads(AampMediaType type);
 
 	/**
 	 * @fn DisableMediaDownloads
 	 *
-	 * @param[in] MediaType - playlist type
+	 * @param[in] AampMediaType - playlist type
 	 * @return void
 	 */
-	void DisableMediaDownloads(MediaType type);
+	void DisableMediaDownloads(AampMediaType type);
 
 	/**
 	 * @fn EnableAllMediaDownloads
@@ -747,7 +747,7 @@ public:
 	 * @param[in] fileType Media type
 	 * @return list of CUrl headers
 	 */
-	struct curl_slist* GetCustomHeaders(MediaType fileType);
+	struct curl_slist* GetCustomHeaders(AampMediaType fileType);
 
 	/**
 	 * @fn SetDiscontinuityParam - to mark the discontinuity and save the details
@@ -783,7 +783,7 @@ public:
 	StreamOutputFormat mSubtitleFormat{FORMAT_UNKNOWN};
 	pthread_cond_t mDownloadsDisabled;
 	bool mDownloadsEnabled;
-	std::map<MediaType, bool> mMediaDownloadsEnabled; /* Used to enable/Disable individual mediaType downloads */
+	std::map<AampMediaType, bool> mMediaDownloadsEnabled; /* Used to enable/Disable individual mediaType downloads */
 	HybridABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
 	ProfileEventAAMP profiler;
 	bool licenceFromManifest;
@@ -1102,9 +1102,9 @@ public:
 	 *
 	 * @param[in] segment - fragment
 	 * @param[in] size - fragment size
-	 * @param[in] type - MediaType
+	 * @param[in] type - AampMediaType
 	 */
-	void ProcessID3Metadata(char *segment, size_t size, MediaType type, uint64_t timestampOffset = 0);
+	void ProcessID3Metadata(char *segment, size_t size, AampMediaType type, uint64_t timestampOffset = 0);
 
 	/**
 	 * @fn ReportID3Metadata
@@ -1121,7 +1121,7 @@ public:
 	 * @param[in] tStampOffset - timestampOffset
 	 * @return void
 	 */
-	void ReportID3Metadata(MediaType mediaType, const uint8_t* ptr, size_t len,
+	void ReportID3Metadata(AampMediaType mediaType, const uint8_t* ptr, size_t len,
 		const char* schemeIdURI = NULL, const char* id3Value = NULL, uint64_t presTime = 0,
 		uint32_t id3ID = 0, uint32_t eventDur = 0, uint32_t tScale = 0, uint64_t tStampOffset = 0);
 
@@ -1139,7 +1139,7 @@ public:
 	 * @param[in] tStampOffset - timestampOffset
 	 * @return void
 	 */
-	void ReportID3Metadata(MediaType mediaType, std::vector<uint8_t> data,
+	void ReportID3Metadata(AampMediaType mediaType, std::vector<uint8_t> data,
 		const char* schemeIdURI = NULL, const char* id3Value = NULL, uint64_t presTime = 0,
 		uint32_t id3ID = 0, uint32_t eventDur = 0, uint32_t tScale = 0, uint64_t tStampOffset = 0);
 
@@ -1151,7 +1151,7 @@ public:
      * @param[in] len - Metadata packet length
      * @param info - Stream current data
      */
-    void ID3MetadataHandler(MediaType mediaType, const uint8_t* ptr, size_t len, const SegmentInfo_t & info, const char * scheme_uri);
+    void ID3MetadataHandler(AampMediaType mediaType, const uint8_t* ptr, size_t len, const SegmentInfo_t & info, const char * scheme_uri);
 
 	/**
 	 * @fn CurlInit
@@ -1227,10 +1227,10 @@ public:
 	/**
 	 * @fn GetPlaylistCurlInstance
 	 * Considers parallel download to decide the curl instance
-	 * @param[in] MediaType  - type of playlist
+	 * @param[in] AampMediaType  - type of playlist
 	 * @param[in] IsInitDnld - Init or Refresh download
 	 */
-	AampCurlInstance GetPlaylistCurlInstance(MediaType type, bool IsInitDnld=true);
+	AampCurlInstance GetPlaylistCurlInstance(AampMediaType type, bool IsInitDnld=true);
 
 	/**
 	 * @fn GetFile
@@ -1246,7 +1246,7 @@ public:
 	 * @param[in] CMCDMetrics - pointer to CMCDNetwork metrics
 	 * @return void
 	 */
-	bool GetFile(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true,MediaType fileType = eMEDIATYPE_DEFAULT, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0);
+	bool GetFile(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true,AampMediaType fileType = eMEDIATYPE_DEFAULT, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0);
 
 	/**
 	 * @fn getUUID
@@ -1267,7 +1267,7 @@ public:
 	 * @param[in] fileType - Type of Media
 	 * @param[out] pointer to Media Type string
 	 */
-	static const char* MediaTypeString(MediaType fileType);
+	static const char* MediaTypeString(AampMediaType fileType);
 
 	/**
 	 * @fn LoadIDX
@@ -1282,7 +1282,7 @@ public:
 	 * @param[out] fogError - Error from FOG
 	 * @return void
 	 */
-	void LoadIDX( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl,  AampGrowableBuffer *idx, unsigned int curlInstance = 0, const char *range = NULL,int * http_code = NULL, double *downloadTime = NULL, MediaType fileType = eMEDIATYPE_MANIFEST,int * fogError = NULL);
+	void LoadIDX( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl,  AampGrowableBuffer *idx, unsigned int curlInstance = 0, const char *range = NULL,int * http_code = NULL, double *downloadTime = NULL, AampMediaType fileType = eMEDIATYPE_MANIFEST,int * fogError = NULL);
 
 	/**
 	 * @fn LoadFragment
@@ -1297,7 +1297,7 @@ public:
 	 * @param[out] fogError - Error from FOG
 	 * @return void
 	 */
-	bool LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, MediaType fileType = eMEDIATYPE_MANIFEST, int * http_code = NULL, double * downloadTime = NULL, BitsPerSecond *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
+	bool LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, AampMediaType fileType = eMEDIATYPE_MANIFEST, int * http_code = NULL, double * downloadTime = NULL, BitsPerSecond *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
 	/**
 	 * @fn PushFragment
 	 *
@@ -1307,7 +1307,7 @@ public:
 	 * @param[in] fragmentDuration - Fragment duration
 	 * @return void
 	 */
-	void PushFragment(MediaType mediaType, char *ptr, size_t len, double fragmentTime, double fragmentDuration);
+	void PushFragment(AampMediaType mediaType, char *ptr, size_t len, double fragmentTime, double fragmentDuration);
 
 	/**
 	 * @fn PushFragment
@@ -1318,7 +1318,7 @@ public:
 	 * @param[in] fragmentDuration - Fragment duration
 	 * @return void
 	 */
-	void PushFragment(MediaType mediaType, AampGrowableBuffer* buffer, double fragmentTime, double fragmentDuration);
+	void PushFragment(AampMediaType mediaType, AampGrowableBuffer* buffer, double fragmentTime, double fragmentDuration);
 
 	/**
 	 * @fn EndOfStreamReached
@@ -1326,7 +1326,7 @@ public:
 	 * @param[in] mediaType - Media type
 	 * @return void
 	 */
-	void EndOfStreamReached(MediaType mediaType);
+	void EndOfStreamReached(AampMediaType mediaType);
 
 	/**
 	 * @brief Clip ended
@@ -1334,7 +1334,7 @@ public:
 	 * @param[in] mediaType - Media type
 	 * @return void
 	 */
-	void EndTimeReached(MediaType mediaType);
+	void EndTimeReached(AampMediaType mediaType);
 
 	/**
 	 * @brief Insert ad content
@@ -1663,7 +1663,7 @@ public:
 	 *   @param[in]  fDuration - Buffer duration.
 	 *   @return True if the fragment has been successfully injected into gstreamer pipeline
 	 */
-	bool SendStreamCopy(MediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration);
+	bool SendStreamCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration);
 
 	/**
 	 *   @fn SendStreamTransfer
@@ -1676,7 +1676,7 @@ public:
 	 *   @param[in]  initFragment - flag for buffer type (init, data)
 	 *   @return void
 	 */
-	void SendStreamTransfer(MediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment = 0, bool discontinuity = false);
+	void SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment = 0, bool discontinuity = false);
 
 	/**
 	 * @fn IsLive
@@ -1838,7 +1838,7 @@ public:
 	 * @param[in] type Media type
 	 * @return void
 	 */
-	void StopTrackDownloads(MediaType type);
+	void StopTrackDownloads(AampMediaType type);
 
 	/**
  	 * @fn ResumeTrackDownloads
@@ -1846,7 +1846,7 @@ public:
 	 * @param[in] type Media type
 	 * @return void
 	 */
-	void ResumeTrackDownloads(MediaType type);
+	void ResumeTrackDownloads(AampMediaType type);
 
 	/**
 	 *   @fn BlockUntilGstreamerWantsData
@@ -2061,7 +2061,7 @@ public:
 	 *   @param[in] trackType - Video/Audio
 	 *   @return void
 	 */
-	void ScheduleRetune(PlaybackErrorType errorType, MediaType trackType);
+	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType);
 
 	/**
 	 * @brief PrivateInstanceAAMP Constructor
@@ -2112,28 +2112,28 @@ public:
 	 *   @param[in] setDiscontinuityFlag if true then no need to call mStreamSink->Discontinuity(), set only the discontinuity processing flag.
 	 *   @return true if discontinuity is handled.
 	 */
-	bool Discontinuity(MediaType track, bool setDiscontinuityFlag = false);
+	bool Discontinuity(AampMediaType track, bool setDiscontinuityFlag = false);
 
 	/**
 	 *    @fn SetTrackDiscontinuityIgnoredStatus
 	 *
 	 *    @return void
 	 */
-	void SetTrackDiscontinuityIgnoredStatus(MediaType track);
+	void SetTrackDiscontinuityIgnoredStatus(AampMediaType track);
 
 	/**
 	 *    @fn IsDiscontinuityIgnoredForOtherTrack
 	 *
 	 *    @return true - if the discontinuity already ignored.
 	 */
-	bool IsDiscontinuityIgnoredForOtherTrack(MediaType track);
+	bool IsDiscontinuityIgnoredForOtherTrack(AampMediaType track);
 
 	/**
 	 *    @fn IsDiscontinuityIgnoredForCurrentTrack
 	 *
 	 *    @return true - if the discontinuity already ignored.
 	 */
-	bool IsDiscontinuityIgnoredForCurrentTrack(MediaType track);
+	bool IsDiscontinuityIgnoredForCurrentTrack(AampMediaType track);
 
 	/**
 	 *    @fn ResetTrackDiscontinuityIgnoredStatus
@@ -2147,7 +2147,7 @@ public:
 	 *
 	 *    @return void
 	 */
-	void ResetTrackDiscontinuityIgnoredStatusForTrack(MediaType track);
+	void ResetTrackDiscontinuityIgnoredStatusForTrack(AampMediaType track);
 
 	/**
 	 *   @fn ResetDiscontinuityInTracks
@@ -2219,7 +2219,7 @@ public:
 	 *   @param[in] mediaType - Audio/Video
 	 *   @return true: empty, false: not empty
 	 */
-	bool IsSinkCacheEmpty(MediaType mediaType);
+	bool IsSinkCacheEmpty(AampMediaType mediaType);
 
 	/**
 	 * @fn ResetEOSSignalledFlag
@@ -2894,7 +2894,7 @@ public:
 	 * @param[in] type Media type
 	 * @return void
 	 */
-	void StopTrackInjection(MediaType type);
+	void StopTrackInjection(AampMediaType type);
 
 	/**
 	 * @fn ResumeTrackInjection
@@ -2902,7 +2902,7 @@ public:
 	 * @param[in] type Media type
 	 * @return void
 	 */
-	void ResumeTrackInjection(MediaType type);
+	void ResumeTrackInjection(AampMediaType type);
 
 	/**
 	 *   @fn NotifyFirstVideoPTS
@@ -2935,24 +2935,24 @@ public:
 
 	/**   @fn UpdateVideoEndMetrics
 	 *
-	 *   @param[in]  mediaType - MediaType ( Manifest/Audio/Video etc )
+	 *   @param[in]  mediaType - AampMediaType ( Manifest/Audio/Video etc )
 	 *   @param[in]  bitrate - bitrate ( bits per sec )
 	 *   @param[in]  curlOrHTTPCode - download curl or http error
 	 *   @param[in]  strUrl :  URL in case of faulures
 	 *   @param[in] manifestData : Manifest info to be updated to partner apps
 	 *   @return void
 	 */
-	void UpdateVideoEndMetrics(MediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData = NULL);
+	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData = NULL);
 
 	/**
 	 *   @fn UpdateVideoEndProfileResolution
-	 *   @param[in]  mediaType - MediaType ( Manifest/Audio/Video etc )
+	 *   @param[in]  mediaType - AampMediaType ( Manifest/Audio/Video etc )
 	 *   @param[in]  bitrate - bitrate ( bits per sec )
 	 *   @param[in]  width - Frame width
 	 *   @param[in]  height - Frame Height
 	 *   @return void
 	 */
-	void UpdateVideoEndProfileResolution(MediaType mediaType, BitsPerSecond bitrate, int width, int height);
+	void UpdateVideoEndProfileResolution(AampMediaType mediaType, BitsPerSecond bitrate, int width, int height);
 
 	/**
 	 *   @fn UpdateVideoEndTsbStatus
@@ -2972,7 +2972,7 @@ public:
 	/**
 	 *   @fn UpdateVideoEndMetrics
 	 *
-	 *   @param[in]  mediaType - MediaType ( Manifest/Audio/Video etc )
+	 *   @param[in]  mediaType - AampMediaType ( Manifest/Audio/Video etc )
  	 *   @param[in]  bitrate - bitrate ( bits per sec )
 	 *   @param[in]  curlOrHTTPCode - download curl or http error
 	 *   @param[in]  strUrl :  URL in case of faulures
@@ -2981,18 +2981,18 @@ public:
 	 *   @param[in] manifestData : Manifest info to be updated to partner apps
 	 *   @return void
 	 */
-	void UpdateVideoEndMetrics(MediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration,double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData = NULL);
+	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration,double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData = NULL);
 
 	/**
 	 *   @fn UpdateVideoEndMetrics
 	 *
-	 *   @param[in]  mediaType - MediaType ( Manifest/Audio/Video etc )
+	 *   @param[in]  mediaType - AampMediaType ( Manifest/Audio/Video etc )
 	 *   @param[in]  bitrate - bitrate ( bits per sec )
 	 *   @param[in]  curlOrHTTPCode - download curl or http error
 	 *   @param[in]  strUrl - URL in case of faulures
 	 *   @return void
 	 */
-	void UpdateVideoEndMetrics(MediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime);
+	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime);
 
 
 	/**
@@ -3022,7 +3022,7 @@ public:
 	 *   @fn CheckForDiscontinuityStall
 	 *   @param[in] mediaType stream type
 	 */
-	void CheckForDiscontinuityStall(MediaType mediaType);
+	void CheckForDiscontinuityStall(AampMediaType mediaType);
 
 	/**
 	 *   @fn NotifyVideoBasePTS
@@ -3223,7 +3223,7 @@ public:
 	 * @param[in] type Media type
 	 * @return bool true if track can inject data, false otherwise
 	 */
-	bool TrackDownloadsAreEnabled(MediaType type);
+	bool TrackDownloadsAreEnabled(AampMediaType type);
 
 	/**
 	 * @fn StopBuffering
@@ -3551,7 +3551,7 @@ public:
 	 *   @param[in] track - media type
 	 *   @return bool
 	 */
-	bool PipelineValid(MediaType track);
+	bool PipelineValid(AampMediaType track);
 
 	/**
 	 *   @fn SetStreamFormat
@@ -3868,10 +3868,10 @@ public:
 
     	/**
    	 *     @brief Get Media Stream Context
-     	 *     @param[in] type MediaType
+     	 *     @param[in] type AampMediaType
      	 *     @return MediaStreamContext*
      	 */
-	class MediaStreamContext* GetMediaStreamContext(MediaType type);
+	class MediaStreamContext* GetMediaStreamContext(AampMediaType type);
 
 	/**
 	 * @fn Run the thread loop monitoring for requested pause position
@@ -3903,7 +3903,7 @@ public:
 	/**
 	 * @fn CompleteDiscontinutyDataDeliverForPTSRestamp
 	 */
-	void CompleteDiscontinutyDataDeliverForPTSRestamp(MediaType type);
+	void CompleteDiscontinutyDataDeliverForPTSRestamp(AampMediaType type);
 
 	/**
 	 * @brief Set Discontinuity handling period change marked flag
@@ -4133,7 +4133,7 @@ protected:
 	 *
 	 *   @return void
  	 */
-	void NotifySinkBufferFull(MediaType type);
+	void NotifySinkBufferFull(AampMediaType type);
 	/**
 	 * @fn ExtractDrmInitData
 	 */

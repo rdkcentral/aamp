@@ -27,15 +27,15 @@
 #define AAMPMEDIATYPE_H
 
 /**
- * @enum MediaType
+ * @enum AampMediaType
  * @brief Media types
  */
 // Please maintain the order video, audio, subtitle and aux_audio in future
 // Above order to be maintained across fragment, init and playlist media types
 // These enums are used in a lot of calculation in AAMP code and breaking the order will bring a lot of issues
 // This order is also followed in other enums like AampCurlInstance and TrackType
-enum MediaType
-{
+enum AampMediaType
+{ // renamed from "MediaType" to avoid namespace collision with OpenCDM definition
 	eMEDIATYPE_VIDEO,               /**< Type video */
 	eMEDIATYPE_AUDIO,               /**< Type audio */
 	eMEDIATYPE_SUBTITLE,            /**< Type subtitle */

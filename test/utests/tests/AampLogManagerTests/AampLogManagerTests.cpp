@@ -205,7 +205,7 @@ TEST_F(AampLogManagerTest, LogNetworkLatency_Test)
     const char* url = "//httsurl";
     int downloadTime = 10;
     int downloadThresholdTimeoutMs = 20;
-    MediaType type = eMEDIATYPE_AUDIO;
+    AampMediaType type = eMEDIATYPE_AUDIO;
     std::string contentType = "cppfile";
 	std::string location = "folder";
 	std::string symptom = "testfile";
@@ -229,7 +229,7 @@ TEST_F(AampLogManagerTest, LogNetworkError_Test1)
     const char* url = "//httsurl";
     AAMPNetworkErrorType errorType[] = {AAMPNetworkErrorNone,AAMPNetworkErrorHttp,AAMPNetworkErrorTimeout,AAMPNetworkErrorCurl};
     int errorCode = 20;
-    MediaType type = eMEDIATYPE_AUDIO;
+    AampMediaType type = eMEDIATYPE_AUDIO;
     std::string contentType = "cppfile";
 	std::string location = "folder";
 	std::string symptom = "testfile";
@@ -256,7 +256,7 @@ TEST_F(AampLogManagerTest, LogNetworkError_Test2)
     const char* url = "//httsurl";
     AAMPNetworkErrorType errorType = AAMPNetworkErrorHttp;
     int errorCode = 401;
-    MediaType type = eMEDIATYPE_AUDIO;
+    AampMediaType type = eMEDIATYPE_AUDIO;
 
     //Act: Calling the function for test
     mLogObj->LogNetworkError(url,errorType,errorCode,type);
@@ -276,7 +276,7 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test1)
     std::string contentType = "test1";
     std::string location = "test2";
     std::string symptom = "test3";
-    MediaType type = eMEDIATYPE_AUDIO;
+    AampMediaType type = eMEDIATYPE_AUDIO;
 
     //Act: Calling the function for test
     mLogObj->ParseContentUrl(url,contentType,location,symptom,type);
@@ -298,7 +298,7 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test2)
     std::string contentType = "test1";
     std::string location = "test2";
     std::string symptom = "test3";
-    MediaType type[20] = {
+    AampMediaType type[20] = {
         eMEDIATYPE_VIDEO,
         eMEDIATYPE_AUDIO,
         eMEDIATYPE_SUBTITLE,
@@ -339,7 +339,7 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test3)
     std::string contentType = "test1";
     std::string location = "test2";
     std::string symptom = "test3";
-    MediaType type = eMEDIATYPE_INIT_IFRAME;
+    AampMediaType type = eMEDIATYPE_INIT_IFRAME;
 
     //Act: Calling the function for test
     mLogObj->ParseContentUrl(url,contentType,location,symptom,type);
@@ -361,7 +361,7 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test4)
     std::string contentType = "test1";
     std::string location = "test2";
     std::string symptom = "test3";
-    MediaType type = eMEDIATYPE_INIT_IFRAME;
+    AampMediaType type = eMEDIATYPE_INIT_IFRAME;
 
     //Act: Calling the function for test
     mLogObj->ParseContentUrl(url,contentType,location,symptom,type);
@@ -383,7 +383,7 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test5)
     std::string contentType = "test1";
     std::string location = "test2";
     std::string symptom = "test3";
-    MediaType type = eMEDIATYPE_INIT_IFRAME;
+    AampMediaType type = eMEDIATYPE_INIT_IFRAME;
 
     //Act: Calling the function for test
     mLogObj->ParseContentUrl(url,contentType,location,symptom,type);
@@ -405,7 +405,7 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test6)
     std::string contentType = "test1";
     std::string location = "test2";
     std::string symptom = "test3";
-    MediaType type = eMEDIATYPE_DEFAULT;
+    AampMediaType type = eMEDIATYPE_DEFAULT;
 
     //Act: Calling the function for test
     mLogObj->ParseContentUrl(url,contentType,location,symptom,type);

@@ -20,6 +20,8 @@ include(GoogleTest)
 pkg_check_modules(GMOCK REQUIRED gmock)
 pkg_check_modules(GTEST REQUIRED gtest)
 
+find_package(CURL REQUIRED)
+
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME PlayerInstanceAAMP)
@@ -35,6 +37,7 @@ include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
+include_directories(${CURL_INCLUDE_DIRS})
 
 set(TEST_SOURCES PauseAtTests.cpp
                  PlayerInstanceAAMPTests.cpp)
@@ -63,6 +66,6 @@ if (COVERAGE_ENABLED)
 endif()
 
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${CURL_LIBRARIES})
 
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)

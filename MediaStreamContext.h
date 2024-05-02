@@ -44,7 +44,7 @@ public:
      */
     MediaStreamContext(AampLogManager *logObj, TrackType type, StreamAbstractionAAMP_MPD* ctx, PrivateInstanceAAMP* aamp, const char* name) :
             MediaTrack(logObj, type, aamp, name),
-            mediaType((MediaType)type), adaptationSet(NULL), representation(NULL),
+            mediaType((AampMediaType)type), adaptationSet(NULL), representation(NULL),
             fragmentIndex(0), timeLineIndex(0), fragmentRepeatCount(0), fragmentOffset(0),
             eos(false), fragmentTime(0), periodStartOffset(0), timeStampOffset(0), IDX("fragment-IDX"),
 	        lastSegmentTime(0), lastSegmentNumber(0), lastSegmentDuration(0), adaptationSetIdx(0), representationIndex(0), profileChanged(true),
@@ -115,13 +115,13 @@ public:
 
     /**
      * @fn CacheFragmentChunk
-     * @param actualType MediaType type of cached media
+     * @param actualType AampMediaType type of cached media
      * @param ptr CURL provided chunk data
      * @param size CURL provided chunk data size
      * @param remoteUrl url of fragment
      * @param dnldStartTime of the download
      */
-    bool CacheFragmentChunk(MediaType actualType, char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime);
+    bool CacheFragmentChunk(AampMediaType actualType, char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime);
 
     /**
      * @fn ABRProfileChanged
@@ -195,7 +195,7 @@ public:
      */
 	void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) override {};
 
-    MediaType mediaType;
+    AampMediaType mediaType;
     struct FragmentDescriptor fragmentDescriptor;
     const IAdaptationSet *adaptationSet;
     const IRepresentation *representation;
@@ -209,7 +209,7 @@ public:
     AampGrowableBuffer mDownloadedFragment;
 
     double fragmentTime; // Absolute Fragment time from Availability start
-    double downloadedDuration;
+    std::atomic<double> downloadedDuration;
     double periodStartOffset;
     uint64_t timeStampOffset;
 	AampGrowableBuffer IDX;

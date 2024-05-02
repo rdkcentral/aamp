@@ -44,7 +44,13 @@ else()
 	pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
 endif()
 
-pkg_check_modules(CURL REQUIRED libcurl)
+if(APPLE)
+	# libcurl < 8.5 exhibits memory leaks. On Ubuntu 22.04 can't update beyond 7.81.0-1ubuntu1.16 without building from source
+	pkg_check_modules(CURL REQUIRED libcurl>=8.5)
+else()
+	pkg_check_modules(CURL REQUIRED libcurl)
+endif()
+
 pkg_check_modules(LibXml2 REQUIRED libxml-2.0)
 pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
@@ -294,6 +300,7 @@ if (CMAKE_WPEFRAMEWORK_REQUIRED)
 	set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} ThunderAccess.cpp Module.cpp)
 endif()
 
+
 if(CMAKE_USE_SECCLIENT)
 	if (CMAKE_USE_SECCLIENT_MOCKS)
 		copy_staging_header_file(sec_client.h)
@@ -325,6 +332,8 @@ endif()
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
   message("AAMP_SIMULATOR_BUILD set")
   set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SIMULATOR_BUILD=1")
+  set(CMAKE_TELEMETRY_2_0_REQUIRED TRUE)
+  set(CMAKE_AAMP_SIMULATOR TRUE)
 endif()
 
 if (CMAKE_USE_OPENCDM_ADAPTER)
@@ -344,7 +353,7 @@ if (CMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED)
     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DENABLE_AAMP_QTDEMUX_OVERRIDE=1")
 endif()
 
-set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${GSTREAMERBASE_LIBRARIES} ${GSTREAMER_LIBRARIES} ${CURL_LIBRARIES} ${LIBDASH_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl -labr ${UUID_LINK_LIBRARIES} ${SEC_CLIENT_LIB} -lcjson)
+set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${GSTREAMERBASE_LIBRARIES} ${GSTREAMER_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl -labr ${UUID_LINK_LIBRARIES} ${SEC_CLIENT_LIB} -lcjson)
 set(PLAYBINTEST_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LIBRARIES})
 
 if (CMAKE_AMLOGIC_SOC)
@@ -429,24 +438,19 @@ set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp
 # Session based stats for latency histogram
 set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lmetrics")
 
-if(CMAKE_USE_OPENCDM OR CMAKE_USE_OPENCDM_ADAPTER OR CMAKE_CDM_DRM)
-    # Sources common to all forms of OpenCDM and CDM
-    message("Using some form of OpenCDM or CDM")
-    set(LIBAAMP_DRM_SOURCES drm/AampDRMSessionManager.cpp
-                            drm/AampDrmSession.cpp
-                            drm/aampdrmsessionfactory.cpp
-                            drm/aampoutputprotection.cpp
-                            drm/helper/AampDrmHelperFactory.cpp
-                            drm/AampDRMutils.cpp
-    )
-    if(CMAKE_USE_THUNDER_OCDM_API_0_2)
-        set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_THUNDER_OCDM_API_0_2")
-    endif()
+# Sources common to all forms of OpenCDM and CDM
+set(LIBAAMP_DRM_SOURCES drm/AampDRMSessionManager.cpp
+						drm/AampDrmSession.cpp
+						drm/aampdrmsessionfactory.cpp
+						drm/aampoutputprotection.cpp
+						drm/helper/AampDrmHelperFactory.cpp
+						drm/AampDRMutils.cpp
+)
+if(CMAKE_USE_THUNDER_OCDM_API_0_2)
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_THUNDER_OCDM_API_0_2")
 endif()
 
-if(CMAKE_CDM_DRM)
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_MPD_DRM=1")
-endif()
+set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_MPD_DRM=1")
 
 if(CMAKE_USE_OPENCDM OR CMAKE_USE_OPENCDM_ADAPTER)
     message("OpenCDM support enabled")
@@ -516,6 +520,18 @@ if(CMAKE_USE_CLEARKEY)
     set(LIBAAMP_DRM_SOURCES "${LIBAAMP_DRM_SOURCES}" drm/ClearKeyDrmSession.cpp)
     set(LIBAAMP_HELP_SOURCES "${LIBAAMP_HELP_SOURCES}" drm/helper/AampClearKeyHelper.cpp)
     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_CLEARKEY")
+endif()
+
+# AAMP Telemetry 2.0 support
+if (CMAKE_TELEMETRY_2_0_REQUIRED)
+	message("CMAKE_TELEMETRY_2_0_REQUIRED set")
+	set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} AampTelemetry2.cpp)
+	set(LIBAAMP_HEADERS ${LIBAAMP_HEADERS} AampTelemetry2.hpp)
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_TELEMETRY_SUPPORT=1")
+
+	if (NOT CMAKE_AAMP_SIMULATOR)
+		set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -ltelemetry_msgsender")
+	endif()
 endif()
 
 if(CMAKE_USE_OPENCDM_ADAPTER)
@@ -808,7 +824,7 @@ set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
 target_link_libraries(aamp-cli subtec)
 target_link_libraries(aamp subtec)
 
-set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LDFLAGS} ${GSTREAMERBASE_LDFLAGS} ${LIBDASH_LIBRARIES} ${CURL_LIBRARIES})
+set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LDFLAGS} ${GSTREAMERBASE_LDFLAGS} ${LIBDASH_LIBRARIES} ${CURL_LINK_LIBRARIES})
 set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
                            test/gstTestHarness/tsdemux.hpp )
 set(GSTTESTHARNESS_SOURCES test/gstTestHarness/gst-port.cpp

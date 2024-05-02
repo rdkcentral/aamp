@@ -37,7 +37,7 @@ def Generate_ExpectList(url, bw):
         {"expect": "IP_AAMP_TUNETIME"},
         {"cmd": "sleep {}".format(sleep_time)},
         {"cmd": "get thumbnailConfig"},
-        {"expect": "Current TumbnailTracks: {} .".format(bw)},
+        {"expect": "Current ThumbnailTracks: {} .".format(bw)},
         {"cmd": "sleep {}".format(sleep_time)},
         {"cmd": "stop"},
         {"expect": "aamp_stop PlayerState=8"},

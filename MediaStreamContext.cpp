@@ -36,7 +36,7 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 	{
 		if(playContext)
 		{
-			MediaProcessor::process_fcn_t processor = [this](MediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+			MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
 			};
 			fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment, cachedFragment->position, 
@@ -44,9 +44,9 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
         }
 		else
 		{
-			aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), (MediaType) type);
+			aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), (AampMediaType) type);
 			AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
-			aamp->SendStreamTransfer((MediaType)type, &cachedFragment->fragment,
+			aamp->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment,
 			cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
 		}
 	}
@@ -72,7 +72,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
     CachedFragment* cachedFragment = GetFetchBuffer(true);
     BitsPerSecond bitrate = 0;
     double downloadTime = 0;
-    MediaType actualType = (MediaType)(initSegment?(eMEDIATYPE_INIT_VIDEO+mediaType):mediaType); //Need to revisit the logic
+    AampMediaType actualType = (AampMediaType)(initSegment?(eMEDIATYPE_INIT_VIDEO+mediaType):mediaType); //Need to revisit the logic
 
     cachedFragment->type = actualType;
     cachedFragment->initFragment = initSegment;
@@ -329,7 +329,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 /**
  *  @brief Cache Fragment Chunk
  */
-bool MediaStreamContext::CacheFragmentChunk(MediaType actualType, char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime)
+bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime)
 {
 	AAMPLOG_DEBUG("[%s] Chunk Buffer Length %zu Remote URL %s", name, size, remoteUrl.c_str());
 

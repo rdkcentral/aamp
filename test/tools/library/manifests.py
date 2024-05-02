@@ -26,6 +26,7 @@ import time
 import re
 import copy
 import logging
+import getpass
 from enum import Enum
 from pathlib import Path
 
@@ -68,7 +69,7 @@ def write_harvest_details(more_details, ftype):
         if each == "--jira":
             foundjira = True
         
-    user = os.getlogin()
+    user = getpass.getuser()
     data = {"recording_start_time": time_str, "args": sys.argv, "playback_command": playback, "significance": significance, "jira_ticket": ticket, "user": user}
     data.update(more_details)
 
@@ -79,9 +80,28 @@ def write_harvest_details(more_details, ftype):
 
 def read_harvest_details():
     d = {}
-    with open("harvest_details.json") as f:
-        d = json.load(f)
-
+    path = os.path.abspath(os.getcwd())
+    targetFile = "harvest_details.json"
+    fileLocation = "/"
+    while True:
+        currentCheck = os.path.join(path,targetFile)
+        if os.path.isfile(currentCheck):
+            #Found File
+            print(targetFile + " found at " + currentCheck)
+            fileLocation = currentCheck
+            break
+        else:
+            if currentCheck == targetFile:
+                print(targetFile + " not found")
+                break
+            else:
+                pathList = path.split("/")
+                s = "/"
+                path = s.join(pathList[:-1])
+            
+    if fileLocation != "/":
+        with open(fileLocation) as f:
+            d = json.load(f)
     return d
     
 
@@ -90,7 +110,7 @@ def write_transcode_details():
     Record some useful details about this harvest
     """
     time_str = datetime.utcnow().isoformat()
-    user = os.getlogin()
+    user = getpass.getuser()
     data = {"transcode_start_time": time_str, "args": sys.argv, "user": user}
     #data.update(more_details)
 

@@ -34,7 +34,7 @@ namespace aamp
 			constexpr size_t id3v2_header_size = 10u;
 
 
-			bool IsValidMediaType(MediaType )
+			bool IsValidMediaType(AampMediaType )
 			{
 				return true;
 			}
@@ -70,12 +70,12 @@ namespace aamp
 		{
 		}
 
-		bool MetadataCache::CheckNewMetadata(MediaType mediaType, const std::vector<uint8_t> & data) const
+		bool MetadataCache::CheckNewMetadata(AampMediaType mediaType, const std::vector<uint8_t> & data) const
 		{
 			return false;
 		}
 
-		void MetadataCache::UpdateMedatadaCache(MediaType mediaType, std::vector<uint8_t> data)
+		void MetadataCache::UpdateMedatadaCache(AampMediaType mediaType, std::vector<uint8_t> data)
 		{
 		}
 

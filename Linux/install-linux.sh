@@ -4,7 +4,7 @@ echo $OSTYPE
 aampdir=$PWD/..
 echo $aampdir
 linuxbuilddir=$aampdir/Linux
-defaultcodebranch=dev_sprint_23_1
+defaultcodebranch=dev_sprint_24_2
 googletestreference="tags/release-1.11.0"
 defaultprotobufreference="3.11.x"
 defaultrialtoreference="v0.2.2"

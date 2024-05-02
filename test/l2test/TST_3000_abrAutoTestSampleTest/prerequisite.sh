@@ -4,7 +4,7 @@ set -x
 mkdir -p /aamp/test/l2test/testdata
 
 if [ "$TEST_3000_STREAM_PATH" == "" ]; then
-    TEST_3000_STREAM_PATH="https://cpetestutility.stb.r53.xcal.tv/AAMP/simlinear/aamptest/streams/simlinear/streams09-Jan2023.tar.gz"
+    TEST_3000_STREAM_PATH="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/simlinear/streams09-Jan2023.tar.gz"
 fi
 
 if (curl -O  -X GET $TEST_3000_STREAM_PATH);then

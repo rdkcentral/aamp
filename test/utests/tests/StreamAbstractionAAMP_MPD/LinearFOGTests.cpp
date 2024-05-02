@@ -109,7 +109,8 @@ protected:
                 {eAAMPConfig_DisableAC3, false},
                 {eAAMPConfig_EnableLowLatencyDash, false},
                 {eAAMPConfig_EnableIgnoreEosSmallFragment, false},
-                {eAAMPConfig_EnablePTSReStamp, false}
+                {eAAMPConfig_EnablePTSReStamp, false},
+                {eAAMPConfig_QtDemuxOverrideEnabled, true}
         };
 
         BoolConfigSettings mBoolConfigSettings;

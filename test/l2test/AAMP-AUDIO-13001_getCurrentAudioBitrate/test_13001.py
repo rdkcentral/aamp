@@ -28,7 +28,7 @@ import json
 from inspect import getsourcefile
 
 #Test stream
-DASH_TEST_STREAM = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"
+DASH_TEST_STREAM = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd"
 DASH_BITRATE = 288000
 
 #Dictionary to store test stream and its respective bitrate that we need to verify

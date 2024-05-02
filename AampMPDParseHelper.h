@@ -324,7 +324,7 @@ public :
  	  * @brief Check if adaptation set is of a given media type
 	  * @retval true if adaptation set is of the given media type
 	  */
-	bool IsContentType(const IAdaptationSet *adaptationSet, MediaType mediaType );
+	bool IsContentType(const IAdaptationSet *adaptationSet, AampMediaType mediaType );
 	
 	/**
 	 * @fn GetPeriodDuration
@@ -407,7 +407,7 @@ public :
 	 * @param  type media type
 	 * @retval start time
 	 */
-	double GetFirstSegmentScaledStartTime(IPeriod * period, MediaType type = eMEDIATYPE_DEFAULT);
+	double GetFirstSegmentScaledStartTime(IPeriod * period, AampMediaType type = eMEDIATYPE_DEFAULT);
 
 private:
 

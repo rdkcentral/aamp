@@ -101,7 +101,7 @@ class TSProcessor : public MediaProcessor
        * @fn TSProcessor
        * @param[in] aamp Pointer to aamp associated with this TSProcessor
        * @param[in] streamOperation Operation to be done on injected data.
-       * @param[in] track MediaType to be operated on. Not relavent for demux operation
+       * @param[in] track AampMediaType to be operated on. Not relavent for demux operation
        * @param[in] peerTSProcessor Peer TSProcessor used along with this in case of separate audio/video playlists
        */
       TSProcessor(AampLogManager *logObj, class PrivateInstanceAAMP *aamp, StreamOperation streamOperation, id3_callback_t id3_hdl, int track = 0, TSProcessor* peerTSProcessor = NULL, TSProcessor* auxTSProcessor = NULL);

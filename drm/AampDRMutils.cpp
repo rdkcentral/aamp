@@ -34,7 +34,7 @@
 
 
 
-std::shared_ptr<AampSecManagerSession::SessionManager> AampSecManagerSession::SessionManager::getInstance(int64_t sessionID)
+std::shared_ptr<AampSecManagerSession::SessionManager> AampSecManagerSession::SessionManager::getInstance(int64_t sessionID, std::size_t inputSummaryHash)
 {
 	std::shared_ptr<SessionManager> returnValue;
 
@@ -63,7 +63,7 @@ std::shared_ptr<AampSecManagerSession::SessionManager> AampSecManagerSession::Se
 			}
 
 			ss<<"), instances remaining."<< instances.size();
-			AAMPLOG_WARN("%s",ss.str().c_str());
+			AAMPLOG_MIL("%s",ss.str().c_str());
 		}
 	}
 
@@ -85,11 +85,20 @@ std::shared_ptr<AampSecManagerSession::SessionManager> AampSecManagerSession::Se
 			}
 		}
 
-		/* where an existing, valid instance is not available for sessionID
-		 * create a new instance & save a pointer to it for possible future reuse*/
-		if(!returnValue)
+		if(returnValue)
 		{
-			returnValue.reset(new SessionManager{sessionID});
+			if(returnValue->getInputSummaryHash()!=inputSummaryHash)
+			{
+				//this should only occur after a successful updatePlaybackSession
+				AAMPLOG_MIL("AampSecManagerSession: session ID %lld input data changed.", sessionID);
+				returnValue->setInputSummaryHash(inputSummaryHash);
+			}
+		}
+		else
+		{
+			/* where an existing, valid instance is not available for sessionID
+			* create a new instance & save a pointer to it for possible future reuse*/
+			returnValue.reset(new SessionManager{sessionID, inputSummaryHash});
 			instances[sessionID] = returnValue;
 			AAMPLOG_WARN("AampSecManagerSession: new instance created for ID:%lld, %d instances total.",
 			sessionID,
@@ -111,11 +120,22 @@ AampSecManagerSession::SessionManager::~SessionManager()
 		AampSecManager::GetInstance()->ReleaseSession(mID);
 	}
 }
+void AampSecManagerSession::SessionManager::setInputSummaryHash(std::size_t inputSummaryHash)
+{
+	mInputSummaryHash=inputSummaryHash;
+	std::stringstream ss;
+	ss<<"Input summary hash updated to: "<<inputSummaryHash << "for ID "<<mID;
+	AAMPLOG_MIL("%s", ss.str().c_str());
+}
 
-AampSecManagerSession::SessionManager::SessionManager(int64_t sessionID):mID(sessionID){};
 
-AampSecManagerSession::AampSecManagerSession(int64_t sessionID):
-mpSessionManager(AampSecManagerSession::SessionManager::getInstance(sessionID)),
+AampSecManagerSession::SessionManager::SessionManager(int64_t sessionID, std::size_t inputSummaryHash):
+mID(sessionID),
+mInputSummaryHash(inputSummaryHash)
+{};
+
+AampSecManagerSession::AampSecManagerSession(int64_t sessionID, std::size_t inputSummaryHash):
+mpSessionManager(AampSecManagerSession::SessionManager::getInstance(sessionID, inputSummaryHash)),
 sessionIdMutex()
 {};
 
@@ -129,6 +149,18 @@ int64_t AampSecManagerSession::getSessionID(void) const
 	}
 
 	return ID;
+}
+
+std::size_t AampSecManagerSession::getInputSummaryHash()
+{
+	std::lock_guard<std::mutex>lock(sessionIdMutex);
+	std::size_t hash=0;
+	if(mpSessionManager)
+	{
+		hash = mpSessionManager->getInputSummaryHash();
+	}
+
+	return hash;
 }
 #endif
 
@@ -184,7 +216,7 @@ const std::string &DrmData::getData()
  */
 int DrmData::getDataLength()
 {
-	return (this->data.length());
+	return (int)this->data.length();
 }
 
 /**
@@ -251,7 +283,6 @@ std::string aamp_ExtractWVContentMetadataFromPssh(const char* psshData, int data
 {
 	//WV PSSH format 4+4+4+16(system id)+4(data size)
 	uint32_t header = 28;
-	unsigned char* content_id = NULL;
 	std::string metadata;
 	uint32_t  content_id_size =
                     (uint32_t)((psshData[header] & 0x000000FFu) << 24 |
@@ -272,23 +303,3 @@ std::string aamp_ExtractWVContentMetadataFromPssh(const char* psshData, int data
 	return metadata;
 }
 //End of special for Widevine
-
-/**
- * @brief Get the base URI of a resource
- *
- * @param uri URI of a resource
- * @param originOnly if true, only the domain (and port, if present) is returned.
- *					 if false, the full parent path of the resource is returned
- * @return base URI
- */
-static std::string aamp_getBaseUri(std::string uri, bool originOnly)
-{
-	std::smatch results;
-	if (std::regex_match(uri, results, std::regex("(" + PROTOCOL_REGEX + "[^/]+)/.*")))
-	{
-		return originOnly ? results[1].str() : uri.substr(0, uri.rfind("/"));
-	}
-
-	return uri;
-}
-

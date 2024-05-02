@@ -27,27 +27,27 @@ AampBufferControl::BufferControlMaster::BufferControlMaster()
 }
 
 AampBufferControl::BufferControlExternalData::BufferControlExternalData(const AAMPGstPlayer *player,
-																		const MediaType mediaType)
+																		const AampMediaType mediaType)
 {
 }
 
 void AampBufferControl::BufferControlExternalData::cacheExtraData(const AAMPGstPlayer *player,
-																  const MediaType mediaType)
+																  const AampMediaType mediaType)
 {
 }
 
 void AampBufferControl::BufferControlMaster::needData(const AAMPGstPlayer *player,
-													  MediaType mediaType)
+													  AampMediaType mediaType)
 {
 }
 
 void AampBufferControl::BufferControlMaster::enoughData(const AAMPGstPlayer *player,
-														MediaType mediaType)
+														AampMediaType mediaType)
 {
 }
 
 void AampBufferControl::BufferControlMaster::underflow(const AAMPGstPlayer *player,
-													   const MediaType mediaType)
+													   const AampMediaType mediaType)
 {
 }
 
@@ -60,13 +60,13 @@ void AampBufferControl::BufferControlMaster::teardownEnd()
 }
 
 void AampBufferControl::BufferControlMaster::notifyFragmentInject(const AAMPGstPlayer *player,
-																  const MediaType mediaType,
+																  const AampMediaType mediaType,
 																  double fpts, double fdts,
 																  double duration, bool firstBuffer)
 {
 }
 
-void AampBufferControl::BufferControlMaster::update(const AAMPGstPlayer *player, const MediaType mediaType)
+void AampBufferControl::BufferControlMaster::update(const AAMPGstPlayer *player, const AampMediaType mediaType)
 {
 }
 

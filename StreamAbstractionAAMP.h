@@ -113,7 +113,7 @@ public:
 	std::string uri = {};            /**< Fragment url */
 #endif
 	StreamInfo cacheFragStreamInfo; /**< Bitrate info of the fragment */
-	MediaType   type;               /**< MediaType info of the fragment */
+	AampMediaType   type;               /**< AampMediaType info of the fragment */
 	
     CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0), initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()), type(eMEDIATYPE_DEFAULT)
     {
@@ -129,7 +129,7 @@ class CachedFragmentChunk
 {
 public:
 	AampGrowableBuffer fragmentChunk;   /**< Buffer to keep fragment content */
-	MediaType   type; 		/**< MediaType info of the fragment */
+	AampMediaType   type; 		/**< AampMediaType info of the fragment */
 	long long downloadStartTime;	/**< The start time of file download */
 	
     CachedFragmentChunk() : fragmentChunk(AampGrowableBuffer("cached-fragment-chunk")), type(eMEDIATYPE_DEFAULT), downloadStartTime(0){}
@@ -342,7 +342,7 @@ public:
 	 *
 	 * @return Mediatype
 	 */
-	MediaType GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe);
+	AampMediaType GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe);
 
 	/**
 	 * @fn NotifyFragmentCollectorWait
@@ -666,7 +666,7 @@ protected:
 	 * @param[out] fragmentChunkDiscarded - true if fragment is discarded.
 	 * @return void
 	 */
-	void InjectFragmentChunkInternal(MediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration);
+	void InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration);
 
 
 	static int GetDeferTimeMs(long maxTimeSeconds);
@@ -708,6 +708,8 @@ public:
 	uint32_t totalMdatCount;            /**< Total MDAT Chunk Found*/
 	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processoing*/
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
+        bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
+
 protected:
 	AampLogManager *mLogObj;
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
@@ -722,7 +724,6 @@ protected:
 	bool abortInjectChunk;              /**< Abort inject operations if flag is set*/
 	pthread_mutex_t audioMutex;             /**< protection of audio track reconfiguration */
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
-	bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
 

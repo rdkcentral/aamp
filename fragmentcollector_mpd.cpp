@@ -528,7 +528,7 @@ static int GetDesiredVideoCodecIndex(IAdaptationSet *adaptationSet)
 /**
  * @brief map cannonical media type to corresponding playlist type
  */
-static MediaType MediaTypeToPlaylist( MediaType mediaType )
+static AampMediaType MediaTypeToPlaylist( AampMediaType mediaType )
 {
 	switch( mediaType )
 	{
@@ -834,11 +834,11 @@ void StreamAbstractionAAMP_MPD::GetFragmentUrl( std::string& fragmentUrl, const 
 }
 
 /**
- * @brief Gets a curlInstance index for a given MediaType
- * @param type the stream MediaType
+ * @brief Gets a curlInstance index for a given AampMediaType
+ * @param type the stream AampMediaType
  * @retval AampCurlInstance index to curl_easy_perform session
  */
-static AampCurlInstance getCurlInstanceByMediaType(MediaType type)
+static AampCurlInstance getCurlInstanceByMediaType(AampMediaType type)
 {
 	AampCurlInstance instance;
 
@@ -892,7 +892,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	{
 		if(!(pMediaStreamContext->initialization.empty()) && (0 == pMediaStreamContext->initialization.compare(fragmentUrl))&& !discontinuity)
 		{
-			AAMPLOG_TRACE("We have pushed the same initailization segment for %s skipping", getMediaTypeName(MediaType(pMediaStreamContext->type)));
+			AAMPLOG_TRACE("We have pushed the same initailization segment for %s skipping", getMediaTypeName(AampMediaType(pMediaStreamContext->type)));
 			return retval;
 		}
 		else
@@ -1365,7 +1365,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							 */
 							if(!mIsFogTSB)
 							{
-								setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+								setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 							}
 							retval = FetchFragment( pMediaStreamContext, media, fragmentDuration, false, curlInstance);
 						}
@@ -1469,7 +1469,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						ReleasePlaylistLock();
 						if(!mIsFogTSB)
 						{
-							setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+							setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 						}
 						retval = FetchFragment( pMediaStreamContext, media, fragmentDuration, false, curlInstance);
 						if (!retval && ((mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.GetPtr() ))
@@ -1761,15 +1761,9 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				ReleasePlaylistLock();
 				if(!mIsFogTSB)
 				{
-					setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+					setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 				}
 				retval = FetchFragment(pMediaStreamContext, media, fragmentDuration, false, curlInstance, false, pto, scale);
-				double positionInPeriod = 0;
-				if(pMediaStreamContext->lastSegmentNumber > startNumber)
-				{
-					positionInPeriod = (pMediaStreamContext->lastSegmentNumber - startNumber) * fragmentDuration;
-				}
-
 				AcquirePlaylistLock();
 				string startTimeStringValue = mpd->GetPeriods().at(mCurrentPeriodIdx)->GetStart();
 				pMediaStreamContext->downloadedDuration = pMediaStreamContext->fragmentTime;
@@ -1818,7 +1812,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			if(mIsLiveStream && aamp->mEncryptedPeriodFound && aamp->mPipelineIsClear)
 			{
 				AAMPLOG_WARN("Retuning as encrypted pipeline found when pipeline is configured as clear");
-				aamp->ScheduleRetune(eDASH_RECONFIGURE_FOR_ENC_PERIOD,(MediaType) pMediaStreamContext->type);
+				aamp->ScheduleRetune(eDASH_RECONFIGURE_FOR_ENC_PERIOD,(AampMediaType) pMediaStreamContext->type);
 				AAMPLOG_INFO("Retune (due to enc pipeline) done");
 				aamp->mEncryptedPeriodFound = false;
 				aamp->mPipelineIsClear = false;
@@ -1840,7 +1834,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				sscanf(range.c_str(), "%" PRIu64 "-%" PRIu64 "", &start, &pMediaStreamContext->fragmentOffset);
 
 				ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(pMediaStreamContext->mediaType, true);
-				MediaType actualType = MediaTypeToPlaylist(pMediaStreamContext->mediaType);
+				AampMediaType actualType = MediaTypeToPlaylist(pMediaStreamContext->mediaType);
 				std::string effectiveUrl;
 				int http_code;
 				double downloadTime;
@@ -1934,7 +1928,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						char nextrange[MAX_RANGE_STRING_CHARS];
 						nextfragmentOffset = pMediaStreamContext->fragmentOffset+referenced_size;
 						snprintf(nextrange, sizeof(nextrange), "%" PRIu64 "-%" PRIu64 "",nextfragmentOffset, nextfragmentOffset+nextreferenced_size - 1);
-						setNextRangeRequest(fragmentUrl,nextrange,(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
+						setNextRangeRequest(fragmentUrl,nextrange,(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,AampMediaType(pMediaStreamContext->type));
 					}
 					if(pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, pMediaStreamContext->fragmentTime, fragmentDuration, range ))
 					{
@@ -1989,7 +1983,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							AAMPLOG_INFO("%s [%s]", getMediaTypeName(pMediaStreamContext->mediaType), segmentURL->GetMediaRange().c_str());
 							if(nextsegmentURL != NULL && (mIsFogTSB != true))
 							{
-								setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+								setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 							}
 							ReleasePlaylistLock();
 							if(!pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, pMediaStreamContext->fragmentTime, 0.0, segmentURL->GetMediaRange().c_str() ))
@@ -2045,7 +2039,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								ReleasePlaylistLock();
 								if(nextsegmentURL != NULL && (mIsFogTSB != true))
 								{
-									setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+									setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 								}
 								retval = FetchFragment(pMediaStreamContext, segmentURL->GetMediaURI(), fragmentDuration, false, curlInstance);
 								if( mCheckForRampdown )
@@ -2627,7 +2621,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				//As a part of RDK-35897 update the next segment for download
 
 				ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(pMediaStreamContext->mediaType, true);
-				MediaType actualType = MediaTypeToPlaylist(pMediaStreamContext->mediaType);
+				AampMediaType actualType = MediaTypeToPlaylist(pMediaStreamContext->mediaType);
 				std::string effectiveUrl;
 				int http_code;
 				double downloadTime;
@@ -3011,7 +3005,7 @@ std::string StreamAbstractionAAMP_MPD::GetPreferredDrmUUID()
  * @brief Create DRM helper from ContentProtection
  * @retval shared_ptr of AampDrmHelper
  */
-std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * adaptationSet,MediaType mediaType)
+std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * adaptationSet,AampMediaType mediaType)
 {
 	const vector<IDescriptor*> contentProt = mMPDParseHelper->GetContentProtection(adaptationSet);
 	unsigned char* data = NULL;
@@ -3026,7 +3020,7 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 	bool forceSelectDRM = false; 
 	const char *pMp4Protection = "mpeg:dash:mp4protection";
 
-	AAMPLOG_TRACE("[HHH] contentProt.size= %d", contentProt.size());
+	AAMPLOG_TRACE("[HHH] contentProt.size= %lu", contentProt.size());
 	for (unsigned iContentProt = 0; iContentProt < contentProt.size(); iContentProt++)
 	{
 		// extract the UUID
@@ -3102,7 +3096,7 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 		{
 			if (data)
 			{
-				contentMetadata = aamp_ExtractWVContentMetadataFromPssh((const char*)data, dataLength);
+				contentMetadata = aamp_ExtractWVContentMetadataFromPssh((const char*)data, (int)dataLength);
 				free(data);
                                 data = NULL;
 			}
@@ -3145,7 +3139,7 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 		{
 			tmpDrmHelper = AampDrmHelperEngine::getInstance().createHelper(drmInfo, mLogObj);
 
-			if (!tmpDrmHelper->parsePssh(data, dataLength))
+			if (!tmpDrmHelper->parsePssh(data, (uint32_t)dataLength))
 			{
 				AAMPLOG_WARN("(%s) Failed to Parse PSSH from the DRM InitData", getMediaTypeName(mediaType));
 			}
@@ -3155,7 +3149,6 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 					AAMPLOG_INFO("(%s) If Widevine DRM Selected due to Widevine KeyID workaround",
 						getMediaTypeName(mediaType));
 					drmHelper = tmpDrmHelper;
-					forceSelectDRM = false; /* reset flag */
 					/** No need to progress further**/
 					free(data);
 					data = NULL;
@@ -3243,7 +3236,7 @@ void StreamAbstractionAAMP_MPD::ProcessVssLicenseRequset()
  * @brief queue content protection for the given adaptation set
  * @retval true on success
  */
-void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, MediaType mediaType, bool qGstProtectEvent, bool isVssPeriod)
+void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, AampMediaType mediaType, bool qGstProtectEvent, bool isVssPeriod)
 {
 	if (period)
 	{
@@ -3300,7 +3293,7 @@ void StreamAbstractionAAMP_MPD::ProcessVssLicenseRequset()
 /**
  * @brief queue content protection for the given adaptation set
  */
-void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, MediaType mediaType, bool qGstProtectEvent, bool isVssPeriod)
+void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, AampMediaType mediaType, bool qGstProtectEvent, bool isVssPeriod)
 {
 	AAMPLOG_WARN("MPD DRM not enabled");
 }
@@ -3655,9 +3648,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 		for (int i = 0; i < mMaxTracks; i++)
 		{
-			mMediaStreamContext[i] = new MediaStreamContext(mLogObj, (TrackType)i, this, aamp, getMediaTypeName(MediaType(i)));
+			mMediaStreamContext[i] = new MediaStreamContext(mLogObj, (TrackType)i, this, aamp, getMediaTypeName(AampMediaType(i)));
 			mMediaStreamContext[i]->fragmentDescriptor.manifestUrl = manifestUrl;
-			mMediaStreamContext[i]->mediaType = (MediaType)i;
+			mMediaStreamContext[i]->mediaType = (AampMediaType)i;
 			mMediaStreamContext[i]->representationIndex = -1;
 		}
 
@@ -6150,7 +6143,7 @@ Accessibility StreamAbstractionAAMP_MPD::getAccessibilityNode(void* adaptationSe
  * @brief get the Label value from adaptation in Dash
  * @return void
  */
-void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptationSet, uint32_t iAdaptationIndex, MediaType media, std::vector<AudioTrackInfo> &aTracks, std::vector<TextTrackInfo> &tTracks)
+void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptationSet, uint32_t iAdaptationIndex, AampMediaType media, std::vector<AudioTrackInfo> &aTracks, std::vector<TextTrackInfo> &tTracks)
 {
 	if(adaptationSet)
 	{
@@ -6409,9 +6402,9 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 			IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);	
 			AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD: Content type [%s] AdapSet [%d] ",
 					adaptationSet->GetContentType().c_str(), iAdaptationSet);
-			if (mMPDParseHelper->IsContentType(adaptationSet, (MediaType)i ))
+			if (mMPDParseHelper->IsContentType(adaptationSet, (AampMediaType)i ))
 			{
-				ParseTrackInformation(adaptationSet, iAdaptationSet, (MediaType)i,  aTracks, tTracks);
+				ParseTrackInformation(adaptationSet, iAdaptationSet, (AampMediaType)i,  aTracks, tTracks);
 				if (AAMP_NORMAL_PLAY_RATE == rate)
 				{
 					//if isFrstAvailableTxtTrackSelected is true, we should look for the best option (aamp->mSubLanguage) among all the tracks
@@ -6458,7 +6451,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 
 						if (!selectedTextTrack.index.empty())
 						{
-							if (IsMatchingLanguageAndMimeType((MediaType)i, selectedTextTrack.language, adaptationSet, selRepresentationIndex))
+							if (IsMatchingLanguageAndMimeType((AampMediaType)i, selectedTextTrack.language, adaptationSet, selRepresentationIndex))
 							{
 								auto adapSetName = (adaptationSet->GetRepresentation().at(selRepresentationIndex))->GetId();
 								AAMPLOG_INFO("adapSet Id %s selName %s", adapSetName.c_str(), selectedTextTrack.name.c_str());
@@ -6468,7 +6461,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 								}
 							}
 						}
-						else if (IsMatchingLanguageAndMimeType((MediaType)i, aamp->mSubLanguage, adaptationSet, selRepresentationIndex) == true)
+						else if (IsMatchingLanguageAndMimeType((AampMediaType)i, aamp->mSubLanguage, adaptationSet, selRepresentationIndex) == true)
 						{
 							AAMPLOG_INFO("matched default sub language %s [%d]", aamp->mSubLanguage.c_str(), iAdaptationSet);
 							selAdaptationSetIndex = iAdaptationSet;
@@ -6483,7 +6476,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 							SetAudioFwdToAuxStatus(true);
 							break;
 						}
-						else if (IsMatchingLanguageAndMimeType((MediaType)i, aamp->GetAuxiliaryAudioLanguage(), adaptationSet, selRepresentationIndex) == true)
+						else if (IsMatchingLanguageAndMimeType((AampMediaType)i, aamp->GetAuxiliaryAudioLanguage(), adaptationSet, selRepresentationIndex) == true)
 						{
 							selAdaptationSetIndex = iAdaptationSet;
 						}
@@ -6626,14 +6619,14 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 				SetESChangeStatus();
 			}
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] Adaptation set[%d] RepIdx[%d] TrackCnt[%d]",
-				getMediaTypeName(MediaType(i)),selAdaptationSetIndex,selRepresentationIndex,(mNumberOfTracks+1) );
+				getMediaTypeName(AampMediaType(i)),selAdaptationSetIndex,selRepresentationIndex,(mNumberOfTracks+1) );
 
 			// Skip processing content protection for multi video, since the right adaptation will be selected only after ABR
 			// This might cause an unwanted content prot to be queued and delay playback start
 			if (eMEDIATYPE_VIDEO != i || !mMultiVideoAdaptationPresent)
 			{
 				AAMPLOG_WARN("Queueing content protection from StreamSelection for type:%d", i);
-				QueueContentProtection(period, selAdaptationSetIndex, (MediaType)i);
+				QueueContentProtection(period, selAdaptationSetIndex, (AampMediaType)i);
 			}
 			// Check if the track was enabled mid-playback, eg - subtitles. Then we might need to start injection loop
 			// For now, do this only for subtitles
@@ -6648,17 +6641,17 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		}
 		else if (encryptedIframeTrackPresent) //Process content protection for encyrpted Iframe
 		{
-			QueueContentProtection(period, pMediaStreamContext->adaptationSetIdx, (MediaType)i);
+			QueueContentProtection(period, pMediaStreamContext->adaptationSetIdx, (AampMediaType)i);
 		}
 
 		if(selAdaptationSetIndex < 0 && rate == 1)
 		{
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No valid adaptation set found for Media[%s]",
-				getMediaTypeName(MediaType(i)));
+				getMediaTypeName(AampMediaType(i)));
 		}
 
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] %s",
-			getMediaTypeName(MediaType(i)), pMediaStreamContext->enabled?"enabled":"disabled");
+			getMediaTypeName(AampMediaType(i)), pMediaStreamContext->enabled?"enabled":"disabled");
 
 		//RDK-27796, we need this hack for cases where subtitle is not enabled, but auxiliary audio track is enabled
 		if (eMEDIATYPE_AUX_AUDIO == i && pMediaStreamContext->enabled && !mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
@@ -6765,10 +6758,10 @@ int StreamAbstractionAAMP_MPD::GetProfileIdxForBandwidthNotification(uint32_t ba
 
 /**
  * @brief GetCurrentMimeType
- * @param MediaType type of media
+ * @param AampMediaType type of media
  * @retval mimeType
  */
-std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(MediaType mediaType)
+std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaType)
 {
 	if (mediaType >= mNumberOfTracks) return std::string{};
 
@@ -7829,7 +7822,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number;
 							if(!mIsFogTSB)
 							{
-								setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+								setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 							}
 							pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
 							trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
@@ -7896,7 +7889,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							pMediaStreamContext->profileChanged = false;
 							if(!nextrange.empty())
 							{
-								setNextRangeRequest(fragmentUrl,nextrange,(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,MediaType(pMediaStreamContext->type));
+								setNextRangeRequest(fragmentUrl,nextrange,(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,AampMediaType(pMediaStreamContext->type));
 							}
 							if(!pMediaStreamContext->CacheFragment(fragmentUrl,
 								getCurlInstanceByMediaType(pMediaStreamContext->mediaType),
@@ -7945,7 +7938,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 									pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time;
 									if(nextsegmentURL != NULL && (mIsFogTSB != true))
 									{
-										setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+										setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 									}
 									trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
 									AAMPLOG_INFO("Thread created for TrackDownloader [%lu]", GetPrintableThreadID(trackDownloadThreadID));
@@ -8013,7 +8006,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 										pMediaStreamContext->profileChanged = false;
 										if(nextsegurl != NULL && (mIsFogTSB != true))
 										{
-											setNextobjectrequestUrl(nextsegurl->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,MediaType(pMediaStreamContext->type));
+											setNextobjectrequestUrl(nextsegurl->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 										}
 										if(!pMediaStreamContext->CacheFragment(fragmentUrl,
 												getCurlInstanceByMediaType(pMediaStreamContext->mediaType),
@@ -8089,11 +8082,15 @@ bool StreamAbstractionAAMP_MPD::CheckForInitalClearPeriod()
 	bool ret = true;
 	for(int i = 0; i < mNumberOfTracks; i++)
 	{
-		vector<IDescriptor*> contentProt = mMPDParseHelper->GetContentProtection(mMediaStreamContext[i]->adaptationSet);
-		if(0 != contentProt.size())
+		auto adaptSet = mMediaStreamContext[i]->adaptationSet;
+		if( adaptSet )
 		{
-			ret = false;
-			break;
+			vector<IDescriptor*> contentProt = mMPDParseHelper->GetContentProtection(adaptSet);
+			if(0 != contentProt.size())
+			{
+				ret = false;
+				break;
+			}
 		}
 	}
 	if(ret)
@@ -8116,10 +8113,10 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 
 		//As a part of RDK-35897 update the next segment for download
 		//aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)fragmentDescriptor->Number,
-		//		fragmentDescriptor->Bandwidth,(MediaType)i);
+		//		fragmentDescriptor->Bandwidth,(AampMediaType)i);
 		if (mMediaStreamContext[i]->WaitForFreeFragmentAvailable())
 		{
-			AAMPLOG_WARN("Pushing encrypted header for %s fragmentUrl %s", getMediaTypeName(MediaType(i)), fragmentUrl.c_str());
+			AAMPLOG_WARN("Pushing encrypted header for %s fragmentUrl %s", getMediaTypeName(AampMediaType(i)), fragmentUrl.c_str());
 			//Set the last parameter (overWriteTrackId) true to overwrite the track id if ad and content has different track ids
 			bool temp = false;
 			try
@@ -8162,7 +8159,7 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 					IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);
 					if(adaptationSet != NULL)
 					{
-						if (mMPDParseHelper->IsContentType(adaptationSet, (MediaType)i ))
+						if (mMPDParseHelper->IsContentType(adaptationSet, (AampMediaType)i ))
 						{
 							vector<IDescriptor*> contentProt = mMPDParseHelper->GetContentProtection(adaptationSet);
 							if(0 == contentProt.size())
@@ -8173,7 +8170,7 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 							{
 								IRepresentation *representation = NULL;
 								size_t representionIndex = 0;
-								if(MediaType(i) == eMEDIATYPE_VIDEO)
+								if(AampMediaType(i) == eMEDIATYPE_VIDEO)
 								{
 									size_t representationCount = adaptationSet->GetRepresentation().size();
 									if(adaptationSet->GetRepresentation().at(representionIndex)->GetBandwidth() > adaptationSet->GetRepresentation().at(representationCount - 1)->GetBandwidth())
@@ -8215,7 +8212,7 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 										fragmentDescriptor->bUseMatchingBaseUrl	=	ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
 										fragmentDescriptor->manifestUrl = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.manifestUrl;
 
-										QueueContentProtection(period, iAdaptationSet, (MediaType)i);
+										QueueContentProtection(period, iAdaptationSet, (AampMediaType)i);
 
 										fragmentDescriptor->Bandwidth = representation->GetBandwidth();
 
@@ -8333,7 +8330,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 					}
 					ReleasePlaylistLock();
 
-					if (PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<MediaType>(trackIdx))))
+					if (PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<AampMediaType>(trackIdx))))
 					{
 						if (mIsLiveManifest)
 						{
@@ -9368,7 +9365,7 @@ void StreamAbstractionAAMP_MPD::Start(void)
 	{
 		if(aamp->IsPlayEnabled())
 		{
-			aamp->ResumeTrackInjection((MediaType) i);
+			aamp->ResumeTrackInjection((AampMediaType) i);
 			mMediaStreamContext[i]->StartInjectLoop();
 
 			if(mLowLatencyMode)
@@ -9431,7 +9428,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
 		if(track)
 		{
-			aamp->StopTrackInjection((MediaType) iTrack);
+			aamp->StopTrackInjection((AampMediaType) iTrack);
 			track->StopInjectLoop();
 			if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 			{
@@ -10093,7 +10090,7 @@ void StreamAbstractionAAMP_MPD::StopInjection(void)
 				track->playContext->abort();
 			}
 			track->AbortWaitForCachedFragment();
-			aamp->StopTrackInjection((MediaType) iTrack);
+			aamp->StopTrackInjection((AampMediaType) iTrack);
 			track->StopInjectLoop();
 			if(mLowLatencyMode)
 			{
@@ -10114,7 +10111,7 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
 		if(track && track->Enabled())
 		{
-			aamp->ResumeTrackInjection((MediaType) iTrack);
+			aamp->ResumeTrackInjection((AampMediaType) iTrack);
 			track->StartInjectLoop();
 
 			if(mLowLatencyMode)
@@ -10683,7 +10680,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
  *
  * @return void
  */
-void StreamAbstractionAAMP_MPD::printSelectedTrack(const std::string &trackIndex, MediaType media)
+void StreamAbstractionAAMP_MPD::printSelectedTrack(const std::string &trackIndex, AampMediaType media)
 {
 	if (!trackIndex.empty())
 	{
@@ -10870,7 +10867,7 @@ void StreamAbstractionAAMP_MPD::ParseAvailablePreselections(IMPDElement *period,
  *        updated member variable mAudioTracksAll
  * @return void
  */
-void StreamAbstractionAAMP_MPD::PopulateTrackInfo(MediaType media, bool reset)
+void StreamAbstractionAAMP_MPD::PopulateTrackInfo(AampMediaType media, bool reset)
 {
 	//Clear the current track info , if any
 	if (reset && media == eMEDIATYPE_AUDIO)
@@ -10892,9 +10889,9 @@ void StreamAbstractionAAMP_MPD::PopulateTrackInfo(MediaType media, bool reset)
 		for (auto &adaptationSet : adaptationSets)
 		{
 			AAMPLOG_TRACE("Adaptation Set Content type [%s] ", adaptationSet->GetContentType().c_str());
-			if (mMPDParseHelper->IsContentType(adaptationSet, (MediaType)media))
+			if (mMPDParseHelper->IsContentType(adaptationSet, (AampMediaType)media))
 			{
-				ParseTrackInformation(adaptationSet, adaptationIndex, (MediaType)media,  mAudioTracksAll, mTextTracksAll);
+				ParseTrackInformation(adaptationSet, adaptationIndex, (AampMediaType)media,  mAudioTracksAll, mTextTracksAll);
 			} // Audio Adaptation
 			adaptationIndex++;
 		} // Adaptation Loop
@@ -10998,7 +10995,7 @@ void StreamAbstractionAAMP_MPD::SetTextTrackInfo(const std::vector<TextTrackInfo
  *
  * @return bool true if the params are matching
  */
-bool StreamAbstractionAAMP_MPD::IsMatchingLanguageAndMimeType(MediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex)
+bool StreamAbstractionAAMP_MPD::IsMatchingLanguageAndMimeType(AampMediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex)
 {
 	   bool ret = false;
 	   std::string adapLang = GetLanguageForAdaptationSet(adaptationSet);
@@ -12093,7 +12090,7 @@ bool StreamAbstractionAAMP_MPD::SetTextStyle(const std::string &options)
  * @brief process content protection of all the adaptation for the given media type
  * @retval true on success
  */
-void StreamAbstractionAAMP_MPD::ProcessAllContenProtForMediaType(MediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs)
+void StreamAbstractionAAMP_MPD::ProcessAllContenProtForMediaType(AampMediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs)
 {
 	// Select the current period
 	IPeriod *period = mCurrentPeriod;
@@ -12213,7 +12210,7 @@ static std::string getrelativenorurl(std::string media)
 	return media;
 }
 
-void StreamAbstractionAAMP_MPD::setNextobjectrequestUrl(std::string media,const FragmentDescriptor *fragmentDescriptor,MediaType mediaType)
+void StreamAbstractionAAMP_MPD::setNextobjectrequestUrl(std::string media,const FragmentDescriptor *fragmentDescriptor,AampMediaType mediaType)
 {
 	if( !media.empty() )
 	{
@@ -12227,7 +12224,7 @@ void StreamAbstractionAAMP_MPD::setNextobjectrequestUrl(std::string media,const 
 	aamp->mCMCDCollector->CMCDSetNextObjectRequest( media ,(fragmentDescriptor)->Bandwidth,mediaType);
 }
 
-void StreamAbstractionAAMP_MPD::setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,MediaType mediaType)
+void StreamAbstractionAAMP_MPD::setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,AampMediaType mediaType)
 {
 	aamp->mCMCDCollector->CMCDSetNextRangeRequest(nextrange,bandwidth,mediaType);
 }

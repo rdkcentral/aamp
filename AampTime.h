@@ -21,8 +21,8 @@
 #include <ostream>
 #include <cmath>
 
-#ifndef TIMECLASS_H
-#define TIMECLASS_H
+#ifndef AAMPTIME_H
+#define AAMPTIME_H
 
 /// @brief time class to work around the use of doubles within Aamp
 //  While operators are overloaded for comparisons, the underlying data type is integer
@@ -32,22 +32,36 @@ class AampTime
 {
 	private:
 		static const uint64_t timescale = 1000000000;
-
-	public:
 		int64_t nanoseconds;
 
-		/// @brief Constructor
-		/// @param seconds time in seconds, as an int
-		AampTime(int seconds = 0) : nanoseconds(seconds * timescale){}
-
+	public:
 		/// @brief Constructor
 		/// @param seconds time in seconds, as a double
-		AampTime(double seconds) : nanoseconds(int64_t(seconds * timescale)){}
+		AampTime(double seconds = 0.0) : nanoseconds(int64_t(seconds * timescale)){}
 		AampTime(const AampTime& rhs)  : nanoseconds(rhs.nanoseconds){}
 
 		/// @brief Get the stored time
 		/// @return Time in seconds (double)
-		const double inSeconds() const {return (nanoseconds / double(timescale));}
+		inline const double inSeconds() const {return (nanoseconds / double(timescale));}
+
+		inline const int64_t seconds() const { return (nanoseconds / timescale); }
+		inline const int64_t milliseconds() const { return (nanoseconds / (timescale / 1000)); }
+
+		// Equivalent to round() but in integer domain
+		inline const int64_t nearestSecond() const
+		{
+			int64_t retval = this->seconds();
+
+			// Fractional part
+			int64_t tempval = nanoseconds - retval * timescale;
+
+			if (tempval >= ((5 * timescale)/10))
+			{
+				retval += 1;
+			}
+
+			return retval;
+		}
 
 		// Overloads for comparison operators to check AampTime : AampTime and AampTime : double
 		// Converting (and truncating) the double to the timescale should avoid the issues around epsilon for floating point
@@ -165,6 +179,9 @@ class AampTime
 			temp.nanoseconds = (int64_t)((double)nanoseconds * t);
 			return std::move(temp);
 		}
+
+		explicit operator double() const { return this->inSeconds(); }
+		explicit operator int64_t() const { return this->seconds(); }
 };
 
 //  For those who like if (0.0 == b)
@@ -173,6 +190,8 @@ inline const bool operator!=(const double& lhs, const AampTime& rhs) { return !(
 
 inline const AampTime operator+(const double &lhs, const AampTime &rhs) { return rhs + lhs; };
 inline const AampTime operator-(const double &lhs, const AampTime &rhs) { return -rhs + lhs; };
+
+inline const AampTime operator*(const int64_t &lhs, const AampTime &rhs) { return rhs * lhs; };
 
 // Adding double & AampTime and expecting a double will need to use AampTime::inSeconds() instead
 // Where a double is to be passed by reference, if the prototype cannot be rewritten or overloaded then
@@ -208,6 +227,11 @@ inline double fabs(AampTime t)
 inline double round(AampTime t)
 {
 	return std::round(t.inSeconds());
+}
+
+inline double floor(AampTime t)
+{
+	return std::floor(t.inSeconds());
 }
 
 #endif

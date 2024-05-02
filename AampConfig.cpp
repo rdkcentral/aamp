@@ -233,6 +233,13 @@ struct ConfigLookupEntryString
 #define DEFAULT_VALUE_USE_SINGLE_PIPELINE false
 #endif
 
+#if (defined(REALTEKCE) || defined(INTELCE) || defined(RPI) || defined(AAMP_SIMULATOR_BUILD))
+#define DEFAULT_VALUE_QTDEMUX_OVERRIDE_ENABLED true
+#else
+#define DEFAULT_VALUE_QTDEMUX_OVERRIDE_ENABLED false
+#endif
+
+
 /**
  * @brief AAMPConfigSettingString metadata
  * note that order must match the actual order of the enum; this is enforced with asserts to catch any wrong/missing declarations
@@ -400,8 +407,10 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	// ideally would be named enableEarlyId3Processing for clarity, but to avoid partner confusion leaving original spelling for now
 	// this will eventually be default enbled and deprecated as a configuration  
 	{false, "earlyProcessing", eAAMPConfig_EarlyID3Processing, false},
-	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, false},
-	{DEFAULT_VALUE_USE_RIALTO_SINK, "useRialtoSink", eAAMPConfig_useRialtoSink, false}
+	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, true},
+	{DEFAULT_VALUE_USE_RIALTO_SINK, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
+	/* Enable/Disable ENABLE_AAMP_QTDEMUX_OVERRIDE flag , workaround for Charter Video Freeze issue on Flex2-RTK (ES1-701)*/
+	{DEFAULT_VALUE_QTDEMUX_OVERRIDE_ENABLED, "qtDemuxOverrideEnabled", eAAMPConfig_QtDemuxOverrideEnabled, false}
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2

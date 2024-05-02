@@ -2200,7 +2200,7 @@ TEST_F(TrackStateTests, OnSinkBufferFullTests)
 
 TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest)
 {
-    MediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_VIDEO, true);
+    AampMediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_VIDEO, true);
     ASSERT_EQ(playlistMediaType, eMEDIATYPE_PLAYLIST_IFRAME);
 }
 
@@ -2561,22 +2561,22 @@ TEST_F(StreamAbstractionAAMP_HLSTest, TestGetAvailableThumbnailTracks)
 
 TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_1)
 {
-    MediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_VIDEO, false);
+    AampMediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_VIDEO, false);
 
 }
 TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_2)
 {
-    MediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_AUDIO , false);
+    AampMediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_AUDIO , false);
 }
 
 TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_3)
 {
-    MediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_SUBTITLE, false);
+    AampMediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_SUBTITLE, false);
 }
 
 TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_4)
 {
-    MediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_AUX_AUDIO, false);
+    AampMediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_AUX_AUDIO, false);
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, IsStreamerAtLivePointtest_1)

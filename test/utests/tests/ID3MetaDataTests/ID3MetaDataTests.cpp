@@ -15,13 +15,13 @@ constexpr size_t id3v2_header_size = 10u;  //  should be defined in ID3Metadata.
 
 // Test case for IsValidMediaType function
 TEST_F(ID3MetadataTest, IsValidMediaTypeTest) {
-    MediaType type = eMEDIATYPE_AUDIO;
+    AampMediaType type = eMEDIATYPE_AUDIO;
     bool s1 = aamp::id3_metadata::helpers::IsValidMediaType(type);
     EXPECT_TRUE(s1);
-    MediaType type1 = eMEDIATYPE_VIDEO;
+    AampMediaType type1 = eMEDIATYPE_VIDEO;
     bool s2 = aamp::id3_metadata::helpers::IsValidMediaType(type1);
     EXPECT_TRUE(s2);
-    MediaType type2 = eMEDIATYPE_DSM_CC;
+    AampMediaType type2 = eMEDIATYPE_DSM_CC;
     bool s3 = aamp::id3_metadata::helpers::IsValidMediaType(type2);
     EXPECT_TRUE(s3);
 }
@@ -94,10 +94,10 @@ protected:
 TEST_F(MetadataCacheTest, UpdateAndCheckMetadata) {
     // Test updating and checking metadata for various media types and data
     
-    MediaType videoMediaType = eMEDIATYPE_VIDEO;
+    AampMediaType videoMediaType = eMEDIATYPE_VIDEO;
     std::vector<uint8_t> videoData = {10, 11, 12, 13, 14};
     
-    MediaType audioMediaType = eMEDIATYPE_AUDIO;
+    AampMediaType audioMediaType = eMEDIATYPE_AUDIO;
     std::vector<uint8_t> audioData = {20, 21, 22};
     
     // Update and check video metadata
@@ -118,10 +118,10 @@ TEST_F(MetadataCacheTest, UpdateAndCheckMetadata) {
 TEST_F(MetadataCacheTest, CheckEmptyCache) {
     // Test checking empty cache for various media types
     
-    MediaType videoMediaType = eMEDIATYPE_VIDEO;
+    AampMediaType videoMediaType = eMEDIATYPE_VIDEO;
     std::vector<uint8_t> videoData = {10, 11, 12, 13, 14};
     
-    MediaType audioMediaType = eMEDIATYPE_AUDIO;
+    AampMediaType audioMediaType = eMEDIATYPE_AUDIO;
     std::vector<uint8_t> audioData = {20, 21, 22};
     
     // Check empty cache for video media type

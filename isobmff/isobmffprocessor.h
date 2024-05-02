@@ -50,7 +50,7 @@ enum IsoBmffProcessorType
  */
 typedef struct
 {
-	MediaType type;
+	AampMediaType type;
 	AampGrowableBuffer *buffer;
 	double position;
 	double duration;
@@ -120,7 +120,7 @@ public:
          * @param[in] reset - true/false
          * @return void
          */
-	void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position);
+	void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position) override;
 	/**
 	 * @fn sendSegment
 	 *
@@ -360,7 +360,7 @@ private:
 	 * @param[in] duartion - duartion of the position
 	 * @return void
 	 */
-	void cacheRestampInitSegment(MediaType type,char *segment,size_t size,double pos,double duration,bool isDiscontinuity);
+	void cacheRestampInitSegment(AampMediaType type,char *segment,size_t size,double pos,double duration,bool isDiscontinuity);
 
 	/**
 	 * @fn pushRestampInitSegment

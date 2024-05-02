@@ -485,7 +485,7 @@ void AampMPDDownloader::harvestManifest()
 	if(mMPDData->mMPDDownloadResponse->curlRetValue == 0 && 
 		(mMPDData->mMPDDownloadResponse->iHttpRetValue == 200 || mMPDData->mMPDDownloadResponse->iHttpRetValue == 206))
 	{
-			MediaType fileType	=	eMEDIATYPE_MANIFEST	;
+			AampMediaType fileType	=	eMEDIATYPE_MANIFEST	;
 			if((mMPDDnldCfg->mHarvestCountLimit > 0) && (mMPDDnldCfg->mHarvestConfig & getHarvestConfigForMedia(fileType)))
 			{
 				/* Avoid chance of overwriting , in case of manifest and playlist, name will be always same */

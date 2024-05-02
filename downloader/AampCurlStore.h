@@ -239,7 +239,7 @@ public:
 struct CurlCallbackContext
 {
 	PrivateInstanceAAMP *aamp;
-	MediaType fileType;
+	AampMediaType fileType;
 	std::vector<std::string> allResponseHeaders;
 	AampGrowableBuffer *buffer;
 	httpRespHeaderData *responseHeaderData;
@@ -270,7 +270,7 @@ struct CurlCallbackContext
 struct CurlProgressCbContext
 {
 	PrivateInstanceAAMP *aamp;
-	MediaType fileType;
+	AampMediaType fileType;
 	CurlProgressCbContext() : aamp(NULL), fileType(eMEDIATYPE_DEFAULT), downloadStartTime(-1), abortReason(eCURL_ABORT_REASON_NONE), downloadUpdatedTime(-1), startTimeout(-1), stallTimeout(-1), downloadSize(-1), downloadNow(-1), downloadNowUpdatedTime(-1), dlStarted(false), fragmentDurationMs(-1), remoteUrl(""), lowBWTimeout(-1) {}
 	CurlProgressCbContext(PrivateInstanceAAMP *_aamp, long long _downloadStartTime) : aamp(_aamp), fileType(eMEDIATYPE_DEFAULT),downloadStartTime(_downloadStartTime), abortReason(eCURL_ABORT_REASON_NONE), downloadUpdatedTime(-1), startTimeout(-1), stallTimeout(-1), downloadSize(-1), downloadNow(-1), downloadNowUpdatedTime(-1), dlStarted(false), fragmentDurationMs(-1), remoteUrl(""), lowBWTimeout(-1) {}
 

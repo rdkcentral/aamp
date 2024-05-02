@@ -1386,7 +1386,7 @@ TEST_F(PrivAampTests,GetFileTest_1)
 	int http_error;
 	AampGrowableBuffer gBuff("GrowableBuffer");
 	double downloadTime;
-	MediaType mType = eMEDIATYPE_VIDEO;
+	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
 EXPECT_FALSE(p_aamp->GetFile("remoteurl",&gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,mType,
@@ -1401,7 +1401,7 @@ TEST_F(PrivAampTests,GetFileTest_2)
 	AampGrowableBuffer gBuff("GrowableBuffer");
 	double downloadTime;
 	bool resetBuffer = true;
-	MediaType mType = eMEDIATYPE_VIDEO;
+	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
 EXPECT_FALSE(p_aamp->GetFile("remoteurl",&gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,mType,
@@ -1415,7 +1415,7 @@ TEST_F(PrivAampTests,GetFileTest_3)
 	AampGrowableBuffer gBuff("GrowableBuffer");
 	double downloadTime;
 	bool resetBuffer = true;
-	MediaType mType = eMEDIATYPE_VIDEO;
+	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
 
@@ -1433,7 +1433,7 @@ TEST_F(PrivAampTests,GetFileTest_4)
 	AampGrowableBuffer gBuff("GrowableBuffer");
 	double downloadTime;
 	bool resetBuffer = true;
-	MediaType mType = eMEDIATYPE_INIT_VIDEO;
+	AampMediaType mType = eMEDIATYPE_INIT_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
 
@@ -1477,7 +1477,7 @@ TEST_F(PrivAampTests,TeardownStreamTest_2)
 	EXPECT_FALSE(flag);
 	p_aamp->SetContentType("VOD");
 	PlaybackErrorType errorType = eGST_ERROR_UNDERFLOW;
-	MediaType trackType = eMEDIATYPE_VIDEO;
+	AampMediaType trackType = eMEDIATYPE_VIDEO;
 
 	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
 	PrivAAMPState state = eSTATE_IDLE;
@@ -1699,7 +1699,7 @@ TEST_F(PrivAampTests,GetMaximumBitrateTest)
 
 TEST_F(PrivAampTests,PushFragmentTest)
 {
-	MediaType mediaType = eMEDIATYPE_SUBTITLE;
+	AampMediaType mediaType = eMEDIATYPE_SUBTITLE;
 	char *ptr;
 	size_t len;
 	double fragmentTime;
@@ -2508,7 +2508,7 @@ TEST_F(PrivAampTests,mediaType2BucketTest_1)
 	EXPECT_EQ(5,p_aamp->mediaType2Bucket(eMEDIATYPE_LICENCE));
 	EXPECT_EQ(6,p_aamp->mediaType2Bucket(eMEDIATYPE_IFRAME));
 
-	EXPECT_EQ(20,p_aamp->mediaType2Bucket((MediaType)20));
+	EXPECT_EQ(20,p_aamp->mediaType2Bucket((AampMediaType)20));
 }
 
 TEST_F(PrivAampTests,SetTunedManifestUrlTest)
@@ -2832,7 +2832,7 @@ TEST_F(PrivAampTests,EnableMediaDownloadsTest)
 {
 	for (int i = 0; i <= 19; i++)
 	{
-		p_aamp->EnableMediaDownloads((MediaType)i);
+		p_aamp->EnableMediaDownloads((AampMediaType)i);
 	}
 }
 
@@ -2981,7 +2981,7 @@ TEST_F(PrivAampTests,GetLastDownloadedManifestTest)
 }
 TEST_F(PrivAampTests,ID3MetadataHandlerTest)
 {
-	MediaType mediaType = eMEDIATYPE_AUDIO;
+	AampMediaType mediaType = eMEDIATYPE_AUDIO;
 	const uint8_t* ptr = reinterpret_cast<const uint8_t*>("ID3 Metadata");
 	size_t pkt_len = strlen(reinterpret_cast<const char*>(ptr));;
 	SegmentInfo_t info(100.0,90.0,5.0);
@@ -2991,7 +2991,7 @@ TEST_F(PrivAampTests,ID3MetadataHandlerTest)
 }
 TEST_F(PrivAampTests,ReportID3MetadataTest)
 {
-	MediaType mediaType = eMEDIATYPE_AUDIO;
+	AampMediaType mediaType = eMEDIATYPE_AUDIO;
     const uint8_t* ptr = reinterpret_cast<const uint8_t*>("ID3 Metadata");
     size_t len = strlen(reinterpret_cast<const char*>(ptr));
     const char* schemeIdURI = "testSchemeIdURI";
@@ -3014,7 +3014,7 @@ TEST_F(PrivAampTests,SetLLDashServiceDataTest1)
 
 TEST_F(PrivAampTests,DisableMediaDownloadsTest)
 {
-	MediaType type = eMEDIATYPE_VIDEO;
+	AampMediaType type = eMEDIATYPE_VIDEO;
 	p_aamp->DisableMediaDownloads(type);
 }
 TEST_F(PrivAampTests,ReplaceKeyIDPsshValidDataTest)
@@ -3118,7 +3118,7 @@ TEST_F(PrivAampTests,mediaType2BucketTest_122)
     EXPECT_EQ(2,p_aamp->mediaType2Bucket(eMEDIATYPE_PLAYLIST_AUDIO));
     EXPECT_EQ(3,p_aamp->mediaType2Bucket(eMEDIATYPE_PLAYLIST_SUBTITLE));
     EXPECT_EQ(4,p_aamp->mediaType2Bucket(eMEDIATYPE_PLAYLIST_AUX_AUDIO));
-    EXPECT_EQ(20,p_aamp->mediaType2Bucket((MediaType)20));
+    EXPECT_EQ(20,p_aamp->mediaType2Bucket((AampMediaType)20));
 }
 
 TEST_F(PrivAampTests, GetCustomLicenseHeaders_EmptyMap)
@@ -3198,7 +3198,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest1)
 	// covering eMEDIATYPE_MANIFEST switch case
 	p_aamp->UpdateVideoEndMetrics(12.34567);
 
-	MediaType mediaType = eMEDIATYPE_MANIFEST;
+	AampMediaType mediaType = eMEDIATYPE_MANIFEST;
 	BitsPerSecond bitrate = 500000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3214,7 +3214,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest2)
 {
 	// covering eMEDIATYPE_PLAYLIST_VIDEO switch case
 
-	MediaType mediaType = eMEDIATYPE_PLAYLIST_VIDEO;
+	AampMediaType mediaType = eMEDIATYPE_PLAYLIST_VIDEO;
 	BitsPerSecond bitrate = 500000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3229,7 +3229,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest3)
 {
 	// covering eMEDIATYPE_PLAYLIST_AUDIO switch case
 
-	MediaType mediaType = eMEDIATYPE_PLAYLIST_AUDIO;
+	AampMediaType mediaType = eMEDIATYPE_PLAYLIST_AUDIO;
 	BitsPerSecond bitrate = 500000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3244,7 +3244,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest4)
 {
 	// covering eMEDIATYPE_PLAYLIST_AUX_AUDIO switch case
 
-	MediaType mediaType = eMEDIATYPE_PLAYLIST_AUX_AUDIO;
+	AampMediaType mediaType = eMEDIATYPE_PLAYLIST_AUX_AUDIO;
 	BitsPerSecond bitrate = 500000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3259,7 +3259,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest5)
 {
 	// covering eMEDIATYPE_PLAYLIST_IFRAME switch case
 
-	MediaType mediaType = eMEDIATYPE_PLAYLIST_IFRAME;
+	AampMediaType mediaType = eMEDIATYPE_PLAYLIST_IFRAME;
 	BitsPerSecond bitrate = 500000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3274,7 +3274,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest6)
 {
 	// covering eMEDIATYPE_VIDEO switch case
 
-	MediaType mediaType = eMEDIATYPE_VIDEO;
+	AampMediaType mediaType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate = 500000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3289,7 +3289,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest7)
 {
 	// covering eMEDIATYPE_AUDIO switch case
 
-	MediaType mediaType = eMEDIATYPE_AUDIO;
+	AampMediaType mediaType = eMEDIATYPE_AUDIO;
 	BitsPerSecond bitrate = 100000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3304,7 +3304,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest8)
 {
 	// covering eMEDIATYPE_AUX_AUDIO switch case
 
-	MediaType mediaType = eMEDIATYPE_AUX_AUDIO;
+	AampMediaType mediaType = eMEDIATYPE_AUX_AUDIO;
 	BitsPerSecond bitrate = 200000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3319,7 +3319,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest9)
 {
 	// covering eMEDIATYPE_IFRAME switch case
 
-	MediaType mediaType = eMEDIATYPE_IFRAME;
+	AampMediaType mediaType = eMEDIATYPE_IFRAME;
 	BitsPerSecond bitrate = 2500000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3334,7 +3334,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest10)
 {
 	// covering eMEDIATYPE_INIT_IFRAME switch case
 
-	MediaType mediaType = eMEDIATYPE_INIT_IFRAME;
+	AampMediaType mediaType = eMEDIATYPE_INIT_IFRAME;
 	BitsPerSecond bitrate = 500000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3350,7 +3350,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest11)
 {
 	// covering eMEDIATYPE_INIT_VIDEO switch case
 
-	MediaType mediaType = eMEDIATYPE_INIT_VIDEO;
+	AampMediaType mediaType = eMEDIATYPE_INIT_VIDEO;
 	BitsPerSecond bitrate = 500000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3365,7 +3365,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest12)
 {
 	// covering eMEDIATYPE_INIT_AUDIO switch case
 
-	MediaType mediaType = eMEDIATYPE_INIT_AUDIO;
+	AampMediaType mediaType = eMEDIATYPE_INIT_AUDIO;
 	BitsPerSecond bitrate = 500000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3379,7 +3379,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest12)
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest13)
 {
 	// covering eMEDIATYPE_INIT_AUX_AUDIO switch case
-	MediaType mediaType = eMEDIATYPE_INIT_AUX_AUDIO;
+	AampMediaType mediaType = eMEDIATYPE_INIT_AUX_AUDIO;
 	BitsPerSecond bitrate = 500000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3393,7 +3393,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest13)
 TEST_F(PrivAampTests,UpdateVideoEndMetricsTest14)
 {
 	// covering eMEDIATYPE_SUBTITLE switch case
-	MediaType mediaType = eMEDIATYPE_SUBTITLE;
+	AampMediaType mediaType = eMEDIATYPE_SUBTITLE;
 	BitsPerSecond bitrate = 500000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3408,7 +3408,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest15)
 {
 	// covering eMEDIATYPE_DEFAULT switch case
 
-	MediaType mediaType = eMEDIATYPE_DEFAULT;
+	AampMediaType mediaType = eMEDIATYPE_DEFAULT;
 	BitsPerSecond bitrate = 500000;
 	int curlOrHTTPCode = CURLcode::CURLE_FUNCTION_NOT_FOUND;
 	std::string strUrl = "strUrl";
@@ -3531,12 +3531,12 @@ TEST_F(PrivAampTests, ForceHttpCoversionforFogTest)
 TEST_F(PrivAampTests, getCurrentContentDownloadSpeedTest)
 {
 	PrivateInstanceAAMP *aamp;
-	MediaType fileType = eMEDIATYPE_VIDEO;
+	AampMediaType fileType = eMEDIATYPE_VIDEO;
 	bool bDownloadStart = true;
 	long start = 12345;
 	double dlnow = 10.50;
 
-	long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,MediaType fileType,bool bDownloadStart,long start,double dlnow);
+	long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,AampMediaType fileType,bool bDownloadStart,long start,double dlnow);
 
 	long result = getCurrentContentDownloadSpeed(p_aamp,fileType,bDownloadStart,start,dlnow);
 
@@ -3585,7 +3585,7 @@ TEST_F(PrivAampTests, TuneHelperTest_11)
 }
 TEST_F(PrivAampTests, UpdateVideoEndMetricsDelegatesCorrectly) {
     // Setup test data
-    MediaType mediaType = eMEDIATYPE_VIDEO;
+    AampMediaType mediaType = eMEDIATYPE_VIDEO;
     BitsPerSecond bitrate = 12;
     int curlOrHTTPCode = 34;
     std::string strUrl = "strUrl";
@@ -3596,7 +3596,7 @@ TEST_F(PrivAampTests, UpdateVideoEndMetricsDelegatesCorrectly) {
 }
 TEST_F(PrivAampTests, UpdateVideoEndMetricsDelegatesCorrectly2) {
     // Setup test data
-    MediaType mediaType = eMEDIATYPE_VIDEO;
+    AampMediaType mediaType = eMEDIATYPE_VIDEO;
     BitsPerSecond bitrate = 12;
     int curlOrHTTPCode = INT_MAX;
     std::string strUrl = "strUrl";
@@ -3607,7 +3607,7 @@ TEST_F(PrivAampTests, UpdateVideoEndMetricsDelegatesCorrectly2) {
 }
 TEST_F(PrivAampTests, UpdateVideoEndMetricsDelegatesCorrectly3) {
     // Setup test data
-    MediaType mediaType = eMEDIATYPE_VIDEO;
+    AampMediaType mediaType = eMEDIATYPE_VIDEO;
     BitsPerSecond bitrate = 12;
     int curlOrHTTPCode = INT_MIN;
     std::string strUrl = "strUrl";

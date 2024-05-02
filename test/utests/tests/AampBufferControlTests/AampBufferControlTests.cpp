@@ -28,7 +28,7 @@ class BufferControlExternalDataTest : public testing::Test
 {
     public:
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType = eMEDIATYPE_DEFAULT;
+    AampMediaType mediaType = eMEDIATYPE_DEFAULT;
     AampBufferControl::BufferControlMaster context;
 
     protected:
@@ -65,7 +65,7 @@ TEST_F(BufferControlExternalDataTest, mBufferControlactionDownloadsTest1)
 {
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType = eMEDIATYPE_DEFAULT;
+    AampMediaType mediaType = eMEDIATYPE_DEFAULT;
     bool downloadsEnabled = true;
 
     //Act: Call the function for test
@@ -81,7 +81,7 @@ TEST_F(BufferControlExternalDataTest, mBufferControlactionDownloadsTest2)
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
     bool downloadsEnabled = true;
-    MediaType mediaType[21] = {
+    AampMediaType mediaType[21] = {
     eMEDIATYPE_DEFAULT,
     eMEDIATYPE_VIDEO,
 	eMEDIATYPE_AUDIO,
@@ -118,7 +118,7 @@ TEST_F(BufferControlExternalDataTest, mBufferControlactionDownloadsTest3)
 {
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType = eMEDIATYPE_DEFAULT;
+    AampMediaType mediaType = eMEDIATYPE_DEFAULT;
     bool downloadsEnabled = false;
 
     //Act: Call the function for test
@@ -151,7 +151,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterneedDataTest1)
 {
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType = eMEDIATYPE_DEFAULT;
+    AampMediaType mediaType = eMEDIATYPE_DEFAULT;
 
     //Act: Call the function for test
     mBufferControlMaster->needData(player,mediaType);
@@ -164,7 +164,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterneedDataTest2)
 {
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType[21] = {
+    AampMediaType mediaType[21] = {
     eMEDIATYPE_DEFAULT,
     eMEDIATYPE_VIDEO,
 	eMEDIATYPE_AUDIO,
@@ -201,7 +201,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTes
 {
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType = eMEDIATYPE_DEFAULT;
+    AampMediaType mediaType = eMEDIATYPE_DEFAULT;
     double fpts = 22.2;
     double fdts = 33.3;
     double duration = 44.4;
@@ -222,7 +222,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTes
 {
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType = eMEDIATYPE_DEFAULT;
+    AampMediaType mediaType = eMEDIATYPE_DEFAULT;
     double fpts = DBL_MAX;
     double fdts = DBL_MAX;
     double duration = DBL_MAX;
@@ -240,7 +240,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTes
 {
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType = eMEDIATYPE_DEFAULT;
+    AampMediaType mediaType = eMEDIATYPE_DEFAULT;
     double fpts = DBL_MIN;
     double fdts = DBL_MIN;
     double duration = DBL_MIN;
@@ -259,7 +259,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTes
 {
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType = eMEDIATYPE_DEFAULT;
+    AampMediaType mediaType = eMEDIATYPE_DEFAULT;
     double fpts = 0.0;
     double fdts = 0.0;
     double duration = 0.0;
@@ -284,7 +284,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasternotifyFragmentInjectTes
     double fdts = 1.3;
     double duration = 1.4;
     bool firstBuffer = false;
-    MediaType mediaType[21] = {
+    AampMediaType mediaType[21] = {
     eMEDIATYPE_DEFAULT,
     eMEDIATYPE_VIDEO,
 	eMEDIATYPE_AUDIO,
@@ -328,7 +328,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterenoughDataTest1)
 {
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType = eMEDIATYPE_DEFAULT;
+    AampMediaType mediaType = eMEDIATYPE_DEFAULT;
 
     //Act: Call the function for test
     mBufferControlMaster->enoughData(player,mediaType);
@@ -341,7 +341,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterenoughDataTest2)
 {
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType[21] = {
+    AampMediaType mediaType[21] = {
     eMEDIATYPE_DEFAULT,
     eMEDIATYPE_VIDEO,
 	eMEDIATYPE_AUDIO,
@@ -379,7 +379,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterunderflowTest1)
 {
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType=eMEDIATYPE_DEFAULT;
+    AampMediaType mediaType=eMEDIATYPE_DEFAULT;
 
     //Act: Call the function for test
     mBufferControlMaster->underflow(player,mediaType);
@@ -389,7 +389,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterunderflowTest2)
 {
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType[21] = {
+    AampMediaType mediaType[21] = {
     eMEDIATYPE_DEFAULT,
     eMEDIATYPE_VIDEO,
 	eMEDIATYPE_AUDIO,
@@ -426,7 +426,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterupdateTest1)
 {
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType=eMEDIATYPE_DEFAULT;
+    AampMediaType mediaType=eMEDIATYPE_DEFAULT;
 
     //Act: Call the function for test
     mBufferControlMaster->update(player,mediaType);
@@ -439,7 +439,7 @@ TEST_F(BufferControlExternalDataTest, BufferControlMasterupdateTest2)
 {
     // Arrange: Creating the variables for passing to arguments
     AAMPGstPlayer* player = nullptr;
-    MediaType mediaType[21] = {
+    AampMediaType mediaType[21] = {
     eMEDIATYPE_DEFAULT,
     eMEDIATYPE_VIDEO,
 	eMEDIATYPE_AUDIO,

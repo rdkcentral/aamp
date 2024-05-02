@@ -22,12 +22,12 @@
 #include "StreamAbstractionAAMP.h"
 
 AampBufferControl::BufferControlExternalData::BufferControlExternalData(const AAMPGstPlayer* player,
-																		const MediaType mediaType)
+																		const AampMediaType mediaType)
 	: mRate(0), mTimeBasedBufferSeconds(0), mExtraDataCache(), mCacheValid(false)
 {
 	if (player && player->aamp && player->aamp->mConfig)
 	{
-		float x1_bufferSize =
+		uint64_t x1_bufferSize =
 			player->aamp->mConfig->GetConfigValue(eAAMPConfig_TimeBasedBufferSeconds);
 		mRate = player->aamp->rate;
 		float absRate = std::abs(mRate);
@@ -43,7 +43,7 @@ AampBufferControl::BufferControlExternalData::BufferControlExternalData(const AA
 	}
 }
 
-void AampBufferControl::BufferControlExternalData::actionDownloads(const AAMPGstPlayer* player, const MediaType mediaType, bool downloadsEnabled)
+void AampBufferControl::BufferControlExternalData::actionDownloads(const AAMPGstPlayer* player, const AampMediaType mediaType, bool downloadsEnabled)
 {
 	if(player && player->aamp)
 	{
@@ -59,7 +59,7 @@ void AampBufferControl::BufferControlExternalData::actionDownloads(const AAMPGst
 }
 
 void AampBufferControl::BufferControlExternalData::cacheExtraData(const AAMPGstPlayer* player,
-																  const MediaType mediaType)
+																  const AampMediaType mediaType)
 {
 	player->GetBufferControlData(mediaType, mExtraDataCache);
 	mCacheValid = true;
@@ -118,18 +118,18 @@ void AampBufferControl::BufferControlTimeBased::updateInternal(const BufferContr
     if(extraData.StreamReady)
 	{
 		const auto originalState = mState;  //cache for later state change check
-		const double elapsedSecondsUnlimited = extraData.ElapsedSeconds;
-		double injectedSeconds=getInjectedSeconds();
-		const double elapsedSeconds = std::min(injectedSeconds, elapsedSecondsUnlimited);
+		const AampTime elapsedSecondsUnlimited = extraData.ElapsedSeconds;
+		AampTime injectedSeconds=getInjectedSeconds();
+		const AampTime elapsedSeconds = std::min(injectedSeconds, elapsedSecondsUnlimited);
 		auto mediaType = mContext.getMediaType();
 		if(((elapsedSeconds+1)<elapsedSecondsUnlimited) && ((mediaType==eMEDIATYPE_VIDEO)||(std::abs(externalData.getRate()))))
 		{
 			std::string msg = "BufferControlTimeBased ";
 			msg+=getThisMediaTypeName();
 			msg+=" limiting elapsedSeconds (";
-			msg+=std::to_string(static_cast<int>(elapsedSecondsUnlimited));
+			msg+=std::to_string(elapsedSecondsUnlimited.seconds());
 			msg+=") to secondsInjected (";
-			msg+=std::to_string(static_cast<int>(injectedSeconds));
+			msg+=std::to_string(injectedSeconds.seconds());
 			msg+=")";
 
 			/* temporarily limiting all messages of this type to trace untill DELIA-63197 is resolved
@@ -143,7 +143,7 @@ void AampBufferControl::BufferControlTimeBased::updateInternal(const BufferContr
 			}
 		}
 
-		const double bufferedSeconds = injectedSeconds - elapsedSeconds;
+		const AampTime bufferedSeconds {injectedSeconds - elapsedSeconds};
 		const float BufferTargetDurationSeconds = externalData.getTimeBasedBufferSeconds();
 
 		switch(mState)
@@ -190,10 +190,10 @@ void AampBufferControl::BufferControlTimeBased::updateInternal(const BufferContr
 						getThisMediaTypeName(),
 						getStateName(originalState),
 						getStateName(),
-						bufferedSeconds,
+						bufferedSeconds.inSeconds(),
 						BufferTargetDurationSeconds,
-						injectedSeconds,
-						elapsedSeconds
+						injectedSeconds.inSeconds(),
+						elapsedSeconds.inSeconds()
 						);
 		}
 	}
@@ -284,9 +284,9 @@ void AampBufferControl::BufferControlTimeBased::notifyFragmentInject(const Buffe
 	getThisMediaTypeName(),
 	getStateName(),
 	firstBuffer?" first buffer":"",
-	getInjectedSeconds(),
-	mInjectedEnd,
-	mInjectedStart,
+	getInjectedSeconds().inSeconds(),
+	mInjectedEnd.inSeconds(),
+	mInjectedStart.inSeconds(),
 	fpts,
 	fdts,
 	duration);
@@ -319,7 +319,7 @@ void AampBufferControl::BufferControlMaster::createOrChangeStrategyIfRequired(Bu
 	}
 }
 
-void AampBufferControl::BufferControlMaster::needData(const AAMPGstPlayer *player, const MediaType mediaType)
+void AampBufferControl::BufferControlMaster::needData(const AAMPGstPlayer *player, const AampMediaType mediaType)
 {
 	try
 	{
@@ -360,7 +360,7 @@ void AampBufferControl::BufferControlMaster::needData(const AAMPGstPlayer *playe
 	BufferControlExternalData::actionDownloads(player, mediaType, mDownloadShouldBeEnabled);
 }
 
-void AampBufferControl::BufferControlMaster::enoughData(const AAMPGstPlayer *player, const MediaType mediaType)
+void AampBufferControl::BufferControlMaster::enoughData(const AAMPGstPlayer *player, const AampMediaType mediaType)
 {
 	try
 	{
@@ -398,7 +398,7 @@ void AampBufferControl::BufferControlMaster::enoughData(const AAMPGstPlayer *pla
 	BufferControlExternalData::actionDownloads(player, mediaType, mDownloadShouldBeEnabled);
 }
 
-void AampBufferControl::BufferControlMaster::update(const AAMPGstPlayer *player, const MediaType mediaType)
+void AampBufferControl::BufferControlMaster::update(const AAMPGstPlayer *player, const AampMediaType mediaType)
 {
 	try
 	{
@@ -428,7 +428,7 @@ void AampBufferControl::BufferControlMaster::update(const AAMPGstPlayer *player,
 	BufferControlExternalData::actionDownloads(player, mediaType, mDownloadShouldBeEnabled);
 }
 
-void AampBufferControl::BufferControlMaster::notifyFragmentInject(const AAMPGstPlayer* player,  const MediaType mediaType, double fpts, double fdts, double duration, bool firstBuffer)
+void AampBufferControl::BufferControlMaster::notifyFragmentInject(const AAMPGstPlayer* player,  const AampMediaType mediaType, double fpts, double fdts, double duration, bool firstBuffer)
 {
 	try
 	{
@@ -455,7 +455,7 @@ void AampBufferControl::BufferControlMaster::notifyFragmentInject(const AAMPGstP
 	BufferControlExternalData::actionDownloads(player, mediaType, mDownloadShouldBeEnabled);
 }
 
-void AampBufferControl::BufferControlMaster::underflow(const AAMPGstPlayer *player, const MediaType mediaType)
+void AampBufferControl::BufferControlMaster::underflow(const AAMPGstPlayer *player, const AampMediaType mediaType)
 {
 	try
 	{

@@ -99,7 +99,7 @@ std::string AampLogManager::getHexDebugStr(const std::vector<uint8_t>& data)
 /**
  *  @brief Print the network latency level logging for triage purpose
  */
-void AampLogManager::LogNetworkLatency(const char* url, int downloadTime, int downloadThresholdTimeoutMs, MediaType type)
+void AampLogManager::LogNetworkLatency(const char* url, int downloadTime, int downloadThresholdTimeoutMs, AampMediaType type)
 {
 	std::string contentType;
 	std::string location;
@@ -114,7 +114,7 @@ void AampLogManager::LogNetworkLatency(const char* url, int downloadTime, int do
 /**
  *  @brief Print the network error level logging for triage purpose
  */
-void AampLogManager::LogNetworkError(const char* url, AAMPNetworkErrorType errorType, int errorCode, MediaType type)
+void AampLogManager::LogNetworkError(const char* url, AAMPNetworkErrorType errorType, int errorCode, AampMediaType type)
 {
 	std::string contentType;
 	std::string location;
@@ -163,9 +163,9 @@ void AampLogManager::LogNetworkError(const char* url, AAMPNetworkErrorType error
 /**
  *  @brief To get the issue symptom based on the error type for triage purpose
  */
-void AampLogManager::ParseContentUrl(const char* url, std::string& contentType, std::string& location, std::string& symptom, MediaType type)
+void AampLogManager::ParseContentUrl(const char* url, std::string& contentType, std::string& location, std::string& symptom, AampMediaType type)
 {
-	static const char *mMediaTypes[eMEDIATYPE_DEFAULT] = { // enum MediaType
+	static const char *mMediaTypes[eMEDIATYPE_DEFAULT] = { // enum AampMediaType
 						"VIDEO",
 						"AUDIO",
 						"SUBTITLE",
