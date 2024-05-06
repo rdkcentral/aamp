@@ -1936,6 +1936,9 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						pMediaStreamContext->fragmentOffset += referenced_size;
 						retval = true;
 					}
+					// pMediaStreamContext->downloadedDuration is introduced to calculate the bufferedduration value for SegmentBase contents.
+                                        //Absolute position reporting
+                                        pMediaStreamContext->downloadedDuration = pMediaStreamContext->fragmentTime;
 				}
 				else
 				{ // done with index
