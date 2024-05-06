@@ -243,6 +243,11 @@ class Aamp:
              {"expect":"line expected from aamp"},
         ]
         """
+
+        if testdata.get('simlinear_type') is not None:
+            self.simlinear = Simlinear(self.test_dir_path, self.pytestconfig)
+            self.simlinear.start(testdata['simlinear_type'], logfile_name='simlinear_' + self.logfile_name)
+        
         if 'logfile' in testdata:
             self.logfile_name = testdata["logfile"]
         print("{} {}".format(testdata["title"],self.logfile_name))
@@ -254,6 +259,11 @@ class Aamp:
         self.start_aamp()
 
         start_time = time.time()
+
+        if self.simlinear:
+            self.sendline(self.simlinear.SL_URL+testdata["url"])
+        elif testdata.get('url') is not None:
+            self.sendline(testdata["url"])
 
         for idx, e in enumerate(testdata["expect_list"]):
             if e.get('expect') is not None:
