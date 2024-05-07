@@ -142,7 +142,7 @@ public:
      *   @fn GetPositionMilliseconds
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual long GetPositionMilliseconds(void)
+	virtual long long GetPositionMilliseconds(void)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 		return 0;
