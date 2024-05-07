@@ -15,3 +15,5 @@ rm SegmentTemplate.mpd
 rm SegmentTimeline.mpd
 rm mainDynamic.mpd
 rm mainDynamic.m3u8
+rm SegmentTimeline4k.mpd
+rm *p.mpd
