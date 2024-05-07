@@ -200,9 +200,9 @@ public:
          * @fn GetPositionMilliseconds
          * @retval playback position in MS
          */
-	long GetPositionMilliseconds(void) override;
-        /**
-         * @fn GetDurationMilliseconds 
+	long long GetPositionMilliseconds(void) override;
+	/**
+         * @fn GetDurationMilliseconds
          * @retval playback duration in MS
          */
 	long GetDurationMilliseconds(void) override;

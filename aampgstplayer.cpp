@@ -913,8 +913,8 @@ static void InitializeSource(AAMPGstPlayer *_this, GObject *source, AampMediaTyp
 																					typefind determines the media-type of a stream and once type has been
 																					detected it sets its src pad caps to the found media type*/
 	}
-
-#if defined(AAMP_SIMULATOR_BUILD)
+/*Realtek will provide the position in absolute format when the qtdemux override (PTS restamping) is disabled. However, if the first PTS value isn't sent to the pipeline, the segment event query will return 0. Consequently, the player won't be able to calculate the position during tuning when the first PTS is non-zero. The following code block aids in obtaining the correct segment start value for the scenario where QTDEMUX is disabled, specifically for ES1 and in the mac simulator.*/
+#if defined(AAMP_SIMULATOR_BUILD) ||  ( defined(FLEX2_RDK) && defined(REALTEKCE) ) 
 	/* If qtdemux PTS restamping is not enabled and play starts at a non-zero stream time, then
 	 * seek to the start time, otherwise gstreamer will block until the running time matches the
 	 * stream time.
@@ -923,6 +923,7 @@ static void InitializeSource(AAMPGstPlayer *_this, GObject *source, AampMediaTyp
 		((eMEDIATYPE_VIDEO == mediaType) || (eMEDIATYPE_AUDIO == mediaType) || (eMEDIATYPE_AUX_AUDIO == mediaType)))
 	{
 		gint64 firstTime = (gint64)(_this->aamp->GetFirstPTS()*GST_SECOND);
+		AAMPLOG_INFO("FirstPTS for seek simple: %" G_GINT64_FORMAT,firstTime);
 		if( firstTime>0 )
 		{
 			if (!gst_element_seek_simple(GST_ELEMENT(source), GST_FORMAT_TIME, GST_SEEK_FLAG_NONE, firstTime))
@@ -4215,9 +4216,9 @@ long AAMPGstPlayer::GetDurationMilliseconds(void)
 /**
  *  @brief Get playback position in MS
  */
-long AAMPGstPlayer::GetPositionMilliseconds(void)
+long long AAMPGstPlayer::GetPositionMilliseconds(void)
 {
-	long rc = 0;
+	long long rc = 0;
 	if (privateContext->pipeline == NULL)
 	{
 		AAMPLOG_ERR("Pipeline is NULL");
@@ -4278,11 +4279,13 @@ long AAMPGstPlayer::GetPositionMilliseconds(void)
 		{
 			// DELIA-39530 - Deduct segment.start to find the actual time of media that's played.
 			rc = (GST_TIME_AS_MSECONDS(pos) - privateContext->segmentStart) * rate;
+			AAMPLOG_INFO("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld SegStart -%" G_GINT64_FORMAT, GST_TIME_AS_MSECONDS(pos), rc,privateContext->segmentStart);
 		}
 		else
 #endif
 		{
 			rc = GST_TIME_AS_MSECONDS(pos) * rate;
+			AAMPLOG_INFO("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld" , GST_TIME_AS_MSECONDS(pos), rc);
 		}
 		//AAMPLOG_MIL("AAMPGstPlayer: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
 

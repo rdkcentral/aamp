@@ -516,7 +516,7 @@ public:
 	 *
 	 *   @return Position in ms.
 	 */
-	virtual long GetPositionMilliseconds(void){ return 0; };
+	virtual long long GetPositionMilliseconds(void){ return 0; };
 
 	/**
 	 *   @brief Get Video 90 KHz Video PTS
