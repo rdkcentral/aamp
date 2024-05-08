@@ -1944,6 +1944,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
                                    gst_segment_new(),
                                    reinterpret_cast<GDestroyNotify>(gst_segment_free));
 				}
+				gst_object_unref(sourceEleSrcPad);
             }
 		}
 #endif
@@ -3062,6 +3063,7 @@ void AAMPGstPlayer::SendNewSegmentEvent(AampMediaType mediaType, GstClockTime st
                         AAMPLOG_ERR("gst_pad_push_event segment error");
                 }
         }
+        gst_object_unref(sourceEleSrcPad);
 }
 
 /**
@@ -5434,6 +5436,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 				static_cast<GstSeekFlags>(GST_SEEK_FLAG_INSTANT_RATE_CHANGE), GST_SEEK_TYPE_NONE,
 				0, GST_SEEK_TYPE_NONE, 0));
 			AAMPLOG_INFO("Seeking in %s ( %d )", aamp->MediaTypeString(static_cast<AampMediaType>(iTrack)), iTrack);
+			gst_object_unref(sourceEleSrcPad);
 		}
 	}
     AAMPLOG_MIL ("Current rate: %g", rate);
