@@ -1927,6 +1927,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
                                    gst_segment_new(),
                                    reinterpret_cast<GDestroyNotify>(gst_segment_free));
 				}
+				gst_object_unref(sourceEleSrcPad);
             }
 		}
 #endif
@@ -3050,6 +3051,7 @@ void AAMPGstPlayer::SendNewSegmentEvent(AampMediaType mediaType, GstClockTime st
                         AAMPLOG_ERR("gst_pad_push_event segment error");
                 }
         }
+        gst_object_unref(sourceEleSrcPad);
 }
 
 /**
@@ -5422,6 +5424,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 				static_cast<GstSeekFlags>(GST_SEEK_FLAG_INSTANT_RATE_CHANGE), GST_SEEK_TYPE_NONE,
 				0, GST_SEEK_TYPE_NONE, 0));
 			AAMPLOG_INFO("Seeking in %s ( %d )", aamp->MediaTypeString(static_cast<AampMediaType>(iTrack)), iTrack);
+			gst_object_unref(sourceEleSrcPad);
 		}
 	}
     AAMPLOG_MIL ("Current rate: %g", rate);
@@ -5452,7 +5455,6 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 		AAMPLOG_ERR("AAMPGstPlayer: Rate change failed : %g [gst_element_send_event]", rate);
 		return false;
 	}
-	gst_event_unref(rate_event);
 	AAMPLOG_MIL ("Current rate: %g", rate);	
 #elif defined (BRCM)
 	AAMPLOG_MIL("send custom-instant-rate-change : %f ...", rate);
@@ -5489,7 +5491,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 			AAMPLOG_ERR("failed to push rate_event %p to audio decoder %p", (void*)rate_event, (void*)privateContext->audio_dec);
 		}
 	}
-
+	// Unref since we have explicitly increased ref count
 	gst_event_unref(rate_event);
 	AAMPLOG_MIL ("Current rate: %g", rate);
 #else //Non BRCM/AMLOGIC/REALTEK case
