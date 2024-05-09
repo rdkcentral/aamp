@@ -248,7 +248,7 @@ std::string aamp_getHostFromURL(std::string url)
 				host = url.substr(start_pos, (pos - start_pos));
 			}
 		}
-		else
+		else if(url.rfind("file://", 0) != 0)
 		{
 			throw std::runtime_error("Invalid URL:" + url);
 		}
