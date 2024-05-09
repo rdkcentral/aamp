@@ -73,6 +73,7 @@ bool PacketSender::Init(const char *socket_path)
 
     if (!running)
     {
+        mSocketPath = socket_path;
         ret = initSocket(socket_path) && initSenderTask();
         if (!ret) {
             AAMPLOG_WARN("SenderTask failed to init");
@@ -169,13 +170,13 @@ void PacketSender::sendPacket(PacketPtr && pkt)
 
         (void) std::memset(&addr, 0, sizeof(addr));
         addr.sun_family = AF_UNIX;
-        (void) std::strncpy(addr.sun_path, SOCKET_PATH, sizeof(addr.sun_path));
+        (void) std::strncpy(addr.sun_path, mSocketPath.c_str(), sizeof(addr.sun_path));
         addr.sun_path[sizeof(addr.sun_path) - 1] = 0;
 
         if (::connect(mSubtecSocketHandle, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) != 0) {
-            AAMPLOG_WARN("PacketSender: cannot reconnect to address \'%s\'", SOCKET_PATH);
+            AAMPLOG_WARN("PacketSender: cannot reconnect to address \'%s\'", mSocketPath.c_str());
         } else {
-            AAMPLOG_INFO("PacketSender: successful reconnect to address \'%s\'", SOCKET_PATH);
+            AAMPLOG_INFO("PacketSender: successful reconnect to address \'%s\'", mSocketPath.c_str());
         }
         mPktWriteFailCtr = 0;
 	}
