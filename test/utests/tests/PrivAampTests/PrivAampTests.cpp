@@ -3535,14 +3535,14 @@ TEST_F(PrivAampTests, ForceHttpCoversionforFogTest)
 TEST_F(PrivAampTests, getCurrentContentDownloadSpeedTest)
 {
 	PrivateInstanceAAMP *aamp;
-	AampMediaType fileType = eMEDIATYPE_VIDEO;
+	AampMediaType mediaType = eMEDIATYPE_VIDEO;
 	bool bDownloadStart = true;
 	long start = 12345;
 	double dlnow = 10.50;
 
-	long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,AampMediaType fileType,bool bDownloadStart,long start,double dlnow);
+	long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,AampMediaType mediaType,bool bDownloadStart,long start,double dlnow);
 
-	long result = getCurrentContentDownloadSpeed(p_aamp,fileType,bDownloadStart,start,dlnow);
+	long result = getCurrentContentDownloadSpeed(p_aamp,mediaType,bDownloadStart,start,dlnow);
 
 }
 TEST_F(PrivAampTests, HandleSSLHeaderCallback_ValidHeader_1)

@@ -645,7 +645,7 @@ void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int insta
 
 bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl,
                 int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
-                bool resetBuffer, AampMediaType fileType, BitsPerSecond *bitrate, int * fogError,
+                bool resetBuffer, AampMediaType mediaType, BitsPerSecond *bitrate, int * fogError,
                 double fragmentDurationSeconds)
 {
 	bool rv = false;
@@ -654,7 +654,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampGrowableBuffer *buf
 	{
 		rv = g_mockPrivateInstanceAAMP->GetFile(remoteUrl, buffer, effectiveUrl,
 				 								http_error, downloadTime, range, curlInstance,
-												resetBuffer, fileType, bitrate, fogError,
+												resetBuffer, mediaType, bitrate, fogError,
 												fragmentDurationSeconds);
 	}
 
@@ -991,7 +991,7 @@ bool PrivateInstanceAAMP::IsSinkCacheEmpty(AampMediaType mediaType)
     return true;
 }
 
-const char* PrivateInstanceAAMP::MediaTypeString(AampMediaType fileType)
+const char* PrivateInstanceAAMP::MediaTypeString(AampMediaType mediaType)
 {
     return nullptr;
 }
@@ -1130,12 +1130,12 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 {
 }
 
-bool PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *buffer, unsigned int curlInstance, const char *range, AampMediaType fileType, int * http_code, double * downloadTime, BitsPerSecond *bitrate, int * fogError, double fragmentDurationSec)
+bool PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *buffer, unsigned int curlInstance, const char *range, AampMediaType mediaType, int * http_code, double * downloadTime, BitsPerSecond *bitrate, int * fogError, double fragmentDurationSec)
 {
 	return true;
 }
 
-void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType fileType,int * fogError)
+void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)
 {
         return;
 }
@@ -1157,7 +1157,7 @@ void PrivateInstanceAAMP::ResetProfileCache()
 {
 }
 
-struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(AampMediaType fileType)
+struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(AampMediaType mediaType)
 {
 
        return NULL;

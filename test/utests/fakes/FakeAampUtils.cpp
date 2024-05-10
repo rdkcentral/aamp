@@ -97,10 +97,10 @@ std::string aamp_getHostFromURL(std::string url)
     return "";
 }
 
-int getHarvestConfigForMedia(AampMediaType fileType)
+int getHarvestConfigForMedia(AampMediaType mediaType)
 {
 	enum HarvestConfigType harvestType = eHARVEST_ENABLE_DEFAULT;
-	switch(fileType)
+	switch(mediaType)
 	{
 		case eMEDIATYPE_VIDEO:
 			harvestType = eHARVEST_ENABLE_VIDEO;
@@ -173,7 +173,7 @@ void getDefaultHarvestPath(std::string &value)
 {
 }
 
-bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMediaType &fileType, unsigned int count,const char *prefix)
+bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMediaType &mediaType, unsigned int count,const char *prefix)
 {
     return false;
 }

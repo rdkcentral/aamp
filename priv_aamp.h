@@ -685,10 +685,10 @@ public:
 	/**
 	 * @fn mediaType2Bucket
 	 *
-	 * @param[in] fileType - Media filetype
+	 * @param[in] mediaType - Media filetype
 	 * @return Profiler bucket type
 	 */
-	ProfilerBucketType mediaType2Bucket(AampMediaType fileType);
+	ProfilerBucketType mediaType2Bucket(AampMediaType mediaType);
 
        /**
          * @brief to set the vod-tune-event according to the player
@@ -750,10 +750,10 @@ public:
 	 *
 	 * Free the returned list of CUrl headers using curl_slist_free_all.
 	 *
-	 * @param[in] fileType Media type
+	 * @param[in] mediaType Media type
 	 * @return list of CUrl headers
 	 */
-	struct curl_slist* GetCustomHeaders(AampMediaType fileType);
+	struct curl_slist* GetCustomHeaders(AampMediaType mediaType);
 
 	/**
 	 * @fn SetDiscontinuityParam - to mark the discontinuity and save the details
@@ -1248,11 +1248,11 @@ public:
 	 * @param[in] range - Byte range
 	 * @param[in] curlInstance - Curl instance to be used
 	 * @param[in] resetBuffer - Flag to reset the out buffer
-	 * @param[in] fileType - File type
+	 * @param[in] mediaType - File type
 	 * @param[in] CMCDMetrics - pointer to CMCDNetwork metrics
 	 * @return void
 	 */
-	bool GetFile(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true,AampMediaType fileType = eMEDIATYPE_DEFAULT, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0);
+	bool GetFile(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true,AampMediaType mediaType = eMEDIATYPE_DEFAULT, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0);
 
 	/**
 	 * @fn getUUID
@@ -1291,10 +1291,10 @@ public:
 
 	/**
 	 * @fn MediaTypeString
-	 * @param[in] fileType - Type of Media
+	 * @param[in] mediaType - Type of Media
 	 * @param[out] pointer to Media Type string
 	 */
-	static const char* MediaTypeString(AampMediaType fileType);
+	static const char* MediaTypeString(AampMediaType mediaType);
 
 	/**
 	 * @fn LoadIDX
@@ -1305,11 +1305,11 @@ public:
 	 * @param[out] len - Content length
 	 * @param[in] curlInstance - Curl instance to be used
 	 * @param[in] range - Byte range
-	 * @param[in] fileType - File type
+	 * @param[in] mediaType - File type
 	 * @param[out] fogError - Error from FOG
 	 * @return void
 	 */
-	void LoadIDX( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl,  AampGrowableBuffer *idx, unsigned int curlInstance = 0, const char *range = NULL,int * http_code = NULL, double *downloadTime = NULL, AampMediaType fileType = eMEDIATYPE_MANIFEST,int * fogError = NULL);
+	void LoadIDX( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl,  AampGrowableBuffer *idx, unsigned int curlInstance = 0, const char *range = NULL,int * http_code = NULL, double *downloadTime = NULL, AampMediaType mediaType = eMEDIATYPE_MANIFEST,int * fogError = NULL);
 
 	/**
 	 * @fn LoadFragment
@@ -1319,12 +1319,12 @@ public:
 	 * @param[out] buffer - Pointer to the output buffer
 	 * @param[in] curlInstance - Curl instance to be used
 	 * @param[in] range - Byte range
-	 * @param[in] fileType - File type
+	 * @param[in] mediaType - File type
 	 * @param[out] http_code - HTTP error code
 	 * @param[out] fogError - Error from FOG
 	 * @return void
 	 */
-	bool LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, AampMediaType fileType = eMEDIATYPE_MANIFEST, int * http_code = NULL, double * downloadTime = NULL, BitsPerSecond *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
+	bool LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, AampMediaType mediaType = eMEDIATYPE_MANIFEST, int * http_code = NULL, double * downloadTime = NULL, BitsPerSecond *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
 	/**
 	 * @fn PushFragment
 	 *

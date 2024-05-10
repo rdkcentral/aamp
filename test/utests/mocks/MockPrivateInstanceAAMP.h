@@ -37,7 +37,7 @@ public:
 
     MOCK_METHOD(bool, GetFile, (std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl,
                 int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
-                bool resetBuffer, AampMediaType fileType, BitsPerSecond *bitrate, int * fogError,
+                bool resetBuffer, AampMediaType mediaType, BitsPerSecond *bitrate, int * fogError,
                 double fragmentDurationSeconds));
     MOCK_METHOD(void, SetStreamFormat, (StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat));
 

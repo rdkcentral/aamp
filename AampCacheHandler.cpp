@@ -28,7 +28,7 @@
 /**
  *  @brief Retrieve playlist from cache  
  */
-void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,AampMediaType fileType)
+void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,AampMediaType mediaType)
 {
 	PlayListCachedData *tmpData,*newtmpData;
 	std::lock_guard<std::recursive_mutex> lock(mMutex);
@@ -44,8 +44,8 @@ void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGr
 		Init();
 
 		// First check point , Caching is allowed only if its VOD and for Main Manifest(HLS) for both VOD/Live
-		// For Main manifest , fileType will bypass storing for live content
-		if(trackLiveStatus==false || fileType==eMEDIATYPE_MANIFEST)
+		// For Main manifest , mediaType will bypass storing for live content
+		if(trackLiveStatus==false || mediaType==eMEDIATYPE_MANIFEST)
 		{
 
 			PlaylistCacheIter it = mPlaylistCache.find(url);
@@ -56,7 +56,7 @@ void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGr
 			// insert only if buffer size is less than Max size
 			else
 			{
-				if(fileType==eMEDIATYPE_MANIFEST && mPlaylistCache.size())
+				if(mediaType==eMEDIATYPE_MANIFEST && mPlaylistCache.size())
 				{
 					// If new Manifest is inserted which is not present in the cache , flush out other playlist files related with old manifest,
 					ClearPlaylistCache();
@@ -70,7 +70,7 @@ void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGr
 					if(mMaxPlaylistCacheSize != PLAYLIST_CACHE_SIZE_UNLIMITED  && ((mCacheStoredSize + buffer->GetLen()) > mMaxPlaylistCacheSize))
 					{
 						AAMPLOG_WARN("Count[%lu]Avail[%d]Needed[%zu] Reached max cache size", mPlaylistCache.size(),mCacheStoredSize,buffer->GetLen() );
-						cacheStoreReady = AllocatePlaylistCacheSlot(fileType,buffer->GetLen() );
+						cacheStoreReady = AllocatePlaylistCacheSlot(mediaType,buffer->GetLen() );
 					}
 					if(cacheStoreReady)
 					{
@@ -79,7 +79,7 @@ void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGr
 						tmpData->mCachedBuffer->AppendBytes( buffer->GetPtr(), buffer->GetLen() );
 
 						tmpData->mEffectiveUrl = effectiveUrl;
-						tmpData->mFileType = fileType;
+						tmpData->mMediaType = mediaType;
 						mPlaylistCache[url] = tmpData;
 						mCacheStoredSize += buffer->GetLen();
 						AAMPLOG_INFO("Inserted. url %s", url.c_str());
@@ -98,7 +98,7 @@ void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGr
 								newtmpData->mEffectiveUrl = effectiveUrl;
 								// This is a duplicate entry
 								newtmpData->mDuplicateEntry = true;
-								newtmpData->mFileType = fileType;
+								newtmpData->mMediaType = mediaType;
 								mPlaylistCache[effectiveUrl] = newtmpData;
 								AAMPLOG_INFO("Added an effective url entry %s", effectiveUrl.c_str());
 							}
@@ -191,13 +191,13 @@ void AampCacheHandler::ClearPlaylistCache()
 /**
  *  @brief AllocatePlaylistCacheSlot Allocate Slot for adding new playlist
  */
-bool AampCacheHandler::AllocatePlaylistCacheSlot(AampMediaType fileType,size_t newLen)
+bool AampCacheHandler::AllocatePlaylistCacheSlot(AampMediaType mediaType,size_t newLen)
 {
 	bool retVal = true;
 	size_t freedSize=0;
 	if(mPlaylistCache.size())
 	{
-		if(fileType == eMEDIATYPE_MANIFEST)
+		if(mediaType == eMEDIATYPE_MANIFEST)
 		{
 			// This case cannot happen, but for safety need to handle.
 			// If for any reason Main Manifest is pushed after cache is full , better clear all the playlist cached .
@@ -214,7 +214,7 @@ bool AampCacheHandler::AllocatePlaylistCacheSlot(AampMediaType fileType,size_t n
 		while(Iter != mPlaylistCache.end())
 		{
 			PlayListCachedData *tmpData = Iter->second;
-			if(tmpData->mFileType == eMEDIATYPE_MANIFEST || tmpData->mFileType != fileType)
+			if(tmpData->mMediaType == eMEDIATYPE_MANIFEST || tmpData->mMediaType != mediaType)
 			{ 	// Not to remove main manifest file and filetype which are different
 				Iter++;
 				continue;
@@ -234,7 +234,7 @@ bool AampCacheHandler::AllocatePlaylistCacheSlot(AampMediaType fileType,size_t n
 			while(Iter != mPlaylistCache.end())
 			{
 				PlayListCachedData *tmpData = Iter->second;
-				if(tmpData->mFileType == eMEDIATYPE_MANIFEST)
+				if(tmpData->mMediaType == eMEDIATYPE_MANIFEST)
 				{ 	// Not to remove main manifest file
 					Iter++;
 					continue;
@@ -416,7 +416,7 @@ bool AampCacheHandler::IsUrlCached(std::string url)
  *  @brief Insert init fragment into cache table
  */
 void AampCacheHandler::InsertToInitFragCache(const std::string url, const AampGrowableBuffer* buffer,
-						std::string effectiveUrl, AampMediaType fileType)
+						std::string effectiveUrl, AampMediaType mediaType)
 {
 	pthread_mutex_lock(&mInitFragMutex);
 
@@ -448,20 +448,20 @@ void AampCacheHandler::InsertToInitFragCache(const std::string url, const AampGr
 			NewInitData->mCachedBuffer->AppendBytes( buffer->GetPtr(), buffer->GetLen() );
 
 			NewInitData->mEffectiveUrl = effectiveUrl;
-			NewInitData->mFileType = fileType;
+			NewInitData->mMediaType = mediaType;
 			NewInitData->mDuplicateEntry = (effectiveUrl.length() && (effectiveUrl!=url));
 
 			/*
 			* Check if queue created for given track type, if not create a queue
 			* and add a corresponding url into a track queue.
 			*/
-			CacheTrackQueueIter IterCq = umCacheTrackQ.find(fileType);
+			CacheTrackQueueIter IterCq = umCacheTrackQ.find(mediaType);
 			if(IterCq == umCacheTrackQ.end())
 			{
 				NewTrackQueueCache = new initfragtrackstruct();
 				NewTrackQueueCache->Trackqueue.push(url);
 
-				umCacheTrackQ[fileType]=NewTrackQueueCache;
+				umCacheTrackQ[mediaType]=NewTrackQueueCache;
 			}
 			else
 			{
@@ -476,7 +476,7 @@ void AampCacheHandler::InsertToInitFragCache(const std::string url, const AampGr
 			*/
 			if ( NewTrackQueueCache->Trackqueue.size() > MaxInitCacheSlot )
 			{
-				RemoveInitFragCacheEntry ( fileType );
+				RemoveInitFragCacheEntry ( mediaType );
 			}
 
 			umInitFragCache[url] = NewInitData;
@@ -493,7 +493,7 @@ void AampCacheHandler::InsertToInitFragCache(const std::string url, const AampGr
 				DupInitData = new playlistcacheddata();
 				DupInitData->mCachedBuffer = NewInitData->mCachedBuffer;
 				DupInitData->mEffectiveUrl = effectiveUrl;
-				DupInitData->mFileType = fileType;
+				DupInitData->mMediaType = mediaType;
 				umInitFragCache[effectiveUrl] = DupInitData;
 				AAMPLOG_INFO("Inserted effective init url %s", url.c_str());
 			}
@@ -540,9 +540,9 @@ bool AampCacheHandler::RetrieveFromInitFragCache(const std::string url, AampGrow
  *  @brief Removes very first inserted entry ( and duplicate entry, if present)  of given filetype
  *         from fragment cache table in FIFO order, also removes the corresponding url from track queue.
  */ 
-void AampCacheHandler::RemoveInitFragCacheEntry ( AampMediaType fileType )
+void AampCacheHandler::RemoveInitFragCacheEntry ( AampMediaType mediaType )
 {
-	CacheTrackQueueIter IterCq = umCacheTrackQ.find(fileType);
+	CacheTrackQueueIter IterCq = umCacheTrackQ.find(mediaType);
 	if(IterCq == umCacheTrackQ.end())
 	{
 		return;
