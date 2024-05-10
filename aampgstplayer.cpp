@@ -1034,7 +1034,7 @@ static GstPadProbeReturn AAMPGstPlayer_DemuxPadProbeCallback(GstPad * pad, GstPa
 			gint64 currentPTS = (((double)_this->GetVideoPTS() / (double)90000) * GST_SECOND);
 			if (GST_BUFFER_PTS(buffer) < currentPTS)
 			{
-				AAMPLOG_WARN("Dropping buffer: currentPTS=%" G_GINT64_FORMAT " buffer pts=%" G_GINT64_FORMAT, currentPTS, GST_BUFFER_PTS(buffer));
+				AAMPLOG_INFO("Dropping buffer: currentPTS=%" G_GINT64_FORMAT " buffer pts=%" G_GINT64_FORMAT, currentPTS, GST_BUFFER_PTS(buffer));
 				return GST_PAD_PROBE_DROP;
 			}
 			else

@@ -49,7 +49,7 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManag
 	isRestampConfigEnabled(false),
 	mLogObj(logObj),
 	sumPTS(0),prevPTS(UINT64_MAX),currTimeScale(0),sumOfTrackDurationFromISOBuffer(0.0f),startPos(0.0f),
-	prevPosition(-1), resetSumPTS(false), maxDurationFromManifest(-1),scalingOfPTSComplete(false),timeScaleChangeState(eBMFFPROCESSOR_INIT_TIMESCALE),
+	prevPosition(-1), maxDurationFromManifest(-1),scalingOfPTSComplete(false),timeScaleChangeState(eBMFFPROCESSOR_INIT_TIMESCALE),
 	prevDuration(0.0),maxTrackDurationFromISOBufferInTS(0),mediaFormat(eMEDIAFORMAT_UNKNOWN), enabled(true), trackOffsetInSecs(0.0), peerListeners(),
 	initSegmentTransferMutex()
 {
@@ -126,22 +126,37 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
 void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position)
 {
 	IsoBmffBuffer buffer(mLogObj);
-	buffer.setBuffer((uint8_t *)pBuffer->GetPtr(), pBuffer->GetLen());
-	buffer.parseBuffer();
 	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
 	{
-		float diffDuration = position - prevPosition;
-		uint64_t skippedPTS = handleSkipFragments(diffDuration);
+		double pos = 0;
+		float diffDuration = abs((position - prevPosition) - prevDuration);
+		pos = ((double)sumPTS / (double)currTimeScale);
+		AAMPLOG_WARN("IsoBmffProcessor %s position=%lf prevPos=%lf posnow=%lf SumPTS %" PRIu64 " ", IsoBmffProcessorTypeName[type],position,prevPosition,pos,sumPTS);
+
+		uint64_t skippedPTS = 0;
+
+		if(diffDuration > 0.0f)
+		{
+			AAMPLOG_INFO("IsoBmffProcessor %s fragments skipped due to Network/Other error skippedDuration = %.12f TS=%u",IsoBmffProcessorTypeName[type], diffDuration, currTimeScale);
+			skippedPTS = diffDuration * currTimeScale ;
+		}
+		else
+		{
+			AAMPLOG_INFO("%s fragments not skipped because skippedDuration = %.12f",IsoBmffProcessorTypeName[type], diffDuration);
+		}
+
 		sumPTS -= skippedPTS;
-
-		double pos = ((double)sumPTS / (double)currTimeScale);
+		pos = ((double)sumPTS / (double)currTimeScale);
 		p_aamp->FlushAudio(pos);
-
-		sumOfTrackDurationFromISOBuffer = sumPTS / (double)currTimeScale;
+		startPos = pos;
+		sumOfTrackDurationFromISOBuffer = 0;
 		prevPosition = position;
+		AAMPLOG_WARN("IsoBmffProcessor %s Updated SumPTS %" PRIu64 "  TS: %u and start pos %f", IsoBmffProcessorTypeName[type],sumPTS, currTimeScale, startPos);
 	}
 	else
 	{
+		buffer.setBuffer((uint8_t *)pBuffer->GetPtr(), pBuffer->GetLen());
+		buffer.parseBuffer();
 		uint64_t currentPTS = 0;
 
 		if(buffer.getFirstPTS(currentPTS))

@@ -11822,7 +11822,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					AcquireStreamLock();
 					if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && mMediaFormat == eMEDIAFORMAT_HLS_MP4 && !codecChange)
 					{
-						AAMPLOG_INFO("Seamless audio switch has been enabled");
+						AAMPLOG_WARN("Seamless audio switch has been enabled");
 						mTuneType = eTUNETYPE_SEEK;
 						mpStreamAbstractionAAMP->RefreshAudio();
 					}
