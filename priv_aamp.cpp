@@ -7305,7 +7305,7 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 			{
 				if(gstPosition!=0)
 				{
-					AAMPLOG_WARN("Ignoring gst position of %ldms and using seek_pos_seconds only until seek completes.", gstPosition);
+					AAMPLOG_WARN("Ignoring gst position of %lldms and using seek_pos_seconds only until seek completes.", gstPosition);
 				}
 				position = 0;
 			}
@@ -11650,7 +11650,6 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				char *currentPrefLabel = const_cast<char*>(trackInfo[trackIndex].label.c_str());
 				char *currentPrefName = const_cast<char*>(trackInfo[trackIndex].name.c_str());
 
-				char *newCodec = nullptr;
 				//If codec is already set, check the new codec against the older and ensure any change. If not set, read through the audio track info and found the codec against the new language set
 				if(!preferredCodecString.empty())
 				{

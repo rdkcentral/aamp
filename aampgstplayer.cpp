@@ -4239,7 +4239,7 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
 		// XIONE-8379 - The player should be (and probably soon will be) in the playing state so don't exit early.
 		GST_STATE_TARGET(privateContext->pipeline) != GST_STATE_PLAYING)
 	{
-		AAMPLOG_INFO("Pipeline is in %s state, returning position as %ld", gst_element_state_get_name(privateContext->pipelineState), rc);
+		AAMPLOG_INFO("Pipeline is in %s state, returning position as %lld", gst_element_state_get_name(privateContext->pipelineState), rc);
 		return rc;
 	}
 
