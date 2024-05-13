@@ -52,15 +52,9 @@ public:
 	 *  @param[in] logObj - the log manager associated with the instance of PrivateInstanceAAMP
 	 *  @param[in] aamp - the instance of PrivateInstanceAAMP
 	 *  @param[in] id3HandlerCallback - the id3 handler callback associated with the instance of PrivateInstanceAAMP
-#ifdef RENDER_FRAMES_IN_APP_CONTEXT
 	 *  @param[in] exportFrames -
-#endif
 	 */
-	virtual void CreateStreamSink( PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback
-#ifdef RENDER_FRAMES_IN_APP_CONTEXT
-					  , std::function< void(uint8_t *, int, int, int) > exportFrames = nullptr
-#endif
-					);
+	virtual void CreateStreamSink(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames = nullptr);
 
 	/**
 	 *  @fn SetStreamSink
