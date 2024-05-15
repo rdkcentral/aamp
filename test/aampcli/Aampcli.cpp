@@ -541,6 +541,12 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				{
 					printf("\t[AAMPCLI] bitrate(%d)=%ld\n", i, bitrates.at(i));
 				}
+				printf("[AAMPCLI] Supported Speeds:\n");
+				const std::vector<float> &supportedSpeeds = ev->getSupportedSpeeds();
+				for( int i=0; i<supportedSpeeds.size(); i++ )
+				{
+					printf( "\t[AAMPCLI] supportedSpeed(%d)=%f\n", i, supportedSpeeds[i] );
+				}
 				break;
 			}
 		case AAMP_EVENT_TUNED:
