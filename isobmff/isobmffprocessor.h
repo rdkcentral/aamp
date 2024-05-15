@@ -430,7 +430,6 @@ private:
 	bool scalingOfPTSComplete;
 	bool stopped; // flag to indicate if the module is active
 	bool aborted; // flag to indicate an abort() has occured
-	bool resetSumPTS;
 	bool enabled;
 
 	std::vector<AampGrowableBuffer *> initSegment;

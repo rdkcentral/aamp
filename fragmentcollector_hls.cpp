@@ -7585,8 +7585,6 @@ void TrackState::SwitchAudioTrack()
 
 		// Cache old values before playlist update
 		long long oldMediaSequenceNumber = nextMediaSequenceNumber - 1;
-		// Relative position in playlist
-		double oldPosInPlaylist = GetCompletionTimeForFragment(this, oldMediaSequenceNumber).inSeconds();
 		double oldPlaylistPosition = playlistPosition.inSeconds();
 
 		AAMPLOG_INFO("Preparing to flush fragments and switch playlist");
@@ -7648,6 +7646,9 @@ void TrackState::SwitchAudioTrack()
 		AAMPLOG_MIL("Updated gstSeek %lf to find new playTarget. Current Playtarget %lf , playlistPosition %lf", gstSeek.inSeconds(), playTarget.inSeconds(), oldPlaylistPosition);
 
 		AcquirePlaylistLock();
+                // Relative position in playlist
+                double oldPosInPlaylist = GetCompletionTimeForFragment(this, oldMediaSequenceNumber).inSeconds();
+
 		// Iterate from the beginning of the playlist again
 		playTarget = gstSeek;
 		bool reloadUri = false;
@@ -7655,27 +7656,33 @@ void TrackState::SwitchAudioTrack()
 		fragmentURI = GetNextFragmentUriFromPlaylist(reloadUri, true);
 		AAMPLOG_DEBUG("After GetNextFragmentUriFromPlaylist Playtarget %lf , playlistPosition %lf", playTarget.inSeconds(), playlistPosition.inSeconds() );
 		aamp->mAudioDelta = (gstSeek - playTarget).inSeconds();
+		// diff with 2 -> nextMediaSeqNo is always ahead of one fragment hence -1, and, we are yet to download the new MediaSeqNo whereas oldMediaSeq is based on already downloaded fragment hence -2.
+		long long newMediaSequenceNumber = nextMediaSequenceNumber - 2;
 
 		// Diff in playlist position. Diff in PDT should be used here???
-		double diffInFetchedDuration = (oldPosInPlaylist - GetCompletionTimeForFragment(this, nextMediaSequenceNumber - 1)).inSeconds();
-		int diffFragmentsDownloaded = (int)(oldMediaSequenceNumber - (nextMediaSequenceNumber - 1));
-		AAMPLOG_INFO("oldMediaSequenceNumber %lld, newMediaSequenceNumber %lld, oldPosInPlaylist %lf, newPosInPlaylist %lf", oldMediaSequenceNumber, (nextMediaSequenceNumber-1), oldPosInPlaylist, GetCompletionTimeForFragment(this, nextMediaSequenceNumber - 1).inSeconds() );
+		double diffInFetchedDuration = (oldPosInPlaylist - GetCompletionTimeForFragment(this, newMediaSequenceNumber)).inSeconds();
+		int diffFragmentsDownloaded = (int)(oldMediaSequenceNumber - (newMediaSequenceNumber));
+		AAMPLOG_INFO("oldMediaSequenceNumber %lld, newMediaSequenceNumber %lld, oldPosInPlaylist %lf, newPosInPlaylist %lf", oldMediaSequenceNumber, newMediaSequenceNumber, oldPosInPlaylist, GetCompletionTimeForFragment(this, newMediaSequenceNumber).inSeconds() );
 		AAMPLOG_INFO("Calculated diffInFetchDuration %lf", diffInFetchedDuration);
 		// Try to keep the same playlist position
 		// This is because we are using playTarget as position values in cacheFragment
-		playlistPosition = oldPlaylistPosition - diffInFetchedDuration;
+		playlistPosition = (oldPlaylistPosition - diffInFetchedDuration);
+		double diffInInjectedDuration = (GetLastInjectedFragmentPosition() - playlistPosition).inSeconds();
+		playlistPosition += fragmentDurationSeconds;
 		playTarget = playlistPosition;
 		playTargetBufferCalc = playTarget;
-               playTargetOffset = 0; // needed?
-               double diffInInjectedDuration = (GetLastInjectedFragmentPosition() - playTarget).inSeconds();
-               AAMPLOG_INFO("Calculated diffInFetchDuration %lf diffInInjectedDuration %lf", diffInFetchedDuration, diffInInjectedDuration);
+		playTargetOffset = 0;
+		AAMPLOG_INFO("Calculated diffInFetchDuration %lf diffInInjectedDuration %lf  LastInjectedFragmentPosition() %lf", diffInFetchedDuration, diffInInjectedDuration, GetLastInjectedFragmentPosition());
 
 		AAMPLOG_MIL("Updated Playtarget %lf , playlistPosition %lf", playTarget.inSeconds(), playlistPosition.inSeconds());
 
 		// Reset before we release the playlist lock, to avoid any race conditions
 		seamlessAudioSwitchInProgress = false;
 		ReleasePlaylistLock();
-
+		if(video && video->enabled)
+		{
+			AAMPLOG_INFO("video Injected Duration %f ",video->GetTotalInjectedDuration());
+		}
 		OffsetTrackParams(diffInFetchedDuration, diffInInjectedDuration, diffFragmentsDownloaded);
 		pthread_mutex_unlock(&mutex);
 	}
