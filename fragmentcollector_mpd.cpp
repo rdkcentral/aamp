@@ -4109,22 +4109,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				SeekInPeriod( offsetFromStart);
 			}
 
-			if((!ISCONFIGSET(eAAMPConfig_MidFragmentSeek)) || (eTUNETYPE_SEEKTOLIVE == tuneType))
+			if(!ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
 			{
-				if(!ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
-				{
-					seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime;
-				}
-				else
-				{
-					// eAAMPConfig_MidFragmentSeek && eTUNETYPE_SEEKTOLIVE
-					seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime + mVideoPosRemainder;
-				}
+				seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime;
 			}
-			else if (!seekPosition)
+			else
 			{
 				seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime + mVideoPosRemainder;
 			}
+			
 			for (int i = 0; i < mNumberOfTracks; i++)
 			{
 				mMediaStreamContext[i]->periodStartOffset = currentPeriodStart;
