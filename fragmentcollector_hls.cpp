@@ -101,6 +101,10 @@ static const int DEFAULT_STREAM_WIDTH = 720;
 static const int DEFAULT_STREAM_HEIGHT = 576;
 static const double  DEFAULT_STREAM_FRAMERATE = 25.0;
 
+#ifdef CVTE_APACHE
+static const double MAX_FRAMERATE_APACHE = 30.0;
+#endif
+
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
 
@@ -7430,20 +7434,25 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 					HlsStreamInfo &streamInfo = streamInfoStore[j];
 					if(streamInfo.enabled)
 					{
-						//Update profile resolution with VideoEnd Metrics object.
-						aamp->UpdateVideoEndProfileResolution( eMEDIATYPE_VIDEO,
-								streamInfo.bandwidthBitsPerSecond,
-								streamInfo.resolution.width,
-								streamInfo.resolution.height );
+#ifdef CVTE_APACHE
+						if(streamInfo.resolution.framerate <= MAX_FRAMERATE_APACHE)
+#endif
+						{
+							//Update profile resolution with VideoEnd Metrics object.
+							aamp->UpdateVideoEndProfileResolution( eMEDIATYPE_VIDEO,
+									streamInfo.bandwidthBitsPerSecond,
+									streamInfo.resolution.width,
+									streamInfo.resolution.height );
 
-						aamp->mhAbrManager.addProfile({
-								streamInfo.isIframeTrack,
-								streamInfo.bandwidthBitsPerSecond,
-								streamInfo.resolution.width,
-								streamInfo.resolution.height,
-								"",
-								j});
-						AAMPLOG_INFO("Video Profile added to ABR, userData=%d BW=%ld res=%d:%d display=%d:%d pc=%d", j, streamInfo.bandwidthBitsPerSecond, streamInfo.resolution.width, streamInfo.resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, iProfileCapped);
+							aamp->mhAbrManager.addProfile({
+									streamInfo.isIframeTrack,
+									streamInfo.bandwidthBitsPerSecond,
+									streamInfo.resolution.width,
+									streamInfo.resolution.height,
+									"",
+									j});
+							AAMPLOG_INFO("Video Profile added to ABR, userData=%d BW=%ld res=%d:%d display=%d:%d pc=%d FR:%lf", j, streamInfo.bandwidthBitsPerSecond, streamInfo.resolution.width, streamInfo.resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, iProfileCapped,streamInfo.resolution.framerate);
+						}
 					}
 					else if( isThumbnailStream(streamInfo) )
 					{
