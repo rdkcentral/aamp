@@ -1860,7 +1860,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 					 */
 					if ( eMETHOD_AES_128 == mDrmInfo.method && true == mDrmInfo.bUseMediaSequenceIV )
 					{
-						if ( true == CreateInitVectorByMediaSeqNo( (unsigned int)(nextMediaSequenceNumber-1) ) )
+						if ( true == CreateInitVectorByMediaSeqNo( nextMediaSequenceNumber-1 ) )
 						{
 							// Set this flag to seed the newly created IV to corresponding DRM instance
 							mKeyTagChanged = true;
@@ -6076,14 +6076,12 @@ DrmReturn TrackState::DrmDecrypt( CachedFragment * cachedFragment, ProfilerBucke
 /**
  * @brief Function to create init vector using current media sequence number
  */
-bool TrackState::CreateInitVectorByMediaSeqNo ( unsigned int ui32Seqno )
+bool TrackState::CreateInitVectorByMediaSeqNo ( long long seqNo )
 {
 	unsigned char *pui8IV=NULL;
-	int i32loop=0;
-
 	if (mDrmInfo.iv)
 	{
-		// Re-using memory if allocated from earlier call, instead of multiple malloc & free for every fragments.
+		// Re-use memory if allocated from earlier call, instead of multiple malloc & free for every fragment.
 		pui8IV = mDrmInfo.iv;
 	}
 	else
@@ -6097,8 +6095,6 @@ bool TrackState::CreateInitVectorByMediaSeqNo ( unsigned int ui32Seqno )
 
 		mDrmInfo.iv = pui8IV;
 	}
-	memset(pui8IV, 0x00, DRM_IV_LEN);
-
 	/* From RFC8216 - Section 5.2,
 	 * Keeping the Media Sequence Number's big-endian binary
 	 * representation into a 16-octet (128-bit) buffer and padding
@@ -6106,9 +6102,11 @@ bool TrackState::CreateInitVectorByMediaSeqNo ( unsigned int ui32Seqno )
 	 * Eg: Assume Media Seq No is 0x00045d23, then IV data will hold
 	 * value : 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x04,0x5d,0x23.
 	 */
-	for(i32loop=12; i32loop< 16; ++i32loop)
+	int idx = DRM_IV_LEN;
+	while( idx>0 )
 	{
-		pui8IV[i32loop]=((ui32Seqno)>> (8*(15-i32loop)))&0xff;
+		pui8IV[--idx] = seqNo&0xff;
+		seqNo >>= 8;
 	}
 
 	return true;

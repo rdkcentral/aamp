@@ -1588,7 +1588,7 @@ TEST_F(TrackStateTests, DrmDecrypt_SuccessfulDecryption)
 
 TEST_F(TrackStateTests, CreateInitVector_Successful)
 {
-    unsigned int seqNo = 100; // Replace with a valid sequence number
+    long long seqNo = 0x123456789abcdef; // Replace with a valid sequence number
     bool result = TrackStateobj->CreateInitVectorByMediaSeqNo(seqNo);
     ASSERT_TRUE(result); // Check that the function returns true indicating success
 }
