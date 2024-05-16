@@ -292,7 +292,7 @@ int AAMPOCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuff
 		pthread_mutex_lock(&decryptMutex);
 		uint64_t start_decrypt_time = GetCurrentTimeStampInMSec();
 
-#if defined(AMLOGIC)
+#if !defined(REALTEKCE) //work around to invoke opencdm_gstreamer_session_decrypt for real-tek
 		/* Added GST_IS_CAPS check also before passing gst caps to OCDM decrypt() as gst_caps_is_empty returns false when caps object is not of 
 		   type GST_TYPE_CAPS. This will avoid crash when caps is not of type GST_TYPE_CAPS. */
 		if (AAMPOCDMGSTSessionDecrypt && !gst_caps_is_empty(caps) && GST_IS_CAPS(caps))
@@ -303,10 +303,18 @@ int AAMPOCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuff
 				AAMPLOG_TRACE("Caps is %s", s);
 				g_free( s );
 			}
-			retValue = AAMPOCDMGSTSessionDecrypt(m_pOpenCDMSession, buffer, subSamplesBuffer, subSampleCount, ivBuffer, keyIDBuffer, 0, caps);
+            GstProtectionMeta* protectionMeta = reinterpret_cast<GstProtectionMeta*>(gst_buffer_get_protection_meta(buffer));
+
+            if (protectionMeta != nullptr) {
+                gst_structure_set (protectionMeta->info, "subsample_count", G_TYPE_UINT, subSampleCount, "subsamples", GST_TYPE_BUFFER, subSamplesBuffer, "iv", GST_TYPE_BUFFER, ivBuffer, "kid", GST_TYPE_BUFFER, keyIDBuffer, "initWithLast15", G_TYPE_UINT, 0, NULL);
+            } else {
+                GstStructure *crypto_info = gst_structure_new ("protection_meta_info","subsample_count", G_TYPE_UINT, subSampleCount, "subsamples", GST_TYPE_BUFFER, subSamplesBuffer, "iv", GST_TYPE_BUFFER, ivBuffer, "kid", GST_TYPE_BUFFER, keyIDBuffer, "initWithLast15", G_TYPE_UINT, 0, NULL);
+                gst_buffer_add_protection_meta (buffer, crypto_info);
+            }
+            retValue = AAMPOCDMGSTSessionDecrypt(m_pOpenCDMSession, buffer, caps);
 		}
 		else
-#endif
+ #endif
 			/* CID:328751 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
 			retValue = opencdm_gstreamer_session_decrypt(m_pOpenCDMSession, buffer, subSamplesBuffer, subSampleCount, ivBuffer, keyIDBuffer, 0);
 		uint64_t end_decrypt_time = GetCurrentTimeStampInMSec();
