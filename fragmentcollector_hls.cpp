@@ -874,18 +874,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 					}
 					mMediaCount++;
 				}
-				else if (startswith(&ptr, "-X-VERSION:"))
-				{
-					// followed by integer
-				}
-				else if (startswith(&ptr, "-X-INDEPENDENT-SEGMENTS"))
-				{
-					// followed by integer
-				}
-				else if (startswith(&ptr, "-X-FAXS-CM"))
-				{
-					// AVE DRM - specific . Not supported
-				}
 				else if (startswith(&ptr, "M3U"))
 				{
 					// Spec :: 4.3.1.1.  EXTM3U - It MUST be the first line of every Media Playlist and every Master Playlist
@@ -895,24 +883,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 						retval = eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 						break;
 					}
-				}
-				else if (startswith(&ptr, "-X-CONTENT-IDENTIFIER:"))
-				{
-				}
-				else if (startswith(&ptr, "-X-FOG"))
-				{
-				}
-				else if (startswith(&ptr, "-X-XCAL-CONTENTMETADATA"))
-				{ // placeholder for new Super8 DRM Agnostic Metadata
-				}
-				else if (startswith(&ptr, "-NOM-I-FRAME-DISTANCE"))
-				{ // placeholder for nominal distance between IFrames
-				}
-				else if (startswith(&ptr, "-X-ADVERTISING"))
-				{ // placeholder for advertising zone for linear (soon to be deprecated)
-				}
-				else if (startswith(&ptr, "-UPLYNK-LIVE"))
-				{ // related to uplynk streaming service
 				}
 				else if (startswith(&ptr, "-X-START:"))
 				{ // i.e. "TIME-OFFSET=2.336, PRECISE=YES" - specifies the preferred point in the video to start playback; not yet supported
@@ -967,8 +937,24 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 #endif
 				else
 				{
-					std::string unknowTag= ptr;
-					AAMPLOG_INFO("***unknown tag:%s", unknowTag.substr(0,24).c_str());
+					bool suppress = false;
+					static const char *ignoreList[] = {
+						"-X-VERSION:", "-X-INDEPENDENT-SEGMENTS", "-X-FAXS-CM", "-X-CONTENT-IDENTIFIER:", "-X-FOG",
+						"-X-XCAL-CONTENTMETADATA","-NOM-I-FRAME-DISTANCE","-X-ADVERTISING","-UPLYNK-LIVE","-X-TARGETDURATION",
+						"-X-DISCONTINUITY", "-X-KEY", "-X-CUE" };
+					for( int i=0; i<ARRAY_SIZE(ignoreList); i++ )
+					{
+						if( startswith(&ptr,ignoreList[i]) )
+						{
+							suppress = true;
+							break;
+						}
+					}
+					if( !suppress )
+					{
+						std::string unknowTag= ptr;
+						AAMPLOG_INFO("***unknown tag:%s", unknowTag.substr(0,24).c_str());
+					}
 				}
 				lineNum++;
 			}
