@@ -1852,7 +1852,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 			m_startPosition = position;
 		}
 		double updatedPosition = (position - m_startPosition) / m_playRate;
-		AAMPLOG_INFO("updatedPosition = %f Position = %f m_startPosition = %f m_playRate = %f", updatedPosition, position, m_startPosition, m_playRate);
+		AAMPLOG_DEBUG("updatedPosition = %f Position = %f m_startPosition = %f m_playRate = %f", updatedPosition, position, m_startPosition, m_playRate);
 		position = updatedPosition;
 
 		if (m_needDiscontinuity&& !m_demux)
