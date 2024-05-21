@@ -12212,7 +12212,7 @@ void StreamAbstractionAAMP_MPD::setNextobjectrequestUrl(std::string media,const 
 		replace(media, "Number", fragmentDescriptor->nextfragmentNum);
 		replace(media, "Time", (uint64_t)fragmentDescriptor->nextfragmentTime );
 	}
-	AAMPLOG_INFO("Current Frag Number %" PRIu64 "  nextfragmentNum : %" PRIu64 ",Current fragstarttime : %f nextfragmentTime : %f",fragmentDescriptor->Number,fragmentDescriptor->nextfragmentNum,fragmentDescriptor->Time,fragmentDescriptor->nextfragmentTime);
+	AAMPLOG_DEBUG("Current Frag Number %" PRIu64 "  nextfragmentNum : %" PRIu64 ",Current fragstarttime : %f nextfragmentTime : %f",fragmentDescriptor->Number,fragmentDescriptor->nextfragmentNum,fragmentDescriptor->Time,fragmentDescriptor->nextfragmentTime);
 	media = getrelativenorurl(media);
 	aamp->mCMCDCollector->CMCDSetNextObjectRequest( media ,(fragmentDescriptor)->Bandwidth,mediaType);
 }
