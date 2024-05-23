@@ -152,33 +152,6 @@ void PacketSender::sendPacket(PacketPtr && pkt)
     auto written = ::write(mSubtecSocketHandle, &buffer[0], size);
     (void)written; // Avoid a warning.
     AAMPLOG_TRACE("PacketSender: Written %ld bytes with size %ld", written, size);
-
-    //Socket reconnect in case packet write fails
-    if (written == -1) {
-        mPktWriteFailCtr++;
-        AAMPLOG_TRACE("PacketSender: Write returned -1 with error: %s\n", strerror(errno));
-    } else {
-        mPktWriteFailCtr = 0;
-    }
-
-    //Try reconnect after every 5 failed packet writes
-    if (mPktWriteFailCtr > 5) {
-        AAMPLOG_INFO("PacketSender: Written is -1 for over 5 consecutive packets. Try to reconnect socket\n");
-
-        struct sockaddr_un addr;
-
-        (void) std::memset(&addr, 0, sizeof(addr));
-        addr.sun_family = AF_UNIX;
-        (void) std::strncpy(addr.sun_path, SOCKET_PATH, sizeof(addr.sun_path));
-        addr.sun_path[sizeof(addr.sun_path) - 1] = 0;
-
-        if (::connect(mSubtecSocketHandle, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) != 0) {
-            AAMPLOG_WARN("PacketSender: cannot reconnect to address \'%s\'", SOCKET_PATH);
-        } else {
-            AAMPLOG_INFO("PacketSender: successful reconnect to address \'%s\'", SOCKET_PATH);
-        }
-        mPktWriteFailCtr = 0;
-	}
 }
 
 bool PacketSender::initSenderTask()
