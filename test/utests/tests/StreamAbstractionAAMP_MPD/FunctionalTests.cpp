@@ -1812,6 +1812,12 @@ TEST_F(FunctionalTests_1, SetNextRangeRequestTest)
         _instanceStreamAbstractionAAMP_MPD->setNextRangeRequest(fragmentUrl, nextrange, bandwidth, mediaType);
 }
 
+TEST_F(FunctionalTests_1, GetAvailabilityStartTime)
+{
+        double result = _instanceStreamAbstractionAAMP_MPD->GetAvailabilityStartTime();
+        EXPECT_EQ(result, 0.0);
+}
+
 TEST_F(StreamAbstractionAAMP_MPDTest, PrintSelectedTrackTest)
 {
         mStreamAbstractionAAMP_MPD->CallPrintSelectedTrack("2", AampMediaType::eMEDIATYPE_SUBTITLE);

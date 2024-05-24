@@ -865,6 +865,16 @@ public:
 		return 0.0;
 	}
 
+        /**
+         *   @brief  Returns AvailabilityStartTime from the manifest
+         *
+         *   @retval double . AvailabilityStartTime
+         */
+        virtual double GetAvailabilityStartTime()
+	{
+		return 0.0;
+	}
+	
 	/**
 	 *   @brief Return MediaTrack of requested type
 	 *

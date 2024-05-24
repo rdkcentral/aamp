@@ -12319,6 +12319,15 @@ void StreamAbstractionAAMP_MPD::NotifyFirstVideoPTS(unsigned long long pts, unsi
 	mFirstPTS = ((double)pts / (double)timeScale);
 }
 
+/**
+ *  @brief Function to return return AvailabilityStartTime from the manifest
+ *  @retval double . AvailabilityStartTime
+ */
+double StreamAbstractionAAMP_MPD::GetAvailabilityStartTime()
+{
+        return mMPDParseHelper?mMPDParseHelper->GetAvailabilityStartTime():0;
+}
+
 void StreamAbstractionAAMP_MPD::UpdateMPDPeriodDetails(std::vector<PeriodInfo>& currMPDPeriodDetails,uint64_t &durMs)
 {
 	auto periods = mpd->GetPeriods();

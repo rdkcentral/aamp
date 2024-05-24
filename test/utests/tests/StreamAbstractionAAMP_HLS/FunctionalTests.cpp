@@ -2145,6 +2145,13 @@ TEST_F(StreamAbstractionAAMP_HLSTest, IsStreamerAtLivePointtest4)
     EXPECT_FALSE(result);
 }
 
+TEST_F(StreamAbstractionAAMP_HLSTest, TestGetAvailabilityStartTime)
+{
+    double expectedValue = 0.0; // The expected return value
+    double result = mStreamAbstractionAAMP_HLS->GetAvailabilityStartTime();
+    ASSERT_EQ(result, expectedValue);
+}
+
 TEST_F(TrackStateTests, StopInjectLooptest)
 {
     // Act: Call the function to be tested
