@@ -22,46 +22,86 @@
 
 
 import os
-import sys
-import json
+import pytest
 
 from inspect import getsourcefile
 
-full_test_data = {
-    "title": "Test multi audio profile",
-    "max_test_time_seconds": 90,
-    "aamp_cfg": "info=true\ntrace=true\nabr=false\n"
-}
+
+TEST_DATA_PART = [
+
+    [
+        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+        {"cmd": "set 42 2"},
+        {"expect": "Matched Command AudioTrack - set 42 2"},
+        {"cmd": "get 26"},
+        {"expect": "\"language\":\t\"eng\","},
+        {"expect": "\"codec\":\t\"mp4a.40.2\","},
+        {"expect": "\"bandwidth\":\t288000,"},
+        {"expect": "\"type\":\t\"audio\""},
+    ],
+    [
+        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+        {"cmd": "set 42 0"},
+        {"expect": "Matched Command AudioTrack - set 42 0"},
+        {"cmd": "get 26"},
+        {"expect": "\"language\":\t\"ger\","},
+        {"expect": "\"codec\":\t\"mp4a.40.2\","},
+        {"expect": "\"bandwidth\":\t288000,"},
+        {"expect": "\"type\":\t\"audio\""},
+    ],
+    [
+        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+        {"cmd": "set 42 4"},
+        {"expect": "Matched Command AudioTrack - set 42 4"},
+        {"cmd": "get 26"},
+        {"expect": "\"language\":\t\"spa\","},
+        {"expect": "\"codec\":\t\"mp4a.40.2\","},
+        {"expect": "\"bandwidth\":\t288000,"},
+        {"expect": "\"type\":\t\"audio\""},
+    ],
+    [
+        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+        {"cmd": "set 42 6"},
+        {"expect": "Matched Command AudioTrack - set 42 6"},
+        {"cmd": "get 26"},
+        {"expect": "\"language\":\t\"fra\","},
+        {"expect": "\"codec\":\t\"mp4a.40.2\","},
+        {"expect": "\"bandwidth\":\t288000,"},
+        {"expect": "\"type\":\t\"audio\""},
+    ],
+    [
+        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+        {"cmd": "set 42 8"},
+        {"expect": "Matched Command AudioTrack - set 42 8"},
+        {"cmd": "get 26"},
+        {"expect": "\"language\":\t\"pol\","},
+        {"expect": "\"codec\":\t\"mp4a.40.2\","},
+        {"expect": "\"bandwidth\":\t288000,"},
+        {"expect": "\"type\":\t\"audio\""},
+    ]
+]
+
+
+@pytest.fixture(params=TEST_DATA_PART)
+def test_data(request):
+    return request.param
 
 # Get all audio tracks : get 20
 # Set audio track : set 42 <track_id> 
 
-def test_13002(aamp_setup_teardown):
 
-    with open("AAMP-AUDIO-13004/commands.json") as f:
-        commands = json.loads(f.read())
+def test_13004(aamp_setup_teardown,test_data):
 
-    failed_indices = []
-    failed_test = False
+    full_test_data = {
+        "title": "Test multi audio profile",
+        "max_test_time_seconds": 90,
+        "aamp_cfg": "info=true\ntrace=true\nabr=false\n",
+        "expect_list": test_data
+    }
 
-    for idx, test_sequence in enumerate(commands):
+    aamp = aamp_setup_teardown
+    aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
+    aamp.run_expect_a(full_test_data)
 
-        full_test_data["expect_list"] = test_sequence
-        full_test_data["logfile"] = "multiprofile_" + str(idx) + ".log"
-
-        aamp = aamp_setup_teardown
-        aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-        aamp.create_aamp_cfg(full_test_data.get('aamp_cfg'))
-
-        if aamp.run_expect_a(full_test_data) is False:
-            failed_test = True
-            failed_indices.append(idx)
-
-    if failed_test:
-        err_str = ""
-        for idx in failed_indices:
-            err_str = err_str + " " + str(idx)
-        print("\nFailed profiles: {}".format(err_str))
-        sys.exit(os.EX_SOFTWARE)   #Return non-zero
 
 
