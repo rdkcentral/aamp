@@ -1108,6 +1108,15 @@ std::size_t GetPrintableThreadID( const std::thread &t )
 	return hasher( t.get_id() );
 }
 
+/**
+ * @brief support for POSIX threads
+ */
+std::size_t GetPrintableThreadID( const pthread_t &t )
+{
+	static std::hash<pthread_t> hasher;
+	return hasher( t );
+}
+
 
 /**
  * @brief Download a file from the server

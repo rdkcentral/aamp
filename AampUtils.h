@@ -282,6 +282,7 @@ void mssleep(int milliseconds);
 double GetNetworkTime(const std::string& remoteUrl, int *http_error, std::string NetworkProxy);
 
 std::size_t GetPrintableThreadID( const std::thread &t );
+std::size_t GetPrintableThreadID( const pthread_t &t );
 
 /**
  * @brief Parse duration from ISO8601 string

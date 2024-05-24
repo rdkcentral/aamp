@@ -91,7 +91,7 @@ std::string AampPlayReadyHelper::extrackKeyID()
 	std::string version = findSubstr(mStrInitDataFormated, "version=\"", propValueEnd);
 	std::string keyId = "";
 
-	AAMPLOG_WARN ("PlayReady Version [%s]", version.c_str());
+	AAMPLOG_INFO ("PlayReady Version [%s]", version.c_str());
 	
 	if(version == PLAYREADY_VERSION_4_0)
 	{

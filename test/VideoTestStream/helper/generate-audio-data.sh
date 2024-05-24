@@ -11,7 +11,12 @@ do
     else
         echo ${LANG_639_2[$I]}":"
         mkdir -p $AUDIO_PATH/${LANG_639_2[$I]}
-        for J in {0..59}
+	count=59
+	if [ $VIDEO_LENGTH_SEC -lt 60 ]; then
+  	   count=$VIDEO_LENGTH_SEC
+	fi
+
+	for J in $(seq 0 $count)
         do
             OUT=${AUDIO_PATH}/${LANG_639_2[$I]}/${J}
             TEXT=${TRANSLATIONS[$((101*I+J))]}
@@ -38,7 +43,7 @@ do
 
 	for J in $(seq 1 $minutes)
         do
-            for K in {0..59}
+	    for K in $(seq 0 $count)
             do
                 echo "file ${K}.wav" >> $AUDIO_PATH/${LANG_639_2[$I]}/index.txt
             done

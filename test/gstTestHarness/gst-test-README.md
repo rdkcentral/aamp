@@ -176,6 +176,9 @@ play
 ### path <base_path>
 > sets the default path for loading the test data
 
+### seek <sec>
+> flush and reinject 360p video from the new playback position , seek to a new position and continue play.
+
 > Examples:
 ```
 path ../../test/VideoTestStream

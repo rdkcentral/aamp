@@ -11,7 +11,8 @@ The following streams are generated:
 - main_mp4.m3u8 // fragmented HLS mp4
 - main.m3u8 // HLS ts with demux audio
 - main_mux.m3u8 // HLS ts with muxed audio
-- mainduration.mpd //DASH manifest for duration based stream generation
+- mainDynamic.mpd //DASH dynamic manifest generated based based on input duration, audio and video codecs
+- mainDynamic.m3u8 //HLS dynamic manifest generated based based on input duration, audio and video codecs
 
 **generate-hls-dash-4k.sh** is variation on **generate-hls-dash.sh** and is used to generate an animated test pattern with more realistic segment sizes and includes a 4k resolution profile.
 
@@ -39,7 +40,22 @@ $ ./generate-hls-dash.sh
 
 ./generate-hls-dash.sh -h		//show help message
 ./generate-hls-dash.sh -d 60		//generate video for given duration
-./generate-hls-dash.sh -f imagename	//generate video with given image
+./generate-hls-dash.sh -f imagename	//generate video with given image, Image format can be ".jpg" ".jpeg" and ".png". Image resolution to be matched with video resolution(1920x1080)
+./generate-hls-dash.sh -l 0		//to disable hls stream generation
+./generate-hls-dash.sh -a 0		//to disable dash stream generation
+
+## Audio and Video codecs supported
+Can change audio video codec in helper/config.sh
+
+Audio codecs supported: 
+AAC 	 - "aac" 
+DOLBYAC3 - "ac3" 
+DDPLUS 	 - "eac3"
+
+Video codecs supported: 
+H264	    - "h264" 
+HEVC(hvc1.) - "hevc" 
+HEVC(hev1.) - "hevc -tag:v hev1" 
 
 ### Known Limitations
 
@@ -56,7 +72,8 @@ $ sudo sysctl net.local.dgram.recvspace=204800
 The DASH manifest **main.mpd** and HLS master playlists **main.m3u8**, **main_mp4.m3u8** and
 **main_mux.m3u8** are not generated. If you change the generated video test stream
 parameters used by **generate-hls-dash.sh** you may need to edit these files.
-The DASH manifest **mainduration.mpd** is generated from main.mpd with given duration.
+The DASH manifest **mainDynamic.mpd** is generated from main.mpd with given duration, audio and video codecs
+The HLS manifest **mainDynamic.m3u8** is generated from main.m3u8 with given duration, audio and video codecs
 
 ## startserver.sh
 
@@ -89,8 +106,10 @@ The following URIs are supported:
 -- HLS TS format muxed audio and video stream.
 - http://127.0.0.1:8080/main_mp4.m3u8
 -- HLS MP4 format stream.
-- http://127.0.0.1:8080/mainduration.mpd
--- DASH manifest for duration based stream generation.
+- http://127.0.0.1:8080/mainDynamic.mpd
+-- DASH dynamic manifest based on input.
+- http://127.0.0.1:8080/mainDynamic.m3u8
+-- HLS dynamic manifest based on input.
 
 Press Ctrl-C to terminate the server.
 

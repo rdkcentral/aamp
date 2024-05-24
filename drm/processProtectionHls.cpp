@@ -47,10 +47,8 @@ shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, st
  * Local APIs declarations
  */
 static int GetFieldValue(string &attrName, string keyName, string &valuePtr);
-static int getKeyId(string attrName, string &keyId);
 static int getPsshData(string attrName, string &psshData);
 static shared_ptr<AampDrmHelper> getDrmHelper(string attrName , bool bPropagateUriParams);
-static uint8_t getPsshDataVersion(string attrName);
 
 /**
  * @brief Return the string value, from the input KEY="value"
@@ -62,14 +60,14 @@ static uint8_t getPsshDataVersion(string attrName);
 static int GetFieldValue(string &attrName, string keyName, string &valuePtr){
 
 	int valueStartPos = 0;
-	int valueEndPos = attrName.length();
-	int keylen = keyName.length();
+	int valueEndPos = 0;
+	int keylen = (int)keyName.length();
 	int status = DRM_API_FAILED;
 	int found = 0, foundpos = 0;
 
 	AAMPLOG_TRACE("Entring..");
 
-	while ( (foundpos = attrName.find(keyName,found)) != std::string::npos)
+	while ( (foundpos = (int)attrName.find(keyName,found)) != std::string::npos)
 	{
 		AAMPLOG_TRACE("keyName = %s",
 		 keyName.c_str());
@@ -87,12 +85,12 @@ static int GetFieldValue(string &attrName, string keyName, string &valuePtr){
 			if (valueTempPtr.at(0) == '"')
 			{
 				valueTempPtr = valueTempPtr.substr(1);
-				valueEndPos = valueTempPtr.find('"');
+				valueEndPos = (int)valueTempPtr.find('"');
 			}
-			else if ( (valueEndPos = valueTempPtr.find(',')) == std::string::npos)
+			else if ( (valueEndPos = (int)valueTempPtr.find(',')) == std::string::npos)
 			{
 				/*look like end string*/
-				valueEndPos = valueTempPtr.length();
+				valueEndPos = (int)valueTempPtr.length();
 			}
 
 			valuePtr = valueTempPtr.substr(valueStartPos, valueEndPos);
@@ -132,27 +130,6 @@ KEYFORMATVERSIONS="1"
 */
 
 /**
- * @brief API to get the Widevine PSSH Data from the manifest attribute list, getWVPsshData
- * @param [in] Attribute list
- * @param [out] keyId string as reference 
- * @return status of the API
- */
-static int getKeyId(string attrName, string &keyId){
-
-	int status = GetFieldValue(attrName, "KEYID", keyId );
-	if(DRM_API_SUCCESS != status){
-		AAMPLOG_INFO("Could not able to get Key Id from manifest"
-		);
-		return status;
-	}
-
-	/* Remove 0x from begining */
-	keyId = keyId.substr(2);
-
-	return status;
-}
-
-/**
  * @brief API to get the PSSH Data from the manifest attribute list, getPsshData
  * @param [in] Attribute list
  * @param [out] pssData as reference 
@@ -170,28 +147,6 @@ static int getPsshData(string attrName, string &psshData){
 	psshData = psshData.substr(psshData.find(',')+1);
 
 	return status;
-}
-
-/**
- * @brief API to get the DRM type from the manifest attribute list, getDrmType
- * @param [in] Attribute list
- * 
- * @return pssh Data version number, default is 0
- */
-static uint8_t getPsshDataVersion(string attrName){
-
-	uint8_t psshDataVer = 0;
-	string psshDataVerStr = "";
-
-	if(DRM_API_SUCCESS != GetFieldValue(attrName, "KEYFORMATVERSIONS", psshDataVerStr )){
-		AAMPLOG_WARN("Could not able to receive pssh data version from manifest"
-		"returning default value as 0"
-		);
-	}else {
-		psshDataVer = (uint8_t)std::atoi(psshDataVerStr.c_str());
-	}
-
-	return psshDataVer;
 }
 
 /**
@@ -239,7 +194,6 @@ shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, st
 	AampLogManager *mLogObj = aamp->mConfig->GetLoggerInstance();
 	shared_ptr<AampDrmHelper> finalDrmHelper = nullptr;
 	unsigned char* data = NULL;
-	unsigned char* contentMetadata = NULL;
 	size_t dataLength = 0;
 	int status = DRM_API_FAILED;  
 	string psshDataStr = "";
@@ -285,7 +239,7 @@ shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, st
 		}
 		if (gpGlobalConfig->logging.trace)
 		{
-			AAMPLOG_TRACE("content metadata from manifest; length %d", dataLength);
+			AAMPLOG_TRACE("content metadata from manifest; length %zu", dataLength);
 			printf("*****************************************************************\n");
 			for (int i = 0; i < dataLength; i++)
 			{
@@ -299,7 +253,7 @@ shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, st
 			printf("\n*****************************************************************\n");
 
 		}
-		if (!drmHelper->parsePssh(data, dataLength)) 
+		if (!drmHelper->parsePssh(data, (uint32_t)dataLength))
 		{
 			AAMPLOG_ERR("Failed to get key Id from manifest");
 			break;

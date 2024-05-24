@@ -1152,6 +1152,26 @@ public:
 		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
 	}
 	
+	void Test_Seek( double seek_pos )
+        {
+		printf("Test_Seek : seek_pos %lf",seek_pos);
+		Track &video = track[eMEDIATYPE_VIDEO];
+		Track &audio = track[eMEDIATYPE_AUDIO];
+
+		Flush();
+
+		int startIndex = (seek_pos / SEGMENT_DURATION_SECONDS);
+		VideoResolution resolution = eVIDEORESOLUTION_360P;
+		video.QueueVideoHeader( resolution ); //video initialization header
+		video.Enqueue(new TrackStreamer(resolution, startIndex ) );
+		audio.QueueAudioHeader( "en" ); // audio initialization header
+		audio.Enqueue(new TrackStreamer("en", startIndex ) );
+
+		pipelineContext.pipeline->Flush( eMEDIATYPE_VIDEO, seek_pos );
+		pipelineContext.pipeline->Flush( eMEDIATYPE_AUDIO, seek_pos );
+
+        }
+
 	/**
 	 * @brief fast forward through iframes with 250s wait and flush after each presentation
 	 */
@@ -1478,6 +1498,7 @@ public:
 		printf( "sap2 // switch audio to English using seamless audio switching\n" );
 		printf( "dump // generate gst-test.dot\n" );
 		printf( "position // log position changes\n" );
+		printf( "seek // Specify new position to start playback\n" );
 		
 		// misc commands
 		printf( "path <base_path> // set the base path to the test stream data\n" );
@@ -1606,6 +1627,7 @@ public:
 		char audioGap[8] = "";
 		char format[8] = "";
 		double newRate = 1.0;
+		double seekPos = 0;
 		
 		if( strcmp(str,"help")==0 )
 		{
@@ -1769,6 +1791,10 @@ public:
 		else if( strcmp(str,"sap2")==0 )
 		{
 			TestSeamlessAudioSwitch();
+		}
+		else if( sscanf(str,"seek %lf", &seekPos )==1 )
+		{
+			Test_Seek(seekPos);
 		}
 		else if( str[0] )
 		{

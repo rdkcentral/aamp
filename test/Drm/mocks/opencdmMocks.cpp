@@ -7,7 +7,7 @@
 #include "opencdmMocks.h"
 
 #include "CppUTestExt/MockSupport.h"
-
+#
 typedef struct _MockOpenCdmInstanceData
 {
 	MockOpenCdmSessionInfo sessionInfo;
@@ -103,6 +103,8 @@ OpenCDMError opencdm_gstreamer_session_decrypt(struct OpenCDMSession* session, G
 OpenCDMError opencdm_session_decrypt(struct OpenCDMSession* session,
 									 uint8_t encrypted[],
 									 const uint32_t encryptedLength,
+									 const EncryptionScheme encScheme,
+									 const EncryptionPattern pattern,
 									 const uint8_t* IV, uint16_t IVLength,
 									 const uint8_t* keyId, const uint16_t keyIdLength,
 									 uint32_t initWithLast15)

@@ -80,10 +80,18 @@ class Aampcli
 		void newPlayerInstance( std::string appName = "");
 		int getApplicationDir( char *buffer, uint32_t size );
 		void getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::string &url, std::string &adId);
+
+		bool SetSessionId(std::string sid);
+		std::string GetSessionId() const;
+		std::string GetSessionId(size_t index) const;
+
 		Aampcli();
 		Aampcli(const Aampcli& aampcli);
 		Aampcli& operator=(const Aampcli& aampcli);
 		~Aampcli();
+
+	private:
+		std::vector<std::string> mPlayerSessionID;
 };
 
 #endif // AAMPCLI_H
