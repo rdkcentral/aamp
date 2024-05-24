@@ -1678,6 +1678,11 @@ void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMi
 	else
 	{
 		mPausePositionMilliseconds = pausePositionMilliseconds;
+		if( mMediaFormat == eMEDIAFORMAT_DASH && ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) )
+		{
+			long long availabilityStartTimeMs = mpStreamAbstractionAAMP->GetAvailabilityStartTime()*1000;
+			mPausePositionMilliseconds += availabilityStartTimeMs;
+		}
 
 		AAMPLOG_INFO("Start PausePositionMonitoring at position %lld", pausePositionMilliseconds);
 
