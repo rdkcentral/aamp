@@ -80,7 +80,7 @@ def test_1006_singleplayer(aamp_setup_teardown, test_data):
             {"expect": r'\[SendEventSync\].*\(type=14\)\(state=8\)\(session_id={}\)'.format(sid)},
             {"expect": r'\[SendEventSync\].*\(type=1\)\(session_id={}\)'.format(sid)},
             {"expect": r'AAMP_EVENT_TUNED'},
-            {"expect": r'AAMP_EVENT_PROGRESS.*sessionId={}'.format(sid)},
+            {"expect": r'AAMP_EVENT_PROGRESS.*sessionId=\'{}\''.format(sid)},
             {"cmd": "sleep {}".format(sleep_time)},
 
             {"cmd": "pause"},
