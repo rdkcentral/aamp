@@ -108,13 +108,13 @@ public:
  */
 gpointer LoadUrl( const std::string &url, gsize *pLen )
 {
-	printf( "***%s\n", url.c_str() );
+	printf( "LoadUrl(%s)\n", url.c_str() );
 	gpointer ptr = NULL;
 	gsize len = 0;
 	
 	static CurlContext context; // static to enable connection reuse
 	
-	if( starts_with(url,"http://") || starts_with(url,"https://") || starts_with(url,"file://") )
+	if( starts_with(url,"http://") || starts_with(url,"https://" ) )
 	{
 		auto delim = url.find('@');
 		if( delim != std::string::npos )
@@ -162,15 +162,21 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 		}
 	}
 	else
-	{ // needed?  can just use file:// instead?
+	{
+		int start = 0;
+		if( starts_with(url,"file://") )
+		{ // strip file:// prefix
+			start = 7;
+		}
 		FILE *f = NULL;
 		long offs = 0;
-		auto delim = url.find('@');
+		auto delim = url.find('@',start);
 		if( delim != std::string::npos )
 		{
 			std::string range = url.substr(delim+1);
-			std::string prefix = url.substr(0,delim);
+			std::string prefix = url.substr(start,delim);
 			f = fopen( prefix.c_str(), "rb" );
+			assert( f );
 			delim = range.find('-');
 			assert( delim != std::string::npos );
 			offs = atol( range.substr(delim+1).c_str() );
@@ -178,7 +184,9 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 		}
 		else
 		{
-			f = fopen( url.c_str(), "rb" );
+			std::string prefix = url.substr(start);
+			f = fopen( prefix.c_str(), "rb" );
+			assert( f );
 			fseek( f, 0, SEEK_END );
 			len = ftell(f);
 		}
