@@ -12332,7 +12332,7 @@ void StreamAbstractionAAMP_MPD::NotifyFirstVideoPTS(unsigned long long pts, unsi
  */
 double StreamAbstractionAAMP_MPD::GetAvailabilityStartTime()
 {
-        return mMPDParseHelper->GetAvailabilityStartTime();
+        return mMPDParseHelper?mMPDParseHelper->GetAvailabilityStartTime():0;
 }
 
 void StreamAbstractionAAMP_MPD::UpdateMPDPeriodDetails(std::vector<PeriodInfo>& currMPDPeriodDetails,uint64_t &durMs)
