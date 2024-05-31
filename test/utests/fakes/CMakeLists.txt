@@ -30,7 +30,6 @@ include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${LIBDASH_INCLUDE_DIRS})
-include_directories(${CMAKE_BINARY_DIR}/../ocdm)
 
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
