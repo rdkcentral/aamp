@@ -503,13 +503,3 @@ bool aamp_StartsWith(const char *inputStr, const char *prefix)
 {
 	return false;
 }
-
-std::string aamp_GetConfigPath(const std::string &filename)
-{
-	if (g_mockAampUtils != nullptr)
-	{
-		return g_mockAampUtils->aamp_GetConfigPath(filename);
-	}
-
-	return "FakeAampUtils.cpp";
-}

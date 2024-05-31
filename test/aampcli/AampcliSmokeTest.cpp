@@ -40,33 +40,34 @@ bool SmokeTest::execute(const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 void SmokeTest::loadSmokeTestUrls()
 {
 
-	const std::string smokeurlFile("/opt/smoketest.csv");
+	const std::string smokeurlFile("/smoketest.csv");
 	int BUFFER_SIZE = 500;
 	char buffer[BUFFER_SIZE];
 	FILE *fp;
 
-	if ((fp = mAampcli.getConfigFile(smokeurlFile)) != NULL)
-	{
-		printf("opened smoketest file\n");
-
-		while (!feof(fp))
+        if ( (fp = mAampcli.getConfigFile(smokeurlFile)) != NULL)
+        { 
+                printf("opened smoketest file\n");
+         
+		while(!feof(fp))
 		{
-			if (fgets(buffer, BUFFER_SIZE, fp) != NULL)
+			if(fgets(buffer, BUFFER_SIZE, fp) != NULL)
 			{
 				buffer[strcspn(buffer, "\n")] = 0;
 				std::string urlData(buffer);
 
 				std::size_t delimiterPos = urlData.find(",");
 
-				if (delimiterPos != std::string::npos)
+				if(delimiterPos != std::string::npos)
 				{
-					smokeTestUrls[urlData.substr(0, delimiterPos)] = urlData.substr(delimiterPos + 1);
+					smokeTestUrls[ urlData.substr(0, delimiterPos) ] = urlData.substr(delimiterPos + 1);
 				}
-			}
+			}	
 		}
-
+       
 		fclose(fp);
-	}
+        }
+
 }
 
 void SmokeTest::vodTune(const char *stream)
@@ -187,13 +188,27 @@ void SmokeTest::liveTune(const char *stream)
 
 bool SmokeTest::createTestFilePath(std::string &filePath)
 {
-	filePath = aamp_GetConfigPath("/opt/smoketest");
+#ifdef AAMP_SIMULATOR_BUILD
+	char *ptr = getenv("HOME");
+	if(ptr)
+	{
+		filePath.append(ptr); 
+		filePath += "/smoketest/";
+	}
+	else
+	{
+		printf("Path not found\n");
+		return false;
+	}
+#else
+	filePath = "/opt/smoketest/";
+#endif
 	DIR *dir = opendir(filePath.c_str());
 	if (!dir)
 	{
 		if(mkdir(filePath.c_str(), 0777) == -1)
 		{
-			printf("Error:filePath=%s strerror=%s\n",filePath.c_str(),strerror(errno));
+			printf("Error :  %s\n",strerror(errno));
 			return false;
 		}
 	}

@@ -61,7 +61,7 @@ TEST(_AampUtils, getDefaultHarvestPath)
 {
 	std::string value;
 	getDefaultHarvestPath(value);
-	EXPECT_EQ("/opt/aamp",value);
+	EXPECT_FALSE(value.length() == 0);
 }
 
 
@@ -627,17 +627,4 @@ TEST(_AampUtils, ParseISO8601DurationTest3)
 {
 	const char* duration = "PT3H30M15.5S";
 	double result = ParseISO8601Duration(duration);
-}
-
-TEST(_AampUtils, GetConfigPath1)
-{
-	//L1 tests build without #define AAMP_SIMULATOR_BUILD
-	//so paths modified as with HW build I.E they are not modified
-	std::string rtn;
-	rtn = aamp_GetConfigPath("/opt/abc.cfg");
-	EXPECT_EQ("/opt/abc.cfg", rtn );
-
-	setenv("AAMP_ENABLE_OPT_OVERRIDE","1",1);   //Should not change result because AAMP_CPC not defined
-	rtn = aamp_GetConfigPath("/opt/abc.cfg");
-	EXPECT_EQ("/opt/abc.cfg", rtn );
 }

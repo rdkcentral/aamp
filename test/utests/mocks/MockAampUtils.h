@@ -27,8 +27,6 @@ class MockAampUtils
 public:
 
 	MOCK_METHOD(long long, aamp_GetCurrentTimeMS, ());
-
-	MOCK_METHOD(std::string, aamp_GetConfigPath, (std::string));
 };
 
 extern MockAampUtils *g_mockAampUtils;

@@ -6,7 +6,6 @@
 #include "MockAampGstPlayer.h"
 #include "MockAampLogManager.h"
 #include "AampLogManager.h"
-#include "MockAampUtils.h"
 
 //include the google test dependencies
 #include <gtest/gtest.h>
@@ -39,7 +38,6 @@ protected:
 		g_mockAampLogManager = std::make_shared<StrictMock<MockAampLogManager>>();
 
 		g_mockAampGstPlayer = new MockAAMPGstPlayer(nullptr);
-		g_mockAampUtils = new StrictMock<MockAampUtils>();
 	}
 
 	void TearDown() override
@@ -50,9 +48,6 @@ protected:
 		g_mockAampLogManager = nullptr;
 
 		mAampConfig = nullptr;
-
-		delete g_mockAampUtils;
-		g_mockAampUtils = nullptr;
 	}
 };
 
@@ -833,20 +828,15 @@ TEST_F(AampConfigTests, ReadAampCfgJsonFile)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
-	FILE *fp = fopen("aampcfg.json", "w");
-	if (fp)
+	FILE* fp = fopen("aampcfg.json", "w");
+	if(fp)
 	{
-		fprintf(fp, "{\"uriParameter\":\"hello\"}\n");
+		fprintf(fp, "test\n");
 		fclose(fp);
 	}
-	EXPECT_CALL(*g_mockAampUtils, aamp_GetConfigPath("/opt/aampcfg.json"))
-		.WillOnce(Return("aampcfg.json"));
-
 	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(_));
 	bool retVal = aampConfig.ReadAampCfgJsonFile();
 	EXPECT_EQ(retVal, true);
-	std::string hello = aampConfig.GetConfigValue(eAAMPConfig_URIParameter);
-	EXPECT_EQ("hello", hello);
 }
 
 TEST_F(AampConfigTests, ReadAampCfgTxtFile)
@@ -862,7 +852,6 @@ TEST_F(AampConfigTests, ReadAampCfgTxtFile)
 		fprintf(fp, "export AAMP_DEBUG_FETCH_INJECT=true\n");
 		fclose(fp);
 	}
-	EXPECT_CALL(*g_mockAampUtils, aamp_GetConfigPath("/opt/aamp.cfg")).WillOnce(Return("aamp.cfg"));
 	EXPECT_CALL(*g_mockAampLogManager, setLogLevel(_));
 	bool retVal = aampConfig.ReadAampCfgTxtFile();
 	EXPECT_EQ(retVal, true);

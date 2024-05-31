@@ -181,8 +181,14 @@ FILE * AampPlayer::getConfigFile(const std::string& cfgFile)
 		return NULL;
 	}
 
-	std::string cfgPath = aamp_GetConfigPath("/opt"+cfgFile);
+#ifdef SIMULATOR_BUILD
+	std::string cfgBasePath(getenv("HOME"));
+	std::string cfgPath = cfgBasePath + cfgFile;
 	FILE *f = fopen(cfgPath.c_str(), "rb");
+#else
+	std::string cfgPath = "/opt" + cfgFile;
+	FILE *f = fopen(cfgPath.c_str(), "rb");
+#endif
 
 	return f;
 }
