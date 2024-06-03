@@ -1,0 +1,13 @@
+diff --git a/src/ipp2/Types.cpp b/src/ipp2/Types.cpp
+index cb74729..08d4ba5 100644
+--- a/src/ipp2/Types.cpp
++++ b/src/ipp2/Types.cpp
+@@ -29,6 +29,7 @@
+ #include "JsonHelper.h"
+ #include "Serializer.h"
+ #include "Utils.h"
++#include <array>
+ 
+ namespace ipp2 {
+ 
+ 

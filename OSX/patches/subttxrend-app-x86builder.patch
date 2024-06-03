@@ -1,0 +1,14 @@
+diff --git a/subttxrend-app/x86_builder/build.sh b/subttxrend-app/x86_builder/build.sh
+index 3faa7f0..081b66f 100755
+--- a/subttxrend-app/x86_builder/build.sh
++++ b/subttxrend-app/x86_builder/build.sh
+@@ -51,7 +51,7 @@ function build_project_cmake {
+         -DCMAKE_BUILD_TYPE=Debug \
+         -DCMAKE_FIND_ROOT_PATH=$3 \
+         -DCMAKE_INSTALL_NAME_DIR=$3/usr/local/lib \
+-        -DCMAKE_CXX_FLAGS="-DPC_BUILD" \
++        -DCMAKE_CXX_FLAGS="-DPC_BUILD -std=c++14" \
+         $4 \
+         $1
+     make -k $MAKE_JOBS_OPT VERBOSE=1
+     
