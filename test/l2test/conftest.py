@@ -20,6 +20,9 @@ import framework
 import subprocess
 import os
 import glob
+# The following ensures pip installs the package although we invoke it from
+# the command line and not via python
+import lcov_cobertura
 """
 A good starting point
 https://stackoverflow.com/questions/34466027/what-is-conftest-py-for-in-pytest
@@ -59,7 +62,22 @@ aamp_home = framework.get_aamp_home()
 location_of_gcno_files = None
 
 
+def run_cmd(cmd):
+    """
+    Run a command in a subprocess and check that it returns a zero (ok)
+    exit code
+    """
+    print(cmd)
+    ret = subprocess.run(cmd)
+    if ret.returncode:
+        print(ret.stderr)
+    assert ret.returncode == 0, "{} failed".format(cmd)
+
+
 def collect_coverage_after_test(test_dir_path):
+    """
+    Run after each test to collect the coverage data for that test
+    """
     print("collect_coverage_after_test")
 
     unique_test_filename = os.environ.get('PYTEST_CURRENT_TEST').split(':')[-1].split(' ')[0]
@@ -68,15 +86,16 @@ def collect_coverage_after_test(test_dir_path):
     cmd = ["lcov", "--directory", location_of_gcno_files, "--capture",
            "--exclude", "/usr/*",
            "--output-file", test_dir_path + "/" + coverage_file_name]
-    print(cmd)
-    ret = subprocess.run(cmd)
-    if ret.returncode != 0:
-        print(ret.stdout,ret.stderr)
-    assert ret.returncode == 0, "{} failed".format(cmd)
+    run_cmd(cmd)
+
     coverage_info.append(test_dir_path + "/" + coverage_file_name)
 
 
 def do_coverage_init():
+    """
+    Run before any tests when code coverage is enabled to
+    initialise coverage parameters
+    """
     print("do_coverage_init")
     global location_of_gcno_files
     # Either AampConfig.cpp.gcno AampConfig.gcno depending on OS
@@ -84,19 +103,28 @@ def do_coverage_init():
     assert len(file) == 1, "Cannot find AampConfig*.gcno. Did aamp get compiled for coverage? {}".format(len(file))
     location_of_gcno_files = os.path.dirname(file[0])
     cmd = ["lcov", "--zerocounters", "--directory", location_of_gcno_files]
-    print(cmd)
-    ret = subprocess.run(cmd)
-    assert ret.returncode == 0, "{} failed".format(cmd)
+    run_cmd(cmd)
 
 
 def do_coverage_total():
+    """
+    Run after all tests to accumulate total coverage data from
+    data for each test
+    """
     print("do_coverage_total")
-    cmd = ["genhtml", "--demangle-cpp", "-o", "Coverage"] + coverage_info
-    print(cmd)
-    ret = subprocess.run(cmd)
-    if ret.returncode:
-        print(ret.stderr)
-    assert ret.returncode == 0, "{} failed".format(cmd)
+
+    cmd = ["lcov", "--output-file", "everything.info"]
+    for f in coverage_info:
+        cmd.append("--add-tracefile")
+        cmd.append(f)
+    run_cmd(cmd)
+
+    cmd = ["genhtml", "--demangle-cpp", "-o", "Coverage", "everything.info"]
+    run_cmd(cmd)
+
+    # Generate coverage.xml
+    cmd = ["lcov_cobertura", "everything.info", "-b", aamp_home, "--demangle"]
+    run_cmd(cmd)
 
 
 @pytest.fixture(scope="session", autouse=True)
