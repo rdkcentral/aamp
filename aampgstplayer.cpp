@@ -4507,7 +4507,7 @@ void AAMPGstPlayer::setVolumeOrMuteUnMute(void)
 {
 	const std::lock_guard<std::mutex> lock(privateContext->volumeMuteMutex);
 	GstElement *gSource = NULL;
-	char *propertyName = NULL;
+	const char *propertyName = NULL;
 	media_stream *stream = &privateContext->stream[eMEDIATYPE_AUDIO];
 
 	AAMPLOG_MIL(" volume == %lf muted == %s", privateContext->audioVolume, privateContext->audioMuted?"true":"false");
@@ -4518,19 +4518,19 @@ void AAMPGstPlayer::setVolumeOrMuteUnMute(void)
 	if (stream->using_playersinkbin && stream->sinkbin)
 	{
 		gSource = stream->sinkbin;
-		propertyName = (char*)"audio-mute";
+		propertyName = "audio-mute";
 	}
 #if (defined(__APPLE__) || defined(REALTEKCE))
 	else if (stream->sinkbin)
 	{
 		gSource = stream->sinkbin;
-		propertyName = (char*)"mute";
+		propertyName = "mute";
 	}
 #endif
 	else if (privateContext->audio_sink)
 	{
 		gSource = privateContext->audio_sink;
-		propertyName = (char*)"mute";
+		propertyName = "mute";
 	}
 	else
 	{

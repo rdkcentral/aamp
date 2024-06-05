@@ -1159,7 +1159,7 @@ char *TrackState::GetFragmentUriFromIndex(bool &bSegmentRepeated)
 					memcpy(key,mKeyHashTable[keyIndexPosn].mKeyTagStr.c_str(),mKeyHashTable[keyIndexPosn].mKeyTagStr.size());
 
 					//AAMPLOG_WARN("[%d] Parse the Key attribute for new KeyIndex[%d][%s] ",type,keyIndexPosn,mKeyHashTable[keyIndexPosn].mShaID.c_str());
-					ParseAttrList((char *)key, ParseKeyAttributeCallback, this);
+					ParseAttrList( key, ParseKeyAttributeCallback, this );
 					free(key);
 				}
 				mKeyTagChanged = true;
@@ -6178,7 +6178,7 @@ void TrackState::UpdateDrmCMSha1Hash(const char *ptr)
 	}
 	else if (mCMSha1Hash)
 	{
-		if (0 != memcmp(ptr, (char*) mCMSha1Hash, DRM_SHA1_HASH_LEN))
+		if (0 != memcmp(ptr, mCMSha1Hash, DRM_SHA1_HASH_LEN))
 		{
 			if (!mIndexingInProgress)
 			{

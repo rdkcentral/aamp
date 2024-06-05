@@ -144,7 +144,7 @@ TEST_GROUP(AampDrmSessionTests)
 		static string responseStr = response;
 
 		MockCurlSetPerformCallback([](CURL *curl, MockCurlWriteCallback writeCallback, void* writeData, void* userData) {
-			writeCallback((char*)responseStr.c_str(), 1, responseStr.size(), writeData);
+			writeCallback( responseStr.c_str(), 1, responseStr.size(), writeData );
 		}, this);
 	}
 
@@ -167,7 +167,7 @@ TEST_GROUP(AampDrmSessionTests)
 				curlResponse->opts = *curlOpts; // Taking a copy of the opts so we can check them later
 				curlResponse->callCount++;
 				// Issue the write callback with the user-provided response
-				writeCallback((char*)curlResponse->response.c_str(), 1, curlResponse->response.size(), writeData);
+				writeCallback( curlResponse->response.c_str(), 1, curlResponse->response.size(), writeData );
 			}
 		}, &mCurlResponses);
 	}
