@@ -148,8 +148,13 @@ fi
 if [ ${OPTION_SUBTEC_CLEAN} = true ] ; then
     CLEAN=true
 fi
-subtec_install_build_fn "${CLEAN}"
-INSTALL_STATUS_ARR+=("subtec_install_build check passed.")
+
+if [ ${OPTION_SUBTEC_SKIP} = false ] ; then 
+    subtec_install_build_fn "${CLEAN}"
+    INSTALL_STATUS_ARR+=("subtec_install_build check passed.")
+else
+    INSTALL_STATUS_ARR+=("subtec_install_build check SKIPPED.")
+fi
 
 # Build aampabr / aampmetrics
 #

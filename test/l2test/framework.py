@@ -109,7 +109,7 @@ class Aamp:
             aamp_cli_path = os.path.join(self.aamp_home, "build", "Debug", "aamp-cli")
         else:
             self.AAMP_ENV.update({"LD_PRELOAD": os.path.join(self.aamp_home, ".libs", "lib", "libdash.so"),
-                                  "LD_LIBRARY_PATH": os.path.join(self.aamp_home, "libs", "lib")})
+                                  "LD_LIBRARY_PATH": os.path.join(self.aamp_home, ".libs", "lib")})
             aamp_cli_path = os.path.join(self.aamp_home, "build", "aamp-cli")
 
         assert os.path.exists(aamp_cli_path), "ERROR {} does not exist".format(aamp_cli_path)
