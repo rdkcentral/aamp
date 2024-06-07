@@ -10,8 +10,8 @@
 #include "aampoutputprotection.h"
 #include "AampDrmHelper.h"
 
-#include "open_cdm.h"
-#include "open_cdm_adapter.h"
+#include <open_cdm.h>
+#include <open_cdm_adapter.h>
 #include "AampDrmCallbacks.h"
 
 using namespace std;
@@ -31,9 +31,7 @@ public:
 	Event() : signalled(false), lock(PTHREAD_MUTEX_INITIALIZER), condition(PTHREAD_COND_INITIALIZER), condAttr() {
                pthread_mutex_init(&lock, NULL);
                pthread_condattr_init(&condAttr);
-#ifndef __APPLE__
                pthread_condattr_setclock(&condAttr, CLOCK_MONOTONIC );
-#endif
                pthread_cond_init(&condition, &condAttr);
 	}
 	virtual ~Event() {
