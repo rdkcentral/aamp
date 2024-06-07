@@ -100,7 +100,7 @@ std::vector<Box*> *IsoBmffBuffer::getParsedBoxes()
     return nullptr;
 }
 
-uint64_t IsoBmffBuffer::getSampleDurationInernal(const std::vector<Box*> *boxes)
+uint64_t IsoBmffBuffer::getSampleDurationInternal(const std::vector<Box*> *boxes)
 {
     return 0;
 }

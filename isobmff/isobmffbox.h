@@ -31,6 +31,9 @@
 #include <string>
 #include "AampLogManager.h"
 
+#define READ_U16(buf) \
+	(buf[0] << 8) | buf[1]; buf+=2;
+
 #define READ_U32(buf) \
 	((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) | ((uint32_t)buf[2] << 8) | buf[3]; buf+=4;
 
@@ -866,4 +869,62 @@ public:
     static PrftBox* constructPrftBox(uint32_t sz, uint8_t *ptr);
 };
 
+/**
+ * @class SidxBox
+ * @brief Class for ISO BMFF SIDX Box
+ */
+class SidxBox : public FullBox
+{
+private:
+	uint32_t timeScale;
+	uint64_t duration;
+public:
+
+	/**
+	 * @fn SidxBox
+	 * @param[in] fbox - box object
+	 * @param[in] tScale - TimeScale value
+	 * @param[in] sidxDuration - duration from sidx box
+	 */
+	SidxBox(FullBox &fbox, uint32_t tScale, uint64_t sidxDuration);
+
+	/**
+	 * @fn SidxBox
+	 *
+	 * @param[in] sz - box size
+	 * @param[in] tScale - TimeScale value
+	 * @param[in] sidxDuration - duration from sidx box
+	 */
+	SidxBox(uint32_t sz, uint32_t tScale, uint64_t sidxDuration);
+
+	/* @fn constructSidxBox
+	 *
+	 * @param[in] sz - box size
+	 * @param[in] ptr - pointer to box
+	 * @return newly constructed SidxBox object
+	 */
+	static SidxBox* constructSidxBox(uint32_t sz, uint8_t *ptr);
+
+	/**
+	 * @fn getTimeScale
+	 *
+	 * @return TimeScale value
+	 */
+	uint32_t getTimeScale(); 
+
+	/**
+	 * @fn setTimeScale
+	 *
+	 * @param[in] tScale - TimeScale value
+	 * @return void
+	 */
+	void setTimeScale(uint32_t tScale);
+
+	/**
+	 * @fn getSampleDuration
+	 *
+	 * @return sampleDuration value
+	 */
+	uint64_t getSampleDuration();
+};
 #endif /* __ISOBMFFBOX_H__ */
