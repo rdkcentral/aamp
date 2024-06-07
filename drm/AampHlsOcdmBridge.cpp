@@ -75,7 +75,7 @@ DrmReturn AampHlsOcdmBridge::Decrypt( ProfilerBucketType bucketType, void *encry
 	if (m_drmState == eDRM_KEY_ACQUIRED)
 	{
 		 AAMPLOG_TRACE("Starting decrypt\n");
-		 int retVal = m_drmSession->decrypt(m_drmInfo->iv, DRM_IV_LEN, (const uint8_t *)encryptedDataPtr , (uint32_t)encryptedDataLen, NULL);
+		 int retVal = m_drmSession->decrypt(m_drmInfo->iv, DRM_IV_LEN, (const uint8_t *)encryptedDataPtr , encryptedDataLen, NULL);
 		 if (retVal)
 		 {
 			AAMPLOG_WARN("Decrypt failed err = %d\n", retVal);

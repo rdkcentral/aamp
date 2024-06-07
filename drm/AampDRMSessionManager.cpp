@@ -73,7 +73,8 @@ KeyID::KeyID() : creationTime(0), isFailedKeyId(false), isPrimaryKeyId(false), d
 static string getFormattedLicenseServerURL(string url)
 {
 	size_t startpos = 0;
-	size_t len = 0;
+	size_t endpos, len;
+	endpos = len = url.size();
 
 	if (memcmp(url.data(), "https://", 8) == 0)
 	{
@@ -86,7 +87,7 @@ static string getFormattedLicenseServerURL(string url)
 
 	if (startpos != 0)
 	{
-		size_t endpos = url.find('/', startpos);
+		endpos = url.find('/', startpos);
 		if (endpos != string::npos)
 		{
 			len = endpos - startpos;
@@ -578,6 +579,8 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 	char *encodedData = base64_Encode(reinterpret_cast<const unsigned char*>(contentMetaData.c_str()), contentMetaData.length());
 	char *encodedChallengeData = base64_Encode(reinterpret_cast<const unsigned char*>(challengeInfo.data->getData().c_str()), challengeInfo.data->getDataLength());
 	//Calculate the lengths using the logic in base64_Encode
+	size_t encodedDataLen = ((contentMetaData.length() + 2) /3) * 4;
+	size_t encodedChallengeDataLen = ((challengeInfo.data->getDataLength() + 2) /3) * 4;
 
 	const char *keySystem = drmHelper->ocdmSystemId().c_str();
 	const char *secclientSessionToken = challengeInfo.accessToken.empty() ? NULL : challengeInfo.accessToken.c_str();
@@ -622,8 +625,6 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 #if USE_SECMANAGER
 	if(aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager))
 	{
-		size_t encodedDataLen = ((contentMetaData.length() + 2) /3) * 4;
-		size_t encodedChallengeDataLen = ((challengeInfo.data->getDataLength() + 2) /3) * 4;
 		int32_t statusCode;
 		int32_t reasonCode;
 		int32_t businessStatus;
@@ -749,7 +750,7 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 		{
 			AAMPLOG_WARN(" acquireLicense SUCCESS! license request attempt %d; response code : sec_client %d", attemptCount, sec_client_result);
 			eventHandle->setAccessStatusValue(statusInfo.accessAttributeStatus);
-			licenseResponse = new DrmData((unsigned char *)licenseResponseStr, (int)licenseResponseLength);
+			licenseResponse = new DrmData((unsigned char *)licenseResponseStr, licenseResponseLength);
 		}
 		if (licenseResponseStr) SecClient_FreeResource(licenseResponseStr);
 #if USE_SECMANAGER
