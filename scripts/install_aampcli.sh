@@ -87,7 +87,7 @@ function aampcli_install_build_darwin_fn()
         PKG_CONFIG="${PKG_CONFIG_CURL}:${PKG_CONFIG}"
     fi
 
-    cd build && PKG_CONFIG_PATH=${PKG_CONFIG}:${PKG_CONFIG_PATH} cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DSMOKETEST_ENABLED=OFF -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DUTEST_ENABLED=ON -G Xcode ../
+    cd build && PKG_CONFIG_PATH=${PKG_CONFIG}:${PKG_CONFIG_PATH} cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DUTEST_ENABLED=ON -G Xcode ../
 
     # the cmake Xcode generator can not set this scheme property (Debug -> Options -> Console -> Use Terminal
     patch ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme < ../OSX/patches/aamp-cli.xscheme.patch

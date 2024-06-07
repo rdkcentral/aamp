@@ -626,7 +626,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     xattr -w com.apple.xcode.CreatedByBuildSystem true build
    
     # Would be nice to use $installed_pkfconfig here, but it results in link error, not finding libapp-1.0
-    cd build && PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/opt/homebrew/opt/curl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCOVERAGE_ENABLED=${COVERAGE} -DSMOKETEST_ENABLED=ON -DUTEST_ENABLED=ON -G Xcode ../
+    cd build && PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/opt/homebrew/opt/curl/lib/pkgconfig:/usr/local/opt/curl/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCOVERAGE_ENABLED=${COVERAGE} -DUTEST_ENABLED=ON -G Xcode ../
 
     # the cmake Xcode generator can not set this scheme property (Debug -> Options -> Console -> Use Terminal
     patch ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme < ../OSX/patches/aamp-cli.xscheme.patch 
@@ -726,7 +726,7 @@ elif [[ "$OSTYPE" == "linux"* ]]; then
     mkdir -p build
     create_subtec_run_script
     
-    PKG_CONFIG_PATH=$PWD/Linux/lib/pkgconfig /usr/bin/cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=$PWD/Linux -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH=$PWD/Linux/lib -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DSMOKETEST_ENABLED=ON -DCOVERAGE_ENABLED=${COVERAGE} -DUTEST_ENABLED=ON -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -S$PWD -B$PWD/build -G "Unix Makefiles"
+    PKG_CONFIG_PATH=$PWD/Linux/lib/pkgconfig /usr/bin/cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=$PWD/Linux -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH=$PWD/Linux/lib -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCOVERAGE_ENABLED=${COVERAGE} -DUTEST_ENABLED=ON -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -S$PWD -B$PWD/build -G "Unix Makefiles"
     
     echo "Making aamp-cli..."
     cd build
