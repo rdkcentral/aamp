@@ -4099,7 +4099,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// all segments including the init segments for the GST buffer that goes with the init
 		mPTSOffsetSec = 0.0;
 		mNextPts = 0.0;
-		UpdatePtsOffset(mCurrentPeriodIdx,true);
+		if(rate == AAMP_NORMAL_PLAY_RATE) //todo remove this workaround
+		{
+			UpdatePtsOffset(mCurrentPeriodIdx,true);
+		}
 		FetchAndInjectInitFragments();
 	}
 
@@ -10616,6 +10619,13 @@ double StreamAbstractionAAMP_MPD::GetFirstPTS()
 	{
 		firstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
 	}
+	if (!ISCONFIGSET(eAAMPConfig_UseNewFetcherLoop) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+	{
+		// If the new PTS restamping logic is in play, update the new firstPTS
+		AAMPLOG_WARN("New restamping logic in place, firstPTS:%lf, mPTSOffsetSec:%lf", firstPTS, mPTSOffsetSec);
+		firstPTS += mPTSOffsetSec;
+	}
+
 	return firstPTS;
 }
 /**

@@ -215,14 +215,12 @@ typedef enum
 	eAAMPConfig_EarlyID3Processing,					/**< To enable/disable early ID3 processing */
 	eAAMPConfig_SeamlessAudioSwitch,					/**< To enable audio Restart - Currently supported for HLS_MP4 on same codec streams*/
 	eAAMPConfig_useRialtoSink,                      /**< Enable/Disable player to use Rialto sink based video and audio pipeline */
-	eAAMPConfig_QtDemuxOverrideEnabled,		/**< Enable/Disable ENABLE_AAMP_QTDEMUX_OVERRIDE flag , specifically introduced as a workaround for Charter App (ES1-701)*/
 	eAAMPConfig_LocalTSBEnabled,                                            /**< To enable/disable Local TSB in LLD as part of RDK-48051*/
 	eAAMPConfig_EnableIFrameTrackExtract,			/**< Config to enable and disable iFrame extraction from video track*/
 	eAAMPConfig_ForceMultiPeriodDiscontinuity,		/**< Config to forcefully process multiperiod discontinuity even if they are continuous in PTS */
 	eAAMPConfig_ForceLLDFlow,						/**< Config to forcefully process LLD workflow even if they are live SLD */
 	eAAMPConfig_UseNewFetcherLoop,					/**< Config to use new optimized version of fetcher loop */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
-
 } AAMPConfigSettingBool;
 #define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)
 

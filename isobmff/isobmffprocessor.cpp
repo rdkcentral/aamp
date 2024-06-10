@@ -308,13 +308,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 
 					pthread_mutex_unlock(&m_mutex);
 
-					if(p_aamp->mConfig->IsConfigSet(eAAMPConfig_QtDemuxOverrideEnabled))
-					{
-						p_aamp->NotifyFirstVideoPTS(basePTS, timeScale);
-						// Here, basePTS might not be based on a 90KHz clock, whereas gst videosink might be.
-						// So PTS value sent via progress event might not be accurate.
-						p_aamp->NotifyVideoBasePTS(basePTS, timeScale);
-					}
+					p_aamp->NotifyFirstVideoPTS(basePTS, timeScale);
 					if (type == eBMFFPROCESSOR_TYPE_VIDEO)
 					{
 						// Send flushing seek to gstreamer pipeline.
