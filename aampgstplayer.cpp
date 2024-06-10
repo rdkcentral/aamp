@@ -51,6 +51,13 @@
 #include "aampoutputprotection.h"
 #endif
 
+#if GLIB_CHECK_VERSION(2, 68, 0)
+// avoid deprecated g_memdup when g_memdup2 available
+#define AAMP_G_MEMDUP(src, size) g_memdup2((src), (gsize)(size))
+#else
+#define AAMP_G_MEMDUP(src, size) g_memdup((src), (guint)(size))
+#endif
+
 #ifdef USE_EXTERNAL_STATS
 // narrowly define MediaType for backwards compatibility
 #define MediaType AampMediaType
@@ -2410,7 +2417,7 @@ void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *i
 	{
 		GstBuffer *pssi;
 
-		pssi = gst_buffer_new_wrapped(g_memdup (initData, (guint)initDataSize), (gsize)initDataSize);
+		pssi = gst_buffer_new_wrapped(AAMP_G_MEMDUP (initData, initDataSize), (gsize)initDataSize);
 		pthread_mutex_lock(&mProtectionLock);
 		if (this->aamp->IsDashAsset())
 		{
