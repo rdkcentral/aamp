@@ -77,7 +77,7 @@ void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,long bandw
 *
 * @return None
 */
-void AampCMCDCollector::CMCDGetHeaders(AampMediaType fileType , std::vector<std::string> &customHeader)
+void AampCMCDCollector::CMCDGetHeaders(AampMediaType mediaType , std::vector<std::string> &customHeader)
 {
  }
  
@@ -87,14 +87,14 @@ void AampCMCDCollector::CMCDGetHeaders(AampMediaType fileType , std::vector<std:
 *
 * @return None
 */
-void AampCMCDCollector::CMCDSetNetworkMetrics(AampMediaType fileType,  int startTransferTime, int totalTime, int dnsLookUpTime)
+void AampCMCDCollector::CMCDSetNetworkMetrics(AampMediaType mediaType,  int startTransferTime, int totalTime, int dnsLookUpTime)
 {
 }
 
 /**
 * @brief Collect and send all key-value pairs for CMCD headers.
 */
-void AampCMCDCollector::SetBitrates(AampMediaType fileType,const std::vector<BitsPerSecond> bitrateList)
+void AampCMCDCollector::SetBitrates(AampMediaType mediaType,const std::vector<BitsPerSecond> bitrateList)
 {
 }
 
@@ -103,7 +103,7 @@ void AampCMCDCollector::SetBitrates(AampMediaType fileType,const std::vector<Bit
 /**
 * @brief Collect and send all key-value pairs for CMCD headers.
 */
-void AampCMCDCollector::SetTrackData(AampMediaType fileType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed)
+void AampCMCDCollector::SetTrackData(AampMediaType mediaType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed)
 {
 
 }

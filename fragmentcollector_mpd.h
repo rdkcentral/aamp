@@ -482,6 +482,13 @@ public:
 	 */
 	void NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale) override;
 
+	 /**
+	 * @fn GetAvailabilityStartTime
+ 	 * @brief  Returns AvailabilityStartTime from the manifest
+ 	 * @retval double . AvailabilityStartTime
+	 */
+	double GetAvailabilityStartTime() override;
+
 protected:
 	/**
 	 * @fn printSelectedTrack

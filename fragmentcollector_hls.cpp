@@ -1653,7 +1653,7 @@ char *TrackState::FindMediaForSequenceNumber()
 /**
  * @brief Helper function to download fragment
  */
-bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bool & bKeyChanged, int * fogError, AampTime &downloadTime)
+bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bool & bKeyChanged, int * fogError, double &downloadTime)
 {
 #ifdef TRACE
 		AAMPLOG_WARN("FetchFragmentHelper Enter: pos %f start %f frag-duration %f fragmentURI %s",
@@ -1770,12 +1770,11 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			// if fragment URI uses relative path, we don't want to replace effective URI
 			std::string tempEffectiveUrl;
 			AAMPLOG_TRACE(" Calling Getfile . buffer %p avail %d", &cachedFragment->fragment, (int)cachedFragment->fragment.GetAvail());
-			double tempDownloadTime{0.0};
-			bool fetched = aamp->GetFile(fragmentUrl, &cachedFragment->fragment,
-										 tempEffectiveUrl, &http_error, &tempDownloadTime, range, type, false, (AampMediaType)(type), NULL, NULL, fragmentDurationSeconds);
-			downloadTime = tempDownloadTime;
-			// Workaround for 404 of subtitle fragments
-			// TODO: This needs to be handled at server side and this workaround has to be removed
+			double downloadTime = 0;
+			bool fetched = aamp->GetFile(fragmentUrl, (AampMediaType)(type), &cachedFragment->fragment,
+			 tempEffectiveUrl, &http_error, &downloadTime, range, type, false, NULL, NULL, fragmentDurationSeconds);
+			//Workaround for 404 of subtitle fragments
+			//TODO: This needs to be handled at server side and this workaround has to be removed
 			if (!fetched && http_error == 404 && type == eTRACK_SUBTITLE)
 			{
 				cachedFragment->fragment.AppendBytes( "WEBVTT", 7);
@@ -1861,7 +1860,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 					 */
 					if ( eMETHOD_AES_128 == mDrmInfo.method && true == mDrmInfo.bUseMediaSequenceIV )
 					{
-						if ( true == CreateInitVectorByMediaSeqNo( (unsigned int)(nextMediaSequenceNumber-1) ) )
+						if ( true == CreateInitVectorByMediaSeqNo( nextMediaSequenceNumber-1 ) )
 						{
 							// Set this flag to seed the newly created IV to corresponding DRM instance
 							mKeyTagChanged = true;
@@ -1950,7 +1949,7 @@ void TrackState::FetchFragment()
 {
 	int timeoutMs = -1;
 	int http_error = 0;
-	AampTime downloadTime{};
+	double downloadTime = 0;
 	bool decryption_error = false;
 	if (IsLive())
 	{
@@ -2030,7 +2029,7 @@ void TrackState::FetchFragment()
 			//update videoend info
 			aamp->UpdateVideoEndMetrics((IS_FOR_IFRAME(iCurrentRate, type) ? eMEDIATYPE_IFRAME : (AampMediaType)(type)),
 										lbwd,
-										((iFogErrorCode > 0) ? iFogErrorCode : http_error), this->mEffectiveUrl, fragmentDurationSeconds, downloadTime.inSeconds(), bKeyChanged, fragmentEncrypted);
+										((iFogErrorCode > 0) ? iFogErrorCode : http_error), this->mEffectiveUrl, fragmentDurationSeconds, downloadTime, bKeyChanged, fragmentEncrypted);
 			return;
 		}
 
@@ -2080,7 +2079,7 @@ void TrackState::FetchFragment()
 			// update videoend info
 			aamp->UpdateVideoEndMetrics( (IS_FOR_IFRAME(iCurrentRate,type)? eMEDIATYPE_IFRAME:(AampMediaType)(type) ),
 									lbwd,
-									((iFogErrorCode > 0 ) ? iFogErrorCode : http_error), this->mEffectiveUrl, cachedFragment->duration, downloadTime.inSeconds(), bKeyChanged, fragmentEncrypted);
+									((iFogErrorCode > 0 ) ? iFogErrorCode : http_error), this->mEffectiveUrl, cachedFragment->duration, downloadTime, bKeyChanged, fragmentEncrypted);
 
 			const auto early_processing = aamp->mConfig->IsConfigSet(eAAMPConfig_EarlyID3Processing);
 			if (early_processing && playContext && aamp->IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA))
@@ -3812,7 +3811,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	}
 
 	bool updateVideoEndMetrics = false;
-	AampTime mainManifestdownloadTime{};
+	double mainManifestdownloadTime = 0;
 	int parseTimeMs = 0;
 	if (!this->mainManifest.GetLen() )
 	{
@@ -3821,9 +3820,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		// take the original url before its gets changed in GetFile
 		std::string mainManifestOrigUrl = aamp->GetManifestUrl();
 		aamp->SetCurlTimeout(aamp->mManifestTimeoutMs, eCURLINSTANCE_MANIFEST_MAIN);
-		double tempMainManifestdownloadTime{};
-		(void)aamp->GetFile(aamp->GetManifestUrl(), &this->mainManifest, aamp->GetManifestUrl(), &http_error, &tempMainManifestdownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN, true, eMEDIATYPE_MANIFEST, NULL, NULL, 0); // CID:82578 - checked return
-		mainManifestdownloadTime = tempMainManifestdownloadTime;
+		(void) aamp->GetFile(aamp->GetManifestUrl(), eMEDIATYPE_MANIFEST, &this->mainManifest, aamp->GetManifestUrl(), &http_error, &mainManifestdownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN, true,NULL,NULL,0);//CID:82578 - checked return
 		// Set playlist curl timeouts.
 		for (int i = eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO; i < (eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO + AAMP_TRACK_COUNT); i++)
 		{
@@ -4970,7 +4967,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				bool bFiledownloaded = false;
 				if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(defaultIframePlaylistUrl, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl) == false){
 					double tempDownloadTime{0.0};
-					bFiledownloaded = aamp->GetFile(defaultIframePlaylistUrl, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl, &http_error, &tempDownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN);
+					bFiledownloaded = aamp->GetFile(defaultIframePlaylistUrl, eMEDIATYPE_PLAYLIST_IFRAME, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl, &http_error, &tempDownloadTime, NULL,eCURLINSTANCE_MANIFEST_MAIN);
 					AampTime downloadTime{tempDownloadTime};
 					//update videoend info
 					ManifestData manifestData(downloadTime.milliseconds(), defaultIframePlaylist.GetLen());
@@ -5007,8 +5004,8 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	if(updateVideoEndMetrics)
 	{
 		//update videoend info
-		ManifestData manifestData(mainManifestdownloadTime.milliseconds(), this->mainManifest.GetLen(), parseTimeMs);
-		aamp->UpdateVideoEndMetrics( eMEDIATYPE_MANIFEST,0,http_error,aamp->GetManifestUrl(), mainManifestdownloadTime.inSeconds(), &manifestData);
+		ManifestData manifestData((long)(mainManifestdownloadTime*1000), this->mainManifest.GetLen(), parseTimeMs);
+		aamp->UpdateVideoEndMetrics( eMEDIATYPE_MANIFEST,0,http_error,aamp->GetManifestUrl(), mainManifestdownloadTime, &manifestData);
 	}
 	return retval;
 }
@@ -5872,7 +5869,7 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 				AampTime downloadTime{};
 				std::string tempEffectiveUrl;
 				double tempDownloadTime;
-				if (aamp->GetFile(url, &thumbnailManifest, tempEffectiveUrl, &http_error, &tempDownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN, true, eMEDIATYPE_PLAYLIST_IFRAME))
+				if( aamp->GetFile(url, eMEDIATYPE_PLAYLIST_IFRAME, &thumbnailManifest, tempEffectiveUrl, &http_error, &tempDownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN,true) )
 				{
 					downloadTime = tempDownloadTime;
 					AAMPLOG_WARN("In StreamAbstractionAAMP_HLS: Configured Thumbnail");
@@ -6079,14 +6076,12 @@ DrmReturn TrackState::DrmDecrypt( CachedFragment * cachedFragment, ProfilerBucke
 /**
  * @brief Function to create init vector using current media sequence number
  */
-bool TrackState::CreateInitVectorByMediaSeqNo ( unsigned int ui32Seqno )
+bool TrackState::CreateInitVectorByMediaSeqNo ( long long seqNo )
 {
 	unsigned char *pui8IV=NULL;
-	int i32loop=0;
-
 	if (mDrmInfo.iv)
 	{
-		// Re-using memory if allocated from earlier call, instead of multiple malloc & free for every fragments.
+		// Re-use memory if allocated from earlier call, instead of multiple malloc & free for every fragment.
 		pui8IV = mDrmInfo.iv;
 	}
 	else
@@ -6100,8 +6095,6 @@ bool TrackState::CreateInitVectorByMediaSeqNo ( unsigned int ui32Seqno )
 
 		mDrmInfo.iv = pui8IV;
 	}
-	memset(pui8IV, 0x00, DRM_IV_LEN);
-
 	/* From RFC8216 - Section 5.2,
 	 * Keeping the Media Sequence Number's big-endian binary
 	 * representation into a 16-octet (128-bit) buffer and padding
@@ -6109,9 +6102,11 @@ bool TrackState::CreateInitVectorByMediaSeqNo ( unsigned int ui32Seqno )
 	 * Eg: Assume Media Seq No is 0x00045d23, then IV data will hold
 	 * value : 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x04,0x5d,0x23.
 	 */
-	for(i32loop=12; i32loop< 16; ++i32loop)
+	int idx = DRM_IV_LEN;
+	while( idx>0 )
 	{
-		pui8IV[i32loop]=((ui32Seqno)>> (8*(15-i32loop)))&0xff;
+		pui8IV[--idx] = seqNo&0xff;
+		seqNo >>= 8;
 	}
 
 	return true;
@@ -6331,9 +6326,8 @@ void TrackState::FetchPlaylist()
 	aamp->profiler.ProfileBegin(bucketId);
 
 	double tempDownloadTime{};
-	(void)aamp->GetFile(mPlaylistUrl, &playlist, mEffectiveUrl, &http_error, &tempDownloadTime, NULL, (unsigned int)dnldCurlInstance, true, mType);
+	(void) aamp->GetFile(mPlaylistUrl, mType, &playlist, mEffectiveUrl, &http_error, &tempDownloadTime, NULL, (unsigned int)dnldCurlInstance, true );
 	downloadTime = tempDownloadTime;
-
 	// update videoend info
 	main_error = context->getOriginalCurlError(http_error);
 
@@ -6849,8 +6843,8 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			if ( !fetched )
 			{
 				double tempDownloadTime{0.0};
-				fetched = aamp->GetFile(fragmentUrl, &cachedFragment->fragment, tempEffectiveUrl, &http_code, &tempDownloadTime, range,
-										type, false, actualType);
+				fetched = aamp->GetFile(fragmentUrl, actualType, &cachedFragment->fragment, tempEffectiveUrl, &http_code, &tempDownloadTime, range,
+						type, false );
 				AampTime downloadTime{tempDownloadTime};
 
 #ifdef CHECK_PERFORMANCE
@@ -7589,8 +7583,6 @@ void TrackState::SwitchAudioTrack()
 
 		// Cache old values before playlist update
 		long long oldMediaSequenceNumber = nextMediaSequenceNumber - 1;
-		// Relative position in playlist
-		double oldPosInPlaylist = GetCompletionTimeForFragment(this, oldMediaSequenceNumber).inSeconds();
 		double oldPlaylistPosition = playlistPosition.inSeconds();
 
 		AAMPLOG_INFO("Preparing to flush fragments and switch playlist");
@@ -7652,6 +7644,9 @@ void TrackState::SwitchAudioTrack()
 		AAMPLOG_MIL("Updated gstSeek %lf to find new playTarget. Current Playtarget %lf , playlistPosition %lf", gstSeek.inSeconds(), playTarget.inSeconds(), oldPlaylistPosition);
 
 		AcquirePlaylistLock();
+                // Relative position in playlist
+                double oldPosInPlaylist = GetCompletionTimeForFragment(this, oldMediaSequenceNumber).inSeconds();
+
 		// Iterate from the beginning of the playlist again
 		playTarget = gstSeek;
 		bool reloadUri = false;
@@ -7659,27 +7654,33 @@ void TrackState::SwitchAudioTrack()
 		fragmentURI = GetNextFragmentUriFromPlaylist(reloadUri, true);
 		AAMPLOG_DEBUG("After GetNextFragmentUriFromPlaylist Playtarget %lf , playlistPosition %lf", playTarget.inSeconds(), playlistPosition.inSeconds() );
 		aamp->mAudioDelta = (gstSeek - playTarget).inSeconds();
+		// diff with 2 -> nextMediaSeqNo is always ahead of one fragment hence -1, and, we are yet to download the new MediaSeqNo whereas oldMediaSeq is based on already downloaded fragment hence -2.
+		long long newMediaSequenceNumber = nextMediaSequenceNumber - 2;
 
 		// Diff in playlist position. Diff in PDT should be used here???
-		double diffInFetchedDuration = (oldPosInPlaylist - GetCompletionTimeForFragment(this, nextMediaSequenceNumber - 1)).inSeconds();
-		int diffFragmentsDownloaded = (int)(oldMediaSequenceNumber - (nextMediaSequenceNumber - 1));
-		AAMPLOG_INFO("oldMediaSequenceNumber %lld, newMediaSequenceNumber %lld, oldPosInPlaylist %lf, newPosInPlaylist %lf", oldMediaSequenceNumber, (nextMediaSequenceNumber-1), oldPosInPlaylist, GetCompletionTimeForFragment(this, nextMediaSequenceNumber - 1).inSeconds() );
+		double diffInFetchedDuration = (oldPosInPlaylist - GetCompletionTimeForFragment(this, newMediaSequenceNumber)).inSeconds();
+		int diffFragmentsDownloaded = (int)(oldMediaSequenceNumber - (newMediaSequenceNumber));
+		AAMPLOG_INFO("oldMediaSequenceNumber %lld, newMediaSequenceNumber %lld, oldPosInPlaylist %lf, newPosInPlaylist %lf", oldMediaSequenceNumber, newMediaSequenceNumber, oldPosInPlaylist, GetCompletionTimeForFragment(this, newMediaSequenceNumber).inSeconds() );
 		AAMPLOG_INFO("Calculated diffInFetchDuration %lf", diffInFetchedDuration);
 		// Try to keep the same playlist position
 		// This is because we are using playTarget as position values in cacheFragment
-		playlistPosition = oldPlaylistPosition - diffInFetchedDuration;
+		playlistPosition = (oldPlaylistPosition - diffInFetchedDuration);
+		double diffInInjectedDuration = (GetLastInjectedFragmentPosition() - playlistPosition).inSeconds();
+		playlistPosition += fragmentDurationSeconds;
 		playTarget = playlistPosition;
 		playTargetBufferCalc = playTarget;
-               playTargetOffset = 0; // needed?
-               double diffInInjectedDuration = (GetLastInjectedFragmentPosition() - playTarget).inSeconds();
-               AAMPLOG_INFO("Calculated diffInFetchDuration %lf diffInInjectedDuration %lf", diffInFetchedDuration, diffInInjectedDuration);
+		playTargetOffset = 0;
+		AAMPLOG_INFO("Calculated diffInFetchDuration %lf diffInInjectedDuration %lf  LastInjectedFragmentPosition() %lf", diffInFetchedDuration, diffInInjectedDuration, GetLastInjectedFragmentPosition());
 
 		AAMPLOG_MIL("Updated Playtarget %lf , playlistPosition %lf", playTarget.inSeconds(), playlistPosition.inSeconds());
 
 		// Reset before we release the playlist lock, to avoid any race conditions
 		seamlessAudioSwitchInProgress = false;
 		ReleasePlaylistLock();
-
+		if(video && video->enabled)
+		{
+			AAMPLOG_INFO("video Injected Duration %f ",video->GetTotalInjectedDuration());
+		}
 		OffsetTrackParams(diffInFetchedDuration, diffInInjectedDuration, diffFragmentsDownloaded);
 		pthread_mutex_unlock(&mutex);
 	}

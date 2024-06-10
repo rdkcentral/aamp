@@ -24,6 +24,7 @@
 
 #include "Aampcli.h"
 #include "AampSCTE35.h"
+#include "AampcliShader.h"
 
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
@@ -280,12 +281,7 @@ void Aampcli::initPlayerLoop(int argc, char **argv)
 
 void Aampcli::newPlayerInstance( std::string appName)
 {
-	PlayerInstanceAAMP *player = new PlayerInstanceAAMP(
-#ifdef RENDER_FRAMES_IN_APP_CONTEXT
-			NULL
-			,Shader::updateYUVFrame
-#endif
-			);
+	PlayerInstanceAAMP *player = new PlayerInstanceAAMP(NULL, gpUpdateYUV );
 
 	if (!appName.empty())
 	{
@@ -442,29 +438,7 @@ int main(int argc, char **argv)
 	{
 		printf("[AAMPCLI] Failed at create thread error %s\n",e.what());  //CID:83593 - checked return
 	}
-#ifdef RENDER_FRAMES_IN_APP_CONTEXT
-	// Render frames in graphics plane using opengl
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-	glutInitWindowPosition(80, 80);
-	glutInitWindowSize(640, 480);
-	glutCreateWindow("AAMP Texture Player");
-	printf("[AAMPCLI] OpenGL Version[%s] GLSL Version[%s]\n", glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
-#ifndef __APPLE__
-	glewInit();
-#endif
-	Shader l_Shader;
-	l_Shader.InitShaders();
-	glutDisplayFunc(l_Shader.glRender);
-	glutTimerFunc(40, l_Shader.timer, 0);
-
-	glutMainLoop();
-#else
-	// Render frames in video plane - default behavior
-#ifdef __APPLE__
-	createAndRunCocoaWindow();
-#endif
-#endif
+	createAppWindow(argc,argv);
 	if(cmdThreadId.joinable())
 	{
 		cmdThreadId.join();
@@ -577,6 +551,12 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				{
 					printf("\t[AAMPCLI] bitrate(%d)=%ld\n", i, bitrates.at(i));
 				}
+				printf("[AAMPCLI] Supported Speeds:\n");
+				const std::vector<float> &supportedSpeeds = ev->getSupportedSpeeds();
+				for( int i=0; i<supportedSpeeds.size(); i++ )
+				{
+					printf( "\t[AAMPCLI] supportedSpeed(%d)=%f\n", i, supportedSpeeds[i] );
+				}
 				break;
 			}
 		case AAMP_EVENT_TUNED:
@@ -614,11 +594,6 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_PROGRESS:
 			{
 				ProgressEventPtr ev = std::dynamic_pointer_cast<ProgressEvent>(e);
-#ifdef __APPLE__
-				char string[128];
-				snprintf( string, sizeof(string), "%f", ev->getPosition()/1000.0 );
-				setSimulatorWindowTitle(string);
-#endif
 				if(mAampcli.mEnableProgressLog)
 				{
 					printf("[AAMPCLI] AAMP_EVENT_PROGRESS\n\tDuration=%lf\n\tposition=%lf\n\tstart=%lf\n\tend=%lf\n\tcurrRate=%f\n\tBufferedDuration=%lf\n\tPTS=%lld\n\ttimecode=%s\n\tlatency=%lf\n\tprofileBandwidth=%ld\n\tnetworkBandwidth=%ld\n\tcurrentPlayRate=%lf\n\tsessionId=%s\n",ev->getDuration(),ev->getPosition(),ev->getStart(),ev->getEnd(),ev->getSpeed(),ev->getBufferedDuration(),ev->getPTS(),ev->getSEITimeCode(), ev->getLiveLatency(), ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());

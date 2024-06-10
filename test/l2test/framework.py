@@ -181,11 +181,8 @@ class Aamp:
         if self.aamp_pexpect:
             try:
                 self.sendline("stop")
-                time.sleep(0.5)
                 self.sendline("exit")
-                time.sleep(0.5)
-                self.aamp_pexpect.sendeof()
-                time.sleep(0.5)
+                self.aamp_pexpect.expect(pexpect.EOF)
             except pexpect.EOF:
                 pass
             except Exception as e:
@@ -216,12 +213,14 @@ class Aamp:
         try:
             print("Creating", self.aamp_cfg_file)
             f = open(self.aamp_cfg_file, "w")
-            if cfg_setting:
-                f.write(cfg_setting)
             if self.pytestconfig.config.getoption('aamp_video') is True:
                 pass
             else:
                 f.write("useTCPServerSink=true\nTCPServerSinkPort=0\n")
+            # Trailing \n can get missed off cfg_setting string which was causing problem if
+            # followed by useTCPServerSink
+            if cfg_setting:
+                f.write(cfg_setting)
             f.close()
 
         except Exception as e:
@@ -243,6 +242,11 @@ class Aamp:
              {"expect":"line expected from aamp"},
         ]
         """
+
+        if testdata.get('simlinear_type') is not None:
+            self.simlinear = Simlinear(self.test_dir_path, self.pytestconfig)
+            self.simlinear.start(testdata['simlinear_type'], logfile_name='simlinear_' + self.logfile_name)
+        
         if 'logfile' in testdata:
             self.logfile_name = testdata["logfile"]
         print("{} {}".format(testdata["title"],self.logfile_name))
@@ -254,6 +258,11 @@ class Aamp:
         self.start_aamp()
 
         start_time = time.time()
+
+        if self.simlinear:
+            self.sendline(self.simlinear.SL_URL+testdata["url"])
+        elif testdata.get('url') is not None:
+            self.sendline(testdata["url"])
 
         for idx, e in enumerate(testdata["expect_list"]):
             if e.get('expect') is not None:

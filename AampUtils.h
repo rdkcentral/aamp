@@ -228,16 +228,17 @@ struct timespec aamp_GetTimespec(int timeInMs);
  * @param fileName - out file name
  * @param data - buffer
  * @param len - length of buffer
- * @param fileType - Media type of file
+ * @param mediaType - Media type of file
  * @param count - for manifest or playlist update
  * @param prefix - prefix name
  */
-bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMediaType &fileType, unsigned int count,const char *prefix);
+bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMediaType mediaType, unsigned int count,const char *prefix);
+
 /**
  * @fn getHarvestConfigForMedia
- * @param fileType - meida file type
+ * @param mediaType - meida file type
  */
-int getHarvestConfigForMedia(AampMediaType fileType);
+int getHarvestConfigForMedia(AampMediaType mediaType);
 /**
  * @fn getWorkingTrickplayRate
  * @param rate input rate

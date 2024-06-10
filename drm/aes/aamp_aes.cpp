@@ -117,7 +117,7 @@ void AesDec::AcquireKey()
 	}
 	aamp_ResolveURL(keyURI, mDrmInfo.manifestURL, mDrmInfo.keyURI.c_str(), mDrmInfo.bPropagateUriParams);
 	AAMPLOG_WARN("Key acquisition start uri = %s",  keyURI.c_str());
-	bool fetched = mpAamp->GetFile(keyURI, &mAesKeyBuf, tempEffectiveUrl, &http_error, &downloadTime, NULL, mCurlInstance, true, eMEDIATYPE_LICENCE);
+	bool fetched = mpAamp->GetFile(keyURI, eMEDIATYPE_LICENCE, &mAesKeyBuf, tempEffectiveUrl, &http_error, &downloadTime, NULL, mCurlInstance, true);
 	if (fetched)
 	{
 		if (AES_128_KEY_LEN_BYTES == mAesKeyBuf.GetLen() )

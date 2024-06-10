@@ -203,3 +203,8 @@ uint32_t StreamAbstractionAAMP_MPD::GetSegmentRepeatCount(MediaStreamContext *pM
 void StreamAbstractionAAMP_MPD::SetSubtitleTrackOffset()
 {
 }
+
+double StreamAbstractionAAMP_MPD::GetAvailabilityStartTime()
+{ 
+	return 0.0; 
+}

@@ -1588,7 +1588,7 @@ TEST_F(TrackStateTests, DrmDecrypt_SuccessfulDecryption)
 
 TEST_F(TrackStateTests, CreateInitVector_Successful)
 {
-    unsigned int seqNo = 100; // Replace with a valid sequence number
+    long long seqNo = 0x123456789abcdef; // Replace with a valid sequence number
     bool result = TrackStateobj->CreateInitVectorByMediaSeqNo(seqNo);
     ASSERT_TRUE(result); // Check that the function returns true indicating success
 }
@@ -2143,6 +2143,13 @@ TEST_F(StreamAbstractionAAMP_HLSTest, IsStreamerAtLivePointtest4)
 
     // EXPECT_TRUE(result);
     EXPECT_FALSE(result);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, TestGetAvailabilityStartTime)
+{
+    double expectedValue = 0.0; // The expected return value
+    double result = mStreamAbstractionAAMP_HLS->GetAvailabilityStartTime();
+    ASSERT_EQ(result, expectedValue);
 }
 
 TEST_F(TrackStateTests, StopInjectLooptest)

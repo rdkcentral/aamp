@@ -485,8 +485,8 @@ void AampMPDDownloader::harvestManifest()
 	if(mMPDData->mMPDDownloadResponse->curlRetValue == 0 && 
 		(mMPDData->mMPDDownloadResponse->iHttpRetValue == 200 || mMPDData->mMPDDownloadResponse->iHttpRetValue == 206))
 	{
-			AampMediaType fileType	=	eMEDIATYPE_MANIFEST	;
-			if((mMPDDnldCfg->mHarvestCountLimit > 0) && (mMPDDnldCfg->mHarvestConfig & getHarvestConfigForMedia(fileType)))
+			AampMediaType mediaType	=	eMEDIATYPE_MANIFEST	;
+			if((mMPDDnldCfg->mHarvestCountLimit > 0) && (mMPDDnldCfg->mHarvestConfig & getHarvestConfigForMedia(mediaType)))
 			{
 				/* Avoid chance of overwriting , in case of manifest and playlist, name will be always same */
 				mManifestRefreshCount++;
@@ -500,7 +500,7 @@ void AampMPDDownloader::harvestManifest()
 				std::string dataStr =  mMPDData->mMPDDownloadResponse->getString(); 
 				if(!dataStr.empty() )
 				{
-					if(aamp_WriteFile(mMPDData->mMPDDownloadResponse->sEffectiveUrl, dataStr.c_str(),(int) dataStr.length(), fileType, mManifestRefreshCount,harvestPath.c_str()))
+					if(aamp_WriteFile(mMPDData->mMPDDownloadResponse->sEffectiveUrl, dataStr.c_str(),(int) dataStr.length(), mediaType, mManifestRefreshCount,harvestPath.c_str()))
 					{
 						mMPDDnldCfg->mHarvestCountLimit--;
 					}

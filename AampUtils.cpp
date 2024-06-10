@@ -263,7 +263,7 @@ std::string aamp_getHostFromURL(std::string url)
 				host = url.substr(start_pos, (pos - start_pos));
 			}
 		}
-		else
+		else if(url.rfind("file://", 0) != 0)
 		{
 			throw std::runtime_error("Invalid URL:" + url);
 		}
@@ -798,10 +798,10 @@ static inline void createdir(const char *dirpath)
  * @brief Get harvest config corresponds to Media type
  * @return harvestType
  */
-int getHarvestConfigForMedia(AampMediaType fileType)
+int getHarvestConfigForMedia(AampMediaType mediaType)
 {
 	enum HarvestConfigType harvestType = eHARVEST_ENABLE_DEFAULT;
-	switch(fileType)
+	switch(mediaType)
 	{
 		case eMEDIATYPE_VIDEO:
 			harvestType = eHARVEST_ENABLE_VIDEO;
@@ -873,7 +873,7 @@ int getHarvestConfigForMedia(AampMediaType fileType)
 /**
  * @brief Write - file to storage
  */
-bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMediaType &fileType, unsigned int count,const char *prefix)
+bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMediaType mediaType, unsigned int count,const char *prefix)
 {
 	bool retVal=false;	
 	{
@@ -890,12 +890,12 @@ bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMedi
 			fileName = fileName.substr(pos+3); // strip off leading http://
 		
 			/* Avoid chance of overwriting , in case of manifest and playlist, name will be always same */
-			if(fileType == eMEDIATYPE_PLAYLIST_AUDIO 
-			|| fileType == eMEDIATYPE_PLAYLIST_IFRAME || fileType == eMEDIATYPE_PLAYLIST_SUBTITLE || fileType == eMEDIATYPE_PLAYLIST_VIDEO )
+			if(mediaType == eMEDIATYPE_PLAYLIST_AUDIO
+			|| mediaType == eMEDIATYPE_PLAYLIST_IFRAME || mediaType == eMEDIATYPE_PLAYLIST_SUBTITLE || mediaType == eMEDIATYPE_PLAYLIST_VIDEO )
 			{ // add suffix to give unique name for each downloaded playlist
 				fileName = fileName + "." + std::to_string(count);
 			}
-			else if(fileType == eMEDIATYPE_MANIFEST)
+			else if(mediaType == eMEDIATYPE_MANIFEST)
 			{
 				std::size_t manifestPos = fileName.find_last_of('/');
 				std::size_t extPos = fileName.find_last_of('.');

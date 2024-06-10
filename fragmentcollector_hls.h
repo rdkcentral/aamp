@@ -301,7 +301,7 @@ class TrackState : public MediaTrack
 		 * @param[in] ui32Seqno Current fragment's sequence number
 		 * @return bool true if successfully created, false otherwise.
 		 ***************************************************************************/
-		bool CreateInitVectorByMediaSeqNo( unsigned int ui32Seqno );
+		bool CreateInitVectorByMediaSeqNo( long long ui32Seqno );
 		/***************************************************************************
 		 * @fn FetchPlaylist
 		 *
@@ -503,7 +503,7 @@ class TrackState : public MediaTrack
 		 * @param[out] decryption_error decryption error
 		 * @return bool true on success else false
 		 ***************************************************************************/
-		bool FetchFragmentHelper(int &http_error, bool &decryption_error, bool & bKeyChanged, int * fogError, AampTime &downloadTime);
+		bool FetchFragmentHelper(int &http_error, bool &decryption_error, bool & bKeyChanged, int * fogError, double &downloadTime);
 		/***************************************************************************
 		 * @fn RefreshPlaylist
 		 *

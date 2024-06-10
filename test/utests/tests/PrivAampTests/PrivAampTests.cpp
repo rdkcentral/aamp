@@ -1379,7 +1379,7 @@ TEST_F(PrivAampTests,GetFileTest)
 	AampGrowableBuffer gBuff("GrowableBuffer");
 	double downloadTime;BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl",&gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,eMEDIATYPE_VIDEO,
+EXPECT_FALSE(p_aamp->GetFile("remoteurl", eMEDIATYPE_VIDEO, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,
 									&bitrate,&fogError,0.0));
 }
 
@@ -1393,7 +1393,7 @@ TEST_F(PrivAampTests,GetFileTest_1)
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl",&gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,mType,
+EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,
 									&bitrate,&fogError,0.0));
 }
 
@@ -1408,7 +1408,7 @@ TEST_F(PrivAampTests,GetFileTest_2)
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl",&gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,mType,
+EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
 									&bitrate,&fogError,0.0));
 }
 TEST_F(PrivAampTests,GetFileTest_3)
@@ -1425,7 +1425,7 @@ TEST_F(PrivAampTests,GetFileTest_3)
 
 	p_aamp->EnableDownloads();
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl",&gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,mType,
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
 									&bitrate,&fogError,0.0));
 }
 
@@ -1443,7 +1443,7 @@ TEST_F(PrivAampTests,GetFileTest_4)
 
 	p_aamp->EnableDownloads();
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl",&gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,mType,
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
 									&bitrate,&fogError,0.0));
 }
 
@@ -3535,14 +3535,14 @@ TEST_F(PrivAampTests, ForceHttpCoversionforFogTest)
 TEST_F(PrivAampTests, getCurrentContentDownloadSpeedTest)
 {
 	PrivateInstanceAAMP *aamp;
-	AampMediaType fileType = eMEDIATYPE_VIDEO;
+	AampMediaType mediaType = eMEDIATYPE_VIDEO;
 	bool bDownloadStart = true;
 	long start = 12345;
 	double dlnow = 10.50;
 
-	long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,AampMediaType fileType,bool bDownloadStart,long start,double dlnow);
+	long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,AampMediaType mediaType,bool bDownloadStart,long start,double dlnow);
 
-	long result = getCurrentContentDownloadSpeed(p_aamp,fileType,bDownloadStart,start,dlnow);
+	long result = getCurrentContentDownloadSpeed(p_aamp,mediaType,bDownloadStart,start,dlnow);
 
 }
 TEST_F(PrivAampTests, HandleSSLHeaderCallback_ValidHeader_1)

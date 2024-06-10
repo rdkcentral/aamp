@@ -24,11 +24,7 @@
 #ifndef __AAMP_COCOA_WINDOW_H
 #define __AAMP_COCOA_WINDOW_H
 
-#include <glib.h>
-
-guintptr getWindowContentView();
-int createAndRunCocoaWindow();
-void setSimulatorWindowTitle( const char *title );
-void terminateCocoaWindow();
+void osx_createAppWindow( int argc, char **argv );
+void osx_destroyAppWindow( void );
 
 #endif //__AAMP_COCOA_WINDOW_H

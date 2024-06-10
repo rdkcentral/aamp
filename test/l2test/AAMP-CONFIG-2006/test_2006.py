@@ -169,7 +169,7 @@ for language,details in lang_dict.items():
 def test_data(request):
     return request.param
 
-def test_2010(aamp_setup_teardown, test_data):
+def test_2006(aamp_setup_teardown, test_data):
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
     aamp.run_expect_a(test_data)

@@ -4109,22 +4109,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				SeekInPeriod( offsetFromStart);
 			}
 
-			if((!ISCONFIGSET(eAAMPConfig_MidFragmentSeek)) || (eTUNETYPE_SEEKTOLIVE == tuneType))
+			if(!ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
 			{
-				if(!ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
-				{
-					seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime;
-				}
-				else
-				{
-					// eAAMPConfig_MidFragmentSeek && eTUNETYPE_SEEKTOLIVE
-					seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime + mVideoPosRemainder;
-				}
+				seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime;
 			}
-			else if (!seekPosition)
+			else
 			{
 				seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime + mVideoPosRemainder;
 			}
+			
 			for (int i = 0; i < mNumberOfTracks; i++)
 			{
 				mMediaStreamContext[i]->periodStartOffset = currentPeriodStart;
@@ -12324,6 +12317,15 @@ void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime){
 void StreamAbstractionAAMP_MPD::NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale)
 {
 	mFirstPTS = ((double)pts / (double)timeScale);
+}
+
+/**
+ *  @brief Function to return return AvailabilityStartTime from the manifest
+ *  @retval double . AvailabilityStartTime
+ */
+double StreamAbstractionAAMP_MPD::GetAvailabilityStartTime()
+{
+        return mMPDParseHelper?mMPDParseHelper->GetAvailabilityStartTime():0;
 }
 
 void StreamAbstractionAAMP_MPD::UpdateMPDPeriodDetails(std::vector<PeriodInfo>& currMPDPeriodDetails,uint64_t &durMs)

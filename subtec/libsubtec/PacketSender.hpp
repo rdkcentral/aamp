@@ -87,6 +87,8 @@ private:
     std::condition_variable mCv;
     std::mutex mStartMutex;
     int mSockBufSize;
+    int mPktWriteFailCtr;
+    std::string mSocketPath;
 protected:
     PacketSender() : 
         mSendThread(), 
@@ -96,6 +98,8 @@ protected:
         mPktMutex(), 
         mCv(),
         mStartMutex(),
-        mSockBufSize(0)
+        mSockBufSize(0),
+        mPktWriteFailCtr(0),
+        mSocketPath("")
         {}
 };

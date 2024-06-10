@@ -39,14 +39,14 @@
 typedef struct playlistcacheddata{
 	std::string mEffectiveUrl;
 	AampGrowableBuffer* mCachedBuffer;
-	AampMediaType mFileType;
+	AampMediaType mMediaType;
 	bool mDuplicateEntry;
 
-	playlistcacheddata() : mEffectiveUrl(""), mCachedBuffer(NULL), mFileType(eMEDIATYPE_DEFAULT),mDuplicateEntry(false)
+	playlistcacheddata() : mEffectiveUrl(""), mCachedBuffer(NULL), mMediaType(eMEDIATYPE_DEFAULT),mDuplicateEntry(false)
 	{
 	}
 
-	playlistcacheddata(const playlistcacheddata& p) : mEffectiveUrl(p.mEffectiveUrl), mCachedBuffer(p.mCachedBuffer), mFileType(p.mFileType),mDuplicateEntry(p.mDuplicateEntry)
+	playlistcacheddata(const playlistcacheddata& p) : mEffectiveUrl(p.mEffectiveUrl), mCachedBuffer(p.mCachedBuffer), mMediaType(p.mMediaType),mDuplicateEntry(p.mDuplicateEntry)
 	{
 		mCachedBuffer = p.mCachedBuffer;
 		mCachedBuffer->Replace( p.mCachedBuffer );
@@ -56,7 +56,7 @@ typedef struct playlistcacheddata{
 	{
 		mEffectiveUrl = p.mEffectiveUrl;
 		mCachedBuffer = p.mCachedBuffer;
-		mFileType = p.mFileType;
+		mMediaType = p.mMediaType;
 		mDuplicateEntry = p.mDuplicateEntry;
 		return *this;
 	}
@@ -160,12 +160,12 @@ protected:
 	void ClearPlaylistCache();
 	/**
 	 *   @fn AllocatePlaylistCacheSlot
-	 *   @param[in] fileType - Indicate the type of playlist to store/remove
+	 *   @param[in] mediaType - Indicate the type of playlist to store/remove
 	 *   @param[in] newLen  - Size required to store new playlist
 	 *
 	 *   @return bool Success or Failure
 	 */
-	bool AllocatePlaylistCacheSlot(AampMediaType fileType,size_t newLen);
+	bool AllocatePlaylistCacheSlot(AampMediaType mediaType,size_t newLen);
 
 	/**
 	 *   @fn ClearInitFragCache
@@ -177,11 +177,11 @@ protected:
 	/**
 	 *   @fn RemoveInitFragCacheEntry
 	 * 
-	 *   @param fileType type of file format to be removed from cache table
+	 *   @param mediaType type of file format to be removed from cache table
 	 * 
 	 *   @return void
 	 */
-	void RemoveInitFragCacheEntry ( AampMediaType fileType );
+	void RemoveInitFragCacheEntry ( AampMediaType mediaType );
 
 public:
 
@@ -216,11 +216,11 @@ public:
 	 *   @param[in] buffer - Pointer to growable buffer
 	 *   @param[in] effectiveUrl - Final URL
 	 *   @param[in] trackLiveStatus - Live Status of the track inserted
-	 *   @param[in] fileType - Type of the file inserted
+	 *   @param[in] mediaType - Type of the file inserted
      	 *
 	 *   @return void
 	 */
-	void InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,AampMediaType fileType=eMEDIATYPE_DEFAULT);
+	void InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,AampMediaType mediaType );
 
 	/**
 	 *   @fn RetrieveFromPlaylistCache
@@ -263,11 +263,11 @@ public:
 	 *   @param[in] url - URL
 	 *   @param[in] buffer - Pointer to growable buffer
 	 *   @param[in] effectiveUrl - Final URL
-	 *   @param[in] fileType - Type of the file inserted
+	 *   @param[in] mediaType - Type of the file inserted
      	 *
 	 *   @return void
 	 */
-	void InsertToInitFragCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,AampMediaType fileType);
+	void InsertToInitFragCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,AampMediaType mediaType);
 
 	/**
 	 *   @fn RetrieveFromInitFragCache

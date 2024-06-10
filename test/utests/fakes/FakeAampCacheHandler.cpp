@@ -27,7 +27,7 @@ AampCacheHandler::~AampCacheHandler()
 {
 }
 
-void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,AampMediaType fileType)
+void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,AampMediaType mediaType)
 {
 }
 
@@ -66,7 +66,7 @@ bool AampCacheHandler::RetrieveFromInitFragCache(const std::string url, AampGrow
     return false;
 }
 
-void AampCacheHandler::InsertToInitFragCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl, AampMediaType fileType)
+void AampCacheHandler::InsertToInitFragCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl, AampMediaType mediaType)
 {
 }
 

@@ -213,14 +213,14 @@ std::string AampCMCDCollector::convertHexa(long long number)
  *
  * @return None
  */
-void AampCMCDCollector::CMCDGetHeaders(AampMediaType fileType , std::vector<std::string> &customHeader)
+void AampCMCDCollector::CMCDGetHeaders(AampMediaType mediaType , std::vector<std::string> &customHeader)
 {
 	std::lock_guard<std::mutex> lock (myMutex);
 	if(bCMCDEnabled)
 	{
 		// To find the execution time of CMCD Header packing during download operation
 		std::unordered_map<std::string, std::vector<std::string>> CMCDCustomHeaders;
-		StreamTypeCMCDIter it=mCMCDStreamData.find(fileType);
+		StreamTypeCMCDIter it=mCMCDStreamData.find(mediaType);
 		CMCDHeaders *pCMCDMetrics=NULL;
 		if(it != mCMCDStreamData.end())
 		{
@@ -229,7 +229,7 @@ void AampCMCDCollector::CMCDGetHeaders(AampMediaType fileType , std::vector<std:
 		}
 		else
 		{
-			AAMPLOG_INFO("[CMCD][%d]Couldnt find the filetype to Get metrics",fileType);
+			AAMPLOG_INFO("[CMCD][%d]Couldnt find the filetype to Get metrics",mediaType);
 			return;
 		}
 		std::string headerValue;
@@ -240,7 +240,7 @@ void AampCMCDCollector::CMCDGetHeaders(AampMediaType fileType , std::vector<std:
 			headerValue.append(" ");
 			headerValue.append(it->second.at(0));
 			customHeader.push_back(headerValue);
-			AAMPLOG_TRACE("[CMCD][%d]Header :%s",fileType,headerValue.c_str());
+			AAMPLOG_TRACE("[CMCD][%d]Header :%s",mediaType,headerValue.c_str());
 		}
 	}
 }
@@ -251,12 +251,12 @@ void AampCMCDCollector::CMCDGetHeaders(AampMediaType fileType , std::vector<std:
  *
  * @return None
  */
-void AampCMCDCollector::CMCDSetNetworkMetrics(AampMediaType fileType,  int startTransferTime, int totalTime, int dnsLookUpTime)
+void AampCMCDCollector::CMCDSetNetworkMetrics(AampMediaType mediaType,  int startTransferTime, int totalTime, int dnsLookUpTime)
 {
 	std::lock_guard<std::mutex> lock (myMutex);
 	if(bCMCDEnabled)
 	{
-		StreamTypeCMCDIter it=mCMCDStreamData.find(fileType);
+		StreamTypeCMCDIter it=mCMCDStreamData.find(mediaType);
 		if(it != mCMCDStreamData.end())
 		{
 			CMCDHeaders *pCMCDMetrics = it->second;
@@ -264,7 +264,7 @@ void AampCMCDCollector::CMCDSetNetworkMetrics(AampMediaType fileType,  int start
 		}
 		else
 		{
-			AAMPLOG_INFO("[CMCD][%d]Couldnt find the filetype to store metrics",fileType);
+			AAMPLOG_INFO("[CMCD][%d]Couldnt find the filetype to store metrics",mediaType);
 		}
 	}
 }
@@ -272,25 +272,25 @@ void AampCMCDCollector::CMCDSetNetworkMetrics(AampMediaType fileType,  int start
 /**
  * @brief Collect and send all key-value pairs for CMCD headers.
  */
-void AampCMCDCollector::SetBitrates(AampMediaType fileType,const std::vector<BitsPerSecond> bitrateList)
+void AampCMCDCollector::SetBitrates(AampMediaType mediaType,const std::vector<BitsPerSecond> bitrateList)
 {
 	std::lock_guard<std::mutex> lock (myMutex);
 	if(bCMCDEnabled && bitrateList.size())
 	{
-		StreamTypeCMCDIter it=mCMCDStreamData.find(fileType);
+		StreamTypeCMCDIter it=mCMCDStreamData.find(mediaType);
 		if(it != mCMCDStreamData.end())
 		{
 			CMCDHeaders *pCMCDMetrics = it->second;
 			long maxBitrate = *max_element(bitrateList.begin(), bitrateList.end());
-			AAMPLOG_INFO("[CMCD][%d]Top Bitrate %ld",fileType,maxBitrate);
-			if(fileType == eMEDIATYPE_VIDEO || fileType == eMEDIATYPE_AUDIO)
+			AAMPLOG_INFO("[CMCD][%d]Top Bitrate %ld",mediaType,maxBitrate);
+			if(mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_AUDIO)
 			{
 				pCMCDMetrics->SetTopBitrate( (int)(maxBitrate/1000) );
 			}
 		}
 		else
 		{
-			AAMPLOG_INFO("[CMCD][%d]Couldnt find the filetype to store metrics",fileType);
+			AAMPLOG_INFO("[CMCD][%d]Couldnt find the filetype to store metrics",mediaType);
 		}
 	}
 }
@@ -300,18 +300,18 @@ void AampCMCDCollector::SetBitrates(AampMediaType fileType,const std::vector<Bit
 /**
  * @brief Collect and send all key-value pairs for CMCD headers.
  */
-void AampCMCDCollector::SetTrackData(AampMediaType fileType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed)
+void AampCMCDCollector::SetTrackData(AampMediaType mediaType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed)
 {
 	if(bCMCDEnabled)
 	{
 		// This is internal function called from GetHeaders. No Mutex lock needed here
-		StreamTypeCMCDIter it=mCMCDStreamData.find(fileType);
+		StreamTypeCMCDIter it=mCMCDStreamData.find(mediaType);
 		if(it == mCMCDStreamData.end())
 		{
 			return;
 		}
 		CMCDHeaders *pCMCDMetrics = it->second;
-		if(fileType == eMEDIATYPE_VIDEO || fileType == eMEDIATYPE_INIT_VIDEO)
+		if(mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO)
 		{
 			if(IsMuxed)
 			{
@@ -321,7 +321,7 @@ void AampCMCDCollector::SetTrackData(AampMediaType fileType,bool bufferRedStatus
 			pCMCDMetrics->SetBitrate(currentBitrate);
 			pCMCDMetrics->SetBufferLength(bufferedDuration);
 		}
-		else if(fileType == eMEDIATYPE_AUDIO || fileType == eMEDIATYPE_INIT_AUDIO)
+		else if(mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_INIT_AUDIO)
 		{
 			pCMCDMetrics->SetBufferStarvation(bufferRedStatus);
 			pCMCDMetrics->SetBufferLength(bufferedDuration);

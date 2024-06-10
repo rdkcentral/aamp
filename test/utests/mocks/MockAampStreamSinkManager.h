@@ -28,11 +28,7 @@ class MockAampStreamSinkManager : public AampStreamSinkManager
 public:
 
 	MOCK_METHOD(void, SetSinglePipelineMode, (PrivateInstanceAAMP *));
-#ifdef RENDER_FRAMES_IN_APP_CONTEXT
 	MOCK_METHOD(void, CreateStreamSink, (AampLogManager *, PrivateInstanceAAMP *, id3_callback_t , (std::function< void(uint8_t *, int, int, int) >)));
-#else
-	MOCK_METHOD(void, CreateStreamSink, (AampLogManager *, PrivateInstanceAAMP *, id3_callback_t));
-#endif
 	MOCK_METHOD(void, SetStreamSink, (PrivateInstanceAAMP *, StreamSink *));
 	MOCK_METHOD(void, DeleteStreamSink, (PrivateInstanceAAMP *));
 	MOCK_METHOD(void, ActivatePlayer, (PrivateInstanceAAMP *));

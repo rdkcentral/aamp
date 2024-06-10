@@ -72,7 +72,7 @@ int runCommand(bool videoFlag,  void *testArg)
 #ifdef __APPLE__
 	if (videoFlag == true)
 	{
-		terminateCocoaWindow(); // allow main thread to end
+		destroyAppWindow(); // allow main thread to end
 	}
 #endif
 

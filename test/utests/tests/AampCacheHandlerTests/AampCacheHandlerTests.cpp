@@ -223,9 +223,9 @@ protected:
             ClearPlaylistCache();
         }
 
-        bool CallAllocatePlaylistCacheSlot(AampMediaType fileType, size_t newLen)
+        bool CallAllocatePlaylistCacheSlot(AampMediaType mediaType, size_t newLen)
         {
-            return AllocatePlaylistCacheSlot(fileType, newLen);
+            return AllocatePlaylistCacheSlot(mediaType, newLen);
         }
 
         void CallClearInitFragCache()
@@ -233,9 +233,9 @@ protected:
             ClearInitFragCache();
         }
 
-        void CallRemoveInitFragCacheEntry(AampMediaType fileType)
+        void CallRemoveInitFragCacheEntry(AampMediaType mediaType)
         {
-            RemoveInitFragCacheEntry(fileType);
+            RemoveInitFragCacheEntry(mediaType);
         }
     };
 
@@ -284,9 +284,9 @@ TEST_F(AampCacheHandlerTest_1, TestClearPlaylistCache)
 
 TEST_F(AampCacheHandlerTest_1, TestAllocatePlaylistCacheSlot)
 {
-    AampMediaType fileType = AampMediaType::eMEDIATYPE_DEFAULT; // or any other valid media type
+    AampMediaType mediaType = AampMediaType::eMEDIATYPE_DEFAULT; // or any other valid media type
     size_t newLen = 100; // or any other valid size
-    bool result = mTestableAampCacheHandler->CallAllocatePlaylistCacheSlot(fileType, newLen);
+    bool result = mTestableAampCacheHandler->CallAllocatePlaylistCacheSlot(mediaType, newLen);
 
 }
 
@@ -298,7 +298,7 @@ TEST_F(AampCacheHandlerTest_1, TestClearInitFragCache)
 
 TEST_F(AampCacheHandlerTest_1, TestRemoveInitFragCacheEntry)
 {
-    AampMediaType fileType = AampMediaType::eMEDIATYPE_DEFAULT; // or any other valid media type
-    mTestableAampCacheHandler->CallRemoveInitFragCacheEntry(fileType);
+    AampMediaType mediaType = AampMediaType::eMEDIATYPE_DEFAULT; // or any other valid media type
+    mTestableAampCacheHandler->CallRemoveInitFragCacheEntry(mediaType);
 
 }

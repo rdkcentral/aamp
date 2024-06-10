@@ -1,34 +1,13 @@
 #!/bin/bash
 
-L2_TEST_PACKAGE_INSTALL_LIST=""
-
-
-function linux_package_exists() {
-    if [ -z $(dpkg -s "$1" &> /dev/null) ]; then
-        L2_TEST_PACKAGE_INSTALL_LIST="$L2_TEST_PACKAGE_INSTALL_LIST $1"
-    else
-        echo "$1 already installed"
-    fi
-}
-
-function brew_package_exists() {
-    if [ -z $(brew list "$1" &> /dev/null) ]; then
-        L2_TEST_PACKAGE_INSTALL_LIST="$L2_TEST_PACKAGE_INSTALL_LIST $1"
-    else
-        echo "$1 already installed"
-    fi
-}
-
 function linux_install_packages() {
-    if [ "L2_TEST_PACKAGE_INSTALL_LIST" != "" ]; then
-        sudo apt-get --no-install-recommends install -y $L2_TEST_PACKAGE_INSTALL_LIST
-    fi
+    sudo apt-get update
+    sudo apt-get --no-install-recommends install -y $@
 }
 
 function brew_install_packages() {
-    if [ "L2_TEST_PACKAGE_INSTALL_LIST" != "" ]; then
-        brew install $L2_TEST_PACKAGE_INSTALL_LIST
-    fi
+    brew update --auto-update
+    brew install $@
 }
 
 echo "Installing required packages"
@@ -42,24 +21,16 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
         echo "Homebrew is installed now just updating it"
     fi
 
-    brew update --auto-update
-    brew_package_exists curl
-    brew_package_exists wget
-    brew_install_packages
+    packages="curl wget"
+    brew_install_packages $packages
 
     python3 -m ensurepip
     python3 -m pip install --upgrade pip
     python3 -m pip install virtualenv
 
 else
-    sudo apt-get update
-    linux_package_exists python3-pip
-    linux_package_exists python3-venv
-    linux_package_exists gstreamer1.0-plugins-good
-    linux_package_exists gstreamer1.0-plugins-ugly
-    linux_package_exists curl
-    linux_package_exists wget
-    linux_install_packages
+    packages="python3-pip python3-venv gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly curl wget unzip"
+    linux_install_packages $packages
 fi
 
 # log python3 info
@@ -105,3 +76,4 @@ if [[ "$VIRTUAL_ENV" != "$(pwd)/l2venv" ]]; then
     echo "Activate venv with \"source l2venv/bin/activate\"."
     echo "venv can be deactivated with the \"deactivate\" command."
 fi
+

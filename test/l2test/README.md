@@ -17,6 +17,7 @@ Activate python virtual environment "l2venv" that will have been created.
 3. Selects list of tests to run from command line options
 4. Runs pytest on that list of tests
 5. Generates results.json file from results.xml produced by pytest
+6. Generates code coverage achieved by the tests
 
 # How to run L2 test suites run_l2_aamp.py
 
@@ -58,6 +59,16 @@ Command line arguments other than -e -t -v -b get passed into pytest. Consult py
 The option -t -e select an intial set of tests and then pytest options may further restrict that set.
 
     ./run_l2_aamp.py -m ci_test_set
+
+**To generate code coverage data**
+
+Note that aamp-cli must be built with install-aamp.sh -c first. Coverage is written to ../l2test/Coverage
+ 
+    ./run_l2_aamp.py --coverage
+
+or to include building of aamp-cli
+
+    ./run_l2_aamp.py -b --coverage
 
 **To get help about script, use the following command**
 

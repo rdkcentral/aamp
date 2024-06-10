@@ -343,14 +343,14 @@ TEST(_AampUtils, getHarvestConfigForMedia)
 		eHARVEST_ENABLE_INIT_SUBTITLE, eHARVEST_ENABLE_MANIFEST, eHARVEST_ENABLE_LICENCE, eHARVEST_ENABLE_IFRAME, eHARVEST_ENABLE_INIT_IFRAME,
 		eHARVEST_ENABLE_PLAYLIST_VIDEO, eHARVEST_ENABLE_PLAYLIST_AUDIO, eHARVEST_ENABLE_PLAYLIST_SUBTITLE, eHARVEST_ENABLE_PLAYLIST_IFRAME,
 		eHARVEST_ENABLE_DSM_CC, eHARVEST_DISABLE_DEFAULT, eHARVEST_DISABLE_DEFAULT};
-	AampMediaType fileType[] = {eMEDIATYPE_VIDEO, eMEDIATYPE_INIT_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_INIT_AUDIO, eMEDIATYPE_SUBTITLE,
+	AampMediaType mediaType[] = {eMEDIATYPE_VIDEO, eMEDIATYPE_INIT_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_INIT_AUDIO, eMEDIATYPE_SUBTITLE,
 		eMEDIATYPE_INIT_SUBTITLE, eMEDIATYPE_MANIFEST, eMEDIATYPE_LICENCE, eMEDIATYPE_IFRAME, eMEDIATYPE_INIT_IFRAME,
 		eMEDIATYPE_PLAYLIST_VIDEO, eMEDIATYPE_PLAYLIST_AUDIO, eMEDIATYPE_PLAYLIST_SUBTITLE,	eMEDIATYPE_PLAYLIST_IFRAME,
 		eMEDIATYPE_DSM_CC, eMEDIATYPE_IMAGE, eMEDIATYPE_DEFAULT};
 		
-	for(int i=0; i < ARRAY_SIZE(fileType); i++)
+	for(int i=0; i < ARRAY_SIZE(mediaType); i++)
 	{
-		int result = getHarvestConfigForMedia(fileType[i]);
+		int result = getHarvestConfigForMedia(mediaType[i]);
 		EXPECT_EQ(result, harvestType[i]);
 	}	
 }
@@ -361,22 +361,22 @@ TEST(_AampUtils, aamp_WriteFile)
 	bool result;
 	std::string fileName = "http://aamp_utils_test";
 	int count=10;
-	AampMediaType fileType = eMEDIATYPE_PLAYLIST_VIDEO;
-	result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "prefix");
+	AampMediaType mediaType = eMEDIATYPE_PLAYLIST_VIDEO;
+	result = aamp_WriteFile(fileName, teststr, strlen(teststr), mediaType, count, "prefix");
 	EXPECT_TRUE(result);
 
 	//For coverage, expect to be rejected because no "/" or"." in filename
-	fileType = eMEDIATYPE_MANIFEST;
-	result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "prefix");
+	mediaType = eMEDIATYPE_MANIFEST;
+	result = aamp_WriteFile(fileName, teststr, strlen(teststr), mediaType, count, "prefix");
 	EXPECT_FALSE(result);
 
 	fileName +="/MANIFEST.EXT";
-	result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "prefix");
+	result = aamp_WriteFile(fileName, teststr, strlen(teststr), mediaType, count, "prefix");
 	EXPECT_TRUE(result);
 
         //For coverage - attempt to create folder in "/"
-        fileType = eMEDIATYPE_PLAYLIST_VIDEO;
-        result = aamp_WriteFile(fileName, teststr, strlen(teststr), fileType, count, "/");
+        mediaType = eMEDIATYPE_PLAYLIST_VIDEO;
+        result = aamp_WriteFile(fileName, teststr, strlen(teststr), mediaType, count, "/");
         auto me = getuid();
         if (me == 0) // i am (g)root
         {
@@ -401,11 +401,11 @@ TEST(_AampUtils, aamp_WriteFile2)
 	std::string fileName = "http://www.example.com/manifest.mpd";
     const char* data = "Manifest Data";
     size_t len = strlen(data);
-    AampMediaType fileType = eMEDIATYPE_MANIFEST;
+    AampMediaType mediaType = eMEDIATYPE_MANIFEST;
     unsigned int count = 0;
     const char* prefix = "prefix_";
 
-    bool result = aamp_WriteFile(fileName, data, len, fileType, count, prefix);
+    bool result = aamp_WriteFile(fileName, data, len, mediaType, count, prefix);
 	EXPECT_TRUE(result);
 }
 

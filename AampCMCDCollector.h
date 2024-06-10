@@ -100,21 +100,21 @@ public:
 	 */
 	void Initialize(bool enableDisable , std::string &traceId);
 	/**
-	 * @brief CMCDSetNetworkMetrics Store Network Metrics for the fileType
+	 * @brief CMCDSetNetworkMetrics Store Network Metrics for the mediaType
 	 *
-	 * @param[in] fileType - File Type for storing the data
+	 * @param[in] mediaType - File Type for storing the data
 	 * @param[in] NetworkMetrics - Network Metrics to store 
 	 * @return None
 	 */
-	void CMCDSetNetworkMetrics(AampMediaType fileType, int startTransferTime, int totalTime, int dnsLookUpTime);
+	void CMCDSetNetworkMetrics(AampMediaType mediaType, int startTransferTime, int totalTime, int dnsLookUpTime);
 	/**
 	 * @brief CMCDGetHeaders Get the CMCD headers to add in downlaod request
 	 *
 	 * @return None
 	 */
-	void CMCDGetHeaders(AampMediaType fileType ,  std::vector<std::string> &customHeader);
-	void SetBitrates(AampMediaType fileType,const std::vector<BitsPerSecond> bitrates);
-	void SetTrackData(AampMediaType fileType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed=false);
+	void CMCDGetHeaders(AampMediaType mediaType ,  std::vector<std::string> &customHeader);
+	void SetBitrates(AampMediaType mediaType,const std::vector<BitsPerSecond> bitrates);
+	void SetTrackData(AampMediaType mediaType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed=false);
 private:
 	AampLogManager *mLogObj; 	   /**< Logger instance for CMCDCollector */
 	bool bCMCDEnabled;			/**< CMCD enable/disable flag  */

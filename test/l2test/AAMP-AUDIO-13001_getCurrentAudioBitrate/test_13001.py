@@ -22,9 +22,7 @@
 
 
 import os
-import sys
-import json
-
+import pytest
 from inspect import getsourcefile
 
 #Test stream
@@ -32,43 +30,28 @@ DASH_TEST_STREAM = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/publi
 DASH_BITRATE = 288000
 
 #Dictionary to store test stream and its respective bitrate that we need to verify
-testStreamDic = { DASH_TEST_STREAM:DASH_BITRATE}
-fullTestData = {
+test_data = [{ "url":DASH_TEST_STREAM, "bitrate": DASH_BITRATE}]
+
+@pytest.fixture(params=test_data)
+def test_data(request):
+    return request.param
+def test_13001(aamp_setup_teardown, test_data):
+
+    fullTestData = {
     "title": "TEST GETCURRENRAUDIOBITRATE API",
     "max_test_time_seconds": 15,
-    "aamp_cfg": "info=true\nabr=false\n"
-}
-
-#The API is employed to create a test sequence,
-#which must be executed a specified number of times corresponding
-#to the total number of test streams.
-def getTestSequence(streamUrl,bitRate,sleepInms):
-    testCommandlist =[
-        {"cmd": streamUrl},
+    "aamp_cfg": "info=true\nabr=false\n",
+    "expect_list":[
+        {"cmd": test_data["url"]},
         {"expect": "AAMP_EVENT_STATE_CHANGED: PLAYING"},
         {"cmd": "set audioTrack 0"},
         {"expect": "Matched Command AudioTrack"},
         {"cmd": "get audioBitrate"},
-        {"expect": "AUDIO BITRATE = {}".format(bitRate)},
+        {"expect": "AUDIO BITRATE = {}".format(test_data["bitrate"])},
         {"cmd": "stop"},
         {"expect": "aamp_stop PlayerState"},
     ]
-    return testCommandlist
-
-
-def test_13001(aamp_setup_teardown):
-    testSequenceList = []
-    for stream,audioBitrate in testStreamDic.items():
-        #Generating test sequence list for all the given stream.
-        testSequenceList.append(getTestSequence(stream,audioBitrate,2000))
-
-    for idx, testSequence in enumerate(testSequenceList):
-
-        fullTestData["expect_list"] = testSequence
-        fullTestData["logfile"] = "CurrentAudioBitrate_" + str(idx) + ".log"
-
-        aamp = aamp_setup_teardown
-        aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-        aamp.create_aamp_cfg(fullTestData.get('aamp_cfg'))
-        #Passing each test sequence to aampcli through run_expect_a API
-        aamp.run_expect_a(fullTestData)
+    }
+    aamp = aamp_setup_teardown
+    aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
+    aamp.run_expect_a(fullTestData)
