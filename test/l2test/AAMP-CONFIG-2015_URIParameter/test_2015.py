@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+# If not stated otherwise in this file or this component's LICENSE file the
+# following copyright and licenses apply:
+#
+# Copyright 2023 RDK Management
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+from inspect import getsourcefile
+import os
+import pytest
+
+
+
+TESTDATA1 = {
+    "title": "Test case to validate UriParameter",
+    "logfile": "testdata1.txt",
+    "max_test_time_seconds": 50,
+    "aamp_cfg": f"info=true\ntrace=true\nprogress=true\n",
+    "expect_list": [
+        {"cmd":'setconfig {"uriParameter":"?hello_1","curlHeader":true}'},
+
+        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+       
+        {"expect": f"uriParameter New Owner"},
+        {"expect": r"Parsed\ value\ for\ property\ uriParameter\ -\ \?hello_1"},
+
+
+        #mpd
+        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/main\.mpd\?hello_1"},
+
+        #init_segment
+        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/(1080|720|480|360)p_init\.m4s\?hello_1"},
+
+        
+        #Media_segment
+        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/(1080|720|480|360)p_001\.m4s\?hello_1"},
+        
+        #audio segment
+        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/en_001\.mp3\?hello_1"},
+
+        
+        {"expect": r"AAMP_EVENT_STATE_CHANGED:\ PLAYING"},
+
+        {"expect": r"Returning Position as 3(\d{3}) "},
+        
+        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/(1080|720|480|360)p_02(\d){1}\.m4s\?hello_1"},
+
+        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/en_02(\d){1}\.mp3\?hello_1"},
+        
+    ]
+}
+
+
+TESTLIST = [TESTDATA1]
+############################################################
+"""
+With this fixture we cause the test to be called
+with each entry in TESTLIST
+"""
+@pytest.fixture(params=TESTLIST)
+def test_data(request):
+    return request.param
+def test_2015(aamp_setup_teardown, test_data):
+    aamp = aamp_setup_teardown
+    aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
+    aamp.run_expect_a(test_data)
