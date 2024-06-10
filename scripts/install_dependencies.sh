@@ -122,7 +122,7 @@ function install_pkgs_linux_fn()
 
     VER=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
-    if [ ${VER:0:2} -eq 22 ]; then
+    if [ ${VER:0:2} -ge 22 ]; then
         # Install and verify the version of meson
         install_package_fn python3-pip
         pip_install_package_fn meson

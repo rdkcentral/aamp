@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <cstdint> // for std::uint64_t
 
 uint64_t Number( const std::string &string );
 

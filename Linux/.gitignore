@@ -5,5 +5,5 @@ gst-plugins-rdk-aamp
 include
 lib
 libdash
-
+*.tar.*
 bin
