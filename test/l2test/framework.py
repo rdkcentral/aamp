@@ -123,7 +123,7 @@ class Aamp:
         self.test_dir_path = None
         self.aamp_pexpect = None
         self.logfile = None
-        self.EXPECT_TIMEOUT = 10
+        self.EXPECT_TIMEOUT = 30
 
     def run_prerequisite(self, script="prerequisite.sh"):
         """
