@@ -26,6 +26,7 @@ protected:
     void TearDown() override
     {
         delete g_mockGLib;
+        g_mockGLib = nullptr;
     }
 
 public:
@@ -229,8 +230,8 @@ TEST_F(FunctionalTests, TransferNonEmptyTest)
 
 //#endif
 //}
-//These test cases cover larger buffer sizes (1K, 8K, 32K)
 
+// These test cases cover larger buffer sizes (1K, 8K, 32K)
 TEST_F(FunctionalTests, Reserve1KBytesTest)
 {
     AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
@@ -286,7 +287,7 @@ TEST_F(FunctionalTests, Reserve32KBytesTest)
     EXPECT_EQ(buffer.GetAvail(), numBytesToReserve); // Check if available space is set correctly
 }
 
-//These test cases cover a series of appends
+// These test cases cover a series of appends
 TEST_F(FunctionalTests, SeriesOfAppendsTest)
 {
     AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
@@ -311,3 +312,57 @@ TEST_F(FunctionalTests, SeriesOfAppendsTest)
     EXPECT_GE(buffer.GetAvail(),8192); // Available space should be greater than or equal to total length
 }
 
+TEST_F(FunctionalTests, ReduceLenPositiveTest)
+{
+    AampGrowableBuffer buffer("buffer");    // Create a new buffer for this test
+
+    const char* srcData = "Hello, World!";
+    size_t srcLen = strlen(srcData);
+    size_t srcNewLen = srcLen / 2;          // Reduce the length to half
+
+    // Expectation for AppendBytes()
+    EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillOnce(callRealloc);
+
+    // Expectation for the destructor ~AampGrowableBuffer()
+    EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
+
+    buffer.AppendBytes(srcData, srcLen);
+
+    // Assert: Check the effects of the AppendBytes function
+    // These aren't null terminated strings, must use memcmp
+    int result = memcmp(buffer.GetPtr(), srcData, srcLen);
+
+    EXPECT_EQ(result, 0);                   // Check if data was appended correctly
+    EXPECT_EQ(buffer.GetLen(), srcLen);     // Check if length is set correctly
+
+    buffer.ReduceLen(srcNewLen);
+    EXPECT_EQ(buffer.GetLen(), srcNewLen);
+}
+
+TEST_F(FunctionalTests, ReduceLenNegativeTest)
+{
+    AampGrowableBuffer buffer("buffer");    // Create a new buffer for this test
+
+    const char* srcData = "Hello, World!";
+    size_t srcLen = strlen(srcData);
+    size_t srcNewLen = srcLen * 2;          // Try to double the length (should fail)
+
+    // Expectation for AppendBytes()
+    EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillOnce(callRealloc);
+
+    // Expectation for the destructor ~AampGrowableBuffer()
+    EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
+
+    buffer.AppendBytes(srcData, srcLen);
+
+    // Assert: Check the effects of the AppendBytes function
+    // These aren't null terminated strings, must use memcmp
+    int result = memcmp(buffer.GetPtr(), srcData, srcLen);
+
+    EXPECT_EQ(result, 0);                   // Check if data was appended correctly
+    EXPECT_EQ(buffer.GetLen(), srcLen);     // Check if length is set correctly
+
+    // ReduceLen() should assert if the new length is bigger than the old one
+    EXPECT_DEATH(buffer.ReduceLen(srcNewLen), _);
+    EXPECT_EQ(buffer.GetLen(), srcLen);     // Check that length has not changed
+}
