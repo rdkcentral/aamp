@@ -2312,6 +2312,7 @@ TEST_F(PrivAampTests, NotifyFirstBufferProcessedTest)
 	// This applies because NotifyFirstBufferProcessed is currently called on a GStreamer thread.
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).Times(0);
 
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockAampDRMSessionManager, setVideoWindowSize(1024, 768));
 	p_aamp->NotifyFirstBufferProcessed(std::string("0,0,1024,768"));
@@ -2323,6 +2324,7 @@ TEST_F(PrivAampTests, NotifyFirstBufferProcessedTest_VideoRectangleEmpty)
 	// This applies because NotifyFirstBufferProcessed is currently called on a GStreamer thread.
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).Times(0);
 
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockAampDRMSessionManager, setVideoWindowSize(0, 0));
 	p_aamp->NotifyFirstBufferProcessed(std::string());
