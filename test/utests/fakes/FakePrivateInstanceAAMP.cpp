@@ -1398,6 +1398,10 @@ void PrivateInstanceAAMP::WakeupLatencyCheck()
 {
 }
 
+void PrivateInstanceAAMP::IncreaseGSTBufferSize()
+{
+}
+
 AampTSBSessionManager *PrivateInstanceAAMP::GetTSBSessionManager()
 {
     return NULL;

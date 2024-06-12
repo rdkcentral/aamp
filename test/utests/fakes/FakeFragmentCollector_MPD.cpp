@@ -108,7 +108,14 @@ int StreamAbstractionAAMP_MPD::GetProfileIndexForBandwidth(BitsPerSecond mTsbBan
 
 BitsPerSecond StreamAbstractionAAMP_MPD::GetMaxBitrate()
 {
-    return 0;
+    if (g_mockStreamAbstractionAAMP_MPD)
+    {
+        return g_mockStreamAbstractionAAMP_MPD->GetMaxBitrate();
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 void StreamAbstractionAAMP_MPD::StartSubtitleParser()

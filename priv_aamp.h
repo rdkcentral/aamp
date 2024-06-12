@@ -4224,6 +4224,10 @@ public:
 	 * @brief Is mLocalAAMPTsb enabled/disabled
 	 */
 	bool IsLocalAAMPTsbInjection();
+	/**
+	 * @brief Increase Buffer value dynamically according to Max Profile Bandwidth to accomodate Larger Buffers
+	 */
+	void IncreaseGSTBufferSize();
 
 protected:
 

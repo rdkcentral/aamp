@@ -76,4 +76,3 @@ void IsoBmffProcessor::waitForVideoPTS()
 void IsoBmffProcessor::abortWaitForVideoPTS()
 {
 }
-

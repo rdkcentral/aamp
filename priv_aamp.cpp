@@ -5491,6 +5491,13 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			seek_pos_seconds = 0;
 		}
 #endif
+
+		// Increase Buffer value dynamically according to Max Profile Bandwidth to accomodate HiFi Content Buffers
+		if (newTune && GETCONFIGOWNER_PRIV(eAAMPConfig_GstVideoBufBytes) == AAMP_DEFAULT_SETTING && mpStreamAbstractionAAMP && mpStreamAbstractionAAMP->GetProfileCount())
+		{
+			IncreaseGSTBufferSize();
+		}
+
 		if (!mbUsingExternalPlayer)
 		{
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -5782,9 +5789,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 					SetIsIframeExtractionEnabled(true);
 					AAMPLOG_INFO("TSB Session Manager created and Active!!");
 				}
-				AAMPLOG_WARN("GST Audio Buffer increased to (%d) Video Buffer Size Increased to (%d) for HiFi LLD Stream", (GST_AUDIOBUFFER_SIZE_BYTES_BASE*9), (GST_VIDEOBUFFER_SIZE_BYTES_BASE*9));
-				SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_GstVideoBufBytes, (GST_VIDEOBUFFER_SIZE_BYTES_BASE*6));
-				SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_GstAudioBufBytes, (GST_AUDIOBUFFER_SIZE_BYTES_BASE*6));
+				if(mTSBStore)
+				{
+					AAMPLOG_INFO("Refreshing the TSB Store session!!");
+					mTSBStore->Flush();
+				}
 			}
 		}
 		//For the LLD case, we need to update the manifest timeout before starting the MPDDownloader. So, we are updating the value here
@@ -13443,6 +13452,29 @@ void PrivateInstanceAAMP::SetLocalAAMPTsbInjection(bool value)
 bool PrivateInstanceAAMP::IsLocalAAMPTsbInjection()
 {
 	return mLocalAAMPInjectionEnabled;
+}
+
+void PrivateInstanceAAMP::IncreaseGSTBufferSize()
+{
+	int minVideoBufValue = GST_VIDEOBUFFER_SIZE_BYTES; // 3-4Mb for Non-4K, 12-15 Mb for 4K
+	int maxVideoBufValue = GST_VIDEOBUFFER_SIZE_MAX_BYTES; // 25 Mb
+	float bufferFactor= GETCONFIGVALUE_PRIV(eAAMPConfig_BWToGstBufferFactor);
+	BitsPerSecond maxBitrate = mpStreamAbstractionAAMP->GetMaxBitrate();
+	int calcVideoBufValue = maxBitrate * bufferFactor;
+
+	if(calcVideoBufValue < minVideoBufValue)
+	{
+		calcVideoBufValue = minVideoBufValue;
+	}
+	else if(calcVideoBufValue > maxVideoBufValue)
+	{
+		calcVideoBufValue = maxVideoBufValue;
+	}
+	if(calcVideoBufValue > 0 && GETCONFIGVALUE_PRIV(eAAMPConfig_GstVideoBufBytes) != calcVideoBufValue)	// Update only if different
+	{
+		AAMPLOG_WARN("Max BW (%ld), calculated Buffer Size (%f) changing Buffer size from %d -->> %d",maxBitrate,maxBitrate * bufferFactor,GETCONFIGVALUE_PRIV(eAAMPConfig_GstVideoBufBytes),calcVideoBufValue);
+		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_GstVideoBufBytes, calcVideoBufValue);
+	}
 }
 
 /**
