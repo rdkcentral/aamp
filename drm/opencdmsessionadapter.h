@@ -31,7 +31,7 @@ public:
 	Event() : signalled(false), lock(PTHREAD_MUTEX_INITIALIZER), condition(PTHREAD_COND_INITIALIZER), condAttr() {
                pthread_mutex_init(&lock, NULL);
                pthread_condattr_init(&condAttr);
-#ifndef __APPLE__
+#ifndef __APPLE__ // pthread_condattr_setclock API not available on OSX
                pthread_condattr_setclock(&condAttr, CLOCK_MONOTONIC );
 #endif
                pthread_cond_init(&condition, &condAttr);
