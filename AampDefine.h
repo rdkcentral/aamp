@@ -50,6 +50,8 @@
 #define GST_VIDEOBUFFER_SIZE_BYTES (GST_VIDEOBUFFER_SIZE_BYTES_BASE)
 #define GST_AUDIOBUFFER_SIZE_BYTES (GST_AUDIOBUFFER_SIZE_BYTES_BASE)
 #endif
+#define GST_BW_TO_BUFFER_FACTOR 0.80			/**< Bandwidth to buffer factor to calculate new GST Buffer Size to accomodate larger Video Buffers*/
+#define GST_VIDEOBUFFER_SIZE_MAX_BYTES 26214400			/**< 25*1024*1024 , Upper limit for HiFi Content */
 
 #define DEFAULT_ENCODED_CONTENT_BUFFER_SIZE (512*1024)		/**< 512KB buffer is allocated for a content encoded curl download to minimize buffer reallocation*/
 #define MAX_PTS_ERRORS_THRESHOLD 4

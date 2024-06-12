@@ -510,5 +510,5 @@ double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampL
 }
 TSB::LogLevel ConvertTsbLogLevel(int logLev)
 {
-	return TSB::LogLevel::WARN;
+	return static_cast<TSB::LogLevel>(0);
 }

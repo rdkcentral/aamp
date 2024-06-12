@@ -250,3 +250,6 @@ void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlD
 void RemoveProbes()
 {
 }
+void AAMPGstPlayer::FlushAudio(double pos)
+{
+}
