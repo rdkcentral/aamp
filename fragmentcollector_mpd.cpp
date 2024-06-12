@@ -8550,7 +8550,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					{
 						if (aamp->GetIsPeriodChangeMarked())
 						{
-							AAMPLOG_WARN("Discontinuity process is yet to complete, going to wait until it is done");
 							aamp->WaitForDiscontinuityProcessToComplete();
 						}
 
