@@ -76,14 +76,6 @@ pkg_check_modules(UUID REQUIRED uuid)
 
 include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
-add_subdirectory(tsb)
-
-install(TARGETS tsb
-        DESTINATION lib
-        PUBLIC_HEADER DESTINATION include
-)
-
-
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
     message("CMAKE_WPEFRAMEWORK_REQUIRED set")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
