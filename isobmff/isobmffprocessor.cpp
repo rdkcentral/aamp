@@ -810,9 +810,7 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 void IsoBmffProcessor::setDiscontinuityState(bool isDiscontinuity)
 {
 	std::lock_guard<std::mutex> lock(skipMutex);
-	AAMPLOG_WARN("Gnanesha before  %d %d",ptsDiscontinuity,isDiscontinuity);
 	ptsDiscontinuity = isDiscontinuity;
-	AAMPLOG_WARN("Gnanesha After  %d %d",ptsDiscontinuity,isDiscontinuity);
 }
 
 /**

@@ -120,7 +120,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
         }
 		else
 		{
-			if(actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO)
+			if( ( actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO ) && ret ) //Only if init fragment successfull or avilable from cache
 			{
 				//To read track_id from the init fragments to check if there any mismatch.
 				//A mismatch in track_id is not handled in the gstreamer version 1.10.4
@@ -220,7 +220,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
     }
     else if (!ret)
     {
-	AAMPLOG_INFO("fragment fetch failed - Free cachedFragment");
+	    AAMPLOG_INFO("fragment fetch failed - Free cachedFragment for %d",actualType);
         cachedFragment->fragment.Free();
         if( aamp->DownloadsAreEnabled())
         {
@@ -290,7 +290,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
                     else
                     {
                         AAMPLOG_WARN("%s StreamAbstractionAAMP_MPD::Already at the lowest profile, skipping segment at pos:%lf dur:%lf disc:%d",name,position,duration,discontinuity);
-                        updateSkipPoint(position+duration,duration );
+                        if(!initSegment)
+                            updateSkipPoint(position+duration,duration );
 					    context->mRampDownCount = 0;
                     }
                 }
