@@ -53,7 +53,7 @@ private:
 	 * @return true if parse was successful. false otherwise
 	 */
 	bool getFirstPTSInternal(const std::vector<Box*> *boxes, uint64_t &pts);
-        
+
 	/**
 	 * @fn getTrackIdInternal
 	 *
@@ -164,7 +164,7 @@ public:
 	 * @return true if parse was successful. false otherwise
 	 */
 	bool getFirstPTS(uint64_t &pts);
-	
+
 	/**
 	 * @fn getTrack_id
 	 *
@@ -254,7 +254,7 @@ public:
 	 * @return true if parse was successful. false otherwise
 	 */
 	bool getEMSGInfoInternal(const std::vector<Box*> *boxes, uint8_t* &message, uint32_t &messageLen, char * &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id, bool &foundEmsg);
-	
+
 	/**
 	 * @fn getMdatBoxCount
 	 * @param[out] count - mdat box count
@@ -294,7 +294,8 @@ public:
 	/**
 	 * @fn getBox
 	 * @param[in] name - box name to get
-	 * @param[out] index - index of box in a parsed buffer
+	 * @param[in,out] index - index of box in a parsed buffer;
+	 *                   in: start index to search, out: index of the box found
 	 * @return Box handle if Box found at index given. NULL otherwise
 	 */
 	Box* getBox(const char *name, size_t &index);
@@ -347,7 +348,16 @@ public:
 	 * @return uint64_t - PTS value
 	 */
 	uint64_t getPtsInternal(const std::vector<Box*> *boxes);
-};
 
+	/**
+	 * @fn truncate
+	 *
+	 * @brief For a parsed buffer, truncate it to retain just the first sample: reduce all relevant tables to 1 entry
+	 *        and truncate the first mdat box to the first sample. Any boxes following the first mdat are discarded.
+	 *
+	*/
+	void truncate(void);
+	size_t getSize(void) const { return bufSize; }
+};
 
 #endif /* __ISOBMFFBUFFER_H__ */

@@ -40,6 +40,7 @@ using ::testing::_;
 using ::testing::DoAll;
 using ::testing::Return;
 using ::testing::SetArgReferee;
+using ::testing::TypedEq;
 
 AampConfig *gpGlobalConfig{nullptr};
 AampLogManager *mLogObj{nullptr};
@@ -197,7 +198,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests)
 	duration = (double) vDuration / (double)vCurrTS;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(0), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, position, duration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -207,7 +208,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests)
 
 	position += duration;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(48048), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, position, duration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -244,7 +245,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 	vSegDuration = (double)vDuration / (double)vCurrTS;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(0), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -256,7 +257,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 	vPosition += vSegDuration;
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(0), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(aDuration));
 	aSegDuration = (double)aDuration / (double)aCurrTS;
 	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, aSegDuration, discontinuous,false, mProcessorFn, ptsError);
@@ -275,7 +276,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vDuration), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, discontinuous,false, mProcessorFn, ptsError);
 
@@ -306,7 +307,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_2)
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(basePts), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -326,7 +327,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_2)
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(3467617920666), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDurationAfterABR));
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -359,7 +360,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(basePts), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -380,7 +381,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(0), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDurationAfterABR));
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -413,7 +414,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4)
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(basePts), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -425,7 +426,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4)
 
 	position += vSegDuration;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vDuration), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -453,7 +454,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4)
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(0), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDurationAfterABR));
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -484,7 +485,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_2)
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(basePts), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -494,7 +495,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_2)
 	EXPECT_EQ(restampedPTS, rslt);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vDuration), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	position += vSegDuration;
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration-1, discontinuous, false, mProcessorFn, ptsError);
@@ -527,7 +528,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	vSegDuration = (double)vDuration / (double)vCurrTS;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(basePts), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -538,7 +539,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 
 	aSegDuration = (double)aDuration / (double)aCurrTS;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(basePts), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(aDuration));
 	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, aSegDuration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -550,7 +551,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	aPosition += aSegDuration;
 	vPosition += vSegDuration;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vDuration), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -574,7 +575,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	vSegDuration = (double)vDuration / (double)vCurrTS;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(240240), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -585,7 +586,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 
 	aSegDuration = (double)aDuration / (double)aCurrTS;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(481280), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(aNewDuration));
 	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, aSegDuration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -614,7 +615,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_4)
 	rslt = ceil((position) * vCurrTS);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(basePts), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, position, duration, discontinuous, false, mProcessorFn, ptsError);
 
@@ -623,7 +624,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_4)
 
 	position += duration;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vDuration), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, position, duration, discontinuous, false, mProcessorFn, ptsError); 
 
@@ -638,7 +639,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_4)
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vDuration), Return(true)));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_,_)).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, position, duration, discontinuous, false, mProcessorFn, ptsError);
 
