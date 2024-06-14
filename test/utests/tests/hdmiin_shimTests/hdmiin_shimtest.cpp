@@ -44,19 +44,11 @@ protected:
 
     void TearDown() override
     {
-        StreamAbstractionAAMP_HDMIIN::ResetInstance();
-        //HDMIinput->~StreamAbstractionAAMP_HDMIIN(); // FIXME!
+        HDMIinput->ResetInstance();
     }
 
     StreamAbstractionAAMP_HDMIIN *HDMIinput;
 };
-
-TEST_F(StreamAbstractionAAMP_HDMIINTest, DestructorTest)
-{
-    StreamAbstractionAAMP_HDMIIN* HDMIinput_1 = StreamAbstractionAAMP_HDMIIN::GetInstance(mLogObj, mPrivateInstanceAAMP, 0.0, 1.0);
-    StreamAbstractionAAMP_HDMIIN::ResetInstance();
-    //HDMIinput_1->~StreamAbstractionAAMP_HDMIIN(); // FIXME!
-}
 
 TEST_F(StreamAbstractionAAMP_HDMIINTest, InitRegistersEvents)
 {

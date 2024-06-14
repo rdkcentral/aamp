@@ -42,19 +42,11 @@ protected:
         }
     
         void TearDown() override {
-            StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
-            //compositeInput->~StreamAbstractionAAMP_COMPOSITEIN(); // FIXME!
+            compositeInput->ResetInstance();
         }
 
     StreamAbstractionAAMP_COMPOSITEIN* compositeInput;
 };
-
-TEST_F(StreamAbstractionAAMP_COMPOSITEINTEST, DestructorTest) {
-    StreamAbstractionAAMP_COMPOSITEIN* compositeInput_1 = StreamAbstractionAAMP_COMPOSITEIN::GetInstance(mLogObj, mPrivateInstanceAAMP, 0.0, 1.0);
-    // Act: Call the destructor by deleting the object
-    //compositeInput_1->~StreamAbstractionAAMP_COMPOSITEIN(); // FIXME!
-
-}
 
 TEST_F(StreamAbstractionAAMP_COMPOSITEINTEST, InitTest) {
     
