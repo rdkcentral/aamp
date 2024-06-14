@@ -28,6 +28,21 @@
 #include <stddef.h>
 #include <inttypes.h>
 
+const uint32_t TRUN_FLAG_DATA_OFFSET_PRESENT                    = 0x0001;
+const uint32_t TRUN_FLAG_FIRST_SAMPLE_FLAGS_PRESENT             = 0x0004;
+const uint32_t TRUN_FLAG_SAMPLE_DURATION_PRESENT                = 0x0100;
+const uint32_t TRUN_FLAG_SAMPLE_SIZE_PRESENT                    = 0x0200;
+const uint32_t TRUN_FLAG_SAMPLE_FLAGS_PRESENT                   = 0x0400;
+const uint32_t TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT = 0x0800;
+
+const uint32_t TFHD_FLAG_BASE_DATA_OFFSET_PRESENT               = 0x00001;
+const uint32_t TFHD_FLAG_SAMPLE_DESCRIPTION_INDEX_PRESENT       = 0x00002;
+const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_DURATION_PRESENT        = 0x00008;
+const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_SIZE_PRESENT            = 0x00010;
+const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT           = 0x00020;
+// const uint32_t TFHD_FLAG_DURATION_IS_EMPTY                   = 0x10000;
+// const uint32_t TFHD_FLAG_DEFAULT_BASE_IS_MOOF                = 0x20000;
+
 /**
  *  @brief Read a string from buffer and return it
  */
@@ -71,7 +86,7 @@ void WriteUint64(uint8_t *dst, uint64_t val)
 /**
  *  @brief Box constructor
  */
-Box::Box(uint32_t sz, const char btype[4]) : offset(0), size(sz), type{}
+Box::Box(uint32_t sz, const char btype[4]) : offset(0), size(sz), type{}, base(nullptr)
 {
 	memcpy(type,btype,4);
 }
@@ -129,23 +144,24 @@ const char *Box::getType() const
  */
 const char* Box::getBoxType() const
 {
-    if ((!IS_TYPE(type, MOOV)) ||
-        (!IS_TYPE(type, MDIA)) ||
-        (!IS_TYPE(type, MOOF)) ||
-        (!IS_TYPE(type, TRAF)) ||
-        (!IS_TYPE(type, TFDT)) ||
-        (!IS_TYPE(type, MVHD)) ||
-        (!IS_TYPE(type, MDHD)) ||
-        (!IS_TYPE(type, TFDT)) ||
-        (!IS_TYPE(type, FTYP)) ||
-        (!IS_TYPE(type, STYP)) ||
-        (!IS_TYPE(type, SIDX)) ||
-        (!IS_TYPE(type, PRFT)) ||
-        (!IS_TYPE(type, MDAT)))
-    {
-        return "UKWN";
-    }
-    return type;
+	if ((!IS_TYPE(type, MOOV)) ||
+		(!IS_TYPE(type, MDIA)) ||
+		(!IS_TYPE(type, MOOF)) ||
+		(!IS_TYPE(type, TRAF)) ||
+		(!IS_TYPE(type, TFDT)) ||
+		(!IS_TYPE(type, MVHD)) ||
+		(!IS_TYPE(type, MDHD)) ||
+		(!IS_TYPE(type, FTYP)) ||
+		(!IS_TYPE(type, STYP)) ||
+		(!IS_TYPE(type, SIDX)) ||
+		(!IS_TYPE(type, PRFT)) ||
+		(!IS_TYPE(type, MDAT)) ||
+		(!IS_TYPE(type, SENC)) ||
+		(!IS_TYPE(type, SAIZ)))
+	{
+		return "UKWN";
+	}
+	return type;
 }
 
 /**
@@ -162,49 +178,50 @@ Box* Box::constructBox(uint8_t *hdr, uint32_t maxSz, AampLogManager *mLogObj, bo
 {
 	L_RESTART:
 	uint8_t *hdr_start = hdr;
+
 	uint32_t size = 0;
 	uint8_t type[5];
 	if(maxSz < 4)
 	{
 		AAMPLOG_TRACE("Box data < 4 bytes. Can't determine Size & Type");
-        	return new Box(maxSz, (const char *)"UKWN");
-    	}
-    	else if(maxSz >= 4 && maxSz < 8)
-    	{
+		return new Box(maxSz, (const char *)"UKWN");
+	}
+	else if(maxSz >= 4 && maxSz < 8)
+	{
 		AAMPLOG_TRACE("Box Size between >4 but <8 bytes. Can't determine Type");
 		//size = READ_U32(hdr);
 		return new Box(maxSz, (const char *)"UKWN");
-    	}
-    	else
-    	{
-        	size = READ_U32(hdr);
-        	READ_U8(type, hdr, 4);
-        	type[4] = '\0';
-    	}
+	}
+	else
+	{
+		size = READ_U32(hdr);
+		READ_U8(type, hdr, 4);
+		type[4] = '\0';
+	}
 
 	if (size > maxSz)
 	{
-                if(correctBoxSize)
-                {
-                        //Fix box size to handle cases like receiving whole file for HTTP range requests
+		if(correctBoxSize)
+		{
+			//Fix box size to handle cases like receiving whole file for HTTP range requests
 			AAMPLOG_WARN("Box[%s] fixing size error:size[%u] > maxSz[%u]", type, size, maxSz);
-                        hdr = hdr_start;
-                        WRITE_U32(hdr,maxSz);
-                        goto L_RESTART;
-                }
-                else
-                {
+			hdr = hdr_start;
+			WRITE_U32(hdr,maxSz);
+			goto L_RESTART;
+		}
+		else
+		{
 #ifdef AAMP_DEBUG_BOX_CONSTRUCT
-                    AAMPLOG_WARN("Box[%s] Size error:size[%u] > maxSz[%u]",type, size, maxSz);
+			AAMPLOG_WARN("Box[%s] Size error:size[%u] > maxSz[%u]",type, size, maxSz);
 #endif
-                }
+		}
 	}
 	else if (IS_TYPE(type, MOOV))
 	{
 		return GenericContainerBox::constructContainer(size, MOOV, hdr, newTrackId);
 	}
 	else if (IS_TYPE(type, TRAK))
-	{		
+	{
 		return TrakBox::constructTrakBox(size,hdr, newTrackId);
 	}
 	else if (IS_TYPE(type, MDIA))
@@ -250,6 +267,18 @@ Box* Box::constructBox(uint8_t *hdr, uint32_t maxSz, AampLogManager *mLogObj, bo
 	else if( IS_TYPE(type, SIDX) )
 	{
 		return SidxBox::constructSidxBox(size, hdr);
+	}
+	else if (IS_TYPE(type, MDAT))
+	{
+		return MdatBox::constructMdatBox(size, hdr);
+	}
+	else if (IS_TYPE(type, SENC))
+	{
+		return SencBox::constructSencBox(size, hdr);
+	}
+	else if (IS_TYPE(type, SAIZ))
+	{
+		return SaizBox::constructSaizBox(size, hdr);
 	}
 
 	return new Box(size, (const char *)type);
@@ -785,7 +814,7 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 			}
 		}
 	}
-	else 
+	else
 	{
 		if (schemeId)
 		{
@@ -802,23 +831,43 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 /**
  *  @brief TrunBox constructor
  */
-TrunBox::TrunBox(uint32_t sz, uint64_t sampleDuration,uint32_t sampleCount) : FullBox(sz, Box::TRUN, 0, 0), duration(sampleDuration),sample_count(sampleCount)
+TrunBox::TrunBox(uint32_t sz, uint64_t sampleDuration,uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t* firstSampleDurationLoc, uint32_t bytesPerSample, uint32_t firstSampleSize, uint32_t flags)
+		: FullBox(sz, Box::TRUN, 0, 0),
+		duration(sampleDuration),
+		sample_count(sampleCount),
+		sample_count_loc(sampleCountLoc),
+		first_sample_duration_loc(firstSampleDurationLoc),
+		bytes_per_sample(bytesPerSample),
+		mFirstSampleSize(firstSampleSize),
+		mFlags(flags)
 {
 }
 
 /**
  *  @brief TrunBox constructor
  */
-TrunBox::TrunBox(FullBox &fbox, uint64_t sampleDuration,uint32_t sampleCount) : FullBox(fbox), duration(sampleDuration),sample_count(sampleCount)
+TrunBox::TrunBox(FullBox &fbox, uint64_t sampleDuration,uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t* firstSampleDurationLoc, uint32_t bytesPerSample, uint32_t firstSampleSize, uint32_t flags)
+		: FullBox(fbox),
+		duration(sampleDuration),
+		sample_count(sampleCount),
+		sample_count_loc(sampleCountLoc),
+		first_sample_duration_loc(firstSampleDurationLoc),
+		bytes_per_sample(bytesPerSample),
+		mFirstSampleSize(firstSampleSize),
+		mFlags(flags)
 {
 }
 
 /**
  *  @brief Set SampleDuration value
  */
-void TrunBox::setSampleDuration(uint64_t sampleDuration)
+void TrunBox::setFirstSampleDuration(uint64_t sampleDuration)
 {
-    duration = sampleDuration;
+	duration = sampleDuration;
+	if (nullptr != first_sample_duration_loc)
+	{
+		WRITE_U32(first_sample_duration_loc, sampleDuration);
+	}
 }
 
 /**
@@ -826,7 +875,7 @@ void TrunBox::setSampleDuration(uint64_t sampleDuration)
  */
 uint64_t TrunBox::getSampleDuration()
 {
-    return duration;
+	return duration;
 }
 
 /**
@@ -834,7 +883,16 @@ uint64_t TrunBox::getSampleDuration()
  */
 uint32_t TrunBox::getSampleCount()
 {
-    return sample_count;
+	return sample_count;
+}
+
+/**
+ *  @brief Set SampleCount value
+ */
+void TrunBox::setSampleCount(uint32_t count)
+{
+	sample_count = count;
+	WRITE_U32(sample_count_loc, count);
 }
 
 /**
@@ -842,26 +900,19 @@ uint32_t TrunBox::getSampleCount()
  */
 TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 {
-	const uint32_t TRUN_FLAG_DATA_OFFSET_PRESENT                    = 0x0001;
-	const uint32_t TRUN_FLAG_FIRST_SAMPLE_FLAGS_PRESENT             = 0x0004;
-	const uint32_t TRUN_FLAG_SAMPLE_DURATION_PRESENT                = 0x0100;
-	const uint32_t TRUN_FLAG_SAMPLE_SIZE_PRESENT                    = 0x0200;
-	const uint32_t TRUN_FLAG_SAMPLE_FLAGS_PRESENT                   = 0x0400;
-	const uint32_t TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT = 0x0800;
+	// The size and tag have been read, so the pointer has advanced after that value
+	auto start = ptr;
 
 	uint8_t version = READ_VERSION(ptr);
 	uint32_t flags  = READ_FLAGS(ptr);
-//	uint64_t sampleDuration = 0;//1001000; //fix-Me
 	uint32_t sample_count = 0;
 	uint32_t sample_duration = 0;
 	uint32_t sample_size = 0;
-	uint32_t sample_flags = 0;
-	uint32_t sample_composition_time_offset = 0;
-	uint32_t firstSampleFlags=0;
-	uint32_t dataOffset = 0;
 	uint64_t totalSampleDuration = 0;
 
 	uint32_t record_fields_count = 0;
+
+	uint32_t firstSampleSize{};
 
 	// count the number of bits set to 1 in the second byte of the flags
 	for (unsigned int i=0; i<8; i++)
@@ -869,51 +920,123 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 		if (flags & (1<<(i+8))) ++record_fields_count;
 	}
 
-	
+	uint8_t *sampleCountLoc = ptr;
 	sample_count = READ_U32(ptr);
 	if(flags & TRUN_FLAG_DATA_OFFSET_PRESENT)
 	{
-		dataOffset = READ_U32(ptr);
-		(void)dataOffset; //avoid warnings
+		ptr += sizeof(uint32_t);   // skip data offset
 	}
 	if(flags & TRUN_FLAG_FIRST_SAMPLE_FLAGS_PRESENT)
 	{
-		firstSampleFlags = READ_U32(ptr);
-		(void)firstSampleFlags; //avoid warnings
+		ptr += sizeof(uint32_t);   // skip first sample flags
+		// bit(4) reserved=0;
+		// unsigned int(2) is_leading;
+		// unsigned int(2) sample_depends_on;
+		// unsigned int(2) sample_is_depended_on;
+		// unsigned int(2) sample_has_redundancy;
+		// bit(3) sample_padding_value;
+		// bit(1) sample_is_non_sync_sample;
+		// unsigned int(16) sample_degradation_priority;
 	}
-	
+
+	// Used by truncate operation
+	uint32_t bytesPerSample = ((flags & TRUN_FLAG_SAMPLE_DURATION_PRESENT)? 4 : 0) +
+							  ((flags & TRUN_FLAG_SAMPLE_SIZE_PRESENT)? 4 : 0) +
+							  ((flags & TRUN_FLAG_SAMPLE_FLAGS_PRESENT)? 4 : 0) +
+							  ((flags & TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)? 4 : 0);
+	uint8_t *firstSampleDurationLoc = nullptr;
 
 	for (unsigned int i=0; i<sample_count; i++)
 	{
 		if (flags & TRUN_FLAG_SAMPLE_DURATION_PRESENT)
 		{
+			if (i==0)
+			{
+				firstSampleDurationLoc = ptr;
+			}
 			sample_duration = READ_U32(ptr);
 			totalSampleDuration += sample_duration;
 		}
 		if (flags & TRUN_FLAG_SAMPLE_SIZE_PRESENT)
 		{
 			sample_size = READ_U32(ptr);
-			(void)sample_size; // Avoid a warning.
+			// Will be unhelpful for truncating if this is not present
+			if (i==0)
+			{
+				firstSampleSize = sample_size;
+			}
 		}
 		if (flags & TRUN_FLAG_SAMPLE_FLAGS_PRESENT)
 		{
-			sample_flags = READ_U32(ptr);
-			(void)sample_flags; // Avoid a warning.
+			ptr += sizeof(uint32_t);   // skip sample flags
 		}
 		if (flags & TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)
 		{
-			sample_composition_time_offset = READ_U32(ptr);
-			(void)sample_composition_time_offset; // Avoid a warning.
+			ptr += sizeof(uint32_t);   // skip sample composition time offset
 		}
 	}
 	FullBox fbox(sz, Box::TRUN, version, flags);
-	return new TrunBox(fbox, totalSampleDuration,sample_count);
+	fbox.setBase(start);
+	return new TrunBox(fbox, totalSampleDuration, sample_count, sampleCountLoc, firstSampleDurationLoc, bytesPerSample, firstSampleSize, flags);
+}
+
+/**
+ * @fun TrunBox::truncate
+ * @brief Reduce the number of samples to 1 and insert a skip box if there is enough space
+*/
+void TrunBox::truncate(void)
+{
+	if (sample_count > 1)
+	{
+		uint32_t tableSize{sample_count * bytes_per_sample};
+		// Calculate new trun size and write
+		auto oldTrunSize = getSize();
+		auto newTrunSize = getSize() - tableSize + bytes_per_sample;
+		setSampleCount(1);
+
+		// If there is room to insert a skip box
+		if ((oldTrunSize - newTrunSize) >= SIZEOF_SIZE_AND_TAG)
+		{
+			setSize(newTrunSize);
+			SkipBox skip{tableSize - bytes_per_sample, getBase() + getSize()};
+		}
+		else
+		{
+			AAMPLOG_INFO("No room for a skip box");
+		}
+	}
+	// Else no need to truncate
+}
+
+/**
+ * @fn getFirstSampleSize
+ *
+ * @return The size of the first sample
+ */
+uint32_t TrunBox::getFirstSampleSize()
+{
+	return mFirstSampleSize;
+}
+
+/**
+ * @fn getFirstSampleSize
+ *
+ * @return true if SAMPLE_DURATION_PRESENT is enabled, false otherwise
+ */
+bool TrunBox::sampleDurationPresent()
+{
+	return ((flags & TRUN_FLAG_SAMPLE_DURATION_PRESENT) != 0);
 }
 
 /**
  *  @brief TfhdBox constructor
  */
-TfhdBox::TfhdBox(uint32_t sz, uint64_t default_duration) : FullBox(sz, Box::TFHD, 0, 0), duration(default_duration)
+TfhdBox::TfhdBox(uint32_t sz, uint64_t default_duration, uint8_t* default_duration_location, uint32_t default_sample_size, uint32_t flags)
+	: FullBox(sz, Box::TFHD, 0, 0),
+	duration(default_duration),
+	default_sample_duration_location(default_duration_location),
+	mDefaultSampleSize(default_sample_size),
+	mFlags(flags)
 {
 
 }
@@ -921,7 +1044,12 @@ TfhdBox::TfhdBox(uint32_t sz, uint64_t default_duration) : FullBox(sz, Box::TFHD
 /**
  *  @brief TfhdBox constructor
  */
-TfhdBox::TfhdBox(FullBox &fbox, uint64_t default_duration) : FullBox(fbox), duration(default_duration)
+TfhdBox::TfhdBox(FullBox &fbox, uint64_t default_duration, uint8_t* default_duration_location, uint32_t default_sample_size, uint32_t flags)
+	: FullBox(fbox),
+	duration(default_duration),
+	default_sample_duration_location(default_duration_location),
+	mDefaultSampleSize(default_sample_size),
+	mFlags(flags)
 {
 
 }
@@ -929,17 +1057,29 @@ TfhdBox::TfhdBox(FullBox &fbox, uint64_t default_duration) : FullBox(fbox), dura
 /**
  *  @brief Set Sample Duration value
  */
-void TfhdBox::setSampleDuration(uint64_t default_duration)
+void TfhdBox::setDefaultSampleDuration(uint64_t default_duration)
 {
-    duration = default_duration;
+	duration = default_duration;
+	if (nullptr != default_sample_duration_location)
+	{
+		WRITE_U32(default_sample_duration_location, default_duration);
+	}
+}
+
+/**
+ *  @brief Get the default sample size
+ */
+uint32_t TfhdBox::getDefaultSampleSize(void)
+{
+    return mDefaultSampleSize;
 }
 
 /**
  *  @brief Get SampleDuration value
  */
-uint64_t TfhdBox::getSampleDuration()
+uint64_t TfhdBox::getDefaultSampleDuration()
 {
-    return duration;
+	return duration;
 }
 
 /**
@@ -947,60 +1087,51 @@ uint64_t TfhdBox::getSampleDuration()
  */
 TfhdBox* TfhdBox::constructTfhdBox(uint32_t sz, uint8_t *ptr)
 {
-    uint8_t version = READ_VERSION(ptr); //8
-    uint32_t flags  = READ_FLAGS(ptr); //24
+	auto start = ptr;
+	uint8_t version = READ_VERSION(ptr); // 8
+	uint32_t flags  = READ_FLAGS(ptr); //24
 
-    const uint32_t TFHD_FLAG_BASE_DATA_OFFSET_PRESENT            = 0x00001;
-    const uint32_t TFHD_FLAG_SAMPLE_DESCRIPTION_INDEX_PRESENT    = 0x00002;
-    const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_DURATION_PRESENT     = 0x00008;
-    const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_SIZE_PRESENT         = 0x00010;
-    const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT        = 0x00020;
-//    const uint32_t TFHD_FLAG_DURATION_IS_EMPTY                   = 0x10000;
-//    const uint32_t TFHD_FLAG_DEFAULT_BASE_IS_MOOF                = 0x20000;
+	uint32_t DefaultSampleDuration{0};
+	uint32_t DefaultSampleSize{0};
+	uint8_t* DefaultSampleDuration_loc{nullptr};
 
-    uint32_t TrackId;
-    uint32_t BaseDataOffset;
-    uint32_t SampleDescriptionIndex;
-    uint32_t DefaultSampleDuration;
-    uint32_t DefaultSampleSize;
-    uint32_t DefaultSampleFlags;
+	ptr += sizeof(uint32_t);       // skip track id
 
-    TrackId = READ_U32(ptr);
-    if (flags & TFHD_FLAG_BASE_DATA_OFFSET_PRESENT) {
-        BaseDataOffset = (uint32_t)READ_64(ptr);
-    } else {
-        BaseDataOffset = 0;
-    }
-    if (flags & TFHD_FLAG_SAMPLE_DESCRIPTION_INDEX_PRESENT) {
-        SampleDescriptionIndex = READ_U32(ptr);
-    } else {
-        SampleDescriptionIndex = 1;
-    }
-    if (flags & TFHD_FLAG_DEFAULT_SAMPLE_DURATION_PRESENT) {
-        DefaultSampleDuration = READ_U32(ptr);
-    } else {
-        DefaultSampleDuration = 0;
-    }
-    if (flags & TFHD_FLAG_DEFAULT_SAMPLE_SIZE_PRESENT) {
-        DefaultSampleSize = READ_U32(ptr);
-    } else {
-        DefaultSampleSize = 0;
-    }
-    if (flags & TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT) {
-        DefaultSampleFlags = READ_U32(ptr);
-    } else {
-        DefaultSampleFlags = 0;
-    }
-	
-    /* Avoid set but not used warnings. */
-    (void)TrackId;
-    (void)BaseDataOffset;
-    (void)SampleDescriptionIndex;
-    (void)DefaultSampleSize;
-    (void)DefaultSampleFlags;
+	if (flags & TFHD_FLAG_BASE_DATA_OFFSET_PRESENT)
+	{
+		ptr += sizeof(uint64_t);   // skip base data offset
+	}
 
-    FullBox fbox(sz, Box::TFHD, version, flags);
-    return new TfhdBox(fbox, DefaultSampleDuration);
+	if (flags & TFHD_FLAG_SAMPLE_DESCRIPTION_INDEX_PRESENT)
+	{
+		ptr += sizeof(uint32_t);   // skip sample description index
+	}
+
+	if (flags & TFHD_FLAG_DEFAULT_SAMPLE_DURATION_PRESENT)
+	{
+		DefaultSampleDuration_loc = ptr;
+		DefaultSampleDuration = READ_U32(ptr);
+	}
+
+	if (flags & TFHD_FLAG_DEFAULT_SAMPLE_SIZE_PRESENT)
+	{
+		DefaultSampleSize = READ_U32(ptr);
+	}
+
+	if (flags & TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT)
+	{
+		ptr += sizeof(uint32_t);   // skip default sample flags
+	}
+
+	FullBox fbox(sz, Box::TFHD, version, flags);
+	fbox.setBase(start);
+
+	return new TfhdBox(fbox, DefaultSampleDuration, DefaultSampleDuration_loc, DefaultSampleSize, flags);
+}
+
+bool TfhdBox::defaultSampleDurationPresent(void)
+{
+	return ((mFlags & TFHD_FLAG_SAMPLE_DESCRIPTION_INDEX_PRESENT) != 0);
 }
 
 /**
@@ -1024,7 +1155,7 @@ PrftBox::PrftBox(FullBox &fbox, uint32_t trackId, uint64_t ntpTs, uint64_t media
  */
 void PrftBox::setTrackId(uint32_t trackId)
 {
-    track_id = trackId;
+	track_id = trackId;
 }
 
 /**
@@ -1032,7 +1163,7 @@ void PrftBox::setTrackId(uint32_t trackId)
  */
 uint32_t PrftBox::getTrackId()
 {
-    return track_id;
+	return track_id;
 }
 
 /**
@@ -1040,7 +1171,7 @@ uint32_t PrftBox::getTrackId()
  */
 void PrftBox::setNtpTs(uint64_t ntpTs)
 {
-    ntp_ts = ntpTs;
+	ntp_ts = ntpTs;
 }
 
 /**
@@ -1048,7 +1179,7 @@ void PrftBox::setNtpTs(uint64_t ntpTs)
  */
 uint64_t PrftBox::getNtpTs()
 {
-    return ntp_ts;
+	return ntp_ts;
 }
 
 /**
@@ -1056,7 +1187,7 @@ uint64_t PrftBox::getNtpTs()
  */
 void PrftBox::setMediaTime(uint64_t mediaTime)
 {
-    media_time = mediaTime;
+	media_time = mediaTime;
 }
 
 /**
@@ -1064,7 +1195,7 @@ void PrftBox::setMediaTime(uint64_t mediaTime)
  */
 uint64_t PrftBox::getMediaTime()
 {
-    return media_time;
+	return media_time;
 }
 
 /**
@@ -1072,19 +1203,19 @@ uint64_t PrftBox::getMediaTime()
  */
 PrftBox* PrftBox::constructPrftBox(uint32_t sz, uint8_t *ptr)
 {
-    uint8_t version = READ_VERSION(ptr); //8
-    uint32_t flags  = READ_FLAGS(ptr); //24
+	uint8_t version = READ_VERSION(ptr); //8
+	uint32_t flags  = READ_FLAGS(ptr); //24
 
-    uint32_t track_id = 0; // reference track ID
-    track_id = READ_U32(ptr);
-    uint64_t ntp_ts = 0; // NTP time stamp
-    ntp_ts = READ_64(ptr);
-    uint64_t pts = 0; //media time
-    pts = READ_64(ptr);
+	uint32_t track_id = 0; // reference track ID
+	track_id = READ_U32(ptr);
+	uint64_t ntp_ts = 0; // NTP time stamp
+	ntp_ts = READ_64(ptr);
+	uint64_t pts = 0; //media time
+	pts = READ_64(ptr);
 
-    FullBox fbox(sz, Box::PRFT, version, flags);
+	FullBox fbox(sz, Box::PRFT, version, flags);
 
-    return new PrftBox(fbox, track_id, ntp_ts, pts);
+	return new PrftBox(fbox, track_id, ntp_ts, pts);
 }
 
 /**
@@ -1102,7 +1233,7 @@ TrakBox* TrakBox::constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId)
 	{
 		Box *box = Box::constructBox(ptr, sz-curOffset);
 		box->setOffset(curOffset);
-		
+
 		if (IS_TYPE(box->getType(),TKHD))
 		{
 			uint8_t *tkhd_start = ptr;
@@ -1153,7 +1284,7 @@ SidxBox::SidxBox(uint32_t sz, uint32_t tScale, uint64_t sidxDuration) : FullBox(
  */
 uint32_t SidxBox::getTimeScale()
 {
-	return timeScale; 
+	return timeScale;
 }
 
 /**
@@ -1193,7 +1324,7 @@ SidxBox* SidxBox::constructSidxBox(uint32_t sz, uint8_t *ptr)
 		READ_64(ptr); // first_offset;
 	}
 	READ_U16(ptr);  //unused
-	uint16_t refCount = READ_U16(ptr); 
+	uint16_t refCount = READ_U16(ptr);
 	for(uint16_t i = 0; i < refCount; i++)
 	{
 		READ_U32(ptr); // refType, size
@@ -1204,3 +1335,175 @@ SidxBox* SidxBox::constructSidxBox(uint32_t sz, uint8_t *ptr)
 	return new SidxBox(fbox, currTimeScale,duration);
 }
 
+
+/**
+ * @fn constructMdatBox
+ * @param[in] sz - box size
+ * @param[in] ptr - pointer to box
+
+ * @return newly constructed mdat object
+ */
+MdatBox* MdatBox::constructMdatBox(uint32_t sz, uint8_t *ptr)
+{
+	MdatBox *cbox = new MdatBox(sz, ptr);
+	// The size and tag have been read, so the pointer has advanced after that value
+	cbox->setBase(ptr);
+
+	return cbox;
+}
+
+/**
+ * @fn MdatBox::truncate
+ * @param[in] newSize - new mdat box size
+ * @return None
+*/
+
+void MdatBox::truncate(uint32_t newSize)
+{
+	setSize(newSize);
+}
+
+/**
+ * @fn SencBox
+ *
+ * @param[in] fbox - box object
+ * @param[in] sampleCountLoc - sample count location
+ * @param[in] numSamples - number of samples
+ */
+SencBox::SencBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples): sampleCountLoc(sampleCountLoc), numSamples(numSamples), FullBox(fbox)
+{
+}
+
+/**
+ * @fn constructSencBox
+ *
+ * @param[in] sz - box size
+ * @param[in] ptr - pointer to box
+ * @return newly constructed SencBox object
+ */
+SencBox* SencBox::constructSencBox(uint32_t sz, uint8_t *ptr)
+{
+	auto start = ptr;
+
+	uint8_t version = READ_VERSION(ptr); // 8 bits
+	uint32_t flags  = READ_FLAGS(ptr); // 24 bits
+
+	auto sample_count_loc{ptr};
+	uint32_t sample_count = READ_U32(ptr);
+
+	FullBox fbox(sz, Box::SENC, version, flags);
+	fbox.setBase(start);
+
+	return new SencBox(fbox, sample_count_loc, sample_count);
+}
+
+/**
+ * @fn sencBox::truncate
+ * @brief Reduce the number of samples to 1, write a new skip box over the remainder of the table
+ *
+ * @param[in] firstSampleSize - Size of the first sample
+*/
+void SencBox::truncate(uint32_t firstSampleSize)
+{
+	if (numSamples > 1)
+	{
+		if (firstSampleSize)
+		{
+			auto newEnd{sampleCountLoc + sizeof(uint32_t) + firstSampleSize};
+			auto oldSize{getSize()};
+			auto newSize{static_cast<uint32_t>(newEnd - getBase())};
+
+			if ((oldSize - newSize) >= SIZEOF_SIZE_AND_TAG)
+			{
+				WRITE_U32(getBase(), newSize);
+				SkipBox skip{oldSize - newSize, newEnd};
+			}
+			else
+			{
+				AAMPLOG_INFO("No room for a skip box");
+			}
+		}
+		WRITE_U32(sampleCountLoc, 1);
+		numSamples = 1;
+	}
+}
+
+/**
+ * @fn SaizBox
+ *
+ * @param[in] fbox - box object
+ * @param[in] sampleCountLoc - location of the sample count
+ * @param[in] numSamples - number of samples
+ * @param[in] firstSampleInfoSize - Size of the first sample
+ */
+SaizBox::SaizBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples, uint32_t firstSampleInfoSize)
+		: sampleCountLoc(sampleCountLoc),
+		numSamples(numSamples),
+		firstSampleInfoSize(firstSampleInfoSize),
+		FullBox(fbox)
+{
+}
+
+/**
+ * @fn constructSaizBox
+ *
+ * @param[in] sz - box size
+ * @param[in] ptr - pointer to box
+ * @return newly constructed SaizBox object
+ */
+SaizBox* SaizBox::constructSaizBox(uint32_t sz, uint8_t *ptr)
+{
+	auto start = ptr;
+	uint8_t version = READ_VERSION(ptr); // 8
+	uint32_t flags = READ_FLAGS(ptr); // 24
+
+	if (flags & 1)
+	{
+		ptr += sizeof(uint32_t);   // skip aux_info_type
+		ptr += sizeof(uint32_t);   // skip aux_info_type_parameter
+	}
+
+	uint8_t default_sample_info_size{*ptr++};
+
+	uint8_t *sample_count_loc{ptr};
+	uint32_t sample_count = READ_U32(ptr);
+
+	uint32_t sample_info_size = (0 == default_sample_info_size) ? *ptr : default_sample_info_size;
+
+	FullBox fbox(sz, Box::SAIZ, version, flags);
+	fbox.setBase(start);
+
+	return new SaizBox(fbox, sample_count_loc, sample_count, sample_info_size);
+}
+
+/**
+ * @fn SaizBox::getFirstSampleInfoSize
+*/
+uint32_t SaizBox::getFirstSampleInfoSize(void)
+{
+	return firstSampleInfoSize;
+}
+
+
+/**
+ * @fn SaizBox::truncate
+*/
+void SaizBox::truncate(void)
+{
+	auto oldSize{getSize()};
+	auto newSize{oldSize - (numSamples - 1)};
+
+	// Need min 8 bytes to insert a skip box
+	if ((oldSize - newSize) >= SIZEOF_SIZE_AND_TAG)
+	{
+		WRITE_U32(getBase(), newSize);
+		SkipBox skip{oldSize - newSize, getBase() + newSize};
+	}
+	else
+	{
+		AAMPLOG_INFO("No room for a skip box");
+		// Not truncating the table, just setting the sample count to 1
+	}
+
+	WRITE_U32(sampleCountLoc,1);
+}

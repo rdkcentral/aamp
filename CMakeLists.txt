@@ -30,17 +30,17 @@ if(APPLE)
     set(CMAKE_C_COMPILER "/usr/bin/cc")
     set(CMAKE_CXX_COMPILER "/usr/bin/c++")
 
-    set(CMAKE_MACOSX_RPATH 1) 
+    set(CMAKE_MACOSX_RPATH 1)
     # use, i.e. don't skip the full RPATH for the build tree
     set(CMAKE_SKIP_BUILD_RPATH FALSE)
 
     list(APPEND CMAKE_BUILD_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
- 
+
     # when building, don't use the install RPATH already
     # (but later on when installing)
     set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
     set(CMAKE_INSTALL_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
- 
+
     # add the automatically determined parts of the RPATH
     # which point to directories outside the build tree to the install RPATH
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -287,6 +287,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					isobmff/isobmffbox.cpp
 					isobmff/isobmffbuffer.cpp
 					isobmff/isobmffprocessor.cpp
+					isobmff/isobmffconverttokeyframe.cpp
 					drm/helper/AampDrmHelper.cpp
 					AampGstUtils.cpp
 					MediaStreamContext.cpp

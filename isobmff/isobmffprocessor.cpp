@@ -476,10 +476,10 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 		lead to playback stop/retune
 		*/
 
-		size_t index =-1;
+		size_t index = 0;
 		uint64_t durationFromFragment =0;
 		Box *pBox =  buffer.getBox(Box::MOOF, index);
-		if(index >= 0 && NULL != pBox)
+		if (NULL != pBox)
 		{
 			buffer.getSampleDuration(pBox,durationFromFragment);
 			AAMPLOG_TRACE("IsoBmffProcessor %s duration= %" PRIu64 " ", IsoBmffProcessorTypeName[type],durationFromFragment);

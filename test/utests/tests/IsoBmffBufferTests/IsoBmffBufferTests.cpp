@@ -109,7 +109,7 @@ TEST_F(IsoBmffBufferTests, mp4SegmentTests)
 	unsigned int baseMediaDecodeTime = 1254400, mdatLen = 55312, mdatCnt = 1, sampleDuration = 512 * 50;
 	uint64_t fPts = 0, mCount = 0, durationFromFragment = 0, pts = 0;
 	uint8_t *mdat;
-	size_t mSize, index = -1;
+	size_t mSize, index = 0;
 	bool isInit, bParse;
 	std::string file_path = std::string(TESTS_DIR) + "/" + "mp4SegmentTests/vFragment.mp4";
 	auto result = readFile(file_path.c_str());
