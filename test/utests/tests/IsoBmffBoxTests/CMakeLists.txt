@@ -46,6 +46,16 @@ add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
 
+if (CMAKE_XCODE_BUILD_SYSTEM)
+  # XCode schema target
+  xcode_define_schema(${EXEC_NAME})
+endif()
+
+if (COVERAGE_ENABLED)
+    include(CodeCoverage)
+    APPEND_COVERAGE_COMPILER_FLAGS()
+endif()
+
 add_compile_definitions(TESTS_DIR="${TEST_FILES_DIR}")
 target_link_libraries(${EXEC_NAME} fakes ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 
