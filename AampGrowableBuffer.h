@@ -101,6 +101,7 @@ public:
 	const char *GetPtr( void ) const { return static_cast<const char *>(ptr); } // accessor function for current growable buffer binary payload
 	size_t GetLen( void ) const { return len; } // accessor function for current logical growable buffer size
 	size_t GetAvail( void ) const { return avail; } // should be opaque, but used in logging
+	void ReduceLen( size_t srcLen );
 
 private:
 	const char *name;
