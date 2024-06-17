@@ -6582,7 +6582,7 @@ bool TrackState::HasDiscontinuityAroundPosition(AampTime position, bool useDisco
 					roundedPosn = position.nearestSecond();
 				}
 
-				AAMPLOG_WARN("Comparing position input posn:%lld index[%d] position:%d deltaCulled:%f limit1:%lld limit2:%lld  ", roundedPosn, i, (int)(discontinuityIndex[i].position.inSeconds()), deltaCulledSec.inSeconds(), limit1, limit2);
+				AAMPLOG_WARN("Comparing position input posn:%" PRIi64 " index[%d] position:%d deltaCulled:%f limit1:%" PRIi64" limit2:%" PRIi64, roundedPosn, i, (int)(discontinuityIndex[i].position.inSeconds()), deltaCulledSec.inSeconds(), limit1, limit2);
 				if(roundedPosn >= limit1 && roundedPosn <= limit2 )
 				{
 					foundmatchingdisc = true;

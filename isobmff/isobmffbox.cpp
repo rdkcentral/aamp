@@ -1179,41 +1179,28 @@ SidxBox* SidxBox::constructSidxBox(uint32_t sz, uint8_t *ptr)
 {
 	uint8_t version = READ_VERSION(ptr); //8
 	uint32_t flags  = READ_FLAGS(ptr); //24
-	uint32_t reference_ID = READ_U32(ptr); //32
+	uint32_t reference_ID = READ_U32(ptr); (void) reference_ID; // 32
 	uint32_t currTimeScale = READ_U32(ptr); //32
 	uint32_t duration = 0x00;
-	bool refType= false;
-	bool startsWithSAP = false;
-	uint32_t sapType = 0x00;
-	uint32_t refSize=0x00;
-	uint32_t sapDeltaTime = 0x00;
-	if ( version == 0) 
+	if ( version == 0)
 	{
-		uint32_t earliest_presentation_time = READ_U32(ptr);
-		uint32_t first_offset = READ_U32(ptr);
-	} 
+		READ_U32(ptr); // earliest_presentation_time;
+		READ_U32(ptr); // first_offset
+	}
 	else 
 	{
-		uint64_t earliest_presentation_time = READ_64(ptr);
-		uint64_t first_offset = READ_64(ptr);
+		READ_64(ptr); // earliest_presentation_time;
+		READ_64(ptr); // first_offset;
 	}
 	READ_U16(ptr);  //unused
-	uint16_t refCount = 0x00;
-	refCount = READ_U16(ptr); 
+	uint16_t refCount = READ_U16(ptr); 
 	for(uint16_t i = 0; i < refCount; i++)
-    {
-		uint32_t k = 0x00;
-		k = READ_U32(ptr);
-		refType = (k >> 31) & 0x1;
-		refSize = k & 0x7FFFFFFF;
+	{
+		READ_U32(ptr); // refType, size
 		duration += READ_U32(ptr);
-		k = 0x00;
-		k = READ_U32(ptr);
-		startsWithSAP = (k >> 31) & 0x1;
-		sapType = (k >> 28) & 0x7;
-		sapDeltaTime = k & 0xFFFFFFF;
+		READ_U32(ptr); // startsWithSAP, sapType, sapDeltaTime
 	}
 	FullBox fbox(sz, Box::SIDX, version, flags);
-    return new SidxBox(fbox, currTimeScale,duration);
+	return new SidxBox(fbox, currTimeScale,duration);
 }
 
