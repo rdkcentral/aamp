@@ -64,7 +64,6 @@ private:
 
 	static std::string SanitizePath(const std::string &);
 	Status UrlToFileMapper(const std::string& url, std::string& dirPath, std::string& fileName) const;
-	bool isValidUTF8(const std::string& url) const;
 	void Flusher(void);
 	Status WriteBuffer(const FS::path& fileNameIncPath, const void* buffer, std::size_t size, bool retry);
 	uintmax_t GetCapacityMinFree(uintmax_t capacity) const;
@@ -125,10 +124,6 @@ Status StoreImpl::UrlToFileMapper(const std::string& url, std::string& dirPath, 
 	{
 		TSB_LOG_WARN(mLogger, "Url string is empty");
 	}
-	else if (!isValidUTF8(url))
-	{
-		TSB_LOG_WARN(mLogger, "Url is not UTF-8 complaint", "url", url);
-	}
 	else
 	{
 		std::string separator("://");
@@ -186,50 +181,6 @@ std::string StoreImpl::SanitizePath(const std::string& path)
 		location.pop_back() ;
 	}
 	return location;
-}
-
-/*	@fn		isValidUTF8
-	@brief	Checks that the url string is UTF-8 complaint
-
-	@param[in] 	url - The url string that need evaluation.
-	@retval		True - If the url is UTF-8 Complaint.
-				False - Otherwise.
-*/
-bool StoreImpl::isValidUTF8(const std::string& url) const
-{
-	int count = 0;			// Count of bytes in the current UTF-8 character
-
-	for (unsigned char c : url)
-	{
-		if (count == 0)
-		{
-			if ((c >> 5) == 0b110)
-			{
-				count = 1;		// 2-byte character
-			}
-			else if ((c >> 4) == 0b1110)
-			{
-				count = 2;		// 3-byte character
-			}
-			else if ((c >> 3) == 0b11110)
-			{
-				count = 3;		// 4-byte character
-			}
-			else if ((c >> 7))
-			{
-				break; 			// Not a valid ASCII or continuation byte
-			}
-		}
-		else
-		{
-			if ((c >> 6) != 0b10)
-			{
- 				break;			// Not a valid continuation byte
-			}
-			--count;
-		}
-	}
-	return (count == 0);		// All characters must be completely formed
 }
 
 void StoreImpl::Flusher(void)

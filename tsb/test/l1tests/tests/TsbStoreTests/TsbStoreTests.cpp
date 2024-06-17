@@ -615,32 +615,24 @@ TEST_F(TsbStoreTests, UrlToFileMapperInvalidStorageAccess)
 	ASSERT_THAT(performWriteInvalidUrl(*store, urlWithInvalidStorageAccess), TSB::Status::FAILED);
 }
 
-TEST_F(TsbStoreTests, UrlToFileMapperNonUtf8UrlOneByte)
+TEST_F(TsbStoreTests, UrlToFileMapperAllChars)
 {
-	std::string nonUtf8Url{"https://example.com/invalid\xc3"};
-	std::unique_ptr<TSB::Store> store = createStoreDefault();
-	ASSERT_THAT(performWriteInvalidUrl(*store, nonUtf8Url), TSB::Status::FAILED);
-}
+    std::string stringWithAllChars;
 
-TEST_F(TsbStoreTests, UrlToFileMapperNonUtf8UrlTwoByte)
-{
-	std::string nonUtf8Url{"https://example.com/invalid\xc2\x28"};
-	std::unique_ptr<TSB::Store> store = createStoreDefault();
-	ASSERT_THAT(performWriteInvalidUrl(*store, nonUtf8Url), TSB::Status::FAILED);
-}
+    // Check that TSB APIs accept URLs with any 8 bit char except 0.
+    // Loop through character values 1 to 255 and append them to the string
+    for (int i = 1; i < 256; ++i) {
+        char c = static_cast<char>(i);
+        if (c != '/')
+            stringWithAllChars += c;
+        if (i % 50 == 0)
+            stringWithAllChars += '/';
+    }
 
-TEST_F(TsbStoreTests, UrlToFileMapperNonUtf8UrlThreeByte)
-{
-	std::string nonUtf8Url{"https://example.com/invalid\xe0\xa0\x68"};
-	std::unique_ptr<TSB::Store> store = createStoreDefault();
-	ASSERT_THAT(performWriteInvalidUrl(*store, nonUtf8Url), TSB::Status::FAILED);
-}
+    std::string urlWithAllChars = "https://" + stringWithAllChars;
 
-TEST_F(TsbStoreTests, UrlToFileMapperNonUtf8UrlFourByte)
-{
-	std::string nonUtf8Url{"https://example.com/invalid\xF0\x90\x80\x72"};
 	std::unique_ptr<TSB::Store> store = createStoreDefault();
-	ASSERT_THAT(performWriteInvalidUrl(*store, nonUtf8Url), TSB::Status::FAILED);
+    ASSERT_EQ(performWrite(*store, urlWithAllChars), TSB::Status::OK);
 }
 
 TEST_F(TsbStoreTests, UrlToFileMapperUftUrlSpecialChars)
