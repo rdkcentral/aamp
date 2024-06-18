@@ -63,6 +63,10 @@ struct StreamResolution
 	int width;        /**< Width in pixels*/
 	int height;       /**< Height in pixels*/
 	double framerate; /**< Frame Rate */
+
+	StreamResolution(): width(0), height(0), framerate(0.0)
+	{
+	}
 };
 
 /**
@@ -78,7 +82,7 @@ struct StreamInfo
 	StreamResolution resolution;    /**< Resolution of the stream*/
 	BitrateChangeReason reason;     /**< Reason for bitrate change*/
 
-	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),bandwidthBitsPerSecond(),resolution(),reason(){};
+	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),bandwidthBitsPerSecond(0),resolution(),reason(){};
 };
 
 /**
@@ -117,8 +121,19 @@ public:
 	
     CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0), initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()), type(eMEDIATYPE_DEFAULT)
     {
-        memset(  &cacheFragStreamInfo, 0, sizeof(cacheFragStreamInfo) );
     }
+
+	void Copy(CachedFragment* other, size_t len)
+	{
+		this->position = other->position;
+		this->duration = other->duration;
+		this->initFragment = other->initFragment;
+		this->discontinuity = other->discontinuity;
+		this->profileIndex = other->profileIndex;
+		this->cacheFragStreamInfo = other->cacheFragStreamInfo;
+		this->type = other->type;
+		this->fragment.AppendBytes(other->fragment.GetPtr(), len);
+	}
 };
 
 /**
@@ -131,8 +146,41 @@ public:
 	AampGrowableBuffer fragmentChunk;   /**< Buffer to keep fragment content */
 	AampMediaType   type; 		/**< AampMediaType info of the fragment */
 	long long downloadStartTime;	/**< The start time of file download */
+	bool initFragment;	    	/**< Is init fragment */
+	double position;
+	double duration;
+	bool discontinuity;
+	int profileIndex;  
+	StreamInfo cacheFragStreamInfo;
+
+	void Copy(std::shared_ptr<CachedFragment> fragment, size_t len)
+	{
+		this->fragmentChunk.AppendBytes(fragment->fragment.GetPtr(), len);
+		this->type = fragment->type;
+		this->downloadStartTime = NOW_STEADY_TS_MS;
+		this->initFragment = fragment->initFragment;
+		this->position = fragment->position;
+		this->duration = fragment->duration;
+		this->discontinuity = fragment->discontinuity;
+		this->profileIndex = fragment->profileIndex;
+		this->cacheFragStreamInfo = fragment->cacheFragStreamInfo;
+	}
 	
-    CachedFragmentChunk() : fragmentChunk(AampGrowableBuffer("cached-fragment-chunk")), type(eMEDIATYPE_DEFAULT), downloadStartTime(0){}
+    CachedFragmentChunk() : fragmentChunk(AampGrowableBuffer("cached-fragment-chunk")), type(eMEDIATYPE_DEFAULT), downloadStartTime(0),initFragment(false)
+        , position(0.0), duration(0.0), discontinuity(false), profileIndex(0), cacheFragStreamInfo(){}
+
+	void Clear()
+	{
+		fragmentChunk.Free();
+		type = eMEDIATYPE_DEFAULT;
+		downloadStartTime = 0;
+		initFragment = false;
+		position = 0.0;
+		duration = 0.0;
+		discontinuity = false;
+		profileIndex = 0;
+		cacheFragStreamInfo = StreamInfo();
+	}
 };
 
 /**
@@ -254,6 +302,13 @@ public:
 	void AbortFragmentDownloaderWait();
 
 	/**
+	 * @fn AbortWaitForCachedFragmentChunk
+	 *
+	 * @return void
+	 */
+	void AbortWaitForCachedFragmentChunk();
+
+	/**
 	 * @fn WaitForManifestUpdate
 	 *
 	 * @return void
@@ -283,7 +338,6 @@ public:
 	 * @return void
 	 */
 	virtual void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) = 0;
-
 	/**
 	 * @fn GetPlaylistUrl
 	 *
@@ -385,11 +439,18 @@ public:
 	bool InjectFragmentChunk();
 
 	/**
+	 * @fn CheckForDiscontinuity
+	 *
+	 * @return true/false
+	 */
+	bool CheckForDiscontinuity();
+
+	/**
 	 * @brief Get total fragment injected duration
 	 *
 	 * @return Total duration in seconds
 	 */
-	double GetTotalInjectedDuration() { return totalInjectedDuration; };
+	double GetTotalInjectedDuration();
 
 	/**
 	* @brief Get total fragment chunk injected duration
@@ -434,6 +495,12 @@ public:
 	bool WaitForFreeFragmentAvailable( int timeoutMs = -1);
 
 	/**
+	 * @fn WaitForCachedFragmentChunkInjected
+	 * @retval true if fragment chunk injected , false on abort.
+	 */
+	bool WaitForCachedFragmentChunkInjected(int timeoutMs = -1);
+
+	/**
 	 * @fn AbortWaitForCachedAndFreeFragment
 	 *
 	 * @param[in] immediate - Forced or lazy abort as in a seek/ stop
@@ -470,6 +537,8 @@ public:
 	 */
     virtual void abortWaitForVideoPTS() = 0;
 
+	virtual void resetPTSOnAudioSwitch(CachedFragment* cachedFragment = nullptr) {};	
+	
 	/**
 	 *   @brief Function to get the buffer duration
 	 *
@@ -575,6 +644,16 @@ public:
 	bool IsInjectionAborted() { return (abort || abortInject); }
 
 	/**
+	 * @brief Set local TSB injection flag
+	 */
+	void SetLocalTSBInjection(bool value) { mIsLocalTSBInjection.store(value);}
+
+	/**
+	 * @brief Is mLocalAAMPTsb enabled/disabled
+	 */
+	bool IsLocalTSBInjection() {return mIsLocalTSBInjection.load();}
+
+	/**
 	 * @brief Returns if the end of track reached.
 	 */
 	virtual bool IsAtEndOfTrack() { return eosReached;}
@@ -606,9 +685,6 @@ public:
 	 * @return void
 	 */
 	void FlushFragmentChunks();
-
-	void SourceFormat(StreamOutputFormat fmt) { mSourceFormat = fmt; }
-
 	/**
 	 * @brief API to wait thread until the fragment cached after audio reconfiguration
 	 */
@@ -619,10 +695,33 @@ public:
 	 */
 	void LoadNewAudio(bool val);
 
-	/**
+/**
 	 * @brief To set Track's Fetch and Inject duration after playlist update
 	 */
 	void OffsetTrackParams(double deltaFetchedDuration, double deltaInjectedDuration, int deltaFragmentsDownloaded);
+
+	/**
+	 *  @brief SignalIfEOSReached - Signal end-of-stream to pipeline if injector at EOS
+	 *
+	 * @return bool
+	 */
+	bool SignalIfEOSReached();
+
+	/**
+	 * @brief GetCachedFragmentChunksSize - Getter for fragment chunks cache size
+	 *
+	 * @return size_t
+	 */
+	std::size_t GetCachedFragmentChunksSize() { return mCachedFragmentChunksSize; }
+
+	/**
+	 * @brief SetCachedFragmentChunksSize - Setter for fragment chunks cache size
+	 *
+	 * @param[in] size Size for fragment chunks cache
+	 */
+	void SetCachedFragmentChunksSize(size_t size);
+
+	void SourceFormat(StreamOutputFormat fmt) { mSourceFormat = fmt; }
 
 protected:
 
@@ -654,12 +753,6 @@ protected:
 	bool WaitForCachedFragmentAvailable();
 
 	/**
-	 * @fn WaitForCachedFragmentChunkInjected
-	 * @retval true if fragment chunk injected , false on abort.
-	 */
-	bool WaitForCachedFragmentChunkInjected(int timeoutMs = -1);
-
-	/**
 	 * @fn WaitForCachedFragmentChunkAvailable 
 	 *
 	 * @return TRUE if fragment chunk available, FALSE if aborted/fragment chunk not available.
@@ -688,7 +781,7 @@ protected:
 	 * @param[out] fragmentChunkDiscarded - true if fragment is discarded.
 	 * @return void
 	 */
-	void InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration);
+	void InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool init=false, bool discontinuity=false);
 
 
 	static int GetDeferTimeMs(long maxTimeSeconds);
@@ -786,6 +879,8 @@ private:
 	std::condition_variable frDownloadWait;	/**< Conditional variable for signalling timed wait*/
 	pthread_cond_t audioFragmentCached;  /**< Signal after a audio fragment cached after reconfigure */
 	double lastInjectedPosition;             /**< Last injected position */
+	std::atomic_bool mIsLocalTSBInjection;
+	size_t mCachedFragmentChunksSize;		/**< Size of fragment chunks cache */
 };
 
 /**
@@ -833,6 +928,17 @@ public:
 	virtual AAMPStatusType Init(TuneType tuneType) = 0;
 
 	/**
+	 *   @brief  Initialize TSB Reader
+	 *
+	 *   @param[in]  tuneType - to set type of playback.
+	 *   @return true on success, false failure
+	 */
+	virtual AAMPStatusType InitTsbReader(TuneType tuneType)
+	{
+		return eAAMPSTATUS_GENERIC_ERROR;
+	}
+
+	/**
 	 *   @brief  Start streaming.
 	 *
  	 *   @return void
@@ -866,7 +972,7 @@ public:
 	{
 		return 0.0;
 	}
-		
+
 	/**
 	 *   @brief  Get PTS of first sample.
 	 *
@@ -1739,6 +1845,13 @@ protected:
 
 //private:
 protected:
+
+	/**
+	 *   @brief Get buffer value 
+	 *
+	 *   @return buffer value based on Local TSB
+	 */
+	double GetBufferValue(MediaTrack *video);
 
 	/**
 	 *   @fn GetDesiredProfileBasedOnCache

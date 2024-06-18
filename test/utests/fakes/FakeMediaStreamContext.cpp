@@ -103,3 +103,12 @@ void MediaStreamContext::setDiscontinuityState(bool isDiscontinuity)
 void MediaStreamContext::abortWaitForVideoPTS()
 {
 }
+
+bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragment)
+{
+	if (g_mockMediaStreamContext != nullptr)
+	{
+		return g_mockMediaStreamContext->CacheTsbFragment(fragment);
+	}
+    	return 0;
+}

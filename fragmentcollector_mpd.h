@@ -53,11 +53,6 @@ using namespace dash::helpers;
 /*Common MPD util functions (admanager_mpd.cpp and fragmentcollector_mpd.cpp */
 double aamp_GetPeriodNewContentDuration(dash::mpd::IMPD *mpd, IPeriod * period, uint64_t &curEndNumber);
 
-/**
- * @fn aamp_GetDurationFromRepresentation
- * @param mpd manifest ptr
- */
-uint64_t aamp_GetDurationFromRepresentation(dash::mpd::IMPD *mpd);
 
 /**
  * @struct ProfileInfo
@@ -201,6 +196,13 @@ public:
 	 * @param  tuneType to set type of object.
 	 */
 	AAMPStatusType Init(TuneType tuneType) override;
+
+	/**
+	 * @fn InitTsbReader
+	 * @param  tuneType to set type of object.
+	 */
+	AAMPStatusType InitTsbReader(TuneType tuneType) override;
+
 	/**
 	 * @fn GetStreamFormat
 	 * @param[out]  primaryOutputFormat - format of primary track
@@ -502,10 +504,26 @@ protected:
 	 */
 	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState,bool isDiscontinuity = false);
 	/**
+	 * @fn AdvanceTsbFetch
+	 * @param[in] trackIdx - trackIndex
+	 * @param[in] trickPlay - trickplay flag
+	 * @param[in] delta - delta for skipping fragments
+	 * @param[out] waitForFreeFrag - waitForFreeFragmentAvailable flag
+	 * @param[out] bCacheFullState - cache status for track
+	 *
+	 * @return void
+	 */
+	void AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool *waitForFreeFrag, bool *bCacheFullState);
+	/**
 	 * @fn FetcherLoop
 	 * @return void
 	 */
 	void FetcherLoop();
+	/**
+	 * @fn TsbReader
+	 * @return void
+	 */
+	void TsbReader();
 	/**
 	 * @fn GetStreamInfo
 	 * @param[in]  idx - profile index.
@@ -851,10 +869,13 @@ protected:
 
     std::mutex mStreamLock;
 	bool fragmentCollectorThreadStarted;
+	bool tsbReaderThreadStarted;
+	bool abortTsbReader;
 	std::set<std::string> mLangList;
 	double seekPosition;
 	float rate;
 	std::thread fragmentCollectorThreadID;
+	std::thread tsbReaderThreadID;
 	ManifestDownloadResponsePtr mManifestDnldRespPtr ; 
 	bool    mManifestUpdateHandleFlag;
 	AampMPDParseHelperPtr	mMPDParseHelper;

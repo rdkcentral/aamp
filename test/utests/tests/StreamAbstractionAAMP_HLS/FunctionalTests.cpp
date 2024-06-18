@@ -2767,7 +2767,8 @@ TEST_F(TrackStateTests,GetProfileIndexForBW )
 TEST_F(TrackStateTests,UpdateTSAfterChunkFetch )
 {
     TrackStateobj->numberOfFragmentChunksCached = 0;
-    TrackStateobj->maxCachedFragmentChunksPerTrack = 1;
+    TrackStateobj->maxCachedFragmentChunksPerTrack=1;
+    TrackStateobj->SetCachedFragmentChunksSize(1);
     TrackStateobj->UpdateTSAfterChunkFetch();
 }
 

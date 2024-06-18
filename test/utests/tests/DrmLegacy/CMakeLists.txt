@@ -29,6 +29,7 @@ pkg_check_modules(UUID REQUIRED uuid)
 
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/libsubtec)
+include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
@@ -68,7 +69,8 @@ set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				 ${AAMP_ROOT}/drm/AampDRMSessionManager.cpp
 				 ${AAMP_ROOT}/drm/AampDrmSession.cpp
 				 ${AAMP_ROOT}/drm/ClearKeyDrmSession.cpp
-				 ${AAMP_ROOT}/drm/helper/AampClearKeyHelper.cpp)
+				 ${AAMP_ROOT}/drm/helper/AampClearKeyHelper.cpp
+				 ${AAMP_ROOT}/isobmff/isobmffbox.h ${AAMP_ROOT}/isobmff/isobmffbox.cpp ${AAMP_ROOT}/isobmff/isobmffbuffer.h ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
 
 add_definitions(-DAAMP_MPD_DRM)
 add_definitions(-DUSE_CLEARKEY)

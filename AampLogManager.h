@@ -169,6 +169,13 @@ public:
 	}
 
 	/* ---------- Triage Level Logging Support ---------- */
+	/**
+	 * @fn aampLogger
+	 *
+	 * @param[in] tsbMessage - Message to print
+	 * @return void
+	 */
+	static void aampLogger(std::string &&tsbMessage);
 
 	/**
 	 * @fn LogNetworkLatency

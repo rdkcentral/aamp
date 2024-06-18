@@ -31,7 +31,7 @@
 #endif //AAMP_TELEMETRY_SUPPORT
 
 #include <algorithm>
-
+#include <iomanip>
 #define MAX std::max
 
 /**
@@ -40,7 +40,7 @@
 ProfileEventAAMP::ProfileEventAAMP():
 	tuneStartMonotonicBase(0), tuneStartBaseUTCMS(0), bandwidthBitsPerSecondVideo(0),
         bandwidthBitsPerSecondAudio(0), buckets(), drmErrorCode(0), enabled(false), xreTimeBuckets(), tuneEventList(),
-	tuneEventListMtx(), mTuneFailBucketType(PROFILE_BUCKET_MANIFEST), mTuneFailErrorCode(0),mLogObj(NULL), rateCorrection(0), bitrateChange(0), bufferChange(0), telemetryParam(NULL), discontinuityParamMutex()
+	tuneEventListMtx(), mTuneFailBucketType(PROFILE_BUCKET_MANIFEST), mTuneFailErrorCode(0),mLogObj(NULL), rateCorrection(0), bitrateChange(0), bufferChange(0), telemetryParam(NULL), mLldLowBuffObject(NULL),discontinuityParamMutex()
 {
 }
 
@@ -510,6 +510,64 @@ void ProfileEventAAMP::SetDiscontinuityParam()
 			ProfileReset(PROFILE_BUCKET_DISCO_TOTAL);
 			ProfileReset(PROFILE_BUCKET_DISCO_FLUSH);
 			ProfileReset(PROFILE_BUCKET_DISCO_FIRST_FRAME);
+		}
+	}
+}
+
+/**
+ * @brief API to add LLD specific Low buffer object 
+ */
+void ProfileEventAAMP::AddLLDLowBufferObject()
+{
+	if(telemetryParam)
+	{
+		if (mLldLowBuffObject == NULL)
+		{
+			mLldLowBuffObject = cJSON_AddArrayToObject(telemetryParam, "lldlb");
+		}
+	}
+}
+
+/**
+ * @brief API to add double with pre defined precision
+ */
+void ProfileEventAAMP::AddWithPrecisionNumber(cJSON* item, const char* label, double num)
+{
+	if (item)
+	{
+		std::ostringstream streamObj;
+		streamObj << std::fixed << std::setprecision(2) << num;/**< Set precision to 2 digits */
+		std::string str = streamObj.str(); /**<  Converts double to string */
+		AAMPLOG_TRACE("[DEBUG]string num = %s double num : %lf", str.c_str(), std::stod(str));
+		//cJSON_AddStringToObject(item, label, str.c_str());
+		cJSON_AddNumberToObject(item, label, std::stod(str));
+		
+	}
+}
+
+
+/**
+ * @brief to mark the discontinuity switch and save the parameters
+ */
+void ProfileEventAAMP::SetLLDLowBufferParam(double latency, double buff, double rate, double bw, double buffLowCount)
+{
+	std::lock_guard<std::mutex> lock(discontinuityParamMutex);
+	if(telemetryParam)
+	{
+		AddLLDLowBufferObject();
+		if(mLldLowBuffObject)
+		{
+			cJSON* item;
+			cJSON_AddItemToArray(mLldLowBuffObject, item = cJSON_CreateObject());
+			AddWithPrecisionNumber(item,"lt",latency);
+			AddWithPrecisionNumber(item,"buf",buff);
+			AddWithPrecisionNumber(item,"pbr",rate);
+			cJSON_AddNumberToObject(item,"bw",bw);
+			cJSON_AddNumberToObject(item,"lbc",buffLowCount);
+		}
+		else
+		{
+			AAMPLOG_WARN("LLD Low buffer Object is not initialized !!");
 		}
 	}
 }

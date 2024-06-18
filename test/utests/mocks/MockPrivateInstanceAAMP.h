@@ -49,6 +49,8 @@ public:
     MOCK_METHOD(long long, GetPositionMs, ());
 
     MOCK_METHOD(const std::string &, GetSessionId, ());
+
+    MOCK_METHOD(std::shared_ptr<TSB::Store>, GetTSBStore, (const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

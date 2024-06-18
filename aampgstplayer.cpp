@@ -787,7 +787,7 @@ static void enough_data(GstElement *source, AAMPGstPlayer *_this)
 				}
 				else
 				{
-					AAMPLOG_ERR( "%s Null check failed.", getMediaTypeName(mediaType));
+					AAMPLOG_ERR( "%s Null check failed.", GetMediaTypeName(mediaType));
 				}
 			}
 		}
@@ -1016,7 +1016,6 @@ static void httpsoup_source_setup (GstElement * element, GstElement * source, gp
 	}
 }
 
-
 static GstPadProbeReturn AAMPGstPlayer_DemuxPadProbeCallback(GstPad * pad, GstPadProbeInfo * info, AAMPGstPlayer * _this)
 {
 	GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
@@ -1106,6 +1105,7 @@ static void element_setup_cb(GstElement * playbin, GstElement * element, AAMPGst
 	}
 	g_free(elemName);
 }
+
 
 /**
  * @brief Idle callback to notify first frame rendered event
@@ -2552,6 +2552,7 @@ void AAMPGstPlayer::RemoveProbes()
 	}
 }
 
+
 /**
  *  @brief Cleanup resources and flags for a particular stream type
  */
@@ -2901,59 +2902,6 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 }
 
 /**
- * @fn RecalculatePTS
- * @param[in] mediaType stream type
- * @param[in] ptr buffer pointer
- * @param[in] len length of buffer
- */
-double AAMPGstPlayer::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len)
-{
-	double ret = 0;
-	uint32_t timeScale = 0;
-
-	if(mediaType == eMEDIATYPE_VIDEO)
-	{
-		timeScale = aamp->GetVidTimeScale();
-	}
-	else if(mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_AUX_AUDIO)
-	{
-		timeScale = aamp->GetAudTimeScale();
-	}
-
-
-	IsoBmffBuffer isobuf(mLogObj);
-	isobuf.setBuffer((uint8_t *)ptr, len);
-	bool bParse = false;
-	try
-	{
-		bParse = isobuf.parseBuffer();
-	}
-	catch( std::bad_alloc& ba)
-	{
-		AAMPLOG_ERR("Bad allocation: %s", ba.what() );
-	}
-	catch( std::exception &e)
-	{
-		AAMPLOG_ERR("Unhandled exception: %s", e.what() );
-	}
-	catch( ... )
-	{
-		AAMPLOG_ERR("Unknown exception");
-	}
-	if(bParse && (0 != timeScale))
-	{
-		uint64_t fPts = 0;
-		bool bParse = isobuf.getFirstPTS(fPts);
-		if (bParse)
-		{
-			ret = fPts/(timeScale*1.0);
-			AAMPLOG_TRACE("restamped PTS : %lf", ret);
-		}
-	}
-	return ret;
-}
-
-/**
  * @fn SendGstEvents
  * @param[in] mediaType stream type
  */
@@ -3208,7 +3156,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 				GST_BUFFER_PTS(buffer) = pts;
 				GST_BUFFER_DTS(buffer) = dts;
 				GST_BUFFER_DURATION(buffer) = duration;
-				AAMPLOG_DEBUG("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" ", mediaType, pts, dts);
+				AAMPLOG_DEBUG("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%ld init:%d discontinuity:%d", mediaType, pts, dts, len, initFragment, discontinuity);
 			}
 			else
 			{
@@ -4566,6 +4514,7 @@ void AAMPGstPlayer::setVolumeOrMuteUnMute(void)
 #endif
 }
 
+
 /**
  *  @brief Flush cached GstBuffers and set seek position & rate
  */
@@ -5421,7 +5370,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 {
     /** For gst version 1.18 and Amlogic*/
 #if defined (AMLOGIC) && GST_CHECK_VERSION(1,18,0)
-	AAMPLOG_INFO("AAMPGstPlayer: gst_event_new_instant_rate_change: %f ...V6", rate);
+	AAMPLOG_TRACE("AAMPGstPlayer: gst_event_new_instant_rate_change: %f ...V6", rate);
 	for (int iTrack = 0; iTrack < AAMP_TRACK_COUNT; iTrack++)
 	{
 		if( (iTrack != (int)eMEDIATYPE_SUBTITLE) && privateContext->stream[iTrack].source != NULL) 
@@ -5605,7 +5554,7 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(AampMediaType mediaType, GstClo
 			}
 			if(0 == basePTS && ptr && len > 0)
 			{
-				basePTS = RecalculatePTS(mediaType, ptr, len) * GST_SECOND;
+				basePTS = RecalculatePTS(mediaType, ptr, len,mLogObj,aamp) * GST_SECOND;
 			}
 			AAMPLOG_MIL("Set override event's basePTS [ %" G_GUINT64_FORMAT "]", basePTS);
 			gst_structure_set (eventStruct, "basePTS", G_TYPE_UINT64, basePTS, NULL);
@@ -5676,7 +5625,7 @@ void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlD
 		if (data.GstWaitingForData)
 		{
 			AAMPLOG_WARN("BufferControlExternalData %s GStreamer (current %s, %s, should be %s))",
-			getMediaTypeName(mediaType), gst_element_state_get_name(current),
+			GetMediaTypeName(mediaType), gst_element_state_get_name(current),
 			gst_element_state_get_name(pending),
 			pipelineShouldBePlaying ? "GST_STATE_PLAYING" : "GST_STATE_PAUSED");
 		}

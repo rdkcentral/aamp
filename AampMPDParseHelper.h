@@ -409,6 +409,14 @@ public :
 	 */
 	double GetFirstSegmentScaledStartTime(IPeriod * period, AampMediaType type);
 
+	uint64_t GetDurationFromRepresentation();
+
+	double   GetPeriodNewContentDuration(IPeriod * period, uint64_t &curEndNumber);
+
+	uint32_t GetPeriodSegmentTimeScale(IPeriod * period);
+
+	uint64_t GetFirstSegmentStartTime(IPeriod * period);
+
 private:
 
 	/**

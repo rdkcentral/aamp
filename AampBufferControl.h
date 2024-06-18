@@ -240,7 +240,7 @@ namespace AampBufferControl
 		void StopDownloads(){mDownloadShouldBeEnabled=false;};
 
 		AampMediaType getMediaType() const {return mMediaType;}
-		const char* getThisMediaTypeName() const {return getMediaTypeName(getMediaType());}
+		const char* getThisMediaTypeName() const {return GetMediaTypeName(getMediaType());}
 
 		BufferControlMaster();
 
