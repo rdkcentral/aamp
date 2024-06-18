@@ -58,7 +58,7 @@ public:
 	virtual void NeedData( MediaType mediaType ) = 0;
 	virtual void EnoughData( MediaType mediaType ) = 0;
 	virtual void ReachedEOS( void ) = 0;
-	virtual void PadProbeCallback( MediaType mediaType ) = 0;
+	//virtual void PadProbeCallback( MediaType mediaType ) = 0;
 };
 
 class Pipeline
@@ -67,25 +67,23 @@ public:
 	Pipeline( class PipelineContext *context );
 	~Pipeline();
 	
-	void SetTimestampOffset( MediaType mediaType, double pts_offset );
-	long long GetPositionMilliseconds( void );
+	double GetInjectedSeconds( MediaType mediaType );
+	long long GetPositionMilliseconds( MediaType mediaType );
 	void SetPipelineState( PipelineState );
 	PipelineState GetPipelineState( void );
 	void Configure( MediaType mediaType, const char *required_caps );
-	void Flush( double rate, double start, double stop, double baseTime, double pts_offset );
-	void Flush( MediaType type, double pos );
+	void Flush( double rate, double start, double stop, double baseTime );
+	void Flush( MediaType type, double position );
 	void InstantaneousRateChange( double newRate );
 	void DumpDOT( void );
-	void SendBuffer( MediaType mediaType, void * ptr, size_t len );
-	void SendBuffer( MediaType mediaType, gpointer ptr, gsize len, double pts, double dts, double duration );
+	void SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration );
+	void SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts );
 	void SendGap( MediaType mediaType, double pts, double base_time );
 	void SendEOS( MediaType mediaType );
 	void Step( void );
 
-	//copy constructor
-	Pipeline(const Pipeline&)=delete;
-	//copy assignment operator
-	Pipeline& operator=(const Pipeline&)=delete;
+	Pipeline(const Pipeline&)=delete; //copy constructor
+	Pipeline& operator=(const Pipeline&)=delete; //copy assignment operator
 private:
 	class PipelineContext *context;
 	

@@ -42,7 +42,6 @@ if(APPLE)
     # add the automatically determined parts of the RPATH
     # which point to directories outside the build tree to the install RPATH
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-
 endif()
 project (AAMP)
 cmake_minimum_required (VERSION 2.6)
@@ -857,6 +856,7 @@ target_link_libraries(aamp subtec)
 set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${LIBDASH_LIBRARIES} ${CURL_LINK_LIBRARIES})
 set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
                            test/gstTestHarness/gst-test.h
+                           test/gstTestHarness/parsemp4.hpp
                            test/gstTestHarness/tsdemux.hpp
                            test/gstTestHarness/dash_adapter.hpp
                            test/gstTestHarness/downloader.hpp
@@ -865,6 +865,7 @@ set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
                            test/gstTestHarness/turbo_xml.hpp )
 set(GSTTESTHARNESS_SOURCES test/gstTestHarness/gst-port.cpp
                            test/gstTestHarness/gst-test.cpp
+                           test/gstTestHarness/parsemp4.cpp
                            test/gstTestHarness/dash_adapter.cpp
                            test/gstTestHarness/downloader.cpp
                            test/gstTestHarness/stream_utils.cpp

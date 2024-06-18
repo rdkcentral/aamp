@@ -25,8 +25,21 @@
 #include "stream_utils.hpp"
 #include "dash_adapter.hpp"
 #include "turbo_xml.hpp"
+#include "parsemp4.hpp"
+#include <mutex>
 
-static double gPtsOffset = 0.0; // used with es injection, as alternative to gst_pad_set_offset
+#include <thread>
+#include <unistd.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+static std::mutex mCommandMutex;
+
+#define TS_TIMESCALE 10000
+#define TIME_BASED_BUFFERING_THRESHOLD 4.0
 
 static enum
 {
@@ -76,10 +89,10 @@ MyPipelineContext::MyPipelineContext( void ): numPendingEOS(0), nextPTS(0.0), ne
 	{
 		delete pipeline;
 	}
-	
+
 void MyPipelineContext::ReachedEOS( void )
 {
-	printf( "app_ReachedEOS\n" );
+	printf( "***app_ReachedEOS\n" );
 	if( numPendingEOS>0 )
 	{
 		numPendingEOS--;
@@ -89,12 +102,11 @@ void MyPipelineContext::ReachedEOS( void )
 			double rate = 1.0;
 			double start = nextPTS;
 			double stop = -1;
-			double pts_offset = 0;
-			pipeline->Flush( rate, start, stop, nextTime, pts_offset );
+			pipeline->Flush( rate, start, stop, nextTime );
 		}
 	}
 }
-	
+
 void MyPipelineContext::NeedData( MediaType mediaType )
 {
 	track[mediaType].needsData = true;
@@ -103,11 +115,6 @@ void MyPipelineContext::NeedData( MediaType mediaType )
 void MyPipelineContext::EnoughData( MediaType mediaType )
 {
 	track[mediaType].needsData = false;
-}
-	
-void MyPipelineContext::PadProbeCallback( MediaType mediaType )
-{
-	track[mediaType].padProbeCount++;
 }
 
 static char base_path[MAX_BASE_PATH_SIZE] = DEFAULT_BASE_PATH;
@@ -174,13 +181,14 @@ void GetVideoSegmentPath( char path[MAX_PATH_SIZE], int segmentNumber, VideoReso
 class TrackFragment: public TrackEvent
 {
 private:
-	// for mp4 segment
 	gsize len;
 	gpointer ptr;
-	
+	double duration;
+	int64_t pts_offset;
+
 	// for demuxed ts segment
 	TsDemux *tsDemux;
-	double pts_offset;
+	
 	std::string url;
 	
 	void Load( void )
@@ -189,20 +197,17 @@ private:
 		{
 			tsDemux = new TsDemux( url.c_str() );
 			assert( tsDemux );
-			pts_offset = gPtsOffset;
 		}
 		else
 		{
 			ptr = LoadUrl(url,&len);
-			//assert( this->ptr );
 		}
 	}
 	
 public:
-	TrackFragment( const char *path ):len(), ptr(), tsDemux(), pts_offset()
+	TrackFragment( const char *path, double duration, int64_t pts_offset=0 ):len(), ptr(), tsDemux(), pts_offset(pts_offset), duration(duration)
 	{
 		url = path;
-		//Load(); // preload all content up-front
 	}
 	
 	~TrackFragment()
@@ -226,18 +231,19 @@ public:
 				gpointer ptr = g_malloc(len);
 				if( ptr )
 				{
-					double duration = 0; // logically, subset of SEGMENT_DURATION_SECONDS
 					memcpy( ptr, tsDemux->getPtr(i), len );
-					context->pipeline->SendBuffer( mediaType, ptr, len,
-												  pts+pts_offset,
-												  dts+pts_offset,
-												  duration );
+					context->pipeline->SendBufferES( mediaType, ptr, len,
+												  duration,
+												  pts+pts_offset/(double)TS_TIMESCALE,
+												  dts+pts_offset/(double)TS_TIMESCALE );
+					duration = 0;
 				}
 			}
 		}
 		else if( ptr )
 		{
-			context->pipeline->SendBuffer( mediaType, ptr, len );
+			parsemp4_ApplyPtsOffset( (uint8_t *)ptr, len, pts_offset );
+			context->pipeline->SendBufferMP4( mediaType, ptr, len, duration );
 			ptr = NULL;
 		}
 		return true;
@@ -323,7 +329,7 @@ public:
 		gpointer ptr = LoadUrl(path,&len);
 		if( ptr )
 		{
-			context->pipeline->SendBuffer( mediaType, ptr, len );
+			context->pipeline->SendBufferMP4( mediaType, ptr, len, SEGMENT_DURATION_SECONDS );
 			segmentIndex++;
 			pts += SEGMENT_DURATION_SECONDS;
 			return false; // more
@@ -389,7 +395,7 @@ public:
 			context->nextPTS = nextPTS;
 			context->nextTime = nextTime;
 			context->numPendingEOS++;
-			printf( "queued EOS; nextPTS=%f\n", nextPTS );
+			printf( "****queued EOS; nextPTS=%f\n", nextPTS );
 			context->pipeline->SendEOS(mediaType);
 			active = true;
 		}
@@ -397,6 +403,7 @@ public:
 		{ // prevent queue from advancing until both tracks reached end of period
 			return false;
 		}
+		context->seekPos = nextTime; // hack
 		return true;
 	}
 };
@@ -445,32 +452,6 @@ public:
 			return false;
 		}
 		return true;
-	}
-};
-
-class TrackNext: public TrackEvent
-{
-private:
-	int injectCount;
-	
-public:
-	TrackNext( int injectCount ) : injectCount(injectCount)
-	{
-		printf( "TrackNext; injectCount = %d\n", injectCount );
-	}
-	
-	~TrackNext()
-	{
-	}
-	
-	bool Inject( MyPipelineContext *context, MediaType mediaType)
-	{
-		if( context->track[mediaType].padProbeCount>=injectCount )
-		{
-			printf( "UNBLOCKING %s\n", (mediaType==eMEDIATYPE_AUDIO)?"audio":"video" );
-			return true;
-		}
-		return false;
 	}
 };
 
@@ -546,31 +527,7 @@ public:
 	bool Inject( MyPipelineContext *context, MediaType mediaType)
 	{
 		printf( "processing TrackFlush\n" );
-		double pts_offset = 0.0;
-		context->pipeline->Flush( rate, start, stop, position_adjust, pts_offset );
-		return true;
-	}
-};
-
-class TrackTimestampOffset: public TrackEvent
-{
-private:
-	double pts_offset;
-	
-public:
-	TrackTimestampOffset( double pts_offset )
-	: pts_offset(pts_offset)
-	{
-	}
-	
-	~TrackTimestampOffset()
-	{
-	}
-	
-	bool Inject( MyPipelineContext *context, MediaType mediaType)
-	{
-		printf( "processing TrackTimestampOffset(%f)\n", pts_offset );
-		context->pipeline->SetTimestampOffset(mediaType,pts_offset);
+		context->pipeline->Flush( rate, start, stop, position_adjust );
 		return true;
 	}
 };
@@ -593,10 +550,10 @@ public:
 	}
 };
 
-Track::Track() : queue(new std::queue<class TrackEvent *>), injectCount(), needsData(), padProbeCount()
+Track::Track() : queue(new std::queue<class TrackEvent *>), injectCount(), needsData(), gstreamerReadyForInjection()
 {
 }
-	
+
 Track::~Track()
 {
 	delete queue;
@@ -629,21 +586,19 @@ void Track::QueueVideoHeader( VideoResolution resolution )
 	{
 		char path[MAX_PATH_SIZE];
 		GetVideoIHeaderPath(path, resolution );
-		EnqueueSegment( new TrackFragment( path ) );
+		EnqueueSegment( new TrackFragment( path, 0 ) );
 	}
 }
 
-void Track::QueueVideoSegment( VideoResolution resolution, int startIndex, int count )
+void Track::QueueVideoSegment( VideoResolution resolution, int startIndex, int count, int64_t pts_offset )
 {
 	char path[MAX_PATH_SIZE];
-	double pts = startIndex*SEGMENT_DURATION_SECONDS;
 	if( count>0 )
 	{
 		while( count>0 )
 		{
 			GetVideoSegmentPath(path, startIndex, resolution );
-			EnqueueSegment( new TrackFragment( path ) );
-			pts += SEGMENT_DURATION_SECONDS;
+			EnqueueSegment( new TrackFragment( path, SEGMENT_DURATION_SECONDS, pts_offset ) );
 			startIndex++;
 			count--;
 		}
@@ -653,8 +608,7 @@ void Track::QueueVideoSegment( VideoResolution resolution, int startIndex, int c
 		while( count<0 )
 		{
 			GetVideoSegmentPath(path, startIndex, resolution );
-			EnqueueSegment( new TrackFragment( path ) );
-			pts -= SEGMENT_DURATION_SECONDS;
+			EnqueueSegment( new TrackFragment( path, SEGMENT_DURATION_SECONDS, pts_offset ) );
 			startIndex--;
 			count++;
 		}
@@ -670,20 +624,20 @@ void Track::QueueAudioHeader( const char *language )
 	{
 		char path[MAX_PATH_SIZE];
 		GetAudioHeaderPath( path, language );
-		EnqueueSegment( new TrackFragment( path ) );
+		EnqueueSegment( new TrackFragment( path, 0 ) );
 	}
 }
 
-void Track::QueueAudioSegment( const char *language, int startIndex, int count )
+void Track::QueueAudioSegment( const char *language, int startIndex, int count, int64_t pts_offset )
 {
 	char path[MAX_PATH_SIZE];
-	double pts = startIndex*SEGMENT_DURATION_SECONDS;
+	//double pts = startIndex*SEGMENT_DURATION_SECONDS;
 	for( int i=0; i<count; i++ )
 	{
 		int segmentNumber = startIndex + i;
 		GetAudioSegmentPath( path, segmentNumber, language );
-		EnqueueSegment( new TrackFragment( path ) );
-		pts += SEGMENT_DURATION_SECONDS;
+		EnqueueSegment( new TrackFragment( path, SEGMENT_DURATION_SECONDS, pts_offset ) );
+		//pts += SEGMENT_DURATION_SECONDS;
 	}
 }
 
@@ -718,17 +672,25 @@ static const PeriodInfo mPeriodInfo[] =
 	{  0, 2, eVIDEORESOLUTION_720P,  "es" },
 };
 
+typedef enum
+{
+	eSTATE_IDLE,
+	eSTATE_STREAM,
+	eSTATE_LOAD
+} AppState;
+
 class AppContext
 {
 public:
+	AppState appState;
 	MyPipelineContext pipelineContext;
+	Timeline timeline;
 	GMainLoop *main_loop;
 	bool logPositionChanges;
-	long long last_reported_position;
 	int autoStepCount;
 	gulong autoStepDelayMs;
 	
-	AppContext():last_reported_position(-1),logPositionChanges(false),autoStepCount(0),autoStepDelayMs(IFRAME_TRACK_CADENCE_MS), pipelineContext(),main_loop(g_main_loop_new(NULL, FALSE))
+	AppContext():logPositionChanges(false),autoStepCount(0),autoStepDelayMs(IFRAME_TRACK_CADENCE_MS), pipelineContext(),main_loop(g_main_loop_new(NULL, FALSE))
 	{
 		printf( "AppContext constructor.... type stuff here!!!\n" );
 	}
@@ -737,13 +699,11 @@ public:
 		printf( "AppContext destructor\n" );
 	}
 	
-	void Flush( double rate = 1, double start = 0, double stop = -1, double baseTime = 0, double pts_offset = 0.0 )
+	void Flush( double rate = 1, double start = 0, double stop = -1, double baseTime = 0 )
 	{
 		pipelineContext.track[eMEDIATYPE_VIDEO].Flush();
 		pipelineContext.track[eMEDIATYPE_AUDIO].Flush();
-		pipelineContext.pipeline->Flush(rate,start,stop,baseTime,pts_offset);
-		pipelineContext.track[eMEDIATYPE_VIDEO].padProbeCount = 0;
-		pipelineContext.track[eMEDIATYPE_AUDIO].padProbeCount = 0;
+		pipelineContext.pipeline->Flush(rate,start,stop,baseTime);
 	}
 	
 	void TestABR( void )
@@ -845,52 +805,36 @@ public:
 		double last_pts = 0.0;
 		for( int i=0; i<ARRAY_SIZE(mPeriodInfo); i++ )
 		{
+			double pts_offset = 0;
 			const PeriodInfo *periodInfo = &mPeriodInfo[i];
 			double next_pts = periodInfo->startIndex*SEGMENT_DURATION_SECONDS;
 			if( i==0 )
 			{
 				first_pts = next_pts;
 				last_pts = first_pts;
-				if( mContentFormat == eCONTENTFORMAT_ES )
-				{
-					gPtsOffset = -first_pts;
-					Flush( 1.0/*rate*/, 0/*start*/, -1/*stop*/, 0/*baseTime*/, 0 );
-				}
-				else
-				{
-					Flush( 1.0/*rate*/, 0/*start*/, -1/*stop*/, 0/*baseTime*/, -first_pts );
-				}
+				pts_offset = -first_pts;
+				Flush( 1.0/*rate*/, 0/*start*/, -1/*stop*/, 0/*baseTime*/ );
 			}
 			else
 			{
-				double pts_offset = (last_pts - next_pts) - first_pts;
-				if( mContentFormat == eCONTENTFORMAT_ES )
-				{ // adjust pts at injection time
-					gPtsOffset = pts_offset;
-				}
-				else
-				{ // use gst_pad_set_offset
-					// wait for pad probe to ack prior segment processing
-					video.EnqueueControl( new TrackNext(video.injectCount) );
-					audio.EnqueueControl( new TrackNext(audio.injectCount) );
-					
-					// update pts offset
-					video.EnqueueControl( new TrackTimestampOffset(pts_offset) );
-					audio.EnqueueControl( new TrackTimestampOffset(pts_offset) );
-				}
+				pts_offset = (last_pts - next_pts) - first_pts;
 			}
 			last_pts += periodInfo->segmentCount*SEGMENT_DURATION_SECONDS;
 			video.QueueVideoHeader( periodInfo->resolution );
+			uint32_t timeScale = (mContentFormat == eCONTENTFORMAT_ES)?TS_TIMESCALE:12800;
 			video.QueueVideoSegment(
 									periodInfo->resolution,
 									periodInfo->startIndex,
-									periodInfo->segmentCount );
+									periodInfo->segmentCount,
+									pts_offset*timeScale ); // timescale adjusted
 			
 			audio.QueueAudioHeader( periodInfo->language );
+			timeScale = (mContentFormat == eCONTENTFORMAT_ES)?TS_TIMESCALE:48000;
 			audio.QueueAudioSegment(
 									periodInfo->language,
 									periodInfo->startIndex,
-									periodInfo->segmentCount );
+									periodInfo->segmentCount,
+									pts_offset*timeScale ); // timescale adjusted
 		}
 		
 		video.EnqueueControl( new TrackEOS() );
@@ -943,7 +887,6 @@ public:
 		
 		pipelineContext.pipeline->Flush( eMEDIATYPE_VIDEO, seek_pos );
 		pipelineContext.pipeline->Flush( eMEDIATYPE_AUDIO, seek_pos );
-		
 	}
 	
 	/**
@@ -1055,7 +998,7 @@ public:
 	void TestSAP( void )
 	{
 		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PAUSED);
-		auto position = pipelineContext.pipeline->GetPositionMilliseconds()/1000.0;
+		auto position = pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_VIDEO)/1000.0;
 		Flush( 1, position, -1, position );
 		LoadVideo( eVIDEORESOLUTION_360P );
 		LoadAudio("fr");
@@ -1128,7 +1071,7 @@ public:
 	void TestSeamlessAudioSwitch()
 	{
 		// Get current position
-		double position = pipelineContext.pipeline->GetPositionMilliseconds() / 1000.0;
+		double position = pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_VIDEO) / 1000.0;
 		
 		Track &audio = pipelineContext.track[eMEDIATYPE_AUDIO];
 		int startIndex = position / SEGMENT_DURATION_SECONDS;
@@ -1141,7 +1084,7 @@ public:
 		audio.QueueAudioHeader( "en" );
 		audio.QueueAudioSegment( "en", startIndex, count );
 		
-		double newPosition = pipelineContext.pipeline->GetPositionMilliseconds() / 1000.0;
+		double newPosition = pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_VIDEO) / 1000.0;
 		pipelineContext.pipeline->Flush( eMEDIATYPE_AUDIO, newPosition );
 	}
 	
@@ -1175,7 +1118,28 @@ public:
 	void FeedPipelineIfNeeded( MediaType mediaType )
 	{
 		Track &t = pipelineContext.track[mediaType];
+		bool needsData = false;
+#ifdef TIME_BASED_BUFFERING_THRESHOLD
 		if( t.needsData )
+		{
+			t.gstreamerReadyForInjection = true;
+		}
+		if( t.gstreamerReadyForInjection )
+		{ // don't start injection until gstreamer has signaled ready
+			double pos = pipelineContext.pipeline->GetPositionMilliseconds(mediaType)/1000.0;
+			if( pos < pipelineContext.seekPos )
+			{
+				pos = pipelineContext.seekPos;
+			}
+			double endPos = pipelineContext.seekPos + pipelineContext.pipeline->GetInjectedSeconds(mediaType);
+			needsData = (endPos - pos < TIME_BASED_BUFFERING_THRESHOLD);
+			// printf( "%f %f buffer health: %f; needsData=%d\n", pos, endPos, endPos - pos, needsData );
+		}
+#else
+		needsData = t.needsData;
+#endif
+		
+		if( needsData )
 		{
 			auto queue = t.queue;
 			if( queue->size()>0 )
@@ -1185,6 +1149,7 @@ public:
 				{
 					queue->pop();
 					delete buffer;
+					//std::this_thread::sleep_for(std::chrono::milliseconds(50));
 				}
 			}
 		}
@@ -1192,23 +1157,31 @@ public:
 	
 	void IdleFunc( void )
 	{
+		const std::lock_guard<std::mutex> lock(mCommandMutex);
+		
 		if( pipelineContext.pipeline )
 		{
 			if( logPositionChanges )
-			{
-				long long position = pipelineContext.pipeline->GetPositionMilliseconds();
+			{ // log any change in position
+				static long long last_reported_position;
+				long long position = pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_VIDEO);
+				long long audio_position = pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_AUDIO);
+				if( audio_position > position )
+				{ // collect max of audio/video position (should be identical in most cases)
+					position = audio_position;
+				}
 				if( position>=0 && position != last_reported_position )
 				{
+					last_reported_position = position;
 					g_print( "position=%lld\n", position );
 				}
-				last_reported_position = position;
 			}
 			FeedPipelineIfNeeded( eMEDIATYPE_VIDEO );
 			FeedPipelineIfNeeded( eMEDIATYPE_AUDIO );
 			
 			if(( autoStepCount>0 ) &&
 			   ( ePIPELINESTATE_PAUSED == pipelineContext.pipeline->GetPipelineState() ))
-			{
+			{ // delay between iframe presentation
 				g_usleep(autoStepDelayMs*1000);
 				pipelineContext.pipeline->Step();
 				autoStepCount--;
@@ -1303,23 +1276,30 @@ public:
 	
 	void InjectSegments( const Timeline &timelineObj )
 	{
+		double secondsToSkip = pipelineContext.seekPos;
+		bool processingFirstPeriod = true;
+		double pts_offset = 0.0;
 		for( int iPeriod=0; iPeriod<timelineObj.period.size(); iPeriod++ )
 		{
 			const PeriodObj &period = timelineObj.period[iPeriod];
-			auto timestampOffset = period.timestampOffset;
-			if( iPeriod == 0 )
+			pts_offset -= period.firstPts;
+			double next_pts_offset = pts_offset + period.duration;
+			if( processingFirstPeriod )
 			{
-				Flush( 1.0/*rate*/, 0/*start*/, -1/*stop*/, 0/*baseTime*/, timestampOffset );
-			}
-			else
-			{
-				for( int mediaType=0; mediaType<2; mediaType++ )
-				{
-					Track &t = pipelineContext.track[mediaType];
-					t.EnqueueControl( new TrackNext(t.injectCount) );
-					t.EnqueueControl( new TrackTimestampOffset(timestampOffset) );
+				if( secondsToSkip >= period.duration )
+				{ // skip this period
+					secondsToSkip -= period.duration;
+					pts_offset = next_pts_offset;
+					continue;
 				}
+				double rate = 1.0;
+				double start = pipelineContext.seekPos;
+				double baseTime = pipelineContext.seekPos;
+				double stop = -1; // TODO: clamp to end of period
+				Flush( rate, start, stop, baseTime );
+				processingFirstPeriod = false;
 			}
+			
 			for( auto it : period.adaptationSet )
 			{
 				const AdaptationSet &adaptationSet = it.second;
@@ -1333,50 +1313,72 @@ public:
 					mediaType = eMEDIATYPE_AUDIO;
 				}
 				else if( adaptationSet.contentType == "text" )
-				{ // TODO
+				{ // not yet supported
 					continue;
 				}
 				else
 				{ // unknown/unsupported track type
 					assert(0);
 				}
+				
+				std::map<std::string,std::string> segment_template_param;
 				auto representation = adaptationSet.representation[0];
-				std::map<std::string,std::string> param;
-				uint64_t number = representation.data.startNumber;
-				auto len = representation.data.media.size();
-				if( len==1 )
+				segment_template_param["RepresentationID"] = representation.id;
+
+				auto segmentCount = representation.data.media.size();
+				if( segmentCount==1 )
 				{
-					len = representation.data.duration.size();
-					if( len==1 )
+					segmentCount = representation.data.duration.size();
+					if( segmentCount==1 )
 					{
 						auto d = representation.data.duration[0]/representation.data.timescale;
-						len = period.duration/d;
+						segmentCount = period.duration/d;
 					}
 				}
-				param["RepresentationID"] = representation.id;
 				
-				std::string mediaUrl = representation.BaseURL + ExpandURL( representation.data.initialization, param );
+				std::string mediaUrl = representation.BaseURL + ExpandURL( representation.data.initialization, segment_template_param );
 				std::cout << mediaUrl << "\n";
-				pipelineContext.track[mediaType].EnqueueSegment( new TrackFragment( mediaUrl.c_str() ) );
+				pipelineContext.track[mediaType].EnqueueSegment( new TrackFragment( mediaUrl.c_str(), 0 ) );
 				
-				for( unsigned idx=0; idx<len; idx++ )
+				double skip = secondsToSkip;
+				for( unsigned idx=0; idx<segmentCount; idx++ )
 				{
+					int durationIndex = idx;
+					if( durationIndex >= representation.data.duration.size() )
+					{
+						durationIndex = 0;
+					}
+					double segmentDurationS = representation.data.duration[durationIndex]/(double)representation.data.timescale;
+					if( skip>0 )
+					{
+						skip -= segmentDurationS;
+						if( skip>0 )
+						{
+							continue;
+						}
+						segmentDurationS += skip;
+					}
+					
 					int mediaIndex = idx;
 					if( mediaIndex >= representation.data.media.size() )
 					{
 						mediaIndex = 0;
 					}
-					const std::string &media = representation.data.media[mediaIndex];
-					param["Number"] = std::to_string( number++ );
+					
+					uint64_t number = representation.data.startNumber+idx;
+					segment_template_param["Number"] = std::to_string( number );
 					if( representation.data.time.size()>0 )
 					{
-						param["Time"] = std::to_string( representation.data.time[idx] );
+						segment_template_param["Time"] = std::to_string( representation.data.time[idx] );
 					}
-					mediaUrl = representation.BaseURL + ExpandURL( media, param );
+					const std::string &media = representation.data.media[mediaIndex];
+					mediaUrl = representation.BaseURL + ExpandURL( media, segment_template_param );
 					std::cout << mediaUrl << "\n";
-					pipelineContext.track[mediaType].EnqueueSegment( new TrackFragment( mediaUrl.c_str() ) );
+					pipelineContext.track[mediaType].EnqueueSegment( new TrackFragment( mediaUrl.c_str(), segmentDurationS, pts_offset * representation.data.timescale ) );
 				}
-			}
+			} // next adaptationSet
+			secondsToSkip = 0.0;
+			pts_offset = next_pts_offset;
 		}
 		
 		for( int mediaType=0; mediaType<2; mediaType++ )
@@ -1387,7 +1389,12 @@ public:
 		// configure pipelines and begin streaming
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, GetCapsFormat() );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO, GetCapsFormat() );
-		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
+
+		// begin playing immediately
+		//pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
+
+		// useful for seek-while-paused
+		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PAUSED);
 	}
 
 	void Load( const std::string &url )
@@ -1399,10 +1406,10 @@ public:
 			XmlNode *xml = new XmlNode( "document", (char *)ptr, size );
 			auto MPD = xml->children[1];
 			DumpXml(MPD,0);
-			Timeline timeline = parseManifest( *MPD, url );
+			timeline = parseManifest( *MPD, url );
 			timeline.Debug();
 			ComputeTimestampOffsets( timeline );
-			InjectSegments(timeline);
+			InjectSegments( timeline );
 			delete xml;
 			free( ptr );
 		}
@@ -1486,7 +1493,7 @@ public:
 					 prefix,
 					 periodInfo->baseUrl,
 					 representationID );
-			video.EnqueueSegment( new TrackFragment( path ) );
+			video.EnqueueSegment( new TrackFragment( path, SEGMENT_DURATION_SECONDS ) );
 			if( first )
 			{ // configure pipeline
 				pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, GetCapsFormat() );
@@ -1506,9 +1513,9 @@ public:
 						 representationID,
 						 fragmentNumber );
 				double pts = fragmentNumber*fragmentDuration;
-				video.EnqueueSegment( new TrackFragment( path ) ); // inject next iframe
+				video.EnqueueSegment( new TrackFragment( path, SEGMENT_DURATION_SECONDS ) ); // inject next iframe
 #ifdef REALTEK_HACK
-				video.EnqueueSegment( new TrackFragment( path ) ); // inject next iframe
+				video.EnqueueSegment( new TrackFragment( path, 0 ) ); // inject next iframe
 #endif
 				video.EnqueueControl( new TrackEOS() ); // inject EOS; needed for small segment to render
 #ifdef REALTEK_HACK
@@ -1524,20 +1531,25 @@ public:
 	
 	void ProcessCommand( const char *str )
 	{
+		const std::lock_guard<std::mutex> lock(mCommandMutex);
+		
 		double start = 0;
 		double stop = -1;
 		char videoGap[8] = "";
 		char audioGap[8] = "";
 		char format[8] = "";
 		double newRate = 1.0;
-		double seekPos = 0;
 		
 		if( strcmp(str,"help")==0 )
 		{
 			ShowHelp();
 		}
+		else if( strcmp(str,"status")==0 )
+		{
+		}
 		else if( starts_with(str,"load ") )
 		{
+			appState=eSTATE_LOAD;
 			Load( &str[5] );
 		}
 		else if( sscanf(str,"format %7s",format)==1 )
@@ -1612,6 +1624,7 @@ public:
 		}
 		else if( strcmp(str,"stream")==0 || sscanf(str,"stream %lf %lf", &start, &stop )>=1 )
 		{
+			appState=eSTATE_STREAM;
 			TestStream( start, stop, "en" );
 		}
 		else if( strcmp(str,"sap")==0 )
@@ -1679,6 +1692,12 @@ public:
 		{
 			pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_NULL);
 		}
+		else if( strcmp(str,"stop")==0 )
+		{
+			pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_NULL);
+			delete pipelineContext.pipeline;
+			pipelineContext.pipeline = new Pipeline( (class PipelineContext *)&pipelineContext );
+		}
 		else if( strcmp(str,"video")==0 )
 		{
 			pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, GetCapsFormat() );
@@ -1699,9 +1718,19 @@ public:
 		{
 			TestSeamlessAudioSwitch();
 		}
-		else if( sscanf(str,"seek %lf", &seekPos )==1 )
+		else if( sscanf(str,"seek %lf", &pipelineContext.seekPos )==1 )
 		{
-			Test_Seek(seekPos);
+			switch( appState )
+			{
+				case eSTATE_IDLE:
+					break;
+				case eSTATE_LOAD:
+					InjectSegments( timeline );
+					break;
+				case eSTATE_STREAM:
+					Test_Seek(pipelineContext.seekPos);
+					break;
+			}
 		}
 		else if( str[0] )
 		{
@@ -1754,12 +1783,93 @@ static gboolean handle_keyboard( GIOChannel * source, GIOCondition cond, AppCont
 	return TRUE;
 }
 
-int trickplay_test_main(int argc, char **argv);
+static void NetworkCommandServer( struct AppContext *appContext )
+{ // simply http server, dispatching incoming commands and returning playback state
+	char buf[1024];
+	int parentfd = socket(AF_INET, SOCK_STREAM, 0);
+	assert( parentfd>=0 );
+	int optval = 1;
+	setsockopt(parentfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
+	struct sockaddr_in serveraddr; /* server's addr */
+	bzero((char *) &serveraddr, sizeof(serveraddr));
+	serveraddr.sin_family = AF_INET;
+	serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	unsigned short port = 8080;
+	serveraddr.sin_port = htons(port);
+	int rc;
+	for(;;)
+	{
+		rc = bind(parentfd, (struct sockaddr *) &serveraddr, sizeof(serveraddr));
+		if( rc>=0 ) break;
+		printf( "bind failed - retry in 5s\n" );
+		g_usleep(5000*1000);
+	}
+	rc = listen(parentfd, 5);
+	assert( rc>=0 );
+	struct sockaddr_in clientaddr;
+	socklen_t clientlen = sizeof(clientaddr);
+	for(;;)
+	{
+		int childfd = accept(parentfd, (struct sockaddr *) &clientaddr, &clientlen);
+		assert( childfd>=0 );
+		struct hostent *hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr,
+							  sizeof(clientaddr.sin_addr.s_addr), AF_INET);
+		assert( hostp != NULL );
+		char *hostaddrp = inet_ntoa(clientaddr.sin_addr);
+		assert( hostaddrp != NULL );
+		static bool firstConnect = true;
+		if( firstConnect )
+		{
+			printf("established connection with %s (%s)\n", hostp->h_name, hostaddrp);
+			firstConnect = false;
+		}
+		bzero( buf, sizeof(buf) );
+		auto numBytesRead = read( childfd, buf, sizeof(buf) );
+		assert( numBytesRead>=0 );
+		const char *delim = strstr(buf,"\r\n\r\n");
+		if( delim )
+		{
+			delim+=4;
+			if( *delim )
+			{
+				appContext->ProcessCommand( delim );
+			}
+		}
+		char json[256];
+		double seekPos = appContext->pipelineContext.seekPos;
+		long long vpos = appContext->pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_VIDEO);
+		long long apos = appContext->pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_AUDIO);
+		int contentLength = snprintf(
+									 json, sizeof(json),
+									 "{\"state\":%d,"
+									 "\n\"start\":%.3f,"
+									 "\n\"video\":{\"pos\":%.3f,\"buf\":%.3f},"
+									 "\n\"audio\":{\"pos\":%.3f,\"buf\":%.3f}}",
+									 appContext->pipelineContext.pipeline->GetPipelineState(),
+									 seekPos,
+									 (vpos<0)?-1:vpos/1000.0,
+									 appContext->pipelineContext.pipeline->GetInjectedSeconds(eMEDIATYPE_VIDEO),
+									 (apos<0)?-1:apos/1000.0,
+									 appContext->pipelineContext.pipeline->GetInjectedSeconds(eMEDIATYPE_AUDIO) );
+		snprintf( buf, sizeof(buf),
+					 "HTTP/1.1 200 OK\r\n"
+					 "Access-Control-Allow-Origin: *\r\n"
+					 "Access-Control-Allow-Methods: POST\r\n"
+					 "Access-Control-Allow-Headers: Content-Type, Authorization\r\n"
+					 "Content-Type: application/json\r\n"
+					 "Content-Length: %d\r\n"
+					 "\r\n%s",
+				 contentLength,json
+				 );
+		auto numBytesWritten = write(childfd, buf, strlen(buf));
+		assert( numBytesWritten>=0 );
+		close(childfd);
+	}
+}
 
 int main(int argc, char **argv)
 {
-	// programatically override gstreamer log level:
-	// setenv( "GST_DEBUG", "*:8", 1 );
+	// setenv( "GST_DEBUG", "*:8", 1 ); // programatically override gstreamer log level:
 	// refer https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html?gi-language=c
 	
 	gst_init(&argc, &argv);
@@ -1770,6 +1880,7 @@ int main(int argc, char **argv)
 	GIOChannel *io_stdin = g_io_channel_unix_new (fileno (stdin));
 	(void)g_io_add_watch (io_stdin, G_IO_IN, (GIOFunc) handle_keyboard, &appContext);
 	(void)g_idle_add( myIdleFunc, (gpointer)&appContext );
+	std::thread myNetworkCommandServer( NetworkCommandServer, &appContext );
 	g_main_loop_run(appContext.main_loop);
 	g_main_loop_unref(appContext.main_loop);
 	

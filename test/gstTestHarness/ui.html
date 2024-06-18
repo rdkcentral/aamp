@@ -1,0 +1,135 @@
+<html>
+	<head>
+		<script>
+			var timer;
+			const DONE = 4;
+			const OK = 200;
+			
+			function pollStatus()
+			{
+				sendCommand("status");
+				timer = window.setTimeout(pollStatus, 250 );
+			}
+			
+			function sendCommand( cmd )
+			{
+				if( timer )
+				{
+					window.clearTimeout(timer);
+				}
+				console.log( cmd );
+				let xhr = new XMLHttpRequest();
+				xhr.open("POST", clienturl.value, true);
+				xhr.setRequestHeader('Content-Type', 'application/json');
+				xhr.onreadystatechange = function () {
+					if( xhr.readyState == DONE && xhr.status == OK )
+					{
+						response.value = xhr.responseText;
+						let json = JSON.parse(xhr.responseText);
+						render( json );
+					}
+				};
+				xhr.send(cmd);
+				if( cmd == "play" )
+				{
+					timer = window.setTimeout(pollStatus, 250 );
+				}
+			};
+			
+			function time2x( t )
+			{
+				return 12 + t*10;
+			}
+			
+			function render( json )
+			{
+				let ctx = canvasElement.getContext("2d");
+				ctx.clearRect(0,0,canvasElement.width,canvasElement.height);
+				
+				let position = Math.max(json.audio.pos,json.video.pos);
+				let position_x = time2x(position);
+				let maxx = canvasElement.width/4;
+				let tx = 0;
+				if( position_x > maxx )
+				{ // auto-scroll
+					tx = maxx - position_x;
+				}
+
+				ctx.strokeStyle = "#000000";
+				ctx.setLineDash([2,2]);
+				for( var i=0; i<120; i++ )
+				{
+					if( i==1 )
+					{
+						ctx.strokeStyle = "#aaaaaa";
+						ctx.setLineDash([1,2]);
+					}
+					let xpos = tx+time2x( json.start+i );
+					ctx.beginPath();
+					ctx.moveTo( xpos, 0 );
+					ctx.lineTo( xpos, canvasElement.height );
+					ctx.stroke();
+				}
+				ctx.setLineDash([]);
+				
+				ctx.font = "10px Arial";
+				drawSpan( ctx, tx, 3+24*0, json.video.pos, json.start, json.video.buf, "video" );
+				drawSpan( ctx, tx, 3+24*1, json.audio.pos, json.start, json.audio.buf, "audio" );
+			}
+			
+			function drawSpan( ctx, tx, sy, pos, start, buf, label )
+			{
+				if( pos>=0 )
+				{
+					let remaining = start + buf - pos;
+					if( remaining<0 ) remaining = 0;
+					let x0 = tx+time2x(pos);
+					let x1 = x0+remaining*10;
+					ctx.fillStyle = '#3333ff';
+					ctx.fillText( label + "(" + remaining.toFixed(3) + ")", x0+2, sy+19 );
+					ctx.fillStyle = '#aaaaff';
+					ctx.fillRect( x0, sy, x1-x0, 10 );
+					ctx.strokeRect( x0, sy, x1-x0, 10 );
+				}
+			}
+			
+			window.onload = (event) => {
+				locator.value = locators.value;
+			};
+			
+		</script>
+	</head>
+	
+	<body>
+		<canvas id="canvasElement" width="655" height="50" style="border: 1px solid black;"></canvas>
+		<br/>
+		<textarea id="response" cols="80" rows="4"></textarea>
+		<hr/>
+		
+		Client URL: <input id="clienturl" type="text" value="http://127.0.0.1:8080"></input>
+		<br/>
+		<button onclick="sendCommand('load ' + locator.value)">Load</button>
+		<select id="locators" onchange="locator.value=this.value">
+			<option value="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd">segment timeline</option>
+			<option value="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/main-segmentlist.mpd">segment list</option>
+			<option value="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/main_notimeline.mpd">segment template</option>
+			<option value="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/main-segmentbase.mpd">segment base</option>
+			<option value="https://dash.akamaized.net/dashif/ad-insertion-testcase1/batch5/real/a/ad-insertion-testcase1.mpd">multi-period dai</option>
+			<option value="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/stitched/manifest.mpd">multi-period ads</option>
+			<option value="https://lin001-gb-s8-tst-ll.cdn01.skycdp.com/SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163.mpd">live</option>
+			<option value="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/RDKAAMP-1540/4k/h265/SegmentTimeline.mpd">hevc</option>
+		</select>
+		<br/>
+		<textarea id="locator" cols="80" rows="1"></textarea>
+		
+		<hr/>
+		<button onclick="sendCommand('seek ' + seekPos.value)">Seek</button>
+		<input id="seekPos" type="number" value="0"/>
+		<hr/>
+		<button onclick="sendCommand('play')">Play</button>
+		<button onclick="sendCommand('pause')">Pause</button>
+		<!-- button onclick="sendCommand('null')">Null</button -->
+		<button onclick="sendCommand('stop')">Stop</button>
+	</body>
+</html>
+
