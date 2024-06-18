@@ -87,7 +87,7 @@ function aampcli_install_build_darwin_fn()
         PKG_CONFIG="${PKG_CONFIG_CURL}:${PKG_CONFIG}"
     fi
 
-    cd build && PKG_CONFIG_PATH=${PKG_CONFIG}:${PKG_CONFIG_PATH} cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DUTEST_ENABLED=ON -G Xcode ../
+    cd build && PKG_CONFIG_PATH=${PKG_CONFIG}:${PKG_CONFIG_PATH} cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DSANITIZER_ENABLED=${OPTION_SANITIZER} -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DUTEST_ENABLED=ON -G Xcode ../
 
     # the cmake Xcode generator can not set this scheme property (Debug -> Options -> Console -> Use Terminal
     patch ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme < ../OSX/patches/aamp-cli.xscheme.patch
@@ -137,7 +137,7 @@ function aampcli_install_build_linux_fn
     # Local built dependencies
     PKG_CONFIG="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig"
 
-    PKG_CONFIG_PATH="${PKG_CONFIG}" cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR} -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH="${LOCAL_DEPS_BUILD_DIR}/lib" -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DUTEST_ENABLED=ON -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -S$PWD -B"${AAMP_DIR}/build" -G "Unix Makefiles"
+    PKG_CONFIG_PATH="${PKG_CONFIG}" cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR} -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH="${LOCAL_DEPS_BUILD_DIR}/lib" -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DSANITIZER_ENABLED=${OPTION_SANITIZER} -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DUTEST_ENABLED=ON -DCMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED=TRUE -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -S$PWD -B"${AAMP_DIR}/build" -G "Unix Makefiles"
 
    echo "Making aamp-cli..."
    cd build
@@ -162,4 +162,5 @@ function aampcli_install_build_fn()
 	    aampcli_install_build_linux_fn
     fi
 }
+
 
