@@ -120,7 +120,7 @@ const char* MediaTrack::GetBufferHealthStatusString(BufferHealthStatus status)
 BufferHealthStatus MediaTrack::GetBufferStatus()
 {
     BufferHealthStatus bStatus = BUFFER_STATUS_GREEN;
-    double bufferedTime ;	
+    double bufferedTime ;
     int CachedFragmentsOrChunks;
 	double thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD;
     if(aamp->GetLLDashServiceData()->lowLatencyMode)
@@ -387,7 +387,7 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 }
 
 /**
- * @brief Process New Audio On Lang Switch 
+ * @brief Process New Audio On Lang Switch
  */
 void MediaTrack::LoadNewAudio(bool val)
 {
@@ -810,7 +810,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		parsedBoxCount--;
 
 		AAMPLOG_TRACE("[%s] MDAT Chunk Found - Actual Parsed Box Count: %zu", name,parsedBoxCount);
-		AAMPLOG_TRACE("[%s] Chunk Offset[%u] Chunk Type[%s] Chunk Size[%u]\n", name, pBox->getOffset(), pBox->getBoxType(), pBox->getSize());
+		AAMPLOG_TRACE("[%s] Chunk Offset[%u] Chunk Type[%s] Chunk Size[%u]\n", name, pBox->getOffset(), pBox->getType(), pBox->getSize());
 	}
 	if(mdatCount)
 	{
@@ -1068,7 +1068,7 @@ bool MediaTrack::InjectFragment()
 						else
 						{
 							isDiscontinuity = false;
-							AAMPLOG_WARN("track %s - discontinuity ignored = %d continue without discontinuity @position - %f", name, isDiscontinuityIgnoredForCurrentTrack, cachedFragment->position);	
+							AAMPLOG_WARN("track %s - discontinuity ignored = %d continue without discontinuity @position - %f", name, isDiscontinuityIgnoredForCurrentTrack, cachedFragment->position);
 						}
 
 						if(type != eTRACK_SUBTITLE)
@@ -2109,7 +2109,7 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	if(video != NULL)
 	{
-		double buffervalue = video->GetBufferedDuration() * 1000;		
+		double buffervalue = video->GetBufferedDuration() * 1000;
 		if(aamp->GetLLDashServiceData()->lowLatencyMode && buffervalue < AAMP_LLDABR_MIN_BUFFER_VALUE)
 		{
 			//InsufficientBufferRule: Buffer is empty
@@ -2144,9 +2144,9 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 			{
 				logLevel = eLOGLEVEL_MIL;
 			}
-			
+
 			AAMPLOG(mLogObj, logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer  %lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,buffervalue/1000);
-			
+
 			if (currentProfileIndex != desiredProfileIndex)
 			{
 				// There is a chance that desiredProfileIndex is reset in below GetDesiredProfileOnBuffer call
@@ -2212,9 +2212,9 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 		}
 		else
 		{
-			
+
 			desiredProfileIndex = GetProfileIndexForBandwidth(aamp->mhAbrManager.FragmentfailureRampdown(buffervalue,currentProfileIndex));
-			
+
 		}
 	}
 	if (desiredProfileIndex != currentProfileIndex)
@@ -2533,7 +2533,7 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 	{
 		/* No profile change. */
 	}
-	
+
 	return retVal;
 }
 
@@ -3431,7 +3431,7 @@ bool StreamAbstractionAAMP::SetTextStyle(const std::string &options)
 */
 bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
 {
-	
+
 	if(mIsAtLivePoint)
 	{
 		double endPos = aamp->culledSeconds+aamp->durationSeconds;
@@ -3497,7 +3497,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor()
 
 			if(eMEDIATYPE_SUBTITLE != i)
 			{
-				std::shared_ptr<IsoBmffProcessor> processor = std::make_shared<IsoBmffProcessor>(aamp, mLogObj, mID3Handler, 
+				std::shared_ptr<IsoBmffProcessor> processor = std::make_shared<IsoBmffProcessor>(aamp, mLogObj, mID3Handler,
 					(IsoBmffProcessorType) i, peerAudioProcessor.get(), peerSubtitleProcessor.get());
 				track->SourceFormat(FORMAT_ISO_BMFF);
 				track->playContext = std::static_pointer_cast<MediaProcessor>(processor);
@@ -3713,8 +3713,8 @@ void MediaTrack::PlaylistDownloader()
 				{
 					if(aamp->GetLLDashServiceData()->lowLatencyMode)
 					{
-						if((minUpdateDuration > 0) &&  
-							(minUpdateDuration > availTimeOffMs) && 
+						if((minUpdateDuration > 0) &&
+							(minUpdateDuration > availTimeOffMs) &&
 							(minUpdateDuration < MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS) )
 						{
 							liveRefreshTimeOutInMs = (int)(minUpdateDuration-availTimeOffMs);
@@ -3916,7 +3916,7 @@ int MediaTrack::WaitTimeBasedOnBufferAvailable()
 				// if bufferAvailable is less than targetDuration ,its in RED alert . Close to freeze
 				// need to refresh soon ..
 				minDelayBetweenPlaylistUpdates = (bufferAvailable) ? (int)(bufferAvailable / 3) : MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS; //500ms
-			
+
 			// limit the logs when buffer is low
 			{
 				static int bufferlowCnt;

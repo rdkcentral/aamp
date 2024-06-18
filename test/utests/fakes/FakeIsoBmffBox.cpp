@@ -19,7 +19,7 @@
 
 #include "isobmffbox.h"
 
-const char* Box::getBoxType() const
+const char* Box::getType() const
 {
     return nullptr;
 }
@@ -32,9 +32,4 @@ uint32_t Box::getOffset() const
 uint32_t Box::getSize() const
 {
     return 0u;
-}
-
-const char *Box::getType() const
-{
-    return nullptr;
 }

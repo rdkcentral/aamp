@@ -683,22 +683,18 @@ void IsoBmffBuffer::truncate(void)
 		{
 			if (trun)
 			{
-				delete trun;
 				trun = nullptr;
 			}
 			if (senc)
 			{
-				delete senc;
 				senc = nullptr;
 			}
 			if (saiz)
 			{
-				delete saiz;
 				saiz = nullptr;
 			}
 			if (tfhd)
 			{
-				delete tfhd;
 				tfhd = nullptr;
 			}
 
