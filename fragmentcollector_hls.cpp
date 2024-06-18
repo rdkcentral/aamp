@@ -2153,6 +2153,16 @@ void TrackState::FetchFragment()
 	}
 }
 
+void TrackState::resetPTSOnAudioSwitch(CachedFragment* cachedFragment)
+{
+	if (playContext)
+	{
+		size_t len = cachedFragment->fragment.GetLen();
+		AAMPLOG_WARN("%s pos=%lf dur=%lf", name,cachedFragment->position,cachedFragment->duration);
+		playContext->resetPTSOnAudioSwitch(&cachedFragment->fragment, cachedFragment->position);
+	}
+}
+
 /**
  * @brief Injected decrypted fragment for playback
  */
@@ -2892,7 +2902,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 			FindTimedMetadata();
 		}
 		if( mDuration > 0.0f )
-		{
+		{	
 			// If we are loading new audio playlist for seamless switching, we should not seek based on sequence number
 			if (IsLive() && !seamlessAudioSwitchInProgress)
 			{
@@ -5551,6 +5561,7 @@ TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstraction
 TrackState::~TrackState()
 {
 	playlist.Free();
+	// We could remove this. This is already done in MediaTrack destructor
 	int maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	for (int j=0; j< maxCachedFragmentsPerTrack; j++)
 	{
@@ -7618,7 +7629,6 @@ void TrackState::SwitchAudioTrack()
 	if (eTRACK_AUDIO == type)
 	{
 		pthread_mutex_lock(&mutex);
-
 		// We have an age-old issue to tackle here. playTarget and playlistPosition are hypothetical values as soon as the live window advances
 		// mediaSequence number is the source of truth for the playlist position thereafter. Hence we need to find the diff between
 		// relative positions in the playlist to find the jump

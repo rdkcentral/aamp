@@ -249,7 +249,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 
 				if(openPrdFound && -1 != mPlacementObj.curAdIdx && (mPlacementObj.openPeriodId == periodId))
 				{
-					double periodDelta = aamp_GetPeriodNewContentDuration(mpd, period, mPlacementObj.curEndNumber);
+					double periodDelta = adMPDParseHelper->GetPeriodNewContentDuration(period, mPlacementObj.curEndNumber);
 					double currperioddur = adMPDParseHelper->aamp_GetPeriodDuration(iter, 0); 
 					double nextperioddur = -1;
 					if((iter+1) < periods.size())
@@ -785,6 +785,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
  */
 void PrivateCDAIObjectMPD::FulFillAdObject()
 {
+	AampMPDParseHelper adMPDParseHelper;
 	bool adStatus = false;
 	uint64_t startMS = 0;
 	uint32_t durationMs = 0;
@@ -793,12 +794,13 @@ void PrivateCDAIObjectMPD::FulFillAdObject()
 	MPD *ad = GetAdMPD(mAdFulfillObj.url, finalManifest, true);
 	if(ad)
 	{
+		adMPDParseHelper.Initialize(ad);
 		auto periodId = mAdFulfillObj.periodId;
 		if(ad->GetPeriods().size() && isAdBreakObjectExist(periodId))	// Ad has periods && ensuring that the adbreak still exists
 		{
 			auto &adbreakObj = mAdBreaks[periodId];
 			std::shared_ptr<std::vector<AdNode>> adBreakAssets = adbreakObj.ads;
-			durationMs = (uint32_t)aamp_GetDurationFromRepresentation(ad);
+			durationMs = (uint32_t)adMPDParseHelper.GetDurationFromRepresentation();
 
 			startMS = adbreakObj.adsDuration;
 			uint32_t availSpace = (uint32_t)(adbreakObj.brkDuration - startMS);

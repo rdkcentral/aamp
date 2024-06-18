@@ -581,7 +581,7 @@ TEST(_AampUtils, GetNetworkTimeTest2)
 	//respData->iHttpRetValue == 204;
     double result = GetNetworkTime(remoteUrl, &http_error , NetworkProxy);
 }
-TEST(_AampUtils, getMediaTypeNameTest)
+TEST(_AampUtils, GetMediaTypeNameTest)
 {
     AampMediaType mediaType[21] = {
     eMEDIATYPE_DEFAULT,
@@ -608,7 +608,7 @@ TEST(_AampUtils, getMediaTypeNameTest)
     };
 
     for(int i=0; i<21; i++){
-    const char* type = getMediaTypeName(mediaType[i]);
+    const char* type = GetMediaTypeName(mediaType[i]);
     }
 }
 

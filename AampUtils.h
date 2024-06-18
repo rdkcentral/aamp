@@ -32,6 +32,7 @@
 #include <string>
 #include <sstream>
 #include <chrono>
+#include "TsbApi.h"
 
 
 #define NOW_SYSTEM_TS_SECS std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()     /**< Getting current system clock in seconds */
@@ -47,8 +48,12 @@
 //Delete Array object
 #define SAFE_DELETE_ARRAY(ptr) { delete [] ptr; ptr = NULL; }
 
+/**HTTP SUccess*/
+#define IS_HTTP_SUCCESS(code) ((code) == 200 || (code) == 204 || (code) == 206)
+
 /** FHD height*/
 #define AAMP_FHD_HEIGHT (1080)
+#define FLOATING_POINT_EPSILON 0.1 // workaround for floating point math precision issues
 
 
 /**
@@ -282,6 +287,13 @@ void mssleep(int milliseconds);
  */
 double GetNetworkTime(const std::string& remoteUrl, int *http_error, std::string NetworkProxy);
 
+/**
+ * @fn GetMediaTypeName
+ * @param[in] mediaType - Media type
+ * @return
+ */
+const char * GetMediaTypeName(int mediaType);
+
 std::size_t GetPrintableThreadID( const std::thread &t );
 std::size_t GetPrintableThreadID( const pthread_t &t );
 
@@ -291,13 +303,6 @@ std::size_t GetPrintableThreadID( const pthread_t &t );
  * @return durationMs duration in milliseconds
  */
 double ParseISO8601Duration(const char *ptr);
-
-/**
- * @brief Return the name corresponding to the Media Type
- * @param mediaType media type
- * @retval the name of the mediaType
- */
-const char* getMediaTypeName( AampMediaType mediaType );
 
 /**
  * @brief Computes the fragment duratioN.
@@ -324,6 +329,20 @@ namespace aamp_utils
         return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
     }
 }
+
+ /* @fn RecalculatePTS
+ * @param[in] mediaType stream type
+ * @param[in] ptr buffer pointer
+ * @param[in] len length of buffer
+ */
+double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampLogManager *mLogObj, PrivateInstanceAAMP *aamp);
+
+/**
+ * @fn ConvertTsbLogLevel
+ * @param[in] int Log leve set by user
+ * @return allowed log level by TSB module
+ */
+TSB::LogLevel ConvertTsbLogLevel(int logLev);
 
 #define MAX_RANGE_STRING_CHARS 128
 

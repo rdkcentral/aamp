@@ -231,6 +231,7 @@ private:
 	int bitrateChange;						/**< Bitrate change count */						
 	int bufferChange;						/**< buffer change count */
 	cJSON *telemetryParam;					/**< telemetry json object */
+	cJSON* mLldLowBuffObject;				/**< LLD Low Buffer Data json object for telemetry*/
 	std::mutex discontinuityParamMutex;		/**< mutex protecting discontinuity telemetry parameter */
 	/**
 	 * @brief Calculating effective time of two overlapping buckets.
@@ -434,6 +435,31 @@ public:
 	 * @return void
 	 */
 	void SetLatencyParam(double latency);
+	/**
+	 * @fn AddLLDLowBufferObject - API to Add LLD Low buffer object to the telemetry data
+	 * @return void
+	 */
+	void AddLLDLowBufferObject();
+
+	/**
+	 * @fn AddWithPrecisionNumber - Add 2 digit precision number to json data
+	 * @param item - cjson object to add the item
+	 * @param label -label of the item
+	 * @param num - value of the item
+	 * @return void
+	 */
+	void AddWithPrecisionNumber(cJSON* item, const char* label, double num);
+
+	/**
+	 * @fn SetLLDLowBufferParam - to mark the LLD low buffer specific latency parameters
+	 * @param latency - latency value
+	 * @param buffer - buffer value
+	 * @param rate - current playback rate
+	 * @param bw - current bandwidth
+	 * @param buffLowCount - Low buffer hit count; Incriment contiouse data only
+	 * @return void
+	 */
+	void SetLLDLowBufferParam(double latency, double buff, double rate, double bw, double buffLowCount);
 
 	/**
 	 * @fn IncrementChangeCount - to increment the changes in buffer, ratecorrection and bitrate

@@ -32,6 +32,7 @@ include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${UTESTS_ROOT}/mocks)
 include_directories(${TEST_FILES_DIR})
+include_directories(${AAMP_ROOT}/tsb/api)
 
 set(TEST_SOURCES IsoBmffBoxTests.cpp IsoBmffBoxMainTest.cpp)
 get_cmake_property(_variableNames VARIABLES)

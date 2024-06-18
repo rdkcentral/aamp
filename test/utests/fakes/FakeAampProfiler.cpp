@@ -70,3 +70,7 @@ void ProfileEventAAMP::IncrementChangeCount(CountType)
 void ProfileEventAAMP::GetTelemetryParam()
 {
 }
+
+void ProfileEventAAMP::SetLLDLowBufferParam(double latency, double buff, double rate, double bw, double buffLowCount)
+{
+}

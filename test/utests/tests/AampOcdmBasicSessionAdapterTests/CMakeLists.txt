@@ -35,6 +35,7 @@ include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${UTESTS_ROOT}/ocdm)
+include_directories(${AAMP_ROOT}/tsb/api)
 
 
 

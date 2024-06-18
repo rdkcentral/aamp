@@ -30,15 +30,15 @@
 #include "ElementaryProcessor.h"
 #include "isobmffbuffer.h"
 #include "AampCacheHandler.h"
+#include "isobmffprocessor.h"
 #include <assert.h>
 #include <errno.h>
 #include <math.h>
 #include <iterator>
 #include <sys/time.h>
 #include <cmath>
+#include "AampTSBSessionManager.h"
 
-#define AAMP_BUFFER_MONITOR_GREEN_THRESHOLD 4 //2 fragments for MSO specific linear streams.
-#define AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD 3 //LLD 3 sec minimum buffer
 //#define AAMP_DEBUG_INJECT_CHUNK
 //#define AAMP_DEBUG_FETCH_INJECT 1
 
@@ -273,7 +273,7 @@ void MediaTrack::UpdateTSAfterChunkInject()
 
 	//increment Inject Index
 	++fragmentChunkIdxToInject;
-	fragmentChunkIdxToInject = (fragmentChunkIdxToInject) % maxCachedFragmentChunksPerTrack;
+	fragmentChunkIdxToInject = (fragmentChunkIdxToInject) % mCachedFragmentChunksSize;
 	if(numberOfFragmentChunksCached > 0) numberOfFragmentChunksCached--;
 
 	AAMPLOG_DEBUG("[%s] updated fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d",
@@ -287,10 +287,10 @@ void MediaTrack::UpdateTSAfterChunkInject()
  * @brief  To be implemented by derived classes to receive cached fragment Chunk
  *         Receives cached fragment and injects to sink.
  */
-void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration)
+void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool init, bool discontinuity)
 {
 	aamp->SendStreamTransfer(mediaType, buffer,
-                     fpts, fdts, fDuration);
+                     fpts, fdts, fDuration, init, discontinuity);
 
 } // InjectFragmentChunkInternal
 
@@ -406,9 +406,9 @@ void MediaTrack::UpdateTSAfterChunkFetch()
 	AAMPLOG_DEBUG("[%s] numberOfFragmentChunksCached++ [%d]", name,numberOfFragmentChunksCached);
 
 	//this should never HIT
-	assert(numberOfFragmentChunksCached <= maxCachedFragmentChunksPerTrack);
+	assert(numberOfFragmentChunksCached <= mCachedFragmentChunksSize);
 
-	fragmentChunkIdxToFetch = (fragmentChunkIdxToFetch+1) % maxCachedFragmentChunksPerTrack;
+	fragmentChunkIdxToFetch = (fragmentChunkIdxToFetch+1) % mCachedFragmentChunksSize;
 
 	AAMPLOG_DEBUG("[%s] updated fragmentChunkIdxToFetch [%d] numberOfFragmentChunksCached [%d]",
 			name, fragmentChunkIdxToFetch, numberOfFragmentChunksCached);
@@ -570,7 +570,7 @@ bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 	int pthreadReturnValue = 0;
 	pthread_mutex_lock(&mutex);
 
-	if ((numberOfFragmentChunksCached == maxCachedFragmentChunksPerTrack) && !(abort || abortInjectChunk))
+	if ((numberOfFragmentChunksCached == mCachedFragmentChunksSize) && !(abort || abortInjectChunk))
 	{
 		if (timeoutMs >= 0)
 		{
@@ -620,6 +620,7 @@ bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 bool MediaTrack::WaitForCachedFragmentChunkAvailable()
 {
 	bool ret = true;
+	AAMPLOG_TRACE("DEBUG Enter");
 	pthread_mutex_lock(&mutex);
 
 	AAMPLOG_DEBUG("[%s] Acquired MUTEX ==> fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d ret = %d abort = %d abortInjectChunk = %d ", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached, ret, abort, abortInjectChunk);
@@ -669,7 +670,8 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 		if(aamp->GetLLDashServiceData()->lowLatencyMode)
 		{
 			AAMPLOG_DEBUG("[%s] signal fragmentChunkInjected condition", name);
-			pthread_cond_signal(&fragmentChunkInjected);
+			// For LLD TSB playback, WaitForCachedFragmentChunkInject is invoked from TSBReader and CacheFragmentChunk threads
+			pthread_cond_broadcast(&fragmentChunkInjected);
 		}
 	}
 	if(aamp->GetLLDashServiceData()->lowLatencyMode)
@@ -713,6 +715,96 @@ void MediaTrack::AbortWaitForCachedFragment()
 }
 
 /**
+ * @brief Abort the waiting for injected fragment chunks immediately
+ */
+void MediaTrack::AbortWaitForCachedFragmentChunk()
+{
+	pthread_mutex_lock(&mutex);
+
+	if(aamp->GetLLDashServiceData()->lowLatencyMode)
+	{
+		AAMPLOG_TRACE("[%s] signal fragmentChunkInjected condition", name);
+		pthread_cond_broadcast(&fragmentChunkInjected);
+	}
+	pthread_mutex_unlock(&mutex);
+}
+
+/**
+ *  @brief Process next cached fragment chunk
+ */
+bool MediaTrack::CheckForDiscontinuity()
+{
+	//Get Cache buffer
+	bool stopInjection = false;
+	CachedFragmentChunk* cachedFragmentChunk = &this->cachedFragmentChunks[fragmentChunkIdxToInject];
+	StreamAbstractionAAMP* context = GetContext();
+	if(cachedFragmentChunk->fragmentChunk.GetPtr() && cachedFragmentChunk->initFragment)
+	{
+		if ((cachedFragmentChunk->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == aamp->rate))
+		{
+			bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((AampMediaType)!type);
+			AAMPLOG_TRACE("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d", name, cachedFragmentChunk->position, isDiscoIgnoredForOtherTrack);
+			if (eTRACK_SUBTITLE != type)
+			{
+				cachedFragmentChunk->discontinuity = false;
+			}
+			ptsError = false;
+
+			/* GetESChangeStatus() check is specifically added to fix an audio loss issue (DELIA-55078) due to no reconfigure pipeline when there was an audio codec change for a very short period with no fragments.
+				* The totalInjectedDuration will be 0 for the very short duration periods if the single fragment is not injected or failed (due to fragment download failures).
+				* In that case, if there is an audio codec change is detected for this period, it could cause audio loss since ignoring the discontinuity to be processed since totalInjectedDuration is 0.
+				*/
+			if (totalInjectedChunksDuration == 0 && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus())
+			{
+				stopInjection = false;
+
+				if (!isDiscoIgnoredForOtherTrack)
+				{
+					// set discontinuity ignored flag to check and avoid paired discontinuity processing of other track.
+					aamp->SetTrackDiscontinuityIgnoredStatus((AampMediaType)type);
+				}
+				else
+				{
+					// reset the flag when both the paired discontinuities ignored; since no buffer pushed before.
+					aamp->ResetTrackDiscontinuityIgnoredStatus();
+					aamp->UnblockWaitForDiscontinuityProcessToComplete();
+				}
+
+				AAMPLOG_WARN("ignoring %s discontinuity since no buffer pushed before!", name);
+			}
+			else if (isDiscoIgnoredForOtherTrack && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus())
+			{
+				AAMPLOG_WARN("discontinuity ignored for other AV track , no need to process %s track", name);
+				stopInjection = false;
+
+				// reset the flag when both the paired discontinuities ignored.
+				aamp->ResetTrackDiscontinuityIgnoredStatus();
+				aamp->UnblockWaitForDiscontinuityProcessToComplete();
+			}
+			else
+			{
+				stopInjection = context->ProcessDiscontinuity(type);
+			}
+
+			if (stopInjection)
+			{
+				discontinuityProcessed = true;
+				AAMPLOG_WARN("track %s - stopping injection @position - %f", name, cachedFragmentChunk->position);
+			}
+			else
+			{
+				AAMPLOG_WARN("track %s - continuing injection", name);
+			}
+		}
+		else if (cachedFragmentChunk->discontinuity)
+		{
+			SignalTrickModeDiscontinuity();
+		}
+	}
+	return (!stopInjection);
+}
+
+/**
  *  @brief Process next cached fragment chunk
  */
 bool MediaTrack::ProcessFragmentChunk()
@@ -721,8 +813,22 @@ bool MediaTrack::ProcessFragmentChunk()
 	CachedFragmentChunk* cachedFragmentChunk = &this->cachedFragmentChunks[fragmentChunkIdxToInject];
 	if(cachedFragmentChunk != NULL && NULL == cachedFragmentChunk->fragmentChunk.GetPtr())
 	{
-		AAMPLOG_DEBUG("[%s] Ignore NULL Chunk - cachedFragmentChunk->fragmentChunk.len %zu", name, cachedFragmentChunk->fragmentChunk.GetLen());
+		if(!SignalIfEOSReached())
+		{
+			AAMPLOG_TRACE("[%s] Ignore NULL Chunk - cachedFragmentChunk->fragmentChunk.len %zu", name, cachedFragmentChunk->fragmentChunk.GetLen());
+		}
 		return false;
+	}
+	if(cachedFragmentChunk->initFragment)
+	{
+		AAMPLOG_INFO("Injecting init chunk for %s",name);
+		InjectFragmentChunkInternal((AampMediaType)type, &cachedFragmentChunk->fragmentChunk , cachedFragmentChunk->position, cachedFragmentChunk->position, cachedFragmentChunk->duration, cachedFragmentChunk->initFragment, cachedFragmentChunk->discontinuity);
+		if (eTRACK_VIDEO == type && aamp->IsLocalAAMPTsb() && GetContext()->GetProfileCount())
+		{
+			GetContext()->NotifyBitRateUpdate(cachedFragmentChunk->profileIndex, cachedFragmentChunk->cacheFragStreamInfo, cachedFragmentChunk->position);
+		}
+		cachedFragmentChunk->initFragment = false;
+		return true;
 	}
 	if((cachedFragmentChunk->downloadStartTime != prevDownloadStartTime) && (unparsedBufferChunk.GetPtr() != NULL))
 	{
@@ -841,7 +947,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		double fpts = 0.0;
 		uint64_t fDuration = 0;
 		double fduration = 0.0;
-		uint64_t totalChunkDuration = 0.0;
+		double totalChunkDuration = 0.0;
 
 		//AAMPLOG_WARN("===========Base Media Decode Time Start================");
 		//isobuf.PrintPTS();
@@ -890,7 +996,7 @@ bool MediaTrack::ProcessFragmentChunk()
 			}
 		}
 
-		fpts = fPts/(timeScale*1.0);
+		fpts = (double) fPts/(timeScale*1.0);
 		fduration = totalChunkDuration/(timeScale*1.0);
 
 		//Prepeare parsed buffer
@@ -951,21 +1057,38 @@ bool MediaTrack::ProcessFragmentChunk()
  */
 bool MediaTrack::InjectFragmentChunk()
 {
-    bool ret = true;
+	bool ret = true;
 
-    if (WaitForCachedFragmentChunkAvailable())
-    {
-        bool bIgnore = true;
-        bIgnore = ProcessFragmentChunk();
-        if(bIgnore)
-            UpdateTSAfterChunkInject();
-    }
-    else
-    {
-        AAMPLOG_WARN("WaitForCachedFragmentChunkAvailable %s aborted", name);
-        ret = false;
-    }
-    return ret;
+	if(IsLocalTSBInjection())
+	{
+		// move to trace or remove
+		AAMPLOG_TRACE("[%s] BlockUntilGstreamerWantsData: fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
+		aamp->BlockUntilGstreamerWantsData(NULL, 0, type);
+	}
+
+	if (WaitForCachedFragmentChunkAvailable())
+	{  
+		ret = CheckForDiscontinuity();
+		if (ret)
+		{
+			bool bIgnore = true;
+			AAMPLOG_TRACE("[%s] Processing the chunk ==> fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
+			bIgnore = ProcessFragmentChunk();
+			if(bIgnore)
+			{
+				AAMPLOG_TRACE("[%s] Updating the chunk inject ==> fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
+				UpdateTSAfterChunkInject();
+				AAMPLOG_TRACE("[%s] Updated the chunk inject ==> fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
+			}
+		}
+	}
+	else
+	{
+		SignalIfEOSReached();
+		AAMPLOG_INFO("WaitForCachedFragmentChunkAvailable %s aborted", name);
+		ret = false;
+	}
+	return ret;
 }
 
 /**
@@ -1001,12 +1124,17 @@ bool MediaTrack::InjectFragment()
 				}
 			}
 #endif
-			if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == context->aamp->rate))
+			if(!aamp->IsLocalAAMPTsb())
 			{
-				bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((AampMediaType)!type);
-				AAMPLOG_WARN("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack);
-				cachedFragment->discontinuity = false;
-				ptsError = false;
+				if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == context->aamp->rate))
+				{
+					bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((AampMediaType)!type);
+					AAMPLOG_WARN("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack);
+					if (eTRACK_SUBTITLE != type)
+					{
+						cachedFragment->discontinuity = false;
+					}
+					ptsError = false;
 
 				/* GetESChangeStatus() check is specifically added to fix an audio loss issue (DELIA-55078) due to no reconfigure pipeline when there was an audio codec change for a very short period with no fragments.
 				 * The totalInjectedDuration will be 0 for the very short duration periods if the single fragment is not injected or failed (due to fragment download failures).
@@ -1017,87 +1145,89 @@ bool MediaTrack::InjectFragment()
 				 * to an appsrc that wasn't configured (very timing dependent). In this case we want to process the discontinuity and configure the pipeline.
 				 * (DELIA-64449)
 				 */
-				if (totalInjectedDuration == 0 && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus() && aamp->PipelineValid((AampMediaType)type))
-				{
-					stopInjection = false;
-
-					if (!isDiscoIgnoredForOtherTrack)
+					if (totalInjectedDuration == 0 && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus() && aamp->PipelineValid((AampMediaType)type))
 					{
-						// Subtitles never have any discontinuity pairing logic. Ignore for it now
-						if (type != eTRACK_SUBTITLE)
+						stopInjection = false;
+
+						if (!isDiscoIgnoredForOtherTrack)
 						{
-							// set discontinuity ignored flag to check and avoid paired discontinuity processing of other track.
-							aamp->SetTrackDiscontinuityIgnoredStatus((AampMediaType)type);
-						}
-					}
-					else
-					{
-						// reset the flag when both the paired discontinuities ignored; since no buffer pushed before.
-						aamp->ResetTrackDiscontinuityIgnoredStatus();
-						aamp->UnblockWaitForDiscontinuityProcessToComplete();
-					}
-
-					AAMPLOG_WARN("ignoring %s discontinuity since no buffer pushed before!", name);
-				}
-				else if (isDiscoIgnoredForOtherTrack && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus() && aamp->PipelineValid((AampMediaType)type))
-				{
-					AAMPLOG_WARN("discontinuity ignored for other AV track , no need to process %s track", name);
-					stopInjection = false;
-
-					// reset the flag when both the paired discontinuities ignored.
-					aamp->ResetTrackDiscontinuityIgnoredStatus();
-					aamp->UnblockWaitForDiscontinuityProcessToComplete();
-				}
-				else
-				{
-					if (!aamp->PipelineValid((AampMediaType)type))
-					{
-						AAMPLOG_WARN("Pipeline not yet configured for %s! Process discontinuity...", name);
-					}
-
-					if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
-					{
-
-						context->ProcessDiscontinuity(type);
-						bool isDiscontinuityIgnoredForCurrentTrack = aamp->IsDiscontinuityIgnoredForCurrentTrack((AampMediaType)type);
-						if( true != isDiscontinuityIgnoredForCurrentTrack )
-						{
-							isDiscontinuity = true;
-							AAMPLOG_WARN("track %s discontinuity not ignored = %d - discontinuity @position - %f", name, isDiscontinuityIgnoredForCurrentTrack, cachedFragment->position);
+							// Subtitles never have any discontinuity pairing logic. Ignore for it now
+							if (type != eTRACK_SUBTITLE)
+							{
+								// set discontinuity ignored flag to check and avoid paired discontinuity processing of other track.
+								aamp->SetTrackDiscontinuityIgnoredStatus((AampMediaType)type);
+							}
 						}
 						else
 						{
-							isDiscontinuity = false;
-							AAMPLOG_WARN("track %s - discontinuity ignored = %d continue without discontinuity @position - %f", name, isDiscontinuityIgnoredForCurrentTrack, cachedFragment->position);
+							// reset the flag when both the paired discontinuities ignored; since no buffer pushed before.
+							aamp->ResetTrackDiscontinuityIgnoredStatus();
+							aamp->UnblockWaitForDiscontinuityProcessToComplete();
 						}
 
-						if(type != eTRACK_SUBTITLE)
-						{
-							context->resetDiscontinuityTrackState();
-							aamp->ResetDiscontinuityInTracks();
-						}
+						AAMPLOG_WARN("ignoring %s discontinuity since no buffer pushed before!", name);
 
+					}
+					else if (isDiscoIgnoredForOtherTrack && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus() && aamp->PipelineValid((AampMediaType)type))
+					{
+						AAMPLOG_WARN("discontinuity ignored for other AV track , no need to process %s track", name);
+						stopInjection = false;
+
+						// reset the flag when both the paired discontinuities ignored.
+						aamp->ResetTrackDiscontinuityIgnoredStatus();
+						aamp->UnblockWaitForDiscontinuityProcessToComplete();
 					}
 					else
 					{
-						stopInjection = context->ProcessDiscontinuity(type);
+						if (!aamp->PipelineValid((AampMediaType)type))
+						{
+							AAMPLOG_WARN("Pipeline not yet configured for %s! Process discontinuity...", name);
+						}
+
+						if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
+						{
+
+							context->ProcessDiscontinuity(type);
+							bool isDiscontinuityIgnoredForCurrentTrack = aamp->IsDiscontinuityIgnoredForCurrentTrack((AampMediaType)type);
+							if( true != isDiscontinuityIgnoredForCurrentTrack )
+							{
+								isDiscontinuity = true;
+								AAMPLOG_WARN("track %s discontinuity not ignored = %d - discontinuity @position - %f", name, isDiscontinuityIgnoredForCurrentTrack, cachedFragment->position);
+							}
+							else
+							{
+								isDiscontinuity = false;
+								AAMPLOG_WARN("track %s - discontinuity ignored = %d continue without discontinuity @position - %f", name, isDiscontinuityIgnoredForCurrentTrack, cachedFragment->position);	
+							}
+
+							if(type != eTRACK_SUBTITLE)
+							{
+								context->resetDiscontinuityTrackState();
+								aamp->ResetDiscontinuityInTracks();
+							}
+
+						}
+						else
+						{
+							stopInjection = context->ProcessDiscontinuity(type);
+						}
+					}
+
+					if (stopInjection)
+					{
+						ret = false;
+						discontinuityProcessed = true;
+						AAMPLOG_WARN("track %s - stopping injection @position - %f", name, cachedFragment->position);
+					}
+					else
+					{
+						AAMPLOG_WARN("track %s - continuing injection", name);
 					}
 				}
-
-				if (stopInjection)
+				else if (cachedFragment->discontinuity)
 				{
-					ret = false;
-					discontinuityProcessed = true;
-					AAMPLOG_WARN("track %s - stopping injection @position - %f", name, cachedFragment->position);
+					SignalTrickModeDiscontinuity();
 				}
-				else
-				{
-					AAMPLOG_WARN("track %s - continuing injection", name);
-				}
-			}
-			else if (cachedFragment->discontinuity)
-			{
-				SignalTrickModeDiscontinuity();
 			}
 
 			if (!stopInjection)
@@ -1124,7 +1254,7 @@ bool MediaTrack::InjectFragment()
 						InjectFragmentInternal(cachedFragment, fragmentDiscarded,cachedFragment->discontinuity);
 					}
 				}
-				if (eTRACK_VIDEO == type && GetContext()->GetProfileCount())
+				if (eTRACK_VIDEO == type && !aamp->IsLocalAAMPTsb() && GetContext()->GetProfileCount())
 				{
 					GetContext()->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
 				}
@@ -1148,13 +1278,18 @@ bool MediaTrack::InjectFragment()
 					}
 
 				}
-				UpdateTSAfterInject();
+				if(!aamp->IsLocalAAMPTsb())
+				{
+					// Release the memory and Update the inject
+					// For local TSB, it will be freed up from the Fetcher thread
+					UpdateTSAfterInject();
+				}
 			}
 		}
 		else
 		{
 			//EOS should not be triggerd when subtitle sets its "eosReached" in any circumstances
-			if (eosReached && (eTRACK_SUBTITLE != type))
+			if (SignalIfEOSReached())
 			{
 				//Save the playback rate prior to sending EOS
 				StreamAbstractionAAMP* pContext = GetContext();
@@ -1174,6 +1309,7 @@ bool MediaTrack::InjectFragment()
 				{
 					AAMPLOG_WARN("GetContext is null");  //CID:81799 - Null Return
 				}
+				AAMPLOG_INFO("%s EOS Signalled to pipeline", name);
 			}
 			else
 			{
@@ -1186,23 +1322,45 @@ bool MediaTrack::InjectFragment()
 	{
 		AAMPLOG_WARN("WaitForCachedFragmentAvailable %s aborted", name);
 		//EOS should not be triggerd when subtitle sets its "eosReached" in any circumstances
-		if (eosReached && (eTRACK_SUBTITLE != type))
+		SignalIfEOSReached();
+		ret = false;
+	}
+	return ret;
+} // InjectFragment
+
+/**
+ *  @brief SignalIfEOSReached - Signal end-of-stream to pipeline if injector at EOS
+ *
+ * @return bool
+ */
+bool MediaTrack::SignalIfEOSReached()
+{
+	bool ret = false;
+	//EOS should not be triggerd when subtitle sets its "eosReached" in any circumstances
+	if (eosReached && (eTRACK_SUBTITLE != type))
+	{
+		//Save the playback rate prior to sending EOS
+		StreamAbstractionAAMP* pContext = GetContext();
+		if(pContext != NULL)
 		{
-			//Save the playback rate prior to sending EOS
 			int rate = GetContext()->aamp->rate;
 			aamp->EndOfStreamReached((AampMediaType)type);
 			/*For muxed streams, provide EOS for audio track as well since
-			 * no separate MediaTrack for audio is present*/
+				* no separate MediaTrack for audio is present*/
 			MediaTrack* audio = GetContext()->GetMediaTrack(eTRACK_AUDIO);
 			if (audio && !audio->enabled && rate == AAMP_NORMAL_PLAY_RATE)
 			{
 				aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
 			}
+			ret = true;
 		}
-		ret = false;
+		else
+		{
+			AAMPLOG_WARN("GetContext is null");  //CID:81799 - Null Return
+		}
 	}
 	return ret;
-} // InjectFragment
+}
 
 /**
  *  @brief Start fragment injector loop
@@ -1284,7 +1442,7 @@ void MediaTrack::RunInjectLoop()
     AAMPLOG_WARN("fragment injector started. track %s", name);
     bool notifyFirstFragment = true;
     bool keepInjecting = true;
-    if ((AAMP_NORMAL_PLAY_RATE == aamp->rate) && !bufferMonitorThreadStarted )
+    if ((AAMP_NORMAL_PLAY_RATE == aamp->rate) && !bufferMonitorThreadStarted)
 
     {
 		try
@@ -1363,13 +1521,34 @@ void MediaTrack::RunInjectChunkLoop()
 {
 	AAMPLOG_WARN("fragment Chunk injector started. track %s", name);
 	bool keepInjectingChunk = true;
+	bool notifyFirstFragment = true;
+	if ((AAMP_NORMAL_PLAY_RATE == aamp->rate) && !bufferMonitorThreadStarted && aamp->IsLocalAAMPTsb())
 
+	{
+		try
+		{
+			bufferMonitorThreadID = std::thread(&MediaTrack::MonitorBufferHealth, this);
+			bufferMonitorThreadStarted = true;
+			AAMPLOG_INFO("Thread created for MonitorBufferHealth [%lu]", GetPrintableThreadID(bufferMonitorThreadID));
+
+		}
+		catch(const std::exception& e)
+		{
+			AAMPLOG_WARN("Failed to create BufferHealthMonitor thread: %s", e.what());
+		}
+	}
 	totalInjectedChunksDuration = 0;
 	while (aamp->DownloadsAreEnabled() && keepInjectingChunk)
 	{
 		if (!InjectFragmentChunk())
 		{
 			keepInjectingChunk = false;
+		}
+		if (notifyFirstFragment && type != eTRACK_SUBTITLE)
+		{
+			AAMPLOG_INFO("[%s] Notifying first fragment injected", name);
+			notifyFirstFragment = false;
+			GetContext()->NotifyFirstFragmentInjected();
 		}
 	}
 	abortInjectChunk = true;
@@ -1443,7 +1622,7 @@ CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
  */
 CachedFragmentChunk* MediaTrack::GetFetchChunkBuffer(bool initialize)
 {
-	if(fragmentChunkIdxToFetch <0 || fragmentChunkIdxToFetch >= maxCachedFragmentChunksPerTrack)
+	if(fragmentChunkIdxToFetch <0 || fragmentChunkIdxToFetch >= mCachedFragmentChunksSize)
 	{
 		AAMPLOG_WARN("[%s] OUT OF RANGE => fragmentChunkIdxToFetch: %d",name,fragmentChunkIdxToFetch);
 		return NULL;
@@ -1538,8 +1717,8 @@ void MediaTrack::FlushFragmentChunks()
 
 	for (int i = 0; i < maxCachedFragmentChunksPerTrack; i++)
 	{
-		cachedFragmentChunks[i].fragmentChunk.Free();
-		memset(&cachedFragmentChunks[i], 0, sizeof(CachedFragmentChunk));
+		cachedFragmentChunks[i].Clear();
+		// memset(&cachedFragmentChunks[i], 0, sizeof(CachedFragmentChunk));
 	}
 	unparsedBufferChunk.Free();
 	//memset(&unparsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
@@ -1576,6 +1755,7 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
 		,frDownloadWait(),prevDownloadStartTime(-1)
 		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0)
+		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 			if( !maxCachedFragmentsPerTrack )
@@ -1590,6 +1770,7 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 	if(aamp->GetLLDashServiceData()->lowLatencyMode)
 	{
 		maxCachedFragmentChunksPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentChunkCached);
+		mCachedFragmentChunksSize = maxCachedFragmentChunksPerTrack;
 		for(int X =0; X< maxCachedFragmentChunksPerTrack; ++X)
 		{
 			cachedFragmentChunks[X].fragmentChunk.Clear();
@@ -1881,10 +2062,9 @@ int StreamAbstractionAAMP::GetMaxBWProfile()
  */
 void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamInfo &cacheFragStreamInfo, double position)
 {
+	AAMPLOG_TRACE("[DEBUG]:stream Info bps(%ld) w(%d) h(%d) fr(%f) profileIndex %d aamp->GetPersistedProfileIndex() %d", cacheFragStreamInfo.bandwidthBitsPerSecond, cacheFragStreamInfo.resolution.width, cacheFragStreamInfo.resolution.height, cacheFragStreamInfo.resolution.framerate,profileIndex,aamp->GetPersistedProfileIndex());
 	if (profileIndex != aamp->GetPersistedProfileIndex() && cacheFragStreamInfo.bandwidthBitsPerSecond != 0)
 	{
-		//AAMPLOG_WARN("stream Info bps(%ld) w(%d) h(%d) fr(%f)", cacheFragStreamInfo.bandwidthBitsPerSecond, cacheFragStreamInfo.resolution.width, cacheFragStreamInfo.resolution.height, cacheFragStreamInfo.resolution.framerate);
-
 		StreamInfo* streamInfo = GetStreamInfo(GetMaxBWProfile());
 		if(streamInfo != NULL)
 		{
@@ -1993,9 +2173,26 @@ void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int 
 {
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 
-	double bufferValue = video->GetBufferedDuration();
-	double minBufferNeeded  = mABRMinBuffer;
-	aamp->mhAbrManager.GetDesiredProfileOnBuffer(currProfileIndex,newProfileIndex,bufferValue,minBufferNeeded);
+	double bufferValue = GetBufferValue(video);
+	double minBufferNeeded ;
+	if(bufferValue > 0)
+	{
+		if(aamp->GetLLDashServiceData()->lowLatencyMode)
+		{
+			minBufferNeeded	= mABRMinBuffer;
+		}
+		else
+		{
+			minBufferNeeded = video->fragmentDurationSeconds + aamp->mNetworkTimeoutMs/1000;
+		}
+		aamp->mhAbrManager.GetDesiredProfileOnBuffer(currProfileIndex,newProfileIndex,bufferValue,minBufferNeeded);
+	}
+	//When buffer goes zero, no need to ramp up - Switch directly to 0th profile ,inorder to build buffer
+	else
+	{
+		AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",bufferValue);
+		newProfileIndex = 0;
+	}
 }
 
 /**
@@ -2004,7 +2201,8 @@ void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int 
 void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex, int &newProfileIndex, long nwBandwidth)
 {
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	double bufferValue = video->GetBufferedDuration();
+	double bufferValue = GetBufferValue(video);
+	long currBandwidth = GetStreamInfo(currProfileIndex)->bandwidthBitsPerSecond;
 	if(bufferValue > 0 && currProfileIndex == newProfileIndex)
 	{
 		AAMPLOG_INFO("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);
@@ -2100,6 +2298,44 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 	}
 }
 
+
+/**
+ *  @brief Update rampdown profile on network failure
+ */
+double StreamAbstractionAAMP::GetBufferValue(MediaTrack *video)
+{
+	double bufferValue = 0.0;
+	if (video)
+	{
+		bufferValue = video->GetBufferedDuration();
+		if (aamp->IsLocalAAMPTsb() && video->IsLocalTSBInjection()) /**< Update buffer value based on manifest endDelta if it is LOCAL TSB LLD playback*/
+		{
+			AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
+			if(tsbSessionManager)
+			{
+				double manifestEndDelta = tsbSessionManager->GetManifestEndDelta();
+				bufferValue = (manifestEndDelta + aamp->mLiveOffset); /**< Buffer should be calculated from live offset*/
+				bufferValue += video->fragmentDurationSeconds; /**< Adjust with last fragment; One fragment may be downloading and not yet completed*/
+				AAMPLOG_INFO("Inverse Buffer (%.02lf)sec based on TSB end point delta (%.02lf)sec and live offset (%.02lf)sec and fragmentDuration for adjust (%.02lf)sec !!",
+				bufferValue, manifestEndDelta, aamp->mLiveOffset, video->fragmentDurationSeconds);
+				if(bufferValue < 0) /** Correct the inverse buffer; it may become -ve*/
+				{
+					bufferValue = 0;
+				}
+			}
+			else
+			{
+				AAMPLOG_ERR("tsbSessionManager is NULL for LocalTSB!! Returning buffer value as %.02lf !!",bufferValue);
+			}
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("Video is NULL!! Returning buffer value as %.02lf !!",bufferValue);
+	}
+	return bufferValue;
+}
+
 /**
  *  @brief Get desired profile based on cached duration
  */
@@ -2109,12 +2345,16 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	if(video != NULL)
 	{
-		double buffervalue = video->GetBufferedDuration() * 1000;
-		if(aamp->GetLLDashServiceData()->lowLatencyMode && buffervalue < AAMP_LLDABR_MIN_BUFFER_VALUE)
+		double buffervalue = GetBufferValue(video);
+		if(aamp->GetLLDashServiceData()->lowLatencyMode && buffervalue < AAMP_LLDABR_MIN_BUFFER_VALUE && !video->IsLocalTSBInjection())
 		{
 			//InsufficientBufferRule: Buffer is empty
 			AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",buffervalue);
 			desiredProfileIndex = 0;
+			if(currentProfileIndex != desiredProfileIndex)
+			{
+				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_BUFFER_EMPTY;
+			}
 			return desiredProfileIndex;
 		}
 		if (this->trickplayMode)
@@ -2136,6 +2376,12 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 			long currentBandwidth = GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond;
 			long networkBandwidth = aamp->GetCurrentlyAvailableBandwidth();
 			int nwConsistencyCnt = (mNwConsistencyBypass)?1:mABRNwConsistency;
+			if(aamp->GetLLDashServiceData()->lowLatencyMode)
+			{
+				/** Avoid bypass for LLD so that buffer can be build up*/
+				nwConsistencyCnt = mABRNwConsistency;
+			}
+			
 			// Ramp up/down (do ABR)
 			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexByBitrateRampUpOrDown(currentProfileIndex,
 					currentBandwidth, networkBandwidth, nwConsistencyCnt);
@@ -2205,7 +2451,7 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 	}
 	else if (video)
 	{
-		double buffervalue = video->GetBufferedDuration();
+		double buffervalue = GetBufferValue(video);
 		if(buffervalue > mABRMaxBuffer)
 		{
 			desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
@@ -2622,8 +2868,24 @@ double StreamAbstractionAAMP::GetElapsedTime()
  */
 BitsPerSecond StreamAbstractionAAMP::GetVideoBitrate(void)
 {
+	BitsPerSecond bitrate = 0;
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	return ((video && video->enabled) ? (video->GetCurrentBandWidth()) : 0);
+
+	if (video && video->enabled)
+	{	
+		AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
+		if (video->IsLocalTSBInjection() && tsbSessionManager)
+		{
+			// Return the video bitrate from TSB session manager
+			bitrate = tsbSessionManager->GetVideoBitrate();
+		}
+		else
+		{
+
+			bitrate = video->GetCurrentBandWidth();
+		}
+	}
+	return bitrate;
 }
 
 /**
@@ -2801,21 +3063,38 @@ void StreamAbstractionAAMP::MuteSubtitles(bool mute)
 bool StreamAbstractionAAMP::IsEOSReached()
 {
 	bool eos = true;
-	for (int i = 0 ; i < AAMP_TRACK_COUNT; i++)
+	if(!aamp->IsLocalAAMPTsb())
 	{
-	    // For determining EOS we will Ignore the subtitle track
-	    if ((TrackType)i == eTRACK_SUBTITLE)
-	        continue;
-
-		MediaTrack *track = GetMediaTrack((TrackType) i);
-		if (track && track->enabled)
+		for (int i = 0 ; i < AAMP_TRACK_COUNT; i++)
 		{
-			eos = eos && track->IsAtEndOfTrack();
-			if (!eos)
+			// For determining EOS we will Ignore the subtitle track
+			if ((TrackType)i == eTRACK_SUBTITLE)
+				continue;
+
+			MediaTrack *track = GetMediaTrack((TrackType) i);
+			if (track && track->enabled)
 			{
-				AAMPLOG_WARN("EOS not seen by track: %s, skip check for rest of the tracks", track->name);
-				aamp->ResetEOSSignalledFlag();
-				break;
+				eos = eos && track->IsAtEndOfTrack();
+				if (!eos)
+				{
+					AAMPLOG_WARN("EOS not seen by track: %s, skip check for rest of the tracks", track->name);
+					aamp->ResetEOSSignalledFlag();
+					break;
+				}
+			}
+		}
+	}
+	else
+	{
+		AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
+		if(tsbSessionManager)
+		{
+			for (int i = 0 ; i < AAMP_TRACK_COUNT; i++)
+			{
+				// For determining EOS we will Ignore the subtitle track
+				if ((TrackType)i == eTRACK_SUBTITLE)
+					continue;
+				// Implement Track enabled and proper EOS logic for Discontinuities
 			}
 		}
 	}
@@ -3175,13 +3454,18 @@ bool StreamAbstractionAAMP::CheckForRampDownLimitReached()
  */
 double StreamAbstractionAAMP::GetBufferedVideoDurationSec()
 {
+	double bufferValue = -1.0;
 	// do not support trickplay track
 	if(AAMP_NORMAL_PLAY_RATE != aamp->rate)
 	{
-		return -1.0;
+		return bufferValue;
 	}
-
-	return GetBufferedDuration();
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	if(video)
+	{
+		bufferValue = GetBufferValue(video);
+	}
+	return bufferValue;
 }
 
 /**
@@ -3986,4 +4270,37 @@ int MediaTrack::WaitTimeBasedOnBufferAvailable()
 		// aamp->InterruptableMsSleep();
 	}
 	return minDelayBetweenPlaylistUpdates;
+}
+
+/**
+ * @brief Get total fragment injected duration
+ *
+ * @return Total duration in seconds
+ */
+double MediaTrack::GetTotalInjectedDuration()
+{
+	double ret = totalInjectedDuration;
+	if(aamp->GetLLDashServiceData()->lowLatencyMode)
+	{
+		ret = totalInjectedChunksDuration;
+	}
+	return ret;
+}
+
+/**
+ * @brief SetCachedFragmentChunksSize - Setter for fragment chunks cache size
+ *
+ * @param[in] size Size for fragment chunks cache
+ */
+void MediaTrack::SetCachedFragmentChunksSize(size_t size)
+{
+	if (size > 0 && size <= maxCachedFragmentChunksPerTrack)
+	{
+		AAMPLOG_TRACE("Set cachedFragmentChunks size:%zu successfully", size);
+		mCachedFragmentChunksSize = size;
+	}
+	else
+	{
+		AAMPLOG_ERR("Failed to set size:%zu", size);
+	}
 }

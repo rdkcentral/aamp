@@ -93,6 +93,10 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 			ptr = mem;
 			avail = numBytes;
 		}
+		else if (numBytes != 0)
+		{
+			AAMPLOG_ERR("Memory re-allocation failed!! Requested numBytes: %zu", numBytes);
+		}
 	}
 	if( ptr )
 	{
