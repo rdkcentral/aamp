@@ -43,9 +43,9 @@ IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(AampLogManager *logObj, id3_c
 
 void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
 		AampMediaType type,
-		bool discontinuity_pending, 
+		bool discontinuity_pending,
 		const double proc_position,
-		bool & ptsError, 
+		bool & ptsError,
 		const std::string & uri)
 {
 	AAMPLOG_INFO(" [metadata][%p] Processing metadata.", this);
@@ -177,7 +177,7 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const char
 							}
 							else
 							{
-								AAMPLOG_INFO(" %s box [%lu][%u]", box->getBoxType(), curOffset, box_size);
+								AAMPLOG_INFO(" %s box [%lu][%u]", box->getType(), curOffset, box_size);
 							}
 
 							curOffset += box->getSize();
@@ -216,9 +216,9 @@ TSMetadataProcessor::TSMetadataProcessor(AampLogManager *logObj, id3_callback_t 
 
 void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
 		AampMediaType type,
-		bool discontinuity_pending, 
+		bool discontinuity_pending,
 		double proc_position,
-		bool & ptsError, 
+		bool & ptsError,
 		const std::string & uri // Debug only
 	)
 {

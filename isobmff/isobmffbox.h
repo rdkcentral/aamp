@@ -29,6 +29,7 @@
 #include <vector>
 #include <string.h>
 #include <string>
+#include <cstring>
 #include "AampLogManager.h"
 
 // Size of the size and tag fields in IsoBmff
@@ -96,7 +97,7 @@ int ReadCStringLen(const uint8_t* buffer, uint32_t bufferLen);
 class Box
 {
 private:
-	uint8_t *base;		/** ptr to start of box */
+	uint8_t *base;		/**< Ptr to start of box */
 	uint32_t offset;	/**< Offset from the beginning of the segment */
 	uint32_t size;		/**< Box Size */
 	char type[5]; 		/**< Box Type Including \0 */
@@ -173,8 +174,8 @@ public:
 	/**
 	 * @fn truncate
 	 */
-	virtual void truncate(void) {};
-	virtual void truncate(uint32_t param) {};
+	virtual void truncate(void) {}
+	virtual void truncate(uint32_t param) {}
 
 	/**
 	 * @fn getSize
@@ -185,7 +186,7 @@ public:
 
 	void setSize(uint32_t newSize) { WRITE_U32(base, newSize);
 		size = newSize;
-	 };
+	 }
 
 	/**
 	 * @fn getType
@@ -193,13 +194,6 @@ public:
 	 * @return box type
 	 */
 	const char *getType() const;
-
-	/**
-	 * @fn getBoxType
-	 *
-	 * @return box type if parsed. "unknown" otherwise
-	 */
-	const char *getBoxType() const;
 
 	/**
 	 * @fn constructBox
@@ -213,7 +207,7 @@ public:
 	 */
 	static Box* constructBox(uint8_t *hdr, uint32_t maxSz, AampLogManager *mLOgObj=NULL, bool correctBoxSize = false, int newTrackId = -1);
 
-	uint8_t *getBase(void) const { return base; };
+	uint8_t *getBase(void) const { return base; }
 
 	/**
 	 * @fn setBase
@@ -348,12 +342,12 @@ class MdatBox: public Box
 public:
 
 	/**
-	 * @fn mdat
-	 * @brief construct a skip box header with the specified size at the specified location
+	 * @fn MdatBox
+	 * @brief construct an mdat box header with the specified size at the specified location
 	 * @param[in] sz - box size
 	 * @param[in] locn - location
 	*/
-	MdatBox(uint32_t sz, uint8_t *locn) : Box(sz, Box::MDAT){};
+	MdatBox(uint32_t sz, uint8_t *locn) : Box(sz, Box::MDAT){}
 
 	void truncate(uint32_t newSize) override;
 
@@ -376,8 +370,8 @@ public:
 	SkipBox(uint32_t sz, uint8_t *locn) : Box(sz, Box::SKIP)
 	{
 		WRITE_U32(locn, sz);
-		memcpy(locn + 4, Box::SKIP, 4);
-	};
+		memcpy(locn + sizeof(uint32_t), Box::SKIP, std::strlen(Box::SKIP));
+	}
 };
 
 /**
@@ -737,7 +731,6 @@ class TrunBox : public FullBox
 private:
 	uint64_t duration;    //Sample Duration value
 	uint32_t sample_count;
-	uint32_t bytes_per_sample;
 	uint8_t *sample_count_loc;
 	uint8_t *first_sample_duration_loc;
 	uint32_t mFirstSampleSize;
@@ -751,6 +744,7 @@ public:
 	uint32_t sample_flags;
 	uint32_t sample_composition_time_offset;
 	};
+
 	/**
  	 * @fn TrunBox
  	 *
@@ -759,11 +753,10 @@ public:
 	 * @param[in] sampleCount - sample count value
 	 * @param[in] sampleCountLoc - sample count location
 	 * @param[in] sampleDurationLoc - sample duration location
-	 * @param[in] bytesPerSample - bytes per sample
 	 * @param[in] firstSampleSize - size of the first sample
 	 * @param[in] flags - flags set on this box
 	 */
-	TrunBox(uint32_t sz, uint64_t sampleDuration, uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t *sampleDurationLoc, uint32_t bytesPerSample, uint32_t firstSampleSize, uint32_t flags);
+	TrunBox(uint32_t sz, uint64_t sampleDuration, uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t *sampleDurationLoc, uint32_t firstSampleSize, uint32_t flags);
 
 	/**
 	 * @fn TrunBox
@@ -773,11 +766,10 @@ public:
 	 * @param[in] sampleCount - sample count value
 	 * @param[in] sampleCountLoc - sample count location
 	 * @param[in] sampleDurationLoc - sample duration location
-	 * @param[in] bytesPerSample - bytes per sample
 	 * @param[in] firstSampleSize - size of the first sample
 	 * @param[in] flags - flags set on this box
 	 */
-	TrunBox(FullBox &fbox, uint64_t sampleDuration, uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t *sampleDurationLoc, uint32_t bytesPerSample, uint32_t firstSampleSize, uint32_t flags);
+	TrunBox(FullBox &fbox, uint64_t sampleDuration, uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t *sampleDurationLoc, uint32_t firstSampleSize, uint32_t flags);
 
 	/**
 	 * @fn setFirstSampleDuration
@@ -805,13 +797,6 @@ public:
 	uint32_t getSampleCount();
 
 	/**
-	 * @fn setSampleCount
-	 *
-	 * @param[in] count value
-	 */
-	void setSampleCount(uint32_t count);
-
-	/**
 	 * @fn constructTrunBox
 	 *
 	 * @param[in] sz - box size
@@ -833,7 +818,7 @@ public:
 	uint32_t getFirstSampleSize(void);
 
 	/**
-	 * @fn getFirstSampleSize
+	 * @fn sampleDurationPresent
 	 *
 	 * @return true if SAMPLE_DURATION_PRESENT is enabled, false otherwise
 	 */

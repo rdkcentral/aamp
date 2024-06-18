@@ -43,6 +43,8 @@ const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT           = 0x00020;
 // const uint32_t TFHD_FLAG_DURATION_IS_EMPTY                   = 0x10000;
 // const uint32_t TFHD_FLAG_DEFAULT_BASE_IS_MOOF                = 0x20000;
 
+const uint32_t SAIZ_FLAG_AUX_INFO_TYPE_PRESENT                  = 0x0001;
+
 /**
  *  @brief Read a string from buffer and return it
  */
@@ -136,31 +138,6 @@ uint32_t Box::getSize() const
  */
 const char *Box::getType() const
 {
-	return type;
-}
-
-/**
- *  @brief Get box type
- */
-const char* Box::getBoxType() const
-{
-	if ((!IS_TYPE(type, MOOV)) ||
-		(!IS_TYPE(type, MDIA)) ||
-		(!IS_TYPE(type, MOOF)) ||
-		(!IS_TYPE(type, TRAF)) ||
-		(!IS_TYPE(type, TFDT)) ||
-		(!IS_TYPE(type, MVHD)) ||
-		(!IS_TYPE(type, MDHD)) ||
-		(!IS_TYPE(type, FTYP)) ||
-		(!IS_TYPE(type, STYP)) ||
-		(!IS_TYPE(type, SIDX)) ||
-		(!IS_TYPE(type, PRFT)) ||
-		(!IS_TYPE(type, MDAT)) ||
-		(!IS_TYPE(type, SENC)) ||
-		(!IS_TYPE(type, SAIZ)))
-	{
-		return "UKWN";
-	}
 	return type;
 }
 
@@ -831,13 +808,12 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 /**
  *  @brief TrunBox constructor
  */
-TrunBox::TrunBox(uint32_t sz, uint64_t sampleDuration,uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t* firstSampleDurationLoc, uint32_t bytesPerSample, uint32_t firstSampleSize, uint32_t flags)
+TrunBox::TrunBox(uint32_t sz, uint64_t sampleDuration,uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t* firstSampleDurationLoc, uint32_t firstSampleSize, uint32_t flags)
 		: FullBox(sz, Box::TRUN, 0, 0),
 		duration(sampleDuration),
 		sample_count(sampleCount),
 		sample_count_loc(sampleCountLoc),
 		first_sample_duration_loc(firstSampleDurationLoc),
-		bytes_per_sample(bytesPerSample),
 		mFirstSampleSize(firstSampleSize),
 		mFlags(flags)
 {
@@ -846,13 +822,12 @@ TrunBox::TrunBox(uint32_t sz, uint64_t sampleDuration,uint32_t sampleCount, uint
 /**
  *  @brief TrunBox constructor
  */
-TrunBox::TrunBox(FullBox &fbox, uint64_t sampleDuration,uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t* firstSampleDurationLoc, uint32_t bytesPerSample, uint32_t firstSampleSize, uint32_t flags)
+TrunBox::TrunBox(FullBox &fbox, uint64_t sampleDuration,uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t* firstSampleDurationLoc, uint32_t firstSampleSize, uint32_t flags)
 		: FullBox(fbox),
 		duration(sampleDuration),
 		sample_count(sampleCount),
 		sample_count_loc(sampleCountLoc),
 		first_sample_duration_loc(firstSampleDurationLoc),
-		bytes_per_sample(bytesPerSample),
 		mFirstSampleSize(firstSampleSize),
 		mFlags(flags)
 {
@@ -884,15 +859,6 @@ uint64_t TrunBox::getSampleDuration()
 uint32_t TrunBox::getSampleCount()
 {
 	return sample_count;
-}
-
-/**
- *  @brief Set SampleCount value
- */
-void TrunBox::setSampleCount(uint32_t count)
-{
-	sample_count = count;
-	WRITE_U32(sample_count_loc, count);
 }
 
 /**
@@ -977,7 +943,7 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 	}
 	FullBox fbox(sz, Box::TRUN, version, flags);
 	fbox.setBase(start);
-	return new TrunBox(fbox, totalSampleDuration, sample_count, sampleCountLoc, firstSampleDurationLoc, bytesPerSample, firstSampleSize, flags);
+	return new TrunBox(fbox, totalSampleDuration, sample_count, sampleCountLoc, firstSampleDurationLoc, firstSampleSize, flags);
 }
 
 /**
@@ -988,17 +954,22 @@ void TrunBox::truncate(void)
 {
 	if (sample_count > 1)
 	{
-		uint32_t tableSize{sample_count * bytes_per_sample};
+		uint32_t bytesPerSample = ((flags & TRUN_FLAG_SAMPLE_DURATION_PRESENT)? 4 : 0) +
+								((flags & TRUN_FLAG_SAMPLE_SIZE_PRESENT)? 4 : 0) +
+								((flags & TRUN_FLAG_SAMPLE_FLAGS_PRESENT)? 4 : 0) +
+								((flags & TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)? 4 : 0);
+		uint32_t tableSize{sample_count * bytesPerSample};
 		// Calculate new trun size and write
 		auto oldTrunSize = getSize();
-		auto newTrunSize = getSize() - tableSize + bytes_per_sample;
-		setSampleCount(1);
+		auto newTrunSize = getSize() - tableSize + bytesPerSample;
+		sample_count = 1;
+		WRITE_U32(sample_count_loc, sample_count);
 
 		// If there is room to insert a skip box
 		if ((oldTrunSize - newTrunSize) >= SIZEOF_SIZE_AND_TAG)
 		{
 			setSize(newTrunSize);
-			SkipBox skip{tableSize - bytes_per_sample, getBase() + getSize()};
+			SkipBox skip{tableSize - bytesPerSample, getBase() + getSize()};
 		}
 		else
 		{
@@ -1423,8 +1394,9 @@ void SencBox::truncate(uint32_t firstSampleSize)
 				AAMPLOG_INFO("No room for a skip box");
 			}
 		}
-		WRITE_U32(sampleCountLoc, 1);
+
 		numSamples = 1;
+		WRITE_U32(sampleCountLoc, numSamples);
 	}
 }
 
@@ -1457,7 +1429,7 @@ SaizBox* SaizBox::constructSaizBox(uint32_t sz, uint8_t *ptr)
 	uint8_t version = READ_VERSION(ptr); // 8
 	uint32_t flags = READ_FLAGS(ptr); // 24
 
-	if (flags & 1)
+	if (flags & SAIZ_FLAG_AUX_INFO_TYPE_PRESENT)
 	{
 		ptr += sizeof(uint32_t);   // skip aux_info_type
 		ptr += sizeof(uint32_t);   // skip aux_info_type_parameter
@@ -1468,7 +1440,7 @@ SaizBox* SaizBox::constructSaizBox(uint32_t sz, uint8_t *ptr)
 	uint8_t *sample_count_loc{ptr};
 	uint32_t sample_count = READ_U32(ptr);
 
-	uint32_t sample_info_size = (0 == default_sample_info_size) ? *ptr : default_sample_info_size;
+	uint8_t sample_info_size = (0 == default_sample_info_size) ? *ptr : default_sample_info_size;
 
 	FullBox fbox(sz, Box::SAIZ, version, flags);
 	fbox.setBase(start);
@@ -1505,5 +1477,6 @@ void SaizBox::truncate(void)
 		// Not truncating the table, just setting the sample count to 1
 	}
 
-	WRITE_U32(sampleCountLoc,1);
+	numSamples = 1;
+	WRITE_U32(sampleCountLoc, 1);
 }
