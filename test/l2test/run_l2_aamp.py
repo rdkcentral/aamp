@@ -100,9 +100,6 @@ def build_aamp(other_args):
     print(os.getcwd())
     sys.stdout.flush()
     subprocess.run('bash install-aamp-new.sh {} -d $(pwd -P) -n || true'.format(opts), shell=True)
-    # Build the subtec plugin that is needed for one of the tests.
-    p = os.path.join(l2testdir, 'TST_1001_Webvtt')
-    subprocess.run('./postscript.sh', shell=True, cwd=p)
 
 
 class Unbuffered:
