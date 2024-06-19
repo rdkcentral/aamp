@@ -22,6 +22,8 @@
 
 #include <sstream>
 #include <string_view>
+#include <ostream>
+#include <filesystem>
 
 #include "TsbApi.h"
 
@@ -421,6 +423,19 @@ template <typename T> std::ostream& operator<<(std::ostream& logStream, const As
 	return logStream << logAs.mBase << std::showbase << static_cast<uintmax_t>(logAs.mValue)
 					 << std::noshowbase << std::dec;
 }
+
+/**
+ *  @fn operator<<
+ *
+ *  @brief Custom path output operator that doesn't output the path in double quotes,
+ *         since the logging implementation adds quotes anyway.
+ *
+ *  @param[in] logStream - Stream to write the path to
+ *  @param[in] path - filesystem path
+ *
+ *  @return The output stream
+ */
+std::ostream& operator<<(std::ostream& logStream, const std::filesystem::path& path);
 
 /**
  *  @fn MakeMessage
