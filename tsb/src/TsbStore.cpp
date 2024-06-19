@@ -51,7 +51,7 @@ public:
 
 private:
 	const Logger mLogger;
-	const std::string mLocation;
+	const FS::path mLocation;
 	const uint32_t mMinFreePercent;
 	const uintmax_t mMaxCapacity;         // Expressed in bytes
 	uintmax_t mCapacity{0};               // Expressed in bytes
@@ -63,14 +63,11 @@ private:
 	Sem mFlusherSem{};
 
 	static std::string SanitizePath(const std::string &);
-	Status UrlToFileMapper(const std::string& url, std::string& dirPath, std::string& fileName) const;
+	Status UrlToFileMapper(const std::string& url, FS::path& path) const;
 	void Flusher(void);
-	Status WriteBuffer(const FS::path& fileNameIncPath, const void* buffer, std::size_t size, bool retry);
+	Status WriteBuffer(const FS::path& path, const void* buffer, std::size_t size, bool retry);
 	uintmax_t GetCapacityMinFree(uintmax_t capacity) const;
 	FS::space_info GetFilesystemSpace() const;
-	bool FileExists(const std::string& path) const;
-	uintmax_t FileSize(const std::string& path, std::error_code& ec) const;
-	bool RemoveFile(const std::string& path, std::error_code& ec);
 };
 
 Store::Store(const Config& config, LogFunction logger, LogLevel level)
@@ -108,15 +105,14 @@ void Store::Flush()
 }
 
 /*	@fn		UrlToFileMapper
-	@brief	Separates url into directory path and name of the file
+	@brief	Generates a path (directory and name of a file) from a url
 
 	@param[in] url - 		The url that will be split into directory path and filename
-	@param[out] dirPath - 	The directory path of the url
-	@param[out] fileName	The name of the file in the URL.
+	@param[out] path - 		The path (directory and file name) that corresponds to a url
 	@retval		OK  		If the url was successfully split.
 				FAILED 		If the input url string was erratic.
 */
-Status StoreImpl::UrlToFileMapper(const std::string& url, std::string& dirPath, std::string& fileName) const
+Status StoreImpl::UrlToFileMapper(const std::string& url, FS::path& path) const
 {
 	auto returnStatus = Status::FAILED;
 
@@ -133,8 +129,8 @@ Status StoreImpl::UrlToFileMapper(const std::string& url, std::string& dirPath, 
 
 		FS::path p = url.substr(filePathPos);
 
-		dirPath = p.parent_path();
-		fileName = p.filename();
+		std::string dirPath = p.parent_path();
+		std::string fileName = p.filename();
 
 		if (dirPath[0] == '/')
 		{
@@ -158,6 +154,9 @@ Status StoreImpl::UrlToFileMapper(const std::string& url, std::string& dirPath, 
 		}
 		else
 		{
+			path = mLocation;
+			path /= std::to_string(mActiveDirNum.load());
+			path /= p;
 			returnStatus = Status::OK;
 		}
 	}
@@ -193,12 +192,12 @@ void StoreImpl::Flusher(void)
 	{
 		mFlusherSem.Wait();
 
-		FS::path flushDir(mLocation + "/" + std::to_string(mFlushDirNum.load()));
-		TSB_LOG_MIL(mLogger, "Flush storage content", "flushDirectory", flushDir.string());
+		FS::path flushDir{mLocation / std::to_string(mFlushDirNum.load())};
+		TSB_LOG_MIL(mLogger, "Flush storage content", "flushDirectory", flushDir);
 		std::uintmax_t numRemoved{FS::remove_all(flushDir, ec)};
 		if (numRemoved == static_cast<std::uintmax_t>(-1))
 		{
-			TSB_LOG_ERROR(mLogger, "Failed to delete files", "flushDir", flushDir.string(), "errorCode", ec);
+			TSB_LOG_ERROR(mLogger, "Failed to delete files", "flushDir", flushDir, "errorCode", ec);
 		}
 		else
 		{
@@ -247,7 +246,7 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, LogLevel l
 	FS::path flushDir = locationPath / std::to_string(mFlushDirNum.load());
 	if (!FS::create_directories(flushDir, ec) && ec.default_error_condition())
 	{
-		TSB_LOG_ERROR(mLogger, "Failed to create", "flushDir", flushDir.string(), "errorCode", ec);
+		TSB_LOG_ERROR(mLogger, "Failed to create", "flushDir", flushDir, "errorCode", ec);
 		throw std::invalid_argument("Failed to create flushDir");
 	}
 	else
@@ -261,7 +260,7 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, LogLevel l
 				if (ec.default_error_condition())
 				{
 					TSB_LOG_ERROR(mLogger, "Failed to move stale directory", "path",
-								  dir_entry.path().string(), "errorCode", ec);
+								  dir_entry.path(), "errorCode", ec);
 				}
 			}
 		}
@@ -300,60 +299,50 @@ Status StoreImpl::Read(const std::string &url, void *buffer, std::size_t size) c
 {
 	Status returnStatus = Status::FAILED;
 	std::error_code ec;
-	std::string dirPath{}, fileName{};
-	if (UrlToFileMapper(url, dirPath, fileName) != Status::OK)
+	FS::path path;
+	if (UrlToFileMapper(url, path) != Status::OK)
 	{
 		TSB_LOG_ERROR(mLogger, "Could not map URL to a file", "segmentUrl", url);
 	}
+	else if (!FS::exists(path))
+	{
+		TSB_LOG_WARN(mLogger, "File does not exist", "file", path);
+	}
+	else if (buffer == nullptr)
+	{
+		TSB_LOG_ERROR(mLogger, "Buffer is null");
+	}
+	else if (size == 0)
+	{
+		TSB_LOG_ERROR(mLogger, "Size is 0");
+	}
 	else
 	{
-		std::string fullPath{mLocation + "/" + std::to_string(mActiveDirNum.load())};
-		if (!dirPath.empty())
+		FS::ifstream stream;
+		stream.open(path, FS::ifstream::binary);
+		if (stream.fail())
 		{
-			fullPath.append("/" + dirPath);
-		}
-		std::string fileNameIncPath{fullPath + "/" + fileName};
-
-		if (!FileExists(fileNameIncPath))
-		{
-			TSB_LOG_WARN(mLogger, "File does not exist", "file", fileNameIncPath);
-		}
-		else if (buffer == nullptr)
-		{
-			TSB_LOG_ERROR(mLogger, "Buffer is null");
-		}
-		else if (size == 0)
-		{
-			TSB_LOG_ERROR(mLogger, "Size is 0");
+			TSB_LOG_ERROR(mLogger, "Failed to open the file", "file", path);
 		}
 		else
 		{
-			FS::ifstream stream;
-			stream.open(fileNameIncPath, FS::ifstream::binary);
+			stream.read(static_cast<char *>(buffer), size);
 			if (stream.fail())
 			{
-				TSB_LOG_ERROR(mLogger, "Failed to open the file", "file", fileNameIncPath);
+				TSB_LOG_ERROR(mLogger, "Failed to read file", "file", path, "size", size);
 			}
 			else
 			{
-				stream.read(static_cast<char *>(buffer), size);
-				if (stream.fail())
-				{
-					TSB_LOG_ERROR(mLogger, "Failed to read file", "file", fileNameIncPath, "size", size);
-				}
-				else
-				{
-					TSB_LOG_TRACE(mLogger, "File Read", "file", fileNameIncPath, "size", size);
-					returnStatus = Status::OK;
-				}
-				stream.close();
+				TSB_LOG_TRACE(mLogger, "File Read", "file", path, "size", size);
+				returnStatus = Status::OK;
 			}
+			stream.close();
 		}
 	}
 	return returnStatus;
 }
 
-Status StoreImpl::WriteBuffer(const FS::path& fileNameIncPath, const void* buffer, std::size_t size, bool retry)
+Status StoreImpl::WriteBuffer(const FS::path& path, const void* buffer, std::size_t size, bool retry)
 {
 	auto status = Status::FAILED;
 	auto timeWaited = 0ms;
@@ -367,11 +356,11 @@ Status StoreImpl::WriteBuffer(const FS::path& fileNameIncPath, const void* buffe
 		 * The client is writing one segment at a time. With that amount of data, using an
 		 * intermediate buffer will only degrade performance and slow things down. */
 		file.rdbuf()->pubsetbuf(nullptr, 0);
-		file.open(fileNameIncPath, FS::ofstream::binary);
+		file.open(path, FS::ofstream::binary);
 		if (file.fail())
 		{
 			retry = false;
-			TSB_LOG_ERROR(mLogger, "Failed to open the file", "file", fileNameIncPath.string());
+			TSB_LOG_ERROR(mLogger, "Failed to open the file", "file", path);
 		}
 		else
 		{
@@ -385,7 +374,7 @@ Status StoreImpl::WriteBuffer(const FS::path& fileNameIncPath, const void* buffe
 			if (file.fail() == false)
 			{
 				mAvailable -= size;
-				TSB_LOG_TRACE(mLogger, "File written", "file", fileNameIncPath.string(),
+				TSB_LOG_TRACE(mLogger, "File written", "file", path,
 								"fileSize", size, "availableSpace", mAvailable);
 				retry = false;
 				status = Status::OK;
@@ -393,14 +382,14 @@ Status StoreImpl::WriteBuffer(const FS::path& fileNameIncPath, const void* buffe
 			else if ((timeWaited >= timeout) && errnoSetFollowingWriteError && (errno == ENOSPC))
 			{
 				retry = false;
-				TSB_LOG_ERROR(mLogger, "Not enough space to write - timed out", "file", fileNameIncPath.string(), "timeout", timeout.count());
+				TSB_LOG_ERROR(mLogger, "Not enough space to write - timed out", "file", path, "timeout", timeout.count());
 				status = Status::NO_SPACE;
 			}
 			// Timeout, but the write failed for a reason other than ENOSPC
 			else if (timeWaited >= timeout)
 			{
 				retry = false;
-				TSB_LOG_ERROR(mLogger, "Failed to write - timed out", "file", fileNameIncPath.string(), "timeout", timeout.count(),
+				TSB_LOG_ERROR(mLogger, "Failed to write - timed out", "file", path, "timeout", timeout.count(),
 								"errno", std::strerror(errno));
 			}
 			else if (retry && errnoSetFollowingWriteError && (errno == ENOSPC))
@@ -416,14 +405,14 @@ Status StoreImpl::WriteBuffer(const FS::path& fileNameIncPath, const void* buffe
 			else if (errnoSetFollowingWriteError && (errno == ENOSPC))
 			{
 				// This is a TRACE only, as the client can cull (delete files) and retry the Write
-				TSB_LOG_TRACE(mLogger, "Not enough space to write", "file", fileNameIncPath.string(),
+				TSB_LOG_TRACE(mLogger, "Not enough space to write", "file", path,
 								"size", size);
 				status = Status::NO_SPACE;
 			}
 			else // No timeout, but the write failed for a reason other than ENOSPC
 			{
 				retry = false;
-				TSB_LOG_ERROR(mLogger, "Failed to write to file", "file", fileNameIncPath.string(),
+				TSB_LOG_ERROR(mLogger, "Failed to write to file", "file", path,
 								"size", size, "errno", std::strerror(errno));
 			}
 
@@ -434,9 +423,9 @@ Status StoreImpl::WriteBuffer(const FS::path& fileNameIncPath, const void* buffe
 
 				// If the write failed, the file may have been created.
 				// Therefore remove it to allow retries - either by TSB, or its client.
-				if (!RemoveFile(fileNameIncPath, ec))
+				if (!FS::remove(path, ec))
 				{
-					TSB_LOG_WARN(mLogger, "Error deleting file", "file", fileNameIncPath.string(), "errorCode", ec);
+					TSB_LOG_WARN(mLogger, "Error deleting file", "file", path, "errorCode", ec);
 				}
 			}
 		}
@@ -449,56 +438,48 @@ Status StoreImpl::Write(const std::string& url, const void* buffer, std::size_t 
 {
 	std::unique_lock<std::mutex> lock(mApiMutex);
 	auto returnStatus = Status::FAILED;
-	std::string dirPath{}, fileName{};
-	if (UrlToFileMapper(url, dirPath, fileName) != Status::OK)
+	std::error_code ec;
+	FS::path path;
+	if (UrlToFileMapper(url, path) != Status::OK)
 	{
 		TSB_LOG_ERROR(mLogger, "Could not map URL to a file", "segmentUrl", url);
 	}
+	else if (FS::exists(path))
+	{
+		TSB_LOG_TRACE(mLogger, "File already exists", "path", path);
+		returnStatus = Status::ALREADY_EXISTS;
+	}
+	else if (buffer == nullptr)
+	{
+		TSB_LOG_ERROR(mLogger, "Buffer is null");
+	}
+	else if (size == 0)
+	{
+		TSB_LOG_ERROR(mLogger, "Size is 0");
+	}
+	else if (size > mAvailable)
+	{
+		// This is a TRACE only, as the client can cull (delete files) and retry the Write
+		TSB_LOG_TRACE(mLogger, "Not Enough space to write", "file", path, "fileSize", size,
+						"availableSpace", mAvailable);
+		returnStatus = Status::NO_SPACE;
+	}
+	else if (!FS::create_directories(path.parent_path(), ec) &&
+				ec.default_error_condition())
+	{
+		TSB_LOG_ERROR(mLogger, "Failed to create directory", "directory",
+						path.parent_path(), "errorCode", ec);
+	}
 	else
 	{
-		std::error_code ec;
-		FS::path fileNameIncPath{mLocation};
-		fileNameIncPath /= std::to_string(mActiveDirNum.load());
-		fileNameIncPath /= dirPath;
-		fileNameIncPath /= fileName;
-
-		if (FileExists(fileNameIncPath))
+		// Do not retry in normal Write, not happening during Flush
+		bool retry = false;
+		if (mFlushDirNum.load() != mActiveDirNum.load())
 		{
-			TSB_LOG_TRACE(mLogger, "File already exists", "path", fileNameIncPath.string());
-			returnStatus = Status::ALREADY_EXISTS;
+			// Write during Flush
+			retry = true;
 		}
-		else if (buffer == nullptr)
-		{
-			TSB_LOG_ERROR(mLogger, "Buffer is null");
-		}
-		else if (size == 0)
-		{
-			TSB_LOG_ERROR(mLogger, "Size is 0");
-		}
-		else if (size > mAvailable)
-		{
-			// This is a TRACE only, as the client can cull (delete files) and retry the Write
-			TSB_LOG_TRACE(mLogger, "Not Enough space to write", "file", fileName, "fileSize", size,
-						  "availableSpace", mAvailable);
-			returnStatus = Status::NO_SPACE;
-		}
-		else if (!FS::create_directories(fileNameIncPath.parent_path(), ec) &&
-				 ec.default_error_condition())
-		{
-			TSB_LOG_ERROR(mLogger, "Failed to create directory", "directory",
-						  fileNameIncPath.parent_path().string(), "errorCode", ec);
-		}
-		else
-		{
-			// Do not retry in normal Write, not happening during Flush
-			bool retry = false;
-			if (mFlushDirNum.load() != mActiveDirNum.load())
-			{
-				// Write during Flush
-				retry = true;
-			}
-			returnStatus = WriteBuffer(fileNameIncPath, buffer, size, retry);
-		}
+		returnStatus = WriteBuffer(path, buffer, size, retry);
 	}
 
 	return returnStatus;
@@ -507,37 +488,27 @@ Status StoreImpl::Write(const std::string& url, const void* buffer, std::size_t 
 std::size_t StoreImpl::GetSize(const std::string& url) const
 {
 	std::size_t returnSize = 0;
-	std::string dirPath{}, fileName{};
-	if (UrlToFileMapper(url, dirPath, fileName) != Status::OK)
+	FS::path path;
+	if (UrlToFileMapper(url, path) != Status::OK)
 	{
 		TSB_LOG_ERROR(mLogger, "Could not map URL to a file", "segmentUrl", url);
 	}
+	else if (!FS::exists(path))
+	{
+		TSB_LOG_WARN(mLogger, "File does not exist", "path", path);
+	}
 	else
 	{
-		std::string fullPath{mLocation + "/" + std::to_string(mActiveDirNum.load())};
-		if (!dirPath.empty())
+		std::error_code ec;
+		std::uintmax_t segmentSize = FS::file_size(path, ec);
+		if (segmentSize == static_cast<std::uintmax_t>(-1))
 		{
-			fullPath.append("/" + dirPath);
-		}
-		std::string fileNameIncPath{fullPath + "/" + fileName};
-
-		if (!FileExists(fileNameIncPath))
-		{
-			TSB_LOG_WARN(mLogger, "File does not exist", "file", fileName, "path", dirPath);
+			TSB_LOG_WARN(mLogger, "Error getting file size", "file", path, "error", ec);
 		}
 		else
 		{
-			std::error_code ec;
-			std::uintmax_t segmentSize = FileSize(fileNameIncPath, ec);
-			if (segmentSize == static_cast<std::uintmax_t>(-1))
-			{
-				TSB_LOG_WARN(mLogger, "Error getting file size", "file", fileNameIncPath, "error", ec);
-			}
-			else
-			{
-				TSB_LOG_TRACE(mLogger, "Got size", "file", fileNameIncPath, "segmentSize", segmentSize);
-				returnSize = segmentSize;
-			}
+			TSB_LOG_TRACE(mLogger, "Got size", "file", path, "segmentSize", segmentSize);
+			returnSize = segmentSize;
 		}
 	}
 	return returnSize;
@@ -546,39 +517,32 @@ std::size_t StoreImpl::GetSize(const std::string& url) const
 void StoreImpl::Delete(const std::string& url)
 {
 	std::unique_lock<std::mutex> lock(mApiMutex);
-	std::string dirPath{}, fileName{};
-	if (UrlToFileMapper(url, dirPath, fileName) != Status::OK)
+	FS::path path;
+	if (UrlToFileMapper(url, path) != Status::OK)
 	{
 		TSB_LOG_ERROR(mLogger, "Could not map URL to a file", "segmentUrl", url);
 	}
+	else if (!FS::exists(path))
+	{
+		// File probably deleted already, so TRACE log only
+		TSB_LOG_TRACE(mLogger, "File does not exist", "path", path);
+	}
 	else
 	{
-		std::string activeDir{mLocation + "/" + std::to_string(mActiveDirNum.load())};
-		std::string fullPath{activeDir + "/" + dirPath};
-		std::string fileNameIncPath{fullPath + "/" + fileName};
-
-		if (!FileExists(fileNameIncPath))
+		std::error_code ec;
+		std::uintmax_t size = FS::file_size(path, ec);
+		if (size == static_cast<std::uintmax_t>(-1))
 		{
-			// File probably deleted already, so TRACE log only
-			TSB_LOG_TRACE(mLogger, "File does not exist", "file", fileName, "path", dirPath);
+			TSB_LOG_WARN(mLogger, "Error getting file size", "file", path, "errorCode", ec);
+		}
+		else if (!FS::remove(path, ec))
+		{
+			TSB_LOG_WARN(mLogger, "Error deleting file", "file", path, "errorCode", ec);
 		}
 		else
 		{
-			std::error_code ec;
-			std::uintmax_t size = FileSize(fileNameIncPath, ec);
-			if (size == static_cast<std::uintmax_t>(-1))
-			{
-				TSB_LOG_WARN(mLogger, "Error getting file size", "file", fileNameIncPath, "errorCode", ec);
-			}
-			else if (!RemoveFile(fileNameIncPath, ec))
-			{
-				TSB_LOG_WARN(mLogger, "Error deleting file", "file", fileNameIncPath, "errorCode", ec);
-			}
-			else
-			{
-				mAvailable += size;
-				TSB_LOG_TRACE(mLogger, "Deleted file", "file", fileNameIncPath, "fileSize", size, "availableSpace", mAvailable);
-			}
+			mAvailable += size;
+			TSB_LOG_TRACE(mLogger, "Deleted file", "file", path, "fileSize", size, "availableSpace", mAvailable);
 		}
 	}
 }
@@ -620,19 +584,4 @@ FS::space_info StoreImpl::GetFilesystemSpace() const
 	TSB_LOG_TRACE(mLogger, "Filesystem space", "capacity", spaceInfo.capacity,
 				  "available", spaceInfo.available);
 	return spaceInfo;
-}
-
-bool StoreImpl::FileExists(const std::string& path) const
-{
-	return FS::exists(path);
-}
-
-uintmax_t StoreImpl::FileSize(const std::string& path, std::error_code& ec) const
-{
-	return FS::file_size(path, ec);
-}
-
-bool StoreImpl::RemoveFile(const std::string& path, std::error_code& ec)
-{
-	return FS::remove(path, ec);
 }

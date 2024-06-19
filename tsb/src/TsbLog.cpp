@@ -45,3 +45,8 @@ void TSB::Log::FormatMetadata(std::ostringstream& logStream, LogLevel level, con
 	logStream << "[" << func << "]";
 	logStream << "[" << file << ":" << line << "]";
 }
+
+std::ostream& TSB::Log::operator<<(std::ostream& logStream, const std::filesystem::path& path)
+{
+	return logStream << path.string();
+}
