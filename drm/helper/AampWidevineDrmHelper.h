@@ -42,29 +42,29 @@ class AampWidevineDrmHelper: public AampDrmHelper
 public:
 	friend class AampWidevineDrmHelperFactory;
 
-	virtual const std::string& ocdmSystemId() const;
+	virtual const std::string& ocdmSystemId() const override;
 
-	void createInitData(std::vector<uint8_t>& initData) const;
+	void createInitData(std::vector<uint8_t>& initData) const override;
 
-	bool parsePssh(const uint8_t* initData, uint32_t initDataLen);
+	bool parsePssh(const uint8_t* initData, uint32_t initDataLen) override;
 
-	bool isClearDecrypt() const { return false; }
+	bool isClearDecrypt() const override { return false; }
 
-	bool isExternalLicense() const { return false; };
+	bool isExternalLicense() const override { return false; };
 
-	void getKey(std::vector<uint8_t>& keyID) const;
+	void getKey(std::vector<uint8_t>& keyID) const override;
 
-	void getKeys(std::map<int, std::vector<uint8_t>>& keyIDs) const;
+	void getKeys(std::map<int, std::vector<uint8_t>>& keyIDs) const override;
 
-	const std::string& getDrmMetaData() const {return mContentMetadata;}
+	const std::string& getDrmMetaData() const override {return mContentMetadata;}
 
-	void setDrmMetaData(const std::string& metaData);
+	void setDrmMetaData(const std::string& metaData) override;
 
-	void setDefaultKeyID(const std::string& cencData);
+	void setDefaultKeyID(const std::string& cencData) override;
 
-	virtual int getDrmCodecType() const { return CODEC_TYPE; }
+	virtual int getDrmCodecType() const override { return CODEC_TYPE; }
 
-	void generateLicenseRequest(const AampChallengeInfo& challengeInfo, AampLicenseRequest& licenseRequest) const;
+	void generateLicenseRequest(const AampChallengeInfo& challengeInfo, AampLicenseRequest& licenseRequest) const override;
 
 	virtual const std::string& friendlyName() const override { return FRIENDLY_NAME; };
 

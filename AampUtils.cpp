@@ -1356,7 +1356,7 @@ TSB::LogLevel ConvertTsbLogLevel(int logLev)
 	TSB::LogLevel ret = TSB::LogLevel::WARN; //default value
 	if ((logLev < 0) || (logLev > static_cast<int>(TSB::LogLevel::ERROR)))
 	{
-		AAMPLOG_ERR("Bad TSB Log level Set by user: %d!! using default value : %d", logLev, ret);
+		AAMPLOG_ERR("Bad TSB Log level Set by user: %d!! using default value : %d", logLev, static_cast<int>(ret));
 	}
 	else
 	{

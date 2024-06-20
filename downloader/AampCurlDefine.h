@@ -125,6 +125,7 @@ enum AampCurlInstance
 		AAMPLOG_WARN("CURL_EASY_SETOPT_LIST failure" );\
 }
 
+curl_off_t aamp_CurlEasyGetinfoOffset( CURL *handle, CURLINFO info );
 double aamp_CurlEasyGetinfoDouble( CURL *handle, CURLINFO info );
 int aamp_CurlEasyGetinfoInt( CURL *handle, CURLINFO info );
 long aamp_CurlEasyGetinfoLong( CURL *handle, CURLINFO info );

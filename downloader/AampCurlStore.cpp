@@ -145,6 +145,23 @@ static size_t header_callback(const char *ptr, size_t size, size_t nmemb, void *
 	return ret;
 }
 
+#if LIBCURL_VERSION_NUM >= 0x072000 // CURL version >= 7.32.0
+static int xferinfo_callback(
+		void *clientp,
+		curl_off_t dltotal,
+		curl_off_t dlnow,
+		curl_off_t ultotal,
+		curl_off_t ulnow)
+{
+	int ret = 0;
+	CurlProgressCbContext *context = (CurlProgressCbContext *)clientp;
+	if(context)
+	{
+		ret = context->aamp->HandleSSLProgressCallback( clientp, dltotal, dlnow, ultotal, ulnow );
+	}
+	return ret;
+}
+#else
 /**
  * @brief
  * @param clientp app-specific as optionally set with CURLOPT_PROGRESSDATA
@@ -164,13 +181,13 @@ static int progress_callback(
 {
 	int ret = 0;
 	CurlProgressCbContext *context = (CurlProgressCbContext *)clientp;
-
 	if(context)
 	{
 		ret = context->aamp->HandleSSLProgressCallback ( clientp, dltotal, dlnow, ultotal, ulnow );
 	}
 	return ret;
 }
+#endif
 
 /**
  * @brief
@@ -324,7 +341,13 @@ CURL* CurlStore::CurlEasyInitWithOpt ( PrivateInstanceAAMP *aamp, const std::str
 		CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_VERBOSE, 1 );
 	}
 	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_NOSIGNAL, 1 );
-	CURL_EASY_SETOPT_FUNC(curlEasyhdl, CURLOPT_PROGRESSFUNCTION, progress_callback);
+	
+#if LIBCURL_VERSION_NUM >= 0x072000 // CURL version >= 7.32.0
+	CURL_EASY_SETOPT_FUNC(curlEasyhdl, CURLOPT_XFERINFOFUNCTION, xferinfo_callback )
+#else
+#warning LIBCURL_VERSION<7.32.0
+	CURL_EASY_SETOPT_FUNC(curlEasyhdl, CURLOPT_PROGRESSFUNCTION, progress_callback )
+#endif
 	CURL_EASY_SETOPT_FUNC(curlEasyhdl, CURLOPT_HEADERFUNCTION, header_callback);
 	CURL_EASY_SETOPT_FUNC(curlEasyhdl, CURLOPT_WRITEFUNCTION, write_callback);
 	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_TIMEOUT,DEFAULT_CURL_TIMEOUT);

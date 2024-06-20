@@ -84,6 +84,15 @@ void _downloadResponse::show()
 	}
 }
 
+curl_off_t aamp_CurlEasyGetinfoOffset( CURL *handle, CURLINFO info )
+{
+	curl_off_t rc = 0;
+	if( handle && curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
+	{
+		AAMPLOG_WARN( "aamp_CurlEasyGetinfoOffset failure" );
+	}
+	return rc;
+}
 
 double aamp_CurlEasyGetinfoDouble( CURL *handle, CURLINFO info )
 {
@@ -286,7 +295,12 @@ void AampCurlDownloader::updateResponseParams()
 			mDownloadResponse->downloadCompleteMetrics.preTransfer	=	aamp_CurlEasyGetinfoDouble(mCurl, CURLINFO_PRETRANSFER_TIME);
 			mDownloadResponse->downloadCompleteMetrics.startTransfer	=	aamp_CurlEasyGetinfoDouble(mCurl, CURLINFO_STARTTRANSFER_TIME);
 			mDownloadResponse->downloadCompleteMetrics.redirect		=	aamp_CurlEasyGetinfoDouble(mCurl, CURLINFO_REDIRECT_TIME);
-			mDownloadResponse->downloadCompleteMetrics.dlSize	=	aamp_CurlEasyGetinfoDouble(mCurl, CURLINFO_SIZE_DOWNLOAD);
+#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
+			mDownloadResponse->downloadCompleteMetrics.dlSize = aamp_CurlEasyGetinfoOffset(mCurl, CURLINFO_SIZE_DOWNLOAD_T);
+#else
+#warning LIBCURL_VERSION<7.55.0
+			mDownloadResponse->downloadCompleteMetrics.dlSize = aamp_CurlEasyGetinfoDouble(mCurl, CURLINFO_SIZE_DOWNLOAD);
+#endif
 			mDownloadResponse->downloadCompleteMetrics.reqSize	=	aamp_CurlEasyGetinfoLong(mCurl, CURLINFO_REQUEST_SIZE);
 			mDownloadResponse->downloadCompleteMetrics.downloadbps = (long)(mDownloadResponse->downloadCompleteMetrics.dlSize*8) / mDownloadResponse->downloadCompleteMetrics.total;
 		}

@@ -120,13 +120,13 @@ TEST_F(AampDrmSessionTests, TestVgdrmSessionDecrypt)
 
 	const uint8_t testIv[] = {'T', 'E', 'S', 'T', 'I', 'V'};
 	const uint8_t payloadData[] = {'E', 'N', 'C', 'R', 'Y', 'P', 'T', 'E', 'D'};
-	const uint8_t decryptedData[] = {'C', 'L', 'E', 'A', 'R', 'D', 'A', 'T', 'A', 'O', 'U', 'T'};
+	//const uint8_t decryptedData[] = {'C', 'L', 'E', 'A', 'R', 'D', 'A', 'T', 'A', 'O', 'U', 'T'};
 	uint8_t *pOpaqueData = nullptr;
 
 	// The actual data transfer happens in shared memory for VGDRM,
 	// so data in/out is just expected to contain the size of the data
 	uint32_t expectedDataIn = sizeof(payloadData);
-	uint32_t expectedDataOut = sizeof(decryptedData);
+	//uint32_t expectedDataOut = sizeof(decryptedData);
 
 	// Check the call to decrypt on the DrmSession leads to a opencdm_session_decrypt call
 	// with the correct parameters (IV & payload provided here and key taken from the helper)
@@ -186,14 +186,14 @@ TEST_F(AampDrmSessionTests, TestDecryptFromHlsOcdmBridge)
 	ASSERT_TRUE(hlsOcdmBridge != nullptr);
 
 	uint8_t payloadData[] = {'E', 'N', 'C', 'R', 'Y', 'P', 'T', 'E', 'D'};
-	const uint8_t decryptedData[] = {'C', 'L', 'E', 'A', 'R', 'D', 'A', 'T', 'A', 'O', 'U', 'T'};
+	//const uint8_t decryptedData[] = {'C', 'L', 'E', 'A', 'R', 'D', 'A', 'T', 'A', 'O', 'U', 'T'};
 
 	hlsOcdmBridge->SetDecryptInfo(mAamp, &drmInfo);
 
 	// The actual data transfer happens in shared memory for VGDRM,
 	// so data in/out is just expected to contain the size of the data
 	uint32_t expectedDataIn = sizeof(payloadData);
-	uint32_t expectedDataOut = sizeof(decryptedData);
+	//uint32_t expectedDataOut = sizeof(decryptedData);
 
 	// Check the call to decrypt on the HlsOcdmBridge leads to a opencdm_session_decrypt call
 	// with the correct parameters (IV from SetDecryptInfo, payload provided here and key taken from
@@ -236,7 +236,7 @@ TEST_F(AampDrmSessionTests, TestClearKeyLicenseAcquisition)
 	// helper tests, here we just want to ensure that whatever the helper returns is what OpenCDM
 	// gets.
 	const shared_ptr<DrmData> expectedDrmData =
-		make_shared<DrmData>((unsigned char *)testKeyData.c_str(), testKeyData.size());
+		make_shared<DrmData>(testKeyData.c_str(), testKeyData.size());
 	drmHelper->transformLicenseResponse(expectedDrmData);
 
 	EXPECT_CALL(*g_mockopencdm, opencdm_session_update(OCDM_SESSION,
@@ -271,6 +271,7 @@ TEST_F(AampDrmSessionTests, TestOcdmCreateSystemFailure)
 
 	AampDrmSession *drmSession =
 		mUtils->getSessionManager()->createDrmSession(drmHelper, event, mAamp, eMEDIATYPE_VIDEO);
+	(void)drmSession;
 }
 
 TEST_F(AampDrmSessionTests, TestOcdmConstructSessionFailure)
@@ -307,7 +308,7 @@ TEST_F(AampDrmSessionTests, TestMultipleSessionsDifferentKey)
 		std::make_shared<AampVgdrmHelper>(drmInfo, &mLogging);
 
 	const shared_ptr<DrmData> expectedDrmData =
-		make_shared<DrmData>((unsigned char *)testKeyData.c_str(), testKeyData.size());
+		make_shared<DrmData>(testKeyData.c_str(), testKeyData.size());
 	drmHelper1->transformLicenseResponse(expectedDrmData);
 
 	mUtils->setupChallengeCallbacksForExternalLicense();
@@ -340,7 +341,7 @@ TEST_F(AampDrmSessionTests, TestMultipleSessionsSameKey)
 		std::make_shared<AampClearKeyHelper>(drmInfo, &mLogging);
 
 	const shared_ptr<DrmData> expectedDrmData =
-		make_shared<DrmData>((unsigned char *)testKeyData.c_str(), testKeyData.size());
+		make_shared<DrmData>(testKeyData.c_str(), testKeyData.size());
 	drmHelper->transformLicenseResponse(expectedDrmData);
 
 	// Only 1 session update called expected, since a single session should be shared

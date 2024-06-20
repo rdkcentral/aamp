@@ -172,7 +172,7 @@ public:
 	 * @param[in] skipDuration - duration of fragments to be skipped
 	 * @return void
 	 */
-	void updateSkipPoint(double skipPoint, double skipDuration );
+	void updateSkipPoint(double skipPoint, double skipDuration ) override;
 
 	/**
 	 * @fn setDiscontinuityState
@@ -180,13 +180,13 @@ public:
 	 * @param[in] isDiscontinuity - true if dicontinuity false otherwise
 	 * @return void
 	 */
-	void setDiscontinuityState(bool isDiscontinuity);
+	void setDiscontinuityState(bool isDiscontinuity) override;
 
 	/**
 	 * @fn abortWaitForVideoPTS
 	 * @return void
 	 */
-	void abortWaitForVideoPTS();
+	void abortWaitForVideoPTS() override;
 
 	/**
 	 * @fn abort

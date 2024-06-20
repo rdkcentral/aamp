@@ -187,7 +187,8 @@ void logprintf(int playerId, AAMP_LogLevel level, const char *file, int line, co
 	va_start(args, format);
 
 	char gDebugPrintBuffer[MAX_DEBUG_LOG_BUFF_SIZE];
-	len = sprintf(gDebugPrintBuffer, "[AAMP-PLAYER][%d][%s][%s][%d]", playerId, mLogLevelStr[level],
+	len = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer),
+				   "[AAMP-PLAYER][%d][%s][%s][%d]", playerId, mLogLevelStr[level],
 				  file, line);
 	vsnprintf(gDebugPrintBuffer + len, MAX_DEBUG_LOG_BUFF_SIZE - len, format, args);
 	gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE - 1)] = 0;

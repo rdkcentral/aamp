@@ -83,7 +83,7 @@ void AampTSBSessionManager::Init()
 		config.minFreePercentage = mTsbMinFreePercentage;
 		config.maxCapacity =  mTsbMaxDiskStorage;
 		TSB::LogLevel level = static_cast<TSB::LogLevel>(ConvertTsbLogLevel( mAamp->mConfig->GetConfigValue(eAAMPConfig_TsbLogLevel)));
-		AAMPLOG_INFO("[TSB Store] Initiating with config values { logLevel:%d maxCapacity : %d minFreePercentage : %d location : %s }", level, config.maxCapacity, config.minFreePercentage, config.location.c_str());
+		AAMPLOG_INFO("[TSB Store] Initiating with config values { logLevel:%d maxCapacity : %d minFreePercentage : %d location : %s }",  static_cast<int>(level), config.maxCapacity, config.minFreePercentage, config.location.c_str());
 
 		// All Configuration to TSBHandler to be set before calling Init
 

@@ -43,26 +43,26 @@ public:
 
 	const uint32_t TEN_SECONDS = 10000U;
 
-	virtual const std::string& ocdmSystemId() const;
+	virtual const std::string& ocdmSystemId() const override;
 
-	void createInitData(std::vector<uint8_t>& initData) const;
+	void createInitData(std::vector<uint8_t>& initData) const override;
 
-	bool parsePssh(const uint8_t* initData, uint32_t initDataLen);
+	bool parsePssh(const uint8_t* initData, uint32_t initDataLen) override;
 
-	bool isClearDecrypt() const { return true; }
+	bool isClearDecrypt() const override { return true; }
 
-	bool isHdcp22Required() const { return true; }
+	bool isHdcp22Required() const override { return true; }
 
-	uint32_t keyProcessTimeout() const { return TEN_SECONDS; }
-        uint32_t licenseGenerateTimeout() const { return TEN_SECONDS; }
+	uint32_t keyProcessTimeout() const override { return TEN_SECONDS; }
+        uint32_t licenseGenerateTimeout() const override { return TEN_SECONDS; }
 
-	void getKey(std::vector<uint8_t>& keyID) const;
+	void getKey(std::vector<uint8_t>& keyID) const override;
 
-	virtual int getDrmCodecType() const { return CODEC_TYPE; }
+	virtual int getDrmCodecType() const override { return CODEC_TYPE; }
 
-	bool isExternalLicense() const { return true; };
+	bool isExternalLicense() const override { return true; };
 
-	void generateLicenseRequest(const AampChallengeInfo& challengeInfo, AampLicenseRequest& licenseRequest) const;
+	void generateLicenseRequest(const AampChallengeInfo& challengeInfo, AampLicenseRequest& licenseRequest) const override;
 
 	AAMPMemorySystem* getMemorySystem() override { return &memorySystem; };
 

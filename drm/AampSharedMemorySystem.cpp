@@ -125,7 +125,7 @@ bool AampSharedMemorySystem::decode(const uint8_t * dataIn, uint32_t dataInSz, u
 
 	if (dataInSz != sizeof(AampSharedMemoryInterchangeBuffer))
 	{
-		AAMPLOG_WARN("Wrong data packet size, expected %d, got %d", sizeof(AampSharedMemoryInterchangeBuffer), dataInSz);
+		AAMPLOG_WARN("Wrong data packet size, expected %zu, got %d", sizeof(AampSharedMemoryInterchangeBuffer), (int)dataInSz);
 		return false;
 	}
 	// This will close the SM object regardless

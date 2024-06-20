@@ -4323,7 +4323,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					appConnect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_APPCONNECT_TIME);
 					preTransfer = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_PRETRANSFER_TIME);
 					redirect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_REDIRECT_TIME);
+#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
+					dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
+#else
+#warning LIBCURL_VERSION<7.55.0
 					dlSize = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
+#endif
 					reqSize = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
 
 					std::string appName, timeoutClass;
@@ -4433,19 +4438,26 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						mHarvestCountLimit--;
 				}  //CID:168113 - forward null
 			}
-			double expectedContentLength = 0;
-			if ((!context.downloadIsEncoded) && CURLE_OK==curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &expectedContentLength) && ((int)expectedContentLength>0) && ((int)expectedContentLength != (int)buffer->GetLen() ))
+			ret = true; // default
+			if( !context.downloadIsEncoded )
 			{
-				//Note: For non-compressed data, Content-Length header and buffer size should be same. For gzipped data, 'Content-Length' will be <= deflated data.
-				AAMPLOG_WARN("AAMP Content-Length=%d actual=%d", (int)expectedContentLength, (int)buffer->GetLen() );
-				http_code       =       416; // Range Not Satisfiable
-				ret             =       false; // redundant, but harmless
-				buffer->Free();
-				//(buffer, 0x00, sizeof(*buffer));
-			}
-			else
-			{
-				ret = true;
+				double expectedContentLength;
+#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
+				expectedContentLength = aamp_CurlEasyGetinfoOffset(curl,CURLINFO_CONTENT_LENGTH_DOWNLOAD_T);
+#else
+#warning LIBCURL_VERSION<7.55.0
+				expectedContentLength = aamp_CurlEasyGetInfoDouble(CURLINFO_CONTENT_LENGTH_DOWNLOAD);
+#endif
+				if( (static_cast<int>(lround(expectedContentLength)) > 0) &&
+				   (static_cast<int>(lround(expectedContentLength)) != (int)buffer->GetLen()) )
+				{
+					//Note: For non-compressed data, Content-Length header and buffer size should be same. For gzipped data, 'Content-Length' will be <= deflated data.
+					AAMPLOG_WARN("AAMP Content-Length=%d actual=%d", (int)expectedContentLength, (int)buffer->GetLen() );
+					http_code       =       416; // Range Not Satisfiable
+					ret             =       false; // redundant, but harmless
+					buffer->Free();
+					//(buffer, 0x00, sizeof(*buffer));
+				}
 			}
 		}
 		else

@@ -8933,7 +8933,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 		tsbReader = tsbSessionManager->GetTsbReader(mediaType);
 	}
 	bool isAllowNextFrag = true;
-	int  maxCachedFragmentsPerTrack = pMediaStreamContext->GetCachedFragmentChunksSize();
+	int  maxCachedFragmentsPerTrack = (int)pMediaStreamContext->GetCachedFragmentChunksSize();
 
 	if (waitForFreeFrag && *waitForFreeFrag && !trickPlay)
 	{
@@ -8993,10 +8993,10 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 	bool exitLoop = false;
 	bool trickPlay = (AAMP_NORMAL_PLAY_RATE != aamp->rate);
 	bool waitForFreeFrag = true;
-	bool mpdChanged = false;
-	int direction = 1;
+	//bool mpdChanged = false;
+	//int direction = 1;
 	double delta = 0;
-	bool adStateChanged = false;
+	//bool adStateChanged = false;
 
 	AAMPLOG_WARN("aamp: ready to read fragments");
 	/*
@@ -9072,7 +9072,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 						aamp->WaitForDiscontinuityProcessToComplete();
 					}
 					aamp->SetIsPeriodChangeMarked(true);
-					double firstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
+					//double firstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
 				}
 				else if(aamp->GetIsPeriodChangeMarked())
 				{
@@ -9634,24 +9634,24 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 		{
 			MediaStreamContext *track = mMediaStreamContext[iTrack];
-			if(track)
+			if( track )
 			{
 				track->SetLocalTSBInjection(false);
-			}
-			aamp->StopTrackInjection((AampMediaType) iTrack);
-			track->StopInjectLoop();
-			if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
-			{
-				if (iTrack == eMEDIATYPE_SUBTITLE && track->mSubtitleParser)
+				aamp->StopTrackInjection((AampMediaType) iTrack);
+				track->StopInjectLoop();
+				if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 				{
-					track->mSubtitleParser->reset();
+					if (iTrack == eMEDIATYPE_SUBTITLE && track->mSubtitleParser)
+					{
+						track->mSubtitleParser->reset();
+					}
 				}
+				if(mLowLatencyMode)
+				{
+					track->StopInjectChunkLoop();
+				}
+				track->IDX.Free();
 			}
-			if(mLowLatencyMode)
-			{
-				track->StopInjectChunkLoop();
-			}
-			track->IDX.Free();
 		}
 	}
 }

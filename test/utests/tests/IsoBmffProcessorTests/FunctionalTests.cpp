@@ -171,7 +171,7 @@ TEST_F(IsoBmffProcessorTests, abortTests3)
 		return true; 
 	});
 
-	bool ret = mIsoBmffProcessor->sendSegment(&buffer, 0, 0, true, true, mProcessorFn, ptsError);
+	(void)mIsoBmffProcessor->sendSegment(&buffer, 0, 0, true, true, mProcessorFn, ptsError);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _)).Times(0);
@@ -476,7 +476,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_2)
 	Box *box = (Box*)(0xdeadbeef);
 
 	bool discontinuous, ptsError = false;
-	uint64_t basePts = 0, vDuration = 60060, vDurationAfterABR = 48048, currTS = 30000, rslt = 0, restampedPTS = 0;
+	uint64_t basePts = 0, vDuration = 60060, /*vDurationAfterABR = 48048,*/ currTS = 30000, rslt = 0, restampedPTS = 0;
 	double position = 0, vSegDuration = (double)vDuration / (double)currTS;
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));

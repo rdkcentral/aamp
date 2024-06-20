@@ -433,7 +433,7 @@ TEST_F(AampDrmHelperTests, TestClearKeyHelperParsePssh)
 		0xfb, 0x4b, 0x00, 0x00, 0x00, 0x01, 0xfe, 0xed, 0xf0, 0x0d, 0xee, 0xde, 0xad,
 		0xbe, 0xef, 0xf0, 0xba, 0xad, 0xf0, 0x0d, 0xd0, 0x0d, 0x00, 0x00, 0x00, 0x00};
 
-	ASSERT_TRUE(clearKeyHelper->parsePssh(psshData.data(), psshData.size()));
+	ASSERT_TRUE(clearKeyHelper->parsePssh(psshData.data(), (uint32_t)psshData.size()));
 
 	std::vector<uint8_t> initData;
 	clearKeyHelper->createInitData(initData);
@@ -514,11 +514,10 @@ TEST_F(AampDrmHelperTests, TestClearKeyHelperTransformHlsLicenseResponse)
 	for (auto& testCase : testData)
 	{
 		std::shared_ptr<DrmData> drmData = std::make_shared<DrmData>(
-			(unsigned char*)&testCase.keyResponse[0], testCase.keyResponse.size());
+			(const char*)&testCase.keyResponse[0], testCase.keyResponse.size());
 		clearKeyHelper->transformLicenseResponse(drmData);
 
-		TestUtilJsonWrapper jsonWrapper((const char*)drmData->getData().c_str(),
-										drmData->getDataLength());
+		TestUtilJsonWrapper jsonWrapper( drmData->getData().c_str(),drmData->getDataLength() );
 		cJSON* responseObj = jsonWrapper.getJsonObj();
 		ASSERT_TRUE(responseObj != nullptr);
 
@@ -553,7 +552,7 @@ TEST_F(AampDrmHelperTests, TestTransformDashLicenseResponse)
 		ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
 		std::shared_ptr<AampDrmHelper> clearKeyHelper =
 			AampDrmHelperEngine::getInstance().createHelper(drmInfo);
-		unsigned char licenseResponse[] = {'D', 'A', 'S', 'H', 'L', 'I', 'C'};
+		char licenseResponse[] = {'D', 'A', 'S', 'H', 'L', 'I', 'C'};
 		std::shared_ptr<DrmData> drmData =
 			std::make_shared<DrmData>(licenseResponse, sizeof(licenseResponse));
 
@@ -658,7 +657,7 @@ TEST_F(AampDrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 		AampDrmHelperEngine::getInstance().createHelper(drmInfo);
 	ASSERT_TRUE(widevineHelper != nullptr);
 
-	ASSERT_TRUE(widevineHelper->parsePssh(psshData.data(), psshData.size()));
+	ASSERT_TRUE(widevineHelper->parsePssh(psshData.data(), (uint32_t)psshData.size()));
 
 	std::vector<uint8_t> initData;
 	widevineHelper->createInitData(initData);
@@ -767,7 +766,7 @@ TEST_F(AampDrmHelperTests, TestPlayReadyHelperParsePssh)
 		<< "</WRMHEADER>";
 	const std::string psshStr = psshSs.str();
 
-	ASSERT_TRUE(playReadyHelper->parsePssh((const unsigned char*)psshStr.data(), psshStr.size()));
+	ASSERT_TRUE(playReadyHelper->parsePssh((const unsigned char*)psshStr.data(), (uint32_t)psshStr.size()));
 
 	// Check keyId and metadata, both of which should be based on the PSSH
 	std::vector<uint8_t> keyId;
@@ -784,7 +783,7 @@ TEST_F(AampDrmHelperTests, TestPlayReadyHelperParsePssh)
 
 	// Dodgy PSSH data should lead to false return value
 	const std::string badPssh = "somerandomdatawhichisntevenxml";
-	ASSERT_FALSE(playReadyHelper->parsePssh((const unsigned char*)badPssh.data(), badPssh.size()));
+	ASSERT_FALSE(playReadyHelper->parsePssh((const unsigned char*)badPssh.data(), (uint32_t)badPssh.size()));
 }
 
 TEST_F(AampDrmHelperTests, TestPlayReadyHelperParsePsshNoPolicy)
@@ -804,7 +803,7 @@ TEST_F(AampDrmHelperTests, TestPlayReadyHelperParsePsshNoPolicy)
 		"</DATA>"
 		"</WRMHEADER>";
 
-	ASSERT_TRUE(playReadyHelper->parsePssh((const unsigned char*)psshStr.data(), psshStr.size()));
+	ASSERT_TRUE(playReadyHelper->parsePssh((const unsigned char*)psshStr.data(), (uint32_t)psshStr.size()));
 
 	// Check keyId and metadata, both of which should be based on the PSSH
 	std::vector<uint8_t> keyId;
@@ -831,7 +830,7 @@ TEST_F(AampDrmHelperTests, TestPlayReadyHelperGenerateLicenseRequest)
 	std::string challengeData = "OCDM_CHALLENGE_DATA";
 
 	challengeInfo.data =
-		std::make_shared<DrmData>((unsigned char*)challengeData.data(), challengeData.length());
+		std::make_shared<DrmData>( challengeData.c_str(), challengeData.length());
 	challengeInfo.accessToken = "ACCESS_TOKEN";
 
 	// No PSSH parsed. Expecting data from the provided challenge to be given back in the request
@@ -851,7 +850,7 @@ TEST_F(AampDrmHelperTests, TestPlayReadyHelperGenerateLicenseRequest)
 		"<ckm:policy xmlns:ckm=\"urn:ccp:ckm\">policy</ckm:policy>"
 		"</DATA>"
 		"</WRMHEADER>";
-	ASSERT_TRUE(playReadyHelper->parsePssh((const unsigned char*)psshStr.data(), psshStr.size()));
+	ASSERT_TRUE(playReadyHelper->parsePssh((const unsigned char*)psshStr.data(), (uint32_t)psshStr.size()));
 
 	playReadyHelper->generateLicenseRequest(challengeInfo, licenseRequest2);
 	ASSERT_EQ(challengeInfo.url, licenseRequest2.url);
@@ -950,8 +949,8 @@ TEST_F(AampDrmHelperTests, TestCompareHelpers)
 		"<KID>16bytebase64enckeydata==</KID>"
 		"</DATA>"
 		"</WRMHEADER>";
-	playreadyHelper->parsePssh((const unsigned char*)pssh1.data(), pssh1.size());
-	playreadyHelper2->parsePssh((const unsigned char*)pssh1.data(), pssh1.size());
+	playreadyHelper->parsePssh((const unsigned char*)pssh1.data(), (uint32_t)pssh1.size());
+	playreadyHelper2->parsePssh((const unsigned char*)pssh1.data(), (uint32_t)pssh1.size());
 
 	// Same key in the PSSH data, should equal
 	ASSERT_TRUE(playreadyHelper->compare(playreadyHelper2));
@@ -962,7 +961,7 @@ TEST_F(AampDrmHelperTests, TestCompareHelpers)
 		"<KID>differentbase64keydata==</KID>"
 		"</DATA>"
 		"</WRMHEADER>";
-	playreadyHelper2->parsePssh((const unsigned char*)pssh2.data(), pssh2.size());
+	playreadyHelper2->parsePssh((const unsigned char*)pssh2.data(), (uint32_t)pssh2.size());
 
 	// Different key in the PSSH data, should not equal
 	ASSERT_FALSE(playreadyHelper->compare(playreadyHelper2));
@@ -978,7 +977,7 @@ TEST_F(AampDrmHelperTests, TestCompareHelpers)
 	ASSERT_FALSE(playreadyHelper->compare(playreadyHelper3));
 
 	// Parse the same PSSH as used for 1, now should be equal
-	playreadyHelper3->parsePssh((const unsigned char*)pssh1.data(), pssh1.size());
+	playreadyHelper3->parsePssh((const unsigned char*)pssh1.data(), (uint32_t)pssh1.size());
 	ASSERT_TRUE(playreadyHelper->compare(playreadyHelper3));
 
 	// Finally keep the same key but add in metadata. Now PR helpers 1 & 3 shouldn't be equal
@@ -989,6 +988,6 @@ TEST_F(AampDrmHelperTests, TestCompareHelpers)
 		"<ckm:policy xmlns:ckm=\"urn:ccp:ckm\">policy</ckm:policy>"
 		"</DATA>"
 		"</WRMHEADER>";
-	playreadyHelper3->parsePssh((const unsigned char*)pssh3.data(), pssh3.size());
+	playreadyHelper3->parsePssh((const unsigned char*)pssh3.data(), (uint32_t)pssh3.size());
 	ASSERT_FALSE(playreadyHelper->compare(playreadyHelper3));
 }

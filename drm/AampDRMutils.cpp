@@ -185,9 +185,9 @@ DrmData::DrmData() : data("")
  *         dataLength with given params.
  *
  */
-DrmData::DrmData(unsigned char *data, int dataLength) : data("")
+DrmData::DrmData(const char *dataPtr, size_t dataLength) : data("")
 {
-		this->data.assign(reinterpret_cast<const char*>(data),dataLength);
+		data.assign(dataPtr,dataLength);
 }
 
 /**
@@ -214,37 +214,37 @@ const std::string &DrmData::getData()
 /**
  *  @brief  Getter method for dataLength.
  */
-int DrmData::getDataLength()
+size_t DrmData::getDataLength()
 {
-	return (int)this->data.length();
+	return data.length();
 }
 
 /**
  *  @brief Updates DrmData with given data.
  */
-void DrmData::setData(unsigned char *data, int dataLength)
+void DrmData::setData(const char *dataPtr, size_t dataLength)
 {
-	if(!this->data.empty())
+	if(!data.empty())
 	{
-		this->data.clear();
+		data.clear();
 	}
-	this->data.assign(reinterpret_cast<const char*>(data),dataLength);
+	data.assign(dataPtr,dataLength);
 }
 
 /**
  *  @brief  Appends DrmData with given data.
  */
-void DrmData::addData(unsigned char *data, int dataLength)
+void DrmData::addData(const char *dataPtr, size_t dataLength)
 {
-	if(this->data.empty())
+	if(data.empty())
 	{
-		this->setData(data,dataLength);
+		setData(dataPtr,dataLength);
 	}
 	else
 	{
 		std::string key;
-		key.assign(reinterpret_cast<const char*>(data),dataLength);
-		this->data       = this->data  + key;
+		key.assign(dataPtr,dataLength);
+		data += key;
 	}
 }
 

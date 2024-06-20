@@ -69,7 +69,7 @@ bool AampWidevineDrmHelper::parsePssh(const uint8_t* initData, uint32_t initData
 	{
 		uint32_t header = 0;
 		int i = 0;
-		uint8_t contentIdSize = 0u;
+		//uint8_t contentIdSize = 0u;
 		uint8_t keyIdCount = 0;
 		const uint8_t* psshData;
 
@@ -146,7 +146,7 @@ bool AampWidevineDrmHelper::parsePssh(const uint8_t* initData, uint32_t initData
 		//8 byte BMFF box header + 4 byte Full box header + 16 (system id) +
 		//4(KID Count) + 16 byte KID 1 + .. + 4 byte Data Size
 		//TODO : Handle multiple key Id logic, right now we are choosing only first one if have multiple key Id
-		uint32_t header = WIDEVINE_DASH_KEY_ID_OFFSET;
+		auto header = WIDEVINE_DASH_KEY_ID_OFFSET;
 		keyIdSize = WIDEVINE_PSSH_VER1_KEY_ID_SIZE;
 		keyIdBegin = reinterpret_cast<const char*>(initData + header);
 
@@ -204,7 +204,7 @@ void AampWidevineDrmHelper::createInitData(std::vector<uint8_t>& initData) const
 
 void AampWidevineDrmHelper::getKey(std::vector<uint8_t>& keyID) const
 {
-	AAMPLOG_WARN("AampWidevineDrmHelper::getKey defaultkey: %d mKeyIDs.size:%d", mDefaultKeySlot, mKeyIDs.size());
+	AAMPLOG_WARN("AampWidevineDrmHelper::getKey defaultkey: %d mKeyIDs.size:%zu", mDefaultKeySlot, mKeyIDs.size());
 	if ((mDefaultKeySlot >= 0) && (mDefaultKeySlot < mKeyIDs.size()))
 	{
 		keyID = this->mKeyIDs.at(mDefaultKeySlot);

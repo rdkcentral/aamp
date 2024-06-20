@@ -130,7 +130,7 @@ void AampClearKeyHelper::transformLicenseResponse(std::shared_ptr<DrmData> licen
 		keyObj.add("keys", values);
 		std::string printedJson = keyObj.print();
 
-		licenseResponse->setData((unsigned char*)printedJson.c_str(), printedJson.length());
+		licenseResponse->setData( printedJson.c_str(), printedJson.length());
 	}
 }
 
