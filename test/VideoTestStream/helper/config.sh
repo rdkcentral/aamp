@@ -40,3 +40,6 @@ AUDIO_CODEC="aac"
 
 #VIDEO_CODEC can be "h264" "hevc" "hevc -tag:v hev1" 
 VIDEO_CODEC="h264"
+
+#To generate TTML text track
+GEN_TTML=0

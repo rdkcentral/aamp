@@ -10,12 +10,13 @@ display_help() {
   echo "  -f   img_name (default: testpat.jpg)"
   echo "  -a   Enable/disable dash content (default: 1 Enabled)"
   echo "  -l   Enable/disable hls content (default: 1 Enabled)"
+  echo "  -t   To generate TTML text track (default: 0)"
   echo "  -h   Display this help message"
   exit 1
 }
 
 # Process command-line options
-while getopts ":d:f:h:a:l" opt; do
+while getopts ":d:f:a:l:th" opt; do
   case $opt in
     d)
       VIDEO_LENGTH_SEC="$OPTARG"
@@ -28,6 +29,9 @@ while getopts ":d:f:h:a:l" opt; do
       ;;
     l)
       RUN_HLS="$OPTARG"
+      ;;
+    t)
+      GEN_TTML=1
       ;;
     h)
       display_help
@@ -68,3 +72,9 @@ if [ "$RUN_DASH" == 1 ]; then
 	source helper/generate-dash-manifest.sh
 	source helper/generate-mp4-manifest.sh
 fi
+
+if [ "$GEN_TTML" == 1 ]; then
+	source mp4tool/generate_ttml.sh
+	generate_ttml_tracks $VIDEO_LENGTH_SEC
+fi
+

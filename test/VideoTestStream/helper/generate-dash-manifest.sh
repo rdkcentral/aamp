@@ -117,6 +117,22 @@ do
 EOL
 done
 
+if [ $GEN_TTML = 1 ] ; then
+  ((AdaptationSetId++))
+  cat <<EOL >> main.mpd
+	<AdaptationSet id="$AdaptationSetId" contentType="text" segmentAlignment="true" lang="eng">
+	  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
+	  <Representation id="English TTML captions" mimeType="application/mp4" codecs="stpp" bandwidth="400">
+		<SegmentTemplate timescale="1" media="dash/ttml_text_\$Number%02d$.mp4" startNumber="1">
+		  <SegmentTimeline>
+			  <S t="0" d="30" r="$((VIDEO_LENGTH_SEC/30))" />
+		  </SegmentTimeline>
+		</SegmentTemplate>
+	  </Representation>
+	</AdaptationSet>
+EOL
+fi
+
 cat <<EOL >> main.mpd
   </Period>
 </MPD>
