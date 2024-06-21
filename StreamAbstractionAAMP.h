@@ -446,35 +446,13 @@ public:
 	 * @return void
 	 */
 	virtual void ABRProfileChanged(void) = 0;
-
-	/**
-	 * @brief Function to update skip duration on PTS restamp
-	 *
-	 * @param position point to which fragment need to be skipped
-	 * @param duration fragment duration to be skipped
-	 * @return void
-	 */
-	virtual void updateSkipPoint(double position, double duration ) = 0 ;
-
-	 /**
-	 * @fn setDiscontinuityState
-	 *
-	 * @param isDiscontinuity - true if dicontinuity false otherwise
-	 * @return void
-	 */
-	virtual void setDiscontinuityState(bool isDiscontinuity) = 0;
-
-	/**
-	 * @fn abortWaitForVideoPTS
-	 * @return void
-	 */
-    virtual void abortWaitForVideoPTS() = 0;
-
+	
 	/**
 	 *   @brief Function to get the buffer duration
 	 *
-	 *   @return buffer value
-	 */
+	 *   @return buffer value 
+	 */                
+
 	virtual double GetBufferedDuration (void) = 0;
 
 	/**

@@ -64,16 +64,3 @@ void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double
 {
 }
 
-void IsoBmffProcessor::updateSkipPoint(double skipPoint, double skipDuration)
-{
-}
-void IsoBmffProcessor::setDiscontinuityState(bool isDiscontinuity)
-{
-}
-void IsoBmffProcessor::waitForVideoPTS()
-{
-}
-void IsoBmffProcessor::abortWaitForVideoPTS()
-{
-}
-

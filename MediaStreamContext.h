@@ -127,28 +127,6 @@ public:
      * @fn ABRProfileChanged
      */
     void ABRProfileChanged(void) override;
-
-    /**
-	 * @fn updateSkipPoint
-	 * @param skipPoint - indicates at what position fragments to be skipped
-	 * @param skipDuration - duration of fragments to be skipped
-	 * @return void
-	 */
-	void updateSkipPoint(double position, double duration ) override;
-
-    /**
-	 * @fn setDiscontinuityState
-	 * @param isDiscontinuity - true if dicontinuity false otherwise
-	 * @return void
-	 */
-    void setDiscontinuityState(bool isDiscontinuity) override;
-
-    /**
-	 * @fn abortWaitForVideoPTS
-	 * @return void
-	 */
-    void abortWaitForVideoPTS() override;
-
     /**
      * @fn GetBufferedDuration
      */

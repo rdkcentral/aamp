@@ -94,12 +94,4 @@ int MediaStreamContext::GetDefaultDurationBetweenPlaylistUpdates()
 {
 	return 0;
 }
-void MediaStreamContext::updateSkipPoint(double skipPoint, double skipDuration)
-{
-}
-void MediaStreamContext::setDiscontinuityState(bool isDiscontinuity)
-{
-}
-void MediaStreamContext::abortWaitForVideoPTS()
-{
-}
+

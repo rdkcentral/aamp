@@ -1793,7 +1793,6 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 				if((FragmentDownloadFailThreshold <= segDLFailCount) && aamp->DownloadsAreEnabled() && type != eTRACK_SUBTITLE)
 				{
 					AAMPLOG_ERR("Not able to download fragments; reached failure threshold sending tune failed event");
-					abortWaitForVideoPTS();
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, http_error);
 				}
 				cachedFragment->fragment.Free();
@@ -1928,48 +1927,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 		return true;
 }
 
-/**
- * @brief Function to update skip duration on PTS restamp
- */
-void TrackState::updateSkipPoint(double position, double duration )
-{
-	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
-    {
-    	if(playContext)
-		{
-			playContext->updateSkipPoint( position,duration );
-		}
-    }
-}
 
-/**
- *  @brief Function to set discontinuity state
- */
-void TrackState::setDiscontinuityState(bool isDiscontinuity)
-{
-    if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
-    {
-    	if(playContext)
-		{
-			playContext->setDiscontinuityState(isDiscontinuity);
-		}
-    }
- }
-
-/**
- *  @brief Function to abort wait for video PTS
- */
- void TrackState::abortWaitForVideoPTS()
- {
-    if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
-    {
-    	if(playContext)
-		{
-			AAMPLOG_WARN(" %s abort waiting for video PTS arrival",name );
-          	playContext->abortWaitForVideoPTS();
-		}
-    }
- }
 /**
  * @brief Function to Fetch the fragment and inject for playback
  */
@@ -2029,10 +1987,7 @@ void TrackState::FetchFragment()
 						}
 						else
 						{
-							double duration = fragmentDurationSeconds;
-							double position = (double)(playTarget - playTargetOffset);
-							AAMPLOG_WARN("%s Already at the lowest profile, skipping segment at pos = %lf duration=%lf",name,position,duration);
-							updateSkipPoint(position, duration);
+							AAMPLOG_WARN("%s Already at the lowest profile, skipping segment", name);
 							context->mRampDownCount = 0;
 						}
 					}
@@ -2043,10 +1998,7 @@ void TrackState::FetchFragment()
 				}
 				else if (AAMP_IS_LOG_WORTHY_ERROR(http_error))
 				{
-					double duration = fragmentDurationSeconds;
-					double position = (double)(playTarget - playTargetOffset);
-					AAMPLOG_ERR("Error on fetching %s fragment. failedCount:%d %lf %lf", name, segDLFailCount,duration, position);
-					updateSkipPoint(position, duration);
+					AAMPLOG_ERR("Error on fetching %s fragment. failedCount:%d", name, segDLFailCount);
 				}
 
 			}
@@ -6686,12 +6638,6 @@ void TrackState::FetchInitFragment()
 
 		ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia((AampMediaType)type, true);
 		aamp->profiler.ProfileBegin(bucketType);
-
-		if(discontinuity )
-    	{
-			setDiscontinuityState(true);
-    	}
-
 		if(FetchInitFragmentHelper(http_code, forcePushEncryptedHeader))
 		{
 			aamp->profiler.ProfileEnd(bucketType);
@@ -6734,9 +6680,8 @@ void TrackState::FetchInitFragment()
 				// Failed to get init framgent from all attempted profiles
 				if (aamp->DownloadsAreEnabled())
 				{
-					AAMPLOG_ERR("%s TrackState::Init fragment fetch failed", name);
+					AAMPLOG_ERR("TrackState::Init fragment fetch failed");
 					aamp->profiler.ProfileError(bucketType, http_code);
-					abortWaitForVideoPTS();
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, http_code);
 				}
 				context->mRampDownCount = 0;
@@ -6746,8 +6691,7 @@ void TrackState::FetchInitFragment()
 		else if (aamp->DownloadsAreEnabled())
 		{
 			int http_error = context->getOriginalCurlError(http_code);
-			AAMPLOG_ERR("%s TrackState::Init fragment fetch failed", name);
-			abortWaitForVideoPTS();
+			AAMPLOG_ERR("TrackState::Init fragment fetch failed");
 			aamp->profiler.ProfileError(bucketType, http_error);
 			aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, http_code);
 		}
