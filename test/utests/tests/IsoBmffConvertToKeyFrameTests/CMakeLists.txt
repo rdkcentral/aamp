@@ -23,7 +23,7 @@ pkg_check_modules(GLIB REQUIRED glib-2.0)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME IsoBmffConvertToKeyFramesTests)
+set(EXEC_NAME IsoBmffConvertToKeyFrameTests)
 set(TEST_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/testFiles")
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff)

@@ -26,6 +26,7 @@ set(EXEC_NAME IsoBmffBoxTests)
 set(TEST_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/testFiles")
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff)
+include_directories(${AAMP_ROOT}/subtitle)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
