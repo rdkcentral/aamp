@@ -27,7 +27,7 @@ int AAMPOCDMBasicSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV,
 			AAMPLOG_WARN("Failed to encode memory for transmission");
 			return -1;
 		}
-		sizeToSend = (uint32_t)vdata.size();
+		sizeToSend = vdata.size();
 		dataToSend = vdata.data();
 	}
 
@@ -43,7 +43,7 @@ int AAMPOCDMBasicSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV,
 										   sizeToSend,
 										   encScheme, pattern,
 										   f_pbIV, f_cbIV,
-										   m_keyId.data(), m_keyId.size(), 0 );
+										   m_keyId.data(), m_keyId.size());
 #endif
 	if (retvalue != 0)
 	{
