@@ -34,141 +34,101 @@ static AampWidevineDrmHelperFactory widevine_helper_factory;
 
 const std::string AampWidevineDrmHelper::WIDEVINE_OCDM_ID = "com.widevine.alpha";
 
-bool AampWidevineDrmHelper::parsePssh(const uint8_t* initData, uint32_t initDataLen)
+#define READ_U32(buf) \
+	((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) | ((uint32_t)buf[2] << 8) | buf[3]; buf+=4;
+/**
+ https://www.w3.org/TR/2014/WD-encrypted-media-20140828/cenc-format.html
+ https://tools.axinom.com/generators/PsshBox
+*/
+bool AampWidevineDrmHelper::parsePssh( const uint8_t* psshData, uint32_t psshSize )
 {
-	this->mInitData.assign(initData, initData+initDataLen);
-
-	// Extract key
-	const char* keyIdBegin;
-	uint8_t keyIdSize = 0u;
-	uint8_t psshDataVer = initData[WIDEVINE_PSSH_DATA_VERSION_POSITION];
-	bool ret = false;
-
-	/*
-		WV PSSH Header Format :  for version 0 and version 1
-		readme : https://www.w3.org/TR/2014/WD-encrypted-media-20140828/cenc-format.html
-		online parser : https://tools.axinom.com/generators/PsshBox 
-		[ 4 bytes (total (header and data) size) + 4 bytes (type-PSSH)  + 
-		1 byte (version) + 3 bytes (flags)  +
-		16 bytes (system id) + 4 bytes (wv pssh data size) ]  
-
-		WV PSSH Data format:
-
-		Version 0:
-		[ optinal field: [2 byte ( Author Id Indicator + Author Id ) ] + 
-		2 bytes (keyId size indicator + keyid size) + ( keyId) + 
-		2 bytes (content id size  indiacater + content id size) +  (content id)]
-
-		Version 1:
-		[4 byte (Number of Key Id) + 16 Byte (Key Id 1) +  16 Byte (Key Id 2) +... +
-			4 byte (Data size) + (Data)  ]
-	*/
-
-	//AAMPLOG_INFO("wv pssh data version - %u ", psshDataVer);
-	if (psshDataVer == 0)
+	bool rc = false;
+	uint32_t kidCount = 0;
+	mInitData.assign(psshData, psshData+psshSize);
+	const uint8_t *fin = &psshData[psshSize];
+	uint32_t boxSize = READ_U32(psshData);
+	if( boxSize != psshSize  )
 	{
-		uint32_t header = 0;
-		int i = 0;
-		//uint8_t contentIdSize = 0u;
-		uint8_t keyIdCount = 0;
-		const uint8_t* psshData;
-
-		if (initData[WIDEVINE_PSSH_KEYID_SIZE_OFFSET] == WIDEVINE_KEY_ID_SIZE_INDICATOR)
-		{
-			header = WIDEVINE_PSSH_KEYID_SIZE_OFFSET;
-		}
-		else if(initData[WIDEVINE_PSSH_KEYID_SIZE_OFFSET_WITH_AUTHOR] == WIDEVINE_KEY_ID_SIZE_INDICATOR)
-		{
-			header = WIDEVINE_PSSH_KEYID_SIZE_OFFSET_WITH_AUTHOR;
-		}
-		else
-		{
-			AAMPLOG_WARN("WV Version: %u, Keyid indicator byte not found using default logic", psshDataVer);
-			header = WIDEVINE_PSSH_KEYID_SIZE_OFFSET;  //pssh data in default format
-		}
-		psshData = initData;
-		i = header;
-		while (i < initDataLen)
-		{
-			if (KEYID_MARKER == psshData[i])
-			{
-				keyIdSize = psshData[i +1];
-				i += DATA_LENGTH_FIELD_SIZE; // Skip key Id size indicator (1byte) + key Id size (1byte)
-
-				keyIdBegin = reinterpret_cast<const char*>(psshData + i);
-				if (keyIdSize >0)
-				{
-					std::vector<uint8_t> keyId;
-					keyId.assign(keyIdBegin, keyIdBegin + keyIdSize);
-					mKeyIDs[keyIdCount]=keyId;
-					keyIdCount += 1;
-					ret = true;
-				}
-				else
-				{
-					AAMPLOG_INFO("WV version: %u, KeyIdlen: %u", psshDataVer, keyIdSize);
-				}
-
-				i += keyIdSize;
-			}
-			else if (CONTENTID_MARKER == psshData[i])
-			{
-                          	/*Some streams might don't have Keyid but they may have content id.
-				So parsing the content id from the pssh and assigning it into keyid.*/
-
-				const char* ContentIdBegin;
-				uint8_t ContentIDSize = psshData[i +1];
-				i += DATA_LENGTH_FIELD_SIZE; // Skip Content Id size indicator (1byte) + content Id size (1byte)
-				ContentIdBegin = reinterpret_cast<const char*>(psshData + i);
-				if (ContentIDSize > 0)
-				{
-					std::vector<uint8_t> ContentId;
-					ContentId.assign(ContentIdBegin, ContentIdBegin + ContentIDSize);
-					mKeyIDs[keyIdCount]=ContentId;
-					keyIdCount++;
-					ret = true;
-				}
-
-				i += ContentIDSize;
-			}
-			else
-			{
-				keyIdSize = psshData[i +1];
-				AAMPLOG_INFO("WV Invalid type : %d size:%d", psshData[i], keyIdSize);
-				i += DATA_LENGTH_FIELD_SIZE; // Skip key Id size indicator (1byte) + key Id size (1byte)
-                                i += keyIdSize;
-			}
-		}
-	}
-	else if (psshDataVer == 1)
-	{
-		//PSSH version 1
-		//8 byte BMFF box header + 4 byte Full box header + 16 (system id) +
-		//4(KID Count) + 16 byte KID 1 + .. + 4 byte Data Size
-		//TODO : Handle multiple key Id logic, right now we are choosing only first one if have multiple key Id
-		auto header = WIDEVINE_DASH_KEY_ID_OFFSET;
-		keyIdSize = WIDEVINE_PSSH_VER1_KEY_ID_SIZE;
-		keyIdBegin = reinterpret_cast<const char*>(initData + header);
-
-		if (keyIdSize != 0u) 
-		{
-			std::vector<uint8_t> keyId;
-			keyId.assign(keyIdBegin, keyIdBegin + keyIdSize);
-			mKeyIDs[0]=keyId;
-			ret = true;
-		}
-		else
-		{
-			AAMPLOG_INFO("WV version: %u, KeyIdlen: %u", psshDataVer, keyIdSize);
-		}
+		AAMPLOG_ERR( "unexpected boxSize %d expected %d", boxSize, psshSize );
 	}
 	else
 	{
-		AAMPLOG_ERR("Unsupported PSSH version: %u", psshDataVer);
+		uint32_t boxType = READ_U32(psshData);
+		if( boxType!='pssh' )
+		{
+			AAMPLOG_ERR( "unexpected boxType %d", boxType );
+		}
+		else
+		{
+			uint32_t versionAndFlags = READ_U32(psshData);
+			static const uint8_t systemID_WideVine[16] =
+			{
+				0xed,0xef,0x8b,0xa9,0x79,0xd6,0x4a,0xce,0xa3,0xc8,0x27,0xdc,0xd5,0x1d,0x21,0xed
+			};
+			if( memcmp(psshData,systemID_WideVine,sizeof(systemID_WideVine))!=0 )
+			{
+				AAMPLOG_ERR( "unexpected systemID" );
+			}
+			else
+			{
+				psshData += sizeof(systemID_WideVine);
+				uint8_t psshDataVer = versionAndFlags>>24;
+				if( psshDataVer == 0 )
+				{
+					uint32_t sz = READ_U32(psshData);
+					if( fin - psshData != sz )
+					{
+						AAMPLOG_ERR( "unexpected size %d expected %d", sz, (int)(fin-psshData) );
+					}
+					if( *psshData != 0x12 )
+					{ // skip optional author field
+						psshData += 2;
+					}
+					while( psshData<fin )
+					{
+						uint8_t fieldType = *psshData++;
+						uint8_t fieldSize = *psshData++;
+						switch( fieldType )
+						{
+							case 0x22: // some streams have contentid but not keyid
+								// if key id present, it will come, so keeping this shouldn't cause any problem
+							case 0x12: // key id
+								if( fieldSize>0 && &psshData[fieldSize] <= fin )
+								{	std::vector<uint8_t> keyId;
+									keyId.assign( psshData, &psshData[fieldSize] );
+									mKeyIDs[kidCount++] = keyId;
+									rc = true;
+								}
+								break;
+								
+							default:
+								break;
+						}
+						psshData += fieldSize;
+					}
+				}
+				else if( psshDataVer == 1 )
+				{
+					kidCount = READ_U32(psshData);
+					uint8_t fieldSize = 16;
+					for( int i=0; i<kidCount; i++ )
+					{
+						std::vector<uint8_t> keyId;
+						keyId.assign( psshData, &psshData[fieldSize] );
+						mKeyIDs[i]=keyId;
+						psshData += fieldSize;
+						rc = true;
+					}
+				}
+				else
+				{
+					AAMPLOG_ERR("unsupported PSSH version: %u", psshDataVer);
+				}
+			}
+		}
 	}
-	return ret;
+	return rc;
 }
-
 
 void AampWidevineDrmHelper::setDrmMetaData(const std::string& metaData)
 {
