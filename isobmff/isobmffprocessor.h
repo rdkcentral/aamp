@@ -82,14 +82,17 @@ enum skipTimeType
 	eBMFFPROCESSOR_SKIP_AFTER_NEW_TIMESCALE,
 };
 
+typedef std::map<double, double>skipPosToDurationTypeMap;
 /**
  * @struct SkipType
  * @brief structure to hold skip position details
  */
 typedef struct
 {
-	double skipDuration;
-	double skippointPosition;
+	double sumOfSkipDuration;
+	double skipPointPosition;
+	double skipPosBeforeDiscontiuity;
+	skipPosToDurationTypeMap skipPosToDurMap;
 }stSkipType;
 
 /**
@@ -491,7 +494,7 @@ private:
 	std::mutex initSegmentTransferMutex;
 	std::mutex skipMutex;
 	skipTypeMap skipPointMap;
-
+	
 	pthread_mutex_t m_mutex;
 	pthread_cond_t m_cond;
 	AampLogManager *mLogObj;
