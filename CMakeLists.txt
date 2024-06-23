@@ -258,6 +258,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampTSBSessionManager.h
 					AampTsbDataManager.h
 					AampTsbReader.h
+					lstring.hpp
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp

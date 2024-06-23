@@ -80,7 +80,9 @@ TEST_F(byteRangeTests, withoutbyterange) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 
-	bool status = trackStateObj->IsExtXByteRange("#EXT-",&byteRangeLength, &byteRangeOffset);
+	const char *raw = "#EXT-";
+	lstring param(raw,strlen(raw));
+	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
 	EXPECT_FALSE(status);
 }
 
@@ -88,7 +90,9 @@ TEST_F(byteRangeTests, withoutvalue) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 
-	bool status = trackStateObj->IsExtXByteRange("#EXT-X-BYTERANGE:",&byteRangeLength, &byteRangeOffset);
+	const char *raw = "#EXT-X-BYTERANGE:";
+	lstring param(raw,strlen(raw));
+	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
 	EXPECT_FALSE(status);
 	EXPECT_EQ(byteRangeLength,0);
 	EXPECT_EQ(byteRangeOffset,0);
@@ -97,10 +101,12 @@ TEST_F(byteRangeTests, withoutvalue) {
 TEST_F(byteRangeTests, withbytelength) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
-
-	bool status = trackStateObj->IsExtXByteRange("#EXT-X-BYTERANGE: 5000",&byteRangeLength, &byteRangeOffset);
+	
+	const char *raw = "#EXT-X-BYTERANGE: 1234";
+	lstring param(raw,strlen(raw));
+	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
 	EXPECT_FALSE(status);
-	EXPECT_EQ(byteRangeLength,5000);
+	EXPECT_EQ(byteRangeLength,1234);
 	EXPECT_EQ(byteRangeOffset,0);
 }
 
@@ -108,37 +114,45 @@ TEST_F(byteRangeTests, withbytevalue) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 
-	bool status = trackStateObj->IsExtXByteRange("#EXT-X-BYTERANGE: 5000@5000",&byteRangeLength, &byteRangeOffset);
+	const char *raw = "#EXT-X-BYTERANGE: 1234@4321";
+	lstring param(raw,strlen(raw));
+	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
 	EXPECT_TRUE(status);
-	EXPECT_EQ(byteRangeLength,5000);
-	EXPECT_EQ(byteRangeOffset,5000);
+	EXPECT_EQ(byteRangeLength,1234);
+	EXPECT_EQ(byteRangeOffset,4321);
 }
 
 TEST_F(byteRangeTests, withoutseg) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 
-	bool status = trackStateObj->IsExtXByteRange("#EXT-X-BYTERANGE: 5000@5000,",&byteRangeLength, &byteRangeOffset);
+	const char *raw = "#EXT-X-BYTERANGE: 1234@4321,";
+	lstring param(raw,strlen(raw));
+	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
 	EXPECT_TRUE(status);
-	EXPECT_EQ(byteRangeLength,5000);
-	EXPECT_EQ(byteRangeOffset,5000);
+	EXPECT_EQ(byteRangeLength,1234);
+	EXPECT_EQ(byteRangeOffset,4321);
 }
 
 TEST_F(byteRangeTests, withsegnum) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 
-	bool status = trackStateObj->IsExtXByteRange("#EXT-X-BYTERANGE: 5000@5000,\nseg2.m4s",&byteRangeLength, &byteRangeOffset);
+	const char *raw = "#EXT-X-BYTERANGE: 1234@4321,\nseg2.m4s";
+	lstring param(raw,strlen(raw));
+	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
 	EXPECT_TRUE(status);
-	EXPECT_EQ(byteRangeLength,5000);
-	EXPECT_EQ(byteRangeOffset,5000);
+	EXPECT_EQ(byteRangeLength,1234);
+	EXPECT_EQ(byteRangeOffset,4321);
 }
 
 TEST_F(byteRangeTests, withmanifestvalue) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 
-	bool status = trackStateObj->IsExtXByteRange("#EXT-X-BYTERANGE:280451@274920",&byteRangeLength, &byteRangeOffset);
+	const char *raw = "#EXT-X-BYTERANGE:280451@274920";
+	lstring param(raw,strlen(raw));
+	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
 	EXPECT_TRUE(status);
 	EXPECT_EQ(byteRangeLength,280451);
 	EXPECT_EQ(byteRangeOffset,274920);

@@ -6,7 +6,6 @@
 
 // unit under test
 #include "lstring.hpp"
-#include <iostream>
 #include <assert.h>
 #include <string.h>
 

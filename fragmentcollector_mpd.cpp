@@ -866,16 +866,11 @@ static AampCurlInstance getCurlInstanceByMediaType(AampMediaType type)
 
 static void deIndexTileInfo(std::vector<TileInfo> &indexedTileInfo)
 {
-	AAMPLOG_WARN("indexedTileInfo size=%lu",indexedTileInfo.size());
-	for(int i=0;i<indexedTileInfo.size();i++)
+	if( !indexedTileInfo.empty() )
 	{
-		if( indexedTileInfo[i].url )
-		{
-			free( (char *)indexedTileInfo[i].url );
-			indexedTileInfo[i].url = NULL;
-		}
+		AAMPLOG_WARN("indexedTileInfo size=%lu",indexedTileInfo.size());
+		indexedTileInfo.clear();
 	}
-	indexedTileInfo.clear();
 }
 
 /**
@@ -9386,12 +9381,7 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 	aamp->SyncBegin();
 
 	SAFE_DELETE_ARRAY(mStreamInfo);
-
-	if(!indexedTileInfo.empty())
-	{
-		deIndexTileInfo(indexedTileInfo);
-	}
-
+	deIndexTileInfo(indexedTileInfo);
 	if(!thumbnailtrack.empty())
 	{
 		for(int i = 0; i < thumbnailtrack.size() ; i++)
@@ -10110,14 +10100,12 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 
 													startTime += ( timelineDurationMs );
 													replace(tmedia, "Number", startNumber);
-													char *ptr = strndup(tmedia.c_str(), tmedia.size());
-													tileInfo.url = ptr;
-													AAMPLOG_TRACE("tileInfo.url%s:%p",tileInfo.url, ptr);
-													tileInfo.posterDuration = ((double)segmentTemplates.GetDuration()) / (timeScale * w * h);
-													tileInfo.tileSetDuration = ComputeFragmentDuration(timeline->GetDuration(), timeScale);
-													tileInfo.numRows = h;
-													tileInfo.numCols = w;
-													AAMPLOG_TRACE("TileInfo - StartTime:%f posterDuration:%f tileSetDuration:%f numRows:%d numCols:%d",tileInfo.startTime,tileInfo.posterDuration,tileInfo.tileSetDuration,tileInfo.numRows,tileInfo.numCols);
+													tileInfo.url = tmedia;
+													tileInfo.layout.posterDuration = ((double)segmentTemplates.GetDuration()) / (timeScale * w * h);
+													tileInfo.layout.tileSetDuration = ComputeFragmentDuration(timeline->GetDuration(), timeScale);
+													tileInfo.layout.numRows = h;
+													tileInfo.layout.numCols = w;
+													AAMPLOG_TRACE("TileInfo - StartTime:%f posterDuration:%f tileSetDuration:%f numRows:%d numCols:%d",tileInfo.startTime,tileInfo.layout.posterDuration,tileInfo.layout.tileSetDuration,tileInfo.layout.numRows,tileInfo.layout.numCols);
 													indexedTileInfo.push_back(tileInfo);
 													startNumber++;
 												}
@@ -10229,20 +10217,20 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_MPD::GetThumbnailRangeData(doub
 		{
 			break;
 		}
-		double tileSetEndTime = tmpdata.t + tileInfo.tileSetDuration;
-		totalSetDuration += tileInfo.tileSetDuration;
+		double tileSetEndTime = tmpdata.t + tileInfo.layout.tileSetDuration;
+		totalSetDuration += tileInfo.layout.tileSetDuration;
 		if( tileSetEndTime < tStart )
 		{
 			continue;
 		}
 		tmpdata.url = tileInfo.url;
-		tmpdata.d = tileInfo.posterDuration;
+		tmpdata.d = tileInfo.layout.posterDuration;
 		bool done = false;
-		for( int row=0; row<tileInfo.numRows && !done; row++ )
+		for( int row=0; row<tileInfo.layout.numRows && !done; row++ )
 		{
-			for( int col=0; col<tileInfo.numCols && !done; col++ )
+			for( int col=0; col<tileInfo.layout.numCols && !done; col++ )
 			{
-				double tNext = tmpdata.t+tileInfo.posterDuration;
+				double tNext = tmpdata.t+tileInfo.layout.posterDuration;
 				if( tNext >= tileSetEndTime )
 				{
 					tmpdata.d = tileSetEndTime - tmpdata.t;
@@ -10281,8 +10269,8 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_MPD::GetThumbnailRangeData(doub
 			}
 			*width = thumbnailtrack[aamp->mthumbIndexValue]->resolution.width;
 			*height = thumbnailtrack[aamp->mthumbIndexValue]->resolution.height;
-			*raw_w = thumbnailtrack[aamp->mthumbIndexValue]->resolution.width * tileInfo.numCols;
-			*raw_h = thumbnailtrack[aamp->mthumbIndexValue]->resolution.height * tileInfo.numRows;
+			*raw_w = thumbnailtrack[aamp->mthumbIndexValue]->resolution.width * tileInfo.layout.numCols;
+			*raw_h = thumbnailtrack[aamp->mthumbIndexValue]->resolution.height * tileInfo.layout.numRows;
 		}
 	}
 	return data;
