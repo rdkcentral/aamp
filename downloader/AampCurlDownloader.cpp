@@ -207,10 +207,10 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 								mDownloadResponse->iHttpRetValue >= 500 &&
 								mDownloadResponse->iHttpRetValue != 502))
 						{
+                                                        AAMPLOG_WARN("Download failed due to Server error http-%d . Retrying Attempt: %d!",mDownloadResponse->iHttpRetValue,mDnldCfg->iDownloadRetryCount);
 							mDnldCfg->iDownloadRetryCount--;
 							// TODO: Add the download delay between retries : Need to handle similar to InterruptableMsSleep
 							std::this_thread::sleep_for(std::chrono::milliseconds(mDnldCfg->iDownloadRetryWaitMs));
-							AAMPLOG_WARN("Download failed due to Server error http-%d . Retrying Attempt: %d!",mDownloadResponse->iHttpRetValue,mDnldCfg->iDownloadRetryCount);
 							loopAgain = true; //retry on manifest download failure
 							continue;
 						}

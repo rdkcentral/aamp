@@ -4390,15 +4390,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			else if (http_error == 512 )
 			{
 				// check if any response available to search
-				if(mManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && mIsFogTSB)
+				if(mManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && aamp->mTSBEnabled)
 				{
 					for ( std::string header : mManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader )
 					{
 						if(STARTS_WITH_IGNORE_CASE(header.c_str(),FOG_REASON_STRING))
 						{
 							aamp->mFogDownloadFailReason.clear();
-							aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length() + 2);
-							AAMPLOG_WARN("Received FOG-Reason header: '%s'",aamp->mFogDownloadFailReason.c_str());
+							aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length());
+							AAMPLOG_WARN("Received FOG-Reason header: %s",aamp->mFogDownloadFailReason.c_str());
 							aamp->SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", aamp->mFogDownloadFailReason.c_str());
 							break;
 						}
@@ -4556,15 +4556,15 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 			{
 				if (http_error == 512 )
 				{
-					if(tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && mIsFogTSB)
+					if(tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && aamp->mTSBEnabled)
 					{
 						for ( std::string header : tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader )
 						{
 							if(STARTS_WITH_IGNORE_CASE(header.c_str(),FOG_REASON_STRING))
 							{
 								aamp->mFogDownloadFailReason.clear();
-								aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length() + 2);
-								AAMPLOG_WARN("Received FOG-Reason header: '%s'",aamp->mFogDownloadFailReason.c_str());
+								aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length());
+								AAMPLOG_WARN("Received FOG-Reason header: %s",aamp->mFogDownloadFailReason.c_str());
 								aamp->SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", aamp->mFogDownloadFailReason.c_str());
 								break;
 							}
