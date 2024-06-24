@@ -15,13 +15,13 @@ OPTION_SUBTEC_SKIP=false
 OPTION_SUBTEC_BUILD=true
 OPTION_SUBTEC_CLEAN=false
 OPTION_GOOGLETEST_REFERENCE="tags/release-1.11.0"
-OPTION_SANITIZER=true
+
 
 
 function install_options_fn()
 {
   # Parse optiona command line parameters
-  while getopts ":d:b:cf:np:r:g:qst" OPT; do
+  while getopts ":d:b:cf:np:r:g:qs" OPT; do
     case ${OPT} in
       d ) # process option d install base directory name
         OPTION_BUILD_DIR=${OPTARG}
@@ -60,18 +60,13 @@ function install_options_fn()
         # overrides any subtec or subtec clean setting
         echo "Skip subtec: ${OPTION_SKIP_SUBTEC}"
         ;;
-      t ) 
-        OPTION_SANITIZER=false
-        # Disable address sanitiser
-        echo "Santiser: ${OPTION_SANITIZER}"
-        ;;
       p )     
         OPTION_PROTOBUF_REFERENCE=${OPTARG}
         echo "protobuf branch : ${PROTOBUF_REFERENCE}"
         ;;  
       * )
         echo "Usage: $0 [-b aamp branch name] [-d local setup directory name] [-c] [-f compiler flags] [-g google release tag] [-n] [-q] [-s] [subtec [clean]]"
-        echo "          [-r rialto tag] [-p protobuf branch name] [rialto] (Linux only) [-t]"
+        echo "          [-r rialto tag] [-p protobuf branch name] [rialto] (Linux only)"
         echo
         echo "Note:  Subtec is built by default but can be rebuilt separately with the subtec"
         echo "       option 'clean' will delete the subtec source and reinstall before"
@@ -106,5 +101,4 @@ function install_options_fn()
   fi
 
 }
-
 

@@ -93,7 +93,7 @@ def build_aamp(other_args):
     print("Build AAMP")
     opts = ""
     if "--coverage" in other_args:
-        opts = "-c -t" # Build without sanitiser for coverage
+        opts = "-c "
     if "-s" in other_args:
         opts += "-s"
     os.chdir(aampdir)
