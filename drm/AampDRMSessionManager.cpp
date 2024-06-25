@@ -1802,8 +1802,12 @@ bool AampDRMSessionManager::configureLicenseServerParameters(std::shared_ptr<Aam
 
 		if (!customHeaders.empty())
 		{
-			// Override headers from the helper with custom headers
-			licenseRequest.headers = customHeaders;
+			// update headers with custom headers
+			for ( auto& entry : customHeaders)
+			{
+				licenseRequest.headers[entry.first] = entry.second;
+
+			}
 		}
 
 		if (isContentMetadataAvailable)
