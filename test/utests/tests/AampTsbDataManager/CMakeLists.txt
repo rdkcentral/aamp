@@ -15,48 +15,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-include(GoogleTest)
-
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME AampOcdmBasicSessionAdapterTests)
+set(EXEC_NAME AampTsbDataManagerTest)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/libsubtec)
+pkg_check_modules(LIBDASH REQUIRED libdash)
+
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
+include_directories(${AAMP_ROOT}/subtec/libsubtec)
+include_directories(${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/tsb/api)
 
-if(CMAKE_SYSTEM_NAME STREQUAL Linux)
+# Mac OS X
+if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+    include_directories(/usr/local/include)
+    include_directories(/usr/local/include/libdash)
+    set(OS_LD_FLAGS -L/usr/local/lib)
+
+else()
     include_directories(${AAMP_ROOT}/Linux/include)
-endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
-
-
+    include_directories(${AAMP_ROOT}/Linux/include/libdash)
+    set(OS_LD_FLAGS -luuid)
+endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
-include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
-include_directories(${UTESTS_ROOT}/ocdm)
-
-
-
+include_directories(${LibXml2_INCLUDE_DIRS})
+include_directories(${UTESTS_ROOT}/mocks)
 
 set(TEST_SOURCES FunctionalTests.cpp
-                 AampOcdmBasicSessionAdapterTests.cpp)
+                 AampTsbDataManagerTest.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/drm/AampOcdmBasicSessionAdapter.cpp
-                 ${AAMP_ROOT}/drm/helper/AampDrmHelper.cpp
-                 ${AAMP_ROOT}/drm/AampDrmSession.cpp)
-                 
-                 
-#[[class AAMPOCDMBasicSessionAdapter inherits from class AAMPOCDMSessionAdapter,
-which inherits from the abstract class AampDrmSession.
-Since the implementation of AampDrmSession is fairly simple, the real code is compiled. 
-However, AAMPOCDMSessionAdapter has a more complex implementation, so a fake has been written for this class.]]
+
+set(AAMP_SOURCES ${AAMP_ROOT}/AampTsbDataManager.cpp ${AAMP_ROOT}/AampTsbReader.cpp ${AAMP_ROOT}/AampUtils.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
-set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 if (CMAKE_XCODE_BUILD_SYSTEM)
   # XCode schema target
@@ -64,16 +61,19 @@ if (CMAKE_XCODE_BUILD_SYSTEM)
 endif()
 
 
-
 if (COVERAGE_ENABLED)
     include(CodeCoverage)
     APPEND_COVERAGE_COMPILER_FLAGS()
+    set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/AampTsbDataManager/*")
     include("${PROJECT_SOURCE_DIR}/cmake_exclude_file.list")
     SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
                               EXECUTABLE ${EXEC_NAME}
                               DEPENDENCIES ${EXEC_NAME})
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} fakes -lpthread ${LIBDASH_LDFLAGS} ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lcjson)
+
+set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+set_target_properties(${EXEC_NAME} PROPERTIES COMPILE_FLAGS -Wno-effc++)
 
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)

@@ -259,6 +259,7 @@ void AampLicensePreFetcher::PreFetchThread()
 				if (!keyIdArray.empty() && mPrivAAMP->mDRMSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
 				{
 					AAMPLOG_WARN("Key already processed [status:%s] for type:%d adaptationSetIdx:%u !", keyStatus ? "SUCCESS" : "FAIL", obj->mType, obj->mAdaptationIdx);
+					mPrivAAMP->setCurrentDrm(obj->mHelper);
 					skip = true;
 				}
 #endif

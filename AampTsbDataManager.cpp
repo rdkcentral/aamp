@@ -62,35 +62,38 @@ TsbFragmentDataPtr AampTsbDataManager::GetNearestFragment(double position)
 	TsbFragmentDataPtr fragmentData = nullptr;
 	try
 	{
-		do
+		if(!mTsbFragmentData.empty())
 		{
-			std::lock_guard<std::mutex> lock(mTsbDataMutex);
-			auto lower = mTsbFragmentData.lower_bound(position); // Find the first element not less than position
-			if (lower == mTsbFragmentData.begin())				 // If target is less than the first key
+			do
 			{
-				fragmentData = lower->second;
-				break;
-			}
+				std::lock_guard<std::mutex> lock(mTsbDataMutex);
+				auto lower = mTsbFragmentData.lower_bound(position); // Find the first element not less than position
+				if (lower == mTsbFragmentData.begin())				 // If target is less than the first key
+				{
+					fragmentData = lower->second;
+					break;
+				}
 
-			auto prev = std::prev(lower);		 // Get the previous element
-			if (lower == mTsbFragmentData.end()) // If position is greater than the last key
-			{
-				fragmentData = prev->second;
-				break;
-			}
+				auto prev = std::prev(lower);		 // Get the previous element
+				if (lower == mTsbFragmentData.end()) // If position is greater than the last key
+				{
+					fragmentData = prev->second;
+					break;
+				}
 
-			// Determine which key is closer to the position
-			if (lower->first - position < position - prev->first)
-			{
-				fragmentData = lower->second;
-				break;
-			}
-			else
-			{
-				fragmentData = prev->second;
-				break;
-			}
-		} while (0);
+				// Determine which key is closer to the position
+				if (lower->first - position < position - prev->first)
+				{
+					fragmentData = lower->second;
+					break;
+				}
+				else
+				{
+					fragmentData = prev->second;
+					break;
+				}
+			} while (0);
+		}
 	}
 	catch (const std::exception &e)
 	{
@@ -192,7 +195,7 @@ bool AampTsbDataManager::IsFragmentPresent(double position)
 		if (!mTsbFragmentData.empty())
 		{
 			auto fst = mTsbFragmentData.begin();
-			auto lst = mTsbFragmentData.end();
+			auto lst = --mTsbFragmentData.end();
 			if ((fst->first <= position) && (lst->first >= position))
 			{
 				present = true;
@@ -408,6 +411,7 @@ void AampTsbDataManager::Flush()
 		{
 			mTsbInitData.clear();
 		}
+		mCurrentInitData = nullptr;
 	}
 	catch (const std::exception &e)
 	{
@@ -417,32 +421,44 @@ void AampTsbDataManager::Flush()
 
 /**
  * @brief GetNextDiscFragment - API to get next Discountious fragment in the list
+ * 		If Dsic fragment noot found ; this will return nullptr 
  *
  */
-TsbFragmentDataPtr AampTsbDataManager::GetNextDiscFragment(double position, bool backwordSerach)
+TsbFragmentDataPtr AampTsbDataManager::GetNextDiscFragment(double position, bool backwardSearch)
 {
 	TsbFragmentDataPtr fragment = nullptr;
 	try
 	{
 		auto segment = mTsbFragmentData.lower_bound(position);
-		while (!segment->second->IsDiscontinuous())
+		if (!backwardSearch) 
 		{
-			if (backwordSerach)
+			while( segment != mTsbFragmentData.end())
 			{
-				segment--;
-			}
-			else
-			{
-				segment++;
+				if (segment->second->IsDiscontinuous()) 
+				{
+					fragment =  segment->second;
+					break;
+				}
+				++segment;
 			}
 		}
-		fragment = segment->second;
+		else
+		{
+			while (segment != mTsbFragmentData.begin())
+			{
+				if (segment->second->IsDiscontinuous())
+				{
+					fragment =  segment->second;
+					break;
+				}
+				--segment;
+			}
+		}
 	}
 	catch (const std::exception &e)
 	{
 		AAMPLOG_WARN("Exception caught while getting discontinuous fragments : %s ", e.what());
 	}
-
 	return fragment;
 }
 

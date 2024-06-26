@@ -36,16 +36,16 @@ using ::testing::NiceMock;
 class LocalTSBTests : public ::testing::Test
 {
 protected:
-    PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+	PrivateInstanceAAMP *mPrivateInstanceAAMP{};
 
-    void SetUp() override
-    {
-        if(gpGlobalConfig == nullptr)
-        {
-            gpGlobalConfig =  new AampConfig();
-        }
+	void SetUp() override
+	{
+		if(gpGlobalConfig == nullptr)
+		{
+			gpGlobalConfig =  new AampConfig();
+		}
 
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
@@ -57,27 +57,57 @@ protected:
         //mPrivateInstanceAAMP->mStreamSink = g_mockAampGstPlayer; //TODO fix
     }
 
-    void TearDown() override
-    {
-        delete mPrivateInstanceAAMP;
-        mPrivateInstanceAAMP = nullptr;
+	void TearDown() override
+	{
+		delete mPrivateInstanceAAMP;
+		mPrivateInstanceAAMP = nullptr;
 
-        delete g_mockStreamAbstractionAAMP_MPD;
-        g_mockStreamAbstractionAAMP_MPD = nullptr;
+		delete g_mockStreamAbstractionAAMP_MPD;
+		g_mockStreamAbstractionAAMP_MPD = nullptr;
 
 		delete g_mockTSBSessionManager;
 		g_mockTSBSessionManager = nullptr;
 
-        delete g_mockAampGstPlayer;
-        g_mockAampGstPlayer = nullptr;
+		delete g_mockAampGstPlayer;
+		g_mockAampGstPlayer = nullptr;
 
-        delete gpGlobalConfig;
-        gpGlobalConfig = nullptr;
+		delete gpGlobalConfig;
+		gpGlobalConfig = nullptr;
 
 		delete g_mockAampConfig;
-        g_mockAampConfig = nullptr;
-    }
+		g_mockAampConfig = nullptr;
+	}
 };
+
+TEST_F(LocalTSBTests, TimeOut_Config_Based_On_Network)
+{
+	float networkTimeout = 2.0;
+	float manifestTimeout = CURL_FRAGMENT_DL_TIMEOUT;
+	float playlistTimeout = 0;
+	// By default fake will return AAMP_DEFAULT_SETTING
+	// EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(_)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_PlaybackOffset)).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LiveOffset)).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LiveOffsetDriftCorrectionInterval)).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LiveOffset4K)).WillRepeatedly(Return(0.0));
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_NetworkTimeout)).WillRepeatedly(Return(networkTimeout));
+	// Return the current value of the local variable
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_ManifestTimeout)).WillRepeatedly([&manifestTimeout] { return manifestTimeout; });
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_PlaylistTimeout)).WillRepeatedly([&playlistTimeout] { return playlistTimeout; });
+
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_ManifestTimeout, networkTimeout)).WillOnce([&manifestTimeout, networkTimeout] { manifestTimeout = networkTimeout; });
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_PlaylistTimeout, networkTimeout)).WillOnce([&playlistTimeout, networkTimeout] { playlistTimeout = networkTimeout; });
+
+
+	const char *lldUrl = "http://localhost:80/test/manifest.mpd";
+	mPrivateInstanceAAMP->Tune(lldUrl, false);
+
+	EXPECT_EQ(mPrivateInstanceAAMP->mNetworkTimeoutMs, networkTimeout * 1000);
+	EXPECT_EQ(mPrivateInstanceAAMP->mManifestTimeoutMs, networkTimeout * 1000);
+	EXPECT_EQ(mPrivateInstanceAAMP->mPlaylistTimeoutMs, networkTimeout * 1000);
+}
 
 TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_On)
 {
@@ -86,7 +116,7 @@ TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_On)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
 
 	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
-	const char *chunkedUrl = "http://localhost:80/manifest.mpd?chunked";
+	const char *chunkedUrl = "http://localhost:80/low/manifest.mpd";
 
 	// For low latency stream case
 	AampLLDashServiceData llData;
@@ -109,7 +139,7 @@ TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_Off)
 
 	// Not expecting creation of TSBSessionManager when config off
 	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(0);
-	const char *chunkedUrl = "http://localhost:80/manifest.mpd?chunked";
+	const char *chunkedUrl = "http://localhost:80/low/manifest.mpd";
 
 	// For low latency stream case
 	AampLLDashServiceData llData;
@@ -153,7 +183,7 @@ TEST_F(LocalTSBTests, Chunked_Without_LLD_And_Config_On)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
 
 	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
-	const char *chunkedUrl = "http://localhost:80/manifest.mpd?chunked";
+	const char *chunkedUrl = "http://localhost:80/low/manifest.mpd";
 
 	// For non low latency stream case, by default mLowLatencyMode is false
 	AampLLDashServiceData llData;
