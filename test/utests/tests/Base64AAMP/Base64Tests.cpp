@@ -12,7 +12,7 @@ namespace base64Test {
 
 	// Test Vectors
 	// Swap 'inp' and 'exp' when going from encode to decode, base64 is reversible
-	const unsigned char base64Inp1[]  = "12345";
+	const unsigned char base64Inp1[]  = "1234";
 	const char base64Exp1[] = "MTIzNA==";
 	const unsigned char base64Inp2[] =
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -106,7 +106,7 @@ namespace base64Test {
 		result = (char *)::base64_Decode(base64Exp1, &len);
 		int cmp = strncmp(result, (char*)base64Inp1, len);
 		EXPECT_EQ(cmp, 0) << "The base64 decode of " << base64Exp1 << " is not correct";
-		EXPECT_EQ(len, 4) << "The base64 decode of " << base64Exp1 << " is not correct";
+		EXPECT_EQ(len, strlen((char *)base64Inp1)) << "The base64 decode of " << base64Exp1 << " is not correct";
 		memset(result, 0, len);
 		free(result);
 		
@@ -128,18 +128,19 @@ namespace base64Test {
 		// Check for invalid sizes, should not trigger address sanitizer.
 		size = 1;
 		result = (char *)::base64_Decode(base64Exp4, &len, size);
-		EXPECT_EQ((unsigned char)result[0], 255) << "The base64 decode of " << base64Exp4 << " is not correct";
-		memset(result, 0, len);
+		EXPECT_EQ( len, 0 );
 		free(result);
 		
 		size = 2;
 		result = (char *)::base64_Decode(base64Exp4, &len, size);
+		EXPECT_EQ( len, 1 );
 		EXPECT_EQ(result[0], '_') << "The base64 decode of " << base64Exp4 << " is not correct";
 		memset(result, 0, len);
 		free(result);
 		
 		size = 3;
 		result = (char *)::base64_Decode(base64Exp4, &len, size);
+		EXPECT_EQ( len, 1 );
 		EXPECT_EQ(result[0], '_') << "The base64 decode of " << base64Exp4 << " is not correct";
 		memset(result, 0, len);
 		free(result);
@@ -232,4 +233,83 @@ namespace base64Test {
 		}
 	}
 
+TEST(_base64Suite, bad )
+{
+	const char *badBase64 = "!@#*(";
+	size_t srcLen = strlen(badBase64);
+	size_t len = 999;
+	unsigned char *result = ::base64_Decode( badBase64, &len, srcLen);
+	EXPECT_TRUE( result==NULL );
+	EXPECT_EQ( len, 0 );
+}
+
+TEST(_base64Suite, encodedecode )
+{
+	struct
+	{
+		const char *base64;
+		const char *expected;
+		size_t expectedLen;
+		bool oldSyntax;
+	} testData[] =
+	{
+		{"",""},
+		{"Zg==","f"},
+		{"Zm8=","fo"},
+		{"Zm9v","foo"},
+		{"Zm9vYg==","foob"},
+		{"Zm9vYmE=","fooba"},
+		{"Zm9vYmFy","foobar"},
+		{
+			"YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU2Nzg5MCEiwqMkJV4mKigpQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVp8XDw+PywuLzo7QCd+I3t9W10tXw==",
+			"abcdefghijklmnopqrstuvwxyz01234567890!\"£$%^&*()ABCDEFGHIJKLMNOPQRSTUVWXYZ|\\<>?,./:;@'~#{}[]-_"
+		},
+		{ "bGlnaHQgd29yay4=", "light work." },
+		
+		{ "AAAASnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAACoIARIQL38/m5MtSFqBGT0XY2KM4yIUTkJDVTA0Mzg3NjU0MDA1NjMwMDc=",
+			"\000\000\000Jpssh\000\000\000\000\355\357\213\251y\326J\316\243\310'\334\325\035!\355\000\000\000*\010\001\022\020/?\233\223-HZ\201\031=\027cb\214\343\042\024NBCU0438765400563007",
+			74 // binary data size - can't use strlen
+		},
+		{ "AAAASnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAACoIARIQL38-m5MtSFqBGT0XY2KM4yIUTkJDVTA0Mzg3NjU0MDA1NjMwMDc=",
+			"\000\000\000Jpssh\000\000\000\000\355\357\213\251y\326J\316\243\310'\334\325\035!\355\000\000\000*\010\001\022\020/?\233\223-HZ\201\031=\027cb\214\343\042\024NBCU0438765400563007",
+			74, // binary data size - can't use strlen
+			true // old syntax, with "-" instead of "/"
+		},
+	};
+	
+	for( int i=0; i<sizeof(testData)/sizeof(testData[0]); i++ )
+	{
+		const char *base64 = testData[i].base64;
+		const char *expected = testData[i].expected;
+		size_t expectedLen = testData[i].expectedLen;
+		if( !expectedLen )
+		{
+			expectedLen = strlen(expected);
+		}
+		printf( "test#%d\n%s\n", i, expected );
+		
+		size_t len = 0;
+		unsigned char *result = ::base64_Decode(base64, &len, strlen(base64));
+		EXPECT_EQ(len,expectedLen);
+		
+		for( int j=0; j<len; j++ )
+		{
+			unsigned char c;
+			c = expected[j];
+			ASSERT_EQ( result[j], c );
+		}
+		free(result);
+		
+		if( !testData[i].oldSyntax )
+		{ // old syntax is not reversible
+			size_t encodedLen = strlen(base64);
+			char *rc = ::base64_Encode( (const unsigned char *)expected, expectedLen );
+			ASSERT_EQ( strlen(rc), encodedLen );
+			for( int j=0; j<encodedLen; j++ )
+			{
+				ASSERT_EQ( rc[j], base64[j] );
+			}
+		}
+	} // next testData
+}
 } // namespace

@@ -293,32 +293,30 @@ bool aamp_StartsWith( const char *inputStr, const char *prefix )
  */
 char *aamp_Base64_URL_Encode(const unsigned char *src, size_t len)
 {
-	char * b64Src = base64_Encode(src, len);
-	size_t encodedLen = strlen(b64Src);
-	char* urlEncodedSrc = (char*)malloc(sizeof(char) * (encodedLen + 1));
-	for (int iter = 0; iter < encodedLen; iter++)
+	char *rc = base64_Encode(src,len);
+	if( rc )
 	{
-		if (b64Src[iter] == '+')
+		char *dst = rc;
+		while( *dst )
 		{
-			urlEncodedSrc[iter] = '-';
-		}
-		else if (b64Src[iter] == '/')
-		{
-			urlEncodedSrc[iter] = '_';
-		}
-		else if (b64Src[iter] == '=')
-		{
-			urlEncodedSrc[iter] = '\0';
-			break;
-		}
-		else
-		{
-			urlEncodedSrc[iter] = b64Src[iter];
+			switch( *dst )
+			{
+				case '+':
+					*dst = '-';
+					break;
+				case '/':
+					*dst = '_';
+					break;
+				case '=':
+					*dst = '\0';
+					break;
+				default:
+					break;
+			}
+			dst++;
 		}
 	}
-	free(b64Src);
-	urlEncodedSrc[encodedLen] = '\0';
-	return urlEncodedSrc;
+	return rc;
 }
 
 /**
@@ -329,25 +327,37 @@ char *aamp_Base64_URL_Encode(const unsigned char *src, size_t len)
  */
 unsigned char *aamp_Base64_URL_Decode(const char *src, size_t *len, size_t srcLen)
 {
-	//Calculate the size for corresponding Base64 Encoded string with padding
-	int b64Len = (int)((((srcLen / 4) + 1) * 4) + 1);
-	char *b64Src = (char *) malloc(sizeof(char)* b64Len);
-	b64Src[b64Len - 1] = '\0';
-	b64Src[b64Len - 2] = '=';
-	b64Src[b64Len - 3] = '=';
-	for (int iter = 0; iter < strlen(src); iter++) {
-		if (src[iter] == '-') {
-			b64Src[iter] = '+';
-		} else if (src[iter] == '_') {
-			b64Src[iter] = '/';
-		} else {
-			b64Src[iter] = src[iter];
+	unsigned char * rc = NULL;
+	char *temp = (char *)malloc(srcLen+3);
+	if( temp )
+	{
+		temp[srcLen+2] = '\0';
+		temp[srcLen+1] = '=';
+		temp[srcLen+0] = '=';
+		for( int iter = 0; iter < srcLen; iter++ )
+		{
+			char c = src[iter];
+			switch( c )
+			{
+				case '_':
+					c = '/';
+					break;
+				case '-':
+					c = '+';
+					break;
+				default:
+					break;
+			}
+			temp[iter] = c;
 		}
+		rc = base64_Decode(temp, len );
+		free(temp);
 	}
-	*len = 0;
-	unsigned char * decodedStr = base64_Decode(b64Src, len);
-	free(b64Src);
-	return decodedStr;
+	else
+	{
+		*len = 0;
+	}
+	return rc;
 }
 
 /**
