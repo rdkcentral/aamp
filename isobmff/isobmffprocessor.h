@@ -462,7 +462,6 @@ private:
 	uint32_t timeScale;
 	uint32_t currTimeScale;
 
-	double sumOfTrackDurationFromISOBuffer;
 	double startPos;
 	double prevPosition;
 	double prevDuration;
