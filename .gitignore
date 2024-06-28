@@ -7,9 +7,12 @@ test/VideoTestStream/hls/
 test/VideoTestStream/dash/
 test/VideoTestStream/temp/
 test/VideoTestStream/text/
+test/l2test/*/output
+test/l2test/*/aamp.*
 *.mp4
 __pycache__
 
 glib/
 subtec-app/
 Linux/googletest/
+.libs/

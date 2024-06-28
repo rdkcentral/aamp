@@ -1492,8 +1492,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							ReleasePlaylistLock();
 							return false;
 						}
-						ReleasePlaylistLock();
 						AAMPLOG_WARN("Calling ScheduleRetune to handle start-time reset lastSegmentTime=%" PRIu64 " start-time=%f" , pMediaStreamContext->lastSegmentTime, pMediaStreamContext->fragmentDescriptor.Time);
+						ReleasePlaylistLock();
 						aamp->ScheduleRetune(eDASH_ERROR_STARTTIME_RESET, pMediaStreamContext->mediaType);
 					}
 					else
@@ -1936,6 +1936,9 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						pMediaStreamContext->fragmentOffset += referenced_size;
 						retval = true;
 					}
+					// pMediaStreamContext->downloadedDuration is introduced to calculate the bufferedduration value for SegmentBase contents.
+                                        //Absolute position reporting
+                                        pMediaStreamContext->downloadedDuration = pMediaStreamContext->fragmentTime;
 				}
 				else
 				{ // done with index
@@ -2826,12 +2829,19 @@ void StreamAbstractionAAMP_MPD::ProcessManifestHeaderResponse(std::shared_ptr<Ma
 
 			for ( std::string header : headersNeeded )
 			{
+				header.erase(std::remove_if(header.begin(), header.end(), ::isspace),header.end()); // normalize - strip whitespace
 				for ( std::string availHeader : manifestResponseHeader )
 				{
-					if(STARTS_WITH_IGNORE_CASE(availHeader.c_str(), header.c_str()))
+					auto delim = availHeader.find(':');
+					if (delim != std::string::npos)
 					{
-						aamp->httpHeaderResponses[header] =	 availHeader.substr(header.length()+2);
-						break;
+						std:string headerString = availHeader.substr(0, delim); // normalize - strip whitespace
+						headerString.erase(std::remove_if(headerString.begin(), headerString.end(), ::isspace),headerString.end());
+						if(headerString == header)
+						{
+							aamp->httpHeaderResponses[header] = availHeader.substr(header.length()+2);
+							break;
+						}
 					}
 				}
 			}
@@ -8540,7 +8550,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					{
 						if (aamp->GetIsPeriodChangeMarked())
 						{
-							AAMPLOG_WARN("Discontinuity process is yet to complete, going to wait until it is done");
 							aamp->WaitForDiscontinuityProcessToComplete();
 						}
 
@@ -12212,7 +12221,7 @@ void StreamAbstractionAAMP_MPD::setNextobjectrequestUrl(std::string media,const 
 		replace(media, "Number", fragmentDescriptor->nextfragmentNum);
 		replace(media, "Time", (uint64_t)fragmentDescriptor->nextfragmentTime );
 	}
-	AAMPLOG_INFO("Current Frag Number %" PRIu64 "  nextfragmentNum : %" PRIu64 ",Current fragstarttime : %f nextfragmentTime : %f",fragmentDescriptor->Number,fragmentDescriptor->nextfragmentNum,fragmentDescriptor->Time,fragmentDescriptor->nextfragmentTime);
+	AAMPLOG_DEBUG("Current Frag Number %" PRIu64 "  nextfragmentNum : %" PRIu64 ",Current fragstarttime : %f nextfragmentTime : %f",fragmentDescriptor->Number,fragmentDescriptor->nextfragmentNum,fragmentDescriptor->Time,fragmentDescriptor->nextfragmentTime);
 	media = getrelativenorurl(media);
 	aamp->mCMCDCollector->CMCDSetNextObjectRequest( media ,(fragmentDescriptor)->Bandwidth,mediaType);
 }

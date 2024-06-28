@@ -93,11 +93,13 @@ def build_aamp(other_args):
     print("Build AAMP")
     opts = ""
     if "--coverage" in other_args:
-        opts = "-c"
+        opts = "-c "
+    if "-s" in other_args:
+        opts += "-s"
     os.chdir(aampdir)
     print(os.getcwd())
     sys.stdout.flush()
-    subprocess.run('bash install-aamp.sh {} -d $(pwd -P) -n || true'.format(opts), shell=True)
+    subprocess.run('bash install-aamp-new.sh {} -d $(pwd -P) -n || true'.format(opts), shell=True)
     # Build the subtec plugin that is needed for one of the tests.
     p = os.path.join(l2testdir, 'TST_1001_Webvtt')
     subprocess.run('./postscript.sh', shell=True, cwd=p)

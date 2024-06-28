@@ -103,7 +103,8 @@ else
 fi
 
 pip install pipreqs
-python3 ./run_l2_aamp.py -b -m ci_test_set || true
+# -s don't build subtec, we don't have credentials to clone that repo
+python3 ./run_l2_aamp.py -b -m ci_test_set -s || true
 
 deactivate || true
 

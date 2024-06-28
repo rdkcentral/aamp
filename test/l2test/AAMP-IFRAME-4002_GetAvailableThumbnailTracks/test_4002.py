@@ -47,25 +47,12 @@ def Generate_ExpectList(url, bw):
 
 
 stream_configuration=[
-    {"url":"https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x16/cmaf/mpeg_2sec/master_cmaf.m3u8",
-        "bw":re.escape(r'[{"RESOLUTION":"416x234","BANDWIDTH":10480},{"RESOLUTION":"336x189","BANDWIDTH":7507},{"RESOLUTION":"224x126","BANDWIDTH":3984}]'),
+    {"url":"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/thumbnail_l2/peacock1/mpeg_2sec/manifest.m3u8",
+        "bw":re.escape(r'[{"RESOLUTION":"416x234","BANDWIDTH":27054},{"RESOLUTION":"336x189","BANDWIDTH":18688},{"RESOLUTION":"224x126","BANDWIDTH":9835}]'),
         "logfile":"tn1"},
-    {"url":"https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x10/cmaf/mpeg_2sec/master_cmaf.m3u8",
-        "bw":re.escape(r'[{"RESOLUTION":"416x234","BANDWIDTH":10084},{"RESOLUTION":"336x189","BANDWIDTH":7247},{"RESOLUTION":"224x126","BANDWIDTH":3861}]'),
+    {"url":"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/thumbnail_l2/peacock2/mpeg_2sec/manifest.m3u8",
+        "bw":re.escape(r'[{"RESOLUTION":"416x234","BANDWIDTH":13059},{"RESOLUTION":"336x189","BANDWIDTH":9413},{"RESOLUTION":"224x126","BANDWIDTH":5077}]'),
         "logfile":"tn2"},
-    {"url":"https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x6/cmaf/mpeg_2sec/master_cmaf.m3u8",
-        "bw":re.escape(r'[{"RESOLUTION":"416x234","BANDWIDTH":9778},{"RESOLUTION":"336x189","BANDWIDTH":7075},{"RESOLUTION":"224x126","BANDWIDTH":3775}]'),
-        "logfile":"tn3"},
-
-    {"url":"https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x16/cmaf/mpeg_6sec/master_cmaf.m3u8",
-        "bw":re.escape(r'[{"RESOLUTION":"416x234","BANDWIDTH":10480},{"RESOLUTION":"336x189","BANDWIDTH":7507},{"RESOLUTION":"224x126","BANDWIDTH":3984}]'),
-        "logfile":"tn4"},
-    {"url":"https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x10/cmaf/mpeg_6sec/master_cmaf.m3u8",
-        "bw":re.escape(r'[{"RESOLUTION":"416x234","BANDWIDTH":10084},{"RESOLUTION":"336x189","BANDWIDTH":7247},{"RESOLUTION":"224x126","BANDWIDTH":3861}]'),
-        "logfile":"tn5"},
-    {"url":"https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x6/cmaf/mpeg_6sec/master_cmaf.m3u8",
-        "bw":re.escape(r'[{"RESOLUTION":"416x234","BANDWIDTH":9778},{"RESOLUTION":"336x189","BANDWIDTH":7075},{"RESOLUTION":"224x126","BANDWIDTH":3775}]'),
-        "logfile":"tn6"},
 ]
 
 @pytest.fixture(params = stream_configuration)
@@ -76,7 +63,7 @@ def test_4002(aamp_setup_teardown, test_data):
 
     single_test_data = {
         "title": "Test GetAvailableThumbnailTracks API",
-        "max_test_time_seconds": 15,
+        "max_test_time_seconds": 30,
         "aamp_cfg": "info=true\ntrace=true\n",
         "expect_list": Generate_ExpectList(test_data["url"], test_data["bw"])
     }

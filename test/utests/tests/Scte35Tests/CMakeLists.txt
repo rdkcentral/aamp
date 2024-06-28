@@ -26,9 +26,10 @@ set(EXEC_NAME Scte35Tests)
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/test/aampcli)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
+include_directories(${GTEST_INCLUDE_DIRS})
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
-    include_directories(${AAMP_ROOT}/Linux/include)
+    include_directories(${AAMP_ROOT}/.libs/include)
 endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
 
 include_directories(${UTESTS_ROOT}/mocks)
@@ -62,7 +63,7 @@ endif()
 
 # Use the real cJSON library
 target_link_directories(${EXEC_NAME} PUBLIC ${LIBCJSON_LIBRARY_DIRS})
-target_link_libraries(${EXEC_NAME} cjson fakes ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} -lgmock -lgtest -lpthread)
+target_link_libraries(${EXEC_NAME} cjson fakes ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GTEST_LINK_LIBRARIES} ${GMOCK_LINK_LIBRARIES} -lpthread)
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 set_target_properties(${EXEC_NAME} PROPERTIES COMPILE_FLAGS "-Wno-multichar")

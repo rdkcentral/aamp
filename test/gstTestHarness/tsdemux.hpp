@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2022 RDK Management
+ * Copyright 2024 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -343,7 +343,7 @@ private:
 			reserved = readBits(2);
 			assert( reserved == 0 ); // ES info length unused bits
 			int es_info_length = readBits( 10 );
-			for( int j=0; i<es_info_length; j++ )
+			for( int j=0; j<es_info_length; j++ )
 			{
 				int data = readByte(); (void)data;
 			}
@@ -524,11 +524,13 @@ private:
 		if( ts.payload_unit_start_indicator )
 		{
 			int start_code_prefix = readBits(24);
-			assert( start_code_prefix = 0x000001 );
-			pes.stream_id = readByte();
-			assert( pes.stream_id == eSTREAMTYPE_VIDEO || pes.stream_id == eSTREAMTYPE_AUDIO );
-			pes.pes_packet_length = readBits(16);
-			parseOptionalPesHeader();
+			if( start_code_prefix == 0x000001 )
+			{
+				pes.stream_id = readByte();
+				assert( pes.stream_id == eSTREAMTYPE_VIDEO || pes.stream_id == eSTREAMTYPE_AUDIO );
+				pes.pes_packet_length = readBits(16);
+				parseOptionalPesHeader();
+			}
 		}
 		
 		while( bits_read%(PACKET_SIZE*8) )

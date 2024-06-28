@@ -19,6 +19,7 @@ include(GoogleTest)
 
 pkg_check_modules(GMOCK REQUIRED gmock)
 pkg_check_modules(GTEST REQUIRED gtest)
+pkg_check_modules(LIBCJSON REQUIRED libcjson)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
@@ -26,14 +27,11 @@ set(EXEC_NAME AampCliSet)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/test/aampcli ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper)
 
-if(CMAKE_SYSTEM_NAME STREQUAL Linux)
-    include_directories(${AAMP_ROOT}/Linux/include)
-endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
-
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 
 set(TEST_SOURCES ExecuteTests.cpp

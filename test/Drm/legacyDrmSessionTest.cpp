@@ -37,7 +37,7 @@ TEST_GROUP(AampLegacyDrmSessionTests)
 		static string responseStr = response;
 
 		MockCurlSetPerformCallback([](CURL *curl, MockCurlWriteCallback writeCallback, void* writeData, void* userData) {
-			writeCallback((char*)responseStr.c_str(), 1, responseStr.size(), writeData);
+			writeCallback( responseStr.c_str(), 1, responseStr.size(), writeData );
 		}, this);
 	}
 

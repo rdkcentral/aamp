@@ -10,13 +10,8 @@ AAMP installed using install-aamp.sh script.
 
 This test plays the following streams:
 
-1 # https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x16/cmaf/mpeg_2sec/master_cmaf.m3u8
-2 # https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x10/cmaf/mpeg_2sec/master_cmaf.m3u8
-3 # https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x6/cmaf/mpeg_2sec/master_cmaf.m3u8
-4 # https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x16/cmaf/mpeg_6sec/master_cmaf.m3u8
-5 # https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x10/cmaf/mpeg_6sec/master_cmaf.m3u8
-6 # https://g004-vod-us-cmaf-stg-ak.cdn.peacocktv.com/pub/global/mPX/ylU/PCK_1606787164542_01_thumb_5x6/cmaf/mpeg_6sec/master_cmaf.m3u8
-
+1 # https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/thumbnail_l2/peacock1/mpeg_2sec/manifest.m3u8
+2 # https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/thumbnail_l2/peacock2/mpeg_2sec/manifest.m3u8
 
 and verifies that all video profiles are played correctly for 30s each.
 
@@ -24,7 +19,7 @@ and verifies that all video profiles are played correctly for 30s each.
 
 From the *test/l2test* folder run:
 
-./run_test.py -t 4003
+./run_l2_aamp.py -t 4004
 
 ## Example:
 
@@ -33,4 +28,4 @@ From the *test/l2test* folder run:
     cd test/l2test
     ./l2framework_testenv.sh
     source l2venv/bin/activate
-    ./run_test.py -t 4003
+    ./run_l2_aamp.py -t 4004

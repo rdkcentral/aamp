@@ -1175,7 +1175,7 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 					char *name      = (char *)cJSON_GetObjectItem(subitem, "name")->valuestring;
 					char *url       = (char *)cJSON_GetObjectItem(subitem, "url")->valuestring;
 					cJSON * license = cJSON_GetObjectItem(subitem, "licenseServerUrl");
-					char *licenseUrl= license ? license->valuestring : (char*)"";
+					const char *licenseUrl= license ? license->valuestring : "";
 					if(name && url )
 					{
 						ConfigChannelInfo channelInfo;

@@ -1,0 +1,15 @@
+diff --git a/subttxrend-common/src/StringUtils.cpp b/subttxrend-common/src/StringUtils.cpp
+index b295150..059471b 100644
+--- a/subttxrend-common/src/StringUtils.cpp
++++ b/subttxrend-common/src/StringUtils.cpp
+@@ -30,6 +30,9 @@
+ #include <cstdio>
+ #include <string>
+ #include <memory>
++#include <algorithm>
++#include <functional>
++#include <cctype>
+ 
+ namespace subttxrend
+ {
+    

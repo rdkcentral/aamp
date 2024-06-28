@@ -1729,8 +1729,12 @@ void PrivateInstanceAAMP::StopPausePositionMonitoring(std::string reason)
 void PrivateInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)
 {
 	// CID:306170 - Data race condition
-	std::unique_lock<std::mutex>lock(mDiscoCompleteLock);
-	mWaitForDiscoToComplete.wait(lock, [this]{ return (false == mIsPeriodChangeMarked); });
+	if(!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) || (mVideoFormat != FORMAT_ISO_BMFF))
+	{
+		AAMPLOG_WARN("Discontinuity process is yet to complete, going to wait until it is done");
+		std::unique_lock<std::mutex>lock(mDiscoCompleteLock);
+		mWaitForDiscoToComplete.wait(lock, [this]{ return (false == mIsPeriodChangeMarked); });
+	}
 }
 
 /**

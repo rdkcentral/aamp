@@ -1,7 +1,7 @@
 #!/bin/bash
 
 aampdir=$PWD/../..
-linuxbuilddir=$aampdir/Linux
+linuxbuilddir=$aampdir/.libs
 
 export LD_LIBRARY_PATH=${linuxbuilddir}/lib
 export RIALTO_SESSION_SERVER_PATH=${linuxbuilddir}/bin/RialtoServer

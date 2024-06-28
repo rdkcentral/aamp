@@ -23,12 +23,6 @@ set(UTESTS_ROOT "../../")
 set(EXEC_NAME AampTimeTests)
 
 include_directories(${AAMP_ROOT})
-
-if(CMAKE_SYSTEM_NAME STREQUAL Linux)
-    include_directories(${AAMP_ROOT}/Linux/include)
-    set(OS_LD_FLAGS -luuid)
-endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
-
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 

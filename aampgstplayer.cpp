@@ -51,6 +51,13 @@
 #include "aampoutputprotection.h"
 #endif
 
+#if GLIB_CHECK_VERSION(2, 68, 0)
+// avoid deprecated g_memdup when g_memdup2 available
+#define AAMP_G_MEMDUP(src, size) g_memdup2((src), (gsize)(size))
+#else
+#define AAMP_G_MEMDUP(src, size) g_memdup((src), (guint)(size))
+#endif
+
 #ifdef USE_EXTERNAL_STATS
 // narrowly define MediaType for backwards compatibility
 #define MediaType AampMediaType
@@ -2409,7 +2416,7 @@ void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *i
 	{
 		GstBuffer *pssi;
 
-		pssi = gst_buffer_new_wrapped(g_memdup (initData, (guint)initDataSize), (gsize)initDataSize);
+		pssi = gst_buffer_new_wrapped(AAMP_G_MEMDUP (initData, initDataSize), (gsize)initDataSize);
 		pthread_mutex_lock(&mProtectionLock);
 		if (this->aamp->IsDashAsset())
 		{
@@ -4498,7 +4505,7 @@ void AAMPGstPlayer::setVolumeOrMuteUnMute(void)
 {
 	const std::lock_guard<std::mutex> lock(privateContext->volumeMuteMutex);
 	GstElement *gSource = NULL;
-	char *propertyName = NULL;
+	const char *propertyName = NULL;
 	media_stream *stream = &privateContext->stream[eMEDIATYPE_AUDIO];
 
 	AAMPLOG_MIL(" volume == %lf muted == %s", privateContext->audioVolume, privateContext->audioMuted?"true":"false");
@@ -4509,19 +4516,19 @@ void AAMPGstPlayer::setVolumeOrMuteUnMute(void)
 	if (stream->using_playersinkbin && stream->sinkbin)
 	{
 		gSource = stream->sinkbin;
-		propertyName = (char*)"audio-mute";
+		propertyName = "audio-mute";
 	}
 #if (defined(__APPLE__) || defined(REALTEKCE))
 	else if (stream->sinkbin)
 	{
 		gSource = stream->sinkbin;
-		propertyName = (char*)"mute";
+		propertyName = "mute";
 	}
 #endif
 	else if (privateContext->audio_sink)
 	{
 		gSource = privateContext->audio_sink;
-		propertyName = (char*)"mute";
+		propertyName = "mute";
 	}
 	else
 	{
@@ -5452,7 +5459,6 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 		AAMPLOG_ERR("AAMPGstPlayer: Rate change failed : %g [gst_element_send_event]", rate);
 		return false;
 	}
-	gst_event_unref(rate_event);
 	AAMPLOG_MIL ("Current rate: %g", rate);	
 #elif defined (BRCM)
 	AAMPLOG_MIL("send custom-instant-rate-change : %f ...", rate);
@@ -5489,7 +5495,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 			AAMPLOG_ERR("failed to push rate_event %p to audio decoder %p", (void*)rate_event, (void*)privateContext->audio_dec);
 		}
 	}
-
+	// Unref since we have explicitly increased ref count
 	gst_event_unref(rate_event);
 	AAMPLOG_MIL ("Current rate: %g", rate);
 #else //Non BRCM/AMLOGIC/REALTEK case

@@ -27,6 +27,7 @@
 #include <array>
 #include <vector>
 #include <functional>
+#include <cstdint> // for std::uint8_t
 
 namespace aamp
 {

@@ -27,6 +27,7 @@
 
 #include <string>
 #include <vector>
+#include <cstdint> // for uint8_t
 
 #include <cjson/cJSON.h>
 

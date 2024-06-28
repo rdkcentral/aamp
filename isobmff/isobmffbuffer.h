@@ -324,12 +324,12 @@ public:
 	void getSampleDuration(Box *box, uint64_t &fduration);
 
 	/**
-	 * @fn getSampleDurationInernal
+	 * @fn getSampleDurationInternal
 	 *
 	 * @param[in] boxes - ISOBMFF boxes
 	 * @return uint64_t - duration  value
 	 */
-	uint64_t getSampleDurationInernal(const std::vector<Box*> *boxes);
+	uint64_t getSampleDurationInternal(const std::vector<Box*> *boxes);
 
 	/**
 	 * @fn getPts

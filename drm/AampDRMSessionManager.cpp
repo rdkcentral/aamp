@@ -1503,15 +1503,15 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 
 				int tokenLen = 0;
 				int tokenError = 0;
-				char *sessionToken = NULL;
+				const char *sessionToken = NULL;
 				if(!usingAppDefinedAuthToken)
 				{ /* authToken not set externally by app */
-					sessionToken = (char *)getAccessToken(tokenLen, tokenError , aampInstance->mConfig->IsConfigSet(eAAMPConfig_SslVerifyPeer));
+					sessionToken = getAccessToken(tokenLen, tokenError , aampInstance->mConfig->IsConfigSet(eAAMPConfig_SslVerifyPeer));
 					AAMPLOG_WARN("Access Token from AuthServer");
 				}
 				else
 				{
-					sessionToken = (char *)aampInstance->mSessionToken.c_str();
+					sessionToken = aampInstance->mSessionToken.c_str();
 					tokenLen = (int)aampInstance->mSessionToken.size();
 					AAMPLOG_WARN("Got Access Token from External App");
 				}

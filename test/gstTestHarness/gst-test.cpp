@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2022 RDK Management
+ * Copyright 2024 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,14 @@
  * limitations under the License.
  */
 #include "gst-port.h"
+#include "gst-test.h"
 #include <string.h>
-#include <queue>
-#include <curl/curl.h>
 #include "tsdemux.hpp"
+#include "turbo_xml.hpp"
+#include "downloader.hpp"
+#include "stream_utils.hpp"
+#include "dash_adapter.hpp"
+#include "turbo_xml.hpp"
 
 static double gPtsOffset = 0.0; // used with es injection, as alternative to gst_pad_set_offset
 
@@ -51,7 +55,6 @@ static enum
 
 static int m_ff_delta = 1;
 static int m_ff_delay = 250;
-static int mPadProbeCount[2];
 
 static const char *GetCapsFormat()
 {
@@ -65,75 +68,47 @@ static const char *GetCapsFormat()
 	}
 }
 
-class MyPipelineContext : PipelineContext
-{
-public:
-	class Pipeline *pipeline;
-	int numPendingEOS;
-	double nextPTS;
-	double nextTime;
-	bool needsData[NUM_MEDIA_TYPES];
-	
-	MyPipelineContext( void ): numPendingEOS(0), nextPTS(0.0), nextTime(0.0), needsData(),pipeline(new Pipeline( this ))
+MyPipelineContext::MyPipelineContext( void ): numPendingEOS(0), nextPTS(0.0), nextTime(0.0), track(), pipeline(new Pipeline( this ))
 	{
-		needsData[eMEDIATYPE_AUDIO] = false;
-		needsData[eMEDIATYPE_VIDEO] = false;
 	}
 	
-	~MyPipelineContext()
+	MyPipelineContext::~MyPipelineContext()
 	{
 		delete pipeline;
 	}
 	
-	void ReachedEOS( void )
+void MyPipelineContext::ReachedEOS( void )
+{
+	printf( "app_ReachedEOS\n" );
+	if( numPendingEOS>0 )
 	{
-		printf( "app_ReachedEOS\n" );
-		if( numPendingEOS>0 )
-		{
-			numPendingEOS--;
-			if( numPendingEOS==0 )
-			{ // both tracks reached their respective EOS
-				printf( "nextPTS=%f\n", nextPTS );
-				double rate = 1.0;
-				double start = nextPTS;
-				double stop = -1;
-				double pts_offset = 0;
-				pipeline->Flush( rate, start, stop, nextTime, pts_offset );
-			}
+		numPendingEOS--;
+		if( numPendingEOS==0 )
+		{ // both tracks reached their respective EOS
+			printf( "nextPTS=%f\n", nextPTS );
+			double rate = 1.0;
+			double start = nextPTS;
+			double stop = -1;
+			double pts_offset = 0;
+			pipeline->Flush( rate, start, stop, nextTime, pts_offset );
 		}
 	}
+}
 	
-	
-	void NeedData( MediaType mediaType )
-	{
-		needsData[mediaType] = true;
-	}
-	
-	void EnoughData( MediaType mediaType )
-	{
-		needsData[mediaType] = false;
-	}
-	
-	void PadProbeCallback( MediaType mediaType )
-	{
-		//printf( "PadProbeCallback: %s\n", (mediaType==eMEDIATYPE_AUDIO)?"audio":"video" );
-		mPadProbeCount[mediaType]++;
-	}
-	
-	//copy constructor
-	MyPipelineContext(const MyPipelineContext&)=delete;
-	//copy assignment operator
-	MyPipelineContext& operator=(const MyPipelineContext&)=delete;
-};
-
-typedef enum
+void MyPipelineContext::NeedData( MediaType mediaType )
 {
-	eVIDEORESOLUTION_IFRAME = 0,
-	eVIDEORESOLUTION_360P = 360,
-	eVIDEORESOLUTION_480P = 480,
-	eVIDEORESOLUTION_720P = 720,
-	eVIDEORESOLUTION_1080P = 1080
-} VideoResolution;
+	track[mediaType].needsData = true;
+}
+	
+void MyPipelineContext::EnoughData( MediaType mediaType )
+{
+	track[mediaType].needsData = false;
+}
+	
+void MyPipelineContext::PadProbeCallback( MediaType mediaType )
+{
+	track[mediaType].padProbeCount++;
+}
 
 static char base_path[MAX_BASE_PATH_SIZE] = DEFAULT_BASE_PATH;
 
@@ -193,196 +168,6 @@ void GetVideoSegmentPath( char path[MAX_PATH_SIZE], int segmentNumber, VideoReso
 	}
 }
 
-class TrackEvent
-{
-public:
-	TrackEvent(){}
-	virtual ~TrackEvent(){};
-	virtual bool Inject( MyPipelineContext *context, MediaType mediaType ) = 0;
-};
-
-/**
- * @class Curl context class
- *
- * Use a static instance of this class to enable connection reuse by the Curl
- * library.
- */
-class CurlContext
-{
-public:
-	/**
-	 * @brief Constructor
-	 */
-	CurlContext () : curl(),capacity(),size(),buffer()
-	{
-		clear();
-		
-		curl = curl_easy_init();
-		if (curl == NULL)
-		{
-			printf("Failed to create curl context\n");
-			exit(1);
-		}
-	}
-	
-	/**
-	 * @brief Destructor
-	 */
-	~CurlContext()
-	{
-		curl_easy_cleanup(curl);
-	}
-	
-	/**
-	 * @brief Clear downloaded data
-	 */
-	void clear()
-	{
-		capacity = 0;
-		size = 0;
-		buffer = NULL;
-	}
-	
-	/**
-	 * @brief Curl write callback
-	 *
-	 * Downloaded data is written into the context data buffer. The buffer is
-	 * extended if required.
-	 *
-	 * @param[in] ptr Downloaded data
-	 * @param[in] size Size of downloaded data element
-	 * @param[in] nmemb Number of downloaded data elements
-	 * @param[in] context Curl context
-	 * @return The number of bytes written
-	 */
-	static size_t write_callback(char *ptr, size_t size, size_t nmemb, CurlContext *context)
-	{
-		gsize total = size*nmemb;
-		
-		if ((context->size + total) > context->capacity)
-		{
-			context->capacity = context->size + total;
-			context->buffer = (char *)g_realloc(context->buffer, context->capacity);
-		}
-		
-		if (context->buffer == NULL)
-		{
-			printf("Failed to extend buffer to %d bytes\n", (int)context->capacity);
-			exit(1);
-		}
-		else
-		{
-			(void)memcpy(&context->buffer[context->size], ptr, total);
-			context->size += total;
-		}
-		
-		return total;
-	}
-	
-	CURL *curl;			/**< @brief Curl library context handle */
-	gsize capacity;		/**< @brief Buffer capacity */
-	gsize size;			/**< @brief Number of buffered bytes */
-	char *buffer;		/**< @brief Downloaded data buffer */
-	
-	//copy constructor
-	CurlContext(const CurlContext&)=delete;
-	//copy assignment operator
-	CurlContext& operator=(const CurlContext&)=delete;
-};
-
-/**
- @brief download file
- @param path url or location in file system
- @param pLen received size of bytes in file
- @return pointer to allocated memory holding file contents, or NULL if the file
- doesn't exist or can't be downloaded/read/allocated
- */
-gpointer ReadFile( const char *path, gsize *pLen )
-{
-	gpointer ptr = NULL;
-	gsize len = 0;
-	// Use a static curl context here to enable connection reuse.
-	static CurlContext context;
-	
-	printf( "ReadFile %s\n", path );
-	
-	if ((strncmp(path, "http://", strlen("http://")) == 0) ||
-		(strncmp(path, "https://", strlen("https://")) == 0) ||
-		(strncmp(path, "file://", strlen("file://")) == 0))
-	{
-		(void)curl_easy_setopt(context.curl, CURLOPT_BUFFERSIZE, BUFFER_SIZE); // needed?
-		(void)curl_easy_setopt(context.curl, CURLOPT_URL, path);
-		(void)curl_easy_setopt(context.curl, CURLOPT_FOLLOWLOCATION, 1L);
-		(void)curl_easy_setopt(context.curl, CURLOPT_WRITEFUNCTION, CurlContext::write_callback);
-		(void)curl_easy_setopt(context.curl, CURLOPT_WRITEDATA, &context);
-		(void)curl_easy_setopt(context.curl, CURLOPT_TCP_KEEPALIVE, 1L);
-		
-		context.clear();
-		CURLcode rc = curl_easy_perform(context.curl);
-		if (CURLE_OK == rc)
-		{
-			long response_code = 0;
-			(void)curl_easy_getinfo(context.curl, CURLINFO_RESPONSE_CODE, &response_code);
-			if (response_code == 200)
-			{
-				ptr = (gpointer)context.buffer;
-				len = context.size;
-			}
-			else
-			{
-				printf( "http error: %ld %s\n", response_code, path );
-				g_free(context.buffer);
-			}
-		}
-		else
-		{
-			printf( "curl failure: %d %s\n", rc, path );
-			g_free(context.buffer);
-		}
-	}
-	else
-	{
-		FILE *f = fopen(path,"rb");
-		if( f )
-		{
-			(void)fseek(f,0,SEEK_END);
-			len = ftell(f);
-			if (len == -1)
-			{
-				printf("Failed to get file position\n");
-				(void)fclose(f);
-				return NULL;
-			}
-			(void)fseek(f,0,SEEK_SET);
-			ptr = g_malloc(len);
-			if (NULL == ptr)
-			{
-				printf("Failed to allocate buffer\n");
-				(void)fclose(f);
-				return NULL;
-			}
-			size_t count = fread(ptr,1,len,f);
-			if( count != len )
-			{
-				g_free( ptr );
-				ptr = NULL;
-				len = 0;
-			}
-			*pLen = len;
-			(void)fclose( f );
-		}
-		else
-		{
-			printf( "file not found: %s\n", path );
-			printf( "have you generated required test content?\n" );
-			printf( "run aamp/test/VideoTestStream/generate-hls-dash.sh\n");
-			exit(0);
-		}
-	}
-	*pLen = len;
-	return ptr;
-}
-
 /**
  * @brief segment buffer supporting data loading and injection
  */
@@ -396,21 +181,28 @@ private:
 	// for demuxed ts segment
 	TsDemux *tsDemux;
 	double pts_offset;
+	std::string url;
 	
-public:
-	TrackFragment( const char *path ):len(), ptr(), tsDemux(), pts_offset()
+	void Load( void )
 	{
 		if( mContentFormat == eCONTENTFORMAT_ES )
 		{
-			tsDemux = new TsDemux( path );
+			tsDemux = new TsDemux( url.c_str() );
 			assert( tsDemux );
 			pts_offset = gPtsOffset;
 		}
 		else
 		{
-			ptr = ReadFile(path,&len);
-			assert( this->ptr );
+			ptr = LoadUrl(url,&len);
+			//assert( this->ptr );
 		}
+	}
+	
+public:
+	TrackFragment( const char *path ):len(), ptr(), tsDemux(), pts_offset()
+	{
+		url = path;
+		//Load(); // preload all content up-front
 	}
 	
 	~TrackFragment()
@@ -421,6 +213,7 @@ public:
 	
 	bool Inject( MyPipelineContext *context, MediaType mediaType )
 	{
+		Load(); // lazily load segment data when needed
 		if( tsDemux )
 		{
 			int count = tsDemux->count();
@@ -442,11 +235,11 @@ public:
 				}
 			}
 		}
-		else
+		else if( ptr )
 		{
 			context->pipeline->SendBuffer( mediaType, ptr, len );
+			ptr = NULL;
 		}
-		ptr = NULL;
 		return true;
 	}
 	
@@ -527,7 +320,7 @@ public:
 		}
 		
 		gsize len;
-		gpointer ptr = ReadFile(path,&len);
+		gpointer ptr = LoadUrl(path,&len);
 		if( ptr )
 		{
 			context->pipeline->SendBuffer( mediaType, ptr, len );
@@ -663,6 +456,7 @@ private:
 public:
 	TrackNext( int injectCount ) : injectCount(injectCount)
 	{
+		printf( "TrackNext; injectCount = %d\n", injectCount );
 	}
 	
 	~TrackNext()
@@ -671,7 +465,7 @@ public:
 	
 	bool Inject( MyPipelineContext *context, MediaType mediaType)
 	{
-		if( mPadProbeCount[mediaType]>=injectCount )
+		if( context->track[mediaType].padProbeCount>=injectCount )
 		{
 			printf( "UNBLOCKING %s\n", (mediaType==eMEDIATYPE_AUDIO)?"audio":"video" );
 			return true;
@@ -799,122 +593,112 @@ public:
 	}
 };
 
-/**
- * @brief application managed track abstraction
- * @todo this could be pushed lower into gst_port.cpp, but for not it's a layer above gstreamer abstraction
- */
-class Track
+Track::Track() : queue(new std::queue<class TrackEvent *>), injectCount(), needsData(), padProbeCount()
 {
-public:
-	std::queue<class TrackEvent *> *queue; // sequential segments/commands, not yet injected
+}
 	
-	Track() : queue(new std::queue<class TrackEvent *>)
+Track::~Track()
+{
+	delete queue;
+}
+	
+void Track::Flush( void )
+{
+	while( !queue->empty() )
 	{
+		auto trackEvent = queue->front();
+		queue->pop();
+		delete trackEvent;
 	}
-	
-	~Track()
-	{
-		delete queue;
-	}
-	
-	void Flush( void )
-	{
-		while( !queue->empty() )
-		{
-			auto trackEvent = queue->front();
-			queue->pop();
-			delete trackEvent;
-		}
-	}
-	
-	void Enqueue( TrackEvent *TrackEvent )
-	{
-		queue->push( TrackEvent );
-	}
-	
-	void QueueVideoHeader( VideoResolution resolution )
-	{
-		if( mContentFormat == eCONTENTFORMAT_MP4 )
-		{
-			char path[MAX_PATH_SIZE];
-			GetVideoIHeaderPath(path, resolution );
-			Enqueue( new TrackFragment( path ) );
-		}
-	}
-	
-	void QueueVideoSegment( VideoResolution resolution, int startIndex, int count )
+	injectCount = 0;
+}
+
+void Track::EnqueueSegment( TrackEvent *TrackEvent )
+{
+	injectCount++;
+	queue->push( TrackEvent );
+}
+void Track::EnqueueControl( TrackEvent *TrackEvent )
+{
+	queue->push( TrackEvent );
+}
+
+void Track::QueueVideoHeader( VideoResolution resolution )
+{
+	if( mContentFormat == eCONTENTFORMAT_MP4 )
 	{
 		char path[MAX_PATH_SIZE];
-		double pts = startIndex*SEGMENT_DURATION_SECONDS;
-		if( count>0 )
-		{
-			while( count>0 )
-			{
-				GetVideoSegmentPath(path, startIndex, resolution );
-				Enqueue( new TrackFragment( path ) );
-				pts += SEGMENT_DURATION_SECONDS;
-				startIndex++;
-				count--;
-			}
-		}
-		else
-		{
-			while( count<0 )
-			{
-				GetVideoSegmentPath(path, startIndex, resolution );
-				Enqueue( new TrackFragment( path ) );
-				pts -= SEGMENT_DURATION_SECONDS;
-				startIndex--;
-				count++;
-			}
-		}
+		GetVideoIHeaderPath(path, resolution );
+		EnqueueSegment( new TrackFragment( path ) );
 	}
-	
-	/**
-	 * @brief convenience method to collect init header and subsequent segments for an audio/video track
-	 */
-	void QueueAudioHeader( const char *language )
+}
+
+void Track::QueueVideoSegment( VideoResolution resolution, int startIndex, int count )
+{
+	char path[MAX_PATH_SIZE];
+	double pts = startIndex*SEGMENT_DURATION_SECONDS;
+	if( count>0 )
 	{
-		if( mContentFormat == eCONTENTFORMAT_MP4 )
+		while( count>0 )
 		{
-			char path[MAX_PATH_SIZE];
-			GetAudioHeaderPath( path, language );
-			Enqueue( new TrackFragment( path ) );
+			GetVideoSegmentPath(path, startIndex, resolution );
+			EnqueueSegment( new TrackFragment( path ) );
+			pts += SEGMENT_DURATION_SECONDS;
+			startIndex++;
+			count--;
 		}
 	}
-	
-	void QueueAudioSegment( const char *language, int startIndex, int count )
+	else
+	{
+		while( count<0 )
+		{
+			GetVideoSegmentPath(path, startIndex, resolution );
+			EnqueueSegment( new TrackFragment( path ) );
+			pts -= SEGMENT_DURATION_SECONDS;
+			startIndex--;
+			count++;
+		}
+	}
+}
+
+/**
+ * @brief convenience method to collect init header and subsequent segments for an audio/video track
+ */
+void Track::QueueAudioHeader( const char *language )
+{
+	if( mContentFormat == eCONTENTFORMAT_MP4 )
 	{
 		char path[MAX_PATH_SIZE];
-		double pts = startIndex*SEGMENT_DURATION_SECONDS;
-		for( int i=0; i<count; i++ )
-		{
-			int segmentNumber = startIndex + i;
-			GetAudioSegmentPath( path, segmentNumber, language );
-			Enqueue( new TrackFragment( path ) );
-			pts += SEGMENT_DURATION_SECONDS;
-		}
+		GetAudioHeaderPath( path, language );
+		EnqueueSegment( new TrackFragment( path ) );
 	}
-	
-	
-	/**
-	 * @brief convenience method to queue multiple gap events
-	 */
-	void QueueGap( int startIndex, int count )
+}
+
+void Track::QueueAudioSegment( const char *language, int startIndex, int count )
+{
+	char path[MAX_PATH_SIZE];
+	double pts = startIndex*SEGMENT_DURATION_SECONDS;
+	for( int i=0; i<count; i++ )
 	{
-		double pts = startIndex*SEGMENT_DURATION_SECONDS;
-		for( int i=0; i<count; i++ )
-		{
-			Enqueue( new TrackGap( pts, SEGMENT_DURATION_SECONDS ) );
-			pts += SEGMENT_DURATION_SECONDS;
-		}
+		int segmentNumber = startIndex + i;
+		GetAudioSegmentPath( path, segmentNumber, language );
+		EnqueueSegment( new TrackFragment( path ) );
+		pts += SEGMENT_DURATION_SECONDS;
 	}
-	
-	//copy constructor
-	Track(const Track&)=delete;
-	//copy assignment operator
-	Track& operator=(const Track&)=delete;
-};
+}
+
+/**
+ * @brief convenience method to queue multiple gap events
+ */
+void Track::QueueGap( int startIndex, int count )
+{
+	double pts = startIndex*SEGMENT_DURATION_SECONDS;
+	for( int i=0; i<count; i++ )
+	{
+		EnqueueControl( new TrackGap( pts, SEGMENT_DURATION_SECONDS ) );
+		pts += SEGMENT_DURATION_SECONDS;
+	}
+}
 
 typedef struct
 {
@@ -941,7 +725,6 @@ public:
 	GMainLoop *main_loop;
 	bool logPositionChanges;
 	long long last_reported_position;
-	class Track track[NUM_MEDIA_TYPES];
 	int autoStepCount;
 	gulong autoStepDelayMs;
 	
@@ -956,11 +739,11 @@ public:
 	
 	void Flush( double rate = 1, double start = 0, double stop = -1, double baseTime = 0, double pts_offset = 0.0 )
 	{
-		track[eMEDIATYPE_VIDEO].Flush();
-		track[eMEDIATYPE_AUDIO].Flush();
+		pipelineContext.track[eMEDIATYPE_VIDEO].Flush();
+		pipelineContext.track[eMEDIATYPE_AUDIO].Flush();
 		pipelineContext.pipeline->Flush(rate,start,stop,baseTime,pts_offset);
-		// pipelineContext.pipeline->SetTimestampOffset(eMEDIATYPE_AUDIO,0.0);
-		// pipelineContext.pipeline->SetTimestampOffset(eMEDIATYPE_AUDIO,0.0);
+		pipelineContext.track[eMEDIATYPE_VIDEO].padProbeCount = 0;
+		pipelineContext.track[eMEDIATYPE_AUDIO].padProbeCount = 0;
 	}
 	
 	void TestABR( void )
@@ -972,7 +755,7 @@ public:
 		
 		//Flush(1,0,-1,0,-1.8);
 		
-		Track &video = track[eMEDIATYPE_VIDEO];
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
 		
 		video.QueueVideoHeader( eVIDEORESOLUTION_360P );
 		video.QueueVideoSegment(eVIDEORESOLUTION_360P, count++, 1 );
@@ -995,12 +778,12 @@ public:
 		video.QueueVideoHeader( eVIDEORESOLUTION_360P );
 		video.QueueVideoSegment(eVIDEORESOLUTION_360P, count++, 1 );
 		
-		video.Enqueue( new TrackEOS() );
+		video.EnqueueControl( new TrackEOS() );
 		
-		Track &audio = track[eMEDIATYPE_AUDIO];
+		Track &audio = pipelineContext.track[eMEDIATYPE_AUDIO];
 		audio.QueueAudioHeader(language );
 		audio.QueueAudioSegment(language, 0, count );
-		audio.Enqueue( new TrackEOS() );
+		audio.EnqueueControl( new TrackEOS() );
 		
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, GetCapsFormat() );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO, GetCapsFormat() );
@@ -1009,8 +792,8 @@ public:
 	
 	void TestDAI( void )
 	{
-		Track &video = track[eMEDIATYPE_VIDEO];
-		Track &audio = track[eMEDIATYPE_AUDIO];
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
+		Track &audio = pipelineContext.track[eMEDIATYPE_AUDIO];
 		double rate = 1.0;
 		double start = mPeriodInfo[0].startIndex*SEGMENT_DURATION_SECONDS;
 		double stop = -1;
@@ -1041,12 +824,12 @@ public:
 			{
 				periodInfo = &mPeriodInfo[i+1];
 				double nextPTS = periodInfo->startIndex*SEGMENT_DURATION_SECONDS;
-				video.Enqueue( new TrackDiscontinuity( nextPTS, baseTime ) );
-				audio.Enqueue( new TrackDiscontinuity( nextPTS, baseTime ) );
+				video.EnqueueControl( new TrackDiscontinuity( nextPTS, baseTime ) );
+				audio.EnqueueControl( new TrackDiscontinuity( nextPTS, baseTime ) );
 			}
 		}
-		video.Enqueue( new TrackEOS() );
-		audio.Enqueue( new TrackEOS() );
+		video.EnqueueControl( new TrackEOS() );
+		audio.EnqueueControl( new TrackEOS() );
 		
 		// configure pipelines and begin streaming
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, GetCapsFormat() );
@@ -1056,11 +839,8 @@ public:
 	
 	void TestDAI2( void )
 	{
-		Track &video = track[eMEDIATYPE_VIDEO];
-		Track &audio = track[eMEDIATYPE_AUDIO];
-		int injectCount = 0;
-		mPadProbeCount[eMEDIATYPE_AUDIO] = 0;
-		mPadProbeCount[eMEDIATYPE_VIDEO] = 0;
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
+		Track &audio = pipelineContext.track[eMEDIATYPE_AUDIO];
 		double first_pts = 0.0;
 		double last_pts = 0.0;
 		for( int i=0; i<ARRAY_SIZE(mPeriodInfo); i++ )
@@ -1091,21 +871,15 @@ public:
 				else
 				{ // use gst_pad_set_offset
 					// wait for pad probe to ack prior segment processing
-					video.Enqueue( new TrackNext(injectCount) );
-					audio.Enqueue( new TrackNext(injectCount) );
+					video.EnqueueControl( new TrackNext(video.injectCount) );
+					audio.EnqueueControl( new TrackNext(audio.injectCount) );
 					
 					// update pts offset
-					video.Enqueue( new TrackTimestampOffset(pts_offset) );
-					audio.Enqueue( new TrackTimestampOffset(pts_offset) );
+					video.EnqueueControl( new TrackTimestampOffset(pts_offset) );
+					audio.EnqueueControl( new TrackTimestampOffset(pts_offset) );
 				}
 			}
 			last_pts += periodInfo->segmentCount*SEGMENT_DURATION_SECONDS;
-			
-			injectCount += periodInfo->segmentCount;
-			if( mContentFormat == eCONTENTFORMAT_MP4 )
-			{
-				injectCount++; // init header
-			}
 			video.QueueVideoHeader( periodInfo->resolution );
 			video.QueueVideoSegment(
 									periodInfo->resolution,
@@ -1119,8 +893,8 @@ public:
 									periodInfo->segmentCount );
 		}
 		
-		video.Enqueue( new TrackEOS() );
-		audio.Enqueue( new TrackEOS() );
+		video.EnqueueControl( new TrackEOS() );
+		audio.EnqueueControl( new TrackEOS() );
 		
 		// configure pipelines and begin streaming
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, GetCapsFormat() );
@@ -1134,18 +908,18 @@ public:
 		double rate = 1.0;
 		Flush(rate,start,stop,start);
 		
-		Track &video = track[eMEDIATYPE_VIDEO];
-		Track &audio = track[eMEDIATYPE_AUDIO];
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
+		Track &audio = pipelineContext.track[eMEDIATYPE_AUDIO];
 		
 		int startIndex = start / SEGMENT_DURATION_SECONDS;
 		
 		VideoResolution resolution = eVIDEORESOLUTION_360P;
 		
 		video.QueueVideoHeader( resolution ); // video initialization header
-		video.Enqueue(new TrackStreamer(resolution, startIndex ) );
+		video.EnqueueControl(new TrackStreamer(resolution, startIndex ) );
 		
 		audio.QueueAudioHeader( language ); // audio initialization header
-		audio.Enqueue(new TrackStreamer(language, startIndex ) );
+		audio.EnqueueControl(new TrackStreamer(language, startIndex ) );
 		
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, GetCapsFormat() );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO, GetCapsFormat() );
@@ -1153,31 +927,31 @@ public:
 	}
 	
 	void Test_Seek( double seek_pos )
-        {
+	{
 		printf("Test_Seek : seek_pos %lf",seek_pos);
-		Track &video = track[eMEDIATYPE_VIDEO];
-		Track &audio = track[eMEDIATYPE_AUDIO];
-
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
+		Track &audio = pipelineContext.track[eMEDIATYPE_AUDIO];
+		
 		Flush();
-
+		
 		int startIndex = (seek_pos / SEGMENT_DURATION_SECONDS);
 		VideoResolution resolution = eVIDEORESOLUTION_360P;
 		video.QueueVideoHeader( resolution ); //video initialization header
-		video.Enqueue(new TrackStreamer(resolution, startIndex ) );
+		video.EnqueueControl(new TrackStreamer(resolution, startIndex ) );
 		audio.QueueAudioHeader( "en" ); // audio initialization header
-		audio.Enqueue(new TrackStreamer("en", startIndex ) );
-
+		audio.EnqueueControl(new TrackStreamer("en", startIndex ) );
+		
 		pipelineContext.pipeline->Flush( eMEDIATYPE_VIDEO, seek_pos );
 		pipelineContext.pipeline->Flush( eMEDIATYPE_AUDIO, seek_pos );
-
-        }
-
+		
+	}
+	
 	/**
 	 * @brief fast forward through iframes with 250s wait and flush after each presentation
 	 */
 	void TestFF_Seek( void )
 	{
-		Track &video = track[eMEDIATYPE_VIDEO];
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
 		Flush();
 		video.QueueVideoHeader( eVIDEORESOLUTION_IFRAME );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, GetCapsFormat() );
@@ -1185,11 +959,11 @@ public:
 		for( int frame=0; frame<SEGMENT_COUNT; frame ++ )
 		{
 			video.QueueVideoSegment( eVIDEORESOLUTION_IFRAME, frame, 1 );
-			video.Enqueue(new TrackEOS() ); // needed for small segment to render
-			video.Enqueue( new TrackWaitState(ePIPELINESTATE_PAUSED) ); // block until visible
-			video.Enqueue( new TrackSleep(IFRAME_TRACK_CADENCE_MS) );
+			video.EnqueueControl(new TrackEOS() ); // needed for small segment to render
+			video.EnqueueControl( new TrackWaitState(ePIPELINESTATE_PAUSED) ); // block until visible
+			video.EnqueueControl( new TrackSleep(IFRAME_TRACK_CADENCE_MS) );
 			double pts = frame*SEGMENT_DURATION_SECONDS;
-			video.Enqueue( new TrackFlush( 1, pts, -1, pts ) );
+			video.EnqueueControl( new TrackFlush( 1, pts, -1, pts ) );
 		}
 	}
 	
@@ -1198,11 +972,11 @@ public:
 	 */
 	void TestFF_Rate( void )
 	{
-		Track &video = track[eMEDIATYPE_VIDEO];
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
 		Flush( 8/*rate*/ );
 		video.QueueVideoHeader( eVIDEORESOLUTION_IFRAME );
 		video.QueueVideoSegment( eVIDEORESOLUTION_IFRAME, 0, SEGMENT_COUNT );
-		video.Enqueue( new TrackEOS() );
+		video.EnqueueControl( new TrackEOS() );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, GetCapsFormat() );
 		pipelineContext.pipeline->SetPipelineState( ePIPELINESTATE_PLAYING );
 	}
@@ -1212,7 +986,7 @@ public:
 	 */
 	void TestREW_Seek( void )
 	{
-		Track &video = track[eMEDIATYPE_VIDEO];
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
 		double rate = 1;
 		bool first = true;
 		int frame = SEGMENT_COUNT;
@@ -1229,12 +1003,12 @@ public:
 			}
 			else
 			{
-				video.Enqueue( new TrackFlush( 1, pts, -1, pts ) );
+				video.EnqueueControl( new TrackFlush( 1, pts, -1, pts ) );
 			}
 			video.QueueVideoSegment(eVIDEORESOLUTION_IFRAME, frame, 1 );
-			video.Enqueue( new TrackEOS() ); // needed for small segment to render
-			video.Enqueue( new TrackWaitState(ePIPELINESTATE_PAUSED) );
-			video.Enqueue( new TrackSleep(IFRAME_TRACK_CADENCE_MS) );
+			video.EnqueueControl( new TrackEOS() ); // needed for small segment to render
+			video.EnqueueControl( new TrackWaitState(ePIPELINESTATE_PAUSED) );
+			video.EnqueueControl( new TrackSleep(IFRAME_TRACK_CADENCE_MS) );
 		}
 	}
 	
@@ -1245,14 +1019,14 @@ public:
 	 */
 	void TestREW_Rate( void )
 	{
-		Track &video = track[eMEDIATYPE_VIDEO];
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
 		int frame = SEGMENT_COUNT-1;
 		double rate = -8;
 		double pts = frame*SEGMENT_DURATION_SECONDS;
 		Flush( rate, pts, 0, pts );
 		video.QueueVideoHeader(eVIDEORESOLUTION_IFRAME );
 		video.QueueVideoSegment(eVIDEORESOLUTION_IFRAME, frame, -SEGMENT_COUNT );
-		video.Enqueue( new TrackEOS() );
+		video.EnqueueControl( new TrackEOS() );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, GetCapsFormat() );
 		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
 	} // TestREW
@@ -1263,14 +1037,14 @@ public:
 	 */
 	void TestREW_Step( void )
 	{
-		Track &video = track[eMEDIATYPE_VIDEO];
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
 		int frame = SEGMENT_COUNT-1;
 		double rate = -1;
 		double pts = frame*SEGMENT_DURATION_SECONDS;
 		Flush( rate, pts, 0, pts );
 		video.QueueVideoHeader( eVIDEORESOLUTION_IFRAME );
 		video.QueueVideoSegment( eVIDEORESOLUTION_IFRAME, frame, -SEGMENT_COUNT );
-		video.Enqueue( new TrackEOS() );
+		video.EnqueueControl( new TrackEOS() );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, GetCapsFormat() );
 		pipelineContext.pipeline->SetPipelineState( ePIPELINESTATE_PAUSED );
 		
@@ -1292,8 +1066,8 @@ public:
 	{
 		VideoResolution resolution = eVIDEORESOLUTION_720P;
 		const char *language = "en";
-		Track &videoTrack = track[eMEDIATYPE_VIDEO];
-		Track &audioTrack = track[eMEDIATYPE_AUDIO];
+		Track &videoTrack = pipelineContext.track[eMEDIATYPE_VIDEO];
+		Track &audioTrack = pipelineContext.track[eMEDIATYPE_AUDIO];
 		int frame = 0;
 		Flush();
 		videoTrack.QueueVideoHeader(resolution );
@@ -1338,42 +1112,42 @@ public:
 		{
 			printf( "unknown audio gap directive: '%s'\n", audioGap );
 		}
-
+		
 		frame += 2;
 		
 		// end with 4s normal audio/video
 		videoTrack.QueueVideoSegment(resolution, frame, 2 );
 		audioTrack.QueueAudioSegment(language, frame, 2 );
 		
-		videoTrack.Enqueue( new TrackEOS() );
-		audioTrack.Enqueue( new TrackEOS() );
+		videoTrack.EnqueueControl( new TrackEOS() );
+		audioTrack.EnqueueControl( new TrackEOS() );
 		
 		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
 	}
-
+	
 	void TestSeamlessAudioSwitch()
 	{
 		// Get current position
 		double position = pipelineContext.pipeline->GetPositionMilliseconds() / 1000.0;
-
-		Track &audio = track[eMEDIATYPE_AUDIO];
+		
+		Track &audio = pipelineContext.track[eMEDIATYPE_AUDIO];
 		int startIndex = position / SEGMENT_DURATION_SECONDS;
 		int count = AV_SEGMENT_LOAD_COUNT - startIndex;
 		printf( "position=%lf startIndex=%d count:%d\n", position, startIndex, count );
-
+		
 		// Flush current audio buffers
 		audio.Flush();
 		// Queue new audio track
 		audio.QueueAudioHeader( "en" );
 		audio.QueueAudioSegment( "en", startIndex, count );
-
+		
 		double newPosition = pipelineContext.pipeline->GetPositionMilliseconds() / 1000.0;
 		pipelineContext.pipeline->Flush( eMEDIATYPE_AUDIO, newPosition );
 	}
 	
 	void LoadIframes( void )
 	{
-		Track &video = track[eMEDIATYPE_VIDEO];
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
 		int startIndex = 0;
 		int count = 30;
 		video.QueueVideoHeader( eVIDEORESOLUTION_IFRAME );
@@ -1382,7 +1156,7 @@ public:
 	
 	void LoadVideo( VideoResolution resolution )
 	{
-		Track &video = track[eMEDIATYPE_VIDEO];
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
 		int startIndex = 0;
 		int count = AV_SEGMENT_LOAD_COUNT;
 		video.QueueVideoHeader( resolution );
@@ -1391,7 +1165,7 @@ public:
 	
 	void LoadAudio( const char *language )
 	{
-		Track &audio = track[eMEDIATYPE_AUDIO];
+		Track &audio = pipelineContext.track[eMEDIATYPE_AUDIO];
 		int startIndex = 0;
 		int count = AV_SEGMENT_LOAD_COUNT;
 		audio.QueueAudioHeader( language );
@@ -1400,8 +1174,8 @@ public:
 	
 	void FeedPipelineIfNeeded( MediaType mediaType )
 	{
-		Track &t = track[mediaType];
-		if( pipelineContext.needsData[mediaType] )
+		Track &t = pipelineContext.track[mediaType];
+		if( t.needsData )
 		{
 			auto queue = t.queue;
 			if( queue->size()>0 )
@@ -1442,14 +1216,36 @@ public:
 		}
 	}
 	
+	void DumpXml( const XmlNode *node, int indent )
+	{
+		if( node )
+		{
+			for( int i=0; i<indent; i++ )
+			{
+				printf( " " );
+			}
+			printf( "%s", node->tagName.c_str() );
+			for( auto it : node->attributes )
+			{
+				printf( " %s=%s", it.first.c_str(), it.second.c_str() );
+			}
+			printf("\n");
+			for( int i=0; i<node->children.size(); i++ )
+			{
+				DumpXml( node->children[i], indent+1 );
+			}
+		}
+	}
+	
 	static void ShowHelp( void )
 	{
 		printf( "help // show this list of available commands\n" );
+		printf( "load <vodurl> // play DASH manifest from start to end\n" );
 		printf( "format mp4 // default; use/inject DASH .mp4 segments for tests\n" );
 		printf( "format ts // use/inject whole HLS .ts segments for tests\n" );
 		printf( "format es // demux HLS .ts segments, injecting elementary streams for tests\n" );
 		printf( "position // toggle position reporting (default = off)\n" );
-
+		
 		printf( "abr // ramp from 360p up to 1080p then back down\n" );
 		printf( "stream <from-position-seconds> <to-position-seconds>\n" );
 		
@@ -1466,12 +1262,12 @@ public:
 		
 		printf( "dai // multi-period test exercising discontinuity handling with EOS signaling and flush\n" );
 		printf( "dai2 // optimized multi-period test using pts restamping\n" );
-
+		
 		printf( "gap <video> <audio> // play specified 4s gap bookended by 4s audio/video\n" );
 		printf( "   // content - fill with normal video/audio\n" );
 		printf( "   // event - use gstreamer gap event\n" );
 		printf( "   // skip - skip injection; let decoder handle gap\n" );
-
+		
 		// manual content injection
 		printf( "flush // flush av; prepare for playback from 0\n" );
 		printf( "360 // load 360p video\n" );
@@ -1505,10 +1301,117 @@ public:
 		printf( "exit // exit test\n" );
 	}
 	
+	void InjectSegments( const Timeline &timelineObj )
+	{
+		for( int iPeriod=0; iPeriod<timelineObj.period.size(); iPeriod++ )
+		{
+			const PeriodObj &period = timelineObj.period[iPeriod];
+			auto timestampOffset = period.timestampOffset;
+			if( iPeriod == 0 )
+			{
+				Flush( 1.0/*rate*/, 0/*start*/, -1/*stop*/, 0/*baseTime*/, timestampOffset );
+			}
+			else
+			{
+				for( int mediaType=0; mediaType<2; mediaType++ )
+				{
+					Track &t = pipelineContext.track[mediaType];
+					t.EnqueueControl( new TrackNext(t.injectCount) );
+					t.EnqueueControl( new TrackTimestampOffset(timestampOffset) );
+				}
+			}
+			for( auto it : period.adaptationSet )
+			{
+				const AdaptationSet &adaptationSet = it.second;
+				MediaType mediaType;
+				if( adaptationSet.contentType == "video" )
+				{
+					mediaType = eMEDIATYPE_VIDEO;
+				}
+				else if( adaptationSet.contentType == "audio" )
+				{
+					mediaType = eMEDIATYPE_AUDIO;
+				}
+				else if( adaptationSet.contentType == "text" )
+				{ // TODO
+					continue;
+				}
+				else
+				{ // unknown/unsupported track type
+					assert(0);
+				}
+				auto representation = adaptationSet.representation[0];
+				std::map<std::string,std::string> param;
+				uint64_t number = representation.data.startNumber;
+				auto len = representation.data.media.size();
+				if( len==1 )
+				{
+					len = representation.data.duration.size();
+					if( len==1 )
+					{
+						auto d = representation.data.duration[0]/representation.data.timescale;
+						len = period.duration/d;
+					}
+				}
+				param["RepresentationID"] = representation.id;
+				
+				std::string mediaUrl = representation.BaseURL + ExpandURL( representation.data.initialization, param );
+				std::cout << mediaUrl << "\n";
+				pipelineContext.track[mediaType].EnqueueSegment( new TrackFragment( mediaUrl.c_str() ) );
+				
+				for( unsigned idx=0; idx<len; idx++ )
+				{
+					int mediaIndex = idx;
+					if( mediaIndex >= representation.data.media.size() )
+					{
+						mediaIndex = 0;
+					}
+					const std::string &media = representation.data.media[mediaIndex];
+					param["Number"] = std::to_string( number++ );
+					if( representation.data.time.size()>0 )
+					{
+						param["Time"] = std::to_string( representation.data.time[idx] );
+					}
+					mediaUrl = representation.BaseURL + ExpandURL( media, param );
+					std::cout << mediaUrl << "\n";
+					pipelineContext.track[mediaType].EnqueueSegment( new TrackFragment( mediaUrl.c_str() ) );
+				}
+			}
+		}
+		
+		for( int mediaType=0; mediaType<2; mediaType++ )
+		{
+			Track &t = pipelineContext.track[mediaType];
+			t.EnqueueControl( new TrackEOS() );
+		}
+		// configure pipelines and begin streaming
+		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, GetCapsFormat() );
+		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO, GetCapsFormat() );
+		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
+	}
+
+	void Load( const std::string &url )
+	{
+		size_t size = 0;
+		auto ptr = LoadUrl( url, &size );
+		if( ptr )
+		{
+			XmlNode *xml = new XmlNode( "document", (char *)ptr, size );
+			auto MPD = xml->children[1];
+			DumpXml(MPD,0);
+			Timeline timeline = parseManifest( *MPD, url );
+			timeline.Debug();
+			ComputeTimestampOffsets( timeline );
+			InjectSegments(timeline);
+			delete xml;
+			free( ptr );
+		}
+	}
+	
 	void TestMultiPeriodFF( void )
 	{
 		Flush();
-		Track &video = track[eMEDIATYPE_VIDEO];
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
 		bool first = true;
 		
 		double fragmentDuration = 1.92;
@@ -1583,7 +1486,7 @@ public:
 					 prefix,
 					 periodInfo->baseUrl,
 					 representationID );
-			video.Enqueue( new TrackFragment( path ) );
+			video.EnqueueSegment( new TrackFragment( path ) );
 			if( first )
 			{ // configure pipeline
 				pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, GetCapsFormat() );
@@ -1603,18 +1506,18 @@ public:
 						 representationID,
 						 fragmentNumber );
 				double pts = fragmentNumber*fragmentDuration;
-				video.Enqueue( new TrackFragment( path ) ); // inject next iframe
+				video.EnqueueSegment( new TrackFragment( path ) ); // inject next iframe
 #ifdef REALTEK_HACK
-				video.Enqueue( new TrackFragment( path ) ); // inject next iframe
+				video.EnqueueSegment( new TrackFragment( path ) ); // inject next iframe
 #endif
-				video.Enqueue(new TrackEOS() ); // inject EOS; needed for small segment to render
+				video.EnqueueControl( new TrackEOS() ); // inject EOS; needed for small segment to render
 #ifdef REALTEK_HACK
-				video.Enqueue( new TrackWaitState(ePIPELINESTATE_PLAYING) ); // wait for segment to be visible
+				video.EnqueueControl( new TrackWaitState(ePIPELINESTATE_PLAYING) ); // wait for segment to be visible
 #else
-				video.Enqueue( new TrackWaitState(ePIPELINESTATE_PAUSED) ); // wait for segment to be visible
+				video.EnqueueControl( new TrackWaitState(ePIPELINESTATE_PAUSED) ); // wait for segment to be visible
 #endif
-				video.Enqueue( new TrackSleep( m_ff_delay ) );
-				video.Enqueue( new TrackFlush( 1, pts, -1, pts ) );
+				video.EnqueueControl( new TrackSleep( m_ff_delay ) );
+				video.EnqueueControl( new TrackFlush( 1, pts, -1, pts ) );
 			}
 		}
 	}
@@ -1632,6 +1535,10 @@ public:
 		if( strcmp(str,"help")==0 )
 		{
 			ShowHelp();
+		}
+		else if( starts_with(str,"load ") )
+		{
+			Load( &str[5] );
 		}
 		else if( sscanf(str,"format %7s",format)==1 )
 		{

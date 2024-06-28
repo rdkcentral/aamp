@@ -1070,7 +1070,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 						int version = packet[payloadOffset + 6];
 						int current = (version & 0x01);
 						version = ((version >> 1) & 0x1F);
-
+						
 						AAMPLOG_TRACE("PAT current version %d existing version %d", version, m_versionPAT);
 						if (!m_havePAT || (current && (version != m_versionPAT)))
 						{
@@ -1080,40 +1080,51 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 							{
 								int patTableIndex = payloadOffset + 9; 				// PAT table start
 								int patTableEndIndex = payloadOffset + length -1; 	// end of PAT table
-								pthread_mutex_lock(&m_mutex);
-
-								m_havePAT = true;
-								m_versionPAT = version;
-								pthread_mutex_unlock(&m_mutex);
-
-								do {
-									m_program = ((packet[patTableIndex + 0] << 8) + packet[patTableIndex + 1]);
-									m_pmtPid = (((packet[patTableIndex + 2] & 0x1F) << 8) + packet[patTableIndex + 3]);
-
-									patTableIndex += PAT_TABLE_ENTRY_SIZE;
-									// Find first program number not 0 or until end of PAT
-								} while (m_program == 0 && patTableIndex < patTableEndIndex);
-
-								if ((m_program != 0) && (m_pmtPid != 0))
+								uint32_t computed_crc = aamp_ComputeCRC32( &packet[payloadOffset+1], length-1 );
+								if( // comare to expected crc as packed after payload
+								   ((computed_crc>>0x18)&0xff) != packet[payloadOffset+length+0] ||
+								   ((computed_crc>>0x10)&0xff) != packet[payloadOffset+length+1] ||
+								   ((computed_crc>>0x08)&0xff) != packet[payloadOffset+length+2] ||
+								   ((computed_crc>>0x00)&0xff) != packet[payloadOffset+length+3] )
 								{
-									if (length > PAT_SPTS_SIZE)
-									{
-										AAMPLOG_WARN("RecordContext: PAT is MPTS, using program %d.", m_program);
-									}
-									if (m_havePMT)
-									{
-										AAMPLOG_INFO("RecordContext: pmt change detected in pat");
-										m_havePMT = false;
-										goto done;
-									}
-									m_havePMT = false;
-									AAMPLOG_DEBUG("RecordContext: acquired PAT version %d program %X pmt pid %X", version, m_program, m_pmtPid);
+									AAMPLOG_WARN( "ignoring corrupt PAT with invalid CRC" );
 								}
 								else
 								{
-									AAMPLOG_WARN("Warning: RecordContext: ignoring pid 0 TS packet with suspect program %x and pmtPid %x", m_program, m_pmtPid);
-									m_program = -1;
-									m_pmtPid = -1;
+									pthread_mutex_lock(&m_mutex);
+									m_havePAT = true;
+									m_versionPAT = version;
+									pthread_mutex_unlock(&m_mutex);
+									
+									do {
+										m_program = ((packet[patTableIndex + 0] << 8) + packet[patTableIndex + 1]);
+										m_pmtPid = (((packet[patTableIndex + 2] & 0x1F) << 8) + packet[patTableIndex + 3]);
+										
+										patTableIndex += PAT_TABLE_ENTRY_SIZE;
+										// Find first program number not 0 or until end of PAT
+									} while (m_program == 0 && patTableIndex < patTableEndIndex);
+									
+									if ((m_program != 0) && (m_pmtPid != 0))
+									{
+										if (length > PAT_SPTS_SIZE)
+										{
+											AAMPLOG_WARN("RecordContext: PAT is MPTS, using program %d.", m_program);
+										}
+										if (m_havePMT)
+										{
+											AAMPLOG_INFO("RecordContext: pmt change detected in pat");
+											m_havePMT = false;
+											goto done;
+										}
+										m_havePMT = false;
+										AAMPLOG_DEBUG("RecordContext: acquired PAT version %d program %X pmt pid %X", version, m_program, m_pmtPid);
+									}
+									else
+									{
+										AAMPLOG_WARN("Warning: RecordContext: ignoring pid 0 TS packet with suspect program %x and pmtPid %x", m_program, m_pmtPid);
+										m_program = -1;
+										m_pmtPid = -1;
+									}
 								}
 							}
 							else
@@ -1841,7 +1852,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 			m_startPosition = position;
 		}
 		double updatedPosition = (position - m_startPosition) / m_playRate;
-		AAMPLOG_INFO("updatedPosition = %f Position = %f m_startPosition = %f m_playRate = %f", updatedPosition, position, m_startPosition, m_playRate);
+		AAMPLOG_DEBUG("updatedPosition = %f Position = %f m_startPosition = %f m_playRate = %f", updatedPosition, position, m_startPosition, m_playRate);
 		position = updatedPosition;
 
 		if (m_needDiscontinuity&& !m_demux)

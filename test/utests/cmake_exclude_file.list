@@ -5,7 +5,7 @@
     get_filename_component(BASE_DIR ${PARENT_DIR} DIRECTORY)
     set(COVERAGE_EXCLUDES
         "/usr/*"
-        "${BASE_DIR}/Linux/include/*"
+        "${BASE_DIR}/.libs/lib/include/*"
         "${BASE_DIR}/subtec/subtecparser/*"
         "${BASE_DIR}/test/*"
         "/Applications/*"

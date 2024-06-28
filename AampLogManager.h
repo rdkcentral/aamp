@@ -28,6 +28,7 @@
 #include <vector>
 #include <string>
 #include <memory.h>
+#include <cstdint> // for std::uint8_t
 
 #include "AampMediaType.h"
 

@@ -23,11 +23,9 @@ import os
 import pytest
 import re
 
-
-
-
 TESTDATA1 = {
     "title": f"Mpd Trick Play - Pause & Play",
+    "logfile": f"pause_play.txt",
     "max_test_time_seconds": 30,
     "aamp_cfg": f"info=true\ntrace=true\nprogress=true\n",
     "expect_list": [
@@ -76,7 +74,142 @@ TESTDATA1 = {
     ]
 }
 
-TESTLIST = [TESTDATA1]
+ff_speed_4 = 4
+ff_speed_8 = 8
+
+TESTDATA2 = {
+    "title": f"Mpd Trick Play - FF & Resume",
+    "logfile": f"ff_resume.txt",
+    "max_test_time_seconds": 40,
+    "aamp_cfg": f"info=true\ntrace=true\nprogress=true\nprogressReportingInterval=0.25",
+    "url": f"VideoTestStream/main.mpd",
+    "simlinear_type": "DASH",
+    "expect_list": [
+        # Start Playback
+        # {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+        {"expect": re.escape("PAUSED -> PLAYING")},
+        # Check playback rate
+        {"cmd": "get playbackRate"},
+        {"expect": re.escape("PLAYBACK RATE = 1")},
+
+        # Fast forward the playback 
+        {"cmd": f"ff {ff_speed_4}"},
+        {"expect": r"aamp_SetRate rate\((1+(?:\.\d+)?)\)->\((" + str(ff_speed_4) + r"(?:\.\d+)?)\)"},
+        # Wait for aamp to move its playback position more than 59 seconds
+        {"expect": r"aamp pos: \[0\.\.[5-9](\d{1})"},
+        {"cmd": "get playbackPosition"},
+        {"expect": r"PLAYBACK POSITION = [5-9](\d{1})"},
+    
+        # Start/Resume playback
+        {"cmd": "play"}, 
+        {"expect": r"aamp_SetRate\ \(1\.000000\)"},
+        {"expect": r"aamp_SetRate rate\(4\.000000\)->\(1\.000000\)"},
+        {"expect": "AAMP_EVENT_SPEED_CHANGED current rate=1"}, #3394
+        # Playback position is now 6 digit number. Could be between 51000 54999. Confirms playback progressed and did not started from 0 after transition of speed from 4 to 1 
+        {"expect": r"Returning Position as 5[1-4](\d{3}) "},
+        # Playback position is now 6 digit number. Could be between 55000 59999. Confirms playback progressed and did not started from 0 after transition of speed from 4 to 1.
+        {"expect": r"Returning Position as 5[5-9](\d{3}) "},
+        # Check playback rate using AAMP's get option.
+        {"cmd": "get playbackRate"},
+        {"expect": "PLAYBACK RATE = 1"},
+        # Correct Media segments are getting downloaded.
+        {"expect": r"/VideoTestStream/dash/(1080|720|480|360)p_(\d)*\.m4s"},
+    ]
+}
+
+TESTDATA3 = {
+    "title": f"Mpd Trick Play - FF Ramp Up & Resume ",
+    "logfile": f"ff_ramp_up_resume.txt",
+    "max_test_time_seconds": 60,
+    "aamp_cfg": f"info=true\ntrace=true\nprogress=true\n",
+    "url": f"VideoTestStream/main.mpd",
+    "simlinear_type": "DASH",
+    "expect_list": [
+        # Start Playback
+        # {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+        {"expect": re.escape("PAUSED -> PLAYING")},
+        # Check playback rate
+        {"cmd": "get playbackRate"},
+        {"expect": re.escape("PLAYBACK RATE = 1")},
+
+        # Fast forward the playback 
+        {"cmd": f"ff {ff_speed_4}"},
+        {"expect": r"aamp_SetRate rate\((1+(?:\.\d+)?)\)->\((" + str(ff_speed_4) + r"(?:\.\d+)?)\)"},
+        # Wait for aamp to move its playback position more than 59 seconds
+        {"expect": r"aamp pos: \[0\.\.[5-9](\d{1})"},
+        {"cmd": "get playbackPosition"},
+        {"expect": r"PLAYBACK POSITION = [5-9](\d{1})"},
+        
+        # Ramp up Fast forward 
+        {"cmd": f"ff {ff_speed_8}"},
+        {"expect": r"aamp_SetRate rate\((" + str(ff_speed_4) + r"+(?:\.\d+)?)\)->\((" + str(ff_speed_8) + r"(?:\.\d+)?)\)"},
+        # Wait for aamp to move its playback position more than 120 seconds
+        {"expect": r"aamp pos: \[0\.\.1[2-5](\d{1})"},
+        {"cmd": "get playbackPosition"},
+        {"expect": r"PLAYBACK POSITION = 1[2-5](\d{1})"},
+    
+        # Start/Resume playback
+        {"cmd": "play"}, 
+        {"expect": r"aamp_SetRate\ \(1\.000000\)"},
+        {"expect": r"aamp_SetRate rate\(" + str(ff_speed_8) + r"\.000000\)->\(1\.000000\)"},
+        {"expect": "AAMP_EVENT_SPEED_CHANGED current rate=1"}, #3394
+        # # Playback position is now 6 digit number. Could be between 15000 19999. Confirms playback progressed and did not started from 0 after transition of speed from 4 to 1 
+        {"expect": r"Returning Position as 1[5-9](\d{4}) "},
+        # Check playback rate using AAMP's get option.
+        {"cmd": "get playbackRate"},
+        {"expect": "PLAYBACK RATE = 1"},
+        # Correct Media segments are getting downloaded.
+        {"expect": r"/VideoTestStream/dash/(1080|720|480|360)p_(\d)*\.m4s"},
+    ]
+}
+
+TESTDATA4 = {
+    "title": f"Mpd Trick Play - FF Ramp Down & Resume ",
+    "logfile": f"ff_ramp_down_resume.txt",
+    "max_test_time_seconds": 60,
+    "aamp_cfg": f"info=true\ntrace=true\nprogress=true\n",
+    "url": f"VideoTestStream/main.mpd",
+    "simlinear_type": "DASH",
+    "expect_list": [
+        # Start Playback
+        # {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+        {"expect": re.escape("PAUSED -> PLAYING")},
+        # Check playback rate
+        {"cmd": "get playbackRate"},
+        {"expect": re.escape("PLAYBACK RATE = 1")},
+
+        # Fast forward the playback 
+        {"cmd": f"ff {ff_speed_8}"},
+        {"expect": r"aamp_SetRate rate\((1+(?:\.\d+)?)\)->\((" + str(ff_speed_8) + r"(?:\.\d+)?)\)"},
+        # Wait for aamp to move its playback position more than 59 seconds
+        {"expect": r"aamp pos: \[0\.\.[5-9](\d{1})"},
+        {"cmd": "get playbackPosition"},
+        {"expect": r"PLAYBACK POSITION = [5-9](\d{1})"},
+        
+        # Ramp Down Fast forward 
+        {"cmd": f"ff {ff_speed_4}"},
+        {"expect": r"aamp_SetRate rate\((" + str(ff_speed_8) + r"+(?:\.\d+)?)\)->\((" + str(ff_speed_4) + r"(?:\.\d+)?)\)"},
+        # Wait for aamp to move its playback position more than 120 seconds
+        {"expect": r"aamp pos: \[0\.\.1[2-5](\d{1})"},
+        {"cmd": "get playbackPosition"},
+        {"expect": r"PLAYBACK POSITION = 1[2-5](\d{1})"},
+    
+        # Start/Resume playback
+        {"cmd": "play"}, 
+        {"expect": r"aamp_SetRate\ \(1\.000000\)"},
+        {"expect": r"aamp_SetRate rate\(" + str(ff_speed_4) + r"\.000000\)->\(1\.000000\)"},
+        {"expect": "AAMP_EVENT_SPEED_CHANGED current rate=1"}, #3394
+        # # Playback position is now 6 digit number. Could be between 11000 14999. Confirms playback progressed and did not started from 0 after transition of speed from 4 to 1 
+        {"expect": r"Returning Position as 1[1-4](\d{4}) "},
+        # Check playback rate using AAMP's get option.
+        {"cmd": "get playbackRate"},
+        {"expect": "PLAYBACK RATE = 1"},
+        # Correct Media segments are getting downloaded.
+        {"expect": r"/VideoTestStream/dash/(1080|720|480|360)p_(\d)*\.m4s"},
+    ]
+}
+
+TESTLIST = [TESTDATA1, TESTDATA2, TESTDATA3, TESTDATA4]
 
 ############################################################
 """
