@@ -105,22 +105,7 @@ long long aamp_GetCurrentTimeMS(void)
  */
 void getDefaultHarvestPath(std::string &value)
 {
-        value = "/aamp/";
-/* In case of linux and mac simulator use home directory to dump the data as default */
-#ifdef AAMP_SIMULATOR_BUILD
-        char *ptr = getenv("HOME");
-        if(ptr)
-        {
-                value.insert(0,ptr);
-        }
-        else
-        {
-                value.insert(0,"/opt");
-        }
-#else
-        value.insert(0,"/opt");
-#endif
-        return ;
+	value = aamp_GetConfigPath("/opt/aamp");
 }
 
 /**
@@ -1333,6 +1318,48 @@ uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial)
 	return result;
 }
 
+std::string aamp_GetConfigPath( const std::string &filename )
+{
+	std::string cfgPath;
+
+#ifdef AAMP_SIMULATOR_BUILD					  // OSX or Ubuntu
+	char *ptr{};
+
+	if ((ptr = getenv("AAMP_CFG_DIR")) != nullptr)
+	{
+		cfgPath = ptr;
+	}
+	else if ((ptr = getenv("HOME")) != nullptr)
+	{
+		cfgPath = ptr;
+	}
+
+	if (filename.rfind("/opt/", 0) == 0)       //filename.starts_with("/opt") pre C++20
+	{ // skip leading /opt in simulator
+		cfgPath += filename.substr(4);
+	}
+	else
+	{
+		cfgPath += filename;
+	}
+
+#elif defined(AAMP_CPC) // AAMP_ENABLE_OPT_OVERRIDE defined only in Comcast PROD builds
+	char *env_aamp_enable_opt = getenv("AAMP_ENABLE_OPT_OVERRIDE");
+	/*
+	 * defined(AAMP_CPC) 
+	 * AAMP_ENABLE_OPT_OVERRIDE set         returns filename E.G /opt/aamp.cfg
+	 * AAMP_ENABLE_OPT_OVERRIDE not set     returns "" E.G no .cfg file is read
+	 */
+	if (env_aamp_enable_opt)
+	{
+		cfgPath = filename;
+	}
+#else
+	cfgPath = filename;
+#endif
+
+	return cfgPath;
+}
 /**
  * EOF
  */
