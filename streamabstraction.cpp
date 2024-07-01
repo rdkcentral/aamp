@@ -1176,6 +1176,14 @@ bool MediaTrack::InjectFragment()
 						// reset the flag when both the paired discontinuities ignored.
 						aamp->ResetTrackDiscontinuityIgnoredStatus();
 						aamp->UnblockWaitForDiscontinuityProcessToComplete();
+						MediaTrack* subtitle = GetContext()->GetMediaTrack(eTRACK_SUBTITLE);
+						if (subtitle && subtitle->enabled)
+						{
+							if(subtitle->playContext)
+							{
+								subtitle->playContext->abortWaitForVideoPTS();
+							}
+						}
 					}
 					else
 					{
