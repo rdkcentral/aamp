@@ -7112,41 +7112,44 @@ void PrivateInstanceAAMP::UpdateVideoRectangle (int x, int y, int w, int h)
  */
 void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 {
-	pthread_mutex_lock(&mStreamLock);
 	PrivAAMPState state;
 	GetState(state);
-
-	//Differenciate IP vs non IP playback
-	bool isNonIPPlayback = (mMediaFormat == eMEDIAFORMAT_OTA) || (mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || (mMediaFormat == eMEDIAFORMAT_RMF);
-
-	// for ATSC eSTATE_PREPARED is sent when tune is successful, as Closed caption data wont be available till tune and stream check for CC is done,
-	// for IP eSTATE_PREPARED is done after manifest parsing,
-	// Incase of ATSC or HDMI SetVideoRectangle should be called after StreamAbstractionAAMP_OTA::Start or StreamAbstractionAAMP_VIDEOIN::StartHelper which is called tune function after
-	// mpStreamAbstractionAAMP object is created, hence if mpStreamAbstractionAAMP is NULL then we should not call SetVideoRectangle and defer it, this happes when SetVideoRectangle called after load.
-	// for IP SetVideoRectangle should be called after GetStreamSink() created i.e > eSTATE_PREPARING
-	// hence in below "state" condition state check is done only for IP
-
-	if (mpStreamAbstractionAAMP && (isNonIPPlayback || state > eSTATE_PREPARING))
+	if( TryStreamLock() )
 	{
-		if (isNonIPPlayback)
+		switch( mMediaFormat )
 		{
-			mpStreamAbstractionAAMP->SetVideoRectangle(x, y, w, h);
+			case eMEDIAFORMAT_OTA:
+			case eMEDIAFORMAT_HDMI:
+			case eMEDIAFORMAT_COMPOSITE:
+			case eMEDIAFORMAT_RMF:
+				if( mpStreamAbstractionAAMP )
+				{
+					mpStreamAbstractionAAMP->SetVideoRectangle(x, y, w, h);
+				}
+				break;
+			default: // IP Playback
+				if( state > eSTATE_PREPARING)
+				{
+					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+					if (sink)
+					{
+						sink->SetVideoRectangle(x, y, w, h);
+					}
+				}
+				else
+				{
+					AAMPLOG_INFO("state: %d", state );
+					UpdateVideoRectangle (x, y, w, h);
+				}
+				break;
 		}
-		else
-		{
-			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-			if (sink)
-			{
-				sink->SetVideoRectangle(x, y, w, h);
-			}
-		}
+		ReleaseStreamLock();
 	}
 	else
 	{
-		AAMPLOG_INFO("mpStreamAbstractionAAMP is not Ready, Backup video rect values, current player state: %d", state);
+		AAMPLOG_INFO("StreamLock not available; state: %d", state );
 		UpdateVideoRectangle (x, y, w, h);
 	}
-	pthread_mutex_unlock(&mStreamLock);
 }
 /**
  *   @brief Set video zoom.
