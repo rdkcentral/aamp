@@ -99,7 +99,7 @@ def build_aamp(other_args):
     os.chdir(aampdir)
     print(os.getcwd())
     sys.stdout.flush()
-    subprocess.run('bash install-aamp-new.sh {} -d $(pwd -P) -n || true'.format(opts), shell=True)
+    subprocess.run('bash install-aamp.sh {} -d $(pwd -P) -n || true'.format(opts), shell=True)
 
 
 class Unbuffered:
