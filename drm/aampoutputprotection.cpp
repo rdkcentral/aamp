@@ -59,9 +59,9 @@ AampOutputProtection::AampOutputProtection()
     DEBUG_FUNC;
     pthread_mutex_init(&m_opProtectMutex,NULL);
 #ifndef USE_OPENCDM
-#if defined(USE_PLAYREADY)    
+#if defined(USE_PLAYREADY)
     memset(&m_minOPLevels, 0, sizeof(MinOPLevelsplayReady));
-#endif    
+#endif
 #endif
 
     // Get initial HDCP status
@@ -95,7 +95,7 @@ AampOutputProtection::~AampOutputProtection()
 }
 
 
-/** 
+/**
  * @brief Check if source is UHD using video decoder dimensions
  */
 bool AampOutputProtection::IsSourceUHD()
@@ -153,8 +153,8 @@ bool AampOutputProtection::IsMS2V12Supported()
 		}
 		device::Manager::DeInitialize();
 	}
-	catch (const std::exception e) {
-		AAMPLOG_WARN("DeviceSettings exception caught ");
+	catch (...) {
+		AAMPLOG_WARN("DeviceSettings exception caught");
 	}
 #endif // IARM_MGR
 	return IsMS12V2 ;
@@ -239,8 +239,8 @@ void AampOutputProtection::SetHDMIStatus()
 
 	device::Manager::DeInitialize();
     }
-    catch (const std::exception e) {
-        AAMPLOG_WARN("DeviceSettings exception caught in ");
+    catch (...) {
+        AAMPLOG_WARN("DeviceSettings exception caught");
     }
 
     m_isHDCPEnabled = isHDCPEnabled;
@@ -292,7 +292,7 @@ void AampOutputProtection::GetDisplayResolution(int &width, int &height)
 }
 
 #ifndef USE_OPENCDM
-#if defined(USE_PLAYREADY)    
+#if defined(USE_PLAYREADY)
 // TODO: this PlayReady-specific logic should ideally be split out into a separate subclass.
 // Note that it is only used by the (non-OCDM) PlayReadyDRMSession class.
 
