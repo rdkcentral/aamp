@@ -2177,11 +2177,6 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 		if (eMEDIATYPE_SUBTITLE == i)
 		{
 			double skipTime = seekPositionSeconds;
-			if (mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentTime != seekPositionSeconds)
-			{
-				//Take subtitle Skip time from audio fragmentTime
-				skipTime = mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentTime - mPeriodStartTime;
-			}
 			SkipFragments(mMediaStreamContext[i], skipTime, true);
 		}
 		else
@@ -8361,7 +8356,15 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						adStateChanged = (adStateChanged || mMPDParseHelper->IsEmptyPeriod(basePeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE))); 
 					}
 					//OUTSIDE_ADBREAK means the current ad break playback completed.
-					if(adStateChanged && AdState::OUTSIDE_ADBREAK == mCdaiObject->mAdState)
+                                        bool ProcessNextAd = true;
+                                        //If the source period duration exceeds the total ad duration by more than 2 seconds, 
+                                        //the player should switch back to the same base period instead of checking the
+                                        //availability of the next ad break
+                                        if(mCdaiObject->isAdBreakObjectExist(mBasePeriodId) &&  (mCdaiObject->mAdBreaks[mBasePeriodId].mSrcPeriodOffsetGTthreshold  ||  mCdaiObject->mAdBreaks[mBasePeriodId].mWaitForManifestUpdateFlag) )
+                                        {
+                                            ProcessNextAd = false;
+                                        }
+					if(adStateChanged && AdState::OUTSIDE_ADBREAK == mCdaiObject->mAdState && ProcessNextAd  )
                     			{
                         		//If the next ad break is available,need to call onAdEvent again to play DAI ads from the next immediate ad break.
                         		//Otherwise, player will switch to base period(source) of second ad break
@@ -8419,6 +8422,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						if((adaptationSetCount > 0 || !(mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))) && (!bmanifestupdate) && (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
 						{
 							AAMPLOG_WARN("Period ID changed from \'%s\' to \'%s\' [BasePeriodId=\'%s\']", currentPeriodId.c_str(),mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
+							if(mCdaiObject->isAdBreakObjectExist(mBasePeriodId))
+							{
+								mCdaiObject->mAdBreaks[mBasePeriodId].mSrcPeriodOffsetGTthreshold =false;
+							}
 							currentPeriodId = mCurrentPeriod->GetId();
 							mPrevAdaptationSetCount = adaptationSetCount;
 							periodChanged = true;
