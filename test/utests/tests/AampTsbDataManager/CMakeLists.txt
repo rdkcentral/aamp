@@ -17,9 +17,7 @@
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME AampTsbDataManagerTest)
-
-pkg_check_modules(LIBDASH REQUIRED libdash)
+set(EXEC_NAME AampTsbDataManager)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
@@ -42,6 +40,7 @@ include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(${LIBDASH_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${UTESTS_ROOT}/mocks)
 
@@ -71,7 +70,7 @@ if (COVERAGE_ENABLED)
                               DEPENDENCIES ${EXEC_NAME})
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${LIBDASH_LDFLAGS} ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lcjson)
+target_link_libraries(${EXEC_NAME} fakes -lpthread ${LIBDASH_LINK_LIBRARIES} ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES})
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 set_target_properties(${EXEC_NAME} PROPERTIES COMPILE_FLAGS -Wno-effc++)
