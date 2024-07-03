@@ -89,7 +89,9 @@ if(SEC_CLIENT_HEADERS)
 					 ${AAMP_ROOT}/drm/helper/AampVgdrmHelper.cpp
 					 ${AAMP_ROOT}/drm/helper/AampClearKeyHelper.cpp
 					 ${AAMP_ROOT}/drm/helper/AampWidevineDrmHelper.cpp
-					 ${AAMP_ROOT}/drm/helper/AampPlayReadyHelper.cpp)
+					 ${AAMP_ROOT}/drm/helper/AampPlayReadyHelper.cpp
+					 ${AAMP_ROOT}/isobmff/isobmffbox.cpp 
+					 ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
 
 	add_definitions(-DUSE_SHARED_MEMORY)
 	add_definitions(-DUSE_OPENCDM -DUSE_OPENCDM_ADAPTER)
