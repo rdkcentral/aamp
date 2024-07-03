@@ -22,12 +22,6 @@ set(UTESTS_ROOT "../..")
 set(DRM_ROOT ${UTESTS_ROOT}/drm)
 set(EXEC_NAME DrmLegacy)
 
-pkg_check_modules(GMOCK REQUIRED gmock)
-pkg_check_modules(GTEST REQUIRED gtest)
-pkg_check_modules(LIBCJSON REQUIRED libcjson)
-pkg_check_modules(UUID REQUIRED uuid)
-
-
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${GTEST_INCLUDE_DIRS})

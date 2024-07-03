@@ -19,13 +19,6 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME AampMPDDownloader)
 
-pkg_check_modules(LIBDASH REQUIRED libdash)
-pkg_check_modules(LibXml2 REQUIRED libxml-2.0)
-pkg_check_modules(GMOCK REQUIRED gmock)
-pkg_check_modules(GTEST REQUIRED gtest)
-pkg_check_modules(LIBCJSON REQUIRED libcjson)
-
-
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader)
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)

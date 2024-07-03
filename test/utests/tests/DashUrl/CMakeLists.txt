@@ -16,9 +16,6 @@
 # limitations under the License.
 
 include(GoogleTest)
-pkg_check_modules(GLIB REQUIRED glib-2.0)
-pkg_check_modules(GTEST REQUIRED gtest)
-pkg_check_modules(GMOCK REQUIRED gmock)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")

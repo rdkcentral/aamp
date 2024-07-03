@@ -50,10 +50,6 @@ if (COVERAGE_ENABLED)
     APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-pkg_check_modules(GMOCK REQUIRED gmock)
-pkg_check_modules(GTEST REQUIRED gtest)
-pkg_check_modules(GLIB REQUIRED glib-2.0)
-
 target_link_libraries(${EXEC_NAME} fakes -pthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)

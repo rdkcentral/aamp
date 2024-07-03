@@ -17,8 +17,6 @@
 
 include(GoogleTest)
 
-pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
-
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME AampGstPlayer)
