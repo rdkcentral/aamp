@@ -27,6 +27,7 @@
 
 #include "aampgstplayer.h"
 #include "AampTime.h"
+#include "AampUtils.h"
 
 class AAMPGstPlayerPriv;
 struct media_stream;

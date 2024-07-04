@@ -465,23 +465,9 @@ void trim(std::string& src)
  * @param mediaType media type
  * @retval the name of the mediaType
  */
-const char* GetMediaTypeName( int mediaType )
+const char* GetMediaTypeName( AampMediaType mediaType )
 {
-	switch(mediaType)
-	{
-		case eMEDIATYPE_VIDEO:
-			return MEDIATYPE_VIDEO;
-		case eMEDIATYPE_AUDIO:
-			return MEDIATYPE_AUDIO;
-		case eMEDIATYPE_SUBTITLE:
-			return MEDIATYPE_TEXT;
-		case eMEDIATYPE_IMAGE:
-			return MEDIATYPE_IMAGE;
-		case eMEDIATYPE_AUX_AUDIO:
-			return MEDIATYPE_AUX_AUDIO;
-		default:
-			return "UNKNOWN";
-	}
+	return "";
 }
 
 uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial)

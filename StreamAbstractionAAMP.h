@@ -48,7 +48,7 @@
  * @brief Media Track Types
  */
 typedef enum
-{
+{ // note: MUST match first four enums of AampMediaType
 	eTRACK_VIDEO,     /**< Video track */
 	eTRACK_AUDIO,     /**< Audio track */
 	eTRACK_SUBTITLE,  /**< Subtitle track */
