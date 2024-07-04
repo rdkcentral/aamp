@@ -49,10 +49,11 @@
  */
 #define AAMPLOG( MYLOGOBJ, LEVEL, FORMAT, ... ) \
 do { \
-	if( !MYLOGOBJ ) break; \
-	if( !MYLOGOBJ->isLogLevelAllowed(LEVEL) ) break; \
-	int PLAYERID = MYLOGOBJ->getPlayerId(); \
-	logprintf( PLAYERID, LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
+	if( MYLOGOBJ && (LEVEL) >= MYLOGOBJ->aampLoglevel ) \
+	{ \
+		int PLAYERID = MYLOGOBJ->getPlayerId(); \
+		logprintf( PLAYERID, LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
+	} \
 } while(0)
 
 /**
@@ -279,7 +280,7 @@ public:
 	 */
 	static std::string getHexDebugStr(const std::vector<uint8_t>& data);
 
-private:
+public:
 	AAMP_LogLevel aampLoglevel;
 };
 
