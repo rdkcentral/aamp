@@ -343,3 +343,23 @@ void MediaTrack::UpdateTSAfterInject()
 void StreamAbstractionAAMP::UpdateStreamInfoBitrateData(int profileIndex, StreamInfo &cacheFragStreamInfo)
 {
 }
+
+void StreamAbstractionAAMP::InitializeMediaProcessor()
+{
+}
+
+void StreamAbstractionAAMP::UpdateIframeTracks()
+{
+}
+
+void MediaTrack::FlushFragmentChunks()
+{
+}
+
+void MediaTrack::StartInjectChunkLoop()
+{
+}
+
+void MediaTrack::StopInjectChunkLoop()
+{
+}

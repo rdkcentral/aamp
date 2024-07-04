@@ -27,6 +27,7 @@
 #include "isobmff/isobmffbuffer.h"
 #include "AampCacheHandler.h"
 #include "AampTSBSessionManager.h"
+#include "isobmffhelper.h"
 
 /**
  *  @brief Receives cached fragment and injects to sink.
@@ -66,7 +67,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
     , bool playingAd, double pto, uint32_t scale, bool overWriteTrackId)
 {
     bool ret = false;
-	AAMPLOG_INFO("Type[%d] fragmentUrl %s fragmentTime %f discontinuity %d pto %f  scale %u duration %f", type, fragmentUrl.c_str(), position, discontinuity, pto, scale, duration);
+	AAMPLOG_INFO("Type[%d] fragmentUrl %s fragmentTime %f discontinuity %d pto %f  scale %u duration %f mPTSOffsetSec %f", 
+    type, fragmentUrl.c_str(), position, discontinuity, pto, scale, duration, GetContext()->mPTSOffsetSec);
 
     fragmentDurationSeconds = duration;
     ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
@@ -131,10 +133,31 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
             //CID:101284 - To resolve the deadcode
         }
 		else
-		{
-			if( ( actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO ) && ret ) //Only if init fragment successfull or avilable from cache
+        {
+
+			if ((actualType == eMEDIATYPE_VIDEO || actualType == eMEDIATYPE_AUDIO || actualType == eMEDIATYPE_SUBTITLE) && ret && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 			{
-				//To read track_id from the init fragments to check if there any mismatch.
+				uint32_t timeScale = 1;
+				SegmentTemplates segmentTemplates(representation->GetSegmentTemplate(), adaptationSet->GetSegmentTemplate());
+				if (segmentTemplates.HasSegmentTemplate())
+				{
+					const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
+
+					if (segmentTimeline)
+					{
+						timeScale = segmentTemplates.GetTimescale();
+					}
+				}
+
+				int64_t t = GetContext()->mPTSOffsetSec * timeScale;
+
+				(void)IsoBmffRestampPts(cachedFragment->fragment, t, fragmentUrl);
+
+			}
+
+			if ((actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO) && ret) // Only if init fragment successfull or avilable from cache
+            {
+                //To read track_id from the init fragments to check if there any mismatch.
 				//A mismatch in track_id is not handled in the gstreamer version 1.10.4
 				//But is handled in the latest version (1.18.5),
 				//so upon upgrade to it or introduced a patch in qtdemux,
@@ -208,8 +231,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						aamp->mCurrentAudioTrackId = track_id;
 					}
 				}
-			}
-		}
+            }
+        }
 
         if(!bReadfromcache)
         {

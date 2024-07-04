@@ -45,6 +45,7 @@ private:
 	Box* chunkedBox; //will hold one element only
 	size_t mdatCount;
 	AampLogManager *mLogObj;
+
 	/**
 	 * @fn getFirstPTSInternal
 	 *
@@ -384,6 +385,8 @@ public:
 	*/
 	void truncate(void);
 	size_t getSize(void) const { return bufSize; }
+	uint64_t beforePTS;	//For log output
+	uint64_t afterPTS;	//For log output
 };
 
 #endif /* __ISOBMFFBUFFER_H__ */

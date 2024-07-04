@@ -48,7 +48,7 @@ bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer)
 	return retval;
 }
 
-bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset)
+bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl)
 {
 	AAMPLOG_TRACE("Function called with PTS offset = %" PRId64, ptsOffset);
 
@@ -64,6 +64,8 @@ bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset)
 	else
 	{
 		isoBmffBuffer.restampPts(ptsOffset);
+		AAMPLOG_INFO("before %" PRIu64 " after %" PRIu64 " %s",
+					 isoBmffBuffer.beforePTS, isoBmffBuffer.afterPTS, fragmentUrl.c_str());
 		retval = true;
 	}
 

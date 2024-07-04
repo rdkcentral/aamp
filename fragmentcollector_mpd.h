@@ -491,7 +491,16 @@ public:
 	 */
 	double GetAvailabilityStartTime() override;
 
+
 protected:
+	void GetStartAndDurationFromTimeline(AampMediaType type, double &scaledStartTime, double &durationMs);
+	/**
+	 * @fn UpdatePtsOffset
+	 * @param[in] periodIdx - Index to period we are currently playing 0..n
+	 * @param[in] isNewPeriod - true for calculation on starting new period
+	 */
+	void UpdatePtsOffset(int periodIdx,bool isNewPeriod);
+
 	/**
 	 * @fn printSelectedTrack
 	 * @param[in] trackIndex - selected track index

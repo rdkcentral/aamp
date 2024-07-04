@@ -197,14 +197,18 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 			if (1 == version)
 			{
 				uint64_t pts = ReadUint64(buf);
+				beforePTS = pts;
 				pts += offset;
 				WriteUint64(buf, pts);
+				afterPTS = pts;
 			}
 			else
 			{
 				uint32_t pts = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+				beforePTS = pts;
 				pts += (uint32_t)offset;
 				WRITE_U32(buf, pts);
+				afterPTS = pts;
 			}
 		}
 		else

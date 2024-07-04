@@ -50,7 +50,8 @@ set (DASH_PARSER_SOURCES ${AAMP_ROOT}/dash/xml/DomDocument.cpp
 
 
 set(TEST_SOURCES FindTimedMetadataTests.cpp 
-		 fragmentCollector_mpd.cpp)
+		 fragmentCollector_mpd.cpp
+		 pts_offset.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/admanager_mpd.cpp ${DASH_PARSER_SOURCES})
 

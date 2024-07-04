@@ -417,6 +417,15 @@ public :
 
 	uint64_t GetFirstSegmentStartTime(IPeriod * period);
 
+	/**
+	 * @brief  Get start time and duration from the current timeline
+	 * @param[in]   period for current period
+	 * @param[in]   representationIdx being used in current period
+	 * @param[in]   adaptationSetIdx being used in current period
+	 * @param[out]  scaledStartTime (seconds) of selected timeline returned
+	 * @param[out]  duration (seconds) of selected timeline returned
+	 */
+	void GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, double &scaledStartTime, double &duration);
 private:
 
 	/**

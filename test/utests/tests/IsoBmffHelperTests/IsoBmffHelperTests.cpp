@@ -60,11 +60,11 @@ TEST_F(IsoBmffHelperTests, restampPtsTest)
 	// Set the pointer and length in the AampGrowableBuffer fake
 	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
 	int64_t ptsOffset{123};
-
+    std::string url("Dummy");
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(ptsOffset));
-	EXPECT_TRUE(IsoBmffRestampPts(buffer, ptsOffset));
+	EXPECT_TRUE(IsoBmffRestampPts(buffer, ptsOffset,url));
 }
 
 /**
@@ -80,9 +80,9 @@ TEST_F(IsoBmffHelperTests, restampPtsNegativeTest)
 	// Set the pointer and length in the AampGrowableBuffer fake
 	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
 	int64_t ptsOffset{123};
-
+    std::string url("Dummy");
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(_)).Times(0);
-	EXPECT_FALSE(IsoBmffRestampPts(buffer, ptsOffset));
+	EXPECT_FALSE(IsoBmffRestampPts(buffer, ptsOffset,url));
 }

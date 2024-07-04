@@ -1318,7 +1318,9 @@ public:
 	double mProgramStartTime;	        /**< Indicate program start time or availability start time */
 	int mTsbMaxBitrateProfileIndex;		/**< Indicates the index of highest profile in the saved stream info */
 	bool mUpdateReason;			/**< flag to update the bitrate change reason */
-
+	double mPTSOffsetSec;					/*For PTS restamping*/
+	double mLastPeriodStart;				/*For PTS restamping*/
+	double mTimelineDuration;				/*For PTS restamping, duration of previous period */
 	/**
 	 *   @brief Get profile index of highest bandwidth
 	 *

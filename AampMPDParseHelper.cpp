@@ -26,7 +26,6 @@
 #include "AampUtils.h"
 #include "AampLogManager.h"
 
-
 /**
 *   @fn AampMPDParseHelper
 *   @brief Default Constructor
@@ -1552,4 +1551,79 @@ uint64_t AampMPDParseHelper::GetFirstSegmentStartTime(IPeriod * period)
 }
 
 
+/**
+ * @brief  Get start time and duration from the current timeline
+ * @param[in]   period for current period
+ * @param[in]   representationIdx being used in current period
+ * @param[in]   adaptationSetIdx being used in current period
+ * @param[out]  scaledStartTime (seconds) of selected timeline returned
+ * @param[out]  duration (seconds) of selected timeline returned
+ * @return void
+ */
+void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, double &scaledStartTime, double &duration)
+{
 
+	duration = 0.0;
+	const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
+
+	const ISegmentTemplate *representation = NULL;
+	const ISegmentTemplate *adaptationSet = NULL;
+	if (adaptationSetIdx < adaptationSets.size() && adaptationSetIdx >=0 )
+	{
+		IAdaptationSet *firstAdaptation = adaptationSets.at(adaptationSetIdx);
+
+		adaptationSet = firstAdaptation->GetSegmentTemplate();
+		const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+		if (representationIdx < representations.size() && representationIdx >= 0)
+		{
+			representation = representations.at(representationIdx)->GetSegmentTemplate();
+		}
+	}
+	SegmentTemplates segmentTemplates(representation, adaptationSet);
+
+	if (segmentTemplates.HasSegmentTemplate())
+	{
+		const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
+		uint32_t timeScale = segmentTemplates.GetTimescale();
+		uint64_t startTime = 0;
+		// Calculate period duration by adding up the segment durations in timeline
+		if (segmentTimeline)
+		{
+			std::vector<ITimeline *> &timelines = segmentTimeline->GetTimelines();
+			int timeLineIndex = 0;
+
+			while (timeLineIndex < timelines.size())
+			{
+				ITimeline *timeline = timelines.at(timeLineIndex);
+				uint32_t repeatCount = timeline->GetRepeatCount();
+				double timelineDuration = ComputeFragmentDuration(timeline->GetDuration(), timeScale);
+				duration += ((repeatCount + 1) * timelineDuration);
+				AAMPLOG_TRACE("timeLineIndex[%d] size [%lu] updated duration[%lf]", timeLineIndex, timelines.size(), duration);
+				timeLineIndex++;
+			}
+
+			if(timelines.size() > 0)
+			{
+				startTime = timelines.at(0)->GetStartTime();
+				AAMPLOG_TRACE("startTime %" PRIu64 " timescale %u", startTime,timeScale);
+			}
+			uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
+			if(presentationTimeOffset > startTime)
+			{
+				AAMPLOG_WARN("Presentation Time Offset %" PRIu64 " ahead of segment start %" PRIu64 ", Set PTO as start time", presentationTimeOffset, startTime);
+				startTime = presentationTimeOffset;
+			}
+			scaledStartTime = ((double) startTime / (double)timeScale);
+		}
+		else
+		{
+			startTime = segmentTemplates.GetPresentationTimeOffset();
+			if (startTime > 0)
+			{
+				scaledStartTime = ((double) startTime / (double)segmentTemplates.GetTimescale());
+			}
+			AAMPLOG_WARN("No timeline in this manifest");
+		}
+	}
+
+}

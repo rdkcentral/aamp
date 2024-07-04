@@ -16,17 +16,14 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#include <cstdint>
-#include "AampGrowableBuffer.h"
-#include "isobmffhelper.h"
 
+#include "AampMPDUtils.h"
 
-bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer)
+double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
 {
-    return true;
+	return 0;
 }
-
-bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &url)
+bool IsCompatibleMimeType(const std::string& mimeType, AampMediaType mediaType)
 {
-    return true;
+	return false;
 }

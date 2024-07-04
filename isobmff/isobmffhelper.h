@@ -21,6 +21,7 @@
 #define __ISOBMFFHELPER_H__
 
 #include <cstdlib>
+#include <string>
 #include "AampGrowableBuffer.h"
 /**
  * @brief Convert an ISOBMFF segment to a single key frame
@@ -35,11 +36,12 @@ bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer);
  * @brief Restamp the PTS in the ISO BMFF boxes in the buffer, by adding an offset
  *
  * @param[in] buffer - Pointer to the AampGrowableBuffer
- * @param[in] ptsOffset - offset to be added to PTS values
+ * @param[in] ptsOffset - Offset to be added to PTS values
+ * @param[in] fragmentUrl - Fragment URL, used in logging
  *
  * @retval true  - PTS values were restamped
  * @retval false - There was a problem restamping PTS values
  */
-bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset);
+bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl);
 
 #endif /* __ISOBMFFHELPER_H__ */
