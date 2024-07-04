@@ -640,7 +640,14 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 	if (gotManifest)
 	{
-		finalManifest = true;
+		if(mAamp->mConfig->IsConfigSet(eAAMPConfig_PlayAdFromCDN) && mAamp->mTsbType == "cloud")
+		{
+			finalManifest = false;
+		}
+		else
+		{
+			finalManifest = true;
+		}
 		xmlTextReaderPtr reader = xmlReaderForMemory( manifest.c_str(), (int) manifest.length(), NULL, NULL, 0);
 		if(tryFog && !mAamp->mConfig->IsConfigSet(eAAMPConfig_PlayAdFromCDN) && reader && mIsFogTSB)	//Main content from FOG. Ad is expected from FOG.
 		{

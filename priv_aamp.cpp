@@ -5767,7 +5767,12 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		AAMPLOG_INFO("LLD trials Url Remapping done");
 
 	}
-
+	
+	if(mAppName == "Viper" && mTsbType == "cloud")
+	{
+		//cdnadsonly for cloud tsb
+		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_PlayAdFromCDN, true);
+	}
 	//Temp HACK TODO - Fix this
 	if(mManifestUrl.find(AAMP_LOW_LATENCY_URL_KEYWORD) != std::string::npos)
 	{
