@@ -57,8 +57,6 @@
 #define INVALID_SESSION_SLOT -1
 #define DEFUALT_CDM_WAIT_TIMEOUT_MS 2000
 
-static const char *sessionTypeName[] = {"video", "audio", "subtitle", "aux-audio"};
-
 KeyID::KeyID() : creationTime(0), isFailedKeyId(false), isPrimaryKeyId(false), data()
 {
 }
@@ -1868,7 +1866,7 @@ void AampDRMSessionManager::notifyCleanup()
 
 void AampDRMSessionManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, std::vector<uint8_t> keyId, AampMediaType streamType)
 {
-	std::string contentType = sessionTypeName[streamType];
+	std::string contentType = GetMediaTypeName(streamType);
 	int iter1 = 0;
 	bool DRM_Config_Available = false;
 

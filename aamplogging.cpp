@@ -112,14 +112,13 @@ std::string AampLogManager::getHexDebugStr(const std::vector<uint8_t>& data)
  */
 void AampLogManager::LogNetworkLatency(const char* url, int downloadTime, int downloadThresholdTimeoutMs, AampMediaType type)
 {
-	std::string contentType;
 	std::string location;
 	std::string symptom;
 
-	ParseContentUrl(url, contentType, location, symptom, type);
+	ParseContentUrl(url, location, symptom, type);
 
 	AAMPLOG(this, eLOGLEVEL_WARN, "AAMPLogNetworkLatency downloadTime=%d downloadThreshold=%d type='%s' location='%s' symptom='%s' url='%s'",
-		downloadTime, downloadThresholdTimeoutMs, contentType.c_str(), location.c_str(), symptom.c_str(), url);
+		downloadTime, downloadThresholdTimeoutMs, GetMediaTypeName(type), location.c_str(), symptom.c_str(), url);
 }
 
 /**
@@ -127,11 +126,10 @@ void AampLogManager::LogNetworkLatency(const char* url, int downloadTime, int do
  */
 void AampLogManager::LogNetworkError(const char* url, AAMPNetworkErrorType errorType, int errorCode, AampMediaType type)
 {
-	std::string contentType;
 	std::string location;
 	std::string symptom;
 
-	ParseContentUrl(url, contentType, location, symptom, type);
+	ParseContentUrl(url, location, symptom, type);
 
 	switch(errorType)
 	{
@@ -140,7 +138,7 @@ void AampLogManager::LogNetworkError(const char* url, AAMPNetworkErrorType error
 			if(errorCode >= 400)
 			{
 				AAMPLOG(this, eLOGLEVEL_ERROR, "AAMPLogNetworkError error='http error %d' type='%s' location='%s' symptom='%s' url='%s'",
-					errorCode, contentType.c_str(), location.c_str(), symptom.c_str(), url );
+					errorCode, GetMediaTypeName(type), location.c_str(), symptom.c_str(), url );
 			}
 		}
 			break; /*AAMPNetworkErrorHttp*/
@@ -150,7 +148,7 @@ void AampLogManager::LogNetworkError(const char* url, AAMPNetworkErrorType error
 			if(errorCode > 0)
 			{
 				AAMPLOG(this, eLOGLEVEL_ERROR, "AAMPLogNetworkError error='timeout %d' type='%s' location='%s' symptom='%s' url='%s'",
-					errorCode, contentType.c_str(), location.c_str(), symptom.c_str(), url );
+					errorCode, GetMediaTypeName(type), location.c_str(), symptom.c_str(), url );
 			}
 		}
 			break; /*AAMPNetworkErrorTimeout*/
@@ -160,7 +158,7 @@ void AampLogManager::LogNetworkError(const char* url, AAMPNetworkErrorType error
 			if(errorCode > 0)
 			{
 				AAMPLOG(this, eLOGLEVEL_ERROR, "AAMPLogNetworkError error='curl error %d' type='%s' location='%s' symptom='%s' url='%s'",
-					errorCode, contentType.c_str(), location.c_str(), symptom.c_str(), url );
+					errorCode, GetMediaTypeName(type), location.c_str(), symptom.c_str(), url );
 			}
 		}
 			break; /*AAMPNetworkErrorCurl*/
@@ -174,36 +172,8 @@ void AampLogManager::LogNetworkError(const char* url, AAMPNetworkErrorType error
 /**
  *  @brief To get the issue symptom based on the error type for triage purpose
  */
-void AampLogManager::ParseContentUrl(const char* url, std::string& contentType, std::string& location, std::string& symptom, AampMediaType type)
+void AampLogManager::ParseContentUrl(const char* url, std::string& location, std::string& symptom, AampMediaType type)
 {
-	static const char *mMediaTypes[eMEDIATYPE_DEFAULT] = { // enum AampMediaType
-						"VIDEO",
-						"AUDIO",
-						"SUBTITLE",
-						"AUX-AUDIO",
-						"MANIFEST",
-						"LICENCE",
-						"IFRAME",
-						"INIT_VIDEO",
-						"INIT_AUDIO",
-						"INIT_SUBTITLE",
-						"INIT_AUX-AUDIO",
-						"PLAYLIST_VIDEO",
-						"PLAYLIST_AUDIO",
-						"PLAYLIST_SUBTITLE",
-						"PLAYLIST_AUX-AUDIO",
-						"PLAYLIST_IFRAME",
-						"INIT_IFRAME"};
-
-	if (type < eMEDIATYPE_DEFAULT)
-	{
-		contentType = mMediaTypes[type];
-	}
-	else
-	{
-		contentType = "unknown";
-	}
-
 	switch (type)
 	{
 		case eMEDIATYPE_MANIFEST:

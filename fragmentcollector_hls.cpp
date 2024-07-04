@@ -3636,8 +3636,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 			}
 			else
 			{
-				AAMPLOG_WARN("Lag in '%s' seq no, diff[%lld] > maxValue[%d]",
-						((eMEDIATYPE_VIDEO == mediaType) ? "video" : "audio"), diff, MAX_SEQ_NUMBER_LAG_COUNT);
+				AAMPLOG_WARN("Lag in '%s' seq no, diff[%lld] > maxValue[%d]", GetMediaTypeName(mediaType), diff, MAX_SEQ_NUMBER_LAG_COUNT);
 			}
 		}
 		else
@@ -4038,15 +4037,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		TrackState *video = trackState[eMEDIATYPE_VIDEO];
 		TrackState *subtitle = trackState[eMEDIATYPE_SUBTITLE];
 		TrackState *aux = trackState[eMEDIATYPE_AUX_AUDIO];
-
-		/*audio->playlist.setName("audio");
-		audio->index.setName("audio-index");
-		video->playlist.setName("video");
-		video->index.setName("video-index");
-		subtitle->playlist.setName("subtitle");
-		subtitle->index.setName("subtitle-index");
-		aux->playlist.setName("aux");
-		aux->index.setName("aux-index");*/
 
 		//Store Bitrate info to Video Track
 		if(video)

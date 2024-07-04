@@ -292,7 +292,7 @@ double GetNetworkTime(const std::string& remoteUrl, int *http_error, std::string
  * @param[in] mediaType - Media type
  * @return
  */
-const char * GetMediaTypeName(int mediaType);
+const char * GetMediaTypeName(AampMediaType mediaType);
 
 std::size_t GetPrintableThreadID( const std::thread &t );
 std::size_t GetPrintableThreadID( const pthread_t &t );

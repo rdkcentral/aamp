@@ -607,9 +607,9 @@ TEST(_AampUtils, GetMediaTypeNameTest)
     eMEDIATYPE_DEFAULT
     };
 
-    for(int i=0; i<21; i++){
-    const char* type = GetMediaTypeName(mediaType[i]);
-    }
+	for(int i=0; i<=eMEDIATYPE_DEFAULT; i++){
+		const char* type = GetMediaTypeName(mediaType[i]);
+	}
 }
 
 TEST(_AampUtils, ParseISO8601DurationTest1)
