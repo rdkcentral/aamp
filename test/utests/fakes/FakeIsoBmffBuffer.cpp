@@ -40,11 +40,22 @@ bool IsoBmffBuffer::isInitSegment()
 
 void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
 {
+    if (g_mockIsoBmffBuffer)
+    {
+        g_mockIsoBmffBuffer->setBuffer(buf, sz);
+    }
 }
 
 bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 {
-    return false;
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->parseBuffer(correctBoxSize, newTrackId);
+    }
+    else
+    {
+        return false;
+    }
 }
 
 bool IsoBmffBuffer::getTimeScale(uint32_t &timeScale)
@@ -120,6 +131,14 @@ bool IsoBmffBuffer::getTrack_id(uint32_t &track_id)
 
 void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz)
 {
+}
+
+void IsoBmffBuffer::restampPts(int64_t offset)
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        g_mockIsoBmffBuffer->restampPts(offset);
+    }
 }
 
 Box* IsoBmffBuffer::getBox(const char *name, size_t &index)

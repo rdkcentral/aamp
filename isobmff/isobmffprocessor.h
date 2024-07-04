@@ -272,6 +272,18 @@ public:
 	*/
 	void initProcessorForRestamp();
 
+	/**
+	 * @fn restampPts
+	 *
+	 * @brief Restamp the PTS in the ISO BMFF boxes in the buffer, by adding an offset
+	 *
+	 * @param[in] buffer - Pointer to the AampGrowableBuffer
+	 * @param[in] ptsOffset - offset to be added to PTS values
+	 *
+	 * @return true if PTS values were restamped, false otherwise
+	 */
+	bool restampPts(AampGrowableBuffer &buffer, int64_t ptsOffset);
+
 private:
 
 	/**

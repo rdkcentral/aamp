@@ -112,6 +112,16 @@ private:
     	 */
     	bool getBoxesInternal(const std::vector<Box*> *boxes, const char *name, std::vector<Box*> *pBoxes);
 
+		/**
+		 * @fn restampPtsInternal
+		 *
+		 * @brief Private method to restamp PTS in a buffer
+		 *
+		 * @param[in] offset - pts offset
+		 * @param[in] segment - buffer pointer
+		 * @param[in] bufSz - buffer size
+		 */
+		void restampPtsInternal(int64_t offset, uint8_t *buf, size_t bufSz);
 public:
 	/**
 	 * @brief IsoBmffBuffer constructor
@@ -140,14 +150,18 @@ public:
 
 	/**
 	 * @fn parseBuffer
-	 *  @param[in] correctBoxSize - flag to indicate if box size needs to be corrected
+	 *
+	 * @brief Parse the ISO BMFF buffer and create a vector of boxes with the parsed information.
+	 *        The method destroyBoxes needs to be called before parseBuffer can be called a second time.
+	 *
+	 * @param[in] correctBoxSize - flag to indicate if box size needs to be corrected
 	 * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
 	 * @return true if parse was successful. false otherwise
 	 */
 	bool parseBuffer(bool correctBoxSize = false, int newTrackId = -1);
 
 	/**
-	 * @fn restampPTS
+	 * @fn restampPTS - obsolete, to be removed
 	 *
 	 * @param[in] offset - pts offset
 	 * @param[in] basePts - base pts
@@ -156,6 +170,18 @@ public:
 	 * @return void
 	 */
 	void restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz);
+
+	/**
+	 * @fn restampPts
+	 *
+	 * @brief Restamp PTS in a buffer
+	 *        The IsoBmffBuffer parsing is no longer valid after this method is
+	 *        called; parseBuffer() has to be called again for the get methods
+	 *        to return the right value.
+	 *
+	 * @param[in] offset - pts offset
+	 */
+	void restampPts(int64_t offset);
 
 	/**
 	 * @fn getFirstPTS
