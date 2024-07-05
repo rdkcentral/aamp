@@ -8585,7 +8585,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 								 * 1. If the next segment time is not matching with the next period segment start time.
 								 * 2. To reconfigure the pipeline, if there is a change in the Audio Codec even if there is no change in segment start time in multi period content.
 								 */
-								if((segmentTemplates.GetSegmentTimeline() != NULL && nextSegmentTime != segmentStartTime) || GetESChangeStatus())
+								if((segmentTemplates.GetSegmentTimeline() != NULL && nextSegmentTime != segmentStartTime) || GetESChangeStatus() || ISCONFIGSET(eAAMPConfig_ForceMultiPeriodDiscontinuity))
 								{
 									AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 									discontinuity = true;
@@ -8607,7 +8607,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 										}
 									}
 								}
-								else if(nextSegmentTime != segmentStartTime)
+								else if(nextSegmentTime != segmentStartTime || ISCONFIGSET(eAAMPConfig_ForceMultiPeriodDiscontinuity))
 								{
 									discontinuity = true;
 									double startTime = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
@@ -8625,6 +8625,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 										}
 									}
 									AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected");
+									AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 								}
 								else
 								{

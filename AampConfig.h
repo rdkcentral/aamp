@@ -218,6 +218,7 @@ typedef enum
 	eAAMPConfig_QtDemuxOverrideEnabled,		/**< Enable/Disable ENABLE_AAMP_QTDEMUX_OVERRIDE flag , specifically introduced as a workaround for Charter App (ES1-701)*/
 	eAAMPConfig_LocalTSBEnabled,                                            /**< To enable/disable Local TSB in LLD as part of RDK-48051*/
 	eAAMPConfig_EnableIFrameTrackExtract,			/**< Config to enable and disable iFrame extraction from video track*/
+	eAAMPConfig_ForceMultiPeriodDiscontinuity,		/**< Config to forcefully process multiperiod discontinuity even if they are continuous in PTS */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;

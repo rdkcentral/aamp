@@ -416,6 +416,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{DEFAULT_VALUE_QTDEMUX_OVERRIDE_ENABLED, "qtDemuxOverrideEnabled", eAAMPConfig_QtDemuxOverrideEnabled, false},
 	{false, "localTSBEnabled", eAAMPConfig_LocalTSBEnabled, true},
 	{false, "enableIFrameTrackExtract", eAAMPConfig_EnableIFrameTrackExtract, true},
+	{false, "forceMultiPeriodDiscontinuity", eAAMPConfig_ForceMultiPeriodDiscontinuity, false}
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
