@@ -207,14 +207,12 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 16:
 					{
 						std::vector<long int> videoBitrates;
-						std::string temp = "[AAMPCLI] VIDEO BITRATES = [ ";
+						printf("[AAMPCLI] VIDEO BITRATES = [ ");
 						videoBitrates = playerInstanceAamp->GetVideoBitrates();
 						for(int i=0; i < videoBitrates.size(); i++){
-							temp += std::to_string(videoBitrates[i]);
-							temp += " ";
+							printf("%ld, ", videoBitrates[i]);
 						}
-						temp += " ]";
-						printf( "%s\n", temp.c_str() );
+						printf(" ]\n");
 						break;
 					}
 
