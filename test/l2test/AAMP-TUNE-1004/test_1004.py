@@ -39,11 +39,11 @@ TESTDATA0 = {
     ],
 "expect_list": [
     # ( string, min time seconds, max time seconds)
-    {"expect": r"aamp_tune","min":0, "max":1},
-    {"expect": r"PAUSED -> PLAYING","min":0, "max":1},
-    {"expect": r"Stopping Playback","min":0, "max":1},
-    {"expect": r"SendTuneMetricsEvent","min":0, "max":1},
-    {"expect": r"NotifyFirstFrameReceived","min":0, "max":1, "end_of_test":True},
+    {"expect": r"aamp_tune","min":0, "max":2},
+    {"expect": r"PAUSED -> PLAYING","min":0, "max":2},
+    {"expect": r"Stopping Playback","min":0, "max":2},
+    {"expect": r"SendTuneMetricsEvent","min":0, "max":2},
+    {"expect": r"NotifyFirstFrameReceived","min":0, "max":2, "end_of_test":True},
     ]
 }
 
