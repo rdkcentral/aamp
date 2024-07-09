@@ -603,31 +603,12 @@ bool PrivateCDAIObjectMPD::isPeriodInAdbreak(const std::string &periodId)
 MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifest, bool tryFog)
 {
 	MPD* adMpd = NULL;
+	AampGrowableBuffer manifest("adMPD_CDN");
 	bool gotManifest = false;
 	int http_error = 0;
+	double downloadTime = 0;
 	std::string effectiveUrl;
-	//create MPD instance for ad manifest download
-	AampMPDDownloader *mAdDownloaderInstance = nullptr;
-	ManifestDownloadResponsePtr mAdManifestDnldRespPtr = std::make_shared<ManifestDownloadResponse> ();	
-	std::shared_ptr<ManifestDownloadConfig> inpData    = std::make_shared<ManifestDownloadConfig> ();
-	mAdDownloaderInstance 	= new AampMPDDownloader();
-	//initialize the downloadconfig 
-	inpData->mTuneUrl 	= manifestUrl;
-	inpData->mDnldConfig->iStartTimeout = mAamp->mConfig->GetConfigValue(eAAMPConfig_CurlDownloadStartTimeout);
-        inpData->mDnldConfig->iStallTimeout = mAamp->mConfig->GetConfigValue(eAAMPConfig_CurlStallTimeout);
-        inpData->mDnldConfig->iLowBWTimeout = 0;
-	inpData->mDnldConfig->iDownloadTimeout = mAamp->mConfig->GetConfigValue(eAAMPConfig_ManifestTimeout);
-	inpData->mDnldConfig->iCurlConnectionTimeout =  mAamp->mConfig->GetConfigValue(eAAMPConfig_Curl_ConnectTimeout);
-	inpData->mDnldConfig->bNeedDownloadMetrics = true;
-	inpData->mDnldConfig->pCurl                  =       CurlStore::GetCurlStoreInstance(mAamp).GetCurlHandle(mAamp, manifestUrl, eCURLINSTANCE_DAI);
-	inpData->mDnldConfig->userAgentString = mAamp->mConfig->GetUserAgentString();
-	inpData->mDnldConfig->proxyName       = mAamp->mConfig->GetConfigValue(eAAMPConfig_NetworkProxy);
-	mAdDownloaderInstance->Initialize(inpData, mLogObj);
-	mAdDownloaderInstance->Start();
-	mAdManifestDnldRespPtr = mAdDownloaderInstance->GetManifest(true, mAamp->mManifestTimeoutMs);
-
-	gotManifest		=	(mAdManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
-	effectiveUrl = mAdManifestDnldRespPtr->mMPDDownloadResponse->sEffectiveUrl;
+	gotManifest = mAamp->GetFile(manifestUrl, eMEDIATYPE_MANIFEST, &manifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 	if (gotManifest)
 	{
 		AAMPLOG_TRACE("PrivateCDAIObjectMPD:: manifest download success");
@@ -636,7 +617,6 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	{
 		AAMPLOG_ERR("PrivateCDAIObjectMPD:: manifest download failed");
 	}
-	std::string manifest 	=	mAdManifestDnldRespPtr->mMPDDownloadResponse->getString();
 
 	if (gotManifest)
 	{
@@ -648,7 +628,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 		{
 			finalManifest = true;
 		}
-		xmlTextReaderPtr reader = xmlReaderForMemory( manifest.c_str(), (int) manifest.length(), NULL, NULL, 0);
+		xmlTextReaderPtr reader = xmlReaderForMemory( manifest.GetPtr(), (int) manifest.GetLen(), NULL, NULL, 0);
 		if(tryFog && !mAamp->mConfig->IsConfigSet(eAAMPConfig_PlayAdFromCDN) && reader && mIsFogTSB)	//Main content from FOG. Ad is expected from FOG.
 		{
 			std::string channelUrl = mAamp->GetManifestUrl();	//TODO: Get FOG URL from channel URL
@@ -670,20 +650,10 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 			effectiveUrl.assign(channelUrl.c_str(), 0, ipend);
 			effectiveUrl.append("/adrec?clientId=FOG_AAMP&recordedUrl=");
 			effectiveUrl.append(encodedUrl.c_str());
-		
-			mAdManifestDnldRespPtr.reset(); // To Clear the previous downloadresponse value and set to nullptr 
 
-			//Initialize with new config data 
-			inpData->mTuneUrl       	= effectiveUrl;
-			inpData->mDnldConfig->bNeedDownloadMetrics 	= true;
-			inpData->mDnldConfig->pCurl			=	CurlStore::GetCurlStoreInstance(mAamp).GetCurlHandle(mAamp, effectiveUrl, eCURLINSTANCE_DAI);
-			mAdDownloaderInstance->Initialize(inpData, mLogObj);
-			mAdDownloaderInstance->Start();
-
-			mAdManifestDnldRespPtr   = mAdDownloaderInstance->GetManifest(true, mAamp->mManifestTimeoutMs);
-			http_error               = mAdManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
-			effectiveUrl = mAdManifestDnldRespPtr->mMPDDownloadResponse->sEffectiveUrl;
-			std::string fogManifest 	=	mAdManifestDnldRespPtr->mMPDDownloadResponse->getString();
+			AampGrowableBuffer fogManifest("adMPD_FOG");
+			http_error = 0;
+			mAamp->GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, &fogManifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 			if(200 == http_error || 204 == http_error)
 			{
 				manifestUrl = effectiveUrl;
@@ -691,13 +661,19 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 				{
 					//FOG already has the manifest. Releasing the one from CDN and using FOG's
 					xmlFreeTextReader(reader);
-					manifest = fogManifest;
-					reader = xmlReaderForMemory(manifest.c_str(), (int) manifest.length(), NULL, NULL, 0);
+					reader = xmlReaderForMemory(fogManifest.GetPtr(), (int) fogManifest.GetLen(), NULL, NULL, 0);
+					manifest.Free();
+					manifest.Replace(&fogManifest);
 				}
 				else
 				{
 					finalManifest = false;
 				}
+			}
+
+			if(fogManifest.GetPtr())
+			{
+				fogManifest.Free();
 			}
 		}
 		if (reader != NULL)
@@ -775,15 +751,15 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 		if (gpGlobalConfig->logging.trace)
 		{
-			AAMPLOG_WARN("Ad manifest: %s", manifest.c_str());
+			manifest.AppendNulTerminator(); // make safe for cstring operations
+			AAMPLOG_WARN("Ad manifest: %s", manifest.GetPtr() );
 		}
+		manifest.Free();
 	}
 	else
 	{
 		AAMPLOG_ERR("[CDAI]: Error on manifest fetch");
 	}
-	mAdDownloaderInstance->Release();
-	SAFE_DELETE(mAdDownloaderInstance);
 	return adMpd;
 }
 

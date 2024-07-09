@@ -25,7 +25,6 @@
 #ifndef ADMANAGER_MPD_H_
 #define ADMANAGER_MPD_H_
 
-#include "downloader/AampCurlStore.h"
 #include "AdManagerBase.h"
 #include <string>
 #include "libdash/INode.h"
