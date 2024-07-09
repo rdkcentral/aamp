@@ -647,3 +647,31 @@ TEST_F(IsoBmffProcessorTests, ptsTests_4)
 	restampedPTS = mIsoBmffProcessor->getSumPTS() - vDuration;
 	EXPECT_EQ(restampedPTS, rslt); // Restamped PTS will not update on dup fragment
 }
+
+TEST_F(IsoBmffProcessorTests, restampPtsTest)
+{
+	AampGrowableBuffer buffer("IsoBmffProcessorTests-restampPts");
+	uint8_t bufferContent[] = ("IsoBmff buffer content");
+	// Set the pointer and length in the AampGrowableBuffer fake
+	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
+	int64_t ptsOffset{123};
+
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(ptsOffset));
+	EXPECT_TRUE(mIsoBmffProcessor->restampPts(buffer, ptsOffset));
+}
+
+TEST_F(IsoBmffProcessorTests, restampPtsNegativeTest)
+{
+	AampGrowableBuffer buffer("IsoBmffProcessorTests-restampPts");
+	uint8_t bufferContent[] = ("IsoBmff buffer content");
+	// Set the pointer and length in the AampGrowableBuffer fake
+	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
+	int64_t ptsOffset{123};
+
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(_)).Times(0);
+	EXPECT_FALSE(mIsoBmffProcessor->restampPts(buffer, ptsOffset));
+}

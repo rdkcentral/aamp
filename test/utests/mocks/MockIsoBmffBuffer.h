@@ -34,6 +34,9 @@ public:
     MOCK_METHOD(bool, isInitSegment, ());
     MOCK_METHOD(Box*, getBox, (const char *, size_t &));
     MOCK_METHOD(void, getSampleDuration, (Box *, uint64_t &));
+    MOCK_METHOD(void, setBuffer, (uint8_t *, size_t));
+    MOCK_METHOD(bool, parseBuffer, (bool, int));
+    MOCK_METHOD(void, restampPts, (int64_t));
 };
 
 extern MockIsoBmffBuffer *g_mockIsoBmffBuffer;

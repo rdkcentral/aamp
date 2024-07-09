@@ -133,7 +133,6 @@ bool IsoBmffBuffer::getBoxSizeInternal(const std::vector<Box*> *boxes, const cha
  */
 void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz)
 {
-	// TODO: Untest code, not required for now
 	uint32_t curOffset = 0;
 	while (curOffset < bufSz)
 	{
@@ -171,6 +170,54 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 		}
 		curOffset += size;
 	}
+}
+
+void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t bufSz)
+{
+	size_t curOffset = 0;
+	while (curOffset < bufSz)
+	{
+		uint8_t *buf = segment + curOffset;
+		uint32_t size = READ_U32(buf);
+		uint8_t type[5];
+		READ_U8(type, buf, 4);
+		type[4] = '\0';
+
+		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
+		{
+			restampPtsInternal(offset, buf, size);
+		}
+		else if (IS_TYPE(type, Box::TFDT))
+		{
+			uint8_t version = READ_VERSION(buf);
+			uint32_t flags  = READ_FLAGS(buf);
+
+			(void)flags; // Avoid a warning.
+
+			if (1 == version)
+			{
+				uint64_t pts = ReadUint64(buf);
+				pts += offset;
+				WriteUint64(buf, pts);
+			}
+			else
+			{
+				uint32_t pts = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+				pts += (uint32_t)offset;
+				WRITE_U32(buf, pts);
+			}
+		}
+		else
+		{
+			// Any other box type
+		}
+		curOffset += size;
+	}
+}
+
+void IsoBmffBuffer::restampPts(int64_t offset)
+{
+	restampPtsInternal(offset, buffer, bufSize);
 }
 
 /**
