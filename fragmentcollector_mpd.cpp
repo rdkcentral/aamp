@@ -9426,7 +9426,7 @@ void StreamAbstractionAAMP_MPD::Start(void)
 			if(aamp->IsPlayEnabled())
 			{
 				aamp->ResumeTrackInjection((AampMediaType) i);
-				if(!aamp->IsLocalAAMPTsb())
+				if(!aamp->IsLocalAAMPTsb() && !mLowLatencyMode)
 				{
 					mMediaStreamContext[i]->StartInjectLoop();
 				}
@@ -10320,7 +10320,7 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 		if(track && track->Enabled())
 		{
 			aamp->ResumeTrackInjection((AampMediaType) iTrack);
-			if(!aamp->IsLocalAAMPTsb())
+			if(!aamp->IsLocalAAMPTsb() || mLowLatencyMode)
 			{
 				track->StartInjectLoop();
 			}
@@ -11895,9 +11895,17 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 		}
 		else
 		{
-			stLLServiceData.lowLatencyMode = false;
 			aamp->SetLLDashAdjustSpeed(false);
-			AAMPLOG_TRACE("LL-DASH Mode Disabled. Not a LL-DASH Stream");
+			if(ISCONFIGSET(eAAMPConfig_ForceLLDFlow))
+			{
+				stLLServiceData.lowLatencyMode = true;
+				AAMPLOG_WARN("LL-DASH Mode Forced. Not an LL-DASH Stream");
+			}
+			else
+			{
+				stLLServiceData.lowLatencyMode = false;
+				AAMPLOG_TRACE("LL-DASH Mode Disabled. Not a LL-DASH Stream");
+			}
 		}
 		
 		//If LLD enabled then check servicedescription requirements
@@ -11978,7 +11986,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD:[LL-Dash] Min Latency: %ld Max Latency: %ld Target Latency: %ld",(long)latencyOffsetMin,(long)latencyOffsetMax,(long)TargetLatency);
 			SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_IgnoreAppLiveOffset, true);
 			//Ignore Low latency setting
-			if(!ISCONFIGSET(eAAMPConfig_IgnoreAppLiveOffset) && (((AAMP_DEFAULT_SETTING != GETCONFIGOWNER(eAAMPConfig_LiveOffset4K)) && (currentOffset > latencyOffsetMax) && aamp->mIsStream4K) ||
+			if(!ISCONFIGSET(eAAMPConfig_ForceLLDFlow) && !ISCONFIGSET(eAAMPConfig_IgnoreAppLiveOffset) && (((AAMP_DEFAULT_SETTING != GETCONFIGOWNER(eAAMPConfig_LiveOffset4K)) && (currentOffset > latencyOffsetMax) && aamp->mIsStream4K) ||
 			((AAMP_DEFAULT_SETTING != GETCONFIGOWNER(eAAMPConfig_LiveOffset)) && (currentOffset > latencyOffsetMax))))
 			{
 				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Switch off LL mode: App requested currentOffset > latencyOffsetMax");
@@ -11990,24 +11998,26 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 				if(!aamp->GetLowLatencyServiceConfigured())
 				{
 					latencyOffset =(double) (stLLServiceData.targetLatency/1000);
-					
-					//Override Latency offset with Min Value if config enabled
-					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: currentOffset:%lf LL-DASH offset(s): %lf",currentOffset,latencyOffset);
-					if(((AAMP_STREAM_SETTING >= GETCONFIGOWNER(eAAMPConfig_LiveOffset4K)) && aamp->mIsStream4K) ||
-					((AAMP_STREAM_SETTING >= GETCONFIGOWNER(eAAMPConfig_LiveOffset))))
+					if(!ISCONFIGSET(eAAMPConfig_ForceLLDFlow))
 					{
-						SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_LiveOffset,latencyOffset);
-						if (AAMP_STREAM_SETTING >= GETCONFIGOWNER(eAAMPConfig_LiveOffset))
+						//Override Latency offset with Min Value if config enabled
+						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: currentOffset:%lf LL-DASH offset(s): %lf",currentOffset,latencyOffset);
+						if(((AAMP_STREAM_SETTING >= GETCONFIGOWNER(eAAMPConfig_LiveOffset4K)) && aamp->mIsStream4K) ||
+						((AAMP_STREAM_SETTING >= GETCONFIGOWNER(eAAMPConfig_LiveOffset))))
 						{
-							aamp->UpdateLiveOffset();
+							SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_LiveOffset,latencyOffset);
+							if (AAMP_STREAM_SETTING >= GETCONFIGOWNER(eAAMPConfig_LiveOffset))
+							{
+								aamp->UpdateLiveOffset();
+							}
 						}
-					}
-					else
-					{
-						if(ISCONFIGSET(eAAMPConfig_IgnoreAppLiveOffset) && (GETCONFIGOWNER(eAAMPConfig_LiveOffset) == AAMP_APPLICATION_SETTING))
+						else
 						{
-							SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_LiveOffset,latencyOffset);
-							aamp->UpdateLiveOffset();
+							if(ISCONFIGSET(eAAMPConfig_IgnoreAppLiveOffset) && (GETCONFIGOWNER(eAAMPConfig_LiveOffset) == AAMP_APPLICATION_SETTING))
+							{
+								SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_LiveOffset,latencyOffset);
+								aamp->UpdateLiveOffset();
+							}
 						}
 					}
 						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_MinABRNWBufferRampDown,AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD);

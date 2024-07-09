@@ -219,6 +219,7 @@ typedef enum
 	eAAMPConfig_LocalTSBEnabled,                                            /**< To enable/disable Local TSB in LLD as part of RDK-48051*/
 	eAAMPConfig_EnableIFrameTrackExtract,			/**< Config to enable and disable iFrame extraction from video track*/
 	eAAMPConfig_ForceMultiPeriodDiscontinuity,		/**< Config to forcefully process multiperiod discontinuity even if they are continuous in PTS */
+	eAAMPConfig_ForceLLDFlow,						/**< Config to forcefully process LLD workflow even if they are live SLD */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;

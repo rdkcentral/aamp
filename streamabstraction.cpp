@@ -568,9 +568,15 @@ bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 {
 	bool ret = true;
 	int pthreadReturnValue = 0;
+
+	if(abort)
+	{
+		ret = false;
+	}
+
 	pthread_mutex_lock(&mutex);
 
-	if ((numberOfFragmentChunksCached == mCachedFragmentChunksSize) && !(abort || abortInjectChunk))
+	if (ret && (numberOfFragmentChunksCached == mCachedFragmentChunksSize))
 	{
 		if (timeoutMs >= 0)
 		{
@@ -601,7 +607,7 @@ bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 			AAMPLOG_DEBUG("[%s] wait complete for fragmentChunkInjected", name);
 		}
 	}
-	if(abort || abortInjectChunk)
+	if(abort)
 	{
 		AAMPLOG_DEBUG("[%s] abort set, returning false", name);
 		ret = false;
