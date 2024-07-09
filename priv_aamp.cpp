@@ -5768,7 +5768,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	}
 	
-	if(mAppName == "Viper" && mTsbType == "cloud")
+	if(mTsbType == "cloud")
 	{
 		//cdnadsonly for cloud tsb
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_PlayAdFromCDN, true);

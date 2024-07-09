@@ -167,7 +167,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 			cachedFragment->fragment.ReserveBytes(len);
 			UnlockReadMutex();
 			TSB::Status status = mTSBStore->Read(url, cachedFragment->fragment.GetPtr(), len);
-			cachedFragment->fragment.ReduceLen(len);
+			cachedFragment->fragment.SetLen(len);
 			LockReadMutex();
 			if (status != TSB::Status::OK)
 			{
@@ -224,7 +224,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 		cachedFragment->fragment.ReserveBytes(len);
 		UnlockReadMutex();
 		status = mTSBStore->Read(url, cachedFragment->fragment.GetPtr(), len);
-		cachedFragment->fragment.ReduceLen(len);
+		cachedFragment->fragment.SetLen(len);
 		LockReadMutex();
 		if (status == TSB::Status::OK)
 		{
@@ -276,7 +276,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(double position, Aam
 			AAMPLOG_WARN("Read failure from TSBLibrary");
 			return nullptr;
 		}
-		cachedFragment->fragment.ReduceLen(len);
+		cachedFragment->fragment.SetLen(len);
 	}
 	else
 	{
