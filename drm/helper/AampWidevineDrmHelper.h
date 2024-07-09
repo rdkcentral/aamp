@@ -28,10 +28,6 @@
 
 #include "AampDrmHelper.h"
 
-#define KEYID_MARKER 0x12
-#define CONTENTID_MARKER 0x22
-#define DATA_LENGTH_FIELD_SIZE 2
-
 /**
  * @class AampWidevineDrmHelper
  * @brief Handles the operation for Wide vine DRM operation
@@ -69,11 +65,7 @@ public:
 	virtual const std::string& friendlyName() const override { return FRIENDLY_NAME; };
 
 	AampWidevineDrmHelper(const struct DrmInfo& drmInfo, AampLogManager *logObj) : AampDrmHelper(drmInfo, logObj), FRIENDLY_NAME("Widevine"),
-		CODEC_TYPE(1), WIDEVINE_KEY_ID_SIZE_INDICATOR(0x12), WIDEVINE_DASH_KEY_ID_OFFSET(32u),
-		WIDEVINE_CONTENT_METADATA_OFFSET(28u), mInitData(), mKeyID(), mKeyIDs(), mContentMetadata()
-		,WIDEVINE_PSSH_DATA_VERSION_POSITION(8u), WIDEVINE_PSSH_KEYID_SIZE_OFFSET(32u), 
-		WIDEVINE_PSSH_KEYID_SIZE_OFFSET_WITH_AUTHOR(34u), WIDEVINE_PSSH_VER1_KEY_ID_SIZE(16u)
-		,mDefaultKeySlot(-1)
+		CODEC_TYPE(1), mInitData(), mKeyID(), mKeyIDs(), mContentMetadata(), mDefaultKeySlot(-1)
 	{}
 
 	~AampWidevineDrmHelper() { }
@@ -82,14 +74,6 @@ private:
 	static const std::string WIDEVINE_OCDM_ID;
 	const std::string FRIENDLY_NAME;
 	const int CODEC_TYPE;
-	const uint8_t WIDEVINE_KEY_ID_SIZE_INDICATOR;
-	const size_t WIDEVINE_DASH_KEY_ID_OFFSET; // Offset in the PSSH to find the key ID for DASH
-	const uint8_t WIDEVINE_CONTENT_METADATA_OFFSET; // Offset of content metadata in Widevine PSSH data
-	const uint8_t WIDEVINE_PSSH_DATA_VERSION_POSITION; // Offset of pssh data version in Widevine PSSH data
-	const uint8_t WIDEVINE_PSSH_KEYID_SIZE_OFFSET; // Offset of content metadata in Widevine PSSH data without auther id
-	const uint8_t WIDEVINE_PSSH_KEYID_SIZE_OFFSET_WITH_AUTHOR; // Offset of content metadata in Widevine PSSH data with auther id
-	const uint8_t WIDEVINE_PSSH_VER1_KEY_ID_SIZE; // Const key id length for pSSH data version 1
-	
 	std::vector<uint8_t> mInitData;
 	std::vector<uint8_t> mKeyID;
 	std::map<int,std::vector<uint8_t>> mKeyIDs;
