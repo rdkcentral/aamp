@@ -3088,12 +3088,7 @@ TEST_F(PrivAampTests, SetLatencyParamTest4)
 {
 	p_aamp->SetLatencyParam(-5.5);
 }
-TEST_F(PrivAampTests, ConvertSpeedToStr1)
- {
-    char buffer[10];
-    char* ConvertSpeedToStr(long bps, char *str);
-    ASSERT_STREQ(ConvertSpeedToStr(5000, buffer), " 5000");
-}
+
 
 TEST_F(PrivAampTests, UpdateVideoEndMetricsTest_12)
 {
@@ -3425,24 +3420,6 @@ TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayedTest2)
 TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayedTest3)
 {
 	testp_aamp->CallNotifyFirstVideoFrameDisplayed_1();
-}
-TEST_F(PrivAampTests, ConvertSpeedToStr2)
-{
-    char buffer[100];
-	char* ConvertSpeedToStr(long bps, char *str);
-    ConvertSpeedToStr(800000, buffer);
-}
-TEST_F(PrivAampTests, ConvertSpeedToStr3)
-{
-    char buffer[100];
-	char* ConvertSpeedToStr(long bps, char *str);
-    ConvertSpeedToStr(80000000, buffer);
-}
-TEST_F(PrivAampTests, ConvertSpeedToStr4)
-{
-    char buffer[100];
-	char* ConvertSpeedToStr(long bps, char *str);
-    ConvertSpeedToStr(8000000000, buffer);
 }
 
 TEST_F(PrivAampTests,NotifyFirstVideoFrameDisplayedTest3)

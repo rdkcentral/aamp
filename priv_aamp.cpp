@@ -870,33 +870,6 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 }
 
 /**
- * @brief Convert to string and add suffix k, M, G
- * @param bps bytes Speed
- * @param str ptr String buffer
- * @retval ptr Converted String buffer
- */
-char* ConvertSpeedToStr(long bps, char *str)
-{
-#define ONE_KILO  1024
-#define ONE_MEGA ((1024) * ONE_KILO)
-
-	if(bps < 100000)
-		snprintf(str, 6, "%5ld", bps);
-
-	else if(bps < (10000 * ONE_KILO))
-		snprintf(str, 6, "%4ld" "k", bps/ONE_KILO);
-
-	else if(bps < (100 * ONE_MEGA))
-		snprintf(str, 6, "%2ld" ".%0ld" "M", bps/ONE_MEGA,
-				(bps%ONE_MEGA) / (ONE_MEGA/10) );
-	else
-		snprintf(str, 6, "%4ld" "M", bps/ONE_MEGA);
-
-	return str;
-}
-
-
-/**
  * @brief Get Current Content Download Speed
  * @param aamp ptr aamp context
  * @param mediaType File Type
@@ -4349,7 +4322,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 							(((mediaType == eMEDIATYPE_VIDEO) || (mediaType == eMEDIATYPE_INIT_VIDEO) || (mediaType == eMEDIATYPE_PLAYLIST_VIDEO)) ? mpStreamAbstractionAAMP->GetVideoBitrate() : 0), // Video fragment current bitrate
 							((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
 							range?';':' ', range?range:"");
-					AAMPLOG_INFO("httpRequestEnd: External Processing Delay : %lld", context.processDelay);
+					AAMPLOG_INFO("External Processing Delay : %lld", context.processDelay);
 					if(ui32CurlTrace < 10 )
 					{
 						AAMPLOG_INFO("%d.CurlTrace:Dns:%2.4f, Conn:%2.4f, Ssl:%2.4f, Redir:%2.4f, Pre:Start[%2.4f:%2.4f], Hdl:%p, Url:%s",
@@ -4410,7 +4383,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		{
 			if (buffer->GetPtr() == NULL || buffer->GetLen() == 0)
 			{
+#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
+				double dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
+#else
+#warning LIBCURL_VERSION<7.55.0
 				double dlSize = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
+#endif
 				long reqSize  = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
 				AAMPLOG_WARN("Invalid buffer - BufferPtr: %p, BufferLen: %lu, Dlsize : %lf ,Reqsize : %ld, Url: %s",
 						buffer->GetPtr(), buffer->GetLen(),
