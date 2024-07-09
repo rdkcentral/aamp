@@ -59,12 +59,14 @@ protected:
         mLogObj1->setPlayerId(1);
         mPrivateInstanceAAMP1 = new PrivateInstanceAAMP(&mConfig1);
         mPrivateInstanceAAMP1->mPlayerId = 1;
+        mPrivateInstanceAAMP1->mLogObj = mLogObj1;
 
         mConfig2 = *gpGlobalConfig;
         mLogObj2 = mConfig2.GetLoggerInstance();
         mLogObj2->setPlayerId(2);
         mPrivateInstanceAAMP2 = new PrivateInstanceAAMP(&mConfig2);
         mPrivateInstanceAAMP2->mPlayerId = 2;
+        mPrivateInstanceAAMP2->mLogObj = mLogObj2;
 
 
         g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
@@ -140,7 +142,6 @@ TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_SinglePipelineMode_NoAc
 */
 TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_SinglePipelineMode_ActivePlayers)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
     AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
@@ -154,7 +155,6 @@ TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_SinglePipelineMode_Acti
 */
 TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_SinglePipelineMode_UseInactivePlayer)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
     AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
     AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, true);
@@ -167,7 +167,6 @@ TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_SinglePipelineMode_UseInac
 */
 TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_SinglePipelineMode_NoChange)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
 	/* Undefined pipeline */
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(0);
     AampStreamSinkManager::GetInstance().UpdateTuningPlayer(mPrivateInstanceAAMP1);
@@ -193,7 +192,6 @@ TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_SinglePipelineMode_NoChang
 */
 TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_MultiPipelineMode_NoChange)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
 	AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP1);
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(0);
@@ -208,7 +206,6 @@ TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_MultiPipelineMode_NoChange
 */
 TEST_F(AampStreamSinkManagerTests, DeleteStreamSinkTest1)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
     AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
     AampStreamSinkManager::GetInstance().DeleteStreamSink(mPrivateInstanceAAMP1);
@@ -229,7 +226,6 @@ TEST_F(AampStreamSinkManagerTests, DeleteStreamSinkTest1)
 TEST_F(AampStreamSinkManagerTests, DeleteStreamSinkTest2)
 {
 
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     AAMPGstPlayer gstPlayerobj { mPrivateInstanceAAMP1, mId3HandlerCallback1};
 
     AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
@@ -251,7 +247,6 @@ TEST_F(AampStreamSinkManagerTests, DeleteStreamSinkTest2)
 */
 TEST_F(AampStreamSinkManagerTests, Deactivateplayer)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     AampStreamSinkInactive inactiveSink {mPrivateInstanceAAMP1->mLogObj, mId3HandlerCallback1};
     AAMPGstPlayer gstPlayerobj { mPrivateInstanceAAMP1, mId3HandlerCallback1};
 
@@ -274,7 +269,6 @@ TEST_F(AampStreamSinkManagerTests, Deactivateplayer)
 */
 TEST_F(AampStreamSinkManagerTests, CheckMultiPipelineMode)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
     AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
@@ -290,7 +284,6 @@ TEST_F(AampStreamSinkManagerTests, CheckMultiPipelineMode)
 */
 TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_MultiPipelineMode)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
     StreamSink *sink2 = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(mPrivateInstanceAAMP1);
@@ -303,7 +296,6 @@ TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_MultiPipelineMode)
 */
 TEST_F(AampStreamSinkManagerTests, MultiPipelineMode_CheckGetStreamSink1)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
     EXPECT_EQ(sink1, nullptr);
 }
@@ -315,7 +307,6 @@ TEST_F(AampStreamSinkManagerTests, MultiPipelineMode_CheckGetStreamSink1)
 */
 TEST_F(AampStreamSinkManagerTests, MultiPipelineMode_CheckGetStreamSink2)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     AAMPGstPlayer gstPlayerobj { mPrivateInstanceAAMP1, mId3HandlerCallback1};
     AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
 
@@ -335,7 +326,6 @@ TEST_F(AampStreamSinkManagerTests, MultiPipelineMode_CheckGetStreamSink2)
 */
 TEST_F(AampStreamSinkManagerTests, ChangeAampTests)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(0);
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, _)).Times(0);
 
@@ -368,7 +358,6 @@ TEST_F(AampStreamSinkManagerTests, ChangeAampTests)
 */
 TEST_F(AampStreamSinkManagerTests, CheckEncyptedHeaders)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     std::map<int, std::string> set_headers;
     std::map<int, std::string> get_headers;
 
@@ -400,7 +389,6 @@ TEST_F(AampStreamSinkManagerTests, CheckEncyptedHeaders)
 */
 TEST_F(AampStreamSinkManagerTests, CheckGetActiveStreamSink)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     AAMPGstPlayer gstPlayerobj {mPrivateInstanceAAMP1, mId3HandlerCallback1};
 
     AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
@@ -427,7 +415,6 @@ TEST_F(AampStreamSinkManagerTests, CheckGetActiveStreamSink)
 */
 TEST_F(AampStreamSinkManagerTests, CheckSetStreamSink)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     MockStreamSink streamSinkMock1, streamSinkMock2;
 
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
@@ -464,7 +451,6 @@ TEST_F(AampStreamSinkManagerTests, CheckSetStreamSink)
 */
 TEST_F(AampStreamSinkManagerTests, CheckMultipipeline1)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
     AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
 
@@ -493,7 +479,6 @@ TEST_F(AampStreamSinkManagerTests, CheckMultipipeline1)
 */
 TEST_F(AampStreamSinkManagerTests,  CheckMultipipeline2)
 {
-    GTEST_SKIP() << "Segfaulting with run.sh -e";
     AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
 
     StreamSink *sink1 = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
