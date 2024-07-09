@@ -10454,6 +10454,7 @@ bool StreamAbstractionAAMP_MPD::isAdbreakStart(IPeriod *period, uint64_t &startM
 												// even if the manifest is flagged as live
 												if(mIsLiveManifest && !modifySCTEProcessing)
 												{
+													cJSON_Delete(root);
 													return true;
 												}
 												else
