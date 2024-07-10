@@ -296,7 +296,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					isobmff/isobmffbox.cpp
 					isobmff/isobmffbuffer.cpp
 					isobmff/isobmffprocessor.cpp
-					isobmff/isobmffconverttokeyframe.cpp
+					isobmff/isobmffhelper.cpp
 					drm/helper/AampDrmHelper.cpp
 					AampGstUtils.cpp
 					MediaStreamContext.cpp

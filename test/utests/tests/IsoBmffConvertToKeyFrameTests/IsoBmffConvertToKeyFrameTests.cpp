@@ -22,7 +22,7 @@
 #include <cstring>
 #include <functional>
 
-#include "isobmff/isobmffconverttokeyframe.h"
+#include "isobmff/isobmffhelper.h"
 #include "AampConfig.h"
 #include "MockGLib.h"
 #include "testdata/testdata.h"

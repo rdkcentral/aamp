@@ -17,8 +17,8 @@
  * limitations under the License.
  */
 
-#ifndef __ISOBMFFCONVERTSEGMENTTOKEYFRAME_H__
-#define __ISOBMFFCONVERTSEGMENTTOKEYFRAME_H__
+#ifndef __ISOBMFFHELPER_H__
+#define __ISOBMFFHELPER_H__
 
 #include <cstdlib>
 #include "AampGrowableBuffer.h"
@@ -29,4 +29,17 @@
  */
 bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer);
 
-#endif /* __ISOBMFFCONVERTSEGMENTTOKEYFRAME_H__ */
+/**
+ * @fn IsoBmffRestampPts
+ *
+ * @brief Restamp the PTS in the ISO BMFF boxes in the buffer, by adding an offset
+ *
+ * @param[in] buffer - Pointer to the AampGrowableBuffer
+ * @param[in] ptsOffset - offset to be added to PTS values
+ *
+ * @retval true  - PTS values were restamped
+ * @retval false - There was a problem restamping PTS values
+ */
+bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset);
+
+#endif /* __ISOBMFFHELPER_H__ */

@@ -152,3 +152,7 @@ Box* IsoBmffBuffer::getBox(const char *name, size_t &index)
         return NULL;
     }
 }
+
+void IsoBmffBuffer::truncate(void)
+{
+}

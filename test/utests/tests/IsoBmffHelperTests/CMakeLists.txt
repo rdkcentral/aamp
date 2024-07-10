@@ -1,7 +1,7 @@
-# If not stated otherwise in this file or this component's LICENSE file the
+# If not stated otherwise in this file or this component's license file the
 # following copyright and licenses apply:
 #
-# Copyright 2024 Synamedia Ltd.
+# Copyright 2023 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,38 +23,44 @@ pkg_check_modules(GLIB REQUIRED glib-2.0)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME IsoBmffConvertToKeyFrameTests)
-set(TEST_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/testFiles")
+set(EXEC_NAME IsoBmffHelperTests)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff)
-include_directories(${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper)
-include_directories(${AAMP_ROOT}/subtitle)
-include_directories(${AAMP_ROOT}/downloader)
-include_directories(${AAMP_ROOT}/tsb/api)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
+include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(${LibXml2_INCLUDE_DIRS})
+include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${UTESTS_ROOT}/mocks)
+include_directories(${LIBCJSON_INCLUDE_DIRS})
+include_directories(${AAMP_ROOT}/tsb/api)
+
 include_directories(${TEST_FILES_DIR})
 
-set(TEST_SOURCES IsoBmffConvertToKeyFrameTests.cpp IsoBmffConvertToKeyFrameMainTest.cpp)
+set(TEST_SOURCES IsoBmffHelperTests.cpp IsoBmffHelperMainTests.cpp)
 
-get_cmake_property(_variableNames VARIABLES)
-list (SORT _variableNames)
-foreach (_variableName ${_variableNames})
-    message(STATUS "${_variableName}=${${_variableName}}")
-endforeach()
-
-set(AAMP_SOURCES ${AAMP_ROOT}/AampGrowableBuffer.cpp ${AAMP_ROOT}/isobmff/isobmffhelper.cpp ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp ${AAMP_ROOT}/isobmff/isobmffbox.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/isobmff/isobmffhelper.h ${AAMP_ROOT}/isobmff/isobmffhelper.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
 
+if (CMAKE_XCODE_BUILD_SYSTEM)
+  # XCode schema target
+  xcode_define_schema(${EXEC_NAME})
+endif()
+
+if (COVERAGE_ENABLED)
+    include(CodeCoverage)
+    APPEND_COVERAGE_COMPILER_FLAGS()
+endif()
+
 add_compile_definitions(TESTS_DIR="${TEST_FILES_DIR}")
-target_link_libraries(${EXEC_NAME} fakes  ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} fakes ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} -lpthread)
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+

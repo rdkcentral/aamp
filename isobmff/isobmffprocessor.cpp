@@ -1191,25 +1191,3 @@ void IsoBmffProcessor::initProcessorForRestamp()
 	// Hence setting timeScale changed state to complete
 	timeScaleChangeState = eBMFFPROCESSOR_TIMESCALE_COMPLETE;
 }
-
-bool IsoBmffProcessor::restampPts(AampGrowableBuffer &buffer, int64_t ptsOffset)
-{
-	AAMPLOG_TRACE("Function called with PTS offset = %" PRId64, ptsOffset);
-
-	bool retval{false};
-	IsoBmffBuffer isoBmffBuffer{};
-
-	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer.GetPtr()), buffer.GetLen() );
-
-	if (!isoBmffBuffer.parseBuffer())
-	{
-		AAMPLOG_WARN("Failed to parse buffer");
-	}
-	else
-	{
-		isoBmffBuffer.restampPts(ptsOffset);
-		retval = true;
-	}
-
-	return retval;
-}

@@ -21,7 +21,9 @@
  * It also includes AAMP log manager header file. */
 #include "AampConfig.h"
 #include "isobmffbuffer.h"
-#include "isobmffconverttokeyframe.h"
+#include "isobmffhelper.h"
+
+#include <cinttypes>
 
 
 bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer)
@@ -41,6 +43,28 @@ bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer)
 	else
 	{
 		retval = false;
+	}
+
+	return retval;
+}
+
+bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset)
+{
+	AAMPLOG_TRACE("Function called with PTS offset = %" PRId64, ptsOffset);
+
+	bool retval{false};
+	IsoBmffBuffer isoBmffBuffer{};
+
+	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer.GetPtr()), buffer.GetLen() );
+
+	if (!isoBmffBuffer.parseBuffer())
+	{
+		AAMPLOG_WARN("Failed to parse buffer");
+	}
+	else
+	{
+		isoBmffBuffer.restampPts(ptsOffset);
+		retval = true;
 	}
 
 	return retval;
