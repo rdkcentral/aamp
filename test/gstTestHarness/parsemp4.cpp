@@ -23,7 +23,7 @@
 #include <iostream>
 #include <filesystem>
 
-static uint64_t WriteBytes( uint8_t *ptr, int n, uint64_t value )
+static void WriteBytes( uint8_t *ptr, int n, uint64_t value )
 {
 	while( n>0 )
 	{
