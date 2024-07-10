@@ -132,8 +132,9 @@ public:
 #endif
 	StreamInfo cacheFragStreamInfo; /**< Bitrate info of the fragment */
 	AampMediaType   type;               /**< AampMediaType info of the fragment */
+	long long downloadStartTime;	/**< The start time of file download */
 	
-    CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0), initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()), type(eMEDIATYPE_DEFAULT)
+    CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0), initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()), type(eMEDIATYPE_DEFAULT), downloadStartTime(0)
     {
     }
 
@@ -147,45 +148,11 @@ public:
 		this->cacheFragStreamInfo = other->cacheFragStreamInfo;
 		this->type = other->type;
 		this->fragment.AppendBytes(other->fragment.GetPtr(), len);
+		this->downloadStartTime = other->downloadStartTime;
 	}
-};
-
-/**
- * @brief Structure of cached fragment data
- *        Holds information about a cached fragment
- */
-class CachedFragmentChunk
-{
-public:
-	AampGrowableBuffer fragmentChunk;   /**< Buffer to keep fragment content */
-	AampMediaType   type; 		/**< AampMediaType info of the fragment */
-	long long downloadStartTime;	/**< The start time of file download */
-	bool initFragment;	    	/**< Is init fragment */
-	double position;
-	double duration;
-	bool discontinuity;
-	int profileIndex;  
-	StreamInfo cacheFragStreamInfo;
-
-	void Copy(std::shared_ptr<CachedFragment> fragment, size_t len)
-	{
-		this->fragmentChunk.AppendBytes(fragment->fragment.GetPtr(), len);
-		this->type = fragment->type;
-		this->downloadStartTime = NOW_STEADY_TS_MS;
-		this->initFragment = fragment->initFragment;
-		this->position = fragment->position;
-		this->duration = fragment->duration;
-		this->discontinuity = fragment->discontinuity;
-		this->profileIndex = fragment->profileIndex;
-		this->cacheFragStreamInfo = fragment->cacheFragStreamInfo;
-	}
-	
-    CachedFragmentChunk() : fragmentChunk(AampGrowableBuffer("cached-fragment-chunk")), type(eMEDIATYPE_DEFAULT), downloadStartTime(0),initFragment(false)
-        , position(0.0), duration(0.0), discontinuity(false), profileIndex(0), cacheFragStreamInfo(){}
-
 	void Clear()
 	{
-		fragmentChunk.Free();
+		fragment.Free();
 		type = eMEDIATYPE_DEFAULT;
 		downloadStartTime = 0;
 		initFragment = false;
@@ -267,25 +234,11 @@ public:
 	void StartInjectLoop();
 
 	/**
-	 * @fn StartInjectChunkLoop
-	 *
-	 * @return void
-	 */
-	void StartInjectChunkLoop();
-
-	/**
 	 * @fn StopInjectLoop
 	 *
 	 * @return void
 	 */
 	void StopInjectLoop();
-
-	/**
- 	 * @fn StopInjectChunkLoop
- 	 *
-	 * @return void
-	 */
-	void StopInjectChunkLoop();
 
 	/**
 	 * @fn StopPlaylistDownloaderThread
@@ -446,18 +399,18 @@ public:
 	bool ProcessFragmentChunk();
 
 	/**
-	 * @fn InjectFragmentChunk
-	 *
-	 * @return Success/Failure
-	 */
-	bool InjectFragmentChunk();
-
-	/**
 	 * @fn CheckForDiscontinuity
 	 *
 	 * @return true/false
 	 */
-	bool CheckForDiscontinuity();
+	bool CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fragmentDiscarded, bool& isDiscontinuity, bool &ret);
+
+	/**
+	 * @fn ProcessAndInjectFragment
+	 *
+	 * @return true/false
+	 */
+	void ProcessAndInjectFragment(CachedFragment *cachedFragment, bool stopInjection,  bool fragmentDiscarded, bool isDiscontinuity, bool &ret);
 
 	/**
 	 * @brief Get total fragment injected duration
@@ -479,13 +432,6 @@ public:
 	 * @return void
 	 */
 	void RunInjectLoop();
-
-	/**
- 	 * @fn RunInjectChunkLoop
-	 *
-	 * @return void
-	 */
-	void RunInjectChunkLoop();
 
 	/**
 	 * @fn UpdateTSAfterFetch
@@ -580,7 +526,7 @@ public:
 	 * @param[in] initialize true to initialize the fragment chunk
 	 * @retval Pointer to fragment chunk buffer.
 	 */
-	CachedFragmentChunk* GetFetchChunkBuffer(bool initialize);
+	CachedFragment* GetFetchChunkBuffer(bool initialize);
 
 	/**
 	 * @fn SetCurrentBandWidth
@@ -791,7 +737,7 @@ protected:
 
 	/**
 	 * @fn InjectFragmentChunkInternal
-	 * @param[in] cachedFragmentChunk - contains fragment to be processed and injected
+	 * @param[in] buffer - contains fragment to be processed and injected
 	 * @param[out] fragmentChunkDiscarded - true if fragment is discarded.
 	 * @return void
 	 */
@@ -843,7 +789,7 @@ protected:
 	AampLogManager *mLogObj;
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
 	CachedFragment *cachedFragment;     /**< storage for currently-downloaded fragment */
-	CachedFragmentChunk cachedFragmentChunks[DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK];
+	CachedFragment cachedFragmentChunks[DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK];
 	AampGrowableBuffer unparsedBufferChunk; /**< Buffer to keep fragment content */
 	AampGrowableBuffer parsedBufferChunk;   /**< Buffer to keep fragment content */
 	bool abort;                         /**< Abort all operations if flag is set*/

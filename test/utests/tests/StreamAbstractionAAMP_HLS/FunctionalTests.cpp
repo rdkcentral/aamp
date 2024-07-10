@@ -2133,12 +2133,6 @@ TEST_F(TrackStateTests, StopInjectLooptest)
     TrackStateobj->StopInjectLoop();
 }
 
-TEST_F(TrackStateTests, StopInjectChunkLooptest)
-{
-    // Act: Call the function to be tested
-    TrackStateobj->StopInjectChunkLoop();
-}
-
 TEST_F(TrackStateTests, EnabledTests)
 {
     bool result = TrackStateobj->Enabled();
@@ -2155,8 +2149,8 @@ TEST_F(TrackStateTests, GetFetchBufferTests)
 TEST_F(TrackStateTests, GetFetchChunkBufferTest)
 {
     // Call the function under test with initialize set to true
-    CachedFragmentChunk *cachedFragmentChunk = TrackStateobj->GetFetchChunkBuffer(true);
-    ASSERT_EQ(cachedFragmentChunk, nullptr);
+    CachedFragment *cachedFragment = TrackStateobj->GetFetchChunkBuffer(true);
+    ASSERT_EQ(cachedFragment, nullptr);
 }
 
 TEST_F(TrackStateTests, GetCurrentBandWidthTests)
@@ -2168,11 +2162,6 @@ TEST_F(TrackStateTests, GetCurrentBandWidthTests)
 TEST_F(TrackStateTests, FlushFragmentsTests)
 {
     TrackStateobj->FlushFragments();
-}
-
-TEST_F(TrackStateTests, FlushFragmentChunksTests)
-{
-    TrackStateobj->FlushFragmentChunks();
 }
 
 TEST_F(TrackStateTests, OnSinkBufferFullTests)

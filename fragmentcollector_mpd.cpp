@@ -897,7 +897,6 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 			pMediaStreamContext->initialization = std::string(fragmentUrl);
 		}
 	}
-
 	bool fragmentCached = pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, position, fragmentDuration, NULL, isInitializationSegment, discontinuity
 		,(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING), pto, scale);
 	// Check if we have downloaded the fragment and waiting for init fragment download on
@@ -6426,14 +6425,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 			{
 				AAMPLOG_WARN("Subtitle track enabled, but fragmentInjection loop not yet started! Starting now..");
 				aamp->ResumeTrackInjection(eMEDIATYPE_SUBTITLE);
-				if(!aamp->IsLocalAAMPTsb() && !mLowLatencyMode)
-				{
-					pMediaStreamContext->StartInjectLoop();
-				}
-				else
-				{
-					pMediaStreamContext->StartInjectChunkLoop();
-				}
+				pMediaStreamContext->StartInjectLoop();
 			}
 			mNumberOfTracks++;
 		}
@@ -10211,14 +10203,7 @@ void StreamAbstractionAAMP_MPD::Start(void)
 			if(aamp->IsPlayEnabled())
 			{
 				aamp->ResumeTrackInjection((AampMediaType) i);
-				if(!aamp->IsLocalAAMPTsb() && !mLowLatencyMode)
-				{
-					mMediaStreamContext[i]->StartInjectLoop();
-				}
-				else
-				{
-					mMediaStreamContext[i]->StartInjectChunkLoop();
-				}
+				mMediaStreamContext[i]->StartInjectLoop();
 			}
 		}
 		if( (mLowLatencyMode && ISCONFIGSET( eAAMPConfig_EnableLowLatencyCorrection ) ) && \
@@ -10235,7 +10220,7 @@ void StreamAbstractionAAMP_MPD::Start(void)
 		for (int i = 0; i < mNumberOfTracks; i++)
 		{
 			mMediaStreamContext[i]->SetLocalTSBInjection(true);
-			mMediaStreamContext[i]->FlushFragmentChunks();
+			mMediaStreamContext[i]->FlushFragments();
 			// For seek to live, we will employ chunk cache and hence size has to be increased to max
 			// For other tune types, we don't need chunks so revert to max cache fragment size
 			if (mTuneType == eTUNETYPE_SEEKTOLIVE)
@@ -10250,10 +10235,7 @@ void StreamAbstractionAAMP_MPD::Start(void)
 			if(aamp->IsPlayEnabled())
 			{
 				aamp->ResumeTrackInjection((AampMediaType) i);
-				if(mLowLatencyMode)
-				{
-					mMediaStreamContext[i]->StartInjectChunkLoop();
-				}
+				mMediaStreamContext[i]->StartInjectLoop(); ///TBD
 			}
 		}
 		try
@@ -10332,11 +10314,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 					{
 						track->mSubtitleParser->reset();
 					}
-				}
-
-				if(mLowLatencyMode)
-				{
-					track->StopInjectChunkLoop();
 				}
 				track->IDX.Free();
 			}
@@ -10430,10 +10407,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 					{
 						track->mSubtitleParser->reset();
 					}
-				}
-				if(mLowLatencyMode)
-				{
-					track->StopInjectChunkLoop();
 				}
 				track->IDX.Free();
 			}
@@ -11082,10 +11055,6 @@ void StreamAbstractionAAMP_MPD::StopInjection(void)
 			track->AbortWaitForCachedFragment();
 			aamp->StopTrackInjection((AampMediaType) iTrack);
 			track->StopInjectLoop();
-			if(mLowLatencyMode)
-			{
-				track->StopInjectChunkLoop();
-			}
 		}
 	}
 }
@@ -11102,14 +11071,7 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 		if(track && track->Enabled())
 		{
 			aamp->ResumeTrackInjection((AampMediaType) iTrack);
-			if(!aamp->IsLocalAAMPTsb() && !mLowLatencyMode)
-			{
-				track->StartInjectLoop();
-			}
-			else
-			{
-				track->StartInjectChunkLoop();
-			}
+			track->StartInjectLoop();
 		}
 	}
 }

@@ -222,9 +222,14 @@ bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 {
     return true;
 }
-bool MediaTrack::CheckForDiscontinuity()
+bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fragmentDiscarded, bool& isDiscontinuity, bool &ret)
 {
     return false;
+}
+
+void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool stopInjection,  bool fragmentDiscarded, bool isDiscontinuity, bool &ret)
+{
+    return;
 }
 
 double MediaTrack::GetTotalInjectedDuration()
@@ -305,7 +310,7 @@ bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
     return false;
 }
 
-CachedFragmentChunk* MediaTrack::GetFetchChunkBuffer(bool initialize)
+CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 {
      return NULL;
 }
@@ -353,13 +358,5 @@ void StreamAbstractionAAMP::UpdateIframeTracks()
 }
 
 void MediaTrack::FlushFragmentChunks()
-{
-}
-
-void MediaTrack::StartInjectChunkLoop()
-{
-}
-
-void MediaTrack::StopInjectChunkLoop()
 {
 }

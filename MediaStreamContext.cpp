@@ -71,8 +71,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
     , bool playingAd, double pto, uint32_t scale, bool overWriteTrackId)
 {
     bool ret = false;
-	AAMPLOG_INFO("Type[%d] fragmentUrl %s fragmentTime %f discontinuity %d pto %f  scale %u duration %f mPTSOffsetSec %f", 
-    type, fragmentUrl.c_str(), position, discontinuity, pto, scale, duration, GetContext()->mPTSOffsetSec);
+    AAMPLOG_INFO("Type[%d] fragmentUrl %s fragmentTime %f discontinuity %d pto %f  scale %u duration %f mPTSOffsetSec %f", 
+       type, fragmentUrl.c_str(), position, discontinuity, pto, scale, duration, GetContext()->mPTSOffsetSec);
 
     fragmentDurationSeconds = duration;
     ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
@@ -115,13 +115,15 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
         {
             ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragCache(fragmentUrl,&cachedFragment->fragment,effectiveUrl);
         }
-
         if(!bReadfromcache)
         {
-			ret = aamp->LoadFragment(bucketType, fragmentUrl,effectiveUrl, &cachedFragment->fragment, curlInstance,
-									 range, actualType, &httpErrorCode, &downloadTime, &bitrate, &iFogError, fragmentDurationSeconds );
-			if ( initSegment && ret )
-				aamp->getAampCacheHandler()->InsertToInitFragCache ( fragmentUrl, &cachedFragment->fragment, effectiveUrl, actualType);
+			ret = aamp->LoadFragment(bucketType, fragmentUrl,effectiveUrl, mTempFragment.get(), curlInstance,
+				range, actualType, &httpErrorCode, &downloadTime, &bitrate, &iFogError, fragmentDurationSeconds );
+			if (ret)
+			{
+				cachedFragment->fragment = *mTempFragment;
+				mTempFragment->Free();
+			}
         }
 
         if (iCurrentRate != AAMP_NORMAL_PLAY_RATE)
@@ -440,21 +442,21 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr,
     bool ret = true;
     if (WaitForCachedFragmentChunkInjected())
     {
-        CachedFragmentChunk* cachedFragmentChunk = NULL;
-        cachedFragmentChunk = GetFetchChunkBuffer(true);
-        if(NULL == cachedFragmentChunk)
+        CachedFragment* cachedFragment = NULL;
+        cachedFragment = GetFetchChunkBuffer(true);
+        if(NULL == cachedFragment)
         {
                 AAMPLOG_WARN("[%s] Something Went wrong - Can't get FetchChunkBuffer", name);
                 return false;
         }
-        cachedFragmentChunk->type = actualType;
-        cachedFragmentChunk->downloadStartTime = dnldStartTime;
-		cachedFragmentChunk->fragmentChunk.AppendBytes(ptr, size);
+        cachedFragment->type = actualType;
+        cachedFragment->downloadStartTime = dnldStartTime;
+        cachedFragment->fragment.AppendBytes(ptr, size);
 
-        AAMPLOG_TRACE("[%s] cachedFragmentChunk %p ptr %p",name, cachedFragmentChunk, cachedFragmentChunk->fragmentChunk.GetPtr() );
+        AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p",name, cachedFragment, cachedFragment->fragment.GetPtr() );
         if(IsLocalTSBInjection())
         {
-            cachedFragmentChunk->fragmentChunk.Free();
+            cachedFragment->fragment.Free();
         }
         else
         {
@@ -674,22 +676,22 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
     if(fragment->fragment.GetPtr() && WaitForCachedFragmentChunkInjected())
     {
         AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
-        CachedFragmentChunk* cachedFragmentChunk = GetFetchChunkBuffer(true);
-        if(cachedFragmentChunk->fragmentChunk.GetPtr())
+        CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
+        if(cachedFragment->fragment.GetPtr())
         {
             // If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
             AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
         }
-        cachedFragmentChunk->fragmentChunk.Clear();
-        cachedFragmentChunk->Copy(fragment, fragment->fragment.GetLen());
-        if(cachedFragmentChunk->fragmentChunk.GetPtr() && cachedFragmentChunk->fragmentChunk.GetLen() > 0)
+        cachedFragment->fragment.Clear();
+        cachedFragment->Copy(fragment.get(), fragment->fragment.GetLen());
+        if(cachedFragment->fragment.GetPtr() && cachedFragment->fragment.GetLen() > 0)
         {
             ret = true;
             UpdateTSAfterChunkFetch();
         }
         else
         {
-            cachedFragmentChunk->fragmentChunk.Free();
+            cachedFragment->fragment.Free();
         }
     }
     else
