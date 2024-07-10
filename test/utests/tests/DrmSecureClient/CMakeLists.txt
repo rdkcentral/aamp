@@ -17,6 +17,8 @@
 
 include(GoogleTest)
 
+pkg_check_modules(UUID REQUIRED uuid)
+
 set(AAMP_ROOT "../../../..")
 set(UTESTS_ROOT "../..")
 set(DRM_ROOT ${UTESTS_ROOT}/drm)
@@ -29,6 +31,7 @@ file(GLOB SEC_CLIENT_HEADERS "${SEC_CLIENT_ROOT}/*")
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
+include_directories(${UUID_INCLUDE_DIRS})
 
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/libsubtec)
@@ -118,12 +121,6 @@ endif()
 if (COVERAGE_ENABLED)
 	include(CodeCoverage)
 	APPEND_COVERAGE_COMPILER_FLAGS()
-	#Set NO_EXCLUDE_DIR to the location of this test so it doesn't get excluded & include common exclude files:
-	set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/DrmSecureClient/*")
-	include("${PROJECT_SOURCE_DIR}/cmake_exclude_file.list")
-	SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
-							EXECUTABLE ${EXEC_NAME}
-							DEPENDENCIES ${EXEC_NAME})
 endif()
 
 target_link_libraries(${EXEC_NAME} ${LIBCJSON_LINK_LIBRARIES} ${UUID_LINK_LIBRARIES} pthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
