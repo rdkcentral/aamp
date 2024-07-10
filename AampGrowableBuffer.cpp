@@ -165,13 +165,3 @@ void AampGrowableBuffer::Transfer( void )
 	len = 0;
 	avail = 0;
 }
-
-/**
- * @brief Reduce the length of AampGrowableBuffer
- * @param srcLen new length (must be smaller than the current one)
- */
-void AampGrowableBuffer::ReduceLen( size_t srcLen )
-{
-	assert( srcLen <= len );
-	len = srcLen;
-}
