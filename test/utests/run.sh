@@ -132,12 +132,9 @@ done
 HTML_OUT=$(realpath ../CombinedCoverage)
 XML_OUT=$(realpath ../coverage.xml)
 $LCOV $COMBINE -a baseline.info --output-file all.info.1
-# remove /aamp/tsb/ because that lib has it's own tests and coverage
-$LCOV --remove all.info.1 --output-file all.info "*/aamp/tsb/*" "*/aamp/.libs/*" "*/aamp/test/*" "*/aamp/Linux/*" "*/aamp/subtec/subtecparser/*" "/usr/*"
+$LCOV --remove all.info.1 --output-file all.info "*/aamp/tsb/test/" "*/aamp/.libs/*" "*/aamp/test/*" "*/aamp/Linux/*" "*/aamp/subtec/subtecparser/*" "/usr/*"
 genhtml --demangle-cpp -o ${HTML_OUT} all.info
 # Generate coverage.xml
 lcov_cobertura all.info -b ${AAMPDIR} --demangle -o ${XML_OUT} || true
 echo "Coverage written to ${HTML_OUT}"
 fi
-
-
