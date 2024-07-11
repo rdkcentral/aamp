@@ -80,18 +80,21 @@ bool AampWidevineDrmHelper::parsePssh( const uint8_t* psshData, uint32_t psshSiz
 					{
 						AAMPLOG_ERR( "unexpected size %d expected %d", sz, (int)(fin-psshData) );
 					}
-					if( *psshData != 0x12 )
-					{ // skip optional author field
-						psshData += 2;
-					}
 					while( psshData<fin )
 					{
 						uint8_t fieldType = *psshData++;
 						uint8_t fieldSize = *psshData++;
 						switch( fieldType )
 						{
-							case 0x22: // some streams have contentid but not keyid
-								// if key id present, it will come, so keeping this shouldn't cause any problem
+							case 0x08: // author
+								fieldSize = 0; // fixed length descriptor (single byte)
+								break;
+								
+							case 0x48: // pssh metadata
+								fieldSize = 4; // fixed length descriptor
+								break;
+								
+							case 0x22: // content id - important: some streams have contentid, but no keyid(s)
 							case 0x12: // key id
 								if( fieldSize>0 && &psshData[fieldSize] <= fin )
 								{	std::vector<uint8_t> keyId;
@@ -100,8 +103,12 @@ bool AampWidevineDrmHelper::parsePssh( const uint8_t* psshData, uint32_t psshSiz
 									rc = true;
 								}
 								break;
+										
+							case 0x1a: // provider (deprecated) - typically an ascii string
+								break;
 								
 							default:
+								AAMPLOG_WARN( "unmapped fieldType=0x%02x fieldSize=%d\n", (int)fieldType, (int)fieldSize );
 								break;
 						}
 						psshData += fieldSize;
