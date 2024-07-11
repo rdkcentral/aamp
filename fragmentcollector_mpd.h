@@ -519,6 +519,25 @@ protected:
 	 * @return void
 	 */
 	void FetcherLoop();
+
+	/**
+	 * @fn FetcherLoopNew
+	 * @return void
+	 */
+	void FetcherLoopNew();
+
+	/**
+	 * @fn SelectPeriodAndIndexIt
+	 *
+	 * @param[out] mpdChanged flag
+	 * @param[out] AdStateChanged flag
+	 * @param[out] waitForAdBreakCatchup flag
+	 * @param[out] bmanifestupdate flag
+	 * @param[out] currentPeriodId string
+	 * @return AAMPStatusType - eAAMPSTATUS_OK if new period selected, an error otherwise
+	 */
+	AAMPStatusType SelectPeriodAndIndexIt(bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, std::string &currentPeriodId);
+
 	/**
 	 * @fn TsbReader
 	 * @return void
