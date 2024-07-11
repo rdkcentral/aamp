@@ -185,3 +185,37 @@ double AampMPDParseHelper::GetFirstSegmentScaledStartTime(IPeriod * period, Aamp
 {
 	return 0;
 }
+
+bool AampMPDParseHelper::IsContentType(const IAdaptationSet *adaptationSet, AampMediaType mediaType )
+{
+	return false;
+}
+double AampMPDParseHelper::GetPeriodEndTime(int periodIndex,  uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB)
+{
+	return 0;
+}
+
+vector<Representation *> AampMPDParseHelper::GetBitrateInfoFromCustomMpd( const IAdaptationSet *adaptationSet)
+{
+	return vector<Representation*>();
+}
+
+uint64_t AampMPDParseHelper::GetDurationFromRepresentation()
+{
+	return 0;
+}
+
+double AampMPDParseHelper::GetPeriodNewContentDuration(IPeriod * period, uint64_t &curEndNumber)
+{
+	return 0;
+}
+
+uint32_t AampMPDParseHelper::GetPeriodSegmentTimeScale(IPeriod * period)
+{
+	return 0;
+}
+
+uint64_t AampMPDParseHelper::GetFirstSegmentStartTime(IPeriod * period)
+{
+	return 0;
+}

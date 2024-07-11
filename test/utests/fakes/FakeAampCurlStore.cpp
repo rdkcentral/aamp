@@ -45,3 +45,8 @@ int GetCurlResponseCode( CURL *curlhandle )
 {
 	return 0;
 }
+
+CURL* CurlStore::GetCurlHandle(PrivateInstanceAAMP *aamp,std::string url, AampCurlInstance startIdx )
+{
+	return NULL;
+}

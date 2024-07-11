@@ -10449,19 +10449,8 @@ bool StreamAbstractionAAMP_MPD::isAdbreakStart(IPeriod *period, uint64_t &startM
 												EventBreakInfo scte35Event(scte35, "SCTE35", presentationTime, duration);
 												eventBreakVec.push_back(scte35Event);
 
-												//LLAMA-8251
-												// This may not be necessary but for LLAMA-8251 will to send all the events we find, 
-												// even if the manifest is flagged as live
-												if(mIsLiveManifest && !modifySCTEProcessing)
-												{
-													cJSON_Delete(root);
-													return true;
-												}
-												else
-												{
-													ret = true;
-													continue;
-												}
+												ret = true;
+												continue;
 											}
 											else
 											{

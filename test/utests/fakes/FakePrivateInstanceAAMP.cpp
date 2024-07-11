@@ -1107,10 +1107,18 @@ BitsPerSecond PrivateInstanceAAMP::GetDefaultBitrate4K()
 
 void PrivateInstanceAAMP::SaveNewTimedMetadata(long long timeMS, const char* szName, const char* szContent, int nb, const char* id, double durationMS)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SaveNewTimedMetadata(timeMS, id, durationMS);
+	}
 }
 
 void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->FoundEventBreak(adBreakId, startMS, brInfo);
+	}
 }
 
 void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs)

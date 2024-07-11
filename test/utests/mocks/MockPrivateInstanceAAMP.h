@@ -51,6 +51,9 @@ public:
     MOCK_METHOD(const std::string &, GetSessionId, ());
 
     MOCK_METHOD(std::shared_ptr<TSB::Store>, GetTSBStore, (const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level));
+
+    MOCK_METHOD(void, FoundEventBreak, (const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo));
+    MOCK_METHOD(void, SaveNewTimedMetadata, (long long timeMS, const char* id, double durationMS));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

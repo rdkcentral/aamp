@@ -507,3 +507,7 @@ TSB::LogLevel ConvertTsbLogLevel(int logLev)
 {
 	return TSB::LogLevel::WARN;
 }
+
+void UrlEncode(std::string inStr, std::string &outStr)
+{
+}
