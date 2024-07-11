@@ -17,6 +17,7 @@
  * limitations under the License.
  */
 
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -189,6 +190,10 @@ TEST_F(IsoBmffBufferTests, parseBufferTwiceTest)
 	EXPECT_EQ(numBoxesAfter1parse, numBoxesAfter2parse);
 }
 
+/**
+ * @brief Test PTS restamp with offset 0
+ *        Test the PTS restamp method with an offset value of 0.
+ */
 TEST_F(IsoBmffBufferTests, ptsRestampOffset0Test)
 {
 	uint64_t baseMediaDecodeTime = 1254400;
@@ -226,6 +231,10 @@ TEST_F(IsoBmffBufferTests, ptsRestampOffset0Test)
 	VerifyPts(expectedPts, vSeg.data(), size);
 }
 
+/**
+ * @brief Test PTS restamp with offset 1
+ *        Test the PTS restamp method with an offset value of 1.
+ */
 TEST_F(IsoBmffBufferTests, ptsRestampOffset1Test)
 {
 	uint64_t baseMediaDecodeTime = 1254400;
@@ -263,6 +272,10 @@ TEST_F(IsoBmffBufferTests, ptsRestampOffset1Test)
 	VerifyPts(expectedPts, vSeg.data(), size);
 }
 
+/**
+ * @brief Test PTS restamp with offset bigger than 1
+ *        Test the PTS restamp method with an offset bigger than 1.
+ */
 TEST_F(IsoBmffBufferTests, ptsRestampOffsetManyTest)
 {
 	uint64_t baseMediaDecodeTime = 1254400;
@@ -300,6 +313,10 @@ TEST_F(IsoBmffBufferTests, ptsRestampOffsetManyTest)
 	VerifyPts(expectedPts, vSeg.data(), size);
 }
 
+/**
+ * @brief Test PTS restamp with negative offset
+ *        Test the PTS restamp method with a negative offset.
+ */
 TEST_F(IsoBmffBufferTests, ptsRestampNegativeOffsetTest)
 {
 	uint64_t baseMediaDecodeTime = 1254400;
@@ -337,6 +354,12 @@ TEST_F(IsoBmffBufferTests, ptsRestampNegativeOffsetTest)
 	VerifyPts(expectedPts, vSeg.data(), size);
 }
 
+/**
+ * @brief Test PTS restamp with multiple moof
+ *        Test the PTS restamp method when there are more than one moof box
+ *        (with more than one tfdt, with different baseMediaDecodeTime) in the
+ *        ISO BMFF buffer.
+ */
 TEST_F(IsoBmffBufferTests, ptsRestampSeveralMoofTest)
 {
 	std::vector<uint64_t> baseMediaDecodeTime = {563200, 565760};
@@ -378,6 +401,10 @@ TEST_F(IsoBmffBufferTests, ptsRestampSeveralMoofTest)
 	VerifyPts(expectedPts, vSeg.data(), size);
 }
 
+/**
+ * @brief Test PTS restamp with tfdt version 0
+ *        Test the PTS restamp method with a version 0 tfdt box.
+ */
 TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0Test)
 {
 	uint64_t baseMediaDecodeTime = 49152;
@@ -412,5 +439,410 @@ TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0Test)
 	EXPECT_EQ(fPts, baseMediaDecodeTime + ptsOffset);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {baseMediaDecodeTime + ptsOffset};
+	VerifyPts(expectedPts, vSeg.data(), size);
+}
+
+/**
+ * @brief Test PTS restamp with restamped PTS 0
+ *        Test the PTS restamp method when the restamped PTS is 0:
+ *            baseMediaDecodeTime + offset = 0
+ */
+TEST_F(IsoBmffBufferTests, ptsRestampPts0Test)
+{
+	uint64_t baseMediaDecodeTime = 1254400;
+	uint64_t fPts = 0, pts = 0;
+	size_t index = 0;
+	bool bParse;
+	std::string file_path = std::string(TESTS_DIR) + "/" + "mp4SegmentTests/vFragment.mp4";
+	auto result = readFile(file_path.c_str());
+	std::vector<uint8_t> vSeg;
+	std::streampos size;
+	if (!result.first.empty()) {
+		vSeg = result.first;
+		size = result.second;
+	}
+	mIsoBmffBuffer->setBuffer(vSeg.data(), size);
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, baseMediaDecodeTime);
+	Box *pBox =  mIsoBmffBuffer->getBox(Box::MOOF, index);
+	mIsoBmffBuffer->getPts(pBox, pts);
+	EXPECT_EQ(pts, baseMediaDecodeTime);
+
+	// PTS restamped = baseMediaDecodeTime + offset = 0
+	int64_t ptsOffset{-1 * static_cast<int64_t>(baseMediaDecodeTime)};
+	mIsoBmffBuffer->restampPts(ptsOffset);
+	// Parse the ISO BMFF buffer again and check that the PTS has been updated
+	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
+	mIsoBmffBuffer->destroyBoxes();
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, baseMediaDecodeTime + ptsOffset);
+	// Verify that the PTS has been updated in the buffer
+	std::vector<uint64_t> expectedPts {baseMediaDecodeTime + ptsOffset};
+	VerifyPts(expectedPts, vSeg.data(), size);
+}
+
+/**
+ * @brief Test PTS restamp with PTS underflow
+ *        Test the PTS restamp method when there is underflow in the restamped
+ *        PTS calculation (the offset is signed, but PTS is an unsigned value):
+ *            baseMediaDecodeTime + offset < 0
+ *        The restamped PTS is expected to 'wrap around' (have a very large value)
+ */
+TEST_F(IsoBmffBufferTests, ptsRestampPtsUnderflowTest)
+{
+	uint64_t baseMediaDecodeTime = 1254400;
+	uint64_t fPts = 0, pts = 0;
+	size_t index = 0;
+	bool bParse;
+	std::string file_path = std::string(TESTS_DIR) + "/" + "mp4SegmentTests/vFragment.mp4";
+	auto result = readFile(file_path.c_str());
+	std::vector<uint8_t> vSeg;
+	std::streampos size;
+	if (!result.first.empty()) {
+		vSeg = result.first;
+		size = result.second;
+	}
+	mIsoBmffBuffer->setBuffer(vSeg.data(), size);
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, baseMediaDecodeTime);
+	Box *pBox =  mIsoBmffBuffer->getBox(Box::MOOF, index);
+	mIsoBmffBuffer->getPts(pBox, pts);
+	EXPECT_EQ(pts, baseMediaDecodeTime);
+
+	// baseMediaDecodeTime + offset = -1, so PTS restamped = UINT64_MAX
+	// in tfdt version 1, baseMediaDecodeTime is a 64 bit unsigned value
+	int64_t ptsOffset{-1 * static_cast<int64_t>(baseMediaDecodeTime) - 1};
+	mIsoBmffBuffer->restampPts(ptsOffset);
+	// Parse the ISO BMFF buffer again and check that the PTS has been updated
+	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
+	mIsoBmffBuffer->destroyBoxes();
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, UINT64_MAX);
+	// Verify that the PTS has been updated in the buffer
+	std::vector<uint64_t> expectedPts {UINT64_MAX};
+	VerifyPts(expectedPts, vSeg.data(), size);
+}
+
+/**
+ * @brief Test PTS restamp with tfdt version 0 and PTS underflow
+ *        Test the PTS restamp method with a version 0 tfdt box, when there is
+ *        underflow in the restamped PTS calculation (the offset is signed, but
+ *        PTS is an unsigned 32-bit value):
+ *            baseMediaDecodeTime + offset < 0
+ *        The restamped PTS is expected to 'wrap around' (have a very large value)
+ */
+TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0PtsUnderflowTest)
+{
+	uint64_t baseMediaDecodeTime = 49152;
+	uint64_t fPts = 0, pts = 0;
+	size_t index = 0;
+	bool bParse;
+	std::string file_path = std::string(TESTS_DIR) + "/" + "mp4SegmentTests/m1_video_3.m4s";
+	auto result = readFile(file_path.c_str());
+	std::vector<uint8_t> vSeg;
+	std::streampos size;
+	if (!result.first.empty()) {
+		vSeg = result.first;
+		size = result.second;
+	}
+	mIsoBmffBuffer->setBuffer(vSeg.data(), size);
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, baseMediaDecodeTime);
+	Box *pBox =  mIsoBmffBuffer->getBox(Box::MOOF, index);
+	mIsoBmffBuffer->getPts(pBox, pts);
+	EXPECT_EQ(pts, baseMediaDecodeTime);
+
+	// baseMediaDecodeTime + offset = -1, so PTS restamped = UINT32_MAX
+	// in tfdt version 0, baseMediaDecodeTime is a 32 bit unsigned value
+	int64_t ptsOffset{-1 * static_cast<int64_t>(baseMediaDecodeTime) - 1};
+	mIsoBmffBuffer->restampPts(ptsOffset);
+	// Parse the ISO BMFF buffer again and check that the PTS has been updated
+	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
+	mIsoBmffBuffer->destroyBoxes();
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, UINT32_MAX);
+	// Verify that the PTS has been updated in the buffer
+	std::vector<uint64_t> expectedPts {UINT32_MAX};
+	VerifyPts(expectedPts, vSeg.data(), size);
+}
+
+/**
+ * @brief Test PTS restamp with restamped PTS max value
+ *        Test the PTS restamp method when the restamped PTS is the maximum
+ *        possible value:
+ *            baseMediaDecodeTime + offset = UINT64_MAX
+ */
+TEST_F(IsoBmffBufferTests, ptsRestampPtsMaxTest)
+{
+	uint64_t baseMediaDecodeTime = 1254400;
+	uint64_t fPts = 0, pts = 0;
+	size_t index = 0;
+	bool bParse;
+	std::string file_path = std::string(TESTS_DIR) + "/" + "mp4SegmentTests/vFragment.mp4";
+	auto result = readFile(file_path.c_str());
+	std::vector<uint8_t> vSeg;
+	std::streampos size;
+	if (!result.first.empty()) {
+		vSeg = result.first;
+		size = result.second;
+	}
+	mIsoBmffBuffer->setBuffer(vSeg.data(), size);
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, baseMediaDecodeTime);
+	Box *pBox =  mIsoBmffBuffer->getBox(Box::MOOF, index);
+	mIsoBmffBuffer->getPts(pBox, pts);
+	EXPECT_EQ(pts, baseMediaDecodeTime);
+
+	// PTS restamped = baseMediaDecodeTime + offset = 0
+	int64_t ptsOffset{static_cast<int64_t>(UINT64_MAX) - static_cast<int64_t>(baseMediaDecodeTime)};
+	mIsoBmffBuffer->restampPts(ptsOffset);
+	// Parse the ISO BMFF buffer again and check that the PTS has been updated
+	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
+	mIsoBmffBuffer->destroyBoxes();
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, UINT64_MAX);
+	// Verify that the PTS has been updated in the buffer
+	std::vector<uint64_t> expectedPts {UINT64_MAX};
+	VerifyPts(expectedPts, vSeg.data(), size);
+}
+
+/**
+ * @brief Test PTS restamp with tfdt version 0 and restamped PTS max value
+ *        Test the PTS restamp method with tfdt version 0, when the restamped
+ *        PTS is the maximum possible value:
+ *            baseMediaDecodeTime + offset = UINT32_MAX
+ */
+TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0PtsMaxTest)
+{
+	uint64_t baseMediaDecodeTime = 49152;
+	uint64_t fPts = 0, pts = 0;
+	size_t index = 0;
+	bool bParse;
+	std::string file_path = std::string(TESTS_DIR) + "/" + "mp4SegmentTests/m1_video_3.m4s";
+	auto result = readFile(file_path.c_str());
+	std::vector<uint8_t> vSeg;
+	std::streampos size;
+	if (!result.first.empty()) {
+		vSeg = result.first;
+		size = result.second;
+	}
+	mIsoBmffBuffer->setBuffer(vSeg.data(), size);
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, baseMediaDecodeTime);
+	Box *pBox =  mIsoBmffBuffer->getBox(Box::MOOF, index);
+	mIsoBmffBuffer->getPts(pBox, pts);
+	EXPECT_EQ(pts, baseMediaDecodeTime);
+
+	// PTS restamped = baseMediaDecodeTime + offset = 0
+	// in tfdt version 0, baseMediaDecodeTime is a 32 bit unsigned value
+	int64_t ptsOffset{static_cast<int64_t>(UINT32_MAX) - static_cast<int64_t>(baseMediaDecodeTime)};
+	mIsoBmffBuffer->restampPts(ptsOffset);
+	// Parse the ISO BMFF buffer again and check that the PTS has been updated
+	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
+	mIsoBmffBuffer->destroyBoxes();
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, UINT32_MAX);
+	// Verify that the PTS has been updated in the buffer
+	std::vector<uint64_t> expectedPts {UINT32_MAX};
+	VerifyPts(expectedPts, vSeg.data(), size);
+}
+
+/**
+ * @brief Test PTS restamp with restamped PTS overflow
+ *        Test the PTS restamp method when there is overflow in the restamped
+ *        PTS calculation:
+ *            baseMediaDecodeTime + offset > UINT64_MAX
+ */
+TEST_F(IsoBmffBufferTests, ptsRestampPtsOverflowTest)
+{
+	uint64_t baseMediaDecodeTime = 1254400;
+	uint64_t fPts = 0, pts = 0;
+	size_t index = 0;
+	bool bParse;
+	std::string file_path = std::string(TESTS_DIR) + "/" + "mp4SegmentTests/vFragment.mp4";
+	auto result = readFile(file_path.c_str());
+	std::vector<uint8_t> vSeg;
+	std::streampos size;
+	if (!result.first.empty()) {
+		vSeg = result.first;
+		size = result.second;
+	}
+	mIsoBmffBuffer->setBuffer(vSeg.data(), size);
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, baseMediaDecodeTime);
+	Box *pBox =  mIsoBmffBuffer->getBox(Box::MOOF, index);
+	mIsoBmffBuffer->getPts(pBox, pts);
+	EXPECT_EQ(pts, baseMediaDecodeTime);
+
+	// PTS restamped = baseMediaDecodeTime + offset = 0
+	int64_t ptsOffset{1 + static_cast<int64_t>(UINT64_MAX) - static_cast<int64_t>(baseMediaDecodeTime)};
+	mIsoBmffBuffer->restampPts(ptsOffset);
+	// Parse the ISO BMFF buffer again and check that the PTS has been updated
+	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
+	mIsoBmffBuffer->destroyBoxes();
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, 0);
+	// Verify that the PTS has been updated in the buffer
+	std::vector<uint64_t> expectedPts {0};
+	VerifyPts(expectedPts, vSeg.data(), size);
+}
+
+/**
+ * @brief Test PTS restamp with tfdt version 0 and restamped PTS max value
+ *        Test the PTS restamp method when the restamped PTS is the maximum
+ *        possible value:
+ *            baseMediaDecodeTime + offset > UINT32_MAX
+ */
+TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0PtsOverflowTest)
+{
+	uint64_t baseMediaDecodeTime = 49152;
+	uint64_t fPts = 0, pts = 0;
+	size_t index = 0;
+	bool bParse;
+	std::string file_path = std::string(TESTS_DIR) + "/" + "mp4SegmentTests/m1_video_3.m4s";
+	auto result = readFile(file_path.c_str());
+	std::vector<uint8_t> vSeg;
+	std::streampos size;
+	if (!result.first.empty()) {
+		vSeg = result.first;
+		size = result.second;
+	}
+	mIsoBmffBuffer->setBuffer(vSeg.data(), size);
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, baseMediaDecodeTime);
+	Box *pBox =  mIsoBmffBuffer->getBox(Box::MOOF, index);
+	mIsoBmffBuffer->getPts(pBox, pts);
+	EXPECT_EQ(pts, baseMediaDecodeTime);
+
+	// PTS restamped = baseMediaDecodeTime + offset = 0
+	// in tfdt version 0, baseMediaDecodeTime is a 32 bit unsigned value
+	int64_t ptsOffset{1 + static_cast<int64_t>(UINT32_MAX) - static_cast<int64_t>(baseMediaDecodeTime)};
+	mIsoBmffBuffer->restampPts(ptsOffset);
+	// Parse the ISO BMFF buffer again and check that the PTS has been updated
+	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
+	mIsoBmffBuffer->destroyBoxes();
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, 0);
+	// Verify that the PTS has been updated in the buffer
+	std::vector<uint64_t> expectedPts {0};
+	VerifyPts(expectedPts, vSeg.data(), size);
+}
+
+/**
+ * @brief Test PTS restamp with restamped PTS overflow
+ *        Test the PTS restamp method when there is overflow in the restamped
+ *        PTS calculation, with a different value from previous overflow test:
+ *            baseMediaDecodeTime + offset > UINT64_MAX
+ */
+TEST_F(IsoBmffBufferTests, ptsRestampPtsOverflow2Test)
+{
+	uint64_t baseMediaDecodeTime = 1254400;
+	uint64_t fPts = 0, pts = 0;
+	size_t index = 0;
+	bool bParse;
+	std::string file_path = std::string(TESTS_DIR) + "/" + "mp4SegmentTests/vFragment.mp4";
+	auto result = readFile(file_path.c_str());
+	std::vector<uint8_t> vSeg;
+	std::streampos size;
+	if (!result.first.empty()) {
+		vSeg = result.first;
+		size = result.second;
+	}
+	mIsoBmffBuffer->setBuffer(vSeg.data(), size);
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, baseMediaDecodeTime);
+	Box *pBox =  mIsoBmffBuffer->getBox(Box::MOOF, index);
+	mIsoBmffBuffer->getPts(pBox, pts);
+	EXPECT_EQ(pts, baseMediaDecodeTime);
+
+	// PTS restamped = baseMediaDecodeTime + offset = 0
+	uint64_t expectedValue {1973};
+	int64_t ptsOffset{static_cast<int64_t>(expectedValue) + 1 + static_cast<int64_t>(UINT64_MAX) - static_cast<int64_t>(baseMediaDecodeTime)};
+	mIsoBmffBuffer->restampPts(ptsOffset);
+	// Parse the ISO BMFF buffer again and check that the PTS has been updated
+	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
+	mIsoBmffBuffer->destroyBoxes();
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, expectedValue);
+	// Verify that the PTS has been updated in the buffer
+	std::vector<uint64_t> expectedPts {expectedValue};
+	VerifyPts(expectedPts, vSeg.data(), size);
+}
+
+/**
+ * @brief Test PTS restamp with tfdt version 0 and restamped PTS max value
+ *        Test the PTS restamp method when the restamped PTS is the maximum
+ *        possible value, with a different value from previous overflow test:
+ *            baseMediaDecodeTime + offset > UINT32_MAX
+ */
+TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0PtsOverflow2Test)
+{
+	uint64_t baseMediaDecodeTime = 49152;
+	uint64_t fPts = 0, pts = 0;
+	size_t index = 0;
+	bool bParse;
+	std::string file_path = std::string(TESTS_DIR) + "/" + "mp4SegmentTests/m1_video_3.m4s";
+	auto result = readFile(file_path.c_str());
+	std::vector<uint8_t> vSeg;
+	std::streampos size;
+	if (!result.first.empty()) {
+		vSeg = result.first;
+		size = result.second;
+	}
+	mIsoBmffBuffer->setBuffer(vSeg.data(), size);
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, baseMediaDecodeTime);
+	Box *pBox =  mIsoBmffBuffer->getBox(Box::MOOF, index);
+	mIsoBmffBuffer->getPts(pBox, pts);
+	EXPECT_EQ(pts, baseMediaDecodeTime);
+
+	// PTS restamped = baseMediaDecodeTime + offset = 0
+	// in tfdt version 0, baseMediaDecodeTime is a 32 bit unsigned value
+	uint64_t expectedValue{1973};
+	int64_t ptsOffset{static_cast<int64_t>(expectedValue) + 1 + static_cast<int64_t>(UINT32_MAX) - static_cast<int64_t>(baseMediaDecodeTime)};
+	mIsoBmffBuffer->restampPts(ptsOffset);
+	// Parse the ISO BMFF buffer again and check that the PTS has been updated
+	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
+	mIsoBmffBuffer->destroyBoxes();
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	mIsoBmffBuffer->getFirstPTS(fPts);
+	EXPECT_EQ(fPts, expectedValue);
+	// Verify that the PTS has been updated in the buffer
+	std::vector<uint64_t> expectedPts {expectedValue};
 	VerifyPts(expectedPts, vSeg.data(), size);
 }
