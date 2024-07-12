@@ -24,6 +24,7 @@ from library.manifests import read_harvest_details, ManifestServerCommon
 from collections import defaultdict
 from urllib.parse import urlparse, parse_qsl, urlsplit #RDKAAMP-3019
 import base64 #RDKAAMP-3019
+from socketserver import ThreadingMixIn
 
 """
 Simlinear API's:
@@ -71,6 +72,13 @@ numOfRequests = 0
 # havest_process
 shutdown = False
 restart = True
+
+liveLatency = False
+LLsize = 100000
+LLfirstDelay = 10
+LLdelay = 10
+
+#threadingEvent = threading.Event()
 
 def normalize_query_param(value):
     """
@@ -269,6 +277,8 @@ class DASHServer(ManifestServerCommon):
 #####################################################
 dash_server = DASHServer()
 
+class ThreadingDASHServer(ThreadingMixIn, HTTPServer):
+    pass
 
 class DASHServerHandler(BaseHTTPRequestHandler):
     """
@@ -285,6 +295,11 @@ class DASHServerHandler(BaseHTTPRequestHandler):
         global list_of_threads
         global restart
         global shutdown
+        global liveLatency
+        global LLsize
+        global LLdelay
+        global LLfirstDelay
+        #global threadingEvent
         # path=/some/kind/of/path?query
         # becomes some/kind/of/path
         path = self.path[1:].split("?")[0]
@@ -344,7 +359,29 @@ class DASHServerHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
 
             self.end_headers()
-            self.wfile.write(contents)
+
+            if liveLatency:
+                remaining = contents
+                LLsizeAdjusted = LLsize
+                LLdelayAdjusted = LLdelay / 1000
+                LLfirstDelayAdjusted = LLfirstDelay / 1000
+                log.info(str(LLfirstDelay) + " milliseconds, " + str(LLdelay) + " milliseconds, " + str(LLsizeAdjusted) + " bytes")
+                count = 0
+                while len(remaining) > LLsizeAdjusted:
+                    if LLsizeAdjusted >= 100000:
+                        log.info(str(len(remaining)) + " bytes left in this fragment")
+                    self.wfile.write(remaining[:LLsizeAdjusted])
+                    remaining = remaining[LLsizeAdjusted:]
+                    if count == 0:
+                        time.sleep(LLfirstDelayAdjusted)
+                    else:
+                        time.sleep(LLdelayAdjusted)
+                    count += 1
+                    #threadingEvent.wait(LLdelayAdjusted)
+                self.wfile.write(remaining)
+            else:
+                self.wfile.write(contents)
+                
         except FileNotFoundError:
             self.send_response(404)
             self.end_headers()
@@ -453,7 +490,7 @@ def start_web_server(port, abr_type):
         # Start a DASH server
         list_of_webServer[port] = {
             "status": "init",
-            "proc": HTTPServer((hostName, port), DASHServerHandler),
+            "proc": ThreadingDASHServer((hostName, port), DASHServerHandler),
             "process": None,
         }
         log.info("Server started http://%s:%s",hostName, port)
@@ -799,6 +836,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--offset", help="offset time for dash to skip, offset should be in hours:minutes:seconds or minutes:seconds or seconds.", default="0", type=str
     )
+    parser.add_argument(
+        "--throttle", help="Set fragment size and delay between them. Can control the delay of first chunk separately from the rest  Format: FirstDELAY:DELAY:SIZE   SIZE in bytes integer (default 100000), DELAY and FirstDELAY in miliseconds integer (default 10)   Can leave numbers blank e.g. '::150000' would only change the size and use defaults for both delays", nargs='?', const="-1", type=str 
+    )
 
     args = parser.parse_args()
     hostName = args.interface
@@ -828,6 +868,34 @@ if __name__ == "__main__":
             )
             list_of_threads[args.hls].start()
         elif args.dash:
+        
+            # parse throttle arg
+            if args.throttle:
+                splitThrottle = args.throttle.split(":")
+                if len(splitThrottle) == 3:
+                    if splitThrottle[0] != '':
+                        LLfirstDelay = int(splitThrottle[0])
+                    if splitThrottle[1] != '':
+                        LLdelay = int(splitThrottle[1])
+                    if splitThrottle[2] != '':
+                        LLsize = int(splitThrottle[2])
+                    liveLatency = True
+                    print("Throttle parameter set FirstDELAY = " + str(LLfirstDelay) + ", DELAY = " + str(LLdelay) + ", SIZE = " + str(LLsize))
+                elif len(splitThrottle) == 1:
+                    if splitThrottle[0] == "" or splitThrottle[0] == "-1":
+                        liveLatency = True
+                        print("Throttle parameter set as default FirstDELAY = " + str(LLfirstDelay) + ", DELAY = " + str(LLdelay) + ", SIZE = " + str(LLsize))
+                    else:
+                        print("ERROR: Invalid Throttle Parameter")
+                        restart = False
+                        shutdown = True
+                        break
+                else:
+                    print("ERROR: Invalid Throttle Parameter")
+                    restart = False
+                    shutdown = True
+                    break
+        
             if args.offset:
                 time_offset = duration_to_seconds(args.offset)
                 dash_server.set_offset_time(time_offset)
