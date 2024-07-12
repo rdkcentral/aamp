@@ -35,7 +35,7 @@ async function TST_2009_UVE_AampDRMPlayback() {
     aamp_player.player.initConfig(initConfig);
 
 
-    TST_INFO("Setup and Configure DRM playback");
+    TST_STEP("Setup and Configure DRM playback");
 
     // Enable DRM Protection event to application for setting Key ID specific setting (for key rotation)
     await aamp_player.player.configRuntimeDRM(true);
@@ -53,7 +53,7 @@ async function TST_2009_UVE_AampDRMPlayback() {
 
 
     // Load the DRM URL, but don't start the playback
-    TST_INFO("Tune to URL");
+    TST_STEP("Tune to URL");
     await aamp_player.Load(DRM_url, false, true);
 
 
@@ -62,7 +62,7 @@ async function TST_2009_UVE_AampDRMPlayback() {
     console.log("contentProtectionDataUpdate: Received Key:" + JSON.stringify(drm_update.keyID));
 
     // Configure the DRM Data for license request for every KeyID reported to application
-    TST_INFO("SetContentProtectionDataConfig");
+    TST_STEP("SetContentProtectionDataConfig");
     var DynamicDrmConfig = {
         'keyID': drm_update.keyID,
         'com.widevine.alpha': 'https://cwip-shaka-proxy.appspot.com/no_auth',
@@ -75,7 +75,7 @@ async function TST_2009_UVE_AampDRMPlayback() {
 
 
     // Start the playback and verify it plays for 10s
-    TST_INFO("Start Playback");
+    TST_STEP("Start Playback");
     await aamp_player.SetRate(1, false);
     await aamp_player.VerifyPlayback(10, 1);
 
@@ -85,42 +85,42 @@ async function TST_2009_UVE_AampDRMPlayback() {
 
 
     // Subscribe to specific tags / metadata in manifest
-    TST_INFO("TST_SetSubscribedTags");
+    TST_STEP("TST_SetSubscribedTags");
     let tags = ["#EXT-X-TARGETDURATION","#EXT-X-MAP", "#EXT-X-DISCONTINUITY","#EXT-X-KEY"];
     await aamp_player.TST_SetSubscribedTags(tags);
     await aamp_player.VerifyPlayback(10, 1);
 
     // sets the auxiliary language
-    TST_INFO("setAuxiliaryLanguage");
+    TST_STEP("setAuxiliaryLanguage");
     await aamp_player.player.setAuxiliaryLanguage("it");
     await aamp_player.VerifyPlayback(5,1);
 
     // get available video bitrates
-    TST_INFO("getVideoBitrates");
+    TST_STEP("getVideoBitrates");
     await aamp_player.TST_GetVideoBitrates();
 
     // sets the video bitrate
-    TST_INFO("setVideoBitrate");
+    TST_STEP("setVideoBitrate");
     await aamp_player.TST_SetVideoBitrate(6099164);
     await aamp_player.VerifyPlayback(4,1);
 
     // gets the current video bitrate
-    TST_INFO("getVideoBitrate");
+    TST_STEP("getVideoBitrate");
     var curr_bitrate = await aamp_player.TST_GetCurrentVideoBitrate();
     console.log("current_bitrate " + curr_bitrate);
 
     // sets the preferred audio codec
-    TST_INFO("setPreferredAudioCodec");
+    TST_STEP("setPreferredAudioCodec");
     await aamp_player.player.setPreferredAudioCodec("mp4a.40.2");
 
     // Subscribe http response headers from manifest download
-    TST_INFO("subscribeResponseHeaders");
+    TST_STEP("subscribeResponseHeaders");
     let headers = ["X-Powered-By","X-MoneyTrace"];
     await aamp_player.TST_SubscribeResponseHeaders(headers);
     await aamp_player.VerifyPlayback(2,1);
 
     // Stop the playback and destroy the AAMP Player
-    TST_INFO("Stop the playback");
+    TST_STEP("Stop the playback");
     await aamp_player.Stop();
     aamp_player.destroy();
     TST_END()

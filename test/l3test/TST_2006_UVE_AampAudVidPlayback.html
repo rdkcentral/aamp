@@ -27,27 +27,27 @@ async function TST_2006_UVE_AampAudVidPlayback() {
     var aamp_player = new AAMPPlayer2("MAIN-PLAYER");
 
     // Initialise the config
-    TST_INFO("initConfig");
+    TST_STEP("initConfig");
     var playerInitConfig = {initialBitrate: 2500000,offset: 0,networkTimeout: 10,preferredAudioLanguage: "spa"};
     await aamp_player.player.initConfig(playerInitConfig);
 
     // Load and Play the main content URL, wait 10s and verify position updated
-    TST_INFO("Tune to URL");
+    TST_STEP("Tune to URL");
     await aamp_player.Load(TST_2006_url);
     await aamp_player.VerifyPlayback(10, 1);
 
     // mute the video
-    TST_INFO("mute video");
+    TST_STEP("mute video");
     await aamp_player.player.setVideoMute(true);
     await aamp_player.VerifyPlayback(10, 1);
 
     // unmute the video
-    TST_INFO("unmute video");
+    TST_STEP("unmute video");
     await aamp_player.player.setVideoMute(false);
     await aamp_player.VerifyPlayback(10, 1);
 
     // sets the audio language
-    TST_INFO("setAudioLanguage");
+    TST_STEP("setAudioLanguage");
     let TrackList = await aamp_player.TST_GetAudioTrackInfo();
     TST_ASSERT(TrackList[0].language == "spa", "Language should be 'spa'");
     await aamp_player.player.setAudioLanguage("eng");
@@ -56,7 +56,7 @@ async function TST_2006_UVE_AampAudVidPlayback() {
     await aamp_player.VerifyPlayback(4,1);
 
     // sets the preferred audio language
-    TST_INFO("setPreferredAudioLanguage");
+    TST_STEP("setPreferredAudioLanguage");
     let preferredAudioProperties = await aamp_player.TST_GetPreferredAudioProperties();
     TST_ASSERT(preferredAudioProperties["preferred-audio-languages"] == "eng","Language should be 'eng'");
     await aamp_player.player.setPreferredAudioLanguage("ger","alternate");
@@ -65,34 +65,34 @@ async function TST_2006_UVE_AampAudVidPlayback() {
     await aamp_player.VerifyPlayback(4,1);
 
     // Get the available bit rates
-    TST_INFO("getVideoBitrates");
+    TST_STEP("getVideoBitrates");
     let Bitrates = await aamp_player.TST_GetVideoBitrates();
     TST_ASSERT(Bitrates.includes(800000), "avlBitrates should contain 800000");
     TST_ASSERT(Bitrates.includes(1400000), "avlBitrates should contain 1400000");
     TST_ASSERT(Bitrates.includes(2800000), "avlBitrates should contain 2800000");
 
     // gets the duration of content in seconds
-    TST_INFO("getDurationSec");
+    TST_STEP("getDurationSec");
     dur = await aamp_player.TST_GetDurationSec();
     TST_ASSERT(dur == 900, "Duration should be 900 seconds");
 
     // To check whether volume set properly or not
-    TST_INFO("check audio volume");
+    TST_STEP("check audio volume");
     await aamp_player.TST_CheckSetAudioVolume();
     await aamp_player.VerifyPlayback(10, 1);
 
     // To check available audio tracks are properly retrieved or not
-    TST_INFO("checkAvailableAudioTracks")
+    TST_STEP("checkAvailableAudioTracks")
     await aamp_player.TST_CheckAvailableAudioTracks();
     await aamp_player.VerifyPlayback(10,1);
 
     // To check audio track set correctly or not
-    TST_INFO("checkSetAudioTrack");
+    TST_STEP("checkSetAudioTrack");
     await aamp_player.TST_CheckSetAudioTrack("spa","mp4a.40.2","mono","true");
     await aamp_player.VerifyPlayback(10,1);
 
     // Stop the playback and destroy the AAMP Player
-    TST_INFO("Stop the playback");
+    TST_STEP("Stop the playback");
     await aamp_player.Stop();
     aamp_player.destroy();
     TST_END()
