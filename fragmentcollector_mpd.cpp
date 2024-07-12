@@ -1310,6 +1310,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						ITimeline *firstTimeline = timelines.at(0);
 						double positionInPeriod = 0;
 						uint64_t ret = pMediaStreamContext->lastSegmentDuration;
+						double firstSegStartTime = mPeriodStartTime;
+						uint64_t firstStartTime = firstTimeline->GetStartTime();
 						// CID:186808 - Invalid iterator comparison
 						map<string, string> attributeMap = firstTimeline->GetRawAttributes();
 						if((attributeMap.find("t") != attributeMap.end()) && (ret > 0))
@@ -1367,10 +1369,16 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						uint64_t fragmentNumberBackUp = pMediaStreamContext->fragmentDescriptor.Number;
 						ReleasePlaylistLock();
 
+						if(firstStartTime < presentationTimeOffset)
+                                                {
+                                                        firstSegStartTime = (double)(firstStartTime/tScale);
+                                                        AAMPLOG_INFO(" PTO ::(startTime < PTO) firstStartTime %" PRIu64 "tScale : %d presentationTimeOffset[%llu] positionInPeriod = %f  startTime = %f  endTime : %f mPeriodStartTime = %f mPeriodDuration = %f ", firstStartTime , tScale , presentationTimeOffset,positionInPeriod,firstSegStartTime,endTime,mPeriodStartTime,mPeriodDuration);
+                                                }
+
 						if(!fcsContent &&
 							(mIsFogTSB ||
 								((0 != mPeriodDuration) &&
-									(((mPeriodStartTime + positionInPeriod) < endTime) || liveEdgePeriodPlayback))))
+									(((firstSegStartTime + positionInPeriod) < endTime) || liveEdgePeriodPlayback))))
 						{
 							/*
 							 * Avoid FetchFragment for following cases
