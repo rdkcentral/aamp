@@ -19,7 +19,14 @@
 
 #include "AampGrowableBuffer.h"
 
+#include <cstdint>
+
 bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer)
+{
+    return true;
+}
+
+bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset)
 {
     return true;
 }
