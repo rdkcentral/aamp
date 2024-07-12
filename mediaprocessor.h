@@ -173,5 +173,22 @@ public:
 	* @param[in] offset offset value in seconds
 	*/
 	virtual void setTrackOffset(double offset) = 0;
+
+	/**
+	* @brief Function to set skipped fragment duartion and skip point position
+	* @param[in] skipPoint - skip point position in seconds
+	* @param[in] skipDuration- duration in seconds to be skipped
+	*/
+	virtual void updateSkipPoint(double skipPoint, double skipDuration ) {}
+
+	/**
+	* @brief Function to set discontinuity
+	*/
+	virtual void setDiscontinuityState(bool isDiscontinuity) {}
+
+	/**
+	* @brief Function to abort wait for videoPTS arrival
+	*/
+	virtual void abortWaitForVideoPTS() {}
 };
 #endif /* __MEDIA_PROCESSOR_H__ */

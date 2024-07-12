@@ -274,6 +274,24 @@ class TrackState : public MediaTrack
 		 ***************************************************************************/
 		char *GetNextFragmentUriFromPlaylist(bool &reloadUri, bool ignoreDiscontinuity=false);
 		/***************************************************************************
+		 * @fn updateSkipPoint
+		 * @param position point to which fragment need to be skipped
+		 * @param duration fragment duration to be skipped
+		 * @return void
+		 ***************************************************************************/
+		void updateSkipPoint(double position, double duration ) override;
+		/***************************************************************************
+		 * @fn setDiscontinuityState
+		 * @param isDiscontinuity - true if dicontinuity false otherwise
+		 * @return void
+		 ***************************************************************************/
+		void setDiscontinuityState(bool isDiscontinuity) override;
+		/***************************************************************************
+		 * @fn abortWaitForVideoPTS
+		 * @return void
+		 ***************************************************************************/
+		void abortWaitForVideoPTS() override;
+		/***************************************************************************
 		 * @fn UpdateDrmIV
 		 *
 		 * @param[in] ptr IV string from DRM attribute

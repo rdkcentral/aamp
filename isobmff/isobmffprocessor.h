@@ -72,6 +72,32 @@ enum timeScaleChangeStateType
 };
 
 /**
+ * @enum skipTimeType
+ * @brief skip fragment type
+ */
+enum skipTimeType
+{
+	eBMFFPROCESSOR_SKIP_NONE,
+	eBMFFPROCESSOR_SKIP_BEFORE_NEW_TIMESCALE,
+	eBMFFPROCESSOR_SKIP_AFTER_NEW_TIMESCALE,
+};
+
+/**
+ * @struct SkipType
+ * @brief structure to hold skip position details
+ */
+typedef struct
+{
+	double skipDuration;
+	double skippointPosition;
+}stSkipType;
+
+/**
+ * @brief maping to type and skip position
+ */
+typedef std::map<skipTimeType,stSkipType> skipTypeMap;
+
+/**
  * @class IsoBmffProcessor
  * @brief Class for ISO BMFF Fragment Processor
  */
@@ -135,6 +161,30 @@ public:
 	 */
 	bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, bool discontinuous,
 						bool isInit,process_fcn_t processor, bool &ptsError) override;
+
+	/**
+	 * @fn updateSkipPoint
+	 *
+	 * @param[in] skipPoint - indicates at what position fragments to be skipped
+	 * @param[in] skipDuration - duration of fragments to be skipped
+	 * @return void
+	 */
+	void updateSkipPoint(double skipPoint, double skipDuration );
+
+	/**
+	 * @fn setDiscontinuityState
+	 *
+	 * @param[in] isDiscontinuity - true if dicontinuity false otherwise
+	 * @return void
+	 */
+	void setDiscontinuityState(bool isDiscontinuity);
+
+	/**
+	 * @fn abortWaitForVideoPTS
+	 * @return void
+	 */
+	void abortWaitForVideoPTS();
+
 	/**
 	 * @fn abort
 	 *
@@ -317,7 +367,7 @@ private:
 	 * @param[in] diffDuration - difference between current position and previous position
 	 * @return void
 	 */
-	uint64_t handleSkipFragments(float diffDuration);
+	uint64_t handleSkipFragments(double position = 0.0f, skipTimeType skipType = eBMFFPROCESSOR_SKIP_NONE  );
 
 	/**
 	 * @fn pushInitAndSetRestampPTSAsBasePTS
@@ -400,6 +450,8 @@ private:
 	 */
 	void clearInitSegment();
 
+	void resetSkipDuration();
+
 	PrivateInstanceAAMP *p_aamp;
 	timeScaleChangeStateType timeScaleChangeState;
 	MediaFormat mediaFormat;
@@ -411,18 +463,18 @@ private:
 	double startPos;
 	double prevPosition;
 	double prevDuration;
-	double maxDurationFromManifest;
 	double playRate;
 	double trackOffsetInSecs;
+	double nextPos;
 
 	uint64_t basePTS;
 	uint64_t sumPTS;
 	uint64_t prevPTS;
-	uint64_t maxTrackDurationFromISOBufferInTS;
 
 	IsoBmffProcessor *peerProcessor;
 	IsoBmffProcessor *peerSubtitleProcessor;
 	IsoBmffProcessorType type;
+
 
 	bool isRestampConfigEnabled;
 	bool processPTSComplete;
@@ -431,11 +483,14 @@ private:
 	bool stopped; // flag to indicate if the module is active
 	bool aborted; // flag to indicate an abort() has occured
 	bool enabled;
+	bool ptsDiscontinuity;
 
 	std::vector<AampGrowableBuffer *> initSegment;
 	std::vector<stInitRestampSegment *> resetPTSInitSegment;
 	std::vector<MediaProcessor *> peerListeners;
 	std::mutex initSegmentTransferMutex;
+	std::mutex skipMutex;
+	skipTypeMap skipPointMap;
 
 	pthread_mutex_t m_mutex;
 	pthread_cond_t m_cond;
