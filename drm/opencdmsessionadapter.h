@@ -10,8 +10,8 @@
 #include "aampoutputprotection.h"
 #include "AampDrmHelper.h"
 
-#include <open_cdm.h>
-#include <open_cdm_adapter.h>
+#include "open_cdm.h"
+#include "open_cdm_adapter.h"
 #include "AampDrmCallbacks.h"
 
 using namespace std;
@@ -34,7 +34,7 @@ public:
 #ifndef __APPLE__ // pthread_condattr_setclock API not available on OSX
                pthread_condattr_setclock(&condAttr, CLOCK_MONOTONIC );
 #endif
-	       pthread_cond_init(&condition, &condAttr);
+               pthread_cond_init(&condition, &condAttr);
 	}
 	virtual ~Event() {
 		pthread_cond_destroy(&condition);
