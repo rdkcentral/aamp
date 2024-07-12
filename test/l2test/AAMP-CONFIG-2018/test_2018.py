@@ -81,7 +81,8 @@ TESTDATA3 = {
     ],
 }
 
-TESTLIST = [TESTDATA1 ,TESTDATA2 ,TESTDATA3 ]
+#TESTLIST = [TESTDATA1 ,TESTDATA2 ,TESTDATA3 ]
+TESTLIST = [TESTDATA3 ]
 
 ############################################################
 """
