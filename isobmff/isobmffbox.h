@@ -29,7 +29,11 @@
 #include <vector>
 #include <string.h>
 #include <string>
+#include <cstring>
 #include "AampLogManager.h"
+
+// Size of the size and tag fields in IsoBmff
+#define SIZEOF_SIZE_AND_TAG    (8)
 
 #define READ_U16(buf) \
 	(buf[0] << 8) | buf[1]; buf+=2;
@@ -80,7 +84,7 @@ int ReadCStringLen(const uint8_t* buffer, uint32_t bufferLen);
 		ReadUint64(buf); buf+=8;
 
 #define READ_64(buf) \
-                ReadUint64(buf); buf+=8;
+		ReadUint64(buf); buf+=8;
 
 #define IS_TYPE(value, type) \
 		(value[0]==type[0] && value[1]==type[1] && value[2]==type[2] && value[3]==type[3])
@@ -93,6 +97,7 @@ int ReadCStringLen(const uint8_t* buffer, uint32_t bufferLen);
 class Box
 {
 private:
+	uint8_t *base;		/**< Ptr to start of box */
 	uint32_t offset;	/**< Offset from the beginning of the segment */
 	uint32_t size;		/**< Box Size */
 	char type[5]; 		/**< Box Type Including \0 */
@@ -118,6 +123,9 @@ public:
 	static constexpr const char *STYP = "styp";
 	static constexpr const char *SIDX = "sidx";
 	static constexpr const char *PRFT = "prft";
+	static constexpr const char *SKIP = "skip";
+	static constexpr const char *SENC = "senc";
+	static constexpr const char *SAIZ = "saiz";
 
 	/**
 	 * @fn Box
@@ -145,7 +153,7 @@ public:
 
 	/**
 	 * @fn getOffset
-	 * 
+	 *
 	 * @return offset of box
 	 */
 	uint32_t getOffset() const;
@@ -164,11 +172,21 @@ public:
 	virtual const std::vector<Box*> *getChildren() const;
 
 	/**
+	 * @fn truncate
+	 */
+	virtual void truncate(void) {}
+	virtual void truncate(uint32_t param) {}
+
+	/**
 	 * @fn getSize
 	 *
 	 * @return box size
 	 */
 	uint32_t getSize() const;
+
+	void setSize(uint32_t newSize) { WRITE_U32(base, newSize);
+		size = newSize;
+	 }
 
 	/**
 	 * @fn getType
@@ -176,13 +194,6 @@ public:
 	 * @return box type
 	 */
 	const char *getType() const;
-
-        /**
-         * @fn getBoxType
-         *
-         * @return box type if parsed. "unknown" otherwise
-         */
-        const char *getBoxType() const;
 
 	/**
 	 * @fn constructBox
@@ -195,8 +206,17 @@ public:
 	 * @return newly constructed Box object
 	 */
 	static Box* constructBox(uint8_t *hdr, uint32_t maxSz, AampLogManager *mLOgObj=NULL, bool correctBoxSize = false, int newTrackId = -1);
-};
 
+	uint8_t *getBase(void) const { return base; }
+
+	/**
+	 * @fn setBase
+	 * @brief Store a pointer to the base of the box
+	 *
+	 * @param[in] start - pointer to the box after reading the size and box type
+	 */
+	void setBase(uint8_t *start) { base = start  - SIZEOF_SIZE_AND_TAG; }
+};
 
 /**
  * @class GenericContainerBox
@@ -282,7 +302,7 @@ public:
 	 * @return newly constructed trak object
 	 */
 	static TrakBox* constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId = -1);
-	
+
 	/**
 	 * @brief track_id getter
 	 *
@@ -313,6 +333,46 @@ public:
 	FullBox(uint32_t sz, const char btype[4], uint8_t ver, uint32_t f);
 };
 
+/**
+ * @class MdatBox
+ * @brief create an mdat box
+*/
+class MdatBox: public Box
+{
+public:
+
+	/**
+	 * @fn MdatBox
+	 * @brief construct an mdat box header with the specified size at the specified location
+	 * @param[in] sz - box size
+	 * @param[in] locn - location
+	*/
+	MdatBox(uint32_t sz, uint8_t *locn) : Box(sz, Box::MDAT){}
+
+	void truncate(uint32_t newSize) override;
+
+	static MdatBox* constructMdatBox(uint32_t sz, uint8_t *ptr);
+};
+
+/**
+ * @class skipBox
+ * @brief Create a skip box
+*/
+class SkipBox: public Box
+{
+public:
+	/**
+	 * @fn skipBox
+	 * @brief construct a skip box header with the specified size at the specified location
+	 * @param[in] sz - box size
+	 * @param[in] locn - location
+	*/
+	SkipBox(uint32_t sz, uint8_t *locn) : Box(sz, Box::SKIP)
+	{
+		WRITE_U32(locn, sz);
+		memcpy(locn + sizeof(uint32_t), Box::SKIP, std::strlen(Box::SKIP));
+	}
+};
 
 /**
  * @class MvhdBox
@@ -480,7 +540,7 @@ private:
 	uint32_t id;
 	uint32_t presentationTimeDelta; // This is added in emsg box v1
 	uint64_t presentationTime;	// This is included in emsg box v0
-	char * schemeIdUri;
+	char* schemeIdUri;
 	uint8_t* value;
 	// Message data
 	uint8_t* messageData;
@@ -605,14 +665,14 @@ public:
 	 * @param[in] schemeIdUri - schemeIdUri pointer
 	 * @return void
 	 */
-	void setSchemeIdUri(char * schemeIdURI);
+	void setSchemeIdUri(char* schemeIdURI);
 
 	/**
 	 * @fn getSchemeIdUri
 	 *
 	 * @return schemeIdUri value
 	 */
-	char * getSchemeIdUri() const;
+	char* getSchemeIdUri() const;
 
 	/**
 	 * @fn setValue
@@ -671,7 +731,10 @@ class TrunBox : public FullBox
 private:
 	uint64_t duration;    //Sample Duration value
 	uint32_t sample_count;
-
+	uint8_t *sample_count_loc;
+	uint8_t *first_sample_duration_loc;
+	uint32_t mFirstSampleSize;
+	uint32_t mFlags;
 
 public:
 	struct Entry {
@@ -681,31 +744,43 @@ public:
 	uint32_t sample_flags;
 	uint32_t sample_composition_time_offset;
 	};
+
 	/**
  	 * @fn TrunBox
  	 *
 	 * @param[in] sz - box size
-	 * @param[in] mdt - sampleDuration value
-	 * @param[in] mdt - sampleCount value
+	 * @param[in] sampleDuration - sample duration value
+	 * @param[in] sampleCount - sample count value
+	 * @param[in] sampleCountLoc - sample count location
+	 * @param[in] sampleDurationLoc - sample duration location
+	 * @param[in] firstSampleSize - size of the first sample
+	 * @param[in] flags - flags set on this box
 	 */
-	TrunBox(uint32_t sz, uint64_t sampleDuration,uint32_t sampleCount);
+	TrunBox(uint32_t sz, uint64_t sampleDuration, uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t *sampleDurationLoc, uint32_t firstSampleSize, uint32_t flags);
 
 	/**
 	 * @fn TrunBox
 	 *
 	 * @param[in] fbox - box object
-	 * @param[in] mdt - BaseMediaDecodeTime value
-	 * @param[in] mdt - sampleCount value
+	 * @param[in] sampleDuration - sample duration value
+	 * @param[in] sampleCount - sample count value
+	 * @param[in] sampleCountLoc - sample count location
+	 * @param[in] sampleDurationLoc - sample duration location
+	 * @param[in] firstSampleSize - size of the first sample
+	 * @param[in] flags - flags set on this box
 	 */
-	TrunBox(FullBox &fbox, uint64_t sampleDuration,uint32_t sampleCount);
+	TrunBox(FullBox &fbox, uint64_t sampleDuration, uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t *sampleDurationLoc, uint32_t firstSampleSize, uint32_t flags);
 
 	/**
-	 * @fn setSampleDuration
+	 * @fn setFirstSampleDuration
+	 *
+	 * @brief The sample duration of the first sample is updated with the value provided.
+	 *        The sample duration of the remaining samples is not modified.
 	 *
 	 * @param[in] sampleDuration - Sample Duration value
 	 * @return void
 	 */
-	void setSampleDuration(uint64_t sampleDuration);
+	void setFirstSampleDuration(uint64_t sampleDuration);
 
 	/**
 	 * @fn getSampleDuration
@@ -729,6 +804,25 @@ public:
 	 * @return newly constructed TrunBox object
 	 */
 	static TrunBox* constructTrunBox(uint32_t sz, uint8_t *ptr);
+
+	/**
+	 * @fn truncate
+	 */
+	void truncate(void) override;
+
+	/**
+	 * @fn getFirstSampleSize
+	 *
+	 * @return The size of the first sample
+	 */
+	uint32_t getFirstSampleSize(void);
+
+	/**
+	 * @fn sampleDurationPresent
+	 *
+	 * @return true if SAMPLE_DURATION_PRESENT is enabled, false otherwise
+	 */
+	bool sampleDurationPresent(void);
 };
 
 /**
@@ -738,48 +832,71 @@ public:
 class TfhdBox : public FullBox
 {
 private:
-    uint64_t duration;
+	uint64_t duration;
+	uint8_t *default_sample_duration_location;
+	uint32_t mDefaultSampleSize;
+	uint32_t mFlags;
 
 public:
-    /**
-     * @fn TfhdBox
-     *
-     * @param[in] sz - box size
-     * @param[in] sample_duration - Sample Duration value
-     */
-    TfhdBox(uint32_t sz, uint64_t sample_duration);
+	/**
+	 * @fn TfhdBox
+	 *
+	 * @param[in] sz - box size
+	 * @param[in] sample_duration - Sample Duration value
+	 * @param[in] first_sample_duration_loc - Default sample duration location
+	 * @param[in] default_sample_size - Default sample size
+	 * @param[in] flags - flags set on this box
+	 */
+	TfhdBox(uint32_t sz, uint64_t sample_duration, uint8_t* first_sample_duration_loc, uint32_t default_sample_size, uint32_t flags);
 
-    /**
-     * @fn TfhdBox
-     *
-     * @param[in] fbox - box object
-     * @param[in] sample_duration - Sample Duration value
-     */
-    TfhdBox(FullBox &fbox, uint64_t sample_duration);
+	/**
+	 * @fn TfhdBox
+	 *
+	 * @param[in] fbox - box object
+	 * @param[in] sample_duration - Sample Duration value
+	 * @param[in] first_sample_duration_loc - Default sample duration location
+	 * @param[in] default_sample_size - Default sample size
+	 * @param[in] flags - flags set on this box
+	 */
+	TfhdBox(FullBox &fbox, uint64_t default_duration, uint8_t * default_duration_location, uint32_t default_sample_size, uint32_t flags);
 
-    /**
-     * @fn setSampleDuration
-     *
-     * @param[in] sample_duration - SampleDuration value
-     * @return void
-     */
-    void setSampleDuration(uint64_t sample_duration);
+	/**
+	 * @fn setDefaultSampleDuration
+	 *
+	 * @param[in] sample_duration - SampleDuration value
+	 * @return void
+	 */
+	void setDefaultSampleDuration(uint64_t sample_duration);
 
-    /**
-     * @fn getSampleDuration
-     *
-     * @return SampleDuration value
-     */
-    uint64_t getSampleDuration();
+	/**
+	 * @fn getSampleDuration
+	 *
+	 * @return Default sample duration, 0 if not present
+	 */
+	uint64_t getDefaultSampleDuration();
 
-    /**
-     * @fn constructTfhdBox
-     *
-     * @param[in] sz - box size
-     * @param[in] ptr - pointer to box
-     * @return newly constructed TfhdBox object
-     */
-    static TfhdBox* constructTfhdBox(uint32_t sz, uint8_t *ptr);
+	/**
+	 * @fn getDefaultSampleSize
+	 *
+	 * @return The default sample size, 0 if not present
+	 */
+	uint32_t getDefaultSampleSize(void);
+
+	/**
+	 * @fn constructTfhdBox
+	 *
+	 * @param[in] sz - box size
+	 * @param[in] ptr - pointer to box
+	 * @return newly constructed TfhdBox object
+	 */
+	static TfhdBox* constructTfhdBox(uint32_t sz, uint8_t *ptr);
+
+	/**
+	 * @fn defaultSampleDurationPresent
+	 *
+	 * @return true if DEFAULT_SAMPLE_DURATION_PRESENT is enabled, false otherwise
+	 */
+	bool defaultSampleDurationPresent(void);
 };
 
 /**
@@ -789,84 +906,154 @@ public:
 class PrftBox : public FullBox
 {
 private:
-    uint32_t track_id;
-    uint64_t ntp_ts;
-    uint64_t media_time;
+	uint32_t track_id;
+	uint64_t ntp_ts;
+	uint64_t media_time;
 
 public:
-    /**
-     * @fn PrftBox
-     *
-     * @param[in] sz - box size
-     * @param[in] trackId - media time
-     * @param[in] ntpTs - media time
-     * @param[in] mediaTime - media time
-     */
-    PrftBox(uint32_t sz, uint32_t trackId, uint64_t ntpTs, uint64_t mediaTime);
+	/**
+	 * @fn PrftBox
+	 *
+	 * @param[in] sz - box size
+	 * @param[in] trackId - media time
+	 * @param[in] ntpTs - media time
+	 * @param[in] mediaTime - media time
+	 */
+	PrftBox(uint32_t sz, uint32_t trackId, uint64_t ntpTs, uint64_t mediaTime);
 
-    /**
-     * @fn PrftBox
-     *
-     * @param[in] fbox - box object
-     * @param[in] trackId - media time
-     * @param[in] ntpTs - media time
-     * @param[in] mediaTime - media time
-     */
-    PrftBox(FullBox &fbox, uint32_t trackId, uint64_t ntpTs, uint64_t mediaTime);
+	/**
+	 * @fn PrftBox
+	 *
+	 * @param[in] fbox - box object
+	 * @param[in] trackId - media time
+	 * @param[in] ntpTs - media time
+	 * @param[in] mediaTime - media time
+	 */
+	PrftBox(FullBox &fbox, uint32_t trackId, uint64_t ntpTs, uint64_t mediaTime);
 
-    /**
-     * @fn setTrackId
-     *
-     * @param[in] trackId - Track Id value
-     * @return void
-     */
-    void setTrackId(uint32_t trackId);
+	/**
+	 * @fn setTrackId
+	 *
+	 * @param[in] trackId - Track Id value
+	 * @return void
+	 */
+	void setTrackId(uint32_t trackId);
 
-    /**
-     * @fn getTrackId
-     *
-     * @return track_id value
-     */
-    uint32_t getTrackId();
+	/**
+	 * @fn getTrackId
+	 *
+	 * @return track_id value
+	 */
+	uint32_t getTrackId();
 
-    /**
-     * @fn setNtpTs
-     *
-     * @param[in] ntpTs - ntp timestamp value
-     * @return void
-     */
-    void setNtpTs(uint64_t ntpTs);
+	/**
+	 * @fn setNtpTs
+	 *
+	 * @param[in] ntpTs - ntp timestamp value
+	 * @return void
+	 */
+	void setNtpTs(uint64_t ntpTs);
 
-    /**
-     * @fn getNtpTs
-     *
-     * @return ntp_ts value
-     */
-    uint64_t getNtpTs();
+	/**
+	 * @fn getNtpTs
+	 *
+	 * @return ntp_ts value
+	 */
+	uint64_t getNtpTs();
 
-    /**
-     * @fn setMediaTime
-     *
-     * @param[in] mediaTime - metia time value
-     * @return void
-     */
-    void setMediaTime(uint64_t mediaTime);
+	/**
+	 * @fn setMediaTime
+	 *
+	 * @param[in] mediaTime - metia time value
+	 * @return void
+	 */
+	void setMediaTime(uint64_t mediaTime);
 
-    /**
-     * @fn getMediaTime
-     *
-     * @return media_time value
-     */
-    uint64_t getMediaTime();
+	/**
+	 * @fn getMediaTime
+	 *
+	 * @return media_time value
+	 */
+	uint64_t getMediaTime();
 
-    /**
-     * @fn constructPrftBox
-     *
-     * @param[in] sz - box size
-     * @param[in] ptr - pointer to box
-     * @return newly constructed PrftBox object
-     */
-    static PrftBox* constructPrftBox(uint32_t sz, uint8_t *ptr);
+	/**
+	 * @fn constructPrftBox
+	 *
+	 * @param[in] sz - box size
+	 * @param[in] ptr - pointer to box
+	 * @return newly constructed PrftBox object
+	 */
+	static PrftBox* constructPrftBox(uint32_t sz, uint8_t *ptr);
+};
+
+class SencBox: public FullBox
+{
+private:
+	uint8_t *sampleCountLoc;
+	uint32_t numSamples;
+
+public:
+	/**
+	 * @fn SencBox
+	 *
+	 * @param[in] fbox - box object
+	 * @param[in] sampleCountLoc - sample count location
+	 * @param[in] numSamples - number of samples
+	 */
+	SencBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples);
+
+	/**
+	 * @fn constructSencBox
+	 *
+	 * @param[in] sz - box size
+	 * @param[in] ptr - pointer to box
+	 * @return newly constructed SencBox object
+	 */
+	static SencBox* constructSencBox(uint32_t sz, uint8_t *ptr);
+
+	/**
+	 * @fn truncate
+	 *
+	 * @param[in] firstSampleSize - Size of the first sample
+	 */
+	void truncate(uint32_t firstSampleSize) override;
+};
+
+class SaizBox : public FullBox
+{
+private:
+	uint8_t *sampleCountLoc;
+	uint32_t numSamples;
+	uint32_t firstSampleInfoSize;
+
+public:
+	/**
+	 * @fn SaizBox
+	 *
+	 * @param[in] fbox - box object
+	 * @param[in] sampleCountLoc - location of the sample count
+	 * @param[in] numSamples - number of samples
+	 * @param[in] sample_info_size - Size for the first auxiliary sample information entry
+	 */
+	SaizBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples, uint32_t sample_info_size);
+
+	/**
+	 * @fn constructSaizBox
+	 *
+	 * @param[in] sz - box size
+	 * @param[in] ptr - pointer to box
+	 * @return newly constructed SaizBox object
+	 */
+	static SaizBox* constructSaizBox(uint32_t sz, uint8_t *ptr);
+
+	/*
+	* @fn getFirstSampleInfoSize
+	*
+	* @return The first sample size signalled in the saiz
+	*/
+	uint32_t getFirstSampleInfoSize(void);
+
+	void truncate(void) override;
 };
 
 /**
@@ -910,7 +1097,7 @@ public:
 	 *
 	 * @return TimeScale value
 	 */
-	uint32_t getTimeScale(); 
+	uint32_t getTimeScale();
 
 	/**
 	 * @fn setTimeScale

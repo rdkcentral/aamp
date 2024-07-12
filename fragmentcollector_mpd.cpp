@@ -155,6 +155,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,mIsFcsRepresentation(false)
 	,mFcsRepresentationId(-1)
 	,mFcsSegments()
+	,isVidDiscInitFragFail(false)
 {
 	this->aamp = aamp;
 #ifdef AAMP_MPD_DRM
@@ -911,7 +912,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	{
 		if(!fragmentSaved)
 		{
-		//AAMPLOG_WARN("StreamAbstractionAAMP_MPD: failed. fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
+			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: failed. fragmentUrl %s fragmentTime %f %d %d", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime,isInitializationSegment, pMediaStreamContext->type);
                   	//Added new check to avoid marking ad as failed if the http code is not worthy.
 			if(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && AAMP_IS_LOG_WORTHY_ERROR(pMediaStreamContext->httpErrorCode) && (isInitializationSegment || pMediaStreamContext->segDLFailCount >= MAX_AD_SEG_DOWNLOAD_FAIL_COUNT))
 			{
@@ -919,7 +920,20 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 				mCdaiObject->mAdBreaks[mBasePeriodId].mAdFailed = true;
 			}
 		}
+		if( discontinuity && ( isInitializationSegment && eTRACK_VIDEO == pMediaStreamContext->type ) )
+		{
+			isVidDiscInitFragFail = true;
+			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: failed. isInit: %d IsTrackVideo: %s isDisc: %d vidInitFail: %d",
+							isInitializationSegment, getMediaTypeName(AampMediaType(pMediaStreamContext->type) ), isInitializationSegment, isVidDiscInitFragFail );
+		}
 		retval = false;
+	}
+
+	if( discontinuity && ( isInitializationSegment && eTRACK_VIDEO == pMediaStreamContext->type ) && (retval && isVidDiscInitFragFail ) )
+	{
+			isVidDiscInitFragFail = false;
+			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: rampdown init download success. isInit: %d IsTrackVideo: %s isDisc: %d vidInitFail: %d",
+							isInitializationSegment, getMediaTypeName(AampMediaType(pMediaStreamContext->type) ), isInitializationSegment, isVidDiscInitFragFail );
 	}
 
 	/**In the case of ramp down same fragment will be retried
@@ -7944,7 +7958,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 										setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 									}
 									trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
-									AAMPLOG_INFO("Thread created for TrackDownloader [%lu]", GetPrintableThreadID(trackDownloadThreadID));
+									AAMPLOG_INFO("Thread created for TrackDownloader [%lu] %d %s", GetPrintableThreadID(trackDownloadThreadID), trackIdx, initialization.c_str());
 								}
 								catch(const std::exception& e)
 								{
@@ -8258,7 +8272,7 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 /**
  * @brief Fetches and caches audio fragment parallelly for video fragment.
  */
-void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState)
+void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState, bool isDiscontinuity )
 {
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 	bool isAllowNextFrag = true;
@@ -8368,7 +8382,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 			// DELIA-32017
 			else if(pMediaStreamContext->profileChanged)
 			{	// Profile changed case
-				FetchAndInjectInitialization(trackIdx);
+				FetchAndInjectInitialization(trackIdx,isDiscontinuity);
 			}
 
 			if(pMediaStreamContext->numberOfFragmentsCached != maxCachedFragmentsPerTrack && bCacheFullState)
@@ -8773,11 +8787,11 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 									AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 									aamp->SetIsPeriodChangeMarked(false);
 								}
-                                                          	if( rate < 0 || rate > 1)
-                                                                {
-                                                                        discontinuity = true;
-                                                                        AAMPLOG_INFO("Discontinuity set for trickplay");
-                                                                }
+                                 if( rate < 0 || rate > 1)
+                                 {
+                                 	discontinuity = true;
+                                    AAMPLOG_INFO("Discontinuity set for trickplay");
+								 }
 							}
 							else
 							{
@@ -8832,12 +8846,13 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 												trickPlay,
 												&delta,
 												&waitForFreeFrag,
-												&cacheFullStatus[trackIdx]);
+												&cacheFullStatus[trackIdx],
+												false);
 								AAMPLOG_TRACE("Thread created for parallelDownload:AdvanceTrack [%d][%lu]", trackIdx, GetPrintableThreadID( *parallelDownload[trackIdx]));
 							}
 							else
 							{
-								AdvanceTrack(trackIdx, trickPlay, &delta, &waitForFreeFrag, &cacheFullStatus[trackIdx]);
+								AdvanceTrack(trackIdx, trickPlay, &delta, &waitForFreeFrag, &cacheFullStatus[trackIdx], isVidDiscInitFragFail );
 								parallelDownload[trackIdx] = NULL;
 							}
 						}
@@ -8929,7 +8944,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							{
 								if(((mCdaiObject->mAdBreaks[mBasePeriodId].mWaitForManifestUpdateFlag)) && (mMPDParseHelper->getPeriodIdx(mBasePeriodId) == mMPDParseHelper->mUpperBoundaryPeriod))
 								{
-									AAMPLOG_INFO("[CDAI] current base period Id and mUpperBoundaryPeriod are eqaul ..... [%s] [%d] ",mBasePeriodId.c_str(),mMPDParseHelper->mUpperBoundaryPeriod);
+									AAMPLOG_INFO("[CDAI] current base period Id and mUpperBoundaryPeriod are equal ..... [%s] [%d] ",mBasePeriodId.c_str(),mMPDParseHelper->mUpperBoundaryPeriod);
 									bmanifestupdate = true;
 								}
 							}

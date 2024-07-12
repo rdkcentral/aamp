@@ -9,6 +9,9 @@ test/VideoTestStream/temp/
 test/VideoTestStream/text/
 test/l2test/*/output
 test/l2test/*/aamp.*
+*.DS_Store
+*.mpd
+*.m3u8
 *.mp4
 __pycache__
 

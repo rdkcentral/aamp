@@ -55,25 +55,23 @@ double ComputePeriodDurationSeconds( const AdaptationSet &adaptationSet )
 
 double GetPeriodFirstPts( const Timeline &timeline, std::string contentType, PeriodObj &period )
 {
-	double pts = 0;
+	double pts = 0.0;
 	auto adaptationSet = period.adaptationSet[contentType];
 	if( adaptationSet.representation.size()>0 )
 	{
 		auto representation = adaptationSet.representation[0];
 		if( representation.data.presentationTimeOffset )
 		{
-			pts = representation.data.presentationTimeOffset/representation.data.timescale;
+			pts = representation.data.presentationTimeOffset/(double)representation.data.timescale;
 		}
-		if( timeline.type == "dynamic" )
+		else if( timeline.type == "dynamic" )
 		{
 			auto baseTime = timeline.tuneUTC - timeline.availabilityStartTime - timeline.timeShiftBufferDepth;
 			if( representation.data.duration.size()==0 )
 			{
-				printf( "empty duration!\n" );
-				exit(1);
+				assert(0);
 			}
 			else if( representation.data.duration.size()>1 )
-				//if( Array.isArray(representation.duration) )
 			{
 				auto dt = (baseTime - period.start);
 				pts += dt;
@@ -82,7 +80,7 @@ double GetPeriodFirstPts( const Timeline &timeline, std::string contentType, Per
 			{
 				auto d = representation.data.duration[0];
 				int segment = Math::floor( baseTime/d );
-				pts = segment*d;
+				pts = segment*d/(double)representation.data.timescale;
 			}
 		}
 	}
@@ -149,9 +147,8 @@ void ComputeTimestampOffsets( Timeline &timeline )
 		}
 		auto firstVideoPts = GetPeriodFirstPts(timeline,"video",period);
 		auto firstAudioPts = GetPeriodFirstPts(timeline,"audio",period);
-		//console.log( "first pts delta = " + (firstVideoPts - firstAudioPts) );
-		auto firstPts = Math::max(firstVideoPts,firstAudioPts);
-		period.timestampOffset = totalDurationSeconds-firstPts;
+		period.firstPts = Math::max(firstVideoPts,firstAudioPts);
+		//period.timestampOffset = totalDurationSeconds-period.firstPts;
 		totalDurationSeconds += periodDuration;
 	}
 	//console.log( timeline );

@@ -62,7 +62,7 @@ public:
 	virtual const std::string& friendlyName() const override { return FRIENDLY_NAME; };
 
 	AampPlayReadyHelper(const struct DrmInfo& drmInfo, AampLogManager *logObj) : AampDrmHelper(drmInfo, logObj), FRIENDLY_NAME("PlayReady"), CODEC_TYPE(2),
-		PLAYREADY_DECODED_KEY_ID_LEN(16u), PLAYREADY_KEY_ID_LEN(37u), mPsshStr(),
+		mPsshStr(),
 		mInitData(), mKeyID(), mContentMetaData(), mStrInitDataFormated()
 	{}
 
@@ -74,8 +74,8 @@ private:
 	std::string findSubstr(std::string &data, std::string start, std::string end); /**< move to utiles */
 	
 	static const std::string PLAYREADY_OCDM_ID;
-	const size_t PLAYREADY_DECODED_KEY_ID_LEN; // Expected size of base64 decoded key ID from the PSSH
-	const size_t PLAYREADY_KEY_ID_LEN; // PlayReady ID key length. A NULL character is included at the end
+	static const size_t PLAYREADY_DECODED_KEY_ID_LEN; // Expected size of base64 decoded key ID from the PSSH
+	static const size_t PLAYREADY_KEY_ID_LEN; // PlayReady ID key length. A NULL character is included at the end
 	const std::string FRIENDLY_NAME;
 	const int CODEC_TYPE;
 

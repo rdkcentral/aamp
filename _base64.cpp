@@ -22,7 +22,6 @@
  * @brief optimized pair of base64 encode/decode implementations
  */
 
-
 #include "_base64.h"
 #include <stdlib.h>
 #include <string.h>
@@ -36,81 +35,41 @@
  */
 char *base64_Encode(const unsigned char *src, size_t len)
 {
-	static const char *mBase64IndexToChar =
-		"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-		"abcdefghijklmnopqrstuvwxyz"
-		"0123456789"
-		"+/"; // note: some older implementations use "-" instead of "/"
-	size_t outLen = ((len + 2) / 3) * 4;
-	char *outData = (char *)malloc(1 + outLen);
-	if( outData )
-	{ // aaaaaa aabbbb bbbbcc cccccc
-		char *dst = outData;
-		outData[outLen] = 0x00;
-		for (;;)
+	const unsigned char *fin = &src[len];
+	const static char *encode = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	char *rc = (char *)malloc(((len+2)/3)*4+1);
+	if( rc )
+	{
+		char *dst = rc;
+		unsigned int temp;
+		int pad = 0;
+		for( int i=0; i<len; i+=3 )
 		{
-			if (len == 0) break;
-			int in0 = src[0] >> 2;
-			int in1 = (src[0] & 0x3) << 4;
-			dst[0] = mBase64IndexToChar[in0];
-			dst[1] = mBase64IndexToChar[in1];
-			len--;
-			if (len == 0)
-			{
-				dst[2] = '=';
-				dst[3] = '=';
-				break;
-			}
-			in1 |= (src[1] >> 4);
-			int in2 = (src[1] & 0xf) << 2;
-			dst[1] = mBase64IndexToChar[in1];
-			dst[2] = mBase64IndexToChar[in2];
-			len--;
-			if (len == 0)
-			{
-				dst[3] = '=';
-				break;
-			}
-			in2 |= src[2] >> 6;
-			int in3 = src[2] & 0x3f;
-			dst[2] = mBase64IndexToChar[in2];
-			dst[3] = mBase64IndexToChar[in3];
-			len--;
-			src += 3;
-			dst += 4;
+			temp = (*src++) << 16;
+			if( src<fin ) temp |= (*src++) << 8; else pad++;
+			if( src<fin ) temp |= (*src++); else pad++;
+			*dst++ = encode[(temp & 0x00FC0000) >> 18];
+			*dst++ = encode[(temp & 0x0003F000) >> 12];
+			*dst++ = (pad>=2)?'=':encode[(temp & 0x00000FC0) >> 6 ];
+			*dst++ = (pad>=1)?'=':encode[(temp & 0x0000003F)];
 		}
+		*dst++ = 0x00;
 	}
-	return outData;
+	return rc;
 }
-
 
 /**
  * @brief decode base64 encoded data to binary equivalent
  * @retval return value from base64_Decode value
  */
-unsigned char *base64_Decode(const char *src, size_t *len, size_t srcLen)
+unsigned char *base64_Decode(const char *src, size_t *outLen, size_t srcLen)
 {
-	static const signed char mBase64CharToIndex[256] =
+	static const signed char decode[256] =
 	{
-		/*
-		Generated using:
-
-
-		static int CodeToIndex( char c )
-		{
-		if (c >= 'A' && c <= 'Z') return c - 'A';
-		if (c >= 'a' && c <= 'z') return (c - 'a') + 26;
-		if (c >= '0' && c <= '9') return (c - '0') + 26 * 2;
-		if (c == '+') return 62;
-		if (c == '-') return 63;
-		if (c == '/') return 63; // new
-		return -1; // error
-		}
-		*/
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 62, -1, 63, -1, 63,
-		52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -1, -1, -1, -1, -1, -1,
+		52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -1, -1, -1,  0, -1, -1,
 		-1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
 		15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, -1, -1, -1, -1,
 		-1, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
@@ -124,61 +83,46 @@ unsigned char *base64_Decode(const char *src, size_t *len, size_t srcLen)
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 	};
-	size_t numChars = (srcLen * 3) / 4; // initially round up to nearest 4 bytes, avoid losing precision
-	unsigned char *outData = (unsigned char *)malloc(numChars+1);
-	size_t outSize = 0; // output size
-	if (outData)
+	unsigned char *rc = (unsigned char *)malloc(srcLen*3/4);
+	*outLen = 0; // default
+	if( rc )
 	{
-		// memset(outData, 0x00, numChars); // not-needed
-		unsigned char *dst = outData;
-		const char *finish = src + srcLen;
-		while (src < finish)
-		{ // aaaaaa aabbbb bbbbcc cccccc
-			int data[4] = {mBase64CharToIndex[(unsigned char)'='],mBase64CharToIndex[(unsigned char)'='],mBase64CharToIndex[(unsigned char)'='],mBase64CharToIndex[(unsigned char)'=']};	//initialized to padded value =
-
-			if(src < finish)
-				data[0] = mBase64CharToIndex[(unsigned char)src[0]];
-			if(src+1 < finish)
-				data[1] = mBase64CharToIndex[(unsigned char)src[1]];
-			if(src+2 < finish)
-				data[2] = mBase64CharToIndex[(unsigned char)src[2]];
-			if(src+3 < finish)
-				data[3] = mBase64CharToIndex[(unsigned char)src[3]];
-			*dst++ = ((unsigned)data[0] << 2) | ((unsigned)data[1] >> 4);
-			if (data[2] < 0)
-			{
-				outSize++;
-				break;
+		unsigned char *dst = rc;
+		while( srcLen>0 && src[srcLen-1] == '=' )
+		{ // strip padding
+			srcLen--;
+		}
+		const char *fin = &src[srcLen];
+		while( src<fin )
+		{
+			unsigned int buf = 0;
+			int count = 0;
+			for( int i=0; i<4; i++ )
+			{ // aaaaaabb bbbbcccc ccdddddd
+				buf<<=6;
+				if( src<fin )
+				{
+					unsigned char c = (unsigned char)*src++;
+					int digit64 = decode[c];
+					if( digit64<0 )
+					{ // invalid character
+						free( rc );
+						return NULL;
+					}
+					buf |= digit64;
+					count++;
+				}
 			}
-			*dst++ = ((unsigned)data[1] << 4) | ((unsigned)data[2] >> 2);
-			if (data[3] < 0)
-			{
-				outSize += 2;
-				break;
-			}
-			*dst++ = ((unsigned)data[2] << 6) | ((unsigned)data[3]);
-			src += 4;
-			outSize += 3;
-		}	
-		*len = outSize;
+			if( count>=2 ) *dst++ = (buf>>(8*2))&0xff;
+			if( count>=3 ) *dst++ = (buf>>(8*1))&0xff;
+			if( count>=4 ) *dst++ = (buf>>(8*0))&0xff;
+		}
+		*outLen = dst-rc;
 	}
-	else
-	{ // insufficient memory
-		*len = 0;
-	}
-	return outData;
+	return rc;
 }
 
-/**
- * @brief decode base64 encoded data to binary equivalent
- * @retval pointer to malloc'd memory containing decoded binary data
- * @retval NULL if insufficient memory to allocate base64-decoded data
- * @note caller responsible for freeing returned data
- */
 unsigned char *base64_Decode(const char *src, size_t *len)
 {
 	return base64_Decode(src, len, strlen(src));
 }
-/**
- * @}
- */

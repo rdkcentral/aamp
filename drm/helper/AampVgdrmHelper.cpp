@@ -62,7 +62,7 @@ void AampVgdrmHelper::getKey(std::vector<uint8_t>& keyID) const
 {
 	if ((mDrmInfo.keyURI.length() != 40) && (mDrmInfo.keyURI.length() != 48))
 	{
-		AAMPLOG_ERR("Invalid key URI: %s", mDrmInfo.keyURI);
+		AAMPLOG_ERR("Invalid key URI: %s", mDrmInfo.keyURI.c_str());
 		return;
 	}
 
@@ -94,7 +94,7 @@ bool AampVgdrmHelperFactory::isDRM(const struct DrmInfo& drmInfo) const
 {
 	// VGDRM only supports HLS for now
 	if (drmInfo.mediaFormat != eMEDIAFORMAT_HLS) return false;
-	
+
 	if (VGDRM_UUID == drmInfo.keyFormat) return true;
 	if (AampVgdrmHelper::VGDRM_OCDM_ID == drmInfo.keyFormat) return true;
 
@@ -122,4 +122,3 @@ void AampVgdrmHelperFactory::appendSystemId(std::vector<std::string>& systemIds)
 {
 	systemIds.push_back(VGDRM_UUID);
 }
-

@@ -43,6 +43,7 @@ $ ./generate-hls-dash.sh
 ./generate-hls-dash.sh -f imagename	//generate video with given image, Image format can be ".jpg" ".jpeg" and ".png". Image resolution to be matched with video resolution(1920x1080)
 ./generate-hls-dash.sh -l 0		//to disable hls stream generation
 ./generate-hls-dash.sh -a 0		//to disable dash stream generation
+./generate-hls-dash.sh -k 1		//to generate 4k content (default 0)
 
 ## Audio and Video codecs supported
 Can change audio video codec in helper/config.sh

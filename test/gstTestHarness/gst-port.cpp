@@ -31,7 +31,6 @@ static gboolean appsrc_seek_cb(GstElement * appSrc, guint64 offset, MediaStream 
 static void found_source_cb(GObject * object, GObject * orig, GParamSpec * pspec, class MediaStream *stream );
 static void element_setup_cb(GstElement * playbin, GstElement * element, class MediaStream *stream);
 static void pad_added_cb(GstElement* object, GstPad* arg0, class MediaStream *stream);
-static GstPadProbeReturn MyPadProbeCallback( GstPad * pad, GstPadProbeInfo * info, class MediaStream *stream );
 static GstPadProbeReturn MyDemuxPadProbeCallback( GstPad * pad, GstPadProbeInfo * info, class MediaStream *stream );
 static void MyDestroyDataNotify( gpointer data );
 
@@ -57,21 +56,12 @@ static bool startsWith( const char *inputStr, const char *prefix )
 class MediaStream
 {
 public:
-	MediaStream( MediaType mediaType, class PipelineContext *context ) : isConfigured(false), sinkbin(NULL), source(NULL), required_caps(NULL), rate(), start(), stop(), pts_offset(), context(context), mediaType(mediaType), pts(), dts(), duration(), startPos(-1) {
+	MediaStream( MediaType mediaType, class PipelineContext *context ) : isConfigured(false), sinkbin(NULL), source(NULL), required_caps(NULL), rate(), start(), stop(), injectedSeconds(), context(context), mediaType(mediaType), startPos(-1) {
 	}
 	
 	
 	~MediaStream()
 	{
-		if( probe_id )
-		{
-			gst_pad_remove_probe( pad, probe_id );
-		}
-		if( pad )
-		{
-			gst_object_unref( pad );
-		}
-
 		if( qtdemux_probe_id )
 		{
 			gst_pad_remove_probe( qtdemux_pad, qtdemux_probe_id );
@@ -80,15 +70,6 @@ public:
 		{
 			gst_object_unref( qtdemux_pad );
 		}
-	}
-	
-	void SetTimestampOffset( double pts )
-	{
-		assert( pad );
-		pts_offset = pts;
-		gint64 offs = pts * 1000000000LL;
-		printf("gst_pad_set_offset(%" G_GINT64_FORMAT ")\n", offs );
-		gst_pad_set_offset( pad, offs );
 	}
 	
 	const char *getMediaTypeAsString( void )
@@ -104,7 +85,7 @@ public:
 		}
 	}
 	
-	void SendBuffer( gpointer ptr, gsize len )
+	void SendBuffer( gpointer ptr, gsize len, double duration )
 	{
 		if( ptr )
 		{
@@ -113,16 +94,17 @@ public:
 			switch( ret )
 			{
 				case GST_FLOW_OK:
-				case GST_FLOW_EOS:
+					injectedSeconds += duration;
 					break;
 				default:
-					g_print( "unexpected GstFlowReturn: %d\n", ret );
+					g_print( "gst_app_src_push_buffer failed - %d\n", ret );
+					assert(0);
 					break;
 			}
 		}
 	}
 
-	void SendBuffer( gpointer ptr, gsize len, double pts, double dts, double duration )
+	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts )
 	{
 		if( ptr )
 		{
@@ -134,10 +116,11 @@ public:
 			switch( ret )
 			{
 				case GST_FLOW_OK:
-				case GST_FLOW_EOS:
+					injectedSeconds += duration;
 					break;
 				default:
-					g_print( "unexpected GstFlowReturn: %d\n", ret );
+					g_print( "gst_app_src_push_buffer failed - %d\n", ret );
+					assert(0);
 					break;
 			}
 		}
@@ -164,16 +147,12 @@ public:
 	/**
 	 * @brief record requested rate, start, stop, so that it can be applied at time of found_source
 	 */
-	void SetSeekInfo( double rate, gint64 start, gint64 stop, double pts_offset )
+	void SetSeekInfo( double rate, gint64 start, gint64 stop )
 	{
 		this->rate = rate;
 		this->start = start;
 		this->stop = stop;
-		this->pts_offset = pts_offset;
-		if( pad )
-		{
-			SetTimestampOffset(pts_offset);
-		}
+		this->injectedSeconds = 0.0;
 	}
 	
 	/**
@@ -201,6 +180,11 @@ public:
 		}
 	}
 	
+	double GetInjectedSeconds( void )
+	{
+		return injectedSeconds;
+	}
+
 	long long GetPositionMilliseconds( void )
 	{
 		long long ms = -1;
@@ -213,16 +197,12 @@ public:
 				ms = GST_TIME_AS_MSECONDS(position);
 			}
 		}
-		
-		/* below adjustment is ALMOST right, but we have race condition due to lag between fragments already injected with old pts_offset
-		 */
-		ms += pts_offset*1000;
 		return ms;
 	}
 	
 	void need_data( GstElement *appSrc, guint length )
 	{
-		g_print( "MediaStream::need_data(%s)\n", getMediaTypeAsString() );
+		g_print( "MediaStream::need_data(%s) length=%d\n", getMediaTypeAsString(), length );
 		context->NeedData( mediaType );
 	}
 	
@@ -244,9 +224,9 @@ public:
 		g_object_get( orig, pspec->name, &source, NULL );
 		GObject *sourceObj = G_OBJECT(source);
 
-		pad = gst_element_get_static_pad(source, "src");
-		probe_id = gst_pad_add_probe( pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback)MyPadProbeCallback, this, MyDestroyDataNotify );
-		gst_pad_set_offset( pad, pts_offset*1000000000LL );
+//		g_object_set(sourceObj, "max-bytes", 200000, NULL ); // default = 200000
+//		g_object_set(sourceObj, "min-percent", 50, NULL ); // default = 0
+//		g_object_set(sourceObj, "max-time", 1000000000LL * 4.0, NULL ); // required 1.20 or newer gstreamer
 		
 		g_signal_connect(sourceObj, "need-data", G_CALLBACK(need_data_cb), this );
 		g_signal_connect(sourceObj, "enough-data", G_CALLBACK(enough_data_cb), this );
@@ -327,11 +307,6 @@ public:
 		g_free(padName);
 	}
 
-	void PadProbeCallback( void )
-	{
-		context->PadProbeCallback( mediaType );
-	}
-
 	GstPadProbeReturn DemuxProbeCallback( GstBuffer* buffer , GstPad* pad )
 	{
 		if (startPos >= 0)
@@ -350,14 +325,16 @@ public:
 	}
 
 	void Flush ( double pos )
-	{
+	{ // use GST_SEEK_FLAG_ACCURATE?
+		GstSeekFlags flags = (GstSeekFlags)(GST_SEEK_FLAG_FLUSH);
 		gboolean rc = gst_element_seek(
 								GST_ELEMENT(source),
 								1.0,
 								GST_FORMAT_TIME,
-								GST_SEEK_FLAG_FLUSH,
+								flags,
 								GST_SEEK_TYPE_SET, pos * GST_SECOND,
 								GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE );
+		injectedSeconds = 0.0;
 		assert( rc );
 	}
 
@@ -371,17 +348,14 @@ public:
 	//copy assignment operator
 	MediaStream& operator=(const MediaStream&)=delete;
 private:
-	double pts, dts, duration;
-	
-	GstPad* pad = NULL;
-	gulong probe_id = 0;
 	GstPad* qtdemux_pad = NULL;
 	gulong qtdemux_probe_id = 0;
 	bool isConfigured; // avoid double configure
 	double rate;
 	gint64 start;
 	gint64 stop;
-	double pts_offset;
+	double flushPosition;
+	double injectedSeconds;
 	const char *required_caps;
 	class PipelineContext *context;
 	MediaType mediaType;
@@ -418,18 +392,6 @@ private:
 		}
 	}
 };
-
-static GstPadProbeReturn MyPadProbeCallback( GstPad * pad, GstPadProbeInfo * info, MediaStream *stream )
-{ // C to C++ glue
-	printf("pad probe: type=%d size=%d data=%p offset=%" G_GUINT64_FORMAT " id=%lu\n",
-		   info->type,
-		   info->size,
-		   info->data,
-		   info->offset,
-		   info->id );
-	stream->PadProbeCallback();
-	return GST_PAD_PROBE_OK;
-}
 
 static GstPadProbeReturn MyDemuxPadProbeCallback( GstPad * pad, GstPadProbeInfo * info, MediaStream *stream )
 { // C to C++ glue
@@ -524,11 +486,6 @@ Pipeline::Pipeline( class PipelineContext *context ) : position_adjust(0.0), sta
 	}
 }
 
-void Pipeline::SetTimestampOffset( MediaType mediaType, double pts_offset )
-{
-	mediaStream[mediaType]->SetTimestampOffset(pts_offset);
-}
-
 void Pipeline::Configure( MediaType mediaType, const char *required_caps )
 {
 	mediaStream[mediaType]->Configure(pipeline, required_caps);
@@ -560,15 +517,15 @@ PipelineState Pipeline::GetPipelineState( void )
 	return (PipelineState) state;
 }
 
-void Pipeline::SendBuffer( MediaType mediaType, gpointer ptr, gsize len)
+void Pipeline::SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration )
 {
 	g_print( "Pipeline::SendBuffer(mediaType=%d, len=%lu)\n", mediaType, len );
-	mediaStream[mediaType]->SendBuffer(ptr,len);
+	mediaStream[mediaType]->SendBuffer(ptr,len,duration);
 }
-void Pipeline::SendBuffer( MediaType mediaType, gpointer ptr, gsize len, double pts, double dts, double duration )
+void Pipeline::SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts )
 {
 	g_print( "Pipeline::SendBuffer(mediaType=%d, len=%lu)\n", mediaType, len );
-	mediaStream[mediaType]->SendBuffer(ptr,len,pts,dts,duration);
+	mediaStream[mediaType]->SendBuffer(ptr,len,duration,pts,dts);
 }
 
 void Pipeline::SendGap( MediaType mediaType, double pts, double durationSeconds )
@@ -582,7 +539,7 @@ void Pipeline::SendEOS( MediaType mediaType )
 	mediaStream[mediaType]->SendEOS();
 }
 
-void Pipeline::Flush( double segment_rate, double segment_start, double segment_stop, double baseTime, double pts_offset )
+void Pipeline::Flush( double segment_rate, double segment_start, double segment_stop, double baseTime )
 {
 	g_print( "Pipeline::Flush rate=%f start=%f stop=%f time=%f\n", segment_rate, segment_start, segment_stop, baseTime );
 	
@@ -602,11 +559,12 @@ void Pipeline::Flush( double segment_rate, double segment_start, double segment_
 	
 	for( int i=0; i<NUM_MEDIA_TYPES; i++ )
 	{
-		mediaStream[i]->SetSeekInfo(rate,start,stop,pts_offset);
+		mediaStream[i]->SetSeekInfo(rate,start,stop);
 	}
 	
 	gboolean rc;
-	GstSeekFlags flags = GST_SEEK_FLAG_FLUSH;
+	// use GST_SEEK_FLAG_ACCURATE?
+	GstSeekFlags flags = (GstSeekFlags)(GST_SEEK_FLAG_FLUSH);
 	if( rate<0 )
 	{
 		rc = gst_element_seek(
@@ -641,14 +599,14 @@ void Pipeline::Flush( MediaType mediaType, double pos )
 	mediaStream[mediaType]->SetStartPos(pos);
 }
 
-long long Pipeline::GetPositionMilliseconds()
+long long Pipeline::GetPositionMilliseconds( MediaType mediaType )
 {
-	long long position = mediaStream[eMEDIATYPE_VIDEO]->GetPositionMilliseconds();
-	if( position<0 )
-	{
-		position = mediaStream[eMEDIATYPE_AUDIO]->GetPositionMilliseconds();
-	}
-	return position + position_adjust;
+	return mediaStream[mediaType]->GetPositionMilliseconds() + position_adjust;
+}
+
+double Pipeline::GetInjectedSeconds( MediaType mediaType )
+{
+	return mediaStream[mediaType]->GetInjectedSeconds();
 }
 
 static void HandleGstMessageError( GstMessage *msg, const char *messageName )

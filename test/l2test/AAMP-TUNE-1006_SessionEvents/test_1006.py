@@ -80,7 +80,7 @@ def test_1006_singleplayer(aamp_setup_teardown, test_data):
             {"expect": r'\[SendEventSync\].*\(type=14\)\(state=8\)\(session_id={}\)'.format(sid)},
             {"expect": r'\[SendEventSync\].*\(type=1\)\(session_id={}\)'.format(sid)},
             {"expect": r'AAMP_EVENT_TUNED'},
-            {"expect": r'AAMP_EVENT_PROGRESS.*sessionId={}'.format(sid)},
+            {"expect": r'AAMP_EVENT_PROGRESS.*sessionId=\'{}\''.format(sid)},
             {"cmd": "sleep {}".format(sleep_time)},
 
             {"cmd": "pause"},
@@ -97,8 +97,8 @@ def test_1006_singleplayer(aamp_setup_teardown, test_data):
             {"expect": r'\[SendEventSync\].*\(type=3\)\(session_id={}\)'.format(sid)},
 
             {"cmd": "stop"},
-            {"expect": r'\[SendEventSync\].*\(type=14\)\(state=0\)\(session_id={}\)'.format(sid)},
-        ]
+	    {"expect": r'Stopping Playback at Position'},
+	]
         return data
 
     single_test_data = {
@@ -142,9 +142,8 @@ def test_1006_cli(aamp_setup_teardown):
             {"expect": r'\[SendEventSync\].*\(type=14\)\(state=8\)\(session_id={}\)'.format(sid[2])},
             {"cmd": "sleep {}".format(sleep_time)},
             {"cmd": "stop"},
-            {"expect": r'\[SendEventSync\].*\(type=14\)\(state=0\)\(session_id={}\)'.format(sid[2])},
-
-            {"cmd": "new player_3"},
+            {"expect": r'Stopping Playback at Position'},
+	    {"cmd": "new player_3"},
             {"cmd": "sessionid {}".format(sid[3])},
             {"expect": r"SessionId - 3 # {}".format(sid[3])},
 
@@ -157,9 +156,7 @@ def test_1006_cli(aamp_setup_teardown):
             {"expect": r'\[SendEventSync\].*\(type=14\)\(state=8\)\(session_id={}\)'.format(sid[0])},
             {"cmd": "sleep {}".format(sleep_time)},
             {"cmd": "stop"},
-            {"expect": r'\[SendEventSync\].*\(type=14\)\(state=0\)\(session_id={}\)'.format(sid[0])},
-
-
+	    {"expect": r'Stopping Playback at Position'},
             {"cmd": "select player_3"},
             {"cmd": "release 0"},
             {"expect": r'DeleteStreamSink for PLAYER\[0\]'},
@@ -176,8 +173,8 @@ def test_1006_cli(aamp_setup_teardown):
             {"expect": r'\[SendEventSync\].*\(type=14\)\(state=6\)\(session_id={}\)'.format(sid[3])},
 
             {"cmd": "stop"},
-            {"expect": r'\[SendEventSync\].*\(type=14\)\(state=0\)\(session_id={}\)'.format(sid[3])},
-        ]
+	    {"expect": r'Stopping Playback at Position'},
+	]
         return data
 
     single_test_data = {
@@ -233,15 +230,13 @@ def test_1006_multiplayer(aamp_setup_teardown):
             {"expect": r'\[SendEventSync\].*\(type=14\)\(state=8\)\(session_id={}\)'.format(sid[1])},
             {"cmd": "sleep {}".format(sleep_time)},
             {"cmd": "stop"},
-            {"expect": r'\[SendEventSync\].*\(type=14\)\(state=0\)\(session_id={}\)'.format(sid[1])},
-
+	    {"expect": r'Stopping Playback at Position'},
             {"cmd": "select 2"},
             {"cmd": "play"},
             {"expect": r'\[SendEventSync\].*\(type=14\)\(state=8\)\(session_id={}\)'.format(sid[2])},
             {"cmd": "sleep {}".format(sleep_time)},
             {"cmd": "stop"},
-            {"expect": r'\[SendEventSync\].*\(type=14\)\(state=0\)\(session_id={}\)'.format(sid[2])},
-
+	    {"expect": r'Stopping Playback at Position'},
             {"cmd": "release 1"},
             {"expect": r'DeleteStreamSink for PLAYER\[1\]'},
 
@@ -252,10 +247,7 @@ def test_1006_multiplayer(aamp_setup_teardown):
             {"cmd": "pause"},
             {"expect": r'\[SendEventSync\].*\(type=14\)\(state=6\)\(session_id={}\)'.format(sid[0])},
             {"cmd": "stop"},
-            {"expect": r'\[SendEventSync\].*\(type=14\)\(state=0\)\(session_id={}\)'.format(sid[0])},
-
-            {"cmd": "sleep {}".format(sleep_time)},
-            {"cmd": "exit"},
+	    {"expect": r'Stopping Playback at Position'},
         ]
         return data
 

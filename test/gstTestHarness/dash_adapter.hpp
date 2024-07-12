@@ -130,7 +130,8 @@ public:
 	std::string id;
 	double start;
 	double duration;
-	double timestampOffset;
+	//double timestampOffset;
+	double firstPts;
 	
 	std::map<std::string, AdaptationSet> adaptationSet;
 	
@@ -143,7 +144,7 @@ public:
 		}
 	}
 	
-	PeriodObj(): id(),start(-1),duration(-1), timestampOffset(0.0)
+	PeriodObj(): id(),start(-1),duration(-1)//, timestampOffset(0.0)
 	{
 	}
 	

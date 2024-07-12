@@ -59,12 +59,26 @@ bool AampSharedMemorySystem::encode(const uint8_t *dataIn, uint32_t dataInSz, st
 	// This will close the SM object regardless
 	AampMemoryHandleCloser mc(shmHandle);
 	
-	int status = ftruncate(shmHandle, dataInSz);
-	if (status < 0) 
-	{
-		AAMPLOG_WARN("Failed to truncate the Shared memory object %d", status);
-		return false;
-	}
+#if defined(__APPLE__)
+ 
+     struct stat mapstat;
+     if (fstat(shmHandle, &mapstat) != -1 && mapstat.st_size == 0) {
+         // Resize the segment only if its size is zero
+         if (ftruncate(shmHandle, dataInSz) == -1) {
+             AAMPLOG_WARN("Failed to truncate the Shared memory object on Mac with errno %d", errno);
+             shm_unlink(AAMP_SHARED_MEMORY_NAME.c_str());
+             shmHandle = -1;
+         }
+     }
+#else
+ 
+    int status = ftruncate(shmHandle, dataInSz);
+    if (status < 0)
+    {
+        AAMPLOG_WARN("Failed to truncate the Shared memory object %d and %d", status, errno);
+        return false;
+    }
+#endif
 
 	void *dataWr = mmap(NULL, dataInSz, PROT_WRITE | PROT_READ, MAP_SHARED, shmHandle, 0);
 	if (dataWr == 0) 
@@ -75,8 +89,8 @@ bool AampSharedMemorySystem::encode(const uint8_t *dataIn, uint32_t dataInSz, st
 	
 	memmove(dataWr, dataIn, dataInSz);
 	
-	status = munmap(dataWr, dataInSz);
-	if (status < 0)
+	int ret = munmap(dataWr, dataInSz);
+	if (ret < 0)
 	{
 		AAMPLOG_WARN("Failed to unmap the Shared memory object %d", errno);
 		return false;

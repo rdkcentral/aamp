@@ -37,7 +37,7 @@ class Track
 public:
 	int injectCount;
 	bool needsData;
-	int padProbeCount;
+	bool gstreamerReadyForInjection;
 	std::queue<class TrackEvent *> *queue; // sequential segments/commands, not yet injected
 	
 	Track();
@@ -46,9 +46,9 @@ public:
 	void EnqueueSegment( TrackEvent *TrackEvent );
 	void EnqueueControl( TrackEvent *TrackEvent );
 	void QueueVideoHeader( VideoResolution resolution );
-	void QueueVideoSegment( VideoResolution resolution, int startIndex, int count );
+	void QueueVideoSegment( VideoResolution resolution, int startIndex, int count, int64_t pts_offset=0 );
 	void QueueAudioHeader( const char *language );
-	void QueueAudioSegment( const char *language, int startIndex, int count );
+	void QueueAudioSegment( const char *language, int startIndex, int count, int64_t pts_offset=0 );
 	void QueueGap( int startIndex, int count );
 	Track(const Track&)=delete;
 	Track& operator=(const Track&)=delete;
@@ -58,6 +58,7 @@ class MyPipelineContext : PipelineContext
 {
 public:
 	class Pipeline *pipeline;
+	double seekPos;
 	int numPendingEOS;
 	double nextPTS;
 	double nextTime;

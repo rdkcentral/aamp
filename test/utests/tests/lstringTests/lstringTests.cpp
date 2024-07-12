@@ -1,0 +1,117 @@
+#include <iostream>
+#include <cmath>
+
+//include the google test dependencies
+#include <gtest/gtest.h>
+
+// unit under test
+#include "lstring.hpp"
+#include <iostream>
+#include <assert.h>
+#include <string.h>
+
+struct ParseAttrListExpected
+{
+	const char *attr;
+	const char *value;
+};
+
+#define CONTEXT_NAME "My Context"
+#define CONTEXT_COUNT 8
+struct ParseAttrListExpected mParseAttrListExpected[CONTEXT_COUNT]
+{
+	{"#EXT-X-MEDIA:TYPE","AUDIO"},
+	{"URI","\"playlist_a-eng-0384k-aac-6c.mp4.m3u8\""},
+	{"GROUP-ID","\"default-audio-group\""},
+	{"LANGUAGE","\"en\""},
+	{"NAME","\"stream_6\""},
+	{"DEFAULT","YES"},
+	{"AUTOSELECT","YES"},
+	{"CHANNELS","\"6\""}
+};
+
+struct ParseAttrListContext
+{
+	const char *name;
+	int count;
+};
+
+static void ParseAttrListCb( lstring attr, lstring value, void *context )
+{
+	ParseAttrListContext *ctx = (ParseAttrListContext *)context;
+	assert( strcmp(ctx->name,CONTEXT_NAME)==0 );
+	assert( ctx->count < CONTEXT_COUNT );
+	std::string attrString = attr.tostring();
+	std::string valueString = value.tostring();
+	std::cout << "\t" << attrString << "\n";
+	std::cout << "\t\t" << valueString << "\n";
+	ASSERT_TRUE( attrString == mParseAttrListExpected[ctx->count].attr );
+	ASSERT_TRUE( valueString == mParseAttrListExpected[ctx->count].value );
+	ctx->count++;
+	std::cout << "\t\t\t" << value.GetAttributeValueString() << "\n";
+}
+TEST(lstring, test1)
+{
+	lstring emptystring;
+	ASSERT_TRUE( emptystring.empty() );
+	ASSERT_TRUE( emptystring.peekLastChar()==0 );
+	ASSERT_TRUE( emptystring.popFirstChar()==0 );
+	
+	lstring simplestring("foo",3);
+	ASSERT_TRUE( !simplestring.empty() );
+	ASSERT_TRUE( simplestring.length()==3 );
+	ASSERT_TRUE( simplestring.peekLastChar()=='o' );
+	ASSERT_TRUE( simplestring.popFirstChar()=='f' );
+	ASSERT_TRUE( simplestring.length()==2 );
+	
+	lstring trimstring("happy birthday",5);
+	assert( trimstring.length()==5 );
+	std::string temp = trimstring.tostring();
+	ASSERT_TRUE( temp.length() == 5 );
+	ASSERT_TRUE( temp == "happy" );
+	
+	lstring istring("314",3);
+	ASSERT_TRUE( istring.atoll() == 314 );
+	
+	lstring fstring("314.159",7);
+	double fval = fstring.atof();
+	ASSERT_TRUE( fabs(fval-314.159)< 0.00001 );
+	
+	const char *text = "the quick brown fox jumped over the lazy dog";
+	lstring searchText(text,strlen(text));
+	ASSERT_TRUE( 0 == searchText.find('t') );
+	ASSERT_TRUE( 16 == searchText.find('f') );
+	ASSERT_TRUE( 25 == searchText.find('d') );
+	ASSERT_TRUE( 44 == searchText.find('?') );
+	
+	ASSERT_TRUE( searchText.removePrefix("tx") == false );
+	ASSERT_TRUE( searchText.removePrefix("the quick") == true );
+	ASSERT_TRUE( searchText.getLen() == 44-9 );
+	ASSERT_TRUE( searchText.tostring() == text+9);
+	
+	int line = 0;
+	const char *lineText = "apple\r\n"
+	"banana\rcake\n"
+	"donut\n"
+	"\regg\r\r\r\n"
+	"food";
+	lstring lines( lineText,strlen(lineText) );
+	while( !lines.empty() )
+	{
+		lstring part = lines.mystrpbrk();
+		std::cout << "#" << line++ << ": '" << part.tostring() << "'\n";
+	}
+	
+	lstring string1("hello, hi",9);
+	
+	std::cout << string1.tostring() << "\n";
+	
+	const char *attrString = "#EXT-X-MEDIA:TYPE=AUDIO,URI=\"playlist_a-eng-0384k-aac-6c.mp4.m3u8\",GROUP-ID=\"default-audio-group\",LANGUAGE=\"en\",NAME=\"stream_6\",DEFAULT=YES,AUTOSELECT=YES,CHANNELS=\"6\"";
+	lstring attrList( attrString,strlen(attrString) );
+	struct ParseAttrListContext context;
+	context.name = CONTEXT_NAME;
+	context.count = 0;
+	attrList.ParseAttrList( ParseAttrListCb, &context );
+}
+
+

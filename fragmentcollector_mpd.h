@@ -500,7 +500,7 @@ protected:
 	 * @fn AdvanceTrack
 	 * @return void
 	 */
-	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState);
+	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState,bool isDiscontinuity = false);
 	/**
 	 * @fn FetcherLoop
 	 * @return void
@@ -887,6 +887,7 @@ protected:
 	int mPrevAdaptationSetCount;
 	std::vector<BitsPerSecond> mBitrateIndexVector;
 	bool playlistDownloaderThreadStarted; // Playlist downloader thread start status
+	bool isVidDiscInitFragFail;
 
 	// In case of streams with multiple video Adaptation Sets, A profile
 	// is a combination of an Adaptation Set and Representation within

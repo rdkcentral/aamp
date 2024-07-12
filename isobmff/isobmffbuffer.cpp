@@ -488,21 +488,27 @@ std::vector<Box*> *IsoBmffBuffer::getParsedBoxes()
 }
 
 /**
- *  @brief Get box handle in parsed bufferr using name
+ *  @brief Get box handle in parsed buffer using name, starting at index
  */
 Box*  IsoBmffBuffer::getBox(const char *name, size_t &index)
 {
 	Box *pBox = NULL;
-	index = -1;
-	for (size_t i = 0; i < boxes.size(); i++)
+	if (index >= boxes.size())
 	{
-		pBox = boxes.at(i);
-		if (IS_TYPE(pBox->getType(), name))
+		AAMPLOG_ERR("Index passed is too big (%lu >= %lu)", index, boxes.size());
+	}
+	else
+	{
+		for (size_t i = index; i < boxes.size(); i++)
 		{
-			index = i;
-			break;
+			pBox = boxes.at(i);
+			if (IS_TYPE(pBox->getType(), name))
+			{
+				index = i;
+				break;
+			}
+			pBox = NULL;
 		}
-		pBox = NULL;
 	}
 	return pBox;
 }
@@ -545,60 +551,53 @@ void IsoBmffBuffer::printPTSInternal(const std::vector<Box*> *boxes)
 }
 
 /**
+ *  @brief Look for a specific box in a vector of boxes
+ */
+Box *findBoxInVector(const char * box_type, const std::vector<Box*> *boxes)
+{
+	auto it = find_if(boxes->begin(), boxes->end(), [box_type](Box* b){ return IS_TYPE(b->getType(), box_type);});
+	return (it != boxes->end()) ? *it : nullptr;
+}
+
+/**
  *  @brief Get ISOBMFF box Sample Duration
  */
 uint64_t IsoBmffBuffer::getSampleDurationInternal(const std::vector<Box*> *boxes)
 {
+	if(boxes == nullptr)
+		return 0;
+
 	uint64_t duration = 0;
-	if( boxes )
+
+	auto sidx{dynamic_cast<SidxBox *>(findBoxInVector(Box::SIDX, boxes))};
+	if(sidx)
 	{
-		uint32_t sample_count = 0;
-		for (int i = (int)boxes->size()-1; i >= 0; i--)
+		// If present, SIDX duration takes precedence over TRUN/TFHD
+		duration = sidx->getSampleDuration();
+	}
+
+	if(duration == 0)
+	{
+		auto traf{findBoxInVector(Box::TRAF, boxes)};
+		if ((traf) && traf->hasChildren())
 		{
-			Box *box = boxes->at(i);
-			if (IS_TYPE(box->getType(), Box::SIDX))
+			auto trunBox{dynamic_cast<TrunBox *>(findBoxInVector(Box::TRUN, traf->getChildren()))};
+			if (trunBox)
 			{
-				SidxBox *sidxBox = dynamic_cast<SidxBox *>(box);
-				if(sidxBox)
+				duration = trunBox->getSampleDuration();
+				if (0 == duration)
 				{
-					duration = sidxBox->getSampleDuration();
-					if( duration ) break; // done!
-				}
-			}
-			else if (IS_TYPE(box->getType(), Box::TRUN))
-			{
-				TrunBox *trunBox = dynamic_cast<TrunBox *>(box);
-				if(trunBox)
-				{
-					duration = trunBox->getSampleDuration();
-					if( duration ) break; //done!
-					sample_count = trunBox->getSampleCount();
-				}
-			}
-			else if (IS_TYPE(box->getType(), Box::TFHD))
-			{
-				TfhdBox *tfhdBox = dynamic_cast<TfhdBox *>(box);
-				if(tfhdBox)
-				{
-					uint64_t default_sample_duration = tfhdBox->getSampleDuration();
-					if( default_sample_duration && sample_count )
+					auto sample_count = trunBox->getSampleCount();
+					auto tfhdBox{dynamic_cast<TfhdBox *>(findBoxInVector(Box::TFHD, traf->getChildren()))};
+					if (tfhdBox)
 					{
-						duration = default_sample_duration*sample_count;
+						duration = tfhdBox->getDefaultSampleDuration() * sample_count;
 					}
 				}
 			}
-			else if (IS_TYPE(box->getType(), Box::TRAF) && box->hasChildren())
-			{
-				duration = getSampleDurationInternal(box->getChildren());
-				break;
-			}
 		}
 	}
-	if( !duration )
-	{
-		AAMPLOG_ERR("Failed to find sample_duration from the segment");
-	}
-	return duration;
+return duration;
 }
 
 /**
@@ -607,13 +606,10 @@ uint64_t IsoBmffBuffer::getSampleDurationInternal(const std::vector<Box*> *boxes
 void IsoBmffBuffer::getSampleDuration(Box *box, uint64_t &fduration)
 {
 	fduration = 0;
-	if (box->hasChildren())
+
+	if (box && (box->hasChildren()))
 	{
 		fduration = getSampleDurationInternal(box->getChildren());
-	}
-	if(0 == fduration)
-	{
-		fduration = getSampleDurationInternal(&boxes);
 	}
 }
 
@@ -658,3 +654,146 @@ void IsoBmffBuffer::getPts(Box *box, uint64_t &fpts)
 	}
 }
 
+
+/**
+ * @brief Truncate the mdat data to the first sample and update the tables in all relevant boxes
+ *
+*/
+void IsoBmffBuffer::truncate(void)
+{
+	size_t index{0};
+	// Find the moof.  NB there is no specific MoofBox implemented, it's just a generic container box
+	uint64_t duration{};
+
+	TrunBox *trun{};
+	SencBox *senc{};
+	SaizBox *saiz{};
+	TfhdBox *tfhd{};
+
+	bool found {false};
+
+	while(auto moof{getBox(Box::MOOF, index)})
+	{
+		uint64_t localDuration{};
+
+		getSampleDuration(moof, localDuration);
+		duration += localDuration;
+
+		if(!found)
+		{
+			if (trun)
+			{
+				trun = nullptr;
+			}
+			if (senc)
+			{
+				senc = nullptr;
+			}
+			if (saiz)
+			{
+				saiz = nullptr;
+			}
+			if (tfhd)
+			{
+				tfhd = nullptr;
+			}
+
+			auto boxes{*moof->getChildren()};
+
+			// Hierarchy - moof->traf->trun/saiz/senc/tfhd
+			// trak & traf are also generic containers
+
+			for (auto box: boxes)
+			{
+				auto type{box->getType()};
+				if (IS_TYPE(type, Box::TRAF))
+				{
+					auto trafBoxes{*box->getChildren()};
+
+					for (auto trafBox: trafBoxes)
+					{
+						auto type{trafBox->getType()};
+
+						if (IS_TYPE(type, Box::TRUN))
+						{
+							trun = dynamic_cast<TrunBox *> (trafBox);
+						}
+						else if (IS_TYPE(type, Box::SENC) && senc == nullptr)
+						{
+							senc = dynamic_cast<SencBox *> (trafBox);
+						}
+						else if (IS_TYPE(type, Box::SAIZ))
+						{
+							saiz = dynamic_cast<SaizBox *> (trafBox);
+						}
+						else if (IS_TYPE(type, Box::TFHD))
+						{
+							tfhd = dynamic_cast<TfhdBox *> (trafBox);
+						}
+						else
+						{
+							// We are not interested in this box
+						}
+					}
+				}
+			}
+
+			if (trun && tfhd)
+			{
+				found = true;
+			}
+		}
+		// Increment the index to continue searching from the next box
+		index++;
+	}
+
+	if(found)
+	{
+		// Find the first mdat box
+		index = 0;
+		auto mdat{dynamic_cast<MdatBox *>(getBox(Box::MDAT, index))};
+		if(mdat)
+		{
+			bool durationPresent = false;
+			/* If the SAMPLE_DURATION_PRESENT flag is set in the TRUN, the sample duration should be updated.
+			 * If the DEFAULT_SAMPLE_DURATION_PRESENT flag is set in the TFHD, the default sample duration should be updated.
+			 * If neither of them is set, a WARN is printed.
+			 */
+			if (trun->sampleDurationPresent())
+			{
+				trun->setFirstSampleDuration(duration);
+				durationPresent = true;
+			}
+			if (tfhd->getDefaultSampleDuration())
+			{
+				tfhd->setDefaultSampleDuration(duration);
+				durationPresent = true;
+			}
+			if (!durationPresent)
+			{
+				AAMPLOG_WARN("SAMPLE_DURATION_PRESENT flag is not set in the TRUN box and DEFAULT_SAMPLE_DURATION_PRESENT flag is not set in the TFHD box");
+			}
+
+			trun->truncate();
+			auto newMdatSize{std::max(trun->getFirstSampleSize(), tfhd->getDefaultSampleSize()) + SIZEOF_SIZE_AND_TAG};
+
+			// May not have been located
+			uint32_t firstSampleSize{0};
+			if (saiz)
+			{
+				firstSampleSize = saiz->getFirstSampleInfoSize();
+				saiz->truncate();
+			}
+			if (senc)
+			{
+				senc->truncate(firstSampleSize);
+			}
+
+
+			mdat->truncate(newMdatSize);
+
+			// Change buffer size
+			bufSize = size_t(mdat->getOffset() + newMdatSize);
+		}
+	}
+}

@@ -39,6 +39,8 @@
 static AampPlayReadyHelperFactory playready_helper_factory;
 
 const std::string AampPlayReadyHelper::PLAYREADY_OCDM_ID = "com.microsoft.playready";
+const size_t AampPlayReadyHelper::PLAYREADY_DECODED_KEY_ID_LEN = 16U;
+const size_t AampPlayReadyHelper::PLAYREADY_KEY_ID_LEN = 37U;
 
 const std::string& AampPlayReadyHelper::ocdmSystemId() const
 {

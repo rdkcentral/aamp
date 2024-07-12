@@ -586,7 +586,19 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				ProgressEventPtr ev = std::dynamic_pointer_cast<ProgressEvent>(e);
 				if(mAampcli.mEnableProgressLog)
 				{
-					printf("[AAMPCLI] AAMP_EVENT_PROGRESS\n\tDuration=%lf\n\tposition=%lf\n\tstart=%lf\n\tend=%lf\n\tcurrRate=%f\n\tBufferedDuration=%lf\n\tPTS=%lld\n\ttimecode=%s\n\tlatency=%lf\n\tprofileBandwidth=%ld\n\tnetworkBandwidth=%ld\n\tcurrentPlayRate=%lf\n\tsessionId=%s\n",ev->getDuration(),ev->getPosition(),ev->getStart(),ev->getEnd(),ev->getSpeed(),ev->getBufferedDuration(),ev->getPTS(),ev->getSEITimeCode(), ev->getLiveLatency(), ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());
+					char seekableRange[32];
+					auto start = ev->getStart();
+					auto end = ev->getEnd();
+					if( start<0 && end<0 )
+					{
+						snprintf( seekableRange, sizeof(seekableRange), "n/a" );
+					}
+					else
+					{
+						snprintf( seekableRange, sizeof(seekableRange), "[start=%.3fs end=%.3fs]", start/1000.0, end/1000.0 );
+					}
+					
+					printf("[AAMPCLI] AAMP_EVENT_PROGRESS\n\tduration=%.3fs\n\tposition=%.3fs\n\tseekableRange%s\n\tcurrRate=%.3f\n\tbufferedDuration=%.3fs\n\tPTS=%lld\n\ttimecode='%s'\n\tlatency=%.3fs\n\tprofileBandwidth=%ld\n\tnetworkBandwidth=%ld\n\tcurrentPlayRate=%.3f\n\tsessionId='%s'\n", ev->getDuration()/1000.0, ev->getPosition()/1000.0, seekableRange, ev->getSpeed(), ev->getBufferedDuration()/1000.0, ev->getPTS(), ev->getSEITimeCode(), ev->getLiveLatency()/1000.0, ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());
 				}
 			}
 			break;
