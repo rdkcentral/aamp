@@ -36,25 +36,6 @@ const std::string AampWidevineDrmHelper::WIDEVINE_OCDM_ID = "com.widevine.alpha"
 
 #define READ_U32(buf) \
 	((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) | ((uint32_t)buf[2] << 8) | buf[3]; buf+=4;
-
-static long ParseMultiInt( const unsigned char **ppData, const unsigned char *fin )
-{
-	const unsigned char *psshData = *ppData;
-	long iVal = 0;
-	int shift = 0;
-	while( psshData<fin )
-	{
-		int code = *psshData++;
-		iVal |= (code&0x7f)<<shift;
-		if( !(code&0x80) )
-		{
-			break;
-		}
-		shift += 7;
-	}
-	*ppData = psshData;
-	return iVal;
-}
 /**
  https://www.w3.org/TR/2014/WD-encrypted-media-20140828/cenc-format.html
  https://tools.axinom.com/generators/PsshBox
@@ -99,52 +80,38 @@ bool AampWidevineDrmHelper::parsePssh( const uint8_t* psshData, uint32_t psshSiz
 					{
 						AAMPLOG_ERR( "unexpected size %d expected %d", sz, (int)(fin-psshData) );
 					}
-					long iVal;
 					while( psshData<fin )
 					{
 						uint8_t fieldType = *psshData++;
+						uint8_t fieldSize = *psshData++;
 						switch( fieldType )
 						{
-							case 0x38: // Crypto Period Index (deprecated)
-							case 0x50: // Crypto Period Duration (deprecated)
-							case 0x08: // Algorithm (deprecated)
-								ParseMultiInt( &psshData, fin );
-								AAMPLOG_WARN( "%02x: %ld", fieldType, iVal );
-								break;
-
-							case 0x48: // protection scheme
-								protectionScheme = (uint32_t)ParseMultiInt( &psshData, fin );
-								AAMPLOG_WARN( "%02x: %08x", fieldType, protectionScheme );
+							case 0x08: // author
+								fieldSize = 0; // fixed length descriptor (single byte)
 								break;
 								
-							case 0x22: // Content ID - important: some streams have contentid, but no keyid(s)
-							case 0x12: // Key ID
-							{
-								int fieldSize = *psshData++;
+							case 0x48: // pssh metadata
+								fieldSize = 4; // fixed length descriptor
+								break;
+								
+							case 0x22: // content id - important: some streams have contentid, but no keyid(s)
+							case 0x12: // key id
 								if( fieldSize>0 && &psshData[fieldSize] <= fin )
 								{	std::vector<uint8_t> keyId;
 									keyId.assign( psshData, &psshData[fieldSize] );
 									mKeyIDs[kidCount++] = keyId;
 									rc = true;
 								}
-								psshData += fieldSize;
-							}
 								break;
 										
-							case 0x32: // Policy (deprecated)
-							case 0x2a: // Track Type (deprecated)
-							case 0x1a: // Provider (deprecated)
-							{
-								int fieldSize = *psshData++;
-								AAMPLOG_WARN( "0x%02x: '%.*s'\n", (int)fieldType, fieldSize, psshData );
-								psshData += fieldSize;
-							}
+							case 0x1a: // provider (deprecated) - typically an ascii string
 								break;
 								
 							default:
-								// unknown
+								AAMPLOG_WARN( "unmapped fieldType=0x%02x fieldSize=%d\n", (int)fieldType, (int)fieldSize );
 								break;
 						}
+						psshData += fieldSize;
 					}
 				}
 				else if( psshDataVer == 1 )
