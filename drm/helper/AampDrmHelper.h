@@ -84,9 +84,15 @@ public:
 	
 	const std::string EMPTY_STRING;
 	AampLogManager *mLogObj;
-	AampDrmHelper(const struct DrmInfo drmInfo, AampLogManager *logObj) : mLogObj(logObj), mDrmInfo(drmInfo), TIMEOUT_SECONDS(5000U), EMPTY_DRM_METADATA(), EMPTY_STRING() ,bOutputProtectionEnabled(false) {}
+	AampDrmHelper(const struct DrmInfo drmInfo, AampLogManager *logObj) : mLogObj(logObj), mDrmInfo(drmInfo), TIMEOUT_SECONDS(5000U), EMPTY_DRM_METADATA(), EMPTY_STRING() ,bOutputProtectionEnabled(false), protectionScheme() {}
 	AampDrmHelper(const AampDrmHelper&) = delete;
 	AampDrmHelper& operator=(const AampDrmHelper&) = delete;
+	
+	
+	uint32_t getProtectionScheme()
+	{
+		return protectionScheme;
+	}
 	
 	/**
 	 * @brief Returns the OCDM system ID of the helper
@@ -238,6 +244,7 @@ public:
 	virtual ~AampDrmHelper() {}
 
 protected:
+	uint32_t protectionScheme;
 	const DrmInfo mDrmInfo;
 	bool bOutputProtectionEnabled;
 };
