@@ -75,8 +75,6 @@ set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				 ${AAMP_ROOT}/drm/AampOcdmBasicSessionAdapter.cpp
 				 ${AAMP_ROOT}/drm/AampOcdmGstSessionAdapter.cpp
 				 ${AAMP_ROOT}/drm/AampHlsOcdmBridge.cpp
-				 ${AAMP_ROOT}/drm/AampSharedMemorySystem.cpp
-				 ${AAMP_ROOT}/drm/helper/AampVgdrmHelper.cpp
 				 ${AAMP_ROOT}/drm/helper/AampClearKeyHelper.cpp
 				 ${AAMP_ROOT}/drm/helper/AampWidevineDrmHelper.cpp
 				 ${AAMP_ROOT}/drm/helper/AampPlayReadyHelper.cpp

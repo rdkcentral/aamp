@@ -30,7 +30,6 @@
 #ifdef USE_SECCLIENT
 #include "aampdrmsessionfactory.h"
 #include "AampDRMSessionManager.h"
-#include "AampVgdrmHelper.h"
 #include "AampClearKeyHelper.h"
 #include "AampHlsOcdmBridge.h"
 #include "open_cdm.h"

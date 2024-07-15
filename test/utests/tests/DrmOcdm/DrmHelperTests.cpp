@@ -80,7 +80,6 @@ public:
 TEST_F(AampDrmHelperTests, TestDrmIds)
 {
 	std::vector<std::string> expectedIds({
-		"A68129D3-575B-4F1A-9CBA-3223846CF7C3", // VGDRM
 		"1077efec-c0b2-4d02-ace3-3c1e52e2fb4b", // ClearKey
 		"edef8ba9-79d6-4ace-a3c8-27dcd51d21ed", // Widevine
 		"9a04f079-9840-4286-ab92-e65be0885f95"	// PlayReady
@@ -92,250 +91,6 @@ TEST_F(AampDrmHelperTests, TestDrmIds)
 	std::sort(actualIds.begin(), actualIds.end());
 
 	ASSERT_EQ(expectedIds, actualIds);
-}
-
-TEST_F(AampDrmHelperTests, TestCreateVgdrmHelper)
-{
-	const std::vector<CreateHelperTestData> testData = {
-		// Invalid URI but valid KEYFORMAT
-		{eMETHOD_AES_128,
-		 eMEDIAFORMAT_HLS,
-		 "91701500000810367b131dd025ab0a7bd8d20c1314151600",
-		 "A68129D3-575B-4F1A-9CBA-3223846CF7C3",
-		 "",
-		 {}},
-
-		// Invalid URI but valid KEYFORMAT
-		{eMETHOD_AES_128,
-		 eMEDIAFORMAT_HLS,
-		 "91701500000810367b131dd025ab0a7bd8d20c1314151600",
-		 "A68129D3-575B-4F1A-9CBA-3223846CF7C3",
-		 "",
-		 {}},
-
-		// Valid 48 char URI and KEYFORMAT
-		{eMETHOD_AES_128,
-		 eMEDIAFORMAT_HLS,
-		 "81701500000810367b131dd025ab0a7bd8d20c1314151600",
-		 "A68129D3-575B-4F1A-9CBA-3223846CF7C3",
-		 "",
-		 {0x36, 0x7b, 0x13, 0x1d, 0xd0, 0x25, 0xab, 0x0a, 0x7b, 0xd8, 0xd2, 0x0c, 0x13, 0x14, 0x15,
-		  0x16}},
-
-		// Valid 48 char URI and KEYFORMAT. No METHOD (not required to pick up the VGDRM helper)
-		{eMETHOD_NONE,
-		 eMEDIAFORMAT_HLS,
-		 "81701500000810367b131dd025ab0a7bd8d20c1314151600",
-		 "A68129D3-575B-4F1A-9CBA-3223846CF7C3",
-		 "",
-		 {0x36, 0x7b, 0x13, 0x1d, 0xd0, 0x25, 0xab, 0x0a, 0x7b, 0xd8, 0xd2, 0x0c, 0x13, 0x14, 0x15,
-		  0x16}},
-
-		// Valid 48 char URI, no KEYFORMAT
-		{eMETHOD_AES_128,
-		 eMEDIAFORMAT_HLS,
-		 "81701500000810367b131dd025ab0a7bd8d20c1314151600",
-		 "",
-		 "",
-		 {0x36, 0x7b, 0x13, 0x1d, 0xd0, 0x25, 0xab, 0x0a, 0x7b, 0xd8, 0xd2, 0x0c, 0x13, 0x14, 0x15,
-		  0x16}},
-
-		// Valid 40 char URI, no KEYFORMAT
-		{eMETHOD_AES_128,
-		 eMEDIAFORMAT_HLS,
-		 "8170110000080c367b131dd025ab0a7bd8d20c00",
-		 "",
-		 "",
-		 {0x36, 0x7b, 0x13, 0x1d, 0xd0, 0x25, 0xab, 0x0a, 0x7b, 0xd8, 0xd2, 0x0c}},
-
-		// Valid 48 char URI, uppercase
-		{eMETHOD_AES_128,
-		 eMEDIAFORMAT_HLS,
-		 "81701500000810367B131DD025AB0A7BD8D20C1314151600",
-		 "",
-		 "",
-		 {0x36, 0x7b, 0x13, 0x1d, 0xd0, 0x25, 0xab, 0x0a, 0x7b, 0xd8, 0xd2, 0x0c, 0x13, 0x14, 0x15,
-		  0x16}},
-
-		// Valid 40 char URI, uppercase
-		{eMETHOD_AES_128,
-		 eMEDIAFORMAT_HLS,
-		 "8170110000080C367B131DD025AB0A7BD8D20C00",
-		 "",
-		 "",
-		 {0x36, 0x7b, 0x13, 0x1d, 0xd0, 0x25, 0xab, 0x0a, 0x7b, 0xd8, 0xd2, 0x0c}},
-
-		// 48 char URI specifies maximum key length possible without going off the end of the string
-		{eMETHOD_AES_128,
-		 eMEDIAFORMAT_HLS,
-		 "81701500000811367b131dd025ab0a7bd8d20c1314151600",
-		 "A68129D3-575B-4F1A-9CBA-3223846CF7C3",
-		 "",
-		 {0x36, 0x7b, 0x13, 0x1d, 0xd0, 0x25, 0xab, 0x0a, 0x7b, 0xd8, 0xd2, 0x0c, 0x13, 0x14, 0x15,
-		  0x16, 0x0}},
-
-		// 48 char URI specifies key length which will just take us off the end of the string.
-		// Creation should pass but empty key returned
-		{eMETHOD_AES_128,
-		 eMEDIAFORMAT_HLS,
-		 "81701500000812367b131dd025ab0a7bd8d20c1314151600",
-		 "A68129D3-575B-4F1A-9CBA-3223846CF7C3",
-		 "",
-		 {}},
-
-		// 40 char URI specifies maximum key length possible without going off the end of the string
-		{eMETHOD_AES_128,
-		 eMEDIAFORMAT_HLS,
-		 "8170110000080d367b131dd025ab0a7bd8d20c00",
-		 "A68129D3-575B-4F1A-9CBA-3223846CF7C3",
-		 "",
-		 {0x36, 0x7b, 0x13, 0x1d, 0xd0, 0x25, 0xab, 0x0a, 0x7b, 0xd8, 0xd2, 0x0c, 0x0}},
-
-		// 40 char URI specifies key length which will just take us off the end of the string.
-		// Creation should pass but empty key returned
-		{eMETHOD_AES_128,
-		 eMEDIAFORMAT_HLS,
-		 "8170110000080e367b131dd025ab0a7bd8d20c00",
-		 "A68129D3-575B-4F1A-9CBA-3223846CF7C3",
-		 "",
-		 {}},
-
-		// Textual identifier
-		{eMETHOD_AES_128, eMEDIAFORMAT_HLS, "", "net.vgdrm", "", {}}};
-	DrmInfo drmInfo;
-
-	for (auto& test_data : testData)
-	{
-		std::vector<uint8_t> keyID;
-
-		drmInfo = createDrmInfo(test_data.method, test_data.mediaFormat, test_data.uri,
-								test_data.keyFormat, test_data.systemUUID);
-
-		ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
-
-		std::shared_ptr<AampDrmHelper> vgdrmHelper =
-			AampDrmHelperEngine::getInstance().createHelper(drmInfo);
-		ASSERT_TRUE(vgdrmHelper != nullptr);
-		ASSERT_EQ("net.vgdrm", vgdrmHelper->ocdmSystemId());
-		ASSERT_EQ(true, vgdrmHelper->isClearDecrypt());
-		ASSERT_EQ(true, vgdrmHelper->isHdcp22Required());
-		ASSERT_EQ(4, vgdrmHelper->getDrmCodecType());
-		ASSERT_EQ(true, vgdrmHelper->isExternalLicense());
-		ASSERT_EQ(10000U, vgdrmHelper->licenseGenerateTimeout());
-		ASSERT_EQ(10000U, vgdrmHelper->keyProcessTimeout());
-
-		vgdrmHelper->getKey(keyID);
-
-		if (test_data.expectedKeyPayload.size() != 0)
-		{
-			std::shared_ptr<std::vector<uint8_t>> keyData;
-			ASSERT_EQ(test_data.expectedKeyPayload, keyID);
-		}
-	}
-}
-
-TEST_F(AampDrmHelperTests, TestCreateVgdrmHelperNegative)
-{
-	// Note: using METHOD_NONE on each of the below to avoid picking up
-	// the default helper for AES_128 (ClearKey). The positive test proves
-	// that we can create a VGDRM helper with METHOD_NONE, providing the
-	// other criteria are matched
-	const std::vector<CreateHelperTestData> testData = {
-		// Start of URI is valid, but payload has a non hex value at start
-		{eMETHOD_NONE, eMEDIAFORMAT_HLS, "8170110000080CZ67B331DD025AB0A7BD8D20C00", "", "", {}},
-
-		// Start of URI is valid, but payload has a non hex value in middle
-		{eMETHOD_NONE, eMEDIAFORMAT_HLS, "8170110000080C367B331DD025AZ0A7BD8D20C00", "", "", {}},
-
-		// Invalid URI and KEYFORMAT
-		{eMETHOD_NONE,
-		 eMEDIAFORMAT_HLS,
-		 "BAD0110000080c367b131dd025ab0a7bd8d20c00",
-		 "BAD129D3-575B-4F1A-9CBA-3223846CF7C3",
-		 "",
-		 {}}, /* Since the URI data is bad we won't get a payload */
-
-		// Invalid URI and KEYFORMAT (lower-case)
-		{eMETHOD_NONE,
-		 eMEDIAFORMAT_HLS,
-		 "BAD0110000080c367b131dd025ab0a7bd8d20c00",
-		 "a68129d3-575b-4f1a-9cba-3223846cf7c3",
-		 "",
-		 {}}, /* Since the URI data is bad we won't get a payload */
-
-		// Invalid URI, no KEYFORMAT
-		{eMETHOD_NONE, eMEDIAFORMAT_HLS, "BAD0110000080c367b131dd025ab0a7bd8d20c00", "", "", {}},
-
-		// Start of URI is valid, but it's 1 character short
-		{eMETHOD_NONE, eMEDIAFORMAT_HLS, "8170110000080c367b131dd025ab0a7bd8d20c0", "", "", {}},
-
-		// Start of URI is valid, but it's 1 character too long
-		{eMETHOD_NONE, eMEDIAFORMAT_HLS, "8170110000080c367b131dd025ab0a7bd8d20c000", "", "", {}}};
-	DrmInfo drmInfo;
-
-	for (auto& test_data : testData)
-	{
-		drmInfo = createDrmInfo(test_data.method, test_data.mediaFormat, test_data.uri,
-								test_data.keyFormat, test_data.systemUUID);
-
-		ASSERT_FALSE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
-
-		std::shared_ptr<AampDrmHelper> vgdrmHelper =
-			AampDrmHelperEngine::getInstance().createHelper(drmInfo);
-		ASSERT_TRUE(vgdrmHelper == nullptr);
-	}
-}
-
-TEST_F(AampDrmHelperTests, TestVgdrmHelperInitDataCreation)
-{
-	std::vector<DrmInfo> drmInfoList;
-
-	drmInfoList.push_back(
-		createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_HLS, "8170110000080c367b131dd025ab0a7bd8d20c00",
-					  "A68129D3-575B-4F1A-9CBA-3223846CF7C3", "", "somebase64initdata"));
-
-	// Extra base 64 characters at start and end. Shouldn't cause any issue
-	drmInfoList.push_back(
-		createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_HLS, "8170110000080c367b131dd025ab0a7bd8d20c00",
-					  "A68129D3-575B-4F1A-9CBA-3223846CF7C3", "", "+/=somebase64initdata+/="));
-
-	for (const DrmInfo& drmInfo : drmInfoList)
-	{
-		std::shared_ptr<AampDrmHelper> vgdrmHelper =
-			AampDrmHelperEngine::getInstance().createHelper(drmInfo);
-		ASSERT_TRUE(vgdrmHelper != nullptr);
-
-		std::vector<uint8_t> initData;
-		vgdrmHelper->createInitData(initData);
-
-		TestUtilJsonWrapper jsonWrapper(initData);
-		cJSON* initDataObj = jsonWrapper.getJsonObj();
-		ASSERT_TRUE(initDataObj != nullptr);
-
-		ASSERT_JSON_STR_VALUE(initDataObj, "initData", drmInfo.initData.c_str());
-		ASSERT_JSON_STR_VALUE(initDataObj, "uri", drmInfo.keyURI.c_str());
-
-		// Currently pssh won't be present
-		ASSERT_EQ(nullptr, cJSON_GetObjectItem(initDataObj, "pssh"));
-	}
-}
-
-TEST_F(AampDrmHelperTests, TestVgdrmHelperGenerateLicenseRequest)
-{
-	DrmInfo drmInfo = createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_HLS,
-									"81701500000810367b131dd025ab0a7bd8d20c1314151600");
-	drmInfo.manifestURL = "http://example.com/hls/playlist.m3u8";
-	ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
-	std::shared_ptr<AampDrmHelper> clearKeyHelper =
-		AampDrmHelperEngine::getInstance().createHelper(drmInfo);
-
-	AampChallengeInfo challengeInfo;
-	AampLicenseRequest licenseRequest;
-	clearKeyHelper->generateLicenseRequest(challengeInfo, licenseRequest);
-
-	ASSERT_EQ(AampLicenseRequest::DRM_RETRIEVE, licenseRequest.method);
-	ASSERT_EQ("", licenseRequest.url);
-	ASSERT_EQ("", licenseRequest.payload);
 }
 
 TEST_F(AampDrmHelperTests, TestCreateClearKeyHelper)
@@ -1010,12 +765,6 @@ TEST_F(AampDrmHelperTests, TestPlayReadyHelperGenerateLicenseRequest)
 
 TEST_F(AampDrmHelperTests, TestCompareHelpers)
 {
-	std::shared_ptr<AampDrmHelper> vgdrmHelper =
-		AampDrmHelperEngine::getInstance().createHelper(createDrmInfo(
-			eMETHOD_AES_128, eMEDIAFORMAT_HLS, "91701500000810367b131dd025ab0a7bd8d20c1314151600",
-			"A68129D3-575B-4F1A-9CBA-3223846CF7C3"));
-	ASSERT_TRUE(vgdrmHelper != nullptr);
-
 	std::shared_ptr<AampDrmHelper> playreadyHelper =
 		AampDrmHelperEngine::getInstance().createHelper(
 			createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key", "",
@@ -1040,18 +789,14 @@ TEST_F(AampDrmHelperTests, TestCompareHelpers)
 	ASSERT_TRUE(clearKeyHelperDash != nullptr);
 
 	// All helpers should equal themselves
-	ASSERT_TRUE(vgdrmHelper->compare(vgdrmHelper));
 	ASSERT_TRUE(widevineHelper->compare(widevineHelper));
 	ASSERT_TRUE(playreadyHelper->compare(playreadyHelper));
 	ASSERT_TRUE(clearKeyHelperHls->compare(clearKeyHelperHls));
 
 	// Different helper types, should not equal
-	ASSERT_FALSE(vgdrmHelper->compare(playreadyHelper) || vgdrmHelper->compare(widevineHelper) ||
-				 vgdrmHelper->compare(clearKeyHelperHls));
-	ASSERT_FALSE(playreadyHelper->compare(vgdrmHelper) ||
-				 playreadyHelper->compare(widevineHelper) ||
+	ASSERT_FALSE(playreadyHelper->compare(widevineHelper) ||
 				 playreadyHelper->compare(clearKeyHelperHls));
-	ASSERT_FALSE(widevineHelper->compare(vgdrmHelper) || widevineHelper->compare(playreadyHelper) ||
+	ASSERT_FALSE(widevineHelper->compare(playreadyHelper) ||
 				 widevineHelper->compare(clearKeyHelperHls));
 
 	// Same helper type but one is HLS and the other is DASH, so should not equal
@@ -1060,15 +805,6 @@ TEST_F(AampDrmHelperTests, TestCompareHelpers)
 	// Comparison against null helper, should not equal, should not cause a problem
 	std::shared_ptr<AampDrmHelper> nullHelper;
 	ASSERT_FALSE(clearKeyHelperHls->compare(nullHelper));
-
-	std::shared_ptr<AampDrmHelper> vgdrmHelper2 = AampDrmHelperEngine::getInstance().createHelper(
-		createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_HLS,
-					  "91701500000810387b131dd025ab0a7bd8d20c1314151600", // Different key
-					  "A68129D3-575B-4F1A-9CBA-3223846CF7C3"));
-	ASSERT_TRUE(vgdrmHelper != nullptr);
-
-	// Different key, should not equal
-	ASSERT_FALSE(vgdrmHelper->compare(vgdrmHelper2));
 
 	std::shared_ptr<AampDrmHelper> playreadyHelper2 =
 		AampDrmHelperEngine::getInstance().createHelper(

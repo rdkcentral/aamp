@@ -32,7 +32,6 @@
 
 #ifdef USE_OPENCDM
 #include "AampHlsOcdmBridge.h"
-#include "AampVgdrmHelper.h"
 #include "MockOpenCdm.h"
 
 #define OCDM_SESSION ((OpenCDMSession*)0x0CD12345)
@@ -128,8 +127,6 @@ public:
 										 DrmMetaDataEventPtr& event);
 	AampDrmSession* createDashDrmSession(const std::vector<uint8_t> testKeyData,
 										 const std::string psshStr, DrmMetaDataEventPtr& event);
-	std::shared_ptr<AampHlsOcdmBridge> createBridgeForHelper(
-		std::shared_ptr<AampVgdrmHelper> drmHelper);
 	void setupChallengeCallbacks(const MockChallengeData& challengeData =
 									 MockChallengeData("challenge.example", "OCDM_CHALLENGE_DATA"));
 	void setupChallengeCallbacksForExternalLicense();
