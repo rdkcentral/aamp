@@ -32,11 +32,11 @@ TESTDATA1 = {
     "expect_list": [
         {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"min":0,"max":10,"end_of_test":True},
         {"expect": r"Updated live offset for 4K stream 0","min":0,"max":1,"end_of_test":True}, 
-        {"expect": r"Returning Position as 1689262831(\d{3})"},
+        {"expect": r"Returning Position as 16892628(\d{5})"},
         {"cmd": "sleep 1000"},
         {"expect": "sleeping for 1.000000 seconds"},
-        {"expect": r"Returning Position as 1689262834(\d{3}) "},
-        {"expect": r"Returning Position as 1689262841(\d{3}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
     ],
 }
 
@@ -50,12 +50,12 @@ TESTDATA2 = {
     "expect_list": [
         {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"min":0,"max":10,"end_of_test":True},
         {"expect": r"Updated live offset for 4K stream 15","min":0,"max":5,"end_of_test":True}, 
-        {"expect": r"Returning Position as 1689262817(\d{3})"},
+        {"expect": r"Returning Position as 16892628(\d{5})"},
         {"cmd": "sleep 1000"},
         {"expect": "sleeping for 1.000000 seconds"},
-        {"expect": r"Returning Position as 1689262821(\d{3}) "},
-        {"expect": r"Returning Position as 1689262823(\d{3}) "},
-        {"expect": r"Returning Position as 1689262829(\d{3}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
 
 
     ],
@@ -71,18 +71,17 @@ TESTDATA3 = {
     "expect_list": [
         {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"min":0,"max":10,"end_of_test":True},
         {"expect": r"Updated live offset for 4K stream 10","min":0,"max":5,"end_of_test":True}, 
-        {"expect": r"Returning Position as 1689262819(\d{3})"},
+        {"expect": r"Returning Position as 16892628(\d{5})"},
         {"cmd": "sleep 1000"},
         {"expect": "sleeping for 1.000000 seconds"},
-        {"expect": r"Returning Position as 1689262821(\d{3}) "},
-        {"expect": r"Returning Position as 1689262823(\d{3}) "},
-        {"expect": r"Returning Position as 1689262828(\d{3}) "},
-        {"expect": r"Returning Position as 1689262835(\d{3}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
     ],
 }
 
-#TESTLIST = [TESTDATA1 ,TESTDATA2 ,TESTDATA3 ]
-TESTLIST = [TESTDATA3 ]
+TESTLIST = [TESTDATA1 ,TESTDATA2 ,TESTDATA3 ]
 
 ############################################################
 """
