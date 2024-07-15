@@ -123,9 +123,17 @@ StreamAbstractionAAMP_HDMIIN * StreamAbstractionAAMP_HDMIIN::GetInstance(AampLog
  */
 void StreamAbstractionAAMP_HDMIIN::ResetInstance()
 {
-	//clear aamp and logObj
-	mHdmiinInstance->aamp = NULL;
-	mHdmiinInstance->mLogObj = NULL;
+	std::lock_guard<std::mutex>lock(mEvtMutex);
+	if(mHdmiinInstance != NULL)
+	{
+		if(mHdmiinInstance->aamp != NULL)
+		{
+			mHdmiinInstance->aamp->SetState(eSTATE_STOPPED);
+		}
+		//clear aamp and logObj
+		mHdmiinInstance->aamp = NULL;
+		mHdmiinInstance->mLogObj = NULL;
+	}
 }
 
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS

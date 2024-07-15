@@ -45,7 +45,7 @@ using namespace WPEFramework;
 
 #endif
 
-
+std::mutex StreamAbstractionAAMP_VIDEOIN::mEvtMutex;
 /**
  *  @brief  Initialize a newly created object.
  */
@@ -309,6 +309,7 @@ void StreamAbstractionAAMP_VIDEOIN::RegisterAllEvents ()
  */
 void StreamAbstractionAAMP_VIDEOIN::OnInputStatusChanged(const JsonObject& parameters)
 {
+	std::lock_guard<std::mutex>lock(mEvtMutex);
 	if(NULL != aamp)
 	{
 		std::string message;
@@ -339,6 +340,7 @@ void StreamAbstractionAAMP_VIDEOIN::OnInputStatusChanged(const JsonObject& param
  */
 void StreamAbstractionAAMP_VIDEOIN::OnSignalChanged (const JsonObject& parameters)
 {
+	std::lock_guard<std::mutex>lock(mEvtMutex);
 	if(NULL != aamp)
 	{
 		std::string message;
