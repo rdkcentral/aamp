@@ -292,7 +292,6 @@ int AAMPOCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuff
 		pthread_mutex_lock(&decryptMutex);
 		uint64_t start_decrypt_time = GetCurrentTimeStampInMSec();
 
-#if !defined(REALTEKCE) //work around to invoke opencdm_gstreamer_session_decrypt for real-tek
 		/* Added GST_IS_CAPS check also before passing gst caps to OCDM decrypt() as gst_caps_is_empty returns false when caps object is not of 
 		   type GST_TYPE_CAPS. This will avoid crash when caps is not of type GST_TYPE_CAPS. */
 		if (AAMPOCDMGSTSessionDecrypt && !gst_caps_is_empty(caps) && GST_IS_CAPS(caps))
@@ -308,7 +307,6 @@ int AAMPOCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuff
             		retValue = AAMPOCDMGSTSessionDecrypt(m_pOpenCDMSession, buffer, caps);
 		}
 		else
- #endif
 			/* CID:328751 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
 			retValue = opencdm_gstreamer_session_decrypt(m_pOpenCDMSession, buffer, subSamplesBuffer, subSampleCount, ivBuffer, keyIDBuffer, 0);
 		uint64_t end_decrypt_time = GetCurrentTimeStampInMSec();
