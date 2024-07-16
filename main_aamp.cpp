@@ -138,7 +138,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		curl_global_init(CURL_GLOBAL_DEFAULT);
 		auto vers = curl_version_info(CURLVERSION_NOW);
 		printf( "curl version: %s\n", vers->version );
-		
+
 		gpGlobalConfig =  new AampConfig();
 		::mLogObj = gpGlobalConfig->GetLoggerInstance();
 		// Init the default values
@@ -152,7 +152,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 				gpGlobalConfig->ReadAampCfgFromEnv();
 			}
 		}
-		gpGlobalConfig->ReadOperatorConfiguration();		
+		gpGlobalConfig->ReadOperatorConfiguration();
 		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();
 	}
@@ -177,7 +177,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
-	
+
 	// start Scheduler Worker for task handling
  	mScheduler.SetLogger(mLogObj);
 	mScheduler.StartScheduler();
@@ -202,7 +202,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		TSB::Store::Config config;
 		config.location			=	mConfig.GetConfigValue(eAAMPConfig_TsbLocation);
 		config.minFreePercentage	=	mConfig.GetConfigValue(eAAMPConfig_TsbMinDiskFreePercentage);
-		config.maxCapacity =  mConfig.GetConfigValue(eAAMPConfig_TsbMaxDiskStorage); 
+		config.maxCapacity =  mConfig.GetConfigValue(eAAMPConfig_TsbMaxDiskStorage);
 		TSB::LogLevel level = ConvertTsbLogLevel(mConfig.GetConfigValue(eAAMPConfig_TsbLogLevel)) ;
 		try
 		{
@@ -236,20 +236,20 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		PrivAAMPState state;
 		aamp->GetState(state);
 		// Acquire the lock , to prevent new entries into scheduler
-		mScheduler.SuspendScheduler();			
-		// Remove all the tasks 
+		mScheduler.SuspendScheduler();
+		// Remove all the tasks
 		mScheduler.RemoveAllTasks();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
 			//Avoid stop call since already stopped
 			aamp->Stop();
 		}
-		
+
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
 		aamp = NULL;
 	}
 
-	// Stop the scheduler 
+	// Stop the scheduler
 	mAsyncRunning = false;
 	mScheduler.StopScheduler();
 
@@ -261,7 +261,7 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		AampCCManager::DestroyInstance();
 	}
 #endif
-#ifdef SUPPORT_JS_EVENTS 
+#ifdef SUPPORT_JS_EVENTS
 	if (mJSBinding_DL && isLastPlayerInstance)
 	{
 		AAMPLOG_WARN("[AAMP_JS] dlclose(%p)", mJSBinding_DL);
@@ -310,8 +310,8 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 		PrivAAMPState state;
 		aamp->GetState(state);
 
-		// 1. Ensure scheduler is suspended and all tasks if any to be cleaned 
-		// 2. Check for state ,if already in Idle / Released , ignore stopInternal 
+		// 1. Ensure scheduler is suspended and all tasks if any to be cleaned
+		// 2. Check for state ,if already in Idle / Released , ignore stopInternal
 		// 3. Restart the scheduler , needed if same instance is used for tune again
 
 		mScheduler.SuspendScheduler();
@@ -450,7 +450,7 @@ void PlayerInstanceAAMP::detach()
 	aamp->detach();
 	//Release lock
 	mScheduler.ResumeScheduler();
-	
+
 	}
 }
 
@@ -479,7 +479,7 @@ void PlayerInstanceAAMP::UnRegisterEvents(EventListener* eventListener)
 }
 
 /**
- *  @brief Set retry limit on Segment injection failure.      
+ *  @brief Set retry limit on Segment injection failure.
  */
 void PlayerInstanceAAMP::SetSegmentInjectFailCount(int value)
 {
@@ -487,7 +487,7 @@ void PlayerInstanceAAMP::SetSegmentInjectFailCount(int value)
 }
 
 /**
- *  @brief Set retry limit on Segment drm decryption failure. 
+ *  @brief Set retry limit on Segment drm decryption failure.
  */
 void PlayerInstanceAAMP::SetSegmentDecryptFailCount(int value)
 {
@@ -870,7 +870,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					{
 						retValue = sink->Pause(false, false);
 					}
-					aamp->NotifyFirstBufferProcessed(); //required since buffers are already cached in paused state
+					// required since buffers are already cached in paused state
+					aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
 				}
 				aamp->pipeline_paused = false;
 				aamp->ResumeDownloads();
@@ -915,19 +916,19 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 		else
 		{
 			//Enable playback if setRate call after detach
-			if(aamp->mbDetached){ 
+			if(aamp->mbDetached){
 				aamp->mbPlayEnabled = true;
 			}
-			
+
 			aamp->ActivatePlayer();
 			aamp->LogPlayerPreBuffered();
 			if (AAMP_NORMAL_PLAY_RATE != rate)
 			{
-				/** Rate is not in normal play so expect to clear the cache and redownload the 
+				/** Rate is not in normal play so expect to clear the cache and redownload the
 				 * iframe fragments; So clear the fragments downloaded (buffered data) time **/
 				aamp->ResetProfileCache();
 			}
-			
+
 
 			TuneType tuneTypePlay = eTUNETYPE_SEEK;
 			if(aamp->mJumpToLiveFromPause)
@@ -1504,7 +1505,7 @@ void PlayerInstanceAAMP::SetVideoMute(bool muted)
 	if(aamp){
 		AAMPLOG_WARN(" mute == %s subtitles_muted == %s", muted?"true":"false", aamp->subtitles_muted?"true":"false");
 		aamp->video_muted = muted;
-		
+
 		//If lock could not be acquired, then cache it
 		if(aamp->TryStreamLock())
 		{
@@ -1536,7 +1537,7 @@ void PlayerInstanceAAMP::SetVideoMute(bool muted)
 void PlayerInstanceAAMP::SetSubtitleMute(bool muted)
 {
 	ERROR_STATE_CHECK_VOID();
-	
+
 	AAMPLOG_WARN(" mute == %s", muted?"true":"false");
 	aamp->subtitles_muted = muted;
 	aamp->AcquireStreamLock();
@@ -1638,7 +1639,7 @@ void PlayerInstanceAAMP::SubscribeResponseHeaders(std::vector<std::string> respo
 	} // end of if aaamp
 }
 
-#ifdef SUPPORT_JS_EVENTS 
+#ifdef SUPPORT_JS_EVENTS
 
 /**
  *  @brief Load AAMP JS object in the specified JS context.
@@ -1706,7 +1707,7 @@ bool PlayerInstanceAAMP::IsLive()
 	return isLive;
 }
 /**
- *  @brief Get jsinfo config value (default false) 
+ *  @brief Get jsinfo config value (default false)
  */
 
 bool PlayerInstanceAAMP::IsJsInfoLoggingEnabled(void)
@@ -1747,7 +1748,7 @@ const char* PlayerInstanceAAMP::GetCurrentDRM(void)
 	ERROR_OR_IDLE_STATE_CHECK_VAL("");
 	if(aamp){
 	std::shared_ptr<AampDrmHelper> helper = aamp->GetCurrentDRM();
-	if (helper) 
+	if (helper)
 	{
 		return helper->friendlyName().c_str();
 	}
@@ -1882,7 +1883,7 @@ void PlayerInstanceAAMP::SetLiveOffset4K(double liveoffset)
 void PlayerInstanceAAMP::SetStallErrorCode(int errorCode)
 {
 	ERROR_STATE_CHECK_VOID();
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_StallErrorCode,errorCode);	
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_StallErrorCode,errorCode);
 }
 
 /**
@@ -1891,7 +1892,7 @@ void PlayerInstanceAAMP::SetStallErrorCode(int errorCode)
 void PlayerInstanceAAMP::SetStallTimeout(int timeoutMS)
 {
 	ERROR_STATE_CHECK_VOID();
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_StallTimeoutMS,timeoutMS);	
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_StallTimeoutMS,timeoutMS);
 }
 
 /**
@@ -1976,11 +1977,11 @@ double PlayerInstanceAAMP::GetPlaybackDuration()
 PrivAAMPState PlayerInstanceAAMP::GetState(void)
 {
 	PrivAAMPState currentState = eSTATE_RELEASED;
-	try 
+	try
 	{
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
 		if(NULL == aamp)
-		{	
+		{
 			throw std::invalid_argument("NULL reference");
 		}
 		aamp->GetState(currentState);
@@ -2080,7 +2081,7 @@ bool PlayerInstanceAAMP::GetVideoMute(void)
 int PlayerInstanceAAMP::GetAudioVolume(void)
 {
 	ERROR_STATE_CHECK_VAL(0);
-	if (eSTATE_IDLE == state) 
+	if (eSTATE_IDLE == state)
 	{
 		AAMPLOG_WARN(" GetAudioVolume is returning cached value since player is at %s",
 		 "eSTATE_IDLE");
@@ -2243,7 +2244,7 @@ void PlayerInstanceAAMP::SetPreferredDRM(DRMSystems drmType)
  */
 void PlayerInstanceAAMP::SetStereoOnlyPlayback(bool bValue)
 {
-	ERROR_STATE_CHECK_VOID();	
+	ERROR_STATE_CHECK_VOID();
 	if(bValue)
 	{
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableEC3,true);
@@ -2374,7 +2375,7 @@ void PlayerInstanceAAMP::SetPreferredSubtitleLanguage(const char* language)
 	if (aamp->mSubLanguage.compare(language) == 0)
 		return;
 
-	
+
 	if (state == eSTATE_IDLE || state == eSTATE_RELEASED)
 	{
 		AAMPLOG_WARN("PlayerInstanceAAMP:: \"%s\" language set prior to tune start",  language);
@@ -2418,7 +2419,7 @@ void PlayerInstanceAAMP::SetWesterosSinkConfig(bool bValue)
 void PlayerInstanceAAMP::SetLicenseCaching(bool bValue)
 {
 	ERROR_STATE_CHECK_VOID();
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_SetLicenseCaching,bValue);	
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_SetLicenseCaching,bValue);
 }
 
 /**
@@ -2519,7 +2520,7 @@ void PlayerInstanceAAMP::SetAudioTrackInternal(std::string language,  std::strin
 	/* Now we have an option to set language and rendition only*/
 	SetPreferredLanguages( language.empty()?NULL:language.c_str(),
 							rendition.empty()?NULL:rendition.c_str(),
-							type.empty()?NULL:type.c_str(), 
+							type.empty()?NULL:type.c_str(),
 							codec.empty()?NULL:codec.c_str(),
 							label.empty()?NULL:label.c_str());
 }
@@ -2607,7 +2608,7 @@ const char* PlayerInstanceAAMP::GetPreferredLanguages()
  *  @brief Configure New AdBreaker Enable/Disable
  */
 void PlayerInstanceAAMP::SetNewAdBreakerConfig(bool bValue)
-{	
+{
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_NewDiscontinuity,bValue);
 	// Piggyback the PDT based processing for new Adbreaker processing for peacock.
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_HLSAVTrackSyncUsingStartTime,bValue);
@@ -2738,10 +2739,10 @@ void PlayerInstanceAAMP::EnableVideoRectangle(bool rectProperty)
 		}
 		else
 		{
-			AAMPLOG_WARN("Skipping the configuration value[%d], since westerossink is disabled",  rectProperty);			
+			AAMPLOG_WARN("Skipping the configuration value[%d], since westerossink is disabled",  rectProperty);
 		}
 	}
-	else 
+	else
 	{
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_EnableRectPropertyCfg,true);
 	}
@@ -2900,7 +2901,7 @@ void PlayerInstanceAAMP::SetInitRampdownLimit(int limit)
  */
 void PlayerInstanceAAMP::SetCEAFormat(int format)
 {
-#ifdef AAMP_CC_ENABLED	
+#ifdef AAMP_CC_ENABLED
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_CEAPreferred,format);
 #endif
 }
@@ -2930,7 +2931,7 @@ bool PlayerInstanceAAMP::SetThumbnailTrack(int thumbIndex)
 	aamp->ReleaseStreamLock();
 
 	AAMPLOG_INFO(" SetThumbnailTrack [%d] result: %s", thumbIndex, (ret ? "success" : "fail"));
-	
+
 	return ret;
 }
 
@@ -2948,7 +2949,7 @@ std::string PlayerInstanceAAMP::GetThumbnails(double tStart, double tEnd)
  */
 void PlayerInstanceAAMP::SetSessionToken(std::string sessionToken)
 {
-	ERROR_STATE_CHECK_VOID();	
+	ERROR_STATE_CHECK_VOID();
 	// Stored as tune setting , this will get cleared after one tune session
 	SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_AuthToken,sessionToken);
 	aamp->mDynamicDrmDefaultconfig.authToken = sessionToken;
@@ -3011,7 +3012,7 @@ void PlayerInstanceAAMP::SetAsyncTuneConfig(bool bValue)
 {
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_AsyncTune,bValue);
 	// Start it for the playerinstance if default not started and App wants
-	// Stop Async operation for the playerinstance if default started and App doesnt want 
+	// Stop Async operation for the playerinstance if default started and App doesnt want
 	AsyncStartStop();
 }
 
@@ -3028,7 +3029,7 @@ void PlayerInstanceAAMP::AsyncStartStop()
 		AAMPLOG_WARN("Enable async tune operation!!" );
 		mAsyncRunning = true;
 		//mScheduler.StartScheduler();
-		aamp->SetEventPriorityAsyncTune(true);		
+		aamp->SetEventPriorityAsyncTune(true);
 	}
 	else if(!mAsyncTuneEnabled && mAsyncRunning)
 	{
@@ -3045,7 +3046,7 @@ void PlayerInstanceAAMP::AsyncStartStop()
 void PlayerInstanceAAMP::PersistBitRateOverSeek(bool bValue)
 {
 	ERROR_STATE_CHECK_VOID();
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PersistentBitRateOverSeek,bValue);	
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PersistentBitRateOverSeek,bValue);
 }
 
 
@@ -3064,7 +3065,7 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
 		aamp->TuneFail(true);
 
 	}
-	
+
 	AAMPLOG_WARN("aamp_stop PlayerState=%d",state);
 
 	if (sendStateChangeEvent)
@@ -3170,7 +3171,7 @@ bool PlayerInstanceAAMP::InitAAMPConfig(char *jsonStr)
 }
 
 /**
- *  @brief GetAAMPConfig - GetAamp Config as JSON string 
+ *  @brief GetAAMPConfig - GetAamp Config as JSON string
  */
 std::string PlayerInstanceAAMP::GetAAMPConfig()
 {
@@ -3313,7 +3314,7 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 				aamp->ReleaseDynamicDRMToUpdateWait();
 				return;
 			}
-			
+
 			//Remove old config if response keyId already in cache
 			int iter1 = 0;
 			while (iter1 < aamp->vDynamicDrmData.size()) {
@@ -3330,10 +3331,10 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 			if(playReadyObject) {
 				playreadyurl = playReadyObject->valuestring;
 				AAMPLOG_TRACE("App configured Playready License server URL : %s",playreadyurl.c_str());
-				
+
 			}
 			dynamicDrmCache.licenseEndPoint.insert(std::pair<std::string, std::string>("com.microsoft.playready",playreadyurl.c_str()));
-			
+
 			cJSON *wideVineObject = cJSON_GetObjectItem(cfgdata, "com.widevine.alpha");
 			std::string widevineurl = "";
 			if(wideVineObject) {
@@ -3341,7 +3342,7 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 				AAMPLOG_TRACE("App configured widevine License server URL : %s",widevineurl.c_str());
 			}
 			dynamicDrmCache.licenseEndPoint.insert(std::pair<std::string, std::string>("com.widevine.alpha",widevineurl.c_str()));
-			
+
 			cJSON *clearKeyObject = cJSON_GetObjectItem(cfgdata, "org.w3.clearkey");
 			std::string clearkeyurl = "";
 			if(clearKeyObject) {
@@ -3349,7 +3350,7 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 				AAMPLOG_TRACE("App configured clearkey License server URL : %s",clearkeyurl.c_str());
 			}
 			dynamicDrmCache.licenseEndPoint.insert(std::pair<std::string, std::string>("org.w3.clearkey",clearkeyurl.c_str()));
-			
+
 			cJSON *customDataObject = cJSON_GetObjectItem(cfgdata, "customData");
 			std::string customdata = "";
 			if(customDataObject) {
@@ -3357,7 +3358,7 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 				AAMPLOG_TRACE("App configured customData : %s",customdata.c_str());
 			}
 			dynamicDrmCache.customData = customdata;
-			
+
 			cJSON *authTokenObject = cJSON_GetObjectItem(cfgdata, "authToken");
 			std::string authToken = "";
 			if(authTokenObject) {
@@ -3365,7 +3366,7 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 				AAMPLOG_TRACE("App configured authToken : %s",authToken.c_str());
 			}
 			dynamicDrmCache.authToken = authToken;
-			
+
 			cJSON *licenseResponseObject = cJSON_GetObjectItem(cfgdata, "licenseResponse");
 			if(licenseResponseObject) {
 				std::string licenseResponse = licenseResponseObject->valuestring;
@@ -3375,7 +3376,7 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 			}
 			if(empty_config == 1){
 				aamp->mDynamicDrmDefaultconfig.keyID=tempKeyId;
-				AAMPLOG_WARN("Received empty config applying default config");	
+				AAMPLOG_WARN("Received empty config applying default config");
 				aamp->vDynamicDrmData.push_back(aamp->mDynamicDrmDefaultconfig);
 				DynamicDrmInfo dynamicDrmCache = aamp->mDynamicDrmDefaultconfig;
 				std::map<std::string,std::string>::iterator itr;
@@ -3396,7 +3397,7 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 			else {
 				aamp->vDynamicDrmData.push_back(dynamicDrmCache);
 			}
-			
+
 			if(tempKeyId == aamp->mcurrent_keyIdArray){
 				AAMPLOG_WARN("Player received the config for requested keyId applying the configs");
 				SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PRLicenseServerUrl,playreadyurl);
@@ -3431,7 +3432,7 @@ void PlayerInstanceAAMP::SetContentProtectionDataUpdateTimeout(int timeout)
 }
 
 /**
- *  @brief To set Dynamic DRM feature by Application 
+ *  @brief To set Dynamic DRM feature by Application
  */
 void PlayerInstanceAAMP::SetRuntimeDRMConfigSupport(bool DynamicDRMSupported)
 {
@@ -3449,7 +3450,7 @@ bool PlayerInstanceAAMP::IsOOBCCRenderingSupported()
 	return AampCCManager::GetInstance()->IsOOBCCRenderingSupported();
 #else
 	return false;
-#endif 
+#endif
 }
 
 /**
