@@ -8678,7 +8678,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				bool parallelDnld = ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) ;
 				// playback
 				bool *cacheFullStatus = new bool[AAMP_TRACK_COUNT]{false} ;
-				while (!exitFetchLoop)
+				while (!exitFetchLoop)//loop 3
 				{
 					if(mIsLiveStream && !mIsLiveManifest && playlistDownloaderThreadStarted)
 					{
@@ -8807,10 +8807,11 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							}
 							// EOS from both tracks for dynamic(live) manifests for all periods.
 							// Wait for the manifest update, otherwise break the loop.
-							if( (mIsLiveManifest && (rate > 0)
+							bool exitFromloop = mCdaiObject->isAdBreakObjectExist(mBasePeriodId) &&  mCdaiObject->mAdBreaks[mBasePeriodId].mSrcPeriodOffsetGTthreshold;
+							if( (mIsLiveManifest && (rate > 0 && !exitFromloop)
 							&& (mIterPeriodIndex == mMPDParseHelper->mUpperBoundaryPeriod)
 							&& (AdState::IN_ADBREAK_WAIT2CATCHUP != mCdaiObject->mAdState))
-							|| (mIsLiveManifest && (bmanifestupdate) && (mMPDParseHelper->getPeriodIdx(mBasePeriodId) == mMPDParseHelper->mUpperBoundaryPeriod)))
+							|| (!exitFromloop && mIsLiveManifest && (bmanifestupdate) && (mMPDParseHelper->getPeriodIdx(mBasePeriodId) == mMPDParseHelper->mUpperBoundaryPeriod)))
 							{
 								aamp->InterruptableMsSleep(500);
 							}
