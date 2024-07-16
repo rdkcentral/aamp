@@ -6460,7 +6460,14 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 			{
 				AAMPLOG_WARN("Subtitle track enabled, but fragmentInjection loop not yet started! Starting now..");
 				aamp->ResumeTrackInjection(eMEDIATYPE_SUBTITLE);
-				pMediaStreamContext->StartInjectLoop();
+				if(!aamp->IsLocalAAMPTsb() && !mLowLatencyMode)
+				{
+					pMediaStreamContext->StartInjectLoop();
+				}
+				else
+				{
+					pMediaStreamContext->StartInjectChunkLoop();
+				}
 			}
 			mNumberOfTracks++;
 		}
@@ -9430,8 +9437,7 @@ void StreamAbstractionAAMP_MPD::Start(void)
 				{
 					mMediaStreamContext[i]->StartInjectLoop();
 				}
-
-				if(mLowLatencyMode)
+				else
 				{
 					mMediaStreamContext[i]->StartInjectChunkLoop();
 				}
@@ -10320,12 +10326,11 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 		if(track && track->Enabled())
 		{
 			aamp->ResumeTrackInjection((AampMediaType) iTrack);
-			if(!aamp->IsLocalAAMPTsb() || mLowLatencyMode)
+			if(!aamp->IsLocalAAMPTsb() && !mLowLatencyMode)
 			{
 				track->StartInjectLoop();
 			}
-
-			if(mLowLatencyMode)
+			else
 			{
 				track->StartInjectChunkLoop();
 			}
