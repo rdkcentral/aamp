@@ -109,7 +109,15 @@ StreamAbstractionAAMP_COMPOSITEIN * StreamAbstractionAAMP_COMPOSITEIN::GetInstan
 */
 void StreamAbstractionAAMP_COMPOSITEIN::ResetInstance()
 {
-	//clear aamp and logObj
-	mCompositeinInstance->aamp = NULL;
-	mCompositeinInstance->mLogObj = NULL;
+	std::lock_guard<std::mutex>lock(mEvtMutex);
+	if(mCompositeinInstance != NULL)
+	{
+		if(mCompositeinInstance->aamp != NULL)
+		{
+			mCompositeinInstance->aamp->SetState(eSTATE_STOPPED);
+		}
+		//clear aamp and logObj
+		mCompositeinInstance->aamp = NULL;
+		mCompositeinInstance->mLogObj = NULL;
+	}
 }

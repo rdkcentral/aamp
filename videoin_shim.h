@@ -109,6 +109,8 @@ public:
      * @return long MAX video bitrates
      */
     BitsPerSecond GetMaxBitrate(void) override;
+
+    static std::mutex mEvtMutex;
 protected:
     AAMPStatusType InitHelper(TuneType tuneType);
     /**
