@@ -3980,13 +3980,13 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
 		{
 			// DELIA-39530 - Deduct segment.start to find the actual time of media that's played.
 			rc = (GST_TIME_AS_MSECONDS(pos) - privateContext->segmentStart) * rate;
-			AAMPLOG_INFO("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld SegStart -%" G_GINT64_FORMAT, GST_TIME_AS_MSECONDS(pos), rc,privateContext->segmentStart);
+			AAMPLOG_DEBUG("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld SegStart -%" G_GINT64_FORMAT, GST_TIME_AS_MSECONDS(pos), rc,privateContext->segmentStart);
 		}
 		else
 #endif
 		{
 			rc = GST_TIME_AS_MSECONDS(pos) * rate;
-			AAMPLOG_INFO("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld" , GST_TIME_AS_MSECONDS(pos), rc);
+			AAMPLOG_DEBUG("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld" , GST_TIME_AS_MSECONDS(pos), rc);
 		}
 		//AAMPLOG_MIL("AAMPGstPlayer: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
 
