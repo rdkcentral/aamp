@@ -21,6 +21,10 @@
 #include <gst/gst.h>
 #include <gst/base/gstbytereader.h>
 
+
+GType _gst_caps_type = 0;
+GType _gst_buffer_type = 0;
+
 gboolean gst_buffer_map(GstBuffer *buffer, GstMapInfo *info, GstMapFlags flags)
 {
 	return TRUE;
@@ -43,4 +47,33 @@ gboolean gst_byte_reader_set_pos(GstByteReader *reader, guint pos)
 
 void gst_byte_reader_free(GstByteReader *reader)
 {
+}
+
+gboolean gst_caps_is_empty (const GstCaps * caps)
+{
+	return FALSE;
+}
+
+GstMeta * gst_buffer_get_meta (GstBuffer * buffer, GType api)
+{
+	return NULL;
+}
+
+GstStructure * gst_structure_new (const gchar * name, const gchar * firstfield, ...)
+{
+	return NULL;
+}
+
+void gst_structure_set (GstStructure * structure, const gchar * field, ...)
+{
+}
+
+GstProtectionMeta * gst_buffer_add_protection_meta (GstBuffer * buffer, GstStructure * info)
+{
+	return NULL;
+}
+
+GType gst_protection_meta_api_get_type (void)
+{
+	return 0;
 }
