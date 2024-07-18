@@ -10836,7 +10836,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 						CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
 						// AampCCManager expects the CC type, ie 608 or 708
 						// For DASH, there is a possibility that instreamId is just an integer so we infer rendition
-						if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0])) == 0) && !track.rendition.empty())
+						if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0]))) && !track.rendition.empty())
 						{
 							if (track.rendition.find("608") != std::string::npos)
 							{
