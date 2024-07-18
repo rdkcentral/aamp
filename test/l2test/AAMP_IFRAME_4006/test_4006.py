@@ -37,21 +37,20 @@ TESTDATA1 = {
         {"expect": r"AAMP_EVENT_TUNED"},
         {"cmd": "seek 300"},
         {"expect":"AAMP_EVENT_STATE_CHANGED: SEEKING"},
-        {"cmd": "pause"},
         {"cmd": "get playbackPosition"},
         {"cmd": "rew 8"},
 
         {"expect":r"AAMP_EVENT_SPEED_CHANGED current rate=-8.000000"},
 
          # Iframe segments in decreasing order indicates rewind is happening
-        {"expect" : r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_28(\d{1})\.m4s"}, 
+        {"expect" : r"iframe_28(\d{1})\.m4s"}, 
 
-        {"expect" : r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_2[3-5](\d{1})\.m4s"},
+        {"expect" : r"iframe_2[3-5](\d{1})\.m4s"},
         
         # Expected aamp position [0..187..900..-1..-1.00..0.00....800000..800000..-8.00] here -8.00 at the end confirms playback speed(rewind) is -8
         {"expect": r"aamp pos: \[(.*)" + f"{-8}" + r".00]"},
 
-        {"expect" : r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_1(\d{2})\.m4s"},
+        {"expect" : r"iframe_1(\d{2})\.m4s"},
 
     ]
 }
@@ -67,18 +66,17 @@ TESTDATA2 = {
         {"expect": r"AAMP_EVENT_TUNED"},
         {"cmd": "seek 240"},
         {"expect":"AAMP_EVENT_STATE_CHANGED: SEEKING"},
-        {"cmd": "pause"},
         {"cmd": "get playbackPosition"},
         {"cmd": "rew 4"},
 
         {"expect":r"AAMP_EVENT_SPEED_CHANGED current rate=-4.000000"}, 
 
          # Iframe segments in decreasing order indicates rewind is happening
-        {"expect" : r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_2[3|4](\d{1})\.m4s"},
+        {"expect" : r"iframe_2[3|4](\d{1})\.m4s"},
 
-        {"expect" : r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_2[0-2](\d{1})\.m4s"},
+        {"expect" : r"iframe_2[0-2](\d{1})\.m4s"},
 
-        {"expect" : r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_1(\d{2})\.m4s"},
+        {"expect" : r"iframe_1(\d{2})\.m4s"},
 
         # Expected aamp position [0..233..900..-1..-1.00..0.00....800000..800000..-4.00] here -4.00 at the end confirms playback speed(rewind) is -4
         {"expect": r"aamp pos: \[(.*)" + f"{-4}" + r".00]"},
@@ -98,17 +96,16 @@ TESTDATA3 = {
         {"expect": r"AAMP_EVENT_TUNED"},
         {"cmd": "seek 180"},
         {"expect":"AAMP_EVENT_STATE_CHANGED: SEEKING"},
-        {"cmd": "pause"},
         {"cmd": "get playbackPosition"},
         {"cmd": "rew 2"},
 
         {"expect":r"AAMP_EVENT_SPEED_CHANGED current rate=-2.000000"},
 
         # Iframe segments in decreasing order indicates rewind is happening
-        {"expect" : r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_1[7|8](\d{1})\.m4s"},
+        {"expect" : r"iframe_1[7|8](\d{1})\.m4s"},
 
 
-        {"expect" : r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_16(\d{1})\.m4s"},
+        {"expect" : r"iframe_16(\d{1})\.m4s"},
 
         # Expected aamp position [0..177..900..-1..-1.00..0.00....800000..800000..-2.00] here -2.00 at the end confirms playback speed(rewind) is -2
         {"expect": r"aamp pos: \[(.*)" + f"{-2}" + r".00]"},

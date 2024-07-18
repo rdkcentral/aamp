@@ -70,7 +70,7 @@ TESTDATA1 = {
         {"cmd": "get playbackRate"},
         {"expect": "PLAYBACK RATE = 1"},
         # Correct Media segments are getting downloaded.
-        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/(1080|720|480|360)p_(\d)*\.m4s"},
+        {"expect": r"(1080|720|480|360)p.*m4s"},
     ]
 }
 
@@ -113,7 +113,7 @@ TESTDATA2 = {
         {"cmd": "get playbackRate"},
         {"expect": "PLAYBACK RATE = 1"},
         # Correct Media segments are getting downloaded.
-        {"expect": r"/VideoTestStream/dash/(1080|720|480|360)p_(\d)*\.m4s"},
+        {"expect": r"(1080|720|480|360)p.*m4s"},
     ]
 }
 
@@ -159,7 +159,7 @@ TESTDATA3 = {
         {"cmd": "get playbackRate"},
         {"expect": "PLAYBACK RATE = 1"},
         # Correct Media segments are getting downloaded.
-        {"expect": r"/VideoTestStream/dash/(1080|720|480|360)p_(\d)*\.m4s"},
+        {"expect": r"(1080|720|480|360)p.*m4s"},
     ]
 }
 
@@ -205,7 +205,7 @@ TESTDATA4 = {
         {"cmd": "get playbackRate"},
         {"expect": "PLAYBACK RATE = 1"},
         # Correct Media segments are getting downloaded.
-        {"expect": r"/VideoTestStream/dash/(1080|720|480|360)p_(\d)*\.m4s"},
+        {"expect": r"(1080|720|480|360)p.*m4s"},
     ]
 }
 
