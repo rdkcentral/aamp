@@ -536,22 +536,46 @@ protected:
 	void FetcherLoopNew();
 
 	/**
-	 * @fn SelectPeriodAndIndexIt
+	 * @fn SelectSourceOrAdPeriod
 	 *
-	 * @param[out] mpdChanged flag
+	 * @param[out] periodChanged flag
 	 * @param[out] AdStateChanged flag
 	 * @param[out] waitForAdBreakCatchup flag
 	 * @param[out] bmanifestupdate flag
+	 * @param[out] requireStreamSelection flag
 	 * @param[out] currentPeriodId string
-	 * @return AAMPStatusType - eAAMPSTATUS_OK if new period selected, an error otherwise
+	 * @return bool - true if new period selected, false otherwise
 	 */
-	AAMPStatusType SelectPeriodAndIndexIt(bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, std::string &currentPeriodId);
+	bool SelectSourceOrAdPeriod(bool &periodChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId);
 
 	/**
-	 * @fn TsbReader
+	 * @fn IndexSelectedPeriod
+	 *
+	 * @param[out] periodChanged flag
+	 * @param[out] AdStateChanged flag
+	 * @param[out] bmanifestupdate flag
+	 * @param[out] requireStreamSelection flag
+	 * @param[out] currentPeriodId string
+	 * @return bool - true if new period indexed, false otherwise
+	 */
+	bool IndexSelectedPeriod(bool &periodChanged, bool &adStateChanged, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId);
+
+	/**
+	 * @fn CheckEndOfStream
+	 *
+	 * @param[out] waitForAdBreakCatchup flag
+	 * @return bool - true if end of stream reached, false otherwise
+	 */
+	bool CheckEndOfStream(bool &waitForAdBreakCatchup);
+
+	/**
+	 * @fn DetectDiscontinuityAndFetchInit
+	 *
+	 * @param[out] periodChanged flag
 	 * @return void
 	 */
-	void TsbReader();
+	void DetectDiscontinuityAndFetchInit(bool &periodChanged);
+
 	/**
 	 * @fn GetStreamInfo
 	 * @param[in]  idx - profile index.
