@@ -8,7 +8,8 @@ cmake ../
 make
 ./ttml_gen "$1"
 
-cp ttml_text_*.mp4 ../../dash/
+cp ttml_*.mp4 ../../text/
+cd ../../
 
 }
 

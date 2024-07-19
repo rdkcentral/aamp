@@ -13,7 +13,9 @@ rm SegmentBase.mpd
 rm SegmentList.mpd
 rm SegmentTemplate.mpd
 rm SegmentTimeline.mpd
-rm mainDynamic.mpd
-rm mainDynamic.m3u8
 rm SegmentTimeline4k.mpd
 rm *p.mpd
+rm main.mpd
+rm main.m3u8
+rm main_mp4.m3u8 
+rm main_mux.m3u8

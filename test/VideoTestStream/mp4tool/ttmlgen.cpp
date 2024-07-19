@@ -13,9 +13,6 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
 */
-#include <string>
-#include <cstdarg>
-#include <cassert>
 #include "ttmlgen.hpp"
 
 static void PackInt( std::string &out, int value )
@@ -101,12 +98,58 @@ void GenerateTTMLSegment( const char *path, int segmentIndex, int segmentDuratio
 	}
 }
 
+void getTextTrackDetails(std::vector<std::string>& langVector) 
+{
+    FILE *file;
+    char line[1024];
+
+    const char *filename = "../../helper/config.sh";
+    if (access(filename, F_OK) == -1) 
+    {
+        perror("Error: helper/config.sh file not found");
+        return;
+    }
+
+    file = fopen(filename, "r"); 
+    if (file == NULL) {
+        perror("Error opening file");
+	return;
+    }
+
+    while (fgets(line, sizeof(line), file) != NULL) 
+    {
+	    if (strstr(line, "LANG_639_2") != NULL) 
+	    {
+		    char lang[20];
+		    char *token;
+		    const char *delimiters = " ";
+		    int i = 0;
+
+		    sscanf(line, "LANG_639_2=(%[^)])", lang);
+		    token = strtok(lang, delimiters);
+		    while (token != NULL) 
+		    {
+			    langVector.push_back(std::string(token));
+			    i++;
+			    token = strtok(NULL, delimiters);
+		    }
+	    }
+    }
+
+    fclose(file);
+}
+
 void generateTTMLTracks(int segmentDurationS, int totalSegments)
 {
-	for( int segmentIndex=1; segmentIndex<=totalSegments; segmentIndex++ )
+	std::vector<std::string> langVector;
+	getTextTrackDetails(langVector);
+	for (int track = 0; track < langVector.size(); track++) 
 	{
-		char path[256];
-		snprintf( path, sizeof(path), "ttml_text_%02d.mp4", segmentIndex );
-		GenerateTTMLSegment( path, segmentIndex, segmentDurationS, "track#1" );
+		for( int segmentIndex=0; segmentIndex<totalSegments; segmentIndex++ )
+		{
+			char path[50];
+			snprintf( path, sizeof(path), "ttml_%s_%02d.mp4",langVector[track].c_str(), segmentIndex+1 );
+			GenerateTTMLSegment( path, segmentIndex, segmentDurationS, langVector[track] );
+		}
 	}
 }

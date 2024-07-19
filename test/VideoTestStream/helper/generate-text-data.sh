@@ -52,17 +52,15 @@ do
     fi
 done
 
-# Generate segmented DASH text files
-if [ $RUN_DASH -eq 1 ]; then
-	for (( I=0; I<LANGUAGE_COUNT; I++ ))
+for (( I=0; I<LANGUAGE_COUNT; I++ ))
+do
+	echo "Generating ${LANG_FULL_NAME[$I]} text segments"
+	# Segments are TEXT_SEGMENT_SEC long.
+	# Segment 1 is the first segment.
+	# The content is VIDEO_LENGTH_SEC long.
+	for (( SEG=1; SEG<=(VIDEO_LENGTH_SEC/TEXT_SEGMENT_SEC); SEG++ ))
 	do
-		echo "Generating ${LANG_FULL_NAME[$I]} text DASH segments"
-    		# Segments are TEXT_SEGMENT_SEC long.
-		# Segment 1 is the first segment.
-    		# The content is VIDEO_LENGTH_SEC long.
-    		for (( SEG=1; SEG<=(VIDEO_LENGTH_SEC/TEXT_SEGMENT_SEC); SEG++ ))
-    		do
-	    		FILE=`printf '%s/%s_%03d.vtt' ${DASH_OUT} ${LANG_639_2[$I]} ${SEG}`
+		FILE=`printf '%s/%s_%03d.vtt' ${DASH_OUT} ${LANG_639_2[$I]} ${SEG}`
 
 			# Write WebVTT file magic
 			webvtt_magic > ${FILE}
@@ -70,14 +68,14 @@ if [ $RUN_DASH -eq 1 ]; then
 			# Write WebVTT cues, one per second
 			for (( J=0; J<TEXT_SEGMENT_SEC; J++ ))
 			do
-			# Segments are TEXT_SEGMENT_SEC long.
-			# Segment 1 is the first segment.
-			T=$((((SEG - 1)*TEXT_SEGMENT_SEC) + J))
+				# Segments are TEXT_SEGMENT_SEC long.
+				# Segment 1 is the first segment.
+				T=$((((SEG - 1)*TEXT_SEGMENT_SEC) + J))
 
-			echo >> ${FILE}
-			TEXT=${TRANSLATIONS[$(((101*I)+(T%60)))]}
-			webvtt_cue ${T} $((T + 1)) "${TEXT}" >> ${FILE}
+				echo >> ${FILE}
+				TEXT=${TRANSLATIONS[$(((101*I)+(T%60)))]}
+				webvtt_cue ${T} $((T + 1)) "${TEXT}" >> ${FILE}
 			done
-		done
 	done
-fi
+done
+
