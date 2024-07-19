@@ -709,7 +709,7 @@ public:
 	 */
 	void LoadNewAudio(bool val);
 
-/**
+	/**
 	 * @brief To set Track's Fetch and Inject duration after playlist update
 	 */
 	void OffsetTrackParams(double deltaFetchedDuration, double deltaInjectedDuration, int deltaFragmentsDownloaded);
@@ -737,6 +737,15 @@ public:
 
 	void SourceFormat(StreamOutputFormat fmt) { mSourceFormat = fmt; }
 
+	/**
+	 * @brief API to notify the after Aamp Audio fragment cached
+	 */
+	void NotifyCachedAudioFragmentAvailable(void);
+	/**
+	 * @brief API to notify the after Aamp Audio fragment cached
+	 */
+	void  FlushAudioPositionDuringTrackSwitch(  CachedFragment* cachedFragment );
+
 protected:
 
 	/**
@@ -752,12 +761,6 @@ protected:
 	 * @return void
 	 */
 	void UpdateTSAfterChunkInject();
-
-        /**
-         * @brief API to notify the after Aamp Audio fragment cached
-         */
-        void NotifyCachedAudioFragmentAvailable(void);
-
 
 	/**
 	 * @fn WaitForCachedFragmentAvailable

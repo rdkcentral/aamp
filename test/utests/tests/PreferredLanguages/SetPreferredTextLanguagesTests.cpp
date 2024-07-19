@@ -490,3 +490,119 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest4)
 	/* Verify the preferred rendition list. */
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextRenditionString.c_str(), "rend1");
 }
+
+TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest1)
+{
+	mPrivateInstanceAAMP->preferredTextNameString = "English";
+	//when Local TSB playback is in progress!!. SetPreferredTextLanguages() will be ignored
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"Spanish\"}");
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "English");
+
+}
+
+TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest2)
+{
+	mPrivateInstanceAAMP->preferredTextNameString = "English";
+
+	/* Call SetPreferredLanguages() without changing the preferred Name.
+	 * There should be no retune.
+	 */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.Times(0);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.Times(0);
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"English\"}");
+
+	/* Verify the preferred Name list. */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "English");
+}
+
+TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest3)
+{
+	std::vector<TextTrackInfo> tracks;
+
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "English", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "Spanish", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
+
+	mPrivateInstanceAAMP->preferredTextNameString = "English";
+	mPrivateInstanceAAMP->subtitles_muted = false;
+
+	/* Call SetPreferredLanguages() changing the preferred name. There
+	 * should be a retune.
+	 */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"Spanish\"}");
+
+	/* Verify the preferred name list. */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "Spanish");
+	
+	/* Verify the preferred language is not set to an incorrect value */
+	EXPECT_STRNE(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "English");
+}
+
+TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest4)
+{
+	std::vector<TextTrackInfo> tracks;
+
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "English", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "Spanish", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
+
+	mPrivateInstanceAAMP->preferredTextNameString = "English";
+	mPrivateInstanceAAMP->subtitles_muted = false;
+	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+
+	/* Call SetPreferredTextLanguages() changing the preferred name. There
+	 * should be a retune but no new TSB requested.
+	 */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"Spanish\"}");
+
+	/* Verified the requested manifest URL. */
+	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
+
+	/* Verify the preferred name list. */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "Spanish");
+}
+
+TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest5)
+{
+	std::vector<TextTrackInfo> tracks;
+
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "English", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "Spanish", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), false));
+
+	mPrivateInstanceAAMP->preferredTextNameString = "English";
+	mPrivateInstanceAAMP->subtitles_muted = false;
+	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+
+	/* Call SetPreferredTextLanguages() changing the preferred name but the
+	 * matching track is disabled. There should be a retune and a new TSB
+	 * requested.
+	 */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"Spanish\"}");
+
+	/* The manifest URL should be changed to reload the TSB. */
+	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
+
+	/* Verify the preferred name list. */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "Spanish");
+}

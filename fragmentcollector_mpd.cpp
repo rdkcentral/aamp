@@ -1367,7 +1367,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						if(firstStartTime < presentationTimeOffset)
                                                 {
                                                         firstSegStartTime = (double)(firstStartTime/tScale);
-                                                        AAMPLOG_INFO(" PTO ::(startTime < PTO) firstStartTime %" PRIu64 "tScale : %d presentationTimeOffset[%" PRIu64 "] positionInPeriod = %f  startTime = %f  endTime : %f mPeriodStartTime = %f mPeriodDuration = %f ", firstStartTime , tScale , presentationTimeOffset,positionInPeriod,firstSegStartTime,endTime,mPeriodStartTime,mPeriodDuration);
+                                                        AAMPLOG_INFO(" PTO ::(startTime < PTO) firstStartTime %" PRIu64 " tScale : %d presentationTimeOffset[%" PRIu64 "] positionInPeriod = %f  startTime = %f  endTime : %f mPeriodStartTime = %f mPeriodDuration = %f ",
+    firstStartTime, tScale, presentationTimeOffset, positionInPeriod, firstSegStartTime, endTime, mPeriodStartTime, mPeriodDuration);
                                                 }
 
 						if(!fcsContent &&
@@ -2368,8 +2369,11 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 								AAMPLOG_INFO("Player switched in rewind mode, adjusted skptime from %f to %f ", skipTime, skipTime - fragmentDuration);
 								skipTime -= fragmentDuration;
 							}
-							if (pMediaStreamContext->type == eTRACK_AUDIO && (mFirstVideoFragPTS || mFirstPTS || mVideoPosRemainder)){
-								
+							if (pMediaStreamContext->type == eTRACK_AUDIO && (mFirstVideoFragPTS || mFirstPTS || mVideoPosRemainder) && ( !pMediaStreamContext->refreshAudio )){
+								/* In case of the Seamless Audio Switch enabled scenario, no need to adjust the skiptime, as the video fragment PTS alignment is not performed in this case
+								* so if the skip time is adjusted wrong audio fragments downloaded, so Audio mute issue is oberved if we switch the track, so we handled that the below case won't
+								* execute during the seamless audio switch scenario
+								*/
 								/* need to adjust audio skipTime/seekPosition so 1st audio fragment sent matches start of 1st video fragment being sent */
 								double newSkipTime = skipTime + (mFirstVideoFragPTS - firstPTS); /* adjust for audio/video frag start PTS differences */
 								newSkipTime -= mVideoPosRemainder;   /* adjust for mVideoPosRemainder, which is (video seekposition/skipTime - mFirstPTS) */
@@ -6147,6 +6151,460 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 }
 
 /**
+ * @brief Selects the audio track based on the available audio tracks and updates the desired representation index.
+ *
+ * This function selects the audio track from the given vector of AC4 audio tracks based on audio track selection logic
+ * It also updates the audioAdaptationSetIndex and audioRepresentationIndex variables accordingly.
+ *
+ * @param[in] aTracks The vector of available audio tracks. These are the parsed ac4 tracks
+ * @param[out] aTrackIdx The selected audio track index.
+ * @param[out] audioAdaptationSetIndex The index of the selected audio adaptation set.
+ * @param[out] audioRepresentationIndex The index of the selected audio representation.
+ */
+void StreamAbstractionAAMP_MPD::SelectAudioTrack(std::vector<AudioTrackInfo> &aTracks, std::string &aTrackIdx, int &audioAdaptationSetIndex, int &audioRepresentationIndex)
+{
+	IPeriod *period = mCurrentPeriod;
+	int desiredRepIdx = -1;
+	AudioType selectedCodecType = eAUDIO_UNKNOWN;
+	bool disableAC4 = ISCONFIGSET(eAAMPConfig_DisableAC4);
+
+	if (!period)
+	{
+		AAMPLOG_WARN("period is null");
+		return;
+	}
+	if (!disableAC4)
+	{
+		std::vector<AudioTrackInfo> ac4Tracks;
+		ParseAvailablePreselections(period, ac4Tracks);
+		aTracks.insert(aTracks.end(), ac4Tracks.begin(), ac4Tracks.end());
+	}
+	audioAdaptationSetIndex = GetBestAudioTrackByLanguage(desiredRepIdx, selectedCodecType, aTracks, aTrackIdx);
+	IAdaptationSet *audioAdaptationSet = NULL;
+
+	if (audioAdaptationSetIndex >= 0)
+	{
+		audioAdaptationSet = period->GetAdaptationSets().at(audioAdaptationSetIndex);
+	}
+	if (audioAdaptationSet)
+	{
+		std::string lang = GetLanguageForAdaptationSet(audioAdaptationSet);
+		if (desiredRepIdx != -1)
+		{
+			audioRepresentationIndex = desiredRepIdx;
+			mAudioType = selectedCodecType;
+		}
+		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: lang[%s] AudioType[%d]", lang.c_str(), selectedCodecType);
+	}
+	else
+	{
+		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Unable to get audioAdaptationSet.");
+	}
+	/* To solve a no audio issue - Force configure gst audio pipeline/playbin in the case of multi period
+	* multi audio codec available for current decoding language on stream. For example, first period has AAC: no EC3,
+	* so the player will choose AAC then start decoding, but in the forthcoming periods,
+	* if the stream has AAC and EC3 for the current decoding language then as per the EC3(default priority)
+	* the player will choose EC3 but the audio pipeline actually not configured in this case to affect this change.
+	*/
+	if (aamp->previousAudioType != selectedCodecType)
+	{
+		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: AudioType Changed %d -> %d", aamp->previousAudioType, selectedCodecType);
+		aamp->previousAudioType = selectedCodecType;
+		SetESChangeStatus();
+	}
+}
+
+/**
+ * @brief Stops the Audio Track Injection,Restarts once the audio track has been changed
+ */
+void StreamAbstractionAAMP_MPD::RefreshAudio()
+{
+	MediaStreamContext *track = mMediaStreamContext[eTRACK_AUDIO];
+
+	if (track && track->Enabled())
+	{
+		track->refreshAudio = true;
+		track->AbortWaitForCachedAndFreeFragment(true);
+		aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
+		aamp->mDisableRateCorrection = true;
+		if (aamp->IsLive() && !track->seamlessAudioSwitchInProgress)
+		{
+			track->AbortFragmentDownloaderWait();
+		}
+	}
+}
+
+/**
+ * @brief Updates the corresponding audio track params like fragment time, fragment duration, fragment.discriptor number
+ * fragment.discriptor time..etc, and also updates the corresponding urls.
+ */
+AAMPStatusType StreamAbstractionAAMP_MPD::UpdateAudioTrackInfo()
+{
+	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_AUDIO];
+
+	IPeriod *period = mCurrentPeriod;
+
+	if ((!pMediaStreamContext) || (!pMediaStreamContext->enabled))
+	{
+		AAMPLOG_WARN("pMediaStreamContext  is null");  //CID:82464,84186 - Null Returns
+		return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+	}
+
+	pMediaStreamContext->adaptationSet = period->GetAdaptationSets().at(pMediaStreamContext->adaptationSetIdx);
+	pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
+
+	if (pMediaStreamContext->representationIndex < pMediaStreamContext->adaptationSet->GetRepresentation().size())
+	{
+		pMediaStreamContext->representation = pMediaStreamContext->adaptationSet->GetRepresentation().at(pMediaStreamContext->representationIndex);
+	}
+	else
+	{
+		AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
+		aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
+		return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+	}
+
+	pMediaStreamContext->fragmentDescriptor.ClearMatchingBaseUrl();
+	pMediaStreamContext->fragmentDescriptor.AppendMatchingBaseUrl( &mpd->GetBaseUrls() );
+	pMediaStreamContext->fragmentDescriptor.AppendMatchingBaseUrl( &period->GetBaseURLs() );
+	pMediaStreamContext->fragmentDescriptor.AppendMatchingBaseUrl( &pMediaStreamContext->adaptationSet->GetBaseURLs() );
+	pMediaStreamContext->fragmentDescriptor.AppendMatchingBaseUrl( &pMediaStreamContext->representation->GetBaseURLs() );
+	pMediaStreamContext->fragmentIndex = 0;
+	pMediaStreamContext->fragmentRepeatCount = 0;
+	pMediaStreamContext->fragmentOffset = 0;
+	SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),pMediaStreamContext->adaptationSet->GetSegmentTemplate());
+	if( segmentTemplates.HasSegmentTemplate())
+	{
+		long int startNumber = segmentTemplates.GetStartNumber();
+		pMediaStreamContext->fragmentDescriptor.Number = startNumber;
+	}
+
+	pMediaStreamContext->fragmentTime = mPeriodStartTime;
+	pMediaStreamContext->periodStartOffset = pMediaStreamContext->fragmentTime;
+
+	AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d changed, updating fragmentTime to %lf fragmentDescriptor.Number %" PRIu64, eMEDIATYPE_AUDIO, pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number);
+	if (0 == pMediaStreamContext->fragmentDescriptor.Bandwidth || !aamp->IsTSBSupported())
+	{
+		pMediaStreamContext->fragmentDescriptor.Bandwidth = pMediaStreamContext->representation->GetBandwidth();
+	}
+	pMediaStreamContext->fragmentDescriptor.RepresentationID.assign(pMediaStreamContext->representation->GetId());
+	pMediaStreamContext->fragmentDescriptor.Time = 0;
+	pMediaStreamContext->eos = false;
+	pMediaStreamContext->mReachedFirstFragOnRewind = false;
+	/* Resetting the timeline Index values, otherwise it will reach the max timelines.size, so undetermined issue might cause*/
+	pMediaStreamContext->timeLineIndex = 0;
+	/*As the Init fragements download get happened only when the profile changed is true */
+	pMediaStreamContext->profileChanged = true;
+	return eAAMPSTATUS_OK;
+}
+/**
+ * @brief If Multiperiods exists then, this UpdateSeekPeriodOffset(), returns appropriate seek offset for skipping.
+ * If mCurrentPeriodIdx moves ahead than the offsetFromStart index, then no fragments need to be skipped so the
+ * offsetFromStart is updated as 0, otherwise the appropriate offsetFromStart returned for skipping in case if both exists
+ * in same period.
+ * @param[out] offsetFromStart offset in seconds to skip from beginning of the manifest
+ */
+void StreamAbstractionAAMP_MPD::UpdateSeekPeriodOffset( double &offsetFromStart )
+{
+	AAMPStatusType retval = eAAMPSTATUS_OK;
+	int currentSeekPeriodIdx = 0;
+	std::string tempString;
+	if (mpd == NULL || mMPDParseHelper == NULL)
+	{
+		AAMPLOG_WARN("Manifest is null mpd[%p] mMPDParseHelper[%p]", (void*)mpd, static_cast<AampMPDParseHelper*>(mMPDParseHelper.get()));
+		return;
+	}
+	uint64_t nextPeriodStart = 0;
+	double currentPeriodStart = 0;
+	double prevPeriodEndMs = 0; // used to find gaps between periods
+	int numPeriods = (int)mMPDParseHelper->GetNumberOfPeriods();
+	bool seekPeriods = true;
+
+	for (unsigned iPeriod = 0; iPeriod < numPeriods; iPeriod++)
+	{
+		IPeriod *period = mpd->GetPeriods().at(iPeriod);
+		if(mMPDParseHelper->IsEmptyPeriod(iPeriod, (rate != AAMP_NORMAL_PLAY_RATE)))
+		{
+			// Empty Period . Ignore processing, continue to next.
+			continue;
+		}
+		std::string tempString = period->GetDuration();
+		double  periodStartMs = 0;
+		double periodDurationMs = 0;
+		periodDurationMs =mMPDParseHelper->aamp_GetPeriodDuration(iPeriod, mLastPlaylistDownloadTimeMs);
+		
+		if(offsetFromStart >= 0 && seekPeriods)
+		{
+			tempString = period->GetStart();
+			if(!tempString.empty() && !aamp->IsUninterruptedTSB())
+			{
+				periodStartMs = ParseISO8601Duration( tempString.c_str() );
+			}
+			else if (periodDurationMs)
+			{
+				periodStartMs = nextPeriodStart;
+			}
+
+			if(aamp->IsLiveStream() && !aamp->IsUninterruptedTSB() && iPeriod == 0)
+			{
+				// Adjust start time wrt presentation time offset.
+				if(!aamp->IsLive())
+				{
+					periodStartMs += aamp->culledSeconds;
+				}
+				else
+				{
+					periodStartMs += (mMPDParseHelper->aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(period) * 1000);
+				}
+			}
+
+			double periodStartSeconds = (double)periodStartMs/1000.0;
+			double periodDurationSeconds = (double)periodDurationMs / 1000.0;
+			if (periodDurationMs != 0)
+			{
+				double periodEnd = periodStartMs + periodDurationMs;
+				nextPeriodStart += periodDurationMs; // set the value here, nextPeriodStart is used below to identify "Multi period assets with no period duration" if it is set to ZERO.
+
+				// check for gaps between periods
+				if(prevPeriodEndMs > 0)
+				{
+					double periodGap = (periodStartMs - prevPeriodEndMs)/ 1000; // current period start - prev period end will give us GAP between period
+					if(std::abs(periodGap) > 0 ) // ohh we have GAP between last and current period
+					{
+						offsetFromStart -= periodGap; // adjust offset to accomodate gap
+						if(offsetFromStart < 0 ) // this means offset is between gap, set to start of currentPeriod
+						{
+							offsetFromStart = 0;
+						}
+						AAMPLOG_WARN("GAP betwen period found :GAP:%f currentSeekPeriodIdx %d currentPeriodStart %f offsetFromStart %f",
+								periodGap, currentSeekPeriodIdx, periodStartSeconds, offsetFromStart);
+					}
+				}
+				prevPeriodEndMs = periodEnd; // store for future use
+				currentPeriodStart = periodStartSeconds;
+				currentSeekPeriodIdx = iPeriod;
+				if (periodDurationSeconds <= offsetFromStart && iPeriod < (numPeriods - 1))
+				{
+					offsetFromStart -= periodDurationSeconds;
+					AAMPLOG_WARN("Skipping period %d seekPosition %f periodEnd %f offsetFromStart %f", iPeriod, seekPosition, periodEnd, offsetFromStart);
+					continue;
+				}
+				else
+				{
+					seekPeriods = false;
+				}
+			}
+			else if(periodStartSeconds <= offsetFromStart)
+			{
+				currentSeekPeriodIdx = iPeriod;
+				currentPeriodStart = periodStartSeconds;
+			}
+		}
+	}
+	if( offsetFromStart < 0 )
+	{
+		offsetFromStart = 0;
+	}
+	if( currentSeekPeriodIdx < mCurrentPeriodIdx )
+	{
+		//No need to do any skip, just updating the period details alone, and make the offsetFromStart(seekposition) to 0
+		AAMPLOG_INFO("Skip not required, as mCurrentPeriodIdx[%u] moved ahead of currentSeekPeriodIdx[%u]", mCurrentPeriodIdx, currentSeekPeriodIdx);
+		offsetFromStart = 0;
+	}
+}
+
+/**
+ * @brief  For computing the current fragment duration.
+ * @param  MediaStreamContext
+ * @return current duration value
+ */
+uint32_t StreamAbstractionAAMP_MPD::GetCurrentFragmentDuration( MediaStreamContext *pMediaStreamContext )
+{
+	uint32_t duration = 0;
+	if (!pMediaStreamContext)
+	{
+		AAMPLOG_WARN("pMediaStreamContext is null");
+		return duration;
+	}
+	SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),
+			pMediaStreamContext->adaptationSet->GetSegmentTemplate() );
+	if (segmentTemplates.HasSegmentTemplate())
+	{
+		AAMPLOG_INFO("Enter : Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentTime %f segNumber %" PRIu64 " Ftime:%f" ,pMediaStreamContext->type,
+				pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number,pMediaStreamContext->fragmentDescriptor.Time);
+
+		const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
+
+		if (NULL != segmentTimeline)
+		{
+			std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
+			if (pMediaStreamContext->timeLineIndex >= timelines.size() || pMediaStreamContext->timeLineIndex < 0)
+			{
+				AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
+				pMediaStreamContext->eos = true;
+				return 0;
+			}
+			else
+			{
+				ITimeline *timeline = timelines.at(pMediaStreamContext->timeLineIndex);
+				duration = timeline->GetDuration();
+			}
+		}
+	}
+	return duration;
+}
+
+/**
+ * @brief Switch to the corresponding audio track, Load new audio, flush the old audio fragments,
+ * select the new audio track, set the new audio info, update the new audio track, then skip to the appropriate
+ * path to download.
+ */
+void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
+{
+	std::vector<AudioTrackInfo> aTracks;
+	std::string aTrackIdx;
+	int audioRepresentationIndex = -1;
+	int audioAdaptationSetIndex = -1;
+	IPeriod *period = mCurrentPeriod;
+	size_t numAdaptationSets = period->GetAdaptationSets().size();
+	int  selAdaptationSetIndex = -1;
+	int selRepresentationIndex = -1;
+	AAMPStatusType ret = eAAMPSTATUS_OK;
+	uint64_t oldMediaSequenceNumber = 0;
+	uint32_t fragmentDuration = 0;
+	double   oldPlaylistPosition,diffInFetchedDuration,diffInInjectedDuration,newInjectedPosition;
+	int diffFragmentsDownloaded = 0;
+	double offsetFromStart;
+
+	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_AUDIO];
+	if ((!pMediaStreamContext) || (!pMediaStreamContext->enabled))
+	{
+		AAMPLOG_WARN("pMediaStreamContext  is null");
+		pMediaStreamContext->NotifyCachedAudioFragmentAvailable();
+		return;
+	}
+	pMediaStreamContext->LoadNewAudio(true);
+	/* Flush Audio Fragments */
+	pMediaStreamContext->FlushFragments();
+	/* Switching to selected Audio Track */
+	SelectAudioTrack(aTracks,aTrackIdx,audioAdaptationSetIndex,audioRepresentationIndex);
+
+	selAdaptationSetIndex = audioAdaptationSetIndex;
+	selRepresentationIndex = audioRepresentationIndex;
+	aTrackIdx = std::to_string(selAdaptationSetIndex) + "-" + std::to_string(selRepresentationIndex);
+	if (selAdaptationSetIndex >= 0)
+	{
+		pMediaStreamContext->adaptationSetIdx = selAdaptationSetIndex;
+	}
+	else
+	{
+		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No valid adaptation set found for Media[%s]",
+				GetMediaTypeName(AampMediaType(eMEDIATYPE_AUDIO)));
+	}
+	if (selRepresentationIndex >= 0)
+	{
+		pMediaStreamContext->representationIndex = selRepresentationIndex;
+	}
+	else
+	{
+		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No valid RepresentationIndex found for Media[%s]",
+				GetMediaTypeName(AampMediaType(eMEDIATYPE_AUDIO)));
+	}
+	// Skip processing content protection for multi video, since the right adaptation will be selected only after ABR
+	// This might cause an unwanted content prot to be queued and delay playback start
+	if ( !mMultiVideoAdaptationPresent)
+	{
+		AAMPLOG_WARN("Queueing content protection from StreamSelection for type:%d", eMEDIATYPE_AUDIO);
+		QueueContentProtection(period, selAdaptationSetIndex, (AampMediaType)eMEDIATYPE_AUDIO);
+	}
+	AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] Adaptation set[%d] RepIdx[%d] TrackCnt[%d]",
+			GetMediaTypeName(AampMediaType(eMEDIATYPE_AUDIO)),selAdaptationSetIndex,selRepresentationIndex,(mNumberOfTracks+1) );
+
+	AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Media[%s] %s",
+			GetMediaTypeName(AampMediaType(eMEDIATYPE_AUDIO)), pMediaStreamContext->enabled?"enabled":"disabled");
+
+	// Set audio/text track related structures
+	SetAudioTrackInfo(mAudioTracks, aTrackIdx);
+	/**< for Traiging Log selected track informations **/
+	printSelectedTrack(aTrackIdx, eMEDIATYPE_AUDIO);
+	std::vector<BitsPerSecond> bitratelist;
+
+	for (auto &audioTrack : mAudioTracks)
+	{
+		if (audioTrack.index == aTrackIdx)
+		{
+			pMediaStreamContext->SetCurrentBandWidth((int)audioTrack.bandwidth);
+		}
+	}
+	if( pMediaStreamContext->freshManifest )
+	{
+		/*In Live scenario, the manifest refresh got happened frequently,so in the UpdateTrackinfo(), all the params
+		* get reset lets say.., pMediaStreamContext->fragmentDescriptor.Number, fragmentTime.., so during that case, we are getting
+		* totalfetchDuration, totalInjectedDuration as negative values once we subract the OldPlaylistpositions with the Newlaylistpositions, for avoiding 
+		* this in the case if the manifest got updated, we have called the PushNextFragment(), for the proper updations of the params like
+		* pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number and pMediaStreamContext->fragmentDescriptor.Time
+		*/
+		AAMPLOG_INFO("Manifest got updated[%u]",pMediaStreamContext->freshManifest);
+		PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<AampMediaType>(eMEDIATYPE_AUDIO)));
+	}
+	/* Caching the oldPlaylistPosition and oldMediaSequenceNumber */
+	oldPlaylistPosition = pMediaStreamContext->fragmentTime;
+	oldMediaSequenceNumber = pMediaStreamContext->fragmentDescriptor.Number;
+
+	/* Getting Gstreamer Play position */
+	offsetFromStart = aamp->GetPositionSeconds() - aamp->culledSeconds;
+	AAMPLOG_INFO( "Playlist pos offsetFromStart[%lf] culledSeconds[%lf]",offsetFromStart,aamp->culledSeconds );
+
+	UpdateSeekPeriodOffset(offsetFromStart);
+	AAMPLOG_INFO( "Updated pos offsetFromStart[%lf] culledSeconds[%lf]",offsetFromStart,aamp->culledSeconds );
+
+	/*Updating audio Tracks info*/
+	ret = UpdateAudioTrackInfo();
+	if (ret != eAAMPSTATUS_OK)
+	{
+		pMediaStreamContext->NotifyCachedAudioFragmentAvailable();
+		return;
+	}
+	/* Skiping the old fragments and moving to the corresponding Audio playlist position 
+	 * for fetching and injecting during seamless audio switch.
+	 * Skiping the audio fragments to reach the current position for fetching 
+	 */
+	SkipFragments(pMediaStreamContext, offsetFromStart, true);
+	/* Getting current fragment duration, for calculating the injected duration timestamp, because the current injected time
+	 * calculation requires the start time of the fragment which is downloaded, so subracting the fragment duration for indentifying
+	 * the starttime of the downloaded fragment.
+	 */
+	fragmentDuration = GetCurrentFragmentDuration( pMediaStreamContext );
+
+	/* In the case, If the Skiptime is 0, In the Skipfragment the lastsegment related params were not updated.,
+	* due to the cond (pMediaStreamContext->fragmentDescriptor.Time<pMediaStreamContext->lastSegmentTime),in the PushNextFragment()
+	* loops untill the Fdt time reaches the last segment time and the wrong Audio fragment gets Pushed, so reseting all the 
+	* lastsegment related params here...
+	*/
+	pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time - fragmentDuration;
+    pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time;
+    pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number - 1;
+
+
+
+	/* Calculating the start time of the downloaded fragment */
+	newInjectedPosition = ( pMediaStreamContext->fragmentDescriptor.Time - fragmentDuration )/pMediaStreamContext->fragmentDescriptor.TimeScale;
+
+	/*Calulating the difference in Fetched duration, injected duration and diff in Media Sequence number */
+	diffInFetchedDuration = oldPlaylistPosition - pMediaStreamContext->fragmentTime; 
+	diffInInjectedDuration = ( pMediaStreamContext->GetLastInjectedPosition() - newInjectedPosition );
+	diffFragmentsDownloaded = oldMediaSequenceNumber - pMediaStreamContext->fragmentDescriptor.Number;
+
+	AAMPLOG_INFO("Calculated diffInFetchedDuration[%lf] diffFragmentsDownloaded[%u] diffInInjectedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], newInjectedPosition[%lf]",
+			diffInFetchedDuration,diffFragmentsDownloaded, diffInInjectedDuration, pMediaStreamContext->GetLastInjectedPosition(), fragmentDuration, newInjectedPosition );
+
+	pMediaStreamContext->resetAbort(false);
+	pMediaStreamContext->OffsetTrackParams(diffInFetchedDuration, diffInInjectedDuration, diffFragmentsDownloaded);
+	/*Fetch and injecting initialization params*/
+	FetchAndInjectInitialization(eMEDIATYPE_AUDIO, false);
+}
+
+/**
  * @brief Does stream selection
  */
 void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsChangedEvent)
@@ -6159,11 +6617,9 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	std::string tTrackIdx;
 	mNumberOfTracks = 0;
 	IPeriod *period = mCurrentPeriod;
-	AudioType selectedCodecType = eAUDIO_UNKNOWN;
 	int audioRepresentationIndex = -1;
 	int desiredRepIdx = -1;
 	int audioAdaptationSetIndex = -1;
-	bool disableAC4 = ISCONFIGSET(eAAMPConfig_DisableAC4);
 
 	if(!period)
 	{
@@ -6180,36 +6636,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 
 	if (rate == AAMP_NORMAL_PLAY_RATE)
 	{
-		/** Time being preselection based track selection only did for ac4 tracks **/
-		if (!disableAC4) 
-		{
-			std::vector<AudioTrackInfo> ac4Tracks;
-			ParseAvailablePreselections(period, ac4Tracks);
-			aTracks.insert(aTracks.end(), ac4Tracks.begin(), ac4Tracks.end());
-		}
-		audioAdaptationSetIndex = GetBestAudioTrackByLanguage(desiredRepIdx,selectedCodecType, aTracks, aTrackIdx);
-		IAdaptationSet *audioAdaptationSet = NULL;
-		if ( audioAdaptationSetIndex >= 0 )
-		{
-			audioAdaptationSet = period->GetAdaptationSets().at(audioAdaptationSetIndex);
-		}
-		
-		if( audioAdaptationSet )
-		{
-			std::string lang = GetLanguageForAdaptationSet(audioAdaptationSet);
-			// aamp->UpdateAudioLanguageSelection( lang.c_str(), true);
-			if(desiredRepIdx != -1 )
-			{
-				audioRepresentationIndex = desiredRepIdx;
-				mAudioType = selectedCodecType;
-			}
-			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: lang[%s] AudioType[%d]", lang.c_str(), selectedCodecType);
-		}
-		else
-		{
-			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Unable to get audioAdaptationSet.");
-		}
-
+		SelectAudioTrack(aTracks,aTrackIdx,audioAdaptationSetIndex,audioRepresentationIndex);
 		GetBestTextTrackByLanguage(preferredTextTrack);
 	}
 
@@ -6431,19 +6858,6 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 			pMediaStreamContext->representationIndex = selRepresentationIndex;
 			pMediaStreamContext->profileChanged = true;
 			
-			/* To solve a no audio issue - Force configure gst audio pipeline/playbin in the case of multi period
-				* multi audio codec available for current decoding language on stream. For example, first period has AAC no EC3,
-				* so the player will choose AAC then start decoding, but in the forthcoming periods,
-				* if the stream has AAC and EC3 for the current decoding language then as per the EC3(default priority)
-				* the player will choose EC3 but the audio pipeline actually not configured in this case to affect this change.
-				*/
-			if ( aamp->previousAudioType != selectedCodecType && eMEDIATYPE_AUDIO == i )
-			{
-				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: AudioType Changed %d -> %d",
-						aamp->previousAudioType, selectedCodecType);
-				aamp->previousAudioType = selectedCodecType;
-				SetESChangeStatus();
-			}
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] Adaptation set[%d] RepIdx[%d] TrackCnt[%d]",
 				GetMediaTypeName(AampMediaType(i)),selAdaptationSetIndex,selRepresentationIndex,(mNumberOfTracks+1) );
 
@@ -8692,6 +9106,12 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						// CDVR moved from "dynamic" to "static"
 						playlistDownloaderContext->StopPlaylistDownloaderThread();
 						playlistDownloaderThreadStarted = false;
+					}
+					/* Calling the Refresh audio track, in order to switch to the newly selected Audio Track */
+					if( mMediaStreamContext[eTRACK_AUDIO]->refreshAudio )
+					{
+						SwitchAudioTrack();
+						mMediaStreamContext[eTRACK_AUDIO]->refreshAudio = false;
 					}
 					std::thread *parallelDownload[AAMP_TRACK_COUNT] = { nullptr };
 					for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
