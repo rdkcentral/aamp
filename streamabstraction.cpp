@@ -294,7 +294,22 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowab
                      fpts, fdts, fDuration, init, discontinuity);
 
 } // InjectFragmentChunkInternal
-
+/**
+ * @brief  To flush the Audio position even if the MediaProcessor is not not enabled.
+ */
+void  MediaTrack::FlushAudioPositionDuringTrackSwitch(  CachedFragment* cachedFragment )
+{
+	IsoBmffBuffer buffer(mLogObj);	
+	buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen());
+	buffer.parseBuffer();
+	uint64_t currentPTS = 0;
+	if(buffer.getFirstPTS(currentPTS))
+	{
+		double pos = (double)currentPTS / (double)aamp->GetAudTimeScale();
+		aamp->FlushAudio(pos);
+		AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u",currentPTS,aamp->GetAudTimeScale());
+	}
+}
 /**
  *  @brief Updates internal state after a fragment fetch
  */
@@ -356,6 +371,11 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 		if(playContext)
 		{
 			playContext->resetPTSOnAudioSwitch(&cachedFragment->fragment, cachedFragment->position);
+		}
+		else
+		{
+			//Enters this case, when the Mediaprocessor is not enabled
+			FlushAudioPositionDuringTrackSwitch( cachedFragment );
 		}
 		aamp->ResumeTrackInjection((AampMediaType)eMEDIATYPE_AUDIO);
 		NotifyCachedAudioFragmentAvailable();
@@ -1694,7 +1714,7 @@ void MediaTrack::FlushFragments()
 	fragmentIdxToInject = 0;
 	fragmentIdxToFetch = 0;
 	numberOfFragmentsCached = 0;
-	if(!seamlessAudioSwitchInProgress)
+	if(!loadNewAudio)
 	{
 		totalFetchedDuration = 0;
 		totalFragmentsDownloaded = 0;

@@ -1187,6 +1187,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, preferredTextLabelString("")
 	, preferredTextAccessibilityNode()
 	, preferredInstreamIdString("")
+	, preferredTextNameString("")
 	, preferredNameString("")
 	, mProgressReportOffset(-1), mFirstFragmentTimeOffset(-1), mProgressReportAvailabilityOffset(-1)
 	, mAutoResumeTaskId(AAMP_TASK_ID_INVALID), mAutoResumeTaskPending(false), mScheduler(NULL), mEventLock(), mEventPriority(G_PRIORITY_DEFAULT_IDLE)
@@ -11522,7 +11523,6 @@ void PrivateInstanceAAMP::ResetDiscontinuityInTracks()
  */
 void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char *codecList, const char *labelList, const Accessibility *accessibilityItem, const char *preferredName)
 {
-
 	/**< First argment is Json data then parse it and and assign the variables properly*/
 	AampJsonObject* jsObject = NULL;
 	bool isJson = false;
@@ -12061,7 +12061,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 					mLanguageChangeInProgress = true;
 					AcquireStreamLock();
-					if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && mMediaFormat == eMEDIAFORMAT_HLS_MP4 && !codecChange)
+					if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || eMEDIAFORMAT_DASH )  && !codecChange)
 					{
 						AAMPLOG_WARN("Seamless audio switch has been enabled");
 						mTuneType = eTUNETYPE_SEEK;
@@ -12106,7 +12106,6 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
  */
 void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 {
-
 	/**< First argment is Json data then parse it and and assign the variables properly*/
 	AampJsonObject* jsObject = NULL;
 	bool isJson = false;
@@ -12215,6 +12214,15 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			}
 		}
 
+		std::string inputTextNameString;
+		if (jsObject->isString("name"))
+		{
+			if (jsObject->get("name", inputTextNameString))
+			{
+				AAMPLOG_INFO("Preferred name string: %s", inputTextNameString.c_str());
+			}
+		}
+
 		Accessibility  inputTextAccessibilityNode;
 		/** Get accessibility Properties*/
 		if (jsObject->isObject("accessibility"))
@@ -12246,13 +12254,13 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 
 		/**< Release json object **/
 		SAFE_DELETE(jsObject);
-
 		preferredTextLanguagesList.clear();
 		preferredTextLanguagesString.clear();
 		preferredTextRenditionString.clear();
 		preferredTextAccessibilityNode.clear();
 		preferredTextLabelString.clear();
 		preferredInstreamIdString.clear();
+		preferredTextNameString.clear();
 
 		preferredTextLanguagesList = inputTextLanguagesList;
 		preferredTextLanguagesString = inputTextLanguagesString;
@@ -12261,6 +12269,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 		preferredTextLabelString = inputTextLabelString;
 		preferredTextTypeString = inputTextTypeString;
 		preferredInstreamIdString = inputInstreamIdString;
+		preferredTextNameString = inputTextNameString;
 
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLanguage,preferredTextLanguagesString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextRendition,preferredTextRenditionString);
@@ -12296,10 +12305,13 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			bool labelPresent = false;
 			bool instreamIdPresent = false;
 			int trackIndex = GetTextTrack();
+			bool namePresent = false;
+
 			bool languageAvailabilityInManifest = false;
 			bool renditionAvailabilityInManifest = false;
 			bool accessibilityAvailabilityInManifest = false;
 			bool labelAvailabilityInManifest = false;
+			bool nameAvailabilityInManifest = false;
 			bool trackNotEnabled = false;
 
 			if (trackIndex >= 0)
@@ -12308,6 +12320,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				char *currentPrefLanguage = const_cast<char*>(trackInfo[trackIndex].language.c_str());
 				char *currentPrefRendition = const_cast<char*>(trackInfo[trackIndex].rendition.c_str());
 				char *currentPrefInstreamId =  const_cast<char*>(trackInfo[trackIndex].instreamId.c_str());
+				char *currentPrefName = const_cast<char*>(trackInfo[trackIndex].name.c_str());
 
 				// Logic to check whether the given language is present in the available tracks,
 				// if available, it should not match with current preferredLanguagesString, then call tune to reflect the language change.
@@ -12368,6 +12381,26 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 								{ return ((temp.instreamId == curInstreamId) && (temp.instreamId != currentPrefInstreamId)); });
 					instreamIdPresent = (instreamId != end(trackInfo));
 				}
+				// Logic to check whether the given name is present in the available tracks,
+				// if available, it should not match with current preferredTextNameString, then call tune to reflect the name change.
+				// if not available, then avoid calling tune.
+				if(!preferredTextNameString.empty())
+				{
+					// CID:280501 - Using invalid iterator
+					for (auto &temp : trackInfo)
+					{
+						if ((temp.name == preferredTextNameString) && (temp.name != currentPrefName))
+						{
+							namePresent = true;
+							if (temp.isAvailable)
+							{
+								nameAvailabilityInManifest = true;
+								break;
+							}
+						}
+					}
+				}
+
 			}
 			else
 			{
@@ -12379,7 +12412,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			{
 				/**< Avoid retuning in case of HEMIIN and COMPOSITE IN*/
 			}
-			else if (languagePresent || renditionPresent || accessibilityPresent || instreamIdPresent || trackNotEnabled) /**< call the tune only if there is a change in the language, rendition or accessibility.*/
+			else if (languagePresent || renditionPresent || accessibilityPresent || trackNotEnabled || instreamIdPresent || namePresent) /**< call the tune only if there is a change in the language, rendition or accessibility.*/
 			{
 				discardEnteringLiveEvt = true;
 				seek_pos_seconds = GetPositionSeconds();
@@ -12391,11 +12424,11 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				 ((languagePresent && !languageAvailabilityInManifest) ||
 				 (renditionPresent && !renditionAvailabilityInManifest) ||
 				 (accessibilityTypePresent && !accessibilityAvailabilityInManifest) ||
-				 (labelPresent && !labelAvailabilityInManifest)))
+				 (labelPresent && !labelAvailabilityInManifest) ||
+				 (namePresent && !nameAvailabilityInManifest)))
 				{
 					ReloadTSB();
 				}
-
 				TuneHelper(eTUNETYPE_SEEK);
 				discardEnteringLiveEvt = false;
 				ReleaseStreamLock();

@@ -491,6 +491,56 @@ public:
 	 */
 	double GetAvailabilityStartTime() override;
 
+	/**
+	 * @brief Selects the audio track based on the available audio tracks and updates the desired representation index.
+	 *
+	 * This function selects the audio track from the given vector of AC4 audio tracks based on audio track selection logic
+	 * It also updates the audioAdaptationSetIndex and audioRepresentationIndex variables accordingly.
+	 *
+	 * @param[in] aTracks The vector of available audio tracks. These are the parsed ac4 tracks
+	 * @param[out] aTrackIdx The selected audio track index.
+	 * @param[out] audioAdaptationSetIndex The index of the selected audio adaptation set.
+	 * @param[out] audioRepresentationIndex The index of the selected audio representation.
+	 */
+	void SelectAudioTrack(std::vector<AudioTrackInfo> &aTracks, std::string &aTrackIdx, int &audioAdaptationSetIndex, int &audioRepresentationIndex);
+
+	/***************************************************************************
+	* @fn RefreshAudio
+	*
+	* @return void
+	***************************************************************************/
+	void RefreshAudio() override;
+
+	/***************************************************************************
+	 * @fn SwitchAudioTrack
+	 *
+	 * @return void
+	 ***************************************************************************/
+	void SwitchAudioTrack();
+
+	/***************************************************************************
+	 * @fn UpdateAudioTrackInfo
+	 *
+	 * @return AAMPStatusType
+	 ***************************************************************************/
+	AAMPStatusType UpdateAudioTrackInfo();
+
+	/***************************************************************************
+	 * @fn GetCurrentFragmentDuration
+	 *
+	 * @return uint32_t
+	 ***************************************************************************/
+	uint32_t GetCurrentFragmentDuration( MediaStreamContext *pMediaStreamContext );
+
+	/***************************************************************************
+	 * @fn UpdateSeekPeriodOffset
+	 *
+	 * @return void
+	 ***************************************************************************/
+	void UpdateSeekPeriodOffset( double &offsetFromStart );
+
+
+
 protected:
 	/**
 	 * @fn printSelectedTrack

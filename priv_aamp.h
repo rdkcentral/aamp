@@ -989,6 +989,7 @@ public:
 	std::string preferredCodecString; 			/**< unparsed string with preferred codecs in format "codec1,codec2,.." */
 	std::vector<std::string> preferredCodecList;            /**<String array to store codec preference */
 	std::string preferredNameString;			/**< unparsed string with preferred name of track */
+	std::string preferredTextNameString; 		/**< unparsed string with preferred name of text track */
 	std::string preferredTextLanguagesString; 		/**< unparsed string with preferred languages in format "lang1,lang2,.." */
 	std::vector<std::string> preferredTextLanguagesList;	/**< list of preferred text languages from most-preferred to the least*/
 	std::string preferredTextRenditionString; 		/**< String value for rendition */
