@@ -35,10 +35,14 @@
 #include "MockAampGstPlayer.h"
 #include "MockStreamAbstractionAAMP.h"
 #include "MockAampStreamSinkManager.h"
+#include "MockAampEventManager.h"
+#include "MockAampDRMSessionManager.h"
+#include "MockAampConfig.h"
 #include "fragmentcollector_mpd.h"
 
 using ::testing::NiceMock;
 using ::testing::Return;
+using ::testing::_;
 
 AampLogManager *mLogObj{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
@@ -58,22 +62,34 @@ class PrivAampTests : public ::testing::Test
 		mLogObj = new AampLogManager();
 		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(p_aamp);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
+		g_mockAampEventManager = new NiceMock<MockAampEventManager>();
+		g_mockAampDRMSessionManager = new NiceMock<MockAampDRMSessionManager>();
+		g_mockAampConfig = new NiceMock<MockAampConfig>();
 	}
 
 	void TearDown() override
 	{
+		delete g_mockAampConfig;
+		g_mockAampConfig = nullptr;
+
+		delete g_mockAampDRMSessionManager;
+		g_mockAampDRMSessionManager = nullptr;
+
+		delete g_mockAampEventManager;
+		g_mockAampEventManager = nullptr;
+
         delete g_mockAampStreamSinkManager;
         g_mockAampStreamSinkManager = nullptr;
-        
+
         delete g_mockAampGstPlayer;
         g_mockAampGstPlayer = nullptr;
-        
+
         delete mLogObj;
         mLogObj = nullptr;
-        
+
         delete p_aamp;
         p_aamp = nullptr;
-        
+
 		delete config;
 		config = nullptr;
 
@@ -160,7 +176,7 @@ public:
 	{
 		bool mFirstVideoFrameDisplayedEnabled = false;
 		SetState(eSTATE_SEEKING);
-		NotifyFirstBufferProcessed();
+		NotifyFirstBufferProcessed(std::string());
 	}
 	void CallNotifyFirstVideoFrameDisplayed()
 	{
@@ -257,7 +273,7 @@ public:
     {
         return mCustomLicenseHeaders;
     }
-        
+
 };
     TestablePrivAamp *testp_aamp{nullptr};
 };
@@ -444,43 +460,43 @@ TEST_F(PrivAampPrivTests,RemoveCustomHTTPHeaderTest)
     headerValue.push_back("sample:text");
     headerValue.push_back("");
     headerValue.push_back("sampletext&&&&S&&&&&&&&&&&&&&&&&&*&&&&&&&&&&&&&&&&&&&&&&&@$#^^^^^^^^^^^^^^^^^^^^^^^");
- 
+
     std::unordered_map<std::string, std::vector<std::string>> result;
-    
+
     // Check is in License, but not Custom header
     testp_aamp->AddCustomHTTPHeader("string:",headerValue,true);
-    
+
     result = testp_aamp->GetCustomHeaders();
     EXPECT_TRUE (result.find("string:") == result.end());
-    
+
     result = testp_aamp->GetCustomLicenseHeaders();
     EXPECT_FALSE (result.find("string:") == result.end());
-    
+
     testp_aamp->AddCustomHTTPHeader("string:",headerValue,false);
-    
+
     // See if present in both now
     result = testp_aamp->GetCustomHeaders();
     EXPECT_FALSE (result.find("string:") == result.end());
-    
+
     result = testp_aamp->GetCustomLicenseHeaders();
     EXPECT_FALSE (result.find("string:") == result.end());
-    
+
     // Now remove it from License
     headerValue.clear();
     testp_aamp->AddCustomHTTPHeader("string:",headerValue,true);
-    
+
     result = testp_aamp->GetCustomHeaders();
     EXPECT_FALSE (result.find("string:") == result.end());
-    
+
     result = testp_aamp->GetCustomLicenseHeaders();
     EXPECT_TRUE (result.find("string:") == result.end());
-   
+
     // Remove from Custom
     testp_aamp->AddCustomHTTPHeader("string:",headerValue,false);
-    
+
     result = testp_aamp->GetCustomHeaders();
     EXPECT_TRUE (result.find("string:") == result.end());
-    
+
     result = testp_aamp->GetCustomLicenseHeaders();
     EXPECT_TRUE (result.find("string:") == result.end());
 }
@@ -1512,9 +1528,9 @@ TEST_F(PrivAampTests, TuneTest_1)
 
 TEST_F(PrivAampTests, GetLangCodePreferenceTest)
 {
-	int langCodePreference = p_aamp->GetLangCodePreference();
-	EXPECT_NE(105,langCodePreference);
-	EXPECT_EQ(-1,(LangCodePreference)langCodePreference);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LanguageCodePreference))
+        .WillOnce(Return(ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE));
+	ASSERT_EQ(p_aamp->GetLangCodePreference(), ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE);
 }
 
 TEST_F(PrivAampTests, GetMediaFormatTypeTest)
@@ -1963,7 +1979,7 @@ TEST_F(PrivAampTests,SaveTimedMetadateTest)
 {
 	const char *szContent = "savemetadatacontent";
 	int nb = (int)strlen(szContent);
-	
+
     p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@",szContent, nb );
     p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@",szContent, nb,NULL,10);
     p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@",szContent, nb,NULL,0);
@@ -2017,27 +2033,45 @@ TEST_F(PrivAampTests,ReportContentGapTest)
 	p_aamp->ReportContentGap(-10987610,"sample",10.0388755555555);
 }
 
-TEST_F(PrivAampTests,InitializeCCTest)
+MATCHER_P2(OfTypeWithCCHandle, type, handle, "")
 {
-	p_aamp->InitializeCC();
+	return (type == arg->getType()) &&
+		   (handle == dynamic_pointer_cast<CCHandleEvent>(arg)->getCCHandle());
 }
 
-TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest)
+TEST_F(PrivAampTests, InitializeCCTest)
 {
-	p_aamp->NotifyFirstFrameReceived();
+	// Must not call StreamSinkManager due to risk of deadlock taking the StreamSink mutex.
+	// This applies because InitializeCC is currently called on a GStreamer thread.
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).Times(0);
+
+	EXPECT_CALL(*g_mockAampEventManager,
+				SendEvent(OfTypeWithCCHandle(AAMP_EVENT_CC_HANDLE_RECEIVED, 999), _));
+	p_aamp->InitializeCC(999);
+}
+
+TEST_F(PrivAampTests, NotifyFirstFrameReceivedTest)
+{
+	// Must not call StreamSinkManager due to risk of deadlock taking the StreamSink mutex.
+	// This applies because NotifyFirstFrameReceived is currently called on a GStreamer thread.
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).Times(0);
+
+	EXPECT_CALL(*g_mockAampEventManager,
+				SendEvent(OfTypeWithCCHandle(AAMP_EVENT_CC_HANDLE_RECEIVED, 999), _));
+	p_aamp->NotifyFirstFrameReceived(999);
 }
 
 TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_1)
 {
 	p_aamp->SetState(eSTATE_IDLE);
-	p_aamp->NotifyFirstFrameReceived();
+	p_aamp->NotifyFirstFrameReceived(0);
 }
 
 TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_2)
 {
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, false);
-	p_aamp->NotifyFirstFrameReceived();
+	p_aamp->NotifyFirstFrameReceived(0);
 
 	PrivAAMPState state;
 	p_aamp->GetState(state);
@@ -2050,7 +2084,7 @@ TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_3)
 
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, true);
-	p_aamp->NotifyFirstFrameReceived();
+	p_aamp->NotifyFirstFrameReceived(0);
 
 	PrivAAMPState state;
 	p_aamp->GetState(state);
@@ -2240,17 +2274,24 @@ TEST_F(PrivAampTests,AddCustomHTTPHeaderTest)
 TEST_F(PrivAampTests,UpdateLiveOffsetTest)
 {
 	p_aamp->SetContentType("EAS");
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_CDVRLiveOffset))
+		.WillOnce(Return(1.1));
 	p_aamp->UpdateLiveOffset();
-	EXPECT_NE(p_aamp->mLiveOffset,0);
+
+	ASSERT_EQ(p_aamp->mLiveOffset, 1.1);
 }
 
 TEST_F(PrivAampTests,UpdateLiveOffsetTest_1)
 {
 	p_aamp->SetContentType("SLE");
-	p_aamp->UpdateLiveOffset();
-	EXPECT_NE(p_aamp->mLiveOffset,0);
-}
 
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LiveOffset))
+		.WillOnce(Return(2.2));
+	p_aamp->UpdateLiveOffset();
+
+	ASSERT_EQ(p_aamp->mLiveOffset, 2.2);
+}
 
 TEST_F(PrivAampTests,SendStalledErrorEventTest)
 {
@@ -2265,9 +2306,26 @@ TEST_F(PrivAampTests,UpdateSubtitleTimestampTest)
 	p_aamp->PauseSubtitleParser(false);
 }
 
-TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest)
+TEST_F(PrivAampTests, NotifyFirstBufferProcessedTest)
 {
-	p_aamp->NotifyFirstBufferProcessed();
+	// Must not call StreamSinkManager due to risk of deadlock taking the StreamSink mutex.
+	// This applies because NotifyFirstBufferProcessed is currently called on a GStreamer thread.
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).Times(0);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampDRMSessionManager, setVideoWindowSize(1024, 768));
+	p_aamp->NotifyFirstBufferProcessed(std::string("0,0,1024,768"));
+}
+
+TEST_F(PrivAampTests, NotifyFirstBufferProcessedTest_VideoRectangleEmpty)
+{
+	// Must not call StreamSinkManager due to risk of deadlock taking the StreamSink mutex.
+	// This applies because NotifyFirstBufferProcessed is currently called on a GStreamer thread.
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).Times(0);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampDRMSessionManager, setVideoWindowSize(0, 0));
+	p_aamp->NotifyFirstBufferProcessed(std::string());
 }
 
 TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_1)
@@ -2380,8 +2438,9 @@ TEST_F(PrivAampTests,IsTuneCompletedTest)
 
 TEST_F(PrivAampTests,GetPreferredDRMTest)
 {
-	int drmType = p_aamp->GetPreferredDRM();
-	EXPECT_NE(drmType,0);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_PreferredDRM))
+        .WillOnce(Return(eDRM_WideVine));
+	ASSERT_EQ(p_aamp->GetPreferredDRM(), eDRM_WideVine);
 }
 
 TEST_F(PrivAampTests,FoundEventBreakTest)
@@ -3353,7 +3412,7 @@ TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest1)
 {
 	//covering if condition when state == eSTATE_IDLE
 	p_aamp->SetState(eSTATE_IDLE);
-	p_aamp->NotifyFirstBufferProcessed();
+	p_aamp->NotifyFirstBufferProcessed(std::string());
 }
 TEST_F(PrivAampPrivTests,NotifyFirstBufferProcessedTest2)
 {
