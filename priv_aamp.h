@@ -1300,6 +1300,13 @@ public:
 	void GetOnVideoEndSessionStatData(std::string &data);
 
 	/**
+	 * @fn MediaTypeString
+	 * @param[in] mediaType - Type of Media
+	 * @param[out] pointer to Media Type string
+	 */
+	static const char* MediaTypeString(AampMediaType mediaType);
+
+	/**
 	 * @fn LoadIDX
 	 *
 	 * @param[in] bucketType - Bucket type of the profiler

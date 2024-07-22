@@ -54,7 +54,7 @@ enum AampMediaType
 	eMEDIATYPE_PLAYLIST_IFRAME,     /**< Type Iframe playlist */
 	eMEDIATYPE_INIT_IFRAME,         /**< Type IFRAME init fragment */
 	eMEDIATYPE_DSM_CC,              /**< Type digital storage media command and control (DSM-CC) */
-	eMEDIATYPE_IMAGE,	        	/**< Type image for thumbnail playlist */
+	eMEDIATYPE_IMAGE,	        /**< Type image for thumbnail playlist */
 	eMEDIATYPE_DEFAULT              /**< Type unknown */
 };
 

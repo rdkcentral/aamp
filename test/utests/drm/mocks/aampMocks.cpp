@@ -942,6 +942,11 @@ bool PrivateInstanceAAMP::IsSinkCacheEmpty(AampMediaType mediaType)
 	return true;
 }
 
+const char *PrivateInstanceAAMP::MediaTypeString(AampMediaType fileType)
+{
+	return nullptr;
+}
+
 void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate,
 												   BitrateChangeReason reason, int width,
 												   int height, double frameRate, double position,

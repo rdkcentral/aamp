@@ -212,6 +212,12 @@
 #define SECMANGER_ACCTOKEN_EXPIRED 8
 #define SECMANGER_ENTITLEMENT_FAILURE 102
 
+#define MEDIATYPE_VIDEO "video"
+#define MEDIATYPE_AUDIO "audio"
+#define MEDIATYPE_TEXT "text"
+#define MEDIATYPE_AUX_AUDIO "aux-audio"
+#define MEDIATYPE_IMAGE "image"
+
 // weights used for autio/subtitle track-selection heuristic
 #define AAMP_LANGUAGE_SCORE 1000000000ULL  /**< Top priority:  matching language **/
 #define AAMP_SCHEME_ID_SCORE 100000000ULL  /**< 2nd priority to scheme id matching **/

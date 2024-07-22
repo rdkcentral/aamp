@@ -206,12 +206,13 @@ TEST_F(AampLogManagerTest, LogNetworkLatency_Test)
     int downloadTime = 10;
     int downloadThresholdTimeoutMs = 20;
     AampMediaType type = eMEDIATYPE_AUDIO;
+    std::string contentType = "cppfile";
 	std::string location = "folder";
 	std::string symptom = "testfile";
 
     //Act: Calling the function for test
     mLogObj->LogNetworkLatency(url,downloadTime,downloadThresholdTimeoutMs,type);
-    mLogObj->ParseContentUrl(url, location, symptom, type);
+    mLogObj->ParseContentUrl(url, contentType, location, symptom, type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"//httsurl");
@@ -229,6 +230,7 @@ TEST_F(AampLogManagerTest, LogNetworkError_Test1)
     AAMPNetworkErrorType errorType[] = {AAMPNetworkErrorNone,AAMPNetworkErrorHttp,AAMPNetworkErrorTimeout,AAMPNetworkErrorCurl};
     int errorCode = 20;
     AampMediaType type = eMEDIATYPE_AUDIO;
+    std::string contentType = "cppfile";
 	std::string location = "folder";
 	std::string symptom = "testfile";
 
@@ -237,7 +239,7 @@ TEST_F(AampLogManagerTest, LogNetworkError_Test1)
     {
         mLogObj->LogNetworkError(url,errorType[i],errorCode,type);
     }
-    mLogObj->ParseContentUrl(url, location, symptom, type);
+    mLogObj->ParseContentUrl(url, contentType, location, symptom, type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"//httsurl");
@@ -271,15 +273,17 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test1)
 {
     //Arrange: Creating the variables for passing to arguments
     const char* url = "//httsurl";
+    std::string contentType = "test1";
     std::string location = "test2";
     std::string symptom = "test3";
     AampMediaType type = eMEDIATYPE_AUDIO;
 
     //Act: Calling the function for test
-    mLogObj->ParseContentUrl(url,location,symptom,type);
+    mLogObj->ParseContentUrl(url,contentType,location,symptom,type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"//httsurl");
+    EXPECT_STREQ(contentType.c_str(),"AUDIO");
     EXPECT_STREQ(location.c_str(),"unknown");
     EXPECT_STREQ(symptom.c_str(),"audio drop or freeze/buffering");
 }
@@ -291,9 +295,10 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test2)
 {
     //Arrange: Creating the variables for passing to arguments
     const char* url = "//httsurl";
+    std::string contentType = "test1";
     std::string location = "test2";
     std::string symptom = "test3";
-    AampMediaType type[15] = {
+    AampMediaType type[20] = {
         eMEDIATYPE_VIDEO,
         eMEDIATYPE_AUDIO,
         eMEDIATYPE_SUBTITLE,
@@ -314,11 +319,12 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test2)
     //Act: Calling the function for test
     for(int i=0;i<15;i++)
     {
-        mLogObj->ParseContentUrl(url,location,symptom,type[i]);
+        mLogObj->ParseContentUrl(url,contentType,location,symptom,type[i]);
     }
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"//httsurl");
+    EXPECT_STREQ(contentType.c_str(),"PLAYLIST_AUX-AUDIO");
     EXPECT_STREQ(location.c_str(),"unknown");
     EXPECT_STREQ(symptom.c_str(),"unknown");
 }
@@ -330,15 +336,17 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test3)
 {
     //Arrange: Creating the variables for passing to arguments
     const char* url = "//httsurl";
+    std::string contentType = "test1";
     std::string location = "test2";
     std::string symptom = "test3";
     AampMediaType type = eMEDIATYPE_INIT_IFRAME;
 
     //Act: Calling the function for test
-    mLogObj->ParseContentUrl(url,location,symptom,type);
+    mLogObj->ParseContentUrl(url,contentType,location,symptom,type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"//httsurl");
+    EXPECT_STREQ(contentType.c_str(),"INIT_IFRAME");
     EXPECT_STREQ(location.c_str(),"unknown");
     EXPECT_STREQ(symptom.c_str(),"video fails to start");
 }
@@ -350,15 +358,17 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test4)
 {
     //Arrange: Creating the variables for passing to arguments
     const char* url = "//mm.";
+    std::string contentType = "test1";
     std::string location = "test2";
     std::string symptom = "test3";
     AampMediaType type = eMEDIATYPE_INIT_IFRAME;
 
     //Act: Calling the function for test
-    mLogObj->ParseContentUrl(url,location,symptom,type);
+    mLogObj->ParseContentUrl(url,contentType,location,symptom,type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"//mm.");
+    EXPECT_STREQ(contentType.c_str(),"INIT_IFRAME");
     EXPECT_STREQ(location.c_str(),"manifest manipulator");
     EXPECT_STREQ(symptom.c_str(),"video fails to start");
 }
@@ -370,15 +380,17 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test5)
 {
     //Arrange: Creating the variables for passing to arguments
     const char* url = "//odol";
+    std::string contentType = "test1";
     std::string location = "test2";
     std::string symptom = "test3";
     AampMediaType type = eMEDIATYPE_INIT_IFRAME;
 
     //Act: Calling the function for test
-    mLogObj->ParseContentUrl(url,location,symptom,type);
+    mLogObj->ParseContentUrl(url,contentType,location,symptom,type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"//odol");
+    EXPECT_STREQ(contentType.c_str(),"INIT_IFRAME");
     EXPECT_STREQ(location.c_str(),"edge cache");
     EXPECT_STREQ(symptom.c_str(),"video fails to start");
 }
@@ -390,15 +402,17 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test6)
 {
     //Arrange: Creating the variables for passing to arguments
     const char* url = "127.0.0.1:9080";
+    std::string contentType = "test1";
     std::string location = "test2";
     std::string symptom = "test3";
     AampMediaType type = eMEDIATYPE_DEFAULT;
 
     //Act: Calling the function for test
-    mLogObj->ParseContentUrl(url,location,symptom,type);
+    mLogObj->ParseContentUrl(url,contentType,location,symptom,type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"127.0.0.1:9080");
+    EXPECT_STREQ(contentType.c_str(),"unknown");
     EXPECT_STREQ(location.c_str(),"fog");
     EXPECT_STREQ(symptom.c_str(),"unknown");
 }
