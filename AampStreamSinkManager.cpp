@@ -133,7 +133,7 @@ void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_call
 {
 	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
-	
+
     AampStreamSinkInactive *inactiveSink = new AampStreamSinkInactive(aamp->mLogObj, id3HandlerCallback);  /* For every instance of aamp, there should be an AampStreamSinkInactive object*/
 	mInactiveGstPlayersMap.insert({aamp,inactiveSink});
 
@@ -204,7 +204,7 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 {
 	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
-	
+
 	//Do not edit or remove this log - it is used in L2 test
 	AAMPLOG_WARN("AampStreamSinkManager(%p) DeleteStreamSink for PLAYER[%d]", this, aamp->mPlayerId);
 
@@ -273,7 +273,7 @@ void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::
 {
 	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
-	
+
 	switch(mPipelineMode)
 	{
 		case ePIPELINEMODE_UNDEFINED:
@@ -372,9 +372,17 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 
 void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 {
+	// N.B. GetPositionMs() must be called before locking the StreamSink mutex.
+	// This avoids potential deadlock with other threads that query the position, and take the
+	// mGetPositionMillisecondsMutexHard and StreamSink locks in the reverse order: the
+	// mGetPositionMillisecondsMutexHard lock is taken in
+	// PrivateInstanceAAMP::GetPositionMilliseconds() *before* the StreamSink lock in
+	// PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds() where it calls GetStreamSink.
+	double position = aamp->GetPositionMs() / 1000.00;
+
 	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
-	
+
 	switch(mPipelineMode)
 	{
 		case ePIPELINEMODE_SINGLE:
@@ -403,7 +411,7 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, setting active PLAYER[%d]", this, aamp->mPlayerId);
 
 					mActiveGstPlayersMap.insert({aamp, mGstPlayer});
-					SetActive(aamp);
+					SetActive(aamp, position);
 				}
 				else
 				{
@@ -430,11 +438,9 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 	}
 }
 
-void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp)
+void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp, double position)
 {
 	auto mLogObj = aamp->mLogObj; // map correct log context
-	
-	double position = aamp->GetPositionMs() / 1000.00;
 
 	AAMPLOG_INFO("AampStreamSinkManager(%p) Setting PLAYER[%d] active, position(%f)", this, aamp->mPlayerId, position);
 
