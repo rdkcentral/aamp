@@ -29,6 +29,6 @@ set(TSB_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_subdirectory (src build/src)
 
-if(CMAKE_PROJECT_NAME STREQUAL TSB OR CMAKE_PROJECT_NAME STREQUAL UnitTests)
-    add_subdirectory (test build/test)
+if(CMAKE_PROJECT_NAME STREQUAL TSB)
+add_subdirectory (test build/test)
 endif()
