@@ -22,8 +22,6 @@
 
 #include <sstream>
 #include <string_view>
-#include <ostream>
-#include <filesystem>
 
 #include "TsbApi.h"
 
@@ -345,51 +343,6 @@ constexpr const char* FileName(const char* pathEnd)
 }
 
 /**
- * @brief Base-aware type to facilitate printing of integer values in alternative bases to decimal
- */
-template <typename T> struct AsBase
-{
-	AsBase(std::ios_base& (*base)(std::ios_base&), T value) : mBase(base), mValue(value)
-	{
-		static_assert(std::is_integral<T>::value, "Value type must be integral");
-	}
-
-	std::ios_base& (*const mBase)(std::ios_base&);
-	const T mValue;
-};
-
-/**
- *  @fn operator<<
- *
- *  @brief Writes a base-formatted integer to the given output stream
- *         using the correct base prefix - e.g. "0x" for hexadecimal.
- *
- *  @param[in] logStream - Stream to write the base-formatted integer to
- *  @param[in] logAs - integer converted to base-aware AsBase type
- *
- *  @return The output stream
- */
-template <typename T> std::ostream& operator<<(std::ostream& logStream, const AsBase<T>& logAs)
-{
-	// Chars can't be output as hex, so cast value to the widest integral type
-	return logStream << logAs.mBase << std::showbase << static_cast<uintmax_t>(logAs.mValue)
-					 << std::noshowbase << std::dec;
-}
-
-/**
- *  @fn operator<<
- *
- *  @brief Custom path output operator that doesn't output the path in double quotes,
- *         since the logging implementation adds quotes anyway.
- *
- *  @param[in] logStream - Stream to write the path to
- *  @param[in] path - filesystem path
- *
- *  @return The output stream
- */
-std::ostream& operator<<(std::ostream& logStream, const std::filesystem::path& path);
-
-/**
  *  @fn FormatMetadata
  *
  *  @brief Formats the metadata associated with a log message and adds it to a string stream.
@@ -435,6 +388,38 @@ void FormatMessage(std::ostringstream& logStream, const std::string_view& key, c
 {
 	logStream << " " << key << "=\"" << value << "\"";
 	FormatMessage(logStream, std::forward<Args>(args)...);
+}
+
+/**
+ * @brief Base-aware type to facilitate printing of integer values in alternative bases to decimal
+ */
+template <typename T> struct AsBase
+{
+	AsBase(std::ios_base& (*base)(std::ios_base&), T value) : mBase(base), mValue(value)
+	{
+		static_assert(std::is_integral<T>::value, "Value type must be integral");
+	}
+
+	std::ios_base& (*const mBase)(std::ios_base&);
+	const T mValue;
+};
+
+/**
+ *  @fn operator<<
+ *
+ *  @brief Writes a base-formatted integer to the given output stream
+ *         using the correct base prefix - e.g. "0x" for hexadecimal.
+ *
+ *  @param[in] logStream - Stream to write the base-formatted integer to
+ *  @param[in] logAs - integer converted to base-aware AsBase type
+ *
+ *  @return The output stream
+ */
+template <typename T> std::ostream& operator<<(std::ostream& logStream, const AsBase<T>& logAs)
+{
+	// Chars can't be output as hex, so cast value to the widest integral type
+	return logStream << logAs.mBase << std::showbase << static_cast<uintmax_t>(logAs.mValue)
+					 << std::noshowbase << std::dec;
 }
 
 /**

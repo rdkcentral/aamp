@@ -187,17 +187,3 @@ TEST_F(TsbLogTests, MakeMessageSuccessHexadecimalValue)
 									"keyOneHex", TSB_LOG_AS_HEX(valueOneHex), "keyTwo", valueTwo),
 			  expectedStream.str());
 }
-
-TEST_F(TsbLogTests, MakeMessageSuccessFilesystemPath)
-{
-	std::ostringstream expectedStream;
-	expectedStream << "[TSB][TRACE]" << "[" << std::this_thread::get_id() << "]"
-				   << "[Func][File.cpp:1] msg=\"Valid message\""
-				   << " keyOne=\"/tmp/path/file.tmp\"";
-
-	// Add a key with a variable that is a filesystem path.
-	// The path should be output with only one set of double quotes.
-	ASSERT_EQ(TSB::Log::MakeMessage(TSB::LogLevel::TRACE, "Func", "File.cpp", 1, "Valid message",
-									"keyOne", std::filesystem::path("/tmp/path/file.tmp")),
-			  expectedStream.str());
-}
