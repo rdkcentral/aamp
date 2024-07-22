@@ -10948,6 +10948,11 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
 		if(track && track->Enabled())
 		{
+			if(track->playContext)
+			{
+				track->playContext->reset();
+			}
+
 			aamp->ResumeTrackInjection((AampMediaType) iTrack);
 			if(!aamp->IsLocalAAMPTsb())
 			{

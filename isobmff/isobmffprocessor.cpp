@@ -1073,7 +1073,6 @@ void IsoBmffProcessor::abort()
 	aborted = true;
 	pthread_cond_signal(&m_cond);
 	pthread_mutex_unlock(&m_mutex);
-	reset();
 }
 
 /**
