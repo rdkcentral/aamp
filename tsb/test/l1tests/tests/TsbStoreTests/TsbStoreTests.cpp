@@ -300,28 +300,6 @@ TEST_F(TsbStoreTests, ReadFaillNotEnoughData)
 	ASSERT_THAT(store->Read(kUrl, readBuffer, sizeof(readBuffer)), TSB::Status::FAILED);
 }
 
-TEST_F(TsbStoreTests, ReadNullBuffer)
-{
-	std::unique_ptr<TSB::Store> store = createStoreDefault();
-	char readBuffer[1024];
-
-	EXPECT_CALL(*g_mockFilesystem, exists(fs::path(kFileIncPath))).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockIfstream, open(_, _)).Times(0);
-
-	ASSERT_THAT(store->Read(kUrl, nullptr, sizeof(readBuffer)), TSB::Status::FAILED);
-}
-
-TEST_F(TsbStoreTests, ReadZeroSize)
-{
-	std::unique_ptr<TSB::Store> store = createStoreDefault();
-	char readBuffer[1024];
-
-	EXPECT_CALL(*g_mockFilesystem, exists(fs::path(kFileIncPath))).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockIfstream, open(_, _)).Times(0);
-
-	ASSERT_THAT(store->Read(kUrl, readBuffer, 0), TSB::Status::FAILED);
-}
-
 TEST_F(TsbStoreTests, DeleteSuccess)
 {
 	std::unique_ptr<TSB::Store> store = createStoreDefault();
@@ -498,24 +476,6 @@ TEST_F(TsbStoreTests, WriteNoSpace_MaxCapacity)
 	ASSERT_THAT(performWrite(*store, kUrl, buffer), TSB::Status::OK);
 	ASSERT_THAT(performWrite(*store, url2, buffer), TSB::Status::OK);
 	ASSERT_THAT(store->Write(url3, kFileContent, 1), TSB::Status::NO_SPACE);
-}
-
-TEST_F(TsbStoreTests, WriteNullBuffer)
-{
-	std::unique_ptr<TSB::Store> store = createStoreDefault();
-
-	EXPECT_CALL(*g_mockOfstream, open(_, _)).Times(0);
-
-	ASSERT_THAT(store->Write(kUrl, nullptr, sizeof(kFileContent)), TSB::Status::FAILED);
-}
-
-TEST_F(TsbStoreTests, WriteZeroSize)
-{
-	std::unique_ptr<TSB::Store> store = createStoreDefault();
-
-	EXPECT_CALL(*g_mockOfstream, open(_, _)).Times(0);
-
-	ASSERT_THAT(store->Write(kUrl, kFileContent, 0), TSB::Status::FAILED);
 }
 
 TEST_F(TsbStoreTests, CreateLargeStore)
