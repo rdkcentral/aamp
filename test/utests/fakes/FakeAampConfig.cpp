@@ -36,20 +36,8 @@ void AampConfig::Initialize()
 }
 
 void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingBool cfg , const bool &value){}
-void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingInt cfg , const int &value)
-{
-    if (g_mockAampConfig != nullptr)
-    {
-        return g_mockAampConfig->SetConfigValue(cfg,value);
-    }
-}
-void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingFloat cfg , const double &value)
-{
-    if (g_mockAampConfig != nullptr)
-    {
-        return g_mockAampConfig->SetConfigValue(cfg,value);
-    }
-}
+void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingInt cfg , const int &value){}
+void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingFloat cfg , const double &value){}
 void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingString cfg , const std::string &value){}
 
 

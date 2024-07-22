@@ -18,9 +18,6 @@
 */
 
 #include "fragmentcollector_mpd.h"
-#include "MockStreamAbstractionAAMP_MPD.h"
-
-MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD = nullptr;
 
 StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate, id3_callback_t id3Handler)
     : StreamAbstractionAAMP(logObj, aamp), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS)
@@ -37,16 +34,7 @@ Accessibility StreamAbstractionAAMP_MPD::getAccessibilityNode(AampJsonObject &ac
     return accessibilityNode;
 }
 
-AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
-{
-    if (g_mockStreamAbstractionAAMP_MPD)
-    {
-        return g_mockStreamAbstractionAAMP_MPD->Init(tuneType);
-    }
-    return eAAMPSTATUS_OK;
-}
-
-AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType) {return eAAMPSTATUS_OK;}
+AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType) { return eAAMPSTATUS_OK; }
 
 void StreamAbstractionAAMP_MPD::Start() {  }
 

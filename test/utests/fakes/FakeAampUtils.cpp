@@ -465,7 +465,7 @@ void trim(std::string& src)
  * @param mediaType media type
  * @retval the name of the mediaType
  */
-const char* GetMediaTypeName( int mediaType )
+const char* getMediaTypeName( AampMediaType mediaType )
 {
 	switch(mediaType)
 	{
@@ -512,12 +512,4 @@ std::string aamp_GetConfigPath(const std::string &filename)
 	}
 
 	return "FakeAampUtils.cpp";
-}
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampLogManager *mLogObj, PrivateInstanceAAMP *aamp)
-{
-	return 0.0;
-}
-TSB::LogLevel ConvertTsbLogLevel(int logLev)
-{
-	return TSB::LogLevel::WARN;
 }

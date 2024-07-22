@@ -36,7 +36,7 @@ bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer)
 	if(isoBmffBuffer.parseBuffer())
 	{
 		isoBmffBuffer.truncate();
-		buffer.SetLen(isoBmffBuffer.getSize());
+		buffer.ReduceLen(isoBmffBuffer.getSize());
 	}
 	else
 	{

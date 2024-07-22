@@ -1371,35 +1371,3 @@ void PrivateInstanceAAMP::FlushAudio(double pos)
 void PrivateInstanceAAMP::ReleaseDynamicDRMToUpdateWait(void)
 {
 }
-
-std::shared_ptr<TSB::Store> PrivateInstanceAAMP::GetTSBStore(const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level)
-{
-	if (g_mockPrivateInstanceAAMP)
-	{
-		return g_mockPrivateInstanceAAMP->GetTSBStore(config, logger, level);
-	}
-	return nullptr;
-}
-
-void PrivateInstanceAAMP::SetLocalAAMPTsbInjection(bool value)
-{
-}
-
-
-bool PrivateInstanceAAMP::IsLocalAAMPTsbInjection()
-{
-	return false;
-}
-
-void PrivateInstanceAAMP::TimedWaitForLatencyCheck(int timeInMs)
-{
-}
-
-void PrivateInstanceAAMP::WakeupLatencyCheck()
-{
-}
-
-AampTSBSessionManager *PrivateInstanceAAMP::GetTSBSessionManager()
-{
-    return NULL;
-}

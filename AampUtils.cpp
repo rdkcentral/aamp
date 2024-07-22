@@ -28,7 +28,6 @@
 #include "AampConstants.h"
 #include "AampCurlStore.h"
 #include "AampCurlDownloader.h"
-#include "isobmff/isobmffbuffer.h"
 
 #include <sys/time.h>
 #include <string.h>
@@ -1135,7 +1134,7 @@ double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::strin
 				//const char* format = "%Y-%m-%dT%H:%M:%SZ";
 				//mTime = convertTimeToEpoch((const char*)dataStr.c_str(), format);
 				retValue = ISO8601DateTimeToUTCSeconds((const char*)dataStr.c_str());
-				AAMPLOG_INFO("ProducerReferenceTime Wallclock (Epoch): [%f] TimeTaken[%f]", retValue, respData->downloadCompleteMetrics.total);
+				AAMPLOG_WARN("ProducerReferenceTime Wallclock (Epoch): [%f] TimeTaken[%f]", retValue, respData->downloadCompleteMetrics.total);
 			}
 		}
 		else
@@ -1264,125 +1263,29 @@ double ParseISO8601Duration(const char *ptr)
 	return returnValue * 1000;
 }
 
-const char *GetMediaTypeName(int mediaType)
+/**
+ * @brief Return the name corresponding to the Media Type
+ * @param mediaType media type
+ * @retval the name of the mediaType
+ */
+const char* getMediaTypeName( AampMediaType mediaType )
 {
-	switch (mediaType)
+	switch(mediaType)
 	{
 		case eMEDIATYPE_VIDEO:
-			return "Video";
+			return MEDIATYPE_VIDEO;
 		case eMEDIATYPE_AUDIO:
-			return "Audio";
+			return MEDIATYPE_AUDIO;
 		case eMEDIATYPE_SUBTITLE:
-			return "Subtitle";
-		case eMEDIATYPE_AUX_AUDIO:
-			return "Aux_audio";
-		case eMEDIATYPE_MANIFEST:
-			return "Manifest";
-		case eMEDIATYPE_LICENCE:
-			return "Licence";
-		case eMEDIATYPE_IFRAME:
-			return "Iframe";
-		case eMEDIATYPE_INIT_VIDEO:
-			return "Init_video";
-		case eMEDIATYPE_INIT_AUDIO:
-			return "Init_audio";
-		case eMEDIATYPE_INIT_SUBTITLE:
-			return "Init_subtitle";
-		case eMEDIATYPE_INIT_AUX_AUDIO:
-			return "Init_aux_audio";
-		case eMEDIATYPE_PLAYLIST_VIDEO:
-			return "Playlist_video";
-		case eMEDIATYPE_PLAYLIST_AUDIO:
-			return "Playlist_audio";
-		case eMEDIATYPE_PLAYLIST_SUBTITLE:
-			return "Playlist_subtitle";
-		case eMEDIATYPE_PLAYLIST_AUX_AUDIO:
-			return "Playlist_aux_audio";
-		case eMEDIATYPE_PLAYLIST_IFRAME:
-			return "Playlist_iframe";
-		case eMEDIATYPE_INIT_IFRAME:
-			return "Init_iframe";
-		case eMEDIATYPE_DSM_CC:
-			return "Dsm_cc";
+			return MEDIATYPE_TEXT;
 		case eMEDIATYPE_IMAGE:
-			return "Image";
-		case eMEDIATYPE_DEFAULT:
-			return "Default";
+			return MEDIATYPE_IMAGE;
+		case eMEDIATYPE_AUX_AUDIO:
+			return MEDIATYPE_AUX_AUDIO;
 		default:
 			return "UNKNOWN";
 	}
 }
-
-/**
- * @fn RecalculatePTS
- * @param[in] mediaType stream type
- * @param[in] ptr buffer pointer
- * @param[in] len length of buffer
- */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampLogManager *mLogObj, PrivateInstanceAAMP *aamp)
-{
-	double ret = 0;
-	uint32_t timeScale = 0;
-
-	if(mediaType == eMEDIATYPE_VIDEO)
-	{
-		timeScale = aamp->GetVidTimeScale();
-	}
-	else if(mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_AUX_AUDIO)
-	{
-		timeScale = aamp->GetAudTimeScale();
-	}
-
-
-	IsoBmffBuffer isobuf(mLogObj);
-	isobuf.setBuffer((uint8_t *)ptr, len);
-	bool bParse = false;
-	try
-	{
-		bParse = isobuf.parseBuffer();
-	}
-	catch( std::bad_alloc& ba)
-	{
-		AAMPLOG_ERR("Bad allocation: %s", ba.what() );
-	}
-	catch( std::exception &e)
-	{
-		AAMPLOG_ERR("Unhandled exception: %s", e.what() );
-	}
-	catch( ... )
-	{
-		AAMPLOG_ERR("Unknown exception");
-	}
-	if(bParse && (0 != timeScale))
-	{
-		uint64_t fPts = 0;
-		bool bParse = isobuf.getFirstPTS(fPts);
-		if (bParse)
-		{
-			ret = fPts/(timeScale*1.0);
-			AAMPLOG_TRACE("restamped PTS : %lf", ret);
-		}
-	}
-	return ret;
-}
-
-TSB::LogLevel ConvertTsbLogLevel(int logLev)
-{
-	TSB::LogLevel ret = TSB::LogLevel::WARN; //default value
-	if ((logLev < 0) || (logLev > static_cast<int>(TSB::LogLevel::ERROR)))
-	{
-		AAMPLOG_ERR("Bad TSB Log level Set by user: %d!! using default value : %d", logLev, static_cast<int>(ret));
-	}
-	else
-	{
-		AAMPLOG_INFO("TSB Log level Set as : %d", logLev);
-		ret = static_cast<TSB::LogLevel>(logLev);
-	}
-
-	return ret;
-}
-
-
 
 /**
  * @brief Get 32 bit MPEG CRC value

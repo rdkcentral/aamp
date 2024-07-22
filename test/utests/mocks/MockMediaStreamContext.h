@@ -28,7 +28,6 @@ class MockMediaStreamContext
 public:
 
 	MOCK_METHOD(bool, CacheFragment, (std::string fragmentUrl, unsigned int curlInstance, double position, double duration, const char *range, bool initSegment, bool discontinuity, bool playingAd, double pto, uint32_t scale, bool overWriteTrackId));
-	MOCK_METHOD(bool, CacheTsbFragment, (std::shared_ptr<CachedFragment> fragment));
 };
 
 extern MockMediaStreamContext *g_mockMediaStreamContext;

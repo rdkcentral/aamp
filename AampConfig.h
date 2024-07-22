@@ -216,8 +216,6 @@ typedef enum
 	eAAMPConfig_SeamlessAudioSwitch,					/**< To enable audio Restart - Currently supported for HLS_MP4 on same codec streams*/
 	eAAMPConfig_useRialtoSink,                      /**< Enable/Disable player to use Rialto sink based video and audio pipeline */
 	eAAMPConfig_QtDemuxOverrideEnabled,		/**< Enable/Disable ENABLE_AAMP_QTDEMUX_OVERRIDE flag , specifically introduced as a workaround for Charter App (ES1-701)*/
-	eAAMPConfig_LocalTSBEnabled,                                            /**< To enable/disable Local TSB in LLD as part of RDK-48051*/
-	eAAMPConfig_EnableIFrameTrackExtract,			/**< Config to enable and disable iFrame extraction from video track*/
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;
@@ -304,10 +302,6 @@ typedef enum
 	eAAMPConfig_PreferredAbsoluteProgressReporting, /**< Preferred settings for absolute progress reporting**/
 	eAAMPConfig_EOSInjectionMode,				/**< Determines when EOS is injected. See definition of EOSInjectionModeCode.*/
 	eAAMPConfig_ABRBufferCounter,				/** Counter for ABR steadystate rampup/rampdown*/
-	eAAMPConfig_TsbLength,                         /** TSB duration for local storage */
-	eAAMPConfig_TsbMinDiskFreePercentage,					/**< Minimum percentage of storage to be kept free while storing TSB data */
-	eAAMPConfig_TsbMaxDiskStorage,					/** TSB max storage in MB */
-	eAAMPConfig_TsbLogLevel,					/** Override the TSB log level */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
@@ -328,8 +322,6 @@ typedef enum
 	eAAMPConfig_MinLatencyCorrectionPlaybackRate,       /**< Latency adjust/buffer correction min playback rate*/
 	eAAMPConfig_MaxLatencyCorrectionPlaybackRate,       /**< Latency correction max playback rate*/
 	eAAMPConfig_NormalLatencyCorrectionPlaybackRate,    /**< Nomral playback rate for LLD stream; backdoor for debug*/
-	eAAMPConfig_LowLatencyMinBuffer,                    /**< Low Latency minimum buffer value*/
-	eAAMPConfig_LowLatencyTargetBuffer,                 /**< Low Latency target buffer value; Buffer needed for rate correction to trigger*/
 	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
 } AAMPConfigSettingFloat;
 #define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)
@@ -368,8 +360,8 @@ typedef enum
 	eAAMPConfig_LRHContentType,							/**< Custom License Request ContentType Data */
 	eAAMPConfig_GstDebugLevel,							/**< gstreamer debug level as you'd define in GST_DEBUG */
 	eAAMPConfig_TsbType,
-	eAAMPConfig_TsbLocation,                                                        /**< tsbType location for local TSB storage*/
-	eAAMPConfig_StringMaxValue						/**< Max value for string config always last element */
+	eAAMPConfig_StringMaxValue,						/**< Max value for string config always last element */
+	
 } AAMPConfigSettingString;
 #define AAMPCONFIG_STRING_COUNT (eAAMPConfig_StringMaxValue)
 

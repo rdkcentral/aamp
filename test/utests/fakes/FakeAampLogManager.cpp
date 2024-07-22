@@ -121,7 +121,3 @@ bool AampLogManager::isLogworthyErrorCode(int errorCode)
 void AampLogManager::LogABRInfo(AAMPAbrInfo *pstAbrInfo)
 {
 }
-
-void AampLogManager::aampLogger(std::string &&tsbMessage)
-{
-}
