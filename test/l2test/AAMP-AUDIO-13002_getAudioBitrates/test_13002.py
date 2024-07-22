@@ -45,7 +45,7 @@ def test_13002(aamp_setup_teardown,test_data):
         "expect_list": [{"cmd":test_data["url"] },
         {"expect": r"AAMP_EVENT_STATE_CHANGED: PLAYING"},
         {"cmd": "get audioBitrates"},
-        {"expect":re.escape("AUDIO BITRATES = [ 256000, 128342 ]")},
+        {"expect":re.escape("AUDIO BITRATES = [ 256000, 128342,  ]")},
         {"cmd": r"stop"},
         {"expect": r"aamp_stop PlayerState"},
         ]}

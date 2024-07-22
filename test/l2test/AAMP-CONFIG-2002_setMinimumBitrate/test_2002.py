@@ -67,7 +67,7 @@ TESTDATA1 = {
         {"expect": "\"vfb\":1400000"},
         {"cmd": "sleep 1"},
 	{"cmd": "get videoBitrates"},
-	{"expect": re.escape("VIDEO BITRATES = [ 800000, 1400000, 2800000, 5000000 ]")},
+	{"expect": re.escape("VIDEO BITRATES = [ 800000, 1400000, 2800000, 5000000,  ]")},
 	{"cmd": "stop"},
         {"expect": "aamp_stop PlayerState"},
         {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
@@ -77,7 +77,7 @@ TESTDATA1 = {
        	{"expect": "\"vfb\":1400000"},
 	{"cmd": "sleep 1"},
 	{"cmd": "get videoBitrates"},
-	{"expect": re.escape("VIDEO BITRATES = [ 5000000, 2800000, 1400000, 800000 ]")},
+	{"expect": re.escape("VIDEO BITRATES = [ 5000000, 2800000, 1400000, 800000,  ]")},
         {"cmd": "stop"},
         {"expect": "aamp_stop PlayerState"}
     ]

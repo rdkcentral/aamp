@@ -207,28 +207,24 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 16:
 					{
 						std::vector<long int> videoBitrates;
-						std::string temp = "[AAMPCLI] VIDEO BITRATES = [ ";
+						printf("[AAMPCLI] VIDEO BITRATES = [ ");
 						videoBitrates = playerInstanceAamp->GetVideoBitrates();
 						for(int i=0; i < videoBitrates.size(); i++){
-							if( i ) temp += ", ";
-							temp += std::to_string(videoBitrates[i]);
+							printf("%ld, ", videoBitrates[i]);
 						}
-						temp += " ]";
-						printf( "%s\n", temp.c_str() );
+						printf(" ]\n");
 						break;
 					}
 
 				case 17:
 					{
 						std::vector<long int> audioBitrates;
-						std::string temp = "[AAMPCLI] AUDIO BITRATES = [ ";
+						printf("[AAMPCLI] AUDIO BITRATES = [ ");
 						audioBitrates = playerInstanceAamp->GetAudioBitrates();
 						for(int i=0; i < audioBitrates.size(); i++){
-							if( i ) temp += ", ";
-							temp += std::to_string(audioBitrates[i]);
+							printf("%ld, ", audioBitrates[i]);
 						}
-						temp += " ]";
-						printf( "%s\n", temp.c_str() );
+						printf(" ]\n");
 						break;
 					}
 				case 18:
@@ -361,25 +357,25 @@ void Get::ShowHelpGet(){
 
 char * Get::getCommandRecommender(const char *text, int state)
 {
-	char *name;
-	static size_t len;
-	static std::vector<std::string>::iterator itr;
+    char *name;
+    static size_t len;
+    static std::vector<std::string>::iterator itr;
 
-	if (!state)
-	{
+    if (!state)
+    {
 		itr = commands.begin();
-		len = strlen(text);
-	}
+        len = strlen(text);
+    }
 
-	while (itr != commands.end())
-	{
-		name = (char *) itr->c_str();
-		itr++;
-		if (strncmp(name, text, len) == 0)
-		{
-			return strdup(name);
-		}
-	}
+    while (itr != commands.end())
+    {
+	    name = (char *) itr->c_str();
+	    itr++;
+	    if (strncmp(name, text, len) == 0)
+	    {
+		    return strdup(name);
+	    }
+    }
 
-	return NULL;
+    return NULL;
 }
