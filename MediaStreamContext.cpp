@@ -27,7 +27,6 @@
 #include "isobmff/isobmffbuffer.h"
 #include "AampCacheHandler.h"
 #include "AampTSBSessionManager.h"
-#include "isobmffhelper.h"
 
 /**
  *  @brief Receives cached fragment and injects to sink.
@@ -83,7 +82,13 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 
     cachedFragment->type = actualType;
     cachedFragment->initFragment = initSegment;
-    AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
+	 cachedFragment->timeScale = fragmentDescriptor.TimeScale;
+	 cachedFragment->uri = fragmentUrl; // For debug output
+	 /* The value of PTSOffsetSec in the context can get updated at the start of a period before
+	  * the last segment from the previous period has been injected, hence we copy it
+	  */
+	 cachedFragment->PTSOffsetSec = GetContext()->mPTSOffsetSec;
+	 AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 
     auto CheckEos = [this, &tsbSessionManager, &actualType]() {
         return tsbSessionManager &&
@@ -140,26 +145,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
         }
 		else
         {
-
-			if ((actualType == eMEDIATYPE_VIDEO || actualType == eMEDIATYPE_AUDIO || actualType == eMEDIATYPE_SUBTITLE) && ret && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
-			{
-				uint32_t timeScale = 1;
-				SegmentTemplates segmentTemplates(representation->GetSegmentTemplate(), adaptationSet->GetSegmentTemplate());
-				if (segmentTemplates.HasSegmentTemplate())
-				{
-					const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
-
-					if (segmentTimeline)
-					{
-						timeScale = segmentTemplates.GetTimescale();
-					}
-				}
-
-				int64_t t = GetContext()->mPTSOffsetSec * timeScale;
-
-				(void)IsoBmffRestampPts(cachedFragment->fragment, t, fragmentUrl);
-
-			}
 
 			if ((actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO) && ret) // Only if init fragment successfull or avilable from cache
             {
@@ -435,40 +420,46 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 /**
  *  @brief Cache Fragment Chunk
  */
-bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime)
+bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr, size_t size, std::string remoteUrl, long long dnldStartTime)
 {
 	AAMPLOG_DEBUG("[%s] Chunk Buffer Length %zu Remote URL %s", name, size, remoteUrl.c_str());
 
-    bool ret = true;
-    if (WaitForCachedFragmentChunkInjected())
-    {
-        CachedFragment* cachedFragment = NULL;
-        cachedFragment = GetFetchChunkBuffer(true);
-        if(NULL == cachedFragment)
-        {
-                AAMPLOG_WARN("[%s] Something Went wrong - Can't get FetchChunkBuffer", name);
-                return false;
-        }
-        cachedFragment->type = actualType;
-        cachedFragment->downloadStartTime = dnldStartTime;
-        cachedFragment->fragment.AppendBytes(ptr, size);
+	bool ret = true;
+	if (WaitForCachedFragmentChunkInjected())
+	{
+		CachedFragment *cachedFragment = NULL;
+		cachedFragment = GetFetchChunkBuffer(true);
+		if (NULL == cachedFragment)
+		{
+			AAMPLOG_WARN("[%s] Something Went wrong - Can't get FetchChunkBuffer", name);
+			return false;
+		}
+		cachedFragment->type = actualType;
+		cachedFragment->downloadStartTime = dnldStartTime;
+		cachedFragment->fragment.AppendBytes(ptr, size);
+		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
+		cachedFragment->uri = remoteUrl;
+		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
+		 * the last segment from the previous period has been injected, hence we copy it
+		 */
+		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffsetSec;
 
-        AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p",name, cachedFragment, cachedFragment->fragment.GetPtr() );
-        if(IsLocalTSBInjection())
-        {
-            cachedFragment->fragment.Free();
-        }
-        else
-        {
-            UpdateTSAfterChunkFetch();
-        }
-    }
-    else
-    {
-        AAMPLOG_TRACE("[%s] WaitForCachedFragmentChunkInjected aborted", name);
-        ret = false;
-    }
-    return ret;
+		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.GetPtr());
+		if (IsLocalTSBInjection())
+		{
+			cachedFragment->fragment.Free();
+		}
+		else
+		{
+			UpdateTSAfterChunkFetch();
+		}
+	}
+	else
+	{
+		AAMPLOG_TRACE("[%s] WaitForCachedFragmentChunkInjected aborted", name);
+		ret = false;
+	}
+	return ret;
 }
 
 /**

@@ -8175,6 +8175,7 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(int periodIdx, bool isNewPeriod)
 	double audioStart = 0;
 	double audioDuration = 0;
 	double videoDuration = 0;
+	double duration = 0;
 
 	IPeriod *period = mCurrentPeriod;
 	mMPDParseHelper->GetStartAndDurationFromTimeline(period, mMediaStreamContext[eMEDIATYPE_AUDIO]->representationIndex,
@@ -8183,34 +8184,35 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(int periodIdx, bool isNewPeriod)
 	mMPDParseHelper->GetStartAndDurationFromTimeline(period, mMediaStreamContext[eMEDIATYPE_VIDEO]->representationIndex,
 													 mMediaStreamContext[eMEDIATYPE_VIDEO]->adaptationSetIdx, videoStart, videoDuration);
 
-	AAMPLOG_INFO("Idx %d isNewPeriod %d aDur %f vDur %f aStart %f vStart %f",
-				 periodIdx, isNewPeriod, audioDuration, videoDuration, audioStart, videoStart);
+	AAMPLOG_INFO("Idx %d Id %s aDur %f vDur %f aStart %f vStart %f",
+				 periodIdx, period->GetId().c_str(), audioDuration, videoDuration, audioStart, videoStart);
 
-	if (isNewPeriod)
-	{
-		double timelineStartSec = std::max(audioStart, videoStart);
+	double timelineStartSec = std::max(audioStart, videoStart);
 
-		mPTSOffsetSec += mLastPeriodStart - timelineStartSec + mTimelineDuration;
-		mLastPeriodStart = timelineStartSec;
-
-		AAMPLOG_INFO("Idx %d Id %s mPTSOffsetSec %f mLastPeriodStart %f duration %f aStart %f vStart %f",
-					 periodIdx,period->GetId().c_str(), mPTSOffsetSec, mLastPeriodStart, mTimelineDuration, audioStart, videoStart);
-	}
-
-	/* Should get here last manifest update before a period change
+		/* Should get here last manifest update before a period change
 	 * On live manifests the duration of the current period can be increasing as more segments
 	 * added to the timeline. We need the final duration of that period
 	 */
 	if (audioDuration != 0.0 && videoDuration != 0.0)
 	{
 		// For cases where 2 timelines give different durations, take the minimum
-		mTimelineDuration = std::min(audioDuration, videoDuration);
+		duration = std::min(audioDuration, videoDuration);
 	}
 	else
 	{
 		// cannot get duration from timeline use another algorithm
-		mTimelineDuration = mMPDParseHelper->GetPeriodDuration(periodIdx, mLastPlaylistDownloadTimeMs, false, aamp->IsUninterruptedTSB()) / 1000;
+		duration = mMPDParseHelper->GetPeriodDuration(periodIdx, mLastPlaylistDownloadTimeMs, false, aamp->IsUninterruptedTSB()) / 1000;
 	}
+
+	if (isNewPeriod)
+	{
+		mPTSOffsetSec += mNextPts - timelineStartSec;
+
+		AAMPLOG_INFO("Idx %d Id %s mPTSOffsetSec %f mNextPts %f timelineStartSec %f",
+					 periodIdx,period->GetId().c_str(), mPTSOffsetSec, mNextPts, timelineStartSec);
+	}
+
+	mNextPts = duration + timelineStartSec;
 }
 
 /**
@@ -9017,8 +9019,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 	mPrevAdaptationSetCount = (int)currPeriod->GetAdaptationSets().size();
 
 	mPTSOffsetSec = 0.0;
-	mLastPeriodStart = 0.0;
-	mTimelineDuration = 0.0;
+	mNextPts = 0.0;
 	/*
 	 * Initial indexing without updating trackInfo
 	 */
@@ -9638,7 +9639,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				// Needed for live playback where timeline can increase dynamically.
 				if(rate == AAMP_NORMAL_PLAY_RATE) //todo remove this workaround
 				{
-					UpdatePtsOffset(mCurrentPeriodIdx, true);
+					UpdatePtsOffset(mCurrentPeriodIdx, false);
 				}
 			} //Loop 2: End of Period while loop
 			if (exitFetchLoop || (rate < AAMP_NORMAL_PLAY_RATE && mIterPeriodIndex < 0) || (rate > 1 && mIterPeriodIndex >= mNumberOfPeriods) || (!mIsLiveManifest && waitForAdBreakCatchup != true))

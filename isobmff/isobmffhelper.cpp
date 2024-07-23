@@ -50,7 +50,6 @@ bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer)
 
 bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl)
 {
-	AAMPLOG_TRACE("Function called with PTS offset = %" PRId64, ptsOffset);
 
 	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};

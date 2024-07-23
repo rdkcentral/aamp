@@ -121,22 +121,24 @@ public:
 class CachedFragment
 {
 public:
-	AampGrowableBuffer fragment;    /**< Buffer to keep fragment content */
-	double position;            /**< Position in the playlist */
-	double duration;            /**< Fragment duration */
-	bool initFragment;	    	/**< Is init fragment */
-	bool discontinuity;         /**< PTS discontinuity status */
-	int profileIndex;           /**< Profile index; Updated internally */
-#ifdef AAMP_DEBUG_INJECT
-	std::string uri = {};            /**< Fragment url */
-#endif
+	AampGrowableBuffer fragment;	/**< Buffer to keep fragment content */
+	double position;				/**< Position in the playlist */
+	double duration;				/**< Fragment duration */
+	bool initFragment;				/**< Is init fragment */
+	bool discontinuity;				/**< PTS discontinuity status */
+	int profileIndex;				/**< Profile index; Updated internally */
+	uint32_t timeScale;				/* timescale of this fragment as read from manifest */
+	std::string uri;				/* for debug */
 	StreamInfo cacheFragStreamInfo; /**< Bitrate info of the fragment */
-	AampMediaType   type;               /**< AampMediaType info of the fragment */
+	AampMediaType type;				/**< AampMediaType info of the fragment */
 	long long downloadStartTime;	/**< The start time of file download */
-	
-    CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0), initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()), type(eMEDIATYPE_DEFAULT), downloadStartTime(0)
-    {
-    }
+	double PTSOffsetSec; 			/* PTS offset to apply for this segment */
+
+	CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0),
+					   initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()),
+					   type(eMEDIATYPE_DEFAULT), downloadStartTime(0), timeScale(0), PTSOffsetSec(0)
+	{
+	}
 
 	void Copy(CachedFragment* other, size_t len)
 	{
@@ -149,6 +151,9 @@ public:
 		this->type = other->type;
 		this->fragment.AppendBytes(other->fragment.GetPtr(), len);
 		this->downloadStartTime = other->downloadStartTime;
+		this->uri = other->uri;
+		this->timeScale = other->timeScale;
+		this->PTSOffsetSec = other->PTSOffsetSec;
 	}
 	void Clear()
 	{
@@ -161,6 +166,8 @@ public:
 		discontinuity = false;
 		profileIndex = 0;
 		cacheFragStreamInfo = StreamInfo();
+		timeScale = 0;
+		PTSOffsetSec = 0;
 	}
 };
 
@@ -1278,9 +1285,9 @@ public:
 	double mProgramStartTime;	        /**< Indicate program start time or availability start time */
 	int mTsbMaxBitrateProfileIndex;		/**< Indicates the index of highest profile in the saved stream info */
 	bool mUpdateReason;			/**< flag to update the bitrate change reason */
-	double mPTSOffsetSec;					/*For PTS restamping*/
-	double mLastPeriodStart;				/*For PTS restamping*/
-	double mTimelineDuration;				/*For PTS restamping, duration of previous period */
+	double mPTSOffsetSec;				/*For PTS restamping*/
+	double mNextPts;					/*For PTS restamping*/
+
 	/**
 	 *   @brief Get profile index of highest bandwidth
 	 *

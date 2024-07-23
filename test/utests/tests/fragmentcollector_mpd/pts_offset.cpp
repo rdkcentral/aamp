@@ -301,9 +301,8 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest1)
 	EXPECT_CALL(*g_mockAampMPDParseHelper, GetPeriodDuration(_, _, _, _))
 		.WillOnce(Return(45)).WillOnce(Return(45));
 
-	mStreamAbstractionAAMP_MPD->mTimelineDuration = 0;
+	mStreamAbstractionAAMP_MPD->mNextPts = 0;
 	mStreamAbstractionAAMP_MPD->mPTSOffsetSec = 0;
-	mStreamAbstractionAAMP_MPD->mLastPeriodStart = 0;
 	mStreamAbstractionAAMP_MPD->mCurrentPeriod = mStreamAbstractionAAMP_MPD->mpd->GetPeriods().at(0);
 	/* Call the method under test and confirm
 	 *  the returned vale matches expected value from the table

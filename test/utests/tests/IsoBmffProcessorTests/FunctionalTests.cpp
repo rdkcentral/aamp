@@ -62,7 +62,7 @@ class IsoBmffProcessorTests : public ::testing::Test
 			g_mockAampConfig = new MockAampConfig();
 			g_mockIsoBmffBuffer = new MockIsoBmffBuffer();
 			EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
-			EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseNewFetcherLoop)).WillRepeatedly(Return(false));
+			EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseNewFetcherLoop)).WillRepeatedly(Return(true));
 			EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_QtDemuxOverrideEnabled)).WillRepeatedly(Return(true));
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetMediaFormatTypeEnum()).WillRepeatedly(Return(eMEDIAFORMAT_DASH));
 			EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_FragmentDownloadFailThreshold)).WillRepeatedly(Return(10));
