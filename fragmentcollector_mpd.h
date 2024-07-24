@@ -577,6 +577,12 @@ protected:
 	void DetectDiscontinuityAndFetchInit(bool &periodChanged);
 
 	/**
+	 * @fn TsbReader
+	 * @return void
+	 */
+	void TsbReader();
+
+	/**
 	 * @fn GetStreamInfo
 	 * @param[in]  idx - profile index.
 	 */

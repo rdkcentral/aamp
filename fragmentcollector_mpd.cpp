@@ -9036,7 +9036,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 	}
 	AAMPLOG_WARN("aamp: ready to collect fragments. mpd %p", mpd);
 
-	UpdatePtsOffset(mCurrentPeriodIdx, true); //First period
+	if(rate == AAMP_NORMAL_PLAY_RATE) //todo remove this workaround
+	{
+		UpdatePtsOffset(mCurrentPeriodIdx, true); //First period
+	}
 	/*
 	 * Ready to collect fragments
 	 */
@@ -9256,9 +9259,12 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						mUpdateStreamInfo = true;
 					}
 
-					//Call after StreamSelection() to get correct ->adaptationSetIdx ->representationIndex
-					AAMPLOG_TRACE("Update PTS offset after StreamSelection, period changed %d", periodChanged);
-					UpdatePtsOffset(mCurrentPeriodIdx, periodChanged);
+					if(rate == AAMP_NORMAL_PLAY_RATE) //todo remove this workaround
+					{
+						//Call after StreamSelection() to get correct ->adaptationSetIdx ->representationIndex
+						AAMPLOG_TRACE("Update PTS offset after StreamSelection, period changed %d", periodChanged);
+						UpdatePtsOffset(mCurrentPeriodIdx, true);
+					}
 
 					// UpdateTrackInfo from Fetcher thread if there is a periodChange
 					// Else this will be called as a part of ProcessPlaylist
@@ -9638,7 +9644,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				}
 				// Finished segments in the current period. Get the duration of that period.
 				// Needed for live playback where timeline can increase dynamically.
-				UpdatePtsOffset(mCurrentPeriodIdx, false);
+				if(rate == AAMP_NORMAL_PLAY_RATE) //todo remove this workaround
+				{
+					UpdatePtsOffset(mCurrentPeriodIdx, true);
+				}
 			} //Loop 2: End of Period while loop
 			if (exitFetchLoop || (rate < AAMP_NORMAL_PLAY_RATE && mIterPeriodIndex < 0) || (rate > 1 && mIterPeriodIndex >= mNumberOfPeriods) || (!mIsLiveManifest && waitForAdBreakCatchup != true))
 			{
