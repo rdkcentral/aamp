@@ -51,12 +51,11 @@
 #include <atomic>
 #include <deque>
 #include <tuple>
+#include "lstring.hpp"
 
 #define FOG_FRAG_BW_IDENTIFIER "bandwidth-"
 #define FOG_FRAG_BW_IDENTIFIER_LEN 10
 #define FOG_FRAG_BW_DELIMITER "-"
-#define CHAR_CR 0x0d // '\r'
-#define CHAR_LF 0x0a // '\n'
 #define BOOLSTR(boolValue) (boolValue?"true":"false")
 #define PLAYLIST_TIME_DIFF_THRESHOLD_SECONDS (0.1f)
 #define MAX_MANIFEST_DOWNLOAD_RETRY 3
@@ -75,13 +74,13 @@
 typedef struct HlsStreamInfo: public StreamInfo
 { // #EXT-X-STREAM-INFs
 	long program_id;	/**< Program Id */
-	const char *audio;	/**< Audio */
-	const char *uri;	/**< URI Information */
+	std::string audio;	/**< Audio */
+	std::string uri;	/**< URI Information */
 
 	// rarely present
 	long averageBandwidth;			/**< Average Bandwidth */
-	const char *closedCaptions;		/**< CC if present */
-	const char *subtitles;			/**< Subtitles */
+	std::string closedCaptions;		/**< CC if present */
+	std::string subtitles;			/**< Subtitles */
 	StreamOutputFormat audioFormat; /**< Audio codec format*/
 
 	HlsStreamInfo():program_id(),audio(),uri(),averageBandwidth(),closedCaptions(),subtitles(),audioFormat(){};
@@ -108,18 +107,18 @@ typedef struct HlsStreamInfo: public StreamInfo
 typedef struct MediaInfo
 { // #EXT-X-MEDIA
 	AampMediaType type;			/**< Media Type */
-	const char *group_id;		/**< Group ID */
-	const char *name;		/**< Name of Media */
-	const char *language;		/**< Language */
+	std::string group_id;		/**< Group ID */
+	std::string name;		/**< Name of Media */
+	std::string language;		/**< Language */
 	bool autoselect;		/**< AutoSelect */
 	bool isDefault;			/**< IsDefault */
-	const char *uri;		/**< URI Information */
+	std::string uri;		/**< URI Information */
 	StreamOutputFormat audioFormat; /**< Audio codec format*/
 	// rarely present
 	int channels;			/**< Channel */
-	const char *instreamID;		/**< StreamID */
+	std::string instreamID;		/**< StreamID */
 	bool forced;			/**< Forced Flag */
-	const char *characteristics;	/**< Characteristics */
+	std::string characteristics;	/**< Characteristics */
 	bool isCC;			/**< True if the text track is closed-captions */
 } MediaInfo;
 
@@ -129,14 +128,14 @@ typedef struct MediaInfo
  */
 struct IndexNode
 {
-	IndexNode() : completionTimeSecondsFromStart(0), mediaSequenceNumber(-1), pFragmentInfo(NULL), drmMetadataIdx(-1), initFragmentPtr(NULL)
+	IndexNode() : completionTimeSecondsFromStart(0), mediaSequenceNumber(-1), pFragmentInfo(), drmMetadataIdx(-1), initFragmentPtr()
 	{
 	}
 	AampTime completionTimeSecondsFromStart;	/**< Time of index from start */
 	long long mediaSequenceNumber;		/**< Media sequence number>*/
-	const char *pFragmentInfo;		/**< Fragment Information pointer */
+	lstring pFragmentInfo;		/**< Fragment Information pointer */
 	int drmMetadataIdx;			/**< DRM Index for Fragment */
-	const char *initFragmentPtr;		/**< Fragmented MP4 specific pointer to associated (preceding) initialization fragment */
+	lstring initFragmentPtr;		/**< Fragmented MP4 specific pointer to associated (preceding) initialization fragment */
 };
 
 /**
@@ -273,7 +272,7 @@ class TrackState : public MediaTrack
 		 * @param ignoreDiscontinuity Ignore discontinuity
 		 * @return string fragment URI pointer
 		 ***************************************************************************/
-		char *GetNextFragmentUriFromPlaylist(bool &reloadUri, bool ignoreDiscontinuity=false);
+		lstring GetNextFragmentUriFromPlaylist(bool &reloadUri, bool ignoreDiscontinuity=false);
 		/***************************************************************************
 		 * @fn updateSkipPoint
 		 * @param position point to which fragment need to be skipped
@@ -484,7 +483,7 @@ class TrackState : public MediaTrack
 		/**
                  * @brief Get byteRangeLength and byteRangeOffset from fragmentInfo.
                  */
-		bool IsExtXByteRange(const char *fragmentInfo, size_t *byteRangeLength, size_t *byteRangeOffset);
+		bool IsExtXByteRange(lstring fragmentInfo, size_t *byteRangeLength, size_t *byteRangeOffset);
 
 		/**
 		 * @brief Acquire playlist lock.
@@ -498,11 +497,11 @@ class TrackState : public MediaTrack
 
 	private:
 		/***************************************************************************
-		 * @fn GetFragmentUriFromIndex
+		 * @fn GetIframeFragmentUriFromIndex
 		 *
 		 * @return string fragment URI pointer
 		 ***************************************************************************/
-		char *GetFragmentUriFromIndex(bool &bSegmentRepeated);
+		lstring GetIframeFragmentUriFromIndex(bool &bSegmentRepeated);
 		/***************************************************************************
 		 * @fn FlushIndex
 		 *
@@ -547,7 +546,7 @@ class TrackState : public MediaTrack
 		 * @fn FindMediaForSequenceNumber
 		 * @return string fragment tag line pointer
 		 ***************************************************************************/
-		char *FindMediaForSequenceNumber();
+		lstring FindMediaForSequenceNumber();
 		/***************************************************************************
 		 * @fn FetchInitFragment
 		 *
@@ -601,10 +600,10 @@ class TrackState : public MediaTrack
 		AampGrowableBuffer index;			 /**< packed IndexNode records for associated playlist */
 		int indexCount;				 /**< number of indexed fragments in currently indexed playlist */
 		int currentIdx;				 /**< index for currently-presenting fragment used during FF/REW (-1 if undefined) */
-		std::string mFragmentURIFromIndex;		 /**< storage for uri generated by GetFragmentUriFromIndex */
+		lstring mFragmentURIFromIndex;		 /**< storage for uri generated by GetIframeFragmentUriFromIndex */
 		long long indexFirstMediaSequenceNumber; /**< first media sequence number from indexed manifest */
 
-		char *fragmentURI;						 /**< pointer (into playlist) to URI of current fragment-of-interest */
+		lstring fragmentURI;					 /**< offset (into playlist) to URI of current fragment-of-interest */
 		long long lastPlaylistDownloadTimeMS;	 /**< UTC time at which playlist was downloaded */
 		size_t byteRangeLength;					 /**< state for \#EXT-X-BYTERANGE fragments */
 		size_t byteRangeOffset;					 /**< state for \#EXT-X-BYTERANGE fragments */
@@ -654,7 +653,7 @@ class TrackState : public MediaTrack
 		std::shared_ptr<HlsDrmBase> mDrm;		/**< DRM decrypt context*/
 		bool mDrmLicenseRequestPending;			/**< Indicates if DRM License Request is Pending*/
 		bool mInjectInitFragment;				/**< Indicates if init fragment injection is required*/
-		const char* mInitFragmentInfo;			/**< Holds init fragment Information index*/
+		lstring mInitFragmentInfo;			/**< Holds init fragment Information index*/
 		bool mForceProcessDrmMetadata;			/**< Indicates if processing drm metadata to be forced on indexing*/
 		pthread_mutex_t mPlaylistMutex;			/**< protect playlist update */
 		pthread_cond_t mPlaylistIndexed;		/**< Notifies after a playlist indexing operation */
@@ -925,7 +924,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @param[in] format stream output type
 		 * @return string playlist URI
 		 ***************************************************************************/
-		const char *GetPlaylistURI(TrackType trackType, StreamOutputFormat* format = NULL);
+		std::string GetPlaylistURI(TrackType trackType, StreamOutputFormat* format = NULL);
 		int lastSelectedProfileIndex;	/**< Variable  to restore in case of playlist download failure */
 		/***************************************************************************
 		 * @fn StopInjection

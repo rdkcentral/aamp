@@ -1182,6 +1182,14 @@ bool MediaTrack::InjectFragment()
 						// reset the flag when both the paired discontinuities ignored.
 						aamp->ResetTrackDiscontinuityIgnoredStatus();
 						aamp->UnblockWaitForDiscontinuityProcessToComplete();
+						MediaTrack* subtitle = GetContext()->GetMediaTrack(eTRACK_SUBTITLE);
+						if (subtitle && subtitle->enabled)
+						{
+							if(subtitle->playContext)
+							{
+								subtitle->playContext->abortWaitForVideoPTS();
+							}
+						}
 					}
 					else
 					{
@@ -2076,7 +2084,7 @@ void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamIn
 		{
 			bool lGetBWIndex = false;
 			/* START: Added As Part of DELIA-28363 and DELIA-28247 */
-			if(aamp->IsTuneTypeNew && (cacheFragStreamInfo.bandwidthBitsPerSecond == streamInfo->bandwidthBitsPerSecond))
+			if(aamp->IsTuneTypeNew && ((cacheFragStreamInfo.bandwidthBitsPerSecond == streamInfo->bandwidthBitsPerSecond) || !aamp->CheckABREnabled()))
 			{
 				MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 				AAMPLOG_WARN("NotifyBitRateUpdate: Max BitRate: %" BITSPERSECOND_FORMAT ", timetotop: %f", cacheFragStreamInfo.bandwidthBitsPerSecond, video->GetTotalInjectedDuration());
@@ -2208,7 +2216,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 {
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	double bufferValue = GetBufferValue(video);
-	long currBandwidth = GetStreamInfo(currProfileIndex)->bandwidthBitsPerSecond;
+	//long currBandwidth = GetStreamInfo(currProfileIndex)->bandwidthBitsPerSecond;
 	if(bufferValue > 0 && currProfileIndex == newProfileIndex)
 	{
 		AAMPLOG_INFO("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);

@@ -172,6 +172,7 @@ TEST(_AampUtils, aamp_Base64_URL_Decode)
 	unsigned char* result;
 	size_t len;
 	result = aamp_Base64_URL_Decode(b64_encoded_teststr, &len, strlen(b64_encoded_teststr));
+	EXPECT_EQ(len,strlen(teststr));
         // These aren't null terminated strings, must use memcmp
         int cmp = memcmp(result, teststr, len);
         EXPECT_EQ(cmp, 0);

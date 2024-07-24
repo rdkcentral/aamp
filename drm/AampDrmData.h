@@ -44,7 +44,8 @@ public:
 	 *  @param[in]	data - pointer to data to be copied.
 	 *  @param[in]	dataLength - length of data
 	 */	
-	DrmData(unsigned char *data, int dataLength);
+	DrmData(const char *dataPtr, size_t dataLength);
+
 	/**
          * @brief Copy constructor disabled
          *
@@ -59,18 +60,21 @@ public:
 	 *  @fn	~DrmData
 	 */
 	~DrmData();
+	
 	/**
 	 *  @fn getData
 	 *
 	 *  @return	Returns pointer to data.
 	 */
-    	const std::string  &getData();
+	const std::string  &getData();
+	
 	/**
 	 *  @fn getDataLength
 	 *
 	 *  @return Returns dataLength.
 	 */
-	int getDataLength();
+	size_t getDataLength();
+	
 	/**
 	 *  @fn		setData
 	 *
@@ -78,7 +82,7 @@ public:
 	 *  @param[in]	dataLength - length of data.
 	 *  @return		void.
 	 */
-	void setData(unsigned char *data, int dataLength);
+	void setData(const char *dataPtr, size_t dataLength);
 	/**
 	 *  @fn 	addData
 	 *
@@ -86,7 +90,7 @@ public:
 	 *  @param[in]  dataLength - length of data.
 	 *  @return     void.
 	 */
-	void addData(unsigned char *data, int dataLength);
+	void addData(const char *dataPtr, size_t dataLength);
 };
 
 

@@ -866,16 +866,11 @@ static AampCurlInstance getCurlInstanceByMediaType(AampMediaType type)
 
 static void deIndexTileInfo(std::vector<TileInfo> &indexedTileInfo)
 {
-	AAMPLOG_WARN("indexedTileInfo size=%lu",indexedTileInfo.size());
-	for(int i=0;i<indexedTileInfo.size();i++)
+	if( !indexedTileInfo.empty() )
 	{
-		if( indexedTileInfo[i].url )
-		{
-			free( (char *)indexedTileInfo[i].url );
-			indexedTileInfo[i].url = NULL;
-		}
+		AAMPLOG_WARN("indexedTileInfo size=%lu",indexedTileInfo.size());
+		indexedTileInfo.clear();
 	}
-	indexedTileInfo.clear();
 }
 
 /**
@@ -1308,6 +1303,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						ITimeline *firstTimeline = timelines.at(0);
 						double positionInPeriod = 0;
 						uint64_t ret = pMediaStreamContext->lastSegmentDuration;
+						double firstSegStartTime = mPeriodStartTime;
+						uint64_t firstStartTime = firstTimeline->GetStartTime();
 						// CID:186808 - Invalid iterator comparison
 						map<string, string> attributeMap = firstTimeline->GetRawAttributes();
 						if((attributeMap.find("t") != attributeMap.end()) && (ret > 0))
@@ -1364,10 +1361,16 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						bool liveEdgePeriodPlayback = mIsLiveManifest && (mCurrentPeriodIdx == mMPDParseHelper->mUpperBoundaryPeriod);
 						uint64_t fragmentNumberBackUp = pMediaStreamContext->fragmentDescriptor.Number;
 
+						if(firstStartTime < presentationTimeOffset)
+						{
+							firstSegStartTime = (double)(firstStartTime/tScale);
+							AAMPLOG_INFO(" PTO ::(startTime < PTO) firstStartTime %" PRIu64 "tScale : %d presentationTimeOffset[%llu] positionInPeriod = %f  startTime = %f  endTime : %f mPeriodStartTime = %f mPeriodDuration = %f ", firstStartTime , tScale , presentationTimeOffset,positionInPeriod,firstSegStartTime,endTime,mPeriodStartTime,mPeriodDuration);
+						}
+
 						if(!fcsContent &&
 							(mIsFogTSB ||
 								((0 != mPeriodDuration) &&
-									(((mPeriodStartTime + positionInPeriod) < endTime) || liveEdgePeriodPlayback))))
+									(((firstSegStartTime + positionInPeriod) < endTime) || liveEdgePeriodPlayback))))
 						{
 							/*
 							 * Avoid FetchFragment for following cases
@@ -4353,15 +4356,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			else if (http_error == 512 )
 			{
 				// check if any response available to search
-				if(mManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && mIsFogTSB)
+				if(mManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && aamp->mTSBEnabled)
 				{
 					for ( std::string header : mManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader )
 					{
 						if(STARTS_WITH_IGNORE_CASE(header.c_str(),FOG_REASON_STRING))
 						{
 							aamp->mFogDownloadFailReason.clear();
-							aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length() + 2);
-							AAMPLOG_WARN("Received FOG-Reason header: '%s'",aamp->mFogDownloadFailReason.c_str());
+							aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length());
+							AAMPLOG_WARN("Received FOG-Reason header: %s",aamp->mFogDownloadFailReason.c_str());
 							aamp->SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", aamp->mFogDownloadFailReason.c_str());
 							break;
 						}
@@ -4519,15 +4522,15 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 			{
 				if (http_error == 512 )
 				{
-					if(tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && mIsFogTSB)
+					if(tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && aamp->mTSBEnabled)
 					{
 						for ( std::string header : tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader )
 						{
 							if(STARTS_WITH_IGNORE_CASE(header.c_str(),FOG_REASON_STRING))
 							{
 								aamp->mFogDownloadFailReason.clear();
-								aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length() + 2);
-								AAMPLOG_WARN("Received FOG-Reason header: '%s'",aamp->mFogDownloadFailReason.c_str());
+								aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length());
+								AAMPLOG_WARN("Received FOG-Reason header: %s",aamp->mFogDownloadFailReason.c_str());
 								aamp->SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", aamp->mFogDownloadFailReason.c_str());
 								break;
 							}
@@ -9632,7 +9635,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 		tsbReader = tsbSessionManager->GetTsbReader(mediaType);
 	}
 	bool isAllowNextFrag = true;
-	int  maxCachedFragmentsPerTrack = pMediaStreamContext->GetCachedFragmentChunksSize();
+	int  maxCachedFragmentsPerTrack = (int)pMediaStreamContext->GetCachedFragmentChunksSize();
 
 	if (waitForFreeFrag && *waitForFreeFrag && !trickPlay)
 	{
@@ -9692,10 +9695,10 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 	bool exitLoop = false;
 	bool trickPlay = (AAMP_NORMAL_PLAY_RATE != aamp->rate);
 	bool waitForFreeFrag = true;
-	bool mpdChanged = false;
-	int direction = 1;
+	//bool mpdChanged = false;
+	//int direction = 1;
 	double delta = 0;
-	bool adStateChanged = false;
+	//bool adStateChanged = false;
 
 	AAMPLOG_WARN("aamp: ready to read fragments");
 	/*
@@ -9771,7 +9774,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 						aamp->WaitForDiscontinuityProcessToComplete();
 					}
 					aamp->SetIsPeriodChangeMarked(true);
-					double firstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
+					//double firstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
 				}
 				else if(aamp->GetIsPeriodChangeMarked())
 				{
@@ -10077,12 +10080,7 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 	aamp->SyncBegin();
 
 	SAFE_DELETE_ARRAY(mStreamInfo);
-
-	if(!indexedTileInfo.empty())
-	{
-		deIndexTileInfo(indexedTileInfo);
-	}
-
+	deIndexTileInfo(indexedTileInfo);
 	if(!thumbnailtrack.empty())
 	{
 		for(int i = 0; i < thumbnailtrack.size() ; i++)
@@ -10339,24 +10337,24 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 		{
 			MediaStreamContext *track = mMediaStreamContext[iTrack];
-			if(track)
+			if( track )
 			{
 				track->SetLocalTSBInjection(false);
-			}
-			aamp->StopTrackInjection((AampMediaType) iTrack);
-			track->StopInjectLoop();
-			if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
-			{
-				if (iTrack == eMEDIATYPE_SUBTITLE && track->mSubtitleParser)
+				aamp->StopTrackInjection((AampMediaType) iTrack);
+				track->StopInjectLoop();
+				if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 				{
-					track->mSubtitleParser->reset();
+					if (iTrack == eMEDIATYPE_SUBTITLE && track->mSubtitleParser)
+					{
+						track->mSubtitleParser->reset();
+					}
 				}
+				if(mLowLatencyMode)
+				{
+					track->StopInjectChunkLoop();
+				}
+				track->IDX.Free();
 			}
-			if(mLowLatencyMode)
-			{
-				track->StopInjectChunkLoop();
-			}
-			track->IDX.Free();
 		}
 	}
 }
@@ -10807,14 +10805,12 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 
 													startTime += ( timelineDurationMs );
 													replace(tmedia, "Number", startNumber);
-													char *ptr = strndup(tmedia.c_str(), tmedia.size());
-													tileInfo.url = ptr;
-													AAMPLOG_TRACE("tileInfo.url%s:%p",tileInfo.url, ptr);
-													tileInfo.posterDuration = ((double)segmentTemplates.GetDuration()) / (timeScale * w * h);
-													tileInfo.tileSetDuration = ComputeFragmentDuration(timeline->GetDuration(), timeScale);
-													tileInfo.numRows = h;
-													tileInfo.numCols = w;
-													AAMPLOG_TRACE("TileInfo - StartTime:%f posterDuration:%f tileSetDuration:%f numRows:%d numCols:%d",tileInfo.startTime,tileInfo.posterDuration,tileInfo.tileSetDuration,tileInfo.numRows,tileInfo.numCols);
+													tileInfo.url = tmedia;
+													tileInfo.layout.posterDuration = ((double)segmentTemplates.GetDuration()) / (timeScale * w * h);
+													tileInfo.layout.tileSetDuration = ComputeFragmentDuration(timeline->GetDuration(), timeScale);
+													tileInfo.layout.numRows = h;
+													tileInfo.layout.numCols = w;
+													AAMPLOG_TRACE("TileInfo - StartTime:%f posterDuration:%f tileSetDuration:%f numRows:%d numCols:%d",tileInfo.startTime,tileInfo.layout.posterDuration,tileInfo.layout.tileSetDuration,tileInfo.layout.numRows,tileInfo.layout.numCols);
 													indexedTileInfo.push_back(tileInfo);
 													startNumber++;
 												}
@@ -10926,20 +10922,20 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_MPD::GetThumbnailRangeData(doub
 		{
 			break;
 		}
-		double tileSetEndTime = tmpdata.t + tileInfo.tileSetDuration;
-		totalSetDuration += tileInfo.tileSetDuration;
+		double tileSetEndTime = tmpdata.t + tileInfo.layout.tileSetDuration;
+		totalSetDuration += tileInfo.layout.tileSetDuration;
 		if( tileSetEndTime < tStart )
 		{
 			continue;
 		}
 		tmpdata.url = tileInfo.url;
-		tmpdata.d = tileInfo.posterDuration;
+		tmpdata.d = tileInfo.layout.posterDuration;
 		bool done = false;
-		for( int row=0; row<tileInfo.numRows && !done; row++ )
+		for( int row=0; row<tileInfo.layout.numRows && !done; row++ )
 		{
-			for( int col=0; col<tileInfo.numCols && !done; col++ )
+			for( int col=0; col<tileInfo.layout.numCols && !done; col++ )
 			{
-				double tNext = tmpdata.t+tileInfo.posterDuration;
+				double tNext = tmpdata.t+tileInfo.layout.posterDuration;
 				if( tNext >= tileSetEndTime )
 				{
 					tmpdata.d = tileSetEndTime - tmpdata.t;
@@ -10978,8 +10974,8 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_MPD::GetThumbnailRangeData(doub
 			}
 			*width = thumbnailtrack[aamp->mthumbIndexValue]->resolution.width;
 			*height = thumbnailtrack[aamp->mthumbIndexValue]->resolution.height;
-			*raw_w = thumbnailtrack[aamp->mthumbIndexValue]->resolution.width * tileInfo.numCols;
-			*raw_h = thumbnailtrack[aamp->mthumbIndexValue]->resolution.height * tileInfo.numRows;
+			*raw_w = thumbnailtrack[aamp->mthumbIndexValue]->resolution.width * tileInfo.layout.numCols;
+			*raw_h = thumbnailtrack[aamp->mthumbIndexValue]->resolution.height * tileInfo.layout.numRows;
 		}
 	}
 	return data;

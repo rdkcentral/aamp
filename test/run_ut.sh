@@ -67,6 +67,7 @@ fi
 
 sudo apt remove -y meson
 sudo pip3 install -y meson
+sudo pip3 install -y lcov_cobertura
 hash -r
 
 mkdir -p "/tmp/Gtest_Report/"

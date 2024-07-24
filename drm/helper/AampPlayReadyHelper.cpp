@@ -39,6 +39,8 @@
 static AampPlayReadyHelperFactory playready_helper_factory;
 
 const std::string AampPlayReadyHelper::PLAYREADY_OCDM_ID = "com.microsoft.playready";
+const size_t AampPlayReadyHelper::PLAYREADY_DECODED_KEY_ID_LEN = 16U;
+const size_t AampPlayReadyHelper::PLAYREADY_KEY_ID_LEN = 37U;
 
 const std::string& AampPlayReadyHelper::ocdmSystemId() const
 {
@@ -59,11 +61,11 @@ void AampPlayReadyHelper::createInitData(std::vector<uint8_t>& initData) const
 std::string AampPlayReadyHelper::findSubstr(std::string &data, std::string start, std::string end)
 {
 	std::string retVal = "";
-	int first = data.find(start);
+	auto first = data.find(start);
 	if ((first != std::string::npos))
 	{
 		std::string subStr = data.substr(first + start.size());
-		int last = subStr.find(end);
+		auto last = subStr.find(end);
 		if ((last != std::string::npos))
 		{
 			retVal =  subStr.substr (0,last);
@@ -204,7 +206,7 @@ bool AampPlayReadyHelper::parsePssh(const uint8_t* initData, uint32_t initDataLe
 
 			if (decodedDataLen != PLAYREADY_DECODED_KEY_ID_LEN)
 			{
-				AAMPLOG_ERR("Invalid key size found while extracting PR Decoded-KeyID-Length: %d (PR KeyID: %s  KeyID-Length: %d)", decodedDataLen, keyData.c_str(), keyIdLen);
+				AAMPLOG_ERR("Invalid key size found while extracting PR Decoded-KeyID-Length: %zu (PR KeyID: %s  KeyID-Length: %d)", decodedDataLen, keyData.c_str(), keyIdLen);
 			}
 			else
 			{

@@ -57,6 +57,12 @@ def tracks_parser(regex_match):
     tracks_info = json.loads(regex_match.group(1))
     track_count = len(tracks_info)
 
+    # Test to verify failure when no thumbnail index is provided.
+    test_sequence['expect_list'].insert(-1, {"cmd": "sleep {}".format(sleep_time)})
+    test_sequence['expect_list'].insert(-1, {"cmd": "set thumbnailTrack"}) # Varifies failure when no thumbnail index is provided.
+    test_sequence['expect_list'].insert(-1, {"expect": r" SetThumbnailTrack \[-1\] result: fail"})
+
+    # Tests to verify success when a valid thumbnail index is provided.
     for idx in range(track_count):
         test_sequence['expect_list'].insert(-1, {"cmd": "set thumbnailTrack {}".format(idx)})
         test_sequence['expect_list'].insert(-1, {"expect": r" SetThumbnailTrack \[{}\] result: success".format(idx)})
@@ -96,7 +102,7 @@ def test_4004(aamp_setup_teardown, test_data):
     * Plays the asset
     * Extracts the number of thumbanail tracks 
     * Sets each thumbnail track
-    * Check that AAMP returns a "success" from the set command
+    * Check that AAMP returns a "success" from the set command if the track index is valid, else it returns "fail"
     * Checks that the thumbnail data contains at least a tile
     '''
 

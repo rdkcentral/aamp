@@ -39,7 +39,7 @@ public:
 	virtual ~Event() {
 		pthread_cond_destroy(&condition);
 		pthread_mutex_destroy(&lock);
-               pthread_condattr_destroy(&condAttr); 
+               pthread_condattr_destroy(&condAttr);
 	}
 
 	inline bool wait(const uint32_t waitTime)
@@ -80,7 +80,7 @@ public:
 /**
  * @class AAMPOCDMSessionAdapter
  * @brief Open CDM DRM session
- */ 
+ */
 class AAMPOCDMSessionAdapter : public AampDrmSession
 {
 protected:
@@ -136,7 +136,9 @@ public:
 	int aampDRMProcessKey(DrmData* key, uint32_t timeout) override;
 	KeyState getState() override;
 	void clearDecryptContext() override;
-	void setKeyId(const std::vector<uint8_t>& keyId);
+#if defined(USE_OPENCDM_ADAPTER)
+	void setKeyId(const std::vector<uint8_t>& keyId) override;
+#endif
 	bool waitForState(KeyState state, const uint32_t timeout) override;
 };
 

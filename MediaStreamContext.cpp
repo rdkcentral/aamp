@@ -34,7 +34,11 @@
  */
 void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity)
 {
-	if(!(aamp->GetLLDashServiceData()->lowLatencyMode  && (cachedFragment->type == eMEDIATYPE_AUDIO || cachedFragment->type == eMEDIATYPE_VIDEO) || aamp->IsLocalAAMPTsb()))
+	if(
+	   !( (aamp->GetLLDashServiceData()->lowLatencyMode &&
+		   (cachedFragment->type == eMEDIATYPE_AUDIO ||
+			cachedFragment->type == eMEDIATYPE_VIDEO)
+		   ) || aamp->IsLocalAAMPTsb() ) )
 	{
 		if(playContext)
 		{

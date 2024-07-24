@@ -26,27 +26,6 @@ After that, you can run by typing in terminal from the build folder:
 ```
 
 # Manual Setup Process
-**1. Install dependencies
-
-Install the following packages
-```
-sudo apt-get install freeglut3-dev
-sudo apt-get install libglew-dev
-```
-Next
-```
-bash install-linux-deps.sh
-```
-This will install additional packages needed by the system to work on this project
-
-**2. Setup additional libraries**
-
-```
-bash install-linux.sh
-```
-This scripts checkouts additional libraries like aampmetrics,aampabr and  gst-plugins-rdk-aamp. 
-It also runs intall_libdash script from the main directory
-
 ---
 
 # Build and execute aamp-cli (Manual Steps)

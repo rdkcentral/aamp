@@ -30,55 +30,55 @@ async function TST_2000_UVE_AampPlayback() {
 
 
     // Load and Play the main content URL, wait 10s and verify position updated
-    TST_INFO("Tune to URL");
+    TST_STEP("Tune to URL");
     await aamp_player.Load(mainContentUrl);
     await aamp_player.VerifyPlayback(10, 1);
 
 
     // Pause playback, wait 5s and verify the playback position doesn't move
-    TST_INFO("Pause playback");
+    TST_STEP("Pause playback");
     await aamp_player.SetRate(0);
     await aamp_player.VerifyPlayback(5, 0);
 
 
     // Play, wait 5s and verify position updated
-    TST_INFO("Set speed to 1x Playback");
+    TST_STEP("Set speed to 1x Playback");
     await aamp_player.SetRate(1);
     await aamp_player.VerifyPlayback(5, 1);
 
 
     // Set speed to 2x FF, wait 10s and verify position updated
-    TST_INFO("Set speed to 2x FF");
+    TST_STEP("Set speed to 2x FF");
     await aamp_player.SetRate(2);
     await aamp_player.VerifyPlayback(10, 2);
 
 
     // Set speed to 30x FF, wait 5s and verify position updated
-    TST_INFO("Set speed to 30x FF");
+    TST_STEP("Set speed to 30x FF");
     await aamp_player.SetRate(30);
     await aamp_player.VerifyPlayback(5, 30);
 
 
     // Set speed to 1x Playback, wait 10s and verify position updated
-    TST_INFO("Set speed to 1x Playback");
+    TST_STEP("Set speed to 1x Playback");
     await aamp_player.SetRate(1);
     await aamp_player.VerifyPlayback(10, 1);
 
 
     // Seek to start Position (300s), wait 10s and verify position updated
-    TST_INFO("Seek to start Position (300s)");
+    TST_STEP("Seek to start Position (300s)");
     await aamp_player.Seek(300);
     await aamp_player.VerifyPlayback(10, 1);
 
 
     // Set speed to -12x RR, wait 5s and verify position updated
-    TST_INFO("Set speed to -12x RR");
+    TST_STEP("Set speed to -12x RR");
     await aamp_player.SetRate(-12);
     await aamp_player.VerifyPlayback(5, -12);
 
 
     // Stop the playback and destroy the AAMP Player
-    TST_INFO("Stop the playback");
+    TST_STEP("Stop the playback");
     await aamp_player.Stop();
     aamp_player.destroy();
     TST_END()

@@ -70,7 +70,7 @@ class Demuxer;
  */
 typedef enum
 {
-	eStreamOp_NONE, 		/**< Normal operation when no demuxing is required. Used with playersinkbin */
+	eStreamOp_NONE, 		/**< Normal operation when no demuxing is required*/
 	eStreamOp_DEMUX_AUDIO, 		/**< Demux and inject audio only*/
 	eStreamOp_DEMUX_VIDEO, 		/**< Demux and inject video only*/
 	eStreamOp_DEMUX_ALL, 		/**< Demux and inject audio and video*/

@@ -36,6 +36,11 @@ void _downloadResponse::show()
 {
 }
 
+curl_off_t aamp_CurlEasyGetinfoOffset( CURL *handle, CURLINFO info )
+{
+	curl_off_t rc = 0;
+	return rc;
+}
 
 double aamp_CurlEasyGetinfoDouble( CURL *handle, CURLINFO info )
 {

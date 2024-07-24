@@ -169,7 +169,7 @@ TEST_F(ExecuteTests, Set_CCStyle_FilenameExceedsMaxLength)
     int i;
 
     // Fill array with characters and null terminate
-    for (i = strlen(cmd); i < sizeof(cmd) - 1; i++)
+    for (i = (int)strlen(cmd); i < sizeof(cmd) - 1; i++)
     {
         cmd[i] = 'A' + (i % 26);
     }

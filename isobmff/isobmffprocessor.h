@@ -82,14 +82,17 @@ enum skipTimeType
 	eBMFFPROCESSOR_SKIP_AFTER_NEW_TIMESCALE,
 };
 
+typedef std::map<double, double>skipPosToDurationTypeMap;
 /**
  * @struct SkipType
  * @brief structure to hold skip position details
  */
 typedef struct
 {
-	double skipDuration;
-	double skippointPosition;
+	double sumOfSkipDuration;
+	double skipPointPosition;
+	double skipPosBeforeDiscontiuity;
+	skipPosToDurationTypeMap skipPosToDurMap;
 }stSkipType;
 
 /**
@@ -169,7 +172,7 @@ public:
 	 * @param[in] skipDuration - duration of fragments to be skipped
 	 * @return void
 	 */
-	void updateSkipPoint(double skipPoint, double skipDuration );
+	void updateSkipPoint(double skipPoint, double skipDuration ) override;
 
 	/**
 	 * @fn setDiscontinuityState
@@ -177,13 +180,13 @@ public:
 	 * @param[in] isDiscontinuity - true if dicontinuity false otherwise
 	 * @return void
 	 */
-	void setDiscontinuityState(bool isDiscontinuity);
+	void setDiscontinuityState(bool isDiscontinuity) override;
 
 	/**
 	 * @fn abortWaitForVideoPTS
 	 * @return void
 	 */
-	void abortWaitForVideoPTS();
+	void abortWaitForVideoPTS() override;
 
 	/**
 	 * @fn abort
@@ -459,7 +462,6 @@ private:
 	uint32_t timeScale;
 	uint32_t currTimeScale;
 
-	double sumOfTrackDurationFromISOBuffer;
 	double startPos;
 	double prevPosition;
 	double prevDuration;
@@ -491,7 +493,7 @@ private:
 	std::mutex initSegmentTransferMutex;
 	std::mutex skipMutex;
 	skipTypeMap skipPointMap;
-
+	
 	pthread_mutex_t m_mutex;
 	pthread_cond_t m_cond;
 	AampLogManager *mLogObj;

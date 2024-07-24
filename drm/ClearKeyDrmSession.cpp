@@ -228,7 +228,7 @@ DrmData * ClearKeySession::aampGenerateKeyRequest(string& destinationURL, uint32
 					if(requestBody)
 					{
 						AAMPLOG_INFO("Generated license request : %s", requestBody);
-						licenseChallenge = new DrmData(reinterpret_cast<unsigned char*>(requestBody), strlen(requestBody));  //CID:154682 - overrun
+						licenseChallenge = new DrmData( requestBody, strlen(requestBody));  //CID:154682 - overrun
 						m_eKeyState = KEY_PENDING;
 						cJSON_free(requestBody);
 					}
@@ -296,7 +296,7 @@ int ClearKeySession::aampDRMProcessKey(DrmData* key, uint32_t timeout)
 						{
 							m_keyLen = resKeyLen;
 							m_eKeyState = KEY_READY;
-							AAMPLOG_INFO("ClearKeySession: Got key from license response keyLength %d", m_keyLen);
+							AAMPLOG_INFO("ClearKeySession: Got key from license response keyLength %zu", m_keyLen);
 							ret = 1;
 						}
 						else
@@ -394,7 +394,7 @@ int ClearKeySession::decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer, GstBuf
 
 	if(bufferMapped && ivMapped && (subSampleCount ==0 || subSampleMapped))
 	{
-		reader = gst_byte_reader_new(subsampleMap.data, subsampleMap.size);
+		reader = gst_byte_reader_new(subsampleMap.data, (guint)subsampleMap.size);
 		if(reader)
 		{
 			// collect all the encrypted bytes into one contiguous buffer
@@ -431,7 +431,7 @@ int ClearKeySession::decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer, GstBuf
 	        else
 	        {
 				pbData = bufferMap.data;
-				cbData = bufferMap.size;
+				cbData = (uint32_t)bufferMap.size;
 	        }
 
 			if(cbData != 0)

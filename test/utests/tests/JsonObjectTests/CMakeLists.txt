@@ -16,7 +16,6 @@
 # limitations under the License.
 
 include(GoogleTest)
-pkg_check_modules(LIBCJSON REQUIRED libcjson)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")

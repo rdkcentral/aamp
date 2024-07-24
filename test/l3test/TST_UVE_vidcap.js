@@ -199,6 +199,35 @@ class VideoCapture {
         return isInit
     }
 
+    // Signals if the VideoCapture is receiving Video Frames
+    async IsVideoPresent()
+    {
+        var statusJson = await this.GetSessionStatus();
+        var isVideoPresent = statusJson['videoPresent']
+
+        console.log("VideoCapture isVideoPresent EXIT: (" + isVideoPresent + ")");
+        return isVideoPresent
+    }
+
+    // Blocking function which waits for the video monitor to be signal video is present before returning
+    async WaitForVideoPresent(timeout = 5)
+    {
+        console.log("WaitForVideoPresent");
+
+        var isVideoPresent = await this.IsVideoPresent();
+        let i = 0;
+
+        while ((isVideoPresent == false) && (i <= timeout))
+        {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            isVideoPresent = await this.IsVideoPresent();
+            i += 1;
+        }
+
+        console.log("VideoCapture WaitForVideoPresent EXIT: (" + isVideoPresent + ")");
+        return isVideoPresent
+    }
+
     // Signals if the VideoCapture is Capturing
     async IsCapturing()
     {

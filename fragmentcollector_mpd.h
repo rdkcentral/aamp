@@ -553,6 +553,11 @@ protected:
 	 */
 	void TsbReader();
 	/**
+	 * @fn TsbReader
+	 * @return void
+	 */
+	void TsbReader();
+	/**
 	 * @fn GetStreamInfo
 	 * @param[in]  idx - profile index.
 	 */

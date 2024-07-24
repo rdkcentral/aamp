@@ -1162,9 +1162,17 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 
 				case 48:
 					{
+						int thumbnailTrack;
 						printf("[AAMPCLI] Matched Command ThumbnailTrack - %s\n",cmd);
-						sscanf(cmd, "set %s %d", command, &rate);
-						printf("[AAMPCLI] Setting ThumbnailTrack : %s\n",playerInstanceAamp->SetThumbnailTrack(rate)?"Success":"Failure");
+						if (sscanf(cmd, "set %s %d", command, &thumbnailTrack) == 2) {
+							printf("[AAMPCLI] Setting ThumbnailTrack : %s\n",playerInstanceAamp->SetThumbnailTrack(thumbnailTrack)?"Success":"Failure");
+						}
+						else
+						{	printf("[AAMPCLI] Setting ThumbnailTrack : %s\n",playerInstanceAamp->SetThumbnailTrack(-1)?"Success":"Failure");  //SetThumbnailTrack to -1 to ensure failure
+							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							printf("[AAMPCLI] Expected: set %s <track index>\n", command);
+						}
+						
 						break;
 					}
 				case 50:

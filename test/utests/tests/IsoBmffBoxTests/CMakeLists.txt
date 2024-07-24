@@ -17,9 +17,6 @@
 
 include(GoogleTest)
 
-pkg_check_modules(GMOCK REQUIRED gmock)
-pkg_check_modules(GTEST REQUIRED gtest)
-
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME IsoBmffBoxTests)
@@ -46,6 +43,16 @@ set(AAMP_SOURCES ${AAMP_ROOT}/isobmff/isobmffbox.cpp)
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
+
+if (CMAKE_XCODE_BUILD_SYSTEM)
+  # XCode schema target
+  xcode_define_schema(${EXEC_NAME})
+endif()
+
+if (COVERAGE_ENABLED)
+    include(CodeCoverage)
+    APPEND_COVERAGE_COMPILER_FLAGS()
+endif()
 
 add_compile_definitions(TESTS_DIR="${TEST_FILES_DIR}")
 target_link_libraries(${EXEC_NAME} fakes ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})

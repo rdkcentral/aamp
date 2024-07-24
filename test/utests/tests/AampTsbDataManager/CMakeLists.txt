@@ -24,18 +24,6 @@ include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/tsb/api)
 
-# Mac OS X
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    include_directories(/usr/local/include)
-    include_directories(/usr/local/include/libdash)
-    set(OS_LD_FLAGS -L/usr/local/lib)
-
-else()
-    include_directories(${AAMP_ROOT}/Linux/include)
-    include_directories(${AAMP_ROOT}/Linux/include/libdash)
-    set(OS_LD_FLAGS -luuid)
-endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
@@ -63,11 +51,6 @@ endif()
 if (COVERAGE_ENABLED)
     include(CodeCoverage)
     APPEND_COVERAGE_COMPILER_FLAGS()
-    set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/AampTsbDataManager/*")
-    include("${PROJECT_SOURCE_DIR}/cmake_exclude_file.list")
-    SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
-                              EXECUTABLE ${EXEC_NAME}
-                              DEPENDENCIES ${EXEC_NAME})
 endif()
 
 target_link_libraries(${EXEC_NAME} fakes -lpthread ${LIBDASH_LINK_LIBRARIES} ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES})

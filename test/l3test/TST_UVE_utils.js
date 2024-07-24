@@ -2,35 +2,56 @@
 var mainContentUrl = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd";
 var adUrl = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/Ad-generated-30s/ad-generated-30s.mpd"
 
+var TST_fail_count = 0;
+var TST_current_step = "";
 
 // Signal the start of the Test to the log (Specific string monitored by CI)
 // Updates the running test number to the screen
 function TST_START(message){
+    TST_fail_count = 0;
+    TST_current_step = "Test Start";
+
     console.log("CI_CHECKPOINT TEST RUNNING");
     document.getElementById("testData").innerHTML = message;
-    console.log(message);
+    console.log("TST_START: " + message);
 }
 
 // Signal the End of the Test to the log (Specific string monitored by CI)
 function TST_END(){
-    document.getElementById("infoData").innerHTML = "TEST PASSED";
-    console.log("CI_CHECKPOINT TEST PASSED");
+
+    if (TST_fail_count == 0){
+        document.getElementById("infoData").innerHTML = "TEST PASSED";
+        console.log("TST_END: TEST PASSED");
+        console.log("CI_CHECKPOINT TEST PASSED");
+    }
+    else{
+        document.getElementById("infoData").innerHTML = "TEST FAILED: " + TST_current_step;
+        console.log("TST_END: TEST FAILED: " + TST_current_step);
+        console.log("CI_CHECKPOINT TEST FAILED");
+
+        // Stop Execution of the test
+        throw new Error("Stop Test");
+    }
 }
 
-// Update the screen OSD and log the message
-function TST_INFO(message){
-    document.getElementById("infoData").innerHTML = message;
-    console.log(message);
+// Update the screen OSD and log the test step message
+function TST_STEP(message){
+    document.getElementById("infoData").innerHTML = "TST_STEP: " + message;
+    console.log("TST_STEP: " + message);
+    TST_current_step=message;
 }
 
 // Check condition - on failure Log the message, and throw an error to terminate the test.
 // (Specific string monitored by CI)
 function TST_ASSERT(condition, message) {
+
     if (!condition) {
-        console.log("ASSERT: " + message);
-        console.log("CI_CHECKPOINT TEST FAILED");
-        document.getElementById("infoData").innerHTML = "TEST FAILED: " + message;
-        throw new Error(message || 'Assertion failed');
+        TST_fail_count += 1;
+        document.getElementById("infoData").innerHTML = "ASSERT FAILED: (" + TST_current_step + ") " + message;
+        console.log("TST_ASSERT: ASSERT FAILED: (" + TST_current_step + ") " + message);
+
+        // End the test and Exit
+        TST_END();
     }
 }
 
@@ -39,14 +60,31 @@ function TST_ASSERT_FAIL_FATAL(message) {
     TST_ASSERT(0, message);
 }
 
+// Perform a sleeep
 async function TST_SLEEP(timeout) {
     console.log("TST_SLEEP: " + timeout);
     await new Promise(resolve => setTimeout(resolve, (timeout * 1000)));
 }
 
+// Catch all errors to prevent un-nescessary additions to the log file.
+window.addEventListener("error", (event) => {
+    event.preventDefault();
+    return false;
+});
+
 // Catch all listener for unhandled rejections
 window.addEventListener("unhandledrejection", (event) => {
-    TST_ASSERT_FAIL_FATAL(`${event.reason}`);
+    event.preventDefault();
+
+    if (TST_fail_count == 0){
+
+        console.log("TST_ASSERT: ASSERT FAILED: (" + TST_current_step + ") " + event.reason);
+        document.getElementById("infoData").innerHTML = "TEST FAILED: " + TST_current_step;
+        console.log("TST_END: TEST FAILED: " + TST_current_step);
+        console.log("CI_CHECKPOINT TEST FAILED");
+    }
+
+    throw new Error('Exit App');
 });
 
 
@@ -320,7 +358,6 @@ class AAMPPlayer {
 
         console.log("aamp_VerifyPlayback EXIT");
     }
-
 
     // Plays a given URL waiting for AAMP to signal the eSTATE_PLAYING state has been reached
     async Load(url, autostart = true, waitForState = true)

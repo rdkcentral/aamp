@@ -21,34 +21,34 @@ async function TST_2001_UVE_AampMainAndAdPlayback() {
 
 
     // Load and Play the main content URL, wait 10s and verify position updated
-    TST_INFO("Tune to URL - Wait: 10(s)");
+    TST_STEP("Tune to URL - Wait: 10(s)");
     await aamp_player.Load(mainContentUrl);
     await aamp_player.VerifyPlayback(10, 1);
 
 
     // PreLoad the AD, and set the Main content to Pause at 20s
-    TST_INFO("Pre-Load AD - Pause Main at: 20(s)");
+    TST_STEP("Pre-Load AD - Pause Main at: 20(s)");
     await aamp_ad_player.Load(adUrl, false);
     await aamp_player.VerifyPlayback(7, 1);
     await aamp_player.Pause(20);
 
 
     // When the Pause occurs, Detach the Main, and Play the AD for 15s
-    TST_INFO("Switch to Ad - Wait: 15(s)");
+    TST_STEP("Switch to Ad - Wait: 15(s)");
     aamp_player.player.detach(); // Send main player to background
     await aamp_ad_player.Play(); // Play Ad
     await aamp_ad_player.VerifyPlayback(15, 1);
 
 
     // Now switch back the the main content for a further 10s
-    TST_INFO("Switch back to Main - Wait 10(s)");
+    TST_STEP("Switch back to Main - Wait 10(s)");
     aamp_ad_player.player.detach();
     await aamp_player.SetRate(1);
     await aamp_player.VerifyPlayback(10, 1);
 
 
     // Stop the playback and destroy the Main and Ad AAMP Players
-    TST_INFO("Stop the playback");
+    TST_STEP("Stop the playback");
     await aamp_player.Stop();
     await aamp_ad_player.Stop();
     aamp_player.destroy();

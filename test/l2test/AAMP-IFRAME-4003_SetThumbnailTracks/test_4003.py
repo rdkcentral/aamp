@@ -55,12 +55,27 @@ def tracks_parser(regex_match):
     tracks_info = json.loads(regex_match.group(1))
     track_count = len(tracks_info)
 
+    # Test to verify failure when no thumbnail index is provided.
+    test_sequence['expect_list'].insert(-1, {"cmd": "sleep {}".format(sleep_time)})
+    test_sequence['expect_list'].insert(-1, {"cmd": "set thumbnailTrack"}) # Varifies failure when no thumbnail index is provided.
+    test_sequence['expect_list'].insert(-1, {"expect": r" SetThumbnailTrack \[-1\] result: fail"})
+
+    # Tests to verify failure when an invalid thumbnail index is provided.
+    randomThumbnailIndexes = [-234255, 456789, 97531, -123456]
+
+    for idx in randomThumbnailIndexes:
+        test_sequence['expect_list'].insert(-1, {"cmd": "sleep {}".format(sleep_time)})
+        test_sequence['expect_list'].insert(-1, {"cmd": "set thumbnailTrack {}".format(idx)})
+        test_sequence['expect_list'].insert(-1, {"expect": r" SetThumbnailTrack \[{}\] result: fail".format(idx)})
+
+    # Tests to verify success when a valid thumbnail index is provided.
     for idx in range(track_count):
+
         test_sequence['expect_list'].insert(-1, {"cmd": "sleep {}".format(sleep_time)})
         test_sequence['expect_list'].insert(-1, {"cmd": "set thumbnailTrack {}".format(idx)})
         test_sequence['expect_list'].insert(-1, {"expect": r" SetThumbnailTrack \[{}\] result: success".format(idx)})
     
-
+    
 stream_configuration=[
     {"url":"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/thumbnail_l2/peacock1/mpeg_2sec/manifest.m3u8"},
     {"url":"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/thumbnail_l2/peacock2/mpeg_2sec/manifest.m3u8"},
@@ -75,7 +90,7 @@ def test_4003(aamp_setup_teardown, test_data):
     * Plays the asset
     * Extracts the number of thumbanail tracks 
     * Sets each thumbnail track
-    * Check that AAMP returns a "success" from the set command
+    * Check that AAMP returns a "success" from the set command if the track index is valid, else it returns "fail"
     
     This approach makes it easy to extend this test to different assets in the future, 
     provided that the information on the trasks is extracted correctly by the `get thumbnailConfig` command.
@@ -96,4 +111,3 @@ def test_4003(aamp_setup_teardown, test_data):
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
 
     aamp.run_expect_a(test_sequence)
-

@@ -23,7 +23,7 @@ async function TST_UVE_Pipeline_VerifyBlankPeriod(vid_capture, singlePipeline, p
         var blankLastCount = blankingData[4];
         blank_str = "Black Periods: " + blankPeriods + " Last duration: " + blankLastTime + "s";
         blank_str += "<br> " + blankLastCount + " Frames : Start (" + blankLastStart + "), End (" + blankLastEnd + ")";
-        TST_INFO(blank_str);
+        TST_STEP(blank_str);
 
         if (singlePipeline){
             // Single Pipeline Mode - ON, There should be no blank periods in this test
@@ -50,14 +50,14 @@ async function TST_UVE_Pipeline_VerifyBlankPeriod(vid_capture, singlePipeline, p
         }
     }
     else {
-        TST_INFO("Video Capture not in use for this test run");
+        TST_STEP("Video Capture not in use for this test run");
     }
 };
 
 async function TST_UVE_PipelineTests(testName, singlePipeline) {
     TST_START(testName);
 
-    TST_INFO("Init Vid Capture... ");
+    TST_STEP("Init Vid Capture... ");
     var vid_capture = new VideoCapture();
     if (vid_capture.isActive()){
         await vid_capture.Init();
@@ -65,7 +65,7 @@ async function TST_UVE_PipelineTests(testName, singlePipeline) {
         TST_ASSERT ((isInit == true), ("Unexpected Init Status - Got: " + isInit + ", Expected: true"));
     }
     else {
-        TST_INFO("Video Capture not in use for this test run");
+        TST_STEP("Video Capture not in use for this test run");
     }
 
     // Create Player instances for the Main content and Ads
@@ -75,7 +75,7 @@ async function TST_UVE_PipelineTests(testName, singlePipeline) {
     var aamp_ad_3_player = new AAMPPlayer("AD-3-PLAYER-" + (singlePipeline ? "ON" : "OFF"));
 
     // Initialise config
-    TST_INFO("Init config flags");
+    TST_STEP("Init config flags");
     initConfig.useSinglePipeline = singlePipeline;
     aamp_main_player.player.initConfig(initConfig);
     aamp_ad_1_player.player.initConfig(initConfig);
@@ -89,13 +89,17 @@ async function TST_UVE_PipelineTests(testName, singlePipeline) {
     var ad_2_url = AD_HOST + "/VideoTestStream/public/aamptest/streams/ads/ad3/hsar1039-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd"; // 30sec - ad3 (bet)
     var ad_3_url = AD_HOST + "/VideoTestStream/public/aamptest/streams/ads/ad6/hsar1103-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad20/ce5b8762-d14a-4f92-ba34-13d74e34d6ac/1628252375289/AD/HD/manifest.mpd"; // 25sec - ad6 (one)
 
-    TST_INFO("Playing Main Content");
+    TST_STEP("Playing Main Content");
     await aamp_main_player.Load(main_url);
     await aamp_main_player.VerifyPlayback(5, 1);
 
     if (vid_capture.isActive()){
         // Start the capture device for a maximum of 5 mins (300s)
-        TST_INFO("Start Capture: 300(s)");
+        TST_STEP("Start Capture: 300(s)");
+
+        // Check for Video
+        var isVideoPresent = await vid_capture.WaitForVideoPresent();
+        TST_ASSERT ((isVideoPresent == true), ("Unexpected Video Present Status - Got: " + isVideoPresent + ", Expected: true"));
 
         var filename = "VID_000" + "_SinglePipeline_" + (singlePipeline ? "ON" : "OFF") + ".mp4";
         await vid_capture.Capture(filename, 300);
@@ -107,12 +111,12 @@ async function TST_UVE_PipelineTests(testName, singlePipeline) {
     await aamp_main_player.VerifyPlayback(5, 1);
 
     // Pre-Load Ad 1, but Don't Play
-    TST_INFO("Pre-Load Ad 1");
+    TST_STEP("Pre-Load Ad 1");
     await aamp_ad_1_player.Load(ad_1_url, false);
     await aamp_main_player.VerifyPlayback(5, 1);
 
     // Detach main content and start Ad 1 playback
-    TST_INFO("Playing Ad 1");
+    TST_STEP("Playing Ad 1");
     aamp_main_player.player.detach();
     await aamp_ad_1_player.Play();
     await aamp_ad_1_player.VerifyPlayback(5, 1);
@@ -125,12 +129,12 @@ async function TST_UVE_PipelineTests(testName, singlePipeline) {
 
 
     // Pre-Load Ad 2, but Don't Play
-    TST_INFO("Pre-Load Ad 2");
+    TST_STEP("Pre-Load Ad 2");
     await aamp_ad_2_player.Load(ad_2_url, false);
     await aamp_ad_1_player.VerifyPlayback(5, 1);
 
     // Detach main content and start Ad 1 playback
-    TST_INFO("Playing Ad 2");
+    TST_STEP("Playing Ad 2");
     aamp_ad_1_player.player.detach();
     await aamp_ad_2_player.Play();
     await aamp_ad_2_player.VerifyPlayback(5, 1);
@@ -143,12 +147,12 @@ async function TST_UVE_PipelineTests(testName, singlePipeline) {
     await aamp_ad_2_player.VerifyPlayback(5, 1);
 
     // Pre-Load Ad 3, but Don't Play
-    TST_INFO("Pre-Load Ad 3");
+    TST_STEP("Pre-Load Ad 3");
     await aamp_ad_3_player.Load(ad_3_url, false);
     await aamp_ad_2_player.VerifyPlayback(5, 1);
 
     // Detach main content and start Ad 1 playback
-    TST_INFO("Playing Ad 3");
+    TST_STEP("Playing Ad 3");
     aamp_ad_2_player.player.detach();
     await aamp_ad_3_player.Play();
     await aamp_ad_3_player.VerifyPlayback(5, 1);
@@ -162,12 +166,12 @@ async function TST_UVE_PipelineTests(testName, singlePipeline) {
 
 
     // Pre-Load & Seek, but Don't Play
-    TST_INFO("Seek Main Content");
+    TST_STEP("Seek Main Content");
     await aamp_main_player.Seek(10, false);
     await aamp_ad_3_player.VerifyPlayback(5, 1);
 
     // Detach Ad 3 content and continue main
-    TST_INFO("Playing Main Content");
+    TST_STEP("Playing Main Content");
     aamp_ad_3_player.player.detach();
     await aamp_main_player.Play();
     await aamp_main_player.VerifyPlayback(5, 1);

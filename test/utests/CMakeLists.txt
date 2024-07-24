@@ -61,4 +61,7 @@ if (CMAKE_PLATFORM_UBUNTU)
         link_directories(${GTEST_LIBRARY_DIRS} ${GMOCK_LIBRARY_DIRS})
 endif()
 add_subdirectory(tests)
-
+if(NOT CMAKE_PROJECT_NAME STREQUAL AAMP)
+    # Run TSB library tests
+    add_subdirectory(../../tsb build/tsb)
+endif()

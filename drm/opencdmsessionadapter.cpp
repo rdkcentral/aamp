@@ -243,7 +243,7 @@ DrmData * AAMPOCDMSessionAdapter::aampGenerateKeyRequest(string& destinationURL,
 				(void) m_challenge.erase(0, m_challenge.find(delimiter) + delimiter.length());
 			}
 
-			result = new DrmData(reinterpret_cast<unsigned char*>(const_cast<char*>(m_challenge.c_str())), (int)m_challenge.length());
+			result = new DrmData(m_challenge.c_str(), m_challenge.length());
 			destinationURL.assign((m_destUrl.c_str()));
 			AAMPLOG_WARN("destinationURL is %s (default value used as drm server)", destinationURL.c_str());
 			m_eKeyState = KEY_PENDING;

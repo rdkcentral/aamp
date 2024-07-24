@@ -7,7 +7,7 @@ do
 	FILE=temp/"$REPRESENTATION"/$AUDIO_CODEC.mp4
 	RAW=temp/"$REPRESENTATION"/full_track.wav
 	mkdir "$DIR"
-	FOUT="$DIR"/SegmentTimeline4k.mpd
+	FOUT="$DIR"/${LANG_639_2[$I]}.mpd
 	if [ -f "$FOUT" ]; then
        echo "$FOUT exists"
 	else

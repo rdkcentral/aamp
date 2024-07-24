@@ -1,6 +1,6 @@
 # AAMP Multi profile test
 
-This python3 L2 test verifies that the thumbnails are correctly extracted from the test assets
+This python3 L2 test verifies that the thumbnails are correctly extracted from the test assets and set as expected.
 
 <RDK-2263> L2 Test script generation : Test setThumbnailTracks
 

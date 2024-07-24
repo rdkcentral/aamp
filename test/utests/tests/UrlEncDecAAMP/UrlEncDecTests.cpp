@@ -47,7 +47,7 @@ TEST(UrlEncDecSuite, encode)
 	// RFC 3986 section 2.3 Unreserved Characters
 	inStr.assign("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~");
 	expStr = inStr;
-	outStr.empty();
+	outStr.clear();
 	::UrlEncode(inStr, outStr);
 	EXPECT_EQ(outStr, expStr) << "The url encode of " << inStr << ", was " << outStr << " is not correct";
 	
@@ -56,7 +56,7 @@ TEST(UrlEncDecSuite, encode)
 	// Fixed by DELIA-58150
 	inStr.assign(" !#$&'()*+,/:;=?@[]");
 	expStr.assign("%20%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D");
-	outStr.empty();
+	outStr.clear();
 	::UrlEncode(inStr, outStr);
 	EXPECT_EQ(outStr, expStr) << "The url encode of " << inStr << ", was " << outStr << " is not correct";
 

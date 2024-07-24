@@ -24,7 +24,7 @@ do
     AUDIO_HLS_MAP="$AUDIO_HLS_MAP -metadata:s:a:$I language=${LANG_639_3[$I]} -metadata:s:a:$I title=\"${LANG_FULL_NAME[$I]}\""
 done
 
-for (( I=0; I<PROFILE_COUNT; I++ ))
+for (( I=0; I<4; I++ ))
 do
     #combine video with audio streams
     ffmpeg -hide_banner -y -i overlay${HEIGHT[$I]}.mp4 $AUDIO_INPUTS -map 0:v -c:v $VIDEO_CODEC -c:a $AUDIO_CODEC overlay${HEIGHT[$I]}_mux.mp4

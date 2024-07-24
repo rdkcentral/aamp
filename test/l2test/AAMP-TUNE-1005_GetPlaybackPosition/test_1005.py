@@ -50,7 +50,7 @@ playback = {}
 #Function to read position from regular expression match
 def read_position(re_match):
     if re_match.group(1):
-        currentPosition = float(re_match.group(1)) * 1000
+        currentPosition = float(re_match.group(1))
     #Dynamically add a test expect string to match the live position. This value is taken on run time
     playback["expect_list"].insert(-2, {"expect": "position={}".format(currentPosition)})
 

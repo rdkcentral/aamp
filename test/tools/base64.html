@@ -1,0 +1,54 @@
+<html>
+	<head>
+		<script>
+			function decode()
+			{
+				try
+				{
+					let value = atob(encoded.value);
+					decode_len.value = value.length;
+					let rc = "";
+					for( let i=0; i<value.length; i++ )
+					{
+						let c = value.charAt(i);
+						let code = value.codePointAt(i);
+						if( code<=32 || code>127 || code==34 )
+						{ // use octal syntax
+							c = code.toString(8);
+							while( c.length<3 )
+							{
+								c = '0'+c;
+							}
+							c = "\\" + c;
+						}
+						rc += c;
+					}
+
+					decoded.value = rc;
+				}
+				catch(e)
+				{
+					alert( e );
+				}
+			}
+			
+			function encode()
+			{
+				decode_len.value = decoded.value.length;
+				let value = btoa(decoded.value);
+				encoded.value = value;
+			}
+			</script>
+	</head>
+	<body>
+		Base64 Encoded: <!-- MTIzNA== -->
+		<br/>
+		<textarea id="encoded" onchange="decode()" cols="80"></textarea>
+		<hr/>
+		Decoded: <!-- 1234 -->
+		<br/>
+		<textarea id="decoded" onchange="encode()" cols="80"></textarea>
+		<br/>
+		Length: <input type="number" id="decode_len"/>
+		</body>
+</html>

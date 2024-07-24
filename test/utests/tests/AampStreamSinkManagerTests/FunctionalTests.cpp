@@ -54,18 +54,20 @@ protected:
         {
             gpGlobalConfig =  new AampConfig();
         }
-		
-		mConfig1 = *gpGlobalConfig;
-		mLogObj1 = mConfig1.GetLoggerInstance();
-		mLogObj1->setPlayerId(1);
+        mConfig1 = *gpGlobalConfig;
+        mLogObj1 = mConfig1.GetLoggerInstance();
+        mLogObj1->setPlayerId(1);
         mPrivateInstanceAAMP1 = new PrivateInstanceAAMP(&mConfig1);
         mPrivateInstanceAAMP1->mPlayerId = 1;
+        mPrivateInstanceAAMP1->mLogObj = mLogObj1;
 
-		mConfig2 = *gpGlobalConfig;
-		mLogObj2 = mConfig2.GetLoggerInstance();
-		mLogObj2->setPlayerId(2);
+        mConfig2 = *gpGlobalConfig;
+        mLogObj2 = mConfig2.GetLoggerInstance();
+        mLogObj2->setPlayerId(2);
         mPrivateInstanceAAMP2 = new PrivateInstanceAAMP(&mConfig2);
         mPrivateInstanceAAMP2->mPlayerId = 2;
+        mPrivateInstanceAAMP2->mLogObj = mLogObj2;
+
 
         g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 

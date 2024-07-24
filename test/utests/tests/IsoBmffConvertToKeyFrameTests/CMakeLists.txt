@@ -17,10 +17,6 @@
 
 include(GoogleTest)
 
-pkg_check_modules(GMOCK REQUIRED gmock)
-pkg_check_modules(GTEST REQUIRED gtest)
-pkg_check_modules(GLIB REQUIRED glib-2.0)
-
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME IsoBmffConvertToKeyFrameTests)
@@ -46,11 +42,21 @@ foreach (_variableName ${_variableNames})
     message(STATUS "${_variableName}=${${_variableName}}")
 endforeach()
 
-set(AAMP_SOURCES ${AAMP_ROOT}/AampGrowableBuffer.cpp ${AAMP_ROOT}/isobmff/isobmffhelper.cpp ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp ${AAMP_ROOT}/isobmff/isobmffbox.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/AampGrowableBuffer.cpp ${AAMP_ROOT}/isobmff/isobmffconverttokeyframe.cpp ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp ${AAMP_ROOT}/isobmff/isobmffbox.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
+
+if (CMAKE_XCODE_BUILD_SYSTEM)
+  # XCode schema target
+  xcode_define_schema(${EXEC_NAME})
+endif()
+
+if (COVERAGE_ENABLED)
+    include(CodeCoverage)
+    APPEND_COVERAGE_COMPILER_FLAGS()
+endif()
 
 add_compile_definitions(TESTS_DIR="${TEST_FILES_DIR}")
 target_link_libraries(${EXEC_NAME} fakes  ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
