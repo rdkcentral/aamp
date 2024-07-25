@@ -1839,19 +1839,16 @@ void AampConfig::ConfigureLogSettings()
 	{
 		// backward compatability
 		logging.setLogLevel(eLOGLEVEL_TRACE);
-		logging.trace = true;
 	}
 	else if(configValueBool[eAAMPConfig_DebugLogging].value || logString.compare("debug") == 0)
 	{
 		// backward compatability
 		logging.setLogLevel(eLOGLEVEL_DEBUG);
-		logging.debug = true;
 	}
 	else if((configValueBool[eAAMPConfig_InfoLogging].value || logString.compare("info") == 0))
 	{
 		// backward compatability
 		logging.setLogLevel(eLOGLEVEL_INFO);
-		logging.info = true;
 	}
 	else if((configValueBool[eAAMPConfig_WarnLogging].value || logString.compare("warn") == 0))
 	{
@@ -1865,19 +1862,6 @@ void AampConfig::ConfigureLogSettings()
 	{
 		// No log level has been set
 	}
-
-	// This is pending to handle the ownership rights , whether App can set following config
-	logging.failover			=	configValueBool[eAAMPConfig_FailoverLogging].value;
-	logging.gst				=	configValueBool[eAAMPConfig_GSTLogging].value;
-	logging.progress			=	configValueBool[eAAMPConfig_ProgressLogging].value;
-	logging.curl				=	configValueBool[eAAMPConfig_CurlLogging].value;
-	logging.stream				=	configValueBool[eAAMPConfig_StreamLogging].value;
-	logging.curlHeader			= 	configValueBool[eAAMPConfig_CurlHeader].value;
-	logging.curlLicense			=	configValueBool[eAAMPConfig_CurlLicenseLogging].value;
-	logging.logMetadata			=	configValueBool[eAAMPConfig_MetadataLogging].value;
-	logging.id3    				= 	configValueBool[eAAMPConfig_ID3Logging].value;
-	logging.trackMemory			= 	configValueBool[eAAMPConfig_TrackMemory].value;
-
 }
 
 /**

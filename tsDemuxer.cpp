@@ -135,15 +135,6 @@ void Demuxer::send()
 		{
 			aamp->SendStreamCopy(type, es.GetPtr(), es.GetLen(), info.pts_s, info.dts_s, duration);
 		}
-
-		if (gpGlobalConfig->logging.info)
-		{
-			sentESCount++;
-			if(0 == (sentESCount % 150 ))
-			{
-				AAMPLOG_INFO("Demuxer:: type %d sent %d packets", (int)type, sentESCount);
-			}
-		}
 		es.Clear();
 	}
 }
@@ -152,7 +143,6 @@ void Demuxer::resetInternal()
 {
 	es.Free();
 	pes_header.Free();
-	sentESCount = 0;
 }
 
 void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
@@ -193,7 +183,6 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 	first_pts = 0;
 	update_first_pts = false;
 	finalized_base_pts = false;
-	sentESCount = 0;
 	pes_state = PES_STATE_WAITING_FOR_HEADER;
 	AAMPLOG_DEBUG("init : position %f, duration %f resetBasePTS %d", position, duration, resetBasePTS);
 }
@@ -207,8 +196,6 @@ void Demuxer::flush()
 		AAMPLOG_INFO("demux : sending remaining bytes. es.len %d", (int)es.GetLen());
 		send();
 	}
-
-	AAMPLOG_INFO("Demuxer::count %d in duration %f",sentESCount, duration);
 	resetInternal();
 }
 
