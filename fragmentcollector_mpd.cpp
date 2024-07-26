@@ -1009,7 +1009,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 #endif
 				if ((pMediaStreamContext->timeLineIndex >= timelines.size()) || (pMediaStreamContext->timeLineIndex < 0)
 						||(AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState &&
-							((rate > AAMP_NORMAL_PLAY_RATE && pMediaStreamContext->fragmentTime >= mLiveEndPosition)
+							((rate > AAMP_NORMAL_PLAY_RATE && pMediaStreamContext->fragmentTime >= aamp->mAbsoluteEndPosition)
 							 ||(rate < 0 && pMediaStreamContext->fragmentTime <= mPeriodStartTime))))
 				{
 					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
