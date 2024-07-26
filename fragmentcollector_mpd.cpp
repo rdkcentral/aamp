@@ -8662,6 +8662,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						{
 							adStateChanged = onAdEvent(AdEvent::AD_FAILED);
 							mCdaiObject->mAdBreaks[mBasePeriodId].mAdFailed = false;
+							aamp->UnblockWaitForDiscontinuityProcessToComplete();
 							continue;
 						}
 					}
