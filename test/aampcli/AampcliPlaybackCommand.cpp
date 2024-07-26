@@ -29,7 +29,6 @@
 #include "AampSCTE35.h"
 #include "AampStreamSinkManager.h"
 
-extern bool gAampcliQuietLogs;
 extern VirtualChannelMap mVirtualChannelMap;
 extern Aampcli mAampcli;
 extern void tsdemuxer_InduceRollover( bool enable );
@@ -241,7 +240,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		playerInstanceAamp->detach();
 	}
-    else if( sscanf(cmd, "release %49s", playerRef ) == 1)
+	else if( sscanf(cmd, "release %49s", playerRef ) == 1)
 	{
 		PlayerInstanceAAMP *found = findPlayerInstance(playerRef);
 		if( found )
@@ -408,10 +407,31 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		playerInstanceAamp->ResetConfiguration();
 	}
+	else if( isCommandMatch(cmd,"noisy") )
+	{
+		if( gLogMaster==eLOGMASTER_NOISY )
+		{
+			gLogMaster = eLOGMASTER_NORMAL;
+			printf( "[AAMPCLI] core logging normal\n" );
+		}
+		else
+		{
+			gLogMaster = eLOGMASTER_NOISY;
+			printf( "[AAMPCLI] core logging noisy\n" );
+		}
+	}
 	else if( isCommandMatch(cmd,"quiet") )
 	{
-		gAampcliQuietLogs = !gAampcliQuietLogs;
-		printf("[AAMPCLI] core logging: %s\n", gAampcliQuietLogs?"QUIET":"NORMAL" );
+		if( gLogMaster==eLOGMASTER_QUIET )
+		{
+			gLogMaster = eLOGMASTER_NORMAL;
+			printf( "[AAMPCLI] core logging normal\n" );
+		}
+		else
+		{
+			gLogMaster = eLOGMASTER_QUIET;
+			printf( "[AAMPCLI] core logging quiet\n" );
+		}
 	}
 	else if (isCommandMatch(cmd, "exit") )
 	{
@@ -438,7 +458,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 		std::string subString;
 		
 		// accepts just one headervalue for now, not an array.
-		// header value of '.' -> remove the header, else it adds it		
+		// header value of '.' -> remove the header, else it adds it
 		while (cmdptr)
 		{
 			subString.assign(cmdptr);
@@ -509,7 +529,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	}
 	else if( isCommandMatch(cmd,"subtec") )
 	{
-        #define MAX_SCRIPT_PATH_LEN 512
+		#define MAX_SCRIPT_PATH_LEN 512
 	#define MAX_SUBTEC_PATH_LEN 560
 		char scriptPath[MAX_SCRIPT_PATH_LEN] = "";
 		char subtecCommand[MAX_SUBTEC_PATH_LEN] = "";
@@ -525,12 +545,12 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 			snprintf( subtecCommand, MAX_SUBTEC_PATH_LEN, "gnome-terminal -- bash %s/aampcli-run-subtec.sh\n", scriptPath);
 			system(subtecCommand);
 #else
-    		printf("[AAMPCLI] WARNING - subtec command not supported on platform\n");
+			printf("[AAMPCLI] WARNING - subtec command not supported on platform\n");
 #endif
 		}
 		else
 		{
-    		printf("[AAMPCLI] ERROR - unable to get path to subtec run script\n");
+			printf("[AAMPCLI] ERROR - unable to get path to subtec run script\n");
 		}
 	}
 	else if( isCommandMatch(cmd,"history") )
@@ -601,7 +621,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 			if (token == "list")
 			{
 				for (int i = 0; i < mAdvertList.size(); i++)
-                                {
+								{
 					printf("[AAMP-CLI] advert %d: url %s duration %d\n", i, (mAdvertList[i].url).c_str(), mAdvertList[i].duration);
 				}
 			}
@@ -905,6 +925,7 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("advert <params>", "manage injected advert list - 'list', 'add <url or channel in virtual channel map>', 'rm <url or index into list>'");
 	addCommand("scte35 <base64>", "decode SCTE-35 signal base64 string");
 	addCommand("release <playerid/playername>", "to remove the player");
+	addCommand("info=true","enable global info logging");
 }
 
 void PlaybackCommand::addCommand(std::string command,std::string description)

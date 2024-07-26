@@ -589,7 +589,7 @@ void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int tot
 		// example 18(0) if connection failure with PARTIAL_FILE code
 		timeoutClass = "(" + std::to_string(dnldPtr->downloadCompleteMetrics.reqSize > 0) + ")";
 	}
-	if(res != CURLE_OK || http_code == 0 || http_code >= 400 || totalPerformRequest > 2.0 /*seconds*/)
+	if( gLogMaster==eLOGMASTER_NOISY || res != CURLE_OK || http_code == 0 || http_code >= 400 || totalPerformRequest > 2.0 /*seconds*/)
 	{
 		reqEndLogLevel = eLOGLEVEL_WARN;
 	}
