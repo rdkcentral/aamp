@@ -766,9 +766,9 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 			AAMPLOG_ERR("xmlReaderForMemory failed");
 		}
 
-		if( gpGlobalConfig->logging.isLogLevelAllowed( eLOGLEVEL_TRACE ) )
-		{ // use printf to avoid 1024 character limit with logging macros
-			printf("Ad manifest: %s\n", manifest.c_str());
+		if (gpGlobalConfig->logging.trace)
+		{
+			AAMPLOG_WARN("Ad manifest: %s", manifest.c_str());
 		}
 	}
 	else

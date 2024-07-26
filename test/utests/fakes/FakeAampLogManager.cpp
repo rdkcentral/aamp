@@ -73,8 +73,6 @@ static const char *mLogLevelStr[] =
 	"FATAL"
 };
 
-AAMP_LogMaster gLogMaster;
-
 void logprintf(int playerId, AAMP_LogLevel level, const char* file, int line, const char *format, ...)
 {
 #ifdef ENABLE_LOGGING
