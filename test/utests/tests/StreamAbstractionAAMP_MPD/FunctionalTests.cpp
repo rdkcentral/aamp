@@ -2069,3 +2069,81 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	mpd = mStreamAbstractionAAMP_MPD->GetMPD();
 	EXPECT_NE(mpd, nullptr);
 	}
+
+/**
+ * @brief test to ensure the CC attribute parsing from iframe
+ * adaptation is avoided
+ * The MPD initialization should be successful
+ * The MPD object should be valid.
+ */
+
+TEST_F(FunctionalTests, Accessibility_Test1)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+    <Period id="p0" start="PT0S">
+        <AdaptationSet id="100001" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1" codingDependency="false" maxPlayoutRate="24">
+            <Accessibility schemeIdUri="urn:scte:dash:cc:cea-708:2015" value="1=lang:en;2=lang:en"/>
+            <EssentialProperty schemeIdUri="http://dashif.org/guidelines/trickmode" value="1" />
+            <Representation id="s8_iframe_trackId-103" bandwidth="1248320" codecs="avc3.4D401F" width="960" height="540"/>
+        </AdaptationSet>
+        <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+          <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+          <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+	// Initialize MPD. The video initialization segment is cached.
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+	status = InitializeMPD(manifest);
+	std::vector<TextTrackInfo> textTracks = mStreamAbstractionAAMP_MPD->GetAvailableTextTracks();
+	//To verify whether CC from iframe adaptation is avoided.
+        ASSERT_EQ(0,textTracks.size());
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+}
+
+/**
+ * @brief test to ensure the CC attribute parsed from video
+ * adaptation
+ * The MPD initialization should be successful
+ * The MPD object should be valid.
+ */
+
+TEST_F(FunctionalTests, Accessibility_Test2)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+    <Period id="p0" start="PT0S">
+        <AdaptationSet id="100001" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1" codingDependency="false" maxPlayoutRate="24">
+            <EssentialProperty schemeIdUri="http://dashif.org/guidelines/trickmode" value="1" />
+            <Representation id="s8_iframe_trackId-103" bandwidth="1248320" codecs="avc3.4D401F" width="960" height="540"/>
+        </AdaptationSet>
+        <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+          <Accessibility schemeIdUri="urn:scte:dash:cc:cea-708:2015" value="1=lang:en;2=lang:en"/>
+          <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+          <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+	// Initialize MPD. The video initialization segment is cached.
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+	status = InitializeMPD(manifest);
+	std::vector<TextTrackInfo> textTracks = mStreamAbstractionAAMP_MPD->GetAvailableTextTracks();
+	//To verify whether the CC attribute parsed from video
+        ASSERT_EQ(2,textTracks.size());
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+}

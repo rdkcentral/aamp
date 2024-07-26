@@ -6103,7 +6103,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 			}
 		}
 		// Look in VIDEO adaptation for inband CC track related info
-		else if (eMEDIATYPE_VIDEO == media)
+		else if ((eMEDIATYPE_VIDEO == media) && (!IsIframeTrack(adaptationSet)))
 		{
 			std::vector<IDescriptor *> adapAccessibility = adaptationSet->GetAccessibility();
 			for (int index = 0 ; index < adapAccessibility.size(); index++)
