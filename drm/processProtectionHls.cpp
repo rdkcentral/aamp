@@ -237,9 +237,9 @@ shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, st
 			AAMPLOG_ERR("Could not able to retrive DRM data from PSSH");
 			break;
 		}
-		if (gpGlobalConfig->logging.trace)
+		if (gpGlobalConfig->logging.isLogLevelAllowed(eLOGLEVEL_TRACE))
 		{
-			AAMPLOG_TRACE("content metadata from manifest; length %zu", dataLength);
+			AAMPLOG_MIL("content metadata from manifest; length %zu", dataLength);
 			printf("*****************************************************************\n");
 			for (int i = 0; i < dataLength; i++)
 			{

@@ -699,17 +699,17 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
  */
 static void print_headerResponse(std::vector<std::string> &allResponseHeaders, AampMediaType mediaType)
 {
-	if (gpGlobalConfig->logging.curlHeader && (eMEDIATYPE_VIDEO == mediaType || eMEDIATYPE_PLAYLIST_VIDEO == mediaType))
+	if( gpGlobalConfig->IsConfigSet(eAAMPConfig_CurlHeader) )
 	{
-		int size = (int)allResponseHeaders.size();
-		AAMPLOG_WARN("################ Start :: Print Header response ################");
-		for (int i=0; i < size; i++)
+		if ( eMEDIATYPE_VIDEO == mediaType || eMEDIATYPE_PLAYLIST_VIDEO == mediaType )
 		{
-			AAMPLOG_WARN("* %s", allResponseHeaders.at(i).c_str());
+			size_t size = allResponseHeaders.size();
+			while( size-- )
+			{
+				AAMPLOG_MIL("* %s", allResponseHeaders.at(size).c_str());
+			}
 		}
-		AAMPLOG_WARN("################ End :: Print Header response ################");
 	}
-
 	allResponseHeaders.clear();
 }
 
@@ -859,11 +859,10 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 				{ //Append delimiter ";"
 					httpHeader->data += ';';
 				}
-			}
-
-			if(gpGlobalConfig->logging.trace)
-			{
-				AAMPLOG_TRACE("Parsed HTTP %s header: %s", httpHeader->type==eHTTPHEADERTYPE_COOKIE? "Cookie": "X-Reason", httpHeader->data.c_str());
+				if(gpGlobalConfig->logging.isLogLevelAllowed(eLOGLEVEL_TRACE))
+				{
+					AAMPLOG_MIL("Parsed HTTP %s header: %s", httpHeader->type==eHTTPHEADERTYPE_COOKIE? "Cookie": "X-Reason", httpHeader->data.c_str());
+				}
 			}
 		}
 	}
@@ -4142,7 +4141,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						AAMP_LOG_NETWORK_ERROR (effectiveUrl.empty() ? remoteUrl.c_str() : effectiveUrl.c_str(), // Effective URL could be different than remoteURL
 						AAMPNetworkErrorHttp, http_code, mediaType);
 						print_headerResponse(context.allResponseHeaders, mediaType);
-
 						if((http_code >= 500 && http_code != 502) && downloadAttempt < maxDownloadAttempt)
 						{
 							int waitTimeBeforeRetryHttp5xxMSValue = GETCONFIGVALUE_PRIV(eAAMPConfig_Http5XXRetryWaitInterval);
@@ -4280,7 +4278,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				startTransfer = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_STARTTRANSFER_TIME);
 				connectTime = connect;
 				fileDownloadTime = total;
-				if(res != CURLE_OK || http_code == 0 || http_code >= 400 || total > 2.0 /*seconds*/)
+				if( gLogMaster==eLOGMASTER_NOISY || res != CURLE_OK || http_code == 0 || http_code >= 400 || total > 2.0 /*seconds*/)
 				{
 					reqEndLogLevel = eLOGLEVEL_WARN;
 				}

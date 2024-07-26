@@ -65,11 +65,6 @@ do { \
 #define AAMP_LOG_ABR_INFO			mLogObj->LogABRInfo
 #define AAMP_IS_LOG_WORTHY_ERROR	mLogObj->isLogworthyErrorCode
 
-#define AAMPLOG_FAILOVER(FORMAT, ...) \
-		if (mLogObj && mLogObj->failover) { \
-				logprintf(mLogObj->getPlayerId(), eLOGLEVEL_WARN, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
-		}
-
 /**
  * @brief AAMP logging defines, this can be enabled through setLogLevel() as per the need
  */
@@ -79,6 +74,14 @@ do { \
 #define AAMPLOG_WARN(FORMAT, ...)  AAMPLOG(mLogObj, eLOGLEVEL_WARN, FORMAT, ##__VA_ARGS__)
 #define AAMPLOG_MIL(FORMAT, ...)   AAMPLOG(mLogObj, eLOGLEVEL_MIL, FORMAT, ##__VA_ARGS__)
 #define AAMPLOG_ERR(FORMAT, ...)   AAMPLOG(mLogObj, eLOGLEVEL_ERROR, FORMAT, ##__VA_ARGS__)
+
+enum AAMP_LogMaster
+{
+	eLOGMASTER_NORMAL,
+	eLOGMASTER_QUIET,
+	eLOGMASTER_NOISY
+};
+extern AAMP_LogMaster gLogMaster;
 
 /**
  * @brief maximum supported mediatype for latency logging
@@ -145,27 +148,14 @@ struct AAMPAbrInfo
 class AampLogManager
 {
 public:
-
-	bool info;           /**< Info level*/
-	bool debug;          /**< Debug logs*/
-	bool trace;          /**< Trace level*/
-	bool gst;            /**< Gstreamer logs*/
-	bool curl;           /**< Curl logs*/
-	bool progress;       /**< Download progress logs*/
-	bool failover;	     /**< server fail over logs*/
-	bool stream;         /**< Display stream contents */
-	bool curlHeader;     /**< Curl header logs*/
-	bool curlLicense;    /**< Curl logs for License request*/
-	bool logMetadata;    /**< Timed metadata logs*/
-	bool id3;	     /**< Display ID3 tag from stream logs */
-	bool trackMemory;    /**< Track Growable Buffer Memory*/
 	static bool disableLogRedirection;
 	int  mPlayerId;	     /**< Store PlayerId*/
 	/**
 	 * @brief AampLogManager constructor
 	 */
-	AampLogManager() : aampLoglevel(eLOGLEVEL_WARN), info(false), debug(false), trace(false), gst(false), curl(false), progress(false), failover(false), curlHeader(false), 
-							logMetadata(false), curlLicense(false),stream(false), id3(false),trackMemory(false),mPlayerId(-1)
+	AampLogManager() : aampLoglevel(eLOGLEVEL_WARN),
+	//info(false), debug(false), trace(false), gst(false), curl(false), progress(false), failover(false), curlHeader(false), logMetadata(false), curlLicense(false),stream(false), id3(false),trackMemory(false),
+	mPlayerId(-1)
 	{
 	}
 

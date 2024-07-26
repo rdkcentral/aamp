@@ -46,7 +46,7 @@ static const char *gAampLog = "./aamp.log";
 static const char *gAampCfg = "/opt/aamp.cfg";
 static const char *gAampCliCfg = "/opt/aampcli.cfg";
 
-bool gAampcliQuietLogs;
+AAMP_LogMaster gLogMaster;
 
 /*-----------------------------------------------------------------------------------------------------*/
 bool AampLogManager::disableLogRedirection = false;
@@ -56,7 +56,7 @@ bool AampLogManager::disableLogRedirection = false;
  */
 bool AampLogManager::isLogLevelAllowed(AAMP_LogLevel chkLevel)
 {
-	return (chkLevel>=aampLoglevel);
+	return gLogMaster == eLOGMASTER_NOISY || chkLevel>=aampLoglevel;
 }
 
 
@@ -75,8 +75,7 @@ void AampLogManager::aampLogger(std::string &&tsbMessage)
  */
 void AampLogManager::setLogLevel(AAMP_LogLevel newLevel)
 {
-	if(!info && !debug && !trace)
-		aampLoglevel = newLevel;
+	aampLoglevel = newLevel;
 }
 
 /**
@@ -490,7 +489,7 @@ void logprintf(int playerId, AAMP_LogLevel logLevelIndex, const char* file, int 
 	struct timeval t;
 	gettimeofday(&t, NULL);
     
-    if( !gAampcliQuietLogs )
+    if( gLogMaster!=eLOGMASTER_QUIET )
     {
         logprintline(stdout, t, gDebugPrintBuffer);
     }
