@@ -75,7 +75,7 @@ void AampLogManager::aampLogger(std::string &&tsbMessage)
  */
 void AampLogManager::setLogLevel(AAMP_LogLevel newLevel)
 {
-	if( aampLoglevel>eLOGLEVEL_INFO )
+	if( newLevel<aampLoglevel )
 	{
 		aampLoglevel = newLevel;
 	}
