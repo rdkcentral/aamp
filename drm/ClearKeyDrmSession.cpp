@@ -122,7 +122,7 @@ static unsigned char * extractKeyIdFromPssh(const char* psshData, int dataLength
 	strncpy(reinterpret_cast<char*>(key_id), psshData + header, 16);
 	*len = (int)16;
 	AAMPLOG_INFO("ck keyid: %s keyIdlen: %d", key_id, 16);
-	if( gpGlobalConfig->logging.isLogLevelAllowed(eLOGLEVEL_TRACE) )
+	if(gpGlobalConfig->logging.trace)
 	{
 		DumpBlob(key_id, 16);
 	}

@@ -3394,10 +3394,11 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	if (this->mainManifest.GetLen() )
 	{
 		this->mainManifest.AppendNulTerminator(); // make safe for cstring operations
-		if( aamp->mConfig->logging.isLogLevelAllowed(eLOGLEVEL_TRACE) )
-		{ // use printf to avoid 1024 character limit with logging macros
+		if (gpGlobalConfig->logging.trace )
+		{
 			printf("***Main Manifest***:\n\n%s\n************\n", this->mainManifest.GetPtr());
 		}
+
 #ifdef AAMP_HLS_DRM
 		AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
 		bool forceClearSession = (!ISCONFIGSET(eAAMPConfig_SetLicenseCaching) && (tuneType == eTUNETYPE_NEW_NORMAL));
@@ -3697,8 +3698,8 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				AampTime culled{};
 				bool playContextConfigured = false;
 				ts->playlist.AppendNulTerminator(); // make safe for cstring operations
-				if( aamp->mConfig->logging.isLogLevelAllowed(eLOGLEVEL_TRACE) )
-				{ // use printf to avoid 1024 character limit with logging macros
+				if (gpGlobalConfig->logging.trace  )
+				{
 					printf("***Initial Playlist:******\n\n%s\n*****************\n", ts->playlist.GetPtr() );
 				}
 				// Flag also denotes if first encrypted init fragment was pushed or not
@@ -4905,20 +4906,14 @@ void TrackState::RunFetchLoop()
 			WaitForManifestUpdate();
 		}
 
-		if( ISCONFIGSET(eAAMPConfig_FailoverLogging) )
-		{
-			AAMPLOG_MIL("fragmentURI [%.*s] timeElapsedSinceLastFragment [%f]",
-						fragmentURI.getLen(), fragmentURI.getPtr(), (aamp_GetCurrentTimeMS() - context->LastVideoFragParsedTimeMS()));
-		}
-		
+		AAMPLOG_FAILOVER("fragmentURI [%.*s] timeElapsedSinceLastFragment [%f]",
+			 fragmentURI.getLen(), fragmentURI.getPtr(), (aamp_GetCurrentTimeMS() - context->LastVideoFragParsedTimeMS()));
+
 		/* Added to handle an edge case for cdn failover, where we found valid sub-manifest but no valid fragments.
 		 * In this case we have to stall the playback here. */
 		if( fragmentURI.empty() && IsLive() && type == eTRACK_VIDEO)
 		{
-			if( ISCONFIGSET(eAAMPConfig_FailoverLogging) )
-			{
-				AAMPLOG_INFO("fragmentURI is NULL, playback may stall in few seconds..");
-			}
+			AAMPLOG_FAILOVER("fragmentURI is NULL, playback may stall in few seconds..");
 			context->CheckForPlaybackStall(false);
 		}
 	}

@@ -90,6 +90,7 @@ private:
 	AampMediaType type;
 	bool trickmode;
 	bool finalized_base_pts;
+	int sentESCount;
 	bool allowPtsRewind;
 	bool reached_steady_state;
 
@@ -132,7 +133,7 @@ public:
 		pes_header_ext_len(0), pes_header_ext_read(0), pes_header("pes_header"), mMutex(),
 		es("es"), position(0), duration(0), base_pts{0}, current_pts{0},
 		current_dts{0}, type(type), trickmode(false), finalized_base_pts(false),
-		allowPtsRewind(false), first_pts{0}, update_first_pts(false), reached_steady_state(false)
+		sentESCount(0), allowPtsRewind(false), first_pts{0}, update_first_pts(false), reached_steady_state(false)
 	{
 		//mutex in init
 		init(0, 0, false, true);
