@@ -219,6 +219,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampOffset0Test)
 
 	int64_t ptsOffset{0};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -226,6 +227,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampOffset0Test)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, baseMediaDecodeTime + ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS,fPts);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {baseMediaDecodeTime + ptsOffset};
 	VerifyPts(expectedPts, vSeg.data(), size);
@@ -260,6 +262,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampOffset1Test)
 
 	int64_t ptsOffset{1};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -267,6 +270,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampOffset1Test)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, baseMediaDecodeTime + ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS,fPts);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {baseMediaDecodeTime + ptsOffset};
 	VerifyPts(expectedPts, vSeg.data(), size);
@@ -301,6 +305,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampOffsetManyTest)
 
 	int64_t ptsOffset{123456789};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -308,6 +313,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampOffsetManyTest)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, baseMediaDecodeTime + ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS,fPts);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {baseMediaDecodeTime + ptsOffset};
 	VerifyPts(expectedPts, vSeg.data(), size);
@@ -342,6 +348,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampNegativeOffsetTest)
 
 	int64_t ptsOffset{-73};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -349,6 +356,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampNegativeOffsetTest)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, baseMediaDecodeTime + ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS,fPts);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {baseMediaDecodeTime + ptsOffset};
 	VerifyPts(expectedPts, vSeg.data(), size);
@@ -385,6 +393,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampSeveralMoofTest)
 
 	int64_t ptsOffset{123456789};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -392,6 +401,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampSeveralMoofTest)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, baseMediaDecodeTime.front() + ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS,fPts);
 	// Verify that all the PTS values have been updated in the buffer
 	std::vector<uint64_t> expectedPts;
 	for (uint64_t mdt : baseMediaDecodeTime)
@@ -430,6 +440,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0Test)
 
 	int64_t ptsOffset{123456789};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -437,6 +448,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0Test)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, baseMediaDecodeTime + ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS, fPts);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {baseMediaDecodeTime + ptsOffset};
 	VerifyPts(expectedPts, vSeg.data(), size);
@@ -473,6 +485,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampPts0Test)
 	// PTS restamped = baseMediaDecodeTime + offset = 0
 	int64_t ptsOffset{-1 * static_cast<int64_t>(baseMediaDecodeTime)};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -480,6 +493,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampPts0Test)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, baseMediaDecodeTime + ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS,fPts);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {baseMediaDecodeTime + ptsOffset};
 	VerifyPts(expectedPts, vSeg.data(), size);
@@ -519,6 +533,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampPtsUnderflowTest)
 	// in tfdt version 1, baseMediaDecodeTime is a 64 bit unsigned value
 	int64_t ptsOffset{-1 * static_cast<int64_t>(baseMediaDecodeTime) - 1};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -526,6 +541,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampPtsUnderflowTest)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, UINT64_MAX);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS,fPts);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {UINT64_MAX};
 	VerifyPts(expectedPts, vSeg.data(), size);
@@ -566,6 +582,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0PtsUnderflowTest)
 	// in tfdt version 0, baseMediaDecodeTime is a 32 bit unsigned value
 	int64_t ptsOffset{-1 * static_cast<int64_t>(baseMediaDecodeTime) - 1};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -573,6 +590,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0PtsUnderflowTest)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, UINT32_MAX);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS,fPts);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {UINT32_MAX};
 	VerifyPts(expectedPts, vSeg.data(), size);
@@ -610,6 +628,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampPtsMaxTest)
 	// PTS restamped = baseMediaDecodeTime + offset = 0
 	int64_t ptsOffset{static_cast<int64_t>(UINT64_MAX) - static_cast<int64_t>(baseMediaDecodeTime)};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -617,6 +636,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampPtsMaxTest)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, UINT64_MAX);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS,fPts);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {UINT64_MAX};
 	VerifyPts(expectedPts, vSeg.data(), size);
@@ -655,6 +675,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0PtsMaxTest)
 	// in tfdt version 0, baseMediaDecodeTime is a 32 bit unsigned value
 	int64_t ptsOffset{static_cast<int64_t>(UINT32_MAX) - static_cast<int64_t>(baseMediaDecodeTime)};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -662,6 +683,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0PtsMaxTest)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, UINT32_MAX);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS,fPts);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {UINT32_MAX};
 	VerifyPts(expectedPts, vSeg.data(), size);
@@ -699,6 +721,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampPtsOverflowTest)
 	// PTS restamped = baseMediaDecodeTime + offset = 0
 	int64_t ptsOffset{1 + static_cast<int64_t>(UINT64_MAX) - static_cast<int64_t>(baseMediaDecodeTime)};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -706,6 +729,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampPtsOverflowTest)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, 0);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS,fPts);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {0};
 	VerifyPts(expectedPts, vSeg.data(), size);
@@ -744,6 +768,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0PtsOverflowTest)
 	// in tfdt version 0, baseMediaDecodeTime is a 32 bit unsigned value
 	int64_t ptsOffset{1 + static_cast<int64_t>(UINT32_MAX) - static_cast<int64_t>(baseMediaDecodeTime)};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -751,6 +776,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0PtsOverflowTest)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, 0);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS,fPts);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {0};
 	VerifyPts(expectedPts, vSeg.data(), size);
@@ -789,6 +815,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampPtsOverflow2Test)
 	uint64_t expectedValue {1973};
 	int64_t ptsOffset{static_cast<int64_t>(expectedValue) + 1 + static_cast<int64_t>(UINT64_MAX) - static_cast<int64_t>(baseMediaDecodeTime)};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -796,6 +823,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampPtsOverflow2Test)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, expectedValue);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS,fPts);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {expectedValue};
 	VerifyPts(expectedPts, vSeg.data(), size);
@@ -835,6 +863,7 @@ TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0PtsOverflow2Test)
 	uint64_t expectedValue{1973};
 	int64_t ptsOffset{static_cast<int64_t>(expectedValue) + 1 + static_cast<int64_t>(UINT32_MAX) - static_cast<int64_t>(baseMediaDecodeTime)};
 	mIsoBmffBuffer->restampPts(ptsOffset);
+	EXPECT_EQ(mIsoBmffBuffer->beforePTS,pts);
 	// Parse the ISO BMFF buffer again and check that the PTS has been updated
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
@@ -842,7 +871,18 @@ TEST_F(IsoBmffBufferTests, ptsRestampTfdtVersion0PtsOverflow2Test)
 	EXPECT_TRUE(bParse);
 	mIsoBmffBuffer->getFirstPTS(fPts);
 	EXPECT_EQ(fPts, expectedValue);
+	EXPECT_EQ(mIsoBmffBuffer->afterPTS,fPts);
 	// Verify that the PTS has been updated in the buffer
 	std::vector<uint64_t> expectedPts {expectedValue};
 	VerifyPts(expectedPts, vSeg.data(), size);
+}
+
+/**
+ * @brief Test Get Segment Duration with no boxes (negative test)
+ *        Test the getSegmentDuration method when called without having called parseBuffer.
+ *        The returned duration should be 0, as no boxes have been created
+ */
+TEST_F(IsoBmffBufferTests, noBoxesGetSegmentDurationTest)
+{
+	EXPECT_EQ(mIsoBmffBuffer->getSegmentDuration(),0);
 }

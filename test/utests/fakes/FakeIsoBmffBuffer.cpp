@@ -141,6 +141,18 @@ void IsoBmffBuffer::restampPts(int64_t offset)
     }
 }
 
+uint64_t IsoBmffBuffer::getSegmentDuration()
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->getSegmentDuration();
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 Box* IsoBmffBuffer::getBox(const char *name, size_t &index)
 {
     if (g_mockIsoBmffBuffer)

@@ -127,9 +127,8 @@ public:
 	/**
 	 * @brief IsoBmffBuffer constructor
 	 */
-	IsoBmffBuffer(AampLogManager *logObj=NULL): mLogObj(logObj), boxes(), buffer(NULL), bufSize(0), chunkedBox(NULL), mdatCount(0)
+	IsoBmffBuffer(AampLogManager *logObj=NULL): mLogObj(logObj), boxes(), buffer(NULL), bufSize(0), chunkedBox(NULL), mdatCount(0), beforePTS(0), afterPTS(0), firstPtsSaved(false)
 	{
-
 	}
 
 	/**
@@ -385,8 +384,16 @@ public:
 	*/
 	void truncate(void);
 	size_t getSize(void) const { return bufSize; }
+
+	/**
+ 	 * @fn getSegmentDuration
+	 *
+	 * @return uint64_t - Total segment duration in units of timescale.
+	 */
+	uint64_t getSegmentDuration();
 	uint64_t beforePTS;	//For log output
 	uint64_t afterPTS;	//For log output
+	bool firstPtsSaved;	//Used to log, only the first PTS restamped in a segment.
 };
 
 #endif /* __ISOBMFFBUFFER_H__ */

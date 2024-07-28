@@ -63,8 +63,8 @@ bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::strin
 	else
 	{
 		isoBmffBuffer.restampPts(ptsOffset);
-		AAMPLOG_INFO("before %" PRIu64 " after %" PRIu64 " %s",
-					 isoBmffBuffer.beforePTS, isoBmffBuffer.afterPTS, fragmentUrl.c_str());
+		AAMPLOG_INFO("before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 " %s",
+					 isoBmffBuffer.beforePTS, isoBmffBuffer.afterPTS, isoBmffBuffer.getSegmentDuration(), fragmentUrl.c_str());
 		retval = true;
 	}
 
