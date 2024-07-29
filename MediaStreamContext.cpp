@@ -70,8 +70,9 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
     , bool playingAd, double pto, uint32_t scale, bool overWriteTrackId)
 {
     bool ret = false;
+    double posInAbsTimeline = ((double)fragmentTime);
 	AAMPLOG_INFO("Type[%d] fragmentUrl %s fragmentTime %f discontinuity %d pto %f  scale %u duration %f", type, fragmentUrl.c_str(), position, discontinuity, pto, scale, duration);
-
+	
     fragmentDurationSeconds = duration;
     ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
     CachedFragment* cachedFragment = GetFetchBuffer(true);
@@ -368,7 +369,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
                 // If reader is at EOS, inject the missing live segment directly
                 AAMPLOG_INFO("Reader at EOS, Pushing last downloaded data");
                 tsbSessionManager->GetTsbReader((AampMediaType)type)->CheckForWaitIfReaderDone();
-                CacheTsbFragment(fragmentToTsbSessionMgr);
+                CacheTsbFragment(fragmentToTsbSessionMgr); 
                 SetLocalTSBInjection(false);
             }
             else if(fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection())
@@ -376,6 +377,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
                 // Insert init fragment through chunk injector
                 CacheTsbFragment(fragmentToTsbSessionMgr);
             }
+	    fragmentToTsbSessionMgr->position = posInAbsTimeline; // Need to store the fragment with absolute position 
             tsbSessionManager->EnqueueWrite(fragmentUrl, fragmentToTsbSessionMgr, context->GetPeriod()->GetId());
         }
         // Added the duplicate conditional statements, to log only for localAAMPTSB cases.
@@ -640,7 +642,7 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
     {
         AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
         CachedFragmentChunk* cachedFragmentChunk = GetFetchChunkBuffer(true);
-        if(cachedFragmentChunk->fragmentChunk.GetPtr())
+	if(cachedFragmentChunk->fragmentChunk.GetPtr())
         {
             // If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
             AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");

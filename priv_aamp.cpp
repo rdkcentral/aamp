@@ -7462,8 +7462,16 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		else
 		{
 			// Optimization, culledSeconds will be 0 for VOD
-			long long contentEndMs = GetDurationMs() + (culledSeconds * 1000.0);
-			if(positionMiliseconds > contentEndMs)
+			long long contentEndMs = 0;
+			if(IsLiveStream())
+			{
+				contentEndMs = (mAbsoluteEndPosition * 1000);
+			}
+			else
+			{
+				contentEndMs = (GetDurationMs() + (culledSeconds * 1000));
+			}
+			if(positionMiliseconds > contentEndMs && GetDurationMs() > 0)
 			{
 				AAMPLOG_WARN("Correcting positionMiliseconds %lld to contentEndMs %lld", positionMiliseconds, contentEndMs);
 				positionMiliseconds = contentEndMs;
