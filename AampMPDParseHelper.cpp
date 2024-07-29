@@ -1357,6 +1357,17 @@ uint64_t AampMPDParseHelper::GetDurationFromRepresentation()
 }
 
 
+/**
+ * Calculates the duration of new content in a period.
+ *
+ * This function takes an IPeriod object and calculates the duration of new content
+ * within that period. It considers various factors such as the duration of the period,
+ * the type of MPD (Media Presentation Description), and the segment templates.
+ *
+ * @param[in] period The IPeriod object representing the period.
+ * @param[out] curEndNumber A reference to a uint64_t variable that will store the current end number.
+ * @return The duration of new content in milliseconds.
+ */
 double AampMPDParseHelper::GetPeriodNewContentDuration(IPeriod * period, uint64_t &curEndNumber)
 {
 	double durationMs = 0;
@@ -1451,9 +1462,14 @@ double AampMPDParseHelper::GetPeriodNewContentDuration(IPeriod * period, uint64_
 
 
 /**
- *   @brief  GetPeriod Segment timescale from period
- *   @param  period Segment period
- *   @retval timescale
+ * @brief Retrieves the time scale of the period segment.
+ *
+ * This function takes an IPeriod object as input and returns the time scale of the period segment.
+ * The time scale is obtained by checking the segment templates of the first video adaptation set in the period.
+ * If a segment template is found, the time scale is retrieved from it.
+ *
+ * @param period[in] The IPeriod object representing the period.
+ * @return The time scale of the period segment. If no segment template is found, the time scale will be 0.
  */
 uint32_t AampMPDParseHelper::GetPeriodSegmentTimeScale(IPeriod * period)
 {
@@ -1494,9 +1510,10 @@ uint32_t AampMPDParseHelper::GetPeriodSegmentTimeScale(IPeriod * period)
 }
 
 /**
- *   @brief  GetFirstSegment start time from period
- *   @param  period
- *   @retval start time
+ * Retrieves the start time of the first segment in the given period.
+ *
+ * @param[in] period The period for which to retrieve the start time.
+ * @return The start time of the first segment in the period.
  */
 uint64_t AampMPDParseHelper::GetFirstSegmentStartTime(IPeriod * period)
 {

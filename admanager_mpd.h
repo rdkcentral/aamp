@@ -69,9 +69,9 @@ public:
 	CDAIObjectMPD& operator= (const CDAIObjectMPD&) = delete;
 
 	/**
-	 *   @brief Getter for the PrivateCDAIObjectMPD instance
+	 * @brief Getter for the PrivateCDAIObjectMPD instance
 	 *
-	 *   @return PrivateCDAIObjectMPD object pointer
+	 * @return PrivateCDAIObjectMPD object pointer
 	 */
 	PrivateCDAIObjectMPD* GetPrivateCDAIObjectMPD()
 	{
@@ -79,13 +79,13 @@ public:
 	}
 
 	/**
-	 *   @fn SetAlternateContents 
+	 * @fn SetAlternateContents 
 	 *
-	 *   @param[in] periodId - Adbreak's unique identifier; the first period id
-	 *   @param[in] adId - Individual Ad's id
-	 *   @param[in] url - Ad URL
-	 *   @param[in] startMS - Ad start time in milliseconds
-	 *   @param[in] breakdur - Adbreak's duration in MS
+	 * @param[in] periodId - Adbreak's unique identifier; the first period id
+	 * @param[in] adId - Individual Ad's id
+	 * @param[in] url - Ad URL
+	 * @param[in] startMS - Ad start time in milliseconds
+	 * @param[in] breakdur - Adbreak's duration in MS
 	 */
 	virtual void SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url, uint64_t startMS=0, uint32_t breakdur=0) override;
 };
@@ -115,9 +115,9 @@ struct AdNode {
 	bool         placed;           /**< Ad completely placed on the period */
 	std::string  adId;             /**< Ad's identifier */
 	std::string  url;              /**< Ad's manifest URL */
-	uint64_t     duration;         /**< Duration of the Ad */
+	uint64_t     duration;         /**< Duration of the Ad in milliseconds*/
 	std::string  basePeriodId;     /**< Id of the base period at the beginning of the Ad */
-	int          basePeriodOffset; /**< Offset of the base period at the beginning of the Ad */
+	int          basePeriodOffset; /**< Offset of the base period at the beginning of the Ad in milliseconds */
 	MPD*         mpd;              /**< Pointer to the MPD object */
 
 	/**
@@ -164,17 +164,18 @@ struct AdNode {
 	*/
 	AdNode& operator=(const AdNode&) = delete;
 };
+
 /**
  * @struct AdBreakObject
  *
  * @brief AdBreak's metadata object
  */
 struct AdBreakObject{
-	uint32_t                             brkDuration;     /**< Adbreak's duration */
+	uint32_t                             brkDuration;     /**< Adbreak's duration in milliseconds*/
 	std::shared_ptr<std::vector<AdNode>> ads;             /**< Ads in the Adbreak in sequential order */
 	std::string                          endPeriodId;     /**< Base period's id after the adbreak playback */
-	uint64_t                             endPeriodOffset; /**< Base period's offset after the adbreak playback */
-	uint32_t                             adsDuration;     /**< Ads' duration in the Adbreak */
+	uint64_t                             endPeriodOffset; /**< Base period's offset after the adbreak playback in milliseconds*/
+	uint32_t                             adsDuration;     /**< Ads' duration in the Adbreak in milliseconds*/
 	bool                        	     adjustEndPeriodOffset;     /**< endPeriodOffset needs be re-adjusted or not */
 	bool                                 mWaitForManifestUpdateFlag; /** upperboundary period matches the current playing period wait for the manifest update to continue playback */
 	bool                                 mAdFailed; /** Current Ad playback failed flag */
@@ -189,11 +190,11 @@ struct AdBreakObject{
 	/**
 	* @brief AdBreakObject constructor
 	*
-	* @param[in] _duration - Adbreak's duration
+	* @param[in] _duration - Adbreak's duration in milliseconds
 	* @param[in] _ads - Ads in the Adbreak
 	* @param[in] _endPeriodId - Base period's id after the adbreak playback
-	* @param[in] _endPeriodOffset - Base period's offset after the adbreak playback
-	* @param[in] _adsDuration - Ads' duration in the Adbreak
+	* @param[in] _endPeriodOffset - Base period's offset after the adbreak playback in milliseconds
+	* @param[in] _adsDuration - Ads' duration in the Adbreak in milliseconds
 	*/
 	AdBreakObject(uint32_t _duration, std::shared_ptr<std::vector<AdNode>> _ads, std::string _endPeriodId,
 	uint64_t _endPeriodOffset, uint32_t _adsDuration)
@@ -210,7 +211,25 @@ struct AdBreakObject{
 struct AdOnPeriod
 {
 	int32_t  adIdx;           /**< Ad's idx (of vector) */
-	uint32_t adStartOffset;   /**< Ad's start offset */
+	uint32_t adStartOffset;   /**< Ad's start offset in milliseconds*/
+
+    /**
+     * @brief AdOnPeriod constructor
+     */
+    AdOnPeriod() : adIdx(-1), adStartOffset(0)
+    {
+    }
+
+    /**
+     * @brief AdOnPeriod constructor
+     *
+     * @param[in] _adIdx - Ad's idx
+     * @param[in] _adStartOffset - Ad's start offset
+     */
+    AdOnPeriod(int32_t _adIdx, uint32_t _adStartOffset)
+        : adIdx(_adIdx), adStartOffset(_adStartOffset)
+    {
+    }
 };
 
 /**
@@ -220,13 +239,18 @@ struct AdOnPeriod
 struct Period2AdData {
 	bool                        filled;      /**< Period filled with ads or not */
 	std::string                 adBreakId;   /**< Parent Adbreak */
-	uint64_t                    duration;    /**< Period's Duration */
-	std::map<int, AdOnPeriod>   offset2Ad;   /**< Mapping period's offset to individual Ads */
+	uint64_t                    duration;    /**< Period's Duration in milliseconds */
+	std::map<int, AdOnPeriod>   offset2Ad;   /**< Mapping period's offset in milliseconds to individual Ads */
 
 	/**
 	* @brief Period2AdData constructor
 	*/
 	Period2AdData() : filled(false), adBreakId(), duration(0), offset2Ad()
+	{
+	}
+
+	Period2AdData(bool _filled, std::string _adBreakId, uint64_t _duration, std::map<int, AdOnPeriod> _offset2Ad)
+		: filled(_filled), adBreakId(_adBreakId), duration(_duration), offset2Ad(_offset2Ad)
 	{
 	}
 };
@@ -260,12 +284,26 @@ struct PlacementObj {
 	std::string openPeriodId;           /**< The period in the adbreak that is progressing */
 	uint64_t    curEndNumber;           /**< Current periods last fragment number */
 	int         curAdIdx;               /**< Currently placing ad, during MPD progression */
-	uint32_t    adNextOffset;           /**< Current Ad's offset to be placed in the next iteration of PlaceAds */
+	uint32_t    adNextOffset;           /**< Current Ad's offset to be placed in the next iteration of PlaceAds in milliseconds*/
 
 	/**
 	* @brief PlacementObj constructor
 	*/
 	PlacementObj(): pendingAdbrkId(), openPeriodId(), curEndNumber(0), curAdIdx(-1), adNextOffset(0)
+	{
+
+	}
+
+	/**
+	* @brief PlacementObj parameterized constructor
+	* @param pendingAdbrkId The pending adbreak ID
+	* @param openPeriodId The open period ID
+	* @param curEndNumber The current period's last fragment number
+	* @param curAdIdx The index of the currently placing ad during MPD progression
+	* @param adNextOffset The current ad's offset to be placed in the next iteration of PlaceAds in milliseconds
+	*/
+	PlacementObj(const std::string& pendingAdbrkId, const std::string& openPeriodId, uint64_t curEndNumber, int curAdIdx, uint32_t adNextOffset)
+		: pendingAdbrkId(pendingAdbrkId), openPeriodId(openPeriodId), curEndNumber(curEndNumber), curAdIdx(curAdIdx), adNextOffset(adNextOffset)
 	{
 
 	}
@@ -280,7 +318,7 @@ struct PlacementObj {
 class PrivateCDAIObjectMPD
 {
 public:
-	AampLogManager*				       mLogObj;
+	AampLogManager*                                mLogObj;
 	PrivateInstanceAAMP*                           mAamp;               /**< AAMP player's private instance */
 	std::mutex                                     mDaiMtx;             /**< Mutex protecting DAI critical section */
 	bool                                           mIsFogTSB;           /**< Channel playing from TSB or not */
@@ -295,11 +333,10 @@ public:
 	PlacementObj                                   mPlacementObj;       /**< Temporary object for Ad placement over period */
 	double                                         mContentSeekOffset;  /**< Seek offset after the Ad playback */
 	AdState                                        mAdState;            /**< Current state of the CDAI state machine */
-	bool 					       mImmediateNextAdbreakAvailable;/**< Next ad break(immediate/back to back)  need to be placed if the value is true*/
-	bool					       currentAdPeriodClosed;/**< True means player is ready to process very next open period available in the manifest.
-										  The next open period should not be processed until the flag is set to true**/
-	std::vector<PlacementObj>		       mAdtoInsertInNextBreakVec;
-	std::mutex                           	       mAdBrkVecMtx;             /**< Mutex protecting DAI critical section */
+	bool                                           mImmediateNextAdbreakAvailable;/**< Next ad break(immediate/back to back)  need to be placed if the value is true*/
+	bool                                           currentAdPeriodClosed;/**< The very next open period should be processed only when the flag is true*/
+	std::vector<PlacementObj>                      mAdtoInsertInNextBreakVec;/**<Stores the PlacementObj yet to be placed*/
+	std::mutex                                     mAdBrkVecMtx;        /**< Mutex protecting DAI critical section */
 
 	/**
 	 * @fn PrivateCDAIObjectMPD
@@ -345,7 +382,7 @@ public:
 	 * @param[in]  url - Ad manifest's URL
 	 * @param[out] finalManifest - Is final MPD or the final MPD should be downloaded later
 	 * @param[in]  tryFog - Attempt to download from FOG or not
-	 *
+	 * @return MPD* MPD instance
 	 */
 	MPD* GetAdMPD(std::string &url, bool &finalManifest, bool tryFog = false);
 
@@ -360,7 +397,7 @@ public:
 	 * @fn isPeriodExist
 	 *
 	 * @param[in]  periodId - Period id to be checked.
-	 * @return true or false
+	 * @return bool true or false
 	 */
 	bool isPeriodExist(const std::string &periodId);
 
@@ -368,9 +405,9 @@ public:
 	 * @brief Method to check the existence of Adbreak object in the AdbreakObject map
 	 *
 	 * @param[in]  adBrkId - Adbreak id to be checked.
-	 * @return true or false
+	 * @return bool true or false
 	 */
-	inline bool isAdBreakObjectExist(const std::string &adBrkId);
+	bool isAdBreakObjectExist(const std::string &adBrkId);
 
 	/**
 	 * @fn PrunePeriodMaps
@@ -392,17 +429,17 @@ public:
 	/**
 	 * @fn PlaceAds
 	 */
-	void  PlaceAds(dash::mpd::IMPD *mpd);
+	void PlaceAds(dash::mpd::IMPD *mpd);
 
 	/**
 	 * @fn CheckForAdStart
 	 *
 	 * @param[in]  rate - Playback rate
 	 * @param[in]  periodId - Period id to be checked
-	 * @param[in]  offSet - Period offset to be checked
+	 * @param[in]  offSet - Period offset in seconds
 	 * @param[out] breakId - Id of the Adbreak, if the period & offset falls in an Adbreak
-	 * @param[out] adOffset - Offset of the Ad for that point of the period
-	 *
+	 * @param[out] adOffset - Offset of the Ad for that point of the period in seconds
+	 * @return int Ad index, if the period has an ad over it. Else -1
 	 */
 	int CheckForAdStart(const float &rate, bool init, const std::string &periodId, double offSet, std::string &breakId, double &adOffset);
 
@@ -425,34 +462,36 @@ public:
 	inline bool isPeriodInAdbreak(const std::string &periodId);
 
 	/**
-	* @fn setPlacementObj
-	* @brief Function to place the next available DAI ad
-	* @param[in] adBrkId : currentPlaying DAI AdId
-	* 	endPeriodId : nextperiod to play(after DAI playback)
-	* @retval true if adstate changes.
-	*/
-	PlacementObj setPlacementObj(const std::string adBrkId,const std::string endPeriodId);
+	 * @fn setPlacementObj
+	 * @brief Function to update the PlacementObj with the new available DAI ad
+	 * @param[in] adBrkId : currentPlaying DAI AdId
+	 * @param[in] endPeriodId : nextperiod to play(after DAI playback)
+	 * @return new PlacementObj to be placed
+	 */
+	PlacementObj setPlacementObj(const std::string adBrkId, const std::string endPeriodId);
 
 	/**
-	* @fn ErasefrmAdBrklist
-	* @brief Function to erase the current PlayingAdBrkId
-	* from next AdBreak Vector
-	* @param[in] mpd
-	* @retval true if adstate changes.
-	* */
+	 * @fn ErasefrmAdBrklist
+	 * @brief Function to erase the current PlayingAdBrkId from next AdBreak Vector
+	 * @param[in] adBrkId Ad break id to be erased
+	 */
 	void ErasefrmAdBrklist(const std::string adBrkId);
 
 	/**
-        * @fn HasDaiAd
-        * @brief Function Verify if the current period has DAI Ad
-        * @param[in] string basperiodId
-        */
+	 * @fn HasDaiAd
+	 * @brief Function Verify if the current period has DAI Ad
+	 * @param[in] periodId Base period ID
+	 * @return true if DAI Ad is present
+	 */
 	bool HasDaiAd(const std::string periodId);
 
-
-        //Place the end markers of adbreak
-        void setAdMarkers(uint64_t p2AdDataduration, double periodDelta);
+	/**
+	 * @fn setAdMarkers
+	 * @brief Update ad markers for the current ad break being placed
+	 * @param[in] p2AdDataduration Duration of the ad break
+	 * @param[in] periodDelta Period delta
+	 */
+	void setAdMarkers(uint64_t p2AdDataduration, double periodDelta);
 };
-
 
 #endif /* ADMANAGER_MPD_H_ */
