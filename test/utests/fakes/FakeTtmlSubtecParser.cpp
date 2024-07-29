@@ -35,10 +35,10 @@ void TtmlSubtecParser::reset()
 {
 }
 
-static std::int64_t parseFirstBegin(std::stringstream &ss)
-{
-	return 0;
-}
+//static std::int64_t parseFirstBegin(std::stringstream &ss)
+//{
+//	return 0;
+//}
 
 bool TtmlSubtecParser::processData(char* buffer, size_t bufferLen, double position, double duration)
 {

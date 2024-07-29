@@ -801,25 +801,19 @@ public:
 	{
 		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
 		Track &audio = pipelineContext.track[eMEDIATYPE_AUDIO];
-		double first_pts = 0.0;
-		double last_pts = 0.0;
+		double pts_offset = 0.0;
+		double next_pts = 0.0;
 		for( int i=0; i<ARRAY_SIZE(mPeriodInfo); i++ )
 		{
-			double pts_offset = 0;
 			const PeriodInfo *periodInfo = &mPeriodInfo[i];
-			double next_pts = periodInfo->startIndex*SEGMENT_DURATION_SECONDS;
+			double firstPts = periodInfo->startIndex*SEGMENT_DURATION_SECONDS;
+			double duration = periodInfo->segmentCount*SEGMENT_DURATION_SECONDS;
+			pts_offset += next_pts - firstPts;
+			next_pts = firstPts + duration;
 			if( i==0 )
 			{
-				first_pts = next_pts;
-				last_pts = first_pts;
-				pts_offset = -first_pts;
 				Flush( 1.0/*rate*/, 0/*start*/, -1/*stop*/, 0/*baseTime*/ );
 			}
-			else
-			{
-				pts_offset = (last_pts - next_pts) - first_pts;
-			}
-			last_pts += periodInfo->segmentCount*SEGMENT_DURATION_SECONDS;
 			video.QueueVideoHeader( periodInfo->resolution );
 			uint32_t timeScale = (mContentFormat == eCONTENTFORMAT_ES)?TS_TIMESCALE:12800;
 			video.QueueVideoSegment(
@@ -1279,17 +1273,17 @@ public:
 		double secondsToSkip = pipelineContext.seekPos;
 		bool processingFirstPeriod = true;
 		double pts_offset = 0.0;
+		double next_pts = 0.0;
 		for( int iPeriod=0; iPeriod<timelineObj.period.size(); iPeriod++ )
 		{
 			const PeriodObj &period = timelineObj.period[iPeriod];
-			pts_offset -= period.firstPts;
-			double next_pts_offset = pts_offset + period.duration;
+			pts_offset += next_pts - period.firstPts;
+			next_pts = period.firstPts + period.duration;
 			if( processingFirstPeriod )
 			{
 				if( secondsToSkip >= period.duration )
 				{ // skip this period
 					secondsToSkip -= period.duration;
-					pts_offset = next_pts_offset;
 					continue;
 				}
 				double rate = 1.0;
@@ -1378,7 +1372,6 @@ public:
 				}
 			} // next adaptationSet
 			secondsToSkip = 0.0;
-			pts_offset = next_pts_offset;
 		}
 		
 		for( int mediaType=0; mediaType<2; mediaType++ )

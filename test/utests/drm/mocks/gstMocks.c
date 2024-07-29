@@ -38,6 +38,7 @@ GstByteReader *gst_byte_reader_new(const guint8 *data, guint size)
 
 gboolean gst_byte_reader_set_pos(GstByteReader *reader, guint pos)
 {
+	return TRUE;
 }
 
 void gst_byte_reader_free(GstByteReader *reader)

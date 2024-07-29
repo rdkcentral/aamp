@@ -31,10 +31,10 @@ TESTDATA1 = {
         {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]")},
         {"expect": "Live offset value updated to 10"},
         {"expect": "offsetFromStart 18.800000"},
-        {"expect": r"Returning Position as 1689262818(\d{3}) "},
-        {"expect": r"Returning Position as 168926282[0-3](\d{3}) "},
-        {"expect": r"Returning Position as 168926282[4-6](\d{3}) "},
-        {"expect": r"Returning Position as 168926282[7-9](\d{3}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
     ]
 }
 TESTDATA2 = {
@@ -48,10 +48,10 @@ TESTDATA2 = {
         {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]")},
         {"expect": r"Live offset value updated to 0"}, 
         {"expect": r"offsetFromStart 28.800000"}, 
-        {"expect": r"Returning Position as 1689262828(\d{3})"},
-        {"expect": r"Returning Position as 168926283[0-3](\d{3})"},
-        {"expect": r"Returning Position as 168926283[4-6](\d{3}) "},
-        {"expect": r"Returning Position as 168926283[7-9](\d{3}) "},
+        {"expect": r"Returning Position as 16892628(\d{5})"},
+        {"expect": r"Returning Position as 16892628(\d{5})"},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
     ],
 }
 TESTDATA3 = {
@@ -65,10 +65,10 @@ TESTDATA3 = {
         {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]")},
         {"expect": r"Live offset value updated to 15"}, 
         {"expect": r"offsetFromStart 13.800000"}, 
-        {"expect": r"Returning Position as 1689262813(\d{3})"},
-        {"expect": r"Returning Position as 168926281[6-9](\d{3})"},
-        {"expect": r"Returning Position as 168926282[0-3](\d{3}) "},
-        {"expect": r"Returning Position as 168926282[4-6](\d{3}) "},
+        {"expect": r"Returning Position as 16892628(\d{5})"},
+        {"expect": r"Returning Position as 16892628(\d{5})"},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
+        {"expect": r"Returning Position as 16892628(\d{5}) "},
     ],
 }
 

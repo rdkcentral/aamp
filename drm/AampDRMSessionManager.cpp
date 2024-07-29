@@ -656,7 +656,7 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 			*httpExtStatusCode = 0;
 			if (licenseResponseStr)
 			{
-				licenseResponse = new DrmData((unsigned char *)licenseResponseStr, licenseResponseLength);
+				licenseResponse = new DrmData(licenseResponseStr, licenseResponseLength);
 				free(licenseResponseStr);
 			}
 		}
@@ -747,7 +747,7 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 		{
 			AAMPLOG_WARN(" acquireLicense SUCCESS! license request attempt %d; response code : sec_client %d", attemptCount, sec_client_result);
 			eventHandle->setAccessStatusValue(statusInfo.accessAttributeStatus);
-			licenseResponse = new DrmData((unsigned char *)licenseResponseStr, (int)licenseResponseLength);
+			licenseResponse = new DrmData(licenseResponseStr, licenseResponseLength);
 		}
 		if (licenseResponseStr) SecClient_FreeResource(licenseResponseStr);
 #if USE_SECMANAGER
@@ -985,7 +985,7 @@ DrmData * AampDRMSessionManager::getLicense(AampLicenseRequest &licenseRequest,
 				keyInfo = new DrmData();
 				std::string keyData;
 				auto keyLen = pLicenseDownloader->GetDataString(keyData);
-				keyInfo->setData((unsigned char *)keyData.c_str(),(int)keyLen);
+				keyInfo->setData(keyData.c_str(), keyLen);
 			}
 		}
 		
@@ -1648,7 +1648,7 @@ KeyState AampDRMSessionManager::handleLicenseResponse(std::shared_ptr<AampDrmHel
 					}
 					else
 					{
-						licenseResponse = make_shared<DrmData>(keyData.data(), keyData.size());
+						licenseResponse = make_shared<DrmData>((char *)keyData.data(), keyData.size());
 					}
 				}
 				catch (AampJsonParseException& e)

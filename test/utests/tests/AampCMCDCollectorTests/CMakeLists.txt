@@ -17,9 +17,6 @@
 
 include(GoogleTest)
 
-pkg_check_modules(GMOCK REQUIRED gmock)
-pkg_check_modules(GTEST REQUIRED gtest)
-pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(UUID REQUIRED uuid)
 
 set(AAMP_ROOT "../../../../")
@@ -34,6 +31,7 @@ include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(${UUID_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${LIBCJSON_INCLUDE_DIRS})

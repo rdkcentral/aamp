@@ -17,10 +17,7 @@
 
 include(GoogleTest)
 
-pkg_check_modules(GMOCK REQUIRED gmock)
-pkg_check_modules(GTEST REQUIRED gtest)
-
-find_package(CURL REQUIRED)
+pkg_check_modules(CURL REQUIRED libcurl)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")

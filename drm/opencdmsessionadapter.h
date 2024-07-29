@@ -136,7 +136,9 @@ public:
 	int aampDRMProcessKey(DrmData* key, uint32_t timeout) override;
 	KeyState getState() override;
 	void clearDecryptContext() override;
-	void setKeyId(const std::vector<uint8_t>& keyId);
+#if defined(USE_OPENCDM_ADAPTER)
+	void setKeyId(const std::vector<uint8_t>& keyId) override;
+#endif
 	bool waitForState(KeyState state, const uint32_t timeout) override;
 };
 

@@ -17,22 +17,19 @@
 
 include(GoogleTest)
 
+pkg_check_modules(UUID REQUIRED uuid)
+
 set(AAMP_ROOT "../../../..")
 set(UTESTS_ROOT "../..")
 set(DRM_ROOT ${UTESTS_ROOT}/drm)
 set(EXEC_NAME DrmLegacy)
-
-pkg_check_modules(GMOCK REQUIRED gmock)
-pkg_check_modules(GTEST REQUIRED gtest)
-pkg_check_modules(LIBCJSON REQUIRED libcjson)
-pkg_check_modules(UUID REQUIRED uuid)
-
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(${UUID_INCLUDE_DIRS})
 include_directories(${DRM_ROOT})
 include_directories(${DRM_ROOT}/mocks)
 
@@ -90,12 +87,6 @@ endif()
 if (COVERAGE_ENABLED)
 	include(CodeCoverage)
 	APPEND_COVERAGE_COMPILER_FLAGS()
-	#Set NO_EXCLUDE_DIR to the location of this test so it doesn't get excluded & include common exclude files:
-	set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/DrmLegacy/*")
-	include("${PROJECT_SOURCE_DIR}/cmake_exclude_file.list")
-	SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
-							  EXECUTABLE ${EXEC_NAME}
-							  DEPENDENCIES ${EXEC_NAME})
 endif()
 
 target_link_libraries(${EXEC_NAME} ${UUID_LINK_LIBRARIES} ${OS_LD_FLAGS} pthread ${GLIB_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})

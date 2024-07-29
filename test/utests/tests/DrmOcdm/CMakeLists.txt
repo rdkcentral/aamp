@@ -17,22 +17,20 @@
 
 include(GoogleTest)
 
+pkg_check_modules(UUID REQUIRED uuid)
+
 set(AAMP_ROOT "../../../..")
 set(UTESTS_ROOT "../..")
 set(DRM_ROOT ${UTESTS_ROOT}/drm)
 set(EXEC_NAME DrmOcdm)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DREALTEKCE=1")
 
-pkg_check_modules(GMOCK REQUIRED gmock)
-pkg_check_modules(GTEST REQUIRED gtest)
-pkg_check_modules(LIBCJSON REQUIRED libcjson)
-pkg_check_modules(UUID REQUIRED uuid)
-
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(${UUID_INCLUDE_DIRS})
 include_directories(${DRM_ROOT})
 include_directories(${DRM_ROOT}/ocdm)
 include_directories(${DRM_ROOT}/mocks)
@@ -76,8 +74,6 @@ set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				 ${AAMP_ROOT}/drm/AampOcdmBasicSessionAdapter.cpp
 				 ${AAMP_ROOT}/drm/AampOcdmGstSessionAdapter.cpp
 				 ${AAMP_ROOT}/drm/AampHlsOcdmBridge.cpp
-				 ${AAMP_ROOT}/drm/AampSharedMemorySystem.cpp
-				 ${AAMP_ROOT}/drm/helper/AampVgdrmHelper.cpp
 				 ${AAMP_ROOT}/drm/helper/AampClearKeyHelper.cpp
 				 ${AAMP_ROOT}/drm/helper/AampWidevineDrmHelper.cpp
 				 ${AAMP_ROOT}/drm/helper/AampPlayReadyHelper.cpp)

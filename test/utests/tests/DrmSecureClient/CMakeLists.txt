@@ -17,6 +17,8 @@
 
 include(GoogleTest)
 
+pkg_check_modules(UUID REQUIRED uuid)
+
 set(AAMP_ROOT "../../../..")
 set(UTESTS_ROOT "../..")
 set(DRM_ROOT ${UTESTS_ROOT}/drm)
@@ -27,13 +29,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DREALTEKCE=1")
 # The Secure Client header files must exist in utests/drm/secclient/ for these tests to build and run
 file(GLOB SEC_CLIENT_HEADERS "${SEC_CLIENT_ROOT}/*")
 
-pkg_check_modules(GMOCK REQUIRED gmock)
-pkg_check_modules(GTEST REQUIRED gtest)
-pkg_check_modules(LIBCJSON REQUIRED libcjson)
-pkg_check_modules(UUID REQUIRED uuid)
-
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
+include_directories(${UUID_INCLUDE_DIRS})
 
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/libsubtec)
@@ -85,8 +83,6 @@ if(SEC_CLIENT_HEADERS)
 					 ${AAMP_ROOT}/drm/AampOcdmBasicSessionAdapter.cpp
 					 ${AAMP_ROOT}/drm/AampOcdmGstSessionAdapter.cpp
 					 ${AAMP_ROOT}/drm/AampHlsOcdmBridge.cpp
-					 ${AAMP_ROOT}/drm/AampSharedMemorySystem.cpp
-					 ${AAMP_ROOT}/drm/helper/AampVgdrmHelper.cpp
 					 ${AAMP_ROOT}/drm/helper/AampClearKeyHelper.cpp
 					 ${AAMP_ROOT}/drm/helper/AampWidevineDrmHelper.cpp
 					 ${AAMP_ROOT}/drm/helper/AampPlayReadyHelper.cpp)
@@ -121,12 +117,6 @@ endif()
 if (COVERAGE_ENABLED)
 	include(CodeCoverage)
 	APPEND_COVERAGE_COMPILER_FLAGS()
-	#Set NO_EXCLUDE_DIR to the location of this test so it doesn't get excluded & include common exclude files:
-	set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/DrmSecureClient/*")
-	include("${PROJECT_SOURCE_DIR}/cmake_exclude_file.list")
-	SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
-							EXECUTABLE ${EXEC_NAME}
-							DEPENDENCIES ${EXEC_NAME})
 endif()
 
 target_link_libraries(${EXEC_NAME} ${LIBCJSON_LINK_LIBRARIES} ${UUID_LINK_LIBRARIES} pthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})

@@ -47,7 +47,7 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManag
 	playRate(1.0f), stopped(false), aborted(false), m_mutex(), m_cond(),initSegmentProcessComplete(false),
 	isRestampConfigEnabled(false),
 	mLogObj(logObj),
-	sumPTS(0),prevPTS(UINT64_MAX),currTimeScale(0),sumOfTrackDurationFromISOBuffer(DEFAULT_DURATION),startPos(DEFAULT_DURATION),
+	sumPTS(0),prevPTS(UINT64_MAX),currTimeScale(0), startPos(DEFAULT_DURATION),
 	prevPosition(-1), prevDuration(0.0), scalingOfPTSComplete(false),timeScaleChangeState(eBMFFPROCESSOR_INIT_TIMESCALE),
 	mediaFormat(eMEDIAFORMAT_UNKNOWN), enabled(true), trackOffsetInSecs(DEFAULT_DURATION), peerListeners(),
 	initSegmentTransferMutex(), skipMutex(), skipPointMap(),ptsDiscontinuity(false), nextPos(-1)
@@ -148,7 +148,6 @@ void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double
 		pos = ((double)sumPTS / (double)currTimeScale);
 		p_aamp->FlushAudio(pos);
 		startPos = pos;
-		sumOfTrackDurationFromISOBuffer = 0;
 		prevPosition = position;
 		AAMPLOG_WARN("IsoBmffProcessor %s Updated SumPTS %" PRIu64 "  TS: %u and start pos %f", IsoBmffProcessorTypeName[type],sumPTS, currTimeScale, startPos);
 	}
@@ -548,18 +547,17 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 			prevPTS = currentPTS;
 
 			sumPTS +=durationFromFragment;
-			sumOfTrackDurationFromISOBuffer += ((double)durationFromFragment / (double)currTimeScale);
-
-			AAMPLOG_INFO("IsoBmffProcessor %s fragment restamp complete sumOfTrackDurationFromISOBuffer = %lf durationFromFragment = %" PRIu64 " currentPTS = %" PRIu64 ""
-							" restampedPTS = %" PRIu64 " sumPTS = %" PRIu64 " position = %.02lf newPos = %0.2lf", IsoBmffProcessorTypeName[type],sumOfTrackDurationFromISOBuffer, durationFromFragment, currentPTS,
+			
+			AAMPLOG_INFO("IsoBmffProcessor %s fragment restamp complete durationFromFragment = %" PRIu64 " currentPTS = %" PRIu64 ""
+							" restampedPTS = %" PRIu64 " sumPTS = %" PRIu64 " position = %.02lf newPos = %0.2lf", IsoBmffProcessorTypeName[type], durationFromFragment, currentPTS,
 							sumPTS-durationFromFragment, sumPTS, position, newPos);
 
 			p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (AampMediaType)type);
 			sendStream(pBuffer,newPos,duration,isDiscontinuity,isInit);
 		}
 		prevPosition = position;
-		prevDuration = duration;
-		if( -1 == nextPos || 0.0f == position )
+		prevDuration = duration; 
+		if( -1 == nextPos || 0.0f == position || position > nextPos )
 			nextPos = position + duration;
 		else
 			nextPos += duration;
@@ -683,9 +681,6 @@ uint64_t IsoBmffProcessor::handleSkipFragments( double skipPosition , skipTimeTy
 				AAMPLOG_WARN("IsoBmffProcessor %s [in] Skipping Fragments due to Network/other error type: %d skipPointPos: %lf skipPosition: %lf skipDur: %lf sumPTS:%" PRIu64 " ",
 								IsoBmffProcessorTypeName[type], skipType, st.skipPointPosition, skipPosition,sumOfSkipDuration, sumPTS);
 				sumPTS += skippedPTS;
-				sumOfTrackDurationFromISOBuffer = sumOfTrackDurationFromISOBuffer + (skippedPTS/(double)currTimeScale);
-				startPos = startPos + sumOfTrackDurationFromISOBuffer;
-				sumOfTrackDurationFromISOBuffer = 0;
 			}
 			AAMPLOG_WARN("IsoBmffProcessor %s skippedPTS:%" PRIu64 " sumPTS:%" PRIu64 " ", IsoBmffProcessorTypeName[type], skippedPTS, sumPTS );
 		}
@@ -705,23 +700,24 @@ uint64_t IsoBmffProcessor::handleSkipFragments( double skipPosition , skipTimeTy
  */
 void IsoBmffProcessor::cacheInitBufferForRestampingPTS(char *segment, size_t size,uint32_t tScale,double position,bool isAbrChangedTimeScale )
 {
-	currTimeScale = tScale; //Update current timescale
-	startPos = startPos+sumOfTrackDurationFromISOBuffer; //Start position = start position from tune + total track duration played
-	sumPTS = ceil(startPos*((double)currTimeScale)); //change the pts value to new start position based on new time scale
-	sumOfTrackDurationFromISOBuffer = 0; //reset Track Duration
+	AAMPLOG_INFO("IsoBmffProcessor %s  before push init for discontinuity TS: isAbrChangedTimeScale=%d startPos=%f newTS=%u currTS=%u basePTS=%" PRIu64 " sumPTS=%" PRIu64 " ",
+						IsoBmffProcessorTypeName[type], isAbrChangedTimeScale,  startPos, tScale, currTimeScale, basePTS, sumPTS);
+	sumPTS = ceil((sumPTS/(double)currTimeScale)*tScale);
+	startPos = (sumPTS/(double)tScale);
+	currTimeScale = tScale;
 
 	if( isAbrChangedTimeScale == false )
 	{
 		//pts is not available in Init fragment, so we need to wait for first fragment to get the PTS
 		timeScaleChangeState = eBMFFPROCESSOR_SCALE_TO_NEW_TIMESCALE;
 		cacheInitSegment(segment, size);
-		AAMPLOG_INFO("IsoBmffProcessor %s  before push init for discontinuity TS: sumOfTrackDurationFromISOBuffer=%f startPos=%f newTS=%u currTS=%u basePTS=%" PRIu64 " sumPTS=%" PRIu64 " ",
-						IsoBmffProcessorTypeName[type], sumOfTrackDurationFromISOBuffer, startPos, tScale, currTimeScale, basePTS, sumPTS);
 	}
 	else
 	{
 		AAMPLOG_INFO("IsoBmffProcessor %s  abr changed with new timescale", IsoBmffProcessorTypeName[type]);
 	}
+	AAMPLOG_INFO("IsoBmffProcessor %s discontinuity TS: isAbrChangedTimeScale=%d startPos=%f newTS=%u currTS=%u basePTS=%" PRIu64 " sumPTS=%" PRIu64 " ",
+						IsoBmffProcessorTypeName[type], isAbrChangedTimeScale, startPos, tScale, currTimeScale, basePTS, sumPTS);
 }
 
 /**
@@ -1011,11 +1007,8 @@ void IsoBmffProcessor::waitForVideoPTS()
 void IsoBmffProcessor::abortWaitForVideoPTS()
 {
 	pthread_mutex_lock(&m_mutex);
-	if( !scalingOfPTSComplete)
-	{
-		AAMPLOG_WARN("IsoBmffProcessor %s unblocking PTS restamp", IsoBmffProcessorTypeName[type]);
-		pthread_cond_signal(&m_cond);
-	}
+	AAMPLOG_WARN("IsoBmffProcessor %s unblocking PTS restamp", IsoBmffProcessorTypeName[type]);
+	pthread_cond_signal(&m_cond);
 	pthread_mutex_unlock(&m_mutex);
 	AAMPLOG_WARN("IsoBmffProcessor %s unblock complete", IsoBmffProcessorTypeName[type]);
 }

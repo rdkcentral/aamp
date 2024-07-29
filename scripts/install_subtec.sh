@@ -31,6 +31,8 @@ function subtec_install_fn() {
     git apply -p1 ${1}/OSX/patches/subttxrend-app-x86builder.patch
     git apply -p1 ${1}/OSX/patches/subttxrend-app-stringutils.patch
     git apply -p1 ${1}/OSX/patches/websocket-ipplayer2-typescpp.patch --directory websocket-ipplayer2-utils
+    git apply -p1 ${1}/OSX/patches/subttxrend-app-ubuntu_24_04_build.patch
+    git apply -p1 ${1}/OSX/patches/websocket-ipplayer2-ubuntu_24_04_build.patch --directory websocket-ipplayer2-utils
 
 
 

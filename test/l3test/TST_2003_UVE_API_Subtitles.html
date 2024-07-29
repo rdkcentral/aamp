@@ -47,7 +47,7 @@ async function TST_2003_UVE_API_Subtitles() {
     aamp_player.player.initConfig(initConfig);
 
     // Load the URL, seek to start position (where subtitles are displayed) but don't start playback yet.
-    TST_INFO("Load the URL: " + subtitleUrl);
+    TST_STEP("Load the URL: " + subtitleUrl);
     await aamp_player.Load(subtitleUrl, false);
     aamp_player.player.setClosedCaptionStatus(true);
 
@@ -63,7 +63,7 @@ async function TST_2003_UVE_API_Subtitles() {
         TST_ASSERT ((tracksJson[trackId].language == expectSubtitleLanguages[trackId]), ("Unexpected Track Language - Got: " + tracksJson[trackId].language + ", Expected: " + expectSubtitleLanguages[trackId]));
         subtitles_received_str += "<br> " + trackId + " : " + tracksJson[trackId].name + " (" + tracksJson[trackId].language + ")";
     }
-    TST_INFO("Subtitles Available: " + subtitles_received_str);
+    TST_STEP("Subtitles Available: " + subtitles_received_str);
 
     // Set the preferred Text Language, and then read back the properties to verify
     preferedSubtitlelanguage = "en";
@@ -71,7 +71,7 @@ async function TST_2003_UVE_API_Subtitles() {
     aamp_player.player.setPreferredTextLanguage(preferredTextLanguageJson);
 
     preferredTextPropertiesStr = aamp_player.player.getPreferredTextProperties();
-    TST_INFO("preferredTextPropertiesStr: " + preferredTextPropertiesStr);
+    TST_STEP("preferredTextPropertiesStr: " + preferredTextPropertiesStr);
     preferredTextPropertiesJson = JSON.parse(preferredTextPropertiesStr);
     TST_ASSERT ((preferedSubtitlelanguage == preferredTextPropertiesJson['preferred-text-languages']), ("Unexpected Preferred Text Property - Got: " + preferredTextPropertiesJson['preferred-text-languages'] + ", Expected: " + preferedSubtitlelanguage));
 
@@ -84,7 +84,7 @@ async function TST_2003_UVE_API_Subtitles() {
     {
         // Sets Text Track and wait for Text Track Changed event.  N.B. Event is not generated first time when changing from invalid (-1)
         aamp_player.SetTextTrack(trackId, (trackId != 0));
-        TST_INFO ("Text Track: " + trackId + " : " + tracksJson[trackId].name + " (" + tracksJson[trackId].language + ")");
+        TST_STEP ("Text Track: " + trackId + " : " + tracksJson[trackId].name + " (" + tracksJson[trackId].language + ")");
 
         // Read back the text track ID, and verify it is as expected
         currentTrackId = aamp_player.player.getTextTrack();
@@ -102,17 +102,17 @@ async function TST_2003_UVE_API_Subtitles() {
     // Find the track ID for English subtitles and select
     trackId = tracksJson.findIndex(tr => { return tr.language === "en"; });
     aamp_player.SetTextTrack(trackId);
-    TST_INFO ("Text Track: " + trackId + " : " + tracksJson[trackId].name + " (" + tracksJson[trackId].language + ")");
+    TST_STEP ("Text Track: " + trackId + " : " + tracksJson[trackId].name + " (" + tracksJson[trackId].language + ")");
     await aamp_player.VerifyPlayback(5, 1);
 
     // Turn Subtitles OFF
     aamp_player.player.setClosedCaptionStatus(false);
-    TST_INFO ("Subtitles OFF");
+    TST_STEP ("Subtitles OFF");
     await aamp_player.VerifyPlayback(10, 1);
 
     // Turn Subtitles ON
     aamp_player.player.setClosedCaptionStatus(true);
-    TST_INFO ("Subtitles ON");
+    TST_STEP ("Subtitles ON");
     await aamp_player.VerifyPlayback(10, 1);
 
 
@@ -129,7 +129,7 @@ async function TST_2003_UVE_API_Subtitles() {
 
 
     // Seek back to position where known subtitles are displayed
-    TST_INFO ("Subtitle Size Override Test");
+    TST_STEP ("Subtitle Size Override Test");
     await aamp_player.Seek(positionStart, true);
     await aamp_player.VerifyPlayback(5, 1, false);
 
@@ -139,7 +139,7 @@ async function TST_2003_UVE_API_Subtitles() {
     {
         ccOptionStr = JSON.stringify({"penSize" : penSizeOptions[penSize]});
         aamp_player.player.setTextStyleOptions(ccOptionStr);
-        TST_INFO ("Set PenSize: " + penSize + " : (" + ccOptionStr + ")");
+        TST_STEP ("Set PenSize: " + penSize + " : (" + ccOptionStr + ")");
 
         // Read back the style options and verify they match as expected
         curretCcOption = JSON.parse(aamp_player.player.getTextStyleOptions());
@@ -149,7 +149,7 @@ async function TST_2003_UVE_API_Subtitles() {
     }
 
     // Stop the playback and destroy the AAMP Player
-    TST_INFO("Stop the playback");
+    TST_STEP("Stop the playback");
     await aamp_player.Stop();
     aamp_player.destroy();
     TST_END()

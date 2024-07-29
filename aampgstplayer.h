@@ -489,11 +489,6 @@ public:
 
 private:
 	/**
-     	 * @fn PauseAndFlush 
-     	 * @param playAfterFlush denotes if it should be set to playing at the end
-     	 */
-	void PauseAndFlush(bool playAfterFlush);
-	/**
      	 * @fn TearDownStream
      	 * @param[in] mediaType stream type
      	 */
@@ -507,10 +502,6 @@ private:
      	 */
 	void DestroyPipeline();
 	static bool initialized;
-    	/**
-     	 * @fn Flush
-     	 */ 
-	void Flush(void);
 	/**
      	 * @fn WaitForSourceSetup
      	 *

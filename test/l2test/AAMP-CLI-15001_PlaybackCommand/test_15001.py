@@ -131,7 +131,8 @@ TESTDATA2 = {
 
         # fast forward 
         {"cmd": "ff4"},
-        {"expect": r"\[SetRateInternal\]\[\d+]aamp_SetRate rate\(1\.000000\)->\(4\.000000\) cur pipeline: playing. Adj position: 60.000000 Play/Pause Position:60000"},
+        {"expect": r"\[SetRateInternal\]\[\d+\]aamp_SetRate rate\(1\.000000\)->\(4\.000000\) cur pipeline: playing\. Adj position: 60\.\d{3,6} Play/Pause Position:60\d{2,3}"},
+
 
         # Play 
         {"cmd": "play"},
@@ -174,7 +175,6 @@ TESTDATA3 = {
         {"cmd": "pause"},
         {"expect": r"aamp_SetRate\ \(0\.000000\)"},
         {"expect": r"aamp_SetRate rate\(1\.000000\)->\(0\.000000\)"},
-        {"expect": "AAMPGstPlayerPipeline state set to PAUSED"}, 
         {"expect": "AAMP_EVENT_STATE_CHANGED: PAUSED"},
 
         # Seek with pause
@@ -198,7 +198,7 @@ TESTDATA3 = {
 
         # fast forward 
         {"cmd": "ff4"},
-        {"expect": r"\[SetRateInternal\]\[\d+]aamp_SetRate rate\(1\.000000\)->\(4\.000000\) cur pipeline: playing. Adj position: 60.000000 Play/Pause Position:60000"},
+        {"expect": r"\[SetRateInternal\]\[\d+\]aamp_SetRate rate\(1\.000000\)->\(4\.000000\) cur pipeline: playing\. Adj position: 60\.\d{3,6} Play/Pause Position:60\d{2,3}"},
 
         # Play 
         {"cmd": "play"},

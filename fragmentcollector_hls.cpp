@@ -3279,8 +3279,8 @@ void StreamAbstractionAAMP_HLS::CheckDiscontinuityAroundPlaytarget(void)
 			}
 			else
 			{
-				AAMPLOG_WARN("video->playTarget %f -> %lld audio->playTarget %f -> %lld",
-								video->playTarget.inSeconds(), audioDiscontinuityIndex[i].position.seconds(), audio->playTarget.inSeconds(), audioDiscontinuityIndex[i].position.seconds());
+				AAMPLOG_WARN("video->playTarget %f -> %" PRIi64 "audio->playTarget %f -> %" PRIi64,
+ 								video->playTarget.inSeconds(), audioDiscontinuityIndex[i].position.seconds(), audio->playTarget.inSeconds(), audioDiscontinuityIndex[i].position.seconds());
 				video->playTarget = audio->playTarget = audioDiscontinuityIndex[i].position.seconds();
 			}
 

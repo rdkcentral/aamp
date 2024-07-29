@@ -22,35 +22,35 @@ async function TST_2007_UVE_AampThumbnailApis() {
     var aamp_player = new AAMPPlayer("MAIN-PLAYER");
 
     // Load and Play the Thumbnail URL, wait 10s and verify position updated
-    TST_INFO("Tune to URL");
+    TST_STEP("Tune to URL");
     await aamp_player.Load(ThumbnailUrl);
     await aamp_player.VerifyPlayback(5, 1);
 
     // gets the available thumbnail tracks
-    TST_INFO("getAvailableThumbnailTracks");
+    TST_STEP("getAvailableThumbnailTracks");
     var InfoList = [];
     await aamp_player.getAvailableThumbnailTracks(InfoList);
 
     // get the manifest data
-    TST_INFO("getManifest");
+    TST_STEP("getManifest");
     await aamp_player.TST_GetManifest();
     await aamp_player.VerifyPlayback(5,1);
 
     // sets the thumbnail track based on index provided
-    TST_INFO("setThumbnailTrack");
+    TST_STEP("setThumbnailTrack");
     await aamp_player.TST_SetThumbnailTrack(0);
     await aamp_player.VerifyPlayback(4,1);
 
     // gets the thumbnail data
-    TST_INFO("getThumbnail");
+    TST_STEP("getThumbnail");
     await aamp_player.TST_GetThumbnail(60,120);
 
     // gets the available audio bitrates
-    TST_INFO("getAudioBitrates");
+    TST_STEP("getAudioBitrates");
     await aamp_player.TST_GetAudioBitrates();
 
     // Stop the playback and destroy the AAMP Player
-    TST_INFO("Stop the playback");
+    TST_STEP("Stop the playback");
     await aamp_player.Stop();
     aamp_player.destroy();
     TST_END()

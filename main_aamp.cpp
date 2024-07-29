@@ -2071,7 +2071,7 @@ std::string PlayerInstanceAAMP::GetManifest(void)
 		Manifest.clear();
 		//Get last downloaded manifest
 		aamp->GetLastDownloadedManifest(Manifest);
-		AAMPLOG_INFO("PlayerInstanceAAMP: Retrieved manifest [len:%zu] \n",Manifest.length());
+		AAMPLOG_INFO("PlayerInstanceAAMP: Retrieved manifest [len:%zu]",Manifest.length());
 		return Manifest;
 	}
 	return "";

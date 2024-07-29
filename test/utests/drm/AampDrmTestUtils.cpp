@@ -110,13 +110,6 @@ AampDrmSession* TestUtilDrm::createDashDrmSession(const std::vector<uint8_t> tes
 	return drmSession;
 }
 
-std::shared_ptr<AampHlsOcdmBridge> TestUtilDrm::createBridgeForHelper(
-	std::shared_ptr<AampVgdrmHelper> drmHelper)
-{
-	return std::make_shared<AampHlsOcdmBridge>(&mLogging,
-											   createDrmSessionForHelper(drmHelper, "net.vgdrm"));
-}
-
 void TestUtilDrm::setupChallengeCallbacks(const MockChallengeData& challengeData)
 {
 	mMockChallengeData = challengeData;

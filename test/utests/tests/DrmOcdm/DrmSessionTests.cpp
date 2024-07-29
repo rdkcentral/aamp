@@ -29,7 +29,6 @@
 
 #include "aampdrmsessionfactory.h"
 #include "AampDRMSessionManager.h"
-#include "AampVgdrmHelper.h"
 #include "AampClearKeyHelper.h"
 #include "AampHlsOcdmBridge.h"
 #include "open_cdm.h"
@@ -99,121 +98,6 @@ protected:
 public:
 };
 
-TEST_F(AampDrmSessionTests, TestVgdrmSessionDecrypt)
-{
-	DrmInfo drmInfo;
-	drmInfo.keyURI = "81701500000810367b131dd025ab0a7bd8d20c1314151600";
-	std::shared_ptr<AampVgdrmHelper> drmHelper =
-		std::make_shared<AampVgdrmHelper>(drmInfo, &mLogging);
-
-	// The key used in the decrypt call should be picked up from the DRM helper
-	// (URI to key conversion is tested elsewhere)
-	std::vector<uint8_t> expectedKeyId;
-	drmHelper->getKey(expectedKeyId);
-	ASSERT_EQ(16, expectedKeyId.size());
-
-	mUtils->setupChallengeCallbacksForExternalLicense();
-
-	AampDrmSession *drmSession = mUtils->createDrmSessionForHelper(drmHelper, "net.vgdrm");
-	ASSERT_TRUE(drmSession != nullptr);
-	ASSERT_STREQ("net.vgdrm", drmSession->getKeySystem().c_str());
-
-	const uint8_t testIv[] = {'T', 'E', 'S', 'T', 'I', 'V'};
-	const uint8_t payloadData[] = {'E', 'N', 'C', 'R', 'Y', 'P', 'T', 'E', 'D'};
-	const uint8_t decryptedData[] = {'C', 'L', 'E', 'A', 'R', 'D', 'A', 'T', 'A', 'O', 'U', 'T'};
-	uint8_t *pOpaqueData = nullptr;
-
-	// The actual data transfer happens in shared memory for VGDRM,
-	// so data in/out is just expected to contain the size of the data
-	uint32_t expectedDataIn = sizeof(payloadData);
-	uint32_t expectedDataOut = sizeof(decryptedData);
-
-	// Check the call to decrypt on the DrmSession leads to a opencdm_session_decrypt call
-	// with the correct parameters (IV & payload provided here and key taken from the helper)
-	EXPECT_CALL(*g_mockopencdm,
-				opencdm_session_decrypt(
-					OCDM_SESSION,
-					MemBufEq(reinterpret_cast<uint8_t *>(&expectedDataIn), sizeof(expectedDataIn)),
-					sizeof(expectedDataIn), AesCtr_Cenc,
-					_, // pattern argument unused
-					MemBufEq(testIv, sizeof(testIv)), sizeof(testIv),
-					MemBufEq(expectedKeyId.data(), expectedKeyId.size()), expectedKeyId.size(),
-					_ // initWithLast15 argument unused
-					))
-		.WillOnce(Return(ERROR_NONE));
-
-	ASSERT_EQ(0, drmSession->decrypt(testIv, sizeof(testIv), payloadData, sizeof(payloadData),
-									 &pOpaqueData));
-}
-
-TEST_F(AampDrmSessionTests, TestDecryptFromHlsOcdmBridgeNoKey)
-{
-	DrmInfo drmInfo;
-	drmInfo.keyURI = "81701500000810367b131dd025ab0a7bd8d20c1314151600";
-	std::shared_ptr<AampVgdrmHelper> drmHelper =
-		std::make_shared<AampVgdrmHelper>(drmInfo, &mLogging);
-
-	mUtils->setupChallengeCallbacksForExternalLicense();
-
-	shared_ptr<AampHlsOcdmBridge> hlsOcdmBridge = mUtils->createBridgeForHelper(drmHelper);
-	ASSERT_TRUE(hlsOcdmBridge != nullptr);
-
-	uint8_t payloadData[] = {'E', 'N', 'C', 'R', 'Y', 'P', 'T', 'E', 'D'};
-
-	// Key not ready, (SetDecryptInfo not called on bridge)
-	// so opencdm_session_decrypt should not be called and an error status should be returned
-	EXPECT_CALL(*g_mockopencdm, opencdm_session_decrypt).Times(0);
-	ASSERT_EQ(eDRM_ERROR, hlsOcdmBridge->Decrypt(PROFILE_BUCKET_DECRYPT_VIDEO, payloadData,
-												 sizeof(payloadData)));
-}
-
-TEST_F(AampDrmSessionTests, TestDecryptFromHlsOcdmBridge)
-{
-	DrmInfo drmInfo;
-	drmInfo.keyURI = "81701500000810367b131dd025ab0a7bd8d20c1314151600";
-	std::string testIv = "TESTIV0123456789";
-	drmInfo.iv = (unsigned char *)testIv.c_str();
-
-	std::shared_ptr<AampVgdrmHelper> drmHelper =
-		std::make_shared<AampVgdrmHelper>(drmInfo, &mLogging);
-	std::vector<uint8_t> expectedKeyId;
-	drmHelper->getKey(expectedKeyId);
-	ASSERT_EQ(16, expectedKeyId.size());
-
-	mUtils->setupChallengeCallbacksForExternalLicense();
-
-	shared_ptr<AampHlsOcdmBridge> hlsOcdmBridge = mUtils->createBridgeForHelper(drmHelper);
-	ASSERT_TRUE(hlsOcdmBridge != nullptr);
-
-	uint8_t payloadData[] = {'E', 'N', 'C', 'R', 'Y', 'P', 'T', 'E', 'D'};
-	const uint8_t decryptedData[] = {'C', 'L', 'E', 'A', 'R', 'D', 'A', 'T', 'A', 'O', 'U', 'T'};
-
-	hlsOcdmBridge->SetDecryptInfo(mAamp, &drmInfo);
-
-	// The actual data transfer happens in shared memory for VGDRM,
-	// so data in/out is just expected to contain the size of the data
-	uint32_t expectedDataIn = sizeof(payloadData);
-	uint32_t expectedDataOut = sizeof(decryptedData);
-
-	// Check the call to decrypt on the HlsOcdmBridge leads to a opencdm_session_decrypt call
-	// with the correct parameters (IV from SetDecryptInfo, payload provided here and key taken from
-	// the helper)
-	EXPECT_CALL(*g_mockopencdm,
-				opencdm_session_decrypt(
-					OCDM_SESSION,
-					MemBufEq(reinterpret_cast<uint8_t *>(&expectedDataIn), sizeof(expectedDataIn)),
-					sizeof(expectedDataIn), AesCtr_Cenc,
-					_, // pattern argument unused
-					MemBufEq(drmInfo.iv, testIv.size()), testIv.size(),
-					MemBufEq(expectedKeyId.data(), expectedKeyId.size()), expectedKeyId.size(),
-					_ // initWithLast15 argument unused
-					))
-		.WillOnce(Return(ERROR_NONE));
-
-	ASSERT_EQ(eDRM_SUCCESS, hlsOcdmBridge->Decrypt(PROFILE_BUCKET_DECRYPT_VIDEO, payloadData,
-												   sizeof(payloadData)));
-}
-
 TEST_F(AampDrmSessionTests, TestClearKeyLicenseAcquisition)
 {
 	// Setup Curl and OpenCDM mocks. We expect that curl_easy_perform will be called to fetch
@@ -236,7 +120,7 @@ TEST_F(AampDrmSessionTests, TestClearKeyLicenseAcquisition)
 	// helper tests, here we just want to ensure that whatever the helper returns is what OpenCDM
 	// gets.
 	const shared_ptr<DrmData> expectedDrmData =
-		make_shared<DrmData>((unsigned char *)testKeyData.c_str(), testKeyData.size());
+		make_shared<DrmData>(testKeyData.c_str(), testKeyData.size());
 	drmHelper->transformLicenseResponse(expectedDrmData);
 
 	EXPECT_CALL(*g_mockopencdm, opencdm_session_update(OCDM_SESSION,
@@ -256,76 +140,6 @@ TEST_F(AampDrmSessionTests, TestClearKeyLicenseAcquisition)
 	ASSERT_EQ(0L, curlOpts->httpGet);
 }
 
-TEST_F(AampDrmSessionTests, TestOcdmCreateSystemFailure)
-{
-	DrmInfo drmInfo;
-	drmInfo.keyURI = "81701500000810367b131dd025ab0a7bd8d20c1314151600";
-	std::shared_ptr<AampVgdrmHelper> drmHelper =
-		std::make_shared<AampVgdrmHelper>(drmInfo, &mLogging);
-	DrmMetaDataEventPtr event = mUtils->createDrmMetaDataEvent();
-
-	// Causing opencdm_create_system to fail - we should not go on to call opencdm_construct_session
-	EXPECT_CALL(*g_mockopencdm, opencdm_create_system(StrEq("net.vgdrm")))
-		.WillOnce(Return(nullptr));
-	EXPECT_CALL(*g_mockopencdm, opencdm_construct_session).Times(0);
-
-	AampDrmSession *drmSession =
-		mUtils->getSessionManager()->createDrmSession(drmHelper, event, mAamp, eMEDIATYPE_VIDEO);
-}
-
-TEST_F(AampDrmSessionTests, TestOcdmConstructSessionFailure)
-{
-	DrmInfo drmInfo;
-	drmInfo.keyURI = "81701500000810367b131dd025ab0a7bd8d20c1314151600";
-	std::shared_ptr<AampVgdrmHelper> drmHelper =
-		std::make_shared<AampVgdrmHelper>(drmInfo, &mLogging);
-	DrmMetaDataEventPtr event = mUtils->createDrmMetaDataEvent();
-
-	AampDRMSessionManager *sessionManager = mUtils->getSessionManager();
-
-	EXPECT_CALL(*g_mockopencdm, opencdm_create_system(StrEq("net.vgdrm")))
-		.WillOnce(Return(OCDM_SYSTEM));
-
-	// Causing opencdm_construct_session to fail - createDrmSession should return a NULL session
-	EXPECT_CALL(*g_mockopencdm, opencdm_construct_session)
-		.WillOnce(DoAll(SetArgPointee<9>(nullptr), Return(ERROR_KEYSYSTEM_NOT_SUPPORTED)));
-
-	AampDrmSession *drmSession =
-		sessionManager->createDrmSession(drmHelper, event, mAamp, eMEDIATYPE_VIDEO);
-	ASSERT_TRUE(drmSession == nullptr);
-}
-
-TEST_F(AampDrmSessionTests, TestMultipleSessionsDifferentKey)
-{
-	std::string testKeyData = "TESTKEYDATA";
-	mUtils->setupCurlPerformResponse(testKeyData);
-	mUtils->setupChallengeCallbacks();
-
-	DrmInfo drmInfo;
-	drmInfo.keyURI = "81701500000810367b131dd025ab0a7bd8d20c1314151600";
-	std::shared_ptr<AampVgdrmHelper> drmHelper1 =
-		std::make_shared<AampVgdrmHelper>(drmInfo, &mLogging);
-
-	const shared_ptr<DrmData> expectedDrmData =
-		make_shared<DrmData>((unsigned char *)testKeyData.c_str(), testKeyData.size());
-	drmHelper1->transformLicenseResponse(expectedDrmData);
-
-	mUtils->setupChallengeCallbacksForExternalLicense();
-
-	// 1st time around - expecting standard session creation
-	AampDrmSession *drmSession1 = mUtils->createDrmSessionForHelper(drmHelper1, "net.vgdrm");
-	ASSERT_TRUE(drmSession1 != nullptr);
-	ASSERT_STREQ("net.vgdrm", drmSession1->getKeySystem().c_str());
-
-	// 2nd time around - expecting another new session to be created
-	drmInfo.keyURI = "81701500000811367b131dd025ab0a7bd8d20c1314151600";
-	std::shared_ptr<AampVgdrmHelper> drmHelper2 =
-		std::make_shared<AampVgdrmHelper>(drmInfo, &mLogging);
-	AampDrmSession *drmSession2 = mUtils->createDrmSessionForHelper(drmHelper2, "net.vgdrm");
-	ASSERT_STREQ("net.vgdrm", drmSession2->getKeySystem().c_str());
-	ASSERT_FALSE(drmSession1 == drmSession2);
-}
-
 TEST_F(AampDrmSessionTests, TestMultipleSessionsSameKey)
 {
 	std::string testKeyData = "TESTKEYDATA";
@@ -340,7 +154,7 @@ TEST_F(AampDrmSessionTests, TestMultipleSessionsSameKey)
 		std::make_shared<AampClearKeyHelper>(drmInfo, &mLogging);
 
 	const shared_ptr<DrmData> expectedDrmData =
-		make_shared<DrmData>((unsigned char *)testKeyData.c_str(), testKeyData.size());
+		make_shared<DrmData>(testKeyData.c_str(), testKeyData.size());
 	drmHelper->transformLicenseResponse(expectedDrmData);
 
 	// Only 1 session update called expected, since a single session should be shared
@@ -522,54 +336,4 @@ TEST_F(AampDrmSessionTests, TestDashSessionBadPssh)
 		(const unsigned char *)psshStr.c_str(), psshStr.length(), eMEDIATYPE_VIDEO, mAamp, event);
 	ASSERT_EQ(nullptr, drmSession);
 	ASSERT_EQ(AAMP_TUNE_CORRUPT_DRM_METADATA, event->getFailure());
-}
-
-TEST_F(AampDrmSessionTests, TestDrmMessageCallback)
-{
-	DrmInfo drmInfo;
-	drmInfo.keyURI = "81701500000810367b131dd025ab0a7bd8d20c1314151600";
-	std::shared_ptr<AampVgdrmHelper> drmHelper =
-		std::make_shared<AampVgdrmHelper>(drmInfo, &mLogging);
-	mUtils->setupChallengeCallbacksForExternalLicense();
-	AampDrmSession *drmSession = mUtils->createDrmSessionForHelper(drmHelper, "net.vgdrm");
-	ASSERT_TRUE(drmSession != nullptr);
-	ASSERT_STREQ("net.vgdrm", drmSession->getKeySystem().c_str());
-
-	struct DrmMessageTestData
-	{
-		std::string prefix;
-		std::string payload;
-		bool callbackExpected;
-	};
-
-	const std::vector<DrmMessageTestData> testData = {
-		// 'individualization-request' or '3' should be accepted
-		{"individualization-request:Type:", "{\"watermark\":{\"display\":false}}", true},
-		{"3:Type:", "{\"watermark\":{\"display\":false}}", true},
-		{"individualization-request:Type:", "payload is opaque so could be anything", true},
-
-		// Wrong/no type - shouldn't trigger callback, shouldn't cause a problem
-		{"4:Type:", "{\"watermark\":{\"display\":false}}", false},
-		{"", "just a random string", false},
-	};
-
-	for (const auto &testCase : testData)
-	{
-		const std::string challengeData = testCase.prefix + testCase.payload;
-
-		if (testCase.callbackExpected)
-		{
-			EXPECT_CALL(*g_mockPrivateInstanceAAMP, individualization(testCase.payload));
-		}
-		else
-		{
-			EXPECT_CALL(*g_mockPrivateInstanceAAMP, individualization).Times(0);
-		}
-
-		MockOpenCdmSessionInfo *cdmInfo = MockOpenCdmGetSessionInfo();
-		cdmInfo->callbacks.process_challenge_callback(
-			(OpenCDMSession *)cdmInfo->session, cdmInfo->userData,
-			"", // Empty URL, not needed for this callback
-			(const uint8_t *)challengeData.data(), (const uint16_t)challengeData.size());
-	}
 }

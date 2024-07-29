@@ -864,33 +864,6 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 }
 
 /**
- * @brief Convert to string and add suffix k, M, G
- * @param bps bytes Speed
- * @param str ptr String buffer
- * @retval ptr Converted String buffer
- */
-char* ConvertSpeedToStr(long bps, char *str)
-{
-#define ONE_KILO  1024
-#define ONE_MEGA ((1024) * ONE_KILO)
-
-	if(bps < 100000)
-		snprintf(str, 6, "%5ld", bps);
-
-	else if(bps < (10000 * ONE_KILO))
-		snprintf(str, 6, "%4ld" "k", bps/ONE_KILO);
-
-	else if(bps < (100 * ONE_MEGA))
-		snprintf(str, 6, "%2ld" ".%0ld" "M", bps/ONE_MEGA,
-				(bps%ONE_MEGA) / (ONE_MEGA/10) );
-	else
-		snprintf(str, 6, "%4ld" "M", bps/ONE_MEGA);
-
-	return str;
-}
-
-
-/**
  * @brief Get Current Content Download Speed
  * @param aamp ptr aamp context
  * @param mediaType File Type
@@ -4338,7 +4311,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					appConnect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_APPCONNECT_TIME);
 					preTransfer = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_PRETRANSFER_TIME);
 					redirect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_REDIRECT_TIME);
+#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
+					dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
+#else
+#warning LIBCURL_VERSION<7.55.0
 					dlSize = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
+#endif
 					reqSize = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
 
 					std::string appName, timeoutClass;
@@ -4434,19 +4412,26 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						mHarvestCountLimit--;
 				}  //CID:168113 - forward null
 			}
-			double expectedContentLength = 0;
-			if ((!context.downloadIsEncoded) && CURLE_OK==curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &expectedContentLength) && ((int)expectedContentLength>0) && ((int)expectedContentLength != (int)buffer->GetLen() ))
+			ret = true; // default
+			if( !context.downloadIsEncoded )
 			{
-				//Note: For non-compressed data, Content-Length header and buffer size should be same. For gzipped data, 'Content-Length' will be <= deflated data.
-				AAMPLOG_WARN("AAMP Content-Length=%d actual=%d", (int)expectedContentLength, (int)buffer->GetLen() );
-				http_code       =       416; // Range Not Satisfiable
-				ret             =       false; // redundant, but harmless
-				buffer->Free();
-				//(buffer, 0x00, sizeof(*buffer));
-			}
-			else
-			{
-				ret = true;
+				double expectedContentLength;
+#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
+				expectedContentLength = aamp_CurlEasyGetinfoOffset(curl,CURLINFO_CONTENT_LENGTH_DOWNLOAD_T);
+#else
+#warning LIBCURL_VERSION<7.55.0
+				expectedContentLength = aamp_CurlEasyGetInfoDouble(CURLINFO_CONTENT_LENGTH_DOWNLOAD);
+#endif
+				if( (static_cast<int>(lround(expectedContentLength)) > 0) &&
+				   (static_cast<int>(lround(expectedContentLength)) != (int)buffer->GetLen()) )
+				{
+					//Note: For non-compressed data, Content-Length header and buffer size should be same. For gzipped data, 'Content-Length' will be <= deflated data.
+					AAMPLOG_WARN("AAMP Content-Length=%d actual=%d", (int)expectedContentLength, (int)buffer->GetLen() );
+					http_code       =       416; // Range Not Satisfiable
+					ret             =       false; // redundant, but harmless
+					buffer->Free();
+					//(buffer, 0x00, sizeof(*buffer));
+				}
 			}
 		}
 		else
@@ -7027,41 +7012,44 @@ void PrivateInstanceAAMP::UpdateVideoRectangle (int x, int y, int w, int h)
  */
 void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 {
-	pthread_mutex_lock(&mStreamLock);
 	PrivAAMPState state;
 	GetState(state);
-
-	//Differenciate IP vs non IP playback
-	bool isNonIPPlayback = (mMediaFormat == eMEDIAFORMAT_OTA) || (mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || (mMediaFormat == eMEDIAFORMAT_RMF);
-
-	// for ATSC eSTATE_PREPARED is sent when tune is successful, as Closed caption data wont be available till tune and stream check for CC is done,
-	// for IP eSTATE_PREPARED is done after manifest parsing,
-	// Incase of ATSC or HDMI SetVideoRectangle should be called after StreamAbstractionAAMP_OTA::Start or StreamAbstractionAAMP_VIDEOIN::StartHelper which is called tune function after
-	// mpStreamAbstractionAAMP object is created, hence if mpStreamAbstractionAAMP is NULL then we should not call SetVideoRectangle and defer it, this happes when SetVideoRectangle called after load.
-	// for IP SetVideoRectangle should be called after GetStreamSink() created i.e > eSTATE_PREPARING
-	// hence in below "state" condition state check is done only for IP
-
-	if (mpStreamAbstractionAAMP && (isNonIPPlayback || state > eSTATE_PREPARING))
+	if( TryStreamLock() )
 	{
-		if (isNonIPPlayback)
+		switch( mMediaFormat )
 		{
-			mpStreamAbstractionAAMP->SetVideoRectangle(x, y, w, h);
+			case eMEDIAFORMAT_OTA:
+			case eMEDIAFORMAT_HDMI:
+			case eMEDIAFORMAT_COMPOSITE:
+			case eMEDIAFORMAT_RMF:
+				if( mpStreamAbstractionAAMP )
+				{
+					mpStreamAbstractionAAMP->SetVideoRectangle(x, y, w, h);
+				}
+				break;
+			default: // IP Playback
+				if( state > eSTATE_PREPARING)
+				{
+					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+					if (sink)
+					{
+						sink->SetVideoRectangle(x, y, w, h);
+					}
+				}
+				else
+				{
+					AAMPLOG_INFO("state: %d", state );
+					UpdateVideoRectangle (x, y, w, h);
+				}
+				break;
 		}
-		else
-		{
-			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-			if (sink)
-			{
-				sink->SetVideoRectangle(x, y, w, h);
-			}
-		}
+		ReleaseStreamLock();
 	}
 	else
 	{
-		AAMPLOG_INFO("mpStreamAbstractionAAMP is not Ready, Backup video rect values, current player state: %d", state);
+		AAMPLOG_INFO("StreamLock not available; state: %d", state );
 		UpdateVideoRectangle (x, y, w, h);
 	}
-	pthread_mutex_unlock(&mStreamLock);
 }
 /**
  *   @brief Set video zoom.

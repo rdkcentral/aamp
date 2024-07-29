@@ -30,8 +30,8 @@ namespace aamp
 	{
 		namespace helpers
 		{
-			constexpr size_t min_id3_header_length = 3u;
-			constexpr size_t id3v2_header_size = 10u;
+			//constexpr size_t min_id3_header_length = 3u;
+			//constexpr size_t id3v2_header_size = 10u;
 
 
 			bool IsValidMediaType(AampMediaType )

@@ -35,21 +35,21 @@
 class AampClearKeyHelper : public AampDrmHelper
 {
 public:
-	const std::string& ocdmSystemId() const;
+	const std::string& ocdmSystemId() const override;
 
-	void createInitData(std::vector<uint8_t>& initData) const;
+	void createInitData(std::vector<uint8_t>& initData) const override;
 
-	bool parsePssh(const uint8_t* initData, uint32_t initDataLen);
+	bool parsePssh(const uint8_t* initData, uint32_t initDataLen) override;
 
-	bool isClearDecrypt() const { return true; }
+	bool isClearDecrypt() const override { return true; }
 
-	void getKey(std::vector<uint8_t>& keyID) const;
+	void getKey(std::vector<uint8_t>& keyID) const override;
 
-	virtual int getDrmCodecType() const { return CODEC_TYPE; }
+	virtual int getDrmCodecType() const override { return CODEC_TYPE; }
 
-	void generateLicenseRequest(const AampChallengeInfo& challengeInfo, AampLicenseRequest& licenseRequest) const;
+	void generateLicenseRequest(const AampChallengeInfo& challengeInfo, AampLicenseRequest& licenseRequest) const override;
 
-	void transformLicenseResponse(std::shared_ptr<DrmData> licenseResponse) const;
+	void transformLicenseResponse(std::shared_ptr<DrmData> licenseResponse) const override;
 
 	virtual const std::string& friendlyName() const override { return FRIENDLY_NAME; };
 

@@ -23,14 +23,12 @@ protected:
 
 TEST_F(AampCacheHandlerTest, SetMaxInitFragCacheSizeTest)
 {
-    std::size_t retrievedsize;
-
-    std::size_t cacheSize = MAX_INIT_FRAGMENT_CACHE_PER_TRACK; // 1-5
+    int cacheSize = MAX_INIT_FRAGMENT_CACHE_PER_TRACK; // 1-5
     handler->SetMaxInitFragCacheSize(cacheSize);
-    retrievedsize = handler->GetMaxInitFragCacheSize();
+    int retrievedsize = handler->GetMaxInitFragCacheSize();
     EXPECT_EQ(retrievedsize, cacheSize);
     handler->SetMaxInitFragCacheSize(0);
-    retrievedsize = handler->GetMaxInitFragCacheSize();
+	retrievedsize = handler->GetMaxInitFragCacheSize();
     EXPECT_EQ(retrievedsize, 0);
     handler->SetMaxInitFragCacheSize(-1);
     retrievedsize = handler->GetMaxInitFragCacheSize();
@@ -39,10 +37,9 @@ TEST_F(AampCacheHandlerTest, SetMaxInitFragCacheSizeTest)
 }
 TEST_F(AampCacheHandlerTest, SetMaxPlaylistCacheSizeTest)
 {
-    std::size_t retrievedsize;
-    std::size_t cacheSize = MAX_PLAYLIST_CACHE_SIZE;
+    int cacheSize = MAX_PLAYLIST_CACHE_SIZE;
     handler->SetMaxPlaylistCacheSize(cacheSize);
-    retrievedsize = handler->GetMaxPlaylistCacheSize();
+    int retrievedsize = handler->GetMaxPlaylistCacheSize();
     EXPECT_EQ(retrievedsize, cacheSize);
     handler->SetMaxPlaylistCacheSize(0);
     retrievedsize = handler->GetMaxPlaylistCacheSize();
@@ -107,12 +104,8 @@ TEST_F(AampCacheHandlerTest, PlaylistCache)
     std::string url7 = "http://example7.com";
     std::string mpdurl = "http://example.mpd";
 
-    AampGrowableBuffer *buffer;
     std::string effectiveUrl;
-    bool trackLiveStatus;
-    AampMediaType type;
-
-    buffer = new AampGrowableBuffer("PlaylistCache_Data");
+	AampGrowableBuffer *buffer = new AampGrowableBuffer("PlaylistCache_Data");
 
 
     // Setting the tracklivestatus as true and inserting Init playlist
@@ -286,7 +279,7 @@ TEST_F(AampCacheHandlerTest_1, TestAllocatePlaylistCacheSlot)
 {
     AampMediaType mediaType = AampMediaType::eMEDIATYPE_DEFAULT; // or any other valid media type
     size_t newLen = 100; // or any other valid size
-    bool result = mTestableAampCacheHandler->CallAllocatePlaylistCacheSlot(mediaType, newLen);
+    (void)mTestableAampCacheHandler->CallAllocatePlaylistCacheSlot(mediaType, newLen);
 
 }
 

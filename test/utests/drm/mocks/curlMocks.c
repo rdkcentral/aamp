@@ -80,6 +80,9 @@ CURLcode curl_easy_setopt(CURL *curl, CURLoption option, ...)
 
 	switch (option)
 	{
+		default:
+			break;
+			
 		case CURLOPT_WRITEFUNCTION:
 			f_mockInstance.opts.writeFunction = (MockCurlWriteCallback)paramp;
 			break;
@@ -132,6 +135,9 @@ CURLcode curl_easy_getinfo(CURL *curl, CURLINFO info, ...)
 
 	switch (info)
 	{
+		default:
+			break;
+			
 		case CURLINFO_RESPONSE_CODE:
 			*((int *)paramp) = 200;
 			break;
