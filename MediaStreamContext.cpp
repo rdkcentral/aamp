@@ -70,8 +70,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
     , bool playingAd, double pto, uint32_t scale, bool overWriteTrackId)
 {
     bool ret = false;
-    AAMPLOG_INFO("Type[%d] fragmentUrl %s fragmentTime %f discontinuity %d pto %f  scale %u duration %f mPTSOffsetSec %f", 
-       type, fragmentUrl.c_str(), position, discontinuity, pto, scale, duration, GetContext()->mPTSOffsetSec);
+    AAMPLOG_INFO("Type[%d] position(before restamp) %f discontinuity %d pto %f  scale %u duration %f mPTSOffsetSec %f fragmentUrl %s", 
+       type, position, discontinuity, pto, scale, duration, GetContext()->mPTSOffsetSec, fragmentUrl.c_str());
 
     fragmentDurationSeconds = duration;
     ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
@@ -82,12 +82,17 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 
     cachedFragment->type = actualType;
     cachedFragment->initFragment = initSegment;
-	 cachedFragment->timeScale = fragmentDescriptor.TimeScale;
-	 cachedFragment->uri = fragmentUrl; // For debug output
-	 /* The value of PTSOffsetSec in the context can get updated at the start of a period before
-	  * the last segment from the previous period has been injected, hence we copy it
-	  */
-	 cachedFragment->PTSOffsetSec = GetContext()->mPTSOffsetSec;
+	cachedFragment->timeScale = fragmentDescriptor.TimeScale;
+	cachedFragment->uri = fragmentUrl; // For debug output
+	/* The value of PTSOffsetSec in the context can get updated at the start of a period before
+	 * the last segment from the previous period has been injected, hence we copy it
+	 */
+	cachedFragment->PTSOffsetSec = GetContext()->mPTSOffsetSec;
+	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && !ISCONFIGSET(eAAMPConfig_UseNewFetcherLoop))
+	{
+		// apply pts offset to position which ends up getting put into gst_bufffer in sendHelper
+		position += GetContext()->mPTSOffsetSec;
+	}
 	 AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 
     auto CheckEos = [this, &tsbSessionManager, &actualType]() {

@@ -4095,6 +4095,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 #endif
 
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: fetch initialization fragments");
+		// We have decided on the first period, calculate the PTSoffset to be applied to
+		// all segments including the init segments for the GST buffer that goes with the init
+		mPTSOffsetSec = 0.0;
+		mNextPts = 0.0;
+		UpdatePtsOffset(mCurrentPeriodIdx,true);
 		FetchAndInjectInitFragments();
 	}
 
@@ -9018,8 +9023,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 	std::string currentPeriodId = currPeriod->GetId();
 	mPrevAdaptationSetCount = (int)currPeriod->GetAdaptationSets().size();
 
-	mPTSOffsetSec = 0.0;
-	mNextPts = 0.0;
 	/*
 	 * Initial indexing without updating trackInfo
 	 */
@@ -9029,10 +9032,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 	}
 	AAMPLOG_WARN("aamp: ready to collect fragments. mpd %p", mpd);
 
-	if(rate == AAMP_NORMAL_PLAY_RATE) //todo remove this workaround
-	{
-		UpdatePtsOffset(mCurrentPeriodIdx, true); //First period
-	}
 	/*
 	 * Ready to collect fragments
 	 */

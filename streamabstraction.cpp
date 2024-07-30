@@ -888,16 +888,11 @@ bool MediaTrack::ProcessFragmentChunk()
 		}
 		return false;
 	}
-	double fpts = cachedFragment->position;
-	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && !ISCONFIGSET(eAAMPConfig_UseNewFetcherLoop))
-	{
-		// Apply restamp offset value to init segment pts that is also applied to other segments.
-		fpts += cachedFragment->PTSOffsetSec;
-	}
+
 	if(cachedFragment->initFragment)
 	{
 		AAMPLOG_INFO("Injecting init chunk for %s",name);
-		InjectFragmentChunkInternal((AampMediaType)type, &cachedFragment->fragment , fpts, fpts, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
+		InjectFragmentChunkInternal((AampMediaType)type, &cachedFragment->fragment , cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
 		if (eTRACK_VIDEO == type && aamp->IsLocalAAMPTsb() && GetContext()->GetProfileCount())
 		{
 			GetContext()->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
@@ -1019,7 +1014,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		}
 
 		uint64_t fPts = 0;
-		fpts = 0.0;
+		double fpts = 0.0;
 		uint64_t fDuration = 0;
 		double fduration = 0.0;
 		double totalChunkDuration = 0.0;
@@ -1082,7 +1077,7 @@ bool MediaTrack::ProcessFragmentChunk()
 			int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
 			AAMPLOG_TRACE("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
 			(void)IsoBmffRestampPts(parsedBufferChunk, t, cachedFragment->uri);
-			fpts += cachedFragment->PTSOffsetSec;
+			fpts += cachedFragment->PTSOffsetSec; 
 		}
 
 #ifdef AAMP_DEBUG_INJECT_CHUNK
@@ -1852,6 +1847,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInst
 		mAuxCond(), mFwdAudioToAux(false), mLogObj(logObj),
 		mAudioTracksAll(), mTextTracksAll(),
 		mTsbMaxBitrateProfileIndex(-1),mUpdateReason(false),
+		mPTSOffsetSec(0.0), mNextPts(0.0),
 		mID3Handler{mID3Handler}
 {
 	mLastVideoFragParsedTimeMS = aamp_GetCurrentTimeMS();
