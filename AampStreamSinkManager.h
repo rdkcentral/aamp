@@ -122,7 +122,7 @@ public:
 	 *  @fn GetStreamSink
 	 *  @brief Gets a StreamSink pointer for the matching PrivateInstanceAAMP. If no Sink found, nullptr is returned.
 	 *  @param[in] aamp - the PrivateInstanceAAMP, the stream sink of which is required
-	 *  @param[out] - return Streamsink from active map if present, otherwise from the map of inactive sink, otherwsie nullptr
+	 *  @param[out] - return Streamsink from active map if present, otherwise from the map of inactive sink, otherwise nullptr
 	 */
 	virtual StreamSink* GetStreamSink(PrivateInstanceAAMP *aamp);
 	/**
@@ -165,6 +165,12 @@ private:
 	 *  @param[in] position - the current playback position for the player being activated
 	 */
 	void SetActive(PrivateInstanceAAMP *aamp, double position);
+	/**
+	 *  @fn GetStreamSinkNoLock
+	 *  @brief Gets a StreamSink pointer for the matching PrivateInstanceAAMP,
+	 *         but without locking the StreamSink mutex. \ref GetStreamSink for details.
+	 */
+	StreamSink* GetStreamSinkNoLock(PrivateInstanceAAMP *aamp);
 
 	AAMPGstPlayer *mGstPlayer;
 
@@ -175,7 +181,7 @@ private:
 
 	PipelineMode mPipelineMode;
 
-	std::recursive_mutex mStreamSinkMutex;
+	std::mutex mStreamSinkMutex;
 
 	PrivateInstanceAAMP *mEncryptedAamp;
 	bool mEncryptedHeadersInjected;

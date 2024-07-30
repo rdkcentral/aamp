@@ -45,7 +45,7 @@ AampStreamSinkManager::~AampStreamSinkManager()
 
 void AampStreamSinkManager::Clear(void)
 {
-	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 
 	for (auto it = mClientStreamSinkMap.begin(); it != mClientStreamSinkMap.end();)
 	{
@@ -81,7 +81,7 @@ void AampStreamSinkManager::Clear(void)
 
 void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 {
-	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 
 	switch(mPipelineMode)
 	{
@@ -131,7 +131,7 @@ void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 
 void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames)
 {
-	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
 
     AampStreamSinkInactive *inactiveSink = new AampStreamSinkInactive(aamp->mLogObj, id3HandlerCallback);  /* For every instance of aamp, there should be an AampStreamSinkInactive object*/
@@ -172,7 +172,7 @@ void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_call
 void AampStreamSinkManager::SetStreamSink(PrivateInstanceAAMP *aamp, StreamSink *clientSink)
 {
 
-	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
 	AAMPLOG_WARN("AampStreamSinkManager(%p) SetStreamSink for PLAYER[%d] clientSink %p", this, aamp->mPlayerId, clientSink);
 	switch(mPipelineMode)
@@ -202,7 +202,7 @@ void AampStreamSinkManager::SetStreamSink(PrivateInstanceAAMP *aamp, StreamSink 
 
 void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 {
-	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
 
 	//Do not edit or remove this log - it is used in L2 test
@@ -271,7 +271,7 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 
 void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::map<int, std::string>& mappedHeaders)
 {
-	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
 
 	switch(mPipelineMode)
@@ -305,14 +305,14 @@ void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::
 
 void AampStreamSinkManager::ReinjectEncryptedHeaders()
 {
-	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 
 	mEncryptedHeadersInjected = false;
 }
 
 void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string>& mappedHeaders)
 {
-	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 
 	if (!mEncryptedHeadersInjected)
 	{
@@ -328,7 +328,7 @@ void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string>& mapp
 
 void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)
 {
-	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
 
 	switch(mPipelineMode)
@@ -372,15 +372,12 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 
 void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 {
-	// N.B. GetPositionMs() must be called before locking the StreamSink mutex.
-	// This avoids potential deadlock with other threads that query the position, and take the
-	// mGetPositionMillisecondsMutexHard and StreamSink locks in the reverse order: the
-	// mGetPositionMillisecondsMutexHard lock is taken in
-	// PrivateInstanceAAMP::GetPositionMilliseconds() *before* the StreamSink lock in
-	// PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds() where it calls GetStreamSink.
+	// N.B. GetPositionMs() must be called before locking the StreamSink mutex, to avoid deadlock.
+	// This is because PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds() calls
+	// GetStreamSink, which also locks mStreamSinkMutex.
 	double position = aamp->GetPositionMs() / 1000.00;
 
-	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
 
 	switch(mPipelineMode)
@@ -464,7 +461,7 @@ AampStreamSinkManager& AampStreamSinkManager::GetInstance()
 
 StreamSink* AampStreamSinkManager::GetActiveStreamSink(PrivateInstanceAAMP *aamp)
 {
-	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
 
 	StreamSink *sink_ptr = nullptr;
@@ -515,9 +512,13 @@ StreamSink* AampStreamSinkManager::GetActiveStreamSink(PrivateInstanceAAMP *aamp
 
 StreamSink* AampStreamSinkManager::GetStreamSink(PrivateInstanceAAMP *aamp)
 {
-	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
-	auto mLogObj = aamp->mLogObj; // map correct log context
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	return GetStreamSinkNoLock(aamp);
+}
 
+StreamSink* AampStreamSinkManager::GetStreamSinkNoLock(PrivateInstanceAAMP *aamp)
+{
+	auto mLogObj = aamp->mLogObj; // map correct log context
 	StreamSink *sink_ptr = nullptr;
 
 	if (mClientStreamSinkMap.count(aamp) != 0)
@@ -546,7 +547,7 @@ StreamSink* AampStreamSinkManager::GetStreamSink(PrivateInstanceAAMP *aamp)
 
 StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aamp)
 {
-	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
 	StreamSink *sink_ptr = nullptr;
 
@@ -558,7 +559,7 @@ StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aa
 	else
 	{
 		AAMPLOG_INFO("AampStreamSinkManager(%p) Getting stream sink for PLAYER[%d]", this, aamp->mPlayerId);
-		sink_ptr = GetStreamSink(aamp);
+		sink_ptr = GetStreamSinkNoLock(aamp);
 	}
 
 	return sink_ptr;
@@ -566,7 +567,7 @@ StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aa
 
 void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
 {
-	std::lock_guard<std::recursive_mutex> lock(mStreamSinkMutex);
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
 	switch (mPipelineMode)
 	{
