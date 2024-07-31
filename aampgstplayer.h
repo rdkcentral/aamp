@@ -446,9 +446,9 @@ public:
 	PlaybackQualityStruct* GetVideoPlaybackQuality(void) override;
 
 	/**
-	 * @fn FlushAudio
+	 * @fn FlushTrack
 	 */
-	void FlushAudio(double pos) override;
+	void FlushTrack(AampMediaType mediaType,double pos) override;
 
 	/**
 	 * @fn ChangeAamp

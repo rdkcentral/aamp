@@ -142,6 +142,13 @@ public:
 	 * @return void
 	 */
 	void setFrameRateForTM (int frameRate) override { };
+ 	/**
+ 	 * @brief Reset PTS on subtitleSwitch
+	 *
+	 * @param[in] reset - true/false
+	 * @return void
+	 */
+	void resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position) override;
 
         /**
          * @brief Reset PTS on audioSwitch

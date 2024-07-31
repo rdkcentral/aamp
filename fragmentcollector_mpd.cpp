@@ -6149,7 +6149,269 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 		}
 	}//NuULL Check
 }
+/**
+ * @brief Switch to the corresponding subtitle track, Load new subtitle, flush the old subtitle fragments,
+ * select the new subtitle track, set the new subtitle info, update the new subtitle track, then skip to the appropriate
+ * path to download.
+ */
+void StreamAbstractionAAMP_MPD::SwitchSubtitleTrack(bool newTune)
+{
+	AAMPStatusType ret = eAAMPSTATUS_OK;
+	uint32_t fragmentDuration = 0;
+	uint64_t oldMediaSequenceNumber = 0;
+	int diffFragmentsDownloaded = 0;
+	double offsetFromStart;
+	std::string tTrackIdx;
+	double   oldPlaylistPosition,diffInFetchedDuration,diffInInjectedDuration,newInjectedPosition;
 
+	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
+	if ((!pMediaStreamContext) || (!pMediaStreamContext->enabled))
+	{
+		AAMPLOG_WARN("pMediaStreamContext  is null");
+		pMediaStreamContext->NotifyCachedSubtitleFragmentAvailable();
+		return;
+	}
+	AbortWaitForAudioTrackCatchup(true);
+
+	pMediaStreamContext->LoadNewSubtitle(true);
+    /* Flush Subtitle Fragments */
+	pMediaStreamContext->FlushFragments();
+	/* Switching to selected Subtitle Track */
+	SelectSubtitleTrack(newTune,mTextTracks,tTrackIdx);
+	SetTextTrackInfo(mTextTracks, tTrackIdx);
+	printSelectedTrack(tTrackIdx, eMEDIATYPE_SUBTITLE);
+	/* Caching the oldPlaylistPosition and oldMediaSequenceNumber */
+	oldPlaylistPosition = pMediaStreamContext->fragmentTime;
+	oldMediaSequenceNumber = pMediaStreamContext->fragmentDescriptor.Number;
+
+	/* Getting Gstreamer Play position */
+	offsetFromStart = aamp->GetPositionSeconds() - aamp->culledSeconds;
+	AAMPLOG_INFO( "Playlist pos offsetFromStart[%lf] culledSeconds[%lf]",offsetFromStart,aamp->culledSeconds );
+
+	UpdateSeekPeriodOffset(offsetFromStart);
+	AAMPLOG_INFO( "Updated pos offsetFromStart[%lf] culledSeconds[%lf]",offsetFromStart,aamp->culledSeconds );
+
+	/*Updating subtitle Tracks info*/
+	ret = UpdateMediaTrackInfo(eMEDIATYPE_SUBTITLE);
+	if (ret != eAAMPSTATUS_OK)
+	{
+		pMediaStreamContext->NotifyCachedSubtitleFragmentAvailable();
+		return;
+	}
+	/* Skiping the subtitle fragments to reach the current position for fetching */
+	SkipFragments(pMediaStreamContext, offsetFromStart, true);
+
+	/* Getting current fragment duration, for calculating the injected duration timestamp, because the current injected time
+	 * calculation requires the start time of the fragment which is downloaded, so subracting the fragment duration for indentifying
+	 * the starttime of the downloaded fragment.
+	 */
+	fragmentDuration = GetCurrentFragmentDuration( pMediaStreamContext );
+
+	/* In the case, If the Skiptime is 0, In the Skipfragment the lastsegment related params were not updated.,
+	* due to the cond (pMediaStreamContext->fragmentDescriptor.Time<pMediaStreamContext->lastSegmentTime),in the PushNextFragment()
+	* loops untill the Fdt time reaches the last segment time and the wrong Audio fragment gets Pushed, so reseting all the
+	* lastsegment related params here...
+	*/
+	pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time;
+	pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time + fragmentDuration;
+	pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number;
+
+	/* Calculating the start time of the downloaded fragment */
+	newInjectedPosition = static_cast<double>(pMediaStreamContext->fragmentDescriptor.Time - fragmentDuration) / pMediaStreamContext->fragmentDescriptor.TimeScale;
+
+	/*Calulating the difference in Fetched duration, injected duration and diff in Media Sequence number */
+	diffInFetchedDuration = oldPlaylistPosition - pMediaStreamContext->fragmentTime;
+	diffInInjectedDuration = ( pMediaStreamContext->GetLastInjectedPosition() - newInjectedPosition );
+	diffFragmentsDownloaded = oldMediaSequenceNumber - pMediaStreamContext->fragmentDescriptor.Number;
+
+	AAMPLOG_INFO("Calculated diffInFetchedDuration[%lf] diffFragmentsDownloaded[%u] diffInInjectedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], newInjectedPosition[%lf]",
+		diffInFetchedDuration,diffFragmentsDownloaded, diffInInjectedDuration, pMediaStreamContext->GetLastInjectedPosition(), fragmentDuration, newInjectedPosition );
+
+	pMediaStreamContext->resetAbort(false);
+	pMediaStreamContext->OffsetTrackParams(diffInFetchedDuration, diffInInjectedDuration, diffFragmentsDownloaded);
+
+	/*Fetch and injecting initialization params*/
+	FetchAndInjectInitialization(eMEDIATYPE_SUBTITLE, false);
+	if(!aamp->IsGstreamerSubsEnabled())
+	{
+		AAMPLOG_INFO("gstreamer not enabled\n");
+		pMediaStreamContext->mSubtitleParser->init(aamp->GetPositionSeconds(), aamp->GetBasePTS());
+	}
+}
+/**
+ * @brief Selects the subtitle track based on the available audio tracks and updates the desired representation index.
+ *
+ */
+void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<TextTrackInfo> &tTracks ,std::string &tTrackIdx)
+{
+	IPeriod *period = mCurrentPeriod;
+	int  selAdaptationSetIndex = -1;
+	int selRepresentationIndex = -1;
+	TextTrackInfo selectedTextTrack;
+	TextTrackInfo preferredTextTrack;
+	std::vector<AudioTrackInfo> aTracks;//aTracks is only used for calling ParseTrackInformation
+	bool isFrstAvailableTxtTrackSelected = false;
+
+	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
+	mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled = false;
+
+	if(!period)
+	{
+		AAMPLOG_WARN("period is null");  //CID:84742 - Null Returns
+		return;
+	}
+
+	size_t numAdaptationSets = period->GetAdaptationSets().size();
+	if (AAMP_NORMAL_PLAY_RATE == rate)
+	{
+		GetBestTextTrackByLanguage(preferredTextTrack);
+	}
+	for (unsigned iAdaptationSet = 0; iAdaptationSet < numAdaptationSets; iAdaptationSet++)
+	{
+		IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);
+		AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD: Content type [%s] AdapSet [%d] ",
+					  adaptationSet->GetContentType().c_str(), iAdaptationSet);
+		if (mMPDParseHelper->IsContentType(adaptationSet,eMEDIATYPE_SUBTITLE))
+		{
+			ParseTrackInformation(adaptationSet, iAdaptationSet,eMEDIATYPE_SUBTITLE , aTracks, tTracks);
+			if (AAMP_NORMAL_PLAY_RATE == rate)
+			{
+				if (selAdaptationSetIndex == -1 || isFrstAvailableTxtTrackSelected)
+				{
+					AAMPLOG_INFO("Checking subs - mime %s lang %s selAdaptationSetIndex %d",
+								 adaptationSet->GetMimeType().c_str(), GetLanguageForAdaptationSet(adaptationSet).c_str(), selAdaptationSetIndex);
+
+					TextTrackInfo *firstAvailTextTrack = nullptr;
+					if (aamp->GetPreferredTextTrack().index.empty() && !isFrstAvailableTxtTrackSelected)
+					{
+						// If no subtitles are selected, opt for the first subtitle as default, and
+						for (int j = 0; j < tTracks.size(); j++)
+						{
+							if (!tTracks[j].isCC)
+							{
+								if (nullptr == firstAvailTextTrack)
+								{
+									firstAvailTextTrack = &tTracks[j];
+								}
+							}
+						}
+					}
+					if (nullptr != firstAvailTextTrack)
+					{
+						isFrstAvailableTxtTrackSelected = true;
+						AAMPLOG_INFO("Selected first subtitle track, lang:%s, index:%s",
+									 firstAvailTextTrack->language.c_str(), firstAvailTextTrack->index.c_str());
+					}
+					if (!preferredTextTrack.index.empty())
+					{
+						/**< Available preferred**/
+						selectedTextTrack = preferredTextTrack;
+					}
+					else
+					{
+						// TTML selection as follows:
+						// 1. Text track as set from SetTextTrack API (this is confusingly named preferredTextTrack, even though it's explicitly set)
+						// 2. The *actual* preferred text track, as set through the SetPreferredSubtitleLanguage API
+						// 3. First text track and keep it
+						// 3. Not set
+						selectedTextTrack = (nullptr != firstAvailTextTrack) ? *firstAvailTextTrack : aamp->GetPreferredTextTrack();
+					}
+
+					if (!selectedTextTrack.index.empty())
+					{
+						if (IsMatchingLanguageAndMimeType(eMEDIATYPE_SUBTITLE, selectedTextTrack.language, adaptationSet, selRepresentationIndex))
+						{
+							auto adapSetName = (adaptationSet->GetRepresentation().at(selRepresentationIndex))->GetId();
+							AAMPLOG_INFO("adapSet Id %s selName %s", adapSetName.c_str(), selectedTextTrack.name.c_str());
+							if (adapSetName.empty() || adapSetName == selectedTextTrack.name)
+							{
+								selAdaptationSetIndex = iAdaptationSet;
+							}
+						}
+					}
+					else if (IsMatchingLanguageAndMimeType(eMEDIATYPE_SUBTITLE, aamp->mSubLanguage, adaptationSet, selRepresentationIndex) == true)
+					{
+						AAMPLOG_INFO("matched default sub language %s [%d]", aamp->mSubLanguage.c_str(), iAdaptationSet);
+						selAdaptationSetIndex = iAdaptationSet;
+					}
+				}
+			}
+		}
+	}
+
+	if (selAdaptationSetIndex != -1)
+	{
+		aamp->mIsInbandCC = false;
+		AAMPLOG_WARN("SDW config set %d", ISCONFIGSET(eAAMPConfig_GstSubtecEnabled));
+		if (!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
+		{
+			const IAdaptationSet *pAdaptationSet = period->GetAdaptationSets().at(selAdaptationSetIndex);
+			PeriodElement periodElement(pAdaptationSet, pAdaptationSet->GetRepresentation().at(selRepresentationIndex));
+			std::string mimeType = periodElement.GetMimeType();
+			if (mimeType.empty())
+			{
+				if (!pMediaStreamContext->mSubtitleParser)
+				{
+					AAMPLOG_WARN("mSubtitleParser is NULL");
+				}
+				else if (pMediaStreamContext->mSubtitleParser->init(0.0, 0))
+				{
+					pMediaStreamContext->mSubtitleParser->mute(aamp->subtitles_muted);
+				}
+				else
+				{
+					pMediaStreamContext->mSubtitleParser.reset(nullptr);
+					pMediaStreamContext->mSubtitleParser = NULL;
+				}
+			}
+			pMediaStreamContext->mSubtitleParser = SubtecFactory::createSubtitleParser(mLogObj, aamp, mimeType);
+			if (!pMediaStreamContext->mSubtitleParser)
+			{
+				pMediaStreamContext->enabled = false;
+				selAdaptationSetIndex = -1;
+			}
+		}
+		if (-1 != selAdaptationSetIndex)
+			tTrackIdx = std::to_string(selAdaptationSetIndex) + "-" + std::to_string(selRepresentationIndex);
+
+		aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
+	}
+	if ((AAMP_NORMAL_PLAY_RATE == rate) && (pMediaStreamContext->enabled == false) && selAdaptationSetIndex >= 0)
+	{
+		pMediaStreamContext->enabled = true;
+		pMediaStreamContext->adaptationSetIdx = selAdaptationSetIndex;
+		pMediaStreamContext->representationIndex = selRepresentationIndex;
+		pMediaStreamContext->profileChanged = true;
+
+		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] Adaptation set[%d] RepIdx[%d] TrackCnt[%d]",
+		GetMediaTypeName(eMEDIATYPE_SUBTITLE),selAdaptationSetIndex,selRepresentationIndex,(mNumberOfTracks+1) );
+
+		AAMPLOG_WARN("Queueing content protection from StreamSelection for type:%d", eMEDIATYPE_SUBTITLE);
+		QueueContentProtection(period, selAdaptationSetIndex,eMEDIATYPE_SUBTITLE );
+		// Check if the track was enabled mid-playback, eg - subtitles. Then we might need to start injection loop
+		// For now, do this only for subtitles
+		if (!newTune &&
+			!pMediaStreamContext->isFragmentInjectorThreadStarted())
+		{
+			AAMPLOG_WARN("Subtitle track enabled, but fragmentInjection loop not yet started! Starting now..");
+			aamp->ResumeTrackInjection(eMEDIATYPE_SUBTITLE);
+			pMediaStreamContext->StartInjectLoop();
+		}
+	}
+	if(selAdaptationSetIndex < 0 && rate == 1)
+	{
+		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No valid adaptation set found for Media[%s]",GetMediaTypeName(eMEDIATYPE_SUBTITLE));
+	}
+
+	AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] %s",
+		GetMediaTypeName(eMEDIATYPE_SUBTITLE), pMediaStreamContext->enabled?"enabled":"disabled");
+
+	// Enable/ disable subtitle mediastream context based on stream selection status
+	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && pMediaStreamContext->playContext)
+	{
+		pMediaStreamContext->playContext->enable(pMediaStreamContext->enabled);
+	}
+}
 /**
  * @brief Selects the audio track based on the available audio tracks and updates the desired representation index.
  *
@@ -6215,32 +6477,35 @@ void StreamAbstractionAAMP_MPD::SelectAudioTrack(std::vector<AudioTrackInfo> &aT
 }
 
 /**
- * @brief Stops the Audio Track Injection,Restarts once the audio track has been changed
+ * @brief Stops the Track Injection,Restarts once the track has been changed
  */
-void StreamAbstractionAAMP_MPD::RefreshAudio()
+void StreamAbstractionAAMP_MPD::RefreshTrack(AampMediaType type)
 {
-	MediaStreamContext *track = mMediaStreamContext[eTRACK_AUDIO];
+	MediaStreamContext *track = mMediaStreamContext[type];
 
 	if (track && track->Enabled())
 	{
-		track->refreshAudio = true;
-		track->AbortWaitForCachedAndFreeFragment(true);
-		aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
-		aamp->mDisableRateCorrection = true;
-		if (aamp->IsLive() && !track->seamlessAudioSwitchInProgress)
+		if(type == eMEDIATYPE_AUDIO)
 		{
-			track->AbortFragmentDownloaderWait();
+			track->refreshAudio = true;
 		}
+		else
+		{
+			track->refreshSubtitles = true;
+		}
+		track->AbortWaitForCachedAndFreeFragment(true);
+		aamp->StopTrackInjection(type);
+		aamp->mDisableRateCorrection = true;
 	}
 }
 
 /**
- * @brief Updates the corresponding audio track params like fragment time, fragment duration, fragment.discriptor number
+ * @brief Updates the corresponding media track params like fragment time, fragment duration, fragment.discriptor number
  * fragment.discriptor time..etc, and also updates the corresponding urls.
  */
-AAMPStatusType StreamAbstractionAAMP_MPD::UpdateAudioTrackInfo()
+AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType type)
 {
-	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_AUDIO];
+	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[type];
 
 	IPeriod *period = mCurrentPeriod;
 
@@ -6272,17 +6537,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateAudioTrackInfo()
 	pMediaStreamContext->fragmentIndex = 0;
 	pMediaStreamContext->fragmentRepeatCount = 0;
 	pMediaStreamContext->fragmentOffset = 0;
-	SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),pMediaStreamContext->adaptationSet->GetSegmentTemplate());
-	if( segmentTemplates.HasSegmentTemplate())
-	{
-		long int startNumber = segmentTemplates.GetStartNumber();
-		pMediaStreamContext->fragmentDescriptor.Number = startNumber;
-	}
-
-	pMediaStreamContext->fragmentTime = mPeriodStartTime;
 	pMediaStreamContext->periodStartOffset = pMediaStreamContext->fragmentTime;
-
-	AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d changed, updating fragmentTime to %lf fragmentDescriptor.Number %" PRIu64, eMEDIATYPE_AUDIO, pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number);
 	if (0 == pMediaStreamContext->fragmentDescriptor.Bandwidth || !aamp->IsTSBSupported())
 	{
 		pMediaStreamContext->fragmentDescriptor.Bandwidth = pMediaStreamContext->representation->GetBandwidth();
@@ -6293,6 +6548,49 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateAudioTrackInfo()
 	pMediaStreamContext->mReachedFirstFragOnRewind = false;
 	/* Resetting the timeline Index values, otherwise it will reach the max timelines.size, so undetermined issue might cause*/
 	pMediaStreamContext->timeLineIndex = 0;
+
+	pMediaStreamContext->fragmentTime = mPeriodStartTime;
+	AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d changed, updating fragmentTime to %lf fragmentDescriptor.Number %" PRIu64,AampMediaType(type), pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number);
+
+
+	SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),pMediaStreamContext->adaptationSet->GetSegmentTemplate());
+	if( segmentTemplates.HasSegmentTemplate())
+	{
+		const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
+		long int startNumber = segmentTemplates.GetStartNumber();
+		double fragmentDuration = 0;
+		bool timelineAvailable = true;
+		pMediaStreamContext->fragmentDescriptor.TimeScale = segmentTemplates.GetTimescale();
+		if(NULL == segmentTimeline)
+		{
+			uint32_t timeScale = segmentTemplates.GetTimescale();
+			uint32_t duration = segmentTemplates.GetDuration();
+			fragmentDuration =  ComputeFragmentDuration(duration,timeScale);
+			timelineAvailable = false;
+			if( timeScale )
+			{
+				pMediaStreamContext->scaledPTO = (double)segmentTemplates.GetPresentationTimeOffset() / (double)timeScale;
+			}
+			if(!aamp->IsLive())
+			{
+				if(segmentTemplates.GetPresentationTimeOffset())
+				{
+					uint64_t ptoFragmenNumber = 0;
+					ptoFragmenNumber = (pMediaStreamContext->scaledPTO / fragmentDuration) + 1;
+					AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD: Track %d startnumber:%ld PTO specific fragment Number : %" PRIu64 ,AampMediaType(type),startNumber, ptoFragmenNumber);
+					if(ptoFragmenNumber > startNumber)
+					{
+						startNumber = ptoFragmenNumber;
+					}
+				}
+			}
+		}
+		pMediaStreamContext->fragmentDescriptor.Number = startNumber;
+		if (mMPDParseHelper->GetLiveTimeFragmentSync() && !timelineAvailable)
+		{
+			pMediaStreamContext->fragmentDescriptor.Number += (long)((mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime) / fragmentDuration);
+		}
+	}
 	/*As the Init fragements download get happened only when the profile changed is true */
 	pMediaStreamContext->profileChanged = true;
 	return eAAMPSTATUS_OK;
@@ -6559,16 +6857,16 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	AAMPLOG_INFO( "Updated pos offsetFromStart[%lf] culledSeconds[%lf]",offsetFromStart,aamp->culledSeconds );
 
 	/*Updating audio Tracks info*/
-	ret = UpdateAudioTrackInfo();
+	ret = UpdateMediaTrackInfo(eMEDIATYPE_AUDIO);
 	if (ret != eAAMPSTATUS_OK)
 	{
 		pMediaStreamContext->NotifyCachedAudioFragmentAvailable();
 		return;
 	}
-	/* Skiping the old fragments and moving to the corresponding Audio playlist position 
-	 * for fetching and injecting during seamless audio switch.
-	 * Skiping the audio fragments to reach the current position for fetching 
-	 */
+	/* Skiping the old fragments and moving to the corresponding Audio playlist position
+	* for fetching and injecting during seamless audio switch.
+	* Skiping the audio fragments to reach the current position for fetching
+	* */
 	SkipFragments(pMediaStreamContext, offsetFromStart, true);
 	/* Getting current fragment duration, for calculating the injected duration timestamp, because the current injected time
 	 * calculation requires the start time of the fragment which is downloaded, so subracting the fragment duration for indentifying
@@ -6611,8 +6909,6 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 {
 	std::vector<AudioTrackInfo> aTracks;
 	std::vector<TextTrackInfo> tTracks;
-	TextTrackInfo selectedTextTrack;
-	TextTrackInfo preferredTextTrack;
 	std::string aTrackIdx;
 	std::string tTrackIdx;
 	mNumberOfTracks = 0;
@@ -6637,7 +6933,6 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	if (rate == AAMP_NORMAL_PLAY_RATE)
 	{
 		SelectAudioTrack(aTracks,aTrackIdx,audioAdaptationSetIndex,audioRepresentationIndex);
-		GetBestTextTrackByLanguage(preferredTextTrack);
 	}
 
 	for (int i = 0; i < mMaxTracks; i++)
@@ -6648,286 +6943,182 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		int selRepresentationIndex = -1;
 		bool isIframeAdaptationAvailable = false;
 		bool encryptedIframeTrackPresent = false;
-		bool isFrstAvailableTxtTrackSelected = false;
 		int videoRepresentationIdx;   //CID:118900 - selRepBandwidth variable locally declared but not reflected
-		for (unsigned iAdaptationSet = 0; iAdaptationSet < numAdaptationSets; iAdaptationSet++)
+
+		if (eMEDIATYPE_SUBTITLE == i)
 		{
-			IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);	
-			AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD: Content type [%s] AdapSet [%d] ",
-					adaptationSet->GetContentType().c_str(), iAdaptationSet);
-			if (mMPDParseHelper->IsContentType(adaptationSet, (AampMediaType)i ))
+			SelectSubtitleTrack(newTune,tTracks,tTrackIdx);
+			if(mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
 			{
-				ParseTrackInformation(adaptationSet, iAdaptationSet, (AampMediaType)i,  aTracks, tTracks);
-				if (AAMP_NORMAL_PLAY_RATE == rate)
+				mNumberOfTracks++;
+			}
+		}
+		if(eMEDIATYPE_SUBTITLE !=i)
+		{
+			for (unsigned iAdaptationSet = 0; iAdaptationSet < numAdaptationSets; iAdaptationSet++)
+			{
+				IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);
+				AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD: Content type [%s] AdapSet [%d] ",
+						adaptationSet->GetContentType().c_str(), iAdaptationSet);
+				if (mMPDParseHelper->IsContentType(adaptationSet, (AampMediaType)i ))
 				{
-					//if isFrstAvailableTxtTrackSelected is true, we should look for the best option (aamp->mSubLanguage) among all the tracks
-					if (eMEDIATYPE_SUBTITLE == i && (selAdaptationSetIndex == -1 || isFrstAvailableTxtTrackSelected))
+					ParseTrackInformation(adaptationSet, iAdaptationSet, (AampMediaType)i,  aTracks, tTracks);
+									//if isFrstAvailableTxtTrackSelected is true, we should look for the best option (aamp->mSubLanguage) among all the tracks
+					if (AAMP_NORMAL_PLAY_RATE == rate)
 					{
-						AAMPLOG_INFO("Checking subs - mime %s lang %s selAdaptationSetIndex %d",
-										adaptationSet->GetMimeType().c_str(), GetLanguageForAdaptationSet(adaptationSet).c_str(), selAdaptationSetIndex);
-						
-						TextTrackInfo *firstAvailTextTrack = nullptr;
-						if(aamp->GetPreferredTextTrack().index.empty() && !isFrstAvailableTxtTrackSelected)
+						if (eMEDIATYPE_AUX_AUDIO == i && aamp->IsAuxiliaryAudioEnabled())
 						{
-							//If no subtitles are selected, opt for the first subtitle as default, and
-							for(int j =0 ; j < tTracks.size(); j++)
+							if (aamp->GetAuxiliaryAudioLanguage() == aamp->mAudioTuple.language)
 							{
-								if(!tTracks[j].isCC)
+								AAMPLOG_WARN("PrivateStreamAbstractionMPD: auxiliary audio same as primary audio, set forward audio flag");
+								SetAudioFwdToAuxStatus(true);
+								break;
+							}
+							else if (IsMatchingLanguageAndMimeType((AampMediaType)i, aamp->GetAuxiliaryAudioLanguage(), adaptationSet, selRepresentationIndex) == true)
+							{
+								selAdaptationSetIndex = iAdaptationSet;
+							}
+						}
+						else if (eMEDIATYPE_AUDIO == i)
+						{
+							selAdaptationSetIndex = audioAdaptationSetIndex;
+							selRepresentationIndex = audioRepresentationIndex;
+							aTrackIdx = std::to_string(selAdaptationSetIndex) + "-" + std::to_string(selRepresentationIndex);
+						}
+						else if (eMEDIATYPE_VIDEO == i && !ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
+						{
+							// Parse all the video adaptation sets except the iframe tracks
+							// If the content contains multiple video adaptation, we should employ ABR to select the adaptation set
+							if (!IsIframeTrack(adaptationSet))
+							{
+								// Got Video , confirmed its not iframe adaptation
+								videoRepresentationIdx = GetDesiredVideoCodecIndex(adaptationSet);
+								if (videoRepresentationIdx != -1)
 								{
-									if(nullptr == firstAvailTextTrack)
+									if (selAdaptationSetIndex == -1)
 									{
-										firstAvailTextTrack = &tTracks[j];
+										selAdaptationSetIndex = iAdaptationSet;
+										if(!newTune)
+										{
+											if(GetProfileCount() == adaptationSet->GetRepresentation().size())
+											{
+												selRepresentationIndex = pMediaStreamContext->representationIndex;
+											}
+											else
+											{
+												selRepresentationIndex = -1; // this will be set based on profile selection
+											}
+										}
+									}
+									else
+									{
+										// Multiple video adaptation identified
+										mMultiVideoAdaptationPresent = true;
+										if (isIframeAdaptationAvailable)
+										{
+											// We have confirmed that iframe track and multiple video adaptations are present
+											// Already video adaptation index is set. Break from the loop
+											break;
+										}
 									}
 								}
 							}
-						}
-						if(nullptr != firstAvailTextTrack)
-						{
-							isFrstAvailableTxtTrackSelected = true;
-							AAMPLOG_INFO("Selected first subtitle track, lang:%s, index:%s",
-								firstAvailTextTrack->language.c_str(), firstAvailTextTrack->index.c_str());
-						}
-						if (!preferredTextTrack.index.empty())
-						{
-							/**< Available preferred**/
-							selectedTextTrack = preferredTextTrack;
-						}else
-						{
-							// TTML selection as follows:
-							// 1. Text track as set from SetTextTrack API (this is confusingly named preferredTextTrack, even though it's explicitly set)
-							// 2. The *actual* preferred text track, as set through the SetPreferredSubtitleLanguage API
-							// 3. First text track and keep it
-							// 3. Not set
-							selectedTextTrack = (nullptr != firstAvailTextTrack) ? *firstAvailTextTrack : aamp->GetPreferredTextTrack();
-						}
-						
-
-						if (!selectedTextTrack.index.empty())
-						{
-							if (IsMatchingLanguageAndMimeType((AampMediaType)i, selectedTextTrack.language, adaptationSet, selRepresentationIndex))
+							else
 							{
-								auto adapSetName = (adaptationSet->GetRepresentation().at(selRepresentationIndex))->GetId();
-								AAMPLOG_INFO("adapSet Id %s selName %s", adapSetName.c_str(), selectedTextTrack.name.c_str());
-								if (adapSetName.empty() || adapSetName == selectedTextTrack.name)
-								{
-									selAdaptationSetIndex = iAdaptationSet;
-								}
+								isIframeAdaptationAvailable = true;
 							}
 						}
-						else if (IsMatchingLanguageAndMimeType((AampMediaType)i, aamp->mSubLanguage, adaptationSet, selRepresentationIndex) == true)
-						{
-							AAMPLOG_INFO("matched default sub language %s [%d]", aamp->mSubLanguage.c_str(), iAdaptationSet);
-							selAdaptationSetIndex = iAdaptationSet;
-						}
-
 					}
-					else if (eMEDIATYPE_AUX_AUDIO == i && aamp->IsAuxiliaryAudioEnabled())
+					else if ((!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback)) && (eMEDIATYPE_VIDEO == i))
 					{
-						if (aamp->GetAuxiliaryAudioLanguage() == aamp->mAudioTuple.language)
+						//iframe track
+						if ( IsIframeTrack(adaptationSet) )
 						{
-							AAMPLOG_WARN("PrivateStreamAbstractionMPD: auxiliary audio same as primary audio, set forward audio flag");
-							SetAudioFwdToAuxStatus(true);
+							AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Got TrickMode track");
+							pMediaStreamContext->enabled = true;
+							pMediaStreamContext->profileChanged = true;
+							pMediaStreamContext->adaptationSetIdx = iAdaptationSet;
+							mNumberOfTracks = 1;
+							isIframeAdaptationAvailable = true;
+							if(!mMPDParseHelper->GetContentProtection(adaptationSet).empty())
+							{
+								encryptedIframeTrackPresent = true;
+								AAMPLOG_WARN("PrivateStreamAbstractionMPD: Detected encrypted iframe track");
+							}
 							break;
 						}
-						else if (IsMatchingLanguageAndMimeType((AampMediaType)i, aamp->GetAuxiliaryAudioLanguage(), adaptationSet, selRepresentationIndex) == true)
-						{
-							selAdaptationSetIndex = iAdaptationSet;
-						}
-					}
-					else if (eMEDIATYPE_AUDIO == i)
-					{
-						selAdaptationSetIndex = audioAdaptationSetIndex;
-						selRepresentationIndex = audioRepresentationIndex;
-						aTrackIdx = std::to_string(selAdaptationSetIndex) + "-" + std::to_string(selRepresentationIndex);
-					}
-					else if (eMEDIATYPE_VIDEO == i && !ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
-					{
-						// Parse all the video adaptation sets except the iframe tracks
-						// If the content contains multiple video adaptation, we should employ ABR to select the adaptation set
-						if (!IsIframeTrack(adaptationSet))
-						{
-							// Got Video , confirmed its not iframe adaptation
-							videoRepresentationIdx = GetDesiredVideoCodecIndex(adaptationSet);
-							if (videoRepresentationIdx != -1)
-							{
-								if (selAdaptationSetIndex == -1)
-								{
-									selAdaptationSetIndex = iAdaptationSet;
-									if(!newTune)
-									{
-										if(GetProfileCount() == adaptationSet->GetRepresentation().size())
-										{
-											selRepresentationIndex = pMediaStreamContext->representationIndex;
-										}
-										else
-										{
-											selRepresentationIndex = -1; // this will be set based on profile selection
-										}
-									}
-								}
-								else
-								{
-									// Multiple video adaptation identified
-									mMultiVideoAdaptationPresent = true;
-									if (isIframeAdaptationAvailable)
-									{
-										// We have confirmed that iframe track and multiple video adaptations are present
-										// Already video adaptation index is set. Break from the loop
-										break;
-									}
-								}
-							}
-						}
-						else
-						{
-							isIframeAdaptationAvailable = true;
-						}
 					}
 				}
-				else if ((!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback)) && (eMEDIATYPE_VIDEO == i))
+			}// next iAdaptationSet
+			if ((eAUDIO_UNKNOWN == mAudioType) && (AAMP_NORMAL_PLAY_RATE == rate) && (eMEDIATYPE_VIDEO != i) && selAdaptationSetIndex >= 0)
+			{
+				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Selected Audio Track codec is unknown");
+				mAudioType = eAUDIO_AAC; // assuming content is still playable
+			}
+			if ((AAMP_NORMAL_PLAY_RATE == rate) && (pMediaStreamContext->enabled == false) && selAdaptationSetIndex >= 0)
+			{
+				pMediaStreamContext->enabled = true;
+				pMediaStreamContext->adaptationSetIdx = selAdaptationSetIndex;
+				pMediaStreamContext->representationIndex = selRepresentationIndex;
+				pMediaStreamContext->profileChanged = true;
+
+				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] Adaptation set[%d] RepIdx[%d] TrackCnt[%d]",
+					GetMediaTypeName(AampMediaType(i)),selAdaptationSetIndex,selRepresentationIndex,(mNumberOfTracks+1) );
+
+				// Skip processing content protection for multi video, since the right adaptation will be selected only after ABR
+				// This might cause an unwanted content prot to be queued and delay playback start
+				if (eMEDIATYPE_VIDEO != i || !mMultiVideoAdaptationPresent)
 				{
-					//iframe track
-					if ( IsIframeTrack(adaptationSet) )
-					{
-						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Got TrickMode track");
-						pMediaStreamContext->enabled = true;
-						pMediaStreamContext->profileChanged = true;
-						pMediaStreamContext->adaptationSetIdx = iAdaptationSet;
-						mNumberOfTracks = 1;
-						isIframeAdaptationAvailable = true;
-						if(!mMPDParseHelper->GetContentProtection(adaptationSet).empty())
-						{
-							encryptedIframeTrackPresent = true;
-							AAMPLOG_WARN("PrivateStreamAbstractionMPD: Detected encrypted iframe track");
-						}
-						break;
-					}
+					AAMPLOG_WARN("Queueing content protection from StreamSelection for type:%d", i);
+					QueueContentProtection(period, selAdaptationSetIndex, (AampMediaType)i);
 				}
+
+				mNumberOfTracks++;
 			}
-		} // next iAdaptationSet
-		
-		if (eMEDIATYPE_SUBTITLE == i && selAdaptationSetIndex != -1)
-		{
-			aamp->mIsInbandCC = false;
-			AAMPLOG_WARN("SDW config set %d", ISCONFIGSET(eAAMPConfig_GstSubtecEnabled));
-			if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
+			else if (encryptedIframeTrackPresent) //Process content protection for encyrpted Iframe
 			{
-				const IAdaptationSet *pAdaptationSet = period->GetAdaptationSets().at(selAdaptationSetIndex);
-				PeriodElement periodElement(pAdaptationSet, pAdaptationSet->GetRepresentation().at(selRepresentationIndex));
-				std::string mimeType = periodElement.GetMimeType();
-				if (mimeType.empty())
+				QueueContentProtection(period, pMediaStreamContext->adaptationSetIdx, (AampMediaType)i);
+			}
+
+			if(selAdaptationSetIndex < 0 && rate == 1)
+			{
+				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No valid adaptation set found for Media[%s]",
+					GetMediaTypeName(AampMediaType(i)));
+			}
+
+			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] %s",
+				GetMediaTypeName(AampMediaType(i)), pMediaStreamContext->enabled?"enabled":"disabled");
+			//RDK-27796, we need this hack for cases where subtitle is not enabled, but auxiliary audio track is enabled
+			if (eMEDIATYPE_AUX_AUDIO == i && pMediaStreamContext->enabled && !mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
+			{
+				AAMPLOG_WARN("PrivateStreamAbstractionMPD: Auxiliary enabled, but subtitle disabled, swap MediaStreamContext of both");
+				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled = mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->enabled;
+				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->adaptationSetIdx = mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->adaptationSetIdx;
+				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->representationIndex = mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->representationIndex;
+				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->mediaType = eMEDIATYPE_AUX_AUDIO;
+				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type = eTRACK_AUX_AUDIO;
+				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->profileChanged = true;
+				mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->enabled = false;
+			}
+
+			if(ISCONFIGSET(eAAMPConfig_LocalTSBEnabled) && mLowLatencyMode && aamp->IsIframeExtractionEnabled())
+			{
+				/** Fake the iframee track if local TSB enabled and stream is LLD */
+				isIframeAdaptationAvailable = true;
+			}
+
+			//Store the iframe track status in current period if there is any change
+			if (!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && (i == eMEDIATYPE_VIDEO) && (aamp->mIsIframeTrackPresent != isIframeAdaptationAvailable))
+			{
+				aamp->mIsIframeTrackPresent = isIframeAdaptationAvailable;
+				//Iframe tracks changed mid-stream, sent a playbackspeed changed event
+				if (!newTune || forceSpeedsChangedEvent)
 				{
-					if( !pMediaStreamContext->mSubtitleParser )
-					{
-						AAMPLOG_WARN("mSubtitleParser is NULL" );
-					}
-					else if (pMediaStreamContext->mSubtitleParser->init(0.0, 0))
-					{
-						pMediaStreamContext->mSubtitleParser->mute(aamp->subtitles_muted);
-					}
-					else
-					{
-						pMediaStreamContext->mSubtitleParser.reset(nullptr);
-						pMediaStreamContext->mSubtitleParser = NULL;
-					}
-				}
-				pMediaStreamContext->mSubtitleParser = SubtecFactory::createSubtitleParser(mLogObj, aamp, mimeType);
-				if (!pMediaStreamContext->mSubtitleParser)
-				{
-					pMediaStreamContext->enabled = false;
-					selAdaptationSetIndex = -1;
+					aamp->SendSupportedSpeedsChangedEvent(aamp->mIsIframeTrackPresent);
 				}
 			}
-
-			if (-1 != selAdaptationSetIndex)
-				tTrackIdx = std::to_string(selAdaptationSetIndex) + "-" + std::to_string(selRepresentationIndex);
-
-			aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
 		}
 
-		if ((eAUDIO_UNKNOWN == mAudioType) && (AAMP_NORMAL_PLAY_RATE == rate) && (eMEDIATYPE_VIDEO != i) && selAdaptationSetIndex >= 0)
-		{
-			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Selected Audio Track codec is unknown");
-			mAudioType = eAUDIO_AAC; // assuming content is still playable
-		}
-
-		if ((AAMP_NORMAL_PLAY_RATE == rate) && (pMediaStreamContext->enabled == false) && selAdaptationSetIndex >= 0)
-		{
-			pMediaStreamContext->enabled = true;
-			pMediaStreamContext->adaptationSetIdx = selAdaptationSetIndex;
-			pMediaStreamContext->representationIndex = selRepresentationIndex;
-			pMediaStreamContext->profileChanged = true;
-			
-			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] Adaptation set[%d] RepIdx[%d] TrackCnt[%d]",
-				GetMediaTypeName(AampMediaType(i)),selAdaptationSetIndex,selRepresentationIndex,(mNumberOfTracks+1) );
-
-			// Skip processing content protection for multi video, since the right adaptation will be selected only after ABR
-			// This might cause an unwanted content prot to be queued and delay playback start
-			if (eMEDIATYPE_VIDEO != i || !mMultiVideoAdaptationPresent)
-			{
-				AAMPLOG_WARN("Queueing content protection from StreamSelection for type:%d", i);
-				QueueContentProtection(period, selAdaptationSetIndex, (AampMediaType)i);
-			}
-			// Check if the track was enabled mid-playback, eg - subtitles. Then we might need to start injection loop
-			// For now, do this only for subtitles
-			if (!newTune && (i == eMEDIATYPE_SUBTITLE) &&
-					!pMediaStreamContext->isFragmentInjectorThreadStarted())
-			{
-				AAMPLOG_WARN("Subtitle track enabled, but fragmentInjection loop not yet started! Starting now..");
-				aamp->ResumeTrackInjection(eMEDIATYPE_SUBTITLE);
-				pMediaStreamContext->StartInjectLoop();
-			}
-			mNumberOfTracks++;
-		}
-		else if (encryptedIframeTrackPresent) //Process content protection for encyrpted Iframe
-		{
-			QueueContentProtection(period, pMediaStreamContext->adaptationSetIdx, (AampMediaType)i);
-		}
-
-		if(selAdaptationSetIndex < 0 && rate == 1)
-		{
-			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No valid adaptation set found for Media[%s]",
-				GetMediaTypeName(AampMediaType(i)));
-		}
-
-		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] %s",
-			GetMediaTypeName(AampMediaType(i)), pMediaStreamContext->enabled?"enabled":"disabled");
-
-		//RDK-27796, we need this hack for cases where subtitle is not enabled, but auxiliary audio track is enabled
-		if (eMEDIATYPE_AUX_AUDIO == i && pMediaStreamContext->enabled && !mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
-		{
-			AAMPLOG_WARN("PrivateStreamAbstractionMPD: Auxiliary enabled, but subtitle disabled, swap MediaStreamContext of both");
-			mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled = mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->enabled;
-			mMediaStreamContext[eMEDIATYPE_SUBTITLE]->adaptationSetIdx = mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->adaptationSetIdx;
-			mMediaStreamContext[eMEDIATYPE_SUBTITLE]->representationIndex = mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->representationIndex;
-			mMediaStreamContext[eMEDIATYPE_SUBTITLE]->mediaType = eMEDIATYPE_AUX_AUDIO;
-			mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type = eTRACK_AUX_AUDIO;
-			mMediaStreamContext[eMEDIATYPE_SUBTITLE]->profileChanged = true;
-			mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->enabled = false;
-		}
-
-		if(ISCONFIGSET(eAAMPConfig_LocalTSBEnabled) && mLowLatencyMode && aamp->IsIframeExtractionEnabled())
-		{
-			/** Fake the iframee track if local TSB enabled and stream is LLD */
-			isIframeAdaptationAvailable = true;
-		}
-
-		//Store the iframe track status in current period if there is any change
-		if (!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && (i == eMEDIATYPE_VIDEO) && (aamp->mIsIframeTrackPresent != isIframeAdaptationAvailable))
-		{
-			aamp->mIsIframeTrackPresent = isIframeAdaptationAvailable;
-			//Iframe tracks changed mid-stream, sent a playbackspeed changed event
-			if (!newTune || forceSpeedsChangedEvent)
-			{
-				aamp->SendSupportedSpeedsChangedEvent(aamp->mIsIframeTrackPresent);
-			}
-		}
-
-		// Enable/ disable subtitle mediastream context based on stream selection status
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (i == eMEDIATYPE_SUBTITLE) && pMediaStreamContext->playContext)
-		{
-			pMediaStreamContext->playContext->enable(pMediaStreamContext->enabled);
-		}
 	} // next track
 #ifdef AAMP_MPD_DRM
 	if (aamp->mDRMSessionManager)
@@ -6962,13 +7153,13 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		mMediaStreamContext[eMEDIATYPE_VIDEO]->profileChanged = true;
 		mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled = false;
 	}
-	
 	// Set audio/text track related structures
 	SetAudioTrackInfo(aTracks, aTrackIdx);
-	SetTextTrackInfo(tTracks, tTrackIdx);
 
 	/**< for Traiging Log selected track informations **/
 	printSelectedTrack(aTrackIdx, eMEDIATYPE_AUDIO);
+
+	SetTextTrackInfo(tTracks, tTrackIdx);
 	printSelectedTrack(tTrackIdx, eMEDIATYPE_SUBTITLE);
 	std::vector<BitsPerSecond> bitratelist;
 	for (auto &audioTrack : aTracks)
@@ -9108,10 +9299,15 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						playlistDownloaderThreadStarted = false;
 					}
 					/* Calling the Refresh audio track, in order to switch to the newly selected Audio Track */
-					if( mMediaStreamContext[eTRACK_AUDIO]->refreshAudio )
+					if(rate == AAMP_NORMAL_PLAY_RATE && mMediaStreamContext[eTRACK_AUDIO] && mMediaStreamContext[eTRACK_AUDIO]->refreshAudio )
 					{
 						SwitchAudioTrack();
 						mMediaStreamContext[eTRACK_AUDIO]->refreshAudio = false;
+					}
+					if(rate == AAMP_NORMAL_PLAY_RATE && mMediaStreamContext[eTRACK_SUBTITLE] && mMediaStreamContext[eTRACK_SUBTITLE]->refreshSubtitles )
+					{
+						SwitchSubtitleTrack(true);
+						mMediaStreamContext[eTRACK_SUBTITLE]->refreshSubtitles = false;
 					}
 					std::thread *parallelDownload[AAMP_TRACK_COUNT] = { nullptr };
 					for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)

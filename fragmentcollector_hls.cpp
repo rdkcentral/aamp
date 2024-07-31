@@ -7073,15 +7073,20 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 	}
 	AAMPLOG_WARN("TextTrack Selected :%d", currentTextTrackProfileIndex);
 }
-
-void StreamAbstractionAAMP_HLS::RefreshAudio()
+/**
+ * @brief Stops the Track Injection,Restarts once the track has been changed
+ */
+void StreamAbstractionAAMP_HLS::RefreshTrack(AampMediaType type)
 {
-	TrackState *track = trackState[eTRACK_AUDIO];
+	TrackState *track = trackState[type];
 	if(track && track->Enabled())
 	{
-		track->refreshAudio = true;
+		if(type == eMEDIATYPE_AUDIO)
+		{
+			track->refreshAudio = true;
+		}
 		track->AbortWaitForCachedAndFreeFragment(true);
-		aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
+		aamp->StopTrackInjection(type);
 		aamp->mDisableRateCorrection = true;
 		if(aamp->IsLive() && !track->seamlessAudioSwitchInProgress)
 		{

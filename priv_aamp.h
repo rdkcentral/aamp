@@ -1124,6 +1124,7 @@ public:
 	bool mAudioComponentCount;
 	bool mVideoComponentCount;
 	bool mAudioOnlyPb;
+	double mSubtitleDelta;
 	double mAudioDelta;					/** To indicate audio playlist delta */
 	bool mVideoOnlyPb;					/**< To indicate Video Only Playback */
 	int mCurrentAudioTrackIndex;				/**< Keep current selected audio track index */
@@ -3192,10 +3193,10 @@ public:
 	void SetNewAdBreakerConfig(bool bValue);
 
 	/**
-	 * @brief Flush the audio stream sink
+	 * @brief Flush the stream sink
 	 * @param[in]  position - playback position
 	 */
-	void FlushAudio(double pos);
+	void FlushTrack(AampMediaType type,double pos);
 
 	/**
 	 *   @fn FlushStreamSink
@@ -3823,6 +3824,20 @@ public:
 	uint32_t GetVidTimeScale(void);
 
 	/**
+	 *   @fn SetSubTimeScale
+	 *
+	 *   @param[in] subTimeScale - subTimeScale Value
+	 *   @return void
+	 */
+	void SetSubTimeScale(uint32_t subTimeScale);
+	/**
+	 *   @fn GetSubTimeScale
+	 *
+	 *   @return uint32_t
+	 */
+	uint32_t  GetSubTimeScale(void);
+
+	/**
 	 *   @fn SetAudTimeScale
 	 *
 	 *   @param[in] audTimeScale - audTimeScale Value
@@ -4448,6 +4463,7 @@ protected:
 	double mLLDashCurrentPlayRate; 		/**<Low Latency Current play Rate */
 	uint32_t vidTimeScale;
 	uint32_t audTimeScale;
+	uint32_t subTimeScale;
 	struct SpeedCache speedCache;
 	bool bLowLatencyStartABR;
 	bool mLiveOffsetAppRequest;

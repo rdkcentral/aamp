@@ -1206,6 +1206,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mLLDashCurrentPlayRate(AAMP_NORMAL_PLAY_RATE)
 	, vidTimeScale(0)
 	, audTimeScale(0)
+	, subTimeScale(0)
 	, speedCache {}
 	, mCurrentLatency(0)
 	, mLiveOffsetAppRequest(false)
@@ -1248,6 +1249,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mDynamicDrmCache()
 	, mAudioComponentCount(-1)
 	, mAudioDelta(0)
+	, mSubtitleDelta(0)
 	, mVideoComponentCount(-1)
 	, mAudioOnlyPb(false)
 	, mVideoOnlyPb(false)
@@ -9894,15 +9896,15 @@ void PrivateInstanceAAMP::SendId3MetadataEvent(aamp::id3_metadata::CallbackData 
 }
 
 /**
- * @brief Flush the audio stream sink
+ * @brief Flush the stream sink
  * @param[in]  position - playback position
  */
-void  PrivateInstanceAAMP::FlushAudio(double pos)
+void  PrivateInstanceAAMP::FlushTrack(AampMediaType type,double pos)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		sink->FlushAudio(pos);
+		sink->FlushTrack(type, pos);
 	}
 }
 
@@ -12064,8 +12066,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || eMEDIAFORMAT_DASH )  && !codecChange)
 					{
 						AAMPLOG_WARN("Seamless audio switch has been enabled");
-						mTuneType = eTUNETYPE_SEEK;
-						mpStreamAbstractionAAMP->RefreshAudio();
+						mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_AUDIO);
 					}
 					else
 					{
@@ -12415,22 +12416,31 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			else if (languagePresent || renditionPresent || accessibilityPresent || trackNotEnabled || instreamIdPresent || namePresent) /**< call the tune only if there is a change in the language, rendition or accessibility.*/
 			{
 				discardEnteringLiveEvt = true;
-				seek_pos_seconds = GetPositionSeconds();
 				mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 				mLanguageChangeInProgress = true;
 				AcquireStreamLock();
-				TeardownStream(false);
-				if(IsTSBSupported() &&
-				 ((languagePresent && !languageAvailabilityInManifest) ||
-				 (renditionPresent && !renditionAvailabilityInManifest) ||
-				 (accessibilityTypePresent && !accessibilityAvailabilityInManifest) ||
-				 (labelPresent && !labelAvailabilityInManifest) ||
-				 (namePresent && !nameAvailabilityInManifest)))
+				if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || eMEDIAFORMAT_DASH ))
 				{
-					ReloadTSB();
+					AAMPLOG_WARN("Seamless Text switch has been enabled");
+					mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
 				}
-				TuneHelper(eTUNETYPE_SEEK);
-				discardEnteringLiveEvt = false;
+				else
+				{
+					seek_pos_seconds = GetPositionSeconds();
+					TeardownStream(false);
+					if(IsTSBSupported() &&
+				 	((languagePresent && !languageAvailabilityInManifest) ||
+				 	(renditionPresent && !renditionAvailabilityInManifest) ||
+				 	(accessibilityTypePresent && !accessibilityAvailabilityInManifest) ||
+					(labelPresent && !labelAvailabilityInManifest) ||
+					(namePresent && !nameAvailabilityInManifest)))
+					{
+						ReloadTSB();
+					}
+
+					TuneHelper(eTUNETYPE_SEEK);
+					discardEnteringLiveEvt = false;
+				}
 				ReleaseStreamLock();
 
 				std::vector<TextTrackInfo> tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
@@ -12939,13 +12949,26 @@ uint32_t  PrivateInstanceAAMP::GetVidTimeScale(void)
 {
 	return vidTimeScale;
 }
-
+/**
+ * @brief Sets Low Subtitle TimeScale
+ */
+void PrivateInstanceAAMP::SetSubTimeScale(uint32_t subTimeScale)
+{
+	this->subTimeScale = subTimeScale;
+}
 /**
  * @brief Sets Low Audio TimeScale
  */
 void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
 {
 	this->audTimeScale = audTimeScale;
+}
+/**
+ * @brief Gets Subtitle TimeScale
+ */
+uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
+{
+	return subTimeScale;
 }
 
 /**

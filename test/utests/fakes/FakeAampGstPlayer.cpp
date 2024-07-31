@@ -226,7 +226,7 @@ void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 	}
 }
 
-void AAMPGstPlayer::FlushAudio(double pos)
+void AAMPGstPlayer::FlushTrack(AampMediaType mediaType,double pos)
 {
 }
 

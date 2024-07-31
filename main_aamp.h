@@ -477,7 +477,7 @@ public:
 	 *   @param[in]  position - playback position
 	 *   @return void
 	 */
-	virtual void FlushAudio(double position = 0){}
+	virtual void FlushTrack(AampMediaType mediaType,double position = 0){}
 
 	/**
 	 *   @brief Set player rate to audio/video sink
