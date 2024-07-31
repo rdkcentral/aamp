@@ -295,18 +295,34 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowab
 
 } // InjectFragmentChunkInternal
 /**
+ * @brief  To flush the subtitle position even if the MediaProcessor is not not enabled.
+ */
+void  MediaTrack::FlushSubtitlePositionDuringTrackSwitch(  CachedFragment* cachedFragment )
+{
+	IsoBmffBuffer buffer(mLogObj);
+	buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen());
+	buffer.parseBuffer();
+	uint64_t currentPTS = 0;
+	if(buffer.getFirstPTS(currentPTS))
+	{
+		double pos = (double)currentPTS / (double)aamp->GetSubTimeScale();
+		aamp->FlushTrack(eMEDIATYPE_SUBTITLE,pos);
+		AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u",currentPTS,aamp->GetSubTimeScale());
+	}
+}
+/**
  * @brief  To flush the Audio position even if the MediaProcessor is not not enabled.
  */
 void  MediaTrack::FlushAudioPositionDuringTrackSwitch(  CachedFragment* cachedFragment )
 {
-	IsoBmffBuffer buffer(mLogObj);	
+	IsoBmffBuffer buffer(mLogObj);
 	buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen());
 	buffer.parseBuffer();
 	uint64_t currentPTS = 0;
 	if(buffer.getFirstPTS(currentPTS))
 	{
 		double pos = (double)currentPTS / (double)aamp->GetAudTimeScale();
-		aamp->FlushAudio(pos);
+		aamp->FlushTrack(eMEDIATYPE_AUDIO,pos);
 		AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u",currentPTS,aamp->GetAudTimeScale());
 	}
 }
@@ -382,6 +398,24 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 		loadNewAudio = false;
 		aamp->mDisableRateCorrection = false;
 	}
+	if(loadNewSubtitle && (eTRACK_SUBTITLE == type) && !IsInitSegment)
+	{
+		CachedFragment* cachedFragment = &this->cachedFragment[fragmentIdxToFetch];
+		if(playContext)
+		{
+			playContext->resetPTSOnSubtitleSwitch(&cachedFragment->fragment, cachedFragment->position);
+
+		}
+		else
+		{
+			//Enters this case, when the Mediaprocessor is not enabled
+			FlushSubtitlePositionDuringTrackSwitch( cachedFragment );
+		}
+		aamp->ResumeTrackInjection((AampMediaType)eMEDIATYPE_SUBTITLE);
+		NotifyCachedSubtitleFragmentAvailable();
+		loadNewSubtitle = false;
+		aamp->mDisableRateCorrection = false;
+	}
 	fragmentIdxToFetch++;
 	if (fragmentIdxToFetch == maxCachedFragmentsPerTrack)
 	{
@@ -406,13 +440,17 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 		aamp->NotifyFragmentCachingComplete();
 	}
 }
-
 /**
  * @brief Process New Audio On Lang Switch
  */
 void MediaTrack::LoadNewAudio(bool val)
 {
 	loadNewAudio = val;
+}
+
+void MediaTrack::LoadNewSubtitle(bool val)
+{
+	loadNewSubtitle = val;
 }
 
 /**
@@ -842,11 +880,19 @@ bool MediaTrack::ProcessFragmentChunk()
 	}
 	if(cachedFragmentChunk->initFragment)
 	{
-		AAMPLOG_INFO("Injecting init chunk for %s",name);
-		InjectFragmentChunkInternal((AampMediaType)type, &cachedFragmentChunk->fragmentChunk , cachedFragmentChunk->position, cachedFragmentChunk->position, cachedFragmentChunk->duration, cachedFragmentChunk->initFragment, cachedFragmentChunk->discontinuity);
-		if (eTRACK_VIDEO == type && aamp->IsLocalAAMPTsb() && GetContext()->GetProfileCount())
+		class StreamAbstractionAAMP* pContext = GetContext();
+		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
-			GetContext()->NotifyBitRateUpdate(cachedFragmentChunk->profileIndex, cachedFragmentChunk->cacheFragStreamInfo, cachedFragmentChunk->position);
+			mSubtitleParser->processData(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), cachedFragment->position, cachedFragment->duration);
+		}
+		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
+		{
+			AAMPLOG_INFO("Injecting init chunk for %s",name);
+			InjectFragmentChunkInternal((AampMediaType)type, &cachedFragmentChunk->fragmentChunk , cachedFragmentChunk->position, cachedFragmentChunk->position, cachedFragmentChunk->duration, cachedFragmentChunk->initFragment, cachedFragmentChunk->discontinuity);
+			if (eTRACK_VIDEO == type && aamp->IsLocalAAMPTsb() && pContext && pContext->GetProfileCount())
+			{
+				pContext->NotifyBitRateUpdate(cachedFragmentChunk->profileIndex, cachedFragmentChunk->cacheFragStreamInfo, cachedFragmentChunk->position);
+			}
 		}
 		cachedFragmentChunk->initFragment = false;
 		return true;
@@ -1005,7 +1051,10 @@ bool MediaTrack::ProcessFragmentChunk()
 		{
 			timeScale = aamp->GetAudTimeScale();
 		}
-
+		else if (type == eTRACK_SUBTITLE)
+		{
+			timeScale = aamp->GetSubTimeScale();
+		}
 		if(!timeScale)
 		{
 			//FIX-ME-Read from MPD INSTEAD
@@ -1038,6 +1087,10 @@ bool MediaTrack::ProcessFragmentChunk()
 		//isobufTest.printBoxes();
 		isobufTest.destroyBoxes();
 #endif
+		if (mSubtitleParser && type == eTRACK_SUBTITLE)
+		{
+			mSubtitleParser->processData(parsedBufferChunk.GetPtr(), parsedBufferChunk.GetLen(), fpts, fduration);
+		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
@@ -1431,6 +1484,21 @@ void MediaTrack::WaitForCachedAudioFragmentAvailable()
        pthread_mutex_unlock(&audioMutex);
 }
 
+void MediaTrack::WaitForCachedSubtitleFragmentAvailable()
+{
+       AAMPLOG_WARN("Enter WaitForCachedSubtitleFragmentAvailable");
+       pthread_mutex_lock(&subtitleMutex);
+       int ret = 0;
+       ret = pthread_cond_wait(&subtitleFragmentCached, &subtitleMutex);
+       if (0 != ret)
+       {
+	       AAMPLOG_WARN("[%s] [WARN] pthread_cond_wait(subtitleFragmentCached) returned %s", name, strerror(ret));
+       }
+       AAMPLOG_DEBUG("[%s] wait complete for subtitleFragmentCached", name);
+
+       pthread_mutex_unlock(&subtitleMutex);
+}
+
 /**
  * @brief Notify the new Audio fragment cache available
  * after clearing the existing buffer
@@ -1440,6 +1508,13 @@ void MediaTrack::NotifyCachedAudioFragmentAvailable()
         pthread_mutex_lock(&audioMutex);
         pthread_cond_signal(&audioFragmentCached);
         pthread_mutex_unlock(&audioMutex);
+}
+
+void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
+{
+        pthread_mutex_lock(&subtitleMutex);
+        pthread_cond_signal(&subtitleFragmentCached);
+        pthread_mutex_unlock(&subtitleMutex);
 }
 
 /**
@@ -1495,13 +1570,17 @@ void MediaTrack::RunInjectLoop()
 	{
 		WaitForCachedAudioFragmentAvailable();
 	}
+	if(type == eTRACK_SUBTITLE && (loadNewSubtitle || refreshSubtitles))
+	{
+		WaitForCachedSubtitleFragmentAvailable();
+	}
 	if (!InjectFragment())
-        {
-		if(!(loadNewAudio || refreshAudio))
+    	{
+		if(!(loadNewAudio || refreshAudio ||loadNewSubtitle || refreshSubtitles ))
 		{
 			keepInjecting = false;
 		}
-        }
+    	}
         if (notifyFirstFragment && type != eTRACK_SUBTITLE)
         {
             notifyFirstFragment = false;
@@ -1591,6 +1670,7 @@ void MediaTrack::RunInjectChunkLoop()
 void MediaTrack::StopInjectLoop()
 {
 	NotifyCachedAudioFragmentAvailable();
+	NotifyCachedSubtitleFragmentAvailable();
 	if(fragmentInjectorThreadStarted && fragmentInjectorThreadID.joinable())
 	{
 		fragmentInjectorThreadID.join();
@@ -1714,7 +1794,7 @@ void MediaTrack::FlushFragments()
 	fragmentIdxToInject = 0;
 	fragmentIdxToFetch = 0;
 	numberOfFragmentsCached = 0;
-	if(!loadNewAudio)
+	if( ( type == eTRACK_AUDIO && !loadNewAudio ) || ( type == eTRACK_SUBTITLE && !loadNewSubtitle ) )	
 	{
 		totalFetchedDuration = 0;
 		totalFragmentsDownloaded = 0;
@@ -1779,12 +1859,12 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 		mutex(), fragmentFetched(), fragmentInjected(), abortInject(false),
 		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false), maxCachedFragmentsPerTrack(0),
 		totalMdatCount(0), cachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), abortInjectChunk(false), maxCachedFragmentChunksPerTrack(0),
-		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(),
+		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
 		mLogObj(logObj),
 		abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
 		,frDownloadWait(),prevDownloadStartTime(-1)
-		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0)
+		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0), seamlessSubtitleSwitchInProgress(false)
 		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
@@ -1815,7 +1895,8 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 	pthread_cond_init(&audioFragmentCached, NULL);
 	pthread_mutex_init(&mutex, NULL);
 	pthread_mutex_init(&audioMutex, NULL);
-
+	pthread_cond_init(&subtitleFragmentCached, NULL);
+	pthread_mutex_init(&subtitleMutex, NULL);
 }
 
 
@@ -1866,6 +1947,9 @@ MediaTrack::~MediaTrack()
 	pthread_cond_destroy(&audioFragmentCached);
 	pthread_mutex_destroy(&mutex);
 	pthread_mutex_destroy(&audioMutex);
+	pthread_cond_destroy(&subtitleFragmentCached);
+	pthread_mutex_destroy(&subtitleMutex);
+
 }
 
 /**

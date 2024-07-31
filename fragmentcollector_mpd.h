@@ -505,13 +505,6 @@ public:
 	void SelectAudioTrack(std::vector<AudioTrackInfo> &aTracks, std::string &aTrackIdx, int &audioAdaptationSetIndex, int &audioRepresentationIndex);
 
 	/***************************************************************************
-	* @fn RefreshAudio
-	*
-	* @return void
-	***************************************************************************/
-	void RefreshAudio() override;
-
-	/***************************************************************************
 	 * @fn SwitchAudioTrack
 	 *
 	 * @return void
@@ -519,11 +512,11 @@ public:
 	void SwitchAudioTrack();
 
 	/***************************************************************************
-	 * @fn UpdateAudioTrackInfo
+	 * @fn UpdateMediaTrackInfo
 	 *
 	 * @return AAMPStatusType
 	 ***************************************************************************/
-	AAMPStatusType UpdateAudioTrackInfo();
+	AAMPStatusType UpdateMediaTrackInfo(AampMediaType type);
 
 	/***************************************************************************
 	 * @fn GetCurrentFragmentDuration
@@ -710,6 +703,24 @@ protected:
 	 * @param trackIdx,discontinuity  number of tracks and discontinuity true if discontinuous fragment
 	 */
 	void FetchAndInjectInitialization(int trackIdx, bool discontinuity = false);
+	/**
+	 * @fn RefreshTrack
+	 * @param type media type
+	 * @return void
+	 */
+	void RefreshTrack(AampMediaType type) override;
+	/**
+	 * @fn SwitchSubtitleTrack
+	 * @param newTune true if this is a new tune
+	 * @return void
+	 */
+	void SwitchSubtitleTrack(bool newTune);
+	/**
+	 * @fn SelectSubtitleTrack
+	 * @param newTune true if this is a new tune
+	 * @return void
+	 */
+	void SelectSubtitleTrack(bool newTune, std::vector<TextTrackInfo> &tTracks , std::string &tTrackIdx);
 	/**
 	 * @fn StreamSelection
 	 * @param newTune true if this is a new tune

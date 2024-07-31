@@ -3893,26 +3893,30 @@ void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3H
 	privateContext->decoderHandleNotified = false;
 	m_ID3MetadataHandler = id3HandlerCallback;
 }
-
 /**
- * @brief Flush the audio playbin
+ * @brief Flush the track playbin
  * @param[in] pos - position to seek to after flush
  */
-void AAMPGstPlayer::FlushAudio(double pos)
+void AAMPGstPlayer::FlushTrack(AampMediaType type,double pos)
 {
-	aamp->SyncBegin();
 	double startPosition = 0;
-	AAMPLOG_MIL("Entering AAMPGstPlayer::FlushAudio() pipeline state %s pos %lf",
+	AAMPLOG_MIL("Entering AAMPGstPlayer::FlushTrack() type[%d] pipeline state %s pos %lf",(int)type,
 			gst_element_state_get_name(GST_STATE(privateContext->pipeline)), pos);
 
-	media_stream *stream = &this->privateContext->stream[eMEDIATYPE_AUDIO];
+	media_stream *stream = &this->privateContext->stream[type];
 	double rate = (double)AAMP_NORMAL_PLAY_RATE;
-#ifdef AMLOGIC
-	g_object_set(G_OBJECT(this->privateContext->audio_sink), "seamless-switch" , TRUE, NULL );
-#endif
-	privateContext->filterAudioDemuxBuffers = true;
-
-	pos = pos + aamp->mAudioDelta;
+	if(eMEDIATYPE_AUDIO == type)
+	{
+	#ifdef AMLOGIC
+		g_object_set(G_OBJECT(this->privateContext->audio_sink), "seamless-switch" , TRUE, NULL );
+	#endif
+		privateContext->filterAudioDemuxBuffers = true;
+		pos = pos + aamp->mAudioDelta;
+	}
+	else
+	{
+		pos = pos + aamp->mSubtitleDelta;
+	}
 	gst_element_seek_simple (GST_ELEMENT(stream->source),
 							GST_FORMAT_TIME,
 							GST_SEEK_FLAG_FLUSH,
@@ -3931,8 +3935,7 @@ void AAMPGstPlayer::FlushAudio(double pos)
 	{
 		startPosition = pos;
 	}
-	AAMPLOG_MIL("Exiting AAMPGstPlayer::FlushAudio() pipeline state: %s startPosition: %lf AudioDelta %lf", gst_element_state_get_name(GST_STATE(privateContext->pipeline)), startPosition, aamp->mAudioDelta);
-	aamp->SyncEnd();
+	AAMPLOG_MIL("Exiting AAMPGstPlayer::FlushTrack() type[%d] pipeline state: %s startPosition: %lf Delta %lf",(int)type, gst_element_state_get_name(GST_STATE(privateContext->pipeline)), startPosition, (int)type==eMEDIATYPE_AUDIO?aamp->mAudioDelta:aamp->mSubtitleDelta);
 }
 
 /**

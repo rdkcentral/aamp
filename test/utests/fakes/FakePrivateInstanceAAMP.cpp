@@ -938,6 +938,11 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 {
 }
 
+uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
+{
+    return 0u;
+}
+
 uint32_t  PrivateInstanceAAMP::GetAudTimeScale(void)
 {
     return 0u;
@@ -1215,6 +1220,10 @@ void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
 {
 }
 
+void PrivateInstanceAAMP::SetSubTimeScale(uint32_t audTimeScale)
+{
+}
+
 void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
 {
 }
@@ -1374,7 +1383,7 @@ void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
 {
 }
 
-void PrivateInstanceAAMP::FlushAudio(double pos)
+void PrivateInstanceAAMP::FlushTrack(AampMediaType mediaType,double pos)
 {
 }
 

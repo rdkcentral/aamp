@@ -78,7 +78,6 @@ public:
      */
      MediaStreamContext& operator=(const MediaStreamContext&) = delete;
 
-
     /**
      * @brief Get the context of media track. To be implemented by subclasses
      * @retval Context of track.
