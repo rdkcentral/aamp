@@ -7463,7 +7463,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		{
 			// Optimization, culledSeconds will be 0 for VOD
 			long long contentEndMs = 0;
-			if(IsLiveStream())
+			if(IsLocalAAMPTsb())
 			{
 				contentEndMs = (mAbsoluteEndPosition * 1000);
 			}
