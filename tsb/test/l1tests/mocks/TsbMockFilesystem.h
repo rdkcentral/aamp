@@ -30,6 +30,7 @@ class TsbMockFilesystem
 {
 public:
 	MOCK_METHOD(bool, create_directories, (const std::filesystem::path&, std::error_code&));
+	MOCK_METHOD(bool, create_directory, (const std::filesystem::path&, std::error_code&));
 	MOCK_METHOD(bool, exists, (const std::filesystem::path&));
 	MOCK_METHOD(uintmax_t, file_size, (const std::filesystem::path&, std::error_code&), (const));
 	MOCK_METHOD(bool, remove, (const std::filesystem::path&, std::error_code&));

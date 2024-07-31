@@ -5780,11 +5780,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 					SetIsIframeExtractionEnabled(true);
 					AAMPLOG_INFO("TSB Session Manager created and Active!!");
 				}
-				if(mTSBStore)
-				{
-					AAMPLOG_INFO("Refreshing the TSB Store session!!");
-					mTSBStore->Flush();
-				}
 				AAMPLOG_WARN("GST Audio Buffer increased to (%d) Video Buffer Size Increased to (%d) for HiFi LLD Stream", (GST_AUDIOBUFFER_SIZE_BYTES_BASE*9), (GST_VIDEOBUFFER_SIZE_BYTES_BASE*9));
 				SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_GstVideoBufBytes, (GST_VIDEOBUFFER_SIZE_BYTES_BASE*6));
 				SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_GstAudioBufBytes, (GST_AUDIOBUFFER_SIZE_BYTES_BASE*6));

@@ -17,14 +17,11 @@
  * limitations under the License.
  */
 
-#ifndef __TSB_FS__
-#define __TSB_FS__
+#ifndef __TSB_FAKE_LIBC__
+#define __TSB_FAKE_LIBC__
 
-#include <filesystem>
-#include <thread>
-#include <fstream>
+// Included for open() and flock() flags
 #include <fcntl.h>
-#include <unistd.h>
 #include <sys/file.h>
 
 namespace TSB
@@ -32,30 +29,13 @@ namespace TSB
 
 namespace FS
 {
-using std::ofstream;
-using std::ifstream;
 
-using std::filesystem::exists;
-using std::filesystem::file_size;
-using std::filesystem::remove;
-using std::filesystem::space;
-using std::filesystem::directory_entry;
-using std::filesystem::directory_iterator;
-using std::filesystem::path;
-using std::filesystem::space_info;
-using std::filesystem::create_directories;
-using std::filesystem::create_directory;
-using std::filesystem::remove_all;
-using std::filesystem::rename;
-
-using std::this_thread::sleep_for;
-
-using ::open;
-using ::close;
-using ::flock;
+int open(const char *, int);
+int close(int);
+int flock(int, int);
 
 } // namespace FS
 
 } // namespace TSB
 
-#endif // __TSB_FS__
+#endif // __TSB_FAKE_LIBC__

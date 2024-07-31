@@ -215,7 +215,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		}
 		catch (std::exception &e)
 		{
-			AAMPLOG_ERR("Failed to instantiate TSB Store object for flush, reason: %s", e.what());
+			// This is expected if an AAMP TSB instance is currently alive in another process
+			AAMPLOG_WARN("Failed to instantiate TSB Store object for flush, reason: %s", e.what());
 		}
 	}
 	aamp->SetScheduler(&mScheduler);

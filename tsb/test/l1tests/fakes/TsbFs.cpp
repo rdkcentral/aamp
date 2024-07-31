@@ -24,11 +24,13 @@
 #include "TsbMockOfstream.h"
 #include "TsbMockIfstream.h"
 #include "TsbMockDirectoryIterator.h"
+#include "TsbMockLibc.h"
 
 TsbMockFilesystem* g_mockFilesystem = nullptr;
 TsbMockOfstream* g_mockOfstream = nullptr;
 TsbMockIfstream* g_mockIfstream = nullptr;
 TsbMockDirectorIterator* g_mockDirectoryIterator = nullptr;
+TsbMockLibc* g_mockLibc = nullptr;
 
 #ifdef ENABLE_TSB_FAKES_LOG
 #define LOG(msg)                                                                                   \
@@ -204,6 +206,18 @@ bool create_directories(const path& __p, std::error_code& __ec)
 	return rv;
 }
 
+bool create_directory(const path& __p, std::error_code& __ec)
+{
+	bool rv = true;
+	LOG(__p);
+	if (g_mockFilesystem)
+	{
+		rv = g_mockFilesystem->create_directory(__p, __ec);
+	}
+	LOG(rv);
+	return rv;
+}
+
 bool exists(const path& __p)
 {
 	bool rv = true;
@@ -279,6 +293,44 @@ space_info space(const path& __p, std::error_code& __ec)
 	}
 	LOG(rv.capacity);
 	LOG(rv.available);
+	return rv;
+}
+
+int open(const char *pathname, int flags)
+{
+	int rv = 0;
+	LOG(pathname);
+	LOG(flags);
+	if (g_mockLibc)
+	{
+		rv = g_mockLibc->open(pathname, flags);
+	}
+	LOG(rv);
+	return rv;
+}
+
+int close(int fd)
+{
+	int rv = 0;
+	LOG(fd);
+	if (g_mockLibc)
+	{
+		rv = g_mockLibc->close(fd);
+	}
+	LOG(rv);
+	return rv;
+}
+
+int flock(int fd, int op)
+{
+	int rv = 0;
+	LOG(fd);
+	LOG(op);
+	if (g_mockLibc)
+	{
+		rv = g_mockLibc->flock(fd, op);
+	}
+	LOG(rv);
 	return rv;
 }
 

@@ -25,6 +25,7 @@
 #include "TsbApi.h"
 #include "TsbLog.h"
 #include "TsbSem.h"
+#include "TsbLocationLock.h"
 #include "TsbFs.h"
 
 #define TSB_BYTES_IN_MIB    (1024 * 1024)
@@ -61,6 +62,7 @@ private:
 	std::mutex mApiMutex{};
 	std::thread mFlusherThread{};
 	Sem mFlusherSem{};
+	std::unique_ptr<LocationLock> mLocationLock{};
 
 	static std::string SanitizePath(const std::string &);
 	Status UrlToFileMapper(const std::string& url, FS::path& path) const;
@@ -229,11 +231,24 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, LogLevel l
 	TSB_LOG_TRACE(mLogger, "Construct Store", "location", config.location, "minFreePercentage",
 				  mMinFreePercent, "maxCapacity", mMaxCapacity);
 
-	FS::path locationPath(mLocation);
-	if (!locationPath.is_absolute())
+	if (!mLocation.is_absolute())
 	{
 		TSB_LOG_ERROR(mLogger, "Location is not a valid absolute path", "location", mLocation);
 		throw std::invalid_argument("Location is not a valid absolute path");
+	}
+
+	if (!FS::create_directories(mLocation, ec) && ec.default_error_condition())
+	{
+		TSB_LOG_ERROR(mLogger, "Failed to create directory", "location", mLocation, "errorCode", ec);
+		throw std::invalid_argument("Failed to create location directory");
+	}
+
+	mLocationLock = std::make_unique<LocationLock>(mLocation);
+	if (mLocationLock->Lock() == Status::FAILED)
+	{
+		TSB_LOG_WARN(mLogger, "Another TSB Store instance is currently using the configured location",
+					 "location", mLocation);
+		throw std::invalid_argument("Another TSB Store instance is currently using the configured location");
 	}
 
 	if (mMinFreePercent > 100)
@@ -242,9 +257,9 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, LogLevel l
 		throw std::invalid_argument("Invalid minimum free space percentage");
 	}
 
-	// Create the initial directory structure if it doesn't exist
-	FS::path flushDir = locationPath / std::to_string(mFlushDirNum.load());
-	if (!FS::create_directories(flushDir, ec) && ec.default_error_condition())
+	// Create the initial flush directory if it doesn't exist
+	FS::path flushDir = mLocation / std::to_string(mFlushDirNum.load());
+	if (!FS::create_directory(flushDir, ec) && ec.default_error_condition())
 	{
 		TSB_LOG_ERROR(mLogger, "Failed to create", "flushDir", flushDir, "errorCode", ec);
 		throw std::invalid_argument("Failed to create flushDir");
@@ -252,7 +267,7 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, LogLevel l
 	else
 	{
 		// Move any stale files / directories present in the storage due to a non clean shutdown.
-		for (const auto& dir_entry : FS::directory_iterator{locationPath})
+		for (const auto& dir_entry : FS::directory_iterator{mLocation})
 		{
 			if (dir_entry.path() != flushDir)
 			{

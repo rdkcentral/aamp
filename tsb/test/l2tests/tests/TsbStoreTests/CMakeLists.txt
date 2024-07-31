@@ -20,7 +20,7 @@ set(EXEC_NAME TsbStoreTests2)
 include_directories(${TSB_ROOT}/api)
 include_directories(${TSB_ROOT}/src/fs)
 
-set(TSB_SOURCES ${TSB_ROOT}/src/TsbStore.cpp ${TSB_ROOT}/src/TsbLog.cpp ${TSB_ROOT}/src/TsbSem.cpp)
+set(TSB_SOURCES ${TSB_ROOT}/src/TsbStore.cpp ${TSB_ROOT}/src/TsbLog.cpp ${TSB_ROOT}/src/TsbSem.cpp ${TSB_ROOT}/src/TsbLocationLock.cpp)
 set(TEST_SOURCES TsbStoreTestsMain.cpp TsbStoreTests.cpp)
 
 add_executable(${EXEC_NAME}
