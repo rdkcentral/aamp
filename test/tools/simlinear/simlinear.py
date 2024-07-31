@@ -33,10 +33,10 @@ Simlinear API's:
     
 2) Check Status of All/specific simlinear server instance       
     curl 'http://localhost:5000/sim-status?port=8082’
-
+    
 3) Stop simlinear server instance running at a unique port   
     curl 'http://localhost:5000/sim-stop?port=8082’
-
+    
 4) On-the-fly ADD stream corruption rule with a unique rule_id
    curl 'http://localhost:5000/sim-config?port=8082&cmd='add'&rule_id='err404'&assettype='video-mp4'&fragments=0,500,1000,2000&errorcode=404'
             rule_id='custom id string'
@@ -46,14 +46,14 @@ Simlinear API's:
                        502, 5xx http failures
                        1000,delay before first byte returned on a given download
                        1001,induce delay before final byte(s) for a given download (we have two flavors of client side stall abort logic)
-
-
+                       
+                       
 5) On-the-fly EDIT stream corruption rule with a unique id
    curl 'http://localhost:5000/sim-config?port=8082&cmd='edit'&rule_id='err404'&assettype='video-mp4'&fragments=-1000,2000,5000&errorcode=404
-
+   
 6) On-the-fly DELETE stream corruption rule with a unique id
    curl 'http://localhost:5000/sim-config?port=8082&cmd='del'&rule_id='err404'
-  
+   
 """
 
 CMD_PORT = 5000
@@ -133,12 +133,12 @@ def display_all_manifests(host, port, abr_type):
         for fileName in files:
             if ((fileName not in filelist) and (ext in fileName)):
                 filelist.append(os.path.relpath(path + "/"+ fileName))
-    
+
     print("Serving manifests")
     for file in filelist:
         file_path = os.path.dirname(file).lstrip(".").lstrip("/")
         fileName = os.path.basename(file)
-        
+
         if (("._" not in fileName) and (fileName.endswith(ext))):
             print(hostInfo + file_path + "/" + fileName)
 
@@ -155,7 +155,36 @@ def display_all_manifests(host, port, abr_type):
         else:
             print(hostInfo + file_path + "/" + manifest + ext + "." + str(manifest_dict[manifest]))
 
-    
+
+def modify_manifest_contents(rtn):
+
+    if "contents" in rtn:
+        # RDKAAMP-1435
+        details = read_harvest_details()
+        if details != {}:
+            if details['url'] is not None:
+                baseURLs = re.findall(r'<BaseURL>([\S]*)<\/BaseURL>', rtn["contents"])
+                if len(baseURLs) > 0:
+                    for baseURL in baseURLs:
+                        basURL_domain = urlparse(baseURL)
+                        if basURL_domain.netloc in details['url']:
+                            rtn["contents"] = re.sub(r'<BaseURL>https?://' + basURL_domain.netloc,
+                                                     f"<BaseURL>http://{self.server.server_address[0]}:{self.server.server_address[1]}/{basURL_domain.netloc}",
+                                                     rtn["contents"])
+                        elif args.ad_server != "":
+                            # Replace BaseURL to Ad-Server
+                            rtn["contents"] = re.sub(r'<BaseURL>https?://' + basURL_domain.netloc,
+                                                     f"<BaseURL>{args.ad_server}/{basURL_domain.netloc}",
+                                                     rtn["contents"])
+
+        contents = rtn["contents"].encode("utf-8")
+    else:
+        with open(rtn["path"], "rb") as f:
+            contents = f.read()
+
+    return contents
+
+
 #################################################################
 class DASHServer(ManifestServerCommon):
     """
@@ -264,7 +293,7 @@ class DASHServerHandler(BaseHTTPRequestHandler):
         """
         Handler for http get
         """
-        
+
         global numOfRequests
         global refreshVal
         global list_of_threads
@@ -272,6 +301,7 @@ class DASHServerHandler(BaseHTTPRequestHandler):
         global shutdown
         # path=/some/kind/of/path?query
         # becomes some/kind/of/path
+
         path = self.path[1:].split("?")[0]
 
         if self.path.endswith(".m3u8"):
@@ -288,39 +318,29 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                         port = list(list_of_threads.keys())[0]
                         self.send_response(408)
                         self.end_headers()
-                        
+
                         self.connection.close()
-                        
+
                         restart = True
                         shutdown = True
-                        
+
                         return;
                 rtn = dash_server.dash_get_manifest(path)
                 if not rtn:
                     raise FileNotFoundError
                 log.info("%s %s",time.time(), rtn["path"])
+
+                contents = modify_manifest_contents(rtn)
+
+            elif self.path == "/timing":
+
+                tNow = datetime.utcnow()
+                ISOtime = tNow.strftime("%Y-%m-%dT%H:%M:%S.")
+                contents = ISOtime.encode("utf-8")
+
             else:
                 rtn = {"path": path}
-
-            if "contents" in rtn:
-                #RDKAAMP-1435
-                details = read_harvest_details()
-                if details != {}:
-                    if details['url'] is not None:
-                        baseURLs = re.findall(r'<BaseURL>([\S]*)<\/BaseURL>', rtn["contents"])
-                        if len(baseURLs) > 0:
-                            for baseURL in baseURLs:
-                                basURL_domain = urlparse(baseURL)
-                                if basURL_domain.netloc in details['url']:
-                                    rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>http://{self.server.server_address[0]}:{self.server.server_address[1]}/{basURL_domain.netloc}", rtn["contents"])
-                                elif args.ad_server != "":
-                                    # Replace BaseURL to Ad-Server
-                                    rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>{args.ad_server}/{basURL_domain.netloc}", rtn["contents"])
-
-                contents = rtn["contents"].encode("utf-8")
-            else:
-                with open(rtn["path"], "rb") as f:
-                    contents = f.read()
+                contents = modify_manifest_contents(rtn)
 
             self.send_response(200)
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -355,13 +375,13 @@ class HLSServerHandler(BaseHTTPRequestHandler):
         """
         Handler for http get
         """
-        
+
         global numOfRequests
         global refreshVal
         global list_of_threads
         global restart
         global shutdown
-        
+
         path = self.path[1:]
 
         if self.path.endswith(".mpd"):
@@ -378,12 +398,12 @@ class HLSServerHandler(BaseHTTPRequestHandler):
                         port = list(list_of_threads.keys())[0]
                         self.send_response(408)
                         self.end_headers()
-                        
+
                         self.connection.close()
-                        
+
                         restart = True
                         shutdown = True
-                        
+
                         return;
                 rtn_path = hls_server.manifest_serve(path)
                 if not rtn_path:
@@ -733,7 +753,7 @@ log.setLevel(logging.INFO)
 
 def duration_to_seconds(duration_str):
     parts = duration_str.split(":")
-    
+
     if len(parts) == 3:  # Format: hours:minutes:seconds
         hours, minutes, seconds = map(int, parts)
         total_seconds = hours * 3600 + minutes * 60 + seconds
@@ -791,13 +811,13 @@ if __name__ == "__main__":
         print("Found Harvest Details")
     else:
         print("WARNING: missing harvest details, playback may be impacted.")
-    
+
     init_routes()
-    
+
     while restart == True:
-    
+
         restart = False
-      
+
         if args.refresh:
             refreshVal = args.refresh
 
@@ -831,7 +851,7 @@ if __name__ == "__main__":
                 del list_of_threads[args.hls]
                 list_of_webServer[args.hls]["proc"].server_close()
                 del list_of_webServer[args.hls]
-                
+
             elif args.dash:
                 #list_of_threads[args.dash].join()
                 del list_of_threads[args.dash]
