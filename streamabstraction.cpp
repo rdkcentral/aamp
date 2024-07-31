@@ -1153,7 +1153,8 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool s
 	}
 	else if (!stopInjection)
 	{
-		if ((!GetContext()->trickplayMode) && (!cachedFragment->initFragment) 
+		// if cachedFragment->PTSOffsetSec is zero no need to restamp PTS
+		if ((!GetContext()->trickplayMode) && (!cachedFragment->initFragment) && (0 != cachedFragment->PTSOffsetSec)
 		&& ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
