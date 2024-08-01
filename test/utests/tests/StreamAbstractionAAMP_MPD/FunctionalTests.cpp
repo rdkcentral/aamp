@@ -974,6 +974,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
         StreamOutputFormat auxAudioOutputFormat = FORMAT_ISO_BMFF;
         StreamOutputFormat subtitleOutputFormat = FORMAT_INVALID;
         mStreamAbstractionAAMP_MPD->GetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
+        EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
         mStreamAbstractionAAMP_MPD->ReassessAndResumeAudioTrack(true);
         mStreamAbstractionAAMP_MPD->AbortWaitForAudioTrackCatchup(false);
         EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));

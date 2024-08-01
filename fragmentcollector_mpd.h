@@ -572,9 +572,10 @@ protected:
 	 * @fn DetectDiscontinuityAndFetchInit
 	 *
 	 * @param[out] periodChanged flag
+	 * @param[in] nextFragmentTime
 	 * @return void
 	 */
-	void DetectDiscontinuityAndFetchInit(bool &periodChanged);
+	void DetectDiscontinuityAndFetchInit(bool &periodChanged, uint64_t nextFragmentTime);
 
 	/**
 	 * @fn TsbReader

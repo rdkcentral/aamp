@@ -602,7 +602,12 @@ void PrivateInstanceAAMP::StoreLanguageList(const std::set<std::string> &langlis
 
 bool PrivateInstanceAAMP::DownloadsAreEnabled(void)
 {
-    return true;
+	bool retVal = true;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		retVal = g_mockPrivateInstanceAAMP->DownloadsAreEnabled();
+	}
+	return retVal;
 }
 
 void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, int error_code)

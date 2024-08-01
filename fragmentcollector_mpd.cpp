@@ -8456,7 +8456,6 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 		}
 		ret = true;
 	}
-	CheckEndOfStream(waitForAdBreakCatchup);
 	return ret;
 }
 
@@ -8544,12 +8543,13 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool &periodChanged, bool &a
  * @fn DetectDiscontinuityAndFetchInit
  *
  * @param[out] periodChanged flag
+ * @param[in] nextSegmentTime
+ *
  * @return void
  */
-void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool &periodChanged)
+void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool &periodChanged, uint64_t nextSegmentTime)
 {
 	bool discontinuity = false;
-	uint64_t nextSegmentTime = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time;
 
 	/*Discontinuity handling on period change*/
 	if (periodChanged && ISCONFIGSET(eAAMPConfig_MPDDiscontinuityHandling) && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled &&
@@ -8722,7 +8722,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 			 * Select the period from ad or source content
 			 */
 			bool bmanifestupdate = false;
-			bool requireStreamSelection;
+			bool requireStreamSelection = false;
 			if (!aamp->DownloadsAreEnabled())
 			{
 				break;
@@ -8753,6 +8753,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 					}
 					continue; // Continue iteration with updated MPD
 				}
+				else if(CheckEndOfStream(waitForAdBreakCatchup))
+				{
+					break;
+				}
 				else
 				{
 					// Skip iterator reset and continue with same period
@@ -8761,6 +8765,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 				}
 			}
 
+			uint64_t nextSegmentTime = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time;
 			/*
 			 * Index selected period from ad or source content
 			 */
@@ -8773,7 +8778,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 			else
 			{
 				// Indexing success case
-				DetectDiscontinuityAndFetchInit(periodChanged);
+				DetectDiscontinuityAndFetchInit(periodChanged, nextSegmentTime);
 				if (mCdaiObject->HasDaiAd(mBasePeriodId))
 				{
 					if (mCdaiObject->mAdBreaks[mBasePeriodId].mAdFailed)
@@ -8928,6 +8933,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 						}
 						else
 						{
+							AAMPLOG_INFO("Exiting from fetcher loop as EOS reached");
 							break;
 						}
 					}
