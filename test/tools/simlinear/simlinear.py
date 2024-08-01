@@ -22,7 +22,8 @@ import webargs
 from webargs.flaskparser import use_args
 from library.manifests import read_harvest_details, ManifestServerCommon
 from collections import defaultdict
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qsl, urlsplit #RDKAAMP-3019
+import base64 #RDKAAMP-3019
 
 """
 Simlinear API's:
@@ -155,7 +156,21 @@ def display_all_manifests(host, port, abr_type):
         else:
             print(hostInfo + file_path + "/" + manifest + ext + "." + str(manifest_dict[manifest]))
 
-    
+def modify_response(path): #RDKAAMP-3019
+    qParams = dict(parse_qsl(urlsplit(path).query))
+    if qParams.get("respData","") != "":
+        params = json.loads(base64.b64decode(qParams.get("respData","")))
+        for param in params[::-1]:
+            if int(param.get('delay', 0)) > 0 and re.findall(param.get('pattern', ""), path):
+                if int(param.get('delay', 0)) <= 10000:
+                    time.sleep(float(param.get('delay'))/1000)
+                else:
+                    log.info(f"Delay limit exceeded {param.get('delay', 0)}, Limit is 10000 for URI {path}")
+            if int(param.get('status', 200)) == 404 and re.findall(param.get('pattern', ""), path):
+                raise FileNotFoundError
+            if int(param.get('status', 200)) == 500 and re.findall(param.get('pattern', ""), path):
+                return 'An error occurred, please check logs for details.', 500
+
 #################################################################
 class DASHServer(ManifestServerCommon):
     """
@@ -279,7 +294,8 @@ class DASHServerHandler(BaseHTTPRequestHandler):
             sys.exit(1)
 
         try:
-            if self.path.endswith(".mpd"):
+            # if self.path.endswith(".mpd"): #RDKAAMP-3019
+            if path.endswith(".mpd"): #RDKAAMP-3019
                 if refreshVal > 0:
                     numOfRequests += 1
                     print()
@@ -319,6 +335,8 @@ class DASHServerHandler(BaseHTTPRequestHandler):
 
                 contents = rtn["contents"].encode("utf-8")
             else:
+                modify_response(self.path) #RDKAAMP-3019
+                    
                 with open(rtn["path"], "rb") as f:
                     contents = f.read()
 
@@ -362,7 +380,8 @@ class HLSServerHandler(BaseHTTPRequestHandler):
         global restart
         global shutdown
         
-        path = self.path[1:]
+        # path = self.path[1:] #RDKAAMP-3019
+        path = self.path[1:].split("?")[0] #RDKAAMP-3019
 
         if self.path.endswith(".mpd"):
             log.error("ERROR This looks like a DASH request but I am a HLS server")
@@ -395,6 +414,8 @@ class HLSServerHandler(BaseHTTPRequestHandler):
             if "contents" in rtn:
                 contents = rtn["contents"]
             else:
+                modify_response(self.path) #RDKAAMP-3019
+                
                 with open(rtn["path"], "rb") as f:
                     contents = f.read()
 
