@@ -1,6 +1,6 @@
 
 # ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
-# V5.12
+# V6.7
  
 ## Overview
 
@@ -785,6 +785,7 @@ Examples:
 | Name  | Type | Description |
 | ---- | ---- | ---- |
 | name  | String | Human readable language name e.g: Spanish,English. |
+| label  | String | Represents the label of the audio track. |
 | language  | String | Specifies dominant language of the audio e.g:  spa,eng |
 | codec  | String | codec associated with Audio. e.g: mp4a.40.2 |
 | rendition  | String | Role for DASH, If not present, the role is assumed to be main e.g: caption,subtitle,main. |
@@ -803,6 +804,7 @@ Examples:
 ```sh
 [{
     "name":	"root_audio111",
+    "label":    "screen1_audio111",
     "language":	"en",
     "codec":	"ec-3",
     "rendition":	"alternate",
@@ -829,6 +831,7 @@ Examples:
     </SegmentTimeline>
     </SegmentTemplate>
     <Representation id="root_audio111" bandwidth="117600" codecs="ec-3" audioSamplingRate="48000"/>
+    <Label>screen1_audio111</Label>
 </AdaptationSet>
 ```
 
@@ -1191,12 +1194,15 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 ### getTextTrack( )
 - Supported UVE version 2.6 and above.
 - Returns the index of the current text track in the available text tracks list.
+- Returns -1 when subtitles are disabled.
+- Should be only used after text track is selected using setTextTrack() API. It will return -1 otherwise.
 
 ---
 
 ### getTextTrackInfo
 - Supported UVE version 4.4 and above.
-- Returns playing Text track information in JSON format 
+- Returns playing Text track information in JSON format.
+- Currently support is limited to only out-of-band captions.
 
 - ###### Example : 
 ```js
@@ -3259,3 +3265,11 @@ Dec 2023
     - mpdStichingSupport
     - enablePTSReStamp
     - subtitleClockSyncInterval
+
+**Version:** 6.7
+**Release Notes:**
+Aug 2024
+- API
+    - getAvailableAudioTracks ( updated example and added missing property )
+    - setPreferredTextLanguage ( missing information added )
+    - getTextTrackInfo ( missing information added )
