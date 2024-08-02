@@ -4039,7 +4039,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			
 			for (int i = 0; i < mNumberOfTracks; i++)
 			{
-				mMediaStreamContext[i]->periodStartOffset = currentPeriodStart;
+				//The default fragment time has been updated to an absolute time format. Therefore,
+				//the periodStartOffset should now be relative to the Availability Start Time.
+				mMediaStreamContext[i]->periodStartOffset = mPeriodStartTime;
 			}
 			if(mLowLatencyMode)
 			{
@@ -8192,7 +8194,9 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 					{
 						pMediaStreamContext->GetContext()->CheckForPlaybackStall(false);
 					}
-
+					//Determining the current position within the period by calculating the difference between
+					//the fragmentTime and the periodStartOffset (both in absolute terms).
+					//If this difference exceeds the total duration of the ad, the period is considered to have ended.
 					if (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState && rate > 0 && !(pMediaStreamContext->eos)
 							&& mCdaiObject->CheckForAdTerminate(pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset))
 					{
