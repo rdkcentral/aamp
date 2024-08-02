@@ -35,6 +35,7 @@ class IsoBmffHelperTests : public ::testing::Test
 		void SetUp() override
 		{
 			mLogObj = new AampLogManager();
+			mLogObj->aampLoglevel = eLOGLEVEL_TRACE;		//To enable all levels of AAMP logging
 			g_mockIsoBmffBuffer = new MockIsoBmffBuffer();
 		}
 
@@ -64,6 +65,7 @@ TEST_F(IsoBmffHelperTests, restampPtsTest)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(ptsOffset));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration());
 	EXPECT_TRUE(IsoBmffRestampPts(buffer, ptsOffset,url));
 }
 
@@ -84,5 +86,6 @@ TEST_F(IsoBmffHelperTests, restampPtsNegativeTest)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(_)).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration()).Times(0);
 	EXPECT_FALSE(IsoBmffRestampPts(buffer, ptsOffset,url));
 }

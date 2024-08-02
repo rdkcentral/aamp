@@ -197,18 +197,32 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 			if (1 == version)
 			{
 				uint64_t pts = ReadUint64(buf);
-				beforePTS = pts;
+				if (!firstPtsSaved)
+				{
+					beforePTS = pts;
+				}
 				pts += offset;
 				WriteUint64(buf, pts);
-				afterPTS = pts;
+				if (!firstPtsSaved)
+				{
+					firstPtsSaved = true;
+					afterPTS = pts;
+				}
 			}
 			else
 			{
 				uint32_t pts = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-				beforePTS = pts;
+				if (!firstPtsSaved)
+				{
+					beforePTS = pts;
+				}
 				pts += (uint32_t)offset;
 				WRITE_U32(buf, pts);
-				afterPTS = pts;
+				if (!firstPtsSaved )
+				{
+					afterPTS = pts;
+					firstPtsSaved = true;
+				}
 			}
 		}
 		else
@@ -847,4 +861,44 @@ void IsoBmffBuffer::truncate(void)
 			bufSize = size_t(mdat->getOffset() + newMdatSize);
 		}
 	}
+}
+
+/**
+ * @brief Get the total segment duration in units of timescale.
+ *
+*/
+uint64_t IsoBmffBuffer::getSegmentDuration()
+{
+	size_t parsedBoxCount = 0;
+	uint64_t fDuration = 0;
+	uint64_t totalChunkDuration = 0;
+
+	parsedBoxCount = boxes.size();
+
+	if (parsedBoxCount)
+	{
+		int lastMDatIndex = -1;
+		//Get Last MDAT box
+		for( int i=(int)parsedBoxCount-1; i>=0; i-- )
+		{
+			Box *box = boxes.at(i);
+			if (IS_TYPE(box->getType(), Box::MDAT))
+			{
+				lastMDatIndex = i;
+				break;
+			}
+		}
+
+		for(int i=0;i<lastMDatIndex;i++)
+		{
+			Box *box = boxes.at(i);
+			if (IS_TYPE(box->getType(), Box::MOOF))
+			{
+				getSampleDuration(box, fDuration);
+				totalChunkDuration += fDuration;
+			}
+		}
+	}
+
+	return totalChunkDuration;
 }
