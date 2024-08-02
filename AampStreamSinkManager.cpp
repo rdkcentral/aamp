@@ -229,7 +229,7 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 
 			if (mInactiveGstPlayersMap.size())
 			{
-				AAMPLOG_WARN("AampStreamSinkManager(%p) %ld Inactive players present", this, mInactiveGstPlayersMap.size());
+				AAMPLOG_WARN("AampStreamSinkManager(%p) %zu Inactive players present", this, mInactiveGstPlayersMap.size());
 			}
 			else
 			{

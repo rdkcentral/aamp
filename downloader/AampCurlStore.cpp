@@ -276,7 +276,7 @@ CurlSocketStoreStruct *CurlStore::CreateCurlStore ( const std::string &hostname 
 	}
 
 	umCurlSockDataStore[hostname]=CurlSock;
-	AAMPLOG_INFO("Curl store for %s created, Added shared ctx %p in curlstore %p, size:%lu maxsize:%d", hostname.c_str(),
+	AAMPLOG_INFO("Curl store for %s created, Added shared ctx %p in curlstore %p, size:%zu maxsize:%d", hostname.c_str(),
 					CurlSock->mCurlShared, CurlSock, umCurlSockDataStore.size(), MaxCurlSockStore);
 	return CurlSock;
 }
@@ -797,7 +797,7 @@ void CurlStore::KeepInCurlStoreBulk ( const std::string &hostname, AampCurlInsta
 			mObj.eHdlTimestamp = CurlSock->timestamp;
 			mObj.curlId = loop;
 			CurlSock->mFreeQ.push_back(mObj);
-			AAMPLOG_TRACE("Curl Inst %d CurlCtx:%p stored at %lu", loop, mObj.curl, CurlSock->mFreeQ.size());
+			AAMPLOG_TRACE("Curl Inst %d CurlCtx:%p stored at %zu", loop, mObj.curl, CurlSock->mFreeQ.size());
 		}
 
 		AAMPLOG_TRACE ("CurlStore User count:%d for:%s", CurlSock->mCurlStoreUserCount, hostname.c_str());
@@ -833,7 +833,7 @@ void CurlStore::KeepInCurlStore ( const std::string &hostname, AampCurlInstance 
 		mObj.eHdlTimestamp = CurlSock->timestamp;
 		mObj.curlId = (int)CurlIndex;
 		CurlSock->mFreeQ.push_back(mObj);
-		AAMPLOG_TRACE("Curl Inst %d for %s CurlCtx:%p stored at %lu, User:%d", CurlIndex, hostname.c_str(),
+		AAMPLOG_TRACE("Curl Inst %d for %s CurlCtx:%p stored at %zu, User:%d", CurlIndex, hostname.c_str(),
 						curl,CurlSock->mFreeQ.size(), CurlSock->mCurlStoreUserCount);
 	}
 	else
@@ -967,14 +967,14 @@ void CurlStore::ShowCurlStoreData ( bool trace )
 {
 	if(trace)
 	{
-		AAMPLOG_INFO("Curl Store Size:%lu, MaxSize:%d", umCurlSockDataStore.size(), MaxCurlSockStore);
+		AAMPLOG_INFO("Curl Store Size:%zu, MaxSize:%d", umCurlSockDataStore.size(), MaxCurlSockStore);
 
 		CurlSockDataIter it=umCurlSockDataStore.begin();
 		for(int loop=1; it != umCurlSockDataStore.end(); ++it,++loop )
 		{
 			CurlSocketStoreStruct *CurlSock = it->second;
 			AAMPLOG_INFO("%d.Host:%s ShHdl:%p LastUsed:%lld UserCount:%d", loop, (it->first).c_str(), CurlSock->mCurlShared, CurlSock->timestamp, CurlSock->mCurlStoreUserCount);
-			AAMPLOG_INFO("%d.Total Curl fds:%lu,", loop, CurlSock->mFreeQ.size());
+			AAMPLOG_INFO("%d.Total Curl fds:%zu,", loop, CurlSock->mFreeQ.size());
 
 			for(auto it = CurlSock->mFreeQ.begin(); it != CurlSock->mFreeQ.end(); ++it)
 			{

@@ -62,7 +62,7 @@ void MediaTrack::StartPlaylistDownloaderThread()
 			abortPlaylistDownloader = false;
 			playlistDownloaderThread = new std::thread(&MediaTrack::PlaylistDownloader, this);
 			playlistDownloaderThreadStarted = true;
-			AAMPLOG_INFO("Thread created for PlaylistDownloader [%lu]", GetPrintableThreadID(*playlistDownloaderThread));
+			AAMPLOG_INFO("Thread created for PlaylistDownloader [%zu]", GetPrintableThreadID(*playlistDownloaderThread));
 		}
 		else
 		{
@@ -937,7 +937,7 @@ bool MediaTrack::ProcessFragmentChunk()
 
 				parsedBufferSize -= unParsedBufferSize; //get parsed buf size
 
-				AAMPLOG_TRACE("[%s] parsedBufferSize : %zu updated unParsedBufferSize: %zu Total Buf Size processed: %lu", name,parsedBufferSize,unParsedBufferSize,parsedBufferSize+unParsedBufferSize);
+				AAMPLOG_TRACE("[%s] parsedBufferSize : %zu updated unParsedBufferSize: %zu Total Buf Size processed: %zu", name,parsedBufferSize,unParsedBufferSize,parsedBufferSize+unParsedBufferSize);
 
 				break;
 			}
@@ -1019,7 +1019,7 @@ bool MediaTrack::ProcessFragmentChunk()
 #endif
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
-			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%ld fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
+			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration);
 			totalInjectedChunksDuration += fduration;
 		}
@@ -1383,7 +1383,7 @@ void MediaTrack::StartInjectLoop()
 	{
 		fragmentInjectorThreadID = std::thread(&MediaTrack::RunInjectLoop, this);
 		fragmentInjectorThreadStarted = true;
-		AAMPLOG_INFO("Thread created for RunInjectLoop [%lu]", GetPrintableThreadID(fragmentInjectorThreadID));
+		AAMPLOG_INFO("Thread created for RunInjectLoop [%zu]", GetPrintableThreadID(fragmentInjectorThreadID));
 	}
 	catch(const std::exception& e)
 	{
@@ -1434,7 +1434,7 @@ void MediaTrack::StartInjectChunkLoop()
 	{
 		fragmentChunkInjectorThreadID = std::thread(&MediaTrack::RunInjectChunkLoop, this);
 		fragmentChunkInjectorThreadStarted = true;
-		AAMPLOG_INFO("Thread created for RunInjectChunkLoop [%lu]", GetPrintableThreadID(fragmentChunkInjectorThreadID));
+		AAMPLOG_INFO("Thread created for RunInjectChunkLoop [%zu]", GetPrintableThreadID(fragmentChunkInjectorThreadID));
 	}
 	catch(const std::exception& e)
 	{
@@ -1457,7 +1457,7 @@ void MediaTrack::RunInjectLoop()
 		{
 			bufferMonitorThreadID = std::thread(&MediaTrack::MonitorBufferHealth, this);
 			bufferMonitorThreadStarted = true;
-			AAMPLOG_INFO("Thread created for MonitorBufferHealth [%lu]", GetPrintableThreadID(bufferMonitorThreadID));
+			AAMPLOG_INFO("Thread created for MonitorBufferHealth [%zu]", GetPrintableThreadID(bufferMonitorThreadID));
 
 		}
 		catch(const std::exception& e)
@@ -1537,7 +1537,7 @@ void MediaTrack::RunInjectChunkLoop()
 		{
 			bufferMonitorThreadID = std::thread(&MediaTrack::MonitorBufferHealth, this);
 			bufferMonitorThreadStarted = true;
-			AAMPLOG_INFO("Thread created for MonitorBufferHealth [%lu]", GetPrintableThreadID(bufferMonitorThreadID));
+			AAMPLOG_INFO("Thread created for MonitorBufferHealth [%zu]", GetPrintableThreadID(bufferMonitorThreadID));
 
 		}
 		catch(const std::exception& e)

@@ -229,7 +229,7 @@ void StreamAbstractionAAMP_VIDEOIN::SetVideoRectangle(int x, int y, int w, int h
 	param["w"] = (int) (w * width_ratio);
 	param["h"] = (int) (h * height_ratio);
 	param["typeOfInput"] = videoInputType;
-	AAMPLOG_WARN("%s type:%s x:%d y:%d w:%d h:%d w-ratio:%f h-ratio:%f",mName.c_str(),videoInputType.c_str(),y,w,h,width_ratio,height_ratio);
+	AAMPLOG_WARN("%s type:%s x:%d y:%d w:%d h:%d w-ratio:%f h-ratio:%f",mName.c_str(),videoInputType.c_str(),x,y,w,h,width_ratio,height_ratio);
 	thunderAccessObj.InvokeJSONRPC("setVideoRectangle", param, result);
 #endif
 }

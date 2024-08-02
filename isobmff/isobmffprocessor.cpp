@@ -898,7 +898,7 @@ void IsoBmffProcessor::setDiscontinuityState(bool isDiscontinuity)
  */
 void IsoBmffProcessor::updateSkipPoint(double skipPoint, double skipDuration )
 {
-	AAMPLOG_INFO("IsoBmffProcessor %s skipPoint: %lf skipDur: %lf timescaleChangeState: %d isDiscontinuity: %d size: %lu" ,
+	AAMPLOG_INFO("IsoBmffProcessor %s skipPoint: %lf skipDur: %lf timescaleChangeState: %d isDiscontinuity: %d size: %zu" ,
 				IsoBmffProcessorTypeName[type], skipPoint, skipDuration,timeScaleChangeState,ptsDiscontinuity, skipPointMap.size());
 
 	std::lock_guard<std::mutex> lock(skipMutex);

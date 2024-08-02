@@ -495,7 +495,7 @@ Box*  IsoBmffBuffer::getBox(const char *name, size_t &index)
 	Box *pBox = NULL;
 	if (index >= boxes.size())
 	{
-		AAMPLOG_ERR("Index passed is too big (%lu >= %lu)", index, boxes.size());
+		AAMPLOG_ERR("Index passed is too big (%zu >= %zu)", index, boxes.size());
 	}
 	else
 	{

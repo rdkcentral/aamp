@@ -26,7 +26,7 @@
 
 bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer)
 {
-	AAMPLOG_TRACE("Function called with len = %lu", buffer.GetLen());
+	AAMPLOG_TRACE("Function called with len = %zu", buffer.GetLen());
 
 	bool retval{true};
 	IsoBmffBuffer isoBmffBuffer{};

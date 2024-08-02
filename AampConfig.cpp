@@ -1646,7 +1646,7 @@ void AampConfig::ReadAampCfgFromEnv()
 	if(NULL != envConf)
 	{
 		std::string strEnvConfig = envConf; // make sure we copy this as recommonded by getEnv doc
-		AAMPLOG_WARN("ReadAampCfgFromEnv:Text ENV:%s len:%lu ",strEnvConfig.c_str(),strEnvConfig.length());
+		AAMPLOG_WARN("ReadAampCfgFromEnv:Text ENV:%s len:%zu ",strEnvConfig.c_str(),strEnvConfig.length());
 		std::stringstream ss (strEnvConfig);
 		std::string item;
 

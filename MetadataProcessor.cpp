@@ -143,7 +143,7 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const char
 				{
 					AAMPLOG_TRACE(" Found ID3 metadata[%d]", type);
 
-					AAMPLOG_INFO(" packet size: %lu | message size: %u", data_len, messageLen);
+					AAMPLOG_INFO(" packet size: %zu | message size: %u", data_len, messageLen);
 					std::stringstream ss;
 					ss << "Found ID3 metadata - PTS: " << presTime << " - timeScale: " << timeScale << " - duration: " << eventDuration;
 					AAMPLOG_INFO(" %s", ss.str().c_str());
@@ -173,11 +173,11 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const char
 								}
 
 								AAMPLOG_INFO(" EMSG box %p -> %p", src_box_ptr, box_ptr);
-								AAMPLOG_INFO(" EMSG box [%lu][%u]: %s", curOffset, box_size, ss.str().c_str());
+								AAMPLOG_INFO(" EMSG box [%zu][%u]: %s", curOffset, box_size, ss.str().c_str());
 							}
 							else
 							{
-								AAMPLOG_INFO(" %s box [%lu][%u]", box->getType(), curOffset, box_size);
+								AAMPLOG_INFO(" %s box [%zu][%u]", box->getType(), curOffset, box_size);
 							}
 
 							curOffset += box->getSize();

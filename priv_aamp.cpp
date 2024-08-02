@@ -1698,7 +1698,7 @@ void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMi
 		{
 			mPausePositionMonitoringThreadID = std::thread(&PrivateInstanceAAMP ::RunPausePositionMonitoring, this);
 			mPausePositionMonitoringThreadStarted = true;
-			AAMPLOG_INFO("Thread created for RunPausePositionMonitoring [%lu]", GetPrintableThreadID(mPausePositionMonitoringThreadID));
+			AAMPLOG_INFO("Thread created for RunPausePositionMonitoring [%zu]", GetPrintableThreadID(mPausePositionMonitoringThreadID));
 		}
 		catch(const std::exception& e)
 		{
@@ -1876,7 +1876,7 @@ void PrivateInstanceAAMP::StartRateCorrectionWokerthread(void)
 		{
 			mAbortRateCorrection = false;
 			mRateCorrectionThread = std::thread(&PrivateInstanceAAMP::RateCorrectionWokerthread, this);
-			AAMPLOG_INFO("Rate Correction Thread started [%lu]", GetPrintableThreadID(mRateCorrectionThread)); //Print Id - KC
+			AAMPLOG_INFO("Rate Correction Thread started [%zu]", GetPrintableThreadID(mRateCorrectionThread)); //Print Id - KC
 		}
 	}
 	catch (exception& exp)
@@ -4391,7 +4391,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				double dlSize = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
 #endif
 				long reqSize  = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
-				AAMPLOG_WARN("Invalid buffer - BufferPtr: %p, BufferLen: %lu, Dlsize : %lf ,Reqsize : %ld, Url: %s",
+				AAMPLOG_WARN("Invalid buffer - BufferPtr: %p, BufferLen: %zu, Dlsize : %lf ,Reqsize : %ld, Url: %s",
 						buffer->GetPtr(), buffer->GetLen(),
 						dlSize,reqSize,(res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str());
 			}
@@ -7012,7 +7012,7 @@ void PrivateInstanceAAMP::UpdatePreferredAudioList()
 			preferredRenditionList.push_back(rendition);
 			AAMPLOG_INFO("Parsed preferred rendition: %s",rendition.c_str());
 		}
-		AAMPLOG_INFO("Number of preferred Renditions: %lu",
+		AAMPLOG_INFO("Number of preferred Renditions: %zu",
 				preferredRenditionList.size());
 	}
 
@@ -7026,7 +7026,7 @@ void PrivateInstanceAAMP::UpdatePreferredAudioList()
 			preferredCodecList.push_back(codec);
 			AAMPLOG_INFO("Parsed preferred codec: %s",codec.c_str());
 		}
-		AAMPLOG_INFO("Number of preferred codec: %lu",
+		AAMPLOG_INFO("Number of preferred codec: %zu",
 				preferredCodecList.size());
 	}
 
@@ -7040,7 +7040,7 @@ void PrivateInstanceAAMP::UpdatePreferredAudioList()
 			preferredLanguagesList.push_back(lng);
 			AAMPLOG_INFO("Parsed preferred lang: %s",lng.c_str());
 		}
-		AAMPLOG_INFO("Number of preferred languages: %lu",
+		AAMPLOG_INFO("Number of preferred languages: %zu",
 				preferredLanguagesList.size());
 	}
 	if(!preferredLabelsString.empty())
@@ -7053,7 +7053,7 @@ void PrivateInstanceAAMP::UpdatePreferredAudioList()
 			preferredLabelList.push_back(lng);
 			AAMPLOG_INFO("Parsed preferred Label: %s",lng.c_str());
 		}
-		AAMPLOG_INFO("Number of preferred Labels: %lu", preferredLabelList.size());
+		AAMPLOG_INFO("Number of preferred Labels: %zu", preferredLabelList.size());
 	}
 }
 
@@ -7666,7 +7666,7 @@ void PrivateInstanceAAMP::Stop()
 	pthread_mutex_lock(&mEventLock);
 	if (mPendingAsyncEvents.size() > 0)
 	{
-		AAMPLOG_WARN("PrivateInstanceAAMP: mPendingAsyncEvents.size - %lu", mPendingAsyncEvents.size());
+		AAMPLOG_WARN("PrivateInstanceAAMP: mPendingAsyncEvents.size - %zu", mPendingAsyncEvents.size());
 		for (std::map<guint, bool>::iterator it = mPendingAsyncEvents.begin(); it != mPendingAsyncEvents.end(); it++)
 		{
 			if (it->first != 0)
@@ -9928,7 +9928,7 @@ void PrivateInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput
 	mPreCacheDnldList = dnldListInput;
 	if(mPreCacheDnldList.size())
 	{
-		AAMPLOG_WARN("Got Playlist PreCache list of Size : %lu", mPreCacheDnldList.size());
+		AAMPLOG_WARN("Got Playlist PreCache list of Size : %zu", mPreCacheDnldList.size());
 	}
 
 }
@@ -11465,7 +11465,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			AAMPLOG_ERR("Preferred Audio Language Field Only support String or String Array");
 		}
 
-		AAMPLOG_INFO("Number of preferred languages received: %lu", inputLanguagesList.size());
+		AAMPLOG_INFO("Number of preferred languages received: %zu", inputLanguagesList.size());
 		AAMPLOG_INFO("Preferred language string received: %s", inputLanguagesString.c_str());
 
 		std::string inputLabelsString;
@@ -11620,7 +11620,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLanguage,preferredLanguagesString);
 			}
 
-			AAMPLOG_INFO("Number of preferred languages: %lu", preferredLanguagesList.size());
+			AAMPLOG_INFO("Number of preferred languages: %zu", preferredLanguagesList.size());
 
 			if(labelList != NULL)
 			{
@@ -11637,7 +11637,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 
 				preferredLabelsString = std::string(labelList);
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLabel,preferredLabelsString);
-				AAMPLOG_INFO("Number of preferred labels: %lu", preferredLabelList.size());
+				AAMPLOG_INFO("Number of preferred labels: %zu", preferredLabelList.size());
 			}
 
 			if( preferredRendition )
@@ -11684,7 +11684,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				preferredCodecString = std::string(codecList);
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioCodec,preferredCodecString);
 			}
-			AAMPLOG_INFO("Number of preferred codecs: %lu", preferredCodecList.size());
+			AAMPLOG_INFO("Number of preferred codecs: %zu", preferredCodecList.size());
 
 			if(accessibilityItem && !accessibilityItem->getSchemeId().empty())
 			{
@@ -12046,7 +12046,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			AAMPLOG_ERR("Preferred Text Language Field Only support String or String Array");
 		}
 
-		AAMPLOG_INFO("Number of preferred Text languages: %lu", inputTextLanguagesList.size());
+		AAMPLOG_INFO("Number of preferred Text languages: %zu", inputTextLanguagesList.size());
 		AAMPLOG_INFO("Preferred Text languages string: %s", inputTextLanguagesString.c_str());
 
 		std::string inputTextRenditionString;

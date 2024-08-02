@@ -467,7 +467,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 				{
 					mPlacementObj = setPlacementObj(mPlacementObj.pendingAdbrkId,abObj.endPeriodId);
 				}
-                AAMPLOG_INFO("[CDAI]  num of adbrks avail: %lu ",mAdtoInsertInNextBreakVec.size());
+                AAMPLOG_INFO("[CDAI]  num of adbrks avail: %zu ",mAdtoInsertInNextBreakVec.size());
 
 				mImmediateNextAdbreakAvailable = true;
 			}
@@ -911,7 +911,7 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 				try
 				{
 						mAdObjThreadID = std::thread(&PrivateCDAIObjectMPD::FulFillAdObject, this);
-		    			AAMPLOG_INFO("Thread created (FulFillAdObject) [%lu]", GetPrintableThreadID(mAdObjThreadID));
+		    			AAMPLOG_INFO("Thread created (FulFillAdObject) [%zu]", GetPrintableThreadID(mAdObjThreadID));
 						mAdObjThreadStarted = true;
 				}
 				catch(std::exception &e)
