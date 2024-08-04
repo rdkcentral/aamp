@@ -230,7 +230,6 @@ protected:
 			{eAAMPConfig_EnableLowLatencyDash, false},
 			{eAAMPConfig_EnableIgnoreEosSmallFragment, false},
 			{eAAMPConfig_EnablePTSReStamp, false},
-			{eAAMPConfig_QtDemuxOverrideEnabled, true},
 			{eAAMPConfig_LocalTSBEnabled, false},
 			{eAAMPConfig_EnableIFrameTrackExtract, false},
 			{eAAMPConfig_EnableABR, true},
