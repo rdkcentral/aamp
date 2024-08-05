@@ -690,6 +690,14 @@ public:
 
 	void SourceFormat(StreamOutputFormat fmt) { mSourceFormat = fmt; }
 
+	/**
+	 * APi to set monitor buffer status; this is to avoid running it in L1 test;
+	 */
+	void SetMonitorBufferDisabled(bool isStartd)
+	{
+		bufferMonitorThreadDisabled = isStartd;
+	}
+
 protected:
 
 	/**
@@ -787,7 +795,6 @@ public:
 	int maxCachedFragmentsPerTrack;
 	int maxCachedFragmentChunksPerTrack;
 	pthread_cond_t fragmentChunkFetched;/**< Signaled after a fragment Chunk is fetched*/
-	uint32_t totalMdatCount;            /**< Total MDAT Chunk Found*/
 	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processoing*/
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
         bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
@@ -821,6 +828,7 @@ private:
 	bool fragmentInjectorThreadStarted; 	/**< Fragment injector's thread started or not*/
 	bool fragmentChunkInjectorThreadStarted;/**< Fragment Chunk injector's thread started or not*/
 	bool bufferMonitorThreadStarted;    	/**< Buffer Monitor thread started or not */
+	bool bufferMonitorThreadDisabled;    	/**< Buffer Monitor thread Disabled or not */
 	double totalInjectedDuration;       	/**< Total fragment injected duration*/
 	double totalInjectedChunksDuration;  	/**< Total fragment injected chunk duration*/
 	int currentInitialCacheDurationSeconds; /**< Current cached fragments duration before playing*/

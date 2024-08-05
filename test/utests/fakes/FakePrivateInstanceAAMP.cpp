@@ -944,7 +944,11 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 
 uint32_t  PrivateInstanceAAMP::GetAudTimeScale(void)
 {
-    return 0u;
+	if (g_mockPrivateInstanceAAMP != nullptr) {
+		return g_mockPrivateInstanceAAMP->GetAudTimeScale();
+	}else {
+		return 0u;
+	}
 }
 
 BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
@@ -969,7 +973,11 @@ AampLLDashServiceData*  PrivateInstanceAAMP::GetLLDashServiceData(void)
 
 uint32_t  PrivateInstanceAAMP::GetVidTimeScale(void)
 {
-    return 0u;
+	if (g_mockPrivateInstanceAAMP != nullptr) {
+		return g_mockPrivateInstanceAAMP->GetVidTimeScale();
+	}else {
+		return 0u;
+	}
 }
 
 void PrivateInstanceAAMP::InterruptableMsSleep(int timeInMs)
@@ -1221,6 +1229,10 @@ void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string& manifestBuffer)
 
 void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMediaType type, uint64_t timeStampOffset)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->ProcessID3Metadata(segment, size, type, timeStampOffset);
+	}
 }
 
 void PrivateInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)

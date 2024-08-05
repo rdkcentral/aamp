@@ -52,6 +52,57 @@ void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
 }
 
 /**
+*  	@fn parseBuffer
+*  	@param[in] name - name of the track
+*  	@param[in/out] unParsedBuffer - Total unparsedbuffer
+*  	@param[in] timeScale - timescale of the track
+*	@param[out] parsedBufferSize - parsed buffer size
+*  	@param[in/out] unParsedBufferSize -uunparsed or remaining buffer size
+*	@param[out] fpts - fragmnet pts value
+*  	@param[out] fduration - fragment duration
+*	@return true if parsedd or false
+*  	@brief Parse ISOBMFF boxes from buffer
+*/
+bool IsoBmffBuffer::ParseChunkData(const char* name, char* &unParsedBuffer, uint32_t timeScale,
+	size_t & parsedBufferSize, size_t &unParsedBufferSize, double& fpts, double &fduration)
+{
+	size_t mdatCount = 0;
+	size_t parsedBoxCount = 0;
+	getMdatBoxCount(mdatCount);
+	if(!mdatCount)
+	{
+		return false;
+	}
+	AAMPLOG_TRACE("[%s] MDAT count found: %zu",  name, mdatCount );
+	parsedBoxCount = getParsedBoxesSize();
+	uint32_t boxOffset = 0;
+	std::string boxTypeStr = "";
+	uint32_t boxSize = 0;
+	if(getChunkedfBoxMetaData(boxOffset, boxTypeStr, boxSize))
+	{
+		parsedBoxCount--;
+		AAMPLOG_TRACE("[%s] MDAT Chunk Found - Actual Parsed Box Count: %zu", name,parsedBoxCount);
+		AAMPLOG_TRACE("[%s] Chunk Offset[%u] Chunk Type[%s] Chunk Size[%u]\n", name, boxOffset, boxTypeStr.c_str(), boxSize);
+	}
+	if(mdatCount)
+	{
+		int lastMDatIndex = UpdateBufferData(parsedBoxCount, unParsedBuffer, unParsedBufferSize, parsedBufferSize);
+
+		uint64_t fPts = 0;
+		double totalChunkDuration = getTotalChunkDuration( lastMDatIndex);
+
+		//get PTS of buffer
+		bool bParse = getFirstPTS(fPts);
+		if (bParse)
+		{
+			AAMPLOG_TRACE("[%s] fPts %" PRIu64,name, fPts);
+		}
+		fpts = (double) fPts/(timeScale*1.0);
+		fduration = totalChunkDuration/(timeScale*1.0);
+	}
+	return true;
+}
+/**
  *	@fn parseBuffer
  *  @param[in] correctBoxSize - flag to correct the box size
  *	@param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
@@ -599,6 +650,92 @@ Box* IsoBmffBuffer::getChunkedfBox() const
 std::vector<Box*> *IsoBmffBuffer::getParsedBoxes()
 {
 	return &this->boxes;
+}
+
+/**
+ *  @brief Get list of box handles in a parsed buffer
+ */
+size_t IsoBmffBuffer::getParsedBoxesSize()
+{
+	return this->boxes.size();
+}
+/**
+ *  @brief Get list of box handles in a parsed buffer
+ */
+bool IsoBmffBuffer::getChunkedfBoxMetaData(uint32_t &offset, std::string &type, uint32_t &size)
+{
+	bool ret = false;
+	Box *pBox = getChunkedfBox();
+	if(pBox)
+	{
+		offset = pBox->getOffset();
+		type =  pBox->getType();
+		size =  pBox->getSize();
+		ret = true;
+	}
+	return ret;
+
+}
+/**
+ *  @brief Get list of box handles in a parsed buffer
+ */
+int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize)
+{
+	std::vector<Box*> *pBoxes = getParsedBoxes();
+	size_t mdatCount;
+	bool ret = false;
+	int lastMDatIndex = -1;
+	getMdatBoxCount(mdatCount);
+	if(pBoxes && mdatCount)
+	{
+		//Get Last MDAT box
+		for( int i=(int)parsedBoxCount-1; i>=0; i-- )
+		{
+			Box *box = pBoxes->at(i);
+			if (IS_TYPE(box->getType(), Box::MDAT))
+			{
+				lastMDatIndex = i;
+
+				AAMPLOG_TRACE("Last MDAT Index : %d", lastMDatIndex);
+
+				//Calculate unparsed buffer based on last MDAT
+				unParsedBuffer += (box->getOffset()+box->getSize()); //increment buffer pointer to chunk offset
+				unParsedBufferSize -= (box->getOffset()+box->getSize()); //decerese by parsed buffer size
+
+				parsedBufferSize -= unParsedBufferSize; //get parsed buf size
+				AAMPLOG_TRACE("parsedBufferSize : %zu updated unParsedBufferSize: %zu Total Buf Size processed: %lu",parsedBufferSize,unParsedBufferSize,parsedBufferSize+unParsedBufferSize);
+				break;
+			}
+		}
+	}
+	return lastMDatIndex;
+}
+
+
+/**
+ *  @brief Get list of box handles in a parsed buffer
+ */
+double IsoBmffBuffer::getTotalChunkDuration(int lastMDatIndex)
+{
+	double totalChunkDuration = 0.0;
+	uint64_t fDuration = 0;
+	std::vector<Box*> *pBoxes = getParsedBoxes();
+	for(int i=0;i<lastMDatIndex;i++)
+	{
+		Box *box = pBoxes->at(i);
+#ifdef AAMP_DEBUG_INJECT_CHUNK
+		AAMPLOG_WARN("[%s] Type: %s", name,box->getType());
+#endif
+		if (IS_TYPE(box->getType(), Box::MOOF))
+		{
+			getSampleDuration(box, fDuration);
+			totalChunkDuration += fDuration;
+#ifdef AAMP_DEBUG_INJECT_CHUNK
+			AAMPLOG_WARN("[%s] fDuration = %lld, totalChunkDuration = %lld", name,fDuration, totalChunkDuration);
+#endif
+		}
+	}
+	return totalChunkDuration;
 }
 
 /**

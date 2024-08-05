@@ -154,6 +154,30 @@ public:
 	IsoBmffBuffer& operator=(const IsoBmffBuffer&) = delete;
 
 	/**
+	 * @fn getParsedBoxesSize
+	 * @return size of parsed boxes
+	 */
+	size_t getParsedBoxesSize();
+
+	/**
+	 * @fn getChunkedfBoxMetaData
+	 * @return true if parsed or false
+	 */
+	bool getChunkedfBoxMetaData(uint32_t &offset, std::string &type, uint32_t &size);
+
+	/**
+	 * @fn UpdateBufferData
+	 * @return true if parsed or false
+	 */
+	int UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize);
+
+	/**
+	 * @fn UpdateBufferData
+	 * @return true if parsed or false
+	 */
+	double getTotalChunkDuration(int lastMDatIndex);
+
+	/**
 	 * @fn setBuffer
 	 *
 	 * @param[in] buf - buffer pointer
@@ -173,6 +197,21 @@ public:
 	 * @return true if parse was successful. false otherwise
 	 */
 	bool parseBuffer(bool correctBoxSize = false, int newTrackId = -1);
+
+	/**
+	*  	@fn parseBuffer
+	*  	@param[in] name - name of the track
+	*  	@param[in/out] unParsedBuffer - Total unparsedbuffer
+	*  	@param[in] timeScale - timescale of the track
+	*	@param[out] parsedBufferSize - parsed buffer size
+	*  	@param[in/out] unParsedBufferSize -uunparsed or remaining buffer size
+	*	@param[out] fpts - fragmnet pts value
+	*  	@param[out] fduration - fragment duration
+	*	@return true if parsedd or false
+	*  	@brief Parse ISOBMFF boxes from buffer
+	*/
+	bool ParseChunkData(const char* name, char* &unParsedBuffer, uint32_t timeScale,
+	 size_t & parsedBufferSize, size_t &unParsedBufferSize, double& fpts, double &fduration);
 
 	/**
 	 * @fn restampPTS - obsolete, to be removed

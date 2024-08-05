@@ -124,22 +124,23 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
     double bufferedTime ;
     int CachedFragmentsOrChunks;
 	double thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD;
-    if(aamp->GetLLDashServiceData()->lowLatencyMode)
+	class StreamAbstractionAAMP* pContext = GetContext();
+    if(aamp->GetLLDashServiceData()->lowLatencyMode && pContext)
     {
-		bufferedTime 	    = GetContext()->GetBufferedDuration(); /** To align with monitorLatency use same API*/
+		bufferedTime 	    = pContext->GetBufferedDuration(); /** To align with monitorLatency use same API*/
 	    CachedFragmentsOrChunks = 0; /**< No need check frgment cache for LLD;*/
 		thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
     }
-    else
+    else if (pContext)
     {
-	    bufferedTime 	    = totalInjectedDuration - GetContext()->GetElapsedTime();
+	    bufferedTime 	    = totalInjectedDuration - pContext->GetElapsedTime();
 	    CachedFragmentsOrChunks = numberOfFragmentsCached ;
     }
 
-    if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= thresholdBuffer))
+    if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= thresholdBuffer) && pContext)
     {
         AAMPLOG_WARN("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f",
-                name, bufferedTime, aamp->GetLLDashServiceData()->lowLatencyMode ? totalInjectedChunksDuration : totalInjectedDuration, GetContext()->GetElapsedTime());
+                name, bufferedTime, aamp->GetLLDashServiceData()->lowLatencyMode ? totalInjectedChunksDuration : totalInjectedDuration, pContext->GetElapsedTime());
         if (bufferedTime <= 0)
         {
             bStatus = BUFFER_STATUS_RED;
@@ -190,7 +191,7 @@ void MediaTrack::MonitorBufferHealth()
 			pthread_mutex_unlock(&mutex);
 
 			// We use another lock inside CheckForMediaTrackInjectionStall for synchronization
-			GetContext()->CheckForMediaTrackInjectionStall(type);
+			GetContext()?GetContext()->CheckForMediaTrackInjectionStall(type):void();
 
 			pthread_mutex_lock(&mutex);
 			if((!aamp->pipeline_paused) && aamp->IsDiscontinuityProcessPending() && discontinuityTimeoutValue)
@@ -300,9 +301,13 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowab
 void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 {
 	bool notifyCacheCompleted = false;
+	class StreamAbstractionAAMP* pContext = GetContext();
 	pthread_mutex_lock(&mutex);
-	cachedFragment[fragmentIdxToFetch].profileIndex = GetContext()->profileIdxForBandwidthNotification;
-	GetContext()->UpdateStreamInfoBitrateData(cachedFragment[fragmentIdxToFetch].profileIndex, cachedFragment[fragmentIdxToFetch].cacheFragStreamInfo);
+	if (pContext)
+	{
+		cachedFragment[fragmentIdxToFetch].profileIndex = pContext->profileIdxForBandwidthNotification;
+		pContext->UpdateStreamInfoBitrateData(cachedFragment[fragmentIdxToFetch].profileIndex, cachedFragment[fragmentIdxToFetch].cacheFragStreamInfo);
+	}
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
@@ -689,7 +694,7 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 	pthread_cond_signal(&fragmentFetched);
 	pthread_mutex_unlock(&mutex);
 
-	GetContext()->AbortWaitForDiscontinuity();
+	GetContext()?GetContext()->AbortWaitForDiscontinuity(): void();
 }
 
 
@@ -717,7 +722,7 @@ void MediaTrack::AbortWaitForCachedFragment()
 	pthread_cond_signal(&fragmentFetched);
 	pthread_mutex_unlock(&mutex);
 
-	GetContext()->AbortWaitForDiscontinuity();
+	GetContext()?GetContext()->AbortWaitForDiscontinuity():void();
 }
 
 /**
@@ -810,7 +815,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 				// reset the flag when both the paired discontinuities ignored.
 				aamp->ResetTrackDiscontinuityIgnoredStatus();
 				aamp->UnblockWaitForDiscontinuityProcessToComplete();
-				MediaTrack* subtitle = GetContext()->GetMediaTrack(eTRACK_SUBTITLE);
+				MediaTrack* subtitle = GetContext()?GetContext()->GetMediaTrack(eTRACK_SUBTITLE):nullptr;
 				if (subtitle && subtitle->enabled)
 				{
 					if(subtitle->playContext)
@@ -891,11 +896,12 @@ bool MediaTrack::ProcessFragmentChunk()
 
 	if(cachedFragment->initFragment)
 	{
+		class StreamAbstractionAAMP* pContext = GetContext();
 		AAMPLOG_INFO("Injecting init chunk for %s",name);
 		InjectFragmentChunkInternal((AampMediaType)type, &cachedFragment->fragment , cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
-		if (eTRACK_VIDEO == type && aamp->IsLocalAAMPTsb() && GetContext()->GetProfileCount())
+		if (eTRACK_VIDEO == type && aamp->IsLocalAAMPTsb() && pContext && pContext->GetProfileCount())
 		{
-			GetContext()->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
+			pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
 		}
 		cachedFragment->initFragment = false;
 		return true;
@@ -922,10 +928,6 @@ bool MediaTrack::ProcessFragmentChunk()
 #endif
 	//Parse Chunk Data
 	IsoBmffBuffer isobuf(mLogObj);                   /**< Fragment Chunk buffer box parser*/
-	const Box *pBox = NULL;
-	std::vector<Box*> *pBoxes;
-	size_t mdatCount = 0;
-	size_t parsedBoxCount = 0;
 	char *unParsedBuffer = NULL;
 	size_t parsedBufferSize = 0, unParsedBufferSize = 0;
 
@@ -960,115 +962,50 @@ bool MediaTrack::ProcessFragmentChunk()
 	}
 	//Print box details
 	//isobuf.printBoxes();
-
-	isobuf.getMdatBoxCount(mdatCount);
-	if(!mdatCount)
+	uint32_t timeScale = 0;
+	if(type == eTRACK_VIDEO)
 	{
-		 if( noMDATCount > MAX_MDAT_NOT_FOUND_COUNT )
-		 {
-			 AAMPLOG_INFO("[%s] noMDATCount=%d ChunkIndex=%d totchunklen=%zu", name,noMDATCount, fragmentChunkIdxToInject,unParsedBufferSize);
-			 noMDATCount=0;
-		 }
-		 noMDATCount++;
-		 return true;
+		timeScale = aamp->GetVidTimeScale();
 	}
-	noMDATCount = 0;
-	totalMdatCount += mdatCount;
-	AAMPLOG_TRACE("[%s] MDAT count found: %zu, Total Found: %d", name,  mdatCount, totalMdatCount );
-
-	pBoxes = isobuf.getParsedBoxes();
-	parsedBoxCount = pBoxes->size();
-
-	pBox = isobuf.getChunkedfBox();
-	if(pBox)
+	else if(type == eTRACK_AUDIO)
 	{
-
-		parsedBoxCount--;
-
-		AAMPLOG_TRACE("[%s] MDAT Chunk Found - Actual Parsed Box Count: %zu", name,parsedBoxCount);
-		AAMPLOG_TRACE("[%s] Chunk Offset[%u] Chunk Type[%s] Chunk Size[%u]\n", name, pBox->getOffset(), pBox->getType(), pBox->getSize());
+		timeScale = aamp->GetAudTimeScale();
 	}
-	if(mdatCount)
+	if(!timeScale)
 	{
-		int lastMDatIndex = -1;
-		//Get Last MDAT box
-		for( int i=(int)parsedBoxCount-1; i>=0; i-- )
+		//FIX-ME-Read from MPD INSTEAD
+		class StreamAbstractionAAMP* pContext = GetContext();
+		if(pContext)
 		{
-			Box *box = pBoxes->at(i);
-			if (IS_TYPE(box->getType(), Box::MDAT))
-			{
-				lastMDatIndex = i;
-
-				AAMPLOG_TRACE("[%s] Last MDAT Index : %d", name,lastMDatIndex);
-
-				//Calculate unparsed buffer based on last MDAT
-				unParsedBuffer += (box->getOffset()+box->getSize()); //increment buffer pointer to chunk offset
-				unParsedBufferSize -= (box->getOffset()+box->getSize()); //decerese by parsed buffer size
-
-				parsedBufferSize -= unParsedBufferSize; //get parsed buf size
-
-				AAMPLOG_TRACE("[%s] parsedBufferSize : %zu updated unParsedBufferSize: %zu Total Buf Size processed: %lu", name,parsedBufferSize,unParsedBufferSize,parsedBufferSize+unParsedBufferSize);
-
-				break;
-			}
-		}
-
-		uint64_t fPts = 0;
-		double fpts = 0.0;
-		uint64_t fDuration = 0;
-		double fduration = 0.0;
-		double totalChunkDuration = 0.0;
-
-		//AAMPLOG_WARN("===========Base Media Decode Time Start================");
-		//isobuf.PrintPTS();
-		//AAMPLOG_WARN("============Base Media Decode Time End===============");
-
-		for(int i=0;i<lastMDatIndex;i++)
-		{
-			Box *box = pBoxes->at(i);
-#ifdef AAMP_DEBUG_INJECT_CHUNK
-			AAMPLOG_WARN("[%s] Type: %s", name,box->getType());
-#endif
-			if (IS_TYPE(box->getType(), Box::MOOF))
-			{
-				isobuf.getSampleDuration(box, fDuration);
-				totalChunkDuration += fDuration;
-#ifdef AAMP_DEBUG_INJECT_CHUNK
-				AAMPLOG_WARN("[%s] fDuration = %lld, totalChunkDuration = %lld", name,fDuration, totalChunkDuration);
-#endif
-			}
-		}
-		//get PTS of buffer
-		bool bParse = isobuf.getFirstPTS(fPts);
-		if (bParse)
-		{
-			AAMPLOG_TRACE("[%s] fPts %" PRIu64,name, fPts);
-		}
-
-		uint32_t timeScale = 0;
-		if(type == eTRACK_VIDEO)
-		{
-			timeScale = aamp->GetVidTimeScale();
-		}
-		else if(type == eTRACK_AUDIO)
-		{
-			timeScale = aamp->GetAudTimeScale();
-		}
-
-		if(!timeScale)
-		{
-			//FIX-ME-Read from MPD INSTEAD
-			timeScale = GetContext()->GetCurrPeriodTimeScale();
+			timeScale = pContext->GetCurrPeriodTimeScale();
 			if(!timeScale)
 			{
 				timeScale = 10000000.0;
 				AAMPLOG_WARN("[%s] Empty timeScale!!! Using default timeScale=%d", name, timeScale);
 			}
 		}
+		else
+		{
+			timeScale = 1000.0;
+			AAMPLOG_WARN("[%s] Invalid play context maybe test setup, timeScale=%d", name, timeScale);
+		}
+	}
+	double fpts = 0.0, fduration = 0.0;
+	bool ret = isobuf.ParseChunkData(name, unParsedBuffer, timeScale, parsedBufferSize, unParsedBufferSize, fpts, fduration);
+	if(!ret) /**  Nothing to parse */
+	{
+		if( noMDATCount > MAX_MDAT_NOT_FOUND_COUNT )
+		{
+			AAMPLOG_INFO("[%s] noMDATCount=%d ChunkIndex=%d totchunklen=%zu", name,noMDATCount, fragmentChunkIdxToInject,unParsedBufferSize);
+			noMDATCount=0;
+		}
+		noMDATCount++;
+		return true;
+	}
+	noMDATCount = 0;
 
-		fpts = (double) fPts/(timeScale*1.0);
-		fduration = totalChunkDuration/(timeScale*1.0);
-
+	if(parsedBufferSize)
+	{
 		//Prepare parsed buffer
 		parsedBufferChunk.AppendBytes( unparsedBufferChunk.GetPtr(), parsedBufferSize);
 
@@ -1078,7 +1015,7 @@ bool MediaTrack::ProcessFragmentChunk()
 			//Do not edit or remove this log line - it is used log_pts_restamp tool
 			AAMPLOG_INFO("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
 			(void)IsoBmffRestampPts(parsedBufferChunk, t, cachedFragment->uri);
-			fpts += cachedFragment->PTSOffsetSec; 
+			fpts += cachedFragment->PTSOffsetSec;
 		}
 
 #ifdef AAMP_DEBUG_INJECT_CHUNK
@@ -1138,7 +1075,7 @@ bool MediaTrack::ProcessFragmentChunk()
 void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool stopInjection,  bool fragmentDiscarded, bool isDiscontinuity, bool &ret )
 {
 	bool lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
-
+	class StreamAbstractionAAMP* pContext = GetContext();
 	if(!stopInjection && lowLatency)
 	{
 		bool bIgnore = true;
@@ -1154,7 +1091,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool s
 	else if (!stopInjection)
 	{
 		// if cachedFragment->PTSOffsetSec is zero no need to restamp PTS
-		if ((!GetContext()->trickplayMode) && (!cachedFragment->initFragment) && (0 != cachedFragment->PTSOffsetSec)
+		if ((pContext && !pContext->trickplayMode) && (!cachedFragment->initFragment) && (0 != cachedFragment->PTSOffsetSec)
 		&& ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
@@ -1184,9 +1121,10 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool s
 				InjectFragmentInternal(cachedFragment, fragmentDiscarded,cachedFragment->discontinuity);
 			}
 		}
-		if (eTRACK_VIDEO == type && !aamp->IsLocalAAMPTsb() && GetContext()->GetProfileCount())
+		class StreamAbstractionAAMP* pContext = GetContext();
+		if (eTRACK_VIDEO == type && !aamp->IsLocalAAMPTsb() && pContext && pContext->GetProfileCount())
 		{
-			GetContext()->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
+			pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
 		}
 		AAMPLOG_DEBUG("[%p] - %s - injected cached uri at pos %f dur %f", this, name, cachedFragment->position, cachedFragment->duration);
 		if (!fragmentDiscarded)
@@ -1251,7 +1189,6 @@ bool MediaTrack::InjectFragment()
 #endif
 		if (cachedFragment->fragment.GetPtr())
 		{
-			StreamAbstractionAAMP* context = GetContext();
 #ifdef AAMP_DEBUG_INJECT
 			if ((1 << type) & AAMP_DEBUG_INJECT)
 			{
@@ -1282,11 +1219,11 @@ bool MediaTrack::InjectFragment()
 				StreamAbstractionAAMP* pContext = GetContext();
 				if(pContext != NULL)
 				{
-					int rate = GetContext()->aamp->rate;
+					int rate = pContext->aamp->rate;
 					aamp->EndOfStreamReached((AampMediaType)type);
 					/*For muxed streams, provide EOS for audio track as well since
 					 * no separate MediaTrack for audio is present*/
-					MediaTrack* audio = GetContext()->GetMediaTrack(eTRACK_AUDIO);
+					MediaTrack* audio = pContext->GetMediaTrack(eTRACK_AUDIO);
 					if (audio && !audio->enabled && rate == AAMP_NORMAL_PLAY_RATE)
 					{
 						aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
@@ -1330,11 +1267,11 @@ bool MediaTrack::SignalIfEOSReached()
 		StreamAbstractionAAMP* pContext = GetContext();
 		if(pContext != NULL)
 		{
-			int rate = GetContext()->aamp->rate;
+			int rate = pContext->aamp->rate;
 			aamp->EndOfStreamReached((AampMediaType)type);
 			/*For muxed streams, provide EOS for audio track as well since
 				* no separate MediaTrack for audio is present*/
-			MediaTrack* audio = GetContext()->GetMediaTrack(eTRACK_AUDIO);
+			MediaTrack* audio = pContext->GetMediaTrack(eTRACK_AUDIO);
 			if (audio && !audio->enabled && rate == AAMP_NORMAL_PLAY_RATE)
 			{
 				aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
@@ -1410,7 +1347,8 @@ void MediaTrack::RunInjectLoop()
 	bool notifyFirstFragment = true;
 	bool keepInjecting = true;
 	bool  lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
-	if ((AAMP_NORMAL_PLAY_RATE == aamp->rate) && !bufferMonitorThreadStarted)
+	StreamAbstractionAAMP* pContext = GetContext();
+	if ((AAMP_NORMAL_PLAY_RATE == aamp->rate) && !bufferMonitorThreadStarted && !bufferMonitorThreadDisabled)
 	{
 		try
 		{
@@ -1443,14 +1381,16 @@ void MediaTrack::RunInjectLoop()
 		if (notifyFirstFragment && type != eTRACK_SUBTITLE)
 		{
 			notifyFirstFragment = false;
-			GetContext()->NotifyFirstFragmentInjected();
+			if (pContext)
+			{
+				pContext->NotifyFirstFragmentInjected();
+			}
 		}
 		// BCOM-2959  -- Disable audio video balancing for CDVR content ..
 		// CDVR Content includes eac3 audio, the duration of audio doesnt match with video
 		// and hence balancing fetch/inject not needed for CDVR //TBD Not needed for LLD 
 		if(!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && !aamp->IsCDVRContent() && (!aamp->mAudioOnlyPb && !aamp->mVideoOnlyPb) && !lowLatency)
 		{
-			StreamAbstractionAAMP* pContext = GetContext();
 			if(pContext != NULL)
 			{
 				if(eTRACK_AUDIO == type)
@@ -1539,7 +1479,7 @@ CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 {
 	if(fragmentChunkIdxToFetch <0 || fragmentChunkIdxToFetch >= mCachedFragmentChunksSize)
 	{
-		AAMPLOG_WARN("[%s] OUT OF RANGE => fragmentChunkIdxToFetch: %d",name,fragmentChunkIdxToFetch);
+		AAMPLOG_WARN("[%s] OUT OF RANGE => fragmentChunkIdxToFetch: %d mCachedFragmentChunksSize: %zu",name,fragmentChunkIdxToFetch, mCachedFragmentChunksSize);
 		return NULL;
 	}
 
@@ -1572,7 +1512,7 @@ void MediaTrack::SetCurrentBandWidth(int bandwidthBps)
  */
 int MediaTrack::GetProfileIndexForBW( BitsPerSecond mTsbBandwidth)
 {
-       return GetContext()->GetProfileIndexForBandwidth(mTsbBandwidth);
+       return GetContext()?GetContext()->GetProfileIndexForBandwidth(mTsbBandwidth):0;
 }
 
 /**
@@ -1651,14 +1591,14 @@ void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInje
 MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAAMP* aamp, const char* name) :
 		eosReached(false), enabled(false), numberOfFragmentsCached(0), numberOfFragmentChunksCached(0), fragmentIdxToInject(0), fragmentChunkIdxToInject(0),
 		fragmentIdxToFetch(0), fragmentChunkIdxToFetch(0), abort(false), fragmentInjectorThreadID(), fragmentChunkInjectorThreadID(),bufferMonitorThreadID(), totalFragmentsDownloaded(0), totalFragmentChunksDownloaded(0),
-		fragmentInjectorThreadStarted(false), fragmentChunkInjectorThreadStarted(false),bufferMonitorThreadStarted(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
+		fragmentInjectorThreadStarted(false), fragmentChunkInjectorThreadStarted(false),bufferMonitorThreadStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
 		sinkBufferIsFull(false), cachingCompleted(false), fragmentDurationSeconds(0),  segDLFailCount(0),segDrmDecryptFailCount(0),mSegInjectFailCount(0),
 		bufferStatus(BUFFER_STATUS_GREEN), prevBufferStatus(BUFFER_STATUS_GREEN),
 		bandwidthBitsPerSecond(0), totalFetchedDuration(0),
 		discontinuityProcessed(false), ptsError(false), cachedFragment(NULL), name(name), type(type), aamp(aamp),
 		mutex(), fragmentFetched(), fragmentInjected(), abortInject(false),
 		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false), maxCachedFragmentsPerTrack(0),
-		totalMdatCount(0), cachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), abortInjectChunk(false), maxCachedFragmentChunksPerTrack(0),
+		cachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), abortInjectChunk(false), maxCachedFragmentChunksPerTrack(0),
 		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(),
 		mLogObj(logObj),
 		abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
