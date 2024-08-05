@@ -9555,7 +9555,8 @@ ProfilerBucketType PrivateInstanceAAMP::mediaType2Bucket(AampMediaType mediaType
 void PrivateInstanceAAMP::SetTunedManifestUrl(bool isrecordedUrl)
 {
 	mTunedManifestUrl.assign(mManifestUrl);
-	AAMPLOG_TRACE("mManifestUrl: %s",mManifestUrl.c_str());
+	//Do not edit or remove this log line - it is used log_pts_restamp tool
+	AAMPLOG_INFO("mManifestUrl: %s",mManifestUrl.c_str());
 	if(isrecordedUrl)
 	{
 		DeFog(mTunedManifestUrl);

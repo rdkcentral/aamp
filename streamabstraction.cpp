@@ -1075,7 +1075,8 @@ bool MediaTrack::ProcessFragmentChunk()
 		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-			AAMPLOG_TRACE("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
+			//Do not edit or remove this log line - it is used log_pts_restamp tool
+			AAMPLOG_INFO("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
 			(void)IsoBmffRestampPts(parsedBufferChunk, t, cachedFragment->uri);
 			fpts += cachedFragment->PTSOffsetSec; 
 		}
@@ -1156,7 +1157,8 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool s
 		&& ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-			AAMPLOG_TRACE("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
+			//Do not edit or remove this log line - it is used log_pts_restamp tool
+			AAMPLOG_INFO("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
 			(void)IsoBmffRestampPts(cachedFragment->fragment, t, cachedFragment->uri);
 		}
 #ifdef AAMP_DEBUG_INJECT
