@@ -8476,6 +8476,13 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool &periodChanged, bool &a
 		mUpdateStreamInfo = true;
 	}
 
+	if(rate == AAMP_NORMAL_PLAY_RATE) //todo remove this workaround
+	{
+		//Call after StreamSelection() to get correct ->adaptationSetIdx ->representationIndex
+		AAMPLOG_TRACE("Update PTS offset after StreamSelection, period changed %d", periodChanged);
+		UpdatePtsOffset(mCurrentPeriodIdx, true);
+	}
+
 	// UpdateTrackInfo from Fetcher thread if there is a periodChange
 	// Else this will be called as a part of ProcessPlaylist
 	// IsLive(), InProgressCdvr, Vod/CDVR for PeriodChange , resetTimeLineIndex = 1
@@ -8993,6 +9000,12 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 			else
 			{
 				mIterPeriodIndex--;
+			}
+			// Finished segments in the current period. Get the duration of that period.
+			// Needed for live playback where timeline can increase dynamically.
+			if(rate == AAMP_NORMAL_PLAY_RATE) //todo remove this workaround
+			{
+				UpdatePtsOffset(mCurrentPeriodIdx, false);
 			}
 		}
 		else
@@ -10625,7 +10638,7 @@ double StreamAbstractionAAMP_MPD::GetFirstPTS()
 	{
 		firstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
 	}
-	if (!ISCONFIGSET(eAAMPConfig_UseNewFetcherLoop) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 	{
 		// If the new PTS restamping logic is in play, update the new firstPTS
 		AAMPLOG_WARN("New restamping logic in place, firstPTS:%lf, mPTSOffsetSec:%lf", firstPTS, mPTSOffsetSec);

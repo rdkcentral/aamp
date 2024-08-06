@@ -67,16 +67,10 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManag
 
 	// Sometimes AAMP pushes an encrypted init segment first to force decryptor plugin selection
 	initSegment.reserve(3); //consider Subtitles as well
-	if ((p_aamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStamp)) &&
-		(p_aamp->mConfig->IsConfigSet(eAAMPConfig_UseNewFetcherLoop)))	// Disable for the new fetcher loop for now
+	if (p_aamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStamp) && eMEDIAFORMAT_HLS_MP4 == mediaFormat)
 	{
 		isRestampConfigEnabled = true;
-		AAMPLOG_WARN("IsoBmffProcessor:: %s mediaFormat = %d old PTS RE-STAMP ENABLED", IsoBmffProcessorTypeName[type],mediaFormat);
-	}
-	else
-	{
-		isRestampConfigEnabled = false;
-		AAMPLOG_WARN("IsoBmffProcessor:: %s mediaFormat=%d old PTS RE-STAMP DISABLED", IsoBmffProcessorTypeName[type],mediaFormat);
+		AAMPLOG_WARN("IsoBmffProcessor:: %s mediaFormat=%d old PTS RE-STAMP ENABLED", IsoBmffProcessorTypeName[type],mediaFormat);
 	}
 }
 

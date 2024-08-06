@@ -1072,7 +1072,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		//Prepare parsed buffer
 		parsedBufferChunk.AppendBytes( unparsedBufferChunk.GetPtr(), parsedBufferSize);
 
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && !ISCONFIGSET(eAAMPConfig_UseNewFetcherLoop))
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
 			AAMPLOG_TRACE("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
@@ -1153,7 +1153,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool s
 	else if (!stopInjection)
 	{
 		if ((!GetContext()->trickplayMode) && (!cachedFragment->initFragment) 
-		&& (!ISCONFIGSET(eAAMPConfig_UseNewFetcherLoop)) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		&& ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
 			AAMPLOG_TRACE("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
