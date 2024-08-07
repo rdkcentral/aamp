@@ -88,7 +88,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	 * the last segment from the previous period has been injected, hence we copy it
 	 */
 	cachedFragment->PTSOffsetSec = GetContext()->mPTSOffsetSec;
-	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && !ISCONFIGSET(eAAMPConfig_UseNewFetcherLoop))
+	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 	{
 		// apply pts offset to position which ends up getting put into gst_bufffer in sendHelper
 		position += GetContext()->mPTSOffsetSec;
