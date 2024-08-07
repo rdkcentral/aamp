@@ -115,6 +115,12 @@ TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_On)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
 
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
+		.WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LLDUrlKeyword)).WillOnce(Return("/low/"));	
 	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
 	const char *chunkedUrl = "http://localhost:80/low/manifest.mpd";
 
@@ -135,8 +141,14 @@ TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_Off)
 {
 	// All configs are turned off
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	// EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(false));
 
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
+		.WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LLDUrlKeyword)).WillOnce(Return("/low/"));
 	// Not expecting creation of TSBSessionManager when config off
 	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(0);
 	const char *chunkedUrl = "http://localhost:80/low/manifest.mpd";
@@ -180,9 +192,9 @@ TEST_F(LocalTSBTests, Chunked_Without_LLD_And_Config_On)
 {
 	// Chunked key word should trigger TSBSessionManager creation
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
 
-	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
+	//We cannot expect TSBSessionManager Init ,if keyword is not present 
+//	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
 	const char *chunkedUrl = "http://localhost:80/low/manifest.mpd";
 
 	// For non low latency stream case, by default mLowLatencyMode is false
@@ -196,6 +208,45 @@ TEST_F(LocalTSBTests, Chunked_Without_LLD_And_Config_On)
 	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
 	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
 }
+
+
+TEST_F(LocalTSBTests, Configured_LLDKeyword_With_LLD)
+{
+    // Chunked keyword should trigger TSBSessionManager creation
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
+    
+    // Handle int return type
+    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+
+    // Handle float return type
+    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+
+    // Handle string return type
+    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
+        .WillRepeatedly(Return(""));
+
+    // Specific case for eAAMPConfig_LLDKeyword
+    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LLDUrlKeyword)).WillOnce(Return("configuredkeyword"));
+    
+    EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
+    
+    const char *chunkedUrl = "http://localhost:80/configuredkeyword/manifest.mpd";
+
+    // For low latency stream case
+    AampLLDashServiceData llData;
+    llData.lowLatencyMode = true;
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
+        .WillOnce([this, &llData] {
+            this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+            return eAAMPSTATUS_OK;
+        });
+
+    mPrivateInstanceAAMP->Tune(chunkedUrl, true);
+    EXPECT_TRUE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
+    EXPECT_TRUE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
+}
+
 
 
 

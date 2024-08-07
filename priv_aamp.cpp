@@ -5775,8 +5775,9 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	}
 
-	//Temp HACK TODO - Fix this
-	if(mManifestUrl.find(AAMP_LOW_LATENCY_URL_KEYWORD) != std::string::npos)
+	std::string lldUrlKeyword = GETCONFIGVALUE_PRIV(eAAMPConfig_LLDUrlKeyword);
+	AAMPLOG_INFO("LLD Url Keyword: %s",lldUrlKeyword.c_str());
+	if (!lldUrlKeyword.empty() && mManifestUrl.find(lldUrlKeyword) != std::string::npos)
 	{
 		// New Code to initialize the TSBSessionManager for LowLatency URL from Viper
 		if(mTSBSessionManager)
