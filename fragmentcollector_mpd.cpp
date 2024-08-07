@@ -8251,6 +8251,7 @@ bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool &waitForAdBreakCatchup)
 /**
  * @fn SelectSourceOrAdPeriod
  *
+ * @param[out] periodChanged flag
  * @param[out] mpdChanged flag
  * @param[out] AdStateChanged flag
  * @param[out] waitForAdBreakCatchup flag
@@ -8259,15 +8260,21 @@ bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool &waitForAdBreakCatchup)
  * @param[out] currentPeriodId string
  * @return bool - true if new period selected, false otherwise
  */
-bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId)
+bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId)
 {
 	bool ret = false;
 	while ((mIterPeriodIndex < mNumberOfPeriods) && (mIterPeriodIndex >= 0) && !ret) // CID:95090 - No effect
 	{
 		periodChanged = (mIterPeriodIndex != mCurrentPeriodIdx) || (mBasePeriodId != mpd->GetPeriods().at(mCurrentPeriodIdx)->GetId());
-		if (periodChanged || adStateChanged)
+		if (periodChanged || adStateChanged || mpdChanged)
 		{
 			requireStreamSelection = false;
+			if (mpdChanged)
+			{
+				// After waitForAdBreakCatchup, this mpdChanged flag will be set to true.
+				// So, we need to check the period change again.
+				mpdChanged = false;
+			}
 			if (periodChanged)
 			{
 				IPeriod *newPeriod = mpd->GetPeriods().at(mIterPeriodIndex);
@@ -8680,6 +8687,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 	double delta = 0;
 	bool adStateChanged = false;
 	bool resetIterator = true;
+	bool mpdChanged = false;
 
 	MediaStreamContext *playlistDownloaderContext = mMediaStreamContext[eMEDIATYPE_VIDEO];
 
@@ -8738,7 +8746,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 			/*
 			 * Appropriate error handling if period selection fails
 			 */
-			if (!SelectSourceOrAdPeriod(periodChanged, adStateChanged, waitForAdBreakCatchup, bmanifestupdate, requireStreamSelection, currentPeriodId))
+			if (!SelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, bmanifestupdate, requireStreamSelection, currentPeriodId))
 			{
 				if(waitForAdBreakCatchup)
 				{
@@ -8758,6 +8766,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 						AAMPLOG_WARN("Exiting from fetcher loop due to manifest content error");
 						break;
 					}
+					mpdChanged = true;
 					continue; // Continue iteration with updated MPD
 				}
 				else if(CheckEndOfStream(waitForAdBreakCatchup))

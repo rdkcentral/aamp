@@ -105,9 +105,9 @@ protected:
 			mIterPeriodIndex = idx;
 		}
 
-		bool InvokeSelectSourceOrAdPeriod(bool &periodChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId)
+		bool InvokeSelectSourceOrAdPeriod(bool &periodChanged, bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId)
 		{
-			return SelectSourceOrAdPeriod(periodChanged, adStateChanged, waitForAdBreakCatchup, bmanifestupdate, requireStreamSelection, currentPeriodId);
+			return SelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, bmanifestupdate, requireStreamSelection, currentPeriodId);
 		}
 
 		bool InvokeIndexSelectedPeriod(bool &periodChanged, bool &adStateChanged, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId)
@@ -493,13 +493,14 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests1)
 	bool waitForAdBreakCatchup = false;
 	bool bmanifestupdate = false;
 	bool requireStreamSelection = false;
+	bool mpdChanged = false;
 	std::string currentPeriodId = "p0";
 
 	/*
 	 * Test the scenario where period change happens
 	 * The period is changed and requireStreamSelection is set to true
 	 */
-	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, adStateChanged, waitForAdBreakCatchup, bmanifestupdate, requireStreamSelection, currentPeriodId);
+	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, bmanifestupdate, requireStreamSelection, currentPeriodId);
 	EXPECT_EQ(ret, true);
 	EXPECT_EQ(requireStreamSelection, true);
 	EXPECT_EQ(periodChanged, true);
@@ -538,13 +539,14 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests2)
 	bool waitForAdBreakCatchup = false;
 	bool bmanifestupdate = false;
 	bool requireStreamSelection = false;
+	bool mpdChanged = false;
 	std::string currentPeriodId = "p1";
 
 	/*
 	 * Test the scenario where period change happens, it is already at the boundary
 	 * so no change in period
 	 */
-	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, adStateChanged, waitForAdBreakCatchup, bmanifestupdate, requireStreamSelection, currentPeriodId);
+	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, bmanifestupdate, requireStreamSelection, currentPeriodId);
 	EXPECT_EQ(ret, false);
 	EXPECT_EQ(requireStreamSelection, false);
 	EXPECT_EQ(periodChanged, false);
