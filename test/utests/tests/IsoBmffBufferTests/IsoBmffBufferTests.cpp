@@ -886,3 +886,69 @@ TEST_F(IsoBmffBufferTests, noBoxesGetSegmentDurationTest)
 {
 	EXPECT_EQ(mIsoBmffBuffer->getSegmentDuration(),0);
 }
+
+
+/**
+ * @brief Test setting of PTS and duration, as done for trick mode restamping
+ */
+TEST_F(IsoBmffBufferTests, setPtsAndDurationTest)
+{
+	Box* pBox{nullptr};
+	uint64_t defaultSampleDurationOld{512};
+	// The tfhd default sample duration should be set to 1 second for trickmodes
+	uint64_t defaultSampleDurationNew{1};
+	// In the "mp4SegmentTests/vFragment.mp4" test data file, the trun lists 50 samples
+	uint64_t sampleCount{50};
+	uint64_t sampleDurationTotal{0};
+	uint64_t baseMediaDecodeTimeOld{1254400};
+	uint64_t baseMediaDecodeTimeNew{123};
+	uint64_t pts{0};
+	size_t index{0};
+	bool bParse{false};
+	std::string file_path{std::string{TESTS_DIR} + "/mp4SegmentTests/vFragment.mp4"};
+	auto result{readFile(file_path.c_str())};
+	std::vector<uint8_t> vSeg;
+	std::streampos size;
+	if (!result.first.empty()) {
+		vSeg = result.first;
+		size = result.second;
+	}
+	mIsoBmffBuffer->setBuffer(vSeg.data(), size);
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	pBox = mIsoBmffBuffer->getBox(Box::MOOF, index);
+
+	// Verify old PTS
+	mIsoBmffBuffer->getPts(pBox, pts);
+	EXPECT_EQ(pts, baseMediaDecodeTimeOld);
+
+	// Verify old sample duration
+	mIsoBmffBuffer->getSampleDuration(pBox, sampleDurationTotal);
+	EXPECT_EQ(sampleDurationTotal, defaultSampleDurationOld * sampleCount);
+
+	mIsoBmffBuffer->setPtsAndDuration(baseMediaDecodeTimeNew, defaultSampleDurationNew);
+
+	// Verify new PTS in box following trick mode restamping
+	mIsoBmffBuffer->getPts(pBox, pts);
+	EXPECT_EQ(pts, baseMediaDecodeTimeNew);
+
+	// Verify new sample duration in box following trick mode restamping
+	mIsoBmffBuffer->getSampleDuration(pBox, sampleDurationTotal);
+	EXPECT_EQ(sampleDurationTotal, defaultSampleDurationNew * sampleCount);
+
+	// Parse the ISO BMFF buffer again and check that the PTS has been updated
+	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
+	mIsoBmffBuffer->destroyBoxes();
+	bParse = mIsoBmffBuffer->parseBuffer();
+	EXPECT_TRUE(bParse);
+	index = 0;
+	pBox = mIsoBmffBuffer->getBox(Box::MOOF, index);
+
+	// Verify new PTS in buffer following trick mode restamping
+	mIsoBmffBuffer->getPts(pBox, pts);
+	EXPECT_EQ(pts, baseMediaDecodeTimeNew);
+
+	// Verify new sample duration in buffer following trick mode restamping
+	mIsoBmffBuffer->getSampleDuration(pBox, sampleDurationTotal);
+	EXPECT_EQ(sampleDurationTotal, defaultSampleDurationNew * sampleCount);
+}

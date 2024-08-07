@@ -141,6 +141,14 @@ void IsoBmffBuffer::restampPts(int64_t offset)
     }
 }
 
+void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        g_mockIsoBmffBuffer->setPtsAndDuration(pts, duration);
+    }
+}
+
 uint64_t IsoBmffBuffer::getSegmentDuration()
 {
     if (g_mockIsoBmffBuffer)

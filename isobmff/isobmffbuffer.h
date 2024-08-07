@@ -82,47 +82,61 @@ private:
 	 */
 	void printBoxesInternal(const std::vector<Box*> *boxes);
 
-        /**
-         * @fn parseBoxInternal
-         *
-     	 * @param[in] boxes - ISOBMFF boxes
-     	 * @param[in] name - box name to get
-     	 * @param[out] buf - mdat buffer pointer
-     	 * @param[out] size - size of mdat buffer
-     	 * @return bool
-     	 */
+	/**
+	 * @fn parseBoxInternal
+	 *
+	 * @param[in] boxes - ISOBMFF boxes
+	 * @param[in] name - box name to get
+	 * @param[out] buf - mdat buffer pointer
+	 * @param[out] size - size of mdat buffer
+	 * @return bool
+	 */
 	bool parseBoxInternal(const std::vector<Box*> *boxes, const char *name, uint8_t *buf, size_t &size);
 
-        /**
-     	 * @fn getBoxSizeInternal
-     	 *
-     	 * @param[in] boxes - ISOBMFF boxes
-     	 * @param[in] name - box name to get
-     	 * @param[out] size - size of mdat buffer
-     	 * @return bool
-     	 */
+	/**
+	 * @fn getBoxSizeInternal
+	 *
+	 * @param[in] boxes - ISOBMFF boxes
+	 * @param[in] name - box name to get
+	 * @param[out] size - size of mdat buffer
+	 * @return bool
+	 */
 	bool getBoxSizeInternal(const std::vector<Box*> *boxes, const char *name, size_t &size);
 
-    	/**
-    	 * @fn getBoxesInternal
-    	 *
-    	 * @param[in] boxes - ISOBMFF boxes
-    	 * @param[in] name - box name to get
-    	 * @param[out] pBoxes - size of mdat buffer
-    	 * @return bool
-    	 */
-    	bool getBoxesInternal(const std::vector<Box*> *boxes, const char *name, std::vector<Box*> *pBoxes);
+	/**
+	 * @fn getBoxesInternal
+	 *
+	 * @param[in] boxes - ISOBMFF boxes
+	 * @param[in] name - box name to get
+	 * @param[out] pBoxes - size of mdat buffer
+	 * @return bool
+	 */
+	bool getBoxesInternal(const std::vector<Box*> *boxes, const char *name, std::vector<Box*> *pBoxes);
 
-		/**
-		 * @fn restampPtsInternal
-		 *
-		 * @brief Private method to restamp PTS in a buffer
-		 *
-		 * @param[in] offset - pts offset
-		 * @param[in] segment - buffer pointer
-		 * @param[in] bufSz - buffer size
-		 */
-		void restampPtsInternal(int64_t offset, uint8_t *buf, size_t bufSz);
+	/**
+	 * @fn restampPtsInternal
+	 *
+	 * @brief Private method to restamp PTS in a buffer
+	 *
+	 * @param[in] offset - pts offset
+	 * @param[in] segment - buffer pointer
+	 * @param[in] bufSz - buffer size
+	 */
+	void restampPtsInternal(int64_t offset, uint8_t *buf, size_t bufSz);
+
+	/**
+	 * @fn updateSampleDurationInternal
+	 *
+	 * @brief Private method to update the sample duration in the relevant boxes,
+	 *        if the sample duration is already present in those boxes.
+	 *
+	 * @param[in] duration - duration to set
+	 * @param[in] trun - Track fragment run box in which to update the duration, if present
+	 * @param[in] tfhd - Track fragment header box in which to update the duration, if present
+	 * @return true if the sample duration was updated in at least one box; false otherwise
+	 */
+	bool updateSampleDurationInternal(uint64_t duration, TrunBox& trun, TfhdBox& tfhd);
+
 public:
 	/**
 	 * @brief IsoBmffBuffer constructor
@@ -182,6 +196,20 @@ public:
 	 * @param[in] offset - pts offset
 	 */
 	void restampPts(int64_t offset);
+
+	/**
+	 * @fn setPtsAndDuration
+	 *
+	 * @brief Set the PTS (base media decode time) and sample duration.
+	 *        This method assumes that the buffer contains an I-frame media segment,
+	 *        consisting of a single sample, so is suitable for trick mode re-stamping.
+	 *        If the buffer contains multiple samples or truns, only the first sample
+	 *        duration will be set (if flagged as present).
+	 *
+	 * @param[in] pts - Base media decode time to set
+	 * @param[in] duration - Sample duration to set
+	 */
+	void setPtsAndDuration(uint64_t pts, uint64_t duration);
 
 	/**
 	 * @fn getFirstPTS

@@ -89,3 +89,42 @@ TEST_F(IsoBmffHelperTests, restampPtsNegativeTest)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration()).Times(0);
 	EXPECT_FALSE(IsoBmffRestampPts(buffer, ptsOffset,url));
 }
+
+/**
+ * @brief Test the set PTS and duration function (positive case)
+ *        Verify that the expected IsoBmffBuffer methods are called when
+ *        IsoBmffSetPtsAndDuration() function is called.
+ */
+TEST_F(IsoBmffHelperTests, setPtsAndDurationTest)
+{
+	AampGrowableBuffer buffer{"IsoBmffHelperTests-setPtsAndDuration"};
+	uint8_t bufferContent[]{"IsoBmff buffer content"};
+	// Set the pointer and length in the AampGrowableBuffer fake
+	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
+	uint64_t pts{123};
+	uint64_t duration{1};
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setPtsAndDuration(pts, duration));
+	EXPECT_TRUE(IsoBmffSetPtsAndDuration(buffer, pts, duration));
+}
+
+/**
+ * @brief Test the set PTS and duration function (positive case)
+ *        Verify that IsoBmffBuffer::setPtsAndDuration() is not called if
+ *        IsoBmffBuffer::parseBuffer() fails, when IsoBmffSetPtsAndDuration() function
+ *        is called.
+ */
+TEST_F(IsoBmffHelperTests, setPtsAndDurationNegativeTest)
+{
+	AampGrowableBuffer buffer{"IsoBmffHelperTests-setPtsAndDuration"};
+	uint8_t bufferContent[]{"IsoBmff buffer content"};
+	// Set the pointer and length in the AampGrowableBuffer fake
+	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
+	uint64_t pts{123};
+	uint64_t duration{1};
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setPtsAndDuration(_, _)).Times(0);
+	EXPECT_FALSE(IsoBmffSetPtsAndDuration(buffer, pts, duration));
+}

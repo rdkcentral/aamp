@@ -26,6 +26,7 @@
 #include "priv_aamp.h" //Required for AAMPLOG_WARN1
 #include <string.h>
 
+static Box *findBoxInVector(const char * box_type, const std::vector<Box*> *boxes);
 
 /**
  *  @brief IsoBmffBuffer destructor
@@ -236,6 +237,54 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 void IsoBmffBuffer::restampPts(int64_t offset)
 {
 	restampPtsInternal(offset, buffer, bufSize);
+}
+
+void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
+{
+	size_t index{0};
+
+	// This is an I-frame media segment, so there will only be one moof with one traf
+	auto moof{getBox(Box::MOOF, index)};
+	if (moof)
+	{
+		auto traf{findBoxInVector(Box::TRAF, moof->getChildren())};
+		if (traf)
+		{
+			auto tfdt{dynamic_cast<TfdtBox *>(findBoxInVector(Box::TFDT, traf->getChildren()))};
+			if (tfdt)
+			{
+				tfdt->setBaseMDT(pts);
+			}
+			else
+			{
+				AAMPLOG_WARN("tfdt box unexpectedly missing");
+			}
+
+			auto trun{dynamic_cast<TrunBox *>(findBoxInVector(Box::TRUN, traf->getChildren()))};
+			auto tfhd{dynamic_cast<TfhdBox *>(findBoxInVector(Box::TFHD, traf->getChildren()))};
+			// According to the IsoBmff spec a tfhd is mandatory, and can exist without a trun,
+			// but in that case the code assumes there will be no duration to update.
+			if (trun && tfhd)
+			{
+				if (!updateSampleDurationInternal(duration, *trun, *tfhd))
+				{
+					AAMPLOG_WARN("Sample duration not set");
+				}
+			}
+			else
+			{
+				AAMPLOG_WARN("trun (%p) or tfhd (%p) box unexpectedly missing", trun, tfhd);
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN("traf box unexpectedly missing");
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("moof box unexpectedly missing");
+	}
 }
 
 /**
@@ -618,7 +667,7 @@ void IsoBmffBuffer::printPTSInternal(const std::vector<Box*> *boxes)
 /**
  *  @brief Look for a specific box in a vector of boxes
  */
-Box *findBoxInVector(const char * box_type, const std::vector<Box*> *boxes)
+static Box *findBoxInVector(const char * box_type, const std::vector<Box*> *boxes)
 {
 	auto it = find_if(boxes->begin(), boxes->end(), [box_type](Box* b){ return IS_TYPE(b->getType(), box_type);});
 	return (it != boxes->end()) ? *it : nullptr;
@@ -662,7 +711,7 @@ uint64_t IsoBmffBuffer::getSampleDurationInternal(const std::vector<Box*> *boxes
 			}
 		}
 	}
-return duration;
+	return duration;
 }
 
 /**
@@ -719,6 +768,26 @@ void IsoBmffBuffer::getPts(Box *box, uint64_t &fpts)
 	}
 }
 
+bool IsoBmffBuffer::updateSampleDurationInternal(uint64_t duration, TrunBox& trun, TfhdBox& tfhd)
+{
+	bool durationPresent{false};
+
+	/* If the SAMPLE_DURATION_PRESENT flag is set in the TRUN, the sample duration should be updated.
+	 * If the DEFAULT_SAMPLE_DURATION_PRESENT flag is set in the TFHD, the default sample duration should be updated.
+	 */
+	if (trun.sampleDurationPresent())
+	{
+		trun.setFirstSampleDuration(duration);
+		durationPresent = true;
+	}
+	if (tfhd.defaultSampleDurationPresent())
+	{
+		tfhd.setDefaultSampleDuration(duration);
+		durationPresent = true;
+	}
+
+	return durationPresent;
+}
 
 /**
  * @brief Truncate the mdat data to the first sample and update the tables in all relevant boxes
@@ -819,24 +888,9 @@ void IsoBmffBuffer::truncate(void)
 		auto mdat{dynamic_cast<MdatBox *>(getBox(Box::MDAT, index))};
 		if(mdat)
 		{
-			bool durationPresent = false;
-			/* If the SAMPLE_DURATION_PRESENT flag is set in the TRUN, the sample duration should be updated.
-			 * If the DEFAULT_SAMPLE_DURATION_PRESENT flag is set in the TFHD, the default sample duration should be updated.
-			 * If neither of them is set, a WARN is printed.
-			 */
-			if (trun->sampleDurationPresent())
+			if (!updateSampleDurationInternal(duration, *trun, *tfhd))
 			{
-				trun->setFirstSampleDuration(duration);
-				durationPresent = true;
-			}
-			if (tfhd->getDefaultSampleDuration())
-			{
-				tfhd->setDefaultSampleDuration(duration);
-				durationPresent = true;
-			}
-			if (!durationPresent)
-			{
-				AAMPLOG_WARN("SAMPLE_DURATION_PRESENT flag is not set in the TRUN box and DEFAULT_SAMPLE_DURATION_PRESENT flag is not set in the TFHD box");
+				AAMPLOG_WARN("Sample duration not set");
 			}
 
 			trun->truncate();

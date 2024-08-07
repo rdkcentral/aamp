@@ -50,7 +50,6 @@ bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer)
 
 bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl)
 {
-
 	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
 
@@ -63,8 +62,31 @@ bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::strin
 	else
 	{
 		isoBmffBuffer.restampPts(ptsOffset);
+		// NOTE: This log line is used by the pts_restamp_check.py test tool,
+		// and may be used by other tests for validation purposes.
+		// Please check restamping tests and tools before modifying this log line.
 		AAMPLOG_INFO("before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 " %s",
 					 isoBmffBuffer.beforePTS, isoBmffBuffer.afterPTS, isoBmffBuffer.getSegmentDuration(), fragmentUrl.c_str());
+		retval = true;
+	}
+
+	return retval;
+}
+
+bool IsoBmffSetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, uint64_t duration)
+{
+	bool retval{false};
+	IsoBmffBuffer isoBmffBuffer{};
+
+	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t *>(buffer.GetPtr()), buffer.GetLen());
+
+	if (!isoBmffBuffer.parseBuffer())
+	{
+		AAMPLOG_WARN("Failed to parse buffer");
+	}
+	else
+	{
+		isoBmffBuffer.setPtsAndDuration(pts, duration);
 		retval = true;
 	}
 

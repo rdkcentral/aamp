@@ -44,4 +44,22 @@ bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer);
  */
 bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl);
 
+/**
+ * @fn IsoBmffSetPtsAndDuration
+ *
+ * @brief Set the PTS (base media decode time) and sample duration.
+ *        This function assumes that the buffer contains an I-frame media segment,
+ *        consisting of a single sample, so is suitable for trick mode re-stamping.
+ *        If the buffer contains multiple samples or truns, only the first sample
+ *        duration will be set (if flagged as present).
+ *
+ * @param[in,out] buffer - buffer containing ISOBMFF I-frame media segment
+ * @param[in] pts - Base media decode time to set
+ * @param[in] duration - Sample duration to set
+ *
+ * @retval true  - PTS and duration were set in the ISOBMFF boxes
+ * @retval false - Setting failed
+ */
+bool IsoBmffSetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, uint64_t duration);
+
 #endif /* __ISOBMFFHELPER_H__ */
