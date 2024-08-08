@@ -144,7 +144,7 @@ typedef enum
 	eAAMPConfig_CurlHeader, 						/**< enable curl header response logging on curl errors*/
 	eAAMPConfig_StreamLogging,						/**< Enables HLS Playlist content logging */
 	eAAMPConfig_ID3Logging,        						/**< Enables ID3 logging */
-	eAAMPConfig_EnableGstPositionQuery, 					/**< GStreamer position query will be used for progress report events, Enabled by default for non-Intel platforms*/
+	eAAMPConfig_EnableGstPositionQuery, 					/**< GStreamer position query will be used for progress report events */
 	eAAMPConfig_MidFragmentSeek,                                            /**< Enable/Disable the Mid-Fragment seek functionality in aamp.*/
 	eAAMPConfig_PropogateURIParam,						/**< Feature where top-level manifest URI parameters included when downloading fragments*/
 	eAAMPConfig_UseWesterosSink, 						/**< Enable/Disable player to use westeros sink based video decoding */

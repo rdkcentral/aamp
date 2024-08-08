@@ -5151,7 +5151,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mOrigManifestUrl.isRemotehost = !(aamp_IsLocalHost(mOrigManifestUrl.hostname));
 		AAMPLOG_TRACE("CurlTrace OrigManifest url:%s", mOrigManifestUrl.hostname.c_str());
 	}
-#ifndef INTELCE // for intel device, DASH playback is not supported
 	if(mMediaFormat == eMEDIAFORMAT_DASH)
 	{
 		if(NULL == mMPDDownloaderInstance)
@@ -5168,7 +5167,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mMPDDownloaderInstance->Start();
 		}
 	}
-#endif
 
 	trickStartUTCMS = -1;
 
@@ -5185,12 +5183,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	{
 		if(!IsLocalAAMPTsb())
 		{
-#if defined (INTELCE)
-			AAMPLOG_ERR("Error: Dash playback not available");
-			mInitSuccess = false;
-			SendErrorEvent(AAMP_TUNE_UNSUPPORTED_STREAM_TYPE);
-			return;
-#else
 			mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(mLogObj,this, playlistSeekPos, rate,
 					std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
 						std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5)
@@ -5199,7 +5191,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			{
 				mCdaiObject = new CDAIObjectMPD(mLogObj, this); // special version for DASH
 			}
-#endif
 		}
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HLS || mMediaFormat == eMEDIAFORMAT_HLS_MP4)
@@ -5630,7 +5621,6 @@ void PrivateInstanceAAMP::ReloadTSB()
 	{
 		configPassCode = LoadFogConfig();
 	}
-#ifndef INTELCE
 	if(mMediaFormat == eMEDIAFORMAT_DASH)
 	{
 		// Restart MPD downloader thread with new session
@@ -5638,7 +5628,6 @@ void PrivateInstanceAAMP::ReloadTSB()
 		mMPDDownloaderInstance->Initialize(inpData,mLogObj,mAppName);
 		mMPDDownloaderInstance->Start();
 	}
-#endif
 	if(configPassCode == 200 || configPassCode == 204 || configPassCode == 206)
 	{
 		mMediaFormat = GetMediaFormatType(mManifestUrl.c_str());

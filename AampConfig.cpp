@@ -235,7 +235,7 @@ struct ConfigLookupEntryString
 #define DEFAULT_VALUE_USE_SINGLE_PIPELINE false
 #endif
 
-#if (defined(REALTEKCE) || defined(INTELCE) || defined(RPI) || defined(AAMP_SIMULATOR_BUILD))
+#if (defined(REALTEKCE) || defined(RPI) || defined(AAMP_SIMULATOR_BUILD))
 #define DEFAULT_VALUE_QTDEMUX_OVERRIDE_ENABLED true
 #else
 #define DEFAULT_VALUE_QTDEMUX_OVERRIDE_ENABLED false

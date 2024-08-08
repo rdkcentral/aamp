@@ -752,12 +752,6 @@ target_link_libraries(playbintest ${PLAYBINTEST_DEPENDS})
 # XCode schema target
 xcode_define_schema(playbintest)
 
-if(CMAKE_SOC_PLATFORM_INTEL)
-	message("CMAKE_SOC_PLATFORM_INTEL set")
-	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lismd_core -lismd_vidpproc -lismd_vidsink_direct -lismd_vidrend -lismd_viddec  -lismd_core -lsysloghelper -lgdl")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DINTELCE=1 -DAAMP_STOP_SINK_ON_SEEK=1 -DUSE_SYSLOG_HELPER_PRINT=1 -DENABLE_AAMP_QTDEMUX_OVERRIDE=1")
-endif()
-
 if(CMAKE_SOC_PLATFORM_REALTEK)
         message("CMAKE_SOC_PLATFORM_REALTEK set")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DREALTEKCE=1 -DENABLE_AAMP_QTDEMUX_OVERRIDE=1 -DCONTENT_4K_SUPPORTED")

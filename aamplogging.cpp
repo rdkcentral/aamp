@@ -29,9 +29,6 @@
 #include "priv_aamp.h"
 using namespace std;
 
-#ifdef USE_SYSLOG_HELPER_PRINT
-#include "syslog_helper_ifc.h"
-#endif
 #ifdef USE_SYSTEMD_JOURNAL_PRINT
 #include <systemd/sd-journal.h>
 #endif
@@ -475,14 +472,10 @@ void logprintf(int playerId, AAMP_LogLevel logLevelIndex, const char* file, int 
 	//gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE-1)] = 0;
 	va_end(args);
 
-#if (defined (USE_SYSTEMD_JOURNAL_PRINT) || defined (USE_SYSLOG_HELPER_PRINT))
+#if defined (USE_SYSTEMD_JOURNAL_PRINT)
 	if(!AampLogManager::disableLogRedirection)
 	{
-#ifdef USE_SYSTEMD_JOURNAL_PRINT
 		sd_journal_print(LOG_NOTICE, "%s", gDebugPrintBuffer);
-#else
-		send_logs_to_syslog(gDebugPrintBuffer);
-#endif
 		return;
 	}
 #endif
