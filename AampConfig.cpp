@@ -410,7 +410,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "enableIFrameTrackExtract", eAAMPConfig_EnableIFrameTrackExtract, true},
 	{false, "forceMultiPeriodDiscontinuity", eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 	{false, "forceLLDFlow", eAAMPConfig_ForceLLDFlow, false},
-	{false, "useNewFetcherLoop", eAAMPConfig_UseNewFetcherLoop, false}
+	{true, "useNewFetcherLoop", eAAMPConfig_UseNewFetcherLoop, false}
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
