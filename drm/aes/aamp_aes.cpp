@@ -231,7 +231,7 @@ DrmReturn AesDec::SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInf
 		licenseAcquisitionThreadId = std::thread(&AesDec::acquire_key, this);
 		err = eDRM_SUCCESS;
 		licenseAcquisitionThreadStarted = true;
-		AAMPLOG_INFO("Thread created for acquire_key [%zu]", GetPrintableThreadID(licenseAcquisitionThreadId));
+		AAMPLOG_INFO("Thread created for acquire_key [%zx]", GetPrintableThreadID(licenseAcquisitionThreadId));
 	}
 	catch(const std::exception& e)
 	{

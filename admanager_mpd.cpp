@@ -911,7 +911,7 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 				try
 				{
 						mAdObjThreadID = std::thread(&PrivateCDAIObjectMPD::FulFillAdObject, this);
-		    			AAMPLOG_INFO("Thread created (FulFillAdObject) [%zu]", GetPrintableThreadID(mAdObjThreadID));
+		    			AAMPLOG_INFO("Thread created (FulFillAdObject) [%zx]", GetPrintableThreadID(mAdObjThreadID));
 						mAdObjThreadStarted = true;
 				}
 				catch(std::exception &e)

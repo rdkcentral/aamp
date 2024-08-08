@@ -1698,7 +1698,7 @@ void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMi
 		{
 			mPausePositionMonitoringThreadID = std::thread(&PrivateInstanceAAMP ::RunPausePositionMonitoring, this);
 			mPausePositionMonitoringThreadStarted = true;
-			AAMPLOG_INFO("Thread created for RunPausePositionMonitoring [%zu]", GetPrintableThreadID(mPausePositionMonitoringThreadID));
+			AAMPLOG_INFO("Thread created for RunPausePositionMonitoring [%zx]", GetPrintableThreadID(mPausePositionMonitoringThreadID));
 		}
 		catch(const std::exception& e)
 		{
@@ -1876,7 +1876,7 @@ void PrivateInstanceAAMP::StartRateCorrectionWokerthread(void)
 		{
 			mAbortRateCorrection = false;
 			mRateCorrectionThread = std::thread(&PrivateInstanceAAMP::RateCorrectionWokerthread, this);
-			AAMPLOG_INFO("Rate Correction Thread started [%zu]", GetPrintableThreadID(mRateCorrectionThread)); //Print Id - KC
+			AAMPLOG_INFO("Rate Correction Thread started [%zx]", GetPrintableThreadID(mRateCorrectionThread)); //Print Id - KC
 		}
 	}
 	catch (exception& exp)

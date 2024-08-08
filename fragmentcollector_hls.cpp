@@ -4663,7 +4663,7 @@ void StreamAbstractionAAMP_HLS::PreCachePlaylist()
 	try
 	{
 		aamp->mPreCachePlaylistThreadId = std::thread(&StreamAbstractionAAMP_HLS::CachePlaylistThreadFunction, this);
-		AAMPLOG_INFO("Thread created for CachePlaylistThreadFunction [%zu]", GetPrintableThreadID(aamp->mPreCachePlaylistThreadId));
+		AAMPLOG_INFO("Thread created for CachePlaylistThreadFunction [%zx]", GetPrintableThreadID(aamp->mPreCachePlaylistThreadId));
 	}
 	catch(const std::exception& e)
 	{
@@ -5143,7 +5143,7 @@ void TrackState::Start(void)
 	{
 		fragmentCollectorThreadID =  std::thread(&TrackState::FragmentCollector, this);
 		fragmentCollectorThreadStarted = true;
-		AAMPLOG_INFO("Thread created for FragmentCollector [%zu]", GetPrintableThreadID(fragmentCollectorThreadID));
+		AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
 	}
 	catch(const std::exception& e)
 	{

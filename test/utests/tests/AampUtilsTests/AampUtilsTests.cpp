@@ -528,13 +528,31 @@ TEST(_AampUtils, GetVideoFormatForCodec)
 	EXPECT_EQ(result, nullptr);
 }
 
-
+static void PrintableStdThreadHelper( size_t *out )
+{
+	*out = GetPrintableThreadID();
+	sleep(1);
+}
+static void *PrintablePosixThreadHelper( void *arg )
+{
+	sleep(1);
+}
 TEST(_AampUtils, GetPrintableThreadID)
 {
-	const std::thread t1, t2;
-	size_t result1 = GetPrintableThreadID(t1);
-	size_t result2 = GetPrintableThreadID(t2);
-	EXPECT_EQ(result1, result2);
+	size_t internalThreadId = 0;
+	std::thread myStdThread = std::thread( PrintableStdThreadHelper, &internalThreadId );
+	size_t externalThreadId = GetPrintableThreadID(myStdThread);
+	myStdThread.join();
+	printf( "thread id: [%zx]\n", externalThreadId );
+	EXPECT_EQ( internalThreadId, externalThreadId );
+	
+	pthread_t myPosixThread;
+	int rc = pthread_create(&myPosixThread, NULL, PrintablePosixThreadHelper, NULL );
+	EXPECT_EQ( rc, 0 );
+	size_t posixThreadId = GetPrintableThreadID(myPosixThread);
+	pthread_join( myPosixThread,NULL );
+	printf( "posix thread id: [%zx]\n", posixThreadId );
+	EXPECT_TRUE( posixThreadId!=0 );
 }
 
 TEST(_AampUtils, CRC32)

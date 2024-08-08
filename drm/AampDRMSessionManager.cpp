@@ -825,7 +825,7 @@ void AampDRMSessionManager::renewLicense(std::shared_ptr<AampDrmHelper> drmHelpe
 		try
 		{
 			mLicenseRenewalThreads[sessionSlot] = std::thread(&AampDRMSessionManager::licenseRenewalThread, this, drmHelper, sessionSlot, aampInstance);
-			AAMPLOG_INFO("Thread created for LicenseRenewal [%zu]", GetPrintableThreadID(mLicenseRenewalThreads[sessionSlot]));
+			AAMPLOG_INFO("Thread created for LicenseRenewal [%zx]", GetPrintableThreadID(mLicenseRenewalThreads[sessionSlot]));
 		}
 		catch(const std::exception& e)
 		{

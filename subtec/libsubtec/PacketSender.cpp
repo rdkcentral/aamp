@@ -186,7 +186,7 @@ bool PacketSender::initSenderTask()
 {
     try {
         mSendThread = std::thread(runWorkerTask, this);
-        AAMPLOG_INFO("Thread created for runWorkerTask [%zu]", GetPrintableThreadID(mSendThread));
+        AAMPLOG_INFO("Thread created for runWorkerTask [%zx]", GetPrintableThreadID(mSendThread));
     }
     catch (const std::exception& e) {
         AAMPLOG_WARN("PacketSender: Error in initSenderTask: %s", e.what());

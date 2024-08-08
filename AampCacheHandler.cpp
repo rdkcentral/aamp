@@ -273,7 +273,7 @@ void AampCacheHandler::Init()
 		pthread_mutex_lock(&mCondVarMutex);
 		mAsyncCacheCleanUpThread = true;
 		pthread_mutex_unlock(&mCondVarMutex);  //CID:168111 - Missing lock
-		AAMPLOG_INFO("Thread created AsyncCacheCleanUpTask[%zu]", GetPrintableThreadID(mAsyncCleanUpTaskThreadId));
+		AAMPLOG_INFO("Thread created AsyncCacheCleanUpTask[%zx]", GetPrintableThreadID(mAsyncCleanUpTaskThreadId));
 	}
 	catch(std::exception &e)
 	{

@@ -7672,7 +7672,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							}
 							pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
 							trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
-							AAMPLOG_INFO("Thread created for TrackDownloader [%zu]", GetPrintableThreadID(trackDownloadThreadID));
+							AAMPLOG_INFO("Thread created for TrackDownloader [%zx]", GetPrintableThreadID(trackDownloadThreadID));
 						}
 						catch(std::exception &e)
 						{
@@ -7787,7 +7787,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 										setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 									}
 									trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
-									AAMPLOG_INFO("Thread created for TrackDownloader [%zu] %d %s", GetPrintableThreadID(trackDownloadThreadID), trackIdx, initialization.c_str());
+									AAMPLOG_INFO("Thread created for TrackDownloader [%zx] %d %s", GetPrintableThreadID(trackDownloadThreadID), trackIdx, initialization.c_str());
 								}
 								catch(const std::exception& e)
 								{
@@ -7885,7 +7885,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 																		trackIdx,
 																		"" // BaseUrl used for WebVTT download
 																		);
-									AAMPLOG_INFO("Thread created for TrackDownloader [%zu]", GetPrintableThreadID(trackDownloadThreadID));
+									AAMPLOG_INFO("Thread created for TrackDownloader [%zx]", GetPrintableThreadID(trackDownloadThreadID));
  								}
 								catch(std::exception &e)
 								{
@@ -8702,7 +8702,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 												&waitForFreeFrag,
 												&cacheFullStatus[trackIdx],
 												false);
-								AAMPLOG_TRACE("Thread created for parallelDownload:AdvanceTrack [%d][%zu]", trackIdx, GetPrintableThreadID( *parallelDownload[trackIdx]));
+								AAMPLOG_TRACE("Thread created for parallelDownload:AdvanceTrack [%d][%zx]", trackIdx, GetPrintableThreadID( *parallelDownload[trackIdx]));
 							}
 							else
 							{
@@ -9418,7 +9418,7 @@ void StreamAbstractionAAMP_MPD::Start(void)
 		try{
 			fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_MPD::FetcherLoop, this);
 			fragmentCollectorThreadStarted = true;
-			AAMPLOG_INFO("Thread created for FetcherLoop [%zu]", GetPrintableThreadID(fragmentCollectorThreadID));
+			AAMPLOG_INFO("Thread created for FetcherLoop [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
 		}
 		catch (std::exception &e)
 		{
@@ -9481,7 +9481,7 @@ void StreamAbstractionAAMP_MPD::Start(void)
 			abortTsbReader = false;
 			tsbReaderThreadID = std::thread(&StreamAbstractionAAMP_MPD::TsbReader, this);
 			tsbReaderThreadStarted = true;
-			AAMPLOG_INFO("Thread created for TsbReader [%zu]", GetPrintableThreadID(tsbReaderThreadID));
+			AAMPLOG_INFO("Thread created for TsbReader [%zx]", GetPrintableThreadID(tsbReaderThreadID));
 		}
 		catch(const std::exception& e)
 		{
@@ -11476,7 +11476,7 @@ void StreamAbstractionAAMP_MPD::StartLatencyMonitorThread()
 	{
 		latencyMonitorThreadID = std::thread(&StreamAbstractionAAMP_MPD::MonitorLatency, this);
         latencyMonitorThreadStarted = true;
-		AAMPLOG_INFO("Thread created Latency monitor [%zu]", GetPrintableThreadID(latencyMonitorThreadID));
+		AAMPLOG_INFO("Thread created Latency monitor [%zx]", GetPrintableThreadID(latencyMonitorThreadID));
 	}
 	catch(const std::exception& e)
 	{

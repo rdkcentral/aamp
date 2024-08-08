@@ -62,7 +62,7 @@ void MediaTrack::StartPlaylistDownloaderThread()
 			abortPlaylistDownloader = false;
 			playlistDownloaderThread = new std::thread(&MediaTrack::PlaylistDownloader, this);
 			playlistDownloaderThreadStarted = true;
-			AAMPLOG_INFO("Thread created for PlaylistDownloader [%zu]", GetPrintableThreadID(*playlistDownloaderThread));
+			AAMPLOG_INFO("Thread created for PlaylistDownloader [%zx]", GetPrintableThreadID(*playlistDownloaderThread));
 		}
 		else
 		{
@@ -1383,7 +1383,7 @@ void MediaTrack::StartInjectLoop()
 	{
 		fragmentInjectorThreadID = std::thread(&MediaTrack::RunInjectLoop, this);
 		fragmentInjectorThreadStarted = true;
-		AAMPLOG_INFO("Thread created for RunInjectLoop [%zu]", GetPrintableThreadID(fragmentInjectorThreadID));
+		AAMPLOG_INFO("Thread created for RunInjectLoop [%zx]", GetPrintableThreadID(fragmentInjectorThreadID));
 	}
 	catch(const std::exception& e)
 	{
@@ -1434,7 +1434,7 @@ void MediaTrack::StartInjectChunkLoop()
 	{
 		fragmentChunkInjectorThreadID = std::thread(&MediaTrack::RunInjectChunkLoop, this);
 		fragmentChunkInjectorThreadStarted = true;
-		AAMPLOG_INFO("Thread created for RunInjectChunkLoop [%zu]", GetPrintableThreadID(fragmentChunkInjectorThreadID));
+		AAMPLOG_INFO("Thread created for RunInjectChunkLoop [%zx]", GetPrintableThreadID(fragmentChunkInjectorThreadID));
 	}
 	catch(const std::exception& e)
 	{
@@ -1457,7 +1457,7 @@ void MediaTrack::RunInjectLoop()
 		{
 			bufferMonitorThreadID = std::thread(&MediaTrack::MonitorBufferHealth, this);
 			bufferMonitorThreadStarted = true;
-			AAMPLOG_INFO("Thread created for MonitorBufferHealth [%zu]", GetPrintableThreadID(bufferMonitorThreadID));
+			AAMPLOG_INFO("Thread created for MonitorBufferHealth [%zx]", GetPrintableThreadID(bufferMonitorThreadID));
 
 		}
 		catch(const std::exception& e)
@@ -1537,7 +1537,7 @@ void MediaTrack::RunInjectChunkLoop()
 		{
 			bufferMonitorThreadID = std::thread(&MediaTrack::MonitorBufferHealth, this);
 			bufferMonitorThreadStarted = true;
-			AAMPLOG_INFO("Thread created for MonitorBufferHealth [%zu]", GetPrintableThreadID(bufferMonitorThreadID));
+			AAMPLOG_INFO("Thread created for MonitorBufferHealth [%zx]", GetPrintableThreadID(bufferMonitorThreadID));
 
 		}
 		catch(const std::exception& e)
