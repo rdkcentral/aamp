@@ -8487,7 +8487,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool &periodChanged, bool &a
 	{
 		//Call after StreamSelection() to get correct ->adaptationSetIdx ->representationIndex
 		AAMPLOG_TRACE("Update PTS offset after StreamSelection, period changed %d", periodChanged);
-		UpdatePtsOffset(mCurrentPeriodIdx, true);
+		UpdatePtsOffset(mCurrentPeriodIdx, periodChanged);
 	}
 
 	// UpdateTrackInfo from Fetcher thread if there is a periodChange
