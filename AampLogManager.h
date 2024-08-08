@@ -286,12 +286,6 @@ public:
 
 extern AampLogManager *mLogObj;
 
-/**
- * @brief Max debug log buffer size
- */
-#define MAX_DEBUG_LOG_BUFF_SIZE 512
-
-
 /* Context-free utility function */
 
 /**

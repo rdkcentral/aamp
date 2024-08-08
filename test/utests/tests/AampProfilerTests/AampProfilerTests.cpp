@@ -5,6 +5,7 @@
 #include <cjson/cJSON.h>
 #include <algorithm>
 using namespace testing;
+AampLogManager *mLogObj{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
 class AampProfilertests : public testing::Test {
 protected:
