@@ -2031,22 +2031,6 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 }
 
 /**
- * @brief API returns true is live stream and playing at the live point
- */
-bool PrivateInstanceAAMP::IsAtLivePoint()
-{
-	if (mpStreamAbstractionAAMP)
-	{
-		if (IsLiveStream())
-		{
-			return mpStreamAbstractionAAMP->mIsAtLivePoint;
-		}
-	}
-	return false;
-}
-
-
-/**
  * @brief API to correct the latency by adjusting rate of playback
  */
 void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
@@ -2975,7 +2959,7 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 #ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
-		mDRMSessionManager->setPlaybackSpeedState(rate, GetStreamPositionMs());
+		mDRMSessionManager->setPlaybackSpeedState(rate,seek_pos_seconds);
 	}
 #endif
 }
@@ -7168,7 +7152,7 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 #ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
-		mDRMSessionManager->setVideoMute(muted, GetStreamPositionMs());
+		mDRMSessionManager->setVideoMute(muted, seek_pos_seconds);
 	}
 #endif
 }
@@ -8982,8 +8966,8 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 #ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
-		mDRMSessionManager->setVideoMute(video_muted, GetStreamPositionMs());
-		mDRMSessionManager->setPlaybackSpeedState(rate, GetStreamPositionMs(), true);
+		mDRMSessionManager->setVideoMute(video_muted, seek_pos_seconds);
+		mDRMSessionManager->setPlaybackSpeedState(rate,seek_pos_seconds, true);
 		int x = 0,y = 0,w = 0,h = 0;
 		if (!videoRectangle.empty())
 		{

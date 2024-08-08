@@ -4156,42 +4156,7 @@ public:
 	  *
 	  * @param Void
 	  */
-	void ReleaseDynamicDRMToUpdateWait();
-
-	/**
-	  * @fn GetLiveOffsetMs
-	  *
-	  * @param Void
-	  * @return double, live offset value in ms
-	  */
-	double GetLiveOffsetMs()
-	{
-		return mLiveOffset * 1000;
-	}
-
-	/**
-	  * @fn GetStreamPositionMs
-	  *
-	  * @param Void
-	  * @return double, current position in the stream
-	  */
-	double GetStreamPositionMs()
-	{
-		double pos = (double)GetPositionMilliseconds();
-		if (mProgressReportOffset >= 0)
-		{
-			pos -= (mProgressReportOffset * 1000);
-		}
-		return pos;
-	}
-
-	/**
-	  * @fn IsAtLivePoint
-	  *
-	  * @param Void
-	  * @return bool, true if stream is playing at live point
-	  */
-	bool IsAtLivePoint();
+	 void ReleaseDynamicDRMToUpdateWait();
 
 	 /*
 	  * @brief Get the TSB Session manager instance

@@ -338,7 +338,7 @@ public:
 	 * @param   firstFrameSeen set to true the first time we see a video frame after tune
 	 * @return	void.
  	 */
-	void setPlaybackSpeedState(int speed, double positionMs, bool firstFrameSeen = false);
+	void setPlaybackSpeedState(int speed, double position, bool firstFrameSeen = false);
 	
 	/**
 	 * @fn 	Update tracking of video mute status and update watermarking requests as required, based on video presence, video mute state, and speed
@@ -346,7 +346,7 @@ public:
 	 * @param	seek_pos_seconds indicates the playback position at which most recent playback activity began
 	 * @return	void.
  	 */
- 	void setVideoMute(bool videoMuteStatus, double positionMs);
+ 	void setVideoMute(bool videoMuteStatus, double seek_pos_seconds);
 	/**
 	 * @fn    	setSessionMgrState
 	 * @param	state session manager sate to be set
