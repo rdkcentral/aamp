@@ -8803,6 +8803,8 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 						// Added for init failure cases
 						adStateChanged = onAdEvent(AdEvent::AD_FAILED);
 						mCdaiObject->mAdBreaks[mBasePeriodId].mAdFailed = false;
+						// reset period change flag so that we can perform period change to source period
+						aamp->SetIsPeriodChangeMarked(false);
 						resetIterator = false;
 						continue;
 					}
@@ -9461,6 +9463,8 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						{
 							adStateChanged = onAdEvent(AdEvent::AD_FAILED);
 							mCdaiObject->mAdBreaks[mBasePeriodId].mAdFailed = false;
+							// reset period change flag so that we can perform period change to source period
+							aamp->SetIsPeriodChangeMarked(false);
 							continue;
 						}
 					}
