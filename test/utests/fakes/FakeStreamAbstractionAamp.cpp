@@ -227,7 +227,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
     return false;
 }
 
-void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool stopInjection,  bool fragmentDiscarded, bool isDiscontinuity, bool &ret)
+void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool fragmentDiscarded, bool isDiscontinuity, bool &ret)
 {
     return;
 }

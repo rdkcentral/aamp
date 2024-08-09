@@ -214,7 +214,7 @@ struct AAMPGstPlayerPriv
 	long long ptsUpdatedTimeMS; 			/**< Timestamp when PTS was last updated */
 	guint ptsCheckForEosOnUnderflowIdleTaskId; 	/**< ID of task to ensure video PTS is not moving before notifying EOS on underflow. */
 	int numberOfVideoBuffersSent; 			/**< Number of video buffers sent to pipeline */
-	gint64 segmentStart; 				/**< segment start value; required when qtdemux is enabled and restamping is disabled */
+	gint64 segmentStart;				/**< segment start value; required when qtdemux is enabled or restamping is disabled; -1 to send a segment.start query to gstreamer */
 	GstQuery *positionQuery; 			/**< pointer that holds a position query object */
 	GstQuery *durationQuery; 			/**< pointer that holds a duration query object */
 	bool paused; 					/**< if pipeline is deliberately put in PAUSED state due to user interaction */
@@ -849,7 +849,7 @@ static void InitializeSource(AAMPGstPlayer *_this, GObject *source, AampMediaTyp
 	/* "format" can be used to perform seek or query/conversion operation*/
 	/* gstreamer.freedesktop.org recommends to use GST_FORMAT_TIME 'if you don't have a good reason to query for samples/frames' */
 	g_object_set(source, "format", GST_FORMAT_TIME, NULL);
-			  
+
 	caps = GetGstCaps(stream->format);
 	if (caps != NULL)
 	{
@@ -2748,7 +2748,10 @@ void AAMPGstPlayer::SendGstEvents(AampMediaType mediaType, GstClockTime pts)
 		stream->pendingSeek = false;
 	}
 
-	enableOverride = SendQtDemuxOverrideEvent(mediaType, pts);
+	if (ISCONFIGSET(eAAMPConfig_QtDemuxOverride))
+	{
+		enableOverride = SendQtDemuxOverrideEvent(mediaType, pts);
+	}
 
 	if (mediaType == eMEDIATYPE_VIDEO)
 	{
@@ -2758,8 +2761,9 @@ void AAMPGstPlayer::SendGstEvents(AampMediaType mediaType, GstClockTime pts)
 		// by basesrc to get the updated segment event values.
 		// When override is enabled qtdemux internally restamps and sends segment.start = 0 which is part of
 		// AAMP's change in qtdemux so we don't need to query segment.start
-		// Enabling position query based progress reporting for non-westerossink configurations
-		if (ISCONFIGSET(eAAMPConfig_EnableGstPositionQuery) && enableOverride == FALSE)
+		// Enabling position query based progress reporting for non-westerossink configurations.
+		// AAMP will send a segment.start query if segmentStart is -1.
+		if (ISCONFIGSET(eAAMPConfig_EnableGstPositionQuery) && (enableOverride == FALSE))
 		{
 			privateContext->segmentStart = -1;
 		}
@@ -5190,7 +5194,6 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(AampMediaType mediaType, GstClo
 	media_stream* stream = &privateContext->stream[mediaType];
 	gboolean enableOverride = (privateContext->rate != AAMP_NORMAL_PLAY_RATE);
 	GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");	/* Retrieves the src pad */
-
 	if (stream->format == FORMAT_ISO_BMFF && mediaType != eMEDIATYPE_SUBTITLE)
 	{
 		int vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS);

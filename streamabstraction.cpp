@@ -30,7 +30,6 @@
 #include "ElementaryProcessor.h"
 #include "isobmffbuffer.h"
 #include "AampCacheHandler.h"
-#include "isobmffprocessor.h"
 #include <assert.h>
 #include <errno.h>
 #include <math.h>
@@ -39,12 +38,16 @@
 #include <cmath>
 #include "AampTSBSessionManager.h"
 #include "isobmffhelper.h"
+#include "AampConfig.h"
 
 //#define AAMP_DEBUG_INJECT_CHUNK
 #define AAMP_DEBUG_FETCH_INJECT 1
 
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
+
+/* Arbitary value to enable restamping the media segments PTS and duration with adequate precision */
+static constexpr uint32_t TRICKMODE_TIMESCALE{100000};
 
 using namespace std;
 
@@ -1085,14 +1088,105 @@ bool MediaTrack::ProcessFragmentChunk()
 	return true;
 }
 
+void MediaTrack::TrickModePtsRestamp(CachedFragment *cachedFragment)
+{
+	int trickPlayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS);
+	AampTime fragmentPtsDelta = 0.0;
+	AampTime inFragmentPosition = cachedFragment->position;
+	AampTime inFragmentDuration = cachedFragment->duration;
+
+	if (cachedFragment->initFragment)
+	{
+		// Init fragment is injected after any rate change or discontinuity
+		// The timescale in the ISOBMFF init segment is restamped to a value TRICKMODE_TIMESCALE to
+		// enable restamping the media segment PTS and duration with adequate precision, e.g.
+		// 100,000
+		(void)mIsoBmffHelper->SetTimescale(cachedFragment->fragment, TRICKMODE_TIMESCALE);
+
+		if (cachedFragment->discontinuity)
+		{
+			// Remember the discontinuity so that the first media segment can be handled differently
+			// because it's only set on an Init fragmemt
+			mTrickmodeState = TrickmodeState::DISCONTINUITY;
+			mRestampedPts += mRestampedDuration;
+		}
+		else
+		{
+			// Initialise the restamped pts timeline when handling the first media fragment
+			mTrickmodeState = TrickmodeState::FIRST_FRAGMENT;
+			mRestampedPts = 0.0;
+		}
+	}
+	else // Media segment
+	{
+		switch (mTrickmodeState)
+		{
+			case TrickmodeState::FIRST_FRAGMENT:
+
+				// This is the first media fragment after an init fragment (that is not a
+				// discontinuity): The first restamped pts starts from 0.
+				// Estimate the first fragment duration based on the rate and trickPlayFPS.
+				// Subsequent durations will be based on the delta between the current fragment and
+				// the last fragment. This is an estimate because we don't know how long the
+				// duration should be, as there isn't a previous PTS from which to calculate a
+				// delta.  Better to avoid too small a number, so limited to 0.25 seconds. GStreamer
+				// works ok with this in practice.
+				mRestampedDuration =
+					MAX(cachedFragment->duration / std::fabs(aamp->rate), 1.0 / trickPlayFPS);
+				break;
+
+			case TrickmodeState::DISCONTINUITY:
+				// Assume that the restamped duration is the same as used for the previous fragment
+				break;
+
+			case TrickmodeState::STEADY:
+				// Calculate the duration between the next fragment and the previous fragment and
+				// divide it by the rate to determine the next pts
+				fragmentPtsDelta = fabs(cachedFragment->position - mLastFragmentPts);
+				mRestampedDuration = fragmentPtsDelta / std::fabs(aamp->rate);
+				mRestampedPts += mRestampedDuration;
+				break;
+
+			default:
+				AAMPLOG_ERR("Unexpected trickmode state %d", static_cast<int>(mTrickmodeState));
+				break;
+		}
+		// Transition immediately (back) to STEADY following the first frame or a discontinuity
+		mTrickmodeState = TrickmodeState::STEADY;
+
+		mLastFragmentPts = cachedFragment->position;
+		cachedFragment->duration = mRestampedDuration.inSeconds();
+
+		// Restamp the ISOBMFF position and duration in the media segment
+		(void)mIsoBmffHelper->SetPtsAndDuration(cachedFragment->fragment,
+			static_cast<int64_t>(TRICKMODE_TIMESCALE * mRestampedPts),
+			static_cast<int64_t>(TRICKMODE_TIMESCALE * mRestampedDuration));
+	}
+	// Update cached values for GStreamer
+	cachedFragment->position = mRestampedPts.inSeconds();
+
+	AAMPLOG_INFO("rate %f, initFragment %d, discontinuity %d, "
+				 "position %lfs, duration %lfs, restamped position %lfs, duration %lfs",
+				 aamp->rate, cachedFragment->initFragment, cachedFragment->discontinuity,
+				 inFragmentPosition.inSeconds(), inFragmentDuration.inSeconds(),
+				 cachedFragment->position, cachedFragment->duration);
+}
+
 /**
  *  @brief Inject fragment Chunk into the gstreamer
  */
-void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool stopInjection,  bool fragmentDiscarded, bool isDiscontinuity, bool &ret )
+void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool fragmentDiscarded, bool isDiscontinuity, bool &ret )
 {
-	bool lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
 	class StreamAbstractionAAMP* pContext = GetContext();
-	if(!stopInjection && lowLatency)
+
+	// If in trick mode, do trick mode PTS restamp
+	if ((ISCONFIGSET(eAAMPConfig_EnablePTSReStamp)) && (!ISCONFIGSET(eAAMPConfig_QtDemuxOverride)) &&
+		((aamp->rate > AAMP_NORMAL_PLAY_RATE) || (aamp->rate < 0)))
+	{
+		TrickModePtsRestamp(cachedFragment);
+	}
+
+	if (aamp->GetLLDashServiceData()->lowLatencyMode)
 	{
 		bool bIgnore = true;
 		AAMPLOG_TRACE("[%s] Processing the chunk ==> fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
@@ -1104,7 +1198,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool s
 			AAMPLOG_TRACE("[%s] Updated the chunk inject ==> fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
 		}
 	}
-	else if (!stopInjection)
+	else
 	{
 		// We could skip Restamp when PTSOffsetSec==0 but the log line would then be missing and it is important for l2 test
 		if ((pContext && !pContext->trickplayMode) && (!cachedFragment->initFragment) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
@@ -1223,7 +1317,10 @@ bool MediaTrack::InjectFragment()
 				stopInjection = true;
 			}
 
-			ProcessAndInjectFragment( cachedFragment, stopInjection, fragmentDiscarded, isDiscontinuity, ret);
+			if (!stopInjection)
+			{
+				ProcessAndInjectFragment(cachedFragment, fragmentDiscarded, isDiscontinuity, ret);
+			}
 		}
 		else
 		{
@@ -1623,6 +1720,7 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0)
 		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
 		,mIsoBmffHelper(aamp->mIsoBmffHelper)
+		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 			if( !maxCachedFragmentsPerTrack )

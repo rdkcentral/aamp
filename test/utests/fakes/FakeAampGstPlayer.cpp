@@ -200,11 +200,6 @@ bool AAMPGstPlayer::SetTextStyle(const std::string &options)
 	return false;
 }
 
-gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(AampMediaType mediaType, GstClockTime pts, const void *ptr, size_t len)
-{
-	return FALSE;
-}
-
 PlaybackQualityStruct* AAMPGstPlayer::GetVideoPlaybackQuality(void)
 {
 	return nullptr;

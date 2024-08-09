@@ -16,10 +16,9 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#include <cstdint>
-#include "AampGrowableBuffer.h"
-#include "isobmffhelper.h"
+#include "MockIsoBmffHelper.h"
 
+MockIsoBmffHelper* g_mockIsoBmffHelper = nullptr;
 
 bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
 {
@@ -28,5 +27,30 @@ bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
 
 bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &url)
 {
+	if (g_mockIsoBmffHelper)
+	{
+		return g_mockIsoBmffHelper->IsoBmffRestampPts(buffer, ptsOffset, url);
+	}
+
+    return true;
+}
+
+bool IsoBmffHelper::SetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
+{
+	if (g_mockIsoBmffHelper)
+	{
+		return g_mockIsoBmffHelper->IsoBmffSetTimescale(buffer, timeScale);
+	}
+
+    return true;
+}
+
+bool IsoBmffHelper::SetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, uint64_t duration)
+{
+	if (g_mockIsoBmffHelper)
+	{
+		return g_mockIsoBmffHelper->IsoBmffSetPtsAndDuration(buffer, pts, duration);
+	}
+
     return true;
 }

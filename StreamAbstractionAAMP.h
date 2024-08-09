@@ -43,6 +43,7 @@
 #include <SubtitleCMCDHeaders.h>
 
 #include "AampDRMLicPreFetcherInterface.h"
+#include "AampTime.h"
 
 /**
  * @brief Media Track Types
@@ -122,8 +123,8 @@ class CachedFragment
 {
 public:
 	AampGrowableBuffer fragment;	/**< Buffer to keep fragment content */
-	double position;				/**< Position in the playlist */
-	double duration;				/**< Fragment duration */
+	double position;				/**< Position in the playlist, in seconds */
+	double duration;				/**< Fragment duration, in seconds */
 	bool initFragment;				/**< Is init fragment */
 	bool discontinuity;				/**< PTS discontinuity status */
 	int profileIndex;				/**< Profile index; Updated internally */
@@ -419,7 +420,7 @@ public:
 	 *
 	 * @return true/false
 	 */
-	void ProcessAndInjectFragment(CachedFragment *cachedFragment, bool stopInjection,  bool fragmentDiscarded, bool isDiscontinuity, bool &ret);
+	void ProcessAndInjectFragment(CachedFragment *cachedFragment, bool fragmentDiscarded, bool isDiscontinuity, bool &ret);
 
 	/**
 	 * @brief Get total fragment injected duration
@@ -780,6 +781,13 @@ private:
 	 */
 	static const char* GetBufferHealthStatusString(BufferHealthStatus status);
 
+	/**
+	 * @fn TrickModePtsRestamp
+	 *
+	 * @param[in] cachedFragment - fragment to be restamped for trickmodes
+	 */
+	void TrickModePtsRestamp(CachedFragment* cachedFragment);
+
 public:
 	bool eosReached;                    /**< set to true when a vod asset has been played to completion */
 	bool enabled;                       /**< set to true if track is enabled */
@@ -819,6 +827,13 @@ protected:
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
 
 private:
+	enum class TrickmodeState
+	{
+		UNDEF,
+		FIRST_FRAGMENT,
+		DISCONTINUITY,
+		STEADY
+	};
 	pthread_cond_t fragmentFetched;     	/**< Signaled after a fragment is fetched*/
 	pthread_cond_t fragmentInjected;    	/**< Signaled after a fragment is injected*/
 	std::thread fragmentInjectorThreadID;  	/**< Fragment injector thread id*/
@@ -858,6 +873,10 @@ private:
 	double lastInjectedPosition;             /**< Last injected position */
 	std::atomic_bool mIsLocalTSBInjection;
 	size_t mCachedFragmentChunksSize;		/**< Size of fragment chunks cache */
+	AampTime mLastFragmentPts;				/**< pts of the previous fragment, used in trick modes */
+	AampTime mRestampedPts;					/**< Restamped Pts of the segment, used in trick modes */
+	AampTime mRestampedDuration;			/**< Restamped segment duration, used in trick modes */
+	TrickmodeState mTrickmodeState;			/**< Current trick mode state */
 };
 
 /**
