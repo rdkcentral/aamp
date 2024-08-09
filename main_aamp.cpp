@@ -26,7 +26,6 @@
 #include "manager.hpp"
 #include "libIBus.h"
 #include "libIBusDaemon.h"
-#include "irMgr.h"
 #endif
 
 #include "main_aamp.h"
