@@ -210,7 +210,6 @@ void ProfileEventAAMP::TuneBegin(void)
 	{
 		cJSON_Delete(telemetryParam);
 	}
-	mLldLowBuffObject = NULL;
 	telemetryParam = cJSON_CreateObject();
 }
 
@@ -576,21 +575,11 @@ void ProfileEventAAMP::SetLLDLowBufferParam(double latency, double buff, double 
 /**
  * @brief to mark the latency parameters
  */
-void ProfileEventAAMP::SetLatencyParam(double latency, double buffer, double playbackRate, double bw)
+void ProfileEventAAMP::SetLatencyParam(double latency)
 {
-	std::lock_guard<std::mutex> lock(discontinuityParamMutex);
-	if(latency >= 0)
+	if(latency != 0)
 	{
-		AddWithPrecisionNumber(telemetryParam,"lt",latency);
-	}
-	if(buffer >= 0)
-	{
-		AddWithPrecisionNumber(telemetryParam,"buf",buffer);
-	}
-	AddWithPrecisionNumber(telemetryParam,"pbr", playbackRate);
-	if(bw > 0)
-	{
-		cJSON_AddNumberToObject(telemetryParam,"bw", bw);
+		cJSON_AddNumberToObject(telemetryParam,"lt",latency);
 	}
 	if(rateCorrection != 0)
 	{
@@ -636,10 +625,10 @@ void ProfileEventAAMP::GetTelemetryParam()
 	std::lock_guard<std::mutex> lock(discontinuityParamMutex);
 	if(telemetryParam != NULL)
 	{
-		std::string jsonStr = cJSON_PrintUnformatted(telemetryParam);
-		AAMPLOG_MIL("Telemetry values %s", jsonStr.c_str());
+		char *jsonStr = cJSON_PrintUnformatted(telemetryParam);
+		AAMPLOG_WARN("Telemetry values %s", jsonStr );
+		cJSON_free( jsonStr );
 		cJSON_Delete(telemetryParam);
-		mLldLowBuffObject = NULL;
 		telemetryParam = cJSON_CreateObject();
 	}
 }

@@ -765,23 +765,9 @@ public:
 	/**
 	 * @fn SetLatencyParam - to mark the latency details
 	 * @param latency - latency value
-	 * @param buffer - buffer
-	 * @param playbackRate - playback Rate
-	 * @param bw - bandwidth
 	 * @return void
 	 */
-	void SetLatencyParam(double latency, double buffer, double playbackRate, double bw);
-
-	/**
-	 * @fn SetLLDLowBufferParam - to mark the lld low buff details
-	 * @param latency - latency value
-	 * @param buff - buffer
-	 * @param rate - playback rate
-	 * @param bw - bandwidth
-	 * @param buffLowCount - Low buffer hit count
-	 * @return void
-	 */
-	void SetLLDLowBufferParam(double latency, double buff, double rate, double bw, double buffLowCount);
+	void SetLatencyParam(double latency);
 
 	/**
 	 * @fn GetTSBStore - Get the TSB Store Object

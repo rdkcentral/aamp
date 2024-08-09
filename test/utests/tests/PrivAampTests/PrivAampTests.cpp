@@ -3129,23 +3129,23 @@ TEST_F(PrivAampTests,SetDiscontinuityParamTest1)
 }
 TEST_F(PrivAampTests,SetLatencyParamTest1)
 {
-    p_aamp->SetLatencyParam(2.223, 1.6, 1.0, 16300);
+    p_aamp->SetLatencyParam(2.223);
 }
 TEST_F(PrivAampTests, SetLatencyParamTest2)
 {
-	double testVal = DBL_MAX;
-	p_aamp->SetLatencyParam(testVal, testVal, testVal, testVal);
+	double latency = DBL_MAX;
+	p_aamp->SetLatencyParam(latency);
 }
 
 TEST_F(PrivAampTests, SetLatencyParamTest3)
 {
-	double testVal = DBL_MIN;
-	p_aamp->SetLatencyParam(testVal, testVal, testVal, testVal);
+	double latency = DBL_MIN;
+	p_aamp->SetLatencyParam(latency);
 }
 
 TEST_F(PrivAampTests, SetLatencyParamTest4)
 {
-	p_aamp->SetLatencyParam(-5.5, -1.6, -1.0, -16300);
+	p_aamp->SetLatencyParam(-5.5);
 }
 
 

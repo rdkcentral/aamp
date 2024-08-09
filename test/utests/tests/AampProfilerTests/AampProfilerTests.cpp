@@ -19,25 +19,22 @@ protected:
 };
 TEST_F(AampProfilertests, SetLatencyParamTest11)
 {
-    double testVal = INT_MAX;
     profileEvent->IncrementChangeCount(Count_RateCorrection);
     profileEvent->IncrementChangeCount(Count_BitrateChange);
     profileEvent->IncrementChangeCount(Count_BufferChange);
-    profileEvent->SetLatencyParam(testVal, testVal, testVal, testVal);
+    profileEvent->SetLatencyParam(INT_MAX);
     profileEvent->TuneBegin();
     profileEvent->GetTelemetryParam();
 }
 TEST_F(AampProfilertests, SetLatencyParamTest12)
 {
-    double testVal = INT_MAX;
     profileEvent->IncrementChangeCount(Count_BitrateChange);
-    profileEvent->SetLatencyParam(testVal, testVal, testVal, testVal);
+    profileEvent->SetLatencyParam(INT_MAX);
 }
 TEST_F(AampProfilertests, SetLatencyParamTest13)
 {
-    double testVal = INT_MAX;
     profileEvent->IncrementChangeCount(Count_BufferChange);
-    profileEvent->SetLatencyParam(testVal, testVal, testVal, testVal);
+    profileEvent->SetLatencyParam(INT_MAX);
 }
 TEST_F(AampProfilertests, GetTuneTimeMetricAsJsonTest)
 {

@@ -262,7 +262,6 @@ public:
 		if(telemetryParam != NULL)
 		{
 			cJSON_Delete(telemetryParam);
-			mLldLowBuffObject = NULL;
 		}
 	}
 	/**
@@ -433,13 +432,9 @@ public:
 	/**
 	 * @fn SetLatencyParam - to mark the latency parameters
 	 * @param latency - latency value
-	 * @param buffer - buffer value
-	 * @param playbackRate - current playback rate
-	 * @param bw - current bandwidth
 	 * @return void
 	 */
-	void SetLatencyParam(double latency, double buffer, double playbackRate, double bw);
-
+	void SetLatencyParam(double latency);
 	/**
 	 * @fn AddLLDLowBufferObject - API to Add LLD Low buffer object to the telemetry data
 	 * @return void

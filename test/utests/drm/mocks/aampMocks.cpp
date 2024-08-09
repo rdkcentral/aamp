@@ -1181,7 +1181,7 @@ void PrivateInstanceAAMP::SetDiscontinuityParam()
 {
 }
 
-void PrivateInstanceAAMP::SetLatencyParam(double latency, double buffer, double playbackRate, double bw)
+void PrivateInstanceAAMP::SetLatencyParam(double latency)
 {
 }
 
