@@ -850,8 +850,7 @@ bool AampTSBSessionManager::PushNextFragment(MediaStreamContext *pMediaStreamCon
 					{
 						initFragment->discontinuity = true;
 					}
-					initFragment->position = nextFragmentData->GetPTS();/* For init fragment use next fragment PTS as position for injection,as the PTS value is required for overriding events in qtdemux*/
-
+					initFragment->position = nextFragmentData->GetPosition();
 					ret = pMediaStreamContext->CacheTsbFragment(initFragment);
 				}
 				else
@@ -879,8 +878,6 @@ bool AampTSBSessionManager::PushNextFragment(MediaStreamContext *pMediaStreamCon
 					}
 				}
 				UnlockReadMutex();
-				nextFragment->position = pts;/*Update the fragment absolute position as PTS for injection,as the PTS value is required for overriding events in qtdemux.*/
-
 				ret = pMediaStreamContext->CacheTsbFragment(nextFragment);
 				LockReadMutex();
 			}
@@ -913,9 +910,9 @@ double AampTSBSessionManager::GetManifestEndDelta()
 {
 	double manifestEndDelta = 0.0;
 	LockReadMutex();
-	if(mStoreEndPosition > 0 && mAamp->mAbsoluteEndPosition > 0  )
+	if(mStoreEndPosition > 0 && mLiveEndPosition > 0 )
 	{
-		manifestEndDelta = mStoreEndPosition - mAamp->mAbsoluteEndPosition > 0;
+		manifestEndDelta = mStoreEndPosition - mLiveEndPosition;
 	}
 	else
 	{
@@ -944,16 +941,20 @@ void AampTSBSessionManager::UpdateProgress(double manifestDuration, double manif
 		AAMPLOG_TRACE("Updating culled seconds: %lf", culledSeconds);
 		mAamp->UpdateCullingState(culledSeconds);
 	}
-	mAamp->culledSeconds = GetTsbDataManager(eMEDIATYPE_VIDEO)->GetFirstFragmentPosition();
 	LockReadMutex();
+	mLiveEndPosition = manifestDuration + manifestCulledSecondsFromStart;
 	AAMPLOG_TRACE("LiveDownloader:: Manifest total duration:%lf, ManifestCulledSeconds:%lf", manifestDuration, manifestCulledSecondsFromStart);
 	mStoreEndPosition = mAamp->culledSeconds + GetTotalStoreDuration(eMEDIATYPE_VIDEO);
 	if (mAamp->mConfig->IsConfigSet(eAAMPConfig_ProgressLogging))
 	{
-		AAMPLOG_INFO("tsb pos: [%lf..[X]..%lf]", mAamp->culledSeconds, mAamp->mAbsoluteEndPosition);
+		AAMPLOG_INFO("tsb pos: [%lf..[X]..%lf]", mAamp->culledSeconds, mStoreEndPosition);
 	}
 	UnlockReadMutex();
-	double duration = mAamp->mAbsoluteEndPosition -mAamp->culledSeconds;
+	double contentEnd = (mLiveEndPosition < mStoreEndPosition) ? mStoreEndPosition : mLiveEndPosition;
+	// Duration is calculated in two different approach
+	// case 1 : tsbDepth of manifest is higher than store duration, take manifest end as live edge
+	// case 2 : For example, segment template streams has live sync, so TSBStoreEnd would be higher
+	double duration = contentEnd - mAamp->culledSeconds;
 	AAMPLOG_TRACE("Updating duration: %lf", duration);
 	mAamp->UpdateDuration(duration);
 }

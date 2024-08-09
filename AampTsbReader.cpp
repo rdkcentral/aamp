@@ -131,7 +131,7 @@ AAMPStatusType AampTsbReader::Init(double &startPos, float rate, TuneType tuneTy
 						mFirstPTS = firstFragmentToFetch->GetPTS();
 						AAMPLOG_INFO("[%s] startPosition:%lf relative:%lf rate:%f pts:%lf Window:(%lf..%lf)", GetMediaTypeName(mMediaType), mStartPosition, firstFragmentToFetch->GetRelativePosition(), mCurrentRate , mFirstPTS, firstFragment->GetRelativePosition(), lastFragment->GetRelativePosition());
 						mInitialized_ = true;
-						startPos = firstFragmentToFetch->GetPosition();
+						startPos = firstFragmentToFetch->GetPosition() - firstFragment->GetPosition();
 					}
 					else
 					{
