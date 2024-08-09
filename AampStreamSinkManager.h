@@ -162,9 +162,8 @@ private:
 	 *  @fn SetActive
 	 *  @brief Makes an instance of PrivateInstanceAAMP as the active i.e. its data fed into Gstreamer pipeline
 	 *  @param[in] aamp - the PrivateInstanceAAMP, data of which will be fed into Gstreamer pipeline
-	 *  @param[in] position - the current playback position for the player being activated
 	 */
-	void SetActive(PrivateInstanceAAMP *aamp, double position);
+	void SetActive(PrivateInstanceAAMP *aamp);
 
 	AAMPGstPlayer *mGstPlayer;
 

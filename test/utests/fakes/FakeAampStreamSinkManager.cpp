@@ -68,6 +68,11 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 {
 }
 
+void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp)
+{
+}
+
+
 /**
  * @brief Creates a singleton instance of AampStreamSinkManager
  */
