@@ -3,14 +3,12 @@
 #include <limits.h>
 #include <functional>
 #include "MockGLib.h"
-#include "AampLogManager.h"
 
 
 using ::testing::NiceMock;
 using ::testing::_;
 using ::testing::Return;
 
-AampLogManager *mLogObj{nullptr};
 class FunctionalTests : public ::testing::Test {
 protected:
     FunctionalTests()
@@ -314,7 +312,7 @@ TEST_F(FunctionalTests, SeriesOfAppendsTest)
     EXPECT_GE(buffer.GetAvail(),8192); // Available space should be greater than or equal to total length
 }
 
-TEST_F(FunctionalTests, SetLenPositiveTest)
+TEST_F(FunctionalTests, ReduceLenPositiveTest)
 {
     AampGrowableBuffer buffer("buffer");    // Create a new buffer for this test
 
@@ -337,32 +335,17 @@ TEST_F(FunctionalTests, SetLenPositiveTest)
     EXPECT_EQ(result, 0);                   // Check if data was appended correctly
     EXPECT_EQ(buffer.GetLen(), srcLen);     // Check if length is set correctly
 
-    buffer.SetLen(srcNewLen);
+    buffer.ReduceLen(srcNewLen);
     EXPECT_EQ(buffer.GetLen(), srcNewLen);
 }
 
-TEST_F(FunctionalTests, SetLenAfterReserveBytesTest)
+TEST_F(FunctionalTests, ReduceLenNegativeTest)
 {
     AampGrowableBuffer buffer("buffer");    // Create a new buffer for this test
 
-    {
-        AampGrowableBuffer testBuf("testBuf");
-        EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillOnce(callMalloc);
-        testBuf.ReserveBytes(10);
-        testBuf.SetLen(9);
-        EXPECT_EQ(testBuf.GetLen(), 9);
-
-        EXPECT_DEATH(testBuf.SetLen(11), _);
-        EXPECT_EQ(testBuf.GetLen(), 9);
-    }
-}
-
-TEST_F(FunctionalTests, SetLenAfterAppendBytesTest)
-{
-    AampGrowableBuffer buffer("buffer");    // Create a new buffer for this test
-
-    const char* srcData = "Hello, World";
+    const char* srcData = "Hello, World!";
     size_t srcLen = strlen(srcData);
+    size_t srcNewLen = srcLen * 2;          // Try to double the length (should fail)
 
     // Expectation for AppendBytes()
     EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillOnce(callRealloc);
@@ -379,8 +362,7 @@ TEST_F(FunctionalTests, SetLenAfterAppendBytesTest)
     EXPECT_EQ(result, 0);                   // Check if data was appended correctly
     EXPECT_EQ(buffer.GetLen(), srcLen);     // Check if length is set correctly
 
-    // attempt to set length bigger than available size
-    EXPECT_DEATH(buffer.SetLen(100), _);
+    // ReduceLen() should assert if the new length is bigger than the old one
+    EXPECT_DEATH(buffer.ReduceLen(srcNewLen), _);
     EXPECT_EQ(buffer.GetLen(), srcLen);     // Check that length has not changed
 }
-

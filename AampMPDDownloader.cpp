@@ -27,8 +27,6 @@
 #include "AampMPDDownloader.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
-#include <inttypes.h>
-
 
 
 #define DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS 3000
@@ -166,8 +164,8 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 	mMPDDnldCfg(NULL),mDownloaderThread_t1(),mDownloaderThread_t2(),mDownloader1(),mDownloader2(),mMPDData(nullptr),mAppName(""),
 	mLogObj(NULL),mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
 	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0),mIsLowLatency(false),
-	mMPDDnldDataMtx(),mMPDDnldDataCondVar()
-	,mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false)
+	mLLDashData(),mMPDDnldDataMtx(),mMPDDnldDataCondVar()
+	,mCurrentposDeltaToManifestEnd(-1)
 {
 }
 
@@ -298,7 +296,7 @@ void AampMPDDownloader::Release()
 
 		/**< Reset LLD Data*/
 		mLLDashData.clear();
-		mMinimalRefreshRetryCount = 0; //Reset the refresh interval retry counter
+
 		AAMPLOG_INFO("Release Called in MPD Downloader - Exit %ld %ld", mMPDData.use_count(),mMPDDnldCfg.use_count());
 
 	}
@@ -361,7 +359,6 @@ void AampMPDDownloader::downloadMPDThread1()
 	{
 		
 		std::unordered_map<std::string, std::vector<std::string>> Headers = mMPDDnldCfg->mDnldConfig->sCustomHeaders;
-		bool doPush = true;
 		long long tStartTime = NOW_STEADY_TS_MS;
 		{
 			std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
@@ -380,62 +377,54 @@ void AampMPDDownloader::downloadMPDThread1()
 			mMPDData = std::make_shared<ManifestDownloadResponse> ();
 		}
 		mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
-
-		if(mMPDData->mMPDDownloadResponse->curlRetValue == 0 && IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue))
+		if(mMPDData->mMPDDownloadResponse->curlRetValue == 0 && mMPDData->mMPDDownloadResponse->iHttpRetValue == 200)
 		{
-			if(!mMPDData->mMPDDownloadResponse->getString().empty())
+			//std::string dataStr =  std::string( mMPDData->mMPDDownloadResponse->mDownloadData.begin(), mMPDData->mMPDDownloadResponse->mDownloadData.end());
+			//mMPDData->show();
+			// store the last manifestdownloadTime
+			mMPDData->mLastPlaylistDownloadTimeMs	=	aamp_GetCurrentTimeMS();
+			mMPDData->parseMPD();
+			if(firstDownload)
 			{
-				//std::string dataStr =  std::string( mMPDData->mMPDDownloadResponse->mDownloadData.begin(), mMPDData->mMPDDownloadResponse->mDownloadData.end());
-				//mMPDData->show();
-				// store the last manifestdownloadTime
-				mMPDData->mLastPlaylistDownloadTimeMs	=	aamp_GetCurrentTimeMS();
-				mMPDData->parseMPD();
-				if(firstDownload)
+				 // Check for LLD Manifest for first manifest download only . This is needed to determine the refresh parameters
+                                mIsLowLatency         =               isMPDLowLatency(mMPDData, mLLDashData);
+			}
+
+			if(mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK)
+			{
+				readMPDData(mMPDData);
+			}
+			AAMPLOG_INFO("Successfully parsed Manifest ...IsLive[%d]",mMPDData->mIsLiveManifest);
+
+			// Update the effective url , so that next refresh uses the effective url
+			tuneUrl = mMPDData->mMPDDownloadResponse->sEffectiveUrl;
+
+			// first time download complete . Do what need to be done . ....
+			if(firstDownload && mMPDData->mIsLiveManifest)
+			{
+				// For very first tune , if mpd need to be truncated ( Cloud TSB Support )
+				if(mMPDDnldCfg->mCullManifestAtTuneStart)
 				{
-					// Check for LLD Manifest for first manifest download only . This is needed to determine the refresh parameters
-					mIsLowLatency = isMPDLowLatency(mMPDData, mLLDashData);
+					// Cull mMPDData to mStartPosnToTSB
+					//truncateMPDStartPosition();
 				}
 
-				if(mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK)
+				if(!mMPDDnldCfg->mStichUrl.empty())
 				{
-					doPush = readMPDData(mMPDData);
+					mCachedMPDData	=	mMPDData;
+					tuneUrl	=	mMPDDnldCfg->mStichUrl;
+					AAMPLOG_INFO("Update the Cached MPD Data. New URL:%s ", tuneUrl.c_str());
 				}
-				AAMPLOG_INFO("Successfully parsed Manifest ...IsLive[%d]",mMPDData->mIsLiveManifest);
-
-				// Update the effective url , so that next refresh uses the effective url
-				tuneUrl = mMPDData->mMPDDownloadResponse->sEffectiveUrl;
-
-				// first time download complete . Do what need to be done . ....
-				if(firstDownload && mMPDData->mIsLiveManifest)
-				{
-					// For very first tune , if mpd need to be truncated ( Cloud TSB Support )
-					if(mMPDDnldCfg->mCullManifestAtTuneStart)
-					{
-						// Cull mMPDData to mStartPosnToTSB
-						//truncateMPDStartPosition();
-					}
-
-					if(!mMPDDnldCfg->mStichUrl.empty())
-					{
-						mCachedMPDData	=	mMPDData;
-						tuneUrl	=	mMPDDnldCfg->mStichUrl;
-						AAMPLOG_INFO("Update the Cached MPD Data. New URL:%s ", tuneUrl.c_str());
-					}
-					firstDownload	=	 false;
-				}
-				else
-				{
-					// Stich API to merge two manifest
-					if(cachedBackupData != nullptr)
-					{
-						mCachedMPDData = cachedBackupData;
-						stichToCachedManifest(mMPDData);
-					}
-				}
+				firstDownload	=	 false;
 			}
 			else
 			{
-				AAMPLOG_INFO("Ignoring MPD processing for empty manifest, Response Code : %d..!", mMPDData->mMPDDownloadResponse->iHttpRetValue);
+				// Stich API to merge two manifest
+				if(cachedBackupData != nullptr)
+				{
+					mCachedMPDData = cachedBackupData;
+					stichToCachedManifest(mMPDData);
+				}
 			}
 		}
 		else
@@ -461,11 +450,9 @@ void AampMPDDownloader::downloadMPDThread1()
 		long long tEndTime = NOW_STEADY_TS_MS;
 
 		showDownloadMetrics(mMPDData->mMPDDownloadResponse, (int)(tEndTime - tStartTime));
-		if(doPush)
-		{
-			// Push the output to Queue for Consumer to take
-			pushDownloadDataToQueue();
-		}
+
+		// Push the output to Queue for Consumer to take
+		pushDownloadDataToQueue();
 		// harvest downloaded manifest 
 		harvestManifest();
 
@@ -480,15 +467,6 @@ void AampMPDDownloader::downloadMPDThread1()
 		//Wait for duration before refrehs
 		if(mMPDData->mIsLiveManifest && !mReleaseCalled)
 		{
-			refreshNeeded = waitForRefreshInterval();
-		}
-
-		//Timeout case during live refresh
-		if(!firstDownload && (CURLE_OPERATION_TIMEDOUT == mMPDData->mMPDDownloadResponse->iHttpRetValue  || CURLE_COULDNT_CONNECT == mMPDData->mMPDDownloadResponse->iHttpRetValue))
-		{
-			AAMPLOG_WARN("Refresh every 500ms to handle a manifest timeout error.");
-			//Forcefully go with 500 ms refresh
-			mRefreshInterval = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
 			refreshNeeded = waitForRefreshInterval();
 		}
 	}while(refreshNeeded && !mReleaseCalled);
@@ -589,6 +567,7 @@ void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int tot
 		// example 18(0) if connection failure with PARTIAL_FILE code
 		timeoutClass = "(" + std::to_string(dnldPtr->downloadCompleteMetrics.reqSize > 0) + ")";
 	}
+	
 	if(res != CURLE_OK || http_code == 0 || http_code >= 400 || totalPerformRequest > 2.0 /*seconds*/)
 	{
 		reqEndLogLevel = eLOGLEVEL_WARN;
@@ -658,11 +637,11 @@ void AampMPDDownloader::pushDownloadDataToQueue()
 		mMPDBufferQ.push(mCachedMPDData);
 	else
 		mMPDBufferQ.push(mMPDData);
+
 	// inform the consumers if anyone is waiting for the data
 	mMPDDnldDataCondVar.notify_all(); //signal to getmanifest
 	if(mManifestUpdateCb)
 	{
-		mMPDNotifyPending.store(true);
 		mMPDNotifierCondVar.notify_all(); //signal Notifier Thread
 	}
 	AAMPLOG_INFO("Pushed new Manifest Data to Q...");
@@ -770,46 +749,10 @@ bool AampMPDDownloader::waitForRefreshInterval()
 *   @fn readMPDData
 *   @brief readMPDData function to read the mpd and pull the parameters like isLive/Refresh Interval
 */
-bool AampMPDDownloader::readMPDData(std::shared_ptr<ManifestDownloadResponse> dnldManifest)
+void AampMPDDownloader::readMPDData(std::shared_ptr<ManifestDownloadResponse> dnldManifest)
 {
-	bool retVal = true;
 	dnldManifest->mIsLiveManifest   =       !(dnldManifest->mMPDInstance->GetType() == "static");
-	uint64_t publishTimeMSec = 0;
-	std::string publishTimeStr;
-	auto attributesMap = dnldManifest->mMPDInstance->GetRawAttributes();
-	if(attributesMap.find("publishTime") != attributesMap.end())
-	{
-		publishTimeStr = attributesMap["publishTime"];
-	}
-	if(!publishTimeStr.empty())
-	{
-		publishTimeMSec = (uint64_t)ISO8601DateTimeToUTCSeconds(publishTimeStr.c_str()) * 1000;
-	}
-	AAMPLOG_TRACE("Publish Time of Updated manifest %" PRIu64 ", Previous manifest update time %" PRIu64 "\n", publishTimeMSec, mPublishTime);
-
-	/* If there is no update in the manifest and publish time is not zero, Set the refresh interval to a minimal value (500ms). This is done for a maximum of two times to avoid frequent manifest refresh.*/
-	if (publishTimeMSec == mPublishTime && publishTimeMSec != 0) 
-	{
-		if (mMinimalRefreshRetryCount < 2) 
-		{
-			mRefreshInterval = (uint32_t)(MIN_DELAY_BETWEEN_MPD_UPDATE_MS);
-			AAMPLOG_INFO("No update detected in manifest. Setting refresh interval to minimal refresh interval %u", mRefreshInterval);
-			mMinimalRefreshRetryCount++;
-			/* To avoid race condition when GetNetworkTime is executed ,meanwhile manifest refresh is done for next attempt */
-			retVal = false;
-		} 
-		else
-		{
-			mRefreshInterval = getMeNextManifestDownloadWaitTime(dnldManifest);
-		}
-	} 
-	else 
-	{
-		mPublishTime = publishTimeMSec;
-		mRefreshInterval = getMeNextManifestDownloadWaitTime(dnldManifest);
-		mMinimalRefreshRetryCount = 0;  // Reset the retry count on detecting a new publish time
-	}
-	return retVal;
+	mRefreshInterval				=		getMeNextManifestDownloadWaitTime(dnldManifest);
 }
 
 /**
@@ -948,7 +891,7 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(std::shared_ptr<Ma
 		int bufferAvailable = mLatencyValue;
 
 		// when target duration is high value(>Max delay)  but buffer is available just above the max update inteval,then go with max delay between playlist refresh.
-		if(bufferAvailable != -1 && !mIsLowLatency)
+		if(bufferAvailable != -1)
 		{
 			if(bufferAvailable < (2* MAX_DELAY_BETWEEN_MPD_UPDATE_MS))
 			{
@@ -991,8 +934,7 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(std::shared_ptr<Ma
 		}
 
 		// If any CDAI entries present in playlist, then refresh with update duration specified in playlist
-		// For lld ,honour min  update duration specified in manifest
-		if ((eventStreamFound || mIsLowLatency) && minUpdateDuration >0 && minUpdateDuration < minDelayBetweenPlaylistUpdates)
+		if (eventStreamFound && minUpdateDuration >0 && minUpdateDuration < minDelayBetweenPlaylistUpdates)
 		{
 			minDelayBetweenPlaylistUpdates = (int)minUpdateDuration;
 		}
@@ -1043,12 +985,6 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(std::shared_ptr<Ma
 		if (mIsLowLatency && minDelayBetweenPlaylistUpdates <= (uint32_t)MIN_DELAY_BETWEEN_MPD_UPDATE_MS && mCurrentposDeltaToManifestEnd > (long)((mLLDashData.fragmentDuration)*1000)*2)
 		{
 			minDelayBetweenPlaylistUpdates = (uint32_t)minUpdateDuration;
-		}
-		// When the buffer hits zero, it is worth refreshing frequently in order to rebuild the buffer
-		if (bufferAvailable <= 0.5 && mIsLowLatency) 
-		{
-			// Set the minimum delay between playlist updates 
-			minDelayBetweenPlaylistUpdates = (uint32_t)(MIN_DELAY_BETWEEN_MPD_UPDATE_MS);
 		}
 
 		AAMPLOG_INFO("aamp playlist end refresh bufferMs(%d) delay(%u)", bufferAvailable,minDelayBetweenPlaylistUpdates);
@@ -1109,14 +1045,10 @@ void AampMPDDownloader::downloadNotifierThread()
 	do
 	{
 		std::unique_lock<std::mutex> lck2(mMPDNotifierMtx);
-		if(!mMPDNotifyPending.load())
-		{
-			mMPDNotifierCondVar.wait(lck2);
-		}
+		mMPDNotifierCondVar.wait(lck2);
 		{
 			if(!mReleaseCalled && mManifestUpdateCb)
 			{
-				mMPDNotifyPending.store(false);
 				// if its not the notification from Release call
 				long long tStartTime = NOW_STEADY_TS_MS;
 				mManifestUpdateCb(mManifestUpdateCbArg);
@@ -1124,7 +1056,6 @@ void AampMPDDownloader::downloadNotifierThread()
 				AAMPLOG_INFO("Time taken for MPD Download notification %u", (unsigned int)(tEndTime-tStartTime));
 			}
 		}
-
 	}while(!mReleaseCalled && mManifestUpdateCb);
 	AAMPLOG_INFO("Exited Download Notifier Thread");
 }

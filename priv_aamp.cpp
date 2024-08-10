@@ -88,7 +88,6 @@
 #include "AampMPDDownloader.h"
 
 #include <sched.h>
-#include "AampTSBSessionManager.h"
 
 #define LOCAL_HOST_IP       "127.0.0.1"
 #define AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (20*1000LL)
@@ -304,7 +303,7 @@ static gboolean PrivateInstanceAAMP_Resume(gpointer ptr)
 
 	aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
 
-	if (!aamp->mSeekFromPausedState && (aamp->rate == AAMP_NORMAL_PLAY_RATE) && !aamp->IsLocalAAMPTsb())
+	if (!aamp->mSeekFromPausedState && (aamp->rate == AAMP_NORMAL_PLAY_RATE))
 	{
 		if(sink)
 		{
@@ -654,25 +653,20 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 			context->buffer->ReserveBytes(len);
 		}
 		size_t numBytesForBlock = size*nmemb;
-		if(ptr && numBytesForBlock > 0)
-		{
-			context->buffer->AppendBytes( ptr, numBytesForBlock );
-		}
+		context->buffer->AppendBytes( ptr, numBytesForBlock );
 		ret = numBytesForBlock;
-		MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->mediaType);
-		if(mCtx)
+
+		if(context->aamp->GetLLDashServiceData()->lowLatencyMode &&
+				(context->mediaType == eMEDIATYPE_VIDEO ||
+				 context->mediaType ==  eMEDIATYPE_AUDIO ||
+				 context->mediaType ==  eMEDIATYPE_SUBTITLE))
 		{
-			if(context->aamp->GetLLDashServiceData()->lowLatencyMode && !mCtx->IsLocalTSBInjection() && ptr && (numBytesForBlock > 0) &&
-					(context->mediaType == eMEDIATYPE_VIDEO ||
-					context->mediaType ==  eMEDIATYPE_AUDIO ||
-					context->mediaType ==  eMEDIATYPE_SUBTITLE))
+			MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->mediaType);
+			if(mCtx)
 			{
 				// Release PrivateInstanceAAMP mutex to unblock async APIs
 				pthread_mutex_unlock(&context->aamp->mLock);
-				AAMPLOG_TRACE("[%d] Caching chunk with size %zu nmemb:%zu size:%zu", context->mediaType, numBytesForBlock, nmemb, size);
-				long long startTime = aamp_GetCurrentTimeMS();
 				mCtx->CacheFragmentChunk(context->mediaType, ptr, numBytesForBlock,context->remoteUrl,context->downloadStartTime);
-				context->processDelay += aamp_GetCurrentTimeMS() - startTime;
 				pthread_mutex_lock(&context->aamp->mLock);
 			}
 		}
@@ -1058,19 +1052,15 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 				}
 				else
 				{
-					if(context->aamp->GetLLDashServiceData()->lowLatencyMode && !IsLocalAAMPTsb())
+					if(context->aamp->GetLLDashServiceData()->lowLatencyMode)
 					{
 						long downloadbps = getCurrentContentDownloadSpeed(aamp, context->mediaType, context->dlStarted, (long)context->downloadStartTime, dlnow);
 						long currentProfilebps  = context->aamp->mpStreamAbstractionAAMP->GetVideoBitrate();
-						MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->mediaType);
-						if(downloadbps > 0 && mCtx && !mCtx->IsLocalTSBInjection())
+						if((downloadbps + DEFAULT_BITRATE_OFFSET_FOR_DOWNLOAD) < currentProfilebps)
 						{
-							if((downloadbps + DEFAULT_BITRATE_OFFSET_FOR_DOWNLOAD) < currentProfilebps)
-							{
-								AAMPLOG_WARN("Abort download as content is estimated to be expired current BW : %ld bps, min required:%ld bps", downloadbps, currentProfilebps);
-								context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
-								rc = -1;
-							}
+							AAMPLOG_WARN("Abort download as content is estimated to be expired current BW : %ld bps, min required:%ld bps", downloadbps, currentProfilebps);
+							context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
+							rc = -1;
 						}
 					}
 				}
@@ -1277,9 +1267,6 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mIsPeriodChangeMarked(false)
 	, m_lastSubClockSyncTime()
 	, mIsLoggingNeeded(false)
-	, mTSBSessionManager(NULL)
-	, mLocalAAMPTsb(false), mLocalAAMPInjectionEnabled(false)
-	, mTSBStore(nullptr)
 	, mIsFlushFdsInCurlStore(false)
 {
 	mLogObj = mConfig->GetLoggerInstance();
@@ -1459,32 +1446,11 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 
 	AampStreamSinkManager::GetInstance().DeleteStreamSink(this);
 
-	SAFE_DELETE(mTSBSessionManager);
 	if (HasSidecarData())
 	{ // has sidecar data
 		if (mpStreamAbstractionAAMP)
 			mpStreamAbstractionAAMP->ResetSubtitle();
 	}
-
-}
-
-/**
- * @brief Get the singleton object of the TSB Store
- */
-std::shared_ptr<TSB::Store> PrivateInstanceAAMP::GetTSBStore(const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level)
-{
-	if(mTSBStore == nullptr)
-	{
-		try
-		{
-			mTSBStore = std::make_shared<TSB::Store>(config, logger, level);
-		}
-		catch (std::exception &e)
-		{
-			AAMPLOG_ERR("Failed to instantiate TSB Store object, reason: %s", e.what());
-		}
-	}
-	return mTSBStore;
 }
 
 /**
@@ -2138,7 +2104,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		// If tsb is not available for linear send -1  for start and end
                 // so that xre detect this as tsbless playabck
                 // Override above logic if mEnableSeekableRange is set, used by third-party apps
-                if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mTSBEnabled && !IsLocalAAMPTsb()))
+                if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mTSBEnabled))
                 {
                         start = -1;
                         end = -1;
@@ -2179,9 +2145,8 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		{
 			currentRate = 0;
 		}
-		else if( (rate < 0) || (rate > GETCONFIGVALUE_PRIV(eAAMPConfig_MaxLatencyCorrectionPlaybackRate)) || (AAMP_SLOWMOTION_RATE == rate))
+		else if(mTrickplayInProgress)
 		{
-			// This is trickplay or slow motion
 			currentRate = rate;
 		}
 		else if(mAampLLDashServiceData.lowLatencyMode)
@@ -2210,7 +2175,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 
 			if(mAampLLDashServiceData.lowLatencyMode && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
 			{
-				int abrMinBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
+				int abrMinBuffer = GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown);
 				bool bufferBelowMin = bufferedDuration < (abrMinBuffer * 1000);
 
 				if (bufferBelowMin && !mIsLoggingNeeded)
@@ -2228,6 +2193,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
 				}
 			}
+	
 			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 			{
 				static int tick;
@@ -4323,7 +4289,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 							(((mediaType == eMEDIATYPE_VIDEO) || (mediaType == eMEDIATYPE_INIT_VIDEO) || (mediaType == eMEDIATYPE_PLAYLIST_VIDEO)) ? mpStreamAbstractionAAMP->GetVideoBitrate() : 0), // Video fragment current bitrate
 							((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
 							range?';':'\0', range?range:"");
-					AAMPLOG_INFO("External Processing Delay : %lld", context.processDelay);
 					if(ui32CurlTrace < 10 )
 					{
 						AAMPLOG_INFO("%d.CurlTrace:Dns:%2.4f, Conn:%2.4f, Ssl:%2.4f, Redir:%2.4f, Pre:Start[%2.4f:%2.4f], Hdl:%p, Url:%s",
@@ -4336,12 +4301,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				{
 					double downloadTime = (double)(downloadTimeMS)/1000;
 					//DownloadTime greater than 60% of fragmentDuration are categorized as Delay in download
-					//DownloadTime greater than 105% means there is a huge chance of buffer underflow
-					if(downloadTime > (fragmentDurationSeconds/100) * 105) /** If download time is greater */
-					{
-						mDownloadDelay += 3; /** Increment faster way to avoid buffer drain*/
-					}
-					else if(downloadTime > (fragmentDurationSeconds/100) * 60)
+					if(downloadTime > (fragmentDurationSeconds/100) * 60)
 					{
 						mDownloadDelay++;
 					}
@@ -4382,19 +4342,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		}
 		if (http_code == 200 || http_code == 206)
 		{
-			if (buffer->GetPtr() == NULL || buffer->GetLen() == 0)
-			{
-#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
-				double dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
-#else
-#warning LIBCURL_VERSION<7.55.0
-				double dlSize = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
-#endif
-				long reqSize  = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
-				AAMPLOG_WARN("Invalid buffer - BufferPtr: %p, BufferLen: %lu, Dlsize : %lf ,Reqsize : %ld, Url: %s",
-						buffer->GetPtr(), buffer->GetLen(),
-						dlSize,reqSize,(res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str());
-			}
 			if((mHarvestCountLimit > 0) && (mHarvestConfig & getHarvestConfigForMedia(mediaType)))
 			{
 				/* Avoid chance of overwriting , in case of manifest and playlist, name will be always same */
@@ -4730,10 +4677,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 		}
 		else
 		{
-			if(!IsLocalAAMPTsb())
-			{
-				SAFE_DELETE(mpStreamAbstractionAAMP);
-			}
+			SAFE_DELETE(mpStreamAbstractionAAMP);
 		}
 	}
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
@@ -5167,24 +5111,21 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 	if (mMediaFormat == eMEDIAFORMAT_DASH)
 	{
-		if(!IsLocalAAMPTsb())
-		{
-#if defined (INTELCE)
+		#if defined (INTELCE)
 			AAMPLOG_ERR("Error: Dash playback not available");
 			mInitSuccess = false;
 			SendErrorEvent(AAMP_TUNE_UNSUPPORTED_STREAM_TYPE);
 			return;
-#else
+		#else
 			mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(mLogObj,this, playlistSeekPos, rate,
-					std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
-						std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5)
-					);
+			std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
+				std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5)
+			);
 			if (NULL == mCdaiObject)
 			{
 				mCdaiObject = new CDAIObjectMPD(mLogObj, this); // special version for DASH
 			}
-#endif
-		}
+		#endif
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HLS || mMediaFormat == eMEDIAFORMAT_HLS_MP4)
 	{ // m3u8
@@ -5253,24 +5194,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 	mInitSuccess = true;
 	AAMPStatusType retVal;
-	if(newTune && !IsLocalAAMPTsb() && GetTSBSessionManager())
-	{
-		// Set Local TSB flag after starting the streamabstraction
-		AAMPLOG_WARN("Enabling local TSB handling for the new tune");
-		SetLocalAAMPTsb(true);
-	}
 	if (mpStreamAbstractionAAMP)
 	{
-		if(!IsLocalAAMPTsb() || !IsLocalAAMPTsbInjection())
-		{
-			mpStreamAbstractionAAMP->SetCDAIObject(mCdaiObject);
-			retVal = mpStreamAbstractionAAMP->Init(tuneType);
-		}
-		else
-		{
-			mpStreamAbstractionAAMP->SeekPosUpdate(playlistSeekPos);
-			retVal = mpStreamAbstractionAAMP->InitTsbReader(tuneType);
-		}
+		mpStreamAbstractionAAMP->SetCDAIObject(mCdaiObject);
+		retVal = mpStreamAbstractionAAMP->Init(tuneType);
 	}
 	else
 	{
@@ -5507,15 +5434,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				}
 			}
 		}
-
-		// For tune to a non-LLD content, reset localAAMPTSB flag
-		if (newTune && IsLocalAAMPTsb() && !GetLLDashServiceData()->lowLatencyMode)
-		{
-			SetLocalAAMPTsb(false);
-			AAMPLOG_WARN("Disabling local TSB handling for this tune");
-		}
-
-		// TODO - X1-TSB : ES Change status needs to be checked
 		mpStreamAbstractionAAMP->ResetESChangeStatus();
 		mpStreamAbstractionAAMP->Start();
 		if (!mbUsingExternalPlayer)
@@ -5544,15 +5462,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				(void)mpStreamAbstractionAAMP->SetTextStyle(mTextStyle);
 			}
 		}
-	}
-
-	// IsLocalAAMPTsb() being true already confirms TSBSessionManager and LLD cases are true.
-	if(IsLocalAAMPTsb() && !IsLocalAAMPTsbInjection())
-	{
-		// Update culled seconds and duration based on TSB
-		SetLocalAAMPTsbInjection(true);
-		culledSeconds = seek_pos_seconds;
-		durationSeconds -= culledSeconds;
 	}
 
 	if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
@@ -5653,8 +5562,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	int iCacheMaxSize = 0;
 	double tmpVar=0;
 	int intTmpVar=0;
-	/** Disable iframe extraction by default*/
-	SetIsIframeExtractionEnabled(false);
+
 	TuneType tuneType =  eTUNETYPE_NEW_NORMAL;
 	const char *remapUrl = mConfig->GetChannelOverride(mainManifestUrl);
 	if (remapUrl )
@@ -5702,23 +5610,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mNetworkTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
 	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_ManifestTimeout);
 	mManifestTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
-	if(AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_ManifestTimeout))
-	{
-		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_ManifestTimeout,mNetworkTimeoutMs/1000);
-		tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_ManifestTimeout);
-		mManifestTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
-	}
 	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_PlaylistTimeout);
 	mPlaylistTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
 	mTsbType = GETCONFIGVALUE_PRIV(eAAMPConfig_TsbType);
 
 	if(mPlaylistTimeoutMs <= 0) mPlaylistTimeoutMs = mManifestTimeoutMs;
-	if(AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_PlaylistTimeout))
-	{
-		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_PlaylistTimeout,mNetworkTimeoutMs/1000);
-		tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_PlaylistTimeout);
-		mPlaylistTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
-	}
 	// Reset mProgramDateTime to 0 , to avoid spill over to next tune if same session is
 	// reused
 	mProgramDateTime = 0;
@@ -5748,53 +5644,18 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mMPDStichRefreshUrl		=	refreshManifestUrl ? refreshManifestUrl : "";
 	mMPDStichOption			=	(MPDStichOptions) (mpdStichingMode % 2);
 
-
-	if( (mManifestUrl.find(AAMP_FOG_TSB_URL_KEYWORD) != std::string::npos) &&
-		(mManifestUrl.find(AAMP_LOW_LATENCY_URL_KEYWORD_ENCODED) != std::string::npos))
+	if((mTsbType == "cloud") ||
+	   ((mAppName == "Viper") &&
+	   (mManifestUrl.find("chunked") != std::string::npos) &&
+	   (mManifestUrl.find("tsb?") != std::string::npos)))
 	{
 
 		DeFog(mManifestUrl);
 		mainManifestUrl = mManifestUrl.c_str();
 		AAMPLOG_INFO("LLD trials Url Remapping done");
-
 	}
 
-	//Temp HACK TODO - Fix this
-	if(mManifestUrl.find(AAMP_LOW_LATENCY_URL_KEYWORD) != std::string::npos)
-	{
-		// New Code to initialize the TSBSessionManager for LowLatency URL from Viper
-		if(mTSBSessionManager)
-		{
-			SAFE_DELETE(mTSBSessionManager);
-		}
-		if(ISCONFIGSET_PRIV(eAAMPConfig_LocalTSBEnabled))
-		{
-			// create new TSB Session Manager for LLD
-			mTSBSessionManager = new AampTSBSessionManager(mLogObj,this);
-			 //TODO unique session id for each
-			if(mTSBSessionManager)
-			{
-				LoadLocalTSBConfig();
-				if (mTSBSessionManager->IsActive())
-				{
-					SetIsIframeExtractionEnabled(true);
-					AAMPLOG_INFO("TSB Session Manager created and Active!!");
-				}
-				if(mTSBStore)
-				{
-					AAMPLOG_INFO("Refreshing the TSB Store session!!");
-					mTSBStore->Flush();
-				}
-				AAMPLOG_WARN("GST Audio Buffer increased to (%d) Video Buffer Size Increased to (%d) for HiFi LLD Stream", (GST_AUDIOBUFFER_SIZE_BYTES_BASE*9), (GST_VIDEOBUFFER_SIZE_BYTES_BASE*9));
-				SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_GstVideoBufBytes, (GST_VIDEOBUFFER_SIZE_BYTES_BASE*6));
-				SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_GstAudioBufBytes, (GST_AUDIOBUFFER_SIZE_BYTES_BASE*6));
-			}
-		}
-		//For the LLD case, we need to update the manifest timeout before starting the MPDDownloader. So, we are updating the value here
-		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_ManifestTimeout,MANIFEST_TIMEOUT_FOR_LLD);
-	}
-
-	mTSBEnabled = strcasestr(mainManifestUrl, AAMP_FOG_TSB_URL_KEYWORD) && ISCONFIGSET_PRIV(eAAMPConfig_Fog);
+	mTSBEnabled = strcasestr(mainManifestUrl, "tsb?") && ISCONFIGSET_PRIV(eAAMPConfig_Fog);
 
 	std::string sTraceId = (pTraceID?pTraceID:"unknown");
 	//CMCD to be enabled for player direct downloads, not for Fog . All downloads in Fog , CMCD response to be done in Fog.
@@ -7601,10 +7462,6 @@ void PrivateInstanceAAMP::Stop()
 		profiler.GetTelemetryParam();
 		mTelemetryInterval = 0;
 	}
-
-	SetLocalAAMPTsb(false);
-	SetLocalAAMPTsbInjection(false);
-
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
@@ -7646,12 +7503,6 @@ void PrivateInstanceAAMP::Stop()
 		mMPDDownloaderInstance->Release();
 	}
 	TeardownStream(true);
-
-	if(mTSBSessionManager)
-	{
-		// Clear all the local TSB data
-		mTSBSessionManager->Flush();
-	}
 
 	mId3MetadataCache.Reset();
 
@@ -7741,6 +7592,7 @@ void PrivateInstanceAAMP::Stop()
 		mSessionToken.clear();
 	}
 #endif
+
 	if(mMPDDownloaderInstance != nullptr)
 	{
 		// delete the MPD Downloader Instance
@@ -7748,12 +7600,6 @@ void PrivateInstanceAAMP::Stop()
 		SAFE_DELETE(mMPDDownloaderInstance);
 	}
 
-	if(mTSBSessionManager != nullptr)
-	{
-		//delete the TSBSession Manager instance
-		AAMPLOG_INFO("Calling delete of TSBSessionManager instance");
-		SAFE_DELETE(mTSBSessionManager);
-	}
 	SetFlushFdsNeededInCurlStore(false);
 	EnableDownloads();
 
@@ -9800,7 +9646,6 @@ void  PrivateInstanceAAMP::FlushAudio(double pos)
 		sink->FlushAudio(pos);
 	}
 }
-
 /**
  * @brief Sending a flushing seek to stream sink with given position
  */
@@ -11396,13 +11241,6 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 	bool isJson = false;
 	bool isRetuneNeeded = false;
 	bool accessibilityPresent = false;
-
-	// IsLocalAAMPTsb will be set once the playback of HiFi LLD stream starts and local TSB config is enabled
-	if (IsLocalAAMPTsb())
-	{
-		AAMPLOG_WARN("Local TSB playback is in progress!!. SetPreferredLanguages() will be ignored!!");
-		return;
-	}
 	try
 	{
 		jsObject = new AampJsonObject(languageList);
@@ -11541,7 +11379,6 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
                                 AAMPLOG_INFO("Preferred name string: %s", inputNameString.c_str());
                         }
                 }
-
 		/**< Release json object **/
 		SAFE_DELETE(jsObject);
 
@@ -11729,6 +11566,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			bool accessibilityAvailabilityInManifest = false;
 			bool labelAvailabilityInManifest = false;
 			bool nameAvailabilityInManifest = false;
+
 			std::string trackIndexStr;
 			bool codecChange = true;
 
@@ -11898,6 +11736,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
                                                 }
                                         }
                                 }
+
 			}
 
 			bool clearPreference = false;
@@ -11976,14 +11815,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 	bool isJson = false;
 	bool isRetuneNeeded = false;
 	bool accessibilityPresent = false;
-
-	// IsLocalAAMPTsb will be set once the playback of HiFi LLD stream starts and local TSB config is enabled
-	if (IsLocalAAMPTsb())
-	{
-		AAMPLOG_WARN("Local TSB playback is in progress!!. SetPreferredTextLanguages() will be ignored!!");
-		return;
-	}
-
 	try
 	{
 		jsObject = new AampJsonObject(param);
@@ -12375,33 +12206,9 @@ void PrivateInstanceAAMP::UpdateBufferBasedOnLiveOffset()
 	maxbuffer = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp);
 	if(liveoffset4k <= maxbuffer)
 	{
-		const int defaultFragmentDur = 2;
-		int maxbuffer,minbuffer;
-		double liveoffset =0,liveoffset4k=0;
-		liveoffset = GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffset);
-		liveoffset4k = GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffset4K);
-		maxbuffer = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp);
-		if(GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset4K) > AAMP_DEFAULT_SETTING)
-		{
-			double netTimeOut =  GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout);
-			int calMaxBuff = static_cast<int>(std::min( (liveoffset4k - defaultFragmentDur), (netTimeOut + defaultFragmentDur)));
-			mBufferFor4kRampup = std::min(calMaxBuff, maxbuffer);
-			mBufferFor4kRampdown = mBufferFor4kRampup -  (defaultFragmentDur*2);
-			mBufferFor4kRampdown = mBufferFor4kRampdown < defaultFragmentDur ? defaultFragmentDur : mBufferFor4kRampdown;
-		}
-		if(GETCONFIGOWNER_PRIV(eAAMPConfig_LiveOffset) > AAMP_DEFAULT_SETTING)
-		{
-			double netTimeOut =  GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout);
-			int calMaxBuff = static_cast<int>(std::min((liveoffset - defaultFragmentDur), (netTimeOut + defaultFragmentDur)));
-			maxbuffer = std::min(calMaxBuff, maxbuffer);
-			minbuffer = maxbuffer  - (defaultFragmentDur*2);
-			minbuffer = minbuffer < defaultFragmentDur*2 ? defaultFragmentDur*2: minbuffer; // minumummm 2 fragmment needed for non LLD
-			AAMPLOG_WARN("Configuring MaxABRNWBufferRampUp (%d) and MinABRNWBufferRampDown (%d)", maxbuffer, minbuffer );
-			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_MaxABRNWBufferRampUp,maxbuffer);
-			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_MinABRNWBufferRampDown,minbuffer);
-		}
-
-
+		mBufferFor4kRampup = liveoffset4k -2 ;
+		mBufferFor4kRampdown = mBufferFor4kRampup - 5 ;
+		mBufferFor4kRampdown = mBufferFor4kRampdown < 2 ? 2 : mBufferFor4kRampdown;
 	}
 	if(liveoffset <= maxbuffer)
 	{
@@ -13109,28 +12916,6 @@ void PrivateInstanceAAMP::LoadAampAbrConfig()
 	mhAbrManager.ReadPlayerConfig(&mhAampAbrConfig);
 }
 
-
-/**
- * @brief -To Load needed config from player to TSB Handler
- */
-void PrivateInstanceAAMP::LoadLocalTSBConfig()
-{
-	auto tsbLength				=	GETCONFIGVALUE_PRIV (eAAMPConfig_TsbLength);
-	auto tsbLocation			=	GETCONFIGVALUE_PRIV(eAAMPConfig_TsbLocation);
-	auto tsbMinFreePercentage	=	GETCONFIGVALUE_PRIV(eAAMPConfig_TsbMinDiskFreePercentage);
-	auto tsbMaxDiskStorage = GETCONFIGVALUE_PRIV(eAAMPConfig_TsbMaxDiskStorage);
-
-	mTSBSessionManager->SetTsbLength(tsbLength);
-	mTSBSessionManager->SetTsbLocation(tsbLocation);
-	mTSBSessionManager->SetTsbMinFreePercentage(tsbMinFreePercentage);
-	mTSBSessionManager->SetTsbMaxDiskStorage(tsbMaxDiskStorage);
-	// Initialize TSB session manager with configuration set
-	mTSBSessionManager->Init();
-}
-
-
-
-
 /**
  * @brief Get License Custom Data
  */
@@ -13412,35 +13197,4 @@ void PrivateInstanceAAMP::ReleaseDynamicDRMToUpdateWait()
 	pthread_cond_signal(&mWaitForDynamicDRMToUpdate);
 	pthread_mutex_unlock(&mDynamicDrmUpdateLock);
 	AAMPLOG_INFO("Signal sent for mWaitForDynamicDRMToUpdate");
-
-}
-/*
- * @brief Set local TSB injection flag
- */
-void PrivateInstanceAAMP::SetLocalAAMPTsbInjection(bool value)
-{
-	pthread_mutex_lock(&mLock);
-	mLocalAAMPInjectionEnabled = value;
-	pthread_mutex_unlock(&mLock);
-}
-
-/**
- * @brief Is mLocalAAMPTsb enabled/disabled
- */
-bool PrivateInstanceAAMP::IsLocalAAMPTsbInjection()
-{
-	return mLocalAAMPInjectionEnabled;
-}
-
-/**
- * @brief Get the TSB Session manager instance
- */
-AampTSBSessionManager *PrivateInstanceAAMP::GetTSBSessionManager()
-{
-	// Return instance only if its active. Disables TSB workflow if not active
-	if (mTSBSessionManager && mTSBSessionManager->IsActive())
-	{
-		return mTSBSessionManager;
-	}
-	return NULL;
 }

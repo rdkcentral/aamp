@@ -99,9 +99,9 @@
 #define AAMP_USERAGENT_SUFFIX		" AAMP/" AAMP_VERSION    /**< Version string of AAMP Player */
 #define AAMP_USERAGENT_STRING AAMP_USERAGENT_BASE_STRING AAMP_USERAGENT_SUFFIX
 #define DEFAULT_AAMP_ABR_THRESHOLD_SIZE (6000)			/**< aamp abr threshold size */
-#define DEFAULT_PREBUFFER_COUNT (2)			/**< Count of video segments to be downloaded until play state */
-#define AAMP_LOW_BUFFER_BEFORE_RAMPDOWN 6 		/**< 6sec buffer before rampdown */
-#define AAMP_HIGH_BUFFER_BEFORE_RAMPUP  10 		/**< 10sec buffer before rampup */
+#define DEFAULT_PREBUFFER_COUNT (1)				/**< Count of video segments to be downloaded until play state */
+#define AAMP_LOW_BUFFER_BEFORE_RAMPDOWN 10 			/**< 10sec buffer before rampdown */
+#define AAMP_HIGH_BUFFER_BEFORE_RAMPUP  15 			/**< 15sec buffer before rampup */
 #define MAX_DASH_DRM_SESSIONS 30
 #define MAX_AD_SEG_DOWNLOAD_FAIL_COUNT 2            		/**< Max Ad segment download failures to identify as the ad playback failure. */
 #define FRAGMENT_DOWNLOAD_WARNING_THRESHOLD 2000    		/**< MAX Fragment download threshold time in Msec*/
@@ -167,16 +167,8 @@
 #define AAMP_LLD_LATENCY_MONITOR_INTERVAL 		(1)   		/**< Latency monitor interval for LLD*/
 #define AAMP_LLD_MINIMUM_CACHE_SEGMENTS 		(2)     	/**< Number of segments to be cached minimum before rate change*/
 #define AAMP_LLD_LOW_BUFF_CHECK_COUNT           (4)         /**< Count to confirm low buffer state for LLD stream playback; 4 sec to ABR; So Allow ABR first*/
-#define DEFAULT_MIN_BUFFER_LOW_LATENCY          (2.0f)      /**< Default minimum buffer for Low latency stream*/
-#define DEFAULT_TARGET_BUFFER_LOW_LATENCY       (4.0f)      /**< Default minimum buffer for Low latency stream*/
+#define DEFAULT_MIN_BUFFER_LOW_LATENCY          (2.5f)      /**< Default minimum buffer for Low latency stream*/
 #define DEFAULT_ALLOWED_DELAY_LOW_LATENCY       (2.5f)      /**< Default allowed server delay for Low latency stream*/
-
-#define AAMP_BUFFER_MONITOR_GREEN_THRESHOLD 4               /**< 2 fragments for MSO specific linear streams. */
-#define AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD 1           /**< LLD 1 sec minimum buffer to alert */
-
-#define AAMP_LOW_LATENCY_URL_KEYWORD "/low/" /**< AAMP expect this keyword in low latency URL to enable local TSB*/
-#define AAMP_LOW_LATENCY_URL_KEYWORD_ENCODED "%2Flow%2F" /**< AAMP expect this keyword in low latency URL to defog*/
-#define AAMP_FOG_TSB_URL_KEYWORD "tsb?" /**< AAMP expect this keyword in URL to identify it is FOG url */
 
 // DELIA-61708 audio drop workaround
 #if defined(BRCM)
@@ -187,7 +179,7 @@
 #define DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE		(DEFAULT_AAMP_ABR_THRESHOLD_SIZE)	/**< aamp abr Chunk threshold size */
 #define DEFAULT_ABR_CHUNK_SPEEDCNT			10					/**< Chunk Speed Count Store Size */
 #define DEFAULT_ABR_ELAPSED_MILLIS_FOR_ESTIMATE		100					/**< Duration(ms) to check Chunk Speed */
-#define AAMP_LLDABR_MIN_BUFFER_VALUE			0.5f                  /** 0.5 sec */
+#define AAMP_LLDABR_MIN_BUFFER_VALUE			500.00f                  /** 0.5 sec */
 #define DEFAULT_ABR_BYTES_TRANSFERRED_FOR_ESTIMATE	(512 * 1024)				/**< 512K */
 #define MAX_MDAT_NOT_FOUND_COUNT			500					/**< Max MDAT not found count*/
 #define DEFAULT_CONTENT_PROTECTION_DATA_UPDATE_TIMEOUT	5000					/**< Default Timeout for Content Protection Data Update on Dynamic Key Rotation */
@@ -221,18 +213,6 @@
 #define AAMP_CODEC_SCORE 1000ULL           /**< Lowest priority: matchng codec **/
 #define THRESHOLD_TOIGNORE_TINYPERIOD 500  /**<in milliseconds**/
 
-
-// LLD TSB Defaults
-#define DEFAULT_MIN_TSB_STORAGE_FREE_PERCENTAGE 10	// Percentage of free space in TSB 
-#define DEFAULT_MAX_TSB_STORAGE_MB				10*1024	// 10 GiB 
-#ifdef USE_TSBCONFIG_FOR_HYBRID		//Devices like XG1V4 have larger storage mounted at /opt/data unlike xi6
-#define DEFAULT_TSB_DURATION 3600
-#define DEFAULT_TSB_LOCATION "/opt/data/fog/aamp"
-#else
-#define DEFAULT_TSB_DURATION 1500
-#define DEFAULT_TSB_LOCATION "/tmp/data/fog/aamp"
-#endif
-#define FIRST_PLAYER_INSTANCE_ID (0) /** Indicate fist player Id */
 
 #define MAX_SESSION_ID_LENGTH 128                                /**<session id string length */
 

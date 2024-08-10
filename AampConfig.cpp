@@ -77,7 +77,6 @@ typedef enum
 	eCONFIG_RANGE_PLAYBACK_OFFSET, // -99999..INT_MAX
 	eCONFIG_RANGE_HARVEST_DURATION, // -1...10 HRS
 	eCONFIG_RANGE_ABSOLUTE_REPORTING, // eABSOLUTE_PROGRESS_EPOCH..eABSOLUTE_PROGRESS_MAX
-	eCONFIG_RANGE_LLDBUFFER, // 1 to 100 LLD buffer
 	eCONFIG_RANGE_MAX_VALUE,
 } ConfigValidRange;
 #define CONFIG_RANGE_ENUM_COUNT (eCONFIG_RANGE_MAX_VALUE)
@@ -116,7 +115,6 @@ static const struct
 	{AAMP_DEFAULT_PLAYBACK_OFFSET, INT_MAX, eCONFIG_RANGE_PLAYBACK_OFFSET },
 	{-1, 60*60*10, eCONFIG_RANGE_HARVEST_DURATION },
 	{eABSOLUTE_PROGRESS_EPOCH, eABSOLUTE_PROGRESS_MAX, eCONFIG_RANGE_ABSOLUTE_REPORTING},
-	{ 1, 100, eCONFIG_RANGE_LLDBUFFER }, /** Minimum buffer should be a avarage chunk size(only int is possible), upper limit does not have much impact*/
 };
 
 static ConfigPriority customOwner;
@@ -280,7 +278,6 @@ static const ConfigLookupEntryString mConfigLookupTableString[AAMPCONFIG_STRING_
 	{"","LRHContentType",eAAMPConfig_LRHContentType,true},
 	{"","gstlevel", eAAMPConfig_GstDebugLevel,false},
 	{"","tsbType", eAAMPConfig_TsbType, false},
-	{DEFAULT_TSB_LOCATION,"tsbLocation",eAAMPConfig_TsbLocation, true},
 };
 
 /**
@@ -374,7 +371,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"sharedSSL",eAAMPConfig_EnableSharedSSLSession, true},
 	{false,"tsbInterruptHandling", eAAMPConfig_InterruptHandling,true},
 	{true,"enableLowLatencyDash",eAAMPConfig_EnableLowLatencyDash,true},
-	{true,"disableLowLatencyABR",eAAMPConfig_DisableLowLatencyABR,false},
+	{false,"disableLowLatencyABR",eAAMPConfig_DisableLowLatencyABR,false},
 	{DEFAULT_VALUE_ENABLE_LATENCY_CORRECTION,"enableLowLatencyCorrection",eAAMPConfig_EnableLowLatencyCorrection,true},
 	{true,"enableLowLatencyOffsetMin",eAAMPConfig_EnableLowLatencyOffsetMin,false},
 	{DEFAULT_VALUE_SYNC_AUDIO_FRAGMENTS,"syncAudioFragments",eAAMPConfig_SyncAudioFragments,false},
@@ -413,9 +410,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, true},
 	{DEFAULT_VALUE_USE_RIALTO_SINK, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
 	/* Enable/Disable ENABLE_AAMP_QTDEMUX_OVERRIDE flag , workaround for Charter Video Freeze issue on Flex2-RTK (ES1-701)*/
-	{DEFAULT_VALUE_QTDEMUX_OVERRIDE_ENABLED, "qtDemuxOverrideEnabled", eAAMPConfig_QtDemuxOverrideEnabled, false},
-	{false, "localTSBEnabled", eAAMPConfig_LocalTSBEnabled, true},
-	{false, "enableIFrameTrackExtract", eAAMPConfig_EnableIFrameTrackExtract, true},
+	{DEFAULT_VALUE_QTDEMUX_OVERRIDE_ENABLED, "qtDemuxOverrideEnabled", eAAMPConfig_QtDemuxOverrideEnabled, false}
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -465,15 +460,15 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_TIMEOUT_FOR_SOURCE_SETUP,"maxTimeoutForSourceSetup",eAAMPConfig_SourceSetupTimeout,false},
 	{0,"downloadDelay",eAAMPConfig_DownloadDelay,false, eCONFIG_RANGE_DOWNLOAD_DELAY },
 	{ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE,"livePauseBehavior",eAAMPConfig_LivePauseBehavior,false,eCONFIG_RANGE_PAUSE_BEHAVIOR },
-	{MAX_GST_VIDEO_BUFFER_BYTES,"gstVideoBufBytes", eAAMPConfig_GstVideoBufBytes,true},
-	{MAX_GST_AUDIO_BUFFER_BYTES,"gstAudioBufBytes", eAAMPConfig_GstAudioBufBytes,true},
+	{MAX_GST_VIDEO_BUFFER_BYTES,"gstVideoBufBytes", eAAMPConfig_GstVideoBufBytes,false},
+	{MAX_GST_AUDIO_BUFFER_BYTES,"gstAudioBufBytes", eAAMPConfig_GstAudioBufBytes,false},
 	{DEFAULT_LATENCY_MONITOR_DELAY,"latencyMonitorDelay",eAAMPConfig_LatencyMonitorDelay,false},
 	{AAMP_LLD_LATENCY_MONITOR_INTERVAL,"latencyMonitorInterval",eAAMPConfig_LatencyMonitorInterval,false},
 	{DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK,"downloadBufferChunks",eAAMPConfig_MaxFragmentChunkCached,false},
 	{DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE,"abrChunkThresholdSize",eAAMPConfig_ABRChunkThresholdSize,false},
-	{DEFAULT_MIN_LOW_LATENCY,"lowLatencyMinValue",eAAMPConfig_LLMinLatency,true},
-	{DEFAULT_TARGET_LOW_LATENCY,"lowLatencyTargetValue",eAAMPConfig_LLTargetLatency,true},
-	{DEFAULT_MAX_LOW_LATENCY,"lowLatencyMaxValue",eAAMPConfig_LLMaxLatency,true},
+	{DEFAULT_MIN_LOW_LATENCY,"lowLatencyMinValue",eAAMPConfig_LLMinLatency,false},
+	{DEFAULT_TARGET_LOW_LATENCY,"lowLatencyTargetValue",eAAMPConfig_LLTargetLatency,false},
+	{DEFAULT_MAX_LOW_LATENCY,"lowLatencyMaxValue",eAAMPConfig_LLMaxLatency,false},
 	{MAX_SEG_DOWNLOAD_FAIL_COUNT,"fragmentDownloadFailThreshold",eAAMPConfig_FragmentDownloadFailThreshold,false,eCONFIG_RANGE_DOWNLOAD_ERROR_THRESHOLD },
 	{MAX_INIT_FRAGMENT_CACHE_PER_TRACK,"maxInitFragCachePerTrack",eAAMPConfig_MaxInitFragCachePerTrack,true, eCONFIG_RANGE_INIT_FRAGMENT_CACHE },
 	{FOG_MAX_CONCURRENT_DOWNLOADS,"fogMaxConcurrentDownloads",eAAMPConfig_FogMaxConcurrentDownloads, false },
@@ -504,10 +499,6 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START,"preferredAbsoluteReporting",eAAMPConfig_PreferredAbsoluteProgressReporting,true, eCONFIG_RANGE_ABSOLUTE_REPORTING},
 	{EOS_INJECTION_MODE_STOP_ONLY,"EOSInjectionMode", eAAMPConfig_EOSInjectionMode,true},
 	{DEFAULT_ABR_BUFFER_COUNTER,"abrBufferCounter", eAAMPConfig_ABRBufferCounter,true},
-	{DEFAULT_TSB_DURATION,"tsbLength",eAAMPConfig_TsbLength,true},
-	{DEFAULT_MIN_TSB_STORAGE_FREE_PERCENTAGE,"tsbMinDiskFreePercentage",eAAMPConfig_TsbMinDiskFreePercentage,true},
-	{DEFAULT_MAX_TSB_STORAGE_MB,"tsbMaxDiskStorage",eAAMPConfig_TsbMaxDiskStorage,true},
-	{static_cast<int>(TSB::LogLevel::WARN),"tsbLog",eAAMPConfig_TsbLogLevel,false},
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },
@@ -533,8 +524,6 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_MIN_RATE_CORRECTION_SPEED,"minLatencyCorrectionPlaybackRate",eAAMPConfig_MinLatencyCorrectionPlaybackRate,false},
 	{DEFAULT_MAX_RATE_CORRECTION_SPEED,"maxLatencyCorrectionPlaybackRate",eAAMPConfig_MaxLatencyCorrectionPlaybackRate,false},
 	{DEFAULT_NORMAL_RATE_CORRECTION_SPEED,"normalLatencyCorrectionPlaybackRate",eAAMPConfig_NormalLatencyCorrectionPlaybackRate,false},
-	{DEFAULT_MIN_BUFFER_LOW_LATENCY,"lowLatencyMinBuffer",eAAMPConfig_LowLatencyMinBuffer,true, eCONFIG_RANGE_LLDBUFFER},
-	{DEFAULT_TARGET_BUFFER_LOW_LATENCY,"lowLatencyTargetBuffer",eAAMPConfig_LowLatencyTargetBuffer,true, eCONFIG_RANGE_LLDBUFFER},
 };
 
 /**

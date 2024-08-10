@@ -265,7 +265,6 @@ class TrackState : public MediaTrack
 		 * @return void
 		 ***************************************************************************/
 		void ABRProfileChanged(void) override;
-		void resetPTSOnAudioSwitch(CachedFragment* cachedFragment) override;
 		/***************************************************************************
 		 * @fn GetNextFragmentUriFromPlaylist
 		 * @param reloadUri reload uri on playlist refreshed scenario
@@ -583,14 +582,13 @@ class TrackState : public MediaTrack
 		void SwitchSubtitleTrack();
 
 		void getNextFetchRequestUri(); //CMCD Get next object request url(nor)
-	
+
 		/***************************************************************************
 		 * @fn SwitchAudioTrack
 		 *
 		 * @return void
 		 ***************************************************************************/
 		void SwitchAudioTrack();
-
 
 	public:
 		std::string mEffectiveUrl;		 /**< uri associated with downloaded playlist (takes into account 302 redirect) */
@@ -988,7 +986,6 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 *	 @return void
 		 ****************************************************************************/
 		void ChangeMuxedAudioTrackIndex(std::string& index) override;
-                
 
 		/***************************************************************************
 		 * @brief  Function to get output format for audio/aux track
@@ -1005,7 +1002,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 
 		const std::unique_ptr<aamp::MetadataProcessorIntf> & GetMetadataProcessor(StreamOutputFormat fmt);
 
-		/***************************************************************************
+                /***************************************************************************
                  * @fn RefreshAudio
                  *
                  * @return void
@@ -1024,7 +1021,6 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return void
 		 ***************************************************************************/
 		void ConfigureAudioTrack();
-
 	protected:
 		/***************************************************************************
 		 * @fn GetStreamInfo

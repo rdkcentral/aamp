@@ -75,14 +75,6 @@ pkg_check_modules(UUID REQUIRED uuid)
 
 include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
-add_subdirectory(tsb)
-
-install(TARGETS tsb
-        DESTINATION lib
-        PUBLIC_HEADER DESTINATION include
-)
-
-
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
     message("CMAKE_WPEFRAMEWORK_REQUIRED set")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
@@ -255,10 +247,6 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					tsFragmentProcessor.hpp
 					AampTime.h
 					AampHandlerControl.h
-					AampTSBSessionManager.h
-					AampTsbDataManager.h
-					AampTsbReader.h
-					lstring.hpp
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -326,9 +314,6 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					MetadataProcessor.cpp
 					tsDemuxer.cpp
 					tsFragmentProcessor.cpp
-					AampTSBSessionManager.cpp
-					AampTsbDataManager.cpp
-					AampTsbReader.cpp
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
@@ -836,7 +821,8 @@ set_target_properties(aamp-cli PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${AA
 set_target_properties(aamp PROPERTIES PUBLIC_HEADER "main_aamp.h")
 set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
 
-include_directories(tsb/api)
+target_link_libraries(aamp-cli subtec)
+target_link_libraries(aamp subtec)
 
 set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${LIBDASH_LIBRARIES} ${CURL_LINK_LIBRARIES})
 set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
@@ -862,8 +848,6 @@ target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")
 xcode_define_schema(gstTestHarness)
 
 install(TARGETS gstTestHarness DESTINATION bin)
-target_link_libraries(aamp-cli subtec tsb)
-target_link_libraries(aamp subtec tsb)
 install(TARGETS aamp-cli DESTINATION bin)
 install(TARGETS playbintest DESTINATION bin)
 
@@ -886,9 +870,6 @@ install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h Aam
   AampMPDParseHelper.h
   AampMPDPeriodInfo.h
   AampLLDASHData.h
-  AampTSBSessionManager.h
-  AampTsbReader.h
-  tsb/api/TsbApi.h
   DESTINATION include)
 
 if (CMAKE_AAMP_RFC_REQUIRED)

@@ -102,6 +102,14 @@ private:
 	void SendGstEvents(AampMediaType mediaType, GstClockTime pts);
 
 	/**
+	 * @fn RecalculatePTS
+	 * @param[in] mediaType stream type
+	 * @param[in] ptr buffer pointer
+	 * @param[in] len length of buffer
+	 */
+	double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len);
+
+	/**
          * @fn SendNewSegmentEvent
          * @param[in] mediaType stream type
          * @param[in] startPts Start Position of first buffer
@@ -513,6 +521,7 @@ private:
      	 * @return bool - true if audio to be forwarded
      	 */
 	bool ForwardAudioBuffersToAux();
+
 	/**
          *   @fn DisconnectSignals
 	     *   @brief runs g_signal_handler_disconnect() for signals connected using SignalConnect() since
@@ -526,7 +535,7 @@ private:
 	     *   @brief Prevents signals associated with the supplied element from being disconnected by DisconnectSignals
 	     */
 	void RemoveSignalsFromDisconnectList(const gpointer pElementOrBin);
-	
+
 	/**
 	 * @fn RemoveProbes
 	 * @brief Remove probes from the pipeline

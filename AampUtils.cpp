@@ -28,7 +28,6 @@
 #include "AampConstants.h"
 #include "AampCurlStore.h"
 #include "AampCurlDownloader.h"
-#include "isobmff/isobmffbuffer.h"
 
 #include <sys/time.h>
 #include <string.h>
@@ -1135,7 +1134,7 @@ double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::strin
 				//const char* format = "%Y-%m-%dT%H:%M:%SZ";
 				//mTime = convertTimeToEpoch((const char*)dataStr.c_str(), format);
 				retValue = ISO8601DateTimeToUTCSeconds((const char*)dataStr.c_str());
-				AAMPLOG_INFO("ProducerReferenceTime Wallclock (Epoch): [%f] TimeTaken[%f]", retValue, respData->downloadCompleteMetrics.total);
+				AAMPLOG_WARN("ProducerReferenceTime Wallclock (Epoch): [%f] TimeTaken[%f]", retValue, respData->downloadCompleteMetrics.total);
 			}
 		}
 		else
@@ -1297,77 +1296,6 @@ const char *GetMediaTypeName(AampMediaType mediaType)
 		return "UNKNOWN";
 	}
 }
-
-/**
- * @fn RecalculatePTS
- * @param[in] mediaType stream type
- * @param[in] ptr buffer pointer
- * @param[in] len length of buffer
- */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampLogManager *mLogObj, PrivateInstanceAAMP *aamp)
-{
-	double ret = 0;
-	uint32_t timeScale = 0;
-
-	if(mediaType == eMEDIATYPE_VIDEO)
-	{
-		timeScale = aamp->GetVidTimeScale();
-	}
-	else if(mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_AUX_AUDIO)
-	{
-		timeScale = aamp->GetAudTimeScale();
-	}
-
-
-	IsoBmffBuffer isobuf(mLogObj);
-	isobuf.setBuffer((uint8_t *)ptr, len);
-	bool bParse = false;
-	try
-	{
-		bParse = isobuf.parseBuffer();
-	}
-	catch( std::bad_alloc& ba)
-	{
-		AAMPLOG_ERR("Bad allocation: %s", ba.what() );
-	}
-	catch( std::exception &e)
-	{
-		AAMPLOG_ERR("Unhandled exception: %s", e.what() );
-	}
-	catch( ... )
-	{
-		AAMPLOG_ERR("Unknown exception");
-	}
-	if(bParse && (0 != timeScale))
-	{
-		uint64_t fPts = 0;
-		bool bParse = isobuf.getFirstPTS(fPts);
-		if (bParse)
-		{
-			ret = fPts/(timeScale*1.0);
-			AAMPLOG_TRACE("restamped PTS : %lf", ret);
-		}
-	}
-	return ret;
-}
-
-TSB::LogLevel ConvertTsbLogLevel(int logLev)
-{
-	TSB::LogLevel ret = TSB::LogLevel::WARN; //default value
-	if ((logLev < 0) || (logLev > static_cast<int>(TSB::LogLevel::ERROR)))
-	{
-		AAMPLOG_ERR("Bad TSB Log level Set by user: %d!! using default value : %d", logLev, static_cast<int>(ret));
-	}
-	else
-	{
-		AAMPLOG_INFO("TSB Log level Set as : %d", logLev);
-		ret = static_cast<TSB::LogLevel>(logLev);
-	}
-
-	return ret;
-}
-
-
 
 /**
  * @brief Get 32 bit MPEG CRC value

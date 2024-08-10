@@ -118,13 +118,12 @@ public:
 	 */
 	virtual void setFrameRateForTM (int frameRate) = 0;
 
-        /**
-          * @brief Reset PTS on audioSwitch
-          *
-          * @param[in] pBuffer - Pointer to the AampGrowableBuffer
-          * @param[in] position - position of fragment
-          * @return void
-          */
+	/**
+	 * @brief Reset sumPTS on SeamlessAudioSwitch 
+	 *
+	 * @param[in] reset - true/false
+	 * @return void
+	 */
 	virtual void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position) {};
 	/**
 	 * @brief Abort all operations

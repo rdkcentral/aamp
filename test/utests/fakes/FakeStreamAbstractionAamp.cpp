@@ -218,25 +218,6 @@ void MediaTrack::WaitForManifestUpdate()
 {
 }
 
-bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
-{
-    return true;
-}
-bool MediaTrack::CheckForDiscontinuity()
-{
-    return false;
-}
-
-double MediaTrack::GetTotalInjectedDuration()
-{
-    return 0.0;
-}
-
-bool MediaTrack::SignalIfEOSReached()
-{
-    return false;
-}
-
 bool StreamAbstractionAAMP::CheckForRampDownLimitReached()
 {
     return true;
@@ -305,6 +286,11 @@ bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
     return false;
 }
 
+bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
+{
+    return false;
+}
+
 CachedFragmentChunk* MediaTrack::GetFetchChunkBuffer(bool initialize)
 {
      return NULL;
@@ -323,23 +309,5 @@ void MediaTrack::WaitForCachedAudioFragmentAvailable()
 }
 
 void MediaTrack::LoadNewAudio(bool)
-{
-}
-
-void MediaTrack::AbortWaitForCachedFragmentChunk()
-{
-}
-
-double StreamAbstractionAAMP::GetBufferValue(MediaTrack *video)
-{
-    return 0;
-}
-void MediaTrack::SetCachedFragmentChunksSize(size_t size)
-{
-}
-void MediaTrack::UpdateTSAfterInject()
-{
-}
-void StreamAbstractionAAMP::UpdateStreamInfoBitrateData(int profileIndex, StreamInfo &cacheFragStreamInfo)
 {
 }

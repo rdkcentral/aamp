@@ -65,12 +65,10 @@
 #include "AampCurlDefine.h"
 #include "AampLLDASHData.h"
 #include "AampMPDPeriodInfo.h"
-#include "TsbApi.h"
 
 class AampMPDDownloader;
 typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 
-class AampTSBSessionManager;
 #include "ID3Metadata.hpp"
 
 #ifdef __APPLE__
@@ -82,9 +80,11 @@ class AampTSBSessionManager;
 #define AAMP_SEEK_TO_LIVE_POSITION (-1)
 
 #define MANIFEST_TEMP_DATA_LENGTH 100			/**< Manifest temp data length */
+#define AAMP_LOW_BUFFER_BEFORE_RAMPDOWN 10 		/**< 10sec buffer before rampdown */
+#define AAMP_HIGH_BUFFER_BEFORE_RAMPUP  15 		/**< 15sec buffer before rampup */
 #define  AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD 3	/**< 3sec buffer befoe rampdown for lld */
 #define AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD	 4	/**< 4sec buffer before rampup for lld */
-#define TIMEOUT_FOR_LLD	3				/**< 3sec network timeout for lld */
+#define TIMEOUT_FOR_LLD	3				/**< 3sec lowbw ,stall and start timeout for lld */
 #define MANIFEST_TIMEOUT_FOR_LLD 3      /**< 3 sec timeout for manifest refresh in case of LLD*/
 #define ABR_BUFFER_COUNTER_FOR_LLD 3		/** Counter for steady state rampup/rampdown for lld */
 
@@ -562,7 +562,6 @@ class PrivateInstanceAAMP : public AampDrmCallbacks, public std::enable_shared_f
 	double mReportProgressPosn;
 	long long mLastTelemetryTimeMS;
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
-	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
 public:
 	/**
 	 * @brief Get profiler bucket type
@@ -769,15 +768,6 @@ public:
 	 */
 	void SetLatencyParam(double latency);
 
-	/**
-	 * @fn GetTSBStore - Get the TSB Store Object
-	 * @param config - TSB config
-	 * @param logger -  Logger function
-	 * @param level - Log Level
-	 * @return TSB::Store pointer
-	 */
-	std::shared_ptr<TSB::Store> GetTSBStore(const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level);
-
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
 	std::vector< std::pair<long long,long> > mAbrBitrateData;
@@ -956,7 +946,7 @@ public:
 	std::vector<std::string> preferredLabelList;	 	/**< list of preferred labels from most-preferred to the least */
 	std::string preferredTypeString; 			/**< unparsed string with preferred accessibility type */
 	std::string preferredCodecString; 			/**< unparsed string with preferred codecs in format "codec1,codec2,.." */
-	std::vector<std::string> preferredCodecList;            /**<String array to store codec preference */
+	std::vector<std::string> preferredCodecList; 	 	/**<String array to store codec preference */
 	std::string preferredNameString;			/**< unparsed string with preferred name of track */
 	std::string preferredTextLanguagesString; 		/**< unparsed string with preferred languages in format "lang1,lang2,.." */
 	std::vector<std::string> preferredTextLanguagesList;	/**< list of preferred text languages from most-preferred to the least*/
@@ -3862,26 +3852,6 @@ public:
 	}
 
 	/**
-	 *   @brief Set iframe extraction enabled or not
-	 *
-	 *   @return void
-	 */
-	void SetIsIframeExtractionEnabled(bool enable)
-	{
-		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_EnableIFrameTrackExtract,enable);
-	}
-
-	/**
-	 *   @brief Is iframe extraction enabled
-	 *
-	 *   @return bool
-	 */
-	bool IsIframeExtractionEnabled()
-	{
-		return ISCONFIGSET_PRIV(eAAMPConfig_EnableIFrameTrackExtract) ;
-	}
-
-	/**
 	 *   @fn GetLiveOffsetAppRequest
 	 *   @return bool
 	 */
@@ -4010,12 +3980,6 @@ public:
 	*/
 	void LoadAampAbrConfig(void);
 
-	/**
-	* @brief To pass player config to TSB Handler
-	* @fn LoadLocalTSBConfig
-	* return none
-	*/
-	void LoadLocalTSBConfig(void);
 
 	/**
 	 *    @brief To increment gaps between periods for dash
@@ -4143,38 +4107,6 @@ public:
 	  * @param Void
 	  */
 	 void ReleaseDynamicDRMToUpdateWait();
-
-	 /*
-	  * @brief Get the TSB Session manager instance
-	  * @return AampTSBSessionManager instance
-	  */
-	AampTSBSessionManager *GetTSBSessionManager();
-
-	/**
-	 * @brief Set local TSB flag
-	 */
-	void SetLocalAAMPTsb(bool value)
-	{
-		mLocalAAMPTsb = value;
-	}
-
-	/**
-	 * @brief Is mLocalAAMPTsb enabled/disabled
-	 */
-	bool IsLocalAAMPTsb()
-	{
-		return mLocalAAMPTsb;
-	}
-
-	/**
-	 * @brief Set local TSB injection flag
-	 */
-	void SetLocalAAMPTsbInjection(bool value);
-
-	/**
-	 * @brief Is mLocalAAMPTsb enabled/disabled
-	 */
-	bool IsLocalAAMPTsbInjection();
 
 protected:
 
@@ -4384,9 +4316,6 @@ protected:
 	bool mIsPeriodChangeMarked; 						/**< Mark if a period change occurred */
 
 	std::string mSessionId;		/**< ID of the current session as set by the player */
-	AampTSBSessionManager *mTSBSessionManager;
-	bool mLocalAAMPInjectionEnabled;
-	bool mLocalAAMPTsb;
 
 public:
 	AampLogManager *mLogObj;
