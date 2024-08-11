@@ -322,9 +322,9 @@ static JSValueRef AAMP_getProperty_AudioLanguage(JSContextRef context, JSObjectR
 		return JSValueMakeUndefined(context);
 	}
 
-	const char* language = pAAMP->_aamp->GetCurrentAudioLanguage();
-	LOG_INFO(pAAMP,"_aamp->GetCurrentAudioLanguage() %s",language);
-	return aamp_CStringToJSValue(context, language);
+	std::string language = pAAMP->_aamp->GetCurrentAudioLanguage();
+	LOG_INFO(pAAMP,"_aamp->GetCurrentAudioLanguage() %s",language.c_str());
+	return aamp_CStringToJSValue(context, language.c_str());
 }
 
 /**
@@ -346,9 +346,9 @@ static JSValueRef AAMP_getProperty_CurrentDRM(JSContextRef context, JSObjectRef 
 		return JSValueMakeUndefined(context);
 	}
 
-	const char* drm = pAAMP->_aamp->GetCurrentDRM();
-	LOG_INFO(pAAMP,"_aamp->GetCurrentDRM() %s",drm);
-	return aamp_CStringToJSValue(context, drm);
+	std::string drm = pAAMP->_aamp->GetCurrentDRM();
+	LOG_INFO(pAAMP,"_aamp->GetCurrentDRM() %s",drm.c_str());
+	return aamp_CStringToJSValue(context, drm.c_str());
 }
 
 

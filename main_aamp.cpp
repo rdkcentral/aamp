@@ -1720,40 +1720,36 @@ bool PlayerInstanceAAMP::IsJsInfoLoggingEnabled(void)
 /**
  *  @brief Get current audio language.
  */
-const char* PlayerInstanceAAMP::GetCurrentAudioLanguage(void)
+std::string PlayerInstanceAAMP::GetCurrentAudioLanguage(void)
 {
-	ERROR_OR_IDLE_STATE_CHECK_VAL("");
-	static char lang[MAX_LANGUAGE_TAG_LENGTH];
-	lang[0] = 0;
 	if(aamp && aamp->mpStreamAbstractionAAMP){
-
-	int trackIndex = GetAudioTrack();
-	if( trackIndex>=0 )
-	{
-		std::vector<AudioTrackInfo> trackInfo = aamp->mpStreamAbstractionAAMP->GetAvailableAudioTracks();
-		if (!trackInfo.empty())
+		ERROR_OR_IDLE_STATE_CHECK_VAL("");
+		int trackIndex = GetAudioTrack();
+		if( trackIndex>=0 )
 		{
-			strncpy(lang, trackInfo[trackIndex].language.c_str(), sizeof(lang));
-			lang[sizeof(lang)-1] = '\0';  //CID:173324 - Buffer size warning
+			std::vector<AudioTrackInfo> trackInfo = aamp->mpStreamAbstractionAAMP->GetAvailableAudioTracks();
+			if (!trackInfo.empty())
+			{
+				return trackInfo[trackIndex].language;
+			}
 		}
 	}
-	}// end of if aamp
-	return lang;
+	return "";
 }
 
 /**
  *  @brief Get current drm
  */
-const char* PlayerInstanceAAMP::GetCurrentDRM(void)
+std::string PlayerInstanceAAMP::GetCurrentDRM(void)
 {
-	ERROR_OR_IDLE_STATE_CHECK_VAL("");
 	if(aamp){
-	std::shared_ptr<AampDrmHelper> helper = aamp->GetCurrentDRM();
-	if (helper)
-	{
-		return helper->friendlyName().c_str();
+		ERROR_OR_IDLE_STATE_CHECK_VAL("");
+		std::shared_ptr<AampDrmHelper> helper = aamp->GetCurrentDRM();
+		if (helper)
+		{
+			return helper->friendlyName();
+		}
 	}
-	}// end of if aamp
 	return "NONE";
 }
 
@@ -2595,14 +2591,14 @@ DRMSystems PlayerInstanceAAMP::GetPreferredDRM()
 /**
  *  @brief Get current preferred language list
  */
-const char* PlayerInstanceAAMP::GetPreferredLanguages()
+std::string PlayerInstanceAAMP::GetPreferredLanguages()
 {
-	if(!aamp->preferredLanguagesString.empty())
+	std::string rc;
+	if( aamp )
 	{
-		return aamp->preferredLanguagesString.c_str();
+		rc = aamp->preferredLanguagesString;
 	}
-
-	return NULL;
+	return rc;
 }
 
 /**
@@ -3121,7 +3117,7 @@ void PlayerInstanceAAMP::SetRepairIframes(bool configState)
 /**
  *  @brief InitAAMPConfig - Initialize the media player session with json config
  */
-bool PlayerInstanceAAMP::InitAAMPConfig(char *jsonStr)
+bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 {
 	bool retVal = false;
 	cJSON *cfgdata = NULL;

@@ -1061,14 +1061,14 @@ public:
 	 *
 	 *   @return const char* - current audio language
 	 */
-	const char* GetCurrentAudioLanguage();
+	std::string GetCurrentAudioLanguage();
 
 	/**
 	 *   @fn GetCurrentDRM
 	 *
 	 *   @return char* - current drm
 	 */
-	const char* GetCurrentDRM();
+	std::string GetCurrentDRM();
 	/**
 	 * @fn AddPageHeaders
 	 * @param customHttpHeaders - customHttpHeaders map of custom http headers
@@ -1674,7 +1674,7 @@ public:
 	 *
 	 *   @return const char* - current comma-delimited language list or NULL if not set
 	 */
-	 const char* GetPreferredLanguages();
+	std::string GetPreferredLanguages();
 
 	/**
 	 *   @fn SetTuneEventConfig
@@ -1976,7 +1976,7 @@ public:
 	/**
 	 * @fn InitAAMPConfig
 	 */
-	bool InitAAMPConfig(char *jsonStr);
+	bool InitAAMPConfig(const char *jsonStr);
 
 	/**
 	 * @fn GetAAMPConfig 
