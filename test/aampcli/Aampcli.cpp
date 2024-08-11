@@ -145,41 +145,17 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
 	}
 }
 
-void Aampcli::runCommand( void* args )
+void Aampcli::runCommand( std::string args )
 {
-	std::vector<std::string> *arguments;
 	std::vector<std::string> cmdVec;
 	CommandHandler lCommandHandler;
-
 	lCommandHandler.registerAampcliCommands();
 	using_history();
-
-	if( args )
+	if( !args.empty() )
 	{
-		arguments = static_cast<std::vector<std::string>*>(args);
-		cmdVec = *arguments;
-		if(!cmdVec.empty())
-		{
-			bool first = true;
-			std::string cmd;
-			for(auto param : cmdVec)
-			{ // join cli parameters
-				if( first )
-				{
-					first = false;
-				}
-				else
-				{ // whitespace delimiter prefixed only before subsquent arguments
-					cmd += ' ';
-				}
-				cmd += param;
-			}
-			lCommandHandler.dispatchAampcliCommands( cmd.c_str(), mAampcli.mSingleton);
-		}
+		lCommandHandler.dispatchAampcliCommands( args.c_str(), mAampcli.mSingleton);
 	}
-
 	printf("[AAMPCLI] type 'help' for list of available commands\n");
-
 	for(;;)
 	{
 		rl_attempted_completion_function = lCommandHandler.commandCompletion;
@@ -189,37 +165,33 @@ void Aampcli::runCommand( void* args )
 			break;
 		}
 		char *ptr = buffer;
-		while( *ptr )
+		while( ptr )
 		{
-			char *delim = strchr(ptr,'\n');
-			if( delim )
+			char *next = strchr(ptr,'\n');
+			char *fin = next;
+			if( next )
 			{
-				*delim = 0x00;
-			}
-			add_history(ptr);
-			bool l_status = lCommandHandler.dispatchAampcliCommands(ptr,mAampcli.mSingleton);
-			if( !l_status )
-			{
-				exit(0);
-			}
-			if( delim )
-			{
-				ptr = delim+1;
+				next++;
 			}
 			else
 			{
-				break;
+				fin = ptr+strlen(ptr);
 			}
+			while( *ptr == ' ' ) ptr++; // skip leading whitespace
+			while( fin>ptr && fin[-1]==' ' ) fin--;
+			*fin = 0x00;
+			
+			if( *ptr )
+			{
+				add_history(ptr);
+				bool l_status = lCommandHandler.dispatchAampcliCommands(ptr,mAampcli.mSingleton);
+				if( !l_status )
+				{
+					exit(0);
+				}
+			}
+			ptr = next;
 		}
-//		if( *buffer )
-//		{ // non-empty line
-//			add_history(buffer);
-//			bool l_status = lCommandHandler.dispatchAampcliCommands(buffer,mAampcli.mSingleton);
-//			if( !l_status )
-//			{
-//				exit(0);
-//			}
-//		} // if( *buffer )
 		free(buffer);
 	} // for(;;)
 } // Aampcli::runCommand
@@ -350,7 +322,7 @@ bool Aampcli::SetSessionId(std::string sid)
 	return true;
 }
 
-std::string Aampcli::GetSessionId() const 
+std::string Aampcli::GetSessionId() const
 {
 	const auto playerId = mSingleton->GetId();
 
@@ -363,7 +335,7 @@ std::string Aampcli::GetSessionId() const
 }
 
 
-std::string Aampcli::GetSessionId(size_t index) const 
+std::string Aampcli::GetSessionId(size_t index) const
 {
 	if (mPlayerSessionID.size() > index)
 	{
@@ -372,8 +344,6 @@ std::string Aampcli::GetSessionId(size_t index) const
 
 	return {};
 }
-
-
 
 /**
  * @brief
@@ -387,7 +357,7 @@ int main(int argc, char **argv)
 	AampLogManager::disableLogRedirection = true;
 	ABRManager mAbrManager;
 
-    gApplicationPath = argv[0];
+	gApplicationPath = argv[0];
 
 	printf("**************************************************************************\n");
 	printf("** ADVANCED ADAPTIVE MEDIA PLAYER (AAMP) - COMMAND LINE INTERFACE (CLI) **\n");
@@ -415,24 +385,19 @@ int main(int argc, char **argv)
 		f = NULL;
 	}
 
-	std::vector<std::string> arguments;
+	std::string args;
 	for(int i = 1; i < argc; i++)
 	{
-		arguments.push_back(std::string(argv[i]));
+		if( i>1 )
+		{
+			args += ' ';
+		}
+		args += std::string(argv[i]);
 	}
-
-	std::thread cmdThreadId;
-	try {
-		cmdThreadId = std::thread(&mAampcli.runCommand, (void *) &arguments);
-	}catch (std::exception& e)
-	{
-		printf("[AAMPCLI] Failed at create thread error %s\n",e.what());  //CID:83593 - checked return
-	}
+	std::thread cmdThreadId = std::thread(&mAampcli.runCommand, args);
 	createAppWindow(argc,argv);
-	if(cmdThreadId.joinable())
-	{
-		cmdThreadId.join();
-	}
+	cmdThreadId.join();
+	printf( "[AAMPCLI] done\n" );
 }
 
 void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::string &url, std::string &adId)

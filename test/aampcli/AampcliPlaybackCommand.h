@@ -37,22 +37,49 @@ typedef struct advertInfo
 
 class PlaybackCommand : public Command
 {
-
-	public:
-		static void registerPlaybackCommands();
-		static char *commandRecommender(const char *text, int state);
-		static bool isCommandMatch( const char *cmdBuf, const char *cmdName );
-		static bool isNumber(const char *s);
-		static void showHelp(void);
-		void termPlayerLoop();
-		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
-		PlayerInstanceAAMP * findPlayerInstance( const char *playerRef );
-
+	
+public:
+	static void registerPlaybackCommands();
+	static char *commandRecommender(const char *text, int state);
+	static bool isCommandMatch( const char *cmdBuf, const char *cmdName );
+	static bool isNumber(const char *s);
+	static void showHelp(void);
+	void termPlayerLoop();
+	bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
+	PlayerInstanceAAMP * findPlayerInstance( const char *playerRef );
+	
 private:
-		void getRange(const char* cmd, unsigned long& start, unsigned long& end, unsigned long& tail);
-		static void addCommand(std::string command,std::string description);
-		static std::vector<std::string> commands;
-		static std::map<std::string,std::string> playbackCommands;
+	void getRange(const char* cmd, unsigned long& start, unsigned long& end, unsigned long& tail);
+	static void addCommand(std::string command,std::string description);
+	static std::vector<std::string> commands;
+	static std::map<std::string,std::string> playbackCommands;
+	
+	void HandleCommandList( const char *cmd );
+	void HandleCommandNew( const char *cmd );
+	void HandleCommandSelect( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandRelease( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandSleep( const char *cmd );
+	void HandleCommandTuneLocator( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandNext( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandPrev( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandTuneIndex( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandSetConfig( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandGetConfig( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandExit( void );
+	void HandleCommandCustomHeader( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandSubtec( void );
+	void HandleCommandUnlock( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandAuto( const char *cmd );
+	void HandleCommandFog( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandAdvert( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandScte35( const char *cmd );
+	void HandleCommandSessionId( const char *cmd );
+	void HandleCommandSeek( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandFF( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandREW( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandPause(const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandSpeed( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandBPS( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
 };
 
 #endif // AAMPCLIPLAYBACKCOMMAND_H
