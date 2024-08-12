@@ -705,7 +705,7 @@ TEST_F(PauseAtTests, GetCurrentDRMTest) {
     const char* expectedDrmName = "DRM"; 
     // std::shared_ptr<AampDrmHelper> helper = mPrivateInstanceAAMP->GetCurrentDRM();
     //helper->friendlyName();
-    const char* drmName =  mPlayerInstance->GetCurrentDRM();
+    std::string drmName =  mPlayerInstance->GetCurrentDRM();
 }
 
 TEST_F(PauseAtTests, AddPageHeadersTest) {
@@ -1604,13 +1604,12 @@ TEST_F(PauseAtTests, GetPreferredLanguagesTest)
 {
     mPrivateInstanceAAMP->preferredLanguagesString = "english,french,spanish";
 
-    const char* preferredLanguages = mPlayerInstance->GetPreferredLanguages();
+    std::string preferredLanguages = mPlayerInstance->GetPreferredLanguages();
 
 }
 TEST_F(PauseAtTests, GetPreferredLanguagesEmptyTest)
 {
-    const char* result = mPlayerInstance->GetPreferredLanguages();
-    EXPECT_TRUE(result == nullptr);
+    std::string lang = mPlayerInstance->GetPreferredLanguages();
 }
 TEST_F(PauseAtTests, SetNewAdBreakerConfigTest1)
 {
@@ -2096,7 +2095,7 @@ TEST_F(PauseAtTests, GetCurrentAudioLanguageTest1)
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetAudioTrack()).Times(0);
     EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.Times(0);
-    const char* language = mPlayerInstance->GetCurrentAudioLanguage();
+    std::string language = mPlayerInstance->GetCurrentAudioLanguage();
 }
 TEST_F(PauseAtTests, GetCurrentAudioLanguageTest2)
 {
@@ -2104,7 +2103,7 @@ TEST_F(PauseAtTests, GetCurrentAudioLanguageTest2)
     char minLanguage = CHAR_MIN;
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
     int minTrackIndex = mPlayerInstance->GetAudioTrack();
-    const char* minLanguageResult = mPlayerInstance->GetCurrentAudioLanguage();
+    std::string minLanguageResult = mPlayerInstance->GetCurrentAudioLanguage();
 }
 TEST_F(PauseAtTests, GetCurrentAudioLanguageTest3)
 {
@@ -2112,7 +2111,7 @@ TEST_F(PauseAtTests, GetCurrentAudioLanguageTest3)
     const char* minLanguage = "a";
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
     int minTrackIndex = mPlayerInstance->GetAudioTrack();
-    const char* minLanguageResult = mPlayerInstance->GetCurrentAudioLanguage();
+    std::string minLanguageResult = mPlayerInstance->GetCurrentAudioLanguage();
 }
 TEST_F(PauseAtTests,GetCurrentAudioLanguageTest4)
 {
@@ -2121,7 +2120,7 @@ TEST_F(PauseAtTests,GetCurrentAudioLanguageTest4)
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
 
     int trackIndex = mPlayerInstance->GetAudioTrack();
-    const char* language = mPlayerInstance->GetCurrentAudioLanguage();
+    std::string language = mPlayerInstance->GetCurrentAudioLanguage();
 }
 TEST_F(PauseAtTests, GetCurrentAudioLanguageTest5)
 {
@@ -2129,7 +2128,7 @@ TEST_F(PauseAtTests, GetCurrentAudioLanguageTest5)
     const char* maxLanguage = "ThisIsALongLanguageStringForTestingPurpose";
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
     int maxTrackIndex = mPlayerInstance->GetAudioTrack();
-    const char* maxLanguageResult = mPlayerInstance->GetCurrentAudioLanguage();
+    std::string maxLanguageResult = mPlayerInstance->GetCurrentAudioLanguage();
 }
 TEST_F(PauseAtTests, GetCurrentAudioLanguageTest6)
 {
@@ -2137,7 +2136,7 @@ TEST_F(PauseAtTests, GetCurrentAudioLanguageTest6)
     const char* nullLanguage = nullptr;
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
     int nullTrackIndex = mPlayerInstance->GetAudioTrack();
-    const char* nullLanguageResult = mPlayerInstance->GetCurrentAudioLanguage();
+    std::string nullLanguageResult = mPlayerInstance->GetCurrentAudioLanguage();
 }
 TEST_F(PauseAtTests,SetTextTrackTest)
 {
@@ -2150,7 +2149,7 @@ TEST_F(PauseAtTests,InitAAMPConfigTest)
 {
     const char* jsonStr = "{\"key\": \"value\"}";
     mPlayerInstance->AsyncStartStop();
-    mPlayerInstance->InitAAMPConfig(const_cast<char*>(jsonStr));
+    mPlayerInstance->InitAAMPConfig(jsonStr);
 }
 
 TEST_F(PauseAtTests,SetAuxiliaryLanguageTest1)
