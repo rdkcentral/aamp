@@ -45,6 +45,19 @@ bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer);
 bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl);
 
 /**
+ * @fn IsoBmffSetTimescale
+ *
+ * @brief Set the timescale in the mdhd box, to implement trick modes
+ *
+ * @param[in,out] buffer - ISOBMFF segment
+ * @param[in] timeScale - Number of time units that pass in one second
+ *
+ * @retval true  - Timescale was set in the ISO BMFF box
+ * @retval false - There was a problem setting the timescale
+ */
+bool IsoBmffSetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale);
+
+/**
  * @fn IsoBmffSetPtsAndDuration
  *
  * @brief Set the PTS (base media decode time) and sample duration.

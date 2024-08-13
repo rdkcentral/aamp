@@ -35,6 +35,8 @@
 #include "isobmff/isobmffbox.h"
 #include "AampLogManager.h"
 
+#include "testFiles/helperTestData.h"
+
 using ::testing::_;
 using ::testing::DoAll;
 using ::testing::Return;
@@ -951,4 +953,84 @@ TEST_F(IsoBmffBufferTests, setPtsAndDurationTest)
 	// Verify new sample duration in buffer following trick mode restamping
 	mIsoBmffBuffer->getSampleDuration(pBox, sampleDurationTotal);
 	EXPECT_EQ(sampleDurationTotal, defaultSampleDurationNew * sampleCount);
+}
+
+/**
+ * @brief Test getChildBox
+ */
+TEST_F(IsoBmffBufferTests, getChildBoxTest)
+{
+	size_t index{0}, index1{0};
+	Box *parent{nullptr}, *child{nullptr};
+
+	mIsoBmffBuffer->setBuffer((uint8_t *)childBoxTestData, sizeof(childBoxTestData));
+	mIsoBmffBuffer->parseBuffer();
+
+	parent = mIsoBmffBuffer->getBox(Box::TRAF, index);
+	EXPECT_NE(parent, nullptr);
+
+	EXPECT_EQ(mIsoBmffBuffer->getChildBox(parent, Box::MDAT, index), nullptr);
+	EXPECT_EQ(index, 0);
+
+	child = mIsoBmffBuffer->getChildBox(parent, Box::TFHD, index);
+
+	// Validate child type
+	EXPECT_TRUE(IS_TYPE(child->getType(), Box::TFHD));
+	++index;
+
+	// Test for a non-present second box of the same type
+	EXPECT_EQ(mIsoBmffBuffer->getChildBox(parent, Box::TFHD, index), nullptr);
+
+	// Test for 2 boxes of the same type
+	index = 0;
+	child = mIsoBmffBuffer->getChildBox(parent, Box::TRUN, index);
+	EXPECT_NE(child, nullptr);
+	EXPECT_EQ(index, 1);
+	index1 = index;
+	++index;
+	child = mIsoBmffBuffer->getChildBox(parent, Box::TRUN, index);
+	EXPECT_NE(child, nullptr);
+	EXPECT_TRUE(index > index1);
+}
+
+TEST_F(IsoBmffBufferTests, setTrickmodeTimescale)
+{
+	std::vector<uint8_t>localBuffer(setTimescaleTestData, std::end(setTimescaleTestData));
+
+	mIsoBmffBuffer->setBuffer(localBuffer.data(), localBuffer.size());
+	mIsoBmffBuffer->parseBuffer();
+
+	// Find mdhd box
+	size_t index{0};
+	auto root{mIsoBmffBuffer->getBox(Box::MOOV, index)};
+	EXPECT_NE(root, nullptr);
+	index = 0;
+	auto trak{mIsoBmffBuffer->getChildBox(root, Box::TRAK, index)};
+	EXPECT_NE(trak, nullptr);
+	index = 0;
+	auto mdia{mIsoBmffBuffer->getChildBox(trak, Box::MDIA, index)};
+	EXPECT_NE(mdia, nullptr);
+	index = 0;
+	auto mvhd{dynamic_cast<MvhdBox *>(mIsoBmffBuffer->getChildBox(root, Box::MVHD, index))};
+	EXPECT_NE(mvhd, nullptr);
+	index = 0;
+	auto mdhd{dynamic_cast<MdhdBox *>(mIsoBmffBuffer->getChildBox(mdia, Box::MDHD, index))};
+	EXPECT_NE(mdhd, nullptr);
+
+	EXPECT_EQ(mdhd->getTimeScale(), 1000);
+	EXPECT_EQ(mvhd->getTimeScale(), 1000);
+
+	mIsoBmffBuffer->setTrickmodeTimescale(90000);
+	EXPECT_EQ(mdhd->getTimeScale(), 90000);
+	EXPECT_EQ(mvhd->getTimeScale(), 90000);
+}
+
+
+TEST_F(IsoBmffBufferTests, setTrickmodeTimescaleNegative)
+{
+	mIsoBmffBuffer->setBuffer((uint8_t *)childBoxTestData, sizeof(childBoxTestData));
+	mIsoBmffBuffer->parseBuffer();
+
+	// No MVHD or MDHD box
+	EXPECT_EQ(mIsoBmffBuffer->setTrickmodeTimescale(100), false);
 }

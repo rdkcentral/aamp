@@ -401,6 +401,17 @@ public:
 	Box* getBoxAtIndex(size_t index);
 
 	/**
+	 * @fn getChildBox
+	 * @param [in] parent - parent box to search in
+	 * @param[in] name - box name to get
+	 * @param[in out] index - index of box in a parsed buffer
+	 * in: start index to search, out: index of the box found
+	 * index should be 0 for the first call; if subsequent boxes are to be found, index should set to be 1 + the last index returned
+	 * @return Box handle if Box found at index given. NULL otherwise
+	 */
+	Box* getChildBox(Box *parent, const char *name, size_t &index);
+
+	/**
 	 * @fn printPTSInternal
 	 *
 	 * @param[in] boxes - ISOBMFF boxes
@@ -461,6 +472,14 @@ public:
 	uint64_t beforePTS;	//For log output
 	uint64_t afterPTS;	//For log output
 	bool firstPtsSaved;	//Used to log, only the first PTS restamped in a segment.
-};
 
+	/**
+ 	 * @fn setTrickmodeTimescale
+	 *
+	 * @brief Set the timescale for trickmode playback
+	 * @param[in] timescale - timescale value
+	 * @return bool - found the correct boxes
+	 */
+	bool setTrickmodeTimescale(uint32_t timescale);
+};
 #endif /* __ISOBMFFBUFFER_H__ */

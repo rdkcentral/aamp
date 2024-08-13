@@ -775,6 +775,29 @@ Box* IsoBmffBuffer::getBoxAtIndex(size_t index)
 		return NULL;
 }
 
+/**
+ * @brief Get the Child Box object
+ */
+Box* IsoBmffBuffer::getChildBox(Box *parent, const char *name, size_t &index)
+{
+	Box *pBox{nullptr};
+
+	if (parent && parent->hasChildren())
+	{
+		auto children{parent->getChildren()};
+		for (size_t i = index; i < children->size(); ++i)
+		{
+			pBox = children->at(i);
+			if (IS_TYPE(pBox->getType(), name))
+			{
+				index = i;
+				break;
+			}
+			pBox = nullptr;
+		}
+	}
+	return pBox;
+}
 
 /**
  *  @brief Print ISOBMFF box PTS
@@ -1092,4 +1115,71 @@ uint64_t IsoBmffBuffer::getSegmentDuration()
 	}
 
 	return totalChunkDuration;
+}
+
+/**
+ * @brief Find the MDHD & MVHD boxes and set the timescale
+ *
+*/
+bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timescale)
+{
+	bool retval{false};
+	size_t index{0};
+
+	auto moov{getBox(Box::MOOV, index)};
+
+	if (moov != nullptr)
+	{
+		index = 0;
+		auto mvhd{dynamic_cast<MvhdBox *>(getChildBox(moov, Box::MVHD, index))};
+
+		index = 0;
+		auto trak{getChildBox(moov, Box::TRAK, index)};
+
+		if (trak != nullptr)
+		{
+			index = 0;
+			auto mdia {getChildBox(trak, Box::MDIA, index) };
+
+			if (mdia != nullptr)
+			{
+				index = 0;
+				auto mdhd{dynamic_cast<MdhdBox *>(getChildBox(mdia, Box::MDHD, index))};
+
+				if (mdhd != nullptr && mvhd != nullptr)
+				{
+					AAMPLOG_INFO("Set mdhd & mvhd timescale to %d", timescale);
+					mdhd->setTimeScale(timescale);
+					mvhd->setTimeScale(timescale);
+					retval = true;
+				}
+				else
+				{
+					// Both boxes are mandatory, so this should never happen
+					if (mdhd == nullptr)
+					{
+						AAMPLOG_WARN("mdhd box not found in mdia box");
+					}
+					if (mvhd == nullptr)
+					{
+						AAMPLOG_WARN("mvhd box not found in moov box");
+					}
+				}
+			}
+			else
+			{
+				AAMPLOG_WARN("mdia box not found in trak box");
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN("trak box not found in moov box");
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("No MOOV box within buffer");
+	}
+
+	return retval;
 }
