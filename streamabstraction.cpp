@@ -41,7 +41,7 @@
 #include "isobmffhelper.h"
 
 //#define AAMP_DEBUG_INJECT_CHUNK
-//#define AAMP_DEBUG_FETCH_INJECT 1
+#define AAMP_DEBUG_FETCH_INJECT 1
 
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))

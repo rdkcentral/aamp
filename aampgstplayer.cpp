@@ -2954,7 +2954,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 				GST_BUFFER_PTS(buffer) = pts;
 				GST_BUFFER_DTS(buffer) = dts;
 				GST_BUFFER_DURATION(buffer) = duration;
-				AAMPLOG_DEBUG("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%ld init:%d discontinuity:%d", mediaType, pts, dts, len, initFragment, discontinuity);
+				AAMPLOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%ld init:%d discontinuity:%d", mediaType, pts, dts, len, initFragment, discontinuity);
 			}
 			else
 			{
