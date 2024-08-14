@@ -858,6 +858,28 @@ TEST_F(AampLogManagerTest, logprintf_Test1)
     logprintf(playerId,level,file,line,format,format2);
 }
 
+TEST_F(AampLogManagerTest, timestampStringify )
+{
+	// this test based on code from logprintf used in aampcli
+	// it ensures that the printing of current time doesn't overflow string buffer
+	{
+		struct timeval t;
+		gettimeofday(&t, NULL);
+		char timestamp[AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS];
+		snprintf(timestamp, sizeof(timestamp), AAMPCLI_TIMESTAMP_PREFIX_FORMAT, (unsigned int)t.tv_sec, (unsigned int)t.tv_usec / 1000 );
+		unsigned int extracted_seconds = 0;
+		unsigned int extracted_milliseconds = 0;
+		int n = sscanf( timestamp, "%u.%03u: ", &extracted_seconds, &extracted_milliseconds );
+		ASSERT_EQ( n, 2 );
+		if( n==2 )
+		{ // i.e.
+			// if time ever spills past size of a int, we'll come to know
+			ASSERT_EQ( t.tv_sec, extracted_seconds );
+			ASSERT_EQ( t.tv_usec / 1000, extracted_milliseconds );
+		}
+	}
+}
+
 /**
  * TEST_F GTest-Testcase for DumpBlob function for AampLogManagerTest file
 **/

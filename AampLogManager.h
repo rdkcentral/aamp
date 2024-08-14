@@ -305,4 +305,7 @@ extern void logprintf(int playerId, AAMP_LogLevel level, const char* file, int l
  */
 void DumpBlob(const unsigned char *ptr, size_t len);
 
+#define AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS 20
+#define AAMPCLI_TIMESTAMP_PREFIX_FORMAT "%u.%03u: "
+
 #endif /* AAMPLOGMANAGER_H */

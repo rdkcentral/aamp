@@ -416,13 +416,13 @@ static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
  */
 void logprintf(int playerId, AAMP_LogLevel logLevelIndex, const char* file, int line, const char *format, ...)
 {
-	char timestamp[20];
+	char timestamp[AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS];
 	timestamp[0] = 0x00;
 	if( AampLogManager::disableLogRedirection )
 	{ // add timestamp if not using sd_journal_print
 		struct timeval t;
 		gettimeofday(&t, NULL);
-		snprintf(timestamp, sizeof(timestamp), "%ld.%03ld: ", (long int)t.tv_sec, (long int)t.tv_usec / 1000 );
+		snprintf(timestamp, sizeof(timestamp), AAMPCLI_TIMESTAMP_PREFIX_FORMAT, (unsigned int)t.tv_sec, (unsigned int)t.tv_usec / 1000 );
 	}
 	
 	char *format_ptr = NULL;
