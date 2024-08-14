@@ -536,6 +536,7 @@ static void PrintableStdThreadHelper( size_t *out )
 static void *PrintablePosixThreadHelper( void *arg )
 {
 	sleep(1);
+	return NULL;
 }
 TEST(_AampUtils, GetPrintableThreadID)
 {
