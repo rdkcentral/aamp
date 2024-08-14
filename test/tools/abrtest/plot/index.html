@@ -1,0 +1,31 @@
+<html>
+	<head>
+		<title>ABR Test Tool</title>
+		<link rel="stylesheet" href="style.css">
+		<script src="parseutils.js"></script>
+		<script src="autotriage.js"></script>
+	</head>
+	<body>
+		<dialog id="dialog">
+			<pre>
+				<p id="dialogtext">X</p>
+			</pre>
+			<form method="dialog">
+				<button>OK</button>
+			</form>
+		</dialog>
+
+		<div id="container">
+			<div id="sidebar">
+				<div id="sidebarContent">
+					<ul id="yAxisList" class="y-axis-list">
+					</ul>
+				</div>
+			</div>
+			<div id="canvasContainer">
+				<canvas id="myCanvas" width=4096 height=2048 style="border:1px solid #000000; overflow: scroll;" ondrop="dropHandler(event)" ondragover="dragOverHandler(event)" onclick="clickhandler(event)">
+				</canvas>
+			</div>
+		</div>		
+	</body>
+</html>

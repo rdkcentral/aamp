@@ -4332,11 +4332,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						timeoutClass = "(" + to_string(reqSize > 0) + ")";
 					}
 
-					AAMPLOG(mLogObj, reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s%c%s",
+					AAMPLOG(mLogObj, reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s%s%s",
 							appName.c_str(), mediaTypeTelemetry, mediaType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize,downloadbps,
 							(((mediaType == eMEDIATYPE_VIDEO) || (mediaType == eMEDIATYPE_INIT_VIDEO) || (mediaType == eMEDIATYPE_PLAYLIST_VIDEO)) ? mpStreamAbstractionAAMP->GetVideoBitrate() : 0), // Video fragment current bitrate
 							((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
-							range?';':'\0', range?range:"");
+							range?";":"", range?range:"");
 					AAMPLOG_INFO("External Processing Delay : %lld", context.processDelay);
 					if(ui32CurlTrace < 10 )
 					{
