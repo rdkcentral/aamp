@@ -58,7 +58,7 @@ const uintmax_t kCapacity{100}; // Using 100 makes percentage calculations easie
 const uint32_t kMinFreePercent{5};
 const uint32_t kMaxCapacity{1000}; // 1GB
 const auto kFlushWaitTime{10ms};
-const std::string kTsbLocation{"/tmp/tsb_location_L1"};
+const std::string kTsbLocation{"/tmp/tsb_location_MFT"}; // MFT = Mocked Filesystem Test
 const std::string kFlushDir{kTsbLocation + "/0"};
 const std::string kActiveDir{kTsbLocation + "/1"};
 const std::string kFile{"file.mp4"};
@@ -71,7 +71,7 @@ const int kTsbLocationFd{1};
 
 void Logger(std::string&& tsbMessage)
 {
-	std::cout << "[L1]" << std::move(tsbMessage) << std::endl;
+	std::cout << "[MFT]" << std::move(tsbMessage) << std::endl;
 }
 
 class TsbStoreTests : public ::testing::Test

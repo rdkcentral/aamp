@@ -17,7 +17,7 @@
 
 cmake_minimum_required(VERSION 3.5)
 
-project(UnitTests)
+project(TsbMockFilesystemTests)
 
 # Include the faked/mocked filesystem and fstream standard library implementations
 # Declare mocks to be a system include, so that it doesn't generate gMock-related compiler warning
@@ -30,5 +30,3 @@ add_compile_options(-Wall -Wextra -Wpedantic -Werror -Werror=effc++)
 set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1)
 
 add_subdirectory(tests)
-
-

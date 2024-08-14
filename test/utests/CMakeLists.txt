@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10.3)
 
 project(UnitTests)
 
@@ -55,13 +55,30 @@ if (CMAKE_XCODE_BUILD_SYSTEM)
 endif()
 
 enable_testing()
-LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}")
+
+# Add the aamp/test/common directory to the module include path for access to
+# common CMake test functionality, like the CodeCoverage.cmake module.
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/../common")
 
 if (CMAKE_PLATFORM_UBUNTU)
         link_directories(${GTEST_LIBRARY_DIRS} ${GMOCK_LIBRARY_DIRS})
 endif()
+
+function(aamp_utest_run_add test_suite)
+	if (CMAKE_RDKE_TEST_RUN)
+		# Add the entire googletest test suite to ctest. This means that ctest runs each test
+		# suite executable only once, so the test_details.json googletest JSON output file
+		# required by RDK-E does not get overwritten.
+		add_test(NAME ${test_suite} COMMAND ${test_suite})
+	else()
+		# Discover tests by running the googletest test suite executable with "--gtest_list_tests",
+		# and add each test individually to ctest. This results in ctest running each test suite
+		# executable separately for each test, giving greater opportunity for parallelism and
+		# stdout per-test rather than per-suite, amongst other advantages. There is no issue with
+		# overwriting of googletest JSON output files, because ctest itself handles the output to
+		# file via its "--output-junit" argument, which creates a JUnit XML output file instead.
+		gtest_discover_tests(${test_suite} DISCOVERY_TIMEOUT 10 TEST_PREFIX ${test_suite}:)
+	endif()
+endfunction()
+
 add_subdirectory(tests)
-if(NOT CMAKE_PROJECT_NAME STREQUAL AAMP)
-    # Run TSB library tests
-    add_subdirectory(../../tsb build/tsb)
-endif()

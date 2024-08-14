@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(EXEC_NAME TsbStoreTests1)
+set(EXEC_NAME TsbStoreMockFsTests)
 
 include_directories(${TSB_ROOT}/api)
 include_directories(${TSB_ROOT}/src)
@@ -28,8 +28,8 @@ add_executable(${EXEC_NAME}
 			   ${TEST_SOURCES}
 			   ${FAKE_SOURCES}
 			   ${TSB_SOURCES})
-set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "l1tests")
+set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 target_link_libraries(${EXEC_NAME} ${OS_LD_FLAGS} GTest::gtest_main GTest::gmock_main )
 
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+tsb_test_run_add(${EXEC_NAME})

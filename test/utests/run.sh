@@ -4,7 +4,7 @@
 # Use option: -h to halt coverage tests on error
 
 # If a test crashes or has AS trap, provide an error test report
-error_report() 
+error_report()
 {
 cat << EOF > test_details.json
 {
@@ -51,13 +51,9 @@ while getopts "ceh" opt; do
   esac
 done
 
-#Create a list of all folders in tests (in aamp/test/utests, not in build folder)
-#(In development, to build just a single test, TESTLIST can be replaced with a single test folder, e.g. "AampCliSet)"
-TESTLIST=`find ./tests/* -maxdepth 0 -type d | cut -c 9-`
 TESTDIR=$PWD
 AAMPDIR=$(realpath ${TESTDIR}/../..)
 
-echo "Test list: "$TESTLIST
 AAMP_BUILD_GCNO=""
 
 if [ "$build_coverage" -eq "1" ]; then
@@ -67,7 +63,7 @@ if [ "$build_coverage" -eq "1" ]; then
     if [ -z "$A_GCNO" ]; then
         echo "ERROR need to run 'install-aamp.sh -c' first to get baseline list of aamp files for coverage"
         exit 1
-    fi 
+    fi
     AAMP_BUILD_GCNO=$(dirname $A_GCNO)
 fi
 
@@ -79,9 +75,9 @@ mkdir -p build
 cd build
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    PKG_CONFIG_PATH=/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:${AAMPDIR}/.libs/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCOVERAGE_ENABLED=ON -DCMAKE_BUILD_TYPE=Debug ../
+    PKG_CONFIG_PATH=/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:${AAMPDIR}/.libs/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCOVERAGE_ENABLED=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_RDKE_TEST_RUN=$rdke_build ../
 elif [[ "$OSTYPE" == "linux"* ]]; then
-    PKG_CONFIG_PATH=${AAMPDIR}/.libs/lib/pkgconfig cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=${AAMPDIR}/.libs -DCMAKE_PLATFORM_UBUNTU=1 -DCOVERAGE_ENABLED=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_LIBRARY_PATH=${AAMPDIR}/.libs/lib -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -S../ -B$PWD -G "Unix Makefiles"
+    PKG_CONFIG_PATH=${AAMPDIR}/.libs/lib/pkgconfig cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=${AAMPDIR}/.libs -DCMAKE_PLATFORM_UBUNTU=1 -DCOVERAGE_ENABLED=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_LIBRARY_PATH=${AAMPDIR}/.libs/lib -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -DCMAKE_RDKE_TEST_RUN=$rdke_build -S../ -B$PWD -G "Unix Makefiles"
     export LD_LIBRARY_PATH=${AAMPDIR}/.libs/lib
 else
     #abort the script if its not macOS or linux
@@ -95,15 +91,8 @@ make
 if [ "$rdke_build" -eq "1" ]; then
 	echo "RDKE build"
 
-	for TEST in $TESTLIST ; do
-      		echo "TEST IS $TEST in $PWD"
-      		pushd tests/$TEST
-      		./$TEST --gtest_output=json || true  # Don't exit script if a test crashes
-                if [ ! -f test_detail.json ]; then
-                    error_report $TEST
-                fi
-      		popd
-    	done
+	export GTEST_OUTPUT="json"
+	ctest -j 4 --output-on-failure --no-compress-output -T Test --testdir build || true  # Don't exit script if a test fails
 
 	find . -name test_detail\*.json | xargs cat |  jq -s '{test_cases_results: {tests: map(.tests) | add,failures: map(.failures) | add,disabled: map(.disabled) | add,errors: map(.errors) | add,time: ((map(.time | rtrimstr("s") | tonumber) | add) | tostring + "s"),name: .[0].name,testsuites: map(.testsuites[])}}' > combinedReport.json
 
@@ -112,7 +101,7 @@ else
 fi
 
 if [ "$build_coverage" -eq "1" ]; then
-#We are in utests/build 
+#We are in utests/build
 
 LCOV=lcov
 
@@ -132,7 +121,7 @@ done
 HTML_OUT=$(realpath ../CombinedCoverage)
 XML_OUT=$(realpath ../coverage.xml)
 $LCOV $COMBINE -a baseline.info --output-file all.info.1
-$LCOV --remove all.info.1 --output-file all.info "*/aamp/tsb/test/" "*/aamp/.libs/*" "*/aamp/test/*" "*/aamp/Linux/*" "*/aamp/subtec/subtecparser/*" "/usr/*"
+$LCOV --remove all.info.1 --output-file all.info "*/aamp/tsb/test/*" "*/aamp/.libs/*" "*/aamp/test/*" "*/aamp/Linux/*" "*/aamp/subtec/subtecparser/*" "/usr/*"
 genhtml --demangle-cpp -o ${HTML_OUT} all.info
 # Generate coverage.xml
 lcov_cobertura all.info -b ${AAMPDIR} --demangle -o ${XML_OUT} || true

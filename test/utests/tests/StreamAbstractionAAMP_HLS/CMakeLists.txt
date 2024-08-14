@@ -60,4 +60,4 @@ target_link_libraries(${EXEC_NAME} fakes -pthread ${GLIB_LINK_LIBRARIES} ${OS_LD
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+aamp_utest_run_add(${EXEC_NAME})

@@ -15,19 +15,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(EXEC_NAME TsbLogTests)
+cmake_minimum_required(VERSION 3.5)
+project(TsbRealFilesystemTests)
 
-include_directories(${TSB_ROOT}/api)
-include_directories(${TSB_ROOT}/src)
 
-set(TSB_SOURCES ${TSB_ROOT}/src/TsbLog.cpp)
-set(TEST_SOURCES TsbLogTestsMain.cpp TsbLogTests.cpp)
+set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1)
 
-add_executable(${EXEC_NAME}
-			   ${TEST_SOURCES}
-			   ${TSB_SOURCES})
-set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "l1tests")
-
-target_link_libraries(${EXEC_NAME} ${OS_LD_FLAGS} GTest::gtest_main GTest::gmock_main)
-
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+add_definitions(-DENABLE_TSB_LOGGER)
+add_compile_options(-Wall -Wextra -Wpedantic -Werror -Werror=effc++)
+add_subdirectory(tests)

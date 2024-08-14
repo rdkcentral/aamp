@@ -15,19 +15,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(EXEC_NAME TsbStoreTests2)
+set(EXEC_NAME TsbLogTests)
 
 include_directories(${TSB_ROOT}/api)
-include_directories(${TSB_ROOT}/src/fs)
+include_directories(${TSB_ROOT}/src)
 
-set(TSB_SOURCES ${TSB_ROOT}/src/TsbStore.cpp ${TSB_ROOT}/src/TsbLog.cpp ${TSB_ROOT}/src/TsbSem.cpp ${TSB_ROOT}/src/TsbLocationLock.cpp)
-set(TEST_SOURCES TsbStoreTestsMain.cpp TsbStoreTests.cpp)
+set(TSB_SOURCES ${TSB_ROOT}/src/TsbLog.cpp)
+set(TEST_SOURCES TsbLogTestsMain.cpp TsbLogTests.cpp)
 
 add_executable(${EXEC_NAME}
-               ${TEST_SOURCES}
-               ${TSB_SOURCES})
-set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "l2tests")
+			   ${TEST_SOURCES}
+			   ${TSB_SOURCES})
+set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
-target_link_libraries(${EXEC_NAME} ${OS_LD_FLAGS} GTest::gtest_main)
+target_link_libraries(${EXEC_NAME} ${OS_LD_FLAGS} GTest::gtest_main GTest::gmock_main)
 
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+tsb_test_run_add(${EXEC_NAME})
