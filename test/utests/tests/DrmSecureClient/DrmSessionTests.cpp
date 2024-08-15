@@ -108,7 +108,6 @@ public:
 #endif // USE_SECCLIENT
 };
 
-
 TEST_F(AampDrmSessionTests, TestDashPlayReadySessionSecClient)
 {
 #ifdef USE_SECCLIENT

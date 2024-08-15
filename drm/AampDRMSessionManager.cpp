@@ -61,7 +61,7 @@ KeyID::KeyID() : creationTime(0), isFailedKeyId(false), isPrimaryKeyId(false), d
 {
 }
 
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
+#if defined(AAMP_SIMULATOR_BUILD) || defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 /**
  *  @brief Get formatted URL of license server
  *
