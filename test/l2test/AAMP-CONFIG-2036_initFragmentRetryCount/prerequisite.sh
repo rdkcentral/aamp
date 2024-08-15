@@ -16,36 +16,36 @@ download_stream() {
         do_extract=1
     else
         echo "Downloading the stream failed. Check that the URL '$1' can be reached.
-        If the URL is incorrect, set the environmental variable TEST_2017_STREAM_PATH to the right value in .env file under l2test folder"
+        If the URL is incorrect, set the environmental variable TEST_2036_STREAM_PATH to the right value in .env file under l2test folder"
         return 1
     fi
     return 0
 }
 extract_stream() {
-    for x in $(pwd)/*.zip
+    for x in $(pwd)/*.tar.xz
     do
-      echo "extracting $x"
-      if ! unzip "$x" -d "$(pwd)/testdata"; then
+    echo "extracting $x"
+    if ! tar -xvf "$x" -C "$(pwd)/testdata"; then
         echo "Error: '$x' is corrupted or not a valid zip archive."
         rm -rf $x
         return 1
-      else
+    else
         echo "extraction complete ----> $x"
-      fi
+    fi
     done
     return 0
 }
 
-if [ "$TEST_2017_STREAM_PATH" == "" ]; then
-    TEST_2017_STREAM_PATH="https://cpetestutility.stb.r53.xcal.tv/AAMP/simlinear/aamptest/streams/simlinear/SkyWitness/30t-after-fix/skywitness-30t-after-fix.zip"
+if [ "$TEST_2036_STREAM_PATH" == "" ]; then
+    TEST_2036_STREAM_PATH="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/testApps/L2/AAMP-IFRAME-4007/VideoTestStream.tar.xz"
 fi
 
 echo $(pwd)
 try=1
-download_stream "${TEST_2017_STREAM_PATH}"
+download_stream "${TEST_2036_STREAM_PATH}"
 while [[ "$?" != 0 && "${try}" < 3 ]]; do
     try=$((try + 1))
-    download_stream "${TEST_2017_STREAM_PATH}"
+    download_stream "${TEST_2036_STREAM_PATH}"
 done
 
 mkdir -p $(pwd)/testdata
@@ -60,7 +60,7 @@ try=1
 extract_stream
 while [[ "$?" != 0 && "${try}" < 3 ]]; do
     try=$((try + 1))
-    download_stream "${TEST_2017_STREAM_PATH}"
+    download_stream "${TEST_2036_STREAM_PATH}"
     extract_stream
 done
 
