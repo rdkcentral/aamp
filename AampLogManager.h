@@ -203,7 +203,7 @@ public:
 	 * @param[in] type - media type
 	 * @return void
 	 */
-	void ParseContentUrl(const char* url, std::string& contentType, std::string& location, std::string& symptom, AampMediaType type);
+	void ParseContentUrl(const char* url, std::string& location, std::string& symptom, AampMediaType type);
 
 	/**
 	 * @fn LogDRMError

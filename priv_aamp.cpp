@@ -3261,20 +3261,9 @@ void PrivateInstanceAAMP::NotifyOnEnteringLive()
 /**
  * @brief track description string from TrackType enum
  */
-static std::string TrackTypeString(const int track)
+static std::string TrackTypeString(TrackType track)
 {
-	switch(track)
-	{
-		case eTRACK_VIDEO:
-			return "Video";
-		case eTRACK_AUDIO:
-			return "Audio";
-		case eTRACK_SUBTITLE:
-			return "Subtitle";
-		case eTRACK_AUX_AUDIO:
-			return "Aux Audio";
-	}
-	return "unknown track type";
+	return GetMediaTypeName((AampMediaType)track);
 }
 
 /**
@@ -3291,7 +3280,7 @@ void PrivateInstanceAAMP::AdditionalTuneFailLogEntries()
 		downloadsBlockedMessage += " blocked, track download status: ";
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
-			downloadsBlockedMessage+=TrackTypeString(i);
+			downloadsBlockedMessage+=TrackTypeString((TrackType)i);
 			if (!mbTrackDownloadsBlocked[i])
 			{
 				downloadsBlockedMessage += " not";
@@ -3305,7 +3294,7 @@ void PrivateInstanceAAMP::AdditionalTuneFailLogEntries()
 		std::string injectionBlockedMessage = "Track injection status: ";
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
-			injectionBlockedMessage+=TrackTypeString(i);
+			injectionBlockedMessage+=TrackTypeString((TrackType)i);
 			if (!mTrackInjectionBlocked[i])
 			{
 				injectionBlockedMessage += " not";
@@ -3320,7 +3309,7 @@ void PrivateInstanceAAMP::AdditionalTuneFailLogEntries()
 		std::string trackBufferStatusMessage = "Track buffer status: ";
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
-			trackBufferStatusMessage+=TrackTypeString(i);
+			trackBufferStatusMessage+=TrackTypeString((TrackType)i);
 			auto track = mpStreamAbstractionAAMP->GetMediaTrack(static_cast<TrackType>(i));
 			if(nullptr != track)
 			{
@@ -3813,44 +3802,6 @@ BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
 		}
 
 	return ret;
-}
-
-/**
- * @brief get Media Type in string
- */
-const char* PrivateInstanceAAMP::MediaTypeString(AampMediaType mediaType)
-{
-	switch(mediaType)
-	{
-		case eMEDIATYPE_VIDEO:
-		case eMEDIATYPE_INIT_VIDEO:
-			return "VIDEO";
-		case eMEDIATYPE_AUDIO:
-		case eMEDIATYPE_INIT_AUDIO:
-			return "AUDIO";
-		case eMEDIATYPE_SUBTITLE:
-		case eMEDIATYPE_INIT_SUBTITLE:
-			return "SUBTITLE";
-		case eMEDIATYPE_AUX_AUDIO:
-		case eMEDIATYPE_INIT_AUX_AUDIO:
-			return "AUX-AUDIO";
-		case eMEDIATYPE_MANIFEST:
-			return "MANIFEST";
-		case eMEDIATYPE_LICENCE:
-			return "LICENCE";
-		case eMEDIATYPE_IFRAME:
-			return "IFRAME";
-		case eMEDIATYPE_PLAYLIST_VIDEO:
-			return "PLAYLIST_VIDEO";
-		case eMEDIATYPE_PLAYLIST_AUDIO:
-			return "PLAYLIST_AUDIO";
-		case eMEDIATYPE_PLAYLIST_SUBTITLE:
-			return "PLAYLIST_SUBTITLE";
-		case eMEDIATYPE_PLAYLIST_AUX_AUDIO:
-			return "PLAYLIST_AUX-AUDIO";
-		default:
-			return "Unknown";
-	}
 }
 
 /**
@@ -4453,7 +4404,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			if( !(http_code == CURLE_ABORTED_BY_CALLBACK || http_code == CURLE_WRITE_ERROR || http_code == 204))
 			{
 				SendAnomalyEvent(ANOMALY_WARNING, "%s:%s,%s-%d url:%s", (mTSBEnabled ? "FOG" : "CDN"),
-					MediaTypeString(mediaType), (http_code < 100) ? "Curl" : "HTTP", http_code, remoteUrl.c_str());
+								 GetMediaTypeName(mediaType), (http_code < 100) ? "Curl" : "HTTP", http_code, remoteUrl.c_str());
 			}
 
 			if ( (httpRespHeaders[curlInstance].type == eHTTPHEADERTYPE_XREASON) && (httpRespHeaders[curlInstance].data.length() > 0) )
@@ -8090,7 +8041,7 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 									(errorType == eDASH_RECONFIGURE_FOR_ENC_PERIOD)?"Enrypted period found":
 									(errorType == eGST_ERROR_GST_PIPELINE_INTERNAL) ? "GstPipeline Internal Error" : "STARTTIME RESET";
 
-		SendAnomalyEvent(ANOMALY_WARNING, "%s %s", (trackType == eMEDIATYPE_VIDEO ? "VIDEO" : "AUDIO"), errorString);
+		SendAnomalyEvent(ANOMALY_WARNING, "%s %s", GetMediaTypeName(trackType), errorString);
 		bool activeAAMPFound = false;
 		pthread_mutex_lock(&gMutex);
 		for (std::list<gActivePrivAAMP_t>::iterator iter = gActivePrivAAMPs.begin(); iter != gActivePrivAAMPs.end(); iter++)
@@ -9518,7 +9469,7 @@ void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
 #endif
 	if (!mTrackInjectionBlocked[type])
 	{
-		AAMPLOG_TRACE("PrivateInstanceAAMP: for type %s", (type == eMEDIATYPE_AUDIO) ? "audio" : "video");
+		AAMPLOG_TRACE("PrivateInstanceAAMP: for type %s", GetMediaTypeName(type) );
 		pthread_mutex_lock(&mLock);
 		mTrackInjectionBlocked[type] = true;
 		pthread_mutex_unlock(&mLock);
@@ -9540,7 +9491,7 @@ void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 #endif
 	if (mTrackInjectionBlocked[type])
 	{
-		AAMPLOG_TRACE("PrivateInstanceAAMP: for type %s", (type == eMEDIATYPE_AUDIO) ? "audio" : "video");
+		AAMPLOG_TRACE("PrivateInstanceAAMP: for type %s", GetMediaTypeName(type) );
 		pthread_mutex_lock(&mLock);
 		mTrackInjectionBlocked[type] = false;
 		pthread_mutex_unlock(&mLock);

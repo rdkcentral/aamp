@@ -1263,27 +1263,37 @@ double ParseISO8601Duration(const char *ptr)
 	return returnValue * 1000;
 }
 
-/**
- * @brief Return the name corresponding to the Media Type
- * @param mediaType media type
- * @retval the name of the mediaType
- */
-const char* getMediaTypeName( AampMediaType mediaType )
+const char *GetMediaTypeName(AampMediaType mediaType)
 {
-	switch(mediaType)
+	static const char *name[] =
 	{
-		case eMEDIATYPE_VIDEO:
-			return MEDIATYPE_VIDEO;
-		case eMEDIATYPE_AUDIO:
-			return MEDIATYPE_AUDIO;
-		case eMEDIATYPE_SUBTITLE:
-			return MEDIATYPE_TEXT;
-		case eMEDIATYPE_IMAGE:
-			return MEDIATYPE_IMAGE;
-		case eMEDIATYPE_AUX_AUDIO:
-			return MEDIATYPE_AUX_AUDIO;
-		default:
-			return "UNKNOWN";
+		"video",//eMEDIATYPE_VIDEO
+		"audio",//eMEDIATYPE_AUDIO
+		"text",//eMEDIATYPE_SUBTITLE
+		"aux_audio",//eMEDIATYPE_AUX_AUDIO
+		"manifest",//eMEDIATYPE_MANIFEST
+		"licence",//eMEDIATYPE_LICENCE
+		"iframe",//eMEDIATYPE_IFRAME
+		"init_video",//eMEDIATYPE_INIT_VIDEO
+		"init_audio",//eMEDIATYPE_INIT_AUDIO
+		"init_text",//eMEDIATYPE_INIT_SUBTITLE
+		"init_aux_audio",//eMEDIATYPE_INIT_AUX_AUDIO
+		"playlist_video",//eMEDIATYPE_PLAYLIST_VIDEO
+		"playlist_audio",//eMEDIATYPE_PLAYLIST_AUDIO
+		"playlist_text",//eMEDIATYPE_PLAYLIST_SUBTITLE
+		"playlist_aux_audio",//eMEDIATYPE_PLAYLIST_AUX_AUDIO
+		"playlist_iframe",//eMEDIATYPE_PLAYLIST_IFRAME
+		"init_iframe",//eMEDIATYPE_INIT_IFRAME
+		"dsm_cc",//eMEDIATYPE_DSM_CC
+		"image",//eMEDIATYPE_IMAGE
+	};
+	if( mediaType < eMEDIATYPE_DEFAULT )
+	{
+		return name[mediaType];
+	}
+	else
+	{
+		return "UNKNOWN";
 	}
 }
 

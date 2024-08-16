@@ -736,7 +736,7 @@ static void enough_data(GstElement *source, AAMPGstPlayer *_this)
 				}
 				else
 				{
-					AAMPLOG_ERR( "%s Null check failed.", getMediaTypeName(mediaType));
+					AAMPLOG_ERR( "%s Null check failed.", GetMediaTypeName(mediaType));
 				}
 			}
 		}
@@ -5156,7 +5156,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 			gst_pad_send_event(sourceEleSrcPad, gst_event_new_seek (rate, GST_FORMAT_TIME,
 				static_cast<GstSeekFlags>(GST_SEEK_FLAG_INSTANT_RATE_CHANGE), GST_SEEK_TYPE_NONE,
 				0, GST_SEEK_TYPE_NONE, 0));
-			AAMPLOG_INFO("Seeking in %s ( %d )", aamp->MediaTypeString(static_cast<AampMediaType>(iTrack)), iTrack);
+			AAMPLOG_INFO("Seeking in %s ( %d )", GetMediaTypeName(static_cast<AampMediaType>(iTrack)), iTrack);
 			gst_object_unref(sourceEleSrcPad);
 		}
 	}
@@ -5402,7 +5402,7 @@ void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlD
 		if (data.GstWaitingForData)
 		{
 			AAMPLOG_WARN("BufferControlExternalData %s GStreamer (current %s, %s, should be %s))",
-			getMediaTypeName(mediaType), gst_element_state_get_name(current),
+			GetMediaTypeName(mediaType), gst_element_state_get_name(current),
 			gst_element_state_get_name(pending),
 			pipelineShouldBePlaying ? "GST_STATE_PLAYING" : "GST_STATE_PAUSED");
 		}

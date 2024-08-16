@@ -465,23 +465,9 @@ void trim(std::string& src)
  * @param mediaType media type
  * @retval the name of the mediaType
  */
-const char* getMediaTypeName( AampMediaType mediaType )
+const char* GetMediaTypeName( AampMediaType mediaType )
 {
-	switch(mediaType)
-	{
-		case eMEDIATYPE_VIDEO:
-			return MEDIATYPE_VIDEO;
-		case eMEDIATYPE_AUDIO:
-			return MEDIATYPE_AUDIO;
-		case eMEDIATYPE_SUBTITLE:
-			return MEDIATYPE_TEXT;
-		case eMEDIATYPE_IMAGE:
-			return MEDIATYPE_IMAGE;
-		case eMEDIATYPE_AUX_AUDIO:
-			return MEDIATYPE_AUX_AUDIO;
-		default:
-			return "UNKNOWN";
-	}
+	return "";
 }
 
 uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial)
@@ -513,3 +499,14 @@ std::string aamp_GetConfigPath(const std::string &filename)
 
 	return "FakeAampUtils.cpp";
 }
+<<<<<<< HEAD
+=======
+double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampLogManager *mLogObj, PrivateInstanceAAMP *aamp)
+{
+	return 0.0;
+}
+TSB::LogLevel ConvertTsbLogLevel(int logLev)
+{
+	return TSB::LogLevel::WARN;
+}
+>>>>>>> parent of 8df186f4... Revert "RDKAAMP-3021 redundant and inconsistent mediatype-to-name utility implementations"

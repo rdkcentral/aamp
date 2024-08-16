@@ -3662,7 +3662,7 @@ void MediaTrack::WaitForManifestUpdate()
 void MediaTrack::PlaylistDownloader()
 {
 	AampMediaType mediaType = GetPlaylistMediaTypeFromTrack(type, IS_FOR_IFRAME(aamp->rate,type));
-	std::string trackName = aamp->MediaTypeString(mediaType);
+	std::string trackName = GetMediaTypeName(mediaType);
 	int updateDuration = 0, liveRefreshTimeOutInMs = 0 ;
 	updateDuration = GetDefaultDurationBetweenPlaylistUpdates();
 	long long lastPlaylistDownloadTimeMS = 0;

@@ -452,7 +452,7 @@ bool AampMPDParseHelper::IsIframeTrack(IAdaptationSet *adaptationSet)
 
 bool AampMPDParseHelper::IsContentType(const IAdaptationSet *adaptationSet, AampMediaType mediaType )
 {
-	const char *name = getMediaTypeName(mediaType);
+	const char *name = GetMediaTypeName(mediaType);
 	if (strcmp(name, "UNKNOWN") != 0)
 	{
 		if (adaptationSet->GetContentType() == name)

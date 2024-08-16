@@ -893,7 +893,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	{
 		if(!(pMediaStreamContext->initialization.empty()) && (0 == pMediaStreamContext->initialization.compare(fragmentUrl))&& !discontinuity)
 		{
-			AAMPLOG_TRACE("We have pushed the same initailization segment for %s skipping", getMediaTypeName(AampMediaType(pMediaStreamContext->type)));
+			AAMPLOG_TRACE("We have pushed the same initailization segment for %s skipping", GetMediaTypeName(AampMediaType(pMediaStreamContext->type)));
 			return retval;
 		}
 		else
@@ -924,7 +924,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		{
 			isVidDiscInitFragFail = true;
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: failed. isInit: %d IsTrackVideo: %s isDisc: %d vidInitFail: %d",
-							isInitializationSegment, getMediaTypeName(AampMediaType(pMediaStreamContext->type) ), isInitializationSegment, isVidDiscInitFragFail );
+							isInitializationSegment, GetMediaTypeName(AampMediaType(pMediaStreamContext->type) ), isInitializationSegment, isVidDiscInitFragFail );
 		}
 		retval = false;
 	}
@@ -933,7 +933,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	{
 			isVidDiscInitFragFail = false;
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: rampdown init download success. isInit: %d IsTrackVideo: %s isDisc: %d vidInitFail: %d",
-							isInitializationSegment, getMediaTypeName(AampMediaType(pMediaStreamContext->type) ), isInitializationSegment, isVidDiscInitFragFail );
+							isInitializationSegment, GetMediaTypeName(AampMediaType(pMediaStreamContext->type) ), isInitializationSegment, isVidDiscInitFragFail );
 	}
 
 	/**In the case of ramp down same fragment will be retried
@@ -1927,7 +1927,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				{
 					char range[MAX_RANGE_STRING_CHARS];
 					snprintf(range, sizeof(range), "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
-					AAMPLOG_INFO("%s [%s]",getMediaTypeName(pMediaStreamContext->mediaType), range);
+					AAMPLOG_INFO("%s [%s]",GetMediaTypeName(pMediaStreamContext->mediaType), range);
 					unsigned int nextreferenced_size;
 					float nextfragmentDuration;
 					uint64_t nextfragmentOffset;
@@ -1997,7 +1997,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						{
 							std::string fragmentUrl;
 							GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor,  segmentURL->GetMediaURI());
-							AAMPLOG_INFO("%s [%s]", getMediaTypeName(pMediaStreamContext->mediaType), segmentURL->GetMediaRange().c_str());
+							AAMPLOG_INFO("%s [%s]", GetMediaTypeName(pMediaStreamContext->mediaType), segmentURL->GetMediaRange().c_str());
 							if(nextsegmentURL != NULL && (mIsFogTSB != true))
 							{
 								setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
@@ -3066,7 +3066,7 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 		std::smatch uuid;
 		if (!std::regex_search(schemeIdUri, uuid, rgx))
 		{
-			AAMPLOG_WARN("(%s) got schemeID empty at ContentProtection node-%d", getMediaTypeName(mediaType), iContentProt);
+			AAMPLOG_WARN("(%s) got schemeID empty at ContentProtection node-%d", GetMediaTypeName(mediaType), iContentProt);
 			continue;
 		}
 
@@ -3147,10 +3147,10 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 		// Try and create a DRM helper
 		if (!AampDrmHelperEngine::getInstance().hasDRM(drmInfo))
 		{
-			AAMPLOG_WARN("(%s) Failed to locate DRM helper for UUID %s", getMediaTypeName(mediaType), drmInfo.systemUUID.c_str());
+			AAMPLOG_WARN("(%s) Failed to locate DRM helper for UUID %s", GetMediaTypeName(mediaType), drmInfo.systemUUID.c_str());
 			/** Preferred DRM configured and it is failed hhen exit here */
 			if(aamp->isPreferredDRMConfigured && (GetPreferredDrmUUID() == drmInfo.systemUUID) && !aamp->mIsWVKIDWorkaround){
-				AAMPLOG_ERR("(%s) Preffered DRM Failed to locate with UUID %s", getMediaTypeName(mediaType), drmInfo.systemUUID.c_str());
+				AAMPLOG_ERR("(%s) Preffered DRM Failed to locate with UUID %s", GetMediaTypeName(mediaType), drmInfo.systemUUID.c_str());
 				if (data)
 				{
 					free(data);
@@ -3165,13 +3165,13 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 
 			if (!tmpDrmHelper->parsePssh(data, (uint32_t)dataLength))
 			{
-				AAMPLOG_WARN("(%s) Failed to Parse PSSH from the DRM InitData", getMediaTypeName(mediaType));
+				AAMPLOG_WARN("(%s) Failed to Parse PSSH from the DRM InitData", GetMediaTypeName(mediaType));
 			}
 			else
 			{
 				if (forceSelectDRM){
 					AAMPLOG_INFO("(%s) If Widevine DRM Selected due to Widevine KeyID workaround",
-						getMediaTypeName(mediaType));
+						GetMediaTypeName(mediaType));
 					drmHelper = tmpDrmHelper;
 					/** No need to progress further**/
 					free(data);
@@ -3182,17 +3182,17 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 				// Track the best DRM available to use
 				else if ((!drmHelper) || (GetDrmPrefs(drmInfo.systemUUID) > GetDrmPrefs(drmHelper->getUuid())))
 				{
-					AAMPLOG_WARN("(%s) Created DRM helper for UUID %s and best to use", getMediaTypeName(mediaType), drmInfo.systemUUID.c_str());
+					AAMPLOG_WARN("(%s) Created DRM helper for UUID %s and best to use", GetMediaTypeName(mediaType), drmInfo.systemUUID.c_str());
 					drmHelper = tmpDrmHelper;
 				}
 			}
 		}
 		else
 		{
-			AAMPLOG_WARN("(%s) No PSSH data available from the stream for UUID %s", getMediaTypeName(mediaType), drmInfo.systemUUID.c_str());
+			AAMPLOG_WARN("(%s) No PSSH data available from the stream for UUID %s", GetMediaTypeName(mediaType), drmInfo.systemUUID.c_str());
 			/** Preferred DRM configured and it is failed then exit here */
 			if(aamp->isPreferredDRMConfigured && (GetPreferredDrmUUID() == drmInfo.systemUUID)&& !aamp->mIsWVKIDWorkaround){
-				AAMPLOG_ERR("(%s) No PSSH data available for Preffered DRM with UUID  %s", getMediaTypeName(mediaType), drmInfo.systemUUID.c_str());
+				AAMPLOG_ERR("(%s) No PSSH data available for Preffered DRM with UUID  %s", GetMediaTypeName(mediaType), drmInfo.systemUUID.c_str());
 				if (data)
 				{
 					free(data);
@@ -3672,7 +3672,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 		for (int i = 0; i < mMaxTracks; i++)
 		{
-			mMediaStreamContext[i] = new MediaStreamContext(mLogObj, (TrackType)i, this, aamp, getMediaTypeName(AampMediaType(i)));
+			mMediaStreamContext[i] = new MediaStreamContext(mLogObj, (TrackType)i, this, aamp, GetMediaTypeName(AampMediaType(i)));
 			mMediaStreamContext[i]->fragmentDescriptor.manifestUrl = manifestUrl;
 			mMediaStreamContext[i]->mediaType = (AampMediaType)i;
 			mMediaStreamContext[i]->representationIndex = -1;
@@ -6636,7 +6636,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 				SetESChangeStatus();
 			}
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] Adaptation set[%d] RepIdx[%d] TrackCnt[%d]",
-				getMediaTypeName(AampMediaType(i)),selAdaptationSetIndex,selRepresentationIndex,(mNumberOfTracks+1) );
+				GetMediaTypeName(AampMediaType(i)),selAdaptationSetIndex,selRepresentationIndex,(mNumberOfTracks+1) );
 
 			// Skip processing content protection for multi video, since the right adaptation will be selected only after ABR
 			// This might cause an unwanted content prot to be queued and delay playback start
@@ -6664,11 +6664,11 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		if(selAdaptationSetIndex < 0 && rate == 1)
 		{
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No valid adaptation set found for Media[%s]",
-				getMediaTypeName(AampMediaType(i)));
+				GetMediaTypeName(AampMediaType(i)));
 		}
 
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] %s",
-			getMediaTypeName(AampMediaType(i)), pMediaStreamContext->enabled?"enabled":"disabled");
+			GetMediaTypeName(AampMediaType(i)), pMediaStreamContext->enabled?"enabled":"disabled");
 
 		//RDK-27796, we need this hack for cases where subtitle is not enabled, but auxiliary audio track is enabled
 		if (eMEDIATYPE_AUX_AUDIO == i && pMediaStreamContext->enabled && !mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
@@ -7988,7 +7988,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 									{
 										const char *firstSegmentRange = firstSegmentURL->GetMediaRange().c_str();
 										AAMPLOG_INFO("firstSegmentRange %s [%s]",
-												getMediaTypeName(pMediaStreamContext->mediaType), firstSegmentRange);
+												GetMediaTypeName(pMediaStreamContext->mediaType), firstSegmentRange);
 										if (sscanf(firstSegmentRange, "%d-%d", &start, &fin) == 2)
 										{
 											if (start > 1)
@@ -8015,7 +8015,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 									std::string fragmentUrl;
 									GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
 
-									AAMPLOG_INFO("%s [%s]", getMediaTypeName(pMediaStreamContext->mediaType),
+									AAMPLOG_INFO("%s [%s]", GetMediaTypeName(pMediaStreamContext->mediaType),
 											range.c_str());
 									ReleasePlaylistLock();
 									if(pMediaStreamContext->WaitForFreeFragmentAvailable(0))
@@ -8133,7 +8133,7 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 		//		fragmentDescriptor->Bandwidth,(AampMediaType)i);
 		if (mMediaStreamContext[i]->WaitForFreeFragmentAvailable())
 		{
-			AAMPLOG_WARN("Pushing encrypted header for %s fragmentUrl %s", getMediaTypeName(AampMediaType(i)), fragmentUrl.c_str());
+			AAMPLOG_WARN("Pushing encrypted header for %s fragmentUrl %s", GetMediaTypeName(AampMediaType(i)), fragmentUrl.c_str());
 			//Set the last parameter (overWriteTrackId) true to overwrite the track id if ad and content has different track ids
 			bool temp = false;
 			try

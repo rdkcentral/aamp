@@ -281,6 +281,13 @@ void mssleep(int milliseconds);
  */
 double GetNetworkTime(const std::string& remoteUrl, int *http_error, std::string NetworkProxy);
 
+/**
+ * @fn GetMediaTypeName
+ * @param[in] mediaType - Media type
+ * @return
+ */
+const char * GetMediaTypeName(AampMediaType mediaType);
+
 std::size_t GetPrintableThreadID( const std::thread &t );
 std::size_t GetPrintableThreadID( const pthread_t &t );
 
@@ -290,13 +297,6 @@ std::size_t GetPrintableThreadID( const pthread_t &t );
  * @return durationMs duration in milliseconds
  */
 double ParseISO8601Duration(const char *ptr);
-
-/**
- * @brief Return the name corresponding to the Media Type
- * @param mediaType media type
- * @retval the name of the mediaType
- */
-const char* getMediaTypeName( AampMediaType mediaType );
 
 /**
  * @brief Computes the fragment duratioN.
