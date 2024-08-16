@@ -130,7 +130,6 @@ TESTDATA4 = {
 
             {"cmd": "seek 300"},
             {"expect":"AAMP_EVENT_STATE_CHANGED: SEEKING"},
-            {"cmd": "pause"},
             {"cmd": "rew 8"},
             {"cmd": "sleep 5000"},
             {"expect":r"AAMP_EVENT_SPEED_CHANGED current rate=-8\.000000"},
@@ -166,7 +165,6 @@ TESTDATA5 = {
 
             {"cmd": "seek 300"},
             {"expect":"AAMP_EVENT_STATE_CHANGED: SEEKING"},
-            {"cmd": "pause"},
             {"cmd": "rew 32"},
             {"cmd": "sleep 5000"},
             {"expect":r"AAMP_EVENT_SPEED_CHANGED current rate=-32\.000000"},

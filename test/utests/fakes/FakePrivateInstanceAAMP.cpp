@@ -286,7 +286,7 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 	return false;
 }
 
-void PrivateInstanceAAMP::NotifyFirstBufferProcessed()
+void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string&)
 {
 }
 
@@ -1284,7 +1284,7 @@ bool PrivateInstanceAAMP::RemoveAsyncTask(int taskId)
 	return false;
 }
 
-void PrivateInstanceAAMP::NotifyFirstFrameReceived()
+void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long)
 {
 }
 
@@ -1308,7 +1308,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 {
 }
 
-void PrivateInstanceAAMP::InitializeCC()
+void PrivateInstanceAAMP::InitializeCC(unsigned long)
 {
 }
 

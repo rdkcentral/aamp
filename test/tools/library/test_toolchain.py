@@ -210,12 +210,20 @@ def run_aamp(test_dir, url):
     """
     first_404 = False
     aamp = None
+    AAMP_ENV = {}
+    aamp_cli_cmd_prefix = os.environ["AAMP_CLI_CMD_PREFIX"] + ' ' if "AAMP_CLI_CMD_PREFIX" in os.environ else ''
+
     if platform.system() == "Darwin":
         # MAC
         aamp_cmd = AAMP_HOME + "/build/Debug/aamp-cli"
     else:
         # Linux
-        aamp_cmd = AAMP_HOME + "/Linux/bin/aamp-cli"
+        AAMP_ENV.update({"LD_PRELOAD": os.path.join(AAMP_HOME, ".libs", "lib", "libdash.so"),
+                                  "LD_LIBRARY_PATH": os.path.join(AAMP_HOME, ".libs", "lib")})
+        aamp_cli_path = os.path.join(AAMP_HOME, "build", "aamp-cli")
+        assert os.path.exists(aamp_cli_path), "ERROR {} does not exist".format(aamp_cli_path)
+        AAMP_CMD = '/bin/bash -c "' + aamp_cli_cmd_prefix + aamp_cli_path + '"'
+        aamp_cmd = AAMP_CMD
 
     env = os.environ
     env.update(AAMP_ENV)

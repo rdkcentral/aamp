@@ -298,12 +298,13 @@ static gboolean PrivateInstanceAAMP_Resume(gpointer ptr)
 {
 	bool retValue = true;
 	PrivateInstanceAAMP* aamp = (PrivateInstanceAAMP* )ptr;
-	aamp->NotifyFirstBufferProcessed();
 	TuneType tuneType = eTUNETYPE_SEEK;
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+
+	aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
 
 	if (!aamp->mSeekFromPausedState && (aamp->rate == AAMP_NORMAL_PLAY_RATE))
 	{
-		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 		if(sink)
 		{
 			retValue = sink->Pause(false, false);
@@ -719,23 +720,23 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 		httpRespHeaderData *httpHeader = context->responseHeaderData;
 		size_t startPos = 0;
 		size_t endPos = len-2; // strip CRLF
-		
+
 		bool isBitrateHeader = false;
 		bool isFogRecordingIdHeader = false;
 		bool isProfileCapHeader = false;
-		
+
 		if( len<2 || ptr[endPos] != '\r' || ptr[endPos+1] != '\n' )
 		{ // only proceed if this is a CRLF terminated curl header, as expected
 			return len;
 		}
-		
+
 		if (context->aamp->mConfig->IsConfigSet(eAAMPConfig_CurlHeader) && ptr[0] &&
 			(eMEDIATYPE_VIDEO == context->mediaType || eMEDIATYPE_PLAYLIST_VIDEO == context->mediaType))
 		{
 			std::string temp = std::string(ptr,endPos);
 			context->allResponseHeaders.push_back(temp);
 		}
-		
+
 		// As per Hypertext Transfer Protocol ==> Field names are case-insensitive
 		// HTTP/1.1 4.2 Message Headers : Each header field consists of a name followed by a colon (":") and the field value. Field names are case-insensitive
 		if (STARTS_WITH_IGNORE_CASE(ptr, FOG_REASON_STRING))
@@ -792,7 +793,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 				context->contentLength = atoi(contentLengthStr);
 			}
 		}
-		
+
 		// This implementation is needed for HLS which still uses GetFile
 		// Check for http header tags, only if event listener for HTTPResponseHeaderEvent is available
 		if (eMEDIATYPE_MANIFEST == context->mediaType && context->aamp->IsEventListenerAvailable(AAMP_EVENT_HTTP_RESPONSE_HEADER))
@@ -816,7 +817,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 				}
 			}
 		}
-		
+
 		if(startPos > 0)
 		{
 			while( endPos>startPos && ptr[endPos-1] == ' ' )
@@ -827,7 +828,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 			{ // strip leading whitespace
 				startPos++;
 			}
-			
+
 			if(isBitrateHeader)
 			{
 				const char * strBitrate = ptr + startPos;
@@ -853,7 +854,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 					httpHeader->data += ';';
 				}
 			}
-			
+
 			if(gpGlobalConfig->logging.trace)
 			{
 				AAMPLOG_TRACE("Parsed HTTP %s header: %s", httpHeader->type==eHTTPHEADERTYPE_COOKIE? "Cookie": "X-Reason", httpHeader->data.c_str());
@@ -1366,7 +1367,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 
  	mTrackGrowableBufMem = ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory);
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
-	
+
 }
 
 /**
@@ -2170,8 +2171,8 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 				mFirstProgress = false;
 				AAMPLOG_WARN("Send first progress event with position %ld", (long)(reportFormatPosition / 1000));
 			}
-			
-		
+
+
 			if(mAampLLDashServiceData.lowLatencyMode && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
 			{
 				int abrMinBuffer = GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown);
@@ -2724,12 +2725,12 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 
 		SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 		mFailureReason=tuneFailureMap[tuneFailure].description;
-		
+
 #ifdef AAMP_TELEMETRY_SUPPORT
 		AAMPTelemetry2 at2(mAppName);
-	
+
 		std::string telemetryName;
-		
+
 		if(this->mTuneCompleted)
 		{
 			telemetryName = "VideoPlaybackFailure";
@@ -2742,7 +2743,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 		std::map<std::string, int> intData;
 		intData["err"] = tuneFailure; 	// Error code from AAMPTuneFailure enum
 		intData["cat"] = code; 			// Error Categary from tuneFailureMap.code;
-		
+
 		// Sec Manager Codes used when sec manager is used.
 		if(secManagerClassCode >0)
 		{
@@ -4101,7 +4102,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						{
 							curlhost[curlInstance]->redirect = true;
 						}
-					}					
+					}
 					if (http_code != 200 && http_code != 204 && http_code != 206)
 					{
 						AAMP_LOG_NETWORK_ERROR (effectiveUrl.empty() ? remoteUrl.c_str() : effectiveUrl.c_str(), // Effective URL could be different than remoteURL
@@ -4282,12 +4283,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						// example 18(0) if connection failure with PARTIAL_FILE code
 						timeoutClass = "(" + to_string(reqSize > 0) + ")";
 					}
-					
+
 					AAMPLOG(mLogObj, reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s%c%s",
 							appName.c_str(), mediaTypeTelemetry, mediaType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize,downloadbps,
 							(((mediaType == eMEDIATYPE_VIDEO) || (mediaType == eMEDIATYPE_INIT_VIDEO) || (mediaType == eMEDIATYPE_PLAYLIST_VIDEO)) ? mpStreamAbstractionAAMP->GetVideoBitrate() : 0), // Video fragment current bitrate
 							((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
-							range?';':' ', range?range:"");
+							range?';':'\0', range?range:"");
 					if(ui32CurlTrace < 10 )
 					{
 						AAMPLOG_INFO("%d.CurlTrace:Dns:%2.4f, Conn:%2.4f, Ssl:%2.4f, Redir:%2.4f, Pre:Start[%2.4f:%2.4f], Hdl:%p, Url:%s",
@@ -4984,7 +4985,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		AAMPLOG_INFO("Live latency correction is disabled for seek by default!!");
 		mDisableRateCorrection = true;
 		//Logging should be deactivated if the buffer exceeds the minimum buffer size or if seeking occurs
-		if(mIsLoggingNeeded && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING) 
+		if(mIsLoggingNeeded && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
 		{
 			mConfig->logging.setLogLevel(eLOGLEVEL_WARN);
 			gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_WARN);
@@ -5556,7 +5557,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 								bool audioDecoderStreamSync,
 								const char *refreshManifestUrl,
 								int mpdStichingMode,
-								std::string sid)							
+								std::string sid)
 {
 	int iCacheMaxSize = 0;
 	double tmpVar=0;
@@ -7851,7 +7852,7 @@ void PrivateInstanceAAMP::ReportContentGap(long long timeMilliseconds, std::stri
  *   @brief Initialize CC after first frame received
  *          Sends CC handle event to listeners when first frame receives or video_dec handle rests
  */
-void PrivateInstanceAAMP::InitializeCC()
+void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 {
 #ifdef AAMP_STOP_SINK_ON_SEEK
 	/*Do not send event on trickplay as CC is not enabled*/
@@ -7861,41 +7862,37 @@ void PrivateInstanceAAMP::InitializeCC()
 		return;
 	}
 #endif
-	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 
-		if (sink != NULL)
-		{
 #ifdef AAMP_CC_ENABLED
-			if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
-			{
-				AampCCManager::GetInstance()->Init((void *)sink->getCCDecoderHandle());
+	if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
+	{
+		AampCCManager::GetInstance()->Init((void *)decoderHandle);
 
-				int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-				if (overrideCfg == 0)
-				{
-					AAMPLOG_WARN("PrivateInstanceAAMP: CC format override to 608 present, selecting 608CC");
-					AampCCManager::GetInstance()->SetTrack("CC1");
-				}
-
-			}
-			else
-#endif
-			{
-#if defined FLEX2_RDK && defined AAMP_CC_ENABLED
-				AampCCManager::GetInstance()->Init((void *)sink->getCCDecoderHandle());
-#else
-				CCHandleEventPtr event = std::make_shared<CCHandleEvent>(sink->getCCDecoderHandle(), GetSessionId());
-				mEventManager->SendEvent(event);
-#endif
-			}
+		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
+		if (overrideCfg == 0)
+		{
+			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override to 608 present, selecting 608CC");
+			AampCCManager::GetInstance()->SetTrack("CC1");
 		}
+
+	}
+	else
+#endif
+	{
+#if defined FLEX2_RDK && defined AAMP_CC_ENABLED
+		AampCCManager::GetInstance()->Init((void *)decoderHandle);
+#else
+		CCHandleEventPtr event = std::make_shared<CCHandleEvent>(decoderHandle, GetSessionId());
+		mEventManager->SendEvent(event);
+#endif
+	}
 }
 
 
 /**
  *  @brief Notify first frame is displayed. Sends CC handle event to listeners.
  */
-void PrivateInstanceAAMP::NotifyFirstFrameReceived()
+void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle)
 {
 	AAMPLOG_TRACE("NotifyFirstFrameReceived()");
 
@@ -7926,7 +7923,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived()
 			AAMPLOG_WARN("aamp: - sent tune event on Tune Completion.");
 		}
 	}
-	InitializeCC();
+	InitializeCC(ccDecoderHandle);
 }
 
 /**
@@ -8697,7 +8694,7 @@ void PrivateInstanceAAMP::AddCustomHTTPHeader(std::string headerName, std::vecto
 				headerName.c_str(),
 				headerValueAsString,
 				isLicenseHeader?"License":"CDN" );
-	
+
 	bool emptyHeader = (headerName.empty() || (0 == headerName.compare(":")) );
 	bool emptyValue  = (headerValue.size() == 0);
 
@@ -8791,7 +8788,7 @@ void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
 /**
  * @brief Notify if first buffer processed by gstreamer
  */
-void PrivateInstanceAAMP::NotifyFirstBufferProcessed()
+void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRectangle)
 {
 	// If mFirstVideoFrameDisplayedEnabled, state will be changed in NotifyFirstVideoDisplayed()
 	PrivAAMPState state;
@@ -8820,10 +8817,9 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed()
 		mDRMSessionManager->setVideoMute(video_muted, seek_pos_seconds);
 		mDRMSessionManager->setPlaybackSpeedState(rate,seek_pos_seconds, true);
 		int x = 0,y = 0,w = 0,h = 0;
-		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-		if (sink)
+		if (!videoRectangle.empty())
 		{
-			sscanf(sink->GetVideoRectangle().c_str(),"%d,%d,%d,%d",&x,&y,&w,&h);
+			sscanf(videoRectangle.c_str(),"%d,%d,%d,%d",&x,&y,&w,&h);
 		}
 		AAMPLOG_WARN("calling setVideoWindowSize  w:%d x h:%d ",w,h);
 		mDRMSessionManager->setVideoWindowSize(w,h);
@@ -10672,7 +10668,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 						CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
 						// AampCCManager expects the CC type, ie 608 or 708
 						// For DASH, there is a possibility that instreamId is just an integer so we infer rendition
-						if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0])) == 0) && !track.rendition.empty())
+						if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0]))) && !track.rendition.empty())
 						{
 							if (track.rendition.find("608") != std::string::npos)
 							{
@@ -11593,7 +11589,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					}
 					AAMPLOG_WARN("PreferredCodecString %s existing Codec %s",preferredCodecString.c_str(),currentPrefCodec);
 				}
-				
+
 				// Logic to check whether the given language is present in the available tracks,
 				// if available, it should not match with current preferredLanguagesString, then call tune to reflect the language change.
 				// if not available, then avoid calling tune.

@@ -378,8 +378,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
 
 TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New1)
 {
-    int height;
-    BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-I-FRAME-STREAM-INF:";
 
     HlsStreamInfo streamInfo;
@@ -402,8 +400,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
 
 TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New2)
 {
-    int height;
-    BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-IMAGE-STREAM-INF:";
 
     HlsStreamInfo streamInfo;
@@ -429,8 +425,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
 
 TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New3)
 {
-    int height;
-    BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-CONTENT-IDENTIFIER:";
 
     HlsStreamInfo streamInfo;
@@ -455,8 +449,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
 
 TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New4)
 {
-    int height;
-    BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-FOG";
 
     HlsStreamInfo streamInfo;
@@ -482,8 +474,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
 
 TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New5)
 {
-    int height;
-    BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-XCAL-CONTENTMETADATA";
 
     HlsStreamInfo streamInfo;
@@ -509,8 +499,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
 
 TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New6)
 {
-    int height;
-    BitsPerSecond bandwidth;
     char manifest[] = "#EXT-NOM-I-FRAME-DISTANCE";
 
     HlsStreamInfo streamInfo;
@@ -535,8 +523,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
 
 TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New7)
 {
-    int height;
-    BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-ADVERTISING";
 
     HlsStreamInfo streamInfo;
@@ -560,8 +546,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
 
 TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New8)
 {
-    int height;
-    BitsPerSecond bandwidth;
     char manifest[] = "#EXT-UPLYNK-LIVE";
 
     HlsStreamInfo streamInfo;
@@ -586,8 +570,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
 
 TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New9)
 {
-    int height;
-    BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-START:";
 
     HlsStreamInfo streamInfo;
@@ -612,8 +594,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
 
 TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New10)
 {
-    int height;
-    BitsPerSecond bandwidth;
     char manifest[] = "#EXTINF:";
 
     HlsStreamInfo streamInfo;
@@ -638,8 +618,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
 
 TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New11)
 {
-    int height;
-    BitsPerSecond bandwidth;
     char manifest[] = "#EXTaaaINF:";
 
     HlsStreamInfo streamInfo;
@@ -702,9 +680,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_multi
 
     for (auto &td : test_data)
     {
-        // Note: ParseMainManifest alters the manifest in situ, replacing some \n with \0
-        //       Not ideal, but safe to convert from const char.
-        mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes((char *)td.manifest, sizeof((char *)td.manifest));
+        mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes((char *)td.manifest, strlen(td.manifest) );
 
         EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -957,7 +933,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetVideoPlaylistURITest)
 {
     StreamOutputFormat format = FORMAT_MPEGTS;
     TrackType type = eTRACK_VIDEO;
-    const char *playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, &format);
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, &format);
     ASSERT_EQ(format, FORMAT_MPEGTS);
     ASSERT_EQ(type, eTRACK_VIDEO);
 }
@@ -967,7 +943,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetAudioPlaylistURITest)
 {
     // mStreamAbstractionAAMP_HLS->currentAudioProfileIndex = 3;
     StreamOutputFormat format;
-    const char *playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_AUDIO, &format);
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_AUDIO, &format);
     ASSERT_NE(FORMAT_AUDIO_ES_AAC, format);
 }
 
@@ -976,7 +952,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetVideoPlaylistURITest2)
     // mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 3;
     StreamOutputFormat format = FORMAT_MPEGTS;
     TrackType type = eTRACK_SUBTITLE;
-    const char *playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, &format);
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, &format);
 
 }
 
@@ -1282,16 +1258,16 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri)
 {
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
-    ASSERT_EQ(fragmentUri, nullptr);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    ASSERT_TRUE(fragmentUri.empty());
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithoutReloadUri)
 {
     bool reloadUri = false;
     bool ignoreDiscontinuity = true;
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
-    ASSERT_EQ(fragmentUri, nullptr);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    ASSERT_TRUE(fragmentUri.empty());
 }
 
 
@@ -1303,7 +1279,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new)
     TrackStateobj->playTarget = -1.1;
 
     // Act: Call the function to be tested
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new1)
@@ -1314,8 +1290,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new1)
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
     // Act: Call the function to be tested
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
-
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new2)
@@ -1326,9 +1301,9 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new2)
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
     char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = fragmentURIData;
+    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     // Act: Call the function to be tested
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new3)
@@ -1339,14 +1314,14 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new3)
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
     char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = fragmentURIData;
+    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
 
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = MANIFEST_6SD_1A;
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
@@ -1359,7 +1334,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new4)
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
     char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = fragmentURIData;
+    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
 
     int height;
     BitsPerSecond bandwidth;
@@ -1367,7 +1342,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new4)
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
@@ -1379,7 +1354,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new5)
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
     char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = fragmentURIData;
+    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
 
     int height;
     BitsPerSecond bandwidth;
@@ -1390,7 +1365,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new5)
     // EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
     // Act: Call the function to be tested
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
@@ -1401,14 +1376,14 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new6)
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    char fragmentURIData[] = {'a','b','c','d','e',0x00};
+    //char fragmentURIData[] = {'a','b','c','d','e',0x00};
 
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-TARGETDURATION:";
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
@@ -1420,14 +1395,14 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new7)
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
     char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = fragmentURIData;
+    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
 
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-MEDIA-SEQUENCE:";
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
@@ -1439,13 +1414,13 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new8)
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
     char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = fragmentURIData;
+    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-KEY:";
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
@@ -1457,13 +1432,13 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new9)
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
     char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = fragmentURIData;
+    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-MAP:";
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
@@ -1475,13 +1450,13 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new10)
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
     char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = fragmentURIData;
+    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-PROGRAM-DATE-TIME:";
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
@@ -1493,13 +1468,13 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new11)
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
     char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = fragmentURIData;
+    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-ALLOW-CACHE:";
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
@@ -1511,13 +1486,13 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new12)
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
     char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = fragmentURIData;
+    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-ENDLIST";
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
@@ -1528,13 +1503,13 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new13)
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
     char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = fragmentURIData;
+    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-DISCONTINUITY";
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
@@ -1546,12 +1521,12 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new14)
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
     char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = fragmentURIData;
+    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-I-FRAMES-ONLY";
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
@@ -2693,9 +2668,9 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_1)
     bool reloadUri = false;
     bool ignoreDiscontinuity = false;
     // Act: Call the function to be tested
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
     // Assert: Make assertions to verify the function's behavior in this case
-    ASSERT_EQ(fragmentUri, nullptr);
+    ASSERT_TRUE(fragmentUri.empty());
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_2)
@@ -2704,9 +2679,9 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_2)
     bool reloadUri = true;
     bool ignoreDiscontinuity = true;
     // Act: Call the function to be tested
-    char *fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
     // Assert: Make assertions to verify the function's behavior in this case
-    ASSERT_EQ(fragmentUri, nullptr);
+    ASSERT_TRUE(fragmentUri.empty());
 }
 
 TEST_F(TrackStateTests, WaitTimeBasedOnBufferAvailableTest) {
@@ -2870,4 +2845,47 @@ TEST_F(StreamAbstractionAAMP_HLSTest, RefreshAudioTest)
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
     mStreamAbstractionAAMP_HLS->CallConfigureAudioTrack();
     EXPECT_EQ(1,mStreamAbstractionAAMP_HLS->currentAudioProfileIndex);
+}
+
+extern std::vector<TileInfo> IndexThumbnails( lstring iter );
+
+TEST_F(StreamAbstractionAAMP_HLSTest, ThumbnailIndexing)
+{
+	const char *raw =
+	"#EXTM3U\r\n"
+	"#EXT-X-TARGETDURATION:10\r\n"
+	"#EXT-X-VERSION:7\r\n"
+	"#EXT-X-MEDIA-SEQUENCE:0\r\n"
+	"#EXT-X-PLAYLIST-TYPE:VOD\r\n"
+	"#EXT-X-IMAGES-ONLY\r\n"
+	"#EXTINF:136.8367,\r\n"
+	"#EXT-X-TILES:RESOLUTION=336x189,LAYOUT=5x6,DURATION=10\r\n"
+	"pckimage-0.jpg\r\n"
+	"#EXTINF:200,\r\n"
+	"#EXT-X-TILES:RESOLUTION=336x189,LAYOUT=9x17,DURATION=20\r\n"
+	"pckimage-1.jpg\r\n"
+	"#EXTINF:100.8367,\r\n"
+	"#EXT-X-TILES:RESOLUTION=336x189,LAYOUT=4x3,DURATION=30\r\n"
+	"pckimage-2.jpg\r\n"
+	"#EXT-X-ENDLIST\r\n";
+	lstring ii = lstring( raw, strlen(raw) );
+	auto x = IndexThumbnails( ii );
+	
+	EXPECT_EQ(x[0].url,"pckimage-0.jpg");
+	EXPECT_EQ(x[0].layout.numCols,5);
+	EXPECT_EQ(x[0].layout.numRows,6);
+	EXPECT_EQ(x[0].layout.posterDuration,10);
+	EXPECT_EQ(x[0].layout.tileSetDuration,136.8367);
+	
+	EXPECT_EQ(x[1].url,"pckimage-1.jpg");
+	EXPECT_EQ(x[1].layout.numCols,9);
+	EXPECT_EQ(x[1].layout.numRows,17);
+	EXPECT_EQ(x[1].layout.posterDuration,20);
+	EXPECT_EQ(x[1].layout.tileSetDuration,200);
+	
+	EXPECT_EQ(x[2].url,"pckimage-2.jpg");
+	EXPECT_EQ(x[2].layout.numCols,4);
+	EXPECT_EQ(x[2].layout.numRows,3);
+	EXPECT_EQ(x[2].layout.posterDuration,30);
+	EXPECT_EQ(x[2].layout.tileSetDuration,100.8367);
 }

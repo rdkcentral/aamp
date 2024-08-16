@@ -865,16 +865,11 @@ static AampCurlInstance getCurlInstanceByMediaType(AampMediaType type)
 
 static void deIndexTileInfo(std::vector<TileInfo> &indexedTileInfo)
 {
-	AAMPLOG_WARN("indexedTileInfo size=%lu",indexedTileInfo.size());
-	for(int i=0;i<indexedTileInfo.size();i++)
+	if( !indexedTileInfo.empty() )
 	{
-		if( indexedTileInfo[i].url )
-		{
-			free( (char *)indexedTileInfo[i].url );
-			indexedTileInfo[i].url = NULL;
-		}
+		AAMPLOG_WARN("indexedTileInfo size=%lu",indexedTileInfo.size());
+		indexedTileInfo.clear();
 	}
-	indexedTileInfo.clear();
 }
 
 /**
@@ -1309,6 +1304,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						ITimeline *firstTimeline = timelines.at(0);
 						double positionInPeriod = 0;
 						uint64_t ret = pMediaStreamContext->lastSegmentDuration;
+						double firstSegStartTime = mPeriodStartTime;
+						uint64_t firstStartTime = firstTimeline->GetStartTime();
 						// CID:186808 - Invalid iterator comparison
 						map<string, string> attributeMap = firstTimeline->GetRawAttributes();
 						if((attributeMap.find("t") != attributeMap.end()) && (ret > 0))
@@ -1366,10 +1363,16 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						uint64_t fragmentNumberBackUp = pMediaStreamContext->fragmentDescriptor.Number;
 						ReleasePlaylistLock();
 
+						if(firstStartTime < presentationTimeOffset)
+                                                {
+                                                        firstSegStartTime = (double)(firstStartTime/tScale);
+                                                        AAMPLOG_INFO(" PTO ::(startTime < PTO) firstStartTime %" PRIu64 "tScale : %d presentationTimeOffset[%llu] positionInPeriod = %f  startTime = %f  endTime : %f mPeriodStartTime = %f mPeriodDuration = %f ", firstStartTime , tScale , presentationTimeOffset,positionInPeriod,firstSegStartTime,endTime,mPeriodStartTime,mPeriodDuration);
+                                                }
+
 						if(!fcsContent &&
 							(mIsFogTSB ||
 								((0 != mPeriodDuration) &&
-									(((mPeriodStartTime + positionInPeriod) < endTime) || liveEdgePeriodPlayback))))
+									(((firstSegStartTime + positionInPeriod) < endTime) || liveEdgePeriodPlayback))))
 						{
 							/*
 							 * Avoid FetchFragment for following cases
@@ -6292,7 +6295,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 			}
 		}
 		// Look in VIDEO adaptation for inband CC track related info
-		else if (eMEDIATYPE_VIDEO == media)
+		else if ((eMEDIATYPE_VIDEO == media) && (!IsIframeTrack(adaptationSet)))
 		{
 			std::vector<IDescriptor *> adapAccessibility = adaptationSet->GetAccessibility();
 			for (int index = 0 ; index < adapAccessibility.size(); index++)
@@ -6315,7 +6318,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 							ParseCCStreamIDAndLang(value.substr(0, delim), id, lang);
 							AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
 								lang.c_str(), schemeId.c_str(), id.c_str());
-							tTracks.push_back(TextTrackInfo(empty, lang, true, schemeId, empty, id, empty, empty, empty, empty, accessibilityNode, true));
+							tTracks.push_back(TextTrackInfo(empty, lang, true, schemeId, empty, id, empty));
 							value = value.substr(delim + 1);
 							delim = value.find(';');
 						}
@@ -6323,7 +6326,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 						lang = Getiso639map_NormalizeLanguageCode(lang,aamp->GetLangCodePreference());
 						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
 							lang.c_str(), schemeId.c_str(), id.c_str());
-						tTracks.push_back(TextTrackInfo(empty, lang, true, schemeId, empty, id, empty, empty, empty, empty, accessibilityNode, true));
+						tTracks.push_back(TextTrackInfo(empty, lang, true, schemeId, empty, id, empty));
 					}
 					else
 					{
@@ -9337,12 +9340,7 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 	aamp->SyncBegin();
 
 	SAFE_DELETE_ARRAY(mStreamInfo);
-
-	if(!indexedTileInfo.empty())
-	{
-		deIndexTileInfo(indexedTileInfo);
-	}
-
+	deIndexTileInfo(indexedTileInfo);
 	if(!thumbnailtrack.empty())
 	{
 		for(int i = 0; i < thumbnailtrack.size() ; i++)
@@ -9912,14 +9910,12 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 
 													startTime += ( timelineDurationMs );
 													replace(tmedia, "Number", startNumber);
-													char *ptr = strndup(tmedia.c_str(), tmedia.size());
-													tileInfo.url = ptr;
-													AAMPLOG_TRACE("tileInfo.url%s:%p",tileInfo.url, ptr);
-													tileInfo.posterDuration = ((double)segmentTemplates.GetDuration()) / (timeScale * w * h);
-													tileInfo.tileSetDuration = ComputeFragmentDuration(timeline->GetDuration(), timeScale);
-													tileInfo.numRows = h;
-													tileInfo.numCols = w;
-													AAMPLOG_TRACE("TileInfo - StartTime:%f posterDuration:%f tileSetDuration:%f numRows:%d numCols:%d",tileInfo.startTime,tileInfo.posterDuration,tileInfo.tileSetDuration,tileInfo.numRows,tileInfo.numCols);
+													tileInfo.url = tmedia;
+													tileInfo.layout.posterDuration = ((double)segmentTemplates.GetDuration()) / (timeScale * w * h);
+													tileInfo.layout.tileSetDuration = ComputeFragmentDuration(timeline->GetDuration(), timeScale);
+													tileInfo.layout.numRows = h;
+													tileInfo.layout.numCols = w;
+													AAMPLOG_TRACE("TileInfo - StartTime:%f posterDuration:%f tileSetDuration:%f numRows:%d numCols:%d",tileInfo.startTime,tileInfo.layout.posterDuration,tileInfo.layout.tileSetDuration,tileInfo.layout.numRows,tileInfo.layout.numCols);
 													indexedTileInfo.push_back(tileInfo);
 													startNumber++;
 												}
@@ -10031,20 +10027,20 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_MPD::GetThumbnailRangeData(doub
 		{
 			break;
 		}
-		double tileSetEndTime = tmpdata.t + tileInfo.tileSetDuration;
-		totalSetDuration += tileInfo.tileSetDuration;
+		double tileSetEndTime = tmpdata.t + tileInfo.layout.tileSetDuration;
+		totalSetDuration += tileInfo.layout.tileSetDuration;
 		if( tileSetEndTime < tStart )
 		{
 			continue;
 		}
 		tmpdata.url = tileInfo.url;
-		tmpdata.d = tileInfo.posterDuration;
+		tmpdata.d = tileInfo.layout.posterDuration;
 		bool done = false;
-		for( int row=0; row<tileInfo.numRows && !done; row++ )
+		for( int row=0; row<tileInfo.layout.numRows && !done; row++ )
 		{
-			for( int col=0; col<tileInfo.numCols && !done; col++ )
+			for( int col=0; col<tileInfo.layout.numCols && !done; col++ )
 			{
-				double tNext = tmpdata.t+tileInfo.posterDuration;
+				double tNext = tmpdata.t+tileInfo.layout.posterDuration;
 				if( tNext >= tileSetEndTime )
 				{
 					tmpdata.d = tileSetEndTime - tmpdata.t;
@@ -10083,8 +10079,8 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_MPD::GetThumbnailRangeData(doub
 			}
 			*width = thumbnailtrack[aamp->mthumbIndexValue]->resolution.width;
 			*height = thumbnailtrack[aamp->mthumbIndexValue]->resolution.height;
-			*raw_w = thumbnailtrack[aamp->mthumbIndexValue]->resolution.width * tileInfo.numCols;
-			*raw_h = thumbnailtrack[aamp->mthumbIndexValue]->resolution.height * tileInfo.numRows;
+			*raw_w = thumbnailtrack[aamp->mthumbIndexValue]->resolution.width * tileInfo.layout.numCols;
+			*raw_h = thumbnailtrack[aamp->mthumbIndexValue]->resolution.height * tileInfo.layout.numRows;
 		}
 	}
 	return data;

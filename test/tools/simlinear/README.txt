@@ -54,3 +54,27 @@ cd /home/mutsl02618/Downloads/4-Oct/hevc_tbs_2_dump/dump/
 # Run Simlinear
 python /home/mutsl02618/comcast/aamp/test/tools/simlinear/simlinear.py --dash 8086 --ad_server http://127.0.0.1:8089
 ====================================================================================================
+# Modified Response
+- Capability to inject delay in responding Segments and/or Manifest files.
+- Capability to throw HTTP 404 or HTTP 500 errors for certain request.
+
+# respData Query Parameter
+- Create rules to inject delay or to throw HTTP 404, 500 errors.
+- Rule Details :
+| # | Key | Value | Description |
+| 1 | status | 404 | HTTP Error code 404 & 500 is allowed |
+| 2 | delay | 5000 | Add delay in response by 5 seconds. Positive Values are expected, max value allowed is 10000. This is time in miliseconds. |
+| 3 | pattern | <regular_expression> | This is optional. Matches regex pattern on requested URL. If pattern is provided then delay / status rule will be applicable for matching URLs |
+- Rule example : 
+    1. Example 1:
+    [{"status": 404, "pattern": "720p_00[4-6].m4s"}]
+    Here, Simlinear will respond with HTTP 404 error for Segment URLs like 720p_004.m4s 720p_005.m4s 720p_006.m4s.
+    2. Example 2 :
+    [{"status": 404, "pattern": "480p_01[1-3]"},{"delay": 3000, "pattern": "(1080|720)p_init.m4s"}]
+    Here, Simlinear will respond with HTTP 404 error for Segment URLs like 480p_011.m4s 480p_012.m4s 480p_013.m4s and 3 seconds of delay will be added while responding 1080p_init.m4s & 720p_init.m4s
+- Encode Rule using Base64 encoding technique and pass it in query parameter of respData
+    Playback URL for example 1 :
+        http://127.0.0.1:8085/manifest.mpd?respData=W3sic3RhdHVzIjogNDA0LCAicGF0dGVybiI6ICI3MjBwXzAwWzQtNl0ubTRzIn1d
+    Playback URL for example 2 :
+        http://127.0.0.1:8085/output.mpd?respData=W3sic3RhdHVzIjogNDA0LCAicGF0dGVybiI6ICI0ODBwXzAxWzEtM10ifSx7ImRlbGF5IjogMzAwMCwgInBhdHRlcm4iOiAiKDEwODB8NzIwKXBfaW5pdC5tNHMifV0=
+====================================================================================================

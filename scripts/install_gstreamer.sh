@@ -112,7 +112,7 @@ function install_gstpluginsgoodfn()
             echo "Building gst-plugins-good with --pkg-config path $PKG_CONFIG..."
             meson --pkg-config-path="${PKG_CONFIG}" build
             ninja -C build
-            ninja -C build install
+            sudo ninja -C build install
 
             # ARM vs x86 have different installation directories
             if [ -d /usr/local/lib/gstreamer-1.0 ]; then

@@ -44,7 +44,8 @@ function aampdeps_install_build_fn() {
         pushd aampmetrics
         mkdir -p build
         cd build
-        cmake .. -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR} -DCMAKE_MACOSX_RPATH=TRUE
+        # CMAKE_CXX_FLAGS may not be needed on Linux, can also be removed when aampmetrics uses LIBCJSON_LINK_LIBRARIES as it should.
+        cmake .. -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR} -DCMAKE_MACOSX_RPATH=TRUE -DCMAKE_CXX_FLAGS="-L $LOCAL_DEPS_BUILD_DIR/lib"
         make    
         make install
         popd

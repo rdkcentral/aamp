@@ -499,14 +499,3 @@ std::string aamp_GetConfigPath(const std::string &filename)
 
 	return "FakeAampUtils.cpp";
 }
-<<<<<<< HEAD
-=======
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampLogManager *mLogObj, PrivateInstanceAAMP *aamp)
-{
-	return 0.0;
-}
-TSB::LogLevel ConvertTsbLogLevel(int logLev)
-{
-	return TSB::LogLevel::WARN;
-}
->>>>>>> parent of 8df186f4... Revert "RDKAAMP-3021 redundant and inconsistent mediatype-to-name utility implementations"

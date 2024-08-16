@@ -6,12 +6,12 @@
 	],
 	"settings": {
 		"cmake.configureEnvironment": {
-			"PKG_CONFIG_PATH": "${workspaceFolder}/Linux/lib/pkgconfig"
+			"PKG_CONFIG_PATH": "${workspaceFolder}/.libs/lib/pkgconfig"
 		},
 		"cmake.configureArgs": [
-			"-DCMAKE_INSTALL_PREFIX=${workspaceFolder}/Linux",
+			"-DCMAKE_INSTALL_PREFIX=${workspaceFolder}/.libs",
 			"-DCMAKE_PLATFORM_UBUNTU=1",
-			"-DCMAKE_LIBRARY_PATH=${workspaceFolder}/Linux/lib"
+			"-DCMAKE_LIBRARY_PATH=${workspaceFolder}/.libs/lib"
 		],
 	},
 	"launch": {
@@ -27,11 +27,11 @@
 				"environment": [
 					{
 						"name": "LD_PRELOAD",
-						"value": "${workspaceFolder}/Linux/lib/libdash.so"
+						"value": "${workspaceFolder}/.libs/lib/libdash.so"
 					},
 					{
 						"name": "LD_LIBRARY_PATH",
-						"value": "${workspaceFolder}/Linux/lib"
+						"value": "${workspaceFolder}/.libs/lib"
 					}
 				],
 				"externalConsole": false,

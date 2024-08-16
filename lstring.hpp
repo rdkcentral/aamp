@@ -39,7 +39,7 @@ class lstring
 private:
 	const char *ptr;
 	size_t len;
-
+	
 public:
 	lstring()
 	{
@@ -52,13 +52,13 @@ public:
 		ptr = cstring;
 		len = sz;
 	}
-
+	
 	lstring( const lstring &other )
 	{
 		ptr = other.ptr;
 		len = other.len;
 	}
-
+	
 	~lstring()
 	{
 	}
@@ -83,7 +83,7 @@ public:
 		ptr = NULL;
 		len = 0;
 	}
-
+	
 	size_t find( char c ) const
 	{ // returns offset to first occurance of character, or length if not found
 		size_t rc;
@@ -109,7 +109,7 @@ public:
 		removePrefix(delim+1);
 		return token;
 	}
-		
+	
 	void removePrefix( size_t n = 1 )
 	{
 		if( n<len )
@@ -203,7 +203,7 @@ public:
 		}
 		return rc;
 	}
-
+	
 	long atol() const
 	{
 		return (long)atoll();
@@ -213,7 +213,7 @@ public:
 	{
 		return (int)atoll();
 	}
-
+	
 	double atof() const
 	{
 		long long ival = 0;
@@ -334,13 +334,18 @@ public:
 		}
 		return c;
 	}
-
+	
 	void stripLeadingSpaces( void )
 	{
 		while( startswith(' ') )
 		{
 			removePrefix();
 		}
+	}
+	
+	bool equal( const lstring &c )
+	{
+		return ( len == c.len && ptr == c.ptr );
 	}
 };
 

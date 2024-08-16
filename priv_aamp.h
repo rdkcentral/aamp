@@ -594,9 +594,9 @@ public:
 	 * @param[in] bFinalAttempt - Final retry/attempt.
 	 * @param[in] audioDecoderStreamSync - Enable or disable audio decoder stream sync,
 	 *                set to 'false' if audio fragments come with additional padding at the end (BCOM-4203)
-	 * 
-	 * @param[in] refreshManifestUrl - 
-	 * @param[in] mpdStichingMode - 
+	 *
+	 * @param[in] refreshManifestUrl -
+	 * @param[in] mpdStichingMode -
 	 * @param[in] sid - Session ID defined by the player
 	 * @return void
 	 */
@@ -1265,15 +1265,15 @@ public:
 	 * @fn SetSessionId
 	 * @brief Sets the session id
 	 * @param[in] sid - Session ID
-	 * 
+	 *
 	*/
 	void SetSessionId(std::string sid);
 
 	/**
 	 * @fn GetSessionId
-	 * 
+	 *
 	 * @brief Returns the value of the current session id
-	 * 
+	 *
 	 * @returns The current session ID
 	*/
 	const std::string & GetSessionId() const
@@ -1980,16 +1980,19 @@ public:
 	/**
 	 *   @fn NotifyFirstFrameReceived
 	 *
+	 *   @param[in] ccDecoderHandle - handle for closed caption decoder
 	 *   @return void
 	 */
-	void NotifyFirstFrameReceived(void);
+	void NotifyFirstFrameReceived(unsigned long ccDecoderHandle);
 
 	/**
 	 *   @fn InitializeCC
-     	 *
+	 *
+	 *   @param[in] decoderHandle - handle for closed caption decoder
 	 *   @return void
 	 */
-	void InitializeCC(void);
+	void InitializeCC(unsigned long decoderHandle);
+
 	/**
 	 *   @brief GStreamer operation start
 	 *
@@ -2499,9 +2502,11 @@ public:
 	/**
 	 *   @fn NotifyFirstBufferProcessed
 	 *
+	 *   @param[in] videoRectangle - video rectangle string in format "x,y,w,h";
+	 *                               an empty string will be treated as "0,0,0,0".
 	 *   @return void
 	 */
-	void NotifyFirstBufferProcessed();
+	void NotifyFirstBufferProcessed(const std::string& videoRectangle);
 
 	/**
 	 * @fn UpdateSubtitleTimestamp
@@ -2594,7 +2599,7 @@ public:
 	double GetFirstPTS();
 
 	/**
-         *   @fn GetMidSeekPosOffset 
+         *   @fn GetMidSeekPosOffset
          *
          *   @return PTS offset for mid fragment seek
          */
@@ -4305,7 +4310,7 @@ protected:
 	AampMPDDownloader *mMPDDownloaderInstance;
 
 	std::atomic<double> m_PTSOffsetFromTune {0.}; /**< PTS offset cache from Tune, is reset only on a `Stop` */
-	
+
 	std::mutex  mDiscoCompleteLock; 					/**< Lock the period jump if discontinuity already in progress */
 	std::condition_variable mWaitForDiscoToComplete;	/**< Conditional wait for period jump */
 	bool mIsPeriodChangeMarked; 						/**< Mark if a period change occurred */

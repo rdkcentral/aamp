@@ -213,8 +213,13 @@ TimedMetadataEvent::TimedMetadataEvent(const std::string &name, const std::strin
 }
 
 CCHandleEvent::CCHandleEvent(unsigned long handle, std::string sid):
-		AAMPEventObject(AAMP_EVENT_CC_HANDLE_RECEIVED, std::move(sid))
+		AAMPEventObject(AAMP_EVENT_CC_HANDLE_RECEIVED, std::move(sid)), mHandle(handle)
 {
+}
+
+unsigned long CCHandleEvent::getCCHandle() const
+{
+	return mHandle;
 }
 
 SupportedSpeedsChangedEvent::SupportedSpeedsChangedEvent(std::string sid):
@@ -389,6 +394,7 @@ MetricsDataEvent::MetricsDataEvent(MetricsDataType dataType, const std::string &
 		AAMPEventObject(AAMP_EVENT_REPORT_METRICS_DATA, std::move(sid))
 {
 }
+
 PrivAAMPState StateChangedEvent::getState() const
 {
 	return mState;
