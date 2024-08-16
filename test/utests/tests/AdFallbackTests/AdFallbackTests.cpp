@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's license file the
 * following copyright and licenses apply:
 *
-* Copyright 2023 RDK Management
+* Copyright 2024 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,19 +17,11 @@
 * limitations under the License.
 */
 
-#ifndef AAMP_MOCK_AAMP_LOG_MANAGER_H
-#define AAMP_MOCK_AAMP_LOG_MANAGER_H
+#include <gtest/gtest.h>
+#include "admanager_mpd.h"
 
-#include <gmock/gmock.h>
-#include "AampLogManager.h"
-
-class MockAampLogManager
+int main(int argc, char** argv)
 {
-public:
-	MOCK_METHOD(void, setLogLevel, (AAMP_LogLevel newLevel));
-	MOCK_METHOD(bool, isLogworthyErrorCode, (int errorCode));
-};
-
-extern std::shared_ptr<MockAampLogManager> g_mockAampLogManager;
-
-#endif /* AAMP_MOCK_AAMP_LOG_MANAGER_H */
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}

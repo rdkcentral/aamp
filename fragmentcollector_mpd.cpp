@@ -8426,6 +8426,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 							{
 								aamp->InterruptableMsSleep(500); // Sleep for 500ms to avoid tight looping
 							}
+							mpdChanged = true;
 							ret = false;
 							break;
 						}
