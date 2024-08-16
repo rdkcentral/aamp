@@ -290,7 +290,7 @@ void PlaybackCommand::HandleCommandTuneIndex( const char *cmd, PlayerInstanceAAM
 
 void PlaybackCommand::HandleCommandSetConfig( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp )
 { //look for first char of json
-	char *json = (char *)strchr(cmd,'{');
+	const char *json = strchr(cmd,'{');
 	if (json)
 	{
 		if( playerInstanceAamp->InitAAMPConfig(json) )

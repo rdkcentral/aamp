@@ -705,7 +705,7 @@ TEST_F(PauseAtTests, GetCurrentDRMTest) {
     const char* expectedDrmName = "DRM"; 
     // std::shared_ptr<AampDrmHelper> helper = mPrivateInstanceAAMP->GetCurrentDRM();
     //helper->friendlyName();
-    std::string drmName =  mPlayerInstance->GetCurrentDRM();
+    std::string drmName =  mPlayerInstance->GetDRM();
 }
 
 TEST_F(PauseAtTests, AddPageHeadersTest) {
@@ -2095,7 +2095,7 @@ TEST_F(PauseAtTests, GetCurrentAudioLanguageTest1)
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetAudioTrack()).Times(0);
     EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.Times(0);
-    std::string language = mPlayerInstance->GetCurrentAudioLanguage();
+    std::string language = mPlayerInstance->GetAudioLanguage();
 }
 TEST_F(PauseAtTests, GetCurrentAudioLanguageTest2)
 {
@@ -2103,7 +2103,7 @@ TEST_F(PauseAtTests, GetCurrentAudioLanguageTest2)
     char minLanguage = CHAR_MIN;
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
     int minTrackIndex = mPlayerInstance->GetAudioTrack();
-    std::string minLanguageResult = mPlayerInstance->GetCurrentAudioLanguage();
+    std::string minLanguageResult = mPlayerInstance->GetAudioLanguage();
 }
 TEST_F(PauseAtTests, GetCurrentAudioLanguageTest3)
 {
@@ -2111,7 +2111,7 @@ TEST_F(PauseAtTests, GetCurrentAudioLanguageTest3)
     const char* minLanguage = "a";
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
     int minTrackIndex = mPlayerInstance->GetAudioTrack();
-    std::string minLanguageResult = mPlayerInstance->GetCurrentAudioLanguage();
+    std::string minLanguageResult = mPlayerInstance->GetAudioLanguage();
 }
 TEST_F(PauseAtTests,GetCurrentAudioLanguageTest4)
 {
@@ -2120,7 +2120,7 @@ TEST_F(PauseAtTests,GetCurrentAudioLanguageTest4)
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
 
     int trackIndex = mPlayerInstance->GetAudioTrack();
-    std::string language = mPlayerInstance->GetCurrentAudioLanguage();
+    std::string language = mPlayerInstance->GetAudioLanguage();
 }
 TEST_F(PauseAtTests, GetCurrentAudioLanguageTest5)
 {
@@ -2128,7 +2128,7 @@ TEST_F(PauseAtTests, GetCurrentAudioLanguageTest5)
     const char* maxLanguage = "ThisIsALongLanguageStringForTestingPurpose";
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
     int maxTrackIndex = mPlayerInstance->GetAudioTrack();
-    std::string maxLanguageResult = mPlayerInstance->GetCurrentAudioLanguage();
+    std::string maxLanguageResult = mPlayerInstance->GetAudioLanguage();
 }
 TEST_F(PauseAtTests, GetCurrentAudioLanguageTest6)
 {
@@ -2136,7 +2136,7 @@ TEST_F(PauseAtTests, GetCurrentAudioLanguageTest6)
     const char* nullLanguage = nullptr;
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
     int nullTrackIndex = mPlayerInstance->GetAudioTrack();
-    std::string nullLanguageResult = mPlayerInstance->GetCurrentAudioLanguage();
+    std::string nullLanguageResult = mPlayerInstance->GetAudioLanguage();
 }
 TEST_F(PauseAtTests,SetTextTrackTest)
 {

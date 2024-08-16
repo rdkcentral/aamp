@@ -1719,7 +1719,7 @@ bool PlayerInstanceAAMP::IsJsInfoLoggingEnabled(void)
 /**
  *  @brief Get current audio language.
  */
-const char* PlayerInstanceAAMP::GetCurrentAudioLanguage(void)
+std::string PlayerInstanceAAMP::GetAudioLanguage(void)
 {
 	ERROR_OR_IDLE_STATE_CHECK_VAL("");
 	static char lang[MAX_LANGUAGE_TAG_LENGTH];
@@ -1740,19 +1740,25 @@ const char* PlayerInstanceAAMP::GetCurrentAudioLanguage(void)
 	return lang;
 }
 
+const char * PlayerInstanceAAMP::GetCurrentAudioLanguage(void)
+{
+	static std::string temp = GetAudioLanguage();
+	return temp.c_str();
+}
+
 /**
  *  @brief Get current drm
  */
-const char* PlayerInstanceAAMP::GetCurrentDRM(void)
+std::string PlayerInstanceAAMP::GetDRM(void)
 {
 	ERROR_OR_IDLE_STATE_CHECK_VAL("");
 	if(aamp){
-	std::shared_ptr<AampDrmHelper> helper = aamp->GetCurrentDRM();
-	if (helper)
-	{
-		return helper->friendlyName().c_str();
+		std::shared_ptr<AampDrmHelper> helper = aamp->GetCurrentDRM();
+		if (helper)
+		{
+			return helper->friendlyName();
+		}
 	}
-	}// end of if aamp
 	return "NONE";
 }
 
@@ -2594,14 +2600,9 @@ DRMSystems PlayerInstanceAAMP::GetPreferredDRM()
 /**
  *  @brief Get current preferred language list
  */
-const char* PlayerInstanceAAMP::GetPreferredLanguages()
+std::string PlayerInstanceAAMP::GetPreferredLanguages()
 {
-	if(!aamp->preferredLanguagesString.empty())
-	{
-		return aamp->preferredLanguagesString.c_str();
-	}
-
-	return NULL;
+	return aamp->preferredLanguagesString;
 }
 
 /**
@@ -3120,7 +3121,7 @@ void PlayerInstanceAAMP::SetRepairIframes(bool configState)
 /**
  *  @brief InitAAMPConfig - Initialize the media player session with json config
  */
-bool PlayerInstanceAAMP::InitAAMPConfig(char *jsonStr)
+bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 {
 	bool retVal = false;
 	cJSON *cfgdata = NULL;

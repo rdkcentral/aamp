@@ -183,8 +183,8 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	long PlayerInstanceAAMP::GetMaximumBitrate(void) { return 0; }
 	double PlayerInstanceAAMP::GetPlaybackPosition(void) { return 0; }
 	double PlayerInstanceAAMP::GetPlaybackDuration(void) { return 0; }
-	std::string PlayerInstanceAAMP::GetCurrentAudioLanguage() { return ""; }
-	std::string PlayerInstanceAAMP::GetCurrentDRM() { return ""; }
+	std::string PlayerInstanceAAMP::GetAudioLanguage() { return ""; }
+	std::string PlayerInstanceAAMP::GetDRM() { return ""; }
     std::string PlayerInstanceAAMP::GetPreferredLanguages() { return ""; }
 	DRMSystems PlayerInstanceAAMP::GetPreferredDRM() { return eDRM_NONE; }
 	std::vector<BitsPerSecond> PlayerInstanceAAMP::GetVideoBitrates(void) { static std::vector<BitsPerSecond> temp; return temp; }
