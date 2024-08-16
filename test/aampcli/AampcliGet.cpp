@@ -136,12 +136,12 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 
 				case 2:
 					printf("[AAMPCLI] CURRRENT AUDIO LANGUAGE = %s\n",
-							playerInstanceAamp->GetCurrentAudioLanguage().c_str());
+							playerInstanceAamp->GetCurrentAudioLanguage());
 					break;
 
 				case 3:
 					printf("[AAMPCLI] CURRRENT DRM  = %s\n",
-							playerInstanceAamp->GetCurrentDRM().c_str());
+							playerInstanceAamp->GetCurrentDRM());
 					break;
 
 				case 4:
@@ -233,7 +233,8 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 					}
 				case 18:
 					{
-						printf("[AAMPCLI] PREFERRED LANGUAGES = \"%s\"\n", playerInstanceAamp->GetPreferredLanguages().c_str() );
+						const char *prefferedLanguages = playerInstanceAamp->GetPreferredLanguages();
+						printf("[AAMPCLI] PREFERRED LANGUAGES = \"%s\"\n", prefferedLanguages? prefferedLanguages : "<NULL>");
 						break;
 					}
 
