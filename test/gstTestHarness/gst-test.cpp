@@ -1157,17 +1157,18 @@ public:
 		{
 			if( logPositionChanges )
 			{ // log any change in position
-				static long long last_reported_position;
-				long long position = pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_VIDEO);
+				static long long last_reported_video_position;
+				static long long last_reported_audio_position;
+
+				long long video_position = pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_VIDEO);
 				long long audio_position = pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_AUDIO);
-				if( audio_position > position )
-				{ // collect max of audio/video position (should be identical in most cases)
-					position = audio_position;
-				}
-				if( position>=0 && position != last_reported_position )
+				
+				if( video_position != last_reported_video_position ||
+				    audio_position != last_reported_audio_position )
 				{
-					last_reported_position = position;
-					g_print( "position=%lld\n", position );
+					g_print( "position: audio=%lld video=%lld\n", audio_position, video_position );
+					last_reported_audio_position = audio_position;
+					last_reported_video_position = video_position;
 				}
 			}
 			FeedPipelineIfNeeded( eMEDIATYPE_VIDEO );
