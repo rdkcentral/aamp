@@ -270,7 +270,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 
 				if (timeScale == 0)
 				{
-					if (initSegment.empty())
+					if (!aborted && initSegment.empty())
 					{
 						sendError = true;
 						ret = false;
