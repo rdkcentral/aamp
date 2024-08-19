@@ -1090,9 +1090,8 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool s
 	}
 	else if (!stopInjection)
 	{
-		// if cachedFragment->PTSOffsetSec is zero no need to restamp PTS
-		if ((pContext && !pContext->trickplayMode) && (!cachedFragment->initFragment) && (0 != cachedFragment->PTSOffsetSec)
-		&& ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		// We could skip Restamp when PTSOffsetSec==0 but the log line would then be missing and it is important for l2 test
+		if ((pContext && !pContext->trickplayMode) && (!cachedFragment->initFragment) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
 			//Do not edit or remove this log line - it is used log_pts_restamp tool
