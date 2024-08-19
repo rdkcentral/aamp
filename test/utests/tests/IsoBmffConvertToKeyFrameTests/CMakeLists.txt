@@ -42,7 +42,7 @@ foreach (_variableName ${_variableNames})
     message(STATUS "${_variableName}=${${_variableName}}")
 endforeach()
 
-set(AAMP_SOURCES ${AAMP_ROOT}/AampGrowableBuffer.cpp ${AAMP_ROOT}/isobmff/isobmffconverttokeyframe.cpp ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp ${AAMP_ROOT}/isobmff/isobmffbox.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/AampGrowableBuffer.cpp ${AAMP_ROOT}/isobmff/isobmffhelper.cpp ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp ${AAMP_ROOT}/isobmff/isobmffbox.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
