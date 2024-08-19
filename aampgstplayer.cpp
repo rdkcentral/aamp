@@ -2727,6 +2727,7 @@ void AAMPGstPlayer::SendGstEvents(AampMediaType mediaType, GstClockTime pts)
 
 	if(stream->pendingSeek)
 	{
+#ifndef AMLOGIC
 		if (privateContext->seekPosition > 0)
 		{
 			AAMPLOG_MIL("gst_element_seek_simple! mediaType:%d pts:%" GST_TIME_FORMAT " seekPosition:%" GST_TIME_FORMAT,
@@ -2736,6 +2737,7 @@ void AAMPGstPlayer::SendGstEvents(AampMediaType mediaType, GstClockTime pts)
 				AAMPLOG_ERR("Seek failed");
 			}
 		}
+#endif
 		stream->pendingSeek = false;
 	}
 
