@@ -986,6 +986,6 @@ void CurlStore::ShowCurlStoreData ( bool trace )
 
 int GetCurlResponseCode( CURL *curlhandle )
 {
-	return aamp_CurlEasyGetinfoInt( curlhandle, CURLINFO_RESPONSE_CODE );
+	return (int)aamp_CurlEasyGetinfoLong( curlhandle, CURLINFO_RESPONSE_CODE );
 }
 

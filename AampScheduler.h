@@ -76,6 +76,8 @@ struct AsyncTaskObj
  */
 class AampScheduler
 {
+private:
+	int mPlayerId;
 public:
 	/**
 	 * @fn AampScheduler
@@ -117,7 +119,7 @@ public:
 	 *
 	 * @return void
 	 */
-	void StartScheduler();
+	void StartScheduler(int playerId);
 
 	/**
 	 * @fn StopScheduler

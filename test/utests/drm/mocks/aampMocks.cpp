@@ -187,10 +187,11 @@ static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
 	"ERROR", // eLOGLEVEL_ERROR
 };
 
-void logprintf(int playerId, AAMP_LogLevel level, const char *file, int line, const char *format,
+void logprintf(AAMP_LogLevel level, const char *file, int line, const char *format,
 			   ...)
 {
 #ifdef ENABLE_LOGGING
+	int playerId = -1;
 	va_list args;
 	va_start(args, format);
 	char fmt[512];
