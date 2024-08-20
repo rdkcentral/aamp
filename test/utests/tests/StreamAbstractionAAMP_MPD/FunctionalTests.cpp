@@ -47,7 +47,6 @@ using ::testing::DoAll;
 using ::testing::Invoke;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 /**
  * @brief Functional tests common base class.
@@ -291,8 +290,8 @@ public:
 			}
 		}
                 /* Create MPD instance. */
-                mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mLogObj, mPrivateInstanceAAMP, seekPos, rate);
-                mCdaiObj = new CDAIObjectMPD(mLogObj, mPrivateInstanceAAMP);
+                mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
+                mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
                 mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 
                 mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
@@ -352,8 +351,7 @@ protected:
                         gpGlobalConfig = new AampConfig();
                 }
                 mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-                mLogObj = new AampLogManager();
-                _instanceStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mLogObj, mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
+                _instanceStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
 
         }
         void TearDown() override
@@ -366,10 +364,6 @@ protected:
 
                 delete gpGlobalConfig;
                 gpGlobalConfig = nullptr;
-
-                delete mLogObj;
-                mLogObj = nullptr;
-
         }
 };
 
@@ -381,9 +375,9 @@ protected:
         {
         public:
                 // Constructor to pass parameters to the base class constructor
-                TestableStreamAbstractionAAMP_MPD(AampLogManager *logObj, PrivateInstanceAAMP *aamp,
+                TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
                                                                                   double seekpos, float rate)
-                        : StreamAbstractionAAMP_MPD(logObj, aamp, seekpos, rate)
+                        : StreamAbstractionAAMP_MPD(aamp, seekpos, rate)
                 {
                 }
 
@@ -593,7 +587,7 @@ protected:
                 // Set up your objects before each test case
 
                 mPrivateInstanceAAMP = new PrivateInstanceAAMP();
-                mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mLogObj, mPrivateInstanceAAMP, 0.0, 1.0);
+                mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, 1.0);
                 //EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableLowLatencyDash)).WillRepeatedly(Return(false));
         }
 

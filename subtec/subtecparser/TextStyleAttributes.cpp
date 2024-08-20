@@ -32,7 +32,7 @@
 #include "AampJsonObject.h"                     // For JSON parsing
 
 
-TextStyleAttributes::TextStyleAttributes(AampLogManager* logObj) : mLogObj(logObj)
+TextStyleAttributes::TextStyleAttributes()
 {
 }
 

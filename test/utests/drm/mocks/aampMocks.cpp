@@ -38,7 +38,6 @@ MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
 
 std::shared_ptr<AampConfig> gGlobalConfig;
 AampConfig *gpGlobalConfig;
-AampLogManager *mLogObj = nullptr;
 
 static std::unordered_map<std::string, std::vector<std::string>> fCustomHeaders;
 
@@ -163,24 +162,6 @@ bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
 	return true;
 }
 
-bool AampLogManager::isLogLevelAllowed(AAMP_LogLevel chkLevel)
-{
-	return chkLevel >= TEST_LOG_LEVEL;
-}
-
-std::string AampLogManager::getHexDebugStr(const std::vector<uint8_t> &data)
-{
-	std::ostringstream hexSs;
-	hexSs << "0x";
-	hexSs << std::hex << std::uppercase << std::setfill('0');
-	std::for_each(data.cbegin(), data.cend(), [&](int c) { hexSs << std::setw(2) << c; });
-	return hexSs.str();
-}
-
-void AampLogManager::setLogLevel(AAMP_LogLevel newLevel)
-{
-}
-
 static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
 {
 	"TRACE", // eLOGLEVEL_TRACE
@@ -190,6 +171,10 @@ static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
 	"MIL",   // eLOGLEVEL_MIL
 	"ERROR", // eLOGLEVEL_ERROR
 };
+
+bool AampLogManager::disableLogRedirection = false;
+AAMP_LogLevel AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
+bool AampLogManager::locked = false;
 
 void logprintf(AAMP_LogLevel level, const char *file, int line, const char *format,
 			   ...)

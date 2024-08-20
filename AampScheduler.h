@@ -154,15 +154,8 @@ public:
 	 * @return void
 	 */
 	void SetState(PrivAAMPState sstate);
-	/**
-	 *  @brief Set the logger instance for the Scheduler
-	 *
-	 *   @return void
-	 */   
-	void SetLogger(AampLogManager *logObj) { mLogObj = logObj;}
-protected:
-	AampLogManager *mLogObj;
 
+protected:
 	/**
 	 * @fn ExecuteAsyncTask
 	 *

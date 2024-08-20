@@ -43,7 +43,6 @@ using ::testing::Return;
 using ::testing::SetArgPointee;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 class IsoBmffBufferTests : public ::testing::Test
 {
@@ -51,16 +50,15 @@ class IsoBmffBufferTests : public ::testing::Test
 		IsoBmffBuffer *mIsoBmffBuffer = nullptr;
 		void SetUp() override
 		{
-			mLogObj = new AampLogManager();
-			mIsoBmffBuffer = new IsoBmffBuffer(mLogObj);
+			mIsoBmffBuffer = new IsoBmffBuffer();
 		}
 
 		void TearDown() override
 		{
 			delete mIsoBmffBuffer;
 			mIsoBmffBuffer = nullptr;
-			delete mLogObj;
-			mLogObj=nullptr;
+			delete gpGlobalConfig;
+			gpGlobalConfig = nullptr;
 		}
 
 		// Verify the PTS value in a buffer
@@ -69,7 +67,7 @@ class IsoBmffBufferTests : public ::testing::Test
 			bool bParse;
 			uint64_t fPts = 0;
 			uint64_t pts = 0;
-			IsoBmffBuffer *isoBmffBuffer = new IsoBmffBuffer(mLogObj);
+			IsoBmffBuffer *isoBmffBuffer = new IsoBmffBuffer();
 			isoBmffBuffer->setBuffer(buffer, size);
 			bParse = isoBmffBuffer->parseBuffer();
 			EXPECT_TRUE(bParse);

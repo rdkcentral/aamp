@@ -22,7 +22,6 @@
 #include "AampHandlerControl.h"
 
 AampConfig *gpGlobalConfig=nullptr;
-AampLogManager *mLogObj=nullptr;
 
 class FunctionalTests : public ::testing::Test {
 public:

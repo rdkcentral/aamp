@@ -191,7 +191,7 @@ void AAMPGstPlayer::StopBuffering(bool forceStop)
 {
 }
 
-void AAMPGstPlayer::InitializeAAMPGstreamerPlugins(AampLogManager *mLogObj)
+void AAMPGstPlayer::InitializeAAMPGstreamerPlugins()
 {
 }
 

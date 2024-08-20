@@ -18,12 +18,8 @@
  */
 
 #include <string>
-
 #include <gtest/gtest.h>
-
 #include "AampDRMSessionManager.cpp"
-
-AampLogManager *mLogObj{nullptr};
 
 class AampDrmSessionTests : public ::testing::Test {
 protected:

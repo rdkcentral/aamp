@@ -34,7 +34,6 @@ using ::testing::NiceMock;
 using ::testing::Return;
 
 AampConfig *gpGlobalConfig=NULL;
-AampLogManager *mLogObj=NULL;
 
 class AampStreamSinkManagerTests : public ::testing::Test
 {
@@ -43,9 +42,7 @@ protected:
     PrivateInstanceAAMP *mPrivateInstanceAAMP2{};
     id3_callback_t mId3HandlerCallback1;
     id3_callback_t mId3HandlerCallback2;
-    AampLogManager *mLogObj1{};
-    AampLogManager *mLogObj2{};
-	AampConfig mConfig1{};
+    AampConfig mConfig1{};
 	AampConfig mConfig2{};
 
     void SetUp() override
@@ -55,17 +52,12 @@ protected:
             gpGlobalConfig =  new AampConfig();
         }
         mConfig1 = *gpGlobalConfig;
-        mLogObj1 = mConfig1.GetLoggerInstance();
         mPrivateInstanceAAMP1 = new PrivateInstanceAAMP(&mConfig1);
         mPrivateInstanceAAMP1->mPlayerId = 1;
-        mPrivateInstanceAAMP1->mLogObj = mLogObj1;
 
         mConfig2 = *gpGlobalConfig;
-        mLogObj2 = mConfig2.GetLoggerInstance();
         mPrivateInstanceAAMP2 = new PrivateInstanceAAMP(&mConfig2);
         mPrivateInstanceAAMP2->mPlayerId = 2;
-        mPrivateInstanceAAMP2->mLogObj = mLogObj2;
-
 
         g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 
@@ -245,7 +237,7 @@ TEST_F(AampStreamSinkManagerTests, DeleteStreamSinkTest2)
 */
 TEST_F(AampStreamSinkManagerTests, Deactivateplayer)
 {
-    AampStreamSinkInactive inactiveSink {mPrivateInstanceAAMP1->mLogObj, mId3HandlerCallback1};
+    AampStreamSinkInactive inactiveSink {mId3HandlerCallback1};
     AAMPGstPlayer gstPlayerobj { mPrivateInstanceAAMP1, mId3HandlerCallback1};
 
     AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);

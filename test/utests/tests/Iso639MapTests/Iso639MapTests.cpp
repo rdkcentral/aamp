@@ -8,9 +8,6 @@
 // unit under test
 #include <iso639map.cpp>
 
-// Fakes to allow linkage
-AampLogManager *mLogObj=NULL;
-
 static void TestHelper( const char *lang, LangCodePreference langCodePreference, const char *expectedResult )
 {
     printf( "%s[", lang );

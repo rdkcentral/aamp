@@ -29,13 +29,12 @@
 using namespace std;
 
 
-AampHlsOcdmBridge::AampHlsOcdmBridge(AampLogManager *logObj, AampDrmSession * aampDrmSession) :
+AampHlsOcdmBridge::AampHlsOcdmBridge(AampDrmSession * aampDrmSession) :
 	m_drmInfo(nullptr),
 	m_aampInstance(nullptr),
 	m_drmSession(aampDrmSession),
 	m_drmState(eDRM_INITIALIZED),
-	m_Mutex(),
-	mLogObj(logObj)
+	m_Mutex()
 {
 	pthread_mutex_init(&m_Mutex, NULL);
 }
@@ -47,7 +46,7 @@ AampHlsOcdmBridge::~AampHlsOcdmBridge()
 }
 
 
-DrmReturn AampHlsOcdmBridge::SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInfo *drmInfo, AampLogManager *logObj)
+DrmReturn AampHlsOcdmBridge::SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInfo *drmInfo)
 {
 	DrmReturn result  = eDRM_ERROR;
 

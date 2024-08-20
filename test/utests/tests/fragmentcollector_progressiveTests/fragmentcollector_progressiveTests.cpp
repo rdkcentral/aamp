@@ -21,21 +21,20 @@
 #include "fragmentcollector_progressive.h"
 #include "AampConfig.h"
 #include <pthread.h>
-AampLogManager *mLogObj;
 using namespace testing;
 AampConfig *gpGlobalConfig{ nullptr };
+
 class fragmentcollector_progressiveTests : public ::testing::Test
 {
 protected:
 
     void SetUp() override
     {  
-       AampLogManager* logObj = new AampLogManager();
         PrivateInstanceAAMP* aamp = new PrivateInstanceAAMP();
         aamp = new PrivateInstanceAAMP();
         double seek_pos = 0.0;  // Provide the desired seek_pos value
         float rate = 1.0;       // Provide the desired rate value
-     profileEvent = new StreamAbstractionAAMP_PROGRESSIVE(logObj, aamp, seek_pos, rate);
+     profileEvent = new StreamAbstractionAAMP_PROGRESSIVE(aamp, seek_pos, rate);
   
     }
 
@@ -99,14 +98,12 @@ TEST_F(fragmentcollector_progressiveTests, GetStreamFormatTest) {
 TEST_F(fragmentcollector_progressiveTests, Destructor)
 {
     // Create an instance of StreamAbstractionAAMP_PROGRESSIVE
-    AampLogManager logManager; 
-    PrivateInstanceAAMP aamp; 
+    PrivateInstanceAAMP aamp;
     double seekPosition = 0.0;
     float rate = 1.0;
-    StreamAbstractionAAMP_PROGRESSIVE streamAbstraction(&logManager, &aamp, seekPosition, rate);
+    StreamAbstractionAAMP_PROGRESSIVE streamAbstraction(&aamp, seekPosition, rate);
 
 
     // Call the destructor explicitly (optional)
     streamAbstraction.~StreamAbstractionAAMP_PROGRESSIVE();
-
 }

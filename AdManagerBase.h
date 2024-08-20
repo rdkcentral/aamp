@@ -59,14 +59,13 @@ class CDAIObject
 {
 private:
 	PrivateInstanceAAMP* mAamp;       /**< AAMP player's private instance */
-	AampLogManager *mLogObj;
 public:
 	/**
 	 * @brief CDAIObject constructor.
 	 *
 	 * @param[in] aamp - Pointer to PrivateInstanceAAMP
 	 */
-	CDAIObject(AampLogManager *logObj, PrivateInstanceAAMP* aamp): mLogObj(logObj), mAamp(aamp)
+	CDAIObject(PrivateInstanceAAMP* aamp): mAamp(aamp)
 	{
 
 	}

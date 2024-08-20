@@ -164,7 +164,7 @@ void _manifestDownloadResponse::parseMPD()
 AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBufferMutex(),mRefreshMtx(),mRefreshCondVar(),
 	mMPDDnldMutex(),mRefreshInterval(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS),mLatencyValue(-1),mReleaseCalled(true),
 	mMPDDnldCfg(NULL),mDownloaderThread_t1(),mDownloaderThread_t2(),mDownloader1(),mDownloader2(),mMPDData(nullptr),mAppName(""),
-	mLogObj(NULL),mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
+	mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
 	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0),mIsLowLatency(false),
 	mMPDDnldDataMtx(),mMPDDnldDataCondVar()
 	,mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false)
@@ -189,7 +189,7 @@ AampMPDDownloader::~AampMPDDownloader()
 *   @fn Initialize
 *   @brief Initialize with MPD Download Input
 */
-void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, AampLogManager *logObj, std::string appName,std::function<std::string()> mpdPreProcessFuncptr)
+void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::string appName,std::function<std::string()> mpdPreProcessFuncptr)
 {
 	if(mpdDnldCfg == nullptr)
 	{
@@ -198,7 +198,6 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, AampLog
 	}
 
 	mAppName	=	appName;
-	mLogObj		=	logObj;
 
 	// Release and reset and previously called values
 	// Initialize to be called only once . If repeatedly called , then stored vars will be
@@ -483,7 +482,7 @@ void AampMPDDownloader::downloadMPDThread1()
 			mMPDData->mMPDStatus	=	AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 			if(mMPDData->mMPDDownloadResponse->iHttpRetValue != 200 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 204 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 206)
 			{ 
-				AAMP_LOG_NETWORK_ERROR (mEffectiveUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
+				AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
 				//Use DownloadResponse Show call instead of printheaderresponse fn -since it is not scope
 				mMPDData->mMPDDownloadResponse->show();
 			}
@@ -623,7 +622,7 @@ void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int tot
 	{
 		reqEndLogLevel = eLOGLEVEL_WARN;
 	}
-	AAMPLOG(mLogObj, reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%d,%.500s",
+	AAMPLOG( reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%d,%.500s",
 			appName.c_str(), eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST, http_code, timeoutClass.c_str(), totalPerformRequest, total,
 			dnldPtr->downloadCompleteMetrics.connect, dnldPtr->downloadCompleteMetrics.startTransfer, dnldPtr->downloadCompleteMetrics.resolve,
 			dnldPtr->downloadCompleteMetrics.appConnect, dnldPtr->downloadCompleteMetrics.preTransfer, dnldPtr->downloadCompleteMetrics.redirect,

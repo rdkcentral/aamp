@@ -30,7 +30,6 @@
 #include "AampStreamSinkManager.h"
 #include <curl/curl.h>
 
-extern bool gAampcliQuietLogs;
 extern VirtualChannelMap mVirtualChannelMap;
 extern Aampcli mAampcli;
 extern void tsdemuxer_InduceRollover( bool enable );
@@ -894,10 +893,18 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		playerInstanceAamp->ResetConfiguration();
 	}
+	else if( isCommandMatch(cmd,"noisy") )
+	{
+		AampLogManager::lockLogLevel(false);
+		AampLogManager::setLogLevel(eLOGLEVEL_INFO);
+		printf( "[AAMPCLI] core logging noisy\n" );
+	}
 	else if( isCommandMatch(cmd,"quiet") )
 	{
-		gAampcliQuietLogs = !gAampcliQuietLogs;
-		printf("[AAMPCLI] core logging: %s\n", gAampcliQuietLogs?"QUIET":"NORMAL" );
+		AampLogManager::lockLogLevel(false);
+		AampLogManager::setLogLevel(eLOGLEVEL_ERROR);
+		AampLogManager::lockLogLevel(true);
+		printf( "[AAMPCLI] core logging quiet\n" );
 	}
 	else if (isCommandMatch(cmd, "exit") )
 	{

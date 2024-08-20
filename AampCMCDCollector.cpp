@@ -31,7 +31,7 @@
  * @brief AampCMCDCollector - Constructor
  *
  */
-AampCMCDCollector::AampCMCDCollector(AampLogManager *logObj) :  mLogObj(logObj), bCMCDEnabled(false),mTraceId(""),
+AampCMCDCollector::AampCMCDCollector() : bCMCDEnabled(false),mTraceId(""),
 							mCMCDStreamData(),myMutex()
 {
 

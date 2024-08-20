@@ -214,7 +214,7 @@ public:
 	*	@fn Initialize
 	*	@brief Function to initialize MPD Downloader
 	*/
-	void Initialize(ManifestDownloadConfigPtr mpdDnldCfg, AampLogManager *logObj=NULL, std::string appName="",std::function<std::string()> mpdPreProcessFuncptr = nullptr);
+	void Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::string appName="",std::function<std::string()> mpdPreProcessFuncptr = nullptr);
 
 	/**
 	*	@fn Release
@@ -424,7 +424,6 @@ private:
 	bool mReleaseCalled;
 	bool mCheckedLLDData;
 	std::string mAppName;
-	AampLogManager *mLogObj;
 	ManifestUpdateCallbackFunc mManifestUpdateCb;
 	void *mManifestUpdateCbArg;
 

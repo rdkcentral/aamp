@@ -19,7 +19,7 @@
 
 
 /**
-* @file AampDRMutils.h
+* @file Aamputils.h
 * @brief Context-free common utility functions.
 */
 
@@ -336,7 +336,7 @@ namespace aamp_utils
  * @param[in] ptr buffer pointer
  * @param[in] len length of buffer
  */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampLogManager *mLogObj, PrivateInstanceAAMP *aamp);
+double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp);
 
 /**
  * @fn ConvertTsbLogLevel

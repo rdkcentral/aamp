@@ -49,7 +49,6 @@ using namespace dash::xml;
 using namespace dash::mpd;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 /**
  * @brief FindTimedMetadataTests tests common base class.
@@ -62,8 +61,8 @@ protected:
     {
     public:
         // Constructor to pass parameters to the base class constructor
-        TestableStreamAbstractionAAMP_MPD(AampLogManager *logObj, PrivateInstanceAAMP *aamp)
-                : StreamAbstractionAAMP_MPD(logObj, aamp, 0, 0)
+        TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp)
+                : StreamAbstractionAAMP_MPD(aamp, 0, 0)
         {
         }
 
@@ -96,8 +95,6 @@ protected:
 
         mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-        mLogObj = new AampLogManager();
-
         g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
 
         g_mockAampUtils = new NiceMock<MockAampUtils>();
@@ -126,9 +123,6 @@ protected:
 
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
-
-        delete mLogObj;
-        mLogObj = nullptr;
 
         delete g_mockPrivateInstanceAAMP;
         g_mockPrivateInstanceAAMP = nullptr;
@@ -181,7 +175,7 @@ public:
         mManifest = manifest;
 
         /* Create MPD instance. */
-        mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mLogObj, mPrivateInstanceAAMP);
+        mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP);
         EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
         ResetCDAIAdObject();
 
@@ -199,7 +193,7 @@ public:
             delete mCdaiObj;
             mCdaiObj = nullptr;
         }
-        mCdaiObj = new CDAIObjectMPD(mLogObj, mPrivateInstanceAAMP);
+        mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
         mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
     }
 

@@ -160,7 +160,7 @@ static gboolean SendVttCueToExt(gpointer user_data)
 * @param type[in] VTT data type
 * @return void
 ***************************************************************************/
-WebVTTParser::WebVTTParser(AampLogManager* logObj, PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(logObj, aamp, type),
+WebVTTParser::WebVTTParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(aamp, type),
 	mStartPTS(0), mCurrentPos(0), mStartPos(0), mPtsOffset(0),
 	mReset(true), mVttQueue(), mVttQueueIdleTaskId(0), mVttQueueMutex(), lastCue(),
 	mProgressOffset(0)

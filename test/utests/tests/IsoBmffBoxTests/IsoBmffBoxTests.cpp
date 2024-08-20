@@ -37,22 +37,18 @@ using ConstBuffer = std::pair<const uint8_t*, size_t>;
 const size_t SIZEOF_TAG{4};
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 class IsoBmffBoxTests : public ::testing::Test
 {
 	protected:
 		void SetUp() override
 		{
-			mLogObj = new AampLogManager();
 			buffer = (uint8_t *)malloc(bufferSize);
 			memset(buffer, 0xff, bufferSize);
 		}
 
 		void TearDown() override
 		{
-			delete mLogObj;
-			mLogObj=nullptr;
 			free(buffer);
 		}
 

@@ -26,11 +26,8 @@
 #include "AampLogManager.h"
 class IsoBmffHelper
 {
-	private:
-		AampLogManager* mLogObj;
-
 	public:
-		IsoBmffHelper(AampLogManager *logManager = nullptr): mLogObj(logManager) {};
+		IsoBmffHelper(){};
 		~IsoBmffHelper() = default;
 
 		/**

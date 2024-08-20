@@ -159,8 +159,8 @@ struct Rpc_Secbuf_Info {
 //The following flag is used to use old or new(wpeframework) OpenCDM implementation
 #define USE_NEW_OPENCDM 1
 
-AAMPOCDMSession::AAMPOCDMSession(AampLogManager *logObj, const string& keySystem) :
-		AampDrmSession(logObj, keySystem),
+AAMPOCDMSession::AAMPOCDMSession(const string& keySystem) :
+		AampDrmSession(keySystem),
 		m_eKeyState(KEY_INIT), 
 		m_pOutputProtection(NULL),
 		m_pOpencdm(NULL),

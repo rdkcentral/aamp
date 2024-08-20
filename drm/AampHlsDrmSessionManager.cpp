@@ -51,10 +51,10 @@ bool AampHlsDrmSessionManager::isDrmSupported(const struct DrmInfo& drmInfo) con
 /**
  * @brief createSession create session for DRM
  */
-std::shared_ptr<HlsDrmBase> AampHlsDrmSessionManager::createSession(PrivateInstanceAAMP* aampInstance, const struct DrmInfo& drmInfo, AampMediaType streamType, AampLogManager *mLogObj)
+std::shared_ptr<HlsDrmBase> AampHlsDrmSessionManager::createSession(PrivateInstanceAAMP* aampInstance, const struct DrmInfo& drmInfo, AampMediaType streamType)
 {
 	std::shared_ptr<HlsDrmBase> bridge = nullptr;
-	std::shared_ptr<AampDrmHelper> drmHelper = AampDrmHelperEngine::getInstance().createHelper(drmInfo, mLogObj);
+	std::shared_ptr<AampDrmHelper> drmHelper = AampDrmHelperEngine::getInstance().createHelper(drmInfo);
 	aampInstance->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
 
 	aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
@@ -77,7 +77,7 @@ std::shared_ptr<HlsDrmBase> AampHlsDrmSessionManager::createSession(PrivateInsta
 	else
 	{
 		AAMPLOG_WARN("created Drm Session ");
-		bridge = std::make_shared<AampHlsOcdmBridge>(mLogObj, mDrmSession);
+		bridge = std::make_shared<AampHlsOcdmBridge>(mDrmSession);
 	}
 	aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_TOTAL);
 	return bridge;

@@ -32,7 +32,7 @@
 /**
  * @brief CDAIObjectMPD Constructor
  */
-CDAIObjectMPD::CDAIObjectMPD(AampLogManager *logObj, PrivateInstanceAAMP* aamp): CDAIObject(logObj, aamp), mPrivObj(new PrivateCDAIObjectMPD(logObj, aamp))
+CDAIObjectMPD::CDAIObjectMPD(PrivateInstanceAAMP* aamp): CDAIObject(aamp), mPrivObj(new PrivateCDAIObjectMPD(aamp))
 {
 
 }
@@ -58,7 +58,7 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std:
 /**
  * @brief PrivateCDAIObjectMPD constructor
  */
-PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(AampLogManager* logObj, PrivateInstanceAAMP* aamp) : mLogObj(logObj),mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
+PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
 					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mImmediateNextAdbreakAvailable(false),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
 					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV()
 {
@@ -798,10 +798,10 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 			AAMPLOG_ERR("xmlReaderForMemory failed");
 		}
 
-		if (gpGlobalConfig->logging.trace)
-		{
+		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
+		{ // use printf to avoid 2048 char syslog limitation
 			manifest.AppendNulTerminator(); // make safe for cstring operations
-			AAMPLOG_WARN("Ad manifest: %s", manifest.GetPtr() );
+			printf("***Ad manifest***:\n\n%s\n", manifest.GetPtr() );
 		}
 		manifest.Free();
 	}

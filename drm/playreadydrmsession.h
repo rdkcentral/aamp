@@ -97,7 +97,7 @@ public:
 	/**
 	 * @fn PlayReadyDRMSession
 	 */
-	PlayReadyDRMSession(AampLogManager *logObj);
+	PlayReadyDRMSession();
 	/**
 	 * @fn ~PlayReadyDRMSession
 	 */

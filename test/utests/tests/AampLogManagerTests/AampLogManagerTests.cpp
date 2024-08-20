@@ -36,23 +36,19 @@ using ::testing::NiceMock;
 using ::testing::SizeIs;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj = NULL;
 
 class AampLogManagerTest : public Test
 {
 protected:
     void SetUp() override
     {
-		mLogObj = new AampLogManager();
-        // mLogObj is used in AAMP log macros
         g_mockSdJournal = new NiceMock<MockSdJournal>();
+		AampLogManager::lockLogLevel(false);
+		AampLogManager::setLogLevel(eLOGLEVEL_WARN);
     }
 
     void TearDown() override
     {
-        delete mLogObj;
-        mLogObj = nullptr;
-
         delete g_mockSdJournal;
         g_mockSdJournal = nullptr;
     }
@@ -67,7 +63,7 @@ TEST_F(AampLogManagerTest, isLogLevelAllowed_Test1)
     AAMP_LogLevel chkLevel = eLOGLEVEL_TRACE;
 
     //Assert: Expecting two values are equal or not
-    EXPECT_EQ(mLogObj->isLogLevelAllowed(chkLevel),false);
+    EXPECT_EQ(AampLogManager::isLogLevelAllowed(chkLevel),false);
 }
 
 /**
@@ -79,7 +75,7 @@ TEST_F(AampLogManagerTest, isLogLevelAllowed_Test2)
     AAMP_LogLevel chkLevel = eLOGLEVEL_INFO;
 
     //Assert: Expecting two values are equal or not
-    EXPECT_EQ(mLogObj->isLogLevelAllowed(chkLevel),false);
+    EXPECT_EQ(AampLogManager::isLogLevelAllowed(chkLevel),false);
 }
 
 /**
@@ -90,7 +86,7 @@ TEST_F(AampLogManagerTest, isLogLevelAllowed_MIL)
 {
     AAMP_LogLevel chkLevel = eLOGLEVEL_MIL;
 
-    EXPECT_EQ(mLogObj->isLogLevelAllowed(chkLevel), true);
+    EXPECT_EQ(AampLogManager::isLogLevelAllowed(chkLevel), true);
 }
 
 /**
@@ -102,7 +98,7 @@ TEST_F(AampLogManagerTest, setLogLevel_Test1)
     AAMP_LogLevel chkLevel = eLOGLEVEL_TRACE;
 
     //Act: Calling the function for test
-    mLogObj->setLogLevel(chkLevel);
+	AampLogManager::setLogLevel(chkLevel);
 
     //Assert: checking values are equal or not
     //EXPECT_NE(AampLogManager::aampLoglevel,chkLevel);
@@ -117,7 +113,7 @@ TEST_F(AampLogManagerTest, setLogLevel_Test2)
     AAMP_LogLevel chkLevel = eLOGLEVEL_INFO;
 
     //Act: Calling the function for test
-    mLogObj->setLogLevel(chkLevel);
+	AampLogManager::setLogLevel(chkLevel);
 
     //Assert: checking values are equal or not
 	//EXPECT_NE(AampLogManager::aampLoglevel,chkLevel);
@@ -132,9 +128,9 @@ TEST_F(AampLogManagerTest, setLogLevelMil_isLogLevelAllowedMil)
     AAMP_LogLevel setLevel = eLOGLEVEL_MIL;
     AAMP_LogLevel chkLevel = eLOGLEVEL_MIL;
 
-    mLogObj->setLogLevel(setLevel);
+	AampLogManager::setLogLevel(setLevel);
 
-    EXPECT_EQ(true, mLogObj->isLogLevelAllowed(chkLevel));
+    EXPECT_EQ(true, AampLogManager::isLogLevelAllowed(chkLevel));
 }
 
 /**
@@ -146,39 +142,9 @@ TEST_F(AampLogManagerTest, setLogLevelError_isLogLevelAllowedMil)
     AAMP_LogLevel setLevel = eLOGLEVEL_ERROR;
     AAMP_LogLevel chkLevel = eLOGLEVEL_MIL;
 
-    mLogObj->setLogLevel(setLevel);
+	AampLogManager::setLogLevel(setLevel);
 
-    EXPECT_EQ(false, mLogObj->isLogLevelAllowed(chkLevel));
-}
-
-/**
- * TEST_F GTest-Testcase for getAampCfgPath function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, getAampCfgPath_Test)
-{
-    //Arrange: Creating the variables for passing to arguments
-    const char *gAampCfg1 = "/opt/aamp.cfg";
-    
-    //Act: Calling the function for test
-    const char* gAampCfg2 = mLogObj->getAampCfgPath();
-
-    //Assert: checking values are equal or not
-    EXPECT_STREQ(gAampCfg1,gAampCfg2);
-}
-
-/**
- * TEST_F GTest-Testcase for getAampCliCfgPath function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, getAampCliCfgPath_Test)
-{
-    //Arrange: Creating the variables for passing to arguments
-    const char *gAampCliCfg1 = "/opt/aampcli.cfg";
-    
-    //Act: Calling the function for test
-    const char* gAampCliCfg2 = mLogObj->getAampCliCfgPath();
-
-    //Assert: checking values are equal or not
-    EXPECT_STREQ(gAampCliCfg1,gAampCliCfg2);
+    EXPECT_EQ(false, AampLogManager::isLogLevelAllowed(chkLevel));
 }
 
 /**
@@ -186,14 +152,9 @@ TEST_F(AampLogManagerTest, getAampCliCfgPath_Test)
 **/
 TEST_F(AampLogManagerTest, getHexDebugStr_Test1)
 {
-    //Arrange: Creating the variables for passing to arguments
     const std::vector<uint8_t> &data = {'a','b'};
-
-    //Act: Calling the function for test
-    std::string getHexDebugStr_String = mLogObj->getHexDebugStr(data);
-
-    //Assert: checking values are equal or not
-    //EXPECT_EQ(getHexDebugStr_String,'a');
+    std::string getHexDebugStr_String = AampLogManager::getHexDebugStr(data);
+    EXPECT_EQ(getHexDebugStr_String,"0x6162");
 }
 
 /**
@@ -210,8 +171,8 @@ TEST_F(AampLogManagerTest, LogNetworkLatency_Test)
 	std::string symptom = "testfile";
 
     //Act: Calling the function for test
-    mLogObj->LogNetworkLatency(url,downloadTime,downloadThresholdTimeoutMs,type);
-    mLogObj->ParseContentUrl(url, location, symptom, type);
+	AampLogManager::LogNetworkLatency(url,downloadTime,downloadThresholdTimeoutMs,type);
+	AampLogManager::ParseContentUrl(url, location, symptom, type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"//httsurl");
@@ -235,9 +196,9 @@ TEST_F(AampLogManagerTest, LogNetworkError_Test1)
     //Act: Calling the function for test
     for(int i=0;i<4;i++)
     {
-        mLogObj->LogNetworkError(url,errorType[i],errorCode,type);
+		AampLogManager::LogNetworkError(url,errorType[i],errorCode,type);
     }
-    mLogObj->ParseContentUrl(url, location, symptom, type);
+	AampLogManager::ParseContentUrl(url, location, symptom, type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"//httsurl");
@@ -257,7 +218,7 @@ TEST_F(AampLogManagerTest, LogNetworkError_Test2)
     AampMediaType type = eMEDIATYPE_AUDIO;
 
     //Act: Calling the function for test
-    mLogObj->LogNetworkError(url,errorType,errorCode,type);
+	AampLogManager::LogNetworkError(url,errorType,errorCode,type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"//httsurl");
@@ -276,7 +237,7 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test1)
     AampMediaType type = eMEDIATYPE_AUDIO;
 
     //Act: Calling the function for test
-    mLogObj->ParseContentUrl(url,location,symptom,type);
+	AampLogManager::ParseContentUrl(url,location,symptom,type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"//httsurl");
@@ -314,7 +275,7 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test2)
     //Act: Calling the function for test
     for(int i=0;i<15;i++)
     {
-        mLogObj->ParseContentUrl(url,location,symptom,type[i]);
+		AampLogManager::ParseContentUrl(url,location,symptom,type[i]);
     }
 
     //Assert: checking values are equal or not
@@ -335,7 +296,7 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test3)
     AampMediaType type = eMEDIATYPE_INIT_IFRAME;
 
     //Act: Calling the function for test
-    mLogObj->ParseContentUrl(url,location,symptom,type);
+	AampLogManager::ParseContentUrl(url,location,symptom,type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"//httsurl");
@@ -355,7 +316,7 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test4)
     AampMediaType type = eMEDIATYPE_INIT_IFRAME;
 
     //Act: Calling the function for test
-    mLogObj->ParseContentUrl(url,location,symptom,type);
+	AampLogManager::ParseContentUrl(url,location,symptom,type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"//mm.");
@@ -375,7 +336,7 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test5)
     AampMediaType type = eMEDIATYPE_INIT_IFRAME;
 
     //Act: Calling the function for test
-    mLogObj->ParseContentUrl(url,location,symptom,type);
+	AampLogManager::ParseContentUrl(url,location,symptom,type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"//odol");
@@ -395,7 +356,7 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test6)
     AampMediaType type = eMEDIATYPE_DEFAULT;
 
     //Act: Calling the function for test
-    mLogObj->ParseContentUrl(url,location,symptom,type);
+	AampLogManager::ParseContentUrl(url,location,symptom,type);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(url,"127.0.0.1:9080");
@@ -415,7 +376,7 @@ TEST_F(AampLogManagerTest, LogDRMError_Test1)
 
 
     //Act: Calling the function for test
-    mLogObj->LogDRMError(major, minor);
+	AampLogManager::LogDRMError(major, minor);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(description.c_str(),"Missing drm keys. Files are missing from /opt/drm. This could happen if socprovisioning fails to pull keys from fkps. This could also happen with a new box type that isn't registered with fkps. Check the /opt/logs/socprov.log for error. Contact ComSec for help.");
@@ -432,7 +393,7 @@ TEST_F(AampLogManagerTest, LogDRMError_Test2)
     std::string description = "Stale cache data. There is bad data in adobe cache at /opt/persistent/adobe. This can happen if the cache isn't cleared by /lib/rdk/cleanAdobe.sh after either an FKPS key update or a firmware update. This should not be happening in the field. For engineers, they can try a factory reset to fix the problem.";
 
     //Act: Calling the function for test
-    mLogObj->LogDRMError(major, minor);
+	AampLogManager::LogDRMError(major, minor);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(description.c_str(),"Stale cache data. There is bad data in adobe cache at /opt/persistent/adobe. This can happen if the cache isn't cleared by /lib/rdk/cleanAdobe.sh after either an FKPS key update or a firmware update. This should not be happening in the field. For engineers, they can try a factory reset to fix the problem.");
@@ -449,7 +410,7 @@ TEST_F(AampLogManagerTest, LogDRMError_Test3)
     std::string description = "Local cache directory not readable. The Receiver running as non-root cannot access and read the adobe cache at /opt/persistent/adobe. This can happen if /lib/rdk/prepareChrootEnv.sh fails to set that folders privileges. Run ls -l /opt/persistent and check the access rights. Contact the SI team for help. Also see jira XRE-6687";
 
     //Act: Calling the function for test
-    mLogObj->LogDRMError(major, minor);
+	AampLogManager::LogDRMError(major, minor);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(description.c_str(),"Local cache directory not readable. The Receiver running as non-root cannot access and read the adobe cache at /opt/persistent/adobe. This can happen if /lib/rdk/prepareChrootEnv.sh fails to set that folders privileges. Run ls -l /opt/persistent and check the access rights. Contact the SI team for help. Also see jira XRE-6687");
@@ -466,7 +427,7 @@ TEST_F(AampLogManagerTest, LogDRMError_Test4)
     std::string description = "Invalid signiture request on the Adobe individualization request. Expired certs can cause this, so the first course of action is to verify if the certs, temp baked in or production fkps, have not expired.";
 
     //Act: Calling the function for test
-    mLogObj->LogDRMError(major, minor);
+	AampLogManager::LogDRMError(major, minor);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(description.c_str(),"Invalid signiture request on the Adobe individualization request. Expired certs can cause this, so the first course of action is to verify if the certs, temp baked in or production fkps, have not expired.");
@@ -483,7 +444,7 @@ TEST_F(AampLogManagerTest, LogDRMError_Test5)
     std::string description = "Unknown Device class error from the Adobe individualization server. The drm certs may be been distributed to MSO security team for inclusion in fkps, but Adobe has not yet added the device info to their indi server.";
     
     //Act: Calling the function for test
-    mLogObj->LogDRMError(major, minor);
+	AampLogManager::LogDRMError(major, minor);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(description.c_str(),"Unknown Device class error from the Adobe individualization server. The drm certs may be been distributed to MSO security team for inclusion in fkps, but Adobe has not yet added the device info to their indi server.");
@@ -500,7 +461,7 @@ TEST_F(AampLogManagerTest, LogDRMError_Test6)
     std::string description = "Unknown Device class error from the Adobe individualization server. The drm certs may be been distributed to MSO security team for inclusion in fkps, but Adobe has not yet added the device info to their indi server.";
 
     //Act: Calling the function for test
-    mLogObj->LogDRMError(major, minor);
+	AampLogManager::LogDRMError(major, minor);
 
     //Assert: checking values are equal or not
     EXPECT_STREQ(description.c_str(),"Unknown Device class error from the Adobe individualization server. The drm certs may be been distributed to MSO security team for inclusion in fkps, but Adobe has not yet added the device info to their indi server.");
@@ -517,7 +478,7 @@ TEST_F(AampLogManagerTest, LogDRMError_Test7)
     std::string description = "Failed to connect to individualization server. This can happen if the network goes down. This can also happen if bad proxy settings exist in /opt/xreproxy.conf. Check the receiver.log for the last HttpRequestBegin before the error occurs and check the host name in the url, then check your proxy conf";
 
     //Act: Calling the function for test
-    mLogObj->LogDRMError(major, minor);
+	AampLogManager::LogDRMError(major, minor);
     
     //Assert: checking values are equal or not
     EXPECT_STREQ(description.c_str(),"Failed to connect to individualization server. This can happen if the network goes down. This can also happen if bad proxy settings exist in /opt/xreproxy.conf. Check the receiver.log for the last HttpRequestBegin before the error occurs and check the host name in the url, then check your proxy conf");
@@ -534,7 +495,7 @@ TEST_F(AampLogManagerTest, LogDRMError_Test8)
     std::string description = "Device binding failure. DRM data cached by the player at /opt/persistent/adobe, may be corrupt, missing, or innaccesible due to file permision. Please check this folder. A factory reset may be required to fix this and force a re-individualization of the box to reset that data.";
 
     //Act: Calling the function for test
-    mLogObj->LogDRMError(major, minor);
+	AampLogManager::LogDRMError(major, minor);
     
     //Assert: checking values are equal or not
     EXPECT_STREQ(description.c_str(),"Device binding failure. DRM data cached by the player at /opt/persistent/adobe, may be corrupt, missing, or innaccesible due to file permision. Please check this folder. A factory reset may be required to fix this and force a re-individualization of the box to reset that data.");
@@ -551,7 +512,7 @@ TEST_F(AampLogManagerTest, LogDRMError_Test9)
     std::string description = "Potential server issue. This could happen if drm keys are missing or bad. To attempt a quick fix: Back up /opt/drm and /opt/persistent/adobe, perform a factory reset, and see if that fixes the issue. Reach out to ComSec team for help diagnosing the error.";
 
     //Act: Calling the function for test
-    mLogObj->LogDRMError(major, minor);
+	AampLogManager::LogDRMError(major, minor);
     
     //Assert: checking values are equal or not
     EXPECT_STREQ(description.c_str(),"Potential server issue. This could happen if drm keys are missing or bad. To attempt a quick fix: Back up /opt/drm and /opt/persistent/adobe, perform a factory reset, and see if that fixes the issue. Reach out to ComSec team for help diagnosing the error.");
@@ -568,7 +529,7 @@ TEST_F(AampLogManagerTest, LogDRMError_Test10)
     std::string description = "MSO license server error response. This could happen for various reasons: bad cache data, bad session token, any license related issue. To attempt a quick fix: Back up /opt/drm and /opt/persistent/adobe, perform a factory reset, and see if that fixes the issue. Reach out to ComSec team for help diagnosing the error.";
 
     //Act: Calling the function for test
-    mLogObj->LogDRMError(major, minor);
+	AampLogManager::LogDRMError(major, minor);
     
     //Assert: checking values are equal or not
     EXPECT_STREQ(description.c_str(),"MSO license server error response. This could happen for various reasons: bad cache data, bad session token, any license related issue. To attempt a quick fix: Back up /opt/drm and /opt/persistent/adobe, perform a factory reset, and see if that fixes the issue. Reach out to ComSec team for help diagnosing the error.");
@@ -585,7 +546,7 @@ TEST_F(AampLogManagerTest, LogDRMError_Test11)
     std::string description = "Unknown connection type. Rare issue related to output protection code not being implemented on certain branches or core or for new socs. See STBI-6542 for details. Reach out to Receiver IP-Video team for help.";
 
     //Act: Calling the function for test
-    mLogObj->LogDRMError(major, minor);
+	AampLogManager::LogDRMError(major, minor);
     
     //Assert: checking values are equal or not
     EXPECT_STREQ(description.c_str(),"Unknown connection type. Rare issue related to output protection code not being implemented on certain branches or core or for new socs. See STBI-6542 for details. Reach out to Receiver IP-Video team for help.");
@@ -601,7 +562,7 @@ TEST_F(AampLogManagerTest, LogDRMError_Test12)
     int minor = 1003532;
 
     //Act: Calling the function for test
-    mLogObj->LogDRMError(major, minor);
+	AampLogManager::LogDRMError(major, minor);
 }
 
 /**
@@ -615,7 +576,7 @@ TEST_F(AampLogManagerTest, LogDRMError_Test13)
     int minor = 1003532;
 
     //Act: Calling the function for test
-    mLogObj->LogDRMError(major, minor);
+	AampLogManager::LogDRMError(major, minor);
     EXPECT_STREQ(description.c_str()," ");
 }
 
@@ -630,7 +591,7 @@ TEST_F(AampLogManagerTest, LogDRMError_Test14)
     int minor = 0;
 
     //Act: Calling the function for test
-    mLogObj->LogDRMError(major, minor);
+	AampLogManager::LogDRMError(major, minor);
     EXPECT_STREQ(description.c_str()," ");
 }
 
@@ -651,7 +612,7 @@ TEST_F(AampLogManagerTest, LogABRInfo_Test1)
 	std::string symptom = "video quality may increase";
     
     //Act: Calling the function for test
-    mLogObj->LogABRInfo(pstAbrInfo);
+	AampLogManager::LogABRInfo(pstAbrInfo);
 
     //Assert: checking values are equal or not
     EXPECT_EQ(pstAbrInfo->desiredBandwidth,10);
@@ -678,7 +639,7 @@ TEST_F(AampLogManagerTest, LogABRInfo_Test2)
 	std::string symptom = "video quality may decrease";
     
     //Act: Calling the function for test
-    mLogObj->LogABRInfo(pstAbrInfo);
+	AampLogManager::LogABRInfo(pstAbrInfo);
 
     //Assert: checking values are equal or not
     EXPECT_EQ(pstAbrInfo->desiredBandwidth,5);
@@ -706,7 +667,7 @@ TEST_F(AampLogManagerTest, LogABRInfo_Test3)
 	std::string symptom = "video quality may increase";
     
     //Act: Calling the function for test
-    mLogObj->LogABRInfo(pstAbrInfo);
+	AampLogManager::LogABRInfo(pstAbrInfo);
 
     //Assert: checking values are equal or not
     EXPECT_EQ(pstAbrInfo->desiredBandwidth,10);
@@ -734,7 +695,7 @@ TEST_F(AampLogManagerTest, LogABRInfo_Test4)
 	std::string symptom = "video quality may increase";
     
     //Act: Calling the function for test
-    mLogObj->LogABRInfo(pstAbrInfo);
+	AampLogManager::LogABRInfo(pstAbrInfo);
 
     //Assert: checking values are equal or not
     EXPECT_EQ(pstAbrInfo->desiredBandwidth,10);
@@ -754,7 +715,7 @@ TEST_F(AampLogManagerTest, isLogworthyErrorCode_Test1)
     int errorCode = 0;
 
     //Act: Calling the function for test
-    result = mLogObj->isLogworthyErrorCode(errorCode);
+    result = AampLogManager::isLogworthyErrorCode(errorCode);
 
     //Assert: checking values are true or false
     EXPECT_FALSE(result);
@@ -770,7 +731,7 @@ TEST_F(AampLogManagerTest, isLogworthyErrorCode_Test2)
     int errorCode = CURLcode::CURLE_WRITE_ERROR;
 
     //Act: Calling the function for test
-    result = mLogObj->isLogworthyErrorCode(errorCode);
+    result = AampLogManager::isLogworthyErrorCode(errorCode);
 
     //Assert: checking values are true or false
     EXPECT_FALSE(result);
@@ -786,7 +747,7 @@ TEST_F(AampLogManagerTest, isLogworthyErrorCode_Test3)
     int errorCode = CURLcode::CURLE_ABORTED_BY_CALLBACK;
 
     //Act: Calling the function for test
-    result = mLogObj->isLogworthyErrorCode(errorCode);
+    result = AampLogManager::isLogworthyErrorCode(errorCode);
 
     //Assert: checking values are true or false
     EXPECT_FALSE(result);
@@ -802,7 +763,7 @@ TEST_F(AampLogManagerTest, isLogworthyErrorCode_Test4)
     int errorCode = CURLcode::CURLE_QUOTE_ERROR;
 
     //Act: Calling the function for test
-    result = mLogObj->isLogworthyErrorCode(errorCode);
+    result = AampLogManager::isLogworthyErrorCode(errorCode);
 
     //Assert: checking values are true or false
     EXPECT_TRUE(result);
@@ -818,7 +779,7 @@ TEST_F(AampLogManagerTest, isLogworthyErrorCode_Test5)
     int errorCode = CURLcode::CURLE_READ_ERROR;
 
     //Act: Calling the function for test
-    result = mLogObj->isLogworthyErrorCode(errorCode);
+    result = AampLogManager::isLogworthyErrorCode(errorCode);
 
     //Assert: checking values are true or false
     EXPECT_TRUE(result);
@@ -946,7 +907,7 @@ TEST_F(AampLogManagerTest, AAMPLOG_WARN)
     const std::string message{"Test WARN log line"};
     /* The printed log line must contain the default player ID (-1) and the message. */
     EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[-1]"), HasSubstr("[WARN]"), HasSubstr(message.c_str()))));
-    AAMPLOG_WARN("%s", message.c_str());
+	AAMPLOG_WARN("%s", message.c_str());
 }
 
 /*
@@ -958,7 +919,7 @@ TEST_F(AampLogManagerTest, AAMPLOG_MIL)
     const std::string message{"Test MIL log line"};
     /* The printed log line must contain the default player ID (-1) and the message. */
     EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[-1]"), HasSubstr("[MIL]"), HasSubstr(message.c_str()))));
-    AAMPLOG_MIL("%s", message.c_str());
+	AAMPLOG_MIL("%s", message.c_str());
 }
 
 /*
@@ -980,7 +941,7 @@ TEST_F(AampLogManagerTest, AAMPLOG_ERR)
 TEST_F(AampLogManagerTest, setLogLevelMil_AAMPLOG_MIL)
 {
     const std::string message{"Test MIL log line"};
-    mLogObj->setLogLevel(eLOGLEVEL_MIL);
+	AampLogManager::setLogLevel(eLOGLEVEL_MIL);
     /* The printed log line must contain the default player ID (-1) and the message. */
     EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[-1]"), HasSubstr("[MIL]"), HasSubstr(message.c_str()))));
     AAMPLOG_MIL("%s", message.c_str());
@@ -993,7 +954,7 @@ TEST_F(AampLogManagerTest, setLogLevelMil_AAMPLOG_MIL)
 TEST_F(AampLogManagerTest, setLogLevelError_AAMPLOG_MIL)
 {
     const std::string message{"Test MIL log line"};
-    mLogObj->setLogLevel(eLOGLEVEL_ERROR);
+	AampLogManager::setLogLevel(eLOGLEVEL_ERROR);
     EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(_, _)).Times(0);
     AAMPLOG_MIL("%s", message.c_str());
 }

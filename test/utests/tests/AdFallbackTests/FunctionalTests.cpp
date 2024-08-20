@@ -59,7 +59,6 @@ using namespace dash::xml;
 using namespace dash::mpd;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 class AdFallbackTests : public ::testing::Test
 {
@@ -69,9 +68,9 @@ class AdFallbackTests : public ::testing::Test
 		public:
 			using StreamAbstractionAAMP_MPD::mCdaiObject;
 			// Constructor to pass parameters to the base class constructor
-			TestableStreamAbstractionAAMP_MPD(AampLogManager *logObj, PrivateInstanceAAMP *aamp,
+			TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
 					double seekpos, float rate)
-				: StreamAbstractionAAMP_MPD(logObj, aamp, seekpos, rate)
+				: StreamAbstractionAAMP_MPD(aamp, seekpos, rate)
 			{
 
 			}
@@ -142,13 +141,10 @@ class AdFallbackTests : public ::testing::Test
 			mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 			mPrivateInstanceAAMP->mIsDefaultOffset = true;
 
-			mLogObj = new AampLogManager();
-			mLogObj->aampLoglevel = eLOGLEVEL_TRACE;		//To enable all levels of AAMP logging
-			mCdaiObj = new CDAIObjectMPD(mLogObj, mPrivateInstanceAAMP);
+//			mLogObj->aampLoglevel = eLOGLEVEL_TRACE;		//To enable all levels of AAMP logging
+			mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
 
 			g_mockAampConfig = new NiceMock<MockAampConfig>();
-
-			g_mockAampLogManager = std::make_shared<StrictMock<MockAampLogManager>>();
 
 			mPrivateInstanceAAMP->mIsDefaultOffset = true;
 
@@ -181,9 +177,6 @@ class AdFallbackTests : public ::testing::Test
 			delete gpGlobalConfig;
 			gpGlobalConfig = nullptr;
 
-			delete mLogObj;
-			mLogObj = nullptr;
-
 			delete g_mockAampConfig;
 			g_mockAampConfig = nullptr;
 
@@ -195,8 +188,6 @@ class AdFallbackTests : public ::testing::Test
 
 			delete g_mockAampMPDDownloader;
 			g_mockAampMPDDownloader = nullptr;
-
-			g_mockAampLogManager = nullptr;
 
 			mManifest = nullptr;
 			mAdManifest = nullptr;
@@ -259,10 +250,10 @@ class AdFallbackTests : public ::testing::Test
 			EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
 				.WillRepeatedly(WithoutArgs(Invoke(this, &AdFallbackTests::GetManifestForMPDDownloader)));
 			// Create MPD instance.
-			mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mLogObj, mPrivateInstanceAAMP, seekPos, rate);
+			mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 			if(!mCdaiObj)
 			{
-				mCdaiObj = new CDAIObjectMPD(mLogObj, mPrivateInstanceAAMP);
+				mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
 			}
 			mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 		}
@@ -407,9 +398,6 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 				static int counter = 0;
 				return (++counter < 10);
 			});
-
-	EXPECT_CALL(*g_mockAampLogManager, isLogworthyErrorCode(_))
-		.WillRepeatedly(Return(true));
 
 	// Need to fail ad init fragment
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(AdInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))

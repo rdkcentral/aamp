@@ -550,7 +550,7 @@ std::string aamp_GetConfigPath(const std::string &filename)
 
 	return "FakeAampUtils.cpp";
 }
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampLogManager *mLogObj, PrivateInstanceAAMP *aamp)
+double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp)
 {
 	return 0.0;
 }

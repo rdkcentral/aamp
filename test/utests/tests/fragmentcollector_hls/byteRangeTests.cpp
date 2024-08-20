@@ -29,7 +29,6 @@
 #include "MockAampConfig.h"
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 class byteRangeTests : public ::testing::Test
 {
@@ -49,9 +48,9 @@ protected:
 
         g_mockAampConfig = new MockAampConfig();
 
-        mStreamAbstractionAAMP_HLS = new StreamAbstractionAAMP_HLS(mLogObj, mPrivateInstanceAAMP, 0, 0.0);
+        mStreamAbstractionAAMP_HLS = new StreamAbstractionAAMP_HLS(mPrivateInstanceAAMP, 0, 0.0);
 
-        trackStateObj = new TrackState(mLogObj, eTRACK_VIDEO, mStreamAbstractionAAMP_HLS, mPrivateInstanceAAMP, "TestTrack");
+        trackStateObj = new TrackState(eTRACK_VIDEO, mStreamAbstractionAAMP_HLS, mPrivateInstanceAAMP, "TestTrack");
 
     }
 

@@ -146,12 +146,11 @@ const char *Box::getType() const
  * @brief Static function to construct a Box object
  * @param[in] hdr - pointer to box
  * @param[in] maxSz - box size
- * @param[in] mLOgObj - log object
  * @param[in] correctBoxSize - flag to check if box size needs to be corrected
  * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
  * @return newly constructed Box object
  */
-Box* Box::constructBox(uint8_t *hdr, uint32_t maxSz, AampLogManager *mLogObj, bool correctBoxSize, int newTrackId)
+Box* Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize, int newTrackId)
 {
 	L_RESTART:
 	uint8_t *hdr_start = hdr;
@@ -323,7 +322,7 @@ GenericContainerBox* GenericContainerBox::constructContainer(uint32_t sz, const 
 	uint32_t curOffset = sizeof(uint32_t) + sizeof(uint32_t); //Sizes of size & type fields
 	while (curOffset < sz)
 	{
-		Box *box = Box::constructBox(ptr, sz-curOffset, nullptr, false, newTrackId );
+		Box *box = Box::constructBox(ptr, sz-curOffset, false, newTrackId );
 		box->setOffset(curOffset);
 		cbox->addChildren(box);
 		curOffset += box->getSize();

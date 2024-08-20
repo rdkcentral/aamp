@@ -29,7 +29,7 @@
 
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
+
 PrivateInstanceAAMP *mPrivateInstanceAAMP{};
 
 class StreamAbstractionAAMP_HDMIINTest : public ::testing::Test
@@ -38,8 +38,7 @@ protected:
     void SetUp() override
     {
         mPrivateInstanceAAMP = new PrivateInstanceAAMP();
-        mLogObj = new AampLogManager();
-        HDMIinput= StreamAbstractionAAMP_HDMIIN::GetInstance(mLogObj, mPrivateInstanceAAMP, 0.0, 1.0);
+        HDMIinput= StreamAbstractionAAMP_HDMIIN::GetInstance(mPrivateInstanceAAMP, 0.0, 1.0);
     }
 
     void TearDown() override

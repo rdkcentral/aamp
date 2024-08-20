@@ -46,7 +46,7 @@ guint AampEventManager::GetSourceID()
 /**
  * @brief Default Constructor
  */
-AampEventManager::AampEventManager(int playerId, AampLogManager *logObj): mIsFakeTune(false),mLogObj(logObj),
+AampEventManager::AampEventManager(int playerId): mIsFakeTune(false),
 					mAsyncTuneEnabled(false),mEventPriority(G_PRIORITY_DEFAULT_IDLE),mMutexVar(PTHREAD_MUTEX_INITIALIZER),
 					mPlayerState(eSTATE_IDLE),mEventWorkerDataQue(),mPendingAsyncEvents(),mPlayerId(playerId)
 {

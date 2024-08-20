@@ -13,7 +13,6 @@
 #include "AampMPDUtils.h"
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 class AampMPDUtils : public ::testing::Test
 {

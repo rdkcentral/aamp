@@ -159,7 +159,7 @@ void AesDec::AcquireKey()
  * @brief Set DRM meta-data. Stub implementation
  *
  */
-DrmReturn AesDec::SetMetaData( PrivateInstanceAAMP *aamp, void* metadata,int trackType, AampLogManager *mLogObj)
+DrmReturn AesDec::SetMetaData( PrivateInstanceAAMP *aamp, void* metadata,int trackType)
 {
 	return eDRM_SUCCESS;
 }
@@ -167,7 +167,7 @@ DrmReturn AesDec::SetMetaData( PrivateInstanceAAMP *aamp, void* metadata,int tra
 /**
  * @brief AcquireKey Function to acquire key . Stub implementation
  */
-void AesDec::AcquireKey( class PrivateInstanceAAMP *aamp, void *metadata,int trackType, AampLogManager *mLogObj)
+void AesDec::AcquireKey( class PrivateInstanceAAMP *aamp, void *metadata,int trackType)
 {
 
 }
@@ -185,7 +185,7 @@ DRMState AesDec::GetState()
  * @brief Set information required for decryption
  *
  */
-DrmReturn AesDec::SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInfo *drmInfo, AampLogManager *mLogObj)
+DrmReturn AesDec::SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInfo *drmInfo)
 {
 	DrmReturn err = eDRM_ERROR;
 	pthread_mutex_lock(&mMutex);

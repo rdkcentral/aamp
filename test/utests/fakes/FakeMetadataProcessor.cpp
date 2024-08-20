@@ -21,9 +21,9 @@
 namespace aamp
 {
 
-IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(AampLogManager *logObj, id3_callback_t id3_hdl,
+IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(id3_callback_t id3_hdl,
 	ptsoffset_update_t ptsoffset_callback, std::weak_ptr<IsoBmffProcessor> video_processor)
-	: MetadataProcessorIntf(logObj, id3_hdl, ptsoffset_callback), MetadataProcessorImpl(video_processor),
+	: MetadataProcessorIntf(id3_hdl, ptsoffset_callback), MetadataProcessorImpl(video_processor),
 	processPTSComplete(false)
 {}
 
@@ -43,10 +43,10 @@ bool IsoBMFFMetadataProcessor::SetTuneTimePTS()
 void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const char * data_ptr, size_t data_len)
 {}
 
-TSMetadataProcessor::TSMetadataProcessor(AampLogManager *logObj, id3_callback_t id3_hdl,
+TSMetadataProcessor::TSMetadataProcessor(id3_callback_t id3_hdl,
 	ptsoffset_update_t ptsoffset_callback,
 	std::shared_ptr<TSProcessor> video_processor)
-	: MetadataProcessorIntf(logObj, id3_hdl, ptsoffset_callback), MetadataProcessorImpl(std::move(video_processor))
+	: MetadataProcessorIntf(id3_hdl, ptsoffset_callback), MetadataProcessorImpl(std::move(video_processor))
 {}
 
 void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,

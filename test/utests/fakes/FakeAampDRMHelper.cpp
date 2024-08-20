@@ -25,7 +25,7 @@ AampDrmHelperEngine& AampDrmHelperEngine::getInstance()
 	return *safe_value;
 }
 
-std::shared_ptr<AampDrmHelper> AampDrmHelperEngine::createHelper(const struct DrmInfo& drmInfo, AampLogManager *logObj) const
+std::shared_ptr<AampDrmHelper> AampDrmHelperEngine::createHelper(const struct DrmInfo& drmInfo) const
 {
 	return nullptr;
 }

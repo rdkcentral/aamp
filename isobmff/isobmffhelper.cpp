@@ -31,7 +31,7 @@ bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
 	AAMPLOG_TRACE("Function called with len = %zu", buffer.GetLen());
 
 	bool retval{true};
-	IsoBmffBuffer isoBmffBuffer{mLogObj};
+	IsoBmffBuffer isoBmffBuffer{};
 
 	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer.GetPtr()), buffer.GetLen() );
 
@@ -51,7 +51,7 @@ bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
 bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl)
 {
 	bool retval{false};
-	IsoBmffBuffer isoBmffBuffer{mLogObj};
+	IsoBmffBuffer isoBmffBuffer{};
 
 	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer.GetPtr()), buffer.GetLen() );
 
@@ -76,7 +76,7 @@ bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, st
 bool IsoBmffHelper::SetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
 {
 	bool retval{false};
-	IsoBmffBuffer isoBmffBuffer{mLogObj};
+	IsoBmffBuffer isoBmffBuffer{};
 
 	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t *>(buffer.GetPtr()), buffer.GetLen());
 
@@ -95,7 +95,7 @@ bool IsoBmffHelper::SetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
 bool IsoBmffHelper::SetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, uint64_t duration)
 {
 	bool retval{false};
-	IsoBmffBuffer isoBmffBuffer{mLogObj};
+	IsoBmffBuffer isoBmffBuffer{};
 
 	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t *>(buffer.GetPtr()), buffer.GetLen());
 

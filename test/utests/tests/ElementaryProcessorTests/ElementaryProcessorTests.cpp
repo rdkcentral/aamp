@@ -25,7 +25,7 @@
 
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
+
 PrivateInstanceAAMP *mPrivateInstanceAAMP{};
 
 const int tsPacketLength = 188;
@@ -35,8 +35,7 @@ protected:
     void SetUp() override 
     {
         mPrivateInstanceAAMP = new PrivateInstanceAAMP();
-        mLogObj = new AampLogManager();
-        mElementaryProcessor = new TestElementaryProcessor(mPrivateInstanceAAMP, mLogObj);
+        mElementaryProcessor = new TestElementaryProcessor(mPrivateInstanceAAMP);
     
     }
     
@@ -47,16 +46,13 @@ protected:
 
         delete mElementaryProcessor;
         mElementaryProcessor = nullptr;
-
-        delete mLogObj;
-        mLogObj = nullptr;
     }
 
     class TestElementaryProcessor : public ElementaryProcessor
     {
     public:
-        TestElementaryProcessor(PrivateInstanceAAMP *mPrivateInstanceAAMP, AampLogManager *mLogObj)
-            : ElementaryProcessor(mPrivateInstanceAAMP, mLogObj)
+        TestElementaryProcessor(PrivateInstanceAAMP *mPrivateInstanceAAMP)
+            : ElementaryProcessor(mPrivateInstanceAAMP)
         {
         }
 

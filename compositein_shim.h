@@ -44,10 +44,10 @@ public:
     /**
     *   @brief get StreamAbstractionAAMP_COMPOSITEIN instance
     */
-    static StreamAbstractionAAMP_COMPOSITEIN * GetInstance(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+    static StreamAbstractionAAMP_COMPOSITEIN * GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
 
     /**
-    *  @brief Clear aamp and LogObj of CompositeInInstance
+    *  @brief Clear aamp of CompositeInInstance
     */
     static void ResetInstance();
 
@@ -87,7 +87,7 @@ public:
      * @param seekpos Seek position
      * @param rate playback rate
      */
-     StreamAbstractionAAMP_COMPOSITEIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+     StreamAbstractionAAMP_COMPOSITEIN(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
      static StreamAbstractionAAMP_COMPOSITEIN* mCompositeinInstance;
 };
 

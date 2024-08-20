@@ -61,7 +61,7 @@ public:
 
 	virtual const std::string& friendlyName() const override { return FRIENDLY_NAME; };
 
-	AampPlayReadyHelper(const struct DrmInfo& drmInfo, AampLogManager *logObj) : AampDrmHelper(drmInfo, logObj), FRIENDLY_NAME("PlayReady"), CODEC_TYPE(2),
+	AampPlayReadyHelper(const struct DrmInfo& drmInfo) : AampDrmHelper(drmInfo), FRIENDLY_NAME("PlayReady"), CODEC_TYPE(2),
 		mPsshStr(),
 		mInitData(), mKeyID(), mContentMetaData(), mStrInitDataFormated()
 	{}
@@ -93,7 +93,7 @@ private:
 class AampPlayReadyHelperFactory : public AampDrmHelperFactory
 {
 public:
-	std::shared_ptr<AampDrmHelper> createHelper(const struct DrmInfo& drmInfo, AampLogManager *logObj=NULL) const;
+	std::shared_ptr<AampDrmHelper> createHelper(const struct DrmInfo& drmInfo) const;
 
 	void appendSystemId(std::vector<std::string>& systemIds) const;
 

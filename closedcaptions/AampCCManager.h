@@ -158,8 +158,6 @@ public:
 	 */
 	const std::vector<TextTrackInfo>& getLastTextTracks() const { return mLastTextTracks; }
 
-	void SetLogger(AampLogManager *logObj) { mLogObj = logObj;}
-
 	/**
 	 * @brief To check whether Out of Band Closed caption/Subtile rendering supported or not. 
 	 *
@@ -249,7 +247,6 @@ protected:
 	bool mEnabled{false};                  /**< true if CC rendering enabled, false otherwise */
 	bool mTrickplayStarted{false};         /**< If a trickplay is going on or not */
 	bool mParentalCtrlLocked{false};       /**< If Parental Control lock enabled on not */
-	AampLogManager *mLogObj{NULL};
 };
 
 /**

@@ -45,7 +45,6 @@ using ::testing::DoAll;
 
 AampMPDDownloader *mAampMPDDownloader{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 class FunctionalTests : public ::testing::Test
 {
@@ -56,7 +55,6 @@ protected:
 
 	void SetUp() override
 	{
-		mLogObj = new AampLogManager();
 		mAampMPDDownloader = new AampMPDDownloader();
 
 		ParseHelper  = new AampMPDParseHelper();
@@ -66,9 +64,6 @@ protected:
 	{
 		delete mAampMPDDownloader;
 		mAampMPDDownloader = nullptr;
-
-		delete mLogObj;
-		mLogObj=nullptr;
 
 		delete ParseHelper;
 		ParseHelper=nullptr;

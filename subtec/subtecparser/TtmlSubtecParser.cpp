@@ -22,7 +22,7 @@
 
 // #define TTML_DEBUG
 
-TtmlSubtecParser::TtmlSubtecParser(AampLogManager *logObj, PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(logObj, aamp, type), m_channel(nullptr)
+TtmlSubtecParser::TtmlSubtecParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(aamp, type), m_channel(nullptr)
 {
 #ifdef TTML_DEBUG
 	printf( "TtmlSubtecParser::TtmlSubtecParser\n" );
@@ -114,7 +114,7 @@ bool TtmlSubtecParser::processData(char* buffer, size_t bufferLen, double positi
 	printf( "TtmlSubtecParser::processData(bufferLen=%zu,position=%f,duration=%f)\n", bufferLen, position, duration );
 #endif
 
-	IsoBmffBuffer isobuf(mLogObj);
+	IsoBmffBuffer isobuf;
 
 	isobuf.setBuffer(reinterpret_cast<uint8_t *>(buffer), bufferLen);
 	isobuf.parseBuffer();

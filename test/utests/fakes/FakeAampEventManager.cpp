@@ -22,7 +22,7 @@
 
 MockAampEventManager *g_mockAampEventManager = nullptr;
 
-AampEventManager::AampEventManager(int playerId, AampLogManager *logObj)
+AampEventManager::AampEventManager(int playerId)
 {
 }
 

@@ -36,7 +36,7 @@ namespace
 class SubtecFactory
 {
 public:
-    static std::unique_ptr<SubtitleParser> createSubtitleParser(AampLogManager *mLogObj, PrivateInstanceAAMP *aamp, std::string mimeType)
+    static std::unique_ptr<SubtitleParser> createSubtitleParser(PrivateInstanceAAMP *aamp, std::string mimeType)
     {
         SubtitleMimeType type = eSUB_TYPE_UNKNOWN;
 
@@ -48,10 +48,10 @@ public:
                 !mimeType.compare("application/mp4"))
             type = eSUB_TYPE_TTML;
 
-        return createSubtitleParser(mLogObj, aamp, type);
+        return createSubtitleParser(aamp, type);
     }
 
-    static std::unique_ptr<SubtitleParser> createSubtitleParser(AampLogManager *mLogObj, PrivateInstanceAAMP *aamp, SubtitleMimeType mimeType)
+    static std::unique_ptr<SubtitleParser> createSubtitleParser(PrivateInstanceAAMP *aamp, SubtitleMimeType mimeType)
     {
         AAMPLOG_INFO("createSubtitleParser: mimeType: %d", mimeType);
         std::unique_ptr<SubtitleParser> empty;
@@ -64,13 +64,13 @@ public:
                     // otherwise use subtec
                     if (!aamp->WebVTTCueListenersRegistered())
 			            if (ISCONFIGSET(eAAMPConfig_WebVTTNative))
-                            return subtec_make_unique<WebVTTSubtecParser>(mLogObj, aamp, mimeType);
+                            return subtec_make_unique<WebVTTSubtecParser>(aamp, mimeType);
                         else
-                            return subtec_make_unique<WebVTTSubtecDevParser>(mLogObj, aamp, mimeType);
+                            return subtec_make_unique<WebVTTSubtecDevParser>(aamp, mimeType);
                     else
-                        return subtec_make_unique<WebVTTParser>(mLogObj, aamp, mimeType);
+                        return subtec_make_unique<WebVTTParser>(aamp, mimeType);
                 case eSUB_TYPE_TTML:
-                    return subtec_make_unique<TtmlSubtecParser>(mLogObj, aamp, mimeType);
+                    return subtec_make_unique<TtmlSubtecParser>(aamp, mimeType);
                 default:
                     AAMPLOG_WARN("Unknown subtitle parser type %d, returning empty", mimeType);
                     break;

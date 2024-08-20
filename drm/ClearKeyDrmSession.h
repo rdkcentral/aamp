@@ -65,7 +65,7 @@ public:
 	/**
 	 * @fn ClearKeySession
 	 */
-	ClearKeySession(AampLogManager *logObj);
+	ClearKeySession();
 
 	/**
 	 * @fn ~ClearKeySession

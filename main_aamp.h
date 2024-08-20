@@ -2074,7 +2074,6 @@ public:
 	std::shared_ptr<PrivateInstanceAAMP> sp_aamp; 	  /**< shared pointer for aamp resource */
 
 	AampConfig mConfig;
-	AampLogManager *mLogObj;
 	
 	/**
 	 *   @fn GetPlaybackStats

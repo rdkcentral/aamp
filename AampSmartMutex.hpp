@@ -25,7 +25,6 @@ const int DEFAULT_MUTEX_WARN_THRESHOLD_MS = 50;
 class AampSmartMutex
 {
 private:
-	AampLogManager *mLogObj;
 	std::timed_mutex mutex;
 	std::string owner;
 	const char *name;

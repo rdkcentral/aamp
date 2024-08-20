@@ -221,7 +221,7 @@ public:
 	 * @param[in] aamp - Pointer to PrivateInstanceAAMP
 	 * @param[in] name - Media track name
 	 */
-	MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAAMP* aamp, const char* name);
+	MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name);
 
 	/**
 	 * @fn ~MediaTrack
@@ -853,7 +853,6 @@ public:
 	bool seamlessSubtitleSwitchInProgress;
 
 protected:
-	AampLogManager *mLogObj;
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< Helper class for ISO BMFF parsing */
 	CachedFragment *cachedFragment;     /**< storage for currently-downloaded fragment */
@@ -945,7 +944,7 @@ public:
 	 * @fn StreamAbstractionAAMP
 	 * @param[in] aamp pointer to PrivateInstanceAAMP object associated with stream
 	 */
-	StreamAbstractionAAMP(AampLogManager *logObj, PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler = nullptr);
+	StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler = nullptr);
 
 	/**
 	 * @fn ~StreamAbstractionAAMP
@@ -1142,8 +1141,6 @@ public:
 	bool GetESChangeStatus(void){ return mESChangeStatus;}
 
 	PrivateInstanceAAMP* aamp;  /**< Pointer to PrivateInstanceAAMP object associated with stream*/
-
-	AampLogManager *mLogObj;
 
 	/**
 	 *   @fn RampDownProfile

@@ -54,7 +54,7 @@ public:
 	 *
 	 * @return None
 	 */
-	AampCMCDCollector(AampLogManager *logObj);
+	AampCMCDCollector();
 	/**
 	 * @brief AampCMCDCollector Destructor function
 	 *
@@ -116,7 +116,6 @@ public:
 	void SetBitrates(AampMediaType mediaType,const std::vector<BitsPerSecond> bitrates);
 	void SetTrackData(AampMediaType mediaType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed=false);
 private:
-	AampLogManager *mLogObj; 	   /**< Logger instance for CMCDCollector */
 	bool bCMCDEnabled;			/**< CMCD enable/disable flag  */
 	typedef std::map<int, CMCDHeaders *> StreamTypeCMCD;
 	typedef std::map<int, CMCDHeaders *>::iterator StreamTypeCMCDIter;

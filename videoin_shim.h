@@ -47,7 +47,7 @@ public:
      * @param seekpos Seek position
      * @param rate playback rate
      */
-    StreamAbstractionAAMP_VIDEOIN(const std::string name, const std::string callSign, AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate, const std::string type);
+    StreamAbstractionAAMP_VIDEOIN(const std::string name, const std::string callSign, class PrivateInstanceAAMP *aamp,double seekpos, float rate, const std::string type);
     /**
      * @fn ~StreamAbstractionAAMP_VIDEOIN
      */

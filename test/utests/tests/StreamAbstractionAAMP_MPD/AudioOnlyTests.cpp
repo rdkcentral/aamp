@@ -46,7 +46,6 @@ using ::testing::Invoke;
 using ::testing::Pointee;
 
 extern AampConfig *gpGlobalConfig;
-extern AampLogManager *mLogObj;
 
 /**
  * @brief LinearTests tests common base class.
@@ -122,8 +121,6 @@ protected:
                 mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
                 mPrivateInstanceAAMP->mIsDefaultOffset = true;
 
-                mLogObj = new AampLogManager();
-
                 g_mockAampConfig = new NiceMock<MockAampConfig>();
 
                 g_mockAampGstPlayer = new MockAAMPGstPlayer(mPrivateInstanceAAMP);
@@ -160,9 +157,6 @@ protected:
 
                 delete gpGlobalConfig;
                 gpGlobalConfig = nullptr;
-
-                delete mLogObj;
-                mLogObj = nullptr;
 
                 delete g_mockAampConfig;
                 g_mockAampConfig = nullptr;
@@ -269,8 +263,8 @@ public:
                 }
 
                 /* Create MPD instance. */
-                mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mLogObj, mPrivateInstanceAAMP, seekPos, rate);
-                mCdaiObj = new CDAIObjectMPD(mLogObj, mPrivateInstanceAAMP);
+                mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
+                mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
                 mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 
                 mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);

@@ -36,7 +36,6 @@ using ::testing::AnyNumber;
 using ::testing::DoAll;
 using namespace std;
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 class FunctionalTests : public ::testing::Test
 {

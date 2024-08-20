@@ -30,8 +30,7 @@
 using ::testing::_;
 using ::testing::Return;
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
- 
+
 const int tsPacketLength = 188;
  
 class sendSegmentTests : public ::testing::Test
@@ -43,8 +42,8 @@ protected:
     {
     public:
         friend class sendSegmentTests;
-        TestTSProcessor(AampLogManager *mLogObj, class PrivateInstanceAAMP *mPrivateInstanceAAMP, StreamOperation streamOperation)
-        : TSProcessor(mLogObj, mPrivateInstanceAAMP, eStreamOp_DEMUX_AUDIO, nullptr)
+        TestTSProcessor(class PrivateInstanceAAMP *mPrivateInstanceAAMP, StreamOperation streamOperation)
+        : TSProcessor(mPrivateInstanceAAMP, eStreamOp_DEMUX_AUDIO, nullptr)
         {
         }
  
@@ -214,7 +213,7 @@ protected:
         }       
         g_mockAampConfig = new MockAampConfig();
  
-        mTSProcessor = new TestTSProcessor(mLogObj, mPrivateInstanceAAMP, eStreamOp_DEMUX_AUDIO);
+        mTSProcessor = new TestTSProcessor(mPrivateInstanceAAMP, eStreamOp_DEMUX_AUDIO);
  
         g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
     }

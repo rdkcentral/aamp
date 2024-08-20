@@ -53,11 +53,10 @@ ThunderSecurityData gSecurityData;
 /**
  * @brief  ThunderAccessAAMP constructor
  */
-ThunderAccessAAMP::ThunderAccessAAMP(std::string callsign, AampLogManager *logObj)
+ThunderAccessAAMP::ThunderAccessAAMP(std::string callsign)
                  : remoteObject(NULL),
                    controllerObject(NULL),
-                   pluginCallsign(callsign),
-                   mLogObj(logObj)
+                   pluginCallsign(callsign)
 {
     AAMPLOG_INFO( "[ThunderAccessAAMP]Inside");
 

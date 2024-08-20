@@ -49,7 +49,6 @@ using namespace dash::xml;
 using namespace dash::mpd;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 /**
  * @brief AdManagerMPDTests tests common base class.
@@ -75,13 +74,12 @@ protected:
     }
 
     mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-    mLogObj = new AampLogManager();
-    mLogObj->aampLoglevel = eLOGLEVEL_TRACE;
+    //mLogObj->aampLoglevel = eLOGLEVEL_TRACE;
 
     g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
 
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
-    mCdaiObj = new CDAIObjectMPD(mLogObj, mPrivateInstanceAAMP);
+    mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
     mPrivateCDAIObjectMPD = mCdaiObj->GetPrivateCDAIObjectMPD();
     EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
 
@@ -97,9 +95,6 @@ protected:
     delete mCdaiObj;
     mCdaiObj = nullptr;
     mPrivateCDAIObjectMPD = nullptr;
-
-    delete mLogObj;
-    mLogObj = nullptr;
 
     delete g_mockPrivateInstanceAAMP;
     g_mockPrivateInstanceAAMP = nullptr;

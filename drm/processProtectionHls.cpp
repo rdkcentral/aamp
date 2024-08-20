@@ -191,7 +191,6 @@ shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, st
 	 * 2. Get pssh data from manifest (extract URI value)
 	 * 3. Set PSSH data to AampDrmHelper object
 	 */
-	AampLogManager *mLogObj = aamp->mConfig->GetLoggerInstance();
 	shared_ptr<AampDrmHelper> finalDrmHelper = nullptr;
 	unsigned char* data = NULL;
 	size_t dataLength = 0;
@@ -237,7 +236,7 @@ shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, st
 			AAMPLOG_ERR("Could not able to retrive DRM data from PSSH");
 			break;
 		}
-		if (gpGlobalConfig && gpGlobalConfig->logging.trace)
+		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
 		{
 			AAMPLOG_TRACE("content metadata from manifest; length %zu", dataLength);
 			printf("*****************************************************************\n");

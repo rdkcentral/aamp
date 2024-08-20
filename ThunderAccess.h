@@ -50,7 +50,7 @@ public:
      *   @fn ThunderAccessAAMP
      *   @note   Security tocken accusition, controller object creation
      */
-    ThunderAccessAAMP(std::string callsign, AampLogManager *logObj=NULL);
+    ThunderAccessAAMP(std::string callsign);
 	
     /**
      *   @fn ~ThunderAccessAAMP
@@ -110,6 +110,5 @@ private:
     /**< The Remote object connected to controller Plugin*/
     JSONRPC::LinkType<Core::JSON::IElement> *controllerObject;
     std::string pluginCallsign;
-    AampLogManager *mLogObj;
 };
 #endif // THUNDERACCESS_H_

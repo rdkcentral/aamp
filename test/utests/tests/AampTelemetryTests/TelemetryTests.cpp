@@ -3,7 +3,6 @@
 #include <gtest/gtest.h>
 #include <cjson/cJSON.h>
 #include "AampTelemetry2.hpp"
-AampLogManager *mLogObj{nullptr};
 #define AAMP_TUNE_MANIFEST_REQ_FAILED 10
 
 // using namespace testing;

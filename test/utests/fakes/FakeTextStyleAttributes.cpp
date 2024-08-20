@@ -19,7 +19,7 @@
 
 #include "TextStyleAttributes.h"
 
-TextStyleAttributes::TextStyleAttributes(AampLogManager *logObj)
+TextStyleAttributes::TextStyleAttributes()
 {
 }
 

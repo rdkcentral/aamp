@@ -54,7 +54,6 @@ class AampDrmSessionTests : public ::testing::Test
 {
 protected:
 	PrivateInstanceAAMP *mAamp = nullptr;
-	AampLogManager mLogging;
 	TestUtilDrm *mUtils = nullptr;
 
 	// The URL AAMP uses to fetch the session token
@@ -73,7 +72,7 @@ protected:
 		g_mockopencdm = new NiceMock<MockOpenCdm>();
 		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 		mAamp = new PrivateInstanceAAMP(gpGlobalConfig);
-		mUtils = new TestUtilDrm(mAamp, mLogging);
+		mUtils = new TestUtilDrm(mAamp);
 	}
 
 	void TearDown() override
@@ -112,7 +111,7 @@ TEST_F(AampDrmSessionTests, TestClearKeyLicenseAcquisition)
 	drmInfo.manifestURL = "http://example.com/assets/test.m3u8";
 	drmInfo.keyURI = "file.key";
 	std::shared_ptr<AampClearKeyHelper> drmHelper =
-		std::make_shared<AampClearKeyHelper>(drmInfo, &mLogging);
+		std::make_shared<AampClearKeyHelper>(drmInfo);
 
 	// We expect the key data to be transformed by the helper before being passed to
 	// opencdm_session_update. Thus we call the helper ourselves here (with the data our mock Curl
@@ -151,7 +150,7 @@ TEST_F(AampDrmSessionTests, TestMultipleSessionsSameKey)
 	drmInfo.manifestURL = "http://example.com/assets/test.m3u8";
 	drmInfo.keyURI = "file.key";
 	std::shared_ptr<AampClearKeyHelper> drmHelper =
-		std::make_shared<AampClearKeyHelper>(drmInfo, &mLogging);
+		std::make_shared<AampClearKeyHelper>(drmInfo);
 
 	const shared_ptr<DrmData> expectedDrmData =
 		make_shared<DrmData>(testKeyData.c_str(), testKeyData.size());
@@ -280,7 +279,7 @@ TEST_F(AampDrmSessionTests, TestSessionBadChallenge)
 	drmInfo.manifestURL = "http://example.com/assets/test.m3u8";
 	drmInfo.keyURI = "file.key";
 	std::shared_ptr<AampClearKeyHelper> drmHelper =
-		std::make_shared<AampClearKeyHelper>(drmInfo, &mLogging);
+		std::make_shared<AampClearKeyHelper>(drmInfo);
 
 	// Cause OpenCDM to return an empty challenge. This should cause an error
 	mUtils->setupChallengeCallbacks(MockChallengeData("", ""));
@@ -304,7 +303,7 @@ TEST_F(AampDrmSessionTests, TestSessionBadLicenseResponse)
 	drmInfo.manifestURL = "http://example.com/assets/test.m3u8";
 	drmInfo.keyURI = "file.key";
 	std::shared_ptr<AampClearKeyHelper> drmHelper =
-		std::make_shared<AampClearKeyHelper>(drmInfo, &mLogging);
+		std::make_shared<AampClearKeyHelper>(drmInfo);
 
 	// Make curl return empty data for the key. This should cause an error
 	mUtils->setupCurlPerformResponses({{"http://example.com/assets/file.key", ""}});

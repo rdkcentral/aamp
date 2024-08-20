@@ -203,7 +203,7 @@ class TrackState : public MediaTrack
 		 * @param[in] name Name of the track
 		 * @return void
 		 ***************************************************************************/
-		TrackState(AampLogManager *logObj, TrackType type, class StreamAbstractionAAMP_HLS* parent,
+		TrackState(TrackType type, class StreamAbstractionAAMP_HLS* parent,
 			PrivateInstanceAAMP* aamp, const char* name,
 			id3_callback_t id3Handler = nullptr,
 			ptsoffset_update_t ptsUpdate = nullptr
@@ -697,7 +697,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @param[in] rate Rate of playback
 		 * @return void
 		 ***************************************************************************/
-		StreamAbstractionAAMP_HLS(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,
+		StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *aamp,
 			double seekpos, float rate,
 			id3_callback_t id3Handler = nullptr,
 			ptsoffset_update_t ptsOffsetUpdate = nullptr

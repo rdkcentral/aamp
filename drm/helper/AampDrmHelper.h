@@ -83,8 +83,7 @@ public:
 	const std::string EMPTY_DRM_METADATA;
 	
 	const std::string EMPTY_STRING;
-	AampLogManager *mLogObj;
-	AampDrmHelper(const struct DrmInfo drmInfo, AampLogManager *logObj) : mLogObj(logObj), mDrmInfo(drmInfo), TIMEOUT_SECONDS(5000U), EMPTY_DRM_METADATA(), EMPTY_STRING() ,bOutputProtectionEnabled(false), protectionScheme() {}
+	AampDrmHelper(const struct DrmInfo drmInfo) : mDrmInfo(drmInfo), TIMEOUT_SECONDS(5000U), EMPTY_DRM_METADATA(), EMPTY_STRING() ,bOutputProtectionEnabled(false), protectionScheme() {}
 	AampDrmHelper(const AampDrmHelper&) = delete;
 	AampDrmHelper& operator=(const AampDrmHelper&) = delete;
 	
@@ -276,7 +275,7 @@ public:
 	 * @param drmInfo DrmInfo built by the HLS manifest parser
 	 * @return the helper
 	 */
-	virtual std::shared_ptr<AampDrmHelper> createHelper(const struct DrmInfo& drmInfo, AampLogManager *logObj=NULL) const = 0;
+	virtual std::shared_ptr<AampDrmHelper> createHelper(const struct DrmInfo& drmInfo) const = 0;
 
 	/**
 	 * @brief Adds the system IDs supported by the DRM to a vector
@@ -326,7 +325,7 @@ public:
 	 * @param drmInfo DrmInfo built by the HLS manifest parser
 	 * @return the helper
 	 */
-	std::shared_ptr<AampDrmHelper> createHelper(const struct DrmInfo& drmInfo, AampLogManager *logObj=NULL) const;
+	std::shared_ptr<AampDrmHelper> createHelper(const struct DrmInfo& drmInfo) const;
 
 	/**
 	 * @fn getSystemIds
