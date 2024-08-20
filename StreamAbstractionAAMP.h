@@ -104,11 +104,11 @@ public:
 	TileInfo(): layout(), startTime(), url()
 	{
 	}
-	
+
 	~TileInfo()
 	{
 	}
-	
+
 	TileLayout layout;
 	double startTime;
 	std::string url;
@@ -201,6 +201,8 @@ typedef enum
 	eDISCONTINUIY_IN_AUDIO = 2,   /**< Discontinuity in audio */
 	eDISCONTINUIY_IN_BOTH = 3     /**< Discontinuity in Both Audio and Video */
 } MediaTrackDiscontinuityState;
+
+class IsoBmffHelper;
 
 /**
  * @brief Base Class for Media Track
@@ -455,7 +457,7 @@ public:
 	void UpdateTSAfterChunkFetch();
 
 	/**
-	 * @fn WaitForFreeFragmentAvailable 
+	 * @fn WaitForFreeFragmentAvailable
 	 * @param timeoutMs - timeout in milliseconds. -1 for infinite wait
 	 * @retval true if fragment available, false on abort.
 	 */
@@ -504,8 +506,8 @@ public:
 	 */
     virtual void abortWaitForVideoPTS() = 0;
 
-	virtual void resetPTSOnAudioSwitch(CachedFragment* cachedFragment = nullptr) {};	
-	
+	virtual void resetPTSOnAudioSwitch(CachedFragment* cachedFragment = nullptr) {};
+
 	/**
 	 *   @brief Function to get the buffer duration
 	 *
@@ -658,7 +660,7 @@ public:
 	void WaitForCachedAudioFragmentAvailable(void);
 
 	/**
-	 * @brief To Load New Audio on seamless audio switch 
+	 * @brief To Load New Audio on seamless audio switch
 	 */
 	void LoadNewAudio(bool val);
 
@@ -728,7 +730,7 @@ protected:
 	bool WaitForCachedFragmentAvailable();
 
 	/**
-	 * @fn WaitForCachedFragmentChunkAvailable 
+	 * @fn WaitForCachedFragmentChunkAvailable
 	 *
 	 * @return TRUE if fragment chunk available, FALSE if aborted/fragment chunk not available.
 	 */
@@ -802,6 +804,7 @@ public:
 protected:
 	AampLogManager *mLogObj;
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
+	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< Helper class for ISO BMFF parsing */
 	CachedFragment *cachedFragment;     /**< storage for currently-downloaded fragment */
 	CachedFragment cachedFragmentChunks[DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK];
 	AampGrowableBuffer unparsedBufferChunk; /**< Buffer to keep fragment content */
@@ -813,7 +816,6 @@ protected:
 	bool abortInjectChunk;              /**< Abort inject operations if flag is set*/
 	pthread_mutex_t audioMutex;             /**< protection of audio track reconfiguration */
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
-
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
 
 private:
@@ -957,7 +959,7 @@ public:
 	{
 		return 0.0;
 	}
-	
+
 	/**
 	 *   @brief  Get Start time PTS of first sample.
 	 *
@@ -977,7 +979,7 @@ public:
 	{
 		return 0.0;
 	}
-	
+
 	/**
 	 *   @brief Return MediaTrack of requested type
 	 *
@@ -989,7 +991,7 @@ public:
 		(void)type;
 		return nullptr;
 	}
-	
+
 	/**
 	*   @brief  Get PTS offset for MidFragment Seek
 	*
@@ -1010,7 +1012,7 @@ public:
 
 	/**
 	 * @brief Sets the maximum buffer for ABR (Adaptive Bit Rate).
-	 * 
+	 *
 	 * @param maxbuffer The maximum buffer value to be set for ABR.
 	 * @return void
 	 */
@@ -1075,12 +1077,13 @@ public:
 	PrivateInstanceAAMP* aamp;  /**< Pointer to PrivateInstanceAAMP object associated with stream*/
 
 	AampLogManager *mLogObj;
+
 	/**
 	 *   @fn RampDownProfile
 	 *
 	 *   @param[in] http_error - Http error code
 	 *   @return True, if ramp down successful. Else false
-	 */ 
+	 */
 	bool RampDownProfile(int http_error);
 	/**
 	 *   @fn GetDesiredProfileOnBuffer
@@ -1091,11 +1094,11 @@ public:
 	 */
 	void GetDesiredProfileOnBuffer(int currProfileIndex, int &newProfileIndex);
 	/**
-	 *   @fn GetDesiredProfileOnSteadyState 
+	 *   @fn GetDesiredProfileOnSteadyState
 	 *
 	 *   @param [in] currProfileIndex
 	 *   @param [in] newProfileIndex
-	 *   @param [in] nwBandwidth         
+	 *   @param [in] nwBandwidth
 	 *   @return None.
 	 */
 	void GetDesiredProfileOnSteadyState(int currProfileIndex, int &newProfileIndex, long nwBandwidth);
@@ -1103,17 +1106,17 @@ public:
 	 *   @fn ConfigureTimeoutOnBuffer
 	 *
 	 *   @return None.
-	 */        
+	 */
 	void ConfigureTimeoutOnBuffer();
 	/**
 	 *   @brief Function to get the buffer duration of stream
 	 *
-	 *   @return buffer value 
-	 */                
+	 *   @return buffer value
+	 */
 	virtual double GetBufferedDuration (void)
 	{
 		return -1.0;
-	}	
+	}
 
     	/**
 	 *   @fn IsLowestProfile
@@ -1122,7 +1125,7 @@ public:
 	 *   @return true if the given profile index is lowest.
 	 */
 	bool IsLowestProfile(int currentProfileIndex);
-	
+
 	/**
 	 *   @fn getOriginalCurlError
 	 *
@@ -1191,7 +1194,7 @@ public:
 	 *   @return void
 	 */
 	void NotifyBitRateUpdate(int profileIndex, const StreamInfo &cacheFragStreamInfo, double position);
-	
+
 	/**
 	 *   @fn IsInitialCachingSupported
 	 *
@@ -1212,13 +1215,13 @@ public:
 	 *   @return true if we seeked to live.
 	 */
 	bool IsSeekedToLive(double seekPosition);
-	
+
 	/**
 	 * @fn Is4KStream
 	 * @brief check if current stream have 4K content
 	 * @param height - resolution of 4K stream if found
 	 * @param bandwidth - bandwidth of 4K stream if foudd
-	 * @return true on success 
+	 * @return true on success
 	 */
 	virtual bool Is4KStream(int &height, BitsPerSecond &bandwidth)
 	{
@@ -1253,13 +1256,13 @@ public:
 	 *   @param[in] fragmentParsed - true if next fragment was parsed, otherwise false
 	 */
 	void CheckForPlaybackStall(bool fragmentParsed);
-	
+
 	/**
 	 *   @fn NotifyFirstFragmentInjected
 	 *   @return void
 	 */
 	void NotifyFirstFragmentInjected(void);
-	
+
 	/**
 	 *   @fn GetElapsedTime
 	 *
@@ -1427,7 +1430,7 @@ public:
 
 	/**
 	 * @brief Kicks off subtitle display - sent at start of video presentation
-	 * 
+	 *
 	 */
 	virtual void StartSubtitleParser() { };
 
@@ -1494,14 +1497,14 @@ public:
 	 *   @return double last injected fragment position in seconds
 	 */
 	double GetLastInjectedFragmentPosition();
-	
+
 	/**
 	 *   @fn resetDiscontinuityTrackState
 	 *
 	 *   @return void
 	 */
 	void resetDiscontinuityTrackState();
-	
+
 	/**
 	 *   @fn ProcessDiscontinuity
 	 *
@@ -1548,7 +1551,7 @@ public:
 	 *   @fn GetCurrentAudioTrack
 	 *
 	 *   @param[out] audioTrack - current audio track
-	 *   @return found or not 
+	 *   @return found or not
 	 */
 	virtual bool GetCurrentAudioTrack(AudioTrackInfo &audioTrack);
 
@@ -1556,7 +1559,7 @@ public:
 	 *   @fn GetCurrentTextTrack
 	 *
 	 *   @param[out] TextTrack - current text track
-	 *   @return found or not 
+	 *   @return found or not
 	 */
 	virtual bool GetCurrentTextTrack(TextTrackInfo &textTrack);
 
@@ -1581,7 +1584,7 @@ public:
 	 */
 	virtual void SetVideoRectangle(int x, int y, int w, int h) {}
 
-	virtual std::vector<StreamInfo*> GetAvailableVideoTracks(void) 
+	virtual std::vector<StreamInfo*> GetAvailableVideoTracks(void)
 	{ // STUB
 		return std::vector<StreamInfo*>();
 	}
@@ -1595,7 +1598,7 @@ public:
 		{ // STUB
 			return std::vector<StreamInfo*>();
 		}
-    	
+
 
     	/**
      	 *   @brief Set thumbnail bitrate.
@@ -1605,7 +1608,7 @@ public:
 	virtual bool SetThumbnailTrack(int thumbnailIndex)
 	{
 		(void) thumbnailIndex;	/* unused */
-		return false;	
+		return false;
 	}
 
     	/**
@@ -1614,7 +1617,7 @@ public:
      	 *   @return thumbnail data.
      	 */
 	virtual std::vector<ThumbnailData> GetThumbnailRangeData(double start, double end, std::string *baseurl, int *raw_w, int *raw_h, int *width, int *height)
-	{		
+	{
 		(void)start;
 		(void)end;
 		(void)baseurl;
@@ -1622,11 +1625,11 @@ public:
 		(void)raw_h;
 		(void)width;
 		(void)height;
-		
+
 		return std::vector<ThumbnailData>();
 	}
 
-	
+
     	/**
      	 * @brief SetAudioTrack set the audio track using index value. [currently for OTA]
      	 *
@@ -1673,7 +1676,7 @@ public:
      	 */
 	virtual void ApplyContentRestrictions(std::vector<std::string> restrictions){};
 
-	
+
     	/**
 	 *   @brief Disable Content Restrictions - unlock
 	 *   @param[in] grace - seconds from current time, grace period, grace = -1 will allow an unlimited grace period
@@ -1824,7 +1827,7 @@ protected:
 protected:
 
 	/**
-	 *   @brief Get buffer value 
+	 *   @brief Get buffer value
 	 *
 	 *   @return buffer value based on Local TSB
 	 */

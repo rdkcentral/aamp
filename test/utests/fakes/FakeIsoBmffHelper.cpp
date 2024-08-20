@@ -21,12 +21,12 @@
 #include "isobmffhelper.h"
 
 
-bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer)
+bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
 {
     return true;
 }
 
-bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &url)
+bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &url)
 {
     return true;
 }

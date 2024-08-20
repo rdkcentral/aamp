@@ -42,10 +42,15 @@ AampLogManager *mLogObj{nullptr};
 class IsoBmffConvertToKeyFrameTests : public ::testing::Test
 {
 	protected:
+
+		std::shared_ptr<IsoBmffHelper> helper;
+
 		void SetUp() override
 		{
 			mLogObj = new AampLogManager();
 			g_mockGLib = new NiceMock<MockGLib>();
+			gpGlobalConfig = new AampConfig();
+			helper = std::make_shared<IsoBmffHelper>(mLogObj);
 		}
 
 		void TearDown() override
@@ -128,7 +133,7 @@ TEST_P(IsoBmffConvertToKeyFrameTestsP, converToIFrame)
 	test_data_t td = GetParam();
 	src_data.AppendBytes(td.input_data,  td.input_data_len);
 
-	EXPECT_TRUE(IsoBmffConvertToKeyFrame(src_data));
+	EXPECT_TRUE(helper->ConvertToKeyFrame(src_data));
 	EXPECT_EQ(src_data.GetLen(), td.expected_data_len);
 	auto memcmp_actual_vs_expected = std::memcmp(src_data.GetPtr(), td.expected_data,  td.expected_data_len);
 	EXPECT_EQ(0, memcmp_actual_vs_expected);

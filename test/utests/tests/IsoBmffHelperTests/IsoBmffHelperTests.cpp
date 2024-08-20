@@ -27,16 +27,20 @@
 using ::testing::_;
 using ::testing::Return;
 
-AampLogManager *mLogObj{nullptr};
+
 
 class IsoBmffHelperTests : public ::testing::Test
 {
 	protected:
+		std::shared_ptr<IsoBmffHelper> helper;
+		AampLogManager *mLogObj;
+
 		void SetUp() override
 		{
 			mLogObj = new AampLogManager();
 			mLogObj->aampLoglevel = eLOGLEVEL_TRACE;		//To enable all levels of AAMP logging
 			g_mockIsoBmffBuffer = new MockIsoBmffBuffer();
+			helper = std::make_shared<IsoBmffHelper>(mLogObj);
 		}
 
 		void TearDown() override
@@ -45,6 +49,7 @@ class IsoBmffHelperTests : public ::testing::Test
 			mLogObj=nullptr;
 			delete g_mockIsoBmffBuffer;
 			g_mockIsoBmffBuffer = nullptr;
+			helper.reset();
 		}
 };
 
@@ -52,7 +57,7 @@ class IsoBmffHelperTests : public ::testing::Test
 /**
  * @brief Test the PTS restamp function (positive case)
  *        Verify that the expected IsoBmffBuffer methods are called when
- *        IsoBmffRestampPts() function is called.
+ *        RestampPts() function is called.
  */
 TEST_F(IsoBmffHelperTests, restampPtsTest)
 {
@@ -66,13 +71,13 @@ TEST_F(IsoBmffHelperTests, restampPtsTest)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(ptsOffset));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration());
-	EXPECT_TRUE(IsoBmffRestampPts(buffer, ptsOffset,url));
+	EXPECT_TRUE(helper->RestampPts(buffer, ptsOffset,url));
 }
 
 /**
  * @brief Test the PTS restamp function (negative case)
  *        Verify that IsoBmffBuffer::restampPts() is not called if
- *        IsoBmffBuffer::parseBuffer() fails, when IsoBmffRestampPts() function
+ *        IsoBmffBuffer::parseBuffer() fails, when RestampPts() function
  *        is called.
  */
 TEST_F(IsoBmffHelperTests, restampPtsNegativeTest)
@@ -87,13 +92,13 @@ TEST_F(IsoBmffHelperTests, restampPtsNegativeTest)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(_)).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration()).Times(0);
-	EXPECT_FALSE(IsoBmffRestampPts(buffer, ptsOffset,url));
+	EXPECT_FALSE(helper->RestampPts(buffer, ptsOffset,url));
 }
 
 /**
  * @brief Test the set PTS and duration function (positive case)
  *        Verify that the expected IsoBmffBuffer methods are called when
- *        IsoBmffSetPtsAndDuration() function is called.
+ *        SetPtsAndDuration() function is called.
  */
 TEST_F(IsoBmffHelperTests, setPtsAndDurationTest)
 {
@@ -106,13 +111,13 @@ TEST_F(IsoBmffHelperTests, setPtsAndDurationTest)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setPtsAndDuration(pts, duration));
-	EXPECT_TRUE(IsoBmffSetPtsAndDuration(buffer, pts, duration));
+	EXPECT_TRUE(helper->SetPtsAndDuration(buffer, pts, duration));
 }
 
 /**
  * @brief Test the set PTS and duration function (positive case)
  *        Verify that IsoBmffBuffer::setPtsAndDuration() is not called if
- *        IsoBmffBuffer::parseBuffer() fails, when IsoBmffSetPtsAndDuration() function
+ *        IsoBmffBuffer::parseBuffer() fails, when SetPtsAndDuration() function
  *        is called.
  */
 TEST_F(IsoBmffHelperTests, setPtsAndDurationNegativeTest)
@@ -126,12 +131,12 @@ TEST_F(IsoBmffHelperTests, setPtsAndDurationNegativeTest)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setPtsAndDuration(_, _)).Times(0);
-	EXPECT_FALSE(IsoBmffSetPtsAndDuration(buffer, pts, duration));
+	EXPECT_FALSE(helper->SetPtsAndDuration(buffer, pts, duration));
 }
 
 /**
  * @brief Test the set timescale function
- *        Verify that IsoBmffBuffer::IsoBmffSetTimescale() is called
+ *        Verify that IsoBmffBuffer::SetTimescale() is called
  */
 TEST_F(IsoBmffHelperTests, setTimescaleTest)
 {
@@ -142,12 +147,12 @@ TEST_F(IsoBmffHelperTests, setTimescaleTest)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setTrickmodeTimescale(1000)).WillOnce(Return(true));
-	EXPECT_TRUE(IsoBmffSetTimescale(buffer, 1000));
+	EXPECT_TRUE(helper->SetTimescale(buffer, 1000));
 }
 
 /**
  * @brief Test the set timescale function (negative case)
- *        Verify that IsoBmffSetTimescale returns false if
+ *        Verify that SetTimescale returns false if
  *        IsoBmffBuffer::setTrickmodeTimescale() fails
  */
 
@@ -160,5 +165,5 @@ TEST_F(IsoBmffHelperTests, setTimescaleTestNegativeTest)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setTrickmodeTimescale(1000)).WillOnce(Return(false));
-	EXPECT_FALSE(IsoBmffSetTimescale(buffer, 1000));
+	EXPECT_FALSE(helper->SetTimescale(buffer, 1000));
 }

@@ -54,6 +54,7 @@ AampTSBSessionManager::AampTSBSessionManager(AampLogManager *logObj, PrivateInst
 		, mLiveEndPosition(0.0)
 		, mTsbMaxDiskStorage(0)
 		, mTsbMinFreePercentage(0)
+		, mIsoBmffHelper(aamp->mIsoBmffHelper)
 {
 }
 
@@ -873,7 +874,7 @@ bool AampTSBSessionManager::PushNextFragment(MediaStreamContext *pMediaStreamCon
 				// Slow motion is like a normal playback with audio (volume set to 0) and handled in GST layer with SetPlaybackRate
 				if(mAamp->IsIframeExtractionEnabled() && AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && eMEDIATYPE_VIDEO == mediaType && AAMP_SLOWMOTION_RATE != rate )
 				{
-					if(!IsoBmffConvertToKeyFrame(nextFragment->fragment))
+					if(!mIsoBmffHelper->ConvertToKeyFrame(nextFragment->fragment))
 					{
 						AAMPLOG_ERR("Failed to generate iFrame track from video track at %lf", nextFragmentData->GetPosition());
 					}

@@ -17,8 +17,6 @@
 * limitations under the License.
 */
 
-#include <string>
-
 #include "AampDrmSession.h"
 
 string AampDrmSession::getKeySystem()

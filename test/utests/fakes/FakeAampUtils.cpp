@@ -402,7 +402,7 @@ double ParseISO8601Duration(const char *ptr)
 			const char *temp = strchr(ptr, 'Y');
 			if (temp)
 			{	sscanf(ptr, "%dY", &years);
-				AAMPLOG_WARN("years %d", years);
+				printf("years %d", years);
 				ptr = temp + 1;
 			}
 			temp = strchr(ptr, 'M');
@@ -443,7 +443,7 @@ double ParseISO8601Duration(const char *ptr)
 	}
 	else
 	{
-		AAMPLOG_WARN("Invalid input %s", ptr);
+		printf("Invalid input %s", ptr);
 	}
 
 	returnValue += seconds;

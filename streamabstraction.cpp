@@ -742,7 +742,7 @@ void MediaTrack::AbortWaitForCachedFragmentChunk()
 }
 
 /**
- *  @brief Process next cached fragment 
+ *  @brief Process next cached fragment
  */
 bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fragmentDiscarded, bool& isDiscontinuity, bool &ret)
 {
@@ -1026,7 +1026,7 @@ bool MediaTrack::ProcessFragmentChunk()
 			int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
 			//Do not edit or remove this log line - it is used log_pts_restamp tool
 			AAMPLOG_INFO("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
-			(void)IsoBmffRestampPts(parsedBufferChunk, t, cachedFragment->uri);
+			(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, t, cachedFragment->uri);
 			fpts += cachedFragment->PTSOffsetSec;
 		}
 
@@ -1112,7 +1112,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool s
 			int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
 			//Do not edit or remove this log line - it is used log_pts_restamp tool
 			AAMPLOG_INFO("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
-			(void)IsoBmffRestampPts(cachedFragment->fragment, t, cachedFragment->uri);
+			(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, t, cachedFragment->uri);
 		}
 #ifdef AAMP_DEBUG_INJECT
 		if ((1 << type) & AAMP_DEBUG_INJECT)
@@ -1404,7 +1404,7 @@ void MediaTrack::RunInjectLoop()
 		}
 		// BCOM-2959  -- Disable audio video balancing for CDVR content ..
 		// CDVR Content includes eac3 audio, the duration of audio doesnt match with video
-		// and hence balancing fetch/inject not needed for CDVR //TBD Not needed for LLD 
+		// and hence balancing fetch/inject not needed for CDVR //TBD Not needed for LLD
 		if(!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && !aamp->IsCDVRContent() && (!aamp->mAudioOnlyPb && !aamp->mVideoOnlyPb) && !lowLatency)
 		{
 			if(pContext != NULL)
@@ -1622,6 +1622,7 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 		,frDownloadWait(),prevDownloadStartTime(-1)
 		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0)
 		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
+		,mIsoBmffHelper(aamp->mIsoBmffHelper)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 			if( !maxCachedFragmentsPerTrack )
@@ -2247,7 +2248,7 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 				/** Avoid bypass for LLD so that buffer can be build up*/
 				nwConsistencyCnt = mABRNwConsistency;
 			}
-			
+
 			// Ramp up/down (do ABR)
 			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexByBitrateRampUpOrDown(currentProfileIndex,
 					currentBandwidth, networkBandwidth, nwConsistencyCnt);
@@ -2738,7 +2739,7 @@ BitsPerSecond StreamAbstractionAAMP::GetVideoBitrate(void)
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 
 	if (video && video->enabled)
-	{	
+	{
 		AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
 		if (video->IsLocalTSBInjection() && tsbSessionManager)
 		{

@@ -26,12 +26,12 @@
 #include <cinttypes>
 
 
-bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer)
+bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
 {
 	AAMPLOG_TRACE("Function called with len = %zu", buffer.GetLen());
 
 	bool retval{true};
-	IsoBmffBuffer isoBmffBuffer{};
+	IsoBmffBuffer isoBmffBuffer{mLogObj};
 
 	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer.GetPtr()), buffer.GetLen() );
 
@@ -48,10 +48,10 @@ bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer)
 	return retval;
 }
 
-bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl)
+bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl)
 {
 	bool retval{false};
-	IsoBmffBuffer isoBmffBuffer{};
+	IsoBmffBuffer isoBmffBuffer{mLogObj};
 
 	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer.GetPtr()), buffer.GetLen() );
 
@@ -73,10 +73,10 @@ bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::strin
 	return retval;
 }
 
-bool IsoBmffSetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
+bool IsoBmffHelper::SetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
 {
 	bool retval{false};
-	IsoBmffBuffer isoBmffBuffer{};
+	IsoBmffBuffer isoBmffBuffer{mLogObj};
 
 	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t *>(buffer.GetPtr()), buffer.GetLen());
 
@@ -92,10 +92,10 @@ bool IsoBmffSetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
 	return retval;
 }
 
-bool IsoBmffSetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, uint64_t duration)
+bool IsoBmffHelper::SetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, uint64_t duration)
 {
 	bool retval{false};
-	IsoBmffBuffer isoBmffBuffer{};
+	IsoBmffBuffer isoBmffBuffer{mLogObj};
 
 	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t *>(buffer.GetPtr()), buffer.GetLen());
 

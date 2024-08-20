@@ -48,6 +48,7 @@
 #include "AampDRMSessionManager.h"
 #include "SubtecFactory.hpp"
 #include "AampGrowableBuffer.h"
+#include "isobmff/isobmffhelper.h"
 
 #ifdef AAMP_CC_ENABLED
 #include "AampCCManager.h"
@@ -1133,6 +1134,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	,mMutexPlaystart()
 	,mNetworkBandwidth(0)
 	,mTimeToTopProfile(0)
+	,mIsoBmffHelper(std::make_shared<IsoBmffHelper>(mLogObj))
 #ifdef AAMP_HLS_DRM
 	, fragmentCdmEncrypted(false) ,drmParserMutex(), aesCtrAttrDataList()
 	, drmSessionThreadStarted(false), createDRMSessionThreadID()
@@ -3740,7 +3742,7 @@ void PrivateInstanceAAMP::CurlTerm(AampCurlInstance startIdx, unsigned int insta
 {
 	int instanceEnd = startIdx + instanceCount;
 	assert (instanceEnd <= eCURLINSTANCE_MAX);
-	
+
 	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) && \
 		( startIdx == eCURLINSTANCE_VIDEO ) && (eCURLINSTANCE_AUX_AUDIO < instanceEnd) )
 	{
@@ -5760,7 +5762,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		AAMPLOG_INFO("LLD trials Url Remapping done");
 
 	}
-	
+
 	if(mTsbType == "cloud")
 	{
 		//cdnadsonly for cloud tsb
@@ -5771,16 +5773,16 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	AAMPLOG_INFO("LLD Url Keyword: %s",lldUrlKeyword.c_str());
 	if (!lldUrlKeyword.empty() && mManifestUrl.find(lldUrlKeyword) != std::string::npos)
 	{
-		// New Code to initialize the TSBSessionManager for LowLatency URL from Viper 
+		// New Code to initialize the TSBSessionManager for LowLatency URL from Viper
 		if(mTSBSessionManager)
 		{
 			SAFE_DELETE(mTSBSessionManager);
 		}
 		if(ISCONFIGSET_PRIV(eAAMPConfig_LocalTSBEnabled))
 		{
-			// create new TSB Session Manager for LLD 
+			// create new TSB Session Manager for LLD
 			mTSBSessionManager = new AampTSBSessionManager(mLogObj,this);
-			 //TODO unique session id for each 
+			 //TODO unique session id for each
 			if(mTSBSessionManager)
 			{
 				LoadLocalTSBConfig();
