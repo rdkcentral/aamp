@@ -130,7 +130,7 @@ TEST_F(AampSchedulerTests, StartSchedulerTest)
     //Arrange:declare local variable
     bool flag=false;
     //Act:call startscheduler function
-    m_as->StartScheduler();
+    m_as->StartScheduler(-1);
     //Assert:check the result
     EXPECT_FALSE(flag);
 }
@@ -182,7 +182,7 @@ TEST_F(AampSchedulerTests, RemoveTaskTest2)
     mTaskQueue.push_back(obj2);
 
     m_as->SetState(eSTATE_INITIALIZING);
-    m_as->StartScheduler();
+    m_as->StartScheduler(-1);
 
     bool ret=m_as->RemoveTask(20);
 
