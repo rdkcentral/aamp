@@ -154,7 +154,6 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 
 void MediaTrack::MonitorBufferHealth()
 {
-	UsingPlayerId playerId( aamp->mPlayerId );
 	int bufferHealthMonitorDelay = GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorDelay);
 	int bufferHealthMonitorInterval = GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorInterval);
 	int discontinuityTimeoutValue = GETCONFIGVALUE(eAAMPConfig_DiscontinuityTimeout);
@@ -1448,7 +1447,6 @@ void MediaTrack::StartInjectChunkLoop()
  */
 void MediaTrack::RunInjectLoop()
 {
-	UsingPlayerId playerId( aamp->mPlayerId );
     AAMPLOG_WARN("fragment injector started. track %s", name);
     bool notifyFirstFragment = true;
     bool keepInjecting = true;

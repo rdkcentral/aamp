@@ -62,7 +62,9 @@ void AampLogManager::aampLogger(std::string &&tsbMessage)
 {
 	// Client can add Player ID etc. here. Log message will contain file/line etc.
 	// This is staic API passed to external module we can mLogObj hence log macro here
-	logprintf(eLOGLEVEL_WARN , __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
+	const int dummyPlayerId = 0;
+
+	logprintf(dummyPlayerId, eLOGLEVEL_WARN , __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
 }
 
 /**
@@ -409,12 +411,10 @@ static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
 	"ERROR", // eLOGLEVEL_ERROR
 };
 
-thread_local int gPlayerId = -1;
-
 /**
  * @brief Print logs to console / log file
  */
-void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const char *format, ...)
+void logprintf(int playerId, AAMP_LogLevel logLevelIndex, const char* file, int line, const char *format, ...)
 {
 	char timestamp[AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS];
 	timestamp[0] = 0x00;
@@ -432,7 +432,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 		format_bytes = snprintf(format_ptr, format_bytes,
 							   "%s[AAMP-PLAYER][%d][%s][%zx][%s][%d]%s\n",
 							   timestamp,
-							   gPlayerId,
+							   playerId,
 							   mLogLevelStr[logLevelIndex],
 							   GetPrintableThreadID(),
 							   file, line,

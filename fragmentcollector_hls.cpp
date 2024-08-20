@@ -4933,7 +4933,6 @@ void TrackState::FragmentCollector(void)
 	{
 		AAMPLOG_WARN("aamp_pthread_setname failed");
 	}
-	UsingPlayerId player(aamp->mPlayerId);
 	RunFetchLoop();
 	return;
 }
