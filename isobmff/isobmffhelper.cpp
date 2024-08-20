@@ -73,6 +73,25 @@ bool IsoBmffRestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::strin
 	return retval;
 }
 
+bool IsoBmffSetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
+{
+	bool retval{false};
+	IsoBmffBuffer isoBmffBuffer{};
+
+	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t *>(buffer.GetPtr()), buffer.GetLen());
+
+	if (!isoBmffBuffer.parseBuffer())
+	{
+		AAMPLOG_WARN("Failed to parse buffer");
+	}
+	else
+	{
+		retval = isoBmffBuffer.setTrickmodeTimescale(timeScale);
+	}
+
+	return retval;
+}
+
 bool IsoBmffSetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, uint64_t duration)
 {
 	bool retval{false};

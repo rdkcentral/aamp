@@ -128,3 +128,37 @@ TEST_F(IsoBmffHelperTests, setPtsAndDurationNegativeTest)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setPtsAndDuration(_, _)).Times(0);
 	EXPECT_FALSE(IsoBmffSetPtsAndDuration(buffer, pts, duration));
 }
+
+/**
+ * @brief Test the set timescale function
+ *        Verify that IsoBmffBuffer::IsoBmffSetTimescale() is called
+ */
+TEST_F(IsoBmffHelperTests, setTimescaleTest)
+{
+	AampGrowableBuffer buffer{"IsoBmffHelperTests-setTimescale"};
+	uint8_t bufferContent[]{"IsoBmff buffer content"};
+	// Set the pointer and length in the AampGrowableBuffer fake
+	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setTrickmodeTimescale(1000)).WillOnce(Return(true));
+	EXPECT_TRUE(IsoBmffSetTimescale(buffer, 1000));
+}
+
+/**
+ * @brief Test the set timescale function (negative case)
+ *        Verify that IsoBmffSetTimescale returns false if
+ *        IsoBmffBuffer::setTrickmodeTimescale() fails
+ */
+
+TEST_F(IsoBmffHelperTests, setTimescaleTestNegativeTest)
+{
+	AampGrowableBuffer buffer{"IsoBmffHelperTests-setTimescale"};
+	uint8_t bufferContent[]{"IsoBmff buffer content"};
+	// Set the pointer and length in the AampGrowableBuffer fake
+	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setTrickmodeTimescale(1000)).WillOnce(Return(false));
+	EXPECT_FALSE(IsoBmffSetTimescale(buffer, 1000));
+}

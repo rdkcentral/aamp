@@ -43,6 +43,7 @@ public:
     MOCK_METHOD(int, UpdateBufferData, (size_t , char* &, size_t &, size_t& ));
     MOCK_METHOD(double, getTotalChunkDuration, (int));
     MOCK_METHOD(bool, ParseChunkData, (const char* , char* &, uint32_t,	size_t & , size_t &, double& , double &));
+	MOCK_METHOD(bool, setTrickmodeTimescale, (uint32_t));
 };
 
 extern MockIsoBmffBuffer *g_mockIsoBmffBuffer;

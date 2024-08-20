@@ -209,6 +209,18 @@ void IsoBmffBuffer::restampPts(int64_t offset)
     }
 }
 
+bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timeScale)
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->setTrickmodeTimescale(timeScale);
+    }
+	else
+	{
+		return false;
+	}
+}
+
 void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
 {
     if (g_mockIsoBmffBuffer)

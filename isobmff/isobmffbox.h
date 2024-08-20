@@ -382,6 +382,7 @@ class MvhdBox : public FullBox
 {
 private:
 	uint32_t timeScale;
+	uint8_t* const timeScale_loc;
 
 public:
 	/**
@@ -390,14 +391,14 @@ public:
 	 * @param[in] sz - box size
 	 * @param[in] tScale - TimeScale value
 	 */
-	MvhdBox(uint32_t sz, uint32_t tScale);
+	MvhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc);
 
 	/**
 	 * @fn MvhdBox
 	 * @param[in] fbox - box object
 	 * @param[in] tScale - TimeScale value
 	 */
-	MvhdBox(FullBox &fbox, uint32_t tScale);
+	MvhdBox(FullBox &fbox, uint32_t tScale, uint8_t* tScale_loc);
 
 	/**
 	 * @fn setTimeScale
@@ -433,6 +434,7 @@ class MdhdBox : public FullBox
 {
 private:
 	uint32_t timeScale;
+	uint8_t* const timeScale_loc;
 
 public:
 	/**
@@ -441,7 +443,7 @@ public:
 	 * @param[in] sz - box size
 	 * @param[in] tScale - TimeScale value
 	 */
-	MdhdBox(uint32_t sz, uint32_t tScale);
+	MdhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc);
 
 	/**
 	 * @fn MdhdBox
@@ -449,7 +451,7 @@ public:
 	 * @param[in] fbox - box object
 	 * @param[in] tScale - TimeScale value
 	 */
-	MdhdBox(FullBox &fbox, uint32_t tScale);
+	MdhdBox(FullBox &fbox, uint32_t tScale, uint8_t* tScale_loc);
 
 	/**
 	 * @fn setTimeScale

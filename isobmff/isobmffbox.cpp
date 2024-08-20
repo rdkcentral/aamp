@@ -343,7 +343,7 @@ FullBox::FullBox(uint32_t sz, const char btype[4], uint8_t ver, uint32_t f) : Bo
 /**
  *  @brief MvhdBox constructor
  */
-MvhdBox::MvhdBox(uint32_t sz, uint32_t tScale) : FullBox(sz, Box::MVHD, 0, 0), timeScale(tScale)
+MvhdBox::MvhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc) : FullBox(sz, Box::MVHD, 0, 0), timeScale(tScale), timeScale_loc(tScale_loc)
 {
 
 }
@@ -351,7 +351,7 @@ MvhdBox::MvhdBox(uint32_t sz, uint32_t tScale) : FullBox(sz, Box::MVHD, 0, 0), t
 /**
  *  @brief MvhdBox constructor
  */
-MvhdBox::MvhdBox(FullBox &fbox, uint32_t tScale) : FullBox(fbox), timeScale(tScale)
+MvhdBox::MvhdBox(FullBox &fbox, uint32_t tScale, uint8_t* tScale_loc) : FullBox(fbox), timeScale(tScale), timeScale_loc(tScale_loc)
 {
 
 }
@@ -362,6 +362,10 @@ MvhdBox::MvhdBox(FullBox &fbox, uint32_t tScale) : FullBox(fbox), timeScale(tSca
 void MvhdBox::setTimeScale(uint32_t tScale)
 {
 	timeScale = tScale;
+	if (nullptr != timeScale_loc)
+	{
+		WRITE_U32(timeScale_loc, tScale);
+	}
 }
 
 /**
@@ -377,6 +381,7 @@ uint32_t MvhdBox::getTimeScale()
  */
 MvhdBox* MvhdBox::constructMvhdBox(uint32_t sz, uint8_t *ptr)
 {
+	auto start{ptr};
 	uint8_t version = READ_VERSION(ptr);
 	uint32_t flags  = READ_FLAGS(ptr);
 	uint32_t tScale;
@@ -389,16 +394,18 @@ MvhdBox* MvhdBox::constructMvhdBox(uint32_t sz, uint8_t *ptr)
 	}
 	ptr += skip;
 
+	uint8_t* tScale_loc{ptr};
 	tScale = READ_U32(ptr);
 
 	FullBox fbox(sz, Box::MVHD, version, flags);
-	return new MvhdBox(fbox, tScale);
+	fbox.setBase(start);
+	return new MvhdBox(fbox, tScale, tScale_loc);
 }
 
 /**
  *  @brief MdhdBox constructor
  */
-MdhdBox::MdhdBox(uint32_t sz, uint32_t tScale) : FullBox(sz, Box::MDHD, 0, 0), timeScale(tScale)
+MdhdBox::MdhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc) : FullBox(sz, Box::MDHD, 0, 0), timeScale(tScale), timeScale_loc(tScale_loc)
 {
 
 }
@@ -406,7 +413,7 @@ MdhdBox::MdhdBox(uint32_t sz, uint32_t tScale) : FullBox(sz, Box::MDHD, 0, 0), t
 /**
  *  @brief MdhdBox constructor
  */
-MdhdBox::MdhdBox(FullBox &fbox, uint32_t tScale) : FullBox(fbox), timeScale(tScale)
+MdhdBox::MdhdBox(FullBox &fbox, uint32_t tScale, uint8_t* tScale_loc) : FullBox(fbox), timeScale(tScale), timeScale_loc(tScale_loc)
 {
 
 }
@@ -417,6 +424,10 @@ MdhdBox::MdhdBox(FullBox &fbox, uint32_t tScale) : FullBox(fbox), timeScale(tSca
 void MdhdBox::setTimeScale(uint32_t tScale)
 {
 	timeScale = tScale;
+	if (nullptr != timeScale_loc)
+	{
+		WRITE_U32(timeScale_loc, tScale);
+	}
 }
 
 /**
@@ -432,6 +443,7 @@ uint32_t MdhdBox::getTimeScale()
  */
 MdhdBox* MdhdBox::constructMdhdBox(uint32_t sz, uint8_t *ptr)
 {
+	auto start{ptr};
 	uint8_t version = READ_VERSION(ptr);
 	uint32_t flags  = READ_FLAGS(ptr);
 	uint32_t tScale;
@@ -444,10 +456,12 @@ MdhdBox* MdhdBox::constructMdhdBox(uint32_t sz, uint8_t *ptr)
 	}
 	ptr += skip;
 
+	uint8_t* tScale_loc{ptr};
 	tScale = READ_U32(ptr);
 
 	FullBox fbox(sz, Box::MDHD, version, flags);
-	return new MdhdBox(fbox, tScale);
+	fbox.setBase(start);
+	return new MdhdBox(fbox, tScale, tScale_loc);
 }
 
 /**
