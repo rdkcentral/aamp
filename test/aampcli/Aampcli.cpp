@@ -400,22 +400,25 @@ int main(int argc, char **argv)
 	printf( "[AAMPCLI] done\n" );
 }
 
-void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::string &url, std::string &adId)
+void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::vector<AdvertInfo>& adList)
 {
 	bool loop = false;
 	std::string defUrl = "";
+	int i = 0;
+	advertInfo ad;
 	mAdvertIndex = (mAdvertIndex < mAdvertList.size()) ? mAdvertIndex : 0;
 	while (mAdvertIndex < mAdvertList.size())
 	{
+		//If required duration Ad present in advert list will select it
 		if(reqDuration == mAdvertList[mAdvertIndex].duration)
 		{
-			url = mAdvertList[mAdvertIndex].url;
-			adId = "ad" + std::to_string(mAdvertIndex);
-			adDuration = mAdvertList[mAdvertIndex].duration;
+			ad.url = mAdvertList[mAdvertIndex].url;
+			ad.duration = mAdvertList[mAdvertIndex].duration;
+			adList.push_back(ad);
 			mAdvertIndex = mAdvertIndex + 1;
 			break;
 		}
-
+		
 		if((defUrl.empty()) && (mAdvertList[mAdvertIndex].duration == 0))
 		{
 			defUrl = mAdvertList[mAdvertIndex].url;
@@ -432,10 +435,33 @@ void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::str
 		}
 	}
 
-	if((adDuration == 0) && (!defUrl.empty()))
+	//Required duration is not found in advert list then will add the present ads in list
+	if(!adList.size())
 	{
-		url = defUrl;
-		adId = "adDefault";
+		mAdvertIndex = 0;
+		int curDuration = 0;
+		while((mAdvertIndex < mAdvertList.size()) && (curDuration < reqDuration))
+		{
+			if((reqDuration - curDuration) >= mAdvertList[mAdvertIndex].duration)
+			{
+				 ad.url = mAdvertList[mAdvertIndex].url;
+				 ad.duration = mAdvertList[mAdvertIndex].duration;
+				 adList.push_back(ad);
+				 mAdvertIndex = mAdvertIndex + 1;
+				 curDuration += ad.duration;
+			}
+			else
+			{
+				 mAdvertIndex = mAdvertIndex + 1;
+			}
+		}
+	}
+
+	if((!adList.size()) && (!defUrl.empty()))
+	{
+		ad.url = defUrl;
+		ad.duration = 0;
+		adList.push_back(ad);
 	}
 }
 
@@ -657,31 +683,42 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 					if ((splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_ADVERTISEMENT_START) ||
 						(splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_PLACEMENT_OPPORTUNITY_START))
 					{
-						/* A set of ads should be selected for insertion based
-						 * on the splice info event type, id and duration.
-						 */
-						AAMPLOG_WARN("[CDAI] Dynamic ad start signalled");
+							/* A set of ads should be selected for insertion based
+							 * on the splice info event type, id and duration.
+							 */
+							AAMPLOG_WARN("[CDAI] Dynamic ad start signalled");
 
-						// Default value
-						std::string url = "https://ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd";
-						std::string adId = "ad1";
-						uint32_t adDuration = 0;
-						//If we have an advert list, use that
-						if (mAdvertList.size())
-						{
-							mAampcli.getAdvertUrl(splice.duration, adDuration, url, adId);
-						}
+							uint32_t adDuration = 0;
+							std::vector<AdvertInfo> adList;
+							std::string adId = "adId";
+							//If we have an advert list, use that
+							if (mAdvertList.size())
+							{
+								mAampcli.getAdvertUrl(splice.duration, adDuration, adList);
+							}
+							else
+							{
+								// set default url 
+								advertInfo ad;
+								ad.url = "https://ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd";
+								ad.duration = 0;
+								adList.push_back(ad);
 
-						if (url == "file://skip")
-						{
-							printf("[AMPCLI] AAMP_EVENT_TIMED_METADATA skip advert placement breakId=%s adId=%s\n", ev->getId().c_str(), adId.c_str());
-						}
-						else
-						{
-							printf("[AMPCLI] AAMP_EVENT_TIMED_METADATA place advert breakId=%s adId=%s duration=%d url=%s\n", ev->getId().c_str(), adId.c_str(), adDuration, url.c_str());
-							//mAampcli.mSingleton->SetAlternateContents( ev->getId(), adId, url);
-							mAampcli.mSingleton->aamp->mCdaiObject->SetAlternateContents(ev->getId(), adId, url, adDuration, adDuration);
-						}
+							}
+
+							for(int i=0; i<adList.size(); i++)
+							{
+								adId = "adId" + std::to_string(i+1);
+								if (adList[i].url == "file://skip")
+								{
+									printf("[AMPCLI] AAMP_EVENT_TIMED_METADATA skip advert placement breakId=%s adId=%s\n", ev->getId().c_str(), adId.c_str());
+								}
+								else
+								{
+									printf("[AMPCLI] AAMP_EVENT_TIMED_METADATA place advert breakId=%s adId=%s duration=%d url=%s\n", ev->getId().c_str(), adId.c_str(), adList[i].duration, adList[i].url.c_str());
+									mAampcli.mSingleton->aamp->mCdaiObject->SetAlternateContents(ev->getId(), adId, adList[i].url, adList[i].duration, adList[i].duration);
+								}
+							}
 					}
 					else
 					{
