@@ -5360,7 +5360,6 @@ void StreamAbstractionAAMP_MPD::ProcessTrickModeRestriction(Node* node, const st
  */
 void StreamAbstractionAAMP_MPD::TrackDownloader(int trackIdx, std::string initialization)
 {
-	UsingPlayerId playerId(aamp->mPlayerId);
 	double fragmentDuration = 0.0;
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 
@@ -8104,7 +8103,6 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
  */
 void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState, bool isDiscontinuity )
 {
-	UsingPlayerId playerId(aamp->mPlayerId);
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 	bool isAllowNextFrag = true;
 	int  maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached); 
@@ -8239,7 +8237,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 void StreamAbstractionAAMP_MPD::FetcherLoop()
 {
 	aamp_pthread_setname(pthread_self(), "aampMPDFetcher");
-	UsingPlayerId playerId(aamp->mPlayerId);
+
 	bool exitFetchLoop = false;
 	bool trickPlay = (AAMP_NORMAL_PLAY_RATE != rate);
 	bool waitForFreeFrag = true;

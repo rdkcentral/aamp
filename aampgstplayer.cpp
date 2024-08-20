@@ -700,7 +700,6 @@ static void need_data(GstElement *source, guint size, AAMPGstPlayer *_this)
 	AampMediaType mediaType = GetMediaTypeForSource(source, _this);
 	if (mediaType != eMEDIATYPE_DEFAULT)
 	{
-		UsingPlayerId playerId( _this->aamp->mPlayerId );
 		struct media_stream *stream = &_this->privateContext->stream[mediaType];
 		if(stream)
 		{
@@ -727,7 +726,6 @@ static void enough_data(GstElement *source, AAMPGstPlayer *_this)
 		auto mLogObj = _this->mLogObj; // map correct log context
 		if (_this->aamp->DownloadsAreEnabled()) // avoid processing enough data if the downloads are already disabled.
 		{
-			UsingPlayerId playerId( _this->aamp->mPlayerId );
 			AampMediaType mediaType = GetMediaTypeForSource(source, _this);
 			if (mediaType != eMEDIATYPE_DEFAULT)
 			{
@@ -1108,7 +1106,6 @@ static gboolean ProgressCallbackOnTimeout(gpointer user_data)
 	if (_this)
 	{
 		auto mLogObj = _this->mLogObj; // map correct log context
-		UsingPlayerId playerId( _this->aamp->mPlayerId );
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
 			_this->privateContext->stream[i].mBufferControl.update(_this, static_cast<AampMediaType>(i));
@@ -1131,7 +1128,6 @@ static gboolean IdleCallback(gpointer user_data)
 	if (_this)
 	{
 		auto mLogObj = _this->mLogObj; // map correct log context
-		UsingPlayerId playerId( _this->aamp->mPlayerId );
 		// mAsyncTuneEnabled passed, because this could be called from Scheduler or main loop
 		_this->aamp->ReportProgress();
 		_this->IdleTaskClearFlags(_this->privateContext->firstProgressCallbackIdleTask);
@@ -1593,7 +1589,6 @@ static gboolean buffering_timeout (gpointer data)
 	AAMPGstPlayer * _this = (AAMPGstPlayer *) data;
 	if (_this && _this->privateContext)
 	{
-		UsingPlayerId playerId( _this->aamp->mPlayerId );
 		AAMPGstPlayerPriv * privateContext = _this->privateContext;
 		if (_this->privateContext->buffering_in_progress)
 		{
@@ -1665,7 +1660,6 @@ static gboolean buffering_timeout (gpointer data)
  */
 static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _this)
 {
-	UsingPlayerId playerId( _this->aamp->mPlayerId );
 	HANDLER_CONTROL_HELPER( _this->privateContext->aSyncControl, FALSE);
 	auto mLogObj = _this->mLogObj; // map correct log context
 	GError *error;
@@ -1996,7 +1990,6 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
  */
 static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _this)
 {
-	UsingPlayerId playerId( _this->aamp->mPlayerId );
 	HANDLER_CONTROL_HELPER( _this->privateContext->syncControl, GST_BUS_PASS);
 	switch(GST_MESSAGE_TYPE(msg))
 	{

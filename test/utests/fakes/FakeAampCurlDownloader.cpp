@@ -48,6 +48,12 @@ double aamp_CurlEasyGetinfoDouble( CURL *handle, CURLINFO info )
 	return rc;
 }
 
+int aamp_CurlEasyGetinfoInt( CURL *handle, CURLINFO info )
+{
+	int rc = 0;
+	return rc;
+}
+
 long aamp_CurlEasyGetinfoLong( CURL *handle, CURLINFO info )
 {
 	long rc = -1;

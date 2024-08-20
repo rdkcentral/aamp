@@ -51,7 +51,8 @@
 do { \
 	if( MYLOGOBJ && (LEVEL) >= MYLOGOBJ->aampLoglevel ) \
 	{ \
-		logprintf( LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
+		int PLAYERID = MYLOGOBJ->getPlayerId(); \
+		logprintf( PLAYERID, LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
 	} \
 } while(0)
 
@@ -66,7 +67,7 @@ do { \
 
 #define AAMPLOG_FAILOVER(FORMAT, ...) \
 		if (mLogObj && mLogObj->failover) { \
-				logprintf( eLOGLEVEL_WARN, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
+				logprintf(mLogObj->getPlayerId(), eLOGLEVEL_WARN, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
 		}
 
 /**
@@ -159,12 +160,12 @@ public:
 	bool id3;	     /**< Display ID3 tag from stream logs */
 	bool trackMemory;    /**< Track Growable Buffer Memory*/
 	static bool disableLogRedirection;
-	
+	int  mPlayerId;	     /**< Store PlayerId*/
 	/**
 	 * @brief AampLogManager constructor
 	 */
 	AampLogManager() : aampLoglevel(eLOGLEVEL_WARN), info(false), debug(false), trace(false), gst(false), curl(false), progress(false), failover(false), curlHeader(false), 
-							logMetadata(false), curlLicense(false),stream(false), id3(false),trackMemory(false)
+							logMetadata(false), curlLicense(false),stream(false), id3(false),trackMemory(false),mPlayerId(-1)
 	{
 	}
 
@@ -236,7 +237,19 @@ public:
 	 * @retval true if the log level allowed for print mechanism
 	 */
 	bool isLogLevelAllowed(AAMP_LogLevel chkLevel);
-
+	/**
+	 * @brief Set PlayerId
+	 *
+	 * @param[in] playerId - Aamp Player Id
+	 * @return void
+	 */
+	void setPlayerId(int playerId) { mPlayerId = playerId;}
+	/**
+	 * @brief Get PlayerId 
+	 *
+	 * @return int - playerId
+	 */
+	int getPlayerId() { return mPlayerId;}
 	/**
 	 * @fn setLogLevel
 	 *
@@ -273,23 +286,6 @@ public:
 
 extern AampLogManager *mLogObj;
 
-extern thread_local int gPlayerId;
-
-class UsingPlayerId
-{
-private:
-	int oldPlayerId;
-public:
-	UsingPlayerId( int playerId ): oldPlayerId(gPlayerId)
-	{
-		gPlayerId = playerId;
-	}
-	~UsingPlayerId()
-	{
-		gPlayerId = oldPlayerId;
-	}
-};
-
 /* Context-free utility function */
 
 /**
@@ -297,7 +293,7 @@ public:
  * @param[in] format - printf style string
  * @return void
  */
-extern void logprintf(AAMP_LogLevel level, const char* file, int line,const char *format, ...)  __attribute__ ((format (printf, 4, 5)));
+extern void logprintf(int playerId, AAMP_LogLevel level, const char* file, int line,const char *format, ...)  __attribute__ ((format (printf, 5, 6)));
 
 /**
  * @fn DumpBlob

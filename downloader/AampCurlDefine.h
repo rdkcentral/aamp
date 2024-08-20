@@ -127,6 +127,7 @@ enum AampCurlInstance
 
 curl_off_t aamp_CurlEasyGetinfoOffset( CURL *handle, CURLINFO info );
 double aamp_CurlEasyGetinfoDouble( CURL *handle, CURLINFO info );
+int aamp_CurlEasyGetinfoInt( CURL *handle, CURLINFO info );
 long aamp_CurlEasyGetinfoLong( CURL *handle, CURLINFO info );
 char *aamp_CurlEasyGetinfoString( CURL *handle, CURLINFO info );
 
