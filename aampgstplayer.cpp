@@ -4358,6 +4358,13 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 						  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 	{
 		AAMPLOG_ERR("Seek failed");
+		// In Ubuntu, when we handle EOS based codec switching (ie, when audio playbin is added again to pipeline),
+		// we have seen that above Flush() fails and audio playbin clock is not adjusted properly causing AV sync issues.
+		// We can't identify here if its a codec switch or normal flush, so we are setting pendingSeek to true to all tracks
+		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
+		{
+			privateContext->stream[i].pendingSeek = true;
+		}
 	}
 #if defined (REALTEKCE)
 	if(bAsyncModify == TRUE)
@@ -4387,14 +4394,18 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 	else
 	{
 		AAMPLOG_DEBUG("stream->format %d, stream->firstBufferProcessed %d", stream->format , stream->firstBufferProcessed);
-		if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF))
+		if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF) && ( !aamp->ReconfigureForCodecChange() ))
 		{
-			AAMPLOG_WARN("NO EOS: PTS-RESTAMP ENABLED");
+			AAMPLOG_WARN("NO EOS: PTS-RESTAMP ENABLED and codec has not changed");
 			aamp->CompleteDiscontinutyDataDeliverForPTSRestamp(type);
 			ret = true;
 		}
 		else
 		{
+			if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && aamp->ReconfigureForCodecChange())
+			{
+				AAMPLOG_WARN("PTS-RESTAMP ENABLED, but we have codec change, so Signal EOS (%s).",GetMediaTypeName(type));
+			}
 			AAMPGstPlayer_SignalEOS(stream);
 			// We are in buffering, but we received discontinuity, un-pause pipeline
 			StopBuffering(true);

@@ -837,7 +837,14 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 
 				if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
 				{
-					context->ProcessDiscontinuity(type);
+					if (context->GetESChangeStatus())
+					{
+						stopInjection = context->ProcessDiscontinuity(type);
+					}
+					else
+					{
+						context->ProcessDiscontinuity(type);
+					}
 					bool isDiscontinuityIgnoredForCurrentTrack = aamp->IsDiscontinuityIgnoredForCurrentTrack((AampMediaType)type);
 					if( true != isDiscontinuityIgnoredForCurrentTrack )
 					{
@@ -852,8 +859,12 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 
 					if(type != eTRACK_SUBTITLE)
 					{
-						context->resetDiscontinuityTrackState();
-						aamp->ResetDiscontinuityInTracks();
+						// Reset the discontinuity flags if we are not stopping injection
+						if (!stopInjection)
+						{
+							context->resetDiscontinuityTrackState();
+							aamp->ResetDiscontinuityInTracks();
+						}
 					}
 
 				}
@@ -3000,7 +3011,7 @@ void StreamAbstractionAAMP::WaitForAudioTrackCatchup()
 	pthread_mutex_lock(&mLock);
 	double audioDuration = audio->GetTotalInjectedDuration();
 	double subtitleDuration = subtitle->GetTotalInjectedDuration();
-	//Allow subtitles to be ahead by 5 seconds compared to audio
+	//Allow subtitles to be ahead by 15 seconds compared to audio
 	while ((subtitleDuration > (audioDuration + audio->fragmentDurationSeconds + 15.0)) && aamp->DownloadsAreEnabled() && !subtitle->IsDiscontinuityProcessed() && !audio->IsInjectionAborted())
 	{
 		AAMPLOG_DEBUG("Blocked on Inside mSubCond with sub:%f and audio:%f", subtitleDuration, audioDuration);
@@ -3233,6 +3244,10 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 	{
 		aamp->Discontinuity(eMEDIATYPE_AUX_AUDIO, false);
 	}
+	else if (type == eTRACK_SUBTITLE)
+	{
+		ret=true;
+	}
 
 	if (state != eDISCONTIUITY_FREE)
 	{
@@ -3272,7 +3287,7 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 				aborted = true;
 			}
 		}
-
+		AAMPLOG_WARN("track[%d] mTrackState:%d wait:%d aborted:%d", type, mTrackState, wait, aborted);
 		// We can't ensure that mTrackState == eDISCONTINUIY_IN_BOTH after wait, because
 		// if Discontinuity() returns false, we need to reset the track bit from mTrackState
 		if (mTrackState == eDISCONTINUIY_IN_BOTH || (wait && !aborted))
