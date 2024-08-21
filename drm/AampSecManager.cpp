@@ -83,7 +83,7 @@ AampSecManager::AampSecManager() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSecMut
 	/*Start Scheduler for handling RDKShell API invocation*/    
 	if(false == mSchedulerStarted)
 	{
-		StartScheduler();
+		StartScheduler(-1); // pass dummy required playerId parameter; note that we don't yet have a valid mAamp to derive it from
 		mSchedulerStarted = true;
 	}
 

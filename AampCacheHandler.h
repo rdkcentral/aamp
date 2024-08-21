@@ -110,6 +110,7 @@ typedef struct initfragtrackstruct
 class AampCacheHandler
 {
 private:
+	int mPlayerId;
 	typedef std::unordered_map<std::string, PlayListCachedData *> PlaylistCache ;
 	typedef std::unordered_map<std::string, PlayListCachedData *>::iterator PlaylistCacheIter;
 	PlaylistCache mPlaylistCache;
@@ -190,7 +191,7 @@ public:
 	 *
 	 *	 @return void
 	 */
-	AampCacheHandler(AampLogManager *logObj);
+	AampCacheHandler(int playerid, AampLogManager *logObj);
 
 	/**
 	*        @fn ~AampCacheHandler
