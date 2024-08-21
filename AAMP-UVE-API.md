@@ -1167,8 +1167,10 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 
 |Name|Type|Description|
 |----|----|-----------|
-| languages | String | ISO-639 audio language preference; for more than one language, provide comma delimited list from highest to lowest priority:  ‘<HIGHEST>,<...>,<LOWEST>’ |
+| language | String | ISO-639 audio language preference |
+| languages | String | comma-delimited ISO-639 audio language preference list from highest to lowest priority:  ‘<HIGHEST>,<...>,<LOWEST>’ |
 | rendition | String | Optional preferred rendition for automatic text selection |
+| instreamId | String | Optional preferred instreamId (i.e. CC1, CC2) for automatic text selection |
 | label	| String | Preferred Label for automatic text selection |
 | accessibilityType | String |	Optional preferred accessibility Node for descriptive audio.|
 | accessibility | Object | Optional preferred accessibility object for audio |

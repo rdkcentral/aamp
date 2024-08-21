@@ -1186,6 +1186,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, preferredTextTypeString("")
 	, preferredTextLabelString("")
 	, preferredTextAccessibilityNode()
+	, preferredInstreamIdString("")
 	, preferredNameString("")
 	, mProgressReportOffset(-1), mFirstFragmentTimeOffset(-1), mProgressReportAvailabilityOffset(-1)
 	, mAutoResumeTaskId(AAMP_TASK_ID_INVALID), mAutoResumeTaskPending(false), mScheduler(NULL), mEventLock(), mEventPriority(G_PRIORITY_DEFAULT_IDLE)
@@ -11987,7 +11988,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 	/**< First argment is Json data then parse it and and assign the variables properly*/
 	AampJsonObject* jsObject = NULL;
 	bool isJson = false;
-	bool isRetuneNeeded = false;
 	bool accessibilityPresent = false;
 
 	// IsLocalAAMPTsb will be set once the playback of HiFi LLD stream starts and local TSB config is enabled
@@ -12038,6 +12038,13 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				inputTextLanguagesList.push_back(inputTextLanguagesString);
 			}
 		}
+		else if (jsObject->isString("language"))
+		{
+			if (jsObject->get("language", inputTextLanguagesString))
+			{
+				inputTextLanguagesList.push_back(inputTextLanguagesString);
+			}
+		}
 		else
 		{
 			AAMPLOG_ERR("Preferred Text Language Field Only support String or String Array");
@@ -12063,6 +12070,16 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			if (jsObject->get("label", inputTextLabelString))
 			{
 				AAMPLOG_INFO("Preferred text label string: %s", inputTextLabelString.c_str());
+			}
+		}
+
+		std::string inputInstreamIdString;
+		/** Get instreamId*/
+		if (jsObject->isString("instreamId"))
+		{
+			if (jsObject->get("instreamId", inputInstreamIdString))
+			{
+				AAMPLOG_INFO("Preferred instreamId string: %s", inputInstreamIdString.c_str());
 			}
 		}
 
@@ -12108,17 +12125,12 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 		/**< Release json object **/
 		SAFE_DELETE(jsObject);
 
-		if((inputTextLanguagesList != preferredTextLanguagesList) || (inputTextRenditionString != preferredTextRenditionString) ||
-		(inputTextAccessibilityNode != preferredTextAccessibilityNode))
-		{
-			isRetuneNeeded = true;
-		}
-
 		preferredTextLanguagesList.clear();
 		preferredTextLanguagesString.clear();
 		preferredTextRenditionString.clear();
 		preferredTextAccessibilityNode.clear();
 		preferredTextLabelString.clear();
+		preferredInstreamIdString.clear();
 
 		preferredTextLanguagesList = inputTextLanguagesList;
 		preferredTextLanguagesString = inputTextLanguagesString;
@@ -12126,6 +12138,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 		preferredTextAccessibilityNode = inputTextAccessibilityNode;
 		preferredTextLabelString = inputTextLabelString;
 		preferredTextTypeString = inputTextTypeString;
+		preferredInstreamIdString = inputInstreamIdString;
 
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLanguage,preferredTextLanguagesString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextRendition,preferredTextRenditionString);
@@ -12138,10 +12151,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 		std::string inputTextLanguagesString;
 		inputTextLanguagesString = std::string(param);
 
-		if (inputTextLanguagesString != preferredTextLanguagesString)
-		{
-			isRetuneNeeded = true;
-		}
 		preferredTextLanguagesList.clear();
 		preferredTextLanguagesList.push_back(inputTextLanguagesString);
 		preferredTextLanguagesString = inputTextLanguagesString;
@@ -12155,7 +12164,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 
 	PrivAAMPState state;
 	GetState(state);
-	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR && isRetuneNeeded )
+	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR )
 	{ // active playback session; apply immediately
 		if (mpStreamAbstractionAAMP)
 		{
@@ -12163,6 +12172,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			bool renditionPresent = false;
 			bool accessibilityTypePresent = false;
 			bool labelPresent = false;
+			bool instreamIdPresent = false;
 			int trackIndex = GetTextTrack();
 			bool languageAvailabilityInManifest = false;
 			bool renditionAvailabilityInManifest = false;
@@ -12175,6 +12185,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
 				char *currentPrefLanguage = const_cast<char*>(trackInfo[trackIndex].language.c_str());
 				char *currentPrefRendition = const_cast<char*>(trackInfo[trackIndex].rendition.c_str());
+				char *currentPrefInstreamId =  const_cast<char*>(trackInfo[trackIndex].instreamId.c_str());
 
 				// Logic to check whether the given language is present in the available tracks,
 				// if available, it should not match with current preferredLanguagesString, then call tune to reflect the language change.
@@ -12223,6 +12234,18 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 						}
 					}
 				}
+
+				//Logic to check whether the given instreamId is present in the available tracks,
+				//if available, it should not match with current preferredInstreamIdString, then call tune to reflect the track change.
+				//if not available, then avoid calling tune.
+				if(!preferredInstreamIdString.empty())
+				{
+					std::string curInstreamId = preferredInstreamIdString;
+					auto instreamId = std::find_if(trackInfo.begin(), trackInfo.end(),
+								[curInstreamId, currentPrefInstreamId] (TextTrackInfo& temp)
+								{ return ((temp.instreamId == curInstreamId) && (temp.instreamId != currentPrefInstreamId)); });
+					instreamIdPresent = (instreamId != end(trackInfo));
+				}
 			}
 			else
 			{
@@ -12234,7 +12257,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			{
 				/**< Avoid retuning in case of HEMIIN and COMPOSITE IN*/
 			}
-			else if (languagePresent || renditionPresent || accessibilityPresent || trackNotEnabled) /**< call the tune only if there is a change in the language, rendition or accessibility.*/
+			else if (languagePresent || renditionPresent || accessibilityPresent || instreamIdPresent || trackNotEnabled) /**< call the tune only if there is a change in the language, rendition or accessibility.*/
 			{
 				discardEnteringLiveEvt = true;
 				seek_pos_seconds = GetPositionSeconds();
@@ -12254,6 +12277,52 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				TuneHelper(eTUNETYPE_SEEK);
 				discardEnteringLiveEvt = false;
 				ReleaseStreamLock();
+
+				std::vector<TextTrackInfo> tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
+				long trackId = -1;
+				if (instreamIdPresent || (trackNotEnabled && !preferredInstreamIdString.empty()))
+				{
+					for (auto it = tracks.begin(); it != tracks.end(); it++)
+					{
+						if ((it->instreamId == preferredInstreamIdString) && it->isCC)
+						{
+							trackId = std::distance(tracks.begin(), it);
+						}
+					}
+				}
+				else if ((languagePresent || (trackNotEnabled && !preferredTextLanguagesString.empty())) && (preferredRenditionString != "subtitle")) // if no match found for instreamId, check for language string match
+				{
+					for (auto it = tracks.begin(); it != tracks.end(); it++)
+					{
+						if ((it->language == preferredTextLanguagesString) && it->isCC)
+						{
+							trackId = std::distance(tracks.begin(), it);
+						}
+					}
+				}
+				if (trackId >= 0 && trackId < tracks.size())
+				{
+					TextTrackInfo track = tracks[trackId];
+#ifdef AAMP_CC_ENABLED
+					if(!track.instreamId.empty())
+					{
+						CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
+						if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0]))) && !track.rendition.empty())
+						{
+							if (track.rendition.find("608") != std::string::npos)
+							{
+								format = eCLOSEDCAPTION_FORMAT_608;
+							}
+							else if (track.rendition.find("708") != std::string::npos)
+							{
+								format = eCLOSEDCAPTION_FORMAT_708;
+							}
+						}
+						AampCCManager::GetInstance()->SetTrack(track.instreamId, format);
+					}
+#endif
+				}
+
 			}
 		}
 	}
