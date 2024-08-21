@@ -33,7 +33,7 @@ class AampEventManagerTest : public Test {
 protected:
     class TestableAampEventManager : public AampEventManager{
         public:
-            TestableAampEventManager(AampLogManager *mLogObj) : AampEventManager(-1,mLogObj)
+            TestableAampEventManager(AampLogManager *mLogObj) : AampEventManager(mLogObj)
             {
             }
             void CallSetCallbackAsDispatched(guint id)

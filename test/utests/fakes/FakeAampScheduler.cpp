@@ -30,7 +30,7 @@ AampScheduler::~AampScheduler()
 {
 }
 
-void AampScheduler::StartScheduler( int playerId )
+void AampScheduler::StartScheduler()
 {
 }
 

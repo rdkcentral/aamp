@@ -1283,13 +1283,15 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mIsFlushFdsInCurlStore(false)
 {
 	mLogObj = mConfig->GetLoggerInstance();
-	mAampCacheHandler = new AampCacheHandler(mPlayerId, mConfig->GetLoggerInstance());
+	mLogObj->setPlayerId(mPlayerId); // update logger with incremented PLAYERID_CNTR
+	//LazilyLoadConfigIfNeeded();
+	mAampCacheHandler = new AampCacheHandler(mConfig->GetLoggerInstance());
 #ifdef AAMP_CC_ENABLED
 	AampCCManager::GetInstance()->SetLogger(mConfig->GetLoggerInstance());
 #endif
 	profiler.SetLogger(mConfig->GetLoggerInstance());
 	// Create the event manager for player instance
-	mEventManager = new AampEventManager(mPlayerId, mLogObj);
+	mEventManager = new AampEventManager(mLogObj);
 	// Create the CMCD collector
 	mCMCDCollector = new AampCMCDCollector(mLogObj);
 

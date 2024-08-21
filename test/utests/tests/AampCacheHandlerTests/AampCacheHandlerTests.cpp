@@ -11,7 +11,7 @@ protected:
     AampCacheHandler *handler = nullptr;
     void SetUp() override
     {
-        handler = new AampCacheHandler(-1,gpGlobalConfig->GetLoggerInstance());
+        handler = new AampCacheHandler(gpGlobalConfig->GetLoggerInstance());
         
     }
     void TearDown() override
@@ -191,7 +191,7 @@ protected:
     {
     public:
         TestableAampCacheHandler(AampLogManager *logObj)
-            : AampCacheHandler(-1,logObj)
+            : AampCacheHandler(logObj)
         {
         }
 
