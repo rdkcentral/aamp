@@ -8056,6 +8056,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 {
 	UsingPlayerId playerId(aamp->mPlayerId);
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
+	bool lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
 	bool isAllowNextFrag = true;
 	int  maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached); 
 	int  vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS); 
@@ -8088,7 +8089,8 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	{
 		if (pMediaStreamContext->adaptationSet )
 		{
-			if((pMediaStreamContext->numberOfFragmentsCached != maxCachedFragmentsPerTrack) && !(pMediaStreamContext->profileChanged))
+			if((pMediaStreamContext->numberOfFragmentsCached != maxCachedFragmentsPerTrack) && !(pMediaStreamContext->profileChanged) &&
+				(!lowLatency || aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx))))
 			{	// profile not changed and Cache not full scenario
 				if (!pMediaStreamContext->eos)
 				{
@@ -8166,7 +8168,8 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 				FetchAndInjectInitialization(trackIdx,isDiscontinuity);
 			}
 
-			if(pMediaStreamContext->numberOfFragmentsCached != maxCachedFragmentsPerTrack && bCacheFullState)
+			if((pMediaStreamContext->numberOfFragmentsCached != maxCachedFragmentsPerTrack) && bCacheFullState &&
+				(!lowLatency || aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx))))
 			{
 				*bCacheFullState = false;
 			}
