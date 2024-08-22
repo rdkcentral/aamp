@@ -11486,13 +11486,15 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 
 		AAMPLOG_INFO("Number of preferred languages received: %zu", inputLanguagesList.size());
 		AAMPLOG_INFO("Preferred language string received: %s", inputLanguagesString.c_str());
-
+		
+		std::vector<std::string> inputLabelList;
 		std::string inputLabelsString;
 		/** Get Label Properties*/
 		if (jsObject->isString("label"))
 		{
 			if (jsObject->get("label", inputLabelsString))
 			{
+				inputLabelList.push_back(inputLabelsString);
 				AAMPLOG_INFO("Preferred Label string: %s", inputLabelsString.c_str());
 			}
 		}
@@ -11589,6 +11591,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		/** Clear the cache **/
 		preferredAudioAccessibilityNode.clear();
 		preferredLabelsString.clear();
+		preferredLabelList.clear();
 		preferredRenditionString.clear();
 		preferredLanguagesString.clear();
 		preferredLanguagesList.clear();
@@ -11599,6 +11602,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		/** Reload the new values **/
 		preferredAudioAccessibilityNode = inputAudioAccessibilityNode;
 		preferredRenditionString = inputRenditionString;
+		preferredLabelList = inputLabelList;
 		preferredLabelsString = inputLabelsString;
 		preferredLanguagesList = inputLanguagesList;
 		preferredLanguagesString = inputLanguagesString;
