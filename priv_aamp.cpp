@@ -1283,15 +1283,13 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mIsFlushFdsInCurlStore(false)
 {
 	mLogObj = mConfig->GetLoggerInstance();
-	mLogObj->setPlayerId(mPlayerId); // update logger with incremented PLAYERID_CNTR
-	//LazilyLoadConfigIfNeeded();
-	mAampCacheHandler = new AampCacheHandler(mConfig->GetLoggerInstance());
+	mAampCacheHandler = new AampCacheHandler(mPlayerId, mConfig->GetLoggerInstance());
 #ifdef AAMP_CC_ENABLED
 	AampCCManager::GetInstance()->SetLogger(mConfig->GetLoggerInstance());
 #endif
 	profiler.SetLogger(mConfig->GetLoggerInstance());
 	// Create the event manager for player instance
-	mEventManager = new AampEventManager(mLogObj);
+	mEventManager = new AampEventManager(mPlayerId, mLogObj);
 	// Create the CMCD collector
 	mCMCDCollector = new AampCMCDCollector(mLogObj);
 
@@ -1698,7 +1696,7 @@ void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMi
 		{
 			mPausePositionMonitoringThreadID = std::thread(&PrivateInstanceAAMP ::RunPausePositionMonitoring, this);
 			mPausePositionMonitoringThreadStarted = true;
-			AAMPLOG_INFO("Thread created for RunPausePositionMonitoring [%lu]", GetPrintableThreadID(mPausePositionMonitoringThreadID));
+			AAMPLOG_INFO("Thread created for RunPausePositionMonitoring [%zx]", GetPrintableThreadID(mPausePositionMonitoringThreadID));
 		}
 		catch(const std::exception& e)
 		{
@@ -1737,12 +1735,10 @@ void PrivateInstanceAAMP::StopPausePositionMonitoring(std::string reason)
 void PrivateInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)
 {
 	// CID:306170 - Data race condition
-	if(!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) || (mVideoFormat != FORMAT_ISO_BMFF))
-	{
-		AAMPLOG_WARN("Discontinuity process is yet to complete, going to wait until it is done");
-		std::unique_lock<std::mutex>lock(mDiscoCompleteLock);
-		mWaitForDiscoToComplete.wait(lock, [this]{ return (false == mIsPeriodChangeMarked); });
-	}
+	AAMPLOG_WARN("Discontinuity process is yet to complete, going to wait until it is done");
+	std::unique_lock<std::mutex>lock(mDiscoCompleteLock);
+	mWaitForDiscoToComplete.wait(lock, [this]{ return (false == mIsPeriodChangeMarked); });
+	AAMPLOG_WARN("Discontinuity process wait is done");
 }
 
 /**
@@ -1876,7 +1872,7 @@ void PrivateInstanceAAMP::StartRateCorrectionWokerthread(void)
 		{
 			mAbortRateCorrection = false;
 			mRateCorrectionThread = std::thread(&PrivateInstanceAAMP::RateCorrectionWokerthread, this);
-			AAMPLOG_INFO("Rate Correction Thread started [%lu]", GetPrintableThreadID(mRateCorrectionThread)); //Print Id - KC
+			AAMPLOG_INFO("Rate Correction Thread started [%zx]", GetPrintableThreadID(mRateCorrectionThread)); //Print Id - KC
 		}
 	}
 	catch (exception& exp)
@@ -2029,6 +2025,22 @@ void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
 		ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection));
 	}
 }
+
+/**
+ * @brief API returns true is live stream and playing at the live point
+ */
+bool PrivateInstanceAAMP::IsAtLivePoint()
+{
+	if (mpStreamAbstractionAAMP)
+	{
+		if (IsLiveStream())
+		{
+			return mpStreamAbstractionAAMP->mIsAtLivePoint;
+		}
+	}
+	return false;
+}
+
 
 /**
  * @brief API to correct the latency by adjusting rate of playback
@@ -2959,7 +2971,7 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 #ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
-		mDRMSessionManager->setPlaybackSpeedState(rate,seek_pos_seconds);
+		mDRMSessionManager->setPlaybackSpeedState(rate, GetStreamPositionMs());
 	}
 #endif
 }
@@ -4318,11 +4330,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						timeoutClass = "(" + to_string(reqSize > 0) + ")";
 					}
 
-					AAMPLOG(mLogObj, reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s%c%s",
+					AAMPLOG(mLogObj, reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s%s%s",
 							appName.c_str(), mediaTypeTelemetry, mediaType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize,downloadbps,
 							(((mediaType == eMEDIATYPE_VIDEO) || (mediaType == eMEDIATYPE_INIT_VIDEO) || (mediaType == eMEDIATYPE_PLAYLIST_VIDEO)) ? mpStreamAbstractionAAMP->GetVideoBitrate() : 0), // Video fragment current bitrate
 							((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
-							range?';':' ', range?range:"");
+							range?";":"", range?range:"");
 					AAMPLOG_INFO("External Processing Delay : %lld", context.processDelay);
 					if(ui32CurlTrace < 10 )
 					{
@@ -4391,7 +4403,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				double dlSize = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
 #endif
 				long reqSize  = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
-				AAMPLOG_WARN("Invalid buffer - BufferPtr: %p, BufferLen: %lu, Dlsize : %lf ,Reqsize : %ld, Url: %s",
+				AAMPLOG_WARN("Invalid buffer - BufferPtr: %p, BufferLen: %zu, Dlsize : %lf ,Reqsize : %ld, Url: %s",
 						buffer->GetPtr(), buffer->GetLen(),
 						dlSize,reqSize,(res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str());
 			}
@@ -5135,7 +5147,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mOrigManifestUrl.isRemotehost = !(aamp_IsLocalHost(mOrigManifestUrl.hostname));
 		AAMPLOG_TRACE("CurlTrace OrigManifest url:%s", mOrigManifestUrl.hostname.c_str());
 	}
-#ifndef INTELCE // for intel device, DASH playback is not supported
 	if(mMediaFormat == eMEDIAFORMAT_DASH)
 	{
 		if(NULL == mMPDDownloaderInstance)
@@ -5152,7 +5163,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mMPDDownloaderInstance->Start();
 		}
 	}
-#endif
 
 	trickStartUTCMS = -1;
 
@@ -5169,12 +5179,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	{
 		if(!IsLocalAAMPTsb())
 		{
-#if defined (INTELCE)
-			AAMPLOG_ERR("Error: Dash playback not available");
-			mInitSuccess = false;
-			SendErrorEvent(AAMP_TUNE_UNSUPPORTED_STREAM_TYPE);
-			return;
-#else
 			mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(mLogObj,this, playlistSeekPos, rate,
 					std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
 						std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5)
@@ -5183,7 +5187,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			{
 				mCdaiObject = new CDAIObjectMPD(mLogObj, this); // special version for DASH
 			}
-#endif
 		}
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HLS || mMediaFormat == eMEDIAFORMAT_HLS_MP4)
@@ -5614,7 +5617,6 @@ void PrivateInstanceAAMP::ReloadTSB()
 	{
 		configPassCode = LoadFogConfig();
 	}
-#ifndef INTELCE
 	if(mMediaFormat == eMEDIAFORMAT_DASH)
 	{
 		// Restart MPD downloader thread with new session
@@ -5622,7 +5624,6 @@ void PrivateInstanceAAMP::ReloadTSB()
 		mMPDDownloaderInstance->Initialize(inpData,mLogObj,mAppName);
 		mMPDDownloaderInstance->Start();
 	}
-#endif
 	if(configPassCode == 200 || configPassCode == 204 || configPassCode == 206)
 	{
 		mMediaFormat = GetMediaFormatType(mManifestUrl.c_str());
@@ -5764,8 +5765,10 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		//cdnadsonly for cloud tsb
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_PlayAdFromCDN, true);
 	}
-	//Temp HACK TODO - Fix this
-	if(mManifestUrl.find(AAMP_LOW_LATENCY_URL_KEYWORD) != std::string::npos)
+
+	std::string lldUrlKeyword = GETCONFIGVALUE_PRIV(eAAMPConfig_LLDUrlKeyword);
+	AAMPLOG_INFO("LLD Url Keyword: %s",lldUrlKeyword.c_str());
+	if (!lldUrlKeyword.empty() && mManifestUrl.find(lldUrlKeyword) != std::string::npos)
 	{
 		// New Code to initialize the TSBSessionManager for LowLatency URL from Viper 
 		if(mTSBSessionManager)
@@ -5784,11 +5787,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 				{
 					SetIsIframeExtractionEnabled(true);
 					AAMPLOG_INFO("TSB Session Manager created and Active!!");
-				}
-				if(mTSBStore)
-				{
-					AAMPLOG_INFO("Refreshing the TSB Store session!!");
-					mTSBStore->Flush();
 				}
 				AAMPLOG_WARN("GST Audio Buffer increased to (%d) Video Buffer Size Increased to (%d) for HiFi LLD Stream", (GST_AUDIOBUFFER_SIZE_BYTES_BASE*9), (GST_VIDEOBUFFER_SIZE_BYTES_BASE*9));
 				SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_GstVideoBufBytes, (GST_VIDEOBUFFER_SIZE_BYTES_BASE*6));
@@ -7022,7 +7020,7 @@ void PrivateInstanceAAMP::UpdatePreferredAudioList()
 			preferredRenditionList.push_back(rendition);
 			AAMPLOG_INFO("Parsed preferred rendition: %s",rendition.c_str());
 		}
-		AAMPLOG_INFO("Number of preferred Renditions: %lu",
+		AAMPLOG_INFO("Number of preferred Renditions: %zu",
 				preferredRenditionList.size());
 	}
 
@@ -7036,7 +7034,7 @@ void PrivateInstanceAAMP::UpdatePreferredAudioList()
 			preferredCodecList.push_back(codec);
 			AAMPLOG_INFO("Parsed preferred codec: %s",codec.c_str());
 		}
-		AAMPLOG_INFO("Number of preferred codec: %lu",
+		AAMPLOG_INFO("Number of preferred codec: %zu",
 				preferredCodecList.size());
 	}
 
@@ -7050,7 +7048,7 @@ void PrivateInstanceAAMP::UpdatePreferredAudioList()
 			preferredLanguagesList.push_back(lng);
 			AAMPLOG_INFO("Parsed preferred lang: %s",lng.c_str());
 		}
-		AAMPLOG_INFO("Number of preferred languages: %lu",
+		AAMPLOG_INFO("Number of preferred languages: %zu",
 				preferredLanguagesList.size());
 	}
 	if(!preferredLabelsString.empty())
@@ -7063,7 +7061,7 @@ void PrivateInstanceAAMP::UpdatePreferredAudioList()
 			preferredLabelList.push_back(lng);
 			AAMPLOG_INFO("Parsed preferred Label: %s",lng.c_str());
 		}
-		AAMPLOG_INFO("Number of preferred Labels: %lu", preferredLabelList.size());
+		AAMPLOG_INFO("Number of preferred Labels: %zu", preferredLabelList.size());
 	}
 }
 
@@ -7172,7 +7170,7 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 #ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
-		mDRMSessionManager->setVideoMute(muted, seek_pos_seconds);
+		mDRMSessionManager->setVideoMute(muted, GetStreamPositionMs());
 	}
 #endif
 }
@@ -7467,8 +7465,16 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		else
 		{
 			// Optimization, culledSeconds will be 0 for VOD
-			long long contentEndMs = GetDurationMs() + (culledSeconds * 1000.0);
-			if(positionMiliseconds > contentEndMs)
+			long long contentEndMs = 0;
+			if(IsLocalAAMPTsb())
+			{
+				contentEndMs = (mAbsoluteEndPosition * 1000);
+			}
+			else
+			{
+				contentEndMs = (GetDurationMs() + (culledSeconds * 1000));
+			}
+			if(positionMiliseconds > contentEndMs && GetDurationMs() > 0)
 			{
 				AAMPLOG_WARN("Correcting positionMiliseconds %lld to contentEndMs %lld", positionMiliseconds, contentEndMs);
 				positionMiliseconds = contentEndMs;
@@ -7668,7 +7674,7 @@ void PrivateInstanceAAMP::Stop()
 	pthread_mutex_lock(&mEventLock);
 	if (mPendingAsyncEvents.size() > 0)
 	{
-		AAMPLOG_WARN("PrivateInstanceAAMP: mPendingAsyncEvents.size - %lu", mPendingAsyncEvents.size());
+		AAMPLOG_WARN("PrivateInstanceAAMP: mPendingAsyncEvents.size - %zu", mPendingAsyncEvents.size());
 		for (std::map<guint, bool>::iterator it = mPendingAsyncEvents.begin(); it != mPendingAsyncEvents.end(); it++)
 		{
 			if (it->first != 0)
@@ -8978,8 +8984,9 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 #ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
-		mDRMSessionManager->setVideoMute(video_muted, seek_pos_seconds);
-		mDRMSessionManager->setPlaybackSpeedState(rate,seek_pos_seconds, true);
+		double streamPositionMs = GetStreamPositionMs();
+		mDRMSessionManager->setVideoMute(video_muted, streamPositionMs);
+		mDRMSessionManager->setPlaybackSpeedState(rate, streamPositionMs, true);
 		int x = 0,y = 0,w = 0,h = 0;
 		if (!videoRectangle.empty())
 		{
@@ -9790,16 +9797,10 @@ void PrivateInstanceAAMP::SendId3MetadataEvent(aamp::id3_metadata::CallbackData 
 					}
 				}
 			}
-			// Logger has a maximum message size limit, warn if too big
-			// Current large ID3 tag size is 1055, but printable < MAX_DEBUG_LOG_BUFF_SIZE.
+			// ID3 tag size can be as high as 1055
 			std::string tagLog(tag.str());
 			AAMPLOG_INFO("%s", tag.str().c_str());
 			AAMPLOG_INFO("{schemeIdUri:\"%s\",value:\"%s\",presentationTime:%" PRIu64 ",timeScale:%" PRIu32 ",eventDuration:%" PRIu32 ",id:%" PRIu32 ",timestampOffset:%" PRIu64 "}",e->getSchemeIdUri().c_str(), e->getValue().c_str(), e->getPresentationTime(), e->getTimeScale(), e->getEventDuration(), e->getId(), e->getTimestampOffset());
-
-			if (printableLen > MAX_DEBUG_LOG_BUFF_SIZE)
-			{
-				AAMPLOG_WARN("ID3 log was truncated, original size %d (printable %d)" , metadataLen, printableLen);
-			}
 		}
 
 		// Copying a shared_ptr is an expensive operation, since it's no longer needed, just move it.
@@ -9931,7 +9932,7 @@ void PrivateInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput
 	mPreCacheDnldList = dnldListInput;
 	if(mPreCacheDnldList.size())
 	{
-		AAMPLOG_WARN("Got Playlist PreCache list of Size : %lu", mPreCacheDnldList.size());
+		AAMPLOG_WARN("Got Playlist PreCache list of Size : %zu", mPreCacheDnldList.size());
 	}
 
 }
@@ -10842,7 +10843,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 						CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
 						// AampCCManager expects the CC type, ie 608 or 708
 						// For DASH, there is a possibility that instreamId is just an integer so we infer rendition
-						if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0])) == 0) && !track.rendition.empty())
+						if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0]))) && !track.rendition.empty())
 						{
 							if (track.rendition.find("608") != std::string::npos)
 							{
@@ -11468,7 +11469,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			AAMPLOG_ERR("Preferred Audio Language Field Only support String or String Array");
 		}
 
-		AAMPLOG_INFO("Number of preferred languages received: %lu", inputLanguagesList.size());
+		AAMPLOG_INFO("Number of preferred languages received: %zu", inputLanguagesList.size());
 		AAMPLOG_INFO("Preferred language string received: %s", inputLanguagesString.c_str());
 
 		std::string inputLabelsString;
@@ -11623,7 +11624,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLanguage,preferredLanguagesString);
 			}
 
-			AAMPLOG_INFO("Number of preferred languages: %lu", preferredLanguagesList.size());
+			AAMPLOG_INFO("Number of preferred languages: %zu", preferredLanguagesList.size());
 
 			if(labelList != NULL)
 			{
@@ -11640,7 +11641,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 
 				preferredLabelsString = std::string(labelList);
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLabel,preferredLabelsString);
-				AAMPLOG_INFO("Number of preferred labels: %lu", preferredLabelList.size());
+				AAMPLOG_INFO("Number of preferred labels: %zu", preferredLabelList.size());
 			}
 
 			if( preferredRendition )
@@ -11687,7 +11688,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				preferredCodecString = std::string(codecList);
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioCodec,preferredCodecString);
 			}
-			AAMPLOG_INFO("Number of preferred codecs: %lu", preferredCodecList.size());
+			AAMPLOG_INFO("Number of preferred codecs: %zu", preferredCodecList.size());
 
 			if(accessibilityItem && !accessibilityItem->getSchemeId().empty())
 			{
@@ -12049,7 +12050,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			AAMPLOG_ERR("Preferred Text Language Field Only support String or String Array");
 		}
 
-		AAMPLOG_INFO("Number of preferred Text languages: %lu", inputTextLanguagesList.size());
+		AAMPLOG_INFO("Number of preferred Text languages: %zu", inputTextLanguagesList.size());
 		AAMPLOG_INFO("Preferred Text languages string: %s", inputTextLanguagesString.c_str());
 
 		std::string inputTextRenditionString;

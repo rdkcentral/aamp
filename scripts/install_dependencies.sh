@@ -32,9 +32,10 @@ function install_pkgs_darwin_fn()
         #if pkg is openssl and its successfully installed every time ensure to symlink to the latest version
         if [ $PKG = "${DEFAULT_OPENSSL_VERSION}" ]; then
             OPENSSL_PATH=$(brew --prefix ${DEFAULT_OPENSSL_VERSION})
-            OPENSSL_CUR_PATH=`readlink /usr/local/ssl`
+            # link may not exist so don't fail
+            OPENSSL_CUR_PATH=`readlink /usr/local/ssl` || true
             if [ "$OPENSSL_CUR_PATH" != "{$OPENSSL_PATH}" ] ; then
-                sudo rm -f /usr/local/ssl
+                sudo rm -f /usr/local/ssl || true
                 sudo ln -s $OPENSSL_PATH /usr/local/ssl
             fi 
         fi

@@ -1431,3 +1431,21 @@ AampTSBSessionManager *PrivateInstanceAAMP::GetTSBSessionManager()
 {
     return NULL;
 }
+std::string PrivateInstanceAAMP::GetLicenseReqProxy()
+{
+	return "";
+}
+
+std::string PrivateInstanceAAMP::GetLicenseCustomData()
+{
+	return "";
+}
+
+void PrivateInstanceAAMP::GetCustomLicenseHeaders(std::unordered_map<std::string, std::vector<std::string>>& customHeaders)
+{
+}
+
+std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
+{
+    return "";
+}

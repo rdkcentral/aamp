@@ -38,8 +38,6 @@ std::shared_ptr<MockAampLogManager> g_mockAampLogManager = nullptr;
 /**
  * @brief Log file and cfg directory path - To support dynamic directory configuration
  */
-static char gAampLog[] = "./aamp.log";
-
 bool AampLogManager::isLogLevelAllowed(AAMP_LogLevel chkLevel)
 {
 	return chkLevel >= TEST_LOG_LEVEL;
@@ -73,22 +71,37 @@ static const char *mLogLevelStr[] =
 	"FATAL"
 };
 
-void logprintf(int playerId, AAMP_LogLevel level, const char* file, int line, const char *format, ...)
+thread_local int gPlayerId = -1;
+
+void logprintf(AAMP_LogLevel level, const char* file, int line, const char *format, ...)
 {
 #ifdef ENABLE_LOGGING
-	va_list args;
-	va_start(args, format);
-
-	char gDebugPrintBuffer[MAX_DEBUG_LOG_BUFF_SIZE];
-	int len = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer), "[AAMP-PLAYER][%d][%s][%s][%d]", playerId, mLogLevelStr[level], file, line);
-	vsnprintf(&gDebugPrintBuffer[len], MAX_DEBUG_LOG_BUFF_SIZE-len, format, args);
-
-	std::cout << gDebugPrintBuffer << std::endl;
-	std::ofstream f;
-	f.open(gAampLog, std::ios::app);
-	f << gDebugPrintBuffer << std::endl;
-	f.close();
-	va_end(args);
+	int playerId = -1;
+	char *format_ptr = NULL;
+	int format_bytes = 0;
+	for( int pass=0; pass<2; pass++ )
+	{ // two pass: measure required bytes then populate format string
+		format_bytes = snprintf(format_ptr, format_bytes,
+							   "[AAMP-PLAYER][%d][%s][%zx][%s][%d]%s\n",
+							   gPlayerId,
+							   mLogLevelStr[level],
+							   GetPrintableThreadID(),
+							   file, line,
+							   format );
+		assert( format_bytes>0 );
+		if( pass==0 )
+		{
+			format_bytes++; // include nul terminator
+			format_ptr = (char *)alloca(format_bytes); // allocate on stack
+		}
+		else
+		{
+			va_list args;
+			va_start(args, format);
+			vprintf( format_ptr, args );
+			va_end(args);
+		}
+	}
 #endif
 }
 

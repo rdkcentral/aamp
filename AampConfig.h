@@ -144,7 +144,7 @@ typedef enum
 	eAAMPConfig_CurlHeader, 						/**< enable curl header response logging on curl errors*/
 	eAAMPConfig_StreamLogging,						/**< Enables HLS Playlist content logging */
 	eAAMPConfig_ID3Logging,        						/**< Enables ID3 logging */
-	eAAMPConfig_EnableGstPositionQuery, 					/**< GStreamer position query will be used for progress report events, Enabled by default for non-Intel platforms*/
+	eAAMPConfig_EnableGstPositionQuery, 					/**< GStreamer position query will be used for progress report events */
 	eAAMPConfig_MidFragmentSeek,                                            /**< Enable/Disable the Mid-Fragment seek functionality in aamp.*/
 	eAAMPConfig_PropogateURIParam,						/**< Feature where top-level manifest URI parameters included when downloading fragments*/
 	eAAMPConfig_UseWesterosSink, 						/**< Enable/Disable player to use westeros sink based video decoding */
@@ -370,6 +370,7 @@ typedef enum
 	eAAMPConfig_GstDebugLevel,							/**< gstreamer debug level as you'd define in GST_DEBUG */
 	eAAMPConfig_TsbType,
 	eAAMPConfig_TsbLocation,                                                        /**< tsbType location for local TSB storage*/
+	eAAMPConfig_LLDUrlKeyword,								/** Keyword to identify the lld stream */
 	eAAMPConfig_StringMaxValue						/**< Max value for string config always last element */
 } AAMPConfigSettingString;
 #define AAMPCONFIG_STRING_COUNT (eAAMPConfig_StringMaxValue)

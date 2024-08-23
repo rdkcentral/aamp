@@ -78,13 +78,7 @@ GstCaps* GetGstCaps(StreamOutputFormat format)
 			caps = gst_caps_new_simple ("audio/x-eac3", NULL, NULL);
 			break;
 		case FORMAT_VIDEO_ES_H264:
-#ifdef INTELCE
-			caps = gst_caps_new_simple ("video/x-h264",
-					"stream-format", G_TYPE_STRING, "avc",
-					"width", G_TYPE_INT, 1920,
-					"height", G_TYPE_INT, 1080,
-					NULL);
-#elif (defined(RPI) || defined(__APPLE__) || defined(UBUNTU))
+#if (defined(RPI) || defined(__APPLE__) || defined(UBUNTU))
 			caps = gst_caps_new_simple ("video/x-h264",
                                        "alignment", G_TYPE_STRING, "au",
                                        "stream-format", G_TYPE_STRING, "avc",

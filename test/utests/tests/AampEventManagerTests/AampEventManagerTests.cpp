@@ -24,7 +24,7 @@
 #include "AampEvent.h"
 using namespace testing;
 using namespace std;
-
+AampLogManager *mLogObj{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
 
 const std::string session_id {"6e3c49cb-6254-4324-9f5e-bddef465bdff"};
@@ -33,7 +33,7 @@ class AampEventManagerTest : public Test {
 protected:
     class TestableAampEventManager : public AampEventManager{
         public:
-            TestableAampEventManager(AampLogManager *mLogObj) : AampEventManager(mLogObj)
+            TestableAampEventManager(AampLogManager *mLogObj) : AampEventManager(-1,mLogObj)
             {
             }
             void CallSetCallbackAsDispatched(guint id)

@@ -23,6 +23,9 @@
 #include <filesystem>
 #include <thread>
 #include <fstream>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/file.h>
 
 namespace TSB
 {
@@ -41,10 +44,15 @@ using std::filesystem::directory_iterator;
 using std::filesystem::path;
 using std::filesystem::space_info;
 using std::filesystem::create_directories;
+using std::filesystem::create_directory;
 using std::filesystem::remove_all;
 using std::filesystem::rename;
 
 using std::this_thread::sleep_for;
+
+using ::open;
+using ::close;
+using ::flock;
 
 } // namespace FS
 

@@ -167,7 +167,7 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	bool PlayerInstanceAAMP::GetVideoMute(void) { return false; }
 	bool PlayerInstanceAAMP::GetCCStatus(void) { return false; }
 	bool PlayerInstanceAAMP::SetThumbnailTrack(int thumbIndex) { return false; }
-	bool PlayerInstanceAAMP::InitAAMPConfig(char *jsonStr) { return false; }
+	bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr) { return false; }
 	int PlayerInstanceAAMP::GetVideoZoom(void) { return 0; }
 	int PlayerInstanceAAMP::GetAudioVolume(void) { return 0; }
 	int PlayerInstanceAAMP::GetPlaybackRate(void) { return 0; }
@@ -183,9 +183,9 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	long PlayerInstanceAAMP::GetMaximumBitrate(void) { return 0; }
 	double PlayerInstanceAAMP::GetPlaybackPosition(void) { return 0; }
 	double PlayerInstanceAAMP::GetPlaybackDuration(void) { return 0; }
-	const char* PlayerInstanceAAMP::GetCurrentAudioLanguage() { return ""; }
-	const char* PlayerInstanceAAMP::GetCurrentDRM() { return ""; }
-    const char* PlayerInstanceAAMP::GetPreferredLanguages() { return ""; }
+	std::string PlayerInstanceAAMP::GetAudioLanguage() { return ""; }
+	std::string PlayerInstanceAAMP::GetDRM() { return ""; }
+    std::string PlayerInstanceAAMP::GetPreferredLanguages() { return ""; }
 	DRMSystems PlayerInstanceAAMP::GetPreferredDRM() { return eDRM_NONE; }
 	std::vector<BitsPerSecond> PlayerInstanceAAMP::GetVideoBitrates(void) { static std::vector<BitsPerSecond> temp; return temp; }
 	std::vector<BitsPerSecond> PlayerInstanceAAMP::GetAudioBitrates(void) { static std::vector<BitsPerSecond> temp; return temp; }

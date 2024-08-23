@@ -63,7 +63,7 @@ void MediaTrack::StartPlaylistDownloaderThread()
 			abortPlaylistDownloader = false;
 			playlistDownloaderThread = new std::thread(&MediaTrack::PlaylistDownloader, this);
 			playlistDownloaderThreadStarted = true;
-			AAMPLOG_INFO("Thread created for PlaylistDownloader [%lu]", GetPrintableThreadID(*playlistDownloaderThread));
+			AAMPLOG_INFO("Thread created for PlaylistDownloader [%zx]", GetPrintableThreadID(*playlistDownloaderThread));
 		}
 		else
 		{
@@ -156,6 +156,7 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 
 void MediaTrack::MonitorBufferHealth()
 {
+	UsingPlayerId playerId( aamp->mPlayerId );
 	int bufferHealthMonitorDelay = GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorDelay);
 	int bufferHealthMonitorInterval = GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorInterval);
 	int discontinuityTimeoutValue = GETCONFIGVALUE(eAAMPConfig_DiscontinuityTimeout);
@@ -1036,7 +1037,7 @@ bool MediaTrack::ProcessFragmentChunk()
 #endif
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
-			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%ld fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
+			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration);
 			totalInjectedChunksDuration += fduration;
 		}
@@ -1299,7 +1300,7 @@ void MediaTrack::StartInjectLoop()
 	{
 		fragmentInjectorThreadID = std::thread(&MediaTrack::RunInjectLoop, this);
 		fragmentInjectorThreadStarted = true;
-		AAMPLOG_INFO("Thread created for RunInjectLoop [%lu]", GetPrintableThreadID(fragmentInjectorThreadID));
+		AAMPLOG_INFO("Thread created for RunInjectLoop [%zx]", GetPrintableThreadID(fragmentInjectorThreadID));
 	}
 	catch(const std::exception& e)
 	{
@@ -1343,6 +1344,7 @@ void MediaTrack::NotifyCachedAudioFragmentAvailable()
 void MediaTrack::RunInjectLoop()
 {
 	AAMPLOG_WARN("fragment injector started. track %s", name);
+	UsingPlayerId playerId( aamp->mPlayerId );
 	bool notifyFirstFragment = true;
 	bool keepInjecting = true;
 	bool  lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
@@ -1353,7 +1355,7 @@ void MediaTrack::RunInjectLoop()
 		{
 			bufferMonitorThreadID = std::thread(&MediaTrack::MonitorBufferHealth, this);
 			bufferMonitorThreadStarted = true;
-			AAMPLOG_INFO("Thread created for MonitorBufferHealth [%lu]", GetPrintableThreadID(bufferMonitorThreadID));
+			AAMPLOG_INFO("Thread created for MonitorBufferHealth [%zx]", GetPrintableThreadID(bufferMonitorThreadID));
 
 		}
 		catch(const std::exception& e)

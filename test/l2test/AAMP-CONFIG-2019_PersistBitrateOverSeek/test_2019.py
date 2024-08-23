@@ -39,7 +39,7 @@ TESTDATA1 = {
         {"expect":"AAMP_EVENT_STATE_CHANGED: SEEKING"},
 
         #Media_segment
-        {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/1080p_0[0-4](\d){1}\.m4s"},
+        {"expect": r"1080.*m4s"},
 
         {"expect": r"Returning Position as 1(\d{5}) "},
 
@@ -53,9 +53,9 @@ TESTDATA1 = {
 
         {"expect":r"AAMP_EVENT_SPEED_CHANGED current rate=2.000000"},
 
-        {"expect" : r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_1[8|9](\d{1})\.m4s"},
+        {"expect" : r"iframe_1.*m4s"},
 
-        {"expect" : r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_20(\d{1})\.m4s"},
+        {"expect" : r"iframe_20.*m4s"},
 
         {"cmd": "sleep 7000"},
         

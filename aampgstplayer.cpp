@@ -701,6 +701,7 @@ static void need_data(GstElement *source, guint size, AAMPGstPlayer *_this)
 	AampMediaType mediaType = GetMediaTypeForSource(source, _this);
 	if (mediaType != eMEDIATYPE_DEFAULT)
 	{
+		UsingPlayerId playerId( _this->aamp->mPlayerId );
 		struct media_stream *stream = &_this->privateContext->stream[mediaType];
 		if(stream)
 		{
@@ -727,6 +728,7 @@ static void enough_data(GstElement *source, AAMPGstPlayer *_this)
 		auto mLogObj = _this->mLogObj; // map correct log context
 		if (_this->aamp->DownloadsAreEnabled()) // avoid processing enough data if the downloads are already disabled.
 		{
+			UsingPlayerId playerId( _this->aamp->mPlayerId );
 			AampMediaType mediaType = GetMediaTypeForSource(source, _this);
 			if (mediaType != eMEDIATYPE_DEFAULT)
 			{
@@ -1088,6 +1090,7 @@ static gboolean ProgressCallbackOnTimeout(gpointer user_data)
 	if (_this)
 	{
 		auto mLogObj = _this->mLogObj; // map correct log context
+		UsingPlayerId playerId( _this->aamp->mPlayerId );
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
 			_this->privateContext->stream[i].mBufferControl.update(_this, static_cast<AampMediaType>(i));
@@ -1110,6 +1113,7 @@ static gboolean IdleCallback(gpointer user_data)
 	if (_this)
 	{
 		auto mLogObj = _this->mLogObj; // map correct log context
+		UsingPlayerId playerId( _this->aamp->mPlayerId );
 		// mAsyncTuneEnabled passed, because this could be called from Scheduler or main loop
 		_this->aamp->ReportProgress();
 		_this->IdleTaskClearFlags(_this->privateContext->firstProgressCallbackIdleTask);
@@ -1483,7 +1487,7 @@ static void AAMPGstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0,
 			return;
 		}
 
-		AAMPLOG_WARN("## Got Underflow message from %s type %d ##", GST_ELEMENT_NAME(object), type);
+		AAMPLOG_WARN("## APP[%s] Got Underflow message from %s type %d ##", (_this->aamp->GetAppName()).c_str(), GST_ELEMENT_NAME(object), type);
 		_this->privateContext->stream[type].mBufferControl.underflow(_this, type);
 		_this->privateContext->stream[type].bufferUnderrun = true;
 
@@ -1525,7 +1529,7 @@ static void AAMPGstPlayer_OnGstPtsErrorCb(GstElement* object, guint arg0, gpoint
         AAMPGstPlayer * _this)
 {
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
-	AAMPLOG_ERR("## Got PTS error message from %s ##", GST_ELEMENT_NAME(object));
+	AAMPLOG_ERR("## APP[%s] Got PTS error message from %s ##", (_this->aamp->GetAppName()).c_str(), GST_ELEMENT_NAME(object));
 #ifdef REALTEKCE
 	if (AAMPGstPlayer_isVideoSink(GST_ELEMENT_NAME(object), _this))
 #else
@@ -1561,7 +1565,7 @@ static void AAMPGstPlayer_OnGstDecodeErrorCb(GstElement* object, guint arg0, gpo
 
 		_this->aamp->SendAnomalyEvent(ANOMALY_WARNING, "Decode Error Message Callback=%d time=%d",_this->privateContext->decodeErrorCBCount, AAMP_MIN_DECODE_ERROR_INTERVAL);
 		_this->privateContext->decodeErrorMsgTimeMS = NOW_STEADY_TS_MS;
-		AAMPLOG_ERR("## Got Decode Error message from %s ## total_cb=%d timeMs=%d", GST_ELEMENT_NAME(object),  _this->privateContext->decodeErrorCBCount, AAMP_MIN_DECODE_ERROR_INTERVAL);
+		AAMPLOG_ERR("## APP[%s] Got Decode Error message from %s ## total_cb=%d timeMs=%d", (_this->aamp->GetAppName()).c_str(), GST_ELEMENT_NAME(object),  _this->privateContext->decodeErrorCBCount, AAMP_MIN_DECODE_ERROR_INTERVAL);
 		_this->privateContext->decodeErrorCBCount = 0;
 	}
 }
@@ -1571,6 +1575,7 @@ static gboolean buffering_timeout (gpointer data)
 	AAMPGstPlayer * _this = (AAMPGstPlayer *) data;
 	if (_this && _this->privateContext)
 	{
+		UsingPlayerId playerId( _this->aamp->mPlayerId );
 		AAMPGstPlayerPriv * privateContext = _this->privateContext;
 		if (_this->privateContext->buffering_in_progress)
 		{
@@ -1642,6 +1647,7 @@ static gboolean buffering_timeout (gpointer data)
  */
 static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _this)
 {
+	UsingPlayerId playerId( _this->aamp->mPlayerId );
 	HANDLER_CONTROL_HELPER( _this->privateContext->aSyncControl, FALSE);
 	auto mLogObj = _this->mLogObj; // map correct log context
 	GError *error;
@@ -1974,6 +1980,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
  */
 static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _this)
 {
+	UsingPlayerId playerId( _this->aamp->mPlayerId );
 	HANDLER_CONTROL_HELPER( _this->privateContext->syncControl, GST_BUS_PASS);
 	switch(GST_MESSAGE_TYPE(msg))
 	{
@@ -2917,7 +2924,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 		}
 #endif
 
-		AAMPLOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT "", mediaType, initFragment, pts);
+		AAMPLOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
 
 	}
 
@@ -2940,7 +2947,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 				GST_BUFFER_PTS(buffer) = pts;
 				GST_BUFFER_DTS(buffer) = dts;
 				GST_BUFFER_DURATION(buffer) = duration;
-				AAMPLOG_DEBUG("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" ", mediaType, pts, dts);
+				AAMPLOG_DEBUG("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT, mediaType, pts, dts);
 			}
 			else
 			{
@@ -2956,7 +2963,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 				GST_BUFFER_PTS(buffer) = pts;
 				GST_BUFFER_DTS(buffer) = dts;
 				GST_BUFFER_DURATION(buffer) = duration;
-				AAMPLOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%ld init:%d discontinuity:%d", mediaType, pts, dts, len, initFragment, discontinuity);
+				AAMPLOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%zu init:%d discontinuity:%d", mediaType, pts, dts, len, initFragment, discontinuity);
 			}
 			else
 			{

@@ -110,6 +110,26 @@ DrmMetaDataEvent::DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &a
 {
 }
 
+void DrmMetaDataEvent::setFailure(AAMPTuneFailure failure)
+{	
+}
+
+void DrmMetaDataEvent::setResponseCode(int code)
+{
+}
+
+void DrmMetaDataEvent::setSecclientError(bool secClientError)
+{
+}
+
+void DrmMetaDataEvent::setHeaderResponses(const std::vector<std::string> &responses)
+{
+}
+
+void DrmMetaDataEvent::setSecManagerReasonCode(int32_t code)
+{
+}
+
 AAMPTuneFailure DrmMetaDataEvent::getFailure() const
 {
 	return AAMP_TUNE_INIT_FAILED;

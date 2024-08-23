@@ -24,31 +24,23 @@
 
 #include <cstdarg>
 
-
-#define MAX_DEBUG_LOG_BUFF_SIZE 512
-
-
 MockSdJournal *g_mockSdJournal = nullptr;
 
-
-int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...)
-{
+int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list arg )
+{ // truncated to LINE_MAX - 8
     int ret_val = -1;
-
     if (g_mockSdJournal != nullptr)
     {
-        va_list arg;
-        char buffer[MAX_DEBUG_LOG_BUFF_SIZE];
-
-        va_start(arg, format);
-        if (vsnprintf(buffer, MAX_DEBUG_LOG_BUFF_SIZE, format, arg) >= 0)
-        {
-            /* Print the message on the console before calling the mock. */
-            printf("%s\n", buffer);
-            ret_val = g_mockSdJournal->sd_journal_print_mock(priority, buffer);
-        }
-        va_end(arg);
+		int buffer_len = 2040;
+		char *buffer_ptr = (char *)calloc(buffer_len,1);
+		if( buffer_ptr )
+		{
+			buffer_len = vsnprintf(buffer_ptr, buffer_len, format, arg);
+			assert( buffer_len>0 );
+			printf( "%s\n", buffer_ptr );
+			ret_val = g_mockSdJournal->sd_journal_print_mock(priority, buffer_ptr);
+			free( buffer_ptr );
+		}
     }
-
     return ret_val;
 }

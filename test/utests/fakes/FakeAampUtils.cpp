@@ -185,7 +185,12 @@ std::string aamp_PostJsonRPC( std::string id, std::string method, std::string pa
 
 std::size_t GetPrintableThreadID( const std::thread &t )
 {
-    return 0;
+	return 0;
+}
+
+std::size_t GetPrintableThreadID()
+{
+	return 0;
 }
 
 const FormatMap * GetAudioFormatForCodec( const char *codecs )
@@ -478,6 +483,14 @@ uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial)
 const char *GetDrmSystemName(DRMSystems drmSystem)
 {
 	return "";
+}
+
+DRMSystems GetDrmSystem(std::string drmSystemID)
+{
+	return eDRM_NONE;
+}
+void mssleep(int milliseconds)
+{
 }
 
 const char *GetDrmSystemID(DRMSystems drmSystem)

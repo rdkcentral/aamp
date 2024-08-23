@@ -19,7 +19,7 @@
 
 #include "AampCacheHandler.h"
 
-AampCacheHandler::AampCacheHandler(AampLogManager *logObj)
+AampCacheHandler::AampCacheHandler(int playerId, AampLogManager *logObj)
 {
 }
 

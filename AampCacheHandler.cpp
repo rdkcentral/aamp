@@ -69,7 +69,7 @@ void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGr
 					bool cacheStoreReady = true;
 					if(mMaxPlaylistCacheSize != PLAYLIST_CACHE_SIZE_UNLIMITED  && ((mCacheStoredSize + buffer->GetLen()) > mMaxPlaylistCacheSize))
 					{
-						AAMPLOG_WARN("Count[%lu]Avail[%d]Needed[%zu] Reached max cache size", mPlaylistCache.size(),mCacheStoredSize,buffer->GetLen() );
+						AAMPLOG_WARN("Count[%zu]Avail[%d]Needed[%zu] Reached max cache size", mPlaylistCache.size(),mCacheStoredSize,buffer->GetLen() );
 						cacheStoreReady = AllocatePlaylistCacheSlot(mediaType,buffer->GetLen() );
 					}
 					if(cacheStoreReady)
@@ -273,7 +273,7 @@ void AampCacheHandler::Init()
 		pthread_mutex_lock(&mCondVarMutex);
 		mAsyncCacheCleanUpThread = true;
 		pthread_mutex_unlock(&mCondVarMutex);  //CID:168111 - Missing lock
-		AAMPLOG_INFO("Thread created AsyncCacheCleanUpTask[%lu]", GetPrintableThreadID(mAsyncCleanUpTaskThreadId));
+		AAMPLOG_INFO("Thread created AsyncCacheCleanUpTask[%zx]", GetPrintableThreadID(mAsyncCleanUpTaskThreadId));
 	}
 	catch(std::exception &e)
 	{
@@ -310,13 +310,13 @@ void AampCacheHandler::ClearCacheHandler()
 /**
  *  @brief Default Constructor
  */
-AampCacheHandler::AampCacheHandler(AampLogManager *logObj):
+AampCacheHandler::AampCacheHandler(int playerId,AampLogManager *logObj):
 	mCacheStoredSize(0),mAsyncCleanUpTaskThreadId(),mCacheActive(false),
 	mAsyncCacheCleanUpThread(false),mMutex(),mCondVarMutex(),mCondVar(),mPlaylistCache()
 	,mMaxPlaylistCacheSize(MAX_PLAYLIST_CACHE_SIZE*1024),mInitialized(false)
 	,mLogObj(logObj)
 	,umInitFragCache(),umCacheTrackQ(),bInitFragCache(false),mInitFragMutex()
-	,MaxInitCacheSlot(MAX_INIT_FRAGMENT_CACHE_PER_TRACK)
+	,MaxInitCacheSlot(MAX_INIT_FRAGMENT_CACHE_PER_TRACK),mPlayerId(playerId)
 {
 	pthread_mutex_init(&mCondVarMutex, NULL);
 	pthread_cond_init(&mCondVar, NULL);
@@ -365,6 +365,7 @@ void AampCacheHandler::StopPlaylistCache()
  */
 void AampCacheHandler::AsyncCacheCleanUpTask()
 {
+	UsingPlayerId playerId( mPlayerId );
 	pthread_mutex_lock(&mCondVarMutex);
 	while (mAsyncCacheCleanUpThread)
 	{

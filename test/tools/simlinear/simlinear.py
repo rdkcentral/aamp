@@ -22,7 +22,8 @@ import webargs
 from webargs.flaskparser import use_args
 from library.manifests import read_harvest_details, ManifestServerCommon
 from collections import defaultdict
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qsl, urlsplit #RDKAAMP-3019
+import base64 #RDKAAMP-3019
 from socketserver import ThreadingMixIn
 
 """
@@ -74,8 +75,8 @@ restart = True
 
 liveLatency = False
 LLsize = 100000
-LLmidDelay = 10
-LLpreDelay = 10
+LLfirstDelay = 10
+LLdelay = 10
 
 #threadingEvent = threading.Event()
 
@@ -163,35 +164,20 @@ def display_all_manifests(host, port, abr_type):
         else:
             print(hostInfo + file_path + "/" + manifest + ext + "." + str(manifest_dict[manifest]))
 
-
-def modify_manifest_contents(rtn):
-
-    if "contents" in rtn:
-        # RDKAAMP-1435
-        details = read_harvest_details()
-        if details != {}:
-            if details['url'] is not None:
-                baseURLs = re.findall(r'<BaseURL>([\S]*)<\/BaseURL>', rtn["contents"])
-                if len(baseURLs) > 0:
-                    for baseURL in baseURLs:
-                        basURL_domain = urlparse(baseURL)
-                        if basURL_domain.netloc in details['url']:
-                            rtn["contents"] = re.sub(r'<BaseURL>https?://' + basURL_domain.netloc,
-                                                     f"<BaseURL>http://{self.server.server_address[0]}:{self.server.server_address[1]}/{basURL_domain.netloc}",
-                                                     rtn["contents"])
-                        elif args.ad_server != "":
-                            # Replace BaseURL to Ad-Server
-                            rtn["contents"] = re.sub(r'<BaseURL>https?://' + basURL_domain.netloc,
-                                                     f"<BaseURL>{args.ad_server}/{basURL_domain.netloc}",
-                                                     rtn["contents"])
-
-        contents = rtn["contents"].encode("utf-8")
-    else:
-        with open(rtn["path"], "rb") as f:
-            contents = f.read()
-
-    return contents
-
+def modify_response(path): #RDKAAMP-3019
+    qParams = dict(parse_qsl(urlsplit(path).query))
+    if qParams.get("respData","") != "":
+        params = json.loads(base64.b64decode(qParams.get("respData","")))
+        for param in params[::-1]:
+            if int(param.get('delay', 0)) > 0 and re.findall(param.get('pattern', ""), path):
+                if int(param.get('delay', 0)) <= 10000:
+                    time.sleep(float(param.get('delay'))/1000)
+                else:
+                    log.info(f"Delay limit exceeded {param.get('delay', 0)}, Limit is 10000 for URI {path}")
+            if int(param.get('status', 200)) == 404 and re.findall(param.get('pattern', ""), path):
+                raise FileNotFoundError
+            if int(param.get('status', 200)) == 500 and re.findall(param.get('pattern', ""), path):
+                return 'An error occurred, please check logs for details.', 500
 
 #################################################################
 class DASHServer(ManifestServerCommon):
@@ -311,12 +297,14 @@ class DASHServerHandler(BaseHTTPRequestHandler):
         global shutdown
         global liveLatency
         global LLsize
-        global LLmidDelay
-        global LLpreDelay
+        global LLdelay
+        global LLfirstDelay
         #global threadingEvent
         # path=/some/kind/of/path?query
         # becomes some/kind/of/path
-
+        
+        isTiming = False
+        
         path = self.path[1:].split("?")[0]
 
         if self.path.endswith(".m3u8"):
@@ -324,7 +312,8 @@ class DASHServerHandler(BaseHTTPRequestHandler):
             sys.exit(1)
 
         try:
-            if self.path.endswith(".mpd"):
+            # if self.path.endswith(".mpd"): #RDKAAMP-3019
+            if path.endswith(".mpd"): #RDKAAMP-3019
                 if refreshVal > 0:
                     numOfRequests += 1
                     print()
@@ -344,18 +333,41 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                 if not rtn:
                     raise FileNotFoundError
                 log.info("%s %s",time.time(), rtn["path"])
-
-                contents = modify_manifest_contents(rtn)
-
+            
             elif self.path == "/timing":
-
+            
                 tNow = datetime.utcnow()
                 ISOtime = tNow.strftime("%Y-%m-%dT%H:%M:%S.")
+                
                 contents = ISOtime.encode("utf-8")
-
+                
+                isTiming = True
+                
             else:
                 rtn = {"path": path}
-                contents = modify_manifest_contents(rtn)
+            
+            if not isTiming:
+                if "contents" in rtn:
+                    #RDKAAMP-1435
+                    details = read_harvest_details()
+                    if details != {}:
+                        if details['url'] is not None:
+                            baseURLs = re.findall(r'<BaseURL>([\S]*)<\/BaseURL>', rtn["contents"])
+                            if len(baseURLs) > 0:
+                                for baseURL in baseURLs:
+                                    basURL_domain = urlparse(baseURL)
+                                    if basURL_domain.netloc in details['url']:
+                                        rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>http://{self.server.server_address[0]}:{self.server.server_address[1]}/{basURL_domain.netloc}", rtn["contents"])
+                                    elif args.ad_server != "":
+                                        # Replace BaseURL to Ad-Server
+                                        rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>{args.ad_server}/{basURL_domain.netloc}", rtn["contents"])
+    
+                    contents = rtn["contents"].encode("utf-8")
+                else:
+                    modify_response(self.path) #RDKAAMP-3019
+                        
+                    with open(rtn["path"], "rb") as f:
+                        contents = f.read()
 
             self.send_response(200)
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -365,19 +377,21 @@ class DASHServerHandler(BaseHTTPRequestHandler):
             if liveLatency:
                 remaining = contents
                 LLsizeAdjusted = LLsize
-                LLmidDelayAdjusted = LLmidDelay / 1000
-                LLpreDelayAdjusted = LLpreDelay / 1000
-                log.info(str(LLpreDelay) + " miliseconds (PreDELAY), " + str(LLmidDelay) + " miliseconds (MidDELAY), " + str(LLsizeAdjusted) + " bytes")
-
-                if LLpreDelayAdjusted > 0:
-                    time.sleep(LLpreDelayAdjusted)
-                         
+                LLdelayAdjusted = LLdelay / 1000
+                LLfirstDelayAdjusted = LLfirstDelay / 1000
+                log.info(str(LLfirstDelay) + " milliseconds, " + str(LLdelay) + " milliseconds, " + str(LLsizeAdjusted) + " bytes")
+                count = 0
                 while len(remaining) > LLsizeAdjusted:
-                    log.info(str(len(remaining)) + " bytes left in this fragment")
+                    if LLsizeAdjusted >= 100000:
+                        log.info(str(len(remaining)) + " bytes left in this fragment")
                     self.wfile.write(remaining[:LLsizeAdjusted])
                     remaining = remaining[LLsizeAdjusted:]
-                    time.sleep(LLmidDelayAdjusted)
-                    #threadingEvent.wait(LLmidDelayAdjusted)
+                    if count == 0:
+                        time.sleep(LLfirstDelayAdjusted)
+                    else:
+                        time.sleep(LLdelayAdjusted)
+                    count += 1
+                    #threadingEvent.wait(LLdelayAdjusted)
                 self.wfile.write(remaining)
             else:
                 self.wfile.write(contents)
@@ -416,8 +430,9 @@ class HLSServerHandler(BaseHTTPRequestHandler):
         global list_of_threads
         global restart
         global shutdown
-
-        path = self.path[1:]
+        
+        # path = self.path[1:] #RDKAAMP-3019
+        path = self.path[1:].split("?")[0] #RDKAAMP-3019
 
         if self.path.endswith(".mpd"):
             log.error("ERROR This looks like a DASH request but I am a HLS server")
@@ -450,6 +465,8 @@ class HLSServerHandler(BaseHTTPRequestHandler):
             if "contents" in rtn:
                 contents = rtn["contents"]
             else:
+                modify_response(self.path) #RDKAAMP-3019
+                
                 with open(rtn["path"], "rb") as f:
                     contents = f.read()
 
@@ -834,7 +851,7 @@ if __name__ == "__main__":
         "--offset", help="offset time for dash to skip, offset should be in hours:minutes:seconds or minutes:seconds or seconds.", default="0", type=str
     )
     parser.add_argument(
-        "--throttle", help="Set fragment size and delay between them. Can control the delay of first chunk separately from the rest  Format: PreDELAY:MidDELAY:SIZE   SIZE in bytes integer (default 100000), PreDELAY and MidDELAY in miliseconds integer (default 10)   Can leave numbers blank e.g. '::150000' would only change the size and use defaults for both delays", nargs='?', const="-1", type=str 
+        "--throttle", help="Set fragment size and delay between them. Can control the delay of first chunk separately from the rest  Format: FirstDELAY:DELAY:SIZE   SIZE in bytes integer (default 100000), DELAY and FirstDELAY in miliseconds integer (default 10)   Can leave numbers blank e.g. '::150000' would only change the size and use defaults for both delays", nargs='?', const="-1", type=str 
     )
 
     args = parser.parse_args()
@@ -871,17 +888,17 @@ if __name__ == "__main__":
                 splitThrottle = args.throttle.split(":")
                 if len(splitThrottle) == 3:
                     if splitThrottle[0] != '':
-                        LLpreDelay = int(splitThrottle[0])
+                        LLfirstDelay = int(splitThrottle[0])
                     if splitThrottle[1] != '':
-                        LLmidDelay = int(splitThrottle[1])
+                        LLdelay = int(splitThrottle[1])
                     if splitThrottle[2] != '':
                         LLsize = int(splitThrottle[2])
                     liveLatency = True
-                    print("Throttle parameter set FirstDELAY = " + str(LLpreDelay) + ", DELAY = " + str(LLmidDelay) + ", SIZE = " + str(LLsize))
+                    print("Throttle parameter set FirstDELAY = " + str(LLfirstDelay) + ", DELAY = " + str(LLdelay) + ", SIZE = " + str(LLsize))
                 elif len(splitThrottle) == 1:
                     if splitThrottle[0] == "" or splitThrottle[0] == "-1":
                         liveLatency = True
-                        print("Throttle parameter set as default FirstDELAY = " + str(LLpreDelay) + ", DELAY = " + str(LLmidDelay) + ", SIZE = " + str(LLsize))
+                        print("Throttle parameter set as default FirstDELAY = " + str(LLfirstDelay) + ", DELAY = " + str(LLdelay) + ", SIZE = " + str(LLsize))
                     else:
                         print("ERROR: Invalid Throttle Parameter")
                         restart = False

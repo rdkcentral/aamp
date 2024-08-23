@@ -235,7 +235,6 @@ struct ConfigLookupEntryString
 #define DEFAULT_VALUE_USE_SINGLE_PIPELINE false
 #endif
 
-
 /**
  * @brief AAMPConfigSettingString metadata
  * note that order must match the actual order of the enum; this is enforced with asserts to catch any wrong/missing declarations
@@ -275,6 +274,7 @@ static const ConfigLookupEntryString mConfigLookupTableString[AAMPCONFIG_STRING_
 	{"","gstlevel", eAAMPConfig_GstDebugLevel,false},
 	{"","tsbType", eAAMPConfig_TsbType, false},
 	{DEFAULT_TSB_LOCATION,"tsbLocation",eAAMPConfig_TsbLocation, true},
+	{AAMP_LOW_LATENCY_URL_KEYWORD,"lldUrlKeyword", eAAMPConfig_LLDUrlKeyword, true},
 };
 
 /**
@@ -1641,7 +1641,7 @@ void AampConfig::ReadAampCfgFromEnv()
 	if(NULL != envConf)
 	{
 		std::string strEnvConfig = envConf; // make sure we copy this as recommonded by getEnv doc
-		AAMPLOG_WARN("ReadAampCfgFromEnv:Text ENV:%s len:%lu ",strEnvConfig.c_str(),strEnvConfig.length());
+		AAMPLOG_WARN("ReadAampCfgFromEnv:Text ENV:%s len:%zu ",strEnvConfig.c_str(),strEnvConfig.length());
 		std::stringstream ss (strEnvConfig);
 		std::string item;
 

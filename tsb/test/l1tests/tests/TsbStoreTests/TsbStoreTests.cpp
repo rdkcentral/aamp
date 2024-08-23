@@ -33,6 +33,7 @@
 #include "TsbMockIfstream.h"
 #include "TsbMockBasicFilebuf.h"
 #include "TsbMockDirectoryIterator.h"
+#include "TsbMockLibc.h"
 
 using ::testing::_;
 using ::testing::AnyNumber;
@@ -46,6 +47,7 @@ using ::testing::SetArrayArgument;
 using ::testing::SetErrnoAndReturn;
 using ::testing::Assign;
 using ::testing::ReturnPointee;
+using ::testing::StrEq;
 
 namespace fs = std::filesystem;
 using namespace std::chrono_literals;
@@ -56,7 +58,7 @@ const uintmax_t kCapacity{100}; // Using 100 makes percentage calculations easie
 const uint32_t kMinFreePercent{5};
 const uint32_t kMaxCapacity{1000}; // 1GB
 const auto kFlushWaitTime{10ms};
-const std::string kTsbLocation{"/tmp/tsb_location"};
+const std::string kTsbLocation{"/tmp/tsb_location_L1"};
 const std::string kFlushDir{kTsbLocation + "/0"};
 const std::string kActiveDir{kTsbLocation + "/1"};
 const std::string kFile{"file.mp4"};
@@ -65,6 +67,7 @@ const std::string kUrl{"https://" + kDir + "/" + kFile};
 const std::string kFileIncPath{kActiveDir + "/" + kDir + "/" + kFile};
 const std::string kDirIncPath{kActiveDir + "/" + kDir};
 const char kFileContent[]{"content of the file"};
+const int kTsbLocationFd{1};
 
 void Logger(std::string&& tsbMessage)
 {
@@ -83,10 +86,14 @@ protected:
 		g_mockIfstream = new NiceMock<TsbMockIfstream>();
 		mMockBasicFileBuf = new NiceMock<TsbMockBasicFileBuf>();
 		g_mockDirectoryIterator = new NiceMock<TsbMockDirectorIterator>();
+		g_mockLibc = new NiceMock<TsbMockLibc>();
 	}
 
 	void TearDown() override
 	{
+		delete g_mockLibc;
+		g_mockLibc = nullptr;
+
 		delete g_mockDirectoryIterator;
 		g_mockDirectoryIterator = nullptr;
 
@@ -162,8 +169,9 @@ protected:
 
 TEST_F(TsbStoreTests, Clean_Create_Destroy_TrailingSlash)
 {
-
-	EXPECT_CALL(*g_mockFilesystem, create_directories(fs::path(kFlushDir), _))
+	EXPECT_CALL(*g_mockFilesystem, create_directories(fs::path(kTsbLocation), _))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockFilesystem, create_directory(fs::path(kFlushDir), _))
 		.WillOnce(Return(true));
 
 	createStore(kTsbLocation + "/", kMinFreePercent, kMaxCapacity);
@@ -171,8 +179,14 @@ TEST_F(TsbStoreTests, Clean_Create_Destroy_TrailingSlash)
 
 TEST_F(TsbStoreTests, CreateDestroySuccess)
 {
-	EXPECT_CALL(*g_mockFilesystem, create_directories(fs::path(kFlushDir), _))
+	EXPECT_CALL(*g_mockFilesystem, create_directories(fs::path(kTsbLocation), _))
 		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockFilesystem, create_directory(fs::path(kFlushDir), _))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockLibc, open(StrEq(kTsbLocation.c_str()), O_RDONLY | O_DIRECTORY))
+		.WillOnce(Return(kTsbLocationFd));
+	EXPECT_CALL(*g_mockLibc, flock(kTsbLocationFd, LOCK_EX | LOCK_NB))
+		.WillOnce(Return(0));
 
 	// Pretend an old Flush and Active directory still exist,
 	// so the directory iterator must iterate twice before reaching the end
@@ -194,6 +208,7 @@ TEST_F(TsbStoreTests, CreateDestroySuccess)
 	Expectation destructFlush = EXPECT_CALL(*g_mockFilesystem, remove_all(fs::path(kActiveDir), _))
 									.After(constructFlush)
 									.WillOnce(Return(1));
+	EXPECT_CALL(*g_mockLibc, close(kTsbLocationFd)).WillOnce(Return(0));
 }
 
 TEST_F(TsbStoreTests, WriteSuccess)
@@ -534,6 +549,49 @@ TEST_F(TsbStoreTests, CreateCannotGetCapacity)
 	EXPECT_CALL(*g_mockFilesystem, space(fs::path(kTsbLocation), _))
 		.WillOnce(DoAll(SetArgReferee<1>(std::error_code()),
 						Return(fs::space_info{static_cast<uintmax_t>(-1), 0, 0})));
+
+	ASSERT_THROW(std::unique_ptr<TSB::Store> store = createStore(kTsbLocation, 0, 0),
+				 std::invalid_argument);
+}
+
+TEST_F(TsbStoreTests, CreateCannotCreateLocationDirectory)
+{
+	EXPECT_CALL(*g_mockFilesystem, create_directories(fs::path(kTsbLocation), _))
+		.WillOnce(DoAll(SetArgReferee<1>(std::make_error_code(std::errc::permission_denied)),
+						Return(false)));
+
+	ASSERT_THROW(std::unique_ptr<TSB::Store> store = createStore(kTsbLocation, 0, 0),
+				 std::invalid_argument);
+}
+
+TEST_F(TsbStoreTests, CreateCannotOpenLocationDirectory)
+{
+	EXPECT_CALL(*g_mockLibc, open(StrEq(kTsbLocation.c_str()), _)).WillOnce(Return(-1));
+
+	ASSERT_THROW(std::unique_ptr<TSB::Store> store = createStore(kTsbLocation, 0, 0),
+				 std::invalid_argument);
+}
+
+TEST_F(TsbStoreTests, CreateCannotLockLocationDirectory)
+{
+	EXPECT_CALL(*g_mockLibc, open(StrEq(kTsbLocation.c_str()), _)).WillOnce(Return(kTsbLocationFd));
+	EXPECT_CALL(*g_mockLibc, flock(kTsbLocationFd, _)).WillOnce(Return(-1)); // Fail locking
+	EXPECT_CALL(*g_mockLibc, close(kTsbLocationFd)).WillOnce(Return(0));
+
+	ASSERT_THROW(std::unique_ptr<TSB::Store> store = createStore(kTsbLocation, 0, 0),
+				 std::invalid_argument);
+}
+
+TEST_F(TsbStoreTests, CreateCannotCreateFlushDirectory)
+{
+	EXPECT_CALL(*g_mockLibc, open(StrEq(kTsbLocation.c_str()), _)).WillOnce(Return(kTsbLocationFd));
+	EXPECT_CALL(*g_mockFilesystem, create_directory(fs::path(kFlushDir), _))
+		.WillOnce(DoAll(SetArgReferee<1>(std::make_error_code(std::errc::permission_denied)),
+						Return(false)));
+
+	// If an exception is thrown during construction, after the TSB Store location is locked,
+	// the associated file descriptor must be closed.
+	EXPECT_CALL(*g_mockLibc, close(kTsbLocationFd)).WillOnce(Return(0));
 
 	ASSERT_THROW(std::unique_ptr<TSB::Store> store = createStore(kTsbLocation, 0, 0),
 				 std::invalid_argument);

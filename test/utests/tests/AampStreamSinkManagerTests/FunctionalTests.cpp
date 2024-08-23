@@ -56,14 +56,12 @@ protected:
         }
         mConfig1 = *gpGlobalConfig;
         mLogObj1 = mConfig1.GetLoggerInstance();
-        mLogObj1->setPlayerId(1);
         mPrivateInstanceAAMP1 = new PrivateInstanceAAMP(&mConfig1);
         mPrivateInstanceAAMP1->mPlayerId = 1;
         mPrivateInstanceAAMP1->mLogObj = mLogObj1;
 
         mConfig2 = *gpGlobalConfig;
         mLogObj2 = mConfig2.GetLoggerInstance();
-        mLogObj2->setPlayerId(2);
         mPrivateInstanceAAMP2 = new PrivateInstanceAAMP(&mConfig2);
         mPrivateInstanceAAMP2->mPlayerId = 2;
         mPrivateInstanceAAMP2->mLogObj = mLogObj2;
@@ -337,7 +335,7 @@ TEST_F(AampStreamSinkManagerTests, ChangeAampTests)
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(0);
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP1);
 
-    /* AampStreamSinkManager::SetActive() calls PrivateInstanceAAMP::GetPositionMs() to get the current position of the
+    /* ActivatePlayer() calls PrivateInstanceAAMP::GetPositionMs() to get the current position of the
     second AAMP private instance and AAMPGstPlayer::Flush() with the position in seconds. */
     long long positionMs = 5000;
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMs()).WillOnce(Return(positionMs));

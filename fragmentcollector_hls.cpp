@@ -4663,7 +4663,7 @@ void StreamAbstractionAAMP_HLS::PreCachePlaylist()
 	try
 	{
 		aamp->mPreCachePlaylistThreadId = std::thread(&StreamAbstractionAAMP_HLS::CachePlaylistThreadFunction, this);
-		AAMPLOG_INFO("Thread created for CachePlaylistThreadFunction [%lu]", GetPrintableThreadID(aamp->mPreCachePlaylistThreadId));
+		AAMPLOG_INFO("Thread created for CachePlaylistThreadFunction [%zx]", GetPrintableThreadID(aamp->mPreCachePlaylistThreadId));
 	}
 	catch(const std::exception& e)
 	{
@@ -4933,6 +4933,7 @@ void TrackState::FragmentCollector(void)
 	{
 		AAMPLOG_WARN("aamp_pthread_setname failed");
 	}
+	UsingPlayerId player(aamp->mPlayerId);
 	RunFetchLoop();
 	return;
 }
@@ -5143,7 +5144,7 @@ void TrackState::Start(void)
 	{
 		fragmentCollectorThreadID =  std::thread(&TrackState::FragmentCollector, this);
 		fragmentCollectorThreadStarted = true;
-		AAMPLOG_INFO("Thread created for FragmentCollector [%lu]", GetPrintableThreadID(fragmentCollectorThreadID));
+		AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
 	}
 	catch(const std::exception& e)
 	{
@@ -7182,11 +7183,14 @@ void TrackState::SwitchAudioTrack()
 		// Try to keep the same playlist position
 		// This is because we are using playTarget as position values in cacheFragment
 		playlistPosition = (oldPlaylistPosition - diffInFetchedDuration);
-		double diffInInjectedDuration = (GetLastInjectedFragmentPosition() - playlistPosition).inSeconds();
+		//While injection, playTargetOffset is considered to determine the position of the fragment to sync with the other track, albeit the actual fragment position in the track's playlist may be ahead/behind.
+		double diffInInjectedDuration = ((GetLastInjectedFragmentPosition() + playTargetOffset) - playlistPosition).inSeconds();
+		//playlistPosition above calculated w.r.t newMediaSequenceNumber that holds fragment till downloaded. Need to add fragDurSecs to get position for the following fragment to be downloaded.
 		playlistPosition += fragmentDurationSeconds;
 		playTarget = playlistPosition;
 		playTargetBufferCalc = playTarget;
-		playTargetOffset = 0;
+		//PlayTargetOffset is determined at Init, hence keep it un-reset.
+		//playTargetOffset = 0;
 		AAMPLOG_INFO("Calculated diffInFetchDuration %lf diffInInjectedDuration %lf  LastInjectedFragmentPosition() %lf", diffInFetchedDuration, diffInInjectedDuration, GetLastInjectedFragmentPosition());
 
 		AAMPLOG_MIL("Updated Playtarget %lf , playlistPosition %lf", playTarget.inSeconds(), playlistPosition.inSeconds());

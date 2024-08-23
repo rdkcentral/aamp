@@ -16,10 +16,12 @@ function subtec_install_fn() {
 
     echo "Cloning subtec-app..."
     do_clone_fn "https://code.rdkcentral.com/r/components/generic/subtec-app"
+    git -C subtec-app checkout b4fb7c40f08c32e76bcc57e6a7fea140fe9e93f5
 
     echo
     echo "Cloning websocket-ipplayer2-utils..."
     do_clone_fn https://code.rdkcentral.com/r/components/generic/websocket-ipplayer2-utils subtec-app/websocket-ipplayer2-utils
+    git -C subtec-app/websocket-ipplayer2-utils checkout 2d76dfc7fa62f367fdcbc43bca684992629fa074
 
 
     pushd subtec-app

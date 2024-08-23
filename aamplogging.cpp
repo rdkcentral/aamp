@@ -29,20 +29,17 @@
 #include "priv_aamp.h"
 using namespace std;
 
-#ifdef USE_SYSLOG_HELPER_PRINT
-#include "syslog_helper_ifc.h"
-#endif
 #ifdef USE_SYSTEMD_JOURNAL_PRINT
 #include <systemd/sd-journal.h>
+#else
+// stub for OSX, where sd_journal_print not available
+#define LOG_NOTICE 0
+void sd_journal_printv(int priority, const char *format, va_list arg ){}
 #endif
-
-// If a log line is too long, truncate it and add this long line suffix at the end
-#define	LONG_LINE_SUFFIX "(...)"
 
 /**
  * @brief Log file and cfg directory path - To support dynamic directory configuration
  */
-static const char *gAampLog = "./aamp.log";
 static const char *gAampCfg = "/opt/aamp.cfg";
 static const char *gAampCliCfg = "/opt/aampcli.cfg";
 
@@ -65,9 +62,7 @@ void AampLogManager::aampLogger(std::string &&tsbMessage)
 {
 	// Client can add Player ID etc. here. Log message will contain file/line etc.
 	// This is staic API passed to external module we can mLogObj hence log macro here
-	const int dummyPlayerId = 0;
-
-	logprintf(dummyPlayerId, eLOGLEVEL_WARN , __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
+	logprintf(eLOGLEVEL_WARN , __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
 }
 
 /**
@@ -404,22 +399,6 @@ bool AampLogManager::isLogworthyErrorCode(int errorCode)
 	return returnValue;
 }
 
-static FILE *OpenSimulatorLogFile( void )
-{
-	static bool init;
-	FILE *f = fopen(gAampLog, (init ? "a" : "w"));
-	init = true;
-	return f;
-}
-
-/**
- * @brief Print one log line
- */
-void logprintline(FILE *f, struct timeval t, const char* printBuffer)
-{
-	(void)fprintf(f, "%ld.%03ld: %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, printBuffer);
-}
-
 static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
 {
 	"TRACE", // eLOGLEVEL_TRACE
@@ -430,80 +409,59 @@ static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
 	"ERROR", // eLOGLEVEL_ERROR
 };
 
+thread_local int gPlayerId = -1;
+
 /**
  * @brief Print logs to console / log file
  */
-void logprintf(int playerId, AAMP_LogLevel logLevelIndex, const char* file, int line, const char *format, ...)
+void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const char *format, ...)
 {
-	// logLevelIndex is enum, so lookup in mLogLevelStr should always be safe
-	assert( logLevelIndex<ARRAY_SIZE(mLogLevelStr) );
-	va_list args;
-	va_start(args, format);
-	char gDebugPrintBuffer[MAX_DEBUG_LOG_BUFF_SIZE];
-	std::ostringstream ossthread;
-	ossthread << std::this_thread::get_id();
-	int len_header = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer),
-							  "[AAMP-PLAYER][%d][%s][%s][%s][%d]",
-							  playerId,
-							  mLogLevelStr[logLevelIndex],
-							  ossthread.str().c_str(),
-							  file,
-							  line);
-	int len_message = 0;
-	if (len_header >= sizeof(gDebugPrintBuffer))
-	{ // Header is too long to print in one log line, no space left for the message
+	char timestamp[AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS];
+	timestamp[0] = 0x00;
+	if( AampLogManager::disableLogRedirection )
+	{ // add timestamp if not using sd_journal_print
+		struct timeval t;
+		gettimeofday(&t, NULL);
+		snprintf(timestamp, sizeof(timestamp), AAMPCLI_TIMESTAMP_PREFIX_FORMAT, (unsigned int)t.tv_sec, (unsigned int)t.tv_usec / 1000 );
 	}
-	else
-	{
-		if (len_header < 0)
-		{ // Encoding error, let's print only the message
-			len_header = 0;
+	
+	char *format_ptr = NULL;
+	int format_bytes = 0;
+	for( int pass=0; pass<2; pass++ )
+	{ // two pass: measure required bytes then populate format string
+		format_bytes = snprintf(format_ptr, format_bytes,
+							   "%s[AAMP-PLAYER][%d][%s][%zx][%s][%d]%s\n",
+							   timestamp,
+							   gPlayerId,
+							   mLogLevelStr[logLevelIndex],
+							   GetPrintableThreadID(),
+							   file, line,
+							   format );
+		if( format_bytes<=0 )
+		{ // should never happen!
+			break;
 		}
-
-		len_message = vsnprintf(gDebugPrintBuffer+len_header, MAX_DEBUG_LOG_BUFF_SIZE-len_header, format, args);
-		if (len_message < 0)
-		{ // Encoding error, let's print only the header
-			len_message = 0;
+		if( pass==0 )
+		{
+			format_bytes++; // include nul terminator
+			format_ptr = (char *)alloca(format_bytes); // allocate on stack
+		}
+		else
+		{
+			va_list args;
+			va_start(args, format);
+			if( AampLogManager::disableLogRedirection )
+			{ // aampcli
+				vprintf( format_ptr, args );
+			}
+			else
+			{
+				format_ptr[format_bytes-1] = 0x00; // strip not-needed newline
+				sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
+			}
+			va_end(args);
 		}
 	}
-	int len_total = len_header + len_message;
-	if (len_total >= sizeof(gDebugPrintBuffer))
-	{
-		// If the log line is too long, truncate it and add the long line suffix at the end
-		(void)snprintf(gDebugPrintBuffer + MAX_DEBUG_LOG_BUFF_SIZE - sizeof(LONG_LINE_SUFFIX), sizeof(LONG_LINE_SUFFIX), LONG_LINE_SUFFIX);
-	}
-	//gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE-1)] = 0;
-	va_end(args);
-
-#if (defined (USE_SYSTEMD_JOURNAL_PRINT) || defined (USE_SYSLOG_HELPER_PRINT))
-	if(!AampLogManager::disableLogRedirection)
-	{
-#ifdef USE_SYSTEMD_JOURNAL_PRINT
-		sd_journal_print(LOG_NOTICE, "%s", gDebugPrintBuffer);
-#else
-		send_logs_to_syslog(gDebugPrintBuffer);
-#endif
-		return;
-	}
-#endif
-
-	struct timeval t;
-	gettimeofday(&t, NULL);
-    
-    if( !gAampcliQuietLogs )
-    {
-        logprintline(stdout, t, gDebugPrintBuffer);
-    }
-
-#ifdef AAMP_SIMULATOR_BUILD
-	// When running the simulator also print the log to a file
-	FILE *f = OpenSimulatorLogFile();
-	if (f)
-	{
-		logprintline(f, t, gDebugPrintBuffer);
-		(void)fclose(f);
-	}
-#endif
 }
 
 /**

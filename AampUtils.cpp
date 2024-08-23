@@ -1087,10 +1087,16 @@ const FormatMap * GetVideoFormatForCodec( const char *codecs )
 	return NULL;
 }
 
+static std::hash<std::thread::id> std_thread_hasher;
+
 std::size_t GetPrintableThreadID( const std::thread &t )
 {
-	static std::hash<std::thread::id> hasher;
-	return hasher( t.get_id() );
+	return std_thread_hasher( t.get_id() );
+}
+
+std::size_t GetPrintableThreadID( void )
+{
+	return std_thread_hasher( std::this_thread::get_id() );
 }
 
 /**
@@ -1098,10 +1104,9 @@ std::size_t GetPrintableThreadID( const std::thread &t )
  */
 std::size_t GetPrintableThreadID( const pthread_t &t )
 {
-	static std::hash<pthread_t> hasher;
-	return hasher( t );
+	static std::hash<pthread_t> pthread_hasher;
+	return pthread_hasher( t );
 }
-
 
 /**
  * @brief Download a file from the server

@@ -847,7 +847,6 @@ TEST_F(AampLogManagerTest, isLogworthyErrorCode_Test5)
 TEST_F(AampLogManagerTest, logprintf_Test1)
 {
     //Arrange: Creating the variables for passing to arguments
-    int playerId = 10;
     AAMP_LogLevel level = eLOGLEVEL_INFO;
     const char* file = "test.cpp";
     int line = 2;
@@ -855,7 +854,29 @@ TEST_F(AampLogManagerTest, logprintf_Test1)
     const char *format2 = "s4";
 
     //Act: Calling the function for test
-    logprintf(playerId,level,file,line,format,format2);
+    logprintf(level,file,line,format,format2);
+}
+
+TEST_F(AampLogManagerTest, timestampStringify )
+{
+	// this test based on code from logprintf used in aampcli
+	// it ensures that the printing of current time doesn't overflow string buffer
+	{
+		struct timeval t;
+		gettimeofday(&t, NULL);
+		char timestamp[AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS];
+		snprintf(timestamp, sizeof(timestamp), AAMPCLI_TIMESTAMP_PREFIX_FORMAT, (unsigned int)t.tv_sec, (unsigned int)t.tv_usec / 1000 );
+		unsigned int extracted_seconds = 0;
+		unsigned int extracted_milliseconds = 0;
+		int n = sscanf( timestamp, "%u.%03u: ", &extracted_seconds, &extracted_milliseconds );
+		ASSERT_EQ( n, 2 );
+		if( n==2 )
+		{ // i.e.
+			// if time ever spills past size of a int, we'll come to know
+			ASSERT_EQ( t.tv_sec, extracted_seconds );
+			ASSERT_EQ( t.tv_usec / 1000, extracted_milliseconds );
+		}
+	}
 }
 
 /**
@@ -891,18 +912,7 @@ TEST_F(AampLogManagerTest, DumpBlob_Test1)
 */
 TEST_F(AampLogManagerTest, getPlayerIdDefault)
 {
-    ASSERT_EQ(-1, mLogObj->getPlayerId());
-}
-
-/*
-    Test setPlayerId followed by getPlayerId function
-    getPlayerId is expected to return the value set
-*/
-TEST_F(AampLogManagerTest, setPlayerId_getPlayerId)
-{
-    int playerId = 73;
-    mLogObj->setPlayerId(playerId);
-    ASSERT_EQ(playerId, mLogObj->getPlayerId());
+    ASSERT_EQ(-1, gPlayerId );
 }
 
 /*
@@ -988,63 +998,42 @@ TEST_F(AampLogManagerTest, setLogLevelError_AAMPLOG_MIL)
     AAMPLOG_MIL("%s", message.c_str());
 }
 
-/*
-    Test setPlayerId followed by AAMPLOG_MIL macro
-    sd_journal_print is expected to be called with a text including the level, message and the player ID
-*/
-TEST_F(AampLogManagerTest, setPlayerId_AAMPLOG_MIL)
-{
-    const std::string message{"Test MIL log line"};
-    int playerId = 73;
-    mLogObj->setPlayerId(playerId);
-    /* The printed log line must contain the player ID and the message. */
-    EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(playerId) + "]"),
-                                                                          HasSubstr("[MIL]"),
-                                                                          HasSubstr(message.c_str()))));
-    AAMPLOG_MIL("%s", message.c_str());
-}
-
 TEST_F(AampLogManagerTest, logprintf_TRACE)
 {
-    int playerId = 10;
     AAMP_LogLevel level = eLOGLEVEL_TRACE;
     std::string file("test.cpp");
     int line = 2;
     std::string message("message");
     // The printed log line must contain the player ID, level, file and the message /
-    EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(playerId) + "]"), HasSubstr("[TRACE]"), HasSubstr("[" + file + "]"), HasSubstr(message))));
-    logprintf(playerId, level, file.c_str(), line, "%s", message.c_str());
+    EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[TRACE]"), HasSubstr("[" + file + "]"), HasSubstr(message))));
+    logprintf(level, file.c_str(), line, "%s", message.c_str());
 }
 
 TEST_F(AampLogManagerTest, logprintf_INFO)
 {
-    int playerId = 10;
     AAMP_LogLevel level = eLOGLEVEL_INFO;
     std::string file("test.cpp");
     int line = 2;
     std::string message("message");
     // The printed log line must contain the player ID, level, file and the message /
-    EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(playerId) + "]"), HasSubstr("[INFO]"), HasSubstr("[" + file + "]"), HasSubstr(message))));
-    logprintf(playerId, level, file.c_str(), line, "%s", message.c_str());
+    EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[INFO]"), HasSubstr("[" + file + "]"), HasSubstr(message))));
+    logprintf(level, file.c_str(), line, "%s", message.c_str());
 }
 
 /*
     Test logprintf called with a very long file
     sd_journal_print is expected to be called with the header text truncated and (...)
 */
+const int MAX_DEBUG_LOG_BUFF_SIZE = 512;
+
 TEST_F(AampLogManagerTest, logprintf_LongFile)
 {
-    int playerId = 10;
     AAMP_LogLevel level = eLOGLEVEL_INFO;
     std::string file(MAX_DEBUG_LOG_BUFF_SIZE, '*');
     int line = 2;
     std::string message("message");
-
-    /* The printed log line must contain the player ID, the level and (...) */
-    EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(playerId) + "]"),
-                                                                          HasSubstr("[INFO]"),
-                                                                          HasSubstr("(...)"))));
-    logprintf(playerId, level, file.c_str(), line, "%s", message.c_str());
+    EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[INFO]"))));
+    logprintf(level, file.c_str(), line, "%s", message.c_str());
 }
 
 /*
@@ -1053,18 +1042,13 @@ TEST_F(AampLogManagerTest, logprintf_LongFile)
 */
 TEST_F(AampLogManagerTest, logprintf_LongMessage)
 {
-    int playerId = 10;
     AAMP_LogLevel level = eLOGLEVEL_INFO;
     std::string file("test.cpp");
     int line = 2;
     std::string message(MAX_DEBUG_LOG_BUFF_SIZE, '*');
-
-    /* The printed log line must contain the player ID, level, file and (...) */
-    EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(playerId) + "]"),
-                                                                          HasSubstr("[INFO]"),
-                                                                          HasSubstr("[" + file + "]"),
-                                                                          HasSubstr("(...)"))));
-    logprintf(playerId, level, file.c_str(), line, "%s", message.c_str());
+    EXPECT_CALL(*g_mockSdJournal,
+				sd_journal_print_mock( LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[INFO]"), HasSubstr("[" + file + "]"))));
+    logprintf(level, file.c_str(), line, "%s", message.c_str());
 }
 
 /*
@@ -1073,20 +1057,41 @@ TEST_F(AampLogManagerTest, logprintf_LongMessage)
 */
 TEST_F(AampLogManagerTest, logprintf_MaxMessage)
 {
-    int playerId = 10;
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
     std::string file("test.cpp");
     int line = 2;
 	std::ostringstream ossthread;
 	ossthread << std::this_thread::get_id();
-    std::string header("[AAMP-PLAYER][" + std::to_string(playerId) + "][INFO][" + ossthread.str() + "][" + file + "][" + std::to_string(line) + "]");
+    std::string header("[AAMP-PLAYER][" + std::to_string(-1) + "][INFO][" + ossthread.str() + "][" + file + "][" + std::to_string(line) + "]");
     std::string message((MAX_DEBUG_LOG_BUFF_SIZE - header.length() - 1), '*');
+    EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[INFO]"), HasSubstr("[" + file + "]"), HasSubstr(message))));
+    logprintf(level, file.c_str(), line, "%s", message.c_str());
+}
 
-    /* The printed log line must contain the player ID, level, file and message, with no (...) */
-    EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(playerId) + "]"),
-                                                                          HasSubstr("[INFO]"),
-                                                                          HasSubstr("[" + file + "]"),
-                                                                          HasSubstr(message),
-                                                                          Not(HasSubstr("(...)")))));
-    logprintf(playerId, level, file.c_str(), line, "%s", message.c_str());
+TEST_F(AampLogManagerTest, snprintf_tests)
+{
+	char *format_ptr = NULL;
+	int format_bytes = 0;
+
+	const char *myString = "hello";
+	int myInt = 0x1234;
+	size_t mySize = 0x123456789a;
+	const char *expected = "hello-4660-123456789a\n";
+
+	for( int pass=0; pass<2; pass++ )
+	{
+		format_bytes = snprintf(format_ptr, format_bytes, "%s-%d-%zx\n", myString, myInt, mySize );
+		printf( "format_bytes=%d\n", format_bytes );
+		EXPECT_EQ( format_bytes, strlen(expected) );
+		if( pass==0 )
+		{
+			format_bytes++; // include space for nul terminator; without this, the \n gets chopped off
+			format_ptr = (char *)alloca(format_bytes); // allocate on stack
+		}
+		else
+		{
+			printf( "format_ptr='%s'\n", format_ptr );
+			EXPECT_STREQ( format_ptr, expected );
+		}
+	}
 }

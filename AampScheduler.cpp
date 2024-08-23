@@ -32,7 +32,7 @@ AampScheduler::AampScheduler() : mTaskQueue(), mQMutex(), mQCond(),
 	mSchedulerRunning(false), mSchedulerThread(), mExMutex(),
 	mExLock(mExMutex, std::defer_lock), mNextTaskId(AAMP_SCHEDULER_ID_DEFAULT),
 	mCurrentTaskId(AAMP_TASK_ID_INVALID), mLockOut(false),
-	mLogObj(NULL),mState(eSTATE_IDLE)
+	mLogObj(NULL),mState(eSTATE_IDLE),mPlayerId(-1)
 {
 }
 
@@ -50,13 +50,14 @@ AampScheduler::~AampScheduler()
 /**
  * @brief To start scheduler thread
  */
-void AampScheduler::StartScheduler()
+void AampScheduler::StartScheduler( int playerId )
 {
+	 mPlayerId = playerId;
 	//Turn on thread for processing async operations
 	std::lock_guard<std::mutex>lock(mQMutex);
 	mSchedulerThread = std::thread(std::bind(&AampScheduler::ExecuteAsyncTask, this));
 	mSchedulerRunning = true;
-	AAMPLOG_INFO("Thread created Async Worker [%lu]", GetPrintableThreadID(mSchedulerThread));
+	AAMPLOG_INFO("Thread created Async Worker [%zx]", GetPrintableThreadID(mSchedulerThread));
 }
 
 /**
@@ -102,6 +103,7 @@ int AampScheduler::ScheduleTask(AsyncTaskObj obj)
  */
 void AampScheduler::ExecuteAsyncTask()
 {
+	UsingPlayerId playerId( mPlayerId );
 	std::unique_lock<std::mutex>queueLock(mQMutex);
 	while (mSchedulerRunning)
 	{

@@ -46,9 +46,9 @@ guint AampEventManager::GetSourceID()
 /**
  * @brief Default Constructor
  */
-AampEventManager::AampEventManager(AampLogManager *logObj): mIsFakeTune(false),mLogObj(logObj),
+AampEventManager::AampEventManager(int playerId, AampLogManager *logObj): mIsFakeTune(false),mLogObj(logObj),
 					mAsyncTuneEnabled(false),mEventPriority(G_PRIORITY_DEFAULT_IDLE),mMutexVar(PTHREAD_MUTEX_INITIALIZER),
-					mPlayerState(eSTATE_IDLE),mEventWorkerDataQue(),mPendingAsyncEvents()
+					mPlayerState(eSTATE_IDLE),mEventWorkerDataQue(),mPendingAsyncEvents(),mPlayerId(playerId)
 {
 	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
 	{
@@ -93,7 +93,7 @@ void AampEventManager::FlushPendingEvents()
 
 	if (mPendingAsyncEvents.size() > 0)
 	{
-		AAMPLOG_WARN("mPendingAsyncEvents.size - %lu", mPendingAsyncEvents.size());
+		AAMPLOG_WARN("mPendingAsyncEvents.size - %zu", mPendingAsyncEvents.size());
 		for (AsyncEventListIter it = mPendingAsyncEvents.begin(); it != mPendingAsyncEvents.end(); it++)
 		{
 			if ((it->first != 0) && (it->second))

@@ -1,35 +1,23 @@
 # Video Test Stream
 
 In this directory the script **generate-hls-dash.sh** can be used to create a video
-test stream in HLS and DASH format. The script **startserver.sh** can be used to run
-a web server (**server.py**) so that AAMP can play the video test stream.
+test stream in HLS and DASH format. 
+The script **startserver.sh** can be used to run a web server (**server.py**) 
+In AAMP give the url to play the generated video test stream.
 
 Multiple video profiles (for ABR) audio and caption languages are supported.
 
 The following streams are generated:
-- main.mpd // DASH
+- main.mpd // DASH SegmentTemplate 
 - main_mp4.m3u8 // fragmented HLS mp4
 - main.m3u8 // HLS ts with demux audio
 - main_mux.m3u8 // HLS ts with muxed audio
-- mainDynamic.mpd //DASH dynamic manifest generated based based on input duration, audio and video codecs
-- mainDynamic.m3u8 //HLS dynamic manifest generated based based on input duration, audio and video codecs
-
-**generate-hls-dash-4k.sh** is variation on **generate-hls-dash.sh** and is used to generate an animated test pattern with more realistic segment sizes and includes a 4k resolution profile.
-
-The following streams are generated:
-- SegmentTemplate.mpd
-- SegmentTimeline.mpd
-- SegmentBase.mpd
-- SegmentList.mpd
-- Muxed.m4u8
-- FragmentedMp4.m3u8
-- HlsTs.m3u8
 
 DASH manifests including SCTE-35 signals for dynamic ad insertion can also be generated.
 
 ## generate hls and dash stream
 
-To generate the video test stream on Ubuntu for example:
+To generate the video test stream on Ubuntu:
 
 ```
 $ cd aamp/tests/VideoTestStream
@@ -39,11 +27,12 @@ $ ./generate-hls-dash.sh
 ##Options:
 
 ./generate-hls-dash.sh -h		//show help message
-./generate-hls-dash.sh -d 60		//generate video for given duration
+./generate-hls-dash.sh -d 120		//generate video for given duration (default is 60 secs)
 ./generate-hls-dash.sh -f imagename	//generate video with given image, Image format can be ".jpg" ".jpeg" and ".png". Image resolution to be matched with video resolution(1920x1080)
 ./generate-hls-dash.sh -l 0		//to disable hls stream generation
 ./generate-hls-dash.sh -a 0		//to disable dash stream generation
-./generate-hls-dash.sh -k 1		//to generate 4k content (default 0)
+./generate-hls-dash.sh -w 1  		//to generate webvtt text track (default: 0 disabled)"
+./generate-hls-dash.sh -k 		//to generate 4k content (default 0)
 
 ## Audio and Video codecs supported
 Can change audio video codec in helper/config.sh
@@ -58,7 +47,15 @@ H264	    - "h264"
 HEVC(hvc1.) - "hevc" 
 HEVC(hev1.) - "hevc -tag:v hev1" 
 
-### Known Limitations
+## Text Track support
+Default text track is TTML, generated for all languages given in helper/config.sh for HLS and Dash stream
+To disable TTML in helper/config.sh set GEN_TTML=0.
+
+To enable webvtt in helper/config.sh set GEN_WEBVTT=1
+To enable webvtt when running generate-hls-dash.sh give option -w 1
+./generate-hls-dash.sh -w 1
+
+## Known Limitations
 
 Separate 'sidecar' caption text files are generated in the text directory and
 can be loaded using the 'set textTrack' **aamp-cli** command and displayed using the
@@ -69,12 +66,6 @@ increased, for example:
 $ sudo sysctl net.local.dgram.maxdgram=102400
 $ sudo sysctl net.local.dgram.recvspace=204800
 ```
-
-The DASH manifest **main.mpd** and HLS master playlists **main.m3u8**, **main_mp4.m3u8** and
-**main_mux.m3u8** are not generated. If you change the generated video test stream
-parameters used by **generate-hls-dash.sh** you may need to edit these files.
-The DASH manifest **mainDynamic.mpd** is generated from main.mpd with given duration, audio and video codecs
-The HLS manifest **mainDynamic.m3u8** is generated from main.m3u8 with given duration, audio and video codecs
 
 ## startserver.sh
 
@@ -107,10 +98,6 @@ The following URIs are supported:
 -- HLS TS format muxed audio and video stream.
 - http://127.0.0.1:8080/main_mp4.m3u8
 -- HLS MP4 format stream.
-- http://127.0.0.1:8080/mainDynamic.mpd
--- DASH dynamic manifest based on input.
-- http://127.0.0.1:8080/mainDynamic.m3u8
--- HLS dynamic manifest based on input.
 
 Press Ctrl-C to terminate the server.
 
@@ -278,3 +265,5 @@ from the beginning. After another 30 seconds, playback of the live stream should
 resume at position 00:01:02.
 
 Use the exit command to stop AAMP and Ctrl-C to terminate the server.
+
+

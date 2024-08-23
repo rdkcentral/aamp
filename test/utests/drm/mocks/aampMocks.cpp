@@ -177,24 +177,33 @@ void AampLogManager::setLogLevel(AAMP_LogLevel newLevel)
 {
 }
 
-void logprintf(int playerId, AAMP_LogLevel level, const char *file, int line, const char *format,
+static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
+{
+	"TRACE", // eLOGLEVEL_TRACE
+	"DEBUG", // eLOGLEVEL_DEBUG
+	"INFO",  // eLOGLEVEL_INFO
+	"WARN",  // eLOGLEVEL_WARN
+	"MIL",   // eLOGLEVEL_MIL
+	"ERROR", // eLOGLEVEL_ERROR
+};
+
+void logprintf(AAMP_LogLevel level, const char *file, int line, const char *format,
 			   ...)
 {
 #ifdef ENABLE_LOGGING
-	static const char *mLogLevelStr[] = {"TRACE", "DEBUG", "INFO", "WARN", "MIL", "ERROR", "FATAL"};
-	int len = 0;
+	int playerId = -1;
 	va_list args;
 	va_start(args, format);
-
-	char gDebugPrintBuffer[MAX_DEBUG_LOG_BUFF_SIZE];
-	len = snprintf(gDebugPrintBuffer, sizeof(gDebugPrintBuffer),
-				   "[AAMP-PLAYER][%d][%s][%s][%d]", playerId, mLogLevelStr[level],
-				  file, line);
-	vsnprintf(gDebugPrintBuffer + len, MAX_DEBUG_LOG_BUFF_SIZE - len, format, args);
-	gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE - 1)] = 0;
-
-	std::cout << gDebugPrintBuffer << std::endl;
-
+	char fmt[512];
+	snprintf(
+			 fmt, sizeof(fmt),
+			 "[AAMP-PLAYER][%d][%s][%s][%d]%s\n",
+			 playerId,
+			 mLogLevelStr[level],
+			 file,
+			 line,
+			 format );
+	vprintf(fmt, args);
 	va_end(args);
 #endif
 }

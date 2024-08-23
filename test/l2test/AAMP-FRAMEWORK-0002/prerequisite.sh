@@ -28,22 +28,22 @@ extract_stream() {
 
 download_stream() {
 
-    if [ "$TEST_2032_STREAM_PATH" == "" ]; then
-        TEST_2032_STREAM_PATH="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/VideoTestStream_HLS.tar.xz"
+    if [ "$TEST_0002_STREAM_PATH" == "" ]; then
+        TEST_0002_STREAM_PATH="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/testApps/L2/AAMP-IFRAME-4007/VideoTestStream.tar.xz"
     fi
 
     #Stop multiple fetching of data if we already have it
-    file=$(basename ${TEST_2032_STREAM_PATH})
+    file=$(basename ${TEST_0002_STREAM_PATH})
     if [ -f $file ]; then
         echo "$file exists, not fetching again"
         # exit 0
     fi
-    if (curl -O  -X GET $TEST_2032_STREAM_PATH);then
-        echo "Test referring :" $TEST_2032_STREAM_PATH
+    if (curl -O  -X GET $TEST_0002_STREAM_PATH);then
+        echo "Test referring :" $TEST_0002_STREAM_PATH
         extract_stream
     else
-        echo "Downloading the stream failed. Check that the URL '$TEST_2032_STREAM_PATH' can be reached.
-        If the URL is incorrect, set the environmental variable TEST_2032_STREAM_PATH to the right value in .env file under l2test folder"
+        echo "Downloading the stream failed. Check that the URL '$TEST_0002_STREAM_PATH' can be reached.
+        If the URL is incorrect, set the environmental variable TEST_0002_STREAM_PATH to the right value in .env file under l2test folder"
     fi
 
 }

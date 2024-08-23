@@ -35,6 +35,7 @@ EOL
 for (( I=PROFILE_COUNT-1; I>=0; I-- ))
 do
 
+if [ ${HEIGHT[$I]} -le 1080 ] ; then
   cat <<EOL >> main.mpd
 	  <Representation id="${HEIGHT[$I]}p" mimeType="video/mp4" codecs="$videoCodec" bandwidth="${KBPS[$I]}000" width="${WIDTH[$I]}" height="${HEIGHT[$I]}" frameRate="25/1">
 		<SegmentTemplate timescale="12800" initialization="dash/${HEIGHT[$I]}p_init.m4s" media="dash/${HEIGHT[$I]}p_\$Number%03d$.m4s" startNumber="1">
@@ -45,6 +46,7 @@ do
 		</SegmentTemplate>
 	  </Representation>
 EOL
+fi
 done
 
 cat <<EOL >> main.mpd
@@ -69,7 +71,6 @@ do
 
   ((AdaptationSetId++))
   cat <<EOL >> main.mpd
-
 	<AdaptationSet id="$AdaptationSetId" contentType="audio" segmentAlignment="true" bitstreamSwitching="true" lang="${LANG_639_3[$I]}">
 	  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
 	  <Representation id="${LANG_FULL_NAME[$I]}" mimeType="audio/mp4" codecs="$audioCodec" bandwidth="288000" audioSamplingRate="48000">
@@ -99,6 +100,7 @@ do
 EOL
 done
 
+if [ $GEN_WEBVTT = 1 ] ; then
 for (( I=0; I<LANGUAGE_COUNT; I++ ))
 do
 
@@ -116,14 +118,18 @@ do
 	</AdaptationSet>
 EOL
 done
+fi
 
 if [ $GEN_TTML = 1 ] ; then
+
+for (( I=0; I<LANGUAGE_COUNT; I++ ))
+do
   ((AdaptationSetId++))
   cat <<EOL >> main.mpd
-	<AdaptationSet id="$AdaptationSetId" contentType="text" segmentAlignment="true" lang="eng">
+	<AdaptationSet id="$AdaptationSetId" contentType="text" segmentAlignment="true" lang="${LANG_639_3[$I]}">
 	  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
-	  <Representation id="English TTML captions" mimeType="application/mp4" codecs="stpp" bandwidth="400">
-		<SegmentTemplate timescale="1" media="dash/ttml_text_\$Number%02d$.mp4" startNumber="1">
+	  <Representation id="${LANG_FULL_NAME[$I]} TTML captions" mimeType="application/mp4" codecs="stpp" bandwidth="400">
+		<SegmentTemplate timescale="1" media="text/ttml_${LANG_639_2[$I]}_\$Number%02d$.mp4" startNumber="1">
 		  <SegmentTimeline>
 			  <S t="0" d="30" r="$((VIDEO_LENGTH_SEC/30))" />
 		  </SegmentTimeline>
@@ -131,6 +137,7 @@ if [ $GEN_TTML = 1 ] ; then
 	  </Representation>
 	</AdaptationSet>
 EOL
+done
 fi
 
 cat <<EOL >> main.mpd

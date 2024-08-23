@@ -26,7 +26,6 @@
 #include "manager.hpp"
 #include "libIBus.h"
 #include "libIBusDaemon.h"
-#include "irMgr.h"
 #endif
 
 #include "main_aamp.h"
@@ -177,10 +176,11 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
+	UsingPlayerId playerId(aamp->mPlayerId);
 
 	// start Scheduler Worker for task handling
  	mScheduler.SetLogger(mLogObj);
-	mScheduler.StartScheduler();
+	mScheduler.StartScheduler(aamp->mPlayerId);
 	if (NULL == streamSink)
 	{
 		auto id3_metadata_handler = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, aamp,
@@ -215,7 +215,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		}
 		catch (std::exception &e)
 		{
-			AAMPLOG_ERR("Failed to instantiate TSB Store object for flush, reason: %s", e.what());
+			// This is expected if an AAMP TSB instance is currently alive in another process
+			AAMPLOG_WARN("Failed to instantiate TSB Store object for flush, reason: %s", e.what());
 		}
 	}
 	aamp->SetScheduler(&mScheduler);
@@ -233,6 +234,7 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 #endif
 	if (aamp)
 	{
+		UsingPlayerId playerId(aamp->mPlayerId);
 		PrivAAMPState state;
 		aamp->GetState(state);
 		// Acquire the lock , to prevent new entries into scheduler
@@ -287,6 +289,7 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
  */
 void PlayerInstanceAAMP::ResetConfiguration()
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	AAMPLOG_WARN("Resetting Configuration to default values ");
 	// Copy the default configuration to session configuration .App can modify the configuration set
 	mConfig = *gpGlobalConfig;
@@ -307,6 +310,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 {
 	if (aamp)
 	{
+		UsingPlayerId playerId(aamp->mPlayerId);
 		PrivAAMPState state;
 		aamp->GetState(state);
 
@@ -397,6 +401,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 {
 	PrivAAMPState state;
 	if(aamp){
+		UsingPlayerId playerId(aamp->mPlayerId);
 
 	/* Set single pipeline according to the configuration */
 		aamp->UpdateUseSinglePipeline();
@@ -443,6 +448,7 @@ void PlayerInstanceAAMP::detach()
 {
 	// detach is similar to Stop , need to run like stop in Sync mode
 	if(aamp){
+		UsingPlayerId playerId(aamp->mPlayerId);
 
 	//Acquire lock
 	mScheduler.SuspendScheduler();
@@ -540,6 +546,7 @@ int PlayerInstanceAAMP::GetRampDownLimit(void)
  */
 void PlayerInstanceAAMP::SetLanguageFormat(LangCodePreference preferredFormat, bool useRole)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	//NOT_IDLE_AND_NOT_RELEASED_STATE_CHECK_VOID(); // why was this here?
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_LanguageCodePreference,(int)preferredFormat);
 	if( useRole )
@@ -554,6 +561,7 @@ void PlayerInstanceAAMP::SetLanguageFormat(LangCodePreference preferredFormat, b
  */
 void PlayerInstanceAAMP::SetMinimumBitrate(BitsPerSecond bitrate)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	if (bitrate > 0)
 	{
 		AAMPLOG_INFO("Setting minimum bitrate: %" BITSPERSECOND_FORMAT, bitrate);
@@ -579,6 +587,7 @@ BitsPerSecond PlayerInstanceAAMP::GetMinimumBitrate(void)
  */
 void PlayerInstanceAAMP::SetMaximumBitrate(BitsPerSecond bitrate)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	if (bitrate > 0)
 	{
 		AAMPLOG_INFO("Setting maximum bitrate : %" BITSPERSECOND_FORMAT, bitrate);
@@ -595,6 +604,7 @@ void PlayerInstanceAAMP::SetMaximumBitrate(BitsPerSecond bitrate)
  */
 BitsPerSecond PlayerInstanceAAMP::GetMaximumBitrate(void)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	return GETCONFIGVALUE(eAAMPConfig_MaxBitrate);
 }
 
@@ -617,6 +627,7 @@ bool PlayerInstanceAAMP::IsValidRate(int rate)
  */
 void PlayerInstanceAAMP::SetRate(float rate,int overshootcorrection)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	AAMPLOG_INFO("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 	if(aamp)
 	{
@@ -646,6 +657,7 @@ void PlayerInstanceAAMP::SetRate(float rate,int overshootcorrection)
  */
 bool PlayerInstanceAAMP::SetUserAgent(std::string &userAgent)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	bool ret = false;
 	if(!userAgent.empty())
 	{
@@ -664,6 +676,7 @@ void PlayerInstanceAAMP::SetPlaybackSpeed (float speed)
 {
 	if (aamp)
 	{
+		UsingPlayerId playerId(aamp->mPlayerId);
 		AAMPLOG_INFO("PLAYER[%d] Change playback speed = %f", aamp->mPlayerId, speed);
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 		if (sink  && false == sink->SetPlayBackRate(speed))
@@ -983,6 +996,7 @@ void PlayerInstanceAAMP::PauseAt(double position)
 {
 	if(aamp)
 	{
+		UsingPlayerId playerId(aamp->mPlayerId);
 		if(mAsyncTuneEnabled)
 		{
 			(void)mScheduler.ScheduleTask(AsyncTaskObj([position](void *data)
@@ -1118,6 +1132,7 @@ void PlayerInstanceAAMP::Seek(double secondsRelativeToTuneTime, bool keepPaused)
 {
 	if(aamp)
 	{
+		UsingPlayerId playerId(aamp->mPlayerId);
 		PrivAAMPState state;
 		aamp->GetState(state);
 		if(mAsyncTuneEnabled && state != eSTATE_IDLE && state != eSTATE_RELEASED)
@@ -1340,6 +1355,7 @@ void PlayerInstanceAAMP::SeekToLive(bool keepPaused)
 {
 	if(aamp)
 	{
+		UsingPlayerId playerId(aamp->mPlayerId);
 		if(mAsyncTuneEnabled)
 		{
 
@@ -1361,6 +1377,7 @@ void PlayerInstanceAAMP::SeekToLive(bool keepPaused)
  */
 void PlayerInstanceAAMP::SetSlowMotionPlayRate( float rate )
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	ERROR_OR_IDLE_STATE_CHECK_VOID();
 	AAMPLOG_WARN("SetSlowMotionPlay(%f)", rate );
 
@@ -1396,6 +1413,7 @@ void PlayerInstanceAAMP::SetSlowMotionPlayRate( float rate )
  */
 void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTime)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	TuneType tuneType = eTUNETYPE_SEEK;
 
 	ERROR_OR_IDLE_STATE_CHECK_VOID();
@@ -1471,6 +1489,7 @@ void PlayerInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 	ERROR_STATE_CHECK_VOID();
 	if(aamp)
 	{
+		UsingPlayerId playerId(aamp->mPlayerId);
 		aamp->SetVideoRectangle(x, y, w, h);
 	}
 }
@@ -1482,6 +1501,7 @@ void PlayerInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 {
 	ERROR_STATE_CHECK_VOID();
 	if(aamp){
+		UsingPlayerId playerId(aamp->mPlayerId);
 	aamp->zoom_mode = zoom;
 	aamp->AcquireStreamLock();
 	if (aamp->mpStreamAbstractionAAMP )
@@ -1503,6 +1523,7 @@ void PlayerInstanceAAMP::SetVideoMute(bool muted)
 {
 	ERROR_STATE_CHECK_VOID();
 	if(aamp){
+		UsingPlayerId playerId(aamp->mPlayerId);
 		AAMPLOG_WARN(" mute == %s subtitles_muted == %s", muted?"true":"false", aamp->subtitles_muted?"true":"false");
 		aamp->video_muted = muted;
 
@@ -1536,6 +1557,7 @@ void PlayerInstanceAAMP::SetVideoMute(bool muted)
  */
 void PlayerInstanceAAMP::SetSubtitleMute(bool muted)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	ERROR_STATE_CHECK_VOID();
 
 	AAMPLOG_WARN(" mute == %s", muted?"true":"false");
@@ -1559,6 +1581,7 @@ void PlayerInstanceAAMP::SetSubtitleMute(bool muted)
  */
 void PlayerInstanceAAMP::SetAudioVolume(int volume)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	ERROR_STATE_CHECK_VOID();
 	AAMPLOG_WARN(" volume == %d", volume);
 	if(aamp){
@@ -1589,6 +1612,7 @@ void PlayerInstanceAAMP::SetLanguage(const char* language)
 {
 	ERROR_STATE_CHECK_VOID();
 	if(aamp){
+		UsingPlayerId playerId(aamp->mPlayerId);
 		PrivAAMPState state;
 		aamp->GetState(state);
 		if (mAsyncTuneEnabled && state != eSTATE_IDLE && state != eSTATE_RELEASED)
@@ -1615,6 +1639,7 @@ void PlayerInstanceAAMP::SetSubscribedTags(std::vector<std::string> subscribedTa
 {
 	ERROR_STATE_CHECK_VOID();
 	if(aamp){
+		UsingPlayerId playerId(aamp->mPlayerId);
 	aamp->subscribedTags = subscribedTags;
 
 	for (int i=0; i < aamp->subscribedTags.size(); i++) {
@@ -1631,6 +1656,7 @@ void PlayerInstanceAAMP::SubscribeResponseHeaders(std::vector<std::string> respo
 	ERROR_STATE_CHECK_VOID();
 
 	if(aamp){
+		UsingPlayerId playerId(aamp->mPlayerId);
 	aamp->manifestHeadersNeeded  = responseHeaders;
 
 	for (int header=0; header < responseHeaders.size(); header++) {
@@ -1719,7 +1745,7 @@ bool PlayerInstanceAAMP::IsJsInfoLoggingEnabled(void)
 /**
  *  @brief Get current audio language.
  */
-const char* PlayerInstanceAAMP::GetCurrentAudioLanguage(void)
+std::string PlayerInstanceAAMP::GetAudioLanguage(void)
 {
 	ERROR_OR_IDLE_STATE_CHECK_VAL("");
 	static char lang[MAX_LANGUAGE_TAG_LENGTH];
@@ -1740,19 +1766,25 @@ const char* PlayerInstanceAAMP::GetCurrentAudioLanguage(void)
 	return lang;
 }
 
+const char * PlayerInstanceAAMP::GetCurrentAudioLanguage(void)
+{
+	static std::string temp = GetAudioLanguage();
+	return temp.c_str();
+}
+
 /**
  *  @brief Get current drm
  */
-const char* PlayerInstanceAAMP::GetCurrentDRM(void)
+std::string PlayerInstanceAAMP::GetDRM(void)
 {
 	ERROR_OR_IDLE_STATE_CHECK_VAL("");
 	if(aamp){
-	std::shared_ptr<AampDrmHelper> helper = aamp->GetCurrentDRM();
-	if (helper)
-	{
-		return helper->friendlyName().c_str();
+		std::shared_ptr<AampDrmHelper> helper = aamp->GetCurrentDRM();
+		if (helper)
+		{
+			return helper->friendlyName();
+		}
 	}
-	}// end of if aamp
 	return "NONE";
 }
 
@@ -1764,6 +1796,7 @@ void PlayerInstanceAAMP::AddPageHeaders(std::map<std::string, std::string> pageH
 	ERROR_STATE_CHECK_VOID();
 	if(aamp && ISCONFIGSET(eAAMPConfig_AllowPageHeaders))
 	{
+		UsingPlayerId playerId(aamp->mPlayerId);
 		for(auto &header : pageHeaders)
 		{
 			AAMPLOG_INFO("PrivateInstanceAAMP: applying the http header key: %s, value: %s", header.first.c_str(), header.second.c_str());
@@ -1779,6 +1812,7 @@ void PlayerInstanceAAMP::AddCustomHTTPHeader(std::string headerName, std::vector
 {
 	ERROR_STATE_CHECK_VOID();
 	if(aamp){
+		UsingPlayerId playerId(aamp->mPlayerId);
 	aamp->AddCustomHTTPHeader(headerName, headerValue, isLicenseHeader);
 	}
 }
@@ -1790,6 +1824,7 @@ void PlayerInstanceAAMP::SetLicenseServerURL(const char *url, DRMSystems type)
 {
 	ERROR_STATE_CHECK_VOID();
 	if(aamp){
+		UsingPlayerId playerId(aamp->mPlayerId);
 	if (type == eDRM_PlayReady)
 	{
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PRLicenseServerUrl,std::string(url));
@@ -2016,6 +2051,7 @@ long PlayerInstanceAAMP::GetVideoBitrate(void)
  */
 void PlayerInstanceAAMP::SetVideoBitrate(BitsPerSecond bitrate)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	if (bitrate != 0)
 	{
 		// Single bitrate profile selection , with abr disabled
@@ -2080,6 +2116,7 @@ bool PlayerInstanceAAMP::GetVideoMute(void)
  */
 int PlayerInstanceAAMP::GetAudioVolume(void)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	ERROR_STATE_CHECK_VAL(0);
 	if (eSTATE_IDLE == state)
 	{
@@ -2106,6 +2143,7 @@ std::vector<BitsPerSecond> PlayerInstanceAAMP::GetVideoBitrates(void)
 	ERROR_OR_IDLE_STATE_CHECK_VAL(std::vector<BitsPerSecond>());
 	std::vector<BitsPerSecond> bitrates;
 	if(aamp){
+		UsingPlayerId playerId(aamp->mPlayerId);
 	aamp->AcquireStreamLock();
 	if (aamp->mpStreamAbstractionAAMP)
 	{
@@ -2121,6 +2159,7 @@ std::vector<BitsPerSecond> PlayerInstanceAAMP::GetVideoBitrates(void)
  */
 std::string PlayerInstanceAAMP::GetManifest(void)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	ERROR_OR_IDLE_STATE_CHECK_VAL(std::string());
 	if( aamp->mMediaFormat == eMEDIAFORMAT_DASH)
 	{
@@ -2142,6 +2181,7 @@ std::vector<BitsPerSecond> PlayerInstanceAAMP::GetAudioBitrates(void)
 	ERROR_OR_IDLE_STATE_CHECK_VAL(std::vector<BitsPerSecond>());
 	std::vector<BitsPerSecond> bitrates;
 	if(aamp){
+		UsingPlayerId playerId(aamp->mPlayerId);
 	aamp->AcquireStreamLock();
 	if (aamp->mpStreamAbstractionAAMP)
 	{
@@ -2369,6 +2409,7 @@ void PlayerInstanceAAMP::SetDownloadLowBWTimeout(int lowBWTimeout)
  */
 void PlayerInstanceAAMP::SetPreferredSubtitleLanguage(const char* language)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	ERROR_STATE_CHECK_VOID();
         AAMPLOG_WARN("PlayerInstanceAAMP::(%s)->(%s)",  aamp->mSubLanguage.c_str(), language);
 
@@ -2484,6 +2525,7 @@ void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string renditi
 {
 	if(aamp)
 	{
+		UsingPlayerId playerId(aamp->mPlayerId);
 
 		if (mAsyncTuneEnabled)
 		{
@@ -2594,14 +2636,9 @@ DRMSystems PlayerInstanceAAMP::GetPreferredDRM()
 /**
  *  @brief Get current preferred language list
  */
-const char* PlayerInstanceAAMP::GetPreferredLanguages()
+std::string PlayerInstanceAAMP::GetPreferredLanguages()
 {
-	if(!aamp->preferredLanguagesString.empty())
-	{
-		return aamp->preferredLanguagesString.c_str();
-	}
-
-	return NULL;
+	return aamp->preferredLanguagesString;
 }
 
 /**
@@ -2753,6 +2790,7 @@ void PlayerInstanceAAMP::EnableVideoRectangle(bool rectProperty)
  */
 void PlayerInstanceAAMP::SetAudioTrack(int trackId)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	ERROR_OR_IDLE_STATE_CHECK_VOID();
 	if(aamp && aamp->mpStreamAbstractionAAMP){
 
@@ -2791,12 +2829,13 @@ int PlayerInstanceAAMP::GetAudioTrack()
  */
 void PlayerInstanceAAMP::SetTextTrack(int trackId, char *ccData)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
         ERROR_OR_IDLE_STATE_CHECK_VOID();
 	if(aamp && aamp->mpStreamAbstractionAAMP)
 	{
 
 		std::vector<TextTrackInfo> tracks = aamp->mpStreamAbstractionAAMP->GetAvailableTextTracks();
-		AAMPLOG_INFO("trackId: %d tracks size %lu", trackId, tracks.size());
+		AAMPLOG_INFO("trackId: %d tracks size %zu", trackId, tracks.size());
 		if (!tracks.empty() && (MUTE_SUBTITLES_TRACKID == trackId || (trackId >= 0 && trackId < tracks.size())))
 		{
 			if (mAsyncTuneEnabled)
@@ -2921,6 +2960,7 @@ std::string PlayerInstanceAAMP::GetAvailableThumbnailTracks(void)
  */
 bool PlayerInstanceAAMP::SetThumbnailTrack(int thumbIndex)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	ERROR_OR_IDLE_STATE_CHECK_VAL(false);
 	bool ret = false;
 	aamp->AcquireStreamLock();
@@ -3087,6 +3127,7 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
  */
 void PlayerInstanceAAMP::SetPausedBehavior(int behavior)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	ERROR_STATE_CHECK_VOID();
 
 	if(behavior >= 0 && behavior < ePAUSED_BEHAVIOR_MAX)
@@ -3120,7 +3161,7 @@ void PlayerInstanceAAMP::SetRepairIframes(bool configState)
 /**
  *  @brief InitAAMPConfig - Initialize the media player session with json config
  */
-bool PlayerInstanceAAMP::InitAAMPConfig(char *jsonStr)
+bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 {
 	bool retVal = false;
 	cJSON *cfgdata = NULL;
@@ -3215,6 +3256,7 @@ void PlayerInstanceAAMP::SetAuxiliaryLanguage(const std::string &language)
  */
 void PlayerInstanceAAMP::SetAuxiliaryLanguageInternal(const std::string &language)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	ERROR_STATE_CHECK_VOID();
 #ifdef AAMP_AUXILIARY_AUDIO_ENABLED
 	//Can set the property only for BT enabled device
@@ -3276,6 +3318,7 @@ std::string PlayerInstanceAAMP::GetPlaybackStats()
 
 void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuffer)
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	AAMPLOG_INFO("ProcessContentProtectionDataConfig received DRM config data from app");
 	if(aamp){
 		//In case of tune failure, It is necessary to trigger the release of the mWaitForDynamicDRMToUpdate condition
