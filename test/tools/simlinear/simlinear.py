@@ -302,9 +302,6 @@ class DASHServerHandler(BaseHTTPRequestHandler):
         #global threadingEvent
         # path=/some/kind/of/path?query
         # becomes some/kind/of/path
-        
-        isTiming = False
-        
         path = self.path[1:].split("?")[0]
 
         if self.path.endswith(".m3u8"):
@@ -333,41 +330,30 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                 if not rtn:
                     raise FileNotFoundError
                 log.info("%s %s",time.time(), rtn["path"])
-            
-            elif self.path == "/timing":
-            
-                tNow = datetime.utcnow()
-                ISOtime = tNow.strftime("%Y-%m-%dT%H:%M:%S.")
-                
-                contents = ISOtime.encode("utf-8")
-                
-                isTiming = True
-                
             else:
                 rtn = {"path": path}
-            
-            if not isTiming:
-                if "contents" in rtn:
-                    #RDKAAMP-1435
-                    details = read_harvest_details()
-                    if details != {}:
-                        if details['url'] is not None:
-                            baseURLs = re.findall(r'<BaseURL>([\S]*)<\/BaseURL>', rtn["contents"])
-                            if len(baseURLs) > 0:
-                                for baseURL in baseURLs:
-                                    basURL_domain = urlparse(baseURL)
-                                    if basURL_domain.netloc in details['url']:
-                                        rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>http://{self.server.server_address[0]}:{self.server.server_address[1]}/{basURL_domain.netloc}", rtn["contents"])
-                                    elif args.ad_server != "":
-                                        # Replace BaseURL to Ad-Server
-                                        rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>{args.ad_server}/{basURL_domain.netloc}", rtn["contents"])
-    
-                    contents = rtn["contents"].encode("utf-8")
-                else:
-                    modify_response(self.path) #RDKAAMP-3019
-                        
-                    with open(rtn["path"], "rb") as f:
-                        contents = f.read()
+
+            if "contents" in rtn:
+                #RDKAAMP-1435
+                details = read_harvest_details()
+                if details != {}:
+                    if details['url'] is not None:
+                        baseURLs = re.findall(r'<BaseURL>([\S]*)<\/BaseURL>', rtn["contents"])
+                        if len(baseURLs) > 0:
+                            for baseURL in baseURLs:
+                                basURL_domain = urlparse(baseURL)
+                                if basURL_domain.netloc in details['url']:
+                                    rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>http://{self.server.server_address[0]}:{self.server.server_address[1]}/{basURL_domain.netloc}", rtn["contents"])
+                                elif args.ad_server != "":
+                                    # Replace BaseURL to Ad-Server
+                                    rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>{args.ad_server}/{basURL_domain.netloc}", rtn["contents"])
+
+                contents = rtn["contents"].encode("utf-8")
+            else:
+                modify_response(self.path) #RDKAAMP-3019
+                    
+                with open(rtn["path"], "rb") as f:
+                    contents = f.read()
 
             self.send_response(200)
             self.send_header("Access-Control-Allow-Origin", "*")
