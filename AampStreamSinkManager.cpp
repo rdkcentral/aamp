@@ -133,7 +133,7 @@ void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_call
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
-
+	
     AampStreamSinkInactive *inactiveSink = new AampStreamSinkInactive(aamp->mLogObj, id3HandlerCallback);  /* For every instance of aamp, there should be an AampStreamSinkInactive object*/
 	mInactiveGstPlayersMap.insert({aamp,inactiveSink});
 
@@ -204,7 +204,7 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
-
+	
 	//Do not edit or remove this log - it is used in L2 test
 	AAMPLOG_WARN("AampStreamSinkManager(%p) DeleteStreamSink for PLAYER[%d]", this, aamp->mPlayerId);
 
@@ -273,7 +273,7 @@ void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
-
+	
 	switch(mPipelineMode)
 	{
 		case ePIPELINEMODE_UNDEFINED:
@@ -379,7 +379,7 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	auto mLogObj = aamp->mLogObj; // map correct log context
-
+	
 	switch(mPipelineMode)
 	{
 		case ePIPELINEMODE_SINGLE:
@@ -408,7 +408,7 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, setting active PLAYER[%d]", this, aamp->mPlayerId);
 
 					mActiveGstPlayersMap.insert({aamp, mGstPlayer});
-					SetActive(aamp, position);
+					SetActive(aamp);
 				}
 				else
 				{
@@ -435,9 +435,11 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 	}
 }
 
-void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp, double position)
+void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp)
 {
 	auto mLogObj = aamp->mLogObj; // map correct log context
+	
+	double position = aamp->GetPositionMs() / 1000.00;
 
 	AAMPLOG_INFO("AampStreamSinkManager(%p) Setting PLAYER[%d] active, position(%f)", this, aamp->mPlayerId, position);
 

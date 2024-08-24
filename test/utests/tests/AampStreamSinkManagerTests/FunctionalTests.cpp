@@ -335,7 +335,7 @@ TEST_F(AampStreamSinkManagerTests, ChangeAampTests)
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(0);
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP1);
 
-    /* ActivatePlayer() calls PrivateInstanceAAMP::GetPositionMs() to get the current position of the
+    /* AampStreamSinkManager::SetActive() calls PrivateInstanceAAMP::GetPositionMs() to get the current position of the
     second AAMP private instance and AAMPGstPlayer::Flush() with the position in seconds. */
     long long positionMs = 5000;
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMs()).WillOnce(Return(positionMs));
