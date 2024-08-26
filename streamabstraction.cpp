@@ -898,11 +898,18 @@ bool MediaTrack::ProcessFragmentChunk()
 	if(cachedFragment->initFragment)
 	{
 		class StreamAbstractionAAMP* pContext = GetContext();
-		AAMPLOG_INFO("Injecting init chunk for %s",name);
-		InjectFragmentChunkInternal((AampMediaType)type, &cachedFragment->fragment , cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
-		if (eTRACK_VIDEO == type && aamp->IsLocalAAMPTsb() && pContext && pContext->GetProfileCount())
+		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
-			pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
+			mSubtitleParser->processData(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), cachedFragment->position, cachedFragment->duration);
+		}
+		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
+		{
+			AAMPLOG_INFO("Injecting init chunk for %s",name);
+			InjectFragmentChunkInternal((AampMediaType)type, &cachedFragment->fragment , cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
+			if (eTRACK_VIDEO == type && aamp->IsLocalAAMPTsb() && pContext && pContext->GetProfileCount())
+			{
+				pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
+			}
 		}
 		cachedFragment->initFragment = false;
 		return true;
@@ -972,6 +979,10 @@ bool MediaTrack::ProcessFragmentChunk()
 	{
 		timeScale = aamp->GetAudTimeScale();
 	}
+	else if (type == eTRACK_SUBTITLE)
+	{
+		timeScale = aamp->GetSubTimeScale();
+	}
 	if(!timeScale)
 	{
 		//FIX-ME-Read from MPD INSTEAD
@@ -1035,6 +1046,10 @@ bool MediaTrack::ProcessFragmentChunk()
 		//isobufTest.printBoxes();
 		isobufTest.destroyBoxes();
 #endif
+		if (mSubtitleParser && type == eTRACK_SUBTITLE)
+		{
+			mSubtitleParser->processData(parsedBufferChunk.GetPtr(), parsedBufferChunk.GetLen(), fpts, fduration);
+		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);

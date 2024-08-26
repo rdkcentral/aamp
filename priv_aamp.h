@@ -3749,6 +3749,18 @@ public:
 	uint32_t  GetAudTimeScale(void);
 
 	/**
+	 * @brief Sets Subtitle TimeScale
+	 * @param[in] subTimeScale - Subtitle TimeScale
+	 */
+	void SetSubTimeScale(uint32_t subTimeScale);
+
+	/**
+	 * @brief Gets Subtitle TimeScale
+	 * @return uint32_t - Subtitle TimeScale
+	 */
+	uint32_t GetSubTimeScale(void);
+
+	/**
 	 *   @fn SetLLDashSpeedCache
 	 *
 	 *   @param[in] speedCache - Speed Cache
@@ -4343,6 +4355,7 @@ protected:
 	double mLLDashCurrentPlayRate; 		/**<Low Latency Current play Rate */
 	uint32_t vidTimeScale;
 	uint32_t audTimeScale;
+	uint32_t subTimeScale;
 	struct SpeedCache speedCache;
 	bool bLowLatencyStartABR;
 	bool mLiveOffsetAppRequest;

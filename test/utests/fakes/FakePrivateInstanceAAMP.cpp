@@ -951,6 +951,11 @@ uint32_t  PrivateInstanceAAMP::GetAudTimeScale(void)
 	}
 }
 
+uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
+{
+	return 0u;
+}
+
 BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
 {
     return 0;
@@ -1240,6 +1245,10 @@ void PrivateInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
 }
 
 void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
+{
+}
+
+void PrivateInstanceAAMP::SetSubTimeScale(uint32_t subTimeScale)
 {
 }
 

@@ -1204,6 +1204,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mLLDashCurrentPlayRate(AAMP_NORMAL_PLAY_RATE)
 	, vidTimeScale(0)
 	, audTimeScale(0)
+	, subTimeScale(0)
 	, speedCache {}
 	, mCurrentLatency(0)
 	, mLiveOffsetAppRequest(false)
@@ -12738,6 +12739,25 @@ uint32_t  PrivateInstanceAAMP::GetAudTimeScale(void)
 {
 	return audTimeScale;
 }
+
+/**
+ * @brief Sets Subtitle TimeScale
+ * @param[in] subTimeScale - Subtitle TimeScale
+ */
+void PrivateInstanceAAMP::SetSubTimeScale(uint32_t subTimeScale)
+{
+	this->subTimeScale = subTimeScale;
+}
+
+/**
+ * @brief Gets Subtitle TimeScale
+ * @return uint32_t - Subtitle TimeScale
+ */
+uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
+{
+	return subTimeScale;
+}
+
 /**
  * @brief Sets Speed Cache
  */
