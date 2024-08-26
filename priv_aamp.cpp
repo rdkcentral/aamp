@@ -10684,11 +10684,35 @@ std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 std::string PrivateInstanceAAMP::GetTextTrackInfo()
 {
 	std::string track;
+	bool trackInfoAvailable = false;
 	pthread_mutex_lock(&mStreamLock);
 	if (mpStreamAbstractionAAMP)
 	{
 		TextTrackInfo trackInfo;
-		if (mpStreamAbstractionAAMP->GetCurrentTextTrack(trackInfo))
+
+#ifdef AAMP_CC_ENABLED
+		if (AampCCManager::GetInstance()->GetStatus() && mIsInbandCC)
+		{
+			std::string trackId = AampCCManager::GetInstance()->GetTrack();
+			if (!trackId.empty())
+			{
+				std::vector<TextTrackInfo> tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
+				for (auto it = tracks.begin(); it != tracks.end(); it++)
+				{
+					if (it->instreamId == trackId)
+					{
+						trackInfo = *it;
+						trackInfoAvailable = true;
+					}
+				}
+			}
+		}
+#endif
+		if (!trackInfoAvailable)
+		{
+			trackInfoAvailable = mpStreamAbstractionAAMP->GetCurrentTextTrack(trackInfo);
+		}
+		if (trackInfoAvailable)
 		{
 			//Convert to JSON format
 			cJSON *root;
@@ -10728,6 +10752,10 @@ std::string PrivateInstanceAAMP::GetTextTrackInfo()
 				if (!trackInfo.mType.empty())
 				{
 					cJSON_AddStringToObject(item, "type", trackInfo.mType.c_str());
+				}
+				if (!trackInfo.instreamId.empty())
+				{
+					cJSON_AddStringToObject(item, "instreamID", trackInfo.instreamId.c_str());
 				}
 				if (!trackInfo.accessibilityItem.getSchemeId().empty())
 				{
