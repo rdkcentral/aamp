@@ -92,10 +92,6 @@ std::string PrivateInstanceAAMP::GetLicenseReqProxy()
 	return std::string();
 }
 
-void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char * description, bool isRetryEnabled, int32_t secManagerClassCode, int32_t secManagerReasonCode, int32_t secClientBusinessStatus, const std::string &responseData)
-{
-}
-
 std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 {
 	std::string url;

@@ -65,7 +65,7 @@ static int GetFieldValue(string &attrName, string keyName, string &valuePtr){
 	int status = DRM_API_FAILED;
 	int found = 0, foundpos = 0;
 
-	AAMPLOG_TRACE("Entering..");
+	AAMPLOG_TRACE("Entring..");
 
 	while ( (foundpos = (int)attrName.find(keyName,found)) != std::string::npos)
 	{
