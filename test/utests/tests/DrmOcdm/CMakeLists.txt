@@ -41,7 +41,8 @@ message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 set(TEST_SOURCES DrmTestsRun.cpp
 				 DrmSessionTests.cpp
 				 DrmHelperTests.cpp
-				 DrmUtilsTests.cpp)
+				 DrmUtilsTests.cpp
+				 DrmHLSTests.cpp)
 
 set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
 				 ${DRM_ROOT}/mocks/FakeID3Metadata.cpp
@@ -75,11 +76,17 @@ set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				 ${AAMP_ROOT}/drm/AampOcdmBasicSessionAdapter.cpp
 				 ${AAMP_ROOT}/drm/AampOcdmGstSessionAdapter.cpp
 				 ${AAMP_ROOT}/drm/AampHlsOcdmBridge.cpp
+				 ${AAMP_ROOT}/drm/AampHlsDrmSessionManager.cpp
+				 ${AAMP_ROOT}/drm/processProtectionHls.cpp
 				 ${AAMP_ROOT}/drm/helper/AampClearKeyHelper.cpp
 				 ${AAMP_ROOT}/drm/helper/AampWidevineDrmHelper.cpp
 				 ${AAMP_ROOT}/drm/helper/AampPlayReadyHelper.cpp
-				 ${AAMP_ROOT}/isobmff/isobmffbox.h ${AAMP_ROOT}/isobmff/isobmffbox.cpp ${AAMP_ROOT}/isobmff/isobmffbuffer.h ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
+				 ${AAMP_ROOT}/isobmff/isobmffbox.h
+				 ${AAMP_ROOT}/isobmff/isobmffbox.cpp
+				 ${AAMP_ROOT}/isobmff/isobmffbuffer.h
+				 ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
 
+add_definitions(-DAAMP_HLS_DRM)
 add_definitions(-DUSE_SHARED_MEMORY)
 add_definitions(-DUSE_OPENCDM -DUSE_OPENCDM_ADAPTER)
 add_definitions(-DUSE_THUNDER_OCDM_API_0_2)

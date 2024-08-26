@@ -404,7 +404,6 @@ void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::vec
 {
 	bool loop = false;
 	std::string defUrl = "";
-	int i = 0;
 	advertInfo ad;
 	mAdvertIndex = (mAdvertIndex < mAdvertList.size()) ? mAdvertIndex : 0;
 	while (mAdvertIndex < mAdvertList.size())
