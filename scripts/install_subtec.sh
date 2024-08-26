@@ -16,26 +16,23 @@ function subtec_install_fn() {
 
     echo "Cloning subtec-app..."
     do_clone_fn "https://code.rdkcentral.com/r/components/generic/subtec-app"
-    git -C subtec-app checkout b4fb7c40f08c32e76bcc57e6a7fea140fe9e93f5
+    git -C subtec-app checkout a95f7591fff3fb8777781dfdc76d95fc0a1c382b
 
     echo
     echo "Cloning websocket-ipplayer2-utils..."
     do_clone_fn https://code.rdkcentral.com/r/components/generic/websocket-ipplayer2-utils subtec-app/websocket-ipplayer2-utils
-    git -C subtec-app/websocket-ipplayer2-utils checkout 2d76dfc7fa62f367fdcbc43bca684992629fa074
+    git -C subtec-app/websocket-ipplayer2-utils checkout 2287fea4d1af0a632aed5f1b8bfba8babbdade1f
 
 
     pushd subtec-app
-    echo "Patching subtec-ap from ${1}"
+    echo "Patching subtec-app from ${1}"
+    git apply -p1 ${1}/OSX/patches/subttxrend-app-xkbcommon.patch
     git apply -p1 ${1}/OSX/patches/subttxrend-app-packet.patch
-    git apply -p1 ${1}/OSX/patches/subttxrend-app-cmake.patch
-    git apply -p1 ${1}/OSX/patches/websocket-ipplayer2-utils.patch --directory websocket-ipplayer2-utils
-    git apply -p1 ${1}/OSX/patches/JsonHelper.patch --directory websocket-ipplayer2-utils/src/ipp2
-    git apply -p1 ${1}/OSX/patches/subttxrend-app-x86builder.patch
-    git apply -p1 ${1}/OSX/patches/subttxrend-app-stringutils.patch
+    git apply -p1 ${1}/OSX/patches/websocket-ipplayer2-link.patch --directory websocket-ipplayer2-utils
     git apply -p1 ${1}/OSX/patches/websocket-ipplayer2-typescpp.patch --directory websocket-ipplayer2-utils
+    cp ${1}/OSX/patches/RDKLogoBlack.png subttxrend-gfx/quartzcpp/assets/RDKLogo.png
     git apply -p1 ${1}/OSX/patches/subttxrend-app-ubuntu_24_04_build.patch
     git apply -p1 ${1}/OSX/patches/websocket-ipplayer2-ubuntu_24_04_build.patch --directory websocket-ipplayer2-utils
-
 
 
     echo "Patching subtec-app CMakeLists.txt with '$2'"
@@ -133,7 +130,7 @@ function subtec_install_build_fn() {
     cd subtec-app/subttxrend-app/x86_builder/
 
     if [ ! -d build/install ] ; then
-        PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:$PKG_CONFIG_PATH ./build.sh fast
+        PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH ./build.sh fast
 
         if [ -f ./build/install/usr/local/bin/subttxrend-app ]; then
             echo "subtec-app has been built."
