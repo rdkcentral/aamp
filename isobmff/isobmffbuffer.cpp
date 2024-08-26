@@ -703,7 +703,7 @@ int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer
 				unParsedBufferSize -= (box->getOffset()+box->getSize()); //decerese by parsed buffer size
 
 				parsedBufferSize -= unParsedBufferSize; //get parsed buf size
-				AAMPLOG_TRACE("parsedBufferSize : %zu updated unParsedBufferSize: %zu Total Buf Size processed: %lu",parsedBufferSize,unParsedBufferSize,parsedBufferSize+unParsedBufferSize);
+				AAMPLOG_TRACE("parsedBufferSize : %zu updated unParsedBufferSize: %zu Total Buf Size processed: %zu",parsedBufferSize,unParsedBufferSize,parsedBufferSize+unParsedBufferSize);
 				break;
 			}
 		}
