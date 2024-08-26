@@ -86,19 +86,20 @@ typedef struct _manifestDownloadConfig
 	int mHarvestConfig;				/**< Harvest config */
 	std::string mHarvestPathConfigured;    // Harvest Path 	
 	AampCMCDCollector* mCMCDCollector; // new variable for cmcd header collector
+	std::string mPreProcessedManifest; // provided pre-processed manifest file
 
 
 	_manifestDownloadConfig() :mDnldConfig(std::make_shared<DownloadConfig> ()),mTuneUrl(),mStichUrl(),
 									mIsLLDConfigEnabled(false),	mCullManifestAtTuneStart(false),mTSBDuration(-1),
 									mStartPosnToTSB(-1),mCMCDCollector(nullptr),mMPDStichOption(OPT_1_FULL_MANIFEST_TUNE),
-									mHarvestCountLimit(0),mHarvestConfig(0),mHarvestPathConfigured() {}
+									mHarvestCountLimit(0),mHarvestConfig(0),mHarvestPathConfigured(),mPreProcessedManifest() {}
 
 	_manifestDownloadConfig(const _manifestDownloadConfig& other): mDnldConfig(other.mDnldConfig),mTuneUrl(other.mTuneUrl),
 								mStichUrl(other.mStichUrl),mIsLLDConfigEnabled(other.mIsLLDConfigEnabled),
 								mCullManifestAtTuneStart(other.mCullManifestAtTuneStart), mTSBDuration(other.mTSBDuration),
 								mStartPosnToTSB(other.mStartPosnToTSB),mCMCDCollector(other.mCMCDCollector),
 								mMPDStichOption(other.mMPDStichOption),mHarvestCountLimit(other.mHarvestCountLimit),
-								mHarvestConfig(other.mHarvestConfig),mHarvestPathConfigured(other.mHarvestPathConfigured) {}
+								mHarvestConfig(other.mHarvestConfig),mHarvestPathConfigured(other.mHarvestPathConfigured),mPreProcessedManifest(other.mPreProcessedManifest) {}
 
 
 	_manifestDownloadConfig& operator=(const _manifestDownloadConfig& other)
@@ -213,7 +214,7 @@ public:
 	*	@fn Initialize
 	*	@brief Function to initialize MPD Downloader
 	*/
-	void Initialize(ManifestDownloadConfigPtr mpdDnldCfg, AampLogManager *logObj=NULL, std::string appName="");
+	void Initialize(ManifestDownloadConfigPtr mpdDnldCfg, AampLogManager *logObj=NULL, std::string appName="",std::function<std::string()> mpdPreProcessFuncptr = nullptr);
 
 	/**
 	*	@fn Release
@@ -435,6 +436,7 @@ private:
 	uint64_t mPublishTime; 		   /* Publish time of updated manifest*/
 	int mMinimalRefreshRetryCount;  /* A counter to checks if the publication time remains the same for 2 consecutive refresh*/
 	std::atomic_bool mMPDNotifyPending ; /*To allow wait for downloadNotifier based on NotifyPending Status */
+	std::function<std::string()> mMpdPreProcessFuncptr; /* function invoked to read the available preprocessed manifest data or to send event if manifest data is not available */
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */

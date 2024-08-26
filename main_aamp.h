@@ -813,7 +813,8 @@ public:
 				bool audioDecoderStreamSync = true,
 				const char *refreshManifestUrl = NULL,
 				int mpdStichingMode = 0,
-				std::string sid = std::string{} );
+				std::string sid = std::string{},
+				const char *manifestData = NULL);
 
 	/**
 	 *   @brief Stop playback and release resources.
@@ -2082,6 +2083,13 @@ public:
 	 */
 	std::string GetSessionId() const;
 
+	/**
+	* @fn updateManifest
+	*
+	* @param Processed manifest data  from app
+	*/
+	void updateManifest(const char *manifestData);
+
 protected:
 	/**
 	 *   @fn IsValidRate
@@ -2106,7 +2114,8 @@ protected:
 						bool audioDecoderStreamSync,
 						const char *refreshManifestUrl = NULL,
 						int mpdStichingMode = 0,
-						std::string sid = {} );
+						std::string sid = {},
+						const char *manifestData = NULL );
 	/**
          *   @fn SetRateInternal
          *

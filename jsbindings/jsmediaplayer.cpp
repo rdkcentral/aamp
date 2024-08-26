@@ -480,6 +480,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 	char* strTraceId = NULL;
 	int mpdStichingMode = 0;
 	std::string sid{};
+	char* manifestbuffer = NULL;
 
 	switch(argumentCount)
 	{
@@ -543,6 +544,18 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 				}
 				JSStringRelease(paramName);
 			}
+
+			paramName = JSStringCreateWithUTF8CString("manifest");
+			paramValue = JSObjectGetProperty(ctx, argument, paramName, NULL);
+			if (JSValueIsString(ctx, paramValue))
+			{
+				manifestbuffer = aamp_JSValueToCString(ctx, paramValue, NULL);
+				if( NULL != manifestbuffer )
+				{
+					LOG_WARN(privObj,"Response json call PreProcessedManifestData %s len:%d ",manifestbuffer,strlen(manifestbuffer));
+				}
+			}
+			JSStringRelease(paramName);
 		}
 		case 2:
 			autoPlay = JSValueToBoolean(ctx, arguments[1]);
@@ -553,8 +566,8 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 
 			{
 				char* url = aamp_JSValueToCString(ctx, arguments[0], exception);
-				LOG_WARN(privObj,"_aamp->Tune(%d, %s, %d, %d, %s) - sid: %s", autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, sid.c_str());
-				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, audioDecoderStreamSync, url2, mpdStichingMode, std::move(sid));
+				LOG_WARN(privObj,"_aamp->Tune(%d, %s, %d, %d, %s) - sid: %s preprocessedManifestData : %s", autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, sid.c_str(),manifestbuffer);
+				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, audioDecoderStreamSync, url2, mpdStichingMode, std::move(sid),manifestbuffer);
 
 			}
 
@@ -572,6 +585,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
         SAFE_DELETE_ARRAY(url);
         SAFE_DELETE_ARRAY(contentType);
         SAFE_DELETE_ARRAY(strTraceId);
+	SAFE_DELETE_ARRAY(manifestbuffer);
 
 	return JSValueMakeUndefined(ctx);
 }
@@ -3444,6 +3458,58 @@ JSValueRef AAMPMediaPlayerJS_getVideoPlaybackQuality (JSContextRef ctx, JSObject
 }
 
 /**
+ * @brief CFunction to set pre-proceed DASH manifest data.
+ *
+ * @param[in] ctx JS execution context
+ * @param[in] function JSObject that is the function being called
+ * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
+ * @param[in] argumentCount number of args
+ * @param[in] arguments[] JSValue array of args
+ * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
+ *
+ * @retval JSValue that is the function's return value
+ */
+JSValueRef AAMPMediaPlayerJS_updateManifest(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+	LOG_TRACE("Enter");
+	bool bRet = false;
+	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
+	if (!privObj)
+	{
+		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
+		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call setContentProtectionDataConfig() on instances of AAMPPlayer");
+	}
+	else
+	{
+		if (argumentCount == 1)
+		{
+			const char *manifestbuffer = aamp_JSValueToCString(ctx,arguments[0], exception);
+			if( NULL != manifestbuffer )
+			{
+				LOG_WARN(privObj," got updated manifest len:%d ",strlen(manifestbuffer));
+				privObj->_aamp->updateManifest(manifestbuffer);
+				bRet = true;
+				SAFE_DELETE_ARRAY(manifestbuffer);
+			}
+			else
+			{
+				LOG_ERROR(privObj,"Failed to get updated manifest, manifestbuffer is NULL");
+				*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to get updated manifest, it is NULL ");
+			}
+		}
+		else
+		{
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setContentProtectionDataConfig() - 1 argument required");
+		}
+	}
+	LOG_TRACE("Exit");
+	return JSValueMakeBoolean(ctx, bRet);
+}
+
+
+
+/**
  * @brief Callback invoked from JS to set update content protection data value on key rotation
  *
  * @param[in] ctx JS execution context
@@ -3674,6 +3740,7 @@ static const JSStaticFunction AAMPMediaPlayer_JS_static_functions[] = {
 	{ "resetConfiguration", AAMPMediaPlayerJS_resetConfiguration, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 
 	{ "getSessionID", AAMPMediaPlayerJS_getSessionID, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
+	{ "updateManifest", AAMPMediaPlayerJS_updateManifest, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 
 	{ NULL, NULL, 0 },
 };

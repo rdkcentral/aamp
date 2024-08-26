@@ -242,7 +242,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 								bool audioDecoderStreamSync,
 								const char *refreshManifestUrl,
 								int mpdStichingMode,
-								std::string sid
+								std::string sid,
+								const char *preprocessedManifest
 								)
 
 {
@@ -1423,4 +1424,20 @@ void PrivateInstanceAAMP::GetCustomLicenseHeaders(std::unordered_map<std::string
 std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 {
     return "";
+}
+
+std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+{
+	std::string  bRetManifestData;
+	if(!mProvidedManifestFile.empty())
+	{
+		bRetManifestData = std::move(mProvidedManifestFile);
+	}
+	return bRetManifestData;
+}
+
+void PrivateInstanceAAMP::updateManifest(const char *manifestData)
+{
+	if(NULL != manifestData)
+		mProvidedManifestFile = manifestData;
 }

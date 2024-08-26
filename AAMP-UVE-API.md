@@ -269,7 +269,7 @@ Begin streaming the specified content.
 | ---- | ---- | ---------- |
 | uri | String | URI of the Media to be played by the Video Engine |
 | autoplay | Boolean | optional 2nd parameter (defaults to true). If false, causes stream to be prerolled/prebuffered only, but not automatically presented. Available starting with version 0.8 |
-| tuneParams | Object | optional 3rd parameter; The tuneParams Object includes four elements contentType, traceId, isInitialAttempt, isFinalAttempt and sessionId. Details provided in below table |
+| tuneParams | Object | optional 3rd parameter; The tuneParams Object includes four elements contentType, traceId, isInitialAttempt, isFinalAttempt, sessionId and manifest. Details provided in below table |
 
 | Name | Type | Description |
 | ---- | ---- | ---------- |
@@ -278,6 +278,7 @@ Begin streaming the specified content.
 | isInitialAttempt | Boolean | Flag indicates if it’s the first tune initiated, tune is neither a retry nor a rollback |
 | isFinalAttempt | Boolean | Flag indicates if the current tune is the final retry attempt, count has reached the maximum tune retry limit |
 | sessionId | String | ID of the Session set by the Video Engine to identify each player. All events emitted by a player will contain a property reporting the player's ID; if the sessionId is not set, then the sessionId will be an empty string. |
+| manifest | String | prefetched/preprocessed manifest (plaintext xml) to use instead of the manifest normally downloaded using <uri>. If provided, updated live dash manifest is expected for each manifest refresh interval (refer needManifest event). This is available only for DASH
 
 |ContentType|Description|
 |-----------|-----------|
@@ -322,6 +323,13 @@ Example:
 	    player1.load(url1, true, params_1); // for immediate playback 
 	    player2.load(url2, false, params_2); // for background buffering,no playback. 
     }
+    // support for preprocessed DASH manifest
+    {
+	    var player = new AAMPMediaPlayer();
+	    var url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/stitched/manifest.mpd";
+	    const xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" ...; // for working case need valid DASH manifest XML
+	    player.load(url,true,{ manifest: xml});
+     }
 ```
 
 ---
@@ -1882,7 +1890,15 @@ Example:
 	- tot -> TotalTime -for failure and interrupt tune -it is time at which failure /interrupt reported
 
 ---
+### needManifest
 
+**Event Payload:**
+- sessionId: string updated manifest for live refresh; refer to [load](#load-uri_autoplay_tuneparams) API for details
+
+**Description:**
+- Fired when new manifest is required after live refresh interval
+
+---
 ### durationChanged
 
 **Description:** 
@@ -2513,6 +2529,10 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 
 ##### setTextStyleOptions
 - Set the ClosedCaption style options to be used for rendering.
+
+### updateManifest(manifest)
+- Call to pass an updated live DASH manifest
+- Returns true if processed without issue.
 
 ### New Set of APIs added for ATSC Parental Control  Settings
 

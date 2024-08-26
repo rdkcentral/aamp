@@ -1841,7 +1841,7 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 			break;
 		// Following events are not having payload and hence falls under default case
 		// AAMP_EVENT_EOS, AAMP_EVENT_TUNED, AAMP_EVENT_ENTERING_LIVE,
-		// AAMP_EVENT_AUDIO_TRACKS_CHANGED, AAMP_EVENT_TEXT_TRACKS_CHANGED
+		// AAMP_EVENT_AUDIO_TRACKS_CHANGED, AAMP_EVENT_TEXT_TRACKS_CHANGED, AAMP_EVENT_NEED_MANIFEST_DATA
 		default:
 			// pListener = new AAMP_JSEventListener(obj, type, jsCallback);
 			pListener = new AAMP_Listener_DefaultEvent(obj, type, jsCallback);

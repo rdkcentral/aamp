@@ -197,6 +197,13 @@ public:
 	size_t size() { return mDownloadData.size();}
 	std::string getString() { return std::string( mDownloadData.begin(), mDownloadData.end()); }
 	void show();
+	void replaceDownloadData(const std::string& data) {
+		if(!data.empty())
+		{
+			mDownloadData.clear();
+			mDownloadData.assign(data.begin(), data.end());
+		}
+	}
 }DownloadResponse;
 
 typedef std::shared_ptr<DownloadResponse> DownloadResponsePtr;
