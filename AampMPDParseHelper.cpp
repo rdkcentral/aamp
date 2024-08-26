@@ -1615,7 +1615,7 @@ void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int r
 				uint32_t repeatCount = timeline->GetRepeatCount();
 				double timelineDuration = ComputeFragmentDuration(timeline->GetDuration(), timeScale);
 				duration += ((repeatCount + 1) * timelineDuration);
-				AAMPLOG_TRACE("timeLineIndex[%d] size [%lu] updated duration[%lf]", timeLineIndex, timelines.size(), duration);
+				AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated duration[%lf]", timeLineIndex, timelines.size(), duration);
 				timeLineIndex++;
 			}
 

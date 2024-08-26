@@ -8857,7 +8857,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 								&waitForFreeFrag,
 								&cacheFullStatus[trackIdx],
 								false);
-							AAMPLOG_TRACE("Thread created for parallelDownload:AdvanceTrack [%d][%lu]", trackIdx, GetPrintableThreadID(*parallelDownload[trackIdx]));
+							AAMPLOG_TRACE("Thread created for parallelDownload:AdvanceTrack [%d][%zx]", trackIdx, GetPrintableThreadID(*parallelDownload[trackIdx]));
 						}
 						else
 						{
