@@ -887,6 +887,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
  */
 bool MediaTrack::ProcessFragmentChunk()
 {
+	class StreamAbstractionAAMP* pContext = GetContext();
 	//Get Cache buffer
 	CachedFragment* cachedFragment = &this->cachedFragmentChunks[fragmentChunkIdxToInject];
 	if(cachedFragment != NULL && NULL == cachedFragment->fragment.GetPtr())
@@ -900,7 +901,11 @@ bool MediaTrack::ProcessFragmentChunk()
 
 	if(cachedFragment->initFragment)
 	{
-		class StreamAbstractionAAMP* pContext = GetContext();
+		if ((pContext && pContext->trickplayMode) && (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp)) && (!ISCONFIGSET(eAAMPConfig_QtDemuxOverride)))
+		{
+			// If in trick mode, do trick mode PTS restamp
+			TrickModePtsRestamp(cachedFragment);
+		}
 		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
 			mSubtitleParser->processData(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), cachedFragment->position, cachedFragment->duration);
@@ -989,7 +994,6 @@ bool MediaTrack::ProcessFragmentChunk()
 	if(!timeScale)
 	{
 		//FIX-ME-Read from MPD INSTEAD
-		class StreamAbstractionAAMP* pContext = GetContext();
 		if(pContext)
 		{
 			timeScale = pContext->GetCurrPeriodTimeScale();
@@ -1026,11 +1030,22 @@ bool MediaTrack::ProcessFragmentChunk()
 
 		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
-			int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-			//Do not edit or remove this log line - it is used log_pts_restamp tool
-			AAMPLOG_INFO("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
-			(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, t, cachedFragment->uri);
-			fpts += cachedFragment->PTSOffsetSec;
+			if (pContext && pContext->trickplayMode)
+			{
+				if (!ISCONFIGSET(eAAMPConfig_QtDemuxOverride))
+				{
+					// If in trick mode, do trick mode PTS restamp
+					TrickModePtsRestamp(parsedBufferChunk,fpts,fduration,cachedFragment->initFragment,cachedFragment->discontinuity);
+				}
+			}
+			else
+			{
+				int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+				//Do not edit or remove this log line - it is used log_pts_restamp tool
+				AAMPLOG_INFO("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
+				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, t, cachedFragment->uri);
+				fpts += cachedFragment->PTSOffsetSec;
+			}
 		}
 
 #ifdef AAMP_DEBUG_INJECT_CHUNK
@@ -1088,22 +1103,31 @@ bool MediaTrack::ProcessFragmentChunk()
 	return true;
 }
 
-void MediaTrack::TrickModePtsRestamp(CachedFragment *cachedFragment)
+void MediaTrack::TrickModePtsRestamp(AampGrowableBuffer &fragment, double &position, double &duration,
+									bool initFragment, bool  discontinuity)
 {
+	// Trick mode PTS restamping is supported for fast-forward and rewind
+	// (not pause or slow motion)
+	if (!((aamp->rate > AAMP_NORMAL_PLAY_RATE) || (aamp->rate < 0)))
+	{
+		AAMPLOG_WARN("Unsupported trickplay rate %f - cannot restamp", aamp->rate);
+		return;
+	}
+
 	int trickPlayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS);
 	AampTime fragmentPtsDelta = 0.0;
-	AampTime inFragmentPosition = cachedFragment->position;
-	AampTime inFragmentDuration = cachedFragment->duration;
+	AampTime inFragmentPosition = position;
+	AampTime inFragmentDuration = duration;
 
-	if (cachedFragment->initFragment)
+	if (initFragment)
 	{
 		// Init fragment is injected after any rate change or discontinuity
 		// The timescale in the ISOBMFF init segment is restamped to a value TRICKMODE_TIMESCALE to
 		// enable restamping the media segment PTS and duration with adequate precision, e.g.
 		// 100,000
-		(void)mIsoBmffHelper->SetTimescale(cachedFragment->fragment, TRICKMODE_TIMESCALE);
+		(void)mIsoBmffHelper->SetTimescale(fragment, TRICKMODE_TIMESCALE);
 
-		if (cachedFragment->discontinuity)
+		if (discontinuity)
 		{
 			// Remember the discontinuity so that the first media segment can be handled differently
 			// because it's only set on an Init fragmemt
@@ -1131,8 +1155,7 @@ void MediaTrack::TrickModePtsRestamp(CachedFragment *cachedFragment)
 				// duration should be, as there isn't a previous PTS from which to calculate a
 				// delta.  Better to avoid too small a number, so limited to 0.25 seconds. GStreamer
 				// works ok with this in practice.
-				mRestampedDuration =
-					MAX(cachedFragment->duration / std::fabs(aamp->rate), 1.0 / trickPlayFPS);
+				mRestampedDuration = MAX(duration / std::fabs(aamp->rate), 1.0 / trickPlayFPS);
 				break;
 
 			case TrickmodeState::DISCONTINUITY:
@@ -1142,7 +1165,7 @@ void MediaTrack::TrickModePtsRestamp(CachedFragment *cachedFragment)
 			case TrickmodeState::STEADY:
 				// Calculate the duration between the next fragment and the previous fragment and
 				// divide it by the rate to determine the next pts
-				fragmentPtsDelta = fabs(cachedFragment->position - mLastFragmentPts);
+				fragmentPtsDelta = fabs(position - mLastFragmentPts);
 				mRestampedDuration = fragmentPtsDelta / std::fabs(aamp->rate);
 				mRestampedPts += mRestampedDuration;
 				break;
@@ -1154,22 +1177,28 @@ void MediaTrack::TrickModePtsRestamp(CachedFragment *cachedFragment)
 		// Transition immediately (back) to STEADY following the first frame or a discontinuity
 		mTrickmodeState = TrickmodeState::STEADY;
 
-		mLastFragmentPts = cachedFragment->position;
-		cachedFragment->duration = mRestampedDuration.inSeconds();
+		mLastFragmentPts = position;
+		duration = mRestampedDuration.inSeconds();
 
 		// Restamp the ISOBMFF position and duration in the media segment
-		(void)mIsoBmffHelper->SetPtsAndDuration(cachedFragment->fragment,
+		(void)mIsoBmffHelper->SetPtsAndDuration(fragment,
 			static_cast<int64_t>(TRICKMODE_TIMESCALE * mRestampedPts),
 			static_cast<int64_t>(TRICKMODE_TIMESCALE * mRestampedDuration));
 	}
 	// Update cached values for GStreamer
-	cachedFragment->position = mRestampedPts.inSeconds();
+	position = mRestampedPts.inSeconds();
 
 	AAMPLOG_INFO("rate %f, initFragment %d, discontinuity %d, "
 				 "position %lfs, duration %lfs, restamped position %lfs, duration %lfs",
-				 aamp->rate, cachedFragment->initFragment, cachedFragment->discontinuity,
+				 aamp->rate, initFragment, discontinuity,
 				 inFragmentPosition.inSeconds(), inFragmentDuration.inSeconds(),
-				 cachedFragment->position, cachedFragment->duration);
+				 position, duration);
+}
+
+void MediaTrack::TrickModePtsRestamp(CachedFragment *cachedFragment)
+{
+	TrickModePtsRestamp(cachedFragment->fragment, cachedFragment->position, cachedFragment->duration,
+						cachedFragment->initFragment, cachedFragment->discontinuity);
 }
 
 /**
@@ -1178,13 +1207,6 @@ void MediaTrack::TrickModePtsRestamp(CachedFragment *cachedFragment)
 void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool fragmentDiscarded, bool isDiscontinuity, bool &ret )
 {
 	class StreamAbstractionAAMP* pContext = GetContext();
-
-	// If in trick mode, do trick mode PTS restamp
-	if ((ISCONFIGSET(eAAMPConfig_EnablePTSReStamp)) && (!ISCONFIGSET(eAAMPConfig_QtDemuxOverride)) &&
-		((aamp->rate > AAMP_NORMAL_PLAY_RATE) || (aamp->rate < 0)))
-	{
-		TrickModePtsRestamp(cachedFragment);
-	}
 
 	if (aamp->GetLLDashServiceData()->lowLatencyMode)
 	{
@@ -1200,13 +1222,26 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 	}
 	else
 	{
-		// We could skip Restamp when PTSOffsetSec==0 but the log line would then be missing and it is important for l2 test
-		if ((pContext && !pContext->trickplayMode) && (!cachedFragment->initFragment) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
-			int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-			//Do not edit or remove this log line - it is used log_pts_restamp tool
-			AAMPLOG_INFO("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
-			(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, t, cachedFragment->uri);
+			if ((pContext && pContext->trickplayMode))
+			{
+				if (!ISCONFIGSET(eAAMPConfig_QtDemuxOverride))
+				{
+					TrickModePtsRestamp(cachedFragment);
+				}
+			}
+			else
+			{
+				if (!cachedFragment->initFragment)
+				{
+					// We could skip Restamp when PTSOffsetSec==0 but the log line would then be missing and it is important for l2 test
+					int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+					//Do not edit or remove this log line - it is used log_pts_restamp tool
+					AAMPLOG_INFO("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
+					(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, t, cachedFragment->uri);
+				}
+			}
 		}
 #ifdef AAMP_DEBUG_INJECT
 		if ((1 << type) & AAMP_DEBUG_INJECT)

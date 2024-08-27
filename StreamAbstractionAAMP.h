@@ -784,9 +784,26 @@ private:
 	/**
 	 * @fn TrickModePtsRestamp
 	 *
+	 * @brief PTS restamp one i-frame cached segment for trick modes
+	 *
 	 * @param[in] cachedFragment - fragment to be restamped for trickmodes
 	 */
 	void TrickModePtsRestamp(CachedFragment* cachedFragment);
+
+	/**
+	 * @fn TrickModePtsRestamp
+	 *
+	 * @brief PTS restamp one fragment of an i-frame cached segment for trick
+	 *        modes. Used for low-latency DASH content.
+	 *
+	 * @param[in,out] fragment - fragment to be restamped for trickmodes
+	 * @param[in,out] position - PTS of the fragment; in original, out restamped
+	 * @param[in,out] duration - fragment duration; in original, out restamped
+	 * @param[in] initFragment - true for init fragments, false for media fragments
+	 * @param[in] discontinuity - true if there is a discontinuity, false otherwise
+	 */
+	void TrickModePtsRestamp(AampGrowableBuffer &fragment, double &position, double &duration,
+							bool initFragment, bool  discontinuity);
 
 public:
 	bool eosReached;                    /**< set to true when a vod asset has been played to completion */
