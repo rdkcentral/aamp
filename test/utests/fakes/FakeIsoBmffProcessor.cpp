@@ -77,6 +77,3 @@ void IsoBmffProcessor::abortWaitForVideoPTS()
 {
 }
 
-void IsoBmffProcessor::resetPTSOnAudioSwitch(char *segment, size_t& size, double position)
-{
-}
