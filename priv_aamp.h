@@ -2558,11 +2558,11 @@ public:
 	int getStreamType();
 
 	/**
-     	 *   @fn GetMediaFormatTypeEnum
-    	 *
-    	 *   @return eMEDIAFORMAT
-     	 */
-    	MediaFormat GetMediaFormatTypeEnum() const;
+	 *   @fn GetMediaFormatTypeEnum
+	 *
+	 *   @return eMEDIAFORMAT
+	 */
+	MediaFormat GetMediaFormatTypeEnum() const;
 
 	/**
 	 *   @fn getStreamTypeString

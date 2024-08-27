@@ -10251,6 +10251,11 @@ void StreamAbstractionAAMP_MPD::Start(void)
 			if(aamp->IsPlayEnabled())
 			{
 				aamp->ResumeTrackInjection((AampMediaType) i);
+				// TODO: This could be moved to StartInjectLoop, but due to lack of testing will keep it here for now
+				if(mMediaStreamContext[i]->playContext)
+				{
+					mMediaStreamContext[i]->playContext->reset();
+				}
 				mMediaStreamContext[i]->StartInjectLoop();
 			}
 		}
@@ -10283,6 +10288,11 @@ void StreamAbstractionAAMP_MPD::Start(void)
 			if(aamp->IsPlayEnabled())
 			{
 				aamp->ResumeTrackInjection((AampMediaType) i);
+				// TODO: This could be moved to StartInjectLoop, but due to lack of testing will keep it here for now
+				if(mMediaStreamContext[i]->playContext)
+				{
+					mMediaStreamContext[i]->playContext->reset();
+				}
 				mMediaStreamContext[i]->StartInjectLoop(); ///TBD
 			}
 		}
@@ -11126,6 +11136,11 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 		if(track && track->Enabled())
 		{
 			aamp->ResumeTrackInjection((AampMediaType) iTrack);
+			// TODO: This could be moved to StartInjectLoop, but due to lack of testing will keep it here for now
+			if(track->playContext)
+			{
+				track->playContext->reset();
+			}
 			track->StartInjectLoop();
 		}
 	}

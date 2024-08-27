@@ -44,7 +44,7 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManag
 	id3_callback_t id3_hdl, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
 	: p_aamp(aamp), type(trackType), peerProcessor(peerBmffProcessor), peerSubtitleProcessor(peerSubProcessor), basePTS(0),
 	processPTSComplete(false), timeScale(0), initSegment(), resetPTSInitSegment(),
-	playRate(1.0f), stopped(false), aborted(false), m_mutex(), m_cond(),initSegmentProcessComplete(false),
+	playRate(1.0f), aborted(false), m_mutex(), m_cond(),initSegmentProcessComplete(false),
 	isRestampConfigEnabled(false),
 	mLogObj(logObj),
 	sumPTS(0),prevPTS(UINT64_MAX),currTimeScale(0), startPos(DEFAULT_DURATION),
@@ -168,16 +168,15 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 {
 	bool ret = true;
 
-	AAMPLOG_INFO("IsoBmffProcessor:: %s sending segment at pos:%f dur:%f", IsoBmffProcessorTypeName[type], position, duration);
+	AAMPLOG_INFO("IsoBmffProcessor:: %s sending segment at pos:%f dur:%f, aborted:%d", IsoBmffProcessorTypeName[type], position, duration, aborted);
 
 	pthread_mutex_lock(&m_mutex);
-	ret = !stopped;  // check the module is active
-	aborted = false; // clear the aborted flag to check for an abort() during processing
+	ret = !aborted;  // check the module is active
 
 	// Logic for Audio & Subtitle Track
 	if (type == eBMFFPROCESSOR_TYPE_AUDIO || type == eBMFFPROCESSOR_TYPE_SUBTITILE)
 	{
-		if (!processPTSComplete)
+		if (ret && !processPTSComplete)
 		{
 			IsoBmffBuffer buffer(mLogObj);
 			buffer.setBuffer((uint8_t *)fragBuffer->GetPtr(), fragBuffer->GetLen());
@@ -1009,6 +1008,22 @@ void IsoBmffProcessor::abortWaitForVideoPTS()
 	pthread_mutex_unlock(&m_mutex);
 	AAMPLOG_WARN("IsoBmffProcessor %s unblock complete", IsoBmffProcessorTypeName[type]);
 }
+
+/**
+ * @fn reset
+ *
+ * @return void
+ */
+void IsoBmffProcessor::reset()
+{
+	AAMPLOG_WARN(" %s IsoBmffProcessor::reset() called ", IsoBmffProcessorTypeName[type]);
+	pthread_mutex_lock(&m_mutex);
+	aborted = false;
+	pthread_mutex_unlock(&m_mutex);
+	// reset variables that might have been set due to race conditions
+	resetInternal();
+}
+
 /**
  *  @brief Abort all operations
  */
@@ -1016,11 +1031,10 @@ void IsoBmffProcessor::abort()
 {
 	AAMPLOG_WARN(" %s IsoBmffProcessor::abort() called ", IsoBmffProcessorTypeName[type]);
 	pthread_mutex_lock(&m_mutex);
-	stopped = true;
 	aborted = true;
 	pthread_cond_signal(&m_cond);
 	pthread_mutex_unlock(&m_mutex);
-	reset();
+	resetInternal();
 }
 
 /**
@@ -1048,15 +1062,13 @@ void IsoBmffProcessor::resetRestampVariables()
 /**
  *  @brief Reset all variables
  */
-void IsoBmffProcessor::reset()
+void IsoBmffProcessor::resetInternal()
 {
-	AAMPLOG_INFO("IsoBmffProcessor %s reset called",IsoBmffProcessorTypeName[type]);
 	pthread_mutex_lock(&m_mutex);
 	internalResetRestampVariables();
 	basePTS = 0;
 	timeScale = 0;
 	processPTSComplete = false;
-	stopped = false;
 	initSegmentProcessComplete = false;
 	pthread_mutex_unlock(&m_mutex);
 }

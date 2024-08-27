@@ -837,7 +837,14 @@ void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventM
 
 bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
 {
-	return true;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->SendStreamCopy(mediaType, ptr, len, fpts, fdts, fDuration);
+	}
+	else
+	{
+		return true;
+	}
 }
 
 bool PrivateInstanceAAMP::SendTunedEvent(bool isSynchronous)

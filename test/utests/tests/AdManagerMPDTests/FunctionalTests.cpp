@@ -459,7 +459,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event is sent
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   // Verify the result
   // mAdBreak updated and placementObj created
