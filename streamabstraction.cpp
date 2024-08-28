@@ -874,8 +874,9 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 				AAMPLOG_WARN("track %s - continuing injection", name);
 			}
 		}
-		else if (cachedFragment->discontinuity)
+		else if (cachedFragment->discontinuity && ISCONFIGSET(eAAMPConfig_QtDemuxOverride))
 		{
+			//Only needed when we are using the qtdemux 
 			SignalTrickModeDiscontinuity();
 		}
 	}
