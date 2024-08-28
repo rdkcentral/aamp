@@ -261,6 +261,19 @@ Box* Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize, int ne
 }
 
 /**
+ * @brief rewriteAsSkipBox - overwrite buffer data and rewrte box type as skip
+ * @params none
+ * @return none
+ */
+void Box::rewriteAsSkipBox(void)
+{
+	// buffer
+	memcpy(base + 4, Box::SKIP, 4);
+	// internal type
+	memcpy(type, Box::SKIP, 5);
+}
+
+/**
  *  @brief GenericContainerBox constructor
  */
 GenericContainerBox::GenericContainerBox(uint32_t sz, const char btype[4]) : Box(sz, btype), children()

@@ -202,6 +202,24 @@ TEST_F(IsoBmffBoxTests, tfhdDefaultSampleDurationTests)
 	delete tfhd;
 }
 
+TEST_F(IsoBmffBoxTests, rewriteAsSkipTest)
+{
+	memcpy(buffer, exampleMdatBox, sizeof(exampleMdatBox));
+	auto size{sizeof(exampleMdatBox)};
+	auto testBox = Box::constructBox(buffer, (uint32_t)size, true, -1);
+	EXPECT_STREQ(testBox->getType(), Box::MDAT);
+	EXPECT_EQ(testBox->getSize(), size);
+	testBox->rewriteAsSkipBox();
+	EXPECT_STREQ(testBox->getType(), Box::SKIP);
+	EXPECT_EQ(testBox->getSize(), size);
+	EXPECT_EQ(buffer[4], 's');
+	EXPECT_EQ(buffer[5], 'k');
+	EXPECT_EQ(buffer[6], 'i');
+	EXPECT_EQ(buffer[7], 'p');
+
+	delete testBox;
+}
+
 class IsoBmffTfdtBoxVersionTests : public IsoBmffBoxTests,
 								   public testing::WithParamInterface<ConstBuffer>
 {

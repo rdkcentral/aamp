@@ -1032,3 +1032,33 @@ TEST_F(IsoBmffBufferTests, setTrickmodeTimescaleNegative)
 	// No MVHD or MDHD box
 	EXPECT_EQ(mIsoBmffBuffer->setTrickmodeTimescale(100), false);
 }
+
+TEST_F(IsoBmffBufferTests, truncateMultipleTruns)
+{
+	std::vector<uint8_t>localBuffer(truncateTestStream, std::end(truncateTestStream));
+	mIsoBmffBuffer->setBuffer(localBuffer.data(), localBuffer.size());
+	mIsoBmffBuffer->parseBuffer();
+
+	mIsoBmffBuffer->truncate();
+
+	// Verify that the senc, saiz, tfhd & both trun boxes have only 1 sample
+	// The real IsoBmffBox code is used for this test, so the box calls are not mocked.
+	size_t index{0};
+
+	auto moof{mIsoBmffBuffer->getBox(Box::MOOF, index)};
+	EXPECT_NE(moof, nullptr);
+	index = 0;
+	auto traf{mIsoBmffBuffer->getChildBox(moof, Box::TRAF, index)};
+	EXPECT_NE(traf, nullptr);
+	index = 0;
+	auto saiz{dynamic_cast<SaizBox *>(mIsoBmffBuffer->getChildBox(traf, Box::SAIZ, index))};
+	EXPECT_NE(saiz, nullptr);
+	index = 0;
+	auto tfhd{dynamic_cast<TfhdBox *>(mIsoBmffBuffer->getChildBox(traf, Box::TFHD, index))};
+	EXPECT_NE(tfhd, nullptr);
+	index = 0;
+	auto trun1{dynamic_cast<TrunBox *>(mIsoBmffBuffer->getChildBox(traf, Box::TRUN, index))};
+	EXPECT_NE(trun1, nullptr);
+	auto trun2{dynamic_cast<TrunBox *>(mIsoBmffBuffer->getChildBox(traf, Box::SKIP, ++index))};
+	EXPECT_NE(trun2, nullptr);
+}

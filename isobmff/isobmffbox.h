@@ -215,6 +215,15 @@ public:
 	 * @param[in] start - pointer to the box after reading the size and box type
 	 */
 	void setBase(uint8_t *start) { base = start  - SIZEOF_SIZE_AND_TAG; }
+
+	/**
+	 * @fn rewriteAsSkipBox
+	 * @brief Rewrite the box buffer data as a skip box
+	 * NB This will not affect the object, it will only change the buffer data
+	 * Once this has been called on a box, the box object should not be used
+	 */
+	void rewriteAsSkipBox(void);
+
 };
 
 /**
