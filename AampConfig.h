@@ -310,6 +310,7 @@ typedef enum
 	eAAMPConfig_TsbMinDiskFreePercentage,					/**< Minimum percentage of storage to be kept free while storing TSB data */
 	eAAMPConfig_TsbMaxDiskStorage,					/** TSB max storage in MB */
 	eAAMPConfig_TsbLogLevel,					/** Override the TSB log level */
+	eAAMPConfig_AdFulfillmentTimeout,					/**< Ad fulfillment timeout in milliseconds */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)

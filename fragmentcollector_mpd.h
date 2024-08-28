@@ -921,6 +921,14 @@ protected:
 
 	void UpdateMPDPeriodDetails(std::vector<PeriodInfo>& currMPDPeriodDetails,uint64_t &durMs);
 
+	/*
+	* @brief CheckAdResolvedStatus
+	*
+	* @param[in] ads - Ads vector
+	* @param[in] adIdx - AdIndex
+	*/
+	void CheckAdResolvedStatus(AdNodeVectorPtr &ads, int adIdx);
+
 	/**
 	* @fn SetSubtitleTrackOffset
 	* @brief Function to calculate the start time offset between subtitle and video tracks

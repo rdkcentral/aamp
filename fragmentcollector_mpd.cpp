@@ -10405,6 +10405,10 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		}
 
 		aamp->EnableDownloads();
+		if(!clearChannelData)
+		{
+			mCdaiObject->NotifyAdLoopWait();
+		}
 	}
 	else
 	{
@@ -11330,6 +11334,30 @@ bool StreamAbstractionAAMP_MPD::isAdbreakStart(IPeriod *period, uint64_t &startM
 	return ret;
 }
 
+/*
+ * @brief CheckAdResolvedStatus
+ *
+ * @param[in] ads - Ads vector
+ * @param[in] adIdx - AdIndex
+ */
+void StreamAbstractionAAMP_MPD::CheckAdResolvedStatus(AdNodeVectorPtr &ads, int adIdx)
+{
+	if (!ads->at(adIdx).resolved)
+	{
+		int waitTimeMs = std::min(GETCONFIGVALUE(eAAMPConfig_AdFulfillmentTimeout), (int)GetBufferedDuration());
+		AAMPLOG_INFO("[CDAI]: AdIdx[%d] in the AdBreak[%s] is not resolved yet. Waiting for %d ms.", adIdx, ads->at(adIdx).basePeriodId.c_str(), waitTimeMs);
+		if(mCdaiObject->WaitForNextAdResolved(waitTimeMs))
+		{
+			AAMPLOG_INFO("[CDAI]: AdIdx[%d] in the AdBreak[%s] is resolved now.", adIdx, ads->at(adIdx).basePeriodId.c_str());
+		}
+		else
+		{
+			AAMPLOG_WARN("[CDAI]: AdIdx[%d] in the AdBreak[%s] is not resolved yet. Timeout.", adIdx, ads->at(adIdx).basePeriodId.c_str());
+			ads->at(adIdx).invalid = true;
+		}
+	}
+}
+
 /**
  * @brief Handlig Ad event
  */
@@ -11383,6 +11411,8 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					mCdaiObject->mCurPlayingBreakId = brkId;
 					if(-1 != adIdx && mCdaiObject->mAdBreaks[brkId].ads)
 					{
+						// Wait for some time if the ad is not ready yet.
+						CheckAdResolvedStatus(mCdaiObject->mAdBreaks[brkId].ads, adIdx);
 						if(!(mCdaiObject->mAdBreaks[brkId].ads->at(adIdx).invalid))
 						{
 							AAMPLOG_WARN("[CDAI]: STARTING ADBREAK[%s] AdIdx[%d] Found at Period[%s].", brkId.c_str(), adIdx, mBasePeriodId.c_str());
@@ -11424,6 +11454,8 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 						//Ad is ready; but it is late. Invalidate.
 						mCdaiObject->mAdBreaks[brkId].ads->at(0).invalid = true;
 					}
+					// Wait for some time if the ad is not ready yet.
+					CheckAdResolvedStatus(mCdaiObject->mAdBreaks[brkId].ads, adIdx);
 					if(!(mCdaiObject->mAdBreaks[brkId].ads->at(adIdx).invalid))
 					{
 						AAMPLOG_WARN("[CDAI]: AdIdx[%d] Found at Period[%s].", adIdx, mBasePeriodId.c_str());
@@ -11530,6 +11562,8 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					mCdaiObject->mCurAdIdx--;
 				if(mCdaiObject->mCurAdIdx >= 0 && mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size())
 				{
+					// Wait for some time if the ad is not ready yet.
+					CheckAdResolvedStatus(mCdaiObject->mCurAds, mCdaiObject->mCurAdIdx);
 					if(mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).invalid)
 					{
 						AAMPLOG_WARN("[CDAI]: AdIdx is invalid. Skipping. AdIdx[%d].", mCdaiObject->mCurAdIdx);
@@ -11599,8 +11633,13 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			{
 				//Need to ensure that mpd is available, if not available, download it (mostly from FOG)
 				bool finalManifest = false;
-				adNode.mpd = mCdaiObject->GetAdMPD(adNode.url, finalManifest, false);
-
+				int http_error = 0;
+				double downloadTime = 0;
+				adNode.mpd = mCdaiObject->GetAdMPD(adNode.url, finalManifest, http_error, downloadTime, false);
+				if(CURLE_ABORTED_BY_CALLBACK == http_error)
+				{
+					AAMPLOG_WARN("[CDAI]: Ad playback failed. Not able to download Ad manifest. Aborted by callback.");
+				}
 				if(NULL == adNode.mpd)
 				{
 					AAMPLOG_WARN("[CDAI]: Ad playback failed. Not able to download Ad manifest from FOG.");

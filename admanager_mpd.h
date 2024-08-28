@@ -113,6 +113,7 @@ enum class AdEvent
 struct AdNode {
 	bool         invalid;          /**< Failed to playback failed once, no need to attempt later */
 	bool         placed;           /**< Ad completely placed on the period */
+	bool         resolved;         /**< Ad resolved status */
 	std::string  adId;             /**< Ad's identifier */
 	std::string  url;              /**< Ad's manifest URL */
 	uint64_t     duration;         /**< Duration of the Ad in milliseconds*/
@@ -123,7 +124,7 @@ struct AdNode {
 	/**
 	* @brief AdNode default constructor
 	*/
-	AdNode() : invalid(false), placed(false), adId(), url(), duration(0), basePeriodId(), basePeriodOffset(0), mpd(nullptr)
+	AdNode() : invalid(false), placed(false), resolved(false), adId(), url(), duration(0), basePeriodId(), basePeriodOffset(0), mpd(nullptr)
 	{
 
 	}
@@ -133,6 +134,7 @@ struct AdNode {
 	*
 	* @param[in] invalid - Is Ad valid
 	* @param[in] placed - Is Ad completed placed over underlying period
+	* @param[in] resolved - Is Ad resolved
 	* @param[in] adId - Ad identifier
 	* @param[in] url - Ad's manifest URL
 	* @param[in] duration - Duration of the Ad
@@ -140,9 +142,9 @@ struct AdNode {
 	* @param[in] basePeriodOffset - Base period offset of the Ad
 	* @param[in] mpd - Pointer to the MPD object
 	*/
-	AdNode(bool invalid, bool placed, std::string adId, std::string url, uint64_t duration,
+	AdNode(bool invalid, bool placed, bool resolved, std::string adId, std::string url, uint64_t duration,
 									std::string basePeriodId, int basePeriodOffset, MPD* mpd)
-	: invalid(invalid), placed(placed), adId(adId), url(url), duration(duration), basePeriodId(basePeriodId),
+	: invalid(invalid), placed(placed), resolved(resolved), adId(adId), url(url), duration(duration), basePeriodId(basePeriodId),
 		basePeriodOffset(basePeriodOffset), mpd(mpd)
 	{
 
@@ -153,7 +155,7 @@ struct AdNode {
 	*
 	* @param[in] adNode - Reference to the source AdNode
 	*/
-	AdNode(const AdNode& adNode) : invalid(adNode.invalid), placed(adNode.placed), adId(adNode.adId),
+	AdNode(const AdNode& adNode) : invalid(adNode.invalid), placed(adNode.placed), resolved(adNode.resolved), adId(adNode.adId),
 									url(adNode.url), duration(adNode.duration), basePeriodId(adNode.basePeriodId),
 									basePeriodOffset(adNode.basePeriodOffset), mpd(adNode.mpd)
 	{
@@ -165,6 +167,8 @@ struct AdNode {
 	AdNode& operator=(const AdNode&) = delete;
 };
 
+typedef std::shared_ptr<std::vector<AdNode>> AdNodeVectorPtr;
+
 /**
  * @struct AdBreakObject
  *
@@ -172,7 +176,7 @@ struct AdNode {
  */
 struct AdBreakObject{
 	uint32_t                             brkDuration;     /**< Adbreak's duration in milliseconds*/
-	std::shared_ptr<std::vector<AdNode>> ads;             /**< Ads in the Adbreak in sequential order */
+	AdNodeVectorPtr                      ads;             /**< Ads in the Adbreak in sequential order */
 	std::string                          endPeriodId;     /**< Base period's id after the adbreak playback */
 	uint64_t                             endPeriodOffset; /**< Base period's offset after the adbreak playback in milliseconds*/
 	uint32_t                             adsDuration;     /**< Ads' duration in the Adbreak in milliseconds*/
@@ -196,7 +200,7 @@ struct AdBreakObject{
 	* @param[in] _endPeriodOffset - Base period's offset after the adbreak playback in milliseconds
 	* @param[in] _adsDuration - Ads' duration in the Adbreak in milliseconds
 	*/
-	AdBreakObject(uint32_t _duration, std::shared_ptr<std::vector<AdNode>> _ads, std::string _endPeriodId,
+	AdBreakObject(uint32_t _duration, AdNodeVectorPtr _ads, std::string _endPeriodId,
 	uint64_t _endPeriodOffset, uint32_t _adsDuration)
 	: brkDuration(_duration), ads(_ads), endPeriodId(_endPeriodId), endPeriodOffset(_endPeriodOffset), adsDuration(_adsDuration), adjustEndPeriodOffset(false),mWaitForManifestUpdateFlag(false), mAdFailed(false)
 	{
@@ -270,7 +274,14 @@ struct AdFulfillObj {
 	*/
 	AdFulfillObj() : periodId(), adId(), url()
 	{
+	}
 
+	/**
+	* @brief AdFulfillObj constructor
+	*/
+	AdFulfillObj(std::string _periodId, std::string _adId, std::string _url)
+		: periodId(_periodId), adId(_adId), url(_url)
+	{
 	}
 };
 
@@ -327,7 +338,7 @@ public:
 	std::string                                    mCurPlayingBreakId;  /**< Currently playing Ad */
 	std::thread                                    mAdObjThreadID;      /**< ThreadId of Ad fulfillment */
 	bool                                           mAdObjThreadStarted; /**< Flag denotes if ad object thread is started */
-	std::shared_ptr<std::vector<AdNode>>           mCurAds;             /**< Vector of ads from the current Adbreak */
+	AdNodeVectorPtr                                mCurAds;             /**< Vector of ads from the current Adbreak */
 	int                                            mCurAdIdx;           /**< Currently playing Ad index */
 	AdFulfillObj                                   mAdFulfillObj;       /**< Temporary object for Ad fulfillment (to pass to the fulfillment thread) */
 	PlacementObj                                   mPlacementObj;       /**< Temporary object for Ad placement over period */
@@ -337,6 +348,12 @@ public:
 	bool                                           currentAdPeriodClosed;/**< The very next open period should be processed only when the flag is true*/
 	std::vector<PlacementObj>                      mAdtoInsertInNextBreakVec;/**<Stores the PlacementObj yet to be placed*/
 	std::mutex                                     mAdBrkVecMtx;        /**< Mutex protecting DAI critical section */
+	std::mutex                                     mAdFulfillMtx;        /**< Mutex protecting Ad fulfillment */
+	std::condition_variable                        mAdFulfillCV;         /**< Condition variable for AdBreak vector */
+	std::queue<AdFulfillObj>                       mAdFulfillQ;            /**< Queue for Ad events */
+	bool                                           mExitFulfillAdLoop;    /**< Flag to exit the Ad fulfillment loop */
+	std::mutex                                     mAdPlacementMtx;       /**< Mutex protecting Ad placement */
+	std::condition_variable                        mAdPlacementCV;        /**< Condition variable for Ad placement */
 
 	/**
 	 * @fn PrivateCDAIObjectMPD
@@ -373,18 +390,22 @@ public:
 
 	/**
 	 * @fn FulFillAdObject
+	 *
+	 * @return bool true or false
 	 */
-	void FulFillAdObject();
+	bool FulFillAdObject();
 
 	/**
 	 * @fn GetAdMPD
 	 *
 	 * @param[in]  url - Ad manifest's URL
 	 * @param[out] finalManifest - Is final MPD or the final MPD should be downloaded later
+	 * @param[out] http_error - http error code
+	 * @param[out] downloadTime - Time taken to download the manifest
 	 * @param[in]  tryFog - Attempt to download from FOG or not
 	 * @return MPD* MPD instance
 	 */
-	MPD* GetAdMPD(std::string &url, bool &finalManifest, bool tryFog = false);
+	MPD* GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, bool tryFog = false);
 
 	/**
 	 * @fn InsertToPeriodMap
@@ -492,6 +513,47 @@ public:
 	 * @param[in] periodDelta Period delta
 	 */
 	void setAdMarkers(uint64_t p2AdDataduration, double periodDelta);
+
+	/**
+	 * @fn FulfillAdLoop
+	 */
+	void FulfillAdLoop();
+
+	/**
+	 * @fn NotifyAdLoopWait
+	 */
+	void NotifyAdLoopWait();
+
+	/**
+	 * @fn StartFulfillAdLoop
+	 */
+	void StartFulfillAdLoop();
+
+	/**
+	 * @fn StopFulfillAdLoop
+	 */
+	void StopFulfillAdLoop();
+
+	/**
+	 * @fn CacheAdData
+	 * @param[in] periodId - Period id
+	 * @param[in] adId - Ad id
+	 * @param[in] url - Ad URL
+	 */
+	void CacheAdData(const std::string &periodId, const std::string &adId, const std::string &url);
+
+	/**
+	 * @fn WaitForNextAdResolved
+	 * @brief Wait for the next ad placement to complete with a timeout
+	 * @param[in] timeoutMs Timeout value in milliseconds
+	 * @return true if the ad placement completed within the timeout, false otherwise
+	 */
+	bool WaitForNextAdResolved(int timeoutMs);
+
+	/**
+	 * @fn AbortWaitForNextAdResolved
+	 */
+	void AbortWaitForNextAdResolved();
 };
 
 #endif /* ADMANAGER_MPD_H_ */
