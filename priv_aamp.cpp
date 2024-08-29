@@ -48,7 +48,6 @@
 #include "AampDRMSessionManager.h"
 #include "SubtecFactory.hpp"
 #include "AampGrowableBuffer.h"
-#include "isobmff/isobmffhelper.h"
 
 #ifdef AAMP_CC_ENABLED
 #include "AampCCManager.h"
@@ -1118,7 +1117,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	preferredLanguagesString(), preferredLanguagesList(), preferredLabelList(),mhAbrManager(),
 	mVideoEnd(NULL),
 	//mTimeToTopProfile(0),
-mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
+	mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	mIsFirstRequestToFOG(false),
 	mPausePositionMonitorMutex(), mPausePositionMonitorCV(), mPausePositionMonitoringThreadID(), mPausePositionMonitoringThreadStarted(false),
 	mTuneType(eTUNETYPE_NEW_NORMAL)
@@ -1134,7 +1133,6 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	,mMutexPlaystart()
 	,mNetworkBandwidth(0)
 	,mTimeToTopProfile(0)
-	,mIsoBmffHelper(std::make_shared<IsoBmffHelper>(mLogObj))
 #ifdef AAMP_HLS_DRM
 	, fragmentCdmEncrypted(false) ,drmParserMutex(), aesCtrAttrDataList()
 	, drmSessionThreadStarted(false), createDRMSessionThreadID()

@@ -1766,7 +1766,7 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 		,frDownloadWait(),prevDownloadStartTime(-1)
 		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0)
 		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
-		,mIsoBmffHelper(aamp->mIsoBmffHelper)
+		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>(logObj))
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);

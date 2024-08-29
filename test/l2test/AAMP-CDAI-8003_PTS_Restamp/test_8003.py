@@ -100,7 +100,7 @@ TESTDATA0 = {
 
 "expect_list": [
     {"expect": r"aamp_tune","min":0, "max":2},
-    {"expect": r'IsoBmffRestampPts.*?before (\d+) after (\d+) duration (\d+) ([\w:/\.\-]+)\r\n',"min":0, "max":60, "callback" : check_restamp},
+    {"expect": r'RestampPts.*?before (\d+) after (\d+) duration (\d+) ([\w:/\.\-]+)\r\n',"min":0, "max":60, "callback" : check_restamp},
     {"expect": r'GetPositionMilliseconds', "callback" : check_runtime, "min": 0, "max": 60},
     {"expect": r'AAMPGstPlayer_EndOfStreamReached',"min":0, "max":60, "end_of_test": True},
     {"expect": r'AAMPGstPlayer_Stop', "min": 0, "max": 60, "end_of_test": True},
@@ -111,7 +111,7 @@ TESTDATA0 = {
 def test_data(request):
     return request.param
 
-def test_1004_0(aamp_setup_teardown, test_data):
+def test_8003_0(aamp_setup_teardown, test_data):
     global segment_cnt, restamp_values, max_segment_cnt, aamp
     segment_cnt = 0
     restamp_values = {}
@@ -123,3 +123,5 @@ def test_1004_0(aamp_setup_teardown, test_data):
     max_segment_cnt = test_data['expected_restamps']
 
     aamp.run_expect_b(TESTDATA0)
+
+    assert segment_cnt >= max_segment_cnt
