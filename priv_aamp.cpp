@@ -5477,7 +5477,16 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink && (mAampLLDashServiceData.lowLatencyMode || !ISCONFIGSET_PRIV(eAAMPConfig_EnableMediaProcessor)))
 			{
-				sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				/*	If not trickplay OR using Qtdemux then
+				*		flush with pts value
+				*	else
+				*		it is trickplay and NOT using QTdemux ..
+				*		then we do not flush here, flush(0) occurs else where
+				*/
+				if (rate == AAMP_NORMAL_PLAY_RATE || ISCONFIGSET_PRIV(eAAMPConfig_QtDemuxOverride))
+				{
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				}
 			}
 		}
 		else if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
