@@ -43,14 +43,14 @@ for line in fileinput.input(errors="ignore"):
             counts[media].append({'msg': f'Tune {tune}'})
 
     # video timeScale 90000 mPTSOffsetSec - 15221.428622
-    # get the timescale from the log line that should preceed IsoBmffRestampPts
+    # get the timescale from the log line that should preceed RestampPts
     m = re.search(r'(?:ProcessFragmentChunk|ProcessAndInjectFragment).*(audio|video|subtitle) timeScale (\d+)', line)
     if m:
         media = m.group(1)
         ts = int(m.group(2))
         timescales[media] = ts
 
-    m = re.search(r'IsoBmffRestampPts.*before (\d+) after (\d+) duration (\d+) (.*)',line)
+    m = re.search(r'RestampPts.*before (\d+) after (\d+) duration (\d+) (.*)',line)
     if m:
         before = int(m.group(1))
         after = int(m.group(2))

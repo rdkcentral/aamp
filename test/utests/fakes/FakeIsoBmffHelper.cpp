@@ -29,7 +29,7 @@ bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, st
 {
 	if (g_mockIsoBmffHelper)
 	{
-		return g_mockIsoBmffHelper->IsoBmffRestampPts(buffer, ptsOffset, url);
+		return g_mockIsoBmffHelper->RestampPts(buffer, ptsOffset, url);
 	}
 
     return true;
@@ -39,7 +39,7 @@ bool IsoBmffHelper::SetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
 {
 	if (g_mockIsoBmffHelper)
 	{
-		return g_mockIsoBmffHelper->IsoBmffSetTimescale(buffer, timeScale);
+		return g_mockIsoBmffHelper->SetTimescale(buffer, timeScale);
 	}
 
     return true;
@@ -49,7 +49,7 @@ bool IsoBmffHelper::SetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, 
 {
 	if (g_mockIsoBmffHelper)
 	{
-		return g_mockIsoBmffHelper->IsoBmffSetPtsAndDuration(buffer, pts, duration);
+		return g_mockIsoBmffHelper->SetPtsAndDuration(buffer, pts, duration);
 	}
 
     return true;
