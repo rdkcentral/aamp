@@ -259,7 +259,10 @@ class AdFallbackTests : public ::testing::Test
 				.WillRepeatedly(WithoutArgs(Invoke(this, &AdFallbackTests::GetManifestForMPDDownloader)));
 			// Create MPD instance.
 			mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mLogObj, mPrivateInstanceAAMP, seekPos, rate);
-			mCdaiObj = new CDAIObjectMPD(mLogObj, mPrivateInstanceAAMP);
+			if(!mCdaiObj)
+			{
+				mCdaiObj = new CDAIObjectMPD(mLogObj, mPrivateInstanceAAMP);
+			}
 			mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 		}
 
@@ -376,6 +379,10 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 		{
 			std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
 		});
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
 
 	// To create an empty ad break object, at init the adbreak objects are not created
 	mStreamAbstractionAAMP_MPD->mCdaiObject->SetAlternateContents(periodId, adId, "", startMS, breakdur);

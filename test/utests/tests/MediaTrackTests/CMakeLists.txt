@@ -23,7 +23,7 @@ set(EXEC_NAME MediaTrackTests)
 
 pkg_check_modules(LIBDASH REQUIRED libdash)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtitle)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/tsb/api ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})

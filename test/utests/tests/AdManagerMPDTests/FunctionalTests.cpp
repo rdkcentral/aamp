@@ -76,10 +76,12 @@ protected:
     mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
     mLogObj = new AampLogManager();
 
+    g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
     mCdaiObj = new CDAIObjectMPD(mLogObj, mPrivateInstanceAAMP);
     mPrivateCDAIObjectMPD = mCdaiObj->GetPrivateCDAIObjectMPD();
-
-    g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
 
     mManifest = nullptr;
     mMPD = nullptr;
@@ -329,7 +331,6 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_1)
 
   // Verify the result
   EXPECT_TRUE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId));
-  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
 
   // New periodId which is not present in mAdBreaks
   periodId = "testPeriodId1";
@@ -342,7 +343,6 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_1)
 
   // Verify the result
   EXPECT_FALSE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId));
-  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
 
 }
 
@@ -495,11 +495,13 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
   // Verify the result
-  // mAdBreak updated and placementObj created
+  // mAdBreak updated and placementObj not created
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
-  EXPECT_TRUE((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->empty());
+  EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).adId, adId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved, false);
 
 }
 
@@ -629,8 +631,8 @@ TEST_F(AdManagerMPDTests, CheckForAdStartTests_2)
         });
     // Add ads to the adBreak
     mPrivateCDAIObjectMPD->mAdBreaks["testPeriodId"].ads = std::make_shared<std::vector<AdNode>>();
-    mPrivateCDAIObjectMPD->mAdBreaks["testPeriodId"].ads->emplace_back(false, false, "adId1", "url", 30000, "testPeriodId", 0, nullptr);
-    mPrivateCDAIObjectMPD->mAdBreaks["testPeriodId"].ads->emplace_back(false, false, "adId2", "url", 30000, "testPeriodId", 30000, nullptr);
+    mPrivateCDAIObjectMPD->mAdBreaks["testPeriodId"].ads->emplace_back(false, false, true, "adId1", "url", 30000, "testPeriodId", 0, nullptr);
+    mPrivateCDAIObjectMPD->mAdBreaks["testPeriodId"].ads->emplace_back(false, false, true, "adId2", "url", 30000, "testPeriodId", 30000, nullptr);
 
     // reset
     breakId = "";
@@ -741,7 +743,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}
   };
-  mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, "adId1", "url", 30000, periodId, 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, true, "adId1", "url", 30000, periodId, 0, nullptr);
 
   // Add ads to mPeriodMap. mPeriodMap[periodId].adBreakId is non-empty for live at the beginning as per SetAlternateContents
   mPrivateCDAIObjectMPD->mPeriodMap[periodId] = Period2AdData(false, periodId, 0 /*in ms*/,
@@ -814,7 +816,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}
   };
-  mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, "adId1", "url", 30000, periodId, 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, true, "adId1", "url", 30000, periodId, 0, nullptr);
 
   // Add ads to mPeriodMap. mPeriodMap[periodId].adBreakId is non-empty for live at the beginning as per SetAlternateContents
   mPrivateCDAIObjectMPD->mPeriodMap[periodId] = Period2AdData(false, periodId, 26000 /*in ms*/,
@@ -890,8 +892,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     {periodId1, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)},
     {periodId2, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}
   };
-  mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(false, false, "adId1", "url1", 30000, periodId1, 0, nullptr);
-  mPrivateCDAIObjectMPD->mAdBreaks[periodId2].ads->emplace_back(false, false, "adId2", "url2", 30000, periodId2, 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(false, false, true, "adId1", "url1", 30000, periodId1, 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId2].ads->emplace_back(false, false, true, "adId2", "url2", 30000, periodId2, 0, nullptr);
 
   // Add ads to mPeriodMap. mPeriodMap[periodId].adBreakId is non-empty for live at the beginning as per SetAlternateContents
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 26000 /*in ms*/,
@@ -974,8 +976,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     {periodId2, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}
   };
   // 1 - to - 1 mapping of ad and period
-  mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(false, false, "adId1", "url1", 35000, periodId1, 0, nullptr);
-  mPrivateCDAIObjectMPD->mAdBreaks[periodId2].ads->emplace_back(false, false, "adId2", "url2", 30000, periodId2, 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(false, false, true, "adId1", "url1", 35000, periodId1, 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId2].ads->emplace_back(false, false, true, "adId2", "url2", 30000, periodId2, 0, nullptr);
 
   // Add ads to mPeriodMap. mPeriodMap[periodId].adBreakId is non-empty for live at the beginning as per SetAlternateContents
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 30000 /*in ms*/,
@@ -1085,9 +1087,9 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     {periodId1, AdBreakObject(60000, std::make_shared<std::vector<AdNode>>(), "", 0, 60000)},
   };
   // 1 - to - 2 mapping of ad (ad1 30s, ad2 30s) and period (periodId1)
-  mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(false, false, "adId1", "url1", 30000, periodId1, 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(false, false, true, "adId1", "url1", 30000, periodId1, 0, nullptr);
   // In FulFillAdObject the second ads, basePeriodID is not populated
-  mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(false, false, "adId2", "url2", 30000, "", 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(false, false, true, "adId2", "url2", 30000, "", 0, nullptr);
 
   // Add ads to mPeriodMap. mPeriodMap[periodId].adBreakId is non-empty for live at the beginning as per SetAlternateContents
   // Second ads AdOnPeriod is not populated in FulFillAdObject

@@ -71,6 +71,7 @@ PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(AampLogManager* logObj, PrivateInstan
  */
 PrivateCDAIObjectMPD::~PrivateCDAIObjectMPD()
 {
+	AbortWaitForNextAdResolved();
 	StopFulfillAdLoop();
 	mAamp->CurlTerm(eCURLINSTANCE_DAI);
 }
@@ -942,6 +943,7 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 	}
 	else
 	{
+		bool adCached = false;
 		if(isAdBreakObjectExist(periodId))
 		{
 			auto &adbreakObj = mAdBreaks[periodId];
@@ -953,10 +955,11 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 			{
 				//Cache the Ad to be placed later
 				CacheAdData(periodId, adId, url);
+				adCached = true;
 			}
 		}
 		// Reject the promise as ad couldn't be resolved
-		if(!mAdObjThreadStarted)
+		if(!adCached)
 		{
 			mAamp->SendAdResolvedEvent(adId, false, 0, 0);
 		}

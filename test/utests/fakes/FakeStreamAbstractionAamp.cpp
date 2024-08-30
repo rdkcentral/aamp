@@ -22,7 +22,7 @@
 
 MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP = nullptr;
 
-StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler) : aamp(nullptr)
+StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler) : aamp(nullptr), mAudiostateChangeCount(0), mESChangeStatus(false)
 {
     mLogObj = logObj;
 }

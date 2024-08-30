@@ -44,7 +44,7 @@ PrivateCDAIObjectMPD::~PrivateCDAIObjectMPD()
 {
 }
 
-MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &url, bool &finalManifest, bool tryFog)
+MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, bool tryFog)
 {
 	return NULL;
 }
@@ -88,4 +88,17 @@ void PrivateCDAIObjectMPD::ErasefrmAdBrklist(const std::string adBrkId)
 bool PrivateCDAIObjectMPD::HasDaiAd(const std::string periodId)
 {
 	return false;
+}
+
+void PrivateCDAIObjectMPD::NotifyAdLoopWait()
+{
+}
+
+bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
+{
+	return false;
+}
+
+void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
+{
 }

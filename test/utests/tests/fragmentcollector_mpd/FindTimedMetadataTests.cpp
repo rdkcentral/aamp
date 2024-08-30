@@ -175,6 +175,7 @@ public:
 
         /* Create MPD instance. */
         mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mLogObj, mPrivateInstanceAAMP);
+        EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
         ResetCDAIAdObject();
 
         mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);

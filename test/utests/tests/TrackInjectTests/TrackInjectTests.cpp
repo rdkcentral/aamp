@@ -228,17 +228,17 @@ protected:
 
 	void TearDown() override
 	{
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
-
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
-
 		delete g_mockMediaStreamContext;
 		g_mockMediaStreamContext = nullptr;
 
 		delete mMediaTrack;
 		mMediaTrack = nullptr;
+
+		delete mPrivateInstanceAAMP;
+		mPrivateInstanceAAMP = nullptr;
+
+		delete g_mockPrivateInstanceAAMP;
+		g_mockPrivateInstanceAAMP = nullptr;
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;

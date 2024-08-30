@@ -10323,6 +10323,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 	if(!aamp->IsLocalAAMPTsb())
 	{
 		aamp->DisableDownloads();
+		mCdaiObject->AbortWaitForNextAdResolved();
 		ReassessAndResumeAudioTrack(true);
 		AbortWaitForAudioTrackCatchup(false);
 		// DELIA-45035: Change order of stopping threads. Collector thread has to be stopped at the earliest
