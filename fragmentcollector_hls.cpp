@@ -1696,7 +1696,7 @@ void TrackState::FetchFragment()
 			}
 			cachedFragment->duration = duration.inSeconds();
 			cachedFragment->position = position.inSeconds();
-
+			cachedFragment->absPosition = playlistPosition.inSeconds();
 			// in case of tsb, GetCurrentBandWidth does not return correct bandwidth as it is updated after this point
 			// hence getting from context which is updated in FetchFragmentHelper
 			long lbwd = aamp->IsTSBSupported() ? context->GetTsbBandwidth() : this->GetCurrentBandWidth();

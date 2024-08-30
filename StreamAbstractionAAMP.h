@@ -134,10 +134,10 @@ public:
 	AampMediaType type;				/**< AampMediaType info of the fragment */
 	long long downloadStartTime;	/**< The start time of file download */
 	double PTSOffsetSec; 			/* PTS offset to apply for this segment */
-
+	double absPosition;		/** Absolute position */
 	CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0),
 					   initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()),
-					   type(eMEDIATYPE_DEFAULT), downloadStartTime(0), timeScale(0), PTSOffsetSec(0)
+					   type(eMEDIATYPE_DEFAULT), downloadStartTime(0), timeScale(0), PTSOffsetSec(0), absPosition(0.0)
 	{
 	}
 
@@ -155,6 +155,7 @@ public:
 		this->uri = other->uri;
 		this->timeScale = other->timeScale;
 		this->PTSOffsetSec = other->PTSOffsetSec;
+		this->absPosition =  other->absPosition;
 	}
 	void Clear()
 	{
@@ -169,6 +170,7 @@ public:
 		cacheFragStreamInfo = StreamInfo();
 		timeScale = 0;
 		PTSOffsetSec = 0;
+		absPosition = 0.0;
 	}
 };
 

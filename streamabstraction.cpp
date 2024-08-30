@@ -1285,8 +1285,24 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		AAMPLOG_DEBUG("[%p] - %s - injected cached uri at pos %f dur %f", this, name, cachedFragment->position, cachedFragment->duration);
 		if (!fragmentDiscarded)
 		{
-			totalInjectedDuration += cachedFragment->duration;
-			lastInjectedPosition = cachedFragment->position;
+			double positionDifference = (cachedFragment->absPosition - lastInjectedPosition);
+
+			AAMPLOG_TRACE("[%s] lastInjectedPosition: %f, absPosition: %f", name, lastInjectedPosition, cachedFragment->absPosition);
+			if (lastInjectedPosition <= 0)
+			{
+				totalInjectedDuration += cachedFragment->duration;
+			}
+			else if (positionDifference >= 0)
+			{
+				totalInjectedDuration += positionDifference;
+				if (positionDifference > cachedFragment->duration)
+				{
+					AAMPLOG_WARN("[%s] Difference between lastInjectedPosition (%f) and absPosition (%f) is greater than duration (%f)", 
+							name, lastInjectedPosition, cachedFragment->absPosition, cachedFragment->duration);
+				}
+			}
+
+			lastInjectedPosition = cachedFragment->absPosition;
 			mSegInjectFailCount = 0;
 		}
 		else
