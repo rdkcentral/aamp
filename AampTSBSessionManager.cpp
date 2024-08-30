@@ -54,7 +54,7 @@ AampTSBSessionManager::AampTSBSessionManager(AampLogManager *logObj, PrivateInst
 		, mLiveEndPosition(0.0)
 		, mTsbMaxDiskStorage(0)
 		, mTsbMinFreePercentage(0)
-		, mIsoBmffHelper(aamp->mIsoBmffHelper)
+		, mIsoBmffHelper(std::make_shared<IsoBmffHelper>(logObj))
 {
 }
 

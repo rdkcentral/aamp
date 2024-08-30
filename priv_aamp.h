@@ -530,8 +530,6 @@ class AampCacheHandler;
 
 class AampDRMSessionManager;
 
-class IsoBmffHelper;
-
 /**
  * @brief
  *
@@ -4390,7 +4388,6 @@ protected:
 
 public:
 	AampLogManager *mLogObj;
-	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper;
 };
 
 #endif // PRIVAAMP_H
