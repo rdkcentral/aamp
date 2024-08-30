@@ -246,7 +246,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
     }
 
     context->mCheckForRampdown = false;
-    if(bitrate > 0 && bitrate != fragmentDescriptor.Bandwidth)
+    // Check for overWriteTrackId to avoid this logic for PushEncrypted init fragment use-case
+    if(bitrate > 0 && bitrate != fragmentDescriptor.Bandwidth && !overWriteTrackId)
     {
         AAMPLOG_INFO("Bitrate changed from %u to %ld",fragmentDescriptor.Bandwidth, bitrate);
         fragmentDescriptor.Bandwidth = (uint32_t)bitrate;
