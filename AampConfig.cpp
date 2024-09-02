@@ -444,7 +444,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{TRICKPLAY_LINEAR_PLAYBACK_FPS,"linearTrickPlayFps",eAAMPConfig_LinearTrickPlayFPS,false},
 	{DEFAULT_LICENSE_REQ_RETRY_WAIT_TIME,"licenseRetryWaitTime",eAAMPConfig_LicenseRetryWaitTime,false},
 	{DEFAULT_LICENSE_KEY_ACQUIRE_WAIT_TIME,"licenseKeyAcquireWaitTime",eAAMPConfig_LicenseKeyAcquireWaitTime,false,eCONFIG_RANGE_LICENSE_WAIT},
-	{MAX_PTS_ERRORS_THRESHOLD,"ptsErrorThreshold",eAAMPConfig_PTSErrorThreshold,false, eCONFIG_RANGE_PTS_ERROR_THRESHOLD },
+	{DEFAULT_PTS_ERRORS_THRESHOLD,"ptsErrorThreshold",eAAMPConfig_PTSErrorThreshold,true, eCONFIG_RANGE_PTS_ERROR_THRESHOLD },
 	{MAX_PLAYLIST_CACHE_SIZE,"maxPlaylistCacheSize",eAAMPConfig_MaxPlaylistCacheSize,false, eCONFIG_RANGE_PLAYLIST_CACHE_SIZE },
 	{MIN_DASH_DRM_SESSIONS,"dashMaxDrmSessions",eAAMPConfig_MaxDASHDRMSessions,false,eCONFIG_RANGE_DASH_DRM_SESSIONS },
 	{DEFAULT_WAIT_TIME_BEFORE_RETRY_HTTP_5XX_MS,"waitTimeBeforeRetryHttp5xx",eAAMPConfig_Http5XXRetryWaitInterval,false},
