@@ -4061,27 +4061,32 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Pushing EncryptedHeaders");
 			std::map<int, std::string> headers;
 
-			// Check if single pipeline has a main asset that has
-			// encrypted content whose init header urls have been saved
-			AampStreamSinkManager::GetInstance().GetEncryptedHeaders(headers);
-			if (!headers.empty())
-			{
-				PushEncryptedHeaders(headers);
-				aamp->mPipelineIsClear = false;
-				aamp->mEncryptedPeriodFound = false;
-			}
+			// RDKAAMP-3259: Getting the headers alone will not cache the protectionEvent in sink which fails to select drmSession in decryptor
+			// Hence reorder to get the encrypted init fragment from manifest and if not check for header urls in StreamSinkManager
 			// Check if a period in a multi-period asset has an encrypted content
-			else if(GetEncryptedHeaders(headers))
+			if(GetEncryptedHeaders(headers))
 			{
 				PushEncryptedHeaders(headers);
 				aamp->mPipelineIsClear = false;
 				aamp->mEncryptedPeriodFound = false;
 			}
-			else if (mIsLiveStream)
+			else
 			{
-				AAMPLOG_INFO("Pipeline set as clear since no enc perid found");
-				//If no encrypted period is found, then update the pipeline status
-				aamp->mPipelineIsClear = true;
+				// Check if single pipeline has a main asset that has
+				// encrypted content whose init header urls have been saved
+				AampStreamSinkManager::GetInstance().GetEncryptedHeaders(headers);
+				if (!headers.empty())
+				{
+					PushEncryptedHeaders(headers);
+					aamp->mPipelineIsClear = false;
+					aamp->mEncryptedPeriodFound = false;
+				}
+				else if (mIsLiveStream)
+				{
+					AAMPLOG_INFO("Pipeline set as clear since no enc perid found");
+					//If no encrypted period is found, then update the pipeline status
+					aamp->mPipelineIsClear = true;
+				}
 			}
 		}
 		else
@@ -8007,7 +8012,15 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 										FragmentDescriptor *fragmentDescriptor = new FragmentDescriptor();
 
 										fragmentDescriptor->bUseMatchingBaseUrl	=	ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
-										fragmentDescriptor->manifestUrl = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.manifestUrl;
+										if (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState)
+										{
+											// For AD playback, replace with source manifest url, as we are parsing source manifest for init header
+											fragmentDescriptor->manifestUrl = aamp->GetManifestUrl();
+										}
+										else
+										{
+											fragmentDescriptor->manifestUrl = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.manifestUrl;
+										}
 
 										QueueContentProtection(period, iAdaptationSet, (AampMediaType)i);
 
