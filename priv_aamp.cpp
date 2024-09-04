@@ -3098,6 +3098,8 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			// The same thread will be executing operations involving TeardownStream.
 			mpStreamAbstractionAAMP->StopInjection();
 #ifndef AAMP_STOP_SINK_ON_SEEK
+			// TODO: There is a possible issue hiding in the bushes. The audio codec switching use-case, Flush is done first and the Configure()
+			// So the new audio playbin will miss the Flush() and might not sync with video (which received the Flush) properly
 			if (((mMediaFormat != eMEDIAFORMAT_HLS_MP4) && (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))) ||  mVideoFormat != FORMAT_ISO_BMFF )
 			{
  				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -9762,6 +9764,31 @@ void PrivateInstanceAAMP::SetLatencyParam(double latency, double buffer, double 
 void  PrivateInstanceAAMP::SetLLDLowBufferParam(double latency, double buff, double rate, double bw, double buffLowCount)
 {
 	profiler.SetLLDLowBufferParam( latency,  buff,  rate,  bw,  buffLowCount);
+}
+
+/**
+ * @brief Get if pipeline reconfigure required for elementary stream type change status (from stream abstraction)
+ * @return true if audio codec has changed
+ */
+bool PrivateInstanceAAMP::ReconfigureForCodecChange()
+{
+	if (mpStreamAbstractionAAMP)
+	{
+		if(!ISCONFIGSET_PRIV(eAAMPConfig_ReconfigPipelineOnDiscontinuity))
+		{
+			return mpStreamAbstractionAAMP->GetESChangeStatus();
+		}
+		else
+		{
+			AAMPLOG_INFO("ReconfigPipelineOnDiscontinuity is enabled, returning false");
+			return false;
+		}
+	}
+	else
+	{
+		AAMPLOG_ERR("ERROR - should not get here. 'mpStreamAbstractionAAMP' is NULL! Assuming ESChangeStatus() is false.");
+		return false;
+	}
 }
 
 /**

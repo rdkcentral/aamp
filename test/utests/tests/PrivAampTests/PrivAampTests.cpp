@@ -110,12 +110,17 @@ class PrivAampPrivTests : public ::testing::Test
 		logmanager = new AampLogManager();
 
 		testp_aamp = new TestablePrivAamp(config);
+		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
 		aamp->SetSessionId(session_id);
     }
 
     void TearDown() override
     {
+
+		delete g_mockAampConfig;
+		g_mockAampConfig = nullptr;
+
 		delete config;
 		config = nullptr;
 
@@ -264,7 +269,12 @@ public:
 		mpStreamAbstractionAAMP->GetAvailableTextTracks(true);
 		GetAvailableAudioTracks(true);
 	}
-
+	void InitStreamAbstraction()
+	{
+		AampLogManager *mLogObj;
+		double playlistSeekPos = seek_pos_seconds - culledSeconds;
+		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(TestablePrivAamp::mLogObj,this, playlistSeekPos, TestablePrivAamp::rate);
+	}
     std::unordered_map<std::string, std::vector<std::string>> GetCustomHeaders()
     {
         return mCustomHeaders;
@@ -3633,4 +3643,23 @@ TEST_F(PrivAampTests,GetLastDownloadedManifestTest1)
 	std::string manifest;
 	p_aamp->mMediaFormat=eMEDIAFORMAT_DASH;
 	p_aamp->GetLastDownloadedManifest(manifest);
+}
+
+TEST_F(PrivAampPrivTests,ReconfigureForCodecChangeTest1)
+{
+	testp_aamp->InitStreamAbstraction();
+
+	//codec change and reconfigpipeline enabled -> false
+	testp_aamp->mpStreamAbstractionAAMP->SetESChangeStatus();
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillOnce(Return(true));
+	EXPECT_FALSE(testp_aamp->ReconfigureForCodecChange());
+
+	//codec change and reconfigpipeline disabled -> true
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillOnce(Return(false));
+	EXPECT_TRUE(testp_aamp->ReconfigureForCodecChange());
+
+	//no codec change -> false
+	testp_aamp->mpStreamAbstractionAAMP->ResetESChangeStatus();
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillOnce(Return(false));
+	EXPECT_FALSE(testp_aamp->ReconfigureForCodecChange());
 }

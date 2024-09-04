@@ -1465,3 +1465,8 @@ std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 {
     return "";
 }
+
+bool PrivateInstanceAAMP::ReconfigureForCodecChange()
+{
+	return false;
+}
