@@ -318,6 +318,14 @@ Status StoreImpl::Read(const std::string &url, void *buffer, std::size_t size) c
 		{
 			TSB_LOG_WARN(mLogger, "File does not exist", "file", fileNameIncPath);
 		}
+		else if (buffer == nullptr)
+		{
+			TSB_LOG_ERROR(mLogger, "Buffer is null");
+		}
+		else if (size == 0)
+		{
+			TSB_LOG_ERROR(mLogger, "Size is 0");
+		}
 		else
 		{
 			FS::ifstream stream;
@@ -458,6 +466,14 @@ Status StoreImpl::Write(const std::string& url, const void* buffer, std::size_t 
 		{
 			TSB_LOG_TRACE(mLogger, "File already exists", "path", fileNameIncPath.string());
 			returnStatus = Status::ALREADY_EXISTS;
+		}
+		else if (buffer == nullptr)
+		{
+			TSB_LOG_ERROR(mLogger, "Buffer is null");
+		}
+		else if (size == 0)
+		{
+			TSB_LOG_ERROR(mLogger, "Size is 0");
 		}
 		else if (size > mAvailable)
 		{
