@@ -792,12 +792,6 @@ public:
 	 */
 	std::shared_ptr<TSB::Store> GetTSBStore(const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level);
 
-	/**
-	 * @brief Get if pipeline reconfigure required for elementary stream type change status (from stream abstraction)
-	 * @return true if audio codec has changed
-	 */
-	bool ReconfigureForCodecChange();
-
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
 	std::vector< std::pair<long long,long> > mAbrBitrateData;
