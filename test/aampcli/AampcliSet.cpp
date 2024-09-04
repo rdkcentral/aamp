@@ -1037,7 +1037,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 								size_t subt_size = str.size();
 								if (subt_size > AAMPCLI_MAX_WEBVTT_SIZE)
 								{
-									printf("[AAMPCLI] ERROR: WebVTT sidecar subtitles file too big (%lu > max=%u)\n",
+									printf("[AAMPCLI] ERROR: WebVTT sidecar subtitles file too big (%zu > max=%u)\n",
 										subt_size, AAMPCLI_MAX_WEBVTT_SIZE);
 								}
 								else

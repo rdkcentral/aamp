@@ -10,8 +10,8 @@ display_help() {
   echo "  -f   img_name (default: testpat.jpg)"
   echo "  -a   Enable/disable dash content (default: 1 Enabled)"
   echo "  -l   Enable/disable hls content (default: 1 Enabled)"
-  echo "  -t   To generate TTML text track (default: 0 Disabled)"
-  echo "  -k   Enable to generate 4k content (default: 0 Disabled)"
+  echo "  -w   To generate webvtt text track (default: 0 Disabled)"
+  echo "  -k   To Enable to generate 4k content (default: 0 Disabled)"
   echo "  -h   Display this help message"
   exit 1
 }
@@ -31,12 +31,11 @@ while getopts ":d:f:a:l:tkh" opt; do
     l)
       RUN_HLS="$OPTARG"
       ;;
-    t)
-      GEN_TTML=1
+    w)
+      GEN_WEBVTT=1
       ;;
     k)
       GEN_4K="1"
-      PROFILE_COUNT=5
       ;;
     h)
       display_help
@@ -66,7 +65,6 @@ source helper/generate-video.sh
 source helper/generate-iframe-track.sh
 source helper/generate-audio-data.sh
 source helper/generate-audio-manifests.sh
-source helper/generate-text-data.sh
 if [ "$RUN_HLS" == 1 ]; then
 	source helper/generate-muxed-video.sh
 	source helper/generate-mux-manifest.sh
@@ -81,6 +79,10 @@ fi
 if [ "$GEN_TTML" == 1 ]; then
 	source mp4tool/generate_ttml.sh
 	generate_ttml_tracks $VIDEO_LENGTH_SEC
+fi
+
+if [ "$GEN_WEBVTT" == 1 ]; then
+	source helper/generate-text-data.sh
 fi
 
 if [ "$GEN_4K" == 1 ]; then

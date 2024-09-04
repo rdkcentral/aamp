@@ -56,7 +56,7 @@ void AampScheduler::StartScheduler()
 	std::lock_guard<std::mutex>lock(mQMutex);
 	mSchedulerThread = std::thread(std::bind(&AampScheduler::ExecuteAsyncTask, this));
 	mSchedulerRunning = true;
-	AAMPLOG_INFO("Thread created Async Worker [%lu]", GetPrintableThreadID(mSchedulerThread));
+	AAMPLOG_INFO("Thread created Async Worker [%zx]", GetPrintableThreadID(mSchedulerThread));
 }
 
 /**

@@ -26,6 +26,8 @@
 #include "TsbFakeOfstream.h"
 #include "TsbFakeIfstream.h"
 #include "TsbFakeDirectoryIterator.h"
+#include "TsbFakeLibc.h"
+
 
 namespace TSB
 {
@@ -44,6 +46,7 @@ using std::filesystem::path;
 using std::filesystem::space_info;
 
 bool create_directories(const path &, std::error_code &);
+bool create_directory(const path &, std::error_code &);
 bool exists(const path &);
 uintmax_t file_size(const path &, std::error_code &);
 bool remove(const path &, std::error_code &);

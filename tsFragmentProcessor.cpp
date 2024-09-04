@@ -573,7 +573,7 @@ void TSFragmentProcessor::DemuxFragment(const uint8_t * base_packet_ptr, size_t 
 			if (basePTSUpdated)
 			{
 				auto curr_base_pts = curr_demuxer->getBasePTS();
-				AAMPLOG_INFO(" Base PTS updated from current segment [%p] - %llu [%lu]", curr_demuxer, curr_base_pts, sizeof(curr_base_pts));
+				AAMPLOG_INFO(" Base PTS updated from current segment [%p] - %llu [%zu]", curr_demuxer, curr_base_pts, sizeof(curr_base_pts));
 
 				basePtsUpdatedFromCurrentSegment = true;
 			}
@@ -641,7 +641,7 @@ void TSFragmentProcessor::ProcessPMTSection(uint8_t * section, size_t sectionLen
 			}
 			else
 			{
-				AAMPLOG_WARN(" pmt contains more than %lu video PIDs", max_pmt_pid_count);
+				AAMPLOG_WARN(" pmt contains more than %zu video PIDs", max_pmt_pid_count);
 			}
 			break;
 		case StreamType::eSTREAM_TYPE_PES_PRIVATE:
@@ -734,7 +734,7 @@ void TSFragmentProcessor::ProcessPMTSection(uint8_t * section, size_t sectionLen
 			}
 			else
 			{
-				AAMPLOG_WARN(" pmt contains more than %lu audio PIDs", max_pmt_pid_count);
+				AAMPLOG_WARN(" pmt contains more than %zu audio PIDs", max_pmt_pid_count);
 			}
 			break;
 

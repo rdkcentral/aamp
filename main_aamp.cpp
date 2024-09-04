@@ -26,7 +26,6 @@
 #include "manager.hpp"
 #include "libIBus.h"
 #include "libIBusDaemon.h"
-#include "irMgr.h"
 #endif
 
 #include "main_aamp.h"
@@ -215,7 +214,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		}
 		catch (std::exception &e)
 		{
-			AAMPLOG_ERR("Failed to instantiate TSB Store object for flush, reason: %s", e.what());
+			// This is expected if an AAMP TSB instance is currently alive in another process
+			AAMPLOG_WARN("Failed to instantiate TSB Store object for flush, reason: %s", e.what());
 		}
 	}
 	aamp->SetScheduler(&mScheduler);
@@ -1719,7 +1719,7 @@ bool PlayerInstanceAAMP::IsJsInfoLoggingEnabled(void)
 /**
  *  @brief Get current audio language.
  */
-const char* PlayerInstanceAAMP::GetCurrentAudioLanguage(void)
+std::string PlayerInstanceAAMP::GetAudioLanguage(void)
 {
 	ERROR_OR_IDLE_STATE_CHECK_VAL("");
 	static char lang[MAX_LANGUAGE_TAG_LENGTH];
@@ -1740,19 +1740,25 @@ const char* PlayerInstanceAAMP::GetCurrentAudioLanguage(void)
 	return lang;
 }
 
+const char * PlayerInstanceAAMP::GetCurrentAudioLanguage(void)
+{
+	static std::string temp = GetAudioLanguage();
+	return temp.c_str();
+}
+
 /**
  *  @brief Get current drm
  */
-const char* PlayerInstanceAAMP::GetCurrentDRM(void)
+std::string PlayerInstanceAAMP::GetDRM(void)
 {
 	ERROR_OR_IDLE_STATE_CHECK_VAL("");
 	if(aamp){
-	std::shared_ptr<AampDrmHelper> helper = aamp->GetCurrentDRM();
-	if (helper)
-	{
-		return helper->friendlyName().c_str();
+		std::shared_ptr<AampDrmHelper> helper = aamp->GetCurrentDRM();
+		if (helper)
+		{
+			return helper->friendlyName();
+		}
 	}
-	}// end of if aamp
 	return "NONE";
 }
 
@@ -2594,14 +2600,9 @@ DRMSystems PlayerInstanceAAMP::GetPreferredDRM()
 /**
  *  @brief Get current preferred language list
  */
-const char* PlayerInstanceAAMP::GetPreferredLanguages()
+std::string PlayerInstanceAAMP::GetPreferredLanguages()
 {
-	if(!aamp->preferredLanguagesString.empty())
-	{
-		return aamp->preferredLanguagesString.c_str();
-	}
-
-	return NULL;
+	return aamp->preferredLanguagesString;
 }
 
 /**
@@ -2796,7 +2797,7 @@ void PlayerInstanceAAMP::SetTextTrack(int trackId, char *ccData)
 	{
 
 		std::vector<TextTrackInfo> tracks = aamp->mpStreamAbstractionAAMP->GetAvailableTextTracks();
-		AAMPLOG_INFO("trackId: %d tracks size %lu", trackId, tracks.size());
+		AAMPLOG_INFO("trackId: %d tracks size %zu", trackId, tracks.size());
 		if (!tracks.empty() && (MUTE_SUBTITLES_TRACKID == trackId || (trackId >= 0 && trackId < tracks.size())))
 		{
 			if (mAsyncTuneEnabled)
@@ -3120,7 +3121,7 @@ void PlayerInstanceAAMP::SetRepairIframes(bool configState)
 /**
  *  @brief InitAAMPConfig - Initialize the media player session with json config
  */
-bool PlayerInstanceAAMP::InitAAMPConfig(char *jsonStr)
+bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 {
 	bool retVal = false;
 	cJSON *cfgdata = NULL;

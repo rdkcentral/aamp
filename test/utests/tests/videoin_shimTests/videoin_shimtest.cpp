@@ -27,6 +27,7 @@
 #include "AampUtils.h"
 
 using namespace testing;
+AampLogManager *mLogObj{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
 
 class StreamAbstractionAAMP_VIDEOINTest : public ::testing::Test

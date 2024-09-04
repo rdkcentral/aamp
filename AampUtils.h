@@ -295,6 +295,7 @@ const char * GetMediaTypeName(AampMediaType mediaType);
 
 std::size_t GetPrintableThreadID( const std::thread &t );
 std::size_t GetPrintableThreadID( const pthread_t &t );
+std::size_t GetPrintableThreadID();
 
 /**
  * @brief Parse duration from ISO8601 string

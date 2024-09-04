@@ -10,8 +10,11 @@ generate_4k_video_data() {
    ffmpeg -stream_loop -1 -i "temp/frame/frame-%03d.jpg" -t $VIDEO_LENGTH_SEC -r $FPS_4K $FILE_LOOP
    fi
 
-   for (( I=4; I<PROFILE_COUNT; I++ ))
+   for (( I=0; I<PROFILE_COUNT; I++ ))
    do
+
+   if [ ${HEIGHT[$I]} -ge 2160 ] ; then
+
    W=${WIDTH[$I]}
    H=${HEIGHT[$I]}
    SCALE=scale=w=$((W)):h=$((H)):force_original_aspect_ratio=decrease
@@ -36,6 +39,8 @@ generate_4k_video_data() {
    else
        echo generating DASH SegmentTimeline video
        ffmpeg -hide_banner -y -i "$FILE" -c:v $VIDEO_CODEC  -profile:v main -crf 20 -sc_threshold 0 -g "$GOP_4K" -b:v "$BANDWIDTH" -maxrate "$MAXRATE" -bufsize 1200k -seg_duration "$VIDEO_SEGMENT_SEC" -use_timeline 1 -use_template 1 -init_seg_name init.m4s -media_seg_name '$Number$.$ext$' -f dash "$FOUT"
+   fi
+
    fi
    done
 }

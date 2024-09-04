@@ -868,7 +868,7 @@ static void deIndexTileInfo(std::vector<TileInfo> &indexedTileInfo)
 {
 	if( !indexedTileInfo.empty() )
 	{
-		AAMPLOG_WARN("indexedTileInfo size=%lu",indexedTileInfo.size());
+		AAMPLOG_WARN("indexedTileInfo size=%zu",indexedTileInfo.size());
 		indexedTileInfo.clear();
 	}
 }
@@ -1004,15 +1004,15 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			if(!timelines.empty())
 			{
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-				AAMPLOG_INFO("Type[%d] timelineCnt=%lu timeLineIndex:%d FDTime=%f L=%" PRIu64 " [fragmentTime = %f,  mLiveEndPosition=%f]",
+				AAMPLOG_INFO("Type[%d] timelineCnt=%zu timeLineIndex:%d FDTime=%f L=%" PRIu64 " [fragmentTime = %f,  mLiveEndPosition=%f]",
 					pMediaStreamContext->type, timelines.size(), pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Time, pMediaStreamContext->lastSegmentTime, pMediaStreamContext->fragmentTime, mLiveEndPosition);
 #endif
 				if ((pMediaStreamContext->timeLineIndex >= timelines.size()) || (pMediaStreamContext->timeLineIndex < 0)
 						||(AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState &&
-							((rate > AAMP_NORMAL_PLAY_RATE && pMediaStreamContext->fragmentTime >= mLiveEndPosition)
+							((rate > AAMP_NORMAL_PLAY_RATE && pMediaStreamContext->fragmentTime >= aamp->mAbsoluteEndPosition)
 							 ||(rate < 0 && pMediaStreamContext->fragmentTime <= mPeriodStartTime))))
 				{
-					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%lu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
+					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
 					pMediaStreamContext->eos = true;
 					ReleasePlaylistLock();
 				}
@@ -1166,7 +1166,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						// Modify the descriptor time to start download
 						pMediaStreamContext->fragmentDescriptor.Time = segmentStartTime;
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-						AAMPLOG_INFO("Type[%d] timelineCnt=%lu timeLineIndex:%d FDTime=%f L=%" PRIu64 " [fragmentTime = %f,  mLiveEndPosition = %f]",
+						AAMPLOG_INFO("Type[%d] timelineCnt=%zu timeLineIndex:%d FDTime=%f L=%" PRIu64 " [fragmentTime = %f,  mLiveEndPosition = %f]",
 						pMediaStreamContext->type ,timelines.size(), pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Time, pMediaStreamContext->lastSegmentTime,
 						pMediaStreamContext->fragmentTime, mLiveEndPosition);
 #endif
@@ -1367,7 +1367,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						if(firstStartTime < presentationTimeOffset)
                                                 {
                                                         firstSegStartTime = (double)(firstStartTime/tScale);
-                                                        AAMPLOG_INFO(" PTO ::(startTime < PTO) firstStartTime %" PRIu64 "tScale : %d presentationTimeOffset[%llu] positionInPeriod = %f  startTime = %f  endTime : %f mPeriodStartTime = %f mPeriodDuration = %f ", firstStartTime , tScale , presentationTimeOffset,positionInPeriod,firstSegStartTime,endTime,mPeriodStartTime,mPeriodDuration);
+                                                        AAMPLOG_INFO(" PTO ::(startTime < PTO) firstStartTime %" PRIu64 "tScale : %d presentationTimeOffset[%" PRIu64 "] positionInPeriod = %f  startTime = %f  endTime : %f mPeriodStartTime = %f mPeriodDuration = %f ", firstStartTime , tScale , presentationTimeOffset,positionInPeriod,firstSegStartTime,endTime,mPeriodStartTime,mPeriodDuration);
                                                 }
 
 						if(!fcsContent &&
@@ -2337,7 +2337,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
 				if (pMediaStreamContext->timeLineIndex >= timelines.size() || pMediaStreamContext->timeLineIndex < 0)
 				{
-					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%lu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
+					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
 					pMediaStreamContext->eos = true;
 					break;
 				}
@@ -3048,7 +3048,7 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 	bool forceSelectDRM = false; 
 	const char *pMp4Protection = "mpeg:dash:mp4protection";
 
-	AAMPLOG_TRACE("[HHH] contentProt.size= %lu", contentProt.size());
+	AAMPLOG_TRACE("[HHH] contentProt.size=%zu", contentProt.size());
 	for (unsigned iContentProt = 0; iContentProt < contentProt.size(); iContentProt++)
 	{
 		// extract the UUID
@@ -4039,7 +4039,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			
 			for (int i = 0; i < mNumberOfTracks; i++)
 			{
-				mMediaStreamContext[i]->periodStartOffset = currentPeriodStart;
+				//The default fragment time has been updated to an absolute time format. Therefore,
+				//the periodStartOffset should now be relative to the Availability Start Time.
+				mMediaStreamContext[i]->periodStartOffset = mPeriodStartTime;
 			}
 			if(mLowLatencyMode)
 			{
@@ -6783,7 +6785,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							blAdaptationIdxs.insert(blProfile.mAdaptationSetIdx);
 						}
 					}
-					AAMPLOG_WARN("Blacklisted adaptationsets in this period: %lu", blAdaptationIdxs.size());
+					AAMPLOG_WARN("Blacklisted adaptationsets in this period: %zu", blAdaptationIdxs.size());
 					const auto &adaptationSets = period->GetAdaptationSets();
 					for (uint32_t idx = 0; idx < adaptationSets.size(); idx++ )
 					{
@@ -7670,7 +7672,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							}
 							pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
 							trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
-							AAMPLOG_INFO("Thread created for TrackDownloader [%lu]", GetPrintableThreadID(trackDownloadThreadID));
+							AAMPLOG_INFO("Thread created for TrackDownloader [%zx]", GetPrintableThreadID(trackDownloadThreadID));
 						}
 						catch(std::exception &e)
 						{
@@ -7785,7 +7787,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 										setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 									}
 									trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
-									AAMPLOG_INFO("Thread created for TrackDownloader [%lu] %d %s", GetPrintableThreadID(trackDownloadThreadID), trackIdx, initialization.c_str());
+									AAMPLOG_INFO("Thread created for TrackDownloader [%zx] %d %s", GetPrintableThreadID(trackDownloadThreadID), trackIdx, initialization.c_str());
 								}
 								catch(const std::exception& e)
 								{
@@ -7883,7 +7885,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 																		trackIdx,
 																		"" // BaseUrl used for WebVTT download
 																		);
-									AAMPLOG_INFO("Thread created for TrackDownloader [%lu]", GetPrintableThreadID(trackDownloadThreadID));
+									AAMPLOG_INFO("Thread created for TrackDownloader [%zx]", GetPrintableThreadID(trackDownloadThreadID));
  								}
 								catch(std::exception &e)
 								{
@@ -8192,7 +8194,9 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 					{
 						pMediaStreamContext->GetContext()->CheckForPlaybackStall(false);
 					}
-
+					//Determining the current position within the period by calculating the difference between
+					//the fragmentTime and the periodStartOffset (both in absolute terms).
+					//If this difference exceeds the total duration of the ad, the period is considered to have ended.
 					if (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState && rate > 0 && !(pMediaStreamContext->eos)
 							&& mCdaiObject->CheckForAdTerminate(pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset))
 					{
@@ -8658,6 +8662,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						{
 							adStateChanged = onAdEvent(AdEvent::AD_FAILED);
 							mCdaiObject->mAdBreaks[mBasePeriodId].mAdFailed = false;
+							aamp->UnblockWaitForDiscontinuityProcessToComplete();
 							continue;
 						}
 					}
@@ -8698,7 +8703,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 												&waitForFreeFrag,
 												&cacheFullStatus[trackIdx],
 												false);
-								AAMPLOG_TRACE("Thread created for parallelDownload:AdvanceTrack [%d][%lu]", trackIdx, GetPrintableThreadID( *parallelDownload[trackIdx]));
+								AAMPLOG_TRACE("Thread created for parallelDownload:AdvanceTrack [%d][%zx]", trackIdx, GetPrintableThreadID( *parallelDownload[trackIdx]));
 							}
 							else
 							{
@@ -9414,7 +9419,7 @@ void StreamAbstractionAAMP_MPD::Start(void)
 		try{
 			fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_MPD::FetcherLoop, this);
 			fragmentCollectorThreadStarted = true;
-			AAMPLOG_INFO("Thread created for FetcherLoop [%lu]", GetPrintableThreadID(fragmentCollectorThreadID));
+			AAMPLOG_INFO("Thread created for FetcherLoop [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
 		}
 		catch (std::exception &e)
 		{
@@ -9477,7 +9482,7 @@ void StreamAbstractionAAMP_MPD::Start(void)
 			abortTsbReader = false;
 			tsbReaderThreadID = std::thread(&StreamAbstractionAAMP_MPD::TsbReader, this);
 			tsbReaderThreadStarted = true;
-			AAMPLOG_INFO("Thread created for TsbReader [%lu]", GetPrintableThreadID(tsbReaderThreadID));
+			AAMPLOG_INFO("Thread created for TsbReader [%zx]", GetPrintableThreadID(tsbReaderThreadID));
 		}
 		catch(const std::exception& e)
 		{
@@ -10099,7 +10104,7 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 													TileInfo tileInfo;
 													memset( &tileInfo,0,sizeof(tileInfo) );
 													tileInfo.startTime = startTime + ( adDuration / timeScale) ;
-													AAMPLOG_TRACE("timeLineIndex[%d] size [%lu] updated durationMs[%" PRIu64 "] startTime:%f adDuration:%f repeatCount:%d",  timeLineIndex, timelines.size(), durationMs, startTime, adDuration, repeatCount);
+													AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated durationMs[%" PRIu64 "] startTime:%f adDuration:%f repeatCount:%d",  timeLineIndex, timelines.size(), durationMs, startTime, adDuration, repeatCount);
 
 													startTime += ( timelineDurationMs );
 													replace(tmedia, "Number", startNumber);
@@ -11472,7 +11477,7 @@ void StreamAbstractionAAMP_MPD::StartLatencyMonitorThread()
 	{
 		latencyMonitorThreadID = std::thread(&StreamAbstractionAAMP_MPD::MonitorLatency, this);
         latencyMonitorThreadStarted = true;
-		AAMPLOG_INFO("Thread created Latency monitor [%lu]", GetPrintableThreadID(latencyMonitorThreadID));
+		AAMPLOG_INFO("Thread created Latency monitor [%zx]", GetPrintableThreadID(latencyMonitorThreadID));
 	}
 	catch(const std::exception& e)
 	{
@@ -12399,7 +12404,7 @@ void StreamAbstractionAAMP_MPD::UpdateFailedDRMStatus(LicensePreFetchObject *obj
 			AAMPLOG_ERR("Failed to find the adaptationSetIdx:%u in the period ID:%s to update ABR! Out of Range error: %s", object->mAdaptationIdx, object->mPeriodId.c_str(), oor.what());
 		}
 	}
-	AAMPLOG_INFO("Removing profile count:%lu from ABR list", profilesToRemove.size());
+	AAMPLOG_INFO("Removing profile count:%zu from ABR list", profilesToRemove.size());
 	if (profilesToRemove.size())
 	{
 		int profileIdx = currentProfileIndex;
@@ -12481,7 +12486,7 @@ bool StreamAbstractionAAMP_MPD::PlacenextAdBrkifAvail(IMPD *mpd)
 		mCdaiObject->PlaceAds(mpd);// to ensure the second ad break is placed to the ad object
 		adStateChanged = onAdEvent(AdEvent::DEFAULT);//to play Second immediate ad break
 	}
-	AAMPLOG_WARN("[CDAI] total number of ads in AdBreakList:%lu",mCdaiObject->mAdtoInsertInNextBreakVec.size());
+	AAMPLOG_WARN("[CDAI] total number of ads in AdBreakList:%zu",mCdaiObject->mAdtoInsertInNextBreakVec.size());
 	return adStateChanged;
 }
 

@@ -17,7 +17,7 @@
 
 include_directories(fs)
 
-add_library (tsb STATIC TsbStore.cpp TsbSem.cpp TsbLog.cpp)
+add_library (tsb STATIC TsbStore.cpp TsbSem.cpp TsbLocationLock.cpp TsbLog.cpp)
 
 target_compile_definitions(tsb PRIVATE ENABLE_TSB_LOGGER)
 

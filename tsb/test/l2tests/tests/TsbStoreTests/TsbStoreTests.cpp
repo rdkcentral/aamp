@@ -30,6 +30,9 @@
 namespace fs = std::filesystem;
 using namespace std::chrono_literals;
 
+#define TSB_BASE_LOCATION		"/tmp/tsb_location_L2"
+#define TSB_LOCATION_TEMPLATE	TSB_BASE_LOCATION"/baseXXXXXX"
+
 const uint32_t kMinFreePercent{5};
 const uint32_t kMaxCapacity{UINT32_MAX};
 const std::string kUrl{"https://lin017-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/file.mp4"};
@@ -66,9 +69,9 @@ protected:
 	void SetUp() override
 	{
 		// Create the base directory if it doesn't exist
-		std::filesystem::create_directories("/tmp/tsb_location");
+		std::filesystem::create_directories(TSB_BASE_LOCATION);
 		// Create a different directory for each test, so they can run in parallel
-		char templatebuf[] = "/tmp/tsb_location/baseXXXXXX";
+		char templatebuf[] = TSB_LOCATION_TEMPLATE;
 		mTsbLocation = mkdtemp(templatebuf);
 
 		const std::string kFlushDir{mTsbLocation + "/0"};
@@ -86,6 +89,8 @@ protected:
 		delete mTsbStore;
 		mTsbStore = nullptr;
 
+		// If these tests are running in parallel, other tests may be using the base directory,
+		// so don't delete that - just delete the TSB location subdirectory.
 		fs::remove_all(mTsbLocation);
 	}
 
@@ -168,4 +173,41 @@ TEST_F(TsbStoreTests, FlushConcurrent)
 	EXPECT_FALSE(fs::exists(dir2));
 	EXPECT_FALSE(fs::exists(dir3));
 	EXPECT_TRUE(fs::exists(dir4));
+}
+
+TEST_F(TsbStoreTests, SecondConcurrentInstanceSameLocationFailure)
+{
+	TSB::Store::Config tsbConfig{mTsbLocation, kMinFreePercent, kMaxCapacity};
+
+	// Create a second concurrent store instance for the *same* TSB Location
+	EXPECT_THROW(auto store = std::make_unique<TSB::Store>(tsbConfig, Logger, TSB::LogLevel::TRACE),
+				 std::invalid_argument);
+}
+
+TEST_F(TsbStoreTests, SecondConcurrentInstanceDifferentLocationSuccess)
+{
+	char templatebuf[] = TSB_LOCATION_TEMPLATE;
+	std::string differentLocation = mkdtemp(templatebuf);
+	TSB::Store::Config tsbConfig{differentLocation, kMinFreePercent, kMaxCapacity};
+
+	// Create a second concurrent store instance for a *different* TSB Location
+	TSB::Store* secondStore = nullptr;
+	EXPECT_NO_THROW(secondStore = new TSB::Store(tsbConfig, Logger, TSB::LogLevel::TRACE));
+
+	// Second Store must be destroyed before its temporary location directory is removed
+	delete secondStore;
+
+	fs::remove_all(differentLocation);
+}
+
+TEST_F(TsbStoreTests, SecondSequentialInstanceSameLocationSuccess)
+{
+	delete mTsbStore;
+	mTsbStore = nullptr;
+
+	TSB::Store::Config tsbConfig{mTsbLocation, kMinFreePercent, kMaxCapacity};
+
+	// Create a second sequential store instance for the *same* TSB Location. This verifies
+	// that the Store location was unlocked when the first instance was destructed, above.
+	EXPECT_NO_THROW(mTsbStore = new TSB::Store(tsbConfig, Logger, TSB::LogLevel::TRACE));
 }

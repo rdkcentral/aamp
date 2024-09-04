@@ -395,12 +395,6 @@ private:
 
 static GstPadProbeReturn MyDemuxPadProbeCallback( GstPad * pad, GstPadProbeInfo * info, MediaStream *stream )
 { // C to C++ glue
-	// printf("pad probe: type=%d size=%d data=%p offset=%" G_GUINT64_FORMAT " id=%lu\n",
-	// 	   info->type,
-	// 	   info->size,
-	// 	   info->data,
-	// 	   info->offset,
-	// 	   info->id );
 	GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
 	return stream->DemuxProbeCallback(buffer,pad);
 }
@@ -519,12 +513,12 @@ PipelineState Pipeline::GetPipelineState( void )
 
 void Pipeline::SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration )
 {
-	g_print( "Pipeline::SendBuffer(mediaType=%d, len=%lu)\n", mediaType, len );
+	g_print( "Pipeline::SendBuffer(mediaType=%d, len=%zu)\n", mediaType, len );
 	mediaStream[mediaType]->SendBuffer(ptr,len,duration);
 }
 void Pipeline::SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts )
 {
-	g_print( "Pipeline::SendBuffer(mediaType=%d, len=%lu)\n", mediaType, len );
+	g_print( "Pipeline::SendBuffer(mediaType=%d, len=%zu)\n", mediaType, len );
 	mediaStream[mediaType]->SendBuffer(ptr,len,duration,pts,dts);
 }
 

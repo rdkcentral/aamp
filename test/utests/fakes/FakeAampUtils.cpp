@@ -185,7 +185,12 @@ std::string aamp_PostJsonRPC( std::string id, std::string method, std::string pa
 
 std::size_t GetPrintableThreadID( const std::thread &t )
 {
-    return 0;
+	return 0;
+}
+
+std::size_t GetPrintableThreadID()
+{
+	return 0;
 }
 
 const FormatMap * GetAudioFormatForCodec( const char *codecs )
@@ -505,5 +510,5 @@ double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampL
 }
 TSB::LogLevel ConvertTsbLogLevel(int logLev)
 {
-	return TSB::LogLevel::WARN;
+	return static_cast<TSB::LogLevel>(0);
 }

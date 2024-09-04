@@ -235,7 +235,7 @@ struct ConfigLookupEntryString
 #define DEFAULT_VALUE_USE_SINGLE_PIPELINE false
 #endif
 
-#if (defined(REALTEKCE) || defined(INTELCE) || defined(RPI) || defined(AAMP_SIMULATOR_BUILD))
+#if (defined(REALTEKCE) || defined(RPI) || defined(AAMP_SIMULATOR_BUILD))
 #define DEFAULT_VALUE_QTDEMUX_OVERRIDE_ENABLED true
 #else
 #define DEFAULT_VALUE_QTDEMUX_OVERRIDE_ENABLED false
@@ -281,6 +281,7 @@ static const ConfigLookupEntryString mConfigLookupTableString[AAMPCONFIG_STRING_
 	{"","gstlevel", eAAMPConfig_GstDebugLevel,false},
 	{"","tsbType", eAAMPConfig_TsbType, false},
 	{DEFAULT_TSB_LOCATION,"tsbLocation",eAAMPConfig_TsbLocation, true},
+	{AAMP_LOW_LATENCY_URL_KEYWORD,"lldUrlKeyword", eAAMPConfig_LLDUrlKeyword, true},
 };
 
 /**
@@ -535,6 +536,7 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_NORMAL_RATE_CORRECTION_SPEED,"normalLatencyCorrectionPlaybackRate",eAAMPConfig_NormalLatencyCorrectionPlaybackRate,false},
 	{DEFAULT_MIN_BUFFER_LOW_LATENCY,"lowLatencyMinBuffer",eAAMPConfig_LowLatencyMinBuffer,true, eCONFIG_RANGE_LLDBUFFER},
 	{DEFAULT_TARGET_BUFFER_LOW_LATENCY,"lowLatencyTargetBuffer",eAAMPConfig_LowLatencyTargetBuffer,true, eCONFIG_RANGE_LLDBUFFER},
+	{GST_BW_TO_BUFFER_FACTOR,"bandwidthToBufferFactor", eAAMPConfig_BWToGstBufferFactor,true},
 };
 
 /**
@@ -1646,7 +1648,7 @@ void AampConfig::ReadAampCfgFromEnv()
 	if(NULL != envConf)
 	{
 		std::string strEnvConfig = envConf; // make sure we copy this as recommonded by getEnv doc
-		AAMPLOG_WARN("ReadAampCfgFromEnv:Text ENV:%s len:%lu ",strEnvConfig.c_str(),strEnvConfig.length());
+		AAMPLOG_WARN("ReadAampCfgFromEnv:Text ENV:%s len:%zu ",strEnvConfig.c_str(),strEnvConfig.length());
 		std::stringstream ss (strEnvConfig);
 		std::string item;
 

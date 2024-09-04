@@ -115,6 +115,12 @@ TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_On)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
 
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
+		.WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LLDUrlKeyword)).WillOnce(Return("/low/"));	
 	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
 	const char *chunkedUrl = "http://localhost:80/low/manifest.mpd";
 
@@ -135,8 +141,14 @@ TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_Off)
 {
 	// All configs are turned off
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	// EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(false));
 
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
+		.WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LLDUrlKeyword)).WillOnce(Return("/low/"));
 	// Not expecting creation of TSBSessionManager when config off
 	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(0);
 	const char *chunkedUrl = "http://localhost:80/low/manifest.mpd";
@@ -180,9 +192,9 @@ TEST_F(LocalTSBTests, Chunked_Without_LLD_And_Config_On)
 {
 	// Chunked key word should trigger TSBSessionManager creation
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
 
-	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
+	//We cannot expect TSBSessionManager Init ,if keyword is not present 
+//	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
 	const char *chunkedUrl = "http://localhost:80/low/manifest.mpd";
 
 	// For non low latency stream case, by default mLowLatencyMode is false
@@ -198,6 +210,105 @@ TEST_F(LocalTSBTests, Chunked_Without_LLD_And_Config_On)
 }
 
 
+TEST_F(LocalTSBTests, Configured_LLDKeyword_With_LLD)
+{
+    // Chunked keyword should trigger TSBSessionManager creation
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
+    
+    // Handle int return type
+    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+
+    // Handle float return type
+    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+
+    // Handle string return type
+    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
+        .WillRepeatedly(Return(""));
+
+    // Specific case for eAAMPConfig_LLDKeyword
+    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LLDUrlKeyword)).WillOnce(Return("configuredkeyword"));
+    
+    EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
+    
+    const char *chunkedUrl = "http://localhost:80/configuredkeyword/manifest.mpd";
+
+    // For low latency stream case
+    AampLLDashServiceData llData;
+    llData.lowLatencyMode = true;
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
+        .WillOnce([this, &llData] {
+            this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+            return eAAMPSTATUS_OK;
+        });
+
+    mPrivateInstanceAAMP->Tune(chunkedUrl, true);
+    EXPECT_TRUE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
+    EXPECT_TRUE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
+}
+
+
+
+TEST_F(LocalTSBTests, IncreaseGSTBufferTest_1)
+{
+	const char *testUrl = "http://localhost:80/manifest.mpd";
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
+		.WillOnce([this, &llData] {
+					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+					return eAAMPSTATUS_OK;
+				});
+	mPrivateInstanceAAMP->Tune(testUrl, true);
+    #define GETCFG(x) mPrivateInstanceAAMP->mConfig->GetConfigValue(x)
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_BWToGstBufferFactor)).WillRepeatedly(Return(0.8));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstVideoBufBytes)).WillRepeatedly(Return(GST_VIDEOBUFFER_SIZE_BYTES));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(8000000)); //8 Mbps
+	int newBuffer = 8000000 * 0.8;
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(13000000)); //13 Mbps
+	newBuffer = 13000000 * 0.8;
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(18000000)); // 18 Mbps
+	newBuffer = 18000000 * 0.8;
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(30000000)); //30 Mbps
+	newBuffer = 30000000 * 0.8;
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+
+	//GST_VIDEOBUFFER_SIZE_MAX_BYTES
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(100000000)); //100 Mbps should top out to 25 Mb
+	newBuffer = GST_VIDEOBUFFER_SIZE_MAX_BYTES;
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+}
+
+TEST_F(LocalTSBTests, IncreaseGSTBufferTest_2)
+{
+	const char *testUrl = "http://localhost:80/manifest.mpd";
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
+		.WillOnce([this, &llData] {
+					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+					return eAAMPSTATUS_OK;
+				});
+	mPrivateInstanceAAMP->Tune(testUrl, true);
+    #define GETCFG(x) mPrivateInstanceAAMP->mConfig->GetConfigValue(x)
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_BWToGstBufferFactor)).WillRepeatedly(Return(0.8));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstVideoBufBytes)).WillRepeatedly(Return(GST_VIDEOBUFFER_SIZE_BYTES));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(1000000)); //1 Mbps - Negative case should default and change config value
+	int newBuffer = GST_VIDEOBUFFER_SIZE_BYTES;
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,0)).Times(0); // Should not be called
+	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+}
 
 
 

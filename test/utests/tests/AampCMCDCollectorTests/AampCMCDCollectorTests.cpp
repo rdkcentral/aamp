@@ -4,6 +4,7 @@
 #include "AampMediaType.h"
 #include "AampConfig.h"
 using namespace testing;
+AampLogManager *mLogObj{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
 
 CMCDHeaders *CMCDHeaders_obj = new CMCDHeaders; 

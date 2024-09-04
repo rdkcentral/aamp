@@ -318,7 +318,7 @@ void AampMPDDownloader::Start()
 		try
 		{
 			mDownloaderThread_t1 = std::thread(&AampMPDDownloader::downloadMPDThread1, this);
-			AAMPLOG_INFO("Thread created for MPD Downloader1 [%lu]", GetPrintableThreadID(mDownloaderThread_t1));
+			AAMPLOG_INFO("Thread created for MPD Downloader1 [%zx]", GetPrintableThreadID(mDownloaderThread_t1));
 		}
 		catch(std::exception &e)
 		{
@@ -332,7 +332,7 @@ void AampMPDDownloader::Start()
 			try
 			{
 				mDownloaderThread_t2 = std::thread(&AampMPDDownloader::downloadMPDThread2, this);
-				AAMPLOG_INFO("Thread created for MPD Downloader2 [%lu]", GetPrintableThreadID(mDownloaderThread_t2));
+				AAMPLOG_INFO("Thread created for MPD Downloader2 [%zu]", GetPrintableThreadID(mDownloaderThread_t2));
 			}
 			catch(std::exception &e)
 			{
@@ -1078,7 +1078,7 @@ void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void 
 		mManifestUpdateCbArg	=		cbArg;
 		// Start thread for sending manifest updates
 		mDownloadNotifierThread = std::thread(&AampMPDDownloader::downloadNotifierThread, this);
-		AAMPLOG_INFO("Thread created for MPD Download notification [%lu]", GetPrintableThreadID(mDownloadNotifierThread));
+		AAMPLOG_INFO("Thread created for MPD Download notification [%zx]", GetPrintableThreadID(mDownloadNotifierThread));
 	}
 }
 

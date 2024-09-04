@@ -951,7 +951,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 							uint32_t repeatCount = timeline->GetRepeatCount();
 							double timelineDurationMs = ComputeFragmentDuration(timeline->GetDuration(),timeScale) * 1000;
 							durationMs += ((repeatCount + 1) * timelineDurationMs);
-							AAMPLOG_TRACE("timeLineIndex[%d] size [%lu] updated durationMs[%lf]", timeLineIndex, timelines.size(), durationMs);
+							AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated durationMs[%lf]", timeLineIndex, timelines.size(), durationMs);
 							timeLineIndex++;
 						}
 					}
@@ -1316,7 +1316,7 @@ uint64_t AampMPDParseHelper::GetDurationFromRepresentation()
 								uint32_t repeatCount = timeline->GetRepeatCount();
 								uint64_t timelineDurationMs = ComputeFragmentDuration(timeline->GetDuration(),timeScale) * 1000;
 								durationMs += ((repeatCount + 1) * timelineDurationMs);
-								AAMPLOG_TRACE("period[%d] timeLineIndex[%d] size [%lu] updated durationMs[%" PRIu64 "]", iPeriod, timeLineIndex, timelines.size(), durationMs);
+								AAMPLOG_TRACE("period[%d] timeLineIndex[%d] size [%zu] updated durationMs[%" PRIu64 "]", iPeriod, timeLineIndex, timelines.size(), durationMs);
 								timeLineIndex++;
 							}
 						}

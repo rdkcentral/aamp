@@ -191,6 +191,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampEventManager.h
 					AampGstUtils.h
 					AampGrowableBuffer.h
+					AampSmartMutex.hpp
 					AampJsonObject.h
 					AampLogManager.h
 					AampMediaType.h
@@ -423,7 +424,7 @@ else()
 	message("CMAKE_WPEWEBKIT_JSBINDINGS and CMAKE_WPEWEBKIT_JSBINDINGS not set")
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-multichar -std=c++11 -Wno-non-virtual-dtor -Wno-psabi")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -std=c++11 -Wno-non-virtual-dtor -Wno-psabi")
 
 if(CMAKE_IARM_MGR)
 	message("CMAKE_IARM_MGR set")
@@ -750,12 +751,6 @@ add_executable(playbintest test/playbintest.cpp)
 target_link_libraries(playbintest ${PLAYBINTEST_DEPENDS})
 # XCode schema target
 xcode_define_schema(playbintest)
-
-if(CMAKE_SOC_PLATFORM_INTEL)
-	message("CMAKE_SOC_PLATFORM_INTEL set")
-	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lismd_core -lismd_vidpproc -lismd_vidsink_direct -lismd_vidrend -lismd_viddec  -lismd_core -lsysloghelper -lgdl")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DINTELCE=1 -DAAMP_STOP_SINK_ON_SEEK=1 -DUSE_SYSLOG_HELPER_PRINT=1 -DENABLE_AAMP_QTDEMUX_OVERRIDE=1")
-endif()
 
 if(CMAKE_SOC_PLATFORM_REALTEK)
         message("CMAKE_SOC_PLATFORM_REALTEK set")

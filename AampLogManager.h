@@ -286,12 +286,6 @@ public:
 
 extern AampLogManager *mLogObj;
 
-/**
- * @brief Max debug log buffer size
- */
-#define MAX_DEBUG_LOG_BUFF_SIZE 512
-
-
 /* Context-free utility function */
 
 /**
@@ -310,5 +304,8 @@ extern void logprintf(int playerId, AAMP_LogLevel level, const char* file, int l
  * @return void
  */
 void DumpBlob(const unsigned char *ptr, size_t len);
+
+#define AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS 20
+#define AAMPCLI_TIMESTAMP_PREFIX_FORMAT "%u.%03u: "
 
 #endif /* AAMPLOGMANAGER_H */

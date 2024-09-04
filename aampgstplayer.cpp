@@ -2905,6 +2905,21 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 	{
 		return false;
 	}
+	/*If there is a download failure for the first actual fragment and that triggers ABR,
+	the player will download one more init fragment before the first fragment. In this case,
+	the player should not send the qtdemux override event with the proper base PTS for the
+        video fragment, as this will cause issues in progress reporting/playback. The "if"
+        condition is added to ensure that the SendQtDemuxOverrideEvent() API is correctly executed
+        for the video fragment after the specified scenario.
+	The base PTS needs to be sent to the SOC only for devices with qtdemux override enabled,
+        which is why the first condition was added. Additionally, the condition must be satisfied
+        for the second init fragment of a media type when no other fragment has been downloaded for
+        the same media type. The last three conditions were added to identify this scenario. */
+	if( ISCONFIGSET(eAAMPConfig_QtDemuxOverrideEnabled) && initFragment && stream->resendQtDemuxOverride && !stream->resetPosition  )
+	{
+		AAMPLOG_WARN("Second init fragment is downloaded without an actual fragment download for the same media type.");
+		stream->resetPosition =true;
+	}
 
 	bool isFirstBuffer = stream->resetPosition;
 	// Make sure source element is present before data is injected
@@ -2941,7 +2956,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 		}
 #endif
 
-		AAMPLOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT "", mediaType, initFragment, pts);
+		AAMPLOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
 
 	}
 
@@ -2982,7 +2997,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 				GST_BUFFER_PTS(buffer) = pts;
 				GST_BUFFER_DTS(buffer) = dts;
 				GST_BUFFER_DURATION(buffer) = duration;
-				AAMPLOG_DEBUG("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" ", mediaType, pts, dts);
+				AAMPLOG_DEBUG("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT, mediaType, pts, dts);
 			}
 			else
 			{
@@ -2998,7 +3013,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 				GST_BUFFER_PTS(buffer) = pts;
 				GST_BUFFER_DTS(buffer) = dts;
 				GST_BUFFER_DURATION(buffer) = duration;
-				AAMPLOG_DEBUG("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%ld init:%d discontinuity:%d", mediaType, pts, dts, len, initFragment, discontinuity);
+				AAMPLOG_DEBUG("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT " len:%zu init:%d discontinuity:%d", mediaType, pts, dts, len, initFragment, discontinuity);
 			}
 			else
 			{

@@ -27,8 +27,7 @@ DASH_OUT="dash"
 AUDIO_PATH="temp"
 TEXT_OUT="text"
 
-PROFILE_COUNT=4	
-#Change PROFILE_COUNT=5 to generate 4k
+PROFILE_COUNT=5	
 HEIGHT=(360 480 720 1080 2160)
 WIDTH=(640 842 1280 1920 3840)
 KBPS=(800 1400 2800 5000 8000)
@@ -47,7 +46,12 @@ AUDIO_CODEC="aac"
 VIDEO_CODEC="h264"
 
 #To generate TTML text track
-GEN_TTML=0
+GEN_TTML=1
+#TTML text track duration default as 30 sec
+TTML_DUR=30 
+
+#To generate webvtt text track
+GEN_WEBVTT=0
 
 #To generate 4k stream
-GEN_4K=0
+GEN_4K=1

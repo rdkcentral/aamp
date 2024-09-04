@@ -421,29 +421,37 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 			/*check is current time scale same. If same then save the init fragment*/
 			else if ( currTimeScale == tScale && sumPTS != 0 && isDiscontinuity == false )
 			{
-				clearRestampInitSegment();
-				cacheRestampInitSegment((AampMediaType)type, pBuffer->GetPtr(), pBuffer->GetLen(), position, duration,isDiscontinuity);
 				if( timeScaleChangeState == eBMFFPROCESSOR_SCALE_TO_NEW_TIMESCALE)
 				{
+					clearRestampInitSegment();
+					cacheRestampInitSegment((AampMediaType)type, pBuffer->GetPtr(), pBuffer->GetLen(), position, duration,isDiscontinuity);
 					/*
 					Here, eBMFFPROCESSOR_SCALE_TO_NEW_TIMESCALE state indicates
 					already init fragment for  ad<->to<->content is cached,
 					however next fragment also init fragment due to ramping
 					down of profile(curl 28 error). Due to this audio pts is
-					not synced and its waiting for video to unblock audio
-					injection by syncing pts. Due to this wait audio loss occurs
-					and never recovers. Handling this case will slove mentioned issue
+					not going to be in sync with video PTS and it will be  waiting 
+					for ever for video pts leading to video only playback and then stall
+					Handling this case will slove mentioned issue
 					*/
+					AAMPLOG_INFO("IsoBmffProcessor %s  wait for main init push to complete ts-changeState: %d",IsoBmffProcessorTypeName[type],timeScaleChangeState);
 					timeScaleChangeState = eBMFFPROCESSOR_AFTER_ABR_SCALE_TO_NEW_TIMESCALE;
 
-					AAMPLOG_INFO("IsoBmffProcessor %s  wait for main init push to complete",IsoBmffProcessorTypeName[type]);
+				}
+				else if(timeScaleChangeState == eBMFFPROCESSOR_AFTER_ABR_SCALE_TO_NEW_TIMESCALE )
+				{
+					cacheRestampInitSegment((AampMediaType)type, pBuffer->GetPtr(), pBuffer->GetLen(), position, duration,isDiscontinuity);
+					AAMPLOG_INFO("IsoBmffProcessor %s  wait for main init push to complete ts-changeState: %d",IsoBmffProcessorTypeName[type], timeScaleChangeState);
 				}
 				else
 				{
+					clearRestampInitSegment();
+					cacheRestampInitSegment((AampMediaType)type, pBuffer->GetPtr(), pBuffer->GetLen(), position, duration,isDiscontinuity);
 					timeScaleChangeState = eBMFFPROCESSOR_CONTINUE_TIMESCALE; //Init fragment need to be pushed in same time scale
+					AAMPLOG_INFO("IsoBmffProcessor %s  continue in same time scale ts-changeState: %d",IsoBmffProcessorTypeName[type], timeScaleChangeState);
 				}
-				AAMPLOG_INFO("IsoBmffProcessor %s  general init pos = %f dur = %f basePTS = %" PRIu64 " sumPTS = %" PRIu64 " oldTS = %u newTS = %u",
-								IsoBmffProcessorTypeName[type], position, duration, basePTS, sumPTS, currTimeScale, tScale);
+				AAMPLOG_WARN("IsoBmffProcessor %s  general init pos: %f dur: %f basePTS: %" PRIu64 " sumPTS: %" PRIu64 " oldTS: %u newTS: %u ts-changeState: %d",
+								IsoBmffProcessorTypeName[type], position, duration, basePTS, sumPTS, currTimeScale, tScale,timeScaleChangeState );
 			}
 			else if( currTimeScale != tScale && sumPTS != 0 && isDiscontinuity == false )
 			{
@@ -787,8 +795,8 @@ bool IsoBmffProcessor::continueInjectionInSameTimeScale(uint64_t pts)
 	bool ret= true;
 	if( prevPTS != pts) /*PrevPTS is not equal to current pts indcates it is fresh fragment or ABR changed*/
 	{
-		AAMPLOG_INFO("IsoBmffProcessor %s pushing Init Fragment prevPTS = %" PRIu64 " currentPTS = %" PRIu64 " sumPTS = %" PRIu64 "", 
-						IsoBmffProcessorTypeName[type], prevPTS, pts, sumPTS);
+		AAMPLOG_INFO("IsoBmffProcessor %s pushing Init Fragment prevPTS: %" PRIu64 " currentPTS: %" PRIu64 " sumPTS: %" PRIu64 " sumInitSegments: %zu", 
+						IsoBmffProcessorTypeName[type], prevPTS, pts, sumPTS, resetPTSInitSegment.size());
 		pushRestampInitSegment();
 	}
 	else  /*Duplicate fragment discard init as well as duplicate fragment*/
@@ -898,7 +906,7 @@ void IsoBmffProcessor::setDiscontinuityState(bool isDiscontinuity)
  */
 void IsoBmffProcessor::updateSkipPoint(double skipPoint, double skipDuration )
 {
-	AAMPLOG_INFO("IsoBmffProcessor %s skipPoint: %lf skipDur: %lf timescaleChangeState: %d isDiscontinuity: %d size: %lu" ,
+	AAMPLOG_INFO("IsoBmffProcessor %s skipPoint: %lf skipDur: %lf timescaleChangeState: %d isDiscontinuity: %d size: %zu" ,
 				IsoBmffProcessorTypeName[type], skipPoint, skipDuration,timeScaleChangeState,ptsDiscontinuity, skipPointMap.size());
 
 	std::lock_guard<std::mutex> lock(skipMutex);

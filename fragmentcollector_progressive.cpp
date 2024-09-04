@@ -244,7 +244,7 @@ void StreamAbstractionAAMP_PROGRESSIVE::Start(void)
     {
         fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_PROGRESSIVE::FragmentCollector, this);
         fragmentCollectorThreadStarted = true;
-        AAMPLOG_INFO("Thread created for FragmentCollector [%lu]", GetPrintableThreadID(fragmentCollectorThreadID));
+        AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
     }
     catch(const std::exception& e)
     {

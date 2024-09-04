@@ -92,7 +92,7 @@ void PacketSender::SendPacket(PacketPtr && packet)
     std::unique_lock<std::mutex> lock(mPktMutex);
     uint32_t type = packet->getType();
     std::string typeString = Packet::getTypeString(type);
-    AAMPLOG_TRACE("PacketSender:  queue size %lu type %s:%d counter:%d",
+    AAMPLOG_TRACE("PacketSender:  queue size %zu type %s:%d counter:%d",
         mPacketQueue.size(), typeString.c_str(), type, packet->getCounter());
 
     mPacketQueue.push(std::move(packet));
@@ -109,7 +109,7 @@ void PacketSender::senderTask()
         {
             sendPacket(std::move(mPacketQueue.front()));
             mPacketQueue.pop();
-            AAMPLOG_TRACE("PacketSender:  queue size %lu", mPacketQueue.size());
+            AAMPLOG_TRACE("PacketSender:  queue size %zu", mPacketQueue.size());
         }
     } while(running);
 }
@@ -186,7 +186,7 @@ bool PacketSender::initSenderTask()
 {
     try {
         mSendThread = std::thread(runWorkerTask, this);
-        AAMPLOG_INFO("Thread created for runWorkerTask [%lu]", GetPrintableThreadID(mSendThread));
+        AAMPLOG_INFO("Thread created for runWorkerTask [%zx]", GetPrintableThreadID(mSendThread));
     }
     catch (const std::exception& e) {
         AAMPLOG_WARN("PacketSender: Error in initSenderTask: %s", e.what());

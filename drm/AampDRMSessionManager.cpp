@@ -360,10 +360,10 @@ void AampDRMSessionManager::setVideoWindowSize(int width, int height)
 /**
  * @brief Deactivate the session while video on mute and then activate it and update the speed once video is unmuted
  */
-void AampDRMSessionManager::setVideoMute(bool isVideoOnMute, double seek_pos_seconds)
+void AampDRMSessionManager::setVideoMute(bool isVideoOnMute, double positionMs)
 {
 #ifdef USE_SECMANAGER
-	AAMPLOG_WARN("Video mute status (new): %d, state changed: %.1s, pos: %f", isVideoOnMute, (isVideoOnMute == mIsVideoOnMute) ? "N":"Y", seek_pos_seconds);
+	AAMPLOG_WARN("Video mute status (new): %d, state changed: %.1s, pos: %f", isVideoOnMute, (isVideoOnMute == mIsVideoOnMute) ? "N":"Y", positionMs);
 
 	mIsVideoOnMute = isVideoOnMute;
 	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
@@ -375,7 +375,7 @@ void AampDRMSessionManager::setVideoMute(bool isVideoOnMute, double seek_pos_sec
 			//this is required as secmanager waits for speed update to show wm once session is active
 			int speed=mCurrentSpeed;
 			AAMPLOG_INFO("Setting speed after video unmute %d ", speed);
-			setPlaybackSpeedState(mCurrentSpeed, seek_pos_seconds);
+			setPlaybackSpeedState(mCurrentSpeed, positionMs);
 		}
 	}
 #endif
@@ -398,12 +398,12 @@ void AampDRMSessionManager::hideWatermarkOnDetach(void)
 }
 
 
-void AampDRMSessionManager::setPlaybackSpeedState(int speed, double position, bool firstFrameSeen)
+void AampDRMSessionManager::setPlaybackSpeedState(int speed, double positionMs, bool firstFrameSeen)
 {
 #ifdef USE_SECMANAGER
 	bool isVideoOnMute=mIsVideoOnMute;
 	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
-	AAMPLOG_WARN("In AampDRMSessionManager::after calling setPlaybackSpeedState speed=%d position=%f sessionID=[%" PRId64 "], mute: %d",speed, position, localSession.getSessionID(), isVideoOnMute);
+	AAMPLOG_WARN("In AampDRMSessionManager::after calling setPlaybackSpeedState speed=%d position=%f sessionID=[%" PRId64 "], mute: %d",speed, positionMs, localSession.getSessionID(), isVideoOnMute);
 	mCurrentSpeed = speed;
 	if(firstFrameSeen)
 	{
@@ -414,10 +414,29 @@ void AampDRMSessionManager::setPlaybackSpeedState(int speed, double position, bo
 	{
 		AAMPLOG_INFO("First frame has previously been seen, we will send speed updates");
 	}
+
 	if(localSession.isSessionValid() && !mIsVideoOnMute && mFirstFrameSeen)
 	{
 		AAMPLOG_INFO("calling AampSecManager::setPlaybackSpeedState()");
-		AampSecManager::GetInstance()->setPlaybackSpeedState(localSession.getSessionID(), speed, position);
+
+		// DELIA-65062
+		double adjustedPos;
+		if( aampInstance->IsLive() )
+		{ 
+			// Live (not VOD) playback: SecManager expects zero for live, negative position if playhead in past
+			// This is relative to the broadcast live so we can just return the latency here
+			adjustedPos = -aampInstance->GetCurrentLatency();
+			AAMPLOG_INFO("setPlaybackSpeedState for live playback: position=%fms (at live %d, live offset %fms))", 
+				adjustedPos, aampInstance->IsAtLivePoint(), aampInstance->GetLiveOffsetMs() );
+		}
+		else
+		{ 
+			// VOD - report position relative to start of VOD asset
+			adjustedPos = positionMs;
+		}
+
+		AAMPLOG_INFO("setPlaybackSpeedState pos=%fs speed=%d", adjustedPos/1000, speed );
+		AampSecManager::GetInstance()->setPlaybackSpeedState(localSession.getSessionID(), speed, adjustedPos);
 	}
 	else
 	{
@@ -825,7 +844,7 @@ void AampDRMSessionManager::renewLicense(std::shared_ptr<AampDrmHelper> drmHelpe
 		try
 		{
 			mLicenseRenewalThreads[sessionSlot] = std::thread(&AampDRMSessionManager::licenseRenewalThread, this, drmHelper, sessionSlot, aampInstance);
-			AAMPLOG_INFO("Thread created for LicenseRenewal [%lu]", GetPrintableThreadID(mLicenseRenewalThreads[sessionSlot]));
+			AAMPLOG_INFO("Thread created for LicenseRenewal [%zx]", GetPrintableThreadID(mLicenseRenewalThreads[sessionSlot]));
 		}
 		catch(const std::exception& e)
 		{

@@ -69,7 +69,7 @@ void AampCacheHandler::InsertToPlaylistCache(const std::string url, const AampGr
 					bool cacheStoreReady = true;
 					if(mMaxPlaylistCacheSize != PLAYLIST_CACHE_SIZE_UNLIMITED  && ((mCacheStoredSize + buffer->GetLen()) > mMaxPlaylistCacheSize))
 					{
-						AAMPLOG_WARN("Count[%lu]Avail[%d]Needed[%zu] Reached max cache size", mPlaylistCache.size(),mCacheStoredSize,buffer->GetLen() );
+						AAMPLOG_WARN("Count[%zu]Avail[%d]Needed[%zu] Reached max cache size", mPlaylistCache.size(),mCacheStoredSize,buffer->GetLen() );
 						cacheStoreReady = AllocatePlaylistCacheSlot(mediaType,buffer->GetLen() );
 					}
 					if(cacheStoreReady)
@@ -273,7 +273,7 @@ void AampCacheHandler::Init()
 		pthread_mutex_lock(&mCondVarMutex);
 		mAsyncCacheCleanUpThread = true;
 		pthread_mutex_unlock(&mCondVarMutex);  //CID:168111 - Missing lock
-		AAMPLOG_INFO("Thread created AsyncCacheCleanUpTask[%lu]", GetPrintableThreadID(mAsyncCleanUpTaskThreadId));
+		AAMPLOG_INFO("Thread created AsyncCacheCleanUpTask[%zx]", GetPrintableThreadID(mAsyncCleanUpTaskThreadId));
 	}
 	catch(std::exception &e)
 	{

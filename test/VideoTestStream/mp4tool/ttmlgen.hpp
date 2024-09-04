@@ -15,7 +15,15 @@
 */
 #ifndef ttmlgen_hpp
 #define ttmlgen_hpp
+#include <string>
+#include <cstdarg>
+#include <cassert>
+#include <string.h>
+#include <unistd.h>
+#include <vector>
+#include <iostream>
 
+void getTextTrackDetails(std::vector<std::string>& langVector);
 void generateTTMLTracks(int segmentDurationS, int totalSegments);
 void GenerateTTMLSegment( const char *path, int segmentIndex, int segmentDurationS, const std::string &track );
 
