@@ -449,6 +449,15 @@ void CurlStore::CurlInit(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
 			}
 		}
 	}
+	else
+	{
+		// When the store is disabled, aamp->mCurlShared was allocated above and thus reset will cause a mem leak
+		// When store is enabled, it is reusing from the store instance.
+		if (ISCONFIGSET(eAAMPConfig_EnableCurlStore))
+		{
+			aamp->mCurlShared = NULL;
+		}
+	}
 
 	if(eCURL_STORE_HOST_SOCK_AVAILABLE != CurlStoreErrCode)
 	{
@@ -493,7 +502,7 @@ void CurlStore::CurlTerm(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
 		HostName = aamp->mOrigManifestUrl.hostname;
 		IsRemotehost = aamp->mOrigManifestUrl.isRemotehost;
 	}
-
+	
 	if( ISCONFIGSET(eAAMPConfig_EnableCurlStore)  && ( IsRemotehost ))
 	{
 		AAMPLOG_INFO("Store unused curl handle:%p in Curlstore for inst:%d-%d", aamp->curl[startIdx], startIdx, instanceEnd );
@@ -902,7 +911,6 @@ void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 {
 	const std::lock_guard<std::mutex> lock(mCurlInstLock);
 	CurlSockDataIter removeIter = umCurlSockDataStore.find(hostname);
-
 	if( umCurlSockDataStore.end() != removeIter )
 	{
 		CurlSocketStoreStruct *RmCurlSock = removeIter->second;

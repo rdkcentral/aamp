@@ -42,6 +42,7 @@
 #include <condition_variable> // std::condition_variable, std::cv_status
 #include <memory>
 #include <string>
+#include <atomic>
 #include <stdint.h>
 #include "libdash/IMPD.h"
 #include "libdash/INode.h"
@@ -346,7 +347,7 @@ private:
 	*	@fn readMPDData
 	*	@brief Function to parse the downloaded manifest response from curl downloader
 	*/	
-	void readMPDData(std::shared_ptr<ManifestDownloadResponse> mMPD);
+	bool readMPDData(std::shared_ptr<ManifestDownloadResponse> mMPD);
 	/**
 	*	@fn waitForRefreshInterval
 	*	@brief Function to wait for refresh interval before next download
@@ -431,6 +432,9 @@ private:
 	bool mIsLowLatency;  /**< Flag indicating whether it is a low latency stream or not.*/
 	AampLLDashServiceData mLLDashData; /**< Parsed LLDash Data*/
 	int mCurrentposDeltaToManifestEnd; /* Delta between current pos and ManifestEnd */
+	uint64_t mPublishTime; 		   /* Publish time of updated manifest*/
+	int mMinimalRefreshRetryCount;  /* A counter to checks if the publication time remains the same for 2 consecutive refresh*/
+	std::atomic_bool mMPDNotifyPending ; /*To allow wait for downloadNotifier based on NotifyPending Status */
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */

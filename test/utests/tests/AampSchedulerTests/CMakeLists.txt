@@ -29,6 +29,7 @@ include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
+include_directories(${AAMP_ROOT}/tsb/api)
 
 set(TEST_SOURCES    AampSchedulerTests.cpp
                     AampSchedulerAampTests.cpp)

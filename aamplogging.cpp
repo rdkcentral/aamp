@@ -59,6 +59,17 @@ bool AampLogManager::isLogLevelAllowed(AAMP_LogLevel chkLevel)
 	return (chkLevel>=aampLoglevel);
 }
 
+
+/*** Dummy logging API to TSB reader*/
+void AampLogManager::aampLogger(std::string &&tsbMessage)
+{
+	// Client can add Player ID etc. here. Log message will contain file/line etc.
+	// This is staic API passed to external module we can mLogObj hence log macro here
+	const int dummyPlayerId = 0;
+
+	logprintf(dummyPlayerId, eLOGLEVEL_WARN , __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
+}
+
 /**
  *  @brief Set the log level for print mechanism
  */

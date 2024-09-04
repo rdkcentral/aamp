@@ -32,6 +32,7 @@ void AampGrowableBuffer::Free( void )
 
 void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 {
+	this->avail = numBytes;
 }
 
 void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )

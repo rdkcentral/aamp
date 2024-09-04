@@ -23,6 +23,8 @@
 #include "AampLogManager.h"
 
 MockAAMPGstPlayer *g_mockAampGstPlayer = nullptr;
+// // Required by AampGstPlayer mocks
+// AAMPGstPlayer::id3_callback_t mock_id3_callback = [](MediaType , const uint8_t * , size_t , const SegmentInfo_t & ){ };
 
 AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames )
 {

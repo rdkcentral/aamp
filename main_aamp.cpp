@@ -196,6 +196,28 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING, eAAMPConfig_AsyncTune, false);
 		mAsyncRunning = false;
 	}
+	if(FIRST_PLAYER_INSTANCE_ID ==  aamp->mPlayerId)
+	{
+		/** Create fake tsbStore and delete all the content if any*/
+		TSB::Store::Config config;
+		config.location			=	mConfig.GetConfigValue(eAAMPConfig_TsbLocation);
+		config.minFreePercentage	=	mConfig.GetConfigValue(eAAMPConfig_TsbMinDiskFreePercentage);
+		config.maxCapacity =  mConfig.GetConfigValue(eAAMPConfig_TsbMaxDiskStorage);
+		TSB::LogLevel level = ConvertTsbLogLevel(mConfig.GetConfigValue(eAAMPConfig_TsbLogLevel)) ;
+		try
+		{
+			std::shared_ptr<TSB::Store> tSBStore = std::make_shared<TSB::Store>(config, AampLogManager::aampLogger, level);
+			if(tSBStore)
+			{
+				/**< Creating new TSB store oobjecct will automatically flush the storage*/
+				AAMPLOG_WARN("[AAMP_PLAYER] TSB with path : %s !!", config.location.c_str());
+			}
+		}
+		catch (std::exception &e)
+		{
+			AAMPLOG_ERR("Failed to instantiate TSB Store object for flush, reason: %s", e.what());
+		}
+	}
 	aamp->SetScheduler(&mScheduler);
 	AsyncStartStop();
 }
@@ -827,7 +849,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			/* Handling of fwd slowmotion playback */
 			SetSlowMotionPlayRate(rate);
 			aamp->NotifySpeedChanged(rate, false);
-
 			return;
 		}
 
@@ -862,12 +883,26 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 				aamp->StopDownloads();
-				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
-				if (sink)
+				if(aamp->IsLocalAAMPTsb() && aamp->rate == AAMP_NORMAL_PLAY_RATE)	//avoid new pause logic for pause as part of lightning seek
 				{
-					retValue = sink->Pause(true, false);
+					retValue = false;
+					aamp->SetState(eSTATE_SEEKING);
+					aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+					aamp->rate = AAMP_NORMAL_PLAY_RATE;
+					aamp->AcquireStreamLock();
+					aamp->TuneHelper(eTUNETYPE_SEEK, true);
+					aamp->ReleaseStreamLock();
+					aamp->ResumeDownloads();
 				}
-				aamp->pipeline_paused = true;
+				else
+				{
+					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+					if (sink)
+					{
+						retValue = sink->Pause(true, false);
+					}
+					aamp->pipeline_paused = true;
+				}
 				if(aamp->GetLLDashServiceData()->lowLatencyMode)
 				{
 					// PAUSED to PLAY without tune, LLD rate correction is disabled to keep position
@@ -1183,6 +1218,27 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			// Convert to epoch using offset for all VOD contents and live with relative positions
 			secondsRelativeToTuneTime += aamp->mProgressReportOffset;
 			AAMPLOG_WARN("aamp_Seek position adjusted to absolute value: %lf", secondsRelativeToTuneTime);
+		}
+
+		if(aamp->IsLive() && aamp->mpStreamAbstractionAAMP)
+		{
+			//skip seektolive if already at livepoint and latency is within acceptable range
+			//avoids hangup if user presses seektolive multiple times in quick succession
+			if ((tuneType == eTUNETYPE_SEEKTOLIVE) && aamp->mpStreamAbstractionAAMP->mIsAtLivePoint && aamp->IsLocalAAMPTsb())
+			{
+				double endPos = aamp->culledSeconds+aamp->durationSeconds;			//calculate end position
+				double currentLatency=endPos-aamp->GetPositionSeconds();					//calculate latency
+				if(std::floor(currentLatency)<=GETCONFIGVALUE(eAAMPConfig_LLMaxLatency))	//if floored latency value is within acceptable range skip seektolive
+				{
+					AAMPLOG_WARN("Skipping SeektoLive as already at livepoint and latency(%f)!!",currentLatency);
+					aamp->NotifyOnEnteringLive();
+					return;		//skip seektolive
+				}
+				else		//live latency is greater thus continue seektolive
+				{
+					AAMPLOG_WARN("SeektoLive as latency(%f) !!",currentLatency);
+				}
+			}
 		}
 
 		if (aamp->IsLive() && aamp->mpStreamAbstractionAAMP && aamp->mpStreamAbstractionAAMP->IsStreamerAtLivePoint(secondsRelativeToTuneTime))

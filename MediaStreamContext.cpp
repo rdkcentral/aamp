@@ -26,13 +26,18 @@
 #include "AampMemoryUtils.h"
 #include "isobmff/isobmffbuffer.h"
 #include "AampCacheHandler.h"
+#include "AampTSBSessionManager.h"
 
 /**
  *  @brief Receives cached fragment and injects to sink.
  */
 void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity)
 {
-	if(!(aamp->GetLLDashServiceData()->lowLatencyMode  && (cachedFragment->type == eMEDIATYPE_AUDIO || cachedFragment->type == eMEDIATYPE_VIDEO)))
+	if(
+	   !( (aamp->GetLLDashServiceData()->lowLatencyMode &&
+		   (cachedFragment->type == eMEDIATYPE_AUDIO ||
+			cachedFragment->type == eMEDIATYPE_VIDEO)
+		   ) || aamp->IsLocalAAMPTsb() ) )
 	{
 		if(playContext)
 		{
@@ -76,6 +81,17 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 
     cachedFragment->type = actualType;
     cachedFragment->initFragment = initSegment;
+    AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
+
+    auto CheckEos = [this, &tsbSessionManager, &actualType]() {
+        return tsbSessionManager &&
+               aamp->IsLocalAAMPTsbInjection() &&
+               IsLocalTSBInjection() &&
+               AAMP_NORMAL_PLAY_RATE == aamp->rate &&
+               eTUNETYPE_SEEKTOLIVE == context->mTuneType &&
+               tsbSessionManager->GetTsbReader((AampMediaType)type) &&
+               tsbSessionManager->GetTsbReader((AampMediaType)type)->IsEos();
+    };
 
     if(initSegment && discontinuity )
     {
@@ -335,7 +351,45 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
             // reset count on video fragment success
             context->mRampDownCount = 0;
         }
+
+        if(tsbSessionManager && aamp->GetLLDashServiceData()->lowLatencyMode && cachedFragment->fragment.GetLen())
+        {
+            std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
+            fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.GetLen());
+            if(fragmentToTsbSessionMgr->initFragment)
+            {
+                fragmentToTsbSessionMgr->profileIndex = GetContext()->profileIdxForBandwidthNotification;
+                GetContext()->UpdateStreamInfoBitrateData(fragmentToTsbSessionMgr->profileIndex, fragmentToTsbSessionMgr->cacheFragStreamInfo);
+            }
+            fragmentToTsbSessionMgr->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
+            if(CheckEos())
+            {
+                // A reader EOS check is performed after downloading live edge segment
+                // If reader is at EOS, inject the missing live segment directly
+                AAMPLOG_INFO("Reader at EOS, Pushing last downloaded data");
+                tsbSessionManager->GetTsbReader((AampMediaType)type)->CheckForWaitIfReaderDone();
+                CacheTsbFragment(fragmentToTsbSessionMgr);
+                SetLocalTSBInjection(false);
+            }
+            else if(fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection())
+            {
+                // Insert init fragment through chunk injector
+                CacheTsbFragment(fragmentToTsbSessionMgr);
+            }
+            tsbSessionManager->EnqueueWrite(fragmentUrl, fragmentToTsbSessionMgr, context->GetPeriod()->GetId());
+        }
+        // Added the duplicate conditional statements, to log only for localAAMPTSB cases.
+        else if(tsbSessionManager && aamp->GetLLDashServiceData()->lowLatencyMode && cachedFragment->fragment.GetLen() == 0)
+        {
+            AAMPLOG_WARN("Type[%d] Empty cachedFragment ignored!! fragmentUrl %s fragmentTime %f discontinuity %d pto %f  scale %u duration %f", type, fragmentUrl.c_str(), position, discontinuity, pto, scale, duration);
+        }
         UpdateTSAfterFetch(initSegment);
+        // When LocalAAMPTSBInjection is set, buffers are sent via chunkInjector, so update cachedFragments here itself.
+        // IsLocalAAMPTsb() was used earlier, but its set before FetchAndInjectInitialization for non-LLD streams causing the init fragment to be lost.
+        if(aamp->IsLocalAAMPTsbInjection())
+        {
+            UpdateTSAfterInject();
+        }
         ret = true;
     }
     return ret;
@@ -362,13 +416,19 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr,
         cachedFragmentChunk->downloadStartTime = dnldStartTime;
 		cachedFragmentChunk->fragmentChunk.AppendBytes(ptr, size);
 
-        AAMPLOG_DEBUG("[%s] cachedFragmentChunk %p ptr %p",name, cachedFragmentChunk, cachedFragmentChunk->fragmentChunk.GetPtr() );
-
-        UpdateTSAfterChunkFetch();
+        AAMPLOG_TRACE("[%s] cachedFragmentChunk %p ptr %p",name, cachedFragmentChunk, cachedFragmentChunk->fragmentChunk.GetPtr() );
+        if(IsLocalTSBInjection())
+        {
+            cachedFragmentChunk->fragmentChunk.Free();
+        }
+        else
+        {
+            UpdateTSAfterChunkFetch();
+        }
     }
     else
     {
-        AAMPLOG_WARN("[%s] WaitForCachedFragmentChunkInjected aborted", name);
+        AAMPLOG_TRACE("[%s] WaitForCachedFragmentChunkInjected aborted", name);
         ret = false;
     }
     return ret;
@@ -565,3 +625,41 @@ int MediaStreamContext::GetDefaultDurationBetweenPlaylistUpdates()
     return DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS;
 }
 
+
+/**
+ * @fn CacheTsbFragment
+ * @param fragment TSB fragment pointer
+ * @retval true on success
+ */
+bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragment)
+{
+    // FN_TRACE_F_MPD( __FUNCTION__ );
+    std::lock_guard<std::mutex> lock(fetchChunkBufferMutex);
+    bool ret = false;
+    if(fragment->fragment.GetPtr() && WaitForCachedFragmentChunkInjected())
+    {
+        AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
+        CachedFragmentChunk* cachedFragmentChunk = GetFetchChunkBuffer(true);
+        if(cachedFragmentChunk->fragmentChunk.GetPtr())
+        {
+            // If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
+            AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
+        }
+        cachedFragmentChunk->fragmentChunk.Clear();
+        cachedFragmentChunk->Copy(fragment, fragment->fragment.GetLen());
+        if(cachedFragmentChunk->fragmentChunk.GetPtr() && cachedFragmentChunk->fragmentChunk.GetLen() > 0)
+        {
+            ret = true;
+            UpdateTSAfterChunkFetch();
+        }
+        else
+        {
+            cachedFragmentChunk->fragmentChunk.Free();
+        }
+    }
+    else
+    {
+        AAMPLOG_WARN("[%s] Failed to update inject", name);
+    }
+    return ret;
+}

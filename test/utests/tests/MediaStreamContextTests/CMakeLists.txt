@@ -38,6 +38,7 @@ include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
+include_directories(${AAMP_ROOT}/tsb/api)
 
 set(TEST_SOURCES    MediaStreamContextTests.cpp
                     MediaStreamContextAampTests.cpp)

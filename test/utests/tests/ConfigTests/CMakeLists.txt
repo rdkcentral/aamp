@@ -23,6 +23,7 @@ set(EXEC_NAME ConfigTests)
 set(CMAKE_CXX_FLAGS "-DUTEST")
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle) # ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser)
+include_directories(${AAMP_ROOT}/tsb/api)
 
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${GTEST_INCLUDE_DIRS})

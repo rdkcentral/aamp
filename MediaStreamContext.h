@@ -54,7 +54,7 @@ public:
 		   , scaledPTO(0)
 		   , failAdjacentSegment(false),httpErrorCode(0)
 	       , mPlaylistUrl(""), mEffectiveUrl(""),freshManifest(false),nextfragmentIndex(-1)
-	       , mReachedFirstFragOnRewind(false)
+	       , mReachedFirstFragOnRewind(false),fetchChunkBufferMutex()
     {
         mPlaylistUrl = aamp->GetManifestUrl();
         fragmentDescriptor.bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
@@ -112,6 +112,13 @@ public:
      * @retval true on success
      */
     bool CacheFragment(std::string fragmentUrl, unsigned int curlInstance, double position, double duration, const char *range = NULL, bool initSegment = false, bool discontinuity = false, bool playingAd = false, double pto = 0, uint32_t scale = 0, bool overWriteTrackId = false);
+
+    /**
+     * @fn CacheTsbFragment
+     * @param[in] fragment TSB fragment pointer
+     * @retval true on success
+     */
+    bool CacheTsbFragment(std::shared_ptr<CachedFragment> fragment);
 
     /**
      * @fn CacheFragmentChunk
@@ -252,6 +259,7 @@ public:
     bool freshManifest;
     int nextfragmentIndex; //CMCD get next index to fetch url from Segment List
     bool mReachedFirstFragOnRewind; /**< flag denotes if we reached the first fragment in a period on rewind */
+    std::mutex fetchChunkBufferMutex;
 }; // MediaStreamContext
 
 #endif /* MEDIASTREAMCONTEXT_H */

@@ -35,6 +35,7 @@ include_directories(${AAMP_ROOT}/subtitle)
 include_directories(${AAMP_ROOT}/downloader)
 include_directories(${AAMP_ROOT}/drm)
 include_directories(${AAMP_ROOT}/drm/helper)
+include_directories(${AAMP_ROOT}/tsb/api)
 
 set(TEST_SOURCES Scte35Tests.cpp
                  Scte35SectionTests.cpp
