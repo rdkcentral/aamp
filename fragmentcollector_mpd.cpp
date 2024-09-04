@@ -7586,8 +7586,11 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 		double culled = firstPeriodStart - aamp->culledSeconds;
 		if (culled != 0 && mIsLiveManifest)
 		{
-			aamp->culledSeconds = firstPeriodStart;
-			mCulledSeconds = aamp->culledSeconds;
+			if(!aamp->IsLocalAAMPTsb())
+			{
+				aamp->culledSeconds = firstPeriodStart;
+			}
+			mCulledSeconds = firstPeriodStart;
 		}
 		aamp->mAbsoluteEndPosition = lastPeriodStart + (mMPDParseHelper->GetPeriodDuration(lastPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) / 1000.00);
 		if(aamp->mAbsoluteEndPosition < aamp->culledSeconds)
