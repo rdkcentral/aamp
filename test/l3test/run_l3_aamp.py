@@ -19,7 +19,7 @@ args = parser.parse_args()
 # Port to serve the test files on
 PORT = 8999
 
-max_test_time = 600  # Maximum time to run each test in seconds
+max_test_time = 1800  # Maximum time to run each test in seconds
 
 # Under test RDK device IP address
 rdk_device_ip = args.ip

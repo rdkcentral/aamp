@@ -1,0 +1,341 @@
+<html>
+    <head>
+        <title>CI Test App</title>
+        <script src="TST_UVE_utils.js"></script>
+    </head>
+    <script>
+
+
+    // config vars
+    // all time values are in ms
+    // 1. switch to false when testing the steps on PC browser (no aamp player)
+    var onDevice = true;
+    var version = "1.5";
+
+    // 2. initial player config
+    var playerConfig =  {
+                    initialBitrate: 2400000,
+                    initialBitrate4K: 12000000,
+                    offset: 0,
+                    networkTimeout: 10,
+                    preferredAudioLanguage: "eng",
+                    preferredSubtitleLanguage: "eng",
+                };
+
+    // 3. array with all test streams and test steps for each stream to be executed.
+    // if the test are not defined - it will use the test steps from the previous stream
+    // for the arg list - use global var testSts.currTest, and testSts.currStep to pass arg values to the "func"
+    // callback is the aamp callback for each method supporting such. tmlimit in ms is the test execution time limit above which the test will fail
+    // tmLimit should less than the time delay of the next step
+    const tests = [
+        {player: [
+           { url: "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd", desc: "DASH with SegmentTimeline - multi-lang", duration: 20000},
+           { url: "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/Ad-generated-30s/ad-generated-30s.mpd", desc: "DASH with SegmentTimeline - multi-lang", duration: 20000},
+       ],
+        steps: [
+            {   delay: 2000, desc: "TUNE0-1",           player: 0, func: "load",                      arg: ["testSts.currPlayer.url", "0"],  callback: "playbackStarted",        tmLimit: 2500},
+            {   delay: 3000, desc: "Init-Bitrate",      player: 0, func: "getCurrentVideoBitrate",  arg: [""],                          result: ["2400000","12000000"],     tmLimit: 500 },
+            {   delay: 5000, desc: "PLAY-1",            player: 0, func: "play",                    arg: [""],                          callback: "playbackStarted",        tmLimit: 3500},
+            {   delay: 5000, desc: "PAUSE",             player: 0, func: "pause",                   arg: [""],                          callback: "playbackStateChanged",   tmLimit: 1300},
+            {   delay: 5000, desc: "PLAY-2",            player: 0, func: "play",                    arg: [""],                          callback: "playbackStarted",        tmLimit: 3500},
+            {   delay: 5000, desc: "DETACH-1",          player: 0, func: "detach",                  arg: [""],                          callback: "",                                    },
+            {   delay: 2000, desc: "TUNE1",             player: 1, func: "load",                    arg: ["testSts.currPlayer.url","0"],callback: "playbackStarted",        tmLimit: 2500},
+            {   delay: 2000, desc: "PLAY-3",            player: 1, func: "play",                    arg: [""],                          callback: "playbackStarted",        tmLimit: 3500},
+            {   delay: 5000, desc: "PAUSE",             player: 1, func: "pause",                   arg: [""],                          callback: "playbackStateChanged",   tmLimit: 1300},
+            {   delay: 5000, desc: "PLAY-4",            player: 1, func: "play",                    arg: [""],                          callback: "playbackStarted",        tmLimit: 3500},
+            {   delay: 5000, desc: "DETACH-2",          player: 1, func: "detach",                  arg: [""],                          callback: "",                                    },
+            {   delay: 2000, desc: "TUNE0-2",           player: 0, func: "load",                    arg: ["testSts.currPlayer.url"],    callback: "playbackStarted",        tmLimit: 3850},
+            {   delay: 5000, desc: "Speed 4x",          player: 0, func: "setPlaybackRate",         arg: ["4"],                         callback: "playbackSpeedChanged",   tmLimit: 2700},
+            {   delay: 3000, desc: "Speed 1x-1",        player: 0, func: "setPlaybackRate",         arg: ["1"],                         callback: "playbackSpeedChanged",   tmLimit: 2400},
+            {   delay: 5000, desc: "Speed-16x",         player: 0, func: "setPlaybackRate",         arg: ["16"],                        callback: "playbackSpeedChanged",   tmLimit: 2700},
+            {   delay: 3000, desc: "Speed 1x-2",        player: 0, func: "setPlaybackRate",         arg: ["1"],                         callback: "playbackSpeedChanged",   tmLimit: 2400},
+            {   delay: 3000, desc: "Seek 0",            player: 0, func: "seek",                    arg: ["0"],                         callback: "seeked",                 tmLimit: 2300},
+            {   delay: 4000, desc: "Speed 64x",         player: 0, func: "setPlaybackRate",         arg: ["64"],                        callback: "playbackSpeedChanged",   tmLimit: 2700},
+            {   delay: 2800, desc: "Speed 1x-3",        player: 0, func: "setPlaybackRate",         arg: ["1"],                         callback: "playbackSpeedChanged",   tmLimit: 2400},
+            {   delay: 4000, desc: "Seek 60",           player: 0, func: "seek",                    arg: ["60"],                        callback: "seeked",                 tmLimit: 4700},
+            {   delay: 5000, desc: "Speed 2x",          player: 0, func: "setPlaybackRate",         arg: ["-2"],                        callback: "playbackSpeedChanged",   tmLimit: 2700},
+            {   delay: 2800, desc: "Speed 1x-4",        player: 0, func: "setPlaybackRate",         arg: ["1"],                         callback: "playbackSpeedChanged",   tmLimit: 2400},
+            {   delay: 4000, desc: "Seek 120",          player: 0, func: "seek",                    arg: ["120"],                       callback: "seeked",                 tmLimit: 3500},
+            {   delay: 5000, desc: "Speed 8x",          player: 0, func: "setPlaybackRate",         arg: ["-8"],                        callback: "playbackSpeedChanged",   tmLimit: 2700},
+            {   delay: 3000, desc: "Speed 1x-5",        player: 0, func: "setPlaybackRate",         arg: ["1"],                         callback: "playbackSpeedChanged",   tmLimit: 2400},
+            {   delay: 4000, desc: "Seek 120",          player: 0, func: "seek",                    arg: ["120"],                       callback: "seeked",                 tmLimit: 2300},
+            {   delay: 5000, desc: "Speed 32x",         player: 0, func: "setPlaybackRate",         arg: ["-32"],                       callback: "playbackSpeedChanged",   tmLimit: 2700},
+            {   delay: 3000, desc: "Speed 1x-6",        player: 0, func: "setPlaybackRate",         arg: ["1"],                         callback: "playbackSpeedChanged",   tmLimit: 2400},
+            {   delay: 5000, desc: "Set lang-fr",       player: 0, func: "setAudioLanguage",        arg: ["'fra'"],                     callback: "audioTrackChanged",      tmLimit: 1000},
+            {   delay: 5000, desc: "Set lang-en",       player: 0, func: "setAudioLanguage",        arg: ["'eng'"],                     callback: "audioTrackChanged",      tmLimit: 1000},
+            {   delay: 5000, desc: "Set lang-ger",      player: 0, func: "setAudioLanguage",        arg: ["'ger'"],                     callback: "audioTrackChanged",      tmLimit: 1000},
+            {   delay: 5000, desc: "Set lang-en",       player: 0, func: "setAudioLanguage",        arg: ["'eng'"],                     callback: "audioTrackChanged",      tmLimit: 1000},
+            {   delay: 5000, desc: "Set vol. 5",        player: 0, func: "setVolume",               arg: ["5"],                         callback: "",                                    },
+            {   delay: 5000, desc: "Get vol. 5",        player: 0, func: "getVolume",               arg: [""],                          result:   ["5"],                                 },
+            {   delay: 5000, desc: "Set vol. 100",      player: 0, func: "setVolume",               arg: ["100"],                       callback: "",                                    },
+            {   delay: 5000, desc: "Get vol. 100",      player: 0, func: "getVolume",               arg: [""],                          result:   ["100"],                               },
+            {   delay: 5000, desc: "Set CC ON",         player: 0, func: "setClosedCaptionStatus ", arg: ["1"],                         callback: "",                                    },
+            {   delay: 9800, desc: "Set CC OFF",        player: 0, func: "setClosedCaptionStatus ", arg: ["0"],                         callback: "",                                    },
+            {   delay: 5000, desc: "END",               player: 0, func: "stop",                    arg: [""],                          callback: "playbackStateChanged",   tmLimit: 1000},
+            {   delay: 5000, desc: "DETACH-3",          player: 1, func: "detach",                  arg: [""],                          callback: "",                                    },
+        ],
+    },
+    {player: [
+        { url: "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/main-segmentbase.mpd", desc: "DASH VOD Segment Base"},
+        { url: "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/Ad-generated-30s/ad-generated-30s.mpd", desc: "DASH with SegmentTimeline - multi-lang"},
+        ],
+    },
+    {player: [
+            { url: "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/main_notimeline.mpd", desc: "DASH without SegmentTimeline"},
+            { url: "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/Ad-generated-30s/ad-generated-30s.mpd", desc: "DASH with SegmentTimeline - multi-lang"},
+        ],},
+    {player: [
+            { url: "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main_mp4.m3u8", desc: "HLS fragmented mp4"},
+            { url: "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/Ad-generated-30s/ad-generated-30s.mpd", desc: "DASH with SegmentTimeline - multi-lang"},
+        ],},
+    {player: [
+            { url: "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/multilang/main.m3u8", desc: "HLS VOD Mono Multi-lang"},
+            { url: "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/Ad-generated-30s/ad-generated-30s.mpd", desc: "DASH with SegmentTimeline - multi-lang"},
+        ],},
+    ];
+
+    // app global vars
+    var player0, player1;
+    // status structure keeping transient values during the test: testSts.stepResult is cleared when the step starts, and is set to ok from the event callback if such
+    var testSts = {currTest:null, currTestIndex:0, currStep:null, currPlayer:null, stepResult:false, lastUsedSteps:null, testStartDelay:0, failedSteps:"", failedStepsCount:0, stepsCount:0, evn:[ [],[] ] };
+    var testFinalResult = true;         // true for ok, false for failed
+    var timeBufferWatchDog = 10000;     // additional time after all tests are completed before the fail-end is concluded (watchdog)
+
+    function displayMessage(msg) {
+        document.getElementById('modal').style.display = "block";
+        document.getElementById("msg").innerHTML = msg;
+    }
+    function displayResult(msg) {
+        document.getElementById('modal').style.display = "block";
+        document.getElementById("res").innerHTML = msg;
+    }
+    function printTestFinalResult(res) {
+        result = res ? "SUCCESS" : "FAIL";
+        msg1 = "";
+        msg = "AAMP CI TEST (VERSION " + version +") - END (" + result + ")";
+        L3_CI_LOG("TST_END", "")
+        console.log(msg);
+        displayMessage(msg);
+        if (!res)
+            msg1 = "All Tests: " + testSts.stepsCount + ",  Failed tests: " + testSts.failedStepsCount + testSts.failedSteps;
+        console.log(msg1);
+        displayResult(msg1);
+    }
+    function logDebugMessage(msg) {
+        if (!onDevice){
+            console.log(msg);
+        }
+    }
+    function onPlaybackFailed() {
+        displayStepResult( false, 0 );
+    }
+    function onStepCompleted(){
+        if (testSts.currStep.tmLimit != undefined && testSts.currStep.tmStart != undefined) {
+            tmUsed = Date.now() - testSts.currStep.tmStart;
+            res = testSts.currStep.tmLimit > tmUsed;
+        }
+        else {
+            res = testSts.stepResult;
+            tmUsed = 0;
+        }
+        displayStepResult( res, tmUsed );
+    }
+
+    function displayStepResult( res, tmUsed ){
+        msg = res ? "PASS" : "FAIL";
+        result = msg;
+        testSts.stepResult = res; // save the step result
+        if (tmUsed > 0) {
+            msg = "[" + msg + " (" + testSts.currStep.desc +  "): " + tmUsed + " ms]";
+        }
+        else
+        {
+            msg = "[RESULT: " + msg +"]";
+        }
+        msg1 = "P"+ testSts.currStep.player + ": S:" + testSts.currTestIndex + " [" + testSts.currTest.player[testSts.currStep.player].desc.slice(0,10) + "...] " + msg;
+        if (!res){
+            testSts.failedSteps += "<br>" + msg1;
+            testSts.failedStepsCount += 1;
+            testFinalResult = false; // set the global fail flag only when a test step fails. Do not reset back to pass
+        }
+        L3_log_message = testSts.currTest.player[testSts.currStep.player].desc + " (" + testSts.currStep.desc +  ")" + ": " + result;
+        L3_CI_LOG("TST_STEP", L3_log_message);
+        console.log(msg1);
+        displayResult(msg);
+    }
+
+    //////////////////////////////////////
+    //
+    // executes all test steps by scheduling them for subsequent execution
+    //
+    //////////////////////////////////////
+    function runTests() {
+
+        tests.forEach( test => {
+            if (test.steps != undefined)
+                testSts.lastUsedSteps = test.steps;
+
+            if (onDevice) {
+                player0.initConfig(playerConfig);
+                player1.initConfig(playerConfig);
+            }
+            testSts.lastUsedSteps.forEach( step => {
+                testSts.testStartDelay += step.delay;
+                testSts.stepsCount += 1;
+                logDebugMessage(testSts.testStartDelay);
+
+                setTimeout(function() { //////////////////////////////////////
+                    try {
+                        testSts.currTest = test; testSts.currStep = step; testSts.currPlayer = testSts.currTest.player[step.player]; //set the global vats to be accessible by the Function();
+                        testSts.currTestIndex = tests.indexOf(test);
+                        msg = "Player " + step.player + ": " + test.player[step.player].desc + ": " + step.desc;
+                        displayMessage(msg);
+                        logDebugMessage(msg);
+                        var playerFn = "player" + step.player + "."; //player0.
+                        var callFn = playerFn + step.func + "("; //player0.load(
+
+                        // Set the player object
+                        if (step.player == 0){
+                            player = player0;
+                        }
+                        else{
+                            player = player1;
+                        }
+                        fnRes = 0;
+
+                        aampFunction = player[step.func];
+
+                        let args = (step.arg).map(item => {
+                        // If the item is an empty string, we skip it (no argument)
+                        if (item === "") {
+                            return undefined;
+                        }
+
+                        // If the item is a property path like 'testSts.currPlayer.url'
+                        if (item.includes('.')) {
+                            let parts = item.split('.');
+                            let value = window;  // Navigate through the global scope
+                            parts.forEach(part => {
+                            value = value[part];
+                            });
+                            return value;
+                        }
+
+                        // If the item is a numeric string like "0", convert to an integer
+                        if (!isNaN(item)) {
+                            return parseInt(item);
+                        }
+
+                        // Otherwise, treat it as a normal string
+                        return item.replace(/^'|'$/g, '');
+                        });
+
+                        // Filter out undefined values (which were empty strings)
+                        args = args.filter(arg => arg !== undefined);
+
+                        logDebugMessage(callFn);
+                        if (onDevice){
+                            testSts.stepResult = false; // clear the step result for the next step
+                            if (step.callback != undefined && step.callback != "" && step.callback != null){
+                                // don't resgiter callbacks multiple times
+                                aampCallBackFunction = player["addEventListener"];
+
+                                if (testSts.evn.length >= 0 && testSts.evn[step.player].length >= 0 && testSts.evn[step.player].indexOf(step.callback) == -1){
+                                        aampCallBackFunction.call(player, step.callback, onStepCompleted);
+                                        testSts.evn[step.player].push(step.callback);
+
+                                }
+                            }
+                            else{
+                                testSts.stepResult = true; // if there is no callback defined - assuming OK
+                                displayResult("");
+                            }
+                            testSts.currStep.tmStart = Date.now();
+                            fnRes = aampFunction.call(player, ...args); // call the aamp test method
+                            if (step.result != undefined && step.result != "" && step.result != null) {
+                                step.result.forEach( result => {
+                                    testSts.stepResult &= (fnRes == result);
+                                });
+                               onStepCompleted();
+                            }
+                        }
+                        else{
+                            onStepCompleted();
+                        }
+                    } catch (e){
+                        msg = "ERROR executing: " + testSts.currTest.player[testSts.currStep.player].desc + "(" + testSts.currStep.desc + "): " + e;
+                        displayMessage(msg);
+                        logDebugMessage(msg);
+                    }
+                }, testSts.testStartDelay);
+            });
+        });
+    }
+
+    window.onpageshow = function() {
+        try {
+            // tests expected to compete within a time limit
+            msg = "AAMP CI TEST - BEGIN (VERSION " + version + ")";
+
+            if (onDevice) {
+                player0 = new AAMPMediaPlayer();
+                player0.addEventListener("playbackFailed", onPlaybackFailed);
+                player1 = new AAMPMediaPlayer();
+                player1.addEventListener("playbackFailed", onPlaybackFailed);
+            }
+
+            runTests();
+            const date = new Date(0, 0, 0, 0, 0, 0, testSts.testStartDelay + timeBufferWatchDog);
+            msg =  msg + "<br>" + "Tests: " + testSts.stepsCount + ", Estimated time: " + date.getMinutes() + ":" + date.getSeconds() + "[mm:ss]"
+            displayMessage(msg);
+            L3_CI_LOG("TST_START", "TST_3000_UVE_AAMPCITestApp");
+            console.log( msg );
+            // if neither SUCCESS/FAILURE is logged within this time,
+            // system running test should consider test run failed
+            setTimeout(function() {
+                printTestFinalResult(testFinalResult); // failed if test did not complete
+                player0.release();
+                player1.release();
+            }, testSts.testStartDelay + timeBufferWatchDog);
+        } catch (e) {
+            var msg;
+            if (onDevice) {
+                msg = window.navigator.userAgent.includes("WPE")? "AAMPMediaPlayer not available" : "This app is intended to be used on RDK devices";
+                displayMessage("ERROR: " + msg);
+            }
+            else {
+                msg = "ERROR: " + e;
+                displayMessage(msg);
+                logDebugMessage(msg)
+            }
+        }
+    }
+    </script>
+    <style>
+        #modal {
+            display: none;
+            background-color:rgba(0,0,0,0.5);
+            margin: auto;
+            position: fixed;
+            width: auto;
+            height:auto;
+            left: 50%;
+            top:  200px;
+            color: #fff;
+            padding: 5px;
+            font: 20px arial, sans-serif;
+            transform: translate(-50%, -0%);
+        }
+    </style>
+	<body>
+		<div id="videoContainer">
+			<video style="height:100%; width:100%; position:absolute; bottom:0; left:0">
+				<source src="dummy.mp4" type=â€video/aveâ€> <!-- hole  punching -->
+			</video>
+		</div>
+        <div id="modal">
+            <p id="msg"></p>
+            <p id="res"></p>
+        </div>
+	</body>
+</html>
