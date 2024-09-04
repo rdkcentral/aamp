@@ -4293,6 +4293,8 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 				trickTeardown = true;
 			}
 			Stop(true);
+			// Set the rate back to the original value if it was an recovery Stop() call
+			privateContext->rate = rate;
 		}
 		return;
 	}
@@ -4310,6 +4312,8 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 					AAMPLOG_WARN("AAMPGstPlayer: Pipeline is in playing/paused state, but audio_dec is in %s state, resetting it ret %u",
 								 gst_element_state_get_name(aud_current), ret);
 					Stop(true);
+					// Set the rate back to the original value if it was an recovery Stop() call
+					privateContext->rate = rate;
 					return;
 				}
 			}

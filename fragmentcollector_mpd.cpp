@@ -11557,7 +11557,10 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			//In every event, we need to check this.But do it only on the begining of the fetcher loop. Hence it is the default event
 			if(AdEvent::DEFAULT == evt)
 			{
-				if(!(mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).placed)) //TODO: Vinod, Need to wait till the base period offset is available. 'placed' won't help in case of rewind.
+				// For rewind cases, we don't need to wait for the ad to get placed. The below TODO says otherwise,
+				// but not seeing any use of base period offset for rewind in the below logic
+				if ((rate > 0) &&
+					!(mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).placed)) //TODO: Vinod, Need to wait till the base period offset is available. 'placed' won't help in case of rewind.
 				{
 					break;
 				}

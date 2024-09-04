@@ -5772,12 +5772,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	}
 
-	if(mTsbType == "cloud")
-	{
-		//cdnadsonly for cloud tsb
-		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_PlayAdFromCDN, true);
-	}
-
 	std::string lldUrlKeyword = GETCONFIGVALUE_PRIV(eAAMPConfig_LLDUrlKeyword);
 	AAMPLOG_INFO("LLD Url Keyword: %s",lldUrlKeyword.c_str());
 	if (!lldUrlKeyword.empty() && mManifestUrl.find(lldUrlKeyword) != std::string::npos)
