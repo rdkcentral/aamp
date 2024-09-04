@@ -74,7 +74,6 @@ void Logger(std::string&& tsbMessage)
 class TsbStoreTests : public ::testing::Test
 {
 protected:
-	TSB::Store* mTsbStore{nullptr};
 	TsbMockBasicFileBuf* mMockBasicFileBuf{nullptr};
 
 	void SetUp() override
@@ -126,6 +125,19 @@ protected:
 		return store.Write(pathToWrite, buffer.first, buffer.second);
 	}
 
+	void waitForFlushCompletion()
+	{
+		// Wait for the call to remove_all to complete as this will be the flush
+		while (g_mockFilesystem->mockRemoveAllCompleted.load() == false)
+		{
+			std::this_thread::sleep_for(kFlushWaitTime);
+		}
+
+		// remove_all completed, reset the sem and flag for any subsequent flushes
+		g_mockFilesystem->mockRemoveAllSem = nullptr;
+		g_mockFilesystem->mockRemoveAllCompleted.store(false);
+	}
+
 	// Having separate construct methods allows the tests to set extra expectations
 	// before construction, when needed - for example for construction or Flush tests.
 	std::unique_ptr<TSB::Store> createStore(const std::string& location, uint32_t minFreePercent,
@@ -134,12 +146,7 @@ protected:
 		TSB::Store::Config tsbConfig = {location, minFreePercent, maxCapacity};
 		auto store = std::make_unique<TSB::Store>(tsbConfig, Logger, TSB::LogLevel::TRACE);
 
-		// Wait for the call to remove_all to complete as this will be the flush
-		while(!g_mockFilesystem->mockRemoveAllCompleted)
-		{
-			std::this_thread::sleep_for(kFlushWaitTime);
-		}
-
+		waitForFlushCompletion();
 		return store;
 	}
 
@@ -364,6 +371,7 @@ TEST_F(TsbStoreTests, FlushSuccess)
 	EXPECT_CALL(*g_mockFilesystem, remove_all(fs::path(kActiveDir), _)).WillOnce(Return(1));
 
 	store->Flush();
+	waitForFlushCompletion();
 }
 
 TEST_F(TsbStoreTests, WriteNoSpace)
@@ -415,14 +423,8 @@ TEST_F(TsbStoreTests, WriteNoSpace)
 	ASSERT_THAT(store->Write(url3, kFileContent, 1), TSB::Status::NO_SPACE);
 
 	Logger("Flush all segments");
-	g_mockFilesystem->mockRemoveAllCompleted = false;
 	store->Flush();
-
-	// Wait for the call to remove_all to complete as this will be the flush
-	while (!g_mockFilesystem->mockRemoveAllCompleted)
-	{
-		std::this_thread::sleep_for(kFlushWaitTime);
-	}
+	waitForFlushCompletion();
 
 	Logger("Verify that Flush frees all space");
 	ASSERT_THAT(performWrite(*store, kUrl, buffer), TSB::Status::OK);
@@ -485,14 +487,8 @@ TEST_F(TsbStoreTests, WriteNoSpace_MaxCapacity)
 	ASSERT_THAT(store->Write(url3, kFileContent, 1), TSB::Status::NO_SPACE);
 
 	Logger("Flush all segments");
-	g_mockFilesystem->mockRemoveAllCompleted = false;
 	store->Flush();
-
-	// Wait for the call to remove_all to complete as this will be the flush
-	while (!g_mockFilesystem->mockRemoveAllCompleted)
-	{
-		std::this_thread::sleep_for(kFlushWaitTime);
-	}
+	waitForFlushCompletion();
 
 	Logger("Verify that Flush frees all space");
 	ASSERT_THAT(performWrite(*store, kUrl, buffer), TSB::Status::OK);
@@ -679,9 +675,7 @@ TEST_F(TsbStoreTests, WriteDuringFlush_Success)
 
 	Logger("Complete the Flush");
 	removeAllSem.Post();
-
-	// Don't block Destructor flush
-	removeAllSem.Post();
+	waitForFlushCompletion();
 }
 
 TEST_F(TsbStoreTests, WriteDuringFlush_SuccessOnRetry)
@@ -721,9 +715,7 @@ TEST_F(TsbStoreTests, WriteDuringFlush_SuccessOnRetry)
 
 	Logger("Complete the Flush");
 	removeAllSem.Post();
-
-	// Don't block Destructor flush
-	removeAllSem.Post();
+	waitForFlushCompletion();
 }
 
 TEST_F(TsbStoreTests, WriteDuringFlush_TimeoutFailure)
@@ -771,9 +763,7 @@ TEST_F(TsbStoreTests, WriteDuringFlush_TimeoutFailure)
 
 	Logger("Complete the Flush");
 	removeAllSem.Post();
-
-	// Don't block Destructor flush
-	removeAllSem.Post();
+	waitForFlushCompletion();
 }
 
 TEST_F(TsbStoreTests, WriteDuringFlush_OpenFileFailure)
@@ -808,9 +798,7 @@ TEST_F(TsbStoreTests, WriteDuringFlush_OpenFileFailure)
 
 	Logger("Complete the Flush");
 	removeAllSem.Post();
-
-	// Don't block Destructor flush
-	removeAllSem.Post();
+	waitForFlushCompletion();
 }
 
 TEST_F(TsbStoreTests, GetSize)

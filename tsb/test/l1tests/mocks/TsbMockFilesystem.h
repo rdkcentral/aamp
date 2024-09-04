@@ -22,6 +22,7 @@
 
 #include <gmock/gmock.h>
 #include <filesystem>
+#include <atomic>
 
 #include "TsbSem.h"
 
@@ -39,7 +40,7 @@ public:
 				(const std::filesystem::path&, std::error_code&));
 
 	TSB::Sem *mockRemoveAllSem{nullptr};
-	bool mockRemoveAllCompleted{false};
+	std::atomic_bool mockRemoveAllCompleted{false};
 };
 
 extern TsbMockFilesystem* g_mockFilesystem;
