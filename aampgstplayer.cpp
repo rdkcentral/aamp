@@ -2748,10 +2748,7 @@ void AAMPGstPlayer::SendGstEvents(AampMediaType mediaType, GstClockTime pts)
 		stream->pendingSeek = false;
 	}
 
-	if (ISCONFIGSET(eAAMPConfig_QtDemuxOverride))
-	{
-		enableOverride = SendQtDemuxOverrideEvent(mediaType, pts);
-	}
+	enableOverride = SendQtDemuxOverrideEvent(mediaType, pts);
 
 	if (mediaType == eMEDIATYPE_VIDEO)
 	{
@@ -5207,7 +5204,11 @@ bool AAMPGstPlayer::SetTextStyle(const std::string &options)
 gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(AampMediaType mediaType, GstClockTime pts, const void *ptr, size_t len)
 {
 	media_stream* stream = &privateContext->stream[mediaType];
-	gboolean enableOverride = (privateContext->rate != AAMP_NORMAL_PLAY_RATE);
+	gboolean enableOverride = false;
+	if (ISCONFIGSET(eAAMPConfig_QtDemuxOverride))
+	{
+		enableOverride = (privateContext->rate != AAMP_NORMAL_PLAY_RATE);
+	}
 	GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");	/* Retrieves the src pad */
 	if (stream->format == FORMAT_ISO_BMFF && mediaType != eMEDIATYPE_SUBTITLE)
 	{
