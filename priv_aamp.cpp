@@ -5406,7 +5406,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			long long  duartion = 0;
 			// Update first fragment time, ie time of the tune for new tune, and time of retune for seektolive
 			// For LL-DASH, we update mFirstFragmentTimeOffset as the Absolute start time of fragment.
-			if(mSeekOperationInProgress)
+			if(mSeekOperationInProgress && mProgressReportOffset < 0 )
 			{
 					duartion = DurationFromStartOfPlaybackMs();
 			}
