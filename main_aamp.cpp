@@ -720,6 +720,19 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE); // Send speed change event to XRE to reset the speed to normal play since the trickplay ignored at player level.
 			return;
 		}
+
+		// Special case where playback has not started due to autoplay being false and
+		// first rate is paused, set to pause with first frame shown
+		if ((AAMP_RATE_PAUSE == rate) && aamp->pipeline_paused && !aamp->mbPlayEnabled && !aamp->mbDetached)
+		{
+			rate = AAMP_NORMAL_PLAY_RATE;
+			aamp->SetPauseOnStartPlayback(true);
+		}
+		else
+		{
+			aamp->SetPauseOnStartPlayback(false);
+		}
+
 		if(!(aamp->mbPlayEnabled) && aamp->pipeline_paused && (AAMP_RATE_PAUSE != rate) && (aamp->mbSeeked || !aamp->mbDetached))
 		{
 			AAMPLOG_WARN("PLAYER[%d] Player %s=>%s.", aamp->mPlayerId, STRBGPLAYER, STRFGPLAYER );

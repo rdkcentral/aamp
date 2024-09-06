@@ -16,7 +16,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "MockAampHandlerControl.h"
 #include "AampHandlerControl.h"
+
+MockAampHandlerControl *g_mockAampHandlerControl = nullptr;
 
 AampHandlerControl::ScopeHelper&  AampHandlerControl::ScopeHelper::operator=(AampHandlerControl::ScopeHelper&& other)
 {
@@ -29,7 +32,12 @@ void AampHandlerControl::handlerEnd()
 
 bool AampHandlerControl::isEnabled() const
 {
-	return false;
+    bool retvalue = false;
+    if (g_mockAampHandlerControl != nullptr)
+    {
+        retvalue = g_mockAampHandlerControl->isEnabled();
+    }
+    return retvalue;
 }
 
 AampHandlerControl::ScopeHelper AampHandlerControl::getScopeHelper()

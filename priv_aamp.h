@@ -4247,6 +4247,12 @@ public:
 	 */
 	void IncreaseGSTBufferSize();
 
+	/**
+	 * @brief Set to pause on next playback start
+	 * @param[in] enable - Flag to set whether enabled
+	 */
+	void SetPauseOnStartPlayback(bool enable);
+
 protected:
 
 	/**
@@ -4359,6 +4365,12 @@ protected:
 	 */
 	double GetPTSOffsetFromTune() const { return m_PTSOffsetFromTune.load(); }
 
+	/**
+	 * @brief Notify reached paused when starting playback into paused state
+	 *
+	 */
+	void NotifyPauseOnStartPlayback(void);
+
 
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
@@ -4458,6 +4470,8 @@ protected:
 	AampTSBSessionManager *mTSBSessionManager;
 	bool mLocalAAMPInjectionEnabled;
 	bool mLocalAAMPTsb;
+	bool mbPauseOnStartPlayback;						/**< Start playback in paused state */
+
 	pthread_mutex_t mPreProcessLock;
 
 public:

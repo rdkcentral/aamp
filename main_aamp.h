@@ -721,6 +721,13 @@ public:
 	 * @brief Signal the new clock to subtitle module
 	 */
 	virtual void SignalSubtitleClock() {};
+
+	/**
+	 * @fn SetPauseOnPlayback
+	 * @brief Set to pause on next playback start
+	 * @param[in] enable - Flag to set whether enabled
+	 */
+	virtual void SetPauseOnStartPlayback(bool enable) {};
 };
 
 

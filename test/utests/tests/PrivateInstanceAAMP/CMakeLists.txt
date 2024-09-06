@@ -35,6 +35,7 @@ include_directories(${LIBCJSON_INCLUDE_DIRS})
 
 
 set(TEST_SOURCES PauseAtTests.cpp
+                 PauseOnPlaybackTests.cpp
                  TextStyleTests.cpp
                  MediaFormatTypeTests.cpp
                  IsPeriodChangeMarkedTests.cpp

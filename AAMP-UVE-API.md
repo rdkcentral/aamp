@@ -1,6 +1,6 @@
 
 # ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
-# V6.7
+# V6.9
  
 ## Overview
 
@@ -374,6 +374,18 @@ Example:
 	    
     }
 ```
+
+Note: starting in RDK 6.9, we support ability to start video paused on first frame.  Example:
+```js
+    {
+	    .....
+	    // start playback backgrounded with autoplay=false
+	    player.load("https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd", false);
+	    player.seek(30); // optionally jump to new position
+	    player.pause(); // bring video to foreground, and show first frame of video
+    }
+```
+
 ---
 
 ### stop()

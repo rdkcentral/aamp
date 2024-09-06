@@ -500,7 +500,16 @@ const char *GetDrmSystemID(DRMSystems drmSystem)
 
 bool aamp_StartsWith(const char *inputStr, const char *prefix)
 {
-	return false;
+	bool rc = true;
+	while( *prefix )
+	{
+		if( *inputStr++ != *prefix++ )
+		{
+			rc = false;
+			break;
+		}
+	}
+	return rc;
 }
 
 std::string aamp_GetConfigPath(const std::string &filename)

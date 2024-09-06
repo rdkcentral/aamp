@@ -1281,12 +1281,22 @@ void PrivateInstanceAAMP::SignalSubtitleClock()
 
 int PrivateInstanceAAMP::ScheduleAsyncTask(IdleTask task, void *arg, std::string taskName)
 {
-	return 0;
+	int retval = 0;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		retval = g_mockPrivateInstanceAAMP->ScheduleAsyncTask(task, arg, taskName);
+	}
+	return retval;
 }
 
 bool PrivateInstanceAAMP::RemoveAsyncTask(int taskId)
 {
-	return false;
+	bool retval = false;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		retval = g_mockPrivateInstanceAAMP->RemoveAsyncTask(taskId);
+	}
+	return retval;
 }
 
 void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long)
@@ -1440,4 +1450,13 @@ void PrivateInstanceAAMP::updateManifest(const char *manifestData)
 {
 	if(NULL != manifestData)
 		mProvidedManifestFile = manifestData;
+}
+
+
+void PrivateInstanceAAMP::SetPauseOnStartPlayback(bool enable)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->SetPauseOnStartPlayback(enable);
+	}
 }
