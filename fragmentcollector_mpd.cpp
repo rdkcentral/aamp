@@ -8540,7 +8540,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool &periodChanged, bool &a
 		}
 	}
 
-	if (mIsLiveStream)
+	if (mIsLiveStream && (periodChanged || adStateChanged))
 	{
 		double seekPositionSeconds = 0.0;
 

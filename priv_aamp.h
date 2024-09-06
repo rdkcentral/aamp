@@ -111,7 +111,7 @@ class AampTSBSessionManager;
 #define MAX_LOW_LATENCY_DASH_ABR_SPEEDSTORE_SIZE 10
 
 /*1 for debugging video track, 2 for audio track, 4 for subtitle track and 7 for all*/
-/*#define AAMP_DEBUG_FETCH_INJECT 0x001 */
+#define AAMP_DEBUG_FETCH_INJECT 0x011
 
 /**
  * @brief Max URL log size

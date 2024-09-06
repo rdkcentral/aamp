@@ -890,6 +890,7 @@ private:
 	std::condition_variable frDownloadWait;	/**< Conditional variable for signalling timed wait*/
 	pthread_cond_t audioFragmentCached;  /**< Signal after a audio fragment cached after reconfigure */
 	double lastInjectedPosition;             /**< Last injected position */
+	double lastInjectedDuration;             /**< Last injected fragment end position */
 	std::atomic_bool mIsLocalTSBInjection;
 	size_t mCachedFragmentChunksSize;		/**< Size of fragment chunks cache */
 	AampTime mLastFragmentPts;				/**< pts of the previous fragment, used in trick modes */

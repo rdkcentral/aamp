@@ -71,9 +71,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 {
     bool ret = false;
     double posInAbsTimeline = ((double)fragmentTime);
-    cachedFragment->absPosition = ((double)fragmentTime) ;
-    AAMPLOG_INFO("Type[%d] position(before restamp) %f discontinuity %d pto %f  scale %u duration %f mPTSOffsetSec %f fragmentUrl %s", 
-       type, position, discontinuity, pto, scale, duration, GetContext()->mPTSOffsetSec, fragmentUrl.c_str());
+    AAMPLOG_INFO("Type[%d] position(before restamp) %f discontinuity %d pto %f scale %u duration %f mPTSOffsetSec %f absTime %lf fragmentUrl %s",
+       type, position, discontinuity, pto, scale, duration, GetContext()->mPTSOffsetSec, posInAbsTimeline, fragmentUrl.c_str());
 
     fragmentDurationSeconds = duration;
     ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
@@ -86,6 +85,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
     cachedFragment->initFragment = initSegment;
 	cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 	cachedFragment->uri = fragmentUrl; // For debug output
+	cachedFragment->absPosition = posInAbsTimeline;
 	/* The value of PTSOffsetSec in the context can get updated at the start of a period before
 	 * the last segment from the previous period has been injected, hence we copy it
 	 */

@@ -40,9 +40,6 @@
 #include "isobmffhelper.h"
 #include "AampConfig.h"
 
-//#define AAMP_DEBUG_INJECT_CHUNK
-#define AAMP_DEBUG_FETCH_INJECT 1
-
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
 
@@ -1255,12 +1252,12 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 				}
 			}
 		}
-#ifdef AAMP_DEBUG_INJECT
-		if ((1 << type) & AAMP_DEBUG_INJECT)
-		{
-			AAMPLOG_WARN("[%s] Inject uri %s", name, cachedFragment->uri.c_str());
-		}
-#endif
+// #ifdef AAMP_DEBUG_INJECT
+// 		if ((1 << type) & AAMP_DEBUG_INJECT)
+// 		{
+// 			AAMPLOG_WARN("[%s] Inject uri %s", name, cachedFragment->uri.c_str());
+// 		}
+// #endif
 		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
 			mSubtitleParser->processData(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), cachedFragment->position, cachedFragment->duration);
@@ -1282,27 +1279,34 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		{
 			pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
 		}
-		AAMPLOG_DEBUG("[%p] - %s - injected cached uri at pos %f dur %f", this, name, cachedFragment->position, cachedFragment->duration);
+#ifdef AAMP_DEBUG_FETCH_INJECT
+		if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
+		{
+			AAMPLOG_WARN("%s - injected cached fragment at pos %f dur %f uri %s", name, cachedFragment->position, cachedFragment->duration, cachedFragment->uri.c_str());
+		}
+#endif
 		if (!fragmentDiscarded)
 		{
-			double positionDifference = (cachedFragment->absPosition - lastInjectedPosition);
+			totalInjectedDuration += cachedFragment->duration;
 
-			AAMPLOG_TRACE("[%s] lastInjectedPosition: %f, absPosition: %f", name, lastInjectedPosition, cachedFragment->absPosition);
-			if (lastInjectedPosition <= 0)
+			if (lastInjectedDuration > 0)
 			{
-				totalInjectedDuration += cachedFragment->duration;
-			}
-			else if (positionDifference >= 0)
-			{
-				totalInjectedDuration += positionDifference;
-				if (positionDifference > cachedFragment->duration)
+				// Find the delta between the last injected fragment end position and the current position
+				double positionDelta = (cachedFragment->absPosition - lastInjectedDuration);
+				/// There is a delta which implies a fragment might have been skipped
+				if (positionDelta > 0)
 				{
-					AAMPLOG_WARN("[%s] Difference between lastInjectedPosition (%f) and absPosition (%f) is greater than duration (%f)", 
-							name, lastInjectedPosition, cachedFragment->absPosition, cachedFragment->duration);
+					totalInjectedDuration += positionDelta;
+					if (type != eTRACK_SUBTITLE)
+					{
+						AAMPLOG_WARN("[%s] Found a positionDelta (%lf) between lastInjectedDuration (%lf) and absPosition (%lf)",
+								name, positionDelta, lastInjectedDuration, cachedFragment->absPosition);
+					}
 				}
 			}
 
 			lastInjectedPosition = cachedFragment->absPosition;
+			lastInjectedDuration = cachedFragment->absPosition + cachedFragment->duration;
 			mSegInjectFailCount = 0;
 		}
 		else
@@ -1736,6 +1740,7 @@ void MediaTrack::FlushFragments()
 		fragmentIdxToInject = 0;
 		fragmentIdxToFetch = 0;
 		numberOfFragmentsCached = 0;
+		lastInjectedDuration = 0;
 		if(!seamlessAudioSwitchInProgress)
 		{
 			totalFetchedDuration = 0;
@@ -1780,7 +1785,7 @@ MediaTrack::MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAA
 		abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
 		,frDownloadWait(),prevDownloadStartTime(-1)
-		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0)
+		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0), lastInjectedDuration(0)
 		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>(logObj))
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
