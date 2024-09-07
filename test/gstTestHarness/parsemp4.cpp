@@ -22,6 +22,7 @@
 #include <fstream>
 #include <iostream>
 #include <filesystem>
+#include <inttypes.h>
 
 static void WriteBytes( uint8_t *ptr, int n, uint64_t value )
 {
@@ -77,21 +78,21 @@ static uint64_t parse_tfdt( uint8_t *ptr, int64_t pts_offset  )
 	return media_decode_time;
 }
 
-uint64_t parsemp4_ApplyPtsOffset( uint8_t *ptr, size_t len, int64_t pts_offset )
+bool parsemp4_ApplyPtsOffset( uint8_t *ptr, size_t len, int64_t pts_offset )
 {
-	uint64_t rc = 0;
-	
+	bool found = false;
 	const uint8_t *fin = ptr+len;
-	while( ptr < fin )
+	while( ptr < fin && !found )
 	{
 		uint8_t *base = ptr;
 		uint32_t size = READ_U32(ptr);
 		uint8_t *next = base+size;
 		uint32_t type = READ_U32(ptr);
 		if( type == 'tfdt' )
-		{
-			rc = parse_tfdt( ptr, pts_offset );
-			break;
+		{ // TrackFragmentBaseMediaDecodeTimeBox provides the decode time of the first track sample
+			uint64_t media_decode_time = parse_tfdt( ptr, pts_offset );
+			printf( "media_decode_time: %" PRIu64 "\n", media_decode_time );
+			found = true;
 		}
 		else
 		{
@@ -107,7 +108,7 @@ uint64_t parsemp4_ApplyPtsOffset( uint8_t *ptr, size_t len, int64_t pts_offset )
 				case 'traf':
 				case 'mdia':
 					// walk children
-					parsemp4_ApplyPtsOffset( ptr, next-ptr, pts_offset );
+					found = parsemp4_ApplyPtsOffset( ptr, next-ptr, pts_offset );
 					break;
 					
 				default:
@@ -116,5 +117,5 @@ uint64_t parsemp4_ApplyPtsOffset( uint8_t *ptr, size_t len, int64_t pts_offset )
 			ptr = next;
 		}
 	}
-	return rc;
+	return found;
 }

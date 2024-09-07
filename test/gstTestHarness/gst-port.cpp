@@ -212,10 +212,11 @@ public:
 		context->EnoughData( mediaType );
 	}
 	
-	void appsrc_seek( GstElement *appSrc, guint64 offset )
+	gboolean appsrc_seek( GstElement *appSrc, guint64 offset )
 	{
 		double positionSeconds = static_cast<double>(offset)/GST_SECOND;
 		g_print( "MediaStream::appsrc_seek %fs\n", positionSeconds );
+		return TRUE;
 	}
 	
 	void found_source( GObject * object, GObject * orig, GParamSpec * pspec )
@@ -223,10 +224,21 @@ public:
 		g_print( "MediaStream::found_source %s\n", getMediaTypeAsString() );
 		g_object_get( orig, pspec->name, &source, NULL );
 		GObject *sourceObj = G_OBJECT(source);
-
-//		g_object_set(sourceObj, "max-bytes", 200000, NULL ); // default = 200000
-//		g_object_set(sourceObj, "min-percent", 50, NULL ); // default = 0
-//		g_object_set(sourceObj, "max-time", 1000000000LL * 4.0, NULL ); // required 1.20 or newer gstreamer
+		
+		// initialize max-bytes based on default aampcli configuration
+		// this drives byte-based need-data and enough-data signaling
+		switch( mediaType )
+		{
+			case eMEDIATYPE_VIDEO:
+				g_object_set(sourceObj, "max-bytes", 12582912, NULL ); // default = 200000
+				break;
+			case eMEDIATYPE_AUDIO:
+				g_object_set(sourceObj, "max-bytes", 1536000, NULL ); // default = 200000
+				break;
+			default:
+				break;
+		}
+		g_object_set(sourceObj, "min-percent", 50, NULL ); // default = 0
 		
 		g_signal_connect(sourceObj, "need-data", G_CALLBACK(need_data_cb), this );
 		g_signal_connect(sourceObj, "enough-data", G_CALLBACK(enough_data_cb), this );
@@ -433,8 +445,7 @@ static void enough_data_cb(GstElement *appSrc, MediaStream *stream )
  */
 static gboolean appsrc_seek_cb( GstElement * appSrc, guint64 offset, MediaStream *stream )
 { // C to C++ glue
-	stream->appsrc_seek( appSrc, offset );
-	return TRUE;
+	return stream->appsrc_seek( appSrc, offset );
 }
 
 /**
@@ -446,25 +457,23 @@ static void found_source_cb(GObject * object, GObject * orig, GParamSpec * pspec
 }
 
 static void element_setup_cb(GstElement * playbin, GstElement * element, class MediaStream *stream)
-{
+{ // C to C++ glue
 	stream->element_setup( playbin, element);
 }
 
 static void pad_added_cb(GstElement* object, GstPad* arg0, class MediaStream *stream)
-{
+{ // C to C++ glue
 	stream->pad_added(object, arg0);
 }
 
 gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline )
-{
-	pipeline->bus_message( bus, msg );
-	return TRUE;
+{ // C to C++ glue
+	return pipeline->bus_message( bus, msg );
 }
 
 GstBusSyncReply bus_sync_handler_cb(GstBus * bus, GstMessage * msg, Pipeline * pipeline )
-{
-	pipeline->bus_sync_handler( bus, msg );
-	return GST_BUS_PASS;
+{ // C to C++ glue
+	return pipeline->bus_sync_handler( bus, msg );
 }
 
 Pipeline::Pipeline( class PipelineContext *context ) : position_adjust(0.0), start(0.0), stop(0.0), rate(0.0)
@@ -603,7 +612,7 @@ double Pipeline::GetInjectedSeconds( MediaType mediaType )
 	return mediaStream[mediaType]->GetInjectedSeconds();
 }
 
-static void HandleGstMessageError( GstMessage *msg, const char *messageName )
+void Pipeline::HandleGstMessageError( GstMessage *msg, const char *messageName )
 {
 	GError *error = NULL;
 	gchar *dbg_info = NULL;
@@ -613,7 +622,7 @@ static void HandleGstMessageError( GstMessage *msg, const char *messageName )
 	g_free(dbg_info);
 }
 
-static void HandleGstMessageWarning( GstMessage *msg, const char *messageName )
+void Pipeline::HandleGstMessageWarning( GstMessage *msg, const char *messageName )
 {
 	GError *error = NULL;
 	gchar *dbg_info = NULL;
@@ -623,28 +632,75 @@ static void HandleGstMessageWarning( GstMessage *msg, const char *messageName )
 	g_free(dbg_info);
 }
 
-static void HandleGstMessageEOS( GstMessage *msg, PipelineContext *context, const char *messageName )
+void Pipeline::HandleGstMessageEOS( GstMessage *msg, const char *messageName )
 {
 	g_print( "%s from %s\n", messageName, GST_OBJECT_NAME(msg->src) );
 	context->ReachedEOS();
 }
 
-static void HandleGstMessageStateChanged( GstMessage *msg, const char *messageName )
+static void buffer_underflow_callback_cb(GstElement* object, guint arg0, gpointer arg1, class Pipeline *pipeline )
+{ // C to C++ glue
+	g_print( "%s\n", __FUNCTION__ );
+}
+static void pts_error_callback_cb( GstElement* object, guint arg0, gpointer arg1, class Pipeline *pipeline )
+{ // C to C++ glue
+	g_print( "%s\n", __FUNCTION__ );
+}
+static void decode_error_callback_cb( GstElement* object, guint arg0, gpointer arg1, class Pipeline *pipeline )
+{ // C to C++ glue
+	g_print( "%s\n", __FUNCTION__ );
+}
+
+static const char *buffer_underflow_cb = "buffer-underflow-callback";
+static const char *pts_error_cb = "pts-error-callback";
+static const char *decode_error_cb = "decode-error-callback";
+															   
+void Pipeline::HandleGstMessageStateChanged( GstMessage *msg, const char *messageName )
 {
 	if( (!gQuiet) || strcmp( GST_OBJECT_NAME(msg->src), MY_PIPELINE_NAME ) == 0 )
 	{
 		GstState old_state, new_state, pending_state;
 		gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
+		const char *name = GST_OBJECT_NAME(msg->src);
 		g_print("%s: %s %s -> %s (pending %s)\n",
 				messageName,
-				GST_OBJECT_NAME(msg->src),
+				name,
 				gst_element_state_get_name(old_state),
 				gst_element_state_get_name(new_state),
 				gst_element_state_get_name(pending_state));
+		
+
+		if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
+		{
+			if(
+			   strstr(name,"westerossink") ||
+			   strstr(name,"audiosink") || strstr(name,"videosink") || // rialtomsevideosink, rialtomseaudiosink
+			   strstr(name,"videodecoder") || strstr(name,"audiodecoder") || // brcmvideodecoder, brcmaudiodecoder
+			   strstr(name,"omx") || strstr(name,"rtkv1sink") ) // realtek
+			{
+				g_print( "found sink: %s\n", name );
+				auto obj = G_OBJECT_GET_CLASS(msg->src);
+				if( g_object_class_find_property( obj, buffer_underflow_cb)!=NULL)
+				{
+					g_print( "g_signal_connect: %s\n", buffer_underflow_cb );
+					g_signal_connect(msg->src, buffer_underflow_cb, G_CALLBACK(buffer_underflow_callback_cb), this );
+				}
+				if( g_object_class_find_property( obj,pts_error_cb)!=NULL)
+				{
+					g_print( "g_signal_connect: %s\n", pts_error_cb );
+					g_signal_connect(msg->src, pts_error_cb, G_CALLBACK(pts_error_callback_cb), this );
+				}
+				if( g_object_class_find_property( obj,decode_error_cb)!=NULL)
+				{
+					g_print( "g_signal_connect: %s\n", decode_error_cb );
+					g_signal_connect(msg->src, decode_error_cb, G_CALLBACK(decode_error_callback_cb), this );
+				}
+			}
+		}
 	}
 }
 
-static void HandleGstMessageQOS( GstMessage * msg, const char *messageName )
+void Pipeline::HandleGstMessageQOS( GstMessage * msg, const char *messageName )
 {
 	gboolean live;
 	guint64 running_time;
@@ -674,7 +730,8 @@ void myGstTagForeachFunc( const GstTagList * list, const gchar * tag, gpointer u
 		g_free( valueString );
 	}
 }
-static void HandleGstMessageTag( GstMessage *msg, const char *messageName )
+
+void Pipeline::HandleGstMessageTag( GstMessage *msg, const char *messageName )
 {
 	g_print( "%s\n", messageName );
 	GstTagList *list = NULL;
@@ -687,7 +744,7 @@ static void HandleGstMessageTag( GstMessage *msg, const char *messageName )
 	}
 }
 
-static void HandleGstMsg( GstMessage *msg, PipelineContext *context )
+void Pipeline::HandleGstMsg( GstMessage *msg )
 {
 	GstMessageType messageType = GST_MESSAGE_TYPE(msg);
 	const char *messageName = gst_message_type_get_name( messageType );
@@ -700,7 +757,7 @@ static void HandleGstMsg( GstMessage *msg, PipelineContext *context )
 			HandleGstMessageWarning( msg, messageName );
 			break;
 		case GST_MESSAGE_EOS:
-			HandleGstMessageEOS( msg, context, messageName );
+			HandleGstMessageEOS( msg, messageName );
 			break;
 		case GST_MESSAGE_STATE_CHANGED:
 			HandleGstMessageStateChanged( msg, messageName );
@@ -726,14 +783,16 @@ static void HandleGstMsg( GstMessage *msg, PipelineContext *context )
 	}
 }
 
-void Pipeline::bus_message( _GstBus * bus, _GstMessage * msg )
+gboolean Pipeline::bus_message( _GstBus * bus, _GstMessage * msg )
 {
-	HandleGstMsg( msg, context );
+	HandleGstMsg( msg );
+	return TRUE;
 }
 
-void Pipeline::bus_sync_handler( _GstBus * bus, _GstMessage * msg )
+GstBusSyncReply Pipeline::bus_sync_handler( _GstBus * bus, _GstMessage * msg )
 {
-	HandleGstMsg( msg, context );
+	HandleGstMsg( msg );
+	return GST_BUS_PASS;
 }
 
 void Pipeline::DumpDOT( void )

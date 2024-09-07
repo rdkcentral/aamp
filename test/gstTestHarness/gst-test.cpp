@@ -27,7 +27,6 @@
 #include "turbo_xml.hpp"
 #include "parsemp4.hpp"
 #include <mutex>
-
 #include <thread>
 #include <unistd.h>
 #include <netdb.h>
@@ -242,7 +241,10 @@ public:
 		}
 		else if( ptr )
 		{
-			parsemp4_ApplyPtsOffset( (uint8_t *)ptr, len, pts_offset );
+			if( duration>0 )
+			{ // audio or video segment (not an initialization header)
+				parsemp4_ApplyPtsOffset( (uint8_t *)ptr, len, pts_offset );
+			}
 			context->pipeline->SendBufferMP4( mediaType, ptr, len, duration );
 			ptr = NULL;
 		}
@@ -1127,12 +1129,10 @@ public:
 			}
 			double endPos = pipelineContext.seekPos + pipelineContext.pipeline->GetInjectedSeconds(mediaType);
 			needsData = (endPos - pos < TIME_BASED_BUFFERING_THRESHOLD);
-			// printf( "%f %f buffer health: %f; needsData=%d\n", pos, endPos, endPos - pos, needsData );
 		}
 #else
 		needsData = t.needsData;
 #endif
-		
 		if( needsData )
 		{
 			auto queue = t.queue;
