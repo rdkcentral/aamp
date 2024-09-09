@@ -898,8 +898,6 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 		pushInitSegment(startPos);
 		basePTS = sumPTS;
 		resetRestampVariables(); //reset the audio track variables
-		if (type != eBMFFPROCESSOR_TYPE_SUBTITILE)
-			peerProcessor->resetRestampVariables(); //reset the video track variables
 	}
 	else if( type == eBMFFPROCESSOR_TYPE_VIDEO )
 	{
@@ -927,6 +925,7 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 		{
 			peerSubtitleProcessor->setRestampBasePTS(sumPTS);
 		}
+		resetRestampVariables(); //reset the video track variables
 	}
 	AAMPLOG_INFO("IsoBmffProcessor %s  After push init when startPos=%f sumPTS=%" PRIu64 " basePTS=%" PRIu64 " ",
 	IsoBmffProcessorTypeName[type],startPos,sumPTS,basePTS);
@@ -1221,6 +1220,10 @@ void IsoBmffProcessor::pushRestampInitSegment()
 			SAFE_DELETE(Pst);
 			it = resetPTSInitSegment.erase(it);
 		}
+	}
+	else
+	{
+		AAMPLOG_WARN("No init segment cached for injection");
 	}
 }
 
