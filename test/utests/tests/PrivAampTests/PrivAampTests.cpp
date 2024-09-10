@@ -2614,6 +2614,11 @@ TEST_F(PrivAampTests,GetAvailableTracksTest)
 	str1 = p_aamp->GetAvailableAudioTracks(false);
 }
 
+TEST_F(PrivAampTests,SetPreferredTextLanguages)
+{
+	p_aamp->SetPreferredTextLanguages( "{\"sub-type\":\"CLOSED-CAPTIONS\",\"language\":\"en\",\"rendition\":\"urn:scte:dash:cc:cea-708:2015\",\"instreamId\":\"2\",\"availability\":true}" );
+}
+
 TEST_F(PrivAampTests,GetVideoRectangleTest)
 {
 	std::string str = p_aamp->GetVideoRectangle();
