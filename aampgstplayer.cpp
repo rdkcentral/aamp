@@ -975,10 +975,68 @@ static GstPadProbeReturn AAMPGstPlayer_DemuxPadProbeCallback(GstPad * pad, GstPa
 	return GST_PAD_PROBE_OK;
 }
 
+// The following for RDKAAMP-3323
+static GstPadProbeReturn AAMPGstPlayer_DemuxPadProbeCallbackEvent(GstPad *pad, GstPadProbeInfo *info, AAMPGstPlayer *_this)
+{
+	if (_this)
+	{
+		if ((pad == _this->privateContext->stream[eMEDIATYPE_VIDEO].demuxPad) && (_this->privateContext->rate == AAMP_NORMAL_PLAY_RATE))
+		{
+			GstEvent *event = GST_PAD_PROBE_INFO_EVENT(info);
+			if (GST_EVENT_TYPE(event) == GST_EVENT_SEGMENT)
+			{
+				GstSegment segment;
+				gst_event_copy_segment(event, &segment);
+				AAMPLOG_TRACE("duration  %" G_GUINT64_FORMAT " start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT,
+				 segment.duration, segment.start, segment.stop);
+
+				// Reset the stop value
+				segment.stop = GST_CLOCK_TIME_NONE;
+
+				// Replace the event with a new one
+				GstEvent *new_event = gst_event_new_segment(&segment);
+				gst_event_replace(&event, new_event);
+				gst_event_unref(new_event);
+
+				// Update the probe info with the new event
+				info->data = event;
+			}
+		}
+	}
+	return GST_PAD_PROBE_OK;
+}
+
+static GstPadProbeReturn AAMPGstPlayer_DemuxPadProbeCallbackAny(GstPad *pad, GstPadProbeInfo *info, AAMPGstPlayer *_this)
+{
+	GstPadProbeReturn rtn = GST_PAD_PROBE_OK;
+	AAMPLOG_TRACE("type %u",info->type);
+	if (info->type & GST_PAD_PROBE_TYPE_BUFFER)
+	{
+		rtn = AAMPGstPlayer_DemuxPadProbeCallback(pad, info, _this);
+	}
+	else if (info->type & GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM)
+	{
+		rtn = AAMPGstPlayer_DemuxPadProbeCallbackEvent(pad, info, _this);
+	}
+	return rtn;
+}
+
 static void AAMPGstPlayer_OnDemuxPadAddedCb(GstElement* demux, GstPad* newPad, AAMPGstPlayer * _this)
 {
 	if (_this)
 	{
+		GstPadProbeType mask = GST_PAD_PROBE_TYPE_INVALID;
+
+		if ( _this->aamp->mConfig->IsConfigSet(eAAMPConfig_SeamlessAudioSwitch))
+		{
+			mask = GST_PAD_PROBE_TYPE_BUFFER;
+		}
+		if ( _this->aamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		{
+			//cast to Keep compiler happy
+			mask = static_cast<GstPadProbeType>(static_cast<int>(mask) | static_cast<int>(GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM));
+		}
+		AAMPLOG_TRACE("mask %u",mask);
 		// We need to identify which stream the demux belongs to.
 		// We can't use a CAPS based check, for use-cases such as aux-audio
 		GstElement *parent = GST_ELEMENT_PARENT(demux);
@@ -996,8 +1054,8 @@ static void AAMPGstPlayer_OnDemuxPadAddedCb(GstElement* demux, GstPad* newPad, A
 						{
 							stream->demuxPad = newPad;
 							stream->demuxProbeId = gst_pad_add_probe(newPad,
-									GST_PAD_PROBE_TYPE_BUFFER,
-									(GstPadProbeCallback)AAMPGstPlayer_DemuxPadProbeCallback,
+									mask,
+									(GstPadProbeCallback)AAMPGstPlayer_DemuxPadProbeCallbackAny,
 									_this,
 									NULL);
 							AAMPLOG_WARN("Added probe to qtdemux type[%d] src pad: %s", i, GST_PAD_NAME(newPad));
@@ -1038,7 +1096,6 @@ static void element_setup_cb(GstElement * playbin, GstElement * element, AAMPGst
 	}
 	g_free(elemName);
 }
-
 
 /**
  * @brief Idle callback to notify first frame rendered event
@@ -2408,16 +2465,15 @@ void AAMPGstPlayer::RemoveProbes()
 {
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
-		media_stream* stream = &privateContext->stream[(AampMediaType)i];
+		media_stream *stream = &privateContext->stream[(AampMediaType)i];
 		if (stream->demuxProbeId && stream->demuxPad)
 		{
-			gst_pad_remove_probe (stream->demuxPad, stream->demuxProbeId);
+			gst_pad_remove_probe(stream->demuxPad, stream->demuxProbeId);
+			stream->demuxProbeId = 0;
+			stream->demuxPad = NULL;
 		}
-		stream->demuxProbeId = 0;
-		stream->demuxPad = NULL;
 	}
 }
-
 
 /**
  *  @brief Cleanup resources and flags for a particular stream type
@@ -2688,12 +2744,16 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 		_this->SignalConnect(stream->sinkbin, "source-setup", G_CALLBACK (httpsoup_source_setup), _this);
 	}
 
-	if ((mediaFormat == eMEDIAFORMAT_DASH || mediaFormat == eMEDIAFORMAT_HLS_MP4) &&
+	if ( ((mediaFormat == eMEDIAFORMAT_DASH || mediaFormat == eMEDIAFORMAT_HLS_MP4) &&
 		_this->aamp->mConfig->IsConfigSet(eAAMPConfig_SeamlessAudioSwitch))
+		||  //the  following for RDKAAMP-3323
+		   (mediaFormat == eMEDIAFORMAT_DASH && eMEDIATYPE_VIDEO == streamId && 
+		    _this->aamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStamp)) )
 	{
 		// Send the media_stream object so that qtdemux can be instantly mapped to media type without caps/parent check
 		g_signal_connect(stream->sinkbin, "element_setup", G_CALLBACK(element_setup_cb), _this);
 	}
+
 
 #if defined(REALTEKCE)
 	if (eMEDIATYPE_VIDEO == streamId && (mediaFormat==eMEDIAFORMAT_DASH || mediaFormat==eMEDIAFORMAT_HLS_MP4) )
@@ -2964,7 +3024,8 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 				GST_BUFFER_PTS(buffer) = pts;
 				GST_BUFFER_DTS(buffer) = dts;
 				GST_BUFFER_DURATION(buffer) = duration;
-				AAMPLOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%zu init:%d discontinuity:%d", mediaType, pts, dts, len, initFragment, discontinuity);
+				AAMPLOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT, 
+				mediaType, pts, dts, len, initFragment, discontinuity,duration);
 			}
 			else
 			{
