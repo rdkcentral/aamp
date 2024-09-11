@@ -176,8 +176,9 @@ public:
 			return attributes.at(attrName);
 		}
 		else
-		{ // previously, we asserted here. Some playable manifests missing properties like "width" so relaxing this
-			return "0";
+		{
+			static std::string dummy = "0";
+			return dummy;
 		}
 	}
 	
