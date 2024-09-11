@@ -874,28 +874,26 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 		always good to sync the basePTS for audio timescale as well to avoid surprises 
 		*/
 		//Now video and audio pts is in sync. push it
-		if( pts != 0 )
+		if(peerProcessor)
 		{
-			if(peerProcessor)
+			AAMPLOG_INFO("IsoBmffProcessor %s  startPos = %f PeerStartPos = %f trackOffsetInSecs = %lf",
+						IsoBmffProcessorTypeName[type], startPos, peerProcessor->startPos, trackOffsetInSecs);
+
+			if (sumPTS == 0)
 			{
-				AAMPLOG_INFO("IsoBmffProcessor %s  startPos = %f PeerStartPos = %f trackOffsetInSecs = %lf",
-							IsoBmffProcessorTypeName[type], startPos, peerProcessor->startPos, trackOffsetInSecs);
-
-				if (sumPTS == 0)
-				{
-					sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
-				}
-				else
-				{
-					sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale) + (trackOffsetInSecs * currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
-				}
-				startPos = (sumPTS/(double)currTimeScale) + trackOffsetInSecs; // startpos can change when fragments skipped
-
-				AAMPLOG_INFO("peerStartPos=%f peerSumPTS=%" PRIu64 "", peerProcessor->startPos, peerProcessor->sumPTS);
+				sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
 			}
-			AAMPLOG_WARN("IsoBmffProcessor %s  startPos = %f sumPTS = %" PRIu64 " trackOffsetInSecs = %lf",
-							IsoBmffProcessorTypeName[type], startPos, sumPTS, trackOffsetInSecs);
+			else
+			{
+				sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale) + (trackOffsetInSecs * currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
+			}
+			startPos = (sumPTS/(double)currTimeScale) + trackOffsetInSecs; // startpos can change when fragments skipped
+
+			AAMPLOG_INFO("peerStartPos=%f peerSumPTS=%" PRIu64 "", peerProcessor->startPos, peerProcessor->sumPTS);
 		}
+		AAMPLOG_WARN("IsoBmffProcessor %s  startPos = %f sumPTS = %" PRIu64 " trackOffsetInSecs = %lf",
+						IsoBmffProcessorTypeName[type], startPos, sumPTS, trackOffsetInSecs);
+		
 
 		pushInitSegment(startPos);
 		basePTS = sumPTS;
