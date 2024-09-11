@@ -431,6 +431,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 						AAMPLOG_INFO("[CDAI] diff [%d] NOT close to period end, duration[%" PRIu64 "]", diff, currPeriodDuration);
 						abObj.adjustEndPeriodOffset = false; // done with Adjustment
 						abObj.mWaitForManifestUpdateFlag = false; // adbrk duration not equal to src period duration continue to play source period remaining duration
+						abObj.mSrcPeriodOffsetGTthreshold = true;
 					}
 				}
 			}

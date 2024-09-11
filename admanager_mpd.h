@@ -183,11 +183,12 @@ struct AdBreakObject{
 	bool                        	     adjustEndPeriodOffset;     /**< endPeriodOffset needs be re-adjusted or not */
 	bool                                 mWaitForManifestUpdateFlag; /** upperboundary period matches the current playing period wait for the manifest update to continue playback */
 	bool                                 mAdFailed; /** Current Ad playback failed flag */
+	bool				     mSrcPeriodOffsetGTthreshold;/*The flag will be set if the difference between the source period and the total ad duration exceeds the 2-second threshold.*/
 	
 	/**
 	* @brief AdBreakObject default constructor
 	*/
-	AdBreakObject() : brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false), mWaitForManifestUpdateFlag(false), mAdFailed(false)
+	AdBreakObject() : brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false), mWaitForManifestUpdateFlag(false), mAdFailed(false),mSrcPeriodOffsetGTthreshold(false)
 	{
 	}
 
@@ -202,7 +203,7 @@ struct AdBreakObject{
 	*/
 	AdBreakObject(uint32_t _duration, AdNodeVectorPtr _ads, std::string _endPeriodId,
 	uint64_t _endPeriodOffset, uint32_t _adsDuration)
-	: brkDuration(_duration), ads(_ads), endPeriodId(_endPeriodId), endPeriodOffset(_endPeriodOffset), adsDuration(_adsDuration), adjustEndPeriodOffset(false),mWaitForManifestUpdateFlag(false), mAdFailed(false)
+	: brkDuration(_duration), ads(_ads), endPeriodId(_endPeriodId), endPeriodOffset(_endPeriodOffset), adsDuration(_adsDuration), adjustEndPeriodOffset(false),mWaitForManifestUpdateFlag(false), mAdFailed(false),mSrcPeriodOffsetGTthreshold(false)
 	{
 	}
 };
