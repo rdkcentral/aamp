@@ -369,4 +369,13 @@ TSB::LogLevel ConvertTsbLogLevel(int logLev);
 std::string aamp_GetConfigPath( const std::string &filename );
 
 
+/**
+ * Parses and confirms the SCTE35 data is a valid DAI event.
+ *
+ * @param scte35Data The SCTE35 data to be checked.
+ * @return True if the SCTE35 data is valid DAI event, false otherwise.
+ */
+bool parseAndValidateSCTE35(const std::string &scte35Data);
+
+
 #endif  /* __AAMP_UTILS_H__ */

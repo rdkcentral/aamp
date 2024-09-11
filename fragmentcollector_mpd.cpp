@@ -11277,7 +11277,8 @@ bool StreamAbstractionAAMP_MPD::isAdbreakStart(IPeriod *period, uint64_t &startM
 											std::string scte35 = signalChild->GetText();
 											if(0 != scte35.length())
 											{
-												EventBreakInfo scte35Event(scte35, "SCTE35", presentationTime, duration);
+												bool isValidDAIEvent = parseAndValidateSCTE35(scte35);
+												EventBreakInfo scte35Event(scte35, "SCTE35", presentationTime, duration, isValidDAIEvent);
 												eventBreakVec.push_back(scte35Event);
 
 												ret = true;
@@ -11337,7 +11338,7 @@ bool StreamAbstractionAAMP_MPD::isAdbreakStart(IPeriod *period, uint64_t &startM
 				{
 					std::string eventStreamStr(finalData);
 					cJSON_free(finalData);
-					EventBreakInfo eventBreak(eventStreamStr, "EventStream", 0, duration);
+					EventBreakInfo eventBreak(eventStreamStr, "EventStream", 0, duration, false);
 					eventBreakVec.push_back(eventBreak);
 					ret = true;
 				}

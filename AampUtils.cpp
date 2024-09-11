@@ -29,6 +29,7 @@
 #include "AampCurlStore.h"
 #include "AampCurlDownloader.h"
 #include "isobmff/isobmffbuffer.h"
+#include "scte35/AampSCTE35.h"
 
 #include <sys/time.h>
 #include <string.h>
@@ -1454,6 +1455,35 @@ std::string aamp_GetConfigPath( const std::string &filename )
 #endif
 
 	return cfgPath;
+}
+
+/**
+ * Parses and confirms the SCTE35 data is a valid DAI event.
+ *
+ * @param scte35Data The SCTE35 data to be checked.
+ * @return True if the SCTE35 data is valid DAI event, false otherwise.
+ */
+bool parseAndValidateSCTE35(const std::string &scte35Data)
+{
+	/* Decode any SCTE35 splice info event. */
+	bool isValidDAIEvent = false;
+	std::vector<SCTE35SpliceInfo::Summary> spliceInfoSummary;
+	SCTE35SpliceInfo spliceInfo(scte35Data);
+
+	spliceInfo.getSummary(spliceInfoSummary);
+	for (auto &splice : spliceInfoSummary)
+	{
+		AAMPLOG_DEBUG("[CDAI] splice info type %d, time %f, duration %f, id 0x%" PRIx32,
+			(int)splice.type, splice.time, splice.duration, splice.event_id);
+
+		if ((splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_ADVERTISEMENT_START) ||
+			(splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_PLACEMENT_OPPORTUNITY_START))
+		{
+			isValidDAIEvent = true;
+			break;
+		}
+	}
+	return isValidDAIEvent;
 }
 /**
  * EOF

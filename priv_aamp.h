@@ -256,9 +256,10 @@ struct EventBreakInfo
 	std::string name;
 	uint32_t duration;
 	uint64_t presentationTime;
-	EventBreakInfo() : payload(), name(), duration(0), presentationTime(0)
+	bool isDAIEvent;     // true if the SCTE35 event is PA START or PPO START
+	EventBreakInfo() : payload(), name(), duration(0), presentationTime(0), isDAIEvent(false)
 	{}
-	EventBreakInfo(std::string _data, std::string _name, uint64_t _presentationTime, uint32_t _dur) : payload(_data), name(_name), presentationTime(_presentationTime), duration(_dur)
+	EventBreakInfo(std::string _data, std::string _name, uint64_t _presentationTime, uint32_t _dur, bool _isDAIEvent) : payload(_data), name(_name), presentationTime(_presentationTime), duration(_dur), isDAIEvent(_isDAIEvent)
 	{}
 };
 

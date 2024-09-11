@@ -119,7 +119,7 @@ TESTDATA0 = {
 
     # Period 881036617 - 30sec
     {"expect": r"Found CDAI events for period 881036617","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036617\] Duration\[30000\]","min":0, "max":300},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036617\] Duration\[30000\] isDAIEvent[1]","min":0, "max":300},
     {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036617 added\[Id=ad0,","min":0, "max":300},
     {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad0\]","min":0, "max":300},
 
@@ -132,11 +132,11 @@ TESTDATA0 = {
 
     # Period 881036618 - 20sec
     {"expect": r"Found CDAI events for period 881036618","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036618\] Duration\[20000\]","min":0, "max":300},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036618\] Duration\[20000\] isDAIEvent[1]","min":0, "max":300},
 
     # Period 881036619 - 20sec
     {"expect": r"Found CDAI events for period 881036619","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036619\] Duration\[20000\]","min":0, "max":300},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036619\] Duration\[20000\] isDAIEvent[1]","min":0, "max":300},
     {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036619 added\[Id=ad2,","min":0, "max":300},
     {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad2\]","min":0, "max":300},
 
@@ -149,11 +149,11 @@ TESTDATA0 = {
 
     # Period 881036620 - 10sec
     {"expect": r"Found CDAI events for period 881036620","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036620\] Duration\[10000\]","min":0, "max":300},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036620\] Duration\[10000\] isDAIEvent[1]","min":0, "max":300},
 
     # Period 881036621 - 30sec
     {"expect": r"Found CDAI events for period 881036621","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036621\] Duration\[30000\]","min":0, "max":300},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036621\] Duration\[30000\] isDAIEvent[1]","min":0, "max":300},
     {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036621 added\[Id=ad4,","min":0, "max":300},
     {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad4\]","min":0, "max":300},
 
@@ -195,7 +195,7 @@ TESTDATA1 = {
 
     # Period 881036617 - 30sec
     {"expect": r"Found CDAI events for period 881036617","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036617\] Duration\[30000\]","min":0, "max":300},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036617\] Duration\[30000\] isDAIEvent[1]","min":0, "max":300},
     {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036617 added\[Id=ad0,","min":0, "max":300},
     {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad0\]","min":0, "max":300},
 
@@ -208,7 +208,7 @@ TESTDATA1 = {
 
     # Period 881036618 - 20sec
     {"expect": r"Found CDAI events for period 881036618","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036618\] Duration\[20000\]","min":0, "max":300},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036618\] Duration\[20000\] isDAIEvent[1]","min":0, "max":300},
     {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036618 added\[Id=ad1,","min":0, "max":300},
     {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad1\]","min":0, "max":300},
 
@@ -222,7 +222,7 @@ TESTDATA1 = {
 
     # Period 881036619 - 20sec
     {"expect": r"Found CDAI events for period 881036619","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036619\] Duration\[20000\]","min":0, "max":300},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036619\] Duration\[20000\] isDAIEvent[1]","min":0, "max":300},
     {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036619 added\[Id=ad2,","min":0, "max":300},
     {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad2\]","min":0, "max":300},
 
@@ -235,7 +235,7 @@ TESTDATA1 = {
 
     # Period 881036620 - 10sec
     {"expect": r"Found CDAI events for period 881036620","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036620\] Duration\[10000\]","min":0, "max":300},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036620\] Duration\[10000\] isDAIEvent[1]","min":0, "max":300},
     {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036620 added\[Id=ad3,","min":0, "max":300},
     {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad3\]","min":0, "max":300},
 
@@ -248,7 +248,7 @@ TESTDATA1 = {
 
     # Period 881036621 - 30sec
     {"expect": r"Found CDAI events for period 881036621","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036621\] Duration\[30000\]","min":0, "max":300},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036621\] Duration\[30000\] isDAIEvent[1]","min":0, "max":300},
     {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036621 added\[Id=ad4,","min":0, "max":300},
     {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad4\]","min":0, "max":300},
 

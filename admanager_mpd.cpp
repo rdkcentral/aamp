@@ -415,20 +415,20 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 							abObj.endPeriodId = nextPeriod->GetId();
 							mPeriodMap[abObj.endPeriodId] = Period2AdData();
 							abObj.mWaitForManifestUpdateFlag = false;
-							AAMPLOG_INFO("[CDAI] [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s", 
+							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s", 
 														diff,currPeriodDuration,abObj.endPeriodId.c_str());
 						}
 						else
 						{
 							abObj.mWaitForManifestUpdateFlag = true; //adbrk duration matches the source period duration wait for the manifest update to conitnue playback
-							AAMPLOG_INFO("[CDAI] [%d] close to period end [%" PRIu64 "],but next period not available,waiting", 
+							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "],but next period not available,waiting", 
 														diff,currPeriodDuration);
 						}
 					}// --> Inserted Ads finishes >= 2 seconds behind new period : Channel playback starts from that position in the current period.
 					// OR //--> Inserted Ads finishes in >= 4 seconds of new period (inside the adbreak) : Channel playback starts from that position in the period.
 					else
 					{
-						AAMPLOG_INFO("[CDAI] [%d] NOT close to period end", diff);
+						AAMPLOG_INFO("[CDAI] diff [%d] NOT close to period end, duration[%" PRIu64 "]", diff, currPeriodDuration);
 						abObj.adjustEndPeriodOffset = false; // done with Adjustment
 						abObj.mWaitForManifestUpdateFlag = false; // adbrk duration not equal to src period duration continue to play source period remaining duration
 					}

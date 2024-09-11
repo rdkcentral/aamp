@@ -9357,13 +9357,16 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 {
 	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableClientDai) && !adBreakId.empty())
 	{
-		AAMPLOG_WARN("[CDAI] Found Adbreak on period[%s] Duration[%d]", adBreakId.c_str(), brInfo.duration);
-		std::string adId("");
-		std::string url("");
-		mCdaiObject->SetAlternateContents(adBreakId, adId, url, startMS, brInfo.duration);	//A placeholder to avoid multiple scte35 event firing for the same adbreak
+		AAMPLOG_WARN("[CDAI] Found Adbreak on period[%s] Duration[%d] isDAIEvent[%d]", adBreakId.c_str(), brInfo.duration, brInfo.isDAIEvent);
+		if (brInfo.isDAIEvent)
+		{
+			std::string adId("");
+			std::string url("");
+			mCdaiObject->SetAlternateContents(adBreakId, adId, url, startMS, brInfo.duration);	//A placeholder to avoid multiple scte35 event firing for the same adbreak
+		}
 		//Ignoring past SCTE events.
 		//mTSBEnabled check is added to ensure the change won't effect IPVOD
-		AAMPLOG_INFO("[CDAI] mTuneCompleted:%d mTSBEnabled:%d",mTuneCompleted,mTSBEnabled);
+		AAMPLOG_INFO("[CDAI] mTuneCompleted:%d mTSBEnabled:%d", mTuneCompleted, mTSBEnabled);
 		if (mTuneCompleted || !mTSBEnabled)
 		{
 			SaveNewTimedMetadata((long long) startMS, brInfo.name.c_str(), brInfo.payload.c_str(), (int)brInfo.payload.size(), adBreakId.c_str(), brInfo.duration);

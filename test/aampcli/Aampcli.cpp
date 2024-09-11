@@ -23,7 +23,7 @@
  */
 
 #include "Aampcli.h"
-#include "AampSCTE35.h"
+#include "scte35/AampSCTE35.h"
 #include "AampcliShader.h"
 
 Aampcli mAampcli;

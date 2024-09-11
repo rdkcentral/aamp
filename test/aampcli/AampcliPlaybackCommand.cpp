@@ -26,7 +26,7 @@
 #include <regex>
 #include "Aampcli.h"
 #include "AampcliPlaybackCommand.h"
-#include "AampSCTE35.h"
+#include "scte35/AampSCTE35.h"
 #include "AampStreamSinkManager.h"
 
 extern bool gAampcliQuietLogs;
