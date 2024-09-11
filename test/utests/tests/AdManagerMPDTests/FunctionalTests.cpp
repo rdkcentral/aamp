@@ -43,6 +43,7 @@ using ::testing::Return;
 using ::testing::StrictMock;
 using ::testing::WithArgs;
 using ::testing::Invoke;
+using ::testing::StrEq;
 
 using namespace dash::xml;
 using namespace dash::mpd;
@@ -456,7 +457,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   mPrivateInstanceAAMP->SetManifestUrl(TEST_FOG_MAIN_MANIFEST_URL);
   InitializeAdMPD(manifest, true);
 
-  // mIsFogTSB is false, so downloaded from CDN and ad resolved event is sent
+  // mIsFogTSB is true, so downloaded from CDN and redirected to FOG and ad resolved event is sent
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -467,6 +468,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
+  EXPECT_STREQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).url.c_str(), TEST_FOG_AD_MANIFEST_URL);
 
 }
 
@@ -554,7 +556,8 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   mPrivateInstanceAAMP->SetManifestUrl(TEST_FOG_MAIN_MANIFEST_URL);
   InitializeAdMPD(manifest, true, false);
 
-  // mIsFogTSB is false, so downloaded from CDN and ad resolved event is sent
+  // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
+  // Here, ad resolved event is sent with true and CDN url is cached
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -565,6 +568,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
+  EXPECT_STREQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).url.c_str(), TEST_AD_MANIFEST_URL);
 
 }
 

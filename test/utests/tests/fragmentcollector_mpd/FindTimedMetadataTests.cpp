@@ -27,6 +27,7 @@
 #include "admanager_mpd.h"
 #include "fragmentcollector_mpd.h"
 #include "MockPrivateInstanceAAMP.h"
+#include "MockAampUtils.h"
 
 #include "libdash/IMPD.h"
 #include "libdash/INode.h"
@@ -40,6 +41,7 @@
 using ::testing::_;
 using ::testing::Return;
 using ::testing::StrictMock;
+using ::testing::NiceMock;
 using ::testing::Field;
 using ::testing::StrEq;
 
@@ -98,6 +100,8 @@ protected:
 
         g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
 
+        g_mockAampUtils = new NiceMock<MockAampUtils>();
+
         mStreamAbstractionAAMP_MPD = nullptr;
 
         mManifest = nullptr;
@@ -128,6 +132,9 @@ protected:
 
         delete g_mockPrivateInstanceAAMP;
         g_mockPrivateInstanceAAMP = nullptr;
+
+        delete g_mockAampUtils;
+        g_mockAampUtils = nullptr;
 
         mManifest = nullptr;
         if (mMPD)
@@ -233,6 +240,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 </MPD>
 )";
     std::string adBreakId = "Period-1";
+    EXPECT_CALL(*g_mockAampUtils, parseAndValidateSCTE35(_)).WillRepeatedly(Return(true));
 
     // LiveManifest=true and init=true
     InitializeMPD(manifest);
@@ -280,6 +288,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 </MPD>
 )";
     std::string adBreakId = "Period-1";
+    EXPECT_CALL(*g_mockAampUtils, parseAndValidateSCTE35(_)).WillRepeatedly(Return(true));
 
     // LiveManifest=false and init=true
     InitializeMPD(manifest);
@@ -334,6 +343,8 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 </MPD>
 )";
     std::string adBreakId = "Period-1";
+    EXPECT_CALL(*g_mockAampUtils, parseAndValidateSCTE35(_)).WillRepeatedly(Return(true));
+
     InitializeMPD(manifest);
     mStreamAbstractionAAMP_MPD->SetIsLiveManifest(true);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 27120))).Times(1);

@@ -876,6 +876,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 						node.duration = durationMs;
 						node.basePeriodId = bPeriodId;
 						node.basePeriodOffset = bOffset;
+						node.url = mAdFulfillObj.url;
 						node.resolved = true;
 						break;
 					}

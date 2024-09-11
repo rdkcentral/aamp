@@ -102,3 +102,8 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
 void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
 {
 }
+
+bool PrivateCDAIObjectMPD::isAdBreakObjectExist(const std::string &adBrkId)
+{
+	return false;
+}

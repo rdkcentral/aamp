@@ -524,3 +524,12 @@ TSB::LogLevel ConvertTsbLogLevel(int logLev)
 void UrlEncode(std::string inStr, std::string &outStr)
 {
 }
+
+bool parseAndValidateSCTE35(const std::string &scte35Data)
+{
+	if (g_mockAampUtils)
+	{
+		return g_mockAampUtils->parseAndValidateSCTE35(scte35Data);
+	}
+	return false;
+}
