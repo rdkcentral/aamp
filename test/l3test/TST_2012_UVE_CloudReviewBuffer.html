@@ -1,0 +1,176 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>TST_2012_UVE_CloudReviewBuffer</title>
+    <link rel="stylesheet" href="TST_UVE_style.css">
+    <script src="TST_UVE_utils.js"></script>
+    <script src="TST_UVE_vidcap.js"></script>
+</head>
+<script>
+
+// ------------------------------------------------------------------------------------
+// Checks the Cloud Review Buffer Functionality.
+// ------------------------------------------------------------------------------------
+// Performs a load with autoplay=false, followed by pause.
+// Checks for expected events, player is paused and then plays the stream.
+// Grabs two images while paused and compares them via post script.
+// ------------------------------------------------------------------------------------
+
+var initConfig = {
+    // enable AAMP info logging, and turn on Gstreamer pipeline debug
+    info: true,
+    gst: true,
+
+    // Set progress reporting to 0.5 secs
+    progressReportingInterval: 0.5
+};
+
+var firstFileCaptureName    = "IMG_000.jpg";
+var secondFileCaptureName   = "IMG_001.jpg";
+
+async function TST_UVE_CloudReviewBufferTests() {
+    TST_START("TST_UVE_CloudReviewBufferTests");
+    var stateChangedCount       = 0;
+    var speedChangedCount       = 0;
+    var progressUpdateCount     = 0;
+    var savedStateChange;
+    var savedSpeedChange;
+
+    TST_STEP("Init Vid Capture... ");
+    var vid_capture = new VideoCapture();
+    if (vid_capture.isActive()){
+        await vid_capture.Init();
+        var isInit = await vid_capture.WaitForInit();
+        TST_ASSERT ((isInit == true), ("Unexpected Init Status - Got: " + isInit + ", Expected: true"));
+    }
+    else {
+        TST_STEP("Video Capture not in use for this test run");
+    }
+
+    var aamp_player = new AAMPPlayer("MAIN-PLAYER");
+    aamp_player.player.initConfig(initConfig);
+
+    // Load the URL but don't start the playback
+    TST_STEP("Tune to URL");
+    await aamp_player.Load(mainContentUrl, false);
+
+    // Initialise requirements check before 'pausing'
+    await InitialiseRequirementsCheck();
+
+    // Pause playback without waiting for ratechange
+    TST_STEP("Pause playback");
+    await aamp_player.SetRate(0, false);
+
+    TST_STEP("Verify Requirements");
+    await PerformRequirementsCheck(aamp_player.player).catch(e => { TST_ASSERT_FAIL_FATAL(e) });
+
+    TST_STEP("Verify Paused");
+    await TST_SLEEP(1);             //Allow time to render "Verify Paused" message on screen before first screen grab
+
+    //Capture the first image
+    //Note: - while taking screen grab do not execute TST_STEP function to update any status information on the screen
+    // A post script is run to compare that both the screen grabs are identical.
+    if (vid_capture.isActive()){
+        await vid_capture.TakeScreenGrab(firstFileCaptureName);
+    }
+
+    //Verifying player is paused by comparing the position 5 seconds apart
+    var initial_position = aamp_player.player.getCurrentPosition();
+    await TST_SLEEP(5);
+    TST_ASSERT(initial_position == aamp_player.player.getCurrentPosition());
+
+    //Capture the second image - 5 seconds later
+    if (vid_capture.isActive()){
+        await vid_capture.TakeScreenGrab(secondFileCaptureName);
+    }
+
+    //Second screen grab has been done, the TST_STEP function can bow be executed.
+    // Check Normal Playback
+    TST_STEP("Normal Playback");
+    await aamp_player.SetRate(1);
+    await aamp_player.VerifyPlayback(5, 1);
+
+    // Stop the playback and destroy the AAMP Player
+    TST_STEP("Stop the playback");
+    await aamp_player.Stop();
+    aamp_player.destroy();
+
+    await vid_capture.Term();
+
+    TST_END();
+
+    function stateChangeListener(data)
+    {
+        console.log("local_stateChangeListener (playbackStateChanged): " + JSON.stringify(data));
+        savedStateChange = data.state;
+        stateChangedCount++;
+    }
+
+    function speedChangeListener(data)
+    {
+        console.log("local_speedChangeListener (playbackSpeedChanged): " + JSON.stringify(data));
+        savedSpeedChange = data.speed;
+        speedChangedCount++;
+    }
+
+    function progressUpdateListener(data)
+    {
+        console.log("local_progressUpdateListener (playbackProgressUpdate): " + JSON.stringify(data));
+        progressUpdateCount++;
+    }
+
+    function InitialiseRequirementsCheck() {
+        stateChangedCount       = 0;
+        speedChangedCount       = 0;
+        progressUpdateCount     = 0;
+
+        // Register event listeners
+        aamp_player.player.addEventListener("playbackStateChanged", stateChangeListener);
+        aamp_player.player.addEventListener("playbackSpeedChanged", speedChangeListener);
+        aamp_player.player.addEventListener("playbackProgressUpdate", progressUpdateListener);
+    }
+
+    //Blocking function which waits for three listener callbacks before returning.
+    function PerformRequirementsCheck(emitter) {
+        var requirementsCheckTimeout = 5000;
+
+        return new Promise((resolve, reject) => {
+            setTimeout(() => {
+                emitter.removeEventListener("playbackStateChanged", stateChangeListener);
+                emitter.removeEventListener("playbackSpeedChanged", speedChangeListener);
+                emitter.removeEventListener("playbackProgressUpdate", progressUpdateListener);
+
+                if ((stateChangedCount && (savedStateChange == aamp_State.eSTATE_PAUSED)) &&
+                    (speedChangedCount && (savedSpeedChange == 0)) &&
+                    progressUpdateCount ) {
+                    console.log("Requirements satisfied");
+                    resolve();
+                }
+                else {
+                    reject(new Error("Requirements not satisfied. savedSpeedChange: " + savedSpeedChange + " savedStateChange: "+ savedStateChange));
+                }
+            }, requirementsCheckTimeout);
+        });
+    }
+}
+
+// Run the test when the page loads
+window.onload = function() {
+    TST_UVE_CloudReviewBufferTests()
+}
+
+</script>
+<body>
+    <div id="videoContainer">
+        <video style="height:100%; width:100%; position:absolute; bottom:0; left:0">
+            <source src="dummy.mp4" type=video/ave> <!-- hole punching -->
+        </video>
+    </div>
+    <div id="testModal">
+        <p id="testData"></p>
+    </div>
+    <div id="infoModal">
+        <p id="infoData"></p>
+    </div>
+</body>
+</html>

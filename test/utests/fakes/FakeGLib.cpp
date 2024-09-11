@@ -85,6 +85,19 @@ void g_value_set_pointer(GValue *value, gpointer v_pointer)
 	TRACE_FUNC();
 }
 
+GParamSpec* g_object_class_find_property(GObjectClass* oclass, const gchar* property_name)
+{
+	GParamSpec* retval = NULL;
+
+	if (g_mockGLib != nullptr)
+	{
+		retval = g_mockGLib->g_object_class_find_property(oclass, property_name);
+	}
+
+	return retval;
+}
+
+
 void g_object_set_property(GObject *object, const gchar *property_name, const GValue *value)
 {
 	TRACE_FUNC();

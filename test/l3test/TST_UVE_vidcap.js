@@ -99,7 +99,25 @@ class VideoCapture {
         console.log("VideoCapture Capture EXIT: (status = " + status + ")");
     }
 
+    async TakeScreenGrab(filename)
+    {
 
+        console.log("VideoCapture Grab ENTER: filename=" + filename);
+
+        if (this.isActive()) {
+            var statusJson = await this.callUrl('/grab?filename=' + filename)
+
+            status = statusJson['status'];
+            if (status != 'ok'){
+                TST_ASSERT_FAIL_FATAL("Error calling Capture: " + status + " : " + statusJson['errorCode'])
+            }
+        }
+        else {
+            console.log("VideoCapture Grab: Not Active");
+        }
+
+        console.log("VideoCapture Grab EXIT: (status = " + status + ")");
+    }
     // Stop a video Capture Session
     async Stop()
     {

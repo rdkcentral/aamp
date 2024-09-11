@@ -247,6 +247,15 @@ void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlD
 {
 }
 
+void AAMPGstPlayer::SetPauseOnStartPlayback(bool enable)
+{
+	if (g_mockAampGstPlayer != nullptr)
+	{
+		g_mockAampGstPlayer->SetPauseOnStartPlayback(enable);
+	}
+}
+
 void RemoveProbes()
 {
 }
+

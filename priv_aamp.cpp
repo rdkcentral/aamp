@@ -1280,6 +1280,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mIsLoggingNeeded(false)
 	, mTSBSessionManager(NULL)
 	, mLocalAAMPTsb(false), mLocalAAMPInjectionEnabled(false)
+	, mbPauseOnStartPlayback(false)
 	, mTSBStore(nullptr)
 	, mIsFlushFdsInCurlStore(false)
 	, mProvidedManifestFile("")
@@ -1750,6 +1751,69 @@ void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
 {
 	// CID:306170 - Data race condition
 	SetIsPeriodChangeMarked(false);
+}
+
+/**
+ * @brief Set to pause on next playback start
+ */
+void PrivateInstanceAAMP::SetPauseOnStartPlayback(bool enable)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+
+	if (sink)
+	{
+		if (enable)
+		{
+			AAMPLOG_MIL("Initiated pause on start playback");
+		}
+		else if (mbPauseOnStartPlayback)
+		{
+			AAMPLOG_WARN("Interrupted pause on start playback");
+		}
+		else
+		{
+			// Intentionally left blank
+		}
+
+		sink->SetPauseOnStartPlayback(enable);
+		mbPauseOnStartPlayback = enable;
+	}
+	else
+	{
+		AAMPLOG_WARN("No StreamSink");
+		mbPauseOnStartPlayback = false;
+	}
+}
+
+/**
+ * @brief Notify reached paused when starting playback into paused state
+ */
+void PrivateInstanceAAMP::NotifyPauseOnStartPlayback(void)
+{
+	if (mbPauseOnStartPlayback)
+	{
+		AAMPLOG_INFO("Completed pause on start playback");
+		mbPauseOnStartPlayback = false;
+
+		StopDownloads();
+
+		NotifySpeedChanged(0, true);
+
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
+		}
+		if(GetLLDashServiceData()->lowLatencyMode)
+		{
+			AAMPLOG_INFO("LL-Dash speed correction disabled after Pause");
+			SetLLDashAdjustSpeed(false);
+		}
+
+		AAMPLOG_INFO("Live latency correction is disabled after Pause");
+		mDisableRateCorrection = true;
+
+		pipeline_paused = true;
+	}
 }
 
 /**
@@ -5748,6 +5812,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	// Reset current audio/text track index
 	mCurrentAudioTrackIndex = -1;
 	mCurrentTextTrackIndex = -1;
+	SetPauseOnStartPlayback(false);
 
 	mSchemeIdUriDai = GETCONFIGVALUE_PRIV(eAAMPConfig_SchemeIdUriDaiStream);
 
@@ -7732,6 +7797,7 @@ void PrivateInstanceAAMP::Stop()
 	// directly setting state variable . Calling SetState will trigger event :(
 	mState = eSTATE_IDLE;
 
+	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
 	mDisableRateCorrection = false;
@@ -8111,6 +8177,8 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 		}
 	}
 	InitializeCC(ccDecoderHandle);
+
+	NotifyPauseOnStartPlayback();
 }
 
 /**
