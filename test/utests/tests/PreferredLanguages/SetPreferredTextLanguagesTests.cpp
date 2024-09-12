@@ -490,3 +490,32 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest4)
 	/* Verify the preferred rendition list. */
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextRenditionString.c_str(), "rend1");
 }
+
+TEST_F(SetPreferredTextLanguagesTests, TypeTest)
+{
+	std::vector<TextTrackInfo> tracks;
+	std::string empty;
+	tracks.push_back(TextTrackInfo(empty,"lang0", true, "urn:scte:dash:cc:cea-708:2015", "English", "1", empty,empty,empty,"captions"));
+	tracks.push_back(TextTrackInfo(empty,"lang1", true, "urn:scte:dash:cc:cea-708:2015", "Spanish", "2", empty,empty,empty,"captions"));
+
+	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang0";
+	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
+	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
+	mPrivateInstanceAAMP->subtitles_muted = false;
+
+	/* Call SetPreferredTextLanguages() without changing the preferred languages
+	* list. There should be no retune.
+	*/
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+                .WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+                .Times(0);
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("lang0");
+
+	/* Verify the preferred languages list. */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang0");
+	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 1);
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang0");
+}
+
