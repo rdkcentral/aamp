@@ -5523,22 +5523,27 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 				}
 			}
 			
-			if( !aamp->preferredRenditionString.empty() )
+			auto role = adaptationSet->GetRole();
+			for (unsigned iRole = 0; iRole < role.size(); iRole++)
 			{
-				std::vector<IDescriptor *> rendition = adaptationSet->GetRole();
-				for (unsigned iRendition = 0; iRendition < rendition.size(); iRendition++)
+				auto rendition = role.at(iRole);
+				if (rendition->GetSchemeIdUri().find("urn:mpeg:dash:role:2011") != std::string::npos)
 				{
-					if (rendition.at(iRendition)->GetSchemeIdUri().find("urn:mpeg:dash:role:2011") != string::npos)
+					auto trackRendition = rendition->GetValue();
+					if (!aamp->preferredRenditionString.empty())
 					{
-						std::string trackRendition = rendition.at(iRendition)->GetValue();
-						if( aamp->preferredRenditionString.compare(trackRendition)==0 )
+						if (aamp->preferredRenditionString.compare(trackRendition) == 0)
 						{
 							score += AAMP_ROLE_SCORE;
 						}
 					}
+					else if (trackRendition == "main")
+					{
+						AAMPLOG_INFO("prioritizing main track");
+						score++; // tiebreaker - favor "main"
+					}
 				}
 			}
-
 			if( !aamp->preferredTypeString.empty() )
 			{
 				for( auto iter : adaptationSet->GetAccessibility() )
