@@ -6561,10 +6561,16 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 		{
 			pMediaStreamContext->fragmentDescriptor.Number += (long)((mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime) / fragmentDuration);
 		}
+		/*As the Init fragements download get happened only when the profile changed is true */
+		pMediaStreamContext->profileChanged = true;
+		return eAAMPSTATUS_OK;
 	}
-	/*As the Init fragements download get happened only when the profile changed is true */
-	pMediaStreamContext->profileChanged = true;
-	return eAAMPSTATUS_OK;
+	else
+	{
+		AAMPLOG_TRACE("StreamAbstractionAAMP_MPD:: Segment template not available");
+		return eAAMPSTATUS_MANIFEST_INVALID_TYPE;
+	}
+	
 }
 /**
  * @brief If Multiperiods exists then, this UpdateSeekPeriodOffset(), returns appropriate seek offset for skipping.
@@ -6714,6 +6720,10 @@ uint32_t StreamAbstractionAAMP_MPD::GetCurrentFragmentDuration( MediaStreamConte
 				ITimeline *timeline = timelines.at(pMediaStreamContext->timeLineIndex);
 				duration = timeline->GetDuration();
 			}
+		}
+		else
+		{
+			AAMPLOG_TRACE("StreamAbstractionAAMP_MPD:: Segment template not available");
 		}
 	}
 	return duration;
