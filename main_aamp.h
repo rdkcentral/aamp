@@ -328,10 +328,10 @@ struct TextTrackInfo
 	{
 	}
 	
-	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string codecStr, std::string cha, std::string typ, std::string lab, std::string type):
+	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string id, std::string cha, std::string typ, std::string lab, std::string type):
 		index(idx), language(lang), isCC(cc), rendition(rend),
-		name(trackName), instreamId(), characteristics(cha),
-		codec(codecStr), primaryKey(0), accessibilityType(typ), label(lab), mType(type), accessibilityItem(), isAvailable(true)
+		name(trackName), instreamId(id), characteristics(cha),
+		codec(), primaryKey(0), accessibilityType(typ), label(lab), mType(type), accessibilityItem(), isAvailable(true)
 	{
 	}
 

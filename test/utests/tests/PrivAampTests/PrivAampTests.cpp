@@ -330,6 +330,12 @@ TEST_F(PrivAampPrivTests,SetTextTrackTest_4)
 	int trackId = 1;
 	testp_aamp->SetTextTrack_obj(trackId,data);
 }
+
+TEST_F(PrivAampPrivTests,SetTextTrackTest_5)
+{
+	testp_aamp->SetTextTrack_obj(0,NULL);
+}
+
 TEST_F(PrivAampPrivTests, GetCurrentAudioTrackId_2)
 {
     testp_aamp->GetCurrentAudioTrackId_2();
@@ -2619,6 +2625,11 @@ TEST_F(PrivAampTests,SetPreferredTextLanguages)
 	p_aamp->SetPreferredTextLanguages( "{\"sub-type\":\"CLOSED-CAPTIONS\",\"language\":\"en\",\"rendition\":\"urn:scte:dash:cc:cea-708:2015\",\"instreamId\":\"2\",\"availability\":true}" );
 }
 
+TEST_F(PrivAampTests,SetPreferredTextLanguages1)
+{
+    p_aamp->SetPreferredTextLanguages( "{\"sub-type\":\"CLOSED-CAPTIONS\",\"language\":\"en\",\"rendition\":\"urn:scte:dash:cc:cea-708:2015\",\"instreamId\":\"1\",\"type\":\"captions\",\"availability\":true}" );
+}
+
 TEST_F(PrivAampTests,GetVideoRectangleTest)
 {
 	std::string str = p_aamp->GetVideoRectangle();
@@ -2714,6 +2725,17 @@ TEST_F(PrivAampTests,SetTextTrackTest)
     p_aamp->SetTextTrack(1,NULL);
     val = p_aamp->GetTextTrack();
     EXPECT_EQ(-1,val);
+}
+
+TEST_F(PrivAampTests,SetTextTrackTest_1)
+{
+	p_aamp->SetTextTrack(-1,NULL);
+	int val = p_aamp->GetTextTrack();
+	EXPECT_EQ(-1,val);
+
+	p_aamp->SetTextTrack(0,NULL);
+	val = p_aamp->GetTextTrack();
+	EXPECT_EQ(-1,val);
 }
 
 TEST_F(PrivAampTests,SetCCStatusTest)

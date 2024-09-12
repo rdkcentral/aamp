@@ -2297,3 +2297,9 @@ TEST_F(PauseAtTests, updateManifestTest2)
 	const char* manifestData = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"";
 	mPlayerInstance->updateManifest(manifestData);
 }
+
+TEST_F(PauseAtTests,SetTextTrackTest1)
+{
+	int trackID = 1;
+	mPlayerInstance->SetTextTrack(trackID,NULL);
+}
