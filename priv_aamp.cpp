@@ -3600,7 +3600,7 @@ void PrivateInstanceAAMP::StopTrackDownloads(AampMediaType type)
 		pthread_mutex_unlock(&mLock);
 		NotifySinkBufferFull(type);
 	}
-	AAMPLOG_DEBUG ("PrivateInstanceAAMP:: Enter. type = %d",  (int) type);
+	AAMPLOG_DEBUG ("PrivateInstanceAAMP:: Exit. type = %d",  (int) type);
 }
 
 /**

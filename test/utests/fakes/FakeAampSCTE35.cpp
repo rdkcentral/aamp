@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-#include "AampSCTE35.h"
+#include "scte35/AampSCTE35.h"
 
 SCTE35Decoder::SCTE35Decoder(std::string string) : mParent(nullptr), mLoop(nullptr),mOffset(0),mMaxOffset(),
 													mData(),mJsonObj(),mKey()
