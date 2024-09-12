@@ -8311,7 +8311,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					mIterPeriodIndex += (rate < 0) ? -1 : 1;
 					// Skipping period completely, so exit from period selection
 					ret = false;
-					break;
+					continue;
 				}
 
 				if (mBasePeriodId != newPeriod->GetId() && AdState::OUTSIDE_ADBREAK == mCdaiObject->mAdState)
@@ -8804,6 +8804,14 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 				else if(CheckEndOfStream(waitForAdBreakCatchup))
 				{
 					break;
+				}
+				else if(mIterPeriodIndex >= mNumberOfPeriods)
+				{
+					if (eAAMPSTATUS_MANIFEST_CONTENT_ERROR == UpdateMPD())
+					{
+						AAMPLOG_TRACE("Refreshing the manifest as mIterPeriodIndex[%d] >= mNumberOfPeriods[%d]", mIterPeriodIndex, mNumberOfPeriods);
+					}
+					continue;
 				}
 				else
 				{
