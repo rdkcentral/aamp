@@ -15,12 +15,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5)
-project(ComponentTests)
+set(EXEC_NAME TsbStoreRealFsTests)
 
+include_directories(${TSB_ROOT}/api)
+include_directories(${TSB_ROOT}/src/fs)
 
-set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1)
+set(TSB_SOURCES ${TSB_ROOT}/src/TsbStore.cpp ${TSB_ROOT}/src/TsbLog.cpp ${TSB_ROOT}/src/TsbSem.cpp ${TSB_ROOT}/src/TsbLocationLock.cpp)
+set(TEST_SOURCES TsbStoreTestsMain.cpp TsbStoreTests.cpp)
 
-add_definitions(-DENABLE_TSB_LOGGER)
-add_compile_options(-Wall -Wextra -Wpedantic -Werror -Werror=effc++)
-add_subdirectory(tests)
+add_executable(${EXEC_NAME}
+               ${TEST_SOURCES}
+               ${TSB_SOURCES})
+set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+
+target_link_libraries(${EXEC_NAME} ${OS_LD_FLAGS} GTest::gtest_main)
+
+tsb_test_run_add(${EXEC_NAME})

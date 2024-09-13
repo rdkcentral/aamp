@@ -61,14 +61,13 @@ KeyID::KeyID() : creationTime(0), isFailedKeyId(false), isPrimaryKeyId(false), d
 {
 }
 
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 /**
  *  @brief Get formatted URL of license server
  *
  *  @param[in] url URL of license server
  *  @return		formatted url for secclient license acqusition.
  */
-static std::string getFormattedLicenseServerURL( const std::string &url)
+std::string getFormattedLicenseServerURL( const std::string &url)
 {
 	size_t startpos = 0;
 	size_t len = url.length();
@@ -90,8 +89,6 @@ static std::string getFormattedLicenseServerURL( const std::string &url)
 	}
 	return url.substr(startpos, len);
 }
-
-#endif
 
 /**
  *  @brief AampDRMSessionManager constructor.

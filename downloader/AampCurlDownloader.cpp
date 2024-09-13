@@ -104,16 +104,6 @@ double aamp_CurlEasyGetinfoDouble( CURL *handle, CURLINFO info )
 	return rc;
 }
 
-int aamp_CurlEasyGetinfoInt( CURL *handle, CURLINFO info )
-{
-	int rc = 0;
-	if( handle && curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
-	{
-		AAMPLOG_WARN( "aamp_CurlEasyGetinfoInt failure" );
-	}
-	return rc;
-}
-
 long aamp_CurlEasyGetinfoLong( CURL *handle, CURLINFO info )
 {
 	long rc = -1;
@@ -200,7 +190,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 					}
 					else
 					{
-						httpRetVal = mDownloadResponse->iHttpRetValue = aamp_CurlEasyGetinfoInt(mCurl, CURLINFO_RESPONSE_CODE);
+						httpRetVal = mDownloadResponse->iHttpRetValue =  (int)aamp_CurlEasyGetinfoLong( mCurl, CURLINFO_RESPONSE_CODE );
 					}
 					if(mDownloadResponse->iHttpRetValue == 408 && mDnldCfg->iDownloadRetryCount == 0)
 					{

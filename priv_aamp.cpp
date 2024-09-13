@@ -1281,17 +1281,16 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mLocalAAMPTsb(false), mLocalAAMPInjectionEnabled(false)
 	, mTSBStore(nullptr)
 	, mIsFlushFdsInCurlStore(false)
+	, mProvidedManifestFile("")
 {
 	mLogObj = mConfig->GetLoggerInstance();
-	mLogObj->setPlayerId(mPlayerId); // update logger with incremented PLAYERID_CNTR
-	//LazilyLoadConfigIfNeeded();
-	mAampCacheHandler = new AampCacheHandler(mConfig->GetLoggerInstance());
+	mAampCacheHandler = new AampCacheHandler(mPlayerId, mConfig->GetLoggerInstance());
 #ifdef AAMP_CC_ENABLED
 	AampCCManager::GetInstance()->SetLogger(mConfig->GetLoggerInstance());
 #endif
 	profiler.SetLogger(mConfig->GetLoggerInstance());
 	// Create the event manager for player instance
-	mEventManager = new AampEventManager(mLogObj);
+	mEventManager = new AampEventManager(mPlayerId, mLogObj);
 	// Create the CMCD collector
 	mCMCDCollector = new AampCMCDCollector(mLogObj);
 
@@ -5161,7 +5160,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		{
 			// Prepare the manifest download configuration
 			std::shared_ptr<ManifestDownloadConfig> inpData = prepareManifestDownloadConfig();
-			mMPDDownloaderInstance->Initialize(inpData,mLogObj,mAppName);
+			if(!inpData->mPreProcessedManifest.empty())
+			{
+				mMPDDownloaderInstance->Initialize(inpData, mLogObj, mAppName, std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, this));
+			}
+			else
+			{
+				mMPDDownloaderInstance->Initialize(inpData, mLogObj, mAppName, nullptr);
+			}
 			mMPDDownloaderInstance->Start();
 		}
 	}
@@ -5658,7 +5664,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 								bool audioDecoderStreamSync,
 								const char *refreshManifestUrl,
 								int mpdStichingMode,
-								std::string sid)
+								std::string sid,
+								const char *manifestData )
 {
 	int iCacheMaxSize = 0;
 	double tmpVar=0;
@@ -5685,7 +5692,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_INFO);
 
 	SetSessionId(std::move(sid));
-
+	mProvidedManifestFile.clear();
+	if(manifestData != NULL)
+	{
+		mProvidedManifestFile = manifestData;
+	}
 	seek_pos_seconds = GETCONFIGVALUE_PRIV(eAAMPConfig_PlaybackOffset);
 	preferredRenditionString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioRendition);
 	preferredCodecString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioCodec);
@@ -13278,6 +13289,10 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mDnldConfig->sCustomHeaders = sCustomHeaders;
 	inpData->mCMCDCollector = mCMCDCollector;
 	inpData->mIsLLDConfigEnabled	=	ISCONFIGSET_PRIV(eAAMPConfig_EnableLowLatencyDash);
+	if(!mProvidedManifestFile.empty())
+	{
+		inpData->mPreProcessedManifest = std::move(mProvidedManifestFile);
+	}
 
 	curl_slist_free_all(headers);
 
@@ -13490,4 +13505,37 @@ AampTSBSessionManager *PrivateInstanceAAMP::GetTSBSessionManager()
 		return mTSBSessionManager;
 	}
 	return NULL;
+}
+
+std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+{
+	std::string  bRetManifestData;
+	pthread_mutex_lock(&mPreProcessLock);
+	if(!mProvidedManifestFile.empty())
+	{
+		bRetManifestData = std::move(mProvidedManifestFile);
+		mProvidedManifestFile.clear();
+	}
+	else
+	{
+		AAMPLOG_WARN("PreProcessed Manifest not available send Need Manifest data event to application");
+		SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_NEED_MANIFEST_DATA, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
+	}
+	pthread_mutex_unlock(&mPreProcessLock);
+	return bRetManifestData;
+}
+
+void PrivateInstanceAAMP::updateManifest(const char *manifestData)
+{
+	if(NULL != manifestData)
+	{
+		pthread_mutex_lock(&mPreProcessLock);
+		if(!mProvidedManifestFile.empty())
+		{
+			AAMPLOG_WARN("Previous preprocessed manifest is not read, update with new manifest info");
+			mProvidedManifestFile.clear();
+		}
+		mProvidedManifestFile = manifestData;
+		pthread_mutex_unlock(&mPreProcessLock);
+	}
 }

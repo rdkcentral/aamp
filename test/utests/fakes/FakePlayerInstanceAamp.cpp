@@ -41,7 +41,8 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 									bool audioDecoderStreamSync,
 									const char *refreshManifestUrl,
 									int mpdStichingMode,
-									std::string session_id
+									std::string session_id,
+									const char *preprocessedManifest
 									) { }
     void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent) {  }
 	void PlayerInstanceAAMP::ResetConfiguration() {  }

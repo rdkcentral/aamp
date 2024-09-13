@@ -485,6 +485,14 @@ const char *GetDrmSystemName(DRMSystems drmSystem)
 	return "";
 }
 
+DRMSystems GetDrmSystem(std::string drmSystemID)
+{
+	return eDRM_NONE;
+}
+void mssleep(int milliseconds)
+{
+}
+
 const char *GetDrmSystemID(DRMSystems drmSystem)
 {
 	return "";

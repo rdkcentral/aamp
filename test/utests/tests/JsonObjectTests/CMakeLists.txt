@@ -32,7 +32,7 @@ include_directories(${UTESTS_ROOT}/mocks)
 
 set(TEST_SOURCES JsonObjectTests.cpp
                  JsonObjectRun.cpp)
-                 
+
 set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
                  ${AAMP_ROOT}/iso639map.cpp
                  ${AAMP_ROOT}/AampUtils.cpp)
@@ -58,4 +58,4 @@ target_link_libraries(${EXEC_NAME} ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} fakes $
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+aamp_utest_run_add(${EXEC_NAME})

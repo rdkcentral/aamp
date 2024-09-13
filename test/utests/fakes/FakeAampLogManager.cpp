@@ -71,16 +71,19 @@ static const char *mLogLevelStr[] =
 	"FATAL"
 };
 
-void logprintf(int playerId, AAMP_LogLevel level, const char* file, int line, const char *format, ...)
+thread_local int gPlayerId = -1;
+
+void logprintf(AAMP_LogLevel level, const char* file, int line, const char *format, ...)
 {
 #ifdef ENABLE_LOGGING
+	int playerId = -1;
 	char *format_ptr = NULL;
 	int format_bytes = 0;
 	for( int pass=0; pass<2; pass++ )
 	{ // two pass: measure required bytes then populate format string
 		format_bytes = snprintf(format_ptr, format_bytes,
 							   "[AAMP-PLAYER][%d][%s][%zx][%s][%d]%s\n",
-							   playerId,
+							   gPlayerId,
 							   mLogLevelStr[level],
 							   GetPrintableThreadID(),
 							   file, line,

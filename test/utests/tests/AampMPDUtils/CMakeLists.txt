@@ -45,7 +45,7 @@ set (DASH_PARSER_SOURCES ${AAMP_ROOT}/dash/xml/DomDocument.cpp
                 ${AAMP_ROOT}/dash/utils/Url.cpp
                 ${AAMP_ROOT}/dash/utils/StringEx.cpp
                 ${AAMP_ROOT}/dash/utils/Path.cpp)
-                
+
 set(TEST_SOURCES FunctionalTests.cpp
                  AampMPDUtils.cpp)
 
@@ -70,4 +70,4 @@ target_link_libraries(${EXEC_NAME} fakes -lpthread ${LIBDASH_LINK_LIBRARIES} ${G
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+aamp_utest_run_add(${EXEC_NAME})

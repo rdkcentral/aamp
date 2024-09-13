@@ -17,7 +17,7 @@ display_help() {
 }
 
 # Process command-line options
-while getopts ":d:f:a:l:tkh" opt; do
+while getopts "d:f:a:l:wkh" opt; do
   case $opt in
     d)
       VIDEO_LENGTH_SEC="$OPTARG"
@@ -66,22 +66,26 @@ source helper/generate-iframe-track.sh
 source helper/generate-audio-data.sh
 source helper/generate-audio-manifests.sh
 if [ "$RUN_HLS" == 1 ]; then
+	echo "Generate HLS"
 	source helper/generate-muxed-video.sh
 	source helper/generate-mux-manifest.sh
 	source helper/generate-hls-manifest.sh
 fi
 
 if [ "$RUN_DASH" == 1 ]; then
+	echo "Generate DASH"
 	source helper/generate-dash-manifest.sh
 	source helper/generate-mp4-manifest.sh
 fi
 
 if [ "$GEN_TTML" == 1 ]; then
+	echo "Generate TTML"
 	source mp4tool/generate_ttml.sh
 	generate_ttml_tracks $VIDEO_LENGTH_SEC
 fi
 
 if [ "$GEN_WEBVTT" == 1 ]; then
+	echo "Generate WEBVTT"
 	source helper/generate-text-data.sh
 fi
 

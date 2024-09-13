@@ -15,16 +15,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(COVERAGE_COMPILER_FLAGS "-g --coverage"
-    CACHE INTERNAL "")
-if(CMAKE_CXX_COMPILER_ID MATCHES "(GNU|Clang)")
-    include(CheckCXXCompilerFlag)
-    check_cxx_compiler_flag(-fprofile-abs-path HAVE_fprofile_abs_path)
-    if(HAVE_fprofile_abs_path)
-        set(COVERAGE_COMPILER_FLAGS "${COVERAGE_COMPILER_FLAGS} -fprofile-abs-path")
-    endif()
+set(TSB_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../../../../tsb)
+
+# Add the aamp/test/common directory to the module include path.
+# This provides access to the CodeCoverage.cmake module.
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../../test/common")
+
+if (COVERAGE_ENABLED)
+	include(CodeCoverage)
+	APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
+
+function(tsb_test_run_add test_suite)
+	if (CMAKE_XCODE_BUILD_SYSTEM)
+		# XCode schema target
+		xcode_define_schema(${test_suite})
+	endif()
+
+	if (CMAKE_PROJECT_NAME STREQUAL UnitTests)
+		aamp_utest_run_add(${test_suite})
+	else()
+		gtest_discover_tests(${test_suite} TEST_PREFIX ${test_suite}:)
+	endif()
+endfunction()
 
 include(CTest)
 include(FetchContent)
@@ -36,8 +53,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 include(GoogleTest)
- 
-set(CMAKE_CXX_FLAGS ${COVERAGE_COMPILER_FLAGS})
-add_subdirectory (l1tests)
-add_subdirectory (l2tests)
 
+add_subdirectory (MockFilesystemTests)
+add_subdirectory (RealFilesystemTests)

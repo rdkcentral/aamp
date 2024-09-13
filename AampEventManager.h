@@ -72,6 +72,8 @@ private:
 	AampLogManager *mLogObj;
 
 protected:
+	int mPlayerId;
+	
 	/**
 	 * @fn AsyncEvent
 	 * @return void
@@ -100,6 +102,7 @@ protected:
 	{
 		guint callbackId =	g_source_get_id(g_main_current_source());
 		AampEventManager *evtMgr = (AampEventManager *)This;
+		UsingPlayerId playerId( evtMgr->mPlayerId );
 		evtMgr->SetCallbackAsDispatched(callbackId);
 		evtMgr->AsyncEvent();
 		return G_SOURCE_REMOVE ;
@@ -123,7 +126,7 @@ public:
 	 * @fn AampEventManager
 	 * @return void
 	 */
-	AampEventManager(AampLogManager *logObj);
+	AampEventManager(int playerId, AampLogManager *logObj);
 	/**
 	 * @fn ~AampEventManager
 	 */

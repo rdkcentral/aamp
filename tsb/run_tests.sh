@@ -19,7 +19,7 @@
 #
 # This script will build and run TSB L1 and L2 tests.
 
-cmake -DCMAKE_BUILD_TYPE=Debug .
+cmake -DCMAKE_BUILD_TYPE=Debug -DCOVERAGE_ENABLED=ON .
 make VERBOSE=1
 ctest --output-on-failure
 output=Test_Coverage/index.html

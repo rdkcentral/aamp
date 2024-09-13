@@ -189,7 +189,7 @@ AampMPDDownloader::~AampMPDDownloader()
 *   @fn Initialize
 *   @brief Initialize with MPD Download Input
 */
-void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, AampLogManager *logObj, std::string appName)
+void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, AampLogManager *logObj, std::string appName,std::function<std::string()> mpdPreProcessFuncptr)
 {
 	if(mpdDnldCfg == nullptr)
 	{
@@ -208,6 +208,11 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, AampLog
 
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 	mMPDDnldCfg = mpdDnldCfg;
+
+	if(mpdPreProcessFuncptr)
+	{
+		mMpdPreProcessFuncptr = mpdPreProcessFuncptr;
+	}
 
 }
 
@@ -379,7 +384,35 @@ void AampMPDDownloader::downloadMPDThread1()
 			AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, tuneUrl.c_str());
 			mMPDData = std::make_shared<ManifestDownloadResponse> ();
 		}
-		mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
+		//If Manifest data already provided use it ,not required to download the Manifest
+		if (!mMPDDnldCfg->mPreProcessedManifest.empty())
+		{
+			AAMPLOG_WARN("PreProcessed manifest provided");
+			mMPDData->mMPDDownloadResponse->replaceDownloadData(mMPDDnldCfg->mPreProcessedManifest);
+			mMPDData->mMPDDownloadResponse->iHttpRetValue = 200;
+			mMPDData->mMPDDownloadResponse->sEffectiveUrl.assign(tuneUrl);
+			mMPDDnldCfg->mPreProcessedManifest.clear();
+		}
+		else
+		{
+			if( NULL != mMpdPreProcessFuncptr)
+			{
+				std::string updatedManfiest = mMpdPreProcessFuncptr();
+				if(!updatedManfiest.empty())
+				{
+					mMPDData->mMPDDownloadResponse->replaceDownloadData(updatedManfiest);
+					mMPDData->mMPDDownloadResponse->iHttpRetValue = 200;
+				}
+				else
+				{
+					mMPDData->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
+				}
+			}
+			else
+			{
+				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
+			}
+		}
 
 		if(mMPDData->mMPDDownloadResponse->curlRetValue == 0 && IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue))
 		{

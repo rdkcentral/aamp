@@ -46,10 +46,38 @@ function tools_install_fn ()
         MIN_MACOS_VER=10.15
 
         CUR_MACOS_VER=$(sw_vers | grep ProductVersion | grep -Eo '[0-9]+\.[0-9]+')
-        CUR_XTOOLS_VER=$(xcrun --sdk macosx --show-sdk-path | grep -Eo '[0-9]+\.[0-9]+')
-        CUR_XCODE_VER=$(xcodebuild -version | grep Xcode | grep -Eo '[0-9]+\.[0-9]+')
+        if [[ -z $(which xcrun) ]] ; then
+            CUR_XTOOLS_VER=""
+        else
+            CUR_XTOOLS_VER=$(xcrun --sdk macosx --show-sdk-path | grep -Eo '[0-9]+\.[0-9]+') || true
+        fi
+
+        if [[ -z $(which xcodebuild) ]] ; then
+            CUR_XCODE_VER=""
+        else
+            CUR_XCODE_VER=$(xcodebuild -version | grep Xcode | grep -Eo '[0-9]+\.[0-9]+') || true
+        fi
 
         echo "MacOS ${CUR_MACOS_VER} / Xcode ${CUR_XCODE_VER} / Command Line Tools ${CUR_XTOOLS_VER}"
+
+        if [[ -z ${CUR_XTOOLS_VER} || -z ${CUR_XCODE_VER} ]] ; then
+            echo "Xcode or Xcode CLI tools installation not found."
+            echo -e "
+  XCode and Xcode Command Line Tools can be found here. 
+  https://developer.apple.com/download/all/?q=xcode%20${CUR_MACOS_VER}
+ 
+  Download the required XIP file(s). Double-click the XIP file(s) to make its content available 
+  (the name will show up in the Finder sidebar), and a window generally opens also showing the 
+  content. Drag the application from the dialog into the Applications directory to install (you 
+  may need an administrator password). Wait for the copy process to finish.
+
+  Then run the following:
+  sudo installer -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_\${CUR_TOOLS_VER}.pkg -target /
+  where \${CUR_TOOLS_VER} is the tools version number, e.g. 13.3 or 14.4
+  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+"
+            return 1
+        fi
 
         #Check if Xcode is installed
         if XPATH=$( xcode-select --print-path ) &&
@@ -58,22 +86,17 @@ function tools_install_fn ()
         else    
             #... isn't correctly installed
             echo "Xcode tools installation not found."
-            echo -e "
-  Command Line Tools for XCode can be found here. 
-  https://developer.apple.com/download/all/?q=command%20line%20tools%20for%20xcode
- 
-  Double-click the DMG file to make its content available (the name will show up in the Finder sidebar), 
-  and a window generally opens also showing the content. Drag the application from the DMG window into 
-  the Applications directory to install (you may need an administrator password). Wait for the copy process to finish.
-
-  Then run the following:
-  sudo installer -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_\${CUR_TOOLS_VER}.pkg -target /
-  where \${CUR_TOOLS_VER} is the tools version number, e.g. 13.3 or 14.4
-  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-"
             return 1
         fi 
 
+        # Check if homebrew is installed
+        if [[ -z $(which brew) ]] ; then
+            echo "brew installation not found."
+            echo -e "
+To install brew download and run the install script.
+curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh"
+            return 1
+        fi
 
     elif [[ "${OSTYPE}" == "linux"* ]]; then
 

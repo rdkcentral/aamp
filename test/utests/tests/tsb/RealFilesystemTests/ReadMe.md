@@ -1,4 +1,4 @@
-# TSB L2 component tests
+# TSB real filesystem unit tests
 
 A test infrastructure using GoogleTest C++ testing and mocking framework, to verify the behaviour of the TSB library as a whole,
 writing to and reading from a real filesystem using the C++ standard library.

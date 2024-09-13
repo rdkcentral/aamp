@@ -35,7 +35,7 @@ set(TEST_SOURCES UrlEncDecTests.cpp
                  UrlEncDecAAMPTests.cpp)
 
 # AampUtils.cpp is omitted, it is #include in the test file to allow testing of static function
-set(AAMP_SOURCES 
+set(AAMP_SOURCES
 		${AAMP_ROOT}/iso639map.cpp
 		${AAMP_ROOT}/_base64.cpp)
 
@@ -57,4 +57,4 @@ set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+aamp_utest_run_add(${EXEC_NAME})

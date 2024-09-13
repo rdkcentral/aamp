@@ -100,7 +100,6 @@ TEST_F(FunctionalTests, AampCurlDownloader_PreDownloadTest_4)
 {
 	CURL *handle = NULL;
 	CURLINFO info;
-	EXPECT_EQ(aamp_CurlEasyGetinfoInt(handle, info), 0);
 	EXPECT_EQ(aamp_CurlEasyGetinfoDouble(handle, info), 0.0);
 	EXPECT_EQ(aamp_CurlEasyGetinfoLong(handle, info), -1);
 	EXPECT_EQ(aamp_CurlEasyGetinfoString(handle, info), nullptr);

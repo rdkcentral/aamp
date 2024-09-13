@@ -25,6 +25,7 @@
 #include "AampDefine.h"
 #include "AampConfig.h"
 #include "AampLogManager.h"
+#include "priv_aamp.h"
 #include <thread>
 #include <unistd.h>
 
@@ -51,6 +52,7 @@ protected:
     std::string appName;
     ManifestDownloadConfigPtr mpdDnldCfg;
     ManifestDownloadResponsePtr dnldManifest;
+    PrivateInstanceAAMP *mPrivateInstanceAAMP1{};
     void SetUp() override
     {
         mLogObj = new AampLogManager();
@@ -274,3 +276,18 @@ TEST_F(FunctionalTests, ParseMpdDocumentTest1)
     EXPECT_NO_THROW(manifestResponse->parseMpdDocument());
 }
 
+TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_6)
+{
+	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> ();
+	inpData->mPreProcessedManifest = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"";
+	if(!inpData->mPreProcessedManifest.empty())
+	{
+		EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData, &logObj, appName,std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, mPrivateInstanceAAMP1)));
+	}
+	else
+	{
+		EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
+	}
+	EXPECT_NO_THROW(mAampMPDDownloader->Start());
+	EXPECT_NO_THROW(mAampMPDDownloader->Release());
+}

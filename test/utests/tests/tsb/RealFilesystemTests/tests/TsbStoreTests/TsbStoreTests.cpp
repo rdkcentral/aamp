@@ -30,7 +30,8 @@
 namespace fs = std::filesystem;
 using namespace std::chrono_literals;
 
-#define TSB_BASE_LOCATION		"/tmp/tsb_location_L2"
+// RFT = Real Filesystem Test
+#define TSB_BASE_LOCATION		"/tmp/tsb_location_RFT"
 #define TSB_LOCATION_TEMPLATE	TSB_BASE_LOCATION"/baseXXXXXX"
 
 const uint32_t kMinFreePercent{5};
@@ -40,7 +41,7 @@ const char kFileContent[] {"content of the file"};
 
 void Logger(std::string&& tsbMessage)
 {
-	std::cout << "[L2]" << std::move(tsbMessage) << std::endl;
+	std::cout << "[RFT]" << std::move(tsbMessage) << std::endl;
 }
 
 TEST(TsbStoreCreateDestroyTests, Negative_Unwriteable_Clean_Create_Destroy)

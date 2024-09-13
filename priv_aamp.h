@@ -599,6 +599,7 @@ public:
 	 * @param[in] refreshManifestUrl -
 	 * @param[in] mpdStichingMode -
 	 * @param[in] sid - Session ID defined by the player
+	 * @param[in] manifestData - preprocessed manifest provided by application
 	 * @return void
 	 */
 	void Tune(const char *url,
@@ -610,7 +611,8 @@ public:
 				bool audioDecoderStreamSync = true,
 				const char *refreshManifestUrl = NULL,
 				int mpdStichingMode = 0,
-				std::string sid = {}
+				std::string sid = {},
+				const char *manifestData = NULL
 				);
 
 	/**
@@ -792,6 +794,20 @@ public:
 	 */
 	std::shared_ptr<TSB::Store> GetTSBStore(const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level);
 
+	/**
+	* @brief Function pointer passed as argument to AampMPDDownloader class. This function is invoked to read the preprocessed manifest provided by application.
+	*  Also it generate error event if preprocessed manifest is not available.
+	*
+	* @return modified manifest data
+	*/
+	std::string SendManifestPreProcessEvent();
+
+	/**
+	 * @brief This function is invoked by application with the available preprocessed manifest information
+	 * This function is invoked continuously when ever there is an update in manifest
+	 */
+	void updateManifest(const char *manifestData);
+
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
 	std::vector< std::pair<long long,long> > mAbrBitrateData;
@@ -831,6 +847,7 @@ public:
 	std::string mTsbSessionRequestUrl;
 	std::string mSchemeIdUriDai;
 	std::string mMPDStichRefreshUrl;
+	std::string mProvidedManifestFile;              // provided manifest data
 	MPDStichOptions	mMPDStichOption;
 	AampURLInfoStruct mOrigManifestUrl;					/**< Original Manifest URl */
 
@@ -4440,6 +4457,7 @@ protected:
 	AampTSBSessionManager *mTSBSessionManager;
 	bool mLocalAAMPInjectionEnabled;
 	bool mLocalAAMPTsb;
+	pthread_mutex_t mPreProcessLock;
 
 public:
 	AampLogManager *mLogObj;

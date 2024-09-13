@@ -86,7 +86,7 @@ if(SEC_CLIENT_HEADERS)
 					 ${AAMP_ROOT}/drm/helper/AampClearKeyHelper.cpp
 					 ${AAMP_ROOT}/drm/helper/AampWidevineDrmHelper.cpp
 					 ${AAMP_ROOT}/drm/helper/AampPlayReadyHelper.cpp
-					 ${AAMP_ROOT}/isobmff/isobmffbox.cpp 
+					 ${AAMP_ROOT}/isobmff/isobmffbox.cpp
 					 ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
 
 	add_definitions(-DUSE_SHARED_MEMORY)
@@ -123,5 +123,4 @@ endif()
 
 target_link_libraries(${EXEC_NAME} ${LIBCJSON_LINK_LIBRARIES} ${UUID_LINK_LIBRARIES} pthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
-
+aamp_utest_run_add(${EXEC_NAME})

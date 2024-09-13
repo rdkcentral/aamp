@@ -1485,7 +1485,7 @@ TEST_F(PrivAampTests, TuneHelperTest_2)
 	bool flag = p_aamp->IsNewTune();
 	EXPECT_TRUE(flag);
 
-	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id);
+	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id,NULL);
 
 	p_aamp->mMediaFormat=eMEDIAFORMAT_HDMI;
 	p_aamp->TuneHelper(tuneType,true);
@@ -1517,13 +1517,20 @@ TEST_F(PrivAampTests, ReloadTSBTest)
 TEST_F(PrivAampTests, TuneTest)
 {
 	EXPECT_CALL(*g_mockAampStreamSinkManager, ActivatePlayer(p_aamp));
-	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id);
+	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id,NULL);
 }
 
 TEST_F(PrivAampTests, TuneTest_1)
 {
 	EXPECT_CALL(*g_mockAampStreamSinkManager, UpdateTuningPlayer(p_aamp));
-	p_aamp->Tune("sampleUrl",false,NULL,true,false,NULL,true,NULL,0, session_id);
+	p_aamp->Tune("sampleUrl",false,NULL,true,false,NULL,true,NULL,0, session_id,NULL);
+}
+
+TEST_F(PrivAampTests, TuneTest_2)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, ActivatePlayer(p_aamp));
+	const char* manifestData = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"";
+	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id,manifestData);
 }
 
 TEST_F(PrivAampTests, GetLangCodePreferenceTest)
@@ -3537,7 +3544,7 @@ TEST_F(PrivAampTests, TuneHelperTest_11)
 	bool flag = p_aamp->IsNewTune();
 	EXPECT_TRUE(flag);
 
-	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id);
+	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id,NULL);
 
 	//covering if condition for mMediaFormat=eMEDIAFORMAT_PROGRESSIVE
 	p_aamp->mMediaFormat=eMEDIAFORMAT_PROGRESSIVE;
