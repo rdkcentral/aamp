@@ -199,7 +199,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 	adMPDParseHelper  = new AampMPDParseHelper();
 	adMPDParseHelper->Initialize(mpd);
 	//Populate the map to specify the period boundaries
-	if(mpd && (-1 != mPlacementObj.curAdIdx) && "" != mPlacementObj.pendingAdbrkId && isAdBreakObjectExist(mPlacementObj.pendingAdbrkId)) //Some Ad is still waiting for the placement
+	if(mpd && (-1 != mPlacementObj.curAdIdx) && "" != mPlacementObj.pendingAdbrkId && isAdBreakObjectExist(mPlacementObj.pendingAdbrkId) && !mAdBreaks[mPlacementObj.pendingAdbrkId].mSrcPeriodOffsetGTthreshold) //Some Ad is still waiting for the placement
 	{
 		AdBreakObject &abObj = mAdBreaks[mPlacementObj.pendingAdbrkId];
 		vector<IPeriod *> periods = mpd->GetPeriods();
