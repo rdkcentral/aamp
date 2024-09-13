@@ -99,21 +99,25 @@ cat <<EOL > text/${LANG_639_2[$I]}_subs.m3u8
 #EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-MEDIA-SEQUENCE:0
-#EXT-X-TARGETDURATION:$TTML_DUR
+#EXT-X-TARGETDURATION:$TEXT_SEGMENT_SEC
+#EXT-X-MAP:URI="ttml_${LANG_639_2[$I]}_init.mp4"
 EOL
 
-totalTracks=($VIDEO_LENGTH_SEC/$TTML_DUR)
+totalTracks=($VIDEO_LENGTH_SEC/$TEXT_SEGMENT_SEC)
 
 for (( T=1; T<=totalTracks; T++ ))
 do
-if [ "$T" -le 10 ]; then
-	Track="ttml_${LANG_639_2[$I]}_0$T.mp4"
+
+if [ "$T" -lt 10 ]; then
+        Track="ttml_${LANG_639_2[$I]}_00$T.mp4"
+elif [ "$T" -ge 10 ] && [ "$T" -le 100 ]; then
+        Track="ttml_${LANG_639_2[$I]}_0$T.mp4"
 else
-	Track="ttml_${LANG_639_2[$I]}_$T.mp4"
+        Track="ttml_${LANG_639_2[$I]}_$T.mp4"
 fi
 
 cat <<EOL >> text/${LANG_639_2[$I]}_subs.m3u8
-#EXTINF:$TTML_DUR,
+#EXTINF:$TEXT_SEGMENT_SEC,
 $Track
 EOL
 done

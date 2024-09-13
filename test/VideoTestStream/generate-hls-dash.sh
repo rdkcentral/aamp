@@ -81,7 +81,7 @@ fi
 if [ "$GEN_TTML" == 1 ]; then
 	echo "Generate TTML"
 	source mp4tool/generate_ttml.sh
-	generate_ttml_tracks $VIDEO_LENGTH_SEC
+	generate_ttml_tracks $VIDEO_LENGTH_SEC $TEXT_SEGMENT_SEC
 fi
 
 if [ "$GEN_WEBVTT" == 1 ]; then

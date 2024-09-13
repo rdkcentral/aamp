@@ -47,8 +47,6 @@ VIDEO_CODEC="h264"
 
 #To generate TTML text track
 GEN_TTML=1
-#TTML text track duration default as 30 sec
-TTML_DUR=30 
 
 #To generate webvtt text track
 GEN_WEBVTT=0

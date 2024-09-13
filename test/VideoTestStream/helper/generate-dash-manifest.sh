@@ -111,7 +111,7 @@ do
 	  <Representation id="${LANG_FULL_NAME[$I]} WebVTT captions" mimeType="text/vtt" codecs="wvtt" bandwidth="400">
 		<SegmentTemplate timescale="1" media="dash/${LANG_639_2[$I]}_\$Number%03d$.vtt" startNumber="1">
 		  <SegmentTimeline>
-			  <S t="0" d="2" r="$((VIDEO_LENGTH_SEC/2))" />
+			  <S t="0" d="$TEXT_SEGMENT_SEC" r="$((VIDEO_LENGTH_SEC/$TEXT_SEGMENT_SEC))" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -129,9 +129,9 @@ do
 	<AdaptationSet id="$AdaptationSetId" contentType="text" segmentAlignment="true" lang="${LANG_639_3[$I]}">
 	  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
 	  <Representation id="${LANG_FULL_NAME[$I]} TTML captions" mimeType="application/mp4" codecs="stpp" bandwidth="400">
-		<SegmentTemplate timescale="1" media="text/ttml_${LANG_639_2[$I]}_\$Number%02d$.mp4" startNumber="1">
+		<SegmentTemplate timescale="1" initialization="text/ttml_${LANG_639_2[$I]}_init.mp4" media="text/ttml_${LANG_639_2[$I]}_\$Number%03d$.mp4" startNumber="1">
 		  <SegmentTimeline>
-			  <S t="0" d="30" r="$((VIDEO_LENGTH_SEC/30))" />
+			  <S t="0" d="$TEXT_SEGMENT_SEC" r="$((VIDEO_LENGTH_SEC/$TEXT_SEGMENT_SEC))" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>

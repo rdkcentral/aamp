@@ -69,10 +69,10 @@ int main(int argc, const char * argv[])
 
 	if (argc > 1)
 	{
-		int segmentDurationS = 30;
 		int duration = atoi(argv[1]);
+		int segmentDurationS = atoi(argv[2]);
 		int totalSegments = duration/segmentDurationS;
-		std::cout<<"totalSegments "<<totalSegments<<std::endl;
+		std::cout<<"videoDuration "<<duration<<" segmentDuration "<<segmentDurationS<<" totalSegments "<<totalSegments<<std::endl;
 
 		generateTTMLTracks(segmentDurationS,totalSegments);
 	

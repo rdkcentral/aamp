@@ -139,16 +139,88 @@ void getTextTrackDetails(std::vector<std::string>& langVector)
     fclose(file);
 }
 
+std::string CreateMoovBox() 
+{
+    std::string moovBox;
+
+    PackBox( moovBox, 580, 'moov' );
+    PackBox( moovBox, 108, 'mvhd' );
+    PackInt(moovBox, 0);   	// Version and flags
+    PackInt(moovBox, 0);   	// Creation time
+    PackInt(moovBox, 0);   	// Modification time
+    PackInt(moovBox, 48000);	// Timescale
+    PackInt(moovBox, 96000);   	// Duration
+    PackInt(moovBox, 0x00010000); // Rate
+    PackInt(moovBox, 0x0100);     // Volume
+    PackInt(moovBox, 0);          // Reserved
+    PackInt(moovBox, 0);          // Reserved
+    for (int i = 0; i < 9; ++i) {
+        PackInt(moovBox, (i % 4 == 0) ? 0x00010000 : 0); // Matrix
+    }
+    for (int i = 0; i < 6; ++i) {
+        PackInt(moovBox, 0); // Pre-defined
+    }
+    PackInt(moovBox, 2); // Next track ID
+
+    PackBox( moovBox, 0, 'trak' );
+
+    return moovBox;
+}
+
+void GenerateTTMLInit( const char *path, int segmentDurationS, const std::string &track )
+{
+	int timeScale = 48000;
+	
+	std::string out;
+	
+	PackBox( out, 24, 'ftyp' );
+	PackInt(out, 0x69736F6D); //isom
+	PackInt( out, 1 ); 	  //version - 1
+	PackInt(out, 0x69736F32); //iso2
+	PackInt(out, 0x6D703431); //mp41
+	PackBox( out, 116, 'moov' );
+	PackBox( out, 108, 'mvhd' );
+	PackInt(out, 0);   	// Version and flags
+	PackInt(out, 0);   	// Creation time
+	PackInt(out, 0);   	// Modification time
+	PackInt(out, 48000);	// Timescale
+	PackInt(out, 96000);   	// Duration
+	PackInt(out, 0x00010000); // Rate
+	PackInt(out, 0x0100);     // Volume
+	PackInt(out, 0);          // Reserved
+	PackInt(out, 0);          // Reserved
+	for (int i = 0; i < 9; ++i) {
+		PackInt(out, (i % 4 == 0) ? 0x00010000 : 0); // Matrix
+	}
+	for (int i = 0; i < 6; ++i) {
+		PackInt(out, 0); // Pre-defined
+	}
+	PackInt(out, 2); // Next track ID
+	
+	FILE *f = fopen(path,"wb");
+	assert( f );
+	if( f )
+	{
+		fwrite(out.c_str(), 1, out.length(), f );
+		fclose( f );
+	}
+}
+
 void generateTTMLTracks(int segmentDurationS, int totalSegments)
 {
 	std::vector<std::string> langVector;
 	getTextTrackDetails(langVector);
 	for (int track = 0; track < langVector.size(); track++) 
 	{
+		char initPath[50];
+		snprintf( initPath, sizeof(initPath), "ttml_%s_init.mp4",langVector[track].c_str());
+		
+		GenerateTTMLInit(initPath, segmentDurationS, langVector[track]);
+
 		for( int segmentIndex=0; segmentIndex<totalSegments; segmentIndex++ )
 		{
 			char path[50];
-			snprintf( path, sizeof(path), "ttml_%s_%02d.mp4",langVector[track].c_str(), segmentIndex+1 );
+			snprintf( path, sizeof(path), "ttml_%s_%03d.mp4",langVector[track].c_str(), segmentIndex+1 );
 			GenerateTTMLSegment( path, segmentIndex, segmentDurationS, langVector[track] );
 		}
 	}
