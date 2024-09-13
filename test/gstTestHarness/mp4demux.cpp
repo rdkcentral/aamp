@@ -1,0 +1,89 @@
+/*
+ *   Copyright 2024 RDK Management
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+#include "mp4demux.hpp"
+#include <assert.h>
+#include <stdio.h>
+#include <inttypes.h>
+
+static void WriteBytes( uint8_t *ptr, int n, uint64_t value )
+{
+	while( n>0 )
+	{
+		ptr[--n] = value&0xff;
+		value>>=8;
+	}
+}
+
+static uint64_t ReadBytes( const uint8_t *ptr, int n )
+{
+	uint64_t rc = 0;
+	for( int i=0; i<n; i++ )
+	{
+		rc <<= 8;
+		rc |= *ptr++;
+	}
+	return rc;
+}
+
+#define READ_U16(buf) (unsigned int)ReadBytes( buf, 2 ); buf+=2;
+#define READ_U32(buf) (unsigned int)ReadBytes( buf, 4 ); buf+=4;
+#define READ_U64(buf) ReadBytes( buf, 8 ); buf+=8;
+
+#define READ_VERSION(buf) buf[0]; buf++;
+#define READ_FLAGS(buf) (uint32_t)ReadBytes(buf,3); buf+=3;
+
+void mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restamp_delta )
+{
+	const uint8_t *fin = &ptr[len];
+	while( ptr < fin )
+	{
+		uint8_t *next = ptr + READ_U32(ptr);
+		uint32_t type = READ_U32(ptr);
+		if( type == 'tfdt' )
+		{
+			uint8_t version = READ_VERSION(ptr);
+			int sz = (version==1)?8:4;
+			uint32_t flags  = READ_FLAGS(ptr);
+			(void)flags;
+			uint64_t baseMediaDecodeTime = ReadBytes( ptr, sz );
+			baseMediaDecodeTime += pts_restamp_delta;
+			WriteBytes( (uint8_t *)ptr, sz, baseMediaDecodeTime );
+			printf( "baseMediaDecodeTime: %" PRIu64 "\n", baseMediaDecodeTime );
+			return;
+		}
+		else
+		{ // walk children
+			switch( type )
+			{
+				case 'traf':
+				case 'moov':
+				case 'trak':
+				case 'minf':
+				case 'dinf':
+				case 'stbl':
+				case 'mvex':
+				case 'moof':
+				case 'mdia':
+					mp4_AdjustMediaDecodeTime( ptr, next-ptr, pts_restamp_delta );
+					break;
+					
+				default:
+					break;
+			}
+		}
+		ptr = next;
+	}
+}

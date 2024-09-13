@@ -24,6 +24,7 @@
 #include "unistd.h"
 #include <assert.h>
 #include <gst/gst.h>
+#include "initializationheaderinfo.hpp"
 
 // refer XIONE-13670 [RealTek] gstreamer pipeline unexpected behaviors when attempting to render single iframe
 // #define REALTEK_HACK
@@ -71,7 +72,8 @@ public:
 	long long GetPositionMilliseconds( MediaType mediaType );
 	void SetPipelineState( PipelineState );
 	PipelineState GetPipelineState( void );
-	void Configure( MediaType mediaType, const char *required_caps );
+	void Configure( MediaType mediaType );
+	void SetCaps( MediaType mediaType, InitializationHeaderInfo * );
 	void Flush( double rate, double start, double stop, double baseTime );
 	void Flush( MediaType type, double position );
 	void InstantaneousRateChange( double newRate );

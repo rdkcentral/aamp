@@ -35,6 +35,7 @@ typedef enum
 class Track
 {
 public:
+	uint32_t timeScale;
 	int injectCount;
 	bool needsData;
 	bool gstreamerReadyForInjection;
@@ -46,9 +47,9 @@ public:
 	void EnqueueSegment( TrackEvent *TrackEvent );
 	void EnqueueControl( TrackEvent *TrackEvent );
 	void QueueVideoHeader( VideoResolution resolution );
-	void QueueVideoSegment( VideoResolution resolution, int startIndex, int count, int64_t pts_offset=0 );
+	void QueueVideoSegment( VideoResolution resolution, int startIndex, int count, double pts_offset=0.0 );
 	void QueueAudioHeader( const char *language );
-	void QueueAudioSegment( const char *language, int startIndex, int count, int64_t pts_offset=0 );
+	void QueueAudioSegment( const char *language, int startIndex, int count, double pts_offset=0.0 );
 	void QueueGap( int startIndex, int count );
 	Track(const Track&)=delete;
 	Track& operator=(const Track&)=delete;

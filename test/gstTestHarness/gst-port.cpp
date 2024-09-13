@@ -21,6 +21,17 @@
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
 #include <math.h>
+#include <inttypes.h>
+
+static const char *MediaType2Name( MediaType type )
+{
+	switch( type )
+	{
+		case eMEDIATYPE_AUDIO: return "audio";
+		case eMEDIATYPE_VIDEO: return "video";
+		default: return "?";
+	}
+}
 
 #define MY_PIPELINE_NAME "test-pipeline"
 static bool gQuiet = false; // set to true for less chatty logging
@@ -56,7 +67,7 @@ static bool startsWith( const char *inputStr, const char *prefix )
 class MediaStream
 {
 public:
-	MediaStream( MediaType mediaType, class PipelineContext *context ) : isConfigured(false), sinkbin(NULL), source(NULL), required_caps(NULL), rate(), start(), stop(), injectedSeconds(), context(context), mediaType(mediaType), startPos(-1) {
+	MediaStream( MediaType mediaType, class PipelineContext *context ) : isConfigured(false), sinkbin(NULL), source(NULL), rate(), start(), stop(), injectedSeconds(), context(context), mediaType(mediaType), startPos(-1) {
 	}
 	
 	
@@ -128,7 +139,7 @@ public:
 	
 	void SendGap( double pts, double durationSeconds )
 	{
-		g_print( "MediaStream::SendGap(mediaType=%d,pts=%f,dur=%f)\n", mediaType, pts, durationSeconds );
+		g_print( "MediaStream::SendGap(%s,pts=%f,dur=%f)\n", MediaType2Name(mediaType), pts, durationSeconds );
 		GstClockTime timestamp = (GstClockTime)(pts * GST_SECOND);
 		GstClockTime duration = (GstClockTime)(durationSeconds * GST_SECOND);
 		GstEvent *event = gst_event_new_gap( timestamp, duration );
@@ -158,9 +169,8 @@ public:
 	/**
 	 * @brief create, link, and confiugre a playbin element for specified media track
 	 * @param mediaType tracktype, i.e. eMEDIATYPE_AUDIO or eMEDIATYPE_VIDEO
-	 * @param required_caps if NULL, use typefind, otherwise apply specified caps, i.e. "video/quicktime"
 	 */
-	void Configure( GstElement *pipeline, const char *media_type )
+	void Configure( GstElement *pipeline )
 	{
 		g_print( "MediaStream::Configure\n" );
 		if( isConfigured )
@@ -170,7 +180,6 @@ public:
 		else
 		{
 			isConfigured = true;
-			this->required_caps = media_type;
 			sinkbin = gst_element_factory_make("playbin", NULL);
 			gst_bin_add(GST_BIN(pipeline), sinkbin);
 			g_object_set( sinkbin, "uri", "appsrc://", NULL);
@@ -179,7 +188,7 @@ public:
 			DumpFlags();
 		}
 	}
-	
+
 	double GetInjectedSeconds( void )
 	{
 		return injectedSeconds;
@@ -202,7 +211,8 @@ public:
 	
 	void need_data( GstElement *appSrc, guint length )
 	{
-		g_print( "MediaStream::need_data(%s) length=%d\n", getMediaTypeAsString(), length );
+		// noisy when time based buffering in use
+		//g_print( "MediaStream::need_data(%s) length=%d\n", getMediaTypeAsString(), length );
 		context->NeedData( mediaType );
 	}
 	
@@ -219,11 +229,88 @@ public:
 		return TRUE;
 	}
 	
+	/**
+	 * @brief apply/update caps for audio/video to be presented
+	 * @param pipeline AV pipeline to update
+	 * @param info contains metadata extracted from mp4 initialization fragment
+	 */
+	void SetCaps( GstElement *pipeline, InitializationHeaderInfo *info )
+	{
+		GstCaps * caps = NULL;
+		GstBuffer *buf = gst_buffer_new_and_alloc(info->codec_data_len);
+		gst_buffer_fill(buf, 0, info->codec_data, info->codec_data_len);
+		if( mediaType == eMEDIATYPE_VIDEO )
+		{
+			const char *media_type = NULL;
+			const char *stream_format = NULL;
+			//const char *level = NULL;
+			
+			switch( info->codec_type )
+			{
+				case 'hvcC':
+					media_type = "video/x-h265";
+					stream_format = "hvc1";
+					// TODO: leverage gst_codec_utils_h265_caps_set_level_tier_and_profile
+					//level = "4.1";
+					break;
+				case 'avcC':
+					media_type = "video/x-h264";
+					stream_format = "avc";
+					// TODO: leverage gst_codec_utils_h264_caps_set_level_and_profile
+					//level = "1";
+					break;
+				default:
+					printf( "unk codec_type: %" PRIu32 "\n", info->codec_type );
+					return;
+			}
+			caps = gst_caps_new_simple(
+									   media_type,
+									   "stream-format", G_TYPE_STRING, stream_format,
+									   "alignment", G_TYPE_STRING, "au",
+									   "codec_data", GST_TYPE_BUFFER, buf,
+									   "width", G_TYPE_INT, info->width,
+									   "height", G_TYPE_INT, info->height,
+									   "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+									   NULL );
+		}
+		else
+		{
+			switch( info->codec_type )
+			{
+				case 'esds':
+					caps = gst_caps_new_simple(
+											   "audio/mpeg",
+											   "mpegversion",G_TYPE_INT,4,
+											   "framed", G_TYPE_BOOLEAN, TRUE,
+											   "stream-format",G_TYPE_STRING,"raw", // FIXME
+											   "codec_data", GST_TYPE_BUFFER, buf,
+											   NULL );
+					break;
+					
+				case 'dec3':
+					caps = gst_caps_new_simple(
+											   "audio/x-eac3",
+											   "framed", G_TYPE_BOOLEAN, TRUE,
+											   "rate", G_TYPE_INT, info->samplerate,
+											   "channels", G_TYPE_INT, info->channel_count,
+											   NULL );
+					break;
+					
+				default:
+					assert(0);
+					break;
+			}
+		}
+		gst_app_src_set_caps(GST_APP_SRC(sourceObj), caps);
+		gst_caps_unref(caps);
+		gst_buffer_unref (buf);
+	}
+	
 	void found_source( GObject * object, GObject * orig, GParamSpec * pspec )
 	{
 		g_print( "MediaStream::found_source %s\n", getMediaTypeAsString() );
 		g_object_get( orig, pspec->name, &source, NULL );
-		GObject *sourceObj = G_OBJECT(source);
+		sourceObj = G_OBJECT(source);
 		
 		// initialize max-bytes based on default aampcli configuration
 		// this drives byte-based need-data and enough-data signaling
@@ -245,31 +332,18 @@ public:
 		g_signal_connect(sourceObj, "seek-data", G_CALLBACK(appsrc_seek_cb), this);
 		gst_app_src_set_stream_type( GST_APP_SRC(sourceObj), GST_APP_STREAM_TYPE_SEEKABLE );
 		g_object_set(sourceObj, "format", GST_FORMAT_TIME, NULL);
+
 		
-		if( required_caps )
+		if( 0 )
 		{
-			GstCaps * caps = gst_caps_new_simple(required_caps, NULL, NULL);
-			gst_app_src_set_caps(GST_APP_SRC(sourceObj), caps);
+			GstCaps * caps = gst_caps_new_simple("video/quicktime", NULL, NULL);
+			gst_app_src_set_caps(GST_APP_SRC(sourceObj), caps );
 			gst_caps_unref(caps);
 		}
 		else
 		{
-#ifdef REALTEK_HACK
-			if( mediaType == eMEDIATYPE_VIDEO )
-			{
-				GstCaps * caps = gst_caps_new_simple ("video/x-h264", "enable-fastplayback", G_TYPE_STRING, "true", NULL );
-				gst_app_src_set_caps(GST_APP_SRC(sourceObj), caps);
-				gst_caps_unref(caps);
-			}
-			else
-			{
-				g_object_set(sourceObj, "typefind", TRUE, NULL);
-			}
-#else
 			g_object_set(sourceObj, "typefind", TRUE, NULL);
-#endif
 		}
-		
 		gboolean rc;
 		if( rate<0 )
 		{
@@ -360,6 +434,7 @@ public:
 	//copy assignment operator
 	MediaStream& operator=(const MediaStream&)=delete;
 private:
+	GObject *sourceObj = NULL;
 	GstPad* qtdemux_pad = NULL;
 	gulong qtdemux_probe_id = 0;
 	bool isConfigured; // avoid double configure
@@ -368,7 +443,6 @@ private:
 	gint64 stop;
 	double flushPosition;
 	double injectedSeconds;
-	const char *required_caps;
 	class PipelineContext *context;
 	MediaType mediaType;
 	GstElement *sinkbin;
@@ -489,9 +563,14 @@ Pipeline::Pipeline( class PipelineContext *context ) : position_adjust(0.0), sta
 	}
 }
 
-void Pipeline::Configure( MediaType mediaType, const char *required_caps )
+void Pipeline::Configure( MediaType mediaType )
 {
-	mediaStream[mediaType]->Configure(pipeline, required_caps);
+	mediaStream[mediaType]->Configure(pipeline);
+}
+
+void Pipeline::SetCaps( MediaType mediaType, InitializationHeaderInfo *info )
+{
+	mediaStream[mediaType]->SetCaps(pipeline, info);
 }
 
 Pipeline::~Pipeline()
@@ -522,18 +601,18 @@ PipelineState Pipeline::GetPipelineState( void )
 
 void Pipeline::SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration )
 {
-	g_print( "Pipeline::SendBuffer(mediaType=%d, len=%zu)\n", mediaType, len );
+	g_print( "Pipeline::SendBuffer(%s, len=%zu)\n", MediaType2Name(mediaType), len );
 	mediaStream[mediaType]->SendBuffer(ptr,len,duration);
 }
 void Pipeline::SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts )
 {
-	g_print( "Pipeline::SendBuffer(mediaType=%d, len=%zu)\n", mediaType, len );
+	g_print( "Pipeline::SendBuffer(%s, len=%zu)\n", MediaType2Name(mediaType), len );
 	mediaStream[mediaType]->SendBuffer(ptr,len,duration,pts,dts);
 }
 
 void Pipeline::SendGap( MediaType mediaType, double pts, double durationSeconds )
 {
-	g_print( "Pipeline::SendGap(mediaType=%d,pts=%f,dur=%f)\n", mediaType, pts, durationSeconds );
+	g_print( "Pipeline::SendGap(%s,pts=%f,dur=%f)\n", MediaType2Name(mediaType), pts, durationSeconds );
 	mediaStream[mediaType]->SendGap(pts,durationSeconds);
 }
 
@@ -597,7 +676,7 @@ void Pipeline::Flush( double segment_rate, double segment_start, double segment_
 
 void Pipeline::Flush( MediaType mediaType, double pos )
 {
-	printf( "Pipeline::Flush(mediaType=%d, pos=%f)\n", mediaType, pos );
+	printf( "Pipeline::Flush(%s, pos=%f)\n", MediaType2Name(mediaType), pos );
 	mediaStream[mediaType]->Flush(pos);
 	mediaStream[mediaType]->SetStartPos(pos);
 }
@@ -801,7 +880,7 @@ void Pipeline::DumpDOT( void )
 	// refer: https://graphviz.org/
 	// brew install graphviz
 	// dot -Tsvg gst-test.dot  > gst-test.svg
-	FILE *f = fopen( "gst-test.dot", "wb" ); // TODO: what path to use?
+	FILE *f = fopen( "gst-test.dot", "wb" );
 	if( f )
 	{
 		fputs( graphviz, f );
