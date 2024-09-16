@@ -3589,7 +3589,7 @@ void PrivateInstanceAAMP::StopTrackDownloads(AampMediaType type)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
-		AAMPLOG_WARN ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
+		AAMPLOG_DEBUG ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
 	}
 #endif
 	if (!mbTrackDownloadsBlocked[type])
@@ -3612,7 +3612,7 @@ void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType type)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
-		AAMPLOG_WARN ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
+		AAMPLOG_DEBUG ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
 	}
 #endif
 	if (mbTrackDownloadsBlocked[type])
@@ -9641,7 +9641,7 @@ void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
-		AAMPLOG_WARN ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
+		AAMPLOG_DEBUG ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
 	}
 #endif
 	if (!mTrackInjectionBlocked[type])
@@ -9663,7 +9663,7 @@ void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
-		AAMPLOG_WARN ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
+		AAMPLOG_DEBUG ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
 	}
 #endif
 	if (mTrackInjectionBlocked[type])

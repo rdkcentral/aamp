@@ -252,7 +252,7 @@ void MediaTrack::UpdateTSAfterInject()
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
-		AAMPLOG_WARN("[%s] updated fragmentIdxToInject = %d numberOfFragmentsCached %d",
+		AAMPLOG_DEBUG("[%s] updated fragmentIdxToInject = %d numberOfFragmentsCached %d",
 		        name, fragmentIdxToInject, numberOfFragmentsCached);
 	}
 #endif
@@ -312,7 +312,7 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
-		AAMPLOG_WARN("[%s] before update fragmentIdxToFetch = %d numberOfFragmentsCached %d",
+		AAMPLOG_DEBUG("[%s] before update fragmentIdxToFetch = %d numberOfFragmentsCached %d",
 		        name, fragmentIdxToFetch, numberOfFragmentsCached);
 	}
 #endif
@@ -322,7 +322,7 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 	{
 		if (numberOfFragmentsCached == 0)
 		{
-			AAMPLOG_WARN("## [%s] Caching fragment for track when numberOfFragmentsCached is 0 ##", name);
+			AAMPLOG_DEBUG("## [%s] Caching fragment for track when numberOfFragmentsCached is 0 ##", name);
 		}
 	}
 #endif
@@ -375,7 +375,7 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
-		AAMPLOG_WARN("[%s] updated fragmentIdxToFetch = %d numberOfFragmentsCached %d",
+		AAMPLOG_DEBUG("[%s] updated fragmentIdxToFetch = %d numberOfFragmentsCached %d",
 			name, fragmentIdxToFetch, numberOfFragmentsCached);
 	}
 #endif
@@ -496,7 +496,7 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 			if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 			{
-				AAMPLOG_WARN("[%s] waiting for fragmentInjected condition", name);
+				AAMPLOG_DEBUG("[%s] waiting for fragmentInjected condition", name);
 			}
 #endif
 			pthreadReturnValue = pthread_cond_wait(&fragmentInjected, &mutex);
@@ -509,7 +509,7 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 			if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 			{
-				AAMPLOG_WARN("[%s] wait complete for fragmentInjected", name);
+				AAMPLOG_DEBUG("[%s] wait complete for fragmentInjected", name);
 			}
 #endif
 		}
@@ -518,7 +518,7 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 			if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 			{
-				AAMPLOG_WARN("[%s] abort set, returning false", name);
+				AAMPLOG_DEBUG("[%s] abort set, returning false", name);
 			}
 #endif
 			ret = false;
@@ -527,7 +527,7 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
-		AAMPLOG_WARN("[%s] fragmentIdxToFetch = %d numberOfFragmentsCached %d",
+		AAMPLOG_DEBUG("[%s] fragmentIdxToFetch = %d numberOfFragmentsCached %d",
 			name, fragmentIdxToFetch, numberOfFragmentsCached);
 	}
 #endif
@@ -547,7 +547,7 @@ bool MediaTrack::WaitForCachedFragmentAvailable()
 #ifdef AAMP_DEBUG_FETCH_INJECT
 		if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 		{
-			AAMPLOG_WARN("## [%s] Waiting for CachedFragment to be available, eosReached=%d ##", name, eosReached);
+			AAMPLOG_DEBUG("## [%s] Waiting for CachedFragment to be available, eosReached=%d ##", name, eosReached);
 		}
 #endif
 		if (!eosReached)
@@ -558,7 +558,7 @@ bool MediaTrack::WaitForCachedFragmentAvailable()
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
-		AAMPLOG_WARN("[%s] fragmentIdxToInject = %d numberOfFragmentsCached %d",
+		AAMPLOG_DEBUG("[%s] fragmentIdxToInject = %d numberOfFragmentsCached %d",
 			name, fragmentIdxToInject, numberOfFragmentsCached);
 	}
 #endif
@@ -675,7 +675,7 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 		if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 		{
-			AAMPLOG_WARN("[%s] signal fragmentInjected condition", name);
+			AAMPLOG_DEBUG("[%s] signal fragmentInjected condition", name);
 		}
 #endif
 		pthread_cond_signal(&fragmentInjected);
@@ -717,7 +717,7 @@ void MediaTrack::AbortWaitForCachedFragment()
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
-		AAMPLOG_WARN("[%s] signal fragmentFetched condition", name);
+		AAMPLOG_DEBUG("[%s] signal fragmentFetched condition", name);
 	}
 #endif
 	pthread_cond_signal(&fragmentFetched);
@@ -1282,7 +1282,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 #ifdef AAMP_DEBUG_FETCH_INJECT
 		if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 		{
-			AAMPLOG_WARN("%s - injected cached fragment at pos %f dur %f uri %s", name, cachedFragment->position, cachedFragment->duration, cachedFragment->uri.c_str());
+			AAMPLOG_DEBUG("%s - injected cached fragment at pos %f dur %f uri %s", name, cachedFragment->position, cachedFragment->duration, cachedFragment->uri.c_str());
 		}
 #endif
 		if (!fragmentDiscarded)
@@ -1887,7 +1887,7 @@ void StreamAbstractionAAMP::ReassessAndResumeAudioTrack(bool abort)
 		{
 			pthread_cond_signal(&mCond);
 #ifdef AAMP_DEBUG_FETCH_INJECT
-			AAMPLOG_WARN("signalling cond - audioDuration %f videoDuration %f",
+			AAMPLOG_DEBUG("signalling cond - audioDuration %f videoDuration %f",
 				audioDuration, videoDuration);
 #endif
 		}
@@ -1898,7 +1898,7 @@ void StreamAbstractionAAMP::ReassessAndResumeAudioTrack(bool abort)
 			{
 				pthread_cond_signal(&mAuxCond);
 #ifdef AAMP_DEBUG_FETCH_INJECT
-				AAMPLOG_WARN("signalling cond - auxDuration %f videoDuration %f",
+				AAMPLOG_DEBUG("signalling cond - auxDuration %f videoDuration %f",
 					auxDuration, videoDuration);
 #endif
 			}
@@ -1929,7 +1929,7 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 		while ((audioDuration > (videoDuration + video->fragmentDurationSeconds)) && aamp->DownloadsAreEnabled() && !audio->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
 		{
 #ifdef AAMP_DEBUG_FETCH_INJECT
-			AAMPLOG_WARN("waiting for cond - audioDuration %f videoDuration %f video->fragmentDurationSeconds %f",
+			AAMPLOG_DEBUG("waiting for cond - audioDuration %f videoDuration %f video->fragmentDurationSeconds %f",
 				audioDuration, videoDuration,video->fragmentDurationSeconds);
 #endif
 			ts = aamp_GetTimespec(100);
@@ -3038,7 +3038,7 @@ void StreamAbstractionAAMP::WaitForAudioTrackCatchup()
 	{
 		AAMPLOG_DEBUG("Blocked on Inside mSubCond with sub:%f and audio:%f", subtitleDuration, audioDuration);
 	#ifdef AAMP_DEBUG_FETCH_INJECT
-		AAMPLOG_WARN("waiting for mSubCond - subtitleDuration %f audioDuration %f",
+		AAMPLOG_DEBUG("waiting for mSubCond - subtitleDuration %f audioDuration %f",
 			subtitleDuration, audioDuration);
 	#endif
 		ts = aamp_GetTimespec(100);
@@ -3071,7 +3071,7 @@ void StreamAbstractionAAMP::AbortWaitForAudioTrackCatchup(bool force)
 		{
 			pthread_cond_signal(&mSubCond);
 #ifdef AAMP_DEBUG_FETCH_INJECT
-			AAMPLOG_WARN("signalling mSubCond");
+			AAMPLOG_DEBUG("signalling mSubCond");
 #endif
 		}
 		pthread_mutex_unlock(&mLock);
@@ -3616,7 +3616,7 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchupForAux()
 		while ((auxDuration > (videoDuration + video->fragmentDurationSeconds)) && aamp->DownloadsAreEnabled() && !aux->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
 		{
 	#ifdef AAMP_DEBUG_FETCH_INJECT
-			AAMPLOG_WARN("waiting for cond - auxDuration %f videoDuration %f video->fragmentDurationSeconds %f",
+			AAMPLOG_DEBUG("waiting for cond - auxDuration %f videoDuration %f video->fragmentDurationSeconds %f",
 				auxDuration, videoDuration, video->fragmentDurationSeconds);
 	#endif
 			ts = aamp_GetTimespec(100);
