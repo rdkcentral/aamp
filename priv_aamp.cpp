@@ -5475,13 +5475,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink && (mAampLLDashServiceData.lowLatencyMode || !ISCONFIGSET_PRIV(eAAMPConfig_EnableMediaProcessor)))
 			{
-				/*	If not trickplay OR using Qtdemux then
-				*		flush with pts value
-				*	else
-				*		it is trickplay and NOT using QTdemux ..
-				*		then we do not flush here, flush(0) occurs else where
+				/* Do flush to PTS position when:
+				*	Not PTS restamp
+				*	OR normal play
+				* This means we skip this flush when
+				*	trickplay and PTS restamp 
+				*	and we are using the flush(0) that occurs else where
 				*/
-				if (rate == AAMP_NORMAL_PLAY_RATE || ISCONFIGSET_PRIV(eAAMPConfig_QtDemuxOverride))
+				if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) || rate == AAMP_NORMAL_PLAY_RATE )
 				{
 					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
 				}

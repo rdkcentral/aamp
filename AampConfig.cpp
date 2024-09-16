@@ -411,7 +411,6 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "forceMultiPeriodDiscontinuity", eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 	{false, "forceLLDFlow", eAAMPConfig_ForceLLDFlow, false},
 	{true, "useNewFetcherLoop", eAAMPConfig_UseNewFetcherLoop, false},
-	{false, "qtDemuxOverride", eAAMPConfig_QtDemuxOverride, false}
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2

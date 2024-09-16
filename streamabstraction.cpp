@@ -882,7 +882,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 				AAMPLOG_WARN("track %s - continuing injection", name);
 			}
 		}
-		else if (cachedFragment->discontinuity && ISCONFIGSET(eAAMPConfig_QtDemuxOverride))
+		else if (cachedFragment->discontinuity && !ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			//Only needed when we are using the qtdemux 
 			SignalTrickModeDiscontinuity();
@@ -910,7 +910,7 @@ bool MediaTrack::ProcessFragmentChunk()
 
 	if(cachedFragment->initFragment)
 	{
-		if ((pContext && pContext->trickplayMode) && (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp)) && (!ISCONFIGSET(eAAMPConfig_QtDemuxOverride)))
+		if ((pContext && pContext->trickplayMode) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			// If in trick mode, do trick mode PTS restamp
 			TrickModePtsRestamp(cachedFragment);
@@ -1041,11 +1041,8 @@ bool MediaTrack::ProcessFragmentChunk()
 		{
 			if (pContext && pContext->trickplayMode)
 			{
-				if (!ISCONFIGSET(eAAMPConfig_QtDemuxOverride))
-				{
 					// If in trick mode, do trick mode PTS restamp
 					TrickModePtsRestamp(parsedBufferChunk,fpts,fduration,cachedFragment->initFragment,cachedFragment->discontinuity);
-				}
 			}
 			else
 			{
@@ -1235,10 +1232,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		{
 			if ((pContext && pContext->trickplayMode))
 			{
-				if (!ISCONFIGSET(eAAMPConfig_QtDemuxOverride))
-				{
 					TrickModePtsRestamp(cachedFragment);
-				}
 			}
 			else
 			{

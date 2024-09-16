@@ -5266,7 +5266,7 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(AampMediaType mediaType, GstClo
 {
 	media_stream* stream = &privateContext->stream[mediaType];
 	gboolean enableOverride = false;
-	if (ISCONFIGSET(eAAMPConfig_QtDemuxOverride))
+	if (!ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 	{
 		enableOverride = (privateContext->rate != AAMP_NORMAL_PLAY_RATE);
 	}
