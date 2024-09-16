@@ -537,6 +537,7 @@ protected:
 	 * @param[in] trackIndex - selected track index
 	 * @param[in] media - Media type
 	 */
+
 	void printSelectedTrack(const std::string &trackIndex, AampMediaType media);
 	/**
 	 * @fn AdvanceTrack
@@ -1074,7 +1075,14 @@ protected:
 	 * @fn SetAudioTrackInfo
 	 * @param[in] tracks - available audio tracks in period
 	 * @param[in] trackIndex - index of current audio track
-	 */	
+	 */
+
+	/**
+	 * @fn checkSrcAdisGreaterThanAdbreak
+	 * @param
+	 * @param 
+	 */
+	void checkSrcAdisGreaterThanAdbreak();
 	void SetAudioTrackInfo(const std::vector<AudioTrackInfo> &tracks, const std::string &trackIndex);
 	void SetTextTrackInfo(const std::vector<TextTrackInfo> &tracks, const std::string &trackIndex);
 	/**

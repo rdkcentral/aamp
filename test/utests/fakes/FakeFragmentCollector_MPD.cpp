@@ -86,6 +86,7 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_MPD::GetThumbnailRangeData(doub
 
 StreamInfo* StreamAbstractionAAMP_MPD::GetStreamInfo(int idx) { return nullptr; }
 
+void StreamAbstractionAAMP_MPD::checkSrcAdisGreaterThanAdbreak() { }
 double StreamAbstractionAAMP_MPD::GetFirstPeriodStartTime(void)
 {
     return 0.0;

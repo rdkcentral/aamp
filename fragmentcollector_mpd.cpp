@@ -9777,7 +9777,17 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						}
 						else
 						{
-							mBasePeriodOffset += (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB())/1000.00);	//Already reached -ve. Subtracting from current period duration
+							//Setting the end period offset as the base offset since the DAI ad break duration is shorter than the source period duration.
+							if( rate < 0 &&  (mCdaiObject->isAdBreakObjectExist( newPeriod->GetId()) && mCdaiObject->mAdBreaks[newPeriod->GetId()].mSrcPeriodOffsetGTthreshold) )
+							{
+									AAMPLOG_INFO("[CDAI] Setting end period as offset,  mBasePeriodOffset :%f endPeriodOffset:%lld",mBasePeriodOffset,mCdaiObject->mAdBreaks[newPeriod->GetId()].endPeriodOffset);
+									mBasePeriodOffset += mCdaiObject->mAdBreaks[newPeriod->GetId()].endPeriodOffset/1000.000;
+
+							}
+							else
+							{
+								mBasePeriodOffset += (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB())/1000.00);	//Already reached -ve. Subtracting from current period duration
+							}
 						}
 						//Update period gaps for playback stats
 						if(mIsLiveStream)
@@ -9875,10 +9885,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						if((adaptationSetCount > 0 || !(mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))) && (!bmanifestupdate) && (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
 						{
 							AAMPLOG_WARN("Period ID changed from \'%s\' to \'%s\' [BasePeriodId=\'%s\']", currentPeriodId.c_str(),mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
-							if(mCdaiObject->isAdBreakObjectExist(mBasePeriodId))
-							{
-								mCdaiObject->mAdBreaks[mBasePeriodId].mSrcPeriodOffsetGTthreshold =false;
-							}
 							currentPeriodId = mCurrentPeriod->GetId();
 							mPrevAdaptationSetCount = adaptationSetCount;
 							periodChanged = true;
@@ -12261,6 +12267,11 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				{
 					if(rate > 0)
 					{
+                                                //If both IDs are the same, it indicates that the source period has content to play.
+						if( mBasePeriodId == mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].endPeriodId)
+						{
+							checkSrcAdisGreaterThanAdbreak();
+						}
 						mBasePeriodId =	mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].endPeriodId;
 						mCdaiObject->mContentSeekOffset = (double)(mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].endPeriodOffset)/ 1000;
 					}
@@ -12406,6 +12417,49 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 		}
 	}
 	return stateChanged;
+}
+
+/**
+ * @brief Checking whether the source period is greater than the ad break.
+ *  Play the remaining source content if applicable.
+ *
+ * @return void
+ */
+void  StreamAbstractionAAMP_MPD::checkSrcAdisGreaterThanAdbreak()
+{
+	size_t sizeOfSrcPeriod = mpd->GetPeriods().size();
+	int IterPeriodIndex =0;
+	for(IterPeriodIndex=0; IterPeriodIndex <  sizeOfSrcPeriod ;  IterPeriodIndex++)
+	{
+		const std::string &pId = mpd->GetPeriods().at(IterPeriodIndex)->GetId();
+		AAMPLOG_INFO("IterPeriodIndex: %d sizeOfSrcPeriod:%zu baseperiod:%s pid:%s",IterPeriodIndex,sizeOfSrcPeriod,mBasePeriodId.c_str(),pId.c_str());
+		if(mBasePeriodId == pId)
+		{
+			break;
+		}
+	}
+	//Source period duration
+	double basePeriodDuration = mMPDParseHelper->aamp_GetPeriodDuration(IterPeriodIndex, 0);
+	//ad break duration
+	double baseperiodOffset = (double)(mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].endPeriodOffset);
+	AAMPLOG_INFO("mBasePeriodId:%s basePeriodDuration:%f baseperiodOffset:%f diff:%f",mBasePeriodId.c_str(),basePeriodDuration,baseperiodOffset,basePeriodDuration -  baseperiodOffset);
+        //The base PeriodOffset should be 0 if the ad break duration matches the source.
+	////If not, and the delta is more than 2 seconds, mSrcPeriodOffsetGTthreshold
+	// needs to be set, indicating that the source period has content that needs 
+	// to be played after the ad playback.
+	if( (baseperiodOffset > 0) && ((basePeriodDuration - baseperiodOffset) > OFFSET_ALIGN_FACTOR))
+	{
+		if(mCdaiObject->isAdBreakObjectExist(mBasePeriodId))
+		{
+			//The player should switch to the same base period to play the remaining content if the flag is true.
+			mCdaiObject->mAdBreaks[mBasePeriodId].mSrcPeriodOffsetGTthreshold = true;
+			AAMPLOG_INFO("Src period[%s] is greater than the ad break by %f ms",mBasePeriodId.c_str(),basePeriodDuration -  baseperiodOffset);
+		}
+		else
+		{
+			AAMPLOG_INFO("Adbreabk object is not exists for base period:%s",mBasePeriodId.c_str());
+		}
+	}
 }
 
 /**
