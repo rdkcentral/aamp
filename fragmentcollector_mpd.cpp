@@ -13357,6 +13357,13 @@ bool StreamAbstractionAAMP_MPD::PlacenextAdBrkifAvail(IMPD *mpd)
 	{
 		int basePeriodIdx = mMPDParseHelper->getPeriodIdx(mBasePeriodId);
 		mBasePeriodOffset = 0;
+		{
+			std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+			if (mCdaiObject->mContentSeekOffset > 0)
+			{
+				mBasePeriodOffset = mCdaiObject->mContentSeekOffset;
+			}
+		}
 		if(basePeriodIdx != -1)
 		{
 			if(mMPDParseHelper->IsEmptyPeriod(basePeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))
