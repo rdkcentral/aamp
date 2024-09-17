@@ -35,18 +35,15 @@ EOL
 for (( I=PROFILE_COUNT-1; I>=0; I-- ))
 do
 
-if [ ${HEIGHT[$I]} -le 1080 ] ; then
   cat <<EOL >> main.mpd
 	  <Representation id="${HEIGHT[$I]}p" mimeType="video/mp4" codecs="$videoCodec" bandwidth="${KBPS[$I]}000" width="${WIDTH[$I]}" height="${HEIGHT[$I]}" frameRate="25/1">
 		<SegmentTemplate timescale="12800" initialization="dash/${HEIGHT[$I]}p_init.m4s" media="dash/${HEIGHT[$I]}p_\$Number%03d$.m4s" startNumber="1">
 		  <SegmentTimeline>
-			  <S t="0" d="25600" r="$((VIDEO_LENGTH_SEC/2))" />
-			  <S d="25344" />
+			  <S t="0" d="$((12800*$VIDEO_SEGMENT_SEC))" r="$((VIDEO_LENGTH_SEC/$VIDEO_SEGMENT_SEC - 1))" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
 EOL
-fi
 done
 
 cat <<EOL >> main.mpd
@@ -59,7 +56,7 @@ cat <<EOL >> main.mpd
 		<Representation id="4" mimeType="video/mp4" codecs="$videoCodec" bandwidth="800000" width="640" height="360" frameRate="1/1">
 			<SegmentTemplate timescale="12800" initialization="dash/iframe_init.m4s" media="dash/iframe_\$Number%03d$.m4s" startNumber="1">
 				<SegmentTimeline>
-					<S t="0" d="25600" r="$((VIDEO_LENGTH_SEC/2))"/>
+			  		<S t="0" d="$((12800*$VIDEO_SEGMENT_SEC))" r="$((VIDEO_LENGTH_SEC/$IFRAME_CADENCE_SEC - 1))" />
 				</SegmentTimeline>
 			</SegmentTemplate>
 		</Representation>
@@ -77,22 +74,26 @@ do
 		<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1"/>
 		<SegmentTemplate timescale="48000" initialization="dash/${LANG_639_2[$I]}_init.m4s" media="dash/${LANG_639_2[$I]}_\$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
-			  <S t="0" d="95232" />
-			  <S d="96256" r="$((VIDEO_LENGTH_SEC/2))" />
-			  <S d="78336" />
+				<S t="0" d="95232" />
+			  	<S d="96256" r="$((VIDEO_LENGTH_SEC/$AUDIO_SEGMENT_SEC - 2))" />
+			  	<S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
 	</AdaptationSet>
+EOL
+
+  ((AdaptationSetId++))
+  cat <<EOL >> main.mpd
 	<AdaptationSet id="$AdaptationSetId" contentType="audio" segmentAlignment="true" bitstreamSwitching="true" lang="${LANG_639_3[$I]}">
 	  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="commentary"/>
 	  <Representation id="${LANG_FULL_NAME[$I]} commentary" mimeType="audio/mp4" codecs="$audioCodec" bandwidth="288000" audioSamplingRate="48000">
 		<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1"/>
 		<SegmentTemplate timescale="48000" initialization="dash/${LANG_639_2[$I]}_init.m4s" media="dash/${LANG_639_2[$I]}_\$Number%03d$.mp3" startNumber="1">
 		  <SegmentTimeline>
-			  <S t="0" d="95232" />
-			  <S d="96256" r="$((VIDEO_LENGTH_SEC/2))" />
-			  <S d="78336" />
+			 	<S t="0" d="95232" />
+			  	<S d="96256" r="$((VIDEO_LENGTH_SEC/$AUDIO_SEGMENT_SEC - 2))" />
+			  	<S d="78336" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -109,9 +110,9 @@ do
 	<AdaptationSet id="$AdaptationSetId" contentType="text" segmentAlignment="true" lang="${LANG_639_3[$I]}">
 	  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
 	  <Representation id="${LANG_FULL_NAME[$I]} WebVTT captions" mimeType="text/vtt" codecs="wvtt" bandwidth="400">
-		<SegmentTemplate timescale="1" media="dash/${LANG_639_2[$I]}_\$Number%03d$.vtt" startNumber="1">
+		<SegmentTemplate timescale="48000" media="dash/${LANG_639_2[$I]}_\$Number%03d$.vtt" startNumber="1">
 		  <SegmentTimeline>
-			  <S t="0" d="$TEXT_SEGMENT_SEC" r="$((VIDEO_LENGTH_SEC/$TEXT_SEGMENT_SEC))" />
+			  <S t="0" d="$((48000*$TEXT_SEGMENT_SEC))" r="$((VIDEO_LENGTH_SEC/$TEXT_SEGMENT_SEC - 1))" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>
@@ -129,9 +130,9 @@ do
 	<AdaptationSet id="$AdaptationSetId" contentType="text" segmentAlignment="true" lang="${LANG_639_3[$I]}">
 	  <Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
 	  <Representation id="${LANG_FULL_NAME[$I]} TTML captions" mimeType="application/mp4" codecs="stpp" bandwidth="400">
-		<SegmentTemplate timescale="1" initialization="text/ttml_${LANG_639_2[$I]}_init.mp4" media="text/ttml_${LANG_639_2[$I]}_\$Number%03d$.mp4" startNumber="1">
+		<SegmentTemplate timescale="48000" initialization="text/ttml_${LANG_639_2[$I]}_init.mp4" media="text/ttml_${LANG_639_2[$I]}_\$Number%03d$.mp4" startNumber="1">
 		  <SegmentTimeline>
-			  <S t="0" d="$TEXT_SEGMENT_SEC" r="$((VIDEO_LENGTH_SEC/$TEXT_SEGMENT_SEC))" />
+			  <S t="0" d="$((48000*$TEXT_SEGMENT_SEC))" r="$((VIDEO_LENGTH_SEC/$TEXT_SEGMENT_SEC - 1))" />
 		  </SegmentTimeline>
 		</SegmentTemplate>
 	  </Representation>

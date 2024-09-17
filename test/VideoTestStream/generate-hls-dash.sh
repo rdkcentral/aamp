@@ -11,13 +11,12 @@ display_help() {
   echo "  -a   Enable/disable dash content (default: 1 Enabled)"
   echo "  -l   Enable/disable hls content (default: 1 Enabled)"
   echo "  -w   To generate webvtt text track (default: 0 Disabled)"
-  echo "  -k   To Enable to generate 4k content (default: 0 Disabled)"
   echo "  -h   Display this help message"
   exit 1
 }
 
 # Process command-line options
-while getopts "d:f:a:l:wkh" opt; do
+while getopts ":d:f:a:l:wh" opt; do
   case $opt in
     d)
       VIDEO_LENGTH_SEC="$OPTARG"
@@ -33,9 +32,6 @@ while getopts "d:f:a:l:wkh" opt; do
       ;;
     w)
       GEN_WEBVTT=1
-      ;;
-    k)
-      GEN_4K="1"
       ;;
     h)
       display_help
@@ -65,38 +61,33 @@ source helper/generate-video.sh
 source helper/generate-iframe-track.sh
 source helper/generate-audio-data.sh
 source helper/generate-audio-manifests.sh
+
 if [ "$RUN_HLS" == 1 ]; then
-	echo "Generate HLS"
-	source helper/generate-muxed-video.sh
-	source helper/generate-mux-manifest.sh
 	source helper/generate-hls-manifest.sh
 fi
 
-if [ "$RUN_DASH" == 1 ]; then
-	echo "Generate DASH"
-	source helper/generate-dash-manifest.sh
+if [ "$RUN_HLS_MP4" == 1 ]; then
 	source helper/generate-mp4-manifest.sh
 fi
 
+if [ "$RUN_HLS_MUX" == 1 ]; then
+	source helper/generate-muxed-video.sh
+	source helper/generate-mux-manifest.sh
+fi
+
+if [ "$RUN_DASH" == 1 ]; then
+	source helper/generate-dash-manifest.sh
+fi
+
 if [ "$GEN_TTML" == 1 ]; then
-	echo "Generate TTML"
+	echo "Generate TTML text track"
 	source mp4tool/generate_ttml.sh
 	generate_ttml_tracks $VIDEO_LENGTH_SEC $TEXT_SEGMENT_SEC
 fi
 
 if [ "$GEN_WEBVTT" == 1 ]; then
-	echo "Generate WEBVTT"
+	echo "Generate WEBVTT text track"
 	source helper/generate-text-data.sh
 fi
 
-if [ "$GEN_4K" == 1 ]; then
-	echo "Generate 4k"
-	mkdir video
-	source helper/stitch-manifest.sh
-	source helper/generate-video-4k.sh
-	source helper/generate-iframe-track-4k.sh
-	source helper/generate-audio-data.sh
-	source helper/generate-audio-manifests-4k.sh
-	stitch_manifests SegmentTimeline4k.mpd
-fi
 

@@ -32,7 +32,11 @@ $ ./generate-hls-dash.sh
 ./generate-hls-dash.sh -l 0		//to disable hls stream generation
 ./generate-hls-dash.sh -a 0		//to disable dash stream generation
 ./generate-hls-dash.sh -w  		//to generate webvtt text track (default: 0 disabled)"
-./generate-hls-dash.sh -k 		//to generate 4k content (default 1) (should be deprecated)
+
+## Video is generated with image/color loop
+Default video streams will be generated with color loop for all profiles
+
+Use option IMAGE=1 in helper/config.sh to generate video with single background image
 
 ## Audio and Video codecs supported
 Can change audio video codec in helper/config.sh
