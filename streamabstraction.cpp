@@ -1042,7 +1042,7 @@ bool MediaTrack::ProcessFragmentChunk()
 			if (pContext && pContext->trickplayMode)
 			{
 					// If in trick mode, do trick mode PTS restamp
-					TrickModePtsRestamp(parsedBufferChunk,fpts,fduration,cachedFragment->initFragment,cachedFragment->discontinuity);
+					TrickModePtsRestamp(parsedBufferChunk,cachedFragment->absPosition,fduration,cachedFragment->initFragment,cachedFragment->discontinuity);
 			}
 			else
 			{
