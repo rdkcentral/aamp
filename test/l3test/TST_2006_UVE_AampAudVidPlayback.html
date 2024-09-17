@@ -28,7 +28,7 @@ async function TST_2006_UVE_AampAudVidPlayback() {
 
     // Initialise the config
     TST_STEP("initConfig");
-    var playerInitConfig = {initialBitrate: 2500000,offset: 0,networkTimeout: 10,preferredAudioLanguage: "spa"};
+    var playerInitConfig = {info: true,gst: true,initialBitrate: 2500000,offset: 0,networkTimeout: 10,preferredAudioLanguage: "spa"};
     await aamp_player.player.initConfig(playerInitConfig);
 
     // Load and Play the main content URL, wait 10s and verify position updated
@@ -110,9 +110,6 @@ async function TST_2006_UVE_AampAudVidPlayback() {
     <div id="videoContainer">
         <video style="height:100%; width:100%; position:absolute; bottom:0; left:0">
             <source src="dummy.mp4" type=video/ave> <!-- hole punching -->
-        </video>
-        <video id="dummyVideo" autoplay="autoplay" style="position: absolute; top: 0px; left: 0px; width: 100%; height: 100%;">
-            <source src="rec://srv/cur" type="video/x-dvb"/>
         </video>
     </div>
     <div id="testModal">
