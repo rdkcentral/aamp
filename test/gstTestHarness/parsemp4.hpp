@@ -19,6 +19,6 @@
 #include <cstdint>
 #include <stddef.h>
 
-bool parsemp4_ApplyPtsOffset( uint8_t *ptr, size_t len, int64_t pts_offset );
+uint64_t parsemp4_ApplyPtsOffset( uint8_t *ptr, size_t len, int64_t pts_offset );
 
 #endif /* parsemp4_hpp */
