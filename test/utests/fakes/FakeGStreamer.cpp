@@ -672,11 +672,22 @@ GstCaps *gst_pad_get_current_caps (GstPad * pad)
 
 gchar *gst_caps_to_string (const GstCaps * caps)
 {
-        TRACE_FUNC();
-        return NULL;
+	TRACE_FUNC();
+	return NULL;
 }
 
 void gst_pad_remove_probe (GstPad * pad, gulong id)
 {
-        TRACE_FUNC();
+	TRACE_FUNC();
+}
+
+gboolean gst_mini_object_replace (GstMiniObject **olddata, GstMiniObject *newdata)
+{
+	TRACE_FUNC();
+	return FALSE;
+}
+
+void gst_event_copy_segment (GstEvent *event, GstSegment *segment)
+{
+	TRACE_FUNC();
 }
