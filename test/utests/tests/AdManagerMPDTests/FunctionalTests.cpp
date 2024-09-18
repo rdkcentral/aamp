@@ -912,6 +912,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodId, "testPeriodId2"); // next period
+  // Make sure endPeriodId is not reset in mPeriodMap. Refer RDK-53040 for more details
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId2);
 
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId2);
@@ -1005,7 +1007,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 /**
- * @brief Tests the functionality of the PlaceAds method when multiple ads are prsent for a single adbreak
+ * @brief Tests the functionality of the PlaceAds method when multiple ads are present for a single adbreak
  */
 TEST_F(AdManagerMPDTests, PlaceAdsTests_6)
 {
@@ -1121,4 +1123,167 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration, 60000); // in ms
+}
+
+/**
+ * @brief Tests the functionality of the PlaceAds method when openPeriodID is filled and new period is added
+ * for a spot level replacement. (ie, source period duration > ad duration + 2secs)
+ * This is a special case scenario. Only one adbreak is present and that gets filled. In subsequent refresh,
+ * new period is updated, but not having ad markers
+ * Refer RDK-53040 for more details
+ */
+TEST_F(AdManagerMPDTests, PlaceAdsTests_7)
+{
+  // not adding scte35 markers. These are mocked in PrivateObjectMPD instance
+  static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="16" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+    <AdaptationSet id="1" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="2" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+  std::string periodId = "testPeriodId0";
+  // testPeriodId1 has 3 fragments added in the mock
+  InitializeAdMPDObject(manifest);
+  // Set curEndNumber to 13, adNextOffset = (13)*2000
+  mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId, periodId, 13, 0, 26000);
+  mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.push_back(mPrivateCDAIObjectMPD->mPlacementObj);
+
+  // Add ads to the adBreak
+  mPrivateCDAIObjectMPD->mAdBreaks = {
+    {periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}
+  };
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, true, "adId1", "url", 30000, periodId, 0, nullptr);
+
+  // Add ads to mPeriodMap. mPeriodMap[periodId].adBreakId is non-empty for live at the beginning as per SetAlternateContents
+  mPrivateCDAIObjectMPD->mPeriodMap[periodId] = Period2AdData(false, periodId, 26000 /*in ms*/,
+    {
+      std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
+    });
+  mPrivateCDAIObjectMPD->PlaceAds(mMPD);
+  // The current adbreak is filled and placementObj should now be reset
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 0);
+  EXPECT_NE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodId, periodId); // placement completed and ending in same period ID
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 30000); // placement completed and ending in same period ID
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 34000); // in ms
+
+  // Update with same mpd again, and the params should not change
+  mPrivateCDAIObjectMPD->PlaceAds(mMPD);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 0);
+  EXPECT_NE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodId, periodId); // placement completed and ending in same period ID
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 30000); // placement completed and ending in same period ID
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 34000); // in ms
+}
+
+/**
+ * @brief Tests the functionality of the PlaceAds method when openPeriodID is currently getting filled
+ * and an empty period appears at the upper boundary. This is a special case scenario.
+ * Here, the openPeriodID is a spot placement use-case, where the source period duration > ad duration + 2secs
+ * and it should be clearly updated as such
+ */
+TEST_F(AdManagerMPDTests, PlaceAdsTests_8)
+{
+  // src period = 30sec, ad for 20 sec
+  // not adding scte35 markers. These are mocked in PrivateObjectMPD instance
+  static const char *manifest1 =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="9" />
+            <S t="50000" d="2500" r="0" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+  </Period>
+</MPD>
+)";
+
+  static const char *manifest2 =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="9" />
+            <S t="50000" d="2500" r="3" />
+            <S t="60000" d="5000" r="2" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+  </Period>
+</MPD>
+)";
+  std::string periodId = "testPeriodId0";
+  // testPeriodId1 has 3 fragments added in the mock
+  InitializeAdMPDObject(manifest1);
+  // Set curEndNumber to 9, adNextOffset = (9)*2000
+  mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId, periodId, 0, 0, 0);
+  mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.push_back(mPrivateCDAIObjectMPD->mPlacementObj);
+  mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber = 9;
+  mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset = 18000;
+
+  // Add ads to the adBreak
+  mPrivateCDAIObjectMPD->mAdBreaks = {
+    {periodId, AdBreakObject(20000, std::make_shared<std::vector<AdNode>>(), "", 0, 20000)}
+  };
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, true, "adId1", "url", 20000, periodId, 0, nullptr);
+
+  // Add ads to mPeriodMap. mPeriodMap[periodId].adBreakId is non-empty for live at the beginning as per SetAlternateContents
+  mPrivateCDAIObjectMPD->mPeriodMap[periodId] = Period2AdData(false, periodId, 18000 /*in ms*/,
+    {
+      std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
+    });
+  mPrivateCDAIObjectMPD->PlaceAds(mMPD);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 11);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  // This is because ad is placed, and hence we will increment curAdIdx
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 1);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 21000); // in ms
+
+  // Update with same mpd again, and the params should not change
+  InitializeAdMPDObject(manifest2);
+  mPrivateCDAIObjectMPD->PlaceAds(mMPD);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodId, periodId); // placement completed and ending in same period ID
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 20000); // placement completed and offset updated
+  // The current adbreak is filled and placementObj should now be reset
+  EXPECT_NE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
+  // This is because ad is placed in previous iteration with adjustEndPeriodOffset set to true. This needs to be revisited
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 21000); // in ms
 }

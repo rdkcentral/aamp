@@ -407,13 +407,12 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 					{
 						//check if next period available
 						iter++;
-						if( iter < periods.size() )
+						if( iter < periods.size() && adMPDParseHelper->aamp_GetPeriodDuration(iter, 0) > 0)
 						{
 							auto nextPeriod = periods.at(iter);
 							abObj.adjustEndPeriodOffset = false; // done with Adjustment
 							abObj.endPeriodOffset = 0;//Aligning to next period start
 							abObj.endPeriodId = nextPeriod->GetId();
-							mPeriodMap[abObj.endPeriodId] = Period2AdData();
 							abObj.mWaitForManifestUpdateFlag = false;
 							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s", 
 														diff,currPeriodDuration,abObj.endPeriodId.c_str());
@@ -554,7 +553,7 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 					// This adbreak was placed completely, so endPeriodOffset can be used which will be more accurate than curP2Ad.duration
 					end = abObj.endPeriodOffset;	//No need to look beyond the adbreakEnd
 				}
-				if(key >= start && key <= end)
+				if(key >= start && key < end)
 				{
 					//Yes, Key is in Adbreak. Find which Ad.
 					for(auto it = curP2Ad.offset2Ad.begin(); it != curP2Ad.offset2Ad.end(); it++)
@@ -999,7 +998,7 @@ PlacementObj PrivateCDAIObjectMPD::setPlacementObj(std::string adBrkId,std::stri
 				}
 			}
 		}
-		else if (mAdtoInsertInNextBreakVec.size() == 1)
+		else if (mAdtoInsertInNextBreakVec.size() == 1 && mAdtoInsertInNextBreakVec[0].pendingAdbrkId != adBrkId)
 		{
 			nxtPlacementObj = mAdtoInsertInNextBreakVec[0];
 			AAMPLOG_INFO("[CDAI]  PeriodId [%s] has source content next placementObj [%s]  first element of adbrkVec",adBrkId.c_str(),nxtPlacementObj.pendingAdbrkId.c_str());

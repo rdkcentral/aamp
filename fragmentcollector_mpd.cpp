@@ -8344,7 +8344,6 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 						aamp->IncrementGaps();
 					}
 				}
-
 				mCurrentPeriodIdx = mIterPeriodIndex;
 				mBasePeriodId = newPeriod->GetId();
 				periodChanged = false; // If the playing period changes, it will be detected below [if(currentPeriodId != mCurrentPeriod->GetId())]
@@ -8428,6 +8427,11 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					requireStreamSelection = true;
 					AAMPLOG_WARN("playing period %d/%d", mIterPeriodIndex, (int)mNumberOfPeriods);
 					ret = true;
+					// If DAI ad is available for the period and we are still not in AD playing state, log a warning
+					if ((mCdaiObject->HasDaiAd(mBasePeriodId)) && (AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState) && (mBasePeriodOffset == 0))
+					{
+						AAMPLOG_WARN("Ad available for periodID:%s, but skipped!!", mBasePeriodId.c_str());
+					}
 				}
 				else
 				{
@@ -11462,6 +11466,13 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 						mCdaiObject->mAdState = AdState::IN_ADBREAK_AD_NOT_PLAYING;
 					}
 					stateChanged = true;
+				}
+				else
+				{
+					if (mCdaiObject->isAdBreakObjectExist(mBasePeriodId))
+					{
+						AAMPLOG_WARN("[CDAI] Got adIdx[%d] for adBreakId[%s] but adBreak object exist", adIdx, brkId.c_str());
+					}
 				}
 			}
 			break;
