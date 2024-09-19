@@ -6,6 +6,7 @@ cd ~/Documents/rdkdev/aamp/test/l2test/
 source l2venv/bin/activate
 pip install pipreqs
 pip install flask
+pip install webargs
 cd ~/Documents/rdkdev/aamp/test/tools/abrtest
 
 testhelper() {
@@ -20,19 +21,20 @@ testhelper() {
 
    # set working directory to harvested/transcoded content
    path="v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd"
-   pushd ~/Downloads/skywitnessMP
+   cd ~/Downloads/skywitnessMP
    
    # start simlinear in background
    ~/Documents/rdkdev/aamp/test/tools/simlinear/simlinear.py --dash 8085 --throttle $pre:$mid:$size &
-   popd || exit
    
    # launch fog
-   ~/Documents/rdkdev/fog/build/Debug/fog-cli > fog.log &
+   cd ~/Documents/rdkdev/fog/build/Debug
+   ./fog-cli > ~/Documents/rdkdev/aamp/test/tools/abrtest/fog.log &
 
 # give fog time to start up
    sleep 1
 # run aampcli
-   ~/Documents/rdkdev/aamp/build/Debug/aamp-cli > aamp.log <<EOSXXX
+   cd ~/Documents/rdkdev/aamp/build/Debug
+   ./aamp-cli > ~/Documents/rdkdev/aamp/test/tools/abrtest/aamp.log <<EOSXXX
 # enable aamp/fog logging and configure timeouts
 setconfig {"info":true,"networkTimeout":$networkTimeout,"downloadLowBWTimeout":$downloadLowBWTimeout}
 $fog http://127.0.0.1:8085/$path
@@ -43,6 +45,7 @@ sleep 1000
 exit
 EOSXXX
 
+   cd ~/Documents/rdkdev/aamp/test/tools/abrtest
    suffix=$pre-$mid-$networkTimeout-$downloadLowBWTimeout-$fog
    grep -w HttpRequestEnd  aamp.log > "aamp-$suffix.log"
    if [ "$fog" = "fog" ]; then

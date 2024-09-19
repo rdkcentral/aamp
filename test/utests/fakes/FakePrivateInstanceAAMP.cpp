@@ -242,7 +242,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 								bool audioDecoderStreamSync,
 								const char *refreshManifestUrl,
 								int mpdStichingMode,
-								std::string sid
+								std::string sid,
+								const char *preprocessedManifest
 								)
 
 {
@@ -1255,7 +1256,7 @@ void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
 {
 }
 
-void PrivateInstanceAAMP::SetSubTimeScale(uint32_t subTimeScale)
+void PrivateInstanceAAMP::SetSubTimeScale(uint32_t audTimeScale)
 {
 }
 
@@ -1325,12 +1326,22 @@ void PrivateInstanceAAMP::SignalSubtitleClock()
 
 int PrivateInstanceAAMP::ScheduleAsyncTask(IdleTask task, void *arg, std::string taskName)
 {
-	return 0;
+	int retval = 0;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		retval = g_mockPrivateInstanceAAMP->ScheduleAsyncTask(task, arg, taskName);
+	}
+	return retval;
 }
 
 bool PrivateInstanceAAMP::RemoveAsyncTask(int taskId)
 {
-	return false;
+	bool retval = false;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		retval = g_mockPrivateInstanceAAMP->RemoveAsyncTask(taskId);
+	}
+	return retval;
 }
 
 void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long)
@@ -1408,7 +1419,7 @@ void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
 {
 }
 
-void PrivateInstanceAAMP::FlushAudio(double pos)
+void PrivateInstanceAAMP::FlushTrack(AampMediaType mediaType,double pos)
 {
 }
 
@@ -1443,6 +1454,10 @@ void PrivateInstanceAAMP::WakeupLatencyCheck()
 {
 }
 
+void PrivateInstanceAAMP::IncreaseGSTBufferSize()
+{
+}
+
 AampTSBSessionManager *PrivateInstanceAAMP::GetTSBSessionManager()
 {
     return NULL;
@@ -1469,4 +1484,29 @@ std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 bool PrivateInstanceAAMP::ReconfigureForCodecChange()
 {
 	return false;
+}
+
+std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+{
+	std::string  bRetManifestData;
+	if(!mProvidedManifestFile.empty())
+	{
+		bRetManifestData = std::move(mProvidedManifestFile);
+	}
+	return bRetManifestData;
+}
+
+void PrivateInstanceAAMP::updateManifest(const char *manifestData)
+{
+	if(NULL != manifestData)
+		mProvidedManifestFile = manifestData;
+}
+
+
+void PrivateInstanceAAMP::SetPauseOnStartPlayback(bool enable)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->SetPauseOnStartPlayback(enable);
+	}
 }

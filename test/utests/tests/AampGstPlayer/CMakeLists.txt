@@ -35,6 +35,7 @@ include_directories(${AAMP_ROOT}/tsb/api)
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
 set(TEST_SOURCES FunctionalTests.cpp
+                 PauseOnPlaybackTests.cpp
                  AampGstPlayerTests.cpp
                  )
 
@@ -57,4 +58,4 @@ endif()
 
 target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES})
 
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+aamp_utest_run_add(${EXEC_NAME})

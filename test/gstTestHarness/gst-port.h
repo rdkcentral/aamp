@@ -96,10 +96,18 @@ private:
 	gint64 position_adjust;
 
 	_GstBus *bus;
-	void bus_message( _GstBus * bus, _GstMessage * msg );
-	void bus_sync_handler( _GstBus * bus, _GstMessage * msg );
+	gboolean bus_message( _GstBus * bus, _GstMessage * msg );
+	GstBusSyncReply bus_sync_handler( _GstBus * bus, _GstMessage * msg );
 	friend gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline );
 	friend GstBusSyncReply bus_sync_handler_cb(GstBus * bus, GstMessage * msg, Pipeline * pipeline );
+
+	void HandleGstMsg( GstMessage *msg );
+	void HandleGstMessageError( GstMessage *msg, const char *messageName );
+	void HandleGstMessageWarning( GstMessage *msg, const char *messageName );
+	void HandleGstMessageEOS( GstMessage *msg, const char *messageName );
+	void HandleGstMessageStateChanged( GstMessage *msg, const char *messageName );
+	void HandleGstMessageTag( GstMessage *msg, const char *messageName );
+	void HandleGstMessageQOS( GstMessage *msg, const char *messageName );
 };
 
 #endif // GST_PORT_H

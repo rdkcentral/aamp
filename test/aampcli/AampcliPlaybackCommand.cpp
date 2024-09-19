@@ -240,7 +240,7 @@ void PlaybackCommand::HandleCommandTuneLocator( const char *cmd, PlayerInstanceA
 	{
 		playerInstanceAamp->Tune(cmd, mAampcli.mbAutoPlay,
 			nullptr, true, false, nullptr, true, nullptr, 0,
-			std::move(sid));
+			std::move(sid),nullptr);
 	}
 }
 

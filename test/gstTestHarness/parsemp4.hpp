@@ -19,6 +19,6 @@
 #include <cstdint>
 #include <stddef.h>
 
-uint64_t parsemp4_ApplyPtsOffset( uint8_t *ptr, size_t len, int64_t pts_offset );
+void mp4demux( uint8_t *ptr, size_t len, int64_t pts_restamp_delta, uint32_t timeScale );
 
 #endif /* parsemp4_hpp */

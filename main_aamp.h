@@ -328,10 +328,10 @@ struct TextTrackInfo
 	{
 	}
 	
-	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string codecStr, std::string cha, std::string typ, std::string lab, std::string type):
+	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string id, std::string cha, std::string typ, std::string lab, std::string type):
 		index(idx), language(lang), isCC(cc), rendition(rend),
-		name(trackName), instreamId(), characteristics(cha),
-		codec(codecStr), primaryKey(0), accessibilityType(typ), label(lab), mType(type), accessibilityItem(), isAvailable(true)
+		name(trackName), instreamId(id), characteristics(cha),
+		codec(), primaryKey(0), accessibilityType(typ), label(lab), mType(type), accessibilityItem(), isAvailable(true)
 	{
 	}
 
@@ -477,7 +477,7 @@ public:
 	 *   @param[in]  position - playback position
 	 *   @return void
 	 */
-	virtual void FlushAudio(double position = 0){}
+	virtual void FlushTrack(AampMediaType mediaType,double position = 0){}
 
 	/**
 	 *   @brief Set player rate to audio/video sink
@@ -721,6 +721,13 @@ public:
 	 * @brief Signal the new clock to subtitle module
 	 */
 	virtual void SignalSubtitleClock() {};
+
+	/**
+	 * @fn SetPauseOnPlayback
+	 * @brief Set to pause on next playback start
+	 * @param[in] enable - Flag to set whether enabled
+	 */
+	virtual void SetPauseOnStartPlayback(bool enable) {};
 };
 
 
@@ -813,7 +820,8 @@ public:
 				bool audioDecoderStreamSync = true,
 				const char *refreshManifestUrl = NULL,
 				int mpdStichingMode = 0,
-				std::string sid = std::string{} );
+				std::string sid = std::string{},
+				const char *manifestData = NULL);
 
 	/**
 	 *   @brief Stop playback and release resources.
@@ -2082,6 +2090,13 @@ public:
 	 */
 	std::string GetSessionId() const;
 
+	/**
+	* @fn updateManifest
+	*
+	* @param Processed manifest data  from app
+	*/
+	void updateManifest(const char *manifestData);
+
 protected:
 	/**
 	 *   @fn IsValidRate
@@ -2106,7 +2121,8 @@ protected:
 						bool audioDecoderStreamSync,
 						const char *refreshManifestUrl = NULL,
 						int mpdStichingMode = 0,
-						std::string sid = {} );
+						std::string sid = {},
+						const char *manifestData = NULL );
 	/**
          *   @fn SetRateInternal
          *

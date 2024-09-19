@@ -500,7 +500,16 @@ const char *GetDrmSystemID(DRMSystems drmSystem)
 
 bool aamp_StartsWith(const char *inputStr, const char *prefix)
 {
-	return false;
+	bool rc = true;
+	while( *prefix )
+	{
+		if( *inputStr++ != *prefix++ )
+		{
+			rc = false;
+			break;
+		}
+	}
+	return rc;
 }
 
 std::string aamp_GetConfigPath(const std::string &filename)
@@ -518,7 +527,7 @@ double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampL
 }
 TSB::LogLevel ConvertTsbLogLevel(int logLev)
 {
-	return TSB::LogLevel::WARN;
+	return static_cast<TSB::LogLevel>(0);
 }
 
 void UrlEncode(std::string inStr, std::string &outStr)

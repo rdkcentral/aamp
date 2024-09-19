@@ -35,6 +35,7 @@ include_directories(${LIBCJSON_INCLUDE_DIRS})
 
 
 set(TEST_SOURCES PauseAtTests.cpp
+                 PauseOnPlaybackTests.cpp
                  TextStyleTests.cpp
                  MediaFormatTypeTests.cpp
                  IsPeriodChangeMarkedTests.cpp
@@ -62,4 +63,4 @@ endif()
 
 target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+aamp_utest_run_add(${EXEC_NAME})

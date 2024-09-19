@@ -31,6 +31,36 @@
 
 std::map<std::string,setCommandInfo> Set::setCommands = std::map<std::string,setCommandInfo>();
 std::vector<std::string> Set::commands(0);
+// Extract an item from tha command line
+// This is generally in the form of a comma separated list but this function checks to see if the 
+// text is enclosed by {} to allow for json text to be passed
+std::string Set::getItem(std::stringstream &command)
+{
+	std::string item;
+	uint32_t brackets = 0;
+	char c;
+	while (command.get(c))
+	{
+		if ((c == ',') && (brackets == 0))
+		{
+			// If we are not in a bracketed section (for json text) then the item is complete
+			break;
+		}
+		item += c;
+		if (c == '{')
+		{
+			brackets++;
+		}
+		else if (c == '}')
+		{
+			if (brackets > 0)
+			{
+				brackets--;
+			}
+		}
+	}
+	return item;
+}
 
 bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 {
@@ -970,47 +1000,17 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 							std::string label = "";
 							int channel = 0;
 							std::stringstream ss(strTrackInfo);
-							/** "language,rendition,codec,channel" **/
-							/*language */
-							if (std::getline(ss, substr, ',')){
-								if(!substr.empty()){
-									language = substr;
-								}
+							language = getItem(ss);
+							rendition = getItem(ss);
+							type = getItem(ss);
+							codec = getItem(ss);
+							
+							std::string temp = getItem(ss);
+							if(!temp.empty()){
+								channel = std::stoi(temp);
 							}
+							label = getItem(ss);
 
-							/*rendition */
-							if (std::getline(ss, substr, ',')){
-								if(!substr.empty()){
-									rendition = substr;
-								}
-							}
-
-							/*type */
-							if (std::getline(ss, substr, ',')){
-								if(!substr.empty()){
-									type = substr;
-								}
-							}
-
-							/*codec */
-							if (std::getline(ss, substr, ',')){
-								if(!substr.empty()){
-									codec = substr;
-								}
-							}
-
-							/*channel TODO:not supported now */
-							if (std::getline(ss, substr, ',')){
-								if(!substr.empty()){
-									channel = std::stoi(substr);
-								}
-							}
-							/*label*/
-							if (std::getline(ss, substr, ',')){
-								if(!substr.empty()){
-									label = substr;
-								}
-							}
 							printf("[AAMPCLI] Selecting audio track based on language  - %s rendition - %s type = %s codec = %s channel = %d label = %s\n",
 									language.c_str(), rendition.c_str(), type.c_str(), codec.c_str(), channel, label.c_str());
 							playerInstanceAamp->SetAudioTrack(language, rendition, type, codec, channel,label);

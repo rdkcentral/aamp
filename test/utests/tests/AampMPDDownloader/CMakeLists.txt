@@ -46,14 +46,14 @@ set (DASH_PARSER_SOURCES ${AAMP_ROOT}/dash/xml/DomDocument.cpp
                 ${AAMP_ROOT}/dash/utils/StringEx.cpp
                 ${AAMP_ROOT}/dash/utils/Path.cpp)
 
-set(TEST_SOURCES FunctionalTests.cpp 
+set(TEST_SOURCES FunctionalTests.cpp
                  AampMPDDownloaderTest.cpp)
 
 
 set(AAMP_SOURCES ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp ${AAMP_ROOT}/AampUtils.cpp ${AAMP_ROOT}/_base64.cpp
                 ${AAMP_ROOT}/iso639map.cpp
 		${AAMP_ROOT}/AampMPDParseHelper.cpp
-		${AAMP_ROOT}/AampMPDDownloader.cpp 
+		${AAMP_ROOT}/AampMPDDownloader.cpp
 		${AAMP_ROOT}/AampMPDUtils.cpp
 		${DASH_PARSER_SOURCES})
 
@@ -74,5 +74,4 @@ endif()
 target_link_libraries(${EXEC_NAME} -lpthread ${LIBCJSON_LINK_LIBRARIES} -lcurl -lxml2 fakes ${LIBDASH_LINK_LIBRARIES} ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
-
+aamp_utest_run_add(${EXEC_NAME})

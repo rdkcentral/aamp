@@ -113,6 +113,51 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
 	}
 	return true;
 }
+/**
+ *  @brief Update PTS and send pts for flush subtitle
+ */
+void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position)
+{
+	IsoBmffBuffer buffer(mLogObj);
+	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
+	{
+		double pos = 0;
+		float diffDuration = abs((position - prevPosition) - prevDuration);
+		pos = ((double)sumPTS / (double)currTimeScale);
+		AAMPLOG_WARN("IsoBmffProcessor %s position=%lf prevPos=%lf posnow=%lf SumPTS %" PRIu64 " ", IsoBmffProcessorTypeName[type],position,prevPosition,pos,sumPTS);
+
+		uint64_t skippedPTS = 0;
+
+		if(diffDuration > 0.0f)
+		{
+			AAMPLOG_INFO("IsoBmffProcessor %s fragments skipped due to Network/Other error skippedDuration = %.12f TS=%u",IsoBmffProcessorTypeName[type], diffDuration, currTimeScale);
+			skippedPTS = diffDuration * currTimeScale ;
+		}
+		else
+		{
+			AAMPLOG_INFO("%s fragments not skipped because skippedDuration = %.12f",IsoBmffProcessorTypeName[type], diffDuration);
+		}
+
+		sumPTS -= skippedPTS;
+		pos = ((double)sumPTS / (double)currTimeScale);
+		p_aamp->FlushTrack((AampMediaType)type,pos);
+		startPos = pos;
+		prevPosition = position;
+		AAMPLOG_WARN("IsoBmffProcessor %s Updated SumPTS %" PRIu64 "  TS: %u and start pos %f", IsoBmffProcessorTypeName[type],sumPTS, currTimeScale, startPos);
+	}
+	else
+	{
+		buffer.setBuffer((uint8_t *)pBuffer->GetPtr(), pBuffer->GetLen());
+		buffer.parseBuffer();
+		uint64_t currentPTS = 0;
+		if(buffer.getFirstPTS(currentPTS))
+		{
+			double pos = (double)currentPTS / (double)currTimeScale;
+			p_aamp->FlushTrack((AampMediaType)type,pos);
+			AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u",currentPTS,currTimeScale);
+		}
+	}
+}
 
 /**
  *  @brief Update PTS and send pts for flush audio
@@ -141,7 +186,7 @@ void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double
 
 		sumPTS -= skippedPTS;
 		pos = ((double)sumPTS / (double)currTimeScale);
-		p_aamp->FlushAudio(pos);
+		p_aamp->FlushTrack((AampMediaType)type,pos);
 		startPos = pos;
 		prevPosition = position;
 		AAMPLOG_WARN("IsoBmffProcessor %s Updated SumPTS %" PRIu64 "  TS: %u and start pos %f", IsoBmffProcessorTypeName[type],sumPTS, currTimeScale, startPos);
@@ -155,7 +200,7 @@ void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double
 		if(buffer.getFirstPTS(currentPTS))
 		{
 			double pos = (double)currentPTS / (double)currTimeScale;
-			p_aamp->FlushAudio(pos);
+			p_aamp->FlushTrack((AampMediaType)type,pos);
 			AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u",currentPTS,currTimeScale);
 		}
 	}
@@ -182,15 +227,15 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 			buffer.setBuffer((uint8_t *)fragBuffer->GetPtr(), fragBuffer->GetLen());
 			buffer.parseBuffer();
 
-			if (buffer.isInitSegment())
+			if (buffer.isInitSegment()) 
 			{
 				uint32_t tScale = 0;
 				if (buffer.getTimeScale(tScale))
 				{
+
 					currTimeScale = tScale;
 					AAMPLOG_INFO("IsoBmffProcessor %s TimeScale %u (%u)", IsoBmffProcessorTypeName[type], currTimeScale,currTimeScale);
 				}
-
 				AAMPLOG_INFO("IsoBmffProcessor %s caching init fragment %u (%u)", IsoBmffProcessorTypeName[type], currTimeScale,currTimeScale);
 				cacheInitSegment(fragBuffer->GetPtr(), fragBuffer->GetLen());
 				ret = false;

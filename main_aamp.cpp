@@ -354,7 +354,8 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								bool audioDecoderStreamSync,
 								const char *refreshManifestUrl,
 								int mpdStichingMode,
-								std::string sid
+								std::string sid,
+								const char *manifestData
 								)
 {
 #ifdef AMLOGIC
@@ -367,20 +368,20 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 		const std::string sTraceUUID = (traceUUID != NULL)? std::string(traceUUID) : std::string();
 
 		mScheduler.ScheduleTask(AsyncTaskObj(
-			[manifest, autoPlay , cType, bFirstAttempt, bFinalAttempt, sTraceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, sid](void *data)
+			[manifest, autoPlay , cType, bFirstAttempt, bFinalAttempt, sTraceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, sid,manifestData](void *data)
 			{
 				PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
 				const char * trace_uuid = sTraceUUID.empty() ? nullptr : sTraceUUID.c_str();
 
 				instance->TuneInternal(manifest.c_str(), autoPlay, cType.c_str(), bFirstAttempt,
-										bFinalAttempt, trace_uuid, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid));
+										bFinalAttempt, trace_uuid, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid),manifestData);
 			},
 			(void *) this,
 			__FUNCTION__));
 	}
 	else
 	{
-		TuneInternal(mainManifestUrl, autoPlay , contentType, bFirstAttempt, bFinalAttempt,traceUUID,audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid));
+		TuneInternal(mainManifestUrl, autoPlay , contentType, bFirstAttempt, bFinalAttempt,traceUUID,audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid),manifestData);
 	}
 }
 
@@ -396,7 +397,8 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 										bool audioDecoderStreamSync,
 										const char *refreshManifestUrl,
 										int mpdStichingMode,
-										std::string sid
+										std::string sid,
+										const char* manifestData
 										)
 {
 	PrivAAMPState state;
@@ -427,7 +429,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 			StopInternal(false);
 		}
 		aamp->getAampCacheHandler()->StartPlaylistCache();
-		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid));
+		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid),manifestData);
 	}
 }
 
@@ -718,6 +720,19 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE); // Send speed change event to XRE to reset the speed to normal play since the trickplay ignored at player level.
 			return;
 		}
+
+		// Special case where playback has not started due to autoplay being false and
+		// first rate is paused, set to pause with first frame shown
+		if ((AAMP_RATE_PAUSE == rate) && aamp->pipeline_paused && !aamp->mbPlayEnabled && !aamp->mbDetached)
+		{
+			rate = AAMP_NORMAL_PLAY_RATE;
+			aamp->SetPauseOnStartPlayback(true);
+		}
+		else
+		{
+			aamp->SetPauseOnStartPlayback(false);
+		}
+
 		if(!(aamp->mbPlayEnabled) && aamp->pipeline_paused && (AAMP_RATE_PAUSE != rate) && (aamp->mbSeeked || !aamp->mbDetached))
 		{
 			AAMPLOG_WARN("PLAYER[%d] Player %s=>%s.", aamp->mPlayerId, STRBGPLAYER, STRFGPLAYER );
@@ -3505,3 +3520,12 @@ std::string PlayerInstanceAAMP::GetVideoPlaybackQuality(void)
 
 	return aamp->GetVideoPlaybackQuality();
 }
+
+void PlayerInstanceAAMP::updateManifest(const char *manifestData)
+{
+	if(aamp)
+	{
+		aamp->updateManifest(manifestData);
+	}
+}
+

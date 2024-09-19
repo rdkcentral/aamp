@@ -37,7 +37,7 @@ set(AAMP_SOURCES ${AAMP_ROOT}/ID3Metadata.cpp)
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
-               
+
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 if (CMAKE_XCODE_BUILD_SYSTEM)
@@ -52,4 +52,4 @@ endif()
 
 target_link_libraries(${EXEC_NAME} fakes -pthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+aamp_utest_run_add(${EXEC_NAME})

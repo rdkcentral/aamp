@@ -59,4 +59,4 @@ target_link_libraries(${EXEC_NAME} fakes ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} 
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+aamp_utest_run_add(${EXEC_NAME})

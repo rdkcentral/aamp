@@ -30,7 +30,7 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "6.8"
+#define AAMP_VERSION "6.9"
 #define AAMP_TUNETIME_VERSION 5
 
 //Stringification of Macro : use two levels of macros
@@ -50,9 +50,12 @@
 #define GST_VIDEOBUFFER_SIZE_BYTES (GST_VIDEOBUFFER_SIZE_BYTES_BASE)
 #define GST_AUDIOBUFFER_SIZE_BYTES (GST_AUDIOBUFFER_SIZE_BYTES_BASE)
 #endif
+#define GST_BW_TO_BUFFER_FACTOR 0.80			/**< Bandwidth to buffer factor to calculate new GST Buffer Size to accomodate larger Video Buffers*/
+#define GST_VIDEOBUFFER_SIZE_MAX_BYTES 26214400			/**< 25*1024*1024 , Upper limit for HiFi Content */
 
 #define DEFAULT_ENCODED_CONTENT_BUFFER_SIZE (512*1024)		/**< 512KB buffer is allocated for a content encoded curl download to minimize buffer reallocation*/
-#define MAX_PTS_ERRORS_THRESHOLD 4
+#define MAX_PTS_ERRORS_THRESHOLD 20
+#define DEFAULT_PTS_ERRORS_THRESHOLD 4
 #define DEFAULT_WAIT_TIME_BEFORE_RETRY_HTTP_5XX_MS (1000)  	/**< Wait time in milliseconds before retry for 5xx errors */
 #define MAX_PLAYLIST_CACHE_SIZE    (3*1024) 			/**< Approx 3MB -> 2 video profiles + one audio profile + one iframe profile, 500-700K MainManifest */
 

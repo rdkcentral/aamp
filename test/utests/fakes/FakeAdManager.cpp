@@ -72,6 +72,11 @@ bool PrivateCDAIObjectMPD::isPeriodExist(const std::string &periodId)
 	return false;
 }
 
+bool PrivateCDAIObjectMPD::isAdBreakObjectExist(const std::string &adBrkId)
+{
+	return false;
+}
+
 void PrivateCDAIObjectMPD::PrunePeriodMaps(std::vector<std::string> &newPeriodIds)
 {
 }
@@ -103,7 +108,3 @@ void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
 {
 }
 
-bool PrivateCDAIObjectMPD::isAdBreakObjectExist(const std::string &adBrkId)
-{
-	return false;
-}

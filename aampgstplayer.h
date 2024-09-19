@@ -446,9 +446,9 @@ public:
 	PlaybackQualityStruct* GetVideoPlaybackQuality(void) override;
 
 	/**
-	 * @fn FlushAudio
+	 * @fn FlushTrack
 	 */
-	void FlushAudio(double pos) override;
+	void FlushTrack(AampMediaType mediaType,double pos) override;
 
 	/**
 	 * @fn ChangeAamp
@@ -478,6 +478,13 @@ public:
 	 * @param[out] data - Data needed for buffer control
 	 */
 	void GetBufferControlData(AampMediaType mediaType, BufferControlData &data) const;
+
+	/**
+	 * @fn SetPauseOnPlayback
+	 * @brief Set to pause on next playback start
+	 * @param[in] enable - Flag to set whether enabled
+	 */
+	void SetPauseOnStartPlayback(bool enable);
 
 private:
 	/**

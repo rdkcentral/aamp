@@ -46,11 +46,11 @@ set(TEST_SOURCES FunctionalTests.cpp
 set(AAMP_SOURCES ${AAMP_ROOT}/drm/AampOcdmBasicSessionAdapter.cpp
                  ${AAMP_ROOT}/drm/helper/AampDrmHelper.cpp
                  ${AAMP_ROOT}/drm/AampDrmSession.cpp)
-                 
-                 
+
+
 #[[class AAMPOCDMBasicSessionAdapter inherits from class AAMPOCDMSessionAdapter,
 which inherits from the abstract class AampDrmSession.
-Since the implementation of AampDrmSession is fairly simple, the real code is compiled. 
+Since the implementation of AampDrmSession is fairly simple, the real code is compiled.
 However, AAMPOCDMSessionAdapter has a more complex implementation, so a fake has been written for this class.]]
 
 add_executable(${EXEC_NAME}
@@ -76,4 +76,4 @@ endif()
 
 target_link_libraries(${EXEC_NAME} fakes -lpthread ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+aamp_utest_run_add(${EXEC_NAME})

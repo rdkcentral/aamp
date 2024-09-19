@@ -600,6 +600,7 @@ public:
 	 * @param[in] refreshManifestUrl -
 	 * @param[in] mpdStichingMode -
 	 * @param[in] sid - Session ID defined by the player
+	 * @param[in] manifestData - preprocessed manifest provided by application
 	 * @return void
 	 */
 	void Tune(const char *url,
@@ -611,7 +612,8 @@ public:
 				bool audioDecoderStreamSync = true,
 				const char *refreshManifestUrl = NULL,
 				int mpdStichingMode = 0,
-				std::string sid = {}
+				std::string sid = {},
+				const char *manifestData = NULL
 				);
 
 	/**
@@ -799,6 +801,20 @@ public:
 	 */
 	bool ReconfigureForCodecChange();
 
+	/**
+	* @brief Function pointer passed as argument to AampMPDDownloader class. This function is invoked to read the preprocessed manifest provided by application.
+	*  Also it generate error event if preprocessed manifest is not available.
+	*
+	* @return modified manifest data
+	*/
+	std::string SendManifestPreProcessEvent();
+
+	/**
+	 * @brief This function is invoked by application with the available preprocessed manifest information
+	 * This function is invoked continuously when ever there is an update in manifest
+	 */
+	void updateManifest(const char *manifestData);
+
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
 	std::vector< std::pair<long long,long> > mAbrBitrateData;
@@ -838,6 +854,7 @@ public:
 	std::string mTsbSessionRequestUrl;
 	std::string mSchemeIdUriDai;
 	std::string mMPDStichRefreshUrl;
+	std::string mProvidedManifestFile;              // provided manifest data
 	MPDStichOptions	mMPDStichOption;
 	AampURLInfoStruct mOrigManifestUrl;					/**< Original Manifest URl */
 
@@ -979,11 +996,13 @@ public:
 	std::string preferredCodecString; 			/**< unparsed string with preferred codecs in format "codec1,codec2,.." */
 	std::vector<std::string> preferredCodecList;            /**<String array to store codec preference */
 	std::string preferredNameString;			/**< unparsed string with preferred name of track */
+	std::string preferredTextNameString; 		/**< unparsed string with preferred name of text track */
 	std::string preferredTextLanguagesString; 		/**< unparsed string with preferred languages in format "lang1,lang2,.." */
 	std::vector<std::string> preferredTextLanguagesList;	/**< list of preferred text languages from most-preferred to the least*/
 	std::string preferredTextRenditionString; 		/**< String value for rendition */
 	std::string preferredTextTypeString; 			/**< String value for text type */
 	std::string preferredTextLabelString; 			/**< String value for text type */
+	std::string preferredInstreamIdString;			/**< String value for instreamId */
 	std::vector<struct DynamicDrmInfo> vDynamicDrmData;
 	Accessibility  preferredTextAccessibilityNode; 		/**< Preferred Accessibility Node for Text */
 	Accessibility  preferredAudioAccessibilityNode; 	/**< Preferred Accessibility Node for Audio  */
@@ -1112,6 +1131,7 @@ public:
 	bool mAudioComponentCount;
 	bool mVideoComponentCount;
 	bool mAudioOnlyPb;
+	double mSubtitleDelta;
 	double mAudioDelta;					/** To indicate audio playlist delta */
 	bool mVideoOnlyPb;					/**< To indicate Video Only Playback */
 	int mCurrentAudioTrackIndex;				/**< Keep current selected audio track index */
@@ -3110,10 +3130,10 @@ public:
 	void SetNewAdBreakerConfig(bool bValue);
 
 	/**
-	 * @brief Flush the audio stream sink
+	 * @brief Flush the stream sink
 	 * @param[in]  position - playback position
 	 */
-	void FlushAudio(double pos);
+	void FlushTrack(AampMediaType type,double pos);
 
 	/**
 	 *   @fn FlushStreamSink
@@ -4173,6 +4193,16 @@ public:
 	 * @brief Is mLocalAAMPTsb enabled/disabled
 	 */
 	bool IsLocalAAMPTsbInjection();
+	/**
+	 * @brief Increase Buffer value dynamically according to Max Profile Bandwidth to accomodate Larger Buffers
+	 */
+	void IncreaseGSTBufferSize();
+
+	/**
+	 * @brief Set to pause on next playback start
+	 * @param[in] enable - Flag to set whether enabled
+	 */
+	void SetPauseOnStartPlayback(bool enable);
 
 protected:
 
@@ -4286,6 +4316,12 @@ protected:
 	 */
 	double GetPTSOffsetFromTune() const { return m_PTSOffsetFromTune.load(); }
 
+	/**
+	 * @brief Notify reached paused when starting playback into paused state
+	 *
+	 */
+	void NotifyPauseOnStartPlayback(void);
+
 
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
@@ -4386,6 +4422,9 @@ protected:
 	AampTSBSessionManager *mTSBSessionManager;
 	bool mLocalAAMPInjectionEnabled;
 	bool mLocalAAMPTsb;
+	bool mbPauseOnStartPlayback;						/**< Start playback in paused state */
+
+	pthread_mutex_t mPreProcessLock;
 
 public:
 	AampLogManager *mLogObj;

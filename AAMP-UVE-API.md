@@ -1,6 +1,6 @@
 
 # ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
-# V6.7
+# V6.9
  
 ## Overview
 
@@ -269,7 +269,7 @@ Begin streaming the specified content.
 | ---- | ---- | ---------- |
 | uri | String | URI of the Media to be played by the Video Engine |
 | autoplay | Boolean | optional 2nd parameter (defaults to true). If false, causes stream to be prerolled/prebuffered only, but not automatically presented. Available starting with version 0.8 |
-| tuneParams | Object | optional 3rd parameter; The tuneParams Object includes four elements contentType, traceId, isInitialAttempt, isFinalAttempt and sessionId. Details provided in below table |
+| tuneParams | Object | optional 3rd parameter; The tuneParams Object includes four elements contentType, traceId, isInitialAttempt, isFinalAttempt, sessionId and manifest. Details provided in below table |
 
 | Name | Type | Description |
 | ---- | ---- | ---------- |
@@ -278,6 +278,7 @@ Begin streaming the specified content.
 | isInitialAttempt | Boolean | Flag indicates if it’s the first tune initiated, tune is neither a retry nor a rollback |
 | isFinalAttempt | Boolean | Flag indicates if the current tune is the final retry attempt, count has reached the maximum tune retry limit |
 | sessionId | String | ID of the Session set by the Video Engine to identify each player. All events emitted by a player will contain a property reporting the player's ID; if the sessionId is not set, then the sessionId will be an empty string. |
+| manifest | String | prefetched/preprocessed manifest (plaintext xml) to use instead of the manifest normally downloaded using <uri>. If provided, updated live dash manifest is expected for each manifest refresh interval (refer needManifest event). This is available only for DASH
 
 |ContentType|Description|
 |-----------|-----------|
@@ -322,6 +323,13 @@ Example:
 	    player1.load(url1, true, params_1); // for immediate playback 
 	    player2.load(url2, false, params_2); // for background buffering,no playback. 
     }
+    // support for preprocessed DASH manifest
+    {
+	    var player = new AAMPMediaPlayer();
+	    var url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/stitched/manifest.mpd";
+	    const xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" ...; // for working case need valid DASH manifest XML
+	    player.load(url,true,{ manifest: xml});
+     }
 ```
 
 ---
@@ -366,6 +374,18 @@ Example:
 	    
     }
 ```
+
+Note: starting in RDK 6.9, we support ability to start video paused on first frame.  Example:
+```js
+    {
+	    .....
+	    // start playback backgrounded with autoplay=false
+	    player.load("https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd", false);
+	    player.seek(30); // optionally jump to new position
+	    player.pause(); // bring video to foreground, and show first frame of video
+    }
+```
+
 ---
 
 ### stop()
@@ -1068,6 +1088,7 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
     "sub-type":	"CLOSED-CAPTIONS",
     "language":	"en",
     "rendition":	"urn:scte:dash:cc:cea-608:2015",
+    "type": "captions",
     "codec":	"CC1",
     "availability":	true,
     "accessibility":	{
@@ -1167,8 +1188,10 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 
 |Name|Type|Description|
 |----|----|-----------|
-| languages | String | ISO-639 audio language preference; for more than one language, provide comma delimited list from highest to lowest priority:  ‘<HIGHEST>,<...>,<LOWEST>’ |
+| language | String | ISO-639 audio language preference |
+| languages | String | comma-delimited ISO-639 audio language preference list from highest to lowest priority:  ‘<HIGHEST>,<...>,<LOWEST>’ |
 | rendition | String | Optional preferred rendition for automatic text selection |
+| instreamId | String | Optional preferred instreamId (i.e. CC1, CC2) for automatic text selection |
 | label	| String | Preferred Label for automatic text selection |
 | accessibilityType | String |	Optional preferred accessibility Node for descriptive audio.|
 | accessibility | Object | Optional preferred accessibility object for audio |
@@ -1881,7 +1904,15 @@ Example:
 	- tot -> TotalTime -for failure and interrupt tune -it is time at which failure /interrupt reported
 
 ---
+### needManifest
 
+**Event Payload:**
+- sessionId: string updated manifest for live refresh; refer to [load](#load-uri_autoplay_tuneparams) API for details
+
+**Description:**
+- Fired when new manifest is required after live refresh interval
+
+---
 ### durationChanged
 
 **Description:** 
@@ -2512,6 +2543,10 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 
 ##### setTextStyleOptions
 - Set the ClosedCaption style options to be used for rendering.
+
+### updateManifest(manifest)
+- Call to pass an updated live DASH manifest
+- Returns true if processed without issue.
 
 ### New Set of APIs added for ATSC Parental Control  Settings
 

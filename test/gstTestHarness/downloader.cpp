@@ -174,13 +174,13 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 		if( delim != std::string::npos )
 		{
 			std::string range = url.substr(delim+1);
-			std::string prefix = url.substr(start,delim);
+			std::string prefix = url.substr(start,delim-start);
 			f = fopen( prefix.c_str(), "rb" );
 			assert( f );
 			delim = range.find('-');
 			assert( delim != std::string::npos );
-			offs = atol( range.substr(delim+1).c_str() );
-			len = atol( range.substr(0,delim).c_str() );
+			offs = atol( range.substr(0,delim).c_str() );
+			len = atol( range.substr(delim+1).c_str() ) + 1 - offs;
 		}
 		else
 		{

@@ -225,6 +225,12 @@ ProgressEvent::ProgressEvent(double duration, double position, double start, dou
 SpeedChangedEvent::SpeedChangedEvent(float rate, std::string sid):
 		AAMPEventObject(AAMP_EVENT_SPEED_CHANGED, std::move(sid))
 {
+	mRate = rate;
+}
+
+float SpeedChangedEvent::getRate() const
+{
+	return mRate;
 }
 
 TimedMetadataEvent::TimedMetadataEvent(const std::string &name, const std::string &id, double time, double duration, const std::string &content, std::string sid):
@@ -279,6 +285,12 @@ BulkTimedMetadataEvent::BulkTimedMetadataEvent(const std::string &content, std::
 StateChangedEvent::StateChangedEvent(PrivAAMPState state, std::string sid):
 		AAMPEventObject(AAMP_EVENT_STATE_CHANGED, std::move(sid))
 {
+	mState = state;
+}
+
+PrivAAMPState StateChangedEvent::getState() const
+{
+	return mState;
 }
 
 SeekedEvent::SeekedEvent(double positionMS, std::string sid):
@@ -413,9 +425,4 @@ const std::string &TuneTimeMetricsEvent::getTuneMetricsData() const
 MetricsDataEvent::MetricsDataEvent(MetricsDataType dataType, const std::string &uuid, const std::string &data, std::string sid):
 		AAMPEventObject(AAMP_EVENT_REPORT_METRICS_DATA, std::move(sid))
 {
-}
-
-PrivAAMPState StateChangedEvent::getState() const
-{
-	return mState;
 }

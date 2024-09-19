@@ -509,6 +509,10 @@ public:
 	 */
     virtual void abortWaitForVideoPTS() = 0;
 
+	/**
+	 * @fn resetPTSOnAudioSwitch
+	 * @return void
+	 */
 	virtual void resetPTSOnAudioSwitch(CachedFragment* cachedFragment = nullptr) {};
 
 	/**
@@ -661,11 +665,19 @@ public:
 	 * @brief API to wait thread until the fragment cached after audio reconfiguration
 	 */
 	void WaitForCachedAudioFragmentAvailable(void);
+	/**
+	 * @brief API to wait thread until the fragment cached after subtitle reconfiguration
+	 */
+	void WaitForCachedSubtitleFragmentAvailable(void);
 
 	/**
 	 * @brief To Load New Audio on seamless audio switch
 	 */
 	void LoadNewAudio(bool val);
+	/**
+	 * @brief To Load New subtitle on seamless subtitle switch
+	 */
+	void LoadNewSubtitle(bool val);
 
 /**
 	 * @brief To set Track's Fetch and Inject duration after playlist update
@@ -703,6 +715,23 @@ public:
 		bufferMonitorThreadDisabled = isStartd;
 	}
 
+	/**
+	 * @brief API to notify the after Aamp Audio fragment cached
+	 */
+	void NotifyCachedAudioFragmentAvailable(void);
+	/**
+	 * @brief API to notify the after Aamp Audio fragment cached
+	 */
+	void  FlushAudioPositionDuringTrackSwitch(  CachedFragment* cachedFragment );
+	/**
+	 * @brief API to notify the after Aamp Subtitle fragment cached
+	 */
+	void NotifyCachedSubtitleFragmentAvailable(void);
+	/**
+	 * @brief  To flush the subtitle position even if the MediaProcessor is not not enabled.
+	 */
+	void  FlushSubtitlePositionDuringTrackSwitch(  CachedFragment* cachedFragment );
+
 protected:
 
 	/**
@@ -718,12 +747,6 @@ protected:
 	 * @return void
 	 */
 	void UpdateTSAfterChunkInject();
-
-        /**
-         * @brief API to notify the after Aamp Audio fragment cached
-         */
-        void NotifyCachedAudioFragmentAvailable(void);
-
 
 	/**
 	 * @fn WaitForCachedFragmentAvailable
@@ -826,7 +849,8 @@ public:
 	pthread_cond_t fragmentChunkFetched;/**< Signaled after a fragment Chunk is fetched*/
 	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processoing*/
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
-        bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
+    bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
+	bool seamlessSubtitleSwitchInProgress;
 
 protected:
 	AampLogManager *mLogObj;
@@ -843,6 +867,9 @@ protected:
 	bool abortInjectChunk;              /**< Abort inject operations if flag is set*/
 	pthread_mutex_t audioMutex;             /**< protection of audio track reconfiguration */
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
+	pthread_mutex_t subtitleMutex;
+	bool loadNewSubtitle;
+
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
 
 private:
@@ -891,6 +918,7 @@ private:
 	pthread_cond_t audioFragmentCached;  /**< Signal after a audio fragment cached after reconfigure */
 	double lastInjectedPosition;             /**< Last injected position */
 	double lastInjectedDuration;             /**< Last injected fragment end position */
+	pthread_cond_t subtitleFragmentCached;
 	std::atomic_bool mIsLocalTSBInjection;
 	size_t mCachedFragmentChunksSize;		/**< Size of fragment chunks cache */
 	AampTime mLastFragmentPts;				/**< pts of the previous fragment, used in trick modes */
@@ -1311,7 +1339,7 @@ public:
 
 	virtual double GetFirstPeriodStartTime() { return 0; }
 	virtual double GetFirstPeriodDynamicStartTime() { return 0; }
-	virtual void RefreshAudio() {};
+	virtual void RefreshTrack(AampMediaType type) {};
 	virtual uint32_t GetCurrPeriodTimeScale()  { return 0; }
 	/**
 	 *   @fn CheckForRampDownLimitReached

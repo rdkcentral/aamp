@@ -340,6 +340,12 @@ TEST_F(PrivAampPrivTests,SetTextTrackTest_4)
 	int trackId = 1;
 	testp_aamp->SetTextTrack_obj(trackId,data);
 }
+
+TEST_F(PrivAampPrivTests,SetTextTrackTest_5)
+{
+	testp_aamp->SetTextTrack_obj(0,NULL);
+}
+
 TEST_F(PrivAampPrivTests, GetCurrentAudioTrackId_2)
 {
     testp_aamp->GetCurrentAudioTrackId_2();
@@ -1495,7 +1501,7 @@ TEST_F(PrivAampTests, TuneHelperTest_2)
 	bool flag = p_aamp->IsNewTune();
 	EXPECT_TRUE(flag);
 
-	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id);
+	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id,NULL);
 
 	p_aamp->mMediaFormat=eMEDIAFORMAT_HDMI;
 	p_aamp->TuneHelper(tuneType,true);
@@ -1527,13 +1533,20 @@ TEST_F(PrivAampTests, ReloadTSBTest)
 TEST_F(PrivAampTests, TuneTest)
 {
 	EXPECT_CALL(*g_mockAampStreamSinkManager, ActivatePlayer(p_aamp));
-	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id);
+	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id,NULL);
 }
 
 TEST_F(PrivAampTests, TuneTest_1)
 {
 	EXPECT_CALL(*g_mockAampStreamSinkManager, UpdateTuningPlayer(p_aamp));
-	p_aamp->Tune("sampleUrl",false,NULL,true,false,NULL,true,NULL,0, session_id);
+	p_aamp->Tune("sampleUrl",false,NULL,true,false,NULL,true,NULL,0, session_id,NULL);
+}
+
+TEST_F(PrivAampTests, TuneTest_2)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, ActivatePlayer(p_aamp));
+	const char* manifestData = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"";
+	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id,manifestData);
 }
 
 TEST_F(PrivAampTests, GetLangCodePreferenceTest)
@@ -2617,6 +2630,16 @@ TEST_F(PrivAampTests,GetAvailableTracksTest)
 	str1 = p_aamp->GetAvailableAudioTracks(false);
 }
 
+TEST_F(PrivAampTests,SetPreferredTextLanguages)
+{
+	p_aamp->SetPreferredTextLanguages( "{\"sub-type\":\"CLOSED-CAPTIONS\",\"language\":\"en\",\"rendition\":\"urn:scte:dash:cc:cea-708:2015\",\"instreamId\":\"2\",\"availability\":true}" );
+}
+
+TEST_F(PrivAampTests,SetPreferredTextLanguages1)
+{
+    p_aamp->SetPreferredTextLanguages( "{\"sub-type\":\"CLOSED-CAPTIONS\",\"language\":\"en\",\"rendition\":\"urn:scte:dash:cc:cea-708:2015\",\"instreamId\":\"1\",\"type\":\"captions\",\"availability\":true}" );
+}
+
 TEST_F(PrivAampTests,GetVideoRectangleTest)
 {
 	std::string str = p_aamp->GetVideoRectangle();
@@ -2712,6 +2735,17 @@ TEST_F(PrivAampTests,SetTextTrackTest)
     p_aamp->SetTextTrack(1,NULL);
     val = p_aamp->GetTextTrack();
     EXPECT_EQ(-1,val);
+}
+
+TEST_F(PrivAampTests,SetTextTrackTest_1)
+{
+	p_aamp->SetTextTrack(-1,NULL);
+	int val = p_aamp->GetTextTrack();
+	EXPECT_EQ(-1,val);
+
+	p_aamp->SetTextTrack(0,NULL);
+	val = p_aamp->GetTextTrack();
+	EXPECT_EQ(-1,val);
 }
 
 TEST_F(PrivAampTests,SetCCStatusTest)
@@ -3547,7 +3581,7 @@ TEST_F(PrivAampTests, TuneHelperTest_11)
 	bool flag = p_aamp->IsNewTune();
 	EXPECT_TRUE(flag);
 
-	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id);
+	p_aamp->Tune("sampleUrl",true,NULL,true,false,NULL,true,NULL,0, session_id,NULL);
 
 	//covering if condition for mMediaFormat=eMEDIAFORMAT_PROGRESSIVE
 	p_aamp->mMediaFormat=eMEDIAFORMAT_PROGRESSIVE;

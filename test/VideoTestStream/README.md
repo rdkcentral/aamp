@@ -31,8 +31,8 @@ $ ./generate-hls-dash.sh
 ./generate-hls-dash.sh -f imagename	//generate video with given image, Image format can be ".jpg" ".jpeg" and ".png". Image resolution to be matched with video resolution(1920x1080)
 ./generate-hls-dash.sh -l 0		//to disable hls stream generation
 ./generate-hls-dash.sh -a 0		//to disable dash stream generation
-./generate-hls-dash.sh -w 1  		//to generate webvtt text track (default: 0 disabled)"
-./generate-hls-dash.sh -k 		//to generate 4k content (default 0)
+./generate-hls-dash.sh -w  		//to generate webvtt text track (default: 0 disabled)"
+./generate-hls-dash.sh -k 		//to generate 4k content (default 1) (should be deprecated)
 
 ## Audio and Video codecs supported
 Can change audio video codec in helper/config.sh
@@ -52,8 +52,8 @@ Default text track is TTML, generated for all languages given in helper/config.s
 To disable TTML in helper/config.sh set GEN_TTML=0.
 
 To enable webvtt in helper/config.sh set GEN_WEBVTT=1
-To enable webvtt when running generate-hls-dash.sh give option -w 1
-./generate-hls-dash.sh -w 1
+To enable webvtt when running generate-hls-dash.sh give option -w 
+./generate-hls-dash.sh -w 
 
 ## Known Limitations
 

@@ -48,6 +48,8 @@ public:
     MOCK_METHOD(bool, SendStreamCopy, (AampMediaType, const void *, size_t, double, double, double));
     MOCK_METHOD(MediaFormat,GetMediaFormatTypeEnum,());
     MOCK_METHOD(long long, GetPositionMs, ());
+    MOCK_METHOD(int, ScheduleAsyncTask, (IdleTask task, void *arg, std::string taskName));
+    MOCK_METHOD(bool, RemoveAsyncTask, (int taskId));
 
     MOCK_METHOD(const std::string &, GetSessionId, ());
 
@@ -60,6 +62,7 @@ public:
     MOCK_METHOD(uint32_t, GetAudTimeScale, ());
     MOCK_METHOD(uint32_t, GetVidTimeScale, ());
     MOCK_METHOD(void, ProcessID3Metadata, (char *, size_t , AampMediaType , uint64_t ));
+    MOCK_METHOD(void, SetPauseOnStartPlayback, (bool enable));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

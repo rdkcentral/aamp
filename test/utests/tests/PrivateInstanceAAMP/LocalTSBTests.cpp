@@ -249,6 +249,66 @@ TEST_F(LocalTSBTests, Configured_LLDKeyword_With_LLD)
 
 
 
+TEST_F(LocalTSBTests, IncreaseGSTBufferTest_1)
+{
+	const char *testUrl = "http://localhost:80/manifest.mpd";
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
+		.WillOnce([this, &llData] {
+					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+					return eAAMPSTATUS_OK;
+				});
+	mPrivateInstanceAAMP->Tune(testUrl, true);
+    #define GETCFG(x) mPrivateInstanceAAMP->mConfig->GetConfigValue(x)
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_BWToGstBufferFactor)).WillRepeatedly(Return(0.8));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstVideoBufBytes)).WillRepeatedly(Return(GST_VIDEOBUFFER_SIZE_BYTES));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(8000000)); //8 Mbps
+	int newBuffer = 8000000 * 0.8;
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(13000000)); //13 Mbps
+	newBuffer = 13000000 * 0.8;
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(18000000)); // 18 Mbps
+	newBuffer = 18000000 * 0.8;
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(30000000)); //30 Mbps
+	newBuffer = 30000000 * 0.8;
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+
+	//GST_VIDEOBUFFER_SIZE_MAX_BYTES
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(100000000)); //100 Mbps should top out to 25 Mb
+	newBuffer = GST_VIDEOBUFFER_SIZE_MAX_BYTES;
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+}
+
+TEST_F(LocalTSBTests, IncreaseGSTBufferTest_2)
+{
+	const char *testUrl = "http://localhost:80/manifest.mpd";
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
+		.WillOnce([this, &llData] {
+					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+					return eAAMPSTATUS_OK;
+				});
+	mPrivateInstanceAAMP->Tune(testUrl, true);
+    #define GETCFG(x) mPrivateInstanceAAMP->mConfig->GetConfigValue(x)
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_BWToGstBufferFactor)).WillRepeatedly(Return(0.8));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstVideoBufBytes)).WillRepeatedly(Return(GST_VIDEOBUFFER_SIZE_BYTES));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(1000000)); //1 Mbps - Negative case should default and change config value
+	int newBuffer = GST_VIDEOBUFFER_SIZE_BYTES;
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,0)).Times(0); // Should not be called
+	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+}
 
 
 

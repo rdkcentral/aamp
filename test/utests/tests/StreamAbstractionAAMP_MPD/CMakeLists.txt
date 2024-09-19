@@ -49,7 +49,8 @@ set(TEST_SOURCES FunctionalTests.cpp
                  LinearFOGTests.cpp
                  AudioOnlyTests.cpp
                  FetcherLoopTests.cpp
-                 StreamAbstractionAAMP_MPD.cpp)
+                 StreamAbstractionAAMP_MPD.cpp
+		 AudioTrackSelectionTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDParseHelper.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/aamplogging.cpp ${DASH_PARSER_SOURCES})
 
@@ -73,4 +74,4 @@ target_link_libraries(${EXEC_NAME} fakes -lpthread ${LIBDASH_LINK_LIBRARIES} ${G
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 set_target_properties(${EXEC_NAME} PROPERTIES COMPILE_FLAGS "-Wno-effc++ -Wno-multichar")
 
-gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
+aamp_utest_run_add(${EXEC_NAME})

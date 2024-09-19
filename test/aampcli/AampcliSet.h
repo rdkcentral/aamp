@@ -45,6 +45,7 @@ class Set : public Command {
 		static void registerSetCommands();
 		static char *setCommandRecommender(const char *text, int state);
 		void ShowHelpSet();
+		std::string getItem(std::stringstream &command);
 		bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
 	private:
 		static void addCommand(int value, std::string command,std::string param,std::string description);

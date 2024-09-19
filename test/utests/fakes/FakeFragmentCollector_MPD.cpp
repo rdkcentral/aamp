@@ -108,7 +108,14 @@ int StreamAbstractionAAMP_MPD::GetProfileIndexForBandwidth(BitsPerSecond mTsbBan
 
 BitsPerSecond StreamAbstractionAAMP_MPD::GetMaxBitrate()
 {
-    return 0;
+    if (g_mockStreamAbstractionAAMP_MPD)
+    {
+        return g_mockStreamAbstractionAAMP_MPD->GetMaxBitrate();
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 void StreamAbstractionAAMP_MPD::StartSubtitleParser()
@@ -217,6 +224,10 @@ void StreamAbstractionAAMP_MPD::SetSubtitleTrackOffset()
 }
 
 double StreamAbstractionAAMP_MPD::GetAvailabilityStartTime()
-{ 
-	return 0.0; 
+{
+    return 0.0;
+}
+
+void StreamAbstractionAAMP_MPD::RefreshTrack(AampMediaType type)
+{
 }

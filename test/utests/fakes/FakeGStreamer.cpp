@@ -167,6 +167,10 @@ void gst_message_parse_state_changed(GstMessage *message, GstState *oldstate, Gs
 									 GstState *pending)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		g_mockGStreamer->gst_message_parse_state_changed(message, oldstate, newstate, pending);
+	}
 }
 
 void gst_message_parse_qos(GstMessage *message, gboolean *live, guint64 *running_time,
@@ -390,6 +394,21 @@ GstEvent *gst_event_new_flush_stop(gboolean reset_time)
 	return NULL;
 }
 
+GstEvent *gst_event_new_step (GstFormat format,
+                    guint64 amount,
+                    gdouble rate,
+                    gboolean flush,
+                    gboolean intermediate)
+{
+	TRACE_FUNC();
+	GstEvent *rtn = nullptr;
+	if (g_mockGStreamer != nullptr)
+	{
+		rtn = g_mockGStreamer->gst_event_new_step(format, amount, rate, flush, intermediate);
+	}
+	return rtn;
+}
+
 gboolean gst_pad_push_event(GstPad *pad, GstEvent *event)
 {
 	TRACE_FUNC();
@@ -469,7 +488,13 @@ GstStateChangeReturn gst_element_set_state(GstElement *element, GstState state)
 gboolean gst_element_send_event(GstElement *element, GstEvent *event)
 {
 	TRACE_FUNC();
-	return FALSE;
+	gboolean rtn = FALSE;
+
+	if (g_mockGStreamer != nullptr)
+	{
+		rtn = g_mockGStreamer->gst_element_send_event(element, event);
+	}
+	return rtn;
 }
 
 GstQuery *gst_query_new_duration(GstFormat format)
@@ -567,7 +592,13 @@ void gst_plugin_feature_set_rank(GstPluginFeature *feature, guint rank)
 gboolean gst_object_replace(GstObject **oldobj, GstObject *newobj)
 {
 	TRACE_FUNC();
-	return FALSE;
+	gboolean rtn = FALSE;
+	if (g_mockGStreamer != nullptr)
+	{
+		rtn = g_mockGStreamer->gst_object_replace(oldobj, newobj);
+	}
+
+	return rtn;
 }
 
 void gst_message_parse_stream_status(GstMessage *message, GstStreamStatusType *type,
@@ -691,3 +722,4 @@ void gst_event_copy_segment (GstEvent *event, GstSegment *segment)
 {
 	TRACE_FUNC();
 }
+

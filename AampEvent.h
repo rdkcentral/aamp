@@ -91,6 +91,7 @@ typedef enum
 	AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE,	/**< 42, Update on Content Protection Data on Dynamic Key Rotation*/
 	AAMP_EVENT_MANIFEST_REFRESH_NOTIFY,	/**< 43, DASH Manifest refresh notification*/
 	AAMP_EVENT_TUNE_TIME_METRICS,	/**< 44, Event when Tune time metric data sends*/
+	AAMP_EVENT_NEED_MANIFEST_DATA, /**< 45, DASH need preprocessed manifest notification */
 	AAMP_MAX_NUM_EVENTS
 } AAMPEventType;
 

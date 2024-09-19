@@ -5,11 +5,28 @@ var adUrl = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aampt
 var TST_fail_count = 0;
 var TST_current_step = "";
 
+// Function to get URL parameters
+function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        DONT_END_TESTSUITE_ON_FAILURE: parseInt(params.get('DONT_END_TESTSUITE_ON_FAILURE'), 10) || 0
+    };
+}
+
+// Extract variables
+const vars = getUrlParams();
+
+// Log a L3 step message to the console
+function L3_CI_LOG(log_type, message){
+    console.log("L3_LOG: " + "[" + log_type + "] " + message);
+}
+
 // Signal the start of the Test to the log (Specific string monitored by CI)
 // Updates the running test number to the screen
 function TST_START(message){
     TST_fail_count = 0;
     TST_current_step = "Test Start";
+    L3_CI_LOG("TST_START", message)
 
     console.log("CI_CHECKPOINT TEST RUNNING");
     document.getElementById("testData").innerHTML = message;
@@ -18,6 +35,8 @@ function TST_START(message){
 
 // Signal the End of the Test to the log (Specific string monitored by CI)
 function TST_END(){
+
+    L3_CI_LOG("TST_END", "")
 
     if (TST_fail_count == 0){
         document.getElementById("infoData").innerHTML = "TEST PASSED";
@@ -49,10 +68,20 @@ function TST_ASSERT(condition, message) {
         TST_fail_count += 1;
         document.getElementById("infoData").innerHTML = "ASSERT FAILED: (" + TST_current_step + ") " + message;
         console.log("TST_ASSERT: ASSERT FAILED: (" + TST_current_step + ") " + message);
+        L3_CI_LOG("TST_STEP", TST_current_step + ": FAIL");
 
-        // End the test and Exit
-        TST_END();
+        if(!vars.DONT_END_TESTSUITE_ON_FAILURE == 1) {
+
+            // End the test and Exit
+            TST_END();
+
+        }
+
     }
+    else {
+        L3_CI_LOG("TST_STEP", TST_current_step + ": PASS");
+    }
+
 }
 
 // Assert a specific failure
@@ -337,7 +366,9 @@ class AAMPPlayer {
             let diff_ms = 0
             while (diff_ms <= wait_ms)
             {
-                var progress = await this.waitForEventWithTimeout(this.player, 'playbackProgressUpdate', aamp_timeout, null).catch(e => { TST_ASSERT_FAIL_FATAL(e) });
+                var progress = await this.waitForEventWithTimeout(this.player, 'playbackProgressUpdate', aamp_timeout, null).catch(e => { 
+                    TST_ASSERT_FAIL_FATAL(e);
+                });
                 console.log("aamp_VerifyPlayback ("+ JSON.stringify(progress) +")");
                 TST_ASSERT((speed == progress.currentPlayRate), "Unexpected Playback Rate")
 
@@ -355,7 +386,6 @@ class AAMPPlayer {
         {
             await new Promise(resolve => setTimeout(resolve, (wait_s * 1000)));
         }
-
         console.log("aamp_VerifyPlayback EXIT");
     }
 

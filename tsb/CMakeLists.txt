@@ -18,17 +18,17 @@
 cmake_minimum_required (VERSION 3.13)
 
 project (TSB)
-enable_testing ()
 
 include_directories(api)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(TSB_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_subdirectory (src build/src)
 
-if(CMAKE_PROJECT_NAME STREQUAL TSB OR CMAKE_PROJECT_NAME STREQUAL UnitTests)
-    add_subdirectory (test build/test)
+if (CMAKE_PROJECT_NAME STREQUAL TSB)
+	message("TSB: standalone build - building both library and tests...")
+	enable_testing()
+	add_subdirectory(../test/utests/tests/tsb build/test)
 endif()

@@ -75,8 +75,8 @@ restart = True
 
 liveLatency = False
 LLsize = 100000
-LLfirstDelay = 10
-LLdelay = 10
+LLmidDelay = 10
+LLpreDelay = 10
 
 #threadingEvent = threading.Event()
 
@@ -297,8 +297,8 @@ class DASHServerHandler(BaseHTTPRequestHandler):
         global shutdown
         global liveLatency
         global LLsize
-        global LLdelay
-        global LLfirstDelay
+        global LLmidDelay
+        global LLpreDelay
         #global threadingEvent
         # path=/some/kind/of/path?query
         # becomes some/kind/of/path
@@ -377,21 +377,20 @@ class DASHServerHandler(BaseHTTPRequestHandler):
             if liveLatency:
                 remaining = contents
                 LLsizeAdjusted = LLsize
-                LLdelayAdjusted = LLdelay / 1000
-                LLfirstDelayAdjusted = LLfirstDelay / 1000
-                log.info(str(LLfirstDelay) + " milliseconds, " + str(LLdelay) + " milliseconds, " + str(LLsizeAdjusted) + " bytes")
-                count = 0
+                LLmidDelayAdjusted = LLmidDelay / 1000
+                LLpreDelayAdjusted = LLpreDelay / 1000
+                log.info(str(LLpreDelay) + " miliseconds (PreDELAY), " + str(LLmidDelay) + " miliseconds (MidDELAY), " + str(LLsizeAdjusted) + " bytes")
+
+                if LLpreDelayAdjusted > 0:
+                    time.sleep(LLpreDelayAdjusted)
+                         
                 while len(remaining) > LLsizeAdjusted:
                     if LLsizeAdjusted >= 100000:
                         log.info(str(len(remaining)) + " bytes left in this fragment")
                     self.wfile.write(remaining[:LLsizeAdjusted])
                     remaining = remaining[LLsizeAdjusted:]
-                    if count == 0:
-                        time.sleep(LLfirstDelayAdjusted)
-                    else:
-                        time.sleep(LLdelayAdjusted)
-                    count += 1
-                    #threadingEvent.wait(LLdelayAdjusted)
+                    time.sleep(LLmidDelayAdjusted)
+                    #threadingEvent.wait(LLmidDelayAdjusted)
                 self.wfile.write(remaining)
             else:
                 self.wfile.write(contents)
@@ -888,17 +887,17 @@ if __name__ == "__main__":
                 splitThrottle = args.throttle.split(":")
                 if len(splitThrottle) == 3:
                     if splitThrottle[0] != '':
-                        LLfirstDelay = int(splitThrottle[0])
+                        LLpreDelay = int(splitThrottle[0])
                     if splitThrottle[1] != '':
-                        LLdelay = int(splitThrottle[1])
+                        LLmidDelay = int(splitThrottle[1])
                     if splitThrottle[2] != '':
                         LLsize = int(splitThrottle[2])
                     liveLatency = True
-                    print("Throttle parameter set FirstDELAY = " + str(LLfirstDelay) + ", DELAY = " + str(LLdelay) + ", SIZE = " + str(LLsize))
+                    print("Throttle parameter set FirstDELAY = " + str(LLpreDelay) + ", DELAY = " + str(LLmidDelay) + ", SIZE = " + str(LLsize))
                 elif len(splitThrottle) == 1:
                     if splitThrottle[0] == "" or splitThrottle[0] == "-1":
                         liveLatency = True
-                        print("Throttle parameter set as default FirstDELAY = " + str(LLfirstDelay) + ", DELAY = " + str(LLdelay) + ", SIZE = " + str(LLsize))
+                        print("Throttle parameter set as default FirstDELAY = " + str(LLpreDelay) + ", DELAY = " + str(LLmidDelay) + ", SIZE = " + str(LLsize))
                     else:
                         print("ERROR: Invalid Throttle Parameter")
                         restart = False

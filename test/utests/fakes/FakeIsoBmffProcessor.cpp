@@ -76,4 +76,7 @@ void IsoBmffProcessor::waitForVideoPTS()
 void IsoBmffProcessor::abortWaitForVideoPTS()
 {
 }
+void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position)
+{
+}
 

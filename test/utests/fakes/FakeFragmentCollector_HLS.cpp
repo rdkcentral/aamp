@@ -76,4 +76,4 @@ bool StreamAbstractionAAMP_HLS::Is4KStream(int &height, BitsPerSecond &bandwidth
 
 StreamAbstractionAAMP::ABRMode StreamAbstractionAAMP_HLS::GetABRMode() { return StreamAbstractionAAMP::ABRMode::ABR_MANAGER; }
 
-void StreamAbstractionAAMP_HLS::RefreshAudio() { }
+void StreamAbstractionAAMP_HLS::RefreshTrack(AampMediaType type) { }

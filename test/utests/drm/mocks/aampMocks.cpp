@@ -92,6 +92,10 @@ std::string PrivateInstanceAAMP::GetLicenseReqProxy()
 	return std::string();
 }
 
+void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char * description, bool isRetryEnabled, int32_t secManagerClassCode, int32_t secManagerReasonCode, int32_t secClientBusinessStatus, const std::string &responseData)
+{
+}
+
 std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 {
 	std::string url;
@@ -249,7 +253,7 @@ AampCacheHandler *PrivateInstanceAAMP::getAampCacheHandler()
 void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const char *contentType,
 							   bool bFirstAttempt, bool bFinalAttempt, const char *pTraceID,
 							   bool audioDecoderStreamSync, const char *refreshManifestUrl,
-							   int mpdStichingMode, std::string sid)
+							   int mpdStichingMode, std::string sid,const char *preprocessedManifest)
 
 {
 	// Set the Fog TSB flag based on the URL.
@@ -1312,4 +1316,20 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 
 void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
 {
+}
+
+std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+{
+	std::string  bRetManifestData;
+	if(!mProvidedManifestFile.empty())
+	{
+		bRetManifestData = std::move(mProvidedManifestFile);
+	}
+	return bRetManifestData;
+}
+
+void PrivateInstanceAAMP::updateManifest(const char *manifestData)
+{
+	if(NULL != manifestData)
+		mProvidedManifestFile = manifestData;
 }

@@ -106,7 +106,7 @@ typedef struct
 
 } Config_Params;
 
-Config_Params tbl[] = {
+static Config_Params tbl[] = {
 	{FORMAT_INVALID, false, false, false},
 	{FORMAT_AUDIO_ES_AC3, true, true, true}};
 

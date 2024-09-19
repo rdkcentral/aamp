@@ -75,7 +75,7 @@ class Aampcli
 		void initPlayerLoop(int argc, char **argv);
 		void newPlayerInstance( std::string appName = "");
 		int getApplicationDir( char *buffer, uint32_t size );
-		void getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::string &url, std::string &adId);
+		void getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::vector<AdvertInfo>& adList);
 
 		bool SetSessionId(std::string sid);
 		std::string GetSessionId() const;

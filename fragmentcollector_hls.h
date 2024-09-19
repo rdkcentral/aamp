@@ -1005,11 +1005,11 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		const std::unique_ptr<aamp::MetadataProcessorIntf> & GetMetadataProcessor(StreamOutputFormat fmt);
 
 		/***************************************************************************
-                 * @fn RefreshAudio
+                 * @fn RefreshTrack
                  *
                  * @return void
                  ***************************************************************************/
-		void RefreshAudio() override;
+		void RefreshTrack(AampMediaType type) override;
 
 		/***************************************************************************
 		 * @fn PopulateAudioAndTextTracks
