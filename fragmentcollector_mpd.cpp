@@ -1458,7 +1458,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							return retval; /* Incase of fragment download fail, no need to increase the fragment number to download next fragment,
 									 * instead check the same fragment in lower profile. */
 						}
-						else if(mIsFogTSB && ISCONFIGSET(eAAMPConfig_InterruptHandling))
+						else if(mIsFogTSB && (ISCONFIGSET(eAAMPConfig_InterruptHandling) || (!mCheckForRampdown && pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)))
 						{
 							// Mark fragment fetched and save last segment time to avoid reattempt.
 							AcquirePlaylistLock();
