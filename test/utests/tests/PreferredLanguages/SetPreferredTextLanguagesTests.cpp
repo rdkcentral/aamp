@@ -503,19 +503,22 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest1)
 
 TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest2)
 {
-	mPrivateInstanceAAMP->preferredTextNameString = "English";
+	std::vector<TextTrackInfo> tracks;
 
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "English", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "Spanish", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
+	mPrivateInstanceAAMP->preferredTextNameString = "English";
+	mPrivateInstanceAAMP->subtitles_muted = false;
 	/* Call SetPreferredLanguages() without changing the preferred Name.
-	 * There should be no retune.
-	 */
+	* There should be no retune.
+	*/
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
-		.Times(0);
+		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
 
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"English\"}");
-
-	/* Verify the preferred Name list. */
+	// Verify the preferred Name list. 
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "English");
 }
 
