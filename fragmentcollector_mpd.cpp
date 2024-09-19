@@ -8789,7 +8789,13 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 							break;
 						}
 					}
-					if (eAAMPSTATUS_MANIFEST_CONTENT_ERROR == UpdateMPD())
+					AAMPStatusType ret = UpdateMPD();
+					if (eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR == ret)
+					{
+						AAMPLOG_TRACE("Wait for manifest refresh");
+						aamp->InterruptableMsSleep(MAX_WAIT_TIMEOUT_MS);
+					}
+					else if (eAAMPSTATUS_MANIFEST_CONTENT_ERROR == ret)
 					{
 						aamp->DisableDownloads();
 						AAMPLOG_WARN("Exiting from fetcher loop due to manifest content error");
@@ -8804,9 +8810,17 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 				}
 				else if(mIterPeriodIndex >= mNumberOfPeriods)
 				{
-					if (eAAMPSTATUS_MANIFEST_CONTENT_ERROR == UpdateMPD())
+					AAMPStatusType ret = UpdateMPD();
+					if (eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR == ret)
 					{
-						AAMPLOG_TRACE("Refreshing the manifest as mIterPeriodIndex[%d] >= mNumberOfPeriods[%d]", mIterPeriodIndex, mNumberOfPeriods);
+						AAMPLOG_TRACE("Wait for manifest refresh");
+						aamp->InterruptableMsSleep(MAX_WAIT_TIMEOUT_MS);
+					}
+					else if (eAAMPSTATUS_MANIFEST_CONTENT_ERROR == ret)
+					{
+						aamp->DisableDownloads();
+						AAMPLOG_WARN("Exiting from fetcher loop due to manifest content error");
+						break;
 					}
 					continue;
 				}
