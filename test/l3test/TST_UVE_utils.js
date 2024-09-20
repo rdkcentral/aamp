@@ -5,6 +5,17 @@ var adUrl = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aampt
 var TST_fail_count = 0;
 var TST_current_step = "";
 
+// Function to get URL parameters
+function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        DONT_END_TESTSUITE_ON_FAILURE: parseInt(params.get('DONT_END_TESTSUITE_ON_FAILURE'), 10) || 0
+    };
+}
+
+// Extract variables
+const vars = getUrlParams();
+
 // Log a L3 step message to the console
 function L3_CI_LOG(log_type, message){
     console.log("L3_LOG: " + "[" + log_type + "] " + message);
@@ -58,6 +69,13 @@ function TST_ASSERT(condition, message) {
         document.getElementById("infoData").innerHTML = "ASSERT FAILED: (" + TST_current_step + ") " + message;
         console.log("TST_ASSERT: ASSERT FAILED: (" + TST_current_step + ") " + message);
         L3_CI_LOG("TST_STEP", TST_current_step + ": FAIL");
+
+        if(!vars.DONT_END_TESTSUITE_ON_FAILURE == 1) {
+
+            // End the test and Exit
+            TST_END();
+
+        }
 
     }
     else {

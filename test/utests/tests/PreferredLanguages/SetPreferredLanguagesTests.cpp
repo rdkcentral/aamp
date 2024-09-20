@@ -116,11 +116,11 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest1)
 	/* Call SetPreferredLanguages() without changing the preferred languages
 	 * list. There should be no retune.
 	 */
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
-		.Times(0);
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
-
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+		.Times(0);
+	
 	mPrivateInstanceAAMP->SetPreferredLanguages("lang0", NULL, NULL, NULL, NULL);
 
 	/* Verify the preferred languages list. */
@@ -136,7 +136,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest1)
 TEST_F(SetPreferredLanguagesTests, LanguageListTest2)
 {
 	std::vector<AudioTrackInfo> tracks;
-
+	
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
@@ -151,7 +151,9 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest2)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
-
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+		.Times(2);
+	
 	mPrivateInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
 
 	/* Verify the preferred languages list. */
@@ -183,7 +185,9 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest3)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
-
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+		.Times(2);
+	
 	mPrivateInstanceAAMP->SetPreferredLanguages("lang0,lang2", NULL, NULL, NULL, NULL);
 
 	/* Verify the preferred languages list. */
@@ -214,6 +218,8 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest4)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.Times(0);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
 		.Times(0);
 
 	mPrivateInstanceAAMP->SetPreferredLanguages("lang2", NULL, NULL, NULL, NULL);
@@ -246,7 +252,9 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest5)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
-
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+		.Times(2);
+	
 	mPrivateInstanceAAMP->SetPreferredLanguages("{\"languages\":\"lang1\"}", NULL, NULL, NULL, NULL);
 
 	/* Verify the preferred languages list. */
@@ -272,6 +280,8 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest6)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.Times(0);
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.Times(0);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
 		.Times(0);
 
 	mPrivateInstanceAAMP->SetPreferredLanguages("{\"languages\":[\"lang0\",\"lang1\"]}", NULL, NULL, NULL, NULL);
@@ -307,7 +317,9 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest7)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
-
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+		.Times(2);
+	
 	mPrivateInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
 
 	/* Verify the requested manifest URL. */
@@ -345,7 +357,9 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest8)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
-
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+		.Times(2);
+	
 	mPrivateInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
 
 	/* The manifest URL should be changed to reload the TSB. */
@@ -384,7 +398,7 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest1)
 TEST_F(SetPreferredLanguagesTests, RenditionTest2)
 {
 	std::vector<AudioTrackInfo> tracks;
-
+	
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 

@@ -47,10 +47,14 @@ public:
     MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampGrowableBuffer*, double, double, double, bool, bool));
     MOCK_METHOD(MediaFormat,GetMediaFormatTypeEnum,());
     MOCK_METHOD(long long, GetPositionMs, ());
+    MOCK_METHOD(int, ScheduleAsyncTask, (IdleTask task, void *arg, std::string taskName));
+    MOCK_METHOD(bool, RemoveAsyncTask, (int taskId));
 
     MOCK_METHOD(const std::string &, GetSessionId, ());
 
     MOCK_METHOD(std::shared_ptr<TSB::Store>, GetTSBStore, (const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level));
+
+    MOCK_METHOD(void, SetPauseOnStartPlayback, (bool enable));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

@@ -491,6 +491,49 @@ public:
 	 */
 	double GetAvailabilityStartTime() override;
 
+	/**
+	 * @brief Selects the audio track based on the available audio tracks and updates the desired representation index.
+	 *
+	 * This function selects the audio track from the given vector of AC4 audio tracks based on audio track selection logic
+	 * It also updates the audioAdaptationSetIndex and audioRepresentationIndex variables accordingly.
+	 *
+	 * @param[in] aTracks The vector of available audio tracks. These are the parsed ac4 tracks
+	 * @param[out] aTrackIdx The selected audio track index.
+	 * @param[out] audioAdaptationSetIndex The index of the selected audio adaptation set.
+	 * @param[out] audioRepresentationIndex The index of the selected audio representation.
+	 */
+	void SelectAudioTrack(std::vector<AudioTrackInfo> &aTracks, std::string &aTrackIdx, int &audioAdaptationSetIndex, int &audioRepresentationIndex);
+
+	/***************************************************************************
+	 * @fn SwitchAudioTrack
+	 *
+	 * @return void
+	 ***************************************************************************/
+	void SwitchAudioTrack();
+
+	/***************************************************************************
+	 * @fn UpdateMediaTrackInfo
+	 *
+	 * @return AAMPStatusType
+	 ***************************************************************************/
+	AAMPStatusType UpdateMediaTrackInfo(AampMediaType type);
+
+	/***************************************************************************
+	 * @fn GetCurrentFragmentDuration
+	 *
+	 * @return uint32_t
+	 ***************************************************************************/
+	uint32_t GetCurrentFragmentDuration( MediaStreamContext *pMediaStreamContext );
+
+	/***************************************************************************
+	 * @fn UpdateSeekPeriodOffset
+	 *
+	 * @return void
+	 ***************************************************************************/
+	void UpdateSeekPeriodOffset( double &offsetFromStart );
+
+
+
 protected:
 	/**
 	 * @fn printSelectedTrack
@@ -660,6 +703,24 @@ protected:
 	 * @param trackIdx,discontinuity  number of tracks and discontinuity true if discontinuous fragment
 	 */
 	void FetchAndInjectInitialization(int trackIdx, bool discontinuity = false);
+	/**
+	 * @fn RefreshTrack
+	 * @param type media type
+	 * @return void
+	 */
+	void RefreshTrack(AampMediaType type) override;
+	/**
+	 * @fn SwitchSubtitleTrack
+	 * @param newTune true if this is a new tune
+	 * @return void
+	 */
+	void SwitchSubtitleTrack(bool newTune);
+	/**
+	 * @fn SelectSubtitleTrack
+	 * @param newTune true if this is a new tune
+	 * @return void
+	 */
+	void SelectSubtitleTrack(bool newTune, std::vector<TextTrackInfo> &tTracks , std::string &tTrackIdx);
 	/**
 	 * @fn StreamSelection
 	 * @param newTune true if this is a new tune

@@ -938,6 +938,11 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 {
 }
 
+uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
+{
+    return 0u;
+}
+
 uint32_t  PrivateInstanceAAMP::GetAudTimeScale(void)
 {
     return 0u;
@@ -1215,6 +1220,10 @@ void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
 {
 }
 
+void PrivateInstanceAAMP::SetSubTimeScale(uint32_t audTimeScale)
+{
+}
+
 void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
 {
 }
@@ -1281,12 +1290,22 @@ void PrivateInstanceAAMP::SignalSubtitleClock()
 
 int PrivateInstanceAAMP::ScheduleAsyncTask(IdleTask task, void *arg, std::string taskName)
 {
-	return 0;
+	int retval = 0;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		retval = g_mockPrivateInstanceAAMP->ScheduleAsyncTask(task, arg, taskName);
+	}
+	return retval;
 }
 
 bool PrivateInstanceAAMP::RemoveAsyncTask(int taskId)
 {
-	return false;
+	bool retval = false;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		retval = g_mockPrivateInstanceAAMP->RemoveAsyncTask(taskId);
+	}
+	return retval;
 }
 
 void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long)
@@ -1364,7 +1383,7 @@ void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
 {
 }
 
-void PrivateInstanceAAMP::FlushAudio(double pos)
+void PrivateInstanceAAMP::FlushTrack(AampMediaType mediaType,double pos)
 {
 }
 
@@ -1440,4 +1459,13 @@ void PrivateInstanceAAMP::updateManifest(const char *manifestData)
 {
 	if(NULL != manifestData)
 		mProvidedManifestFile = manifestData;
+}
+
+
+void PrivateInstanceAAMP::SetPauseOnStartPlayback(bool enable)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->SetPauseOnStartPlayback(enable);
+	}
 }

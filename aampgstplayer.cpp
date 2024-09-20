@@ -172,7 +172,6 @@ struct AAMPGstPlayerPriv
 	media_stream stream[AAMP_TRACK_COUNT];
 	GstElement *pipeline; 				/**< GstPipeline used for playback. */
 	GstBus *bus;					/**< Bus for receiving GstEvents from pipeline. */
-	int current_rate;
 	guint64 total_bytes;
 	gint n_audio; 					/**< Number of audio tracks. */
 	gint current_audio; 				/**< Offset of current audio track. */
@@ -188,7 +187,6 @@ struct AAMPGstPlayerPriv
 	GstTaskPool *task_pool;				/**< Task pool in case RT priority is needed. */
 
 	int rate; 					/**< Current playback rate. */
-	double playbackrate; 				/**< playback rate in fractions */
 	VideoZoomMode zoom; 				/**< Video-zoom setting. */
 	bool videoMuted; 				/**< Video mute status. */
 	bool audioMuted; 				/**< Audio mute status. */
@@ -206,6 +204,7 @@ struct AAMPGstPlayerPriv
 	std::atomic<bool> firstFrameCallbackIdleTaskPending; /**< Set if any first frame callback is pending. */
 	bool using_westerossink; 			/**< true if westros sink is used as video sink */
 	bool usingRialtoSink;                           /**< true if rialto sink is used for video and audio sinks */
+	bool pauseOnStartPlayback;			/**< true if should start playback paused */
 	std::atomic<bool> eosSignalled; 		/**< Indicates if EOS has signaled */
 	gboolean buffering_enabled; 			/**< enable buffering based on multiqueue */
 	gboolean buffering_in_progress; 		/**< buffering is in progress */
@@ -261,7 +260,7 @@ struct AAMPGstPlayerPriv
 
 	bool filterAudioDemuxBuffers;			/**< flag to filter audio demux buffers */
 
-	AAMPGstPlayerPriv() : pipeline(NULL), bus(NULL), current_rate(0),
+	AAMPGstPlayerPriv() : pipeline(NULL), bus(NULL),
 			total_bytes(0), n_audio(0), current_audio(0),
 			periodicProgressCallbackIdleTaskId(AAMP_TASK_ID_INVALID),
 			bufferingTimeoutTimerId(AAMP_TASK_ID_INVALID), video_dec(NULL), audio_dec(NULL),TaskControlMutex(),firstProgressCallbackIdleTask("FirstProgressCallback"),
@@ -270,10 +269,9 @@ struct AAMPGstPlayerPriv
 			audioVolume(1.0), eosCallbackIdleTaskId(AAMP_TASK_ID_INVALID), eosCallbackIdleTaskPending(false),
 			firstFrameReceived(false), pendingPlayState(false), decoderHandleNotified(false),
 			firstFrameCallbackIdleTaskId(AAMP_TASK_ID_INVALID), firstFrameCallbackIdleTaskPending(false),
-			using_westerossink(false), usingRialtoSink(false), eosSignalled(false),
+			using_westerossink(false), usingRialtoSink(false), pauseOnStartPlayback(false), eosSignalled(false),
 			buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
 			buffering_target_state(GST_STATE_NULL),
-			playbackrate(AAMP_NORMAL_PLAY_RATE),
 			lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(AAMP_TASK_ID_INVALID),
 			numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL), durationQuery(NULL),
 			paused(false), pipelineState(GST_STATE_NULL),
@@ -1749,9 +1747,42 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 				gst_element_state_get_name(old_state),
 				gst_element_state_get_name(new_state),
 				gst_element_state_get_name(pending_state));
+			if (isPlaybinStateChangeEvent && _this->privateContext->pauseOnStartPlayback && (new_state == GST_STATE_PAUSED))
+			{
+				GstElement *video_sink = _this->privateContext->video_sink;
+				const char *frame_step_on_preroll_prop = "frame-step-on-preroll";
 
+				_this->privateContext->pauseOnStartPlayback = false;
+
+				if (video_sink && (g_object_class_find_property(G_OBJECT_GET_CLASS(video_sink), frame_step_on_preroll_prop) != NULL))
+				{
+					AAMPLOG_INFO("Setting %s property and sending step", frame_step_on_preroll_prop);
+					g_object_set(G_OBJECT(video_sink), frame_step_on_preroll_prop,1, NULL);
+			    	// From testing, step only required for BCOM, but harmless to AMLOGIC & REALTEK
+					if (!gst_element_send_event(video_sink, gst_event_new_step(GST_FORMAT_BUFFERS, 1, 1.0, FALSE, FALSE)))
+					{
+						AAMPLOG_ERR("error sending step event");
+					}
+					g_object_set(G_OBJECT(video_sink), frame_step_on_preroll_prop,0, NULL);
+
+					if (_this->privateContext->usingRialtoSink)
+					{
+						_this->privateContext->firstVideoFrameReceived = true;
+						_this->NotifyFirstFrame(eMEDIATYPE_VIDEO);
+					}
+				}
+				else
+				{
+					// Property not available on platform so simulating first video frame received
+					AAMPLOG_WARN("%s property not present on video_sink", frame_step_on_preroll_prop);
+					_this->privateContext->firstVideoFrameReceived = true;
+					_this->NotifyFirstFrame(eMEDIATYPE_VIDEO);
+				}
+			}
 			if (isPlaybinStateChangeEvent && new_state == GST_STATE_PLAYING)
 			{
+				_this->privateContext->pauseOnStartPlayback = false;
+
 #if defined(AMLOGIC)
 				//RDK-37643: To support first frame notification on audioOnlyPlayback for hls streams on amlogic.
 				if(_this->aamp->mAudioOnlyPb && !_this->privateContext->firstAudioFrameReceived && _this->privateContext->NumberOfTracks==1)
@@ -3328,9 +3359,20 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 		}
 	}
 
-	/* If buffering is enabled, set the pipeline in Paused state, once sufficient content has been buffered the pipeline will be set to GST_STATE_PLAYING */
-	if (this->privateContext->buffering_enabled && format != FORMAT_INVALID && AAMP_NORMAL_PLAY_RATE == privateContext->rate)
+	if (privateContext->pauseOnStartPlayback && AAMP_NORMAL_PLAY_RATE == privateContext->rate)
 	{
+		AAMPLOG_INFO("Setting state to GST_STATE_PAUSED - pause on playback enabled");
+		privateContext->paused = true;
+		privateContext->pendingPlayState = false;
+		if (SetStateWithWarnings(this->privateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
+		{
+			AAMPLOG_ERR("AAMPGstPlayer: GST_STATE_PAUSED failed");
+		}
+	}
+	/* If buffering is enabled, set the pipeline in Paused state, once sufficient content has been buffered the pipeline will be set to GST_STATE_PLAYING */
+	else if (this->privateContext->buffering_enabled && format != FORMAT_INVALID && AAMP_NORMAL_PLAY_RATE == privateContext->rate)
+	{
+		AAMPLOG_INFO("Setting state to GST_STATE_PAUSED, target state to GST_STATE_PLAYING");
 		this->privateContext->buffering_target_state = GST_STATE_PLAYING;
 		this->privateContext->buffering_in_progress = true;
 		this->privateContext->buffering_timeout_cnt = DEFAULT_BUFFERING_MAX_CNT;
@@ -3339,18 +3381,20 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 			AAMPLOG_ERR("AAMPGstPlayer_Configure GST_STATE_PAUSED failed");
 		}
 		privateContext->pendingPlayState = false;
+		privateContext->paused = false;
 	}
 	else
 	{
+		AAMPLOG_INFO("Setting state to GST_STATE_PLAYING");
 		if (SetStateWithWarnings(this->privateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
 		{
 			AAMPLOG_ERR("AAMPGstPlayer: GST_STATE_PLAYING failed");
 		}
 		privateContext->pendingPlayState = false;
+		privateContext->paused = false;
 	}
 	privateContext->eosSignalled = false;
 	privateContext->numberOfVideoBuffersSent = 0;
-	privateContext->paused = false;
 	privateContext->decodeErrorMsgTimeMS = 0;
 	privateContext->decodeErrorCBCount = 0;
 #ifdef TRACE
@@ -3848,26 +3892,30 @@ void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3H
 	privateContext->decoderHandleNotified = false;
 	m_ID3MetadataHandler = id3HandlerCallback;
 }
-
 /**
- * @brief Flush the audio playbin
+ * @brief Flush the track playbin
  * @param[in] pos - position to seek to after flush
  */
-void AAMPGstPlayer::FlushAudio(double pos)
+void AAMPGstPlayer::FlushTrack(AampMediaType type,double pos)
 {
-	aamp->SyncBegin();
 	double startPosition = 0;
-	AAMPLOG_MIL("Entering AAMPGstPlayer::FlushAudio() pipeline state %s pos %lf",
+	AAMPLOG_MIL("Entering AAMPGstPlayer::FlushTrack() type[%d] pipeline state %s pos %lf",(int)type,
 			gst_element_state_get_name(GST_STATE(privateContext->pipeline)), pos);
 
-	media_stream *stream = &this->privateContext->stream[eMEDIATYPE_AUDIO];
+	media_stream *stream = &this->privateContext->stream[type];
 	double rate = (double)AAMP_NORMAL_PLAY_RATE;
-#ifdef AMLOGIC
-	g_object_set(G_OBJECT(this->privateContext->audio_sink), "seamless-switch" , TRUE, NULL );
-#endif
-	privateContext->filterAudioDemuxBuffers = true;
-
-	pos = pos + aamp->mAudioDelta;
+	if(eMEDIATYPE_AUDIO == type)
+	{
+	#ifdef AMLOGIC
+		g_object_set(G_OBJECT(this->privateContext->audio_sink), "seamless-switch" , TRUE, NULL );
+	#endif
+		privateContext->filterAudioDemuxBuffers = true;
+		pos = pos + aamp->mAudioDelta;
+	}
+	else
+	{
+		pos = pos + aamp->mSubtitleDelta;
+	}
 	gst_element_seek_simple (GST_ELEMENT(stream->source),
 							GST_FORMAT_TIME,
 							GST_SEEK_FLAG_FLUSH,
@@ -3886,8 +3934,7 @@ void AAMPGstPlayer::FlushAudio(double pos)
 	{
 		startPosition = pos;
 	}
-	AAMPLOG_MIL("Exiting AAMPGstPlayer::FlushAudio() pipeline state: %s startPosition: %lf AudioDelta %lf", gst_element_state_get_name(GST_STATE(privateContext->pipeline)), startPosition, aamp->mAudioDelta);
-	aamp->SyncEnd();
+	AAMPLOG_MIL("Exiting AAMPGstPlayer::FlushTrack() type[%d] pipeline state: %s startPosition: %lf Delta %lf",(int)type, gst_element_state_get_name(GST_STATE(privateContext->pipeline)), startPosition, (int)type==eMEDIATYPE_AUDIO?aamp->mAudioDelta:aamp->mSubtitleDelta);
 }
 
 /**
@@ -3959,7 +4006,7 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
 		// XIONE-8379 - The player should be (and probably soon will be) in the playing state so don't exit early.
 		GST_STATE_TARGET(privateContext->pipeline) != GST_STATE_PLAYING)
 	{
-		AAMPLOG_INFO("Pipeline is in %s state, returning position as %lld", gst_element_state_get_name(privateContext->pipelineState), rc);
+		AAMPLOG_INFO("Pipeline is in %s state %s target state, paused=%d returning position as %lld", gst_element_state_get_name(privateContext->pipelineState), gst_element_state_get_name(GST_STATE_TARGET(privateContext->pipeline)), privateContext->paused, rc);
 		return rc;
 	}
 
@@ -5383,4 +5430,9 @@ void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlD
 		data.ElapsedSeconds = 0;
 		data.GstWaitingForData = false;
 	}
+}
+
+void AAMPGstPlayer::SetPauseOnStartPlayback(bool enable)
+{
+	privateContext->pauseOnStartPlayback = enable;
 }

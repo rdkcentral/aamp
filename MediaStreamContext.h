@@ -78,7 +78,6 @@ public:
      */
      MediaStreamContext& operator=(const MediaStreamContext&) = delete;
 
-
     /**
      * @brief Get the context of media track. To be implemented by subclasses
      * @retval Context of track.
@@ -223,6 +222,23 @@ public:
      * @return void
      */
 	void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) override {};
+    /**
+     * @fn resetAbort
+     * @param[in] bool value
+     */
+
+    void resetAbort(bool value)
+    {
+        abort = value;
+    }
+    /**
+     * @fn GetLastInjectedPosition
+     * @return LastInjectedposition of type double
+     */
+    double GetLastInjectedPosition()
+    {
+        return GetLastInjectedFragmentPosition( );
+    }
 
     AampMediaType mediaType;
     struct FragmentDescriptor fragmentDescriptor;

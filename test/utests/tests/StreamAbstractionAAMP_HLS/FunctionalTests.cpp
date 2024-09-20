@@ -2842,7 +2842,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, RefreshAudioTest)
 
     mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(media);
 
-    mStreamAbstractionAAMP_HLS->RefreshAudio();
+    mStreamAbstractionAAMP_HLS->RefreshTrack(eMEDIATYPE_AUDIO);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
     mStreamAbstractionAAMP_HLS->CallConfigureAudioTrack();
     EXPECT_EQ(1,mStreamAbstractionAAMP_HLS->currentAudioProfileIndex);

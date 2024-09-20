@@ -1186,6 +1186,8 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, preferredTextTypeString("")
 	, preferredTextLabelString("")
 	, preferredTextAccessibilityNode()
+	, preferredInstreamIdString("")
+	, preferredTextNameString("")
 	, preferredNameString("")
 	, mProgressReportOffset(-1), mFirstFragmentTimeOffset(-1), mProgressReportAvailabilityOffset(-1)
 	, mAutoResumeTaskId(AAMP_TASK_ID_INVALID), mAutoResumeTaskPending(false), mScheduler(NULL), mEventLock(), mEventPriority(G_PRIORITY_DEFAULT_IDLE)
@@ -1204,6 +1206,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mLLDashCurrentPlayRate(AAMP_NORMAL_PLAY_RATE)
 	, vidTimeScale(0)
 	, audTimeScale(0)
+	, subTimeScale(0)
 	, speedCache {}
 	, mCurrentLatency(0)
 	, mLiveOffsetAppRequest(false)
@@ -1246,6 +1249,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mDynamicDrmCache()
 	, mAudioComponentCount(-1)
 	, mAudioDelta(0)
+	, mSubtitleDelta(0)
 	, mVideoComponentCount(-1)
 	, mAudioOnlyPb(false)
 	, mVideoOnlyPb(false)
@@ -1279,6 +1283,7 @@ mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	, mIsLoggingNeeded(false)
 	, mTSBSessionManager(NULL)
 	, mLocalAAMPTsb(false), mLocalAAMPInjectionEnabled(false)
+	, mbPauseOnStartPlayback(false)
 	, mTSBStore(nullptr)
 	, mIsFlushFdsInCurlStore(false)
 	, mProvidedManifestFile("")
@@ -1749,6 +1754,69 @@ void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
 {
 	// CID:306170 - Data race condition
 	SetIsPeriodChangeMarked(false);
+}
+
+/**
+ * @brief Set to pause on next playback start
+ */
+void PrivateInstanceAAMP::SetPauseOnStartPlayback(bool enable)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+
+	if (sink)
+	{
+		if (enable)
+		{
+			AAMPLOG_MIL("Initiated pause on start playback");
+		}
+		else if (mbPauseOnStartPlayback)
+		{
+			AAMPLOG_WARN("Interrupted pause on start playback");
+		}
+		else
+		{
+			// Intentionally left blank
+		}
+
+		sink->SetPauseOnStartPlayback(enable);
+		mbPauseOnStartPlayback = enable;
+	}
+	else
+	{
+		AAMPLOG_WARN("No StreamSink");
+		mbPauseOnStartPlayback = false;
+	}
+}
+
+/**
+ * @brief Notify reached paused when starting playback into paused state
+ */
+void PrivateInstanceAAMP::NotifyPauseOnStartPlayback(void)
+{
+	if (mbPauseOnStartPlayback)
+	{
+		AAMPLOG_INFO("Completed pause on start playback");
+		mbPauseOnStartPlayback = false;
+
+		StopDownloads();
+
+		NotifySpeedChanged(0, true);
+
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
+		}
+		if(GetLLDashServiceData()->lowLatencyMode)
+		{
+			AAMPLOG_INFO("LL-Dash speed correction disabled after Pause");
+			SetLLDashAdjustSpeed(false);
+		}
+
+		AAMPLOG_INFO("Live latency correction is disabled after Pause");
+		mDisableRateCorrection = true;
+
+		pipeline_paused = true;
+	}
 }
 
 /**
@@ -5406,7 +5474,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			long long  duartion = 0;
 			// Update first fragment time, ie time of the tune for new tune, and time of retune for seektolive
 			// For LL-DASH, we update mFirstFragmentTimeOffset as the Absolute start time of fragment.
-			if(mSeekOperationInProgress)
+			if(mSeekOperationInProgress && mProgressReportOffset < 0 )
 			{
 					duartion = DurationFromStartOfPlaybackMs();
 			}
@@ -5747,6 +5815,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	// Reset current audio/text track index
 	mCurrentAudioTrackIndex = -1;
 	mCurrentTextTrackIndex = -1;
+	SetPauseOnStartPlayback(false);
 
 	mSchemeIdUriDai = GETCONFIGVALUE_PRIV(eAAMPConfig_SchemeIdUriDaiStream);
 
@@ -7731,6 +7800,7 @@ void PrivateInstanceAAMP::Stop()
 	// directly setting state variable . Calling SetState will trigger event :(
 	mState = eSTATE_IDLE;
 
+	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
 	mDisableRateCorrection = false;
@@ -8110,6 +8180,8 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 		}
 	}
 	InitializeCC(ccDecoderHandle);
+
+	NotifyPauseOnStartPlayback();
 }
 
 /**
@@ -9824,15 +9896,15 @@ void PrivateInstanceAAMP::SendId3MetadataEvent(aamp::id3_metadata::CallbackData 
 }
 
 /**
- * @brief Flush the audio stream sink
+ * @brief Flush the stream sink
  * @param[in]  position - playback position
  */
-void  PrivateInstanceAAMP::FlushAudio(double pos)
+void  PrivateInstanceAAMP::FlushTrack(AampMediaType type,double pos)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		sink->FlushAudio(pos);
+		sink->FlushTrack(type, pos);
 	}
 }
 
@@ -10683,11 +10755,35 @@ std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 std::string PrivateInstanceAAMP::GetTextTrackInfo()
 {
 	std::string track;
+	bool trackInfoAvailable = false;
 	pthread_mutex_lock(&mStreamLock);
 	if (mpStreamAbstractionAAMP)
 	{
 		TextTrackInfo trackInfo;
-		if (mpStreamAbstractionAAMP->GetCurrentTextTrack(trackInfo))
+
+#ifdef AAMP_CC_ENABLED
+		if (AampCCManager::GetInstance()->GetStatus() && mIsInbandCC)
+		{
+			std::string trackId = AampCCManager::GetInstance()->GetTrack();
+			if (!trackId.empty())
+			{
+				std::vector<TextTrackInfo> tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
+				for (auto it = tracks.begin(); it != tracks.end(); it++)
+				{
+					if (it->instreamId == trackId)
+					{
+						trackInfo = *it;
+						trackInfoAvailable = true;
+					}
+				}
+			}
+		}
+#endif
+		if (!trackInfoAvailable)
+		{
+			trackInfoAvailable = mpStreamAbstractionAAMP->GetCurrentTextTrack(trackInfo);
+		}
+		if (trackInfoAvailable)
 		{
 			//Convert to JSON format
 			cJSON *root;
@@ -10727,6 +10823,10 @@ std::string PrivateInstanceAAMP::GetTextTrackInfo()
 				if (!trackInfo.mType.empty())
 				{
 					cJSON_AddStringToObject(item, "type", trackInfo.mType.c_str());
+				}
+				if (!trackInfo.instreamId.empty())
+				{
+					cJSON_AddStringToObject(item, "instreamID", trackInfo.instreamId.c_str());
 				}
 				if (!trackInfo.accessibilityItem.getSchemeId().empty())
 				{
@@ -11425,7 +11525,6 @@ void PrivateInstanceAAMP::ResetDiscontinuityInTracks()
  */
 void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char *codecList, const char *labelList, const Accessibility *accessibilityItem, const char *preferredName)
 {
-
 	/**< First argment is Json data then parse it and and assign the variables properly*/
 	AampJsonObject* jsObject = NULL;
 	bool isJson = false;
@@ -11486,13 +11585,15 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 
 		AAMPLOG_INFO("Number of preferred languages received: %zu", inputLanguagesList.size());
 		AAMPLOG_INFO("Preferred language string received: %s", inputLanguagesString.c_str());
-
+		
+		std::vector<std::string> inputLabelList;
 		std::string inputLabelsString;
 		/** Get Label Properties*/
 		if (jsObject->isString("label"))
 		{
 			if (jsObject->get("label", inputLabelsString))
 			{
+				inputLabelList.push_back(inputLabelsString);
 				AAMPLOG_INFO("Preferred Label string: %s", inputLabelsString.c_str());
 			}
 		}
@@ -11589,6 +11690,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		/** Clear the cache **/
 		preferredAudioAccessibilityNode.clear();
 		preferredLabelsString.clear();
+		preferredLabelList.clear();
 		preferredRenditionString.clear();
 		preferredLanguagesString.clear();
 		preferredLanguagesList.clear();
@@ -11599,6 +11701,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		/** Reload the new values **/
 		preferredAudioAccessibilityNode = inputAudioAccessibilityNode;
 		preferredRenditionString = inputRenditionString;
+		preferredLabelList = inputLabelList;
 		preferredLabelsString = inputLabelsString;
 		preferredLanguagesList = inputLanguagesList;
 		preferredLanguagesString = inputLanguagesString;
@@ -11960,11 +12063,10 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 					mLanguageChangeInProgress = true;
 					AcquireStreamLock();
-					if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && mMediaFormat == eMEDIAFORMAT_HLS_MP4 && !codecChange)
+					if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || eMEDIAFORMAT_DASH )  && !codecChange)
 					{
 						AAMPLOG_WARN("Seamless audio switch has been enabled");
-						mTuneType = eTUNETYPE_SEEK;
-						mpStreamAbstractionAAMP->RefreshAudio();
+						mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_AUDIO);
 					}
 					else
 					{
@@ -12005,11 +12107,9 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
  */
 void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 {
-
 	/**< First argment is Json data then parse it and and assign the variables properly*/
 	AampJsonObject* jsObject = NULL;
 	bool isJson = false;
-	bool isRetuneNeeded = false;
 	bool accessibilityPresent = false;
 
 	// IsLocalAAMPTsb will be set once the playback of HiFi LLD stream starts and local TSB config is enabled
@@ -12060,6 +12160,13 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				inputTextLanguagesList.push_back(inputTextLanguagesString);
 			}
 		}
+		else if (jsObject->isString("language"))
+		{
+			if (jsObject->get("language", inputTextLanguagesString))
+			{
+				inputTextLanguagesList.push_back(inputTextLanguagesString);
+			}
+		}
 		else
 		{
 			AAMPLOG_ERR("Preferred Text Language Field Only support String or String Array");
@@ -12088,6 +12195,16 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			}
 		}
 
+		std::string inputInstreamIdString;
+		/** Get instreamId*/
+		if (jsObject->isString("instreamId"))
+		{
+			if (jsObject->get("instreamId", inputInstreamIdString))
+			{
+				AAMPLOG_INFO("Preferred instreamId string: %s", inputInstreamIdString.c_str());
+			}
+		}
+
 		std::string inputTextTypeString;
 		/** Get accessibility type Properties*/
 		if (jsObject->isString("accessibilityType"))
@@ -12095,6 +12212,15 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			if (jsObject->get("accessibilityType", inputTextTypeString))
 			{
 				AAMPLOG_INFO("Preferred text type string: %s", inputTextTypeString.c_str());
+			}
+		}
+
+		std::string inputTextNameString;
+		if (jsObject->isString("name"))
+		{
+			if (jsObject->get("name", inputTextNameString))
+			{
+				AAMPLOG_INFO("Preferred name string: %s", inputTextNameString.c_str());
 			}
 		}
 
@@ -12129,18 +12255,13 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 
 		/**< Release json object **/
 		SAFE_DELETE(jsObject);
-
-		if((inputTextLanguagesList != preferredTextLanguagesList) || (inputTextRenditionString != preferredTextRenditionString) ||
-		(inputTextAccessibilityNode != preferredTextAccessibilityNode))
-		{
-			isRetuneNeeded = true;
-		}
-
 		preferredTextLanguagesList.clear();
 		preferredTextLanguagesString.clear();
 		preferredTextRenditionString.clear();
 		preferredTextAccessibilityNode.clear();
 		preferredTextLabelString.clear();
+		preferredInstreamIdString.clear();
+		preferredTextNameString.clear();
 
 		preferredTextLanguagesList = inputTextLanguagesList;
 		preferredTextLanguagesString = inputTextLanguagesString;
@@ -12148,6 +12269,8 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 		preferredTextAccessibilityNode = inputTextAccessibilityNode;
 		preferredTextLabelString = inputTextLabelString;
 		preferredTextTypeString = inputTextTypeString;
+		preferredInstreamIdString = inputInstreamIdString;
+		preferredTextNameString = inputTextNameString;
 
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLanguage,preferredTextLanguagesString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextRendition,preferredTextRenditionString);
@@ -12160,10 +12283,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 		std::string inputTextLanguagesString;
 		inputTextLanguagesString = std::string(param);
 
-		if (inputTextLanguagesString != preferredTextLanguagesString)
-		{
-			isRetuneNeeded = true;
-		}
 		preferredTextLanguagesList.clear();
 		preferredTextLanguagesList.push_back(inputTextLanguagesString);
 		preferredTextLanguagesString = inputTextLanguagesString;
@@ -12177,7 +12296,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 
 	PrivAAMPState state;
 	GetState(state);
-	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR && isRetuneNeeded )
+	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR )
 	{ // active playback session; apply immediately
 		if (mpStreamAbstractionAAMP)
 		{
@@ -12185,11 +12304,15 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			bool renditionPresent = false;
 			bool accessibilityTypePresent = false;
 			bool labelPresent = false;
+			bool instreamIdPresent = false;
 			int trackIndex = GetTextTrack();
+			bool namePresent = false;
+
 			bool languageAvailabilityInManifest = false;
 			bool renditionAvailabilityInManifest = false;
 			bool accessibilityAvailabilityInManifest = false;
 			bool labelAvailabilityInManifest = false;
+			bool nameAvailabilityInManifest = false;
 			bool trackNotEnabled = false;
 
 			if (trackIndex >= 0)
@@ -12197,6 +12320,8 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
 				char *currentPrefLanguage = const_cast<char*>(trackInfo[trackIndex].language.c_str());
 				char *currentPrefRendition = const_cast<char*>(trackInfo[trackIndex].rendition.c_str());
+				char *currentPrefInstreamId =  const_cast<char*>(trackInfo[trackIndex].instreamId.c_str());
+				char *currentPrefName = const_cast<char*>(trackInfo[trackIndex].name.c_str());
 
 				// Logic to check whether the given language is present in the available tracks,
 				// if available, it should not match with current preferredLanguagesString, then call tune to reflect the language change.
@@ -12245,6 +12370,38 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 						}
 					}
 				}
+
+				//Logic to check whether the given instreamId is present in the available tracks,
+				//if available, it should not match with current preferredInstreamIdString, then call tune to reflect the track change.
+				//if not available, then avoid calling tune.
+				if(!preferredInstreamIdString.empty())
+				{
+					std::string curInstreamId = preferredInstreamIdString;
+					auto instreamId = std::find_if(trackInfo.begin(), trackInfo.end(),
+								[curInstreamId, currentPrefInstreamId] (TextTrackInfo& temp)
+								{ return ((temp.instreamId == curInstreamId) && (temp.instreamId != currentPrefInstreamId)); });
+					instreamIdPresent = (instreamId != end(trackInfo));
+				}
+				// Logic to check whether the given name is present in the available tracks,
+				// if available, it should not match with current preferredTextNameString, then call tune to reflect the name change.
+				// if not available, then avoid calling tune.
+				if(!preferredTextNameString.empty())
+				{
+					// CID:280501 - Using invalid iterator
+					for (auto &temp : trackInfo)
+					{
+						if ((temp.name == preferredTextNameString) && (temp.name != currentPrefName))
+						{
+							namePresent = true;
+							if (temp.isAvailable)
+							{
+								nameAvailabilityInManifest = true;
+								break;
+							}
+						}
+					}
+				}
+
 			}
 			else
 			{
@@ -12256,26 +12413,81 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			{
 				/**< Avoid retuning in case of HEMIIN and COMPOSITE IN*/
 			}
-			else if (languagePresent || renditionPresent || accessibilityPresent || trackNotEnabled) /**< call the tune only if there is a change in the language, rendition or accessibility.*/
+			else if (languagePresent || renditionPresent || accessibilityPresent || trackNotEnabled || instreamIdPresent || namePresent) /**< call the tune only if there is a change in the language, rendition or accessibility.*/
 			{
 				discardEnteringLiveEvt = true;
-				seek_pos_seconds = GetPositionSeconds();
 				mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 				mLanguageChangeInProgress = true;
 				AcquireStreamLock();
-				TeardownStream(false);
-				if(IsTSBSupported() &&
-				 ((languagePresent && !languageAvailabilityInManifest) ||
-				 (renditionPresent && !renditionAvailabilityInManifest) ||
-				 (accessibilityTypePresent && !accessibilityAvailabilityInManifest) ||
-				 (labelPresent && !labelAvailabilityInManifest)))
+				if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || eMEDIAFORMAT_DASH ))
 				{
-					ReloadTSB();
+					AAMPLOG_WARN("Seamless Text switch has been enabled");
+					mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
+				}
+				else
+				{
+					seek_pos_seconds = GetPositionSeconds();
+					TeardownStream(false);
+					if(IsTSBSupported() &&
+				 	((languagePresent && !languageAvailabilityInManifest) ||
+				 	(renditionPresent && !renditionAvailabilityInManifest) ||
+				 	(accessibilityTypePresent && !accessibilityAvailabilityInManifest) ||
+					(labelPresent && !labelAvailabilityInManifest) ||
+					(namePresent && !nameAvailabilityInManifest)))
+					{
+						ReloadTSB();
+					}
+
+					TuneHelper(eTUNETYPE_SEEK);
+					discardEnteringLiveEvt = false;
+				}
+				ReleaseStreamLock();
+
+				std::vector<TextTrackInfo> tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
+				long trackId = -1;
+				if (instreamIdPresent || (trackNotEnabled && !preferredInstreamIdString.empty()))
+				{
+					for (auto it = tracks.begin(); it != tracks.end(); it++)
+					{
+						if ((it->instreamId == preferredInstreamIdString) && it->isCC)
+						{
+							trackId = std::distance(tracks.begin(), it);
+						}
+					}
+				}
+				else if ((languagePresent || (trackNotEnabled && !preferredTextLanguagesString.empty())) && (preferredRenditionString != "subtitle")) // if no match found for instreamId, check for language string match
+				{
+					for (auto it = tracks.begin(); it != tracks.end(); it++)
+					{
+						if ((it->language == preferredTextLanguagesString) && it->isCC)
+						{
+							trackId = std::distance(tracks.begin(), it);
+						}
+					}
+				}
+				if (trackId >= 0 && trackId < tracks.size())
+				{
+					TextTrackInfo track = tracks[trackId];
+#ifdef AAMP_CC_ENABLED
+					if(!track.instreamId.empty())
+					{
+						CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
+						if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0]))) && !track.rendition.empty())
+						{
+							if (track.rendition.find("608") != std::string::npos)
+							{
+								format = eCLOSEDCAPTION_FORMAT_608;
+							}
+							else if (track.rendition.find("708") != std::string::npos)
+							{
+								format = eCLOSEDCAPTION_FORMAT_708;
+							}
+						}
+						AampCCManager::GetInstance()->SetTrack(track.instreamId, format);
+					}
+#endif
 				}
 
-				TuneHelper(eTUNETYPE_SEEK);
-				discardEnteringLiveEvt = false;
-				ReleaseStreamLock();
 			}
 		}
 	}
@@ -12737,13 +12949,26 @@ uint32_t  PrivateInstanceAAMP::GetVidTimeScale(void)
 {
 	return vidTimeScale;
 }
-
+/**
+ * @brief Sets Low Subtitle TimeScale
+ */
+void PrivateInstanceAAMP::SetSubTimeScale(uint32_t subTimeScale)
+{
+	this->subTimeScale = subTimeScale;
+}
 /**
  * @brief Sets Low Audio TimeScale
  */
 void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
 {
 	this->audTimeScale = audTimeScale;
+}
+/**
+ * @brief Gets Subtitle TimeScale
+ */
+uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
+{
+	return subTimeScale;
 }
 
 /**

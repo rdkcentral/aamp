@@ -35,6 +35,7 @@ include_directories(${AAMP_ROOT}/tsb/api)
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
 set(TEST_SOURCES FunctionalTests.cpp
+                 PauseOnPlaybackTests.cpp
                  AampGstPlayerTests.cpp
                  )
 

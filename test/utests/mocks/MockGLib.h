@@ -21,12 +21,14 @@
 #define AAMP_MOCK_GLIB_H
 
 #include <gmock/gmock.h>
+#include <glib-object.h>
 #include <glib.h>
 
 
 class MockGLib
 {
 public:
+	MOCK_METHOD(GParamSpec*, g_object_class_find_property, (GObjectClass* oclass, const gchar* property_name));
 	MOCK_METHOD(guint, g_timeout_add, (guint interval, GSourceFunc function, gpointer data));
 	MOCK_METHOD(gboolean, g_source_remove, (guint tag));
 	MOCK_METHOD(gpointer, g_malloc, (gsize n_bytes));

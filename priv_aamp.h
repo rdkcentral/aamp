@@ -989,11 +989,13 @@ public:
 	std::string preferredCodecString; 			/**< unparsed string with preferred codecs in format "codec1,codec2,.." */
 	std::vector<std::string> preferredCodecList;            /**<String array to store codec preference */
 	std::string preferredNameString;			/**< unparsed string with preferred name of track */
+	std::string preferredTextNameString; 		/**< unparsed string with preferred name of text track */
 	std::string preferredTextLanguagesString; 		/**< unparsed string with preferred languages in format "lang1,lang2,.." */
 	std::vector<std::string> preferredTextLanguagesList;	/**< list of preferred text languages from most-preferred to the least*/
 	std::string preferredTextRenditionString; 		/**< String value for rendition */
 	std::string preferredTextTypeString; 			/**< String value for text type */
 	std::string preferredTextLabelString; 			/**< String value for text type */
+	std::string preferredInstreamIdString;			/**< String value for instreamId */
 	std::vector<struct DynamicDrmInfo> vDynamicDrmData;
 	Accessibility  preferredTextAccessibilityNode; 		/**< Preferred Accessibility Node for Text */
 	Accessibility  preferredAudioAccessibilityNode; 	/**< Preferred Accessibility Node for Audio  */
@@ -1122,6 +1124,7 @@ public:
 	bool mAudioComponentCount;
 	bool mVideoComponentCount;
 	bool mAudioOnlyPb;
+	double mSubtitleDelta;
 	double mAudioDelta;					/** To indicate audio playlist delta */
 	bool mVideoOnlyPb;					/**< To indicate Video Only Playback */
 	int mCurrentAudioTrackIndex;				/**< Keep current selected audio track index */
@@ -3190,10 +3193,10 @@ public:
 	void SetNewAdBreakerConfig(bool bValue);
 
 	/**
-	 * @brief Flush the audio stream sink
+	 * @brief Flush the stream sink
 	 * @param[in]  position - playback position
 	 */
-	void FlushAudio(double pos);
+	void FlushTrack(AampMediaType type,double pos);
 
 	/**
 	 *   @fn FlushStreamSink
@@ -3821,6 +3824,20 @@ public:
 	uint32_t GetVidTimeScale(void);
 
 	/**
+	 *   @fn SetSubTimeScale
+	 *
+	 *   @param[in] subTimeScale - subTimeScale Value
+	 *   @return void
+	 */
+	void SetSubTimeScale(uint32_t subTimeScale);
+	/**
+	 *   @fn GetSubTimeScale
+	 *
+	 *   @return uint32_t
+	 */
+	uint32_t  GetSubTimeScale(void);
+
+	/**
 	 *   @fn SetAudTimeScale
 	 *
 	 *   @param[in] audTimeScale - audTimeScale Value
@@ -4246,6 +4263,12 @@ public:
 	 */
 	void IncreaseGSTBufferSize();
 
+	/**
+	 * @brief Set to pause on next playback start
+	 * @param[in] enable - Flag to set whether enabled
+	 */
+	void SetPauseOnStartPlayback(bool enable);
+
 protected:
 
 	/**
@@ -4358,6 +4381,12 @@ protected:
 	 */
 	double GetPTSOffsetFromTune() const { return m_PTSOffsetFromTune.load(); }
 
+	/**
+	 * @brief Notify reached paused when starting playback into paused state
+	 *
+	 */
+	void NotifyPauseOnStartPlayback(void);
+
 
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
@@ -4434,6 +4463,7 @@ protected:
 	double mLLDashCurrentPlayRate; 		/**<Low Latency Current play Rate */
 	uint32_t vidTimeScale;
 	uint32_t audTimeScale;
+	uint32_t subTimeScale;
 	struct SpeedCache speedCache;
 	bool bLowLatencyStartABR;
 	bool mLiveOffsetAppRequest;
@@ -4457,6 +4487,8 @@ protected:
 	AampTSBSessionManager *mTSBSessionManager;
 	bool mLocalAAMPInjectionEnabled;
 	bool mLocalAAMPTsb;
+	bool mbPauseOnStartPlayback;						/**< Start playback in paused state */
+
 	pthread_mutex_t mPreProcessLock;
 
 public:

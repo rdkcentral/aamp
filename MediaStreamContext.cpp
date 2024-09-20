@@ -135,10 +135,10 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
             }
             //CID:101284 - To resolve the deadcode
         }
-		else
-		{
-			if( ( actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO ) && ret ) //Only if init fragment successfull or avilable from cache
-			{
+        else
+        {
+	        if ((actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO || actualType == eMEDIATYPE_INIT_SUBTITLE) && ret) // Only if init fragment successfull or avilable from cache
+            {
 				//To read track_id from the init fragments to check if there any mismatch.
 				//A mismatch in track_id is not handled in the gstreamer version 1.10.4
 				//But is handled in the latest version (1.18.5),
@@ -158,13 +158,17 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						AAMPLOG_INFO("Video TimeScale [%d]", timeScale);
 						aamp->SetVidTimeScale(timeScale);
 					}
-					else
+					else if (actualType == eMEDIATYPE_INIT_AUDIO)
 					{
 						AAMPLOG_INFO("Audio TimeScale  [%d]", timeScale);
 						aamp->SetAudTimeScale(timeScale);
 					}
-				}		
-
+					else if (actualType == eMEDIATYPE_INIT_SUBTITLE)
+					{
+						AAMPLOG_INFO("Subtitle TimeScale  [%d]", timeScale);
+						aamp->SetSubTimeScale(timeScale);
+					}
+                }
 				if(actualType == eMEDIATYPE_INIT_VIDEO)
 				{
 					AAMPLOG_INFO("Video track_id read from init fragment: %d ", track_id);
@@ -190,7 +194,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					}
 					
 				}
-				else
+				else if(actualType == eMEDIATYPE_INIT_AUDIO)
 				{
 					bool trackIdUpdated = false;
 					AAMPLOG_INFO("Audio track_id read from init fragment: %d ", track_id);
@@ -213,6 +217,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						aamp->mCurrentAudioTrackId = track_id;
 					}
 				}
+				// Not overwriting for subtitles, as subtecmp4transform never read trackId from init fragments
 			}
 		}
 

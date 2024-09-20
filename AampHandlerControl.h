@@ -16,6 +16,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef AAMP_HANDLER_CONTROL_H
+#define AAMP_HANDLER_CONTROL_H
+
 #include <mutex>
 #include <condition_variable>
 
@@ -159,3 +162,5 @@ class AampHandlerControl{
 	 */
 	bool waitForDone(int MaximumDelayMilliseconds, std::string errormessage);
 };
+
+#endif /* AAMP_HANDLER_CONTROL_H  */

@@ -120,6 +120,7 @@ function install_pkgs_linux_fn()
     install_package_fn libasio-dev
     install_package_fn libsystemd-dev
     install_package_fn jq
+    install_package_fn libtinyxml2-dev
 
     VER=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
@@ -167,7 +168,7 @@ function install_pkgs_fn()
       fi
 
       install_pkgs_darwin_fn git json-glib cmake "openssl@1.1" libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq curl
-      install_pkgs_darwin_fn coreutils websocketpp boost jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz
+      install_pkgs_darwin_fn coreutils websocketpp boost jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2
 
       # ORC causes compile errors on x86_64 Mac, but not on ARM64
       if [[ $ARCH == "x86_64" ]]; then

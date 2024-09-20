@@ -5,12 +5,15 @@ import subprocess
 import shutil
 import sys
 import time
+import re
 import l3_utils
 
 # Parse command line arguments - Device IP
 parser = argparse.ArgumentParser(description="RDK Device IP")
 parser.add_argument("--ip", type=str, required=True, help="IP address of connected RDK device.")
 parser.add_argument("--port", type=int, required=True, help="SSH Port of connected RDK device.")
+parser.add_argument("-t", "--testsuites_run", nargs='*', help="Specify the test suite numbers to run.")
+parser.add_argument("-d", "--dont_end_testsuit_on_failure", help="Dont end a testsuit on first failure", action="store_true")
 args = parser.parse_args()
 
 # Port to serve the test files on
@@ -24,9 +27,15 @@ rdk_device_port = str(args.port)
 host_ip = l3_utils.get_internal_ip(rdk_device_ip)
 
 passed = True
+envVar = "DONT_END_TESTSUITE_ON_FAILURE=0"
 
 # Test setup initialization
 def initialize():
+
+    global envVar
+    # Create a shell script at /tmp/data on the device to set the required environment variables.
+    if args.dont_end_testsuit_on_failure:
+        envVar = "DONT_END_TESTSUITE_ON_FAILURE=1"
 
     current_directory = os.getcwd()
     print(current_directory)
@@ -48,7 +57,7 @@ def initialize():
                     ]
     
     # Server the test files on a HTTP server
-    l3_utils.kill_serving_port(PORT)
+    l3_utils.kill_serving_port(PORT) #Kill the port if it is already in use
     l3_utils.serve_test_files(PORT)    
 
     print("Attempting to connect to the RDK device...")
@@ -58,6 +67,8 @@ def initialize():
         l3_utils.send_ssh_command(rdk_device_ip, i, rdk_device_port)
 
 def run_tests():
+
+    global envVar
 
     # Get the current working directory
     current_directory = os.getcwd()
@@ -70,15 +81,44 @@ def run_tests():
     aamp_logs_directory = os.path.join(current_directory, "AAMP_Logs")
     os.makedirs(aamp_logs_directory, exist_ok=True)
 
-    # Get the list of all HTML files in the current directory
-    test_files = [os.path.basename(file) for file in glob.glob(os.path.join(current_directory, '*.html'))]
+    all_test_files = [os.path.basename(file) for file in glob.glob(os.path.join(current_directory, '*.html'))]
+
+    # Run specific test suites mentioned in the command line arguments
+    if args.testsuites_run:
+
+        testsuites_run = set(args.testsuites_run)
+        print("Running specific test suites: ", testsuites_run)
+
+        test_files = []
+
+        for test_suite in testsuites_run:
+
+            for test_file in all_test_files:
+                isMatched = re.match(rf"TST_{test_suite}_UVE.*\.html$", test_file)
+                if isMatched:
+                    test_files.append(test_file)
+                    break
+
+            else:
+                print("No test files found for given test suite: ", test_suite)
+                exit(1)    
+
+    # Run all tests
+    else:
+        # Get the list of all HTML files in the current directory
+        test_files = all_test_files
 
     # Run each test file
     for test_file in test_files:
         print("Running test file: ", test_file)
         l3_utils.send_ssh_command(rdk_device_ip, "curl 'http://127.0.0.1:9001/as/apps/action/close?appId=com.aamp' -X POST -d '{}'", rdk_device_port)
         time.sleep(5)
-        l3_utils.send_ssh_command(rdk_device_ip, f"curl 'http://127.0.0.1:9001/as/apps/action/launch?appId=com.aamp' -X POST -d '{{\"url\":\"'\"http://{host_ip}:{PORT}/{test_file}\"'\"}}'", rdk_device_port)
+        l3_utils.send_ssh_command(
+            rdk_device_ip, 
+            f"curl 'http://127.0.0.1:9001/as/apps/action/launch?appId=com.aamp' "
+            f"-X POST -d '{{\"url\":\"http://{host_ip}:{PORT}/{test_file}?{envVar}\"}}'", 
+            rdk_device_port
+        )
 
         test_log_file = os.path.join(test_results_directory, f"{test_file[:len(test_file) - 5]}.txt")
         aamp_logs_file = os.path.join(aamp_logs_directory, f"AAMP_{test_file[:len(test_file) - 5]}.log")

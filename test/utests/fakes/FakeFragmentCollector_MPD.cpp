@@ -224,6 +224,10 @@ void StreamAbstractionAAMP_MPD::SetSubtitleTrackOffset()
 }
 
 double StreamAbstractionAAMP_MPD::GetAvailabilityStartTime()
-{ 
-	return 0.0; 
+{
+    return 0.0;
+}
+
+void StreamAbstractionAAMP_MPD::RefreshTrack(AampMediaType type)
+{
 }

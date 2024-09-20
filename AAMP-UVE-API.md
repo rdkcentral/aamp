@@ -1,6 +1,6 @@
 
 # ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
-# V6.7
+# V6.9
  
 ## Overview
 
@@ -374,6 +374,18 @@ Example:
 	    
     }
 ```
+
+Note: starting in RDK 6.9, we support ability to start video paused on first frame.  Example:
+```js
+    {
+	    .....
+	    // start playback backgrounded with autoplay=false
+	    player.load("https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd", false);
+	    player.seek(30); // optionally jump to new position
+	    player.pause(); // bring video to foreground, and show first frame of video
+    }
+```
+
 ---
 
 ### stop()
@@ -1176,8 +1188,10 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 
 |Name|Type|Description|
 |----|----|-----------|
-| languages | String | ISO-639 audio language preference; for more than one language, provide comma delimited list from highest to lowest priority:  ‘<HIGHEST>,<...>,<LOWEST>’ |
+| language | String | ISO-639 audio language preference |
+| languages | String | comma-delimited ISO-639 audio language preference list from highest to lowest priority:  ‘<HIGHEST>,<...>,<LOWEST>’ |
 | rendition | String | Optional preferred rendition for automatic text selection |
+| instreamId | String | Optional preferred instreamId (i.e. CC1, CC2) for automatic text selection |
 | label	| String | Preferred Label for automatic text selection |
 | accessibilityType | String |	Optional preferred accessibility Node for descriptive audio.|
 | accessibility | Object | Optional preferred accessibility object for audio |

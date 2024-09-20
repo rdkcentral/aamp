@@ -47,7 +47,12 @@ public:
 	MOCK_METHOD(GstSample *,gst_app_sink_pull_sample,(GstAppSink *appsink));
 	MOCK_METHOD(GstStructure *,gst_app_sink_set_caps,(GstAppSink *appsink, const GstCaps *caps));
 	MOCK_METHOD(GstStructure *,gst_caps_get_structure,(const GstCaps *caps, guint index));
-	
+	MOCK_METHOD(void, gst_message_parse_state_changed, (GstMessage * message, GstState * oldstate, GstState * newstate, GstState * pending));
+
+	MOCK_METHOD(gboolean, gst_object_replace, (GstObject ** oldobj, GstObject * newobj));
+	MOCK_METHOD(gboolean, gst_element_send_event, (GstElement *element, GstEvent *event));
+	MOCK_METHOD(GstEvent *, gst_event_new_step, (GstFormat format, guint64 amount, gdouble rate, gboolean flush, gboolean intermediate));
+
 	/*
 gst_app_sink_get_type
 gst_app_sink_pull_sample

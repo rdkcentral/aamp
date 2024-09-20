@@ -226,7 +226,7 @@ void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 	}
 }
 
-void AAMPGstPlayer::FlushAudio(double pos)
+void AAMPGstPlayer::FlushTrack(AampMediaType mediaType,double pos)
 {
 }
 
@@ -247,6 +247,15 @@ void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlD
 {
 }
 
+void AAMPGstPlayer::SetPauseOnStartPlayback(bool enable)
+{
+	if (g_mockAampGstPlayer != nullptr)
+	{
+		g_mockAampGstPlayer->SetPauseOnStartPlayback(enable);
+	}
+}
+
 void RemoveProbes()
 {
 }
+
