@@ -11478,7 +11478,7 @@ std::vector<BitsPerSecond> StreamAbstractionAAMP_MPD::GetAudioBitrates(void)
 	return audioBitrate;
 }
 
-static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vector<TileInfo> &indexedTileInfo,std::vector<StreamInfo*> &thumbnailtrack)
+static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vector<TileInfo> &indexedTileInfo,std::vector<StreamInfo*> &thumbnailtrack,StreamAbstractionAAMP_MPD* mpdInstance)
 {
 	bool trackEmpty = thumbnailtrack.empty();
 	AampMPDParseHelper *MPDParseHelper = nullptr;
@@ -11552,8 +11552,16 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 								std::string mimeType = periodElement.GetMimeType();
 								StreamInfo *tmp = new StreamInfo;
 								tmp->bandwidthBitsPerSecond = (long) bandwidth;
-								tmp->resolution.width = rep->GetWidth()/w;
-								tmp->resolution.height = rep->GetHeight()/h;
+								tmp->resolution.width = rep->GetWidth();
+								tmp->resolution.height = rep->GetHeight();
+								if((tmp->resolution.width == 0) && (tmp->resolution.height == 0))
+								{
+									IAdaptationSet *adaptationSet = adaptationSets.at(j);
+									tmp->resolution.width = adaptationSet->GetWidth();
+									tmp->resolution.height = adaptationSet->GetHeight();
+								}
+								tmp->resolution.width /= w;
+								tmp->resolution.height /= h;
 								thumbnailtrack.push_back(tmp);
 								AAMPLOG_TRACE("thumbnailtrack bandwidth=%" BITSPERSECOND_FORMAT " width=%d height=%d", tmp->bandwidthBitsPerSecond, tmp->resolution.width, tmp->resolution.height);
 							}
@@ -11576,6 +11584,7 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 										std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
 										int timeLineIndex = 0;
 										uint64_t durationMs = 0;
+										std::string RepresentationID = rep->GetId();
 										while (timeLineIndex < timelines.size())
 										{
 											if( prevStartNumber == startNumber )
@@ -11601,6 +11610,7 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 													AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated durationMs[%" PRIu64 "] startTime:%f adDuration:%f repeatCount:%d",  timeLineIndex, timelines.size(), durationMs, startTime, adDuration, repeatCount);
 
 													startTime += ( timelineDurationMs );
+													replace(tmedia,"RepresentationID",RepresentationID);
 													replace(tmedia, "Number", startNumber);
 													tileInfo.url = tmedia;
 													tileInfo.layout.posterDuration = ((double)segmentTemplates.GetDuration()) / (timeScale * w * h);
@@ -11619,12 +11629,51 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 									else
 									{
 										// Segment base.
+										AAMPLOG_TRACE("segment template");
+										uint64_t tDuration = 0; //duration of 1 tile
+										uint64_t duration = segmentTemplates.GetDuration();
+										uint32_t imgTimeScale = timeScale ? timeScale : 1;
+										long int tNumber = 1; //tile Number
+										double tottile = 0; // total number of tiles in a period
+										std::string RepresentationID = rep->GetId();
+										double periodStartTime = MPDParseHelper->GetPeriodStartTime(periodIndex,mpdInstance->mLastPlaylistDownloadTimeMs);
+										double periodDuration = MPDParseHelper->aamp_GetPeriodDuration(periodIndex,mpdInstance->mLastPlaylistDownloadTimeMs)/1000;
+										tDuration = duration/imgTimeScale;//tile duration
+										if(tDuration != 0)
+										{
+											if (MPDParseHelper->GetLiveTimeFragmentSync())
+											{
+												startNumber += (long)((periodStartTime - MPDParseHelper->GetAvailabilityStartTime()) / tDuration);
+											}
+											double tStartTime =  periodStartTime + (tNumber-1)*tDuration;
+											tottile = periodDuration/tDuration;
+											AAMPLOG_TRACE("Thumbnail track total tiles in period = %f , periodStartTime = %f periodDuration = %f ",tottile,periodStartTime,periodDuration);
+
+											while(tottile-- > 0)
+											{
+												std::string tmedia = media;
+												TileInfo tileInfo;
+												memset( &tileInfo,0,sizeof(tileInfo));
+												tileInfo.startTime = tStartTime;
+												tStartTime += tDuration; //increment the nextStartTime by TileDuration
+												replace(tmedia,"RepresentationID",RepresentationID);
+												replace(tmedia,"Number",startNumber);
+												tileInfo.url = tmedia;
+												tileInfo.layout.posterDuration = (tDuration/(w*h));
+												tileInfo.layout.tileSetDuration = tDuration;
+												tileInfo.layout.numRows = h;
+												tileInfo.layout.numCols = w;
+												AAMPLOG_TRACE("TileInfo - StartTime:%f posterDuration:%f tileSetDuration:%f numRows:%d numCols:%d url : %s",tileInfo.startTime,tileInfo.layout.posterDuration,tileInfo.layout.tileSetDuration,tileInfo.layout.numRows,tileInfo.layout.numCols,tileInfo.url.c_str());
+												indexedTileInfo.push_back(tileInfo);
+												startNumber++;
+											}
+										}
 									}
 								}
 							}
-						}	// end of representation loop
-					}	// if content type is IMAGE
-				}	// end of adaptation set loop
+						}// end of representation loop
+					}// if content type is IMAGE
+				}// end of adaptation set loop
 				if((thumbIndexValue < 0) && done)
 				{
 					break;
@@ -11650,7 +11699,7 @@ std::vector<StreamInfo*> StreamAbstractionAAMP_MPD::GetAvailableThumbnailTracks(
 {
 	if(thumbnailtrack.empty())
 	{
-		indexThumbnails(mpd, -1, indexedTileInfo, thumbnailtrack);
+		indexThumbnails(mpd, -1, indexedTileInfo, thumbnailtrack,this);
 	}
 	return thumbnailtrack;
 }
@@ -11669,7 +11718,7 @@ bool StreamAbstractionAAMP_MPD::SetThumbnailTrack(int thumbnailIndex)
 		if(thumbnailIndex < thumbnailtrack.size() || thumbnailtrack.empty())
 		{
 			deIndexTileInfo(indexedTileInfo);
-			indexThumbnails(mpd, thumbnailIndex, indexedTileInfo, thumbnailtrack);
+			indexThumbnails(mpd, thumbnailIndex, indexedTileInfo, thumbnailtrack,this);
 			if(!indexedTileInfo.empty())
 			{
 				aamp->mthumbIndexValue = thumbnailIndex;
@@ -11699,7 +11748,7 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_MPD::GetThumbnailRangeData(doub
 		{
 			AAMPLOG_WARN("calling indexthumbnail");
 			deIndexTileInfo(indexedTileInfo);
-			indexThumbnails(mpd, aamp->mthumbIndexValue, indexedTileInfo, thumbnailtrack);
+			indexThumbnails(mpd, aamp->mthumbIndexValue, indexedTileInfo, thumbnailtrack,this);
 		}
 		else
 		{

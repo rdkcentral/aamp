@@ -2223,3 +2223,114 @@ TEST_F(FunctionalTests, ChunkMode_LLD)
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mIsChunkMode, false);
 
 }
+
+TEST_F(FunctionalTests, GetAvailableThumbnailTracksTest)
+{
+	AAMPStatusType status;
+    std::string fragmentUrl;
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+    <Period id="p0" start="PT0S">
+        <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+          <Accessibility schemeIdUri="urn:scte:dash:cc:cea-708:2015" value="1=lang:en;2=lang:en"/>
+          <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+          <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+        </AdaptationSet>
+         <AdaptationSet id="2" group="4" contentType="image" par="16:9" width="1600" height="900" sar="1:1" mimeType="image/jpeg" codecs="jpeg">
+              <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+              <SegmentTemplate startNumber="1" timescale="24000" duration="6006000" media="out-$RepresentationID$-n-$Number$.jpg"></SegmentTemplate>
+              <Representation id="img=7000" bandwidth="7000">
+                <EssentialProperty schemeIdUri="http://dashif.org/guidelines/thumbnail_tile" value="5x5" />
+              </Representation>
+            </AdaptationSet>
+    </Period>
+</MPD>
+)";
+    fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+        .WillOnce(Return(true));
+    status = InitializeMPD(manifest);
+
+    std::vector<StreamInfo *> thumbnailtracks = mStreamAbstractionAAMP_MPD->GetAvailableThumbnailTracks();
+
+    ASSERT_EQ(1,thumbnailtracks.size());
+    EXPECT_EQ(thumbnailtracks[0]->bandwidthBitsPerSecond,7000);
+}
+
+
+TEST_F(FunctionalTests, SetThumbnailTrack)
+{
+    AAMPStatusType status;
+    std::string fragmentUrl;
+    bool rc;
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+    <Period id="p0" start="PT0S">
+        <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+          <Accessibility schemeIdUri="urn:scte:dash:cc:cea-708:2015" value="1=lang:en;2=lang:en"/>
+          <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+          <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+        </AdaptationSet>
+         <AdaptationSet id="2" group="4" contentType="image" par="16:9" width="1600" height="900" sar="1:1" mimeType="image/jpeg" codecs="jpeg">
+              <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+              <SegmentTemplate startNumber="1" timescale="24000" duration="6006000" media="out-$RepresentationID$-n-$Number$.jpg"></SegmentTemplate>
+              <Representation id="img=7000" bandwidth="7000">
+                <EssentialProperty schemeIdUri="http://dashif.org/guidelines/thumbnail_tile" value="5x5" />
+              </Representation>
+            </AdaptationSet>
+    </Period>
+</MPD>
+)";
+    fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+        .WillOnce(Return(true));
+    status = InitializeMPD(manifest);
+    rc = mStreamAbstractionAAMP_MPD->SetThumbnailTrack(0);
+    EXPECT_EQ(rc, 1);
+    rc = mStreamAbstractionAAMP_MPD->SetThumbnailTrack(1);
+    EXPECT_EQ(rc, 0);
+}
+
+TEST_F(FunctionalTests, GetThumbnailRangeDataTest1)
+{
+
+    AAMPStatusType status;
+    std::string fragmentUrl;
+    bool rc;
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+    <Period id="p0" start="PT0S">
+        <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+          <Accessibility schemeIdUri="urn:scte:dash:cc:cea-708:2015" value="1=lang:en;2=lang:en"/>
+          <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+          <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+        </AdaptationSet>
+         <AdaptationSet id="2" group="4" contentType="image" par="16:9"  sar="1:1" mimeType="image/jpeg" codecs="jpeg">
+              <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+              <SegmentTemplate startNumber="1" timescale="24000" duration="6006000" media="out-$RepresentationID$-n-$Number$.jpg"></SegmentTemplate>
+              <Representation id="img=7000" bandwidth="7000" width="1600" height="900">
+                <EssentialProperty schemeIdUri="http://dashif.org/guidelines/thumbnail_tile" value="5x5" />
+              </Representation>
+            </AdaptationSet>
+    </Period>
+</MPD>
+)";
+    fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+        .WillOnce(Return(true));
+    status = InitializeMPD(manifest);
+    int raw_w = 0, raw_h = 0, width = 0, height = 0;
+    std::string baseUrl = "http://example.com/thumbnails/";
+
+    rc = mStreamAbstractionAAMP_MPD->SetThumbnailTrack(0);
+    EXPECT_EQ(rc, 1);
+
+    // Call the GetThumbnailRangeData function
+    std::vector<ThumbnailData> thumbnailData = mStreamAbstractionAAMP_MPD->GetThumbnailRangeData(0,0, &baseUrl, &raw_w, &raw_h, &width, &height);
+    EXPECT_EQ(thumbnailData.size(), 1);
+    EXPECT_EQ(width,320); //width of 1 thumbnail = width/w(value = 5x5,w= 5)
+    EXPECT_EQ(thumbnailData[0].d,10); // (duration/timscale)/value
+}

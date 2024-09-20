@@ -53,6 +53,8 @@ stream_configuration=[
     {"url":"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/thumbnail_l2/peacock2/mpeg_2sec/manifest.m3u8",
         "bw":re.escape(r'[{"RESOLUTION":"416x234","BANDWIDTH":13059},{"RESOLUTION":"336x189","BANDWIDTH":9413},{"RESOLUTION":"224x126","BANDWIDTH":5077}]'),
         "logfile":"tn2"},
+    {"url":"https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel-tiled-thumbnails-numbered.ism/.mpd","bw":re.escape(r'[{"RESOLUTION":"224x100","BANDWIDTH":4000}]'),
+        "logfile":"tn3"},
 ]
 
 @pytest.fixture(params = stream_configuration)
