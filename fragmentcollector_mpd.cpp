@@ -12130,7 +12130,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					//Otherwise, player will skip initial fragments of DAI ad  sometimes due to the seekoffset.
 					//Dai ad playback should start from first fragment.
 
-					mCdaiObject->mContentSeekOffset = mBasePeriodOffset;
+					mCdaiObject->mContentSeekOffset = 0;
 					mCdaiObject->mCurPlayingBreakId = brkId;
 					if(-1 != adIdx && mCdaiObject->mAdBreaks[brkId].ads)
 					{
