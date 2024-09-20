@@ -1076,6 +1076,7 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
     "sub-type":	"CLOSED-CAPTIONS",
     "language":	"en",
     "rendition":	"urn:scte:dash:cc:cea-608:2015",
+    "type": "captions",
     "codec":	"CC1",
     "availability":	true,
     "accessibility":	{

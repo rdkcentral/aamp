@@ -6129,7 +6129,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 							ParseCCStreamIDAndLang(value.substr(0, delim), id, lang);
 							AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
 								lang.c_str(), schemeId.c_str(), id.c_str());
-							tTracks.push_back(TextTrackInfo(empty, lang, true, schemeId, empty, id, empty));
+							tTracks.push_back(TextTrackInfo(empty, lang, true, schemeId, empty, id, empty,empty,empty,"captions"));
 							value = value.substr(delim + 1);
 							delim = value.find(';');
 						}
@@ -6137,7 +6137,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 						lang = Getiso639map_NormalizeLanguageCode(lang,aamp->GetLangCodePreference());
 						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
 							lang.c_str(), schemeId.c_str(), id.c_str());
-						tTracks.push_back(TextTrackInfo(empty, lang, true, schemeId, empty, id, empty));
+						tTracks.push_back(TextTrackInfo(empty, lang, true, schemeId, empty, id, empty,empty,empty,"captions"));
 					}
 					else
 					{
