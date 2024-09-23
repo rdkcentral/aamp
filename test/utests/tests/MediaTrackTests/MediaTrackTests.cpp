@@ -363,6 +363,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 	testFragment.initFragment = false;
 	testFragment.duration = FRAGMENT_DURATION.inSeconds();
 	testFragment.position = FIRST_PTS.inSeconds();
+	testFragment.absPosition = FIRST_PTS.inSeconds();
 	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
 	AampTime lastPosition{testFragment.position};
 	bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, testParam.lowLatencyMode);
@@ -405,6 +406,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 		testFragment.duration = FRAGMENT_DURATION.inSeconds();
 		AampTime nextPts{FIRST_PTS + (FRAGMENT_DURATION * i)};
 		testFragment.position = nextPts.inSeconds();
+		testFragment.absPosition = nextPts.inSeconds();
 		testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
 		AampTime positionDelta{fabs(testFragment.position - lastPosition)};
 		lastPosition = testFragment.position;
