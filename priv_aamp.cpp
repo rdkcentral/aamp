@@ -8241,6 +8241,16 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 			return;
 		}
 
+		// DELIA-66349 and all linked tickets indicate an issue due to retune which does not restart as current position and hence the issue. 
+		//  eMEDIAFORMAT_PROGRESSIVE is playback which is done completely by GStreamer and less involvement of AAMP.
+		// skipping retune for eMEDIAFORMAT_PROGRESSIVE content
+                //Adding log line useful for triage purposes
+		if (eMEDIAFORMAT_PROGRESSIVE == mMediaFormat)
+		{
+			AAMPLOG_WARN("PrivateInstanceAAMP: Not processing reTune for eMEDIAFORMAT_PROGRESSIVE content ");
+			return;
+		}
+
 		pthread_mutex_lock(&gMutex);
 		if (this->mIsRetuneInProgress)
 		{
