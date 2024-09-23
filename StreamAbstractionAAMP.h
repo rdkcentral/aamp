@@ -1365,6 +1365,7 @@ public:
 	bool mUpdateReason;			/**< flag to update the bitrate change reason */
 	double mPTSOffsetSec;				/*For PTS restamping*/
 	double mNextPts;					/*For PTS restamping*/
+	bool mIsChunkMode;			/** Flag to indicate whetehr playback is in chunk mode or not*/
 
 	/**
 	 *   @brief Get profile index of highest bandwidth
