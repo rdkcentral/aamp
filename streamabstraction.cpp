@@ -3356,12 +3356,12 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 		bool wait = false;
 		mTrackState = (MediaTrackDiscontinuityState) (mTrackState | state);
 
-		AAMPLOG_WARN("mTrackState:%d!", mTrackState);
+		AAMPLOG_MIL("mTrackState:%d!", mTrackState);
 
 		if (mTrackState == state)
 		{
 			wait = true;
-			AAMPLOG_WARN("track[%d] Going into wait for processing discontinuity in other track!", type);
+			AAMPLOG_MIL("track[%d] Going into wait for processing discontinuity in other track!", type);
 			pthread_cond_wait(&mStateCond, &mStateLock);
 			MediaTrack *track = GetMediaTrack(type);
 			if (track && track->IsInjectionAborted())
@@ -3388,7 +3388,7 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 				aborted = true;
 			}
 		}
-		AAMPLOG_WARN("track[%d] mTrackState:%d wait:%d aborted:%d", type, mTrackState, wait, aborted);
+		AAMPLOG_MIL("track[%d] mTrackState:%d wait:%d aborted:%d", type, mTrackState, wait, aborted);
 		// We can't ensure that mTrackState == eDISCONTINUIY_IN_BOTH after wait, because
 		// if Discontinuity() returns false, we need to reset the track bit from mTrackState
 		if (mTrackState == eDISCONTINUIY_IN_BOTH || (wait && !aborted))
@@ -3406,7 +3406,7 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 			else if (isMuxedAndAudioDiscoIgnored && type == eTRACK_VIDEO)
 			{
 				// In muxed stream, set the audio track's mProcessingDiscontinuity flag to true to unblock the ProcessPendingDiscontinuity if video track discontinuity-EOS processing succeeded
-				AAMPLOG_WARN("set muxed track audio discontinuity flag to true since video discontinuity processing succeeded.");
+				AAMPLOG_MIL("set muxed track audio discontinuity flag to true since video discontinuity processing succeeded.");
 				aamp->Discontinuity((AampMediaType) eTRACK_AUDIO, true);
 			}
 

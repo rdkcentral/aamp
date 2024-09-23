@@ -567,16 +567,6 @@ protected:
                         SetTextTrackInfo(tracks, trackIndex);
                 }
 
-                void CallAcquirePlaylistLock()
-                {
-                        AcquirePlaylistLock();
-                }
-
-                void CallReleasePlaylistLock()
-                {
-                        ReleasePlaylistLock();
-                }
-
                 bool CallCheckForVssTags()
                 {
                         return CheckForVssTags();
@@ -1989,18 +1979,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SetTextTrackInfoTest)
         std::vector<TextTrackInfo> textTracks ;
         std::string trackIndex = "0";
         mStreamAbstractionAAMP_MPD->CallSetTextTrackInfo(textTracks, trackIndex);
-
-}
-
-TEST_F(StreamAbstractionAAMP_MPDTest, AcquirePlaylistLockTest)
-{
-        mStreamAbstractionAAMP_MPD->CallAcquirePlaylistLock();
-
-}
-
-TEST_F(StreamAbstractionAAMP_MPDTest, ReleasePlaylistLockTest)
-{
-        mStreamAbstractionAAMP_MPD->CallReleasePlaylistLock();
 
 }
 

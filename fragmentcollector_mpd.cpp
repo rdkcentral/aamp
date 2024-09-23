@@ -141,7 +141,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,latencyMonitorThreadStarted(false),prevLatencyStatus(LATENCY_STATUS_UNKNOWN),latencyStatus(LATENCY_STATUS_UNKNOWN),latencyMonitorThreadID()
 	,mStreamLock()
 	,mProfileCount(0)
-	,playlistMutex(), mIterPeriodIndex(0), mNumberOfPeriods(0)
+	,mIterPeriodIndex(0), mNumberOfPeriods(0)
 	,playlistDownloaderThreadStarted(false)
 	,mSubtitleParser()
 	,mMultiVideoAdaptationPresent(false)
@@ -4303,22 +4303,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 		}
 	}
 	return ret;
-}
-
-/**
- * @brief To acquire playlist lock for synchronisation purposes
- */
-void StreamAbstractionAAMP_MPD::AcquirePlaylistLock()
-{
-	playlistMutex.lock();
-}
-
-/**
- * @brief To remove playlist lock
- */
-void StreamAbstractionAAMP_MPD::ReleasePlaylistLock()
-{
-	playlistMutex.unlock();
 }
 
 /**
@@ -8821,7 +8805,7 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(int periodIdx, bool isNewPeriod)
 
 	double timelineStartSec = std::max(audioStart, videoStart);
 
-		/* Should get here last manifest update before a period change
+	/* Should get here last manifest update before a period change
 	 * On live manifests the duration of the current period can be increasing as more segments
 	 * added to the timeline. We need the final duration of that period
 	 */
@@ -8902,7 +8886,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 			if (periodChanged)
 			{
 				IPeriod *newPeriod = mpd->GetPeriods().at(mIterPeriodIndex);
-				AAMPLOG_WARN("Period(%s - %d/%d) Offset[%lf] IsLive(%d) IsCdvr(%d) ", mBasePeriodId.c_str(), mCurrentPeriodIdx, mNumberOfPeriods, mBasePeriodOffset, mIsLiveStream, aamp->IsInProgressCDVR());
+				AAMPLOG_MIL("Period(%s - %d/%d) Offset[%lf] IsLive(%d) IsCdvr(%d)", mBasePeriodId.c_str(), mCurrentPeriodIdx, mNumberOfPeriods, mBasePeriodOffset, mIsLiveStream, aamp->IsInProgressCDVR());
 				vector<IAdaptationSet *> adapatationSets = newPeriod->GetAdaptationSets();
 				int adaptationSetCount = (int)adapatationSets.size();
 				// Sky stream has tiny periods in their DAI streams to reflect audio codec change.
@@ -8958,7 +8942,15 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 			}
 
 			// OUTSIDE_ADBREAK means the current ad break playback completed.
-			if (adStateChanged && AdState::OUTSIDE_ADBREAK == mCdaiObject->mAdState)
+			bool ProcessNextAd = true;
+			//If the source period duration exceeds the total ad duration by more than 2 seconds, 
+			//the player should switch back to the same base period instead of checking the
+			//availability of the next ad break
+			if(mCdaiObject->isAdBreakObjectExist(mBasePeriodId) &&  (mCdaiObject->mAdBreaks[mBasePeriodId].mSrcPeriodOffsetGTthreshold  ||  mCdaiObject->mAdBreaks[mBasePeriodId].mWaitForManifestUpdateFlag) )
+			{
+				ProcessNextAd = false;
+			}
+			if (adStateChanged && AdState::OUTSIDE_ADBREAK == mCdaiObject->mAdState && ProcessNextAd)
 			{
 				// If the next ad break is available,need to call onAdEvent again to play DAI ads from the next immediate ad break.
 				// Otherwise, player will switch to base period(source) of second ad break
@@ -9012,11 +9004,11 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 						bmanifestupdate = true;
 					}
 				}
-				/*DELIA-47914:  If next period is empty, period ID change is  not processing.
+				/*DELIA-47914:  If next period is empty, period ID change is not processed.
 				Will check the period change for the same period in the next iteration.*/
 				if ((adaptationSetCount > 0 || !(mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))) && (!bmanifestupdate) && (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, (rate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
 				{
-					AAMPLOG_WARN("Period ID changed from \'%s\' to \'%s\' [BasePeriodId=\'%s\']", currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
+					AAMPLOG_MIL("Period ID changed from \'%s\' to \'%s\' [BasePeriodId=\'%s\']", currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
 					currentPeriodId = mCurrentPeriod->GetId();
 					mPrevAdaptationSetCount = adaptationSetCount;
 					periodChanged = true;
@@ -9025,7 +9017,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 						aamp->SetIsPeriodChangeMarked(true);
 					}
 					requireStreamSelection = true;
-					AAMPLOG_WARN("playing period %d/%d", mIterPeriodIndex, (int)mNumberOfPeriods);
+					AAMPLOG_MIL("playing period %d/%d", mIterPeriodIndex, (int)mNumberOfPeriods);
 					ret = true;
 					// If DAI ad is available for the period and we are still not in AD playing state, log a warning
 					if ((mCdaiObject->HasDaiAd(mBasePeriodId)) && (AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState) && (mBasePeriodOffset == 0))
@@ -9083,7 +9075,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				{
 					if (mMediaStreamContext[i]->adaptationSetId != adapatationSets.at(mMediaStreamContext[i]->adaptationSetIdx)->GetId())
 					{
-						AAMPLOG_WARN("AdaptationSet index changed; updating stream selection");
+						AAMPLOG_WARN("AdaptationSet index changed; updating stream selection, track = %d", i);
 						requireStreamSelection = true;
 					}
 				}
@@ -9278,7 +9270,6 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool &periodChan
 							mStartTimeOfFirstPTS = ((mCulledSeconds + mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) - (mMPDParseHelper->GetPeriodStartTime(0, mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime)) * 1000);
 						}
 					}
-					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected");
 					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 				}
 				else
@@ -9321,7 +9312,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 	MediaStreamContext *playlistDownloaderContext = mMediaStreamContext[eMEDIATYPE_VIDEO];
 
 	if (rate < 0)
+	{
 		direction = -1;
+	}
 
 	IPeriod *currPeriod = mCurrentPeriod;
 	if (currPeriod == NULL)
@@ -9340,7 +9333,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 		IndexNewMPDDocument(false);
 	}
 
-	AAMPLOG_WARN("aamp: ready to read fragments");
+	AAMPLOG_MIL("aamp: ready to read fragments");
 	/*
 	 * Ready to collect fragments
 	 */
@@ -9422,6 +9415,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 						AAMPLOG_WARN("Exiting from fetcher loop due to manifest content error");
 						break;
 					}
+					mpdChanged = true;
 					continue;
 				}
 				else
@@ -9479,6 +9473,17 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 					// CDVR moved from "dynamic" to "static"
 					playlistDownloaderContext->StopPlaylistDownloaderThread();
 					playlistDownloaderThreadStarted = false;
+				}
+				/* Calling the Refresh audio track, in order to switch to the newly selected Audio Track */
+				if(rate == AAMP_NORMAL_PLAY_RATE && mMediaStreamContext[eTRACK_AUDIO] && mMediaStreamContext[eTRACK_AUDIO]->refreshAudio )
+				{
+					SwitchAudioTrack();
+					mMediaStreamContext[eTRACK_AUDIO]->refreshAudio = false;
+				}
+				if(rate == AAMP_NORMAL_PLAY_RATE && mMediaStreamContext[eTRACK_SUBTITLE] && mMediaStreamContext[eTRACK_SUBTITLE]->refreshSubtitles )
+				{
+					SwitchSubtitleTrack(true);
+					mMediaStreamContext[eTRACK_SUBTITLE]->refreshSubtitles = false;
 				}
 				std::thread *parallelDownload[AAMP_TRACK_COUNT] = {nullptr};
 				for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
@@ -9596,7 +9601,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 						}
 						// EOS from both tracks for dynamic(live) manifests for all periods.
 						// Wait for the manifest update, otherwise break the loop.
-						if ((mIsLiveManifest && (rate > 0) && (mIterPeriodIndex == mMPDParseHelper->mUpperBoundaryPeriod) && (AdState::IN_ADBREAK_WAIT2CATCHUP != mCdaiObject->mAdState)) || (mIsLiveManifest && (bmanifestupdate) && (mMPDParseHelper->getPeriodIdx(mBasePeriodId) == mMPDParseHelper->mUpperBoundaryPeriod)))
+						bool exitFromloop = mCdaiObject->isAdBreakObjectExist(mBasePeriodId) &&  mCdaiObject->mAdBreaks[mBasePeriodId].mSrcPeriodOffsetGTthreshold;
+						if ((mIsLiveManifest && (rate > 0 && !exitFromloop) && (mIterPeriodIndex == mMPDParseHelper->mUpperBoundaryPeriod) && (AdState::IN_ADBREAK_WAIT2CATCHUP != mCdaiObject->mAdState)) ||
+							(!exitFromloop && mIsLiveManifest && (bmanifestupdate) && (mMPDParseHelper->getPeriodIdx(mBasePeriodId) == mMPDParseHelper->mUpperBoundaryPeriod)))
 						{
 							aamp->InterruptableMsSleep(500);
 						}
@@ -9639,7 +9646,8 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 					}
 				}
 				else
-				{ // This sleep will hit when there is no content to download and cache is not full
+				{
+					// This sleep will hit when there is no content to download and cache is not full
 					// and refresh interval timeout not reached . To Avoid tight loop adding a min delay
 					aamp->InterruptableMsSleep(50);
 				}
@@ -9676,7 +9684,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 		}
 	} // Loop 1
 	while (!exitFetchLoop);
-	AAMPLOG_WARN("FetcherLoopNew done");
+	AAMPLOG_MIL("FetcherLoopNew done");
 }
 
 /**
@@ -9745,7 +9753,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					if (periodChanged)
 					{
 						IPeriod *newPeriod = mpd->GetPeriods().at(mIterPeriodIndex);
-						AAMPLOG_WARN("Period(%s - %d/%d) Offset[%lf] IsLive(%d) IsCdvr(%d) ", mBasePeriodId.c_str(), mCurrentPeriodIdx, mNumberOfPeriods, mBasePeriodOffset, mIsLiveStream, aamp->IsInProgressCDVR());
+						AAMPLOG_MIL("Period(%s - %d/%d) Offset[%lf] IsLive(%d) IsCdvr(%d)", mBasePeriodId.c_str(), mCurrentPeriodIdx, mNumberOfPeriods, mBasePeriodOffset, mIsLiveStream, aamp->IsInProgressCDVR());
 						vector <IAdaptationSet*> adapatationSets = newPeriod->GetAdaptationSets();
 						int adaptationSetCount = (int)adapatationSets.size();
 						//Sky stream has tiny periods in their DAI streams to reflect audio codec change.
@@ -10098,7 +10106,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 											mStartTimeOfFirstPTS = ((mCulledSeconds + mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs) - (mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime)) * 1000);
 										}
 									}
-									AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected");
 									AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 								}
 								else
@@ -11345,7 +11352,7 @@ double StreamAbstractionAAMP_MPD::GetFirstPTS()
 	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 	{
 		// If the new PTS restamping logic is in play, update the new firstPTS
-		AAMPLOG_WARN("New restamping logic in place, firstPTS:%lf, mPTSOffsetSec:%lf", firstPTS, mPTSOffsetSec);
+		AAMPLOG_INFO("New restamping logic in place, firstPTS:%lf, mPTSOffsetSec:%lf", firstPTS, mPTSOffsetSec);
 		firstPTS += mPTSOffsetSec;
 	}
 
@@ -13502,7 +13509,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 			}
 			double latencyOffsetMin = stLLServiceData.minLatency/(double)1000;
 			double latencyOffsetMax = stLLServiceData.maxLatency/(double)1000;
-			AAMPLOG_WARN("StreamAbstractionAAMP_MPD:[LL-Dash] Min Latency: %ld Max Latency: %ld Target Latency: %ld",(long)latencyOffsetMin,(long)latencyOffsetMax,(long)TargetLatency);
+			AAMPLOG_MIL("StreamAbstractionAAMP_MPD:[LL-Dash] Min Latency: %ld Max Latency: %ld Target Latency: %ld",(long)latencyOffsetMin,(long)latencyOffsetMax,(long)TargetLatency);
 			SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_IgnoreAppLiveOffset, true);
 			//Ignore Low latency setting
 			if(!ISCONFIGSET(eAAMPConfig_ForceLLDFlow) && !ISCONFIGSET(eAAMPConfig_IgnoreAppLiveOffset) && (((AAMP_DEFAULT_SETTING != GETCONFIGOWNER(eAAMPConfig_LiveOffset4K)) && (currentOffset > latencyOffsetMax) && aamp->mIsStream4K) ||
@@ -13520,7 +13527,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 					if(!ISCONFIGSET(eAAMPConfig_ForceLLDFlow))
 					{
 						//Override Latency offset with Min Value if config enabled
-						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: currentOffset:%lf LL-DASH offset(s): %lf",currentOffset,latencyOffset);
+						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: currentOffset:%lf LL-DASH offset(s): %lf",currentOffset,latencyOffset);
 						if(((AAMP_STREAM_SETTING >= GETCONFIGOWNER(eAAMPConfig_LiveOffset4K)) && aamp->mIsStream4K) ||
 						((AAMP_STREAM_SETTING >= GETCONFIGOWNER(eAAMPConfig_LiveOffset))))
 						{

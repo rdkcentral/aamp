@@ -128,7 +128,7 @@ public:
     return true;
   }
 
-  void InitializeAdMPD(const char *manifest, bool isFOG = false, bool fogDownloadSuccess = true)
+  void InitializeAdMPD(const char *manifest, bool isFOG = false, bool fogDownloadSuccess = true, int count = 1)
   {
     std::string adManifestUrl = TEST_AD_MANIFEST_URL;
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
@@ -137,7 +137,8 @@ public:
       mManifest = manifest;
       // remoteUrl, manifest, effectiveUrl
       EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _))
-              .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
+              .Times(count)
+              .WillRepeatedly(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
       if (isFOG)
       {
         // If the ADs are to be recorded by FOG, then the manifest will be downloaded again from FOG
@@ -390,7 +391,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   uint32_t breakdur = 10000;
 
   // To create an empty ad break object
-  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, "", startMS, breakdur);
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
 
   url = TEST_AD_MANIFEST_URL;
   InitializeAdMPD(manifest);
@@ -451,7 +452,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   uint32_t breakdur = 10000;
 
   // To create an empty ad break object
-  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, "", startMS, breakdur);
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
 
   url = TEST_AD_MANIFEST_URL;
   mPrivateCDAIObjectMPD->mIsFogTSB = true;
@@ -487,7 +488,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   const char *manifest = nullptr;
 
   // To create an empty ad break object
-  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, "", startMS, breakdur);
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
 
   url = TEST_AD_MANIFEST_URL;
   InitializeAdMPD(manifest);
@@ -550,7 +551,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   uint32_t breakdur = 10000;
 
   // To create an empty ad break object
-  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, "", startMS, breakdur);
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
 
   url = TEST_AD_MANIFEST_URL;
   mPrivateCDAIObjectMPD->mIsFogTSB = true;
@@ -571,6 +572,79 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
   EXPECT_STREQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).url.c_str(), TEST_AD_MANIFEST_URL);
 
+}
+
+/**
+ * @brief Tests the functionality of the SetAlternateContents method when multiple ads are places in an adbreak
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_6)
+{
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="static" id="TSS_ICEJ010_010-LIN_c4_HD" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT0H0M1.000S" maxSegmentDuration="PT0H0M1S" mediaPresentationDuration="PT0H0M10.027S">
+  <Period id="1" start="PT0H0M0.000S">
+    <AdaptationSet id="1" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="manifest/track-video-repid-$RepresentationID$-tc--header.mp4" media="manifest/track-video-repid-$RepresentationID$-tc--frag-$Number$.mp4" timescale="48000" startNumber="0">
+        <SegmentTimeline>
+          <S t="0" d="92160" r="3"/>
+          <S t="368640" d="111360" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="LE5" bandwidth="5250000" codecs="hvc1.1.6.L123.b0" width="1920" height="1080" frameRate="50">
+      </Representation>
+    </AdaptationSet>
+    <AdaptationSet id="2" contentType="audio" mimeType="audio/mp4" lang="en">
+      <AudioChannelConfiguration schemeIdUri="tag:dolby.com,2014:dash:audio_channel_configuration:2011" value="a000"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="manifest-eac3/track-audio-repid-$RepresentationID$-tc--header.mp4" media="manifest-eac3/track-audio-repid-$RepresentationID$-tc--frag-$Number$.mp4" timescale="48000" startNumber="0">
+        <SegmentTimeline>
+          <S t="0" d="92160" r="3"/>
+          <S t="368640" d="112128" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="DDen" bandwidth="99450" codecs="ec-3" audioSamplingRate="48000">
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+  std::string periodId = "testPeriodId";
+  std::string adId1 = "testAdId1";
+  std::string adId2 = "testAdId2";
+  std::string url = "";
+  uint64_t startMS = 0;
+  uint32_t breakdur = 20000;
+  uint32_t adDuration = 10000;
+
+  // To create an empty ad break object
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+
+  url = TEST_AD_MANIFEST_URL;
+  mPrivateInstanceAAMP->SetManifestUrl(TEST_FOG_MAIN_MANIFEST_URL);
+  // Set the expect for GetFile twice with same manifest
+  InitializeAdMPD(manifest, false, false, 2);
+
+  // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
+  // Here, ad resolved event is sent with true and CDN url is cached
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId1, true, startMS, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000)).Times(1);
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId1, url, startMS, adDuration);
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId2, url, startMS, adDuration);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+  // Verify the result
+  // mAdBreak updated and placementObj created
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
+  EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 2);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad.size(), 1);
+  if (!mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad.empty())
+  {
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adIdx, 0);
+  }
+  EXPECT_STREQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).url.c_str(), TEST_AD_MANIFEST_URL);
 }
 
 /**

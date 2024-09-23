@@ -28,6 +28,7 @@ from inspect import getsourcefile
 import pytest
 import subprocess
 import atexit
+import re
 
 ###############################################################################
 
@@ -75,13 +76,13 @@ TESTDATA1 = {
         {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId4 duration\=20 url\=.*ad_20s.mpd", "min": 0, "max": 150},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\].", "min": 100, "max": 160},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[2\] AdIdx\[0\] Found at Period\[2\]", "min": 100, "max": 160},
-        {"expect": r"\[FetcherLoop\]\[\d+\]Period ID changed from '1' to '0-111' \[BasePeriodId='2'\]", "min": 100, "max": 180},
-        {"expect": r"\[FetcherLoop\]\[\d+\]Period ID changed from '0-111' to '1-112' \[BasePeriodId='2'\]", "min": 100, "max": 200},
-        {"expect": r"\[FetcherLoop\]\[\d+\]Period ID changed from '1-112' to '2-113' \[BasePeriodId='2'\]", "min": 150, "max": 220},
-        {"expect": r"\[FetcherLoop\]\[\d+\]Period ID changed from '2-113' to '3-114' \[BasePeriodId='2'\]", "min": 150, "max": 250},
+        {"expect": re.escape("Period ID changed from '1' to '0-111' [BasePeriodId='2']"), "min": 100, "max": 180},
+        {"expect": re.escape("Period ID changed from '0-111' to '1-112' [BasePeriodId='2']"), "min": 100, "max": 200},
+        {"expect": re.escape("Period ID changed from '1-112' to '2-113' [BasePeriodId='2']"), "min": 150, "max": 220},
+        {"expect": re.escape("Period ID changed from '2-113' to '3-114' [BasePeriodId='2']"), "min": 150, "max": 250},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 2, duration: 120000, endPeriodId: 3, endPeriodOffset: 0, \#Ads: 4", "min": 240, "max": 260},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] \=\> \[OUTSIDE_ADBREAK\].", "min": 240, "max": 260},
-        {"expect": r"\[FetcherLoop\]\[\d+\]Period ID changed from '3-114' to '3' \[BasePeriodId='3'\]", "min": 240, "max": 270},
+        {"expect": re.escape("Period ID changed from '3-114' to '3' [BasePeriodId='3']"), "min": 240, "max": 270},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/dash/(1080|720|480|360)p_132.m4s\?live=true", "min": 250, "max": 270},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/dash/(1080|720|480|360)p_133.m4s\?live=true", "min": 250, "max": 270, "end_of_test":True},
     ]
@@ -107,15 +108,15 @@ TESTDATA2 = {
         {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId3 duration\=30 url\=.*ad-30s.mpd", "min": 0, "max": 150},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\].", "min": 100, "max": 160},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[2\] AdIdx\[0\] Found at Period\[2\]", "min": 100, "max": 160},
-        {"expect": r"\[FetcherLoop\]\[\d+\]Period ID changed from '1' to '0-111' \[BasePeriodId='2'\]", "min": 100, "max": 180},
-        {"expect": r"\[FetcherLoop\]\[\d+\]Period ID changed from '0-111' to '1-112' \[BasePeriodId='2'\]", "min": 100, "max": 200},
-        {"expect": r"\[FetcherLoop\]\[\d+\]Period ID changed from '1-112' to '2-113' \[BasePeriodId='2'\]", "min": 150, "max": 220},
+        {"expect": re.escape("Period ID changed from '1' to '0-111' [BasePeriodId='2']"), "min": 100, "max": 180},
+        {"expect": re.escape("Period ID changed from '0-111' to '1-112' [BasePeriodId='2']"), "min": 100, "max": 200},
+        {"expect": re.escape("Period ID changed from '1-112' to '2-113' [BasePeriodId='2']"), "min": 150, "max": 220},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] \=\> \[OUTSIDE_ADBREAK\].", "min": 220, "max": 240},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 2, duration: 100000, endPeriodId: 3, endPeriodOffset: 0, \#Ads: 3", "min": 220, "max": 260},
         #After ad3 period 113 should not switch to ad1 period 111
-        {"expect": r"\[FetcherLoop\]\[\d+\]Period ID changed from '2-113' to '0-111' \[BasePeriodId='2'\]", "min": 200, "max": 250, "not_expected":True},
+        {"expect": re.escape("Period ID changed from '2-113' to '0-111' [BasePeriodId='2']"), "min": 200, "max": 250, "not_expected":True},
         #After ad3 should switch to main content period 2
-        {"expect": r"\[FetcherLoop\]\[\d+\]Period ID changed from '2-113' to '2' \[BasePeriodId='2'\]", "min": 200, "max": 260},
+        {"expect": re.escape("Period ID changed from '2-113' to '2' [BasePeriodId='2']"), "min": 200, "max": 260},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/dash/(1080|720|480|360)p_122.m4s\?live=true", "min": 220, "max": 260},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/dash/(1080|720|480|360)p_123.m4s\?live=true", "min": 220, "max": 260, "end_of_test":True},
     ]

@@ -258,7 +258,7 @@ struct AAMPGstPlayerPriv
 	AampHandlerControl callbackControl;
 
 	bool filterAudioDemuxBuffers;			/**< flag to filter audio demux buffers */
-	double seekPosition;
+	double seekPosition;					/**< the position to seek the pipeline to in seconds */
 
 	AAMPGstPlayerPriv() : pipeline(NULL), bus(NULL),
 			total_bytes(0), n_audio(0), current_audio(0),
@@ -986,7 +986,7 @@ static GstPadProbeReturn AAMPGstPlayer_DemuxPadProbeCallbackEvent(GstPad *pad, G
 				GstSegment segment;
 				gst_event_copy_segment(event, &segment);
 				AAMPLOG_TRACE("duration  %" G_GUINT64_FORMAT " start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT,
-				 segment.duration, segment.start, segment.stop);
+				segment.duration, segment.start, segment.stop);
 
 				// Reset the stop value
 				segment.stop = GST_CLOCK_TIME_NONE;
@@ -5406,11 +5406,11 @@ void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlD
 
 /**
  * @fn SetSeekPosition
- * @param position the start position to seek the pipeline to in seconds
+ * @param[in] positionSecs - the start position to seek the pipeline to in seconds
  */
-void AAMPGstPlayer::SetSeekPosition(double position)
+void AAMPGstPlayer::SetSeekPosition(double positionSecs)
 {
-	privateContext->seekPosition = position;
+	privateContext->seekPosition = positionSecs;
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
 		privateContext->stream[i].pendingSeek = true;

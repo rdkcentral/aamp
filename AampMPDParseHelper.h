@@ -416,7 +416,7 @@ public :
 	uint64_t GetDurationFromRepresentation();
 
 	/**
-	 * Calculates the duration of new content in a period.
+	 * @brief Calculates the duration of new content in a period.
 	 *
 	 * This function takes an IPeriod object and calculates the duration of new content
 	 * within that period. It considers various factors such as the duration of the period,
@@ -426,7 +426,7 @@ public :
 	 * @param[out] curEndNumber A reference to a uint64_t variable that will store the current end number.
 	 * @return The duration of new content in milliseconds.
 	 */
-	double GetPeriodNewContentDuration(IPeriod * period, uint64_t &curEndNumber);
+	double GetPeriodNewContentDurationMs(IPeriod * period, uint64_t &curEndNumber);
 
 	/**
 	 * @brief Retrieves the time scale of the period segment.
@@ -441,7 +441,7 @@ public :
 	uint32_t GetPeriodSegmentTimeScale(IPeriod * period);
 
 	/**
-	 * Retrieves the start time of the first segment in the given period.
+	 * @brief Retrieves the start time of the first segment in the given period.
 	 *
 	 * @param[in] period The period for which to retrieve the start time.
 	 * @return The start time of the first segment in the period.

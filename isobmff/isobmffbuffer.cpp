@@ -52,12 +52,12 @@ void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
 }
 
 /**
-*  	@fn parseBuffer
+*  	@fn ParseChunkData
 *  	@param[in] name - name of the track
-*  	@param[in/out] unParsedBuffer - Total unparsedbuffer
+*  	@param[in,out] unParsedBuffer - Total unparsedbuffer
 *  	@param[in] timeScale - timescale of the track
 *	@param[out] parsedBufferSize - parsed buffer size
-*  	@param[in/out] unParsedBufferSize -uunparsed or remaining buffer size
+*  	@param[in,out] unParsedBufferSize -uunparsed or remaining buffer size
 *	@param[out] fpts - fragmnet pts value
 *  	@param[out] fduration - fragment duration
 *	@return true if parsedd or false
@@ -723,16 +723,12 @@ double IsoBmffBuffer::getTotalChunkDuration(int lastMDatIndex)
 	for(int i=0;i<lastMDatIndex;i++)
 	{
 		Box *box = pBoxes->at(i);
-#ifdef AAMP_DEBUG_INJECT_CHUNK
-		AAMPLOG_WARN("[%s] Type: %s", name,box->getType());
-#endif
+		AAMPLOG_TRACE("Type: %s", box->getType());
 		if (IS_TYPE(box->getType(), Box::MOOF))
 		{
 			getSampleDuration(box, fDuration);
 			totalChunkDuration += fDuration;
-#ifdef AAMP_DEBUG_INJECT_CHUNK
-			AAMPLOG_WARN("[%s] fDuration = %lld, totalChunkDuration = %lld", name,fDuration, totalChunkDuration);
-#endif
+			AAMPLOG_TRACE("fDuration = %" PRIu64 ", totalChunkDuration = %f", fDuration, totalChunkDuration);
 		}
 	}
 	return totalChunkDuration;
