@@ -76,6 +76,7 @@ protected:
 
     mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
     mLogObj = new AampLogManager();
+    mLogObj->aampLoglevel = eLOGLEVEL_TRACE;
 
     g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
 

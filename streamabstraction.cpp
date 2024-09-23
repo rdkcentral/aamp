@@ -813,7 +813,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 	{
 		if (cachedFragment->discontinuity)
 		{
-			AAMPLOG_WARN("[%s] Discontinuity present. uri %s", name, cachedFragment->uri.c_str());
+			AAMPLOG_DEBUG("[%s] Discontinuity present. uri %s", name, cachedFragment->uri.c_str());
 		}
 	}
 #endif
@@ -1304,12 +1304,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 				}
 			}
 		}
-// #ifdef AAMP_DEBUG_INJECT
-// 		if ((1 << type) & AAMP_DEBUG_INJECT)
-// 		{
-// 			AAMPLOG_WARN("[%s] Inject uri %s", name, cachedFragment->uri.c_str());
-// 		}
-// #endif
+
 		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
 			mSubtitleParser->processData(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), cachedFragment->position, cachedFragment->duration);
@@ -1409,7 +1404,7 @@ bool MediaTrack::InjectFragment()
 		else
 		{
 			cachedFragment = &this->cachedFragment[fragmentIdxToInject];
-			AAMPLOG_WARN("[%s] fragmentIdxToInject : %d Discontinuity %d ", name, fragmentIdxToInject, cachedFragment->discontinuity);
+			AAMPLOG_TRACE("[%s] fragmentIdxToInject : %d Discontinuity %d ", name, fragmentIdxToInject, cachedFragment->discontinuity);
 		}
 #ifdef TRACE
 		AAMPLOG_WARN("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",

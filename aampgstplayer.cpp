@@ -4052,7 +4052,7 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
 			rc = GST_TIME_AS_MSECONDS(pos) * rate;
 			AAMPLOG_DEBUG("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld" , GST_TIME_AS_MSECONDS(pos), rc);
 		}
-		AAMPLOG_MIL("AAMPGstPlayer: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
+		//AAMPLOG_MIL("AAMPGstPlayer: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
 
 		//positionQuery is not unref-ed here, because it could be reused for future position queries
 	}

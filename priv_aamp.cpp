@@ -3699,7 +3699,7 @@ void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType type)
  */
 void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int periodMs, int track)
 { // called from FragmentCollector thread; blocks until gstreamer wants data
-	AAMPLOG_INFO("PrivateInstanceAAMP::Enter. type = %d and downloads:%d",  track, mbTrackDownloadsBlocked[track]);
+	AAMPLOG_DEBUG("PrivateInstanceAAMP::Enter. type = %d and downloads:%d",  track, mbTrackDownloadsBlocked[track]);
 	int elapsedMs = 0;
 	while (mbDownloadsBlocked || mbTrackDownloadsBlocked[track])
 	{
@@ -3719,7 +3719,7 @@ void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int peri
 		}
 		InterruptableMsSleep(10);
 	}
-	AAMPLOG_INFO("PrivateInstanceAAMP::Exit. type = %d",  track);
+	AAMPLOG_DEBUG("PrivateInstanceAAMP::Exit. type = %d",  track);
 }
 
 /**
