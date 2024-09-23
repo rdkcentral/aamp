@@ -3726,6 +3726,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 			if (liveAdjust)
 			{
+				if(mLowLatencyMode)
+				{
+					mIsChunkMode = true;
+				}
 				// DELIA-43662
 				// After live adjust ( for Live or CDVR) , possibility of picking an empty last period exists.
 				// Though its ignored in Period selection earlier , live adjust will end up picking last added empty period

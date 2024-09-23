@@ -325,13 +325,13 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	llDashData.availabilityTimeOffset = 2.0;
 	llDashData.lowLatencyMode = true;
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
+	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(mLogObj,this->mPrivateInstanceAAMP, 0, 1);
+	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP->mIsChunkMode = true;
 	// Initialize after mock has been setup
 	Initialize();
 
 	mMediaTrack->fillCachedFragment(false, false, llDashData.lowLatencyMode);
-
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
@@ -363,8 +363,9 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 	llDashData.availabilityTimeOffset = 2.0;
 	llDashData.lowLatencyMode = true;
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
+	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(mLogObj,this->mPrivateInstanceAAMP, 0, 1);
+	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP->mIsChunkMode = true;
 	// Initialize after mock has been setup
 	Initialize();
 

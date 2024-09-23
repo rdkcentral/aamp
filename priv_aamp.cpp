@@ -660,9 +660,16 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 		}
 		ret = numBytesForBlock;
 		MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->mediaType);
+
 		if(mCtx)
 		{
-			if(context->aamp->GetLLDashServiceData()->lowLatencyMode && !mCtx->IsLocalTSBInjection() && ptr && (numBytesForBlock > 0) &&
+			bool ischunkMode = false;  // default value
+			if (context->aamp->mpStreamAbstractionAAMP)
+			{
+				ischunkMode = context->aamp->mpStreamAbstractionAAMP->mIsChunkMode;
+			}
+
+			if(context->aamp->GetLLDashServiceData()->lowLatencyMode && ischunkMode && !mCtx->IsLocalTSBInjection() && ptr && (numBytesForBlock > 0) &&
 					(context->mediaType == eMEDIATYPE_VIDEO ||
 					context->mediaType ==  eMEDIATYPE_AUDIO ||
 					context->mediaType ==  eMEDIATYPE_SUBTITLE))

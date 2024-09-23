@@ -1272,7 +1272,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 {
 	class StreamAbstractionAAMP* pContext = GetContext();
 
-	if (aamp->GetLLDashServiceData()->lowLatencyMode)
+	if (pContext && pContext->mIsChunkMode)
 	{
 		bool bIgnore = true;
 		AAMPLOG_TRACE("[%s] Processing the chunk ==> fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
@@ -1383,12 +1383,22 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 bool MediaTrack::InjectFragment()
 {
 	bool ret = true;
+	bool isChunkMode = false ;
 	bool lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
-	if(!lowLatency) //TBD
+	StreamAbstractionAAMP* pContext = GetContext();
+	if(pContext != NULL)
+	{
+		isChunkMode = pContext->mIsChunkMode;
+	}
+	else
+	{
+		AAMPLOG_WARN("GetContext is null");  //Null Return
+	}
+	if(!isChunkMode) //TBD
 	{
 		aamp->BlockUntilGstreamerWantsData(NULL, 0, type);
 	}
-	bool notAborted = lowLatency ? WaitForCachedFragmentChunkAvailable() : WaitForCachedFragmentAvailable();
+	bool notAborted = isChunkMode ? WaitForCachedFragmentChunkAvailable() : WaitForCachedFragmentAvailable();
 
 	if (notAborted)
 	{
@@ -1397,7 +1407,7 @@ bool MediaTrack::InjectFragment()
 		bool isDiscontinuity = false;
 
 		CachedFragment* cachedFragment = nullptr;
-		if(lowLatency)
+		if(isChunkMode)
 		{
 			cachedFragment = &this->cachedFragmentChunks[fragmentChunkIdxToInject];
 		}
@@ -1442,7 +1452,6 @@ bool MediaTrack::InjectFragment()
 			if (SignalIfEOSReached())
 			{
 				//Save the playback rate prior to sending EOS
-				StreamAbstractionAAMP* pContext = GetContext();
 				if(pContext != NULL)
 				{
 					int rate = pContext->aamp->rate;
@@ -1470,7 +1479,7 @@ bool MediaTrack::InjectFragment()
 	}
 	else
 	{
-		AAMPLOG_WARN("WaitForCachedFragmentAvailable %s aborted LowLatency: %d", name, lowLatency );
+		AAMPLOG_WARN("WaitForCachedFragmentAvailable %s aborted LowLatency: %d ChunkMode %d", name, lowLatency,isChunkMode);
 		//EOS should not be triggerd when subtitle sets its "eosReached" in any circumstances
 		SignalIfEOSReached();
 		ret = false;
@@ -2051,7 +2060,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInst
 		mAuxCond(), mFwdAudioToAux(false), mLogObj(logObj),
 		mAudioTracksAll(), mTextTracksAll(),
 		mTsbMaxBitrateProfileIndex(-1),mUpdateReason(false),
-		mPTSOffsetSec(0.0), mNextPts(0.0),
+		mPTSOffsetSec(0.0), mNextPts(0.0),mIsChunkMode(false),
 		mID3Handler{mID3Handler}
 {
 	mLastVideoFragParsedTimeMS = aamp_GetCurrentTimeMS();

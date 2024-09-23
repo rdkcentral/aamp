@@ -34,7 +34,7 @@
 void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity)
 {
 	if(
-	   !( (aamp->GetLLDashServiceData()->lowLatencyMode &&
+	   !(( GetContext() && GetContext()->mIsChunkMode &&
 		   (cachedFragment->type == eMEDIATYPE_AUDIO ||
 			cachedFragment->type == eMEDIATYPE_VIDEO)
 		   ) || aamp->IsLocalAAMPTsb() ) )
@@ -420,7 +420,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
         UpdateTSAfterFetch(initSegment);
         // When LocalAAMPTSBInjection is set, buffers are sent via chunkInjector, so update cachedFragments here itself.
         // IsLocalAAMPTsb() was used earlier, but its set before FetchAndInjectInitialization for non-LLD streams causing the init fragment to be lost.
-        if(aamp->IsLocalAAMPTsbInjection() || aamp->GetLLDashServiceData()->lowLatencyMode)
+        if(aamp->IsLocalAAMPTsbInjection() || (GetContext() && GetContext()->mIsChunkMode))
         {
             UpdateTSAfterInject();
         }
