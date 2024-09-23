@@ -939,11 +939,13 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 				{
 					const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
 					uint32_t timeScale = segmentTemplates.GetTimescale();
+					uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
 					//Calculate period duration by adding up the segment durations in timeline
 					if (segmentTimeline)
 					{
 						std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
 						int timeLineIndex = 0;
+						uint64_t timelineStartTime = timelines.at(timeLineIndex)->GetStartTime();
 						while (timeLineIndex < timelines.size())
 						{
 							ITimeline *timeline = timelines.at(timeLineIndex);
@@ -952,6 +954,11 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 							durationMs += ((repeatCount + 1) * timelineDurationMs);
 							AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated durationMs[%lf]", timeLineIndex, timelines.size(), durationMs);
 							timeLineIndex++;
+						}
+						if(presentationTimeOffset > timelineStartTime)
+						{
+							durationMs -= ((double)((presentationTimeOffset - timelineStartTime) * 1000) / (double) timeScale);
+							AAMPLOG_TRACE("presentationTimeOffset:%" PRIu64 " timelineStartTime:%" PRIu64 " updated durationMs[%lf]", presentationTimeOffset, timelineStartTime, durationMs);
 						}
 					}
 					else
@@ -1358,7 +1365,7 @@ uint64_t AampMPDParseHelper::GetDurationFromRepresentation()
 
 
 /**
- * Calculates the duration of new content in a period.
+ * @brief Calculates the duration of new content in a period.
  *
  * This function takes an IPeriod object and calculates the duration of new content
  * within that period. It considers various factors such as the duration of the period,
@@ -1368,7 +1375,7 @@ uint64_t AampMPDParseHelper::GetDurationFromRepresentation()
  * @param[out] curEndNumber A reference to a uint64_t variable that will store the current end number.
  * @return The duration of new content in milliseconds.
  */
-double AampMPDParseHelper::GetPeriodNewContentDuration(IPeriod * period, uint64_t &curEndNumber)
+double AampMPDParseHelper::GetPeriodNewContentDurationMs(IPeriod * period, uint64_t &curEndNumber)
 {
 	double durationMs = 0;
 	bool found = false;
@@ -1510,7 +1517,7 @@ uint32_t AampMPDParseHelper::GetPeriodSegmentTimeScale(IPeriod * period)
 }
 
 /**
- * Retrieves the start time of the first segment in the given period.
+ * @brief Retrieves the start time of the first segment in the given period.
  *
  * @param[in] period The period for which to retrieve the start time.
  * @return The start time of the first segment in the period.
@@ -1629,6 +1636,7 @@ void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int r
 			{
 				AAMPLOG_WARN("Presentation Time Offset %" PRIu64 " ahead of segment start %" PRIu64 ", Set PTO as start time", presentationTimeOffset, startTime);
 				startTime = presentationTimeOffset;
+				duration -= (double)(presentationTimeOffset - startTime) / (double)(timeScale);
 			}
 			scaledStartTime = ((double) startTime / (double)timeScale);
 		}

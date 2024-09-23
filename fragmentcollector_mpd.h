@@ -467,15 +467,6 @@ public:
 	void setNextobjectrequestUrl(std::string media,const FragmentDescriptor *fragmentDescriptor,AampMediaType mediaType);
 	void setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,AampMediaType mediaType);
 
-	/*
-	* @fn AcquirePlaylistLock
-	*/
-	void AcquirePlaylistLock();
-	/*
-	 * @fn ReleasePlaylistLock
-	*/
-	void ReleasePlaylistLock();
-
 	 /*
 	 * @fn NotifyFirstVideoPTS
 	 * @param[in] pts base pts
@@ -1063,7 +1054,6 @@ protected:
 	int mMaxTracks; /* Max number of tracks for this session */
 	double mDeltaTime;
 	bool mHasServerUtcTime;
-	std::mutex playlistMutex;       /**< Mutex locked for accessing and updating mpd document */
 	uint32_t prevTimeScale;
 	bool mIsFcsRepresentation;
 	int mFcsRepresentationId;

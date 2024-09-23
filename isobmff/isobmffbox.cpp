@@ -494,7 +494,7 @@ void TfdtBox::setBaseMDT(uint64_t mdt)
 		}
 		else
 		{
-			WRITE_U32(baseMDT_loc, mdt);
+			WRITE_U32(baseMDT_loc, static_cast<uint32_t>(mdt));
 		}
 	}
 }

@@ -235,7 +235,7 @@ void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int r
 	}
 }
 
-double AampMPDParseHelper::GetPeriodNewContentDuration(IPeriod * period, uint64_t &curEndNumber)
+double AampMPDParseHelper::GetPeriodNewContentDurationMs(IPeriod * period, uint64_t &curEndNumber)
 {
 	return 0;
 }

@@ -122,7 +122,7 @@ private:
 	 * @param[in] segment - buffer pointer
 	 * @param[in] bufSz - buffer size
 	 */
-	void restampPtsInternal(int64_t offset, uint8_t *buf, size_t bufSz);
+	void restampPtsInternal(int64_t offset, uint8_t *segment, size_t bufSz);
 
 	/**
 	 * @fn updateSampleDurationInternal

@@ -267,7 +267,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 
 				if(openPrdFound && -1 != mPlacementObj.curAdIdx && (mPlacementObj.openPeriodId == periodId))
 				{
-					double periodDelta = adMPDParseHelper->GetPeriodNewContentDuration(period, mPlacementObj.curEndNumber);
+					double periodDelta = adMPDParseHelper->GetPeriodNewContentDurationMs(period, mPlacementObj.curEndNumber);
 					double currperioddur = adMPDParseHelper->aamp_GetPeriodDuration(iter, 0); 
 					double nextperioddur = -1;
 					if((iter+1) < periods.size())
@@ -835,18 +835,17 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 			}
 			adbreakObj.adsDuration += durationMs;
 
-			std::string bPeriodId = "";		//BasePeriodId will be filled on placement
-			int bOffset = -1;				//BaseOffset will be filled on placement
-			if(1 == adBreakAssets->size())
+			// Add offset to mPeriodMap
+			if(isPeriodExist(periodId) && mPeriodMap[periodId].offset2Ad.empty())
 			{
 				//First Ad placement is doing now.
-				if(isPeriodExist(periodId))
-				{
-					mPeriodMap[periodId].offset2Ad[0] = AdOnPeriod{0,0};
-				}
+				mPeriodMap[periodId].offset2Ad[0] = AdOnPeriod{0,0};
+			}
+			// Add entry to mAdtoInsertInNextBreakVec
+			if(!HasDaiAd(periodId))
+			{
 				//If current ad index is -1 (that is no ads are pushed into the map yet), current ad placement can take place from here itself.
 				//Otherwise, the Player need to wait until the current ad placement is done.
-
 				if(mPlacementObj.curAdIdx == -1 )
 				{
 					mPlacementObj.pendingAdbrkId = periodId;
@@ -862,8 +861,6 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 					// Add to an array of DAI ad's for B2B substitution
 					mAdtoInsertInNextBreakVec.emplace_back(periodId, periodId, 0, 0, 0);
 				}
-				bPeriodId = periodId;
-				bOffset = 0;
 			}
 			if(!finalManifest)
 			{
@@ -873,14 +870,24 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 			if (!adBreakAssets->empty())
 			{
 				// Find the right AdNode from adBreakAssets based on mAdFulfillObj.adId
-				for (auto& node : *adBreakAssets)
+				for (int iter=0; iter<adBreakAssets->size(); iter++)
 				{
+					AdNode &node = adBreakAssets->at(iter);
 					if (node.adId == mAdFulfillObj.adId)
 					{
 						node.mpd = ad;
 						node.duration = durationMs;
-						node.basePeriodId = bPeriodId;
-						node.basePeriodOffset = bOffset;
+						if (iter == 0)
+						{
+							node.basePeriodId = periodId;
+							node.basePeriodOffset = 0;
+						}
+						else
+						{
+							// For subsequent ads in an adbreak, basePeriodId and basePeriodOffset will be filled on placement
+							node.basePeriodId ="";
+							node.basePeriodOffset = -1;
+						}
 						node.url = mAdFulfillObj.url;
 						node.resolved = true;
 						break;
@@ -892,7 +899,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 				// Handle the case where the vector is empty if necessary
 				// For example, you might want to push the new node if the vector is empty
 				AAMPLOG_WARN("AdBreakAssets is empty. Adding new Ad, May be a BUG in fulfill queue.");
-				adBreakAssets->emplace_back(AdNode{false, false, true, mAdFulfillObj.adId, mAdFulfillObj.url, durationMs, bPeriodId, bOffset, ad});
+				adBreakAssets->emplace_back(AdNode{false, false, true, mAdFulfillObj.adId, mAdFulfillObj.url, durationMs, periodId, 0, ad});
 			}
 			AAMPLOG_WARN("New Ad successfully for periodId : %s added[Id=%s, url=%s, durationMs=%" PRIu32 "].",periodId.c_str(),mAdFulfillObj.adId.c_str(),mAdFulfillObj.url.c_str(), durationMs);
 			adStatus = true;

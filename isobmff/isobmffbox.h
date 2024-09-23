@@ -390,6 +390,7 @@ public:
 	 *
 	 * @param[in] sz - box size
 	 * @param[in] tScale - TimeScale value
+	 * @param[in] tScale_loc - pointer with the location of the TimeScale in the buffer
 	 */
 	MvhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc);
 
@@ -397,6 +398,7 @@ public:
 	 * @fn MvhdBox
 	 * @param[in] fbox - box object
 	 * @param[in] tScale - TimeScale value
+	 * @param[in] tScale_loc - pointer with the location of the TimeScale in the buffer
 	 */
 	MvhdBox(FullBox &fbox, uint32_t tScale, uint8_t* tScale_loc);
 
@@ -442,6 +444,7 @@ public:
 	 *
 	 * @param[in] sz - box size
 	 * @param[in] tScale - TimeScale value
+	 * @param[in] tScale_loc - pointer with the location of the TimeScale in the buffer
 	 */
 	MdhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc);
 
@@ -450,6 +453,7 @@ public:
 	 *
 	 * @param[in] fbox - box object
 	 * @param[in] tScale - TimeScale value
+	 * @param[in] tScale_loc - pointer with the location of the TimeScale in the buffer
 	 */
 	MdhdBox(FullBox &fbox, uint32_t tScale, uint8_t* tScale_loc);
 

@@ -1061,7 +1061,7 @@ void IsoBmffProcessor::abortWaitForVideoPTS()
  */
 void IsoBmffProcessor::reset()
 {
-	AAMPLOG_WARN(" %s IsoBmffProcessor::reset() called ", IsoBmffProcessorTypeName[type]);
+	AAMPLOG_MIL(" %s IsoBmffProcessor::reset() called ", IsoBmffProcessorTypeName[type]);
 	pthread_mutex_lock(&m_mutex);
 	aborted = false;
 	pthread_mutex_unlock(&m_mutex);
