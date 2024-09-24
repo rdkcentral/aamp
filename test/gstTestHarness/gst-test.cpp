@@ -243,8 +243,7 @@ public:
 		{
 			if( duration>0 )
 			{ // audio or video segment (not an initialization header)
-				uint32_t timeScale = 48000; // FIXME!
-				mp4demux( (uint8_t *)ptr, len, pts_offset, timeScale );
+				parsemp4_ApplyPtsOffset( (uint8_t *)ptr, len, pts_offset );
 			}
 			context->pipeline->SendBufferMP4( mediaType, ptr, len, duration );
 			ptr = NULL;
