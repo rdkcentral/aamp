@@ -171,14 +171,8 @@ public:
 	
 	const std::string &getAttribute( const std::string &attrName ) const
 	{
-		if( hasAttribute(attrName) )
-		{
-			return attributes.at(attrName);
-		}
-		else
-		{ // previously, we asserted here. Some playable manifests missing properties like "width" so relaxing this
-			return "0";
-		}
+		assert( hasAttribute(attrName) );
+		return attributes.at(attrName);
 	}
 	
 	bool hasAttribute( const std::string &attrName ) const
