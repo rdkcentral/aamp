@@ -127,6 +127,7 @@ public:
 	double duration;				/**< Fragment duration, in seconds */
 	bool initFragment;				/**< Is init fragment */
 	bool discontinuity;				/**< PTS discontinuity status */
+	bool isDummy;			/**< Is dummy fragment */
 	int profileIndex;				/**< Profile index; Updated internally */
 	uint32_t timeScale;				/* timescale of this fragment as read from manifest */
 	std::string uri;				/* for debug */
@@ -137,7 +138,8 @@ public:
 	double absPosition;		/** Absolute position */
 	CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0),
 					   initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()),
-					   type(eMEDIATYPE_DEFAULT), downloadStartTime(0), timeScale(0), PTSOffsetSec(0), absPosition(0.0)
+					   type(eMEDIATYPE_DEFAULT), downloadStartTime(0), timeScale(0), PTSOffsetSec(0), absPosition(0.0),
+					   isDummy(false)
 	{
 	}
 
@@ -156,6 +158,7 @@ public:
 		this->timeScale = other->timeScale;
 		this->PTSOffsetSec = other->PTSOffsetSec;
 		this->absPosition =  other->absPosition;
+		this->isDummy = other->isDummy;
 	}
 	void Clear()
 	{
@@ -171,6 +174,7 @@ public:
 		timeScale = 0;
 		PTSOffsetSec = 0;
 		absPosition = 0.0;
+		isDummy = false;
 	}
 };
 

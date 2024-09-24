@@ -1275,7 +1275,10 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 	{
 		bool bIgnore = true;
 		AAMPLOG_TRACE("[%s] Processing the chunk ==> fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
-		bIgnore = ProcessFragmentChunk();
+		if(!cachedFragment->isDummy)
+		{
+			bIgnore = ProcessFragmentChunk();
+		}
 		if(bIgnore)
 		{
 			AAMPLOG_TRACE("[%s] Updating the chunk inject ==> fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
@@ -1311,7 +1314,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			mSubtitleParser->processData(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), cachedFragment->position, cachedFragment->duration);
 		}
 
-		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
+		if (!cachedFragment->isDummy && (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled())))
 		{
 			if(AAMP_NORMAL_PLAY_RATE==aamp->rate)
 			{

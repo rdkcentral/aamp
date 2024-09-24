@@ -916,11 +916,43 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 				mCdaiObject->mAdBreaks[mBasePeriodId].mAdFailed = true;
 			}
 		}
-		if( discontinuity && ( isInitializationSegment && eTRACK_VIDEO == pMediaStreamContext->type ) )
+		if( discontinuity && isInitializationSegment)
 		{
-			isVidDiscInitFragFail = true;
-			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: failed. isInit: %d IsTrackVideo: %s isDisc: %d vidInitFail: %d",
-							isInitializationSegment, GetMediaTypeName(AampMediaType(pMediaStreamContext->type) ), isInitializationSegment, isVidDiscInitFragFail );
+			if(eTRACK_VIDEO == pMediaStreamContext->type)
+			{
+				isVidDiscInitFragFail = true;
+				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: failed. isInit: %d IsTrackVideo: %s isDisc: %d vidInitFail: %d",
+								isInitializationSegment, GetMediaTypeName(AampMediaType(pMediaStreamContext->type) ), isInitializationSegment, isVidDiscInitFragFail );
+			}
+			if(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING)
+			{
+				// Insert a dummy fragment with discontinuity, since we didn't get an init fragments so it wouldn't get flagged
+				CachedFragment* cachedFragment = nullptr;
+				if(mIsChunkMode)
+				{
+					if(pMediaStreamContext->WaitForCachedFragmentChunkInjected())
+					{
+						cachedFragment = pMediaStreamContext->GetFetchChunkBuffer(true);
+					}
+				}
+				else
+				{
+					if(pMediaStreamContext->WaitForFreeFragmentAvailable())
+					{
+						cachedFragment = pMediaStreamContext->GetFetchBuffer(true);
+					}
+				}
+				// The pointer is loaded to bypass null check in InjectFragment thread
+				cachedFragment->fragment.AppendBytes("0x0a", 2);
+				cachedFragment->position=0;
+				cachedFragment->duration=0;
+				cachedFragment->initFragment=true;
+				cachedFragment->discontinuity=true;
+				cachedFragment->profileIndex=0;
+				cachedFragment->isDummy=true;
+				cachedFragment->type=pMediaStreamContext->mediaType;
+				mIsChunkMode ? pMediaStreamContext->UpdateTSAfterChunkFetch() : pMediaStreamContext->UpdateTSAfterFetch(true);
+			}
 		}
 		retval = false;
 	}
