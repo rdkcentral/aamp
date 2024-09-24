@@ -237,7 +237,7 @@ static void DemuxHelper( uint8_t *ptr, const uint8_t *start, const uint8_t *fin,
 			case 'mvex':
 			case 'moof':
 			case 'mdia':
-				DemuxHelper( ptr, start, next, pts_restamp_delta, timeScale ); // walk children
+				DemuxHelper( ptr, start, fin, pts_restamp_delta, timeScale ); // walk children
 				break;
 				
 			default:
