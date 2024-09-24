@@ -40,11 +40,35 @@ bool IsoBmffBuffer::isInitSegment()
 
 void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
 {
+    if (g_mockIsoBmffBuffer)
+    {
+        g_mockIsoBmffBuffer->setBuffer(buf, sz);
+    }
 }
 
 bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 {
-    return false;
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->parseBuffer(correctBoxSize, newTrackId);
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool IsoBmffBuffer::ParseChunkData(const char* name, char* &unParsedBuffer, uint32_t timeScale,
+	size_t & parsedBufferSize, size_t &unParsedBufferSize, double& fpts, double &fduration)
+{
+	if (g_mockIsoBmffBuffer)
+	{
+		return g_mockIsoBmffBuffer->ParseChunkData(name, unParsedBuffer, timeScale, parsedBufferSize, unParsedBufferSize, fpts, fduration);
+	}
+	else
+	{
+		return false;
+	}
 }
 
 bool IsoBmffBuffer::getTimeScale(uint32_t &timeScale)
@@ -92,7 +116,62 @@ bool IsoBmffBuffer::getFirstPTS(uint64_t &pts)
 
 bool IsoBmffBuffer::getMdatBoxCount(size_t &count)
 {
-    return true;
+	if (g_mockIsoBmffBuffer)
+	{
+		return g_mockIsoBmffBuffer->getMdatBoxCount(count);
+	}
+	else
+	{
+		return true;
+	}
+}
+
+size_t IsoBmffBuffer::getParsedBoxesSize()
+{
+	if (g_mockIsoBmffBuffer)
+	{
+		return g_mockIsoBmffBuffer->getParsedBoxesSize();
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+bool IsoBmffBuffer::getChunkedfBoxMetaData(uint32_t &offset, std::string &type, uint32_t &size)
+{
+	if (g_mockIsoBmffBuffer)
+	{
+		return g_mockIsoBmffBuffer->getChunkedfBoxMetaData(offset, type, size);
+	}
+	else
+	{
+		return true;
+	}
+}
+
+int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, char *&unParsedBuffer, size_t &unParsedBufferSize, size_t &parsedBufferSize)
+{
+	if (g_mockIsoBmffBuffer)
+	{
+		return g_mockIsoBmffBuffer->UpdateBufferData(parsedBoxCount, unParsedBuffer, unParsedBufferSize, parsedBufferSize);
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+double IsoBmffBuffer::getTotalChunkDuration(int lastMDatIndex)
+{
+	if (g_mockIsoBmffBuffer)
+	{
+		return g_mockIsoBmffBuffer->getTotalChunkDuration(lastMDatIndex);
+	}
+	else
+	{
+		return 0.0;
+	}
 }
 
 std::vector<Box*> *IsoBmffBuffer::getParsedBoxes()
@@ -122,6 +201,46 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 {
 }
 
+void IsoBmffBuffer::restampPts(int64_t offset)
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        g_mockIsoBmffBuffer->restampPts(offset);
+    }
+}
+
+bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timeScale)
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->setTrickmodeTimescale(timeScale);
+    }
+	else
+	{
+		return false;
+	}
+}
+
+void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        g_mockIsoBmffBuffer->setPtsAndDuration(pts, duration);
+    }
+}
+
+uint64_t IsoBmffBuffer::getSegmentDuration()
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->getSegmentDuration();
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 Box* IsoBmffBuffer::getBox(const char *name, size_t &index)
 {
     if (g_mockIsoBmffBuffer)
@@ -132,4 +251,8 @@ Box* IsoBmffBuffer::getBox(const char *name, size_t &index)
     {
         return NULL;
     }
+}
+
+void IsoBmffBuffer::truncate(void)
+{
 }

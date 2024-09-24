@@ -26,6 +26,7 @@
 #include "priv_aamp.h" //Required for AAMPLOG_WARN1
 #include <string.h>
 
+static Box *findBoxInVector(const char * box_type, const std::vector<Box*> *boxes);
 
 /**
  *  @brief IsoBmffBuffer destructor
@@ -50,6 +51,57 @@ void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
 	bufSize = sz;
 }
 
+/**
+*  	@fn parseBuffer
+*  	@param[in] name - name of the track
+*  	@param[in/out] unParsedBuffer - Total unparsedbuffer
+*  	@param[in] timeScale - timescale of the track
+*	@param[out] parsedBufferSize - parsed buffer size
+*  	@param[in/out] unParsedBufferSize -uunparsed or remaining buffer size
+*	@param[out] fpts - fragmnet pts value
+*  	@param[out] fduration - fragment duration
+*	@return true if parsedd or false
+*  	@brief Parse ISOBMFF boxes from buffer
+*/
+bool IsoBmffBuffer::ParseChunkData(const char* name, char* &unParsedBuffer, uint32_t timeScale,
+	size_t & parsedBufferSize, size_t &unParsedBufferSize, double& fpts, double &fduration)
+{
+	size_t mdatCount = 0;
+	size_t parsedBoxCount = 0;
+	getMdatBoxCount(mdatCount);
+	if(!mdatCount)
+	{
+		return false;
+	}
+	AAMPLOG_TRACE("[%s] MDAT count found: %zu",  name, mdatCount );
+	parsedBoxCount = getParsedBoxesSize();
+	uint32_t boxOffset = 0;
+	std::string boxTypeStr = "";
+	uint32_t boxSize = 0;
+	if(getChunkedfBoxMetaData(boxOffset, boxTypeStr, boxSize))
+	{
+		parsedBoxCount--;
+		AAMPLOG_TRACE("[%s] MDAT Chunk Found - Actual Parsed Box Count: %zu", name,parsedBoxCount);
+		AAMPLOG_TRACE("[%s] Chunk Offset[%u] Chunk Type[%s] Chunk Size[%u]\n", name, boxOffset, boxTypeStr.c_str(), boxSize);
+	}
+	if(mdatCount)
+	{
+		int lastMDatIndex = UpdateBufferData(parsedBoxCount, unParsedBuffer, unParsedBufferSize, parsedBufferSize);
+
+		uint64_t fPts = 0;
+		double totalChunkDuration = getTotalChunkDuration( lastMDatIndex);
+
+		//get PTS of buffer
+		bool bParse = getFirstPTS(fPts);
+		if (bParse)
+		{
+			AAMPLOG_TRACE("[%s] fPts %" PRIu64,name, fPts);
+		}
+		fpts = (double) fPts/(timeScale*1.0);
+		fduration = totalChunkDuration/(timeScale*1.0);
+	}
+	return true;
+}
 /**
  *	@fn parseBuffer
  *  @param[in] correctBoxSize - flag to correct the box size
@@ -133,7 +185,6 @@ bool IsoBmffBuffer::getBoxSizeInternal(const std::vector<Box*> *boxes, const cha
  */
 void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz)
 {
-	// TODO: Untest code, not required for now
 	uint32_t curOffset = 0;
 	while (curOffset < bufSz)
 	{
@@ -170,6 +221,120 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 			}
 		}
 		curOffset += size;
+	}
+}
+
+void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t bufSz)
+{
+	size_t curOffset = 0;
+	while (curOffset < bufSz)
+	{
+		uint8_t *buf = segment + curOffset;
+		uint32_t size = READ_U32(buf);
+		uint8_t type[5];
+		READ_U8(type, buf, 4);
+		type[4] = '\0';
+
+		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
+		{
+			restampPtsInternal(offset, buf, size);
+		}
+		else if (IS_TYPE(type, Box::TFDT))
+		{
+			uint8_t version = READ_VERSION(buf);
+			uint32_t flags  = READ_FLAGS(buf);
+
+			(void)flags; // Avoid a warning.
+
+			if (1 == version)
+			{
+				uint64_t pts = ReadUint64(buf);
+				if (!firstPtsSaved)
+				{
+					beforePTS = pts;
+				}
+				pts += offset;
+				WriteUint64(buf, pts);
+				if (!firstPtsSaved)
+				{
+					firstPtsSaved = true;
+					afterPTS = pts;
+				}
+			}
+			else
+			{
+				uint32_t pts = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+				if (!firstPtsSaved)
+				{
+					beforePTS = pts;
+				}
+				pts += (uint32_t)offset;
+				WRITE_U32(buf, pts);
+				if (!firstPtsSaved )
+				{
+					afterPTS = pts;
+					firstPtsSaved = true;
+				}
+			}
+		}
+		else
+		{
+			// Any other box type
+		}
+		curOffset += size;
+	}
+}
+
+void IsoBmffBuffer::restampPts(int64_t offset)
+{
+	restampPtsInternal(offset, buffer, bufSize);
+}
+
+void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
+{
+	size_t index{0};
+
+	// This is an I-frame media segment, so there will only be one moof with one traf
+	auto moof{getBox(Box::MOOF, index)};
+	if (moof)
+	{
+		auto traf{findBoxInVector(Box::TRAF, moof->getChildren())};
+		if (traf)
+		{
+			auto tfdt{dynamic_cast<TfdtBox *>(findBoxInVector(Box::TFDT, traf->getChildren()))};
+			if (tfdt)
+			{
+				tfdt->setBaseMDT(pts);
+			}
+			else
+			{
+				AAMPLOG_WARN("tfdt box unexpectedly missing");
+			}
+
+			auto trun{dynamic_cast<TrunBox *>(findBoxInVector(Box::TRUN, traf->getChildren()))};
+			auto tfhd{dynamic_cast<TfhdBox *>(findBoxInVector(Box::TFHD, traf->getChildren()))};
+			// According to the IsoBmff spec a tfhd is mandatory, and can exist without a trun,
+			// but in that case the code assumes there will be no duration to update.
+			if (trun && tfhd)
+			{
+				if (!updateSampleDurationInternal(duration, *trun, *tfhd))
+				{
+					AAMPLOG_WARN("Sample duration not set");
+				}
+			}
+			else
+			{
+				AAMPLOG_WARN("trun (%p) or tfhd (%p) box unexpectedly missing", trun, tfhd);
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN("traf box unexpectedly missing");
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("moof box unexpectedly missing");
 	}
 }
 
@@ -488,6 +653,92 @@ std::vector<Box*> *IsoBmffBuffer::getParsedBoxes()
 }
 
 /**
+ *  @brief Get list of box handles in a parsed buffer
+ */
+size_t IsoBmffBuffer::getParsedBoxesSize()
+{
+	return this->boxes.size();
+}
+/**
+ *  @brief Get list of box handles in a parsed buffer
+ */
+bool IsoBmffBuffer::getChunkedfBoxMetaData(uint32_t &offset, std::string &type, uint32_t &size)
+{
+	bool ret = false;
+	Box *pBox = getChunkedfBox();
+	if(pBox)
+	{
+		offset = pBox->getOffset();
+		type =  pBox->getType();
+		size =  pBox->getSize();
+		ret = true;
+	}
+	return ret;
+
+}
+/**
+ *  @brief Get list of box handles in a parsed buffer
+ */
+int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize)
+{
+	std::vector<Box*> *pBoxes = getParsedBoxes();
+	size_t mdatCount;
+	bool ret = false;
+	int lastMDatIndex = -1;
+	getMdatBoxCount(mdatCount);
+	if(pBoxes && mdatCount)
+	{
+		//Get Last MDAT box
+		for( int i=(int)parsedBoxCount-1; i>=0; i-- )
+		{
+			Box *box = pBoxes->at(i);
+			if (IS_TYPE(box->getType(), Box::MDAT))
+			{
+				lastMDatIndex = i;
+
+				AAMPLOG_TRACE("Last MDAT Index : %d", lastMDatIndex);
+
+				//Calculate unparsed buffer based on last MDAT
+				unParsedBuffer += (box->getOffset()+box->getSize()); //increment buffer pointer to chunk offset
+				unParsedBufferSize -= (box->getOffset()+box->getSize()); //decerese by parsed buffer size
+
+				parsedBufferSize -= unParsedBufferSize; //get parsed buf size
+				AAMPLOG_TRACE("parsedBufferSize : %zu updated unParsedBufferSize: %zu Total Buf Size processed: %zu",parsedBufferSize,unParsedBufferSize,parsedBufferSize+unParsedBufferSize);
+				break;
+			}
+		}
+	}
+	return lastMDatIndex;
+}
+
+
+/**
+ *  @brief Get list of box handles in a parsed buffer
+ */
+double IsoBmffBuffer::getTotalChunkDuration(int lastMDatIndex)
+{
+	double totalChunkDuration = 0.0;
+	uint64_t fDuration = 0;
+	std::vector<Box*> *pBoxes = getParsedBoxes();
+	for(int i=0;i<lastMDatIndex;i++)
+	{
+		Box *box = pBoxes->at(i);
+#ifdef AAMP_DEBUG_INJECT_CHUNK
+		AAMPLOG_WARN("[%s] Type: %s", name,box->getType());
+#endif
+		if (IS_TYPE(box->getType(), Box::MOOF))
+		{
+			getSampleDuration(box, fDuration);
+			totalChunkDuration += fDuration;
+#ifdef AAMP_DEBUG_INJECT_CHUNK
+			AAMPLOG_WARN("[%s] fDuration = %lld, totalChunkDuration = %lld", name,fDuration, totalChunkDuration);
+#endif
+		}
+	}
+	return totalChunkDuration;
+}
+
+/**
  *  @brief Get box handle in parsed buffer using name, starting at index
  */
 Box*  IsoBmffBuffer::getBox(const char *name, size_t &index)
@@ -524,6 +775,29 @@ Box* IsoBmffBuffer::getBoxAtIndex(size_t index)
 		return NULL;
 }
 
+/**
+ * @brief Get the Child Box object
+ */
+Box* IsoBmffBuffer::getChildBox(Box *parent, const char *name, size_t &index)
+{
+	Box *pBox{nullptr};
+
+	if (parent && parent->hasChildren())
+	{
+		auto children{parent->getChildren()};
+		for (size_t i = index; i < children->size(); ++i)
+		{
+			pBox = children->at(i);
+			if (IS_TYPE(pBox->getType(), name))
+			{
+				index = i;
+				break;
+			}
+			pBox = nullptr;
+		}
+	}
+	return pBox;
+}
 
 /**
  *  @brief Print ISOBMFF box PTS
@@ -553,7 +827,7 @@ void IsoBmffBuffer::printPTSInternal(const std::vector<Box*> *boxes)
 /**
  *  @brief Look for a specific box in a vector of boxes
  */
-Box *findBoxInVector(const char * box_type, const std::vector<Box*> *boxes)
+static Box *findBoxInVector(const char * box_type, const std::vector<Box*> *boxes)
 {
 	auto it = find_if(boxes->begin(), boxes->end(), [box_type](Box* b){ return IS_TYPE(b->getType(), box_type);});
 	return (it != boxes->end()) ? *it : nullptr;
@@ -597,7 +871,7 @@ uint64_t IsoBmffBuffer::getSampleDurationInternal(const std::vector<Box*> *boxes
 			}
 		}
 	}
-return duration;
+	return duration;
 }
 
 /**
@@ -654,6 +928,26 @@ void IsoBmffBuffer::getPts(Box *box, uint64_t &fpts)
 	}
 }
 
+bool IsoBmffBuffer::updateSampleDurationInternal(uint64_t duration, TrunBox& trun, TfhdBox& tfhd)
+{
+	bool durationPresent{false};
+
+	/* If the SAMPLE_DURATION_PRESENT flag is set in the TRUN, the sample duration should be updated.
+	 * If the DEFAULT_SAMPLE_DURATION_PRESENT flag is set in the TFHD, the default sample duration should be updated.
+	 */
+	if (trun.sampleDurationPresent())
+	{
+		trun.setFirstSampleDuration(duration);
+		durationPresent = true;
+	}
+	if (tfhd.defaultSampleDurationPresent())
+	{
+		tfhd.setDefaultSampleDuration(duration);
+		durationPresent = true;
+	}
+
+	return durationPresent;
+}
 
 /**
  * @brief Truncate the mdat data to the first sample and update the tables in all relevant boxes
@@ -754,24 +1048,9 @@ void IsoBmffBuffer::truncate(void)
 		auto mdat{dynamic_cast<MdatBox *>(getBox(Box::MDAT, index))};
 		if(mdat)
 		{
-			bool durationPresent = false;
-			/* If the SAMPLE_DURATION_PRESENT flag is set in the TRUN, the sample duration should be updated.
-			 * If the DEFAULT_SAMPLE_DURATION_PRESENT flag is set in the TFHD, the default sample duration should be updated.
-			 * If neither of them is set, a WARN is printed.
-			 */
-			if (trun->sampleDurationPresent())
+			if (!updateSampleDurationInternal(duration, *trun, *tfhd))
 			{
-				trun->setFirstSampleDuration(duration);
-				durationPresent = true;
-			}
-			if (tfhd->getDefaultSampleDuration())
-			{
-				tfhd->setDefaultSampleDuration(duration);
-				durationPresent = true;
-			}
-			if (!durationPresent)
-			{
-				AAMPLOG_WARN("SAMPLE_DURATION_PRESENT flag is not set in the TRUN box and DEFAULT_SAMPLE_DURATION_PRESENT flag is not set in the TFHD box");
+				AAMPLOG_WARN("Sample duration not set");
 			}
 
 			trun->truncate();
@@ -796,4 +1075,111 @@ void IsoBmffBuffer::truncate(void)
 			bufSize = size_t(mdat->getOffset() + newMdatSize);
 		}
 	}
+}
+
+/**
+ * @brief Get the total segment duration in units of timescale.
+ *
+*/
+uint64_t IsoBmffBuffer::getSegmentDuration()
+{
+	size_t parsedBoxCount = 0;
+	uint64_t fDuration = 0;
+	uint64_t totalChunkDuration = 0;
+
+	parsedBoxCount = boxes.size();
+
+	if (parsedBoxCount)
+	{
+		int lastMDatIndex = -1;
+		//Get Last MDAT box
+		for( int i=(int)parsedBoxCount-1; i>=0; i-- )
+		{
+			Box *box = boxes.at(i);
+			if (IS_TYPE(box->getType(), Box::MDAT))
+			{
+				lastMDatIndex = i;
+				break;
+			}
+		}
+
+		for(int i=0;i<lastMDatIndex;i++)
+		{
+			Box *box = boxes.at(i);
+			if (IS_TYPE(box->getType(), Box::MOOF))
+			{
+				getSampleDuration(box, fDuration);
+				totalChunkDuration += fDuration;
+			}
+		}
+	}
+
+	return totalChunkDuration;
+}
+
+/**
+ * @brief Find the MDHD & MVHD boxes and set the timescale
+ *
+*/
+bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timescale)
+{
+	bool retval{false};
+	size_t index{0};
+
+	auto moov{getBox(Box::MOOV, index)};
+
+	if (moov != nullptr)
+	{
+		index = 0;
+		auto mvhd{dynamic_cast<MvhdBox *>(getChildBox(moov, Box::MVHD, index))};
+
+		index = 0;
+		auto trak{getChildBox(moov, Box::TRAK, index)};
+
+		if (trak != nullptr)
+		{
+			index = 0;
+			auto mdia {getChildBox(trak, Box::MDIA, index) };
+
+			if (mdia != nullptr)
+			{
+				index = 0;
+				auto mdhd{dynamic_cast<MdhdBox *>(getChildBox(mdia, Box::MDHD, index))};
+
+				if (mdhd != nullptr && mvhd != nullptr)
+				{
+					AAMPLOG_INFO("Set mdhd & mvhd timescale to %d", timescale);
+					mdhd->setTimeScale(timescale);
+					mvhd->setTimeScale(timescale);
+					retval = true;
+				}
+				else
+				{
+					// Both boxes are mandatory, so this should never happen
+					if (mdhd == nullptr)
+					{
+						AAMPLOG_WARN("mdhd box not found in mdia box");
+					}
+					if (mvhd == nullptr)
+					{
+						AAMPLOG_WARN("mvhd box not found in moov box");
+					}
+				}
+			}
+			else
+			{
+				AAMPLOG_WARN("mdia box not found in trak box");
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN("trak box not found in moov box");
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("No MOOV box within buffer");
+	}
+
+	return retval;
 }

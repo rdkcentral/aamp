@@ -1117,7 +1117,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	preferredLanguagesString(), preferredLanguagesList(), preferredLabelList(),mhAbrManager(),
 	mVideoEnd(NULL),
 	//mTimeToTopProfile(0),
-mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
+	mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	mIsFirstRequestToFOG(false),
 	mPausePositionMonitorMutex(), mPausePositionMonitorCV(), mPausePositionMonitoringThreadID(), mPausePositionMonitoringThreadStarted(false),
 	mTuneType(eTUNETYPE_NEW_NORMAL)
@@ -3166,6 +3166,8 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			// The same thread will be executing operations involving TeardownStream.
 			mpStreamAbstractionAAMP->StopInjection();
 #ifndef AAMP_STOP_SINK_ON_SEEK
+			// TODO: There is a possible issue hiding in the bushes. The audio codec switching use-case, Flush is done first and the Configure()
+			// So the new audio playbin will miss the Flush() and might not sync with video (which received the Flush) properly
 			if (((mMediaFormat != eMEDIAFORMAT_HLS_MP4) && (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))) ||  mVideoFormat != FORMAT_ISO_BMFF )
 			{
  				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -3655,7 +3657,7 @@ void PrivateInstanceAAMP::StopTrackDownloads(AampMediaType type)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
-		AAMPLOG_WARN ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
+		AAMPLOG_DEBUG ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
 	}
 #endif
 	if (!mbTrackDownloadsBlocked[type])
@@ -3666,7 +3668,7 @@ void PrivateInstanceAAMP::StopTrackDownloads(AampMediaType type)
 		pthread_mutex_unlock(&mLock);
 		NotifySinkBufferFull(type);
 	}
-	AAMPLOG_DEBUG ("PrivateInstanceAAMP:: Enter. type = %d",  (int) type);
+	AAMPLOG_DEBUG ("PrivateInstanceAAMP:: Exit. type = %d",  (int) type);
 }
 
 /**
@@ -3678,7 +3680,7 @@ void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType type)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
-		AAMPLOG_WARN ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
+		AAMPLOG_DEBUG ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
 	}
 #endif
 	if (mbTrackDownloadsBlocked[type])
@@ -5547,7 +5549,17 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink && (mAampLLDashServiceData.lowLatencyMode || !ISCONFIGSET_PRIV(eAAMPConfig_EnableMediaProcessor)))
 			{
-				sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				/* Do flush to PTS position when:
+				*	Not PTS restamp
+				*	OR normal play
+				* This means we skip this flush when
+				*	trickplay and PTS restamp 
+				*	and we are using the flush(0) that occurs else where
+				*/
+				if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) || rate == AAMP_NORMAL_PLAY_RATE )
+				{
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				}
 			}
 		}
 		else if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
@@ -9438,13 +9450,16 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 {
 	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableClientDai) && !adBreakId.empty())
 	{
-		AAMPLOG_WARN("[CDAI] Found Adbreak on period[%s] Duration[%d]", adBreakId.c_str(), brInfo.duration);
-		std::string adId("");
-		std::string url("");
-		mCdaiObject->SetAlternateContents(adBreakId, adId, url, startMS, brInfo.duration);	//A placeholder to avoid multiple scte35 event firing for the same adbreak
+		AAMPLOG_WARN("[CDAI] Found Adbreak on period[%s] Duration[%d] isDAIEvent[%d]", adBreakId.c_str(), brInfo.duration, brInfo.isDAIEvent);
+		if (brInfo.isDAIEvent)
+		{
+			std::string adId("");
+			std::string url("");
+			mCdaiObject->SetAlternateContents(adBreakId, adId, url, startMS, brInfo.duration);	//A placeholder to avoid multiple scte35 event firing for the same adbreak
+		}
 		//Ignoring past SCTE events.
 		//mTSBEnabled check is added to ensure the change won't effect IPVOD
-		AAMPLOG_INFO("[CDAI] mTuneCompleted:%d mTSBEnabled:%d",mTuneCompleted,mTSBEnabled);
+		AAMPLOG_INFO("[CDAI] mTuneCompleted:%d mTSBEnabled:%d", mTuneCompleted, mTSBEnabled);
 		if (mTuneCompleted || !mTSBEnabled)
 		{
 			SaveNewTimedMetadata((long long) startMS, brInfo.name.c_str(), brInfo.payload.c_str(), (int)brInfo.payload.size(), adBreakId.c_str(), brInfo.duration);
@@ -9649,7 +9664,8 @@ ProfilerBucketType PrivateInstanceAAMP::mediaType2Bucket(AampMediaType mediaType
 void PrivateInstanceAAMP::SetTunedManifestUrl(bool isrecordedUrl)
 {
 	mTunedManifestUrl.assign(mManifestUrl);
-	AAMPLOG_TRACE("mManifestUrl: %s",mManifestUrl.c_str());
+	//Do not edit or remove this log line - it is used log_pts_restamp tool
+	AAMPLOG_INFO("mManifestUrl: %s",mManifestUrl.c_str());
 	if(isrecordedUrl)
 	{
 		DeFog(mTunedManifestUrl);
@@ -9718,7 +9734,7 @@ void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
-		AAMPLOG_WARN ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
+		AAMPLOG_DEBUG ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
 	}
 #endif
 	if (!mTrackInjectionBlocked[type])
@@ -9740,7 +9756,7 @@ void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 #ifdef AAMP_DEBUG_FETCH_INJECT
 	if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
 	{
-		AAMPLOG_WARN ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
+		AAMPLOG_DEBUG ("PrivateInstanceAAMP: Enter. type = %d", (int) type);
 	}
 #endif
 	if (mTrackInjectionBlocked[type])
@@ -9844,6 +9860,31 @@ void PrivateInstanceAAMP::SetLatencyParam(double latency, double buffer, double 
 void  PrivateInstanceAAMP::SetLLDLowBufferParam(double latency, double buff, double rate, double bw, double buffLowCount)
 {
 	profiler.SetLLDLowBufferParam( latency,  buff,  rate,  bw,  buffLowCount);
+}
+
+/**
+ * @brief Get if pipeline reconfigure required for elementary stream type change status (from stream abstraction)
+ * @return true if audio codec has changed
+ */
+bool PrivateInstanceAAMP::ReconfigureForCodecChange()
+{
+	if (mpStreamAbstractionAAMP)
+	{
+		if(!ISCONFIGSET_PRIV(eAAMPConfig_ReconfigPipelineOnDiscontinuity))
+		{
+			return mpStreamAbstractionAAMP->GetESChangeStatus();
+		}
+		else
+		{
+			AAMPLOG_INFO("ReconfigPipelineOnDiscontinuity is enabled, returning false");
+			return false;
+		}
+	}
+	else
+	{
+		AAMPLOG_ERR("ERROR - should not get here. 'mpStreamAbstractionAAMP' is NULL! Assuming ESChangeStatus() is false.");
+		return false;
+	}
 }
 
 /**
@@ -12949,25 +12990,11 @@ uint32_t  PrivateInstanceAAMP::GetVidTimeScale(void)
 	return vidTimeScale;
 }
 /**
- * @brief Sets Low Subtitle TimeScale
- */
-void PrivateInstanceAAMP::SetSubTimeScale(uint32_t subTimeScale)
-{
-	this->subTimeScale = subTimeScale;
-}
-/**
  * @brief Sets Low Audio TimeScale
  */
 void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
 {
 	this->audTimeScale = audTimeScale;
-}
-/**
- * @brief Gets Subtitle TimeScale
- */
-uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
-{
-	return subTimeScale;
 }
 
 /**
@@ -12977,6 +13004,25 @@ uint32_t  PrivateInstanceAAMP::GetAudTimeScale(void)
 {
 	return audTimeScale;
 }
+
+/**
+ * @brief Sets Subtitle TimeScale
+ * @param[in] subTimeScale - Subtitle TimeScale
+ */
+void PrivateInstanceAAMP::SetSubTimeScale(uint32_t subTimeScale)
+{
+	this->subTimeScale = subTimeScale;
+}
+
+/**
+ * @brief Gets Subtitle TimeScale
+ * @return uint32_t - Subtitle TimeScale
+ */
+uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
+{
+	return subTimeScale;
+}
+
 /**
  * @brief Sets Speed Cache
  */

@@ -186,4 +186,3 @@ void AampMPDDownloader::UnRegisterCallback()
 void AampMPDDownloader::GetLastDownloadedManifest(std::string& manifestBuffer)
 {
 }
-

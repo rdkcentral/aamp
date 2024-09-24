@@ -532,9 +532,15 @@ public:
 	 ***************************************************************************/
 	void UpdateSeekPeriodOffset( double &offsetFromStart );
 
-
-
 protected:
+	void GetStartAndDurationFromTimeline(AampMediaType type, double &scaledStartTime, double &durationMs);
+	/**
+	 * @fn UpdatePtsOffset
+	 * @param[in] periodIdx - Index to period we are currently playing 0..n
+	 * @param[in] isNewPeriod - true for calculation on starting new period
+	 */
+	void UpdatePtsOffset(int periodIdx,bool isNewPeriod);
+
 	/**
 	 * @fn printSelectedTrack
 	 * @param[in] trackIndex - selected track index
@@ -562,11 +568,62 @@ protected:
 	 * @return void
 	 */
 	void FetcherLoop();
+
+	/**
+	 * @fn FetcherLoopNew
+	 * @return void
+	 */
+	void FetcherLoopNew();
+
+	/**
+	 * @fn SelectSourceOrAdPeriod
+	 *
+	 * @param[out] periodChanged flag
+	 * @param[out] mpdChanged flag
+	 * @param[out] AdStateChanged flag
+	 * @param[out] waitForAdBreakCatchup flag
+	 * @param[out] bmanifestupdate flag
+	 * @param[out] requireStreamSelection flag
+	 * @param[out] currentPeriodId string
+	 * @return bool - true if new period selected, false otherwise
+	 */
+	bool SelectSourceOrAdPeriod(bool &periodChanged, bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId);
+
+	/**
+	 * @fn IndexSelectedPeriod
+	 *
+	 * @param[out] periodChanged flag
+	 * @param[out] AdStateChanged flag
+	 * @param[out] bmanifestupdate flag
+	 * @param[out] requireStreamSelection flag
+	 * @param[out] currentPeriodId string
+	 * @return bool - true if new period indexed, false otherwise
+	 */
+	bool IndexSelectedPeriod(bool &periodChanged, bool &adStateChanged, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId);
+
+	/**
+	 * @fn CheckEndOfStream
+	 *
+	 * @param[out] waitForAdBreakCatchup flag
+	 * @return bool - true if end of stream reached, false otherwise
+	 */
+	bool CheckEndOfStream(bool &waitForAdBreakCatchup);
+
+	/**
+	 * @fn DetectDiscontinuityAndFetchInit
+	 *
+	 * @param[out] periodChanged flag
+	 * @param[in] nextFragmentTime
+	 * @return void
+	 */
+	void DetectDiscontinuityAndFetchInit(bool &periodChanged, uint64_t nextFragmentTime);
+
 	/**
 	 * @fn TsbReader
 	 * @return void
 	 */
 	void TsbReader();
+
 	/**
 	 * @fn GetStreamInfo
 	 * @param[in]  idx - profile index.
@@ -921,6 +978,14 @@ protected:
 	int getValidperiodIdx(int periodIdx);
 
 	void UpdateMPDPeriodDetails(std::vector<PeriodInfo>& currMPDPeriodDetails,uint64_t &durMs);
+
+	/*
+	* @brief CheckAdResolvedStatus
+	*
+	* @param[in] ads - Ads vector
+	* @param[in] adIdx - AdIndex
+	*/
+	void CheckAdResolvedStatus(AdNodeVectorPtr &ads, int adIdx);
 
 	/**
 	* @fn SetSubtitleTrackOffset

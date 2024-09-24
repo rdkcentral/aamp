@@ -29,6 +29,8 @@ public:
 	MOCK_METHOD(long long, aamp_GetCurrentTimeMS, ());
 
 	MOCK_METHOD(std::string, aamp_GetConfigPath, (std::string));
+
+	MOCK_METHOD(bool, parseAndValidateSCTE35, (const std::string &scte35Data));
 };
 
 extern MockAampUtils *g_mockAampUtils;

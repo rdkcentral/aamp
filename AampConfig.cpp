@@ -235,13 +235,6 @@ struct ConfigLookupEntryString
 #define DEFAULT_VALUE_USE_SINGLE_PIPELINE false
 #endif
 
-#if (defined(REALTEKCE) || defined(RPI) || defined(AAMP_SIMULATOR_BUILD))
-#define DEFAULT_VALUE_QTDEMUX_OVERRIDE_ENABLED true
-#else
-#define DEFAULT_VALUE_QTDEMUX_OVERRIDE_ENABLED false
-#endif
-
-
 /**
  * @brief AAMPConfigSettingString metadata
  * note that order must match the actual order of the enum; this is enforced with asserts to catch any wrong/missing declarations
@@ -413,10 +406,11 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "earlyProcessing", eAAMPConfig_EarlyID3Processing, false},
 	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, true},
 	{DEFAULT_VALUE_USE_RIALTO_SINK, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
-	/* Enable/Disable ENABLE_AAMP_QTDEMUX_OVERRIDE flag , workaround for Charter Video Freeze issue on Flex2-RTK (ES1-701)*/
-	{DEFAULT_VALUE_QTDEMUX_OVERRIDE_ENABLED, "qtDemuxOverrideEnabled", eAAMPConfig_QtDemuxOverrideEnabled, false},
 	{false, "localTSBEnabled", eAAMPConfig_LocalTSBEnabled, true},
 	{false, "enableIFrameTrackExtract", eAAMPConfig_EnableIFrameTrackExtract, true},
+	{false, "forceMultiPeriodDiscontinuity", eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
+	{false, "forceLLDFlow", eAAMPConfig_ForceLLDFlow, false},
+	{true, "useNewFetcherLoop", eAAMPConfig_UseNewFetcherLoop, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -509,6 +503,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_MIN_TSB_STORAGE_FREE_PERCENTAGE,"tsbMinDiskFreePercentage",eAAMPConfig_TsbMinDiskFreePercentage,true},
 	{DEFAULT_MAX_TSB_STORAGE_MB,"tsbMaxDiskStorage",eAAMPConfig_TsbMaxDiskStorage,true},
 	{static_cast<int>(TSB::LogLevel::WARN),"tsbLog",eAAMPConfig_TsbLogLevel,false},
+	{DEFAULT_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeout",eAAMPConfig_AdFulfillmentTimeout,true},
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },

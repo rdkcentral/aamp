@@ -128,6 +128,10 @@ void AampLogManager::LogNetworkLatency(const char* url, int downloadTime, int do
  */
 bool AampLogManager::isLogworthyErrorCode(int errorCode)
 {
+	if(g_mockAampLogManager)
+	{
+		return (g_mockAampLogManager->isLogworthyErrorCode(errorCode));
+	}
 	return false;
 }
 

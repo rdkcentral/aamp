@@ -118,6 +118,7 @@
 #define MAX_INIT_FRAGMENT_CACHE_PER_TRACK  5       		/**< Max No Of cached Init fragements per track */
 #define MIN_SEG_DURTION_THREASHOLD	(0.25)			/**< Min Segment Duration threshold for pushing to pipeline at period End*/
 #define MAX_CURL_SOCK_STORE		10			/**< Maximum no of host to be maintained in curl store*/
+#define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000
 
 #define AAMP_TRACK_COUNT 4		/**< internal use - audio+video+sub+aux track */
 #define DEFAULT_CURL_INSTANCE_COUNT (AAMP_TRACK_COUNT + 1) /**< One for Manifest/Playlist + Number of tracks */
