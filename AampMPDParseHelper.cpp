@@ -533,21 +533,26 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 					periodStart = (periodStartMs / 1000) + mAvailabilityStartTime;
 					if(mNumberOfPeriods == 1 && periodIndex == 0 && mIsLiveManifest && !mIsFogMPD && (periodStart == mAvailabilityStartTime) && deltaInStartTime == 0)
 					{
-						// segmentTemplate without timeline having period start "PT0S".
-						if(!mLiveTimeFragmentSync)
+						// Temp hack to avoid running below if condition code for segment timeline , Due to this periodStart is getting changed for Cloud TSB or Hot Cloud DVR with segment timeline, which is not required.
+						bool bHasSegmentTimeline = aamp_HasSegmentTimeline(mMPDInstance->GetPeriods().at(periodIndex));
+						if( false == bHasSegmentTimeline ) // only for segment template
 						{
-							mLiveTimeFragmentSync = true;
-						}
-
-						double duration = (aamp_GetPeriodDuration(periodIndex, mLastPlaylistDownloadTimeMs) / 1000);
-						double liveTime = (double)mLastPlaylistDownloadTimeMs / 1000.0;
-						if(mHasServerUtcTime)
-						{
-							liveTime+=mDeltaTime;
-						}
-						if(mAvailabilityStartTime < (liveTime - duration))
-						{
-							periodStart =  liveTime - duration;
+							// segmentTemplate without timeline having period start "PT0S".
+							if(!mLiveTimeFragmentSync)
+							{
+								mLiveTimeFragmentSync = true;
+							}
+							
+							double duration = (aamp_GetPeriodDuration(periodIndex, mLastPlaylistDownloadTimeMs) / 1000);
+							double liveTime = (double)mLastPlaylistDownloadTimeMs / 1000.0;
+							if(mHasServerUtcTime)
+							{
+								liveTime+=mDeltaTime;
+							}
+							if(mAvailabilityStartTime < (liveTime - duration))
+							{
+								periodStart =  liveTime - duration;
+							}
 						}
 					}
 
@@ -741,6 +746,55 @@ double AampMPDParseHelper::aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeri
 		}
 	}
 	return duration;
+}
+
+/**
+ * @brief  A helper function to  check if period has segment timeline for video track
+ * @param period period of segment
+ * @return True if period has segment timeline for video otherwise false
+ */
+bool AampMPDParseHelper::aamp_HasSegmentTimeline(IPeriod * period)
+{
+    bool bRetValue = false;
+
+    const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
+    const ISegmentTemplate *representation = NULL;
+    const ISegmentTemplate *adaptationSet = NULL;
+    if( adaptationSets.size() > 0 )
+    {
+        IAdaptationSet * firstAdaptation = NULL;
+        for (auto &adaptationSet : period->GetAdaptationSets())
+        {
+            //Check for video adaptation
+            if (!IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
+            {
+                continue;
+            }
+            firstAdaptation = adaptationSet;
+        }
+
+        if(firstAdaptation != NULL)
+        {
+            adaptationSet = firstAdaptation->GetSegmentTemplate();
+            const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+            if (representations.size() > 0)
+            {
+                representation = representations.at(0)->GetSegmentTemplate();
+            }
+        }
+
+        SegmentTemplates segmentTemplates(representation,adaptationSet);
+
+        if (segmentTemplates.HasSegmentTemplate())
+        {
+            const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
+            if (segmentTimeline)
+            {
+                bRetValue = true;
+            }
+        }
+    }
+    return bRetValue;
 }
 
 /**

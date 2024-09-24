@@ -457,6 +457,13 @@ public :
 	 * @param[out]  duration (seconds) of selected timeline returned
 	 */
 	void GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, double &scaledStartTime, double &duration);
+
+    /**
+     * @brief  A helper function to  check if period has segment timeline for video track
+     * @param period period of segment
+     * @return True if period has segment timeline for video otherwise false
+     */
+    bool aamp_HasSegmentTimeline(IPeriod * period);
 private:
 
 	/**
