@@ -27,6 +27,7 @@ class MockAampLogManager
 {
 public:
 	MOCK_METHOD(void, setLogLevel, (AAMP_LogLevel newLevel));
+	MOCK_METHOD(bool, isLogworthyErrorCode, (int errorCode));
 };
 
 extern std::shared_ptr<MockAampLogManager> g_mockAampLogManager;

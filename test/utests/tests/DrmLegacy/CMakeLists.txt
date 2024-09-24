@@ -30,6 +30,7 @@ include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${UUID_INCLUDE_DIRS})
 include_directories(${DRM_ROOT})
 include_directories(${DRM_ROOT}/mocks)
@@ -56,6 +57,7 @@ set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				 ${AAMP_ROOT}/AampEvent.cpp
 				 ${AAMP_ROOT}/AampJsonObject.cpp
 				 ${AAMP_ROOT}/AampProfiler.cpp
+				 ${AAMP_ROOT}/scte35/AampSCTE35.cpp
 				 ${AAMP_ROOT}/AampUtils.cpp
 				 ${AAMP_ROOT}/iso639map.cpp
 				 ${AAMP_ROOT}/drm/AampDRMutils.cpp

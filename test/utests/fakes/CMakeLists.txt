@@ -29,6 +29,7 @@ include_directories(${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/d
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${LIBDASH_INCLUDE_DIRS})
 include_directories(${UTESTS_ROOT}/ocdm)

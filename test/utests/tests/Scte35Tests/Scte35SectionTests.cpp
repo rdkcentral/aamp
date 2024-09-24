@@ -22,7 +22,7 @@
 #include <string.h>
 #include <gtest/gtest.h>
 #include "AampConfig.h"
-#include "AampSCTE35.h"
+#include "scte35/AampSCTE35.h"
 #include "_base64.h"
 #include "MockAampConfig.h"
 

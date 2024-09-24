@@ -58,6 +58,7 @@ public:
     {
         mPlaylistUrl = aamp->GetManifestUrl();
         fragmentDescriptor.bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
+        mTempFragment = std::make_shared<AampGrowableBuffer>("temp");
     }
 
     /**
@@ -66,6 +67,7 @@ public:
     ~MediaStreamContext()
     {
         mDownloadedFragment.Free();
+        mTempFragment.reset();
     }
 
     /**
@@ -252,6 +254,7 @@ public:
     bool profileChanged;
     bool discontinuity;
     AampGrowableBuffer mDownloadedFragment;
+    std::shared_ptr<AampGrowableBuffer> mTempFragment;
 
     double fragmentTime; // Absolute Fragment time from Availability start
     std::atomic<double> downloadedDuration;

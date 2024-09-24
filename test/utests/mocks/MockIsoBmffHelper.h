@@ -1,5 +1,5 @@
 /*
- * If not stated otherwise in this file or this component's LICENSE file the
+ * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
  * Copyright 2024 Synamedia Ltd.
@@ -17,16 +17,20 @@
  * limitations under the License.
  */
 
-#ifndef __ISOBMFFCONVERTSEGMENTTOKEYFRAME_H__
-#define __ISOBMFFCONVERTSEGMENTTOKEYFRAME_H__
+#ifndef AAMP_MOCK_ISOBMFF_HELPER_H
+#define AAMP_MOCK_ISOBMFF_HELPER_H
 
-#include <cstdlib>
-#include "AampGrowableBuffer.h"
-/**
- * @brief Convert an ISOBMFF segment to a single key frame
- * @param[in,out] buffer ISOBMFF segment, contains a single key frame when the function returns
- * @retval false in case of failure, true otherwise
- */
-bool IsoBmffConvertToKeyFrame(AampGrowableBuffer &buffer);
+#include <gmock/gmock.h>
+#include "isobmff/isobmffhelper.h"
 
-#endif /* __ISOBMFFCONVERTSEGMENTTOKEYFRAME_H__ */
+class MockIsoBmffHelper
+{
+public:
+	MOCK_METHOD(bool, SetTimescale, (AampGrowableBuffer &, uint32_t));
+	MOCK_METHOD(bool, SetPtsAndDuration, (AampGrowableBuffer &, uint64_t, uint64_t));
+	MOCK_METHOD(bool, RestampPts, (AampGrowableBuffer &, int64_t, const std::string&));
+};
+
+extern MockIsoBmffHelper *g_mockIsoBmffHelper;
+
+#endif /* AAMP_MOCK_ISOBMFF_HELPER_H */

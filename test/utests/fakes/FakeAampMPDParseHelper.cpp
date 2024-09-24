@@ -25,8 +25,9 @@
 #include "AampMPDParseHelper.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
+#include "MockAampMPDParseHelper.h"
 
-
+MockAampMPDParseHelper *g_mockAampMPDParseHelper;
 /**
  *   @fn AampMPDParseHelper
  *   @brief Default Constructor
@@ -135,7 +136,12 @@ bool IsContentType(const IAdaptationSet *adaptationSet, AampMediaType mediaType 
  */
 double AampMPDParseHelper::GetPeriodDuration(int periodIndex, uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB)
 {
-	return 0.0;
+	double x = 0.0;
+	if (g_mockAampMPDParseHelper)
+	{
+		x = g_mockAampMPDParseHelper->GetPeriodDuration(periodIndex, mLastPlaylistDownloadTimeMs, checkIFrame, IsUninterruptedTSB);
+	}
+	return x;
 }
 
 /**
@@ -181,7 +187,55 @@ int AampMPDParseHelper::getPeriodIdx(const std::string &periodId)
  * @param  type media type
  * @retval start time
  */
-double AampMPDParseHelper::GetFirstSegmentScaledStartTime(IPeriod * period, AampMediaType type)
+double AampMPDParseHelper::GetFirstSegmentScaledStartTime(IPeriod *period, AampMediaType type)
+{
+	double x = 0.0;
+	if (g_mockAampMPDParseHelper)
+	{
+		x = g_mockAampMPDParseHelper->GetFirstSegmentScaledStartTime(period, type);
+	}
+	return x;
+}
+
+uint64_t AampMPDParseHelper::GetDurationFromRepresentation()
+{
+	return 0;
+}
+
+bool AampMPDParseHelper::IsContentType(const IAdaptationSet *adaptationSet, AampMediaType mediaType )
+{
+	return false;
+}
+
+vector<Representation *> AampMPDParseHelper::GetBitrateInfoFromCustomMpd( const IAdaptationSet *adaptationSet)
+{
+	return vector<Representation*>();
+}
+
+double AampMPDParseHelper::GetPeriodEndTime(int periodIndex, uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB)
+{
+	return 0.0;
+}
+
+uint32_t AampMPDParseHelper::GetPeriodSegmentTimeScale(IPeriod * period)
+{
+	return 0;
+}
+
+uint64_t AampMPDParseHelper::GetFirstSegmentStartTime(IPeriod * period)
+{
+	return 0;
+}
+
+void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, double &scaledStartTime, double &duration)
+{
+	if (g_mockAampMPDParseHelper)
+	{
+		g_mockAampMPDParseHelper->GetStartAndDurationFromTimeline(period, representationIdx, adaptationSetIdx, scaledStartTime, duration);
+	}
+}
+
+double AampMPDParseHelper::GetPeriodNewContentDuration(IPeriod * period, uint64_t &curEndNumber)
 {
 	return 0;
 }

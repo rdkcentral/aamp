@@ -603,7 +603,12 @@ void PrivateInstanceAAMP::StoreLanguageList(const std::set<std::string> &langlis
 
 bool PrivateInstanceAAMP::DownloadsAreEnabled(void)
 {
-    return true;
+	bool retVal = true;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		retVal = g_mockPrivateInstanceAAMP->DownloadsAreEnabled();
+	}
+	return retVal;
 }
 
 void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, int error_code)
@@ -833,7 +838,14 @@ void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventM
 
 bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
 {
-	return true;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->SendStreamCopy(mediaType, ptr, len, fpts, fdts, fDuration);
+	}
+	else
+	{
+		return true;
+	}
 }
 
 bool PrivateInstanceAAMP::SendTunedEvent(bool isSynchronous)
@@ -938,14 +950,18 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 {
 }
 
-uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
-{
-    return 0u;
-}
-
 uint32_t  PrivateInstanceAAMP::GetAudTimeScale(void)
 {
-    return 0u;
+	if (g_mockPrivateInstanceAAMP != nullptr) {
+		return g_mockPrivateInstanceAAMP->GetAudTimeScale();
+	}else {
+		return 0u;
+	}
+}
+
+uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
+{
+	return 0u;
 }
 
 BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
@@ -970,7 +986,11 @@ AampLLDashServiceData*  PrivateInstanceAAMP::GetLLDashServiceData(void)
 
 uint32_t  PrivateInstanceAAMP::GetVidTimeScale(void)
 {
-    return 0u;
+	if (g_mockPrivateInstanceAAMP != nullptr) {
+		return g_mockPrivateInstanceAAMP->GetVidTimeScale();
+	}else {
+		return 0u;
+	}
 }
 
 void PrivateInstanceAAMP::InterruptableMsSleep(int timeInMs)
@@ -1113,14 +1133,26 @@ BitsPerSecond PrivateInstanceAAMP::GetDefaultBitrate4K()
 
 void PrivateInstanceAAMP::SaveNewTimedMetadata(long long timeMS, const char* szName, const char* szContent, int nb, const char* id, double durationMS)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SaveNewTimedMetadata(timeMS, id, durationMS);
+	}
 }
 
 void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->FoundEventBreak(adBreakId, startMS, brInfo);
+	}
 }
 
 void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SendAdResolvedEvent(adId, status, startMS, durationMs);
+	}
 }
 
 void PrivateInstanceAAMP::ReportContentGap(long long timeMS, std::string id, double durationMS)
@@ -1210,6 +1242,10 @@ void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string& manifestBuffer)
 
 void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMediaType type, uint64_t timeStampOffset)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->ProcessID3Metadata(segment, size, type, timeStampOffset);
+	}
 }
 
 void PrivateInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
@@ -1443,6 +1479,11 @@ void PrivateInstanceAAMP::GetCustomLicenseHeaders(std::unordered_map<std::string
 std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 {
     return "";
+}
+
+bool PrivateInstanceAAMP::ReconfigureForCodecChange()
+{
+	return false;
 }
 
 std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()

@@ -45,6 +45,7 @@ public:
     MOCK_METHOD(int,GetAudioTrack,());
     MOCK_METHOD(void, SendErrorEvent, (AAMPTuneFailure, const char *, bool, int32_t, int32_t, int32_t, const std::string &));
     MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampGrowableBuffer*, double, double, double, bool, bool));
+    MOCK_METHOD(bool, SendStreamCopy, (AampMediaType, const void *, size_t, double, double, double));
     MOCK_METHOD(MediaFormat,GetMediaFormatTypeEnum,());
     MOCK_METHOD(long long, GetPositionMs, ());
     MOCK_METHOD(int, ScheduleAsyncTask, (IdleTask task, void *arg, std::string taskName));
@@ -54,6 +55,13 @@ public:
 
     MOCK_METHOD(std::shared_ptr<TSB::Store>, GetTSBStore, (const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level));
 
+    MOCK_METHOD(void, FoundEventBreak, (const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo));
+    MOCK_METHOD(void, SaveNewTimedMetadata, (long long timeMS, const char* id, double durationMS));
+    MOCK_METHOD(bool, DownloadsAreEnabled, ());
+    MOCK_METHOD(void, SendAdResolvedEvent, (const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs));
+    MOCK_METHOD(uint32_t, GetAudTimeScale, ());
+    MOCK_METHOD(uint32_t, GetVidTimeScale, ());
+    MOCK_METHOD(void, ProcessID3Metadata, (char *, size_t , AampMediaType , uint64_t ));
     MOCK_METHOD(void, SetPauseOnStartPlayback, (bool enable));
 };
 

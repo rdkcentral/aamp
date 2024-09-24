@@ -41,6 +41,7 @@ using ::testing::DoAll;
 using ::testing::Return;
 using ::testing::SetArgReferee;
 using ::testing::TypedEq;
+using ::testing::AnyNumber;
 
 AampConfig *gpGlobalConfig{nullptr};
 AampLogManager *mLogObj{nullptr};
@@ -54,6 +55,7 @@ class IsoBmffProcessorTests : public ::testing::Test
 		PrivateInstanceAAMP *mPrivateInstanceAAMP{};
 		MediaProcessor::process_fcn_t mProcessorFn{};
 		std::thread asyncTask;
+
 		void SetUp() override
 		{
 			mLogObj = new AampLogManager();
@@ -62,9 +64,10 @@ class IsoBmffProcessorTests : public ::testing::Test
 			g_mockAampConfig = new MockAampConfig();
 			g_mockIsoBmffBuffer = new MockIsoBmffBuffer();
 			EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
-			EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_QtDemuxOverrideEnabled)).WillRepeatedly(Return(true));
-			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetMediaFormatTypeEnum()).WillRepeatedly(Return(eMEDIAFORMAT_DASH));
+			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetMediaFormatTypeEnum()).WillRepeatedly(Return(eMEDIAFORMAT_HLS_MP4));
 			EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_FragmentDownloadFailThreshold)).WillRepeatedly(Return(10));
+			EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_,_)).WillRepeatedly(Return(true));
+			EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_,_)).Times(AnyNumber());
 
 			id3_callback_t id3Handler = nullptr;
 
@@ -120,7 +123,7 @@ TEST_F(IsoBmffProcessorTests, abortTests1)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(10000), Return(true)));
 
-	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, true, true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, false, false, mProcessorFn, ptsError);
 
 	t.join();
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
@@ -141,44 +144,101 @@ TEST_F(IsoBmffProcessorTests, abortTests2)
 		this->asyncTask = std::thread([this]{ this->mIsoBmffProcessor->abort(); });
 		return true; 
 	});
-	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, true, true, mProcessorFn, ptsError);
 
-	// EXPECT_EQ(this->mIsoBmffProcessor->getInitSegmentCacheSize(), 0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).Times(0);
+
+	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, true, true, mProcessorFn, ptsError);
+
 	this->asyncTask.join();
 	buffer.Free();
 }
 
 
-//Race condition between setTuneTimePTS and reset calls
+//Scenario where audio and subtitle processors are waiting for videoPTS and abort gets called
 TEST_F(IsoBmffProcessorTests, abortTests3)
 {
 	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests3");
 	bool ptsError = false;
 
+	mAudIsoBmffProcessor->setRate(AAMP_NORMAL_PLAY_RATE, PlayMode_normal);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(1000), Return(true)));
+	mAudIsoBmffProcessor->sendSegment(&buffer, 0, 0, true, true, mProcessorFn, ptsError);
+
+	// Simulate scenario for fragment, since this will go into a cond_wait, start an asyncTask to call abort()
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly([this]() {
+		// Call abort() (once) in an async task to avoid mutex deadlock
+		if (!this->asyncTask.joinable())
+			this->asyncTask = std::thread([this]{ this->mAudIsoBmffProcessor->abort(); });
+		return false; 
+	});
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).Times(0);
+
+	(void)mAudIsoBmffProcessor->sendSegment(&buffer, 0, 0, false, false, mProcessorFn, ptsError);
+
+	this->asyncTask.join();
+	buffer.Free();
+}
+
+//Race condition between InjectorLoop and reset calls
+//Call sendSegment after an abort was called
+TEST_F(IsoBmffProcessorTests, abortTests4)
+{
+	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests4");
+	bool ptsError = false;
+
 	mIsoBmffProcessor->setRate(AAMP_NORMAL_PLAY_RATE, PlayMode_normal);
+	// Not expecting any calls to isInitSegment and getFirstPTS as its aborted at the beginning
+	// EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(false));
+	// EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillOnce(DoAll(SetArgReferee<0>(10000), Return(true)));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).Times(0);
+
+	// Call sendSegment after an abort was called
+	(void)mIsoBmffProcessor->abort();
+	(void)mIsoBmffProcessor->sendSegment(&buffer, 0, 0, true, true, mProcessorFn, ptsError);
+
+	buffer.Free();
+}
+
+//Race condition between InjectorLoop and reset calls
+//Call sendSegment after an abort and reset was called
+TEST_F(IsoBmffProcessorTests, abortTests5)
+{
+	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests5");
+	bool ptsError = false;
+	Box *box = (Box*)(0xdeadbeef);
+
+	mIsoBmffProcessor->setRate(AAMP_NORMAL_PLAY_RATE, PlayMode_normal);
+	// Call abort and reset
+	(void)mIsoBmffProcessor->abort();
+	(void)mIsoBmffProcessor->reset();
+
+	// Expecting segments in order. 1. initfragment, 2. video fragment
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(1000), Return(true)));
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, true, true, mProcessorFn, ptsError);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly([this](uint64_t pts) {
-		pts = 10000;
-		// Call abort() (once) in an async task to avoid mutex deadlock
-		if (!this->asyncTask.joinable())
-			this->asyncTask = std::thread([this]{ this->mIsoBmffProcessor->abort(); });
-		return true; 
-	});
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(10000), Return(true)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(20000));
 
-	(void)mIsoBmffProcessor->sendSegment(&buffer, 0, 0, true, true, mProcessorFn, ptsError);
+	//Called twice for init and fragment
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).WillOnce(Return(true));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _)).Times(0);
-	this->asyncTask.join();
+	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, false, false, mProcessorFn, ptsError);
+
 	buffer.Free();
 }
-
 
 //Processing of Init followed by 2 continuous video fragments
 TEST_F(IsoBmffProcessorTests, ptsTests)
