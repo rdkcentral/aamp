@@ -39,7 +39,7 @@ const uint32_t TFHD_FLAG_BASE_DATA_OFFSET_PRESENT               = 0x00001;
 const uint32_t TFHD_FLAG_SAMPLE_DESCRIPTION_INDEX_PRESENT       = 0x00002;
 const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_DURATION_PRESENT        = 0x00008;
 const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_SIZE_PRESENT            = 0x00010;
-const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT           = 0x00020;
+// const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT           = 0x00020;
 // const uint32_t TFHD_FLAG_DURATION_IS_EMPTY                   = 0x10000;
 // const uint32_t TFHD_FLAG_DEFAULT_BASE_IS_MOOF                = 0x20000;
 
@@ -932,10 +932,10 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 	}
 
 	// Used by truncate operation
-	uint32_t bytesPerSample = ((flags & TRUN_FLAG_SAMPLE_DURATION_PRESENT)? 4 : 0) +
-							  ((flags & TRUN_FLAG_SAMPLE_SIZE_PRESENT)? 4 : 0) +
-							  ((flags & TRUN_FLAG_SAMPLE_FLAGS_PRESENT)? 4 : 0) +
-							  ((flags & TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)? 4 : 0);
+	//uint32_t bytesPerSample = ((flags & TRUN_FLAG_SAMPLE_DURATION_PRESENT)? 4 : 0) +
+	//						  ((flags & TRUN_FLAG_SAMPLE_SIZE_PRESENT)? 4 : 0) +
+	//						  ((flags & TRUN_FLAG_SAMPLE_FLAGS_PRESENT)? 4 : 0) +
+	//						  ((flags & TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)? 4 : 0);
 	uint8_t *firstSampleDurationLoc = nullptr;
 
 	for (unsigned int i=0; i<sample_count; i++)
@@ -1109,11 +1109,6 @@ TfhdBox* TfhdBox::constructTfhdBox(uint32_t sz, uint8_t *ptr)
 	if (flags & TFHD_FLAG_DEFAULT_SAMPLE_SIZE_PRESENT)
 	{
 		DefaultSampleSize = READ_U32(ptr);
-	}
-
-	if (flags & TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT)
-	{
-		ptr += sizeof(uint32_t);   // skip default sample flags
 	}
 
 	FullBox fbox(sz, Box::TFHD, version, flags);

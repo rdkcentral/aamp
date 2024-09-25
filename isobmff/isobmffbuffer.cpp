@@ -683,7 +683,6 @@ int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer
 {
 	std::vector<Box*> *pBoxes = getParsedBoxes();
 	size_t mdatCount;
-	bool ret = false;
 	int lastMDatIndex = -1;
 	getMdatBoxCount(mdatCount);
 	if(pBoxes && mdatCount)

@@ -121,15 +121,14 @@ const char* MediaTrack::GetBufferHealthStatusString(BufferHealthStatus status)
 BufferHealthStatus MediaTrack::GetBufferStatus()
 {
     BufferHealthStatus bStatus = BUFFER_STATUS_GREEN;
-    double bufferedTime ;
-    int CachedFragmentsOrChunks;
+    double bufferedTime = 0.0;
+    int CachedFragmentsOrChunks = 0;
 	double thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD;
 	class StreamAbstractionAAMP* pContext = GetContext();
     if(aamp->GetLLDashServiceData()->lowLatencyMode && pContext)
     {
 		bufferedTime 	    = pContext->GetBufferedDuration(); /** To align with monitorLatency use same API*/
-	    CachedFragmentsOrChunks = 0; /**< No need check frgment cache for LLD;*/
-		thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
+	    thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
     }
     else if (pContext)
     {
