@@ -944,21 +944,24 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 					if (segmentTimeline)
 					{
 						std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
-						int timeLineIndex = 0;
-						uint64_t timelineStartTime = timelines.at(timeLineIndex)->GetStartTime();
-						while (timeLineIndex < timelines.size())
+						if(!timelines.empty())
 						{
-							ITimeline *timeline = timelines.at(timeLineIndex);
-							uint32_t repeatCount = timeline->GetRepeatCount();
-							double timelineDurationMs = ComputeFragmentDuration(timeline->GetDuration(),timeScale) * 1000;
-							durationMs += ((repeatCount + 1) * timelineDurationMs);
-							AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated durationMs[%lf]", timeLineIndex, timelines.size(), durationMs);
-							timeLineIndex++;
-						}
-						if(presentationTimeOffset > timelineStartTime)
-						{
-							durationMs -= ((double)((presentationTimeOffset - timelineStartTime) * 1000) / (double) timeScale);
-							AAMPLOG_TRACE("presentationTimeOffset:%" PRIu64 " timelineStartTime:%" PRIu64 " updated durationMs[%lf]", presentationTimeOffset, timelineStartTime, durationMs);
+							int timeLineIndex = 0;
+							uint64_t timelineStartTime = timelines.at(timeLineIndex)->GetStartTime();
+							while (timeLineIndex < timelines.size())
+							{
+								ITimeline *timeline = timelines.at(timeLineIndex);
+								uint32_t repeatCount = timeline->GetRepeatCount();
+								double timelineDurationMs = ComputeFragmentDuration(timeline->GetDuration(),timeScale) * 1000;
+								durationMs += ((repeatCount + 1) * timelineDurationMs);
+								AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated durationMs[%lf]", timeLineIndex, timelines.size(), durationMs);
+								timeLineIndex++;
+							}
+							if (presentationTimeOffset > timelineStartTime)
+							{
+								durationMs -= ((double)((presentationTimeOffset - timelineStartTime) * 1000) / (double) timeScale);
+								AAMPLOG_TRACE("presentationTimeOffset:%" PRIu64 " timelineStartTime:%" PRIu64 " updated durationMs[%lf]", presentationTimeOffset, timelineStartTime, durationMs);
+							}
 						}
 					}
 					else
