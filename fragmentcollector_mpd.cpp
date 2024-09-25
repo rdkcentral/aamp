@@ -6178,9 +6178,9 @@ void StreamAbstractionAAMP_MPD::SwitchSubtitleTrack(bool newTune)
 	* loops untill the Fdt time reaches the last segment time and the wrong Audio fragment gets Pushed, so reseting all the
 	* lastsegment related params here...
 	*/
-	pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time;
-	pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time + fragmentDuration;
-	pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number;
+	pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time - fragmentDuration;
+	pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time;
+	pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number - 1;
 
 	/* Calculating the start time of the downloaded fragment */
 	newInjectedPosition = static_cast<double>(pMediaStreamContext->fragmentDescriptor.Time - fragmentDuration) / pMediaStreamContext->fragmentDescriptor.TimeScale;
