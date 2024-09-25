@@ -9780,7 +9780,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							//Setting the end period offset as the base offset since the DAI ad break duration is shorter than the source period duration.
 							if( rate < 0 &&  (mCdaiObject->isAdBreakObjectExist( newPeriod->GetId()) && mCdaiObject->mAdBreaks[newPeriod->GetId()].mSrcPeriodOffsetGTthreshold) )
 							{
-									AAMPLOG_INFO("[CDAI] Setting end period as offset,  mBasePeriodOffset :%f endPeriodOffset:%lld",mBasePeriodOffset,mCdaiObject->mAdBreaks[newPeriod->GetId()].endPeriodOffset);
+									AAMPLOG_INFO("[CDAI] Setting end period as offset,  mBasePeriodOffset :%f endPeriodOffset:%" PRIu64,mBasePeriodOffset,mCdaiObject->mAdBreaks[newPeriod->GetId()].endPeriodOffset);
 									mBasePeriodOffset += mCdaiObject->mAdBreaks[newPeriod->GetId()].endPeriodOffset/1000.000;
 
 							}
