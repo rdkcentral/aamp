@@ -9114,7 +9114,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool &periodChanged, bool &a
 		mUpdateStreamInfo = true;
 	}
 
-	if(rate == AAMP_NORMAL_PLAY_RATE) //todo remove this workaround
+	if(rate == AAMP_NORMAL_PLAY_RATE && !bmanifestupdate) //todo remove this workaround
 	{
 		//Call after StreamSelection() to get correct ->adaptationSetIdx ->representationIndex
 		AAMPLOG_TRACE("Update PTS offset after StreamSelection, period changed %d", periodChanged);
@@ -9665,7 +9665,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 			}
 			// Finished segments in the current period. Get the duration of that period.
 			// Needed for live playback where timeline can increase dynamically.
-			if(rate == AAMP_NORMAL_PLAY_RATE) //todo remove this workaround
+			if(rate == AAMP_NORMAL_PLAY_RATE && !bmanifestupdate) //todo remove this workaround
 			{
 				UpdatePtsOffset(mCurrentPeriodIdx, false);
 			}
