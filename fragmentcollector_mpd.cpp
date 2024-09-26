@@ -7735,8 +7735,16 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 				aamp->mNextPeriodDuration = mPeriodDuration;
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
-				pMediaStreamContext->fragmentTime = mPeriodStartTime;
-				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, updating fragmentTime to %lf", i, pMediaStreamContext->fragmentTime);
+				// For playing the second/third ad in a ad break, we should not update fragmentTime to PeriodStartTime
+				if (mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0)
+				{
+					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, fragmentTime:%lf", i, pMediaStreamContext->fragmentTime);
+				}
+				else
+				{
+					pMediaStreamContext->fragmentTime = mPeriodStartTime;
+					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, updating fragmentTime to %lf", i, pMediaStreamContext->fragmentTime);
+				}
 			}
 
 			SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),pMediaStreamContext->adaptationSet->GetSegmentTemplate());
@@ -8751,8 +8759,8 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 							&& mCdaiObject->CheckForAdTerminate(pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset))
 					{
 						//Ensuring that Ad playback doesn't go beyond Adbreak
-						AAMPLOG_WARN("[CDAI] Adbreak ended early. Terminating Ad playback. fragmentTime[%lf] periodStartOffset[%lf]",
-											pMediaStreamContext->fragmentTime, pMediaStreamContext->periodStartOffset);
+						AAMPLOG_WARN("[CDAI] Track[%d] Adbreak ended early. Terminating Ad playback. fragmentTime[%lf] periodStartOffset[%lf]",
+											trackIdx, pMediaStreamContext->fragmentTime, pMediaStreamContext->periodStartOffset);
 						pMediaStreamContext->eos = true;
 					}
 				}
@@ -9154,22 +9162,10 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool &periodChanged, bool &a
 		if (seekPositionSeconds)
 		{
 			AAMPLOG_INFO("[CDAI]: Resuming channel playback at PeriodID[%s] at Position[%lf]", currentPeriodId.c_str(), seekPositionSeconds);
-			// This seek should not be reflected in the fragmentTime, since we have already cached
-			// same duration of ad content; So keep a copy of current fragmentTime so that it can be
-			// updated back when seek is done
 			// No need to do seek from here during trickplay.It will takecare from fetcher loop
 			if (rate == AAMP_NORMAL_PLAY_RATE)
 			{
-				double fragmentTime[AAMP_TRACK_COUNT] = {0.0};
-				for (int i = 0; i < mNumberOfTracks; i++)
-				{
-					fragmentTime[i] = mMediaStreamContext[i]->fragmentTime;
-				}
 				SeekInPeriod(seekPositionSeconds);
-				for (int i = 0; i < mNumberOfTracks; i++)
-				{
-					mMediaStreamContext[i]->fragmentTime = fragmentTime[i];
-				}
 			}
 		}
 	}

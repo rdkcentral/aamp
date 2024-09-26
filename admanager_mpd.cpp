@@ -611,11 +611,17 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
  */
 bool PrivateCDAIObjectMPD::CheckForAdTerminate(double currOffset)
 {
-	uint64_t fragOffset = (uint64_t)(currOffset * 1000);
-	if(fragOffset >= (mCurAds->at(mCurAdIdx).duration + OFFSET_ALIGN_FACTOR))
+	if (currOffset > 0)
 	{
-		//Current Ad is playing beyond the AdBreak + OFFSET_ALIGN_FACTOR
-		return true;
+		uint64_t fragOffset = (uint64_t)(currOffset * 1000);
+		if (mCurAds && (mCurAdIdx < mCurAds->size()))
+		{
+			if (fragOffset >= (mCurAds->at(mCurAdIdx).duration + OFFSET_ALIGN_FACTOR))
+			{
+				//Current Ad is playing beyond the AdBreak + OFFSET_ALIGN_FACTOR
+				return true;
+			}
+		}
 	}
 	return false;
 }

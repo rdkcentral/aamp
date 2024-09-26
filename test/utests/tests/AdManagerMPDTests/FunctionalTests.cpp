@@ -1362,3 +1362,35 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   // This is because ad is placed in previous iteration with adjustEndPeriodOffset set to true. This needs to be revisited
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 21000); // in ms
 }
+
+/** @brief Tests the functionality of CheckForAdTerminate method with different params
+*/
+TEST_F(AdManagerMPDTests, CheckForAdTerminateTests_1)
+{
+  uint32_t adDuration = 20000;
+
+  // No entry in mCurAds, should return false
+  bool ret = mPrivateCDAIObjectMPD->CheckForAdTerminate(0);
+  EXPECT_EQ(ret, false);
+
+  // Add an entry in mCurAds, but adIdx is not present in mCurAds, should return false
+  mPrivateCDAIObjectMPD->mCurAds = std::make_shared<std::vector<AdNode>>();
+  mPrivateCDAIObjectMPD->mCurAds->emplace_back(false, false, true, "adId1", "url", adDuration, "testPeriodId0", 0, nullptr);
+
+  ret = mPrivateCDAIObjectMPD->CheckForAdTerminate(0);
+  EXPECT_EQ(ret, false);
+
+  // mCurAdIdx is present in mCurAds, should return false when offset is less than duration
+  mPrivateCDAIObjectMPD->mCurAdIdx = 0;
+  ret = mPrivateCDAIObjectMPD->CheckForAdTerminate(0);
+  EXPECT_EQ(ret, false);
+
+  // mCurAdIdx is present in mCurAds, should return true when offset is greater than duration + OFFSET_ALIGN_FACTOR
+  ret = mPrivateCDAIObjectMPD->CheckForAdTerminate(adDuration + OFFSET_ALIGN_FACTOR);
+  EXPECT_EQ(ret, true);
+
+
+  // mCurAdIdx is present in mCurAds, should return false when offset -ve
+  ret = mPrivateCDAIObjectMPD->CheckForAdTerminate(-1);
+  EXPECT_EQ(ret, false);
+}
