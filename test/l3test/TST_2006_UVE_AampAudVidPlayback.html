@@ -31,6 +31,11 @@ async function TST_2006_UVE_AampAudVidPlayback() {
     var playerInitConfig = {info: true,gst: true,initialBitrate: 2500000,offset: 0,networkTimeout: 10,preferredAudioLanguage: "spa"};
     await aamp_player.player.initConfig(playerInitConfig);
 
+    // Subscribe to specific tags / metadata in manifest
+    TST_STEP("TST_SetSubscribedTags");
+    let tags = ["#EXT-X-TARGETDURATION","#EXT-X-MAP", "#EXT-X-DISCONTINUITY","#EXT-X-KEY"];
+    await aamp_player.TST_SetSubscribedTags(tags);
+
     // Load and Play the main content URL, wait 10s and verify position updated
     TST_STEP("Tune to URL");
     await aamp_player.Load(TST_2006_url);
@@ -63,6 +68,14 @@ async function TST_2006_UVE_AampAudVidPlayback() {
     preferredAudioProperties = await aamp_player.TST_GetPreferredAudioProperties();
     TST_ASSERT(preferredAudioProperties["preferred-audio-languages"] == "ger","Language should be 'ger'");
     await aamp_player.VerifyPlayback(4,1);
+
+    // sets the auxiliary language
+    TST_STEP("setAuxiliaryLanguage");
+    await aamp_player.player.setAuxiliaryLanguage("it");
+
+    // sets the preferred audio codec
+    TST_STEP("setPreferredAudioCodec");
+    await aamp_player.player.setPreferredAudioCodec("mp4a.40.2");
 
     // Get the available bit rates
     TST_STEP("getVideoBitrates");

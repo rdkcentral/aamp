@@ -139,28 +139,44 @@ async function TST_2005_UVE_AampVideoModificationApis() {
     await aamp_player.VerifyPlayback(4,1);
 
     TST_STEP("getVideoBitrates");
+    const expectedBitrates = [258157, 520929, 831270];
     let videoBitrates = await aamp_player.TST_GetVideoBitrates();
-    TST_ASSERT(videoBitrates.includes(258157), "avlBitrates should contain 258157");
-    TST_ASSERT(videoBitrates.includes(520929), "avlBitrates should contain 520929");
-    TST_ASSERT(videoBitrates.includes(831270), "avlBitrates should contain 831270");
+    console.log("Available bitrates:  " + videoBitrates.toString());
+    TST_ASSERT(videoBitrates.length == expectedBitrates.length);
+    expectedBitrates.forEach((bitrate) => { TST_ASSERT(videoBitrates.includes(bitrate), "videoBitrates should contain" + bitrate); })
 
     TST_STEP("TST_GetCurrentVideoBitrate");
-    const availableBitrates = [258157, 520929, 831270];
-    const currentVideoBitrate = await aamp_player.TST_GetCurrentVideoBitrate();
-    const isBitrateAvailable = availableBitrates.indexOf(currentVideoBitrate) !== -1;
+    let currentVideoBitrate = await aamp_player.TST_GetCurrentVideoBitrate();
+    let isBitrateAvailable = videoBitrates.includes(currentVideoBitrate);
     TST_ASSERT(isBitrateAvailable, "Current video bitrate not found in the available bitrates list.");
 
-    //sets the video track
+    //sets the video tracks
     TST_STEP("setVideoTrack");
     bitrateList = [258157,520929,831270,500000,467567];
     await aamp_player.TST_SetVideoTracks(bitrateList);
     await aamp_player.VerifyPlayback(6,1);
 
+    videoBitrates = await aamp_player.TST_GetVideoBitrates();
+    console.log("Available bitrates:  " + videoBitrates.toString());
+    TST_ASSERT(videoBitrates.length == expectedBitrates.length);
+    expectedBitrates.forEach((bitrate) => { TST_ASSERT(videoBitrates.includes(bitrate), "videoBitrates should contain" + bitrate); })
+
     TST_STEP("TST_GetCurrentVideoBitrate");
-    const availBitrates = [258157, 520929, 831270];
-    const curVidBitrate = await aamp_player.TST_GetCurrentVideoBitrate();
-    const isBitrateAvail = availBitrates.indexOf(curVidBitrate) !== -1;
-    TST_ASSERT(isBitrateAvail, "Current video bitrate not found in the available bitrates list.");
+    currentVideoBitrate = await aamp_player.TST_GetCurrentVideoBitrate();
+    isBitrateAvailable = videoBitrates.includes(currentVideoBitrate);
+    TST_ASSERT(isBitrateAvailable, "Current video bitrate not found in the available bitrates list.");
+
+    // sets the video bitrate
+    TST_STEP("Test setVideoBitrate");
+    const expected_bitrate = 520929;
+    await aamp_player.TST_SetVideoBitrate(expected_bitrate);
+
+    await aamp_player.Seek(0);
+    await aamp_player.VerifyPlayback(5, 1);
+    const actual_bitrate = await aamp_player.TST_GetCurrentVideoBitrate();
+    console.log("actual " + actual_bitrate);
+    console.log("expected " + expected_bitrate);
+    TST_ASSERT(actual_bitrate == expected_bitrate, "Bitrate does not match");
 
     // video zoom disabled
     TST_STEP("setVideoZoom disabled");
@@ -174,13 +190,15 @@ async function TST_2005_UVE_AampVideoModificationApis() {
 
     // sets the coordinates of the video rectangle.
     TST_STEP("setVideoRect");
-    await aamp_player.TST_SetVideoRect(50, 80, 800, 1000);
-    var expected_coordinates = [50, 80, 800, 1000];
-    var actual_coordinates = await aamp_player.player.getVideoRectangle();
-    console.log("actual " + actual_coordinates);
+    const expected_coordinates = [50, 80, 800, 1000];
+    const original_coordinates = await aamp_player.player.getVideoRectangle();
+    await aamp_player.TST_SetVideoRect(expected_coordinates[0], expected_coordinates[1], expected_coordinates[2], expected_coordinates[3]);
+    let actual_coordinates = await aamp_player.player.getVideoRectangle();
+    console.log("original " + original_coordinates);
     console.log("expected " + expected_coordinates);
+    console.log("actual " + actual_coordinates);
     TST_ASSERT(actual_coordinates== expected_coordinates, "Coordinates are not matched");
-    await aamp_player.VerifyPlayback(10, 1);
+    await aamp_player.VerifyPlayback(5, 1);
 
     // Stop the playback and destroy the AAMP Player
     TST_STEP("Stop the playback");
