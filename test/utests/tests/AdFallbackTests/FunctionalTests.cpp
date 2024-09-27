@@ -143,6 +143,7 @@ class AdFallbackTests : public ::testing::Test
 			mPrivateInstanceAAMP->mIsDefaultOffset = true;
 
 			mLogObj = new AampLogManager();
+			mLogObj->aampLoglevel = eLOGLEVEL_TRACE;		//To enable all levels of AAMP logging
 			mCdaiObj = new CDAIObjectMPD(mLogObj, mPrivateInstanceAAMP);
 
 			g_mockAampConfig = new NiceMock<MockAampConfig>();
@@ -428,4 +429,5 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 	mStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
 	// Gets updated in FetcherLoopNew
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mPTSOffsetSec, 0.0);
 }

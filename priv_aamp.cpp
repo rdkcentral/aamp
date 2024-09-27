@@ -3944,6 +3944,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 	struct curl_slist* httpHeaders = NULL;
 	CURLcode res = CURLE_OK;
 	int fragmentDurationMs = (int)(fragmentDurationSeconds*1000);/*convert to MS */
+
 	if (mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_INIT_AUDIO || mediaType == eMEDIATYPE_INIT_AUX_AUDIO)
 	{
 		int InitFragmentRetryCount = GETCONFIGVALUE_PRIV(eAAMPConfig_InitFragmentRetryCount);

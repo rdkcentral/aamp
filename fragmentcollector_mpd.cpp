@@ -8804,32 +8804,30 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	}
 }
 
-
-/**
- * @brief Calculate PTS offset value at the start of each period.
- */
-void StreamAbstractionAAMP_MPD::UpdatePtsOffset(int periodIdx, bool isNewPeriod)
+void StreamAbstractionAAMP_MPD::GetStartAndDurationForPtsRestamping(int periodIdx, double &start, double &duration)
 {
-
 	double videoStart = 0;
 	double audioStart = 0;
 	double audioDuration = 0;
 	double videoDuration = 0;
-	double duration = 0;
 
 	IPeriod *period = mCurrentPeriod;
 	if( mMediaStreamContext[eMEDIATYPE_AUDIO] )
+	{
 		mMPDParseHelper->GetStartAndDurationFromTimeline(period, mMediaStreamContext[eMEDIATYPE_AUDIO]->representationIndex,
 													 mMediaStreamContext[eMEDIATYPE_AUDIO]->adaptationSetIdx, audioStart, audioDuration);
+	}
 
 	if( mMediaStreamContext[eMEDIATYPE_VIDEO] )
+	{
 		mMPDParseHelper->GetStartAndDurationFromTimeline(period, mMediaStreamContext[eMEDIATYPE_VIDEO]->representationIndex,
 													 mMediaStreamContext[eMEDIATYPE_VIDEO]->adaptationSetIdx, videoStart, videoDuration);
+	}
 
 	AAMPLOG_INFO("Idx %d Id %s aDur %f vDur %f aStart %f vStart %f",
 				 periodIdx, period->GetId().c_str(), audioDuration, videoDuration, audioStart, videoStart);
 
-	double timelineStartSec = std::max(audioStart, videoStart);
+	start = std::max(audioStart, videoStart);
 
 	/* Should get here last manifest update before a period change
 	 * On live manifests the duration of the current period can be increasing as more segments
@@ -8843,18 +8841,45 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(int periodIdx, bool isNewPeriod)
 	else
 	{
 		// cannot get duration from timeline use another algorithm
-		duration = mMPDParseHelper->GetPeriodDuration(periodIdx, mLastPlaylistDownloadTimeMs, false, aamp->IsUninterruptedTSB()) / 1000;
+		duration = CONVERT_MS_TO_SEC(mMPDParseHelper->GetPeriodDuration(periodIdx, mLastPlaylistDownloadTimeMs, false, aamp->IsUninterruptedTSB()));
+		AAMPLOG_INFO("Idx %d Id %s duration %f", periodIdx, period->GetId().c_str(), duration);
 	}
+}
+
+/**
+ * @brief Calculate PTS offset value at the start of each period.
+ */
+void StreamAbstractionAAMP_MPD::UpdatePtsOffset(int periodIdx, bool isNewPeriod)
+{
+	double timelineStartSec = 0.0;
+	double duration = 0;
+
+	IPeriod *period = mCurrentPeriod;
+	GetStartAndDurationForPtsRestamping(periodIdx, timelineStartSec, duration);
 
 	if (isNewPeriod)
 	{
 		mPTSOffsetSec += mNextPts - timelineStartSec;
 
 		AAMPLOG_INFO("Idx %d Id %s mPTSOffsetSec %f mNextPts %f timelineStartSec %f",
-					 periodIdx,period->GetId().c_str(), mPTSOffsetSec, mNextPts, timelineStartSec);
+					 periodIdx, period->GetId().c_str(), mPTSOffsetSec, mNextPts, timelineStartSec);
 	}
 
 	mNextPts = duration + timelineStartSec;
+}
+
+void StreamAbstractionAAMP_MPD::RestorePtsOffsetCalculation(int periodIdx)
+{
+	double timelineStartSec = 0.0;
+	double duration = 0;
+
+	// This variable still contains the period of the ad that failed
+	IPeriod *period = mCurrentPeriod;
+	GetStartAndDurationForPtsRestamping(periodIdx, timelineStartSec, duration);
+
+	AAMPLOG_INFO("Idx %d Id %s restoring mNextPts from %f to %f",
+					periodIdx, period->GetId().c_str(), mNextPts, (mNextPts - duration));
+	mNextPts -= duration;
 }
 
 /**
@@ -9458,6 +9483,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 						// reset period change flag so that we can perform period change to source period
 						aamp->SetIsPeriodChangeMarked(false);
 						resetIterator = false;
+						if(rate == AAMP_NORMAL_PLAY_RATE && !bmanifestupdate)
+						{
+							RestorePtsOffsetCalculation(mCurrentPeriodIdx);
+						}
 						continue;
 					}
 				}

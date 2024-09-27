@@ -118,6 +118,7 @@ class AampTSBSessionManager;
 #define MAX_URL_LOG_SIZE 960				/**< Considering "aamp_tune" and [AAMP-PLAYER] pretext */
 
 #define CONVERT_SEC_TO_MS(_x_) (_x_ * 1000) 		/**< Convert value to sec to ms */
+#define CONVERT_MS_TO_SEC(_x_) (_x_ / 1000)
 #define DEFAULT_PRECACHE_WINDOW (10) 			/**< 10 mins for full precaching */
 // These error codes are used internally to identify the cause of error from GetFile
 #define PARTIAL_FILE_CONNECTIVITY_AAMP (130)
