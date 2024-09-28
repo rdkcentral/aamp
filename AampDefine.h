@@ -140,6 +140,13 @@
 #define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) /**< time interval for the telemetry reporting 300sec*/
 #define DEFAULT_SUBTITLE_CLOCK_SYNC_INTERVAL (30) /**< default time interval for the subtitle clock sync 30sec*/
 
+// the +1 is used to compensate for internal use originally being a > check, now >=
+#if defined(REALTEKCE)
+#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (3+1) // TODO: deprecate realtek-specific config (risk: tune time impact)
+#else
+#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (5+1) // more conservative config; used on AmLogic
+#endif
+
 // Player supported play/trick-play rates.
 #define AAMP_RATE_TRICKPLAY_MAX		64
 #define AAMP_NORMAL_PLAY_RATE		1

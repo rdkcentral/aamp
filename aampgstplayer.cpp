@@ -86,15 +86,11 @@ typedef enum {
 #define GST_ELEMENT_GET_STATE_RETRY_CNT_MAX 5
 
 #define DEFAULT_BUFFERING_TO_MS 10                       /**< TimeOut interval to check buffer fullness */
-#if defined(REALTEKCE)
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (3)          /**< if the video decoder has this many queued frames start.. */
 #define DEFAULT_AVSYNC_FREERUN_THRESHOLD_SECS 12         /**< Currently MAX FRAG DURATION + 2 per Realtek */
-#else
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (5)          /**< if the video decoder has this many queued frames start.. even at 60fps, close to 100ms... */
-#endif
 
 #define DEFAULT_BUFFERING_MAX_MS (1000)                  /**< max buffering time */
 #define DEFAULT_BUFFERING_MAX_CNT (DEFAULT_BUFFERING_MAX_MS/DEFAULT_BUFFERING_TO_MS)   /**< max buffering timeout count */
+
 #define AAMP_MIN_PTS_UPDATE_INTERVAL 4000                        /**< Time duration in milliseconds if exceeded and pts has not changed; it is concluded pts is not changing */
 #define AAMP_DELAY_BETWEEN_PTS_CHECK_FOR_EOS_ON_UNDERFLOW 500    /**< A timeout interval in milliseconds to check pts in case of underflow */
 #define BUFFERING_TIMEOUT_PRIORITY -70                           /**< 0 is DEFAULT priority whereas -100 is the HIGH_PRIORITY */
@@ -1628,9 +1624,10 @@ static void AAMPGstPlayer_OnGstDecodeErrorCb(GstElement* object, guint arg0, gpo
 static gboolean buffering_timeout (gpointer data)
 {
 	AAMPGstPlayer * _this = (AAMPGstPlayer *) data;
+	auto aamp = _this->aamp;
 	if (_this && _this->privateContext)
 	{
-		UsingPlayerId playerId( _this->aamp->mPlayerId );
+		UsingPlayerId playerId( aamp->mPlayerId );
 		AAMPGstPlayerPriv * privateContext = _this->privateContext;
 		if (_this->privateContext->buffering_in_progress)
 		{
@@ -1638,42 +1635,37 @@ static gboolean buffering_timeout (gpointer data)
 			if (_this->privateContext->video_dec)
 			{
 				g_object_get(_this->privateContext->video_dec,"queued_frames",(uint*)&frames,NULL);
-				AAMPLOG_DEBUG("queued_frames: %i", frames);
+				AAMPLOG_DEBUG("queued_frames: %d", frames);
 			}
 			MediaFormat mediaFormatRet;
-			mediaFormatRet = _this->aamp->GetMediaFormatTypeEnum();
+			mediaFormatRet = aamp->GetMediaFormatTypeEnum();
 			/* DELIA-34654: Disable re-tune on buffering timeout for DASH as unlike HLS,
 			DRM key acquisition can end after injection, and buffering is not expected
 			to be completed by the 1 second timeout
 			*/
-			if (G_UNLIKELY(((mediaFormatRet != eMEDIAFORMAT_DASH) && (mediaFormatRet != eMEDIAFORMAT_PROGRESSIVE) && (mediaFormatRet != eMEDIAFORMAT_HLS_MP4)) && (privateContext->buffering_timeout_cnt == 0) && _this->aamp->mConfig->IsConfigSet(eAAMPConfig_ReTuneOnBufferingTimeout) && (privateContext->numberOfVideoBuffersSent > 0)))
+			if (G_UNLIKELY(((mediaFormatRet != eMEDIAFORMAT_DASH) && (mediaFormatRet != eMEDIAFORMAT_PROGRESSIVE) && (mediaFormatRet != eMEDIAFORMAT_HLS_MP4)) && (privateContext->buffering_timeout_cnt == 0) && aamp->mConfig->IsConfigSet(eAAMPConfig_ReTuneOnBufferingTimeout) && (privateContext->numberOfVideoBuffersSent > 0)))
 			{
 				AAMPLOG_WARN("Schedule retune. numberOfVideoBuffersSent %d frames %i", privateContext->numberOfVideoBuffersSent, frames);
 				privateContext->buffering_in_progress = false;
 				_this->DumpDiagnostics();
-				_this->aamp->ScheduleRetune(eGST_ERROR_VIDEO_BUFFERING, eMEDIATYPE_VIDEO);
+				aamp->ScheduleRetune(eGST_ERROR_VIDEO_BUFFERING, eMEDIATYPE_VIDEO);
 			}
-
-#if !defined(__APPLE__)
-			else if (frames == -1 || frames > DEFAULT_BUFFERING_QUEUED_FRAMES_MIN || privateContext->buffering_timeout_cnt-- == 0)
-#endif
+			else if (frames == -1 || frames >= GETCONFIGVALUE(eAAMPConfig_RequiredQueuedFrames) || privateContext->buffering_timeout_cnt-- == 0)
 			{
 				AAMPLOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i", gst_element_state_get_name(_this->privateContext->buffering_target_state), (_this->privateContext->buffering_timeout_cnt+1), frames);
 				SetStateWithWarnings (_this->privateContext->pipeline, _this->privateContext->buffering_target_state);
-
 #if defined(BRCM)
 				// Setting first fractional rate as DEFAULT_INITIAL_RATE_CORRECTION_SPEED right away on PLAYING to avoid DELIA-61708 audio drop
-				if (_this->aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && _this->aamp->IsLive())
+				if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->IsLive())
 				{
 					AAMPLOG_WARN("Setting first fractional rate %.6f right after moving to PLAYING", DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
 					_this->SetPlayBackRate(DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
 				}
 #endif
-
 				_this->privateContext->buffering_in_progress = false;
-				if(!_this->aamp->IsGstreamerSubsEnabled())
+				if(!aamp->IsGstreamerSubsEnabled())
 				{
-					_this->aamp->UpdateSubtitleTimestamp();
+					aamp->UpdateSubtitleTimestamp();
 				}
 			}
 		}
@@ -1690,7 +1682,6 @@ static gboolean buffering_timeout (gpointer data)
 		_this, (_this? _this->privateContext: NULL) );
 		return false;
 	}
-
 }
 
 /**
@@ -5011,23 +5002,19 @@ void AAMPGstPlayer::StopBuffering(bool forceStop)
 	//Check if we are in buffering
 	if (ISCONFIGSET(eAAMPConfig_ReportBufferEvent) && privateContext->video_dec && aamp->GetBufUnderFlowStatus())
 	{
-		bool stopBuffering = forceStop;
-#if ( !defined(RPI) && !defined(__APPLE__) )
 		int frames = -1;
-	        g_object_get(privateContext->video_dec,"queued_frames",(uint*)&frames,NULL);
-	        if (frames != -1)
-	        {
-			stopBuffering = stopBuffering || (frames > DEFAULT_BUFFERING_QUEUED_FRAMES_MIN); //TODO: the minimum frame values should be configurable from aamp.cfg
-	        }
-	        else
-#endif
-			stopBuffering = true;
-
+		g_object_get(privateContext->video_dec,"queued_frames",(uint*)&frames,NULL);
+		bool stopBuffering = forceStop;
+		if( !stopBuffering )
+		{
+			if (frames == -1 || frames >= GETCONFIGVALUE(eAAMPConfig_RequiredQueuedFrames) )
+			{
+				stopBuffering = true;
+			}
+		}
 		if (stopBuffering)
 		{
-#if ( !defined(RPI) && !defined(__APPLE__) )
 			AAMPLOG_MIL("Enough data available to stop buffering, frames %d !", frames);
-#endif
 			GstState current, pending;
 			bool sendEndEvent = false;
 
@@ -5062,9 +5049,7 @@ void AAMPGstPlayer::StopBuffering(bool forceStop)
 			static int bufferLogCount = 0;
 			if (0 == (bufferLogCount++ % 10) )
 			{
-#if ( !defined(RPI) && !defined(__APPLE__) )
 				AAMPLOG_WARN("Not enough data available to stop buffering, frames %d !", frames);
-#endif
 			}
 		}
 	}
