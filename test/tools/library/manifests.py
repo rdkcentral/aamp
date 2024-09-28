@@ -237,13 +237,15 @@ class ManifestServerCommon:
         None if path and path.n do not exist
         """
         # print("manifest_serve:", path)
-        if os.path.exists(path):
+        file_timestamps = self.get_list_of_manifest_timestamps(path)
+        if os.path.exists(path) and file_timestamps == []:
             # With request for non-incremental manifest then we
             # assume this is top level manifest so reset timer
             # used for serving incremental
             self.time_started_serving = 0
+            log.info("Playing main Manifest")
             return path
-        file_timestamps = self.get_list_of_manifest_timestamps(path)
+        #file_timestamps = self.get_list_of_manifest_timestamps(path)
 
         # RDKAAMP-1833
         pub_times = [f[0] for f in file_timestamps]
