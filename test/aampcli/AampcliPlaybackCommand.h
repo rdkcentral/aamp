@@ -47,6 +47,8 @@ public:
 	void termPlayerLoop();
 	bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
 	PlayerInstanceAAMP * findPlayerInstance( const char *playerRef );
+	static std::string getManifestData(std::string& url);
+	std::string getMinimumUpdatePeriod(const std::string& manifestData);
 	
 private:
 	void getRange(const char* cmd, unsigned long& start, unsigned long& end, unsigned long& tail);
@@ -80,6 +82,7 @@ private:
 	void HandleCommandPause(const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
 	void HandleCommandSpeed( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
 	void HandleCommandBPS( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandTuneData( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
 };
 
 #endif // AAMPCLIPLAYBACKCOMMAND_H

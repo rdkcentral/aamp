@@ -67,6 +67,7 @@ class Aampcli
 		GMainLoop *mAampGstPlayerMainLoop;
 		GThread *mAampMainLoopThread;
 		std::vector<PlayerInstanceAAMP *> mPlayerInstances;
+		std::string mManifestDataUrl;
 
 		static void runCommand( std::string args );
 		static gpointer aampGstPlayerStreamThread( gpointer arg );

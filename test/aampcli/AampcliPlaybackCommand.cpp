@@ -28,6 +28,7 @@
 #include "AampcliPlaybackCommand.h"
 #include "scte35/AampSCTE35.h"
 #include "AampStreamSinkManager.h"
+#include <curl/curl.h>
 
 extern bool gAampcliQuietLogs;
 extern VirtualChannelMap mVirtualChannelMap;
@@ -720,7 +721,46 @@ void PlaybackCommand::HandleCommandBPS( const char *cmd, PlayerInstanceAAMP *pla
 	}
 }
 
-
+void PlaybackCommand::HandleCommandTuneData( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp )
+{
+	std::stringstream str(cmd);
+	std::string token;
+	std::string url;
+	std::string manifestData;
+	std::getline(str,token,' ');
+	assert(token=="tunedata");
+	if (std::getline(str,url, ' '))
+	{
+		mAampcli.mManifestDataUrl = url;
+		if (playerInstanceAamp->isTuneScheme(url.c_str()))
+		{
+			printf("[AAMPCLI] Player: url : %s \n",url.c_str());
+			manifestData = getManifestData(url);
+			playerInstanceAamp->Tune(url.c_str(),mAampcli.mbAutoPlay,nullptr, true, false, nullptr, true, nullptr, 0,"0259343c-cffc-4659-bcd8-97f9dd36f6b1",manifestData.c_str());
+			std::string minimumUpdatePeriod = getMinimumUpdatePeriod(manifestData);
+			double updateVal = ParseISO8601Duration(minimumUpdatePeriod.c_str());
+			printf("[AAMPCLI] Manifest minimumUpdatePeriod = %f \n",updateVal);
+			int count = 4; //for testing - limit the updates to 4
+			if ( updateVal != 0) //live manifest updates
+			{
+				while( count-- > 0)
+				{
+					manifestData = getManifestData(url);
+					playerInstanceAamp->updateManifest(manifestData.c_str());
+					std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(updateVal)));
+				}
+			}
+		}
+		else
+		{
+			printf("[AAMP-CLI] ERROR - param '%s'\n",url.c_str());
+		}
+	}
+	else
+	{
+		printf("[AAMP-CLI] ERROR - expected 'tunedata <url>'\n");
+	}
+}
 /**
  * @brief Process command
  * @param cmd command
@@ -916,6 +956,10 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		HandleCommandSessionId( cmd );
 	}
+	else if(isCommandMatch(cmd,"tunedata"))
+	{
+		HandleCommandTuneData( cmd, playerInstanceAamp );
+	}
 	else
 	{
 		printf( "[AAMP-CLI] unmatched command: %s\n", cmd );
@@ -1059,6 +1103,7 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("advert <params>", "manage injected advert list - 'list', 'add <url or channel in virtual channel map>', 'rm <url or index into list>'");
 	addCommand("scte35 <base64>", "decode SCTE-35 signal base64 string");
 	addCommand("release <playerid/playername>", "to remove the player");
+	addCommand("tunedata <url>","Tune passing a manifest buffer as a string");
 }
 
 void PlaybackCommand::addCommand(std::string command,std::string description)
@@ -1118,4 +1163,77 @@ char * PlaybackCommand::commandRecommender(const char *text, int state)
 	}
 
 	return NULL;
+}
+
+size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp)
+{
+    userp->append((char*)contents, size * nmemb);
+    return size * nmemb;
+}
+
+std::string PlaybackCommand::getManifestData(std::string& url)
+{
+	CURL* curl;
+	std::string manifestData;
+	if( url.substr(0, 7) == "http://" || url.substr(0, 8) == "https://" )
+	{
+		auto delim = url.find('@');
+		curl = curl_easy_init();
+		if(curl)
+		{
+			if( delim != std::string::npos )
+			{
+				std::string range = url.substr(delim+1);
+				std::string prefix = url.substr(0,delim);
+				(void)curl_easy_setopt(curl, CURLOPT_URL, prefix.c_str() );
+				(void)curl_easy_setopt(curl, CURLOPT_RANGE, range.c_str() );
+			}
+			else
+			{
+				(void)curl_easy_setopt(curl, CURLOPT_URL, url.c_str() );
+				(void)curl_easy_setopt(curl, CURLOPT_RANGE, NULL);
+			}
+			(void)curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+			(void)curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+			(void)curl_easy_setopt(curl, CURLOPT_WRITEDATA, &manifestData);
+			(void)curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
+			CURLcode rc = curl_easy_perform(curl);
+			if (CURLE_OK == rc)
+			{
+				long response_code = 0;
+				(void)curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+				switch( response_code )
+				{
+					case 200:
+					case 204:
+					case 206:
+						break;
+					default:
+						// http error
+						printf("[AAMPCLI] %s curl error code : %ld",__FUNCTION__,response_code);
+						break;
+				}
+			}
+			curl_easy_cleanup(curl);
+		}
+	}
+	return manifestData;
+}
+
+std::string PlaybackCommand::getMinimumUpdatePeriod(const std::string& manifestData)
+{
+	std::string tag = "minimumUpdatePeriod=\"";
+	size_t start = manifestData.find(tag);
+	if (start == std::string::npos)
+	{
+		return "";
+	}
+	start += tag.length();
+	size_t end = manifestData.find("\"", start);
+	if (end == std::string::npos)
+	{
+		return "";
+	}
+	std::string periodStr = manifestData.substr(start, end - start);
+	return periodStr;
 }
