@@ -1286,7 +1286,8 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 	}
 	else
 	{
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		// Restamp 2.0 only for DASH streams
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat))
 		{
 			if ((pContext && pContext->trickplayMode))
 			{
@@ -1330,8 +1331,8 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		if (!fragmentDiscarded)
 		{
 			totalInjectedDuration += cachedFragment->duration;
-
-			if (lastInjectedDuration > 0)
+			// Not tested for HLS_MP4 and HLS, hence limiting to DASH for now.
+			if ((lastInjectedDuration > 0) && (aamp->mMediaFormat == eMEDIAFORMAT_DASH))
 			{
 				// Find the delta between the last injected fragment end position and the current position
 				double positionDelta = (cachedFragment->absPosition - lastInjectedDuration);
