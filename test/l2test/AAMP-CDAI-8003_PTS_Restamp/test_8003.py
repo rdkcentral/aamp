@@ -50,7 +50,7 @@ max_segment_cnt = 0
 aamp = None
 
 def check_restamp(match,arg):
-    global segment_cnt, restamp_values
+    global segment_cnt, restamp_values, max_segment_cnt
 
     # Get the fields from the log line
     before = int(match.group(1))
@@ -85,12 +85,11 @@ def check_restamp(match,arg):
     # Save what we are expecting for the next value
     restamp_values[media] = after + duration
 
-# Limit playback for each asset so test does not take too long
-def check_runtime(match,arg):
-    global max_segment_cnt, segment_cnt, aamp
+    # Exit playback if we have done enough
     if max_segment_cnt != 0 and segment_cnt > max_segment_cnt:
         aamp.sendline("stop")
         max_segment_cnt = 0 # so we do not send multiple stops
+
 
 TESTDATA0 = {
 "title": "TBD",
@@ -101,7 +100,6 @@ TESTDATA0 = {
 "expect_list": [
     {"expect": r"aamp_tune","min":0, "max":2},
     {"expect": r'RestampPts.*?before (\d+) after (\d+) duration (\d+) ([\w:/\.\-]+)\r\n',"min":0, "max":60, "callback" : check_restamp},
-    {"expect": r'GetPositionMilliseconds', "callback" : check_runtime, "min": 0, "max": 60},
     {"expect": r'AAMPGstPlayer_EndOfStreamReached',"min":0, "max":60, "end_of_test": True},
     {"expect": r'AAMPGstPlayer_Stop', "min": 0, "max": 60, "end_of_test": True},
     {"expect": r'StopInternal', "min": 0, "max": 60, "end_of_test": True},

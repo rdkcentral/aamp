@@ -24,6 +24,8 @@ counts = {}
 timescales = {}
 pending_inject = {}
 pts_offset = {}
+MEDIA = ['video', 'audio', 'subtitle']
+media_lookup = { } #{ url1: 'video' , url2: 'audio' }
 
 def init():
     for med in ['audio', 'video', 'subtitle']:
@@ -57,7 +59,6 @@ for line in fileinput.input(errors="ignore"):
     # sendHelper where segments get injected
     m = re.search(r'SendHelper.*?Sending segment for mediaType\[(\d)\].*init:(\d)', line)
     if m:
-        MEDIA = ['video', 'audio', 'subtitle']
         media_num = int(m.group(1))
         media = MEDIA[media_num]
         is_init = int(m.group(2))
@@ -77,6 +78,16 @@ for line in fileinput.input(errors="ignore"):
         ts = int(m.group(2))
         pts_offset[media] = m.group(3) # pts offset same regardless of media
         timescales[media] = ts
+        last_media = media
+
+    # Build up a table so we know the media type of each segment url
+    m = re.search(r'HttpRequestEnd.*?,(\d),.*(http.*)',line)
+    if m:
+        num = int(m.group(1))
+        if num <3:
+            media = MEDIA[num]
+            url = m.group(2)
+            media_lookup.update({url: media})
 
     # Read the restamp logline
     m = re.search(r'RestampPts.*before (\d+) after (\d+) duration (\d+) (.*)',line)
@@ -92,18 +103,18 @@ for line in fileinput.input(errors="ignore"):
         if n:
             seg_num = int(n.group(1))
 
-        # Get video profile from URL if possible. Works for sky
+        # Get video profile I.E bitrate from URL if possible. Works for sky
         p = re.search(r'_(audio\d+|video\d)-', url)
         if p:
             profile = p.group(1)
         else:
             profile = '?'
 
-        media = 'video'
-        if "audio" in url:
-            media = 'audio'
-        elif ("subtitle" in url) or ("text" in url):
-            media = 'subtitle'
+        # Lookup url in table to get media type
+        if url in media_lookup:
+            media = media_lookup.get(url)
+        else:
+            print("Unknown url ",url)
 
         # The segment has been restamped but it is only injected when it gets to sendHelper.
         # IsoBmffProcessor holds init segment until following video segment is received. The
