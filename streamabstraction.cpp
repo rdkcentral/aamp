@@ -1328,12 +1328,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		{
 			pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
 		}
-#ifdef AAMP_DEBUG_FETCH_INJECT
-		if ((1 << type) & AAMP_DEBUG_FETCH_INJECT)
-		{
-			AAMPLOG_DEBUG("%s - injected cached fragment at pos %f dur %f uri %s", name, cachedFragment->position, cachedFragment->duration, cachedFragment->uri.c_str());
-		}
-#endif
+		AAMPLOG_DEBUG("%s - injected cached fragment at pos %f dur %f", name, cachedFragment->position, cachedFragment->duration);
 		if (!fragmentDiscarded)
 		{
 			totalInjectedDuration += cachedFragment->duration;

@@ -71,7 +71,7 @@ TESTDATA2 = {
             {"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=8\.000000"},
             
             {"expect": r"fragmentRepeatCount 5 fragmentTime 5\.000000 skipTime 4\.000000 segNumber 6"},
-            {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_010\.m4s "},
+            {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_010\.m4s"},
             {"expect": r"fragmentRepeatCount 10 fragmentTime 10\.000000 skipTime 4\.000000 segNumber 11"},
             {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_015\.m4s"},
             {"expect": r"fragmentRepeatCount 15 fragmentTime 15\.000000 skipTime 4\.000000 segNumber 16"},
@@ -101,7 +101,7 @@ TESTDATA3 = {
             {"cmd": "sleep 3000"},
             {"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=32\.000000"},
             {"expect": r"fragmentRepeatCount 9 fragmentTime 9\.000000 skipTime 8\.000000 segNumber 10"},
-            {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_018\.m4s "},
+            {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_018\.m4s"},
             
             {"expect": r"fragmentRepeatCount 18 fragmentTime 18\.000000 skipTime 8\.000000 segNumber 19"},
             {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/iframe_027\.m4s"},

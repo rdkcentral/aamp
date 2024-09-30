@@ -130,7 +130,11 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
         if(!bReadfromcache)
         {
 			ret = aamp->LoadFragment(bucketType, fragmentUrl,effectiveUrl, mTempFragment.get(), curlInstance,
-				range, actualType, &httpErrorCode, &downloadTime, &bitrate, &iFogError, fragmentDurationSeconds );
+				range, actualType, &httpErrorCode, &downloadTime, &bitrate, &iFogError, fragmentDurationSeconds);
+			if (initSegment && ret)
+			{
+				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment.get(), effectiveUrl, actualType);
+			}
 			if (ret)
 			{
 				cachedFragment->fragment = *mTempFragment;

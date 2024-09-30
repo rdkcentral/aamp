@@ -32,8 +32,8 @@ TESTDATA0 = {
     "expect_list" :[
         {"expect" : r"fragmentUrl https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/dash/480p_[0-9]{3}.m4s"},
         {"expect" : r"Caching Complete cacheDuration 6 minInitialCacheSeconds 5"},
-        {"expect" : r"cachedFragment->position: 4\.[0-9]{6} cachedFragment->duration: 2\.[0-9]{6}"},
-        {"expect" : r"video - injected cached uri at pos 4\.[0-9]{6} dur 2\.[0-9]{6}"},
+        {"expect" : r"sending segment at pos:4\.[0-9]{6} dur:2\.[0-9]{6}"},
+        {"expect" : r"video - injected cached fragment at pos 4\.[0-9]{6} dur 2\.[0-9]{6}"},
         {"expect" : r"AAMP_EVENT_STATE_CHANGED: PLAYING"},
         {"expect" : r"Returning Position as [1-4][0-9]{3}"},
         {"expect" : r"Returning Position as [5-9][0-9]{3}"},
@@ -50,8 +50,8 @@ TESTDATA1 = {
     "expect_list" :[
         {"expect" : r"fragmentUrl https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/dash/480p_[0-9]{3}.m4s"},#404 
         {"expect" : r"Caching Complete cacheDuration 10 minInitialCacheSeconds 10"}, #828
-        {"expect" : r"cachedFragment->position: 8+\.[0-9]{6} cachedFragment->duration: 2+\.[0-9]{6}"}, #831
-        {"expect" : r"video - injected cached uri at pos 8+\.[0-9]{6} dur 2+\.[0-9]{6}"}, #837
+        {"expect" : r"sending segment at pos:8+\.[0-9]{6} dur:2+\.[0-9]{6}"}, #831
+        {"expect" : r"video - injected cached fragment at pos 8+\.[0-9]{6} dur 2+\.[0-9]{6}"}, #837
         {"expect" : "AAMP_EVENT_STATE_CHANGED: PLAYING"},#861
         {"expect" : r"Returning Position as [1-4][0-9]{3}"},
         {"expect" : r"Returning Position as [5-9][0-9]{3}"},
@@ -67,8 +67,8 @@ TESTDATA2 = {
     "expect_list" :[
         {"expect" : r"fragmentUrl https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/dash/480p_[0-9]{3}.m4s"}, #394
         {"expect" : r"Caching Complete cacheDuration 16 minInitialCacheSeconds 15"}, #1011
-        {"expect" : r"cachedFragment->position: (14+\.[0-9]{6}) cachedFragment->duration: (2+\.[0-9]{6})"}, #1016
-        {"expect" : r"video - injected cached uri at pos 14+\.[0-9]{6} dur 2+\.[0-9]{6}"},#1020
+        {"expect" : r"sending segment at pos:(14+\.[0-9]{6}) dur:(2+\.[0-9]{6})"}, #1016
+        {"expect" : r"video - injected cached fragment at pos 14+\.[0-9]{6} dur 2+\.[0-9]{6}"},#1020
         {"expect" : r"AAMP_EVENT_STATE_CHANGED: PLAYING"},#1044
         {"expect" : r"Returning Position as [0-9]{1,4}"},
         {"expect" : r"Returning Position as [1-4][0-9]{3}"},
@@ -86,8 +86,8 @@ TESTDATA3 = {
     "expect_list" :[
         {"expect" : r"fragmentUrl https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/dash/480p_[0-9]{3}.m4s"},#394
         {"expect" : r"Caching Complete cacheDuration 20 minInitialCacheSeconds 20"},#1133
-        {"expect" : r"cachedFragment->position: 18+\.0{6} cachedFragment->duration: 2+\.0{6}"}, #1136
-        {"expect" : r"video - injected cached uri at pos 18{1,2}\.[0-9]{6} dur 2+\.[0-9]{6}"}, #1142
+        {"expect" : r"sending segment at pos:18+\.0{6} dur:2+\.0{6}"}, #1136
+        {"expect" : r"video - injected cached fragment at pos 18{1,2}\.[0-9]{6} dur 2+\.[0-9]{6}"}, #1142
         {"expect" : r"AAMP_EVENT_STATE_CHANGED: PLAYING"},#1044
         {"expect" : r"Returning Position as [1-4][0-9]{3}"},
         {"expect" : r"Returning Position as [5-9][0-9]{3}"},
