@@ -77,7 +77,7 @@ public :
 	uint32_t Bandwidth;
 	std::string RepresentationID;
 	uint64_t Number;
-	double Time;
+	double Time;				//In units of timescale
 	bool bUseMatchingBaseUrl;
 	int64_t nextfragmentNum;
 	double nextfragmentTime;
@@ -85,7 +85,7 @@ public :
 	FragmentDescriptor() : manifestUrl(""), Bandwidth(0), Number(0), Time(0), RepresentationID(""),matchingBaseURL(""),bUseMatchingBaseUrl(false),nextfragmentNum(-1),nextfragmentTime(0), TimeScale(1)
 	{
 	}
-	
+
 	FragmentDescriptor(const FragmentDescriptor& p) : manifestUrl(p.manifestUrl), Bandwidth(p.Bandwidth), RepresentationID(p.RepresentationID), Number(p.Number), Time(p.Time),matchingBaseURL(p.matchingBaseURL),bUseMatchingBaseUrl(p.bUseMatchingBaseUrl),nextfragmentNum(p.nextfragmentNum),nextfragmentTime(p.nextfragmentTime), TimeScale(p.TimeScale)
 	{
 	}
@@ -1005,7 +1005,7 @@ protected:
 	*/
 	void SetSubtitleTrackOffset();
 
-    std::mutex mStreamLock;
+	std::mutex mStreamLock;
 	bool fragmentCollectorThreadStarted;
 	bool tsbReaderThreadStarted;
 	bool abortTsbReader;
@@ -1162,6 +1162,7 @@ protected:
 	ABRMode mABRMode;					 /**< ABR mode*/
 	size_t mLastManifestFileSize;
 	double mFragmentTimeOffset;     /**< denotes the offset added to fragment time when absolute timeline is disabled, holds currentPeriodOffset*/
+	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 };
 

@@ -157,6 +157,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, cla
 	,mFcsSegments()
 	,isVidDiscInitFragFail(false)
 	,tsbReaderThreadStarted(false), abortTsbReader(false)
+	,mShortAdOffsetCalc(false)
 	,mNextPts(0.0)
 {
 	this->aamp = aamp;
@@ -8810,22 +8811,30 @@ void StreamAbstractionAAMP_MPD::GetStartAndDurationForPtsRestamping(AampTime &st
 	AampTime videoDuration {0};
 
 	IPeriod *period = mCurrentPeriod;
-	if( mMediaStreamContext[eMEDIATYPE_AUDIO] )
+
+	if (mMediaStreamContext[eMEDIATYPE_AUDIO])
 	{
 		mMPDParseHelper->GetStartAndDurationFromTimeline(period, mMediaStreamContext[eMEDIATYPE_AUDIO]->representationIndex,
-													 mMediaStreamContext[eMEDIATYPE_AUDIO]->adaptationSetIdx, audioStart, audioDuration);
+														 mMediaStreamContext[eMEDIATYPE_AUDIO]->adaptationSetIdx, audioStart, audioDuration);
 	}
-
-	if( mMediaStreamContext[eMEDIATYPE_VIDEO] )
+	else
+	{
+		AAMPLOG_WARN("Cannot get details for AUDIO");
+	}
+	if (mMediaStreamContext[eMEDIATYPE_VIDEO])
 	{
 		mMPDParseHelper->GetStartAndDurationFromTimeline(period, mMediaStreamContext[eMEDIATYPE_VIDEO]->representationIndex,
-													 mMediaStreamContext[eMEDIATYPE_VIDEO]->adaptationSetIdx, videoStart, videoDuration);
+														 mMediaStreamContext[eMEDIATYPE_VIDEO]->adaptationSetIdx, videoStart, videoDuration);
 	}
+	else
+	{
+		AAMPLOG_WARN("Cannot get details for VIDEO");
+	}
+
+	start = std::max(audioStart, videoStart);
 
 	AAMPLOG_INFO("Idx %d Id %s aDur %f vDur %f aStart %f vStart %f",
 				 mCurrentPeriodIdx, period->GetId().c_str(), audioDuration.inSeconds(), videoDuration.inSeconds(), audioStart.inSeconds(), videoStart.inSeconds());
-
-	start = std::max(audioStart, videoStart);
 
 	/* Should get here last manifest update before a period change
 	 * On live manifests the duration of the current period can be increasing as more segments
@@ -8860,6 +8869,24 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 
 		if (isNewPeriod)
 		{
+
+			if (mShortAdOffsetCalc)
+			{
+				/* This is for the case of a short ad that is not as long as the base period which
+				 * it replaces. The ad has been 'played' and now we need to return and play out the remaining
+				 * segments in the base period
+				 */
+				mShortAdOffsetCalc = false;
+				double audioStart = mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.Time /
+									mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.TimeScale;
+				double videoStart = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time /
+									mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.TimeScale;
+
+				AampTime newStart = std::max(audioStart, videoStart);
+
+				mNextPts += timelineStart - newStart;
+				AAMPLOG_INFO("newStart %f timelineStart %f", newStart.inSeconds(), timelineStart.inSeconds());
+			}
 			mPTSOffset += mNextPts - timelineStart;
 
 			AAMPLOG_INFO("Idx %d Id %s mPTSOffsetSec %f mNextPts %f timelineStartSec %f",
@@ -8867,6 +8894,7 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 		}
 
 		mNextPts = duration + timelineStart;
+
 	}
 }
 
@@ -9201,6 +9229,8 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool &periodChanged, bool &a
 			if (rate == AAMP_NORMAL_PLAY_RATE)
 			{
 				SeekInPeriod(seekPositionSeconds);
+				// Ad shorter than base period, set flag to adjust calculation on next call to UpdatePtsOffset()
+				mShortAdOffsetCalc = true;
 			}
 		}
 	}
