@@ -389,6 +389,49 @@ class AAMPPlayer {
         console.log("aamp_VerifyPlayback EXIT");
     }
 
+    async VerifyPositionProgress(wait_s, speed, direction)
+    {
+        // Waits for a number of progress intervals and checks the timings of them..
+        console.log("VerifyPositionProgress ENTER: Wait "+ wait_s + ", Speed " + speed + "direction " + direction);
+
+        let notifications = 0;
+        let wait_ms = (wait_s * 1000)
+        let start_ms = Date.now();
+        let diff_ms = 0
+        let previousPosition = 0;
+        let firstSampleTaken = false;
+        while (diff_ms <= wait_ms)
+        {
+            var progress = await this.waitForEventWithTimeout(this.player, 'playbackProgressUpdate', aamp_timeout, null).catch(e => {
+                TST_ASSERT_FAIL_FATAL(e);
+            });
+            console.log("VerifyPositionProgress ("+ JSON.stringify(progress) +")");
+            TST_ASSERT((speed == progress.currentPlayRate), "Unexpected Playback Rate")
+            console.log("VerifyPositionProgress: previousPosition " + previousPosition + " progress.positionMiliseconds " + progress.positionMiliseconds);
+            if(firstSampleTaken && (direction == "fw"))
+            {
+                TST_ASSERT((previousPosition < progress.positionMiliseconds),"Position found backwards while going in forward direction" );
+            }
+            else if(firstSampleTaken && (direction == "rw"))
+            {
+                TST_ASSERT((previousPosition > progress.positionMiliseconds),"Position found forward while going in backward direction" );
+            }
+            else
+            {
+                firstSampleTaken = true;
+            }
+            previousPosition = progress.positionMiliseconds;
+            notifications += 1;
+
+            let end_ms = Date.now();
+            diff_ms = end_ms - start_ms;
+            console.log("VerifyPositionProgress: diff_ms "+ diff_ms);
+        }
+
+        console.log("VerifyPositionProgress END: diff_ms "+ diff_ms + ", Notifications " + notifications);
+
+    }
+
     // Plays a given URL waiting for AAMP to signal the eSTATE_PLAYING state has been reached
     async Load(url, autostart = true, waitForState = true)
     {
