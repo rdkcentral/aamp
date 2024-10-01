@@ -59,8 +59,10 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std:
  * @brief PrivateCDAIObjectMPD constructor
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(AampLogManager* logObj, PrivateInstanceAAMP* aamp) : mLogObj(logObj),mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mImmediateNextAdbreakAvailable(false),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec()
+					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mImmediateNextAdbreakAvailable(false),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
+					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV()
 {
+	StartFulfillAdLoop();
 	mAamp->CurlInit(eCURLINSTANCE_DAI,1,mAamp->GetNetworkProxy());
 }
 
@@ -69,11 +71,8 @@ PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(AampLogManager* logObj, PrivateInstan
  */
 PrivateCDAIObjectMPD::~PrivateCDAIObjectMPD()
 {
-	if(mAdObjThreadStarted)
-	{
-		mAdObjThreadID.join();
-		mAdObjThreadStarted = false;
-	}
+	AbortWaitForNextAdResolved();
+	StopFulfillAdLoop();
 	mAamp->CurlTerm(eCURLINSTANCE_DAI);
 }
 
@@ -100,7 +99,7 @@ bool PrivateCDAIObjectMPD::isPeriodExist(const std::string &periodId)
 /**
  * @brief Method to check the existence of Adbreak object in the AdbreakObject map
  */
-inline bool PrivateCDAIObjectMPD::isAdBreakObjectExist(const std::string &adBrkId)
+bool PrivateCDAIObjectMPD::isAdBreakObjectExist(const std::string &adBrkId)
 {
 	return (mAdBreaks.end() != mAdBreaks.find(adBrkId))?true:false;
 }
@@ -112,28 +111,43 @@ void PrivateCDAIObjectMPD::PrunePeriodMaps(std::vector<std::string> &newPeriodId
 {
 	//Erase all adbreaks other than new adbreaks
 	std::lock_guard<std::mutex> lock( mDaiMtx );
-	for (auto it = mAdBreaks.begin(); it != mAdBreaks.end();) {
-		if ((mPlacementObj.pendingAdbrkId != it->first) && (mCurPlayingBreakId != it->first) &&//We should not remove the pending/playing adbreakObj
-				(newPeriodIds.end() == std::find(newPeriodIds.begin(), newPeriodIds.end(), it->first))) {
+	for (auto it = mAdBreaks.begin(); it != mAdBreaks.end();)
+	{
+		/* We should not remove the adbreakObj that is currently getting placed (probably due to a bug in PlaceAds)
+		 * and the adbreakObj which is currently playing whose mpd object will be in use
+		 */
+		if ((mPlacementObj.pendingAdbrkId != it->first) && (mCurPlayingBreakId != it->first) &&
+				(newPeriodIds.end() == std::find(newPeriodIds.begin(), newPeriodIds.end(), it->first)))
+		{
+			// Erase the ad break object if it is not in the new period list
 			auto &adBrkObj = *it;
 			AAMPLOG_INFO("[CDAI] Removing the period[%s] from mAdBreaks.",adBrkObj.first.c_str());
 			auto adNodes = adBrkObj.second.ads;
-			for(AdNode &ad: *adNodes)
+			if (adNodes)
 			{
-				SAFE_DELETE(ad.mpd);
+				for(AdNode &ad: *adNodes)
+				{
+					SAFE_DELETE(ad.mpd);
+				}
 			}
 			ErasefrmAdBrklist(it->first);
 			it = mAdBreaks.erase(it);
-		} else {
+		}
+		else
+		{
 			++it;
 		}
 	}
 
 	//Erase all periods other than new periods
-	for (auto it = mPeriodMap.begin(); it != mPeriodMap.end();) {
-		if (newPeriodIds.end() == std::find(newPeriodIds.begin(), newPeriodIds.end(), it->first)) {
+	for (auto it = mPeriodMap.begin(); it != mPeriodMap.end();)
+	{
+		if (newPeriodIds.end() == std::find(newPeriodIds.begin(), newPeriodIds.end(), it->first))
+		{
 			it = mPeriodMap.erase(it);
-		} else {
+		}
+		else
+		{
 			++it;
 		}
 	}
@@ -164,9 +178,12 @@ void PrivateCDAIObjectMPD::ClearMaps()
 	for(auto &adBrkObj: tmpMap)
 	{
 		auto adNodes = adBrkObj.second.ads;
-		for(AdNode &ad: *adNodes)
+		if (adNodes)
 		{
-			SAFE_DELETE(ad.mpd);
+			for(AdNode &ad: *adNodes)
+			{
+				SAFE_DELETE(ad.mpd);
+			}
 		}
 	}
 
@@ -209,7 +226,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 				{
 					openPrdFound = true;
 					if(0 != (prevOpenperiodId.compare(mPlacementObj.openPeriodId)))
-                                        {
+					{
 						mPeriodMap[mPlacementObj.openPeriodId].filled = true;
 						mPlacementObj.curEndNumber = 0;
 					}
@@ -223,6 +240,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 						{
 							if(mPlacementObj.openPeriodId == periodId)
 							{
+								// TODO:[VKB] Need to revisit this logic.
 								period = periods.at(iter);
 								periodId = period->GetId();
 							}
@@ -249,7 +267,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 
 				if(openPrdFound && -1 != mPlacementObj.curAdIdx && (mPlacementObj.openPeriodId == periodId))
 				{
-					double periodDelta = adMPDParseHelper->GetPeriodNewContentDuration(period, mPlacementObj.curEndNumber);
+					double periodDelta = adMPDParseHelper->GetPeriodNewContentDurationMs(period, mPlacementObj.curEndNumber);
 					double currperioddur = adMPDParseHelper->aamp_GetPeriodDuration(iter, 0); 
 					double nextperioddur = -1;
 					if((iter+1) < periods.size())
@@ -270,6 +288,12 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 					bool isSrcdurnotequalstoaddur = false;
 					if(periodDelta == 0)
 					{
+						if((iter+1) < periods.size())
+						{
+							IPeriod* nextPeriod = periods.at(iter+1);
+							AAMPLOG_INFO("nextPeriod:%s nextperiodur:%lf currperioddur:%lf adDuration:%" PRIu64 "", nextPeriod->GetId().c_str(), nextperioddur, currperioddur, abObj.ads->at(mPlacementObj.curAdIdx).duration);
+						}
+
 						if((nextperioddur > 0) && ((currperioddur > 0) && (currperioddur < abObj.ads->at(mPlacementObj.curAdIdx).duration)))
 						{
 							AAMPLOG_INFO("nextperioddur = %f currperioddur = %f currAd.duration = [%" PRIu64 "] ",nextperioddur,currperioddur,abObj.ads->at(mPlacementObj.curAdIdx).duration);
@@ -389,28 +413,27 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 					{
 						//check if next period available
 						iter++;
-						if( iter < periods.size() )
+						if( iter < periods.size() && adMPDParseHelper->aamp_GetPeriodDuration(iter, 0) > 0)
 						{
 							auto nextPeriod = periods.at(iter);
 							abObj.adjustEndPeriodOffset = false; // done with Adjustment
 							abObj.endPeriodOffset = 0;//Aligning to next period start
 							abObj.endPeriodId = nextPeriod->GetId();
-							mPeriodMap[abObj.endPeriodId] = Period2AdData();
 							abObj.mWaitForManifestUpdateFlag = false;
-							AAMPLOG_INFO("[CDAI] [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s", 
+							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s", 
 														diff,currPeriodDuration,abObj.endPeriodId.c_str());
 						}
 						else
 						{
 							abObj.mWaitForManifestUpdateFlag = true; //adbrk duration matches the source period duration wait for the manifest update to conitnue playback
-							AAMPLOG_INFO("[CDAI] [%d] close to period end [%" PRIu64 "],but next period not available,waiting", 
+							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "],but next period not available,waiting", 
 														diff,currPeriodDuration);
 						}
 					}// --> Inserted Ads finishes >= 2 seconds behind new period : Channel playback starts from that position in the current period.
 					// OR //--> Inserted Ads finishes in >= 4 seconds of new period (inside the adbreak) : Channel playback starts from that position in the period.
 					else
 					{
-						AAMPLOG_INFO("[CDAI] [%d] NOT close to period end. period:%s", diff,mPlacementObj.pendingAdbrkId.c_str());
+						AAMPLOG_INFO("[CDAI] diff [%d] NOT close to period end, period:%s duration[%" PRIu64 "]", diff, mPlacementObj.pendingAdbrkId.c_str(), currPeriodDuration);
 						abObj.adjustEndPeriodOffset = false; // done with Adjustment
 						abObj.mWaitForManifestUpdateFlag = false; // adbrk duration not equal to src period duration continue to play source period remaining duration
 						abObj.mSrcPeriodOffsetGTthreshold = true;
@@ -479,9 +502,14 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 }
 
 /**
- * @brief Checking to see if a period is the begining of the Adbreak or not.
+ * @fn CheckForAdStart
  *
- * @return Ad index, if the period has an ad over it. Else -1
+ * @param[in]  rate - Playback rate
+ * @param[in]  periodId - Period id to be checked
+ * @param[in]  offSet - Period offset in seconds
+ * @param[out] breakId - Id of the Adbreak, if the period & offset falls in an Adbreak
+ * @param[out] adOffset - Offset of the Ad for that point of the period in seconds
+ * @return int Ad index, if the period has an ad over it. Else -1
  */
 int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const std::string &periodId, double offSet, std::string &breakId, double &adOffset)
 {
@@ -490,6 +518,7 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 	if(mPeriodMap.end() != pit && !(pit->second.adBreakId.empty()))
 	{
 		//mBasePeriodId belongs to an Adbreak. Now we need to see whether any Ad is placed in the offset.
+		// This condition may hit if the player is in TSB and if there is an abreak to place at live point. Possible?
 		if(mPlacementObj.pendingAdbrkId != periodId)
 		{
 			AAMPLOG_INFO("[CDAI] PlacementObj open period(%s) and AdStart Period(%s) not equal ... may be BUG ",mPlacementObj.pendingAdbrkId.c_str(),periodId.c_str());
@@ -499,6 +528,8 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 		{
 			breakId = curP2Ad.adBreakId;
 			AdBreakObject &abObj = mAdBreaks[breakId];
+			// seamLess is a faster way to iterate through the offset2Ad map. In this case, the offSet will be exactly or closer to the adStartOffset
+			// For discrete playback, we need to iterate through the offset2Ad map to find the right ad
 			bool seamLess = init?false:(AAMP_NORMAL_PLAY_RATE == rate);
 			if(seamLess)
 			{
@@ -526,9 +557,10 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 				uint64_t end = curP2Ad.duration;
 				if(periodId ==  abObj.endPeriodId)
 				{
+					// This adbreak was placed completely, so endPeriodOffset can be used which will be more accurate than curP2Ad.duration
 					end = abObj.endPeriodOffset;	//No need to look beyond the adbreakEnd
 				}
-				if(key >= start && key <= end)
+				if(key >= start && key < end)
 				{
 					//Yes, Key is in Adbreak. Find which Ad.
 					for(auto it = curP2Ad.offset2Ad.begin(); it != curP2Ad.offset2Ad.end(); it++)
@@ -546,7 +578,7 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 				}
 			}
 
-			if(rate >= AAMP_NORMAL_PLAY_RATE && -1 == adIdx && abObj.endPeriodId == periodId && (uint64_t)(offSet*1000) >= abObj.endPeriodOffset)
+			if(rate >= AAMP_NORMAL_PLAY_RATE && (-1 == adIdx) && (abObj.endPeriodId == periodId) && (uint64_t)(offSet*1000) >= abObj.endPeriodOffset)
 			{
 				breakId = "";	//AdState should not stick to IN_ADBREAK after Adbreak ends.
 			}
@@ -597,38 +629,22 @@ bool PrivateCDAIObjectMPD::isPeriodInAdbreak(const std::string &periodId)
 }
 
 /**
- * @brief Method for downloading and parsing Ad's MPD
+ * @fn GetAdMPD
  *
- * @return Pointer to the MPD object
+ * @param[in]  url - Ad manifest's URL
+ * @param[out] finalManifest - Is final MPD or the final MPD should be downloaded later
+ * @param[out] http_error - http error code
+ * @param[out] downloadTime - Time taken to download the manifest
+ * @param[in]  tryFog - Attempt to download from FOG or not
+ * @return MPD* MPD instance
  */
-MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifest, bool tryFog)
+MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifest, int &http_error, double &downloadTime, bool tryFog)
 {
 	MPD* adMpd = NULL;
+	AampGrowableBuffer manifest("adMPD_CDN");
 	bool gotManifest = false;
-	int http_error = 0;
 	std::string effectiveUrl;
-	//create MPD instance for ad manifest download
-	AampMPDDownloader *mAdDownloaderInstance = nullptr;
-	ManifestDownloadResponsePtr mAdManifestDnldRespPtr = std::make_shared<ManifestDownloadResponse> ();	
-	std::shared_ptr<ManifestDownloadConfig> inpData    = std::make_shared<ManifestDownloadConfig> ();
-	mAdDownloaderInstance 	= new AampMPDDownloader();
-	//initialize the downloadconfig 
-	inpData->mTuneUrl 	= manifestUrl;
-	inpData->mDnldConfig->iStartTimeout = mAamp->mConfig->GetConfigValue(eAAMPConfig_CurlDownloadStartTimeout);
-        inpData->mDnldConfig->iStallTimeout = mAamp->mConfig->GetConfigValue(eAAMPConfig_CurlStallTimeout);
-        inpData->mDnldConfig->iLowBWTimeout = 0;
-	inpData->mDnldConfig->iDownloadTimeout = mAamp->mConfig->GetConfigValue(eAAMPConfig_ManifestTimeout);
-	inpData->mDnldConfig->iCurlConnectionTimeout =  mAamp->mConfig->GetConfigValue(eAAMPConfig_Curl_ConnectTimeout);
-	inpData->mDnldConfig->bNeedDownloadMetrics = true;
-	inpData->mDnldConfig->pCurl                  =       CurlStore::GetCurlStoreInstance(mAamp).GetCurlHandle(mAamp, manifestUrl, eCURLINSTANCE_DAI);
-	inpData->mDnldConfig->userAgentString = mAamp->mConfig->GetUserAgentString();
-	inpData->mDnldConfig->proxyName       = mAamp->mConfig->GetConfigValue(eAAMPConfig_NetworkProxy);
-	mAdDownloaderInstance->Initialize(inpData, mLogObj);
-	mAdDownloaderInstance->Start();
-	mAdManifestDnldRespPtr = mAdDownloaderInstance->GetManifest(true, mAamp->mManifestTimeoutMs);
-
-	gotManifest		=	(mAdManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
-	effectiveUrl = mAdManifestDnldRespPtr->mMPDDownloadResponse->sEffectiveUrl;
+	gotManifest = mAamp->GetFile(manifestUrl, eMEDIATYPE_MANIFEST, &manifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 	if (gotManifest)
 	{
 		AAMPLOG_TRACE("PrivateCDAIObjectMPD:: manifest download success");
@@ -637,12 +653,18 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	{
 		AAMPLOG_ERR("PrivateCDAIObjectMPD:: manifest download failed");
 	}
-	std::string manifest 	=	mAdManifestDnldRespPtr->mMPDDownloadResponse->getString();
 
 	if (gotManifest)
 	{
-		finalManifest = true;
-		xmlTextReaderPtr reader = xmlReaderForMemory( manifest.c_str(), (int) manifest.length(), NULL, NULL, 0);
+		if(mAamp->mConfig->IsConfigSet(eAAMPConfig_PlayAdFromCDN) && mAamp->mTsbType == "cloud")
+		{
+			finalManifest = false;
+		}
+		else
+		{
+			finalManifest = true;
+		}
+		xmlTextReaderPtr reader = xmlReaderForMemory( manifest.GetPtr(), (int) manifest.GetLen(), NULL, NULL, 0);
 		if(tryFog && !mAamp->mConfig->IsConfigSet(eAAMPConfig_PlayAdFromCDN) && reader && mIsFogTSB)	//Main content from FOG. Ad is expected from FOG.
 		{
 			std::string channelUrl = mAamp->GetManifestUrl();	//TODO: Get FOG URL from channel URL
@@ -664,20 +686,10 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 			effectiveUrl.assign(channelUrl.c_str(), 0, ipend);
 			effectiveUrl.append("/adrec?clientId=FOG_AAMP&recordedUrl=");
 			effectiveUrl.append(encodedUrl.c_str());
-		
-			mAdManifestDnldRespPtr.reset(); // To Clear the previous downloadresponse value and set to nullptr 
 
-			//Initialize with new config data 
-			inpData->mTuneUrl       	= effectiveUrl;
-			inpData->mDnldConfig->bNeedDownloadMetrics 	= true;
-			inpData->mDnldConfig->pCurl			=	CurlStore::GetCurlStoreInstance(mAamp).GetCurlHandle(mAamp, effectiveUrl, eCURLINSTANCE_DAI);
-			mAdDownloaderInstance->Initialize(inpData, mLogObj);
-			mAdDownloaderInstance->Start();
-
-			mAdManifestDnldRespPtr   = mAdDownloaderInstance->GetManifest(true, mAamp->mManifestTimeoutMs);
-			http_error               = mAdManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
-			effectiveUrl = mAdManifestDnldRespPtr->mMPDDownloadResponse->sEffectiveUrl;
-			std::string fogManifest 	=	mAdManifestDnldRespPtr->mMPDDownloadResponse->getString();
+			AampGrowableBuffer fogManifest("adMPD_FOG");
+			http_error = 0;
+			mAamp->GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, &fogManifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 			if(200 == http_error || 204 == http_error)
 			{
 				manifestUrl = effectiveUrl;
@@ -685,13 +697,19 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 				{
 					//FOG already has the manifest. Releasing the one from CDN and using FOG's
 					xmlFreeTextReader(reader);
-					manifest = fogManifest;
-					reader = xmlReaderForMemory(manifest.c_str(), (int) manifest.length(), NULL, NULL, 0);
+					reader = xmlReaderForMemory(fogManifest.GetPtr(), (int) fogManifest.GetLen(), NULL, NULL, 0);
+					manifest.Free();
+					manifest.Replace(&fogManifest);
 				}
 				else
 				{
 					finalManifest = false;
 				}
+			}
+
+			if(fogManifest.GetPtr())
+			{
+				fogManifest.Free();
 			}
 		}
 		if (reader != NULL)
@@ -769,30 +787,35 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 		if (gpGlobalConfig->logging.trace)
 		{
-			AAMPLOG_WARN("Ad manifest: %s", manifest.c_str());
+			manifest.AppendNulTerminator(); // make safe for cstring operations
+			AAMPLOG_WARN("Ad manifest: %s", manifest.GetPtr() );
 		}
+		manifest.Free();
 	}
 	else
 	{
 		AAMPLOG_ERR("[CDAI]: Error on manifest fetch");
 	}
-	mAdDownloaderInstance->Release();
-	SAFE_DELETE(mAdDownloaderInstance);
 	return adMpd;
 }
 
 /**
  * @brief Method for fullfilling the Ad
+ *
+ * @return bool - true if the Ad is fulfilled successfully
  */
-void PrivateCDAIObjectMPD::FulFillAdObject()
+bool PrivateCDAIObjectMPD::FulFillAdObject()
 {
+	bool ret = true;
 	AampMPDParseHelper adMPDParseHelper;
 	bool adStatus = false;
 	uint64_t startMS = 0;
 	uint32_t durationMs = 0;
 	bool finalManifest = false;
 	std::lock_guard<std::mutex> lock( mDaiMtx );
-	MPD *ad = GetAdMPD(mAdFulfillObj.url, finalManifest, true);
+	int http_error = 0;
+	double downloadTime = 0;
+	MPD *ad = GetAdMPD(mAdFulfillObj.url, finalManifest, http_error, downloadTime, true);
 	if(ad)
 	{
 		adMPDParseHelper.Initialize(ad);
@@ -800,7 +823,7 @@ void PrivateCDAIObjectMPD::FulFillAdObject()
 		if(ad->GetPeriods().size() && isAdBreakObjectExist(periodId))	// Ad has periods && ensuring that the adbreak still exists
 		{
 			auto &adbreakObj = mAdBreaks[periodId];
-			std::shared_ptr<std::vector<AdNode>> adBreakAssets = adbreakObj.ads;
+			AdNodeVectorPtr adBreakAssets = adbreakObj.ads;
 			durationMs = (uint32_t)adMPDParseHelper.GetDurationFromRepresentation();
 
 			startMS = adbreakObj.adsDuration;
@@ -812,19 +835,17 @@ void PrivateCDAIObjectMPD::FulFillAdObject()
 			}
 			adbreakObj.adsDuration += durationMs;
 
-			std::string bPeriodId = "";		//BasePeriodId will be filled on placement
-			int bOffset = -1;				//BaseOffset will be filled on placement
-			if(0 == adBreakAssets->size())
+			// Add offset to mPeriodMap
+			if(isPeriodExist(periodId) && mPeriodMap[periodId].offset2Ad.empty())
 			{
 				//First Ad placement is doing now.
-				PlacementObj mAdtoInsertInNextBreak; //maintain an array of DAI ad's for B2B substitution
-				if(isPeriodExist(periodId))
-				{
-					mPeriodMap[periodId].offset2Ad[0] = AdOnPeriod{0,0};
-				}
+				mPeriodMap[periodId].offset2Ad[0] = AdOnPeriod{0,0};
+			}
+			// Add entry to mAdtoInsertInNextBreakVec
+			if(!HasDaiAd(periodId))
+			{
 				//If current ad index is -1 (that is no ads are pushed into the map yet), current ad placement can take place from here itself.
 				//Otherwise, the Player need to wait until the current ad placement is done.
-
 				if(mPlacementObj.curAdIdx == -1 )
 				{
 					mPlacementObj.pendingAdbrkId = periodId;
@@ -837,25 +858,52 @@ void PrivateCDAIObjectMPD::FulFillAdObject()
 				}
 				else
 				{
-					mAdtoInsertInNextBreak.pendingAdbrkId = periodId;
-					mAdtoInsertInNextBreak.openPeriodId = periodId;	//May not be available Now.
-					mAdtoInsertInNextBreak.curEndNumber = 0;
-					mAdtoInsertInNextBreak.curAdIdx = 0;
-					mAdtoInsertInNextBreak.adNextOffset = 0;
-					mAdtoInsertInNextBreakVec.push_back(mAdtoInsertInNextBreak);
+					// Add to an array of DAI ad's for B2B substitution
+					mAdtoInsertInNextBreakVec.emplace_back(periodId, periodId, 0, 0, 0);
 				}
-				bPeriodId = periodId;
-				bOffset = 0;
 			}
 			if(!finalManifest)
 			{
 				AAMPLOG_INFO("Final manifest to be downloaded from the FOG later. Deleting the manifest got from CDN.");
 				SAFE_DELETE(ad);
 			}
-			adBreakAssets->emplace_back(AdNode{false, false, mAdFulfillObj.adId, mAdFulfillObj.url, durationMs, bPeriodId, bOffset, ad});
-			AAMPLOG_WARN("New Ad successfully for periodId : %s added[Id=%s, url=%s].",periodId.c_str(),mAdFulfillObj.adId.c_str(),mAdFulfillObj.url.c_str());
-
+			if (!adBreakAssets->empty())
+			{
+				// Find the right AdNode from adBreakAssets based on mAdFulfillObj.adId
+				for (int iter=0; iter<adBreakAssets->size(); iter++)
+				{
+					AdNode &node = adBreakAssets->at(iter);
+					if (node.adId == mAdFulfillObj.adId)
+					{
+						node.mpd = ad;
+						node.duration = durationMs;
+						if (iter == 0)
+						{
+							node.basePeriodId = periodId;
+							node.basePeriodOffset = 0;
+						}
+						else
+						{
+							// For subsequent ads in an adbreak, basePeriodId and basePeriodOffset will be filled on placement
+							node.basePeriodId ="";
+							node.basePeriodOffset = -1;
+						}
+						node.url = mAdFulfillObj.url;
+						node.resolved = true;
+						break;
+					}
+				}
+			}
+			else
+			{
+				// Handle the case where the vector is empty if necessary
+				// For example, you might want to push the new node if the vector is empty
+				AAMPLOG_WARN("AdBreakAssets is empty. Adding new Ad, May be a BUG in fulfill queue.");
+				adBreakAssets->emplace_back(AdNode{false, false, true, mAdFulfillObj.adId, mAdFulfillObj.url, durationMs, periodId, 0, ad});
+			}
+			AAMPLOG_WARN("New Ad successfully for periodId : %s added[Id=%s, url=%s, durationMs=%" PRIu32 "].",periodId.c_str(),mAdFulfillObj.adId.c_str(),mAdFulfillObj.url.c_str(), durationMs);
 			adStatus = true;
+			AbortWaitForNextAdResolved();
 		}
 		else
 		{
@@ -865,13 +913,33 @@ void PrivateCDAIObjectMPD::FulFillAdObject()
 	}
 	else
 	{
-		AAMPLOG_ERR("Failed to get Ad MPD[%s].", mAdFulfillObj.url.c_str());
+		if(CURLE_ABORTED_BY_CALLBACK == http_error)
+		{
+			AAMPLOG_WARN("Ad MPD[%s] download aborted.", mAdFulfillObj.url.c_str());
+			ret = false;
+		}
+		else
+		{
+			AAMPLOG_ERR("Failed to get Ad MPD[%s].", mAdFulfillObj.url.c_str());
+		}
 	}
-	mAamp->SendAdResolvedEvent(mAdFulfillObj.adId, adStatus, startMS, durationMs);
+	// Send the resolved event
+	if(ret)
+	{
+		// Send the resolved event to the player
+		mAamp->SendAdResolvedEvent(mAdFulfillObj.adId, adStatus, startMS, durationMs);
+	}
+	return ret;
 }
 
 /**
- * @brief Setting the alternate contents' (Ads/blackouts) URL
+ * @fn SetAlternateContents
+ *
+ * @param[in] periodId - Adbreak's unique identifier.
+ * @param[in] adId - Individual Ad's id
+ * @param[in] url - Ad URL
+ * @param[in] startMS - Ad start time in milliseconds
+ * @param[in] breakdur - Adbreak's duration in MS
  */
 void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url,  uint64_t startMS, uint32_t breakdur)
 {
@@ -889,54 +957,46 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 	}
 	else
 	{
-		if(mAdObjThreadStarted)
-		{
-			//Clearing the previous thread
-			mAdObjThreadID.join();
-			mAdObjThreadStarted = false;
-		}
+		bool adCached = false;
 		if(isAdBreakObjectExist(periodId))
 		{
 			auto &adbreakObj = mAdBreaks[periodId];
-			int ret = 0;
 			if(adbreakObj.brkDuration <= adbreakObj.adsDuration)
 			{
 				AAMPLOG_WARN("No more space left in the Adbreak. Rejecting the promise.");
-				ret = -1;
 			}
 			else
 			{
-				mAdFulfillObj.periodId = periodId;
-				mAdFulfillObj.adId = adId;
-				mAdFulfillObj.url = url;
-				try
-				{
-						mAdObjThreadID = std::thread(&PrivateCDAIObjectMPD::FulFillAdObject, this);
-		    			AAMPLOG_INFO("Thread created (FulFillAdObject) [%zx]", GetPrintableThreadID(mAdObjThreadID));
-						mAdObjThreadStarted = true;
-				}
-				catch(std::exception &e)
-				{
-		    			AAMPLOG_ERR(" thread create(FulFillAdObject) failed. Rejecting promise. : %s", e.what());
-		    			ret = -1;
-				}
+				//Cache the Ad to be placed later
+				CacheAdData(periodId, adId, url);
+				adCached = true;
 			}
-			if(ret != 0)
-			{
-				mAamp->SendAdResolvedEvent(mAdFulfillObj.adId, false, 0, 0);
-			}
+		}
+		// Reject the promise as ad couldn't be resolved
+		if(!adCached)
+		{
+			mAamp->SendAdResolvedEvent(adId, false, 0, 0);
 		}
 	}
 }
 
+/**
+ * @fn setPlacementObj
+ * @brief Function to update the PlacementObj with the new available DAI ad
+ * @param[in] adBrkId : currentPlaying DAI AdId
+ * @param[in] endPeriodId : nextperiod to play(after DAI playback)
+ * @return new PlacementObj to be placed
+ */
 PlacementObj PrivateCDAIObjectMPD::setPlacementObj(std::string adBrkId,std::string endPeriodId)
 {
 	PlacementObj nxtPlacementObj = PlacementObj();
 	mAdBrkVecMtx.lock();
 	if(adBrkId == endPeriodId)
 	{
+		// If adBrkId and endPeriodId are same, then the current ad break is completely placed but the period is not filled.
+		// So we are searching for any other ad breaks with the same period id to place next.
 		AAMPLOG_INFO("[CDAI] Period %s playback remained endPeriodId : %s",adBrkId.c_str(),endPeriodId.c_str());
-		if(mAdtoInsertInNextBreakVec.size() > 1 )
+		if(mAdtoInsertInNextBreakVec.size() > 1)
 		{
 			for(auto itr = mAdtoInsertInNextBreakVec.begin();itr != mAdtoInsertInNextBreakVec.end();itr++)
 			{
@@ -944,27 +1004,31 @@ PlacementObj PrivateCDAIObjectMPD::setPlacementObj(std::string adBrkId,std::stri
 				{
 					if(++itr != mAdtoInsertInNextBreakVec.end())
 					{
+						// Move to the next placementObj in the vector
 						nxtPlacementObj = (*itr);
-						AAMPLOG_INFO("[CDAI] PeriodId [%s] has source content next playbacklacementObj [%s]  ",adBrkId.c_str(),nxtPlacementObj.pendingAdbrkId.c_str());
+						AAMPLOG_INFO("[CDAI] PeriodId [%s] has source content next placementObj [%s]",adBrkId.c_str(),nxtPlacementObj.pendingAdbrkId.c_str());
 					}
 					break;
 				}
 			}
 		}
-		else
+		else if (mAdtoInsertInNextBreakVec.size() == 1 && mAdtoInsertInNextBreakVec[0].pendingAdbrkId != adBrkId)
 		{
 			nxtPlacementObj = mAdtoInsertInNextBreakVec[0];
-			AAMPLOG_INFO("[CDAI]  PeriodId [%s] has source content next playbacklacementObj [%s]  first element of adbrkVec",adBrkId.c_str(),nxtPlacementObj.pendingAdbrkId.c_str());
+			AAMPLOG_INFO("[CDAI]  PeriodId [%s] has source content next placementObj [%s]  first element of adbrkVec",adBrkId.c_str(),nxtPlacementObj.pendingAdbrkId.c_str());
 		}
 	}
 	else
 	{
+		// If adBrkId and endPeriodId are different, then the current ad break is completely placed and the period is filled.
+		// So we are searching if the next period has DAI ad to place or not.
 		int adBrkIdx = -1;
 		for(int i = 0;i < mAdtoInsertInNextBreakVec.size();i++)
 		{
-			if( mAdtoInsertInNextBreakVec[i].pendingAdbrkId ==  endPeriodId) //check if the next period has DAI Ad
+			if( mAdtoInsertInNextBreakVec[i].pendingAdbrkId ==  endPeriodId)
 			{
-				nxtPlacementObj = mAdtoInsertInNextBreakVec[i]; //DAI Ad available,point nxtPlacementObj to the endPeriod
+				//DAI Ad available,point nxtPlacementObj to the endPeriod
+				nxtPlacementObj = mAdtoInsertInNextBreakVec[i]; 
 				AAMPLOG_INFO("[CDAI] Placed AdBrkId = %s ",nxtPlacementObj.pendingAdbrkId.c_str());
 				break;
 			}
@@ -973,7 +1037,7 @@ PlacementObj PrivateCDAIObjectMPD::setPlacementObj(std::string adBrkId,std::stri
 				adBrkIdx = i;
 			}
 		}
-		//if curAdIdx = -1, check for the current Playing Adbreak Index , assign the nxtPlacementObj with the next avaiable adbreak in AdBreak List
+		// We didn't find any DAI ad in the next period (nxtPlacementObj.curAdIdx == -1). So we are checking if there is a next available DAI ad to place.
 		if(nxtPlacementObj.curAdIdx == -1 && (adBrkIdx != -1 && ++adBrkIdx < mAdtoInsertInNextBreakVec.size()))
 		{
 			AAMPLOG_INFO("[CDAI] endPeriodId[%s] is not an DAI AD assign the placementObj with next available CDAI Ad[%s]",endPeriodId.c_str(),mAdtoInsertInNextBreakVec[adBrkIdx].pendingAdbrkId.c_str());
@@ -987,10 +1051,8 @@ PlacementObj PrivateCDAIObjectMPD::setPlacementObj(std::string adBrkId,std::stri
 
 /**
  * @fn ErasefrmAdBrklist
- * @brief Function to erase the current PlayingAdBrkId
- * from next AdBreak Vector
- * @param[in] mpd
- * @retval true if adstate changes.
+ * @brief Function to erase the current PlayingAdBrkId from next AdBreak Vector
+ * @param[in] adBrkId Ad break id to be erased
  */
 void PrivateCDAIObjectMPD::ErasefrmAdBrklist(const std::string adBrkId)
 {
@@ -1011,13 +1073,12 @@ void PrivateCDAIObjectMPD::ErasefrmAdBrklist(const std::string adBrkId)
 	mAdBrkVecMtx.unlock();
 }
 
-
 /**
-* @fn HasDaiAd
-* @brief Function Verify if the current period has DAI Ad
-* @param[in] string basperiodId
-*/
-
+ * @fn HasDaiAd
+ * @brief Function Verify if the current period has DAI Ad
+ * @param[in] periodId Base period ID
+ * @return true if DAI Ad is present
+ */
 bool PrivateCDAIObjectMPD::HasDaiAd(const std::string periodId)
 {
 	bool adFound = false;
@@ -1038,11 +1099,164 @@ bool PrivateCDAIObjectMPD::HasDaiAd(const std::string periodId)
 	return adFound;
 }
 
-//Place the end markers of adbreak
+/**
+ * @fn setAdMarkers
+ * @brief Update ad markers for the current ad break being placed
+ * @param[in] p2AdDataduration Duration of the ad break
+ * @param[in] periodDelta Period delta
+ */
 void PrivateCDAIObjectMPD::setAdMarkers(uint64_t p2AdDataduration,double periodDelta)
 {
 	AdBreakObject &abObj = mAdBreaks[mPlacementObj.pendingAdbrkId];
 	abObj.endPeriodOffset = p2AdDataduration - periodDelta;
 	abObj.endPeriodId = mPlacementObj.openPeriodId; //if it is the exact period boundary, end period will be the next one
 	abObj.adjustEndPeriodOffset = true; // marked for later adjustment
+}
+
+/**
+ * @fn FulfillAdLoop
+ */
+void PrivateCDAIObjectMPD::FulfillAdLoop()
+{
+	AAMPLOG_INFO("Enter");
+	// Start tread
+	do
+	{
+		std::unique_lock<std::mutex> lock(mAdFulfillMtx);
+		// Wait for the condition variable to be notified
+		// It goes into wait state if the queue is empty or if the downloads are disabled
+		mAdFulfillCV.wait(lock, [this] {
+			return (mAamp->DownloadsAreEnabled() && !mAdFulfillQ.empty()) || mExitFulfillAdLoop;});
+		AAMPLOG_INFO("AdFulfillQ size[%zu]", mAdFulfillQ.size());
+		// Check if the queue is not empty and downloads are enabled
+		if(!mAdFulfillQ.empty() && mAamp->DownloadsAreEnabled() && !mExitFulfillAdLoop)
+		{
+			AdFulfillObj adFulfillObj = mAdFulfillQ.front();
+			lock.unlock();
+			mAdFulfillObj = adFulfillObj;
+			AAMPLOG_INFO("Fulfilling Ad[%s] with URL[%s]", mAdFulfillObj.adId.c_str(), mAdFulfillObj.url.c_str());
+			if(FulFillAdObject())
+			{
+				// Remove the fulfilled Ad from the queue,
+				// if the Ad is successfully placed
+				// otherwise, it will be retried in the next iteration
+				mAdFulfillQ.pop();
+			}
+		}
+	}
+	while(!mExitFulfillAdLoop);
+	AAMPLOG_INFO("Exit");
+}
+
+/**
+ * @fn StartFulfillAdLoop
+ */
+void PrivateCDAIObjectMPD::StartFulfillAdLoop()
+{
+	if(!mAdObjThreadStarted)
+	{
+		mAdObjThreadStarted = true;
+		mAdObjThreadID = std::thread(&PrivateCDAIObjectMPD::FulfillAdLoop, this);
+		AAMPLOG_INFO("Thread created mAdObjThreadID[%zx]", GetPrintableThreadID(mAdObjThreadID));
+	}
+}
+
+/**
+ * @fn StopFulfillAdLoop
+ */
+void PrivateCDAIObjectMPD::StopFulfillAdLoop()
+{
+	if(mAdObjThreadStarted)
+	{
+		mExitFulfillAdLoop = true;
+		NotifyAdLoopWait();
+		mAdObjThreadID.join();
+		mAdObjThreadStarted = false;
+	}
+}
+
+/**
+ * @fn NotifyAdLoopWait
+ */
+void PrivateCDAIObjectMPD::NotifyAdLoopWait()
+{
+	{
+		std::lock_guard<std::mutex> lock(mAdFulfillMtx);
+		AAMPLOG_INFO("Aborting fulfill ad loop wait.");
+	}
+	mAdFulfillCV.notify_one();
+}
+
+/**
+ * @fn CacheAdData
+ * @brief Function to cache the Ad data to be placed later
+ * @param[in] periodId Base period ID
+ * @param[in] adId Ad ID
+ * @param[in] url Ad URL
+ */
+void PrivateCDAIObjectMPD::CacheAdData(const std::string &periodId, const std::string &adId, const std::string &url)
+{
+	bool notify = false;
+	{
+		std::lock_guard<std::mutex> lock(mAdFulfillMtx);
+		if(isAdBreakObjectExist(periodId))
+		{
+			mAdBreaks[periodId].ads->emplace_back(AdNode{false, false, false, adId, url, 0, "", 0, NULL});
+			mAdFulfillQ.push(AdFulfillObj(periodId, adId, url));
+			notify = true;
+		}
+		else
+		{
+			AAMPLOG_WARN("[CDAI] AdBreakId[%s] not existing. Dropping the Ad.", periodId.c_str());
+		}
+	}
+	if(notify)
+	{
+		NotifyAdLoopWait();
+	}
+}
+
+/**
+ * @fn WaitForNextAdResolved
+ * @brief Wait for the next ad placement to complete with a timeout
+ * @param[in] timeoutMs Timeout value in milliseconds
+ * @return true if the ad placement completed within the timeout, false otherwise
+ */
+bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
+{
+	std::unique_lock<std::mutex> lock(mAdPlacementMtx);
+	bool completed = false;
+	auto& ads = this->mAdBreaks[mAdFulfillObj.periodId].ads;
+	auto adId = mAdFulfillObj.adId;
+	auto it = std::find_if(ads->begin(), ads->end(), [adId](const AdNode& node) {
+		return node.adId == adId;
+	});
+	if (it != ads->end())
+	{
+		if (!it->resolved)
+		{
+			AAMPLOG_INFO("Waiting for next ad placement to complete with timeout %d ms.", timeoutMs);
+			completed = mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [it] {
+				return it->resolved;
+			});
+		}
+		else
+		{
+			completed = true;
+		}
+	}
+	AAMPLOG_INFO("Received notification for next ad placement.");
+	return completed;
+}
+
+/**
+ * @fn AbortWaitForNextAdResolved
+ */
+void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
+{
+	{
+		std::lock_guard<std::mutex> lock(mAdPlacementMtx);
+		AAMPLOG_INFO("Aborting wait for next ad placement.");
+	}
+	mAdPlacementCV.notify_one();
 }

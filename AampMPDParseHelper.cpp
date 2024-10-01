@@ -26,7 +26,6 @@
 #include "AampUtils.h"
 #include "AampLogManager.h"
 
-
 /**
 *   @fn AampMPDParseHelper
 *   @brief Default Constructor
@@ -940,19 +939,29 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 				{
 					const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
 					uint32_t timeScale = segmentTemplates.GetTimescale();
+					uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
 					//Calculate period duration by adding up the segment durations in timeline
 					if (segmentTimeline)
 					{
 						std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
-						int timeLineIndex = 0;
-						while (timeLineIndex < timelines.size())
+						if(!timelines.empty())
 						{
-							ITimeline *timeline = timelines.at(timeLineIndex);
-							uint32_t repeatCount = timeline->GetRepeatCount();
-							double timelineDurationMs = ComputeFragmentDuration(timeline->GetDuration(),timeScale) * 1000;
-							durationMs += ((repeatCount + 1) * timelineDurationMs);
-							AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated durationMs[%lf]", timeLineIndex, timelines.size(), durationMs);
-							timeLineIndex++;
+							int timeLineIndex = 0;
+							uint64_t timelineStartTime = timelines.at(timeLineIndex)->GetStartTime();
+							while (timeLineIndex < timelines.size())
+							{
+								ITimeline *timeline = timelines.at(timeLineIndex);
+								uint32_t repeatCount = timeline->GetRepeatCount();
+								double timelineDurationMs = ComputeFragmentDuration(timeline->GetDuration(),timeScale) * 1000;
+								durationMs += ((repeatCount + 1) * timelineDurationMs);
+								AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated durationMs[%lf]", timeLineIndex, timelines.size(), durationMs);
+								timeLineIndex++;
+							}
+							if (presentationTimeOffset > timelineStartTime)
+							{
+								durationMs -= ((double)((presentationTimeOffset - timelineStartTime) * 1000) / (double) timeScale);
+								AAMPLOG_TRACE("presentationTimeOffset:%" PRIu64 " timelineStartTime:%" PRIu64 " updated durationMs[%lf]", presentationTimeOffset, timelineStartTime, durationMs);
+							}
 						}
 					}
 					else
@@ -1358,7 +1367,18 @@ uint64_t AampMPDParseHelper::GetDurationFromRepresentation()
 }
 
 
-double AampMPDParseHelper::GetPeriodNewContentDuration(IPeriod * period, uint64_t &curEndNumber)
+/**
+ * @brief Calculates the duration of new content in a period.
+ *
+ * This function takes an IPeriod object and calculates the duration of new content
+ * within that period. It considers various factors such as the duration of the period,
+ * the type of MPD (Media Presentation Description), and the segment templates.
+ *
+ * @param[in] period The IPeriod object representing the period.
+ * @param[out] curEndNumber A reference to a uint64_t variable that will store the current end number.
+ * @return The duration of new content in milliseconds.
+ */
+double AampMPDParseHelper::GetPeriodNewContentDurationMs(IPeriod * period, uint64_t &curEndNumber)
 {
 	double durationMs = 0;
 	bool found = false;
@@ -1452,9 +1472,14 @@ double AampMPDParseHelper::GetPeriodNewContentDuration(IPeriod * period, uint64_
 
 
 /**
- *   @brief  GetPeriod Segment timescale from period
- *   @param  period Segment period
- *   @retval timescale
+ * @brief Retrieves the time scale of the period segment.
+ *
+ * This function takes an IPeriod object as input and returns the time scale of the period segment.
+ * The time scale is obtained by checking the segment templates of the first video adaptation set in the period.
+ * If a segment template is found, the time scale is retrieved from it.
+ *
+ * @param period[in] The IPeriod object representing the period.
+ * @return The time scale of the period segment. If no segment template is found, the time scale will be 0.
  */
 uint32_t AampMPDParseHelper::GetPeriodSegmentTimeScale(IPeriod * period)
 {
@@ -1495,9 +1520,10 @@ uint32_t AampMPDParseHelper::GetPeriodSegmentTimeScale(IPeriod * period)
 }
 
 /**
- *   @brief  GetFirstSegment start time from period
- *   @param  period
- *   @retval start time
+ * @brief Retrieves the start time of the first segment in the given period.
+ *
+ * @param[in] period The period for which to retrieve the start time.
+ * @return The start time of the first segment in the period.
  */
 uint64_t AampMPDParseHelper::GetFirstSegmentStartTime(IPeriod * period)
 {
@@ -1552,4 +1578,80 @@ uint64_t AampMPDParseHelper::GetFirstSegmentStartTime(IPeriod * period)
 }
 
 
+/**
+ * @brief  Get start time and duration from the current timeline
+ * @param[in]   period for current period
+ * @param[in]   representationIdx being used in current period
+ * @param[in]   adaptationSetIdx being used in current period
+ * @param[out]  scaledStartTime (seconds) of selected timeline returned
+ * @param[out]  duration (seconds) of selected timeline returned
+ * @return void
+ */
+void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, double &scaledStartTime, double &duration)
+{
 
+	duration = 0.0;
+	const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
+
+	const ISegmentTemplate *representation = NULL;
+	const ISegmentTemplate *adaptationSet = NULL;
+	if (adaptationSetIdx < adaptationSets.size() && adaptationSetIdx >=0 )
+	{
+		IAdaptationSet *firstAdaptation = adaptationSets.at(adaptationSetIdx);
+
+		adaptationSet = firstAdaptation->GetSegmentTemplate();
+		const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+		if (representationIdx < representations.size() && representationIdx >= 0)
+		{
+			representation = representations.at(representationIdx)->GetSegmentTemplate();
+		}
+	}
+	SegmentTemplates segmentTemplates(representation, adaptationSet);
+
+	if (segmentTemplates.HasSegmentTemplate())
+	{
+		const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
+		uint32_t timeScale = segmentTemplates.GetTimescale();
+		uint64_t startTime = 0;
+		// Calculate period duration by adding up the segment durations in timeline
+		if (segmentTimeline)
+		{
+			std::vector<ITimeline *> &timelines = segmentTimeline->GetTimelines();
+			int timeLineIndex = 0;
+
+			while (timeLineIndex < timelines.size())
+			{
+				ITimeline *timeline = timelines.at(timeLineIndex);
+				uint32_t repeatCount = timeline->GetRepeatCount();
+				double timelineDuration = ComputeFragmentDuration(timeline->GetDuration(), timeScale);
+				duration += ((repeatCount + 1) * timelineDuration);
+				AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated duration[%lf]", timeLineIndex, timelines.size(), duration);
+				timeLineIndex++;
+			}
+
+			if(timelines.size() > 0)
+			{
+				startTime = timelines.at(0)->GetStartTime();
+				AAMPLOG_TRACE("startTime %" PRIu64 " timescale %u", startTime,timeScale);
+			}
+			uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
+			if(presentationTimeOffset > startTime)
+			{
+				AAMPLOG_WARN("Presentation Time Offset %" PRIu64 " ahead of segment start %" PRIu64 ", Set PTO as start time", presentationTimeOffset, startTime);
+				startTime = presentationTimeOffset;
+				duration -= (double)(presentationTimeOffset - startTime) / (double)(timeScale);
+			}
+			scaledStartTime = ((double) startTime / (double)timeScale);
+		}
+		else
+		{
+			startTime = segmentTemplates.GetPresentationTimeOffset();
+			if (startTime > 0)
+			{
+				scaledStartTime = ((double) startTime / (double)segmentTemplates.GetTimescale());
+			}
+			AAMPLOG_WARN("No timeline in this manifest");
+		}
+	}
+
+}

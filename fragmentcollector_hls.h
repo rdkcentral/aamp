@@ -583,7 +583,6 @@ class TrackState : public MediaTrack
 		void SwitchSubtitleTrack();
 
 		void getNextFetchRequestUri(); //CMCD Get next object request url(nor)
-	
 		/***************************************************************************
 		 * @fn SwitchAudioTrack
 		 *

@@ -260,6 +260,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampTsbDataManager.h
 					AampTsbReader.h
 					lstring.hpp
+					scte35/AampSCTE35.h
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -298,7 +299,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					isobmff/isobmffbox.cpp
 					isobmff/isobmffbuffer.cpp
 					isobmff/isobmffprocessor.cpp
-					isobmff/isobmffconverttokeyframe.cpp
+					isobmff/isobmffhelper.cpp
 					drm/helper/AampDrmHelper.cpp
 					AampGstUtils.cpp
 					MediaStreamContext.cpp
@@ -330,6 +331,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					AampTSBSessionManager.cpp
 					AampTsbDataManager.cpp
 					AampTsbReader.cpp
+					scte35/AampSCTE35.cpp
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
@@ -462,7 +464,6 @@ set(AAMP_CLI_HEADERS test/aampcli/Aampcli.h
 			test/aampcli/AampcliHarvester.h
 			test/aampcli/AampcliSmokeTest.h
 			test/aampcli/AampcliSubtecSimulator.h
-			test/aampcli/AampSCTE35.h
 			${AAMP_OS_SOURCES})
 set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp
 			test/aampcli/AampcliPlaybackCommand.cpp
@@ -474,7 +475,6 @@ set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp
 			test/aampcli/AampcliHarvester.cpp
 			test/aampcli/AampcliSmokeTest.cpp
 			test/aampcli/AampcliSubtecSimulator.cpp
-			test/aampcli/AampSCTE35.cpp
 			${AAMP_OS_SOURCES})
 
 

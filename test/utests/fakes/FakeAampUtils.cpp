@@ -402,7 +402,7 @@ double ParseISO8601Duration(const char *ptr)
 			const char *temp = strchr(ptr, 'Y');
 			if (temp)
 			{	sscanf(ptr, "%dY", &years);
-				AAMPLOG_WARN("years %d", years);
+				printf("years %d", years);
 				ptr = temp + 1;
 			}
 			temp = strchr(ptr, 'M');
@@ -443,7 +443,7 @@ double ParseISO8601Duration(const char *ptr)
 	}
 	else
 	{
-		AAMPLOG_WARN("Invalid input %s", ptr);
+		printf("Invalid input %s", ptr);
 	}
 
 	returnValue += seconds;
@@ -528,4 +528,17 @@ double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampL
 TSB::LogLevel ConvertTsbLogLevel(int logLev)
 {
 	return static_cast<TSB::LogLevel>(0);
+}
+
+void UrlEncode(std::string inStr, std::string &outStr)
+{
+}
+
+bool parseAndValidateSCTE35(const std::string &scte35Data)
+{
+	if (g_mockAampUtils)
+	{
+		return g_mockAampUtils->parseAndValidateSCTE35(scte35Data);
+	}
+	return false;
 }

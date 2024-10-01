@@ -382,6 +382,7 @@ class MvhdBox : public FullBox
 {
 private:
 	uint32_t timeScale;
+	uint8_t* const timeScale_loc;
 
 public:
 	/**
@@ -389,15 +390,17 @@ public:
 	 *
 	 * @param[in] sz - box size
 	 * @param[in] tScale - TimeScale value
+	 * @param[in] tScale_loc - pointer with the location of the TimeScale in the buffer
 	 */
-	MvhdBox(uint32_t sz, uint32_t tScale);
+	MvhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc);
 
 	/**
 	 * @fn MvhdBox
 	 * @param[in] fbox - box object
 	 * @param[in] tScale - TimeScale value
+	 * @param[in] tScale_loc - pointer with the location of the TimeScale in the buffer
 	 */
-	MvhdBox(FullBox &fbox, uint32_t tScale);
+	MvhdBox(FullBox &fbox, uint32_t tScale, uint8_t* tScale_loc);
 
 	/**
 	 * @fn setTimeScale
@@ -433,6 +436,7 @@ class MdhdBox : public FullBox
 {
 private:
 	uint32_t timeScale;
+	uint8_t* const timeScale_loc;
 
 public:
 	/**
@@ -440,16 +444,18 @@ public:
 	 *
 	 * @param[in] sz - box size
 	 * @param[in] tScale - TimeScale value
+	 * @param[in] tScale_loc - pointer with the location of the TimeScale in the buffer
 	 */
-	MdhdBox(uint32_t sz, uint32_t tScale);
+	MdhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc);
 
 	/**
 	 * @fn MdhdBox
 	 *
 	 * @param[in] fbox - box object
 	 * @param[in] tScale - TimeScale value
+	 * @param[in] tScale_loc - pointer with the location of the TimeScale in the buffer
 	 */
-	MdhdBox(FullBox &fbox, uint32_t tScale);
+	MdhdBox(FullBox &fbox, uint32_t tScale, uint8_t* tScale_loc);
 
 	/**
 	 * @fn setTimeScale
@@ -484,7 +490,8 @@ public:
 class TfdtBox : public FullBox
 {
 private:
-	uint64_t baseMDT;	//BaseMediaDecodeTime value
+	uint64_t baseMDT;			// BaseMediaDecodeTime value
+	uint8_t* const baseMDT_loc; // BaseMediaDecodeTime location
 
 public:
 	/**
@@ -492,16 +499,18 @@ public:
 	 *
 	 * @param[in] sz - box size
 	 * @param[in] mdt - BaseMediaDecodeTime value
+	 * @param[in] mdt_loc - BaseMediaDecodeTime location
 	 */
-	TfdtBox(uint32_t sz, uint64_t mdt);
+	TfdtBox(uint32_t sz, uint64_t mdt, uint8_t* mdt_loc);
 
 	/**
 	 * @fn TfdtBox
 	 *
 	 * @param[in] fbox - box object
 	 * @param[in] mdt - BaseMediaDecodeTime value
+	 * @param[in] mdt_loc - BaseMediaDecodeTime location
 	 */
-	TfdtBox(FullBox &fbox, uint64_t mdt);
+	TfdtBox(FullBox &fbox, uint64_t mdt, uint8_t* mdt_loc);
 
 	/**
 	 * @fn setBaseMDT
@@ -832,7 +841,7 @@ public:
 class TfhdBox : public FullBox
 {
 private:
-	uint64_t duration;
+	uint64_t mDefaultSampleDuration;
 	uint8_t *default_sample_duration_location;
 	uint32_t mDefaultSampleSize;
 	uint32_t mFlags;
@@ -861,19 +870,28 @@ public:
 	TfhdBox(FullBox &fbox, uint64_t default_duration, uint8_t * default_duration_location, uint32_t default_sample_size, uint32_t flags);
 
 	/**
-	 * @fn setDefaultSampleDuration
+	 * @fn defaultSampleDurationPresent
 	 *
-	 * @param[in] sample_duration - SampleDuration value
-	 * @return void
+	 * @return True if default sample duration is present in the box; false otherwise
 	 */
-	void setDefaultSampleDuration(uint64_t sample_duration);
+	bool defaultSampleDurationPresent(void);
 
 	/**
-	 * @fn getSampleDuration
+	 * @fn getDefaultSampleDuration
+	 *     Use defaultSampleDurationPresent() beforehand to check for presence.
 	 *
 	 * @return Default sample duration, 0 if not present
+	 *         NOTE: It's possible that 0 may also be a valid value.
 	 */
 	uint64_t getDefaultSampleDuration();
+
+	/**
+	 * @fn setDefaultSampleDuration
+	 *     Use defaultSampleDurationPresent() beforehand to check for presence.
+	 *
+	 * @param[in] sample_duration - Default sample duration value to set
+	 */
+	void setDefaultSampleDuration(uint64_t sample_duration);
 
 	/**
 	 * @fn getDefaultSampleSize
@@ -890,13 +908,6 @@ public:
 	 * @return newly constructed TfhdBox object
 	 */
 	static TfhdBox* constructTfhdBox(uint32_t sz, uint8_t *ptr);
-
-	/**
-	 * @fn defaultSampleDurationPresent
-	 *
-	 * @return true if DEFAULT_SAMPLE_DURATION_PRESENT is enabled, false otherwise
-	 */
-	bool defaultSampleDurationPresent(void);
 };
 
 /**

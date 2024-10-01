@@ -39,7 +39,7 @@ const uint32_t TFHD_FLAG_BASE_DATA_OFFSET_PRESENT               = 0x00001;
 const uint32_t TFHD_FLAG_SAMPLE_DESCRIPTION_INDEX_PRESENT       = 0x00002;
 const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_DURATION_PRESENT        = 0x00008;
 const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_SIZE_PRESENT            = 0x00010;
-// const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT           = 0x00020;
+const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT           = 0x00020;
 // const uint32_t TFHD_FLAG_DURATION_IS_EMPTY                   = 0x10000;
 // const uint32_t TFHD_FLAG_DEFAULT_BASE_IS_MOOF                = 0x20000;
 
@@ -343,7 +343,7 @@ FullBox::FullBox(uint32_t sz, const char btype[4], uint8_t ver, uint32_t f) : Bo
 /**
  *  @brief MvhdBox constructor
  */
-MvhdBox::MvhdBox(uint32_t sz, uint32_t tScale) : FullBox(sz, Box::MVHD, 0, 0), timeScale(tScale)
+MvhdBox::MvhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc) : FullBox(sz, Box::MVHD, 0, 0), timeScale(tScale), timeScale_loc(tScale_loc)
 {
 
 }
@@ -351,7 +351,7 @@ MvhdBox::MvhdBox(uint32_t sz, uint32_t tScale) : FullBox(sz, Box::MVHD, 0, 0), t
 /**
  *  @brief MvhdBox constructor
  */
-MvhdBox::MvhdBox(FullBox &fbox, uint32_t tScale) : FullBox(fbox), timeScale(tScale)
+MvhdBox::MvhdBox(FullBox &fbox, uint32_t tScale, uint8_t* tScale_loc) : FullBox(fbox), timeScale(tScale), timeScale_loc(tScale_loc)
 {
 
 }
@@ -362,6 +362,10 @@ MvhdBox::MvhdBox(FullBox &fbox, uint32_t tScale) : FullBox(fbox), timeScale(tSca
 void MvhdBox::setTimeScale(uint32_t tScale)
 {
 	timeScale = tScale;
+	if (nullptr != timeScale_loc)
+	{
+		WRITE_U32(timeScale_loc, tScale);
+	}
 }
 
 /**
@@ -377,6 +381,7 @@ uint32_t MvhdBox::getTimeScale()
  */
 MvhdBox* MvhdBox::constructMvhdBox(uint32_t sz, uint8_t *ptr)
 {
+	auto start{ptr};
 	uint8_t version = READ_VERSION(ptr);
 	uint32_t flags  = READ_FLAGS(ptr);
 	uint32_t tScale;
@@ -389,16 +394,18 @@ MvhdBox* MvhdBox::constructMvhdBox(uint32_t sz, uint8_t *ptr)
 	}
 	ptr += skip;
 
+	uint8_t* tScale_loc{ptr};
 	tScale = READ_U32(ptr);
 
 	FullBox fbox(sz, Box::MVHD, version, flags);
-	return new MvhdBox(fbox, tScale);
+	fbox.setBase(start);
+	return new MvhdBox(fbox, tScale, tScale_loc);
 }
 
 /**
  *  @brief MdhdBox constructor
  */
-MdhdBox::MdhdBox(uint32_t sz, uint32_t tScale) : FullBox(sz, Box::MDHD, 0, 0), timeScale(tScale)
+MdhdBox::MdhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc) : FullBox(sz, Box::MDHD, 0, 0), timeScale(tScale), timeScale_loc(tScale_loc)
 {
 
 }
@@ -406,7 +413,7 @@ MdhdBox::MdhdBox(uint32_t sz, uint32_t tScale) : FullBox(sz, Box::MDHD, 0, 0), t
 /**
  *  @brief MdhdBox constructor
  */
-MdhdBox::MdhdBox(FullBox &fbox, uint32_t tScale) : FullBox(fbox), timeScale(tScale)
+MdhdBox::MdhdBox(FullBox &fbox, uint32_t tScale, uint8_t* tScale_loc) : FullBox(fbox), timeScale(tScale), timeScale_loc(tScale_loc)
 {
 
 }
@@ -417,6 +424,10 @@ MdhdBox::MdhdBox(FullBox &fbox, uint32_t tScale) : FullBox(fbox), timeScale(tSca
 void MdhdBox::setTimeScale(uint32_t tScale)
 {
 	timeScale = tScale;
+	if (nullptr != timeScale_loc)
+	{
+		WRITE_U32(timeScale_loc, tScale);
+	}
 }
 
 /**
@@ -432,6 +443,7 @@ uint32_t MdhdBox::getTimeScale()
  */
 MdhdBox* MdhdBox::constructMdhdBox(uint32_t sz, uint8_t *ptr)
 {
+	auto start{ptr};
 	uint8_t version = READ_VERSION(ptr);
 	uint32_t flags  = READ_FLAGS(ptr);
 	uint32_t tScale;
@@ -444,16 +456,18 @@ MdhdBox* MdhdBox::constructMdhdBox(uint32_t sz, uint8_t *ptr)
 	}
 	ptr += skip;
 
+	uint8_t* tScale_loc{ptr};
 	tScale = READ_U32(ptr);
 
 	FullBox fbox(sz, Box::MDHD, version, flags);
-	return new MdhdBox(fbox, tScale);
+	fbox.setBase(start);
+	return new MdhdBox(fbox, tScale, tScale_loc);
 }
 
 /**
  * @brief TfdtBox constructor
  */
-TfdtBox::TfdtBox(uint32_t sz, uint64_t mdt) : FullBox(sz, Box::TFDT, 0, 0), baseMDT(mdt)
+TfdtBox::TfdtBox(uint32_t sz, uint64_t mdt, uint8_t* mdt_loc) : FullBox(sz, Box::TFDT, 0, 0), baseMDT(mdt), baseMDT_loc(mdt_loc)
 {
 
 }
@@ -461,7 +475,7 @@ TfdtBox::TfdtBox(uint32_t sz, uint64_t mdt) : FullBox(sz, Box::TFDT, 0, 0), base
 /**
  *  @brief TfdtBox constructor
  */
-TfdtBox::TfdtBox(FullBox &fbox, uint64_t mdt) : FullBox(fbox), baseMDT(mdt)
+TfdtBox::TfdtBox(FullBox &fbox, uint64_t mdt, uint8_t* mdt_loc) : FullBox(fbox), baseMDT(mdt), baseMDT_loc(mdt_loc)
 {
 
 }
@@ -472,6 +486,17 @@ TfdtBox::TfdtBox(FullBox &fbox, uint64_t mdt) : FullBox(fbox), baseMDT(mdt)
 void TfdtBox::setBaseMDT(uint64_t mdt)
 {
 	baseMDT = mdt;
+	if (nullptr != baseMDT_loc)
+	{
+		if (1 == version)
+		{
+			WriteUint64(baseMDT_loc, mdt);
+		}
+		else
+		{
+			WRITE_U32(baseMDT_loc, static_cast<uint32_t>(mdt));
+		}
+	}
 }
 
 /**
@@ -489,6 +514,7 @@ TfdtBox* TfdtBox::constructTfdtBox(uint32_t sz, uint8_t *ptr)
 {
 	uint8_t version = READ_VERSION(ptr);
 	uint32_t flags  = READ_FLAGS(ptr);
+	uint8_t* mdt_loc{ptr};
 	uint64_t mdt;
 
 	if (1 == version)
@@ -500,7 +526,7 @@ TfdtBox* TfdtBox::constructTfdtBox(uint32_t sz, uint8_t *ptr)
 		mdt = (uint32_t)READ_U32(ptr);
 	}
 	FullBox fbox(sz, Box::TFDT, version, flags);
-	return new TfdtBox(fbox, mdt);
+	return new TfdtBox(fbox, mdt, mdt_loc);
 }
 
 /**
@@ -905,6 +931,11 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 		// unsigned int(16) sample_degradation_priority;
 	}
 
+	// Used by truncate operation
+	uint32_t bytesPerSample = ((flags & TRUN_FLAG_SAMPLE_DURATION_PRESENT)? 4 : 0) +
+							  ((flags & TRUN_FLAG_SAMPLE_SIZE_PRESENT)? 4 : 0) +
+							  ((flags & TRUN_FLAG_SAMPLE_FLAGS_PRESENT)? 4 : 0) +
+							  ((flags & TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)? 4 : 0);
 	uint8_t *firstSampleDurationLoc = nullptr;
 
 	for (unsigned int i=0; i<sample_count; i++)
@@ -999,7 +1030,7 @@ bool TrunBox::sampleDurationPresent()
  */
 TfhdBox::TfhdBox(uint32_t sz, uint64_t default_duration, uint8_t* default_duration_location, uint32_t default_sample_size, uint32_t flags)
 	: FullBox(sz, Box::TFHD, 0, 0),
-	duration(default_duration),
+	mDefaultSampleDuration(default_duration),
 	default_sample_duration_location(default_duration_location),
 	mDefaultSampleSize(default_sample_size),
 	mFlags(flags)
@@ -1012,7 +1043,7 @@ TfhdBox::TfhdBox(uint32_t sz, uint64_t default_duration, uint8_t* default_durati
  */
 TfhdBox::TfhdBox(FullBox &fbox, uint64_t default_duration, uint8_t* default_duration_location, uint32_t default_sample_size, uint32_t flags)
 	: FullBox(fbox),
-	duration(default_duration),
+	mDefaultSampleDuration(default_duration),
 	default_sample_duration_location(default_duration_location),
 	mDefaultSampleSize(default_sample_size),
 	mFlags(flags)
@@ -1020,32 +1051,28 @@ TfhdBox::TfhdBox(FullBox &fbox, uint64_t default_duration, uint8_t* default_dura
 
 }
 
-/**
- *  @brief Set Sample Duration value
- */
+bool TfhdBox::defaultSampleDurationPresent(void)
+{
+	return (mFlags & TFHD_FLAG_DEFAULT_SAMPLE_DURATION_PRESENT) != 0;
+}
+
+uint64_t TfhdBox::getDefaultSampleDuration()
+{
+	return mDefaultSampleDuration;
+}
+
 void TfhdBox::setDefaultSampleDuration(uint64_t default_duration)
 {
-	duration = default_duration;
+	mDefaultSampleDuration = default_duration;
 	if (nullptr != default_sample_duration_location)
 	{
 		WRITE_U32(default_sample_duration_location, default_duration);
 	}
 }
 
-/**
- *  @brief Get the default sample size
- */
 uint32_t TfhdBox::getDefaultSampleSize(void)
 {
     return mDefaultSampleSize;
-}
-
-/**
- *  @brief Get SampleDuration value
- */
-uint64_t TfhdBox::getDefaultSampleDuration()
-{
-	return duration;
 }
 
 /**
@@ -1084,20 +1111,15 @@ TfhdBox* TfhdBox::constructTfhdBox(uint32_t sz, uint8_t *ptr)
 		DefaultSampleSize = READ_U32(ptr);
 	}
 
-//	if (flags & TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT)
-//	{
-//		ptr += sizeof(uint32_t);   // skip default sample flags
-//	}
+	if (flags & TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT)
+	{
+		ptr += sizeof(uint32_t);   // skip default sample flags
+	}
 
 	FullBox fbox(sz, Box::TFHD, version, flags);
 	fbox.setBase(start);
 
 	return new TfhdBox(fbox, DefaultSampleDuration, DefaultSampleDuration_loc, DefaultSampleSize, flags);
-}
-
-bool TfhdBox::defaultSampleDurationPresent(void)
-{
-	return ((mFlags & TFHD_FLAG_SAMPLE_DESCRIPTION_INDEX_PRESENT) != 0);
 }
 
 /**
@@ -1284,7 +1306,7 @@ SidxBox* SidxBox::constructSidxBox(uint32_t sz, uint8_t *ptr)
 		READ_U32(ptr); // earliest_presentation_time;
 		READ_U32(ptr); // first_offset
 	}
-	else 
+	else
 	{
 		READ_64(ptr); // earliest_presentation_time;
 		READ_64(ptr); // first_offset;

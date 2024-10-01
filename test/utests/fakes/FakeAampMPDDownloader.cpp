@@ -157,7 +157,15 @@ std::shared_ptr<ManifestDownloadResponse> AampMPDDownloader::GetManifest(bool bW
  */
 bool AampMPDDownloader::IsMPDLowLatency(AampLLDashServiceData &LLDashData)
 {
-	return false;
+	if (g_mockAampMPDDownloader != nullptr)
+	{
+		return g_mockAampMPDDownloader->IsMPDLowLatency(LLDashData);
+	}
+	else
+	{
+		return false;
+	}
+
 }
 
 
@@ -186,4 +194,3 @@ void AampMPDDownloader::UnRegisterCallback()
 void AampMPDDownloader::GetLastDownloadedManifest(std::string& manifestBuffer)
 {
 }
-

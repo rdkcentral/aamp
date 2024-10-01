@@ -30,6 +30,9 @@ using ::testing::_;
 using ::testing::DoAll;
 using ::testing::Return;
 using ::testing::SetArgPointee;
+using ::testing::WithParamInterface;
+
+using ConstBuffer = std::pair<const uint8_t*, size_t>;
 
 const size_t SIZEOF_TAG{4};
 
@@ -164,3 +167,77 @@ TEST_F(IsoBmffBoxTests, trunTests)
 	// Compare against a pre-generated buffer
 
 }
+
+TEST_F(IsoBmffBoxTests, tfhdDefaultSampleDurationTests)
+{
+	memcpy(buffer, tfhdDefaultSampleDurationPresent, sizeof(tfhdDefaultSampleDurationPresent));
+	auto ptr{buffer};
+	auto tfhdSize = READ_U32(ptr);
+	EXPECT_TRUE((IS_TYPE(ptr, Box::TFHD)));
+	ptr += SIZEOF_TAG;
+	auto tfhd{TfhdBox::constructTfhdBox(tfhdSize, ptr)};
+
+	uint64_t durationOld{512}; // Old default sample duration embedded in the test data
+	uint64_t durationNew{1};
+
+	EXPECT_TRUE(tfhd->defaultSampleDurationPresent());
+	EXPECT_EQ(tfhd->getDefaultSampleDuration(), durationOld);
+	tfhd->setDefaultSampleDuration(durationNew);
+	EXPECT_EQ(tfhd->getDefaultSampleDuration(), durationNew);
+	delete tfhd;
+
+	// Check that the underlying buffer was also updated, by creating a new box for the same buffer
+	ptr = buffer;
+	tfhdSize = READ_U32(ptr);
+	ptr += SIZEOF_TAG;
+	tfhd = TfhdBox::constructTfhdBox(tfhdSize, ptr);
+	EXPECT_EQ(tfhd->getDefaultSampleDuration(), durationNew);
+	delete tfhd;
+
+	memcpy(buffer, tfhdDefaultSampleDurationAbsent, sizeof(tfhdDefaultSampleDurationAbsent));
+	ptr = buffer;
+	tfhdSize = READ_U32(ptr);
+	EXPECT_TRUE((IS_TYPE(ptr, Box::TFHD)));
+	ptr += SIZEOF_TAG;
+	tfhd = TfhdBox::constructTfhdBox(tfhdSize, ptr);
+
+	EXPECT_FALSE(tfhd->defaultSampleDurationPresent());
+	EXPECT_EQ(tfhd->getDefaultSampleDuration(), 0);
+	delete tfhd;
+}
+
+class IsoBmffTfdtBoxVersionTests : public IsoBmffBoxTests,
+								   public testing::WithParamInterface<ConstBuffer>
+{
+};
+
+TEST_P(IsoBmffTfdtBoxVersionTests, tfdtVersionTests)
+{
+	ConstBuffer testData{GetParam()};
+	memcpy(buffer, testData.first, testData.second);
+	auto ptr{buffer};
+	auto tfdtSize = READ_U32(ptr);
+	EXPECT_TRUE((IS_TYPE(ptr, Box::TFDT)));
+	ptr += SIZEOF_TAG;
+	auto tfdt{TfdtBox::constructTfdtBox(tfdtSize, ptr)};
+
+	uint64_t mdtOld{1254400}; // Old base media decode time embedded in the testData
+	uint64_t mdtNew{123};
+
+	EXPECT_EQ(tfdt->getBaseMDT(), mdtOld);
+	tfdt->setBaseMDT(mdtNew);
+	EXPECT_EQ(tfdt->getBaseMDT(), mdtNew);
+	delete tfdt;
+
+	// Check that the underlying buffer was also updated, by creating a new box for the same buffer
+	ptr = buffer;
+	tfdtSize = READ_U32(ptr);
+	ptr += SIZEOF_TAG;
+	tfdt = TfdtBox::constructTfdtBox(tfdtSize, ptr);
+	EXPECT_EQ(tfdt->getBaseMDT(), mdtNew);
+	delete tfdt;
+}
+
+INSTANTIATE_TEST_SUITE_P(IsoBmffBoxTests, IsoBmffTfdtBoxVersionTests,
+						 ::testing::Values(ConstBuffer(tfdtDataV0, sizeof(tfdtDataV0)),
+										   ConstBuffer(tfdtDataV1, sizeof(tfdtDataV1))));

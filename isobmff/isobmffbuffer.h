@@ -45,6 +45,7 @@ private:
 	Box* chunkedBox; //will hold one element only
 	size_t mdatCount;
 	AampLogManager *mLogObj;
+
 	/**
 	 * @fn getFirstPTSInternal
 	 *
@@ -81,44 +82,67 @@ private:
 	 */
 	void printBoxesInternal(const std::vector<Box*> *boxes);
 
-        /**
-         * @fn parseBoxInternal
-         *
-     	 * @param[in] boxes - ISOBMFF boxes
-     	 * @param[in] name - box name to get
-     	 * @param[out] buf - mdat buffer pointer
-     	 * @param[out] size - size of mdat buffer
-     	 * @return bool
-     	 */
+	/**
+	 * @fn parseBoxInternal
+	 *
+	 * @param[in] boxes - ISOBMFF boxes
+	 * @param[in] name - box name to get
+	 * @param[out] buf - mdat buffer pointer
+	 * @param[out] size - size of mdat buffer
+	 * @return bool
+	 */
 	bool parseBoxInternal(const std::vector<Box*> *boxes, const char *name, uint8_t *buf, size_t &size);
 
-        /**
-     	 * @fn getBoxSizeInternal
-     	 *
-     	 * @param[in] boxes - ISOBMFF boxes
-     	 * @param[in] name - box name to get
-     	 * @param[out] size - size of mdat buffer
-     	 * @return bool
-     	 */
+	/**
+	 * @fn getBoxSizeInternal
+	 *
+	 * @param[in] boxes - ISOBMFF boxes
+	 * @param[in] name - box name to get
+	 * @param[out] size - size of mdat buffer
+	 * @return bool
+	 */
 	bool getBoxSizeInternal(const std::vector<Box*> *boxes, const char *name, size_t &size);
 
-    	/**
-    	 * @fn getBoxesInternal
-    	 *
-    	 * @param[in] boxes - ISOBMFF boxes
-    	 * @param[in] name - box name to get
-    	 * @param[out] pBoxes - size of mdat buffer
-    	 * @return bool
-    	 */
-    	bool getBoxesInternal(const std::vector<Box*> *boxes, const char *name, std::vector<Box*> *pBoxes);
+	/**
+	 * @fn getBoxesInternal
+	 *
+	 * @param[in] boxes - ISOBMFF boxes
+	 * @param[in] name - box name to get
+	 * @param[out] pBoxes - size of mdat buffer
+	 * @return bool
+	 */
+	bool getBoxesInternal(const std::vector<Box*> *boxes, const char *name, std::vector<Box*> *pBoxes);
+
+	/**
+	 * @fn restampPtsInternal
+	 *
+	 * @brief Private method to restamp PTS in a buffer
+	 *
+	 * @param[in] offset - pts offset
+	 * @param[in] segment - buffer pointer
+	 * @param[in] bufSz - buffer size
+	 */
+	void restampPtsInternal(int64_t offset, uint8_t *segment, size_t bufSz);
+
+	/**
+	 * @fn updateSampleDurationInternal
+	 *
+	 * @brief Private method to update the sample duration in the relevant boxes,
+	 *        if the sample duration is already present in those boxes.
+	 *
+	 * @param[in] duration - duration to set
+	 * @param[in] trun - Track fragment run box in which to update the duration, if present
+	 * @param[in] tfhd - Track fragment header box in which to update the duration, if present
+	 * @return true if the sample duration was updated in at least one box; false otherwise
+	 */
+	bool updateSampleDurationInternal(uint64_t duration, TrunBox& trun, TfhdBox& tfhd);
 
 public:
 	/**
 	 * @brief IsoBmffBuffer constructor
 	 */
-	IsoBmffBuffer(AampLogManager *logObj=NULL): mLogObj(logObj), boxes(), buffer(NULL), bufSize(0), chunkedBox(NULL), mdatCount(0)
+	IsoBmffBuffer(AampLogManager *logObj=NULL): mLogObj(logObj), boxes(), buffer(NULL), bufSize(0), chunkedBox(NULL), mdatCount(0), beforePTS(0), afterPTS(0), firstPtsSaved(false)
 	{
-
 	}
 
 	/**
@@ -128,6 +152,30 @@ public:
 
 	IsoBmffBuffer(const IsoBmffBuffer&) = delete;
 	IsoBmffBuffer& operator=(const IsoBmffBuffer&) = delete;
+
+	/**
+	 * @fn getParsedBoxesSize
+	 * @return size of parsed boxes
+	 */
+	size_t getParsedBoxesSize();
+
+	/**
+	 * @fn getChunkedfBoxMetaData
+	 * @return true if parsed or false
+	 */
+	bool getChunkedfBoxMetaData(uint32_t &offset, std::string &type, uint32_t &size);
+
+	/**
+	 * @fn UpdateBufferData
+	 * @return true if parsed or false
+	 */
+	int UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize);
+
+	/**
+	 * @fn UpdateBufferData
+	 * @return true if parsed or false
+	 */
+	double getTotalChunkDuration(int lastMDatIndex);
 
 	/**
 	 * @fn setBuffer
@@ -140,14 +188,33 @@ public:
 
 	/**
 	 * @fn parseBuffer
-	 *  @param[in] correctBoxSize - flag to indicate if box size needs to be corrected
+	 *
+	 * @brief Parse the ISO BMFF buffer and create a vector of boxes with the parsed information.
+	 *        The method destroyBoxes needs to be called before parseBuffer can be called a second time.
+	 *
+	 * @param[in] correctBoxSize - flag to indicate if box size needs to be corrected
 	 * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
 	 * @return true if parse was successful. false otherwise
 	 */
 	bool parseBuffer(bool correctBoxSize = false, int newTrackId = -1);
 
 	/**
-	 * @fn restampPTS
+	*  	@fn parseBuffer
+	*  	@param[in] name - name of the track
+	*  	@param[in/out] unParsedBuffer - Total unparsedbuffer
+	*  	@param[in] timeScale - timescale of the track
+	*	@param[out] parsedBufferSize - parsed buffer size
+	*  	@param[in/out] unParsedBufferSize -uunparsed or remaining buffer size
+	*	@param[out] fpts - fragmnet pts value
+	*  	@param[out] fduration - fragment duration
+	*	@return true if parsedd or false
+	*  	@brief Parse ISOBMFF boxes from buffer
+	*/
+	bool ParseChunkData(const char* name, char* &unParsedBuffer, uint32_t timeScale,
+	 size_t & parsedBufferSize, size_t &unParsedBufferSize, double& fpts, double &fduration);
+
+	/**
+	 * @fn restampPTS - obsolete, to be removed
 	 *
 	 * @param[in] offset - pts offset
 	 * @param[in] basePts - base pts
@@ -156,6 +223,32 @@ public:
 	 * @return void
 	 */
 	void restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz);
+
+	/**
+	 * @fn restampPts
+	 *
+	 * @brief Restamp PTS in a buffer
+	 *        The IsoBmffBuffer parsing is no longer valid after this method is
+	 *        called; parseBuffer() has to be called again for the get methods
+	 *        to return the right value.
+	 *
+	 * @param[in] offset - pts offset
+	 */
+	void restampPts(int64_t offset);
+
+	/**
+	 * @fn setPtsAndDuration
+	 *
+	 * @brief Set the PTS (base media decode time) and sample duration.
+	 *        This method assumes that the buffer contains an I-frame media segment,
+	 *        consisting of a single sample, so is suitable for trick mode re-stamping.
+	 *        If the buffer contains multiple samples or truns, only the first sample
+	 *        duration will be set (if flagged as present).
+	 *
+	 * @param[in] pts - Base media decode time to set
+	 * @param[in] duration - Sample duration to set
+	 */
+	void setPtsAndDuration(uint64_t pts, uint64_t duration);
 
 	/**
 	 * @fn getFirstPTS
@@ -308,6 +401,17 @@ public:
 	Box* getBoxAtIndex(size_t index);
 
 	/**
+	 * @fn getChildBox
+	 * @param [in] parent - parent box to search in
+	 * @param[in] name - box name to get
+	 * @param[in out] index - index of box in a parsed buffer
+	 * in: start index to search, out: index of the box found
+	 * index should be 0 for the first call; if subsequent boxes are to be found, index should set to be 1 + the last index returned
+	 * @return Box handle if Box found at index given. NULL otherwise
+	 */
+	Box* getChildBox(Box *parent, const char *name, size_t &index);
+
+	/**
 	 * @fn printPTSInternal
 	 *
 	 * @param[in] boxes - ISOBMFF boxes
@@ -358,6 +462,24 @@ public:
 	*/
 	void truncate(void);
 	size_t getSize(void) const { return bufSize; }
-};
 
+	/**
+ 	 * @fn getSegmentDuration
+	 *
+	 * @return uint64_t - Total segment duration in units of timescale.
+	 */
+	uint64_t getSegmentDuration();
+	uint64_t beforePTS;	//For log output
+	uint64_t afterPTS;	//For log output
+	bool firstPtsSaved;	//Used to log, only the first PTS restamped in a segment.
+
+	/**
+ 	 * @fn setTrickmodeTimescale
+	 *
+	 * @brief Set the timescale for trickmode playback
+	 * @param[in] timescale - timescale value
+	 * @return bool - found the correct boxes
+	 */
+	bool setTrickmodeTimescale(uint32_t timescale);
+};
 #endif /* __ISOBMFFBUFFER_H__ */

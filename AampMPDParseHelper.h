@@ -409,14 +409,54 @@ public :
 	 */
 	double GetFirstSegmentScaledStartTime(IPeriod * period, AampMediaType type);
 
+	/**
+	 * @brief Get duration though representation iteration
+	 * @retval duration in milliseconds
+	 */
 	uint64_t GetDurationFromRepresentation();
 
-	double   GetPeriodNewContentDuration(IPeriod * period, uint64_t &curEndNumber);
+	/**
+	 * @brief Calculates the duration of new content in a period.
+	 *
+	 * This function takes an IPeriod object and calculates the duration of new content
+	 * within that period. It considers various factors such as the duration of the period,
+	 * the type of MPD (Media Presentation Description), and the segment templates.
+	 *
+	 * @param[in] period The IPeriod object representing the period.
+	 * @param[out] curEndNumber A reference to a uint64_t variable that will store the current end number.
+	 * @return The duration of new content in milliseconds.
+	 */
+	double GetPeriodNewContentDurationMs(IPeriod * period, uint64_t &curEndNumber);
 
+	/**
+	 * @brief Retrieves the time scale of the period segment.
+	 *
+	 * This function takes an IPeriod object as input and returns the time scale of the period segment.
+	 * The time scale is obtained by checking the segment templates of the first video adaptation set in the period.
+	 * If a segment template is found, the time scale is retrieved from it.
+	 *
+	 * @param period[in] The IPeriod object representing the period.
+	 * @return The time scale of the period segment. If no segment template is found, the time scale will be 0.
+	 */
 	uint32_t GetPeriodSegmentTimeScale(IPeriod * period);
 
+	/**
+	 * @brief Retrieves the start time of the first segment in the given period.
+	 *
+	 * @param[in] period The period for which to retrieve the start time.
+	 * @return The start time of the first segment in the period.
+	 */
 	uint64_t GetFirstSegmentStartTime(IPeriod * period);
 
+	/**
+	 * @brief  Get start time and duration from the current timeline
+	 * @param[in]   period for current period
+	 * @param[in]   representationIdx being used in current period
+	 * @param[in]   adaptationSetIdx being used in current period
+	 * @param[out]  scaledStartTime (seconds) of selected timeline returned
+	 * @param[out]  duration (seconds) of selected timeline returned
+	 */
+	void GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, double &scaledStartTime, double &duration);
 private:
 
 	/**

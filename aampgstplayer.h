@@ -540,6 +540,12 @@ private:
 	 */
 	void RemoveProbes();
 
+	/**
+	 * @fn SetSeekPosition
+	 * @param[in] positionSecs - the start position to seek the pipeline to in seconds
+	 */
+	void SetSeekPosition(double positionSecs);
+
 	pthread_mutex_t mBufferingLock;
 	pthread_mutex_t mProtectionLock;
 

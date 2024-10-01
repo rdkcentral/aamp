@@ -298,6 +298,7 @@ private:
 public:
 	AampLogManager *mLogObj;	/**< AAMP player's log object*/
 	PrivateInstanceAAMP *mAamp; /**< AAMP player's private instance */
+	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< ISO BMFF helper object */
 };
 
 #endif // AAMP_TSBSSESSIONMANAGER_H

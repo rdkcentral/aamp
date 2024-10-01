@@ -37,8 +37,8 @@ class AampTime
 	public:
 		/// @brief Constructor
 		/// @param seconds time in seconds, as a double
-		AampTime(double seconds = 0.0) : nanoseconds(int64_t(seconds * timescale)){}
-		AampTime(const AampTime& rhs)  : nanoseconds(rhs.nanoseconds){}
+		constexpr AampTime(double seconds = 0.0) : nanoseconds(int64_t(seconds * timescale)){}
+		constexpr AampTime(const AampTime& rhs)  : nanoseconds(rhs.nanoseconds){}
 
 		/// @brief Get the stored time
 		/// @return Time in seconds (double)

@@ -110,8 +110,7 @@ class AampTSBSessionManager;
 
 #define MAX_LOW_LATENCY_DASH_ABR_SPEEDSTORE_SIZE 10
 
-/*1 for debugging video track, 2 for audio track, 4 for subtitle track and 7 for all*/
-/*#define AAMP_DEBUG_FETCH_INJECT 0x001 */
+/* Define AAMP_DEBUG_FETCH_INJECT: 1 for debugging video track, 2 for audio track, 4 for subtitle track and 7 for all */
 
 /**
  * @brief Max URL log size
@@ -256,9 +255,10 @@ struct EventBreakInfo
 	std::string name;
 	uint32_t duration;
 	uint64_t presentationTime;
-	EventBreakInfo() : payload(), name(), duration(0), presentationTime(0)
+	bool isDAIEvent;     // true if the SCTE35 event is PA START or PPO START
+	EventBreakInfo() : payload(), name(), duration(0), presentationTime(0), isDAIEvent(false)
 	{}
-	EventBreakInfo(std::string _data, std::string _name, uint64_t _presentationTime, uint32_t _dur) : payload(_data), name(_name), presentationTime(_presentationTime), duration(_dur)
+	EventBreakInfo(std::string _data, std::string _name, uint64_t _presentationTime, uint32_t _dur, bool _isDAIEvent) : payload(_data), name(_name), presentationTime(_presentationTime), duration(_dur), isDAIEvent(_isDAIEvent)
 	{}
 };
 
@@ -793,6 +793,12 @@ public:
 	 * @return TSB::Store pointer
 	 */
 	std::shared_ptr<TSB::Store> GetTSBStore(const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level);
+
+	/**
+	 * @brief Get if pipeline reconfigure required for elementary stream type change status (from stream abstraction)
+	 * @return true if audio codec has changed
+	 */
+	bool ReconfigureForCodecChange();
 
 	/**
 	* @brief Function pointer passed as argument to AampMPDDownloader class. This function is invoked to read the preprocessed manifest provided by application.
@@ -2578,11 +2584,11 @@ public:
 	int getStreamType();
 
 	/**
-     	 *   @fn GetMediaFormatTypeEnum
-    	 *
-    	 *   @return eMEDIAFORMAT
-     	 */
-    	MediaFormat GetMediaFormatTypeEnum() const;
+	 *   @fn GetMediaFormatTypeEnum
+	 *
+	 *   @return eMEDIAFORMAT
+	 */
+	MediaFormat GetMediaFormatTypeEnum() const;
 
 	/**
 	 *   @fn getStreamTypeString
@@ -2711,76 +2717,6 @@ public:
 	 *   @param[in] timeout preferred timeout value
 	 */
 	void SetNetworkTimeout(double timeout);
-	/**
-	 *   @brief To set the network timeout as per priority
-	 *
-	 */
-	void ConfigureNetworkTimeout();
-	/**
-	 *   @brief To set the manifest timeout as per priority
-	 *
-	 */
-	void ConfigureManifestTimeout();
-	/**
-	*   @brief To set the manifest timeout as per priority
-	*
-	*/
-	void ConfigurePlaylistTimeout();
-
-	/**
-	 *	 @brief To set DASH Parallel Download configuration for fragments
-	 *
-	 */
-	void ConfigureDashParallelFragmentDownload();
-
-	/**
-	 *   @brief To set the parallel playlist fetch configuration
-	 *
-	 */
-	void ConfigureParallelFetch();
-	/**
-	 *   @brief To set bulk timedMetadata reporting
-	 *
-	 */
-	void ConfigureBulkTimedMetadata();
-
-	/**
-	 *	 @brief To set unpaired discontinuity retune configuration
-	 *
-	 */
-	void ConfigureRetuneForUnpairedDiscontinuity();
-
-	/**
-	 *	 @brief To set retune configuration for gstpipeline internal data stream error.
-	 *
-	 */
-	void ConfigureRetuneForGSTInternalError();
-
-	/**
-	 *	 @brief Function to configure PreCachePlaylist
-	 *
-	 */
-	void ConfigurePreCachePlaylist();
-
-	/**
-	 *	 @brief Function to set the max retry attempts for init frag curl timeout failures
-	 *
-	 */
-	void ConfigureInitFragTimeoutRetryCount();
-
-	/**
-	 *	 @brief To set westeros sink configuration
-	 *
-	 */
-	void ConfigureWesterosSink();
-
-	/**
-	 *	 @brief To set license caching config
-	 *
-	 */
-	void ConfigureLicenseCaching();
-
-	void ConfigureOutputResolutionCheck();
 
 	/**
 	 *   @brief To set the manifest download timeout value.
@@ -3851,6 +3787,18 @@ public:
 	 *   @return uint32_t
 	 */
 	uint32_t  GetAudTimeScale(void);
+
+	/**
+	 * @brief Sets Subtitle TimeScale
+	 * @param[in] subTimeScale - Subtitle TimeScale
+	 */
+	void SetSubTimeScale(uint32_t subTimeScale);
+
+	/**
+	 * @brief Gets Subtitle TimeScale
+	 * @return uint32_t - Subtitle TimeScale
+	 */
+	uint32_t GetSubTimeScale(void);
 
 	/**
 	 *   @fn SetLLDashSpeedCache

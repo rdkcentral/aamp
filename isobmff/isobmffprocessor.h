@@ -150,12 +150,12 @@ public:
 	 */
 	void resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position) override;
 
-        /**
-         * @brief Reset PTS on audioSwitch
-         *
-         * @param[in] reset - true/false
-         * @return void
-         */
+	/**
+	 * @brief Reset PTS on audioSwitch
+	 *
+	 * @param[in] reset - true/false
+	 * @return void
+	 */
 	void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position) override;
 	/**
 	 * @fn sendSegment
@@ -460,7 +460,12 @@ private:
 	 */
 	void clearInitSegment();
 
-	void resetSkipDuration();
+	/**
+	 * @fn resetInternal
+	 *
+	 * @return void
+	 */
+	void resetInternal();
 
 	PrivateInstanceAAMP *p_aamp;
 	timeScaleChangeStateType timeScaleChangeState;
@@ -489,8 +494,7 @@ private:
 	bool processPTSComplete;
 	bool initSegmentProcessComplete;
 	bool scalingOfPTSComplete;
-	bool stopped; // flag to indicate if the module is active
-	bool aborted; // flag to indicate an abort() has occured
+	bool aborted; // flag to indicate if the module is active
 	bool enabled;
 	bool ptsDiscontinuity;
 

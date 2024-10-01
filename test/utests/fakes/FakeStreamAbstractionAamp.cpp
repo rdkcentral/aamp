@@ -22,7 +22,7 @@
 
 MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP = nullptr;
 
-StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler) : aamp(nullptr)
+StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler) : aamp(nullptr), mAudiostateChangeCount(0), mESChangeStatus(false)
 {
     mLogObj = logObj;
 }
@@ -222,9 +222,14 @@ bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 {
     return true;
 }
-bool MediaTrack::CheckForDiscontinuity()
+bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fragmentDiscarded, bool& isDiscontinuity, bool &ret)
 {
     return false;
+}
+
+void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool fragmentDiscarded, bool isDiscontinuity, bool &ret)
+{
+    return;
 }
 
 double MediaTrack::GetTotalInjectedDuration()
@@ -305,7 +310,7 @@ bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
     return false;
 }
 
-CachedFragmentChunk* MediaTrack::GetFetchChunkBuffer(bool initialize)
+CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 {
      return NULL;
 }
@@ -341,5 +346,17 @@ void MediaTrack::UpdateTSAfterInject()
 {
 }
 void StreamAbstractionAAMP::UpdateStreamInfoBitrateData(int profileIndex, StreamInfo &cacheFragStreamInfo)
+{
+}
+
+void StreamAbstractionAAMP::InitializeMediaProcessor()
+{
+}
+
+void StreamAbstractionAAMP::UpdateIframeTracks()
+{
+}
+
+void MediaTrack::FlushFragmentChunks()
 {
 }

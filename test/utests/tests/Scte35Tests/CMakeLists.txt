@@ -41,7 +41,7 @@ set(TEST_SOURCES Scte35Tests.cpp
                  Scte35SectionTests.cpp
                  SpliceInfoTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/test/aampcli/AampSCTE35.cpp
+set(AAMP_SOURCES ${AAMP_ROOT}/scte35/AampSCTE35.cpp
                  ${AAMP_ROOT}/AampJsonObject.cpp
                  ${AAMP_ROOT}/AampUtils.cpp
                  ${AAMP_ROOT}/_base64.cpp)

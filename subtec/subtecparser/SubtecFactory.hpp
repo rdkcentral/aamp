@@ -40,7 +40,7 @@ public:
     {
         SubtitleMimeType type = eSUB_TYPE_UNKNOWN;
 
-        AAMPLOG_INFO("createSubtitleParser: mimeType %s\n", mimeType.c_str());
+        AAMPLOG_INFO("createSubtitleParser: mimeType %s", mimeType.c_str());
 
         if (!mimeType.compare("text/vtt"))
             type = eSUB_TYPE_WEBVTT;
@@ -53,7 +53,7 @@ public:
 
     static std::unique_ptr<SubtitleParser> createSubtitleParser(AampLogManager *mLogObj, PrivateInstanceAAMP *aamp, SubtitleMimeType mimeType)
     {
-        AAMPLOG_INFO("createSubtitleParser: mimeType: %d\n", mimeType);
+        AAMPLOG_INFO("createSubtitleParser: mimeType: %d", mimeType);
         std::unique_ptr<SubtitleParser> empty;
         
         try {

@@ -35,10 +35,10 @@ Simlinear API's:
     
 2) Check Status of All/specific simlinear server instance       
     curl 'http://localhost:5000/sim-status?port=8082’
-
+    
 3) Stop simlinear server instance running at a unique port   
     curl 'http://localhost:5000/sim-stop?port=8082’
-
+    
 4) On-the-fly ADD stream corruption rule with a unique rule_id
    curl 'http://localhost:5000/sim-config?port=8082&cmd='add'&rule_id='err404'&assettype='video-mp4'&fragments=0,500,1000,2000&errorcode=404'
             rule_id='custom id string'
@@ -48,14 +48,14 @@ Simlinear API's:
                        502, 5xx http failures
                        1000,delay before first byte returned on a given download
                        1001,induce delay before final byte(s) for a given download (we have two flavors of client side stall abort logic)
-
-
+                       
+                       
 5) On-the-fly EDIT stream corruption rule with a unique id
    curl 'http://localhost:5000/sim-config?port=8082&cmd='edit'&rule_id='err404'&assettype='video-mp4'&fragments=-1000,2000,5000&errorcode=404
-
+   
 6) On-the-fly DELETE stream corruption rule with a unique id
    curl 'http://localhost:5000/sim-config?port=8082&cmd='del'&rule_id='err404'
-  
+   
 """
 
 CMD_PORT = 5000
@@ -75,8 +75,8 @@ restart = True
 
 liveLatency = False
 LLsize = 100000
-LLfirstDelay = 10
-LLdelay = 10
+LLmidDelay = 10
+LLpreDelay = 10
 
 #threadingEvent = threading.Event()
 
@@ -142,12 +142,12 @@ def display_all_manifests(host, port, abr_type):
         for fileName in files:
             if ((fileName not in filelist) and (ext in fileName)):
                 filelist.append(os.path.relpath(path + "/"+ fileName))
-    
+
     print("Serving manifests")
     for file in filelist:
         file_path = os.path.dirname(file).lstrip(".").lstrip("/")
         fileName = os.path.basename(file)
-        
+
         if (("._" not in fileName) and (fileName.endswith(ext))):
             print(hostInfo + file_path + "/" + fileName)
 
@@ -289,7 +289,7 @@ class DASHServerHandler(BaseHTTPRequestHandler):
         """
         Handler for http get
         """
-        
+
         global numOfRequests
         global refreshVal
         global list_of_threads
@@ -297,8 +297,8 @@ class DASHServerHandler(BaseHTTPRequestHandler):
         global shutdown
         global liveLatency
         global LLsize
-        global LLdelay
-        global LLfirstDelay
+        global LLmidDelay
+        global LLpreDelay
         #global threadingEvent
         # path=/some/kind/of/path?query
         # becomes some/kind/of/path
@@ -322,12 +322,12 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                         port = list(list_of_threads.keys())[0]
                         self.send_response(408)
                         self.end_headers()
-                        
+
                         self.connection.close()
-                        
+
                         restart = True
                         shutdown = True
-                        
+
                         return;
                 rtn = dash_server.dash_get_manifest(path)
                 if not rtn:
@@ -377,21 +377,20 @@ class DASHServerHandler(BaseHTTPRequestHandler):
             if liveLatency:
                 remaining = contents
                 LLsizeAdjusted = LLsize
-                LLdelayAdjusted = LLdelay / 1000
-                LLfirstDelayAdjusted = LLfirstDelay / 1000
-                log.info(str(LLfirstDelay) + " milliseconds, " + str(LLdelay) + " milliseconds, " + str(LLsizeAdjusted) + " bytes")
-                count = 0
+                LLmidDelayAdjusted = LLmidDelay / 1000
+                LLpreDelayAdjusted = LLpreDelay / 1000
+                log.info(str(LLpreDelay) + " miliseconds (PreDELAY), " + str(LLmidDelay) + " miliseconds (MidDELAY), " + str(LLsizeAdjusted) + " bytes")
+
+                if LLpreDelayAdjusted > 0:
+                    time.sleep(LLpreDelayAdjusted)
+                         
                 while len(remaining) > LLsizeAdjusted:
                     if LLsizeAdjusted >= 100000:
                         log.info(str(len(remaining)) + " bytes left in this fragment")
                     self.wfile.write(remaining[:LLsizeAdjusted])
                     remaining = remaining[LLsizeAdjusted:]
-                    if count == 0:
-                        time.sleep(LLfirstDelayAdjusted)
-                    else:
-                        time.sleep(LLdelayAdjusted)
-                    count += 1
-                    #threadingEvent.wait(LLdelayAdjusted)
+                    time.sleep(LLmidDelayAdjusted)
+                    #threadingEvent.wait(LLmidDelayAdjusted)
                 self.wfile.write(remaining)
             else:
                 self.wfile.write(contents)
@@ -424,7 +423,7 @@ class HLSServerHandler(BaseHTTPRequestHandler):
         """
         Handler for http get
         """
-        
+
         global numOfRequests
         global refreshVal
         global list_of_threads
@@ -448,12 +447,12 @@ class HLSServerHandler(BaseHTTPRequestHandler):
                         port = list(list_of_threads.keys())[0]
                         self.send_response(408)
                         self.end_headers()
-                        
+
                         self.connection.close()
-                        
+
                         restart = True
                         shutdown = True
-                        
+
                         return;
                 rtn_path = hls_server.manifest_serve(path)
                 if not rtn_path:
@@ -805,7 +804,7 @@ log.setLevel(logging.INFO)
 
 def duration_to_seconds(duration_str):
     parts = duration_str.split(":")
-    
+
     if len(parts) == 3:  # Format: hours:minutes:seconds
         hours, minutes, seconds = map(int, parts)
         total_seconds = hours * 3600 + minutes * 60 + seconds
@@ -866,13 +865,13 @@ if __name__ == "__main__":
         print("Found Harvest Details")
     else:
         print("WARNING: missing harvest details, playback may be impacted.")
-    
+
     init_routes()
-    
+
     while restart == True:
-    
+
         restart = False
-      
+
         if args.refresh:
             refreshVal = args.refresh
 
@@ -888,17 +887,17 @@ if __name__ == "__main__":
                 splitThrottle = args.throttle.split(":")
                 if len(splitThrottle) == 3:
                     if splitThrottle[0] != '':
-                        LLfirstDelay = int(splitThrottle[0])
+                        LLpreDelay = int(splitThrottle[0])
                     if splitThrottle[1] != '':
-                        LLdelay = int(splitThrottle[1])
+                        LLmidDelay = int(splitThrottle[1])
                     if splitThrottle[2] != '':
                         LLsize = int(splitThrottle[2])
                     liveLatency = True
-                    print("Throttle parameter set FirstDELAY = " + str(LLfirstDelay) + ", DELAY = " + str(LLdelay) + ", SIZE = " + str(LLsize))
+                    print("Throttle parameter set FirstDELAY = " + str(LLpreDelay) + ", DELAY = " + str(LLmidDelay) + ", SIZE = " + str(LLsize))
                 elif len(splitThrottle) == 1:
                     if splitThrottle[0] == "" or splitThrottle[0] == "-1":
                         liveLatency = True
-                        print("Throttle parameter set as default FirstDELAY = " + str(LLfirstDelay) + ", DELAY = " + str(LLdelay) + ", SIZE = " + str(LLsize))
+                        print("Throttle parameter set as default FirstDELAY = " + str(LLpreDelay) + ", DELAY = " + str(LLmidDelay) + ", SIZE = " + str(LLsize))
                     else:
                         print("ERROR: Invalid Throttle Parameter")
                         restart = False
@@ -934,7 +933,7 @@ if __name__ == "__main__":
                 del list_of_threads[args.hls]
                 list_of_webServer[args.hls]["proc"].server_close()
                 del list_of_webServer[args.hls]
-                
+
             elif args.dash:
                 #list_of_threads[args.dash].join()
                 del list_of_threads[args.dash]

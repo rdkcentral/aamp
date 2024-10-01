@@ -1,6 +1,6 @@
 # How to run L3 tests on HW platforms within a widget container. Alternatively these could be run using RDKShell.
 
-## To run each test individually
+## To run all the tests
 
 ```
 pip3 install psutil
@@ -54,7 +54,7 @@ python3 run_l3_aamp.py --port <SSH Port of the connected RDK> --ip <IP address o
 
 If you are doing automation - for example daily Jenkins job, it is recommended to run these commands with a timeout value.
 
-# Results will be availabel in l3_report.json and l3_report.xml.
+# Results will be available in l3_report.json and l3_report.xml.
 # AAMP logs for each test can be found in /l3test/AAMP_Logs/ directory.
 
 ## To run each test individually

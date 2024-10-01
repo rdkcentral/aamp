@@ -34,6 +34,7 @@
 #include <chrono>
 #include "TsbApi.h"
 
+
 #define NOW_SYSTEM_TS_SECS std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()     /**< Getting current system clock in seconds */
 #define NOW_STEADY_TS_SECS std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()     /**< Getting current steady clock in seconds */
 
@@ -366,6 +367,15 @@ TSB::LogLevel ConvertTsbLogLevel(int logLev);
  * @retval a full path
  */
 std::string aamp_GetConfigPath( const std::string &filename );
+
+
+/**
+ * Parses and confirms the SCTE35 data is a valid DAI event.
+ *
+ * @param scte35Data The SCTE35 data to be checked.
+ * @return True if the SCTE35 data is valid DAI event, false otherwise.
+ */
+bool parseAndValidateSCTE35(const std::string &scte35Data);
 
 
 #endif  /* __AAMP_UTILS_H__ */
