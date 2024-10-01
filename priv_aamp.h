@@ -3760,20 +3760,6 @@ public:
 	uint32_t GetVidTimeScale(void);
 
 	/**
-	 *   @fn SetSubTimeScale
-	 *
-	 *   @param[in] subTimeScale - subTimeScale Value
-	 *   @return void
-	 */
-	void SetSubTimeScale(uint32_t subTimeScale);
-	/**
-	 *   @fn GetSubTimeScale
-	 *
-	 *   @return uint32_t
-	 */
-	uint32_t  GetSubTimeScale(void);
-
-	/**
 	 *   @fn SetAudTimeScale
 	 *
 	 *   @param[in] audTimeScale - audTimeScale Value

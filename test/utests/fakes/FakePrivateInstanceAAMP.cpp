@@ -950,11 +950,6 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 {
 }
 
-uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
-{
-    return 0u;
-}
-
 uint32_t  PrivateInstanceAAMP::GetAudTimeScale(void)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr) {
