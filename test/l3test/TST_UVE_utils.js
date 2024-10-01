@@ -768,7 +768,7 @@ class AAMPPlayer {
     async TST_SetVideoTracks(bitratelist) {
         console.log("invoked setVideoTrack");
         console.log("bitrates are " +bitratelist);
-        await this.player.setVideoTracks(bitratelist);
+        await this.player.setVideoTracks(...bitratelist);
     }
 
     // Returns the available audio tracks information in the content.
@@ -839,29 +839,22 @@ class AAMPPlayer {
 
     // sets the video bitrate
     async TST_SetVideoBitrate(bitrate) {
-    console.log("Invoked setVideoBitrate: " + bitrate);
-    if (bitrate == 0) {
-        await this.player.setVideoBitrate(0);
-        console.log("ABR enabled");
-    } else {
-        var availableBitrates = await this.player.getVideoBitrates();
-        var found = false;
-        for (var i = 0; i < availableBitrates.length; i++) {
-            if (bitrate == availableBitrates[i]) {
-                console.log("bitrate " + bitrate);
-                found = true;
-                break;
+        console.log("Invoked setVideoBitrate: " + bitrate);
+        if (bitrate == 0) {
+            await this.player.setVideoBitrate(0);
+            console.log("ABR enabled");
+        } else {
+            var availableBitrates = await this.player.getVideoBitrates();
+            if (availableBitrates.includes(bitrate)) {
+                var currentVideoBitrate = await this.player.getCurrentVideoBitrate();
+                console.log("currentVideoBitrate " + currentVideoBitrate);
+                await this.player.setVideoBitrate(bitrate);
+                console.log("Video bitrate set to: " + bitrate);
+            } else {
+                console.log("Bitrate is not available " + availableBitrates.toString());
             }
         }
-        if (found) {
-            var currentVideoBitrate = await this.player.getCurrentVideoBitrate();
-            console.log("currentVideoBitrate " + currentVideoBitrate);
-            console.log("Video bitrate set to: " + bitrate);
-        } else {
-            console.log("Bitrate is not available");
-        }
     }
-}
 
     // gets the current video bitrate
     async TST_GetCurrentVideoBitrate()
