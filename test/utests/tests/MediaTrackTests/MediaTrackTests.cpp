@@ -324,6 +324,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 	CachedFragment* bufferedFragment{nullptr};
 	PlayRateTestData testParam = GetParam(); // Test parameter injected here
 	mPrivateInstanceAAMP->rate = testParam.playRate;
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
 	SetLowLatencyMode(testParam.lowLatencyMode);
 	mStreamAbstractionAAMP_MPD->trickplayMode = true;
 
@@ -471,6 +472,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	bool lowLatencyMode = GetParam(); // Test parameter injected here
 	SetLowLatencyMode(lowLatencyMode);
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
 	mStreamAbstractionAAMP_MPD->trickplayMode = false;
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
@@ -566,6 +568,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	CachedFragment* bufferedFragment{nullptr};
 	AampTime restampedPts{0}; // Restamped PTS is an offset from the start of trickplay
 	mPrivateInstanceAAMP->rate = FASTEST_TRICKPLAY_RATE;
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
 	mStreamAbstractionAAMP_MPD->trickplayMode = true;
 
 	// There should be no PTS restamping for normal play rate media fragments in this test
