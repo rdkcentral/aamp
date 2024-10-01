@@ -710,8 +710,8 @@ TEST_F(FunctionalTests, SegmentTimeline1)
 
 )";
 
-	double scaledStartTime = 0;
-	double duration = 0;
+	AampTime scaledStartTime;
+	AampTime duration;
 	uint32_t timeScale;
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
@@ -726,21 +726,21 @@ TEST_F(FunctionalTests, SegmentTimeline1)
 
 	// No timeline in period
 	ParseHelper->GetStartAndDurationFromTimeline(periods.at(0),0,0, scaledStartTime, duration);
-	EXPECT_EQ(duration, 0);
+	EXPECT_DOUBLE_EQ(duration.inSeconds(), 0.0);
 
 	// The following should read <S t="25600" d="24576" r="6"/>
 	ParseHelper->GetStartAndDurationFromTimeline(periods.at(1), 0, 1,  scaledStartTime, duration);
 	timeScale = 12800;
 	double vExpected = 24576.0 / timeScale * (6 + 1); // d/timescale*(r+1)
-	EXPECT_EQ(duration, vExpected);
-	EXPECT_EQ(scaledStartTime, (25600.0 / timeScale));
+	EXPECT_DOUBLE_EQ(duration.inSeconds(), vExpected);
+	EXPECT_DOUBLE_EQ(scaledStartTime.inSeconds(), (25600.0 / timeScale));
 
 	// The following should read <S t="144000" d="92160" r="5"/>
 	ParseHelper->GetStartAndDurationFromTimeline(periods.at(1), 0, 0, scaledStartTime, duration);
 	timeScale = 48000;
 	double aExpected = 92160.0 / timeScale * (5 + 1);
-	EXPECT_EQ(duration, aExpected);
-	EXPECT_EQ(scaledStartTime, (144000 / timeScale));
+	EXPECT_DOUBLE_EQ(duration.inSeconds(), aExpected);
+	EXPECT_DOUBLE_EQ(scaledStartTime.inSeconds(), (144000.0 / timeScale));
 }
 
 /* @brief Test case for a single period with a starting time tag in a live stream*/

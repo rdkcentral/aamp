@@ -1363,8 +1363,7 @@ public:
 	double mProgramStartTime;	        /**< Indicate program start time or availability start time */
 	int mTsbMaxBitrateProfileIndex;		/**< Indicates the index of highest profile in the saved stream info */
 	bool mUpdateReason;			/**< flag to update the bitrate change reason */
-	double mPTSOffsetSec;				/*For PTS restamping*/
-	double mNextPts;					/*For PTS restamping*/
+	AampTime mPTSOffset;				/*For PTS restamping*/
 	bool mIsChunkMode;			/** Flag to indicate whetehr playback is in chunk mode or not*/
 
 	/**

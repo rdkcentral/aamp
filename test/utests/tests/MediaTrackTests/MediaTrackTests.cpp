@@ -566,7 +566,7 @@ INSTANTIATE_TEST_SUITE_P(MediaTrackTests, MediaTrackDashTrickModePtsRestampInval
 TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 {
 	CachedFragment* bufferedFragment{nullptr};
-	AampTime restampedPts{0}; // Restamped PTS is an offset from the start of trickplay
+	AampTime restampedPts; // Restamped PTS is an offset from the start of trickplay
 	mPrivateInstanceAAMP->rate = FASTEST_TRICKPLAY_RATE;
 	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
 	mStreamAbstractionAAMP_MPD->trickplayMode = true;
@@ -637,7 +637,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 									TRICKMODE_TIMESCALE))
 		.WillOnce(Return(true));
 	ASSERT_TRUE(iframeTrack.InjectFragment());
-	ASSERT_EQ(bufferedFragment->position, restampedPts);
+	ASSERT_DOUBLE_EQ(bufferedFragment->position, restampedPts.inSeconds());
 
 	// First media segment for advert
 	testFragment = CachedFragment{};
@@ -649,7 +649,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, LLD_DISABLED);
 
 	int64_t expectedDuration{restampedDuration * TRICKMODE_TIMESCALE};
-	int64_t expectedPts{restampedPts * TRICKMODE_TIMESCALE};
+	int64_t expectedPts{restampedPts.inSeconds() * TRICKMODE_TIMESCALE};
 	EXPECT_CALL(
 		*g_mockIsoBmffHelper,
 		SetPtsAndDuration(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
@@ -657,8 +657,8 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 		.WillOnce(Return(true));
 
 	ASSERT_TRUE(iframeTrack.InjectFragment());
-	ASSERT_EQ(bufferedFragment->duration, restampedDuration.inSeconds());
-	ASSERT_EQ(bufferedFragment->position, restampedPts.inSeconds());
+	ASSERT_DOUBLE_EQ(bufferedFragment->duration, restampedDuration.inSeconds());
+	ASSERT_DOUBLE_EQ(bufferedFragment->position, restampedPts.inSeconds());
 
 	// Second media segment for advert (transition from discontinuity back to steady state)
 	testFragment = CachedFragment{};
@@ -673,7 +673,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	restampedDuration = positionDelta / std::fabs(mPrivateInstanceAAMP->rate);
 	restampedPts += restampedDuration;
 	expectedDuration = static_cast<int64_t>(restampedDuration * TRICKMODE_TIMESCALE);
-	expectedPts = static_cast<int64_t>(restampedPts * TRICKMODE_TIMESCALE);
+	expectedPts = static_cast<int64_t>(restampedPts.inSeconds() * TRICKMODE_TIMESCALE);
 	EXPECT_CALL(
 		*g_mockIsoBmffHelper,
 		SetPtsAndDuration(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
@@ -681,6 +681,6 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 		.WillOnce(Return(true));
 
 	ASSERT_TRUE(iframeTrack.InjectFragment());
-	ASSERT_EQ(bufferedFragment->duration, restampedDuration.inSeconds());
-	ASSERT_EQ(bufferedFragment->position, restampedPts.inSeconds());
+	ASSERT_DOUBLE_EQ(bufferedFragment->duration, restampedDuration.inSeconds());
+	ASSERT_DOUBLE_EQ(bufferedFragment->position, restampedPts.inSeconds());
 }

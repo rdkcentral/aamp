@@ -429,5 +429,5 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 	mStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
 	// Gets updated in FetcherLoopNew
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mPTSOffsetSec, 0.0);
+	EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->mPTSOffset.inSeconds(), 0.0);
 }

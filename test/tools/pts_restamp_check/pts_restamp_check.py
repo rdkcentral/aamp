@@ -81,7 +81,7 @@ for line in fileinput.input(errors="ignore"):
         last_media = media
 
     # Build up a table so we know the media type of each segment url
-    m = re.search(r'HttpRequestEnd.*?,(\d),.*(http.*)',line)
+    m = re.search(r'CacheFragment.*Type\[(\d)\].*(http.*)',line)
     if m:
         num = int(m.group(1))
         if num <3:

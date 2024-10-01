@@ -55,6 +55,7 @@
 #include "AampDefine.h"
 #include "AampUtils.h"
 #include "AampMPDUtils.h"
+#include "AampTime.h"
 
 using namespace dash;
 using namespace dash::mpd;
@@ -456,7 +457,7 @@ public :
 	 * @param[out]  scaledStartTime (seconds) of selected timeline returned
 	 * @param[out]  duration (seconds) of selected timeline returned
 	 */
-	void GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, double &scaledStartTime, double &duration);
+	void GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, AampTime &scaledStartTime, AampTime &duration);
 
     /**
      * @brief  A helper function to  check if period has segment timeline for video track

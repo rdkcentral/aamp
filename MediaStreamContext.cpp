@@ -72,7 +72,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
     bool ret = false;
     double posInAbsTimeline = ((double)fragmentTime);
     AAMPLOG_INFO("Type[%d] position(before restamp) %f discontinuity %d pto %f scale %u duration %f mPTSOffsetSec %f absTime %lf fragmentUrl %s",
-       type, position, discontinuity, pto, scale, duration, GetContext()->mPTSOffsetSec, posInAbsTimeline, fragmentUrl.c_str());
+       type, position, discontinuity, pto, scale, duration, GetContext()->mPTSOffset.inSeconds(), posInAbsTimeline, fragmentUrl.c_str());
 
     fragmentDurationSeconds = duration;
     ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
@@ -89,11 +89,11 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	/* The value of PTSOffsetSec in the context can get updated at the start of a period before
 	 * the last segment from the previous period has been injected, hence we copy it
 	 */
-	cachedFragment->PTSOffsetSec = GetContext()->mPTSOffsetSec;
+	cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
 	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 	{
 		// apply pts offset to position which ends up getting put into gst_bufffer in sendHelper
-		position += GetContext()->mPTSOffsetSec;
+		position += GetContext()->mPTSOffset.inSeconds();
 	}
 	 AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 
@@ -460,7 +460,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr,
 		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
 		 * the last segment from the previous period has been injected, hence we copy it
 		 */
-		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffsetSec;
+		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
 
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.GetPtr());
 		if (IsLocalTSBInjection())

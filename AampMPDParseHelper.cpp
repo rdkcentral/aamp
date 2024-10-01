@@ -1641,7 +1641,7 @@ uint64_t AampMPDParseHelper::GetFirstSegmentStartTime(IPeriod * period)
  * @param[out]  duration (seconds) of selected timeline returned
  * @return void
  */
-void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, double &scaledStartTime, double &duration)
+void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, AampTime &scaledStartTime, AampTime &duration)
 {
 
 	duration = 0.0;
@@ -1679,7 +1679,7 @@ void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int r
 				uint32_t repeatCount = timeline->GetRepeatCount();
 				double timelineDuration = ComputeFragmentDuration(timeline->GetDuration(), timeScale);
 				duration += ((repeatCount + 1) * timelineDuration);
-				AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated duration[%lf]", timeLineIndex, timelines.size(), duration);
+				AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated duration[%lf]", timeLineIndex, timelines.size(), duration.inSeconds());
 				timeLineIndex++;
 			}
 

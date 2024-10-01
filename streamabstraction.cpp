@@ -2056,7 +2056,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(AampLogManager *logObj, PrivateInst
 		mAuxCond(), mFwdAudioToAux(false), mLogObj(logObj),
 		mAudioTracksAll(), mTextTracksAll(),
 		mTsbMaxBitrateProfileIndex(-1),mUpdateReason(false),
-		mPTSOffsetSec(0.0), mNextPts(0.0),mIsChunkMode(false),
+		mPTSOffset(0.0), mIsChunkMode(false),
 		mID3Handler{mID3Handler}
 {
 	mLastVideoFragParsedTimeMS = aamp_GetCurrentTimeMS();

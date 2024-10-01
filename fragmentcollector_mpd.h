@@ -524,39 +524,33 @@ public:
 	void UpdateSeekPeriodOffset( double &offsetFromStart );
 
 protected:
-	void GetStartAndDurationFromTimeline(AampMediaType type, double &scaledStartTime, double &durationMs);
-
 	/**
 	 * @fn GetStartAndDurationForPtsRestamping
 	 *
 	 * @brief Get the start and duration from the current timeline for the
 	 *        current period, required for PTS restamping.
 	 *
-	 * @param[in] periodIdx - Index to period currently playing 0..n
 	 * @param[out] start - Start of the current timeline in seconds
 	 * @param[out] duration - duration of the current period returned
 	 */
-	void GetStartAndDurationForPtsRestamping(int periodIdx, double &start, double &duration);
+	void GetStartAndDurationForPtsRestamping(AampTime &start, AampTime &duration);
 
 	/**
 	 * @fn UpdatePtsOffset
 	 *
 	 * @brief Calculate PTS offset value at the start of each period.
 	 *
-	 * @param[in] periodIdx - Index to period we are currently playing 0..n
 	 * @param[in] isNewPeriod - true for calculation on starting new period
 	 */
-	void UpdatePtsOffset(int periodIdx, bool isNewPeriod);
+	void UpdatePtsOffset(bool isNewPeriod);
 
 	/**
 	 * @fn RestorePtsOffsetCalculation
 	 *
 	 * @brief Restore variables used for PTS offset calculation,
 	 *        after downloading the init fragment of an ad failed.
-	 *
-	 * @param[in] periodIdx - Index to period currently playing 0..n
 	 */
-	void RestorePtsOffsetCalculation(int periodIdx);
+	void RestorePtsOffsetCalculation(void);
 
 	/**
 	 * @fn printSelectedTrack
@@ -1168,6 +1162,7 @@ protected:
 	ABRMode mABRMode;					 /**< ABR mode*/
 	size_t mLastManifestFileSize;
 	double mFragmentTimeOffset;     /**< denotes the offset added to fragment time when absolute timeline is disabled, holds currentPeriodOffset*/
+	AampTime mNextPts;					/*For PTS restamping*/
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_

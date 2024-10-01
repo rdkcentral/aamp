@@ -47,13 +47,14 @@ protected:
 	void SetUp() override
 	{
 		mLogObj = new AampLogManager();
+		mLogObj->aampLoglevel = eLOGLEVEL_TRACE;		//To enable all levels of AAMP logging
 		gpGlobalConfig = new AampConfig();
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
-		mStreamAbstractionAAMP_MPD = new ToBeTestedStub(mLogObj, mPrivateInstanceAAMP, 0, 0.0);
+		mStreamAbstractionAAMP_MPD = new ToBeTestedStub(mLogObj, mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
 
 		g_mockAampMPDParseHelper = new MockAampMPDParseHelper();
 	}
@@ -302,19 +303,20 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest1)
 		.WillOnce(Return(45)).WillOnce(Return(45));
 
 	mStreamAbstractionAAMP_MPD->mNextPts = 0;
-	mStreamAbstractionAAMP_MPD->mPTSOffsetSec = 0;
+	mStreamAbstractionAAMP_MPD->mPTSOffset = 0;
 	mStreamAbstractionAAMP_MPD->mCurrentPeriod = mStreamAbstractionAAMP_MPD->mpd->GetPeriods().at(0);
+
 	/* Call the method under test and confirm
 	 *  the returned vale matches expected value from the table
 	 */
 	for (int p = 0; p < (sizeof(tbl) / sizeof(tbl[0])); p++)
 	{
 		// Begining of period call to calc PTSoffset
-		mStreamAbstractionAAMP_MPD->UpdatePtsOffset(0, true); 
+		mStreamAbstractionAAMP_MPD->UpdatePtsOffset(true);
 
-		EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->mPTSOffsetSec, tbl[p].expectedOffset);
+		EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->mPTSOffset.inSeconds(), tbl[p].expectedOffset);
 
 		// End of period call to read duration of the period to feed into calc for next period
-		mStreamAbstractionAAMP_MPD->UpdatePtsOffset(0, false);
+		mStreamAbstractionAAMP_MPD->UpdatePtsOffset(false);
 	}
 }
