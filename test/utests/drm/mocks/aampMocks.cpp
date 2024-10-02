@@ -151,6 +151,16 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback(char *ptr, size_t size, size_
 	return 0;
 }
 
+bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
+{
+	bool bIsDecryptClearSamplesRequired = false;
+	if (g_mockPrivateInstanceAAMP)
+	{
+		bIsDecryptClearSamplesRequired = g_mockPrivateInstanceAAMP->isDecryptClearSamplesRequired();
+	}
+	return bIsDecryptClearSamplesRequired;
+}
+
 #ifdef USE_SECCLIENT
 void PrivateInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
 {

@@ -3682,3 +3682,12 @@ TEST_F(PrivAampPrivTests,ReconfigureForCodecChangeTest1)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillOnce(Return(false));
 	EXPECT_FALSE(testp_aamp->ReconfigureForCodecChange());
 }
+
+TEST_F(PrivAampTests,isDecryptClearSamplesRequired)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(false));
+	EXPECT_TRUE(p_aamp->isDecryptClearSamplesRequired());
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(true));
+	EXPECT_FALSE(p_aamp->isDecryptClearSamplesRequired());
+}

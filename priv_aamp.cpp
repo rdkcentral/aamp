@@ -13766,3 +13766,11 @@ void PrivateInstanceAAMP::updateManifest(const char *manifestData)
 		pthread_mutex_unlock(&mPreProcessLock);
 	}
 }
+
+bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
+{
+	// On AMLOGIC platform decrypt is called by the decryptor gstreamer plugin even for clear samples in order to
+	// copy it to a secure buffer. However if Rialto is enabled there should be no copy in the aamp pipeline, as
+	// it will be done in the server pipeline
+	return !ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink);
+}

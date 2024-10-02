@@ -223,12 +223,6 @@ struct ConfigLookupEntryString
 #define DEFAULT_VALUE_USE_SECMANAGER false
 #endif
 
-#ifdef USE_RIALTO_OCDM
-#define DEFAULT_VALUE_USE_RIALTO_SINK true
-#else
-#define DEFAULT_VALUE_USE_RIALTO_SINK false
-#endif
-
 #ifdef ENABLE_USE_SINGLE_PIPELINE
 #define DEFAULT_VALUE_USE_SINGLE_PIPELINE true
 #else
@@ -405,7 +399,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	// this will eventually be default enbled and deprecated as a configuration  
 	{false, "earlyProcessing", eAAMPConfig_EarlyID3Processing, false},
 	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, true},
-	{DEFAULT_VALUE_USE_RIALTO_SINK, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
+	{false, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
 	{false, "localTSBEnabled", eAAMPConfig_LocalTSBEnabled, true},
 	{false, "enableIFrameTrackExtract", eAAMPConfig_EnableIFrameTrackExtract, true},
 	{false, "forceMultiPeriodDiscontinuity", eAAMPConfig_ForceMultiPeriodDiscontinuity, false},

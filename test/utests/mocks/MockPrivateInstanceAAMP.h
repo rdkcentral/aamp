@@ -63,6 +63,7 @@ public:
     MOCK_METHOD(uint32_t, GetVidTimeScale, ());
     MOCK_METHOD(void, ProcessID3Metadata, (char *, size_t , AampMediaType , uint64_t ));
     MOCK_METHOD(void, SetPauseOnStartPlayback, (bool enable));
+    MOCK_METHOD(bool, isDecryptClearSamplesRequired, ());
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

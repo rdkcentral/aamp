@@ -1511,3 +1511,13 @@ void PrivateInstanceAAMP::SetPauseOnStartPlayback(bool enable)
 		g_mockPrivateInstanceAAMP->SetPauseOnStartPlayback(enable);
 	}
 }
+
+bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
+{
+	bool bIsDecryptClearSamplesRequired = false;
+	if (g_mockPrivateInstanceAAMP)
+	{
+		bIsDecryptClearSamplesRequired = g_mockPrivateInstanceAAMP->isDecryptClearSamplesRequired();
+	}
+	return bIsDecryptClearSamplesRequired;
+}

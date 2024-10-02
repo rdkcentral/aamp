@@ -1980,6 +1980,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 		mDrmInfo.manifestURL = mEffectiveUrl;
 		mDrmInfo.masterManifestURL = aamp->GetManifestUrl();
 		mDrmInfo.initData = aamp->GetDrmInitData();
+		mDrmInfo.bDecryptClearSamplesRequired = aamp->isDecryptClearSamplesRequired();
 		AampTime fragDuration{};
 		
 		while(!iter.empty())

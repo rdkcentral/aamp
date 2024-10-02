@@ -31,10 +31,6 @@ int AAMPOCDMBasicSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV,
 		dataToSend = vdata.data();
 	}
 
-#ifdef USE_RIALTO_OCDM
-	int retvalue = -1;
-	AAMPLOG_ERR("opencdm_session_decrypt not implemented");
-#else
 	EncryptionScheme encScheme = AesCtr_Cenc;
 	EncryptionPattern pattern = {0};
 	/* CID:313823 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
@@ -44,7 +40,6 @@ int AAMPOCDMBasicSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV,
 										   encScheme, pattern,
 										   f_pbIV, f_cbIV,
 										   m_keyId.data(), m_keyId.size(), 0 );
-#endif
 	if (retvalue != 0)
 	{
 		if (m_drmHelper->getMemorySystem() != nullptr)

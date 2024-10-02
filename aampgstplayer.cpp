@@ -1754,6 +1754,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 		break;
 
 	case GST_MESSAGE_STATE_CHANGED:
+	{
 		GstState old_state, new_state, pending_state;
 		gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);		/* Extracts the old and new states from the GstMessage.*/
 
@@ -1973,6 +1974,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 					G_CALLBACK(AAMPGstPlayer_OnGstBufferUnderflowCb), _this);		/* Sets up the call back function on 'buffer-underflow-callback' event */
 			}
 		}
+	}
 		break;
 
 	case GST_MESSAGE_TAG:
@@ -2083,7 +2085,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 				}
 				else if (_this->privateContext->usingRialtoSink)
 				{
-					AAMPLOG_WARN("AAMPGstPlayer not setting Rialto video sink properties");
+					AAMPLOG_WARN("AAMPGstPlayer not setting %s properties", GST_OBJECT_NAME(msg->src));
 				}
 				else
 				{
@@ -3199,12 +3201,19 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 	if (!ISCONFIGSET(eAAMPConfig_useRialtoSink))
 	{
 		privateContext->usingRialtoSink = false;
-		AAMPLOG_WARN("Rialto disabled");
+		AAMPLOG_MIL("Rialto disabled");
 	}
 	else
 	{
 		privateContext->usingRialtoSink = true;
-		AAMPLOG_WARN("Rialto enabled");
+		if (privateContext->using_westerossink)
+		{
+			AAMPLOG_WARN("Rialto and Westeros Sink enabled");
+		}
+		else
+		{
+			AAMPLOG_MIL("Rialto enabled");
+		}
 	}
 
 #ifdef AAMP_STOP_SINK_ON_SEEK

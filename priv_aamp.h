@@ -4226,6 +4226,12 @@ public:
 	 */
 	void SetPauseOnStartPlayback(bool enable);
 
+	/**
+	 * @brief Determines if decrypt should be called on clear samples
+	 * @return Flag to indicate if should decrypt
+	 */
+	bool isDecryptClearSamplesRequired();
+
 protected:
 
 	/**
