@@ -105,6 +105,7 @@ enum class AdEvent
 };
 
 #define OFFSET_ALIGN_FACTOR 2000 /**< Observed minor slacks in the ad durations. Align factor used to place the ads correctly. */
+#define OFFSET_SPLIT_FACTOR 5000 /**< Observed instances where single CDAI Ad is split into two source Periods. Split factor used to identify those cases. */
 
 /**
  * @struct AdNode

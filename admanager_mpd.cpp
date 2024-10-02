@@ -305,6 +305,10 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 						{
 							AAMPLOG_INFO("nextperioddur = %f currperioddur = %f currAd.duration = [%" PRIu64 "] ",nextperioddur,currperioddur,abObj.ads->at(mPlacementObj.curAdIdx).duration);
 							isSrcdurnotequalstoaddur = true;
+							if((currperioddur + OFFSET_SPLIT_FACTOR) < abObj.ads->at(mPlacementObj.curAdIdx).duration)
+							{
+								AAMPLOG_WARN("Detected split period. nextperioddur = %f currperioddur = %f currAd.duration = [%" PRIu64 "] ",nextperioddur,currperioddur,abObj.ads->at(mPlacementObj.curAdIdx).duration);
+							}
 						}
 					}
 					while(periodDelta > 0 || isSrcdurnotequalstoaddur)
