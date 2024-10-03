@@ -9,7 +9,6 @@ For example, executing the script from the current ../pts_restamp_check/ folder,
 
 python3 pts_restamp_check.py sky-messages.log > output.csv
 
-In case of multiple logs:
+In case of multiple logs, ensure logs are in chronological order from oldest to newest - example:
 
 pts_restamp_check.py sky-messages.log.2 sky-messages.log.1 sky-messages.log > output.csv
-

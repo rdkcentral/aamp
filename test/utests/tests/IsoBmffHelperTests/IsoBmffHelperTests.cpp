@@ -66,11 +66,13 @@ TEST_F(IsoBmffHelperTests, restampPtsTest)
 	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
 	int64_t ptsOffset{123};
     std::string url("Dummy");
+	const char* trackName = "video";
+	uint32_t timeScale = 48000;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(ptsOffset));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration());
-	EXPECT_TRUE(helper->RestampPts(buffer, ptsOffset,url));
+	EXPECT_TRUE(helper->RestampPts(buffer, ptsOffset,url, trackName, timeScale));
 }
 
 /**
@@ -87,11 +89,13 @@ TEST_F(IsoBmffHelperTests, restampPtsNegativeTest)
 	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
 	int64_t ptsOffset{123};
     std::string url("Dummy");
+	const char* trackName = "video";
+	uint32_t timeScale = 48000;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(_)).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration()).Times(0);
-	EXPECT_FALSE(helper->RestampPts(buffer, ptsOffset,url));
+	EXPECT_FALSE(helper->RestampPts(buffer, ptsOffset, url, trackName, timeScale));
 }
 
 /**

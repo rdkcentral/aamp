@@ -941,7 +941,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 		}
 		else if (cachedFragment->discontinuity && !ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
-			//Only needed when we are using the qtdemux 
+			//Only needed when we are using the qtdemux
 			SignalTrickModeDiscontinuity();
 		}
 	}
@@ -1104,10 +1104,9 @@ bool MediaTrack::ProcessFragmentChunk()
 			}
 			else
 			{
-				int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-				//Do not edit or remove this log line - it is used log_pts_restamp tool
-				AAMPLOG_INFO("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
-				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, t, cachedFragment->uri);
+				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
+												 name, cachedFragment->timeScale);
 				fpts += cachedFragment->PTSOffsetSec;
 			}
 		}
@@ -1297,11 +1296,12 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			{
 				if (!cachedFragment->initFragment)
 				{
-					// We could skip Restamp when PTSOffsetSec==0 but the log line would then be missing and it is important for l2 test
-					int64_t t = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-					//Do not edit or remove this log line - it is used log_pts_restamp tool
-					AAMPLOG_INFO("%s timeScale %u mPTSOffsetSec %f", name, cachedFragment->timeScale, cachedFragment->PTSOffsetSec);
-					(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, t, cachedFragment->uri);
+					// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
+					// would then be missing and it is important for l2 tests
+					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+					(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
+													 cachedFragment->uri, name,
+													 cachedFragment->timeScale);
 				}
 			}
 		}
@@ -1820,7 +1820,7 @@ void MediaTrack::FlushFragments()
 		fragmentIdxToFetch = 0;
 		numberOfFragmentsCached = 0;
 		lastInjectedDuration = 0;
-		if( ( type == eTRACK_AUDIO && !loadNewAudio ) || ( type == eTRACK_SUBTITLE && !loadNewSubtitle ) )	
+		if( ( type == eTRACK_AUDIO && !loadNewAudio ) || ( type == eTRACK_SUBTITLE && !loadNewSubtitle ) )
 		{
 			totalFetchedDuration = 0;
 			totalFragmentsDownloaded = 0;

@@ -48,7 +48,7 @@ bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
 	return retval;
 }
 
-bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl)
+bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl, const char* trackName, uint32_t timeScale)
 {
 	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
@@ -63,10 +63,11 @@ bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, st
 	{
 		isoBmffBuffer.restampPts(ptsOffset);
 		// NOTE: This log line is used by the pts_restamp_check.py test tool,
-		// and may be used by other tests for validation purposes.
+		// and may be used by other tests for validation purposes (e.g. L2 tests).
 		// Please check restamping tests and tools before modifying this log line.
-		AAMPLOG_INFO("before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 " %s",
-					 isoBmffBuffer.beforePTS, isoBmffBuffer.afterPTS, isoBmffBuffer.getSegmentDuration(), fragmentUrl.c_str());
+		AAMPLOG_INFO("[%s] timeScale %u before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 " %s",
+					 trackName, timeScale, isoBmffBuffer.beforePTS, isoBmffBuffer.afterPTS,
+					 isoBmffBuffer.getSegmentDuration(), fragmentUrl.c_str());
 		retval = true;
 	}
 

@@ -46,7 +46,7 @@ TESTDATA1 = {
 		{"expect": r"Queueing content protection from StreamSelection"},
 		{"expect": r"Selected Audio Track: Index:4-0"},
 		{"expect": r"\[sendSegment\]\[\d+\]IsoBmffProcessor audio sending segment at pos:0.000000 dur:0.000000"},
-		{"expect": r"\[RestampPts\]\[\d+\]before 0 after 0 duration \d+ https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/dash/480p_001.m4s"},
+		{"expect": r"\[RestampPts\]\[\d+\].*?before 0 after 0 duration \d+ https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/dash/480p_001.m4s"},
 		{"expect": "IP_AAMP_TUNETIME"},
 		{"not_expect": "Unable to get audioAdaptationSet"},
 		{"cmd": "set 32 german"},
@@ -146,4 +146,3 @@ def test_5000(aamp_setup_teardown, test_data):
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
     aamp.run_expect_a(test_data)
-

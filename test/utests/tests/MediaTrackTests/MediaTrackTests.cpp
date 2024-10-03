@@ -235,7 +235,7 @@ TEST_P(MediaTrackDashPtsRestampNotConfiguredTests, PtsRestampNotConfiguredTest)
 	// Media segment
 	testFragment.initFragment = false;
 	bufferedFragment = AddFragmentToBuffer(mediaTrack, testFragment, testParam.lowLatencyMode);
-	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _)).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffHelper, SetPtsAndDuration(_, _, _)).Times(0);
 
 	ASSERT_TRUE(mediaTrack.InjectFragment());
@@ -291,7 +291,7 @@ TEST_P(MediaTrackDashQtDemuxOverrideConfiguredTests, QtDemuxOverrideConfiguredTe
 	// Media segment
 	testFragment.initFragment = false;
 	bufferedFragment = AddFragmentToBuffer(mediaTrack, testFragment, testParam.lowLatencyMode);
-	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _)).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffHelper, SetPtsAndDuration(_, _, _)).Times(0);
 
 	ASSERT_TRUE(mediaTrack.InjectFragment());
@@ -324,7 +324,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 	mStreamAbstractionAAMP_MPD->trickplayMode = true;
 
 	// There should be no PTS restamping for normal play rate media fragments in this test
-	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _)).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
@@ -469,7 +469,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
 	mStreamAbstractionAAMP_MPD->trickplayMode = false;
-
+	
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
@@ -487,7 +487,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	// Init segment
 	testFragment.initFragment = true;
 	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode);
-	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _)).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffHelper, SetTimescale(_, _)).Times(0);
 
 	ASSERT_TRUE(videoTrack.InjectFragment());
@@ -497,7 +497,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode);
 	EXPECT_CALL(*g_mockIsoBmffHelper,
 				RestampPts(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
-								  (PTS_OFFSET_SEC * PLAYBACK_TIMESCALE), expectedUri));
+								  (PTS_OFFSET_SEC * PLAYBACK_TIMESCALE), expectedUri, "video", PLAYBACK_TIMESCALE));
 	EXPECT_CALL(*g_mockIsoBmffHelper, SetPtsAndDuration(_, _, _)).Times(0);
 	if (lowLatencyMode)
 	{
@@ -530,7 +530,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampInvalidPlayRateTests, InvalidPlayRateTes
 	mStreamAbstractionAAMP_MPD->trickplayMode = true;
 
 	// There should be no PTS restamping for normal play rate media fragments in this test
-	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _)).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
@@ -567,7 +567,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	mStreamAbstractionAAMP_MPD->trickplayMode = true;
 
 	// There should be no PTS restamping for normal play rate media fragments in this test
-	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _)).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
