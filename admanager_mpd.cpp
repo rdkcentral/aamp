@@ -282,8 +282,15 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 						p2AdData.adBreakId = mPlacementObj.pendingAdbrkId;
 						p2AdData.offset2Ad[0] = AdOnPeriod{mPlacementObj.curAdIdx,mPlacementObj.adNextOffset};
 					}
-
 					p2AdData.duration += periodDelta;
+					double diffInDurationMs = currperioddur - p2AdData.duration;
+					if(diffInDurationMs > 0)
+					{
+						AAMPLOG_WARN("[CDAI] Resetting p2AdData.duration!! periodId:%s diff:%lf periodDuration:%f p2AdData.duration:%" PRIu64 ,
+								periodId.c_str(), diffInDurationMs, currperioddur, p2AdData.duration);
+						periodDelta += diffInDurationMs;
+						p2AdData.duration += diffInDurationMs;
+					}
 					AAMPLOG_INFO("periodDelta = %f p2AdData.duration = [%" PRIu64 "] mPlacementObj.adNextOffset = %u periodId = %s",periodDelta,p2AdData.duration,mPlacementObj.adNextOffset, periodId.c_str());
 					bool isSrcdurnotequalstoaddur = false;
 					if(periodDelta == 0)
