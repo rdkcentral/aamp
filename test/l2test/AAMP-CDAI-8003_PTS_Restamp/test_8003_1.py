@@ -76,7 +76,7 @@ def test_8003_1(httpserver_setup_teardown, aamp_setup_teardown, test_data):
 	this_test = {
 		"title": "Test Dash PTS Trickmode Restamping",
 		"max_test_time_seconds": 30,
-		"aamp_cfg": "info=true\nprogress=true\nenablePTSReStamp=true\nprogressReportingInterval=1.0\n",
+		"aamp_cfg": "info=true\ndebug=true\nprogress=true\nenablePTSReStamp=true\nprogressReportingInterval=1.0\n",
 		"expect_list": [
 			# Manifest is hosted locally - see comments in main.mpd for details
 			{"cmd": f"http://{server_address[0]}:{server_address[1]}/AAMP-CDAI-8003_PTS_Restamp/testdata/main.mpd"},
