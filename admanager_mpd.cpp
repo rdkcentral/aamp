@@ -315,15 +315,6 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 					{
 						AdNode &curAd = abObj.ads->at(mPlacementObj.curAdIdx);
 						AAMPLOG_INFO("curAd.duration = [%" PRIu64 "]",curAd.duration);
-						if("" == curAd.basePeriodId)
-						{
-							//Next ad started placing
-							curAd.basePeriodId = periodId;
-							curAd.basePeriodOffset = p2AdData.duration - periodDelta;
-							int offsetKey = curAd.basePeriodOffset;
-							offsetKey = offsetKey - (offsetKey%OFFSET_ALIGN_FACTOR);
-							p2AdData.offset2Ad[offsetKey] = AdOnPeriod{mPlacementObj.curAdIdx,0};	//At offsetKey of the period, new Ad starts
-						}
 						if(periodDelta < (curAd.duration - mPlacementObj.adNextOffset))
 						{
 							mPlacementObj.adNextOffset += periodDelta;
@@ -361,6 +352,17 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 							{
 								mPlacementObj.adNextOffset = 0; //New Ad's offset
 								AAMPLOG_INFO("[CDAI] New ad offset is setting to 0");
+								AdNode &nextAd = abObj.ads->at(mPlacementObj.curAdIdx);
+								if("" == nextAd.basePeriodId)
+								{
+									//Next ad started placing
+									nextAd.basePeriodId = periodId;
+									nextAd.basePeriodOffset = p2AdData.duration - periodDelta;
+									AAMPLOG_INFO("[CDAI]nextAd.basePeriodId:%s, nextAd.basePeriodOffset:%d", nextAd.basePeriodId.c_str(), nextAd.basePeriodOffset);
+									int offsetKey = nextAd.basePeriodOffset;
+									offsetKey = offsetKey - (offsetKey%OFFSET_ALIGN_FACTOR);
+									p2AdData.offset2Ad[offsetKey] = AdOnPeriod{mPlacementObj.curAdIdx,0};	//At offsetKey of the period, new Ad starts
+								}
 							}
 							else
 							{
@@ -634,7 +636,9 @@ bool PrivateCDAIObjectMPD::CheckForAdTerminate(double currOffset)
 			}
 		}
 	}
+
 	return false;
+
 }
 
 /**
