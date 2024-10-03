@@ -83,6 +83,7 @@ private:
 	void HandleCommandSpeed( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
 	void HandleCommandBPS( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
 	void HandleCommandTuneData( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
+	void HandleAdTesting();
 };
 
 #endif // AAMPCLIPLAYBACKCOMMAND_H
