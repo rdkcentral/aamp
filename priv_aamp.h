@@ -3855,6 +3855,28 @@ public:
 	}
 
 	/**
+	 *   @brief Set LL-DASH chunk mode enabled or not.
+	 *
+	 *   @param true for LL-DASH chunk mode, default false - which is non chunk mode
+	 *
+	 *   @return void
+	 */
+	void SetLLDashChunkMode(bool enable)
+	{
+		mIsChunkMode = enable;
+	}
+
+	/**
+	 *   @brief Get the status of LL-DASH chunk mode.
+	 *
+	 *   @return true if LL-DASH chunk mode is enabled, false otherwise.
+	 */
+	bool GetLLDashChunkMode()
+	{
+		return mIsChunkMode;
+	}
+
+	/**
 	 *   @brief Is iframe extraction enabled
 	 *
 	 *   @return bool
@@ -4425,6 +4447,8 @@ protected:
 	bool mbPauseOnStartPlayback;						/**< Start playback in paused state */
 
 	pthread_mutex_t mPreProcessLock;
+	bool mIsChunkMode;		/** LLD ChunkMode */
+
 };
 
 #endif // PRIVAAMP_H

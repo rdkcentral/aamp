@@ -185,7 +185,7 @@ protected:
 		dashData.lowLatencyMode = isEnabled;
 		mPrivateInstanceAAMP->SetLLDashServiceData(dashData);
 		// In these tests, chunk mode is set for all low-latency tests
-		mStreamAbstractionAAMP_MPD->mIsChunkMode = isEnabled;
+		mPrivateInstanceAAMP->SetLLDashChunkMode(isEnabled);
 	}
 };
 

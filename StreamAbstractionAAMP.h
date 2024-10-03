@@ -1365,7 +1365,6 @@ public:
 	int mTsbMaxBitrateProfileIndex;		/**< Indicates the index of highest profile in the saved stream info */
 	bool mUpdateReason;			/**< flag to update the bitrate change reason */
 	AampTime mPTSOffset;				/*For PTS restamping*/
-	bool mIsChunkMode;			/** Flag to indicate whetehr playback is in chunk mode or not*/
 
 	/**
 	 *   @brief Get profile index of highest bandwidth

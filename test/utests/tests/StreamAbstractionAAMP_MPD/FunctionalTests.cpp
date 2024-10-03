@@ -2121,8 +2121,14 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 }
 
-/**
- * @brief test to ensure the ChunkMode test case for non lld 
+/* 
+ * @brief Test to make sure ChunkMode is turned off for non-LLD streams.
+ * This test checks that ChunkMode (used for lld) is not 
+ * activated when playing a regular non lld stream.Testing under below three situation 
+ * - Normal playback
+ * - Retune
+ * - Seeking near the end of the stream
+ * In all cases, we expect the ChunkMode to be off.
  */
 
 TEST_F(FunctionalTests, ChunkMode_NonLLD)
@@ -2147,21 +2153,30 @@ TEST_F(FunctionalTests, ChunkMode_NonLLD)
 
 	status = InitializeMPD(manifest,TuneType::eTUNETYPE_NEW_NORMAL, seekPosition, rate);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mIsChunkMode, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), false);
 
+	//Retune Scenario
 	status = InitializeMPD(manifest,TuneType::eTUNETYPE_RETUNE, seekPosition, rate);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mIsChunkMode, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), false);
 
+	//Seeking near the end of the stream
 	seekPosition = 290; //Total duration 300
 	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK, seekPosition, rate);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mIsChunkMode, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), false);
 }
 
-/**
- * @brief test to ensure the ChunkMode test case for lld 
+/* 
+ * @brief Test to ensure ChunkMode is enabled for LLD streams. 
+ * This test checks that ChunkMode (used for lld) is activated 
+ * Tested under below scenarios:
+ * - Normal playback (ChunkMode should be on)
+ * - Seeking at the beginning of the stream (ChunkMode should be off)
+ * - Seeking near the live point (ChunkMode should be on)
+ * - Seeking behind the live point (ChunkMode should be off)
  */
+
 TEST_F(FunctionalTests, ChunkMode_LLD)
 {
 	AAMPStatusType status;
@@ -2185,7 +2200,7 @@ TEST_F(FunctionalTests, ChunkMode_LLD)
   </Period>
 </MPD>
 )";
-		double seekPosition = 0;
+	double seekPosition = 0;
 	int rate = 1 ; //Normal playrate test
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
@@ -2199,23 +2214,90 @@ TEST_F(FunctionalTests, ChunkMode_LLD)
 
 	status = InitializeMPD(manifest,TuneType::eTUNETYPE_NEW_NORMAL, seekPosition, rate,false); 
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mIsChunkMode, true);
+	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), true);
 
 	//seek to the beginning
 	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK, seekPosition, rate,false); 
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mIsChunkMode, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), false);
 
 	seekPosition = 1550 ; //Total duration -1560
 	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK,seekPosition, rate,false); 
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mIsChunkMode, true);
+	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), true);
 
 	seekPosition = 1000; //behind live point
 	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK,seekPosition, rate,false); 
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mIsChunkMode, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), false);
 
+}
+
+/**
+ * @brief Test LLD ChunkMode behavior with a seek position within the latency range.
+ * 
+ * This test verifies that ChunkMode is enabled when seeking to 1552 seconds 
+ * in a 1560-second stream. The live offset is 6 seconds, and maximum latency 
+ * is 9 seconds. The seek position is behind the live edge but within the 
+ * allowable latency (1560 - 9 = 1551 seconds). The test checks if ChunkMode 
+ * is correctly enabled in this scenario.
+ */
+
+TEST_F(FunctionalTests, ChunkMode_LLD_ForMaxLatency_Case)
+{
+	AAMPStatusType status;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="dynamic" id="8371500471198371163" profiles="urn:mpeg:dash:profile:isoff-live:2011,http://www.dashif.org/guidelines/low-latency-live-v5" minBufferTime="PT0H0M1.000S" maxSegmentDuration="PT2.34S" minimumUpdatePeriod="PT0H0M1.920S" availabilityStartTime="1970-01-01T00:00:00.000Z" timeShiftBufferDepth="PT0H30M1.044S" publishTime="2024-06-25T11:23:17.130Z">
+  <Period id="Period-1" start="PT477586H51M45.467S">
+    <AdaptationSet id="track-1" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="track-video-periodid-Period-1-repid-$RepresentationID$-tc-0-header.mp4" media="track-video-periodid-Period-1-repid-$RepresentationID$-tc-0-time-$Time$.mp4" timescale="240000" startNumber="168440" presentationTimeOffset="79455172898" availabilityTimeOffset="1.44" availabilityTimeComplete="false">
+        <SegmentTimeline>
+          <S t="79476480098" d="460800" r="810"/>
+          <S t="79850188898" d="364800" r="0"/>
+          <S t="79850553698" d="360000" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="track-2" bandwidth="500000" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25"/>
+      <Representation id="track-3" bandwidth="1200000" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50"/>
+      <Representation id="track-4" bandwidth="1850000" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50"/>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	double seekPosition = 1552; ///Total duration : 1560
+	int rate = 1 ; //Normal playrate test
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockAampMPDDownloader, IsMPDLowLatency (_))
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_)))
+    .WillRepeatedly([](AAMPConfigSettingInt config) {
+        // Check if the config is maxLatencyConfig, return 9(default value); otherwise, return 0
+        if (config == eAAMPConfig_LLMaxLatency) {
+            return 9;
+        }
+        return 0;
+    });
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	//For this test case we need EnableLowLatencyDash as true
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableLowLatencyDash))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LiveOffset))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(6));
+
+	mPrivateInstanceAAMP->mLiveOffset = 6;
+
+	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK,seekPosition, rate,false);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), true);
 }
 
 TEST_F(FunctionalTests, GetAvailableThumbnailTracksTest)

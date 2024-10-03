@@ -322,7 +322,8 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
 	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this->mPrivateInstanceAAMP, 0, 1);
-	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP->mIsChunkMode = true;
+	this-> mPrivateInstanceAAMP->SetLLDashChunkMode(true);
+
 	// Initialize after mock has been setup
 	Initialize();
 
@@ -360,7 +361,8 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
 	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this->mPrivateInstanceAAMP, 0, 1);
-	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP->mIsChunkMode = true;
+	this->mPrivateInstanceAAMP->SetLLDashChunkMode(true);
+
 	// Initialize after mock has been setup
 	Initialize();
 

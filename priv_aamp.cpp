@@ -662,12 +662,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 
 		if(mCtx)
 		{
-			bool ischunkMode = false;  // default value
-			if (context->aamp->mpStreamAbstractionAAMP)
-			{
-				ischunkMode = context->aamp->mpStreamAbstractionAAMP->mIsChunkMode;
-			}
-
+			bool ischunkMode = context->aamp->GetLLDashChunkMode();
 			if(context->aamp->GetLLDashServiceData()->lowLatencyMode && ischunkMode && !mCtx->IsLocalTSBInjection() && ptr && (numBytesForBlock > 0) &&
 					(context->mediaType == eMEDIATYPE_VIDEO ||
 					context->mediaType ==  eMEDIATYPE_AUDIO ||
@@ -1287,6 +1282,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mTSBStore(nullptr)
 	, mIsFlushFdsInCurlStore(false)
 	, mProvidedManifestFile("")
+	, mIsChunkMode(false)
 {
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
 	// Create the event manager for player instance
@@ -7702,7 +7698,6 @@ void PrivateInstanceAAMP::Stop()
 
 	SetLocalAAMPTsb(false);
 	SetLocalAAMPTsbInjection(false);
-
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
@@ -7806,6 +7801,7 @@ void PrivateInstanceAAMP::Stop()
 	mPreferredTextTrack = TextTrackInfo(); // reset
 	// send signal to any thread waiting for play
 	mDiscontinuityFound = false;
+	SetLLDashChunkMode(false); //Reset ChunkMode
 	pthread_mutex_lock(&mMutexPlaystart);
 	pthread_cond_broadcast(&waitforplaystart);
 	pthread_mutex_unlock(&mMutexPlaystart);

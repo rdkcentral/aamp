@@ -1270,8 +1270,7 @@ void MediaTrack::TrickModePtsRestamp(CachedFragment *cachedFragment)
 void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool fragmentDiscarded, bool isDiscontinuity, bool &ret )
 {
 	class StreamAbstractionAAMP* pContext = GetContext();
-
-	if (pContext && pContext->mIsChunkMode)
+	if (aamp->GetLLDashChunkMode())
 	{
 		bool bIgnore = true;
 		AAMPLOG_TRACE("[%s] Processing the chunk ==> fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
@@ -1382,17 +1381,9 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 bool MediaTrack::InjectFragment()
 {
 	bool ret = true;
-	bool isChunkMode = false ;
+	bool isChunkMode = aamp->GetLLDashChunkMode();
 	bool lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
 	StreamAbstractionAAMP* pContext = GetContext();
-	if(pContext != NULL)
-	{
-		isChunkMode = pContext->mIsChunkMode;
-	}
-	else
-	{
-		AAMPLOG_WARN("GetContext is null");  //Null Return
-	}
 	if(!isChunkMode) //TBD
 	{
 		aamp->BlockUntilGstreamerWantsData(NULL, 0, type);
@@ -1793,7 +1784,7 @@ int MediaTrack::GetCurrentBandWidth()
 void MediaTrack::FlushFragments()
 {
 	AAMPLOG_WARN("[%s]", name);
-	if(aamp->GetLLDashServiceData()->lowLatencyMode)
+	if(aamp->GetLLDashChunkMode())
 	{
 		for (int i = 0; i < maxCachedFragmentChunksPerTrack; i++)
 		{
@@ -2058,7 +2049,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 		mAuxCond(), mFwdAudioToAux(false),
 		mAudioTracksAll(), mTextTracksAll(),
 		mTsbMaxBitrateProfileIndex(-1),mUpdateReason(false),
-		mPTSOffset(0.0), mIsChunkMode(false),
+		mPTSOffset(0.0),
 		mID3Handler{mID3Handler}
 {
 	mLastVideoFragParsedTimeMS = aamp_GetCurrentTimeMS();

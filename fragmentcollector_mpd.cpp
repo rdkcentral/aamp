@@ -928,7 +928,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 			{
 				// Insert a dummy fragment with discontinuity, since we didn't get an init fragments so it wouldn't get flagged
 				CachedFragment* cachedFragment = nullptr;
-				if(mIsChunkMode)
+				if(aamp->GetLLDashChunkMode())
 				{
 					if(pMediaStreamContext->WaitForCachedFragmentChunkInjected())
 					{
@@ -951,7 +951,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 				cachedFragment->profileIndex=0;
 				cachedFragment->isDummy=true;
 				cachedFragment->type=pMediaStreamContext->mediaType;
-				mIsChunkMode ? pMediaStreamContext->UpdateTSAfterChunkFetch() : pMediaStreamContext->UpdateTSAfterFetch(true);
+				aamp->GetLLDashChunkMode() ? pMediaStreamContext->UpdateTSAfterChunkFetch() : pMediaStreamContext->UpdateTSAfterFetch(true);
 			}
 		}
 		retval = false;
@@ -3428,7 +3428,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	AAMPStatusType retval = eAAMPSTATUS_OK;
 	aamp->CurlInit(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT, aamp->GetNetworkProxy());
 	mCdaiObject->ResetState();
-
+	aamp->SetLLDashChunkMode(false); //Reset ChunkMode
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 	if (sink)
 	{
@@ -3721,7 +3721,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			double duration = (double) durationMs / 1000;
 			mLiveEndPosition = aamp->mAbsoluteEndPosition;
 			bool liveAdjust = (eTUNETYPE_NEW_NORMAL == tuneType) && aamp->IsLiveAdjustRequired();
-			
 			if (eTUNETYPE_SEEKTOLIVE == tuneType)
 			{
 				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: eTUNETYPE_SEEKTOLIVE");
@@ -3754,13 +3753,25 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 						}
 					}
 				}
+
+				if (mLowLatencyMode && !liveAdjust)
+				{
+					int maxLatency = GETCONFIGVALUE(eAAMPConfig_LLMaxLatency);
+					//Chunk mode is applied when the seek position is between the live edge and the maximum allowed latency from it
+					if (seekPosition > (duration - maxLatency))
+					{
+						aamp->SetLLDashChunkMode(true);
+						AAMPLOG_MIL("Chunk mode set: seekPosition (%f) not exceeded maxLatency (%d) threshold, enabling LLDashChunkMode", seekPosition, maxLatency);
+					}
+				}
 			}
 
 			if (liveAdjust)
 			{
 				if(mLowLatencyMode)
 				{
-					mIsChunkMode = true;
+					aamp->SetLLDashChunkMode(true);
+					AAMPLOG_MIL("Chunk mode set: Enabling LLDashChunkMode due to liveadjust");
 				}
 				// DELIA-43662
 				// After live adjust ( for Live or CDVR) , possibility of picking an empty last period exists.
