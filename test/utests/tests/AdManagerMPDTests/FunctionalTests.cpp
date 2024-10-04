@@ -56,7 +56,6 @@ AampConfig *gpGlobalConfig{nullptr};
 class AdManagerMPDTests : public ::testing::Test
 {
 protected:
-
   PrivateInstanceAAMP *mPrivateInstanceAAMP;
   CDAIObjectMPD *mCdaiObj;
   PrivateCDAIObjectMPD* mPrivateCDAIObjectMPD;

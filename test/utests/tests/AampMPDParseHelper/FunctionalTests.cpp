@@ -1175,4 +1175,43 @@ TEST_F(FunctionalTests, TestCase2_For_UpdateBoundaryPeriod)
 	EXPECT_EQ(0,ParseHelper->mLowerBoundaryPeriod);
 	EXPECT_EQ(2,ParseHelper->mUpperBoundaryPeriod);
 }
+/** @brief Test case to check if GetPeriodStartTime is returning absolute value when parsing MPD  */
+TEST_F(FunctionalTests, TestForAbsoluteTime)
+{
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1977-05-25T18:00:00.000Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="p0" start="PT413443H46M3S">
+    <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
 
+	mManifest = manifest;
+	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+
+	// Check to see is availablityStartTime is fetched correctly from manifest
+	EXPECT_EQ(mpd->GetAvailabilityStarttime(), "1977-05-25T18:00:00.000Z");
+
+	string availabilityStartTimeISO = mpd->GetAvailabilityStarttime();
+	double availabilityStartTimeUTC = (double)ISO8601DateTimeToUTCSeconds(availabilityStartTimeISO.c_str());
+
+	// Check to see if availabilityStartTime is properly converted to UTC
+	EXPECT_EQ(availabilityStartTimeUTC, 233431200.000000);
+
+	uint64_t mpdDownloadTime;
+	mpdDownloadTime=aamp_GetCurrentTimeMS();//Current time taken to pass in to GetPeriodStartTime,it doesn't directly affect the period start time in  this case.Therefore any value passed would be fine.
+
+	double periodStartTime = ParseHelper->GetPeriodStartTime(0, mpdDownloadTime);
+
+	// Check if periodStart time parsed from MPD is as given in MPD
+
+	EXPECT_EQ(periodStartTime, 1721828763.00);
+}
