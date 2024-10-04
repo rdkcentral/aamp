@@ -649,7 +649,8 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, LLD_DISABLED);
 
 	int64_t expectedDuration{restampedDuration * TRICKMODE_TIMESCALE};
-	int64_t expectedPts{restampedPts.inSeconds() * TRICKMODE_TIMESCALE};
+	int64_t expectedPts = (int64_t)(restampedPts.inSeconds() * TRICKMODE_TIMESCALE);
+	
 	EXPECT_CALL(
 		*g_mockIsoBmffHelper,
 		SetPtsAndDuration(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
