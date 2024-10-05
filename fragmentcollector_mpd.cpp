@@ -832,7 +832,7 @@ void StreamAbstractionAAMP_MPD::GetFragmentUrl( std::string& fragmentUrl, const 
 	replace(constructedUri, "Bandwidth", fragmentDescriptor->Bandwidth);
 	replace(constructedUri, "RepresentationID", fragmentDescriptor->RepresentationID);
 	replace(constructedUri, "Number", fragmentDescriptor->Number);
-	replace(constructedUri, "Time", (uint64_t)fragmentDescriptor->Time );
+	replace(constructedUri, "Time", fragmentDescriptor->Time );
 	aamp_ResolveURL(fragmentUrl, fragmentDescriptor->manifestUrl, constructedUri.c_str(),ISCONFIGSET(eAAMPConfig_PropogateURIParam));
 }
 
@@ -1003,7 +1003,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			if(!timelines.empty())
 			{
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-				AAMPLOG_INFO("Type[%d] timelineCnt=%zu timeLineIndex:%d FDTime=%f L=%" PRIu64 " [fragmentTime = %f,  mLiveEndPosition=%f]",
+				AAMPLOG_INFO("Type[%d] timelineCnt=%zu timeLineIndex:%d FDTime=%" PRIu64 " L=%" PRIu64 " [fragmentTime = %f mLiveEndPosition=%f]",
 					pMediaStreamContext->type, timelines.size(), pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Time, pMediaStreamContext->lastSegmentTime, pMediaStreamContext->fragmentTime, mLiveEndPosition);
 #endif
 				if ((pMediaStreamContext->timeLineIndex >= timelines.size()) || (pMediaStreamContext->timeLineIndex < 0)
@@ -1047,20 +1047,19 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					{
 						AAMPLOG_WARN("[!!! WARNING !!!] Inconsistent timescale detected within same adaptation sets - prevTimeScale %d currentTimeScale %d, which contradicts stream compliance, Applying workaround",prevTimeScale, timeScale);
 
-						double timelineOffset  = (double)timeScale / (double)prevTimeScale;
 						if(pMediaStreamContext->lastSegmentTime != 0)
 						{
-							pMediaStreamContext->lastSegmentTime = pMediaStreamContext->lastSegmentTime * timelineOffset;
+							pMediaStreamContext->lastSegmentTime = pMediaStreamContext->lastSegmentTime * timeScale/prevTimeScale;
 						}
 						if(pMediaStreamContext->lastSegmentDuration != 0)
 						{
-							pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->lastSegmentDuration * timelineOffset;
+							pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->lastSegmentDuration * timeScale/prevTimeScale;
 						}
 
 						//When manifest refresh, FD.Time will be 0 and updated based on start time later.
 						if(pMediaStreamContext->fragmentDescriptor.Time != 0 )
 						{
-							pMediaStreamContext->fragmentDescriptor.Time = pMediaStreamContext->fragmentDescriptor.Time * timelineOffset;
+							pMediaStreamContext->fragmentDescriptor.Time = pMediaStreamContext->fragmentDescriptor.Time * timeScale/prevTimeScale;
 						}
 
 					}
@@ -1164,7 +1163,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						// Modify the descriptor time to start download
 						pMediaStreamContext->fragmentDescriptor.Time = segmentStartTime;
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-						AAMPLOG_INFO("Type[%d] timelineCnt=%zu timeLineIndex:%d FDTime=%f L=%" PRIu64 " [fragmentTime = %f,  mLiveEndPosition = %f]",
+						AAMPLOG_INFO("Type[%d] timelineCnt=%zu timeLineIndex:%d FDTime=%" PRIu64" L=%" PRIu64 " [fragmentTime = %f, mLiveEndPosition = %f]",
 						pMediaStreamContext->type ,timelines.size(), pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Time, pMediaStreamContext->lastSegmentTime,
 						pMediaStreamContext->fragmentTime, mLiveEndPosition);
 #endif
@@ -1291,7 +1290,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					// Flag used to identify manifest refresh after fragment download (FetchFragment)
 					pMediaStreamContext->freshManifest = false;
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-					AAMPLOG_INFO("Type[%d] FDt=%f L=%" PRIu64 " d=%d r=%d fragrep=%d x=%d num=%" PRIu64,
+					AAMPLOG_INFO("Type[%d] FDt=%" PRIu64 " L=%" PRIu64 " d=%d r=%d fragrep=%d x=%d num=%" PRIu64,
 					pMediaStreamContext->type,pMediaStreamContext->fragmentDescriptor.Time,
 					pMediaStreamContext->lastSegmentTime, duration, repeatCount,pMediaStreamContext->fragmentRepeatCount,
 					pMediaStreamContext->timeLineIndex,pMediaStreamContext->fragmentDescriptor.Number);
@@ -1313,7 +1312,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							positionInPeriod = (pMediaStreamContext->lastSegmentDuration - firstTimeline->GetStartTime()) / timeScale;
 						}
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-						AAMPLOG_INFO("Type[%d] presenting FDt%f Number(%" PRIu64 ") Last=%" PRIu64 " Duration(%d) FTime(%f) endTime:%f",
+						AAMPLOG_INFO("Type[%d] presenting FDt%" PRIu64 " Number(%" PRIu64 ") Last=%" PRIu64 " Duration(%d) FTime(%f) endTime:%f",
 							pMediaStreamContext->type,pMediaStreamContext->fragmentDescriptor.Time,pMediaStreamContext->fragmentDescriptor.Number,pMediaStreamContext->lastSegmentTime,duration,pMediaStreamContext->fragmentTime,endTime);
 #endif
 						retval = true;
@@ -1399,7 +1398,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								// Attempt rampdown
 								if (CheckForRampDownProfile(http_code))
 								{
-									AAMPLOG_WARN("RampDownProfile Due to failover Content %" PRIu64 " Number %lf FDT",pMediaStreamContext->fragmentDescriptor.Number,pMediaStreamContext->fragmentDescriptor.Time);
+									AAMPLOG_WARN("RampDownProfile Due to failover Content %" PRIu64 " Number %" PRIu64 " FDT", pMediaStreamContext->fragmentDescriptor.Number,pMediaStreamContext->fragmentDescriptor.Time);
 									mCheckForRampdown = true;
 									// Rampdown attempt success, download same segment from lower profile.
 									pMediaStreamContext->mSkipSegmentOnError = false;
@@ -1472,7 +1471,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					else if (rate < 0)
 					{
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-						AAMPLOG_INFO("Type[%d] presenting %f" ,pMediaStreamContext->type,pMediaStreamContext->fragmentDescriptor.Time);
+						AAMPLOG_INFO("Type[%d] presenting %" PRIu64, pMediaStreamContext->type,pMediaStreamContext->fragmentDescriptor.Time);
 #endif
 						pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time;
 						pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time + duration;
@@ -1502,13 +1501,13 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							// CID:328774 - Data race condition
 							return false;
 						}
-						AAMPLOG_WARN("Calling ScheduleRetune to handle start-time reset lastSegmentTime=%" PRIu64 " start-time=%f" , pMediaStreamContext->lastSegmentTime, pMediaStreamContext->fragmentDescriptor.Time);
+						AAMPLOG_WARN("Calling ScheduleRetune to handle start-time reset lastSegmentTime=%" PRIu64 " start-time=%" PRIu64, pMediaStreamContext->lastSegmentTime, pMediaStreamContext->fragmentDescriptor.Time);
 						aamp->ScheduleRetune(eDASH_ERROR_STARTTIME_RESET, pMediaStreamContext->mediaType);
 					}
 					else
 					{
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-						AAMPLOG_INFO("Type[%d] Before skipping. fragmentDescriptor.Time %f lastSegmentTime %" PRIu64 " Index=%d fragRep=%d,repMax=%d Number=%" PRIu64, pMediaStreamContext->type,
+						AAMPLOG_INFO("Type[%d] Before skipping. fragmentDescriptor.Time %" PRIu64 " lastSegmentTime %" PRIu64 " Index=%d fragRep=%d,repMax=%d Number=%" PRIu64, pMediaStreamContext->type,
 							pMediaStreamContext->fragmentDescriptor.Time, pMediaStreamContext->lastSegmentTime,pMediaStreamContext->timeLineIndex,
 							pMediaStreamContext->fragmentRepeatCount , repeatCount,pMediaStreamContext->fragmentDescriptor.Number);
 #endif
@@ -1528,7 +1527,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								}
 						}
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-						AAMPLOG_INFO("Type[%d] After skipping. fragmentDescriptor.Time %f lastSegmentTime %" PRIu64 " Index=%d Number=%" PRIu64, pMediaStreamContext->type,
+						AAMPLOG_INFO("Type[%d] After skipping. fragmentDescriptor.Time %" PRIu64 " lastSegmentTime %" PRIu64 " Index=%d Number=%" PRIu64, pMediaStreamContext->type,
 								pMediaStreamContext->fragmentDescriptor.Time, pMediaStreamContext->lastSegmentTime,pMediaStreamContext->timeLineIndex,pMediaStreamContext->fragmentDescriptor.Number);
 #endif
 					}
@@ -1547,7 +1546,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time+duration;
 							pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-							AAMPLOG_INFO("Type[%d] After Incr. fragmentDescriptor.Time %f lastSegmentTime %" PRIu64 " Index=%d fragRep=%d,repMax=%d Number=%" PRIu64, pMediaStreamContext->type,
+							AAMPLOG_INFO("Type[%d] After Incr. fragmentDescriptor.Time %" PRIu64 " lastSegmentTime %" PRIu64 " Index=%d fragRep=%d,repMax=%d Number=%" PRIu64, pMediaStreamContext->type,
 							pMediaStreamContext->fragmentDescriptor.Time, pMediaStreamContext->lastSegmentTime,pMediaStreamContext->timeLineIndex,
 							pMediaStreamContext->fragmentRepeatCount , repeatCount,pMediaStreamContext->fragmentDescriptor.Number);
 #endif
@@ -1654,7 +1653,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						
 					pMediaStreamContext->lastSegmentNumber = (long long)((liveTime - mPeriodStartTime) / fragmentDuration) + startNumber;
 					pMediaStreamContext->fragmentDescriptor.Time = liveTime;
-					AAMPLOG_INFO("Type[%d] Printing fragmentDescriptor.Number %" PRIu64 " Time=%f  ", pMediaStreamContext->type, pMediaStreamContext->lastSegmentNumber, pMediaStreamContext->fragmentDescriptor.Time);
+					AAMPLOG_INFO("Type[%d] Printing fragmentDescriptor.Number %" PRIu64 " Time=%" PRIu64, pMediaStreamContext->type, pMediaStreamContext->lastSegmentNumber, pMediaStreamContext->fragmentDescriptor.Time);
 				}
 				else
 				{
@@ -1702,7 +1701,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			}
 			pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time + fragmentDuration;
 
-			AAMPLOG_TRACE("fDesc.Time= %lf utcTime=%lf delta=%lf CTSeconds=%lf,FreqTime=%lf  nextfragTime : %lf",pMediaStreamContext->fragmentDescriptor.Time,
+			AAMPLOG_TRACE("fDesc.Time= %" PRIu64 " utcTime=%lf delta=%lf CTSeconds=%lf,FreqTime=%lf  nextfragTime : %lf",pMediaStreamContext->fragmentDescriptor.Time,
 					mLocalUtcTime,mDeltaTime,currentTimeSeconds,fragmentRequestTime,pMediaStreamContext->fragmentDescriptor.nextfragmentTime);
 
 			bool bProcessFrgment = true;
@@ -1727,7 +1726,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				(mLowLatencyMode? pMediaStreamContext->fragmentDescriptor.Time>mPeriodEndTime+availabilityTimeOffset:pMediaStreamContext->fragmentDescriptor.Time >= mPeriodEndTime)
 			|| (pMediaStreamContext->fragmentDescriptor.Time < mPeriodStartTime))))  //CID:93022 - No effect
 			{
-				AAMPLOG_INFO("Type[%d] EOS. pMediaStreamContext->lastSegmentNumber %" PRIu64 " fragmentDescriptor.Time=%f mPeriodEndTime=%f mPeriodStartTime %f  currentTimeSeconds %f FTime=%f", pMediaStreamContext->type, pMediaStreamContext->lastSegmentNumber, pMediaStreamContext->fragmentDescriptor.Time, mPeriodEndTime, mPeriodStartTime, currentTimeSeconds, pMediaStreamContext->fragmentTime);
+				AAMPLOG_INFO("Type[%d] EOS. pMediaStreamContext->lastSegmentNumber %" PRIu64 " fragmentDescriptor.Time=%" PRIu64 " mPeriodEndTime=%f mPeriodStartTime %f  currentTimeSeconds %f FTime=%f", pMediaStreamContext->type, pMediaStreamContext->lastSegmentNumber, pMediaStreamContext->fragmentDescriptor.Time, mPeriodEndTime, mPeriodStartTime, currentTimeSeconds, pMediaStreamContext->fragmentTime);
 				pMediaStreamContext->eos = true;
 			}
 			else if( mIsLiveStream &&  mHasServerUtcTime &&  
@@ -1735,7 +1734,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			{
 				int sleepTime = MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
 
-				AAMPLOG_TRACE("With ServerUTCTime. Next fragment Not Available yet: fragmentDescriptor.Time %f fragmentDuration:%f currentTimeSeconds %f Local UTCTime %f sleepTime %d ", pMediaStreamContext->fragmentDescriptor.Time, fragmentDuration, currentTimeSeconds, mLocalUtcTime, sleepTime);
+				AAMPLOG_TRACE("With ServerUTCTime. Next fragment Not Available yet: fragmentDescriptor.Time %" PRIu64 " fragmentDuration:%f currentTimeSeconds %f Local UTCTime %f sleepTime %d ", pMediaStreamContext->fragmentDescriptor.Time, fragmentDuration, currentTimeSeconds, mLocalUtcTime, sleepTime);
 				aamp->InterruptableMsSleep(sleepTime);
 				retval = false;
 			}
@@ -1744,7 +1743,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			{
 				int sleepTime = MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
 
-				AAMPLOG_TRACE("Without ServerUTCTime. Next fragment Not Available yet: fragmentDescriptor.Time %f fragmentDuration:%f currentTimeSeconds %f Local UTCTime %f sleepTime %d ", pMediaStreamContext->fragmentDescriptor.Time, fragmentDuration, currentTimeSeconds, mLocalUtcTime, sleepTime);
+				AAMPLOG_TRACE("Without ServerUTCTime. Next fragment Not Available yet: fragmentDescriptor.Time %" PRIu64 " fragmentDuration:%f currentTimeSeconds %f Local UTCTime %f sleepTime %d ", pMediaStreamContext->fragmentDescriptor.Time, fragmentDuration, currentTimeSeconds, mLocalUtcTime, sleepTime);
 				aamp->InterruptableMsSleep(sleepTime);
 				retval = false;
 			}
@@ -1803,7 +1802,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					// Manifest changed while succesful fragment download, save te backup number as lastSegmentNumber
 					pMediaStreamContext->lastSegmentNumber = lastSegmentNumberBackup;
 				}
-				AAMPLOG_TRACE("Type[%d] Printing fragmentDescriptor.Number %" PRIu64 " Time=%f  ", pMediaStreamContext->type, pMediaStreamContext->lastSegmentNumber, pMediaStreamContext->fragmentDescriptor.Time);
+				AAMPLOG_TRACE("Type[%d] Printing fragmentDescriptor.Number %" PRIu64 " Time=%" PRIu64, pMediaStreamContext->type, pMediaStreamContext->lastSegmentNumber, pMediaStreamContext->fragmentDescriptor.Time);
 			}
 			//if pipeline is currently clear and if encrypted period is found in the last updated mpd, then do an internal retune
 			//to configure the pipeline the for encrypted content
@@ -2183,7 +2182,7 @@ void StreamAbstractionAAMP_MPD::ApplyLiveOffsetWorkaroundForSAP( double seekPosi
 				// This is incomplete workaround, need full API rework
 				mMediaStreamContext[i]->fragmentTime = mMediaStreamContext[i]->fragmentDescriptor.Time = currentplaybacktime - fragmentDuration;
 				mMediaStreamContext[i]->lastSegmentNumber= mMediaStreamContext[i]->fragmentDescriptor.Number;
-				AAMPLOG_INFO("moffsetFromStart:%f startNumber:%ld mPeriodStartTime:%f fragmentDescriptor.Number:%" PRIu64 " >fragmentDescriptor.Time:%f  mLiveOffset:%f seekPositionSeconds:%f"
+				AAMPLOG_INFO("moffsetFromStart:%f startNumber:%ld mPeriodStartTime:%f fragmentDescriptor.Number:%" PRIu64 " >fragmentDescriptor.Time:%" PRIu64 "  mLiveOffset:%f seekPositionSeconds:%f"
 				,aamp->mOffsetFromTunetimeForSAPWorkaround,startNumber,mPeriodStartTime, mMediaStreamContext[i]->fragmentDescriptor.Number,mMediaStreamContext[i]->fragmentDescriptor.Time,aamp->mLiveOffset,seekPositionSeconds);
 			}
 		}
@@ -2216,7 +2215,7 @@ void StreamAbstractionAAMP_MPD::SkipToEnd( MediaStreamContext *pMediaStreamConte
 				map<string, string> attributeMap = firstTimeline->GetRawAttributes();
 				if(attributeMap.find("t") != attributeMap.end())
 				{
-					pMediaStreamContext->fragmentDescriptor.Time = static_cast<double>(firstTimeline->GetStartTime());
+					pMediaStreamContext->fragmentDescriptor.Time = firstTimeline->GetStartTime();
 				}
 				else
 				{
@@ -2281,8 +2280,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					pMediaStreamContext->adaptationSet->GetSegmentTemplate() );
 	if( segmentTemplates.HasSegmentTemplate() )
 	{
-		 AAMPLOG_INFO("Enter : Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentTime %f skipTime %f segNumber %" PRIu64" Ftime:%f" ,pMediaStreamContext->type,
-								pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentTime, skipTime, pMediaStreamContext->fragmentDescriptor.Number,pMediaStreamContext->fragmentDescriptor.Time);
+		AAMPLOG_INFO("Enter : Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentTime %f skipTime %f segNumber %" PRIu64 " Ftime:%" PRIu64,
+					 pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentTime, skipTime, pMediaStreamContext->fragmentDescriptor.Number, pMediaStreamContext->fragmentDescriptor.Time);
 
 		gboolean firstFrag = true;
 
@@ -2503,7 +2502,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 
 				if(pMediaStreamContext->fragmentDescriptor.Time > mPeriodEndTime || (rate < 0 && pMediaStreamContext->fragmentDescriptor.Time <= 0))
 				{
-					AAMPLOG_INFO("Type[%d] EOS. fragmentDescriptor.Time=%f",pMediaStreamContext->type, pMediaStreamContext->fragmentDescriptor.Time);
+					AAMPLOG_INFO("Type[%d] EOS. fragmentDescriptor.Time=%" PRIu64, pMediaStreamContext->type, pMediaStreamContext->fragmentDescriptor.Time);
 					pMediaStreamContext->eos = true;
 					break;
 				}
@@ -2587,7 +2586,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 			if( skipTime==0 ) AAMPLOG_WARN( "XIONE-941" );
 		}while(true); // was while(skipTime != 0);
 
-		AAMPLOG_INFO("Exit :Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentDescriptor.Number %" PRIu64 " fragmentTime %f FTime:%f",pMediaStreamContext->type,
+		AAMPLOG_INFO("Exit :Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentDescriptor.Number %" PRIu64 " fragmentTime %f FTime:%" PRIu64, pMediaStreamContext->type,
 				pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentDescriptor.Number, pMediaStreamContext->fragmentTime,pMediaStreamContext->fragmentDescriptor.Time);
 	}
 	else
@@ -6519,7 +6518,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 	pMediaStreamContext->timeLineIndex = 0;
 
 	pMediaStreamContext->fragmentTime = mPeriodStartTime;
-	AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d changed, updating fragmentTime to %lf fragmentDescriptor.Number %" PRIu64,AampMediaType(type), pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number);
+	AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d changed, updating fragmentTime to %f fragmentDescriptor.Number %" PRIu64, AampMediaType(type), pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number);
 
 
 	SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),pMediaStreamContext->adaptationSet->GetSegmentTemplate());
@@ -6699,8 +6698,8 @@ uint32_t StreamAbstractionAAMP_MPD::GetCurrentFragmentDuration( MediaStreamConte
 			pMediaStreamContext->adaptationSet->GetSegmentTemplate() );
 	if (segmentTemplates.HasSegmentTemplate())
 	{
-		AAMPLOG_INFO("Enter : Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentTime %f segNumber %" PRIu64 " Ftime:%f" ,pMediaStreamContext->type,
-				pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number,pMediaStreamContext->fragmentDescriptor.Time);
+		AAMPLOG_INFO("Enter : Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentTime %f segNumber %" PRIu64 " Ftime:%" PRIu64 ,pMediaStreamContext->type,
+				pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number, pMediaStreamContext->fragmentDescriptor.Time);
 
 		const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
 
@@ -6863,7 +6862,7 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	newInjectedPosition = ( pMediaStreamContext->fragmentDescriptor.Time - fragmentDuration )/pMediaStreamContext->fragmentDescriptor.TimeScale;
 
 	/*Calulating the difference in Fetched duration, injected duration and diff in Media Sequence number */
-	diffInFetchedDuration = oldPlaylistPosition - pMediaStreamContext->fragmentTime; 
+	diffInFetchedDuration = oldPlaylistPosition - pMediaStreamContext->fragmentTime;
 	diffInInjectedDuration = ( pMediaStreamContext->GetLastInjectedPosition() - newInjectedPosition );
 	diffFragmentsDownloaded = static_cast<int>(oldMediaSequenceNumber - pMediaStreamContext->fragmentDescriptor.Number);
 
@@ -7751,12 +7750,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				// For playing the second/third ad in a ad break, we should not update fragmentTime to PeriodStartTime
 				if (mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0)
 				{
-					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, fragmentTime:%lf", i, pMediaStreamContext->fragmentTime);
+					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, fragmentTime:%f", i, pMediaStreamContext->fragmentTime);
 				}
 				else
 				{
 					pMediaStreamContext->fragmentTime = mPeriodStartTime;
-					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, updating fragmentTime to %lf", i, pMediaStreamContext->fragmentTime);
+					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, updating fragmentTime to %f", i, pMediaStreamContext->fragmentTime);
 				}
 			}
 
@@ -8772,7 +8771,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 							&& mCdaiObject->CheckForAdTerminate(pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset))
 					{
 						//Ensuring that Ad playback doesn't go beyond Adbreak
-						AAMPLOG_WARN("[CDAI] Track[%d] Adbreak ended early. Terminating Ad playback. fragmentTime[%lf] periodStartOffset[%lf]",
+						AAMPLOG_WARN("[CDAI] Track[%d] Adbreak ended early. Terminating Ad playback. fragmentTime[%f] periodStartOffset[%lf]",
 											trackIdx, pMediaStreamContext->fragmentTime, pMediaStreamContext->periodStartOffset);
 						pMediaStreamContext->eos = true;
 					}
@@ -14143,7 +14142,7 @@ void StreamAbstractionAAMP_MPD::setNextobjectrequestUrl(std::string media,const 
 		replace(media, "Number", fragmentDescriptor->nextfragmentNum);
 		replace(media, "Time", (uint64_t)fragmentDescriptor->nextfragmentTime );
 	}
-	AAMPLOG_DEBUG("Current Frag Number %" PRIu64 "  nextfragmentNum : %" PRIu64 ",Current fragstarttime : %f nextfragmentTime : %f",fragmentDescriptor->Number,fragmentDescriptor->nextfragmentNum,fragmentDescriptor->Time,fragmentDescriptor->nextfragmentTime);
+	AAMPLOG_DEBUG("Current Frag Number %" PRIu64 "  nextfragmentNum : %" PRIu64 ",Current fragstarttime : %" PRIu64 " nextfragmentTime : %f",fragmentDescriptor->Number,fragmentDescriptor->nextfragmentNum,fragmentDescriptor->Time,fragmentDescriptor->nextfragmentTime);
 	media = getrelativenorurl(media);
 	aamp->mCMCDCollector->CMCDSetNextObjectRequest( media ,(fragmentDescriptor)->Bandwidth,mediaType);
 }
