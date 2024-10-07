@@ -3800,17 +3800,19 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				}
 				else
 				{
-					uint64_t  periodStartMs = 0;
 					IPeriod *period = mpd->GetPeriods().at(mCurrentPeriodIdx);
-					std::string tempString = period->GetStart();
-					periodStartMs = ParseISO8601Duration( tempString.c_str() );
-					currentPeriodStart = (double)periodStartMs/1000;
+					uint64_t  periodStartMs = ParseISO8601Duration( period->GetStart().c_str() );
+					currentPeriodStart = periodStartMs/(double)1000.0;
 					offsetFromStart = duration - aamp->mLiveOffset - currentPeriodStart;
 				}
 
 				if (offsetFromStart < 0)
 				{
-					offsetFromStart = 0;
+					offsetFromStart = duration - aamp->mLiveOffset; // DELIA-65438
+					if( offsetFromStart<0 )
+					{ // clamp if negative
+						offsetFromStart = 0;
+					}
 				}
 				if(mCurrentPeriodIdx < 0)
 				{
