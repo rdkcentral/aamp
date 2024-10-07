@@ -20,7 +20,7 @@
 #include "WebVttSubtecParser.hpp"
 #include "TextStyleAttributes.h"
 
-WebVTTSubtecParser::WebVTTSubtecParser(AampLogManager *logObj, PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(logObj, aamp, type), m_channel(nullptr)
+WebVTTSubtecParser::WebVTTSubtecParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(aamp, type), m_channel(nullptr)
 {
 	m_channel = SubtecChannel::SubtecChannelFactory(SubtecChannel::ChannelType::WEBVTT);
 	if (!m_channel->InitComms())
@@ -88,7 +88,7 @@ void WebVTTSubtecParser::pause(bool pause)
 
 void WebVTTSubtecParser::setTextStyle(const std::string &options)
 {
-	TextStyleAttributes textStyleAttributes(mLogObj);
+	TextStyleAttributes textStyleAttributes;
 	uint32_t attributesMask = 0;
 	attributesType attributesValues = {0};
 

@@ -44,9 +44,8 @@ class AampHlsOcdmBridge : public HlsDrmBase
 	AampDrmSession* m_drmSession;
 	PrivateInstanceAAMP* m_aampInstance;
 	pthread_mutex_t m_Mutex;
-	AampLogManager* mLogObj;
 public:
-	AampHlsOcdmBridge(AampLogManager *logObj, AampDrmSession * aampDrmSession);
+	AampHlsOcdmBridge(AampDrmSession * aampDrmSession);
 
 	~AampHlsOcdmBridge();
 
@@ -56,9 +55,9 @@ public:
 
 	/*HlsDrmBase Methods*/
 
-	virtual DrmReturn SetMetaData( class PrivateInstanceAAMP *aamp, void* metadata,int trackType, AampLogManager *logObj=NULL) override {return eDRM_SUCCESS;};
+	virtual DrmReturn SetMetaData( class PrivateInstanceAAMP *aamp, void* metadata,int trackType) override {return eDRM_SUCCESS;};
 
-	virtual DrmReturn SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInfo *drmInfoi, AampLogManager *logObj=NULL) override;
+	virtual DrmReturn SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInfo *drmInfo) override;
 
 	virtual DrmReturn Decrypt(ProfilerBucketType bucketType, void *encryptedDataPtr, size_t encryptedDataLen, int timeInMs = DECRYPT_WAIT_TIME_MS) override;
 
@@ -68,7 +67,7 @@ public:
 
 	virtual void RestoreKeyState() override {};
 
-	virtual void AcquireKey( class PrivateInstanceAAMP *aamp, void *metadata,int trackType, AampLogManager *logObj=NULL) override {};
+	virtual void AcquireKey( class PrivateInstanceAAMP *aamp, void *metadata,int trackType) override {};
 
 	virtual DRMState GetState() override {return m_drmState;}
 };

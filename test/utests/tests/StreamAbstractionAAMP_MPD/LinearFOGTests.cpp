@@ -45,7 +45,6 @@ using ::testing::AnyNumber;
 using ::testing::Invoke;
 
 extern AampConfig *gpGlobalConfig;
-extern AampLogManager *mLogObj;
 
 /**
  * @brief LinearTests tests common base class.
@@ -58,9 +57,9 @@ protected:
         {
         public:
                 // Constructor to pass parameters to the base class constructor
-                TestableStreamAbstractionAAMP_MPD(AampLogManager *logObj, PrivateInstanceAAMP *aamp,
+                TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
                                                                                   double seekpos, float rate)
-                        : StreamAbstractionAAMP_MPD(logObj, aamp, seekpos, rate)
+                        : StreamAbstractionAAMP_MPD(aamp, seekpos, rate)
                 {
                 }
 
@@ -142,8 +141,6 @@ protected:
                 mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
                 mPrivateInstanceAAMP->mIsDefaultOffset = true;
 
-                mLogObj = new AampLogManager();
-
                 g_mockAampConfig = new NiceMock<MockAampConfig>();
 
                 g_mockAampUtils = nullptr;
@@ -184,9 +181,6 @@ protected:
 
                 delete gpGlobalConfig;
                 gpGlobalConfig = nullptr;
-
-                delete mLogObj;
-                mLogObj = nullptr;
 
                 if (g_mockAampUtils)
                 {
@@ -299,8 +293,8 @@ public:
                 }
 
                 /* Create MPD instance. */
-                mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mLogObj, mPrivateInstanceAAMP, seekPos, rate);
-                mCdaiObj = new CDAIObjectMPD(mLogObj, mPrivateInstanceAAMP);
+                mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
+                mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
                 mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 
                 mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);

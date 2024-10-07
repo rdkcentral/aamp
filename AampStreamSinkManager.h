@@ -49,7 +49,6 @@ public:
 	/**
 	 *  @fn CreateStreamSink
 	 *  @brief Creates the StreamSink that will be associated with the instance of PrivateInstanceAAMP passed
-	 *  @param[in] logObj - the log manager associated with the instance of PrivateInstanceAAMP
 	 *  @param[in] aamp - the instance of PrivateInstanceAAMP
 	 *  @param[in] id3HandlerCallback - the id3 handler callback associated with the instance of PrivateInstanceAAMP
 	 *  @param[in] exportFrames -

@@ -19,7 +19,7 @@
 
 #include "webvttParser.h"
 
-WebVTTParser::WebVTTParser(AampLogManager* logObj, PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(logObj, aamp, type)
+WebVTTParser::WebVTTParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(aamp, type)
 {
 }
 

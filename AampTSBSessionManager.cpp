@@ -47,14 +47,14 @@
  *
  * @return None
  */
-AampTSBSessionManager::AampTSBSessionManager(AampLogManager *logObj, PrivateInstanceAAMP *aamp)
-	: mInitialized_(false), mStopThread_(false), mLogObj(logObj), mAamp(aamp), mTSBStore(nullptr), mActiveTuneType(eTUNETYPE_NEW_NORMAL), mLastVideoPos(AAMP_PAUSE_POSITION_INVALID_POSITION)
+AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP *aamp)
+	: mInitialized_(false), mStopThread_(false), mAamp(aamp), mTSBStore(nullptr), mActiveTuneType(eTUNETYPE_NEW_NORMAL), mLastVideoPos(AAMP_PAUSE_POSITION_INVALID_POSITION)
 		, mCulledDuration(0.0)
 		, mStoreEndPosition(0.0)
 		, mLiveEndPosition(0.0)
 		, mTsbMaxDiskStorage(0)
 		, mTsbMinFreePercentage(0)
-		, mIsoBmffHelper(std::make_shared<IsoBmffHelper>(logObj))
+		, mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 {
 }
 
@@ -111,7 +111,7 @@ void AampTSBSessionManager::InitializeDataManagers()
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
 		AampMediaType mediaType = static_cast<AampMediaType>(i);
-		mDataManagers[mediaType] = {std::make_shared<AampTsbDataManager>(mLogObj), 0.0};
+		mDataManagers[mediaType] = {std::make_shared<AampTsbDataManager>(), 0.0};
 	}
 }
 
@@ -130,7 +130,7 @@ void AampTSBSessionManager::InitializeTsbReaders()
 			if (nullptr != GetTsbDataManager((AampMediaType)i).get())
 			{
 				std::shared_ptr<AampTsbDataManager> dataMgr = GetTsbDataManager((AampMediaType)i);
-				mTsbReaders.emplace((AampMediaType)i, std::make_shared<AampTsbReader>(mLogObj, mAamp, dataMgr, (AampMediaType)i, mTsbSessionId));
+				mTsbReaders.emplace((AampMediaType)i, std::make_shared<AampTsbReader>(mAamp, dataMgr, (AampMediaType)i, mTsbSessionId));
 			}
 			else
 			{
@@ -320,7 +320,7 @@ void AampTSBSessionManager::EnqueueWrite(std::string url, std::shared_ptr<Cached
 		std::lock_guard<std::mutex> guard(mWriteQueueMutex);
 
 		AampMediaType mediaType = ConvertMediaType(cachedFragment->type);
-		double pts = RecalculatePTS(static_cast<AampMediaType>(cachedFragment->type), cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), mLogObj, mAamp);
+		double pts = RecalculatePTS(static_cast<AampMediaType>(cachedFragment->type), cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), mAamp);
 		// Get or create the datamanager for the mediatype
 		std::shared_ptr<AampTsbDataManager> dataManager = GetTsbDataManager(mediaType);
 

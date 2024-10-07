@@ -45,7 +45,7 @@ public:
 	 * @param[in] trackType - track type (A/V)
 	 * @param[in] peerBmffProcessor - peer instance of ElementaryProcessor
 	 */
-	ElementaryProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj=NULL);
+	ElementaryProcessor(class PrivateInstanceAAMP *aamp);
 
 	/**
 	 * @fn ~ElementaryProcessor
@@ -179,8 +179,6 @@ private:
 
 	std::mutex accessMutex;
 	std::condition_variable abortSignal;
-
-	AampLogManager *mLogObj;
 };
 
 #endif /* __ELEMENTARYPROCESSOR_H__ */

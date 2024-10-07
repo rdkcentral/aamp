@@ -91,7 +91,6 @@ int main(int argc, char* argv[])
                 // Sort files in the ascending order
                 std::sort(files.begin(), files.end(), compareFileNames);
                 std::shared_ptr<DashMPDDocument> mainDocument = nullptr;
-                mLogObj = new AampLogManager();
                 for(auto &file : files)
                 {
                     std::ifstream input(file.c_str());
@@ -134,10 +133,6 @@ int main(int argc, char* argv[])
                 else
                 {
                     std::cout << "Parse Error!!" << std::endl;
-                }
-                if(mLogObj)
-                {
-                    delete mLogObj;
                 }
             }
             else

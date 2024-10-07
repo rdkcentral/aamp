@@ -366,7 +366,7 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 /**
  * @brief AAMPGstPlayer Constructor
  */
-AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames) : mLogObj(aamp->mLogObj), aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL), mBufferingLock(), mProtectionLock(), PipelineSetToReady(false), trickTeardown(false), m_ID3MetadataHandler{id3HandlerCallback}, cbExportYUVFrame(NULL)
+AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames) : aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL), mBufferingLock(), mProtectionLock(), PipelineSetToReady(false), trickTeardown(false), m_ID3MetadataHandler{id3HandlerCallback}, cbExportYUVFrame(NULL)
 {
 	privateContext = new AAMPGstPlayerPriv();
 	if(privateContext)
@@ -662,7 +662,6 @@ static AampMediaType GetMediaTypeForSource(const GstElement *source, const AAMPG
 {
 	if (source && _this)
 	{
-		auto mLogObj = _this->mLogObj; // map correct log context
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
 			/* eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_SUBTITLE, eMEDIATYPE_AUX_AUDIO */
@@ -691,7 +690,6 @@ static AampMediaType GetMediaTypeForSource(const GstElement *source, const AAMPG
 static void need_data(GstElement *source, guint size, AAMPGstPlayer *_this)
 {
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
-	auto mLogObj = _this->mLogObj; // map correct log context
 	AampMediaType mediaType = GetMediaTypeForSource(source, _this);
 	if (mediaType != eMEDIATYPE_DEFAULT)
 	{
@@ -719,7 +717,6 @@ static void enough_data(GstElement *source, AAMPGstPlayer *_this)
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	if(_this && _this->aamp)
 	{
-		auto mLogObj = _this->mLogObj; // map correct log context
 		if (_this->aamp->DownloadsAreEnabled()) // avoid processing enough data if the downloads are already disabled.
 		{
 			UsingPlayerId playerId( _this->aamp->mPlayerId );
@@ -755,7 +752,6 @@ static gboolean appsrc_seek(GstAppSrc *src, guint64 offset, AAMPGstPlayer * _thi
 {
 	HANDLER_CONTROL_HELPER(_this->privateContext->callbackControl, TRUE);
 #ifdef TRACE
-	auto mLogObj = _this->mLogObj; // map correct log context
 	AAMPLOG_MIL("appsrc %p seek-signal - offset %" G_GUINT64_FORMAT, src, offset);
 #endif
 	return TRUE;
@@ -818,7 +814,6 @@ static GstPadProbeReturn AAMPGstPlayer_HandleInstantRateChangeSeekProbe(GstPad* 
  */
 static void InitializeSource(AAMPGstPlayer *_this, GObject *source, AampMediaType mediaType = eMEDIATYPE_VIDEO)
 {
-	auto mLogObj = _this->mLogObj; // map correct log context
 	media_stream *stream = &_this->privateContext->stream[mediaType];
 	GstCaps * caps = NULL;
 	bool isFogEnabled = _this->aamp->mTSBEnabled;
@@ -871,7 +866,6 @@ static void InitializeSource(AAMPGstPlayer *_this, GObject *source, AampMediaTyp
 static void found_source(GObject * object, GObject * orig, GParamSpec * pspec, AAMPGstPlayer * _this )
 {
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
-	auto mLogObj = _this->mLogObj; // map correct log context
 	AampMediaType mediaType = eMEDIATYPE_DEFAULT;
 	if (object == G_OBJECT(_this->privateContext->stream[eMEDIATYPE_VIDEO].sinkbin))
 	{
@@ -916,8 +910,7 @@ static void httpsoup_source_setup (GstElement * element, GstElement * source, gp
 {
 	AAMPGstPlayer * _this = (AAMPGstPlayer *)data;
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
-	auto mLogObj = _this->mLogObj; // map correct log context
-
+	
 	if (!strcmp(GST_ELEMENT_NAME(source), "source"))
 	{
 		std::string networkProxyValue = _this->aamp->GetNetworkProxy();		/* Get the proxy network setting from configuration*/
@@ -1119,7 +1112,6 @@ static gboolean IdleCallbackOnEOS(gpointer user_data)
 	AAMPGstPlayer *_this = (AAMPGstPlayer *)user_data;
 	if (_this)
 	{
-		auto mLogObj = _this->mLogObj; // map correct log context
 		AAMPLOG_MIL("eosCallbackIdleTaskId %d", _this->privateContext->eosCallbackIdleTaskId);
 		_this->aamp->NotifyEOSReached();
 		_this->privateContext->eosCallbackIdleTaskId = AAMP_TASK_ID_INVALID;
@@ -1140,7 +1132,6 @@ static gboolean ProgressCallbackOnTimeout(gpointer user_data)
 	AAMPGstPlayer *_this = (AAMPGstPlayer *)user_data;
 	if (_this)
 	{
-		auto mLogObj = _this->mLogObj; // map correct log context
 		UsingPlayerId playerId( _this->aamp->mPlayerId );
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
@@ -1163,7 +1154,6 @@ static gboolean IdleCallback(gpointer user_data)
 	AAMPGstPlayer *_this = (AAMPGstPlayer *)user_data;
 	if (_this)
 	{
-		auto mLogObj = _this->mLogObj; // map correct log context
 		UsingPlayerId playerId( _this->aamp->mPlayerId );
 		// mAsyncTuneEnabled passed, because this could be called from Scheduler or main loop
 		_this->aamp->ReportProgress();
@@ -1462,7 +1452,6 @@ GstFlowReturn AAMPGstPlayer::AAMPGstPlayer_OnVideoSample(GstElement* object, AAM
 	HANDLER_CONTROL_HELPER(_this->privateContext->callbackControl, GST_FLOW_OK);
 	if(_this && _this->cbExportYUVFrame)
 	{
-		auto mLogObj = _this->mLogObj; // map mLogObj
 		GstSample *sample = gst_app_sink_pull_sample (GST_APP_SINK (object));
 		if (sample)
 		{
@@ -1695,7 +1684,6 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 {
 	UsingPlayerId playerId( _this->aamp->mPlayerId );
 	HANDLER_CONTROL_HELPER( _this->privateContext->aSyncControl, FALSE);
-	auto mLogObj = _this->mLogObj; // map correct log context
 	GError *error;
 	gchar *dbg_info;
 	bool isPlaybinStateChangeEvent;
@@ -2593,7 +2581,6 @@ static void callback_element_added (GstElement * element, GstElement * source, g
  */
 static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamId)
 {
-	auto mLogObj = _this->mLogObj; // map correct log context
 	media_stream* stream = &_this->privateContext->stream[streamId];
 	if (eMEDIATYPE_SUBTITLE == streamId)
 	{
@@ -3884,7 +3871,6 @@ void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	aamp = newAamp;
-	mLogObj = newAamp->mLogObj;
 	privateContext->decoderHandleNotified = false;
 	m_ID3MetadataHandler = id3HandlerCallback;
 }
@@ -4768,7 +4754,7 @@ bool AAMPGstPlayer::IsMS2V12Supported()
 /**
  *  @brief Increase the rank of AAMP decryptor plugins
  */
-void AAMPGstPlayer::InitializeAAMPGstreamerPlugins(AampLogManager *mLogObj)
+void AAMPGstPlayer::InitializeAAMPGstreamerPlugins()
 {
 	// Ensure GST is initialized
 	if (gst_init_check(nullptr, nullptr, nullptr)) {
@@ -5251,7 +5237,7 @@ bool AAMPGstPlayer::SetTextStyle(const std::string &options)
 
 	if (privateContext->subtitle_sink)
 	{
-		TextStyleAttributes textStyleAttributes(mLogObj);
+		TextStyleAttributes textStyleAttributes;
 		uint32_t attributesMask = 0;
 		attributesType attributesValues = {0};
 

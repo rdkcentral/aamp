@@ -10,8 +10,6 @@
 #include "AampLogManager.h"
 #include <Url.cpp>
 
-
-AampLogManager *mLogObj{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
 
 namespace urlTest {

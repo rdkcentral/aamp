@@ -22,8 +22,9 @@
 #include "AampConfig.h"
 
 using namespace testing;
-AampLogManager *mLogObj{nullptr};
+
 AampConfig *gpGlobalConfig{nullptr};
+
 class BufferControlExternalDataTest : public testing::Test
 {
     public:

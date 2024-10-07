@@ -29,7 +29,6 @@ using ::testing::Return;
 using ::testing::StrEq;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 class AampGstUtilsTests : public ::testing::Test
 {

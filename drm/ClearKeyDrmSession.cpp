@@ -51,8 +51,8 @@
 /**
  * @brief ClearKeySession Constructor
  */
-ClearKeySession::ClearKeySession(AampLogManager *logObj) :
-		AampDrmSession(logObj, CLEAR_KEY_SYSTEM_STRING),
+ClearKeySession::ClearKeySession() :
+		AampDrmSession(CLEAR_KEY_SYSTEM_STRING),
 		m_sessionID(),
 		m_eKeyState(KEY_INIT),
 		decryptMutex(),
@@ -122,7 +122,7 @@ static unsigned char * extractKeyIdFromPssh(const char* psshData, int dataLength
 	strncpy(reinterpret_cast<char*>(key_id), psshData + header, 16);
 	*len = (int)16;
 	AAMPLOG_INFO("ck keyid: %s keyIdlen: %d", key_id, 16);
-	if(gpGlobalConfig->logging.trace)
+	if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
 	{
 		DumpBlob(key_id, 16);
 	}

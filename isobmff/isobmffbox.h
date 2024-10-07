@@ -200,12 +200,11 @@ public:
 	 *
 	 * @param[in] hdr - pointer to box
 	 * @param[in] maxSz - box size
-	 * @param[in] mLOgObj - log object
 	 * @param[in] correctBoxSize - flag to check if box size needs to be corrected
 	 * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
 	 * @return newly constructed Box object
 	 */
-	static Box* constructBox(uint8_t *hdr, uint32_t maxSz, AampLogManager *mLOgObj=NULL, bool correctBoxSize = false, int newTrackId = -1);
+	static Box* constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize = false, int newTrackId = -1);
 
 	uint8_t *getBase(void) const { return base; }
 

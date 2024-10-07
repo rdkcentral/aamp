@@ -65,7 +65,7 @@ public:
 
 	virtual void getKey(std::vector<uint8_t>& keyID) const override {};
 
-	AampVanillaDrmHelper(AampLogManager *logObj) : AampDrmHelper(DrmInfo {},logObj), FRIENDLY_NAME("Vanilla_AES"), CODEC_TYPE(3), EMPTY_STRING() {}
+	AampVanillaDrmHelper() : AampDrmHelper(DrmInfo {}), FRIENDLY_NAME("Vanilla_AES"), CODEC_TYPE(3), EMPTY_STRING() {}
 
 private:
 	const std::string FRIENDLY_NAME;

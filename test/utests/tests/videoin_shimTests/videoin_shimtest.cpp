@@ -27,7 +27,6 @@
 #include "AampUtils.h"
 
 using namespace testing;
-AampLogManager *mLogObj{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
 
 class StreamAbstractionAAMP_VIDEOINTest : public ::testing::Test
@@ -36,11 +35,10 @@ protected:
     void SetUp() override
     {
         auto aamp = new PrivateInstanceAAMP();
-        auto logmanager = new AampLogManager();
         std::string type = "HDMI";
         std::string name = "Name";       // Provide the appropriate name
         std::string callSign = "CallSign"; // Provide the appropriate callSign
-        videoinShim = new TestableStreamAbstraction(name, callSign, logmanager, aamp, 0.0, 1.0, type);
+        videoinShim = new TestableStreamAbstraction(name, callSign, aamp, 0.0, 1.0, type);
     }
 
     void TearDown() override
@@ -52,9 +50,9 @@ protected:
     {
     public:
         TestableStreamAbstraction(const std::string &name, const std::string &callSign,
-                                  AampLogManager *logManager, PrivateInstanceAAMP *aamp,
+                                  PrivateInstanceAAMP *aamp,
                                   double startTime, double playRate, const std::string &type)
-            : StreamAbstractionAAMP_VIDEOIN(name, callSign, logManager, aamp, startTime, playRate, type)
+            : StreamAbstractionAAMP_VIDEOIN(name, callSign, aamp, startTime, playRate, type)
         {
         }
 

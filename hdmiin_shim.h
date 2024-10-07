@@ -45,10 +45,10 @@ public:
     /**
      *   @brief get StreamAbstractionAAMP_HDMIIN instance
      */
-    static StreamAbstractionAAMP_HDMIIN* GetInstance(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+    static StreamAbstractionAAMP_HDMIIN* GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
 
     /**
-     *@brief Clear aamp and LogObj of HdmiinInstance
+     *@brief Clear aamp of HdmiinInstance
      */
     static void ResetInstance();
 
@@ -88,7 +88,7 @@ private:
      * @param seekpos Seek position
      * @param rate playback rate
      */
-    StreamAbstractionAAMP_HDMIIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+    StreamAbstractionAAMP_HDMIIN(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
 
     static StreamAbstractionAAMP_HDMIIN* mHdmiinInstance;
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS

@@ -49,10 +49,10 @@ protected:
 
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
-		g_mockTSBSessionManager = new MockTSBSessionManager(mLogObj, mPrivateInstanceAAMP);
+		g_mockTSBSessionManager = new MockTSBSessionManager(mPrivateInstanceAAMP);
 
         g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
-        g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mLogObj, mPrivateInstanceAAMP, 0, 0);
+        g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
 
         //mPrivateInstanceAAMP->mStreamSink = g_mockAampGstPlayer; //TODO fix
     }

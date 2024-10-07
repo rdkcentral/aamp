@@ -49,7 +49,6 @@ static constexpr uint32_t PLAYBACK_TIMESCALE{90000};
 static constexpr double PTS_OFFSET_SEC{123.4};
 
 AampConfig* gpGlobalConfig{nullptr};
-AampLogManager* mLogObj{nullptr};
 
 // The matcher is passed a std::cref() to avoid copy-constructing the fake AampGrowableBuffer, which
 // crashes and is not really desirable anyway. (Copy-construction of the argument is default matcher
@@ -69,9 +68,9 @@ MATCHER_P(AampGrowableBufferPtrEq, bufferPtr, "")
 class TestableMediaTrack : public MediaTrack
 {
 public:
-	TestableMediaTrack(AampLogManager* logObj, TrackType type, PrivateInstanceAAMP* aamp,
+	TestableMediaTrack(TrackType type, PrivateInstanceAAMP* aamp,
 					   const char* name, StreamAbstractionAAMP* context)
-		: MediaTrack(logObj, type, aamp, name), mContext(context)
+		: MediaTrack(type, aamp, name), mContext(context)
 	{
 	}
 
@@ -108,8 +107,7 @@ protected:
 
 	void SetUp() override
 	{
-		mLogObj = new AampLogManager();
-		mLogObj->aampLoglevel = eLOGLEVEL_TRACE; // To enable all levels of AAMP logging
+		//mLogObj->aampLoglevel = eLOGLEVEL_TRACE; // To enable all levels of AAMP logging
 		gpGlobalConfig = new AampConfig();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
@@ -124,7 +122,7 @@ protected:
 		// The tests can't use a fake/mock StreamAbstractionAAMP base class because
 		// StreamAbstractionAAMP and MediaTrack share the same source file and fakes file.
 		mStreamAbstractionAAMP_MPD =
-			new StreamAbstractionAAMP_MPD(nullptr, mPrivateInstanceAAMP, 0, 0);
+			new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0, 0);
 	}
 
 	void TearDown() override
@@ -149,9 +147,6 @@ protected:
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
-
-		delete mLogObj;
-		mLogObj = nullptr;
 	}
 
 	CachedFragment* AddFragmentToBuffer(MediaTrack& mediaTrack, CachedFragment& testFragment,
@@ -227,7 +222,7 @@ TEST_P(MediaTrackDashPtsRestampNotConfiguredTests, PtsRestampNotConfiguredTest)
 		EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
 	}
 
-	TestableMediaTrack mediaTrack{mLogObj, eTRACK_VIDEO, mPrivateInstanceAAMP, "media",
+	TestableMediaTrack mediaTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "media",
 								  mStreamAbstractionAAMP_MPD};
 
 	// Init segment
@@ -283,7 +278,7 @@ TEST_P(MediaTrackDashQtDemuxOverrideConfiguredTests, QtDemuxOverrideConfiguredTe
 		EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
 	}
 
-	TestableMediaTrack mediaTrack{mLogObj, eTRACK_VIDEO, mPrivateInstanceAAMP, "media",
+	TestableMediaTrack mediaTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "media",
 								  mStreamAbstractionAAMP_MPD};
 
 	// Init segment
@@ -344,7 +339,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 		EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
 	}
 
-	TestableMediaTrack iframeTrack{mLogObj, eTRACK_VIDEO, mPrivateInstanceAAMP, "iframe",
+	TestableMediaTrack iframeTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "iframe",
 								   mStreamAbstractionAAMP_MPD};
 
 	// Init segment
@@ -486,7 +481,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 		EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
 	}
 
-	TestableMediaTrack videoTrack{mLogObj, eTRACK_VIDEO, mPrivateInstanceAAMP, "video",
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video",
 								  mStreamAbstractionAAMP_MPD};
 
 	// Init segment
@@ -542,7 +537,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampInvalidPlayRateTests, InvalidPlayRateTes
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(1));
 
-	TestableMediaTrack iframeTrack{mLogObj, eTRACK_VIDEO, mPrivateInstanceAAMP, "iframe",
+	TestableMediaTrack iframeTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "iframe",
 								   mStreamAbstractionAAMP_MPD};
 
 	// Init segment
@@ -581,7 +576,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(1));
 
-	TestableMediaTrack iframeTrack{mLogObj, eTRACK_VIDEO, mPrivateInstanceAAMP, "iframe",
+	TestableMediaTrack iframeTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "iframe",
 								   mStreamAbstractionAAMP_MPD};
 
 	// Init segment

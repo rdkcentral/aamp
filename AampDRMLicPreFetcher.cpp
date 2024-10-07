@@ -32,11 +32,10 @@ int LicensePreFetchObject::staticId = 1;
 /**
  * @brief Construct a new Aamp License Pre Fetcher object
  * 
- * @param logObj Log manager object
  * @param aamp PrivateInstanceAAMP instance
  * @param fetcherInstance AampLicenseFetcher instance
  */
-AampLicensePreFetcher::AampLicensePreFetcher(AampLogManager *logObj, PrivateInstanceAAMP *aamp) : mPreFetchThread(),
+AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFetchThread(),
 		mFetchQueue(),
 		mQMutex(),
 		mQCond(),
@@ -46,7 +45,6 @@ AampLicensePreFetcher::AampLicensePreFetcher(AampLogManager *logObj, PrivateInst
 		mTrackStatus(),
 		mSendErrorOnFailure(true),
 		mPrivAAMP(aamp),
-		mLogObj(logObj),
 		mFetchInstance(nullptr),
 		mVssPreFetchThread(),
 		mVssFetchQueue(),

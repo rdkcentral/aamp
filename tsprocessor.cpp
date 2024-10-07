@@ -165,7 +165,7 @@ static StreamOutputFormat getStreamFormatForCodecType(int streamType)
 /**
  * @brief TSProcessor Constructor
  */
-TSProcessor::TSProcessor(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, id3_callback_t id3_hdl, 
+TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, id3_callback_t id3_hdl,
 	int track, TSProcessor* peerTSProcessor, TSProcessor* auxTSProcessor)
 	: m_needDiscontinuity(true),
 	m_PatPmtLen(0), m_PatPmt(0), m_PatPmtTrickLen(0), m_PatPmtTrick(0), m_PatPmtPcrLen(0), m_PatPmtPcr(0),
@@ -198,7 +198,6 @@ TSProcessor::TSProcessor(AampLogManager *logObj, class PrivateInstanceAAMP *aamp
 	, m_AudioTrackIndexToPlay(0)
 	, m_auxTSProcessor(auxTSProcessor)
 	, m_auxiliaryAudio(false)
-	, mLogObj(logObj)
 	,m_audioGroupId()
 	,m_applyOffset(true)
 {
@@ -214,21 +213,21 @@ TSProcessor::TSProcessor(AampLogManager *logObj, class PrivateInstanceAAMP *aamp
 
 	if ((m_streamOperation == eStreamOp_DEMUX_ALL) || (m_streamOperation == eStreamOp_DEMUX_VIDEO) || (m_streamOperation == eStreamOp_DEMUX_VIDEO_AND_AUX))
 	{
-		m_vidDemuxer = new Demuxer(mLogObj, aamp, eMEDIATYPE_VIDEO);
+		m_vidDemuxer = new Demuxer(aamp, eMEDIATYPE_VIDEO);
 		//demux DSM CC stream only together with video stream
-		m_dsmccDemuxer = new Demuxer(mLogObj, aamp, eMEDIATYPE_DSM_CC);
+		m_dsmccDemuxer = new Demuxer(aamp, eMEDIATYPE_DSM_CC);
 		m_demux = true;
 	}
 
 	if ((m_streamOperation == eStreamOp_DEMUX_ALL) || (m_streamOperation == eStreamOp_DEMUX_AUDIO))
 	{
-		m_audDemuxer = new Demuxer(mLogObj, aamp, eMEDIATYPE_AUDIO);
+		m_audDemuxer = new Demuxer(aamp, eMEDIATYPE_AUDIO);
 		m_demux = true;
 	}
 	else if ((m_streamOperation == eStreamOp_DEMUX_AUX) || m_streamOperation == eStreamOp_DEMUX_VIDEO_AND_AUX)
 	{
 		m_auxiliaryAudio = true;
-		m_audDemuxer = new Demuxer(mLogObj, aamp, eMEDIATYPE_AUX_AUDIO);
+		m_audDemuxer = new Demuxer(aamp, eMEDIATYPE_AUX_AUDIO);
 		// Map auxiliary specific streamOperation back to generic streamOperation used by TSProcessor
 		if (m_streamOperation == eStreamOp_DEMUX_AUX)
 		{

@@ -44,7 +44,6 @@ using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::_;
 
-AampLogManager *mLogObj{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
 
 const std::string session_id {"0259343c-cffc-4659-bcd8-97f9dd36f6b1"};
@@ -59,7 +58,6 @@ class PrivAampTests : public ::testing::Test
 	{
         config=new AampConfig();
         p_aamp = new PrivateInstanceAAMP(config);
-		mLogObj = new AampLogManager();
 		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(p_aamp);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 		g_mockAampEventManager = new NiceMock<MockAampEventManager>();
@@ -84,9 +82,6 @@ class PrivAampTests : public ::testing::Test
         delete g_mockAampGstPlayer;
         g_mockAampGstPlayer = nullptr;
 
-        delete mLogObj;
-        mLogObj = nullptr;
-
         delete p_aamp;
         p_aamp = nullptr;
 
@@ -101,17 +96,13 @@ class PrivAampPrivTests : public ::testing::Test
 	public:
     PrivateInstanceAAMP *aamp{nullptr};
 	AampConfig *config{nullptr};
-	AampLogManager *logmanager{nullptr};
 	protected:
     void SetUp() override
     {
 		config=new AampConfig();
 		aamp = new PrivateInstanceAAMP(config);
-		logmanager = new AampLogManager();
-
 		testp_aamp = new TestablePrivAamp(config);
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
-
 		aamp->SetSessionId(session_id);
     }
 
@@ -126,9 +117,6 @@ class PrivAampPrivTests : public ::testing::Test
 
 		delete aamp;
 		aamp = nullptr;
-
-		delete logmanager;
-		logmanager = nullptr;
 
         delete testp_aamp;
 		testp_aamp = nullptr;
@@ -220,9 +208,8 @@ public:
 	}
 	void CallDiscontinuitySeenInAllTracks_1()
 	{
-		AampLogManager *mLogObj;
 		double playlistSeekPos = seek_pos_seconds - culledSeconds;
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(TestablePrivAamp::mLogObj,this, playlistSeekPos, TestablePrivAamp::rate);
+		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
 		TestablePrivAamp::mDiscontinuityTuneOperationInProgress = false;
 		bool result = DiscontinuitySeenInAllTracks();
 		ProcessPendingDiscontinuity();
@@ -235,28 +222,27 @@ public:
 	}
 	void CallEnableContentRestrictions()
 	{
-		AampLogManager *mLogObj;
 		double playlistSeekPos = seek_pos_seconds - culledSeconds;
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(TestablePrivAamp::mLogObj,this, playlistSeekPos, TestablePrivAamp::rate);
+		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
 		EnableContentRestrictions();
 	}
 	void GetCurrentAudioTrackId_2()
     {
         double playlistSeekPos = seek_pos_seconds - culledSeconds;
-        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(TestablePrivAamp::mLogObj,this, playlistSeekPos, TestablePrivAamp::rate);
+        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
         GetCurrentAudioTrackId();
     }
 	void SetTextTrack_obj(int trackId, char *data)
 	{
 		double playlistSeekPos = seek_pos_seconds - culledSeconds;
-        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(TestablePrivAamp::mLogObj,this, playlistSeekPos, TestablePrivAamp::rate);
+        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
 
 		SetTextTrack(trackId,data);
 	}
 	void CallNotifyEOSReached()
 	{
 		double playlistSeekPos = seek_pos_seconds - culledSeconds;
-        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(TestablePrivAamp::mLogObj,this, playlistSeekPos, TestablePrivAamp::rate);
+        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
 
 		IsDiscontinuityProcessPending();
 		NotifyEOSReached();
@@ -264,16 +250,15 @@ public:
 	void GetAvailableTracks_obj()
 	{
 		double playlistSeekPos = seek_pos_seconds - culledSeconds;
-        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(TestablePrivAamp::mLogObj,this, playlistSeekPos, TestablePrivAamp::rate);
+        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
 
 		mpStreamAbstractionAAMP->GetAvailableTextTracks(true);
 		GetAvailableAudioTracks(true);
 	}
 	void InitStreamAbstraction()
 	{
-		AampLogManager *mLogObj;
 		double playlistSeekPos = seek_pos_seconds - culledSeconds;
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(TestablePrivAamp::mLogObj,this, playlistSeekPos, TestablePrivAamp::rate);
+		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
 	}
     std::unordered_map<std::string, std::vector<std::string>> GetCustomHeaders()
     {

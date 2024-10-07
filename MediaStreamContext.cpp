@@ -337,7 +337,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
                     }
                 }
             }
-            else if (AAMP_IS_LOG_WORTHY_ERROR(httpErrorCode))
+            else if (AampLogManager::isLogworthyErrorCode(httpErrorCode))
             {
                 AAMPLOG_ERR("StreamAbstractionAAMP_MPD::Error on fetching %s fragment. failedCount:%d",name, segDLFailCount);
 

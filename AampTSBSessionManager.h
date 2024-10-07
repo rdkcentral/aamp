@@ -65,7 +65,7 @@ public:
 	 *
 	 * @return None
 	 */
-	AampTSBSessionManager(AampLogManager *logObj, PrivateInstanceAAMP *aamp);
+	AampTSBSessionManager(PrivateInstanceAAMP *aamp);
 	/**
 	 * @brief AampTSBSessionManager Destructor
 	 *
@@ -296,7 +296,6 @@ private:
 	double mLiveEndPosition;		/**< Last reported Live end position*/
 
 public:
-	AampLogManager *mLogObj;	/**< AAMP player's log object*/
 	PrivateInstanceAAMP *mAamp; /**< AAMP player's private instance */
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< ISO BMFF helper object */
 };

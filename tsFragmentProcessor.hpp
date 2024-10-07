@@ -54,10 +54,8 @@ public:
 
 	/**
 	 * @brief Construct a new TSFragmentProcessor object
-	 * 
-	 * @param logObj Logging object
 	 */
-	TSFragmentProcessor(AampLogManager *logObj);
+	TSFragmentProcessor();
 
 	/// @brief Destroy the TSFragmentProcessor object
 	virtual ~TSFragmentProcessor();
@@ -137,8 +135,6 @@ private:
 	 */
 	void ProcessPMTSection(uint8_t * section, size_t sectionLength);
 
-
-	AampLogManager *mLogObj;		 		//!< Logging object
 
 	bool m_havePAT {false};					//!< PAT detected
 	uint16_t m_versionPAT {0};		 		//!< Pat Version number

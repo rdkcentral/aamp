@@ -10,7 +10,6 @@
 #include <AampJsonObject.cpp>
 
 // Fakes to allow linkage
-AampLogManager *mLogObj=NULL;
 AampConfig *gpGlobalConfig=NULL;
 
 TEST(_JsonObject, AampJsonObject_Test)

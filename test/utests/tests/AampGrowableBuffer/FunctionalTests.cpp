@@ -5,12 +5,10 @@
 #include "MockGLib.h"
 #include "AampLogManager.h"
 
-
 using ::testing::NiceMock;
 using ::testing::_;
 using ::testing::Return;
 
-AampLogManager *mLogObj{nullptr};
 class FunctionalTests : public ::testing::Test {
 protected:
     FunctionalTests()

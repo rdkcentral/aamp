@@ -359,13 +359,13 @@ AAMPStatusType StreamAbstractionAAMP_OTA::Init(TuneType tuneType)
 /**
  *  @brief StreamAbstractionAAMP_OTA Constructor
  */
-StreamAbstractionAAMP_OTA::StreamAbstractionAAMP_OTA(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                          : StreamAbstractionAAMP(logObj, aamp)
+StreamAbstractionAAMP_OTA::StreamAbstractionAAMP_OTA(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+                          : StreamAbstractionAAMP(aamp)
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
                             , tuned(false),mEventSubscribed(false),
-                            thunderAccessObj(MEDIAPLAYER_CALLSIGN, logObj),
-                            mediaSettingsObj(MEDIASETTINGS_CALLSIGN, logObj),
-                            thunderRDKShellObj(RDKSHELL_CALLSIGN,logObj),
+                            thunderAccessObj(MEDIAPLAYER_CALLSIGN),
+                            mediaSettingsObj(MEDIASETTINGS_CALLSIGN),
+                            thunderRDKShellObj(RDKSHELL_CALLSIGN),
                             mPCRating(),mSsi(-1),mFrameRate(0),mVideoScanType(eVIDEOSCAN_UNKNOWN),mAspectRatioWidth(0),mAspectRatioHeight(0),
                             mVideoCodec(),mHdrType(),mAudioBitrate(0),mAudioCodec(),mAudioMixType(),mIsAtmos(false),
                             miVideoWidth(0),miVideoHeight(0),miPrevmiVideoWidth(0),miPrevmiVideoHeight(0),

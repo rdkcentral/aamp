@@ -104,11 +104,10 @@ public:
 	/**
 	 * @brief Construct a new Aamp License Pre Fetcher object
 	 * 
-	 * @param logObj Log manager object
 	 * @param aamp PrivateInstanceAAMP instance
 	 * @param fetcherInstance AampLicenseFetcher instance
 	 */
-	AampLicensePreFetcher(AampLogManager *logObj, PrivateInstanceAAMP *aamp);
+	AampLicensePreFetcher(PrivateInstanceAAMP *aamp);
 
 	/**
 	 * @brief Copy constructor disabled
@@ -232,7 +231,6 @@ private:
 	bool mSendErrorOnFailure;                           /** To send error event when session creation fails without additional checks*/
 
 	PrivateInstanceAAMP *mPrivAAMP;                     /** PrivateInstanceAAMP instance*/
-	AampLogManager* mLogObj;                            /** AampLogManager instance */
 	AampLicenseFetcher *mFetchInstance;                 /** AampLicenseFetcher instance for notifying DRM session status*/
 	std::thread mVssPreFetchThread;                     /** Thread for pre-fetching VSS license*/
 	std::deque<LicensePreFetchObjectPtr> mVssFetchQueue;/** Queue for storing VSS content protection objects*/

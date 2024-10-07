@@ -27,7 +27,7 @@ class MockStreamAbstractionAAMP : public StreamAbstractionAAMP
 {
 public:
 
-    MockStreamAbstractionAAMP(AampLogManager *logObj, PrivateInstanceAAMP *aamp) : StreamAbstractionAAMP(logObj, aamp) { }
+    MockStreamAbstractionAAMP(PrivateInstanceAAMP *aamp) : StreamAbstractionAAMP(aamp) { }
 
     MOCK_METHOD(void, NotifyPlaybackPaused, (bool paused), (override));
 

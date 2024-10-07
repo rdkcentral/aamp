@@ -34,7 +34,6 @@
 
 // Fakes to allow linkage
 AampConfig *gpGlobalConfig=NULL;
-AampLogManager *mLogObj=NULL;
 
 TEST(UrlEncDecSuite, encode)
 {

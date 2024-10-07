@@ -247,7 +247,6 @@ private:
 	std::map<double, std::shared_ptr<TsbFragmentData>, PositionComparator> mTsbFragmentData;
 	std::list<std::shared_ptr<TsbInitData>> mTsbInitData;
 	std::shared_ptr<TsbInitData> mCurrentInitData;
-	AampLogManager *mLogObj;
 	std::shared_ptr<TsbFragmentData> mCurrHead;
 	double mRelativePos;
 
@@ -256,7 +255,7 @@ public:
 	 * @brief Construct a new Aamp Tsb Data Manager object
 	 *
 	 */
-	AampTsbDataManager(AampLogManager *logObj) : mTsbDataMutex(), mTsbFragmentData(), mTsbInitData(), mCurrentInitData(nullptr), mLogObj(logObj), mCurrHead(nullptr), mRelativePos(0.0) {}
+	AampTsbDataManager() : mTsbDataMutex(), mTsbFragmentData(), mTsbInitData(), mCurrentInitData(nullptr), mCurrHead(nullptr), mRelativePos(0.0) {}
 
 	/**
 	 * @brief Destroy the Aamp Tsb Data Manager object

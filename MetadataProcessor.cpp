@@ -34,9 +34,9 @@ class CachedFragment;
 namespace aamp
 {
 
-IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(AampLogManager *logObj, id3_callback_t id3_hdl,
+IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(id3_callback_t id3_hdl,
 	ptsoffset_update_t ptsoffset_callback, std::weak_ptr<IsoBmffProcessor> video_processor)
-	: MetadataProcessorIntf(logObj, id3_hdl, ptsoffset_callback),
+	: MetadataProcessorIntf(id3_hdl, ptsoffset_callback),
 	MetadataProcessorImpl(video_processor),
 	processPTSComplete(false)
 { }
@@ -124,7 +124,7 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const char
 	{
 		uint8_t * seg_buffer = const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(data_ptr));
 
-		IsoBmffBuffer buffer(mLogObj);
+		IsoBmffBuffer buffer;
 		buffer.setBuffer(seg_buffer, data_len);
 		buffer.parseBuffer();
 		if(!buffer.isInitSegment())
@@ -155,7 +155,7 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const char
 						while (curOffset < data_len)
 						{
 							uint8_t * box_ptr = seg_buffer + curOffset;
-							Box *box = Box::constructBox(box_ptr, (uint32_t)(data_len - curOffset), mLogObj, false, -1);
+							Box *box = Box::constructBox(box_ptr, (uint32_t)(data_len - curOffset), false, -1);
 
 							box->setOffset((uint32_t)curOffset);
 							const auto box_size = box->getSize();
@@ -205,13 +205,13 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const char
 
 
 
-TSMetadataProcessor::TSMetadataProcessor(AampLogManager *logObj, id3_callback_t id3_hdl,
+TSMetadataProcessor::TSMetadataProcessor(id3_callback_t id3_hdl,
 	ptsoffset_update_t ptsoffset_callback,
 	std::shared_ptr<TSProcessor> video_processor)
-	: MetadataProcessorIntf(logObj, id3_hdl, ptsoffset_callback),
+	: MetadataProcessorIntf(id3_hdl, ptsoffset_callback),
 	MetadataProcessorImpl(std::move(video_processor))
 {
-	mProcessor = aamp_utils::make_unique<aamp_ts::TSFragmentProcessor>(mLogObj);
+	mProcessor = aamp_utils::make_unique<aamp_ts::TSFragmentProcessor>();
 }
 
 void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,

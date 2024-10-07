@@ -45,12 +45,11 @@ protected:
         }
 
         mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-        AampLogManager *mLogObj = NULL;
         mPlayerInstance = new PlayerInstanceAAMP();
         g_mockAampConfig = new MockAampConfig();
         g_mockAampScheduler = new MockAampScheduler();
         g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mLogObj, mPrivateInstanceAAMP);
+        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPrivateInstanceAAMP);
         mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
         mConfig = new AampConfig();
         mplayer = new TestablePlayerInstanceAAMP();

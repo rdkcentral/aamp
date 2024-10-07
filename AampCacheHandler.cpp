@@ -310,11 +310,10 @@ void AampCacheHandler::ClearCacheHandler()
 /**
  *  @brief Default Constructor
  */
-AampCacheHandler::AampCacheHandler(int playerId,AampLogManager *logObj):
+AampCacheHandler::AampCacheHandler(int playerId):
 	mCacheStoredSize(0),mAsyncCleanUpTaskThreadId(),mCacheActive(false),
 	mAsyncCacheCleanUpThread(false),mMutex(),mCondVarMutex(),mCondVar(),mPlaylistCache()
 	,mMaxPlaylistCacheSize(MAX_PLAYLIST_CACHE_SIZE*1024),mInitialized(false)
-	,mLogObj(logObj)
 	,umInitFragCache(),umCacheTrackQ(),bInitFragCache(false),mInitFragMutex()
 	,MaxInitCacheSlot(MAX_INIT_FRAGMENT_CACHE_PER_TRACK),mPlayerId(playerId)
 {

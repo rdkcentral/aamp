@@ -54,8 +54,6 @@ namespace aamp_ts
 
 }
 
-
-class AampLogManager;
 class PrivateInstanceAAMP;
 
 /**
@@ -65,7 +63,6 @@ class PrivateInstanceAAMP;
 class Demuxer
 {
 private:
-	AampLogManager *mLogObj;
 	PrivateInstanceAAMP *aamp;
 	int pes_state;
 	int pes_header_ext_len;
@@ -90,7 +87,6 @@ private:
 	AampMediaType type;
 	bool trickmode;
 	bool finalized_base_pts;
-	int sentESCount;
 	bool allowPtsRewind;
 	bool reached_steady_state;
 
@@ -128,12 +124,12 @@ public:
 	 * @param[in] aamp pointer to PrivateInstanceAAMP object associated with demux
 	 * @param[in] type Media type to be demuxed
 	 */
-	Demuxer(AampLogManager *logObj, class PrivateInstanceAAMP *aamp, AampMediaType type)
-	 : mLogObj(logObj), aamp(aamp), pes_state(0),
+	Demuxer(class PrivateInstanceAAMP *aamp, AampMediaType type)
+	 : aamp(aamp), pes_state(0),
 		pes_header_ext_len(0), pes_header_ext_read(0), pes_header("pes_header"), mMutex(),
 		es("es"), position(0), duration(0), base_pts{0}, current_pts{0},
 		current_dts{0}, type(type), trickmode(false), finalized_base_pts(false),
-		sentESCount(0), allowPtsRewind(false), first_pts{0}, update_first_pts(false), reached_steady_state(false)
+		allowPtsRewind(false), first_pts{0}, update_first_pts(false), reached_steady_state(false)
 	{
 		//mutex in init
 		init(0, 0, false, true);

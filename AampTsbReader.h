@@ -42,7 +42,7 @@ public:
 	 *
 	 * @return None
 	 */
-	AampTsbReader(AampLogManager *logObj, PrivateInstanceAAMP *aamp, std::shared_ptr<AampTsbDataManager> dataMgr, AampMediaType mediaType, std::string sessionId);
+	AampTsbReader(PrivateInstanceAAMP *aamp, std::shared_ptr<AampTsbDataManager> dataMgr, AampMediaType mediaType, std::string sessionId);
 
 	/**
 	 * @fn AampTsbReader Destructor
@@ -195,7 +195,6 @@ protected:
 	void DetectDiscontinuity(TsbFragmentDataPtr  currFragment);
 
 public:
-	AampLogManager *mLogObj;
 	PrivateInstanceAAMP *mAamp;
 	bool mEosReached;
 	bool mTrackEnabled;

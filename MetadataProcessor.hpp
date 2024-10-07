@@ -55,13 +55,11 @@ public:
 	/**
 	 * @brief Construct a new MetadataProcessor Interface object
 	 * 
-	 * @param[in] logObj Pointer to the logging object
 	 * @param[in] id3_hdl Callback function to generate the event for ID3 metadata
 	 * @param[in] ptsoffset_callback Callback function to update the PST offset in the main AAMP instance
 	 */
-	MetadataProcessorIntf(AampLogManager *logObj, id3_callback_t id3_hdl, ptsoffset_update_t ptsoffset_callback)
-		: mLogObj(logObj), 
-		mID3Handler{id3_hdl},
+	MetadataProcessorIntf(id3_callback_t id3_hdl, ptsoffset_update_t ptsoffset_callback)
+		: mID3Handler{id3_hdl},
 		mPtsOffsetUpdate{ptsoffset_callback},
 		mBasePTS(0)
 	{ }
@@ -94,9 +92,6 @@ public:
 		const std::string & uri) = 0;
 
 protected:
-
-	/// Logging object
-	AampLogManager *mLogObj; 
 
 	id3_callback_t mID3Handler;				/**< Function to use to emit the ID3 event */
 
@@ -143,7 +138,6 @@ public:
 	/**
 	 * IsoBMFFMetadataProcessor constructor
 	 *
-	 * @param[in] logObj Pointer to the logging object
 	 * @param[in] id3_hdl Callback function to generate the event for ID3 metadata
 	 * @param[in] ptsoffset_callback Callback function to update the PST offset in the main AAMP instance
 	 * @param[in] video_processor Video processor object
@@ -151,7 +145,7 @@ public:
 	 * @note The mVideoProcessor is a std::weak_ptr because we use the processor created in the stream abstraction class 
 	 * if it's instantiated (and do nothing if not) without keeping a "copy" of the shared pointer
 	 */
-	IsoBMFFMetadataProcessor(AampLogManager *logObj, id3_callback_t id3_hdl,
+	IsoBMFFMetadataProcessor(id3_callback_t id3_hdl,
 		ptsoffset_update_t ptsoffset_callback,
 		std::weak_ptr<IsoBmffProcessor> video_processor
 		);
@@ -204,7 +198,6 @@ public:
 	/**
 	 * TSMetadataProcessor constructor
 	 *
-	 * @param[in] logObj Pointer to the logging object
 	 * @param[in] id3_hdl Callback function to generate the event for ID3 metadata
 	 * @param[in] ptsoffset_callback Callback function to update the PST offset in the main AAMP instance
 	 * @param[in] video_processor Video processor object
@@ -213,7 +206,7 @@ public:
 	 * and in this way we can create it outside this class (i.e. without having to pass all the construction parameters), before 
 	 * moving it onto the local stored object.
 	 */
-	TSMetadataProcessor(AampLogManager * logObj, id3_callback_t id3_hdl,
+	TSMetadataProcessor(id3_callback_t id3_hdl,
 		ptsoffset_update_t ptsoffset_callback,
 		std::shared_ptr<TSProcessor> video_processor
 		);

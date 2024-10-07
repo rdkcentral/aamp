@@ -98,7 +98,6 @@ void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 			// Retain matching GstPlayer player, remove others
 			for (auto it = mActiveGstPlayersMap.begin(); it != mActiveGstPlayersMap.end();)
 			{
-				auto mLogObj = it->first->mLogObj; // map correct log context
 				if (aamp == it->first)
 				{
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Retaining GstPlayer created for PLAYER[%d]", this, it->first->mPlayerId);
@@ -132,9 +131,7 @@ void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	auto mLogObj = aamp->mLogObj; // map correct log context
-
-    AampStreamSinkInactive *inactiveSink = new AampStreamSinkInactive(aamp->mLogObj, id3HandlerCallback);  /* For every instance of aamp, there should be an AampStreamSinkInactive object*/
+	AampStreamSinkInactive *inactiveSink = new AampStreamSinkInactive(id3HandlerCallback);  /* For every instance of aamp, there should be an AampStreamSinkInactive object*/
 	mInactiveGstPlayersMap.insert({aamp,inactiveSink});
 
 	switch(mPipelineMode)
@@ -173,7 +170,6 @@ void AampStreamSinkManager::SetStreamSink(PrivateInstanceAAMP *aamp, StreamSink 
 {
 
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	auto mLogObj = aamp->mLogObj; // map correct log context
 	AAMPLOG_WARN("AampStreamSinkManager(%p) SetStreamSink for PLAYER[%d] clientSink %p", this, aamp->mPlayerId, clientSink);
 	switch(mPipelineMode)
 	{
@@ -203,8 +199,7 @@ void AampStreamSinkManager::SetStreamSink(PrivateInstanceAAMP *aamp, StreamSink 
 void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	auto mLogObj = aamp->mLogObj; // map correct log context
-
+	
 	//Do not edit or remove this log - it is used in L2 test
 	AAMPLOG_WARN("AampStreamSinkManager(%p) DeleteStreamSink for PLAYER[%d]", this, aamp->mPlayerId);
 
@@ -272,8 +267,7 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::map<int, std::string>& mappedHeaders)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	auto mLogObj = aamp->mLogObj; // map correct log context
-
+	
 	switch(mPipelineMode)
 	{
 		case ePIPELINEMODE_UNDEFINED:
@@ -329,8 +323,7 @@ void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string>& mapp
 void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	auto mLogObj = aamp->mLogObj; // map correct log context
-
+	
 	switch(mPipelineMode)
 	{
 		case ePIPELINEMODE_UNDEFINED:
@@ -378,8 +371,7 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 	double position = aamp->GetPositionMs() / 1000.00;
 
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	auto mLogObj = aamp->mLogObj; // map correct log context
-
+	
 	switch(mPipelineMode)
 	{
 		case ePIPELINEMODE_SINGLE:
@@ -437,8 +429,6 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 
 void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp, double position)
 {
-	auto mLogObj = aamp->mLogObj; // map correct log context
-
 	AAMPLOG_INFO("AampStreamSinkManager(%p) Setting PLAYER[%d] active, position(%f)", this, aamp->mPlayerId, position);
 
 	mGstPlayer->ChangeAamp(aamp, mInactiveGstPlayersMap[aamp]->GetID3MetadataHandler());
@@ -462,8 +452,6 @@ AampStreamSinkManager& AampStreamSinkManager::GetInstance()
 StreamSink* AampStreamSinkManager::GetActiveStreamSink(PrivateInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	auto mLogObj = aamp->mLogObj; // map correct log context
-
 	StreamSink *sink_ptr = nullptr;
 
 	switch(mPipelineMode)
@@ -518,7 +506,6 @@ StreamSink* AampStreamSinkManager::GetStreamSink(PrivateInstanceAAMP *aamp)
 
 StreamSink* AampStreamSinkManager::GetStreamSinkNoLock(PrivateInstanceAAMP *aamp)
 {
-	auto mLogObj = aamp->mLogObj; // map correct log context
 	StreamSink *sink_ptr = nullptr;
 
 	if (mClientStreamSinkMap.count(aamp) != 0)
@@ -548,7 +535,6 @@ StreamSink* AampStreamSinkManager::GetStreamSinkNoLock(PrivateInstanceAAMP *aamp
 StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	auto mLogObj = aamp->mLogObj; // map correct log context
 	StreamSink *sink_ptr = nullptr;
 
 	if ((mPipelineMode == ePIPELINEMODE_SINGLE) && mActiveGstPlayersMap.empty())
@@ -568,7 +554,6 @@ StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aa
 void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	auto mLogObj = aamp->mLogObj; // map correct log context
 	switch (mPipelineMode)
 	{
 		case ePIPELINEMODE_SINGLE:

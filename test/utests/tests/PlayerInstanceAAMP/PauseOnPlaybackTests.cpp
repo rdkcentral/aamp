@@ -49,7 +49,7 @@ protected:
         mConfig = new AampConfig();
         mplayer = new TestablePlayerInstanceAAMP();
 
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mLogObj, mplayer->GetPrivAamp());
+        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mplayer->GetPrivAamp());
         mplayer->GetPrivAamp()->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
     }
 

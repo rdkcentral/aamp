@@ -19,7 +19,7 @@
 
 #include "ElementaryProcessor.h"
 
-ElementaryProcessor::ElementaryProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj)
+ElementaryProcessor::ElementaryProcessor(class PrivateInstanceAAMP *aamp)
 {
 }
 

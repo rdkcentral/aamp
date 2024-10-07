@@ -41,8 +41,8 @@ StreamAbstractionAAMP_HDMIIN* StreamAbstractionAAMP_HDMIIN::mHdmiinInstance = NU
 /**
  * @brief StreamAbstractionAAMP_HDMIIN Constructor
  */
-StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                             : StreamAbstractionAAMP_VIDEOIN("HDMIIN", HDMIINPUT_CALLSIGN,logObj,aamp,seek_pos,rate,"HDMI")
+StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+                             : StreamAbstractionAAMP_VIDEOIN("HDMIIN", HDMIINPUT_CALLSIGN,aamp,seek_pos,rate,"HDMI")
 {
 	aamp->SetContentType("HDMI_IN");
 }
@@ -102,24 +102,23 @@ void StreamAbstractionAAMP_HDMIIN::Stop(bool clearChannelData)
  *   @brief get StreamAbstractionAAMP_HDMIIN instance
  */
 
-StreamAbstractionAAMP_HDMIIN * StreamAbstractionAAMP_HDMIIN::GetInstance(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+StreamAbstractionAAMP_HDMIIN * StreamAbstractionAAMP_HDMIIN::GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate)
 {
 	if( mHdmiinInstance == NULL)
 	{
-		mHdmiinInstance = new StreamAbstractionAAMP_HDMIIN(logObj,aamp,seekpos,rate);
+		mHdmiinInstance = new StreamAbstractionAAMP_HDMIIN(aamp,seekpos,rate);
 	}
 	else
 	{
-		// Reuse existing instance and set new aamp and logObj
+		// Reuse existing instance and set new aamp
 		mHdmiinInstance->aamp = aamp;
-		mHdmiinInstance->mLogObj = logObj;
 		mHdmiinInstance->aamp->SetContentType("HDMI_IN");
 	}
 	return mHdmiinInstance;
 }
 
 /**
- *   @brief Clear aamp and LogObj of HdmiinInstance
+ *   @brief Clear aamp of HdmiinInstance
  */
 void StreamAbstractionAAMP_HDMIIN::ResetInstance()
 {
@@ -130,9 +129,8 @@ void StreamAbstractionAAMP_HDMIIN::ResetInstance()
 		{
 			mHdmiinInstance->aamp->SetState(eSTATE_STOPPED);
 		}
-		//clear aamp and logObj
+		//clear aamp
 		mHdmiinInstance->aamp = NULL;
-		mHdmiinInstance->mLogObj = NULL;
 	}
 }
 

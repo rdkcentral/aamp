@@ -353,7 +353,6 @@ std::string Aampcli::GetSessionId(size_t index) const
  */
 int main(int argc, char **argv)
 {
-	AampLogManager mLogManager;
 	AampLogManager::disableLogRedirection = true;
 	ABRManager mAbrManager;
 

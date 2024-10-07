@@ -91,8 +91,7 @@ static size_t StreamWriteCallback( void *ptr, size_t size, size_t nmemb, void *u
 {
     StreamWriteCallbackContext *context = (StreamWriteCallbackContext *)userdata;
     struct PrivateInstanceAAMP *aamp = context->aamp;
-	auto mLogObj = aamp->mLogObj; // map correct log context
-    //pthread_mutex_lock(&context->aamp->mLock);
+	//pthread_mutex_lock(&context->aamp->mLock);
     if( context->aamp->mDownloadsEnabled)
     {
        // TODO: info logging is normally only done up until first frame rendered, but even so is too noisy for below, since CURL write callback yields many small chunks
@@ -222,7 +221,7 @@ AAMPStatusType StreamAbstractionAAMP_PROGRESSIVE::Init(TuneType tuneType)
 /**
  * @brief StreamAbstractionAAMP_PROGRESSIVE Constructor
  */
-StreamAbstractionAAMP_PROGRESSIVE::StreamAbstractionAAMP_PROGRESSIVE(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate): StreamAbstractionAAMP(logObj, aamp),
+StreamAbstractionAAMP_PROGRESSIVE::StreamAbstractionAAMP_PROGRESSIVE(class PrivateInstanceAAMP *aamp,double seek_pos, float rate): StreamAbstractionAAMP(aamp),
 fragmentCollectorThreadStarted(false), fragmentCollectorThreadID(), seekPosition(seek_pos)
 {
     trickplayMode = (rate != AAMP_NORMAL_PLAY_RATE);

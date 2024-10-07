@@ -24,41 +24,12 @@
 #include <algorithm>
 #include <unordered_map>
 #include <memory>
-
-#include "MockAampLogManager.h"
 #include "priv_aamp.h"
 #include "AampLogManager.h"
 
 //Enable the define below to get AAMP logging out when running tests
 //#define ENABLE_LOGGING
 #define TEST_LOG_LEVEL eLOGLEVEL_TRACE
-
-std::shared_ptr<MockAampLogManager> g_mockAampLogManager = nullptr;
-
-/**
- * @brief Log file and cfg directory path - To support dynamic directory configuration
- */
-bool AampLogManager::isLogLevelAllowed(AAMP_LogLevel chkLevel)
-{
-	return chkLevel >= TEST_LOG_LEVEL;
-}
-
-std::string AampLogManager::getHexDebugStr(const std::vector<uint8_t>& data)
-{
-	std::ostringstream hexSs;
-	hexSs << "0x";
-	hexSs << std::hex << std::uppercase << std::setfill('0');
-	std::for_each(data.cbegin(), data.cend(), [&](int c) { hexSs << std::setw(2) << c; });
-	return hexSs.str();
-}
-
-void AampLogManager::setLogLevel(AAMP_LogLevel newLevel)
-{
-	if (g_mockAampLogManager != nullptr)
-	{
-		g_mockAampLogManager->setLogLevel(newLevel);
-	}
-}
 
 static const char *mLogLevelStr[] =
 {
@@ -71,12 +42,15 @@ static const char *mLogLevelStr[] =
 	"FATAL"
 };
 
+bool AampLogManager::disableLogRedirection = false;
+AAMP_LogLevel AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
+bool AampLogManager::locked = false;
+
 thread_local int gPlayerId = -1;
 
 void logprintf(AAMP_LogLevel level, const char* file, int line, const char *format, ...)
 {
 #ifdef ENABLE_LOGGING
-	int playerId = -1;
 	char *format_ptr = NULL;
 	int format_bytes = 0;
 	for( int pass=0; pass<2; pass++ )
@@ -109,6 +83,7 @@ void DumpBlob(const unsigned char *ptr, size_t len)
 {
 }
 
+#if 0
 /**
  *  @brief Print the network error level logging for triage purpose
  */
@@ -142,3 +117,4 @@ void AampLogManager::LogABRInfo(AAMPAbrInfo *pstAbrInfo)
 void AampLogManager::aampLogger(std::string &&tsbMessage)
 {
 }
+#endif

@@ -58,11 +58,10 @@ public:
 	 */
 	virtual void terminateEarly() {}
 
-	AAMPMemorySystem(AampLogManager *logObj): mLogObj(logObj) {}
+	AAMPMemorySystem(){}
 	AAMPMemorySystem(const AAMPMemorySystem&) = delete;
 	AAMPMemorySystem& operator=(const AAMPMemorySystem&) = delete;
 	virtual ~AAMPMemorySystem() {}
-	AampLogManager *mLogObj;
 };
 
 /**

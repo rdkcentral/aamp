@@ -37,7 +37,6 @@ using ::testing::DoAll;
 using ::testing::SetArgPointee;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 class IsoBmffConvertToKeyFrameTests : public ::testing::Test
 {
@@ -47,16 +46,13 @@ class IsoBmffConvertToKeyFrameTests : public ::testing::Test
 
 		void SetUp() override
 		{
-			mLogObj = new AampLogManager();
 			g_mockGLib = new NiceMock<MockGLib>();
 			gpGlobalConfig = new AampConfig();
-			helper = std::make_shared<IsoBmffHelper>(mLogObj);
+			helper = std::make_shared<IsoBmffHelper>();
 		}
 
 		void TearDown() override
 		{
-			delete mLogObj;
-			mLogObj=nullptr;
 			delete gpGlobalConfig;
 			gpGlobalConfig = nullptr;
 			delete g_mockGLib;

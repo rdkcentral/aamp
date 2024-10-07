@@ -33,20 +33,19 @@ class IsoBmffHelperTests : public ::testing::Test
 {
 	protected:
 		std::shared_ptr<IsoBmffHelper> helper;
-		AampLogManager *mLogObj;
 
 		void SetUp() override
 		{
-			mLogObj = new AampLogManager();
-			mLogObj->aampLoglevel = eLOGLEVEL_TRACE;		//To enable all levels of AAMP logging
+			AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
+			AampLogManager::lockLogLevel(true);
+			
+			//mLogObj->aampLoglevel = eLOGLEVEL_TRACE;		//To enable all levels of AAMP logging
 			g_mockIsoBmffBuffer = new MockIsoBmffBuffer();
-			helper = std::make_shared<IsoBmffHelper>(mLogObj);
+			helper = std::make_shared<IsoBmffHelper>();
 		}
 
 		void TearDown() override
 		{
-			delete mLogObj;
-			mLogObj=nullptr;
 			delete g_mockIsoBmffBuffer;
 			g_mockIsoBmffBuffer = nullptr;
 			helper.reset();

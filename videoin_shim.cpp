@@ -72,18 +72,18 @@ AAMPStatusType StreamAbstractionAAMP_VIDEOIN::InitHelper(TuneType tuneType)
 /**
  * @brief StreamAbstractionAAMP_VIDEOIN Constructor
  */
-StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, const std::string callSign, AampLogManager *logObj,  class PrivateInstanceAAMP *aamp,double seek_pos, float rate, const std::string type)
+StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, const std::string callSign,  class PrivateInstanceAAMP *aamp,double seek_pos, float rate, const std::string type)
                                : mName(name),
                                mRegisteredEvents(),
-                               StreamAbstractionAAMP(logObj, aamp),
+                               StreamAbstractionAAMP(aamp),
                                mTuned(false),
                                videoInputPort(-1),
                                videoInputType(type),
 				mIsInitialized(false)
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-                                ,thunderAccessObj(callSign, logObj),
-				thunderRDKShellObj(RDKSHELL_CALLSIGN, logObj),
-				thunderDSAccessObj(DS_CALLSIGN, logObj)
+                                ,thunderAccessObj(callSign),
+				thunderRDKShellObj(RDKSHELL_CALLSIGN),
+				thunderDSAccessObj(DS_CALLSIGN)
 #endif
 {
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS

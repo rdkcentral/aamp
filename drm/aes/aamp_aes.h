@@ -49,7 +49,7 @@ public:
 	 *
 	 * @retval eDRM_SUCCESS
 	 */
-	DrmReturn SetMetaData( PrivateInstanceAAMP *aamp, void* metadata,int trackType, AampLogManager *logObj=NULL);
+	DrmReturn SetMetaData( PrivateInstanceAAMP *aamp, void* metadata,int trackType);
 	/**
 	 * @fn GetState
 	 * @retval DRMState
@@ -63,7 +63,7 @@ public:
 	 *
 	 * @retval None
 	 */
-	void AcquireKey( class PrivateInstanceAAMP *aamp, void *metadata,int trackType, AampLogManager *logObj=NULL);
+	void AcquireKey( class PrivateInstanceAAMP *aamp, void *metadata,int trackType);
 	/**
 	 * @fn SetDecryptInfo
 	 *
@@ -71,7 +71,7 @@ public:
 	 * @param drmInfo Drm information
 	 * @retval eDRM_SUCCESS on success
 	 */
-	DrmReturn SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInfo *drmInfo, AampLogManager *logObj=NULL);
+	DrmReturn SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInfo *drmInfo);
 	/**
 	 * @fn Decrypt
 	 * @param bucketType Type of bucket for profiling

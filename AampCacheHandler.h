@@ -123,7 +123,6 @@ private:
 	pthread_mutex_t mCondVarMutex;
 	pthread_cond_t mCondVar ;
 	std::thread mAsyncCleanUpTaskThreadId;
-	AampLogManager *mLogObj;
 
 	typedef std::unordered_map <std::string, InitFragCacheStruct*> InitFragCache ;
 	typedef std::unordered_map <std::string, InitFragCacheStruct*>::iterator InitFragCacheIter;
@@ -191,7 +190,7 @@ public:
 	 *
 	 *	 @return void
 	 */
-	AampCacheHandler(int playerid, AampLogManager *logObj);
+	AampCacheHandler(int playerid);
 
 	/**
 	*        @fn ~AampCacheHandler

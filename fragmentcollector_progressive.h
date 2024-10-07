@@ -43,7 +43,7 @@ public:
      * @param seekpos Seek position
      * @param rate playback rate
      */
-    StreamAbstractionAAMP_PROGRESSIVE(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+    StreamAbstractionAAMP_PROGRESSIVE(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
     /**
      * @fn ~StreamAbstractionAAMP_PROGRESSIVE
      */

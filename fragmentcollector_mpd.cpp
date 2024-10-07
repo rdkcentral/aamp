@@ -117,8 +117,8 @@ static bool IsIframeTrack(IAdaptationSet *adaptationSet);
 /**
  * @brief StreamAbstractionAAMP_MPD Constructor
  */
-StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, class PrivateInstanceAAMP *aamp, double seek_pos, float rate, id3_callback_t id3Handler)
-	: StreamAbstractionAAMP(logObj, aamp, id3Handler),
+StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp, double seek_pos, float rate, id3_callback_t id3Handler)
+	: StreamAbstractionAAMP(aamp, id3Handler),
 	fragmentCollectorThreadStarted(false), mLangList(), seekPosition(seek_pos), rate(rate), fragmentCollectorThreadID(),tsbReaderThreadID(),
 	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false),
 	mStreamInfo(NULL), mPrevStartTimeSeconds(0), mPrevLastSegurlMedia(""), mPrevLastSegurlOffset(0),
@@ -815,7 +815,6 @@ void StreamAbstractionAAMP_MPD::GetFragmentUrl( std::string& fragmentUrl, const 
 				constructedUri.clear();
 			}
 		}
-
 		// append '/' suffix to BaseURL if not already present
 		if( aamp_IsAbsoluteURL(constructedUri) )
 		{
@@ -911,7 +910,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		{
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: failed. fragmentUrl %s fragmentTime %f %d %d", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime,isInitializationSegment, pMediaStreamContext->type);
                   	//Added new check to avoid marking ad as failed if the http code is not worthy.
-			if(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && AAMP_IS_LOG_WORTHY_ERROR(pMediaStreamContext->httpErrorCode) && (isInitializationSegment || pMediaStreamContext->segDLFailCount >= MAX_AD_SEG_DOWNLOAD_FAIL_COUNT))
+			if(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && (pMediaStreamContext->httpErrorCode!=CURLE_WRITE_ERROR && pMediaStreamContext->httpErrorCode!= CURLE_ABORTED_BY_CALLBACK) && (isInitializationSegment || pMediaStreamContext->segDLFailCount >= MAX_AD_SEG_DOWNLOAD_FAIL_COUNT))
 			{
 				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: [CDAI] Ad fragment not available. Playback failed.");
 				mCdaiObject->mAdBreaks[mBasePeriodId].mAdFailed = true;
@@ -3128,7 +3127,7 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 		}
 		else if (data && dataLength)
 		{
-			tmpDrmHelper = AampDrmHelperEngine::getInstance().createHelper(drmInfo, mLogObj);
+			tmpDrmHelper = AampDrmHelperEngine::getInstance().createHelper(drmInfo);
 
 			if (!tmpDrmHelper->parsePssh(data, (uint32_t)dataLength))
 			{
@@ -3530,7 +3529,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 		for (int i = 0; i < mMaxTracks; i++)
 		{
-			mMediaStreamContext[i] = new MediaStreamContext(mLogObj, (TrackType)i, this, aamp, GetMediaTypeName(AampMediaType(i)));
+			mMediaStreamContext[i] = new MediaStreamContext((TrackType)i, this, aamp, GetMediaTypeName(AampMediaType(i)));
 			mMediaStreamContext[i]->fragmentDescriptor.manifestUrl = manifestUrl;
 			mMediaStreamContext[i]->mediaType = (AampMediaType)i;
 			mMediaStreamContext[i]->representationIndex = -1;
@@ -6334,7 +6333,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 					pMediaStreamContext->mSubtitleParser = NULL;
 				}
 			}
-			pMediaStreamContext->mSubtitleParser = SubtecFactory::createSubtitleParser(mLogObj, aamp, mimeType);
+			pMediaStreamContext->mSubtitleParser = SubtecFactory::createSubtitleParser(aamp, mimeType);
 			if (!pMediaStreamContext->mSubtitleParser)
 			{
 				pMediaStreamContext->enabled = false;
@@ -10839,7 +10838,7 @@ std::string StreamAbstractionAAMP_MPD::GetVssVirtualStreamID()
  */
 void StreamAbstractionAAMP_MPD::InitSubtitleParser(char *data)
 {
-	mSubtitleParser = SubtecFactory::createSubtitleParser(mLogObj, aamp, eSUB_TYPE_WEBVTT);
+	mSubtitleParser = SubtecFactory::createSubtitleParser(aamp, eSUB_TYPE_WEBVTT);
 	if (mSubtitleParser)
 	{
 		double position = aamp->GetPositionSeconds();
@@ -10910,7 +10909,7 @@ void StreamAbstractionAAMP_MPD::MuteSidecarSubtitles(bool mute)
  */
 void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
 {
-	mSubtitleParser = SubtecFactory::createSubtitleParser(mLogObj, aamp, eSUB_TYPE_WEBVTT);
+	mSubtitleParser = SubtecFactory::createSubtitleParser(aamp, eSUB_TYPE_WEBVTT);
 	if (mSubtitleParser)
 	{
 		mSubtitleParser->updateTimestamp(seekPosition*1000);

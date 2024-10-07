@@ -14,8 +14,8 @@
 class AAMPOCDMBasicSessionAdapter : public AAMPOCDMSessionAdapter
 {
 public:
-	AAMPOCDMBasicSessionAdapter(AampLogManager *logObj, std::shared_ptr<AampDrmHelper> drmHelper, AampDrmCallbacks *drmCallbacks)
-	: AAMPOCDMSessionAdapter(logObj, drmHelper, drmCallbacks)
+	AAMPOCDMBasicSessionAdapter(std::shared_ptr<AampDrmHelper> drmHelper, AampDrmCallbacks *drmCallbacks)
+	: AAMPOCDMSessionAdapter(drmHelper, drmCallbacks)
 	{};
 	~AAMPOCDMBasicSessionAdapter() {};
 

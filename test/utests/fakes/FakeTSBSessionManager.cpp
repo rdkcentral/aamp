@@ -33,8 +33,8 @@ MockTSBSessionManager *g_mockTSBSessionManager = nullptr;
  *
  * @return None
  */
-AampTSBSessionManager::AampTSBSessionManager(AampLogManager *logObj, PrivateInstanceAAMP* aamp)	:
-        mInitialized_(true), mStopThread_(false), mLogObj(logObj), mAamp(aamp), mTSBStore(nullptr),
+AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP* aamp)	:
+        mInitialized_(true), mStopThread_(false), mAamp(aamp), mTSBStore(nullptr),
         mActiveTuneType(eTUNETYPE_NEW_NORMAL), mLastVideoPos(AAMP_PAUSE_POSITION_INVALID_POSITION),
 		mCulledDuration(0.0), mStoreEndPosition(0.0), mLiveEndPosition(0.0), mTsbMaxDiskStorage(0),
 		mTsbMinFreePercentage(0)

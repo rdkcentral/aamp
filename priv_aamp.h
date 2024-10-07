@@ -4425,9 +4425,6 @@ protected:
 	bool mbPauseOnStartPlayback;						/**< Start playback in paused state */
 
 	pthread_mutex_t mPreProcessLock;
-
-public:
-	AampLogManager *mLogObj;
 };
 
 #endif // PRIVAAMP_H

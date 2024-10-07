@@ -21,7 +21,7 @@ class AAMPOCDMGSTSessionAdapter : public AAMPOCDMSessionAdapter
         void ExtractSEI( GstBuffer *buffer);
 #endif
 public:
-	AAMPOCDMGSTSessionAdapter(AampLogManager *logObj, std::shared_ptr<AampDrmHelper> drmHelper,  AampDrmCallbacks *drmCallbacks) : AAMPOCDMSessionAdapter(logObj, drmHelper, drmCallbacks)
+	AAMPOCDMGSTSessionAdapter(std::shared_ptr<AampDrmHelper> drmHelper,  AampDrmCallbacks *drmCallbacks) : AAMPOCDMSessionAdapter(drmHelper, drmCallbacks)
 , AAMPOCDMGSTSessionDecrypt(nullptr)
 	{
                 const char* ocdmgstsessiondecrypt = "opencdm_gstreamer_session_decrypt_buffer";

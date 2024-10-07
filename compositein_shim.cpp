@@ -35,8 +35,8 @@ StreamAbstractionAAMP_COMPOSITEIN* StreamAbstractionAAMP_COMPOSITEIN::mComposite
 /**
  * @brief StreamAbstractionAAMP_COMPOSITEIN Constructor
  */
-StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                             : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", COMPOSITEINPUT_CALLSIGN, logObj, aamp,seek_pos,rate,"COMPOSITE")
+StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+                             : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", COMPOSITEINPUT_CALLSIGN, aamp,seek_pos,rate,"COMPOSITE")
 {
 	aamp->SetContentType("COMPOSITE_IN");
 }
@@ -87,17 +87,16 @@ void StreamAbstractionAAMP_COMPOSITEIN::Stop(bool clearChannelData)
 /**
  * @brief get StreamAbstractionAAMP_COMPOSITEIN instance
  */
-StreamAbstractionAAMP_COMPOSITEIN * StreamAbstractionAAMP_COMPOSITEIN::GetInstance(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+StreamAbstractionAAMP_COMPOSITEIN * StreamAbstractionAAMP_COMPOSITEIN::GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate)
 {
 	if(mCompositeinInstance == NULL)
 	{
-		mCompositeinInstance = new StreamAbstractionAAMP_COMPOSITEIN(logObj,aamp,seekpos,rate);
+		mCompositeinInstance = new StreamAbstractionAAMP_COMPOSITEIN(aamp,seekpos,rate);
 	}
 	else
 	{
-		// Reuse existing instance and set new aamp and logObj
+		// Reuse existing instance and set new aamp
 		mCompositeinInstance->aamp = aamp;
-		mCompositeinInstance->mLogObj = logObj;
 		mCompositeinInstance->aamp->SetContentType("COMPOSITE_IN");
 	}
 
@@ -105,7 +104,7 @@ StreamAbstractionAAMP_COMPOSITEIN * StreamAbstractionAAMP_COMPOSITEIN::GetInstan
 }
 
 /**
-*  @brief Clear aamp and LogObj of CompositeInInstance
+*  @brief Clear aamp of CompositeInInstance
 */
 void StreamAbstractionAAMP_COMPOSITEIN::ResetInstance()
 {
@@ -116,8 +115,7 @@ void StreamAbstractionAAMP_COMPOSITEIN::ResetInstance()
 		{
 			mCompositeinInstance->aamp->SetState(eSTATE_STOPPED);
 		}
-		//clear aamp and logObj
+		//clear aamp
 		mCompositeinInstance->aamp = NULL;
-		mCompositeinInstance->mLogObj = NULL;
 	}
 }

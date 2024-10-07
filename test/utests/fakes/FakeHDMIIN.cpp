@@ -24,8 +24,8 @@
 #define HDMIINPUT_CALLSIGN "org.rdk.HdmiInput.1"
 #define COMPOSITEINPUT_CALLSIGN "org.rdk.CompositeInput.1"
 
-StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, const std::string callSign, AampLogManager *logObj,  class PrivateInstanceAAMP *aamp,double seek_pos, float rate, const std::string type)
-                               : StreamAbstractionAAMP(logObj, aamp)
+StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, const std::string callSign, class PrivateInstanceAAMP *aamp,double seek_pos, float rate, const std::string type)
+                               : StreamAbstractionAAMP(aamp)
 {
 }
 
@@ -66,8 +66,8 @@ void StreamAbstractionAAMP_VIDEOIN::StopHelper()
 {
 }
 
-StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                             : StreamAbstractionAAMP_VIDEOIN("HDMIIN", HDMIINPUT_CALLSIGN,logObj,aamp,seek_pos,rate,"HDMI")
+StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+                             : StreamAbstractionAAMP_VIDEOIN("HDMIIN", HDMIINPUT_CALLSIGN,aamp,seek_pos,rate,"HDMI")
 {
 }
 
@@ -88,7 +88,7 @@ void StreamAbstractionAAMP_HDMIIN::Stop(bool clearChannelData)
 {
 }
 
-StreamAbstractionAAMP_HDMIIN* StreamAbstractionAAMP_HDMIIN::GetInstance(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+StreamAbstractionAAMP_HDMIIN* StreamAbstractionAAMP_HDMIIN::GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate)
 {
     return nullptr;
 }
@@ -97,8 +97,8 @@ void StreamAbstractionAAMP_HDMIIN::ResetInstance()
 {
 }
 
- StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                              : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", COMPOSITEINPUT_CALLSIGN, logObj, aamp,seek_pos,rate,"COMPOSITE")
+ StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+                              : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", COMPOSITEINPUT_CALLSIGN, aamp,seek_pos,rate,"COMPOSITE")
  {
  }
 
@@ -119,7 +119,7 @@ void StreamAbstractionAAMP_HDMIIN::ResetInstance()
  {
  }
 
-StreamAbstractionAAMP_COMPOSITEIN* StreamAbstractionAAMP_COMPOSITEIN::GetInstance(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+StreamAbstractionAAMP_COMPOSITEIN* StreamAbstractionAAMP_COMPOSITEIN::GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate)
 {
     return nullptr;
 }

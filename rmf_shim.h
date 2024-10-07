@@ -56,7 +56,7 @@ class StreamAbstractionAAMP_RMF : public StreamAbstractionAAMP
 	 * @param seek_pos Seek position
 	 * @param rate playback rate
 	 */
-	StreamAbstractionAAMP_RMF(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+	StreamAbstractionAAMP_RMF(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
 	/**
 	 * @fn ~StreamAbstractionAAMP_RMF
 	 */

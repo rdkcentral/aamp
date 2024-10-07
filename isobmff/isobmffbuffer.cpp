@@ -113,7 +113,7 @@ bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 	size_t curOffset = 0;
 	while (curOffset < bufSize)
 	{
-		Box *box = Box::constructBox(buffer+curOffset, (uint32_t)(bufSize - curOffset), mLogObj, correctBoxSize, newTrackId);
+		Box *box = Box::constructBox(buffer+curOffset, (uint32_t)(bufSize - curOffset), correctBoxSize, newTrackId);
 		if( ((bufSize - curOffset) < 4) || ( (bufSize - curOffset) < box->getSize()) )
 		{
 			chunkedBox = box;

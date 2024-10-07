@@ -471,11 +471,6 @@ typedef struct ConfigValueString
 class AampConfig
 {
 public:
-	// Had to define as public as globalConfig loggin var is used multiple files
-	// TODO when player level logging is done, need to remove this
-	AampLogManager logging;                 /**< Aamp log manager class*/
-	AampLogManager *mLogObj;
-public:
 	/**
     	 * @fn AampConfig
     	 *
@@ -647,7 +642,7 @@ public:
      	 * @param[in] owner - Owner value for reverting
      	 * @return None
      	 */
-	void RestoreConfiguration(ConfigPriority owner, AampLogManager *mLogObj);	
+	void RestoreConfiguration(ConfigPriority owner);
 	/**
      	 * @fn ConfigureLogSettings
      	 * @return None
@@ -673,7 +668,6 @@ public:
      	 * @param[in] appname  - input string where appname will be stored
      	 */
 	bool CustomSearch( std::string url, int playerId , std::string appname);
-	AampLogManager *GetLoggerInstance() { return &logging;}
 
 	std::string GetUserAgentString();
 private:

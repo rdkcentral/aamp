@@ -371,7 +371,7 @@ public:
 	/**
      	 * @fn InitializeAAMPGstreamerPlugins
      	 */
-	static void InitializeAAMPGstreamerPlugins(AampLogManager *logObj=NULL);
+	static void InitializeAAMPGstreamerPlugins();
 	/**
 	 * @fn NotifyEOS
      	 */
@@ -484,7 +484,7 @@ public:
 	 * @brief Set to pause on next playback start
 	 * @param[in] enable - Flag to set whether enabled
 	 */
-	void SetPauseOnStartPlayback(bool enable);
+	void SetPauseOnStartPlayback(bool enable) override;
 
 private:
 	/**
@@ -550,9 +550,6 @@ private:
 	pthread_mutex_t mProtectionLock;
 
 	id3_callback_t m_ID3MetadataHandler; /**< Function to call to generate the JS event for in ID3 packet */
-	
-public:
-	AampLogManager *mLogObj;
 };
 
 #endif // AAMPGSTPLAYER_H

@@ -4,14 +4,14 @@
 
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
+
 class AampCacheHandlerTest : public Test
 {
 protected:
     AampCacheHandler *handler = nullptr;
     void SetUp() override
     {
-        handler = new AampCacheHandler(-1,gpGlobalConfig->GetLoggerInstance());
+        handler = new AampCacheHandler(-1);
         
     }
     void TearDown() override
@@ -190,8 +190,8 @@ protected:
     class TestableAampCacheHandler : public AampCacheHandler
     {
     public:
-        TestableAampCacheHandler(AampLogManager *logObj)
-            : AampCacheHandler(-1,logObj)
+        TestableAampCacheHandler()
+            : AampCacheHandler(-1)
         {
         }
 
@@ -231,23 +231,17 @@ protected:
             RemoveInitFragCacheEntry(mediaType);
         }
     };
-
-    AampLogManager *mLogObj;
     TestableAampCacheHandler *mTestableAampCacheHandler;
 
     void SetUp() override
     {
-        mLogObj = new AampLogManager();
-        mTestableAampCacheHandler = new TestableAampCacheHandler(mLogObj);
+        mTestableAampCacheHandler = new TestableAampCacheHandler();
     }
 
     void TearDown() override
     {
         delete mTestableAampCacheHandler;
         mTestableAampCacheHandler = nullptr;
-
-        delete mLogObj;
-        mLogObj = nullptr;
     }
 };
 

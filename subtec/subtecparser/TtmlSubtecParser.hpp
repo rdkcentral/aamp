@@ -26,7 +26,7 @@
 class TtmlSubtecParser : public SubtitleParser
 {
 public:
-	TtmlSubtecParser(AampLogManager *logObj, PrivateInstanceAAMP *aamp, SubtitleMimeType type);
+	TtmlSubtecParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type);
 	
 	TtmlSubtecParser(const TtmlSubtecParser&) = delete;
 	TtmlSubtecParser& operator=(const TtmlSubtecParser&) = delete;

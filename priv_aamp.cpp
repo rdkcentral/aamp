@@ -369,7 +369,6 @@ static gboolean PrivateInstanceAAMP_ProcessDiscontinuity(gpointer ptr)
 static gboolean PrivateInstanceAAMP_Retune(gpointer ptr)
 {
 	PrivateInstanceAAMP* aamp = (PrivateInstanceAAMP*) ptr;
-	auto mLogObj = aamp->mLogObj; // map correct log context
 	bool activeAAMPFound = false;
 	bool reTune = false;
 	gActivePrivAAMP_t *gAAMPInstance = NULL;
@@ -706,17 +705,17 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
  */
 static void print_headerResponse(std::vector<std::string> &allResponseHeaders, AampMediaType mediaType)
 {
-	if (gpGlobalConfig->logging.curlHeader && (eMEDIATYPE_VIDEO == mediaType || eMEDIATYPE_PLAYLIST_VIDEO == mediaType))
+	if (gpGlobalConfig->IsConfigSet(eAAMPConfig_CurlHeader) )
 	{
-		int size = (int)allResponseHeaders.size();
-		AAMPLOG_WARN("################ Start :: Print Header response ################");
-		for (int i=0; i < size; i++)
+		if( eMEDIATYPE_VIDEO == mediaType || eMEDIATYPE_PLAYLIST_VIDEO == mediaType )
 		{
-			AAMPLOG_WARN("* %s", allResponseHeaders.at(i).c_str());
+			size_t size = allResponseHeaders.size();
+			while( size-- )
+			{
+				AAMPLOG_MIL("* %s", allResponseHeaders.at(size).c_str());
+			}
 		}
-		AAMPLOG_WARN("################ End :: Print Header response ################");
 	}
-
 	allResponseHeaders.clear();
 }
 
@@ -729,7 +728,6 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 	if( user_data )
 	{
 		CurlCallbackContext *context = static_cast<CurlCallbackContext *>(user_data);
-		auto mLogObj = context->aamp->mLogObj; // map correct log context
 		httpRespHeaderData *httpHeader = context->responseHeaderData;
 		size_t startPos = 0;
 		size_t endPos = len-2; // strip CRLF
@@ -867,11 +865,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 					httpHeader->data += ';';
 				}
 			}
-
-			if(gpGlobalConfig->logging.trace)
-			{
-				AAMPLOG_TRACE("Parsed HTTP %s header: %s", httpHeader->type==eHTTPHEADERTYPE_COOKIE? "Cookie": "X-Reason", httpHeader->data.c_str());
-			}
+			AAMPLOG_TRACE("Parsed HTTP %s header: %s", httpHeader->type==eHTTPHEADERTYPE_COOKIE? "Cookie": "X-Reason", httpHeader->data.c_str());
 		}
 	}
 	return len;
@@ -1218,7 +1212,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mCurrentLatency(0)
 	, mLiveOffsetAppRequest(false)
 	, bLowLatencyStartABR(false)
-	, mLogObj(NULL)
 	, mEventManager (NULL)
 	, mCMCDCollector(NULL)
 	, mbDetached(false)
@@ -1295,16 +1288,14 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsFlushFdsInCurlStore(false)
 	, mProvidedManifestFile("")
 {
-	mLogObj = mConfig->GetLoggerInstance();
-	mAampCacheHandler = new AampCacheHandler(mPlayerId, mConfig->GetLoggerInstance());
+	mAampCacheHandler = new AampCacheHandler(mPlayerId);
 #ifdef AAMP_CC_ENABLED
 	AampCCManager::GetInstance()->SetLogger(mConfig->GetLoggerInstance());
 #endif
-	profiler.SetLogger(mConfig->GetLoggerInstance());
 	// Create the event manager for player instance
-	mEventManager = new AampEventManager(mPlayerId, mLogObj);
+	mEventManager = new AampEventManager(mPlayerId);
 	// Create the CMCD collector
-	mCMCDCollector = new AampCMCDCollector(mLogObj);
+	mCMCDCollector = new AampCMCDCollector();
 
 	preferredLanguagesString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLanguage);
 	preferredRenditionString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioRendition);
@@ -1317,7 +1308,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	preferredTextTypeString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextType);
 #if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 	int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
-	mDRMSessionManager = new AampDRMSessionManager(mLogObj, maxDrmSession, this);
+	mDRMSessionManager = new AampDRMSessionManager(maxDrmSession, this);
 #endif
 	pthread_cond_init(&mDownloadsDisabled, NULL);
 	mSubLanguage = GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage);
@@ -1504,7 +1495,6 @@ std::shared_ptr<TSB::Store> PrivateInstanceAAMP::GetTSBStore(const TSB::Store::C
 static gboolean PrivateInstanceAAMP_PausePosition(gpointer ptr)
 {
 	PrivateInstanceAAMP* aamp = (PrivateInstanceAAMP* )ptr;
-	auto mLogObj = aamp->mLogObj; // map correct log context
 	long long pausePositionMilliseconds = aamp->mPausePositionMilliseconds;
 	aamp->mPausePositionMilliseconds = AAMP_PAUSE_POSITION_INVALID_POSITION;
 
@@ -2304,15 +2294,13 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 				if (bufferBelowMin && !mIsLoggingNeeded)
 				{
 					mIsLoggingNeeded = true;
-					mConfig->logging.setLogLevel(eLOGLEVEL_INFO);
-					gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_INFO);
+					AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, true);
 				}
 				else if (!bufferBelowMin && mIsLoggingNeeded)
 				{
 					mIsLoggingNeeded = false;
-					mConfig->logging.setLogLevel(eLOGLEVEL_WARN);
-					gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_WARN);
+					AampLogManager::setLogLevel(eLOGLEVEL_WARN);
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
 				}
 			}
@@ -3561,9 +3549,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 
 		SendAnomalyEvent(eMsgType, "Tune attempt#%d. %s:%s URL:%s", mTuneAttempts,playbackType.c_str(),getStreamTypeString().c_str(),GetTunedManifestUrl());
 	}
-
-	mConfig->logging.setLogLevel(eLOGLEVEL_WARN);
-	gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_WARN);
+	AampLogManager::setLogLevel(eLOGLEVEL_WARN);
 }
 
 /**
@@ -4184,7 +4170,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						effectiveUrlPtr = aamp_CurlEasyGetinfoString(curl, CURLINFO_EFFECTIVE_URL);
 						if((mediaType == eMEDIATYPE_INIT_VIDEO || mediaType ==  eMEDIATYPE_INIT_AUDIO))
 						{
-							IsoBmffBuffer isobuf(mLogObj);
+							IsoBmffBuffer isobuf;
 							isobuf.setBuffer(
 											 reinterpret_cast<uint8_t *>(context.buffer->GetPtr() ),
 											 context.buffer->GetLen() );
@@ -4230,7 +4216,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 					if (http_code != 200 && http_code != 204 && http_code != 206)
 					{
-						AAMP_LOG_NETWORK_ERROR (effectiveUrl.empty() ? remoteUrl.c_str() : effectiveUrl.c_str(), // Effective URL could be different than remoteURL
+						AampLogManager::LogNetworkError (effectiveUrl.empty() ? remoteUrl.c_str() : effectiveUrl.c_str(), // Effective URL could be different than remoteURL
 						AAMPNetworkErrorHttp, http_code, mediaType);
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
@@ -4255,19 +4241,19 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 					/*
 					 * Latency should be printed in the case of successful download which exceeds the download threshold value,
-					 * other than this case is assumed as network error and those will be logged with AAMP_LOG_NETWORK_ERROR.
+					 * other than this case is assumed as network error and those will be logged with AampLogManager::LogNetworkError.
 					 */
 					if (fragmentDurationSeconds != 0.0)
 					{
 						/*in case of fetch fragment this will be non zero value */
 						if (downloadTimeMS > fragmentDurationMs )
 						{
-							AAMP_LOG_NETWORK_LATENCY (effectiveUrl.c_str(), downloadTimeMS, fragmentDurationMs, mediaType);
+							AampLogManager::LogNetworkLatency (effectiveUrl.c_str(), downloadTimeMS, fragmentDurationMs, mediaType);
 						}
 					}
 					else if (downloadTimeMS > FRAGMENT_DOWNLOAD_WARNING_THRESHOLD )
 					{
-						AAMP_LOG_NETWORK_LATENCY (effectiveUrl.c_str(), downloadTimeMS, FRAGMENT_DOWNLOAD_WARNING_THRESHOLD, mediaType);
+						AampLogManager::LogNetworkLatency (effectiveUrl.c_str(), downloadTimeMS, FRAGMENT_DOWNLOAD_WARNING_THRESHOLD, mediaType);
 						print_headerResponse(context.allResponseHeaders, mediaType);
 					}
 				}
@@ -4281,7 +4267,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 					/* Curl 23 and 42 is not a real network error, so no need to log it here */
 					//Log errors due to curl stall/start detection abort
-					if (AAMP_IS_LOG_WORTHY_ERROR(res) || progressCtx.abortReason != eCURL_ABORT_REASON_NONE)
+					if (AampLogManager::isLogworthyErrorCode(res) || progressCtx.abortReason != eCURL_ABORT_REASON_NONE)
 					{
 						std::string mEffectiveUrl;
 						mEffectiveUrl.assign(aamp_CurlEasyGetinfoString(curl, CURLINFO_EFFECTIVE_URL));
@@ -4289,7 +4275,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						{
 							mEffectiveUrl.assign(remoteUrl);
 						}
-						AAMP_LOG_NETWORK_ERROR (mEffectiveUrl.c_str(), // Effective URL could be different than remoteURL
+						AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), // Effective URL could be different than remoteURL
 						AAMPNetworkErrorCurl, (int)(progressCtx.abortReason == eCURL_ABORT_REASON_NONE ? res : CURLE_PARTIAL_FILE), mediaType);
 						print_headerResponse(context.allResponseHeaders, mediaType);
 					}
@@ -4382,7 +4368,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				{
 					reqEndLogLevel = eLOGLEVEL_MIL;
 				}
-				if (gpGlobalConfig->logging.isLogLevelAllowed(reqEndLogLevel))
+				if (AampLogManager::isLogLevelAllowed(reqEndLogLevel))
 				{
 					double totalPerformRequest = (double)(downloadTimeMS)/1000;
 					appConnect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_APPCONNECT_TIME);
@@ -4409,7 +4395,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						timeoutClass = "(" + to_string(reqSize > 0) + ")";
 					}
 
-					AAMPLOG(mLogObj, reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s%s%s",
+					AAMPLOG(reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s%s%s",
 							appName.c_str(), mediaTypeTelemetry, mediaType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize,downloadbps,
 					((mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_PLAYLIST_VIDEO) ? (context.bitrate > 0 ? context.bitrate : mpStreamAbstractionAAMP->GetVideoBitrate()): 0),((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case 
 									range?";":"", range?range:"");
@@ -4531,7 +4517,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		}
 		else
 		{
-			if (AAMP_IS_LOG_WORTHY_ERROR(res))
+			if (AampLogManager::isLogworthyErrorCode(res))
 			{
 				AAMPLOG_WARN("BAD URL:%s", remoteUrl.c_str());
 			}
@@ -4667,7 +4653,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 
 				// hack - repair wrong size in box
-				IsoBmffBuffer repair(mLogObj);
+				IsoBmffBuffer repair;
 				repair.setBuffer((uint8_t *)buffer->GetPtr(), buffer->GetLen() );
 				repair.parseBuffer(true);  //correctBoxSize=true
 				AAMPLOG_INFO("Stripping the fragment for range request completed");
@@ -5133,8 +5119,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		//Logging should be deactivated if the buffer exceeds the minimum buffer size or if seeking occurs
 		if(mIsLoggingNeeded && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
 		{
-			mConfig->logging.setLogLevel(eLOGLEVEL_WARN);
-			gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_WARN);
+			AampLogManager::setLogLevel((eLOGLEVEL_WARN));
 			SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
 			mIsLoggingNeeded = false;
 		}
@@ -5239,11 +5224,11 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			std::shared_ptr<ManifestDownloadConfig> inpData = prepareManifestDownloadConfig();
 			if(!inpData->mPreProcessedManifest.empty())
 			{
-				mMPDDownloaderInstance->Initialize(inpData, mLogObj, mAppName, std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, this));
+				mMPDDownloaderInstance->Initialize(inpData, mAppName, std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, this));
 			}
 			else
 			{
-				mMPDDownloaderInstance->Initialize(inpData, mLogObj, mAppName, nullptr);
+				mMPDDownloaderInstance->Initialize(inpData, mAppName, nullptr);
 			}
 			mMPDDownloaderInstance->Start();
 		}
@@ -5264,19 +5249,19 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	{
 		if(!IsLocalAAMPTsb())
 		{
-			mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(mLogObj,this, playlistSeekPos, rate,
+			mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, rate,
 					std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
 						std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5)
 					);
 			if (NULL == mCdaiObject)
 			{
-				mCdaiObject = new CDAIObjectMPD(mLogObj, this); // special version for DASH
+				mCdaiObject = new CDAIObjectMPD(this); // special version for DASH
 			}
 		}
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HLS || mMediaFormat == eMEDIAFORMAT_HLS_MP4)
 	{ // m3u8
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_HLS(mLogObj,this, playlistSeekPos, rate,
+		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_HLS(this, playlistSeekPos, rate,
 			std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
 				std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5),
 			std::bind(&PrivateInstanceAAMP::UpdatePTSOffsetFromTune, this,
@@ -5284,51 +5269,51 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		);
 		if(NULL == mCdaiObject)
 		{
-			mCdaiObject = new CDAIObject(mLogObj, this);    //Placeholder to reject the SetAlternateContents()
+			mCdaiObject = new CDAIObject(this);    //Placeholder to reject the SetAlternateContents()
 		}
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 	{
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_PROGRESSIVE(mLogObj,this, playlistSeekPos, rate);
+		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_PROGRESSIVE(this, playlistSeekPos, rate);
 		if (NULL == mCdaiObject)
 		{
-			mCdaiObject = new CDAIObject(mLogObj, this);    //Placeholder to reject the SetAlternateContents()
+			mCdaiObject = new CDAIObject(this);    //Placeholder to reject the SetAlternateContents()
 		}
 		// Set to false so that EOS events can be sent. Flag value was whatever previous asset had set it to.
 		SetIsLive(false);
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HDMI)
 	{
-		mpStreamAbstractionAAMP = StreamAbstractionAAMP_HDMIIN::GetInstance(mLogObj,this, playlistSeekPos, rate);
+		mpStreamAbstractionAAMP = StreamAbstractionAAMP_HDMIIN::GetInstance(this, playlistSeekPos, rate);
 		if (NULL == mCdaiObject)
 		{
-			mCdaiObject = new CDAIObject(mLogObj, this);    //Placeholder to reject the SetAlternateContents()
+			mCdaiObject = new CDAIObject(this);    //Placeholder to reject the SetAlternateContents()
 		}
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_OTA)
 	{
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_OTA(mLogObj,this, playlistSeekPos, rate);
+		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_OTA(this, playlistSeekPos, rate);
 		if (NULL == mCdaiObject)
 		{
-			mCdaiObject = new CDAIObject(mLogObj, this);    //Placeholder to reject the SetAlternateContents()
+			mCdaiObject = new CDAIObject(this);    //Placeholder to reject the SetAlternateContents()
 		}
 	}
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 	else if (mMediaFormat == eMEDIAFORMAT_RMF)
 	{
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_RMF(mLogObj,this, playlistSeekPos, rate);
+		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_RMF(this, playlistSeekPos, rate);
 		if (NULL == mCdaiObject)
 		{
-			mCdaiObject = new CDAIObject(mLogObj, this);    //Placeholder to reject the SetAlternateContents()
+			mCdaiObject = new CDAIObject(this);    //Placeholder to reject the SetAlternateContents()
 		}
 	}
 #endif //USE_CPP_THUNDER_PLUGIN_ACCESS
 	else if (mMediaFormat == eMEDIAFORMAT_COMPOSITE)
 	{
-		mpStreamAbstractionAAMP = StreamAbstractionAAMP_COMPOSITEIN::GetInstance(mLogObj,this, playlistSeekPos, rate);
+		mpStreamAbstractionAAMP = StreamAbstractionAAMP_COMPOSITEIN::GetInstance(this, playlistSeekPos, rate);
 		if (NULL == mCdaiObject)
 		{
-			mCdaiObject = new CDAIObject(mLogObj, this);    //Placeholder to reject the SetAlternateContents()
+			mCdaiObject = new CDAIObject(this);    //Placeholder to reject the SetAlternateContents()
 		}
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_SMOOTHSTREAMINGMEDIA)
@@ -5723,7 +5708,7 @@ void PrivateInstanceAAMP::ReloadTSB()
 	{
 		// Restart MPD downloader thread with new session
 		std::shared_ptr<ManifestDownloadConfig> inpData = prepareManifestDownloadConfig();
-		mMPDDownloaderInstance->Initialize(inpData,mLogObj,mAppName);
+		mMPDDownloaderInstance->Initialize(inpData,mAppName);
 		mMPDDownloaderInstance->Start();
 	}
 	if(configPassCode == 200 || configPassCode == 204 || configPassCode == 206)
@@ -5774,10 +5759,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	}
 	mEventManager->SetPlayerState(eSTATE_IDLE);
 	mConfig->CustomSearch(mainManifestUrl,mPlayerId,mAppName);
-
-	mConfig->logging.setLogLevel(eLOGLEVEL_INFO);
-	gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_INFO);
-
+	AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 	SetSessionId(std::move(sid));
 	mProvidedManifestFile.clear();
 	if(manifestData != NULL)
@@ -5845,8 +5827,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mIsFakeTune = strcasestr(mainManifestUrl, "fakeTune=true");
 	if(mIsFakeTune)
 	{
-		mConfig->logging.setLogLevel(eLOGLEVEL_ERROR);
-		gpGlobalConfig->logging.setLogLevel(eLOGLEVEL_ERROR);
+		AampLogManager::setLogLevel(eLOGLEVEL_ERROR);
 	}
 	mEventManager->SetFakeTuneFlag(mIsFakeTune);
 
@@ -5880,7 +5861,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		if(ISCONFIGSET_PRIV(eAAMPConfig_LocalTSBEnabled))
 		{
 			// create new TSB Session Manager for LLD
-			mTSBSessionManager = new AampTSBSessionManager(mLogObj,this);
+			mTSBSessionManager = new AampTSBSessionManager(this);
 			 //TODO unique session id for each
 			if(mTSBSessionManager)
 			{
@@ -5992,7 +5973,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	if ((!gstPluginsInitialized) && (!mbUsingExternalPlayer))
 	{
 		gstPluginsInitialized = true;
-		AAMPGstPlayer::InitializeAAMPGstreamerPlugins(mLogObj);
+		AAMPGstPlayer::InitializeAAMPGstreamerPlugins();
 	}
 
 	mbPlayEnabled = autoPlay;
@@ -12901,7 +12882,7 @@ void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMed
 	{
 		uint8_t * seg_buffer = reinterpret_cast<uint8_t *>(segment);
 
-		IsoBmffBuffer buffer(mLogObj);
+		IsoBmffBuffer buffer;
 		buffer.setBuffer(seg_buffer, size);
 		buffer.parseBuffer();
 		if(!buffer.isInitSegment())

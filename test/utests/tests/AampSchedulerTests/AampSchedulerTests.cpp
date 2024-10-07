@@ -23,7 +23,6 @@
 #include "../AampConfig.h"
 #include "../AampEvent.h"
 
-AampLogManager *mLogObj=NULL;
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
 
