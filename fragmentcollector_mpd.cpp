@@ -7846,6 +7846,35 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				}
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d timeLineIndex %d fragmentDescriptor.Number %" PRIu64 " mFirstPTS:%lf", i, pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Number, mFirstPTS);
 			}
+			else
+			{
+				ISegmentBase *segmentBase = pMediaStreamContext->representation->GetSegmentBase();
+				if ((segmentBase) && (segmentBase->GetTimescale()))
+				{
+					uint32_t timeScale = segmentBase->GetTimescale();
+					if (periodChanged)
+					{
+						pMediaStreamContext->fragmentDescriptor.TimeScale = timeScale;
+					}
+					if( timeScale )
+					{
+						pMediaStreamContext->scaledPTO = static_cast<double>(segmentBase->GetPresentationTimeOffset()) / static_cast<double>(timeScale);
+					}
+					if(!aamp->IsLive())
+					{
+						if(i == eMEDIATYPE_VIDEO)
+						{
+							mFirstPTS = pMediaStreamContext->scaledPTO;
+
+							if(periodChanged)
+							{
+								aamp->mNextPeriodScaledPtoStartTime = pMediaStreamContext->scaledPTO;
+							}
+						}
+					}
+					AAMPLOG_INFO("SegmentBase: Track %d timescale %u mFirstPTS %f PTO %"PRIu64, i, timeScale, mFirstPTS, segmentBase->GetPresentationTimeOffset());
+				}
+			}
 		}
 	}
 	return ret;

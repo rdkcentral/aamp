@@ -39,15 +39,17 @@ manifest_list = [
     {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main-multi.mpd", 'expected_restamps': 40 },
     {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd", 'expected_restamps': 40},
     {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/main-segmentlist.mpd", 'expected_restamps': 40},
-    { 'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/main-segmentbase.mpd", 'expected_restamps': 40},
-    { 'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main-multi.mpd", 'expected_restamps': 40},
-    { 'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/RDKAAMP-1540/4k/h265/SegmentTimeline.mpd", 'expected_restamps': 40},
+    {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/main-segmentbase.mpd", 'expected_restamps': 40},
+    {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main-multi.mpd", 'expected_restamps': 40},
+    {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/RDKAAMP-1540/4k/h265/SegmentTimeline.mpd", 'expected_restamps': 40},
+    {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/Sports-Variations/Good_Bad/manifest_x4_good_bad.mpd", 'expected_restamps': 120}
 ]
 ###############################################################################
 restamp_values = {}
 segment_cnt = 0
 max_segment_cnt = 0
 aamp = None
+timeout = 120
 
 def check_restamp(match,arg):
     global segment_cnt, restamp_values, max_segment_cnt
@@ -63,9 +65,9 @@ def check_restamp(match,arg):
 
     # Identify type of segment. comcast generated segments need a pattern match
     # This turns out to be a rubbish approach better if there was a log line
-    if re.search(r'_video_|-video-|/dash/\d+p_\d+\.m4s|/dash/\d+\.mp4|/video/\d+/\d+\.m4s', url):
+    if re.search(r'_video_|-video-|/dash/\d+p_\d+\.m4s|/dash/\d+\.mp4|/video/\d+/\d+\.m4s|LE5\.mp4', url):
         media = 'video'
-    elif re.search(r'_audio_|-audio-|/dash/en_\d+\.mp3|/en/\d+\.m4s', url):
+    elif re.search(r'_audio_|-audio-|/dash/en_\d+\.mp3|/en/\d+\.m4s|DDen\.mp4', url):
         media = 'audio'
     elif ("-subtitle-" in url) or ("-text-" in url):
         media = 'subtitle'
@@ -92,17 +94,17 @@ def check_restamp(match,arg):
 
 
 TESTDATA0 = {
-"title": "TBD",
-"max_test_time_seconds": 60,
-"url": "TBD",
+"title": "Verify continuous PTS restamp on various streams",
+"max_test_time_seconds": timeout,
+"url": "Various streams",
 "aamp_cfg": "info=true\nenablePTSReStamp=true\nprogress=true\n",
 
 "expect_list": [
     {"expect": r"aamp_tune","min":0, "max":2},
-    {"expect": r'RestampPts.*?before (\d+) after (\d+) duration (\d+) ([\w:/\.\-]+)\r\n',"min":0, "max":60, "callback" : check_restamp},
-    {"expect": r'AAMPGstPlayer_EndOfStreamReached',"min":0, "max":60, "end_of_test": True},
-    {"expect": r'AAMPGstPlayer_Stop', "min": 0, "max": 60, "end_of_test": True},
-    {"expect": r'StopInternal', "min": 0, "max": 60, "end_of_test": True},
+    {"expect": r'RestampPts.*?before (\d+) after (\d+) duration (\d+) ([\w:/\.\-]+)\r\n',"min":0, "max":timeout, "callback" : check_restamp},
+    {"expect": r'AAMPGstPlayer_EndOfStreamReached',"min":0, "max":timeout, "end_of_test": True},
+    {"expect": r'AAMPGstPlayer_Stop', "min": 0, "max": timeout, "end_of_test": True},
+    {"expect": r'StopInternal', "min": 0, "max": timeout, "end_of_test": True},
     ]
 }
 @pytest.fixture(params=manifest_list)
@@ -117,7 +119,7 @@ def test_8003_0(aamp_setup_teardown, test_data):
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
 
     TESTDATA0['url'] = test_data['url']
-    TESTDATA0['title'] = test_data['url']
+    TESTDATA0['title'] = "Verify continuous PTS restamp on " + test_data['url']
     max_segment_cnt = test_data['expected_restamps']
 
     aamp.run_expect_b(TESTDATA0)
