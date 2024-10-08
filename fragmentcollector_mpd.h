@@ -590,13 +590,13 @@ protected:
 	/**
 	 * @fn SelectSourceOrAdPeriod
 	 *
-	 * @param[out] periodChanged flag
-	 * @param[out] mpdChanged flag
-	 * @param[out] AdStateChanged flag
-	 * @param[out] waitForAdBreakCatchup flag
-	 * @param[out] bmanifestupdate flag
-	 * @param[out] requireStreamSelection flag
-	 * @param[out] currentPeriodId string
+	 * @param[in,out] periodChanged flag
+	 * @param[in,out] mpdChanged flag
+	 * @param[in,out] AdStateChanged flag
+	 * @param[in,out] waitForAdBreakCatchup flag
+	 * @param[in,out] bmanifestupdate flag
+	 * @param[in,out] requireStreamSelection flag
+	 * @param[in,out] currentPeriodId string
 	 * @return bool - true if new period selected, false otherwise
 	 */
 	bool SelectSourceOrAdPeriod(bool &periodChanged, bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId);
@@ -604,31 +604,31 @@ protected:
 	/**
 	 * @fn IndexSelectedPeriod
 	 *
-	 * @param[out] periodChanged flag
-	 * @param[out] AdStateChanged flag
-	 * @param[out] bmanifestupdate flag
-	 * @param[out] requireStreamSelection flag
-	 * @param[out] currentPeriodId string
+	 * @param[in] periodChanged flag
+	 * @param[in] AdStateChanged flag
+	 * @param[in] requireStreamSelection flag
+	 * @param[in] currentPeriodId string
 	 * @return bool - true if new period indexed, false otherwise
 	 */
-	bool IndexSelectedPeriod(bool &periodChanged, bool &adStateChanged, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId);
+	bool IndexSelectedPeriod(bool periodChanged, bool adStateChanged, bool requireStreamSelection, std::string currentPeriodId);
 
 	/**
 	 * @fn CheckEndOfStream
 	 *
-	 * @param[out] waitForAdBreakCatchup flag
+	 * @param[in] waitForAdBreakCatchup flag
 	 * @return bool - true if end of stream reached, false otherwise
 	 */
-	bool CheckEndOfStream(bool &waitForAdBreakCatchup);
+	bool CheckEndOfStream(bool waitForAdBreakCatchup);
 
 	/**
 	 * @fn DetectDiscontinuityAndFetchInit
 	 *
-	 * @param[out] periodChanged flag
-	 * @param[in] nextFragmentTime
+	 * @param[in] periodChanged flag
+	 * @param[in] nextSegmentTime
+	 *
 	 * @return void
 	 */
-	void DetectDiscontinuityAndFetchInit(bool &periodChanged, uint64_t nextFragmentTime);
+	void DetectDiscontinuityAndFetchInit(bool periodChanged, uint64_t nextSegmentTime);
 
 	/**
 	 * @fn TsbReader

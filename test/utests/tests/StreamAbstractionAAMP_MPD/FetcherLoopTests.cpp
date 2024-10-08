@@ -110,9 +110,9 @@ protected:
 			return SelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, bmanifestupdate, requireStreamSelection, currentPeriodId);
 		}
 
-		bool InvokeIndexSelectedPeriod(bool &periodChanged, bool &adStateChanged, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId)
+		bool InvokeIndexSelectedPeriod(bool &periodChanged, bool &adStateChanged, bool &requireStreamSelection, std::string &currentPeriodId)
 		{
-			return IndexSelectedPeriod(periodChanged, adStateChanged, bmanifestupdate, requireStreamSelection, currentPeriodId);
+			return IndexSelectedPeriod(periodChanged, adStateChanged, requireStreamSelection, currentPeriodId);
 		}
 
 		bool InvokeCheckEndOfStream(bool &waitForAdBreakCatchup)
@@ -573,7 +573,6 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests1)
 	bool periodChanged = true;
 	bool adStateChanged = false;
 	bool waitForAdBreakCatchup = false;
-	bool bmanifestupdate = false;
 	bool requireStreamSelection = true;
 	std::string currentPeriodId = "p1";
 
@@ -581,7 +580,7 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests1)
 	 * Test the scenario where period index happens
 	 * All the values are reset to default
 	 */
-	ret = mStreamAbstractionAAMP_MPD->InvokeIndexSelectedPeriod(periodChanged, adStateChanged, bmanifestupdate, requireStreamSelection, currentPeriodId);
+	ret = mStreamAbstractionAAMP_MPD->InvokeIndexSelectedPeriod(periodChanged, adStateChanged, requireStreamSelection, currentPeriodId);
 	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Time, 0);
 	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Number, 1);
 	EXPECT_EQ(pMediaStreamContext->eos, false);
@@ -623,7 +622,6 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests2)
 	bool periodChanged = true;
 	bool adStateChanged = false;
 	bool waitForAdBreakCatchup = false;
-	bool bmanifestupdate = false;
 	bool requireStreamSelection = true;
 	std::string currentPeriodId = "p1";
 
@@ -631,7 +629,7 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests2)
 	 * Test the scenario where period index happens
 	 * New period start is indexed at 1672531230
 	 */
-	ret = mStreamAbstractionAAMP_MPD->InvokeIndexSelectedPeriod(periodChanged, adStateChanged, bmanifestupdate, requireStreamSelection, currentPeriodId);
+	ret = mStreamAbstractionAAMP_MPD->InvokeIndexSelectedPeriod(periodChanged, adStateChanged, requireStreamSelection, currentPeriodId);
 	EXPECT_EQ(pMediaStreamContext->fragmentTime, 1672531230.0);
 	EXPECT_EQ(ret, true);
 }

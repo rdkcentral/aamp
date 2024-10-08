@@ -95,9 +95,9 @@ class AdFallbackTests : public ::testing::Test
 				return SelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, bmanifestupdate, requireStreamSelection, currentPeriodId);
 			}
 
-			bool InvokeIndexSelectedPeriod(bool &periodChanged, bool &adStateChanged, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId)
+			bool InvokeIndexSelectedPeriod(bool &periodChanged, bool &adStateChanged, bool &requireStreamSelection, std::string &currentPeriodId)
 			{
-				return IndexSelectedPeriod(periodChanged, adStateChanged, bmanifestupdate, requireStreamSelection, currentPeriodId);
+				return IndexSelectedPeriod(periodChanged, adStateChanged, requireStreamSelection, currentPeriodId);
 			}
 
 			bool InvokeCheckEndOfStream(bool &waitForAdBreakCatchup)

@@ -9005,10 +9005,10 @@ void StreamAbstractionAAMP_MPD::RestorePtsOffsetCalculation(void)
 /**
  * @fn CheckEndOfStream
  *
- * @param[out] waitForAdBreakCatchup flag
+ * @param[in] waitForAdBreakCatchup flag
  * @return bool - true if end of stream reached, false otherwise
  */
-bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool &waitForAdBreakCatchup)
+bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool waitForAdBreakCatchup)
 {
 	bool ret = false;
 	if ((rate < AAMP_NORMAL_PLAY_RATE && mIterPeriodIndex < 0) || (rate > 1 && mIterPeriodIndex >= mNumberOfPeriods) || (!mIsLiveManifest && waitForAdBreakCatchup != true))
@@ -9030,13 +9030,13 @@ bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool &waitForAdBreakCatchup)
 /**
  * @fn SelectSourceOrAdPeriod
  *
- * @param[out] periodChanged flag
- * @param[out] mpdChanged flag
- * @param[out] AdStateChanged flag
- * @param[out] waitForAdBreakCatchup flag
- * @param[out] bmanifestupdate flag
- * @param[out] requireStreamSelection flag
- * @param[out] currentPeriodId string
+ * @param[in,out] periodChanged flag
+ * @param[in,out] mpdChanged flag
+ * @param[in,out] AdStateChanged flag
+ * @param[in,out] waitForAdBreakCatchup flag
+ * @param[in,out] bmanifestupdate flag
+ * @param[in,out] requireStreamSelection flag
+ * @param[in,out] currentPeriodId string
  * @return bool - true if new period selected, false otherwise
  */
 bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId)
@@ -9204,6 +9204,8 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					if (bmanifestupdate)
 					{
 						AAMPLOG_WARN("[CDAI] requires manifest update period ID \'%s\' not changed to \'%s\' [BasePeriodId=\'%s\']", currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
+						ret = false;
+						break;
 					}
 					else
 					{
@@ -9260,13 +9262,13 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 /**
  * @fn IndexSelectedPeriod
  *
- * @param[out] mpdChanged flag
- * @param[out] AdStateChanged flag
- * @param[out] bmanifestupdate flag
- * @param[out] currentPeriodId string
+ * @param[in] periodChanged flag
+ * @param[in] AdStateChanged flag
+ * @param[in] requireStreamSelection flag
+ * @param[in] currentPeriodId string
  * @return bool - true if new period indexed, false otherwise
  */
-bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool &periodChanged, bool &adStateChanged, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId)
+bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adStateChanged, bool requireStreamSelection, std::string currentPeriodId)
 {
 	if (requireStreamSelection)
 	{
@@ -9303,14 +9305,11 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool &periodChanged, bool &a
 	{
 		double seekPositionSeconds = 0.0;
 
-		if (!bmanifestupdate)
-		{
-			// CID:190371 - Data race condition
-			// Get and clear mContentSeekOffset atomically.
-			std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
-			seekPositionSeconds = mCdaiObject->mContentSeekOffset;
-			mCdaiObject->mContentSeekOffset = 0;
-		}
+		// CID:190371 - Data race condition
+		// Get and clear mContentSeekOffset atomically.
+		std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+		seekPositionSeconds = mCdaiObject->mContentSeekOffset;
+		mCdaiObject->mContentSeekOffset = 0;
 
 		if (seekPositionSeconds)
 		{
@@ -9330,12 +9329,12 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool &periodChanged, bool &a
 /**
  * @fn DetectDiscontinuityAndFetchInit
  *
- * @param[out] periodChanged flag
+ * @param[in] periodChanged flag
  * @param[in] nextSegmentTime
  *
  * @return void
  */
-void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool &periodChanged, uint64_t nextSegmentTime)
+void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChanged, uint64_t nextSegmentTime)
 {
 	bool discontinuity = false;
 
@@ -9517,7 +9516,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 			 */
 			if (!SelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, bmanifestupdate, requireStreamSelection, currentPeriodId))
 			{
-				if(waitForAdBreakCatchup)
+				if(waitForAdBreakCatchup || bmanifestupdate)
 				{
 					if (!exitFetchLoop)
 					{
@@ -9577,7 +9576,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 			/*
 			 * Index selected period from ad or source content
 			 */
-			if(!IndexSelectedPeriod(periodChanged, adStateChanged, bmanifestupdate, requireStreamSelection, currentPeriodId))
+			if(!IndexSelectedPeriod(periodChanged, adStateChanged, requireStreamSelection, currentPeriodId))
 			{
 				// Indexing failed, break the fetcher loop
 				CheckEndOfStream(waitForAdBreakCatchup);
@@ -9585,12 +9584,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 			}
 			else
 			{
-				if (!bmanifestupdate)
-				{
-					// Call after StreamSelection() to get correct ->adaptationSetIdx ->representationIndex
-					AAMPLOG_TRACE("Update PTS offset after StreamSelection, period changed %d", periodChanged);
-					UpdatePtsOffset(periodChanged);
-				}
+				// Call after StreamSelection() to get correct ->adaptationSetIdx ->representationIndex
+				AAMPLOG_TRACE("Update PTS offset after StreamSelection, period changed %d", periodChanged);
+				UpdatePtsOffset(periodChanged);
 				// Indexing success case
 				DetectDiscontinuityAndFetchInit(periodChanged, nextSegmentTime);
 				if (mCdaiObject->HasDaiAd(mBasePeriodId))
@@ -9604,7 +9600,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 						// reset period change flag so that we can perform period change to source period
 						aamp->SetIsPeriodChangeMarked(false);
 						resetIterator = false;
-						if(rate == AAMP_NORMAL_PLAY_RATE && !bmanifestupdate)
+						if(rate == AAMP_NORMAL_PLAY_RATE)
 						{
 							RestorePtsOffsetCalculation();
 						}
@@ -9748,19 +9744,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 						{
 							adStateChanged = onAdEvent(AdEvent::AD_FINISHED);
 						}
-						if (mCdaiObject->HasDaiAd(mBasePeriodId))
-						{
-							if (((mCdaiObject->mAdBreaks[mBasePeriodId].mWaitForManifestUpdateFlag)) && (mMPDParseHelper->getPeriodIdx(mBasePeriodId) == mMPDParseHelper->mUpperBoundaryPeriod))
-							{
-								AAMPLOG_INFO("[CDAI] current base period Id and mUpperBoundaryPeriod are equal ..... [%s] [%d] ", mBasePeriodId.c_str(), mMPDParseHelper->mUpperBoundaryPeriod);
-								bmanifestupdate = true;
-							}
-						}
-						// EOS from both tracks for dynamic(live) manifests for all periods.
-						// Wait for the manifest update, otherwise break the loop.
+						// EOS from both tracks for dynamic (live) manifests for all periods.
+						// If ad state is not IN_ADBREAK_WAIT2CATCHUP, go for the manifest update, otherwise break the loop.
 						bool exitFromloop = mCdaiObject->isAdBreakObjectExist(mBasePeriodId) &&  mCdaiObject->mAdBreaks[mBasePeriodId].mSrcPeriodOffsetGTthreshold;
-						if ((mIsLiveManifest && (rate > 0 && !exitFromloop) && (mIterPeriodIndex == mMPDParseHelper->mUpperBoundaryPeriod) && (AdState::IN_ADBREAK_WAIT2CATCHUP != mCdaiObject->mAdState)) ||
-							(!exitFromloop && mIsLiveManifest && (bmanifestupdate) && (mMPDParseHelper->getPeriodIdx(mBasePeriodId) == mMPDParseHelper->mUpperBoundaryPeriod)))
+						if (mIsLiveManifest && (rate > 0 && !exitFromloop) && (mIterPeriodIndex == mMPDParseHelper->mUpperBoundaryPeriod) && (AdState::IN_ADBREAK_WAIT2CATCHUP != mCdaiObject->mAdState))
 						{
 							aamp->InterruptableMsSleep(500);
 						}
@@ -9830,10 +9817,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoopNew()
 			}
 			// Finished segments in the current period. Get the duration of that period.
 			// Needed for live playback where timeline can increase dynamically.
-			if (!bmanifestupdate)
-			{
-				UpdatePtsOffset(false);
-			}
+			UpdatePtsOffset(false);
 		}
 		else
 		{
@@ -10500,7 +10484,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					mIterPeriodIndex--;
 				}
 				// Finished segments in the current period. Get the duration of that period.
-				// Needed for live playback where timeline can increase dynamically.
+				// Needed for live playback where timeline can increase dynamically
 				UpdatePtsOffset(false);
 			} //Loop 2: End of Period while loop
 			if (exitFetchLoop || (rate < AAMP_NORMAL_PLAY_RATE && mIterPeriodIndex < 0) || (rate > 1 && mIterPeriodIndex >= mNumberOfPeriods) || (!mIsLiveManifest && waitForAdBreakCatchup != true))
