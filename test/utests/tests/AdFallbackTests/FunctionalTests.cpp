@@ -87,7 +87,7 @@ class AdFallbackTests : public ::testing::Test
 
 			void InvokeFetcherLoop()
 			{
-				FetcherLoopNew();
+				FetcherLoop();
 			}
 
 			bool InvokeSelectSourceOrAdPeriod(bool &periodChanged, bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId)
@@ -415,7 +415,7 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
 
 	mStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
-	// Gets updated in FetcherLoopNew
+	// Gets updated in FetcherLoop
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
 	EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->mPTSOffset.inSeconds(), 0.0);
 }

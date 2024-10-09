@@ -575,17 +575,12 @@ protected:
 	 * @return void
 	 */
 	void AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool *waitForFreeFrag, bool *bCacheFullState);
+
 	/**
 	 * @fn FetcherLoop
 	 * @return void
 	 */
 	void FetcherLoop();
-
-	/**
-	 * @fn FetcherLoopNew
-	 * @return void
-	 */
-	void FetcherLoopNew();
 
 	/**
 	 * @fn SelectSourceOrAdPeriod

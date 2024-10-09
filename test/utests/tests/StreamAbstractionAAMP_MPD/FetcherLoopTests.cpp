@@ -72,7 +72,7 @@ protected:
 
 		void InvokeFetcherLoop()
 		{
-			FetcherLoopNew();
+			FetcherLoop();
 		}
 
 		int GetCurrentPeriodIdx()
