@@ -1289,9 +1289,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mProvidedManifestFile("")
 {
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
-#ifdef AAMP_CC_ENABLED
-	AampCCManager::GetInstance()->SetLogger(mConfig->GetLoggerInstance());
-#endif
 	// Create the event manager for player instance
 	mEventManager = new AampEventManager(mPlayerId);
 	// Create the CMCD collector
