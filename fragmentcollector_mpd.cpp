@@ -7872,7 +7872,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							}
 						}
 					}
-					AAMPLOG_INFO("SegmentBase: Track %d timescale %u mFirstPTS %f PTO %"PRIu64, i, timeScale, mFirstPTS, segmentBase->GetPresentationTimeOffset());
+					AAMPLOG_INFO("SegmentBase: Track %d timescale %u mFirstPTS %f PTO %" PRIu64, i, timeScale, mFirstPTS, segmentBase->GetPresentationTimeOffset());
 				}
 			}
 		}
