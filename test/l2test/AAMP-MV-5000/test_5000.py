@@ -97,9 +97,10 @@ TESTDATA3 = {
 	"title": "Subtitle Track Selection Test",
 	"logfile": "SubtitleSwitch.log",
 	"max_test_time_seconds":30,
-	"aamp_cfg": "debug=true\nprogress=true\ninfo=true\ntrace=true\nseamlessAudioSwitch=true\nenableMediaProcessor=true\nenablePTSReStamp=true\ngstSubtecEnabled=true\n",
+	"aamp_cfg": "debug=true\nprogress=true\ninfo=true\ntrace=true\nseamlessAudioSwitch=true\nenableMediaProcessor=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
+	{"cmd":"set subtecSimulator 1"},
 	{"cmd": URL3},
 	{"expect": r"Selected first subtitle track, lang:eng, index:12-0"},
 	{"expect": r"Media\[text]\ enabled"},
