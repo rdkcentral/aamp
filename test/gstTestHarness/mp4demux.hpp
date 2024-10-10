@@ -212,7 +212,6 @@ private:
 				sample_composition_time_offset = ReadI32();
 				printf( "sample_composition_time_offset=%" PRIi32 "\n", sample_composition_time_offset );
 			}
-			sample_flags = 0;
 			sample.dts = dts/(double)timescale;
 			sample.pts = (dts+sample_composition_time_offset)/(double)timescale;
 			printf( "dts=%f pts=%f\n", sample.dts, sample.pts );
@@ -307,6 +306,7 @@ private:
 		info.stream_format = type;
 		switch( info.stream_format )
 		{
+			case 'hev1':
 			case 'avc1':
 			case 'hvc1':
 				SkipBytes(4); // always zero?
@@ -326,6 +326,9 @@ private:
 						break;
 					case 'hvc1':
 						SkipBytes(9); // ?
+						break;
+					case 'hev1': // ?
+						SkipBytes(31); // ?
 						break;
 					default:
 						break;
@@ -454,6 +457,7 @@ private:
 				   (type>>24)&0xff, (type>>16)&0xff, (type>>8)&0xff, type&0xff );
 			switch( type )
 			{
+				case 'hev1':
 				case 'hvc1':
 				case 'avc1':
 				case 'mp4a':
@@ -550,10 +554,18 @@ private:
 					break;
 				case 'stco': // ChunkOffsets
 					break;
+				case 'edts': // Edit Box
+					break;
+				case 'fiel':
+				case 'colr':
+				case 'pasp':
+				case 'btrt':
+					break;
+					
 					
 				case 'mdat': // Movie Data Box
 					break;
-				
+
 				case 'moof': // Movie Fragment Box
 					moof_ptr = ptr-8;
 					DemuxHelper(next, indent+1 ); // walk children
@@ -635,6 +647,6 @@ public:
 /**
  * @brief apply adjustment for pts restamping
  */
-void mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restamp_delta );
+uint64_t mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restamp_delta );
 
 #endif /* parsemp4_hpp */

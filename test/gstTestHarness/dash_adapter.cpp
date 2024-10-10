@@ -384,8 +384,30 @@ void parseRepresentation( Representation &representation, const XmlNode &Represe
 	parseContentType( adaptationSet, Representation );
 	if( adaptationSet.contentType == "video" )
 	{
-		representation.width = Number(Representation.getAttribute("width"));
-		representation.height = Number(Representation.getAttribute("height"));
+		if( Representation.hasAttribute("width") )
+		{
+			representation.width = Number(Representation.getAttribute("width"));
+		}
+		else
+		{
+			representation.width = adaptationSet.maxWidth;
+		}
+		if( Representation.hasAttribute("height") )
+		{
+			representation.height = Number(Representation.getAttribute("height"));
+		}
+		else
+		{
+			representation.height = adaptationSet.maxHeight;
+		}
+		if( Representation.hasAttribute("frameRate") )
+		{
+			representation.frameRate = Number(Representation.getAttribute("frameRate"));
+		}
+		else
+		{
+			representation.frameRate = adaptationSet.frameRate;
+		}
 	}
 	for( const auto pChild : Representation.children )
 	{
@@ -458,6 +480,18 @@ bool parseAdaptationSet( AdaptationSet &adaptationSet, const XmlNode &Adaptation
 	if( AdaptationSet.hasAttribute("id") )
 	{
 		adaptationSet.id = AdaptationSet.getAttribute("id");
+	}
+	if( AdaptationSet.hasAttribute("maxWidth") )
+	{
+		adaptationSet.maxWidth = Number(AdaptationSet.getAttribute("maxWidth"));
+	}
+	if( AdaptationSet.hasAttribute("maxHeight") )
+	{
+		adaptationSet.maxHeight = Number(AdaptationSet.getAttribute("maxHeight"));
+	}
+	if( AdaptationSet.hasAttribute("frameRate") )
+	{
+		adaptationSet.frameRate = Number(AdaptationSet.getAttribute("frameRate"));
 	}
 	if( AdaptationSet.hasAttribute("lang") )
 	{

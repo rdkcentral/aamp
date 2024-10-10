@@ -75,6 +75,7 @@ public:
 	long bandwidth;
 	long width;
 	long height;
+	long frameRate;
 	
 	class MediaData data;
 	
@@ -87,6 +88,7 @@ public:
 		stream << "bandwidth=" << bandwidth << "\n";
 		stream << "width=" << width << "\n";
 		stream << "height=" << height << "\n";
+		stream << "frameRate=" << frameRate << "\n";
 		data.Debug();
 		puts( stream.str().c_str() );
 	}
@@ -101,6 +103,9 @@ public:
 	std::string codecs;
 	std::string mimeType;
 	std::string licenseURL;
+	long maxWidth;
+	long maxHeight;
+	long frameRate;
 	
 	class MediaData data;
 	
