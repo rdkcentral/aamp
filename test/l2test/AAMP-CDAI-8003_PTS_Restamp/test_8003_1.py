@@ -39,28 +39,34 @@ TEST_SPEEDS = [
 BASE_POSITION_TOLERANCE_MS = 100
 
 current_speed = 0
-speed_change_time = datetime.now()
-
+speed_change_time_secs = 0.0
 
 def set_speed_change_time(match):
-	global speed_change_time, current_speed
+	global speed_change_time_secs
+	speed_change_time_secs = float(match.group(1))
+	print(f"Speed change time: {speed_change_time_secs}")
+
+def verify_speed(match):
+	global current_speed
 	reported_speed = int(match.group(1))
 	print(f"Speed: actual {reported_speed}, expected {current_speed}")
-	assert reported_speed == current_speed
-	speed_change_time = datetime.now()
+	assert reported_speed == current_speed, \
+		"Reported speed does not match requested speed!"
 
 def verify_position(match):
-	global speed_change_time, current_speed
-	time_delta = datetime.now() - speed_change_time
-	time_delta_ms = (time_delta.seconds * 1000) + (time_delta.microseconds / 1000)
-	asset_position_ms = int(match.group(1))
+	global speed_change_time_secs, current_speed
+	log_timestamp_secs = float(match.group(1))
+	time_delta_secs = log_timestamp_secs - speed_change_time_secs
+	time_delta_ms = time_delta_secs * 1000
+	asset_position_ms = int(match.group(2))
 	expected_position_ms = time_delta_ms * current_speed
 	# Scale the position tolerance according to the current speed
 	position_tolerance_ms = BASE_POSITION_TOLERANCE_MS * abs(current_speed)
-	print(f"Position: actual {asset_position_ms}, expected {expected_position_ms:.2f}, " +
-		  f"diff {(asset_position_ms - expected_position_ms):.2f}, tol {position_tolerance_ms}")
-	assert asset_position_ms >= (expected_position_ms - position_tolerance_ms)
-	assert asset_position_ms <= (expected_position_ms + position_tolerance_ms)
+	position_diff_ms = abs(expected_position_ms - asset_position_ms)
+	print(f"Position at time {log_timestamp_secs}: actual {asset_position_ms}, expected " +
+		  f"{expected_position_ms:.2f}, diff {position_diff_ms:.2f}, tol {position_tolerance_ms}")
+	assert position_diff_ms <= position_tolerance_ms, \
+		"Difference between actual and expected position exceeds tolerance!"
 
 ############################################################
 
@@ -87,8 +93,10 @@ def test_8003_1(httpserver_setup_teardown, aamp_setup_teardown, test_data):
 			{"expect":"AAMP_EVENT_STATE_CHANGED: PLAYING"},
 
 			{"cmd": f"{test_data['direction']} {abs(current_speed)}"},
-			{"expect":r'AAMP_EVENT_SPEED_CHANGED current rate=(-?\d+)',
-			"callback" : set_speed_change_time},
+
+			# Event that signals the speed has changed (type=3 is AAMP_EVENT_SPEED_CHANGED)
+			{"expect":r'(\d+\.\d+):[^\n]*SendEventSync[^\n]*\(type=3\)', "callback" : set_speed_change_time},
+			{"expect":r'AAMP_EVENT_SPEED_CHANGED current rate=(-?\d+)', "callback" : verify_speed},
 
 			# Ignore first position updates following speed change to allow streaming to settle down
 			{"expect": r'GetPositionMilliseconds.*?rc - (-?\d+)'},
@@ -96,11 +104,11 @@ def test_8003_1(httpserver_setup_teardown, aamp_setup_teardown, test_data):
 			{"expect": r'GetPositionMilliseconds.*?rc - (-?\d+)'},
 
 			# Verify position relative to time of speed change for the next 5 seconds
-			{"expect": r'GetPositionMilliseconds.*?rc - (-?\d+)', "callback" : verify_position},
-			{"expect": r'GetPositionMilliseconds.*?rc - (-?\d+)', "callback" : verify_position},
-			{"expect": r'GetPositionMilliseconds.*?rc - (-?\d+)', "callback" : verify_position},
-			{"expect": r'GetPositionMilliseconds.*?rc - (-?\d+)', "callback" : verify_position},
-			{"expect": r'GetPositionMilliseconds.*?rc - (-?\d+)', "callback" : verify_position},
+			{"expect": r'(\d+\.\d+):[^\n]*GetPositionMilliseconds[^\n]*rc - (-?\d+)', "callback" : verify_position},
+			{"expect": r'(\d+\.\d+):[^\n]*GetPositionMilliseconds[^\n]*rc - (-?\d+)', "callback" : verify_position},
+			{"expect": r'(\d+\.\d+):[^\n]*GetPositionMilliseconds[^\n]*rc - (-?\d+)', "callback" : verify_position},
+			{"expect": r'(\d+\.\d+):[^\n]*GetPositionMilliseconds[^\n]*rc - (-?\d+)', "callback" : verify_position},
+			{"expect": r'(\d+\.\d+):[^\n]*GetPositionMilliseconds[^\n]*rc - (-?\d+)', "callback" : verify_position},
 
 			{"cmd": "stop"},
 			{"expect": "aamp_stop PlayerState"},
