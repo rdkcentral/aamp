@@ -285,3 +285,16 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_6)
 	EXPECT_NO_THROW(mAampMPDDownloader->Start());
 	EXPECT_NO_THROW(mAampMPDDownloader->Release());
 }
+
+TEST_F(FunctionalTests, AampMPDDownloader_NotifyLockup)
+{
+    std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>();
+    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
+//    EXPECT_NO_THROW(mAampMPDDownloader->Start());
+	
+	EXPECT_NO_THROW(mAampMPDDownloader->RegisterCallback( [](void *arg){ ASSERT_TRUE(0); }, NULL));
+	usleep(100000); // allow thread to start
+
+	EXPECT_NO_THROW(mAampMPDDownloader->UnRegisterCallback());
+	EXPECT_NO_THROW(mAampMPDDownloader->Release());
+}

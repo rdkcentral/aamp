@@ -310,7 +310,7 @@ void AampMPDDownloader::Release()
 
 /**
 *   @fn Start
-*   @brief Start the Manifest downlaoder
+*   @brief Start the Manifest downloader
 */
 void AampMPDDownloader::Start()
 {
@@ -344,7 +344,7 @@ void AampMPDDownloader::Start()
 	}
 	else
 	{
-		AAMPLOG_ERR("No Tune Url provided for downlaod ");
+		AAMPLOG_ERR("No Tune Url provided for download ");
 	}
 }
 
@@ -1100,7 +1100,10 @@ void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void 
 	{	
 		lck2.unlock(); 
 		if(mDownloadNotifierThread.joinable())
+		{
+			AAMPLOG_INFO("Joining MPD Download thread [%zx]", GetPrintableThreadID(mDownloadNotifierThread));
 			mDownloadNotifierThread.join();
+		}
 		lck2.lock();
 
 		mManifestUpdateCb       =		fnPtr;
@@ -1126,6 +1129,10 @@ void AampMPDDownloader::UnRegisterCallback()
 		// Send notification to exit from notifier Thread
 		mMPDNotifierCondVar.notify_all();
 	}
+	else
+	{
+		AAMPLOG_WARN("Notify not sent. mManifestUpdateCb is NULL, mManifestUpdateCbArg = %p", mManifestUpdateCbArg);
+	}
 }
 
 /**
@@ -1134,27 +1141,26 @@ void AampMPDDownloader::UnRegisterCallback()
 */
 void AampMPDDownloader::downloadNotifierThread()
 {
-	// infinite wait for downlaod notification
-	do
+	std::unique_lock<std::mutex> lck2(mMPDNotifierMtx);
+
+	// infinite wait for download notification
+	while (!mReleaseCalled && mManifestUpdateCb)
 	{
-		std::unique_lock<std::mutex> lck2(mMPDNotifierMtx);
 		if(!mMPDNotifyPending.load())
 		{
 			mMPDNotifierCondVar.wait(lck2);
 		}
-		{
-			if(!mReleaseCalled && mManifestUpdateCb)
-			{
-				mMPDNotifyPending.store(false);
-				// if its not the notification from Release call
-				long long tStartTime = NOW_STEADY_TS_MS;
-				mManifestUpdateCb(mManifestUpdateCbArg);
-				long long tEndTime = NOW_STEADY_TS_MS;
-				AAMPLOG_INFO("Time taken for MPD Download notification %u", (unsigned int)(tEndTime-tStartTime));
-			}
-		}
 
-	}while(!mReleaseCalled && mManifestUpdateCb);
+		if(!mReleaseCalled && mManifestUpdateCb)
+		{
+			mMPDNotifyPending.store(false);
+			// if its not the notification from Release call
+			long long tStartTime = NOW_STEADY_TS_MS;
+			mManifestUpdateCb(mManifestUpdateCbArg);
+			long long tEndTime = NOW_STEADY_TS_MS;
+			AAMPLOG_INFO("Time taken for MPD Download notification %u", (unsigned int)(tEndTime-tStartTime));
+		}
+	}
 	AAMPLOG_INFO("Exited Download Notifier Thread");
 }
 
