@@ -12602,11 +12602,30 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 			double playRate = aamp->GetLLDashCurrentPlayBackRate();
 			PrivAAMPState state = eSTATE_IDLE;
 			aamp->GetState(state);
-			
 			if( state != eSTATE_PLAYING || aamp->GetPositionMs() > aamp->DurationFromStartOfPlaybackMs() )
 			{
 				AAMPLOG_WARN("Player state:%d must be in playing and current position[%lld] must be less than Duration From Start Of Playback[%lld]!!!!:", state,
 						aamp->GetPositionMs(), aamp->DurationFromStartOfPlaybackMs());
+			}
+			else if ((AdState::OUTSIDE_ADBREAK != mCdaiObject->mAdState) && (AdState::IN_ADBREAK_AD_NOT_PLAYING != mCdaiObject->mAdState))
+			{
+				AAMPLOG_DEBUG("[CDAI] Skip the Latency correction when AD is playing, state : %d reset it if needed", (int)mCdaiObject->mAdState);
+				if((aamp->DownloadsAreEnabled() || aamp->mbSeeked) && (rate == AAMP_NORMAL_PLAY_RATE && (normalPlaybackRate != aamp->GetLLDashCurrentPlayBackRate())))
+				{
+					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+					if (sink)
+					{
+						if(sink->SetPlayBackRate(normalPlaybackRate))
+						{
+							AAMPLOG_INFO("[CDAI] SetPlayBackRate: reset");
+							aamp->SetLLDashCurrentPlayBackRate(normalPlaybackRate);
+						}
+						else
+						{
+							AAMPLOG_WARN("[CDAI] SetPlayBackRate: reset failed");
+						}
+					}
+				}
 			}
 			else
 			{
