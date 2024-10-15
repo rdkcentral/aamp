@@ -347,8 +347,9 @@ public:
 	 * @fn PushNextFragment 
 	 * @param pMediaStreamContext Track object
 	 * @param curlInstance instance of curl to be used to fetch
+	 * @param skipFetch true if fragment fetch is to be skipped for seamlessaudio
 	 */
-	bool PushNextFragment( class MediaStreamContext *pMediaStreamContext, unsigned int curlInstance);
+	bool PushNextFragment( class MediaStreamContext *pMediaStreamContext, unsigned int curlInstance, bool skipFetch=false);
 	/**
 	 * @fn SkipFragments
 	 * @param pMediaStreamContext Media track object

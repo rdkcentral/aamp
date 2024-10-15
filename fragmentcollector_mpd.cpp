@@ -1001,9 +1001,12 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 
 /**
  * @brief Fetch and push next fragment
+ * @param pMediaStreamContext Track object
+ * @param curlInstance instance of curl to be used to fetch
+ * @param skipFetch true if fragment fetch is to be skipped for seamlessaudio
  * @retval true if push is done successfully
  */
-bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMediaStreamContext, unsigned int curlInstance)
+bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMediaStreamContext, unsigned int curlInstance, bool skipFetch)
 {
 	bool retval=false;
 	bool fcsContent=false;
@@ -1337,6 +1340,13 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					pMediaStreamContext->lastSegmentTime, duration, repeatCount,pMediaStreamContext->fragmentRepeatCount,
 					pMediaStreamContext->timeLineIndex,pMediaStreamContext->fragmentDescriptor.Number);
 #endif
+				   /* While calling from SwitchAudioTrack(),no need to perform fragment download,requires only the parameters
+					*  updation, so avoiding FetchFragment() by using during Manifest refreshed case while AudioTrack Switching
+					*/
+					if (skipFetch)
+					{
+						return false;
+					}
 					if ((pMediaStreamContext->fragmentDescriptor.Time > pMediaStreamContext->lastSegmentTime) || (0 == pMediaStreamContext->lastSegmentTime))
 					{
 						double fragmentDuration = ComputeFragmentDuration(duration,timeScale);
@@ -6214,6 +6224,17 @@ void StreamAbstractionAAMP_MPD::SwitchSubtitleTrack(bool newTune)
 	pMediaStreamContext->LoadNewSubtitle(true);
     /* Flush Subtitle Fragments */
 	pMediaStreamContext->FlushFragments();
+	if( pMediaStreamContext->freshManifest )
+	{
+		/*In Live scenario, the manifest refresh got happened frequently,so in the UpdateTrackinfo(), all the params
+		* get reset lets say.., pMediaStreamContext->fragmentDescriptor.Number, fragmentTime.., so during that case, we are getting
+		* totalfetchDuration, totalInjectedDuration as negative values once we subract the OldPlaylistpositions with the Newplaylistpositions, for avoiding
+		* this in the case if the manifest got updated, we have called the PushNextFragment(), for the proper updations of the params like
+		* pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number and pMediaStreamContext->fragmentDescriptor.Time
+		*/
+		AAMPLOG_INFO("Manifest got updated[%u]",pMediaStreamContext->freshManifest);
+		PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<AampMediaType>(eMEDIATYPE_SUBTITLE)),true);
+	}
 	/* Switching to selected Subtitle Track */
 	SelectSubtitleTrack(newTune,mTextTracks,tTrackIdx);
 	SetTextTrackInfo(mTextTracks, tTrackIdx);
@@ -6552,6 +6573,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 		AAMPLOG_WARN("pMediaStreamContext  is null");  //CID:82464,84186 - Null Returns
 		return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 	}
+	AAMPLOG_INFO("Enter : Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentTime %f segNumber %" PRIu64 " Ftime:%" PRIu64 ,pMediaStreamContext->type,
+				pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number, pMediaStreamContext->fragmentDescriptor.Time);
 
 	pMediaStreamContext->adaptationSet = period->GetAdaptationSets().at(pMediaStreamContext->adaptationSetIdx);
 	pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
@@ -6628,6 +6651,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 		{
 			pMediaStreamContext->fragmentDescriptor.Number += (long)((mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime) / fragmentDuration);
 		}
+		AAMPLOG_INFO("Exit : Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentTime %f segNumber %" PRIu64 " Ftime:%" PRIu64 ,pMediaStreamContext->type,
+				pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number, pMediaStreamContext->fragmentDescriptor.Time);
 		/*As the Init fragements download get happened only when the profile changed is true */
 		pMediaStreamContext->profileChanged = true;
 		return eAAMPSTATUS_OK;
@@ -6827,6 +6852,17 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	pMediaStreamContext->LoadNewAudio(true);
 	/* Flush Audio Fragments */
 	pMediaStreamContext->FlushFragments();
+	if( pMediaStreamContext->freshManifest )
+	{
+		/*In Live scenario, the manifest refresh got happened frequently,so in the UpdateTrackinfo(), all the params
+		* get reset lets say.., pMediaStreamContext->fragmentDescriptor.Number, fragmentTime.., so during that case, we are getting
+		* totalfetchDuration, totalInjectedDuration as negative values once we subract the OldPlaylistpositions with the Newplaylistpositions, for avoiding 
+		* this in the case if the manifest got updated, we have called the PushNextFragment(), for the proper updations of the params like
+		* pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number and pMediaStreamContext->fragmentDescriptor.Time
+		*/
+		AAMPLOG_INFO("Manifest got updated[%u]",pMediaStreamContext->freshManifest);
+		PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<AampMediaType>(eMEDIATYPE_AUDIO)));
+	}
 	/* Switching to selected Audio Track */
 	SelectAudioTrack(aTracks,aTrackIdx,audioAdaptationSetIndex,audioRepresentationIndex);
 
@@ -6877,17 +6913,6 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 			pMediaStreamContext->SetCurrentBandWidth((int)audioTrack.bandwidth);
 		}
 	}
-	if( pMediaStreamContext->freshManifest )
-	{
-		/*In Live scenario, the manifest refresh got happened frequently,so in the UpdateTrackinfo(), all the params
-		* get reset lets say.., pMediaStreamContext->fragmentDescriptor.Number, fragmentTime.., so during that case, we are getting
-		* totalfetchDuration, totalInjectedDuration as negative values once we subract the OldPlaylistpositions with the Newlaylistpositions, for avoiding 
-		* this in the case if the manifest got updated, we have called the PushNextFragment(), for the proper updations of the params like
-		* pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number and pMediaStreamContext->fragmentDescriptor.Time
-		*/
-		AAMPLOG_INFO("Manifest got updated[%u]",pMediaStreamContext->freshManifest);
-		PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<AampMediaType>(eMEDIATYPE_AUDIO)));
-	}
 	/* Caching the oldPlaylistPosition and oldMediaSequenceNumber */
 	oldPlaylistPosition = pMediaStreamContext->fragmentTime;
 	oldMediaSequenceNumber = pMediaStreamContext->fragmentDescriptor.Number;
@@ -6936,8 +6961,9 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	diffInInjectedDuration = ( pMediaStreamContext->GetLastInjectedPosition() - newInjectedPosition );
 	diffFragmentsDownloaded = static_cast<int>(oldMediaSequenceNumber - pMediaStreamContext->fragmentDescriptor.Number);
 
-	AAMPLOG_INFO("Calculated diffInFetchedDuration[%lf] diffFragmentsDownloaded[%u] diffInInjectedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], newInjectedPosition[%lf]",
-			diffInFetchedDuration,diffFragmentsDownloaded, diffInInjectedDuration, pMediaStreamContext->GetLastInjectedPosition(), fragmentDuration, newInjectedPosition );
+	AAMPLOG_INFO("Calculated oldPlaylistPosition[%lf] newPlaylistPosition[%lf] diffInFetchedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], newInjectedPosition[%lf] diffInInjectedDuration[%lf] oldMediaSequenceNumber[%" PRIu64 "] newMediaSequenceNumber[%" PRIu64 "] diffFragmentsDownloaded[%d]",
+			oldPlaylistPosition,pMediaStreamContext->fragmentTime,diffInFetchedDuration, pMediaStreamContext->GetLastInjectedPosition(), 
+			fragmentDuration, newInjectedPosition, diffInInjectedDuration,oldMediaSequenceNumber, pMediaStreamContext->fragmentDescriptor.Number,diffFragmentsDownloaded);
 
 	pMediaStreamContext->resetAbort(false);
 	pMediaStreamContext->OffsetTrackParams(diffInFetchedDuration, diffInInjectedDuration, diffFragmentsDownloaded);
