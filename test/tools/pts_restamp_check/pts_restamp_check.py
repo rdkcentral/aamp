@@ -22,10 +22,10 @@ import re
 
 counts = {}
 pending_inject = {}
-MEDIA = ['video', 'audio', 'subtitle']
+MEDIA = ['video', 'audio', 'text']
 
 def init():
-    for med in ['audio', 'video', 'subtitle']:
+    for med in MEDIA:
         counts.setdefault(med, [])
 
 init()
@@ -38,17 +38,18 @@ for line in fileinput.input(errors="ignore"):
     m = re.search(r'(aamp_tune: .*)', line)
     if m:
         tune = m.group(1)
-        for media in ['audio', 'video', 'subtitle']:
+        for media in MEDIA:
             counts[media].append({'timestamp': timestamp, 'msg': f'Tune {tune}'})
 
     m = re.search(r'(.*\[Flush\])', line)
     if m:
         msg = m.group(1)
-        for media in ['audio', 'video', 'subtitle']:
+        for media in MEDIA:
             counts[media].append({'timestamp': timestamp, 'msg': 'Flush','didFlush': True})
+
     m = re.search(r'GST_MESSAGE_ERROR', line)
     if m:
-        for media in ['audio', 'video', 'subtitle']:
+        for media in MEDIA:
             counts[media].append({'timestamp': timestamp, 'msg': 'GST_MESSAGE_ERROR'})
 
     # sendHelper where segments get injected
@@ -117,7 +118,7 @@ print('seg_num (from url),', end="")
 print('profile (from url),', end="")
 print('url (from log)')
 
-for media in ['video', 'audio', 'subtitle']:
+for media in MEDIA:
 
     stream = counts[media]
     for idx, entry in enumerate(stream):
