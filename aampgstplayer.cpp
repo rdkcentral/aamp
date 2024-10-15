@@ -154,6 +154,15 @@ struct media_stream
 
 };
 
+struct MonitorAVState
+{
+	long long tLastReported;
+	long long tLastSampled;
+	gint64 av_position[2];
+	long reportingDelayMs;
+	long noChangeCount;
+	bool happy;
+};
 /**
  * @struct AAMPGstPlayerPriv
  * @brief Holds private variables of AAMPGstPlayer
@@ -162,6 +171,8 @@ struct AAMPGstPlayerPriv
 {
 	AAMPGstPlayerPriv(const AAMPGstPlayerPriv&) = delete;
 	AAMPGstPlayerPriv& operator=(const AAMPGstPlayerPriv&) = delete;
+
+	MonitorAVState monitorAVstate;
 
 	media_stream stream[AAMP_TRACK_COUNT];
 	GstElement *pipeline; 				/**< GstPipeline used for playback. */
@@ -253,7 +264,7 @@ struct AAMPGstPlayerPriv
 	bool filterAudioDemuxBuffers;			/**< flag to filter audio demux buffers */
 	double seekPosition;					/**< the position to seek the pipeline to in seconds */
 
-	AAMPGstPlayerPriv() : pipeline(NULL), bus(NULL),
+	AAMPGstPlayerPriv() : monitorAVstate(), pipeline(NULL), bus(NULL),
 			total_bytes(0), n_audio(0), current_audio(0),
 			periodicProgressCallbackIdleTaskId(AAMP_TASK_ID_INVALID),
 			bufferingTimeoutTimerId(AAMP_TASK_ID_INVALID), video_dec(NULL), audio_dec(NULL),TaskControlMutex(),firstProgressCallbackIdleTask("FirstProgressCallback"),
@@ -1114,7 +1125,118 @@ static gboolean IdleCallbackOnEOS(gpointer user_data)
 	return G_SOURCE_REMOVE;
 }
 
-
+void MonitorAV( AAMPGstPlayer *_this )
+{
+	const int AVSYNC_THRESHOLD_MS = 100;
+	const int JUMP_THRESHOLD_MS = 100;
+	GstState state = GST_STATE_VOID_PENDING;
+	GstState pending = GST_STATE_VOID_PENDING;
+	GstClockTime timeout = 0;
+	gint rc = gst_element_get_state(_this->privateContext->pipeline, &state, &pending, timeout );
+	if( rc == GST_STATE_CHANGE_SUCCESS )
+	{
+		if( state == GST_STATE_PLAYING )
+		{
+			struct MonitorAVState *monitorAVState = &_this->privateContext->monitorAVstate;
+			const char *description = NULL;
+			bool happyNow = true;
+			int numTracks = 0;
+			bool bigJump = false;
+			long long tNow = aamp_GetCurrentTimeMS();
+			for( int i=0; i<2; i++ )
+			{ // eMEDIATYPE_VIDEO=0, eMEDIATYPE_AUDIO=1
+				auto sinkbin = _this->privateContext->stream[i].sinkbin;
+				if( sinkbin )//&& !_this->privateContext->stream[i].eosReached )
+				{
+					gint64 position = GST_CLOCK_TIME_NONE;
+					if( gst_element_query_position(sinkbin, GST_FORMAT_TIME, &position) )
+					{
+						long long ms = GST_TIME_AS_MSECONDS(position);
+						if( ms == monitorAVState->av_position[i] )
+						{
+							happyNow = false;
+							if( description )
+							{
+								description = "stall";
+							}
+							else
+							{
+								description = (i==eMEDIATYPE_VIDEO)?"video freeze":"audio drop";
+							}
+						}
+						else if( i == eMEDIATYPE_VIDEO && monitorAVState->happy )
+						{
+							auto actualDelta = ms - monitorAVState->av_position[i];
+							auto expectedDelta = tNow - monitorAVState->tLastSampled;
+							if( actualDelta  > expectedDelta+JUMP_THRESHOLD_MS )
+							{
+								bigJump = true;
+							}
+						}
+						monitorAVState->av_position[i] = ms;
+						numTracks++;
+					}
+				}
+			}
+			monitorAVState->tLastSampled = tNow;
+			switch( numTracks )
+			{
+				case 0:
+					description = "eos";
+					break;
+				case 1:
+					description = "trickplay";
+					break;
+				case 2:
+					if( abs(monitorAVState->av_position[0] - monitorAVState->av_position[1]) > AVSYNC_THRESHOLD_MS )
+					{
+						happyNow = false;
+						if( !description )
+						{
+							description = "avsync";
+						}
+					}
+					else if( bigJump )
+					{ // workaround to detect decoders that jump over AV gaps without delay
+						happyNow = false;
+						description = "jump";
+					}
+					break;
+				default:
+					break;
+			}
+			if( monitorAVState->happy!=happyNow )
+			{
+				monitorAVState->noChangeCount = 0;
+				monitorAVState->reportingDelayMs = 0;
+				monitorAVState->happy = happyNow;
+			}
+			if( _this->aamp->mConfig->IsConfigSet(eAAMPConfig_ProgressLogging) ||
+			   tNow >= monitorAVState->tLastReported + monitorAVState->reportingDelayMs )
+			{
+				if( !description )
+				{
+					description = "ok";
+				}
+				AAMPLOG_MIL( "vid=%" G_GINT64_FORMAT " aud=%" G_GINT64_FORMAT " %s (%ld)",
+							monitorAVState->av_position[eMEDIATYPE_VIDEO],
+							monitorAVState->av_position[eMEDIATYPE_AUDIO],
+							description,
+							monitorAVState->noChangeCount );
+				monitorAVState->tLastReported = tNow;
+				if( monitorAVState->reportingDelayMs < 60*1000 )
+				{
+					monitorAVState->reportingDelayMs += 1000; // in steady state, slow down frequency of reporting
+				}
+			}
+			monitorAVState->noChangeCount++;
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN( "gst_element_get_state %d", state );
+	}
+}
 
 /**
  * @brief Timer's callback to notify playback progress event
@@ -1127,6 +1249,9 @@ static gboolean ProgressCallbackOnTimeout(gpointer user_data)
 	if (_this)
 	{
 		UsingPlayerId playerId( _this->aamp->mPlayerId );
+		
+		MonitorAV(_this);
+		
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
 			_this->privateContext->stream[i].mBufferControl.update(_this, static_cast<AampMediaType>(i));

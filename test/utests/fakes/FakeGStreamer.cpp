@@ -446,6 +446,17 @@ const gchar *gst_flow_get_name(GstFlowReturn ret)
 	return NULL;
 }
 
+gboolean gst_element_query_position(GstElement *element, GstFormat format, gint64 *cur)
+{
+	TRACE_FUNC();
+	bool rtn = FALSE;
+	if (g_mockGStreamer != nullptr)
+	{
+		rtn = g_mockGStreamer->gst_element_query_position(element, format, cur );
+	}
+	return rtn;
+}
+
 GstStateChangeReturn gst_element_get_state(GstElement *element, GstState *state, GstState *pending,
 										   GstClockTime timeout)
 {

@@ -19,14 +19,13 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-
 #include "aampgstplayer.h"
 #include "MockGStreamer.h"
 #include "MockGLib.h"
 #include "MockAampConfig.h"
 #include "MockAampHandlerControl.h"
 #include "MockPrivateInstanceAAMP.h"
-
+#include "MockAampUtils.h"
 
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -58,6 +57,7 @@ protected:
 
 	void SetUp() override
 	{
+		g_mockAampUtils = new NiceMock<MockAampUtils>();
 		g_mockGStreamer = new NiceMock<MockGStreamer>();
 		g_mockGLib = new MockGLib();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
@@ -82,6 +82,9 @@ protected:
 
 		delete g_mockGStreamer;
 		g_mockGStreamer = nullptr;
+		
+		delete g_mockAampUtils;
+		g_mockAampUtils = nullptr;
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
@@ -450,7 +453,6 @@ TEST_F(AAMPGstPlayerTests, TimerAdd)
 {
 	// Setup
 	gpointer user_data = nullptr;
-	gboolean reset{TRUE};
 	int repeatTimeout = 100;
 	guint taskId = 0;
 	GstElement dummyelement; 
@@ -601,4 +603,104 @@ TEST_F(AAMPGstPlayerTests, SendTransfer_CheckNewSegmentWithAppliedRate)
 	//Tidy Up
 	DestroyAMPGstPlayer();
 }
+
+extern void MonitorAV( AAMPGstPlayer *_this );
+
+TEST_F(AAMPGstPlayerTests, MonitorAV )
+{
+	const int avpos[][2] =
+	{
+		{  280,  243},
+		{  540,  503},
+		{  780,  743},// ok
+		{ 1040, 1003},// ok
+		{ 1280, 1243},// ok
+		{ 1540, 1503},// ok
+		{ 1780, 1743},// ok
+		{ 2040, 2003},// ok
+		{ 2280, 2263},// ok
+		{ 2540, 2503},// ok
+		{ 2800, 2763},// ok
+		{ 3040, 3003},// ok
+		{ 3300, 3263},// ok
+		{ 3540, 3503},// ok
+		{ 3940, 5653},// video-only
+		{ 5140, 5893},// video-only
+		{ 6180, 6153},// ok
+		{ 6420, 6393},// ok
+		{ 6680, 6653},// ok
+		{ 6920, 6893},// ok
+		{ 7180, 7153},// ok
+		{ 7420, 7413},// ok
+		{ 7680, 7653},// ok
+		{ 7940, 7913},// ok
+		{ 8180, 8153},// ok
+		{ 8440, 8413},// ok
+		{ 8680, 8653},// ok
+		{ 8940, 8913},// ok
+		{ 9180, 9153},// ok
+		{ 9440, 9413},// ok
+		// av gap
+		{11560,11520},// ok
+		{11820,11780},// ok
+		{12060,12020},// ok
+		{12320,12280},// ok
+		{12560,12520},// ok
+		{12820,12780},// ok
+		{13080,13040},// ok
+		{13320,13280},// ok
+		{13580,13540},// ok
+		{13820,13780},// ok
+		{14080,14040},// ok
+		{14320,14280},// ok
+		{14580,14540},// ok
+		{14820,14780},// ok
+		{15080,15040},// ok
+		{15320,15280},// ok
+		{15380,15540},// audio only
+		{15380,15780},// audio only
+		{15380,16040},// audio only
+		{15380,16280},// audio only
+		{15380,16540},// audio only
+		{15380,16780},// audio only
+		{15380,17040},// audio only
+		{17320,17300},// ok
+		{17580,17540},// ok
+		{17840,17800},// ok
+		{18080,18040},// ok
+		{18340,18300},// ok
+		{18580,18540},// ok
+		{18840,18800},// ok
+		{19080,19040},// ok
+		{19220,19321},// bad avsync
+		{19220,19321},// stalled av
+		{19220,19321},// stalled av
+		{19220,19321},// stalled av
+		{19220,19321},// stalled av
+		{19220,19321},// stalled av
+	};
+	ConstructAMPGstPlayer();
+	SetupPipeline(&tbl[0]);
+	
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillRepeatedly(DoAll(
+			SetArgPointee<1>(GST_STATE_PLAYING),
+			SetArgPointee<2>(GST_STATE_PLAYING),
+			Return(GST_STATE_CHANGE_SUCCESS)));
+	for( int idx=0; idx<sizeof(avpos)/sizeof(avpos[0]); idx++ )
+	{
+		EXPECT_CALL( *g_mockAampUtils, aamp_GetCurrentTimeMS()).WillOnce(DoAll(Return(idx*250)));
+		
+		EXPECT_CALL(*g_mockGStreamer, gst_element_query_position( _, _, _))
+			.WillOnce(DoAll(
+							SetArgPointee<2>(G_GINT64_CONSTANT(1000000)*avpos[idx][eMEDIATYPE_VIDEO]),
+							Return(TRUE)))
+			.WillOnce(DoAll(
+							SetArgPointee<2>(G_GINT64_CONSTANT(1000000)*avpos[idx][eMEDIATYPE_AUDIO]),
+							Return(TRUE)));
+		MonitorAV(mAAMPGstPlayer );
+	}
+	DestroyAMPGstPlayer();
+}
+
 
