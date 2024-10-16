@@ -309,6 +309,7 @@ typedef enum
 	eAAMPConfig_TsbMaxDiskStorage,					/** TSB max storage in MB */
 	eAAMPConfig_TsbLogLevel,					/** Override the TSB log level */
 	eAAMPConfig_AdFulfillmentTimeout,					/**< Ad fulfillment timeout in milliseconds */
+	eAAMPConfig_AdFulfillmentTimeoutMax,					/**< Ad fulfillment maximum timeout in milliseconds */
 	eAAMPConfig_RequiredQueuedFrames,				/**< required queued frames while tuning */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;

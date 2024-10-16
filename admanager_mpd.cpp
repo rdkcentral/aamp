@@ -1238,7 +1238,7 @@ void PrivateCDAIObjectMPD::CacheAdData(const std::string &periodId, const std::s
 }
 
 /**
- * @fn WaitForNextAdResolved
+ * @fn WaitForNextAdResolved for ad fulfillment
  * @brief Wait for the next ad placement to complete with a timeout
  * @param[in] timeoutMs Timeout value in milliseconds
  * @return true if the ad placement completed within the timeout, false otherwise
@@ -1271,6 +1271,28 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
 }
 
 /**
+ * @fn WaitForNextAdResolved (with periodId parameter for initial ad placement)
+ * @brief Wait for the next ad placement to complete with a timeout
+ * @param[in] timeoutMs Timeout value in milliseconds
+ * @return true if the ad placement completed within the timeout, false otherwise
+ */
+bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string periodId)
+{
+	std::unique_lock<std::mutex> lock(mAdPlacementMtx);
+	bool completed = false;
+	AAMPLOG_INFO("Waiting for next ad placement in %s to complete with timeout %d ms.", periodId.c_str(), timeoutMs);
+	if (mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs)) == std::cv_status::no_timeout)
+	{
+		completed = true;
+	}
+	else
+	{
+		AAMPLOG_INFO("Timed out waiting for next ad placement.");
+	}
+	return completed;
+}
+
+/**
  * @fn AbortWaitForNextAdResolved
  */
 void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
@@ -1281,3 +1303,4 @@ void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
 	}
 	mAdPlacementCV.notify_one();
 }
+ 

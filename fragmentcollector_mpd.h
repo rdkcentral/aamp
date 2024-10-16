@@ -989,10 +989,11 @@ protected:
 	/*
 	* @brief CheckAdResolvedStatus
 	*
-	* @param[in] ads - Ads vector
-	* @param[in] adIdx - AdIndex
+	* @param[in] ads - Ads vector (optional)
+	* @param[in] adIdx - AdIndex (optional)
+	* @param[in] periodId - periodId (optional)
 	*/
-	void CheckAdResolvedStatus(AdNodeVectorPtr &ads, int adIdx);
+	void CheckAdResolvedStatus(AdNodeVectorPtr &ads, int adIdx, const std::string &periodId = "");
 
 	/**
 	* @fn SetSubtitleTrackOffset

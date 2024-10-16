@@ -18,6 +18,9 @@
 */
 
 #include "admanager_mpd.h"
+#include "MockAdManager.h"
+
+MockPrivateCDAIObjectMPD *g_MockPrivateCDAIObjectMPD = nullptr;
 
 CDAIObjectMPD::CDAIObjectMPD(PrivateInstanceAAMP* aamp): CDAIObject(aamp), mPrivObj(new PrivateCDAIObjectMPD(aamp))
 {
@@ -74,6 +77,10 @@ bool PrivateCDAIObjectMPD::isPeriodExist(const std::string &periodId)
 
 bool PrivateCDAIObjectMPD::isAdBreakObjectExist(const std::string &adBrkId)
 {
+	if(g_MockPrivateCDAIObjectMPD != nullptr)
+	{
+		return g_MockPrivateCDAIObjectMPD->isAdBreakObjectExist(adBrkId);
+	}
 	return false;
 }
 
@@ -101,10 +108,23 @@ void PrivateCDAIObjectMPD::NotifyAdLoopWait()
 
 bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
 {
-	return false;
+	if(g_MockPrivateCDAIObjectMPD != nullptr)
+	{
+		return g_MockPrivateCDAIObjectMPD->WaitForNextAdResolved(timeoutMs);
+	}
+	return true;
 }
 
 void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
 {
 }
 
+
+bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string periodId)
+{
+	if(g_MockPrivateCDAIObjectMPD != nullptr)
+	{
+		return g_MockPrivateCDAIObjectMPD->WaitForNextAdResolved(timeoutMs, periodId);
+	}
+	return true;
+}

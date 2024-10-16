@@ -9470,7 +9470,7 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
  */
 void PrivateInstanceAAMP::SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url)
 {
-	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableClientDai))
+	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableClientDai) && mCdaiObject)
 	{
 		mCdaiObject->SetAlternateContents(adBreakId, adId, url);
 	}

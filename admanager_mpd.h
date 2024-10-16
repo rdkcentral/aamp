@@ -544,12 +544,20 @@ public:
 	void CacheAdData(const std::string &periodId, const std::string &adId, const std::string &url);
 
 	/**
-	 * @fn WaitForNextAdResolved
+	 * @fn WaitForNextAdResolved for ad fulfillment
 	 * @brief Wait for the next ad placement to complete with a timeout
 	 * @param[in] timeoutMs Timeout value in milliseconds
 	 * @return true if the ad placement completed within the timeout, false otherwise
 	 */
 	bool WaitForNextAdResolved(int timeoutMs);
+
+	/**
+	 * @fn WaitForNextAdResolved (with periodId parameter for initial ad placement)
+	 * @brief Wait for the next ad placement to complete with a timeout
+	 * @param[in] timeoutMs Timeout value in milliseconds
+	 * @return true if the ad placement completed within the timeout, false otherwise
+	 */
+	bool WaitForNextAdResolved(int timeoutMs, std::string periodId);
 
 	/**
 	 * @fn AbortWaitForNextAdResolved
