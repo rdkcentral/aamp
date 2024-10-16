@@ -9150,6 +9150,11 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 			}
 			// Calling the function to play ads from first ad break(existing logic).
 			adStateChanged = onAdEvent(AdEvent::DEFAULT); // TODO: Vinod, We can optimize here.
+			if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
+			{
+				// Adbreak was available, so waited for fulfillment. Now, need to play the ad.
+				adStateChanged = onAdEvent(AdEvent::DEFAULT);
+			}
 			if (AdState::IN_ADBREAK_WAIT2CATCHUP == mCdaiObject->mAdState)
 			{
 				waitForAdBreakCatchup = true;
@@ -11502,23 +11507,45 @@ bool StreamAbstractionAAMP_MPD::isAdbreakStart(IPeriod *period, uint64_t &startM
 /*
  * @brief CheckAdResolvedStatus
  *
- * @param[in] ads - Ads vector
- * @param[in] adIdx - AdIndex
+ * @param[in] ads - Ads vector (optional)
+ * @param[in] adIdx - AdIndex (optional)
+ * @param[in] periodId - periodId (optional)
  */
-void StreamAbstractionAAMP_MPD::CheckAdResolvedStatus(AdNodeVectorPtr &ads, int adIdx)
+void StreamAbstractionAAMP_MPD::CheckAdResolvedStatus(AdNodeVectorPtr &ads, int adIdx, const std::string &periodId)
 {
-	if (!ads->at(adIdx).resolved)
+	auto waitForAdResolution = [this](int waitTimeMs, const std::string& id = "") -> bool
 	{
-		int waitTimeMs = std::min(GETCONFIGVALUE(eAAMPConfig_AdFulfillmentTimeout), (int)GetBufferedDuration());
-		AAMPLOG_INFO("[CDAI]: AdIdx[%d] in the AdBreak[%s] is not resolved yet. Waiting for %d ms.", adIdx, ads->at(adIdx).basePeriodId.c_str(), waitTimeMs);
-		if(mCdaiObject->WaitForNextAdResolved(waitTimeMs))
+		if (!id.empty())
 		{
-			AAMPLOG_INFO("[CDAI]: AdIdx[%d] in the AdBreak[%s] is resolved now.", adIdx, ads->at(adIdx).basePeriodId.c_str());
+			return this->mCdaiObject->WaitForNextAdResolved(waitTimeMs, id);
 		}
-		else
+		return this->mCdaiObject->WaitForNextAdResolved(waitTimeMs);
+	};
+
+	// Wait for some time if the ad is not ready yet. The wait time is calculated based on the buffered duration
+	// We will wait for the ad to be resolved before proceeding with the playback with a full timeout for backup buffer
+	int waitTimeBasedOnBufferedDuration = std::max(0, (int)(GetBufferedDuration() * 1000) - GETCONFIGVALUE(eAAMPConfig_AdFulfillmentTimeout));
+	int waitTimeMs = std::min(waitTimeBasedOnBufferedDuration, GETCONFIGVALUE(eAAMPConfig_AdFulfillmentTimeoutMax));
+	AAMPLOG_TRACE("[CDAI]: CheckAdResolvedStatus waitTimeMs[%d] bufferedDuration[%f] AdFulfillmentTimeout[%d] AdFulfillmentTimeoutMax[%d]", waitTimeMs, GetBufferedDuration(), GETCONFIGVALUE(eAAMPConfig_AdFulfillmentTimeout), GETCONFIGVALUE(eAAMPConfig_AdFulfillmentTimeoutMax));
+	if (ads && adIdx >= 0)
+	{
+		if (!ads->at(adIdx).resolved)
 		{
-			AAMPLOG_WARN("[CDAI]: AdIdx[%d] in the AdBreak[%s] is not resolved yet. Timeout.", adIdx, ads->at(adIdx).basePeriodId.c_str());
-			ads->at(adIdx).invalid = true;
+			AAMPLOG_INFO("[CDAI]: AdIdx[%d] in the AdBreak[%s] is not resolved yet. Waiting for %d ms.", adIdx, ads->at(adIdx).basePeriodId.c_str(), waitTimeMs);
+			if(!waitForAdResolution(waitTimeMs))
+			{
+				AAMPLOG_INFO("[CDAI]: AdIdx[%d] in the AdBreak[%s] wait timed out", adIdx, ads->at(adIdx).basePeriodId.c_str());
+				ads->at(adIdx).invalid = true;
+			}
+
+		}
+	}
+	else if (!periodId.empty() && mCdaiObject->isAdBreakObjectExist(periodId))
+	{
+		AAMPLOG_INFO("[CDAI]: AdBreak[%s] is not resolved yet. Waiting for %d ms.", periodId.c_str(), waitTimeMs);
+		if(!waitForAdResolution(waitTimeMs, periodId))
+		{
+			AAMPLOG_INFO("[CDAI]: AdBreak[%s] wait timed out", periodId.c_str());
 		}
 	}
 }
@@ -11547,7 +11574,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			return false;
 		}
 	}
-    std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+	std::unique_lock<std::mutex> lock(mCdaiObject->mDaiMtx);
 	bool stateChanged = false;
 	AdState oldState = mCdaiObject->mAdState;
 	AAMPEventType reservationEvt2Send = AAMP_MAX_NUM_EVENTS; //None
@@ -11559,6 +11586,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 	switch(mCdaiObject->mAdState)
 	{
 		case AdState::OUTSIDE_ADBREAK:
+		case AdState::OUTSIDE_ADBREAK_WAIT4ADS:
 			// Default event state or Idle event state is OUTSIDE_ADBREAK
 			if(AdEvent::DEFAULT == evt || AdEvent::INIT == evt)
 			{
@@ -11577,7 +11605,9 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					if(-1 != adIdx && mCdaiObject->mAdBreaks[brkId].ads)
 					{
 						// Wait for some time if the ad is not ready yet.
+						lock.unlock();
 						CheckAdResolvedStatus(mCdaiObject->mAdBreaks[brkId].ads, adIdx);
+						lock.lock();
 						if(!(mCdaiObject->mAdBreaks[brkId].ads->at(adIdx).invalid))
 						{
 							AAMPLOG_WARN("[CDAI]: STARTING ADBREAK[%s] AdIdx[%d] Found at Period[%s].", brkId.c_str(), adIdx, mBasePeriodId.c_str());
@@ -11610,6 +11640,26 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					if (mCdaiObject->isAdBreakObjectExist(mBasePeriodId))
 					{
 						AAMPLOG_WARN("[CDAI] Got adIdx[%d] for adBreakId[%s] but adBreak object exist", adIdx, brkId.c_str());
+
+						if (mCdaiObject->mAdState != AdState::OUTSIDE_ADBREAK_WAIT4ADS)
+						{
+							if(!brkId.empty() && mCdaiObject->mAdBreaks[brkId].ads->size() > 0)
+							{
+								AAMPLOG_WARN("[CDAI] ads.size() = %zu breakId = %s mBasePeriodId = %s", mCdaiObject->mAdBreaks[brkId].ads->size(), brkId.c_str(), mBasePeriodId.c_str());
+							}
+							else
+							{
+								lock.unlock();
+								CheckAdResolvedStatus(mCdaiObject->mAdBreaks[mBasePeriodId].ads, -1, mBasePeriodId);
+								lock.lock();
+							}
+							mCdaiObject->mAdState = AdState::OUTSIDE_ADBREAK_WAIT4ADS;
+						}
+						else
+						{
+							mCdaiObject->mAdState = AdState::OUTSIDE_ADBREAK;
+						}
+						stateChanged = true;
 					}
 				}
 			}
@@ -11627,7 +11677,9 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 						mCdaiObject->mAdBreaks[brkId].ads->at(0).invalid = true;
 					}
 					// Wait for some time if the ad is not ready yet.
+					lock.unlock();
 					CheckAdResolvedStatus(mCdaiObject->mAdBreaks[brkId].ads, adIdx);
+					lock.lock();
 					if(!(mCdaiObject->mAdBreaks[brkId].ads->at(adIdx).invalid))
 					{
 						AAMPLOG_WARN("[CDAI]: AdIdx[%d] Found at Period[%s].", adIdx, mBasePeriodId.c_str());
@@ -11738,7 +11790,9 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				if(mCdaiObject->mCurAdIdx >= 0 && mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size())
 				{
 					// Wait for some time if the ad is not ready yet.
+					lock.unlock();
 					CheckAdResolvedStatus(mCdaiObject->mCurAds, mCdaiObject->mCurAdIdx);
+					lock.lock();
 					if(mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).invalid)
 					{
 						AAMPLOG_WARN("[CDAI]: AdIdx is invalid. Skipping. AdIdx[%d].", mCdaiObject->mCurAdIdx);

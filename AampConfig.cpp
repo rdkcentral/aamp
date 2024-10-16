@@ -503,6 +503,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_MAX_TSB_STORAGE_MB,"tsbMaxDiskStorage",eAAMPConfig_TsbMaxDiskStorage,true},
 	{static_cast<int>(TSB::LogLevel::WARN),"tsbLog",eAAMPConfig_TsbLogLevel,false},
 	{DEFAULT_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeout",eAAMPConfig_AdFulfillmentTimeout,true},
+	{MAX_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeoutMax",eAAMPConfig_AdFulfillmentTimeoutMax,true},
 	{DEFAULT_BUFFERING_QUEUED_FRAMES_MIN,"queuedFrames",eAAMPConfig_RequiredQueuedFrames,false},
 	
 	// aliases, kept for backwards compatibility

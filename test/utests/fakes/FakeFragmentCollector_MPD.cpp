@@ -232,3 +232,7 @@ double StreamAbstractionAAMP_MPD::GetAvailabilityStartTime()
 void StreamAbstractionAAMP_MPD::RefreshTrack(AampMediaType type)
 {
 }
+
+void StreamAbstractionAAMP_MPD::CheckAdResolvedStatus(AdNodeVectorPtr &ads, int adIdx, const std::string &periodId)
+{
+}

@@ -33,6 +33,7 @@
 #include "MockMediaStreamContext.h"
 #include "MockAampMPDDownloader.h"
 #include "MockAampStreamSinkManager.h"
+#include "MockAdManager.h"
 
 using ::testing::_;
 using ::testing::An;
@@ -577,6 +578,11 @@ protected:
                         return GetVssVirtualStreamID();
                 }
 
+                void CallCheckForAdResolvedStatus(AdNodeVectorPtr &ads, int adIdx, const std::string &periodId)
+                {
+                        CheckAdResolvedStatus(ads, adIdx, periodId);
+                }
+
         };
 
         PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -588,6 +594,8 @@ protected:
 
                 mPrivateInstanceAAMP = new PrivateInstanceAAMP();
                 mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, 1.0);
+
+                g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
                 //EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableLowLatencyDash)).WillRepeatedly(Return(false));
         }
 
@@ -599,6 +607,9 @@ protected:
 
                 delete mPrivateInstanceAAMP;
                 mPrivateInstanceAAMP = nullptr;
+
+                delete g_MockPrivateCDAIObjectMPD;
+                g_MockPrivateCDAIObjectMPD = nullptr;
         }
 };
 
@@ -2409,4 +2420,74 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     EXPECT_EQ(thumbnailData.size(), 1);
     EXPECT_EQ(width,320); //width of 1 thumbnail = width/w(value = 5x5,w= 5)
     EXPECT_EQ(thumbnailData[0].d,10); // (duration/timscale)/value
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, CheckAdResolvedStatus_FirstTryAdBreakNotResolved)
+{
+        std::string periodId = "periodId1";
+        auto ads = std::make_shared<std::vector<AdNode>>();
+
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, isAdBreakObjectExist(_))
+            .Times(AnyNumber())
+            .WillRepeatedly(Return(true));
+
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, WaitForNextAdResolved(_, _))
+            .Times(AnyNumber())
+            .WillRepeatedly(Return(false));
+
+        mStreamAbstractionAAMP_MPD->CallCheckForAdResolvedStatus(ads, -1, periodId);
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, CheckAdResolvedStatus_FirstTryAdBreakResolved)
+{
+        std::string periodId = "periodId1";
+        auto ads = std::make_shared<std::vector<AdNode>>();
+
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, WaitForNextAdResolved(_, _))
+            .Times(1)
+            .WillOnce(Return(true));
+
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, isAdBreakObjectExist(_))
+            .Times(AnyNumber())
+            .WillRepeatedly(Return(true));
+
+        mStreamAbstractionAAMP_MPD->CallCheckForAdResolvedStatus(ads, -1, periodId);
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, CheckAdResolvedStatus_AdNotResolved)
+{
+        AdNodeVectorPtr ads = std::make_shared<std::vector<AdNode>>();
+        ads->emplace_back(false, false, false, "adId1", "url1", 30000, "periodId1", 0, nullptr);
+        int adIdx = 0;
+        std::string periodId = "periodId1";
+
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, WaitForNextAdResolved(_))
+            .Times(1)
+            .WillOnce(Return(false));
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, isAdBreakObjectExist(_))
+            .Times(AnyNumber())
+            .WillRepeatedly(Return(true));
+
+        mStreamAbstractionAAMP_MPD->CallCheckForAdResolvedStatus(ads, adIdx, periodId);
+
+        EXPECT_TRUE(ads->at(adIdx).invalid);
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, CheckAdResolvedStatus_AdResolved)
+{
+        AdNodeVectorPtr ads = std::make_shared<std::vector<AdNode>>();
+        ads->emplace_back(false, false, false, "adId1", "url1", 30000, "periodId1", 0, nullptr);
+        int adIdx = 0;
+        std::string periodId = "periodId1";
+
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, WaitForNextAdResolved(_))
+            .Times(1)
+            .WillOnce(Return(true));
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, isAdBreakObjectExist(_))
+            .Times(AnyNumber())
+            .WillRepeatedly(Return(true));
+
+        mStreamAbstractionAAMP_MPD->CallCheckForAdResolvedStatus(ads, adIdx, periodId);
+
+        EXPECT_FALSE(ads->at(adIdx).invalid);
 }
