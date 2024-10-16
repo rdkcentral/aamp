@@ -399,6 +399,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 			if(false == endPeriodFound) // something wrong keep the end-period positions same and proceed.
 			{
 				abObj.adjustEndPeriodOffset = false;
+				abObj.mAdBreakPlaced = true;
 				AAMPLOG_WARN("[CDAI] Couldn't adjust offset [endPeriodNotFound] ");
 			}
 			else
@@ -408,6 +409,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 				{
 					abObj.adjustEndPeriodOffset = false; // done with Adjustment
 					abObj.endPeriodOffset = 0;//Aligning the last period
+					abObj.mAdBreakPlaced = true;
 					mPeriodMap[abObj.endPeriodId] = Period2AdData(); //Resetting the period with small out-lier.
 					AAMPLOG_INFO("[CDAI] Adjusted endperiodOffset");
 				}
@@ -432,13 +434,12 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 							abObj.adjustEndPeriodOffset = false; // done with Adjustment
 							abObj.endPeriodOffset = 0;//Aligning to next period start
 							abObj.endPeriodId = nextPeriod->GetId();
-							abObj.mWaitForManifestUpdateFlag = false;
+							abObj.mAdBreakPlaced = true;
 							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s", 
 														diff,currPeriodDuration,abObj.endPeriodId.c_str());
 						}
 						else
 						{
-							abObj.mWaitForManifestUpdateFlag = true; //adbrk duration matches the source period duration wait for the manifest update to conitnue playback
 							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "],but next period not available,waiting", 
 														diff,currPeriodDuration);
 						}
@@ -448,7 +449,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 					{
 						AAMPLOG_INFO("[CDAI] diff [%d] NOT close to period end, period:%s duration[%" PRIu64 "]", diff, mPlacementObj.pendingAdbrkId.c_str(), currPeriodDuration);
 						abObj.adjustEndPeriodOffset = false; // done with Adjustment
-						abObj.mWaitForManifestUpdateFlag = false; // adbrk duration not equal to src period duration continue to play source period remaining duration
+						abObj.mAdBreakPlaced = true; // adbrk duration not equal to src period duration continue to play source period remaining duration
 						abObj.mSrcPeriodOffsetGTthreshold = true;
 					}
 				}
@@ -456,7 +457,6 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 			if(!abObj.adjustEndPeriodOffset) // placed all ads now print the placement data and set mPlacementObj.curAdIdx = -1;
 			{
 				mPlacementObj.curAdIdx = -1;
-				abObj.mWaitForManifestUpdateFlag = false;
 				//Printing the placement positions
 				std::stringstream ss;
 				ss<<"{AdbreakId: "<<mPlacementObj.pendingAdbrkId;
@@ -508,7 +508,6 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 
 				mImmediateNextAdbreakAvailable = true;
 			}
-			abObj.mWaitForManifestUpdateFlag = false;
 		}
 	}
 	SAFE_DELETE(adMPDParseHelper);

@@ -589,12 +589,11 @@ protected:
 	 * @param[in,out] mpdChanged flag
 	 * @param[in,out] AdStateChanged flag
 	 * @param[in,out] waitForAdBreakCatchup flag
-	 * @param[in,out] bmanifestupdate flag
 	 * @param[in,out] requireStreamSelection flag
 	 * @param[in,out] currentPeriodId string
 	 * @return bool - true if new period selected, false otherwise
 	 */
-	bool SelectSourceOrAdPeriod(bool &periodChanged, bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId);
+	bool SelectSourceOrAdPeriod(bool &periodChanged, bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &requireStreamSelection, std::string &currentPeriodId);
 
 	/**
 	 * @fn IndexSelectedPeriod

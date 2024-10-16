@@ -57,7 +57,7 @@ def stop_server():
 TESTDATA1 = {
     "title": "Test1 Current ad duration same as source ad duration",
     "max_test_time_seconds": 300,
-    "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\n",
+    "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\ntrace=true\n",
     "url": "http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/main.mpd?live=true",
     "cmdlist": [
         "advert add http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/ad_30s.mpd 30",
@@ -91,7 +91,7 @@ TESTDATA1 = {
 TESTDATA2 = {
     "title": "Test2 Present ad duration less than source ad duration",
     "max_test_time_seconds": 400,
-    "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\n",
+    "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\ntrace=true\n",
     "url": "http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/main.mpd?live=true",
     "cmdlist": [
         "advert add http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/ad_30s.mpd 30",

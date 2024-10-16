@@ -9044,14 +9044,14 @@ bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool waitForAdBreakCatchup)
  * @param[in,out] mpdChanged flag
  * @param[in,out] AdStateChanged flag
  * @param[in,out] waitForAdBreakCatchup flag
- * @param[in,out] bmanifestupdate flag
  * @param[in,out] requireStreamSelection flag
  * @param[in,out] currentPeriodId string
  * @return bool - true if new period selected, false otherwise
  */
-bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId)
+bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &requireStreamSelection, std::string &currentPeriodId)
 {
 	bool ret = false;
+	waitForAdBreakCatchup = false; // reset this flag
 	while ((mIterPeriodIndex < mNumberOfPeriods) && (mIterPeriodIndex >= 0) && !ret) // CID:95090 - No effect
 	{
 		periodChanged = (mIterPeriodIndex != mCurrentPeriodIdx) || (mBasePeriodId != mpd->GetPeriods().at(mCurrentPeriodIdx)->GetId());
@@ -9136,7 +9136,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 			//If the source period duration exceeds the total ad duration by more than 2 seconds, 
 			//the player should switch back to the same base period instead of checking the
 			//availability of the next ad break
-			if(mCdaiObject->isAdBreakObjectExist(mBasePeriodId) &&  (mCdaiObject->mAdBreaks[mBasePeriodId].mSrcPeriodOffsetGTthreshold  ||  mCdaiObject->mAdBreaks[mBasePeriodId].mWaitForManifestUpdateFlag) )
+			if(mCdaiObject->isAdBreakObjectExist(mBasePeriodId) &&  (mCdaiObject->mAdBreaks[mBasePeriodId].mSrcPeriodOffsetGTthreshold))
 			{
 				ProcessNextAd = false;
 			}
@@ -9186,17 +9186,9 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					aamp->WaitForDiscontinuityProcessToComplete();
 				}
 
-				if (mCdaiObject->HasDaiAd(mBasePeriodId))
-				{
-					if ((mCdaiObject->mAdBreaks[mBasePeriodId].mWaitForManifestUpdateFlag) && (AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState))
-					{
-						AAMPLOG_INFO("[CDAI] requires manifest update period ID not changed");
-						bmanifestupdate = true;
-					}
-				}
 				/*DELIA-47914:  If next period is empty, period ID change is not processed.
 				Will check the period change for the same period in the next iteration.*/
-				if ((adaptationSetCount > 0 || !(mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))) && (!bmanifestupdate) && (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, (rate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
+				if ((adaptationSetCount > 0 || !(mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))) && (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, (rate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
 				{
 					AAMPLOG_MIL("Period ID changed from \'%s\' to \'%s\' [BasePeriodId=\'%s\']", currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
 					currentPeriodId = mCurrentPeriod->GetId();
@@ -9220,28 +9212,19 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					{
 						mMediaStreamContext[i]->enabled = false;
 					}
-					if (bmanifestupdate)
+					AAMPLOG_WARN("Period ID not changed from \'%s\' to \'%s\',since period is empty [BasePeriodId=\'%s\'] mIterPeriodIndex[%d] mUpperBoundaryPeriod[%d]", currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str(), mIterPeriodIndex, mMPDParseHelper->mUpperBoundaryPeriod);
+					if (mIsLiveManifest && (mIterPeriodIndex > mMPDParseHelper->mUpperBoundaryPeriod) && aamp->DownloadsAreEnabled())
 					{
-						AAMPLOG_WARN("[CDAI] requires manifest update period ID \'%s\' not changed to \'%s\' [BasePeriodId=\'%s\']", currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
+						// Update manifest and check for period validity in the next iteration
+						// For CDAI empty period at the end, we should re-iterate the loop
+						AAMPLOG_WARN("Period ID not changed WaitForManifestUpdate");
+						if (AAMPStatusType::eAAMPSTATUS_OK != UpdateMPD())
+						{
+							aamp->InterruptableMsSleep(500); // Sleep for 500ms to avoid tight looping
+						}
+						mpdChanged = true;
 						ret = false;
 						break;
-					}
-					else
-					{
-						AAMPLOG_WARN("Period ID not changed from \'%s\' to \'%s\',since period is empty [BasePeriodId=\'%s\'] mIterPeriodIndex[%d] mUpperBoundaryPeriod[%d]", currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str(), mIterPeriodIndex, mMPDParseHelper->mUpperBoundaryPeriod);
-						if (mIsLiveManifest && (mIterPeriodIndex > mMPDParseHelper->mUpperBoundaryPeriod) && aamp->DownloadsAreEnabled())
-						{
-							// Update manifest and check for period validity in the next iteration
-							// For CDAI empty period at the end, we should re-iterate the loop
-							AAMPLOG_WARN("Period ID not changed WaitForManifestUpdate");
-							if (AAMPStatusType::eAAMPSTATUS_OK != UpdateMPD())
-							{
-								aamp->InterruptableMsSleep(500); // Sleep for 500ms to avoid tight looping
-							}
-							mpdChanged = true;
-							ret = false;
-							break;
-						}
 					}
 				}
 
@@ -9523,7 +9506,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			/*
 			 * Select the period from ad or source content
 			 */
-			bool bmanifestupdate = false;
 			bool requireStreamSelection = false;
 			if (!aamp->DownloadsAreEnabled())
 			{
@@ -9533,9 +9515,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			/*
 			 * Appropriate error handling if period selection fails
 			 */
-			if (!SelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, bmanifestupdate, requireStreamSelection, currentPeriodId))
+			if (!SelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId))
 			{
-				if(waitForAdBreakCatchup || bmanifestupdate)
+				if(waitForAdBreakCatchup)
 				{
 					if (!exitFetchLoop)
 					{
@@ -11750,7 +11732,23 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				{
 					if(rate > 0)
 					{
-                                                //If both IDs are the same, it indicates that the source period has content to play.
+						// For forward playback, we need to wait till the adbreak is placed. Then only we will know which period to change to
+						if (!mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdBreakPlaced)
+						{
+							// This log might cause log flooding, hence changed to trace
+							AAMPLOG_TRACE("[CDAI]: All Ads in the ADBREAK[%s] FINISHED. Waiting for the ADBREAK to place.", mCdaiObject->mCurPlayingBreakId.c_str());
+							// Moving the state back to IN_ADBREAK_WAIT2CATCHUP, so that we can further wait till adbreak is placed
+							mCdaiObject->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
+							if (mCdaiObject->mCurAdIdx >= mCdaiObject->mCurAds->size())
+							{
+								// Change to index back to valid range
+								mCdaiObject->mCurAdIdx--;
+							}
+							stateChanged = false;
+							break;
+						}
+
+						//If both IDs are the same, it indicates that the source period has content to play.
 						if( mBasePeriodId == mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].endPeriodId)
 						{
 							checkSrcAdisGreaterThanAdbreak();
