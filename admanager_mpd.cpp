@@ -924,6 +924,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 			}
 			AAMPLOG_WARN("New Ad successfully for periodId : %s added[Id=%s, url=%s, durationMs=%" PRIu32 "].",periodId.c_str(),mAdFulfillObj.adId.c_str(),mAdFulfillObj.url.c_str(), durationMs);
 			adStatus = true;
+			AbortWaitForNextAdResolved();
 		}
 		else
 		{
@@ -940,28 +941,6 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 		}
 		else
 		{
-			// Check if the ad break object exists for the given period ID
-			if(isAdBreakObjectExist(mAdFulfillObj.periodId))
-			{
-				// Retrieve the ad break object
-				auto &adbreakObj = mAdBreaks[mAdFulfillObj.periodId];
-				// Ensure the ad break object and its ads vector are valid
-				if(adbreakObj.ads)
-				{
-					for (int iter=0; iter<adbreakObj.ads->size(); iter++)
-					{
-						AdNode &node = adbreakObj.ads->at(iter);
-						// Check if the ad ID matches the one we are looking for
-						if (node.adId == mAdFulfillObj.adId)
-						{
-							// Mark the ad node as resolved and invalid
-							node.resolved = true;
-							node.invalid = true;
-							break;
-						}
-					}
-				}
-			}
 			AAMPLOG_ERR("Failed to get Ad MPD[%s].", mAdFulfillObj.url.c_str());
 		}
 	}
@@ -969,7 +948,6 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	if(ret)
 	{
 		// Send the resolved event to the player
-		AbortWaitForNextAdResolved();
 		mAamp->SendAdResolvedEvent(mAdFulfillObj.adId, adStatus, startMS, durationMs);
 	}
 	return ret;
@@ -1269,26 +1247,23 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
 {
 	std::unique_lock<std::mutex> lock(mAdPlacementMtx);
 	bool completed = false;
-	if (!mAdFulfillObj.periodId.empty() && isAdBreakObjectExist(mAdFulfillObj.periodId))
+	auto& ads = this->mAdBreaks[mAdFulfillObj.periodId].ads;
+	auto adId = mAdFulfillObj.adId;
+	auto it = std::find_if(ads->begin(), ads->end(), [adId](const AdNode& node) {
+		return node.adId == adId;
+	});
+	if (it != ads->end())
 	{
-		auto& ads = this->mAdBreaks[mAdFulfillObj.periodId].ads;
-		auto adId = mAdFulfillObj.adId;
-		auto it = std::find_if(ads->begin(), ads->end(), [adId](const AdNode& node) {
-			return node.adId == adId;
-		});
-		if (it != ads->end())
+		if (!it->resolved)
 		{
-			if (!it->resolved)
-			{
-				AAMPLOG_INFO("Waiting for next ad placement to complete with timeout %d ms.", timeoutMs);
-				completed = mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [it] {
-					return it->resolved;
-				});
-			}
-			else
-			{
-				completed = true;
-			}
+			AAMPLOG_INFO("Waiting for next ad placement to complete with timeout %d ms.", timeoutMs);
+			completed = mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [it] {
+				return it->resolved;
+			});
+		}
+		else
+		{
+			completed = true;
 		}
 	}
 	AAMPLOG_INFO("Received notification for next ad placement.");
