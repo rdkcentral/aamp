@@ -747,7 +747,37 @@ void AampCCManagerBase::RestoreCC()
 	AAMPLOG_WARN("AampCCManagerBase::mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s",
 			mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
 
-	SetTrack(GetTrack());
+	std::string trackId = GetTrack();
+
+	const auto textTracks = getLastTextTracks();
+	bool matchFound = false;
+
+	if(!textTracks.empty())
+	{
+		for(const auto& track : textTracks)
+		{
+			if(trackId == track.instreamId)
+			{
+				AAMPLOG_WARN("AampCCManagerBase::matching id found in availabletracks");
+				matchFound = true;
+				break;
+			}
+		}
+
+		if(!matchFound)
+		{
+			std::string defaultTrack = textTracks.front().instreamId;
+			trackId = defaultTrack.empty() ? "CC1" : defaultTrack;
+			AAMPLOG_WARN("AampCCManagerBase::matching id not found, selecting %s as default", trackId.c_str());
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("AampCCManagerBase::tracklist empty selecting CC1 as default");
+		trackId = "CC1";
+	}
+
+	SetTrack(trackId);
 }
 
 /**
