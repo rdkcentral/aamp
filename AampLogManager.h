@@ -106,9 +106,10 @@ extern void logprintf(AAMP_LogLevel level, const char* file, int line,const char
 class AampLogManager
 {
 public:
-	static bool disableLogRedirection;
+	static bool disableLogRedirection;		/**<  disables log re-direction to journal or ethan log apis and uses vprintf - used by simulators */
 	static AAMP_LogLevel aampLoglevel;
 	static bool locked;
+	static bool enableEthanLogRedirection;  /**<  Enables Ethan log redirection which uses Ethan lib for logging */
 	
 	/**
 	 * @fn aampLogger

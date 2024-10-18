@@ -29,6 +29,20 @@
 #include "priv_aamp.h"
 using namespace std;
 
+
+#ifdef USE_ETHAN_LOG
+#include <ethanlog.h>
+#else
+// stubs for use if USE_ETHAN_LOG not defined
+void vethanlog(int level, const char *filename, const char *function, int line, const char *format, va_list ap){}
+#define ETHAN_LOG_INFO 0
+#define ETHAN_LOG_DEBUG 1
+#define ETHAN_LOG_WARNING 2
+#define ETHAN_LOG_ERROR 3
+#define ETHAN_LOG_FATAL 4
+#define ETHAN_LOG_MILESTONE 5
+#endif
+
 #ifdef USE_SYSTEMD_JOURNAL_PRINT
 #include <systemd/sd-journal.h>
 #else
@@ -48,6 +62,7 @@ static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
 };
 
 bool AampLogManager::disableLogRedirection = false;
+bool AampLogManager::enableEthanLogRedirection = false;
 AAMP_LogLevel AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
 bool AampLogManager::locked = false;
 
@@ -96,9 +111,34 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 			{ // aampcli
 				vprintf( format_ptr, args );
 			}
+			else if ( AampLogManager::enableEthanLogRedirection )
+			{ // remap AAMP log levels to Ethan log levels
+				int ethanLogLevel;
+				// Important: in production builds, Ethan logger filters out everything
+				// except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
+				switch (logLevelIndex)
+				{
+					case eLOGLEVEL_TRACE:
+					case eLOGLEVEL_DEBUG:
+						ethanLogLevel = ETHAN_LOG_DEBUG;
+						break;
+						
+					case eLOGLEVEL_ERROR:
+						ethanLogLevel = ETHAN_LOG_FATAL;
+						break;
+						
+					case eLOGLEVEL_INFO: // note: we rely on eLOGLEVEL_INFO at tune time for triage
+					case eLOGLEVEL_WARN:
+					case eLOGLEVEL_MIL:
+					default:
+						ethanLogLevel = ETHAN_LOG_MILESTONE;
+						break;
+				}
+				vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
+			}
 			else
 			{
-				format_ptr[format_bytes-1] = 0x00; // strip not-needed newline
+				format_ptr[format_bytes-1] = 0x00; // strip not-needed newline (good for Ethan Logger, too?)
 				sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
 			}
 			va_end(args);
