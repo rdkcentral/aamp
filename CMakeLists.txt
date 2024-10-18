@@ -770,6 +770,19 @@ if(CMAKE_SYSTEMD_JOURNAL)
 
 endif()
 
+if(CMAKE_USE_ETHAN_LOG)
+     message("DCMAKE_USE_ETHAN_LOG set")
+ # Find the ethanlog library for container logger
+     find_package( EthanLog REQUIRED )
+# Add the include directories for EthanLog
+     include_directories(${ETHANLOG_INCLUDE_DIRS})
+
+     set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lethanlog")
+     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
+     set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
+endif()
+
+
 if(CMAKE_USE_SECCLIENT)
 	message("CMAKE_USE_SECCLIENT set")
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SECCLIENT")

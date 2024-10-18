@@ -36,18 +36,19 @@
 #define PLAYER_ID_NA		-5
 
 /**Defining LOG macros for logging with Playerid in consideration**/
-#define LOG_INFO(AAMP_JS_OBJECT,FORMAT, ...)  if(AAMP_JS_OBJECT && AAMP_JS_OBJECT->bInfoEnabled) {  jsBindingLogprintf(( (NULL != AAMP_JS_OBJECT)? AAMP_JS_OBJECT->iPlayerId : PLAYER_ID_NA  ),"INFO",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__); }
-#define LOG_ERROR(AAMP_JS_OBJECT,FORMAT, ...)   jsBindingLogprintf(( (NULL != AAMP_JS_OBJECT)?AAMP_JS_OBJECT->iPlayerId : PLAYER_ID_NA  ),"ERR",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__)
-#define LOG_MIL(AAMP_JS_OBJECT,FORMAT, ...) jsBindingLogprintf(( (NULL != AAMP_JS_OBJECT)?AAMP_JS_OBJECT->iPlayerId : PLAYER_ID_NA  ),"MIL",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__)
-#define LOG_WARN(AAMP_JS_OBJECT,FORMAT, ...) jsBindingLogprintf(((NULL != AAMP_JS_OBJECT)?AAMP_JS_OBJECT->iPlayerId : PLAYER_ID_NA  ),"WARN",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__)
+#define LOG_INFO(AAMP_JS_OBJECT,FORMAT, ...)  if(AAMP_JS_OBJECT && AAMP_JS_OBJECT->bInfoEnabled) {  jsBindingLogprintf(( (NULL != AAMP_JS_OBJECT)? AAMP_JS_OBJECT->iPlayerId : PLAYER_ID_NA  ),__FUNCTION__,__LINE__,eLOGLEVEL_INFO,FORMAT, ##__VA_ARGS__); }
+#define LOG_ERROR(AAMP_JS_OBJECT,FORMAT, ...)   jsBindingLogprintf(( (NULL != AAMP_JS_OBJECT)?AAMP_JS_OBJECT->iPlayerId : PLAYER_ID_NA  ),__FUNCTION__,__LINE__,eLOGLEVEL_ERROR,FORMAT, ##__VA_ARGS__)
+#define LOG_MIL(AAMP_JS_OBJECT,FORMAT, ...) jsBindingLogprintf(( (NULL != AAMP_JS_OBJECT)?AAMP_JS_OBJECT->iPlayerId : PLAYER_ID_NA  ),__FUNCTION__,__LINE__,eLOGLEVEL_MIL,FORMAT, ##__VA_ARGS__)
+#define LOG_WARN(AAMP_JS_OBJECT,FORMAT, ...) jsBindingLogprintf(((NULL != AAMP_JS_OBJECT)?AAMP_JS_OBJECT->iPlayerId : PLAYER_ID_NA  ),__FUNCTION__,__LINE__,eLOGLEVEL_WARN,FORMAT, ##__VA_ARGS__)
 
 /**Defining LOG macros where AAMP-JS object is not relevant**/
-#define LOG_WARN_EX(FORMAT, ...)   jsBindingLogprintf(PLAYER_ID_NA,"WARN",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__)
-#define LOG_MIL_EX(FORMAT, ...)   jsBindingLogprintf(PLAYER_ID_NA,"MIL",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__)
-#define LOG_ERROR_EX(FORMAT, ...)   jsBindingLogprintf(PLAYER_ID_NA,"ERR",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__)
+#define LOG_WARN_EX(FORMAT, ...)   jsBindingLogprintf(PLAYER_ID_NA,__FUNCTION__,__LINE__,eLOGLEVEL_WARN,FORMAT, ##__VA_ARGS__)
+#define LOG_MIL_EX(FORMAT, ...)   jsBindingLogprintf(PLAYER_ID_NA,__FUNCTION__,__LINE__,eLOGLEVEL_MIL,FORMAT, ##__VA_ARGS__)
+#define LOG_ERROR_EX(FORMAT, ...)   jsBindingLogprintf(PLAYER_ID_NA,__FUNCTION__,__LINE__,eLOGLEVEL_ERROR,FORMAT,##__VA_ARGS__)
+
 
 #ifdef TRACE
-#define LOG_TRACE(FORMAT, ...)   jsBindingLogprintf(PLAYER_ID_NA,"TRACE",__FUNCTION__,__LINE__,FORMAT, ##__VA_ARGS__)
+#define LOG_TRACE(FORMAT, ...)   jsBindingLogprintf(PLAYER_ID_NA,__FUNCTION__,__LINE__,eUVE_JS_LOG_DEBUG,FORMAT, ##__VA_ARGS__)
 
 #else
 #define LOG_TRACE(FORMAT, ...)
@@ -164,6 +165,6 @@ const char* aampPlayer_getNameFromEventType(AAMPEventType type);
 JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long timeMS, const char* szName, const char* szContent, const char* id, double durationMS);
 
 
-void jsBindingLogprintf(int playerId,const char* levelstr,const char* functionName, int line,const char *format, ...);
+void jsBindingLogprintf(int playerId,const char* functionName, int line, int logLevel, const char *format, ...);
 
 #endif /* __AAMP_JSUTILS_H__ */

@@ -30,12 +30,24 @@
 
 #include <iomanip>
 #include <algorithm>
-
 #ifdef USE_SYSLOG_HELPER_PRINT
 #include "syslog_helper_ifc.h"
 #endif
 #ifdef USE_SYSTEMD_JOURNAL_PRINT
 #include <systemd/sd-journal.h>
+#endif
+
+#ifdef USE_ETHAN_LOG
+#include <ethanlog.h>
+#else
+// stubs for use if USE_ETHAN_LOG not defined
+void ethanlog(int level, const char *filename, const char *function, int line, const char *format, ...){}
+#define ETHAN_LOG_INFO 0
+#define ETHAN_LOG_DEBUG 1
+#define ETHAN_LOG_WARNING 2
+#define ETHAN_LOG_ERROR 3
+#define ETHAN_LOG_FATAL 4
+#define ETHAN_LOG_MILESTONE 5
 #endif
 
 #define MAX_DEBUG_LOG_BUFF_SIZE 1024
@@ -541,19 +553,28 @@ JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long tim
         return timedMetadata;
 }
 
+static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
+{
+	"TRACE", // eLOGLEVEL_TRACE
+	"DEBUG", // eLOGLEVEL_DEBUG
+	"INFO",  // eLOGLEVEL_INFO
+	"WARN",  // eLOGLEVEL_WARN
+	"MIL",   // eLOGLEVEL_MIL
+	"ERROR", // eLOGLEVEL_ERROR
+};
 
 /**
  * @brief Print logs to console / log file
+ * TODO: deprecate jsBindingLogprintf, and leverage common logprintf directly
  */
-void jsBindingLogprintf(int playerId,const char* levelstr,const char* functionName, int line,const char *format, ...)
+void jsBindingLogprintf(int playerId ,const char* functionName, int line, int logLevel, const char *format, ...)
 {
-
-
 	int len = 0;
 	va_list args;
 	va_start(args, format);
 
 	char gDebugPrintBuffer[MAX_DEBUG_LOG_BUFF_SIZE];
+	const char* levelstr = mLogLevelStr[logLevel];
 	if(playerId != PLAYER_ID_NA )
 	{
 		len = sprintf(gDebugPrintBuffer,"[AAMP-JS] %d :%s : %s : %d :",playerId,levelstr,functionName,line);
@@ -567,6 +588,33 @@ void jsBindingLogprintf(int playerId,const char* levelstr,const char* functionNa
 
 	va_end(args);
 
+	if ( AampLogManager::enableEthanLogRedirection  )
+	{ // ethanlog
+		int ethanLogLevel;
+		// Important: in production builds, Ethan logger filters out everything
+		// except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
+		switch (logLevel)
+		{
+			case eLOGLEVEL_TRACE:
+			case eLOGLEVEL_DEBUG:
+				ethanLogLevel = ETHAN_LOG_DEBUG;
+				break;
+				
+			case eLOGLEVEL_ERROR:
+				ethanLogLevel = ETHAN_LOG_FATAL;
+				break;
+				
+			case eLOGLEVEL_INFO: // note: we rely on eLOGLEVEL_INFO at tune time for triage
+			case eLOGLEVEL_WARN:
+			case eLOGLEVEL_MIL:
+			default:
+				ethanLogLevel = ETHAN_LOG_MILESTONE;
+				break;
+		}
+		ethanlog(ethanLogLevel,NULL,NULL,-1,gDebugPrintBuffer);
+	}
+	else
+	 {
 #if (defined (USE_SYSTEMD_JOURNAL_PRINT) || defined (USE_SYSLOG_HELPER_PRINT))
 #ifdef USE_SYSTEMD_JOURNAL_PRINT
 
@@ -578,7 +626,6 @@ void jsBindingLogprintf(int playerId,const char* levelstr,const char* functionNa
 		struct timeval t;
 		gettimeofday(&t, NULL);
 		printf("[AAMP-JS]%ld:%3ld : %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, gDebugPrintBuffer);
-
 #endif
-
+	}
 }

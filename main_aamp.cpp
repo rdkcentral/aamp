@@ -170,6 +170,9 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	// App can modify the configuration set
 	mConfig = *gpGlobalConfig;
 
+	// sd_journal logging doesn't work with AAMP/Rialto running in Container, so route to Ethan Logger instead
+	AampLogManager::enableEthanLogRedirection = mConfig.IsConfigSet(eAAMPConfig_useRialtoSink);
+
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
 	UsingPlayerId playerId(aamp->mPlayerId);
@@ -3209,6 +3212,9 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 			aamp->curlhost[i] = new eCurlHostMap();
 		}
 	}
+
+	// also enable Ethan log redirection if useRialtoSink enabled using initconfig option.
+	AampLogManager::enableEthanLogRedirection = ISCONFIGSET(eAAMPConfig_useRialtoSink);
 	return retVal;
 }
 

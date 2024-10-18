@@ -43,6 +43,7 @@ static const char *mLogLevelStr[] =
 };
 
 bool AampLogManager::disableLogRedirection = false;
+bool AampLogManager::enableEthanLogRedirection = false;
 AAMP_LogLevel AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
 bool AampLogManager::locked = false;
 
