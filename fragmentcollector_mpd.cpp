@@ -942,16 +942,26 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 						cachedFragment = pMediaStreamContext->GetFetchBuffer(true);
 					}
 				}
-				// The pointer is loaded to bypass null check in InjectFragment thread
-				cachedFragment->fragment.AppendBytes("0x0a", 2);
-				cachedFragment->position=0;
-				cachedFragment->duration=0;
-				cachedFragment->initFragment=true;
-				cachedFragment->discontinuity=true;
-				cachedFragment->profileIndex=0;
-				cachedFragment->isDummy=true;
-				cachedFragment->type=pMediaStreamContext->mediaType;
-				aamp->GetLLDashChunkMode() ? pMediaStreamContext->UpdateTSAfterChunkFetch() : pMediaStreamContext->UpdateTSAfterFetch(true);
+				if(cachedFragment)
+				{
+					// The pointer is loaded to bypass null check in InjectFragment thread
+					cachedFragment->fragment.AppendBytes("0x0a", 2);
+					cachedFragment->position=0;
+					cachedFragment->duration=0;
+					cachedFragment->initFragment=true;
+					cachedFragment->discontinuity=true;
+					cachedFragment->profileIndex=0;
+					cachedFragment->isDummy=true;
+					cachedFragment->type=pMediaStreamContext->mediaType;
+					if(aamp->GetLLDashChunkMode())
+					{
+						pMediaStreamContext->UpdateTSAfterChunkFetch();
+					}
+					else
+					{
+						pMediaStreamContext->UpdateTSAfterFetch(true);
+					}
+				}
 			}
 		}
 		retval = false;
