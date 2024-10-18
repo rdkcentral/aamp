@@ -23,7 +23,6 @@
  * @brief AAMP Gstreamer Task pool code
  */
 
-#include <gst/gst.h>
 #include "gstaamptaskpool.h"
 #include <pthread.h>
 

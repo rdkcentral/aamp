@@ -23,7 +23,6 @@
  */
 #include "config.h"
 #include "playreadydrmsession.h"
-#include <gst/gst.h>
 #include <assert.h>
 #include <iostream>
 #include <sstream>

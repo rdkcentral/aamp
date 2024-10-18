@@ -7,7 +7,6 @@
 #include "AampDrmHelper.h"
 #include "AampUtils.h"
 
-#include <gst/gst.h>
 #include <assert.h>
 #include <iostream>
 #include <sstream>
@@ -21,7 +20,6 @@
 #include "priv_aamp.h"
 
 #include <sys/time.h>
-#include <gst/gstbuffer.h>
 
 #define LICENSE_RENEWAL_MESSAGE_TYPE "1"
 
