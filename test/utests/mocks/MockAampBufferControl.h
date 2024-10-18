@@ -32,6 +32,7 @@ public:
     MOCK_METHOD(void, needData, ());
 
     MOCK_METHOD(void, enoughData, ());
+    MOCK_METHOD(bool,  isBufferFull, (const AampMediaType mediaType));
 };
 
 extern MockAampBufferControl *g_mockAampBufferControl;

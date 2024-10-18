@@ -36,6 +36,11 @@ void AampBufferControl::BufferControlExternalData::cacheExtraData(const AAMPGstP
 {
 }
 
+bool AampBufferControl::BufferControlMaster::isBufferFull(const AampMediaType mediaType)
+{
+	return false;
+}
+
 void AampBufferControl::BufferControlMaster::needData(const AAMPGstPlayer *player,
 													  AampMediaType mediaType)
 {

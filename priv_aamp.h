@@ -2135,7 +2135,7 @@ public:
 	 *   @param[in] trackType - Video/Audio
 	 *   @return void
 	 */
-	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType);
+	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull = false);
 
 	/**
 	 * @brief PrivateInstanceAAMP Constructor
