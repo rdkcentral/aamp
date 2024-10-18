@@ -1528,6 +1528,7 @@ static void AAMPGstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0,
 		}
 
 		AAMPLOG_WARN("## APP[%s] Got Underflow message from %s type %d ##", (_this->aamp->GetAppName()).c_str(), GST_ELEMENT_NAME(object), type);
+		bool isBufferFull = _this->privateContext->stream[type].mBufferControl.isBufferFull(type);
 		_this->privateContext->stream[type].mBufferControl.underflow(_this, type);
 		_this->privateContext->stream[type].bufferUnderrun = true;
 
@@ -1553,7 +1554,7 @@ static void AAMPGstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0,
 			INC_RETUNE_COUNT(type); // Increment the retune count for low level AV metric
 #endif
 
-			_this->aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, type);			/* Schedule a retune */
+			_this->aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, type, isBufferFull);		/* Schedule a retune */
 		}
 	}
 }

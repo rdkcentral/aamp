@@ -8210,7 +8210,7 @@ bool PrivateInstanceAAMP::Discontinuity(AampMediaType track, bool setDiscontinui
 /**
  * @brief Schedules retune or discontinuity processing based on state.
  */
-void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType)
+void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull)
 {
 	if (AAMP_NORMAL_PLAY_RATE == rate && ContentType_EAS != mContentType)
 	{
@@ -8282,7 +8282,9 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 		(errorType == eGST_ERROR_UNDERFLOW) &&
 		(trackType == eMEDIATYPE_VIDEO) &&
 		(mediaTrack) &&
-		(mediaTrack->GetBufferStatus() == BUFFER_STATUS_RED))
+		(mediaTrack->GetBufferStatus() == BUFFER_STATUS_RED)
+		&& (!bufferFull)
+		)
 		{
 			SendBufferChangeEvent(true);  // Buffer state changed, buffer Under flow started
 			if (!pipeline_paused &&  !PausePipeline(true, true))

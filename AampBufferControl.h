@@ -270,6 +270,10 @@ namespace AampBufferControl
 		void needData(const AAMPGstPlayer* player, const AampMediaType mediaType);
 		void enoughData(const AAMPGstPlayer* player, const AampMediaType mediaType);
 		void underflow(const AAMPGstPlayer* player, const AampMediaType mediaType);
+		/** 
+		* @brief get the status of buffer enough data signal
+		*/
+		bool isBufferFull(const AampMediaType mediaType);
 
 		/**
 		 * @brief Generic update
