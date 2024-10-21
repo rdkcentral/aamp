@@ -384,6 +384,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   std::string url = "";
   uint64_t startMS = 0;
   uint32_t breakdur = 10000;
+  bool timedout = false;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -393,8 +394,17 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event is sent
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
+
+  // We would like to also validate that AbortWaitForNextAdResolved is invoked
+  std::thread t([this, &timedout]{
+    // wait for 1sec on the conditional signal to confirm it doesn't timeout
+    std::unique_lock<std::mutex> lock(this->mPrivateCDAIObjectMPD->mAdPlacementMtx);
+    timedout = (std::cv_status::timeout == this->mPrivateCDAIObjectMPD->mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(1000)));
+  });
+
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  t.join();
 
   // Verify the result
   // mAdBreak updated and placementObj created
@@ -402,6 +412,12 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
+  EXPECT_TRUE((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->at(0).resolved);
+  EXPECT_FALSE((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->at(0).invalid);
+  // Make sure that WaitForNextAdResolved returns true since the ad is resolved
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->WaitForNextAdResolved(50));
+  // Make sure we didn't timeout
+  EXPECT_FALSE(timedout);
 
 }
 
@@ -466,6 +482,8 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
   EXPECT_STREQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).url.c_str(), TEST_FOG_AD_MANIFEST_URL);
+  EXPECT_TRUE((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->at(0).resolved);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
 
 }
 
@@ -481,6 +499,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   uint32_t breakdur = 10000;
   // Empty manifest for failure
   const char *manifest = nullptr;
+  bool timedout = false;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -490,8 +509,16 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
 
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event status should be false
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0)).Times(1);
+
+  // We would like to also validate that AbortWaitForNextAdResolved is invoked
+  std::thread t([this, &timedout]{
+    // wait for 1sec on the conditional signal to confirm it doesn't timeout
+    std::unique_lock<std::mutex> lock(this->mPrivateCDAIObjectMPD->mAdPlacementMtx);
+    timedout = (std::cv_status::timeout == this->mPrivateCDAIObjectMPD->mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(1000)));
+  });
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  t.join();
 
   // Verify the result
   // mAdBreak updated and placementObj not created
@@ -500,8 +527,12 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).adId, adId);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved, false);
-
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
+  // Make sure that WaitForNextAdResolved returns true since the ad is resolved
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->WaitForNextAdResolved(50));
+  // Make sure we didn't timeout
+  EXPECT_FALSE(timedout);
 }
 
 /**
@@ -566,6 +597,8 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
   EXPECT_STREQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).url.c_str(), TEST_AD_MANIFEST_URL);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
 
 }
 
@@ -640,6 +673,10 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
     EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adIdx, 0);
   }
   EXPECT_STREQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).url.c_str(), TEST_AD_MANIFEST_URL);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(1).resolved);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(1).invalid);
 }
 
 /**
