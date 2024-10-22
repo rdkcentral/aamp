@@ -1808,7 +1808,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 				{
 					media_stream *stream = &_this->privateContext->stream[eMEDIATYPE_AUDIO];
 					g_object_get(stream->sinkbin, "n-audio", &_this->privateContext->n_audio, NULL);
-					if(_this->privateContext->n_audio > 0)
+					if(&_this->privateContext->n_audio > 0)
 					{
 						AAMPLOG_MIL("Audio only playback detected, hence notify first frame");
 						_this->privateContext->firstAudioFrameReceived = true;
