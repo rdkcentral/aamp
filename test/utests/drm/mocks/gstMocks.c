@@ -93,3 +93,4 @@ GType gst_protection_meta_api_get_type (void)
 {
 	return 0;
 }
+

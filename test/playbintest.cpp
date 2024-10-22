@@ -389,7 +389,7 @@ int main(int argc, char *argv[])
 #endif
 		g_object_set(playbin[i], "flags", flags, NULL);
 //#define PLAYBINTEST_WESTEROSSINK
-#ifdef PLAYBINTEST_WESTEROSSINK
+#ifdef PLAYBINTEST_WESTEROSSINK //Removed distro from aamp bb. For simulators, define it in installer scripts.
 		GstElement* west = gst_element_factory_make("westerossink", NULL);
 		if (!west)
 		{

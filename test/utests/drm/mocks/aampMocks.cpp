@@ -1329,3 +1329,19 @@ void PrivateInstanceAAMP::updateManifest(const char *manifestData)
 	if(NULL != manifestData)
 		mProvidedManifestFile = manifestData;
 }
+
+bool AAMPGstPlayer::IsMS2V12Supported()
+{
+	return false;
+}
+
+PlatformType AAMPGstPlayer::InitializeAAMPPlatformConfigs()
+{
+	return ePLATFORM_UNKNOWN;
+}
+
+int PrivateInstanceAAMP::GetPlatformType()
+{
+	return 0;
+}
+

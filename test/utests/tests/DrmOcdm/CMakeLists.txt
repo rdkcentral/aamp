@@ -18,6 +18,7 @@
 include(GoogleTest)
 
 pkg_check_modules(UUID REQUIRED uuid)
+pkg_check_modules(GOBJECT REQUIRED gobject-2.0)
 
 set(AAMP_ROOT "../../../..")
 set(UTESTS_ROOT "../..")
@@ -118,6 +119,6 @@ if (COVERAGE_ENABLED)
 							  DEPENDENCIES ${EXEC_NAME})
 endif()
 
-target_link_libraries(${EXEC_NAME} ${UUID_LINK_LIBRARIES} ${OS_LD_FLAGS} pthread ${GLIB_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} ${UUID_LINK_LIBRARIES} ${OS_LD_FLAGS} pthread ${GLIB_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${GOBJECT_LINK_LIBRARIES} )
 
 aamp_utest_run_add(${EXEC_NAME})

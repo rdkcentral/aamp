@@ -37,19 +37,12 @@
 #define MACRO_TO_STRING(s) X_STR(s)
 #define X_STR(s) #s
 
-#if defined(REALTEKCE)
-#define GST_VIDEOBUFFER_SIZE_BYTES_BASE 5242880        		/**< XIONE-6722 more generous buffering - RealTek UHD specific */
-#else
-#define GST_VIDEOBUFFER_SIZE_BYTES_BASE 4194304
-#endif
+#define GST_VIDEOBUFFER_SIZE_BYTES_BASE 5242880
 #define GST_AUDIOBUFFER_SIZE_BYTES_BASE 512000
-#if defined(CONTENT_4K_SUPPORTED)
+
 #define GST_VIDEOBUFFER_SIZE_BYTES (GST_VIDEOBUFFER_SIZE_BYTES_BASE*3)
 #define GST_AUDIOBUFFER_SIZE_BYTES (GST_AUDIOBUFFER_SIZE_BYTES_BASE*3)
-#else
-#define GST_VIDEOBUFFER_SIZE_BYTES (GST_VIDEOBUFFER_SIZE_BYTES_BASE)
-#define GST_AUDIOBUFFER_SIZE_BYTES (GST_AUDIOBUFFER_SIZE_BYTES_BASE)
-#endif
+
 #define GST_BW_TO_BUFFER_FACTOR 0.80			/**< Bandwidth to buffer factor to calculate new GST Buffer Size to accomodate larger Video Buffers*/
 #define GST_VIDEOBUFFER_SIZE_MAX_BYTES 26214400			/**< 25*1024*1024 , Upper limit for HiFi Content */
 
@@ -191,9 +184,7 @@
 #define AAMP_FOG_TSB_URL_KEYWORD "tsb?" /**< AAMP expect this keyword in URL to identify it is FOG url */
 
 // DELIA-61708 audio drop workaround
-#if defined(BRCM)
 #define DEFAULT_INITIAL_RATE_CORRECTION_SPEED 1.000001f	/**< Initial rate correction speed to avoid audio drop */
-#endif
 #define DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK	20					/**< Default cached fragement chunks per track */
 #define DEFAULT_ABR_CHUNK_CACHE_LENGTH			10					/**< Default ABR chunk cache length */
 #define DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE		(DEFAULT_AAMP_ABR_THRESHOLD_SIZE)	/**< aamp abr Chunk threshold size */
@@ -422,6 +413,17 @@ enum EOSInjectionModeCode
 	 * This is the default behaviour after XIONE-9099.*/
 	EOS_INJECTION_MODE_STOP_ONLY,
 };
-#endif
 
+enum PlatformType
+{
+        ePLATFORM_UBUNTU,      /**< Ubuntu */
+        ePLATFORM_APPLE,       /**< Apple */
+        ePLATFORM_RPI,         /**< Raspberry Pi */
+	ePLATFORM_AMLOGIC,     /**< Amlogic */
+        ePLATFORM_REALTEK,     /**< Realtek */
+        ePLATFORM_BRCM,        /**< Broadcom */
+        ePLATFORM_UNKNOWN      /**< Unknown platform */
+};
+
+#endif
 

@@ -138,6 +138,10 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		// Init the default values
 		gpGlobalConfig->Initialize();
 		gpGlobalConfig->ReadDeviceCapability();
+		if(!gpGlobalConfig->ReadDeviceProperties())
+		{
+			gpGlobalConfig->ReadGstPlugins();
+		}
 		AAMPLOG_WARN("[AAMP_JS][%p]Creating GlobalConfig Instance[%p]",this,gpGlobalConfig);
 		if(!gpGlobalConfig->ReadAampCfgTxtFile())
 		{
@@ -150,6 +154,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();
 	}
+
 #ifdef SUPPORT_JS_EVENTS
 #ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so
 	const char* szJSLib = "libaampjsbindings.so";
@@ -344,9 +349,7 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *manifestData
 								)
 {
-#ifdef AMLOGIC
 	ManageAsyncTuneConfig(mainManifestUrl);
-#endif
 	if(mAsyncTuneEnabled)
 	{
 		const std::string manifest {mainManifestUrl};

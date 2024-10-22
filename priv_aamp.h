@@ -815,6 +815,12 @@ public:
 	 */
 	void updateManifest(const char *manifestData);
 
+	/**
+	 * @fn GetPlatformType - to get platform type
+	 * return int
+	 */
+	int GetPlatformType() override;
+
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
 	std::vector< std::pair<long long,long> > mAbrBitrateData;
@@ -1150,6 +1156,7 @@ public:
 	std::string seiTimecode; /**< SEI Timestamp information from Westeros */
 
 	static bool mTrackGrowableBufMem; /**< GROWABLE BUFFER Debug is enabled or not */
+	static bool mSubtecCCEnabled;	/**< To identify SUBTEC_CC is enabled or not */
 	// ID3 metadata
 	aamp::id3_metadata::MetadataCache mId3MetadataCache; /**< Metadata cache object for the JS event */
 

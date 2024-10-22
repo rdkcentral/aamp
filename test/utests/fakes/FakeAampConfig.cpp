@@ -191,3 +191,13 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
 {
     return false;
 }
+
+bool AampConfig::ReadDeviceProperties()
+{
+	return false;
+}
+
+void AampConfig::ReadGstPlugins()
+{
+}
+

@@ -250,7 +250,17 @@ void AAMPGstPlayer::SetPauseOnStartPlayback(bool enable)
 	}
 }
 
-void RemoveProbes()
+void AAMPGstPlayer::RemoveProbes()
 {
+}
+
+PlatformType AAMPGstPlayer::InitializeAAMPPlatformConfigs()
+{
+	return ePLATFORM_UNKNOWN;
+}
+
+bool AAMPGstPlayer::IsMS2V12Supported()
+{
+	return false;
 }
 

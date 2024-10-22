@@ -5172,14 +5172,13 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
-
-#if defined(AMLOGIC)
-	// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
-	// this shouldn't impact seekplay or ADs on Peacock & LLAMA
-	if (tuneType == eTUNETYPE_SEEK && !(mbSeeked == true || rate == 0 || (rate == 1 && pipeline_paused == true)))
-		for (int i = 0; i < AAMP_TRACK_COUNT; i++) mbNewSegmentEvtSent[i] = false;
-#endif
-
+	if(GETCONFIGVALUE_PRIV(eAAMPConfig_PlatformType) == ePLATFORM_AMLOGIC)
+	{
+		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
+		// this shouldn't impact seekplay or ADs on Peacock & LLAMA
+		if (tuneType == eTUNETYPE_SEEK && !(mbSeeked == true || rate == 0 || (rate == 1 && pipeline_paused == true)))
+			for (int i = 0; i < AAMP_TRACK_COUNT; i++) mbNewSegmentEvtSent[i] = false;
+	}
 	ui32CurlTrace=0;
 
 	if((mTelemetryInterval == 0) && mbPlayEnabled)
@@ -5917,10 +5916,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	//temporary hack for peacock
 	if (STARTS_WITH_IGNORE_CASE(mAppName.c_str(), "peacock"))
 	{
-        // Enable PTS Restamping only for Peacock App on BCOM
-#if defined(BRCM)
-        SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, true);
-#endif
+		// Enable PTS Restamping only for Peacock App on BCOM
+		if(GetPlatformType() == ePLATFORM_BRCM)
+		{
+			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, true);
+		}
 	}
 
 	/* Reset counter in new tune */
@@ -13830,3 +13830,13 @@ bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
 	// it will be done in the server pipeline
 	return !ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink);
 }
+
+/**
+ * @brief To get platform type
+ * @param[in] int
+ */
+int PrivateInstanceAAMP::GetPlatformType()
+{
+	return GETCONFIGVALUE_PRIV(eAAMPConfig_PlatformType);
+}
+

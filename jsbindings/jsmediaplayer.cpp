@@ -181,7 +181,6 @@ std::vector<AAMPMediaPlayer_JS *> AAMPMediaPlayer_JS::_jsMediaPlayerInstances = 
  */
 static pthread_mutex_t jsMediaPlayerCacheMutex = PTHREAD_MUTEX_INITIALIZER;
 
-
 /**
  * @brief Helper function to parse a JS property value as number
  * @param[in] ctx JS execution context
@@ -3887,7 +3886,6 @@ JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef c
 	//Get jsinfo config for INFO logging
 	privObj->bInfoEnabled = privObj->_aamp->IsJsInfoLoggingEnabled();
 
-
 	// NOTE : Association of JSObject and AAMPMediaPlayer_JS native object will be deleted only in
 	// AAMPMediaPlayerJS_release ( APP initiated )  or AAMPMediaPlayer_JS_finalize ( GC initiated)
 	// There is chance that aamp_UnloadJS is called then functions on aamp object is called from JS script.
@@ -3957,8 +3955,6 @@ void ClearAAMPPlayerInstances(void)
 	}
 	pthread_mutex_unlock(&jsMediaPlayerCacheMutex);
 }
-
-#ifdef PLATCO
 
 class XREReceiver_onEventHandler
 {
@@ -4195,8 +4191,6 @@ void LoadXREReceiverStub(void* context)
 
 	LOG_TRACE("Exit");
 }
-#endif // PLATCO
-
 
 /**
  * @brief Loads AAMPMediaPlayer JS constructor into JS context
@@ -4221,11 +4215,7 @@ void AAMPPlayer_LoadJS(void* context)
 	JSStringRelease(str);
 
 	PersistentWatermark_LoadJS(context);
-
-#ifdef PLATCO
 	LoadXREReceiverStub(context);
-#endif
-	
 	LOG_TRACE("Exit");
 }
 

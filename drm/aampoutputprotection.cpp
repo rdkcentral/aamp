@@ -103,8 +103,6 @@ bool AampOutputProtection::IsSourceUHD()
     bool retVal = false;
 
 //    DEBUG_FUNC;
-
-#ifdef CONTENT_4K_SUPPORTED
     static gint     sourceHeight    = 0;
     static gint     sourceWidth     = 0;
 
@@ -128,7 +126,6 @@ bool AampOutputProtection::IsSourceUHD()
         // Source Material is UHD
         retVal = true;
     }
-#endif
     return retVal;
 }
 

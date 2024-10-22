@@ -29,7 +29,7 @@
 /**
  * @brief Parse format to generate GstCaps
  */
-GstCaps* GetGstCaps(StreamOutputFormat format)
+GstCaps* GetGstCaps(StreamOutputFormat format, PlatformType platform)
 {
 	GstCaps * caps = NULL;
 	switch (format)
@@ -78,27 +78,35 @@ GstCaps* GetGstCaps(StreamOutputFormat format)
 			caps = gst_caps_new_simple ("audio/x-eac3", NULL, NULL);
 			break;
 		case FORMAT_VIDEO_ES_H264:
-#if (defined(RPI) || defined(__APPLE__) || defined(UBUNTU))
-			caps = gst_caps_new_simple ("video/x-h264",
-                                       "alignment", G_TYPE_STRING, "au",
-                                       "stream-format", G_TYPE_STRING, "avc",
-                                       NULL);
-#elif (defined(REALTEKCE))
-			caps = gst_caps_new_simple ("video/x-h264", "enable-fastplayback", G_TYPE_STRING, "true", NULL);
-#else
 			caps = gst_caps_new_simple ("video/x-h264", NULL, NULL);
+#if (defined(RPI) || defined(__APPLE__) || defined(UBUNTU))
+			gst_caps_set_simple (caps,
+					"alignment", G_TYPE_STRING, "au",
+					"stream-format", G_TYPE_STRING, "avc",
+					NULL);
+#else
+			if(platform == ePLATFORM_REALTEK)
+			{
+				gst_caps_set_simple (caps, "enable-fastplayback", G_TYPE_STRING, "true", NULL);
+			}
 #endif
 			break;
 		case FORMAT_VIDEO_ES_HEVC:
+			caps = gst_caps_new_simple("video/x-h265", NULL, NULL);
+
+			// Platform-specific appending of properties
 #if (defined(RPI) || defined(__APPLE__) || defined(UBUNTU))
-			caps = gst_caps_new_simple ("video/x-h265",
+			gst_caps_set_simple(caps,
 					"alignment", G_TYPE_STRING, "au",
 					"stream-format", G_TYPE_STRING, "hev1",
 					NULL);
-#elif (defined(REALTEKCE))
-			caps = gst_caps_new_simple ("video/x-h265", "enable-fastplayback", G_TYPE_STRING, "true", NULL);
 #else
-			caps = gst_caps_new_simple ("video/x-h265", NULL, NULL);
+			if (platform == ePLATFORM_REALTEK)
+			{
+				gst_caps_set_simple(caps,
+						"enable-fastplayback", G_TYPE_STRING, "true",
+						NULL);
+			}
 #endif
 			break;
 		case FORMAT_VIDEO_ES_MPEG2:

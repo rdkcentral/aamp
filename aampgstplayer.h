@@ -369,17 +369,21 @@ public:
 	*/
 	~AAMPGstPlayer();
 	/**
-     	 * @fn InitializeAAMPGstreamerPlugins
-     	 */
+	 * @fn InitializeAAMPGstreamerPlugins
+	 */
 	static void InitializeAAMPGstreamerPlugins();
 	/**
+	 * @fn InitializeAAMPPlatformConfigs
+	 */
+	static PlatformType InitializeAAMPPlatformConfigs();
+	/**
 	 * @fn NotifyEOS
-     	 */
+	 */
 	void NotifyEOS();
 	/**
-     	 * @fn NotifyFirstFrame
-     	 * @param[in] type media type of the frame which is decoded, either audio or video.
-     	 */
+	 * @fn NotifyFirstFrame
+	 * @param[in] type media type of the frame which is decoded, either audio or video.
+	 */
 	void NotifyFirstFrame(AampMediaType type);
 	/**
      	 * @fn DumpDiagnostics
