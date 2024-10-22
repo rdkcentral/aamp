@@ -32,59 +32,46 @@
 
 #include <closedcaptions/AampCCManager.h>
 
-#if defined(AAMP_RDK_CC_ENABLED)
-	#include <closedcaptions/rdk/AampRDKCCManager.h>
-#elif defined(AAMP_SUBTEC_CC_ENABLED)
-	#include <closedcaptions/subtec/AampSubtecCCManager.h>
-#else
-#error "AAMP_RDK_CC_ENABLED and AAMP_SUBTEC_CC_ENABLED undefined"
-#endif
+#include <closedcaptions/subtec/AampSubtecCCManager.h>
 
 
 #define CHAR_CODE_1 49
 #define CHAR_CODE_6 54
 
+int IsCCOnFlag = 0;															//Extern variable introducted in meta-bcm
 
-#if defined(AAMP_RDK_CC_ENABLED)
-
+#if defined(AAMP_SUBTITLE_SUPPORTED)
 static mrcc_Error GetCapability(gsw_CcAttribType attribType, gsw_CcType ccType, void **values, unsigned int *size)
 {
-	return ccGetCapability(attribType, ccType, values, size);
+        return subtecConnector::ccMgrAPI::ccGetCapability(attribType, ccType, values, size);
 }
 
-mrcc_Error GetAttributes(gsw_CcAttributes * attrib, gsw_CcType ccType)
+static mrcc_Error GetAttributes(gsw_CcAttributes * attrib, gsw_CcType ccType)
 {
-	return ccGetAttributes(attrib, ccType);
+        return subtecConnector::ccMgrAPI::ccGetAttributes(attrib, ccType);
 }
 
-mrcc_Error SetAttributes(gsw_CcAttributes * attrib, short type, gsw_CcType ccType)
+static mrcc_Error SetAttributes(gsw_CcAttributes * attrib, short type, gsw_CcType ccType)
 {
-	return ccSetAttributes(attrib, type, ccType);
+        return subtecConnector::ccMgrAPI::ccSetAttributes(attrib, type, ccType);
 }
-
-#elif defined(AAMP_SUBTEC_CC_ENABLED)
-
-int IsCCOnFlag = 0;
-
-static mrcc_Error GetCapability(gsw_CcAttribType attribType, gsw_CcType ccType, void **values, unsigned int *size)
-{
-	return subtecConnector::ccMgrAPI::ccGetCapability(attribType, ccType, values, size);
-}
-
-mrcc_Error GetAttributes(gsw_CcAttributes * attrib, gsw_CcType ccType)
-{
-	return subtecConnector::ccMgrAPI::ccGetAttributes(attrib, ccType);
-}
-
-mrcc_Error SetAttributes(gsw_CcAttributes * attrib, short type, gsw_CcType ccType)
-{
-	return subtecConnector::ccMgrAPI::ccSetAttributes(attrib, type, ccType);
-}
-
 #else
-	#error "AAMP_RDK_CC_ENABLED and AAMP_SUBTEC_CC_ENABLED undefined"
-#endif
+// stubs for (simulator & RPI) builds without inband ccDataReader
+static mrcc_Error GetCapability(gsw_CcAttribType attribType, gsw_CcType ccType, void **values, unsigned int *size)
+{
+        return 0;
+}
 
+static mrcc_Error GetAttributes(gsw_CcAttributes * attrib, gsw_CcType ccType)
+{
+        return 0;
+}
+
+static mrcc_Error SetAttributes(gsw_CcAttributes * attrib, short type, gsw_CcType ccType)
+{
+        return 0;
+}
+#endif
 /**
  * @brief Get color option from input string
  *
@@ -788,13 +775,12 @@ int AampCCManagerBase::SetStatus(bool enable)
 	int ret = 0;
 	mEnabled = enable;
 	AAMPLOG_WARN("AampCCManagerBase::mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s",
-				mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
-#if defined(AAMP_SUBTEC_CC_ENABLED)
+			mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
 	if (mEnabled)
 		IsCCOnFlag = 1;
 	else
 		IsCCOnFlag = 0;
-#endif
+
 	if (!mTrickplayStarted && !mParentalCtrlLocked && CheckCCHandle())
 	{
 		// Setting CC rendering to true before media_closeCaptionStart is not honoured
@@ -817,12 +803,8 @@ int AampCCManagerBase::SetStatus(bool enable)
  */
 bool AampCCManagerBase::IsOOBCCRenderingSupported()
 {
-	bool bRet = false;
-#if defined(AAMP_SUBTEC_CC_ENABLED)
-	bRet = true; // Subtec takes care of rendering CC hence return true
-#endif
-	AAMPLOG_TRACE("Subtec CC Mode Support: %d", bRet);
-	return bRet;
+	AAMPLOG_TRACE("Subtec CC Mode Support: ON");
+	return true;
 }
 
 /**
@@ -837,12 +819,11 @@ AampCCManagerBase *AampCCManager::GetInstance()
 {
 	if (mInstance == NULL)
 	{
-#if defined(AAMP_RDK_CC_ENABLED)
-		mInstance = new AampRDKCCManager();
-#elif defined(AAMP_SUBTEC_CC_ENABLED)
+#if defined(AAMP_SUBTITLE_SUPPORTED)
 		mInstance = new AampSubtecCCManager();
 #else
-	#error "AAMP_RDK_CC_ENABLED and AAMP_SUBTEC_CC_ENABLED undefined"
+		AAMPLOG_WARN("No subtec support on simulators. Creating a dummy instance!");
+		mInstance = new AampFakeCCManager();
 #endif
 	}
 	return mInstance;

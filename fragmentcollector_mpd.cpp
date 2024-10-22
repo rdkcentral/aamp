@@ -56,9 +56,7 @@
 #include "AampTSBSessionManager.h"
 //#define DEBUG_TIMELINE
 
-#ifdef AAMP_CC_ENABLED
 #include "AampCCManager.h"
-#endif
 
 /**
  * @addtogroup AAMP_COMMON_TYPES
@@ -12326,11 +12324,9 @@ void StreamAbstractionAAMP_MPD::SetTextTrackInfo(const std::vector<TextTrackInfo
 
 	aamp->mCurrentTextTrackIndex = textTrack;
 
-#ifdef AAMP_CC_ENABLED
-		std::vector<TextTrackInfo> textTracksCopy;
-		std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
-		AampCCManager::GetInstance()->updateLastTextTracks(textTracksCopy);
-#endif
+	std::vector<TextTrackInfo> textTracksCopy;
+	std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
+	AampCCManager::GetInstance()->updateLastTextTracks(textTracksCopy);
 
 	if (tracksChanged)
 	{

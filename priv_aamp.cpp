@@ -49,9 +49,7 @@
 #include "SubtecFactory.hpp"
 #include "AampGrowableBuffer.h"
 
-#ifdef AAMP_CC_ENABLED
 #include "AampCCManager.h"
-#endif
 #ifdef USE_OPENCDM // AampOutputProtection is compiled when this  flag is enabled
 #include "aampoutputprotection.h"
 #endif
@@ -1384,10 +1382,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
 	StopPausePositionMonitoring("AAMP destroyed");
-#ifdef AAMP_CC_ENABLED
 	AampCCManager::GetInstance()->Release(mCCId);
 	mCCId = 0;
-#endif
 	pthread_mutex_lock(&gMutex);
 	auto iter = std::find_if(std::begin(gActivePrivAAMPs), std::end(gActivePrivAAMPs), [this](const gActivePrivAAMP_t& el)
 	{
@@ -3002,7 +2998,6 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 		}
 	}
 
-#ifdef AAMP_CC_ENABLED
 	if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
 	{
 		if (rate == AAMP_NORMAL_PLAY_RATE)
@@ -3014,7 +3009,6 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 			AampCCManager::GetInstance()->SetTrickplayStatus(true);
 		}
 	}
-#endif
 	//Hack For DELIA-51318 convert the incoming rates into acceptable rates
 	if(ISCONFIGSET_PRIV(eAAMPConfig_RepairIframes))
 	{
@@ -4844,7 +4838,6 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 		}
 		else
 		{
-#ifdef AAMP_CC_ENABLED
 			AAMPLOG_INFO("before CC Release - mTuneType:%d mbPlayEnabled:%d ", mTuneType, mbPlayEnabled);
 			if (mbPlayEnabled && mTuneType != eTUNETYPE_RETUNE)
 			{
@@ -4855,7 +4848,6 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 			{
 				AAMPLOG_WARN("CC Release - skipped ");
 			}
-#endif
 			if(!mbUsingExternalPlayer)
 			{
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(this);
@@ -5655,7 +5647,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 	}
 
-#ifdef AAMP_CC_ENABLED
 	if(!mIsFakeTune)
 	{
 		AAMPLOG_INFO("mCCId: %d",mCCId);
@@ -5668,8 +5659,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		if(mIsInbandCC)
 			AampCCManager::GetInstance()->RestoreCC();
 	}
-#endif
-
 
 	if (newTune && !mIsFakeTune)
 	{
@@ -6095,7 +6084,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	SetLowLatencyServiceConfigured(false);
 
 	UpdateLiveOffset();
-#ifdef AAMP_CC_ENABLED
 	if (eMEDIAFORMAT_OTA == mMediaFormat)
 	{
 		if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
@@ -6103,7 +6091,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			AampCCManager::GetInstance()->SetParentalControlStatus(false);
 		}
 	}
-#endif
 
 	if(bFirstAttempt)
 	{
@@ -6746,14 +6733,12 @@ void PrivateInstanceAAMP::detach()
 		{
 			mMPDDownloaderInstance->Release();
 		}
-#ifdef AAMP_CC_ENABLED
 		// Stop CC when pipeline is stopped
 		if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
 		{
 			AampCCManager::GetInstance()->Release(mCCId);
 			mCCId = 0;
 		}
-#endif
 #ifdef USE_SECMANAGER
 		mDRMSessionManager->hideWatermarkOnDetach();
 #endif
@@ -8112,7 +8097,6 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 	}
 #endif
 
-#ifdef AAMP_CC_ENABLED
 	if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
 	{
 		AampCCManager::GetInstance()->Init((void *)decoderHandle);
@@ -8126,9 +8110,8 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 
 	}
 	else
-#endif
 	{
-#if defined FLEX2_RDK && defined AAMP_CC_ENABLED
+#if defined FLEX2_RDK
 		AampCCManager::GetInstance()->Init((void *)decoderHandle);
 #else
 		CCHandleEventPtr event = std::make_shared<CCHandleEvent>(decoderHandle, GetSessionId());
@@ -9400,7 +9383,6 @@ void PrivateInstanceAAMP::SendBlockedEvent(const std::string & reason, const std
 {
 	BlockedEventPtr event = std::make_shared<BlockedEvent>(reason, currentLocator, GetSessionId());
 	SendEvent(event,AAMP_EVENT_SYNC_MODE);
-#ifdef AAMP_CC_ENABLED
 	if (0 == reason.compare("SERVICE_PIN_LOCKED"))
 	{
 		if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
@@ -9408,7 +9390,6 @@ void PrivateInstanceAAMP::SendBlockedEvent(const std::string & reason, const std
 			AampCCManager::GetInstance()->SetParentalControlStatus(true);
 		}
 	}
-#endif
 }
 
 /**
@@ -10366,11 +10347,9 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 	{
 		std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks(allTrack);
 
-#ifdef AAMP_CC_ENABLED
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(trackInfo), end(trackInfo), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
 		AampCCManager::GetInstance()->updateLastTextTracks(textTracksCopy);
-#endif
 		if (!trackInfo.empty())
 		{
 			//Convert to JSON format
@@ -10795,7 +10774,6 @@ std::string PrivateInstanceAAMP::GetTextTrackInfo()
 	{
 		TextTrackInfo trackInfo;
 
-#ifdef AAMP_CC_ENABLED
 		if (AampCCManager::GetInstance()->GetStatus() && mIsInbandCC)
 		{
 			std::string trackId = AampCCManager::GetInstance()->GetTrack();
@@ -10812,7 +10790,6 @@ std::string PrivateInstanceAAMP::GetTextTrackInfo()
 				}
 			}
 		}
-#endif
 		if (!trackInfoAvailable)
 		{
 			trackInfoAvailable = mpStreamAbstractionAAMP->GetCurrentTextTrack(trackInfo);
@@ -10986,7 +10963,6 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				if (track.isCC)
 				{
 					mIsInbandCC = true;
-#ifdef AAMP_CC_ENABLED
 					if (!track.instreamId.empty())
 					{
 						CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
@@ -11017,7 +10993,6 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 					{
 						AAMPLOG_ERR("PrivateInstanceAAMP: Track number/instreamId is empty, skip operation");
 					}
-#endif
 				}
 				else
 				{
@@ -11098,7 +11073,6 @@ int PrivateInstanceAAMP::GetTextTrack()
 {
 	int idx = -1;
 	AcquireStreamLock();
-#ifdef AAMP_CC_ENABLED
 	if (AampCCManager::GetInstance()->GetStatus() && mpStreamAbstractionAAMP)
 	{
 		std::string trackId = AampCCManager::GetInstance()->GetTrack();
@@ -11114,7 +11088,6 @@ int PrivateInstanceAAMP::GetTextTrack()
 			}
 		}
 	}
-#endif
 	if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted)
 	{
 		idx = mpStreamAbstractionAAMP->GetTextTrack();
@@ -11128,9 +11101,7 @@ int PrivateInstanceAAMP::GetTextTrack()
  */
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
-#ifdef AAMP_CC_ENABLED
 	AampCCManager::GetInstance()->SetStatus(enabled);
-#endif
 	AcquireStreamLock();
 	subtitles_muted = !enabled;
 	if (mpStreamAbstractionAAMP)
@@ -11203,11 +11174,9 @@ void PrivateInstanceAAMP::SetTextStyle(const std::string &options)
 	}
 	else
 	{
-#ifdef AAMP_CC_ENABLED
-		// Try setting text style via CC Manager
+			// Try setting text style via CC Manager
 		AAMPLOG_WARN("Calling AampCCManager::SetTextStyle(%s)", options.c_str());
 		AampCCManager::GetInstance()->SetStyle(options);
-#endif
 	}
 }
 
@@ -11220,11 +11189,9 @@ std::string PrivateInstanceAAMP::GetTextStyle()
 
 	if (textStyle.empty())
 	{
-#ifdef AAMP_CC_ENABLED
 		// CCManager is a singleton potentially used by multiple players
 		// so should retrieve from CCManager.
 		textStyle = AampCCManager::GetInstance()->GetStyle();
-#endif
 	}
 	return textStyle;
 }
@@ -11405,12 +11372,10 @@ void PrivateInstanceAAMP::DisableContentRestrictions(long grace, long time, bool
 	if (mpStreamAbstractionAAMP)
 	{
 		mpStreamAbstractionAAMP->DisableContentRestrictions(grace, time, eventChange);
-#ifdef AAMP_CC_ENABLED
 		if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
 		{
 			AampCCManager::GetInstance()->SetParentalControlStatus(false);
 		}
-#endif
 	}
 	mApplyContentRestriction = false;
 	ReleaseStreamLock();
@@ -12502,7 +12467,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				if (trackId >= 0 && trackId < tracks.size())
 				{
 					TextTrackInfo track = tracks[trackId];
-#ifdef AAMP_CC_ENABLED
 					if(!track.instreamId.empty())
 					{
 						CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
@@ -12519,7 +12483,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 						}
 						AampCCManager::GetInstance()->SetTrack(track.instreamId, format);
 					}
-#endif
 				}
 
 			}

@@ -70,9 +70,7 @@
 #include "AampDRMSessionManager.h"
 #endif
 #include "AampVanillaDrmHelper.h"
-#ifdef AAMP_CC_ENABLED
 #include "AampCCManager.h"
-#endif
 
 /**
  * @struct DrmMetadata
@@ -7262,18 +7260,13 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		{
 			aamp->NotifyTextTracksChanged();
 		}
-#ifdef AAMP_CC_ENABLED
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
 		AampCCManager::GetInstance()->updateLastTextTracks(textTracksCopy);
-#endif
-
 	}
 	else
 	{
-#ifdef AAMP_CC_ENABLED
 		AampCCManager::GetInstance()->updateLastTextTracks({});
-#endif
 		AAMPLOG_ERR("StreamAbstractionAAMP_HLS:: Fail to get available audio/text tracks, mMediaCount=%d and profileCount=%d!", mMediaCount, mProfileCount);
 	}
 

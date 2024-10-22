@@ -32,9 +32,7 @@
 #include "AampConfig.h"
 #include "AampCacheHandler.h"
 #include "AampUtils.h"
-#ifdef AAMP_CC_ENABLED
 #include "AampCCManager.h"
-#endif
 #include "helper/AampDrmHelper.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampStreamSinkManager.h"
@@ -249,12 +247,10 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 
 	bool isLastPlayerInstance = !PrivateInstanceAAMP::IsActiveInstancePresent();
 
-#ifdef AAMP_CC_ENABLED
 	if (isLastPlayerInstance)
 	{
 		AampCCManager::DestroyInstance();
 	}
-#endif
 #ifdef SUPPORT_JS_EVENTS
 	if (mJSBinding_DL && isLastPlayerInstance)
 	{
@@ -2751,9 +2747,7 @@ std::string PlayerInstanceAAMP::GetAppName()
  */
 void PlayerInstanceAAMP::SetNativeCCRendering(bool enable)
 {
-#ifdef AAMP_CC_ENABLED
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_NativeCCRendering,enable);
-#endif
 }
 
 /**
@@ -2941,9 +2935,7 @@ void PlayerInstanceAAMP::SetInitRampdownLimit(int limit)
  */
 void PlayerInstanceAAMP::SetCEAFormat(int format)
 {
-#ifdef AAMP_CC_ENABLED
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_CEAPreferred,format);
-#endif
 }
 
 
@@ -3490,11 +3482,7 @@ void PlayerInstanceAAMP::SetRuntimeDRMConfigSupport(bool DynamicDRMSupported)
  */
 bool PlayerInstanceAAMP::IsOOBCCRenderingSupported()
 {
-#ifdef AAMP_CC_ENABLED
 	return AampCCManager::GetInstance()->IsOOBCCRenderingSupported();
-#else
-	return false;
-#endif
 }
 
 /**
