@@ -1492,7 +1492,8 @@ public:
 							switch( mediaType )
 							{
 								case eMEDIATYPE_AUDIO:
-									fprintf( fInventory, "bash generate-audio-segment.sh %s %" PRIu64 " %" PRIu64 " %" PRIu32 " %" PRIu64 " \"%s\" \"%s\" silence.wav\n",
+									fprintf( fInventory, "bash generate-audio-segment.sh %ld %s %" PRIu64 " %" PRIu64 " %" PRIu32 " %" PRIu64 " \"%s\" \"%s\" silence.wav\n",
+											representation.audioSamplingRate,
 											MapCodec(adaptationSet.codecs),
 											baseMediaDecodeTime,
 											representation.data.duration[durationIndex],

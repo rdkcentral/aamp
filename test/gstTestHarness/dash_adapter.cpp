@@ -409,6 +409,18 @@ void parseRepresentation( Representation &representation, const XmlNode &Represe
 			representation.frameRate = adaptationSet.frameRate;
 		}
 	}
+	else if( adaptationSet.contentType == "audio" )
+	{
+		if( Representation.hasAttribute("audioSamplingRate") )
+		{
+			representation.audioSamplingRate = Number(Representation.getAttribute("audioSamplingRate"));
+		}
+		else
+		{
+			representation.audioSamplingRate = adaptationSet.audioSamplingRate;
+		}
+	}
+	
 	for( const auto pChild : Representation.children )
 	{
 		const XmlNode &child = *pChild; // hack for . syntax
@@ -492,6 +504,10 @@ bool parseAdaptationSet( AdaptationSet &adaptationSet, const XmlNode &Adaptation
 	if( AdaptationSet.hasAttribute("frameRate") )
 	{
 		adaptationSet.frameRate = Number(AdaptationSet.getAttribute("frameRate"));
+	}
+	if( AdaptationSet.hasAttribute("audioSamplingRate") )
+	{
+		adaptationSet.audioSamplingRate = Number(AdaptationSet.getAttribute("audioSamplingRate"));
 	}
 	if( AdaptationSet.hasAttribute("lang") )
 	{

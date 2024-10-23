@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -e
 
 # VIDEO_CODEC=h264 (avc1.4d4028)
 # VIDEO_CODEC=hevc (hvc1.1.6.L93.90)
@@ -15,8 +15,8 @@ MEDIA_FNAME=$9
 INIT_FNAME=${10}
 SOURCE_MEDIA=${11}
 
-# leverage bc for floating point math
-DURATION_S=$(echo "scale=3; $DURATION/$TIMESCALE" | bc)
+# floating point math
+DURATION_S=$(echo "$DURATION $TIMESCALE" | awk '{printf "%f", $1 / $2}')
 START_TIME_S=$(echo "scale=3; $BASE_MEDIA_DECODE_TIME/$TIMESCALE" | bc)
 
 # scale text proportional to resolution
@@ -55,6 +55,11 @@ ffmpeg -y \
 
 # split into init header and media segment
 ffmpeg -i video.mp4 -c:v copy -f dash -init_seg_name $INIT_FNAME -media_seg_name $MEDIA_FNAME video.mpd
+
+if [ $? -ne 0 ]; then
+    echo "ffmpeg failed while splitting video into init header and media segment"
+    exit 1
+fi
 
 # repair timescale in init header
 python3 modifyContentMetaData.py $INIT_FNAME --timescale $TIMESCALE

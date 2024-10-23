@@ -76,6 +76,7 @@ public:
 	long width;
 	long height;
 	long frameRate;
+	long audioSamplingRate;
 	
 	class MediaData data;
 	
@@ -89,8 +90,9 @@ public:
 		stream << "width=" << width << "\n";
 		stream << "height=" << height << "\n";
 		stream << "frameRate=" << frameRate << "\n";
-		data.Debug();
+		stream << "audioSamplingRate=" << audioSamplingRate << "\n";
 		puts( stream.str().c_str() );
+		data.Debug();
 	}
 };
 
@@ -106,6 +108,7 @@ public:
 	long maxWidth;
 	long maxHeight;
 	long frameRate;
+	long audioSamplingRate;
 	
 	class MediaData data;
 	
@@ -120,6 +123,7 @@ public:
 		stream << "contentType=" << contentType << "\n";
 		stream << "codecs=" << codecs << "\n";
 		stream << "mimeType=" << mimeType << "\n";
+		stream << "audioSamplingRate=" << audioSamplingRate << "\n";
 		puts( stream.str().c_str() );
 		data.Debug();
 		for( auto it : representation )
