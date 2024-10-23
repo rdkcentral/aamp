@@ -234,6 +234,9 @@ class Aamp:
         "logfile": "log1.txt"              # Optional
         "max_test_time_seconds": 30        # Optional, The max time the test is allowed to run before fail, default 15
         "aamp_cfg": "info=true\ntrace=true\n", # Values to set in aamp.cfg
+        "cmdlist": [                        # Optional, list of commands to give to aamp-cli before starting test proper
+            "setconfig {"logMetadata":true,"client-dai":true"},
+        ]
         "expect_list": [                   # Simple list with cmds to send to aamp or log lines to
                                             # expected back, no timing information
              {"cmd":"aamp-cli command"},
@@ -258,6 +261,12 @@ class Aamp:
         self.start_aamp()
 
         start_time = time.time()
+
+        # Optional list of commands to give to aamp before starting test proper
+        aamp_cmdlist = testdata.get('cmdlist', [])
+        for cmd in aamp_cmdlist:
+            self.sendline(cmd)
+            self.aamp_pexpect.expect('cmd: ')
 
         if self.simlinear:
             self.sendline(self.simlinear.SL_URL+testdata["url"])
