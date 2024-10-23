@@ -329,6 +329,8 @@ void AampMPDDownloader::Start()
 			AAMPLOG_WARN("Thread create failed for MPD Downloader1 : %s", e.what());
 		}
 
+		#if 0 // downloader thread 2 is not required now . When Option 2 is considered , need to do parallel download
+		// Following to be done after successful download of Main Manifest
 		if(!mMPDDnldCfg->mStichUrl.empty())
 		{
 			try
@@ -341,6 +343,7 @@ void AampMPDDownloader::Start()
 				AAMPLOG_WARN("Thread create failed for MPD Downloader2 : %s", e.what());
 			}
 		}
+		#endif
 	}
 	else
 	{

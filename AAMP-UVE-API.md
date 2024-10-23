@@ -269,7 +269,7 @@ Begin streaming the specified content.
 | ---- | ---- | ---------- |
 | uri | String | URI of the Media to be played by the Video Engine |
 | autoplay | Boolean | optional 2nd parameter (defaults to true). If false, causes stream to be prerolled/prebuffered only, but not automatically presented. Available starting with version 0.8 |
-| tuneParams | Object | optional 3rd parameter; The tuneParams Object includes four elements contentType, traceId, isInitialAttempt, isFinalAttempt, sessionId, manifest, mpdStichingMode and url2. Details provided in below table |
+| tuneParams | Object | optional 3rd parameter; The tuneParams Object includes four elements contentType, traceId, isInitialAttempt, isFinalAttempt, sessionId and manifest. Details provided in below table |
 
 | Name | Type | Description |
 | ---- | ---- | ---------- |
@@ -279,8 +279,6 @@ Begin streaming the specified content.
 | isFinalAttempt | Boolean | Flag indicates if the current tune is the final retry attempt, count has reached the maximum tune retry limit |
 | sessionId | String | ID of the Session set by the Video Engine to identify each player. All events emitted by a player will contain a property reporting the player's ID; if the sessionId is not set, then the sessionId will be an empty string. |
 | manifest | String | prefetched/preprocessed manifest (plaintext xml) to use instead of the manifest normally downloaded using <uri>. If provided, updated live dash manifest is expected for each manifest refresh interval (refer needManifest event). This is available only for DASH
-| url2 | String | valid url to stich for Infinite-PVR, supported only in DASH. |
-| mpdStichingMode | Boolean | flag to indicate stich mode. 0 - Tune with full manifest URL and stich small content manifest. 1 - Tune with small manifest URL and stich full content manifest. |
 
 |ContentType|Description|
 |-----------|-----------|
@@ -331,13 +329,7 @@ Example:
 	    var url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/stitched/manifest.mpd";
 	    const xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" ...; // for working case need valid DASH manifest XML
 	    player.load(url,true,{ manifest: xml});
-    }
- 	//support for Infinite-PVR asset
-    {
-            var param = { url2: "https://cpetestutility.stb.r53.xcal.tv/multilang/stich.mpd",  mpdStichingMode: 0 };
-            player1.load(url1, true, param); // for immediate playback
-            player2.load(url2, false, param); // for background buffering,no playback.
-    }
+     }
 ```
 
 ---
