@@ -94,7 +94,7 @@ if [ "$rdke_build" -eq "1" ]; then
 	export GTEST_OUTPUT="json"
 	ctest -j 4 --output-on-failure --no-compress-output -T Test --testdir build || true  # Don't exit script if a test fails
 
-	find . -name test_detail\*.json | xargs cat |  jq -s '{test_cases_results: {tests: map(.tests) | add,failures: map(.failures) | add,disabled: map(.disabled) | add,errors: map(.errors) | add,time: ((map(.time | rtrimstr("s") | tonumber) | add) | tostring + "s"),name: .[0].name,testsuites: map(.testsuites[])}}' > combinedReport.json
+	find . -name test_detail\*.json | xargs cat |  jq -s '{test_cases_results: {tests: map(.tests) | add,failures: map(.failures) | add,disabled: map(.disabled) | add,errors: map(.errors) | add,time: ((map(.time | rtrimstr("s") | tonumber) | add) | tostring + "s"),name: .[0].name,testsuites: map(.testsuites[])}}' > L1Report.json
 
 else
     ctest -j 4 --output-on-failure --no-compress-output -T Test --testdir build --output-junit ctest-results.xml

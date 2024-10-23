@@ -116,11 +116,11 @@ else
 fi
 
 #Create a minimal dummy JSON for L1 and L2 tests incase they fail to be built for some reason
-if [ -e "$TESTHOME/aamp/test/utests/build/combinedReport.json" ]; then
-    echo "L1 combinedReport.json was created successfully"
+if [ -e "$TESTHOME/aamp/test/utests/build/L1Report.json" ]; then
+    echo "L1 L1Report.json was created successfully"
 else
-    echo "Cannot find L1 combinedReport.json, creating a minimal combinedReport.json"
-    cat << EOF > "$TESTHOME/aamp/test/utests/build/combinedReport.json"
+    echo "Cannot find L1 L1Report.json, creating a minimal L1Report.json"
+    cat << EOF > "$TESTHOME/aamp/test/utests/build/L1Report.json"
 {
     "test_cases_results": 
     {
@@ -145,11 +145,11 @@ else
 EOF
 fi
 
-if [ -e "$TESTHOME/aamp/test/l2test/results.json" ]; then
-    echo "L2 results.json was created suceessfully"
+if [ -e "$TESTHOME/aamp/test/l2test/L2Report.json" ]; then
+    echo "L2 L2Report.json was created suceessfully"
 else
-    echo "Cannot find L2 results.json, creating a minimal results.json"
-    cat << EOF > "$TESTHOME/aamp/test/l2test/results.json"
+    echo "Cannot find L2 L2Report.json, creating a minimal L2Report.json"
+    cat << EOF > "$TESTHOME/aamp/test/l2test/L2Report.json"
 {
     "test_cases_results": 
     {
@@ -176,7 +176,7 @@ EOF
 fi
 
 #Create combined L1+L2 test report at /tmp/
-jq -s '{ "test_cases_results": { tests: (map(.test_cases_results.tests) | add), failures: (map(.test_cases_results.failures) | add), disabled: (map(.test_cases_results.disabled) | add), errors: (map(.test_cases_results.errors) | add), time: ((map(.test_cases_results.time | rtrimstr("s") | tonumber) | add) | tostring + "s"), name: .[0].test_cases_results.name, testsuites: (map(.test_cases_results.testsuites[]))}}' $TESTHOME/aamp/test/utests/build/combinedReport.json $TESTHOME/aamp/test/l2test/results.json > /tmp/Gtest_Report/L1+L2Report.json
+jq -s '{ "test_cases_results": { tests: (map(.test_cases_results.tests) | add), failures: (map(.test_cases_results.failures) | add), disabled: (map(.test_cases_results.disabled) | add), errors: (map(.test_cases_results.errors) | add), time: ((map(.test_cases_results.time | rtrimstr("s") | tonumber) | add) | tostring + "s"), name: .[0].test_cases_results.name, testsuites: (map(.test_cases_results.testsuites[]))}}' $TESTHOME/aamp/test/utests/build/L1Report.json $TESTHOME/aamp/test/l2test/L2Report.json > /tmp/Gtest_Report/L1+L2Report.json
 
 # Parse JSON file and extract relevant fields
 failures=$(jq -r '.test_cases_results.failures' /tmp/Gtest_Report/L1+L2Report.json)
