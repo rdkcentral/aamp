@@ -4150,17 +4150,17 @@ void AAMPGstPlayer::SetVideoRectangle(int x, int y, int w, int h)
  */
 void AAMPGstPlayer::SetVideoZoom(VideoZoomMode zoom)
 {
-	AAMPLOG_MIL("SetVideoZoom :: ZoomMode %d, video_sink =%p",
+	AAMPLOG_INFO("SetVideoZoom :: ZoomMode %d, video_sink =%p",
 			zoom, privateContext->video_sink);
 
 	privateContext->zoom = zoom;
 	if ((privateContext->video_sink) && (!privateContext->usingRialtoSink))
 	{
-		g_object_set(privateContext->video_sink, "zoom-mode", zoom, NULL);
+		g_object_set(privateContext->video_sink, "zoom-mode", VIDEO_ZOOM_FULL == zoom ? 0 : 1, NULL);
 	}
 	else
 	{
-		AAMPLOG_WARN("AAMPGstPlayer not setting video zoom");
+		AAMPLOG_INFO("AAMPGstPlayer not setting video zoom");
 	}
 }
 

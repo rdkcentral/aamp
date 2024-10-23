@@ -132,14 +132,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int videoZoom;
 						printf("[AAMPCLI] Matched Command VideoZoom - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &videoZoom) == 2){
-							if( videoZoom>=0 && videoZoom<=VIDEO_ZOOM_GLOBAL )
-							{
-								playerInstanceAamp->SetVideoZoom((VideoZoomMode)videoZoom);
-							}
-							else
-							{
-								printf( "[AAMPCLI] invalid range (expected=%d..%d)\n", 0, (int)VIDEO_ZOOM_GLOBAL );
-							}
+							playerInstanceAamp->SetVideoZoom((videoZoom > 0 )? VIDEO_ZOOM_FULL : VIDEO_ZOOM_NONE );
 						}
 						else
 						{

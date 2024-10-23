@@ -684,18 +684,12 @@ Example:
 
 ### setVideoZoom( videoZoom )
 - Supported UVE version 0.7 and above.
-- Set video zoom, by default its set to “full” (5)
+- Set video zoom, by default its set to “full”
 - Returns true if setVideoZoom has been performed.
 
-|Name       |Type    |Value    |Description|
-|-----------|--------|---------|-----------|
-| videoZoom | String | none    | No zoom is applied; the video is displayed in its original size |
-| videoZoom | String | direct  | Used for a straightforward zoom without any aspect ratio adjustments |
-| videoZoom | String | normal  | Standard zoom mode that maintains the aspect ratio while zooming in on the video |
-| videoZoom | String | stretch | Stretches the video to fit a 16:9 aspect ratio |
-| videoZoom | String | pillar  | Displays a 4:3 video with black bars |
-| videoZoom | String | full    | Zooms the video to fill the entire screen, results crop parts of the video or distort the aspect ratio |
-| videoZoom | String | global  | Applies a global zoom setting that affects all videos uniformly |
+|Name|Type|Description|
+|----|----|-----------|
+| videoZoom | String | “none” to disable video zoom mode.  “full” to enable video zoom mode |
 
 ---
 

@@ -166,6 +166,4 @@ JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long tim
 
 void jsBindingLogprintf(int playerId,const char* levelstr,const char* functionName, int line,const char *format, ...);
 
-VideoZoomMode MapZoomMode( const char *zoomStr );
-
 #endif /* __AAMP_JSUTILS_H__ */

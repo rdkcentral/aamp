@@ -2521,8 +2521,17 @@ JSValueRef AAMPMediaPlayerJS_setVideoZoom (JSContextRef ctx, JSObjectRef functio
 	{
 		if (argumentCount == 1)
 		{
+			VideoZoomMode zoom;
 			char* zoomStr = aamp_JSValueToCString(ctx, arguments[0], exception);
-			VideoZoomMode zoom = MapZoomMode(zoomStr);
+			if (0 == strcmp(zoomStr, "none"))
+			{
+				zoom = VIDEO_ZOOM_NONE;
+			}
+			else
+			{
+				zoom = VIDEO_ZOOM_FULL;
+			}
+			LOG_WARN(privObj,"_aamp->SetVideoZoom(%d)", static_cast<int>(zoom));
 			privObj->_aamp->SetVideoZoom(zoom);
 			bRet = true;
 			SAFE_DELETE_ARRAY(zoomStr);
