@@ -82,7 +82,7 @@ struct StreamInfo
 	BitsPerSecond bandwidthBitsPerSecond;    /**< Bandwidth of the stream bps*/
 	StreamResolution resolution;    /**< Resolution of the stream*/
 	BitrateChangeReason reason;     /**< Reason for bitrate change*/
-
+	std::string baseUrl;
 	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),bandwidthBitsPerSecond(0),resolution(),reason(){};
 };
 
