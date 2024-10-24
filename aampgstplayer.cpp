@@ -2077,15 +2077,25 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 				 note: alternate "window-set" works as well
 				 */
 				gst_object_replace((GstObject **)&_this->privateContext->video_sink, msg->src);
-				if (_this->privateContext->using_westerossink && !_this->aamp->mConfig->IsConfigSet(eAAMPConfig_EnableRectPropertyCfg))
+
+				if (_this->privateContext->usingRialtoSink)
+				{
+					if (_this->aamp->mConfig->IsConfigSet(eAAMPConfig_EnableRectPropertyCfg))
+					{
+						AAMPLOG_MIL("AAMPGstPlayer - using %s, setting cached rectangle and video mute", GST_OBJECT_NAME(msg->src));
+						g_object_set(msg->src, "rectangle", _this->privateContext->videoRectangle, NULL);
+					}
+					else
+					{
+						AAMPLOG_MIL("AAMPGstPlayer - using %s, setting video mute", GST_OBJECT_NAME(msg->src));
+					}
+					g_object_set(msg->src, "show-video-window", !_this->privateContext->videoMuted, NULL);
+				}
+				else if (_this->privateContext->using_westerossink && !_this->aamp->mConfig->IsConfigSet(eAAMPConfig_EnableRectPropertyCfg))
 				{
 					AAMPLOG_MIL("AAMPGstPlayer - using westerossink, setting cached video mute and zoom");
 					g_object_set(msg->src, "zoom-mode", _this->privateContext->zoom, NULL );
 					g_object_set(msg->src, "show-video-window", !_this->privateContext->videoMuted, NULL);
-				}
-				else if (_this->privateContext->usingRialtoSink)
-				{
-					AAMPLOG_WARN("AAMPGstPlayer not setting %s properties", GST_OBJECT_NAME(msg->src));
 				}
 				else
 				{
@@ -4218,7 +4228,7 @@ void AAMPGstPlayer::SetVideoMute(bool muted)
 	AAMPLOG_INFO("muted=%d video_sink =%p", muted, privateContext->video_sink);
 
 	privateContext->videoMuted = muted;
-	if ((privateContext->video_sink) && (!privateContext->usingRialtoSink))
+	if (privateContext->video_sink)
 	{
 		g_object_set(privateContext->video_sink, "show-video-window", !privateContext->videoMuted, NULL);	/* videoMuted to true implies setting the 'show-video-window' to false */
 	}
@@ -4235,7 +4245,6 @@ void AAMPGstPlayer::SetAudioVolume(int volume)
 {
 	privateContext->audioVolume = volume / 100.0;
 	setVolumeOrMuteUnMute();
-
 }
 
 /**
@@ -4244,59 +4253,73 @@ void AAMPGstPlayer::SetAudioVolume(int volume)
 void AAMPGstPlayer::setVolumeOrMuteUnMute(void)
 {
 	const std::lock_guard<std::mutex> lock(privateContext->volumeMuteMutex);
-	GstElement *gSource = NULL;
-	const char *propertyName = NULL;
-	media_stream *stream = &privateContext->stream[eMEDIATYPE_AUDIO];
+	GstElement *gSource = nullptr;
+	const char *mutePropertyName = nullptr;
+	const char *volumePropertyName = nullptr;
 
-	AAMPLOG_MIL(" volume == %lf muted == %s", privateContext->audioVolume, privateContext->audioMuted?"true":"false");
-
-	AAMPLOG_INFO("AAMPGstPlayer: audio_sink = %p", privateContext->audio_sink);
-
-#if (defined(__APPLE__) || defined(REALTEKCE))
-	if (stream->sinkbin)
-	{
-		gSource = stream->sinkbin;
-		propertyName = "mute";
-	}
-	else
-#endif
-	if (privateContext->audio_sink)
+	if (privateContext->usingRialtoSink)
 	{
 		gSource = privateContext->audio_sink;
-		propertyName = "mute";
+		mutePropertyName = "mute";
+		volumePropertyName = "volume";
 	}
 	else
 	{
-		return; /* Return here if the sinkbin or audio_sink is not valid, no need to proceed further */
-	}
-
-#ifdef AMLOGIC /*For AMLOGIC platform*/
-	/*Using "stream-volume" property of audio-sink for setting volume and mute for AMLOGIC platform*/
-	AAMPLOG_MIL("AAMPGstPlayer: Setting Volume %f using stream-volume property of audio-sink", privateContext->audioVolume);
-	g_object_set(gSource, "stream-volume", privateContext->audioVolume, NULL);
-
-	/* Avoid mute property setting for AMLOGIC as use of "mute" property on pipeline is impacting all other players*/
-#else
-	/* Muting the audio decoder in general to avoid audio passthrough in expert mode for locked channel */
-	if (0 == privateContext->audioVolume)
-	{
-		AAMPLOG_MIL("AAMPGstPlayer: Audio Muted");
-		g_object_set(gSource, propertyName, true, NULL);
-		privateContext->audioMuted = true;
-	}
-	else
-	{
-		if (privateContext->audioMuted)
+#if (defined(__APPLE__) || defined(REALTEKCE))
+		// Why do these platforms set volume/mute on the sinkbin rather than the audio_sink?
+		// Or why do the other platforms not also do this?
+		gSource = privateContext->stream[eMEDIATYPE_AUDIO].sinkbin;
+#endif
+		if (nullptr == gSource)
 		{
-			AAMPLOG_MIL("AAMPGstPlayer: Audio Unmuted after a Mute");
-			g_object_set(gSource, propertyName, false, NULL);
-			privateContext->audioMuted = false;
+			gSource = privateContext->audio_sink;
 		}
 
-		AAMPLOG_MIL("AAMPGstPlayer: Setting Volume %f", privateContext->audioVolume);
-		g_object_set(gSource, "volume", privateContext->audioVolume, NULL);
-	}
+#ifdef AMLOGIC /*For AMLOGIC platform*/
+		/* Avoid mute property setting for AMLOGIC as use of "mute" property on pipeline is impacting all other players */
+		/* Using "stream-volume" property of audio-sink for setting volume and mute for AMLOGIC platform */
+		volumePropertyName = "stream-volume";
+#else
+		mutePropertyName = "mute";
+		volumePropertyName = "volume";
 #endif
+	}
+
+	AAMPLOG_MIL("volume == %lf muted == %s", privateContext->audioVolume, privateContext->audioMuted ? "true" : "false");
+
+	if (nullptr != gSource)
+	{
+		if (nullptr != mutePropertyName)
+		{
+			/* Muting the audio decoder in general to avoid audio passthrough in expert mode for locked channel */
+			if (0 == privateContext->audioVolume)
+			{
+				AAMPLOG_MIL("Audio Muted");
+				g_object_set(gSource, mutePropertyName, true, NULL);
+				privateContext->audioMuted = true;
+			}
+			else if (privateContext->audioMuted)
+			{
+				AAMPLOG_MIL("Audio Unmuted after a Mute");
+				g_object_set(gSource, mutePropertyName, false, NULL);
+				privateContext->audioMuted = false;
+			}
+			else
+			{
+				// Deliberately left empty
+			}
+		}
+
+		if ((nullptr != volumePropertyName) && (false == privateContext->audioMuted))
+		{
+			AAMPLOG_MIL("Setting Volume %f using \"%s\" property", privateContext->audioVolume, volumePropertyName);
+			g_object_set(gSource, volumePropertyName, privateContext->audioVolume, NULL);
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("No element to set volume/mute");
+	}
 }
 
 

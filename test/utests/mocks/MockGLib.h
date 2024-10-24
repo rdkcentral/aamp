@@ -34,6 +34,10 @@ public:
 	MOCK_METHOD(gpointer, g_malloc, (gsize n_bytes));
 	MOCK_METHOD(void, g_free, (gpointer mem));
 	MOCK_METHOD(gpointer, g_realloc, (gpointer mem, gsize n_bytes));
+
+	MOCK_METHOD(void, g_object_set, (gpointer object, const gchar *property_name, int value));
+	MOCK_METHOD(void, g_object_set, (gpointer object, const gchar *property_name, char * value));
+	MOCK_METHOD(void, g_object_set, (gpointer object, const gchar *property_name, double value));
 };
 
 extern MockGLib *g_mockGLib;
