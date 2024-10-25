@@ -1040,6 +1040,7 @@ public:
 	long long mAdPrevProgressTime;
 	uint32_t mAdCurOffset;					/**< Start position in percentage */
 	uint32_t mAdDuration;
+	uint64_t mAdAbsoluteStartTime;			/**< Start time of Ad */
 	std::string mAdProgressId;
 	bool discardEnteringLiveEvt;
 	bool mIsRetuneInProgress;
@@ -1667,9 +1668,10 @@ public:
 	/**
 	 *   @fn ReportAdProgress
 	 *   @param[in]  sync - Flag to indicate that event should be synchronous
+	 *   @param[in]  positionMs - Position value in milliseconds
 	 *   @return void
 	 */
-	void ReportAdProgress(bool sync = true);
+	void ReportAdProgress(bool sync = true, double positionMs = -1);
 
 	/**
 	 *   @fn GetDurationMs
@@ -2455,9 +2457,10 @@ public:
 	 *   @param[in] type - Event type
 	 *   @param[in] adBreakId - Reservation Id
 	 *   @param[in] position - Event position in terms of channel's timeline
+	 *   @param[in] absolutePositionMs - Event absolute position
 	 *   @param[in] immediate - Send it immediate or not
 	 */
-	void SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, bool immediate=false);
+	void SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate=false);
 
 	/**
 	 *   @fn SendAdPlacementEvent
@@ -2465,12 +2468,13 @@ public:
 	 *   @param[in] type - Event type
 	 *   @param[in] adId - Placement Id
 	 *   @param[in] position - Event position wrt to the corresponding adbreak start
+	 *   @param[in] absolutePositionMs - Event absolute position
 	 *   @param[in] adOffset - Offset point of the current ad
 	 *   @param[in] adDuration - Duration of the current ad
 	 *   @param[in] immediate - Send it immediate or not
 	 *   @param[in] error_code - Error code (in case of placment error)
 	 */
-	void SendAdPlacementEvent(AAMPEventType type, const std::string &adId, uint32_t position, uint32_t adOffset, uint32_t adDuration, bool immediate=false, long error_code=0);
+	void SendAdPlacementEvent(AAMPEventType type, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, uint32_t adOffset, uint32_t adDuration, bool immediate=false, long error_code=0);
 
 	/**
 	 *   @brief Set anonymous request true or false
@@ -4266,9 +4270,13 @@ protected:
 
 	/**
 	 * @fn DeliverAdEvents
+	 *
+	 * @param[in] immediate - flag to deliver ad events immediately
+	 * @param[in] positionMs - position in milliseconds
+	 *
 	 * @return void
 	 */
-	void DeliverAdEvents(bool immediate=false);
+	void DeliverAdEvents(bool immediate=false, double positionMs = -1);
 
 	/**
 	 *   @fn GetContentTypString

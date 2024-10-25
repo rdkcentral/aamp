@@ -308,12 +308,12 @@ AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, ui
 {
 }
 
-AdReservationEvent::AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, std::string sid):
+AdReservationEvent::AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, uint64_t absolutePositionMs, std::string sid):
 		AAMPEventObject(evtType, std::move(sid))
 {
 }
 
-AdPlacementEvent::AdPlacementEvent(AAMPEventType evtType, const std::string &adId, uint32_t position, std::string sid, uint32_t offset, uint32_t duration, int errorCode):
+AdPlacementEvent::AdPlacementEvent(AAMPEventType evtType, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, std::string sid, uint32_t offset, uint32_t duration, int errorCode):
 		AAMPEventObject(evtType, std::move(sid))
 {
 }
@@ -324,6 +324,11 @@ const std::string &AdPlacementEvent::getAdId() const
 }
 
 uint32_t AdPlacementEvent::getPosition() const
+{
+	return 0;
+}
+
+uint64_t AdPlacementEvent::getAbsolutePositionMs() const
 {
 	return 0;
 }

@@ -1251,8 +1251,8 @@ uint64_t AdResolvedEvent::getDuration() const
 /**
  * @brief AdReservationEvent Constructor
  */
-AdReservationEvent::AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, std::string sid):
-		AAMPEventObject(evtType, std::move(sid)), mAdBreakId(breakId), mPosition(position)
+AdReservationEvent::AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, uint64_t absolutePositionMs, std::string sid):
+		AAMPEventObject(evtType, std::move(sid)), mAdBreakId(breakId), mPosition(position), mAbsolutePositionMs(absolutePositionMs)
 {
 
 }
@@ -1278,10 +1278,20 @@ uint64_t AdReservationEvent::getPosition() const
 }
 
 /**
+ * @brief Get Ad's Absolute position
+ *
+ * @return Ad's absolute position (in MS)
+ */
+uint64_t AdReservationEvent::getAbsolutePositionMs() const
+{
+	return mAbsolutePositionMs;
+}
+
+/**
  * @brief AdPlacementEvent Constructor
  */
-AdPlacementEvent::AdPlacementEvent(AAMPEventType evtType, const std::string &adId, uint32_t position, std::string sid, uint32_t offset, uint32_t duration, int errorCode):
-		AAMPEventObject(evtType, std::move(sid)), mAdId(adId), mPosition(position),
+AdPlacementEvent::AdPlacementEvent(AAMPEventType evtType, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, std::string sid, uint32_t offset, uint32_t duration, int errorCode):
+		AAMPEventObject(evtType, std::move(sid)), mAdId(adId), mPosition(position), mAbsolutePositionMs(absolutePositionMs),
 		mOffset(offset), mDuration(duration), mErrorCode(errorCode)
 {
 
@@ -1305,6 +1315,16 @@ const std::string &AdPlacementEvent::getAdId() const
 uint32_t AdPlacementEvent::getPosition() const
 {
 	return mPosition;
+}
+
+/**
+ * @brief Get Ad's Absolute position
+ *
+ * @return Ad's absolute position (in MS)
+ */
+uint64_t AdPlacementEvent::getAbsolutePositionMs() const
+{
+	return mAbsolutePositionMs;
 }
 
 /**

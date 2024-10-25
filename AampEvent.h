@@ -1795,6 +1795,7 @@ class AdReservationEvent: public AAMPEventObject
 {
 	std::string mAdBreakId;	/**<Adbreak's id */
 	uint64_t mPosition;	/**<Adbreak's start position */
+	uint64_t mAbsolutePositionMs; /**<Adbreak's absolute position in UTC milliseconds */
 
 public:
 	AdReservationEvent() = delete;
@@ -1807,8 +1808,10 @@ public:
 	 * @param[in] evtType  - Event Type
 	 * @param[in] breakId  - Unique identifier of Ad reservation.
 	 * @param[in] position - Postion of reservation in content's PTS
+	 * @param[in] absolutePositionMs - Absolute position of reservation
+	 * @param[in] sid      - Session Identifier
 	 */
-	AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, std::string sid);
+	AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, uint64_t absolutePositionMs, std::string sid);
 
 	/**
 	 * @brief AdReservationEvent Destructor
@@ -1824,6 +1827,11 @@ public:
 	 * @fn getPosition
 	 */
 	uint64_t getPosition() const;
+
+	/**
+	 * @fn getabsolutePositionMs
+	 */
+	uint64_t getAbsolutePositionMs() const;
 };
 
 /**
@@ -1834,6 +1842,7 @@ class AdPlacementEvent: public AAMPEventObject
 {
 	std::string mAdId;	/**< Ad Id */
 	uint32_t mPosition;	/**< Ad Position relative to Reservation Start */
+	uint64_t mAbsolutePositionMs; /**< Absolute Ad Position in UTC milliseconds */
 	uint32_t mOffset;	/**< Ad start offset */
 	uint32_t mDuration;	/**< Ad's duration */
 	int mErrorCode;		/**< Error code, if any */
@@ -1849,11 +1858,12 @@ public:
 	 * @param[in] evtType   - Event type
 	 * @param[in] adId      - Ad Id
 	 * @param[in] position  - Ad's position (in channel's PTS)
+	 * @param[in] absolutePositionMs - Ad's absolute position
 	 * @param[in] offset    - Ad's start offset
 	 * @param[in] duration  - Ad's duration in MS
 	 * @param[in] errorCode - Error code, in case of placement error
 	 */
-	AdPlacementEvent(AAMPEventType evtType, const std::string &adId, uint32_t position, std::string sid, uint32_t offset=0, uint32_t duration=0, int errorCode=0);
+	AdPlacementEvent(AAMPEventType evtType, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, std::string sid, uint32_t offset=0, uint32_t duration=0, int errorCode=0);
 
 	/**
 	 * @brief AdPlacementEvent Destructor
@@ -1869,6 +1879,11 @@ public:
 	 * @fn getPosition
 	 */
 	uint32_t getPosition() const;
+
+	/**
+	 * @fn getAbsolutePositionMs
+	 */
+	uint64_t getAbsolutePositionMs() const;
 
 	/**
 	 * @fn getOffset

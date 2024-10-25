@@ -1036,12 +1036,12 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 }
 
 void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId,
-												 uint64_t position, bool immediate)
+												 uint64_t position, uint64_t absolutePositionMs, bool immediate)
 {
 }
 
 void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::string &adId,
-											   uint32_t position, uint32_t adOffset,
+											   uint32_t position, uint64_t absolutePositionMs, uint32_t adOffset,
 											   uint32_t adDuration, bool immediate, long error_code)
 {
 }

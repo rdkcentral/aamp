@@ -1115,7 +1115,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mIsFirstRequestToFOG(false),
 	mPausePositionMonitorMutex(), mPausePositionMonitorCV(), mPausePositionMonitoringThreadID(), mPausePositionMonitoringThreadStarted(false),
 	mTuneType(eTUNETYPE_NEW_NORMAL)
-	,mCdaiObject(NULL), mAdEventsQ(),mAdEventQMtx(), mAdPrevProgressTime(0), mAdCurOffset(0), mAdDuration(0), mAdProgressId("")
+	,mCdaiObject(NULL), mAdEventsQ(),mAdEventQMtx(), mAdPrevProgressTime(0), mAdCurOffset(0), mAdDuration(0), mAdProgressId(""), mAdAbsoluteStartTime(0)
 	,mBufUnderFlowStatus(false), mVideoBasePTS(0)
 	,mCustomLicenseHeaders(), mIsIframeTrackPresent(false), mManifestTimeoutMs(-1), mNetworkTimeoutMs(-1)
 	,mbPlayEnabled(true), mPlayerPreBuffered(false), mPlayerId(PLAYERID_CNTR++),mAampCacheHandler(NULL)
@@ -1839,11 +1839,6 @@ bool PrivateInstanceAAMP::GetIsPeriodChangeMarked()
 void PrivateInstanceAAMP::CompleteDiscontinutyDataDeliverForPTSRestamp(AampMediaType type)
 {
 	UnblockWaitForDiscontinuityProcessToComplete();
-	if( type == eMEDIATYPE_VIDEO )
-	{
-		AAMPLOG_WARN( "Deliver AD Events" );
-		DeliverAdEvents();
-	}
 }
 
 /**
@@ -2113,8 +2108,6 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 	//Once GST_MESSAGE_EOS is received, AAMP does not want any stray progress to be sent to player. so added the condition state != eSTATE_COMPLETE
 	if (mDownloadsEnabled && (state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (state != eSTATE_COMPLETE) && (state != eSTATE_SEEKING))
 	{
-		ReportAdProgress(sync);
-
 		// set position to 0 if the rewind operation has reached Beginning Of Stream
 		double position = beginningOfStream? 0: GetPositionMilliseconds();
 		double duration = durationSeconds * 1000.0;
@@ -2148,6 +2141,8 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			//AAMPLOG_WARN("aamp clamp start");
 			position = start;
 		}
+		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
+		ReportAdProgress(sync, position);
 
 		if(ISCONFIGSET_PRIV(eAAMPConfig_ReportVideoPTS))
 		{
@@ -2339,26 +2334,48 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
  *   @brief Report Ad progress event to listeners
  *          Sending Ad progress percentage to JSPP
  */
-void PrivateInstanceAAMP::ReportAdProgress(bool sync)
+void PrivateInstanceAAMP::ReportAdProgress(bool sync, double positionMs)
 {
+	// This API reports progress of Ad playback in percentage
+	double pct = -1;
 	if (mDownloadsEnabled && !mAdProgressId.empty())
 	{
-		long long curTime = NOW_STEADY_TS_MS;
+		// Report Ad progress percentage to JSPP
+		double curPosition = 0;
+		if(positionMs >= 0)
+		{
+			curPosition = positionMs;
+		}
+		else
+		{
+			curPosition = static_cast<double>(NOW_STEADY_TS_MS);
+		}
 		if (!pipeline_paused)
 		{
 			//Update the percentage only if the pipeline is in playing.
-			mAdCurOffset += (uint32_t)(curTime - mAdPrevProgressTime);
-			if(mAdCurOffset > mAdDuration) mAdCurOffset = mAdDuration;
+			pct = ((curPosition - static_cast<double>(mAdAbsoluteStartTime)) / static_cast<double>(mAdDuration)) * 100;
 		}
-		mAdPrevProgressTime = curTime;
 
-		int pct = (mAdCurOffset * 100) / mAdDuration;
+		if (pct < 0)
+		{
+			pct = 0;
+		}
+		if(pct > 100)
+		{
+			pct = 100;
+		}
+
 		if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 		{
-			AAMPLOG_WARN("AdId:%s %d", mAdProgressId.c_str(), pct );
+			static int tick2;
+			uint64_t adEnd = mAdAbsoluteStartTime + mAdDuration;
+			if ((tick2++ % 4) == 0)
+			{
+				AAMPLOG_WARN("AdId:%s pos:  %" PRIu64 "..%.2lf..%" PRIu64 "..%.2f%%)", mAdProgressId.c_str(), mAdAbsoluteStartTime/1000, curPosition/1000, adEnd/1000, pct);
+			}
 		}
 
-		AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, pct, GetSessionId());
+		AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, static_cast<uint32_t>(pct), 0, GetSessionId());
 		if(sync)
 		{
 			mEventManager->SendEvent(evt,AAMP_EVENT_SYNC_MODE);
@@ -3347,6 +3364,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 	{
 		ProcessPendingDiscontinuity();
 		pthread_cond_signal(&mCondDiscontinuity);
+		// EOS reached with discontinuity handling, send events without position check
 		DeliverAdEvents();
 		AAMPLOG_WARN("PrivateInstanceAAMP:  EOS due to discontinuity handled");
 	}
@@ -9483,30 +9501,62 @@ void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool stat
 
 /**
  * @brief Deliver all pending Ad events to JSPP
+ *
+ * @param[in] immediate - deliver immediately or not
+ * @param[in] position - current playback position
  */
-void PrivateInstanceAAMP::DeliverAdEvents(bool immediate)
+void PrivateInstanceAAMP::DeliverAdEvents(bool immediate, double position)
 {
 	std::lock_guard<std::mutex> lock(mAdEventQMtx);
 	while (!mAdEventsQ.empty())
 	{
 		AAMPEventPtr e = mAdEventsQ.front();
+		AdPlacementEventPtr placementEvt  = nullptr;
+		AdReservationEventPtr reservationEvt = nullptr;
+		AAMPEventType evtType = e->getType();
+
+		//If immediate is true, it is a failed case and deliver all events immediately
 		if(immediate)
 		{
 			mEventManager->SendEvent(e,AAMP_EVENT_SYNC_MODE);
 		}
 		else
 		{
+			double target = -1;
+			if (AAMP_EVENT_AD_PLACEMENT_START <= evtType && AAMP_EVENT_AD_PLACEMENT_ERROR >= evtType)
+			{
+				placementEvt = std::dynamic_pointer_cast<AdPlacementEvent>(e);
+				target = static_cast<double>(placementEvt->getAbsolutePositionMs());
+			}
+			else if (AAMP_EVENT_AD_RESERVATION_START <= evtType && AAMP_EVENT_AD_RESERVATION_END >= evtType)
+			{
+				reservationEvt = std::dynamic_pointer_cast<AdReservationEvent>(e);
+				target = static_cast<double>(reservationEvt->getAbsolutePositionMs());
+			}
+			else
+			{
+				AAMPLOG_WARN("PrivateInstanceAAMP: [CDAI] Unknown Ad event type %d", evtType);
+				mAdEventsQ.pop();
+				continue;
+			}
+			// Check if the event is ready to be delivered
+			if((position != -1) && (position < target))
+			{
+				AAMPLOG_TRACE( "Deferring transmission evtType=%d (immediate=%d) pos=%lf target=%lf", evtType, immediate, position, target);
+				break;
+			}
+
 			mEventManager->SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 		}
-		AAMPEventType evtType = e->getType();
 		AAMPLOG_WARN("PrivateInstanceAAMP:, [CDAI] Delivered AdEvent[%s] to JSPP.", ADEVENT2STRING(evtType));
-		if(AAMP_EVENT_AD_PLACEMENT_START == evtType)
+		if(placementEvt && AAMP_EVENT_AD_PLACEMENT_START == evtType)
 		{
-			AdPlacementEventPtr placementEvt = std::dynamic_pointer_cast<AdPlacementEvent>(e);
 			mAdProgressId       = placementEvt->getAdId();
 			mAdPrevProgressTime = NOW_STEADY_TS_MS;
 			mAdCurOffset        = placementEvt->getOffset();
 			mAdDuration         = placementEvt->getDuration();
+			mAdAbsoluteStartTime = placementEvt->getAbsolutePositionMs();
+			AAMPLOG_INFO("PrivateInstanceAAMP: [CDAI] AdProgressId[%s] AdOffset[%d] AdDuration[%d] AdAbsoluteStartTime[%llu]", mAdProgressId.c_str(), mAdCurOffset, mAdDuration, mAdAbsoluteStartTime);
 		}
 		else if(AAMP_EVENT_AD_PLACEMENT_END == evtType || AAMP_EVENT_AD_PLACEMENT_ERROR == evtType)
 		{
@@ -9519,13 +9569,13 @@ void PrivateInstanceAAMP::DeliverAdEvents(bool immediate)
 /**
  * @brief Send Ad reservation event
  */
-void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, bool immediate)
+void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate)
 {
 	if(AAMP_EVENT_AD_RESERVATION_START == type || AAMP_EVENT_AD_RESERVATION_END == type)
 	{
 		AAMPLOG_INFO("PrivateInstanceAAMP: [CDAI] Pushed [%s] of adBreakId[%s] to Queue.", ADEVENT2STRING(type), adBreakId.c_str());
 
-		AdReservationEventPtr e = std::make_shared<AdReservationEvent>(type, adBreakId, position, GetSessionId());
+		AdReservationEventPtr e = std::make_shared<AdReservationEvent>(type, adBreakId, position, absolutePositionMs, GetSessionId());
 
 		{
 			{
@@ -9544,13 +9594,13 @@ void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::
 /**
  * @brief Send Ad placement event
  */
-void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::string &adId, uint32_t position, uint32_t adOffset, uint32_t adDuration, bool immediate, long error_code)
+void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, uint32_t adOffset, uint32_t adDuration, bool immediate, long error_code)
 {
 	if(AAMP_EVENT_AD_PLACEMENT_START <= type && AAMP_EVENT_AD_PLACEMENT_ERROR >= type)
 	{
 		AAMPLOG_INFO("PrivateInstanceAAMP: [CDAI] Pushed [%s] of adId[%s] to Queue.", ADEVENT2STRING(type), adId.c_str());
 
-		AdPlacementEventPtr e = std::make_shared<AdPlacementEvent>(type, adId, position, GetSessionId(), adOffset * 1000 /*MS*/, adDuration, error_code);
+		AdPlacementEventPtr e = std::make_shared<AdPlacementEvent>(type, adId, position, absolutePositionMs, GetSessionId(), adOffset * 1000 /*MS*/, adDuration, error_code);
 
 		{
 			{
