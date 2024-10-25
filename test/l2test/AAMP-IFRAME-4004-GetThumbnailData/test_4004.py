@@ -75,9 +75,15 @@ stream_configuration=[
 
     {"url":"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/thumbnail_l2/peacock1/mpeg_2sec/manifest.m3u8"},
     {"url":"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/thumbnail_l2/peacock2/mpeg_2sec/manifest.m3u8"},
-    {"url":"https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel-tiled-thumbnails-numbered.ism/.mpd"},
+   {"url":"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-IFRAME-4004-GetThumbnailData/spectrum/DASH_DRM/NBCE9000392526190003/ec3/index.ism/manifest.mpd"},
 
 ]
+
+def extract_and_append_urls(ranges_info):
+    base_url = ranges_info["baseUrl"]
+    tile_urls = [tile["url"] for tile in ranges_info["tile"]]
+    full_urls = [base_url + tile_url for tile_url in tile_urls]
+    return full_urls
 
 def ranges_parser(regex_match):
     '''Checks that the returned JSON object contains at least a tile.
@@ -89,7 +95,16 @@ def ranges_parser(regex_match):
 
     if ranges_info.get('tile') is not None:
         tiles = ranges_info.get('tile')
-
+        current_url = test_sequence['expect_list'][0]['cmd']
+        if "AAMP-IFRAME-4004-GetThumbnailData" in current_url:
+            full_urls = extract_and_append_urls(ranges_info)
+            expected_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-IFRAME-4004-GetThumbnailData/spectrum/DASH_DRM/NBCE9000392526190003/ec3/index.ism/DASH_DRM/NBCE9000392526190003/ec3/index.ism/dash/out_withEac3_v2-img=5000-n-1.jpg"
+            # Check if any of the appended URLs match the expected URL
+            if expected_url in full_urls:
+                print(f"URL matched: {expected_url}")
+            else:
+                print(f"URL did not match. Got: {full_urls}")
+                raise Exception ("URL did not match")
     else:
         raise Exception ("No tiles found in the interval")
 

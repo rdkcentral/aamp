@@ -1406,6 +1406,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 
 ### getThumbnail(startPosition, endPosition)
 - Get the thumbnail data for the time range “startPosition” till “endPosition”.
+- For linear streams(e.g Live,Hot CDVR,..) start and endPosition has to be specified w.r.t Avaialability start time
 
 |Name|Type|Description|
 |----|----|-----------|
@@ -1423,8 +1424,36 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 | x | String | X co-ordinate position to locate the tile from sprite sheet |
 | y | String | Y co-ordinate position to locate the tile from sprite sheet |
 
+```js
+    {
+	    var player = new AAMPMediaPlayer();
+	    player.getAvailableThumbnailTracks();
+	    setThumbnailTrack(trackIndex);
+	    player.getThumbnail(1729737573,1729737600); //linear streams
+	    // for VOD
+	    player.getThumbnail(0,120); //time range in relative
+    }
+```
 ##### Example:
 
+Linear Streams:
+      {
+	  "baseUrl" : "https://plbk-pvdcco-vmr108.cdvr.spectrum.com/a9cf331d-2c1b-4130-853d-e46bf52ff99c/",
+	  "raw_w":1600,
+	  "raw_h":900,
+	  "width":320,
+	  "height":180,
+	  "tile":
+          [{
+	    "url":"keyframes-root_audio_video5-video=206000-5.jpeg",
+	    "t":1729736580,
+	    "d":10,
+	    "x":1282,
+	    "y":0
+	  }]
+      }
+
+VOD Streams:
       {
           "baseUrl" : "https://g004-c-13a10c-peacockvodstg.s.llnwi.net/pub/global/aOb/kIc/PCK_1604349987778_01/cmaf_thumbtest_segtime_d/mpeg_2sec/images/416x234/",
           "raw_w": 3744,
@@ -1440,7 +1469,6 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
             "y": 234
           }]
       }
-
 ---
 
 ### subscribeResponseHeaders(headerNames)

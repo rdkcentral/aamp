@@ -10929,26 +10929,36 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 	AampMPDParseHelper *MPDParseHelper = nullptr;
 	MPDParseHelper  = new AampMPDParseHelper();
 	MPDParseHelper->Initialize(mpd);
+	FragmentDescriptor fragmentDescriptor;
+
 	if(trackEmpty || indexedTileInfo.empty())
 	{
 		int w = 1, h = 1, bandwidth = 0, periodIndex = 0;
 		bool isAdPeriod = true, done = false;
 		double adDuration = 0;
 		long int prevStartNumber = -1;
+		const std::vector<IBaseUrl *> mpdBaseUrls = mpd->GetBaseUrls();
 		{
 			for(IPeriod* tempPeriod : mpd->GetPeriods())
 			{
 				const std::vector<IAdaptationSet *> adaptationSets = tempPeriod->GetAdaptationSets();
+				const std::vector<IBaseUrl *> PeriodBaseUrls = tempPeriod->GetBaseURLs();
 				int adSize = (int)adaptationSets.size();
 				for(int j =0; j < adSize; j++)
 				{
 					if(MPDParseHelper->IsContentType(adaptationSets.at(j), eMEDIATYPE_IMAGE) )
 					{
 						isAdPeriod = false;
+						const std::vector<IBaseUrl *> adapBaseUrls = adaptationSets.at(j)->GetBaseURLs();
 						const std::vector<IRepresentation *> representation = adaptationSets.at(j)->GetRepresentation();
 						for (int repIndex = 0; repIndex < representation.size(); repIndex++)
 						{
 							const dash::mpd::IRepresentation *rep = representation.at(repIndex);
+							fragmentDescriptor.ClearMatchingBaseUrl();
+							fragmentDescriptor.AppendMatchingBaseUrl(&mpdBaseUrls);
+							fragmentDescriptor.AppendMatchingBaseUrl(&PeriodBaseUrls);
+							fragmentDescriptor.AppendMatchingBaseUrl(&adapBaseUrls);
+							fragmentDescriptor.AppendMatchingBaseUrl( &rep->GetBaseURLs() );
 							const std::vector<INode *> subnodes = rep->GetAdditionalSubNodes();
 							PeriodElement periodElement(adaptationSets.at(j), rep);
 							for (unsigned i = 0; i < subnodes.size() && !done; i++)
@@ -11007,8 +11017,9 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 								}
 								tmp->resolution.width /= w;
 								tmp->resolution.height /= h;
+								tmp->baseUrl = fragmentDescriptor.GetMatchingBaseUrl();
 								thumbnailtrack.push_back(tmp);
-								AAMPLOG_TRACE("thumbnailtrack bandwidth=%" BITSPERSECOND_FORMAT " width=%d height=%d", tmp->bandwidthBitsPerSecond, tmp->resolution.width, tmp->resolution.height);
+								AAMPLOG_TRACE("Thumbnailtrack bandwidth=%" BITSPERSECOND_FORMAT " width=%d height=%d", tmp->bandwidthBitsPerSecond, tmp->resolution.width, tmp->resolution.height);
 							}
 							if((thumbnailtrack.size() > thumbIndexValue) && thumbnailtrack[thumbIndexValue]->bandwidthBitsPerSecond == (long)bandwidth)
 							{
@@ -11079,7 +11090,7 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 										uint64_t duration = segmentTemplates.GetDuration();
 										uint32_t imgTimeScale = timeScale ? timeScale : 1;
 										long int tNumber = 1; //tile Number
-										double tottile = 0; // total number of tiles in a period
+										int tottile = 0; // total number of tiles in a period
 										std::string RepresentationID = rep->GetId();
 										double periodStartTime = MPDParseHelper->GetPeriodStartTime(periodIndex,mpdInstance->mLastPlaylistDownloadTimeMs);
 										double periodDuration = MPDParseHelper->aamp_GetPeriodDuration(periodIndex,mpdInstance->mLastPlaylistDownloadTimeMs)/1000;
@@ -11092,7 +11103,7 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 											}
 											double tStartTime =  periodStartTime + (tNumber-1)*tDuration;
 											tottile = periodDuration/tDuration;
-											AAMPLOG_TRACE("Thumbnail track total tiles in period = %f , periodStartTime = %f periodDuration = %f ",tottile,periodStartTime,periodDuration);
+											AAMPLOG_TRACE("Thumbnail track total tiles in period = %d , periodStartTime = %f periodDuration = %f ",tottile,periodStartTime,periodDuration);
 
 											while(tottile-- > 0)
 											{
@@ -11244,25 +11255,16 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_MPD::GetThumbnailRangeData(doub
 		if(updateBaseParam)
 		{
 			updateBaseParam = false;
-			std::string url;
-			if( url.compare(0, 7, "http://")==0 || url.compare(0, 8, "https://")==0 )
+			std::string url = thumbnailtrack[aamp->mthumbIndexValue]->baseUrl;
+			if(url.empty())
 			{
-				url = tmpdata.url;
-				*baseurl = url.substr(0,url.find_last_of("/\\")+1);
+				url = aamp->GetManifestUrl();
 			}
 			else
 			{
-				const std::vector<IBaseUrl *>*baseUrls = &mpd->GetBaseUrls();
-				if ( baseUrls->size() > 0 )
-				{
-					*baseurl = baseUrls->at(0)->GetUrl();
-				}
-				else
-				{
-					url = aamp->GetManifestUrl();
-					*baseurl = url.substr(0,url.find_last_of("/\\")+1);
-				}
+				aamp_ResolveURL(url, aamp->GetManifestUrl(), thumbnailtrack[aamp->mthumbIndexValue]->baseUrl.c_str(), false);
 			}
+			*baseurl = url.substr(0,url.find_last_of("/\\")+1);
 			*width = thumbnailtrack[aamp->mthumbIndexValue]->resolution.width;
 			*height = thumbnailtrack[aamp->mthumbIndexValue]->resolution.height;
 			*raw_w = thumbnailtrack[aamp->mthumbIndexValue]->resolution.width * tileInfo.layout.numCols;
