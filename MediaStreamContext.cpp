@@ -70,7 +70,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
     , bool playingAd, double pto, uint32_t scale, bool overWriteTrackId)
 {
     bool ret = false;
-    double posInAbsTimeline = fragmentTime;
+    double posInAbsTimeline = ((double)fragmentTime);
     AAMPLOG_INFO("Type[%d] position(before restamp) %f discontinuity %d pto %f scale %u duration %f mPTSOffsetSec %f absTime %lf fragmentUrl %s",
        type, position, discontinuity, pto, scale, duration, GetContext()->mPTSOffset.inSeconds(), posInAbsTimeline, fragmentUrl.c_str());
 
@@ -450,7 +450,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr,
 			AAMPLOG_WARN("[%s] Something Went wrong - Can't get FetchChunkBuffer", name);
 			return false;
 		}
-		double posInAbsTimeline = fragmentTime;
+		double posInAbsTimeline = ((double)fragmentTime);
     		cachedFragment->absPosition =  posInAbsTimeline;
 		cachedFragment->type = actualType;
 		cachedFragment->downloadStartTime = dnldStartTime;

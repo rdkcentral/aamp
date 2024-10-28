@@ -77,7 +77,7 @@ public :
 	uint32_t Bandwidth;
 	std::string RepresentationID;
 	uint64_t Number;
-	uint64_t Time; // divide by TimeScale to get time in seconds
+	double Time;				//In units of timescale
 	bool bUseMatchingBaseUrl;
 	int64_t nextfragmentNum;
 	double nextfragmentTime;
