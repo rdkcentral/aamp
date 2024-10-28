@@ -7,10 +7,8 @@
 #include <inttypes.h>
 #include "AampOcdmGstSessionAdapter.h"
 
-#ifdef AMLOGIC
 #include "gst/video/gstvideotimecode.h"
 #include "gst/video/gstvideometa.h"
-#endif
 
 #define USEC_PER_SEC   1000000
 static inline uint64_t GetCurrentTimeStampInUSec()
@@ -117,7 +115,6 @@ void LogPerformanceExt(const char *strFunc, uint64_t msStart, uint64_t msEnd, SE
 #endif //LOG_DECRYPT_STATS
 }
 
-#ifdef AMLOGIC
 class BitStreamState
 {
 	private:
@@ -245,8 +242,8 @@ void AAMPOCDMGSTSessionAdapter::ExtractSEI( GstBuffer *buffer)
 							AAMPLOG_TRACE( "SEI (HH:MM:SS)  %02d:%02d:%02d number of frames (%d)", hours_value, minutes_value, seconds_value, n_frames );
 							gst_buffer_add_video_time_code_meta_full(
 																	 buffer,
-																	 0, // fps_n
-																	 1, // fps_d
+																	 30000, // fps_n
+																	 1001, // fps_d
 																	 NULL, // latest_daily_jam
 																	 GST_VIDEO_TIME_CODE_FLAGS_NONE,
 																	 hours_value,
@@ -266,7 +263,6 @@ void AAMPOCDMGSTSessionAdapter::ExtractSEI( GstBuffer *buffer)
 	/** Unmap buffer after use **/
 	gst_buffer_unmap(buffer, &info);
 }
-#endif
 
 /**
  * @brief decrypt the data
@@ -282,13 +278,12 @@ int AAMPOCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuff
 			return HDCP_COMPLIANCE_CHECK_FAILURE;
 		}
 
-#ifdef AMLOGIC
 		/**
 		 * Extract the SEI timestamps from both clear and encrypted content. 
 		 */
 		AAMPLOG_TRACE("DEBUG: Extract the SEI timestamps from encrypted content.");
 		ExtractSEI(buffer);
-#endif
+
 		pthread_mutex_lock(&decryptMutex);
 		uint64_t start_decrypt_time = GetCurrentTimeStampInMSec();
 
