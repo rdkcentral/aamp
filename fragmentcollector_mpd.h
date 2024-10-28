@@ -562,9 +562,15 @@ protected:
 	void printSelectedTrack(const std::string &trackIndex, AampMediaType media);
 	/**
 	 * @fn AdvanceTrack
+	 * @param[in] trackIdx - track index
+	 * @param[in] trickPlay - flag indicates if its trickplay
+	 * @param[in/out] waitForFreeFrag - flag is updated if we are waiting for free fragment
+	 * @param[in/out] bCacheFullState - flag is updated if the cache is full for this track
+	 * @param[in] throttleAudio - flag indicates if we should throttle audio download
+	 * @param[in] isDiscontinuity - flag indicates if its a discontinuity
 	 * @return void
 	 */
-	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState,bool isDiscontinuity = false);
+	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState,bool throttleAudio,bool isDiscontinuity = false);
 	/**
 	 * @fn AdvanceTsbFetch
 	 * @param[in] trackIdx - trackIndex

@@ -8800,7 +8800,7 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 /**
  * @brief Fetches and caches audio fragment parallelly for video fragment.
  */
-void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState, bool isDiscontinuity )
+void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState,bool throttleAudioDownload,bool isDiscontinuity)
 {
 	UsingPlayerId playerId(aamp->mPlayerId);
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
@@ -8927,6 +8927,13 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	{
 		// Important DEBUG area, live downloader is delayed due to some external factors (Injector or Gstreamer)
 		AAMPLOG_ERR("%s Live downloader is not advancing at the moment cache (%d / %d)", GetMediaTypeName((AampMediaType) trackIdx), pMediaStreamContext->numberOfFragmentsCached, maxCachedFragmentsPerTrack);
+	}
+	// If throttle audio download is set and prev fragment download happened and cache is not full, attempt to download an additional fragment
+	if (throttleAudioDownload && (trackIdx == eMEDIATYPE_AUDIO) && isAllowNextFrag && !(*bCacheFullState))
+	{
+		AAMPLOG_INFO("throttleAudioDownload enabled, invoking AdvanceTrack again");
+		// Disable throttleAudioDownload this time to prevent continuous looping here
+		AdvanceTrack(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState, false);
 	}
 }
 
@@ -9652,6 +9659,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			double lastPrdOffset = mBasePeriodOffset;
 			bool parallelDnld = ISCONFIGSET(eAAMPConfig_DashParallelFragDownload);
 			bool *cacheFullStatus = new bool[AAMP_TRACK_COUNT]{false};
+			bool throttleAudio = false;
 			while (!exitFetchLoop)
 			{
 				if (mIsLiveStream && !mIsLiveManifest && playlistDownloaderThreadStarted)
@@ -9665,6 +9673,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				{
 					SwitchAudioTrack();
 					mMediaStreamContext[eTRACK_AUDIO]->refreshAudio = false;
+					throttleAudio = true;
 				}
 				if(rate == AAMP_NORMAL_PLAY_RATE && mMediaStreamContext[eTRACK_SUBTITLE] && mMediaStreamContext[eTRACK_SUBTITLE]->refreshSubtitles )
 				{
@@ -9689,12 +9698,19 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 								&delta,
 								&waitForFreeFrag,
 								&cacheFullStatus[trackIdx],
+								(trackIdx == eMEDIATYPE_AUDIO) ? throttleAudio : false,
 								false);
 							AAMPLOG_TRACE("Thread created for parallelDownload:AdvanceTrack [%d][%zx]", trackIdx, GetPrintableThreadID(*parallelDownload[trackIdx]));
+							// Reset throttleAudio for next iteration
+							if (trackIdx == eMEDIATYPE_AUDIO && throttleAudio)
+							{
+								AAMPLOG_INFO("Set throttleAudio to false");
+								throttleAudio = false;
+							}
 						}
 						else
 						{
-							AdvanceTrack(trackIdx, trickPlay, &delta, &waitForFreeFrag, &cacheFullStatus[trackIdx], isVidDiscInitFragFail);
+							AdvanceTrack(trackIdx, trickPlay, &delta, &waitForFreeFrag, &cacheFullStatus[trackIdx],false, isVidDiscInitFragFail);
 							parallelDownload[trackIdx] = NULL;
 						}
 					}

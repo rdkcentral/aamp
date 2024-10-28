@@ -48,6 +48,7 @@ TESTDATA1 = {
 		{"expect": r"\[sendSegment\]\[\d+\]IsoBmffProcessor audio sending segment at pos:0.000000 dur:0.000000"},
 		{"expect": r"\[RestampPts\]\[\d+\].*?before 0 after 0 duration \d+ https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/dash/480p_001.m4s"},
 		{"expect": "IP_AAMP_TUNETIME"},
+		{"not_expect":"throttleAudioDownload enabled, invoking AdvanceTrack again"},
 		{"not_expect": "Unable to get audioAdaptationSet"},
 		{"cmd": "set 32 german"},
 		{"cmd": "sleep 5000"},
@@ -60,6 +61,7 @@ TESTDATA1 = {
 		{"expect": r"PreferredCodecString mp4a.40.2"},
 		{"expect": r"Seamless audio switch has been enabled"},
 		{"expect": r"FlushTrack()"},
+		{"expect": r"throttleAudioDownload enabled, invoking AdvanceTrack again"},
 		{"cmd": "exit"},
     ]
 }
