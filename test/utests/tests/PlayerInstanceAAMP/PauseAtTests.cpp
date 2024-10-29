@@ -1072,6 +1072,10 @@ TEST_F(PauseAtTests, SetAudioBitrateTest3) {
     BitsPerSecond audioBitrate = std::numeric_limits<BitsPerSecond>::min(); 
     mPlayerInstance->SetAudioBitrate(audioBitrate);
 }
+TEST_F(PauseAtTests, GetVideoZoomDefault){
+	int ZoomMode = mPlayerInstance->GetVideoZoom();
+	EXPECT_EQ(ZoomMode,VIDEO_ZOOM_DIRECT);
+}
 TEST_F(PauseAtTests, GetVideoZoomTest1) {
     //checking zoom mode = VIDEO_ZOOM_FULL
     mPlayerInstance->aamp->zoom_mode = VIDEO_ZOOM_FULL;

@@ -261,7 +261,7 @@ struct AAMPGstPlayerPriv
 			periodicProgressCallbackIdleTaskId(AAMP_TASK_ID_INVALID),
 			bufferingTimeoutTimerId(AAMP_TASK_ID_INVALID), video_dec(NULL), audio_dec(NULL),TaskControlMutex(),firstProgressCallbackIdleTask("FirstProgressCallback"),
 			video_sink(NULL), audio_sink(NULL), subtitle_sink(NULL),task_pool(NULL),
-			rate(AAMP_NORMAL_PLAY_RATE), zoom(VIDEO_ZOOM_FULL), videoMuted(false), audioMuted(false), volumeMuteMutex(), subtitleMuted(false),
+			rate(AAMP_NORMAL_PLAY_RATE), zoom(VIDEO_ZOOM_DIRECT), videoMuted(false), audioMuted(false), volumeMuteMutex(), subtitleMuted(false),
 			audioVolume(1.0), eosCallbackIdleTaskId(AAMP_TASK_ID_INVALID), eosCallbackIdleTaskPending(false),
 			firstFrameReceived(false), pendingPlayState(false), decoderHandleNotified(false),
 			firstFrameCallbackIdleTaskId(AAMP_TASK_ID_INVALID), firstFrameCallbackIdleTaskPending(false),
@@ -2078,7 +2078,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 				if (_this->privateContext->using_westerossink && !_this->aamp->mConfig->IsConfigSet(eAAMPConfig_EnableRectPropertyCfg))
 				{
 					AAMPLOG_MIL("AAMPGstPlayer - using westerossink, setting cached video mute and zoom");
-					g_object_set(msg->src, "zoom-mode", VIDEO_ZOOM_FULL == _this->privateContext->zoom ? 0 : 1, NULL);
+					g_object_set(msg->src, "zoom-mode", _this->privateContext->zoom, NULL );
 					g_object_set(msg->src, "show-video-window", !_this->privateContext->videoMuted, NULL);
 				}
 				else if (_this->privateContext->usingRialtoSink)
@@ -2089,7 +2089,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 				{
 					AAMPLOG_MIL("AAMPGstPlayer setting cached rectangle, video mute and zoom");
 					g_object_set(msg->src, "rectangle", _this->privateContext->videoRectangle, NULL);
-					g_object_set(msg->src, "zoom-mode", VIDEO_ZOOM_FULL == _this->privateContext->zoom ? 0 : 1, NULL);
+					g_object_set(msg->src, "zoom-mode", _this->privateContext->zoom, NULL );
 					g_object_set(msg->src, "show-video-window", !_this->privateContext->videoMuted, NULL);
 				}
 			}
