@@ -157,6 +157,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,tsbReaderThreadStarted(false), abortTsbReader(false)
 	,mShortAdOffsetCalc(false)
 	,mNextPts(0.0)
+	,mPrevFirstPeriodStart(0.0f)
 {
 	this->aamp = aamp;
 #ifdef AAMP_MPD_DRM
@@ -3648,7 +3649,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				if(aamp->IsLiveStream() && !aamp->IsUninterruptedTSB() && iPeriod == 0)
 				{
 					// Adjust start time wrt presentation time offset.
-					if(!aamp->IsLive())
+					if(!aamp->IsLive() && mAvailabilityStartTime > 0 )
 					{
 						periodStartMs += aamp->culledSeconds;
 					}
@@ -8282,6 +8283,31 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			}
 		}
 		double firstPeriodStart = mMPDParseHelper->GetPeriodStartTime(firstPeriodIdx,mLastPlaylistDownloadTimeMs);
+		double availStartTime = mMPDParseHelper->GetAvailabilityStartTime();
+		if( true == aamp->IsIVODContent() && ( firstPeriodStart != mPrevFirstPeriodStart && availStartTime <=0 ) )
+		{
+
+			/*
+				XIONE-15901 : [XIONE-UK] IVOD trick play not working after
+				asset license expiry time.
+				When License get expired the absolute timeline changes to
+				different value from manifest. In order to maintain
+				continuity of playback when trick play is performed
+				it is required to reset the timeline values based on
+				new value received from manifest
+			*/
+			aamp->seek_pos_seconds -= aamp->culledSeconds;
+			aamp->prevFirstPeriodStartTime = (aamp->culledSeconds*1000);
+			aamp->culledSeconds = firstPeriodStart;
+			aamp->seek_pos_seconds += aamp->culledSeconds;
+			mCulledSeconds = aamp->culledSeconds;
+			aamp->mAbsoluteEndPosition = aamp->culledSeconds;
+			seekPosition = aamp->seek_pos_seconds;
+			aamp->mProgressReportOffset = -1;
+			aamp->mPrevPositionMilliseconds.Invalidate();
+
+			AAMPLOG_WARN("firstPeriodStart: %lf aamp->culledSeconds: %lf aamp->seek_pos_seconds: %lf aamp->mAbsoluteEndPosition: %lf seekPosition: %lf mCulledSeconds: %lf", firstPeriodStart, aamp->culledSeconds, aamp->seek_pos_seconds, aamp->mAbsoluteEndPosition, seekPosition, mCulledSeconds);
+		}
 		double lastPeriodStart = 0;
 		if (firstPeriodIdx == lastPeriodIdx)
 		{
@@ -8328,7 +8354,8 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			aamp->mAbsoluteEndPosition += aamp->culledSeconds;
 		}
 
-		AAMPLOG_INFO("Culled seconds = %f, Updated culledSeconds: %lf duration: %lf", culled, mCulledSeconds, aamp->mAbsoluteEndPosition);
+		mPrevFirstPeriodStart = firstPeriodStart;
+		AAMPLOG_INFO("Culled seconds: %f, Updated culledSeconds: %lf AbsoluteEndPosition: %lf PrevFirstPeriodStart: %lf", culled, mCulledSeconds, aamp->mAbsoluteEndPosition, mPrevFirstPeriodStart);
 	}
 }
 
