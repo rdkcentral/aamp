@@ -89,6 +89,8 @@ def check_restamp(match,arg):
     restamp_values[mediaTrack] = after_sec + duration_sec
 
 
+#Test Case 2.1: Single Source Period with Multiple CDAI Ad Replacements : Refer TC :https://etwiki.sys.comcast.net/pages/viewpage.action?spaceKey=RDKV&title=AAMP+Client-side+Dynamic+Ad+Use+cases
+#Period 2: Contains a 120-second ad, replaced by multiple ads of 30, 40, 30, and 20 seconds.
 TESTDATA1 = {
     "title": "Test1 Current ad duration same as source ad duration",
     "max_test_time_seconds": 300,
