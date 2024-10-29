@@ -3832,10 +3832,7 @@ public:
 	 *
 	 *   @return double
 	 */
-	double GetLLDashCurrentPlayBackRate(void)
-	{
-		return mLLDashCurrentPlayRate;
-	}
+	double GetLLDashCurrentPlayBackRate(void);
 
 	/**
 	 *   @brief Turn off/on the player speed correction for Low latency Dash
@@ -3853,10 +3850,7 @@ public:
 	 *
 	 *   @return double
 	 */
-	bool GetLLDashAdjustSpeed(void)
-	{
-		return bLLDashAdjustPlayerSpeed;
-	}
+	bool GetLLDashAdjustSpeed(void);
 
 	/**
 	 *   @brief Set iframe extraction enabled or not

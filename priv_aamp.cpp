@@ -13761,3 +13761,13 @@ void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 		LoadAampAbrConfig();
 	}
 }
+
+bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
+{
+	return bLLDashAdjustPlayerSpeed;
+}
+
+double PrivateInstanceAAMP::GetLLDashCurrentPlayBackRate(void)
+{
+	return mLLDashCurrentPlayRate;
+}

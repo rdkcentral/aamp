@@ -50,6 +50,8 @@ public:
     MOCK_METHOD(void, SetSubtitleMute, (bool), (override));
 
     MOCK_METHOD(void, SetPauseOnStartPlayback, (bool enable), (override));
+
+    MOCK_METHOD(bool, SetPlayBackRate, (double), (override));
 };
 
 extern MockAAMPGstPlayer *g_mockAampGstPlayer;

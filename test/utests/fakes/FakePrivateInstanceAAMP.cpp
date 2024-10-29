@@ -1099,7 +1099,14 @@ bool PrivateInstanceAAMP::GetLowLatencyServiceConfigured()
 
 long long PrivateInstanceAAMP::DurationFromStartOfPlaybackMs(void)
 {
-	return 0;
+	if (g_mockPrivateInstanceAAMP != nullptr) 
+	{
+		return g_mockPrivateInstanceAAMP->DurationFromStartOfPlaybackMs();
+	}
+	else 
+	{
+		return 0;
+	}
 }
 
 void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
@@ -1442,10 +1449,31 @@ void PrivateInstanceAAMP::SetLocalAAMPTsbInjection(bool value)
 {
 }
 
-
 bool PrivateInstanceAAMP::IsLocalAAMPTsbInjection()
 {
+	if (g_mockPrivateInstanceAAMP)
+	{
+		return g_mockPrivateInstanceAAMP->IsLocalAAMPTsbInjection();
+	}
 	return false;
+}
+
+bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		return g_mockPrivateInstanceAAMP->GetLLDashAdjustSpeed();
+	}
+	return false;
+}
+
+double PrivateInstanceAAMP::GetLLDashCurrentPlayBackRate(void)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		return g_mockPrivateInstanceAAMP->GetLLDashCurrentPlayBackRate();
+	}
+	return 1.0;
 }
 
 void PrivateInstanceAAMP::TimedWaitForLatencyCheck(int timeInMs)
