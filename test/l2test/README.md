@@ -16,7 +16,7 @@ Activate python virtual environment "l2venv" that will have been created.
 2. Builds aamp and gstreamer subtec plugin (optional -b)
 3. Selects list of tests to run from command line options
 4. Runs pytest on that list of tests
-5. Generates results.json file from results.xml produced by pytest
+5. Generates L2Report.json file from results.xml produced by pytest
 6. Generates code coverage achieved by the tests
 
 # How to run L2 test suites run_l2_aamp.py

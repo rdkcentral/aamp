@@ -204,7 +204,7 @@ if args.build:
 os.chdir(l2testdir)
 
 xml_results_file = 'junit_results.xml'
-json_results_file = 'results.json'
+json_results_file = 'L2Report.json'
 # Give pytest the list of dirs
 opt = ['--junitxml={}'.format(xml_results_file)] + other_args + test_suite_dirs_to_run
 if args.aamp_video:
