@@ -1753,7 +1753,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			AAMPLOG_TRACE("fDesc.Time= %lf utcTime=%lf delta=%lf CTSeconds=%lf,FreqTime=%lf  nextfragTime : %lf",pMediaStreamContext->fragmentDescriptor.Time,
 					mLocalUtcTime,mDeltaTime,currentTimeSeconds,fragmentRequestTime,pMediaStreamContext->fragmentDescriptor.nextfragmentTime);
 
-			bool bProcessFrgment = true;
+			bool bProcessFragment = true;
 			if(!mIsLiveStream)
 			{
 				if(ISCONFIGSET(eAAMPConfig_EnableIgnoreEosSmallFragment))
@@ -1761,16 +1761,19 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					if(fragmentRequestTime >= mPeriodEndTime)
 					{
 						double fractionDuration = (mPeriodEndTime-pMediaStreamContext->fragmentDescriptor.Time)/fragmentDuration;
-						bProcessFrgment = (fractionDuration < MIN_SEG_DURTION_THREASHOLD)? false:true;
-						AAMPLOG_TRACE("Type[%d] DIFF=%f Process Fragment=%d", pMediaStreamContext->type, fractionDuration, bProcessFrgment);
+						bProcessFragment = (fractionDuration < MIN_SEG_DURATION_THRESHOLD)? false:true;
+						AAMPLOG_TRACE("Type[%d] DIFF=%f Process Fragment=%d", pMediaStreamContext->type, fractionDuration, bProcessFragment);
 					}
 				}
 				else
 				{
-					bProcessFrgment = (pMediaStreamContext->fragmentDescriptor.Time >= mPeriodEndTime)? false: true;
+					//Directly comparing two double values is unreliable because minor precision errors
+					// here we introduce a 1ms epsilon to compensate and avoid injecting one segment too many at period boundary
+					// this will need to be revisited with upcoming fix for RDKAAMP-3468
+					bProcessFragment = (pMediaStreamContext->fragmentDescriptor.Time+0.001 < mPeriodEndTime);
 				}
 			}
-			if ((!mIsLiveStream && ((!bProcessFrgment) || (rate < 0 )))
+			if ((!mIsLiveStream && ((!bProcessFragment) || (rate < 0 )))
 			|| (mIsLiveStream && (
 				(mLowLatencyMode? pMediaStreamContext->fragmentDescriptor.Time>mPeriodEndTime+availabilityTimeOffset:pMediaStreamContext->fragmentDescriptor.Time >= mPeriodEndTime)
 			|| (pMediaStreamContext->fragmentDescriptor.Time < mPeriodStartTime))))  //CID:93022 - No effect
