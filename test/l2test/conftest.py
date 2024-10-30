@@ -19,11 +19,13 @@ import pytest
 import framework
 import subprocess
 import os
+import sys
 import glob
 from http_server import HttpServerThread
 # The following ensures pip installs the package although we invoke it from
 # the command line and not via python
 import lcov_cobertura
+
 """
 A good starting point
 https://stackoverflow.com/questions/34466027/what-is-conftest-py-for-in-pytest
@@ -66,6 +68,19 @@ def aamp_setup_teardown(request):
     if request.config.getoption('coverage'):
         collect_coverage_after_test(aamp.test_dir_path)
 
+
+# Get the current directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Add the utilities subdirectory
+util_subdirectory = 'utilities'
+
+# Construct the full path to the utilities subdirectory
+util_subdirectory_path = os.path.join(current_dir, util_subdirectory)
+
+# Add the subdirectory to sys.path
+if util_subdirectory_path not in sys.path:
+    sys.path.append(util_subdirectory_path)
 
 coverage_info=[]
 aamp_home = framework.get_aamp_home()
