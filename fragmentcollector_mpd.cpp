@@ -1340,13 +1340,11 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					pMediaStreamContext->timeLineIndex,pMediaStreamContext->fragmentDescriptor.Number);
 #endif
 				   /* While calling from SwitchAudioTrack(),no need to perform fragment download,requires only the parameters
-					*  updation, so avoiding FetchFragment() by using during Manifest refreshed case while AudioTrack Switching
+					* updation, so avoiding FetchFragment() by using during Manifest refreshed case while AudioTrack Switching
+					* Particularly during the MPD refresh scenario, wrong fragment position injection is happending due to not properly updating the 
+					* pMediaStreamContext params for audio during performing SeamlessAudioSwitch
 					*/
-					if (skipFetch)
-					{
-						return false;
-					}
-					if ((pMediaStreamContext->fragmentDescriptor.Time > pMediaStreamContext->lastSegmentTime) || (0 == pMediaStreamContext->lastSegmentTime))
+					if (!skipFetch && ((pMediaStreamContext->fragmentDescriptor.Time > pMediaStreamContext->lastSegmentTime) || (0 == pMediaStreamContext->lastSegmentTime)))
 					{
 						double fragmentDuration = ComputeFragmentDuration(duration,timeScale);
 						double endTime  = (mPeriodStartTime+(mPeriodDuration/1000));
@@ -1519,7 +1517,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							}
 						}
 					}
-					else if (rate < 0)
+					else if (!skipFetch && rate < 0)
 					{
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
 						AAMPLOG_INFO("Type[%d] presenting %f" ,pMediaStreamContext->type,pMediaStreamContext->fragmentDescriptor.Time);
