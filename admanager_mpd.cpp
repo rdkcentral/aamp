@@ -297,17 +297,23 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 					{
 						if((iter+1) < periods.size())
 						{
-							IPeriod* nextPeriod = periods.at(iter+1);
-							AAMPLOG_INFO("nextPeriod:%s nextperiodur:%lf currperioddur:%lf adDuration:%" PRIu64 "", nextPeriod->GetId().c_str(), nextperioddur, currperioddur, abObj.ads->at(mPlacementObj.curAdIdx).duration);
-						}
-
-						if((nextperioddur > 0) && ((currperioddur > 0) && (currperioddur < abObj.ads->at(mPlacementObj.curAdIdx).duration)))
-						{
-							AAMPLOG_INFO("nextperioddur = %f currperioddur = %f currAd.duration = [%" PRIu64 "] ",nextperioddur,currperioddur,abObj.ads->at(mPlacementObj.curAdIdx).duration);
-							isSrcdurnotequalstoaddur = true;
-							if((currperioddur + OFFSET_SPLIT_FACTOR) < abObj.ads->at(mPlacementObj.curAdIdx).duration)
+							const IPeriod* nextPeriod = periods.at(iter+1);
+							if( nextPeriod )
 							{
-								AAMPLOG_WARN("Detected split period. nextperioddur = %f currperioddur = %f currAd.duration = [%" PRIu64 "] ",nextperioddur,currperioddur,abObj.ads->at(mPlacementObj.curAdIdx).duration);
+								AAMPLOG_INFO("nextPeriod:%s nextperiodur:%lf currperioddur:%lf adDuration:%" PRIu64 "", nextPeriod->GetId().c_str(), nextperioddur, currperioddur, abObj.ads->at(mPlacementObj.curAdIdx).duration);
+								if((nextperioddur > 0) && ((currperioddur > 0) && (currperioddur < abObj.ads->at(mPlacementObj.curAdIdx).duration)))
+								{
+									AAMPLOG_INFO("nextperioddur = %f currperioddur = %f currAd.duration = [%" PRIu64 "] ",nextperioddur,currperioddur,abObj.ads->at(mPlacementObj.curAdIdx).duration);
+									isSrcdurnotequalstoaddur = true;
+									if((currperioddur + OFFSET_SPLIT_FACTOR) < abObj.ads->at(mPlacementObj.curAdIdx).duration)
+									{
+										const AdNode &curAd = abObj.ads->at(mPlacementObj.curAdIdx);
+										if( nextPeriod )
+										{
+											AAMPLOG_MIL("Detected split period. BasePeriod[%s - %f] CDAIPeriod[%s - %" PRIu64 "] NextPeriod[%s - %f] ",periodId.c_str(), currperioddur, curAd.mpd->GetPeriods().at(0)->GetId().c_str(), curAd.duration, nextPeriod->GetId().c_str(), nextperioddur);
+										}
+									}
+								}
 							}
 						}
 					}
