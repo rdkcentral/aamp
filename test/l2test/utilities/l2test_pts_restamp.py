@@ -24,6 +24,8 @@ class PtsRestampUtils:
     restamp_values:dict[str, float] = {}
     segment_cnt = 0
     max_segment_cnt = 0
+    # Minimum tolerance for restamped PTS checks. Can be set by the test.
+    tolerance_min = 0
     segment_cnt_reached = None
 
     def reset(self):
@@ -52,6 +54,7 @@ class PtsRestampUtils:
         # We allow the pts value after restamp to differ by 5% of the segment duration.
         duration_sec = duration / timeScale
         tolerance_sec = duration_sec * 0.05
+        tolerance_sec = max(self.tolerance_min, tolerance_sec)
         after_sec = after / timeScale
         diff_sec = abs(after_sec - expected_restamp)
         print(f"PTS (secs): actual {after_sec:.3f}, expected {expected_restamp:.3f}, diff {diff_sec:.3f}, tol {tolerance_sec:.3f}")
