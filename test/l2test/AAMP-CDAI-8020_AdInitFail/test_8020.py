@@ -29,8 +29,11 @@ import pytest
 import subprocess
 import atexit
 import re
+from l2test_pts_restamp import PtsRestampUtils
 
 ###############################################################################
+timeout = 180
+pts_restamp_utils = PtsRestampUtils()
 
 server_process = None
 server_path = os.path.join(os.getcwd(), "AAMP-CDAI-8020_AdInitFail/testdata/content/server.py")
@@ -55,47 +58,13 @@ def stop_server():
         server_process.terminate()
         server_process = None
 
-
-restamp_values:dict[str, float] = {}
-segment_cnt = 0
-
-def check_restamp(match,arg):
-    global segment_cnt, restamp_values
-
-    # Get the fields from the log line
-    mediaTrack = match.group(1)
-    timeScale = float(match.group(2))
-    before = float(match.group(3))
-    after = float(match.group(4))
-    duration = float(match.group(5))
-    url = match.group(6).decode()
-
-    segment_cnt += 1
-    print(segment_cnt, mediaTrack, timeScale, before, after, duration, url)
-
-    # Our expected pts value starts from 0
-    expected_restamp = restamp_values.get(mediaTrack, 0)
-
-    # The actual duration in the provided segments may not match that from the manifest.
-    # This can be seen in https://dash.akamaized.net/dashif/ad-insertion-testcase1/batch5/real/a/ad-insertion-testcase1.mpd
-    # We allow the pts value after restamp to differ by 5% of the segment duration
-    duration_sec = duration / timeScale
-    tolerance_sec = duration_sec * 0.05
-    after_sec = after / timeScale
-    diff_sec = abs(after_sec - expected_restamp)
-    print(f"PTS (secs): actual {after_sec:.3f}, expected {expected_restamp:.3f}, diff {diff_sec:.3f}, tol {tolerance_sec:.3f}")
-    assert diff_sec <= tolerance_sec
-
-    # Save what we are expecting for the next value
-    restamp_values[mediaTrack] = after_sec + duration_sec
-
 #TC1.mpd
 #period 0 30Sec, no scte35, segment numbers 1..15
 #period 1 30Sec, with scte35, segment numbers 16..31
 #period 2 30Sec, no scte35, segment numbers 32..47
 TESTDATA1 = {
     "title": "Test - First ad video init fragment fails in a single CDAI ad break",
-    "max_test_time_seconds": 150,
+    "max_test_time_seconds": timeout,
     "server_config": ["--force404", "ad_30.*?p_init\\.m4s"],
     "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\ndebug=true\ntrace=true\n",
     "url": "http://localhost:8080/AAMP-CDAI-8020_AdInitFail/testdata/content/TC1.mpd?live=true",
@@ -105,7 +74,7 @@ TESTDATA1 = {
     #Source ad is 30 secs, one single ad of 30sec
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/AAMP-CDAI-8020_AdInitFail/testdata/content/TC1.mpd", "min": 0, "max": 3},
-        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n',"min":0, "max":150, "callback" : check_restamp},
+        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n',"min":0, "max":timeout, "callback" : pts_restamp_utils.check_restamp},
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[1\] Duration\[30000\]", "min": 0, "max": 30},
         {"expect": r"\[Event\]\[\d+\]\[CDAI\] Dynamic ad start signalled", "min": 0, "max": 30},
         {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=1 adId\=adId1 duration\=30 url\=.*?ad_30s.mpd", "min": 0, "max": 30},
@@ -133,7 +102,7 @@ TESTDATA1 = {
 #period 2 30Sec, no scte35, segment numbers 32..47
 TESTDATA2 = {
     "title": "Test - First ad audio init fragment fails in a single CDAI ad break",
-    "max_test_time_seconds": 150,
+    "max_test_time_seconds": timeout,
     "server_config": ["--force404", "ad_30.*?en_init\\.m4s"],
     "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\ndebug=true\ntrace=true\n",
     "url": "http://localhost:8080/AAMP-CDAI-8020_AdInitFail/testdata/content/TC1.mpd?live=true",
@@ -143,7 +112,7 @@ TESTDATA2 = {
     #Source ad is 30 secs, one single ad of 30sec
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/AAMP-CDAI-8020_AdInitFail/testdata/content/TC1.mpd", "min": 0, "max": 3},
-        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n',"min":0, "max":150, "callback" : check_restamp},
+        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n',"min":0, "max":timeout, "callback" : pts_restamp_utils.check_restamp},
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[1\] Duration\[30000\]", "min": 0, "max": 30},
         {"expect": r"\[Event\]\[\d+\]\[CDAI\] Dynamic ad start signalled", "min": 0, "max": 30},
         {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=1 adId\=adId1 duration\=30 url\=.*?ad_30s.mpd", "min": 0, "max": 30},
@@ -170,7 +139,7 @@ TESTDATA2 = {
 #period 2 30Sec, no scte35, segment numbers 32..47
 TESTDATA3 = {
     "title": "Test - First ad video init fragment fails in a multi CDAI ad break",
-    "max_test_time_seconds": 150,
+    "max_test_time_seconds": timeout,
     "server_config": ["--force404", "ad_20.*?p_init\\.m4s"],
     "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\ndebug=true\ntrace=true\n",
     "url": "http://localhost:8080/AAMP-CDAI-8020_AdInitFail/testdata/content/TC1.mpd?live=true",
@@ -182,7 +151,7 @@ TESTDATA3 = {
     #First ad init fragment download fails
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/AAMP-CDAI-8020_AdInitFail/testdata/content/TC1.mpd", "min": 0, "max": 3},
-        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n',"min":0, "max":150, "callback" : check_restamp},
+        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n',"min":0, "max":timeout, "callback" : pts_restamp_utils.check_restamp},
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[1\] Duration\[30000\]", "min": 0, "max": 30},
         {"expect": r"\[Event\]\[\d+\]\[CDAI\] Dynamic ad start signalled", "min": 0, "max": 30},
         {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=1 adId\=adId1 duration\=20 url\=.*?ad_20s.mpd", "min": 0, "max": 30},
@@ -216,7 +185,7 @@ TESTDATA3 = {
 #period 2 30Sec, no scte35, segment numbers 32..47
 TESTDATA4 = {
     "title": "Test - Second ad video init fragment fails in a multi CDAI ad break",
-    "max_test_time_seconds": 150,
+    "max_test_time_seconds": timeout,
     #ad_10s.mpd references fragments from ad_30s.mpd manifest. Hence the rule is set to ad_30/ fragments in server
     "server_config": ["--force404", "ad_30.*?p_init\\.m4s"],
     "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\ndebug=true\ntrace=true\n",
@@ -229,7 +198,7 @@ TESTDATA4 = {
     #Second ad init fragment download fails
      "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/AAMP-CDAI-8020_AdInitFail/testdata/content/TC1.mpd", "min": 0, "max": 3},
-        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n',"min":0, "max":150, "callback" : check_restamp},
+        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n',"min":0, "max":timeout, "callback" : pts_restamp_utils.check_restamp},
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[1\] Duration\[30000\]", "min": 0, "max": 30},
         {"expect": r"\[Event\]\[\d+\]\[CDAI\] Dynamic ad start signalled", "min": 0, "max": 30},
         {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=1 adId\=adId1 duration\=20 url\=.*?ad_20s.mpd", "min": 0, "max": 30},
@@ -265,14 +234,17 @@ def test_data(request):
     return request.param
 
 def test_8020(aamp_setup_teardown, test_data):
-    global segment_cnt, restamp_values
-    segment_cnt = 0
-    restamp_values = {}
+    global pts_restamp_utils
+
+    pts_restamp_utils.reset()
+    # test runs till AAMP-CDAI-8020_AdInitFail/testdata/content/dash/(1080|720|480|360)p_032.m4s for video and audio
+    pts_restamp_utils.max_segment_cnt = 60
+
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
     start_server(test_data["server_config"])
     aamp.run_expect_b(test_data)
+
     stop_server()
-    print("Segment count ", segment_cnt)
-    assert segment_cnt > 20, "Fail restamp was not checked."
+    pts_restamp_utils.check_num_segments()
 
