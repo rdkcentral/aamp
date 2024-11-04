@@ -171,8 +171,15 @@ public:
 	
 	const std::string &getAttribute( const std::string &attrName ) const
 	{
-		assert( hasAttribute(attrName) );
-		return attributes.at(attrName);
+		if( hasAttribute(attrName) )
+		{
+			return attributes.at(attrName);
+		}
+		else
+		{
+			static std::string dummy = "0";
+			return dummy;
+		}
 	}
 	
 	bool hasAttribute( const std::string &attrName ) const
