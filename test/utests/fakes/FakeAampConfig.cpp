@@ -22,7 +22,7 @@
 
 MockAampConfig *g_mockAampConfig = nullptr;
 
-AampConfig::AampConfig():mLogObj(),logging()
+AampConfig::AampConfig()
 {
 }
 
@@ -137,7 +137,7 @@ void AampConfig::ShowDevCfgConfiguration()
 {
 }
 
-void AampConfig::RestoreConfiguration(ConfigPriority owner, AampLogManager *mLogObj)
+void AampConfig::RestoreConfiguration(ConfigPriority owner)
 {
 }
 

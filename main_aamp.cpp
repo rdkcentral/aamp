@@ -45,7 +45,6 @@
 #include <regex>
 
 AampConfig *gpGlobalConfig=NULL;
-AampLogManager *mLogObj=NULL;
 
 #ifdef USE_SECMANAGER
 #include "AampSecManager.h"
@@ -102,9 +101,8 @@ std::mutex PlayerInstanceAAMP::mPrvAampMtx;
  */
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
-	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler(), mLogObj()
+	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
-
 //Need to do iarm initialization process before reading the tr181 aamp parameters.
 //Using printf here since AAMP logs can only use after creating the global object
 #ifdef IARM_MGR
@@ -139,7 +137,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		printf( "curl version: %s\n", vers->version );
 
 		gpGlobalConfig =  new AampConfig();
-		::mLogObj = gpGlobalConfig->GetLoggerInstance();
 		// Init the default values
 		gpGlobalConfig->Initialize();
 		gpGlobalConfig->ReadDeviceCapability();
@@ -172,14 +169,12 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	// Copy the default configuration to session configuration .
 	// App can modify the configuration set
 	mConfig = *gpGlobalConfig;
-	mLogObj = mConfig.GetLoggerInstance(); // intialize instance-specific logger
 
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
 	UsingPlayerId playerId(aamp->mPlayerId);
 
 	// start Scheduler Worker for task handling
- 	mScheduler.SetLogger(mLogObj);
 	mScheduler.StartScheduler(aamp->mPlayerId);
 	if (NULL == streamSink)
 	{
@@ -229,9 +224,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
  */
 PlayerInstanceAAMP::~PlayerInstanceAAMP()
 {
-#ifdef AAMP_CC_ENABLED
-	AampCCManager::GetInstance()->SetLogger(mLogObj);
-#endif
 	if (aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
@@ -293,11 +285,6 @@ void PlayerInstanceAAMP::ResetConfiguration()
 	AAMPLOG_WARN("Resetting Configuration to default values ");
 	// Copy the default configuration to session configuration .App can modify the configuration set
 	mConfig = *gpGlobalConfig;
-
-	mLogObj = mConfig.GetLoggerInstance();
-#ifdef AAMP_CC_ENABLED
-	AampCCManager::GetInstance()->SetLogger(mLogObj);
-#endif
 
 	// Based on the default condition , reset the AsyncTune scheduler
 	AsyncStartStop();
@@ -1054,7 +1041,6 @@ void PlayerInstanceAAMP::PauseAtInternal(double position)
 static gboolean SeekAfterPrepared(gpointer ptr)
 {
 	PrivateInstanceAAMP* aamp = (PrivateInstanceAAMP*) ptr;
-	auto mLogObj = aamp->mLogObj; // map correct log context
 	bool sentSpeedChangedEv = false;
 	bool isSeekToLiveOrEnd = false;
 	TuneType tuneType = eTUNETYPE_SEEK;
@@ -3131,9 +3117,9 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
 	AAMPLOG_WARN("%s PLAYER[%d] Stopping Playback at Position '%lld'.\n",(aamp->mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), aamp->mPlayerId, aamp->GetPositionMilliseconds());
 	aamp->Stop();
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
-	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING, mLogObj);
-	mConfig.RestoreConfiguration(AAMP_TUNE_SETTING, mLogObj);
-	mConfig.RestoreConfiguration(AAMP_STREAM_SETTING, mLogObj);
+	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
+	mConfig.RestoreConfiguration(AAMP_TUNE_SETTING);
+	mConfig.RestoreConfiguration(AAMP_STREAM_SETTING);
 	aamp->mIsStream4K = false;
 }
 

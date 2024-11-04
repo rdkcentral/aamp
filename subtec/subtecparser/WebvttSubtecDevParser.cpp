@@ -97,7 +97,7 @@ std::string convertCueToTtmlString(int id, VTTCue *cue, double startTime)
 }
 
 
-WebVTTSubtecDevParser::WebVTTSubtecDevParser(AampLogManager *logObj, PrivateInstanceAAMP *aamp, SubtitleMimeType type) : WebVTTParser(logObj, aamp, type), m_channel(nullptr)
+WebVTTSubtecDevParser::WebVTTSubtecDevParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : WebVTTParser(aamp, type), m_channel(nullptr)
 {
 	m_channel = SubtecChannel::SubtecChannelFactory(SubtecChannel::ChannelType::TTML);
 	if (!m_channel->InitComms())

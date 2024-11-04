@@ -36,6 +36,7 @@ struct TsPart
 	long start;
 	double pts;
 	double dts;
+	double duration;
 };
 
 class TsDemux
@@ -591,19 +592,8 @@ private:
 	}
 	
 public:
-	TsDemux( const char *path ): ptr(), len(), bits_read(), bytes_written(), ts(), pes()
+	TsDemux( gpointer ptr, size_t len ): ptr((unsigned char *)ptr), len(len), bits_read(), bytes_written(), ts(), pes()
 	{
-		FILE *f = fopen(path,"rb");
-		assert( f );
-		fseek( f, 0, SEEK_END );
-		len = ftell( f );
-		assert( (len%PACKET_SIZE)==0 );
-		fseek( f, 0, SEEK_SET );
-		ptr = (unsigned char *)g_malloc(len);
-		assert( ptr );
-		size_t rc = fread( ptr, 1, len, f );
-		assert( rc == len );
-		fclose( f );
 		parseTs();
 	}
 	
@@ -642,6 +632,12 @@ public:
 	{
 		return tsPart[part].dts;
 	}
+	
+	double getDuration( int part )
+	{
+		return tsPart[1].dts - tsPart[0].dts; // FIXME
+	}
+	
 
 	~TsDemux()
 	{

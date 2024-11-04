@@ -30,8 +30,7 @@ class AampStreamSinkInactive : public StreamSink
 {
 
 public:
-	AampStreamSinkInactive(AampLogManager *logObj, id3_callback_t id3HandlerCallback) :
-		mLogObj(logObj), mId3HandlerCallback(id3HandlerCallback)
+	AampStreamSinkInactive(id3_callback_t id3HandlerCallback) : mId3HandlerCallback(id3HandlerCallback)
 	{
 	}
 
@@ -340,14 +339,6 @@ public:
 		return false;
 	}
 	/**
-     *   @fn GetLogManager
-	 *   @brief Return the log manager associated with this instance
-	 */
-	AampLogManager *GetLogManager()
-	{
-		return mLogObj;
-	}
-	/**
      *   @fn GetID3MetadataHandler
 	 *   @brief Returns the id3 callback handle associated with this instance
 	 */
@@ -357,7 +348,6 @@ public:
 	}
 
 private:
-	AampLogManager *mLogObj;
 	id3_callback_t mId3HandlerCallback;		/**< Returns the id3 callback handle associated with this instance */
 };
 #endif /* AAMPSTREAMSINKINACTIVE_H */

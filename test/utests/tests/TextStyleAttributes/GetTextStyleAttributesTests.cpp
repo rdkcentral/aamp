@@ -32,7 +32,6 @@ using ::testing::An;
 using ::testing::DoAll;
 
 AampConfig *gpGlobalConfig = NULL;
-AampLogManager *mLogObj = NULL;
 
 class GetTextStyleAttributesTests : public ::testing::Test
 {
@@ -42,7 +41,7 @@ protected:
 
     void SetUp() override
     {
-        mAttributes = std::unique_ptr<TextStyleAttributes>(new TextStyleAttributes(mLogObj));
+        mAttributes = std::unique_ptr<TextStyleAttributes>(new TextStyleAttributes());
 
         g_mockAampJsonObject = std::make_shared<StrictMock<MockAampJsonObject>>();
     }

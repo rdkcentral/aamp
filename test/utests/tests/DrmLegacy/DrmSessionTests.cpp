@@ -49,7 +49,7 @@ protected:
 		MockCurlReset();
 
 		mAamp = new PrivateInstanceAAMP(gpGlobalConfig);
-		mUtils = new TestUtilDrm(mAamp, mLogging);
+		mUtils = new TestUtilDrm(mAamp);
 	}
 
 	void TearDown() override

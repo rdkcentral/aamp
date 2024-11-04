@@ -27,7 +27,7 @@ class MockAampMemorySystem  : public AAMPMemorySystem
 {
 public:
 
-    MockAampMemorySystem(AampLogManager *logObj) : AAMPMemorySystem(logObj)
+    MockAampMemorySystem() : AAMPMemorySystem()
     {
 
 	}

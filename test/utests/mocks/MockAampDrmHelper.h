@@ -27,7 +27,7 @@ class MockAampDrmHelper : public AampDrmHelper
 {
 public:
 
-    MockAampDrmHelper(AampLogManager *logObj) : AampDrmHelper(DrmInfo{}, logObj)
+    MockAampDrmHelper() : AampDrmHelper(DrmInfo{})
     {
 
 	}

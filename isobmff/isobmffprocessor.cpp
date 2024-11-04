@@ -40,13 +40,11 @@ static const char *IsoBmffProcessorTypeName[] =
 /**
  *  @brief IsoBmffProcessor constructor
  */
-IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj, 
-	id3_callback_t id3_hdl, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
+IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
 	: p_aamp(aamp), type(trackType), peerProcessor(peerBmffProcessor), peerSubtitleProcessor(peerSubProcessor), basePTS(0),
 	processPTSComplete(false), timeScale(0), initSegment(), resetPTSInitSegment(),
 	playRate(1.0f), aborted(false), m_mutex(), m_cond(),initSegmentProcessComplete(false),
 	isRestampConfigEnabled(false),
-	mLogObj(logObj),
 	sumPTS(0),prevPTS(UINT64_MAX),currTimeScale(0), startPos(DEFAULT_DURATION),
 	prevPosition(-1), prevDuration(0.0), scalingOfPTSComplete(false),timeScaleChangeState(eBMFFPROCESSOR_INIT_TIMESCALE),
 	mediaFormat(eMEDIAFORMAT_UNKNOWN), enabled(true), trackOffsetInSecs(DEFAULT_DURATION), peerListeners(),
@@ -120,7 +118,7 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
  */
 void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position)
 {
-	IsoBmffBuffer buffer(mLogObj);
+	IsoBmffBuffer buffer;
 	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
 	{
 		double pos = 0;
@@ -166,7 +164,7 @@ void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, dou
  */
 void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position)
 {
-	IsoBmffBuffer buffer(mLogObj);
+	IsoBmffBuffer buffer;
 	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
 	{
 		double pos = 0;
@@ -225,7 +223,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 	{
 		if (ret && !processPTSComplete)
 		{
-			IsoBmffBuffer buffer(mLogObj);
+			IsoBmffBuffer buffer;
 			buffer.setBuffer((uint8_t *)fragBuffer->GetPtr(), fragBuffer->GetLen());
 			buffer.parseBuffer();
 
@@ -286,7 +284,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 	if (ret && !processPTSComplete && playRate == AAMP_NORMAL_PLAY_RATE)
 	{
 		// We need to parse PTS from first buffer
-		IsoBmffBuffer buffer(mLogObj);
+		IsoBmffBuffer buffer;
 		buffer.setBuffer((uint8_t *)fragBuffer->GetPtr(), fragBuffer->GetLen());
 		buffer.parseBuffer();
 
@@ -426,7 +424,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 {
 	uint32_t tScale = 0;
 	bool ret = true;
-	IsoBmffBuffer buffer(mLogObj);
+	IsoBmffBuffer buffer;
 	buffer.setBuffer((uint8_t *)pBuffer->GetPtr(), pBuffer->GetLen());
 	buffer.parseBuffer();
 
@@ -864,34 +862,30 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 		always good to sync the basePTS for audio timescale as well to avoid surprises 
 		*/
 		//Now video and audio pts is in sync. push it
-		if( pts != 0 )
+		if(peerProcessor)
 		{
-			if(peerProcessor)
+			AAMPLOG_INFO("IsoBmffProcessor %s  startPos = %f PeerStartPos = %f trackOffsetInSecs = %lf",
+						IsoBmffProcessorTypeName[type], startPos, peerProcessor->startPos, trackOffsetInSecs);
+
+			if (sumPTS == 0)
 			{
-				AAMPLOG_INFO("IsoBmffProcessor %s  startPos = %f PeerStartPos = %f trackOffsetInSecs = %lf",
-							IsoBmffProcessorTypeName[type], startPos, peerProcessor->startPos, trackOffsetInSecs);
-
-				if (sumPTS == 0)
-				{
-					sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
-				}
-				else
-				{
-					sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale) + (trackOffsetInSecs * currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
-				}
-				startPos = (sumPTS/(double)currTimeScale) + trackOffsetInSecs; // startpos can change when fragments skipped
-
-				AAMPLOG_INFO("peerStartPos=%f peerSumPTS=%" PRIu64 "", peerProcessor->startPos, peerProcessor->sumPTS);
+				sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
 			}
-			AAMPLOG_WARN("IsoBmffProcessor %s  startPos = %f sumPTS = %" PRIu64 " trackOffsetInSecs = %lf",
-							IsoBmffProcessorTypeName[type], startPos, sumPTS, trackOffsetInSecs);
+			else
+			{
+				sumPTS = ceil((basePTS/(double)peerProcessor->currTimeScale)*currTimeScale) + (trackOffsetInSecs * currTimeScale);  //Now we got the basePTS for audio update the same as starting PTS value for main content processing
+			}
+			startPos = (sumPTS/(double)currTimeScale) + trackOffsetInSecs; // startpos can change when fragments skipped
+
+			AAMPLOG_INFO("peerStartPos=%f peerSumPTS=%" PRIu64 "", peerProcessor->startPos, peerProcessor->sumPTS);
 		}
+		AAMPLOG_WARN("IsoBmffProcessor %s  startPos = %f sumPTS = %" PRIu64 " trackOffsetInSecs = %lf",
+						IsoBmffProcessorTypeName[type], startPos, sumPTS, trackOffsetInSecs);
+		
 
 		pushInitSegment(startPos);
 		basePTS = sumPTS;
 		resetRestampVariables(); //reset the audio track variables
-		if (type != eBMFFPROCESSOR_TYPE_SUBTITILE)
-			peerProcessor->resetRestampVariables(); //reset the video track variables
 	}
 	else if( type == eBMFFPROCESSOR_TYPE_VIDEO )
 	{
@@ -919,6 +913,7 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 		{
 			peerSubtitleProcessor->setRestampBasePTS(sumPTS);
 		}
+		resetRestampVariables(); //reset the video track variables
 	}
 	AAMPLOG_INFO("IsoBmffProcessor %s  After push init when startPos=%f sumPTS=%" PRIu64 " basePTS=%" PRIu64 " ",
 	IsoBmffProcessorTypeName[type],startPos,sumPTS,basePTS);
@@ -1226,6 +1221,10 @@ void IsoBmffProcessor::pushRestampInitSegment()
 			SAFE_DELETE(Pst);
 			it = resetPTSInitSegment.erase(it);
 		}
+	}
+	else
+	{
+		AAMPLOG_WARN("No init segment cached for injection");
 	}
 }
 

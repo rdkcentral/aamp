@@ -137,11 +137,11 @@ bool AampVerimatrixHelperFactory::isDRM(const struct DrmInfo& drmInfo) const
 		);
 }
 
-std::shared_ptr<AampDrmHelper> AampVerimatrixHelperFactory::createHelper(const struct DrmInfo& drmInfo, AampLogManager *logObj) const
+std::shared_ptr<AampDrmHelper> AampVerimatrixHelperFactory::createHelper(const struct DrmInfo& drmInfo) const
 {
 	if (isDRM(drmInfo))
 	{
-		return std::make_shared<AampVerimatrixHelper>(drmInfo, logObj);
+		return std::make_shared<AampVerimatrixHelper>(drmInfo);
 	}
 	return NULL;
 }

@@ -28,7 +28,7 @@ class MockIsoBmffHelper
 public:
 	MOCK_METHOD(bool, SetTimescale, (AampGrowableBuffer &, uint32_t));
 	MOCK_METHOD(bool, SetPtsAndDuration, (AampGrowableBuffer &, uint64_t, uint64_t));
-	MOCK_METHOD(bool, RestampPts, (AampGrowableBuffer &, int64_t, const std::string&));
+	MOCK_METHOD(bool, RestampPts, (AampGrowableBuffer &, int64_t, const std::string&, const char*, uint32_t));
 };
 
 extern MockIsoBmffHelper *g_mockIsoBmffHelper;

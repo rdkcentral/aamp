@@ -54,14 +54,12 @@ protected:
             gpGlobalConfig =  new AampConfig();
         }
 
-		mLogObj = new AampLogManager();
 		g_mockGStreamer = new MockGStreamer();
 		g_mockGLib = new NiceMock<MockGLib>();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockAampHandlerControl = new MockAampHandlerControl();
 		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
-		mPrivateInstanceAAMP->mLogObj = mLogObj;
 
     	mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
 	}
@@ -88,9 +86,6 @@ protected:
 
     	delete mAAMPGstPlayer;
 	    mAAMPGstPlayer = nullptr;
-
-		delete mLogObj;
-		mLogObj = nullptr;
 	}
 
 public:

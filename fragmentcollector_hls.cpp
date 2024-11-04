@@ -1379,7 +1379,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 					// Skip segment if there is no profile to rampdown.
 					mSkipSegmentOnError = true;
 				}
-				if (AAMP_IS_LOG_WORTHY_ERROR(http_error))
+				if (AampLogManager::isLogworthyErrorCode(http_error))
 				{
 					AAMPLOG_WARN("FetchFragmentHelper aamp_GetFile failed");
 				}
@@ -1632,7 +1632,7 @@ void TrackState::FetchFragment()
 				{
 					AAMPLOG_ERR("%s Error while decrypting fragments. failedCount:%d", name, segDLFailCount);
 				}
-				else if (AAMP_IS_LOG_WORTHY_ERROR(http_error))
+				else if (AampLogManager::isLogworthyErrorCode(http_error))
 				{
 					double duration = fragmentDurationSeconds;
 					double position = (double)(playTarget - playTargetOffset);
@@ -1913,7 +1913,7 @@ void TrackState::SetDrmContext()
 	{
 		// OCDM-based DRM decryption is available via the HLS OCDM bridge
 		AAMPLOG_INFO("Drm support available");
-		mDrm = AampHlsDrmSessionManager::getInstance().createSession(aamp, mDrmInfo,(AampMediaType)(type),mLogObj);
+		mDrm = AampHlsDrmSessionManager::getInstance().createSession(aamp, mDrmInfo,(AampMediaType)(type));
 		if (!mDrm)
 		{
 			AAMPLOG_WARN("Failed to create Drm Session");
@@ -1926,7 +1926,7 @@ void TrackState::SetDrmContext()
 #ifdef AAMP_VANILLA_AES_SUPPORT
 		AAMPLOG_INFO("StreamAbstractionAAMP_HLS::Get AesDec");
 		mDrm = AesDec::GetInstance();
-		aamp->setCurrentDrm(std::make_shared<AampVanillaDrmHelper>(mLogObj));
+		aamp->setCurrentDrm(std::make_shared<AampVanillaDrmHelper>());
 
 #else
 		AAMPLOG_WARN("StreamAbstractionAAMP_HLS: AAMP_VANILLA_AES_SUPPORT not defined");
@@ -1935,7 +1935,7 @@ void TrackState::SetDrmContext()
 
 	if(mDrm)
 	{
-		mDrm->SetDecryptInfo(aamp, &mDrmInfo, mLogObj);
+		mDrm->SetDecryptInfo(aamp, &mDrmInfo);
 	}
 }
 
@@ -3394,8 +3394,8 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	if (this->mainManifest.GetLen() )
 	{
 		this->mainManifest.AppendNulTerminator(); // make safe for cstring operations
-		if (gpGlobalConfig->logging.trace )
-		{
+		if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
+		{ // use printf to avoid 2048 char syslog limitation
 			printf("***Main Manifest***:\n\n%s\n************\n", this->mainManifest.GetPtr());
 		}
 
@@ -3435,14 +3435,10 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			}
 			// check for the error type , if critical error return immediately
 			if(mainManifestResult == eAAMPSTATUS_MANIFEST_CONTENT_ERROR || mainManifestResult == eAAMPSTATUS_MANIFEST_PARSE_ERROR)
-			{
+			{ // use printf to avoid 2048 char syslog limitation
 				// Dump the invalid manifest content before reporting error
-				int tempDataLen = (MANIFEST_TEMP_DATA_LENGTH - 1);
-				char temp[MANIFEST_TEMP_DATA_LENGTH];
-				strncpy(temp, this->mainManifest.GetPtr(), tempDataLen);
-				temp[tempDataLen] = 0x00;
-				// this will print only one line :(
-				printf("ERROR: Invalid Main Manifest : %s \n", temp);
+				this->mainManifest.AppendNulTerminator();
+				printf("ERROR: Invalid Main Manifest : %s \n", this->mainManifest.GetPtr() );
 				return mainManifestResult;
 			}
 		}
@@ -3698,8 +3694,8 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				AampTime culled{};
 				bool playContextConfigured = false;
 				ts->playlist.AppendNulTerminator(); // make safe for cstring operations
-				if (gpGlobalConfig->logging.trace  )
-				{
+				if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
+				{ // use printf to avoid 2048 char syslog limitation
 					printf("***Initial Playlist:******\n\n%s\n*****************\n", ts->playlist.GetPtr() );
 				}
 				// Flag also denotes if first encrypted init fragment was pushed or not
@@ -3846,13 +3842,13 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 						{
 							AAMPLOG_WARN("Legacy subtec");
-							ts->mSubtitleParser = SubtecFactory::createSubtitleParser(mLogObj, aamp, type);
+							ts->mSubtitleParser = SubtecFactory::createSubtitleParser(aamp, type);
 						}
 						else
 						{
 							AAMPLOG_WARN("GST subtec");
 							if (aamp->WebVTTCueListenersRegistered())
-								ts->mSubtitleParser = subtec_make_unique<WebVTTParser>(mLogObj, aamp, type);
+								ts->mSubtitleParser = subtec_make_unique<WebVTTParser>(aamp, type);
 						}
 						if (!ts->mSubtitleParser)
 						{
@@ -3881,7 +3877,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						if (format == FORMAT_MPEGTS)
 						{
 							AAMPLOG_WARN("Configure auxiliary audio TS track demuxing");
-							ts->playContext = std::make_shared<TSProcessor>(mLogObj, aamp, eStreamOp_DEMUX_AUX, mID3Handler);
+							ts->playContext = std::make_shared<TSProcessor>(aamp, eStreamOp_DEMUX_AUX, mID3Handler);
 							ts->SourceFormat(FORMAT_MPEGTS);
 							if (ts->playContext)
 							{
@@ -3920,7 +3916,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						if (format == FORMAT_MPEGTS)
 						{
 							AAMPLOG_WARN("StreamAbstractionAAMP_HLS: Configure audio TS track demuxing");
-							ts->playContext = std::make_shared<TSProcessor>(mLogObj, aamp, eStreamOp_DEMUX_AUDIO, mID3Handler);
+							ts->playContext = std::make_shared<TSProcessor>(aamp, eStreamOp_DEMUX_AUDIO, mID3Handler);
 							ts->SourceFormat(FORMAT_MPEGTS);
 							if(ts->playContext)
 							{
@@ -4003,7 +3999,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 							}
 						}
 						AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : Configure video TS track demuxing demuxOp %d", demuxOp);
-						ts->playContext = std::make_shared<TSProcessor>(mLogObj, aamp, demuxOp, mID3Handler, eMEDIATYPE_VIDEO,
+						ts->playContext = std::make_shared<TSProcessor>(aamp, demuxOp, mID3Handler, eMEDIATYPE_VIDEO,
 							std::static_pointer_cast<TSProcessor> (trackState[eMEDIATYPE_AUDIO]->playContext).get(),
 							std::static_pointer_cast<TSProcessor>(trackState[eMEDIATYPE_AUX_AUDIO]->playContext).get());
 						ts->SourceFormat(FORMAT_MPEGTS);
@@ -4050,7 +4046,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				if (!playContextConfigured && (ts->streamOutputFormat == FORMAT_MPEGTS))
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : track %p context configuring for eStreamOp_NONE", ts);
-					ts->playContext = std::make_shared<TSProcessor>(mLogObj, aamp, eStreamOp_NONE, mID3Handler, iTrack);
+					ts->playContext = std::make_shared<TSProcessor>(aamp, eStreamOp_NONE, mID3Handler, iTrack);
 					ts->SourceFormat(FORMAT_MPEGTS);
 					ts->playContext->setThrottleEnable(this->enableThrottle);
 					if (this->rate == AAMP_NORMAL_PLAY_RATE)
@@ -4563,7 +4559,7 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 		{
 			trackName = "aux-audio";
 		}
-		trackState[iTrack] = new TrackState(mLogObj, (TrackType)iTrack, this, aamp, trackName, mID3Handler, mPtsOffsetUpdate);
+		trackState[iTrack] = new TrackState((TrackType)iTrack, this, aamp, trackName, mID3Handler, mPtsOffsetUpdate);
 		TrackState *ts = trackState[iTrack];
 		ts->playlistPosition = -1;
 		ts->playTarget = seekPosition;
@@ -4906,14 +4902,19 @@ void TrackState::RunFetchLoop()
 			WaitForManifestUpdate();
 		}
 
-		AAMPLOG_FAILOVER("fragmentURI [%.*s] timeElapsedSinceLastFragment [%f]",
-			 fragmentURI.getLen(), fragmentURI.getPtr(), (aamp_GetCurrentTimeMS() - context->LastVideoFragParsedTimeMS()));
-
+		if( ISCONFIGSET(eAAMPConfig_FailoverLogging) )
+		{
+			AAMPLOG_WARN("fragmentURI [%.*s] timeElapsedSinceLastFragment [%f]",
+						 fragmentURI.getLen(), fragmentURI.getPtr(), (aamp_GetCurrentTimeMS() - context->LastVideoFragParsedTimeMS()));
+		}
 		/* Added to handle an edge case for cdn failover, where we found valid sub-manifest but no valid fragments.
 		 * In this case we have to stall the playback here. */
 		if( fragmentURI.empty() && IsLive() && type == eTRACK_VIDEO)
 		{
-			AAMPLOG_FAILOVER("fragmentURI is NULL, playback may stall in few seconds..");
+			if( ISCONFIGSET(eAAMPConfig_FailoverLogging) )
+			{
+				AAMPLOG_WARN("fragmentURI is NULL, playback may stall in few seconds..");
+			}
 			context->CheckForPlaybackStall(false);
 		}
 	}
@@ -4941,10 +4942,10 @@ void TrackState::FragmentCollector(void)
 /**
  * @brief Constructor function
  */
-StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seekpos, float rate,
+StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *aamp,double seekpos, float rate,
 	id3_callback_t id3Handler,
 	ptsoffset_update_t ptsUpdate)
-: StreamAbstractionAAMP(logObj, aamp, id3Handler),
+: StreamAbstractionAAMP(aamp, id3Handler),
 	rate(rate), maxIntervalBtwPlaylistUpdateMs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS), mainManifest("mainManifest"), allowsCache(false), seekPosition(seekpos), mTrickPlayFPS(),
 	enableThrottle(false), firstFragmentDecrypted(false), mStartTimestampZero(false), mNumberOfTracks(0), midSeekPtsOffset(0),
 	lastSelectedProfileIndex(0), segDLFailCount(0), segDrmDecryptFailCount(0), mMediaCount(0),mProfileCount(0),
@@ -4985,11 +4986,11 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(AampLogManager *logObj, cla
 /**
  * @brief TrackState Constructor
  */
-TrackState::TrackState(AampLogManager *logObj, TrackType type, StreamAbstractionAAMP_HLS* parent, PrivateInstanceAAMP* aamp, const char* name,
+TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, PrivateInstanceAAMP* aamp, const char* name,
 			id3_callback_t id3Handler,
 			ptsoffset_update_t ptsUpdate
 		) :
-		MediaTrack(logObj, type, aamp, name),
+		MediaTrack(type, aamp, name),
 		indexCount(0), currentIdx(0), indexFirstMediaSequenceNumber(0), fragmentURI(), lastPlaylistDownloadTimeMS(0), lastPlaylistIndexedTimeMS(0),
 		byteRangeLength(0), byteRangeOffset(0), nextMediaSequenceNumber(0), playlistPosition(0), playTarget(0),playTargetBufferCalc(0),lastDownloadedIFrameTarget(-1),
 		streamOutputFormat(FORMAT_INVALID),
@@ -5528,15 +5529,15 @@ const std::unique_ptr<aamp::MetadataProcessorIntf> & StreamAbstractionAAMP_HLS::
 
 		if (fmt == FORMAT_MPEGTS)
 		{
-			auto video_processor = std::make_shared<TSProcessor>(mLogObj, aamp, eStreamOp_DEMUX_ALL, mID3Handler, eMEDIATYPE_DSM_CC);
-			mMetadataProcessor = aamp_utils::make_unique<aamp::TSMetadataProcessor>(mLogObj, mID3Handler, mPtsOffsetUpdate, std::move(video_processor));
+			auto video_processor = std::make_shared<TSProcessor>(aamp, eStreamOp_DEMUX_ALL, mID3Handler, eMEDIATYPE_DSM_CC);
+			mMetadataProcessor = aamp_utils::make_unique<aamp::TSMetadataProcessor>(mID3Handler, mPtsOffsetUpdate, std::move(video_processor));
 		}
 		else if (fmt == FORMAT_ISO_BMFF)
 		{
 			auto video_processor = std::dynamic_pointer_cast<IsoBmffProcessor>(GetMediaTrack(eTRACK_VIDEO)->playContext);
 			if (video_processor)
 			{
-				mMetadataProcessor = aamp_utils::make_unique<aamp::IsoBMFFMetadataProcessor>(mLogObj, mID3Handler, mPtsOffsetUpdate, video_processor);
+				mMetadataProcessor = aamp_utils::make_unique<aamp::IsoBMFFMetadataProcessor>(mID3Handler, mPtsOffsetUpdate, video_processor);
 			}
 			else
 			{

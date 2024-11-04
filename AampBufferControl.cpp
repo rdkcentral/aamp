@@ -319,6 +319,13 @@ void AampBufferControl::BufferControlMaster::createOrChangeStrategyIfRequired(Bu
 	}
 }
 
+bool  AampBufferControl::BufferControlMaster::isBufferFull(const AampMediaType mediaType)
+{
+	bool isBuffFull = !mDownloadShouldBeEnabled.load();
+	AAMPLOG_DEBUG("BufferControlMaster %s Buffer full status : %d", getThisMediaTypeName(), isBuffFull);
+	return isBuffFull;
+}
+
 void AampBufferControl::BufferControlMaster::needData(const AAMPGstPlayer *player, const AampMediaType mediaType)
 {
 	try

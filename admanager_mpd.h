@@ -51,7 +51,7 @@ public:
 	 *
 	 * @param[in] aamp - Pointer to PrivateInstanceAAMP
 	 */
-	CDAIObjectMPD(AampLogManager *logObj, PrivateInstanceAAMP* aamp);
+	CDAIObjectMPD(PrivateInstanceAAMP* aamp);
 
 	/**
 	 * @fn ~CDAIObjectMPD
@@ -105,6 +105,7 @@ enum class AdEvent
 };
 
 #define OFFSET_ALIGN_FACTOR 2000 /**< Observed minor slacks in the ad durations. Align factor used to place the ads correctly. */
+#define OFFSET_SPLIT_FACTOR 5000 /**< Observed instances where single CDAI Ad is split into two source Periods. Split factor used to identify those cases. */
 
 /**
  * @struct AdNode
@@ -330,7 +331,6 @@ struct PlacementObj {
 class PrivateCDAIObjectMPD
 {
 public:
-	AampLogManager*                                mLogObj;
 	PrivateInstanceAAMP*                           mAamp;               /**< AAMP player's private instance */
 	std::mutex                                     mDaiMtx;             /**< Mutex protecting DAI critical section */
 	bool                                           mIsFogTSB;           /**< Channel playing from TSB or not */
@@ -361,7 +361,7 @@ public:
 	 *
 	 * @param[in] aamp - Pointer to PrivateInstanceAAMP
 	 */
-	PrivateCDAIObjectMPD(AampLogManager* logObj, PrivateInstanceAAMP* aamp);
+	PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp);
 
 	/**
 	 * @fn ~PrivateCDAIObjectMPD
@@ -544,12 +544,20 @@ public:
 	void CacheAdData(const std::string &periodId, const std::string &adId, const std::string &url);
 
 	/**
-	 * @fn WaitForNextAdResolved
+	 * @fn WaitForNextAdResolved for ad fulfillment
 	 * @brief Wait for the next ad placement to complete with a timeout
 	 * @param[in] timeoutMs Timeout value in milliseconds
 	 * @return true if the ad placement completed within the timeout, false otherwise
 	 */
 	bool WaitForNextAdResolved(int timeoutMs);
+
+	/**
+	 * @fn WaitForNextAdResolved (with periodId parameter for initial ad placement)
+	 * @brief Wait for the next ad placement to complete with a timeout
+	 * @param[in] timeoutMs Timeout value in milliseconds
+	 * @return true if the ad placement completed within the timeout, false otherwise
+	 */
+	bool WaitForNextAdResolved(int timeoutMs, std::string periodId);
 
 	/**
 	 * @fn AbortWaitForNextAdResolved

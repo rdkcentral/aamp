@@ -38,7 +38,6 @@ using ::testing::SetArgReferee;
 using ::testing::WithParamInterface;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 std::string url1 = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd";
 std::string url2 = "http://g004-sle-us-cmaf-stg-cf.cdn.peacocktv.com/Content/CMAF_S2-CTR-4s-v2/Live/channel(UHDtoHDR10SLE3202382fd53b0ade)/60_master_2hr.m3u8?c3.ri=5002728478659375252&audio=all&subtitle=all&forcedNarrative=true";
@@ -48,14 +47,12 @@ class FunctionalTests : public ::testing::Test
 {
 protected:
     AampMPDDownloader *mAampMPDDownloader = nullptr;
-    AampLogManager logObj;
     std::string appName;
     ManifestDownloadConfigPtr mpdDnldCfg;
     ManifestDownloadResponsePtr dnldManifest;
     PrivateInstanceAAMP *mPrivateInstanceAAMP1{};
     void SetUp() override
     {
-        mLogObj = new AampLogManager();
         mAampMPDDownloader = new AampMPDDownloader();
     }
 
@@ -63,9 +60,6 @@ protected:
     {
         delete mAampMPDDownloader;
         mAampMPDDownloader = nullptr;
-
-        delete mLogObj;
-        mLogObj = nullptr;
     }
 
 public:
@@ -179,13 +173,13 @@ TEST_F(FunctionalTests, AampMPDDownloader_PushDownloadDataToQueue)
 #endif
 TEST_F(FunctionalTests, InitializeWithValidConfig)
 {
-    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(mpdDnldCfg, &logObj, appName));
+    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(mpdDnldCfg, appName));
 }
 
 TEST_F(FunctionalTests, InitializeWithNullConfig)
 {
     ManifestDownloadConfigPtr nullCfg = nullptr;
-    mAampMPDDownloader->Initialize(nullCfg, &logObj, appName);
+    mAampMPDDownloader->Initialize(nullCfg, appName);
 }
 
 TEST_F(FunctionalTests, SetBufferAvailabilityTest)
@@ -282,7 +276,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_6)
 	inpData->mPreProcessedManifest = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"";
 	if(!inpData->mPreProcessedManifest.empty())
 	{
-		EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData, &logObj, appName,std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, mPrivateInstanceAAMP1)));
+		EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData, appName,std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, mPrivateInstanceAAMP1)));
 	}
 	else
 	{

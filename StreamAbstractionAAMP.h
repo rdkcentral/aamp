@@ -127,6 +127,7 @@ public:
 	double duration;				/**< Fragment duration, in seconds */
 	bool initFragment;				/**< Is init fragment */
 	bool discontinuity;				/**< PTS discontinuity status */
+	bool isDummy;			/**< Is dummy fragment */
 	int profileIndex;				/**< Profile index; Updated internally */
 	uint32_t timeScale;				/* timescale of this fragment as read from manifest */
 	std::string uri;				/* for debug */
@@ -137,7 +138,8 @@ public:
 	double absPosition;		/** Absolute position */
 	CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0),
 					   initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()),
-					   type(eMEDIATYPE_DEFAULT), downloadStartTime(0), timeScale(0), PTSOffsetSec(0), absPosition(0.0)
+					   type(eMEDIATYPE_DEFAULT), downloadStartTime(0), timeScale(0), PTSOffsetSec(0), absPosition(0.0),
+					   isDummy(false)
 	{
 	}
 
@@ -156,6 +158,7 @@ public:
 		this->timeScale = other->timeScale;
 		this->PTSOffsetSec = other->PTSOffsetSec;
 		this->absPosition =  other->absPosition;
+		this->isDummy = other->isDummy;
 	}
 	void Clear()
 	{
@@ -171,6 +174,7 @@ public:
 		timeScale = 0;
 		PTSOffsetSec = 0;
 		absPosition = 0.0;
+		isDummy = false;
 	}
 };
 
@@ -221,7 +225,7 @@ public:
 	 * @param[in] aamp - Pointer to PrivateInstanceAAMP
 	 * @param[in] name - Media track name
 	 */
-	MediaTrack(AampLogManager *logObj, TrackType type, PrivateInstanceAAMP* aamp, const char* name);
+	MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name);
 
 	/**
 	 * @fn ~MediaTrack
@@ -853,7 +857,6 @@ public:
 	bool seamlessSubtitleSwitchInProgress;
 
 protected:
-	AampLogManager *mLogObj;
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< Helper class for ISO BMFF parsing */
 	CachedFragment *cachedFragment;     /**< storage for currently-downloaded fragment */
@@ -945,7 +948,7 @@ public:
 	 * @fn StreamAbstractionAAMP
 	 * @param[in] aamp pointer to PrivateInstanceAAMP object associated with stream
 	 */
-	StreamAbstractionAAMP(AampLogManager *logObj, PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler = nullptr);
+	StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler = nullptr);
 
 	/**
 	 * @fn ~StreamAbstractionAAMP
@@ -1142,8 +1145,6 @@ public:
 	bool GetESChangeStatus(void){ return mESChangeStatus;}
 
 	PrivateInstanceAAMP* aamp;  /**< Pointer to PrivateInstanceAAMP object associated with stream*/
-
-	AampLogManager *mLogObj;
 
 	/**
 	 *   @fn RampDownProfile
@@ -1363,9 +1364,7 @@ public:
 	double mProgramStartTime;	        /**< Indicate program start time or availability start time */
 	int mTsbMaxBitrateProfileIndex;		/**< Indicates the index of highest profile in the saved stream info */
 	bool mUpdateReason;			/**< flag to update the bitrate change reason */
-	double mPTSOffsetSec;				/*For PTS restamping*/
-	double mNextPts;					/*For PTS restamping*/
-	bool mIsChunkMode;			/** Flag to indicate whetehr playback is in chunk mode or not*/
+	AampTime mPTSOffset;				/*For PTS restamping*/
 
 	/**
 	 *   @brief Get profile index of highest bandwidth

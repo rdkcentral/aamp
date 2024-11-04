@@ -1,5 +1,4 @@
 #!/bin/bash
-source helper/config.sh
 
 if [ "$AUDIO_CODEC" == "aac" ]; then
 	audioCodec="mp4a.40.2"
@@ -49,12 +48,10 @@ EOL
 for (( I=0; I<PROFILE_COUNT; I++ ))
 do
 
-if [ ${HEIGHT[$I]} -le 1080 ] ; then
 cat <<EOL >> main.m3u8
 #EXT-X-STREAM-INF:PROGRAM-ID=1,AUDIO="main",BANDWIDTH=${KBPS[$I]}000,RESOLUTION=${WIDTH[$I]}x${HEIGHT[$I]},CODECS="$videoCodec,$audioCodec"
 hls/${HEIGHT[$I]}p.m3u8
 EOL
-fi
 done
 
 cat <<EOL >> main.m3u8
@@ -64,12 +61,10 @@ EOL
 for (( I=0; I<PROFILE_COUNT; I++ ))
 do
 
-if [ ${HEIGHT[$I]} -le 1080 ] ; then
 cat <<EOL >> main.m3u8
 #EXT-X-STREAM-INF:PROGRAM-ID=1,AUDIO="commentary",BANDWIDTH=${KBPS[$I]}000,RESOLUTION=${WIDTH[$I]}x${HEIGHT[$I]},CODECS="$videoCodec,$audioCodec"
 hls/${HEIGHT[$I]}p.m3u8
 EOL
-fi
 done
 
 cat <<EOL >> main.m3u8
@@ -99,21 +94,24 @@ cat <<EOL > text/${LANG_639_2[$I]}_subs.m3u8
 #EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-MEDIA-SEQUENCE:0
-#EXT-X-TARGETDURATION:$TTML_DUR
+#EXT-X-TARGETDURATION:$TEXT_SEGMENT_SEC
+#EXT-X-MAP:URI="ttml_${LANG_639_2[$I]}_init.mp4"
 EOL
 
-totalTracks=($VIDEO_LENGTH_SEC/$TTML_DUR)
+totalTracks=($VIDEO_LENGTH_SEC/$TEXT_SEGMENT_SEC)
 
 for (( T=1; T<=totalTracks; T++ ))
 do
-if [ "$T" -le 10 ]; then
+if [ "$T" -lt 10 ]; then
+	Track="ttml_${LANG_639_2[$I]}_00$T.mp4"
+elif [ "$T" -ge 10 ] && [ "$T" -lt 100 ]; then
 	Track="ttml_${LANG_639_2[$I]}_0$T.mp4"
 else
-	Track="ttml_${LANG_639_2[$I]}_$T.mp4"
+        Track="ttml_${LANG_639_2[$I]}_$T.mp4"
 fi
 
 cat <<EOL >> text/${LANG_639_2[$I]}_subs.m3u8
-#EXTINF:$TTML_DUR,
+#EXTINF:$TEXT_SEGMENT_SEC,
 $Track
 EOL
 done

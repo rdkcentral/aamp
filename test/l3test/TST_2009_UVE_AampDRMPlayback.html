@@ -10,8 +10,9 @@
 // ------------------------------------------------------------------------------------
 // Playback of DRM encoded content
 // ------------------------------------------------------------------------------------
-// Performs playback of DRM encoded content ensuring the correct UVE APIs are called
-// to correctly configure for DRM playback and provide the key.
+// Performs playback of Widevine & Playready DRM encoded content ensuring the correct UVE APIs
+// are called to correctly configure for DRM playback and provide the license server,
+// authToken (not used), and customData (not used) for the given key.
 // The Following DRM APIs are specifically verified in this test:
 //  - configRuntimeDRM
 //  - setDRMConfig
@@ -21,126 +22,167 @@
 //  - contentProtectionDataUpdate
 // ------------------------------------------------------------------------------------
 
-var DRM_url ="https://storage.googleapis.com/shaka-demo-assets/angel-one-widevine-hls/hls.m3u8"
+const drmStreams =
+[
+    {
+        // Example of pssh v0
+        "name": "HLS WV",
+        "url": "https://storage.googleapis.com/shaka-demo-assets/angel-one-widevine-hls/hls.m3u8",
+        "licenseServer": "https://cwip-shaka-proxy.appspot.com/no_auth",
+        "preferredKeysystem": "com.widevine.alpha"
+    },
+    {
+        // https://github.com/Axinom/public-test-vectors/blob/master/README.md
+        "name": "Dash WV SingleKey",
+        "url": "https://media.axprod.net/TestVectors/Dash/protected_dash_1080p_h264_singlekey/manifest.mpd",
+        "customHeader": "X-AxDRM-Message",
+        "customHeaderValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJ2ZXJzaW9uIjogMSwKICAiY29tX2tleV9pZCI6ICI2OWU1NDA4OC1lOWUwLTQ1MzAtOGMxYS0xZWI2ZGNkMGQxNGUiLAogICJtZXNzYWdlIjogewogICAgInR5cGUiOiAiZW50aXRsZW1lbnRfbWVzc2FnZSIsCiAgICAidmVyc2lvbiI6IDIsCiAgICAibGljZW5zZSI6IHsKICAgICAgImFsbG93X3BlcnNpc3RlbmNlIjogdHJ1ZQogICAgfSwKICAgICJjb250ZW50X2tleXNfc291cmNlIjogewogICAgICAiaW5saW5lIjogWwogICAgICAgIHsKICAgICAgICAgICJpZCI6ICI0MDYwYTg2NS04ODc4LTQyNjctOWNiZi05MWFlNWJhZTFlNzIiLAogICAgICAgICAgImVuY3J5cHRlZF9rZXkiOiAid3QzRW51dVI1UkFybjZBRGYxNkNCQT09IiwKICAgICAgICAgICJ1c2FnZV9wb2xpY3kiOiAiUG9saWN5IEEiCiAgICAgICAgfQogICAgICBdCiAgICB9LAogICAgImNvbnRlbnRfa2V5X3VzYWdlX3BvbGljaWVzIjogWwogICAgICB7CiAgICAgICAgIm5hbWUiOiAiUG9saWN5IEEiLAogICAgICAgICJwbGF5cmVhZHkiOiB7CiAgICAgICAgICAibWluX2RldmljZV9zZWN1cml0eV9sZXZlbCI6IDE1MCwKICAgICAgICAgICJwbGF5X2VuYWJsZXJzIjogWwogICAgICAgICAgICAiNzg2NjI3RDgtQzJBNi00NEJFLThGODgtMDhBRTI1NUIwMUE3IgogICAgICAgICAgXQogICAgICAgIH0KICAgICAgfQogICAgXQogIH0KfQ.l8PnZznspJ6lnNmfAE9UQV532Ypzt1JXQkvrk8gFSRw",
+        "licenseServer": "https://drm-widevine-licensing.axtest.net/AcquireLicense",
+        "preferredKeysystem": "com.widevine.alpha"
+    },
+    {
+        // https://github.com/Axinom/public-test-vectors/blob/master/README.md
+        "name": "Dash WV MultiKey",
+        "url": "https://media.axprod.net/TestVectors/MultiKey/Dash_h264_1080p_cenc/manifest.mpd",
+        "customHeader": "X-AxDRM-Message",
+        "customHeaderValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJ2ZXJzaW9uIjogMSwKICAiY29tX2tleV9pZCI6ICI2OWU1NDA4OC1lOWUwLTQ1MzAtOGMxYS0xZWI2ZGNkMGQxNGUiLAogICJtZXNzYWdlIjogewogICAgInR5cGUiOiAiZW50aXRsZW1lbnRfbWVzc2FnZSIsCiAgICAidmVyc2lvbiI6IDIsCiAgICAibGljZW5zZSI6IHsKICAgICAgImFsbG93X3BlcnNpc3RlbmNlIjogdHJ1ZQogICAgfSwKICAgICJjb250ZW50X2tleXNfc291cmNlIjogewogICAgICAiaW5saW5lIjogWwogICAgICAgIHsKICAgICAgICAgICJpZCI6ICI0MjZkMWEzMi03OGZkLTRmMjItODczMC02OGRiMzk3NGRkYTkiLAogICAgICAgICAgImVuY3J5cHRlZF9rZXkiOiAiZjFsLy95M0dnN3pFVE9qM1ZQTXovQT09IiwKICAgICAgICAgICJ1c2FnZV9wb2xpY3kiOiAiUG9saWN5IEEiCiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAiOWRjOGU4MGEtY2JmYS00MWMzLTk4NGYtYjYwNDM0NDAzOTFhIiwKICAgICAgICAgICJlbmNyeXB0ZWRfa2V5IjogInlxOW9pSjJ0QnQ1bkpFM1VENE53bXc9PSIsCiAgICAgICAgICAidXNhZ2VfcG9saWN5IjogIlBvbGljeSBBIgogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogIjQxYmFhNTk5LTY5MDUtNGZjMC1hOGM2LTM1NWRjZDFhYjM5ZiIsCiAgICAgICAgICAiZW5jcnlwdGVkX2tleSI6ICJ0ZWhGVGhwK2RpMUFHSHM2eGdySjBRPT0iLAogICAgICAgICAgInVzYWdlX3BvbGljeSI6ICJQb2xpY3kgQSIKICAgICAgICB9CiAgICAgIF0KICAgIH0sCiAgICAiY29udGVudF9rZXlfdXNhZ2VfcG9saWNpZXMiOiBbCiAgICAgIHsKICAgICAgICAibmFtZSI6ICJQb2xpY3kgQSIsCiAgICAgICAgInBsYXlyZWFkeSI6IHsKICAgICAgICAgICJtaW5fZGV2aWNlX3NlY3VyaXR5X2xldmVsIjogMTUwLAogICAgICAgICAgInBsYXlfZW5hYmxlcnMiOiBbCiAgICAgICAgICAgICI3ODY2MjdEOC1DMkE2LTQ0QkUtOEY4OC0wOEFFMjU1QjAxQTciCiAgICAgICAgICBdCiAgICAgICAgfQogICAgICB9CiAgICBdCiAgfQp9.KpLCxibrW87lZwA_CSuZdqj7u0L-lnt-e3z_M1Toas0",
+        "licenseServer": "https://drm-widevine-licensing.axtest.net/AcquireLicense",
+        "preferredKeysystem": "com.widevine.alpha"
+    },
+    {
+        // https://github.com/Axinom/public-test-vectors/blob/master/README.md
+        "name": "Dash PR SingleKey",
+        "url": "https://media.axprod.net/TestVectors/Dash/protected_dash_1080p_h264_singlekey/manifest.mpd",
+        "customHeader": "X-AxDRM-Message",
+        "customHeaderValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJ2ZXJzaW9uIjogMSwKICAiY29tX2tleV9pZCI6ICI2OWU1NDA4OC1lOWUwLTQ1MzAtOGMxYS0xZWI2ZGNkMGQxNGUiLAogICJtZXNzYWdlIjogewogICAgInR5cGUiOiAiZW50aXRsZW1lbnRfbWVzc2FnZSIsCiAgICAidmVyc2lvbiI6IDIsCiAgICAibGljZW5zZSI6IHsKICAgICAgImFsbG93X3BlcnNpc3RlbmNlIjogdHJ1ZQogICAgfSwKICAgICJjb250ZW50X2tleXNfc291cmNlIjogewogICAgICAiaW5saW5lIjogWwogICAgICAgIHsKICAgICAgICAgICJpZCI6ICI0MDYwYTg2NS04ODc4LTQyNjctOWNiZi05MWFlNWJhZTFlNzIiLAogICAgICAgICAgImVuY3J5cHRlZF9rZXkiOiAid3QzRW51dVI1UkFybjZBRGYxNkNCQT09IiwKICAgICAgICAgICJ1c2FnZV9wb2xpY3kiOiAiUG9saWN5IEEiCiAgICAgICAgfQogICAgICBdCiAgICB9LAogICAgImNvbnRlbnRfa2V5X3VzYWdlX3BvbGljaWVzIjogWwogICAgICB7CiAgICAgICAgIm5hbWUiOiAiUG9saWN5IEEiLAogICAgICAgICJwbGF5cmVhZHkiOiB7CiAgICAgICAgICAibWluX2RldmljZV9zZWN1cml0eV9sZXZlbCI6IDE1MCwKICAgICAgICAgICJwbGF5X2VuYWJsZXJzIjogWwogICAgICAgICAgICAiNzg2NjI3RDgtQzJBNi00NEJFLThGODgtMDhBRTI1NUIwMUE3IgogICAgICAgICAgXQogICAgICAgIH0KICAgICAgfQogICAgXQogIH0KfQ.l8PnZznspJ6lnNmfAE9UQV532Ypzt1JXQkvrk8gFSRw",
+        "licenseServer": "https://drm-playready-licensing.axtest.net/AcquireLicense",
+        "preferredKeysystem": "com.microsoft.playready"
+    },
+    {
+        // https://github.com/Axinom/public-test-vectors/blob/master/README.md
+        "name": "Dash PR MultiKey",
+        "url": "https://media.axprod.net/TestVectors/MultiKey/Dash_h264_1080p_cenc/manifest.mpd",
+        "customHeader": "X-AxDRM-Message",
+        "customHeaderValue": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJ2ZXJzaW9uIjogMSwKICAiY29tX2tleV9pZCI6ICI2OWU1NDA4OC1lOWUwLTQ1MzAtOGMxYS0xZWI2ZGNkMGQxNGUiLAogICJtZXNzYWdlIjogewogICAgInR5cGUiOiAiZW50aXRsZW1lbnRfbWVzc2FnZSIsCiAgICAidmVyc2lvbiI6IDIsCiAgICAibGljZW5zZSI6IHsKICAgICAgImFsbG93X3BlcnNpc3RlbmNlIjogdHJ1ZQogICAgfSwKICAgICJjb250ZW50X2tleXNfc291cmNlIjogewogICAgICAiaW5saW5lIjogWwogICAgICAgIHsKICAgICAgICAgICJpZCI6ICI0MjZkMWEzMi03OGZkLTRmMjItODczMC02OGRiMzk3NGRkYTkiLAogICAgICAgICAgImVuY3J5cHRlZF9rZXkiOiAiZjFsLy95M0dnN3pFVE9qM1ZQTXovQT09IiwKICAgICAgICAgICJ1c2FnZV9wb2xpY3kiOiAiUG9saWN5IEEiCiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAiOWRjOGU4MGEtY2JmYS00MWMzLTk4NGYtYjYwNDM0NDAzOTFhIiwKICAgICAgICAgICJlbmNyeXB0ZWRfa2V5IjogInlxOW9pSjJ0QnQ1bkpFM1VENE53bXc9PSIsCiAgICAgICAgICAidXNhZ2VfcG9saWN5IjogIlBvbGljeSBBIgogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogIjQxYmFhNTk5LTY5MDUtNGZjMC1hOGM2LTM1NWRjZDFhYjM5ZiIsCiAgICAgICAgICAiZW5jcnlwdGVkX2tleSI6ICJ0ZWhGVGhwK2RpMUFHSHM2eGdySjBRPT0iLAogICAgICAgICAgInVzYWdlX3BvbGljeSI6ICJQb2xpY3kgQSIKICAgICAgICB9CiAgICAgIF0KICAgIH0sCiAgICAiY29udGVudF9rZXlfdXNhZ2VfcG9saWNpZXMiOiBbCiAgICAgIHsKICAgICAgICAibmFtZSI6ICJQb2xpY3kgQSIsCiAgICAgICAgInBsYXlyZWFkeSI6IHsKICAgICAgICAgICJtaW5fZGV2aWNlX3NlY3VyaXR5X2xldmVsIjogMTUwLAogICAgICAgICAgInBsYXlfZW5hYmxlcnMiOiBbCiAgICAgICAgICAgICI3ODY2MjdEOC1DMkE2LTQ0QkUtOEY4OC0wOEFFMjU1QjAxQTciCiAgICAgICAgICBdCiAgICAgICAgfQogICAgICB9CiAgICBdCiAgfQp9.KpLCxibrW87lZwA_CSuZdqj7u0L-lnt-e3z_M1Toas0",
+        "licenseServer": "https://drm-playready-licensing.axtest.net/AcquireLicense",
+        "preferredKeysystem": "com.microsoft.playready"
+    }
+]
 
-var initConfig = {
+const initConfig = {
+    // enable AAMP info logging, and turn on Gstreamer pipeline debug
     info: true,
+    gst: true,
+
     configRuntimeDRM: false
 };
 
+async function TST_2009_UVE_ConfigurePreferredDRM(aamp_player, drm_stream) {
+
+    TST_STEP("Configure " + drm_stream.name + " Playback");
+
+    // Set DRM preferred configuration
+    const DrmConfig = {
+        'preferredKeysystem':drm_stream.preferredKeysystem
+    };
+    await aamp_player.player.setDRMConfig(DrmConfig);
+}
+
+async function TST_2009_UVE_Play(aamp_player, drm_stream) {
+
+    function listener(event) {
+        console.log("AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE: " + JSON.stringify(event));
+
+        var DynamicDrmConfig;
+
+        // Configure the DRM Data for license request for every KeyID reported to application
+        if (drm_stream.preferredKeysystem == "com.widevine.alpha") {
+            DynamicDrmConfig = {
+                'keyID': event.keyID,
+                "com.widevine.alpha": drm_stream.licenseServer,
+                "com.microsoft.playready": "",
+                'customData': '',
+                'authToken': '',
+                'licenseResponse': ''
+            };
+        }
+        else {
+            DynamicDrmConfig = {
+                'keyID': event.keyID,
+                "com.widevine.alpha": "",
+                "com.microsoft.playready": drm_stream.licenseServer,
+                'customData': '',
+                'authToken': '',
+                'licenseResponse': ''
+            };
+        }
+        aamp_player.player.setContentProtectionDataConfig(DynamicDrmConfig);
+        console.log("setContentProtectionDataConfig: " + JSON.stringify(DynamicDrmConfig));
+    }
+
+    await aamp_player.player.addEventListener("contentProtectionDataUpdate", listener);
+
+    if (drm_stream.customHeader) {
+        await aamp_player.player.addCustomHTTPHeader(drm_stream.customHeader, drm_stream.customHeaderValue, true);
+    }
+
+    // Load the DRM URL, but don't start the playback
+    TST_STEP("Tune to " + drm_stream.name);
+    await aamp_player.Load(drm_stream.url, false, true);
+
+    // Start the playback and verify it plays for 10s
+    TST_STEP("Start " + drm_stream.name + " Playback");
+    await aamp_player.SetRate(1, false);
+    await aamp_player.VerifyPlayback(10, 1);
+
+    // Seek to middle of content and verify it plays for 10s
+    const seek = parseInt(await aamp_player.TST_GetDurationSec() / 2, 10);
+    TST_STEP("Seek to Position (" + seek + "s)");
+    await aamp_player.Seek(seek);
+    await aamp_player.VerifyPlayback(10, 1);
+
+    // Stop the playback & cleanup
+    TST_STEP("Stop " + drm_stream.name + " Playback");
+    await aamp_player.Stop();
+
+    await aamp_player.player.removeEventListener("contentProtectionDataUpdate", listener);
+
+    if (drm_stream.customHeader) {
+        await aamp_player.player.removeCustomHTTPHeader();
+    }
+}
 
 async function TST_2009_UVE_AampDRMPlayback() {
     TST_START("TST_2009_UVE_AampDRMPlayback");
     var aamp_player = new AAMPPlayer("MAIN-PLAYER");
     aamp_player.player.initConfig(initConfig);
 
-
-    TST_STEP("Setup and Configure DRM playback");
-
     // Enable DRM Protection event to application for setting Key ID specific setting (for key rotation)
     await aamp_player.player.configRuntimeDRM(true);
 
-    // Set DRM configuration for widevine DRM
-    var DrmConfig = {
-        'preferredKeysystem':'com.widevine.alpha',
-        'com.widevine.alpha':'https://cwip-shaka-proxy.appspot.com/no_auth'
-    };
-    console.log("setDRMConfig: " + JSON.stringify(DrmConfig));
-    await aamp_player.player.setDRMConfig(DrmConfig);
-
     // Configure the Content Protection Data Update timeout (App must call setContentProtectionDataConfig within this time)
-    await aamp_player.player.setContentProtectionDataUpdateTimeout(20);
+    await aamp_player.player.setContentProtectionDataUpdateTimeout(5);
 
+    for (var i = 0; i < drmStreams.length; i++) {
+        await TST_2009_UVE_ConfigurePreferredDRM(aamp_player, drmStreams[i]);
+        await TST_2009_UVE_Play(aamp_player, drmStreams[i]);
+    }
 
-    // Load the DRM URL, but don't start the playback
-    TST_STEP("Tune to URL");
-    await aamp_player.Load(DRM_url, false, true);
-
-
-    // Wait for the content protection data update containing the KEY_ID for this key rotation
-    drm_update = await aamp_player.waitForEventWithTimeout(aamp_player.player, 'contentProtectionDataUpdate', aamp_timeout, null).catch(e => { TST_ASSERT_FAIL_FATAL(e) });
-    console.log("contentProtectionDataUpdate: Received Key:" + JSON.stringify(drm_update.keyID));
-
-    // Configure the DRM Data for license request for every KeyID reported to application
-    TST_STEP("SetContentProtectionDataConfig");
-    var DynamicDrmConfig = {
-        'keyID': drm_update.keyID,
-        'com.widevine.alpha': 'https://cwip-shaka-proxy.appspot.com/no_auth',
-        'customData': '',
-        'authToken': '',
-        'licenseResponse': ''
-    };
-    console.log("setContentProtectionDataConfig: " + JSON.stringify(DynamicDrmConfig));
-    await aamp_player.player.setContentProtectionDataConfig(DynamicDrmConfig);
-
-
-    // Start the playback and verify it plays for 10s
-    TST_STEP("Start Playback");
-    await aamp_player.SetRate(1, false);
-    await aamp_player.VerifyPlayback(10, 1);
-
-
-    // DRM specific playback is now ongoing, verify some auxiliary APIs using this stream
-    // ---------------------------------------------------------------------------------
-
-
-    // Subscribe to specific tags / metadata in manifest
-    TST_STEP("TST_SetSubscribedTags");
-    let tags = ["#EXT-X-TARGETDURATION","#EXT-X-MAP", "#EXT-X-DISCONTINUITY","#EXT-X-KEY"];
-    await aamp_player.TST_SetSubscribedTags(tags);
-    await aamp_player.VerifyPlayback(10, 1);
-
-    // sets the auxiliary language
-    TST_STEP("setAuxiliaryLanguage");
-    await aamp_player.player.setAuxiliaryLanguage("it");
-    await aamp_player.VerifyPlayback(5,1);
-
-    // get available video bitrates
-    TST_STEP("getVideoBitrates");
-    await aamp_player.TST_GetVideoBitrates();
-
-    // sets the video bitrate
-    TST_STEP("setVideoBitrate");
-    await aamp_player.TST_SetVideoBitrate(6099164);
-    await aamp_player.VerifyPlayback(4,1);
-
-    // gets the current video bitrate
-    TST_STEP("getVideoBitrate");
-    var curr_bitrate = await aamp_player.TST_GetCurrentVideoBitrate();
-    console.log("current_bitrate " + curr_bitrate);
-
-    // sets the preferred audio codec
-    TST_STEP("setPreferredAudioCodec");
-    await aamp_player.player.setPreferredAudioCodec("mp4a.40.2");
-
-    // Subscribe http response headers from manifest download
-    TST_STEP("subscribeResponseHeaders");
-    let headers = ["X-Powered-By","X-MoneyTrace"];
-    await aamp_player.TST_SubscribeResponseHeaders(headers);
-    await aamp_player.VerifyPlayback(2,1);
-
-    // Stop the playback and destroy the AAMP Player
-    TST_STEP("Stop the playback");
-    await aamp_player.Stop();
+    // Destroy the AAMP Player
     aamp_player.destroy();
     TST_END()
 }
-
 
 // Run the test when the page loads
     window.onload = function() {
     TST_2009_UVE_AampDRMPlayback()
 }
 
-
 </script>
 <body>
     <div id="videoContainer">
         <video style="height:100%; width:100%; position:absolute; bottom:0; left:0">
             <source src="dummy.mp4" type=video/ave> <!-- hole punching -->
-        </video>
-        <video id="dummyVideo" autoplay="autoplay" style="position: absolute; top: 0px; left: 0px; width: 100%; height: 100%;">
-            <source src="rec://srv/cur" type="video/x-dvb"/>
         </video>
     </div>
     <div id="testModal">

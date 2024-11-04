@@ -219,7 +219,6 @@ typedef enum
 	eAAMPConfig_EnableIFrameTrackExtract,			/**< Config to enable and disable iFrame extraction from video track*/
 	eAAMPConfig_ForceMultiPeriodDiscontinuity,		/**< Config to forcefully process multiperiod discontinuity even if they are continuous in PTS */
 	eAAMPConfig_ForceLLDFlow,						/**< Config to forcefully process LLD workflow even if they are live SLD */
-	eAAMPConfig_UseNewFetcherLoop,					/**< Config to use new optimized version of fetcher loop */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 } AAMPConfigSettingBool;
 #define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)
@@ -310,6 +309,8 @@ typedef enum
 	eAAMPConfig_TsbMaxDiskStorage,					/** TSB max storage in MB */
 	eAAMPConfig_TsbLogLevel,					/** Override the TSB log level */
 	eAAMPConfig_AdFulfillmentTimeout,					/**< Ad fulfillment timeout in milliseconds */
+	eAAMPConfig_AdFulfillmentTimeoutMax,					/**< Ad fulfillment maximum timeout in milliseconds */
+	eAAMPConfig_RequiredQueuedFrames,				/**< required queued frames while tuning */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
@@ -469,11 +470,6 @@ typedef struct ConfigValueString
  */
 class AampConfig
 {
-public:
-	// Had to define as public as globalConfig loggin var is used multiple files
-	// TODO when player level logging is done, need to remove this
-	AampLogManager logging;                 /**< Aamp log manager class*/
-	AampLogManager *mLogObj;
 public:
 	/**
     	 * @fn AampConfig
@@ -646,7 +642,7 @@ public:
      	 * @param[in] owner - Owner value for reverting
      	 * @return None
      	 */
-	void RestoreConfiguration(ConfigPriority owner, AampLogManager *mLogObj);	
+	void RestoreConfiguration(ConfigPriority owner);
 	/**
      	 * @fn ConfigureLogSettings
      	 * @return None
@@ -672,7 +668,6 @@ public:
      	 * @param[in] appname  - input string where appname will be stored
      	 */
 	bool CustomSearch( std::string url, int playerId , std::string appname);
-	AampLogManager *GetLoggerInstance() { return &logging;}
 
 	std::string GetUserAgentString();
 private:

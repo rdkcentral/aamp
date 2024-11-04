@@ -25,11 +25,11 @@ bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
     return true;
 }
 
-bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &url)
+bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &url, const char* trackName, uint32_t timeScale)
 {
 	if (g_mockIsoBmffHelper)
 	{
-		return g_mockIsoBmffHelper->RestampPts(buffer, ptsOffset, url);
+		return g_mockIsoBmffHelper->RestampPts(buffer, ptsOffset, url, trackName, timeScale);
 	}
 
     return true;

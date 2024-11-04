@@ -29,7 +29,7 @@ public:
 	MOCK_METHOD(std::shared_ptr<ManifestDownloadResponse>, GetManifest, (bool bWait, int iWaitDurationMs,int errorSimulation));
 	MOCK_METHOD(bool, IsMPDLowLatency, (AampLLDashServiceData &LLDashData));
 	MOCK_METHOD(void, Start, ());
-	MOCK_METHOD(void, Initialize, (std::shared_ptr<ManifestDownloadConfig> mpdDnldCfg, AampLogManager *logObj, std::string appName));
+	MOCK_METHOD(void, Initialize, (std::shared_ptr<ManifestDownloadConfig> mpdDnldCfg, std::string appName));
 };
 
 extern MockAampMPDDownloader *g_mockAampMPDDownloader;

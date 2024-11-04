@@ -126,7 +126,7 @@ private:
 	void initAampDRMSystem();
 
 public:
-    	AAMPOCDMSessionAdapter(AampLogManager *logObj, std::shared_ptr<AampDrmHelper> drmHelper, AampDrmCallbacks *callbacks = nullptr);
+    	AAMPOCDMSessionAdapter(std::shared_ptr<AampDrmHelper> drmHelper, AampDrmCallbacks *callbacks = nullptr);
 	~AAMPOCDMSessionAdapter();
     	AAMPOCDMSessionAdapter(const AAMPOCDMSessionAdapter&) = delete;
 	AAMPOCDMSessionAdapter& operator=(const AAMPOCDMSessionAdapter&) = delete;

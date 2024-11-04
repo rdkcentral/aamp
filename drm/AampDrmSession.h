@@ -75,7 +75,6 @@ protected:
 	AampSecManagerSession mAampSecManagerSession;
 #endif
 public:
-	AampLogManager *mLogObj;
 	/**
 	 * @brief Create drm session with given init data
 	 * @param f_pbInitData : pointer to initdata
@@ -148,7 +147,7 @@ public:
 	 * @fn AampDrmSession
 	 * @param keySystem : DRM key system uuid
 	 */
-	AampDrmSession(AampLogManager *logObj, const string &keySystem);
+	AampDrmSession(const string &keySystem);
 	/**     
      	 * @brief Copy constructor disabled
      	 *

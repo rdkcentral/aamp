@@ -113,7 +113,7 @@ bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 	size_t curOffset = 0;
 	while (curOffset < bufSize)
 	{
-		Box *box = Box::constructBox(buffer+curOffset, (uint32_t)(bufSize - curOffset), mLogObj, correctBoxSize, newTrackId);
+		Box *box = Box::constructBox(buffer+curOffset, (uint32_t)(bufSize - curOffset), correctBoxSize, newTrackId);
 		if( ((bufSize - curOffset) < 4) || ( (bufSize - curOffset) < box->getSize()) )
 		{
 			chunkedBox = box;
@@ -683,7 +683,6 @@ int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer
 {
 	std::vector<Box*> *pBoxes = getParsedBoxes();
 	size_t mdatCount;
-	bool ret = false;
 	int lastMDatIndex = -1;
 	getMdatBoxCount(mdatCount);
 	if(pBoxes && mdatCount)
@@ -928,14 +927,15 @@ bool IsoBmffBuffer::updateSampleDurationInternal(uint64_t duration, TrunBox& tru
 {
 	bool durationPresent{false};
 
-	/* If the SAMPLE_DURATION_PRESENT flag is set in the TRUN, the sample duration should be updated.
-	 * If the DEFAULT_SAMPLE_DURATION_PRESENT flag is set in the TFHD, the default sample duration should be updated.
-	 */
+	// If the SAMPLE_DURATION_PRESENT flag is set in the TRUN, the sample duration should be updated.
+	// If the DEFAULT_SAMPLE_DURATION_PRESENT flag is set in the TFHD, the default sample duration should be updated.
+
 	if (trun.sampleDurationPresent())
 	{
 		trun.setFirstSampleDuration(duration);
 		durationPresent = true;
 	}
+
 	if (tfhd.defaultSampleDurationPresent())
 	{
 		tfhd.setDefaultSampleDuration(duration);
@@ -955,7 +955,7 @@ void IsoBmffBuffer::truncate(void)
 	// Find the moof.  NB there is no specific MoofBox implemented, it's just a generic container box
 	uint64_t duration{};
 
-	TrunBox *trun{};
+	std::vector<TrunBox *>trunList{};
 	SencBox *senc{};
 	SaizBox *saiz{};
 	TfhdBox *tfhd{};
@@ -971,86 +971,75 @@ void IsoBmffBuffer::truncate(void)
 
 		if(!found)
 		{
-			if (trun)
-			{
-				trun = nullptr;
-			}
-			if (senc)
-			{
-				senc = nullptr;
-			}
-			if (saiz)
-			{
-				saiz = nullptr;
-			}
-			if (tfhd)
-			{
-				tfhd = nullptr;
-			}
-
-			auto boxes{*moof->getChildren()};
+			trunList.clear();
+			senc = nullptr;
+			saiz = nullptr;
+			tfhd = nullptr;
 
 			// Hierarchy - moof->traf->trun/saiz/senc/tfhd
 			// trak & traf are also generic containers
 
-			for (auto box: boxes)
+			size_t localIndex{0};
+			auto traf{getChildBox(moof, Box::TRAF, localIndex)};
+			if (traf != nullptr)
 			{
-				auto type{box->getType()};
-				if (IS_TYPE(type, Box::TRAF))
+				localIndex = 0;
+				while (auto trun{dynamic_cast<TrunBox *>(getChildBox(traf, Box::TRUN, localIndex))})
 				{
-					auto trafBoxes{*box->getChildren()};
-
-					for (auto trafBox: trafBoxes)
-					{
-						auto type{trafBox->getType()};
-
-						if (IS_TYPE(type, Box::TRUN))
-						{
-							trun = dynamic_cast<TrunBox *> (trafBox);
-						}
-						else if (IS_TYPE(type, Box::SENC) && senc == nullptr)
-						{
-							senc = dynamic_cast<SencBox *> (trafBox);
-						}
-						else if (IS_TYPE(type, Box::SAIZ))
-						{
-							saiz = dynamic_cast<SaizBox *> (trafBox);
-						}
-						else if (IS_TYPE(type, Box::TFHD))
-						{
-							tfhd = dynamic_cast<TfhdBox *> (trafBox);
-						}
-						else
-						{
-							// We are not interested in this box
-						}
-					}
+					trunList.push_back(trun);
+					++localIndex;
 				}
+				localIndex = 0;
+				senc = dynamic_cast<SencBox *>(getChildBox(traf, Box::SENC, localIndex));
+				localIndex = 0;
+				saiz = dynamic_cast<SaizBox *>(getChildBox(traf, Box::SAIZ, localIndex));
+				localIndex = 0;
+				tfhd = dynamic_cast<TfhdBox *>(getChildBox(traf, Box::TFHD, localIndex));
 			}
 
-			if (trun && tfhd)
+			if (!trunList.empty() && tfhd)
 			{
 				found = true;
 			}
 		}
 		// Increment the index to continue searching from the next box
-		index++;
+		++index;
 	}
 
 	if(found)
 	{
 		// Find the first mdat box
-		index = 0;
-		auto mdat{dynamic_cast<MdatBox *>(getBox(Box::MDAT, index))};
+		size_t localIndex{0};
+		auto mdat{dynamic_cast<MdatBox *>(getBox(Box::MDAT, localIndex))};
 		if(mdat)
 		{
-			if (!updateSampleDurationInternal(duration, *trun, *tfhd))
+			if (!updateSampleDurationInternal(duration, *trunList[0], *tfhd))
 			{
 				AAMPLOG_WARN("Sample duration not set");
 			}
 
-			trun->truncate();
-			auto newMdatSize{std::max(trun->getFirstSampleSize(), tfhd->getDefaultSampleSize()) + SIZEOF_SIZE_AND_TAG};
+			bool setToSkip{false};
+
+			// NB multiple trun boxes is theoretical
+			for (auto trun : trunList)
+			{
+				if (!setToSkip)
+				{
+					// Truncate the first trun, erase subsequent
+					trun->truncate();
+					setToSkip = true;
+					continue;
+				}
+
+				if(setToSkip)
+				{
+					// Replace TRUN box buffer data with a SKIP box
+					// NOTE THAT THIS WILL NOT REMOVE THE TRUNBOX OBJECT, IT'S JUST THE BUFFER DATA THAT IS REPLACED
+					// (and the type)
+					trun->rewriteAsSkipBox();
+				}
+			}
+			auto newMdatSize{std::max(trunList[0]->getFirstSampleSize(), tfhd->getDefaultSampleSize()) + SIZEOF_SIZE_AND_TAG};
 
 			// May not have been located
 			uint32_t firstSampleSize{0};
@@ -1063,7 +1052,6 @@ void IsoBmffBuffer::truncate(void)
 			{
 				senc->truncate(firstSampleSize);
 			}
-
 
 			mdat->truncate(newMdatSize);
 

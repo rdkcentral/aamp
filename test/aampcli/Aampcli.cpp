@@ -30,7 +30,7 @@ Aampcli mAampcli;
 const char *gApplicationPath = NULL;
 extern VirtualChannelMap mVirtualChannelMap;
 extern void tsdemuxer_InduceRollover( bool enable );
-extern std::vector<AdvertInfo> mAdvertList;
+extern std::vector<std::vector<AdvertInfo>> mAdvertList;
 static int mAdvertIndex = 0;
 
 Aampcli :: Aampcli():
@@ -353,7 +353,6 @@ std::string Aampcli::GetSessionId(size_t index) const
  */
 int main(int argc, char **argv)
 {
-	AampLogManager mLogManager;
 	AampLogManager::disableLogRedirection = true;
 	ABRManager mAbrManager;
 
@@ -408,19 +407,23 @@ void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::vec
 	mAdvertIndex = (mAdvertIndex < mAdvertList.size()) ? mAdvertIndex : 0;
 	while (mAdvertIndex < mAdvertList.size())
 	{
-		//If required duration Ad present in advert list will select it
-		if(reqDuration == mAdvertList[mAdvertIndex].duration)
+		if(mAdvertList[mAdvertIndex].size() == 0)
 		{
-			ad.url = mAdvertList[mAdvertIndex].url;
-			ad.duration = mAdvertList[mAdvertIndex].duration;
+			++mAdvertIndex;
+			continue;
+		}
+		//If required duration Ad present in advert list will select it
+		if(reqDuration == mAdvertList[mAdvertIndex][0].duration)
+		{
+			ad.url = mAdvertList[mAdvertIndex][0].url;
+			ad.duration = mAdvertList[mAdvertIndex][0].duration;
 			adList.push_back(ad);
 			mAdvertIndex = mAdvertIndex + 1;
 			break;
 		}
-		
-		if((defUrl.empty()) && (mAdvertList[mAdvertIndex].duration == 0))
+		if((defUrl.empty()) && (mAdvertList[mAdvertIndex][0].duration == 0))
 		{
-			defUrl = mAdvertList[mAdvertIndex].url;
+			defUrl = mAdvertList[mAdvertIndex][0].url;
 		}
 
 		if(( loop == false) && ( mAdvertIndex + 1 == mAdvertList.size()))
@@ -441,10 +444,15 @@ void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::vec
 		int curDuration = 0;
 		while((mAdvertIndex < mAdvertList.size()) && (curDuration < reqDuration))
 		{
-			if((reqDuration - curDuration) >= mAdvertList[mAdvertIndex].duration)
+			if(mAdvertList[mAdvertIndex].size() == 0)
 			{
-				 ad.url = mAdvertList[mAdvertIndex].url;
-				 ad.duration = mAdvertList[mAdvertIndex].duration;
+				++mAdvertIndex;
+				continue;
+			}
+			if((reqDuration - curDuration) >= mAdvertList[mAdvertIndex][0].duration)
+			{
+				 ad.url = mAdvertList[mAdvertIndex][0].url;
+				 ad.duration = mAdvertList[mAdvertIndex][0].duration;
 				 adList.push_back(ad);
 				 mAdvertIndex = mAdvertIndex + 1;
 				 curDuration += ad.duration;
@@ -460,6 +468,27 @@ void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::vec
 	{
 		ad.url = defUrl;
 		ad.duration = 0;
+		adList.push_back(ad);
+	}
+}
+
+void Aampcli::getAdvertUrlIndexed( std::vector<AdvertInfo>& adList, int idx)
+{
+	if(idx < 0)
+	{
+		printf("[AAMPCLI] Invalid index\n");
+		return;
+	}
+	if(mAdvertList.size()==0)
+	{
+		printf("[AAMPCLI] Advert list is empty\n");
+		return;
+	}
+	advertInfo ad;
+	for (AdvertInfo& advert : mAdvertList[idx])
+	{
+		ad.url = advert.url;
+		ad.duration =advert.duration;
 		adList.push_back(ad);
 	}
 }
@@ -685,26 +714,36 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 							/* A set of ads should be selected for insertion based
 							 * on the splice info event type, id and duration.
 							 */
-							AAMPLOG_WARN("[CDAI] Dynamic ad start signalled");
+							AAMPLOG_WARN("[CDAI] Dynamic ad start signalled mAdBrkIndex(%d)", mAampcli.mAdBrkIndex);
 
 							uint32_t adDuration = 0;
 							std::vector<AdvertInfo> adList;
 							std::string adId = "adId";
-							//If we have an advert list, use that
-							if (mAdvertList.size())
+							if(!mAampcli.mIndexedAds)
 							{
-								mAampcli.getAdvertUrl(splice.duration, adDuration, adList);
+								//If we have an advert list, use that
+								if (mAdvertList.size())
+								{
+									mAampcli.getAdvertUrl(splice.duration, adDuration, adList);
+								}
+								else
+								{
+									// set default url 
+									advertInfo ad;
+									ad.url = "https://ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd";
+									ad.duration = 0;
+									adList.push_back(ad);
+
+								}
 							}
 							else
 							{
-								// set default url 
-								advertInfo ad;
-								ad.url = "https://ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd";
-								ad.duration = 0;
-								adList.push_back(ad);
-
+								//If we have an advert list, use that
+								if (mAdvertList.size())
+								{
+									mAampcli.getAdvertUrlIndexed(adList,mAampcli.mAdBrkIndex);
+								}
 							}
-
 							for(int i=0; i<adList.size(); i++)
 							{
 								adId = "adId" + std::to_string(i+1);
@@ -715,8 +754,14 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 								else
 								{
 									printf("[AMPCLI] AAMP_EVENT_TIMED_METADATA place advert breakId=%s adId=%s duration=%d url=%s\n", ev->getId().c_str(), adId.c_str(), adList[i].duration, adList[i].url.c_str());
-									mAampcli.mSingleton->aamp->mCdaiObject->SetAlternateContents(ev->getId(), adId, adList[i].url, adList[i].duration, adList[i].duration);
+									mAampcli.mSingleton->SetAlternateContents(ev->getId(), adId, adList[i].url);
 								}
+							}
+
+							mAampcli.mAdBrkIndex++;
+							if(mAampcli.mAdBrkIndex >= mAdvertList.size()) // shouldn't go hear ideally , just safety measure
+							{
+								mAampcli.mAdBrkIndex = 0;
 							}
 					}
 					else
@@ -790,6 +835,14 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		{
 			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
 			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_PROGRESS\n\tadId=%s\n\tposition=%u\n\toffset=%u\n\tduration=%u\n\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			break;
+		}
+		case AAMP_EVENT_NEED_MANIFEST_DATA:
+		{
+			printf("[AAMPCLI]  AAMP_EVENT_NEED_MANIFEST_DATA received \n");
+			std::string manifestData = PlaybackCommand::getManifestData(mAampcli.mManifestDataUrl);
+			printf("[AAMPCLI] updateManifest\n");
+			mAampcli.mSingleton->aamp->updateManifest(manifestData.c_str());
 			break;
 		}
 

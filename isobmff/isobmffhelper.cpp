@@ -31,7 +31,7 @@ bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
 	AAMPLOG_TRACE("Function called with len = %zu", buffer.GetLen());
 
 	bool retval{true};
-	IsoBmffBuffer isoBmffBuffer{mLogObj};
+	IsoBmffBuffer isoBmffBuffer{};
 
 	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer.GetPtr()), buffer.GetLen() );
 
@@ -48,10 +48,10 @@ bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
 	return retval;
 }
 
-bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl)
+bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl, const char* trackName, uint32_t timeScale)
 {
 	bool retval{false};
-	IsoBmffBuffer isoBmffBuffer{mLogObj};
+	IsoBmffBuffer isoBmffBuffer{};
 
 	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer.GetPtr()), buffer.GetLen() );
 
@@ -63,10 +63,11 @@ bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, st
 	{
 		isoBmffBuffer.restampPts(ptsOffset);
 		// NOTE: This log line is used by the pts_restamp_check.py test tool,
-		// and may be used by other tests for validation purposes.
+		// and may be used by other tests for validation purposes (e.g. L2 tests).
 		// Please check restamping tests and tools before modifying this log line.
-		AAMPLOG_INFO("before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 " %s",
-					 isoBmffBuffer.beforePTS, isoBmffBuffer.afterPTS, isoBmffBuffer.getSegmentDuration(), fragmentUrl.c_str());
+		AAMPLOG_INFO("[%s] timeScale %u before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 " %s",
+					 trackName, timeScale, isoBmffBuffer.beforePTS, isoBmffBuffer.afterPTS,
+					 isoBmffBuffer.getSegmentDuration(), fragmentUrl.c_str());
 		retval = true;
 	}
 
@@ -76,7 +77,7 @@ bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, st
 bool IsoBmffHelper::SetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
 {
 	bool retval{false};
-	IsoBmffBuffer isoBmffBuffer{mLogObj};
+	IsoBmffBuffer isoBmffBuffer{};
 
 	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t *>(buffer.GetPtr()), buffer.GetLen());
 
@@ -95,7 +96,7 @@ bool IsoBmffHelper::SetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
 bool IsoBmffHelper::SetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, uint64_t duration)
 {
 	bool retval{false};
-	IsoBmffBuffer isoBmffBuffer{mLogObj};
+	IsoBmffBuffer isoBmffBuffer{};
 
 	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t *>(buffer.GetPtr()), buffer.GetLen());
 

@@ -410,7 +410,6 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "enableIFrameTrackExtract", eAAMPConfig_EnableIFrameTrackExtract, true},
 	{false, "forceMultiPeriodDiscontinuity", eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 	{false, "forceLLDFlow", eAAMPConfig_ForceLLDFlow, false},
-	{true, "useNewFetcherLoop", eAAMPConfig_UseNewFetcherLoop, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -504,6 +503,9 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_MAX_TSB_STORAGE_MB,"tsbMaxDiskStorage",eAAMPConfig_TsbMaxDiskStorage,true},
 	{static_cast<int>(TSB::LogLevel::WARN),"tsbLog",eAAMPConfig_TsbLogLevel,false},
 	{DEFAULT_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeout",eAAMPConfig_AdFulfillmentTimeout,true},
+	{MAX_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeoutMax",eAAMPConfig_AdFulfillmentTimeoutMax,true},
+	{DEFAULT_BUFFERING_QUEUED_FRAMES_MIN,"queuedFrames",eAAMPConfig_RequiredQueuedFrames,false},
+	
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },
@@ -840,9 +842,8 @@ static ConfigLookup mConfigLookup;
  *
  * @return None
  */
-AampConfig::AampConfig(): mChannelOverrideMap(),logging(), vCustom(),vCustomIt(),customFound(false),mLogObj(NULL)
+AampConfig::AampConfig(): mChannelOverrideMap(),vCustom(),vCustomIt(),customFound(false)
 {
-	mLogObj = &logging;
 }
 
 /**
@@ -850,11 +851,9 @@ AampConfig::AampConfig(): mChannelOverrideMap(),logging(), vCustom(),vCustomIt()
  */
 AampConfig& AampConfig::operator=(const AampConfig& rhs) 
 {
-	logging  = rhs.logging;
 	mChannelOverrideMap = rhs.mChannelOverrideMap;
 	vCustom = rhs.vCustom;
 	customFound = rhs.customFound;		
-	mLogObj = &logging;
 	memcpy(configValueBool , rhs.configValueBool , sizeof(configValueBool));
 	memcpy(configValueInt , rhs.configValueInt , sizeof(configValueInt));
 	memcpy(configValueFloat , rhs.configValueFloat , sizeof(configValueFloat));
@@ -1829,52 +1828,23 @@ void AampConfig::ReadOperatorConfiguration()
  */
 void AampConfig::ConfigureLogSettings()
 {
-	std::string logString;
-	logString = configValueString[eAAMPConfig_LogLevel].value;
+	std::string logString = configValueString[eAAMPConfig_LogLevel].value;
 
 	if(configValueBool[eAAMPConfig_TraceLogging].value || logString.compare("trace") == 0)
 	{
-		// backward compatability
-		logging.setLogLevel(eLOGLEVEL_TRACE);
-		logging.trace = true;
+		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
+		AampLogManager::lockLogLevel(true);
 	}
 	else if(configValueBool[eAAMPConfig_DebugLogging].value || logString.compare("debug") == 0)
 	{
-		// backward compatability
-		logging.setLogLevel(eLOGLEVEL_DEBUG);
-		logging.debug = true;
+		AampLogManager::setLogLevel(eLOGLEVEL_DEBUG);
+		AampLogManager::lockLogLevel(true);
 	}
 	else if((configValueBool[eAAMPConfig_InfoLogging].value || logString.compare("info") == 0))
 	{
-		// backward compatability
-		logging.setLogLevel(eLOGLEVEL_INFO);
-		logging.info = true;
+		AampLogManager::setLogLevel(eLOGLEVEL_INFO);
+		AampLogManager::lockLogLevel(true);
 	}
-	else if((configValueBool[eAAMPConfig_WarnLogging].value || logString.compare("warn") == 0))
-	{
-		logging.setLogLevel(eLOGLEVEL_WARN);
-	}
-	else if(logString.compare("error") == 0)
-	{
-		logging.setLogLevel(eLOGLEVEL_ERROR);
-	}
-	else
-	{
-		// No log level has been set
-	}
-
-	// This is pending to handle the ownership rights , whether App can set following config
-	logging.failover			=	configValueBool[eAAMPConfig_FailoverLogging].value;
-	logging.gst				=	configValueBool[eAAMPConfig_GSTLogging].value;
-	logging.progress			=	configValueBool[eAAMPConfig_ProgressLogging].value;
-	logging.curl				=	configValueBool[eAAMPConfig_CurlLogging].value;
-	logging.stream				=	configValueBool[eAAMPConfig_StreamLogging].value;
-	logging.curlHeader			= 	configValueBool[eAAMPConfig_CurlHeader].value;
-	logging.curlLicense			=	configValueBool[eAAMPConfig_CurlLicenseLogging].value;
-	logging.logMetadata			=	configValueBool[eAAMPConfig_MetadataLogging].value;
-	logging.id3    				= 	configValueBool[eAAMPConfig_ID3Logging].value;
-	logging.trackMemory			= 	configValueBool[eAAMPConfig_TrackMemory].value;
-
 }
 
 /**
@@ -2009,7 +1979,7 @@ const char *AampConfig::GetConfigName(AAMPConfigSettingString cfg )
 /**
  * @brief RestoreConfiguration - Function is restore last configuration value from current ownership
  */
-void AampConfig::RestoreConfiguration(ConfigPriority owner, AampLogManager *mLogObj)
+void AampConfig::RestoreConfiguration(ConfigPriority owner )
 {
 	// All Bool values
 	for(int i=0;i<AAMPCONFIG_BOOL_COUNT;i++)

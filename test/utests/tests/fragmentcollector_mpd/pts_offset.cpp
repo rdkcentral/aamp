@@ -30,8 +30,8 @@ using namespace testing;
 class ToBeTestedStub : public StreamAbstractionAAMP_MPD
 {
 public:
-	ToBeTestedStub(AampLogManager *logObj, class PrivateInstanceAAMP *aamp, double seekpos, float rate,
-				   id3_callback_t id3Handler = nullptr) : StreamAbstractionAAMP_MPD(logObj, aamp, seekpos, rate){};
+	ToBeTestedStub(class PrivateInstanceAAMP *aamp, double seekpos, float rate,
+				   id3_callback_t id3Handler = nullptr) : StreamAbstractionAAMP_MPD(aamp, seekpos, rate){};
 	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffsetTest1);
 };
 
@@ -46,15 +46,15 @@ protected:
 
 	void SetUp() override
 	{
-		mLogObj = new AampLogManager();
+//		mLogObj->aampLoglevel = eLOGLEVEL_TRACE;		//To enable all levels of AAMP logging
 		gpGlobalConfig = new AampConfig();
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
-		mStreamAbstractionAAMP_MPD = new ToBeTestedStub(mLogObj, mPrivateInstanceAAMP, 0, 0.0);
-
+		mStreamAbstractionAAMP_MPD = new ToBeTestedStub( mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
+		
 		g_mockAampMPDParseHelper = new MockAampMPDParseHelper();
 	}
 
@@ -74,9 +74,6 @@ protected:
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
-
-		delete mLogObj;
-		mLogObj = nullptr;
 	}
 
 	void addAttributesToNode(xmlTextReaderPtr *reader, Node *node)
@@ -245,9 +242,9 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest1)
 	mStreamAbstractionAAMP_MPD->mpd = respData->mMPDInstance.get();
 
 	PrivateInstanceAAMP *privateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-	StreamAbstractionAAMP_MPD *streamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mLogObj, privateInstanceAAMP, 123.45, 12.34);
+	StreamAbstractionAAMP_MPD *streamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(privateInstanceAAMP, 123.45, 12.34);
 
-	MediaStreamContext ms(mLogObj, eTRACK_VIDEO, streamAbstractionAAMP_MPD, privateInstanceAAMP, "SAMPLETEXT");
+	MediaStreamContext ms(eTRACK_VIDEO, streamAbstractionAAMP_MPD, privateInstanceAAMP, "SAMPLETEXT");
 	mStreamAbstractionAAMP_MPD->mMediaStreamContext[eMEDIATYPE_AUDIO] = &ms;
 	mStreamAbstractionAAMP_MPD->mMediaStreamContext[eMEDIATYPE_VIDEO] = &ms;
 
@@ -302,19 +299,20 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest1)
 		.WillOnce(Return(45)).WillOnce(Return(45));
 
 	mStreamAbstractionAAMP_MPD->mNextPts = 0;
-	mStreamAbstractionAAMP_MPD->mPTSOffsetSec = 0;
+	mStreamAbstractionAAMP_MPD->mPTSOffset = 0;
 	mStreamAbstractionAAMP_MPD->mCurrentPeriod = mStreamAbstractionAAMP_MPD->mpd->GetPeriods().at(0);
+
 	/* Call the method under test and confirm
 	 *  the returned vale matches expected value from the table
 	 */
 	for (int p = 0; p < (sizeof(tbl) / sizeof(tbl[0])); p++)
 	{
 		// Begining of period call to calc PTSoffset
-		mStreamAbstractionAAMP_MPD->UpdatePtsOffset(0, true); 
+		mStreamAbstractionAAMP_MPD->UpdatePtsOffset(true);
 
-		EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->mPTSOffsetSec, tbl[p].expectedOffset);
+		EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->mPTSOffset.inSeconds(), tbl[p].expectedOffset);
 
 		// End of period call to read duration of the period to feed into calc for next period
-		mStreamAbstractionAAMP_MPD->UpdatePtsOffset(0, false);
+		mStreamAbstractionAAMP_MPD->UpdatePtsOffset(false);
 	}
 }

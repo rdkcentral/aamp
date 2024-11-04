@@ -118,6 +118,7 @@ class AampTSBSessionManager;
 #define MAX_URL_LOG_SIZE 960				/**< Considering "aamp_tune" and [AAMP-PLAYER] pretext */
 
 #define CONVERT_SEC_TO_MS(_x_) (_x_ * 1000) 		/**< Convert value to sec to ms */
+#define CONVERT_MS_TO_SEC(_x_) (_x_ / 1000)
 #define DEFAULT_PRECACHE_WINDOW (10) 			/**< 10 mins for full precaching */
 // These error codes are used internally to identify the cause of error from GetFile
 #define PARTIAL_FILE_CONNECTIVITY_AAMP (130)
@@ -2134,7 +2135,7 @@ public:
 	 *   @param[in] trackType - Video/Audio
 	 *   @return void
 	 */
-	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType);
+	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull = false);
 
 	/**
 	 * @brief PrivateInstanceAAMP Constructor
@@ -3854,6 +3855,28 @@ public:
 	}
 
 	/**
+	 *   @brief Set LL-DASH chunk mode enabled or not.
+	 *
+	 *   @param true for LL-DASH chunk mode, default false - which is non chunk mode
+	 *
+	 *   @return void
+	 */
+	void SetLLDashChunkMode(bool enable)
+	{
+		mIsChunkMode = enable;
+	}
+
+	/**
+	 *   @brief Get the status of LL-DASH chunk mode.
+	 *
+	 *   @return true if LL-DASH chunk mode is enabled, false otherwise.
+	 */
+	bool GetLLDashChunkMode()
+	{
+		return mIsChunkMode;
+	}
+
+	/**
 	 *   @brief Is iframe extraction enabled
 	 *
 	 *   @return bool
@@ -4424,9 +4447,8 @@ protected:
 	bool mbPauseOnStartPlayback;						/**< Start playback in paused state */
 
 	pthread_mutex_t mPreProcessLock;
+	bool mIsChunkMode;		/** LLD ChunkMode */
 
-public:
-	AampLogManager *mLogObj;
 };
 
 #endif // PRIVAAMP_H

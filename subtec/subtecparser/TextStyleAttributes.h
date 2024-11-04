@@ -142,7 +142,7 @@ public:
         EDGE_COLOR_ARR_POSITION
     } AttribPosInArray;
 
-    TextStyleAttributes(AampLogManager *logObj);
+    TextStyleAttributes();
 
     TextStyleAttributes(const TextStyleAttributes&)  = delete;
     TextStyleAttributes& operator=(const TextStyleAttributes&);
@@ -213,7 +213,5 @@ private:
      * @return int - 0 for success, -1 for failure
      */
     int getOpacity(std::string input, Opacity *opacityOut);
-
-    AampLogManager* mLogObj;
 };
 

@@ -40,7 +40,7 @@ using ::testing::SetArgReferee;
 using ::testing::WithParamInterface;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
+
 StreamAbstractionAAMP_HLS *mStreamAbstractionAAMP_HLS{};
 
 #define MANIFEST_6SD_1A                                                                                                                     \
@@ -105,11 +105,11 @@ protected:
     {
     public:
         // Constructor to pass parameters to the base class constructor
-        TestableStreamAbstractionAAMP_HLS(AampLogManager *logObj, PrivateInstanceAAMP *aamp,
+        TestableStreamAbstractionAAMP_HLS(PrivateInstanceAAMP *aamp,
                                           double seekpos, float rate,
                                           id3_callback_t id3Handler = nullptr,
                                           ptsoffset_update_t ptsOffsetUpdate = nullptr)
-            : StreamAbstractionAAMP_HLS(logObj, aamp, seekpos, rate, id3Handler, ptsOffsetUpdate)
+            : StreamAbstractionAAMP_HLS(aamp, seekpos, rate, id3Handler, ptsOffsetUpdate)
         {
         }
 
@@ -219,7 +219,7 @@ protected:
 
         g_mockAampConfig = new MockAampConfig();
 
-        mStreamAbstractionAAMP_HLS = new TestableStreamAbstractionAAMP_HLS(mLogObj, mPrivateInstanceAAMP, 0.0, 1.0);
+        mStreamAbstractionAAMP_HLS = new TestableStreamAbstractionAAMP_HLS(mPrivateInstanceAAMP, 0.0, 1.0);
     }
 
     void TearDown() override
@@ -256,9 +256,9 @@ protected:
 
         g_mockAampConfig = new MockAampConfig();
 
-        mStreamAbstractionAAMP_HLS = new StreamAbstractionAAMP_HLS(mLogObj, mPrivateInstanceAAMP, 0, 0.0);
+        mStreamAbstractionAAMP_HLS = new StreamAbstractionAAMP_HLS(mPrivateInstanceAAMP, 0, 0.0);
 
-        TrackStateobj = new TrackState(mLogObj, eTRACK_VIDEO, mStreamAbstractionAAMP_HLS, mPrivateInstanceAAMP, "TestTrack");
+        TrackStateobj = new TrackState(eTRACK_VIDEO, mStreamAbstractionAAMP_HLS, mPrivateInstanceAAMP, "TestTrack");
 
         // Called in destructor of PrivateInstanceAAMP
         // Done here because setting up the EXPECT_CALL in TearDown, conflicted with the mock
@@ -1117,7 +1117,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetTotalProfileCounttest)
 
 TEST_F(StreamAbstractionAAMP_HLSTest, Destructortest)
 {
-    StreamAbstractionAAMP_HLS *mStreamAbstractionAAMP_HLS_1 = new StreamAbstractionAAMP_HLS(mLogObj, mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
+    StreamAbstractionAAMP_HLS *mStreamAbstractionAAMP_HLS_1 = new StreamAbstractionAAMP_HLS(mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
     mStreamAbstractionAAMP_HLS_1->~StreamAbstractionAAMP_HLS();
 }
 

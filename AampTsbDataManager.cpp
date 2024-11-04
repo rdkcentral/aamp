@@ -29,12 +29,11 @@
  */
 class DebugTimeData
 {
-	AampLogManager *mLogObj;
 	std::string APIName;
 	std::chrono::steady_clock::time_point creationTime;
 
 public:
-	DebugTimeData(AampLogManager *logObj, std::string api) : mLogObj(logObj), APIName(api)
+	DebugTimeData(std::string api) : APIName(api)
 	{
 		creationTime = std::chrono::steady_clock::now();
 	}
@@ -48,7 +47,7 @@ public:
 };
 
 #if TSB_DATA_DEBUG_ENABLED
-#define TSB_DM_TIME_DATA() DebugTimeData timeData(mLogObj, __FUNCTION__);
+#define TSB_DM_TIME_DATA() DebugTimeData timeData(__FUNCTION__);
 #else
 #define TSB_DM_TIME_DATA()
 #endif

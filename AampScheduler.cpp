@@ -31,8 +31,7 @@
 AampScheduler::AampScheduler() : mTaskQueue(), mQMutex(), mQCond(),
 	mSchedulerRunning(false), mSchedulerThread(), mExMutex(),
 	mExLock(mExMutex, std::defer_lock), mNextTaskId(AAMP_SCHEDULER_ID_DEFAULT),
-	mCurrentTaskId(AAMP_TASK_ID_INVALID), mLockOut(false),
-	mLogObj(NULL),mState(eSTATE_IDLE),mPlayerId(-1)
+	mCurrentTaskId(AAMP_TASK_ID_INVALID), mLockOut(false), mState(eSTATE_IDLE),mPlayerId(-1)
 {
 }
 

@@ -44,7 +44,6 @@ private:
 	size_t bufSize;
 	Box* chunkedBox; //will hold one element only
 	size_t mdatCount;
-	AampLogManager *mLogObj;
 
 	/**
 	 * @fn getFirstPTSInternal
@@ -141,7 +140,7 @@ public:
 	/**
 	 * @brief IsoBmffBuffer constructor
 	 */
-	IsoBmffBuffer(AampLogManager *logObj=NULL): mLogObj(logObj), boxes(), buffer(NULL), bufSize(0), chunkedBox(NULL), mdatCount(0), beforePTS(0), afterPTS(0), firstPtsSaved(false)
+	IsoBmffBuffer(): boxes(), buffer(NULL), bufSize(0), chunkedBox(NULL), mdatCount(0), beforePTS(0), afterPTS(0), firstPtsSaved(false)
 	{
 	}
 

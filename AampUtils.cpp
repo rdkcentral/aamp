@@ -1310,7 +1310,7 @@ const char *GetMediaTypeName(AampMediaType mediaType)
  * @param[in] ptr buffer pointer
  * @param[in] len length of buffer
  */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampLogManager *mLogObj, PrivateInstanceAAMP *aamp)
+double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp)
 {
 	double ret = 0;
 	uint32_t timeScale = 0;
@@ -1325,7 +1325,7 @@ double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampL
 	}
 
 
-	IsoBmffBuffer isobuf(mLogObj);
+	IsoBmffBuffer isobuf;
 	isobuf.setBuffer((uint8_t *)ptr, len);
 	bool bParse = false;
 	try

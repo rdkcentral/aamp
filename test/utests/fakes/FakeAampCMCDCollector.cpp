@@ -31,7 +31,7 @@
  * @brief AampCMCDCollector - Constructor
  *
  */
-AampCMCDCollector::AampCMCDCollector(AampLogManager *logObj)
+AampCMCDCollector::AampCMCDCollector()
 {
 }
 

@@ -18,8 +18,11 @@
 */
 
 #include "admanager_mpd.h"
+#include "MockAdManager.h"
 
-CDAIObjectMPD::CDAIObjectMPD(AampLogManager *logObj, PrivateInstanceAAMP* aamp): CDAIObject(logObj, aamp), mPrivObj(new PrivateCDAIObjectMPD(logObj, aamp))
+MockPrivateCDAIObjectMPD *g_MockPrivateCDAIObjectMPD = nullptr;
+
+CDAIObjectMPD::CDAIObjectMPD(PrivateInstanceAAMP* aamp): CDAIObject(aamp), mPrivObj(new PrivateCDAIObjectMPD(aamp))
 {
 }
 
@@ -32,7 +35,7 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &adBreakId, const std
 {
 }
 
-PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(AampLogManager* logObj, PrivateInstanceAAMP* aamp) : mLogObj(logObj),mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
+PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
 					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mImmediateNextAdbreakAvailable(false),mAdtoInsertInNextBreakVec(),mAdBrkVecMtx()
 {
 }
@@ -74,6 +77,10 @@ bool PrivateCDAIObjectMPD::isPeriodExist(const std::string &periodId)
 
 bool PrivateCDAIObjectMPD::isAdBreakObjectExist(const std::string &adBrkId)
 {
+	if(g_MockPrivateCDAIObjectMPD != nullptr)
+	{
+		return g_MockPrivateCDAIObjectMPD->isAdBreakObjectExist(adBrkId);
+	}
 	return false;
 }
 
@@ -101,10 +108,23 @@ void PrivateCDAIObjectMPD::NotifyAdLoopWait()
 
 bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
 {
-	return false;
+	if(g_MockPrivateCDAIObjectMPD != nullptr)
+	{
+		return g_MockPrivateCDAIObjectMPD->WaitForNextAdResolved(timeoutMs);
+	}
+	return true;
 }
 
 void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
 {
 }
 
+
+bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string periodId)
+{
+	if(g_MockPrivateCDAIObjectMPD != nullptr)
+	{
+		return g_MockPrivateCDAIObjectMPD->WaitForNextAdResolved(timeoutMs, periodId);
+	}
+	return true;
+}

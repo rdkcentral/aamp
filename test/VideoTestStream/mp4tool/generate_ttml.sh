@@ -6,7 +6,7 @@ mkdir -p build
 cd build
 cmake ../
 make
-./ttml_gen "$1"
+./ttml_gen "$1" "$2"
 
 cp ttml_*.mp4 ../../text/
 cd ../../

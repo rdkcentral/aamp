@@ -93,14 +93,13 @@ std::string getFormattedLicenseServerURL( const std::string &url)
 /**
  *  @brief AampDRMSessionManager constructor.
  */
-AampDRMSessionManager::AampDRMSessionManager(AampLogManager *logObj, int maxDrmSessions, PrivateInstanceAAMP *aamp) : drmSessionContexts(NULL),
+AampDRMSessionManager::AampDRMSessionManager(int maxDrmSessions, PrivateInstanceAAMP *aamp) : drmSessionContexts(NULL),
 		cachedKeyIDs(NULL), accessToken(NULL),
 		accessTokenLen(0), sessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE), accessTokenMutex(PTHREAD_MUTEX_INITIALIZER),
 		cachedKeyMutex(PTHREAD_MUTEX_INITIALIZER)
 		,mEnableAccessAtrributes(true)
 		,mDrmSessionLock(), licenseRequestAbort(false)
 		,mMaxDRMSessions(maxDrmSessions)
-		,mLogObj(logObj)
 		,mLicenseRenewalThreads()
 		,mAccessTokenConnector()
 		,aampInstance(aamp)
@@ -117,7 +116,7 @@ AampDRMSessionManager::AampDRMSessionManager(AampLogManager *logObj, int maxDrmS
 	mLicenseRenewalThreads.resize(mMaxDRMSessions);
 	AAMPLOG_INFO("AampDRMSessionManager MaxSession:%d",mMaxDRMSessions);
 	pthread_mutex_init(&mDrmSessionLock, NULL);
-	mLicensePrefetcher = new AampLicensePreFetcher(logObj, aamp);
+	mLicensePrefetcher = new AampLicensePreFetcher(aamp);
 	mLicensePrefetcher->Init();
 }
 
@@ -1086,7 +1085,7 @@ AampDrmSession * AampDRMSessionManager::createDrmSession(
 	}
 	else
 	{
-		drmHelper = AampDrmHelperEngine::getInstance().createHelper(drmInfo,mLogObj);
+		drmHelper = AampDrmHelperEngine::getInstance().createHelper(drmInfo);
 
 		if(contentMetadataPtr)
 		{
@@ -1393,7 +1392,7 @@ KeyState AampDRMSessionManager::getDrmSession(std::shared_ptr<AampDrmHelper> drm
 
 	aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_PREPROC);
 
-	drmSessionContexts[sessionSlot].drmSession = AampDrmSessionFactory::GetDrmSession(mLogObj, drmHelper, aampInstance);
+	drmSessionContexts[sessionSlot].drmSession = AampDrmSessionFactory::GetDrmSession(drmHelper, aampInstance);
 	if (drmSessionContexts[sessionSlot].drmSession != NULL)
 	{
 		AAMPLOG_INFO("Created new DrmSession for DrmSystemId %s", systemId.c_str());

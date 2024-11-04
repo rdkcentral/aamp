@@ -20,6 +20,7 @@ import framework
 import subprocess
 import os
 import glob
+from http_server import HttpServerThread
 # The following ensures pip installs the package although we invoke it from
 # the command line and not via python
 import lcov_cobertura
@@ -39,6 +40,17 @@ def pytest_addoption(parser):
     parser.addoption("--sim_log", action="store_true", help="AAMP logging to stdout rather than file")
     parser.addoption("--coverage", action="store_true", help="Record AAMP line coverage when running tests")
 
+@pytest.fixture(scope="session")
+def http_port():
+    # Allow a user to choose a different port, if 8080 is already in use on their computer
+    return os.environ["L2_HTTP_PORT"] if "L2_HTTP_PORT" in os.environ else "8080"
+
+@pytest.fixture(scope="module")
+def httpserver_setup_teardown(http_port):
+	server_thread = HttpServerThread(int(http_port))
+	server_thread.start()
+	yield server_thread.httpd.server_address
+	server_thread.stop()
 
 @pytest.fixture
 def aamp_setup_teardown(request):
@@ -132,4 +144,3 @@ def all_finished(request):
     if request.config.getoption('coverage'):
         do_coverage_init()
         request.addfinalizer(do_coverage_total)
-

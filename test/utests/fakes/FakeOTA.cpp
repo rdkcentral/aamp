@@ -19,8 +19,8 @@
 
 #include "ota_shim.h"
 
-StreamAbstractionAAMP_OTA::StreamAbstractionAAMP_OTA(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                          : StreamAbstractionAAMP(logObj, aamp)
+StreamAbstractionAAMP_OTA::StreamAbstractionAAMP_OTA(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+                          : StreamAbstractionAAMP(aamp)
 {
 }
 

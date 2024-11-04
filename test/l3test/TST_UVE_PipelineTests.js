@@ -2,9 +2,11 @@ var initConfig = {
     // Use single GStreamer Pipeline
     useSinglePipeline: false,
 
-    // enable info logging
+    // enable AAMP info logging, and turn on Gstreamer pipeline debug
     info: true,
+    gst: true,
 };
+
 
 async function TST_UVE_Pipeline_VerifyBlankPeriod(vid_capture, singlePipeline, periodNumber){
     if (vid_capture.isActive()){

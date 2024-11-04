@@ -106,11 +106,11 @@ AAMPStatusType StreamAbstractionAAMP_RMF::Init(TuneType tuneType)
 /**
  *  @brief StreamAbstractionAAMP_RMF Constructor
  */
-StreamAbstractionAAMP_RMF::StreamAbstractionAAMP_RMF(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-	: StreamAbstractionAAMP(logObj, aamp)
+StreamAbstractionAAMP_RMF::StreamAbstractionAAMP_RMF(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+	: StreamAbstractionAAMP(aamp)
 	  , tuned(false),
-	  thunderAccessObj(RMF_PLUGIN_CALLSIGN, logObj),
-	  thunderRDKShellObj(RDKSHELL_CALLSIGN,logObj)
+	  thunderAccessObj(RMF_PLUGIN_CALLSIGN),
+	  thunderRDKShellObj(RDKSHELL_CALLSIGN)
 { // STUB
 }
 

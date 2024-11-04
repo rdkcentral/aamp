@@ -26,5 +26,7 @@
 void getTextTrackDetails(std::vector<std::string>& langVector);
 void generateTTMLTracks(int segmentDurationS, int totalSegments);
 void GenerateTTMLSegment( const char *path, int segmentIndex, int segmentDurationS, const std::string &track );
+void GenerateTTMLInit( const char *path, int segmentDurationS, const std::string &track );
+std::string CreateMoovBox();
 
 #endif /* ttmlgen_hpp */

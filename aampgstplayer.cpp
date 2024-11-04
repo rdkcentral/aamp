@@ -86,15 +86,11 @@ typedef enum {
 #define GST_ELEMENT_GET_STATE_RETRY_CNT_MAX 5
 
 #define DEFAULT_BUFFERING_TO_MS 10                       /**< TimeOut interval to check buffer fullness */
-#if defined(REALTEKCE)
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (3)          /**< if the video decoder has this many queued frames start.. */
 #define DEFAULT_AVSYNC_FREERUN_THRESHOLD_SECS 12         /**< Currently MAX FRAG DURATION + 2 per Realtek */
-#else
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (5)          /**< if the video decoder has this many queued frames start.. even at 60fps, close to 100ms... */
-#endif
 
 #define DEFAULT_BUFFERING_MAX_MS (1000)                  /**< max buffering time */
 #define DEFAULT_BUFFERING_MAX_CNT (DEFAULT_BUFFERING_MAX_MS/DEFAULT_BUFFERING_TO_MS)   /**< max buffering timeout count */
+
 #define AAMP_MIN_PTS_UPDATE_INTERVAL 4000                        /**< Time duration in milliseconds if exceeded and pts has not changed; it is concluded pts is not changing */
 #define AAMP_DELAY_BETWEEN_PTS_CHECK_FOR_EOS_ON_UNDERFLOW 500    /**< A timeout interval in milliseconds to check pts in case of underflow */
 #define BUFFERING_TIMEOUT_PRIORITY -70                           /**< 0 is DEFAULT priority whereas -100 is the HIGH_PRIORITY */
@@ -370,7 +366,7 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 /**
  * @brief AAMPGstPlayer Constructor
  */
-AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames) : mLogObj(aamp->mLogObj), aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL), mBufferingLock(), mProtectionLock(), PipelineSetToReady(false), trickTeardown(false), m_ID3MetadataHandler{id3HandlerCallback}, cbExportYUVFrame(NULL)
+AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames) : aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL), mBufferingLock(), mProtectionLock(), PipelineSetToReady(false), trickTeardown(false), m_ID3MetadataHandler{id3HandlerCallback}, cbExportYUVFrame(NULL)
 {
 	privateContext = new AAMPGstPlayerPriv();
 	if(privateContext)
@@ -666,7 +662,6 @@ static AampMediaType GetMediaTypeForSource(const GstElement *source, const AAMPG
 {
 	if (source && _this)
 	{
-		auto mLogObj = _this->mLogObj; // map correct log context
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
 			/* eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_SUBTITLE, eMEDIATYPE_AUX_AUDIO */
@@ -695,7 +690,6 @@ static AampMediaType GetMediaTypeForSource(const GstElement *source, const AAMPG
 static void need_data(GstElement *source, guint size, AAMPGstPlayer *_this)
 {
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
-	auto mLogObj = _this->mLogObj; // map correct log context
 	AampMediaType mediaType = GetMediaTypeForSource(source, _this);
 	if (mediaType != eMEDIATYPE_DEFAULT)
 	{
@@ -723,7 +717,6 @@ static void enough_data(GstElement *source, AAMPGstPlayer *_this)
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	if(_this && _this->aamp)
 	{
-		auto mLogObj = _this->mLogObj; // map correct log context
 		if (_this->aamp->DownloadsAreEnabled()) // avoid processing enough data if the downloads are already disabled.
 		{
 			UsingPlayerId playerId( _this->aamp->mPlayerId );
@@ -759,7 +752,6 @@ static gboolean appsrc_seek(GstAppSrc *src, guint64 offset, AAMPGstPlayer * _thi
 {
 	HANDLER_CONTROL_HELPER(_this->privateContext->callbackControl, TRUE);
 #ifdef TRACE
-	auto mLogObj = _this->mLogObj; // map correct log context
 	AAMPLOG_MIL("appsrc %p seek-signal - offset %" G_GUINT64_FORMAT, src, offset);
 #endif
 	return TRUE;
@@ -822,7 +814,6 @@ static GstPadProbeReturn AAMPGstPlayer_HandleInstantRateChangeSeekProbe(GstPad* 
  */
 static void InitializeSource(AAMPGstPlayer *_this, GObject *source, AampMediaType mediaType = eMEDIATYPE_VIDEO)
 {
-	auto mLogObj = _this->mLogObj; // map correct log context
 	media_stream *stream = &_this->privateContext->stream[mediaType];
 	GstCaps * caps = NULL;
 	bool isFogEnabled = _this->aamp->mTSBEnabled;
@@ -875,7 +866,6 @@ static void InitializeSource(AAMPGstPlayer *_this, GObject *source, AampMediaTyp
 static void found_source(GObject * object, GObject * orig, GParamSpec * pspec, AAMPGstPlayer * _this )
 {
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
-	auto mLogObj = _this->mLogObj; // map correct log context
 	AampMediaType mediaType = eMEDIATYPE_DEFAULT;
 	if (object == G_OBJECT(_this->privateContext->stream[eMEDIATYPE_VIDEO].sinkbin))
 	{
@@ -920,8 +910,7 @@ static void httpsoup_source_setup (GstElement * element, GstElement * source, gp
 {
 	AAMPGstPlayer * _this = (AAMPGstPlayer *)data;
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
-	auto mLogObj = _this->mLogObj; // map correct log context
-
+	
 	if (!strcmp(GST_ELEMENT_NAME(source), "source"))
 	{
 		std::string networkProxyValue = _this->aamp->GetNetworkProxy();		/* Get the proxy network setting from configuration*/
@@ -1123,7 +1112,6 @@ static gboolean IdleCallbackOnEOS(gpointer user_data)
 	AAMPGstPlayer *_this = (AAMPGstPlayer *)user_data;
 	if (_this)
 	{
-		auto mLogObj = _this->mLogObj; // map correct log context
 		AAMPLOG_MIL("eosCallbackIdleTaskId %d", _this->privateContext->eosCallbackIdleTaskId);
 		_this->aamp->NotifyEOSReached();
 		_this->privateContext->eosCallbackIdleTaskId = AAMP_TASK_ID_INVALID;
@@ -1144,7 +1132,6 @@ static gboolean ProgressCallbackOnTimeout(gpointer user_data)
 	AAMPGstPlayer *_this = (AAMPGstPlayer *)user_data;
 	if (_this)
 	{
-		auto mLogObj = _this->mLogObj; // map correct log context
 		UsingPlayerId playerId( _this->aamp->mPlayerId );
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
@@ -1167,7 +1154,6 @@ static gboolean IdleCallback(gpointer user_data)
 	AAMPGstPlayer *_this = (AAMPGstPlayer *)user_data;
 	if (_this)
 	{
-		auto mLogObj = _this->mLogObj; // map correct log context
 		UsingPlayerId playerId( _this->aamp->mPlayerId );
 		// mAsyncTuneEnabled passed, because this could be called from Scheduler or main loop
 		_this->aamp->ReportProgress();
@@ -1466,7 +1452,6 @@ GstFlowReturn AAMPGstPlayer::AAMPGstPlayer_OnVideoSample(GstElement* object, AAM
 	HANDLER_CONTROL_HELPER(_this->privateContext->callbackControl, GST_FLOW_OK);
 	if(_this && _this->cbExportYUVFrame)
 	{
-		auto mLogObj = _this->mLogObj; // map mLogObj
 		GstSample *sample = gst_app_sink_pull_sample (GST_APP_SINK (object));
 		if (sample)
 		{
@@ -1543,6 +1528,7 @@ static void AAMPGstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0,
 		}
 
 		AAMPLOG_WARN("## APP[%s] Got Underflow message from %s type %d ##", (_this->aamp->GetAppName()).c_str(), GST_ELEMENT_NAME(object), type);
+		bool isBufferFull = _this->privateContext->stream[type].mBufferControl.isBufferFull(type);
 		_this->privateContext->stream[type].mBufferControl.underflow(_this, type);
 		_this->privateContext->stream[type].bufferUnderrun = true;
 
@@ -1568,7 +1554,7 @@ static void AAMPGstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0,
 			INC_RETUNE_COUNT(type); // Increment the retune count for low level AV metric
 #endif
 
-			_this->aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, type);			/* Schedule a retune */
+			_this->aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, type, isBufferFull);		/* Schedule a retune */
 		}
 	}
 }
@@ -1628,9 +1614,10 @@ static void AAMPGstPlayer_OnGstDecodeErrorCb(GstElement* object, guint arg0, gpo
 static gboolean buffering_timeout (gpointer data)
 {
 	AAMPGstPlayer * _this = (AAMPGstPlayer *) data;
+	auto aamp = _this->aamp;
 	if (_this && _this->privateContext)
 	{
-		UsingPlayerId playerId( _this->aamp->mPlayerId );
+		UsingPlayerId playerId( aamp->mPlayerId );
 		AAMPGstPlayerPriv * privateContext = _this->privateContext;
 		if (_this->privateContext->buffering_in_progress)
 		{
@@ -1638,42 +1625,37 @@ static gboolean buffering_timeout (gpointer data)
 			if (_this->privateContext->video_dec)
 			{
 				g_object_get(_this->privateContext->video_dec,"queued_frames",(uint*)&frames,NULL);
-				AAMPLOG_DEBUG("queued_frames: %i", frames);
+				AAMPLOG_DEBUG("queued_frames: %d", frames);
 			}
 			MediaFormat mediaFormatRet;
-			mediaFormatRet = _this->aamp->GetMediaFormatTypeEnum();
+			mediaFormatRet = aamp->GetMediaFormatTypeEnum();
 			/* DELIA-34654: Disable re-tune on buffering timeout for DASH as unlike HLS,
 			DRM key acquisition can end after injection, and buffering is not expected
 			to be completed by the 1 second timeout
 			*/
-			if (G_UNLIKELY(((mediaFormatRet != eMEDIAFORMAT_DASH) && (mediaFormatRet != eMEDIAFORMAT_PROGRESSIVE) && (mediaFormatRet != eMEDIAFORMAT_HLS_MP4)) && (privateContext->buffering_timeout_cnt == 0) && _this->aamp->mConfig->IsConfigSet(eAAMPConfig_ReTuneOnBufferingTimeout) && (privateContext->numberOfVideoBuffersSent > 0)))
+			if (G_UNLIKELY(((mediaFormatRet != eMEDIAFORMAT_DASH) && (mediaFormatRet != eMEDIAFORMAT_PROGRESSIVE) && (mediaFormatRet != eMEDIAFORMAT_HLS_MP4)) && (privateContext->buffering_timeout_cnt == 0) && aamp->mConfig->IsConfigSet(eAAMPConfig_ReTuneOnBufferingTimeout) && (privateContext->numberOfVideoBuffersSent > 0)))
 			{
 				AAMPLOG_WARN("Schedule retune. numberOfVideoBuffersSent %d frames %i", privateContext->numberOfVideoBuffersSent, frames);
 				privateContext->buffering_in_progress = false;
 				_this->DumpDiagnostics();
-				_this->aamp->ScheduleRetune(eGST_ERROR_VIDEO_BUFFERING, eMEDIATYPE_VIDEO);
+				aamp->ScheduleRetune(eGST_ERROR_VIDEO_BUFFERING, eMEDIATYPE_VIDEO);
 			}
-
-#if !defined(__APPLE__)
-			else if (frames == -1 || frames > DEFAULT_BUFFERING_QUEUED_FRAMES_MIN || privateContext->buffering_timeout_cnt-- == 0)
-#endif
+			else if (frames == -1 || frames >= GETCONFIGVALUE(eAAMPConfig_RequiredQueuedFrames) || privateContext->buffering_timeout_cnt-- == 0)
 			{
 				AAMPLOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i", gst_element_state_get_name(_this->privateContext->buffering_target_state), (_this->privateContext->buffering_timeout_cnt+1), frames);
 				SetStateWithWarnings (_this->privateContext->pipeline, _this->privateContext->buffering_target_state);
-
 #if defined(BRCM)
 				// Setting first fractional rate as DEFAULT_INITIAL_RATE_CORRECTION_SPEED right away on PLAYING to avoid DELIA-61708 audio drop
-				if (_this->aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && _this->aamp->IsLive())
+				if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->IsLive())
 				{
 					AAMPLOG_WARN("Setting first fractional rate %.6f right after moving to PLAYING", DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
 					_this->SetPlayBackRate(DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
 				}
 #endif
-
 				_this->privateContext->buffering_in_progress = false;
-				if(!_this->aamp->IsGstreamerSubsEnabled())
+				if(!aamp->IsGstreamerSubsEnabled())
 				{
-					_this->aamp->UpdateSubtitleTimestamp();
+					aamp->UpdateSubtitleTimestamp();
 				}
 			}
 		}
@@ -1690,7 +1672,6 @@ static gboolean buffering_timeout (gpointer data)
 		_this, (_this? _this->privateContext: NULL) );
 		return false;
 	}
-
 }
 
 /**
@@ -1704,7 +1685,6 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 {
 	UsingPlayerId playerId( _this->aamp->mPlayerId );
 	HANDLER_CONTROL_HELPER( _this->privateContext->aSyncControl, FALSE);
-	auto mLogObj = _this->mLogObj; // map correct log context
 	GError *error;
 	gchar *dbg_info;
 	bool isPlaybinStateChangeEvent;
@@ -1828,7 +1808,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 				{
 					media_stream *stream = &_this->privateContext->stream[eMEDIATYPE_AUDIO];
 					g_object_get(stream->sinkbin, "n-audio", &_this->privateContext->n_audio, NULL);
-					if(&_this->privateContext->n_audio > 0)
+					if(_this->privateContext->n_audio > 0)
 					{
 						AAMPLOG_MIL("Audio only playback detected, hence notify first frame");
 						_this->privateContext->firstAudioFrameReceived = true;
@@ -2602,7 +2582,6 @@ static void callback_element_added (GstElement * element, GstElement * source, g
  */
 static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamId)
 {
-	auto mLogObj = _this->mLogObj; // map correct log context
 	media_stream* stream = &_this->privateContext->stream[streamId];
 	if (eMEDIATYPE_SUBTITLE == streamId)
 	{
@@ -3892,7 +3871,6 @@ void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	aamp = newAamp;
-	mLogObj = newAamp->mLogObj;
 	privateContext->decoderHandleNotified = false;
 	m_ID3MetadataHandler = id3HandlerCallback;
 }
@@ -4776,7 +4754,7 @@ bool AAMPGstPlayer::IsMS2V12Supported()
 /**
  *  @brief Increase the rank of AAMP decryptor plugins
  */
-void AAMPGstPlayer::InitializeAAMPGstreamerPlugins(AampLogManager *mLogObj)
+void AAMPGstPlayer::InitializeAAMPGstreamerPlugins()
 {
 	// Ensure GST is initialized
 	if (gst_init_check(nullptr, nullptr, nullptr)) {
@@ -5010,23 +4988,19 @@ void AAMPGstPlayer::StopBuffering(bool forceStop)
 	//Check if we are in buffering
 	if (ISCONFIGSET(eAAMPConfig_ReportBufferEvent) && privateContext->video_dec && aamp->GetBufUnderFlowStatus())
 	{
-		bool stopBuffering = forceStop;
-#if ( !defined(RPI) && !defined(__APPLE__) )
 		int frames = -1;
-	        g_object_get(privateContext->video_dec,"queued_frames",(uint*)&frames,NULL);
-	        if (frames != -1)
-	        {
-			stopBuffering = stopBuffering || (frames > DEFAULT_BUFFERING_QUEUED_FRAMES_MIN); //TODO: the minimum frame values should be configurable from aamp.cfg
-	        }
-	        else
-#endif
-			stopBuffering = true;
-
+		g_object_get(privateContext->video_dec,"queued_frames",(uint*)&frames,NULL);
+		bool stopBuffering = forceStop;
+		if( !stopBuffering )
+		{
+			if (frames == -1 || frames >= GETCONFIGVALUE(eAAMPConfig_RequiredQueuedFrames) )
+			{
+				stopBuffering = true;
+			}
+		}
 		if (stopBuffering)
 		{
-#if ( !defined(RPI) && !defined(__APPLE__) )
 			AAMPLOG_MIL("Enough data available to stop buffering, frames %d !", frames);
-#endif
 			GstState current, pending;
 			bool sendEndEvent = false;
 
@@ -5061,9 +5035,7 @@ void AAMPGstPlayer::StopBuffering(bool forceStop)
 			static int bufferLogCount = 0;
 			if (0 == (bufferLogCount++ % 10) )
 			{
-#if ( !defined(RPI) && !defined(__APPLE__) )
 				AAMPLOG_WARN("Not enough data available to stop buffering, frames %d !", frames);
-#endif
 			}
 		}
 	}
@@ -5265,7 +5237,7 @@ bool AAMPGstPlayer::SetTextStyle(const std::string &options)
 
 	if (privateContext->subtitle_sink)
 	{
-		TextStyleAttributes textStyleAttributes(mLogObj);
+		TextStyleAttributes textStyleAttributes;
 		uint32_t attributesMask = 0;
 		attributesType attributesValues = {0};
 

@@ -113,10 +113,9 @@ private:
 	std::map<std::string, TestCurlResponse> mCurlResponses;
 	MockChallengeData mMockChallengeData;
 	std::unique_ptr<AampDRMSessionManager> mSessionManager;
-	AampLogManager& mLogging;
 
 public:
-	TestUtilDrm(PrivateInstanceAAMP* privAamp, AampLogManager& logging);
+	TestUtilDrm(PrivateInstanceAAMP* privAamp);
 	~TestUtilDrm();
 
 	AampDRMSessionManager* getSessionManager();

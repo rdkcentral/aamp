@@ -19,7 +19,7 @@
 
 #include <aampdrmsessionfactory.h>
 
-AampDrmSession* AampDrmSessionFactory::GetDrmSession(AampLogManager *logObj, std::shared_ptr<AampDrmHelper> drmHelper, AampDrmCallbacks *drmCallbacks)
+AampDrmSession* AampDrmSessionFactory::GetDrmSession(std::shared_ptr<AampDrmHelper> drmHelper, AampDrmCallbacks *drmCallbacks)
 {
     AampDrmSession *safe_value = nullptr;
 	return safe_value;

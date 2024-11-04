@@ -34,7 +34,6 @@ using ::testing::Address;
 using ::testing::DoAll;
 using ::testing::SetArgPointee;
 
-AampLogManager *mLogObj{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
 
 class AAMPGstPlayerTests : public ::testing::Test
@@ -46,12 +45,10 @@ protected:
 
 	void SetUp() override
 	{
-		mLogObj = new AampLogManager();
 		g_mockGStreamer = new NiceMock<MockGStreamer>();
 		g_mockGLib = new NiceMock<MockGLib>();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
-		mPrivateInstanceAAMP->mLogObj = mLogObj;
 	}
 
 	void TearDown() override
@@ -67,10 +64,6 @@ protected:
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
-
-		delete mLogObj;
-		mLogObj = nullptr;
-
 	}
 
 public:

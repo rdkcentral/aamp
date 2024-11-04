@@ -21,15 +21,12 @@ import fileinput
 import re
 
 counts = {}
-timescales = {}
 pending_inject = {}
-pts_offset = {}
+MEDIA = ['video', 'audio', 'text']
 
 def init():
-    for med in ['audio', 'video', 'subtitle']:
+    for med in MEDIA:
         counts.setdefault(med, [])
-        timescales.setdefault(med, 1)
-        pts_offset.setdefault(med, 0)
 
 init()
 for line in fileinput.input(errors="ignore"):
@@ -41,23 +38,23 @@ for line in fileinput.input(errors="ignore"):
     m = re.search(r'(aamp_tune: .*)', line)
     if m:
         tune = m.group(1)
-        for media in ['audio', 'video', 'subtitle']:
+        for media in MEDIA:
             counts[media].append({'timestamp': timestamp, 'msg': f'Tune {tune}'})
 
     m = re.search(r'(.*\[Flush\])', line)
     if m:
         msg = m.group(1)
-        for media in ['audio', 'video', 'subtitle']:
+        for media in MEDIA:
             counts[media].append({'timestamp': timestamp, 'msg': 'Flush','didFlush': True})
+
     m = re.search(r'GST_MESSAGE_ERROR', line)
     if m:
-        for media in ['audio', 'video', 'subtitle']:
+        for media in MEDIA:
             counts[media].append({'timestamp': timestamp, 'msg': 'GST_MESSAGE_ERROR'})
 
     # sendHelper where segments get injected
     m = re.search(r'SendHelper.*?Sending segment for mediaType\[(\d)\].*init:(\d)', line)
     if m:
-        MEDIA = ['video', 'audio', 'subtitle']
         media_num = int(m.group(1))
         media = MEDIA[media_num]
         is_init = int(m.group(2))
@@ -69,22 +66,15 @@ for line in fileinput.input(errors="ignore"):
         else:
             counts[media].append({'timestamp': timestamp, 'msg': 'Trickplay ?'})
 
-    # Get the timescale from the log line that should preceed IsoBmffHelper::RestampPts()
-    # video timeScale 240000 mPTSOffsetSec -843722.237242
-    m = re.search(r'(?:ProcessFragmentChunk|ProcessAndInjectFragment).*(audio|video|subtitle) timeScale (\d+) mPTSOffsetSec ([-+]?\d+\.\d+)', line)
+    # Read the restamp logline
+    m = re.search(r'RestampPts.*\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) (.*)',line)
     if m:
         media = m.group(1)
-        ts = int(m.group(2))
-        pts_offset[media] = m.group(3) # pts offset same regardless of media
-        timescales[media] = ts
-
-    # Read the restamp logline
-    m = re.search(r'RestampPts.*before (\d+) after (\d+) duration (\d+) (.*)',line)
-    if m:
-        before = int(m.group(1))
-        after = int(m.group(2))
-        log_duration = int(m.group(3))
-        url = m.group(4)
+        timescale = int(m.group(2))
+        before = int(m.group(3))
+        after = int(m.group(4))
+        log_duration = int(m.group(5))
+        url = m.group(6)
 
         # Get segment number from URL if possible
         n = re.search(r'(\d+)\.(mp4|seg)', url)
@@ -92,18 +82,12 @@ for line in fileinput.input(errors="ignore"):
         if n:
             seg_num = int(n.group(1))
 
-        # Get video profile from URL if possible. Works for sky
+        # Get video profile I.E bitrate from URL if possible. Works for sky
         p = re.search(r'_(audio\d+|video\d)-', url)
         if p:
             profile = p.group(1)
         else:
             profile = '?'
-
-        media = 'video'
-        if "audio" in url:
-            media = 'audio'
-        elif ("subtitle" in url) or ("text" in url):
-            media = 'subtitle'
 
         # The segment has been restamped but it is only injected when it gets to sendHelper.
         # IsoBmffProcessor holds init segment until following video segment is received. The
@@ -111,8 +95,7 @@ for line in fileinput.input(errors="ignore"):
         pending_inject[media] = {'timestamp': timestamp,
                               'before': before,
                               'after': after,
-                              'timescale': timescales[media],
-                              'mPTSOffsetSec': pts_offset[media],
+                              'timescale': timescale,
                               'log_duration': log_duration,
                               'url': url,
                               'seg_num': seg_num,
@@ -129,14 +112,13 @@ print('Media,', end="")
 print('Original PTS in seg (from log),', end="")
 print('PTS after restamp (from log),', end="")
 print('timescale (from log),', end="")
-print('PTS Offset(s) (from log),', end="")
 print('PTS(n) - PTS(n+1) I.E duration (calculated),', end="")
 print('duration read from segment (from log),', end="")
 print('seg_num (from url),', end="")
 print('profile (from url),', end="")
 print('url (from log)')
 
-for media in ['video', 'audio', 'subtitle']:
+for media in MEDIA:
 
     stream = counts[media]
     for idx, entry in enumerate(stream):
@@ -160,7 +142,7 @@ for media in ['video', 'audio', 'subtitle']:
             seg_duration = '? flush follows' # Cannot calculate the duration of last segment before a flush
         elif idx1<len(stream) and 'after' in stream[idx1]:
             next_entry = stream[idx1]
-            seg_duration = next_entry['after']*entry['timescale']/next_entry['timescale'] - entry['after']
+            seg_duration = int(next_entry['after']*entry['timescale']/next_entry['timescale'] - entry['after'])
 
         offset_applied = entry['after'] - entry['before']
         pts_seconds = entry['after']/entry['timescale']
@@ -169,7 +151,6 @@ for media in ['video', 'audio', 'subtitle']:
               f"{entry['before']},"
               f"{entry['after']},"
               f"{entry['timescale']},"
-              f"{entry['mPTSOffsetSec']},"
               f"{seg_duration},"
               f"{entry['log_duration']},"
               f"{entry['seg_num']},"

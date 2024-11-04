@@ -39,14 +39,13 @@
 using namespace testing;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 class MediaTrackTest : public MediaTrack
 {
 public:
 	std::string playlistURL;
 	// StreamAbstractionAAMP* ctx; // Might need to define a dummy StreamAbstractionAAMP to for GetContext()
-	MediaTrackTest(AampLogManager *logObj, TrackType type, PrivateInstanceAAMP *aamp, const char *name) : MediaTrack(logObj, type, aamp, name)
+	MediaTrackTest(TrackType type, PrivateInstanceAAMP *aamp, const char *name) : MediaTrack(type, aamp, name)
 	{
 		playlistURL = "http://host/asset/low/manifest.mpd";
 	}
@@ -220,7 +219,6 @@ protected:
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
 
-		mLogObj = new AampLogManager();
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 		mBoolConfigSettings = mDefaultBoolConfigSettings;
 		mIntConfigSettings = mDefaultIntConfigSettings;
@@ -242,9 +240,6 @@ protected:
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
-
-		delete mLogObj;
-		mLogObj = nullptr;
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
@@ -271,7 +266,7 @@ public:
 				.WillRepeatedly(Return(i.second));
 		}
 
-		mMediaTrack = new MediaTrackTest(mLogObj, eTRACK_VIDEO, mPrivateInstanceAAMP, "video");
+		mMediaTrack = new MediaTrackTest(eTRACK_VIDEO, mPrivateInstanceAAMP, "video");
 		mMediaTrack->SetMonitorBufferDisabled(true);
 		// mMediaTrack->SetMock(g_mockPrivateInstanceAAMP);
 	}
@@ -326,8 +321,9 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	llDashData.lowLatencyMode = true;
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
-	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(mLogObj,this->mPrivateInstanceAAMP, 0, 1);
-	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP->mIsChunkMode = true;
+	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this->mPrivateInstanceAAMP, 0, 1);
+	this-> mPrivateInstanceAAMP->SetLLDashChunkMode(true);
+
 	// Initialize after mock has been setup
 	Initialize();
 
@@ -364,8 +360,9 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 	llDashData.lowLatencyMode = true;
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
-	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(mLogObj,this->mPrivateInstanceAAMP, 0, 1);
-	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP->mIsChunkMode = true;
+	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this->mPrivateInstanceAAMP, 0, 1);
+	this->mPrivateInstanceAAMP->SetLLDashChunkMode(true);
+
 	// Initialize after mock has been setup
 	Initialize();
 

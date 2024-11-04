@@ -69,7 +69,6 @@ private:
 	typedef std::map<guint, bool> AsyncEventList;		  /**< Collection of Async tasks pending */
 	typedef std::map<guint, bool>::iterator AsyncEventListIter;
 	AsyncEventList	mPendingAsyncEvents;
-	AampLogManager *mLogObj;
 
 protected:
 	int mPlayerId;
@@ -126,7 +125,7 @@ public:
 	 * @fn AampEventManager
 	 * @return void
 	 */
-	AampEventManager(int playerId, AampLogManager *logObj);
+	AampEventManager(int playerId);
 	/**
 	 * @fn ~AampEventManager
 	 */

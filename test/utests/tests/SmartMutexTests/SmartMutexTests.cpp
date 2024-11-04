@@ -1,10 +1,7 @@
 #include <gtest/gtest.h>
 #include "AampSmartMutex.hpp"
 #include <thread>
-#include "AampLogManager.h"
 
-AampLogManager *mLogObj{nullptr};
-AampLogManager gGlobalLogObj;
 static AampSmartMutex mutex("gtest");
 static std::string result;
 

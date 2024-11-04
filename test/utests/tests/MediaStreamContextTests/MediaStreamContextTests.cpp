@@ -34,8 +34,6 @@
 using namespace testing;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
-
 
 class MediaStreamContextTest : public testing::Test
 {
@@ -46,9 +44,9 @@ class MediaStreamContextTest : public testing::Test
         {
             gpGlobalConfig =  new AampConfig();
         }
-        mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(NULL,NULL,123.45,12.34);
+        mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(NULL,123.45,12.34);
         mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-        mMediaStreamContext = new MediaStreamContext(mLogObj,eTRACK_VIDEO,mStreamAbstractionAAMP_MPD,mPrivateInstanceAAMP,"SAMPLETEXT");
+        mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO,mStreamAbstractionAAMP_MPD,mPrivateInstanceAAMP,"SAMPLETEXT");
         g_mockAampConfig = new MockAampConfig();
     }
     

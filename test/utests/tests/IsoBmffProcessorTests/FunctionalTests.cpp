@@ -44,7 +44,6 @@ using ::testing::TypedEq;
 using ::testing::AnyNumber;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 class IsoBmffProcessorTests : public ::testing::Test
 {
@@ -58,7 +57,6 @@ class IsoBmffProcessorTests : public ::testing::Test
 
 		void SetUp() override
 		{
-			mLogObj = new AampLogManager();
 			mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 			g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
 			g_mockAampConfig = new MockAampConfig();
@@ -71,9 +69,9 @@ class IsoBmffProcessorTests : public ::testing::Test
 
 			id3_callback_t id3Handler = nullptr;
 
-			mAudIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, mLogObj, id3Handler, eBMFFPROCESSOR_TYPE_AUDIO);
-			mSubIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, mLogObj, id3Handler, eBMFFPROCESSOR_TYPE_SUBTITILE);
-			mIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, mLogObj, id3Handler, eBMFFPROCESSOR_TYPE_VIDEO, mAudIsoBmffProcessor, mSubIsoBmffProcessor);
+			mAudIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_AUDIO);
+			mSubIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_SUBTITILE);
+			mIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_VIDEO, mAudIsoBmffProcessor, mSubIsoBmffProcessor);
 		}
 
 		void TearDown() override
@@ -84,8 +82,6 @@ class IsoBmffProcessorTests : public ::testing::Test
 			mAudIsoBmffProcessor = nullptr;
 			delete mSubIsoBmffProcessor;
 			mSubIsoBmffProcessor = nullptr;
-			delete mLogObj;
-			mLogObj=nullptr;
 			delete gpGlobalConfig;
 			gpGlobalConfig = nullptr;
 			delete mPrivateInstanceAAMP;

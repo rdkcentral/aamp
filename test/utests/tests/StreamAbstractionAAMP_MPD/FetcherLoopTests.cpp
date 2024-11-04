@@ -33,6 +33,7 @@
 #include "MockMediaStreamContext.h"
 #include "MockAampMPDDownloader.h"
 #include "MockAampStreamSinkManager.h"
+#include "MockAdManager.h"
 
 using ::testing::_;
 using ::testing::AnyNumber;
@@ -54,9 +55,9 @@ protected:
 	{
 	public:
 		// Constructor to pass parameters to the base class constructor
-		TestableStreamAbstractionAAMP_MPD(AampLogManager *logObj, PrivateInstanceAAMP *aamp,
+		TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
 										  double seekpos, float rate)
-			: StreamAbstractionAAMP_MPD(logObj, aamp, seekpos, rate)
+			: StreamAbstractionAAMP_MPD(aamp, seekpos, rate)
 		{
 		}
 
@@ -72,7 +73,7 @@ protected:
 
 		void InvokeFetcherLoop()
 		{
-			FetcherLoopNew();
+			FetcherLoop();
 		}
 
 		int GetCurrentPeriodIdx()
@@ -110,9 +111,9 @@ protected:
 			return SelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, bmanifestupdate, requireStreamSelection, currentPeriodId);
 		}
 
-		bool InvokeIndexSelectedPeriod(bool &periodChanged, bool &adStateChanged, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId)
+		bool InvokeIndexSelectedPeriod(bool &periodChanged, bool &adStateChanged, bool &requireStreamSelection, std::string &currentPeriodId)
 		{
-			return IndexSelectedPeriod(periodChanged, adStateChanged, bmanifestupdate, requireStreamSelection, currentPeriodId);
+			return IndexSelectedPeriod(periodChanged, adStateChanged, requireStreamSelection, currentPeriodId);
 		}
 
 		bool InvokeCheckEndOfStream(bool &waitForAdBreakCatchup)
@@ -133,6 +134,16 @@ protected:
 		void SetCurrentPeriod(dash::mpd::IPeriod *period)
 		{
 			mCurrentPeriod = period;
+		}
+
+		dash::mpd::IPeriod *GetCurrentPeriod()
+		{
+			return mCurrentPeriod;
+		}
+
+		class PrivateCDAIObjectMPD *GetCDAIObject()
+		{
+			return mCdaiObject;
 		}
 
 		void SetNumberOfTracks(int numTracks)
@@ -253,7 +264,9 @@ protected:
 			{eAAMPConfig_PrePlayBufferCount, DEFAULT_PREBUFFER_COUNT},
 			{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 			{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
-			{eAAMPConfig_StallTimeoutMS, DEFAULT_STALL_DETECTION_TIMEOUT}};
+			{eAAMPConfig_StallTimeoutMS, DEFAULT_STALL_DETECTION_TIMEOUT},
+			{eAAMPConfig_AdFulfillmentTimeout, DEFAULT_AD_FULFILLMENT_TIMEOUT},
+			{eAAMPConfig_AdFulfillmentTimeoutMax, MAX_AD_FULFILLMENT_TIMEOUT}};
 
 	IntConfigSettings mIntConfigSettings;
 
@@ -266,8 +279,6 @@ protected:
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-
-		mLogObj = new AampLogManager();
 
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
@@ -284,6 +295,8 @@ protected:
 		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
 
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
+
+		g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
 
 		mStreamAbstractionAAMP_MPD = nullptr;
 
@@ -310,9 +323,6 @@ protected:
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete mLogObj;
-		mLogObj = nullptr;
-
 		if (g_mockAampUtils)
 		{
 			delete g_mockAampUtils;
@@ -336,6 +346,9 @@ protected:
 
 		delete g_mockAampStreamSinkManager;
 		g_mockAampStreamSinkManager = nullptr;
+
+		delete g_MockPrivateCDAIObjectMPD;
+		g_MockPrivateCDAIObjectMPD = nullptr;
 
 		mManifest = nullptr;
 		mResponse = nullptr;
@@ -426,8 +439,8 @@ public:
 		}
 
 		/* Create MPD instance. */
-		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mLogObj, mPrivateInstanceAAMP, seekPos, rate);
-		mCdaiObj = new CDAIObjectMPD(mLogObj, mPrivateInstanceAAMP);
+		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
+		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
 		mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 
 		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
@@ -578,7 +591,6 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests1)
 	bool periodChanged = true;
 	bool adStateChanged = false;
 	bool waitForAdBreakCatchup = false;
-	bool bmanifestupdate = false;
 	bool requireStreamSelection = true;
 	std::string currentPeriodId = "p1";
 
@@ -586,7 +598,7 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests1)
 	 * Test the scenario where period index happens
 	 * All the values are reset to default
 	 */
-	ret = mStreamAbstractionAAMP_MPD->InvokeIndexSelectedPeriod(periodChanged, adStateChanged, bmanifestupdate, requireStreamSelection, currentPeriodId);
+	ret = mStreamAbstractionAAMP_MPD->InvokeIndexSelectedPeriod(periodChanged, adStateChanged, requireStreamSelection, currentPeriodId);
 	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Time, 0);
 	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Number, 1);
 	EXPECT_EQ(pMediaStreamContext->eos, false);
@@ -628,7 +640,6 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests2)
 	bool periodChanged = true;
 	bool adStateChanged = false;
 	bool waitForAdBreakCatchup = false;
-	bool bmanifestupdate = false;
 	bool requireStreamSelection = true;
 	std::string currentPeriodId = "p1";
 
@@ -636,7 +647,7 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests2)
 	 * Test the scenario where period index happens
 	 * New period start is indexed at 1672531230
 	 */
-	ret = mStreamAbstractionAAMP_MPD->InvokeIndexSelectedPeriod(periodChanged, adStateChanged, bmanifestupdate, requireStreamSelection, currentPeriodId);
+	ret = mStreamAbstractionAAMP_MPD->InvokeIndexSelectedPeriod(periodChanged, adStateChanged, requireStreamSelection, currentPeriodId);
 	EXPECT_EQ(pMediaStreamContext->fragmentTime, 1672531230.0);
 	EXPECT_EQ(ret, true);
 }
@@ -812,4 +823,68 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLive)
 	mStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 1);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetIteratorPeriodIdx(), 1);
+}
+
+/**
+ * @brief SelectSourceOrAdPeriod tests.
+ *
+ * The tests verify the SelectSourceOrAdPeriod method of StreamAbstractionAAMP_MPD when transitioning
+ * from a CDAI ad period to a regular period
+ */
+TEST_F(FetcherLoopTests, WaitForAdStateTest)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	mPrivateInstanceAAMP->rate = 1.0;
+	bool ret = false;
+	/* Initialize MPD. The video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+	status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 10);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Index the initial values
+	status = mStreamAbstractionAAMP_MPD->IndexNewMPDDocument(false);
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 0);
+
+	// Index the next period, wait for the selection
+	// Set the ad variables, we have finished ad playback and waiting for base period to catchup
+	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
+	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
+	std::string periodId = "p0";
+	std::string endPeriodId = "p1"; // landing in p1
+	// Add ads to the adBreak
+	cdaiObj->mAdBreaks = {
+		{endPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}};
+	// ad is currently not placed
+	cdaiObj->mAdBreaks[endPeriodId].ads->emplace_back(false /*invalid*/, false /*placed*/, true /*resolved*/,
+													  "adId1" /*adId*/, "url" /*url*/, 30000 /*duration*/, endPeriodId /*basePeriodId*/, 0 /*basePeriodOffset*/, nullptr /*mpd*/);
+	// cdaiObj->mCurAdIdx = 0;
+	// cdaiObj->mCurAds = cdaiObj->mAdBreaks[endPeriodId].ads;
+	// cdaiObj->mCurPlayingBreakId = periodId;
+
+	bool periodChanged = false;
+	bool adStateChanged = false; // since we finished playing an ad
+	bool waitForAdBreakCatchup = false;
+	bool requireStreamSelection = false;
+	bool mpdChanged = false;
+	std::string currentPeriodId = "p0";
+	mStreamAbstractionAAMP_MPD->IncrementIteratorPeriodIdx();
+
+	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, isAdBreakObjectExist(_))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, WaitForNextAdResolved(_))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+
+	/*
+	 * Test the scenario where ad is not placed and we are waiting for base period to catchup
+	 */
+	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId);
+	EXPECT_TRUE(ret);
+	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
 }

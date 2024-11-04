@@ -24,7 +24,7 @@
 #include "AampEvent.h"
 using namespace testing;
 using namespace std;
-AampLogManager *mLogObj{nullptr};
+
 AampConfig *gpGlobalConfig{nullptr};
 
 const std::string session_id {"6e3c49cb-6254-4324-9f5e-bddef465bdff"};
@@ -33,7 +33,7 @@ class AampEventManagerTest : public Test {
 protected:
     class TestableAampEventManager : public AampEventManager{
         public:
-            TestableAampEventManager(AampLogManager *mLogObj) : AampEventManager(-1,mLogObj)
+            TestableAampEventManager() : AampEventManager(-1)
             {
             }
             void CallSetCallbackAsDispatched(guint id)
@@ -62,8 +62,7 @@ protected:
             }
     };
     void SetUp() override {
-        AampLogManager *mLogObj = new AampLogManager();
-        handler = new TestableAampEventManager(mLogObj);
+        handler = new TestableAampEventManager();
     }
     void TearDown() override {
     delete handler;

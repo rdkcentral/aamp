@@ -1,0 +1,119 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>TST_2013_UVE_PtsRestampPlayback</title>
+    <link rel="stylesheet" href="TST_UVE_style.css">
+    <script src="TST_UVE_utils.js"></script>
+</head>
+<script>
+
+// -----------------------------------------------------------------------------------------------------------------------
+// Basic playback of a video stream using AAMP. This tests covers for the PTS restamp feature implemented in RDKAAMP-3318
+// -----------------------------------------------------------------------------------------------------------------------
+// Uses two streams. First stream has multiple periods in audio track. Performs a playback on it and verifies progress update
+// The secoond stream has I-frames in it and carries our following action: -
+// Performs a selection of trick modes on the video stream, verifying expected response
+// events are received and correct progress events are sent for a time after each step.
+// -------------------------------------------------------------------------------------------------------------------------
+
+var initConfig = {
+    // enable AAMP info logging, and turn on Gstreamer pipeline debug
+    info: true,
+    gst: true,
+
+    // Set progress reporting to 0.5 secs
+    progressReportingInterval: 0.5,
+    // Enables PTS Restampting
+    enablePTSReStamp: true
+};
+
+//The following URL contains multiple periods in audio track.
+var urlAdInsetion = "https://dash.akamaized.net/dashif/ad-insertion-testcase1/batch5/real/a/ad-insertion-testcase1.mpd";
+
+async function TST_2013_UVE_PtsRestampPlayback() {
+    TST_START("TST_2013_UVE_PtsRestampPlayback");
+    var aamp_player = new AAMPPlayer("MAIN-PLAYER");
+    var aamp_player_trickmodes = new AAMPPlayer("TRICKMODES");
+
+    aamp_player.player.initConfig(initConfig);
+    aamp_player_trickmodes.player.initConfig(initConfig);
+
+    // Verify the position progress and PTS restamp when playing a stream with multiple periods.
+    TST_STEP("Tune to 1st URL");
+    await aamp_player.Load(urlAdInsetion);
+    await aamp_player.VerifyPositionProgress(20, 1, "fw");
+
+    // Stop the 1st playback
+    TST_STEP("Stop the 1st playback");
+    await aamp_player.Stop();
+
+    // Load the url with I-frame tracks to perform trick modes
+    TST_STEP("Tune to 2nd URL");
+    aamp_player_trickmodes.Load(mainContentUrl);
+    await aamp_player_trickmodes.VerifyPositionProgress(10, 1, "fw");
+
+    // Pause playback, wait 5s and verify the playback position doesn't move
+    TST_STEP("Pause playback");
+    await aamp_player_trickmodes.SetRate(0);
+    await aamp_player_trickmodes.VerifyPlayback(5, 0);
+
+    // Play, wait 5s and verify position updated
+    TST_STEP("Set speed to 1x Playback");
+    await aamp_player_trickmodes.SetRate(1);
+    await aamp_player_trickmodes.VerifyPositionProgress(5, 1,"fw");
+
+    // Set speed to 2x FF, wait 10s and verify position updated
+    TST_STEP("Set speed to 2x FF");
+    await aamp_player_trickmodes.SetRate(2);
+    await aamp_player_trickmodes.VerifyPositionProgress(10, 2, "fw");
+
+    // Set speed to 30x FF, wait 5s and verify position updated
+    TST_STEP("Set speed to 30x FF");
+    await aamp_player_trickmodes.SetRate(30);
+    await aamp_player_trickmodes.VerifyPositionProgress(5, 30, "fw");
+
+    // Set speed to 1x Playback, wait 10s and verify position updated
+    TST_STEP("Set speed to 1x Playback");
+    await aamp_player_trickmodes.SetRate(1);
+    await aamp_player_trickmodes.VerifyPositionProgress(10, 1, "fw");
+
+    // Seek to start Position (300s), wait 10s and verify position updated
+    TST_STEP("Seek to start Position (300s)");
+    await aamp_player_trickmodes.Seek(300);
+    await aamp_player_trickmodes.VerifyPositionProgress(10, 1, "fw");
+
+    // Set speed to -12x RR, wait 5s and verify position updated
+    TST_STEP("Set speed to -12x RR");
+    await aamp_player_trickmodes.SetRate(-12);
+    await aamp_player_trickmodes.VerifyPositionProgress(5, -12, "rw");
+
+    // Stop the 2nd playback and destroy the AAMP Players
+    TST_STEP("Stop the 2nd playback");
+    await aamp_player_trickmodes.Stop();
+    aamp_player.destroy();
+    aamp_player_trickmodes.destroy();
+    TST_END();
+}
+
+
+// Run the test when the page loads
+window.onload = function() {
+    TST_2013_UVE_PtsRestampPlayback()
+}
+
+
+</script>
+<body>
+    <div id="videoContainer">
+        <video style="height:100%; width:100%; position:absolute; bottom:0; left:0">
+            <source src="dummy.mp4" type=video/ave> <!-- hole punching -->
+        </video>
+    </div>
+    <div id="testModal">
+        <p id="testData"></p>
+    </div>
+    <div id="infoModal">
+        <p id="infoData"></p>
+    </div>
+</body>
+</html>

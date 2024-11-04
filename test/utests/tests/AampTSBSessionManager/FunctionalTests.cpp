@@ -39,7 +39,6 @@ using ::testing::SaveArgPointee;
 using ::testing::SetArgPointee;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 class FunctionalTests : public ::testing::Test
 {
@@ -59,8 +58,7 @@ protected:
         }
 
         aamp = new PrivateInstanceAAMP(gpGlobalConfig);
-        mLogObj = new AampLogManager();
-        mAampTSBSessionManager = new AampTSBSessionManager(mLogObj, aamp);
+        mAampTSBSessionManager = new AampTSBSessionManager(aamp);
         TSB::Store::Config config;
         mTSBStore = std::make_shared<TSB::Store>(config, AampLogManager::aampLogger, TSB::LogLevel::TRACE);
         g_mockTSBStore = new MockTSBStore();
@@ -95,9 +93,6 @@ protected:
 
         delete g_mockMediaStreamContext;
         g_mockMediaStreamContext = nullptr;
-
-        delete mLogObj;
-        mLogObj = nullptr;
     }
 
 };
@@ -246,7 +241,7 @@ TEST_F(FunctionalTests, TSBReadTests)
     double FRAG_DURATION = 2.0;
     size_t TEST_DATA_LEN = strlen(TEST_DATA);
     AampMediaType type = eMEDIATYPE_VIDEO;
-    class MediaStreamContext videoCtx(mLogObj, (TrackType) type, NULL, aamp, "video");
+    class MediaStreamContext videoCtx((TrackType) type, NULL, aamp, "video");
 
     std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
     cachedFragment->initFragment = true;

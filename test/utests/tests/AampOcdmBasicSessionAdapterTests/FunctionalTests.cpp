@@ -35,7 +35,6 @@ using ::testing::_;
 using ::testing::SetArgReferee;
 using ::testing::DoAll;
 
-AampLogManager *mLogObj{nullptr};
 AampConfig *gpGlobalConfig{nullptr};
 
 // For comparing memory buffers such as C-style arrays
@@ -56,11 +55,11 @@ protected:
 
 	void SetUp() override
 	{
-		drmHelper = std::make_shared<MockAampDrmHelper>(mLogObj);
+		drmHelper = std::make_shared<MockAampDrmHelper>();
 		g_mockopencdm = new NiceMock<MockOpenCdm>();
-		m_aampocdmbasicsessionadapter = new AAMPOCDMBasicSessionAdapter(mLogObj,drmHelper,nullptr);
+		m_aampocdmbasicsessionadapter = new AAMPOCDMBasicSessionAdapter(drmHelper,nullptr);
 		g_mockOpenCdmSessionAdapter = new NiceMock<MockOpenCdmSessionAdapter>();
-		g_mockAampMemorySystem = new NiceMock<MockAampMemorySystem>(mLogObj);
+		g_mockAampMemorySystem = new NiceMock<MockAampMemorySystem>();
 	}
 
 	void TearDown() override

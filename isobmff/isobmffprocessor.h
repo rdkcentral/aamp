@@ -115,8 +115,8 @@ public:
 	 * @param[in] trackType - track type (A/V)
 	 * @param[in] peerBmffProcessor - peer instance of IsoBmffProcessor
 	 */
-	// IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj=NULL, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, IsoBmffProcessor* peerBmffProcessor = NULL, MediaProcessor* peerSubProcessor = NULL);
-	IsoBmffProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj, id3_callback_t id3_hdl, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO,
+	// IsoBmffProcessor(class PrivateInstanceAAMP *aamp, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, IsoBmffProcessor* peerBmffProcessor = NULL, MediaProcessor* peerSubProcessor = NULL);
+	IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO,
 		IsoBmffProcessor* peerBmffProcessor = NULL, IsoBmffProcessor* peerSubProcessor = NULL);
 
 	/**
@@ -507,7 +507,6 @@ private:
 	
 	pthread_mutex_t m_mutex;
 	pthread_cond_t m_cond;
-	AampLogManager *mLogObj;
 };
 
 #endif /* __ISOBMFFPROCESSOR_H__ */

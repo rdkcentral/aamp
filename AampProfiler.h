@@ -226,7 +226,6 @@ private:
 
 	ProfilerBucketType mTuneFailBucketType; /**< ProfilerBucketType in case of error */
 	int mTuneFailErrorCode;			/**< tune Fail Error Code */
-	AampLogManager *mLogObj;
 	int rateCorrection;						/**< Rate correction change count */
 	int bitrateChange;						/**< Bitrate change count */						
 	int bufferChange;						/**< buffer change count */
@@ -421,8 +420,6 @@ public:
 	 * @return void
 	 */
 	void SetTuneFailCode(int tuneFailCode, ProfilerBucketType failBucketType);
-	
-	void SetLogger(AampLogManager *logObj) { mLogObj = logObj;}
 
 	/**
 	 * @fn SetDiscontinuityParam - to mark the discontinuity switch and save the parameters

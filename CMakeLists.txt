@@ -836,16 +836,17 @@ include_directories(tsb/api)
 set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${LIBDASH_LIBRARIES} ${CURL_LINK_LIBRARIES})
 set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
                            test/gstTestHarness/gst-test.h
-                           test/gstTestHarness/parsemp4.hpp
+                           test/gstTestHarness/mp4demux.hpp
                            test/gstTestHarness/tsdemux.hpp
                            test/gstTestHarness/dash_adapter.hpp
                            test/gstTestHarness/downloader.hpp
                            test/gstTestHarness/stream_utils.hpp
                            test/gstTestHarness/string_utils.hpp
-                           test/gstTestHarness/turbo_xml.hpp )
+                           test/gstTestHarness/turbo_xml.hpp
+                           test/gstTestHarness/initializationheaderinfo.hpp )
 set(GSTTESTHARNESS_SOURCES test/gstTestHarness/gst-port.cpp
                            test/gstTestHarness/gst-test.cpp
-                           test/gstTestHarness/parsemp4.cpp
+                           test/gstTestHarness/mp4demux.cpp
                            test/gstTestHarness/dash_adapter.cpp
                            test/gstTestHarness/downloader.cpp
                            test/gstTestHarness/stream_utils.cpp

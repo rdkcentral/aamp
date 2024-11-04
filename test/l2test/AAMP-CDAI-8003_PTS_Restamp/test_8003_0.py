@@ -39,72 +39,66 @@ manifest_list = [
     {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main-multi.mpd", 'expected_restamps': 40 },
     {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd", 'expected_restamps': 40},
     {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/main-segmentlist.mpd", 'expected_restamps': 40},
-    { 'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/main-segmentbase.mpd", 'expected_restamps': 40},
-    { 'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main-multi.mpd", 'expected_restamps': 40},
-    { 'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/RDKAAMP-1540/4k/h265/SegmentTimeline.mpd", 'expected_restamps': 40},
+    {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/main-segmentbase.mpd", 'expected_restamps': 40},
+    {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main-multi.mpd", 'expected_restamps': 40},
+    {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/RDKAAMP-1540/4k/h265/SegmentTimeline.mpd", 'expected_restamps': 40},
+    {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/Sports-Variations/Good_Bad/manifest_x4_good_bad.mpd", 'expected_restamps': 120}
 ]
 ###############################################################################
-restamp_values = {}
+restamp_values:dict[str, float] = {}
 segment_cnt = 0
 max_segment_cnt = 0
 aamp = None
+timeout = 120
 
 def check_restamp(match,arg):
-    global segment_cnt, restamp_values
+    global segment_cnt, restamp_values, max_segment_cnt
 
     # Get the fields from the log line
-    before = int(match.group(1))
-    after = int(match.group(2))
-    duration = int(match.group(3))
-    url = match.group(4).decode()
+    mediaTrack = match.group(1)
+    timeScale = float(match.group(2))
+    before = float(match.group(3))
+    after = float(match.group(4))
+    duration = float(match.group(5))
+    url = match.group(6).decode()
 
     segment_cnt += 1
-    print(segment_cnt, before,after,duration, url)
-
-    # Identify type of segment. comcast generated segments need a pattern match
-    # This turns out to be a rubbish approach better if there was a log line
-    if re.search(r'_video_|-video-|/dash/\d+p_\d+\.m4s|/dash/\d+\.mp4|/video/\d+/\d+\.m4s', url):
-        media = 'video'
-    elif re.search(r'_audio_|-audio-|/dash/en_\d+\.mp3|/en/\d+\.m4s', url):
-        media = 'audio'
-    elif ("-subtitle-" in url) or ("-text-" in url):
-        media = 'subtitle'
-    else:
-        assert False, f"Cannot establish media from {url}"
+    print(segment_cnt, mediaTrack, timeScale, before, after, duration, url)
 
     # Our expected pts value starts from 0
-    expected_restamp = restamp_values.get(media,0)
+    expected_restamp = restamp_values.get(mediaTrack, 0)
 
     # The actual duration in the provided segments may not match that from the manifest.
     # This can be seen in https://dash.akamaized.net/dashif/ad-insertion-testcase1/batch5/real/a/ad-insertion-testcase1.mpd
     # We allow the pts value after restamp to differ by 5% of the segment duration
-    tolerance = duration*0.05
-    if abs( after - expected_restamp )> tolerance:
-        assert(after == expected_restamp), f"tolerance={tolerance} {media} {url}"
+    duration_sec = duration / timeScale
+    tolerance_sec = duration_sec * 0.05
+    after_sec = after / timeScale
+    diff_sec = abs(after_sec - expected_restamp)
+    print(f"PTS (secs): actual {after_sec:.3f}, expected {expected_restamp:.3f}, diff {diff_sec:.3f}, tol {tolerance_sec:.3f}")
+    assert diff_sec <= tolerance_sec
 
     # Save what we are expecting for the next value
-    restamp_values[media] = after + duration
+    restamp_values[mediaTrack] = after_sec + duration_sec
 
-# Limit playback for each asset so test does not take too long
-def check_runtime(match,arg):
-    global max_segment_cnt, segment_cnt, aamp
+    # Exit playback if we have done enough
     if max_segment_cnt != 0 and segment_cnt > max_segment_cnt:
         aamp.sendline("stop")
         max_segment_cnt = 0 # so we do not send multiple stops
 
+
 TESTDATA0 = {
-"title": "TBD",
-"max_test_time_seconds": 60,
-"url": "TBD",
+"title": "Verify continuous PTS restamp on various streams",
+"max_test_time_seconds": timeout,
+"url": "Various streams",
 "aamp_cfg": "info=true\nenablePTSReStamp=true\nprogress=true\n",
 
 "expect_list": [
     {"expect": r"aamp_tune","min":0, "max":2},
-    {"expect": r'RestampPts.*?before (\d+) after (\d+) duration (\d+) ([\w:/\.\-]+)\r\n',"min":0, "max":60, "callback" : check_restamp},
-    {"expect": r'GetPositionMilliseconds', "callback" : check_runtime, "min": 0, "max": 60},
-    {"expect": r'AAMPGstPlayer_EndOfStreamReached',"min":0, "max":60, "end_of_test": True},
-    {"expect": r'AAMPGstPlayer_Stop', "min": 0, "max": 60, "end_of_test": True},
-    {"expect": r'StopInternal', "min": 0, "max": 60, "end_of_test": True},
+    {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-]+)\r\n',"min":0, "max":timeout, "callback" : check_restamp},
+    {"expect": r'AAMPGstPlayer_EndOfStreamReached',"min":0, "max":timeout, "end_of_test": True},
+    {"expect": r'AAMPGstPlayer_Stop', "min": 0, "max": timeout, "end_of_test": True},
+    {"expect": r'StopInternal', "min": 0, "max": timeout, "end_of_test": True},
     ]
 }
 @pytest.fixture(params=manifest_list)
@@ -119,7 +113,7 @@ def test_8003_0(aamp_setup_teardown, test_data):
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
 
     TESTDATA0['url'] = test_data['url']
-    TESTDATA0['title'] = test_data['url']
+    TESTDATA0['title'] = "Verify continuous PTS restamp on " + test_data['url']
     max_segment_cnt = test_data['expected_restamps']
 
     aamp.run_expect_b(TESTDATA0)

@@ -70,10 +70,10 @@ TESTDATA1 = {
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/main.mpd", "min": 0, "max": 3},
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[2\] Duration\[120000\]", "min": 0, "max": 150},
         {"expect": r"\[Event\]\[\d+\]\[CDAI\] Dynamic ad start signalled", "min": 0, "max": 150},
-        {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId1 duration\=30 url\=.*ad_30s.mpd", "min": 0, "max": 150},
-        {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId2 duration\=40 url\=.*ad_40s.mpd", "min": 0, "max": 150},
-        {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId3 duration\=30 url\=.*ad-30s.mpd", "min": 0, "max": 150},
-        {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId4 duration\=20 url\=.*ad_20s.mpd", "min": 0, "max": 150},
+        {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId1 duration\=30 url\=.*?ad_30s.mpd", "min": 0, "max": 150},
+        {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId2 duration\=40 url\=.*?ad_40s.mpd", "min": 0, "max": 150},
+        {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId3 duration\=30 url\=.*?ad-30s.mpd", "min": 0, "max": 150},
+        {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId4 duration\=20 url\=.*?ad_20s.mpd", "min": 0, "max": 150},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\].", "min": 100, "max": 160},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[2\] AdIdx\[0\] Found at Period\[2\]", "min": 100, "max": 160},
         {"expect": re.escape("Period ID changed from '1' to '0-111' [BasePeriodId='2']"), "min": 100, "max": 180},
@@ -90,7 +90,7 @@ TESTDATA1 = {
 
 TESTDATA2 = {
     "title": "Test2 Present ad duration less than source ad duration",
-    "max_test_time_seconds": 360,
+    "max_test_time_seconds": 400,
     "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\n",
     "url": "http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/main.mpd?live=true",
     "cmdlist": [
@@ -103,9 +103,9 @@ TESTDATA2 = {
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/main.mpd", "min": 0, "max": 3},
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[2\] Duration\[120000\]", "min": 0, "max": 150},
         {"expect": r"\[Event\]\[\d+\]\[CDAI\] Dynamic ad start signalled", "min": 0, "max": 150},
-        {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId1 duration\=30 url\=.*ad_30s.mpd", "min": 0, "max": 150},
-        {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId2 duration\=40 url\=.*ad_40s.mpd", "min": 0, "max": 150},
-        {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId3 duration\=30 url\=.*ad-30s.mpd", "min": 0, "max": 150},
+        {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId1 duration\=30 url\=.*?ad_30s.mpd", "min": 0, "max": 150},
+        {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId2 duration\=40 url\=.*?ad_40s.mpd", "min": 0, "max": 150},
+        {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId3 duration\=30 url\=.*?ad-30s.mpd", "min": 0, "max": 150},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\].", "min": 100, "max": 160},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[2\] AdIdx\[0\] Found at Period\[2\]", "min": 100, "max": 160},
         {"expect": re.escape("Period ID changed from '1' to '0-111' [BasePeriodId='2']"), "min": 100, "max": 180},
@@ -117,28 +117,33 @@ TESTDATA2 = {
         {"expect": re.escape("Period ID changed from '2-113' to '0-111' [BasePeriodId='2']"), "min": 200, "max": 250, "not_expected":True},
         #After ad3 should switch to main content period 2
         {"expect": re.escape("Period ID changed from '2-113' to '2' [BasePeriodId='2']"), "min": 200, "max": 260},
-        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/dash/(1080|720|480|360)p_122.m4s\?live=true", "min": 220, "max": 260},
-        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/dash/(1080|720|480|360)p_123.m4s\?live=true", "min": 220, "max": 260, "end_of_test":True},
+        # Make sure we log these segments so restamp values can be checked
+        # The ptsoffset calculated value on returning to period 2
+        {"expect": r"UpdatePtsOffset.*?Id 2 mPTSOffsetSec 0.000000 mNextPts -70.000000 timelineStartSec 142.000000", "min": 220, "max": 400},
+        # First seg from base period 2 after returning from ad should be 122
+        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_121.m4s\?live=true", "min": 220, "max": 400, "not_expected":True},
+        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_122.m4s\?live=true", "min": 220, "max": 400},
+        # Last seg from base period 2
+        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_131.m4s\?live=true", "min": 220, "max": 400},
+        # first seg from base period 3
+        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_132.m4s\?live=true", "min": 220, "max": 400},
+        # End the test
+        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_133.m4s\?live=true", "min": 220, "max": 400, "end_of_test":True},
     ]
 
 }
 
-def test_8002_1(aamp_setup_teardown):
-    aamp = aamp_setup_teardown
-    aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    start_server()
-    try:
-        aamp.run_expect_b(TESTDATA1)
-        stop_server()
-    finally:
-        stop_server()
+TESTLIST = [TESTDATA1,TESTDATA2]
+@pytest.fixture(params=TESTLIST)
+def test_data(request):
+    return request.param
 
-def test_8002_2(aamp_setup_teardown):
+def test_8004(aamp_setup_teardown, test_data):
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
     start_server()
     try:
-        aamp.run_expect_b(TESTDATA2)
+        aamp.run_expect_b(test_data)
         stop_server()
     finally:
         stop_server()

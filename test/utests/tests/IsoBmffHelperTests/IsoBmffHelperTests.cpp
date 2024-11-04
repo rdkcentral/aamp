@@ -33,20 +33,19 @@ class IsoBmffHelperTests : public ::testing::Test
 {
 	protected:
 		std::shared_ptr<IsoBmffHelper> helper;
-		AampLogManager *mLogObj;
 
 		void SetUp() override
 		{
-			mLogObj = new AampLogManager();
-			mLogObj->aampLoglevel = eLOGLEVEL_TRACE;		//To enable all levels of AAMP logging
+			AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
+			AampLogManager::lockLogLevel(true);
+			
+			//mLogObj->aampLoglevel = eLOGLEVEL_TRACE;		//To enable all levels of AAMP logging
 			g_mockIsoBmffBuffer = new MockIsoBmffBuffer();
-			helper = std::make_shared<IsoBmffHelper>(mLogObj);
+			helper = std::make_shared<IsoBmffHelper>();
 		}
 
 		void TearDown() override
 		{
-			delete mLogObj;
-			mLogObj=nullptr;
 			delete g_mockIsoBmffBuffer;
 			g_mockIsoBmffBuffer = nullptr;
 			helper.reset();
@@ -67,11 +66,13 @@ TEST_F(IsoBmffHelperTests, restampPtsTest)
 	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
 	int64_t ptsOffset{123};
     std::string url("Dummy");
+	const char* trackName = "video";
+	uint32_t timeScale = 48000;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(ptsOffset));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration());
-	EXPECT_TRUE(helper->RestampPts(buffer, ptsOffset,url));
+	EXPECT_TRUE(helper->RestampPts(buffer, ptsOffset,url, trackName, timeScale));
 }
 
 /**
@@ -88,11 +89,13 @@ TEST_F(IsoBmffHelperTests, restampPtsNegativeTest)
 	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
 	int64_t ptsOffset{123};
     std::string url("Dummy");
+	const char* trackName = "video";
+	uint32_t timeScale = 48000;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(_)).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration()).Times(0);
-	EXPECT_FALSE(helper->RestampPts(buffer, ptsOffset,url));
+	EXPECT_FALSE(helper->RestampPts(buffer, ptsOffset, url, trackName, timeScale));
 }
 
 /**

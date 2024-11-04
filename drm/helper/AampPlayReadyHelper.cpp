@@ -293,11 +293,11 @@ bool AampPlayReadyHelperFactory::isDRM(const struct DrmInfo& drmInfo) const
 		);
 }
 
-std::shared_ptr<AampDrmHelper> AampPlayReadyHelperFactory::createHelper(const struct DrmInfo& drmInfo, AampLogManager *logObj) const
+std::shared_ptr<AampDrmHelper> AampPlayReadyHelperFactory::createHelper(const struct DrmInfo& drmInfo) const
 {
 	if (isDRM(drmInfo))
 	{
-		return std::make_shared<AampPlayReadyHelper>(drmInfo,logObj);
+		return std::make_shared<AampPlayReadyHelper>(drmInfo);
 	}
 	return NULL;
 }

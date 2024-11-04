@@ -36,7 +36,6 @@ using ::testing::SaveArgPointee;
 using ::testing::Return;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 typedef std::shared_ptr<DownloadResponse> DownloadResponsePtr;
 typedef std::shared_ptr<DownloadConfig> DownloadConfigPtr;
@@ -52,7 +51,6 @@ protected:
 
 	void SetUp() override
 	{
-		mLogObj = new AampLogManager();
 		mAampCurlDownloader = new AampCurlDownloader();
 		g_mockCurl = new MockCurl();
 
@@ -65,9 +63,6 @@ protected:
 		mAampCurlDownloader = nullptr;
 
 		free(mCurlEasyHandle);
-
-		delete mLogObj;
-		mLogObj=nullptr;
 
 		delete g_mockCurl;
 		g_mockCurl = nullptr;

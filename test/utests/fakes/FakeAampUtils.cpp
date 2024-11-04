@@ -472,7 +472,36 @@ void trim(std::string& src)
  */
 const char* GetMediaTypeName( AampMediaType mediaType )
 {
-	return "";
+    static const char *name[] =
+    {
+        "video",//eMEDIATYPE_VIDEO
+        "audio",//eMEDIATYPE_AUDIO
+        "text",//eMEDIATYPE_SUBTITLE
+        "aux_audio",//eMEDIATYPE_AUX_AUDIO
+        "manifest",//eMEDIATYPE_MANIFEST
+        "licence",//eMEDIATYPE_LICENCE
+        "iframe",//eMEDIATYPE_IFRAME
+        "init_video",//eMEDIATYPE_INIT_VIDEO
+        "init_audio",//eMEDIATYPE_INIT_AUDIO
+        "init_text",//eMEDIATYPE_INIT_SUBTITLE
+        "init_aux_audio",//eMEDIATYPE_INIT_AUX_AUDIO
+        "playlist_video",//eMEDIATYPE_PLAYLIST_VIDEO
+        "playlist_audio",//eMEDIATYPE_PLAYLIST_AUDIO
+        "playlist_text",//eMEDIATYPE_PLAYLIST_SUBTITLE
+        "playlist_aux_audio",//eMEDIATYPE_PLAYLIST_AUX_AUDIO
+        "playlist_iframe",//eMEDIATYPE_PLAYLIST_IFRAME
+        "init_iframe",//eMEDIATYPE_INIT_IFRAME
+        "dsm_cc",//eMEDIATYPE_DSM_CC
+        "image",//eMEDIATYPE_IMAGE
+    };
+    if( mediaType < eMEDIATYPE_DEFAULT )
+    {
+        return name[mediaType];
+    }
+    else
+    {
+        return "UNKNOWN";
+    }
 }
 
 uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial)
@@ -521,7 +550,7 @@ std::string aamp_GetConfigPath(const std::string &filename)
 
 	return "FakeAampUtils.cpp";
 }
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len,AampLogManager *mLogObj, PrivateInstanceAAMP *aamp)
+double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp)
 {
 	return 0.0;
 }

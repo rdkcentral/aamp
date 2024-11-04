@@ -77,7 +77,7 @@ public :
 	uint32_t Bandwidth;
 	std::string RepresentationID;
 	uint64_t Number;
-	double Time;
+	double Time;				//In units of timescale
 	bool bUseMatchingBaseUrl;
 	int64_t nextfragmentNum;
 	double nextfragmentTime;
@@ -85,7 +85,7 @@ public :
 	FragmentDescriptor() : manifestUrl(""), Bandwidth(0), Number(0), Time(0), RepresentationID(""),matchingBaseURL(""),bUseMatchingBaseUrl(false),nextfragmentNum(-1),nextfragmentTime(0), TimeScale(1)
 	{
 	}
-	
+
 	FragmentDescriptor(const FragmentDescriptor& p) : manifestUrl(p.manifestUrl), Bandwidth(p.Bandwidth), RepresentationID(p.RepresentationID), Number(p.Number), Time(p.Time),matchingBaseURL(p.matchingBaseURL),bUseMatchingBaseUrl(p.bUseMatchingBaseUrl),nextfragmentNum(p.nextfragmentNum),nextfragmentTime(p.nextfragmentTime), TimeScale(p.TimeScale)
 	{
 	}
@@ -168,7 +168,7 @@ public:
 	 * @param seek_pos Seek position
 	 * @param rate playback rate
 	 */
-	StreamAbstractionAAMP_MPD(AampLogManager *logObj, class PrivateInstanceAAMP *aamp, double seekpos, float rate,
+	StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp, double seekpos, float rate,
 		id3_callback_t id3Handler = nullptr);
 	/**
 	 * @fn ~StreamAbstractionAAMP_MPD
@@ -524,19 +524,40 @@ public:
 	void UpdateSeekPeriodOffset( double &offsetFromStart );
 
 protected:
-	void GetStartAndDurationFromTimeline(AampMediaType type, double &scaledStartTime, double &durationMs);
+	/**
+	 * @fn GetStartAndDurationForPtsRestamping
+	 *
+	 * @brief Get the start and duration from the current timeline for the
+	 *        current period, required for PTS restamping.
+	 *
+	 * @param[out] start - Start of the current timeline in seconds
+	 * @param[out] duration - duration of the current period returned
+	 */
+	void GetStartAndDurationForPtsRestamping(AampTime &start, AampTime &duration);
+
 	/**
 	 * @fn UpdatePtsOffset
-	 * @param[in] periodIdx - Index to period we are currently playing 0..n
+	 *
+	 * @brief Calculate PTS offset value at the start of each period.
+	 *
 	 * @param[in] isNewPeriod - true for calculation on starting new period
 	 */
-	void UpdatePtsOffset(int periodIdx,bool isNewPeriod);
+	void UpdatePtsOffset(bool isNewPeriod);
+
+	/**
+	 * @fn RestorePtsOffsetCalculation
+	 *
+	 * @brief Restore variables used for PTS offset calculation,
+	 *        after downloading the init fragment of an ad failed.
+	 */
+	void RestorePtsOffsetCalculation(void);
 
 	/**
 	 * @fn printSelectedTrack
 	 * @param[in] trackIndex - selected track index
 	 * @param[in] media - Media type
 	 */
+
 	void printSelectedTrack(const std::string &trackIndex, AampMediaType media);
 	/**
 	 * @fn AdvanceTrack
@@ -554,6 +575,7 @@ protected:
 	 * @return void
 	 */
 	void AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool *waitForFreeFrag, bool *bCacheFullState);
+
 	/**
 	 * @fn FetcherLoop
 	 * @return void
@@ -561,21 +583,15 @@ protected:
 	void FetcherLoop();
 
 	/**
-	 * @fn FetcherLoopNew
-	 * @return void
-	 */
-	void FetcherLoopNew();
-
-	/**
 	 * @fn SelectSourceOrAdPeriod
 	 *
-	 * @param[out] periodChanged flag
-	 * @param[out] mpdChanged flag
-	 * @param[out] AdStateChanged flag
-	 * @param[out] waitForAdBreakCatchup flag
-	 * @param[out] bmanifestupdate flag
-	 * @param[out] requireStreamSelection flag
-	 * @param[out] currentPeriodId string
+	 * @param[in,out] periodChanged flag
+	 * @param[in,out] mpdChanged flag
+	 * @param[in,out] AdStateChanged flag
+	 * @param[in,out] waitForAdBreakCatchup flag
+	 * @param[in,out] bmanifestupdate flag
+	 * @param[in,out] requireStreamSelection flag
+	 * @param[in,out] currentPeriodId string
 	 * @return bool - true if new period selected, false otherwise
 	 */
 	bool SelectSourceOrAdPeriod(bool &periodChanged, bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId);
@@ -583,31 +599,31 @@ protected:
 	/**
 	 * @fn IndexSelectedPeriod
 	 *
-	 * @param[out] periodChanged flag
-	 * @param[out] AdStateChanged flag
-	 * @param[out] bmanifestupdate flag
-	 * @param[out] requireStreamSelection flag
-	 * @param[out] currentPeriodId string
+	 * @param[in] periodChanged flag
+	 * @param[in] AdStateChanged flag
+	 * @param[in] requireStreamSelection flag
+	 * @param[in] currentPeriodId string
 	 * @return bool - true if new period indexed, false otherwise
 	 */
-	bool IndexSelectedPeriod(bool &periodChanged, bool &adStateChanged, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId);
+	bool IndexSelectedPeriod(bool periodChanged, bool adStateChanged, bool requireStreamSelection, std::string currentPeriodId);
 
 	/**
 	 * @fn CheckEndOfStream
 	 *
-	 * @param[out] waitForAdBreakCatchup flag
+	 * @param[in] waitForAdBreakCatchup flag
 	 * @return bool - true if end of stream reached, false otherwise
 	 */
-	bool CheckEndOfStream(bool &waitForAdBreakCatchup);
+	bool CheckEndOfStream(bool waitForAdBreakCatchup);
 
 	/**
 	 * @fn DetectDiscontinuityAndFetchInit
 	 *
-	 * @param[out] periodChanged flag
-	 * @param[in] nextFragmentTime
+	 * @param[in] periodChanged flag
+	 * @param[in] nextSegmentTime
+	 *
 	 * @return void
 	 */
-	void DetectDiscontinuityAndFetchInit(bool &periodChanged, uint64_t nextFragmentTime);
+	void DetectDiscontinuityAndFetchInit(bool periodChanged, uint64_t nextSegmentTime);
 
 	/**
 	 * @fn TsbReader
@@ -973,10 +989,11 @@ protected:
 	/*
 	* @brief CheckAdResolvedStatus
 	*
-	* @param[in] ads - Ads vector
-	* @param[in] adIdx - AdIndex
+	* @param[in] ads - Ads vector (optional)
+	* @param[in] adIdx - AdIndex (optional)
+	* @param[in] periodId - periodId (optional)
 	*/
-	void CheckAdResolvedStatus(AdNodeVectorPtr &ads, int adIdx);
+	void CheckAdResolvedStatus(AdNodeVectorPtr &ads, int adIdx, const std::string &periodId = "");
 
 	/**
 	* @fn SetSubtitleTrackOffset
@@ -984,7 +1001,7 @@ protected:
 	*/
 	void SetSubtitleTrackOffset();
 
-    std::mutex mStreamLock;
+	std::mutex mStreamLock;
 	bool fragmentCollectorThreadStarted;
 	bool tsbReaderThreadStarted;
 	bool abortTsbReader;
@@ -1074,7 +1091,14 @@ protected:
 	 * @fn SetAudioTrackInfo
 	 * @param[in] tracks - available audio tracks in period
 	 * @param[in] trackIndex - index of current audio track
-	 */	
+	 */
+
+	/**
+	 * @fn checkSrcAdisGreaterThanAdbreak
+	 * @param
+	 * @param 
+	 */
+	void checkSrcAdisGreaterThanAdbreak();
 	void SetAudioTrackInfo(const std::vector<AudioTrackInfo> &tracks, const std::string &trackIndex);
 	void SetTextTrackInfo(const std::vector<TextTrackInfo> &tracks, const std::string &trackIndex);
 	/**
@@ -1134,6 +1158,8 @@ protected:
 	ABRMode mABRMode;					 /**< ABR mode*/
 	size_t mLastManifestFileSize;
 	double mFragmentTimeOffset;     /**< denotes the offset added to fragment time when absolute timeline is disabled, holds currentPeriodOffset*/
+	bool mShortAdOffsetCalc;
+	AampTime mNextPts;					/*For PTS restamping*/
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_

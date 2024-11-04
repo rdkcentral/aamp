@@ -22,8 +22,8 @@
 
 MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD = nullptr;
 
-StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(AampLogManager *logObj, class PrivateInstanceAAMP *aamp,double seek_pos, float rate, id3_callback_t id3Handler)
-    : StreamAbstractionAAMP(logObj, aamp), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS)
+StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp,double seek_pos, float rate, id3_callback_t id3Handler)
+    : StreamAbstractionAAMP(aamp), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS)
 {
 }
 
@@ -86,6 +86,7 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_MPD::GetThumbnailRangeData(doub
 
 StreamInfo* StreamAbstractionAAMP_MPD::GetStreamInfo(int idx) { return nullptr; }
 
+void StreamAbstractionAAMP_MPD::checkSrcAdisGreaterThanAdbreak() { }
 double StreamAbstractionAAMP_MPD::GetFirstPeriodStartTime(void)
 {
     return 0.0;
@@ -229,5 +230,9 @@ double StreamAbstractionAAMP_MPD::GetAvailabilityStartTime()
 }
 
 void StreamAbstractionAAMP_MPD::RefreshTrack(AampMediaType type)
+{
+}
+
+void StreamAbstractionAAMP_MPD::CheckAdResolvedStatus(AdNodeVectorPtr &ads, int adIdx, const std::string &periodId)
 {
 }

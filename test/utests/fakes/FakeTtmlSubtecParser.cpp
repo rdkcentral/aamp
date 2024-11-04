@@ -18,7 +18,7 @@
 */
 #include "TtmlSubtecParser.hpp"
 
-TtmlSubtecParser::TtmlSubtecParser(AampLogManager *logObj, PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(logObj, aamp, type), m_channel(nullptr)
+TtmlSubtecParser::TtmlSubtecParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(aamp, type), m_channel(nullptr)
 {
 }
 

@@ -26,9 +26,9 @@
 #include <pthread.h>
 #include <assert.h>
 
-ElementaryProcessor::ElementaryProcessor(class PrivateInstanceAAMP *aamp, AampLogManager *logObj)
+ElementaryProcessor::ElementaryProcessor(class PrivateInstanceAAMP *aamp)
 : p_aamp(aamp), basePTS(0), playRate(1.0f), abortAll(false), contentType(ContentType_UNKNOWN),
-	mLogObj(logObj), processPTSComplete(false),mediaFormat(eMEDIAFORMAT_UNKNOWN)
+	processPTSComplete(false),mediaFormat(eMEDIAFORMAT_UNKNOWN)
 {
     mediaFormat = p_aamp->GetMediaFormatTypeEnum();
 

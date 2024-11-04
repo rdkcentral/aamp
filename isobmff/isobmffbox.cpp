@@ -39,7 +39,7 @@ const uint32_t TFHD_FLAG_BASE_DATA_OFFSET_PRESENT               = 0x00001;
 const uint32_t TFHD_FLAG_SAMPLE_DESCRIPTION_INDEX_PRESENT       = 0x00002;
 const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_DURATION_PRESENT        = 0x00008;
 const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_SIZE_PRESENT            = 0x00010;
-const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT           = 0x00020;
+// const uint32_t TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT           = 0x00020;
 // const uint32_t TFHD_FLAG_DURATION_IS_EMPTY                   = 0x10000;
 // const uint32_t TFHD_FLAG_DEFAULT_BASE_IS_MOOF                = 0x20000;
 
@@ -146,12 +146,11 @@ const char *Box::getType() const
  * @brief Static function to construct a Box object
  * @param[in] hdr - pointer to box
  * @param[in] maxSz - box size
- * @param[in] mLOgObj - log object
  * @param[in] correctBoxSize - flag to check if box size needs to be corrected
  * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
  * @return newly constructed Box object
  */
-Box* Box::constructBox(uint8_t *hdr, uint32_t maxSz, AampLogManager *mLogObj, bool correctBoxSize, int newTrackId)
+Box* Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize, int newTrackId)
 {
 	L_RESTART:
 	uint8_t *hdr_start = hdr;
@@ -262,6 +261,19 @@ Box* Box::constructBox(uint8_t *hdr, uint32_t maxSz, AampLogManager *mLogObj, bo
 }
 
 /**
+ * @brief rewriteAsSkipBox - overwrite buffer data and rewrte box type as skip
+ * @params none
+ * @return none
+ */
+void Box::rewriteAsSkipBox(void)
+{
+	// buffer
+	memcpy(base + 4, Box::SKIP, 4);
+	// internal type
+	memcpy(type, Box::SKIP, 5);
+}
+
+/**
  *  @brief GenericContainerBox constructor
  */
 GenericContainerBox::GenericContainerBox(uint32_t sz, const char btype[4]) : Box(sz, btype), children()
@@ -323,7 +335,7 @@ GenericContainerBox* GenericContainerBox::constructContainer(uint32_t sz, const 
 	uint32_t curOffset = sizeof(uint32_t) + sizeof(uint32_t); //Sizes of size & type fields
 	while (curOffset < sz)
 	{
-		Box *box = Box::constructBox(ptr, sz-curOffset, nullptr, false, newTrackId );
+		Box *box = Box::constructBox(ptr, sz-curOffset, false, newTrackId );
 		box->setOffset(curOffset);
 		cbox->addChildren(box);
 		curOffset += box->getSize();
@@ -932,10 +944,10 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 	}
 
 	// Used by truncate operation
-	uint32_t bytesPerSample = ((flags & TRUN_FLAG_SAMPLE_DURATION_PRESENT)? 4 : 0) +
-							  ((flags & TRUN_FLAG_SAMPLE_SIZE_PRESENT)? 4 : 0) +
-							  ((flags & TRUN_FLAG_SAMPLE_FLAGS_PRESENT)? 4 : 0) +
-							  ((flags & TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)? 4 : 0);
+	//uint32_t bytesPerSample = ((flags & TRUN_FLAG_SAMPLE_DURATION_PRESENT)? 4 : 0) +
+	//						  ((flags & TRUN_FLAG_SAMPLE_SIZE_PRESENT)? 4 : 0) +
+	//						  ((flags & TRUN_FLAG_SAMPLE_FLAGS_PRESENT)? 4 : 0) +
+	//						  ((flags & TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)? 4 : 0);
 	uint8_t *firstSampleDurationLoc = nullptr;
 
 	for (unsigned int i=0; i<sample_count; i++)
@@ -1109,11 +1121,6 @@ TfhdBox* TfhdBox::constructTfhdBox(uint32_t sz, uint8_t *ptr)
 	if (flags & TFHD_FLAG_DEFAULT_SAMPLE_SIZE_PRESENT)
 	{
 		DefaultSampleSize = READ_U32(ptr);
-	}
-
-	if (flags & TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT)
-	{
-		ptr += sizeof(uint32_t);   // skip default sample flags
 	}
 
 	FullBox fbox(sz, Box::TFHD, version, flags);

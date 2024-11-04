@@ -19,7 +19,7 @@
 
 #include "WebvttSubtecDevParser.hpp"
 
-WebVTTSubtecDevParser::WebVTTSubtecDevParser(AampLogManager *logObj, PrivateInstanceAAMP *aamp, SubtitleMimeType type) : WebVTTParser(logObj, aamp, type), m_channel(nullptr)
+WebVTTSubtecDevParser::WebVTTSubtecDevParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : WebVTTParser(aamp, type), m_channel(nullptr)
 {
 }
 

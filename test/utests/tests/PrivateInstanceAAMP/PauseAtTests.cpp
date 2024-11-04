@@ -79,7 +79,7 @@ protected:
         g_mockAampScheduler = new MockAampScheduler();
         g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
         g_mockAampEventManager = new MockAampEventManager();
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mLogObj, mPrivateInstanceAAMP);
+        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP( mPrivateInstanceAAMP);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 
         mPrivateInstanceAAMP->SetScheduler(&mScheduler);

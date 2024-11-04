@@ -30,7 +30,7 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "6.9"
+#define AAMP_VERSION "6.10"
 #define AAMP_TUNETIME_VERSION 5
 
 //Stringification of Macro : use two levels of macros
@@ -117,7 +117,8 @@
 #define MAX_INIT_FRAGMENT_CACHE_PER_TRACK  5       		/**< Max No Of cached Init fragements per track */
 #define MIN_SEG_DURTION_THREASHOLD	(0.25)			/**< Min Segment Duration threshold for pushing to pipeline at period End*/
 #define MAX_CURL_SOCK_STORE		10			/**< Maximum no of host to be maintained in curl store*/
-#define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000
+#define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000	/**< Default Ad fulfillment timeout in milliseconds */
+#define MAX_AD_FULFILLMENT_TIMEOUT 5000	/**< Max Ad fulfillment timeout in milliseconds */
 
 #define AAMP_TRACK_COUNT 4		/**< internal use - audio+video+sub+aux track */
 #define DEFAULT_CURL_INSTANCE_COUNT (AAMP_TRACK_COUNT + 1) /**< One for Manifest/Playlist + Number of tracks */
@@ -138,6 +139,13 @@
 #define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
 #define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) /**< time interval for the telemetry reporting 300sec*/
 #define DEFAULT_SUBTITLE_CLOCK_SYNC_INTERVAL (30) /**< default time interval for the subtitle clock sync 30sec*/
+
+// the +1 is used to compensate for internal use originally being a > check, now >=
+#if defined(REALTEKCE)
+#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (3+1) // TODO: deprecate realtek-specific config (risk: tune time impact)
+#else
+#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (5+1) // more conservative config; used on AmLogic
+#endif
 
 // Player supported play/trick-play rates.
 #define AAMP_RATE_TRICKPLAY_MAX		64

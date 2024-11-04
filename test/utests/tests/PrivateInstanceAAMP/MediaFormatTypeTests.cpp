@@ -49,7 +49,7 @@ protected:
 
         mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mLogObj, mPrivateInstanceAAMP);
+        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPrivateInstanceAAMP);
 
         mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
     }

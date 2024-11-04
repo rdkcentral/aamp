@@ -389,6 +389,49 @@ class AAMPPlayer {
         console.log("aamp_VerifyPlayback EXIT");
     }
 
+    async VerifyPositionProgress(wait_s, speed, direction)
+    {
+        // Waits for a number of progress intervals and checks the timings of them..
+        console.log("VerifyPositionProgress ENTER: Wait "+ wait_s + ", Speed " + speed + "direction " + direction);
+
+        let notifications = 0;
+        let wait_ms = (wait_s * 1000)
+        let start_ms = Date.now();
+        let diff_ms = 0
+        let previousPosition = 0;
+        let firstSampleTaken = false;
+        while (diff_ms <= wait_ms)
+        {
+            var progress = await this.waitForEventWithTimeout(this.player, 'playbackProgressUpdate', aamp_timeout, null).catch(e => {
+                TST_ASSERT_FAIL_FATAL(e);
+            });
+            console.log("VerifyPositionProgress ("+ JSON.stringify(progress) +")");
+            TST_ASSERT((speed == progress.currentPlayRate), "Unexpected Playback Rate")
+            console.log("VerifyPositionProgress: previousPosition " + previousPosition + " progress.positionMiliseconds " + progress.positionMiliseconds);
+            if(firstSampleTaken && (direction == "fw"))
+            {
+                TST_ASSERT((previousPosition < progress.positionMiliseconds),"Position found backwards while going in forward direction" );
+            }
+            else if(firstSampleTaken && (direction == "rw"))
+            {
+                TST_ASSERT((previousPosition > progress.positionMiliseconds),"Position found forward while going in backward direction" );
+            }
+            else
+            {
+                firstSampleTaken = true;
+            }
+            previousPosition = progress.positionMiliseconds;
+            notifications += 1;
+
+            let end_ms = Date.now();
+            diff_ms = end_ms - start_ms;
+            console.log("VerifyPositionProgress: diff_ms "+ diff_ms);
+        }
+
+        console.log("VerifyPositionProgress END: diff_ms "+ diff_ms + ", Notifications " + notifications);
+
+    }
+
     // Plays a given URL waiting for AAMP to signal the eSTATE_PLAYING state has been reached
     async Load(url, autostart = true, waitForState = true)
     {
@@ -768,7 +811,7 @@ class AAMPPlayer {
     async TST_SetVideoTracks(bitratelist) {
         console.log("invoked setVideoTrack");
         console.log("bitrates are " +bitratelist);
-        await this.player.setVideoTracks(bitratelist);
+        await this.player.setVideoTracks(...bitratelist);
     }
 
     // Returns the available audio tracks information in the content.
@@ -839,29 +882,22 @@ class AAMPPlayer {
 
     // sets the video bitrate
     async TST_SetVideoBitrate(bitrate) {
-    console.log("Invoked setVideoBitrate: " + bitrate);
-    if (bitrate == 0) {
-        await this.player.setVideoBitrate(0);
-        console.log("ABR enabled");
-    } else {
-        var availableBitrates = await this.player.getVideoBitrates();
-        var found = false;
-        for (var i = 0; i < availableBitrates.length; i++) {
-            if (bitrate == availableBitrates[i]) {
-                console.log("bitrate " + bitrate);
-                found = true;
-                break;
+        console.log("Invoked setVideoBitrate: " + bitrate);
+        if (bitrate == 0) {
+            await this.player.setVideoBitrate(0);
+            console.log("ABR enabled");
+        } else {
+            var availableBitrates = await this.player.getVideoBitrates();
+            if (availableBitrates.includes(bitrate)) {
+                var currentVideoBitrate = await this.player.getCurrentVideoBitrate();
+                console.log("currentVideoBitrate " + currentVideoBitrate);
+                await this.player.setVideoBitrate(bitrate);
+                console.log("Video bitrate set to: " + bitrate);
+            } else {
+                console.log("Bitrate is not available " + availableBitrates.toString());
             }
         }
-        if (found) {
-            var currentVideoBitrate = await this.player.getCurrentVideoBitrate();
-            console.log("currentVideoBitrate " + currentVideoBitrate);
-            console.log("Video bitrate set to: " + bitrate);
-        } else {
-            console.log("Bitrate is not available");
-        }
     }
-}
 
     // gets the current video bitrate
     async TST_GetCurrentVideoBitrate()

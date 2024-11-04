@@ -42,8 +42,8 @@ public:
      * @param aamp Pointer to associated aamp instance
      * @param name Name of the track
      */
-    MediaStreamContext(AampLogManager *logObj, TrackType type, StreamAbstractionAAMP_MPD* ctx, PrivateInstanceAAMP* aamp, const char* name) :
-            MediaTrack(logObj, type, aamp, name),
+    MediaStreamContext(TrackType type, StreamAbstractionAAMP_MPD* ctx, PrivateInstanceAAMP* aamp, const char* name) :
+            MediaTrack(type, aamp, name),
             mediaType((AampMediaType)type), adaptationSet(NULL), representation(NULL),
             fragmentIndex(0), timeLineIndex(0), fragmentRepeatCount(0), fragmentOffset(0),
             eos(false), fragmentTime(0), periodStartOffset(0), timeStampOffset(0), IDX("fragment-IDX"),

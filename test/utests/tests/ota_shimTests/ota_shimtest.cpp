@@ -30,7 +30,7 @@
 
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
+
 PrivateInstanceAAMP *mPrivateInstanceAAMP{};
 
 class StreamAbstractionAAMP_OTATest : public ::testing::Test
@@ -39,8 +39,7 @@ protected:
     void SetUp() override
     {
         mPrivateInstanceAAMP = new PrivateInstanceAAMP();
-        mLogObj = new AampLogManager();
-        aamp_ota = new TestableStreamAbstractionOTA(mLogObj, mPrivateInstanceAAMP, 0.0, 1.0);
+        aamp_ota = new TestableStreamAbstractionOTA(mPrivateInstanceAAMP, 0.0, 1.0);
     }
 
     void TearDown() override
@@ -54,9 +53,9 @@ protected:
         // Make the test class a friend of the StreamAbstractionAAMP_OTA class
         friend class StreamAbstractionAAMP_OTATest;
 
-        TestableStreamAbstractionOTA(AampLogManager *logManager, PrivateInstanceAAMP *aamp,
+        TestableStreamAbstractionOTA(PrivateInstanceAAMP *aamp,
                                      double startTime, double playRate)
-            : StreamAbstractionAAMP_OTA(logManager, aamp, startTime, playRate)
+            : StreamAbstractionAAMP_OTA(aamp, startTime, playRate)
         {
         }
         void CallGetAudioTracks()
@@ -82,7 +81,6 @@ protected:
     };
 
     PrivateInstanceAAMP *mPrivateInstanceAAMP;
-    AampLogManager *mLogObj;
     TestableStreamAbstractionOTA *aamp_ota;
 };
 

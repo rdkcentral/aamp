@@ -47,10 +47,10 @@ TestUtilJsonWrapper::~TestUtilJsonWrapper()
 	cJSON_Delete(mJsonObj);
 }
 
-TestUtilDrm::TestUtilDrm(PrivateInstanceAAMP* privAamp, AampLogManager& logging)
-	: mAamp(privAamp), mLogging(logging)
+TestUtilDrm::TestUtilDrm(PrivateInstanceAAMP* privAamp)
+	: mAamp(privAamp)
 {
-	mSessionManager = aamp_utils::make_unique<AampDRMSessionManager>(&mLogging, 2 /* maxDrmSessions */, mAamp);
+	mSessionManager = aamp_utils::make_unique<AampDRMSessionManager>(2 /* maxDrmSessions */, mAamp);
 }
 
 TestUtilDrm::~TestUtilDrm()

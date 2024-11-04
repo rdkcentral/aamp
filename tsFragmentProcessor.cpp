@@ -76,20 +76,19 @@ namespace {
 	}
 }
 
-TSFragmentProcessor::TSFragmentProcessor(AampLogManager *logObj)
-	: mLogObj {logObj},
+TSFragmentProcessor::TSFragmentProcessor() :
 	m_pmtCollector(NULL),
 	m_videoComponentCount{0},
 	m_audioComponentCount{0},
 	m_dsmccComponentFound{false}
 {
-	mAudioDemuxer = aamp_utils::make_unique<Demuxer>(mLogObj, nullptr, eMEDIATYPE_AUDIO);
+	mAudioDemuxer = aamp_utils::make_unique<Demuxer>(nullptr, eMEDIATYPE_AUDIO);
 	AAMPLOG_INFO(" [%p] Audio demuxer: %p", this, mAudioDemuxer.get());
 
-	mVideoDemuxer = aamp_utils::make_unique<Demuxer>(mLogObj, nullptr, eMEDIATYPE_VIDEO);
+	mVideoDemuxer = aamp_utils::make_unique<Demuxer>(nullptr, eMEDIATYPE_VIDEO);
 	AAMPLOG_INFO(" [%p] Video demuxer: %p", this, mVideoDemuxer.get());
 
-	mDsmccDemuxer = aamp_utils::make_unique<Demuxer>(mLogObj, nullptr, eMEDIATYPE_DSM_CC);
+	mDsmccDemuxer = aamp_utils::make_unique<Demuxer>(nullptr, eMEDIATYPE_DSM_CC);
 	AAMPLOG_INFO(" [%p] DSMCC demuxer: %p", this, mDsmccDemuxer.get());
 
 	ResetAudioComponents();

@@ -25,7 +25,7 @@
 class MockTSBSessionManager : public AampTSBSessionManager
 {
 public:
-	MockTSBSessionManager(AampLogManager *logObj, PrivateInstanceAAMP *aamp) : AampTSBSessionManager(logObj, aamp) { }
+	MockTSBSessionManager(PrivateInstanceAAMP *aamp) : AampTSBSessionManager(aamp) { }
 	MOCK_METHOD(void, Init, ());
 };
 extern MockTSBSessionManager *g_mockTSBSessionManager;

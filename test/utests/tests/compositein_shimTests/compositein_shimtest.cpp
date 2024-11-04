@@ -27,7 +27,7 @@
 
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
+
 PrivateInstanceAAMP *mPrivateInstanceAAMP{};
 
 class  StreamAbstractionAAMP_COMPOSITEINTEST: public ::testing::Test {
@@ -36,8 +36,7 @@ protected:
     void SetUp() override {
             
              mPrivateInstanceAAMP = new PrivateInstanceAAMP();
-             mLogObj = new AampLogManager();
-             compositeInput = StreamAbstractionAAMP_COMPOSITEIN::GetInstance(mLogObj, mPrivateInstanceAAMP, 0.0, 1.0);
+             compositeInput = StreamAbstractionAAMP_COMPOSITEIN::GetInstance(mPrivateInstanceAAMP, 0.0, 1.0);
     
         }
     

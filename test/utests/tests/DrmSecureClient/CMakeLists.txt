@@ -22,11 +22,11 @@ pkg_check_modules(UUID REQUIRED uuid)
 set(AAMP_ROOT "../../../..")
 set(UTESTS_ROOT "../..")
 set(DRM_ROOT ${UTESTS_ROOT}/drm)
-set(SEC_CLIENT_ROOT ${DRM_ROOT}/secclient)
+set(SEC_CLIENT_ROOT ${AAMP_ROOT}/../secclient)
 set(EXEC_NAME DrmSecureClient)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DREALTEKCE=1")
 
-# The Secure Client header files must exist in utests/drm/secclient/ for these tests to build and run
+# The Secure Client header files must exist in aamp/../secclient/ for these tests to build and run
 file(GLOB SEC_CLIENT_HEADERS "${SEC_CLIENT_ROOT}/*")
 
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -35,12 +35,13 @@ include_directories(${UUID_INCLUDE_DIRS})
 
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/libsubtec)
+include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${DRM_ROOT})
 include_directories(${DRM_ROOT}/ocdm)
-include_directories(${DRM_ROOT}/secclient)
+include_directories(${AAMP_ROOT}/../secclient)
 include_directories(${DRM_ROOT}/mocks)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})

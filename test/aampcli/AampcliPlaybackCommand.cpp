@@ -28,8 +28,8 @@
 #include "AampcliPlaybackCommand.h"
 #include "scte35/AampSCTE35.h"
 #include "AampStreamSinkManager.h"
+#include <curl/curl.h>
 
-extern bool gAampcliQuietLogs;
 extern VirtualChannelMap mVirtualChannelMap;
 extern Aampcli mAampcli;
 extern void tsdemuxer_InduceRollover( bool enable );
@@ -37,7 +37,7 @@ extern void tsdemuxer_InduceRollover( bool enable );
 std::map<std::string,std::string> PlaybackCommand::playbackCommands = std::map<std::string,std::string>();
 std::vector<std::string> PlaybackCommand::commands(0);
 static std::string mFogHostPrefix="127.0.0.1:9080"; //Default host string for "fog" command
-std::vector<AdvertInfo> mAdvertList = std::vector<AdvertInfo>();
+std::vector<std::vector<AdvertInfo>> mAdvertList = std::vector<std::vector<AdvertInfo>>();
 
 void PlaybackCommand::getRange(const char* cmd, unsigned long& start, unsigned long& end, unsigned long& tail)
 {
@@ -486,25 +486,38 @@ void PlaybackCommand::HandleCommandAdvert( const char *cmd, PlayerInstanceAAMP *
 {
 	std::istringstream input;
 	input.str(cmd);
-	
+
 	std::string token;
 	std::getline(input, token, ' ');
 	assert(token == "advert");
-	
+
 	if (std::getline(input, token, ' '))
 	{
 		if (token == "list")
 		{
-			for (int i = 0; i < mAdvertList.size(); i++)
+			printf("[AAMP-CLI] Ad Map -------->\n");
+			for (size_t i = 0; i < mAdvertList.size(); i++) 
 			{
-				printf("[AAMP-CLI] advert %d: url %s duration %d\n", i, (mAdvertList[i].url).c_str(), mAdvertList[i].duration);
+				if(mAdvertList[i].size()>0)
+				{
+					for (size_t j = 0; j < mAdvertList[i].size(); j++)
+					{
+						const AdvertInfo& advert = mAdvertList[i][j];
+						printf("[AAMP-CLI] Index %zu --> advert %zu: url %s duration %d\n", i, j, advert.url.c_str(), advert.duration);
+					}
+				}
 			}
+		}
+		else if(token == "clear")
+		{
+			mAdvertList.clear();
+			printf("[AAMP-CLI] Cleared Ad List\n");
 		}
 		else
 		{
 			std::string url;
 			std::string identifier;
-			
+
 			// The next para should be a url or an index to a url
 			if (!std::getline(input, identifier, ' '))
 			{
@@ -518,33 +531,68 @@ void PlaybackCommand::HandleCommandAdvert( const char *cmd, PlayerInstanceAAMP *
 					std::string duration;
 					AdvertInfo lAdvertInfo;
 					lAdvertInfo.url = identifier;
-					
+
 					if (std::getline(input, duration, ' '))
 						lAdvertInfo.duration = std::stoi(duration);
 					else
 						lAdvertInfo.duration = 0;
-					
-					mAdvertList.push_back(lAdvertInfo);
-					printf("[AAMP-CLI] Added to advert list url: %s duration: %d\n", (lAdvertInfo.url).c_str(), lAdvertInfo.duration);
+
+					int idx = 0;
+					if(std::getline(input, token, ' '))
+					{
+						try
+						{
+							idx = std::stoi(token);
+						}
+						catch(...)
+						{
+							printf("[AAMP-CLI] ERROR - invalid index '%s'\n", token.c_str());
+							idx = 0;
+						}
+
+						if (idx >= mAdvertList.size())
+						{
+							mAdvertList.resize(idx + 1);
+						}
+						mAdvertList[idx].push_back(lAdvertInfo);
+						printf("[AAMP-CLI] Added to advert list url: %s duration: %d at index : %d mIndexedAds : %d\n", (lAdvertInfo.url).c_str(), lAdvertInfo.duration , idx , mAampcli.mIndexedAds);
+
+					}
+					else
+					{
+						std::vector<AdvertInfo> newAdvertList;
+						newAdvertList.push_back(lAdvertInfo);
+						mAdvertList.push_back(newAdvertList);
+						printf("[AAMP-CLI] Added to advert list url: %s duration: %d at new index : %zu mIndexedAds : %d\n", (lAdvertInfo.url).c_str(), lAdvertInfo.duration, mAdvertList.size() - 1, mAampcli.mIndexedAds);
+					}
 				}
 				else if (token == "rm")
 				{
 					bool urlFlag = false;
-					for (auto itr = mAdvertList.begin(); itr != mAdvertList.end(); itr++)
+					for (size_t i = 0; i < mAdvertList.size(); ++i)
 					{
-						if( identifier == itr->url)
+						for (auto itr = mAdvertList[i].begin(); itr != mAdvertList[i].end(); ++itr)
 						{
-							mAdvertList.erase(itr);
-							urlFlag = true;
+							if (identifier == itr->url)
+							{
+								mAdvertList[i].erase(itr);
+								urlFlag = true;
+								printf("[AAMP-CLI] Removed from advert list url: %s \n", identifier.c_str());
+								break;
+							}
+						}
+
+						if (urlFlag)
+						{
 							break;
 						}
 					}
-					
+
 					if(!urlFlag)
 					{
 						printf("[AAMP-CLI] ERROR - no url '%s' in list\n", identifier.c_str());
 					}
-					
+
 				}
 				else
 				{
@@ -557,7 +605,7 @@ void PlaybackCommand::HandleCommandAdvert( const char *cmd, PlayerInstanceAAMP *
 				try
 				{
 					urlIndex = (uint32_t)std::stoi(identifier);
-					
+
 					// If adding a url by index, get the url from the virtual channel map
 					if (token == "add")
 					{
@@ -568,33 +616,59 @@ void PlaybackCommand::HandleCommandAdvert( const char *cmd, PlayerInstanceAAMP *
 							std::string duration;
 							AdvertInfo lAdvertInfo;
 							lAdvertInfo.url = info->uri;
-							
+
 							if (std::getline(input, duration, ' '))
 								lAdvertInfo.duration = stoi(duration);
 							else
 								lAdvertInfo.duration = 0;
-							
-							mAdvertList.push_back(lAdvertInfo);
-							printf("[AAMP-CLI] Added to advert list url: %s duration: %d\n", (lAdvertInfo.url).c_str(), lAdvertInfo.duration);
+							if(std::getline(input, token, ' '))
+							{
+								int idx;
+								try
+								{
+									idx = std::stoi(token);
+								}
+								catch(...)
+								{
+									printf("[AAMP-CLI] ERROR - invalid index '%s'\n", token.c_str());
+									idx = 0;
+								}
+
+								if (idx >= mAdvertList.size())
+								{
+									mAdvertList.resize(idx + 1);
+								}
+								mAdvertList[idx].push_back(lAdvertInfo);
+								printf("[AAMP-CLI] Added to advert list url: %s duration: %d at index : %d mIndexedAds : %d\n", (lAdvertInfo.url).c_str(), lAdvertInfo.duration , idx , mAampcli.mIndexedAds);
+
+							}
+							else
+							{
+								std::vector<AdvertInfo> newAdvertList;
+								newAdvertList.push_back(lAdvertInfo);
+								mAdvertList.push_back(newAdvertList);
+								printf("[AAMP-CLI] Added to advert list url: %s duration: %d at new index : %zu mIndexedAds : %d\n", (lAdvertInfo.url).c_str(), lAdvertInfo.duration, mAdvertList.size() - 1, mAampcli.mIndexedAds);
+							}
 						}
 						else
 						{
 							printf("[AAMP-CLI] ERROR - invalid index into virtual channel map %d\n", urlIndex);
 						}
 					}
-					
+
 					// If deleting a url by index, get the url at that index
 					else if (token == "rm")
 					{
 						// Remove a url by index
-						
+
 						if (urlIndex < mAdvertList.size())
 						{
-							mAdvertList.erase(mAdvertList.begin() + urlIndex);
+							mAdvertList[urlIndex].clear();
+							printf("[AAMP-CLI] Cleared all elements at index %d\n", urlIndex);
 						}
 						else
 						{
-							printf("[AAMP-CLI] ERROR - invalid url index %d\n", urlIndex);
+							printf("[AAMP-CLI] ERROR - invalid index %d\n", urlIndex);
 						}
 					}
 				}
@@ -720,6 +794,51 @@ void PlaybackCommand::HandleCommandBPS( const char *cmd, PlayerInstanceAAMP *pla
 	}
 }
 
+void PlaybackCommand::HandleCommandTuneData( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp )
+{
+	std::stringstream str(cmd);
+	std::string token;
+	std::string url;
+	std::string manifestData;
+	std::getline(str,token,' ');
+	assert(token=="tunedata");
+	if (std::getline(str,url, ' '))
+	{
+		mAampcli.mManifestDataUrl = url;
+		if (playerInstanceAamp->isTuneScheme(url.c_str()))
+		{
+			printf("[AAMPCLI] Player: url : %s \n",url.c_str());
+			manifestData = getManifestData(url);
+			playerInstanceAamp->Tune(url.c_str(),mAampcli.mbAutoPlay,nullptr, true, false, nullptr, true, nullptr, 0,"0259343c-cffc-4659-bcd8-97f9dd36f6b1",manifestData.c_str());
+			std::string minimumUpdatePeriod = getMinimumUpdatePeriod(manifestData);
+			double updateVal = ParseISO8601Duration(minimumUpdatePeriod.c_str());
+			printf("[AAMPCLI] Manifest minimumUpdatePeriod = %f \n",updateVal);
+			int count = 4; //for testing - limit the updates to 4
+			if ( updateVal != 0) //live manifest updates
+			{
+				while( count-- > 0)
+				{
+					manifestData = getManifestData(url);
+					playerInstanceAamp->updateManifest(manifestData.c_str());
+					std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(updateVal)));
+				}
+			}
+		}
+		else
+		{
+			printf("[AAMP-CLI] ERROR - param '%s'\n",url.c_str());
+		}
+	}
+	else
+	{
+		printf("[AAMP-CLI] ERROR - expected 'tunedata <url>'\n");
+	}
+}void PlaybackCommand::HandleAdTesting()
+{
+    mAampcli.mIndexedAds = !mAampcli.mIndexedAds;
+	printf("[AAMPCLI] Ad Testing: %s\n", mAampcli.mIndexedAds ? "Enabled" : "Disabled");
+
+}
 
 /**
  * @brief Process command
@@ -854,10 +973,18 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		playerInstanceAamp->ResetConfiguration();
 	}
+	else if( isCommandMatch(cmd,"noisy") )
+	{
+		AampLogManager::lockLogLevel(false);
+		AampLogManager::setLogLevel(eLOGLEVEL_INFO);
+		printf( "[AAMPCLI] core logging noisy\n" );
+	}
 	else if( isCommandMatch(cmd,"quiet") )
 	{
-		gAampcliQuietLogs = !gAampcliQuietLogs;
-		printf("[AAMPCLI] core logging: %s\n", gAampcliQuietLogs?"QUIET":"NORMAL" );
+		AampLogManager::lockLogLevel(false);
+		AampLogManager::setLogLevel(eLOGLEVEL_ERROR);
+		AampLogManager::lockLogLevel(true);
+		printf( "[AAMPCLI] core logging quiet\n" );
 	}
 	else if (isCommandMatch(cmd, "exit") )
 	{
@@ -915,6 +1042,14 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	else if (isCommandMatch(cmd,"sessionid"))
 	{
 		HandleCommandSessionId( cmd );
+	}
+	else if(isCommandMatch(cmd,"tunedata"))
+	{
+		HandleCommandTuneData( cmd, playerInstanceAamp );
+	}
+	else if (isCommandMatch(cmd, "adtesting"))
+	{
+		HandleAdTesting();
 	}
 	else
 	{
@@ -1059,6 +1194,8 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("advert <params>", "manage injected advert list - 'list', 'add <url or channel in virtual channel map>', 'rm <url or index into list>'");
 	addCommand("scte35 <base64>", "decode SCTE-35 signal base64 string");
 	addCommand("release <playerid/playername>", "to remove the player");
+	addCommand("tunedata <url>","Tune passing a manifest buffer as a string");
+	addCommand("adtesting", "toggle index based adtesting logic for testing");
 }
 
 void PlaybackCommand::addCommand(std::string command,std::string description)
@@ -1118,4 +1255,77 @@ char * PlaybackCommand::commandRecommender(const char *text, int state)
 	}
 
 	return NULL;
+}
+
+size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp)
+{
+    userp->append((char*)contents, size * nmemb);
+    return size * nmemb;
+}
+
+std::string PlaybackCommand::getManifestData(std::string& url)
+{
+	CURL* curl;
+	std::string manifestData;
+	if( url.substr(0, 7) == "http://" || url.substr(0, 8) == "https://" )
+	{
+		auto delim = url.find('@');
+		curl = curl_easy_init();
+		if(curl)
+		{
+			if( delim != std::string::npos )
+			{
+				std::string range = url.substr(delim+1);
+				std::string prefix = url.substr(0,delim);
+				(void)curl_easy_setopt(curl, CURLOPT_URL, prefix.c_str() );
+				(void)curl_easy_setopt(curl, CURLOPT_RANGE, range.c_str() );
+			}
+			else
+			{
+				(void)curl_easy_setopt(curl, CURLOPT_URL, url.c_str() );
+				(void)curl_easy_setopt(curl, CURLOPT_RANGE, NULL);
+			}
+			(void)curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+			(void)curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+			(void)curl_easy_setopt(curl, CURLOPT_WRITEDATA, &manifestData);
+			(void)curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
+			CURLcode rc = curl_easy_perform(curl);
+			if (CURLE_OK == rc)
+			{
+				long response_code = 0;
+				(void)curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+				switch( response_code )
+				{
+					case 200:
+					case 204:
+					case 206:
+						break;
+					default:
+						// http error
+						printf("[AAMPCLI] %s curl error code : %ld",__FUNCTION__,response_code);
+						break;
+				}
+			}
+			curl_easy_cleanup(curl);
+		}
+	}
+	return manifestData;
+}
+
+std::string PlaybackCommand::getMinimumUpdatePeriod(const std::string& manifestData)
+{
+	std::string tag = "minimumUpdatePeriod=\"";
+	size_t start = manifestData.find(tag);
+	if (start == std::string::npos)
+	{
+		return "";
+	}
+	start += tag.length();
+	size_t end = manifestData.find("\"", start);
+	if (end == std::string::npos)
+	{
+		return "";
+	}
+	std::string periodStr = manifestData.substr(start, end - start);
+	return periodStr;
 }

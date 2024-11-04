@@ -24,13 +24,11 @@
 #include <string>
 #include "AampGrowableBuffer.h"
 #include "AampLogManager.h"
+
 class IsoBmffHelper
 {
-	private:
-		AampLogManager* mLogObj;
-
 	public:
-		IsoBmffHelper(AampLogManager *logManager = nullptr): mLogObj(logManager) {};
+		IsoBmffHelper(){};
 		~IsoBmffHelper() = default;
 
 		/**
@@ -48,11 +46,13 @@ class IsoBmffHelper
 		 * @param[in] buffer - Pointer to the AampGrowableBuffer
 		 * @param[in] ptsOffset - Offset to be added to PTS values
 		 * @param[in] fragmentUrl - Fragment URL, used in logging
+		 * @param[in] trackName - Media track name, used in logging
+		 * @param[in] timeScale - Timescale, used in logging
 		 *
 		 * @retval true  - PTS values were restamped
 		 * @retval false - There was a problem restamping PTS values
 		 */
-		bool RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl);
+		bool RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl, const char* trackName, uint32_t timeScale);
 
 		/**
 		 * @fn SetTimescale

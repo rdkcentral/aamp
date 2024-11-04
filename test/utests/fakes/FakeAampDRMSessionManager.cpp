@@ -22,7 +22,7 @@
 
 MockAampDRMSessionManager *g_mockAampDRMSessionManager = nullptr;
 
-AampDRMSessionManager::AampDRMSessionManager(AampLogManager*, int, PrivateInstanceAAMP*)
+AampDRMSessionManager::AampDRMSessionManager(int, PrivateInstanceAAMP*)
 {
 }
 

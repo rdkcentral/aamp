@@ -33,7 +33,6 @@ using ::testing::SaveArgPointee;
 using ::testing::SetArgPointee;
 
 AampConfig *gpGlobalConfig{nullptr};
-AampLogManager *mLogObj{nullptr};
 
 class FunctionalTests : public ::testing::Test
 {
@@ -56,17 +55,13 @@ protected:
         {
             gpGlobalConfig = new AampConfig();
         }
-        mLogObj = new AampLogManager();
-        mDataManager = new AampTsbDataManager(mLogObj);
+        mDataManager = new AampTsbDataManager();
     }
 
     void TearDown() override
     {
         delete mDataManager;
         mDataManager = nullptr;
-
-        delete mLogObj;
-        mLogObj = nullptr;
     }
 };
 

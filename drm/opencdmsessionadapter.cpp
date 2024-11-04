@@ -29,8 +29,8 @@
  * @fn AAMPOCDMSessionAdapter
  * @brief AAMPOCDMSessionAdapter constructor
  */
-AAMPOCDMSessionAdapter::AAMPOCDMSessionAdapter(AampLogManager *logObj, std::shared_ptr<AampDrmHelper> drmHelper, AampDrmCallbacks *callbacks) :
-		AampDrmSession(logObj, drmHelper->ocdmSystemId()),
+AAMPOCDMSessionAdapter::AAMPOCDMSessionAdapter(std::shared_ptr<AampDrmHelper> drmHelper, AampDrmCallbacks *callbacks) :
+		AampDrmSession(drmHelper->ocdmSystemId()),
 		m_eKeyState(KEY_INIT),
 		m_pOpenCDMSystem(NULL),
 		m_pOpenCDMSession(NULL),
@@ -122,7 +122,6 @@ void AAMPOCDMSessionAdapter::generateAampDRMSession(const uint8_t *f_pbInitData,
 		m_OCDMSessionCallbacks.process_challenge_callback = [](OpenCDMSession* session, void* userData, const char destUrl[], const uint8_t challenge[], const uint16_t challengeSize) {
 			AAMPOCDMSessionAdapter* userSession = reinterpret_cast<AAMPOCDMSessionAdapter*>(userData);
 			userSession->timeBeforeCallback = ((aamp_GetCurrentTimeMS())-(userSession->timeBeforeCallback));
-			auto mLogObj = userSession->mLogObj;
 			AAMPLOG_WARN( "Duration for process_challenge_callback %lld",(userSession->timeBeforeCallback));
 			userSession->processOCDMChallenge(destUrl, challenge, challengeSize);
 		};

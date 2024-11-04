@@ -34,7 +34,7 @@
 void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity)
 {
 	if(
-	   !(( GetContext() && GetContext()->mIsChunkMode &&
+	   !((aamp->GetLLDashChunkMode() &&
 		   (cachedFragment->type == eMEDIATYPE_AUDIO ||
 			cachedFragment->type == eMEDIATYPE_VIDEO)
 		   ) || aamp->IsLocalAAMPTsb() ) )
@@ -72,7 +72,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
     bool ret = false;
     double posInAbsTimeline = ((double)fragmentTime);
     AAMPLOG_INFO("Type[%d] position(before restamp) %f discontinuity %d pto %f scale %u duration %f mPTSOffsetSec %f absTime %lf fragmentUrl %s",
-       type, position, discontinuity, pto, scale, duration, GetContext()->mPTSOffsetSec, posInAbsTimeline, fragmentUrl.c_str());
+       type, position, discontinuity, pto, scale, duration, GetContext()->mPTSOffset.inSeconds(), posInAbsTimeline, fragmentUrl.c_str());
 
     fragmentDurationSeconds = duration;
     ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
@@ -89,11 +89,11 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	/* The value of PTSOffsetSec in the context can get updated at the start of a period before
 	 * the last segment from the previous period has been injected, hence we copy it
 	 */
-	cachedFragment->PTSOffsetSec = GetContext()->mPTSOffsetSec;
+	cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
 	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 	{
 		// apply pts offset to position which ends up getting put into gst_bufffer in sendHelper
-		position += GetContext()->mPTSOffsetSec;
+		position += GetContext()->mPTSOffset.inSeconds();
 	}
 	 AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 
@@ -337,7 +337,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
                     }
                 }
             }
-            else if (AAMP_IS_LOG_WORTHY_ERROR(httpErrorCode))
+            else if (AampLogManager::isLogworthyErrorCode(httpErrorCode))
             {
                 AAMPLOG_ERR("StreamAbstractionAAMP_MPD::Error on fetching %s fragment. failedCount:%d",name, segDLFailCount);
 
@@ -409,7 +409,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
         {
             AAMPLOG_WARN("Type[%d] Empty cachedFragment ignored!! fragmentUrl %s fragmentTime %f discontinuity %d pto %f  scale %u duration %f", type, fragmentUrl.c_str(), position, discontinuity, pto, scale, duration);
         }
-        else if(aamp->GetLLDashServiceData()->lowLatencyMode && initSegment)
+        else if(aamp->GetLLDashChunkMode() && initSegment)
         {
             std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
             fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.GetLen());
@@ -424,7 +424,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
         UpdateTSAfterFetch(initSegment);
         // When LocalAAMPTSBInjection is set, buffers are sent via chunkInjector, so update cachedFragments here itself.
         // IsLocalAAMPTsb() was used earlier, but its set before FetchAndInjectInitialization for non-LLD streams causing the init fragment to be lost.
-        if(aamp->IsLocalAAMPTsbInjection() || (GetContext() && GetContext()->mIsChunkMode))
+        if(aamp->IsLocalAAMPTsbInjection() || aamp->GetLLDashChunkMode())
         {
             UpdateTSAfterInject();
         }
@@ -460,7 +460,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr,
 		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
 		 * the last segment from the previous period has been injected, hence we copy it
 		 */
-		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffsetSec;
+		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
 
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.GetPtr());
 		if (IsLocalTSBInjection())
