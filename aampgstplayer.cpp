@@ -1951,17 +1951,20 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 		{
 			if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
 			{
-				GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(msg->src), "src");
 				if(aamp_StartsWith(GST_OBJECT_NAME(msg->src), "source"))
 				{
-					gst_pad_add_probe (
-							sourceEleSrcPad,
-							GST_PAD_PROBE_TYPE_EVENT_BOTH,
-							AAMPGstPlayer_HandleInstantRateChangeSeekProbe,
-							gst_segment_new(),
-							reinterpret_cast<GDestroyNotify>(gst_segment_free));
+					GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(msg->src), "src");
+					if (sourceEleSrcPad)
+					{
+						gst_pad_add_probe (
+								sourceEleSrcPad,
+								GST_PAD_PROBE_TYPE_EVENT_BOTH,
+								AAMPGstPlayer_HandleInstantRateChangeSeekProbe,
+								gst_segment_new(),
+								reinterpret_cast<GDestroyNotify>(gst_segment_free));
+						gst_object_unref(sourceEleSrcPad);
+					}
 				}
-				gst_object_unref(sourceEleSrcPad);
 			}
 		}
 		if ((NULL != msg->src) && ((platformType == ePLATFORM_REALTEK && AAMPGstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), _this)) || (platformType != ePLATFORM_REALTEK && AAMPGstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), _this))) && (!_this->privateContext->usingRialtoSink))
@@ -4878,7 +4881,6 @@ void AAMPGstPlayer::InitializeAAMPGstreamerPlugins()
 		gst_registry_remove_feature (registry, pluginFeature);//Added as a work around to handle DELIA-31716
 		gst_registry_add_feature (registry, pluginFeature);
 		gst_object_unref(pluginFeature);
-
 
 		AAMPLOG_MIL("AAMPGstPlayer: %s plugin priority set to GST_RANK_PRIMARY + 111", GstPluginNamePR);
 		gst_plugin_feature_set_rank(pluginFeature, GST_RANK_PRIMARY + 111);
