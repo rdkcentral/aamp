@@ -29,11 +29,13 @@ import pytest
 import subprocess
 import atexit
 import re
+from l2test_pts_restamp import PtsRestampUtils
 
 ###############################################################################
 
 server_process = None
 server_path = os.path.join(os.getcwd(), "AAMP-CDAI-8008_SCTE_and_AD_smaller_than_period_dur/testdata/content/server.py")
+pts_restamp_utils = PtsRestampUtils()
 
 def start_server():
     global server_process
@@ -53,39 +55,6 @@ def stop_server():
         print("stop server")
         server_process.terminate()
         server_process = None
-restamp_values:dict[str, float] = {}
-segment_cnt = 0
-
-def check_restamp(match,arg):
-    global segment_cnt, restamp_values
-
-    # Get the fields from the log line
-    mediaTrack = match.group(1)
-    timeScale = float(match.group(2))
-    before = float(match.group(3))
-    after = float(match.group(4))
-    duration = float(match.group(5))
-    url = match.group(6).decode()
-
-    segment_cnt += 1
-    print(segment_cnt, mediaTrack, timeScale, before, after, duration, url)
-
-    # Our expected pts value starts from 0
-    expected_restamp = restamp_values.get(mediaTrack, 0)
-
-    # The actual duration in the provided segments may not match that from the manifest.
-    # This can be seen in https://dash.akamaized.net/dashif/ad-insertion-testcase1/batch5/real/a/ad-insertion-testcase1.mpd
-    # We allow the pts value after restamp to differ by 5% of the segment duration
-    duration_sec = duration / timeScale
-    #tolerance_sec = duration_sec * 0.05
-    tolerance_sec = 0.7 # Test data needs fixing
-    after_sec = after / timeScale
-    diff_sec = abs(after_sec - expected_restamp)
-    print(f"PTS (secs): actual {after_sec:.3f}, expected {expected_restamp:.3f}, diff {diff_sec:.3f}, tol {tolerance_sec:.3f}")
-    assert diff_sec <= tolerance_sec
-
-    # Save what we are expecting for the next value
-    restamp_values[mediaTrack] = after_sec + duration_sec
 
 # Test Case5.1: Single source period with SCTE duration smaller than period duration
 # Description: This test case verifies the handling  an ad break where the ad and scte duration is lesser than period duration
@@ -108,7 +77,7 @@ TESTDATA1 = {
     ],
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune:", "min": 0, "max": 3},
-        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n',"min":0, "max":300, "callback" : check_restamp},
+        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n',"min":0, "max":300, "callback" : pts_restamp_utils.check_restamp},
         #Expectation for two ad break
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[1\] Duration\[15000\]", "min": 0, "max": 150},
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[2\] Duration\[5000\]", "min": 0, "max": 150},
@@ -187,13 +156,18 @@ def test_data(request):
     return request.param
 
 def test_8008(aamp_setup_teardown, test_data):
-    global segment_cnt, restamp_values
-    segment_cnt = 0
-    restamp_values = {}
+    global pts_restamp_utils
+    aamp = None
+
+    pts_restamp_utils.reset()
+    pts_restamp_utils.tolerance_min = 0.7
+    pts_restamp_utils.max_segment_cnt = 20
+ 
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
     start_server()
     aamp.run_expect_b(test_data)
     stop_server()
 
-    assert segment_cnt > 20, "Fail restamp was not checked."
+    pts_restamp_utils.check_num_segments()
+
