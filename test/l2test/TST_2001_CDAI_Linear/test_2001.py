@@ -27,6 +27,9 @@ import sys
 from inspect import getsourcefile
 import pytest
 import subprocess
+from l2test_pts_restamp import PtsRestampUtils
+
+pts_restamp_utils = PtsRestampUtils()
 
 httpserver_process = None
 TEST_PATH = os.path.abspath(os.path.join('.'))
@@ -74,6 +77,7 @@ AD_URLS = [
     AD_HOST + "/VideoTestStream/public/aamptest/streams/ads/ad7/hsar1052-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad3/02e31a39-65cb-41b3-a907-4da24d78eec7/1628264506859/AD/HD/manifest.mpd",
     ]
 
+test_time = 300
 
 def start_httpserver():
     if use_local_httpserver:
@@ -87,7 +91,6 @@ def start_httpserver():
             print("Failed to start http server {}, Check for instance already running".format(HTTPSERVER_CMD, e))
             sys.exit(os.EX_SOFTWARE)   # Return non-zero
 
-
 def stop_httpserver():
     global httpserver_process
 
@@ -97,25 +100,18 @@ def stop_httpserver():
         httpserver_process = None
 
 
-#TestCase 1.2.  Back to back single source period CDAI substitution
-#Period 881036617: 30-second content replaced with a 30-second ad.
-#Period 881036618: 20-second content replaced with a 20-second ad.
-#Period 881036619: 20-second content replaced with a 20-second ad.
-#Period 881036620: 10-second content replaced with a 10-second ad.
-#Period 881036621: 30-second content replaced with a 30-second ad.
-
 TESTDATA0 = {
 "title": "Linear CDAI TESTDATA0 alternating",
 "url": "v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd",
 'simlinear_type': 'DASH',
-"max_test_time_seconds": 300,
-"aamp_cfg": "info=true\ntrace=true\nlogMetadata=true\nclient-dai=true\n",
+"max_test_time_seconds": test_time,
+"aamp_cfg": "info=true\ntrace=true\nlogMetadata=true\nclient-dai=true\nenablePTSReStamp=true\n",
 "cmdlist": [
     "advert add " + AD_URLS[3] + " 30",
-    "advert add " + AD_URLS[0] + " 20",
+    "advert add " + AD_URLS[0] + " 20",  # Not played
     "advert add " + AD_URLS[5] + " 20",
-    "advert add " + AD_URLS[0] + " 10",
-    "advert add " + AD_URLS[2] + " 30",
+    "advert add " + AD_URLS[0] + " 10",  # Not played
+    "advert add " + AD_URLS[3] + " 30",  # repeating ad
     "advert add " + AD_URLS[0],
     "advert list",
     ],
@@ -123,58 +119,60 @@ TESTDATA0 = {
     # ( string, min time seconds, max time seconds)
 
     # Period 881036617 - 30sec
-    {"expect": r"Found CDAI events for period 881036617","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036617\] Duration\[30000\] isDAIEvent[1]","min":0, "max":300},
-    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036617 added\[Id=ad0,","min":0, "max":300},
-    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad0\]","min":0, "max":300},
+    {"expect": r"Found CDAI events for period 881036617"},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036617\] Duration\[test_time00\] isDAIEvent[1]"},
+    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036617 added\[Id=ad0,"},
+    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad0\]"},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036617\] AdIdx\[0\] Found at Period\[881036617\]","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036617\] to Queue","min":0, "max":300},
-    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad0\] to Queue.","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036617\] AdIdx\[0\] Found at Period\[881036617\]"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036617\] to Queue"},
+    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad0\] to Queue."},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036617\] FINISHED","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036617\] to Queue","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036617\] FINISHED"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036617\] to Queue"},
 
     # Period 881036618 - 20sec
-    {"expect": r"Found CDAI events for period 881036618","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036618\] Duration\[20000\] isDAIEvent[1]","min":0, "max":300},
+    {"expect": r"Found CDAI events for period 881036618"},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036618\] Duration\[20000\] isDAIEvent[1]"},
 
     # Period 881036619 - 20sec
-    {"expect": r"Found CDAI events for period 881036619","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036619\] Duration\[20000\] isDAIEvent[1]","min":0, "max":300},
-    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036619 added\[Id=ad2,","min":0, "max":300},
-    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad2\]","min":0, "max":300},
+    {"expect": r"Found CDAI events for period 881036619"},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036619\] Duration\[20000\] isDAIEvent[1]"},
+    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036619 added\[Id=ad2,"},
+    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad2\]"},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036619\] AdIdx\[0\] Found at Period\[881036619\]","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036619\] to Queue","min":0, "max":300},
-    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad2\] to Queue.","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036619\] AdIdx\[0\] Found at Period\[881036619\]"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036619\] to Queue"},
+    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad2\] to Queue."},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036619\] FINISHED","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036619\] to Queue","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036619\] FINISHED"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036619\] to Queue"},
 
     # Period 881036620 - 10sec
-    {"expect": r"Found CDAI events for period 881036620","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036620\] Duration\[10000\] isDAIEvent[1]","min":0, "max":300},
+    {"expect": r"Found CDAI events for period 881036620"},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036620\] Duration\[10000\] isDAIEvent[1]"},
 
     # Period 881036621 - 30sec
-    {"expect": r"Found CDAI events for period 881036621","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036621\] Duration\[30000\] isDAIEvent[1]","min":0, "max":300},
-    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036621 added\[Id=ad4,","min":0, "max":300},
-    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad4\]","min":0, "max":300},
+    {"expect": r"Found CDAI events for period 881036621"},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036621\] Duration\[test_time00\] isDAIEvent[1]"},
+    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036621 added\[Id=ad4,"},
+    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad4\]"},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036621\] AdIdx\[0\] Found at Period\[881036621\]","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036621\] to Queue","min":0, "max":300},
-    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad4\] to Queue.","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036621\] AdIdx\[0\] Found at Period\[881036621\]"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036621\] to Queue"},
+    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad4\] to Queue."},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036621\] FINISHED","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036621\] to Queue","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036621\] FINISHED"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036621\] to Queue"},
 
 
-    {"expect": r"\[CDAI\] Removing the period\[881036617\] from mAdBreaks","min":0, "max":300},
-    {"expect": r"\[CDAI\] Removing the period\[881036618\] from mAdBreaks","min":0, "max":300},
-    {"expect": r"\[CDAI\] Removing the period\[881036619\] from mAdBreaks","min":0, "max":300},
-    {"expect": r"\[CDAI\] Removing the period\[881036620\] from mAdBreaks","min":0, "max":300},
-    {"expect": r"\[CDAI\] Removing the period\[881036621\] from mAdBreaks","min":0, "max":300, "end_of_test":True},
+    {"expect": r"\[CDAI\] Removing the period\[881036617\] from mAdBreaks"},
+    {"expect": r"\[CDAI\] Removing the period\[881036618\] from mAdBreaks"},
+    {"expect": r"\[CDAI\] Removing the period\[881036619\] from mAdBreaks"},
+    {"expect": r"\[CDAI\] Removing the period\[881036620\] from mAdBreaks"},
+    {"expect": r"\[CDAI\] Removing the period\[881036621\] from mAdBreaks"},
+    {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n', "callback" : pts_restamp_utils.check_restamp},
+    {"expect": r"GetFile.*?periodid-881036623-", "end_of_test":True} # Finish when we start fetching for this period
 
     ]
 }
@@ -184,8 +182,8 @@ TESTDATA1 = {
 "title": "Linear CDAI TESTDATA1 back2back",
 "url": "v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd",
 'simlinear_type': 'DASH',
-"max_test_time_seconds": 300,
-"aamp_cfg": "info=true\ntrace=true\nlogMetadata=true\nclient-dai=true\n",
+"max_test_time_seconds": test_time,
+"aamp_cfg": "info=true\ntrace=true\nlogMetadata=true\nclient-dai=true\nenablePTSReStamp=true\n",
 "cmdlist": [
     "advert add " + AD_URLS[3] + " 30",
     "advert add " + AD_URLS[5] + " 20",
@@ -196,81 +194,82 @@ TESTDATA1 = {
     "advert list",
     ],
 "expect_list": [
-    # ( string, min time seconds, max time seconds)
 
     # Period 881036617 - 30sec
-    {"expect": r"Found CDAI events for period 881036617","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036617\] Duration\[30000\] isDAIEvent[1]","min":0, "max":300},
-    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036617 added\[Id=ad0,","min":0, "max":300},
-    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad0\]","min":0, "max":300},
+    {"expect": r"Found CDAI events for period 881036617"},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036617\] Duration\[test_time00\] isDAIEvent[1]"},
+    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036617 added\[Id=ad0,"},
+    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad0\]"},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036617\] AdIdx\[0\] Found at Period\[881036617\]","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036617\] to Queue","min":0, "max":300},
-    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad0\] to Queue.","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036617\] AdIdx\[0\] Found at Period\[881036617\]"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036617\] to Queue"},
+    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad0\] to Queue."},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036617\] FINISHED","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036617\] to Queue","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036617\] FINISHED"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036617\] to Queue"},
 
     # Period 881036618 - 20sec
-    {"expect": r"Found CDAI events for period 881036618","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036618\] Duration\[20000\] isDAIEvent[1]","min":0, "max":300},
-    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036618 added\[Id=ad1,","min":0, "max":300},
-    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad1\]","min":0, "max":300},
+    {"expect": r"Found CDAI events for period 881036618"},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036618\] Duration\[20000\] isDAIEvent[1]"},
+    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036618 added\[Id=ad1,"},
+    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad1\]"},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036618\] AdIdx\[0\] Found at Period\[881036618\]","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036618\] to Queue","min":0, "max":300},
-    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad1\] to Queue.","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036618\] AdIdx\[0\] Found at Period\[881036618\]"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036618\] to Queue"},
+    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad1\] to Queue."},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036618\] FINISHED","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036618\] to Queue","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036618\] FINISHED"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036618\] to Queue"},
 
 
     # Period 881036619 - 20sec
-    {"expect": r"Found CDAI events for period 881036619","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036619\] Duration\[20000\] isDAIEvent[1]","min":0, "max":300},
-    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036619 added\[Id=ad2,","min":0, "max":300},
-    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad2\]","min":0, "max":300},
+    {"expect": r"Found CDAI events for period 881036619"},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036619\] Duration\[20000\] isDAIEvent[1]"},
+    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036619 added\[Id=ad2,"},
+    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad2\]"},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036619\] AdIdx\[0\] Found at Period\[881036619\]","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036619\] to Queue","min":0, "max":300},
-    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad2\] to Queue.","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036619\] AdIdx\[0\] Found at Period\[881036619\]"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036619\] to Queue"},
+    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad2\] to Queue."},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036619\] FINISHED","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036619\] to Queue","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036619\] FINISHED"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036619\] to Queue"},
 
     # Period 881036620 - 10sec
-    {"expect": r"Found CDAI events for period 881036620","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036620\] Duration\[10000\] isDAIEvent[1]","min":0, "max":300},
-    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036620 added\[Id=ad3,","min":0, "max":300},
-    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad3\]","min":0, "max":300},
+    {"expect": r"Found CDAI events for period 881036620"},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036620\] Duration\[10000\] isDAIEvent[1]"},
+    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036620 added\[Id=ad3,"},
+    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad3\]"},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036620\] AdIdx\[0\] Found at Period\[881036620\]","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036620\] to Queue","min":0, "max":300},
-    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad3\] to Queue.","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036620\] AdIdx\[0\] Found at Period\[881036620\]"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036620\] to Queue"},
+    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad3\] to Queue."},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036620\] FINISHED","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036620\] to Queue","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036620\] FINISHED"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036620\] to Queue"},
 
     # Period 881036621 - 30sec
-    {"expect": r"Found CDAI events for period 881036621","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036621\] Duration\[30000\] isDAIEvent[1]","min":0, "max":300},
-    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036621 added\[Id=ad4,","min":0, "max":300},
-    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad4\]","min":0, "max":300},
+    {"expect": r"Found CDAI events for period 881036621"},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036621\] Duration\[test_time00\] isDAIEvent[1]"},
+    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036621 added\[Id=ad4,"},
+    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad4\]"},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036621\] AdIdx\[0\] Found at Period\[881036621\]","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036621\] to Queue","min":0, "max":300},
-    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad4\] to Queue.","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036621\] AdIdx\[0\] Found at Period\[881036621\]"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036621\] to Queue"},
+    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad4\] to Queue."},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036621\] FINISHED","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036621\] to Queue","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036621\] FINISHED"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036621\] to Queue"},
 
 
-    {"expect": r"\[CDAI\] Removing the period\[881036617\] from mAdBreaks","min":0, "max":300},
-    {"expect": r"\[CDAI\] Removing the period\[881036618\] from mAdBreaks","min":0, "max":300},
-    {"expect": r"\[CDAI\] Removing the period\[881036619\] from mAdBreaks","min":0, "max":300},
-    {"expect": r"\[CDAI\] Removing the period\[881036620\] from mAdBreaks","min":0, "max":300},
-    {"expect": r"\[CDAI\] Removing the period\[881036621\] from mAdBreaks","min":0, "max":300, "end_of_test":True},
+    {"expect": r"\[CDAI\] Removing the period\[881036617\] from mAdBreaks"},
+    {"expect": r"\[CDAI\] Removing the period\[881036618\] from mAdBreaks"},
+    {"expect": r"\[CDAI\] Removing the period\[881036619\] from mAdBreaks"},
+    {"expect": r"\[CDAI\] Removing the period\[881036620\] from mAdBreaks"},
+    {"expect": r"\[CDAI\] Removing the period\[881036621\] from mAdBreaks"},
 
+    {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n', "callback" : pts_restamp_utils.check_restamp},
+    {"expect": r"GetFile.*?periodid-881036622-", "end_of_test":True} # Finish when we start fetching for this period
     ]
 }
 
@@ -282,8 +281,8 @@ TESTDATA2 = {
 "title": "TC:2.2-Back to back source period with multiple CDAI ad substitution",
 "url": "v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd",
 'simlinear_type': 'DASH',
-"max_test_time_seconds": 300,
-"aamp_cfg": "info=true\ntrace=true\nlogMetadata=true\nclient-dai=true\nptsRestamp=true\n",
+"max_test_time_seconds": test_time,
+"aamp_cfg": "info=true\ntrace=true\nlogMetadata=true\nclient-dai=true\nenablePTSReStamp=true\n",
 "cmdlist": [
 
     "advert add " + AD_URLS[5] + " 20",
@@ -294,48 +293,62 @@ TESTDATA2 = {
     "advert list",
     ],
 "expect_list": [
-    # ( string, min time seconds, max time seconds)
 
     # Period 881036617 - 30sec - Substitited with 20sec and 10sec ad
-    {"expect": r"Found CDAI events for period 881036617","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036617\] Duration\[30000\] isDAIEvent[1]","min":0, "max":300},
-    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036617 added\[Id=ad1,","min":0, "max":300},
-    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad1\]","min":0, "max":300},
-    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad2\]","min":0, "max":300},
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036617\] AdIdx\[0\] Found at Period\[881036617\]","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036617\] to Queue","min":0, "max":300},
-    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad1\] to Queue.","min":0, "max":300},
-    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad2\] to Queue.","min":0, "max":300},
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036617\] FINISHED","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036617\] to Queue","min":0, "max":300},
+    {"expect": r"Found CDAI events for period 881036617"},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036617\] Duration\[test_time00\] isDAIEvent[1]"},
+    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036617 added\[Id=ad1,"},
+    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad1\]"},
+    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad2\]"},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036617\] AdIdx\[0\] Found at Period\[881036617\]"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036617\] to Queue"},
+    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad1\] to Queue."},
+    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad2\] to Queue."},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036617\] FINISHED"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036617\] to Queue"},
 
     # Period 881036618 - 20sec - Substituted with two 10 sec ads
-    {"expect": r"Found CDAI events for period 881036618","min":0, "max":300},
-    {"expect": r"\[CDAI\] Found Adbreak on period\[881036618\] Duration\[20000\] isDAIEvent[1]","min":0, "max":300},
-    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036618 added\[Id=ad1,","min":0, "max":300},
-    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad1\]","min":0, "max":300},
-    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad2\]","min":0, "max":300},
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036618\] AdIdx\[0\] Found at Period\[881036618\]","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036618\] to Queue","min":0, "max":300},
-    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad1\] to Queue.","min":0, "max":300},
+    {"expect": r"Found CDAI events for period 881036618"},
+    {"expect": r"\[CDAI\] Found Adbreak on period\[881036618\] Duration\[20000\] isDAIEvent[1]"},
+    {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 881036618 added\[Id=ad1,"},
+    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad1\]"},
+    {"expect": r"\[SendAdResolvedEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Sent resolved status=1 for adId\[ad2\]"},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[881036618\] AdIdx\[0\] Found at Period\[881036618\]"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_START\] of adBreakId\[881036618\] to Queue"},
+    {"expect": r"\[SendAdPlacementEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_PLACEMENT_START\] of adId\[ad1\] to Queue."},
 
-    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036618\] FINISHED","min":0, "max":300},
-    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036618\] to Queue","min":0, "max":300},
+    {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[881036618\] FINISHED"},
+    {"expect": r"\[SendAdReservationEvent\]\[\d+\]PrivateInstanceAAMP: \[CDAI\] Pushed \[AAMP_EVENT_AD_RESERVATION_END\] of adBreakId\[881036618\] to Queue"},
 
 
-    {"expect": r"\[CDAI\] Removing the period\[881036617\] from mAdBreaks","min":0, "max":300},
-    {"expect": r"\[CDAI\] Removing the period\[881036618\] from mAdBreaks","min":0, "max":300,"end_of_test":True},
+    {"expect": r"\[CDAI\] Removing the period\[881036617\] from mAdBreaks"},
+    {"expect": r"\[CDAI\] Removing the period\[881036618\] from mAdBreaks"},
 
+    {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n', "callback" : pts_restamp_utils.check_restamp},
+    {"expect": r"GetFile.*?periodid-881036622-", "end_of_test":True} # Finish when we start fetching for this period
     ]
 }
-TESTLIST = [TESTDATA0,TESTDATA1,TESTDATA2]
+TESTLIST = [TESTDATA0, TESTDATA1, TESTDATA2]
 
 @pytest.fixture(params=TESTLIST)
 def test_data(request):
     return request.param
 
 @pytest.mark.ci_test_set
-def test_2001(httpserver_setup_teardown, aamp_setup_teardown, test_data):
+def test_2001(aamp_setup_teardown, test_data):
+    global pts_restamp_utils
+
+    start_httpserver() # Only starts if being used
+
+    pts_restamp_utils.reset()
+
+    # At least this many segs must get restamped. A check to make sure that the restamp is getting checked
+    pts_restamp_utils.max_segment_cnt = 100
+
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
     aamp.run_expect_b(test_data)
+
+    pts_restamp_utils.check_num_segments()
+
+    stop_httpserver()

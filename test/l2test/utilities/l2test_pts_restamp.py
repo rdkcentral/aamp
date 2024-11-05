@@ -46,9 +46,6 @@ class PtsRestampUtils:
         self.segment_cnt += 1
         print(self.segment_cnt, mediaTrack, timeScale, before, after, duration, url)
 
-        # Our expected pts value starts from 0
-        expected_restamp = self.restamp_values.get(mediaTrack, 0)
-
         # The actual duration in the provided segments may not match that from the manifest.
         # This can be seen in https://dash.akamaized.net/dashif/ad-insertion-testcase1/batch5/real/a/ad-insertion-testcase1.mpd
         # We allow the pts value after restamp to differ by 5% of the segment duration.
@@ -56,9 +53,13 @@ class PtsRestampUtils:
         tolerance_sec = duration_sec * 0.05
         tolerance_sec = max(self.tolerance_min, tolerance_sec)
         after_sec = after / timeScale
-        diff_sec = abs(after_sec - expected_restamp)
-        print(f"PTS (secs): actual {after_sec:.3f}, expected {expected_restamp:.3f}, diff {diff_sec:.3f}, tol {tolerance_sec:.3f}")
-        assert diff_sec <= tolerance_sec
+
+        # Skip check of restamp if this is the first segment because we cannot do comparision with previous
+        if mediaTrack in self.restamp_values:
+            expected_restamp = self.restamp_values.get(mediaTrack)
+            diff_sec = abs(after_sec - expected_restamp)
+            print(f"PTS (secs): actual {after_sec:.3f}, expected {expected_restamp:.3f}, diff {diff_sec:.3f}, tol {tolerance_sec:.3f}")
+            assert diff_sec <= tolerance_sec
 
         # Save what we are expecting for the next value
         self.restamp_values[mediaTrack] = after_sec + duration_sec
