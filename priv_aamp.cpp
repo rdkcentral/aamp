@@ -2352,7 +2352,13 @@ void PrivateInstanceAAMP::ReportAdProgress(bool sync)
 		}
 		mAdPrevProgressTime = curTime;
 
-		AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, (uint32_t)(mAdCurOffset * 100) / mAdDuration, GetSessionId());
+		int pct = (mAdCurOffset * 100) / mAdDuration;
+		if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
+		{
+			AAMPLOG_WARN("AdId:%s %d", mAdProgressId.c_str(), pct );
+		}
+
+		AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, pct, GetSessionId());
 		if(sync)
 		{
 			mEventManager->SendEvent(evt,AAMP_EVENT_SYNC_MODE);
