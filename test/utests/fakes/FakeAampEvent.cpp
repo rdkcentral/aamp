@@ -313,6 +313,11 @@ AdReservationEvent::AdReservationEvent(AAMPEventType evtType, const std::string 
 {
 }
 
+uint64_t AdReservationEvent::getAbsolutePositionMs() const
+{
+	return 0;
+}
+
 AdPlacementEvent::AdPlacementEvent(AAMPEventType evtType, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, std::string sid, uint32_t offset, uint32_t duration, int errorCode):
 		AAMPEventObject(evtType, std::move(sid))
 {
