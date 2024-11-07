@@ -727,7 +727,8 @@ protected:
         
         adBreakId = "break_id";
         position = 12345;
-        adReservationEvent = new AdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, adBreakId, position, session_id);
+		absolutePosition = 123456789;
+        adReservationEvent = new AdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, adBreakId, position, absolutePosition, session_id);
     }
 
     void TearDown() override {
@@ -738,6 +739,7 @@ protected:
     AdReservationEvent* adReservationEvent;
     std::string adBreakId;
     uint64_t position;
+	uint64_t absolutePosition;
 };
 
 // Testing AdReservationEvent
@@ -753,10 +755,11 @@ protected:
         
         adId = "ad_id";
         position = 12345;
+		absolutePosition = 123456789;
         offset = 1000;
         duration = 3000;
         errorCode = 0;
-        adPlacementEvent = new AdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, adId, position, session_id, offset, duration, errorCode);
+        adPlacementEvent = new AdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, adId, position, absolutePosition, session_id, offset, duration, errorCode);
     }
 
     void TearDown() override {
@@ -767,6 +770,7 @@ protected:
     AdPlacementEvent* adPlacementEvent;
     std::string adId;
     uint32_t position;
+	uint64_t absolutePosition;
     uint32_t offset;
     uint32_t duration;
     int errorCode;
