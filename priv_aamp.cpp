@@ -9556,7 +9556,7 @@ void PrivateInstanceAAMP::DeliverAdEvents(bool immediate, double position)
 			mAdCurOffset        = placementEvt->getOffset();
 			mAdDuration         = placementEvt->getDuration();
 			mAdAbsoluteStartTime = placementEvt->getAbsolutePositionMs();
-			AAMPLOG_INFO("PrivateInstanceAAMP: [CDAI] AdProgressId[%s] AdOffset[%d] AdDuration[%d] AdAbsoluteStartTime[%llu]", mAdProgressId.c_str(), mAdCurOffset, mAdDuration, mAdAbsoluteStartTime);
+			AAMPLOG_INFO("PrivateInstanceAAMP: [CDAI] AdProgressId[%s] AdOffset[%d] AdDuration[%d] AdAbsoluteStartTime[%" PRIu64 "]", mAdProgressId.c_str(), mAdCurOffset, mAdDuration, mAdAbsoluteStartTime);
 		}
 		else if(AAMP_EVENT_AD_PLACEMENT_END == evtType || AAMP_EVENT_AD_PLACEMENT_ERROR == evtType)
 		{
