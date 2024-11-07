@@ -207,6 +207,13 @@ struct ConfigLookupEntryString
 #define DEFAULT_VALUE_USE_SINGLE_PIPELINE false
 #endif
 
+// LLAMA-15922: Temporary fix for subtitles on Foxtel
+#ifdef DISABLE_MEDIA_PROCESSOR
+#define DEFAULT_VALUE_ENABLE_MEDIA_PROCESSOR false
+#else
+#define DEFAULT_VALUE_ENABLE_MEDIA_PROCESSOR true
+#endif
+
 /**
  * @brief AAMPConfigSettingString metadata
  * note that order must match the actual order of the enum; this is enforced with asserts to catch any wrong/missing declarations
@@ -367,14 +374,14 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"sendLicenseResponseHeaders", eAAMPConfig_SendLicenseResponseHeaders, false},
 	{false,"suppressDecode", eAAMPConfig_SuppressDecode, false},
 	{false,"reconfigPipelineOnDiscontinuity", eAAMPConfig_ReconfigPipelineOnDiscontinuity, false},
-	{true,"enableMediaProcessor", eAAMPConfig_EnableMediaProcessor, true},
+	{DEFAULT_VALUE_ENABLE_MEDIA_PROCESSOR,"enableMediaProcessor", eAAMPConfig_EnableMediaProcessor, true},
 	{true,"mpdStichingSupport", eAAMPConfig_MPDStichingSupport, true},
 	{false,"sendUserAgentInLicense", eAAMPConfig_SendUserAgent, false},
 	{false,"enablePTSReStamp", eAAMPConfig_EnablePTSReStamp, true},
 	{false, "trackMemory", eAAMPConfig_TrackMemory, false},
 	{DEFAULT_VALUE_USE_SINGLE_PIPELINE,"useSinglePipeline", eAAMPConfig_UseSinglePipeline, false},
 	// ideally would be named enableEarlyId3Processing for clarity, but to avoid partner confusion leaving original spelling for now
-	// this will eventually be default enbled and deprecated as a configuration  
+	// this will eventually be default enbled and deprecated as a configuration
 	{false, "earlyProcessing", eAAMPConfig_EarlyID3Processing, false},
 	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, true},
 	{false, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
@@ -519,7 +526,7 @@ private:
 	std::map<std::string, ConfigLookupEntryInt> lookupInt;
 	std::map<std::string, ConfigLookupEntryFloat> lookupFloat;
 	std::map<std::string, ConfigLookupEntryString> lookupString;
-	
+
 public:
 	static bool ConfigStringValueToBool( const char *value_cstr )
 	{
@@ -601,12 +608,12 @@ public:
 			}
 		}
 	}
-	
+
 	void Process( AampConfig *aampConfig, struct customJson &custom )
 	{ // called from AampConfig::CustomSearch
 		Process( aampConfig, customOwner, custom.config, custom.configValue );
 	}
-		
+
 	void Process( AampConfig *aampConfig, cJSON *customVal, customJson &customValues, std::vector<struct customJson> &vCustom )
 	{ // called from AampConfig::CustomArrayRead
 		// Verify any of ConfigLookupEntryBool item matched with given custom json
@@ -693,7 +700,7 @@ public:
 		}
 
 	}
-	
+
 	void Process( AampConfig *aampConfig, ConfigPriority owner, cJSON *searchObj )
 	{ // called from AampConfig::ProcessConfigJson
 		auto it = lookupBool.find(searchObj->string);
@@ -719,7 +726,7 @@ public:
 			if( it != lookupInt.end() )
 			{
 				auto conv = (int)searchObj->valueint;
-				
+
 				auto cfg = it->second;
 				auto cfgEnum = cfg.configEnum;
 				std::string keyname = it->first;
@@ -756,7 +763,7 @@ public:
 			}
 		}
 	}
-	
+
 	ConfigLookup(): lookupBool(), lookupInt(), lookupFloat(), lookupString()
 	{ // constructor; populate collection of std::map for lookup by config name
 		int i;
@@ -765,7 +772,7 @@ public:
 		{
 			assert( mConfigValueValidRange[i].type == i );
 		}
-		
+
 		assert( ARRAY_SIZE(mConfigLookupTableInt) == AAMPCONFIG_INT_COUNT+CONFIG_INT_ALIAS_COUNT );
 		i = 0;
 		while( i<AAMPCONFIG_INT_COUNT )
@@ -801,7 +808,7 @@ public:
 			lookupString[mConfigLookupTableString[i].cmdString] = mConfigLookupTableString[i];
 		}
 	}
-	
+
 	~ConfigLookup()
 	{
 	}
@@ -822,11 +829,11 @@ AampConfig::AampConfig(): mChannelOverrideMap(),vCustom(),vCustomIt(),customFoun
 /**
  * @brief AampConfig Copy Constructor function - used to update global config
  */
-AampConfig& AampConfig::operator=(const AampConfig& rhs) 
+AampConfig& AampConfig::operator=(const AampConfig& rhs)
 {
 	mChannelOverrideMap = rhs.mChannelOverrideMap;
 	vCustom = rhs.vCustom;
-	customFound = rhs.customFound;		
+	customFound = rhs.customFound;
 	memcpy(configValueBool , rhs.configValueBool , sizeof(configValueBool));
 	memcpy(configValueInt , rhs.configValueInt , sizeof(configValueInt));
 	memcpy(configValueFloat , rhs.configValueFloat , sizeof(configValueFloat));
@@ -962,7 +969,7 @@ void AampConfig::ReadDeviceCapability()
 	configValueBool[eAAMPConfig_UseWesterosSink].value		=	false;
 #else
 	if(!AAMPGstPlayer::IsCodecSupported("ac-4"))
-	{	
+	{
  		configValueBool[eAAMPConfig_DisableAC4].value		=	true;
 		AAMPLOG_WARN("AC4 not supported. DisableAC4 Audio");
 	}
@@ -970,7 +977,7 @@ void AampConfig::ReadDeviceCapability()
 	{
 		configValueBool[eAAMPConfig_DisableAC4].value		=	false;
 	}
-#endif  
+#endif
 
 	if(!AAMPGstPlayer::IsCodecSupported("ac-3"))
 	{
@@ -1297,7 +1304,7 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 				{
 					AAMPLOG_WARN("customData received - %s", conv.c_str());
 					SetConfigValue(owner,eAAMPConfig_CustomLicenseData,conv);
-				}					
+				}
 				subitem = subitem->next;
 			}
 		}
@@ -1360,7 +1367,7 @@ void AampConfig::CustomArrayRead( cJSON *customArray,ConfigPriority owner )
 		}
 	}
 }
-		
+
 /**
  * @brief (re)apply configuration for specified player instance at tune time
  * @param url: locator being tuned
@@ -1442,7 +1449,7 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
 				mConfigLookup.Process( this, vCustom[i] );
 			}
 		}
-	
+
 		ConfigureLogSettings();
 	}
 	return found;
@@ -1555,7 +1562,7 @@ void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 			{
 				key = cfg.substr(0);
 			}
-			
+
 			mConfigLookup.Process( this, owner, key, value );
 		}
 	}
@@ -1584,7 +1591,7 @@ bool AampConfig::ReadAampCfgJsonFile()
 			pbuf->sgetn (jsonbuffer,size);
 			jsonbuffer[size] = 0x00;
 			f.close();
-		
+
 			if( jsonbuffer )
 			{
 				cJSON *cfgdata = cJSON_Parse(jsonbuffer);
@@ -1771,7 +1778,7 @@ void AampConfig::ReadAllTR181Params()
 			}
 		}
 	}
-	
+
 	for( int i =0; i < ARRAY_SIZE(mConfigLookupTableInt); i++ )
 	{
 		const ConfigLookupEntryInt &entry = mConfigLookupTableInt[i];
@@ -1784,7 +1791,7 @@ void AampConfig::ReadAllTR181Params()
 			}
 		}
 	}
-	
+
 	for( int i =0; i < AAMPCONFIG_FLOAT_COUNT; i++ )
 	{
 		const ConfigLookupEntryFloat &entry = mConfigLookupTableFloat[i];
@@ -2098,7 +2105,7 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner )
 	}
 
 	if(owner == AAMP_CUSTOM_DEV_CFG_SETTING)
-	{	
+	{
 		ConfigureLogSettings();
 	}
 }
