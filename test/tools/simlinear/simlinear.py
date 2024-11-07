@@ -78,6 +78,7 @@ LLsize = 100000
 LLmidDelay = 10
 LLpreDelay = 10
 
+harvest_details = {}
 #threadingEvent = threading.Event()
 
 def normalize_query_param(value):
@@ -206,6 +207,7 @@ class DASHServer(ManifestServerCommon):
         be the time when simlinear.py starts serving the manifest.  simlinear
         will need to modify the manifests as it serves them.
         """
+        global harvest_details
         with open(path, "r") as f:
             contents = f.read()
 
@@ -226,11 +228,10 @@ class DASHServer(ManifestServerCommon):
             if is_live_time:
                 # Calculate how we need to update the manifest
                 self.is_live_time_based_manifest = True
-                details = read_harvest_details()
-                recording_start_time = details["recording_start_time"]
-                when_recorded = datetime.fromisoformat(recording_start_time[:19])
-                playback_start = datetime.utcnow()
-                self.harvest_to_playback_delta = playback_start - when_recorded
+                recording_start_time = harvest_details["recording_start_time"]
+                self.when_recorded = datetime.fromisoformat(recording_start_time[:19])
+                self.playback_start = datetime.utcnow()
+                self.harvest_to_playback_delta = self.playback_start - self.when_recorded
                 log.info("Decided is live timebase")
             else:
                 self.is_live_time_based_manifest = False
@@ -246,17 +247,13 @@ class DASHServer(ManifestServerCommon):
             ast = datetime.fromisoformat(pattern_match.group(1)[:19])
             ast += self.harvest_to_playback_delta
             ast_str = ast.isoformat()
-            log.info(
-                "availabilityStartTime %s updated to %s",
-                    pattern_match.group(1), ast_str
-            )
-            contents = re.sub(
-                r'(?<={}=").*?(?=")'.format("availabilityStartTime"), ast_str, contents
-            )
+            log.info("availabilityStartTime %s updated to %s", pattern_match.group(1), ast_str)
+            contents = re.sub(r'(?<={}=").*?(?=")'.format("availabilityStartTime"), ast_str, contents)
 
         else:
             log.error("Cannot find %s in %s", re_pattern, path)
             sys.exit(1)
+
         return contents
 
     def dash_get_manifest(self, base):
@@ -299,12 +296,13 @@ class DASHServerHandler(BaseHTTPRequestHandler):
         global LLsize
         global LLmidDelay
         global LLpreDelay
+        global harvest_details
         #global threadingEvent
         # path=/some/kind/of/path?query
         # becomes some/kind/of/path
-        
+
         isTiming = False
-        
+
         path = self.path[1:].split("?")[0]
 
         if self.path.endswith(".m3u8"):
@@ -333,25 +331,29 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                 if not rtn:
                     raise FileNotFoundError
                 log.info("%s %s",time.time(), rtn["path"])
-            
+
             elif self.path == "/timing":
-            
-                tNow = datetime.utcnow()
-                ISOtime = tNow.strftime("%Y-%m-%dT%H:%M:%S.")
-                
+                """
+                DASH manifest contains the following
+                <UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="/timing" />
+                and we respond with a time relative to the time when the DASH manifest was harvested
+                """
+                oldTime = dash_server.when_recorded
+                oldTime += datetime.utcnow() - dash_server.playback_start
+                ISOtime = oldTime.strftime("%Y-%m-%dT%H:%M:%SZ")
+
                 contents = ISOtime.encode("utf-8")
-                
+                log.info("returning time %s",ISOtime)
                 isTiming = True
-                
+
             else:
                 rtn = {"path": path}
-            
+
             if not isTiming:
                 if "contents" in rtn:
                     #RDKAAMP-1435
-                    details = read_harvest_details()
-                    if details != {}:
-                        if details['url'] is not None:
+                    if harvest_details != {}:
+                        if harvest_details['url'] is not None:
                             baseURLs = re.findall(r'<BaseURL>([\S]*)<\/BaseURL>', rtn["contents"])
                             if len(baseURLs) > 0:
                                 for baseURL in baseURLs:
@@ -860,8 +862,9 @@ if __name__ == "__main__":
 
     app = Flask(__name__)
 
-    details = read_harvest_details()
-    if details != {}:
+    # Just read harvest_details once at start of test
+    harvest_details = read_harvest_details()
+    if harvest_details != {}:
         print("Found Harvest Details")
     else:
         print("WARNING: missing harvest details, playback may be impacted.")

@@ -439,8 +439,7 @@ class SegmentList:
 
     def new_file(self, segment_group, encrypted, attrs=None):
         """
-        Called for when a new logical segmented file is encountered. The different
-        attributes need to coalesed into a common set.
+        Called before a new group of segments is added via add_init()/add_file()
         """
         self.key = segment_group
         attrs.encrypted = encrypted
@@ -475,13 +474,15 @@ class SegmentList:
         """
         self.add_file(fn, 0, segment_group)
 
-    def add_file(self, segment_name, segment_duration, segment_group):
+    def add_file(self, segment_name, segment_duration, segment_group, segment_t = -1, segment_d = -1):
         """
         Call for when a segment needs to be added.
 
         segment_name:     path to segment
         segment_duration: The duration of this segment (seconds)
         segment_group :   The bandwidth or representation id of segment
+        segment_t:        The pts t value read from the manifest
+        segment_d:        The d value read from the manifest
         """
 
         if segment_name in self.segment_name_list:
@@ -489,6 +490,10 @@ class SegmentList:
             # Allow duplication of header segment. Since for some streams, header segments have same name for multiple periods
             if  segment_duration > 0 :
                 return
+            # Do not add multiple header segments in the same segment group
+            for detail in self.segment_detail_list:
+                if detail["segment_name"] == segment_name and detail["profile"] == segment_group:
+                    return
 
         self.segment_name_list.append(segment_name)
 
@@ -501,6 +506,8 @@ class SegmentList:
             "profile": segment_group,
             "play_order": play_order,
             "duration": segment_duration,
+            "segment_t": segment_t,
+            "segment_d": segment_d,
         }
 
         self.segment_detail_list.append(segment_details)
@@ -524,14 +531,22 @@ class SegmentList:
         # print("get_segments",list)
         return sorted(list, key=lambda x: x.get("play_order"))
 
-    def dump_info(self):
+    def dump_info(self,group=None):
         """
-        Optput data that class is holding.
+        Output data that class is holding.
+        group parameter to limit to one group
         """
-        log.info("%s", self.attributes)
-        for segment_group in self.get_segment_groups():
+        groups = self.get_segment_groups()
+        if group:
+            groups = [group]
+
+        for segment_group in groups:
+            attrs = self.get_attributes(segment_group)
+            log.debug("attrs %s",attrs.__str__())
             seg_list = self.get_segments(segment_group)
-            log.debug("%s total_segments=%d", len(seg_list))
+            log.debug("%s total_segments=%d listing first 5",segment_group, len(seg_list))
+            for ent in seg_list[:5]:
+                log.debug("%s",ent)
 
     def __iter__(self):
         """

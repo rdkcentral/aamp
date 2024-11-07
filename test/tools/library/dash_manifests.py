@@ -385,6 +385,7 @@ class DASHManifest(Manifest):
         """
         Reduce down the number of bandwidths supported by the top level manifest.
         """
+        log.debug(f"bands {band_list}")
         if type(band_list) in [str, int]:
             band_list = [int(band_list)]
 
@@ -513,7 +514,6 @@ class DASHManifest(Manifest):
             adpset_id = adpset.get("id")
             period_id = period.get("id")
             templ_lst = self.templ[adpset]
-
             # Obtain any AdaptationSet values from the default template
             if len(templ_lst) > 0:
                 templ, rband, rid = templ_lst[0]
@@ -536,11 +536,12 @@ class DASHManifest(Manifest):
                     fn_templ = self.abs_path(fn_templ, self.urls.get(adpset, prefix))
 
                 tlines = self.tlines[templ] # RDKAAMP-1834
-                    
+
                 # Handle first time for this template within a Represetation
                 if seg_no < 0:
                     attrs = AttribList(adpset.attrib)
                     setattr(attrs,"period_id",period_id)
+                    setattr(attrs,"period_start",period.get("start",""))
                     if pts == 0.0:
                         if tlines:
                             pts = float(tlines[0].get('t', 0))
@@ -551,7 +552,7 @@ class DASHManifest(Manifest):
 
                         attrs.merge(rept.attrib)
                         break
-
+                    setattr(attrs,"timescale",templ.get("timescale", adpset_ts))
                     seg_list.new_file(key, encrypted, attrs)
                     fn = templ.get("initialization")
 
@@ -585,7 +586,7 @@ class DASHManifest(Manifest):
                     else:
                         end_num = start_num + int(dur / intv)
 
-                    if end_num <= seg_no: print("Continue - Pass.")
+                    if end_num <= seg_no: log.debug("Continue - Pass.")
 
                     # Generate the names of the files from increasing segement value using $Number$
                     for n in range(
@@ -599,29 +600,33 @@ class DASHManifest(Manifest):
                 # Segment list and file generation based upon $Number$
                 elif do_number:
                     # Run through the segments in the AdaptationSet
+                    segment_t = 0
                     for seg in tlines:
+                        segment_t = int(seg.get("t", segment_t))
                         end_num = start_num + int(seg.get("r", 0)) + 1
-                        if end_num <= seg_no: print("Continue - Pass.")
+                        if end_num <= seg_no: log.debug("Continue - Pass.")
 
-                        intv = float(seg.get("d")) / ts
+                        segment_d = int(seg.get("d"))
+                        intv = segment_d / ts
 
                         # Generate the names of the files from increasing segement value using $Number$
                         for num in range(
                             start_num if seg_no < start_num else seg_no, end_num
                         ):
+                            
                             if end_num <= seg_no:
-                                temp_file_name = fn_templ.split("/")[-1].replace("%d", str(num)) 
+                                temp_file_name = fn_templ.split("/")[-1].replace("%d", str(num))
 
-                                if temp_file_name not in self.remove_duplicate_req.keys(): 
-                                    seg_list.add_file(fn_templ % num, intv, key) 
-                                    self.remove_duplicate_req[temp_file_name] = str(1) 
-                                    
-                                else: 
-                                    self.remove_duplicate_req[temp_file_name] = str(int(self.remove_duplicate_req[temp_file_name]) + 1) 
-                                    
+                                if temp_file_name not in self.remove_duplicate_req.keys():
+                                    seg_list.add_file(fn_templ % num, intv, key, segment_t=segment_t, segment_d=segment_d)
+                                    self.remove_duplicate_req[temp_file_name] = str(1)
+
+                                else:
+                                    self.remove_duplicate_req[temp_file_name] = str(int(self.remove_duplicate_req[temp_file_name]) + 1)
+
                             else:
-                                seg_list.add_file(fn_templ % num, intv, key) 
-                                                                                            
+                                seg_list.add_file(fn_templ % num, intv, key,segment_t=segment_t, segment_d=segment_d)
+                            segment_t += segment_d
                         seg_no = start_num = end_num
 
                 # Segmentlist and filename generation based upon $Time$
@@ -634,13 +639,13 @@ class DASHManifest(Manifest):
                         d = int(seg.get("d"))
 
                         next_t = t + d * (r + 1)
-                        if next_t <= seg_no: print("Continue - Pass.")
+                        #if next_t <= seg_no: log.debug("Continue - Pass.")
 
                         intv = float(d) / ts
 
                         # Generate the names of the files from the increasing 't' value using $Time$
                         for t in range(t if seg_no < t else seg_no, next_t, d):
-                            seg_list.add_file(fn_templ % t, intv, key)
+                            seg_list.add_file(fn_templ % t, intv, key, segment_t = t, segment_d = d)
                         seg_no = next_t
 
                 from_seg[key] = seg_no
@@ -672,6 +677,7 @@ class DASHManifest(Manifest):
                                 break
                         attrs=AttribList(adpset.attrib).merge(rept.attrib)
                         setattr(attrs,"period_id",period_id)
+                        setattr(attrs,"period_start",period.get("start",""))
                         seg_list.new_file(
                             key,
                             encrypted,
@@ -693,7 +699,7 @@ class DASHManifest(Manifest):
                             continue
 
                         idx += 1
-                        if idx <= seg_no: print("Continue - Pass.")
+                        if idx <= seg_no: log.debug("Continue - Pass.")
                         fn = segurl.get("media")
                         if abs_paths:
                             fn = self.abs_path(fn, segml_prefix)
@@ -706,6 +712,7 @@ class DASHManifest(Manifest):
                     path = self.urls[rept].text
                     attrs=AttribList(adpset.attrib).merge(rept.attrib)
                     setattr(attrs,"period_id",period_id)
+                    setattr(attrs,"period_start",period.get("start",""))
                     seg_list.new_file(
                         key, encrypted, attrs
                     )
@@ -821,6 +828,7 @@ class DASHManifest(Manifest):
             for templ in adpset:
                 tag = templ.tag
                 if tag.endswith('ContentProtection'):
+                    # Leave in manifest but rename
                     templ.tag = re.sub('ContentProtection','ContentProtection_Transcode_Removed',tag)
                     cnt += 1
 
