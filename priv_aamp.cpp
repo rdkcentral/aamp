@@ -5947,9 +5947,20 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	if (STARTS_WITH_IGNORE_CASE(mAppName.c_str(), "peacock"))
 	{
 		// Enable PTS Restamping only for Peacock App on BCOM
-		if(GetPlatformType() == ePLATFORM_BROADCOM)
+		switch( GetPlatformType() )
 		{
+		case ePLATFORM_BROADCOM:
 			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, true);
+			break;
+		case ePLATFORM_REALTEK:
+			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, false); // override app enablement
+			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, true);
+			break;
+		case ePLATFORM_AMLOGIC:
+			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, false); // override app enablement
+			break;
+		default:
+			break;
 		}
 	}
 
