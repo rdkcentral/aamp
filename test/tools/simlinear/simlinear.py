@@ -358,7 +358,7 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                             if len(baseURLs) > 0:
                                 for baseURL in baseURLs:
                                     basURL_domain = urlparse(baseURL)
-                                    if basURL_domain.netloc in details['url']:
+                                    if basURL_domain.netloc in harvest_details['url']:
                                         rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>http://{self.server.server_address[0]}:{self.server.server_address[1]}/{basURL_domain.netloc}", rtn["contents"])
                                     elif args.ad_server != "":
                                         # Replace BaseURL to Ad-Server

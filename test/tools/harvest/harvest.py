@@ -571,7 +571,7 @@ if __name__ == "__main__":
             url_list = [url]
 
         log.info("url_list=%s", url_list)
-        man_down = ManifestDownloader(requests_session, HLSChecker, url_list)
+        man_down = ManifestDownloader(requests_session, HLSChecker, url_list, args)
 
     elif ftype == "dash":
         content = response.content
