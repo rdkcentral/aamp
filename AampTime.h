@@ -24,28 +24,59 @@
 #ifndef AAMPTIME_H
 #define AAMPTIME_H
 
+/// @brief struct to hold time in ticks and timescale
+struct AampTicks
+{
+	int64_t ticks;
+	uint32_t timescale;
+
+	/// @brief Constructor
+	/// @param ticks
+	/// @param timescale
+	AampTicks(int64_t ticks, uint32_t timescale) : ticks(ticks), timescale(timescale) {}
+
+	/// @brief Get time in milliseconds
+	int64_t inMilli() { return (ticks * 1000) / (int64_t)timescale; }
+};
+
 /// @brief time class to work around the use of doubles within Aamp
 //  While operators are overloaded for comparisons, the underlying data type is integer
 //  But the code is tolerant of being treated as a double
 
 class AampTime
 {
+	public:
+		typedef enum { milli = 1000, micro = 1000000, nano = 1000000000 } TimeScale;
+
 	private:
-		static const uint64_t timescale = 1000000000;
-		int64_t nanoseconds;
+		static const uint64_t baseTimescale = nano;
+		int64_t baseTime;
 
 	public:
 		/// @brief Constructor
 		/// @param seconds time in seconds, as a double
-		constexpr AampTime(double seconds = 0.0) : nanoseconds(int64_t(seconds * timescale)){}
-		constexpr AampTime(const AampTime& rhs)  : nanoseconds(rhs.nanoseconds){}
+		constexpr AampTime(double seconds = 0.0) : baseTime(int64_t(seconds * baseTimescale)){}
+
+		/// @brief Copy constructor
+		/// @param rhs AampTime object to copy
+		constexpr AampTime(const AampTime& rhs) : baseTime(rhs.baseTime){}
+
+		/// @brief Constructor
+		/// @param time struct containing time in ticks and timescale
+		/// @note This is used to convert from AampTicks to AampTime; it is lossy and cannot be converted back
+		constexpr AampTime(AampTicks &time) : baseTime((time.ticks * (int64_t)baseTimescale) / (int64_t)time.timescale) {}
 
 		/// @brief Get the stored time
 		/// @return Time in seconds (double)
-		inline const double inSeconds() const {return (nanoseconds / double(timescale));}
+		inline const double inSeconds() const {return (baseTime / double(baseTimescale));}
 
-		inline const int64_t seconds() const { return (nanoseconds / timescale); }
-		inline const int64_t milliseconds() const { return (nanoseconds / (timescale / 1000)); }
+		/// @brief Get the stored time in seconds
+		/// @return Time in seconds (integer)
+		inline const int64_t seconds() const { return (baseTime / baseTimescale); }
+
+		/// @brief Get the stored time in milliseconds
+		/// @return Time in milliseconds (integer)
+		inline const int64_t milliseconds() const { return (baseTime / (baseTimescale / milli)); }
 
 		// Equivalent to round() but in integer domain
 		inline const int64_t nearestSecond() const
@@ -53,9 +84,9 @@ class AampTime
 			int64_t retval = this->seconds();
 
 			// Fractional part
-			int64_t tempval = nanoseconds - retval * timescale;
+			int64_t tempval = baseTime - retval * baseTimescale;
 
-			if (tempval >= ((5 * timescale)/10))
+			if (tempval >= ((5 * baseTimescale)/10))
 			{
 				retval += 1;
 			}
@@ -70,38 +101,38 @@ class AampTime
 			if (this == &rhs)
 				return true;
 			else
-				return (nanoseconds == rhs.nanoseconds);
+				return (baseTime == rhs.baseTime);
 		}
 
-		inline const bool operator==(double &rhs) const { return (nanoseconds == int64_t(rhs * timescale)); }
+		inline const bool operator==(double &rhs) const { return (baseTime == int64_t(rhs * baseTimescale)); }
 
 		inline AampTime& operator=(const AampTime &rhs)
 		{
 			if (this == &rhs)
 				return *this;
 
-			nanoseconds = rhs.nanoseconds;
+			baseTime = rhs.baseTime;
 			return *this;
 		}
 
 		inline AampTime& operator=(const double &rhs)
 		{
-			nanoseconds = int64_t(rhs * timescale);
+			baseTime = int64_t(rhs * baseTimescale);
 			return *this;
 		}
 
 		inline AampTime operator-() const
 		{
 			AampTime temp(*this);
-			temp.nanoseconds = -nanoseconds;
+			temp.baseTime = -baseTime;
 			return temp;
 		}
 
 		inline const bool operator!=(const AampTime &rhs) const { return !(*this == rhs); }
 		inline const bool operator!=(double &rhs) const { return !(*this == rhs); }
 
-		inline const bool operator>(const AampTime &rhs) const { return (nanoseconds > rhs.nanoseconds); }
-		inline const bool operator>(const double &rhs) const { return (nanoseconds > int64_t(rhs * timescale)); }
+		inline const bool operator>(const AampTime &rhs) const { return (baseTime > rhs.baseTime); }
+		inline const bool operator>(const double &rhs) const { return (baseTime > int64_t(rhs * baseTimescale)); }
 
 		inline const bool operator<(const AampTime &rhs) const { return ((*this != rhs) && (!(*this > rhs))); }
 		inline const bool operator<(const double &rhs) const { return ((*this != rhs) && (!(*this > rhs))); }
@@ -116,14 +147,14 @@ class AampTime
 		{
 			AampTime temp(*this);
 
-			temp.nanoseconds = nanoseconds + t.nanoseconds;
+			temp.baseTime = baseTime + t.baseTime;
 			return temp;
 		}
 		inline const AampTime operator+(const double &t) const
 		{
 			AampTime temp(*this);
 
-			temp.nanoseconds = nanoseconds + int64_t(t * timescale);
+			temp.baseTime = baseTime + int64_t(t * baseTimescale);
 			return std::move(temp);
 		}
 
@@ -142,14 +173,14 @@ class AampTime
 		{
 			AampTime temp(*this);
 
-			temp.nanoseconds = nanoseconds - t.nanoseconds;
+			temp.baseTime = baseTime - t.baseTime;
 			return std::move(temp);
 		}
 
 		inline const AampTime operator-(const double &t) const
 		{
 			AampTime temp(*this);
-			temp.nanoseconds = nanoseconds - int64_t(t * timescale);
+			temp.baseTime = baseTime - int64_t(t * baseTimescale);
 			return std::move(temp);
 		}
 
@@ -168,7 +199,7 @@ class AampTime
 		{
 			AampTime temp(*this);
 
-			temp.nanoseconds = (int64_t)((double)nanoseconds/t);
+			temp.baseTime = (int64_t)((double)baseTime/t);
 			return std::move(temp);
 		}
 
@@ -176,7 +207,7 @@ class AampTime
 		{
 			AampTime temp(*this);
 
-			temp.nanoseconds = (int64_t)((double)nanoseconds * t);
+			temp.baseTime = (int64_t)((double)baseTime * t);
 			return std::move(temp);
 		}
 

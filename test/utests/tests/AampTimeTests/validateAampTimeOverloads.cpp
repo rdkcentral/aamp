@@ -45,11 +45,14 @@ TEST_F(validateAampTimeOverloads, testConstructor)
 	AampTime a;
 	AampTime b(100);
 	AampTime c(1094.1);
+	AampTicks dTicks(1094100, AampTime::TimeScale::milli);
+	AampTime d(dTicks);
 
 	// Verify that stored time is accurate to the expected time to within 1ns
 	ASSERT_TRUE((fabs(a.inSeconds()) < oneNano));
 	ASSERT_TRUE((fabs(b.inSeconds() - 100.0) < oneNano));
 	ASSERT_TRUE((fabs(c.inSeconds() - 1094.1) < oneNano));
+	ASSERT_TRUE((fabs(d.inSeconds() - 1094.1) < oneNano));
 }
 
 // The thud & blunder approach is because Google test does not support overloading operators cleanly.
@@ -346,4 +349,13 @@ TEST_F(validateAampTimeOverloads, testCasting)
 
 	ASSERT_DOUBLE_EQ((double)a, 2.4);
 	ASSERT_EQ((int64_t)a, 2);
+}
+
+/**
+ * @brief Test case for AampTicks::inMilli
+ */
+TEST_F(validateAampTimeOverloads, AampTicksInMilli)
+{
+	AampTicks ticks(5000, 1000); // 5000 ticks with a timescale of 1000
+	EXPECT_EQ(ticks.inMilli(), 5000); // 5000 milliseconds
 }
