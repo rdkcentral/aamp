@@ -389,7 +389,9 @@ protected:
 
                 void CallAdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState)
                 {
-                        AdvanceTrack(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
+					bool throttleAudioDownload = false;
+					bool isDiscontinuity = false;
+					AdvanceTrack(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState, throttleAudioDownload, isDiscontinuity );
                 }
 
                 void CallFetcherLoop()
