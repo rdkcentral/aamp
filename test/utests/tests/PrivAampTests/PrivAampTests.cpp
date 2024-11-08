@@ -2478,20 +2478,25 @@ TEST_F(PrivAampTests,SendAdResolvedEventTest)
 
 TEST_F(PrivAampTests,SendAdReservationEventTest)
 {
-	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START,"adbreakId",123445,true);
-	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START,"adbreakId",123445,false);
-	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END,"adbreakId",123445,true);
-
+	uint64_t absolutePositionMs = 123456789;
+	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, "adbreakId", 123445, absolutePositionMs, true);
+	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, "adbreakId", 123445, absolutePositionMs, false);
+	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END, "adbreakId", 123445, absolutePositionMs, true);
 	EXPECT_EQ(p_aamp->mAdEventsQ.size(),0);
 }
 
 TEST_F(PrivAampTests,SendAdPlacementEventTest)
 {
-	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,"adStringid",234,5678,true,0);
-	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,"adStringid",234,5678,false,0);
-	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_ERROR,"adStringid",234,5678,true,0);
-
-	EXPECT_NE(p_aamp->mAdEventsQ.size(),0);
+	uint32_t position = 234;
+	uint64_t absolutePositionMs = 123456789;
+	uint32_t adOffset = 5678;
+	uint32_t adDuration = 0;
+	long error_code = 0;
+	
+	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,"adStringid", position, absolutePositionMs, adOffset, adDuration, true, error_code);
+	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,"adStringid", position, absolutePositionMs, adOffset, adDuration, false, error_code);
+	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_ERROR,"adStringid", position,  absolutePositionMs, adOffset, adDuration, true, error_code);
+	EXPECT_EQ(p_aamp->mAdEventsQ.size(),0);
 }
 
 TEST_F(PrivAampTests,getStreamTypeStringTest)
