@@ -32,12 +32,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sstream>
+#include <mutex>
+#include <memory>
 
 #include "AampDrmMediaFormat.h"
 #include "AampDrmData.h"
 #include "AampDrmInfo.h"
 #include "AampDrmSystems.h"
-#include "AampUtils.h"
 
 /**
  * @brief Macros to track the value of API success or failure

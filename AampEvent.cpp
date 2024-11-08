@@ -24,6 +24,7 @@
 
 #include "AampEvent.h"
 #include "AampDefine.h"
+#include "vttCue.h"
 #include <map>
 #ifdef USE_SECCLIENT
 #include "sec_client.h"

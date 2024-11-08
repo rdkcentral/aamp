@@ -1,0 +1,13 @@
+include(GoogleTest)
+
+add_subdirectory(IPProfileInfo)
+add_subdirectory(IPHTTPStatistics)
+add_subdirectory(VideoCMCDHeaders)
+add_subdirectory(AudioCMCDHeaders)
+add_subdirectory(CMCDHeaders)
+add_subdirectory(IPFragmentStatistics)
+add_subdirectory(ManifestGenericStats)
+add_subdirectory(SubtitleCMCDHeaders)
+add_subdirectory(IPLatencyReport)
+add_subdirectory(IPLicnsStatistics)
+add_subdirectory(IPSessionSummary)

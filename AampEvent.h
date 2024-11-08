@@ -25,7 +25,6 @@
 #ifndef __AAMP_EVENTS_H__
 #define __AAMP_EVENTS_H__
 
-#include "vttCue.h" //Required for VTTCue
 #include "ABRManager.h"
 
 #include <memory>
@@ -39,6 +38,9 @@
 
 #define MAX_BITRATE_COUNT 10
 #define MAX_SUPPORTED_SPEED_COUNT 12 /* [-64, -32, -16, -4, -1, 0, 0.5, 1, 4, 16, 32, 64] */
+
+//forward declarartion to avoid header file dependency
+struct VTTCue;
 
 /**
  * @enum AAMPEventType 

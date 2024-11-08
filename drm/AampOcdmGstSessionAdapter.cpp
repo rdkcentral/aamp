@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include <inttypes.h>
 #include "AampOcdmGstSessionAdapter.h"
+#include "AampUtils.h"
 
 #include "gst/video/gstvideotimecode.h"
 #include "gst/video/gstvideometa.h"

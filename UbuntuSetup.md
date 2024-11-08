@@ -35,26 +35,12 @@ sudo apt-get -y install libcurl4-openssl-dev
 **1. Clone aamp and dependent components in a new directory**
 ``` 
 git clone -b dev_sprint https://code.rdkcentral.com/r/rdk/components/generic/aamp
-git clone -b dev_sprint https://code.rdkcentral.com/r/rdk/components/generic/aampabr
-git clone -b dev_sprint https://code.rdkcentral.com/r/rdk/components/generic/gst-plugins-rdk-aamp
-git clone -b dev_sprint https://code.rdkcentral.com/r/rdk/components/generic/aampmetrics
 git clone git://github.com/DaveGamble/cJSON.git
 ```
 
 **2. Build the components in the following order -**
 
-**a) aampabr**
-```
-   cd aampabr
-   mkdir build
-   cd build
-   cmake ../ -DCMAKE_BUILD_TYPE=Debug
-   make
-   sudo make install
-   cd ../..
-```
-
-**b) cJSON**
+**a) cJSON**
 ```
    cd cJSON
    mkdir build
@@ -65,18 +51,7 @@ git clone git://github.com/DaveGamble/cJSON.git
    cd ../..
 ```
 
-**c) aampmetrics**
-```
-   cd aampmetrics
-   mkdir build
-   cd build
-   cmake ../ -DCMAKE_BUILD_TYPE=Debug
-   make
-   sudo make install
-   cd ../..
-```
-
-**d) libdash**
+**b) libdash**
 For Ubuntu, reference https://github.com/bitmovin/libdash#ubuntu-1204
 ```
 git clone git://github.com/bitmovin/libdash.git
@@ -136,22 +111,12 @@ cd aamp
 ./install_libdash.sh
 ```
 
-**e) aamp**
+**c) aamp**
 ```
    cd aamp
    mkdir build
    cd build
    cmake ../ -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PLATFORM_UBUNTU=1
-   make
-   sudo make install
-   cd ../../
-```
-
-**f) gst-plugins-rdk-aamp**
-```
-   cd gst-plugins-rdk-aamp
-   mkdir build
-   cmake ../ -DCMAKE_BUILD_TYPE=Debug
    make
    sudo make install
    cd ../../

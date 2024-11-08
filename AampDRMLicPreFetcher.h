@@ -25,9 +25,12 @@
 #include <vector>
 #include <memory>
 #include <array>
+#include <mutex>
+#include <condition_variable>
 #include "AampDrmHelper.h"
 #include "AampLogManager.h"
 #include "AampDefine.h"
+#include "AampEvent.h"
 #include "AampDRMLicPreFetcherInterface.h"
 
 class PrivateInstanceAAMP;

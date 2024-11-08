@@ -28,6 +28,7 @@
 
 #include "AampConfig.h"
 #include "AampConstants.h"
+#include "AampUtils.h"
 
 static AampClearKeyHelperFactory clearkey_helper_factory;
 

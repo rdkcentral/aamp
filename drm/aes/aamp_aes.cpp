@@ -24,6 +24,7 @@
 
 
 #include "aamp_aes.h"
+#include "AampUtils.h"
 
 #include <sys/time.h>
 #include <stdio.h>

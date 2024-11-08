@@ -75,6 +75,14 @@ pkg_check_modules(UUID REQUIRED uuid)
 
 include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
+if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
+	message("Building aamp support libraries")
+	add_subdirectory(support/aampabr)
+	add_subdirectory(support/aampmetrics)
+	add_subdirectory(plugins/gst-plugins-rdk-aamp)
+endif()
+
+message("Adding tsb folder")
 add_subdirectory(tsb)
 
 install(TARGETS tsb
@@ -385,7 +393,7 @@ if(CMAKE_USE_RDK_PLUGINS)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DREAD_ESTB_IFACE_FROM_DEVICE_PROPERTIES -DCREATE_PIPE_SESSION_TO_XRE")
 endif()
 
-set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl -labr ${SEC_CLIENT_LIB})
+set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl ${SEC_CLIENT_LIB})
 set(PLAYBINTEST_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LIBRARIES})
 
 if(CMAKE_FLEX2_RDK)
@@ -449,9 +457,9 @@ set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp
 			test/aampcli/AampcliSubtecSimulator.cpp
 			${AAMP_OS_SOURCES})
 
-
-# Session based stats for latency histogram
-set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lmetrics")
+if (NOT CMAKE_INBUILT_AAMP_DEPENDENCIES)
+	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -labr -lmetrics")
+endif()
 
 # Sources common to all forms of OpenCDM and CDM
 set(LIBAAMP_DRM_SOURCES drm/AampDRMSessionManager.cpp
@@ -636,10 +644,7 @@ if (CMAKE_AAMP_SUBTITLE_SUPPORT)
     target_link_libraries(subtec_connector ${LIBSUBTECCONNECTOR_DEPENDS})
     install(TARGETS subtec_connector DESTINATION lib)
 
-    link_directories("${CMAKE_BINARY_DIR}")
-
     set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} closedcaptions/subtec/AampSubtecCCManager.cpp)
-    set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS}" subtec_connector)
 endif()
 
 set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} ${SEC_CONTENT_METADATA_ENABLED}")
@@ -723,7 +728,6 @@ if(CMAKE_AUXILIARY_AUDIO_ENABLED)
 endif()
 
 message("LIB_AAMP_DEPENDS is ${LIBAAMP_DEPENDS}")
-
 target_link_libraries(aamp ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
@@ -740,6 +744,10 @@ set_target_properties(aamp-cli PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${AA
 set_target_properties(aamp PROPERTIES PUBLIC_HEADER "main_aamp.h")
 set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
 
+if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
+	include_directories(support/aampabr)
+	include_directories(support/aampmetrics)
+endif()
 include_directories(tsb/api)
 
 set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${LIBDASH_LIBRARIES} ${CURL_LINK_LIBRARIES})
@@ -769,6 +777,12 @@ xcode_define_schema(gstTestHarness)
 install(TARGETS gstTestHarness DESTINATION bin)
 target_link_libraries(aamp-cli subtec tsb)
 target_link_libraries(aamp subtec tsb)
+if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
+	target_link_libraries(aamp abr metrics)
+endif()
+if (CMAKE_AAMP_SUBTITLE_SUPPORT)
+	target_link_libraries(aamp subtec_connector)
+endif()
 install(TARGETS aamp-cli DESTINATION bin)
 install(TARGETS playbintest DESTINATION bin)
 

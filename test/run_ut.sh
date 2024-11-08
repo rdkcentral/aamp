@@ -18,27 +18,6 @@ if [ $? != 0 ]; then
    popd
 fi
 
-#Build aamp components
-echo "Building following aamp components"
-
-#Build aampabr
-echo "Building aampabr..."
-cd $TESTHOME/aampabr
-mkdir -p build
-cd build
-cmake ..
-make
-make install
-
-#Build aampmetrics
-echo "Building aampmetrics..."
-cd $TESTHOME/aampmetrics
-mkdir -p build
-cd build
-cmake ..
-make
-make install
-
 apt update
 echo "Installing gstreamer"
 dpkg -s libgstreamer1.0-dev

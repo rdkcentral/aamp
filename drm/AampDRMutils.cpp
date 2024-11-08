@@ -24,6 +24,7 @@
  */
 
 #include "AampDRMutils.h"
+#include "AampUtils.h"
 #include "AampConfig.h"
 #include "_base64.h"
 
