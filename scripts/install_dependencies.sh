@@ -41,6 +41,13 @@ function install_pkgs_darwin_fn()
         fi
         PKGDIR="`brew --prefix ${PKG}`/lib/pkgconfig:"
         INSTALLED_PKGCONFIG=$PKGDIR$INSTALLED_PKGCONFIG
+
+	# Add the path to the pkgconfig directory to the PKG_CONFIG_PATH for openldap and krb5
+        if [ $PKG = "openldap" ] || [ $PKG = "krb5" ]; then
+            brew link $PKG --force
+            echo 'export PATH="/opt/homebrew/opt/'$PKG'/bin:$PATH"' >> ~/.profile
+            echo 'export PATH="/opt/homebrew/opt/'$PKG'/sbin:$PATH"' >> ~/.profile
+        fi
     done
     echo "${INSTALLED_PKGCONFIG}"
 }
@@ -168,7 +175,7 @@ function install_pkgs_fn()
       fi
 
       install_pkgs_darwin_fn git json-glib cmake "openssl@1.1" libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq curl
-      install_pkgs_darwin_fn coreutils websocketpp boost jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2
+      install_pkgs_darwin_fn coreutils websocketpp boost jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2 openldap krb5
 
       # ORC causes compile errors on x86_64 Mac, but not on ARM64
       if [[ $ARCH == "x86_64" ]]; then
