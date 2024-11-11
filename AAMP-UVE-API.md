@@ -201,6 +201,7 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | mpdStichingSupport | Boolean | True | Optional field to enable/disable DASH MPD stitching functionality with dual manifest ( one manifest used during tune and another manifest during refresh ) |
 | enablePTSReStamp | Boolean | False | Optional field to enable/disable PTS Re-stamping functionality across discontinuity while moving from Content to Ads or vice-versa |
 | subtitleClockSyncInterval | Number | 30 | Time interval for synchronizing the clock with subtitle module . Default of 30 seconds |
+| showDiagnosticsOverlay | Configures the diagnostics overlay: 0 (none), 1 (minimal), 2 (extended). Controls the visibility and level of detail for diagnostics displayed during playback.
 
 
 Example:

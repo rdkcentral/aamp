@@ -312,6 +312,7 @@ typedef enum
 	eAAMPConfig_AdFulfillmentTimeoutMax,					/**< Ad fulfillment maximum timeout in milliseconds */
 	eAAMPConfig_RequiredQueuedFrames,				/**< required queued frames while tuning */
 	eAAMPConfig_PlatformType,                       /**< To determine the current device platform/soc type */
+	eAAMPConfig_ShowDiagnosticsOverlay,		       /** configures the diagnostics overlay,accessed by UVE API getConfiguration()*/
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)

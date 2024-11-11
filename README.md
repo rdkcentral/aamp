@@ -226,6 +226,7 @@ preferredAbsoluteReporting	User preferred absolute progress reporting format, De
 EOSInjectionMode		replaces enableEOSInjectionDuringStop
 					0 - Old behaviour - EOS is injected at the end of asset and on discontinuity only.
 					1 - EOS is injected during stop in addition to the old behaviour.
+showDiagnosticsOverlay		Configures the diagnostics overlay: 0 (none), 1 (minimal), 2 (extended). Controls the visibility and level of detail for diagnostics displayed during playback
 
 // String inputs
 licenseServerUrl		URL to be used for license requests for encrypted(PR/WV) assets

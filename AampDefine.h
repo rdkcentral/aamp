@@ -392,6 +392,13 @@ enum MPDStichOptions
 	OPT_2_SMALL_MANIFEST_TUNE = 1,     /**< Tune with small manifest URL and stich full content manifest */
 };
 
+enum DiagnosticsOverlayOptions
+{
+	eDIAG_OVERLAY_NONE = 0,       // No diagnostics overlay
+	eDIAG_OVERLAY_MINIMAL = 1,    // Shows overlay widget
+	eDIAG_OVERLAY_EXTENDED = 2    // Shows overlay widget + anomaly widget
+};
+
 /**
  * @brief Enumeration for Absolute Progress Reporting Format
  */
