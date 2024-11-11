@@ -205,6 +205,11 @@ PlaybackQualityStruct* AAMPGstPlayer::GetVideoPlaybackQuality(void)
 	return nullptr;
 }
 
+bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aamp)
+{
+	return false;
+}
+
 void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	if (g_mockAampGstPlayer != nullptr)

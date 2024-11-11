@@ -3918,6 +3918,11 @@ void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 	mEncryptedAamp = aamp;
 }
 
+bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
+{
+	return aamp == aampInstance;
+}
+
 /**
   * @brief Change the instance of PrivateInstanceAAMP that is using the gstreamer
   * pipeline, when it is being used as a single pipeline shared among multiple

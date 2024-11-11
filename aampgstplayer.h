@@ -464,6 +464,13 @@ public:
 	void ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback);
 
 	/**
+	 * @fn IsAssociatedAamp
+	 * @brief Check if the specified player is associated with the pipeline
+   	 * @param[in] aampInstance - pointer to new instance of PrivateInstanceAAMP
+	 */
+	bool IsAssociatedAamp(PrivateInstanceAAMP *aampInstance);
+
+	/**
 	 * @fn SetEncryptedAamp
    	 * @param[in] aamp - Pointer to the instance of PrivateInstanceAAMP that has the encrypted content
 	 */

@@ -271,11 +271,58 @@ TESTDATA1= {
 ]
 }
 
+# This test just checks that if a player is deleted and there are no active
+# players then the sink gets attached to a valid (inactive) player. This is to
+# avoid a case where a floating pointer can lead to a crash (LLAMA-15915).
+TESTDATA2= {
+"title": "CDAI Single Pipeline - test player deletion",
+"max_test_time_seconds": 10,
+"expect_list": [
+   {"cmd": 'setconfig {"info":true,"trace":true,"useSinglePipeline":true}'},
+
+   # Play main content
+   {"cmd":"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+   {"expect": r"Single Pipeline mode, already active PLAYER\[0\]"},
+   {"cmd":"sleep 3000"},
+
+   # Create a new player and switch to that
+   {"cmd":"new"},
+   {"expect": r"Single Pipeline mode, not creating GstPlayer for PLAYER\[1\]"},
+   {"cmd":"select 1"},
+   {"cmd":"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+   {"expect": r"Single Pipeline mode, setting active PLAYER\[1\]"},
+   {"cmd":"sleep 3000"},
+
+   # Stop and detach the second player
+   {"cmd":"stop"},
+   {"expect": r"Single Pipeline mode, deactivating and stopping active PLAYER\[1\]"},
+   {"cmd":"detach"},
+   
+   # Delete the second player
+   {"cmd":"select 0"},
+   {"cmd":"release 1"},
+   {"expect": r"DeleteStreamSink for PLAYER\[1\]"},
+   {"expect": r"Inactive players present"},
+
+   # See that the sink aamp pointer gets updated to point to a valid player
+   {"expect": r"Deleting player associated with sink! Attaching sink to default inactive PLAYER\[0\]"},
+
+   # Stop on player 0 should not crash (although it may look ok if the memory has not been overwritten)
+   {"cmd":"stop"},
+]
+}
+
+
 ############################################################
 
-@pytest.mark.ci_test_set
-def test_1002(aamp_setup_teardown):
+TESTLIST = [TESTDATA1,TESTDATA2]
+@pytest.fixture(params=TESTLIST)
+def test_data(request):
+    return request.param
+
+def test_1002(aamp_setup_teardown, test_data):
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    aamp.run_expect_a(TESTDATA1)
+    aamp.run_expect_a(test_data)
+
 
