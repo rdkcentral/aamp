@@ -6200,7 +6200,6 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 				std::string schemeId = adapAccessibility.at(index)->GetSchemeIdUri();
 				if (schemeId.find("urn:scte:dash:cc:cea") != string::npos)
 				{
-					std::string empty;
 					std::string lang, id;
 					std::string value = adapAccessibility.at(index)->GetValue();
 					if (!value.empty())
@@ -6215,7 +6214,11 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 							ParseCCStreamIDAndLang(value.substr(0, delim), id, lang);
 							AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
 								lang.c_str(), schemeId.c_str(), id.c_str());
-							tTracks.push_back(TextTrackInfo(empty, lang, true, schemeId, empty, id, empty,empty,empty,"captions"));
+							TextTrackInfo textTrack = TextTrackInfo(true, schemeId);
+							textTrack.setInstreamId(id);
+							textTrack.setLanguage(lang);
+							textTrack.setType("captions");
+							tTracks.push_back(textTrack);
 							value = value.substr(delim + 1);
 							delim = value.find(';');
 						}
@@ -6223,18 +6226,25 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 						lang = Getiso639map_NormalizeLanguageCode(lang,aamp->GetLangCodePreference());
 						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
 							lang.c_str(), schemeId.c_str(), id.c_str());
-						tTracks.push_back(TextTrackInfo(empty, lang, true, schemeId, empty, id, empty,empty,empty,"captions"));
+						TextTrackInfo textTrack = TextTrackInfo(true, schemeId);
+						textTrack.setInstreamId(id);
+						textTrack.setLanguage(lang);
+						textTrack.setType("captions");
+						tTracks.push_back(textTrack);
 					}
 					else
 					{
 						// value = empty is highly discouraged as per spec, just added as fallback
 						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - group:%s, isCC:1", schemeId.c_str());
-						tTracks.push_back(TextTrackInfo(empty, empty, true, schemeId, empty, empty, empty, empty, empty, empty, accessibilityNode, true));
+						TextTrackInfo textTrack = TextTrackInfo(true, schemeId);
+						textTrack.setAccessibilityItem(accessibilityNode);
+						textTrack.setAvailable(true);
+						tTracks.push_back(textTrack);
 					}
 				}
 			}
 		}
-	}//NuULL Check
+	}//NULL Check
 }
 /**
  * @brief Switch to the corresponding subtitle track, Load new subtitle, flush the old subtitle fragments,

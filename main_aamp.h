@@ -309,18 +309,31 @@ struct TextTrackInfo
 	std::string mType;
 	bool isAvailable;
 
+	//setter functions to reduce the number of parameters in constructor
+	void setLanguage(const std::string& lang) { language = lang; }
+	void setName(const std::string& trackName) { name = trackName; }
+	void setInstreamId(const std::string& id) { instreamId = id; }
+	void setCharacteristics(const std::string& cha) { characteristics = cha; }
+	void setCodec(const std::string& codecStr) { codec = codecStr; }
+	void setLabel(const std::string& lab) { label = lab; }
+	void setPrimaryKey(int pk) { primaryKey = pk; }
+	void setAccessibilityType(const std::string& accType) { accessibilityType = accType; }
+	void setAccessibilityItem(const Accessibility& acc) { accessibilityItem = acc; }
+	void setType(const std::string& type) { mType = type; }
+	void setAvailable(bool available) { isAvailable = available; }
+
 	TextTrackInfo() : index(), language(), isCC(false), rendition(), name(), instreamId(), characteristics(), codec(), primaryKey(0), accessibilityType(), label(), mType(), accessibilityItem(),
 			  isAvailable(true)
 	{
 	}
 
-	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string id, std::string cha):
-		index(idx), language(lang), isCC(cc), rendition(rend),
-		name(trackName), instreamId(id), characteristics(cha),
-		codec(), primaryKey(0), accessibilityType(), label(), mType(), accessibilityItem(), isAvailable(true)
+	//2 parameter constructor
+	TextTrackInfo(bool cc, std::string rend):
+		isCC(cc), rendition(rend), index(), language(), name(), instreamId(), characteristics(), codec(), primaryKey(0), accessibilityType(), label(), mType(), accessibilityItem(), isAvailable(true)
 	{
 	}
 
+	//8 parameter constructor
 	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string id, std::string cha, int pk):
 		index(idx), language(lang), isCC(cc), rendition(rend),
 		name(trackName), instreamId(id), characteristics(cha),
@@ -328,24 +341,11 @@ struct TextTrackInfo
 	{
 	}
 
-	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string codecStr, std::string cha, std::string typ):
+	//12 parameter full constructor
+	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string codecStr, std::string cha, std::string accType, std::string lab, std::string type, Accessibility acc, bool available):
 		index(idx), language(lang), isCC(cc), rendition(rend),
 		name(trackName), instreamId(), characteristics(cha),
-		codec(codecStr), primaryKey(0), accessibilityType(typ), label(), mType(), accessibilityItem(), isAvailable(true)
-	{
-	}
-
-	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string id, std::string cha, std::string typ, std::string lab, std::string type):
-		index(idx), language(lang), isCC(cc), rendition(rend),
-		name(trackName), instreamId(id), characteristics(cha),
-		codec(), primaryKey(0), accessibilityType(typ), label(lab), mType(type), accessibilityItem(), isAvailable(true)
-	{
-	}
-
-	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string codecStr, std::string cha, std::string typ, std::string lab, std::string type, Accessibility acc, bool available):
-		index(idx), language(lang), isCC(cc), rendition(rend),
-		name(trackName), instreamId(), characteristics(cha),
-		codec(codecStr), primaryKey(0), accessibilityType(typ), label(lab), mType(type), accessibilityItem(acc), isAvailable(available)
+		codec(codecStr), primaryKey(0), accessibilityType(accType), label(lab), mType(type), accessibilityItem(acc), isAvailable(available)
 	{
 	}
 
