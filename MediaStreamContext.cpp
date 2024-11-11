@@ -583,11 +583,20 @@ void MediaStreamContext::ABRProfileChanged(void)
  */
 double MediaStreamContext::GetBufferedDuration()
 {
+    double bufferedDuration=0;
     double position = aamp->GetPositionMs() / 1000.00;
+    static int limit = 0;
     if(downloadedDuration >= position)
     {
         // If player faces buffering, this will be 0
-        return (downloadedDuration - position);
+        bufferedDuration = downloadedDuration - position;
+    }
+    else if( downloadedDuration < aamp->prevFirstPeriodStartTime )
+    {
+		//When Player is rolling from IVOD window to Linear
+		position = aamp->prevFirstPeriodStartTime - position;
+        aamp->prevFirstPeriodStartTime = 0;
+        bufferedDuration = downloadedDuration - position;
     }
     else
     {
@@ -595,8 +604,9 @@ double MediaStreamContext::GetBufferedDuration()
         // downloadedDuration never exceeds position in normal case.
         // Other case happens when contents are yet to be injected.
         downloadedDuration = 0;
-        return downloadedDuration;
+        bufferedDuration = downloadedDuration;
     }
+    return bufferedDuration;
 }
 
 /**

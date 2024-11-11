@@ -1039,6 +1039,7 @@ public:
 	std::vector<PeriodInfo> mMPDPeriodsInfo;
 	float maxRefreshPlaylistIntervalSecs;
 	EventListener* mEventListener;
+	long long prevFirstPeriodStartTime;
 
 	//updated by ReportProgress() and used by PlayerInstanceAAMP::SetRateInternal() to update seek_pos_seconds
 	PositionCache<double> mNewSeekInfo;
@@ -1825,6 +1826,8 @@ public:
 	 * @return True or False
 	 */
 	bool IsEASContent() { return (mContentType==ContentType_EAS);}
+
+	bool IsIVODContent() { return (mContentType==ContentType_IVOD);}
 	/**
 	 * @fn ReportTimedMetadata
 	 */

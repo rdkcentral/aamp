@@ -1071,6 +1071,7 @@ protected:
 
 	double mLiveEndPosition;
 	double mCulledSeconds;
+	double mPrevFirstPeriodStart;
 	bool mAdPlayingFromCDN;   /*Note: TRUE: Ad playing currently & from CDN. FALSE: Ad "maybe playing", but not from CDN.*/
 	double mAvailabilityStartTime;
 	std::map<std::string, int> mDrmPrefs;

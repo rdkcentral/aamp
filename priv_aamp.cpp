@@ -1281,6 +1281,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsFlushFdsInCurlStore(false)
 	, mProvidedManifestFile("")
 	, mIsChunkMode(false)
+	, prevFirstPeriodStartTime(0)
 {
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
 	// Create the event manager for player instance
@@ -5110,6 +5111,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	mFragmentCachingRequired = false;
 	mPauseOnFirstVideoFrameDisp = false;
 	mFirstVideoFrameDisplayedEnabled = false;
+	prevFirstPeriodStartTime = 0;
 	pthread_mutex_unlock(&mFragmentCachingLock);
 
 	if( seekWhilePaused )
@@ -5460,7 +5462,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		culledOffset = culledSeconds;
 		UpdateProfileCappedStatus();
 #ifndef AAMP_STOP_SINK_ON_SEEK
-		AAMPLOG_WARN("Updated seek_pos_seconds %f culledSeconds/start :%f", seek_pos_seconds, culledSeconds);
+		AAMPLOG_WARN("Updated culledOffset: %f seek_pos_seconds: %f culledSeconds/start: %f ", culledOffset,seek_pos_seconds, culledSeconds);
 #endif
 		mpStreamAbstractionAAMP->GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
 		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d", mVideoFormat, mAudioFormat, mAuxFormat);
@@ -7412,7 +7414,7 @@ long long PrivateInstanceAAMP::GetPositionMs()
 	double seek_pos_seconds_copy = seek_pos_seconds;
 	if(prevPositionInfo.isPositionValid(seek_pos_seconds_copy))
 	{
-		return prevPositionInfo.getPosition();
+		return (prevFirstPeriodStartTime + prevPositionInfo.getPosition());
 	}
 	else
 	{
@@ -7469,7 +7471,7 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 			{
 				if(gstPosition!=0)
 				{
-					AAMPLOG_WARN("Ignoring gst position of %lldms and using seek_pos_seconds only until seek completes.", gstPosition);
+					AAMPLOG_WARN("Ignoring gst position of %lld ms and using seek_pos_seconds only until seek completes.", gstPosition);
 				}
 				position = 0;
 			}
