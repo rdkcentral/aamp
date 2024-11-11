@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 #set -x
 
+if [[ -z "${MAKEFLAGS}" ]]; then
+    export MAKEFLAGS=-j$(nproc)
+fi
+
 # Fail the script should any step fail. To override this behavior use "|| true" on those statements
 set -eo pipefail
 

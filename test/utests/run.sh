@@ -3,6 +3,10 @@
 # Use option: -c to additionally build coverage tests
 # Use option: -h to halt coverage tests on error
 
+if [[ -z "${MAKEFLAGS}" ]]; then
+    export MAKEFLAGS=-j$(nproc)
+fi
+
 # If a test crashes or has AS trap, provide an error test report
 error_report()
 {
