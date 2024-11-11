@@ -45,16 +45,11 @@ function install_pkgs_darwin_fn()
 	# Add the path to the pkgconfig directory to the PKG_CONFIG_PATH for openldap and krb5
         if [ $PKG = "openldap" ] || [ $PKG = "krb5" ]; then
             brew link $PKG --force
-            if [[ $(uname -m) == 'arm64' ]]; then
-    		    # Apple Silicon (M1/M2) Macs
-    		    echo 'export PATH="/opt/homebrew/opt/'$PKG'/bin:$PATH"' >> ~/.profile
-    		    echo 'export PATH="/opt/homebrew/opt/'$PKG'/sbin:$PATH"' >> ~/.profile
-	        else
-    		    # Intel Macs
-    		    echo 'export PATH="/usr/local/opt/'$PKG'/bin:$PATH"' >> ~/.profile
-    		    echo 'export PATH="/usr/local/opt/'$PKG'/sbin:$PATH"' >> ~/.profile
-	        fi
-            source ~/.profile
+            if [ "$(uname -m)" = "arm64" ]; then
+                export PKG_CONFIG_PATH="/opt/homebrew/opt/krb5/lib/pkgconfig:/opt/homebrew/opt/openldap/lib/pkgconfig:$PKG_CONFIG_PATH"
+            else
+                export PKG_CONFIG_PATH="/usr/local/opt/krb5/lib/pkgconfig:/usr/local/opt/openldap/lib/pkgconfig:$PKG_CONFIG_PATH"
+            fi
 
         fi
     done
