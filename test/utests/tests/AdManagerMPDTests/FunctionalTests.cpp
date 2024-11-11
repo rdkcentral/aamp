@@ -385,6 +385,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   uint64_t startMS = 0;
   uint32_t breakdur = 10000;
   bool timedout = false;
+  bool threadStarted = false;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -396,12 +397,17 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
 
   // We would like to also validate that AbortWaitForNextAdResolved is invoked
-  std::thread t([this, &timedout]{
+  std::thread t([this, &timedout, &threadStarted]{
     // wait for 1sec on the conditional signal to confirm it doesn't timeout
     std::unique_lock<std::mutex> lock(this->mPrivateCDAIObjectMPD->mAdPlacementMtx);
-    timedout = (std::cv_status::timeout == this->mPrivateCDAIObjectMPD->mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(1000)));
+    threadStarted = true;
+    timedout = (std::cv_status::timeout == this->mPrivateCDAIObjectMPD->mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(2000)));
   });
-
+  // wait till t starts
+  while(!threadStarted)
+  {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
   t.join();
@@ -500,6 +506,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   // Empty manifest for failure
   const char *manifest = nullptr;
   bool timedout = false;
+  bool threadStarted = false;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -511,11 +518,17 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0)).Times(1);
 
   // We would like to also validate that AbortWaitForNextAdResolved is invoked
-  std::thread t([this, &timedout]{
+  std::thread t([this, &timedout, &threadStarted]{
     // wait for 1sec on the conditional signal to confirm it doesn't timeout
     std::unique_lock<std::mutex> lock(this->mPrivateCDAIObjectMPD->mAdPlacementMtx);
-    timedout = (std::cv_status::timeout == this->mPrivateCDAIObjectMPD->mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(1000)));
+    threadStarted = true;
+    timedout = (std::cv_status::timeout == this->mPrivateCDAIObjectMPD->mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(2000)));
   });
+  // wait till t starts
+  while(!threadStarted)
+  {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
   t.join();

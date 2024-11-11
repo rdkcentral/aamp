@@ -126,9 +126,9 @@ protected:
 			DetectDiscontinuityAndFetchInit(periodChanged, nextSegTime);
 		}
 
-		AAMPStatusType IndexNewMPDDocument(bool updateTrackInfo = false)
+		AAMPStatusType InvokeIndexNewMPDDocument(bool updateTrackInfo = false)
 		{
-			return StreamAbstractionAAMP_MPD::IndexNewMPDDocument(updateTrackInfo);
+			return IndexNewMPDDocument(updateTrackInfo);
 		}
 
 		void SetCurrentPeriod(dash::mpd::IPeriod *period)
@@ -498,7 +498,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests1)
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
 	// Index the first period
-	status = mStreamAbstractionAAMP_MPD->IndexNewMPDDocument(false);
+	status = mStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 0);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetIteratorPeriodIdx(), 0);
 
@@ -543,7 +543,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests2)
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
 	// Index the initial values
-	status = mStreamAbstractionAAMP_MPD->IndexNewMPDDocument(false);
+	status = mStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 1);
 	mStreamAbstractionAAMP_MPD->SetIteratorPeriodIdx(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx());
 
@@ -627,7 +627,7 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests2)
 	status = InitializeMPD(mVodManifest, eTUNETYPE_SEEK, 15);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	status = mStreamAbstractionAAMP_MPD->IndexNewMPDDocument(false);
+	status = mStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
 
 	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 0);
@@ -672,7 +672,7 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests1)
 	status = InitializeMPD(mVodManifest, eTUNETYPE_SEEK, 0);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	status = mStreamAbstractionAAMP_MPD->IndexNewMPDDocument(false);
+	status = mStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
 
 	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 0);
@@ -715,7 +715,7 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests2)
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
 	// Index the first period
-	status = mStreamAbstractionAAMP_MPD->IndexNewMPDDocument(false);
+	status = mStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
 
 	// Take MediaStreamContext for video track
 	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
@@ -847,7 +847,7 @@ TEST_F(FetcherLoopTests, WaitForAdStateTest)
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
 	// Index the initial values
-	status = mStreamAbstractionAAMP_MPD->IndexNewMPDDocument(false);
+	status = mStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 0);
 
 	// Index the next period, wait for the selection
@@ -911,7 +911,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests3)
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
 	// Index the initial values
-	status = mStreamAbstractionAAMP_MPD->IndexNewMPDDocument(false);
+	status = mStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 0);
 	mStreamAbstractionAAMP_MPD->SetIteratorPeriodIdx(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx());
 
@@ -992,4 +992,74 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests3)
 	EXPECT_EQ(currentPeriodId, endPeriodId);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriod()->GetId(), endPeriodId);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetIteratorPeriodIdx(), 1);
+}
+TEST_F(FetcherLoopTests, SkipFetchTests)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	double n_fragmentTime, n_fragmentDescriptor_Time;
+	unsigned long n_fragmentNumber;
+	int n_fragmentRepeatCount;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="dynamic" id="0000000000000018163" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" minimumUpdatePeriod="PT0H0M1.920S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2024-11-08T12:53:09.725Z">
+  <Period id="901591170" start="PT416006H37M27.854S">
+    <AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+<EssentialProperty schemeIdUri="urn:mpeg:mpegB:cicp:ColourPrimaries" value="1"/>
+<EssentialProperty schemeIdUri="urn:mpeg:mpegB:cicp:MatrixCoefficients" value="1"/>
+<EssentialProperty schemeIdUri="urn:mpeg:mpegB:cicp:TransferCharacteristics" value="1"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163/track-video-repid-$RepresentationID$-tc--enc--header.mp4" media="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163/track-video-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
+        <SegmentTimeline>
+          <S t="1377581813" d="172800" r="14"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+      <Representation id="root_video3" bandwidth="1328400" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+      <Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+      <Representation id="root_video1" bandwidth="4461200" codecs="hvc1.1.6.L120.90" width="1280" height="720" frameRate="50000/1000"/>
+      <Representation id="root_video0" bandwidth="6052400" codecs="hvc1.1.6.L123.90" width="1920" height="1080" frameRate="50000/1000"/>
+    </AdaptationSet>
+    <AdaptationSet id="3" contentType="audio" mimeType="audio/mp4" lang="en">
+      <AudioChannelConfiguration schemeIdUri="tag:dolby.com,2014:dash:audio_channel_configuration:2011" value="a000"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163-eac3/track-audio-repid-$RepresentationID$-tc--enc--header.mp4" media="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163-eac3/track-audio-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
+        <SegmentTimeline>
+          <S t="1377583936" d="172800" r="14"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_audio110" bandwidth="215200" codecs="ec-3" audioSamplingRate="48000"/>
+    </AdaptationSet>
+  </Period>
+  <SupplementalProperty schemeIdUri="urn:scte:dash:powered-by" value="viper-mod_super8-4.4.0-1"/>
+</MPD>
+)";
+	// Only init fragments are allowed to download
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+				.WillRepeatedly(Return(true));
+
+	status = InitializeMPD(manifest, eTUNETYPE_NEW_NORMAL, 10.0);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_AUDIO);
+	EXPECT_NE(track, nullptr);
+	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
+
+	n_fragmentTime = pMediaStreamContext->fragmentTime;
+	n_fragmentDescriptor_Time = pMediaStreamContext->fragmentDescriptor.Time;
+	n_fragmentNumber = pMediaStreamContext->fragmentDescriptor.Number;
+	n_fragmentRepeatCount = pMediaStreamContext->fragmentRepeatCount;
+
+	mStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(true);
+	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Time, 0);
+	EXPECT_EQ(pMediaStreamContext->fragmentRepeatCount, 0);
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _,_, _, _, _, _, _, _, _))
+				.Times(0);
+	// Set skipFetch to true
+	mStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext,eCURLINSTANCE_AUDIO,true);
+
+	EXPECT_EQ(pMediaStreamContext->fragmentTime,n_fragmentTime);
+	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Time,n_fragmentDescriptor_Time);
+	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Number,n_fragmentNumber);
+	EXPECT_EQ(pMediaStreamContext->fragmentRepeatCount,n_fragmentRepeatCount);
 }
