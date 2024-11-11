@@ -5499,8 +5499,15 @@ void StreamAbstractionAAMP_HLS::StartSubtitleParser()
 	TrackState *subtitle = trackState[eMEDIATYPE_SUBTITLE];
 	if (subtitle && subtitle->enabled && subtitle->mSubtitleParser)
 	{
-		AAMPLOG_INFO("sending init %.3f", mFirstPTS.inSeconds() * 1000.0);
-		subtitle->mSubtitleParser->init(seekPosition.inSeconds(), mFirstPTS.milliseconds());
+		AAMPLOG_INFO("sending init isLive : %d firstPTS : %.3f seek_pos :%f ",aamp->IsLive(), mFirstPTS.inSeconds() * 1000.0,aamp->seek_pos_seconds);
+		if(aamp->IsLive())
+		{
+			subtitle->mSubtitleParser->init(mFirstPTS.inSeconds(),0);
+		}
+		else
+		{
+			subtitle->mSubtitleParser->init(seekPosition.inSeconds(),mFirstPTS.milliseconds());
+		}
 		subtitle->mSubtitleParser->mute(aamp->subtitles_muted);
 	}
 }
