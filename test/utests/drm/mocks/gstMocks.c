@@ -26,6 +26,7 @@
 GType _gst_caps_type = 0;
 GType _gst_buffer_type = 0;
 
+
 GstVideoTimeCodeMeta * gst_buffer_add_video_time_code_meta_full(
 																GstBuffer * buffer,
 																guint fps_n,
@@ -94,3 +95,6 @@ GType gst_protection_meta_api_get_type (void)
 	return 0;
 }
 
+void g_object_get(gpointer object, const gchar *first_property_name, ...)
+{
+}
