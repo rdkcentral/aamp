@@ -65,7 +65,7 @@ def get_dash_segments_from_multiple_manifests(manifest_path):
 
 def get_manifest_path():
     """
-    From information saved at the start of harvest establishes the path 
+    From information saved at the start of harvest establishes the path
     to the initial manifest file. The file may not exist but incremental ones
     will exist
     E.G
@@ -185,6 +185,15 @@ def do_transcode(base_dir, segment_detail_list, attrs=None):
                    init_segment_path,
                    "silence.wav"
                    ]
+        elif attrs.contentType == "text":
+            cmd = [ "./generate-text-segment.sh",
+                   str(segment_detail['segment_t']),
+                   str(segment_detail['segment_d']),
+                   attrs.timescale,
+                   str(segment_number),
+                   segment_path,
+                   init_segment_path
+                   ]
         else:
             log.error(f"Unsupported {attrs.contentType}")
             break
@@ -209,7 +218,7 @@ if __name__ == "__main__":
     check_ffmpeg_version()
 
     parser = argparse.ArgumentParser(
-        description="""Takes a harvested stream and replaces encrypted segments with clear. 
+        description="""Takes a harvested stream and replaces encrypted segments with clear.
 Typically invoked in a directory where harvest_details.json resides"""
     )
     parser.add_argument(
@@ -232,7 +241,7 @@ Typically invoked in a directory where harvest_details.json resides"""
     )
     parser.add_argument(
         "--start_at",
-        help="""Only transcode segments from periods with start="xx" or greater. To avoid transcode of 
+        help="""Only transcode segments from periods with start="xx" or greater. To avoid transcode of
 past segments in cloud TSB.
 E.G --start_at PT480253H21M58.641S """,
     )
