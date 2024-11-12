@@ -85,7 +85,6 @@ static int getColor(gsw_CcAttribType attributeIndex, gsw_CcType ccType, std::str
 {
 	static gsw_CcColor* ccColorCaps[GSW_CC_COLOR_MAX];
 	static bool flagForMalloc = false;
-	static const int MAX_COLOR_BUFFER_LEN = ((GSW_MAX_CC_COLOR_NAME_LENGTH > 8 ? GSW_MAX_CC_COLOR_NAME_LENGTH : 8) + 1);
 	unsigned int ccSizeOfCaps = 0;
 	AAMPLOG_TRACE("input: %s", input.c_str());
 

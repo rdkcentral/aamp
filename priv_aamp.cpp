@@ -11141,7 +11141,7 @@ int PrivateInstanceAAMP::GetTextTrack()
 			{
 				if (it->instreamId == trackId)
 				{
-					idx = std::distance(tracks.begin(), it);
+					idx = static_cast<int>( std::distance(tracks.begin(), it) );
 				}
 			}
 		}

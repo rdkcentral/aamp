@@ -585,7 +585,6 @@ double MediaStreamContext::GetBufferedDuration()
 {
     double bufferedDuration=0;
     double position = aamp->GetPositionMs() / 1000.00;
-    static int limit = 0;
     if(downloadedDuration >= position)
     {
         // If player faces buffering, this will be 0
