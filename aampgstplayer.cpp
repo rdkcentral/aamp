@@ -2849,17 +2849,18 @@ void AAMPGstPlayer::SendGstEvents(AampMediaType mediaType, GstClockTime pts)
 
 	if(stream->pendingSeek)
 	{
-#ifndef AMLOGIC
-		if (privateContext->seekPosition > 0)
+		if(aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) != ePLATFORM_AMLOGIC)
 		{
-			AAMPLOG_MIL("gst_element_seek_simple! mediaType:%d pts:%" GST_TIME_FORMAT " seekPosition:%" GST_TIME_FORMAT,
-					mediaType, GST_TIME_ARGS(pts), GST_TIME_ARGS(privateContext->seekPosition * GST_SECOND));
-			if (!gst_element_seek_simple(GST_ELEMENT(stream->source), GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, (privateContext->seekPosition * GST_SECOND)))
+			if (privateContext->seekPosition > 0)
 			{
-				AAMPLOG_ERR("Seek failed");
+				AAMPLOG_MIL("gst_element_seek_simple! mediaType:%d pts:%" GST_TIME_FORMAT " seekPosition:%" GST_TIME_FORMAT,
+						mediaType, GST_TIME_ARGS(pts), GST_TIME_ARGS(privateContext->seekPosition * GST_SECOND));
+				if (!gst_element_seek_simple(GST_ELEMENT(stream->source), GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, (privateContext->seekPosition * GST_SECOND)))
+				{
+					AAMPLOG_ERR("Seek failed");
+				}
 			}
 		}
-#endif
 		stream->pendingSeek = false;
 	}
 
@@ -4942,7 +4943,7 @@ PlatformType AAMPGstPlayer::InitializeAAMPPlatformConfigs()
 	static const std::pair<const char*, PlatformType> plugins[] = {
 		{"amlhalasink", ePLATFORM_AMLOGIC},
 		{"omxeac3dec", ePLATFORM_REALTEK},
-		{"brcmaudiodec", ePLATFORM_BRCM},
+		{"brcmaudiodecoder", ePLATFORM_BRCM},
 	};
 
 	GstRegistry* registry = gst_registry_get();
