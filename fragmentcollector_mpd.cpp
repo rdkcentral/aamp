@@ -13227,22 +13227,6 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 							}
 						}
 					}
-						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_MinABRNWBufferRampDown,AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD);
-						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_MaxABRNWBufferRampUp,AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD);
-						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadStartTimeout,stLLServiceData.fragmentDuration);
-						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_CurlStallTimeout,stLLServiceData.fragmentDuration);
-						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadLowBWTimeout,stLLServiceData.fragmentDuration);
-						SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_NetworkTimeout,TIMEOUT_FOR_LLD); /* Use 3sec for fragment download timout for LLD */
-						aamp->mNetworkTimeoutMs  = (uint32_t) CONVERT_SEC_TO_MS(GETCONFIGVALUE(eAAMPConfig_NetworkTimeout));
-						for (int i = 0; i < AAMP_TRACK_COUNT; i++)
-						{
-							aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance)i);
-						}
-						AAMPLOG_INFO("Updated NetworkTimeout %d for LLD", aamp->mNetworkTimeoutMs);
-						SetABRMinBuffer(GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown));
-						SetABRMaxBuffer(GETCONFIGVALUE(eAAMPConfig_MaxABRNWBufferRampUp));
-						aamp->LoadAampAbrConfig();
-					
 					//Set LL Dash Service Configuration Data in Pvt AAMP instance
 					aamp->SetLLDashServiceData(stLLServiceData);
 					aamp->SetLowLatencyServiceConfigured(true);

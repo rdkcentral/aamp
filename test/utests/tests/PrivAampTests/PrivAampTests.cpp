@@ -3715,13 +3715,13 @@ TEST_F(PrivAampTests,AccessibilityParsing)
 	accessibilityItem.setAccessibilityData("altSchemeId1",5);
 	EXPECT_STREQ("altSchemeId1",accessibilityItem.getSchemeId().c_str() );
 	EXPECT_EQ(5,accessibilityItem.getIntValue());
-
+	
 	// setAccessibilityData( string )
 	accessibilityItem.setAccessibilityData("altSchemeId2","x");
 	EXPECT_STREQ("altSchemeId2",accessibilityItem.getSchemeId().c_str() );
 	EXPECT_EQ(-1,accessibilityItem.getIntValue());
 	EXPECT_STREQ("x",accessibilityItem.getStrValue().c_str());
-
+	
 	// string value
 	accessibilityItem = Accessibility("schemeId","Foo");
 	EXPECT_EQ(-1,accessibilityItem.getIntValue());
@@ -3731,27 +3731,62 @@ TEST_F(PrivAampTests,AccessibilityParsing)
 	//Exception cases:
 	accessibilityItem = Accessibility("schemeId","12340000000000000000000000000000");
 	EXPECT_EQ(-1,accessibilityItem.getIntValue());
-
+	
 	// empty string
 	accessibilityItem = Accessibility("schemeId","");
 	EXPECT_EQ(-1,accessibilityItem.getIntValue());
 	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"");
 	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
-
+	
 	accessibilityItem = Accessibility("schemeId","123q4");
 	EXPECT_EQ(-1,accessibilityItem.getIntValue());
 	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"123q4");
 	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
-
+	
 	// starts with non-numeric character, should be considered as string
 	accessibilityItem = Accessibility("schemeId","q2341");
 	EXPECT_EQ(-1,accessibilityItem.getIntValue());
 	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"q2341");
 	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
-
+	
 	//negative value should not be considered
 	accessibilityItem = Accessibility("schemeId","-1234");
 	EXPECT_EQ(-1,accessibilityItem.getIntValue());
 	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"-1234");
 	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
+}
+
+TEST_F(PrivAampPrivTests,SetLLDashChunkModeTrueTest)
+{
+	testp_aamp->InitStreamAbstraction();
+	int fragment_duration = 0;
+
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MinABRNWBufferRampDown,AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MaxABRNWBufferRampUp,AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadStartTimeout,fragment_duration));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlStallTimeout,fragment_duration));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadLowBWTimeout,fragment_duration));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_NetworkTimeout,TIMEOUT_FOR_LLD));
+
+	testp_aamp->SetLLDashChunkMode(true);
+}
+
+TEST_F(PrivAampPrivTests,SetLLDashChunkModeFalseTest)
+{
+	testp_aamp->InitStreamAbstraction();
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_MinABRNWBufferRampDown)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_MaxABRNWBufferRampUp)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_CurlDownloadStartTimeout)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_CurlStallTimeout)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_CurlDownloadLowBWTimeout)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_NetworkTimeout)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
+
+	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_MinABRNWBufferRampDown)).Times(1);
+	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_MaxABRNWBufferRampUp)).Times(1);
+	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlDownloadStartTimeout)).Times(1);
+	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlStallTimeout)).Times(1);
+	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlDownloadLowBWTimeout)).Times(1);
+	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_NetworkTimeout)).Times(1);
+	testp_aamp->SetLLDashChunkMode(false);
 }

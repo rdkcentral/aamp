@@ -2111,6 +2111,64 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner )
 }
 
 /**
+ * @brief RestoreConfiguration - Function is to restore last configuration value of a particular config given configpriority matches
+ */
+void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingBool cfg)
+{
+	if(configValueBool[cfg].owner == owner && configValueBool[cfg].owner != configValueBool[cfg].lastowner)
+	{
+		AAMPLOG_WARN("Cfg restoring [%-20s][%-5s]->[%-5s][%s]->[%s]",GetConfigName(cfg), mOwnerLookupTable[configValueBool[cfg].owner].ownerName,
+					mOwnerLookupTable[configValueBool[cfg].lastowner].ownerName,configValueBool[cfg].value?"true":"false",configValueBool[cfg].lastvalue?"true":"false");
+		configValueBool[cfg].owner = configValueBool[cfg].lastowner;
+		configValueBool[cfg].value = configValueBool[cfg].lastvalue;
+	}
+}
+
+/**
+ * @brief RestoreConfiguration - Function is to restore last configuration value of a particular config given configpriority matches
+ */
+void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingInt cfg)
+{
+	if(configValueInt[cfg].owner == owner && configValueInt[cfg].owner != configValueInt[cfg].lastowner)
+	{
+		AAMPLOG_WARN("Cfg restoring [%-20s][%-5s]->[%-5s][%d]->[%d]",GetConfigName(cfg), mOwnerLookupTable[configValueInt[cfg].owner].ownerName,
+					mOwnerLookupTable[configValueInt[cfg].lastowner].ownerName,configValueInt[cfg].value,configValueInt[cfg].lastvalue);
+		configValueInt[cfg].owner = configValueInt[cfg].lastowner;
+		configValueInt[cfg].value = configValueInt[cfg].lastvalue;
+
+	}
+}
+
+/**
+ * @brief RestoreConfiguration - Function is to restore last configuration value of a particular config given configpriority matches
+ */
+void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingFloat cfg)
+{
+	if(configValueFloat[cfg].owner == owner && configValueFloat[cfg].owner != configValueFloat[cfg].lastowner)
+	{
+		AAMPLOG_WARN("Cfg restoring [%-20s][%-5s]->[%-5s][%f]->[%f]",GetConfigName(cfg), mOwnerLookupTable[configValueFloat[cfg].owner].ownerName,
+					mOwnerLookupTable[configValueFloat[cfg].lastowner].ownerName,configValueFloat[cfg].value,configValueFloat[cfg].lastvalue);
+		configValueFloat[cfg].owner = configValueFloat[cfg].lastowner;
+		configValueFloat[cfg].value = configValueFloat[cfg].lastvalue;
+	}
+}
+
+/**
+ * @brief RestoreConfiguration - Function is to restore last configuration value of a particular config given configpriority matches
+ */
+void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingString cfg)
+{
+	if(configValueString[cfg].owner == owner && configValueString[cfg].owner != configValueString[cfg].lastowner)
+	{
+		AAMPLOG_WARN("Cfg restoring [%-20s][%-5s]->[%-5s][%s]->[%s]",GetConfigName(cfg), mOwnerLookupTable[configValueString[cfg].owner].ownerName,
+					mOwnerLookupTable[configValueString[cfg].lastowner].ownerName,configValueString[cfg].value.c_str(),configValueString[cfg].lastvalue.c_str());
+		configValueString[cfg].owner = configValueString[cfg].lastowner;
+		configValueString[cfg].value = configValueString[cfg].lastvalue;
+
+	}
+}
+
+/**
  * @brief ShowConfiguration - Function to list configration values based on the owner
  */
 void AampConfig::ShowConfiguration(ConfigPriority owner)

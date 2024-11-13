@@ -661,10 +661,38 @@ public:
      	 */
 	void RestoreConfiguration(ConfigPriority owner);
 	/**
+     	 * @fn RestoreConfiguration
+     	 * @param[in] owner - Restore from this owner to previous owner
+     	 * @param[in] cfg - Config value for restoring
+     	 * @return None
+		 */
+	void RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingBool cfg);
+	/**
+     	 * @fn RestoreConfiguration
+     	 * @param[in] owner - Restore from this owner to previous owner
+     	 * @param[in] cfg - Config value for restoring
+     	 * @return None
+		 */
+	void RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingInt cfg);
+	/**
+     	 * @fn RestoreConfiguration
+     	 * @param[in] owner - Restore from this owner to previous owner
+     	 * @param[in] cfg - Config value for restoring
+     	 * @return None
+		 */
+	void RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingFloat cfg);
+	/**
+     	 * @fn RestoreConfiguration
+     	 * @param[in] owner - Restore from this owner to previous owner
+     	 * @param[in] cfg - Config value for restoring
+     	 * @return None
+		 */
+	void RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingString cfg);
+	/**
      	 * @fn ConfigureLogSettings
      	 * @return None
      	 */
-	void ConfigureLogSettings();	
+	void ConfigureLogSettings();
 	/**
      	 * @fn GetAampConfigJSONStr
      	 * @param[in] str  - input string where config json will be stored

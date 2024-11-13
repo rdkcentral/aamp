@@ -1529,3 +1529,8 @@ void PrivateInstanceAAMP::ResetTrickStartUTCTime()
 {
 }
 
+
+void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
+{
+	mIsChunkMode = enable;
+}

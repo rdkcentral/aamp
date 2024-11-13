@@ -3875,10 +3875,7 @@ public:
 	 *
 	 *   @return void
 	 */
-	void SetLLDashChunkMode(bool enable)
-	{
-		mIsChunkMode = enable;
-	}
+	void SetLLDashChunkMode(bool enable);
 
 	/**
 	 *   @brief Get the status of LL-DASH chunk mode.

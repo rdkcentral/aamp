@@ -13741,3 +13741,61 @@ int PrivateInstanceAAMP::GetPlatformType()
 	return GETCONFIGVALUE_PRIV(eAAMPConfig_PlatformType);
 }
 
+void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
+{
+	mIsChunkMode = enable;
+	AampLLDashServiceData* stLLServiceData = GetLLDashServiceData();
+	if(mIsChunkMode)
+	{
+		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_MinABRNWBufferRampDown,AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD);
+		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_MaxABRNWBufferRampUp,AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD);
+
+		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_NetworkTimeout,TIMEOUT_FOR_LLD); /* Use 3sec for fragment download timout for LLD */
+		mNetworkTimeoutMs  = (uint32_t) CONVERT_SEC_TO_MS(GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout));
+		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
+		{
+			SetCurlTimeout(mNetworkTimeoutMs, (AampCurlInstance)i);
+		}
+		AAMPLOG_INFO("Updated NetworkTimeout %d for Chunked Mode", mNetworkTimeoutMs);
+
+		if(stLLServiceData != NULL)
+		{
+			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadStartTimeout,stLLServiceData->fragmentDuration);
+			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlStallTimeout,stLLServiceData->fragmentDuration);
+			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadLowBWTimeout,stLLServiceData->fragmentDuration);
+		}
+		else
+		{
+			AAMPLOG_WARN("LLD Service data is NULL, not updating CURL timeouts "); // should not go here ideally
+		}
+
+
+
+		AAMPLOG_INFO("ChunkMode enabled");
+	}
+	else
+	{
+		mConfig->RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_MinABRNWBufferRampDown); // restore only if current owner is AAMP_TUNE_SETTING
+		mConfig->RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_MaxABRNWBufferRampUp);
+		mConfig->RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlDownloadStartTimeout);
+		mConfig->RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlStallTimeout);
+		mConfig->RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlDownloadLowBWTimeout);
+		mConfig->RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_NetworkTimeout);
+
+		mNetworkTimeoutMs  = (uint32_t) CONVERT_SEC_TO_MS(GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout));
+		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
+		{
+			SetCurlTimeout(mNetworkTimeoutMs, (AampCurlInstance)i);
+		}
+		AAMPLOG_INFO("Updated NetworkTimeout %d for Non Chunked", mNetworkTimeoutMs);
+
+		AAMPLOG_INFO("ChunkMode disabled");
+	}
+
+	if(mpStreamAbstractionAAMP)
+	{
+		mpStreamAbstractionAAMP->SetABRMinBuffer(GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown));
+		mpStreamAbstractionAAMP->SetABRMaxBuffer(GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp));
+		LoadAampAbrConfig();
+	}
+}

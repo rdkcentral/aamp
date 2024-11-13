@@ -1117,3 +1117,82 @@ TEST_F(AampConfigTests, ConfigureLogSettingsInfo)
 	EXPECT_EQ( AampLogManager::locked, true );
 	EXPECT_EQ( AampLogManager::aampLoglevel, eLOGLEVEL_INFO );
 }
+
+//helper functions for RestoreConfiguration test
+const ConfigLookupEntryInt* GetDefaultValue(AAMPConfigSettingInt cfg)
+{
+	return mConfigLookupTableInt;
+}
+
+const ConfigLookupEntryBool* GetDefaultValue(AAMPConfigSettingBool cfg)
+{
+	return mConfigLookupTableBool;
+}
+
+const ConfigLookupEntryFloat* GetDefaultValue(AAMPConfigSettingFloat cfg)
+{
+	return mConfigLookupTableFloat;
+}
+
+const ConfigLookupEntryString* GetDefaultValue(AAMPConfigSettingString cfg)
+{
+	return mConfigLookupTableString;
+}
+
+template <typename T, typename KeyType>
+void TestSetAndRestoreSingleConfig(AampConfig* config, ConfigPriority initialOwner, ConfigPriority restoreOwner,
+									KeyType key, T initialValue, T newValue, T defaultValue)
+{
+
+	// Initialize configuration and set initial value and owner
+	config->Initialize();
+	config->SetConfigValue(initialOwner, key, initialValue);
+	ASSERT_EQ(initialValue, config->GetConfigValue(key));
+	ASSERT_EQ(initialOwner, config->GetConfigOwner(key));
+
+	// Update value and owner, and verify
+	config->SetConfigValue(restoreOwner, key, newValue);
+	ASSERT_EQ(newValue, config->GetConfigValue(key));
+	ASSERT_EQ(restoreOwner, config->GetConfigOwner(key));
+
+	// Restore to previous owner/value and check
+	config->RestoreConfiguration(restoreOwner, key);
+	ASSERT_EQ(initialValue, config->GetConfigValue(key));
+	ASSERT_EQ(initialOwner, config->GetConfigOwner(key));
+
+	// Reinitialize and check default behavior
+	config = std::unique_ptr<AampConfig>(new AampConfig()).release();
+	config->Initialize();
+	ASSERT_EQ(AAMP_DEFAULT_SETTING, config->GetConfigOwner(key));
+	auto lookup = GetDefaultValue(key);
+	EXPECT_EQ(lookup[key].defaultValue, config->GetConfigValue(key));
+
+	// Test Restore with mismatching owner, should not restore
+	config->SetConfigValue(restoreOwner, key, newValue);
+	config->RestoreConfiguration(static_cast<ConfigPriority>(AAMP_DEV_CFG_SETTING), key);
+	ASSERT_EQ(newValue, config->GetConfigValue(key));
+	ASSERT_EQ(restoreOwner, config->GetConfigOwner(key));
+}
+
+TEST_F(AampConfigTests, ResetSingleConfigurationTest)
+{
+	// Integer test
+	TestSetAndRestoreSingleConfig<int, AAMPConfigSettingInt>(mAampConfig.get(), AAMP_APPLICATION_SETTING, AAMP_TUNE_SETTING,
+															 eAAMPConfig_MinABRNWBufferRampDown, 399, 199,
+															 mConfigLookupTableInt[eAAMPConfig_MinABRNWBufferRampDown].defaultValue);
+
+	// Boolean test
+	TestSetAndRestoreSingleConfig<bool, AAMPConfigSettingBool>(mAampConfig.get(), AAMP_APPLICATION_SETTING, AAMP_TUNE_SETTING,
+															   eAAMPConfig_ForceLLDFlow, true, false,
+															   mConfigLookupTableBool[eAAMPConfig_ForceLLDFlow].defaultValue);
+
+	// Float test
+	TestSetAndRestoreSingleConfig<float, AAMPConfigSettingFloat>(mAampConfig.get(), AAMP_APPLICATION_SETTING, AAMP_TUNE_SETTING,
+																 eAAMPConfig_BWToGstBufferFactor, 1.23, 4.56,
+																 static_cast<float>(mConfigLookupTableFloat[eAAMPConfig_BWToGstBufferFactor].defaultValue));
+
+	// String test
+	TestSetAndRestoreSingleConfig<std::string, AAMPConfigSettingString>(mAampConfig.get(), AAMP_APPLICATION_SETTING, AAMP_TUNE_SETTING,
+																		eAAMPConfig_LLDUrlKeyword, "initial", "new_value",
+																		mConfigLookupTableString[eAAMPConfig_LLDUrlKeyword].defaultValue);
+}
