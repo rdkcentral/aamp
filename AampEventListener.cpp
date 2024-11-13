@@ -285,6 +285,7 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 			event.data.manifestRefreshData.manifestDuration = ev->getManifestDuration();
 			event.data.manifestRefreshData.noOfPeriods = ev->getNoOfPeriods();
 			event.data.manifestRefreshData.manifestPublishedTime = ev->getManifestPublishedTime();
+			event.data.manifestRefreshData.manifestType = ev->getManifestType();
 			break;
 		}
 		case AAMP_EVENT_TUNE_TIME_METRICS:

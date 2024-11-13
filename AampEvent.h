@@ -478,6 +478,7 @@ struct AAMPEvent
 			uint32_t manifestDuration;	/**< manifest file size */
 			uint32_t manifestPublishedTime;	/**< manifest published time */
 			int noOfPeriods;	/**< No.Of periods in manifest */
+			const char *manifestType; /**<Manifest type */
 		} manifestRefreshData;
 
 		/**
@@ -2272,6 +2273,7 @@ class ManifestRefreshEvent: public AAMPEventObject
 	uint32_t mManifestDuration;	/**< Manifest duration  */
 	uint32_t mManifestPublishedTime;	/** mpd published time data from the download manifest */
 	int mNoOfPeriods;	/**< No of periods count */
+	const char * mManifestType; /**<Manifest type */
 public:
 	ManifestRefreshEvent() = delete;
 	ManifestRefreshEvent(const ManifestRefreshEvent&) = delete;
@@ -2280,7 +2282,7 @@ public:
 	/**
 	 * @fn ManifestRefreshEvent
 	 */
-	ManifestRefreshEvent(uint32_t manifestDuration, int noOfPeriods, uint32_t manifestPublishedTime, std::string sid);
+	ManifestRefreshEvent(uint32_t manifestDuration, int noOfPeriods, uint32_t manifestPublishedTime, std::string sid,const char *manifestType);
 
 	/**
 	 * @brief ManifestRefreshEvent Destructor
@@ -2301,6 +2303,11 @@ public:
 	 * @fn getManifestPublishedTime
 	 */
 	uint32_t getManifestPublishedTime() const;
+
+	/**
+	 * @fn getManifestType
+	 */
+	const char *getManifestType() const;
 
 };
 
