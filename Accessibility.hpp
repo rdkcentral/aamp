@@ -28,64 +28,69 @@
  */
 class Accessibility
 {
+private:
 	std::string strSchemeId;
-	int intValue;
 	std::string strValue;
-	std::string valueType;
-	
-	bool isNumber(const std::string& str)
-	{
-		std::string::const_iterator it = str.begin();
-		while (it != str.end() && std::isdigit(*it)) ++it;
-		return !str.empty() && it == str.end();
-	};
+	int intValue; // strValue parsed as non-negative integer, or -1 if invalid
 
-  public:
-	Accessibility(std::string schemId, std::string val): strSchemeId(schemId), intValue(-1), strValue(""), valueType("")
+	/**
+	 * @brief string to non-negative decimal number conversion method (similar to std::stoi)
+	 * @param str input string containing  number to parse
+	 * @return -1 if parse failure, or non-negative number on success
+	 */
+	int parseNonNegativeDecimalInt(const std::string& str)
 	{
-		if (isNumber(val))
-		{
-			valueType = "int_value";
-			intValue = std::stoi(val);
-			strValue = "";
+		int rc = 0;
+		const char * src = str.c_str();
+		char ch = *src++;
+		if( ch == 0x00 )
+		{ // empty string
+			rc = -1;
 		}
 		else
-		{
-			valueType = "string_value";
-			intValue = -1;
-			strValue = val;
+		{ // at least one character
+			do
+			{
+				if( !std::isdigit(static_cast<unsigned char>(ch) ) )
+				{ // found non-digit
+					rc = -1;
+					break;
+				}
+				rc = rc*10 + (ch-'0'); // incorporate this digit in integer result
+				if( rc<0 )
+				{ // overflow - huge number not fitting into an int
+					rc = -1;
+					break;
+				}
+				ch = *src++;
+			} while( ch );
 		}
-
+		return rc;
+	}
+	
+  public:
+	Accessibility(std::string schemId, std::string val): strSchemeId(schemId), intValue(-1), strValue(val)
+	{
+		intValue = parseNonNegativeDecimalInt(val);
 	};
 
-	Accessibility():strSchemeId(""), intValue(-1), strValue(""), valueType("") {};
+	Accessibility():strSchemeId(""), intValue(-1), strValue("") {};
 
-	void setAccessibilityData(std::string schemId, std::string val)
+	void setAccessibilityData(std::string schemId, const std::string &val)
 	{
 		strSchemeId = schemId;
-		if (isNumber(val))
-		{
-			valueType = "int_value";
-			intValue = std::stoi(val);
-			strValue = "";
-		}
-		else
-		{
-			valueType = "string_value";
-			intValue = -1;
-			strValue = val;
-		}
+		intValue = parseNonNegativeDecimalInt(val);
+		strValue = (intValue>=0)?"":val;
 	};
 
 	void setAccessibilityData(std::string schemId, int val)
 	{
 		strSchemeId = schemId;
-		valueType = "int_value";
-		intValue = val;
+		intValue = (val>=0)?val:-1;
 		strValue = "";
 	};
 
-	const std::string& getTypeName() const {return valueType;};
+	const char * getTypeName() const {return intValue>=0?"int_value":"string_value";};
 	const std::string& getSchemeId() const {return strSchemeId;};
 	int getIntValue() const {return intValue;};
 	const std::string& getStrValue() const {return strValue;};
@@ -95,19 +100,18 @@ class Accessibility
 		strSchemeId = "";
 		intValue = -1;
 		strValue = "";
-		valueType = "";
 	};
 
 	bool operator == (const Accessibility& track) const
 	{
 		return ((strSchemeId == track.strSchemeId) &&
-			(valueType == "int_value"?(intValue == track.intValue):(strValue == track.strValue)));
+			(intValue>=0?(intValue == track.intValue):(strValue == track.strValue)));
 	};
 
 	bool operator != (const Accessibility& track) const
 	{
 		return ((strSchemeId != track.strSchemeId) ||
-			(valueType == "int_value"?(intValue != track.intValue):(strValue != track.strValue)));
+			(intValue>=0?(intValue != track.intValue):(strValue != track.strValue)));
 	};
 	
 	Accessibility& operator = (const Accessibility& track)
@@ -115,31 +119,22 @@ class Accessibility
 		strSchemeId = track.strSchemeId;
 		intValue = track.intValue;
 		strValue = track.strValue;
-		valueType = track.valueType;
-		
 		return *this;
 	};
 
+	/**
+	 * @brief serialze to json-like syntax
+	 */
 	std::string print()
 	{
-		char strData [228];
-		std::string retVal = "";
-		if (!strSchemeId.empty())
+		std::string retVal;
+		if( strSchemeId.empty() )
 		{
-			std::snprintf(strData, sizeof(strData), "{ scheme:%s, %s:", strSchemeId.c_str(), valueType.c_str());
-			retVal += strData;
-			if (valueType == "int_value")
-			{
-				std::snprintf(strData, sizeof(strData), "%d }", intValue);
-			}else
-			{
-				std::snprintf(strData, sizeof(strData), "%s }", strValue.c_str());
-			}
-			retVal += strData;
+			retVal = "NULL";
 		}
 		else
 		{
-			retVal = "NULL";
+			retVal = "{ scheme:" + strSchemeId + ", " + getTypeName() + ":" + strValue + " }";
 		}
 		return retVal;
 	};

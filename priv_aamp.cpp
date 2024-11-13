@@ -10094,7 +10094,20 @@ void PrivateInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput
 	{
 		AAMPLOG_WARN("Got Playlist PreCache list of Size : %zu", mPreCacheDnldList.size());
 	}
+}
 
+static void AddAccessibilityNodeToObject(cJSON *obj, const Accessibility &node )
+{
+	cJSON_AddStringToObject( obj, "schemeId", node.getSchemeId().c_str());
+	int ival = node.getIntValue();
+	if( ival>=0 )
+	{ // property has non-negative integer value
+		cJSON_AddNumberToObject( obj, node.getTypeName(), ival );
+	}
+	else
+	{ // fallback - string encoded value
+		cJSON_AddStringToObject( obj, node.getTypeName(), node.getStrValue().c_str());
+	}
 }
 
 /**
@@ -10127,14 +10140,7 @@ std::string PrivateInstanceAAMP::GetPreferredTextProperties()
 	if(!preferredTextAccessibilityNode.getSchemeId().empty())
 	{
 		cJSON *accessibility = cJSON_AddObjectToObject(item, "preferred-text-accessibility");
-		cJSON_AddStringToObject(accessibility, "schemeId", preferredTextAccessibilityNode.getSchemeId().c_str());
-		if (preferredTextAccessibilityNode.getTypeName() == "int_value")
-		{
-			cJSON_AddNumberToObject(accessibility, preferredTextAccessibilityNode.getTypeName().c_str(), preferredTextAccessibilityNode.getIntValue());
-		}else
-		{
-			cJSON_AddStringToObject(accessibility, preferredTextAccessibilityNode.getTypeName().c_str(), preferredTextAccessibilityNode.getStrValue().c_str());
-		}
+		AddAccessibilityNodeToObject( accessibility, preferredTextAccessibilityNode );
 	}
 	char *jsonStr = cJSON_Print(item);
 	if (jsonStr)
@@ -10178,14 +10184,7 @@ std::string PrivateInstanceAAMP::GetPreferredAudioProperties()
 	if(!preferredAudioAccessibilityNode.getSchemeId().empty())
 	{
 		cJSON * accessibility = cJSON_AddObjectToObject(item, "preferred-audio-accessibility");
-		cJSON_AddStringToObject(accessibility, "schemeId", preferredAudioAccessibilityNode.getSchemeId().c_str());
-		if (preferredAudioAccessibilityNode.getTypeName() == "int_value")
-		{
-			cJSON_AddNumberToObject(accessibility, preferredAudioAccessibilityNode.getTypeName().c_str(), preferredAudioAccessibilityNode.getIntValue());
-		}else
-		{
-			cJSON_AddStringToObject(accessibility, preferredAudioAccessibilityNode.getTypeName().c_str(), preferredAudioAccessibilityNode.getStrValue().c_str());
-		}
+		AddAccessibilityNodeToObject( accessibility, preferredAudioAccessibilityNode );
 	}
 	char *jsonStr = cJSON_Print(item);
 	if (jsonStr)
@@ -10364,15 +10363,7 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 					if (!iter->accessibilityItem.getSchemeId().empty())
 					{
 						cJSON *accessibility = cJSON_AddObjectToObject(item, "accessibility");
-						cJSON_AddStringToObject(accessibility, "scheme", iter->accessibilityItem.getSchemeId().c_str());
-						std::string valueType = iter->accessibilityItem.getTypeName();
-						if (valueType == "int_value")
-						{
-							cJSON_AddNumberToObject(accessibility, valueType.c_str(), iter->accessibilityItem.getIntValue());
-						}else
-						{
-							cJSON_AddStringToObject(accessibility, valueType.c_str(), iter->accessibilityItem.getStrValue().c_str());
-						}
+						AddAccessibilityNodeToObject( accessibility, iter->accessibilityItem );
 					}
 				}
 				char *jsonStr = cJSON_Print(root);
@@ -10467,17 +10458,7 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 					if (!iter->accessibilityItem.getSchemeId().empty())
 					{
 						cJSON *accessibility = cJSON_AddObjectToObject(item, "accessibility");
-						cJSON_AddStringToObject(accessibility, "scheme", iter->accessibilityItem.getSchemeId().c_str());
-
-						std::string valueType = iter->accessibilityItem.getTypeName();
-						if (valueType == "int_value")
-						{
-							cJSON_AddNumberToObject(accessibility, valueType.c_str(), iter->accessibilityItem.getIntValue());
-
-						}else
-						{
-							cJSON_AddStringToObject(accessibility, valueType.c_str(), iter->accessibilityItem.getStrValue().c_str());
-						}
+						AddAccessibilityNodeToObject( accessibility, iter->accessibilityItem );
 					}
 				}
 				char *jsonStr = cJSON_Print(root);
@@ -10788,15 +10769,7 @@ std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 				if (!trackInfo.accessibilityItem.getSchemeId().empty())
 				{
 					cJSON *accessibility = cJSON_AddObjectToObject(item, "accessibility");
-					cJSON_AddStringToObject(accessibility, "scheme", trackInfo.accessibilityItem.getSchemeId().c_str());
-					if (trackInfo.accessibilityItem.getTypeName() == "int_value")
-					{
-						cJSON_AddNumberToObject(accessibility, trackInfo.accessibilityItem.getTypeName().c_str(), trackInfo.accessibilityItem.getIntValue());
-					}
-					else
-					{
-						cJSON_AddStringToObject(accessibility, trackInfo.accessibilityItem.getTypeName().c_str(), trackInfo.accessibilityItem.getStrValue().c_str());
-					}
+					AddAccessibilityNodeToObject( accessibility, trackInfo.accessibilityItem );
 				}
 				char *jsonStr = cJSON_Print(root);
 				if (jsonStr)
@@ -10900,15 +10873,7 @@ std::string PrivateInstanceAAMP::GetTextTrackInfo()
 				if (!trackInfo.accessibilityItem.getSchemeId().empty())
 				{
 					cJSON *accessibility = cJSON_AddObjectToObject(item, "accessibility");
-					cJSON_AddStringToObject(accessibility, "scheme", trackInfo.accessibilityItem.getSchemeId().c_str());
-					if (trackInfo.accessibilityItem.getTypeName() == "int_value")
-					{
-						cJSON_AddNumberToObject(accessibility, trackInfo.accessibilityItem.getTypeName().c_str(), trackInfo.accessibilityItem.getIntValue());
-					}
-					else
-					{
-						cJSON_AddStringToObject(accessibility, trackInfo.accessibilityItem.getTypeName().c_str(), trackInfo.accessibilityItem.getStrValue().c_str());
-					}
+					AddAccessibilityNodeToObject( accessibility, trackInfo.accessibilityItem );
 				}
 				char *jsonStr = cJSON_Print(root);
 				if (jsonStr)
@@ -10975,15 +10940,7 @@ static char* createJsonData(TextTrackInfo& track)
 	if (!track.accessibilityItem.getSchemeId().empty())
 	{
 		cJSON *accessibility = cJSON_AddObjectToObject(item, "accessibility");
-		cJSON_AddStringToObject(accessibility, "scheme", track.accessibilityItem.getSchemeId().c_str());
-		if (track.accessibilityItem.getTypeName() == "int_value")
-		{
-			cJSON_AddNumberToObject(accessibility, track.accessibilityItem.getTypeName().c_str(), track.accessibilityItem.getIntValue());
-		}
-		else
-		{
-			cJSON_AddStringToObject(accessibility, track.accessibilityItem.getTypeName().c_str(), track.accessibilityItem.getStrValue().c_str());
-		}
+		AddAccessibilityNodeToObject( accessibility, track.accessibilityItem );
 	}
 
 	jsonStr = cJSON_Print(item);
@@ -11707,17 +11664,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				inputAudioAccessibilityNode = StreamAbstractionAAMP_MPD::getAccessibilityNode(accessNode);
 				if (!inputAudioAccessibilityNode.getSchemeId().empty())
 				{
-					AAMPLOG_INFO("Preferred accessibility SchemeId: %s", inputAudioAccessibilityNode.getSchemeId().c_str());
-					if (inputAudioAccessibilityNode.getTypeName() == "string_value")
-					{
-						AAMPLOG_INFO("Preferred accessibility Value Type %s and Value: %s", inputAudioAccessibilityNode.getTypeName().c_str(),
-							inputAudioAccessibilityNode.getStrValue().c_str());
-					}
-					else
-					{
-						AAMPLOG_INFO("Preferred accessibility Value Type %s and Value : %d", inputAudioAccessibilityNode.getTypeName().c_str(),
-					 		inputAudioAccessibilityNode.getIntValue());
-					}
+					AAMPLOG_INFO("Preferred accessibility: %s", inputAudioAccessibilityNode.print().c_str() );
 				}
 			}
 			if(preferredAudioAccessibilityNode != inputAudioAccessibilityNode )
@@ -11870,17 +11817,16 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				preferredAudioAccessibilityNode.clear();
 				accessibilityPresent = true;
 				const std::string &schemeId = accessibilityItem->getSchemeId();
-				std::string value;
-				if(accessibilityItem->getTypeName() == "int_value")
+				int ival = accessibilityItem->getIntValue();
+				if( ival>=0 )
 				{
-					value = std::to_string(accessibilityItem->getIntValue());
+					preferredAudioAccessibilityNode.setAccessibilityData(schemeId, ival);
 				}
 				else
 				{
-					value = accessibilityItem->getStrValue();
+					preferredAudioAccessibilityNode.setAccessibilityData(schemeId, accessibilityItem->getStrValue() );
 				}
-				preferredAudioAccessibilityNode.setAccessibilityData(schemeId, value);
-				AAMPLOG_INFO("Preferred accessibility SchemeId: %s, Value Type: %s and Value: %s",schemeId.c_str(), accessibilityItem->getTypeName().c_str(), value.c_str());
+				AAMPLOG_INFO("Preferred accessibility %s", preferredAudioAccessibilityNode.print().c_str() );
 			}
 			else
 			{
@@ -11888,19 +11834,18 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			}
 
 			if(preferredName)
-                        {
-                                AAMPLOG_INFO("Setting Name %s", preferredName);
-                                preferredNameString = std::string(preferredName);
-                        }
-                        else
-                        {
-                                preferredNameString.clear();
-                        }
-
+			{
+				AAMPLOG_INFO("Setting Name %s", preferredName);
+				preferredNameString = std::string(preferredName);
+			}
+			else
+			{
+				preferredNameString.clear();
+			}
 		}
 		else
 		{
-			AAMPLOG_INFO("Discarding Retune set lanuage(s) (%s) , rendition (%s) and accessibility (%s) since already set",
+			AAMPLOG_INFO("Discarding Retune set language(s) (%s) , rendition (%s) and accessibility (%s) since already set",
 			languageList?languageList:"", preferredRendition?preferredRendition:"", preferredType?preferredType:"");
 		}
 	}
@@ -12291,17 +12236,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				inputTextAccessibilityNode = StreamAbstractionAAMP_MPD::getAccessibilityNode(accessNode);
 				if (!inputTextAccessibilityNode.getSchemeId().empty())
 				{
-					AAMPLOG_INFO("Preferred accessibility SchemeId: %s", inputTextAccessibilityNode.getSchemeId().c_str());
-					if (inputTextAccessibilityNode.getTypeName() == "string_value")
-					{
-						AAMPLOG_INFO("Preferred accessibility Value Type %s and Value: %s", inputTextAccessibilityNode.getTypeName().c_str(),
-							inputTextAccessibilityNode.getStrValue().c_str());
-					}
-					else
-					{
-						AAMPLOG_INFO("Preferred accessibility Value Type %s and Value : %d", inputTextAccessibilityNode.getTypeName().c_str(),
-					 		inputTextAccessibilityNode.getIntValue());
-					}
+					AAMPLOG_INFO("Preferred accessibility: %s", inputTextAccessibilityNode.print().c_str());
 				}
 				if(inputTextAccessibilityNode != preferredTextAccessibilityNode)
 				{
@@ -13319,9 +13254,10 @@ long PrivateInstanceAAMP::LoadFogConfig()
 				std::string schemeId = preferredAudioAccessibilityNode.getSchemeId();
 				accessiblity.add("schemeId", schemeId);
 				std::string value;
-				if(preferredAudioAccessibilityNode.getTypeName() == "int_value")
+				int ival = preferredAudioAccessibilityNode.getIntValue();
+				if( ival>=0 )
 				{
-					value = std::to_string(preferredAudioAccessibilityNode.getIntValue());
+					value = std::to_string(ival);
 				}
 				else
 				{
@@ -13331,43 +13267,6 @@ long PrivateInstanceAAMP::LoadFogConfig()
 				audioPreference.add("accessibility", accessiblity);
 			}
 		}
-#if 0
-		/** Time being disabled due to issues - LLAMA-7953, LLAMA-7760 **/
-
-		if((preferredTextLanguagesList.size() > 0) || !preferredTextRenditionString.empty() || !preferredTextLabelString.empty() || !preferredTextAccessibilityNode.getSchemeId().empty())
-		{
-			tPrefAvail = true;
-			if ((preferredTextLanguagesList.size() > 0) && (GETCONFIGOWNER_PRIV(eAAMPConfig_PreferredTextLanguage) > AAMP_DEFAULT_SETTING ))
-			{
-				subtitlePreference.add("languages", preferredTextLanguagesList);
-			}
-			if(!preferredTextRenditionString.empty() && (GETCONFIGOWNER_PRIV(eAAMPConfig_PreferredTextRendition) > AAMP_DEFAULT_SETTING ))
-			{
-				subtitlePreference.add("rendition", preferredTextRenditionString);
-			}
-			if(!preferredTextLabelString.empty() && (GETCONFIGOWNER_PRIV(eAAMPConfig_PreferredTextLabel) > AAMP_DEFAULT_SETTING ))
-			{
-				subtitlePreference.add("label", preferredTextLabelString);
-			}
-			if(!preferredTextAccessibilityNode.getSchemeId().empty())
-			{
-				AampJsonObject accessiblity;
-				std::string schemeId = preferredTextAccessibilityNode.getSchemeId();
-				accessiblity.add("schemeId", schemeId);
-				std::string value;
-				if(preferredTextAccessibilityNode.getTypeName() == "int_value")
-				{
-					value = std::to_string(preferredTextAccessibilityNode.getIntValue());
-				}
-				else
-				{
-					value = preferredTextAccessibilityNode.getStrValue();
-				}
-				accessiblity.add("value", value);
-				subtitlePreference.add("accessibility", accessiblity);
-			}
-		}
-#endif
 		bool trackAdded = false;
 		if(aPrefAvail)
 		{

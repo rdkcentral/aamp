@@ -3696,3 +3696,62 @@ TEST_F(PrivAampTests,isDecryptClearSamplesRequired)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(true));
 	EXPECT_FALSE(p_aamp->isDecryptClearSamplesRequired());
 }
+
+TEST_F(PrivAampTests,AccessibilityParsing)
+{
+	Accessibility accessibilityItem;
+	
+	// numeric value
+	accessibilityItem = Accessibility("schemeId","1234");
+	EXPECT_EQ(1234,accessibilityItem.getIntValue());
+	EXPECT_STREQ(accessibilityItem.getTypeName(),"int_value");
+	EXPECT_STREQ( accessibilityItem.print().c_str(), "{ scheme:schemeId, int_value:1234 }" );
+	
+	// equality operators
+	EXPECT_TRUE( Accessibility("schemeId","2345") != accessibilityItem );
+	EXPECT_TRUE( Accessibility("schemeId","1234") == accessibilityItem );
+	
+	// setAccessibilityData( int )
+	accessibilityItem.setAccessibilityData("altSchemeId1",5);
+	EXPECT_STREQ("altSchemeId1",accessibilityItem.getSchemeId().c_str() );
+	EXPECT_EQ(5,accessibilityItem.getIntValue());
+
+	// setAccessibilityData( string )
+	accessibilityItem.setAccessibilityData("altSchemeId2","x");
+	EXPECT_STREQ("altSchemeId2",accessibilityItem.getSchemeId().c_str() );
+	EXPECT_EQ(-1,accessibilityItem.getIntValue());
+	EXPECT_STREQ("x",accessibilityItem.getStrValue().c_str());
+
+	// string value
+	accessibilityItem = Accessibility("schemeId","Foo");
+	EXPECT_EQ(-1,accessibilityItem.getIntValue());
+	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
+	EXPECT_STREQ( accessibilityItem.print().c_str(), "{ scheme:schemeId, string_value:Foo }" );
+	
+	//Exception cases:
+	accessibilityItem = Accessibility("schemeId","12340000000000000000000000000000");
+	EXPECT_EQ(-1,accessibilityItem.getIntValue());
+
+	// empty string
+	accessibilityItem = Accessibility("schemeId","");
+	EXPECT_EQ(-1,accessibilityItem.getIntValue());
+	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"");
+	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
+
+	accessibilityItem = Accessibility("schemeId","123q4");
+	EXPECT_EQ(-1,accessibilityItem.getIntValue());
+	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"123q4");
+	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
+
+	// starts with non-numeric character, should be considered as string
+	accessibilityItem = Accessibility("schemeId","q2341");
+	EXPECT_EQ(-1,accessibilityItem.getIntValue());
+	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"q2341");
+	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
+
+	//negative value should not be considered
+	accessibilityItem = Accessibility("schemeId","-1234");
+	EXPECT_EQ(-1,accessibilityItem.getIntValue());
+	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"-1234");
+	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
+}

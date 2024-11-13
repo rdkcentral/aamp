@@ -247,6 +247,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampTsbReader.h
 					lstring.hpp
 					scte35/AampSCTE35.h
+					Accessibility.hpp
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
