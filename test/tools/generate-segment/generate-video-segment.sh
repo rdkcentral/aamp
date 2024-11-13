@@ -54,14 +54,14 @@ ffmpeg -y \
     video.mp4
 
 # split into init header and media segment
-ffmpeg -i video.mp4 -c:v copy -f dash -init_seg_name $INIT_FNAME -media_seg_name $MEDIA_FNAME video.mpd
+ffmpeg -i video.mp4 -c:v copy -copytb 1 -f dash -init_seg_name $INIT_FNAME -media_seg_name $MEDIA_FNAME video.mpd
 
 if [ $? -ne 0 ]; then
     echo "ffmpeg failed while splitting video into init header and media segment"
     exit 1
 fi
-
-# repair timescale in init header
+# repair timescale in init header. The moov timescale is reset to default (1000) when extracting the init segment above.
+# Probably not required but since its been set in the ffmpeg command above, maintain it.
 python3 modifyContentMetaData.py $INIT_FNAME --timescale $TIMESCALE
 
 # populate base media decode time and segment number
