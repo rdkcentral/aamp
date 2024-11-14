@@ -1420,7 +1420,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						if(!fcsContent &&
 							(mIsFogTSB ||
 								((0 != mPeriodDuration) &&
-									(((firstSegStartTime + positionInPeriod) < endTime) || liveEdgePeriodPlayback))))
+									(((firstSegStartTime + positionInPeriod) < endTime) || liveEdgePeriodPlayback || mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING)))) //For split period ads, the position in the period doesn't need to be between the period's start and end
 						{
 							/*
 							 * Avoid FetchFragment for following cases
