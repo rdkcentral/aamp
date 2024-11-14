@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-
 # If not stated otherwise in this file or this component's LICENSE file the
 # following copyright and licenses apply:
 #
-# Copyright 2024 RDK Management
+# Copyright 2024  RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +15,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 from inspect import getsourcefile
 import os
 import pytest
-
 TESTDATA1 = {
 	"title": "Set iframeDefaultBitrate as default",
 	"logfile": "testdata_default.txt",
@@ -34,10 +30,10 @@ TESTDATA1 = {
 		{"expect":r"Returning Position as [3-6](\d{3})"},
 		{"cmd":r"ff 4"},
 		{"expect":r"aamp_SetRate rate\(1\.000000\)->\(4\.000000\)"},
-		{"expect":r"fragmentUrl http://localhost:8085/init-stream[3-5].m4s "},
-		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream[3-5]-0000[0-9].m4s "},
-		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream[3-5]-0001[0-9].m4s "},
-		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream[3-5]-0002[0-9].m4s "},
+		{"expect":r"fragmentUrl http://localhost:8085/init-stream[3-5].m4s"},
+		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream[3-5]-0000[0-9].m4s"},
+		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream[3-5]-0001[0-9].m4s"},
+		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream[3-5]-0002[0-9].m4s"},
 		{"cmd":r"sleep 3000"},
 		{"expect":r"sleep complete"},
 		{"cmd":r"play"},
@@ -46,7 +42,6 @@ TESTDATA1 = {
 		{"expect":r"Returning Position as 2[0-5](\d{3})"},
 	]
 }
-
 TESTDATA2 = {
 	"title": "Set iframeDefaultBitrate as 360p iframe track",
 	"logfile": "testdata_360p.txt",
@@ -60,10 +55,10 @@ TESTDATA2 = {
 		{"expect":r"Returning Position as [3-6](\d{3})"},
 		{"cmd":r"ff 4"},
 		{"expect":r"aamp_SetRate rate\(1\.000000\)->\(4\.000000\)"},
-		{"expect":r"fragmentUrl http://localhost:8085/init-stream3.m4s "},
-		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream3-0000[0-9].m4s "},
-		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream3-0001[0-9].m4s "},
-		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream3-0002[0-9].m4s "},
+		{"expect":r"fragmentUrl http://localhost:8085/init-stream3.m4s"},
+		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream3-0000[0-9].m4s"},
+		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream3-0001[0-9].m4s"},
+		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream3-0002[0-9].m4s"},
 		{"cmd":r"sleep 3000"},
 		{"expect":r"sleep complete"},
 		{"cmd":r"play"},
@@ -72,7 +67,6 @@ TESTDATA2 = {
 		{"expect":r"Returning Position as 2[0-5](\d{3})"},
 	]
 }
-
 TESTDATA3 = {
 	"title": "Set iframeDefaultBitrate as 720p iframe track",
 	"logfile": "testdata_720p.txt",
@@ -86,10 +80,10 @@ TESTDATA3 = {
 		{"expect":r"Returning Position as [3-6](\d{3})"},
 		{"cmd":r"ff 4"},
 		{"expect":r"aamp_SetRate rate\(1\.000000\)->\(4\.000000\)"},
-		{"expect":r"fragmentUrl http://localhost:8085/init-stream4.m4s "},
-		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream4-0000[0-9].m4s "},
-		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream4-0001[0-9].m4s "},
-		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream4-0002[0-9].m4s "},
+		{"expect":r"fragmentUrl http://localhost:8085/init-stream4.m4s"},
+		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream4-0000[0-9].m4s"},
+		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream4-0001[0-9].m4s"},
+		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream4-0002[0-9].m4s"},
 		{"cmd":r"sleep 3000"},
 		{"expect":r"sleep complete"},
 		{"cmd":r"play"},
@@ -98,7 +92,6 @@ TESTDATA3 = {
 		{"expect":r"Returning Position as 2[0-5](\d{3})"},
 	]
 }
-
 TESTDATA4 = {
 	"title": "Set iframeDefaultBitrate as 4k iframe track",
 	"logfile": "testdata_4k.txt",
@@ -112,10 +105,10 @@ TESTDATA4 = {
 		{"expect":r"Returning Position as [3-6](\d{3})"},
 		{"cmd":r"ff 4"},
 		{"expect":r"aamp_SetRate rate\(1\.000000\)->\(4\.000000\)"},
-		{"expect":r"fragmentUrl http://localhost:8085/init-stream5.m4s "},
-		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream5-0000[0-9].m4s "},
-		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream5-0001[0-9].m4s "},
-		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream5-0002[0-9].m4s "},
+		{"expect":r"fragmentUrl http://localhost:8085/init-stream5.m4s"},
+		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream5-0000[0-9].m4s"},
+		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream5-0001[0-9].m4s"},
+		{"expect":r"fragmentUrl http://localhost:8085/chunk-stream5-0002[0-9].m4s"},
 		{"cmd":r"sleep 3000"},
 		{"expect":r"sleep complete"},
 		{"cmd":r"play"},
@@ -125,13 +118,10 @@ TESTDATA4 = {
 	]
 }
 TESTLIST = [TESTDATA1, TESTDATA2, TESTDATA3, TESTDATA4]
-
-
 ############################################################
 @pytest.fixture(params=TESTLIST)
 def test_data(request):
     return request.param
-
 def test_2039(aamp_setup_teardown, test_data):
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))

@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -x
 
 do_extract=0
