@@ -38,6 +38,9 @@ public:
 	MOCK_METHOD(void, g_object_set, (gpointer object, const gchar *property_name, int value));
 	MOCK_METHOD(void, g_object_set, (gpointer object, const gchar *property_name, char * value));
 	MOCK_METHOD(void, g_object_set, (gpointer object, const gchar *property_name, double value));
+	MOCK_METHOD(gulong, g_signal_connect_data, (gpointer instance, const gchar *detailed_signal, GCallback c_handler,
+							 					gpointer data, GClosureNotify destroy_data, GConnectFlags connect_flags));
+ 
 };
 
 extern MockGLib *g_mockGLib;
