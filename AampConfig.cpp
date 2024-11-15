@@ -220,8 +220,6 @@ struct ConfigLookupEntryString
  */
 static const ConfigLookupEntryString mConfigLookupTableString[AAMPCONFIG_STRING_COUNT] =
 {
-	{"","mapMPD",eAAMPConfig_MapMPD,false},
-	{"","mapM3U8",eAAMPConfig_MapM3U8,false},
 	{"","harvestPath",eAAMPConfig_HarvestPath,false},
 	{"","licenseServerUrl",eAAMPConfig_LicenseServerUrl,false},
 	{"","ckLicenseServerUrl",eAAMPConfig_CKLicenseServerUrl,false},
@@ -268,7 +266,6 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"preservePipeline",eAAMPConfig_PreservePipeline,false},
 	{false,"throttle",eAAMPConfig_Throttle,false},
 	{false,"demuxAudioBeforeVideo",eAAMPConfig_DemuxAudioBeforeVideo,false},
-	{false,"forceEC3",eAAMPConfig_ForceEC3,false},
 	{false,"disableEC3",eAAMPConfig_DisableEC3,true},
 	{false,"disableATMOS",eAAMPConfig_DisableATMOS,true},
 	{ DEFAULT_VALUE_DISABLE_ACR,"disableAC4",eAAMPConfig_DisableAC4,true},
@@ -1844,7 +1841,6 @@ void AampConfig::ReadOperatorConfiguration()
 		SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_DisableEC3,true);
 		SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_DisableAC3,true);
 		SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_DisableATMOS,true);
-		SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_ForceEC3,false);
 		SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_StereoOnly,true);
 	}
 
@@ -1981,14 +1977,8 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 		// If Stereo Only flag is set , it will override all other sub setting with audio
 		SetConfigValue(owner,eAAMPConfig_DisableEC3,true);
 		SetConfigValue(owner,eAAMPConfig_DisableATMOS,true);
-		SetConfigValue(owner,eAAMPConfig_ForceEC3,false);
 		SetConfigValue(owner,eAAMPConfig_DisableAC4,true);
 		SetConfigValue(owner,eAAMPConfig_DisableAC3,true);
-	}
-	else if(IsConfigSet(eAAMPConfig_DisableEC3))
-	{
-		// if EC3 is disabled , no need to enable forceEC3
-		SetConfigValue(owner,eAAMPConfig_ForceEC3,false);
 	}
 	if(IsConfigSet(eAAMPConfig_ABRBufferCheckEnabled) && (GetConfigOwner(eAAMPConfig_ABRBufferCheckEnabled) == AAMP_APPLICATION_SETTING))
 	{

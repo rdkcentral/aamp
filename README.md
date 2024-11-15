@@ -57,120 +57,119 @@ On / OFF Switches : All Enable/Disable configuration needs true/false input .
 Example : abr=false -> to disable ABR 
 
 ```
-abr				Enable/Disable adaptive bitrate logic.Default true
-fog				Enable/Disable Fog .Default true
-parallelPlaylistDownload	Enable parallel fetching of audio & video playlists for HLS during Tune.Default false
-parallelPlaylistRefresh		Enable parallel fetching of audio & video playlists for HLS during refresh .Default true
-preFetchIframePlaylist		Enable prefetching of I-Frame playlist.Default false
-preservePipeline		Flush instead of teardown.Default false
-demuxHlsAudioTrack		Demux Audio track from HLS transport stream.Default true
-demuxHlsVideoTrack		Demux Video track from HLS transport stream.Default true
-demuxHlsVideoTrackTrickMode	Demux Video track from HLS transport stream during TrickMode.Default true
-throttle			Regulate output data flow,used with restamping. Default false
-demuxAudioBeforeVideo		Demux video track from HLS transport stream track mode.Default false
-stereoOnly			Enable selection of stereo only audio.It Overrides forceEC3/disableEC3/disableATMOS.Default false
-forceEC3			Forcefully enable DDPlus.Default false
-disableEC3			Disable DDPlus.Default false
-disableATMOS			Disable Dolby ATMOS.Default false
-disable4K			Disable 4K Profile playback in 4K Supported device (default false)
-disablePlaylistIndexEvent	Disables generation of playlist indexed event by AAMP on tune/trickplay/seek.Default true
-enableSubscribedTags		Enable subscribed tags.Default true
-dashIgnoreBaseUrlIfSlash	Ignore the constructed URI of DASH.Default false
-licenseAnonymousRequest		Acquire license without token.Default false
-hlsAVTrackSyncUsingPDT		Use EXT-X-PROGRAM-DATE to synchronize audio and video playlists. Default false
-mpdDiscontinuityHandling	Discontinuity handling during MPD period transition.Default true
-mpdDiscontinuityHandlingCdvr	Discontinuity handling during MPD period transition for cDvr.Default true
-forceHttp			Allow forcing of HTTP protocol for HTTPS URLs . Default false
-internalRetune			Internal reTune logic on underflows/ pts errors.Default true
-audioOnlyPlayback		Audio only Playback . Default false
-gstBufferAndPlay		Pre-buffering which ensures minimum buffering is done before pipeline play.Default true
-bulkTimedMetadata		Report timed Metadata as single bulk event.Default false
-asyncTune			Asynchronous API / Event handling for UI.Default false
+abr				Enable/Disable adaptive bitrate logic. Default: true
+fog				Enable/Disable Fog. Default: true
+parallelPlaylistDownload	Enable parallel fetching of audio & video playlists for HLS during Tune. Default: false
+parallelPlaylistRefresh		Enable parallel fetching of audio & video playlists for HLS during refresh. Default: true
+preFetchIframePlaylist		Enable prefetching of I-Frame playlist. Default: false
+preservePipeline		Flush instead of teardown. Default: false
+demuxHlsAudioTrack		Demux Audio track from HLS transport stream. Default: true
+demuxHlsVideoTrack		Demux Video track from HLS transport stream. Default: true
+demuxHlsVideoTrackTrickMode	Demux Video track from HLS transport stream during TrickMode. Default: true
+throttle			Regulate output data flow,used with restamping. Default: false
+demuxAudioBeforeVideo		Demux video track from HLS transport stream track mode. Default: false
+stereoOnly			Enable selection of stereo only audio. Overrides disableEC3/disableATMOS. Default: false
+disableEC3			Disable DDPlus. Default: false
+disableATMOS			Disable Dolby ATMOS. Default: false
+disable4K			Disable 4K Profile playback in 4K Supported device. Default: false
+disablePlaylistIndexEvent	Disables generation of playlist indexed event by AAMP on tune/trickplay/seek. Default: true
+enableSubscribedTags		Enable subscribed tags. Default: true
+dashIgnoreBaseUrlIfSlash	Ignore the constructed URI of DASH. Default: false
+licenseAnonymousRequest		Acquire license without token. Default: false
+hlsAVTrackSyncUsingPDT		Use EXT-X-PROGRAM-DATE to synchronize audio and video playlists. Default: false
+mpdDiscontinuityHandling	Discontinuity handling during MPD period transition. Default: true
+mpdDiscontinuityHandlingCdvr	Discontinuity handling during MPD period transition for cDvr. Default: true
+forceHttp			Allow forcing of HTTP protocol for HTTPS URLs . Default: false
+internalRetune			Internal reTune logic on underflows/ pts errors. Default: true
+audioOnlyPlayback		Audio only Playback . Default: false
+gstBufferAndPlay		Pre-buffering which ensures minimum buffering is done before pipeline play. Default: true
+bulkTimedMetadata		Report timed Metadata as single bulk event. Default: false
+asyncTune			Asynchronous API / Event handling for UI. Default: false
 useWesterosSink			Enable/Disable westeros sink based video decoding. 
-useNewABR			Enable/Disable New buffer based hybrid ABR . Default true (enables useNewAdBreaker & PDT based A/V sync)
-useNewAdBreaker			Enable/Disable New discontinuity processing based on PDT.Default false
-useAverageBandwidth		Enable/Disable use of average bandwidth in manifest for ABR instead of Bandwidth attribute . Default false
-useRetuneForUnpairedDiscontinuity	Enable/Disable internal retune on unpaired discontinuity .Default true
-useMatchingBaseUrl		Enable/Disable use of matching base url, whenever there are multiple base urls are available.Default false
-nativeCCRendering		Enable/Disable Native CC rendering in AAMP Player.Default false
-enableVideoRectangle		Enable/Disable Setting of rectangle property for sink element.Default true
-useRetuneForGstInternalError	Enable/Disable Retune on GST Error.Default true
-enableSeekableRange		Enable/Disable Seekable range reporting in progress event for non-fog content.Default false
-reportVideoPTS 			Enable/Disable video pts reporting in progress events.Default false
-propagateUriParameters		Enable/Disable top-level manifest URI parameters while downloading fragments.  Default true
-sslVerifyPeer			Enable/Disable SSL Peer verification for curl connection . Default false
-setLicenseCaching		Enable/Disable license caching in WV . Default true
-persistBitrateOverSeek		Enable/Disable ABR profile persistence during Seek/Trickplay/Audio switching. Default false
-fragmp4LicensePrefetch		Enable/Disable fragment mp4 license prefetching.Default true
-gstPositionQueryEnable		GStreamer position query will be used for progress report events.Default true for non-Intel platforms
-playreadyOutputProtection  	Enable/Disable HDCP output protection for DASH-PlayReady playback. Default false
-enableVideoEndEvent		Enable/Disable Video End event generation; Default true
-playreadyOutputProtection	Enable/Disable output protection for PlayReady DRM.Default false
-descriptiveAudioTrack   	Enable/Disable role in audio track selection.syntax <langcode>-<role> instead of just <langcode>.Default false
-decoderUnavailableStrict	Reports decoder unavailable GST Warning as aamp error. Default false
-retuneOnBufferingTimeout 	Enable/Disable internal re-tune on buffering time-out.Default true
-client-dai			Enable/Disable Client-DAI.Default false
-cdnAdsOnly			Enable/Disable picking Ads from Fog or CDN . Default false
-appSrcForProgressivePlayback 	Enables appsrc for playing progressive AV type.Default false
-seekMidFragment			Enable/Disable Mid-Fragment seek .Default false
-wifiCurlHeader			Enable/Disable wifi custom curl header inclusion.Default true
-reportBufferEvent		Enables Buffer event reporting.Default is true.
-info            		Enable/Disable logging of requested urls.Default is false
-gst             		Enable/Disable gstreamer logging including pipeline dump.Default is false
+useNewABR			Enable/Disable New buffer based hybrid ABR . Default: true (enables useNewAdBreaker & PDT based A/V sync)
+useNewAdBreaker			Enable/Disable New discontinuity processing based on PDT. Default: false
+useAverageBandwidth		Enable/Disable use of average bandwidth in manifest for ABR instead of Bandwidth attribute. Default: false
+useRetuneForUnpairedDiscontinuity	Enable/Disable internal retune on unpaired discontinuity. Default: true
+useMatchingBaseUrl		Enable/Disable use of matching base url, whenever there are multiple base urls are available. Default: false
+nativeCCRendering		Enable/Disable Native CC rendering in AAMP Player. Default: false
+enableVideoRectangle		Enable/Disable Setting of rectangle property for sink element. Default: true
+useRetuneForGstInternalError	Enable/Disable Retune on GST Error. Default: true
+enableSeekableRange		Enable/Disable Seekable range reporting in progress event for non-fog content. Default: false
+reportVideoPTS 			Enable/Disable video pts reporting in progress events. Default: false
+propagateUriParameters		Enable/Disable top-level manifest URI parameters while downloading fragments.  Default: true
+sslVerifyPeer			Enable/Disable SSL Peer verification for curl connection . Default: false
+setLicenseCaching		Enable/Disable license caching in WV . Default: true
+persistBitrateOverSeek		Enable/Disable ABR profile persistence during Seek/Trickplay/Audio switching. Default: false
+fragmp4LicensePrefetch		Enable/Disable fragment mp4 license prefetching. Default: true
+gstPositionQueryEnable		GStreamer position query will be used for progress report events. Default: true
+playreadyOutputProtection  	Enable/Disable HDCP output protection for DASH-PlayReady playback. Default: false
+enableVideoEndEvent		Enable/Disable Video End event generation; Default: true
+playreadyOutputProtection	Enable/Disable output protection for PlayReady DRM. Default: false
+descriptiveAudioTrack   	Enable/Disable role in audio track selection.syntax <langcode>-<role> instead of just <langcode>. Default: false
+decoderUnavailableStrict	Reports decoder unavailable GST Warning as aamp error. Default: false
+retuneOnBufferingTimeout 	Enable/Disable internal re-tune on buffering time-out. Default: true
+client-dai			Enable/Disable Client-DAI. Default: false
+cdnAdsOnly			Enable/Disable picking Ads from Fog or CDN . Default: false
+appSrcForProgressivePlayback 	Enables appsrc for playing progressive AV type. Default: false
+seekMidFragment			Enable/Disable Mid-Fragment seek. Default: false
+wifiCurlHeader			Enable/Disable wifi custom curl header inclusion. Default: true
+reportBufferEvent		Enables Buffer event reporting. Default: true.
+info            		Enable/Disable logging of requested urls. Default: false
+gst             		Enable/Disable gstreamer logging including pipeline dump. Default: false
 gstlevel                String to set (final) override of gstreamer debug level, e.g. gstlevel=*:3,westeros*:5
-progress        		Enable/Disable periodic logging of position.Default is false
-trace           		Enable/Disable dumps of manifests.Default is false
-curl            		Enable/Disable verbose curl logging for manifest/playlist/segment downloads.Default is false
-curlLicense     		Enable/Disable verbose curl logging for license request (non-secclient).Default is false
-debug           		Enable/Disable debug level logs.Default is false
-logMetadata     		Enable/Disable timed metadata logging.Default is false
-dashParallelFragDownload	Enable/Disable dash fragment parallel download.Default is true
-enableAccessAttributes		Enable/Disable Usage of Access Attributes in VSS.Default is true 
-subtecSubtitle			Enable/Disable subtec-based subtitles.Default is false
-webVttNative			Enable/Disable Native WebVTT processing.Default is false
-failover			Enable/Disable failover logging.Default is false
-curlHeader			Enable/Disable curl header response logging on curl errors.Default is false
-stream				Enable/Disable HLS Playlist content logging.Default is false
-isPreferredDRMConfigured	Check whether preferred DRM has set.Default is false
-limitResolution			Check if display resolution based profile selection to be done.Default is false
-disableUnderflow		Enable/Disable Underflow processing.Default is false
-useAbsoluteTimeline		Enable Report Progress report position based on Availability Start Time.Default is false
-id3				Enable/Disable ID3 tag.Default is false
-repairIframes			Enable/Disable iframe fragment repair (stripping and box adjustment) for HLS mp4 when whole file is received for ranged request. Default is false
-sharedSSL			Enabled/Disable curl shared SSL session. Default is true
-enableLowLatencyDash		Enable/Disable Low Latency Dash. Default is false
-disableLowLatencyMonitor	Enable/Disable Low Latency Monitor. Default is true
-disableLowLatencyABR		Enable/Disable Low Latency ABR. Default is true
-enableLowLatencyCorrection	Enable/Disable Low Latency Correction. Default is false
-enableFogConfig			Enable/Disable setting player configurations to Fog. Default is true
-suppressDecode			Enable/Disable setting to suppress decode of content for playback, only Downloader test. Default is false
+progress        		Enable/Disable periodic logging of position. Default: false
+trace           		Enable/Disable dumps of manifests. Default: false
+curl            		Enable/Disable verbose curl logging for manifest/playlist/segment downloads. Default: false
+curlLicense     		Enable/Disable verbose curl logging for license request (non-secclient). Default: false
+debug           		Enable/Disable debug level logs. Default: false
+logMetadata     		Enable/Disable timed metadata logging. Default: false
+dashParallelFragDownload	Enable/Disable dash fragment parallel download. Default: true
+enableAccessAttributes		Enable/Disable Usage of Access Attributes in VSS. Default: true 
+subtecSubtitle			Enable/Disable subtec-based subtitles. Default: false
+webVttNative			Enable/Disable Native WebVTT processing. Default: false
+failover			Enable/Disable failover logging. Default: false
+curlHeader			Enable/Disable curl header response logging on curl errors. Default: false
+stream				Enable/Disable HLS Playlist content logging. Default: false
+isPreferredDRMConfigured	Check whether preferred DRM has set. Default: false
+limitResolution			Check if display resolution based profile selection to be done. Default: false
+disableUnderflow		Enable/Disable Underflow processing. Default: false
+useAbsoluteTimeline		Enable Report Progress report position based on Availability Start Time. Default: false
+id3				Enable/Disable ID3 tag. Default: false
+repairIframes			Enable/Disable iframe fragment repair (stripping and box adjustment) for HLS mp4 when whole file is received for ranged request. Default: false
+sharedSSL			Enabled/Disable curl shared SSL session. Default: true
+enableLowLatencyDash		Enable/Disable Low Latency Dash. Default: false
+disableLowLatencyMonitor	Enable/Disable Low Latency Monitor. Default: true
+disableLowLatencyABR		Enable/Disable Low Latency ABR. Default: true
+enableLowLatencyCorrection	Enable/Disable Low Latency Correction. Default: false
+enableFogConfig			Enable/Disable setting player configurations to Fog. Default: true
+suppressDecode			Enable/Disable setting to suppress decode of content for playback, only Downloader test. Default: false
 gstSubtecEnabled		Enable/Disable subtec via gstreamer plugins (plugins in gst-plugins-rdk-aamp repo)
 sendLicenseResponseHeaders	Enable/Disable Sending License response header as a part of DRMMetadata event(Non SecClient/SecManager DRM license).
 useTCPServerSink		Enable "tcpserverSink" inconjunction with playbin. For use in automated testing when there is no window for video output
-sendUserAgentInLicense		Enable/disable sending user agent in the DRM license request header. Default disabled.
+sendUserAgentInLicense		Enable/disable sending user agent in the DRM license request header. Default: disabled.
 useSinglePipeline		Enable/Disable using single gstreamer pipeline for main and secondary assets
 earlyProcessing			Enable/Disable processing fragments on download to extract ID3 metadata
 useRialtoSink              Enable/Disable player to use Rialto sink based video and audio pipeline
 
 // Integer inputs
 ptsErrorThreshold		aamp maximum number of back-to-back pts errors to be considered for triggering a retune
-waitTimeBeforeRetryHttp5xx 	Specify the wait time before retry for 5xx http errors. Default wait time is 1s.
+waitTimeBeforeRetryHttp5xx 	Specify the wait time before retry for 5xx http errors. Default: 1s.
 harvestCountLimit		Specify the limit of number of files to be harvested
 harvestDuration			Specify the time limit of files to be harvested in seconds
 harvestConfig			*Specify the value to indicate the type of file to be harvested. Refer table below for masking table 
 bufferHealthMonitorDelay 	Override for buffer health monitor start delay after tune/ seek (in secs)
 bufferHealthMonitorInterval	Override for buffer health monitor interval(in secs)
-abrCacheLife 			Lifetime value for abr cache  for network bandwidth calculation(in msecs.default 5000 msec)
-abrCacheLength  		Length of abr cache for network bandwidth calculation (# of segments . default 3)
-abrCacheOutlier 		Outlier difference which will be ignored from network bandwidth calculation(default 5MB.in bytes)
-abrNwConsistency		Number of checks before profile incr/decr by 1.This is to avoid frequenct profile switching with network change(default 2)
-abrSkipDuration			Minimum duration of fragment to be downloaded before triggering abr (in secs.default 6 sec).
-progressReportingInterval	Interval of progress reporting(in seconds.default is 1 sec)
-licenseRetryWaitTime		License retry wait interval(in msecs.default is 500msec)
-licenseKeyAcquireWaitTime	License key acquire wait time(in msecs.default is 5000msec)
-liveOffset    			live offset time in seconds, aamp starts live playback this much time before the live point.Default 15sec
+abrCacheLife 			Lifetime value (ms) for abr cache  for network bandwidth calculation. Default: 5000ms
+abrCacheLength  		Length of abr cache for network bandwidth calculation (# of segments. Default 3
+abrCacheOutlier 		Outlier difference which will be ignored from network bandwidth calculation. Default: 5MB (in bytes)
+abrNwConsistency		Number of checks before profile incr/decr by 1.This is to avoid frequenct profile switching with network change: Default 2
+abrSkipDuration			Minimum duration of fragment to be downloaded before triggering abr. Default: 6s
+progressReportingInterval	Interval (seconds) for progress reporting(in seconds. Default: 1
+licenseRetryWaitTime		License retry wait (ms) interval. Default: 500
+licenseKeyAcquireWaitTime	License key acquire wait time (ms). Default: 5000
+liveOffset    			live offset time in seconds, Live playback this much time before true live edge. Default: 1
 timeBasedBufferSeconds  time in seconds to buffer ahead of the current gst play position.  setting this value to <=0 disables time based buffering and byte based buffering is used instead.
-cdvrLiveOffset    		live offset time in seconds for cdvr, aamp starts live playback this much time before the live point for inprogress cdvr.Default 30 sec
+cdvrLiveOffset    		live offset time in seconds for cdvr, aamp starts live playback this much time before the live point for inprogress cdvr. Default: 30s
 tuneEventConfig 		Send streamplaying for live/VOD when 
 					0 - playlist acquired 
 					1 - first fragment decrypted
@@ -186,80 +185,79 @@ preferredDrm			Preferred DRM for playback
 ceaFormat			Preferred CEA option for CC. Default stream based . Override value 
 					0 - CEA 608
 					1 - CEA 708
-maxPlaylistCacheSize            Max Size of Cache to store the VOD Manifest/playlist . Size in KBytes.Default is 3072.
-initRampdownLimit		Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time.Default is 0 (disabled).
-downloadBuffer                  Fragment cache length (defaults 3 fragments)
-vodTrickPlayFps		        Specify the framerate for VOD trickplay (defaults to 4)
-linearTrickPlayFps      	Specify the framerate for Linear trickplay (defaults to 8)
-fragmentRetryLimit		Set fragment rampdown/retry limit for video fragment failure (default is -1).
-initRampdownLimit		Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time. Default is 0 (disabled).
-initFragmentRetryCount	    	Max retry attempts for init frag curl timeout failures, default count is 1 (which internally means 1 download attempt and "1 retry attempt after failure").
-langCodePreference		preferred format for normalizing language code.Default is 0.
-initialBuffer			cached duration before playback start, in seconds. Default is 0.
-maxTimeoutForSourceSetup	Timeout value wait for GStreamer appsource setup to complete.default is 1000.
-drmDecryptFailThreshold		Retry count on drm decryption failure, default is 10.
-segmentInjectFailThreshold	Retry count for segment injection discard/failure, default is 10.
-preCachePlaylistTime		Max time to complete PreCaching default is 0 in minutes
-thresholdSizeABR		ABR threshold size. Default 6000.
-stallTimeout			Stall detection timeout. Default is  10sec
-stallErrorCode			Stall error code.Default is  7600
-minABRBufferRampdown		Minimum ABR Buffer for Rampdown.Default is 10sec
-maxABRBufferRampup		Maximum ABR Buffer for Rampup.Default is 15sec
-preplayBuffercount		Count of segments to be downloaded until play state.Default is 2
-downloadDelay			Delay for downloads to simulate network latency.Default is 0
-dashMaxDrmSessions		Max drm sessions that can be cached by AampDRMSessionManager.Default is 3
-log				New Configuration to override info/debug/trace.Default is 0
-livePauseBehavior               Player paused state behavior.Default is 0(ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE)
-latencyMonitorDelay		Low Latency Monitor delay.Default is 5(DEFAULT_LATENCY_MONITOR_DELAY)
-latencyMonitorInterval		Low Latency Monitor Interval.Default is 2(DEFAULT_LATENCY_MONITOR_INTERVAL)
-downloadBufferChunks		Low Latency Fragment chunk cache length (defaults 20 chunks)
-fragmentDownloadFailThreshold	Max retry attempts for non-init fragment curl timeout failures, range 1-10, default is 10.
-fogMaxConcurrentDownloads	Max concurrent download configured to Fog, default is 5
+maxPlaylistCacheSize            Max Size of Cache to store the VOD Manifest/playlist . Size in KBytes. Default: 3072.
+initRampdownLimit		Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time. Default: 0 (disabled).
+downloadBuffer                  Fragment cache length: Default 3 fragments
+vodTrickPlayFps		        Specify the framerate for VOD trickplay. Default: 4
+linearTrickPlayFps      	Specify the framerate for Linear trickplay. Default: 8
+fragmentRetryLimit		Set fragment rampdown/retry limit for video fragment failure. Default: -1
+initRampdownLimit		Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time. Default: 0 (disabled).
+initFragmentRetryCount	    	Max retry attempts for init frag curl timeout failures. Default: 1 (extra retry after failed download)
+langCodePreference		preferred format for normalizing language code. Default: 0
+initialBuffer			cached duration before playback start, in seconds. Default: 0
+maxTimeoutForSourceSetup	Timeout value wait for GStreamer appsource setup to complete. Default: 1000
+drmDecryptFailThreshold		Retry count on drm decryption failure. Default: 10
+segmentInjectFailThreshold	Retry count for segment injection discard/failure. Default: 10
+preCachePlaylistTime		Max time to complete PreCaching. Default: 0min
+thresholdSizeABR		ABR threshold size. Default: 6000
+stallTimeout			Stall detection timeout. Default: 10s
+stallErrorCode			Stall error code. Default: 7600
+minABRBufferRampdown		Minimum ABR Buffer for Rampdown. Default: 10s
+maxABRBufferRampup		Maximum ABR Buffer for Rampup. Default: 15s
+preplayBuffercount		Count of segments to be downloaded until play state. Default: 2
+downloadDelay			Delay for downloads to simulate network latency. Default: 0
+dashMaxDrmSessions		Max drm sessions that can be cached by AampDRMSessionManager. Default; 3
+log				New Configuration to override info/debug/trace. Default: 0
+livePauseBehavior               Player paused state behavior. Default is 0(ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE)
+latencyMonitorDelay		Low Latency Monitor delay. Default is 5(DEFAULT_LATENCY_MONITOR_DELAY)
+latencyMonitorInterval		Low Latency Monitor Interval. Default is 2(DEFAULT_LATENCY_MONITOR_INTERVAL)
+downloadBufferChunks		Low Latency Fragment chunk cache length. Defaults is 20
+fragmentDownloadFailThreshold	Max retry attempts for non-init fragment curl timeout failures, range 1-10, Default is 10.
+fogMaxConcurrentDownloads	Max concurrent download configured to Fog, Default is 5
 TCPServerSinkPort   		See useTCPServerSink. Port number for video, audio will be video+1
-drmNetworkTimeout		Curl Download Timeout for DRM in seconds ,default is 5 sec
-drmStallTimeout			Timeout value for detection curl download stall for DRM in second,default is 0.
-drmStartTimeout            	Timeout value for curl download to start for DRM after connect in seconds,default is 0.			
-connectTimeout			Curl socket connection timeout for fragment/playlist/manifest downloads. Default is 3 seconds
-dnsCacheTimeout			life-time for DNS cache entries ,Name resolve results are cached for manifest and used for this number of seconds,default is 180 seconds
-telemetryInterval		Time interval for the telemetry reporting in seconds. Default is 300 seconds.Telemetry is disabled if set to 0
-subtitleClockSyncInterval   Time interval for synchronizing the clock with subtitle module. Default of 30 seconds
-preferredAbsoluteReporting	User preferred absolute progress reporting format, Default eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START
+drmNetworkTimeout		Curl Download Timeout for DRM in seconds. Default: 5s
+drmStallTimeout			Timeout value for detection curl download stall for DRM in second. Default: 0s
+drmStartTimeout            	Timeout value for curl download to start for DRM after connect in seconds. Default: 0s
+connectTimeout			Curl socket connection timeout for fragment/playlist/manifest downloads. Default: 3s
+dnsCacheTimeout			life-time for DNS cache entries ,Name resolve results are cached for manifest and used for this number of seconds. Default: 180s
+telemetryInterval		Time interval for the telemetry reporting in seconds. Telemetry is disabled if set to 0. Default: 300 seconds.
+subtitleClockSyncInterval   Time interval for synchronizing the clock with subtitle module. Default: 30s
+preferredAbsoluteReporting	User preferred absolute progress reporting format, Default: eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START
 EOSInjectionMode		replaces enableEOSInjectionDuringStop
 					0 - Old behaviour - EOS is injected at the end of asset and on discontinuity only.
 					1 - EOS is injected during stop in addition to the old behaviour.
 
 // String inputs
 licenseServerUrl		URL to be used for license requests for encrypted(PR/WV) assets
-mapMPD				<domain / host to map> Remap HLS playback url to DASH url for matching domain/host string (.m3u8 to .mpd) mapM3U8				<domain / host to map> Remap DASH MPD playback url to HLS m3u8 url for matching domain/host string (.mpd to .m3u8)
 harvestPath			Specify the path where fragments has to be harvested,check folder permissions specifying the path
-networkProxy			proxy address to set for all file downloads. Default None  
-licenseProxy			proxy address to set for license fetch . Default None
-AuthToken			SessionToken string to override from Application . Default None
-userAgent			Curl user-agent string.Default is {Mozilla/5.0 (Linux; x86_64 GNU/Linux) AppleWebKit/601.1 (KHTML, like Gecko) Version/8.0 Safari/601.1 WPE}
-customHeader			custom header data to be appended to curl request. Default None
-uriParameter			uri parameter data to be appended on download-url during curl request. Default None
-preferredSubtitleLanguage	User preferred subtitle language.Default is None
-ckLicenseServerUrl		ClearKey License server URL.Default is None
-prLicenseServerUrl		PlayReady License server URL.Default is None
-wvLicenseServerUrl		Widevine License server URL.Default is None
-customHeaderLicense             custom header data to be appended to curl License request. Default None
+networkProxy			proxy address to set for all file downloads. Default: None  
+licenseProxy			proxy address to set for license fetch. Default: None
+AuthToken			SessionToken string to override from Application. Default: None
+userAgent			Curl user-agent string. Default: {Mozilla/5.0 (Linux; x86_64 GNU/Linux) AppleWebKit/601.1 (KHTML, like Gecko) Version/8.0 Safari/601.1 WPE}
+customHeader			custom header data to be appended to curl request. Default: None
+uriParameter			uri parameter data to be appended on download-url during curl request. Default: None
+preferredSubtitleLanguage	User preferred subtitle language. Default: None
+ckLicenseServerUrl		ClearKey License server URL. Default: None
+prLicenseServerUrl		PlayReady License server URL. Default: None
+wvLicenseServerUrl		Widevine License server URL. Default: None
+customHeaderLicense             custom header data to be appended to curl License request. Default: None
 
-// Long inputs
-minBitrate			Set minimum bitrate filter for playback profiles, default is 0.
-maxBitrate			Set maximum bitrate filter for playback profiles, default is LONG_MAX.
-downloadStallTimeout		Timeout value for detection curl download stall in second,default is 0.
-downloadStartTimeout		Timeout value for curl download to start after connect in seconds,default is 0.
-discontinuityTimeout		Value in MS after which AAMP will try recovery for discontinuity stall, after detecting empty buffer, 0 will disable the feature, default 3000.
-InitialBitrate			Default bitrate.Default is 2500000
-InitialBitrate4K		Default 4K bitrateDefault is 13000000
-iframeDefaultBitrate		Default bitrate for iframe track selection for non-4K assets.Default is 0
-iframeDefaultBitrate4K		Default bitrate for iframe track selection for 4K assets.Default is 0
+// Long input
+minBitrate			Set minimum bitrate filter for playback profiles. Default: 0.
+maxBitrate			Set maximum bitrate filter for playback profiles. Default: LONG_MAX.
+downloadStallTimeout		Timeout value for detection curl download stall in seconds. Default: 0s
+downloadStartTimeout		Timeout value for curl download to start after connect in seconds. Default: 0s.
+discontinuityTimeout		Value in MS after which AAMP will try recovery for discontinuity stall, after detecting empty buffer, 0 will disable the feature. Default: 3000
+InitialBitrate			Default bitrate. Default: 2500000
+InitialBitrate4K		Default 4K bitrate. Default: 13000000
+iframeDefaultBitrate		Default bitrate for iframe track selection for non-4K assets. Default: 0
+iframeDefaultBitrate4K		Default bitrate for iframe track selection for 4K assets. Default: 0
 
 
 // Double inputs
-networkTimeout			Specify download time out in seconds, default is 10 seconds.
-manifestTimeout			Specify manifest download time out in seconds, default is 10 seconds.
-playlistTimeout			Playlist download time out in sec.Default is 10 seconds.
+networkTimeout			Specify download time out in seconds. Default: 10s
+manifestTimeout			Specify manifest download time out in seconds. Default: 10s
+playlistTimeout			Playlist download time out in sec. Default: 10s
 
 *File Harvest Config :
     By default aamp will dump all the type of data, set 0 for disabling harvest

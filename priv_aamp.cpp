@@ -6134,41 +6134,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	if( !remapUrl )
 	{
-		std::string mapMPDStr, mapM3U8Str;
-		mapMPDStr = GETCONFIGVALUE_PRIV(eAAMPConfig_MapMPD);
-		mapM3U8Str = GETCONFIGVALUE_PRIV(eAAMPConfig_MapM3U8);
-		if (!mapMPDStr.empty() && mMediaFormat == eMEDIAFORMAT_HLS && (mContentType != ContentType_EAS)) //Don't map, if it is dash and dont map if it is EAS
-		{
-			std::string hostName = aamp_getHostFromURL(mManifestUrl);
-			if((hostName.find(mapMPDStr) != std::string::npos) || (mTSBEnabled && mManifestUrl.find(mapMPDStr) != std::string::npos))
-			{
-				replace(mManifestUrl, ".m3u8", ".mpd");
-				mMediaFormat = eMEDIAFORMAT_DASH;
-			}
-		}
-		else if (!mapM3U8Str.empty() && mMediaFormat == eMEDIAFORMAT_DASH)
-		{
-			std::string hostName = aamp_getHostFromURL(mManifestUrl);
-			if((hostName.find(mapM3U8Str) != std::string::npos) || (mTSBEnabled && mManifestUrl.find(mapM3U8Str) != std::string::npos))
-			{
-				replace(mManifestUrl, ".mpd" , ".m3u8");
-				mMediaFormat = eMEDIAFORMAT_HLS;
-			}
-		}
 		//DELIA-47890 Fog can be disable by  having option fog=0 option in aamp.cfg,based on  that gpGlobalConfig->noFog is updated
 		//Removed variable gpGlobalConfig->fogSupportsDash as it has similar usage
 		if(!ISCONFIGSET_PRIV(eAAMPConfig_Fog))
 		{
 			DeFog(mManifestUrl);
-		}
-
-		if (ISCONFIGSET_PRIV(eAAMPConfig_ForceEC3))
-		{
-			replace(mManifestUrl,".m3u8", "-eac3.m3u8");
-		}
-		if (ISCONFIGSET_PRIV(eAAMPConfig_DisableEC3))
-		{
-			replace(mManifestUrl, "-eac3.m3u8", ".m3u8");
 		}
 
 		if(ISCONFIGSET_PRIV(eAAMPConfig_ForceHttp))
@@ -13163,7 +13133,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	jsondata.add("maxConcurrentDownloads", (long)(maxdownload));
 
 	//disableEC3
-	jsondata.add("disableEC3", ISCONFIGSET_PRIV(eAAMPConfig_DisableEC3));
+	//jsondata.add("disableEC3", ISCONFIGSET_PRIV(eAAMPConfig_DisableEC3));
 
 	//disableATMOS
 	jsondata.add("disableATMOS", ISCONFIGSET_PRIV(eAAMPConfig_DisableATMOS));

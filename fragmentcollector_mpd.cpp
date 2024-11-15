@@ -5652,7 +5652,7 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 			unsigned int selRepBandwidth = 0;
 			bool disableATMOS = ISCONFIGSET(eAAMPConfig_DisableATMOS);
 			bool disableEC3 = ISCONFIGSET(eAAMPConfig_DisableEC3);
-			bool disableAC4 = ISCONFIGSET(eAAMPConfig_DisableAC4); 
+			bool disableAC4 = ISCONFIGSET(eAAMPConfig_DisableAC4);
 			bool disableAC3 = ISCONFIGSET(eAAMPConfig_DisableAC3); 
 
 			int audioRepresentationIndex = -1;
@@ -8748,7 +8748,7 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 									AudioType selectedAudioType = eAUDIO_UNKNOWN;
 									uint32_t selectedRepBandwidth = 0;									
 									bool disableATMOS = ISCONFIGSET(eAAMPConfig_DisableATMOS);
-									bool disableEC3 = ISCONFIGSET(eAAMPConfig_DisableEC3);
+									bool disableEC3 = false;//ISCONFIGSET(eAAMPConfig_DisableEC3);
 									bool disableAC4 = ISCONFIGSET(eAAMPConfig_DisableAC4);
 									bool disableAC3 = ISCONFIGSET(eAAMPConfig_DisableAC3);
 									bool disabled = false;

@@ -100,11 +100,10 @@ typedef enum
 	eAAMPConfig_PreservePipeline,						/**< Flush instead of teardown*/
 	eAAMPConfig_Throttle,							/**< Regulate output data flow*/
 	eAAMPConfig_DemuxAudioBeforeVideo,					/**< Demux video track from HLS transport stream track mode*/
-	eAAMPConfig_ForceEC3,							/**< Forcefully enable DDPlus*/
 	eAAMPConfig_DisableEC3, 						/**< Disable DDPlus*/
 	eAAMPConfig_DisableATMOS,						/**< Disable Dolby ATMOS*/
 	eAAMPConfig_DisableAC4,							/**< Disable AC4 Audio */
-	eAAMPConfig_StereoOnly,							/**< Enable Stereo Only playback, disables EC3/ATMOS. Overrides ForceEC3 */
+	eAAMPConfig_StereoOnly,							/**< Enable Stereo Only playback, disables EC3/ATMOS.  */
 	eAAMPConfig_DescriptiveTrackName,					/**< Enable Descriptive track name*/
 	eAAMPConfig_DisableAC3,							/**< Disable AC3 Audio */
 	eAAMPConfig_DisablePlaylistIndexEvent,					/**< Disable playlist index event*/
@@ -342,8 +341,6 @@ typedef enum
 
 typedef enum
 {
-	eAAMPConfig_MapMPD, 							/**< host name in url for which hls to mpd mapping done'*/
-	eAAMPConfig_MapM3U8,							/**< host name in url for which mpd to hls mapping done'*/
 	eAAMPConfig_HarvestPath,						/**< Path to store Harvested files */
 	eAAMPConfig_LicenseServerUrl,						/**< License server URL ( if no individual configuration */
 	eAAMPConfig_CKLicenseServerUrl,						/**< ClearKey License server URL*/
