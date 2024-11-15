@@ -5437,36 +5437,83 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(AampMediaType mediaType, GstClo
 /**
  * @fn SignalSubtitleClock
  * @brief Signal the new clock to subtitle module
+ * @return - true indicating successful operation in sending the clock update
  */
-void AAMPGstPlayer::SignalSubtitleClock()
+bool AAMPGstPlayer::SignalSubtitleClock()
 {
-	AAMPLOG_TRACE("Enter SignalSubtitleClock");
+	//AAMPLOG_TRACE("Enter SignalSubtitleClock");
+	bool signalSent=false;
 	media_stream* stream = &privateContext->stream[eMEDIATYPE_SUBTITLE];
-	if ((stream->format != FORMAT_INVALID) && (stream->source != NULL))
+	if ( stream && (stream->format != FORMAT_INVALID) )
 	{
-		GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");	/* Retrieves the src pad */
-		gint64 videoPTS = aamp->GetVideoPTS();
-		if (videoPTS > 0)
+		if (!stream->source)
 		{
-			//GetVideoPTS returns PTS in 90KHz clock, convert it to nanoseconds for max precision
-			GstClockTime pts = ((double)videoPTS / 90000.0) * GST_SECOND;
-			AAMPLOG_INFO("Got VideoPTS: %" G_GINT64_FORMAT " and converted pts: %" G_GUINT64_FORMAT "", videoPTS, pts);
-			GstStructure * eventStruct = gst_structure_new("sub_clock_sync", "current-pts", G_TYPE_UINT64, pts, NULL);
-			if (!gst_pad_push_event(sourceEleSrcPad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, eventStruct)))
-			{
-				AAMPLOG_ERR("Error on sending sub_clock_sync event");
-			}
-			else
-			{
-				AAMPLOG_DEBUG("Send sub_clock_sync event");
-			}
+			AAMPLOG_ERR("subtitle appsrc is NULL");
+		}
+		else if (!GST_IS_APP_SRC(stream->source))
+		{
+			AAMPLOG_ERR("subtitle appsrc is invalid");
 		}
 		else
 		{
-			AAMPLOG_ERR("Got invalid video PTS: %" G_GINT64_FORMAT "", videoPTS);
+			//Check if pipeline is in playing/paused state.
+			GstState current, pending;
+			GstStateChangeReturn ret;
+			ret = gst_element_get_state(privateContext->pipeline, &current, &pending, 0);
+			bool underflowState=aamp->GetBufUnderFlowStatus();		
+			if ( (current == GST_STATE_PLAYING) && (ret != GST_STATE_CHANGE_FAILURE) && (underflowState != true) )
+			{
+				GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");	/* Retrieves the src pad */
+				if (sourceEleSrcPad != NULL)
+				{
+					gint64 videoPTS = aamp->GetVideoPTS();
+					if (videoPTS > 0)
+					{
+						//GetVideoPTS returns PTS in 90KHz clock, convert it to nanoseconds for max precision
+						GstClockTime pts = ((double)videoPTS / 90000.0) * GST_SECOND;						
+						GstStructure * eventStruct = gst_structure_new("sub_clock_sync", "current-pts", G_TYPE_UINT64, pts, NULL);
+						if (!gst_pad_push_event(sourceEleSrcPad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, eventStruct)))
+						{
+							AAMPLOG_ERR("Error on sending sub_clock_sync event");
+							AAMPLOG_ERR("Got VideoPTS: %" G_GINT64_FORMAT " and converted pts: %" G_GUINT64_FORMAT " , state = %d, pending = %d", videoPTS, pts, current, pending);
+						}
+						else
+						{							
+							AAMPLOG_WARN("Sent sub_clock_sync event, pts = %" G_GUINT64_FORMAT ", pts from sink was %" G_GUINT64_FORMAT "", pts, videoPTS);
+							signalSent=true;
+						}
+					}
+					else
+					{
+						AAMPLOG_INFO("Got invalid video PTS: %" G_GINT64_FORMAT ". Clock not sent.", videoPTS);
+					}
+					gst_object_unref(sourceEleSrcPad);
+				}
+				else
+				{
+					AAMPLOG_ERR("sourceEleSrcPad is NULL. Failed to send subtec clock event");
+				}
+			}
+			else
+			{
+				AAMPLOG_TRACE("Not sending clock event in non-play state to avoid gstreamer lockup, state = %d, pending = %d, underflow = %d.",
+					current, pending, underflowState);
+			}
 		}
-		gst_object_unref(sourceEleSrcPad);
 	}
+	else
+	{
+		if (stream)
+		{		
+			AAMPLOG_WARN("Invalid stream->format = %d)", stream->format);
+		}
+		else
+		{
+			AAMPLOG_ERR("stream invalid)");
+		}
+	}
+	//AAMPLOG_TRACE("Exit SignalSubtitleClock");
+	return signalSent;
 }
 
 void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlData &data) const

@@ -1321,8 +1321,9 @@ long long PrivateInstanceAAMP::GetVideoPTS()
 	return 0;
 }
 
-void PrivateInstanceAAMP::SignalSubtitleClock()
+bool PrivateInstanceAAMP::SignalSubtitleClock()
 {
+	return false;
 }
 
 int PrivateInstanceAAMP::ScheduleAsyncTask(IdleTask task, void *arg, std::string taskName)

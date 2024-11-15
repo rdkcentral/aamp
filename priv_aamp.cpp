@@ -13522,41 +13522,34 @@ bool PrivateInstanceAAMP::IsGstreamerSubsEnabled(void)
 /**
  * @brief Signal the clock to subtitle module
  */
-void PrivateInstanceAAMP::SignalSubtitleClock()
+bool PrivateInstanceAAMP::SignalSubtitleClock()
 {
-	bool doSync = false;
+	bool success = false;
 	// Sent clock only if subtitle track injection is unblocked. otherwise this instance might be detached/flushed
 	if (!mTrackInjectionBlocked[eTRACK_SUBTITLE] && !pipeline_paused)
 	{
-		if (m_lastSubClockSyncTime.time_since_epoch().count() == 0)
+		if (IsGstreamerSubsEnabled())
 		{
-			m_lastSubClockSyncTime = std::chrono::system_clock::now();
-		}
-		else
-		{
-			// Interval expired
-			uint64_t elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - m_lastSubClockSyncTime).count();
-			if (elapsedTime > GETCONFIGVALUE_PRIV(eAAMPConfig_SubtitleClockSyncInterval))
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if(sink)
 			{
-				AAMPLOG_INFO("Timer expired, signalling clock to subtitle module");
-				doSync = true;
-				// Update the timestamp
-				m_lastSubClockSyncTime = std::chrono::system_clock::now();
-			}
-		}
-		if (doSync)
-		{
-			if (IsGstreamerSubsEnabled())
-			{
-				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-				if(sink)
+				if (sink->SignalSubtitleClock())
 				{
-					sink->SignalSubtitleClock();
+					success=true;
 				}
+				else
+				{
+					AAMPLOG_TRACE("Failed to update the subtitle clock");
+				};
 			}
-			// TODO: Implement for subtitle parser. It looks like subtitle parser is using position instead of pts
 		}
+		// TODO: Implement for subtitle parser. It looks like subtitle parser is using position instead of pts
 	}
+	else
+	{
+		AAMPLOG_TRACE("Skipped - mTrackInjectionBlocked=%d, pipeline_paused=%d", mTrackInjectionBlocked[eTRACK_SUBTITLE], pipeline_paused);
+	}
+	return success;
 }
 
 long long PrivateInstanceAAMP::GetVideoPTS()

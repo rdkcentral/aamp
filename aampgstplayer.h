@@ -479,8 +479,9 @@ public:
 	/**
 	 * @fn SignalSubtitleClock
 	 * @brief Signal the new clock to subtitle module
+	 * @return - true indicating successful operation in sending the clock update
 	 */
-	void SignalSubtitleClock() override;
+	bool SignalSubtitleClock() override;
 
 /**
 	 * @fn GetBufferControlData

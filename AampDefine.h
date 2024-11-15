@@ -132,7 +132,9 @@
 #define MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (500) // 500mSec
 #define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
 #define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) /**< time interval for the telemetry reporting 300sec*/
-#define DEFAULT_SUBTITLE_CLOCK_SYNC_INTERVAL (30) /**< default time interval for the subtitle clock sync 30sec*/
+#define INITIAL_SUBTITLE_CLOCK_SYNC_INTERVAL_MS (500)     /**< default time interval for the subtitle clock sync 500ms*/
+#define DEFAULT_SUBTITLE_CLOCK_SYNC_INTERVAL    (30)      /**< default time interval for the subtitle clock sync 30sec*/
+#define SUBTITLE_CLOCK_ASSUMED_PLAYSTATE_TIME_MS (20000) /**< period after channel change/seek where we try to sync the subtitle clock quickly, before giving up and falling to slower rate */
 
 // the +1 is used to compensate for internal use originally being a > check, now >=
 #if defined(REALTEKCE)

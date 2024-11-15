@@ -214,15 +214,6 @@ void MediaTrack::MonitorBufferHealth()
 				}
 
 			}
-
-			// At the moment this looks like a nice place to signal clock to subtec
-			// There is no added delay expected in this operation. Fetch PTS, send to Subtec
-			// Enable clock sync when mediaprocessor is enabled. For QTDEMUX_OVERRIDE_ENABLED platforms, video pts received from GST is relative from playback start,
-			// so we need mediaprocessor to set the base video pts so that correct pts can be signalled to subtec
-			if (type == eTRACK_SUBTITLE && enabled && aamp->IsGstreamerSubsEnabled() && ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
-			{
-				aamp->SignalSubtitleClock();
-			}
 		}
 		else
 		{
@@ -230,6 +221,112 @@ void MediaTrack::MonitorBufferHealth()
 		}
 		pthread_mutex_unlock(&mutex);
 	}
+}
+
+
+/**
+ * @brief Task to Signal the clock to subtitle module
+ */
+void MediaTrack::UpdateSubtitleClockTask()
+{
+	// Update subtitle clock periodically until downloads are stopped or we're told to abort, starting at a faster rate until we get the first successful update so subtitles are not delayed/out of sync
+	const int subtitleClockSyncIntervalMs = GETCONFIGVALUE(eAAMPConfig_SubtitleClockSyncInterval)*1000;	// rate in ms once we get first successful sync
+	int fastMonitorIntervalMs = INITIAL_SUBTITLE_CLOCK_SYNC_INTERVAL_MS;					// rate until we get first successful sync or give up
+	if (fastMonitorIntervalMs>subtitleClockSyncIntervalMs)
+	{
+		fastMonitorIntervalMs=subtitleClockSyncIntervalMs;
+	}
+	// make faster retries to sync the clock until it has failed for atleast this time (e.g. 20s)
+	int warningTimeoutMs=SUBTITLE_CLOCK_ASSUMED_PLAYSTATE_TIME_MS;
+	if (warningTimeoutMs<=fastMonitorIntervalMs*5)
+	{
+		warningTimeoutMs=fastMonitorIntervalMs*5;
+		AAMPLOG_WARN("Adjusting initial startup timeout from %d to %d", SUBTITLE_CLOCK_ASSUMED_PLAYSTATE_TIME_MS, warningTimeoutMs);		
+	}
+	
+	bool playbackStarted = false;
+	int monitorIntervalMs = fastMonitorIntervalMs;
+	int timeSinceValidUpdateMs = 0;
+	bool keepRunning=(!abort && aamp->DownloadsAreEnabled());
+
+	AAMPLOG_WARN("Starting UpdateSubtitleClockTask. DownloadsAreEnabled=%d, abort=%d, subtitleClockSyncIntervalMs=%d, fastMonitorIntervalMs=%d, warningTimeoutMs=%d",
+		aamp->DownloadsAreEnabled(), abort, subtitleClockSyncIntervalMs, fastMonitorIntervalMs, warningTimeoutMs);
+
+	while(keepRunning)
+	{
+		pthread_mutex_lock(&mutex);
+		if (aamp->DownloadsAreEnabled() && !abort)
+		{			
+			// Fetch PTS, send to Subtec
+			// Enable clock sync when mediaprocessor is enabled. For QTDEMUX_OVERRIDE_ENABLED platforms, video pts received from GST is relative from playback start,
+			// so we need mediaprocessor to set the base video pts so that correct pts can be signalled to subtec			
+			if (enabled && aamp->IsGstreamerSubsEnabled() && ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
+			{
+				// Note: This will fail if pipeline is not in play state, we have underflow, or if video pts is still returning 0 just after we entered play state
+				if (aamp->SignalSubtitleClock())
+				{
+					if (!playbackStarted)
+					{
+						// Slow down the update rate now it's first sync'd after we enter play state
+						AAMPLOG_WARN("First subtitle clock update successful. Switching to slow update rate (%d) after %d ms", subtitleClockSyncIntervalMs, timeSinceValidUpdateMs);
+						playbackStarted=true;
+					}
+					monitorIntervalMs=subtitleClockSyncIntervalMs;
+					timeSinceValidUpdateMs=0;
+				}
+				else
+				{
+					if( (!playbackStarted) && (timeSinceValidUpdateMs<warningTimeoutMs) )
+					{
+						// Underflow/paused/pts not ready/injection blocked?
+						if (!aamp->pipeline_paused)
+						{
+							AAMPLOG_DEBUG("Subtitle clock update failed during startup; paused=%d, timetimeSinceValidUpdateMs=%d ms. We will retry.",
+							aamp->pipeline_paused, timeSinceValidUpdateMs);
+						}
+					}
+					else
+					{
+						if (!aamp->pipeline_paused)
+						{
+							AAMPLOG_WARN("Subtitle clock failed unexpectedly; playbackStarted=%d, timeSinceValidUpdateMs=%d ms, paused=%d, mTrackInjectionBlocked. Underflow/paused/injection blocked?",
+								playbackStarted, timeSinceValidUpdateMs, aamp->pipeline_paused);
+							if ((timeSinceValidUpdateMs<warningTimeoutMs) && (monitorIntervalMs!=fastMonitorIntervalMs) )
+							{
+								AAMPLOG_WARN("Something has gone wrong after playback started. Switching to faster refresh rate (%d) after %d ms", subtitleClockSyncIntervalMs, timeSinceValidUpdateMs);
+								monitorIntervalMs = fastMonitorIntervalMs;
+							}
+							if ((timeSinceValidUpdateMs>=warningTimeoutMs) && (monitorIntervalMs!=subtitleClockSyncIntervalMs))
+							{
+								AAMPLOG_WARN("Clock sync taking too long. Switching to low refresh rate (%d) after %d ms. Subtitles sync may be bad until next refresh interval.",
+									subtitleClockSyncIntervalMs, timeSinceValidUpdateMs);
+								monitorIntervalMs = subtitleClockSyncIntervalMs;
+							}
+						}
+						else
+						{
+							AAMPLOG_TRACE("Subtitle clock failure due to pause state. No action taken; playbackStarted=%d, timeSinceValidUpdateMs=%d ms, mTrackInjectionBlocked.",
+								playbackStarted, timeSinceValidUpdateMs );
+						}
+					}
+				}
+			}
+			else
+			{
+				AAMPLOG_WARN("Subtitles are not active. No clock update. Switching to low refresh rate. enabled=%d, aamp->IsGstreamerSubsEnabled()=%d, eAAMPConfig_EnableMediaProcessor=%d",
+					enabled, aamp->IsGstreamerSubsEnabled(), ISCONFIGSET(eAAMPConfig_EnableMediaProcessor));
+				monitorIntervalMs = subtitleClockSyncIntervalMs;
+			}
+		}
+		else
+		{
+			keepRunning = false;
+		}
+		pthread_mutex_unlock(&mutex);
+		aamp->InterruptableMsSleep(monitorIntervalMs);
+		timeSinceValidUpdateMs+=monitorIntervalMs;
+	}
+	AAMPLOG_WARN("Exiting UpdateSubtitleClockTask. DownloadsAreEnabled=%d, abort=%d, keepRunning=%d", aamp->DownloadsAreEnabled(), abort, keepRunning);
 }
 
 /**
@@ -1596,18 +1693,35 @@ void MediaTrack::RunInjectLoop()
 	bool keepInjecting = true;
 	bool  lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
 	StreamAbstractionAAMP* pContext = GetContext();
-	if ((AAMP_NORMAL_PLAY_RATE == aamp->rate) && !bufferMonitorThreadStarted && !bufferMonitorThreadDisabled)
+	if ((AAMP_NORMAL_PLAY_RATE == aamp->rate) )
 	{
-		try
+		if (!bufferMonitorThreadDisabled && !bufferMonitorThreadStarted)
 		{
-			bufferMonitorThreadID = std::thread(&MediaTrack::MonitorBufferHealth, this);
-			bufferMonitorThreadStarted = true;
-			AAMPLOG_INFO("Thread created for MonitorBufferHealth [%zx]", GetPrintableThreadID(bufferMonitorThreadID));
+			try
+			{
+				bufferMonitorThreadID = std::thread(&MediaTrack::MonitorBufferHealth, this);
+				bufferMonitorThreadStarted = true;
+				AAMPLOG_INFO("Thread created for MonitorBufferHealth [%zx]", GetPrintableThreadID(bufferMonitorThreadID));
 
+			}
+			catch(const std::exception& e)
+			{
+				AAMPLOG_WARN("Failed to create BufferHealthMonitor thread: %s", e.what());
+			}
 		}
-		catch(const std::exception& e)
+		if ((type == eTRACK_SUBTITLE) && ( !UpdateSubtitleClockTaskStarted ) && aamp->IsGstreamerSubsEnabled() && ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
 		{
-			AAMPLOG_WARN("Failed to create BufferHealthMonitor thread: %s", e.what());
+			try
+			{
+				subtitleClockThreadID = std::thread(&MediaTrack::UpdateSubtitleClockTask, this);
+				UpdateSubtitleClockTaskStarted = true;
+				AAMPLOG_INFO("Thread created for UpdateSubtitleClockTask [%zx]", GetPrintableThreadID(subtitleClockThreadID));
+
+			}
+			catch(const std::exception& e)
+			{
+				AAMPLOG_WARN("Failed to create UpdateSubtitleClockTask thread: %s", e.what());
+			}
 		}
 	}
 	totalInjectedDuration = 0;
@@ -1844,8 +1958,8 @@ void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInje
  */
 MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) :
 		eosReached(false), enabled(false), numberOfFragmentsCached(0), numberOfFragmentChunksCached(0), fragmentIdxToInject(0), fragmentChunkIdxToInject(0),
-		fragmentIdxToFetch(0), fragmentChunkIdxToFetch(0), abort(false), fragmentInjectorThreadID(), fragmentChunkInjectorThreadID(),bufferMonitorThreadID(), totalFragmentsDownloaded(0), totalFragmentChunksDownloaded(0),
-		fragmentInjectorThreadStarted(false), fragmentChunkInjectorThreadStarted(false),bufferMonitorThreadStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
+		fragmentIdxToFetch(0), fragmentChunkIdxToFetch(0), abort(false), fragmentInjectorThreadID(), fragmentChunkInjectorThreadID(),bufferMonitorThreadID(), subtitleClockThreadID(), totalFragmentsDownloaded(0), totalFragmentChunksDownloaded(0),
+		fragmentInjectorThreadStarted(false), fragmentChunkInjectorThreadStarted(false),bufferMonitorThreadStarted(false), UpdateSubtitleClockTaskStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
 		sinkBufferIsFull(false), cachingCompleted(false), fragmentDurationSeconds(0),  segDLFailCount(0),segDrmDecryptFailCount(0),mSegInjectFailCount(0),
 		bufferStatus(BUFFER_STATUS_GREEN), prevBufferStatus(BUFFER_STATUS_GREEN),
 		bandwidthBitsPerSecond(0), totalFetchedDuration(0),
@@ -1908,7 +2022,23 @@ MediaTrack::~MediaTrack()
 		}
 #endif
 	}
-
+	if ((UpdateSubtitleClockTaskStarted) && (type == eTRACK_SUBTITLE))
+	{
+#ifdef TRACE
+		AAMPLOG_WARN("joining subtitleClockThreadID for UpdateSubtitleClockTask");
+#endif
+		if (subtitleClockThreadID.joinable())
+		{
+			subtitleClockThreadID.join();
+#ifdef TRACE
+			AAMPLOG_WARN("joined subtitleClockThreadID for UpdateSubtitleClockTask");
+#endif
+		}
+		else
+		{
+			AAMPLOG_ERR("Unable to join subtitleClockThreadID for UpdateSubtitleClockTask!");
+		}
+	}
 	if (fragmentInjectorThreadStarted)
 	{
 		// DELIA-45035: For debugging purpose

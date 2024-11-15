@@ -230,8 +230,9 @@ void AAMPGstPlayer::FlushTrack(AampMediaType mediaType,double pos)
 {
 }
 
-void AAMPGstPlayer::SignalSubtitleClock()
+bool AAMPGstPlayer::SignalSubtitleClock()
 {
+	return false;
 }
 
 bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)

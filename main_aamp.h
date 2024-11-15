@@ -724,8 +724,9 @@ public:
 
 	/**
 	 * @brief Signal the new clock to subtitle module
+	 * @return - true indicating successful operation in sending the clock update
 	 */
-	virtual void SignalSubtitleClock() {};
+	virtual bool SignalSubtitleClock() { return false; };
 
 	/**
 	 * @fn SetPauseOnPlayback
