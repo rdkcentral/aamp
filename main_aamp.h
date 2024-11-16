@@ -742,7 +742,15 @@ public:
  */
 class PlayerInstanceAAMP 
 {
+public: // FIXME: this should be private, but some tests access it
+	class PrivateInstanceAAMP *aamp;  		  /**< AAMP player's private instance */
+
+private:
+	std::shared_ptr<PrivateInstanceAAMP> sp_aamp; 	  /**< shared pointer for aamp resource */
+	
 public:
+	AampConfig mConfig;
+	
 	/**
 	 *   @fn PlayerInstanceAAMP
 	 *
@@ -1264,6 +1272,7 @@ public:
 	 *  @return returns unique id of player,
 	 */
 	int GetId(void);
+	void SetId( int iPlayerId );
 
 
 	/**
@@ -2069,12 +2078,6 @@ public:
 	 */
 	bool IsOOBCCRenderingSupported();
 
-
-	class PrivateInstanceAAMP *aamp;  		  /**< AAMP player's private instance */
-	std::shared_ptr<PrivateInstanceAAMP> sp_aamp; 	  /**< shared pointer for aamp resource */
-
-	AampConfig mConfig;
-	
 	/**
 	 *   @fn GetPlaybackStats
          *

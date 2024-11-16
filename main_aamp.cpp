@@ -1997,17 +1997,23 @@ double PlayerInstanceAAMP::GetPlaybackDuration()
  *
  *  @return returns unique id of player,
  */
- int PlayerInstanceAAMP::GetId(void)
- {
-	 int iPlayerId = -1;
+int PlayerInstanceAAMP::GetId(void)
+{
+	int iPlayerId = -1;
+	if(NULL != aamp)
+	{
+		iPlayerId = aamp->mPlayerId;
+	}
+	return iPlayerId;
+}
 
-	 if(NULL != aamp)
-	 {
-		 iPlayerId = aamp->mPlayerId;
-	 }
-
-	 return iPlayerId;
- }
+void PlayerInstanceAAMP::SetId(int iPlayerId)
+{
+	if(NULL != aamp)
+	{
+		aamp->mPlayerId = iPlayerId;
+	}
+}
 
 /**
  *  @brief To get the current AAMP state.
