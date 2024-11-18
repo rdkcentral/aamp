@@ -51,6 +51,7 @@ static void ParseAttrListCb( lstring attr, lstring value, void *context )
 }
 TEST(lstring, test1)
 {
+	const double epsilon = 0.00001;
 	lstring emptystring;
 	ASSERT_TRUE( emptystring.empty() );
 	ASSERT_TRUE( emptystring.peekLastChar()==0 );
@@ -74,7 +75,15 @@ TEST(lstring, test1)
 	
 	lstring fstring("314.159",7);
 	double fval = fstring.atof();
-	ASSERT_TRUE( fabs(fval-314.159)< 0.00001 );
+	ASSERT_TRUE( fabs(fval-314.159)< epsilon );
+	
+	lstring fstring2("-123.456",8);
+	double fval2 = fstring2.atof();
+	ASSERT_TRUE( fabs(-123.456 - fval2)< epsilon );
+	
+	lstring fstring3("-267,xx",7);
+	double fval3 = fstring3.atof();
+	ASSERT_TRUE( fabs(-267 - fval3)< epsilon );
 	
 	const char *text = "the quick brown fox jumped over the lazy dog";
 	lstring searchText(text,strlen(text));

@@ -219,7 +219,13 @@ public:
 		long long ival = 0;
 		long long precision = 1;
 		bool afterDecimal = false;
-		for( int i=0; i<len; i++ )
+		int i = 0;
+		if( startswith('-') )
+		{
+			i++; // skip leading negative sign
+			precision = -1; // ensure final value is negated
+		}
+		for(; i<len; i++ )
 		{
 			char c = ptr[i];
 			if( c>='0' && c<='9' )
