@@ -16,6 +16,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+To test any changes use
+aamp/test/tools/library/test_toolchain.py
+######################################################################
+"""
+
 import sys
 import os
 import subprocess
@@ -136,7 +142,7 @@ def do_transcode(base_dir, segment_detail_list, attrs=None):
     if init_segment['duration'] != 0:
         log.error(f"Expecting zero duration for init {init_segment}")
         return
-    init_segment_path=os.path.join(base_dir, init_segment['segment_name'])
+    init_segment_path=os.path.join(base_dir, init_segment['segment_filename'])
 
     # codec errors from ffmpeg cannot write file out
     head, tail = os.path.split(init_segment_path)
@@ -145,14 +151,14 @@ def do_transcode(base_dir, segment_detail_list, attrs=None):
 
     for segment_number, segment_detail in enumerate(segment_detail_list):
 
-        segment_path = os.path.join(base_dir, segment_detail['segment_name'])
+        segment_path = os.path.join(base_dir, segment_detail['segment_filename'])
         """
         For a segment filename like
         ...ckId-104-tc-0-time-719214900493.mp4
         then take the last 9 digits and use that as the sequence number to
         display on the video frame
         """
-        m = re.search(r'(\d{1,6})\.m',segment_detail['segment_name'])
+        m = re.search(r'(\d{1,6})\.m',segment_detail['segment_filename'])
         if m:
            segment_number=int(m.group(1))
 

@@ -16,6 +16,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+"""
+To test any changes use
+aamp/test/tools/library/test_toolchain.py
+######################################################################
+"""
+
 import os
 import sys
 from datetime import datetime, timedelta
@@ -27,7 +34,7 @@ import logging
 import xml.etree.ElementTree as ET
 from library.manifests import delHTTPhost, Manifest, SegmentList
 from library.attriblist import AttribList
-
+from library.filesys_utils import url_to_filename
 
 class DASHManifest(Manifest):
     """
@@ -35,8 +42,8 @@ class DASHManifest(Manifest):
     provides manipulation.
     """
 
-    def __init__(self, path, content=None, rebase=None, default_start=None):
-        super().__init__(path)
+    def __init__(self, path_or_url, content=None, rebase=None, default_start=None):
+        super().__init__(path_or_url)
 
         self.orig_tree = ET.ElementTree()
         self.root = None
@@ -50,7 +57,7 @@ class DASHManifest(Manifest):
         self.remove_duplicate_req = {} # This is to handle 404 during All Profiles harvest.
 
         if content is None:
-            with open(path, "rb") as f:
+            with open(path_or_url, "rb") as f:
                 content = f.read()
 
         # Pull all the namespace attributes out the incomming XML 'header' and
@@ -558,9 +565,13 @@ class DASHManifest(Manifest):
 
                     # Handle template with an initialisation file
                     if fn is not None:
+                        log.debug(fn)
                         if abs_paths:
                             fn = self.abs_path(fn, self.urls.get(adpset, prefix))
-                        seg_list.add_init(self.template_subs(fn, rband, rid)[0], key)
+                        url = self.template_subs(fn, rband, rid)[0]
+                        log.debug(url)
+                        seg_filename = url_to_filename(url)
+                        seg_list.add_init(url, key, segment_filename=seg_filename)
 
                 tlines = self.tlines[templ]
                 start_num = int(templ.get("startNumber", -1))
@@ -592,9 +603,13 @@ class DASHManifest(Manifest):
                     for n in range(
                         start_num if seg_no < start_num else seg_no, end_num
                     ):
-                        seg_list.add_file(fn_templ % n, intv, key)
+                        url = fn_templ % n
+                        seg_filename = url_to_filename(url)
+                        seg_list.add_file(fn_templ % n, intv, key, segment_filename=seg_filename)
 
-                    seg_list.add_file(fn_templ % end_num, dur % intv, key)
+                    url = fn_templ % end_num
+                    seg_filename = url_to_filename(url)
+                    seg_list.add_file(url, dur % intv, key, segment_filename=seg_filename)
                     seg_no = end_num
 
                 # Segment list and file generation based upon $Number$
@@ -613,19 +628,23 @@ class DASHManifest(Manifest):
                         for num in range(
                             start_num if seg_no < start_num else seg_no, end_num
                         ):
-                            
+
                             if end_num <= seg_no:
                                 temp_file_name = fn_templ.split("/")[-1].replace("%d", str(num))
 
                                 if temp_file_name not in self.remove_duplicate_req.keys():
-                                    seg_list.add_file(fn_templ % num, intv, key, segment_t=segment_t, segment_d=segment_d)
+                                    url = fn_templ % num
+                                    seg_filename = url_to_filename(url)
+                                    seg_list.add_file(url, intv, key, segment_t=segment_t, segment_d=segment_d, segment_filename=seg_filename)
                                     self.remove_duplicate_req[temp_file_name] = str(1)
 
                                 else:
                                     self.remove_duplicate_req[temp_file_name] = str(int(self.remove_duplicate_req[temp_file_name]) + 1)
 
                             else:
-                                seg_list.add_file(fn_templ % num, intv, key,segment_t=segment_t, segment_d=segment_d)
+                                url = fn_templ % num
+                                seg_filename = url_to_filename(url)
+                                seg_list.add_file(url, intv, key,segment_t=segment_t, segment_d=segment_d,segment_filename=seg_filename)
                             segment_t += segment_d
                         seg_no = start_num = end_num
 
@@ -645,7 +664,9 @@ class DASHManifest(Manifest):
 
                         # Generate the names of the files from the increasing 't' value using $Time$
                         for t in range(t if seg_no < t else seg_no, next_t, d):
-                            seg_list.add_file(fn_templ % t, intv, key, segment_t = t, segment_d = d)
+                            url = fn_templ % t
+                            seg_filename = url_to_filename(url)
+                            seg_list.add_file(url, intv, key, segment_t = t, segment_d = d, segment_filename=seg_filename)
                         seg_no = next_t
 
                 from_seg[key] = seg_no
@@ -688,7 +709,9 @@ class DASHManifest(Manifest):
                         if fn is not None:
                             if abs_paths:
                                 fn = self.abs_path(fn, segml_prefix)
-                            seg_list.add_init(fn, key)
+                            url = fn
+                            seg_filename = url_to_filename(url)
+                            seg_list.add_init(url, key, segment_filename=seg_filename)
 
                     idx = -1
                     dur = int(segml.get("duration")) / int(segml.get("timescale"))
@@ -703,8 +726,9 @@ class DASHManifest(Manifest):
                         fn = segurl.get("media")
                         if abs_paths:
                             fn = self.abs_path(fn, segml_prefix)
-
-                        seg_list.add_file(fn, dur, key)
+                        url = fn
+                        seg_filename = url_to_filename(url)
+                        seg_list.add_file(url, dur, key, segment_filename=seg_filename)
                     from_seg[key] = idx
 
                 # Representation contains SegmentBase
@@ -721,7 +745,8 @@ class DASHManifest(Manifest):
 
                     # Not properly supported because we do not know the duration of the
                     # segment. Put 999 for now
-                    seg_list.add_file(path, 999, key)
+                    seg_filename = url_to_filename(path)
+                    seg_list.add_file(path, 999, key,segment_filename=seg_filename)
                     from_seg[key] = 0
 
         return seg_list

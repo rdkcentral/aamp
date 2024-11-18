@@ -16,6 +16,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+"""
+To test any changes use
+aamp/test/tools/library/test_toolchain.py
+######################################################################
+"""
+
 import os
 import sys
 import re
@@ -25,7 +32,13 @@ import time
 from pathlib import Path
 from library.manifests import delHTTPhost, Manifest, SegmentList
 from library.attriblist import AttribList
+import urllib
+import uuid
+from library.filesys_utils import url_to_filename
 
+# Keep a list of the segments we have already requested for download so when 
+# a changed manifest is parsed we do not request segments requested previously
+segments_already_added = []
 
 class HLSManifest(Manifest):
     """
@@ -44,7 +57,7 @@ class HLSManifest(Manifest):
         else:
             self.attrs = attrs
         self.is_master_manifest = True
-        self.has_segments = False
+
 
         if content is None:
             with open(path, "rb") as f:
@@ -59,7 +72,6 @@ class HLSManifest(Manifest):
         """
         Load manifest from a file or other stream device
         """
-        seg_no = 0
         last_path = None
         disc_no = 0
 
@@ -91,13 +103,8 @@ class HLSManifest(Manifest):
                 self.content.append([key, value])
 
             elif key == "#EXTINF":
-                seg_no += 1
-
                 self.content.append([key, value])
 
-            # elif key == '#!':
-            #    self.add_rule(value, self.first_seg + seg_no, last_path)
-            #    self.content.append([ key, value ])
 
             elif key in ["http", "https"]:
                 self.content.append(["", key + ":" + value])
@@ -110,14 +117,13 @@ class HLSManifest(Manifest):
             else:
                 self.content.append([key, value])
 
-        self.has_segments = seg_no > 0
 
-        if self.orig_date == None and seg_no > 0:
+        if self.orig_date == None:
             self.orig_date = now = datetime.now()
             self.content.insert(1, ["#SIMLINEAR-PDT-OVERRIDE", now])
 
     def extinf_to_num(self, value):
-        return float(value.split(",", 1)[0] if value.endswith(",") else value)
+        return float(value.split(",")[0])
 
     def calc_range(self, default_start):
         """
@@ -250,7 +256,7 @@ class HLSManifest(Manifest):
         """
         For a path like a/b/c/manifest.m3u8.1
         returns
-        a/b/c/manifest.m3u8.1
+        a/b/c/manifest.m3u8
         """
 
         return re.sub(r"\.[0-9]+$", "", path)
@@ -261,42 +267,37 @@ class HLSManifest(Manifest):
         """
         if from_seg is None:
             from_seg = {}
-        if seg_list == None:
-            seg_list = SegmentList()
 
-        seg_no = from_seg.get(self.orig_path, -1)
-        cur_seg = self.first_seg
+        """
+        Keep one segment maintained over processing of incremental manifests
+        This allows to keep track of segments already downloaded so we do not
+        download multiple times
+        """
+        seg_list = SegmentList(segments_already_added=segments_already_added)
+
         cur_disc = self.first_disc
         disc_no = cur_disc - 1
         duration = None
 
-        if seg_no < 0:
-            segment_group = self.remove_increment(self.orig_path)
-            seg_list.new_file(
-                segment_group,
-                cur_disc in self.disc_crypt,
-                self.attrs,
-            )
+
+        segment_group = self.remove_increment(self.orig_path)
+        seg_list.new_file(segment_group, cur_disc in self.disc_crypt, self.attrs)
 
         # Process each of the lines in the file and optionally skipping previously handled
         # files
-        for key, value in self.content:
+        for line in self.content:
+            key, value = line
             if key == "#EXTINF":
                 duration = self.extinf_to_num(value)
-                cur_seg += 1
 
             elif key == "" and value == "#EXT-X-DISCONTINUITY":
                 cur_disc += 1
 
                 segment_group = self.remove_increment(self.orig_path)
-                if cur_seg > seg_no:
-                    log.info("new_file")
-                    seg_list.new_file(
-                        segment_group, cur_disc in self.disc_crypt, self.attrs
-                    )
 
-            elif cur_seg <= seg_no:
-                continue
+                log.info("new_file")
+                seg_list.new_file(segment_group, cur_disc in self.disc_crypt, self.attrs)
+
 
             elif key == "#EXT-X-MAP" and disc_no != cur_disc:
                 url = AttribList(value).URI
@@ -307,18 +308,49 @@ class HLSManifest(Manifest):
                     self.attrs,
                 )
 
-                seg_list.add_init(self.abs_path(url) if abs_paths else url)
+                url1 = self.abs_path(url) if abs_paths else url
+                seg_filename = url_to_filename(url1)
+                seg_list.add_init(url1, segment_group, segment_filename=seg_filename)
                 disc_no = cur_disc
 
-            elif cur_seg <= seg_no:
-                continue
 
             elif not key and value and not value.startswith("#"):
-                seg_path = self.abs_path(value) if abs_paths else value
+                seg_path_parsed = urllib.parse.urlparse(value)
+                url = value
+                if seg_path_parsed.netloc and not seg_path_parsed.query:
+                    """
+                    url starts with domain name and no query, assuming sensible path on another server
+                    E.G https://live-content-cf.xumo.com/3516/content/XM09DMUR8UJRUF/24117079/4_124.ts
+                    becomes
+                    live-content-cf.xumo.com/3516/content/XM09DMUR8UJRUF/24117079/4_124.ts
+                    """
+                    seg_filename = seg_path_parsed.netloc + seg_path_parsed.path
+                    log.debug(f"seg_filename {value} {seg_filename}")
+                    # File written to harvest root so update manifest to fetch from server root
+                    line[1] = "/" + seg_filename
+                elif not seg_path_parsed.netloc and not seg_path_parsed.query :
+                    # simple path on server hosting manifests
+                    url = self.abs_path(value)
+                    seg_filename = urllib.parse.urlparse(url).path[1:]
+                    log.debug(f"seg_filename {value} {seg_filename}")
+                elif seg_path_parsed.netloc and  seg_path_parsed.query:
+                    """
+                    E.G
+                    https://hls-beacons-us.xumo.com/hlsstream/v1/beacon?url=https%3A%2F%2Flive-content-cf.xumo.com%2F3516%2Fcontent%2FXM09DMUR8UJRUF%2F24117079%2F4_127.ts&aid=XM09DMUR8UJRUF&eventType=ASSET&cid=88889153&did=5817fb989eb54e87&playId=1731000592032&eventSubType=playInterval&pid=351
+                    becomes
+                    hls-beacons-us.xumo.com/fb7ff1dc77924c589832c0929b962484
+                    """
+                    seg_filename = seg_path_parsed.netloc + "/" + uuid.uuid4().hex
+                    log.debug(f"seg_filename {value} {seg_filename}")
+                    # File written to harvest root so update manifest to fetch from server root
+                    line[1] = "/" + seg_filename
+                else:
+                    log.error(f"Unsupported {value}")
+                    log.error(f"Unsupported {seg_path_parsed}")
+                    exit(1)
                 segment_group = self.remove_increment(self.orig_path)
-                seg_list.add_file(seg_path, duration, segment_group)
+                seg_list.add_file(url, duration, segment_group, segment_filename=seg_filename)
 
-        from_seg[self.orig_path] = cur_seg
         return seg_list
 
     def trim_urls(self):
@@ -332,9 +364,6 @@ class HLSManifest(Manifest):
                 attrlst = AttribList(value)
                 attrlst.URI = delHTTPhost(attrlst.URI)
                 ent[1] = str(attrlst)
-
-            elif key == "" and not value.startswith("#"):
-                ent[1] = delHTTPhost(value)
 
 
 class HLSMainManifest(Manifest):
@@ -447,6 +476,8 @@ class HLSMainManifest(Manifest):
 
         log.info("mime_list %s", mime_list)
         log.info("sub_list %s", self.sub_list)
+
+        # format of sub_list = {'video': ['url1', 'url2'] }
 
         for mime_type, slist in self.sub_list.items():
             if mime_list is not None and mime_type not in mime_list:
