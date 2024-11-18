@@ -49,6 +49,7 @@ protected:
         mConfig = new AampConfig();
         mplayer = new TestablePlayerInstanceAAMP();
 
+		// FIXME: below violates aamp member being private
         g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mplayer->GetPrivAamp());
         mplayer->GetPrivAamp()->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
     }
@@ -83,9 +84,9 @@ public:
 
     PrivateInstanceAAMP* GetPrivAamp()
     {
-        return aamp;
+	    return aamp;
     }
-
+		
     void SetRate_Internal(float rate,int overshootcorrection)
     {
         SetRateInternal(rate,overshootcorrection);
@@ -102,12 +103,13 @@ TEST_F(PauseOnPlaybackTests, NormalPlayRate)
     float rate = AAMP_NORMAL_PLAY_RATE;
     int overshootcorrection = 0;
 
+	// FIXME: below violates aamp member being private
     mplayer->GetPrivAamp()->mbUsingExternalPlayer = false;
     mplayer->GetPrivAamp()->pipeline_paused = true;
     mplayer->GetPrivAamp()->mbPlayEnabled = false;
     mplayer->GetPrivAamp()->mbDetached = false;
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetPauseOnStartPlayback(false)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetPauseOnStartPlayback(false)).Times(1);
 
     mplayer->SetRate_Internal(rate,overshootcorrection);
 }
@@ -118,11 +120,12 @@ TEST_F(PauseOnPlaybackTests, PlaybackAlreadyInitiated)
     float rate = AAMP_NORMAL_PLAY_RATE;
     int overshootcorrection = 0;
 
+	// FIXME: below violates aamp member being private
     mplayer->GetPrivAamp()->mbUsingExternalPlayer = false;
     mplayer->GetPrivAamp()->pipeline_paused = true;
     mplayer->GetPrivAamp()->mbPlayEnabled = true;
     mplayer->GetPrivAamp()->mbDetached = false;
-
+	
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetPauseOnStartPlayback(false)).Times(1);
 
     mplayer->SetRate_Internal(rate,overshootcorrection);
@@ -134,11 +137,12 @@ TEST_F(PauseOnPlaybackTests, Success)
     float rate = AAMP_RATE_PAUSE;
     int overshootcorrection = 0;
 
+	// FIXME: below violates aamp member being private
     mplayer->GetPrivAamp()->mbUsingExternalPlayer = false;
     mplayer->GetPrivAamp()->pipeline_paused = true;
     mplayer->GetPrivAamp()->mbPlayEnabled = false;
     mplayer->GetPrivAamp()->mbDetached = false;
-
+	
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetPauseOnStartPlayback(true)).Times(1);
 
     mplayer->SetRate_Internal(rate,overshootcorrection);

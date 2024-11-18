@@ -844,7 +844,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			printf("[AAMPCLI]  AAMP_EVENT_NEED_MANIFEST_DATA received \n");
 			std::string manifestData = PlaybackCommand::getManifestData(mAampcli.mManifestDataUrl);
 			printf("[AAMPCLI] updateManifest\n");
-			mAampcli.mSingleton->aamp->updateManifest(manifestData.c_str());
+			mAampcli.mSingleton->updateManifest(manifestData.c_str());
 			break;
 		}
 

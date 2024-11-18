@@ -247,10 +247,6 @@ TESTDATA4 = {
         # stats
         {"cmd": "stats"},
         {"expect": r"\[GetPlaybackStats\]\[\d+]Playback stats json"},
-
-        # retune
-        {"cmd": "retune"},
-        {"expect": r"\[ScheduleRetune\]\[\d+]PrivateInstanceAAMP: Schedule Retune errorType 4 error STARTTIME RESET"},
     ]
 }
 

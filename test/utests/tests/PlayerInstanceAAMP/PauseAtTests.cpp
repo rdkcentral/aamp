@@ -177,14 +177,11 @@ TEST_F(PauseAtTests, PauseAt_Cancel)
 TEST_F(PauseAtTests, PauseAt_AlreadyPaused)
 {
     double pauseAtSeconds = 100.0;
-
-    mPlayerInstance->aamp->pipeline_paused = true;
-
+	mPlayerInstance->aamp->pipeline_paused = true; // FIXME! violates mPlayerInstance->aamp being private
+	//mPlayerInstance->SetRate(0); // logically similar, but doesn't work with below code
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
-
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("PauseAt() called")).Times(1);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
-
     mPlayerInstance->PauseAt(pauseAtSeconds);
 }
 
@@ -217,7 +214,7 @@ TEST_F(PauseAtTests, PauseAtAsync)
 
     mPlayerInstance->PauseAt(pauseAtSeconds);
     mPrivateInstanceAAMP->mMediaFormat=eMEDIAFORMAT_DASH;
-    MediaFormat  type = mPrivateInstanceAAMP->GetMediaFormatType("mpd");
+    MediaFormat type = mPrivateInstanceAAMP->GetMediaFormatType("mpd");
 }
 
 // Testing calling Tune cancels any pause position monitoring
@@ -991,28 +988,27 @@ TEST_F(PauseAtTests, GetPlaybackDurationTest) {
 }
 TEST_F(PauseAtTests, GetIdNotNullTest1) {
     //checking for random value
-    mPlayerInstance->aamp->mPlayerId = 123;
+    mPlayerInstance->SetId( 123 );
     int playerId = mPlayerInstance->GetId();
 
     EXPECT_EQ(playerId,123);
 }
 TEST_F(PauseAtTests, GetIdNullTest2) {
-    //checking for Null condition
-    mPlayerInstance->aamp = nullptr;
-    int playerId = mPlayerInstance->GetId();
-
-    EXPECT_EQ(playerId,-1);
+	//checking for Null condition
+	mPlayerInstance->aamp = nullptr; // FIXME! violates mPlayerInstance->aamp being private
+	int playerId = mPlayerInstance->GetId();
+	EXPECT_EQ(playerId,-1);
 }
 TEST_F(PauseAtTests, GetIdNotNullTest3) {
     //checking for Maximum value
-    mPlayerInstance->aamp->mPlayerId = INT_MAX;
+    mPlayerInstance->SetId(INT_MAX);
     int playerId = mPlayerInstance->GetId();
 
     EXPECT_EQ(playerId,INT_MAX);
 }
 TEST_F(PauseAtTests, GetIdNotNullTest4) {
     //checking for Minimum value
-    mPlayerInstance->aamp->mPlayerId = INT_MIN;
+    mPlayerInstance->SetId(INT_MIN);
     int playerId = mPlayerInstance->GetId();
 
     EXPECT_EQ(playerId,INT_MIN);
@@ -1078,49 +1074,49 @@ TEST_F(PauseAtTests, GetVideoZoomDefault){
 }
 TEST_F(PauseAtTests, GetVideoZoomTest1) {
     //checking zoom mode = VIDEO_ZOOM_FULL
-    mPlayerInstance->aamp->zoom_mode = VIDEO_ZOOM_FULL;
+    mPlayerInstance->SetVideoZoom(VIDEO_ZOOM_FULL);
     int ZoomMode = mPlayerInstance->GetVideoZoom();
     EXPECT_EQ(ZoomMode,VIDEO_ZOOM_FULL);
 }
 TEST_F(PauseAtTests, GetVideoZoomTest2) {
     //checking zoom mode = VIDEO_ZOOM_NONE
-    mPlayerInstance->aamp->zoom_mode = VIDEO_ZOOM_NONE;
+    mPlayerInstance->SetVideoZoom(VIDEO_ZOOM_NONE);
     int ZoomMode = mPlayerInstance->GetVideoZoom();
     EXPECT_EQ(ZoomMode,VIDEO_ZOOM_NONE);
 }
 TEST_F(PauseAtTests, GetVideoMuteTest1) {
     //checking true condition
-    mPlayerInstance->aamp->video_muted = true;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
+	mPlayerInstance->SetVideoMute(true);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
     bool retrievedVideoMute = mPlayerInstance->GetVideoMute();
     EXPECT_TRUE(retrievedVideoMute);
 }
 TEST_F(PauseAtTests, GetVideoMuteTest2) {
     //checking false condition
-    mPlayerInstance->aamp->video_muted = false;
+    mPlayerInstance->SetVideoMute(false);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
     bool retrievedVideoMute = mPlayerInstance->GetVideoMute();
     EXPECT_FALSE(retrievedVideoMute);
 }
 TEST_F(PauseAtTests, GetAudioVolumeTest1) {
-
-    mPlayerInstance->aamp->audio_volume = 50; 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_IDLE));
+	mPlayerInstance->aamp->audio_volume = 50; // FIXME! violates mPlayerInstance->aamp being private
+    //mPlayerInstance->SetAudioVolume(50); // logically similar, but doesn't work with below code
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_IDLE));
     int retrievedAudioVolume = mPlayerInstance->GetAudioVolume();
-
     EXPECT_EQ(retrievedAudioVolume,50);
 }
 TEST_F(PauseAtTests, GetAudioVolumeTest2) {
     //checking Maximum value
-    mPlayerInstance->aamp->audio_volume = INT_MAX; 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_IDLE));
+	mPlayerInstance->aamp->audio_volume = INT_MAX; // FIXME! violates mPlayerInstance->aamp being private
+	//mPlayerInstance->SetAudioVolume(INT_MAX); // logically similar, but doesn't work with below code
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_IDLE));
     int retrievedAudioVolume = mPlayerInstance->GetAudioVolume();
-
     EXPECT_EQ(retrievedAudioVolume,INT_MAX);
 }
 TEST_F(PauseAtTests, GetAudioVolumeTest3) {
     //checking Minimum value
-    mPlayerInstance->aamp->audio_volume = INT_MIN; 
+	mPlayerInstance->aamp->audio_volume = INT_MIN; // FIXME! violates mPlayerInstance->aamp being private
+	//mPlayerInstance->SetAudioVolume(INT_MIN); // logically similar, but doesn't work with below code
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_)).WillRepeatedly(SetArgReferee<0>(eSTATE_IDLE));
     int retrievedAudioVolume = mPlayerInstance->GetAudioVolume();
 
@@ -1128,26 +1124,23 @@ TEST_F(PauseAtTests, GetAudioVolumeTest3) {
 }
 TEST_F(PauseAtTests, GetPlaybackRateTest_1) {
     //checking false condition
-    mPlayerInstance->aamp->pipeline_paused = false;
-    mPlayerInstance->aamp->rate = 10.9f;
+	mPlayerInstance->aamp->pipeline_paused = false; // FIXME! violates mPlayerInstance->aamp being private
+	mPlayerInstance->aamp->rate = 10.9f;
+    mPlayerInstance->SetRate(10.9f); // logically similar, but doesn't work with below code
     int retrievedPlaybackRate = mPlayerInstance->GetPlaybackRate();
 
     EXPECT_EQ(retrievedPlaybackRate,10);
 }
 TEST_F(PauseAtTests, GetPlaybackRateTest_2) {
     //checking true condition
-    mPlayerInstance->aamp->pipeline_paused = true;
-    
+	mPlayerInstance->SetRate(0);
     int retrievedPlaybackRate = mPlayerInstance->GetPlaybackRate();
-
     EXPECT_EQ(retrievedPlaybackRate,0);
 }
 TEST_F(PauseAtTests, GetAudioTrackTest) {
-    
-    mPlayerInstance->aamp->SetAudioTrack(1);
-   int audioTrack = mPlayerInstance->GetAudioTrack();
-
-   EXPECT_NE(audioTrack,1);
+	mPlayerInstance->SetAudioTrack(1);
+	int audioTrack = mPlayerInstance->GetAudioTrack();
+	EXPECT_NE(audioTrack,1);
 }
 TEST_F(PauseAtTests, GetManifestTest) {
     std::string expectedManifest = "Sample Manifest";

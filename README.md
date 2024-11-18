@@ -332,35 +332,18 @@ http://...	tune to specified URL
 next        tune to next virtual channel
 prev        tune to previous virtual channel
 seek <sec>	time-based seek within current content (stub)
-ff32		set desired trick speed to 32x
-ff16		set desired trick speed to 16x
-ff		set desired trick speed to 4x
-flush		flush player buffers
+ff <speed>	set desired trick speed to <speed>, i.e. ff8 for 8x playback using iframe track
+rew <speed>	set desired trick speed to <speed>, i.e. rew8 for -8x playback using iframe track
 stop		stop streaming
 status		dump gstreamer state
 rect		Set video rectangle. eg. rect 0 0 640 360
 zoom <val>	Set video zoom mode. mode "none" if val is zero, else mode "full"
 pause       Pause playback
 play        Resume playback
-rw<val>     Rewind with speed <val>
 live        Seek to live point
 exit        Gracefully exit application
 sap <lang>  Select alternate audio language track.
 bps <val>   Set video bitrate in bps
-harvest <harvestConfiguration> Initiate harvesting for space separated harvest configuration such as 
-	 ex: harvest harvestUrl=https://cpetestutility.stb.r53.xcal.tv/multilang/main.mpd harvestConfig=65535 harvestPath=/home/path
-	     harvestUrl=<url> //url to download
-	     harvestConfig=65535 // to select content type to download (65535 to download all content type manifests,video and audio fragments)
-	     harvestPath=<path> // give local directory to download the content
-	     Optional params that can be given  
-	     harvestDuration=60 // to download content for given duration
-	     harvestCountLimit=100 // number of fragments to harvest
-	     abr=false // default set to false to lock abr and download single profile
-	     suppressDecode=true // To stop playback during download
-	     defaultBitrate=400000 // give 0 to download lowest profile and 99999999 to download highest profile
-	     defaultBitrate4K=400000 // give  0 to download lowest profile and 99999999 to download highest profile
-	     preferredAudioLanguage=lan // give any audio content language to download
-	     trackId=1 // give trackid to download particular track
 fog <url|host=ip:port> 'fog url' tune to arbitrary locator via fog. 'fog host=ip:port' set fog location (default: 127.0.0.1:9080)
 adtesting   Toggle indexed ad insertion that does NOT check for any duration match
 advert <params>
