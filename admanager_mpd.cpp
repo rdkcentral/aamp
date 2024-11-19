@@ -1432,6 +1432,11 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string peri
 	else
 	{
 		AAMPLOG_INFO("Timed out waiting for next ad placement.");
+		if(isAdBreakObjectExist(periodId))
+		{
+			// Mark the ad break as invalid
+			mAdBreaks[periodId].invalid = true;
+		}
 	}
 	return completed;
 }

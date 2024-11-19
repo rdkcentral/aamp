@@ -186,10 +186,12 @@ struct AdBreakObject{
 	bool                                 mAdFailed;       /** Current Ad playback failed flag */
 	bool                                 mSrcPeriodOffsetGTthreshold;/*The flag will be set if the difference between the source period and the total ad duration exceeds the 2-second threshold.*/
 	bool                                 mSplitPeriod;    /**< To identify whether the ad is split period ad or not */
+	bool                                 invalid; /**< flag marks if the adbreak is invalid or not */
+	
 	/**
 	* @brief AdBreakObject default constructor
 	*/
-	AdBreakObject() : brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false),mSrcPeriodOffsetGTthreshold(false),mSplitPeriod(false)
+	AdBreakObject() : brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false),mSrcPeriodOffsetGTthreshold(false), mSplitPeriod(false), invalid(false)
 	{
 	}
 
