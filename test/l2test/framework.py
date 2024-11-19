@@ -523,10 +523,13 @@ class Aamp:
         {"expect": ...                      "not_expected" : True},
                                             # not_expected used to indicate pattern not expected in this time window
 
-        {"expect": r"#EXT-X-DISCONTINUITY", "callback" :func, "callback_arg" : "play"},
+        {"expect": r"#EXT-X-DISCONTINUITY", "callback": func, "callback_arg": "play"},
                                             # Also see expect_a documentation for callback
                                             # func() can be written to send the argument to aamp-cli
 
+        {"expect": r"#EXT-X-DISCONTINUITY", "callback_once": func, "callback_arg": "play"},
+                                            # Same as callback, but if the expect line if matched multiple times,
+                                            # the callback will only be called once, the first time it is matched
 
          { ... "end_of_test":True}          # End the test cause exit when matching expression encountered
          ]                                  # End of expect_list
@@ -568,19 +571,23 @@ class Aamp:
                     if match:
                         # Get details of the event we just received
                         e = testdata["expect_list"][i]
-                        print("Event {} occurs at elapsed={}".format(match.group(0), int(elapsed)))
+                        print("Event({}) {} occurs at elapsed={}".format(i, match.group(0), int(elapsed)))
 
                         if elapsed >= e.get("min",0) and elapsed <= e.get("max",self.max_test_time_seconds):
                             if "not_expected" in e:
                                 # We got event within a time window when we were not expecting it
                                 assert 0, "ERROR {} occurred elapsed={}".format(e, elapsed)
                             else:
-                                # Event occurred in window and was expected
-                                expect_did_happen[i] = True
-
-                                if "callback" in e:
+                                if "callback_once" in e:
+                                    if expect_did_happen[i] is False:
+                                        print("Have one-time callback")
+                                        e["callback_once"](match, e.get("callback_arg"))
+                                elif "callback" in e:
                                     print("Have callback")
                                     e["callback"](match, e.get("callback_arg"))
+
+                                # Event occurred in window and was expected
+                                expect_did_happen[i] = True
 
                                 if "end_of_test" in e:
                                     self.check_for_missed_events(testdata, elapsed, expect_did_happen)

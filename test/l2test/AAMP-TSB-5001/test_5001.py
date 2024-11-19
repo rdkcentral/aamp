@@ -17,8 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TSB L2 initial Tests
-
+# AAMP TSB with LLD L2 Tests
 
 import os
 import sys
@@ -26,21 +25,33 @@ import json
 import copy
 import pytest
 from inspect import getsourcefile
+from l2test_pts_restamp import PtsRestampUtils
+from l2test_pts_restamp import TrickModesPtsRestampUtils
 
-archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/misc/ch920_10min.tar.xz"
+pts_restamp_utils = PtsRestampUtils()
+trick_modes_pts_restamp_utils = TrickModesPtsRestampUtils()
+aamp = None
 
-# // Test URL with Low Latency Content
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/misc/ch920_10min.tgz"
+
+# // Test URL with Low Latency Content. Containes the default LLD URL keyword "/low/"
 LLD_URL="v1/frag/bmff/enc/cenc/latency/low/t/UK3054_HD_SU_SKYUK_3054_0_8371500471198371163.mpd?chunked"
 
-# // TODO replace with live SLD URL
 SLD_URL="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd"
 
+# Callbacks used by the tests
+def send_command(match, command):
+    aamp.sendline(command)
+
+def pts_restamp_restart(match,arg):
+    pts_restamp_utils.restart()
+
 # Test Session Manager initialization with config true
-TESTDATA1 = {
-    "title": "configtrue",
-    "logfile": "configtrue.log",
+TESTDATA0 = {
+    "title": "Config true",
+    "logfile": "configtrue0.log",
     "max_test_time_seconds": 15,
-    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLog=0\nsupressDecode=true\n",
     "archive_url": archive_url,
     "url": LLD_URL,
     'simlinear_type': 'DASH',
@@ -48,16 +59,16 @@ TESTDATA1 = {
     [
         {"expect" : r"\[TSB Store\] Initiating with config values","min":0, "max":1},
         {"expect": r"aamp_tune","min":0, "max":1},
-        {"expect" : r"msg=\"File written\"","min":0, "max":5 ,"end_of_test":True},
+        {"expect" : r"msg=\"File written\"", "end_of_test":True},
     ]
 }
 
 # Test Session Manager not initialized with config false
-TESTDATA2 = {
-    "title": "configfalse",
-    "logfile": "configfalse.log",
+TESTDATA1 = {
+    "title": "Config false",
+    "logfile": "configfalse1.log",
     "max_test_time_seconds": 15,
-    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=false\nprogress=true\ntsbLocation=/tmp/data\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=false\ntsbLocation=/tmp/data\nsupressDecode=true\n",
     "archive_url": archive_url,
     "url": LLD_URL,
     'simlinear_type': 'DASH',
@@ -70,11 +81,11 @@ TESTDATA2 = {
 }
 
 # Test for TSB Culling logs
-TESTDATA3 = {
-    "title": "Culling ",
-    "logfile": "culling.log",
+TESTDATA2 = {
+    "title": "Culling",
+    "logfile": "culling2.log",
     "max_test_time_seconds": 30,
-    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=6\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=6\ntsbLog=0\nsupressDecode=true\n",
     "archive_url": archive_url,
     "url": LLD_URL,
     'simlinear_type': 'DASH',
@@ -90,11 +101,11 @@ TESTDATA3 = {
 }
 
 # Test TSB Data Manager basic logs
-TESTDATA4 = {
-    "title": "Data Manager ",
-    "logfile": "datamgr.log",
+TESTDATA3 = {
+    "title": "Data Manager",
+    "logfile": "datamgr3.log",
     "max_test_time_seconds": 20,
-    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLog=0\ntsbLength=4\nlldUrlKeyword=chunked\n",
+    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLog=0\ntsbLength=4\n",
     "archive_url": archive_url,
     "url": LLD_URL,
     'simlinear_type': 'DASH',
@@ -111,11 +122,11 @@ TESTDATA4 = {
 }
 
 # Test for TSB Store logs
-TESTDATA5 = {
-    "title": "TSB Library ",
-    "logfile": "tsblib.log",
+TESTDATA4 = {
+    "title": "TSB Library",
+    "logfile": "tsblib4.log",
     "max_test_time_seconds": 35,
-    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=4\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=4\ntsbLog=0\nsupressDecode=true\n",
     "archive_url": archive_url,
     "url": LLD_URL,
     'simlinear_type': 'DASH',
@@ -134,12 +145,12 @@ TESTDATA5 = {
     ]
 }
 
-# Test if Playback starts with chunked word passed alongwith Non LLD URL
-TESTDATA6 = {
+# Test if Playback starts with LLD URL keyword '/low/' passed alongwith Non LLD URL
+TESTDATA5 = {
     "title": "Non LLD + Chunked",
-    "logfile": "nonlldchunked.log",
+    "logfile": "nonlldchunked5.log",
     "max_test_time_seconds": 20,
-    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=12\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+    "aamp_cfg": "progress=true\ninfo=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=12\ntsbLog=0\nsupressDecode=true\n",
     "url": SLD_URL+"?chunked=/low/",
     "expect_list":
     [
@@ -149,43 +160,169 @@ TESTDATA6 = {
     ]
 }
 
-# // Read API Test
-TESTDATA_read = {
+TESTDATA6 = {
     "title": "Test Read API",
-    "logfile": "readapi.log",
-    "max_test_time_seconds":    60,
+    "logfile": "readapi6.log",
+    "max_test_time_seconds": 20,
     'simlinear_type': 'DASH',
     "archive_url": archive_url,
     "url": LLD_URL,
-    "aamp_cfg": "progress=true\ninfo=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
     "expect_list":
     [
-        {"cmd": "sleep 20000"},
-        {"expect": r"sleep complete"},
-        {"cmd": "seek 0"},
+        # Wait until one specific fragment is added to TSB (~10s)
+        {"expect": r'\[AddFragment\]\[\d+\]\[audio\] Adding fragment data\: ([\w:\-\. /\']+)track-audio-periodid-1729780927911-1-repid-trackId-201-tc-0-time-927982192360\.mp4', "callback": send_command, "callback_arg": "seek 0"},
+
+        # Seek to the beginning of the buffer
         {"expect": r"aamp_Seek\(0.000000\)"},
         {"expect": r"msg=\"Got size\""},
         {"expect": r"File Read"},
-        {"cmd": "sleep 5000"},
-        {"expect": r"sleeping"},
-        {"cmd": "exit"}
+
+        # Play from TSB until one specific fragment is added to TSB (~10s)
+        {"expect": r'\[AddFragment\]\[\d+\]\[video\] Adding fragment data\: ([\w:\-\. /\']+)track-video-periodid-1729780927911-1-repid-trackId-102-tc-0-time-927984487213.mp4', "end_of_test": True},
     ]
 }
 
-TESTDATA = [TESTDATA1,TESTDATA2,TESTDATA3,TESTDATA4,TESTDATA5,TESTDATA6]
+TESTDATA7 = {
+    "title": "Test write to AAMP TSB with PTS restamping",
+    "logfile": "ptsrestamp7.log",
+    "max_test_time_seconds": 20,
+    'simlinear_type': 'DASH',
+    "archive_url": archive_url,
+    "url": LLD_URL,
+    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
+    "expect_list":
+    [
+        # Check the PTS restamp is done correctly
+        {"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "callback" : pts_restamp_utils.check_restamp},
+
+        # Play until a specific fragment is added to AAMP TSB, then stop command will be sent.
+        {"expect": r'\[AddFragment\]\[\d+\]\[video\] Adding fragment data\: ([\w:\-\. /\']+)track-video-periodid-1729780927911-1-repid-trackId-102-tc-0-time-927981722413\.mp4', "callback": send_command, "callback_arg": "stop"},
+        {"expect": r'\[StopInternal\]', "end_of_test": True}
+    ]
+}
+
+TESTDATA8 = {
+    "title": "Test Seek with PTS restamping",
+    "logfile": "seek8.log",
+    "max_test_time_seconds": 20,
+    'simlinear_type': 'DASH',
+    "archive_url": archive_url,
+    "url": LLD_URL,
+    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
+    "expect_list":
+    [
+        # Wait until one specific fragment is added to TSB (~10s)
+        {"expect": r'\[AddFragment\]\[\d+\]\[audio\] Adding fragment data\: ([\w:\-\. /\']+)track-audio-periodid-1729780927911-1-repid-trackId-201-tc-0-time-927982192360\.mp4', "callback": send_command, "callback_arg": "seek 0"},
+
+        # Seek to the beginning of the buffer. Restart the PTS restamp check after the Flush, to avoid a jump in the PTS values.
+        {"expect": r"aamp_Seek\(0.000000\)"},
+        {"expect": r"\[Flush\]\[\d+\]AAMPGstPlayer: Pipeline is in PLAYING state position 0.000000 ret 1", "callback": pts_restamp_restart},
+        {"expect": r"msg=\"Got size\""},
+        {"expect": r"File Read"},
+
+        # Check the PTS restamp is done correctly
+        {"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "callback" : pts_restamp_utils.check_restamp},
+
+        # Play from TSB until a specific fragment is read from AAMP TSB, then stop command will be sent.
+        {"expect": r'\[ReadNext\].*?track-video-periodid-1729780927911-1-repid-trackId-102-tc-0-time-927984026413\.mp4', "callback": send_command, "callback_arg": "stop"},
+        {"expect": r'\[StopInternal\]', "end_of_test": True}
+    ]
+}
+
+TESTDATA9 = {
+    "title": "Test pause with PTS restamping",
+    "logfile": "pause9.log",
+    "max_test_time_seconds": 30,
+    'simlinear_type': 'DASH',
+    "archive_url": archive_url,
+    "url": LLD_URL,
+    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
+    "expect_list":
+    [
+        # Wait 5s and then pause when the next fragment is added to TSB
+        {"expect": r'\[AddFragment\]', "min": 5, "max": 9, "callback_once": send_command, "callback_arg": "pause"},
+
+        # Wait 10s since the start of the test and then play when the next fragment is processed
+        {"expect": r'\[ProcessFragmentChunk\]\[\d+\]\[video\]', "min": 10, "max": 15, "callback_once": send_command, "callback_arg": "play"},
+
+        # Check the PTS restamp is done correctly after the pause and play
+        {"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "min":15, "callback" : pts_restamp_utils.check_restamp},
+
+        # Play from TSB until 25s since the start of the test and then stop when a fragment is read from AAMP TSB
+        {"expect": r'\[ReadNext\]', "min": 25, "callback_once": send_command, "callback_arg": "stop"},
+        {"expect": r'\[StopInternal\]', "end_of_test": True}
+    ]
+}
+
+TESTDATA10 = {
+    "title": "Test trick modes (rewind and fast forward) with PTS restamping",
+    "logfile": "trickmodes10.log",
+    "max_test_time_seconds": 40,
+    'simlinear_type': 'DASH',
+    "archive_url": archive_url,
+    "url": LLD_URL,
+    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
+    "expect_list":
+    [
+        # Wait until one specific fragment is added to TSB (~10s)
+        {"expect": r'\[AddFragment\]\[\d+\]\[audio\] Adding fragment data\: ([\w:\-\. /\']+)track-audio-periodid-1729780927911-1-repid-trackId-201-tc-0-time-927982192360\.mp4', "callback": send_command, "callback_arg": "rew 2"},
+
+        # Rewind to the beginning of the buffer
+        {"expect": r"\[SetRateInternal\]\[\d+]PLAYER\[0\] rate=-2.000000."},
+        {"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=-2.000000"},
+        {"expect": r"GST_MESSAGE_EOS"},
+
+        # Check the PTS restamp is done correctly
+        {"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "min":10, "callback" : pts_restamp_utils.check_restamp},
+        # Check the PTS restamp is done correctly during trick modes (rewind and fast forward)
+        {"expect": trick_modes_pts_restamp_utils.LOG_LINE, "callback" : trick_modes_pts_restamp_utils.check_restamp},
+
+        # Play from TSB until a specific fragment is read, then ff command will be sent.
+        {"expect": r"\[ReadNext\].*?track-video-periodid-1729780927911-1-repid-trackId-102-tc-0-time-927986791213\.mp4", "callback": send_command, "callback_arg": "ff 2"},
+        {"expect": r"\[SetRateInternal\]\[\d+]PLAYER\[0\] rate=2.000000."},
+        {"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=2.000000"},
+
+        # Fast forward to live
+        {"expect": r"Adjusting position to live edge","min":10, "end_of_test": True}
+    ]
+}
+
+TESTDATA = [
+    # Verify AAMP TSB without PTS restamping
+    {'testdata': TESTDATA0, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+    {'testdata': TESTDATA1, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+    {'testdata': TESTDATA2, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+    {'testdata': TESTDATA3, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+    {'testdata': TESTDATA4, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+    {'testdata': TESTDATA5, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+    {'testdata': TESTDATA6, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+
+    # Verify AAMP TSB with PTS restamping
+    {'testdata': TESTDATA7, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
+    {'testdata': TESTDATA8, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
+    {'testdata': TESTDATA9, 'expected_restamps': 10, 'expected_trickmodes_restamps': 0},
+
+    # Verify AAMP TSB with PTS restamping and trick modes
+    {'testdata': TESTDATA10, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10},
+]
 
 @pytest.fixture(params=TESTDATA)
 def test_data(request):
     return request.param
 
 def test_5001(aamp_setup_teardown, test_data):
+    global aamp, pts_restamp_utils, trick_modes_pts_restamp_utils
+
+    pts_restamp_utils.reset()
+    pts_restamp_utils.max_segment_cnt = test_data.get('expected_restamps')
+
+    trick_modes_pts_restamp_utils.reset()
+    trick_modes_pts_restamp_utils.max_segment_cnt = test_data.get('expected_trickmodes_restamps')
 
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    aamp.run_expect_b(test_data)
+    aamp.run_expect_b(test_data.get('testdata'))
 
-def test_5001_2(aamp_setup_teardown):
-
-     aamp = aamp_setup_teardown
-     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-     aamp.run_expect_a(TESTDATA_read)
+    pts_restamp_utils.check_num_segments()
+    trick_modes_pts_restamp_utils.check_num_segments()

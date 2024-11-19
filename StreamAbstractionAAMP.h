@@ -1374,6 +1374,14 @@ public:
 	 */
 	virtual bool UseIframeTrack(void) { return trickplayMode; }
 
+	/**
+	 * @fn SetTrickplayMode
+	 * @brief Set trickplay mode depending on rate
+	 *
+	 * @param rate - play rate
+	 */
+	void SetTrickplayMode(float rate) { trickplayMode = (rate != AAMP_NORMAL_PLAY_RATE); }
+
 	bool trickplayMode;                     /**< trick play flag to be updated by subclasses*/
 	int currentProfileIndex;                /**< current Video profile index of the track*/
 	int currentAudioProfileIndex;           /**< current Audio profile index of the track*/

@@ -62,6 +62,8 @@ protected:
         cachedFragment->type = eMEDIATYPE_VIDEO;
         cachedFragment->position = 5.0;
         cachedFragment->duration = 1.0;
+        cachedFragment->timeScale = 240000;
+        cachedFragment->PTSOffsetSec = 0.0;
         writeData.url = url;
         writeData.cachedFragment = cachedFragment;
         writeData.pts = 0.0;
@@ -147,12 +149,16 @@ TEST_F(FunctionalTests, TestAddFragment_WithDiscontinuity)
     double pts = 30.0;
     bool discont = true; // Discontinuity set to true
     std::string periodId = "period3";
+    uint32_t timeScale = 240000;
+    double PTSOffsetSec = 123.4;
 
     writeData.url = url;
     writeData.pts = pts;
     writeData.periodId = periodId;
     writeData.cachedFragment->position = position;
     writeData.cachedFragment->duration = duration;
+    writeData.cachedFragment->timeScale = timeScale;
+    writeData.cachedFragment->PTSOffsetSec = PTSOffsetSec;
 
     mDataManager->AddInitFragment(url, eMEDIATYPE_VIDEO, streamInfo, period);
     EXPECT_TRUE(mDataManager->AddFragment(writeData, media, discont));
@@ -163,6 +169,8 @@ TEST_F(FunctionalTests, TestAddFragment_WithDiscontinuity)
     EXPECT_DOUBLE_EQ(mDataManager->GetLastFragment()->GetPTS(), pts);
     EXPECT_TRUE(mDataManager->GetLastFragment()->IsDiscontinuous());
     EXPECT_EQ(mDataManager->GetLastFragment()->GetPeriodId(), periodId);
+    EXPECT_EQ(mDataManager->GetLastFragment()->GetTimeScale(), timeScale);
+    EXPECT_DOUBLE_EQ(mDataManager->GetLastFragment()->GetPTSOffsetSec(), PTSOffsetSec);
 }
 
 TEST_F(FunctionalTests, GetLastFragmentPosition_EmptyList)

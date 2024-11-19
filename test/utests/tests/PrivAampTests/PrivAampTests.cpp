@@ -3794,7 +3794,8 @@ TEST_F(PrivAampTests, GetStringForPlaybackErrorTest)
  * @brief Test the method TuneHelper with AAMP TSB enabled
  *
  * When AAMP TSB is enabled, the StreamAbstraction object is only created when tuning to a new channel, and not every
- * time TuneHelper is called (i.e. not when called due to seek or set rate).
+ * time TuneHelper is called (i.e. not when called due to seek or set rate). This test verifies that the trickplayMode
+ * flag is updated when the StreamAbstraction object had been created.
  */
 TEST_F(PrivAampTests, TuneHelperWithAampTsb)
 {
@@ -3803,7 +3804,9 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsb)
 	StreamAbstractionAAMP *savedStreamAbstractionAAMP = p_aamp->mpStreamAbstractionAAMP;
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	p_aamp->SetLocalAAMPTsb(true);
+	EXPECT_FALSE(p_aamp->mpStreamAbstractionAAMP->trickplayMode);
 	p_aamp->TuneHelper(eTUNETYPE_SEEK);
+	EXPECT_TRUE(p_aamp->mpStreamAbstractionAAMP->trickplayMode);
 	// Verify that the StreamAbstraction object is not recreated
 	EXPECT_EQ(savedStreamAbstractionAAMP, p_aamp->mpStreamAbstractionAAMP);
 }

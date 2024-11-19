@@ -161,6 +161,8 @@ private:
 	bool isDiscontinuous;  /**< the current fragment is discontinuous*/
 	double relativePosition; /**< Relative position from start*/
 	std::shared_ptr<TsbInitData> initFragData; /**< init Fragment of the current fragment*/
+	uint32_t timeScale; /**< timescale of the current fragment */
+	double PTSOffsetSec; /**< PTS offset of the current fragment */
 
 	/* data */
 public:
@@ -177,11 +179,13 @@ public:
 	 *   @param[in] relativePos - Relative position
 	 *   @param[in] prId - Period Id of the fragment
 	 *   @param[in] initData - Pointer to initData
+	 *   @param[in] timeScale - timescale of the current fragment
+	 *   @param[in] PTSOffsetSec - PTS offset of the current fragment
 	 */
 	TsbFragmentData(std::string url, AampMediaType media, double position, double duration, double pts, bool disc, double relativePos,
-		std::string prId, std::shared_ptr<TsbInitData> initData)
+		std::string prId, std::shared_ptr<TsbInitData> initData, uint32_t timeScale, double PTSOffsetSec)
 		: TsbSegment(url, media, prId), position(position), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(initData),
-		relativePosition(relativePos)
+		relativePosition(relativePos), timeScale(timeScale), PTSOffsetSec(PTSOffsetSec)
 	{
 	}
 
@@ -196,42 +200,56 @@ public:
 	 *   @fn GetInitFragData
 	 *   @return return initFragment shared pointer associated with it
 	 */
-	std::shared_ptr<TsbInitData> GetInitFragData() { return initFragData; }
+	std::shared_ptr<TsbInitData> GetInitFragData() const { return initFragData; }
 
 	/**
 	 * @fn GetPosition
 	 *
 	 * @return position of the fragment as double
 	 */
-	double GetPosition() { return position; }
+	double GetPosition() const { return position; }
 
 	/**
 	 * @fn GetPTS
 	 *
 	 * @return Query the PST of fragment
 	 */
-	double GetPTS() { return mPTS; }
+	double GetPTS() const { return mPTS; }
 
 	/**
 	 * @fn GetRelativePosition
 	 *
 	 * @return Query the relative position of fragment
 	 */
-	double GetRelativePosition() { return relativePosition; }
+	double GetRelativePosition() const { return relativePosition; }
 
 	/**
 	 * @fn GetDuration
 	 *
 	 * @return duration of the fragment as double
 	 */
-	double GetDuration() { return duration; }
+	double GetDuration() const { return duration; }
 
 	/**
 	 * @fn IsDiscontinuous
 	 *
 	 * @return whether is it is discontinuous fragment
 	 */
-	bool IsDiscontinuous() { return isDiscontinuous; }
+	bool IsDiscontinuous() const { return isDiscontinuous; }
+
+	/**
+	 * @fn GetTimeScale
+	 *
+	 * @return timescale of the fragment
+	 */
+	uint32_t GetTimeScale() const { return timeScale; }
+
+	/**
+	 * @fn GetPTSOffsetSec
+	 *
+	 * @return PTS offset of the fragment
+	 */
+	double GetPTSOffsetSec() const { return PTSOffsetSec; }
 };
 
 typedef std::shared_ptr<TsbFragmentData> TsbFragmentDataPtr;

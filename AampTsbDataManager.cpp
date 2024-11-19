@@ -335,6 +335,8 @@ bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType medi
 	double duration {writeData.cachedFragment->duration};
 	double pts {writeData.pts};
 	std::string periodId {writeData.periodId};
+	uint32_t timeScale {writeData.cachedFragment->timeScale};
+	double PTSOffsetSec {writeData.cachedFragment->PTSOffsetSec};
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
@@ -343,11 +345,11 @@ bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType medi
 			AAMPLOG_WARN("Inserting fragment at %.02lf but init header information is missing !!!", position);
 			return ret;
 		}
-		AAMPLOG_INFO("[%s] Adding fragment data: position %.02lfs duration %.02lfs pts %.02lfs relativePos %.02lfs bandwidth %" BITSPERSECOND_FORMAT " discontinuous %d periodId %s fragmentUrl '%s' initHeaderUrl '%s'",
-					 GetMediaTypeName(media), position, duration, pts, mRelativePos, mCurrentInitData->GetBandWidth(), discont, periodId.c_str(),
+		AAMPLOG_INFO("[%s] Adding fragment data: position %.02lfs duration %.02lfs pts %.02lfs relativePos %.02lfs bandwidth %" BITSPERSECOND_FORMAT " discontinuous %d periodId %s timeScale %u ptsOffset %fs fragmentUrl '%s' initHeaderUrl '%s'",
+					 GetMediaTypeName(media), position, duration, pts, mRelativePos, mCurrentInitData->GetBandWidth(), discont, periodId.c_str(), timeScale, PTSOffsetSec,
 					 url.c_str(), mCurrentInitData->GetUrl().c_str());
 		mCurrentInitData->incrementUser();
-		TsbFragmentDataPtr fragmentData = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, discont, mRelativePos, periodId, mCurrentInitData);
+		TsbFragmentDataPtr fragmentData = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, discont, mRelativePos, periodId, mCurrentInitData, timeScale, PTSOffsetSec);
 		mRelativePos += duration;
 		if (mCurrHead != nullptr)
 		{

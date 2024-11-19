@@ -209,11 +209,13 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 		cachedFragment->duration = fragment->GetDuration();
 		cachedFragment->discontinuity = fragment->IsDiscontinuous();
 		cachedFragment->type = fragment->GetInitFragData()->GetMediaType();
+		cachedFragment->PTSOffsetSec = fragment->GetPTSOffsetSec();
+		cachedFragment->timeScale = fragment->GetTimeScale();
 		cachedFragment->uri = url;
 		pts = fragment->GetPTS();
-		AAMPLOG_INFO("[%s] Read fragment from AAMP TSB: position %fs absPosition %fs pts %fs duration %fs discontinuity %d url %s",
+		AAMPLOG_INFO("[%s] Read fragment from AAMP TSB: position %fs absPosition %fs pts %fs duration %fs discontinuity %d ptsOffset %fs timeScale %u url %s",
 			GetMediaTypeName(cachedFragment->type), cachedFragment->position, cachedFragment->absPosition, pts, cachedFragment->duration,
-			cachedFragment->discontinuity, url.c_str());
+			cachedFragment->discontinuity, cachedFragment->PTSOffsetSec, cachedFragment->timeScale, url.c_str());
 
 		if (fragment->GetInitFragData())
 		{
@@ -314,7 +316,7 @@ void AampTSBSessionManager::ProcessWriteQueue()
 					writeSucceeded = true;
 					bool TSBDataAddStatus = false;
 					AAMPLOG_TRACE("TSBWrite Metrics...OK...time taken (%lldms)...buffer (%zu)....BW(%ld)...mediatype(%s)...disc(%d)...pts(%f)...periodId(%s)..URL (%s)",
-					NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type),
+						NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type),
 						discontinuity[mediatype]? 1 : 0, writeData.pts, writeData.periodId.c_str(), writeData.url.c_str());
 					LockReadMutex();
 					if (writeData.cachedFragment->initFragment)

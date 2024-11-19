@@ -5281,6 +5281,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				mCdaiObject = new CDAIObjectMPD(this); // special version for DASH
 			}
 		}
+		else
+		{
+			mpStreamAbstractionAAMP->SetTrickplayMode(rate);
+		}
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HLS || mMediaFormat == eMEDIAFORMAT_HLS_MP4)
 	{ // m3u8
