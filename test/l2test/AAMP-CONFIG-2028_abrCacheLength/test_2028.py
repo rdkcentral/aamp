@@ -22,6 +22,9 @@ from inspect import getsourcefile
 import os
 import pytest
 import re 
+
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/testApps/L2/AAMP-IFRAME-4007/VideoTestStream.tar.xz"
+
 PREV_PLAYBACK_POSITION = 0
 def check_playback_progress(match):
     global PREV_PLAYBACK_POSITION
@@ -39,6 +42,7 @@ def generate_testcase(abrCacheLength = 4):
         "logfile": f"abrCacheLength_{abrCacheLength}.txt",
         "max_test_time_seconds": 30,
         "aamp_cfg": f"info=true\ntrace=true\nabrCacheLength={abrCacheLength}\ninitialBitrate=8000",
+        "archive_url": archive_url,
         "url":"VideoTestStream/main.mpd",
         "simlinear_type": "DASH",
         "expect_list": [ 

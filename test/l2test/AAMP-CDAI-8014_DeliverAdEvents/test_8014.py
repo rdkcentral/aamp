@@ -26,33 +26,11 @@ import os
 import sys
 from inspect import getsourcefile
 import pytest
-import subprocess
-import atexit
-import re
+from l2test_window_server import WindowServer
 
 ###############################################################################
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-CDAI-8004_ShortAd/content.tar.xz"
 
-server_process = None
-server_path = os.path.join(os.getcwd(), "AAMP-CDAI-8014_DeliverAdEvents/testdata/content/server.py")
-
-def start_server():
-    global server_process
-    if os.path.isfile(server_path):
-        try:
-            server_process = subprocess.Popen(["python3", server_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("started server.py")
-            atexit.register(server_process.terminate)
-        except Exception as e:
-            print("Failed to start server.py"+server_path)
-    else:
-        print("Error: server.py file not found "+ server_path)
-
-def stop_server():
-    global server_process
-    if server_process:
-        print("stop server")
-        server_process.terminate()
-        server_process = None
 
 # TestCase1.1: Single source period CDAI substitution - Refer TC https://etwiki.sys.comcast.net/pages/viewpage.action?spaceKey=RDKV&title=AAMP+Client-side+Dynamic+Ad+Use+cases
 # Description:
@@ -70,14 +48,16 @@ def stop_server():
 
 TESTDATA1 = {
     "title": "Linear CDAI TESTDATA DeliverADEvents",
-    "url": "http://localhost:8080/AAMP-CDAI-8014_DeliverAdEvents/testdata/content/CDAI_Test.mpd?live=true",
+    "archive_url": archive_url,
+    'archive_server': {'server_class': WindowServer},
+    "url": "http://localhost:8080/content/CDAI_Test.mpd?live=true",
     "max_test_time_seconds": 220,
     "aamp_cfg": "info=true\nprogress=true\ntrace=true\nlogMetadata=true\nclient-dai=true\nenablePTSReStamp=true\nuseAbsoluteTimeline=true\nenableSeekableRange=true\npreferredAbsoluteReporting=0\nprogressReportingInterval=0.25\n",
     "cmdlist": [
         # Add a 30-second ad to the stream at the beginning of Period 1
-        "advert add http://localhost:8080/AAMP-CDAI-8014_DeliverAdEvents/testdata/content/ad_30s.mpd 30",
-        "advert add http://localhost:8080/AAMP-CDAI-8014_DeliverAdEvents/testdata/content/ad_20s.mpd 20",
-        "advert add http://localhost:8080/AAMP-CDAI-8014_DeliverAdEvents/testdata/content/ad_10s.mpd 10",
+        "advert add http://localhost:8080/content/ad_30s.mpd 30",
+        "advert add http://localhost:8080/content/ad_20s.mpd 20",
+        "advert add http://localhost:8080/content/ad_10s.mpd 10",
         ],
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[\d+\] aamp_tune:", "min": 0, "max": 30},
@@ -119,6 +99,5 @@ def test_8014(aamp_setup_teardown, test_data):
     '''Tests the DeliverADEvents for each ad placement in the stream'''
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    start_server()
     aamp.run_expect_b(test_data)
-    stop_server()
+

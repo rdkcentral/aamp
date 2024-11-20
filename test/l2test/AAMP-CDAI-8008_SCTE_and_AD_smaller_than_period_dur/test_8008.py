@@ -26,35 +26,14 @@ import os
 import sys
 from inspect import getsourcefile
 import pytest
-import subprocess
-import atexit
 import re
 from l2test_pts_restamp import PtsRestampUtils
-
+from l2test_window_server import WindowServer
 ###############################################################################
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-CDAI-8004_ShortAd/content.tar.xz"
 
-server_process = None
-server_path = os.path.join(os.getcwd(), "AAMP-CDAI-8008_SCTE_and_AD_smaller_than_period_dur/testdata/content/server.py")
 pts_restamp_utils = PtsRestampUtils()
 
-def start_server():
-    global server_process
-    if os.path.isfile(server_path):
-        try:
-            server_process = subprocess.Popen(["python3", server_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("started server.py")
-            atexit.register(server_process.terminate)
-        except Exception as e:
-            print("Failed to start server.py"+server_path)
-    else:
-        print("Error: server.py file not found "+ server_path)
-
-def stop_server():
-    global server_process
-    if server_process:
-        print("stop server")
-        server_process.terminate()
-        server_process = None
 
 # Test Case5.1: Single source period with SCTE duration smaller than period duration
 # Description: This test case verifies the handling  an ad break where the ad and scte duration is lesser than period duration
@@ -70,10 +49,12 @@ TESTDATA1 = {
     "title": "SCTE and AD smaller than period duration",
     "max_test_time_seconds": 200,
     "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\nprogress=true",
-    "url": "http://localhost:8080/AAMP-CDAI-8008_SCTE_and_AD_smaller_than_period_dur/testdata/content/TestCase5_2.mpd?live=true",
+    "archive_url": archive_url,
+    'archive_server': {'server_class': WindowServer},
+    "url": "http://localhost:8080/content/TestCase5_2.mpd?live=true",
     "cmdlist": [
         # Adding a 10-second ad for the first 10 sec ad break in Period 1
-        "advert add http://localhost:8080/AAMP-CDAI-8008_SCTE_and_AD_smaller_than_period_dur/testdata/content/ad_10s.mpd",
+        "advert add http://localhost:8080/content/ad_10s.mpd",
     ],
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune:", "min": 0, "max": 3},
@@ -94,7 +75,7 @@ TESTDATA1 = {
         {"expect": re.escape("Period ID changed from '0-114' to '1' [BasePeriodId='1']"), "min": 20, "max": 200},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 1", "min": 0, "max": 200},
         # Expectation for playing remaining content from period 1 ,after playing 15 secs of ad
-        {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8008_SCTE_and_AD_smaller_than_period_dur/testdata/content/dash/1080p_024.m4s", "min": 0, "max": 200,"end_of_test": True},
+        {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/1080p_024.m4s", "min": 0, "max": 200,"end_of_test": True},
     ]
 }
 
@@ -113,10 +94,12 @@ TESTDATA2 = {
         "title": "Back to back scenario :SCTE and AD smaller than period duration",
     "max_test_time_seconds": 200,
     "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\nprogress=true\n",
-    "url": "http://localhost:8080/AAMP-CDAI-8008_SCTE_and_AD_smaller_than_period_dur/testdata/content/TestCase5_2.mpd?live=true",
+    "archive_url": archive_url,
+    'archive_server': {'server_class': WindowServer},
+    "url": "http://localhost:8080/content/TestCase5_2.mpd?live=true",
     "cmdlist": [
         # Adding a 10-second ad for the first 10 sec ad break in Period 1
-        "advert add http://localhost:8080/AAMP-CDAI-8008_SCTE_and_AD_smaller_than_period_dur/testdata/content/ad_10s.mpd 10",
+        "advert add http://localhost:8080/content/ad_10s.mpd 10",
         # Adding a 5-second ad for the second 5 sec ad break in Period 2 (10 sec period duration)
         "advert add https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/ad7/hsar1052-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad3/02e31a39-65cb-41b3-a907-4da24d78eec7/1628264506859/AD/HD/manifest.mpd 5"
     ],
@@ -144,9 +127,9 @@ TESTDATA2 = {
         {"expect": r"Adbreak ended early. Terminating Ad playback", "min": 0, "max": 150},
         {"expect":r"aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8009-CDAI_ad_dur_greater_than_SCTE_duration/testdata/content/ad_20/1080p_006.m4s", "min":0, "max":200,"count":2},
         # Expectation for playing remaning content from period 1 seconds from the ad segment
-        {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8008_SCTE_and_AD_smaller_than_period_dur/testdata/content/dash/1080p_031.m4s", "min": 0, "max": 200},
+        {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/1080p_031.m4s", "min": 0, "max": 200},
         # Ensuring the remaning content played from period 2
-        {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8008_SCTE_and_AD_smaller_than_period_dur/testdata/content/dash/1080p_045.m4s", "min": 0, "max": 200, "count": 2, "end_of_test": True},
+        {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/1080p_045.m4s", "min": 0, "max": 200, "count": 2, "end_of_test": True},
     ]
 }
 
@@ -165,9 +148,7 @@ def test_8008(aamp_setup_teardown, test_data):
  
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    start_server()
     aamp.run_expect_b(test_data)
-    stop_server()
 
     pts_restamp_utils.check_num_segments()
 

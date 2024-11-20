@@ -69,7 +69,7 @@ TESTDATA2 = {
 }
 
 
-TESTLIST = [TESTDATA1,TESTDATA2]
+TESTLIST = [TESTDATA1, TESTDATA2]
 
 ############################################################
 """

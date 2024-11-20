@@ -15,7 +15,9 @@
 from inspect import getsourcefile
 import os
 import pytest
-import re 
+
+
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/discontinuityTestStream.tar.xz"
 
 # Define test data configurations
 TESTDATA0 = { 
@@ -23,6 +25,7 @@ TESTDATA0 = {
     "logfile": "internalRetune_1.txt",
     "aamp_cfg": "trace=true\ninfo=true\nprogress=true\n",
     "max_test_time_seconds": 60,
+    "archive_url": archive_url,
     "url": "discontinuityTestStream/dash.akamaized.net/dash264/TestCasesIOP33/multiplePeriods/2/manifest.mpd",
     "simlinear_type": "DASH",
     "expect_list": [
@@ -50,6 +53,7 @@ TESTDATA1 = {
     "logfile": "internalRetune_2.txt",
     "aamp_cfg": "trace=true\ninfo=true\nprogress=true\ninternalRetune=false",
     "max_test_time_seconds": 90,
+    "archive_url": archive_url,
     "url": "discontinuityTestStream/dash.akamaized.net/dash264/TestCasesIOP33/multiplePeriods/2/manifest.mpd",
     "simlinear_type": "DASH",
     "cmdlist": [

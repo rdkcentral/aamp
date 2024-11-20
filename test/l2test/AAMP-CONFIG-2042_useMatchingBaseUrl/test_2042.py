@@ -21,14 +21,15 @@
 from inspect import getsourcefile
 import os
 import pytest
-
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/testApps/L2/matchingUrlDump.tar.xz"
 
 TESTDATA1 = {
 	"title": "Set useMatchingBaseUrl as true",
 	"logfile": "useMatchingBaseUrl_true.txt",
 	"max_test_time_seconds": 15,
 	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\nuseMatchingBaseUrl=true\n",
-	"url":f"matchingUrlDump/demo_manifest.mpd",
+    "archive_url": archive_url,
+	"url":"matchingUrlDump/demo_manifest.mpd",
 	"simlinear_type": "DASH",
 	"expect_list": [
 		{"expect":r"mManifestUrl: http://localhost:8085/matchingUrlDump/demo_manifest.mpd"},
@@ -47,8 +48,9 @@ TESTDATA2 = {
 	"title": "Set useMatchingBaseUrl as false",
 	"logfile": "useMatchingBaseUrl_false.txt",
 	"max_test_time_seconds": 15,
-	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\nuseMatchingBaseUrl=false\n",
-	"url":f"matchingUrlDump/demo_manifest.mpd",
+	"aamp_cfg": "info=true\ntrace=true\nprogress=true\nuseMatchingBaseUrl=false\n",
+    "archive_url": archive_url,
+	"url":"matchingUrlDump/demo_manifest.mpd",
 	"simlinear_type": "DASH",
 	"expect_list": [
 		{"expect":r"mManifestUrl: http://localhost:8085/matchingUrlDump/demo_manifest.mpd"},

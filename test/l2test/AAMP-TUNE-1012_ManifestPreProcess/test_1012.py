@@ -24,6 +24,9 @@ import pytest
 
 # live Manifest - expected frequent manifest updates
 
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-TUNE-1012_ManifestPreProcess/preprocess-manifest.tar.gz"
+
+
 TESTS=[{"cmd":'setconfig {"info":true,"progress":true}'}
 ]
 
@@ -43,6 +46,7 @@ def test_1012(aamp_setup_teardown,test_data):
     BASIC_TEST_DATA = {
         "title": "TEST MANIFEST PREPROCESS",
         "max_test_time_seconds": 20,
+        "archive_url": archive_url,
         "url": "index.mpd",
         "simlinear_type": "DASH",
         "expect_list": [
@@ -63,8 +67,7 @@ def test_1012(aamp_setup_teardown,test_data):
     }
 
     # Update playback for each test
-    playback = copy.deepcopy(BASIC_TEST_DATA)
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
     #Passing each test sequence to aampcli through run_expect_a API
-    aamp.run_expect_a(playback)
+    aamp.run_expect_a(BASIC_TEST_DATA)

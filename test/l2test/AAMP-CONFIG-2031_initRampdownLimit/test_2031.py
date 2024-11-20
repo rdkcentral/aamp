@@ -25,6 +25,8 @@ import re
 import base64
 import json
 
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/VideoTestStream_HLS.tar.xz"
+
 """
 [{"status": 404, "pattern": "(1080|720|480)p.m3u8"}]
 Setting initial bitrate to highest available bitrate (5000000) to start 1080p profile playback
@@ -43,6 +45,7 @@ TESTDATA1 = {
     "max_test_time_seconds": 30,
     # set initial bitrate = 5000000 to start 1080p profile 
     "aamp_cfg": f"info=true\ntrace=true\ninitRampdownLimit={initRampdownLimit}\ninitialBitrate=5000000",
+    "archive_url": archive_url,
     "url":f"VideoTestStream_HLS/main.m3u8?respData={data}",
     "simlinear_type": "HLS",
     "expect_list": [
@@ -72,6 +75,7 @@ TESTDATA2 = {
     "max_test_time_seconds": 30,
     # set initial bitrate = 5000000 to start 1080p profile 
     "aamp_cfg": f"info=true\ntrace=true\ninitRampdownLimit={initRampdownLimit}\ninitialBitrate=5000000",
+    "archive_url": archive_url,
     "url":f"VideoTestStream_HLS/main.m3u8?respData={data}",
     "simlinear_type": "HLS",
     "expect_list": [

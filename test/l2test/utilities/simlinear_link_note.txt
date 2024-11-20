@@ -1,0 +1,7 @@
+The simlinear.py soft link is here for a reason:
+When .../l2test/run_l2_aamp.py is invoked it will uses
+'pipreqs' to search sub dirs for all python modules that 
+need are used by the test system and need to be 
+installed. The search will follow the link and identify
+the modules that are used by simlinear.py
+

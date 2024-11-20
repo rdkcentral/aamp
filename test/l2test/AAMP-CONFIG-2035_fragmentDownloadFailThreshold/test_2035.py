@@ -25,6 +25,8 @@ import re
 import base64
 import json
 
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/testApps/L2/AAMP-IFRAME-4007/VideoTestStream.tar.xz"
+
 """
 [{"status": 404, "pattern": "(480|1080|360|720)p_0(0[6-9]|1[0-8]).m4s"}]
 Gives HTTP 404 error for all video segments numbered from 006 to 018
@@ -40,6 +42,7 @@ TESTDATA1 = {
     "logfile": f"single_video_track.txt",
     "max_test_time_seconds": 30,
     "aamp_cfg": "info=true\ntrace=true\nfragmentDownloadFailThreshold=8\n",
+    "archive_url": archive_url,
     "url":"VideoTestStream/main.mpd",
     "simlinear_type": "DASH",
     "expect_list": [ 
@@ -79,6 +82,7 @@ TESTDATA2 = {
     "logfile": f"only_audio.txt",
     "max_test_time_seconds": 10,
     "aamp_cfg": "info=true\ntrace=true\nabr=false\naudioOnlyPlayback=true\nfragmentDownloadFailThreshold=4\n",
+    "archive_url": archive_url,
     "url":"VideoTestStream/main.mpd",
     "simlinear_type": "DASH",
     "expect_list": [ 

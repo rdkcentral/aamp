@@ -24,10 +24,13 @@ import re
 import base64
 import json
 
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/testApps/L2/AAMP-IFRAME-4007/VideoTestStream.tar.xz"
+
 TESTDATA1 = {
     "title": "Test case to validate abrSkipDuration",
     "logfile": "abrSkipDuration_8.txt",
     "max_test_time_seconds": 20,
+    "archive_url": archive_url,
     "url":"VideoTestStream/main.mpd",
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\ntrace=true\nabrSkipDuration=8",
@@ -49,6 +52,7 @@ TESTDATA2 = {
     "title": "Test case to validate abrSkipDuration",
     "logfile": "abrSkipDuration_4.txt",
     "max_test_time_seconds": 40,
+    "archive_url": archive_url,
     "url":"VideoTestStream/main.mpd",
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\ntrace=true\nabrSkipDuration=4",
@@ -71,6 +75,7 @@ TESTDATA3 = {
     "title": "Test case to validate abrSkipDuration",
     "logfile": "abrSkipDuration_10.txt",
     "max_test_time_seconds": 40,
+    "archive_url": archive_url,
     "url":"VideoTestStream/main.mpd",
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\ntrace=true\nabrSkipDuration=10",
@@ -102,6 +107,7 @@ TESTDATA4 = {
     "logfile": f"abrSkipDuration_480p_{abrSkipDuration}.txt",
     "max_test_time_seconds": 30,
     "aamp_cfg": f"info=true\ntrace=true\nabrSkipDuration={abrSkipDuration}\n",
+    "archive_url": archive_url,
     "url":f"VideoTestStream/main.mpd?respData={data}",
     "simlinear_type": "DASH",
     "expect_list": [ 

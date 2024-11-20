@@ -23,7 +23,7 @@ import os
 import pytest
 import re 
 
-
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/testApps/L2/TestDash.tar.xz"
 
 TESTDATA1 = {
     "title": "dashIgnoreBaseUrlIfSlash",
@@ -31,6 +31,7 @@ TESTDATA1 = {
     "max_test_time_seconds": 80,
     
     "aamp_cfg": "info=true\ntrace=true\n",
+    "archive_url": archive_url,
     "url":"TestDashIgnore/demo_manifest.mpd",
     "simlinear_type": "DASH",
     "expect_list": [
@@ -56,6 +57,7 @@ TESTDATA2 = {
     "max_test_time_seconds": 80,
     
     "aamp_cfg": "info=true\ntrace=true\n",
+    "archive_url": archive_url,
     "url":"TestDashIgnore/demo_manifest.mpd",
     "simlinear_type": "DASH",
     "expect_list": [ 

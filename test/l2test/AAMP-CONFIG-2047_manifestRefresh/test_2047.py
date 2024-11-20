@@ -24,10 +24,12 @@ import re
 import base64
 import json
 
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/sky/skywitness-4klive-8M.tar.gz"
 TESTDATA1 = {
     "title": "Test case to validate manifestRefreshEvent",
     "logfile": "ManifestRefreshLogs.txt",
     "max_test_time_seconds": 12,
+    "archive_url": archive_url,
     "url":"v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd",
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\njsinfo=true\nprogress=true",

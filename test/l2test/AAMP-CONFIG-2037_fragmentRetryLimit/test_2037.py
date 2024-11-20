@@ -24,6 +24,8 @@ import re
 import base64
 import json
 
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/testApps/L2/AAMP-IFRAME-4007/VideoTestStream.tar.xz"
+
 def createTestData(fragmentRetryLimit):
     """
     [{"status": 404, "pattern": "(480|1080|360|720)p_0(0[6-9]|1[0-8]).m4s"}]
@@ -38,6 +40,7 @@ def createTestData(fragmentRetryLimit):
         "title": "Test case to validate fragmentRetryLimit Configuration",
         "logfile": f"fragmentRetryLimit_{fragmentRetryLimit}.txt",
         "max_test_time_seconds": 30,
+        "archive_url": archive_url,
         "url":f"VideoTestStream/main.mpd?respData={data}",
         "simlinear_type": "DASH",
         "aamp_cfg": f"info=true\ntrace=true\nprogress=true\nfragmentRetryLimit={fragmentRetryLimit}",

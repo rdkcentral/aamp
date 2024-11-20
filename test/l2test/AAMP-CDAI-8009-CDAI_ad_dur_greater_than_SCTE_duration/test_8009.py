@@ -26,33 +26,12 @@ import os
 import sys
 from inspect import getsourcefile
 import pytest
-import subprocess
-import atexit
 import re
+from l2test_window_server import WindowServer
 
 ###############################################################################
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-CDAI-8004_ShortAd/content.tar.xz"
 
-server_process = None
-server_path = os.path.join(os.getcwd(), "AAMP-CDAI-8009-CDAI_ad_dur_greater_than_SCTE_duration/testdata/content/server.py")
-
-def start_server():
-    global server_process
-    if os.path.isfile(server_path):
-        try:
-            server_process = subprocess.Popen(["python3", server_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("started server.py")
-            atexit.register(server_process.terminate)
-        except Exception as e:
-            print("Failed to start server.py"+server_path)
-    else:
-        print("Error: server.py file not found "+ server_path)
-
-def stop_server():
-    global server_process
-    if server_process:
-        print("stop server")
-        server_process.terminate()
-        server_process = None
 
 # Test Case 6.1: Single period with CDAI ad duration > SCTE35 duration
 # Description: This test case verifies the handling of a single period with an ad break where the ad duration is  longer than the specified SCTE duration.
@@ -67,10 +46,12 @@ TESTDATA1 = {
     "title": "Single period with CDAI ad duration > SCTE35 duration",
     "max_test_time_seconds": 180,
     "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\n",
-    "url": "http://localhost:8080/AAMP-CDAI-8009-CDAI_ad_dur_greater_than_SCTE_duration/testdata/content/TC1.mpd?live=true",
+    "archive_url": archive_url,
+    'archive_server': {'server_class': WindowServer},
+    "url": "http://localhost:8080/content/TC1.mpd?live=true",
     "cmdlist": [
         # Adding a 40-second ad for the ad break in Period 1
-        "advert add http://localhost:8080/AAMP-CDAI-8009-CDAI_ad_dur_greater_than_SCTE_duration/testdata/content/ad_40s.mpd 40",
+        "advert add http://localhost:8080/content/ad_40s.mpd 40",
     ],
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune:", "min": 0, "max": 3},
@@ -112,11 +93,13 @@ TESTDATA2 = {
     "title": "Single period with CDAI ad duration > SCTE35 duration- With 2 ads substitution",
     "max_test_time_seconds": 300,
     "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\n",
-    "url": "http://localhost:8080/AAMP-CDAI-8009-CDAI_ad_dur_greater_than_SCTE_duration/testdata/content/TC1.mpd?live=true",
+    "archive_url": archive_url,
+    'archive_server': {'server_class': WindowServer},
+    "url": "http://localhost:8080/content/TC1.mpd?live=true",
     "cmdlist": [
         # Adding two 20-second ads for the ad break in Period 1
-        "advert add http://localhost:8080/AAMP-CDAI-8009-CDAI_ad_dur_greater_than_SCTE_duration/testdata/content/ad_20s.mpd 20",
-        "advert add http://localhost:8080/AAMP-CDAI-8009-CDAI_ad_dur_greater_than_SCTE_duration/testdata/content/ad_20s.mpd 20",
+        "advert add http://localhost:8080/content/ad_20s.mpd 20",
+        "advert add http://localhost:8080/content/ad_20s.mpd 20",
     ],
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune:", "min": 0, "max": 3},
@@ -134,9 +117,9 @@ TESTDATA2 = {
         {"expect": re.escape("Period ID changed from '1-114' to '2' [BasePeriodId='2']"), "min": 20, "max": 200},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 1", "min": 10, "max": 200},
         #Ensure ad1 ends properly 
-        {"expect":r"aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8009-CDAI_ad_dur_greater_than_SCTE_duration/testdata/content/ad_20/1080p_010.m4s","min":10,"max":200},
+        {"expect":r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_20/1080p_010.m4s","min":10,"max":200},
         #Ensure fragments download by both ads
-        {"expect":r"aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8009-CDAI_ad_dur_greater_than_SCTE_duration/testdata/content/ad_20/1080p_006.m4s", "min":10,"max":200,"count":2},
+        {"expect":r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_20/1080p_006.m4s", "min":10,"max":200,"count":2},
         {"expect": r"HttpRequestEnd.*?/dash/en_031.mp", "min":0, "max":180},
         # End of the test - confirm the last segment fetched from Period 2
         {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_045.m4s\?live=true", "min": 0, "max": 200, "end_of_test": True},
@@ -151,6 +134,5 @@ def test_data(request):
 def test_8009(aamp_setup_teardown, test_data):
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    start_server()
     aamp.run_expect_b(test_data)
-    stop_server()
+

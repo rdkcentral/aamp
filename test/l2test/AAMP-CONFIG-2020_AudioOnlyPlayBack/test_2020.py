@@ -23,6 +23,7 @@ import pytest
 import re
 import subprocess
 
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/sky/skywitness-4klive-8M.tar.gz"
 def verify_video_header(matched):
     video_header = "v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163/track-video-periodid-879813569-repid-root_video0-tc-0-header.mp4"
     
@@ -45,6 +46,7 @@ def verify_video_header(matched):
 TESTDATA1 = {
     "title": "Test case to validate AudioOnlyPlayBack Configuration",
     "max_test_time_seconds": 30,
+    "archive_url": archive_url,
     "url":"v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd",
     "simlinear_type": "DASH",
     "aamp_cfg": f"info=true\ntrace=true\nprogress=true\naudioOnlyPlayback=true",

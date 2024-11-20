@@ -21,17 +21,18 @@
 # verifies aamp log output against expected list of events
 
 import os
-import platform
 from inspect import getsourcefile
 import pytest
-import re 
 
+
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-TUNE-1009/content.tar.xz"
 
 TESTDATA1 = {
 "title": "Test corrupt fragments",
 "logfile": "test.log",
 "max_test_time_seconds": 30,
 "aamp_cfg": f"info=true\ntrace=true\nprogress=true\n",
+"archive_url": archive_url,
 "url":"content/main.mpd",
 "simlinear_type": "DASH",
 "expect_list": [

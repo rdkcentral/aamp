@@ -25,8 +25,9 @@ import sys
 import json
 import copy
 import pytest
-
 from inspect import getsourcefile
+
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/misc/ch920_10min.tar.xz"
 
 # // Test URL with Low Latency Content
 LLD_URL="v1/frag/bmff/enc/cenc/latency/low/t/UK3054_HD_SU_SKYUK_3054_0_8371500471198371163.mpd?chunked"
@@ -40,6 +41,7 @@ TESTDATA1 = {
     "logfile": "configtrue.log",
     "max_test_time_seconds": 15,
     "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+    "archive_url": archive_url,
     "url": LLD_URL,
     'simlinear_type': 'DASH',
     "expect_list":
@@ -56,6 +58,7 @@ TESTDATA2 = {
     "logfile": "configfalse.log",
     "max_test_time_seconds": 15,
     "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=false\nprogress=true\ntsbLocation=/tmp/data\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+    "archive_url": archive_url,
     "url": LLD_URL,
     'simlinear_type': 'DASH',
     "expect_list":
@@ -72,6 +75,7 @@ TESTDATA3 = {
     "logfile": "culling.log",
     "max_test_time_seconds": 30,
     "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=6\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+    "archive_url": archive_url,
     "url": LLD_URL,
     'simlinear_type': 'DASH',
     "expect_list":
@@ -91,6 +95,7 @@ TESTDATA4 = {
     "logfile": "datamgr.log",
     "max_test_time_seconds": 20,
     "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLog=0\ntsbLength=4\nlldUrlKeyword=chunked\n",
+    "archive_url": archive_url,
     "url": LLD_URL,
     'simlinear_type': 'DASH',
     "expect_list":
@@ -111,6 +116,7 @@ TESTDATA5 = {
     "logfile": "tsblib.log",
     "max_test_time_seconds": 35,
     "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=4\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+    "archive_url": archive_url,
     "url": LLD_URL,
     'simlinear_type': 'DASH',
     "expect_list":
@@ -149,6 +155,7 @@ TESTDATA_read = {
     "logfile": "readapi.log",
     "max_test_time_seconds":    60,
     'simlinear_type': 'DASH',
+    "archive_url": archive_url,
     "url": LLD_URL,
     "aamp_cfg": "progress=true\ninfo=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
     "expect_list":

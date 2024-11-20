@@ -26,11 +26,14 @@ import re
 # This test requires a DASH stream with no subtitles (if it has subtitles, the
 # SubtecSimulatorThread starts before the tuned event is received and the test fails).
 
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/testApps/L2/multilingual_subtitles.tar.xz"
+
 TESTDATA1 = {
 	"title": "Set preferred Text Languages for french language ",
 	"logfile": "testdata1.txt",
 	"max_test_time_seconds": 25,
 	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\nforceHttp=true\ninitialBitrate=401000\n",
+    "archive_url": archive_url,
 	"url":"multilingual_subtitles/manifest.mpd",
 	"simlinear_type": "DASH",
 	"expect_list": [
@@ -52,6 +55,7 @@ TESTDATA2 = {
 	"logfile": "testdata2.txt",
 	"max_test_time_seconds": 25,
 	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\nforceHttp=true\ninitialBitrate=401000\n",
+    "archive_url": archive_url,
 	"url":"multilingual_subtitles/manifest.mpd",
 	"simlinear_type": "DASH",
 	"expect_list": [
@@ -72,6 +76,7 @@ TESTDATA3 = {
 	"logfile": "testdata3.txt",
 	"max_test_time_seconds": 25,
 	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\nforceHttp=true\ninitialBitrate=401000\n",
+    "archive_url": archive_url,
 	"url":"multilingual_subtitles/manifest.mpd",
 	"simlinear_type": "DASH",
 	"expect_list": [
@@ -99,6 +104,7 @@ TESTDATA4 = {
 	"logfile": "testdata4.txt",
 	"max_test_time_seconds": 25,
 	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\nforceHttp=true\ninitialBitrate=401000\n",
+    "archive_url": archive_url,
 	"url":"multilingual_subtitles/manifest.mpd",
 	"simlinear_type": "DASH",
 	"expect_list": [
@@ -126,6 +132,7 @@ TESTDATA5 = {
 	"logfile": "testdata5.txt",
 	"max_test_time_seconds": 25,
 	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\nforceHttp=true\ninitialBitrate=401000\n",
+    "archive_url": archive_url,
 	"url":"multilingual_subtitles/manifest.mpd",
 	"simlinear_type": "DASH",
 	"expect_list": [
