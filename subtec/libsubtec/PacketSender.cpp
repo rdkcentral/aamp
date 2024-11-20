@@ -21,7 +21,6 @@
 
 #include "SubtecPacket.hpp"
 #include "PacketSender.hpp"
-#include "AampUtils.h"
 
 #define MAX_SNDBUF_SIZE (8*1024*1024)
 
@@ -151,8 +150,8 @@ void PacketSender::sendPacket(PacketPtr && pkt)
 	    AAMPLOG_INFO("new socket buffer size %d\n", mSockBufSize);
 	}
     }
-    int written = ::write(mSubtecSocketHandle, &buffer[0], size);
-    AAMPLOG_TRACE("PacketSender: Written %d bytes with size %zu", written, size);
+    auto written = ::write(mSubtecSocketHandle, &buffer[0], size);
+    AAMPLOG_TRACE("PacketSender: Written %ld bytes with size %zu", static_cast<long>(written), size);
 
     //Socket reconnect in case packet write fails
     if (written == -1) {
