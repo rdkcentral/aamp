@@ -338,7 +338,7 @@ if __name__ == "__main__":
             # Use the segment durations specified in the manifest
             segment_and_duration = []
             for segment_detail in segment_list.get_segments(segment_group):
-                tup = (segment_detail["segment_name"], segment_detail["duration"])
+                tup = (segment_detail["segment_filename"], segment_detail["duration"])
                 segment_and_duration.append(tup)
             # log.info("segment_and_duration %S", segment_and_duration)
             proc_list = fromman_fileList(segment_and_duration, "./")
@@ -347,13 +347,8 @@ if __name__ == "__main__":
             check_have_ffprobe()
             segment_names = []
             for segment_detail in segment_list.get_segments(segment_group):
-                if segment_detail["segment_name"].startswith("http"):
-                    segment_url_properties = urlparse(segment_detail["segment_name"])
-                    segment_url_path = f"{segment_url_properties.netloc}{segment_url_properties.path}"
-                    segment_names.append(segment_url_path)
-                else:
-                    segment_names.append(segment_detail["segment_name"])
-                log.debug("segment_names %s",segment_names)
+                segment_names.append(segment_detail["segment_filename"])
+            log.debug("segment_names %s",segment_names)
             proc_list = mpeg_flist(segment_names, "./")
 
         base_dir = os.path.dirname(os.path.realpath(__file__))
