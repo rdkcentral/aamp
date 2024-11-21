@@ -1974,7 +1974,8 @@ public:
 	{
 		ManifestRefreshEventPtr evt = std::dynamic_pointer_cast<ManifestRefreshEvent>(e);
 		JSStringRef prop;
-        prop = JSStringCreateWithUTF8CString("manifestDuration");
+		const char* manifestType = evt->getManifestType();
+		prop = JSStringCreateWithUTF8CString("manifestDuration");
 		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getManifestDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 		
@@ -1984,6 +1985,10 @@ public:
 		
 		prop = JSStringCreateWithUTF8CString("noOfPeriods");
 		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getNoOfPeriods()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("manifestType");
+		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, manifestType), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };

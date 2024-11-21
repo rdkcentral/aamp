@@ -1009,7 +1009,8 @@ protected:
         manifestDuration = 100;
         noOfPeriods = 3;
         manifestPublishedTime = 12345;
-        event = new ManifestRefreshEvent(manifestDuration, noOfPeriods, manifestPublishedTime, session_id);
+        manifestType ="dynamic";
+        event = new ManifestRefreshEvent(manifestDuration, noOfPeriods, manifestPublishedTime, session_id,manifestType);
     }
 
     void TearDown() override {
@@ -1020,6 +1021,7 @@ protected:
     uint32_t manifestDuration;
     int noOfPeriods;
     uint32_t manifestPublishedTime;
+    const char *manifestType;
     ManifestRefreshEvent* event;
 };
 
@@ -1027,6 +1029,7 @@ TEST_F(ManifestRefreshEventTest, ConstructorTest) {
     EXPECT_EQ(event->getManifestDuration(), manifestDuration);
     EXPECT_EQ(event->getNoOfPeriods(), noOfPeriods);
     EXPECT_EQ(event->getManifestPublishedTime(), manifestPublishedTime);
+    EXPECT_EQ(event->getManifestType(), manifestType);
 }
 
 class TuneTimeMetricsEventTest : public ::testing::Test {

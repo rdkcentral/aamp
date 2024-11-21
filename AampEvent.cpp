@@ -1612,9 +1612,9 @@ const std::string &ContentProtectionDataEvent::getStreamType() const
 /*
  * @brief ManifestRefreshEvent Constructor
  */
-ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, std::string sid):
+ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, std::string sid,const char * manifestType):
 	AAMPEventObject(AAMP_EVENT_MANIFEST_REFRESH_NOTIFY, std::move(sid))
-	, mManifestDuration(manifestDuration),mNoOfPeriods(noOfPeriods),mManifestPublishedTime(manifestPublishedTime)
+	, mManifestDuration(manifestDuration),mNoOfPeriods(noOfPeriods),mManifestPublishedTime(manifestPublishedTime),mManifestType(manifestType)
 {
 
 }
@@ -1627,6 +1627,17 @@ ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPer
 uint32_t ManifestRefreshEvent::getManifestDuration() const
 {
    return mManifestDuration;
+}
+
+/**
+ * @brief Get ManifestFile Duration for Linear DASH
+ *
+ * @return ManifestFile Duration
+ */
+const char * ManifestRefreshEvent::getManifestType() const
+{
+
+   return mManifestType;
 }
 
 /**

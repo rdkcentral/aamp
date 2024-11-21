@@ -381,7 +381,7 @@ ContentProtectionDataEvent::ContentProtectionDataEvent(const std::vector<uint8_t
 /*
  * @brief ManifestRefreshEvent Constructor
  */
-ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, std::string sid):
+ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, std::string sid, const char *manifestType):
 	AAMPEventObject(AAMP_EVENT_MANIFEST_REFRESH_NOTIFY, std::move(sid))
 	, mManifestDuration(manifestDuration),mNoOfPeriods(noOfPeriods),mManifestPublishedTime(manifestPublishedTime)
 {
@@ -396,6 +396,17 @@ ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPer
 uint32_t ManifestRefreshEvent::getManifestDuration() const
 {
    return mManifestDuration;
+}
+
+/**
+ * @brief Get ManifestType
+ *
+ * @return ManifestType
+ */
+const char * ManifestRefreshEvent::getManifestType() const
+{
+
+   return mManifestType;
 }
 
 /**
@@ -417,6 +428,8 @@ uint32_t ManifestRefreshEvent::getManifestPublishedTime() const
 {
    return mManifestPublishedTime;
 }
+
+
 
 TuneTimeMetricsEvent::TuneTimeMetricsEvent(const std::string &timeMetricData, std::string sid):
 	AAMPEventObject(AAMP_EVENT_TUNE_TIME_METRICS, std::move(sid))

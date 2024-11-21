@@ -1875,7 +1875,7 @@ Example:
 - manifestDuration: number (duration in seconds)
 - manifestPublishedTime: number (UTC seconds)
 - noOfPeriods: number (period count)
-
+- manifestType: string("dynamic" or "static")
 **Description:**
 - sent when a live DASH manifest is refreshed
 
