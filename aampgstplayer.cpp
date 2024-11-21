@@ -85,7 +85,7 @@ typedef enum {
 #define GST_ELEMENT_GET_STATE_RETRY_CNT_MAX 5
 
 #define DEFAULT_BUFFERING_TO_MS 10                       /**< TimeOut interval to check buffer fullness */
-#define DEFAULT_AVSYNC_FREERUN_THRESHOLD_SECS 12         /**< Currently MAX FRAG DURATION + 2 per Realtek */
+#define DEFAULT_AVSYNC_FREERUN_THRESHOLD_SECS 12         /**< Currently MAX FRAG DURATION + 2  */
 
 #define DEFAULT_BUFFERING_MAX_MS (1000)                  /**< max buffering time */
 #define DEFAULT_BUFFERING_MAX_CNT (DEFAULT_BUFFERING_MAX_MS/DEFAULT_BUFFERING_TO_MS)   /**< max buffering timeout count */
@@ -214,7 +214,7 @@ struct AAMPGstPlayerPriv
 	bool paused; 					/**< if pipeline is deliberately put in PAUSED state due to user interaction */
 	GstState pipelineState; 			/**< current state of pipeline */
 	TaskControlData firstVideoFrameDisplayedCallbackTask; /**< Task control data of the handler created for notifying state changed to Playing */
-	bool firstTuneWithWesterosSinkOff; 		/**<  DELIA-33640: track if first tune was done for Realtekce build */
+	bool firstTuneWithWesterosSinkOff; 		/**<   track if first tune was done for certain build */
 	long long decodeErrorMsgTimeMS; 		/**< Timestamp when decode error message last posted */
 	int decodeErrorCBCount; 			/**< Total decode error cb received within thresold time */
 	bool progressiveBufferingEnabled;
@@ -1863,7 +1863,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 					_this->NotifyFirstFrame(eMEDIATYPE_VIDEO);
 				}
 				if(platformType == ePLATFORM_REALTEK)
-				{// DELIA-33640: For Realtekce build and westeros-sink disabled
+				{//  For certain build and westeros-sink disabled
 				 // prevent calling NotifyFirstFrame after first tune, ie when upausing
 				 // pipeline during flush
 					if(_this->privateContext->firstTuneWithWesterosSinkOff)

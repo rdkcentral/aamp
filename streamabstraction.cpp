@@ -3656,7 +3656,7 @@ void StreamAbstractionAAMP::CheckForMediaTrackInjectionStall(TrackType type)
 					{
 						AAMPLOG_WARN("Ignoring discontinuity in track:%d since other track doesn't have a discontinuity (diff: %f, injectedDuration: %f, cachedDuration: %f)",
 								type, diff, otherTrackDuration, cachedDuration);
-						// This is a logic to handle special case identified with Sky CDVR SCTE embedded streams.
+						// special case handling for CDVR streams having SCTE signals
 						// During the period transition, the audio track detected the discontinuity, but the Player didn’t detect discontinuity for the video track within the expected time frame.
 						// So the Audio track is exiting from the discontinuity process due to singular discontinuity condition,
 						// but after that, the video track encountered discontinuity and ended in a deadlock due to no more discontinuity in audio to match with it.

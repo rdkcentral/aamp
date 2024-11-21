@@ -480,7 +480,7 @@ TEST_URLS = [
         "harvest_opt": ["--bandwidths", "562800", "--bandwidths", "1328400"],
     },
     {
-        "notes": "Sky Atlantic",
+        "notes": "Atlantic",
         "URL": "https://lin012-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd",
         "is_encrypted": True,
     },

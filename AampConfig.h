@@ -171,7 +171,7 @@ typedef enum
 	eAAMPConfig_LimitResolution,                                            /**< Flag to indicate if display resolution based profile selection to be done */
 	eAAMPConfig_UseAbsoluteTimeline,					/**< Enable Report Progress report position based on Availability Start Time **/
 	eAAMPConfig_EnableAccessAttributes,					/**< Usage of Access Attributes in VSS */
-	eAAMPConfig_WideVineKIDWorkaround,                         		/**< SkyDE Store workaround to pick WV DRM Key Id from different location */
+	eAAMPConfig_WideVineKIDWorkaround,                         		/**< partner-specific workaround to use WV DRM KeyId from alternate location */
 	eAAMPConfig_RepairIframes,						/**< Enable fragment repair (Stripping and box size correction) for iframe tracks */
 	eAAMPConfig_SEITimeCode,						/**< Enables SEI Time Code handling */
 	eAAMPConfig_Disable4K,							/**< Enalbe/Disable 4K stream support*/

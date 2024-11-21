@@ -5838,8 +5838,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	}
 	mEventManager->SetFakeTuneFlag(mIsFakeTune);
 
-	// Temp hack for Sky LLD trials , to be removed next Sprint - RDKAAMP-890
-	mManifestUrl = mainManifestUrl;
+	mManifestUrl = mainManifestUrl; // TBR
 
 	// store the url 2 from the applicatio for mpd stiching
 	mMPDStichRefreshUrl		=	refreshManifestUrl ? refreshManifestUrl : "";
@@ -12489,7 +12488,7 @@ void PrivateInstanceAAMP::EnableAllMediaDownloads()
 #define WV_KID_WORKAROUND "SkyStoreDE="
 
 /**
- * @brief get the SkyDE Store workaround
+ * @brief workaround for non-compliant partner content
  */
 bool PrivateInstanceAAMP::IsWideVineKIDWorkaround(std::string url)
 {

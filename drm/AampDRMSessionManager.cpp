@@ -1120,7 +1120,7 @@ AampDrmSession* AampDRMSessionManager::createDrmSession(std::shared_ptr<AampDrmH
 		return nullptr;
 	}
 
-	// Mutex lock to handle createDrmSession multi-thread calls to avoid timing issues observed in AXi6 as part of DELIA-43939 during Playready-4.0 testing.
+	// protect createDrmSession multi-thread calls; found during PR 4.0 DRM testing
 	AampMutexHold drmSessionLock(mDrmSessionLock);
 
 	int cdmError = -1;

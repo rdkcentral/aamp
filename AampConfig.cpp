@@ -337,7 +337,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"limitResolution",eAAMPConfig_LimitResolution,false},
 	{false,"useAbsoluteTimeline",eAAMPConfig_UseAbsoluteTimeline,false},
 	{true,"enableAccessAttributes",eAAMPConfig_EnableAccessAttributes,false},
-	{false,"SkyStoreDE",eAAMPConfig_WideVineKIDWorkaround,false},
+	{false,"WideVineKIDWorkaround",eAAMPConfig_WideVineKIDWorkaround,false},
 	{false,"repairIframes",eAAMPConfig_RepairIframes,false},
 	{true,"seiTimeCode",eAAMPConfig_SEITimeCode,false},
 	{false,"disable4K" , eAAMPConfig_Disable4K, false},

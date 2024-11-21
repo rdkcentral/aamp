@@ -3,7 +3,7 @@
 This python3 L2 test verifies CDAI Multi Pipeline functionality, with config useSinglePipeline not set.
 In particular it was introduced to verify the following feature:
 
-<RDK-1176> Optimization/Cosmetic fix for Sky VOD CDAI Transitions
+<RDK-1176> Optimization/Cosmetic fix for VOD CDAI Transitions
 
 ## Pre-requisites to L2 tests:
 
