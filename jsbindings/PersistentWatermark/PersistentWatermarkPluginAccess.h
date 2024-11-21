@@ -20,6 +20,7 @@
 #ifndef __PERSISTENT_WATERMARK_PLUGIN_ACCESS__H__
 #define __PERSISTENT_WATERMARK_PLUGIN_ACCESS__H__
 
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 #include "ThunderAccess.h"
 #include "jsutils.h"
 
@@ -57,4 +58,6 @@ namespace PersistentWatermark
 		PluginAccess();
 	};
 };
-#endif
+#endif // USE_CPP_THUNDER_PLUGIN_ACCESS
+#endif // __PERSISTENT_WATERMARK_PLUGIN_ACCESS__H__
+

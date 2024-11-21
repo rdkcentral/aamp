@@ -571,3 +571,12 @@ bool parseAndValidateSCTE35(const std::string &scte35Data)
 	}
 	return false;
 }
+
+extern "C"
+{
+void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *aamp)
+{
+}
+}
+
+

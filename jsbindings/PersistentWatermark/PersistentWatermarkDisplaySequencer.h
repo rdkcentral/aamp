@@ -16,14 +16,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-
 #ifndef __PERSISTENT_WATERMARK_DISPLAY_SEQUENCER__H__
 #define __PERSISTENT_WATERMARK_DISPLAY_SEQUENCER__H__
 
 #include "PersistentWatermarkEventHandler.h"
 #include "PersistentWatermarkStorage.h"
-#include "ThunderAccess.h"
-#include "jsutils.h"
 
 namespace PersistentWatermark
 {

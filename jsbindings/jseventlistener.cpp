@@ -449,7 +449,7 @@ public:
 
 		//AudioBitrate
 		const std::vector<long> &audioBitrateVect = evt->getAudioBitrates();
-		count = audioBitrateVect.size();
+		count = (int)audioBitrateVect.size();
 		if(count > 0 )
 		{
 			array = new JSValueRef[count];
@@ -700,9 +700,9 @@ public:
 		const std::vector<std::string> &headerVec = evt->getHeaderResponses();
 		if(!headerVec.empty())
 		{
-			int count = headerVec.size();
+			int count = (int)headerVec.size();
 			JSValueRef* array = new JSValueRef[count];
-			for(int32_t i = 0; i < count; i++)
+			for(int i = 0; i < count; i++)
 			{
 				JSValueRef respHeader = aamp_CStringToJSValue(p_obj->_ctx, headerVec[i].c_str());
 				array[i] = respHeader;
@@ -1524,7 +1524,7 @@ public:
 	{
 		ContentProtectionDataEventPtr evt = std::dynamic_pointer_cast<ContentProtectionDataEvent>(ev);
 		std::vector<uint8_t> keyId = evt->getKeyID();
-		int len = keyId.size();
+		int len = (int)keyId.size();
 		JSStringRef prop;
 		JSValueRef* array = new JSValueRef[len];
 		for (int32_t i = 0; i < len; i++)

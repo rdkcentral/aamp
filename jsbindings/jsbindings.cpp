@@ -21,8 +21,6 @@
  * @file jsbindings.cpp
  * @brief JavaScript bindings for AAMP
  */
-
-
 #include <JavaScriptCore/JavaScript.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -43,7 +41,6 @@ extern void ClearAAMPPlayerInstances();
 
 extern "C"
 {
-
 	/**
 	 * @brief Get the global JS execution context
 	 * @param[in] JSContextRef JS execution context
@@ -71,7 +68,6 @@ struct AAMP_JS
 	JSObjectRef _promiseCallback;	/* Callback function for JS promise resolve/reject.*/
 };
 
-
 /**
  * @brief callback invoked when AAMP is used along with 'new'
  * @param[in] context JS execution context
@@ -86,7 +82,6 @@ static JSObjectRef AAMP_class_constructor(JSContextRef context, JSObjectRef cons
 	*exception = aamp_GetException(context, AAMPJS_GENERIC_ERROR, "Cannot create an object of AAMP");
 	return NULL;
 }
-
 
 /**
  * @brief Callback invoked from JS to get the closedCaptionEnabled property value
@@ -110,7 +105,6 @@ static JSValueRef AAMP_getProperty_closedCaptionEnabled(JSContextRef context, JS
 	return JSValueMakeUndefined(context);
 }
 
-
 /**
  * @brief Callback invoked from JS to set the closedCaptionEnabled property value
  * @param[in] context JS exception context
@@ -132,7 +126,6 @@ static bool AAMP_setProperty_closedCaptionEnabled(JSContextRef context, JSObject
 	}
 	return true;
 }
-
 
 /**
  * @brief Callback invoked from JS to get the initialBufferTime property value
@@ -156,7 +149,6 @@ static JSValueRef AAMP_getProperty_initialBufferTime(JSContextRef context, JSObj
 	return JSValueMakeUndefined(context);
 }
 
-
 /**
  * @brief Callback invoked from JS to set the initialBufferTime property value
  * @param[in] context JS exception context
@@ -179,7 +171,6 @@ static bool AAMP_setProperty_initialBufferTime(JSContextRef context, JSObjectRef
 	return true;
 }
 
-
 /**
  * @brief Callback invoked from JS to get the trickPlayEnabled property value
  * @param[in] context JS execution context
@@ -200,7 +191,6 @@ static JSValueRef AAMP_getProperty_trickPlayEnabled(JSContextRef context, JSObje
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to set the trickPlayEnabled property value
@@ -225,7 +215,6 @@ static bool AAMP_setProperty_trickPlayEnabled(JSContextRef context, JSObjectRef 
 	return true;
 }
 
-
 /**
  * @brief Callback invoked from JS to get the EventType property value
  * @param[in] context JS execution context
@@ -246,7 +235,6 @@ static JSValueRef AAMP_getProperty_EventType(JSContextRef context, JSObjectRef t
 	}
 	return pAAMP->_eventType;
 }
-
 
 /**
  * @brief Callback invoked from JS to get the mediaType property value
@@ -277,7 +265,6 @@ static JSValueRef AAMP_getProperty_MediaType(JSContextRef context, JSObjectRef t
 	}
 }
 
-
 /**
  * @brief Callback invoked from JS to get the version property value
  * @param[in] context JS execution context
@@ -299,7 +286,6 @@ static JSValueRef AAMP_getProperty_Version(JSContextRef context, JSObjectRef thi
 
 	return aamp_CStringToJSValue(context, AAMP_UNIFIED_VIDEO_ENGINE_VERSION);
 }
-
 
 /**
  * @brief Callback invoked from JS to get the audioLanguage property value
@@ -348,7 +334,6 @@ static JSValueRef AAMP_getProperty_CurrentDRM(JSContextRef context, JSObjectRef 
 	return aamp_CStringToJSValue(context, drm.c_str());
 }
 
-
 /**
  * @brief Callback invoked from JS to get the timedMetadata property value
  * @param[in] context JS execution context
@@ -376,7 +361,7 @@ static JSValueRef AAMP_getProperty_timedMetadata(JSContextRef context, JSObjectR
 		return JSValueMakeUndefined(context);
 	}
 
-	int32_t length = privAAMP->timedMetadata.size();
+	int32_t length = (int32_t)privAAMP->timedMetadata.size();
 
 	JSValueRef* array = new JSValueRef[length];
 	for (int32_t i = 0; i < length; i++)
@@ -391,7 +376,6 @@ static JSValueRef AAMP_getProperty_timedMetadata(JSContextRef context, JSObjectR
 
 	return prop;
 }
-
 
 /**
  * @brief Callback invoked from JS to set the stallErrorCode property value
@@ -419,7 +403,6 @@ static bool AAMP_setProperty_stallErrorCode(JSContextRef context, JSObjectRef th
 	return true;
 }
 
-
 /**
  * @brief Callback invoked from JS to set the stallTimeout property value
  * @param[in] context JS exception context
@@ -445,7 +428,6 @@ static bool AAMP_setProperty_stallTimeout(JSContextRef context, JSObjectRef this
 	pAAMP->_aamp->SetStallTimeout(timeoutMS);
 	return true;
 }
-
 
 /**
  * @brief Callback invoked from JS to set the reportInterval property value
@@ -555,7 +537,6 @@ static const JSStaticFunction Event_staticfunctions[] =
 	{ NULL, NULL, 0 }
 };
 
-
 /**
  * @brief Callback invoked from JS when an object of Event is first created
  * @param[in] ctx JS execution context
@@ -566,23 +547,16 @@ static void Event_init(JSContextRef ctx, JSObjectRef thisObject)
 	//LOG_TRACE("Enter");
 }
 
-
 /**
  * @brief Callback invoked when an object of Event is finalized
  * @param[in] thisObject JSObject being finalized
  */
 static void Event_finalize(JSObjectRef thisObject)
-{
-	//noisy - large (>400) burst of logging seen during garbage collection
-	//LOG_TRACE("Enter");
-
-	const AAMPEvent* pEvent = (const AAMPEvent*)JSObjectGetPrivate(thisObject);
+{ //noisy - large (>400) burst of logging seen during garbage collection
 	JSObjectSetPrivate(thisObject, NULL);
 }
 
-
 static JSClassRef Event_class_ref();
-
 
 /**
  * @brief callback invoked when Event is used along with 'new'
@@ -598,7 +572,6 @@ static JSObjectRef Event_constructor(JSContextRef ctx, JSObjectRef constructor, 
 	//LOG_TRACE("Enter");
 	return JSObjectMake(ctx, Event_class_ref(), NULL);
 }
-
 
 /**
  * @brief Structure contains properties and callbacks of Event object
@@ -624,7 +597,6 @@ static const JSClassDefinition Event_object_def =
 	NULL
 };
 
-
 /**
  * @brief Creates a JavaScript class of Event for use with JSObjectMake
  * @retval singleton instance of JavaScript class created
@@ -644,7 +616,6 @@ static JSClassRef Event_class_ref() {
 class AAMP_JSListener : public AAMPEventObjectListener
 {
 public:
-
 	static void AddEventListener(AAMP_JS* aamp, AAMPEventType type, JSObjectRef jsCallback);
 
 	static void RemoveEventListener(AAMP_JS* aamp, AAMPEventType type, JSObjectRef jsCallback);
@@ -664,7 +635,6 @@ public:
                 LOG_TRACE("ctx=%p, type=%d, jsCallback=%p", _aamp->_ctx, _type, _jsCallback);
 		JSValueProtect(_aamp->_ctx, _jsCallback);
 	}
-
 
 	/**
 	 * @brief AAMP_JSListener Destructor
@@ -693,7 +663,7 @@ public:
 	{
 		AAMPEventType evtType = e->getType();
 		if(evtType != AAMP_EVENT_PROGRESS && evtType != AAMP_EVENT_AD_PLACEMENT_PROGRESS) {//log all events except progress which spams
-                        LOG_WARN( _aamp,"ctx=%p, type=%d, jsCallback=%p", _aamp->_ctx,evtType, _jsCallback);
+			LOG_WARN( _aamp,"ctx=%p, type=%d, jsCallback=%p", _aamp?_aamp->_ctx:NULL, evtType, _jsCallback);
 		}
 
 		JSObjectRef eventObj = JSObjectMake(_aamp->_ctx, Event_class_ref(), NULL);
@@ -748,7 +718,6 @@ public:
 class AAMP_JSListener_Progress : public AAMP_JSListener
 {
 public:
-
 	/**
 	 * @brief AAMP_JSListener_Progress Constructor
      	 * @param[in] aamp instance of AAMP_JS
@@ -818,9 +787,7 @@ public:
 		name = JSStringCreateWithUTF8CString("currentPlayRate");
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getCurrentPlayRate()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
-
 	}
-
 };
 
 /**
@@ -830,7 +797,6 @@ public:
 class AAMP_JSListener_BitRateChanged : public AAMP_JSListener
 {
 public:
-
 	/**
 	 * @brief AAMP_JSListener_BitRateChanged Constructor
      	 * @param[in] aamp instance of AAMP_JS
@@ -942,7 +908,6 @@ public:
 class AAMP_JSListener_TuneFailed : public AAMP_JSListener
 {
 public:
-
         /**
          * @brief AAMP_JSListener_TuneFailed Constructor
          * @param[in] aamp instance of AAMP_JS
@@ -998,11 +963,8 @@ public:
 			JSObjectSetProperty(context, eventObj, name, aamp_CStringToJSValue(context, evt->getResponseData().c_str()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(name);
 		}
-
 	}
 };
-
-
 
 /**
  * @class AAMP_JSListener_DRMMetadata
@@ -1011,7 +973,6 @@ public:
 class AAMP_JSListener_DRMMetadata : public AAMP_JSListener
 {
 public:
-
         /**
          * @brief AAMP_JSListener_DRMMetadata Constructor
          * @param aamp instance of Aamp_JS
@@ -1056,7 +1017,7 @@ public:
 		const std::vector<std::string> &headerVec = evt->getHeaderResponses();
 		if(!headerVec.empty())
 		{
-			int count = headerVec.size();
+			int count = (int)headerVec.size();
 			JSValueRef* array = new JSValueRef[count];
 			for (int32_t i = 0; i < count; i++)
 			{
@@ -1079,7 +1040,6 @@ public:
 class AAMP_JSListener_AnomalyReport : public AAMP_JSListener
 {
 public:
-
         /**
          * @brief AAMP_JSListener_DRMMetadata Constructor
          * @param aamp  Aamp_JS
@@ -1160,7 +1120,6 @@ public:
         }
 };
 
-
 /**
  * @class AAMP_JSListener_CCHandleReceived
  * @brief Event listener impl for CC_HANDLE_RECEIVED AAMP event
@@ -1202,7 +1161,6 @@ public:
 class AAMP_JSListener_VideoMetadata : public AAMP_JSListener
 {
 public:
-
         /**
          * @brief AAMP_JSListener_VideoMetadata Constructor
          * @param[in] aamp instance of AAMP_JS
@@ -1293,7 +1251,6 @@ public:
 class AAMP_JSListener_BulkTimedMetadata : public AAMP_JSListener
 {
 public:
-
        /**
         * @brief AAMP_JSListener_TimedMetadata Constructor
         * @param[in] aamp instance of AAMP_JS
@@ -1319,7 +1276,6 @@ public:
 	}
 };
 
-
 /**
  * @class AAMP_JSListener_TimedMetadata
  * @brief Event listener impl for TIMED_METADATA AAMP event
@@ -1327,7 +1283,6 @@ public:
 class AAMP_JSListener_TimedMetadata : public AAMP_JSListener
 {
 public:
-
         /**
          * @brief AAMP_JSListener_TimedMetadata Constructor
          * @param[in] aamp instance of AAMP_JS
@@ -1440,7 +1395,6 @@ public:
 	}
 };
 
-
 /**
  * @class AAMP_JSListener_SpeedsChanged
  * @brief Event listener impl for SPEEDS_CHANGED AAMP event
@@ -1448,7 +1402,6 @@ public:
 class AAMP_JSListener_SpeedsChanged : public AAMP_JSListener
 {
 public:
-
         /**
          * @brief AAMP_JSListener_SpeedsChanged Constructor
          * @param[in] aamp instance of AAMP_JS
@@ -1485,7 +1438,6 @@ public:
 	}
 };
 
-
 /**
  * @class AAMP_JSListener_AdResolved
  * @brief Event listener impl for AD_RESOLVED AAMP event
@@ -1493,7 +1445,6 @@ public:
 class AAMP_JSListener_AdResolved : public AAMP_JSListener
 {
 public:
-
         /**
          * @brief AAMP_JSListener_AdResolved Constructor
          * @param[in] aamp instance of AAMP_JS
@@ -1621,7 +1572,6 @@ public:
 class AAMP_JSListener_AdPlacementStart : public AAMP_JSListener
 {
 public:
-
         /**
          * @brief AAMP_JSListener_AdPlacementStart Constructor
          * @param[in] aamp instance of AAMP_JS
@@ -1815,7 +1765,6 @@ public:
 	}
 };
 
-
 /**
  * @class AAMP_JSListener_Id3Metadata
  * @brief Event listener impl for (AAMP_JSListener_Id3Metadata) AAMP event
@@ -1823,7 +1772,6 @@ public:
 class AAMP_JSListener_Id3Metadata: public AAMP_JSListener
 {
 public:
-
         /**
          * @brief AAMP_JSListener_Id3Metadata Constructor
          * @param[in] aamp instance of AAMP_JS
@@ -1871,7 +1819,6 @@ public:
 class AAMP_JSListener_DrmMessage : public AAMP_JSListener
 {
 public:
-
 	/**
 	* @brief AAMP_JSListener_DrmMessage Constructor
 	* @param[in] aamp instance of AAMP_JS
@@ -1926,10 +1873,10 @@ public:
 	{
 		ContentProtectionDataEventPtr evt = std::dynamic_pointer_cast<ContentProtectionDataEvent>(e);
 		std::vector<uint8_t> keyId = evt->getKeyID();
-		int len = keyId.size();
+		int len = (int)keyId.size();
 		JSStringRef prop;
 		JSValueRef* array = new JSValueRef[len];
-		for (int32_t i = 0; i < len; i++)
+		for( int i = 0; i < len; i++ )
 		{
 			array[i] = JSValueMakeNumber(context, keyId[i]);
 		}
@@ -2069,19 +2016,18 @@ static JSValueRef AAMP_addEventListener(JSContextRef context, JSObjectRef functi
 		}
 		else
 		{
-                        LOG_ERROR_EX("callbackObj=%p, JSObjectIsFunction(context, callbackObj) is NULL", callbackObj);
+			LOG_ERROR_EX("callbackObj=%p, JSObjectIsFunction(context, callbackObj) is NULL", callbackObj);
 			*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.addEventListener' - parameter 2 is not a function");
 		}
 	}
 	else
 	{
-                LOG_ERROR_EX("InvalidArgument: argumentCount=%d, expected: 2", argumentCount);
+		LOG_ERROR_EX("InvalidArgument: argumentCount=%zu, expected: 2", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.addEventListener' - 2 arguments required.");
 	}
 
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Adds a JS function as listener for a particular event
@@ -2213,7 +2159,6 @@ void AAMP_JSListener::AddEventListener(AAMP_JS* aamp, AAMPEventType type, JSObje
 	aamp->_aamp->AddEventListener(type, pListener);
 }
 
-
 /**
  * @brief Callback invoked from JS to remove an event listener
  * @param[in] context JS execution context
@@ -2226,11 +2171,11 @@ void AAMP_JSListener::AddEventListener(AAMP_JS* aamp, AAMPEventType type, JSObje
  */
 static JSValueRef AAMP_removeEventListener(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
 {
-        LOG_TRACE("Enter");
+	LOG_TRACE("Enter");
 	AAMP_JS* pAAMP = (AAMP_JS*)JSObjectGetPrivate(thisObject); 
 	if (pAAMP == NULL)
 	{
-                LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
+		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
 		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.removeEventListener on instances of AAMP");
 		return JSValueMakeUndefined(context);
 	}
@@ -2254,19 +2199,18 @@ static JSValueRef AAMP_removeEventListener(JSContextRef context, JSObjectRef fun
 		}
 		else
 		{
-                        LOG_ERROR_EX("InvalidArgument: callbackObj=%p, JSObjectIsFunction(context, callbackObj) is NULL", callbackObj);
+			LOG_ERROR_EX("InvalidArgument: callbackObj=%p, JSObjectIsFunction(context, callbackObj) is NULL", callbackObj);
 			*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.removeEventListener' - parameter 2 is not a function");
 		}
 	}
 	else
 	{
-                LOG_ERROR_EX("InvalidArgument: argumentCount=%d, expected: 2", argumentCount);
+		LOG_ERROR_EX("InvalidArgument: argumentCount=%zu, expected: 2", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.removeEventListener' - 2 arguments required.");
 	}
 
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Removes a JS listener for a particular event
@@ -2293,7 +2237,6 @@ void AAMP_JSListener::RemoveEventListener(AAMP_JS* aamp, AAMPEventType type, JSO
 	}
 }
 
-
 /**
  * @brief Callback invoked from JS to set AAMP object's properties
  * @param[in] context JS execution context
@@ -2310,7 +2253,6 @@ static JSValueRef AAMP_setProperties(JSContextRef context, JSObjectRef function,
 	return JSValueMakeUndefined(context);
 }
 
-
 /**
  * @brief Callback invoked from JS to get AAMP object's properties
  * @param[in] context JS execution context
@@ -2326,7 +2268,6 @@ static JSValueRef AAMP_getProperties(JSContextRef context, JSObjectRef function,
         LOG_TRACE("Enter");
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to start playback for requested URL
@@ -2379,13 +2320,12 @@ static JSValueRef AAMP_tune(JSContextRef context, JSObjectRef function, JSObject
 			SAFE_DELETE_ARRAY(contentType);
 			break;
 		default:
-                        LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1 to 4", argumentCount);
+                        LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1 to 4", argumentCount);
 			*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.tune' - 1 argument required");
 			break;
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to start playback for requested URL
@@ -2477,7 +2417,7 @@ static JSValueRef AAMP_load(JSContextRef context, JSObjectRef function, JSObject
 	}
 	else
 	{
-       		LOG_ERROR_EX("InvalidArgument: argumentCount=%d, expected: 1 or 2", argumentCount);
+       		LOG_ERROR_EX("InvalidArgument: argumentCount=%zu, expected: 1 or 2", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.load' - 1 or 2 argument required");
 	}
 	return JSValueMakeUndefined(context);
@@ -2510,7 +2450,6 @@ static JSValueRef AAMP_stop(JSContextRef context, JSObjectRef function, JSObject
 	return JSValueMakeUndefined(context);
 }
 
-
 /**
  * @brief Callback invoked from JS to set playback rate
  * @param[in] context JS execution context
@@ -2534,7 +2473,7 @@ static JSValueRef AAMP_setRate(JSContextRef context, JSObjectRef function, JSObj
 
 	if (argumentCount < 1)
 	{
-       		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 2", argumentCount);
+       		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 2", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setRate' - 2 arguments required");
 	}
 	else
@@ -2555,7 +2494,6 @@ static JSValueRef AAMP_setRate(JSContextRef context, JSObjectRef function, JSObj
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to perform seek to a particular playback position
@@ -2581,7 +2519,7 @@ static JSValueRef AAMP_seek(JSContextRef context, JSObjectRef function, JSObject
 
 	if (argumentCount != 1)
 	{
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1",argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1",argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.seek' - 1 argument required");
 	}
 	else
@@ -2595,8 +2533,6 @@ static JSValueRef AAMP_seek(JSContextRef context, JSObjectRef function, JSObject
 	}
 	return JSValueMakeUndefined(context);
 }
-
-
 
 /**
  * @brief Callback invoked from JS to perform seek to live point
@@ -2625,7 +2561,6 @@ static JSValueRef AAMP_seekToLive(JSContextRef context, JSObjectRef function, JS
 	return JSValueMakeUndefined(context);
 }
 
-
 /**
  * @brief Callback invoked from JS to set video rectangle co-ordinates
  * @param[in] context JS execution context
@@ -2649,7 +2584,7 @@ static JSValueRef AAMP_setRect(JSContextRef context, JSObjectRef function, JSObj
 
 	if (argumentCount != 4)
 	{
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 4", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 4", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setRect' - 4 arguments required");
 	}
 	else
@@ -2665,7 +2600,6 @@ static JSValueRef AAMP_setRect(JSContextRef context, JSObjectRef function, JSObj
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to set video mute status
@@ -2691,7 +2625,7 @@ static JSValueRef AAMP_setVideoMute(JSContextRef context, JSObjectRef function, 
 	if (argumentCount != 1)
 	{
 
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setVideoMute' - 1 argument required");
 	}
 	else
@@ -2703,7 +2637,6 @@ static JSValueRef AAMP_setVideoMute(JSContextRef context, JSObjectRef function, 
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to set audio volume
@@ -2729,7 +2662,7 @@ static JSValueRef AAMP_setAudioVolume(JSContextRef context, JSObjectRef function
 
 	if (argumentCount != 1)
 	{
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setAudioVolume' - 1 argument required");
 	}
 	else
@@ -2740,7 +2673,6 @@ static JSValueRef AAMP_setAudioVolume(JSContextRef context, JSObjectRef function
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to set preferred zoom setting
@@ -2766,7 +2698,7 @@ static JSValueRef AAMP_setZoom(JSContextRef context, JSObjectRef function, JSObj
 
 	if (argumentCount != 1)
 	{
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setZoom' - 1 argument required");
 	}
 	else
@@ -2778,7 +2710,6 @@ static JSValueRef AAMP_setZoom(JSContextRef context, JSObjectRef function, JSObj
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to set preferred audio language
@@ -2804,7 +2735,7 @@ static JSValueRef AAMP_setLanguage(JSContextRef context, JSObjectRef function, J
 
 	if (argumentCount != 1)
 	{
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setLanguage' - 1 argument required");
 	}
 	else
@@ -2843,7 +2774,7 @@ static JSValueRef AAMP_setSubscribeTags(JSContextRef context, JSObjectRef functi
 
 	if (argumentCount != 1)
 	{
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setSubscribeTags' - 1 argument required");
 	}
 	else if (!aamp_JSValueIsArray(context, arguments[0]))
@@ -2868,7 +2799,6 @@ static JSValueRef AAMP_setSubscribeTags(JSContextRef context, JSObjectRef functi
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to add a custom HTTP header/s
@@ -2896,7 +2826,7 @@ static JSValueRef AAMP_addCustomHTTPHeader(JSContextRef context, JSObjectRef fun
 	if (argumentCount != 2)
 	{
 
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 2", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 2", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.addCustomHTTPHeader' - 2 argument required");
 	}
 	else
@@ -2922,17 +2852,15 @@ static JSValueRef AAMP_addCustomHTTPHeader(JSContextRef context, JSObjectRef fun
 		// Don't support empty values now
 		if (headerVal.size() == 0)
 		{
- 
-            		LOG_ERROR(pAAMP,"InvalidArgument: Custom header's value is empty");
+			LOG_ERROR(pAAMP,"InvalidArgument: Custom header's value is empty");
 			*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.addCustomHTTPHeader' - 2nd argument should be a string or array of strings");
 			return JSValueMakeUndefined(context);
 		}
-                LOG_WARN(pAAMP,"  _aamp->AddCustomHTTPHeader headerName= %s headerValSz= %u",headerName.c_str(), headerVal.size());
+		LOG_WARN(pAAMP, "_aamp->AddCustomHTTPHeader headerName= %s headerValSz= %zu", headerName.c_str(), headerVal.size());
 		pAAMP->_aamp->AddCustomHTTPHeader(headerName, headerVal);
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to remove custom HTTP headers
@@ -2959,7 +2887,7 @@ static JSValueRef AAMP_removeCustomHTTPHeader(JSContextRef context, JSObjectRef 
 
 	if (argumentCount != 1)
 	{
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.removeCustomHTTPHeader' - 1 argument required");
 	}
 	else
@@ -2973,7 +2901,6 @@ static JSValueRef AAMP_removeCustomHTTPHeader(JSContextRef context, JSObjectRef 
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to set an ad
@@ -2991,7 +2918,6 @@ static JSValueRef AAMP_setAds(JSContextRef context, JSObjectRef function, JSObje
     	LOG_TRACE("Enter");
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to get list of audio tracks
@@ -3181,7 +3107,7 @@ static JSValueRef AAMP_setAudioTrack(JSContextRef context, JSObjectRef function,
 
 	if (argumentCount != 1)
 	{
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setAudioTrack' - 1 argument required");
 	}
 	else
@@ -3277,7 +3203,6 @@ static JSValueRef AAMP_getAvailableTextTracks(JSContextRef context, JSObjectRef 
 	}
 }
 
-
 /**
  * @brief Callback invoked from JS to get current text track index
  * @param[in] context JS execution context
@@ -3302,7 +3227,6 @@ static JSValueRef AAMP_getTextTrack(JSContextRef context, JSObjectRef function, 
 	return JSValueMakeNumber(context, pAAMP->_aamp->GetTextTrack());
 }
 
-
 /**
  * @brief Callback invoked from JS to set text track
  * @param[in] context JS execution context
@@ -3326,7 +3250,7 @@ static JSValueRef AAMP_setTextTrack(JSContextRef context, JSObjectRef function, 
 
 	if (argumentCount != 1)
 	{
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1 or 2", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1 or 2", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setTextTrack' - atleast 1 argument required");
 	}
 	else
@@ -3435,7 +3359,7 @@ static JSValueRef AAMP_setLicenseServerURL(JSContextRef context, JSObjectRef fun
 
 	if (argumentCount != 1)
 	{
-               	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1",argumentCount);
+               	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1",argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setLicenseServerURL' - 1 argument required");
 	}
 	else
@@ -3447,7 +3371,6 @@ static JSValueRef AAMP_setLicenseServerURL(JSContextRef context, JSObjectRef fun
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to set the preferred DRM
@@ -3472,7 +3395,7 @@ static JSValueRef AAMP_setPreferredDRM(JSContextRef context, JSObjectRef functio
 
 	if (argumentCount != 1)
 	{
-	        LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1",argumentCount);
+	        LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1",argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setPreferredDRM' - 1 argument required");
 	}
 	else
@@ -3516,7 +3439,7 @@ static JSValueRef AAMP_setAnonymousRequest(JSContextRef context, JSObjectRef fun
 
 	if (argumentCount != 1)
 	{
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setAnonymousRequest' - 1 argument required");
 	}
 	else
@@ -3527,7 +3450,6 @@ static JSValueRef AAMP_setAnonymousRequest(JSContextRef context, JSObjectRef fun
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to set vod trickplay FPS
@@ -3552,7 +3474,7 @@ static JSValueRef AAMP_setVODTrickplayFPS(JSContextRef context, JSObjectRef func
 
         if (argumentCount != 1)
         {
-               	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+               	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
                 *exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setAnonymousRequest' - 1 argument required");
         }
         else
@@ -3578,8 +3500,7 @@ static JSValueRef AAMP_setVODTrickplayFPS(JSContextRef context, JSObjectRef func
  */
 static JSValueRef AAMP_setAlternateContent(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
 {
-	
-        LOG_TRACE("Enter");
+	LOG_TRACE("Enter");
 	AAMP_JS* pAAMP = (AAMP_JS*)JSObjectGetPrivate(thisObject);
 	if(!pAAMP)
 	{
@@ -3590,7 +3511,7 @@ static JSValueRef AAMP_setAlternateContent(JSContextRef context, JSObjectRef fun
 
 	if (argumentCount != 2)
 	{
-                LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 2", argumentCount);
+                LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 2", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.SetAlternateContent' - 1 argument required");
 	}
 	else
@@ -3609,9 +3530,7 @@ static JSValueRef AAMP_setAlternateContent(JSContextRef context, JSObjectRef fun
 		 "promiseCallback": function
 	 	 */
 		char *reservationId = NULL;
-		int reservationBehavior = -1;
 		char *adId = NULL;
-		long adPTS = -1;
 		char *adURL = NULL;
 		if (JSValueIsObject(context, arguments[0]))
 		{
@@ -3629,15 +3548,7 @@ static JSValueRef AAMP_setAlternateContent(JSContextRef context, JSObjectRef fun
 				reservationId = aamp_JSValueToCString(context, propValue, NULL);
 			}
 			JSStringRelease(propName);
-
-			propName = JSStringCreateWithUTF8CString("reservationBehavior");
-			propValue = JSObjectGetProperty(context, reservationObject, propName, NULL);
-			if (JSValueIsNumber(context, propValue))
-			{
-				reservationBehavior = JSValueToNumber(context, propValue, NULL);
-			}
-			JSStringRelease(propName);
-
+			
 			propName = JSStringCreateWithUTF8CString("placementRequest");
 			propValue = JSObjectGetProperty(context, reservationObject, propName, NULL);
 			if (JSValueIsObject(context, propValue))
@@ -3649,14 +3560,6 @@ static JSValueRef AAMP_setAlternateContent(JSContextRef context, JSObjectRef fun
 				if (JSValueIsString(context, adPropValue))
 				{
 					adId = aamp_JSValueToCString(context, adPropValue, NULL);
-				}
-				JSStringRelease(adPropName);
-
-				adPropName = JSStringCreateWithUTF8CString("pts");
-				adPropValue = JSObjectGetProperty(context, adObject, adPropName, NULL);
-				if (JSValueIsNumber(context, adPropValue))
-				{
-					adPTS = (long) JSValueToNumber(context, adPropValue, NULL);
 				}
 				JSStringRelease(adPropName);
 
@@ -3684,12 +3587,12 @@ static JSValueRef AAMP_setAlternateContent(JSContextRef context, JSObjectRef fun
 			std::string adBreakId(reservationId);  //CID:89434 - Resolve Forward null
 			std::string adIdStr(adId);  //CID:89725 - Resolve Forward null
 			std::string url(adURL);  //CID:86272 - Resolve Forward null
-                        LOG_WARN(pAAMP,"pAAMP->_aamp->SetAlternateContents with promiseCallback:%p", callbackObj);
+			LOG_WARN(pAAMP,"pAAMP->_aamp->SetAlternateContents with promiseCallback:%p", callbackObj);
 			pAAMP->_aamp->SetAlternateContents(adBreakId, adIdStr, url);
 		}
 		else
 		{
-                       LOG_ERROR(pAAMP,"Unable to parse the promiseCallback argument");
+			LOG_ERROR(pAAMP,"Unable to parse the promiseCallback argument");
 
 		}
 		SAFE_DELETE_ARRAY(reservationId);
@@ -3724,7 +3627,7 @@ static JSValueRef AAMP_notifyReservationCompletion(JSContextRef context, JSObjec
 
 	if (argumentCount != 2)
 	{
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 2", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 2", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.notifyReservationCompletion' - 1 argument required");
 	}
 	else
@@ -3762,7 +3665,7 @@ static JSValueRef AAMP_setLinearTrickplayFPS(JSContextRef context, JSObjectRef f
 
         if (argumentCount != 1)
         {
-               	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+               	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
                 *exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setAnonymousRequest' - 1 argument required");
         }
         else
@@ -3773,7 +3676,6 @@ static JSValueRef AAMP_setLinearTrickplayFPS(JSContextRef context, JSObjectRef f
         }
         return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to set live offset
@@ -3800,7 +3702,7 @@ static JSValueRef AAMP_setLiveOffset(JSContextRef context, JSObjectRef function,
 
 	if (argumentCount != 1)
 	{
-       	 	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+       	 	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setLiveOffset' - 1 argument required");
 	}
 	else
@@ -3837,7 +3739,7 @@ static JSValueRef AAMP_setLiveOffset4K(JSContextRef context, JSObjectRef functio
 
 	if (argumentCount != 1)
 	{
-		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setLiveOffset4K' - 1 argument required");
 	}
 	else
@@ -3874,19 +3776,18 @@ static JSValueRef AAMP_setDownloadStallTimeout(JSContextRef context, JSObjectRef
 
 	if (argumentCount != 1)
 	{
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setDownloadStallTimeout' - 1 argument required");
 	}
 	else
 	{
-		long stallTimeout = (long)JSValueToNumber(context, arguments[0], exception);
-		LOG_WARN(pAAMP," _aamp->SetDownloadStallTimeout(%ld)",stallTimeout);
+		int stallTimeout = (int)JSValueToNumber(context, arguments[0], exception);
+		LOG_WARN(pAAMP,"_aamp->SetDownloadStallTimeout(%d)",stallTimeout);
 		pAAMP->_aamp->SetDownloadStallTimeout(stallTimeout);
 	}
 
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to set download start timeout value
@@ -3913,19 +3814,18 @@ static JSValueRef AAMP_setDownloadStartTimeout(JSContextRef context, JSObjectRef
 
 	if (argumentCount != 1)
 	{
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setDownloadStartTimeout' - 1 argument required");
 	}
 	else
 	{
-		long startTimeout = (long)JSValueToNumber(context, arguments[0], exception);
-        	LOG_WARN(pAAMP,"SetDownloadStartTimeout %ld",startTimeout);
+		int startTimeout = (int)JSValueToNumber(context, arguments[0], exception);
+		LOG_WARN(pAAMP,"SetDownloadStartTimeout %d",startTimeout);
 		pAAMP->_aamp->SetDownloadStartTimeout(startTimeout);
 	}
 
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to set network timeout value
@@ -3953,7 +3853,7 @@ static JSValueRef AAMP_setNetworkTimeout(JSContextRef context, JSObjectRef funct
 	if (argumentCount != 1)
 	{
 		
-       		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+       		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setNetworkTimeout' - 1 argument required");
 	}
 	else
@@ -3965,7 +3865,6 @@ static JSValueRef AAMP_setNetworkTimeout(JSContextRef context, JSObjectRef funct
 
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to enable/disable CC rendering
@@ -3990,7 +3889,7 @@ static JSValueRef AAMP_setClosedCaptionStatus(JSContextRef context, JSObjectRef 
 
 	if (argumentCount != 1)
 	{
-		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);                
+		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setClosedCaptionStatus' - 1 argument required");
 	}
 	else
@@ -4001,7 +3900,6 @@ static JSValueRef AAMP_setClosedCaptionStatus(JSContextRef context, JSObjectRef 
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to set text style
@@ -4026,7 +3924,7 @@ static JSValueRef AAMP_setTextStyleOptions(JSContextRef context, JSObjectRef fun
 
 	if (argumentCount != 1)
 	{
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setTextStyleOptions' - 1 argument required");
 	}
 	else
@@ -4047,7 +3945,6 @@ static JSValueRef AAMP_setTextStyleOptions(JSContextRef context, JSObjectRef fun
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to get text style
@@ -4082,7 +3979,6 @@ static JSValueRef AAMP_getTextStyleOptions(JSContextRef context, JSObjectRef fun
 	}
 }
 
-
 /**
  * @brief Callback invoked from JS to set the preferred language format
  * @param[in] context JS execution context
@@ -4106,7 +4002,7 @@ static JSValueRef AAMP_setLanguageFormat(JSContextRef context, JSObjectRef funct
 
 	if (argumentCount != 2)
 	{
-       		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+       		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setLanguageFormat' - 2 argument required");
 	}
 	else
@@ -4118,7 +4014,6 @@ static JSValueRef AAMP_setLanguageFormat(JSContextRef context, JSObjectRef funct
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to set the license caching config
@@ -4144,7 +4039,7 @@ static JSValueRef AAMP_setLicenseCaching(JSContextRef context, JSObjectRef funct
 	if (argumentCount != 1)
 	{
 		
-        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+        	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setLicenseCaching' - 1 argument required");
 	}
 	else
@@ -4179,7 +4074,7 @@ static JSValueRef AAMP_setAuxiliaryLanguage(JSContextRef context, JSObjectRef fu
 
 	if (argumentCount != 1)
 	{
-		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setAuxiliaryLanguage' - 1 argument required");
 	}
 	else
@@ -4191,6 +4086,7 @@ static JSValueRef AAMP_setAuxiliaryLanguage(JSContextRef context, JSObjectRef fu
 	}
 	return JSValueMakeUndefined(context);
 }
+
 /**
  * @brief Callback invoked from JS to get playback stats
  * @param[in] context JS execution context
@@ -4214,7 +4110,6 @@ static JSValueRef AAMP_getPlayeBackStats(JSContextRef context, JSObjectRef funct
 	return aamp_CStringToJSValue(context, pAAMP->_aamp->GetPlaybackStats().c_str());
 }
 
-
 /**
  *  * @brief Callback invoked from JS to set xre supported tune
  *  * @param[in] context JS execution context
@@ -4237,7 +4132,7 @@ static JSValueRef AAMP_xreSupportedTune(JSContextRef context, JSObjectRef functi
 	}
 	if (argumentCount != 1)
 	{
-		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.xreSupprotedTune' - 1 argument required");
 	}
 	else
@@ -4248,7 +4143,6 @@ static JSValueRef AAMP_xreSupportedTune(JSContextRef context, JSObjectRef functi
 	}
 	return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Callback invoked from JS to set content protection data update timeout value on key rotation
@@ -4275,7 +4169,7 @@ static JSValueRef AAMP_setContentProtectionDataUpdateTimeout(JSContextRef contex
 
 	if (argumentCount != 1)
 	{
-		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%d, expected: 1", argumentCount);
+		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setContentProtectionDataUpdateTimeout' - 1 argument required");
 	}
 	else
@@ -4299,7 +4193,6 @@ static JSValueRef AAMP_setContentProtectionDataUpdateTimeout(JSContextRef contex
  *
  * @retval JSValue that is the function's return value
  */
-
 static JSValueRef AAMP_setContentProtectionDataConfig(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
 {
 	LOG_TRACE("Enter");
@@ -4319,7 +4212,7 @@ static JSValueRef AAMP_setContentProtectionDataConfig(JSContextRef context, JSOb
 	}
 	else
 	{
-        	LOG_ERROR(pAAMP,"IvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+        	LOG_ERROR(pAAMP,"IvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute setContentProtectionDataConfig() - 1 argument of type IConfig required");
 	}
 	return JSValueMakeUndefined(context);
@@ -4349,7 +4242,7 @@ static JSValueRef AAMP_setRuntimeDRMConfig(JSContextRef context, JSObjectRef fun
        }
        if(argumentCount != 1)
        {
-               LOG_ERROR(pAAMP,"IvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+               LOG_ERROR(pAAMP,"IvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
                *exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setDynamicDRMConfig - 1 argument required");
        }
        else
@@ -4360,7 +4253,6 @@ static JSValueRef AAMP_setRuntimeDRMConfig(JSContextRef context, JSObjectRef fun
        }
        return JSValueMakeUndefined(context);
 }
-
 
 /**
  * @brief Array containing the AAMP's statically declared functions
@@ -4402,9 +4294,7 @@ static const JSStaticFunction AAMP_staticfunctions[] =
 	{ "setLicenseServerURL", AAMP_setLicenseServerURL, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setPreferredDRM", AAMP_setPreferredDRM, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setAnonymousRequest", AAMP_setAnonymousRequest, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
-
 	{ "setVODTrickplayFPS", AAMP_setVODTrickplayFPS, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
-
 	{ "setLinearTrickplayFPS", AAMP_setLinearTrickplayFPS, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setLiveOffset", AAMP_setLiveOffset, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setLiveOffset4K", AAMP_setLiveOffset4K, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
@@ -4607,7 +4497,6 @@ static JSValueRef EventType_getproperty_DECODER_AVAILABLE(JSContextRef context, 
 	return aamp_CStringToJSValue(context, "decoderAvailable");
 }
 
-
 /**
  * @brief Callback invoked from JS to get the DRM_METADATA_INFO_AVAILABLE property value
  * @param[in] context JS execution context
@@ -4621,27 +4510,6 @@ static JSValueRef EventType_getproperty_DRM_METADATA_INFO_AVAILABLE(JSContextRef
 	LOG_TRACE("Enter");
 	return aamp_CStringToJSValue(context, "drmMetadataInfoAvailable");
 }
-
-
-
-
-
-/**
- * @brief Callback invoked from JS to get the DRM_METADATA property value
- * @param[in] context JS execution context
- * @param[in] thisObject JSObject to search for the property
- * @param[in] propertyName JSString containing the name of the property to get
- * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
- * @retval property's value if object has the property, otherwise NULL
- */
-static JSValueRef EventType_getproperty_DRM_METADATA(JSContextRef context, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef* exception)
-{
-        LOG_TRACE("Enter");
-        return aamp_CStringToJSValue(context, "drmMetadata");
-}
-
-
-
 
 /**
  * @brief Callback invoked from JS to get the ENTERING_LIVE property value
@@ -4699,7 +4567,8 @@ static const JSStaticValue EventType_staticprops[] =
 	{ "BUFFERING_BEGIN", EventType_getproperty_BUFFERING_BEGIN, NULL, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "BUFFERING_END", EventType_getproperty_BUFFERING_END, NULL, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "DECODER_AVAILABLE", EventType_getproperty_DECODER_AVAILABLE, NULL, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
-	{ "DRM_METADATA_INFO_AVAILABLE", EventType_getproperty_DRM_METADATA_INFO_AVAILABLE, NULL, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
+	{ "DRM_METADATA_INFO_AVAILABLE",
+		EventType_getproperty_DRM_METADATA_INFO_AVAILABLE, NULL, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "ENTERING_LIVE", EventType_getproperty_ENTERING_LIVE, NULL, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "MEDIA_OPENED", EventType_getproperty_MEDIA_OPENED, NULL, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "MEDIA_STOPPED", EventType_getproperty_MEDIA_STOPPED, NULL, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
@@ -4786,9 +4655,9 @@ JSObjectRef AAMP_JS_AddEventTypeClass(JSGlobalContextRef context)
  */
 void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 {
-    	LOG_WARN_EX("context=%p, aamp=%p", context, playerInstanceAAMP);
+	LOG_WARN_EX("context=%p, aamp=%p", context, playerInstanceAAMP);
 	JSGlobalContextRef jsContext = (JSGlobalContextRef)context;
-
+	
 	AAMP_JS* pAAMP = new AAMP_JS();
 	pAAMP->_ctx = jsContext;
 	if (NULL != playerInstanceAAMP)
@@ -4801,12 +4670,11 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 		if (NULL == _allocated_aamp )
 		{
 			_allocated_aamp = new PlayerInstanceAAMP(NULL, NULL);
-        		LOG_WARN_EX("create aamp %p", _allocated_aamp);
-					}
+			LOG_WARN_EX("create aamp %p", _allocated_aamp);
+		}
 		else
 		{
-            		LOG_WARN_EX("reuse aamp %p", _allocated_aamp);
-
+			LOG_WARN_EX("reuse aamp %p", _allocated_aamp);
 		}
 		pAAMP->_aamp = _allocated_aamp;
 		pthread_mutex_unlock(&jsMutex);
@@ -4814,9 +4682,9 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 
 	pAAMP->_listeners = NULL;
 
-    	//Get PLAYER ID and store for future use in logging
+	//Get PLAYER ID and store for future use in logging
 	pAAMP->iPlayerId = pAAMP->_aamp->GetId();
-    	//Get jsinfo config for INFO logging
+	//Get jsinfo config for INFO logging
 	pAAMP->bInfoEnabled =  pAAMP->_aamp->IsJsInfoLoggingEnabled();
 	
 	// DELIA-48250 Set tuned event configuration to playlist indexed
@@ -4844,49 +4712,41 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
  */
 void aamp_UnloadJS(void* context)
 {
-	
-     	LOG_WARN_EX("context=%p", context);
+	LOG_WARN_EX("context=%p", context);
 	JSGlobalContextRef jsContext = (JSGlobalContextRef)context;
-
 	JSObjectRef globalObj = JSContextGetGlobalObject(jsContext);
 	JSStringRef str = JSStringCreateWithUTF8CString("AAMP");
-	JSValueRef aamp = JSObjectGetProperty(jsContext, globalObj, str, NULL);
-
-	if (aamp == NULL)
+	if( str )
 	{
+		JSValueRef aamp = JSObjectGetProperty(jsContext, globalObj, str, NULL);
+		if( aamp )
+		{
+			JSObjectRef aampObj = JSValueToObject(jsContext, aamp, NULL);
+			if( aampObj )
+			{
+				// Only a single AAMP object is available in this JS context which is added at the time of webpage load
+				// So it makes sense to remove the object when webpage is unloaded.
+				AAMP_finalize(aampObj);
+			}
+			// Per comments in DELIA-48964, use JSObjectDeleteProperty instead of JSObjectSetProperty when trying to invalidate a read-only property
+			JSObjectDeleteProperty(jsContext, globalObj, str, NULL);
+			
+			// Force a garbage collection to clean-up all AAMP objects.
+			LOG_TRACE("JSGarbageCollect() context=%p", context);
+			JSGarbageCollect(jsContext);
+		}
 		JSStringRelease(str);
-		return;
 	}
-
-	JSObjectRef aampObj = JSValueToObject(jsContext, aamp, NULL);
-	if (aampObj == NULL)
-	{
-		JSStringRelease(str);
-		return;
-	}
-
-	// Only a single AAMP object is available in this JS context which is added at the time of webpage load
-	// So it makes sense to remove the object when webpage is unloaded.
-	AAMP_finalize(aampObj);
-
-	// Per comments in DELIA-48964, use JSObjectDeleteProperty instead of JSObjectSetProperty when trying to invalidate a read-only property
-	JSObjectDeleteProperty(jsContext, globalObj, str, NULL);
-	JSStringRelease(str);
-
-	// Force a garbage collection to clean-up all AAMP objects.
-        LOG_TRACE("JSGarbageCollect() context=%p", context);
-	JSGarbageCollect(jsContext);
 }
 
 #ifdef __GNUC__
-
 /**
  * @brief Stops any prevailing AAMP instances before exit of program
  */
 void __attribute__ ((destructor(101))) _aamp_term()
 {
 	
-    	LOG_TRACE("Enter");
+	LOG_TRACE("Enter");
 	pthread_mutex_lock(&jsMutex);
 	if (NULL != _allocated_aamp)
 	{

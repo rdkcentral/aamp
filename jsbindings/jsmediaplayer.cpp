@@ -453,8 +453,7 @@ void parseDRMConfiguration (JSContextRef ctx, AAMPMediaPlayer_JS* privObj, JSVal
  * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
  * @retval JSValue that is the function's return value
  */
-JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, 
-				size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
 	LOG_TRACE("Enter");
 	
@@ -537,7 +536,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 				paramValue = JSObjectGetProperty(ctx, argument, paramName, NULL);
 				if (JSValueIsString(ctx, paramValue))
 				{
-					sid = {aamp_JSValueToCString(ctx, paramValue, NULL)};
+					sid = aamp_JSValueToCString(ctx, paramValue, NULL);
 				}
 				JSStringRelease(paramName);
 			}
@@ -549,7 +548,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 				manifestbuffer = aamp_JSValueToCString(ctx, paramValue, NULL);
 				if( NULL != manifestbuffer )
 				{
-					LOG_WARN(privObj,"Response json call PreProcessedManifestData %s len:%d ",manifestbuffer,strlen(manifestbuffer));
+					LOG_WARN(privObj,"Response json call PreProcessedManifestData %s len:%zu ",manifestbuffer,strlen(manifestbuffer));
 				}
 			}
 			JSStringRelease(paramName);
@@ -573,7 +572,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 		}
 
 		default:
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected atmost 3 arguments",argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected atmost 3 arguments",argumentCount);
 
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute load() <= 3 arguments required");
 	}
@@ -643,16 +642,6 @@ JSValueRef AAMPMediaPlayerJS_initConfig (JSContextRef ctx, JSObjectRef function,
 	
 	if (argumentCount == 1 && JSValueIsObject(ctx, arguments[0]))
 	{
-		JSValueRef _exception = NULL;
-		bool ret = false;
-		bool valueAsBoolean = false;
-		double valueAsNumber = 0;
-		char *valueAsString = NULL;
-		JSValueRef valueAsObject = NULL;
-		int langCodePreference = -1; // value not passed
-		bool useRole = false; //default value in func arg
-		int enableVideoRectangle = -1; //-1: value not passed, 0: false, 1:true
-
 		bool jsonparsingdone=false;
 		char *jsonStr = aamp_JSValueToJSONCString(ctx,arguments[0], exception);
 		if (jsonStr != NULL)
@@ -676,7 +665,7 @@ JSValueRef AAMPMediaPlayerJS_initConfig (JSContextRef ctx, JSObjectRef function,
 	}
 	else
 	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute initConfig() - 1 argument of type IConfig required");
 	}
 	
@@ -838,7 +827,7 @@ JSValueRef AAMPMediaPlayerJS_pause (JSContextRef ctx, JSObjectRef function, JSOb
 		}
 		else
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 0 or 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 0 or 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute pause() - 0 or 1 argument required");
 		}
 	}
@@ -906,7 +895,7 @@ JSValueRef AAMPMediaPlayerJS_seek (JSContextRef ctx, JSObjectRef function, JSObj
 	}
 	else
 	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1 or 2", argumentCount);
+		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1 or 2", argumentCount);
 		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute seek() - 1 or 2 arguments required");
 	}
 	LOG_TRACE("Exit");
@@ -954,7 +943,7 @@ JSValueRef AAMPMediaPlayerJS_getThumbnails (JSContextRef ctx, JSObjectRef functi
 
 		if (!value.empty())
 		{
-			LOG_INFO(privObj," %d  _aamp->GetThumbnails(%lf, %lf)",value.size(), startPos, endPos);
+			LOG_INFO(privObj," %zu  _aamp->GetThumbnails(%lf, %lf)",value.size(), startPos, endPos);
 			return aamp_CStringToJSValue(ctx, value.c_str());
 		}
 		else
@@ -964,7 +953,7 @@ JSValueRef AAMPMediaPlayerJS_getThumbnails (JSContextRef ctx, JSObjectRef functi
 	}
 	else
 	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1 or 2", argumentCount);
+		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1 or 2", argumentCount);
 		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute seek() - 1 or 2 arguments required");
 	}
 	LOG_TRACE("Exit");
@@ -1169,7 +1158,7 @@ JSValueRef AAMPMediaPlayerJS_setThumbnailTrack (JSContextRef ctx, JSObjectRef fu
 
 	if (argumentCount != 1)
 	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute SetThumbnailTrack() - 1 argument required");
 	}
 	else
@@ -1305,7 +1294,7 @@ JSValueRef AAMPMediaPlayerJS_getVideoBitrates (JSContextRef ctx, JSObjectRef fun
 	std::vector<long> bitrates = privObj->_aamp->GetVideoBitrates();
 	if (!bitrates.empty())
 	{
-		unsigned int length = bitrates.size();
+		int length = (int)bitrates.size();
 		JSValueRef* array = new JSValueRef[length];
 		for (int i = 0; i < length; i++)
 		{
@@ -1381,7 +1370,7 @@ JSValueRef AAMPMediaPlayerJS_getAudioBitrates (JSContextRef ctx, JSObjectRef fun
 	std::vector<long> bitrates = privObj->_aamp->GetAudioBitrates();
 	if (!bitrates.empty())
 	{
-		unsigned int length = bitrates.size();
+		int length = (int)bitrates.size();
 		JSValueRef* array = new JSValueRef[length];
 		for (int i = 0; i < length; i++)
 		{
@@ -1453,7 +1442,7 @@ JSValueRef AAMPMediaPlayerJS_setVideoBitrate (JSContextRef ctx, JSObjectRef func
 	{
 		if (argumentCount != 1)
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setVideoBitrate() - 1 argument required");
 		}
 		else
@@ -1528,7 +1517,7 @@ JSValueRef AAMPMediaPlayerJS_setAudioBitrate (JSContextRef ctx, JSObjectRef func
 	{
 		if (argumentCount != 1)
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setAudioBitrate() - 1 argument required");
 		}
 		else
@@ -1602,7 +1591,7 @@ JSValueRef AAMPMediaPlayerJS_setAudioTrack (JSContextRef ctx, JSObjectRef functi
 	{
 		if (argumentCount != 1)
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setAudioTrack() - 1 argument required");
 		}
 		else  if (JSValueIsObject(ctx, arguments[0]))
@@ -1767,7 +1756,7 @@ JSValueRef AAMPMediaPlayerJS_setTextTrack (JSContextRef ctx, JSObjectRef functio
 	{
 		if (argumentCount != 1)
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setTextTrack() - atleast 1 argument required");
 		}
 		else if (!JSValueIsNumber(ctx, arguments[0]))
@@ -1872,7 +1861,7 @@ JSValueRef AAMPMediaPlayerJS_setVolume (JSContextRef ctx, JSObjectRef function, 
 			}
 			else
 			{
-				LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+				LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 				*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setVolume() - 1 argument required");
 			}
 		}
@@ -1915,7 +1904,7 @@ JSValueRef AAMPMediaPlayerJS_setAudioLanguage (JSContextRef ctx, JSObjectRef fun
 		}
 		else
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setAudioLanguage() - 1 argument required");
 		}
 	}
@@ -1987,7 +1976,7 @@ JSValueRef AAMPMediaPlayerJS_setPlaybackRate (JSContextRef ctx, JSObjectRef func
 		}
 		else
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setPlaybackRate() - atleast 1 argument required");
 		}
 	}
@@ -2053,7 +2042,7 @@ JSValueRef AAMPMediaPlayerJS_setVideoMute (JSContextRef ctx, JSObjectRef functio
 		}
 		else
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setVideoMute() - 1 argument required");
 		}
 	}
@@ -2086,7 +2075,7 @@ JSValueRef AAMPMediaPlayerJS_setSubscribedTags (JSContextRef ctx, JSObjectRef fu
 	{
 		if (argumentCount != 1)
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setSubscribedTags() - 1 argument required");
 		}
 		else if (!aamp_JSValueIsArray(ctx, arguments[0]))
@@ -2130,7 +2119,7 @@ JSValueRef AAMPMediaPlayerJS_subscribeResponseHeaders (JSContextRef ctx, JSObjec
 
 	if (argumentCount != 1)
 	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute subscribeResponseHeaders() - 1 argument required");
 	}
 	else if (!aamp_JSValueIsArray(ctx, arguments[0]))
@@ -2197,7 +2186,7 @@ JSValueRef AAMPMediaPlayerJS_addEventListener (JSContextRef ctx, JSObjectRef fun
 	}
 	else
 	{
-        	LOG_ERROR(privObj,"InvalidArgument: argumentCount=%d, expected: 2", argumentCount);
+        	LOG_ERROR(privObj,"InvalidArgument: argumentCount=%zu, expected: 2", argumentCount);
 		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute addEventListener() - 2 arguments required.");
 	}
 	LOG_TRACE("Exit");
@@ -2253,7 +2242,7 @@ JSValueRef AAMPMediaPlayerJS_removeEventListener (JSContextRef ctx, JSObjectRef 
 	}
 	else
 	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute removeEventListener() - 1 argument required");
 	}
 	LOG_TRACE("Exit");
@@ -2285,7 +2274,7 @@ JSValueRef AAMPMediaPlayerJS_setDRMConfig (JSContextRef ctx, JSObjectRef functio
 	{
 		if (argumentCount != 1)
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setDrmConfig() - 1 argument required");
 		}
 		else
@@ -2357,12 +2346,12 @@ JSValueRef AAMPMediaPlayerJS_addCustomHTTPHeader (JSContextRef ctx, JSObjectRef 
 		{
 			isLicenseHeader = JSValueToBoolean(ctx, arguments[2]);
 		}
-		LOG_WARN(privObj,"  _aamp->AddCustomHTTPHeader headerName= %s headerValSz= %u",headerName.c_str(), headerVal.size());
+		LOG_WARN(privObj,"  _aamp->AddCustomHTTPHeader headerName= %s headerValSz= %zu",headerName.c_str(), headerVal.size());
 		privObj->_aamp->AddCustomHTTPHeader(headerName, headerVal, isLicenseHeader);
 	}
 	else
 	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute addCustomHTTPHeader() - 2 arguments required");
 	}
 	LOG_TRACE("Exit");
@@ -2434,7 +2423,7 @@ JSValueRef AAMPMediaPlayerJS_removeCustomHTTPHeader (JSContextRef ctx, JSObjectR
 				break;
 				
 			default:
-				LOG_ERROR(privObj,"_aamp->removeCustomHTTPHeader(). InvalidArgument - argumentCount=%d, expected: 0-2", argumentCount);
+				LOG_ERROR(privObj,"_aamp->removeCustomHTTPHeader(). InvalidArgument - argumentCount=%zu, expected: 0-2", argumentCount);
 				*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "removeCustomHTTPHeader() - too many arguments");
 				break;
 		}
@@ -2485,7 +2474,7 @@ JSValueRef AAMPMediaPlayerJS_setVideoRect (JSContextRef ctx, JSObjectRef functio
 		}
 		else
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setVideoRect() - 1 argument required");
 		}
 	}
@@ -2526,7 +2515,7 @@ JSValueRef AAMPMediaPlayerJS_setVideoZoom (JSContextRef ctx, JSObjectRef functio
 		}
 		else
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setVideoZoom() - 1 argument required");
 		}
 	}
@@ -2790,9 +2779,7 @@ static JSValueRef AAMPMediaPlayerJS_setAlternateContent(JSContextRef ctx, JSObje
 			* "promiseCallback": function
 			*/
 			char *reservationId = NULL;
-			int reservationBehavior = -1;
 			char *adId = NULL;
-			long adPTS = -1;
 			char *adURL = NULL;
 			if (JSValueIsObject(ctx, arguments[0]))
 			{
@@ -2809,16 +2796,8 @@ static JSValueRef AAMPMediaPlayerJS_setAlternateContent(JSContextRef ctx, JSObje
 				{
 					reservationId = aamp_JSValueToCString(ctx, propValue, NULL);
 				}
-
 				JSStringRelease(propName);
-				propName = JSStringCreateWithUTF8CString("reservationBehavior");
-				propValue = JSObjectGetProperty(ctx, reservationObject, propName, NULL);
-				if (JSValueIsNumber(ctx, propValue))
-				{
-					reservationBehavior = JSValueToNumber(ctx, propValue, NULL);
-				}
-				JSStringRelease(propName);
-
+				
 				propName = JSStringCreateWithUTF8CString("placementRequest");
 				propValue = JSObjectGetProperty(ctx, reservationObject, propName, NULL);
 				if (JSValueIsObject(ctx, propValue))
@@ -2831,13 +2810,7 @@ static JSValueRef AAMPMediaPlayerJS_setAlternateContent(JSContextRef ctx, JSObje
 						adId = aamp_JSValueToCString(ctx, adPropValue, NULL);
 					}
 					JSStringRelease(adPropName);
-					adPropName = JSStringCreateWithUTF8CString("pts");
-					adPropValue = JSObjectGetProperty(ctx, adObject, adPropName, NULL);
-					if (JSValueIsNumber(ctx, adPropValue))
-					{
-						adPTS = (long) JSValueToNumber(ctx, adPropValue, NULL);
-					}
-					JSStringRelease(adPropName);
+
 					adPropName = JSStringCreateWithUTF8CString("url");
 					adPropValue = JSObjectGetProperty(ctx, adObject, adPropName, NULL);
 					if (JSValueIsString(ctx, adPropValue))
@@ -2873,7 +2846,7 @@ static JSValueRef AAMPMediaPlayerJS_setAlternateContent(JSContextRef ctx, JSObje
 		}
 		else
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 2", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 2", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setAlternateContent() - 2 argument required");
 		}
 	}
@@ -2933,7 +2906,7 @@ JSValueRef AAMPMediaPlayerJS_setPreferredAudioLanguage(JSContextRef ctx, JSObjec
 		}
 		else
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1, 2 , 3 or 4", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1, 2 , 3 or 4", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setPreferredAudioLanguage() - 1, 2 or 3 arguments required");
 		}
 	}
@@ -2973,7 +2946,7 @@ JSValueRef AAMPMediaPlayerJS_setPreferredTextLanguage(JSContextRef ctx, JSObject
 		}
 		else
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setPreferredAudioLanguage() - 1 argument required");
 		}
 	}
@@ -3005,7 +2978,7 @@ JSValueRef AAMPMediaPlayerJS_setPreferredAudioCodec(JSContextRef ctx, JSObjectRe
 	{
 		if (argumentCount != 1)
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setPreferredAudioCodec() - 1 argument required");
 		}
 		else
@@ -3054,7 +3027,7 @@ static JSValueRef AAMPMediaPlayerJS_notifyReservationCompletion(JSContextRef ctx
 	}
 	else
 	{
-        	LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 2",  argumentCount);
+        	LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 2",  argumentCount);
 		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute notifyReservationCompletion() - 2 argument required");
 	}
 	LOG_TRACE("Exit");
@@ -3086,7 +3059,7 @@ JSValueRef AAMPMediaPlayerJS_setClosedCaptionStatus(JSContextRef ctx, JSObjectRe
 	{
 		if (argumentCount != 1)
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setClosedCaptionStatus() - 1 argument required");
 		}
 		else
@@ -3126,7 +3099,7 @@ JSValueRef AAMPMediaPlayerJS_setTextStyleOptions(JSContextRef ctx, JSObjectRef f
 	{
 		if (argumentCount != 1)
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setTextStyleOptions() - 1 argument required");
 		}
 		else
@@ -3228,7 +3201,6 @@ JSValueRef AAMPMediaPlayerJS_disableContentRestrictions (JSContextRef ctx, JSObj
 
 		for (int iter = 0; iter < numRelockParams; iter++)
 		{
-			ret = false;
 			switch(relockConditionParamNames[iter].paramType)
 			{
 			case ePARAM_RELOCKONTIMEOUT:
@@ -3267,7 +3239,7 @@ JSValueRef AAMPMediaPlayerJS_disableContentRestrictions (JSContextRef ctx, JSObj
 	}
 	else if(argumentCount > 1)
 	{
-         	LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1 or no argument", argumentCount);
+         	LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1 or no argument", argumentCount);
 		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute disableContentRestrictions() - 1 argument of type IConfig required");
 	}
 	else
@@ -3342,7 +3314,7 @@ static JSValueRef AAMPMediaPlayerJS_setAuxiliaryLanguage(JSContextRef ctx, JSObj
 		}
 		else
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setAuxiliaryLanguage() - 1 argument required");
 		}
 	}
@@ -3402,7 +3374,7 @@ JSValueRef AAMPMediaPlayerJS_xreSupportedTune(JSContextRef ctx, JSObjectRef func
 	}
 	else
 	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute xreSupportedTune() - 1 argument required");
 	}
 	LOG_TRACE("Exit");
@@ -3474,7 +3446,7 @@ JSValueRef AAMPMediaPlayerJS_updateManifest(JSContextRef ctx, JSObjectRef functi
 			const char *manifestbuffer = aamp_JSValueToCString(ctx,arguments[0], exception);
 			if( NULL != manifestbuffer )
 			{
-				LOG_WARN(privObj," got updated manifest len:%d ",strlen(manifestbuffer));
+				LOG_WARN(privObj," got updated manifest len:%zu", strlen(manifestbuffer));
 				privObj->_aamp->updateManifest(manifestbuffer);
 				bRet = true;
 				SAFE_DELETE_ARRAY(manifestbuffer);
@@ -3487,7 +3459,7 @@ JSValueRef AAMPMediaPlayerJS_updateManifest(JSContextRef ctx, JSObjectRef functi
 		}
 		else
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setContentProtectionDataConfig() - 1 argument required");
 		}
 	}
@@ -3531,7 +3503,7 @@ JSValueRef AAMPMediaPlayerJS_setContentProtectionDataConfig(JSContextRef ctx, JS
 		}
 		else
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setContentProtectionDataConfig() - 1 argument required");
 		}
 	}
@@ -3565,7 +3537,7 @@ static JSValueRef AAMPMediaPlayerJS_setContentProtectionDataUpdateTimeout(JSCont
 	{
 		if (argumentCount != 1)
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setContentProtectionDataUpdateTimeout' - 1 argument required");
 		}
 		else
@@ -3606,7 +3578,7 @@ static JSValueRef AAMPMediaPlayerJS_setRuntimeDRMConfig(JSContextRef context, JS
 	{
 		if(argumentCount != 1)
 		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%d, expected: 1", argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
 			*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setDynamicDRMConfig - 1 argument required");
 		}
 		else
@@ -3946,7 +3918,7 @@ static JSClassDefinition AAMPMediaPlayer_JS_class_def {
 void ClearAAMPPlayerInstances(void)
 {
 	pthread_mutex_lock(&jsMediaPlayerCacheMutex);
-        LOG_WARN_EX("Number of active jsmediaplayer instances: %d", AAMPMediaPlayer_JS::_jsMediaPlayerInstances.size());
+	LOG_WARN_EX("Number of active jsmediaplayer instances: %zu", AAMPMediaPlayer_JS::_jsMediaPlayerInstances.size());
 	while(AAMPMediaPlayer_JS::_jsMediaPlayerInstances.size() > 0)
 	{
 		AAMPMediaPlayer_JS *obj = AAMPMediaPlayer_JS::_jsMediaPlayerInstances.back();
@@ -4019,7 +3991,7 @@ private:
 
 		if(argumentCount != 2)
 		{
-			LOG_ERROR_EX("[XREReceiver]: wrong argument count (expected 2) %d", argumentCount);
+			LOG_ERROR_EX("[XREReceiver]: wrong argument count (expected 2) %zu", argumentCount);
 			return;
 		}
 
@@ -4108,7 +4080,7 @@ std::unordered_map<std::string, XREReceiver_onEventHandler::Handler_t>  XRERecei
 JSValueRef XREReceiverJS_onevent (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
 
-        LOG_WARN_EX("[XREReceiver]: arg count - %d", argumentCount);
+	LOG_WARN_EX("[XREReceiver]: arg count - %zu", argumentCount);
 
 	if (argumentCount > 0)
 	{
