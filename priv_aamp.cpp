@@ -1098,7 +1098,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mpStreamAbstractionAAMP(NULL), mInitSuccess(false), mVideoFormat(FORMAT_INVALID), mAudioFormat(FORMAT_INVALID), mDownloadsDisabled(),
 	mDownloadsEnabled(true), profiler(), licenceFromManifest(false), previousAudioType(eAUDIO_UNKNOWN),isPreferredDRMConfigured(false),
 	mbDownloadsBlocked(false), streamerIsActive(false), mTSBEnabled(false), mIscDVR(false), mLiveOffset(AAMP_LIVE_OFFSET),
-	seek_pos_seconds(-1), rate(0), pipeline_paused(false), mMaxLanguageCount(0), zoom_mode(VIDEO_ZOOM_DIRECT),
+	seek_pos_seconds(-1), rate(0), pipeline_paused(false), mMaxLanguageCount(0), zoom_mode(VIDEO_ZOOM_NONE),
 	video_muted(false), subtitles_muted(true), audio_volume(100), subscribedTags(), manifestHeadersNeeded(), httpHeaderResponses(), timedMetadata(), timedMetadataNew(), IsTuneTypeNew(false), trickStartUTCMS(-1), durationSeconds(0.0), culledSeconds(0.0), culledOffset(0.0), maxRefreshPlaylistIntervalSecs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS/1000),
 	mEventListener(NULL), mNewSeekInfo(), discardEnteringLiveEvt(false),
 	mIsRetuneInProgress(false), mCondDiscontinuity(), mDiscontinuityTuneOperationId(0), mIsVSS(false),

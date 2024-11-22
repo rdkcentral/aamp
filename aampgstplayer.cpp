@@ -258,7 +258,7 @@ struct AAMPGstPlayerPriv
 			periodicProgressCallbackIdleTaskId(AAMP_TASK_ID_INVALID),
 			bufferingTimeoutTimerId(AAMP_TASK_ID_INVALID), video_dec(NULL), audio_dec(NULL),TaskControlMutex(),firstProgressCallbackIdleTask("FirstProgressCallback"),
 			video_sink(NULL), audio_sink(NULL), subtitle_sink(NULL),task_pool(NULL),
-			rate(AAMP_NORMAL_PLAY_RATE), zoom(VIDEO_ZOOM_DIRECT), videoMuted(false), audioMuted(false), volumeMuteMutex(), subtitleMuted(false),
+			rate(AAMP_NORMAL_PLAY_RATE), zoom(VIDEO_ZOOM_NONE), videoMuted(false), audioMuted(false), volumeMuteMutex(), subtitleMuted(false),
 			audioVolume(1.0), eosCallbackIdleTaskId(AAMP_TASK_ID_INVALID), eosCallbackIdleTaskPending(false),
 			firstFrameReceived(false), pendingPlayState(false), decoderHandleNotified(false),
 			firstFrameCallbackIdleTaskId(AAMP_TASK_ID_INVALID), firstFrameCallbackIdleTaskPending(false),

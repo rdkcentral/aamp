@@ -282,7 +282,7 @@ public:
 		}
 		else
 		{
-			EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("zoom-mode"), Matcher<int>(VIDEO_ZOOM_DIRECT))).Times(1);
+			EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("zoom-mode"), Matcher<int>(VIDEO_ZOOM_NONE))).Times(1);
 		}
 		EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("show-video-window"), Matcher<int>(true))).Times(1);
 
