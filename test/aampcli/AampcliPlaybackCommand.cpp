@@ -1149,7 +1149,6 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("setconfig <json>","Set the Configuration of the player using a string in json format");
 	addCommand("getconfig","Get the current Configuration of the player instance");
 	addCommand("resetconfig","Reset the Configuration of the player instance");
-	addCommand("underflow","Simulate underflow");
 	addCommand("lock","Lock parental control");
 	addCommand("unlock <t>","Unlock parental control; <t> for timed unlock in seconds>");
 	addCommand("rollover","Schedule artificial pts rollover 10s after next tune");
