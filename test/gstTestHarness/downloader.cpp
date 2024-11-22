@@ -19,7 +19,6 @@
 #include "downloader.hpp"
 #include <stdlib.h>
 #include <curl/curl.h>
-#include <gst/gst.h>
 #include "string_utils.hpp"
 #include <assert.h>
 

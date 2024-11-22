@@ -31,7 +31,6 @@
 #include "AampGstUtils.h"
 #include "TextStyleAttributes.h"
 #include "AampStreamSinkManager.h"
-#include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
 #include <string.h>
