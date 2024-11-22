@@ -8090,10 +8090,11 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 	}
 #endif
 
+        AampCCManager::GetInstance()->Init((void *)decoderHandle);
+
 	if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
 	{
-		AampCCManager::GetInstance()->Init((void *)decoderHandle);
-
+		
 		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
 		if (overrideCfg == 0)
 		{
@@ -8102,15 +8103,7 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 		}
 
 	}
-	else
-	{
-#if defined FLEX2_RDK
-		AampCCManager::GetInstance()->Init((void *)decoderHandle);
-#else
-		CCHandleEventPtr event = std::make_shared<CCHandleEvent>(decoderHandle, GetSessionId());
-		mEventManager->SendEvent(event);
-#endif
-	}
+	
 }
 
 
