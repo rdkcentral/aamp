@@ -137,7 +137,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mIsPeriodChangeMarked(false),
 	mProgressReportAvailabilityOffset(-1),
 	mpStreamAbstractionAAMP(),
-	zoom_mode(VIDEO_ZOOM_DIRECT)
+	zoom_mode(VIDEO_ZOOM_NONE)
 {
 	pthread_cond_init(&waitforplaystart, NULL);
 	pthread_mutex_init(&mMutexPlaystart, NULL);
