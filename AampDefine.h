@@ -230,7 +230,7 @@
 // LLD TSB Defaults
 #define DEFAULT_MIN_TSB_STORAGE_FREE_PERCENTAGE 10	// Percentage of free space in TSB 
 #define DEFAULT_MAX_TSB_STORAGE_MB				10*1024	// 10 GiB 
-#ifdef USE_TSBCONFIG_FOR_HYBRID		// for devices with more generous storage mounted at /opt/data 
+#ifdef USE_TSBCONFIG_FOR_HYBRID		//Devices like XG1V4 have larger storage mounted at /opt/data unlike xi6
 #define DEFAULT_TSB_DURATION 3600
 #define DEFAULT_TSB_LOCATION "/opt/data/fog/aamp"
 #else
@@ -418,13 +418,13 @@ enum EOSInjectionModeCode
 
 enum PlatformType
 {
-	ePLATFORM_UBUNTU,
-	ePLATFORM_APPLE,
-	ePLATFORM_RPI,
-	ePLATFORM_AMLOGIC,
-	ePLATFORM_REALTEK,
-	ePLATFORM_BRCM,
-	ePLATFORM_UNKNOWN
+        ePLATFORM_UBUNTU,      /**< Ubuntu */
+        ePLATFORM_APPLE,       /**< Apple */
+        ePLATFORM_RPI,         /**< Raspberry Pi */
+	ePLATFORM_AMLOGIC,     /**< Amlogic */
+        ePLATFORM_REALTEK,     /**< Realtek */
+        ePLATFORM_BRCM,        /**< Broadcom */
+        ePLATFORM_UNKNOWN      /**< Unknown platform */
 };
 
 #endif

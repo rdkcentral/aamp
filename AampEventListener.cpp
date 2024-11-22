@@ -245,8 +245,9 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 		case AAMP_EVENT_ID3_METADATA:
 		{
 			ID3MetadataEventPtr ev = std::dynamic_pointer_cast<ID3MetadataEvent>(e);
-			// on devices using this event, ID3 metadata is copied before processing
-			// to be deprecated after new event listener is adapted
+			// This is a calculated risk. ID3 metadata is used b Sky alone and they are making a copy of
+			// data before processing it which will avoid any unexpected behavior here.
+			// This support will be removed once all AAMP users move onto the new event listener implementation
 			event.data.id3Metadata.data = const_cast<uint8_t *>(ev->getMetadata().data());
 			event.data.id3Metadata.length = ev->getMetadataSize();
 			break;

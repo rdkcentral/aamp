@@ -219,7 +219,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 				std::string periodId = period->GetId();
 				//We need to check, open period is available in the manifest. Else, something wrong
 				//While processing the current source period with DAI advertisement we saw multiple
-				//open periods in the manifest.
+				//open periods in the sky manifest.
 				//So we need to make sure that the player processes only the very next open period
 				//even it has multiple periods after the current ad period.
 				if(mPlacementObj.openPeriodId == periodId)

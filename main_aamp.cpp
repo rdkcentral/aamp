@@ -325,6 +325,16 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 
 /**
  *  @brief Tune to a URL.
+ *         DEPRECATED!  This is included for backwards compatibility with current Sky AS integration
+ *         audioDecoderStreamSync is a broadcom-specific hack (for original xi6 POC build) - this doesn't belong in Tune API.
+ */
+void PlayerInstanceAAMP::Tune(const char *mainManifestUrl, const char *contentType, bool bFirstAttempt, bool bFinalAttempt,const char *traceUUID,bool audioDecoderStreamSync)
+{
+	Tune(mainManifestUrl, /*autoPlay*/ true, contentType,bFirstAttempt,bFinalAttempt,traceUUID,audioDecoderStreamSync);
+}
+
+/**
+ *  @brief Tune to a URL.
  */
 void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								bool autoPlay,
