@@ -72,9 +72,14 @@ python /home/mutsl02618/comcast/aamp/test/tools/simlinear/simlinear.py --dash 80
     2. Example 2 :
     [{"status": 404, "pattern": "480p_01[1-3]"},{"delay": 3000, "pattern": "(1080|720)p_init.m4s"}]
     Here, Simlinear will respond with HTTP 404 error for Segment URLs like 480p_011.m4s 480p_012.m4s 480p_013.m4s and 3 seconds of delay will be added while responding 1080p_init.m4s & 720p_init.m4s
+    3. Example 3 :
+    [{"status": 404, "start": 0, "end": 2}]
+    Here, Simlinear will respond with HTTP 404 error during the first 2 seconds of playback.
 - Encode Rule using Base64 encoding technique and pass it in query parameter of respData
     Playback URL for example 1 :
         http://127.0.0.1:8085/manifest.mpd?respData=W3sic3RhdHVzIjogNDA0LCAicGF0dGVybiI6ICI3MjBwXzAwWzQtNl0ubTRzIn1d
     Playback URL for example 2 :
         http://127.0.0.1:8085/output.mpd?respData=W3sic3RhdHVzIjogNDA0LCAicGF0dGVybiI6ICI0ODBwXzAxWzEtM10ifSx7ImRlbGF5IjogMzAwMCwgInBhdHRlcm4iOiAiKDEwODB8NzIwKXBfaW5pdC5tNHMifV0=
+    Playback URL for example 3 :
+        http://127.0.0.1:8085/manifest.mpd?respData=W3sic3RhdHVzIjogNDA0LCAic3RhcnRfdGltZV9vZmZzZXQiOiAwLCAiZW5kX3RpbWVfb2Zmc2V0IjogMn1d
 ====================================================================================================
