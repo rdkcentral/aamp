@@ -7073,8 +7073,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 										selAdaptationSetIndex = iAdaptationSet;
 										if(!newTune)
 										{
-											if((GetProfileCount() == adaptationSet->GetRepresentation().size()) &&
-												(AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState))
+											if(GetProfileCount() == adaptationSet->GetRepresentation().size())
 											{
 												selRepresentationIndex = pMediaStreamContext->representationIndex;
 											}
