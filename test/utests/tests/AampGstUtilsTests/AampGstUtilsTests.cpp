@@ -60,8 +60,6 @@ TEST_F(AampGstUtilsTests, esMP3test)
 
 TEST_F(AampGstUtilsTests, GstCapsFormatsTest)
 {
-    GstCaps dummycapslist;
-    GstCaps *caps{&dummycapslist};
     StreamOutputFormat GstCapsFormats[16] = {
 	FORMAT_MPEGTS,
 	FORMAT_ISO_BMFF,

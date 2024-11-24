@@ -260,9 +260,9 @@ void AAMPGstPlayer::RemoveProbes()
 {
 }
 
-PlatformType AAMPGstPlayer::InitializeAAMPPlatformConfigs()
+PlatformType AAMPGstPlayer::InferPlatformFromPluginScan()
 {
-	return ePLATFORM_UNKNOWN;
+	return ePLATFORM_DEFAULT;
 }
 
 bool AAMPGstPlayer::IsMS2V12Supported()
