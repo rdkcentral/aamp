@@ -435,7 +435,7 @@ static void ConvertToLowerCase( char lang[] )
 
 void iso639map_NormalizeLanguageCode( char lang[], LangCodePreference langCodePreference )
 {
-    //XIONE-503: Some streams contains lang codes with uppercase chars
+    //Some streams contains lang codes with uppercase chars
     ConvertToLowerCase(lang);
 
     switch( langCodePreference )

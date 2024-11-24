@@ -112,7 +112,7 @@ void AampScheduler::ExecuteAsyncTask()
 		}
 		else
 		{
-			/* DELIA-57121
+			/*
 			Take the execution lock before taking a task from the queue
 			otherwise this function could hold a task, out of the queue,
 			that cannot be deleted by RemoveAllTasks()!
@@ -121,7 +121,7 @@ void AampScheduler::ExecuteAsyncTask()
 			std::lock_guard<std::mutex>executionLock(mExMutex);
 			queueLock.lock();
 
-			//DELIA-57121 - note: mTaskQueue could have been modified while waiting for execute permission
+			//mTaskQueue could have been modified while waiting for execute permission
 			if (!mTaskQueue.empty())
 			{
 				AsyncTaskObj obj = mTaskQueue.front();
@@ -178,8 +178,8 @@ void AampScheduler::StopScheduler()
 	// Clean up things in queue
 	mSchedulerRunning = false;
 
-	//DELIA-57121 allow StopScheduler() to be called without warning from a nonsuspended state and
-	//DELIA-57122 not cause an error in ResumeScheduler() below due to trying to unlock an unlocked lock
+	//allow StopScheduler() to be called without warning from a nonsuspended state and
+	//not cause an error in ResumeScheduler() below due to trying to unlock an unlocked lock
 	if(!mLockOut)
 	{
 		SuspendScheduler();
@@ -187,7 +187,7 @@ void AampScheduler::StopScheduler()
 
 	RemoveAllTasks();
 
-	//DELIA-57122 prevent possible deadlock where mSchedulerThread is waiting for mExLock/mExMutex
+	//prevent possible deadlock where mSchedulerThread is waiting for mExLock/mExMutex
 	ResumeScheduler();
 	mQCond.notify_one();
     if (mSchedulerThread.joinable())

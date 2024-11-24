@@ -132,7 +132,7 @@ void AampBufferControl::BufferControlTimeBased::updateInternal(const BufferContr
 			msg+=std::to_string(injectedSeconds.seconds());
 			msg+=")";
 
-			/* temporarily limiting all messages of this type to trace untill DELIA-63197 is resolved
+			/* temporarily limiting all messages of this type to trace
 			if((elapsedSeconds + mLastInjectedDuration + 1)<elapsedSecondsUnlimited)
 			{
 				AAMPLOG_WARN("%s", msg.c_str());
@@ -335,13 +335,12 @@ void AampBufferControl::BufferControlMaster::needData(const AAMPGstPlayer *playe
 		std::lock_guard<std::mutex> lock(mMutex);
 		if(mTeardownInProgress)
 		{
-			/* RDKAAMP-1605
+			/*
 			 * During teardown directly respond to needdata messages
-			 * this is consistent with behaviour prior to RDKAAMP-1343 &
-			 * prevents elements being starved of data during teardown
+			 * this prevents elements being starved of data during teardown
 			 * handling this through mpBufferingStrategy was considered
 			 * but handling this directly is simpler & should be more robust to change
-			 * RDKAAMP-1621 raised to consider direct EOS injection in place of this*/
+			 * consider direct EOS injection in place of this*/
 			bool downloadsJustEnabled = !mDownloadShouldBeEnabled.exchange(true);
 			if(downloadsJustEnabled)
 			{
@@ -376,9 +375,8 @@ void AampBufferControl::BufferControlMaster::enoughData(const AAMPGstPlayer *pla
 		std::lock_guard<std::mutex> lock(mMutex);
 		if(mTeardownInProgress)
 		{
-			/* RDKAAMP-1605
+			/*
 			 * During teardown directly respond to needdata messages
-                         * this is consistent with behaviour prior to RDKAAMP-1343
 			 * also see comments in AampBufferControl::BufferControlMaster::needData()*/
 			bool downloadsJustDisabled = mDownloadShouldBeEnabled.exchange(false);
 			if(downloadsJustDisabled)

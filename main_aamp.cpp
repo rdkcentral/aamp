@@ -690,7 +690,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 		AAMPLOG_WARN("SetRate ignored!! Invalid rate (%f)", rate);
 		return;
 	}
-	//Hack For DELIA-51318 convert the incoming rates into acceptable rates
+	//convert the incoming rates into acceptable rates
 	if(ISCONFIGSET(eAAMPConfig_RepairIframes))
 	{
 		AAMPLOG_WARN("mRepairIframes is true, setting actual rate %f for the received rate %f", getWorkingTrickplayRate(rate), rate);
@@ -755,7 +755,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			return;
 		}
 
-		// DELIA-39691 If input rate is same as current playback rate, skip duplicate operation
+		// If input rate is same as current playback rate, skip duplicate operation
 		// Additional check for pipeline_paused is because of 0(PAUSED) -> 1(PLAYING), where aamp->rate == 1.0 in PAUSED state
 		if ((!aamp->pipeline_paused && rate == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp()) || (rate == 0 && aamp->pipeline_paused))
 		{
@@ -763,7 +763,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			return;
 		}
 
-		//DELIA-30274  -- Get the trick play to a closer position
+		//-- Get the trick play to a closer position
 		//Logic adapted
 		// XRE gives fixed overshoot position , not suited for aamp . So ignoring overshoot correction value
 			// instead use last reported posn vs the time player get play command
@@ -850,7 +850,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 		}
 		else
 		{
-			// DELIA-39530 - For 1.0->0.0 and 0.0->1.0 if eAAMPConfig_EnableGstPositionQuery is enabled, GStreamer position query will give proper value
+			// For 1.0->0.0 and 0.0->1.0 if eAAMPConfig_EnableGstPositionQuery is enabled, GStreamer position query will give proper value
 			// Fallback case added for when eAAMPConfig_EnableGstPositionQuery is disabled, since we will be using elapsedTime to calculate position and
 			// trickStartUTCMS has to be reset
 			if (!ISCONFIGSET(eAAMPConfig_EnableGstPositionQuery) && !aamp->mbDetached)
@@ -1104,8 +1104,7 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 	if (aamp->mpStreamAbstractionAAMP)
 	{ // for seek while streaming
 
-		/* LLAMA-7124
-		 * PositionMilisecondLock is intended to ensure both state and seek_pos_seconds (in TuneHelper)
+		 /* PositionMilisecondLock is intended to ensure both state and seek_pos_seconds (in TuneHelper)
 		 * are updated before GetPositionMilliseconds() can be used*/
 		auto PositionMilisecondLocked = aamp->LockGetPositionMilliseconds();
 		aamp->SetState(eSTATE_SEEKING);
@@ -1206,7 +1205,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			}
 			else
 			{
-				// LLAMA-4799:Rewind over AD using Seek(-1) is impemented only for DASH, so restoring old code for non DASH to avoid DELIA-59899 regression.
+				// Rewind over AD using Seek(-1) is impemented only for DASH, so restoring old code for non DASH.
 				if (aamp->mMediaFormat == eMEDIAFORMAT_DASH)
 				{
 					tuneType = eTUNETYPE_SEEKTOEND;
@@ -1296,7 +1295,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			aamp->ResumeDownloads();
 		}
 
-		/* LLAMA-7124
+		/*
 		 * PositionMilisecondLock is intended to ensure both state and seek_pos_seconds
 		 * are updated before GetPositionMilliseconds() can be used*/
 		auto PositionMilisecondLocked = aamp->LockGetPositionMilliseconds();
@@ -1426,7 +1425,7 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 		return;
 	}
 
-	//Hack For DELIA-51318 convert the incoming rates into acceptable rates
+	//convert the incoming rates into acceptable rates
 	if(ISCONFIGSET(eAAMPConfig_RepairIframes))
 	{
 		AAMPLOG_WARN("mRepairIframes is true, setting actual rate %f for the received rate %d", getWorkingTrickplayRate(rate), rate);

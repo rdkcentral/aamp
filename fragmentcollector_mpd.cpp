@@ -1220,7 +1220,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							startTime = timeline->GetStartTime();
 						}
 						else
-						{ // DELIA-35059
+						{
 							startTime = pMediaStreamContext->fragmentDescriptor.Time;
 						}
 						if(mIsLiveStream)
@@ -1266,7 +1266,6 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								
 								/*
 								*  Boundary check added to handle the edge case leading to crash,
-								*  reported in DELIA-30316.
 								*/
 								if(index == timelines.size())
 								{
@@ -1489,7 +1488,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						}
 						else if( mCheckForRampdown && pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
 						{
-							// DELIA-31780 - On audio fragment download failure (http500), rampdown was attempted .
+							//  On audio fragment download failure (http500), rampdown was attempted .
 							// rampdown is only needed for video fragments not for audio.
 							// second issue : after rampdown lastSegmentTime was going into "0" . When this combined with mpd refresh immediately after rampdown ,
 							// startTime is set to start of Period . This caused audio fragment download from "0" resulting in PTS mismatch and mute
@@ -1766,7 +1765,6 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				{
 					//Directly comparing two double values is unreliable because minor precision errors
 					// here we introduce a 1ms epsilon to compensate and avoid injecting one segment too many at period boundary
-					// this will need to be revisited with upcoming fix for RDKAAMP-3468
 					bProcessFragment = (pMediaStreamContext->fragmentDescriptor.Time+0.001 < mPeriodEndTime);
 				}
 			}
@@ -2429,7 +2427,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							continue;  /* continue to next fragment */
 						}
 					}
-					//DELIA-60587:Content Audio and Video Played for 1-2 seconds when we seek after Ad break.
+					//Content Audio and Video Played for 1-2 seconds when we seek after Ad break.
 					//Even if skiptime is equal to fragmentduration(eg: skipTime = 1.190600 & fragmentDuration=1.190600 this is based on logs)
 					//it is not entering the loop which is leading to go back to 2 seconds of previous period content and play,
 					//then jump to next period. The issue here is complier is optimizing the value to 1.18999 for skiptime where as
@@ -2632,7 +2630,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					}
 				}
 			}
-			if( skipTime==0 ) AAMPLOG_WARN( "XIONE-941" );
+			if( skipTime==0 ) AAMPLOG_WARN( "skipTime is 0" );
 		}while(true); // was while(skipTime != 0);
 
 		AAMPLOG_INFO("Exit :Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentDescriptor.Number %" PRIu64 " fragmentTime %f FTime:%f",pMediaStreamContext->type,
@@ -2649,7 +2647,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				std::string fragmentUrl;
 				GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
 
-				//As a part of RDK-35897 update the next segment for download
+				//update the next segment for download
 
 				ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(pMediaStreamContext->mediaType, true);
 				AampMediaType actualType = MediaTypeToPlaylist(pMediaStreamContext->mediaType);
@@ -2873,7 +2871,7 @@ void StreamAbstractionAAMP_MPD::ProcessManifestHeaderResponse(std::shared_ptr<Ma
 					}
 				}
 			}
-			// RDKAAMP-991: HTTP Response header needs to be sent to app when:
+			// HTTP Response header needs to be sent to app when:
 			// 1. HTTP header response event listener is available
 			// 2. HTTP header response values are present
 			// 3. Manifest refresh has happened during Live
@@ -2958,7 +2956,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( std::shared_ptr<Ma
 			mIsLiveStream	=	mIsLiveManifest;
 		}
 
-		/* DELIA-42794: All manifest requests after the first should
+		/* All manifest requests after the first should
 		* reference the url from the Location element. This is per MPEG
 		* specification */
 		locationUrl = this->mpd->GetLocations();
@@ -3792,7 +3790,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					aamp->SetLLDashChunkMode(true);
 					AAMPLOG_MIL("Chunk mode set: Enabling LLDashChunkMode due to liveadjust");
 				}
-				// DELIA-43662
 				// After live adjust ( for Live or CDVR) , possibility of picking an empty last period exists.
 				// Though its ignored in Period selection earlier , live adjust will end up picking last added empty period
 				// Instead of picking blindly last period, pick the period the last period which contains some stream data
@@ -3870,7 +3867,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 				if (offsetFromStart < 0)
 				{
-					offsetFromStart = duration - aamp->mLiveOffset; // DELIA-65438
+					offsetFromStart = duration - aamp->mLiveOffset;
 					if( offsetFromStart<0 )
 					{ // clamp if negative
 						offsetFromStart = 0;
@@ -3889,7 +3886,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		}
 		else
 		{
-			// Non-live - VOD/CDVR(Completed) - DELIA-30266
+			// Non-live - VOD/CDVR(Completed)
 			if(durationMs == INVALID_VOD_DURATION)
 			{
 				AAMPLOG_WARN("Duration of VOD content is 0");
@@ -3948,7 +3945,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			// Aborting init here after stream and DRM initialization.
 			return eAAMPSTATUS_FAKE_TUNE_COMPLETE;
 		}
-		//DELIA-51402 - calling ReportTimedMetadata function after drm creation in order
+		//calling ReportTimedMetadata function after drm creation in order
 		//to reduce the delay caused
 		aamp->ReportTimedMetadata(true);
 		if(mAudioType == eAUDIO_UNSUPPORTED)
@@ -4143,7 +4140,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Pushing EncryptedHeaders");
 			std::map<int, std::string> headers;
 
-			// RDKAAMP-3259: Getting the headers alone will not cache the protectionEvent in sink which fails to select drmSession in decryptor
+			// Getting the headers alone will not cache the protectionEvent in sink which fails to select drmSession in decryptor
 			// Hence reorder to get the encrypted init fragment from manifest and if not check for header urls in StreamSinkManager
 			// Check if a period in a multi-period asset has an encrypted content
 			if(GetEncryptedHeaders(headers))
@@ -4296,7 +4293,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 		}
 		else
 		{
-			// DELIA-31750 - looping of cdvr video - Issue happens with multiperiod content only
+			// looping of cdvr video - Issue happens with multiperiod content only
 			// When playback is near live position (last period) or after eos in period
 			// mCurrentPeriodIdx was resetted to 0 . This caused fetch loop to continue from Period 0/fragement 1
 			// Reset of mCurrentPeriodIdx to be done to max period if Period count changes after mpd refresh
@@ -4878,7 +4875,6 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 								bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
 								if (modifySCTEProcessing)
 								{
-									//LLAMA-8251
 									// cdvr events that are currently recording are tagged as live - we still need to process
 									// all the SCTE events for these manifests so we'll just rely on isPeriodExist() to prevent
 									// repeated notifications and process all events in the manifest
@@ -5239,7 +5235,6 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 				//for livestream send the timedMetadata only., because at init, control does not come here
 				if(mIsLiveManifest)
 				{
-					//LLAMA-8251
 					// The current process relies on enabling eAAMPConfig_EnableClientDai and that may not be desirable
 					// for our requirements. We'll just skip this and use the VOD process to send events
 					bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
@@ -5948,7 +5943,7 @@ void StreamAbstractionAAMP_MPD::StartSubtitleParser()
 		seekPoint += presentationTimeOffset/(double)tScale;
 
 		// seekPoint can end up -0.088400000000000006 here
-		// 0.1 seems too big an epsilon, but works to avoid RDKAAMP-769
+		// 0.1 seems too big an epsilon
 		// need to check the math leading up to above value to see if precision can be improved
 
 		if (seekPoint < -FLOATING_POINT_EPSILON )
@@ -7158,7 +7153,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] %s",
 				GetMediaTypeName(AampMediaType(i)), pMediaStreamContext->enabled?"enabled":"disabled");
-			//RDK-27796, we need this hack for cases where subtitle is not enabled, but auxiliary audio track is enabled
+			//This is for cases where subtitle is not enabled, but auxiliary audio track is enabled
 			if (eMEDIATYPE_AUX_AUDIO == i && pMediaStreamContext->enabled && !mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
 			{
 				AAMPLOG_WARN("PrivateStreamAbstractionMPD: Auxiliary enabled, but subtitle disabled, swap MediaStreamContext of both");
@@ -7709,7 +7704,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					if (modifyDefaultBW)
 					{	// Not for new tune ( for Seek / Trickplay)
 						long persistedBandwidth = aamp->GetPersistedBandwidth();
-						// XIONE-2039 If Bitrate persisted over trickplay is true, set persisted BW as default init BW
+						// If Bitrate persisted over trickplay is true, set persisted BW as default init BW
 						if (persistedBandwidth > 0 && (persistedBandwidth < defaultBitrate || aamp->IsBitRatePersistedOverSeek()))
 						{
 							defaultBitrate = persistedBandwidth;
@@ -7994,7 +7989,7 @@ IPeriod *StreamAbstractionAAMP_MPD::GetPeriod( void )
  */
 PeriodInfo StreamAbstractionAAMP_MPD::GetFirstValidCurrMPDPeriod(std::vector<PeriodInfo> currMPDPeriodDetails)
 {
-	/* LLAMA-12256 : The culled value of a partciular period id is getting missed to add 
+	/* The culled value of a partciular period id is getting missed to add 
 	 * if the latest manifest refresh resulted in an MPD which contain the same period id with duration of 0 seconds.
 	 * The fix is added to skip those empty periods and mark the first non-empty period as current MPD period start for culled value calculation
 	 */
@@ -8287,7 +8282,7 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 		{
 
 			/*
-				XIONE-15901 : [XIONE-UK] IVOD trick play not working after
+				IVOD trick play not working after
 				asset license expiry time.
 				When License get expired the absolute timeline changes to
 				different value from manifest. In order to maintain
@@ -8675,7 +8670,7 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 		int i = it->first;
 		std::string fragmentUrl = it->second;
 
-		//As a part of RDK-35897 update the next segment for download
+		//update the next segment for download
 		//aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)fragmentDescriptor->Number,
 		//		fragmentDescriptor->Bandwidth,(AampMediaType)i);
 		if (mMediaStreamContext[i]->WaitForFreeFragmentAvailable())
@@ -8936,7 +8931,6 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 			// Fetch init header for both audio and video ,after mpd refresh(stream selection) , profileChanged = true for both tracks .
 			// Need to reset profileChanged flag which is done inside FetchAndInjectInitialization
 			// Without resetting profileChanged flag , fetch of audio was stopped causing audio drop
-			// DELIA-32017
 			else if(pMediaStreamContext->profileChanged)
 			{	// Profile changed case
 				FetchAndInjectInitialization(trackIdx,isDiscontinuity);
@@ -9135,7 +9129,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				if (0 == adaptationSetCount || (mMPDParseHelper->IsEmptyPeriod(mIterPeriodIndex, (rate != AAMP_NORMAL_PLAY_RATE))) || (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, (rate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB()) < THRESHOLD_TOIGNORE_TINYPERIOD))
 				{
 					/*To Handle non fog scenarios where empty periods are
-					* present after mpd update causing issues (DELIA-29879)
+					* present after mpd update causing issues
 					*/
 					AAMPLOG_INFO("Period %s skipped. Adaptation size:%d, isEmpty:%d duration %f (ms)", newPeriod->GetId().c_str(), adaptationSetCount, mMPDParseHelper->IsEmptyPeriod(mIterPeriodIndex, (rate != AAMP_NORMAL_PLAY_RATE)), (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, (rate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB())));
 					mIterPeriodIndex += (rate < 0) ? -1 : 1;
@@ -9157,7 +9151,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				}
 				else
 				{
-					//Setting the end period offset as the base offset since the DAI ad break duration is shorter than the source period duration. XIONE-15738
+					//Setting the end period offset as the base offset since the DAI ad break duration is shorter than the source period duration.
 					if( rate < 0 &&  (mCdaiObject->isAdBreakObjectExist( newPeriod->GetId()) && mCdaiObject->mAdBreaks[newPeriod->GetId()].mSrcPeriodOffsetGTthreshold) )
 					{
 							AAMPLOG_INFO("[CDAI] Setting end period as offset,  mBasePeriodOffset :%f endPeriodOffset:%" PRIu64 ,mBasePeriodOffset,mCdaiObject->mAdBreaks[newPeriod->GetId()].endPeriodOffset);
@@ -9251,7 +9245,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					aamp->WaitForDiscontinuityProcessToComplete();
 				}
 
-				/*DELIA-47914:  If next period is empty, period ID change is not processed.
+				/*If next period is empty, period ID change is not processed.
 				Will check the period change for the same period in the next iteration.*/
 				if ((adaptationSetCount > 0 || !(mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (rate != AAMP_NORMAL_PLAY_RATE)))) && (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, (rate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
 				{
@@ -9669,7 +9663,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						{
 							RestorePtsOffsetCalculation();
 						}
-						aamp->UnblockWaitForDiscontinuityProcessToComplete(); //DELIA-65884:Panel has frozen frame
+						aamp->UnblockWaitForDiscontinuityProcessToComplete();
 						continue;
 					}
 				}
@@ -10487,7 +10481,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		mCdaiObject->AbortWaitForNextAdResolved();
 		ReassessAndResumeAudioTrack(true);
 		AbortWaitForAudioTrackCatchup(false);
-		// DELIA-45035: Change order of stopping threads. Collector thread has to be stopped at the earliest
+		// Change order of stopping threads. Collector thread has to be stopped at the earliest
 		// There is a chance fragment collector is processing StreamSelection() which can change the mNumberOfTracks
 		// and Enabled() status of MediaTrack momentarily.
 		// Call AbortWaitForCachedAndFreeFragment() to unblock collector thread from WaitForFreeFragmentAvailable
@@ -10580,7 +10574,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		// This may impact subtitle seamless switching, but need to abort for other tracks for now
 		// Downloads are not disabled here.
 		AbortWaitForAudioTrackCatchup(true);
-		// DELIA-45035: Change order of stopping threads. Collector thread has to be stopped at the earliest
+		// Change order of stopping threads. Collector thread has to be stopped at the earliest
 		// There is a chance fragment collector is processing StreamSelection() which can change the mNumberOfTracks
 		// and Enabled() status of MediaTrack momentarily.
 		// Call AbortWaitForCachedAndFreeFragment() to unblock collector thread from WaitForFreeFragmentAvailable
@@ -10678,7 +10672,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	{
 		audioOutputFormat = FORMAT_INVALID;
 	}
-	//RDK-27796, if subtitle is disabled, but aux is enabled, then its status is saved in place of eMEDIATYPE_SUBTITLE
+	//if subtitle is disabled, but aux is enabled, then its status is saved in place of eMEDIATYPE_SUBTITLE
 	if ((mMediaStreamContext[eMEDIATYPE_AUX_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->enabled) ||
 		(mMediaStreamContext[eMEDIATYPE_SUBTITLE] && mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type == eTRACK_AUX_AUDIO))
 	{
@@ -11444,9 +11438,8 @@ bool StreamAbstractionAAMP_MPD::isAdbreakStart(IPeriod *period, uint64_t &startM
 								bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
 								if (modifySCTEProcessing)
 								{
-									//LLAMA-8251
 									// Assuming the comment above is correct then we should really check for a duration tag
-									// rather than duration=0. For LLAMA-8251 we will do this to send all the SCTE events in 
+									// rather than duration=0. We will do this to send all the SCTE events in
 									// the manifest even ones with duration=0
 									processEvent = (!mIsLiveManifest || eventHasDuration);
 								}

@@ -302,7 +302,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
                     }
                 }
             }
-            // DELIA-32287 - Profile RampDown check and rampdown is needed only for Video . If audio fragment download fails
+            // Profile RampDown check and rampdown is needed only for Video . If audio fragment download fails
             // should continue with next fragment,no retry needed .
             else if ((eTRACK_VIDEO == type) && !(context->CheckForRampDownLimitReached()))
             {

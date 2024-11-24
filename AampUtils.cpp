@@ -892,7 +892,7 @@ bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMedi
 				std::string ext = fileName.substr(extPos);
 				fileName = fileName.substr(0,manifestPos+1); 
 				fileName = fileName + "manifest" + ext +  "." + std::to_string(count);
-			} //RDKAAMP-230
+			}
 			
 			// create subdirectories lazily as needed, preserving CDN folder structure
 			std::string dirpath = std::string(prefix);
