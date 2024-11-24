@@ -135,13 +135,14 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		printf( "curl version: %s\n", vers->version );
 
 		gpGlobalConfig =  new AampConfig();
-		// Init the default values
 		gpGlobalConfig->Initialize();
-		gpGlobalConfig->ReadDeviceCapability();
-		if(!gpGlobalConfig->ReadDeviceProperties())
+		PlatformType platform = gpGlobalConfig->InferPlatformFromDeviceProperties();
+		if( platform == ePLATFORM_DEFAULT )
 		{
-			gpGlobalConfig->ReadGstPlugins();
+			platform = gpGlobalConfig->InferPlatformFromPluginScan();
 		}
+		gpGlobalConfig->ApplyDeviceCapabilities(platform);
+		
 		AAMPLOG_WARN("[AAMP_JS][%p]Creating GlobalConfig Instance[%p]",this,gpGlobalConfig);
 		if(!gpGlobalConfig->ReadAampCfgTxtFile())
 		{

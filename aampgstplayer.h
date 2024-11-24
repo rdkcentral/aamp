@@ -373,9 +373,9 @@ public:
 	 */
 	static void InitializeAAMPGstreamerPlugins();
 	/**
-	 * @fn InitializeAAMPPlatformConfigs
+	 * @fn InferPlatformFromPluginScan
 	 */
-	static PlatformType InitializeAAMPPlatformConfigs();
+	static PlatformType InferPlatformFromPluginScan();
 	/**
 	 * @fn NotifyEOS
 	 */

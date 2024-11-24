@@ -101,8 +101,7 @@ std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg)
     }
 }
 
-
-void AampConfig::ReadDeviceCapability()
+void AampConfig::ApplyDeviceCapabilities( PlatformType platform )
 {
 }
 
@@ -220,13 +219,14 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
     return false;
 }
 
-bool AampConfig::ReadDeviceProperties()
+PlatformType AampConfig::InferPlatformFromDeviceProperties()
 {
-	return false;
+	return ePLATFORM_DEFAULT;
 }
 
-void AampConfig::ReadGstPlugins()
+PlatformType AampConfig::InferPlatformFromPluginScan()
 {
+	return ePLATFORM_DEFAULT;
 }
 
 void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingBool cfg)

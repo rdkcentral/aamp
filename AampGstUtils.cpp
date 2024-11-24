@@ -35,22 +35,21 @@ GstCaps* GetGstCaps(StreamOutputFormat format, PlatformType platform)
 	switch (format)
 	{
 		case FORMAT_MPEGTS:
-			caps = gst_caps_new_simple ("video/mpegts",
-					"systemstream", G_TYPE_BOOLEAN, TRUE,
-					"packetsize", G_TYPE_INT, 188, NULL);
+			caps = gst_caps_new_simple ("video/mpegts", "systemstream", G_TYPE_BOOLEAN, TRUE, "packetsize", G_TYPE_INT, 188, NULL);
 			break;
+			
 		case FORMAT_ISO_BMFF:
 			caps = gst_caps_new_simple("video/quicktime", NULL, NULL);
 			break;
+			
 		case FORMAT_AUDIO_ES_MP3:
-			caps = gst_caps_new_simple ("audio/mpeg",
-					"mpegversion", G_TYPE_INT, 1, NULL);
+			caps = gst_caps_new_simple ("audio/mpeg", "mpegversion", G_TYPE_INT, 1, NULL);
 			break;
+			
 		case FORMAT_AUDIO_ES_AAC:
-			caps = gst_caps_new_simple ("audio/mpeg",
-					"mpegversion", G_TYPE_INT, 2,
-					"stream-format", G_TYPE_STRING, "adts", NULL);
+			caps = gst_caps_new_simple ("audio/mpeg", "mpegversion", G_TYPE_INT, 2, "stream-format", G_TYPE_STRING, "adts", NULL);
 			break;
+			
 		case FORMAT_AUDIO_ES_AC3:
 			caps = gst_caps_new_simple ("audio/x-ac3", NULL, NULL);
 			break;
@@ -62,61 +61,44 @@ GstCaps* GetGstCaps(StreamOutputFormat format, PlatformType platform)
 		case FORMAT_SUBTITLE_TTML:
 			caps = gst_caps_new_simple("application/ttml+xml", NULL, NULL);
 			break;
+			
 		case FORMAT_SUBTITLE_WEBVTT:
 			caps = gst_caps_new_simple("text/vtt", NULL, NULL);
 			break;
+			
 		case FORMAT_SUBTITLE_MP4:
 			caps = gst_caps_new_simple("application/mp4", NULL, NULL);
 			break;
+			
 		case FORMAT_AUDIO_ES_ATMOS:
-			// Todo :: a) Test with all platforms if atmos works 
-			//	   b) Test to see if x-eac3 config is enough for atmos stream.
-			//	 	if x-eac3 is enough then both switch cases can be combined
-			caps = gst_caps_new_simple ("audio/x-eac3", NULL, NULL);
-                        break;
 		case FORMAT_AUDIO_ES_EC3:
-			caps = gst_caps_new_simple ("audio/x-eac3", NULL, NULL);
+			caps = gst_caps_new_simple("audio/x-eac3", NULL, NULL );
 			break;
+			
 		case FORMAT_VIDEO_ES_H264:
-			caps = gst_caps_new_simple ("video/x-h264", NULL, NULL);
-#if (defined(RPI) || defined(__APPLE__) || defined(UBUNTU))
-			gst_caps_set_simple (caps,
-					"alignment", G_TYPE_STRING, "au",
-					"stream-format", G_TYPE_STRING, "avc",
-					NULL);
-#else
-			if(platform == ePLATFORM_REALTEK)
+			caps = gst_caps_new_simple("video/x-h264", NULL, NULL);
+			if( platform == ePLATFORM_REALTEK )
 			{
 				gst_caps_set_simple (caps, "enable-fastplayback", G_TYPE_STRING, "true", NULL);
 			}
-#endif
 			break;
+			
 		case FORMAT_VIDEO_ES_HEVC:
-			caps = gst_caps_new_simple("video/x-h265", NULL, NULL);
-
-			// Platform-specific appending of properties
-#if (defined(RPI) || defined(__APPLE__) || defined(UBUNTU))
-			gst_caps_set_simple(caps,
-					"alignment", G_TYPE_STRING, "au",
-					"stream-format", G_TYPE_STRING, "hev1",
-					NULL);
-#else
-			if (platform == ePLATFORM_REALTEK)
+			caps = gst_caps_new_simple("video/x-h265", NULL, NULL );
+			if( platform == ePLATFORM_REALTEK )
 			{
-				gst_caps_set_simple(caps,
-						"enable-fastplayback", G_TYPE_STRING, "true",
-						NULL);
+				gst_caps_set_simple (caps, "enable-fastplayback", G_TYPE_STRING, "true", NULL);
 			}
-#endif
 			break;
+			
 		case FORMAT_VIDEO_ES_MPEG2:
-			caps = gst_caps_new_simple ("video/mpeg",
-					"mpegversion", G_TYPE_INT, 2,
-					"systemstream", G_TYPE_BOOLEAN, FALSE, NULL);
-			break;  //CID:81305 - Using break statement
+			caps = gst_caps_new_simple("video/mpeg", "mpegversion", G_TYPE_INT, 2, "systemstream", G_TYPE_BOOLEAN, FALSE, NULL );
+			break;
+			
 		case FORMAT_UNKNOWN:
 			AAMPLOG_WARN("Unknown format %d", format);
 			break;
+			
 		case FORMAT_INVALID:
 		default:
 			AAMPLOG_WARN("Unsupported format %d", format);

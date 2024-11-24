@@ -1658,7 +1658,7 @@ static gboolean buffering_timeout (gpointer data)
 				AAMPLOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i", gst_element_state_get_name(_this->privateContext->buffering_target_state), (_this->privateContext->buffering_timeout_cnt+1), frames);
 				SetStateWithWarnings (_this->privateContext->pipeline, _this->privateContext->buffering_target_state);
 
-				if(aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_BRCM)
+				if(aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_BROADCOM)
 				{
 					// Setting first fractional rate as DEFAULT_INITIAL_RATE_CORRECTION_SPEED right away on PLAYING to avoid DELIA-61708 audio drop
 					if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->IsLive())
@@ -1818,22 +1818,6 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 			if (isPlaybinStateChangeEvent && new_state == GST_STATE_PLAYING)
 			{
 				_this->privateContext->pauseOnStartPlayback = false;
-
-#if 0
-				//RDK-37643: To support first frame notification on audioOnlyPlayback for hls streams on amlogic.
-				if(_this->aamp->mAudioOnlyPb && !_this->privateContext->firstAudioFrameReceived && _this->privateContext->NumberOfTracks==1)
-				{
-					media_stream *stream = &_this->privateContext->stream[eMEDIATYPE_AUDIO];
-					g_object_get(stream->sinkbin, "n-audio", &_this->privateContext->n_audio, NULL);
-					if(_this->privateContext->n_audio > 0)
-					{
-						AAMPLOG_MIL("Audio only playback detected, hence notify first frame");
-						_this->privateContext->firstAudioFrameReceived = true;
-						_this->NotifyFirstFrame(eMEDIATYPE_AUDIO);
-					}
-				}
-#endif
-
 				if(platformType == ePLATFORM_AMLOGIC)
 				{
 					//RDK-37643: To support first frame notification on audioOnlyPlayback for hls streams on amlogic.
@@ -1874,18 +1858,19 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 						_this->NotifyFirstFrame(eMEDIATYPE_VIDEO);
 					}
 				}
-#if (defined(RPI) || defined(__APPLE__) || defined(UBUNTU))
-				if(!_this->privateContext->firstFrameReceived)
+				if( platformType == ePLATFORM_DEFAULT )
 				{
-					_this->privateContext->firstFrameReceived = true;
-					_this->aamp->LogFirstFrame();
-					_this->aamp->LogTuneComplete();
+					if(!_this->privateContext->firstFrameReceived)
+					{
+						_this->privateContext->firstFrameReceived = true;
+						_this->aamp->LogFirstFrame();
+						_this->aamp->LogTuneComplete();
+					}
+					_this->aamp->NotifyFirstFrameReceived(_this->getCCDecoderHandle());
+					//Note: Progress event should be sent after the decoderAvailable event only.
+					//BRCM platform sends progress event after AAMPGstPlayer_OnFirstVideoFrameCallback.
+					_this->IdleTaskAdd(_this->privateContext->firstProgressCallbackIdleTask, IdleCallback);
 				}
-				_this->aamp->NotifyFirstFrameReceived(_this->getCCDecoderHandle());
-				//Note: Progress event should be sent after the decoderAvailable event only.
-				//BRCM platform sends progress event after AAMPGstPlayer_OnFirstVideoFrameCallback.
-				_this->IdleTaskAdd(_this->privateContext->firstProgressCallbackIdleTask, IdleCallback);
-#endif
 				if (_this->aamp->mConfig->IsConfigSet(eAAMPConfig_GSTLogging))
 				{
 					GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)_this->privateContext->pipeline, GST_DEBUG_GRAPH_SHOW_ALL, "myplayer");
@@ -1904,7 +1889,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 				}
 
 				if(_this->aamp->mSetPlayerRateAfterFirstframe 
-						|| ((platformType == ePLATFORM_REALTEK || platformType == ePLATFORM_BRCM) && ((AAMP_SLOWMOTION_RATE == _this->aamp->playerrate) && (_this->aamp->rate == AAMP_NORMAL_PLAY_RATE))))
+						|| ((platformType == ePLATFORM_REALTEK || platformType == ePLATFORM_BROADCOM) && ((AAMP_SLOWMOTION_RATE == _this->aamp->playerrate) && (_this->aamp->rate == AAMP_NORMAL_PLAY_RATE))))
 				{
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(_this->aamp);
 					if (sink)
@@ -1919,7 +1904,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 								_this->aamp->SetAudioVolume(0);
 							}
 						}
-						else if (platformType == ePLATFORM_REALTEK || platformType == ePLATFORM_BRCM)
+						else if (platformType == ePLATFORM_REALTEK || platformType == ePLATFORM_BROADCOM)
 						{
 							if(false != sink->SetPlayBackRate(_this->aamp->rate))
 							{
@@ -2187,7 +2172,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 					int trackId = _this->privateContext->stream[eMEDIATYPE_AUDIO].trackId;
 					if (trackId >= 0) /** AC4 track selected **/
 					{
-						if(_this->aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) != ePLATFORM_BRCM)
+						if(_this->aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) != ePLATFORM_BROADCOM)
 						{
 							/** AC4 support added for non Broadcom platforms */
 							AAMPLOG_INFO("Selecting AC4 Track Id : %d", trackId);
@@ -2707,13 +2692,13 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 		{
 			AAMPLOG_INFO("AAMPGstPlayer_SetupStream - using westerossink");
 			GstElement* vidsink = gst_element_factory_make("westerossink", NULL);
-			if(_this->aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_BRCM)
+			if(_this->aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_BROADCOM)
 			{
 				g_object_set(vidsink, "secure-video", TRUE, NULL);
 			}
 			g_object_set(stream->sinkbin, "video-sink", vidsink, NULL);					/* In the stream->sinkbin, set the video-sink property to vidsink */
 		}
-		else if ((_this->aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_BRCM) && !_this->privateContext->using_westerossink && eMEDIATYPE_VIDEO == streamId)
+		else if ((_this->aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_BROADCOM) && !_this->privateContext->using_westerossink && eMEDIATYPE_VIDEO == streamId)
 		{
 			GstElement* vidsink = gst_element_factory_make("brcmvideosink", NULL);
 			g_object_set(vidsink, "secure-video", TRUE, NULL);
@@ -4940,7 +4925,7 @@ void AAMPGstPlayer::InitializeAAMPGstreamerPlugins()
 /**
  *  @brief To enable certain aamp configs based upon platform check
  */
-PlatformType AAMPGstPlayer::InitializeAAMPPlatformConfigs()
+PlatformType AAMPGstPlayer::InferPlatformFromPluginScan()
 {
 	// Ensure GST is initialized
 	if (gst_init_check(nullptr, nullptr, nullptr)) {
@@ -4949,7 +4934,7 @@ PlatformType AAMPGstPlayer::InitializeAAMPPlatformConfigs()
 	static const std::pair<const char*, PlatformType> plugins[] = {
 		{"amlhalasink", ePLATFORM_AMLOGIC},
 		{"omxeac3dec", ePLATFORM_REALTEK},
-		{"brcmaudiodecoder", ePLATFORM_BRCM},
+		{"brcmaudiodecoder", ePLATFORM_BROADCOM},
 	};
 
 	GstRegistry* registry = gst_registry_get();
@@ -4966,7 +4951,7 @@ PlatformType AAMPGstPlayer::InitializeAAMPPlatformConfigs()
 	}
 
 	AAMPLOG_WARN("AAMPGstPlayer: None of the plugins found in registry");
-	return ePLATFORM_UNKNOWN;
+	return ePLATFORM_DEFAULT;
 }
 
 
@@ -5047,7 +5032,7 @@ void AAMPGstPlayer::DumpDiagnostics()
 	AAMPLOG_MIL("video_dec %p audio_dec %p video_sink %p audio_sink %p numberOfVideoBuffersSent %d",
 			privateContext->video_dec, privateContext->audio_dec, privateContext->video_sink,
 			privateContext->audio_sink, privateContext->numberOfVideoBuffersSent);
-	if(aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_BRCM)
+	if(aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_BROADCOM)
 	{
 		DumpFile("/proc/brcm/transport");
 		DumpFile("/proc/brcm/video_decoder");
@@ -5306,7 +5291,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 		}
 		AAMPLOG_MIL ("Current rate: %g", rate);
 	}
-	else if(platform == ePLATFORM_BRCM)
+	else if(platform == ePLATFORM_BROADCOM)
 	{
 		AAMPLOG_MIL("send custom-instant-rate-change : %f ...", rate);
 

@@ -6570,13 +6570,7 @@ void TrackState::FindTimedMetadata(bool reportBulkMeta, bool bInitCall)
  */
 void StreamAbstractionAAMP_HLS::ConfigureAudioTrack()
 {
-	//AudioTrackInfo track = aamp->GetPreferredAudioTrack();
 	currentAudioProfileIndex = -1;
-	//if (!track.index.empty())
-	//{
-	//	currentAudioProfileIndex = std::stoi(track.index);
-	//}
-	//else
 	if(mMediaCount)
 	{
 		currentAudioProfileIndex = GetBestAudioTrackByLanguage();

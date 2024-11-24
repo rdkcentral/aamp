@@ -311,7 +311,7 @@ typedef enum
 	eAAMPConfig_AdFulfillmentTimeout,					/**< Ad fulfillment timeout in milliseconds */
 	eAAMPConfig_AdFulfillmentTimeoutMax,					/**< Ad fulfillment maximum timeout in milliseconds */
 	eAAMPConfig_RequiredQueuedFrames,				/**< required queued frames while tuning */
-	eAAMPConfig_PlatformType,                                                       /**< To determine the current device platform/soc type */
+	eAAMPConfig_PlatformType,                       /**< To determine the current device platform/soc type */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
@@ -495,25 +495,20 @@ public:
 	AampConfig& operator=(const AampConfig&);
 	void Initialize();
 	/**
-	 * @fn ReadDeviceProperties - Read device.Properties from /etc/ (e.g., soc,region,tv/stb fields) and set platform type bypassing use of compile time flags on non-containerized apps.
+	 * @fn InferPlatformFromDeviceProperties - Read device.Properties from /etc/ (e.g., soc,region,tv/stb fields) and set platform type bypassing use of compile time flags on non-containerized apps.
 	 * @return bool
 	 */
-	bool ReadDeviceProperties();
+	PlatformType InferPlatformFromDeviceProperties( void );
 	/**
-	 * @fn ReadGstPlugins - Read platform specific unique decoder/sink elements and set platform type on containerized apps.
+	 * @fn InferPlatformFromPluginScan - Read platform specific unique decoder/sink elements and set platform type on containerized apps.
 	 * @return void
 	 */
-	void ReadGstPlugins();
+	PlatformType InferPlatformFromPluginScan( void );
 	/**
-	 * @fn SetPlatformConfigs - Set platform/soc specific configurations
-	 * @return void
-	 */
-	void SetPlatformConfigs(PlatformType platform);
-	/**
-	 * @fn ReadDeviceCapability
+	 * @fn ApplyDeviceCapabilities
 	 * @return Void
 	 */
-	void ReadDeviceCapability();
+	void ApplyDeviceCapabilities( PlatformType platform );
 	/**
      	 * @fn ShowOperatorSetConfiguration
      	 * @return Void

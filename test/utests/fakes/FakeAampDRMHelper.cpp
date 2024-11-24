@@ -20,9 +20,9 @@
 #include "AampDrmHelper.h"
 
 AampDrmHelperEngine& AampDrmHelperEngine::getInstance()
-{	
-	AampDrmHelperEngine *safe_value = nullptr;
-	return *safe_value;
+{
+	static AampDrmHelperEngine instance;
+	return instance;
 }
 
 std::shared_ptr<AampDrmHelper> AampDrmHelperEngine::createHelper(const struct DrmInfo& drmInfo) const

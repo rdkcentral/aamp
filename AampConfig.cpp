@@ -78,7 +78,7 @@ typedef enum
 	eCONFIG_RANGE_HARVEST_DURATION, // -1...10 HRS
 	eCONFIG_RANGE_ABSOLUTE_REPORTING, // eABSOLUTE_PROGRESS_EPOCH..eABSOLUTE_PROGRESS_MAX
 	eCONFIG_RANGE_LLDBUFFER, // 1 to 100 LLD buffer
-	eCONFIG_RANGE_PLATFORM_TYPES, // 0..ePLATFORM_UNKNOWN
+	eCONFIG_RANGE_PLATFORM_TYPES, // 0..3
 	eCONFIG_RANGE_MAX_VALUE,
 } ConfigValidRange;
 #define CONFIG_RANGE_ENUM_COUNT (eCONFIG_RANGE_MAX_VALUE)
@@ -118,7 +118,7 @@ static const struct
 	{-1, 60*60*10, eCONFIG_RANGE_HARVEST_DURATION },
 	{eABSOLUTE_PROGRESS_EPOCH, eABSOLUTE_PROGRESS_MAX, eCONFIG_RANGE_ABSOLUTE_REPORTING},
 	{ 1, 100, eCONFIG_RANGE_LLDBUFFER }, /** Minimum buffer should be a avarage chunk size(only int is possible), upper limit does not have much impact*/
-	{ePLATFORM_UBUNTU, ePLATFORM_UNKNOWN, eCONFIG_RANGE_PLATFORM_TYPES},
+	{0, 3, eCONFIG_RANGE_PLATFORM_TYPES},
 };
 
 static ConfigPriority customOwner;
@@ -170,18 +170,6 @@ struct ConfigLookupEntryString
 	AAMPConfigSettingString configEnum;
 	bool bConfigurableByOperatorRFC; // better to have a separate list?
 };
-
-#ifdef __APPLE__
-#define DEFAULT_VALE_APPSRCFORPROGRESSIVEPLAYBACK true
-#else
-#define DEFAULT_VALE_APPSRCFORPROGRESSIVEPLAYBACK false
-#endif
-
-#if defined(RPI) || defined(AAMP_SIMULATOR_BUILD)
-#define DEFAULT_VALUE_DISABLE_ACR true
-#else
-#define DEFAULT_VALUE_DISABLE_ACR false
-#endif
 
 #ifdef IARM_MGR
 #define DEFAULT_VALUE_WIFI_CURL_HEADER true
@@ -268,7 +256,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"demuxAudioBeforeVideo",eAAMPConfig_DemuxAudioBeforeVideo,false},
 	{false,"disableEC3",eAAMPConfig_DisableEC3,true},
 	{false,"disableATMOS",eAAMPConfig_DisableATMOS,true},
-	{ DEFAULT_VALUE_DISABLE_ACR,"disableAC4",eAAMPConfig_DisableAC4,true},
+	{false,"disableAC4",eAAMPConfig_DisableAC4,true},
 	{false,"stereoOnly",eAAMPConfig_StereoOnly,true},
 	{false,"descriptiveTrackName",eAAMPConfig_DescriptiveTrackName,false},
 	{false,"disableAC3",eAAMPConfig_DisableAC3,true},
@@ -293,7 +281,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"enableVideoRectangle",eAAMPConfig_EnableRectPropertyCfg,false},
 	{false,"reportVideoPTS",eAAMPConfig_ReportVideoPTS,false},
 	{false,"decoderUnavailableStrict",eAAMPConfig_DecoderUnavailableStrict,false},
-	{DEFAULT_VALE_APPSRCFORPROGRESSIVEPLAYBACK,"appSrcForProgressivePlayback",eAAMPConfig_UseAppSrcForProgressivePlayback,false},
+	{false,"appSrcForProgressivePlayback",eAAMPConfig_UseAppSrcForProgressivePlayback,false},
 	{false,"descriptiveAudioTrack",eAAMPConfig_DescriptiveAudioTrack,false},
 	{true,"reportBufferEvent",eAAMPConfig_ReportBufferEvent,false},
 	{false,"info",eAAMPConfig_InfoLogging,true},
@@ -482,7 +470,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeout",eAAMPConfig_AdFulfillmentTimeout,true},
 	{MAX_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeoutMax",eAAMPConfig_AdFulfillmentTimeoutMax,true},
 	{DEFAULT_BUFFERING_QUEUED_FRAMES_MIN,"queuedFrames",eAAMPConfig_RequiredQueuedFrames,false},
-	{ePLATFORM_UBUNTU, "platformType", eAAMPConfig_PlatformType, true, eCONFIG_RANGE_PLATFORM_TYPES},	
+	{ePLATFORM_DEFAULT, "platformType", eAAMPConfig_PlatformType, true, eCONFIG_RANGE_PLATFORM_TYPES},	
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },
@@ -865,15 +853,15 @@ void AampConfig::Initialize()
 	}
 }
 
-bool AampConfig::ReadDeviceProperties()
+PlatformType AampConfig::InferPlatformFromDeviceProperties( void )
 {
-    bool retVal = false;
+	PlatformType platform = ePLATFORM_DEFAULT;
     FILE* fp = fopen("/etc/device.properties", "rb");
     if (fp)
     {
-        AAMPLOG_WARN("opened /etc/device.properties");
+        AAMPLOG_MIL("opened /etc/device.properties");
         char buf[4096];
-        while (fgets(buf, sizeof(buf), fp))
+        while( fgets(buf, sizeof(buf), fp) )
         {
             if (strncmp(buf, "SOC=", 4) == 0)
             {
@@ -886,24 +874,23 @@ bool AampConfig::ReadDeviceProperties()
                         break;
                     }
                 }
-
                 if (*socName != '\0')  // If SOC name is not empty
                 {
                     AAMPLOG_MIL("*** SOC %s ***", socName);
-                    retVal = true;
-                    
-                    // Platform-specific configuration based on SOC name
                     if (strcmp(socName, "AMLOGIC") == 0)
                     {
-                        SetPlatformConfigs(ePLATFORM_AMLOGIC);
+                        platform = ePLATFORM_AMLOGIC;
+						break;
                     }
                     else if (strcmp(socName, "RTK") == 0)
                     {
-                        SetPlatformConfigs(ePLATFORM_REALTEK);
+						platform = ePLATFORM_REALTEK;
+						break;
                     }
                     else if (strcmp(socName, "BRCM") == 0)
                     {
-                        SetPlatformConfigs(ePLATFORM_BRCM);
+						platform = ePLATFORM_BROADCOM;
+						break;
                     }
                 }
                 else
@@ -918,78 +905,55 @@ bool AampConfig::ReadDeviceProperties()
     {
         AAMPLOG_ERR("failed to open /etc/device.properties.");
     }
-
-    return retVal;
+    return platform;
 }
 
-void AampConfig::ReadGstPlugins()
+PlatformType AampConfig::InferPlatformFromPluginScan()
 {
-	PlatformType platform = AAMPGstPlayer::InitializeAAMPPlatformConfigs();
-	SetPlatformConfigs(platform);
+	return AAMPGstPlayer::InferPlatformFromPluginScan();
 }
 
-void AampConfig::SetPlatformConfigs(PlatformType platform)
+void AampConfig::ApplyDeviceCapabilities( PlatformType platform )
 {
-    SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_PlatformType, platform);
-
-    switch (platform)
-    {
-        case ePLATFORM_AMLOGIC:
-            SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_NoNativeAV, true);
-            break;
-
-        case ePLATFORM_REALTEK:
-	    SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_SyncAudioFragments, true);		// Handled in HLS::Init to avoid audio loss while seeking HLS/TS AV of different duration w/o affecting VOD Discontinuities
-            SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_RequiredQueuedFrames, 3 + 1);
-            break;
-        case ePLATFORM_BRCM:
-            SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableAC4, true);
-            if (!AAMPGstPlayer::IsMS2V12Supported())
-            {
-                configValueBool[eAAMPConfig_EnableLowLatencyCorrection].value = false;
-                SetConfigValue(AAMP_TUNE_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, false);
-            }
-            break;
-
-        case ePLATFORM_UNKNOWN:
-        default:
-            AAMPLOG_WARN("No valid platform found, skipping platform-specific configuration");
-            break;
-    }
-}
-
-void AampConfig::ReadDeviceCapability()
-{
-#if defined(RPI) || defined(AAMP_SIMULATOR_BUILD)
-        configValueBool[eAAMPConfig_DisableAC4].value			=	true;
-	configValueBool[eAAMPConfig_EnableLowLatencyCorrection].value	=	false;
-	configValueBool[eAAMPConfig_UseWesterosSink].value		=	false;
-#else
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_PlatformType, platform);
+	switch( platform )
+	{
+		case ePLATFORM_AMLOGIC:
+			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_NoNativeAV, true);
+			break;
+			
+		case ePLATFORM_REALTEK:
+			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_SyncAudioFragments, true);		// Handled in HLS::Init to avoid audio loss while seeking HLS/TS AV of different duration w/o affecting VOD Discontinuities
+			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_RequiredQueuedFrames, 3 + 1);
+			break;
+			
+		case ePLATFORM_BROADCOM:
+			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableAC4, true);
+			if (!AAMPGstPlayer::IsMS2V12Supported())
+			{
+				configValueBool[eAAMPConfig_EnableLowLatencyCorrection].value = false;
+				SetConfigValue(AAMP_TUNE_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, false);
+			}
+			break;
+			
+		case ePLATFORM_DEFAULT:
+			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLowLatencyCorrection, false);
+			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseWesterosSink, false );
+			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_NoNativeAV, true );
+#if defined(__APPLE__)
+			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseAppSrcForProgressivePlayback, true );
+#endif
+			break;
+	}
 	if(!AAMPGstPlayer::IsCodecSupported("ac-4"))
 	{
- 		configValueBool[eAAMPConfig_DisableAC4].value		=	true;
-		AAMPLOG_WARN("AC4 not supported. DisableAC4 Audio");
+		SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableAC4, true);
 	}
-	else
-	{
-		configValueBool[eAAMPConfig_DisableAC4].value		=	false;
-	}
-#endif
-
 	if(!AAMPGstPlayer::IsCodecSupported("ac-3"))
 	{
-		configValueBool[eAAMPConfig_DisableAC3].value		=	true;
-		AAMPLOG_WARN("AC3 not supported. DisableAC3 Audio");
+		SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableAC3, true);
 	}
-	else
-	{
-		configValueBool[eAAMPConfig_DisableAC3].value		=	false;
-	}
-#if defined(UBUNTU)
-	configValueBool[eAAMPConfig_NoNativeAV].value           =       true;
-#endif
 }
-
 
 std::string AampConfig::GetUserAgentString()
 {

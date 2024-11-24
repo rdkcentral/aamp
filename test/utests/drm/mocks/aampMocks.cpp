@@ -1336,9 +1336,9 @@ bool AAMPGstPlayer::IsMS2V12Supported()
 	return false;
 }
 
-PlatformType AAMPGstPlayer::InitializeAAMPPlatformConfigs()
+PlatformType AAMPGstPlayer::InferPlatformFromPluginScan()
 {
-	return ePLATFORM_UNKNOWN;
+	return ePLATFORM_DEFAULT;
 }
 
 int PrivateInstanceAAMP::GetPlatformType()
