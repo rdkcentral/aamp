@@ -386,7 +386,7 @@ CURL* CurlStore::CurlEasyInitWithOpt ( PrivateInstanceAAMP *aamp, const std::str
 
 		aamp->curlDLTimeout[instId] = EAS_CURL_TIMEOUT * 1000;
 
-		//on ipv6 box force curl to use ipv6 mode only (DELIA-20209)
+		//on ipv6 box force curl to use ipv6 mode only
 		struct stat tmpStat;
 		bool isv6(::stat( "/tmp/estb_ipv6", &tmpStat) == 0);
 		if(isv6)

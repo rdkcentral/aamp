@@ -25,7 +25,7 @@
 #include "AampUtils.h"
 
 std::string aamp_GetLocalPath( const char *filename )
-{ // TODO: move to AampUtils via RDKAAMP-2449
+{ // TODO: move to AampUtils
 	std::string cfgPath;
 	const char *env_aamp_enable_opt = "true"; // default
 #ifdef AAMP_SIMULATOR_BUILD

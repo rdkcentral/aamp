@@ -64,7 +64,7 @@
 #define DEFAULT_LICENSE_REQ_RETRY_WAIT_TIME 500			/**< Wait time in milliseconds before retrying for DRM license */
 #define MIN_LICENSE_KEY_ACQUIRE_WAIT_TIME 500			/**<minimum wait time in milliseconds for DRM license to ACQUIRE */
 #define DEFAULT_LICENSE_KEY_ACQUIRE_WAIT_TIME 5000		/**< Wait time in milliseconds for DRM license to ACQUIRE  */
-#define MAX_LICENSE_ACQ_WAIT_TIME 12000  			/**< 12 secs Increase from 10 to 12 sec(DELIA-33528) */
+#define MAX_LICENSE_ACQ_WAIT_TIME 12000  			/**< 12 secs Increase from 10 to 12 sec */
 #define DEFAULT_INIT_BITRATE     2500000            		/**< Initial bitrate: 2.5 mb - for non-4k playback */
 #define DEFAULT_BITRATE_OFFSET_FOR_DOWNLOAD 500000		/**< Offset in bandwidth window for checking buffer download expiry */
 #define DEFAULT_INIT_BITRATE_4K 13000000            		/**< Initial bitrate for 4K playback: 13mb ie, 3/4 profile */
@@ -75,7 +75,7 @@
 #define MIN_DASH_DRM_SESSIONS 3
 #define DEFAULT_DRM_NETWORK_TIMEOUT 5                           /** < default value for drmNetworkTimeout  - 5 sec */
 #ifdef XIONE_UK
-#define DEFAULT_CACHED_FRAGMENTS_PER_TRACK  3      	 	/**< Default cached fragements per track - decreased only for XIONE UK per XIONE-6823 */
+#define DEFAULT_CACHED_FRAGMENTS_PER_TRACK  3      	 	/**< Default cached fragements per track */
 #else
 #define DEFAULT_CACHED_FRAGMENTS_PER_TRACK  4       		/**< Default cached fragements per track */
 #endif
@@ -185,7 +185,6 @@
 #define AAMP_LOW_LATENCY_URL_KEYWORD_ENCODED "%2Flow%2F" /**< AAMP expect this keyword in low latency URL to defog*/
 #define AAMP_FOG_TSB_URL_KEYWORD "tsb?" /**< AAMP expect this keyword in URL to identify it is FOG url */
 
-// DELIA-61708 audio drop workaround
 #define DEFAULT_INITIAL_RATE_CORRECTION_SPEED 1.000001f	/**< Initial rate correction speed to avoid audio drop */
 #define DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK	20					/**< Default cached fragement chunks per track */
 #define DEFAULT_ABR_CHUNK_CACHE_LENGTH			10					/**< Default ABR chunk cache length */
@@ -406,13 +405,11 @@ enum AbsoluteProgressReportFormat
 enum EOSInjectionModeCode
 {
 	/* EOS events are only injected into the gstreamer pipeline by
-	 * AAMPGstPlayer::EndOfStreamReached() & AAMPGstPlayer::Discontinuity().
-	 * This was the only behaviour before XIONE-9099.*/
+	 * AAMPGstPlayer::EndOfStreamReached() & AAMPGstPlayer::Discontinuity().*/
 	EOS_INJECTION_MODE_NO_EXTRA,
 
 	/* In addition to the EOS_INJECTION_MODE_NO_EXTRA cases
-	 * EOS is injected in AAMPGstPlayer::Stop() prior to setting the state to null.
-	 * This is the default behaviour after XIONE-9099.*/
+	 * EOS is injected in AAMPGstPlayer::Stop() prior to setting the state to null.*/
 	EOS_INJECTION_MODE_STOP_ONLY,
 };
 

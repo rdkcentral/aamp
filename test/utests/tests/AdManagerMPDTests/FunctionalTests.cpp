@@ -1034,7 +1034,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodId, "testPeriodId2"); // next period
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak placed
-  // Make sure endPeriodId is not reset in mPeriodMap. Refer RDK-53040 for more details
+  // Make sure endPeriodId is not reset in mPeriodMap.
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId2);
 
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 0);
@@ -1255,7 +1255,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
  * for a spot level replacement. (ie, source period duration > ad duration + 2secs)
  * This is a special case scenario. Only one adbreak is present and that gets filled. In subsequent refresh,
  * new period is updated, but not having ad markers
- * Refer RDK-53040 for more details
+ *
  */
 TEST_F(AdManagerMPDTests, PlaceAdsTests_7)
 {
@@ -1452,7 +1452,7 @@ TEST_F(AdManagerMPDTests, CheckForAdTerminateTests_1)
 /**
  * @brief Tests the functionality of the PlaceAds method when openPeriodID is currently getting filled
  * and the duration of an advertised fragment is modified between refreshes.
- * This is tracked under LLAMA-15665. This causes a diff between periodDelta calculated duration
+ * This causes a diff between periodDelta calculated duration
  * and full period duration at any point of time.
  */
 TEST_F(AdManagerMPDTests, PlaceAdsTests_9)
@@ -1488,7 +1488,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 </MPD>
 )";
   // src period testPeriodId1, new fragment of 2sec is advertised, old fragment duration changed to 3sec
-  // total duration is now 5sec. Refer LLAMA-15665
+  // total duration is now 5sec.
   static const char *manifest2 =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">

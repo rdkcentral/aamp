@@ -1026,9 +1026,7 @@ public:
 	std::map<std::string, std::string> httpHeaderResponses;
 	bool mIsIframeTrackPresent;				/**< flag to check iframe track availability*/
 
-	/* START: Added As Part of DELIA-28363 and DELIA-28247 */
 	bool IsTuneTypeNew; 					/**< Flag for the eTUNETYPE_NEW_NORMAL */
-	/* END: Added As Part of DELIA-28363 and DELIA-28247 */
 	pthread_cond_t waitforplaystart;    			/**< Signaled after playback starts */
 	pthread_mutex_t mMutexPlaystart;			/**< Mutex associated with playstart */
 	long long trickStartUTCMS;
@@ -1084,7 +1082,7 @@ public:
 	bool mAudioDecoderStreamSync; 				/**< BCOM-4203: Flag to set or clear 'stream_sync_mode' property
 	                                				in gst brcmaudiodecoder, default: True */
 	std::string mSessionToken; 				/**< Field to set session token for player */
-	bool midFragmentSeekCache;    				/**< RDK-26957: To find if cache is updated when seeked to mid fragment boundary */
+	bool midFragmentSeekCache;    				/**< To find if cache is updated when seeked to mid fragment boundary */
 	bool mDisableRateCorrection;             /**< Disable live latency correction when user pause or seek the playback **/
 	bool mAbortRateCorrection;               /**< Flag to abort rate correction thread **/
 	bool mAutoResumeTaskPending;
@@ -4383,7 +4381,7 @@ protected:
 	int mfirstTuneFmt;			//First Tune Format HLS(0) or DASH(1)
 	int  mTuneAttempts;			//To distinguish between new tune & retries with redundant over urls.
 	long long mPlayerLoadTime;
-	std::atomic<PrivAAMPState> mState;  //LLAMA-7124 changed to atomic as there are cross thread accesses.
+	std::atomic<PrivAAMPState> mState;  //Changed to atomic as there are cross thread accesses.
 	long long lastUnderFlowTimeMs[AAMP_TRACK_COUNT];
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	std::shared_ptr<AampDrmHelper> mCurrentDrm;

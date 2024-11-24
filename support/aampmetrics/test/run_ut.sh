@@ -3,7 +3,7 @@
 # Use option: -c to additionally build coverage tests
 # Use option: -h to halt coverage tests on error
 
-# RDKAAMP-884 "corrupt arc tag"
+# "corrupt arc tag"
 find . -name "*.gcda" -print0 | xargs -0 rm
 
 build_coverage=0

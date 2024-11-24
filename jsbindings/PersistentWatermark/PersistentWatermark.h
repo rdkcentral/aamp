@@ -26,7 +26,6 @@
  * This function is enabled by defining USE_WATERMARK_JSBINDINGS.
  * When enabled USE_CPP_THUNDER_PLUGIN_ACCESS must also be defined.
  * PersistentWatermark JS bindings are an optional addition to the normal aamp js bindings.
- * PersistentWatermark JS bindings control the watermark plugin.
- * Introduced in RDK-41348*/
+ * PersistentWatermark JS bindings control the watermark plugin.*/
 void PersistentWatermark_LoadJS(void* context);
 #endif

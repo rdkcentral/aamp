@@ -207,7 +207,6 @@ struct ConfigLookupEntryString
 #define DEFAULT_VALUE_USE_SINGLE_PIPELINE false
 #endif
 
-// LLAMA-15922: Temporary fix for subtitles on Foxtel
 #ifdef DISABLE_MEDIA_PROCESSOR
 #define DEFAULT_VALUE_ENABLE_MEDIA_PROCESSOR false
 #else
@@ -312,7 +311,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"gstPositionQueryEnable",eAAMPConfig_EnableGstPositionQuery,false},
 	{false,"seekMidFragment",eAAMPConfig_MidFragmentSeek,false},
 	{true,"propagateUriParameters",eAAMPConfig_PropogateURIParam,false},
-	{true, "useWesterosSink",eAAMPConfig_UseWesterosSink,true},					// RDK-48472 Toggle it via config based on platforms
+	{true, "useWesterosSink",eAAMPConfig_UseWesterosSink,true},					// Toggle it via config based on platforms
 	{true,"useRetuneForUnpairedDiscontinuity",eAAMPConfig_RetuneForUnpairDiscontinuity,false},
 	{true,"useRetuneForGstInternalError",eAAMPConfig_RetuneForGSTError,false},
 	{false,"useMatchingBaseUrl",eAAMPConfig_MatchBaseUrl,false},
@@ -337,7 +336,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"limitResolution",eAAMPConfig_LimitResolution,false},
 	{false,"useAbsoluteTimeline",eAAMPConfig_UseAbsoluteTimeline,false},
 	{true,"enableAccessAttributes",eAAMPConfig_EnableAccessAttributes,false},
-	{false,"WideVineKIDWorkaround",eAAMPConfig_WideVineKIDWorkaround,false},
+	{false,"SkyStoreDE",eAAMPConfig_WideVineKIDWorkaround,false},
 	{false,"repairIframes",eAAMPConfig_RepairIframes,false},
 	{true,"seiTimeCode",eAAMPConfig_SEITimeCode,false},
 	{false,"disable4K" , eAAMPConfig_Disable4K, false},
@@ -345,7 +344,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"tsbInterruptHandling", eAAMPConfig_InterruptHandling,true},
 	{true,"enableLowLatencyDash",eAAMPConfig_EnableLowLatencyDash,true},
 	{true,"disableLowLatencyABR",eAAMPConfig_DisableLowLatencyABR,false},
-	{true,"enableLowLatencyCorrection",eAAMPConfig_EnableLowLatencyCorrection,true},					// RDK-48472 Toggle it via config based on platforms
+	{true,"enableLowLatencyCorrection",eAAMPConfig_EnableLowLatencyCorrection,true},					// Toggle it via config based on platforms
 	{true,"enableLowLatencyOffsetMin",eAAMPConfig_EnableLowLatencyOffsetMin,false},
 	{false,"syncAudioFragments",eAAMPConfig_SyncAudioFragments,false},
 	{false,"enableEosSmallFragment", eAAMPConfig_EnableIgnoreEosSmallFragment, false},
@@ -2013,7 +2012,7 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 	}
 	if(GetConfigValue(eAAMPConfig_InitialBuffer) > 0)
 	{
-		//AMLOGIC-4119 Enabling initialBuffer and gstBufferAndPlay together cause first frame freeze in amlogic.
+		//Enabling initialBuffer and gstBufferAndPlay together cause first frame freeze in amlogic.
 		SetConfigValue(owner, eAAMPConfig_GStreamerBufferingBeforePlay, false);
 	}
 	ConfigureLogSettings();

@@ -226,7 +226,7 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 			{
 				AAMPLOG_WARN("AampStreamSinkManager(%p) %zu Inactive players present", this, mInactiveGstPlayersMap.size());
 
-				// LLAMA-15915 - check the sink was not attached to the player that is being deleted
+				// check the sink was not attached to the player that is being deleted
 				if (mGstPlayer->IsAssociatedAamp(aamp))
 				{
 					if (mActiveGstPlayersMap.size() == 0)

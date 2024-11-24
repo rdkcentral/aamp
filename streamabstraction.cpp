@@ -931,14 +931,13 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 			}
 			ptsError = false;
 
-			/* GetESChangeStatus() check is specifically added to fix an audio loss issue (DELIA-55078) due to no reconfigure pipeline when there was an audio codec change for a very short period with no fragments.
+			/* GetESChangeStatus() check is specifically added to fix an audio loss issue due to no reconfigure pipeline when there was an audio codec change for a very short period with no fragments.
 				* The totalInjectedDuration will be 0 for the very short duration periods if the single fragment is not injected or failed (due to fragment download failures).
 				* In that case, if there is an audio codec change is detected for this period, it could cause audio loss since ignoring the discontinuity to be processed since totalInjectedDuration is 0.
 				*/
 			/* PipelineValid is used here to avoid skipping the discontinuity if the pipeline has not been configured for the media type.
 				 * This was seen with subtites where switching to a period with subtitles enabled from one without could result in fragments being pushed
 				 * to an appsrc that wasn't configured (very timing dependent). In this case we want to process the discontinuity and configure the pipeline.
-				 * (DELIA-64449)
 				 */
 			if (injectedDuration == 0 && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus()&& aamp->PipelineValid((AampMediaType)type))
 			{
@@ -2041,12 +2040,10 @@ MediaTrack::~MediaTrack()
 	}
 	if (fragmentInjectorThreadStarted)
 	{
-		// DELIA-45035: For debugging purpose
 		AAMPLOG_WARN("In MediaTrack destructor - fragmentInjectorThreads are still running, signalling cond variable");
 	}
 	if (fragmentChunkInjectorThreadStarted)
 	{
-		// DELIA-45035: For debugging purpose
 		AAMPLOG_WARN("In MediaTrack destructor - fragmentChunkInjectorThreads are still running, signalling cond variable");
 	}
 
@@ -2308,7 +2305,6 @@ void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamIn
 		if(streamInfo != NULL)
 		{
 			bool lGetBWIndex = false;
-			/* START: Added As Part of DELIA-28363 and DELIA-28247 */
 			if(aamp->IsTuneTypeNew && ((cacheFragStreamInfo.bandwidthBitsPerSecond == streamInfo->bandwidthBitsPerSecond) || !aamp->CheckABREnabled()))
 			{
 				MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
@@ -2316,7 +2312,6 @@ void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamIn
 				aamp->IsTuneTypeNew = false;
 				lGetBWIndex = true;
 			}
-			/* END: Added As Part of DELIA-28363 and DELIA-28247 */
 
 			// Send bitrate notification
 			aamp->profiler.IncrementChangeCount(Count_BitrateChange);
@@ -3467,7 +3462,7 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 	{
 		state = eDISCONTINUIY_IN_AUDIO;
 	}
-	// RDK-27796, bypass discontinuity check for auxiliary audio for now
+	// bypass discontinuity check for auxiliary audio for now
 	else if (type == eTRACK_AUX_AUDIO)
 	{
 		aamp->Discontinuity(eMEDIATYPE_AUX_AUDIO, false);
@@ -4353,7 +4348,7 @@ void MediaTrack::PlaylistDownloader()
 			// Index playlist and update track informations.
 			ProcessPlaylist(manifest, http_error);
 
-			// RDKAAMP-991: HTTP Response header needs to be sent to app when:
+			// HTTP Response header needs to be sent to app when:
 			// 1. HTTP header response event listener is available
 			// 2. HTTP header response values are present
 			// 3. Manifest refresh has happened during Live

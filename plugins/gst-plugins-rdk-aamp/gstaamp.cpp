@@ -1263,7 +1263,7 @@ static GstStateChangeReturn gst_aamp_change_state(GstElement * element, GstState
 	aamp = GST_AAMP(element);
 	GST_DEBUG_OBJECT(aamp, "Enter gst_aamp_change_state");
 
-	// LLAMA-12614: reduced set of events to register
+	//reduced set of events to register
 	constexpr std::array<AAMPEventType, 11> events {AAMP_EVENT_TUNED, AAMP_EVENT_EOS, AAMP_EVENT_PLAYLIST_INDEXED,
 		AAMP_EVENT_PROGRESS, AAMP_EVENT_TIMED_METADATA, AAMP_EVENT_STATE_CHANGED, AAMP_EVENT_SEEKED,
 		AAMP_EVENT_BITRATE_CHANGED, AAMP_EVENT_BUFFERING_CHANGED, AAMP_EVENT_AUDIO_TRACKS_CHANGED,

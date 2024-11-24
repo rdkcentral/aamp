@@ -39,10 +39,12 @@ using ::testing::WithParamInterface;
 
 AampConfig *gpGlobalConfig{nullptr};
 
-std::string url1 = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd";
-std::string url2 = "http://g004-sle-us-cmaf-stg-cf.cdn.peacocktv.com/Content/CMAF_S2-CTR-4s-v2/Live/channel(UHDtoHDR10SLE3202382fd53b0ade)/60_master_2hr.m3u8?c3.ri=5002728478659375252&audio=all&subtitle=all&forcedNarrative=true";
-std::string url3 = "https://livesim.dashif.org/livesim/scte35_2/testpic_2s/Manifest.mpd";
-std::string url4 = "https://cdn-ec-pan-011.linear-nat-pil-hd.xcr.comcast.net/GOLFD_HD_NAT_16403_0_6257457287223774163.mpd";
+
+std::string url1 = "https://example.com/VideoTestStream/xyz.mpd";
+std::string url2 = "http://example.com/Content/CMAF_S2-CTR-4s-v2/Live/channel(exampleChannel)/60_master_2hr.m3u8?c3.ri=example-ri&audio=all&subtitle=all&forcedNarrative=true";
+std::string url3 = "https://example-livesim.org/livesim/Manifest.mpd";
+std::string url4 = "https://example.com/GOLFD_HD_NAT_16403_0_example.mpd";
+
 class FunctionalTests : public ::testing::Test
 {
 protected:

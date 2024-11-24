@@ -214,7 +214,7 @@ struct AAMPGstPlayerPriv
 	bool paused; 					/**< if pipeline is deliberately put in PAUSED state due to user interaction */
 	GstState pipelineState; 			/**< current state of pipeline */
 	TaskControlData firstVideoFrameDisplayedCallbackTask; /**< Task control data of the handler created for notifying state changed to Playing */
-	bool firstTuneWithWesterosSinkOff; 		/**<   track if first tune was done for certain build */
+	bool firstTuneWithWesterosSinkOff; 		/**<  track if first tune was done for certain build */
 	long long decodeErrorMsgTimeMS; 		/**< Timestamp when decode error message last posted */
 	int decodeErrorCBCount; 			/**< Total decode error cb received within thresold time */
 	bool progressiveBufferingEnabled;
@@ -278,7 +278,7 @@ struct AAMPGstPlayerPriv
 			,seekPosition(0)
  	{
 		memset(videoRectangle, '\0', VIDEO_COORDINATES_SIZE);
-                /* DELIA-45366-default video scaling should take into account actual graphics
+                /* default video scaling should take into account actual graphics
                  * resolution instead of assuming 1280x720.
                  * By default we where setting the resolution has 0,0,1280,720.
                  * For Full HD this default resolution will not scale to full size.
@@ -914,7 +914,7 @@ static void httpsoup_source_setup (GstElement * element, GstElement * source, gp
 			AAMPLOG_MIL("httpsoup -> Set network proxy '%s'", networkProxyValue.c_str());
 		}
 	}
-	if (_this->aamp->mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)		//RDKTV-25340:setting souphttpsrc priority back to GST_RANK_PRIMARY
+	if (_this->aamp->mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)		//setting souphttpsrc priority back to GST_RANK_PRIMARY
 	{
 		GstPluginFeature* pluginFeature = gst_registry_lookup_feature (gst_registry_get (), "souphttpsrc");
 		if (pluginFeature == NULL)
@@ -956,7 +956,6 @@ static GstPadProbeReturn AAMPGstPlayer_DemuxPadProbeCallback(GstPad * pad, GstPa
 	return GST_PAD_PROBE_OK;
 }
 
-// The following for RDKAAMP-3323
 static GstPadProbeReturn AAMPGstPlayer_DemuxPadProbeCallbackEvent(GstPad *pad, GstPadProbeInfo *info, AAMPGstPlayer *_this)
 {
 	if (_this)
@@ -1192,7 +1191,7 @@ void AAMPGstPlayer::NotifyFirstFrame(AampMediaType type)
 {
 	bool firstBufferNotified=false;
 
-	// RDK-34481 :LogTuneComplete will be noticed after getting video first frame.
+	// LogTuneComplete will be noticed after getting video first frame.
 	// incase of audio or video only playback NumberofTracks =1, so in that case also LogTuneCompleted needs to captured when either audio/video frame received.
 	if (!privateContext->firstFrameReceived && (privateContext->firstVideoFrameReceived
 			|| (1 == privateContext->NumberOfTracks && (privateContext->firstAudioFrameReceived || privateContext->firstVideoFrameReceived))))
@@ -1213,7 +1212,7 @@ void AAMPGstPlayer::NotifyFirstFrame(AampMediaType type)
 
 		AAMPLOG_MIL("AAMPGstPlayer_OnFirstVideoFrameCallback. got First Video Frame");
 
-		// DELIA-42262: No additional checks added here, since the NotifyFirstFrame will be invoked only once
+		// No additional checks added here, since the NotifyFirstFrame will be invoked only once
 		// in westerossink disabled case until BCOM fixes it. Also aware of NotifyFirstBufferProcessed called
 		// twice in this function, since it updates timestamp for calculating time elapsed, its trivial
 		if (!firstBufferNotified)
@@ -1642,7 +1641,7 @@ static gboolean buffering_timeout (gpointer data)
 			}
 			MediaFormat mediaFormatRet;
 			mediaFormatRet = aamp->GetMediaFormatTypeEnum();
-			/* DELIA-34654: Disable re-tune on buffering timeout for DASH as unlike HLS,
+			/* Disable re-tune on buffering timeout for DASH as unlike HLS,
 			DRM key acquisition can end after injection, and buffering is not expected
 			to be completed by the 1 second timeout
 			*/
@@ -1660,7 +1659,7 @@ static gboolean buffering_timeout (gpointer data)
 
 				if(aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_BRCM)
 				{
-					// Setting first fractional rate as DEFAULT_INITIAL_RATE_CORRECTION_SPEED right away on PLAYING to avoid DELIA-61708 audio drop
+					// Setting first fractional rate as DEFAULT_INITIAL_RATE_CORRECTION_SPEED right away on PLAYING to avoid audio drop
 					if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->IsLive())
 					{
 						AAMPLOG_WARN("Setting first fractional rate %.6f right after moving to PLAYING", DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
@@ -1731,8 +1730,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 		}
 		else if (strstr(error->message, "Error parsing H.264 stream"))
 		{
-			//Do nothing. Temporary workaround for DELIA-63777, where forwarding this error causes a freeze on Foxtel xione.
-			//To be removed when root cause determined in DELIA-63987.
+			//forwarding this error causes a freeze on Foxtel xione.
 			AAMPLOG_WARN("%s", errorDesc);
 		}
 		else
@@ -1836,7 +1834,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 
 				if(platformType == ePLATFORM_AMLOGIC)
 				{
-					//RDK-37643: To support first frame notification on audioOnlyPlayback for hls streams on amlogic.
+					//To support first frame notification on audioOnlyPlayback for hls streams on amlogic.
 					if(_this->aamp->mAudioOnlyPb && !_this->privateContext->firstAudioFrameReceived && _this->privateContext->NumberOfTracks==1)
 					{
 						media_stream *stream = &_this->privateContext->stream[eMEDIATYPE_AUDIO];
@@ -1863,7 +1861,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 					_this->NotifyFirstFrame(eMEDIATYPE_VIDEO);
 				}
 				if(platformType == ePLATFORM_REALTEK)
-				{//  For certain build and westeros-sink disabled
+				{// For Realtekce build and westeros-sink disabled
 				 // prevent calling NotifyFirstFrame after first tune, ie when upausing
 				 // pipeline during flush
 					if(_this->privateContext->firstTuneWithWesterosSinkOff)
@@ -2319,7 +2317,7 @@ bool AAMPGstPlayer::CreatePipeline()
 		DestroyPipeline();
 	}
 
-	/*DELIA-56028 - Each "Creating gstreamer pipeline" should be paired with one, subsequent "Destroying gstreamer pipeline" log entry.
+	/*Each "Creating gstreamer pipeline" should be paired with one, subsequent "Destroying gstreamer pipeline" log entry.
 	"Creating gstreamer pipeline" is intentionally placed after the DestroyPipeline() call above to maintain this sequence*/
 	AAMPLOG_MIL("Creating gstreamer pipeline");
 	privateContext->pipeline = gst_pipeline_new("AAMPGstPlayerPipeline");
@@ -2374,7 +2372,7 @@ void AAMPGstPlayer::DestroyPipeline()
 {
 	if (privateContext->pipeline)
 	{
-		/*DELIA-56028 - "Destroying gstreamer pipeline" should only be logged when there is a pipeline to destroy
+		/*"Destroying gstreamer pipeline" should only be logged when there is a pipeline to destroy
 		  and each "Destroying gstreamer pipeline" log entry should have one, prior "Creating gstreamer pipeline" log entry*/
 		AAMPLOG_MIL("Destroying gstreamer pipeline");
 		gst_object_unref(privateContext->pipeline);		/* Decreases the reference count on privateContext->pipeline, in this case it will become zero,
@@ -2786,7 +2784,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 	}
 	else
 	{
-		GstPluginFeature* pluginFeature = gst_registry_lookup_feature (gst_registry_get (), "souphttpsrc");		//RDKTV-25340:temporariliy increasing souphttpsrc priority
+		GstPluginFeature* pluginFeature = gst_registry_lookup_feature (gst_registry_get (), "souphttpsrc");		//increasing souphttpsrc priority
 		if (pluginFeature == NULL)
 		{
 			AAMPLOG_ERR("AAMPGstPlayer: souphttpsrc plugin feature not available;");
@@ -2803,7 +2801,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 
 	if ( ((mediaFormat == eMEDIAFORMAT_DASH || mediaFormat == eMEDIAFORMAT_HLS_MP4) &&
 		_this->aamp->mConfig->IsConfigSet(eAAMPConfig_SeamlessAudioSwitch))
-		||  //the  following for RDKAAMP-3323
+		||
 		   (mediaFormat == eMEDIAFORMAT_DASH && eMEDIATYPE_VIDEO == streamId && 
 		    _this->aamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStamp)) )
 	{
@@ -2814,7 +2812,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 	if(_this->aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_REALTEK)
 	{
 		if (eMEDIATYPE_VIDEO == streamId && (mediaFormat==eMEDIAFORMAT_DASH || mediaFormat==eMEDIAFORMAT_HLS_MP4) )
-		{ // enable multiqueue (Refer : XIONE-6138)
+		{ // enable multiqueue
 			bool isFogEnabled = _this->aamp->mTSBEnabled;
 			int MaxGstVideoBufBytes = isFogEnabled ? _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstVideoBufBytesForFogLive) : _this->aamp->mConfig->GetConfigValue(eAAMPConfig_GstVideoBufBytes);
 			AAMPLOG_INFO("Setting gst Video buffer size bytes to %d FogLive : %d", MaxGstVideoBufBytes,isFogEnabled);
@@ -2825,7 +2823,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 #ifdef UBUNTU
 	if (eMEDIATYPE_AUDIO == streamId)
 	{
-		// DELIA-63566: Deprecate using PulseAudio (if installed) on Ubuntu
+		// Deprecate using PulseAudio (if installed) on Ubuntu
 		GstPluginFeature* pluginFeature = gst_registry_lookup_feature(gst_registry_get(), "pulsesink");
 		if (pluginFeature != NULL)
 		{
@@ -2870,7 +2868,7 @@ void AAMPGstPlayer::SendGstEvents(AampMediaType mediaType, GstClockTime pts)
 
 	if (mediaType == eMEDIATYPE_VIDEO)
 	{
-		// DELIA-39530 - Westerossink gives position as an absolute value from segment.start. In AAMP's GStreamer pipeline
+		//Westerossink gives position as an absolute value from segment.start. In AAMP's GStreamer pipeline
 		// appsrc's base class - basesrc sends an additional segment event since we performed a flushing seek.
 		// To figure out the new segment.start, we need to send a segment query which will be replied
 		// by basesrc to get the updated segment event values.
@@ -2938,7 +2936,7 @@ void AAMPGstPlayer::SendNewSegmentEvent(AampMediaType mediaType, GstClockTime st
 		if(stopPts) segment.stop = stopPts;
 		if (aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_AMLOGIC)
 		{
-			// AMLOGIC-2143 notify westerossink of rate to run in Vmaster mode
+			//  notify westerossink of rate to run in Vmaster mode
 			if (mediaType == eMEDIATYPE_VIDEO)
 				segment.applied_rate = privateContext->rate;
 		}
@@ -3034,8 +3032,8 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 		}
 
 		if (aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_AMLOGIC)
-		{ // AMLOGIC-3130: included to fix av sync / trickmode speed issues in LLAMA-4291
-		  // LLAMA-6788 - Also add check for trick-play on 1st frame.
+		{ // included to fix av sync / trickmode speed issues 
+		  // Also add check for trick-play on 1st frame.
 			if (!aamp->mbNewSegmentEvtSent[mediaType] || (mediaType == eMEDIATYPE_VIDEO && aamp->rate != AAMP_NORMAL_PLAY_RATE))
 			{
 				SendNewSegmentEvent(mediaType, pts, 0);
@@ -3105,7 +3103,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 				if (ret != GST_FLOW_EOS && ret !=  GST_FLOW_FLUSHING)
 				{ // an unexpected error has occured
 					if (mediaType == eMEDIATYPE_SUBTITLE)
-					{ // DELIA-64505: occurs sometimes when injecting subtitle fragments
+					{ // occurs sometimes when injecting subtitle fragments
 						if (!stream->source)
 						{
 							AAMPLOG_ERR("subtitle appsrc is NULL");
@@ -3146,8 +3144,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 
 	if (eMEDIATYPE_VIDEO == mediaType)
 	{
-		// HACK!
-		// DELIA-42262: For westerossink, it will send first-video-frame-callback signal after each flush
+		// For westerossink, it will send first-video-frame-callback signal after each flush
 		// So we can move NotifyFirstBufferProcessed to the more accurate signal callback
 		if (isFirstBuffer)
 		{
@@ -3558,7 +3555,7 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 {
 	AAMPLOG_MIL("entering AAMPGstPlayer_Stop keepLastFrame %d", keepLastFrame);
 
-	/* XIONE-8595 & XIONE-9099 - make the execution of this function more deterministic and
+	/*  make the execution of this function more deterministic and
 	 *  reduce scope for potential pipeline lockups*/
 	privateContext->syncControl.disable();
 	privateContext->aSyncControl.disable();
@@ -3606,7 +3603,7 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 	}
 	this->IdleTaskRemove(privateContext->firstVideoFrameDisplayedCallbackTask);
 
-	/* XIONE-9099 - Prevent potential side effects of injecting EOS and
+	/* Prevent potential side effects of injecting EOS and
 	 * make the stop process more deterministic by:
 			1) Confirming that bus handlers (disabled above) have completed
 			2) disabling and disconnecting signals
@@ -3627,7 +3624,7 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 		const auto EOSMode = GETCONFIGVALUE(eAAMPConfig_EOSInjectionMode);
 		if(EOS_INJECTION_MODE_STOP_ONLY == EOSMode)
 		{
-			//XIONE-9099 - Ensure prompt transition to GST_STATE_NULL
+			//Ensure prompt transition to GST_STATE_NULL
 			AAMPGstPlayer_SignalEOS(this->privateContext);
 		}
 
@@ -3643,7 +3640,7 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 		pInstance->Release();
 	}
 #endif
-	aamp->seiTimecode.assign(""); // LLAMA-11119
+	aamp->seiTimecode.assign("");
 	TearDownStream(eMEDIATYPE_VIDEO);
 	TearDownStream(eMEDIATYPE_AUDIO);
 	TearDownStream(eMEDIATYPE_SUBTITLE);
@@ -3857,7 +3854,7 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
     GstStateChangeReturn rc = GST_STATE_CHANGE_FAILURE;
 	if(element)
 	{
-		//XIONE-8595 - in a synchronous only transition gst_element_set_state can lockup if there are pipeline errors
+		//In a synchronous only transition gst_element_set_state can lockup if there are pipeline errors
 		bool syncOnlyTransition = (targetState==GST_STATE_NULL)||(targetState==GST_STATE_READY);
 
 		GstState current;																	/* To hold the current state of the element */
@@ -4044,7 +4041,7 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
 	// Perform gstreamer query and related operation only when pipeline is playing or if deliberately put in paused
 	if (privateContext->pipelineState != GST_STATE_PLAYING &&
 		!(privateContext->pipelineState == GST_STATE_PAUSED && privateContext->paused) &&
-		// XIONE-8379 - The player should be (and probably soon will be) in the playing state so don't exit early.
+		// The player should be (and probably soon will be) in the playing state so don't exit early.
 		GST_STATE_TARGET(privateContext->pipeline) != GST_STATE_PLAYING)
 	{
 		AAMPLOG_INFO("Pipeline is in %s state %s target state, paused=%d returning position as %lld", gst_element_state_get_name(privateContext->pipelineState), gst_element_state_get_name(GST_STATE_TARGET(privateContext->pipeline)), privateContext->paused, rc);
@@ -4057,7 +4054,7 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
 	if (privateContext->segmentStart == -1)
 	{
 		GstQuery *segmentQuery = gst_query_new_segment(GST_FORMAT_TIME);
-		// DELIA-39530 - send query to video playbin in pipeline.
+		// Send query to video playbin in pipeline.
 		// Special case include trickplay, where only video playbin is active
 		// This is to get the actual start position from video decoder/sink. If these element doesn't support the query appsrc should respond
 		if (gst_element_query(video->source, segmentQuery) == TRUE)
@@ -4086,7 +4083,7 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
 
 		if (privateContext->segmentStart > 0)
 		{
-			// DELIA-39530 - Deduct segment.start to find the actual time of media that's played.
+			// Deduct segment.start to find the actual time of media that's played.
 			rc = (GST_TIME_AS_MSECONDS(pos) - privateContext->segmentStart) * rate;
 			AAMPLOG_DEBUG("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld SegStart -%" G_GINT64_FORMAT, GST_TIME_AS_MSECONDS(pos), rc,privateContext->segmentStart);
 		}
@@ -4195,7 +4192,7 @@ void AAMPGstPlayer::SetVideoRectangle(int x, int y, int w, int h)
 	snprintf(privateContext->videoRectangle, sizeof(privateContext->videoRectangle), "%d,%d,%d,%d", x,y,w,h);
 	AAMPLOG_MIL("Rect %s, video_sink =%p",
 			privateContext->videoRectangle, privateContext->video_sink);
-	if (ISCONFIGSET(eAAMPConfig_EnableRectPropertyCfg)) //As part of DELIA-37804
+	if (ISCONFIGSET(eAAMPConfig_EnableRectPropertyCfg))
 	{
 		if (privateContext->video_sink)
 		{
@@ -4486,7 +4483,7 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 		}
 		AAMPLOG_MIL("AAMPGstPlayer: Pipeline is in %s state position %f ret %d", gst_element_state_get_name(current), position, ret);
 	}
-	/* Disabling the flush flag as part of DELIA-42607 to avoid */
+	/* Disabling the flush flag */
 	/* flush call again (which may cause freeze sometimes)      */
 	/* from SendGstEvents() API.              */
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -4877,7 +4874,7 @@ void AAMPGstPlayer::InitializeAAMPGstreamerPlugins()
 		// gst_registry_add_feature() will ref it again. So to maintain the refcount we do a ref and unref here
 		// gst_registry_lookup_feature() will return pluginFeature after incrementing refcount which is unreffed at the end
 		gst_object_ref(pluginFeature);
-		gst_registry_remove_feature (registry, pluginFeature);//Added as a work around to handle DELIA-31716
+		gst_registry_remove_feature (registry, pluginFeature);
 		gst_registry_add_feature (registry, pluginFeature);
 		gst_object_unref(pluginFeature);
 
@@ -4980,7 +4977,7 @@ void AAMPGstPlayer::NotifyEOS()
 	{
 		if (!privateContext->eosCallbackIdleTaskPending)
 		{
-			/*DELIA-60806: scheduling and executed async task immediately without returing the task id.
+			/*Scheduling and executed async task immediately without returing the task id.
 			Which is leading to set the task pending always true when SLE is reached END_OF_LIST.
 			Due to this 30 tick is reported. changing the logic to set task pending to true before adding the task in notifyEOS function
 			and making it pending task to false if task id is invalid and eoscallback is pending.*/

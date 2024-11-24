@@ -2145,7 +2145,7 @@ shared_ptr<DashMPDSegmentTimeline> DashMPDMultipleSegmentBase::getSegmentTimelin
 long long int  DashMPDMultipleSegmentBase::getDuration() {
     std::string val = elem.attribute("duration", "");
     long long int Duration = MPD_UNSET_LONG;
-    /* adding a temporary try catch exception handler along with the fix to find the root cause of DELIA-45656*/
+    /* adding a temporary try catch exception handler*/
     if (!val.empty()) {
 	try {
 		Duration =  stoll(val);
