@@ -574,7 +574,7 @@ public:
  * The tests verify the SelectSourceOrAdPeriod method of StreamAbstractionAAMP_MPD in forward period
  * change scenarios.
  */
-TEST_P(StreamSelectionTests, TestRighTrackSelection)
+TEST_P(StreamSelectionTests, TestCorrectTrackSelection)
 {
 	const auto& params = GetParam(); /*Retrieve the parameter values */
 	std::string fragmentUrl;
@@ -600,9 +600,7 @@ TEST_P(StreamSelectionTests, TestRighTrackSelection)
 	EXPECT_EQ(pMediaStreamContext->representationIndex, params.expectedTrack); //what is new representation
 }
 
-INSTANTIATE_TEST_SUITE_P(
-	TestRighTrackSelection,
-	StreamSelectionTests,
+INSTANTIATE_TEST_SUITE_P( TestCorrectTrackSelection, StreamSelectionTests,
 	::testing::ValuesIn(std::vector<StreamSelectionTestParams>{
 		/** Case 1 & 2: current nuumber of profiles 5, start in second period (30+ pos),
 		 * number of tracks only video now, live manifest used with represetations are same

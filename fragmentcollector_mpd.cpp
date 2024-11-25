@@ -7750,7 +7750,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				{
 					GetABRManager().setDefaultInitBitrate(defaultBitrate);
 				}
-				aamp->mCMCDCollector->SetBitrates(eMEDIATYPE_VIDEO, GetVideoBitrates());
+				if( aamp->mCMCDCollector )
+				{
+					aamp->mCMCDCollector->SetBitrates(eMEDIATYPE_VIDEO, GetVideoBitrates());
+				}
 			}
 
 			if(-1 == pMediaStreamContext->representationIndex)
@@ -10808,7 +10811,6 @@ int StreamAbstractionAAMP_MPD::GetProfileIndexForBandwidth( BitsPerSecond mTsbBa
 StreamInfo* StreamAbstractionAAMP_MPD::GetStreamInfo(int idx)
 {
 	bool isFogTsb = mIsFogTSB && !mAdPlayingFromCDN;
-	assert(idx < GetProfileCount());
 	if (isFogTsb)
 	{
 		return &mStreamInfo[idx];
