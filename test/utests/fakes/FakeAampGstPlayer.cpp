@@ -75,6 +75,10 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 
 bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 {
+	if (g_mockAampGstPlayer != nullptr)
+	{
+		return g_mockAampGstPlayer->SetPlayBackRate(rate);
+	}
 	return true;
 }
 
