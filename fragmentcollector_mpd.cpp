@@ -6385,10 +6385,17 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 							}
 						}
 					}
-					else if (IsMatchingLanguageAndMimeType(eMEDIATYPE_SUBTITLE, aamp->mSubLanguage, adaptationSet, selRepresentationIndex) == true)
+					else
 					{
-						AAMPLOG_INFO("matched default sub language %s [%d]", aamp->mSubLanguage.c_str(), iAdaptationSet);
-						selAdaptationSetIndex = iAdaptationSet;
+						for (const auto& LangStr : aamp->preferredSubtitleLanguageVctr)
+						{
+							if(IsMatchingLanguageAndMimeType(eMEDIATYPE_SUBTITLE, LangStr, adaptationSet, selRepresentationIndex))
+							{
+								AAMPLOG_INFO("matched default sub language %s [%d]", LangStr.c_str(), iAdaptationSet);
+								selAdaptationSetIndex = iAdaptationSet;
+								break;
+							}
+						}
 					}
 				}
 			}
