@@ -68,7 +68,7 @@ function TST_ASSERT(condition, message) {
         TST_fail_count += 1;
         document.getElementById("infoData").innerHTML = "ASSERT FAILED: (" + TST_current_step + ") " + message;
         console.log("TST_ASSERT: ASSERT FAILED: (" + TST_current_step + ") " + message);
-        L3_CI_LOG("TST_STEP", TST_current_step + ": FAIL");
+        L3_CI_LOG("TST_STEP", TST_current_step + ": FAIL {" + message + "}");
 
         if(!vars.DONT_END_TESTSUITE_ON_FAILURE == 1) {
 
@@ -366,7 +366,7 @@ class AAMPPlayer {
             let diff_ms = 0
             while (diff_ms <= wait_ms)
             {
-                var progress = await this.waitForEventWithTimeout(this.player, 'playbackProgressUpdate', aamp_timeout, null).catch(e => { 
+                var progress = await this.waitForEventWithTimeout(this.player, 'playbackProgressUpdate', aamp_timeout, null).catch(e => {
                     TST_ASSERT_FAIL_FATAL(e);
                 });
                 console.log("aamp_VerifyPlayback ("+ JSON.stringify(progress) +")");
