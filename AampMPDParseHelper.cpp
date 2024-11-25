@@ -948,7 +948,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 	{
 		durationMs = ParseISO8601Duration( tempString.c_str());
 	}
-	//DELIA-45784 Calculate duration from @mediaPresentationDuration for a single period VOD stream having empty @duration.This is added as a fix for voot stream seekposition timestamp issue.
+	//Calculate duration from @mediaPresentationDuration for a single period VOD stream having empty @duration.This is added as a fix for voot stream seekposition timestamp issue.
 	if(0 == durationMs && !mIsLiveManifest && mNumberOfPeriods == 1)
 	{
 		if(!mMPDInstance->GetMediaPresentationDuration().empty())

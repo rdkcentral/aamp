@@ -37,7 +37,7 @@ public:
 	AampGrowableBuffer( const char *name ):ptr(NULL),len(0),avail(0),name(name){};
 	~AampGrowableBuffer();
 	/*
-	 RDKAAMP-581 [AAMP] tech debt - AampGrowableBuffer converted to class
+	 AampGrowableBuffer converted to class
 	 commented out below line to fix component build failure in this ticket.
 	 Uncommenting may cause errors.
 	 */

@@ -437,7 +437,7 @@ TEST_F(AampStreamSinkManagerTests, CheckSetStreamSink)
     EXPECT_EQ(sink2, nullptr);
 }
 
-/*  @brief : - Extra test to check consistent behaviour with obtaining StreamSink, test for fix of DELIA-63686
+/*  @brief : - Extra test to check consistent behaviour with obtaining StreamSink
 */
 TEST_F(AampStreamSinkManagerTests, CheckMultipipeline1)
 {
@@ -465,7 +465,7 @@ TEST_F(AampStreamSinkManagerTests, CheckMultipipeline1)
     EXPECT_EQ(sink, sink2);
 }
 
-/*  @brief : - Extra test to check consistent behaviour with obtaining StreamSink after deletion, test for fix of DELIA-63686
+/*  @brief : - Extra test to check consistent behaviour with obtaining StreamSink after deletion
 */
 TEST_F(AampStreamSinkManagerTests,  CheckMultipipeline2)
 {

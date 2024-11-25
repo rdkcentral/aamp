@@ -311,7 +311,6 @@ flag in SetEnv.sh under /opt, then restart the receiver process:
 
 Note: Above is now used as a common FLAG by AAMP and Receiver module to configure Westeros direct rendering
 instead of going through browser rendering.  This allows for smoother video zoom animations
-(Refer DELIA-38429/RDK-26261)
 
 However, note that with this optimization applied, the AAMP Diagnostics overlays cannot be made visible.
 As a temporary workaround, the following flag can be used  by developers which will make diagnostic overlay

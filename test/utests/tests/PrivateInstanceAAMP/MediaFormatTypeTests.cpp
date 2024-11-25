@@ -75,11 +75,11 @@ TEST_F(MediaFormatTypeTests, GetType)
 {
 const char* dashUrl[] =
 {
-"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd",
-"http://172.27.223.96:8880/TRUTV_MIMIC.mpd",
-"https://pqi-ppe-cdn-deluxe.enwd.co.sa.charterlab.com/DASH_DRM/SMTH0211604149942001/index.ism/manifest.mpd?adId=fa13bd6e-b4a4-404f-a0cf-0ed6b83ab953",
+"https://example.com/VideoTestStream/xyz.mpd",
+"http://192.168.1.1:8880/TRUTV_MIMIC/xyz.mpd",
+"https://example-cdn.com/DASH_DRM/xyz.mpd?adId=example-ad-id",
+"http://127.0.0.1:9080/tsb?clientId=testharness&recordedUrl=http%3A%2F%2Fexample.com%2Fxyz.mpd%3Ftrred%3Dfalse&analyticsUrl=https://collector.example.com/raw.mirrored.cpe.fog.event&money=%7B%22TRACE_ID%22%3A%20%22example-trace-id%22%2C%22PARENT_ID%22%3A%20example-parent-id%2C%22SPAN_ID%22%3A%20example-span-id%7D%0A&ses=%7B%22PSI%22%3Aexample-psi%2C%22PBI%22%3A%22example-pbi%22%7D&asset=%7B%22CLASS%22%3A%22Linear%22%2C%22ID_TYPE%22%3A%22StreamId%22%2C%22IDS%22%3A%7B%22STRID%22%3A%22example-strid%22%7D%7D&appName=ExampleApp&appVer=1.0&acId=example-acid&devName=example-devname&devID=example-devid&phyID=example-phyid"
 //Test recordedUrl code path. Replaced http://localhost with http://127.0.0.1 to cause this.
-"http://127.0.0.1:9080/tsb?clientId=testharness&recordedUrl=http%3A%2F%2Fodol-atsec-pan-04.linear-nat-pil.xcr.comcast.net%2FCNNHD_HD_NAT_16141_0_5646493630829879163.mpd%3Ftrred%3Dfalse&analyticsUrl=https://collector.hdw.r53.deap.tv/raw.mirrored.cpe.fog.event&money=%7B%22TRACE_ID%22%3A%20%228d09139d-9924-4b20-8610-bfa7b0ab63f0%22%2C%22PARENT_ID%22%3A%20-4007834485039980500%2C%22SPAN_ID%22%3A%20-4007834485039980500%7D%0A&ses=%7B%22PSI%22%3A1438824946275%2C%22PBI%22%3A%221456515706520%22%7D&asset=%7B%22CLASS%22%3A%22Linear%22%2C%22ID_TYPE%22%3A%22StreamId%22%2C%22IDS%22%3A%7B%22STRID%22%3A%228621049422542808163%22%7D%7D&appName=STB-XI3&appVer=2.6p1&acId=2760425345202996426&devName=iptsb&devID=12:BF:60:1E:21:9C&phyID=7739922214635090063",
 };
 
 const char* progUrl[] =
@@ -93,16 +93,16 @@ const char* progUrl[] =
 const char* unknownUrl[] =
 {
 "http://127.0.0.1:8080/1080pMorta001.h264",
-"http://localhost:9080/tsb?clientId=testharness&recordedUrl=http%3A%2F%2Fodol-atsec-pan-04.linear-nat-pil.xcr.comcast.net%2FCNNHD_HD_NAT_16141_0_5646493630829879163.mpd%3Ftrred%3Dfalse&analyticsUrl=https://collector.hdw.r53.deap.tv/raw.mirrored.cpe.fog.event&money=%7B%22TRACE_ID%22%3A%20%228d09139d-9924-4b20-8610-bfa7b0ab63f0%22%2C%22PARENT_ID%22%3A%20-4007834485039980500%2C%22SPAN_ID%22%3A%20-4007834485039980500%7D%0A&ses=%7B%22PSI%22%3A1438824946275%2C%22PBI%22%3A%221456515706520%22%7D&asset=%7B%22CLASS%22%3A%22Linear%22%2C%22ID_TYPE%22%3A%22StreamId%22%2C%22IDS%22%3A%7B%22STRID%22%3A%228621049422542808163%22%7D%7D&appName=STB-XI3&appVer=2.6p1&acId=2760425345202996426&devName=iptsb&devID=12:BF:60:1E:21:9C&phyID=7739922214635090063",
+"http://localhost:9080/tsb?clientId=testharness&recordedUrl=http%3A%2F%2Fodol.net%2FCCCHD_HD_NAT_16141_0_5646493630829879163.mpd%3Ftrred%3Dfalse&analyticsUrl=https://collector.hdw.r53.deap.tv/raw.mirrored.cpe.fog.event&money=%7B%22TRACE_ID%22%3A%20%228d09139d-9924-4b20-8610-bfa7b0ab63f0%22%2C%22PARENT_ID%22%3A%20-4007834485039980500%2C%22SPAN_ID%22%3A%20-4007834485039980500%7D%0A&ses=%7B%22PSI%22%3A1438824946275%2C%22PBI%22%3A%221456515706520%22%7D&asset=%7B%22CLASS%22%3A%22Linear%22%2C%22ID_TYPE%22%3A%22StreamId%22%2C%22IDS%22%3A%7B%22STRID%22%3A%228621049422542808163%22%7D%7D&appName=STB-XI3&appVer=2.6p1&acId=2760425345202996426&devName=iptsb&devID=12:BF:60:1E:21:9C&phyID=7739922214635090063",
 };
 
 const char* hlsUrl[] =
 {
 "http://172.27.223.96:8880/TRUTV_MIMIC.m3u8",
-"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main_mp4.m3u8",
-"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.m3u8",
-"https://dai2.xumo.com/amagi_hls_data_xumo1212A-testfood52/CDN/playlist.m3u8?p=test",
-"https://vex-hills-stg.mm-col-jitp2-s.xcr.comcast.net/test_ipvod6/VIPP2019092300001020/movie/1571803639146/manifest.m3u8?StreamType=VOD_T6&ProviderId=comcastqa.com&AssetId=VIPT2019092300001020&sid=77777ffdgmmacadfdda0ccdf-7hgdh9876677756s-1892232&PartnerId=comcast&DeviceId=10.169.123.12"
+"https://example.com/VideoTestStream/sample_mp4.m3u8",
+"https://example.com/VideoTestStream/sample.m3u8",
+"https://example.com/amagi_hls_data_example/CDN/playlist.m3u8?p=test",
+"https://example.com/test_ipvod6/EXAMPLE_MOVIE/manifest.m3u8?StreamType=VOD_T6&ProviderId=example.com&AssetId=EXAMPLE_ASSET&sid=example-session-id&PartnerId=example&DeviceId=192.168.1.1"
 };
 
     	MediaFormat mediaType = mPrivateInstanceAAMP->GetMediaFormatType("unknown");
@@ -155,7 +155,6 @@ TEST_F(MediaFormatTypeTests, RecordedUrl)
 		MediaFormat expectedMediaFormat;
 	} test_cases[] = 
 	{
-		// DELIA-62753
 		{ "http://127.0.0.1:9080/adrec?clientId=FOG_AAMP&recordedUrl=https%3A%2F%2Fads.com%2Fad.mpd",
 			eMEDIAFORMAT_DASH
 		},

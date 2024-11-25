@@ -204,9 +204,9 @@ TEST_F(FunctionalTests, ManifestStitchingBasic_Test)
     EXPECT_EQ(root->getPublishTime(), 0);
 }
 /**
- * @brief ManifestStitching_Comcast_Linear test.
+ * @brief ManifestStitching_test.
  *
- * The add two MPD files with comcast linear stream and final MPD contains newly added segment
+ * The add two MPD files with linear stream and final MPD contains newly added segment
  * details and verify total period and MPD file duration
  */
 TEST_F(FunctionalTests, ManifestStitching_Comcast_Linear)

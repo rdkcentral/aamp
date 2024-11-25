@@ -978,7 +978,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetAvailableVideoTracksTest2)
     ASSERT_EQ(0, videoTracks.size());
 }
 
-// DELIA-41566 [PEACOCK] temporary hack required to work around Adobe SSAI session lifecycle problem
+// required to work around Adobe SSAI session lifecycle problem
 // TEST_F(StreamAbstractionAAMP_HLSTest,PreCachePlaylisttest){
 //     mStreamAbstractionAAMP_HLS->PreCachePlaylist();
 // }

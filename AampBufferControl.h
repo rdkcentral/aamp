@@ -146,8 +146,8 @@ namespace AampBufferControl
 	 * @brief
 	 * Byte based strategy using GStreamer need_Data & enough_data
 	 * moves between eBUFFER_NEEDS_DATA_SIGNAL & eBUFFER_FILLING states
-	 * encapsulated in this class in RDKAAMP-1343
-	 * prior to RDKAAMP-1343 this strategy was always used
+	 * encapsulated in this class
+	 * this strategy was always used
 	 **/
 	class BufferControlByteBased : public BufferControlStrategyBase
 	{
@@ -170,7 +170,6 @@ namespace AampBufferControl
 	 * (i.e. x seconds after current playback position)
 	 * Normally, only the first GStreamer need_Data signal is significant.
 	 * enough_data acts as a backup e.g.position error or buffer too small.
-	 * introduced in RDKAAMP-1343
 	 **/
 	class BufferControlTimeBased : public BufferControlByteBased
 	{

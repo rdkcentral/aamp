@@ -1356,7 +1356,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 			activeInterfaceWifi = false;
 		}
 	}
-	// Add Connection: Keep-Alive custom header - DELIA-26832
+	// Add Connection: Keep-Alive custom header
 	mCustomHeaders["Connection:"] = std::vector<std::string> { "Keep-Alive" };
 	pthread_cond_init(&mCondDiscontinuity, NULL);
 	pthread_cond_init(&waitforplaystart, NULL);
@@ -2121,7 +2121,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		double latency = 0;
 
 
-		//DELIA-49735 - Report Progress report position based on Availability Start Time
+		//Report Progress report position based on Availability Start Time
 		start = (culledSeconds*1000.0);
 		if((mProgressReportOffset >= 0) && !IsUninterruptedTSB())
 		{
@@ -2173,8 +2173,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			bProcessEvent = false;
 		}
 
-		/*LLAMA-7142 & LLAMA-7124
-		**mNewSeekInfo is:
+		/**mNewSeekInfo is:
 		**  -Used by PlayerInstanceAAMP::SetRateInternal() to calculate seek position.
 		**  -Included for consistency with previous code but isn't directly related to reporting.
 		**  -A good candidate for future refactoring*/
@@ -2944,7 +2943,6 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
 	at2.send(telemetryName,bitrateData,bitrateDesc,bitrateFloat);
 #endif //AAMP_TELEMETRY_SUPPORT
 
-		/* START: Added As Part of DELIA-28363 and DELIA-28247 */
 		if(GetBWIndex)
 		{
 			AAMPLOG_WARN("NotifyBitRateChangeEvent :: bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
@@ -2955,13 +2953,11 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
 			AAMPLOG_WARN("NotifyBitRateChangeEvent :: bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, (IsTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
-		/* END: Added As Part of DELIA-28363 and DELIA-28247 */
 
 		SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 	}
 	else
 	{
-		/* START: Added As Part of DELIA-28363 and DELIA-28247 */
 		if(GetBWIndex)
 		{
 			AAMPLOG_WARN("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d, fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
@@ -2972,7 +2968,6 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
 			AAMPLOG_WARN("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, (IsTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
-		/* END: Added As Part of DELIA-28363 and DELIA-28247 */
 	}
 
 	AAMPLOG_WARN("BitrateChanged:%d", reason);
@@ -3033,7 +3028,6 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 			AampCCManager::GetInstance()->SetTrickplayStatus(true);
 		}
 	}
-	//Hack For DELIA-51318 convert the incoming rates into acceptable rates
 	if(ISCONFIGSET_PRIV(eAAMPConfig_RepairIframes))
 	{
 		AAMPLOG_WARN("mRepairIframes is set, sending pseudo rate %f for the actual rate %f", getPseudoTrickplayRate(rate), rate);
@@ -3111,7 +3105,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 	{
 		bool continueDiscontProcessing = true;
 		AAMPLOG_WARN("PrivateInstanceAAMP: mProcessingDiscontinuity set");
-		// DELIA-46559, there is a chance that synchronous progress event sent will take some time to return back to AAMP
+		// there is a chance that synchronous progress event sent will take some time to return back to AAMP
 		// This can lead to discontinuity stall detection kicking in. So once we start discontinuity processing, reset the flags
 		ResetDiscontinuityInTracks();
 		ResetTrackDiscontinuityIgnoredStatus();
@@ -3300,7 +3294,6 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 	if (!isDiscontinuity)
 	{
 		/*
-		A temporary work around intended to reduce occurrences of LLAMA-6113.
 		This appears to be caused by late calls to previously stopped/destroyed objects due to a scheduling issue.
 		In this case it makes sense to exit this function ASAP.
 		A more complete (larger, higher risk, more time consuming, threadsafe) change to scheduling is required in the future.
@@ -3320,7 +3313,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		{
 			SetState(eSTATE_COMPLETE);
 			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
-			if (ContentType_EAS == mContentType) //Fix for DELIA-25590
+			if (ContentType_EAS == mContentType)
 			{
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 				if (sink)
@@ -5115,7 +5108,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	pthread_mutex_unlock(&mFragmentCachingLock);
 
 	if( seekWhilePaused )
-	{ // XIONE-4261 Player state not updated correctly after seek
+	{ // Player state not updated correctly after seek
 		// Prevent gstreamer callbacks from placing us back into playing state by setting these gate flags before CBs are triggered
 		// in this routine. See NotifyFirstFrameReceived(), NotifyFirstBufferProcessed(), NotifyFirstVideoFrameDisplayed()
 		mPauseOnFirstVideoFrameDisp = true;
@@ -5160,7 +5153,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 	newTune = IsNewTune();
 
-	// DELIA-39530 - Get position before pipeline is teared down
+	// Get position before pipeline is teared down
 	if (eTUNETYPE_RETUNE == tuneType)
 	{
 		seek_pos_seconds = GetPositionSeconds();
@@ -5177,7 +5170,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if(GETCONFIGVALUE_PRIV(eAAMPConfig_PlatformType) == ePLATFORM_AMLOGIC)
 	{
 		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
-		// this shouldn't impact seekplay or ADs on Peacock & LLAMA
+		// this shouldn't impact seekplay or ADs
 		if (tuneType == eTUNETYPE_SEEK && !(mbSeeked == true || rate == 0 || (rate == 1 && pipeline_paused == true)))
 			for (int i = 0; i < AAMP_TRACK_COUNT; i++) mbNewSegmentEvtSent[i] = false;
 	}
@@ -5445,7 +5438,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	else
 	{
-		// LLAMA-7124 - explicitly invalidate previous position for consistency with previous code
+		//explicitly invalidate previous position for consistency with previous code
 		mPrevPositionMilliseconds.Invalidate();
 
 		int volume = audio_volume;
@@ -5893,7 +5886,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	std::string sTraceId = (pTraceID?pTraceID:"unknown");
 	//CMCD to be enabled for player direct downloads, not for Fog . All downloads in Fog , CMCD response to be done in Fog.
 	mCMCDCollector->Initialize((ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD) && !mTSBEnabled),sTraceId);
-// RDKAAMP-1315 : This feature RDKAAMP-1315 is causing trickplay issues for client dai
+// This feature is causing trickplay issues for client dai
 // hence removing code which reads this config from tune url , Ideally it should be fixed by app and not to enable this feature
 //	SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_InterruptHandling, (mTSBEnabled && strcasestr(mainManifestUrl, "networkInterruption=true")));
 	if(!ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling))
@@ -6082,7 +6075,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mCurrentVideoTrackId = -1;
 	mCurrentDrm = nullptr;
 
-	// DELIA-47965: Calling SetContentType without checking contentType != NULL, so that
+	// Calling SetContentType without checking contentType != NULL, so that
 	// mContentType will be reset to ContentType_UNKNOWN at the start of tune by default
 	SetContentType(contentType);
 	if (ContentType_CDVR == mContentType)
@@ -6133,7 +6126,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	if( !remapUrl )
 	{
-		//DELIA-47890 Fog can be disable by  having option fog=0 option in aamp.cfg,based on  that gpGlobalConfig->noFog is updated
+		//Fog can be disable by  having option fog=0 option in aamp.cfg,based on  that gpGlobalConfig->noFog is updated
 		//Removed variable gpGlobalConfig->fogSupportsDash as it has similar usage
 		if(!ISCONFIGSET_PRIV(eAAMPConfig_Fog))
 		{
@@ -6149,7 +6142,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			}
 		}
 
-		if (mManifestUrl.find("mpd")!= std::string::npos) // new - limit this option to linear content as part of DELIA-23975
+		if (mManifestUrl.find("mpd")!= std::string::npos) // new - limit this option to linear content
 		{
 			replace(mManifestUrl, "-eac3.mpd", ".mpd");
 		} // mpd
@@ -6476,7 +6469,7 @@ void PrivateInstanceAAMP::ExtractServiceZone(std::string url)
 				vssLen -= vssStart;
 			}
 			mServiceZone = url.substr(vssStart, vssLen );
-			aamp_DecodeUrlParameter(mServiceZone); // DELIA-44703
+			aamp_DecodeUrlParameter(mServiceZone);
 		}
 		else
 		{
@@ -7389,7 +7382,7 @@ long long PrivateInstanceAAMP::GetPositionMs()
 	{
 		if(prevPositionInfo.isPopulated())
 		{
-			//Since LLAMA-7124 previous position values calculated using different values of seek_pos_seconds are considered invalid.
+			//previous position values calculated using different values of seek_pos_seconds are considered invalid.
 			AAMPLOG_WARN("prev-pos-ms (%lld) is invalid. seek_pos_seconds = %f, seek_pos_seconds when prev-pos-ms was stored = %f.",prevPositionInfo.getPosition(), seek_pos_seconds_copy, prevPositionInfo.getSeekPositionSec());
 		}
 		return GetPositionMilliseconds();
@@ -7421,7 +7414,7 @@ void PrivateInstanceAAMP::UnlockGetPositionMilliseconds()
 long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long rate, long long trickStartUTCMS)
 {
 	long long position = -1;
-	//DELIA-39530 - Audio only playback is un-tested. Hence disabled for now
+	//Audio only playback is un-tested. Hence disabled for now
 	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableGstPositionQuery) && !ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback) && !mAudioOnlyPb)
 	{
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -7429,8 +7422,7 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 		{
 			auto gstPosition = sink->GetPositionMilliseconds();
 
-			/* LLAMA-7124 - Prevent spurious values being returned by this function during seek.
-			* This fix is similar to LLAMA-8369 but applied at this lower level because
+			/* Prevent spurious values being returned by this function during seek.
 			* PrivateInstanceAAMP::GetPositionMilliseconds() is called elsewhere e.g. setting seek_pos_seconds
 			* note for this to work correctly mState and seek_pos_seconds must updated atomically othewise
 			* spuriously low (mState = eSTATE_SEEKING before seek_pos_seconds updated) or
@@ -7464,8 +7456,7 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
  */
 long long PrivateInstanceAAMP::GetPositionMilliseconds()
 {
-	/* LLAMA-7124
-	 * Ideally between LockGetPositionMilliseconds() & UnlockGetPositionMilliseconds() this function would be blocked
+	 /* Ideally between LockGetPositionMilliseconds() & UnlockGetPositionMilliseconds() this function would be blocked
 	 * (i.e. all mGetPositionMillisecondsMutexSoft.try_lock() replaced with lock()) this would
 	 * ensure mState & seek_pos_seconds are syncronised during this function.
 	 * however it is difficult to be certain that this would not result in a deadlock.
@@ -7478,16 +7469,16 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		AAMPLOG_ERR("Failed to acquire lock. A spurious position value may be calculated.");
 	}
 
-	//LLAMA-7124 - Local copy to avoid race. LLAMA-8500 will consider further improvements to the thread safety of this variable.
+	//Local copy to avoid race. consider further improvements to the thread safety of this variable.
 	double seek_pos_seconds_copy = seek_pos_seconds;
 	long long positionMiliseconds = seek_pos_seconds_copy != -1 ? seek_pos_seconds_copy * 1000.0 : 0.0;
 
-	//LLAMA-7124 - Local copy to avoid race. LLAMA-8500 will consider further improvements to the thread safety of this variable.
+	//Local copy to avoid race. Consider further improvements to the thread safety of this variable.
 	auto trickStartUTCMS_copy = trickStartUTCMS;
 	AAMPLOG_TRACE("trickStartUTCMS=%lld", trickStartUTCMS_copy);
 	if (trickStartUTCMS_copy >= 0)
 	{
-		//LLAMA-7124 - Local copy to avoid race. LLAMA-8500 will consider further improvements to the thread safety of this variable.
+		//Local copy to avoid race. Consider further improvements to the thread safety of this variable.
 		auto rate_copy = rate;
 		AAMPLOG_TRACE("rate=%f", rate_copy);
 
@@ -7495,7 +7486,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 
 		if(AAMP_NORMAL_PLAY_RATE == rate_copy)
 		{
-			/*LLAMA-7124 - Standardised & tightened validity checking of previous position to
+			/*Standardised & tightened validity checking of previous position to
 			  avoid spurious 'restore prev-pos as current-pos!!' around seeks*/
 			const auto prevPositionInfo = mPrevPositionMilliseconds.GetInfo();
 			if(prevPositionInfo.isPositionValid(seek_pos_seconds_copy))
@@ -7510,7 +7501,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 			}
 			else if(prevPositionInfo.isPopulated())
 			{
-				//Since LLAMA-7124 previous position values calculated using different values of seek_pos_seconds are considered invalid.
+				//Previous position values calculated using different values of seek_pos_seconds are considered invalid.
 				AAMPLOG_WARN("prev-pos-ms (%lld) is invalid. seek_pos_seconds = %f, seek_pos_seconds when prev-pos-ms was stored = %f.",prevPositionInfo.getPosition(), seek_pos_seconds_copy, prevPositionInfo.getSeekPositionSec());
 			}
 		}
@@ -7647,7 +7638,7 @@ void PrivateInstanceAAMP::Stop()
 	}
 
 	DisableDownloads();
-	//DELIA-60010 : Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
+	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
 	if(IsTSBSupported())
 	{
 		std::string remoteUrl = "127.0.0.1:9080/tsb";
@@ -7758,7 +7749,7 @@ void PrivateInstanceAAMP::Stop()
 	mFailureReason="";
 	mBlacklistedProfiles.clear();
 
-	// LLAMA-7124 - explicitly invalidate previous position for consistency with previous code
+	// explicitly invalidate previous position for consistency with previous code
 	mPrevPositionMilliseconds.Invalidate();
 	seek_pos_seconds = -1;
 	culledSeconds = 0;
@@ -7981,7 +7972,7 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 
 	if (bFireEvent)
 	{
-		//DELIA-40019: szContent should not contain any tag name and ":" delimiter. This is not checked in JS event listeners
+		//szContent should not contain any tag name and ":" delimiter. This is not checked in JS event listeners
 		TimedMetadataEventPtr eventData = std::make_shared<TimedMetadataEvent>(((szName == NULL) ? "" : szName), ((id == NULL) ? "" : id), 	timeMilliseconds, durationMS, content, GetSessionId());
 
 		if (ISCONFIGSET_PRIV(eAAMPConfig_MetadataLogging))
@@ -8201,7 +8192,7 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 			return;
 		}
 
-		// DELIA-66349 and all linked tickets indicate an issue due to retune which does not restart as current position and hence the issue. 
+		//  retune which does not restart as current position.
 		//  eMEDIAFORMAT_PROGRESSIVE is playback which is done completely by GStreamer and less involvement of AAMP.
 		// skipping retune for eMEDIAFORMAT_PROGRESSIVE content
                 //Adding log line useful for triage purposes
@@ -8222,7 +8213,7 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 
 		/*If underflow is caused by a discontinuity processing, continue playback from discontinuity*/
 		// If discontinuity process in progress, skip further processing
-		// DELIA-46559 Since discontinuity flags are reset a bit earlier, additional checks added below to check if discontinuity processing in progress
+		// discontinuity flags are reset a bit earlier, additional checks added below to check if discontinuity processing in progress
 		pthread_mutex_lock(&mLock);
 		if ((errorType != eGST_ERROR_PTS) &&
 				(IsDiscontinuityProcessPending() || mDiscontinuityTuneOperationId != 0 || mDiscontinuityTuneOperationInProgress))
@@ -9961,7 +9952,7 @@ void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
 	{
 		if(ISCONFIGSET_PRIV(eAAMPConfig_MidFragmentSeek) && position != 0 )
 		{
-			//RDK-26957 Adding midSeekPtsOffset to position value.
+			//Adding midSeekPtsOffset to position value.
 			//Enables us to seek to the desired position in the mp4 fragment.
 			sink->SeekStreamSink(GetFirstPTS(), rate);
 		}
@@ -9992,7 +9983,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 		// May be Stop is called to release all resources .
 		// Before download , check the state
 		GetState(state);
-		// Check for state not IDLE also to avoid DELIA-46092
+		// Check for state not IDLE
 		if(state != eSTATE_RELEASED && state != eSTATE_IDLE && state != eSTATE_ERROR)
 		{
 			CurlInit(eCURLINSTANCE_PLAYLISTPRECACHE, 1, GetNetworkProxy());
@@ -13185,7 +13176,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 		}
 	}
 
-	// RDKAAMP-1268: Harvest configuration
+	// Harvest configuration
 	jsondata.add("harvestConfig",GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig));
 
 	tmpStringVar = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);

@@ -335,7 +335,7 @@ public:
  * The DASH manifest has the fogtsb attribute set. Verify that Fog is selected
  * to manage ABR.
  */
-TEST_P(LinearFOGTests, LLAMA_13234)
+TEST_P(LinearFOGTests, FogABRTest)
 {
         std::string fragmentUrl;
         AAMPStatusType status;
