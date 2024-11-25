@@ -39,6 +39,8 @@ include_directories(${UTESTS_ROOT}/mocks)
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     include_directories(${AAMP_ROOT}/.libs/systemd/src)
+else()
+    include_directories(/usr/include/webkitgtk-4.0)
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 
 include_directories(${AAMP_ROOT}/.libs/include)

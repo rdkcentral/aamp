@@ -144,12 +144,12 @@ function install_pkgs_linux_fn()
     install_package_fn snapd
     install_package_fn libcppunit-dev
     install_package_fn wayland-protocols
-    install_package_fn libcppunit-dev
     install_package_fn libjsoncpp-dev
     install_package_fn libasio-dev
     install_package_fn libsystemd-dev
     install_package_fn jq
     install_package_fn libtinyxml2-dev
+    install_package_fn libwebkit2gtk-4.0-dev
 
     VER=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 

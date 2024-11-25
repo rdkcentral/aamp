@@ -27,7 +27,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <cmath>
-
+#include <stdarg.h>
 #include <iomanip>
 #include <algorithm>
 #ifdef USE_SYSLOG_HELPER_PRINT
