@@ -304,7 +304,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 								// Move onto next period to be placed
 								if (mPlacementObj.waitForNextPeriod)
 								{
-									// Confirm the current ad is completely placedm otherwise log a warning. This is expected here!
+									// Confirm the current ad is completely placed otherwise log an error. AD should be completely placed at this point.
 									if ((abObj.ads->at(mPlacementObj.curAdIdx).duration - mPlacementObj.adNextOffset) != 0)
 									{
 										AAMPLOG_ERR("[CDAI] Error while placing ad[id:%s dur:%" PRIu64 "], remaining:%d to place, but skipping to next ad",
@@ -314,6 +314,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 									// Mark the current ad as placed.
 									abObj.ads->at(mPlacementObj.curAdIdx).placed = true;
 									currentAdPeriodClosed = true;//Player ready to  process next period
+									// Move to next ad and reset adNextOffset
 									mPlacementObj.curAdIdx++;
 									mPlacementObj.adNextOffset = 0;
 									AAMPLOG_INFO("[CDAI] New ad offset is setting to 0, for split period");
@@ -331,7 +332,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 											// offset2Ad is already updated above
 										}
 										// We have already moved into new period. Logging split period marker now.
-										SetSplitPeriod(periodId, currperioddur, nextPeriod->GetId(), nextperioddur);
+										abObj.mSplitPeriod = true;
 									}
 									else
 									{
@@ -340,21 +341,23 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 									continue;
 								}
 								AAMPLOG_INFO("nextPeriod:%s nextperiodur:%lf currperioddur:%lf adDuration:%" PRIu64 "", nextPeriod->GetId().c_str(), nextperioddur, currperioddur, abObj.ads->at(mPlacementObj.curAdIdx).duration);
-								// This is the ad duration that can be placed in the current period. since the next period is now the open period
-								// If that is not reaching the adDurationToPlaceInPeriod, then its a split period case
+								// Ad duration remaining to be placed in this break
+								// adStartOffset signifies some portion of the current ad is already placed in a previous period
+								double adDurationToPlaceInBreak = GetRemainingAdDurationInBreak(mPlacementObj.pendingAdbrkId, mPlacementObj.curAdIdx, mPlacementObj.adStartOffset);
+								// This is the duration that is available in the current period, after deducting already placed ads if any.
+								// If that duration not reaching the adDurationToPlaceInBreak, then its a split period case
 								double periodDurationAvailable = (currperioddur - abObj.ads->at(mPlacementObj.curAdIdx).basePeriodOffset);
-								// Ad duration remaining to be placed
-								// adStartOffset signifies some portion of this ad is already placed in a previous period
-								double adDurationToPlaceInPeriod = abObj.ads->at(mPlacementObj.curAdIdx).duration - mPlacementObj.adStartOffset;
-								if((nextperioddur > 0) && ((periodDurationAvailable >= 0) && (periodDurationAvailable <= adDurationToPlaceInPeriod)))
+								if((nextperioddur > 0) && ((periodDurationAvailable >= 0) && (periodDurationAvailable <= adDurationToPlaceInBreak)))
 								{
-									AAMPLOG_INFO("nextperioddur = %f currperioddur = %f curAd.duration = [%" PRIu64 "] periodDurationAvailable:%lf adDurationToPlaceInPeriod:%lf",
-										nextperioddur,currperioddur,abObj.ads->at(mPlacementObj.curAdIdx).duration, periodDurationAvailable, adDurationToPlaceInPeriod);
+									AAMPLOG_INFO("nextperioddur = %f currperioddur = %f curAd.duration = [%" PRIu64 "] periodDurationAvailable:%lf adDurationToPlaceInBreak:%lf",
+										nextperioddur,currperioddur,abObj.ads->at(mPlacementObj.curAdIdx).duration, periodDurationAvailable, adDurationToPlaceInBreak);
 									isSrcdurnotequalstoaddur = true;
-									//An ad exceeding the current period duration by more than 2 seconds is considered a split period
-									if((periodDurationAvailable + OFFSET_ALIGN_FACTOR) < adDurationToPlaceInPeriod)
+									// An ad exceeding the current period duration by more than 2 seconds is considered a split period
+									// Source period duration should be more than tiny period to be treated as split period
+									// If the tiny period just happens to be within a split period, then split period marker will be set which is expected as of now
+									if ((currperioddur > THRESHOLD_TOIGNORE_TINYPERIOD) && ((periodDurationAvailable + OFFSET_ALIGN_FACTOR) < adDurationToPlaceInBreak))
 									{
-										SetSplitPeriod(periodId, currperioddur, nextPeriod->GetId(), nextperioddur);
+										abObj.mSplitPeriod = true;
 									}
 								}
 							}
@@ -386,9 +389,24 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 									curAd.placed = true;
 									//Place the end markers of adbreak
 									setAdMarkers(p2AdData.duration,periodDelta);
-							
-									AAMPLOG_INFO("[CDAI] Source Ad duration is less than CDAI Ad. Mark as placed.end period:%s end period offset:%" PRIu64 " adjustEndPeriodOffset:%d",
-										periodId.c_str(), abObj.endPeriodOffset, abObj.adjustEndPeriodOffset);
+									if (p2AdData.duration > THRESHOLD_TOIGNORE_TINYPERIOD)
+									{
+										AAMPLOG_INFO("[CDAI] Source Ad duration is less than CDAI Ad. Mark as placed.end period:%s end period offset:%" PRIu64 " adjustEndPeriodOffset:%d",
+											periodId.c_str(), abObj.endPeriodOffset, abObj.adjustEndPeriodOffset);
+									}
+									else
+									{
+										AAMPLOG_WARN("[CDAI] Detected tiny period[id:%s dur:%" PRIu64 "] with ad[numads:%zu adsdur:%" PRIu32 "], not expected, setting ads to invalid",
+											periodId.c_str(), p2AdData.duration, abObj.ads->size(), abObj.adsDuration);
+										// Mark all the ads in the break as invalid, so that we don't play this break anymore
+										// This will not be called if the first period is not a split period
+										for (int idx = 0; idx < abObj.ads->size(); idx++)
+										{
+											// We need to delete the ad entries once we fix FetcherLoop to pick tiny period
+											abObj.ads->at(idx).placed = true;
+											abObj.ads->at(idx).invalid = true;
+										}
+									}
 								}
 								break;
 							}
@@ -412,7 +430,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 							}
 							else
 							{
-								AAMPLOG_ERR("remainingAdDuration[%" PRId64 "] is -ve, not expected, adDuration:%" PRIu64 " nextOffset:%" PRIu32 ,
+								AAMPLOG_ERR("[CDAI] remainingAdDuration[%" PRId64 "] is -ve, not expected, adDuration:%" PRIu64 " nextOffset:%" PRIu32 ,
 									remainingAdDuration, curAd.duration, mPlacementObj.adNextOffset);
 							}
 							isSrcdurnotequalstoaddur = false;
@@ -551,6 +569,22 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 			if(!abObj.adjustEndPeriodOffset) // placed all ads now print the placement data and set mPlacementObj.curAdIdx = -1;
 			{
 				mPlacementObj.curAdIdx = -1;
+				if (abObj.mSplitPeriod)
+				{
+					std::stringstream splitStr;
+					for(auto it = mPeriodMap.begin();it != mPeriodMap.end();it++)
+					{
+						if(it->second.adBreakId == mPlacementObj.pendingAdbrkId)
+						{
+							splitStr<<" BasePeriod["<<it->first<<" -  "<<it->second.duration<<"]";
+						}
+					}
+					for(int k=0;k<abObj.ads->size();k++)
+					{
+						splitStr<<" CDAIPeriod["<<abObj.ads->at(k).adId<<" - "<<abObj.ads->at(k).duration<<"]";
+					}
+					AAMPLOG_MIL("[CDAI] Detected split period.%s", splitStr.str().c_str());
+				}
 				//Printing the placement positions
 				std::stringstream ss;
 				ss<<"{AdbreakId: "<<mPlacementObj.pendingAdbrkId;
@@ -617,6 +651,25 @@ void PrivateCDAIObjectMPD::UpdateNextPeriodAdPlacement(IPeriod* nextPeriod, uint
 	if (nextPeriod)
 	{
 		const std::string &nextPeriodId = nextPeriod->GetId();
+		// If adbreak object exist for next period in split period with valid ads duration, log an error. This is not expected
+		if (isAdBreakObjectExist(nextPeriodId) && mAdBreaks[nextPeriodId].adsDuration > 0)
+		{
+			// Lock the mutex, so we can delete this entry
+			std::lock_guard<std::mutex> lock(mDaiMtx);
+			const auto& adBreakObj = mAdBreaks[nextPeriodId];
+			AAMPLOG_ERR("[CDAI] Detected ads for next period[id:%s, breakdur:%" PRIu32 ", numads:%zu] in split periods, not expected",
+				nextPeriodId.c_str(), adBreakObj.brkDuration, adBreakObj.ads->size());
+			{
+				std::stringstream ss;
+				for(int k=0;k<adBreakObj.ads->size();k++)
+				{
+					AdNode &ad = adBreakObj.ads->at(k);
+					ss<<"{AdIdx:"<<k <<",AdId:"<<ad.adId<<",duration:"<<ad.duration<<",basePeriodId:"<<ad.basePeriodId<<", basePeriodOffset:"<<ad.basePeriodOffset<<"},";
+					AAMPLOG_ERR("[CDAI] Removing ad break %s", ss.str().c_str());
+				}
+			}
+			mAdBreaks.erase(nextPeriodId);
+		}
 		InsertToPeriodMap(nextPeriod);
 		// Update the period2AdData entries for nextPeriod
 		Period2AdData& nextP2AdData = mPeriodMap[nextPeriodId];
@@ -1452,25 +1505,27 @@ void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
 	}
 	mAdPlacementCV.notify_one();
 }
- 
+
 /**
- * @brief Set the split period flag and logs the marker
- * @param[in] currPeriodId - current period id
- * @param[in] currPeriodDur - current period duration
- * @param[in] nextPeriodId - next period id
- * @param[in] nextPeriodDur - next period duration
+ * @brief Get the ad duration of remaining ads to be placed in an adbreak
+ * @param[in] breakId - adbreak id
+ * @param[in] adIdx - current ad index
+ * @param[in] startOffset - start offset of current ad
  */
-void PrivateCDAIObjectMPD::SetSplitPeriod(const std::string &currPeriodId, double currPeriodDur, const std::string &nextPeriodId, double nextPeriodDur)
+uint64_t PrivateCDAIObjectMPD::GetRemainingAdDurationInBreak(const std::string &breakId, int adIdx, uint32_t startOffset)
 {
-	AdBreakObject &abObj = mAdBreaks[mPlacementObj.pendingAdbrkId];
-	const AdNode &curAd = abObj.ads->at(mPlacementObj.curAdIdx);
-	std::string adIdStr = "";
-	// This is to fix L1 tests which uses empty ad manifest
-	if (curAd.mpd && !(curAd.mpd->GetPeriods().empty()))
+	uint64_t duration = 0;
+	if (!breakId.empty())
 	{
-		adIdStr = curAd.mpd->GetPeriods().at(0)->GetId();
+		AdBreakObject &abObj = mAdBreaks[breakId];
+		for (int idx = adIdx; idx < abObj.ads->size(); idx++)
+		{
+			duration += abObj.ads->at(idx).duration;
+		}
+		if (duration > startOffset)
+		{
+			duration -= startOffset;
+		}
 	}
-	AAMPLOG_MIL("Detected split period. BasePeriod[%s - %f] CDAIPeriod[%s - %" PRIu64 "] NextPeriod[%s - %f] ",
-			currPeriodId.c_str(), currPeriodDur, adIdStr.c_str(), curAd.duration, nextPeriodId.c_str(), nextPeriodDur);
-	abObj.mSplitPeriod = true;
+	return duration;
 }

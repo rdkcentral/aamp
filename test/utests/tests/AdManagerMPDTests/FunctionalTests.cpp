@@ -1823,9 +1823,10 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 /**
  * @brief Tests the functionality of the PlaceAds method when split period case is true
+ * Also validates the special case where the second period in split period has a separate adbreak which should be deleted
  * 1 ad of 30 seconds, in 2 source periods of 15 seconds
- * P1(30s), (SCTE 30s)P2(15s), P3(15s), P4(30s)
- * .........AD1(30s)                  ........
+ * P1(30s), (SCTE 30s)P2(15s), (SCTE15s)P3(15s), P4(30s)
+ * .........AD1(30s)                           ........
  */
 TEST_F(AdManagerMPDTests, PlaceAdsTests_11)
 {
@@ -1932,17 +1933,24 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   InitializeAdMPDObject(manifest1);
   // Set curEndNumber to 8, adNextOffset = (7)*2000 + 1*1000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 8, 0, 15000, 0, false);
+  // placement object present for periodId2
+  mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.emplace_back(periodId2, periodId2, 0, 0, 0, 0, false);
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 35000 to force mismatch for isSrcdurnotequalstoaddur
   mPrivateCDAIObjectMPD->mAdBreaks = {
-    {periodId1, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}
+    {periodId1, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)},
+    {periodId2, AdBreakObject(15000, std::make_shared<std::vector<AdNode>>(), "", 0, 15000)}
   };
   // 1 - to - 1 mapping of ad and period
   mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(false, false, true, "adId1", "url1", 30000, periodId1, 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId2].ads->emplace_back(false, false, true, "adId2", "url2", 15000, periodId2, 0, nullptr);
 
   // Add ads to mPeriodMap. mPeriodMap[periodId].adBreakId is non-empty for live at the beginning as per SetAlternateContents
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 15000 /*in ms*/,
+    {
+      std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
+    });
+  mPrivateCDAIObjectMPD->mPeriodMap[periodId2] = Period2AdData(false, periodId2, 0 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
     });
@@ -1954,11 +1962,20 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration,15000); //periodmap of periodid1 duration
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0); 
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).basePeriodId, "testPeriodId1");
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.openPeriodId, periodId2); // open period changed to periodId2
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 18000); // 3sec from periodId2 also placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adStartOffset, 15000); // ad starts from 15sec in periodId2
+
+  // Check adbreak for periodId2 is deleted
+  EXPECT_EQ(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId2), false);
+  //mPeriodMap[periodId2] is overwritten
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].duration, 3000); //periodmap of periodid1 duration
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId1); //periodId2 shares the adbreak of periodId1
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 0);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 15000);
+
 
   InitializeAdMPDObject(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mMPD);
@@ -1966,9 +1983,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).basePeriodId, "testPeriodId1");
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).basePeriodOffset, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].duration,15000); //periodmap of periodid2 duration
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId1); //periodId2 shares the adbreak of periodId1
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 15000); 
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodId, periodId3);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 0);
@@ -2089,7 +2103,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 8, 0, 15000, 0, false);
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 35000 to force mismatch for isSrcdurnotequalstoaddur
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}
   };
@@ -2247,7 +2260,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 4, 0, 8000, 0, false);
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 35000 to force mismatch for isSrcdurnotequalstoaddur
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}
   };
@@ -2408,7 +2420,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 7, 0, 14000, 0, false);
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 35000 to force mismatch for isSrcdurnotequalstoaddur
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}
   };
@@ -2567,7 +2578,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 8, 0, 15000, 0, false);
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 35000 to force mismatch for isSrcdurnotequalstoaddur
+  // periodId1 has received ads of 20s for 30s break
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 20000)}
   };
@@ -2786,7 +2797,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 4, 0, 8000, 0, false);
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 35000 to force mismatch for isSrcdurnotequalstoaddur
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}
   };
@@ -2898,8 +2908,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.emplace_back(periodId2, periodId2, 0, 0, 0, 0, false); // second ad break in vector
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 32000 to force mismatch for isSrcdurnotequalstoaddur
-  // Also setting brkDuration to 32 sec as well
+  // testPeriodId1 ad duration is set to 29000 to force mismatch for isSrcdurnotequalstoaddur
+  // testPeriodId2 ad duration is set to 30000
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(29000, std::make_shared<std::vector<AdNode>>(), "", 0, 29000)},
     {periodId2, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}
@@ -2938,4 +2948,342 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId2);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 0); 
+}
+
+/**
+ * @brief Tests the functionality of the PlaceAds method when split period case is true
+ * This special case ensures that with AD1 exceeding source duration by 1sec, is not treated as a non-split period scenario
+ * 1 ad of 20 seconds each, in 2 source periods of 15 seconds
+ * P1(30s), (SCTE 30s)P2(15s), P3(15s), P4(30s)
+ * .........AD1(16s),AD2(10s)          ........
+ */
+TEST_F(AdManagerMPDTests, PlaceAdsTests_18)
+{
+  // not adding scte35 markers. These are mocked in PrivateObjectMPD instance
+  // testPeriodId1 has 0 new fragments added, to simulate periodDelta==0
+  // testPeriodId2 has 2 new fragments added
+  static const char *manifest1 =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+    <AdaptationSet id="1" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75000" d="5000" r="6" />
+            <S t="110000" d="2500" r="0" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId2" start="PT45S">
+    <AdaptationSet id="1" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="112500" d="2500" r="0" />
+            <S t="115000" d="5000" r="0" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+  // testPeriodId2 has 6 new fragments added
+  // testPeriodId3 has 1 new fragments added
+  static const char *manifest2 =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+    <AdaptationSet id="1" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75000" d="5000" r="6" />
+            <S t="110000" d="2500" r="0" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId2" start="PT45S">
+    <AdaptationSet id="1" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="112500" d="2500" r="0" />
+            <S t="115000" d="5000" r="6" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId3" start="PT60S">
+    <AdaptationSet id="1" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="150000" d="5000" r="0" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+  std::string periodId1 = "testPeriodId1";
+  std::string periodId2 = "testPeriodId2";
+  std::string periodId3 = "testPeriodId3";
+  InitializeAdMPDObject(manifest1);
+  // Set curEndNumber to 8, adNextOffset = (7)*2000 + (1)*1000
+  mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 8, 0, 15000, 0, false);
+
+  // Add ads to the adBreak
+  // testPeriodId1 ad duration is set to 26000
+  mPrivateCDAIObjectMPD->mAdBreaks = {
+    {periodId1, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 26000)}
+  };
+  // 1 - to - 2 mapping of ad and adbreak
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(false, false, true, "adId1", "url1", 16000, periodId1, 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(false, false, true, "adId2", "url2", 10000, "", -1, nullptr);
+
+  // Add ads to mPeriodMap. mPeriodMap[periodId].adBreakId is non-empty for live at the beginning as per SetAlternateContents
+  mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 15000 /*in ms*/,
+    {
+      std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
+    });
+  mPrivateCDAIObjectMPD->PlaceAds(mMPD);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod, true);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true); // since periodDelta==0, it advances to periodId2
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak not placed
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap.size(), 2); // periodId2 map created
+  
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration,15000); //periodmap of periodid2 duration
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].adBreakId, periodId1);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adIdx, 0);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0);
+
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 1); // moved to second ad
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId1);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.openPeriodId, periodId2);
+
+  InitializeAdMPDObject(manifest2);
+  mPrivateCDAIObjectMPD->PlaceAds(mMPD);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak placed
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodId, periodId2);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 11000);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).basePeriodId, "testPeriodId1");
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).basePeriodOffset, 0);
+
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).basePeriodId, "testPeriodId2");
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).basePeriodOffset, 1000);
+
+  //periodmap of periodid2 duration
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId1);
+  // The ad2 starts at offset 15000 in periodId2. This is less than OFFSET_ALIGN_FACTOR and hence get skipped over
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 1);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 0);
+}
+
+
+/**
+ * @brief Tests the functionality of the PlaceAds method when a tiny period is having ads
+ * Tiny periods are ignored in AAMP, so the ads associated with it should be ignored as well
+ * 1 ad of 30 seconds in a tiny period, following by 1 ad of 30s in a normal period
+ * P1(30s), (SCTE 30s)P2(200ms), (SCTE 30s)P3(30s), P4(30s)
+ * .........AD1(30s),............AD2(30s)          ........
+ */
+TEST_F(AdManagerMPDTests, PlaceAdsTests_19)
+{
+  // not adding scte35 markers. These are mocked in PrivateObjectMPD instance
+  // testPeriodId1 has 1 new fragments added of 200ms
+  // testPeriodId2 has 1 new fragments added
+  static const char *manifest1 =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+    <AdaptationSet id="1" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75000" d="500" r="0" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId2" start="PT30.200S">
+    <AdaptationSet id="1" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75500" d="5000" r="0" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+  // testPeriodId2 has 14 new fragments added
+  // testPeriodId3 has 1 new fragments added
+  static const char *manifest2 =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+    <AdaptationSet id="1" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75000" d="500" r="0" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId2" start="PT30.200S">
+    <AdaptationSet id="1" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75500" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId3" start="PT60.200S">
+    <AdaptationSet id="1" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="150500" d="5000" r="0" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+  std::string periodId1 = "testPeriodId1";
+  std::string periodId2 = "testPeriodId2";
+  std::string periodId3 = "testPeriodId3";
+  InitializeAdMPDObject(manifest1);
+  // Add entries for periodId1 and periodId2 in placement
+  mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 0, 0, 0, 0, false);
+  mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.emplace_back(periodId2, periodId2, 0, 0, 0, 0, false);
+
+  // Add ads to the adBreak
+  // testPeriodId1 ad duration is set to 30000
+  // testPeriodId2 ad duration is set to 30000
+  mPrivateCDAIObjectMPD->mAdBreaks = {
+    {periodId1, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)},
+    {periodId2, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}
+  };
+  // 1 - to - 1 mapping of ad and adbreak for testPeriodId1 and testPeriodId2
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(false, false, true, "adId1", "url1", 20000, periodId1, 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(false, false, true, "adId1", "url1", 10000, "", -1, nullptr);
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId2].ads->emplace_back(false, false, true, "adId2", "url2", 30000, periodId2, 0, nullptr);
+
+  // Add entries to mPeriodMap
+  mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 0 /*in ms*/,
+    {
+      std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
+    });
+
+  mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId2, 0 /*in ms*/,
+    {
+      std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
+    });
+  mPrivateCDAIObjectMPD->PlaceAds(mMPD);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 200);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration, 200);
+
+  InitializeAdMPDObject(manifest2);
+  mPrivateCDAIObjectMPD->PlaceAds(mMPD); // only in this placeAds call, periodId1 has a periodDelta==0 and places the break
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod, false);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true); //ad is placed
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).invalid, true); //invalid since its tiny period
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); //adbreak is placed
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).basePeriodId, "testPeriodId1");
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).basePeriodOffset, 0);
+  // for 2nd ad in break
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).placed, true); //ad is placed
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).invalid, true); //invalid since its tiny period
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).basePeriodId, ""); // second ad in break is not set
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).basePeriodOffset, -1); // second ad in break is not placed
+  
+  // periodmap is reset as endPeriodOffset is less than 2*OFFSET_ALIGN_FACTOR
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration, 0); //periodmap of periodid2 duration
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].adBreakId, ""); // periodmap is reset
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad.empty(), true);
+
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 0); // moved to second period
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId2);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.openPeriodId, periodId2);
+
+  // Call with the same manifest again to place ads in testPeriodId2
+  mPrivateCDAIObjectMPD->PlaceAds(mMPD);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId2].ads->at(0).placed, true); // second ad placed
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId2].ads->at(0).invalid, false); // second ad placed
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId2].mAdBreakPlaced); // adBreak placed
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId2].endPeriodId, periodId3);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId2].endPeriodOffset, 0);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId2].ads->at(0).basePeriodId, "testPeriodId2");
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId2].ads->at(0).basePeriodOffset, 0);
+
+  //periodmap of periodid2 duration
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId2);
+  // The ad2 starts at offset 0 in periodId2.
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 0);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 0);
 }

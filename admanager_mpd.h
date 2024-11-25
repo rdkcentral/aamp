@@ -105,7 +105,6 @@ enum class AdEvent
 };
 
 #define OFFSET_ALIGN_FACTOR 2000 /**< Observed minor slacks in the ad durations. Align factor used to place the ads correctly. */
-#define OFFSET_SPLIT_FACTOR 5000 /**< Observed instances where single CDAI Ad is split into two source Periods. Split factor used to identify those cases. */
 
 /**
  * @struct AdNode
@@ -467,15 +466,6 @@ public:
 	void UpdateNextPeriodAdPlacement(IPeriod* nextPeriod, uint32_t adStartOffset);
 
 	/**
-	 * @brief Set the split period flag and logs the marker
-	 * @param[in] currPeriodId - current period id
-	 * @param[in] currPeriodDur - current period duration
-	 * @param[in] nextPeriodId - next period id
-	 * @param[in] nextPeriodDur - next period duration
-	 */
-	void SetSplitPeriod(const std::string &currPeriodId, double currPeriodDur, const std::string &nextPeriodId, double nextPeriodDur);
-
-	/**
 	 * @fn CheckForAdStart
 	 *
 	 * @param[in]  rate - Playback rate
@@ -585,6 +575,14 @@ public:
 	 * @fn AbortWaitForNextAdResolved
 	 */
 	void AbortWaitForNextAdResolved();
+
+	/**
+	 * @brief Get the ad duration of remaining ads to be placed in an adbreak
+	 * @param[in] breakId - adbreak id
+	 * @param[in] adIdx - current ad index
+	 * @param[in] startOffset - start offset of current ad
+	 */
+	uint64_t GetRemainingAdDurationInBreak(const std::string &breakId, int adIdx, uint32_t startOffset);
 };
 
 #endif /* ADMANAGER_MPD_H_ */
