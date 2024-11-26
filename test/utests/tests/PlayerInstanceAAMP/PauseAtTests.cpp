@@ -1070,7 +1070,7 @@ TEST_F(PauseAtTests, SetAudioBitrateTest3) {
 }
 TEST_F(PauseAtTests, GetVideoZoomDefault){
 	int ZoomMode = mPlayerInstance->GetVideoZoom();
-	EXPECT_EQ(ZoomMode,VIDEO_ZOOM_DIRECT);
+	EXPECT_EQ(ZoomMode,VIDEO_ZOOM_NONE);
 }
 TEST_F(PauseAtTests, GetVideoZoomTest1) {
     //checking zoom mode = VIDEO_ZOOM_FULL
