@@ -81,6 +81,13 @@ GstCaps* GetGstCaps(StreamOutputFormat format, PlatformType platform)
 			{
 				gst_caps_set_simple (caps, "enable-fastplayback", G_TYPE_STRING, "true", NULL);
 			}
+#ifdef UBUNTU
+			// below required on Ubuntu - harmless on OSX, but breaks RPI
+			gst_caps_set_simple (caps,
+								"alignment", G_TYPE_STRING, "au",
+								"stream-format", G_TYPE_STRING, "avc",
+								NULL);
+#endif
 			break;
 			
 		case FORMAT_VIDEO_ES_HEVC:
@@ -89,6 +96,13 @@ GstCaps* GetGstCaps(StreamOutputFormat format, PlatformType platform)
 			{
 				gst_caps_set_simple (caps, "enable-fastplayback", G_TYPE_STRING, "true", NULL);
 			}
+#ifdef UBUNTU
+			// below required on Ubuntu - harmless on OSX, but breaks RPI
+			gst_caps_set_simple(caps,
+								"alignment", G_TYPE_STRING, "au",
+								"stream-format", G_TYPE_STRING, "hev1",
+								NULL);
+#endif
 			break;
 			
 		case FORMAT_VIDEO_ES_MPEG2:
