@@ -4236,6 +4236,15 @@ public:
 	 */
 	bool isDecryptClearSamplesRequired();
 
+	/**
+	 * @fn getStringForErrorType
+	 * @brief Retrieves a human-readable error string for a given playback error type.
+	 *
+	 * @param[in] errorType - Errortype of PlaybackErrorType enum.
+	 * @return A constant character pointer to the error string corresponding to the provided error type.
+	 */
+	const char* getStringForPlaybackError(PlaybackErrorType errorType);
+
 protected:
 
 	/**

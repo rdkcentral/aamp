@@ -3790,3 +3790,15 @@ TEST_F(PrivAampPrivTests,SetLLDashChunkModeFalseTest)
 	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_NetworkTimeout)).Times(1);
 	testp_aamp->SetLLDashChunkMode(false);
 }
+
+TEST_F(PrivAampTests, GetStringForPlaybackErrorTest)
+{
+    EXPECT_STREQ(p_aamp->getStringForPlaybackError(eGST_ERROR_PTS), "PTS ERROR");
+    EXPECT_STREQ(p_aamp->getStringForPlaybackError(eGST_ERROR_UNDERFLOW), "Underflow");
+    EXPECT_STREQ(p_aamp->getStringForPlaybackError(eSTALL_AFTER_DISCONTINUITY), "Stall After Discontinuity");
+    EXPECT_STREQ(p_aamp->getStringForPlaybackError(eDASH_LOW_LATENCY_MAX_CORRECTION_REACHED), "LL DASH Max Correction Reached");
+    EXPECT_STREQ(p_aamp->getStringForPlaybackError(eDASH_LOW_LATENCY_INPUT_PROTECTION_ERROR), "LL DASH Input Protection Error");
+    EXPECT_STREQ(p_aamp->getStringForPlaybackError(eDASH_RECONFIGURE_FOR_ENC_PERIOD), "Encrypted period found");
+    EXPECT_STREQ(p_aamp->getStringForPlaybackError(eGST_ERROR_GST_PIPELINE_INTERNAL), "GstPipeline Internal Error");
+    EXPECT_STREQ(p_aamp->getStringForPlaybackError(static_cast<PlaybackErrorType>(-1)), "STARTTIME RESET");
+}

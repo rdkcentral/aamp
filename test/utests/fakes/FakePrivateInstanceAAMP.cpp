@@ -1563,3 +1563,8 @@ void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 {
 	mIsChunkMode = enable;
 }
+
+const char* PrivateInstanceAAMP::getStringForPlaybackError(PlaybackErrorType errorType)
+{
+	return "";
+}

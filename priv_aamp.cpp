@@ -8269,15 +8269,8 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 			}
 		}
 
-		const char* errorString  =  (errorType == eGST_ERROR_PTS) ? "PTS ERROR" :
-									(errorType == eGST_ERROR_UNDERFLOW) ? "Underflow" :
-									(errorType == eSTALL_AFTER_DISCONTINUITY) ? "Stall After Discontinuity" :
-									(errorType == eDASH_LOW_LATENCY_MAX_CORRECTION_REACHED)?"LL DASH Max Correction Reached":
-									(errorType == eDASH_LOW_LATENCY_INPUT_PROTECTION_ERROR)?"LL DASH Input Protection Error":
-									(errorType == eDASH_RECONFIGURE_FOR_ENC_PERIOD)?"Enrypted period found":
-									(errorType == eGST_ERROR_GST_PIPELINE_INTERNAL) ? "GstPipeline Internal Error" : "STARTTIME RESET";
 
-		SendAnomalyEvent(ANOMALY_WARNING, "%s %s", GetMediaTypeName(trackType), errorString);
+		SendAnomalyEvent(ANOMALY_WARNING, "%s %s", GetMediaTypeName(trackType), getStringForPlaybackError(errorType));
 		bool activeAAMPFound = false;
 		pthread_mutex_lock(&gMutex);
 		for (std::list<gActivePrivAAMP_t>::iterator iter = gActivePrivAAMPs.begin(); iter != gActivePrivAAMPs.end(); iter++)
@@ -8342,13 +8335,13 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 						else
 						{
 							gAAMPInstance->numPtsErrors = 0;
-							AAMPLOG_WARN("PrivateInstanceAAMP: Not scheduling reTune since first %s.", errorString);
+							AAMPLOG_WARN("PrivateInstanceAAMP: Not scheduling reTune since first %s.", getStringForPlaybackError(errorType));
 						}
 						lastUnderFlowTimeMs[trackType] = now;
 					}
 					else
 					{
-						AAMPLOG_ERR("PrivateInstanceAAMP: Schedule Retune errorType %d error %s", errorType, errorString);
+						AAMPLOG_ERR("PrivateInstanceAAMP: Schedule Retune errorType %d error %s", errorType, getStringForPlaybackError(errorType));
 						gAAMPInstance->reTune = true;
 						AdditionalTuneFailLogEntries();
 						ScheduleAsyncTask(PrivateInstanceAAMP_Retune, (void *)this, "PrivateInstanceAAMP_Retune");
@@ -8362,6 +8355,32 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 		if (!activeAAMPFound)
 		{
 			AAMPLOG_WARN("PrivateInstanceAAMP: %p not in Active AAMP list", this);
+		}
+	}
+	else if (AAMP_RATE_PAUSE != rate && ContentType_EAS != mContentType)
+	{
+		//pipeline error during trickplay
+		if(errorType == eGST_ERROR_GST_PIPELINE_INTERNAL)
+		{
+			AAMPLOG_WARN("Processing retune for GstPipeline Internal Error and rate %f", rate);
+			SendAnomalyEvent(ANOMALY_WARNING, "%s GstPipeline Internal Error", GetMediaTypeName(trackType));
+
+			pthread_mutex_lock(&gMutex);
+			for (std::list<gActivePrivAAMP_t>::iterator iter = gActivePrivAAMPs.begin(); iter != gActivePrivAAMPs.end(); iter++)
+			{
+				if (this == iter->pAAMP)
+				{
+					gActivePrivAAMP_t *gAAMPInstance = &(*iter);
+					gAAMPInstance->reTune = true;
+					AdditionalTuneFailLogEntries();
+					ScheduleAsyncTask(PrivateInstanceAAMP_Retune, (void *)this, "PrivateInstanceAAMP_Retune");
+				}
+			}
+			pthread_mutex_unlock(&gMutex);
+		}
+		else
+		{
+			AAMPLOG_INFO("Not processing reTune for rate = %f, errorType %d , error %s", rate, errorType, getStringForPlaybackError(errorType));
 		}
 	}
 }
@@ -13768,4 +13787,35 @@ bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
 double PrivateInstanceAAMP::GetLLDashCurrentPlayBackRate(void)
 {
 	return mLLDashCurrentPlayRate;
+}
+
+
+/**
+ * @fn getStringForPlaybackError
+ * @brief Retrieves a human-readable error string for a given playback error type.
+ *
+ * @param[in] errorType - Errortype of PlaybackErrorType enum.
+ * @return A constant character pointer to the error string corresponding to the provided error type.
+ */
+const char* PrivateInstanceAAMP::getStringForPlaybackError(PlaybackErrorType errorType)
+{
+	switch (errorType)
+	{
+		case eGST_ERROR_PTS:
+			return "PTS ERROR";
+		case eGST_ERROR_UNDERFLOW:
+			return "Underflow";
+		case eSTALL_AFTER_DISCONTINUITY:
+			return "Stall After Discontinuity";
+		case eDASH_LOW_LATENCY_MAX_CORRECTION_REACHED:
+			return "LL DASH Max Correction Reached";
+		case eDASH_LOW_LATENCY_INPUT_PROTECTION_ERROR:
+			return "LL DASH Input Protection Error";
+		case eDASH_RECONFIGURE_FOR_ENC_PERIOD:
+			return "Encrypted period found";
+		case eGST_ERROR_GST_PIPELINE_INTERNAL:
+			return "GstPipeline Internal Error";
+		default:
+			return "STARTTIME RESET";
+	}
 }

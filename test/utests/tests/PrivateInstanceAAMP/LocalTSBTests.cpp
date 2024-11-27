@@ -23,15 +23,18 @@
 #include "priv_aamp.h"
 
 #include "AampConfig.h"
+#include "AampScheduler.h"
 #include "MockAampConfig.h"
 #include "MockAampGstPlayer.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
 #include "MockTSBSessionManager.h"
+#include "MockAampScheduler.h"
 
 using ::testing::_;
 using ::testing::WithParamInterface;
 using ::testing::Return;
 using ::testing::NiceMock;
+using ::testing::Invoke;
 
 class LocalTSBTests : public ::testing::Test
 {
@@ -310,6 +313,56 @@ TEST_F(LocalTSBTests, IncreaseGSTBufferTest_2)
 	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
 }
 
+TEST_F(LocalTSBTests, ScheduleRetuneTest)
+{
+	//initializing scheduler for single test
+	g_mockAampScheduler = new NiceMock<MockAampScheduler>();
+	AampScheduler mScheduler{};
+	mPrivateInstanceAAMP->SetScheduler(&mScheduler);
+
+	std::string taskName;
+
+	const char *testUrl = "http://localhost:80/manifest.mpd";
+	AampLLDashServiceData llData;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
+		.WillOnce([this, &llData] {
+					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+					return eAAMPSTATUS_OK;
+				});
+
+	mPrivateInstanceAAMP->Tune(testUrl, true);
+	mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableCurlStore)).WillRepeatedly(Return(true));// uninteresting expect call
+
+	//trickplay case
+	mPrivateInstanceAAMP->rate=-30;
+	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_))
+				.WillOnce(Invoke([&taskName](AsyncTaskObj obj) -> int {
+					taskName = obj.mTaskName;
+					return 1;
+				}));
+	mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
+	EXPECT_EQ(taskName, "PrivateInstanceAAMP_Retune");
+
+	//paused state
+	mPrivateInstanceAAMP->rate=0;
+	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).Times(0); // should not be called
+	mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
+
+	//trickplay but not internal pipeline error
+	mPrivateInstanceAAMP->rate=2;
+	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).Times(0);
+	mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_UNDERFLOW, eMEDIATYPE_VIDEO);
+
+	//mContentType == ContentType_EAS -> should not trigger retune
+	mPrivateInstanceAAMP->rate=4;
+	mPrivateInstanceAAMP->SetContentType("EAS");
+	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).Times(0);
+	mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
+
+	delete g_mockAampScheduler;
+	g_mockAampScheduler = nullptr;
+}
 
 
 
