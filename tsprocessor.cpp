@@ -3950,8 +3950,8 @@ bool TSProcessor::FilterAudioCodecBasedOnConfig(StreamOutputFormat audioFormat)
 {
 	bool ignoreProfile = false;
 	bool bDisableEC3 = ISCONFIGSET(eAAMPConfig_DisableEC3);
-	bool bDisableAC3 = bDisableEC3;
-	// bringing in parity with DASH , if EC3 is disabled ,then ATMOS also will be disabled
+	bool bDisableAC3 = ISCONFIGSET(eAAMPConfig_DisableAC3);
+	// if EC3 disabled, implicitly disable ATMOS
 	bool bDisableATMOS = (bDisableEC3) ? true : ISCONFIGSET(eAAMPConfig_DisableATMOS);
 
 	switch (audioFormat)

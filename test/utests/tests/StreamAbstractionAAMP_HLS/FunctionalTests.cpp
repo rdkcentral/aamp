@@ -1679,31 +1679,36 @@ TEST_F(TrackStateTests, SetLastPlaylistDownloadTime)
 
 TEST_F(StreamAbstractionAAMP_HLSTest, FilterAudioCodecBasedOnConfig_AllowAC3)
 {
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableEC3)).WillOnce(Return(true));
-    bool result = mStreamAbstractionAAMP_HLS->FilterAudioCodecBasedOnConfig(FORMAT_AUDIO_ES_AC3);
-    ASSERT_TRUE(result); // AC3 should be allowed
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableEC3)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableAC3)).WillOnce(Return(false));
+	bool result = mStreamAbstractionAAMP_HLS->FilterAudioCodecBasedOnConfig(FORMAT_AUDIO_ES_AC3);
+    ASSERT_FALSE(result); // AC3 should be allowed
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, FilterAudioCodecBasedOnConfig_DisableATMOS)
 {
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableEC3)).WillOnce(Return(true));
-    //EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableATMOS)).WillOnce(Return(true));
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableEC3)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableAC3)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableATMOS)).WillOnce(Return(true));
     bool result = mStreamAbstractionAAMP_HLS->FilterAudioCodecBasedOnConfig(FORMAT_AUDIO_ES_ATMOS);
-    //ASSERT_TRUE(result);
+    ASSERT_TRUE(result); // ATMOS should be disabled
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, FilterAudioCodecBasedOnConfig_DisableEC3)
 {
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableEC3)).WillOnce(Return(true));
-    bool result = mStreamAbstractionAAMP_HLS->FilterAudioCodecBasedOnConfig(FORMAT_AUDIO_ES_EC3);
-    //ASSERT_Fa(result);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableAC3)).WillOnce(Return(false));
+	bool result = mStreamAbstractionAAMP_HLS->FilterAudioCodecBasedOnConfig(FORMAT_AUDIO_ES_EC3);
+	ASSERT_TRUE(result); // EC3 should be disabled
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, FilterAudioCodecBasedOnConfig_Default)
 {
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableEC3)).WillOnce(Return(true));
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableEC3)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableAC3)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableATMOS)).WillOnce(Return(false));
     bool result = mStreamAbstractionAAMP_HLS->FilterAudioCodecBasedOnConfig(FORMAT_INVALID);
-   // ASSERT_TRUE(result);
+   	ASSERT_FALSE(result);
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, SetABRMinBuffer_test)
