@@ -13,7 +13,31 @@ SEGMENT_NUMBER=$6
 MEDIA_FNAME=$7
 INIT_FNAME=$8
 SOURCE_MEDIA=$9
+GENERATE_LL_SEGMENTS=${10}
 
+# low-latency options
+LL_OPTIONS=""
+if [ "$GENERATE_LL_SEGMENTS" = "generate_chunked_segments" ]; then
+LL_OPTIONS="\
+-frag_type duration \
+-frag_duration 0.48 \
+-ldash 1 \
+-utc_timing_url 'https://time.akamai.com?iso&amp;ms' \
+-write_prft 1 \
+"
+fi
+
+# The length of a 'standard' segment is OK but when given the options
+# to turn into chunks then ffmpeg seems to duplicate
+# one of the samples from the initial segment.
+# A duration of 460800/240000 should produce 90 samples at 1024 I.E
+# (90 *1024) /48000 duration each but after making chunks there are 91 
+# samples. Decrease the initial duration to compensate
+# 5120 = 1024 *240000/48000
+if [ "$TIMESCALE" = "240000" -a "$GENERATE_LL_SEGMENTS" = "generate_chunked_segments" ]; then
+DURATION=$(($DURATION - 5120))
+echo "New compensated duration $DURATION"
+fi
 # floating point math
 DURATION_S=$(echo "$DURATION $TIMESCALE" | awk '{printf "%f", $1 / $2}')
  
@@ -32,7 +56,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # split into init header and media segment
-ffmpeg -i audio.mp4 -c:a copy -f dash -init_seg_name $INIT_FNAME -media_seg_name $MEDIA_FNAME audio.mpd
+ffmpeg -i audio.mp4 -c:a copy $LL_OPTIONS -f dash -init_seg_name $INIT_FNAME -media_seg_name $MEDIA_FNAME audio.mpd
 
 if [ $? -ne 0 ]; then
     echo "ffmpeg failed while splitting audio into init header and media segment"
@@ -50,7 +74,7 @@ fi
 DUR_ADJ=$(echo "(($DURATION * $TIMESCALE) % $AUDIO_SAMPLING_RATE)" | bc)
 if [ $DUR_ADJ -ne 0 ]; then
     echo "WARNING: incompatible TIMESCALE and AUDIO_SAMPLING_RATE"
-    exit
+    exit 1
 fi
 
 # populate base media decode time and segment number

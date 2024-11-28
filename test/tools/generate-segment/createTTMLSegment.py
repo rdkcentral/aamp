@@ -78,7 +78,7 @@ template_ttml = \
     '<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:tts="http://www.w3.org/ns/ttml#styling" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" ttp:cellResolution="384 288" xml:lang="">\n' \
     '  <head>\n' \
     '    <layout>\n' \
-    '      <region xml:id="Default" tts:origin="3% 0%" tts:extent="97% 97%" tts:displayAlign="after" tts:textAlign="center" tts:fontSize="16c" tts:fontFamily="Arial" tts:overflow="visible" />\n' \
+    '      <region xml:id="Default" tts:backgroundColor="#000000FF" tts:origin="3% 0%" tts:extent="97% 97%" tts:displayAlign="after" tts:textAlign="center" tts:fontSize="16c" tts:fontFamily="Arial" tts:overflow="visible" />\n' \
     '    </layout>\n' \
     '  </head>\n' \
     '  <body>\n' \

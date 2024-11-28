@@ -2,52 +2,37 @@ import struct
 import sys
 import argparse
 import shutil
+import os
 
-def modify_base_media_decode_time(filename, new_time):
-    with open(filename, 'rb+') as f:
-        while True:
-            header = f.read(8)
-            if len(header) < 8:
-                break
-            size, box_type = struct.unpack('>I4s', header)
-            if box_type == b'moof':
-                while size > 8:
-                    header = f.read(8)
-                    if len(header) < 8:
-                        break
-                    inner_size, inner_box_type = struct.unpack('>I4s', header)
-                    if inner_box_type == b'traf':
-                        while inner_size > 8:
-                            header = f.read(8)
-                            if len(header) < 8:
-                                break
-                            traf_inner_size, traf_inner_box_type = struct.unpack('>I4s', header)
-                            if traf_inner_box_type == b'tfhd':
-                                f.seek(traf_inner_size - 8, 1)
-                            elif traf_inner_box_type == b'tfdt':
-                                version_flags = f.read(4)
-                                version = version_flags[0]
-                                if version == 0:
-                                    current_time = struct.unpack('>I', f.read(4))[0]
-                                    f.seek(-4, 1)
-                                    f.write(struct.pack('>I', new_time))
-                                    print(f"updated baseMediaDecodeTime {current_time} -> {new_time} (32-bit)")
-                                elif version == 1:
-                                    current_time = struct.unpack('>Q', f.read(8))[0]
-                                    f.seek(-8, 1)
-                                    f.write(struct.pack('>Q', new_time))
-                                    print(f"updated baseMediaDecodeTime {current_time} -> {new_time} (64-bit)")
-                                f.flush()
-                                return
-                            else:
-                                f.seek(traf_inner_size - 8, 1)
-                            inner_size -= traf_inner_size
-                    else:
-                        f.seek(inner_size - 8, 1)
-                    size -= inner_size
-            else:
-                f.seek(size - 8, 1)
+def modify_base_media_decode_time(filename, new_time, scale):
+    current_time = None
+    for f, size in BoxFinder(filename,b'tfdt'):
+        version_flags = f.read(4)
+        version = version_flags[0]
+        """
+        For a generated segment then the 'current_time' is 0 in the first moof
+        For a chunked segment then subsequent moof's will have the curent_time
+        increased depending on the size of the previous chunk
+        In either case new_base_media_time = current_time + new_time should give
+        the correct updated decode time
+        """
+        if version == 0:
+            current_time = struct.unpack('>I', f.read(4))[0]
+            f.seek(-4, 1)
+            updated_time = int(new_time+(current_time*scale))
+            f.write(struct.pack('>I', ))
+            print(f"updated baseMediaDecodeTime scale {scale} {current_time} -> {updated_time} (32-bit)")
+        elif version == 1:
+            current_time = struct.unpack('>Q', f.read(8))[0]
+            f.seek(-8, 1)
+            updated_time = int(new_time+(current_time*scale))
+            f.write(struct.pack('>Q', updated_time))
+            print(f"updated baseMediaDecodeTime scale {scale} {current_time} -> {updated_time} (64-bit)")
+            f.flush()
+
+    if current_time is None:
         print("Could not find the required boxes under moof/traf/tfdt to update baseMediaDecodeTime.", file=sys.stderr)
+        exit(1)
 
 def modify_timescale_mvhd(filename, new_timescale):
     with open(filename, 'rb+') as f:
@@ -201,74 +186,86 @@ def modify_segmentNumber(filename, new_sequence_number):
                 # Skip over the current top-level box
                 f.seek(size - 8, 1)
 
-def modify_default_sample_duration(filename, scale_num, scale_denom):
-    with open(filename, 'rb+') as f:
-        while True:
-            # Read the box header (size and type)
-            header = f.read(8)
-            if len(header) < 8:
-                # print("End of file.")
-                break
-            size, box_type = struct.unpack('>I4s', header)
-            
-            if box_type == b'moof':
-                moof_end = f.tell() + size - 8
-                while f.tell() < moof_end:
-                    # Read traf box
-                    header = f.read(8)
-                    if len(header) < 8:
-                        break
-                    inner_size, inner_box_type = struct.unpack('>I4s', header)
-                    
-                    if inner_box_type == b'traf':
-                        traf_end = f.tell() + inner_size - 8
-                        while f.tell() < traf_end:
-                            # Read tfhd box
-                            header = f.read(8)
-                            if len(header) < 8:
-                                break
-                            sub_inner_size, sub_inner_box_type = struct.unpack('>I4s', header)
-                            
-                            if sub_inner_box_type == b'tfhd':
-                                # Read flags to check which fields are present
-                                version_flags = f.read(4)
-                                flags = struct.unpack('>I', version_flags)[0]
-                                
-                                f.read(4)  # Skip track_ID
-                                
-                                offset = 0  # Offset from track_ID to the field we want to modify
-                                
-                                # Check and adjust offset based on flags
-                                if flags & 0x000008:  # default_sample_duration
-                                    offset += 4
-                                if flags & 0x000010:  # default_sample_size
-                                    offset += 4
-                                if flags & 0x000020:  # default_sample_flags
-                                    offset += 4
-                                
-                                if flags & 0x000008:  # Modify if default_sample_duration is present
-                                    f.seek(-sub_inner_size + 16 + offset, 1)  # Move to default_sample_duration position
-                                    current_duration = struct.unpack('>I', f.read(4))[0]
-                                    new_duration = int((current_duration * scale_num) / scale_denom)
-                                    f.seek(-4, 1)  # Move back 4 bytes to overwrite
-                                    f.write(struct.pack('>I', new_duration))
-                                    print(f"updated default sample duration {current_duration} -> {new_duration}")
-                                    f.flush()
-                                else:
-                                    print("default_sample_duration not present in tfhd")
-                                return
-                            else:
-                                # Skip over the current sub-inner box
-                                f.seek(sub_inner_size - 8, 1)
-                        break
-                    else:
-                        # Skip over the current inner box
-                        f.seek(inner_size - 8, 1)
-                break
-            else:
-                # Skip over the current top-level box
-                f.seek(size - 8, 1)
+def modify_default_sample_duration(filename, scale):
 
+        for f, size in BoxFinder(filename,b'tfhd'):
+            # Read flags to check which fields are present
+            version_flags = f.read(4)
+            flags = struct.unpack('>I', version_flags)[0]
+
+            f.read(4)  # Skip track_ID
+
+            offset = 0  # Offset from track_ID to the field we want to modify
+
+            # Check and adjust offset based on flags
+            if flags & 0x000008:  # default_sample_duration
+                offset += 4
+            if flags & 0x000010:  # default_sample_size
+                offset += 4
+            if flags & 0x000020:  # default_sample_flags
+                offset += 4
+
+            if flags & 0x000008:  # Modify if default_sample_duration is present
+                f.seek(-size + 16 + offset, 1)  # Move to default_sample_duration position
+                current_duration = struct.unpack('>I', f.read(4))[0]
+                new_duration = int(current_duration * scale)
+                f.seek(-4, 1)  # Move back 4 bytes to overwrite
+                f.write(struct.pack('>I', new_duration))
+                print(f"updated default sample duration scale {scale} {current_duration} -> {new_duration}")
+                f.flush()
+            else:
+                print("default_sample_duration not present in tfhd")
+                exit(1)
+
+class BoxFinder:
+    """
+    Iterates through isobmff file and find all boxes of the requested type.
+    """
+    def __init__(self, filename,box_to_find):
+        self.filename = filename
+        self.box_to_find = box_to_find
+
+    def __iter__(self):
+        self.f = open(self.filename, 'rb+')
+        s = os.path.getsize(self.filename)
+        self.box_list= [ (0,s) ]
+        return self
+
+    def __next__(self):
+        #print("__next__ ",self.box_list)
+        while len(self.box_list):
+            next_box, size = self.box_list.pop()
+            self.f.seek(next_box,0)
+            while size>8:
+                # Read the box header (size and type)
+                header = self.f.read(8)
+                if len(header) < 8:
+                    self.f.close()
+                    raise StopIteration
+                box_size, box_type = struct.unpack('>I4s', header)
+                #print(box_type)
+                next_box = self.f.tell() + box_size-8
+                remaining_size = size - box_size
+
+                if box_type == self.box_to_find:
+                    # Save the position in the file we need
+                    # to continue search from 
+                    if remaining_size>8:
+                        self.box_list.append((next_box, remaining_size))
+                    #Return position and size of box we have found
+                    return (self.f,box_size)
+                elif box_type in [b'moof', b'traf']:
+                    # Found a box that we need to dive into
+                    # Save position of next box at this level
+                    # to return to once we have finished depth search
+                    self.box_list.append((next_box, remaining_size))
+                    size = box_size
+                else:
+                    self.f.seek(box_size - 8, 1)
+                    size -= box_size
+        #Not found
+        self.f.close()
+        raise StopIteration
 
 parser = argparse.ArgumentParser(description="Modify content metadata")
 parser.add_argument("filename", type=str, help="The filename to modify")
@@ -279,8 +276,12 @@ parser.add_argument("--audioSamplingRate", type=str, help="audioSamplingRate use
 args = parser.parse_args()
 print ('argument list', sys.argv)
 
+scale = 1
+if args.baseMediaDecodeTime and args.audioSamplingRate:
+    scale = int(args.timescale)/int(args.audioSamplingRate)
+
 if args.baseMediaDecodeTime:
-    modify_base_media_decode_time(args.filename, int(args.baseMediaDecodeTime))
+    modify_base_media_decode_time(args.filename, int(args.baseMediaDecodeTime), scale)
 
 if args.segmentNumber:
     modify_segmentNumber(args.filename, int(args.segmentNumber))
@@ -291,7 +292,7 @@ if args.timescale:
 
     #Note: this does NOT yet update sample_duration list from trun box, which is present when all samples can't be constructed with a common duration
     if args.audioSamplingRate:
-        modify_default_sample_duration(args.filename, int(args.timescale), int(args.audioSamplingRate))
+        modify_default_sample_duration(args.filename, scale)
 
 #Remove sidx box
 remove_sidx_box_in_place(args.filename)
