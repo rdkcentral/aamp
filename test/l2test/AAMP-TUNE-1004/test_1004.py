@@ -26,12 +26,13 @@ import os
 import sys
 from inspect import getsourcefile
 import pytest
-import subprocess
 
 ###############################################################################
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/AAMP/simlinear/SkyAtlantic/30t-2/skyatlantic-30t-2.tgz"
 
 TESTDATA0 = {
 "title": "Tune time test 0",
+"archive_url": archive_url,
 "url": "v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd",
 'simlinear_type': 'DASH',
 "aamp_cfg": "info=true\ntrace=true\nlogMetadata=true\n",

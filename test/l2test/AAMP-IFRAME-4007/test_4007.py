@@ -23,6 +23,8 @@ import os
 import pytest
 import re
 
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/testApps/L2/AAMP-IFRAME-4007/VideoTestStream.tar.xz"
+
 TESTDATA1 = {
     "title": f"Mpd Trick Play - Pause & Play",
     "logfile": f"pause_play.txt",
@@ -82,6 +84,7 @@ TESTDATA2 = {
     "logfile": f"ff_resume.txt",
     "max_test_time_seconds": 40,
     "aamp_cfg": f"info=true\ntrace=true\nprogress=true\nprogressReportingInterval=0.25",
+    "archive_url": archive_url,
     "url": f"VideoTestStream/main.mpd",
     "simlinear_type": "DASH",
     "expect_list": [
@@ -122,6 +125,7 @@ TESTDATA3 = {
     "logfile": f"ff_ramp_up_resume.txt",
     "max_test_time_seconds": 60,
     "aamp_cfg": f"info=true\ntrace=true\nprogress=true\n",
+    "archive_url": archive_url,
     "url": f"VideoTestStream/main.mpd",
     "simlinear_type": "DASH",
     "expect_list": [
@@ -168,6 +172,7 @@ TESTDATA4 = {
     "logfile": f"ff_ramp_down_resume.txt",
     "max_test_time_seconds": 60,
     "aamp_cfg": f"info=true\ntrace=true\nprogress=true\n",
+    "archive_url": archive_url,
     "url": f"VideoTestStream/main.mpd",
     "simlinear_type": "DASH",
     "expect_list": [

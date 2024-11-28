@@ -23,13 +23,14 @@ import os
 import pytest
 import re 
 
-
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/testApps/L2/seekMidFragment.tar.xz"
 
 TESTDATA1 = {
     "title": "Testcase to validate seekMidFragment config",
     "logfile": f"seekMidFragment_true.txt",
     "max_test_time_seconds": 20,
     "aamp_cfg": "info=true\ntrace=true\nseekMidFragment=true",
+    "archive_url": archive_url,
     "url":"seekMidFragment/test_manifest.mpd",
     "simlinear_type": "DASH",
     "expect_list": [
@@ -51,6 +52,7 @@ TESTDATA2 = {
     "logfile": f"seekMidFragment_false.txt",
     "max_test_time_seconds": 30,
     "aamp_cfg": "info=true\ntrace=true\nseekMidFragment=false",
+    "archive_url": archive_url,
     "url":"seekMidFragment/test_manifest.mpd",
     "simlinear_type": "DASH",
     "expect_list": [ 

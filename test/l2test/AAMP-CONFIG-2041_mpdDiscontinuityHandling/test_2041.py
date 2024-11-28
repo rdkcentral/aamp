@@ -22,12 +22,14 @@ from inspect import getsourcefile
 import os
 import pytest
 
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/discontinuityTestStream.tar.xz"
 
 TESTDATA0 = {
 	"title": "Set mpdDiscontinuityHandling as false",
 	"logfile": "mpdDiscontinuityHandling_false.txt",
 	"max_test_time_seconds": 35,
 	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\nmpdDiscontinuityHandling=false\n",
+    "archive_url": archive_url,
 	"url":f"discontinuityTestStream/dash.akamaized.net/dash264/TestCasesIOP33/multiplePeriods/2/manifest.mpd",
 	"simlinear_type": "DASH",
     "cmdlist": [
@@ -55,6 +57,7 @@ TESTDATA1 = {
 	"logfile": "mpdDiscontinuityHandling_true.txt",
 	"max_test_time_seconds": 35,
 	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\nmpdDiscontinuityHandling=true\n",
+    "archive_url": archive_url,
 	"url":f"discontinuityTestStream/dash.akamaized.net/dash264/TestCasesIOP33/multiplePeriods/2/manifest.mpd",
 	"simlinear_type": "DASH",
 	"expect_list": [

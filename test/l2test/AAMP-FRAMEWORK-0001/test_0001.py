@@ -22,10 +22,12 @@ import os
 import pytest
 import re
 
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/AAMP/simlinear/aamptest/streams/simlinear/SkyWitness/30t-after-fix/skywitness-30t-after-fix.zip"
 TESTDATA1 = {
     "title": "Test case to starting simlinear using expect_a",
     "logfile": "testdata1.txt",
     "max_test_time_seconds": 10,
+    "archive_url": archive_url,
      "url":"v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd",
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\ntrace=true\nprogress=true\n",

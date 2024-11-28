@@ -37,6 +37,7 @@ HTTP_PORT = os.environ["L2_HTTP_PORT"] if "L2_HTTP_PORT" in os.environ else '808
 HTTPSERVER_DATA_PATH = os.path.join(TEST_PATH, 'httpdata')
 HTTPSERVER_CMD = ['python3', '-m', 'http.server', HTTP_PORT, '-d', HTTPSERVER_DATA_PATH]
 use_local_httpserver = True
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/AAMP/simlinear/SkyAtlantic/30t-2/skyatlantic-30t-2.tgz"
 
 if "TEST_2001_LOCAL_ADS" in os.environ and os.environ["TEST_2001_LOCAL_ADS"] == 'true':
     AD_HOST = "http://localhost:" + HTTP_PORT
@@ -102,6 +103,7 @@ def stop_httpserver():
 
 TESTDATA0 = {
 "title": "Linear CDAI TESTDATA0 alternating",
+"archive_url" : archive_url,
 "url": "v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd",
 'simlinear_type': 'DASH',
 "max_test_time_seconds": test_time,
@@ -180,6 +182,7 @@ TESTDATA0 = {
 
 TESTDATA1 = {
 "title": "Linear CDAI TESTDATA1 back2back",
+"archive_url" : archive_url,
 "url": "v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd",
 'simlinear_type': 'DASH',
 "max_test_time_seconds": test_time,
@@ -279,6 +282,7 @@ TESTDATA1 = {
 
 TESTDATA2 = {
 "title": "TC:2.2-Back to back source period with multiple CDAI ad substitution",
+"archive_url" : archive_url,
 "url": "v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd",
 'simlinear_type': 'DASH',
 "max_test_time_seconds": test_time,

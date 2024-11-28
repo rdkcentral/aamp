@@ -26,35 +26,13 @@ import os
 import sys
 from inspect import getsourcefile
 import pytest
-import subprocess
-import atexit
 import re
 from l2test_pts_restamp import PtsRestampUtils
-
+from l2test_window_server import WindowServer
 ###############################################################################
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-CDAI-8004_ShortAd/content.tar.xz"
 
-server_process = None
-server_path = os.path.join(os.getcwd(), "AAMP-CDAI-8007_Single_src_period_with_CDAI_ad_long_by_2/testdata/content/server.py")
 pts_restamp_utils = PtsRestampUtils()
-
-def start_server():
-    global server_process
-    if os.path.isfile(server_path):
-        try:
-            server_process = subprocess.Popen(["python3", server_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("started server.py")
-            atexit.register(server_process.terminate)
-        except Exception as e:
-            print("Failed to start server.py"+server_path)
-    else:
-        print("Error: server.py file not found "+ server_path)
-
-def stop_server():
-    global server_process
-    if server_process:
-        print("stop server")
-        server_process.terminate()
-        server_process = None
 
 
 # Test Case 4.1: Single Source Period with CDAI Ad Long by <= 2 Seconds
@@ -70,10 +48,12 @@ TESTDATA1 = {
     "title": "Single source period with CDAI ad long by <= 2 sec",
     "max_test_time_seconds": 180,
     "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\nprogress=true\n",
-    "url": "http://localhost:8080/AAMP-CDAI-8007_Single_src_period_with_CDAI_ad_long_by_2/testdata/content/TC1.mpd?live=true",
+    "archive_url": archive_url,
+    'archive_server': {'server_class': WindowServer},
+    "url": "http://localhost:8080/content/TC1.mpd?live=true",
     "cmdlist": [
         # Adding a 32-second ad for the ad break in Period 1
-        "advert add http://localhost:8080/AAMP-CDAI-8007_Single_src_period_with_CDAI_ad_long_by_2/testdata/content/ad_32s.mpd 32",
+        "advert add http://localhost:8080/content/ad_32s.mpd 32",
     ],
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune:", "min": 0, "max": 3},
@@ -95,7 +75,7 @@ TESTDATA1 = {
         # Expectation for handling adbreak ending early and terminating ad playback
         {"expect": r"Adbreak ended early. Terminating Ad playback", "min": 0, "max": 150},
         # Expectation for playing last (extra) 2 sec from ad - 16th ad fragment(Full ad)
-        {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8007_Single_src_period_with_CDAI_ad_long_by_2/testdata/content/ad_30/1080p_016.m4s", "min": 0, "max": 150},
+        {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_30/1080p_016.m4s", "min": 0, "max": 150},
 	#End of the test - confirm the last segment fetched from Period 2
         {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_045.m4s\?live=true", "min": 0, "max": 180, "end_of_test":True},
     ]
@@ -117,12 +97,14 @@ TESTDATA2= {
     "title": "Back to Back source period with CDAI ad long by <= 2 sec",
     "max_test_time_seconds": 300,
     "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\nprogress=true\n",
-    "url": "http://localhost:8080/AAMP-CDAI-8007_Single_src_period_with_CDAI_ad_long_by_2/testdata/content/BackToBackAd.mpd?live=true",
+    "archive_url": archive_url,
+    'archive_server': {'server_class': WindowServer},
+    "url": "http://localhost:8080/content/BackToBackAd.mpd?live=true",
     "cmdlist": [
         # Adding a 32-second ad for the first 30 sec ad break in Period 1
-        "advert add http://localhost:8080/AAMP-CDAI-8007_Single_src_period_with_CDAI_ad_long_by_2/testdata/content/ad_32s.mpd 32",
+        "advert add http://localhost:8080/content/ad_32s.mpd 32",
         # Adding a 12-second ad for the second 10 sec ad break in Period 2
-        "advert add http://localhost:8080/AAMP-CDAI-8007_Single_src_period_with_CDAI_ad_long_by_2/testdata/content/ad_12s.mpd 12"
+        "advert add http://localhost:8080/content/ad_12s.mpd 12"
     ],
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune:", "min": 0, "max": 3},
@@ -148,9 +130,9 @@ TESTDATA2= {
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 12000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 1", "min": 0, "max": 200},
         {"expect": r"Adbreak ended early. Terminating Ad playback", "min": 0, "max": 150},
         # Expectation for playing the last 2 seconds from the ad segment
-        {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8007_Single_src_period_with_CDAI_ad_long_by_2/testdata/content/ad_30/1080p_016.m4s", "min": 0, "max": 200},
+        {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_30/1080p_016.m4s", "min": 0, "max": 200},
         # Ensuring the last additional 2 seconds from the 12-second ad is played
-        {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8007_Single_src_period_with_CDAI_ad_long_by_2/testdata/content/ad_30/1080p_011.m4s", "min": 0, "max": 200, "count": 2},
+        {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_30/1080p_011.m4s", "min": 0, "max": 200, "count": 2},
         # Confirming the last segment fetched belongs to Period 2, indicating end of the test
         {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_045.m4s\?live=true", "min": 0, "max": 180, "end_of_test": True},
     ]
@@ -171,8 +153,6 @@ def test_8007(aamp_setup_teardown, test_data):
 
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    start_server()
     aamp.run_expect_b(test_data)
-    stop_server()
 
     pts_restamp_utils.check_num_segments()

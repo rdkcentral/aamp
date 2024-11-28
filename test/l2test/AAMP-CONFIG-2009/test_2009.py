@@ -26,6 +26,8 @@ from inspect import getsourcefile
 import pytest
 import re 
 
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/sky/skywitness-4klive-8M.tar.gz"
+
 TESTDATA1 = {
 
 "title": "Disabled 4k",
@@ -34,6 +36,7 @@ TESTDATA1 = {
 
 "max_test_time_seconds": 30,
 "aamp_cfg": f"info=true\ntrace=true\nprogress=true\ndisable4K=true",
+"archive_url": archive_url,
 "url":"v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd",
 "simlinear_type": "DASH",
 "expect_list": [
@@ -48,6 +51,7 @@ TESTDATA2 = {
 "logfile": "4k_enabled.txt",
 "max_test_time_seconds": 30,
 "aamp_cfg": f"info=true\ntrace=true\nprogress=true\ndisable4K=false",
+"archive_url": archive_url,
 "url":"v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd",
 "simlinear_type": "DASH",
 "expect_list": [
