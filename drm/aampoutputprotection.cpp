@@ -58,11 +58,6 @@ AampOutputProtection::AampOutputProtection()
 {
     DEBUG_FUNC;
     pthread_mutex_init(&m_opProtectMutex,NULL);
-#ifndef USE_OPENCDM
-#if defined(USE_PLAYREADY)
-    memset(&m_minOPLevels, 0, sizeof(MinOPLevelsplayReady));
-#endif
-#endif
 
     // Get initial HDCP status
     SetHDMIStatus();
@@ -288,83 +283,7 @@ void AampOutputProtection::GetDisplayResolution(int &width, int &height)
     height  = m_displayHeight;
 }
 
-#ifndef USE_OPENCDM
-#if defined(USE_PLAYREADY)
-// TODO: this PlayReady-specific logic should ideally be split out into a separate subclass.
-// Note that it is only used by the (non-OCDM) PlayReadyDRMSession class.
 
-// Pleayrady OP Callback
-
-/**
- * @brief Pleayrady OP Callback to ensure HDCP compliance
- * @retval DRM_SUCCESS if no errors encountered
- */
-DRM_RESULT DRM_CALL AampOutputProtection::PR_OP_Callback(const DRM_VOID *f_pvOutputLevelsData,
-                                                                DRM_POLICY_CALLBACK_TYPE f_dwCallbackType,
-                                                                const DRM_VOID *data)
-{
-    DRM_RESULT res = DRM_SUCCESS;
-
-    DEBUG_FUNC;
-
-    AAMPLOG_WARN("outputLevelsCallback outputLevels=%p callbackType=%u data=%p",
-            f_pvOutputLevelsData, static_cast<uint32_t>(f_dwCallbackType), data);
-
-    AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProcectionInstance();
-
-    // We only care about the play callback.
-    if (f_dwCallbackType != DRM_PLAY_OPL_CALLBACK)
-        return DRM_SUCCESS;
-
-    // Pull out the protection levels.
-    DRM_PLAY_OPL_EX* pr_Levels          = (DRM_PLAY_OPL_EX*)f_pvOutputLevelsData;
-    MinOPLevelsplayReady* pm_Levels     = (MinOPLevelsplayReady*)data;
-
-    if(pm_Levels != NULL) {
-        pm_Levels->compressedDigitalVideo      = pr_Levels->minOPL.wCompressedDigitalVideo;
-        pm_Levels->uncompressedDigitalVideo    = pr_Levels->minOPL.wUncompressedDigitalVideo;
-        pm_Levels->analogVideo                 = pr_Levels->minOPL.wAnalogVideo;
-        pm_Levels->compressedDigitalAudio      = pr_Levels->minOPL.wCompressedDigitalAudio;
-        pm_Levels->uncompressedDigitalAudio    = pr_Levels->minOPL.wUncompressedDigitalAudio;
-
-        // At actual device, enable/disable device output protection will be needed
-        // upon receiving this protection information.
-        AAMPLOG_WARN(" compressed digital %d, uncompressed digital %d, analog video %d",
-                  pm_Levels->compressedDigitalVideo,
-                  pm_Levels->uncompressedDigitalVideo,
-                  pm_Levels->analogVideo);
-
-        // HDCP needs to be turned on for levels 270 and higher
-        if(pm_Levels->uncompressedDigitalVideo >= 270) {
-            // Get current HDCP level.
-            if(pInstance->m_isHDCPEnabled) {
-                // We have an HDCP connection
-                if(pInstance->m_hdcpCurrentProtocol == dsHDCP_VERSION_1X ||
-                   pInstance->m_hdcpCurrentProtocol == dsHDCP_VERSION_2X) {
-                    // We have an active HDCP connection
-                    AAMPLOG_WARN(" HDCP is enabled version --> %d", pInstance->m_hdcpCurrentProtocol);
-                    res = DRM_SUCCESS;
-                }
-            }
-            else {
-                AAMPLOG_WARN(" HDCP --> is not connected", pInstance->m_hdcpCurrentProtocol);
-                res = DRM_E_FAIL;
-            }
-        }
-        else {
-            AAMPLOG_WARN(" HDCP --> is not required, current version %d,  uncompressedDigitalVideo = %d",
-                     pInstance->m_hdcpCurrentProtocol, pm_Levels->uncompressedDigitalVideo);
-            res = DRM_SUCCESS;
-        }
-    }
-
-    pInstance->Release();
-
-    // All done.
-    return res;
-}
-#endif
-#endif
 
 #ifdef IARM_MGR
 

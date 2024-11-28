@@ -63,13 +63,7 @@ AampDrmSession* AampDrmSessionFactory::GetDrmSession(std::shared_ptr<AampDrmHelp
 #elif defined (USE_OPENCDM)
 	return new AAMPOCDMSession(systemId);
 #else // No form of OCDM support. Attempt to fallback to hardcoded session classes
-	if (systemId == PLAYREADY_KEY_SYSTEM_STRING)
-	{
-#if defined(USE_PLAYREADY)
-		return new PlayReadyDRMSession();
-#endif // USE_PLAYREADY
-	}
-	else if (systemId == CLEAR_KEY_SYSTEM_STRING)
+    if (systemId == CLEAR_KEY_SYSTEM_STRING)
 	{
 #if defined(USE_CLEARKEY)
 		return new ClearKeySession();
