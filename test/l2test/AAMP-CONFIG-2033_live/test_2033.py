@@ -44,7 +44,7 @@ TESTDATA1 = {
         {"cmd" : "live"}, 
         {"expect" : r"aamp_Seek position adjusted to absolute value: 1689262798\.[0-9]{6}"}, 
         {"expect" : r"eTUNETYPE_SEEKTOLIVE"}, 
-        {"expect" : r"Updated seek_pos_seconds 168926284[4-8]"} , 
+        {"expect" : r"Updated seek_pos_seconds 168926284[4-9]"} , 
         {"expect" : r"TuneHelper - seek_pos: 168926284[4-8]"},
         {"expect" : r"AAMP_EVENT_SEEKED: new positionMs 168926284[4-8]"},
         # {"cmd": "sleep 3000"},

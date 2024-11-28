@@ -5455,7 +5455,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		culledOffset = culledSeconds;
 		UpdateProfileCappedStatus();
 #ifndef AAMP_STOP_SINK_ON_SEEK
-		AAMPLOG_WARN("Updated culledOffset: %f seek_pos_seconds: %f culledSeconds/start: %f ", culledOffset,seek_pos_seconds, culledSeconds);
+		/*
+		Do not modify below log line since it is used in checking L2 test case results.
+		If need to be modified then make sure below test cases are modified to
+		reflect the same.
+		AAMP-CONFIG-2033_live
+		AAMP-CONFIG-2029_seekMidFragment
+		*/
+		AAMPLOG_WARN("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
 #endif
 		mpStreamAbstractionAAMP->GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
 		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d", mVideoFormat, mAudioFormat, mAuxFormat);
