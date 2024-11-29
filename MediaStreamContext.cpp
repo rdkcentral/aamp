@@ -269,7 +269,10 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
             if (mSkipSegmentOnError)
             {
                 // Skip segment on error, and increse fail count
-                segDLFailCount += 1;
+                if(httpErrorCode != 502)
+                {
+                    segDLFailCount += 1;
+                }
             }
             else
             {
@@ -288,8 +291,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			    {
                             AAMPLOG_ERR("%s Not able to download fragments; reached failure threshold sending tune failed event",name);
                             abortWaitForVideoPTS();
-				aamp->SetFlushFdsNeededInCurlStore(true);
-                        	aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
+			     aamp->SetFlushFdsNeededInCurlStore(true);
+                            aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 			    }
                     }
                     else
@@ -298,6 +301,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			            AAMPLOG_ERR("%s Not able to download init fragments; reached failure threshold sending tune failed event",name);
                         abortWaitForVideoPTS();
 			aamp->SetFlushFdsNeededInCurlStore(true);
+
 			aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
                     }
                 }
@@ -320,7 +324,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
                 }
                 else
                 {
-                    if(!playingAd && initSegment)
+                    if(!playingAd && initSegment && httpErrorCode !=502 )
                     {
                         // Already at lowest profile, send error event for init fragment.
 			            AAMPLOG_ERR("Not able to download init fragments; reached failure threshold sending tune failed event");

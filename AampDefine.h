@@ -82,6 +82,8 @@
 #define TRICKPLAY_VOD_PLAYBACK_FPS 4            		/**< Frames rate for trickplay from CDN server */
 #define TRICKPLAY_LINEAR_PLAYBACK_FPS 8                		/**< Frames rate for trickplay from TSB */
 #define DEFAULT_DOWNLOAD_RETRY_COUNT (1)			/**< max download failure retry attempt count */
+#define DEFAULT_FRAGMENT_DOWNLOAD_502_RETRY_COUNT (1) /**< max fragment download failure retry attempt count for 502 error */
+#define DEFAULT_MANIFEST_DOWNLOAD_502_RETRY_COUNT (10) /**< max manifest download failure retry attempt count for 502 error */
 #define DEFAULT_DISCONTINUITY_TIMEOUT 3000          		/**< Default discontinuity timeout after cache is empty in MS */
 #define CURL_FRAGMENT_DL_TIMEOUT 10L    			/**< Curl timeout for fragment download */
 #define DEFAULT_STALL_ERROR_CODE (7600)             		/**< Default stall error code: 7600 */
@@ -130,6 +132,7 @@
 #define SAFE_LATENCY_VALUE_FOR_SLOW_REFRESH (20000) // 20 sec
 #define MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (6000)
 #define MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (500) // 500mSec
+#define MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS (1000) // 1000mSec
 #define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
 #define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) /**< time interval for the telemetry reporting 300sec*/
 #define INITIAL_SUBTITLE_CLOCK_SYNC_INTERVAL_MS (500)     /**< default time interval for the subtitle clock sync 500ms*/

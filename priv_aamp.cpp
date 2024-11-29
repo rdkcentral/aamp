@@ -4224,8 +4224,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						AampLogManager::LogNetworkError (effectiveUrl.empty() ? remoteUrl.c_str() : effectiveUrl.c_str(), // Effective URL could be different than remoteURL
 						AAMPNetworkErrorHttp, http_code, mediaType);
 						print_headerResponse(context.allResponseHeaders, mediaType);
-
-						if((http_code >= 500 && http_code != 502) && downloadAttempt < maxDownloadAttempt)
+						//Http error 502 to be reattempted once per fragment download and remaining http error to be reattempted as per config
+						if(((http_code >= 500 && http_code !=502) && downloadAttempt < maxDownloadAttempt) || (http_code == 502 && downloadAttempt <= DEFAULT_FRAGMENT_DOWNLOAD_502_RETRY_COUNT))
 						{
 							int waitTimeBeforeRetryHttp5xxMSValue = GETCONFIGVALUE_PRIV(eAAMPConfig_Http5XXRetryWaitInterval);
 							InterruptableMsSleep(waitTimeBeforeRetryHttp5xxMSValue);
