@@ -9722,22 +9722,29 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						if (parallelDnld && trackIdx > 0) // (trackIdx > 0) indicates video/iframe/audio-only has to be downloaded in sync mode from this FetcherLoop().
 						{
 							// Download the audio & subtitle fragments in a separate parallel thread.
-							parallelDownload[trackIdx] = new std::thread(
-								&StreamAbstractionAAMP_MPD::AdvanceTrack,
-								this,
-								trackIdx,
-								trickPlay,
-								&delta,
-								&waitForFreeFrag,
-								&cacheFullStatus[trackIdx],
-								(trackIdx == eMEDIATYPE_AUDIO) ? throttleAudio : false,
-								false);
-							AAMPLOG_TRACE("Thread created for parallelDownload:AdvanceTrack [%d][%zx]", trackIdx, GetPrintableThreadID(*parallelDownload[trackIdx]));
-							// Reset throttleAudio for next iteration
-							if (trackIdx == eMEDIATYPE_AUDIO && throttleAudio)
+							try
 							{
-								AAMPLOG_INFO("Set throttleAudio to false");
-								throttleAudio = false;
+								parallelDownload[trackIdx] = new std::thread(
+									&StreamAbstractionAAMP_MPD::AdvanceTrack,
+									this,
+									trackIdx,
+									trickPlay,
+									&delta,
+									&waitForFreeFrag,
+									&cacheFullStatus[trackIdx],
+									(trackIdx == eMEDIATYPE_AUDIO) ? throttleAudio : false,
+									false);
+								AAMPLOG_TRACE("Thread created for parallelDownload:AdvanceTrack [%d][%zx]", trackIdx, GetPrintableThreadID(*parallelDownload[trackIdx]));
+								// Reset throttleAudio for next iteration
+								if (trackIdx == eMEDIATYPE_AUDIO && throttleAudio)
+								{
+									AAMPLOG_INFO("Set throttleAudio to false");
+									throttleAudio = false;
+								}
+							}
+							catch (const std::exception &e)
+							{
+								AAMPLOG_ERR("Failed to create thread for parallelDownload:AdvanceTrack [%d] - %s", trackIdx, e.what());
 							}
 						}
 						else
@@ -9864,10 +9871,19 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					int timeoutMs = MAX_WAIT_TIMEOUT_MS;
 					int trackIdx = (vEos && !aEos) ? eMEDIATYPE_AUDIO : eMEDIATYPE_VIDEO;
 					AAMPLOG_DEBUG("Cache full state track(%d), no download until(%d) Time(%lld)", trackIdx, timeoutMs, aamp_GetCurrentTimeMS());
-					bool temp = mMediaStreamContext[trackIdx]->WaitForFreeFragmentAvailable(timeoutMs);
-					if (temp == false)
+					if(aamp->GetLLDashChunkMode() && !aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx)))
 					{
-						AAMPLOG_DEBUG("Waiting for FreeFragmentAvailable"); // CID:82355 - checked return
+						// Track is already at enough-data state, no need to wait for cache full
+						aamp->InterruptableMsSleep(timeoutMs);
+						AAMPLOG_DEBUG("Waited for track(%d) need-data", trackIdx);
+					}
+					else
+					{
+						bool temp = mMediaStreamContext[trackIdx]->WaitForFreeFragmentAvailable(timeoutMs);
+						if (temp == false)
+						{
+							AAMPLOG_DEBUG("Waited for FreeFragmentAvailable"); // CID:82355 - checked return
+						}
 					}
 				}
 				else
