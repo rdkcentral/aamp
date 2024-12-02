@@ -3585,6 +3585,7 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 		pInstance->Release();
 	}
 #endif
+	aamp->seiTimecode.assign(""); // LLAMA-11119
 	TearDownStream(eMEDIATYPE_VIDEO);
 	TearDownStream(eMEDIATYPE_AUDIO);
 	TearDownStream(eMEDIATYPE_SUBTITLE);
