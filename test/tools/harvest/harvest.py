@@ -115,7 +115,7 @@ class SegmentDownloader:
                 (url,filename) = self.inqueue.get_nowait()
                 log.debug(f"Fetching {url}")
 
-                resp = self.requests_session.get(url)
+                resp = self.requests_session.get(url, verify=False)
 
                 if resp.ok:
                     write_file(filename, resp.content)
@@ -211,7 +211,7 @@ class ManifestDownloader:
             last_loop_time = time.time()
             for url, last_read in self.last_read.items():
 
-                resp = self.requests_session.get(url)
+                resp = self.requests_session.get(url, verify=False)
 
                 if resp.status_code != 200:
                     log.error("status_code=%d %s", resp.status_code, url)
@@ -494,7 +494,7 @@ if __name__ == "__main__":
     ftype = get_manifest_type(filename_part)
     requests_session = requests.Session()
 
-    response = requests_session.get(url)
+    response = requests_session.get(url, verify=False)
     if response is None:
         log.error("ERROR no response from %s", url)
         sys.exit(1)
