@@ -1506,18 +1506,18 @@ void PlayerInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 	ERROR_STATE_CHECK_VOID();
 	if(aamp){
 		UsingPlayerId playerId(aamp->mPlayerId);
-	aamp->zoom_mode = zoom;
-	aamp->AcquireStreamLock();
-	if (aamp->mpStreamAbstractionAAMP )
-	{
-		aamp->SetVideoZoom(zoom);
+		aamp->zoom_mode = zoom;
+		aamp->AcquireStreamLock();
+		if (aamp->mpStreamAbstractionAAMP )
+		{
+			aamp->SetVideoZoom(zoom);
+		}
+		else
+		{
+			AAMPLOG_WARN("Player is in state (eSTATE_IDLE), value has been cached");
+		}
+		aamp->ReleaseStreamLock();
 	}
-	else
-	{
-		AAMPLOG_WARN("Player is in state (eSTATE_IDLE), value has been cached");
-	}
-	aamp->ReleaseStreamLock();
-	}// end of if aamp
 }
 
 /**
