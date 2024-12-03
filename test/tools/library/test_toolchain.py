@@ -226,6 +226,9 @@ def run_aamp(test_dir, url):
     AAMP_ENV = {}
     aamp_cli_cmd_prefix = os.environ["AAMP_CLI_CMD_PREFIX"] + ' ' if "AAMP_CLI_CMD_PREFIX" in os.environ else ''
 
+    # Set to read aamp.cfg from test_dir which will 
+    # not contain aamp.cfg to ensure we do not pickup any aamp.cfg
+    AAMP_ENV.update({"AAMP_CFG_DIR": test_dir})
     if platform.system() == "Darwin":
         # MAC
         aamp_cmd = AAMP_HOME + "/build/Debug/aamp-cli"
@@ -251,7 +254,8 @@ def run_aamp(test_dir, url):
         aamp.sendline("set 37 2000000")
         aamp.expect_exact("cmd: ")
 
-    aamp.sendline('setconfig {"info":true, }')
+    # Need trace enabled to get "Returning Position as" in log
+    aamp.sendline('setconfig {"info":true, "trace":true}')
     aamp.expect_exact("cmd: ")
 
     # Send URL to start playing
