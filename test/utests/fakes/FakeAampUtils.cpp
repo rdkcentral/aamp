@@ -339,7 +339,14 @@ bool aamp_IsAbsoluteURL( const std::string &url )
 
 double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::string NetworkProxy)
 {
-	return 0.0;
+	double networkTime = 0.0;
+
+	if (g_mockAampUtils)
+	{
+		networkTime = g_mockAampUtils->GetNetworkTime(remoteUrl, http_error, NetworkProxy);
+	}
+
+	return networkTime;
 }
 
 char *aamp_Base64_URL_Encode(const unsigned char *src, size_t len)

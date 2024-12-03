@@ -31,6 +31,8 @@ public:
 	MOCK_METHOD(std::string, aamp_GetConfigPath, (std::string));
 
 	MOCK_METHOD(bool, parseAndValidateSCTE35, (const std::string &scte35Data));
+
+	MOCK_METHOD(double, GetNetworkTime, (const std::string& remoteUrl, int *http_error , std::string NetworkProxy));
 };
 
 extern MockAampUtils *g_mockAampUtils;
