@@ -96,28 +96,31 @@ def parse_l3_log_line(line):
     step_status = "Error"
     fail_reason = "Unknown"
 
-    # Parse the timestamp into a ISO datetime object
-    lg_timestamp = datetime.strptime(line.split(' ')[0], "%Y-%m-%dT%H:%M:%S.%fZ").isoformat()
+    try:
+        # Parse the timestamp into a ISO datetime object
+        lg_timestamp = datetime.strptime(line.split(' ')[0], "%Y-%m-%dT%H:%M:%S.%fZ").isoformat()
 
-    # Get the sequence type - keeping the square brackets eg: [TST_STEP]
-    lg_type = line.split('L3_LOG: ')[1].split(' ')[0]
+        # Get the sequence type - keeping the square brackets eg: [TST_STEP]
+        lg_type = line.split('L3_LOG: ')[1].split(' ')[0]
 
-    # For each test sequence extract additional information if present
-    if lg_type == '[TST_START]':
-        test_name = line.split(lg_type + ' ')[1].rsplit()[0]
+        # For each test sequence extract additional information if present
+        if lg_type == '[TST_START]':
+            test_name = line.split(lg_type + ' ')[1].rsplit()[0]
 
-    elif lg_type == '[TST_STEP]':
-        parts = line.split(lg_type + ' ')[1]
-        step_parts = re.split(r": PASS|: FAIL", parts)
-        step_name = step_parts[0]
+        elif lg_type == '[TST_STEP]':
+            parts = line.split(lg_type + ' ')[1]
+            step_parts = re.split(r": PASS|: FAIL", parts)
+            step_name = step_parts[0]
 
-        if ': PASS' in parts:
-            step_status = "PASS"
-        elif ': FAIL' in parts:
-            step_status = "FAIL"
-            fail_reason = step_parts[1].rstrip().split('}')[0].split('{')[1]
-        else:
-            step_status = "ERROR"
+            if ': PASS' in parts:
+                step_status = "PASS"
+            elif ': FAIL' in parts:
+                step_status = "FAIL"
+                fail_reason = step_parts[1].rstrip().split('}')[0].split('{')[1]
+            else:
+                step_status = "ERROR"
+    except:
+        print ("Error parsing line: (", line.rstrip(), ")")
 
     return {
         "lg_timestamp": lg_timestamp,
@@ -236,7 +239,7 @@ def parse_log_files_to_xml(log_directory, output_file):
     # Update the tests and failures count
     testsuite_element.set("tests", str(total_tests))
     testsuite_element.set("failures", str(total_failures))
-    testsuite_element.set("time", str(round(total_duration, 2)) + 's')
+    testsuite_element.set("time", str(round(total_duration, 2)))
 
     if total_starttime == 0:
         total_starttime = timestamp
