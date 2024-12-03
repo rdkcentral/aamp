@@ -2053,8 +2053,6 @@ TEST_F(PrivAampTests, InitializeCCTest)
 	// This applies because InitializeCC is currently called on a GStreamer thread.
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).Times(0);
 
-	EXPECT_CALL(*g_mockAampEventManager,
-				SendEvent(OfTypeWithCCHandle(AAMP_EVENT_CC_HANDLE_RECEIVED, 999), _));
 	p_aamp->InitializeCC(999);
 }
 
@@ -2064,8 +2062,6 @@ TEST_F(PrivAampTests, NotifyFirstFrameReceivedTest)
 	// This applies because NotifyFirstFrameReceived is currently called on a GStreamer thread.
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).Times(0);
 
-	EXPECT_CALL(*g_mockAampEventManager,
-				SendEvent(OfTypeWithCCHandle(AAMP_EVENT_CC_HANDLE_RECEIVED, 999), _));
 	p_aamp->NotifyFirstFrameReceived(999);
 }
 

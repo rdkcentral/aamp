@@ -4826,13 +4826,6 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 	{
 #ifdef AAMP_STOP_SINK_ON_SEEK
 		const bool forceStop = true;
-		// Don't send event if nativeCCRendering is ON
-		if (!ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
-		{
-			CCHandleEventPtr event = std::make_shared<CCHandleEvent>(0, GetSessionId());
-			mEventManager->SendEvent(event);
-			AAMPLOG_WARN("Sent AAMP_EVENT_CC_HANDLE_RECEIVED with NULL handle");
-		}
 #else
 		const bool forceStop = false;
 #endif
