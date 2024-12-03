@@ -1583,6 +1583,10 @@ public:
 		prop = JSStringCreateWithUTF8CString("noOfPeriods");
         JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getNoOfPeriods()), kJSPropertyAttributeReadOnly, NULL);
         JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("manifestType");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getManifestType()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
 	}
 
 };

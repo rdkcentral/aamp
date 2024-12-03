@@ -70,9 +70,7 @@
 #include "AampDRMSessionManager.h"
 #endif
 #include "AampVanillaDrmHelper.h"
-#ifdef AAMP_CC_ENABLED
 #include "AampCCManager.h"
-#endif
 
 /**
  * @struct DrmMetadata
@@ -208,7 +206,7 @@ static void ParseKeyAttributeCallback(lstring attrName, lstring valuePtr, void* 
 		std::string uri;
 		if( !valuePtr.startswith(CHAR_QUOTE) && !valuePtr.equal("NONE") )
 		{
-			// RDKAAMP-1844 : Handling keys with relative URIs
+			// Handling keys with relative URIs
 			// This condition is used to extract key URI from unquoted / NONE strings
 			uri = valuePtr.tostring();
 		}
@@ -1582,7 +1580,7 @@ void TrackState::FetchFragment()
 	{
 		return;
 	}
-	//DELIA-33346 -- always set the rampdown flag to false .
+	//set the rampdown flag to false .
 	context->mCheckForRampdown = false;
 	bool bKeyChanged = false;
 	int iFogErrorCode = -1;
@@ -1593,7 +1591,7 @@ void TrackState::FetchFragment()
 		{
 			if (!fragmentURI.empty() )
 			{
-				// DELIA-32287 - Profile RampDown check and rampdown is needed only for Video . If audio fragment download fails
+				// Profile RampDown check and rampdown is needed only for Video . If audio fragment download fails
 				// should continue with next fragment,no retry needed .
 				if (eTRACK_VIDEO == type && http_error != 0 && aamp->CheckABREnabled())
 				{
@@ -1611,7 +1609,7 @@ void TrackState::FetchFragment()
 							{
 								playTarget -= context->rate / context->mTrickPlayFPS;
 							}
-							//DELIA-33346 -- if rampdown attempted , then set the flag so that abr is not attempted.
+							//-- if rampdown attempted , then set the flag so that abr is not attempted.
 							context->mCheckForRampdown = true;
 							// Rampdown attempt success, download same segment from lower profile.
 							mSkipSegmentOnError = false;
@@ -1982,6 +1980,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 		mDrmInfo.manifestURL = mEffectiveUrl;
 		mDrmInfo.masterManifestURL = aamp->GetManifestUrl();
 		mDrmInfo.initData = aamp->GetDrmInitData();
+		mDrmInfo.bDecryptClearSamplesRequired = aamp->isDecryptClearSamplesRequired();
 		AampTime fragDuration{};
 		
 		while(!iter.empty())
@@ -2227,7 +2226,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 			AAMPLOG_INFO("warning: no EXT-X-MEDIA-SEQUENCE tag");
 			indexFirstMediaSequenceNumber = 0;
 		}
-		// DELIA-35008 When setting live status to stream , check the playlist type of both video/audio(demuxed)
+		// When setting live status to stream , check the playlist type of both video/audio(demuxed)
 		aamp->SetIsLive(context->IsLive());
 		if(!IsLive())
 		{
@@ -2371,7 +2370,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		AampTime culled{};
 		IndexPlaylist(true, culled);
 		// Update culled seconds if playlist download was successful
-		// DELIA-40121: We need culledSeconds to find the timedMetadata position in playlist
+		// We need culledSeconds to find the timedMetadata position in playlist
 		// culledSeconds and FindTimedMetadata have been moved up here, because FindMediaForSequenceNumber
 		// uses mystrpbrk internally which modifies line terminators in playlist.ptr and results in
 		// FindTimedMetadata failing to parse playlist
@@ -2933,7 +2932,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracksForDiscontinuity()
 			}
 		}
 
-		//RDK-27996, lets go with a simple sync operation for the moment for subtitle and aux
+		//lets go with a simple sync operation for the moment for subtitle and aux
 		for (int index = eMEDIATYPE_SUBTITLE; index <= eMEDIATYPE_AUX_AUDIO; index++)
 		{
 			TrackState *track = trackState[index];
@@ -3129,7 +3128,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 			syncedUsingSeqNum = true;
 		}
 
-		//RDK-27996, lets go with a simple sync operation for the moment for subtitle and aux
+		//lets go with a simple sync operation for the moment for subtitle and aux
 		for (int index = eMEDIATYPE_SUBTITLE; (syncedUsingSeqNum && index <= eMEDIATYPE_AUX_AUDIO); index++)
 		{
 			TrackState *track = trackState[index];
@@ -3234,7 +3233,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 				}
 			}
 
-			//RDK-27996, lets go with a simple sync operation for the moment for subtitle and aux
+			//lets go with a simple sync operation for the moment for subtitle and aux
 			for (int index = eMEDIATYPE_SUBTITLE; (syncedUsingSeqNum && index <= eMEDIATYPE_AUX_AUDIO); index++)
 			{
 				TrackState *track =  trackState[index];
@@ -3322,9 +3321,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	AAMPStatusType retval = eAAMPSTATUS_GENERIC_ERROR;
 	mTuneType = tuneType;
 	bool newTune = aamp->IsNewTune();
-	/* START: Added As Part of DELIA-28363 and DELIA-28247 */
 	aamp->IsTuneTypeNew = newTune;
-	/* END: Added As Part of DELIA-28363 and DELIA-28247 */
 
 	int http_error = 0;   //CID:81873 - Initialization
 	mainManifest.Clear();
@@ -3415,7 +3412,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		if(mainManifestResult != eAAMPSTATUS_OK)
 		{
 			if(mainManifestResult == eAAMPSTATUS_PLAYLIST_PLAYBACK)
-			{ // RDK-28245 - support tune to playlist, without main manifest
+			{ // support tune to playlist, without main manifest
 				if(mProfileCount == 0)
 				{
 					streamInfoStore.emplace_back(HlsStreamInfo{});
@@ -3450,7 +3447,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				long persistedBandwidth = aamp->GetPersistedBandwidth();
 				long defaultBitRate 	= aamp->GetDefaultBitrate();
 				//We were tuning to a lesser profile previously, so we use it as starting profile
-				// XIONE-2039 If bitrate to be persisted during trickplay is true, set persisted BW as default init BW
+				// If bitrate to be persisted during trickplay is true, set persisted BW as default init BW
 				if (persistedBandwidth > 0 && (persistedBandwidth < defaultBitRate || aamp->IsBitRatePersistedOverSeek()))
 				{
 					aamp->mhAbrManager.setDefaultInitBitrate(persistedBandwidth);
@@ -3510,9 +3507,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			lastSelectedProfileIndex = currentProfileIndex;
 			aamp->ResetCurrentlyAvailableBandwidth(bandwidthBitsPerSecond, trickplayMode, currentProfileIndex);
 			aamp->profiler.SetBandwidthBitsPerSecondVideo(bandwidthBitsPerSecond);
-			/* START: Added As Part of DELIA-28363 and DELIA-28247 */
 			AAMPLOG_INFO("Selected BitRate: %ld, Max BitRate: %ld", bandwidthBitsPerSecond, GetStreamInfo(GetMaxBWProfile())->bandwidthBitsPerSecond);
-			/* END: Added As Part of DELIA-28363 and DELIA-28247 */
 		}
 		InitTracks();
 		TrackState *audio = trackState[eMEDIATYPE_AUDIO];
@@ -3543,7 +3538,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			subtitle->enabled = false;
 			subtitle->streamOutputFormat = FORMAT_INVALID;
 
-			//RDK-27996 No need to enable auxiliary audio feature for audio only playback scenarios
+			//No need to enable auxiliary audio feature for audio only playback scenarios
 			aux->enabled = false;
 			aux->streamOutputFormat = FORMAT_INVALID;
 		}
@@ -3567,7 +3562,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			}
 			if(!video->playlist.GetLen() )
 			{
-				/* START: Added As Part of DELIA-39963 */
 				int limitCount = 0;
 				int numberOfLimit = GETCONFIGVALUE(eAAMPConfig_InitRampDownLimit);
 				do{
@@ -3615,7 +3609,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Video playlist download failed still after %d rampdown attempts",
 							limitCount);
 				}
-				/* END: Added As Part of DELIA-39963 */
 			}
 		}
 		if (subtitle->enabled)
@@ -4200,7 +4193,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			}
 		}
 
-		// RDK-27796, in case of muxed a/v and auxiliary track scenario
+		// in case of muxed a/v and auxiliary track scenario
 		// For demuxed a/v, we will handle it in SyncTracks...() function
 		if (audio->enabled || aux->enabled)
 		{
@@ -4236,7 +4229,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			// check if there is xStartOffSet , if non zero value present ,check if it is > 3 times TD(Spec requirement)
 			if(xStartOffset != 0 && abs(xStartOffset.inSeconds()) > (3*video->targetDurationSeconds))
 			{
-				// DELIA-40177 -> For now code added for negative offset values
+				// code added for negative offset values
 				// that is offset from last duration
 				if(xStartOffset < 0)
 				{
@@ -4249,7 +4242,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 			if (video->mDuration > (offsetFromLive.inSeconds() + video->playTargetOffset))
 			{
-				//DELIA-28451
 				// a) Get OffSet to Live for Video and Audio separately.
 				// b) Set to minimum value among video /audio instead of setting to 0 position
 				AampTime offsetToLiveVideo{}, offsetToLiveAudio{}, offsetToLive{};
@@ -4383,7 +4375,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			// inside GetIframeFragmentUriFromIndex , there is check for LF which fails as its already removed and ends up returning NULL uri
 			// So enforcing this strictly for normal playrate
 
-			// DELIA-42052
 			for (int iTrack = 0; iTrack <= AAMP_TRACK_COUNT - 1; iTrack++)
 			{
 				TrackState *ts = trackState[iTrack];
@@ -4506,7 +4497,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		if (newTune && !aamp->IsLive() && (aamp->mPreCacheDnldTimeWindow > 0) && (aamp->durationSeconds > aamp->mPreCacheDnldTimeWindow*60))
 		{
 			// Special requirement
-			// DELIA-41566 [PEACOCK] temporary hack required to work around Adobe SSAI session lifecycle problem
+			// work around Adobe SSAI session lifecycle problem
 			// If stream is VOD ( SSAI) , and if App configures PreCaching enabled ,
 			// then all the playlist needs to be downloaded lazily and cached . This is to overcome gap
 			// in VOD Server as it looses the Session Context after playback starts
@@ -4615,7 +4606,7 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 ***************************************************************************/
 void StreamAbstractionAAMP_HLS::CachePlaylistThreadFunction(void)
 {
-	// DELIA-41566 [PEACOCK] temporary hack required to work around Adobe SSAI session lifecycle problem
+	// required to work around Adobe SSAI session lifecycle problem
 	// Temporary workaround code to address Peacock/Adobe Server issue
 	aamp->PreCachePlaylistDownloadTask();
 	return;
@@ -4626,7 +4617,7 @@ void StreamAbstractionAAMP_HLS::CachePlaylistThreadFunction(void)
  */
 void StreamAbstractionAAMP_HLS::PreCachePlaylist()
 {
-	// DELIA-41566 [PEACOCK] temporary hack required to work around Adobe SSAI session lifecycle problem
+	// required to work around Adobe SSAI session lifecycle problem
 	// Tasks to be done
 	// Run through all the streamInfo and get uri for download , push to a download list
 	// Start a thread and return back . This thread will wake up after Tune completion
@@ -4787,7 +4778,7 @@ void TrackState::RunFetchLoop()
 			}
 			if (mInjectInitFragment)
 			{
-				// DELIA-40273: mInjectInitFragment marks if init fragment has to be pushed whereas mInitFragmentInfo
+				// mInjectInitFragment marks if init fragment has to be pushed whereas mInitFragmentInfo
 				// holds the init fragment URL. Both has to be present for init fragment fetch & injection to work.
 				// During ABR, mInjectInitFragment is set and for live assets,  mInitFragmentInfo is found
 				// in FindMediaForSequenceNumber() and for VOD its found in GetNextFragmentUriFromPlaylist()
@@ -4827,7 +4818,7 @@ void TrackState::RunFetchLoop()
 			if((eTRACK_VIDEO == type) && (!context->trickplayMode) && !(mInjectInitFragment || mSkipAbr))
 			{
 				context->lastSelectedProfileIndex = context->currentProfileIndex;
-				//DELIA-33346 -- if rampdown is attempted to any failure , no abr change to be attempted .
+				// if rampdown is attempted to any failure , no abr change to be attempted .
 				// else profile be resetted to top one leading to looping of bad fragment
 				if(!context->mCheckForRampdown)
 				{
@@ -5094,7 +5085,7 @@ void TrackState::Stop(bool clearDRM)
 		mSubtitleParser->close();
 	}
 
-	// XIONE-2208: While waiting on fragmentCollectorThread to join the mDrm
+	// While waiting on fragmentCollectorThread to join the mDrm
 	// can get initialized in fragmentCollectorThread.
 	// Clear DRM data after join if this is required.
 	if(mDrm && clearDRM)
@@ -5500,8 +5491,15 @@ void StreamAbstractionAAMP_HLS::StartSubtitleParser()
 	TrackState *subtitle = trackState[eMEDIATYPE_SUBTITLE];
 	if (subtitle && subtitle->enabled && subtitle->mSubtitleParser)
 	{
-		AAMPLOG_INFO("sending init %.3f", mFirstPTS.inSeconds() * 1000.0);
-		subtitle->mSubtitleParser->init(seekPosition.inSeconds(), mFirstPTS.milliseconds());
+		AAMPLOG_INFO("sending init isLive : %d firstPTS : %.3f seek_pos :%f ",aamp->IsLive(), mFirstPTS.inSeconds() * 1000.0,aamp->seek_pos_seconds);
+		if(aamp->IsLive())
+		{
+			subtitle->mSubtitleParser->init(mFirstPTS.inSeconds(),0);
+		}
+		else
+		{
+			subtitle->mSubtitleParser->init(seekPosition.inSeconds(),mFirstPTS.milliseconds());
+		}
 		subtitle->mSubtitleParser->mute(aamp->subtitles_muted);
 	}
 }
@@ -6036,12 +6034,10 @@ bool TrackState::HasDiscontinuityAroundPosition(AampTime position, bool useDisco
 				AampTime tempLimit2 = (discontinuityIndex[i].position + abs(deltaCulledSec) + targetDurationSeconds + 1.0);
 				int64_t limit1 = tempLimit1.seconds();
 				int64_t limit2 = tempLimit2.seconds();
-				// DELIA-46385
 				// Due to increase in fragment duration and mismatch between audio and video,
 				// Discontinuity pairing is missed
 				// Example : input posn:2290 index[12] position:2293 deltaCulled:0.000000 limit1:2291 limit2:2295
 				// As a workaround , adding a buffer of +/- 1sec around the limit check .
-				//DELIA-56215
 				// We have seen some of the playlist is missing PDT for either of the track and this is leading
 				//to ignoring the discontinuity and eventually 30 seconds tick and playback stalled. To fix the issue we need
 				//to check is either of the track is missing PDT for discontinuity, if not missing use  position else
@@ -6728,7 +6724,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 		// 3. Make sure filters for disableATMOS/disableEC3/disableAAC is applied
 
 		// Get the initial configuration to filter the profiles
-		bool bDisableEC3 = ISCONFIGSET(eAAMPConfig_DisableEC3);
+		bool bDisableEC3 = false;//ISCONFIGSET(eAAMPConfig_DisableEC3);
 		bool bDisableAC3 = bDisableEC3;
 		// bringing in parity with DASH , if EC3 is disabled ,then ATMOS also will be disabled
 		bool bDisableATMOS = (bDisableEC3) ? true : ISCONFIGSET(eAAMPConfig_DisableATMOS);
@@ -7262,18 +7258,13 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		{
 			aamp->NotifyTextTracksChanged();
 		}
-#ifdef AAMP_CC_ENABLED
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
 		AampCCManager::GetInstance()->updateLastTextTracks(textTracksCopy);
-#endif
-
 	}
 	else
 	{
-#ifdef AAMP_CC_ENABLED
 		AampCCManager::GetInstance()->updateLastTextTracks({});
-#endif
 		AAMPLOG_ERR("StreamAbstractionAAMP_HLS:: Fail to get available audio/text tracks, mMediaCount=%d and profileCount=%d!", mMediaCount, mProfileCount);
 	}
 

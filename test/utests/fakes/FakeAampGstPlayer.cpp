@@ -205,6 +205,11 @@ PlaybackQualityStruct* AAMPGstPlayer::GetVideoPlaybackQuality(void)
 	return nullptr;
 }
 
+bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aamp)
+{
+	return false;
+}
+
 void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	if (g_mockAampGstPlayer != nullptr)
@@ -225,8 +230,9 @@ void AAMPGstPlayer::FlushTrack(AampMediaType mediaType,double pos)
 {
 }
 
-void AAMPGstPlayer::SignalSubtitleClock()
+bool AAMPGstPlayer::SignalSubtitleClock()
 {
+	return false;
 }
 
 bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
@@ -250,7 +256,17 @@ void AAMPGstPlayer::SetPauseOnStartPlayback(bool enable)
 	}
 }
 
-void RemoveProbes()
+void AAMPGstPlayer::RemoveProbes()
 {
+}
+
+PlatformType AAMPGstPlayer::InitializeAAMPPlatformConfigs()
+{
+	return ePLATFORM_UNKNOWN;
+}
+
+bool AAMPGstPlayer::IsMS2V12Supported()
+{
+	return false;
 }
 

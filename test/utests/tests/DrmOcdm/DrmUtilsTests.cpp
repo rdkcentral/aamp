@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 
 #include "AampDRMutils.h"
+#include "AampUtils.h"
 
 class DrmUtilsTests : public ::testing::Test
 {

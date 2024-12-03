@@ -4,6 +4,7 @@
     <title>TST_2006_UVE_AampAudVidPlayback</title>
     <link rel="stylesheet" href="TST_UVE_style.css">
     <script type="text/javascript" src="TST_UVE_utils.js" ></script>
+    <script src="TST_UVE_vidcap.js"></script>    
     <script type="text/javascript" src="TST_2006_UVE_AampAudVidPlayback.js" ></script>
 </head>
 <script>
@@ -41,15 +42,7 @@ async function TST_2006_UVE_AampAudVidPlayback() {
     await aamp_player.Load(TST_2006_url);
     await aamp_player.VerifyPlayback(10, 1);
 
-    // mute the video
-    TST_STEP("mute video");
-    await aamp_player.player.setVideoMute(true);
-    await aamp_player.VerifyPlayback(10, 1);
-
-    // unmute the video
-    TST_STEP("unmute video");
-    await aamp_player.player.setVideoMute(false);
-    await aamp_player.VerifyPlayback(10, 1);
+    await aamp_player.TST_CheckMuteVideo();
 
     // sets the audio language
     TST_STEP("setAudioLanguage");
@@ -90,9 +83,7 @@ async function TST_2006_UVE_AampAudVidPlayback() {
     TST_ASSERT(dur == 900, "Duration should be 900 seconds");
 
     // To check whether volume set properly or not
-    TST_STEP("check audio volume");
     await aamp_player.TST_CheckSetAudioVolume();
-    await aamp_player.VerifyPlayback(10, 1);
 
     // To check available audio tracks are properly retrieved or not
     TST_STEP("checkAvailableAudioTracks")

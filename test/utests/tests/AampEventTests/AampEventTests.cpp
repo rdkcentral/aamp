@@ -1,3 +1,22 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2020 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 #include <gtest/gtest.h>
 #include "AampEvent.h" 
 #include "vttCue.h"
@@ -727,7 +746,8 @@ protected:
         
         adBreakId = "break_id";
         position = 12345;
-        adReservationEvent = new AdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, adBreakId, position, session_id);
+		absolutePosition = 123456789;
+        adReservationEvent = new AdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, adBreakId, position, absolutePosition, session_id);
     }
 
     void TearDown() override {
@@ -738,6 +758,7 @@ protected:
     AdReservationEvent* adReservationEvent;
     std::string adBreakId;
     uint64_t position;
+	uint64_t absolutePosition;
 };
 
 // Testing AdReservationEvent
@@ -753,10 +774,11 @@ protected:
         
         adId = "ad_id";
         position = 12345;
+		absolutePosition = 123456789;
         offset = 1000;
         duration = 3000;
         errorCode = 0;
-        adPlacementEvent = new AdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, adId, position, session_id, offset, duration, errorCode);
+        adPlacementEvent = new AdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, adId, position, absolutePosition, session_id, offset, duration, errorCode);
     }
 
     void TearDown() override {
@@ -767,6 +789,7 @@ protected:
     AdPlacementEvent* adPlacementEvent;
     std::string adId;
     uint32_t position;
+	uint64_t absolutePosition;
     uint32_t offset;
     uint32_t duration;
     int errorCode;
@@ -1005,7 +1028,8 @@ protected:
         manifestDuration = 100;
         noOfPeriods = 3;
         manifestPublishedTime = 12345;
-        event = new ManifestRefreshEvent(manifestDuration, noOfPeriods, manifestPublishedTime, session_id);
+        manifestType ="dynamic";
+        event = new ManifestRefreshEvent(manifestDuration, noOfPeriods, manifestPublishedTime, session_id,manifestType);
     }
 
     void TearDown() override {
@@ -1016,6 +1040,7 @@ protected:
     uint32_t manifestDuration;
     int noOfPeriods;
     uint32_t manifestPublishedTime;
+    const char *manifestType;
     ManifestRefreshEvent* event;
 };
 
@@ -1023,6 +1048,7 @@ TEST_F(ManifestRefreshEventTest, ConstructorTest) {
     EXPECT_EQ(event->getManifestDuration(), manifestDuration);
     EXPECT_EQ(event->getNoOfPeriods(), noOfPeriods);
     EXPECT_EQ(event->getManifestPublishedTime(), manifestPublishedTime);
+    EXPECT_EQ(event->getManifestType(), manifestType);
 }
 
 class TuneTimeMetricsEventTest : public ::testing::Test {

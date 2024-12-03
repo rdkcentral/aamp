@@ -302,7 +302,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
                     }
                 }
             }
-            // DELIA-32287 - Profile RampDown check and rampdown is needed only for Video . If audio fragment download fails
+            // Profile RampDown check and rampdown is needed only for Video . If audio fragment download fails
             // should continue with next fragment,no retry needed .
             else if ((eTRACK_VIDEO == type) && !(context->CheckForRampDownLimitReached()))
             {
@@ -583,11 +583,19 @@ void MediaStreamContext::ABRProfileChanged(void)
  */
 double MediaStreamContext::GetBufferedDuration()
 {
+    double bufferedDuration=0;
     double position = aamp->GetPositionMs() / 1000.00;
     if(downloadedDuration >= position)
     {
         // If player faces buffering, this will be 0
-        return (downloadedDuration - position);
+        bufferedDuration = downloadedDuration - position;
+    }
+    else if( downloadedDuration < aamp->prevFirstPeriodStartTime )
+    {
+		//When Player is rolling from IVOD window to Linear
+		position = aamp->prevFirstPeriodStartTime - position;
+        aamp->prevFirstPeriodStartTime = 0;
+        bufferedDuration = downloadedDuration - position;
     }
     else
     {
@@ -595,8 +603,9 @@ double MediaStreamContext::GetBufferedDuration()
         // downloadedDuration never exceeds position in normal case.
         // Other case happens when contents are yet to be injected.
         downloadedDuration = 0;
-        return downloadedDuration;
+        bufferedDuration = downloadedDuration;
     }
+    return bufferedDuration;
 }
 
 /**

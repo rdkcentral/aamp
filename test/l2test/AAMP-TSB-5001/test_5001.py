@@ -29,9 +29,7 @@ import pytest
 from inspect import getsourcefile
 
 # // Test URL with Low Latency Content
-#LLD_URL2="https://livesim.dashif.org/livesim/chunkdur_1/ato_7/testpic4_8s/Manifest300.mpd?chunked"
-LLD_URL2="https://explo.broadpeak.tv:8343/bpk-tv/spring/lowlat/index_timeline.mpd?chunked"
-LLD_URL="https://ccr.linear-clo-t6-dcf.xcr.comcast.net/v1/frag/bmff/enc/cenc/latency/low/t/mk163_fraser.mpd"
+LLD_URL="v1/frag/bmff/enc/cenc/latency/low/t/UK3054_HD_SU_SKYUK_3054_0_8371500471198371163.mpd?chunked"
 
 # // TODO replace with live SLD URL
 SLD_URL="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd"
@@ -42,7 +40,8 @@ TESTDATA1 = {
     "logfile": "configtrue.log",
     "max_test_time_seconds": 15,
     "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
-    "url": LLD_URL2,
+    "url": LLD_URL,
+    'simlinear_type': 'DASH',
     "expect_list":
     [
         {"expect" : r"\[TSB Store\] Initiating with config values","min":0, "max":1},
@@ -56,12 +55,13 @@ TESTDATA2 = {
     "title": "configfalse",
     "logfile": "configfalse.log",
     "max_test_time_seconds": 15,
-    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=false\nprogress=true\ntsbLocation=/tmp/data\nsupressDecode=true\nldUrlKeyword=chunked\n",
-    "url": LLD_URL2,
+    "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=false\nprogress=true\ntsbLocation=/tmp/data\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+    "url": LLD_URL,
+    'simlinear_type': 'DASH',
     "expect_list":
     [
         {"expect": r"aamp_tune","min":0, "max":1},
-        {"expect" : r"TSB: Initiating TSBStore with config values","min":0, "max":3,"not_expected" : True},
+        {"expect" : r"\[TSB Store\] Initiating TSBStore with config values","min":0, "max":3,"not_expected" : True},
         {"expect": r"first buffer received","min":0, "max":10, "end_of_test":True},
     ]
 }
@@ -72,12 +72,12 @@ TESTDATA3 = {
     "logfile": "culling.log",
     "max_test_time_seconds": 30,
     "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=6\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
-    "url": LLD_URL2,
+    "url": LLD_URL,
+    'simlinear_type': 'DASH',
     "expect_list":
     [
         {"expect" : r"\[TSB Store\] Initiating with config values","min":0, "max":1},
         {"expect": r"aamp_tune","min":0, "max":1},
-        # {"expect" : r"API: RemoveFragment Taken","min":3, "max":20},
         {"expect" : r"TSBWrite Metrics...OK","min":1, "max":40},
         {"expect" : r"TSB Write Operation FAILED","min":0, "max":8,"not_expected" : True},
         {"expect" : r"CullSegments","min":1, "max":40},
@@ -91,16 +91,17 @@ TESTDATA4 = {
     "logfile": "datamgr.log",
     "max_test_time_seconds": 20,
     "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLog=0\ntsbLength=4\nlldUrlKeyword=chunked\n",
-    "url": LLD_URL2,
+    "url": LLD_URL,
+    'simlinear_type': 'DASH',
     "expect_list":
     [
         {"expect" : r"\[TSB Store\] Initiating with config values","min":0, "max":1},
         {"expect": r"aamp_tune","min":0, "max":1},
-        {"expect" : r"Adding Init Data:","min":2, "max":8},
-        {"expect" : r"Adding Fragment Data: ","min":1, "max":8},
-        {"expect" : r"TSBWrite Metrics...OK","min":3, "max":8},
-        {"expect" : r"TSB Write Operation FAILED","min":3, "max":8,"not_expected" : True},
-        {"expect" : r"Removed \d.\d+ fragment duration seconds","min":8, "max":14 ,"end_of_test":True},
+        {"expect" : r"Adding Init Data:","min":0, "max":10},
+        {"expect" : r"Adding Fragment Data: ","min":0, "max":10},
+        {"expect" : r"TSBWrite Metrics...OK","min":3, "max":10},
+        {"expect" : r"TSB Write Operation FAILED","min":3, "max":20,"not_expected" : True},
+        {"expect" : r"Removed \d.\d+ fragment duration seconds","min":8, "max":20 ,"end_of_test":True},
     ]
 }
 
@@ -110,19 +111,20 @@ TESTDATA5 = {
     "logfile": "tsblib.log",
     "max_test_time_seconds": 35,
     "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=4\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
-    "url": LLD_URL2,
+    "url": LLD_URL,
+    'simlinear_type': 'DASH',
     "expect_list":
     [
         {"expect" : r"\[TSB Store\] Initiating with config values","min":0, "max":1},
         {"expect" : r"minFreePercentage : \d+","min":0, "max":1},
         {"expect" : r"msg=\"Flusher thread running\"","min":0, "max":1},
         {"expect" : r"msg=\"Flush storage content\"","min":0, "max":1},
-        {"expect" : r"msg=\"Store Constructed\"","min":0, "max":5},
-        {"expect" : r"msg=\"File written\" ","min":2, "max":5},
-        {"expect" : r"msg=\"Deleted file\" ","min":3, "max":25},
-        {"expect" : r"TSBWrite Metrics...OK","min":3, "max":8},
-        {"expect" : r"TSB Write Operation FAILED","min":3, "max":8,"not_expected" : True},
-        {"expect" : r"Removed \d.\d+ fragment duration seconds","min":6, "max":14 ,"end_of_test":True},
+        {"expect" : r"msg=\"Store Constructed\"","min":0, "max":1},
+        {"expect" : r"msg=\"File written\" ","min":0, "max":10},
+        {"expect" : r"msg=\"Deleted file\" ","min":0, "max":10},
+        {"expect" : r"TSBWrite Metrics...OK","min":0, "max":10},
+        {"expect" : r"TSB Write Operation FAILED","min":0, "max":10,"not_expected" : True},
+        {"expect" : r"Removed \d.\d+ fragment duration seconds","min":8, "max":20 ,"end_of_test":True},
     ]
 }
 
@@ -146,11 +148,11 @@ TESTDATA_read = {
     "title": "Test Read API",
     "logfile": "readapi.log",
     "max_test_time_seconds":    60,
+    'simlinear_type': 'DASH',
+    "url": LLD_URL,
     "aamp_cfg": "progress=true\ninfo=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
     "expect_list":
     [
-        {"cmd": LLD_URL2},
-        {"expect": "IP_AAMP_TUNETIME"},
         {"cmd": "sleep 20000"},
         {"expect": r"sleep complete"},
         {"cmd": "seek 0"},

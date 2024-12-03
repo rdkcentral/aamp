@@ -36,6 +36,37 @@ MockGLib *g_mockGLib = nullptr;
 void g_object_set(gpointer object, const gchar *first_property_name, ...)
 {
 	TRACE_FUNC();
+	if (g_mockGLib != nullptr)
+	{
+		va_list args_list;
+		va_start(args_list, first_property_name);
+		const gchar *property_name = first_property_name;
+
+		while (property_name)
+		{
+			if ((strcmp(property_name, "mute") == 0) ||
+				(strcmp(property_name, "show-video-window") == 0) ||
+				(strcmp(property_name, "zoom-mode") == 0)
+			   )
+			{
+				g_mockGLib->g_object_set(object, property_name, va_arg(args_list, int));
+			}
+			else if((strcmp(property_name, "rectangle") == 0))
+			{
+				g_mockGLib->g_object_set(object, property_name, va_arg(args_list, char *));
+			}
+			else if((strcmp(property_name, "volume") == 0))
+			{
+				g_mockGLib->g_object_set(object, property_name, va_arg(args_list, double));
+			}
+			else
+			{
+				va_arg(args_list, int);
+			}
+			property_name = va_arg(args_list, gchar *);
+		}
+		va_end(args_list);
+	}
 }
 
 void g_object_get(gpointer object, const gchar *first_property_name, ...)

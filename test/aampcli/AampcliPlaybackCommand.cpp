@@ -153,7 +153,7 @@ void PlaybackCommand::HandleCommandSelect( const char *cmd, PlayerInstanceAAMP *
 		PlayerInstanceAAMP *found = findPlayerInstance(playerRef);
 		if( found )
 		{
-			if( found->aamp )
+			//if( found->aamp )
 			{ //Do not edit or remove this following printf - it is used in L2 test
 				printf( "selected player %d (at %p) %s\n",
 					   found->GetId(),
@@ -162,10 +162,10 @@ void PlaybackCommand::HandleCommandSelect( const char *cmd, PlayerInstanceAAMP *
 				
 				mAampcli.mSingleton = found;
 			}
-			else
-			{
-				printf( "error - player exists but is not valid/ready, playerInstanceAamp->aamp is not a valid ptr\n");
-			}
+			//else
+			///{
+			//	printf( "error - player exists but is not valid/ready, playerInstanceAamp->aamp is not a valid ptr\n");
+			//}
 		}
 		else
 		{
@@ -182,10 +182,10 @@ void PlaybackCommand::HandleCommandSelect( const char *cmd, PlayerInstanceAAMP *
 			{
 				printf( " (selected)");
 			}
-			if( !player->aamp )
-			{
-				printf( " (!)" );
-			}
+			//if( !player->aamp )
+			//{
+			//	printf( " (!)" );
+			//}
 			printf( "\n");
 		}
 	}
@@ -936,26 +936,10 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		HandleCommandBPS( cmd, playerInstanceAamp );
 	}
-	else if (isCommandMatch(cmd, "flush") )
-	{
-		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(playerInstanceAamp->aamp);
-		if (sink)
-		{
-			sink->Flush();
-		}
-	}
 	else if (isCommandMatch(cmd, "stop") )
 	{
 		playerInstanceAamp->Stop();
 		tsdemuxer_InduceRollover(false);
-	}
-	else if (isCommandMatch(cmd, "underflow") )
-	{
-		playerInstanceAamp->aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, eMEDIATYPE_VIDEO);
-	}
-	else if (isCommandMatch(cmd, "retune") )
-	{
-		playerInstanceAamp->aamp->ScheduleRetune(eDASH_ERROR_STARTTIME_RESET, eMEDIATYPE_VIDEO);
 	}
 	else if (isCommandMatch(cmd, "live") )
 	{
@@ -1154,7 +1138,7 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("play","Continue existing playback");
 	addCommand("slow","Slow Motion playback");
 	addCommand("ff <x>","Fast <speed>; up to 128x");
-	addCommand("rew <y>","Rewind <speed>; up to 128x");
+	addCommand("rew <x>","Rewind <speed>; up to 128x");
 	addCommand("pause","Pause playerback");
 	addCommand("pause <s>","Schedule pause at position<s>; pass -1 to cancel");
 	addCommand("seek <s> <p>","Seek to position<s>; optionally pass 1 for <p> to remain paused");
@@ -1162,12 +1146,9 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("stop","Stop the existing playback");
 
 	// simulated events
-	addCommand("retune","Retune to current locator");
-	addCommand("flush","Flush AV pipeline");
 	addCommand("setconfig <json>","Set the Configuration of the player using a string in json format");
 	addCommand("getconfig","Get the current Configuration of the player instance");
 	addCommand("resetconfig","Reset the Configuration of the player instance");
-	addCommand("underflow","Simulate underflow");
 	addCommand("lock","Lock parental control");
 	addCommand("unlock <t>","Unlock parental control; <t> for timed unlock in seconds>");
 	addCommand("rollover","Schedule artificial pts rollover 10s after next tune");
@@ -1190,7 +1171,6 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("progress","Toggle progress event logging (default=false)");
 	addCommand("auto <params", "stress test with defaults: startChan(500) endChan(1000) maxTuneTime(6) playTime(15) betweenTime(15)" );
 	addCommand("exit","Exit aampcli");
-	addCommand("harvest <configs>","harvest VOD or Live content; refer README.txt");
 	addCommand("advert <params>", "manage injected advert list - 'list', 'add <url or channel in virtual channel map>', 'rm <url or index into list>'");
 	addCommand("scte35 <base64>", "decode SCTE-35 signal base64 string");
 	addCommand("release <playerid/playername>", "to remove the player");

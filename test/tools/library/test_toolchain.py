@@ -2,7 +2,7 @@
 # If not stated otherwise in this file or this component's LICENSE file the
 # following copyright and licenses apply:
 #
-# Copyright 2023 Synamedia Ltd.
+# Copyright 2023 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -83,8 +83,8 @@ TOOLS_HOME = AAMP_HOME + "/test/tools"
 
 HARVEST = TOOLS_HOME + "/harvest/harvest.py"
 SL_CMD = TOOLS_HOME + "/simlinear/simlinear.py"
-TRANSCODE = TOOLS_HOME + "/replace_segments/transcode.py"
-
+TRANSCODE1 = TOOLS_HOME + "/replace_segments/transcode.py"
+TRANSCODE2 = TOOLS_HOME + "/transcode_dash/transcode.py"
 DEFAULT_DONATE_VIDEO = "big_buck_bunny_720p_surround.mp4"
 
 DEFAULT_HARVEST_DURATION_SEC = 40
@@ -169,18 +169,25 @@ def delete_http_host(line):
 
 
 ##################################
-def transcode(test_dir, url):
+def transcode(test_dir, data):
     """
     Perform transcode step on harvested data
     """
+    url = data["URL"]
     start = time.time()
-    donate_video = os.path.abspath(args.video)
-    if not os.path.exists(donate_video):
-        print("cannot find ", donate_video)
-        sys.exit(1)
 
     # Transcode data
-    cmd = [TRANSCODE, "-t", donate_video]
+    transcode_type = data.get("transcode_type", 2)
+
+    if transcode_type == 1:
+        donate_video = os.path.abspath(args.video)
+        if not os.path.exists(donate_video):
+            print("cannot find ", donate_video)
+            sys.exit(1)
+        cmd = [TRANSCODE1, "-t", donate_video]
+    else:
+        cmd = [TRANSCODE2, "-v","-a"]
+
     print(cmd)
     logfile = os.path.join(test_dir, "transcode.log")
     try:
@@ -190,17 +197,18 @@ def transcode(test_dir, url):
         elapsed = time.time() - start_time
         log.write(f"Transcode duration {elapsed} secs\n".encode())
         log.close()
-        print(f"Transcode duration {elapsed} secs\n")
+        print(f"Transcode duration {elapsed} secs")
     except Exception:
         with open(logfile, "r") as error_content:
             error = error_content.read()
             print("Transcode error: ", error)
-        print("FAILED transcode non zero exit see logfile {}".format(logfile))
-        return False
-    return True
-
+        return "FAILED transcode non zero exit see logfile {}".format(logfile)
+    return None
 
 ###########################################################################
+first_position = 0
+last_position = 0
+count_of_404 = 0
 def run_aamp(test_dir, url):
     """
     Start aamp and giv it a URL to play, assumes simlinear already running
@@ -208,7 +216,12 @@ def run_aamp(test_dir, url):
     Cannot determine if AAMP is actually managing to output video so
     it is a bit rubbish from a testing point of view.
     """
-    first_404 = False
+
+    global first_position, last_position,count_of_404
+    first_position = 0
+    last_position = 0
+    count_of_404 = 0
+
     aamp = None
     AAMP_ENV = {}
     aamp_cli_cmd_prefix = os.environ["AAMP_CLI_CMD_PREFIX"] + ' ' if "AAMP_CLI_CMD_PREFIX" in os.environ else ''
@@ -235,31 +248,47 @@ def run_aamp(test_dir, url):
     aamp.expect_exact("cmd: ")
 
     if args.low_bandwidth:
-        aamp.sendline("set 37 1000000")
+        aamp.sendline("set 37 2000000")
         aamp.expect_exact("cmd: ")
+
+    aamp.sendline('setconfig {"info":true, }')
+    aamp.expect_exact("cmd: ")
 
     # Send URL to start playing
     aamp.sendline(url)
     start = time.time()
 
-    passed = True
-    expect_list = [r"\n(\d{10})", "LogNetworkError.*url='(.*)'\r"]
+    fail_msg = None
+
+    def log_fail(match,elapsed):
+        return f"Failed on {match.group(0)}"
+
+    def log_position(match,elapsed):
+        global first_position, last_position
+        last_position = int(match.group(1))
+        if first_position == 0:
+            first_position = last_position
+        return None
+
+    TBL = [
+        { "expect": r"\n(\d{10})" },
+        { "expect": r"AAMP_EVENT_TUNE_FAILED",  "action": log_fail },
+        { "expect": r"Returning Position as (\d+)",     "action": log_position },
+    ]
+
+    expect_list=[]
+    for ent in TBL:
+        expect_list.append(ent["expect"])
+
     # Keep reading from AAMP otherwise it blocks
     while time.time() - start < playback_time_secs:  # and passed
         try:
             i = aamp.expect(expect_list)
             elapsed = time.time() - start
-            if i:
-                if i == 1 and first_404 is False:
-                    first_404 = True
-                    url_404 = aamp.match.group(1).decode()
-
-                    print(
-                        "First 404 occurs with URL={} elapsed={}".format(
-                            url_404, elapsed
-                        )
-                    )
-
+            if "action" in TBL[i]:
+                msg = TBL[i]["action"](aamp.match,elapsed)
+                if msg and fail_msg is None:
+                    fail_msg = msg
 
         except pexpect.TIMEOUT:
             pass
@@ -268,14 +297,27 @@ def run_aamp(test_dir, url):
     aamp.sendline("exit")
     aamp.close()
 
-    return passed
+    """
+    Fail if the aamp reported position has not moved as expected
+    """
+    p1_secs = first_position/1000
+    p2_secs = last_position/1000
+    pos_change_sec = p2_secs - p1_secs
+    expected_move = args.maxtime/2
+    if pos_change_sec < expected_move and fail_msg is None:
+        fail_msg = f"Position has not moved enough p1_secs={p1_secs} p2_secs={p2_secs} expect_move={expected_move}"
+    else:
+        print(f"Aamp played through pos_change_sec {pos_change_sec}")
+    return fail_msg
 
 
 ##################################
-def aamp_and_simlinear(test_dir, url):
+def aamp_and_simlinear(test_dir, data):
     """
     Start aamp and simlinear
     """
+    fail_msg = None
+    url = data["URL"]
     playback_url = re.sub(r"(.+?//.+?/)", "http://127.0.0.1:8085/", url)
     print("playback URL ", playback_url)
     if url.endswith(".mpd"):
@@ -285,11 +327,11 @@ def aamp_and_simlinear(test_dir, url):
 
     start_simlinear(abr_type, test_dir)
 
-    result_passed = run_aamp(test_dir, playback_url)
+    fail_msg = run_aamp(test_dir, playback_url)
 
     stop_simlinear()
 
-    return result_passed
+    return fail_msg
 
 
 ##################################
@@ -297,7 +339,7 @@ def harvest(test_dir, data):
     """
     Run harvest on the URL provided
     """
-    test_passed = True
+    failed_msg = None
     url = data["URL"]
     bak = test_dir + ".bak"
     if os.path.exists(test_dir):
@@ -317,7 +359,7 @@ def harvest(test_dir, data):
         cmd = (
             [HARVEST]
             + data.get("harvest_opt", [])
-            + ["--maxtime", str(args.maxtime), "-r", test_dir, url]
+            + ["--maxtime", str(args.maxtime), "-v", "-r", test_dir, url]
         )
         print(cmd)
         harvest_start = time.time()
@@ -328,8 +370,7 @@ def harvest(test_dir, data):
         )
         if harvest_result.returncode != 0:
             print(harvest_result.stderr)
-            print("FAILED harvest returned non zero exit code")
-            test_passed = False
+            return "FAILED harvest returned non zero exit code"
         else:
             elapsed = time.time() - harvest_start
             print("HARVEST ok: duration", elapsed)
@@ -337,11 +378,19 @@ def harvest(test_dir, data):
         elapsed = time.time() - start_time
         log.write(f"\nHarvest duration {elapsed} secs\n".encode())
         log.close()
-    return test_passed
+    return failed_msg
 
 
 exitStatus = 0
-failedTests = set()
+failedTests = []
+
+def record_if_failure(dir,msg):
+    if msg:
+        print(f"{dir} {msg}")
+        failedTests.append(f"{dir} {msg}")
+        exitStatus = 1
+        return True
+    return False
 #############################################
 def test(test_urls):
     """
@@ -353,41 +402,25 @@ def test(test_urls):
         url = data["URL"]
         test_dir = "harvest_test{}".format(idx)
         # print("URL={}".format(url))
+        print("\n")
         if "notes" in data:
             print(data["notes"])
 
-        passed = True
-        if harvest(test_dir, data) is False:
-            passed = False
-            failedTests.add(test_dir)
-            exitStatus = 1
+
+        if record_if_failure(test_dir,harvest(test_dir, data)):
             continue
 
         # Transcode the encrypted streams
         if "is_encrypted" in data and not args.no_trans:
             # check_segments_changed(test_dir, is_before=True)
-            if transcode(test_dir, url) is False:
-                passed = False
-                failedTests.add(test_dir)
-                exitStatus = 1
+            if record_if_failure(test_dir,transcode(test_dir, data)):
                 continue
-            # if check_segments_changed(test_dir) is False:
-            #   passed = False
+
 
         # Skip aamp playback if requested
         if args.no_aamp is False:
-            if aamp_and_simlinear(test_dir, url) is False:
-                passed = False
-                failedTests.add(test_dir)
-                exitStatus = 1
+            record_if_failure(test_dir,aamp_and_simlinear(test_dir, data))
 
-        if passed:
-            print("PASSED {} \n\n".format(test_dir))
-            
-        else:
-            print("FAILED {} \n\n".format(test_dir))
-            failedTests.add(test_dir)
-            exitStatus = 1
 
 def test_VideoTestStream():
 
@@ -408,10 +441,10 @@ def test_VideoTestStream():
         os.makedirs(test_dir, exist_ok=True)
         if run_aamp(test_dir, test_url): 
             print("PASSED {} \n\n".format(test_dir))
-                
+
         else:
             print("FAILED {} \n\n".format(test_dir))
-            failedTests.add(test_dir)
+            failedTests.append(test_dir)
             exitStatus = 1
 
     print("Stopping simlinear server")
@@ -424,28 +457,30 @@ TEST_URLS = [
     # DASH
     # Test streams
     #
-    {
-        "URL": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main-segmentbase.mpd",
-        "notes": "Plays more than 40s because of the large base segment",
-    },
-    {
-        "URL": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main_notimeline.mpd",
-    },
-    {
-        "URL": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main-segmentlist.mpd",
-    },
+
+ # Partial fetches do not work over simlinear
+ # http://127.0.0.1:8085/VideoTestStream/dash/480.mp4;838-6269
+ #   {
+ #       "URL": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main-segmentbase.mpd",
+ #        "notes": "Plays more than 40s because of the large base segment",
+ #   },
+
+ # harvest got stuck
+ #   {
+ #       "URL": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main_notimeline.mpd",
+ #   },
+
+ # Harvest gets stuck takes forever
+ #    {
+ #        "URL": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main-segmentlist.mpd",
+ #    },
+
     {
         "URL": "https://lin001-gb-s8-tst-ll.cdn01.skycdp.com/SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163.mpd",
         "harvest_opt": ["--bandwidths", "562800", "--bandwidths", "1328400"],
     },
-    #Encrypted
-    # {
-    #     "notes": "Sky Witness",
-    #     "URL": "https://lin012-gb-s8-prd-ll.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd",
-    #     "is_encrypted": True,
-    # },
     {
-        "notes": "Sky Atlantic",
+        "notes": "Atlantic",
         "URL": "https://lin012-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd",
         "is_encrypted": True,
     },
@@ -453,17 +488,14 @@ TEST_URLS = [
         "notes": "National Geo",
         "URL": "https://lin024-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/NGCHDUK_HD_SU_SKYUK_4031_0_8379280913661561163.mpd",
         "is_encrypted": True,
+        "transcode_type": 1
     },
-    # The following has content protection
-    # Takes too long to transcode
-    #   {
-    #       "URL": "https://lin013-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/SCINCOH_HD_SU_SKYUK_4019_0_6771210893185225163.mpd",
-    #       "is_encrypted" : True,
-    #   },
-    #   {
-    #        "URL": "https://lin022-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/MOV24P_SD_SU_SKYUK_4421_0_5488226467390721163.mpd",
-    #        "is_encrypted" : True,
-    #    },
+    {
+        "notes": "National Geo",
+        "URL": "https://lin024-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/NGCHDUK_HD_SU_SKYUK_4031_0_8379280913661561163.mpd",
+        "is_encrypted": True,
+        "transcode_type": 2
+    },
     {
         "notes": "Pick HD",
         "URL": "https://lin022-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/PICKTVH_HD_SU_SKYUK_1831_0_8234566181954368163.mpd",
@@ -479,32 +511,24 @@ TEST_URLS = [
         "URL": "https://lin201-gb-s8-prd-ll.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/UK7201_UD_SU_SKYUK_7201_0_5225302050947417163.mpd",
         "is_encrypted": True,
     },
-    # $Time$ template
-    # {
-    #     "URL": "https://814bffb9b389f652.mediapackage.ap-southeast-2.amazonaws.com/out/v1/eae9d7726eb249f68920dd21203bdb9a/index.mpd",
-    #     "harvest_opt": ["--bandwidths", "249984"],
-    #     "notes": "harvest can take ~30mins because of the large segment buffer in the manifest",
-    # },
-    # HLS
+    
+    # returns 403
+    #{
+    #    #Live
+    #    "URL": "https://linear.stvacdn.spectrum.com/LIVE/5105/bpk-tv/10370/drm/manifest.mpd?iptvCustomer=true&adId=d45b7b9b-4edb-42e1-afcb-25a47da7a4d6",
+    #    "is_encrypted": True,
+    #},
+   #HLS Test streams
+   # aamp cannot play
+   # {
+   #     "URL": "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8",
+   # },
     {
-        "URL": "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8",
+        "URL": "https://d2esudvxtgwpgo.cloudfront.net/v1/master/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod-xfinitystream/master.m3u8?ads.xumo_channelId=88889153&ads.csid=xfinitystream_us_xumofreegameshow_ssai&ads.caid=xumofreegameshow&ads.appName=XfinityStream&ads._fw_content_title=&ads._fw_content_category=IAB1-7&ads._fw_content_genre=television&ads._fw_content_language=en&ads._fw_content_rating=tv-14&ads._fw_coppa=0&ads.xumo_adsystem=mediatailor&ads.xumo_providerName=xumofreegameshow&ads.xumo_providerId=5&ads.xumo_contentName=xumofreegameshow&ads.xumo_contentId=5&ads.appVersion=9.2.0&ads._fw_app_bundle=com.comcast.playerplatform.PlayerPlatformTestUI&ads._fw_app_store_url=https://appstore.testui.com&ads._fw_devicetype=Phone&ads._fw_deviceMake=iPhone&ads._fw_device_model=iPhone&ads._fw_is_lat=1&ads.tpcl=MIDROLL&ads._fw_content_length=1",
     },
-    # Charter
-    # {
-    #     #Segment Timeline
-    #     "URL": "https://edge-mm.spectrum.net/linear.stvacdn.spectrum.com/LIVE/5165/bpk-tv/23944/drm/manifest.mpd?caid=SPNWTLH_LIVE&vcid=8a74c70f-824a-39b1-9cfc-eba713c47c24&bg_id=&dm=TV&csid=stva_xumo_tv_live&z5=90005&omap=https&lat=0&iptvCustomer=true&adId=d45b7b9b-4edb-42e1-afcb-25a47da7a4d6&vprn=1061240904163944211&pvrn=6400399863942088015",
-    #     "is_encrypted": True,
-    # },
     {
-        #Live
-        "URL": "https://linear.stvacdn.spectrum.com/LIVE/5105/bpk-tv/10370/drm/manifest.mpd?iptvCustomer=true&adId=d45b7b9b-4edb-42e1-afcb-25a47da7a4d6",
-        "is_encrypted": True,
-    },
-    # {
-    #     #VOD
-    #     "URL": "https://e9amrtwbb6.execute-api.us-east-1.amazonaws.com/plbk-cga21.ladc.ca.charter.com/9eb6774d-93e4-44b6-a817-1205f56f3004/manifest.mpd?iptvCustomer=true",
-    #     "is_encrypted": True,
-    # }
+        "URL": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8"
+    }
 ]
 
 # VideoTestStream
@@ -547,7 +571,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--only",
-    help=f"Select reduced list of urls from test based on string match E.G --only ITV ",
+    help=f"Select reduced list of urls from test based on string match E.G --only ITV or --only m3u8",
 )
 parser.add_argument(
     "--maxtime",
@@ -562,8 +586,14 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--vts",
+    help="test VideoTestStream",
+    action="store_true",
+)
+
+parser.add_argument(
     "--repeat_forever",
-    help="Cycle through the URL(s) until failure is detected",
+    help="Cycle through the URL(s) until failure is detected. Live streams may cause failure at specific point",
     action="store_true",
 )
 
@@ -602,12 +632,13 @@ if __name__ == "__main__":
         stop_simlinear()
 
     # Run VideoTestStream tests
-    test_VideoTestStream()
+    if args.vts:
+        test_VideoTestStream()
 
     if failedTests:
-        print("FAILED TESTS: \n")
-        for test in failedTests:
-            print(test, '\n')
+        print("FAILED TESTS:")
+        for f in failedTests:
+            print(f)
     else:
         print("ALL TESTS PASSED")
 

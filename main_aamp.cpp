@@ -32,9 +32,7 @@
 #include "AampConfig.h"
 #include "AampCacheHandler.h"
 #include "AampUtils.h"
-#ifdef AAMP_CC_ENABLED
 #include "AampCCManager.h"
-#endif
 #include "helper/AampDrmHelper.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampStreamSinkManager.h"
@@ -140,6 +138,10 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		// Init the default values
 		gpGlobalConfig->Initialize();
 		gpGlobalConfig->ReadDeviceCapability();
+		if(!gpGlobalConfig->ReadDeviceProperties())
+		{
+			gpGlobalConfig->ReadGstPlugins();
+		}
 		AAMPLOG_WARN("[AAMP_JS][%p]Creating GlobalConfig Instance[%p]",this,gpGlobalConfig);
 		if(!gpGlobalConfig->ReadAampCfgTxtFile())
 		{
@@ -152,6 +154,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();
 	}
+
 #ifdef SUPPORT_JS_EVENTS
 #ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so
 	const char* szJSLib = "libaampjsbindings.so";
@@ -252,12 +255,10 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 
 	bool isLastPlayerInstance = !PrivateInstanceAAMP::IsActiveInstancePresent();
 
-#ifdef AAMP_CC_ENABLED
 	if (isLastPlayerInstance)
 	{
 		AampCCManager::DestroyInstance();
 	}
-#endif
 #ifdef SUPPORT_JS_EVENTS
 	if (mJSBinding_DL && isLastPlayerInstance)
 	{
@@ -323,9 +324,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 }
 
 /**
- *  @brief Tune to a URL.
- *         DEPRECATED!  This is included for backwards compatibility with current Sky AS integration
- *         audioDecoderStreamSync is a broadcom-specific hack (for original xi6 POC build) - this doesn't belong in Tune API.
+ * @brief older veriant for backwards compatibility - to be deprecated.
  */
 void PlayerInstanceAAMP::Tune(const char *mainManifestUrl, const char *contentType, bool bFirstAttempt, bool bFinalAttempt,const char *traceUUID,bool audioDecoderStreamSync)
 {
@@ -348,9 +347,7 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *manifestData
 								)
 {
-#ifdef AMLOGIC
 	ManageAsyncTuneConfig(mainManifestUrl);
-#endif
 	if(mAsyncTuneEnabled)
 	{
 		const std::string manifest {mainManifestUrl};
@@ -692,7 +689,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 		AAMPLOG_WARN("SetRate ignored!! Invalid rate (%f)", rate);
 		return;
 	}
-	//Hack For DELIA-51318 convert the incoming rates into acceptable rates
+	//convert the incoming rates into acceptable rates
 	if(ISCONFIGSET(eAAMPConfig_RepairIframes))
 	{
 		AAMPLOG_WARN("mRepairIframes is true, setting actual rate %f for the received rate %f", getWorkingTrickplayRate(rate), rate);
@@ -757,7 +754,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			return;
 		}
 
-		// DELIA-39691 If input rate is same as current playback rate, skip duplicate operation
+		// If input rate is same as current playback rate, skip duplicate operation
 		// Additional check for pipeline_paused is because of 0(PAUSED) -> 1(PLAYING), where aamp->rate == 1.0 in PAUSED state
 		if ((!aamp->pipeline_paused && rate == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp()) || (rate == 0 && aamp->pipeline_paused))
 		{
@@ -765,7 +762,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			return;
 		}
 
-		//DELIA-30274  -- Get the trick play to a closer position
+		//-- Get the trick play to a closer position
 		//Logic adapted
 		// XRE gives fixed overshoot position , not suited for aamp . So ignoring overshoot correction value
 			// instead use last reported posn vs the time player get play command
@@ -852,7 +849,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 		}
 		else
 		{
-			// DELIA-39530 - For 1.0->0.0 and 0.0->1.0 if eAAMPConfig_EnableGstPositionQuery is enabled, GStreamer position query will give proper value
+			// For 1.0->0.0 and 0.0->1.0 if eAAMPConfig_EnableGstPositionQuery is enabled, GStreamer position query will give proper value
 			// Fallback case added for when eAAMPConfig_EnableGstPositionQuery is disabled, since we will be using elapsedTime to calculate position and
 			// trickStartUTCMS has to be reset
 			if (!ISCONFIGSET(eAAMPConfig_EnableGstPositionQuery) && !aamp->mbDetached)
@@ -1106,8 +1103,7 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 	if (aamp->mpStreamAbstractionAAMP)
 	{ // for seek while streaming
 
-		/* LLAMA-7124
-		 * PositionMilisecondLock is intended to ensure both state and seek_pos_seconds (in TuneHelper)
+		 /* PositionMilisecondLock is intended to ensure both state and seek_pos_seconds (in TuneHelper)
 		 * are updated before GetPositionMilliseconds() can be used*/
 		auto PositionMilisecondLocked = aamp->LockGetPositionMilliseconds();
 		aamp->SetState(eSTATE_SEEKING);
@@ -1208,7 +1204,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			}
 			else
 			{
-				// LLAMA-4799:Rewind over AD using Seek(-1) is impemented only for DASH, so restoring old code for non DASH to avoid DELIA-59899 regression.
+				// Rewind over AD using Seek(-1) is impemented only for DASH, so restoring old code for non DASH.
 				if (aamp->mMediaFormat == eMEDIAFORMAT_DASH)
 				{
 					tuneType = eTUNETYPE_SEEKTOEND;
@@ -1298,7 +1294,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			aamp->ResumeDownloads();
 		}
 
-		/* LLAMA-7124
+		/*
 		 * PositionMilisecondLock is intended to ensure both state and seek_pos_seconds
 		 * are updated before GetPositionMilliseconds() can be used*/
 		auto PositionMilisecondLocked = aamp->LockGetPositionMilliseconds();
@@ -1428,7 +1424,7 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 		return;
 	}
 
-	//Hack For DELIA-51318 convert the incoming rates into acceptable rates
+	//convert the incoming rates into acceptable rates
 	if(ISCONFIGSET(eAAMPConfig_RepairIframes))
 	{
 		AAMPLOG_WARN("mRepairIframes is true, setting actual rate %f for the received rate %d", getWorkingTrickplayRate(rate), rate);
@@ -1998,17 +1994,23 @@ double PlayerInstanceAAMP::GetPlaybackDuration()
  *
  *  @return returns unique id of player,
  */
- int PlayerInstanceAAMP::GetId(void)
- {
-	 int iPlayerId = -1;
+int PlayerInstanceAAMP::GetId(void)
+{
+	int iPlayerId = -1;
+	if(NULL != aamp)
+	{
+		iPlayerId = aamp->mPlayerId;
+	}
+	return iPlayerId;
+}
 
-	 if(NULL != aamp)
-	 {
-		 iPlayerId = aamp->mPlayerId;
-	 }
-
-	 return iPlayerId;
- }
+void PlayerInstanceAAMP::SetId(int iPlayerId)
+{
+	if(NULL != aamp)
+	{
+		aamp->mPlayerId = iPlayerId;
+	}
+}
 
 /**
  *  @brief To get the current AAMP state.
@@ -2295,12 +2297,11 @@ void PlayerInstanceAAMP::SetStereoOnlyPlayback(bool bValue)
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableAC3,true);
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableAC4,true);
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableATMOS,true);
-		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_ForceEC3,false);
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_StereoOnly,true);
 	}
 	else
 	{
-		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableEC3,false);
+		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableEC3,true);
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableAC3,false);
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableAC4,false);
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableATMOS,false);
@@ -2754,9 +2755,7 @@ std::string PlayerInstanceAAMP::GetAppName()
  */
 void PlayerInstanceAAMP::SetNativeCCRendering(bool enable)
 {
-#ifdef AAMP_CC_ENABLED
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_NativeCCRendering,enable);
-#endif
 }
 
 /**
@@ -2944,9 +2943,7 @@ void PlayerInstanceAAMP::SetInitRampdownLimit(int limit)
  */
 void PlayerInstanceAAMP::SetCEAFormat(int format)
 {
-#ifdef AAMP_CC_ENABLED
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_CEAPreferred,format);
-#endif
 }
 
 
@@ -3496,11 +3493,7 @@ void PlayerInstanceAAMP::SetRuntimeDRMConfigSupport(bool DynamicDRMSupported)
  */
 bool PlayerInstanceAAMP::IsOOBCCRenderingSupported()
 {
-#ifdef AAMP_CC_ENABLED
 	return AampCCManager::GetInstance()->IsOOBCCRenderingSupported();
-#else
-	return false;
-#endif
 }
 
 /**

@@ -2,7 +2,7 @@
 # If not stated otherwise in this file or this component's LICENSE file the
 # following copyright and licenses apply:
 #
-# Copyright 2024 Synamedia Ltd.
+# Copyright 2024 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import fileinput
 import re
 
@@ -82,7 +81,7 @@ for line in fileinput.input(errors="ignore"):
         if n:
             seg_num = int(n.group(1))
 
-        # Get video profile I.E bitrate from URL if possible. Works for sky
+        # Get video profile I.E bitrate from URL if possible.
         p = re.search(r'_(audio\d+|video\d)-', url)
         if p:
             profile = p.group(1)

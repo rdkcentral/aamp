@@ -815,6 +815,12 @@ public:
 	 */
 	void updateManifest(const char *manifestData);
 
+	/**
+	 * @fn GetPlatformType - to get platform type
+	 * return int
+	 */
+	int GetPlatformType() override;
+
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
 	std::vector< std::pair<long long,long> > mAbrBitrateData;
@@ -1020,9 +1026,7 @@ public:
 	std::map<std::string, std::string> httpHeaderResponses;
 	bool mIsIframeTrackPresent;				/**< flag to check iframe track availability*/
 
-	/* START: Added As Part of DELIA-28363 and DELIA-28247 */
 	bool IsTuneTypeNew; 					/**< Flag for the eTUNETYPE_NEW_NORMAL */
-	/* END: Added As Part of DELIA-28363 and DELIA-28247 */
 	pthread_cond_t waitforplaystart;    			/**< Signaled after playback starts */
 	pthread_mutex_t mMutexPlaystart;			/**< Mutex associated with playstart */
 	long long trickStartUTCMS;
@@ -1033,6 +1037,7 @@ public:
 	std::vector<PeriodInfo> mMPDPeriodsInfo;
 	float maxRefreshPlaylistIntervalSecs;
 	EventListener* mEventListener;
+	long long prevFirstPeriodStartTime;
 
 	//updated by ReportProgress() and used by PlayerInstanceAAMP::SetRateInternal() to update seek_pos_seconds
 	PositionCache<double> mNewSeekInfo;
@@ -1040,6 +1045,7 @@ public:
 	long long mAdPrevProgressTime;
 	uint32_t mAdCurOffset;					/**< Start position in percentage */
 	uint32_t mAdDuration;
+	uint64_t mAdAbsoluteStartTime;			/**< Start time of Ad */
 	std::string mAdProgressId;
 	bool discardEnteringLiveEvt;
 	bool mIsRetuneInProgress;
@@ -1076,7 +1082,7 @@ public:
 	bool mAudioDecoderStreamSync; 				/**< BCOM-4203: Flag to set or clear 'stream_sync_mode' property
 	                                				in gst brcmaudiodecoder, default: True */
 	std::string mSessionToken; 				/**< Field to set session token for player */
-	bool midFragmentSeekCache;    				/**< RDK-26957: To find if cache is updated when seeked to mid fragment boundary */
+	bool midFragmentSeekCache;    				/**< To find if cache is updated when seeked to mid fragment boundary */
 	bool mDisableRateCorrection;             /**< Disable live latency correction when user pause or seek the playback **/
 	bool mAbortRateCorrection;               /**< Flag to abort rate correction thread **/
 	bool mAutoResumeTaskPending;
@@ -1149,6 +1155,7 @@ public:
 	std::string seiTimecode; /**< SEI Timestamp information from Westeros */
 
 	static bool mTrackGrowableBufMem; /**< GROWABLE BUFFER Debug is enabled or not */
+	static bool mSubtecCCEnabled;	/**< To identify SUBTEC_CC is enabled or not */
 	// ID3 metadata
 	aamp::id3_metadata::MetadataCache mId3MetadataCache; /**< Metadata cache object for the JS event */
 
@@ -1667,9 +1674,10 @@ public:
 	/**
 	 *   @fn ReportAdProgress
 	 *   @param[in]  sync - Flag to indicate that event should be synchronous
+	 *   @param[in]  positionMs - Position value in milliseconds
 	 *   @return void
 	 */
-	void ReportAdProgress(bool sync = true);
+	void ReportAdProgress(bool sync = true, double positionMs = -1);
 
 	/**
 	 *   @fn GetDurationMs
@@ -1816,6 +1824,8 @@ public:
 	 * @return True or False
 	 */
 	bool IsEASContent() { return (mContentType==ContentType_EAS);}
+
+	bool IsIVODContent() { return (mContentType==ContentType_IVOD);}
 	/**
 	 * @fn ReportTimedMetadata
 	 */
@@ -2455,9 +2465,10 @@ public:
 	 *   @param[in] type - Event type
 	 *   @param[in] adBreakId - Reservation Id
 	 *   @param[in] position - Event position in terms of channel's timeline
+	 *   @param[in] absolutePositionMs - Event absolute position
 	 *   @param[in] immediate - Send it immediate or not
 	 */
-	void SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, bool immediate=false);
+	void SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate=false);
 
 	/**
 	 *   @fn SendAdPlacementEvent
@@ -2465,12 +2476,13 @@ public:
 	 *   @param[in] type - Event type
 	 *   @param[in] adId - Placement Id
 	 *   @param[in] position - Event position wrt to the corresponding adbreak start
+	 *   @param[in] absolutePositionMs - Event absolute position
 	 *   @param[in] adOffset - Offset point of the current ad
 	 *   @param[in] adDuration - Duration of the current ad
 	 *   @param[in] immediate - Send it immediate or not
 	 *   @param[in] error_code - Error code (in case of placment error)
 	 */
-	void SendAdPlacementEvent(AAMPEventType type, const std::string &adId, uint32_t position, uint32_t adOffset, uint32_t adDuration, bool immediate=false, long error_code=0);
+	void SendAdPlacementEvent(AAMPEventType type, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, uint32_t adOffset, uint32_t adDuration, bool immediate=false, long error_code=0);
 
 	/**
 	 *   @brief Set anonymous request true or false
@@ -3861,10 +3873,7 @@ public:
 	 *
 	 *   @return void
 	 */
-	void SetLLDashChunkMode(bool enable)
-	{
-		mIsChunkMode = enable;
-	}
+	void SetLLDashChunkMode(bool enable);
 
 	/**
 	 *   @brief Get the status of LL-DASH chunk mode.
@@ -4132,8 +4141,9 @@ public:
 
 	/**
 	 * @brief Signal the clock to subtitle module
+	 * @return - true indicating successful operation in sending the clock update
 	 */
-	void SignalSubtitleClock();
+	bool SignalSubtitleClock();
 
 	/**
 	 * @brief Apply CC/Subtitle mute but preserve the original status
@@ -4226,6 +4236,12 @@ public:
 	 */
 	void SetPauseOnStartPlayback(bool enable);
 
+	/**
+	 * @brief Determines if decrypt should be called on clear samples
+	 * @return Flag to indicate if should decrypt
+	 */
+	bool isDecryptClearSamplesRequired();
+
 protected:
 
 	/**
@@ -4260,9 +4276,13 @@ protected:
 
 	/**
 	 * @fn DeliverAdEvents
+	 *
+	 * @param[in] immediate - flag to deliver ad events immediately
+	 * @param[in] positionMs - position in milliseconds
+	 *
 	 * @return void
 	 */
-	void DeliverAdEvents(bool immediate=false);
+	void DeliverAdEvents(bool immediate=false, double positionMs = -1);
 
 	/**
 	 *   @fn GetContentTypString
@@ -4361,7 +4381,7 @@ protected:
 	int mfirstTuneFmt;			//First Tune Format HLS(0) or DASH(1)
 	int  mTuneAttempts;			//To distinguish between new tune & retries with redundant over urls.
 	long long mPlayerLoadTime;
-	std::atomic<PrivAAMPState> mState;  //LLAMA-7124 changed to atomic as there are cross thread accesses.
+	std::atomic<PrivAAMPState> mState;  //Changed to atomic as there are cross thread accesses.
 	long long lastUnderFlowTimeMs[AAMP_TRACK_COUNT];
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	std::shared_ptr<AampDrmHelper> mCurrentDrm;

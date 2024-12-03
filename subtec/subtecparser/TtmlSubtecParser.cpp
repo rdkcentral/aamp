@@ -133,7 +133,7 @@ bool TtmlSubtecParser::processData(char* buffer, size_t bufferLen, double positi
 		std::vector<uint8_t> data(mdatLen);
 		data.assign(mdat, mdat+mdatLen);
 		
-		//LLAMA-3328 - this hack is necessary because the offset into the TTML
+		//necessary because the offset into the TTML
 		//is not available in the linear manifest
 		//Take the first instance of the "begin" tag as the time offset for subtec
 		if (!m_parsedFirstPacket && m_isLinear)

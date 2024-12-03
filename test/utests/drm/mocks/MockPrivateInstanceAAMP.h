@@ -27,6 +27,7 @@ class MockPrivateInstanceAAMP
 {
 public:
 	MOCK_METHOD(void, individualization, (const std::string &payload));
+	MOCK_METHOD(bool, isDecryptClearSamplesRequired, ());
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

@@ -415,7 +415,6 @@ void AampDRMSessionManager::setPlaybackSpeedState(int speed, double positionMs, 
 	{
 		AAMPLOG_INFO("calling AampSecManager::setPlaybackSpeedState()");
 
-		// DELIA-65062
 		double adjustedPos;
 		if( aampInstance->IsLive() )
 		{ 
@@ -1120,7 +1119,7 @@ AampDrmSession* AampDRMSessionManager::createDrmSession(std::shared_ptr<AampDrmH
 		return nullptr;
 	}
 
-	// Mutex lock to handle createDrmSession multi-thread calls to avoid timing issues observed in AXi6 as part of DELIA-43939 during Playready-4.0 testing.
+	// protect createDrmSession multi-thread calls; found during PR 4.0 DRM testing
 	AampMutexHold drmSessionLock(mDrmSessionLock);
 
 	int cdmError = -1;
@@ -1685,8 +1684,6 @@ KeyState AampDRMSessionManager::handleLicenseResponse(std::shared_ptr<AampDrmHel
 			//Handle secmaanger specific error codes here
 			if(ISCONFIGSET(eAAMPConfig_UseSecManager))
 			{
-				//The documentation for secmanager error codes are here
-				//https://etwiki.sys.comcast.net/pages/viewpage.action?spaceKey=RDKV&title=AAMP+-+SecManagerApi
 				eventHandle->setResponseCode(httpResponseCode);
 				eventHandle->setSecManagerReasonCode(httpExtendedStatusCode);
 				if(SECMANGER_DRM_FAILURE == httpResponseCode && SECMANGER_ENTITLEMENT_FAILURE == httpExtendedStatusCode)

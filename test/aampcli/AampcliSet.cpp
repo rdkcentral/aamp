@@ -471,12 +471,27 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 
 				case 24:
 					{
-						//Dummy implementation
-						std::string adBrkId = "";
-						std::string adId = "";
-						std::string url = "";
-						printf("[AAMPCLI] Matched Command AlternateContent - %s\n", cmd);
-						playerInstanceAamp->SetAlternateContents(adBrkId, adId, url);
+						std::string adBrkId;
+						std::string adId;
+						std::string adUrl;
+						printf("[AAMPCLI] Matched Command AlternateContents - %s\n", cmd);
+						std::istringstream iss(cmd);
+						std::vector<std::string> tokens;
+						std::string token;
+						while (iss >> token) {
+							tokens.push_back(token);
+						}
+						if (tokens.size() == 5) {
+							adBrkId = tokens[2];
+							adId = tokens[3];
+							adUrl = tokens[4];
+							playerInstanceAamp->SetAlternateContents(adBrkId, adId, adUrl);
+						}
+						else
+						{
+							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							printf("[AAMPCLI] Expected: set %s <adBreakId> <adId> <adUrl>\n", command);
+						}
 						break;
 					}
 
@@ -1336,7 +1351,7 @@ void Set::registerSetCommands()
 	addCommand(21,"downloadBufferSize"," <x>","Set Download Buffer Size (int x = bufferSize)");
 	addCommand(22,"preferredDrm"," <x>","Set Preferred DRM (int x=1-WV, 2-PR, 4-Access, 5-AES 6-ClearKey)");
 	addCommand(23,"stereoOnlyPlayback"," <x>","Set Stereo only playback (x=1/0)");
-	addCommand(24,"alternateContent","","Set Alternate Contents - dummy ()");
+	addCommand(24,"alternateContents"," <x> <y> <z>","Set Alternate Contents in runtime (string x=adBreakId, string y=adId, string z=adUrl)");
 	addCommand(25,"networkProxy"," <x>","Set Set Network Proxy (string x = url)");
 	addCommand(26,"licenseReqProxy"," <x>","Set License Request Proxy (string x=url)");
 	addCommand(27,"downloadStallTimeout"," <x>","Set Download Stall timeout (long x=timeout)");

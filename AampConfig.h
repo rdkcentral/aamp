@@ -100,11 +100,10 @@ typedef enum
 	eAAMPConfig_PreservePipeline,						/**< Flush instead of teardown*/
 	eAAMPConfig_Throttle,							/**< Regulate output data flow*/
 	eAAMPConfig_DemuxAudioBeforeVideo,					/**< Demux video track from HLS transport stream track mode*/
-	eAAMPConfig_ForceEC3,							/**< Forcefully enable DDPlus*/
 	eAAMPConfig_DisableEC3, 						/**< Disable DDPlus*/
 	eAAMPConfig_DisableATMOS,						/**< Disable Dolby ATMOS*/
 	eAAMPConfig_DisableAC4,							/**< Disable AC4 Audio */
-	eAAMPConfig_StereoOnly,							/**< Enable Stereo Only playback, disables EC3/ATMOS. Overrides ForceEC3 */
+	eAAMPConfig_StereoOnly,							/**< Enable Stereo Only playback, disables EC3/ATMOS.  */
 	eAAMPConfig_DescriptiveTrackName,					/**< Enable Descriptive track name*/
 	eAAMPConfig_DisableAC3,							/**< Disable AC3 Audio */
 	eAAMPConfig_DisablePlaylistIndexEvent,					/**< Disable playlist index event*/
@@ -172,7 +171,7 @@ typedef enum
 	eAAMPConfig_LimitResolution,                                            /**< Flag to indicate if display resolution based profile selection to be done */
 	eAAMPConfig_UseAbsoluteTimeline,					/**< Enable Report Progress report position based on Availability Start Time **/
 	eAAMPConfig_EnableAccessAttributes,					/**< Usage of Access Attributes in VSS */
-	eAAMPConfig_WideVineKIDWorkaround,                         		/**< SkyDE Store workaround to pick WV DRM Key Id from different location */
+	eAAMPConfig_WideVineKIDWorkaround,                         		/**< partner-specific workaround to use WV DRM KeyId from alternate location */
 	eAAMPConfig_RepairIframes,						/**< Enable fragment repair (Stripping and box size correction) for iframe tracks */
 	eAAMPConfig_SEITimeCode,						/**< Enables SEI Time Code handling */
 	eAAMPConfig_Disable4K,							/**< Enalbe/Disable 4K stream support*/
@@ -215,10 +214,11 @@ typedef enum
 	eAAMPConfig_EarlyID3Processing,					/**< To enable/disable early ID3 processing */
 	eAAMPConfig_SeamlessAudioSwitch,					/**< To enable audio Restart - Currently supported for HLS_MP4 on same codec streams*/
 	eAAMPConfig_useRialtoSink,                      /**< Enable/Disable player to use Rialto sink based video and audio pipeline */
-	eAAMPConfig_LocalTSBEnabled,                                            /**< To enable/disable Local TSB in LLD as part of RDK-48051*/
+	eAAMPConfig_LocalTSBEnabled,                                            /**< To enable/disable Local TSB in LLD */
 	eAAMPConfig_EnableIFrameTrackExtract,			/**< Config to enable and disable iFrame extraction from video track*/
 	eAAMPConfig_ForceMultiPeriodDiscontinuity,		/**< Config to forcefully process multiperiod discontinuity even if they are continuous in PTS */
 	eAAMPConfig_ForceLLDFlow,						/**< Config to forcefully process LLD workflow even if they are live SLD */
+	eAAMPConfig_NoNativeAV,                                                 /**< Config to allow gstreamer be responsible for handling AV, bypassing use of native platform-specific audio-video handling */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 } AAMPConfigSettingBool;
 #define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)
@@ -311,6 +311,7 @@ typedef enum
 	eAAMPConfig_AdFulfillmentTimeout,					/**< Ad fulfillment timeout in milliseconds */
 	eAAMPConfig_AdFulfillmentTimeoutMax,					/**< Ad fulfillment maximum timeout in milliseconds */
 	eAAMPConfig_RequiredQueuedFrames,				/**< required queued frames while tuning */
+	eAAMPConfig_PlatformType,                                                       /**< To determine the current device platform/soc type */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
@@ -340,8 +341,6 @@ typedef enum
 
 typedef enum
 {
-	eAAMPConfig_MapMPD, 							/**< host name in url for which hls to mpd mapping done'*/
-	eAAMPConfig_MapM3U8,							/**< host name in url for which mpd to hls mapping done'*/
 	eAAMPConfig_HarvestPath,						/**< Path to store Harvested files */
 	eAAMPConfig_LicenseServerUrl,						/**< License server URL ( if no individual configuration */
 	eAAMPConfig_CKLicenseServerUrl,						/**< ClearKey License server URL*/
@@ -496,6 +495,21 @@ public:
 	AampConfig& operator=(const AampConfig&);
 	void Initialize();
 	/**
+	 * @fn ReadDeviceProperties - Read device.Properties from /etc/ (e.g., soc,region,tv/stb fields) and set platform type bypassing use of compile time flags on non-containerized apps.
+	 * @return bool
+	 */
+	bool ReadDeviceProperties();
+	/**
+	 * @fn ReadGstPlugins - Read platform specific unique decoder/sink elements and set platform type on containerized apps.
+	 * @return void
+	 */
+	void ReadGstPlugins();
+	/**
+	 * @fn SetPlatformConfigs - Set platform/soc specific configurations
+	 * @return void
+	 */
+	void SetPlatformConfigs(PlatformType platform);
+	/**
 	 * @fn ReadDeviceCapability
 	 * @return Void
 	 */
@@ -644,10 +658,38 @@ public:
      	 */
 	void RestoreConfiguration(ConfigPriority owner);
 	/**
+     	 * @fn RestoreConfiguration
+     	 * @param[in] owner - Restore from this owner to previous owner
+     	 * @param[in] cfg - Config value for restoring
+     	 * @return None
+		 */
+	void RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingBool cfg);
+	/**
+     	 * @fn RestoreConfiguration
+     	 * @param[in] owner - Restore from this owner to previous owner
+     	 * @param[in] cfg - Config value for restoring
+     	 * @return None
+		 */
+	void RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingInt cfg);
+	/**
+     	 * @fn RestoreConfiguration
+     	 * @param[in] owner - Restore from this owner to previous owner
+     	 * @param[in] cfg - Config value for restoring
+     	 * @return None
+		 */
+	void RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingFloat cfg);
+	/**
+     	 * @fn RestoreConfiguration
+     	 * @param[in] owner - Restore from this owner to previous owner
+     	 * @param[in] cfg - Config value for restoring
+     	 * @return None
+		 */
+	void RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingString cfg);
+	/**
      	 * @fn ConfigureLogSettings
      	 * @return None
      	 */
-	void ConfigureLogSettings();	
+	void ConfigureLogSettings();
 	/**
      	 * @fn GetAampConfigJSONStr
      	 * @param[in] str  - input string where config json will be stored

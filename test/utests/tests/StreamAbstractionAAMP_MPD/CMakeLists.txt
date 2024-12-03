@@ -23,6 +23,7 @@ include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_RO
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/tsb/api)
+include_directories(${AAMP_ROOT}/closedcaptions)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -51,9 +52,10 @@ set(TEST_SOURCES FunctionalTests.cpp
                  FetcherLoopTests.cpp
                  StreamAbstractionAAMP_MPD.cpp
 		             AudioTrackSelectionTests.cpp
-                 AudioTrackSwitchTests.cpp)
+                 AudioTrackSwitchTests.cpp
+                 subtitleTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDParseHelper.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/aamplogging.cpp ${DASH_PARSER_SOURCES})
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDParseHelper.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${DASH_PARSER_SOURCES})
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

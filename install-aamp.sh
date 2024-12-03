@@ -1,5 +1,27 @@
 #!/usr/bin/env bash
+#
+# If not stated otherwise in this file or this component's license file the
+# following copyright and licenses apply:
+#
+# Copyright 2020 RDK Management
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 #set -x
+
+if [[ -z "${MAKEFLAGS}" ]]; then
+    export MAKEFLAGS=-j$(nproc)
+fi
 
 # Fail the script should any step fail. To override this behavior use "|| true" on those statements
 set -eo pipefail
@@ -28,12 +50,8 @@ source scripts/install_libcjson.sh
 source scripts/install_gstreamer.sh
 # subtec install and build
 source scripts/install_subtec.sh
-# aampmetrics / aampabr build and install
-source scripts/install_aampdeps.sh 
 # rialto install and build
 source scripts/install_rialto.sh
-# gst-plugin-rdk install and build
-source scripts/install_gstplugins.sh
 # aamp-cli install and build
 source scripts/install_aampcli.sh
 #
@@ -155,11 +173,6 @@ else
     INSTALL_STATUS_ARR+=("subtec_install_build check SKIPPED.")
 fi
 
-# Build aampabr / aampmetrics
-#
-aampdeps_install_build_fn "${OPTION_CLEAN}" 
-INSTALL_STATUS_ARR+=("install_build_aampdeps check passed.")
-
 # Build rialto
 #
 rialto_install_build_fn "${OPTION_CLEAN}"
@@ -174,10 +187,6 @@ INSTALL_STATUS_ARR+=("subtec_install_run_script check passed.")
 #
 aampcli_install_build_fn "${CLEAN}"
 INSTALL_STATUS_ARR+=("aampcli_install_build check passed.")
-
-# gst plugin needs to be build after aamp-cli/libsubtec
-gstplugin_install_build_fn "${CLEAN}"
-INSTALL_STATUS_ARR+=("gstplugin_install_build_script check passed.")
 
 # Post build aamp-cli
 #

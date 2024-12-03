@@ -152,19 +152,47 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 
 ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingBool cfg)
 {
-	return AAMP_DEFAULT_SETTING;
+	if (g_mockAampConfig != nullptr)
+	{
+		return g_mockAampConfig->GetConfigOwner(cfg);
+	}
+	else
+	{
+		return AAMP_DEFAULT_SETTING;
+	}
 }
 ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingInt cfg)
 {
-	return AAMP_DEFAULT_SETTING;
+	if (g_mockAampConfig != nullptr)
+	{
+		return g_mockAampConfig->GetConfigOwner(cfg);
+	}
+	else
+	{
+		return AAMP_DEFAULT_SETTING;
+	}
 }
 ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingFloat cfg)
 {
-	return AAMP_DEFAULT_SETTING;
+	if (g_mockAampConfig != nullptr)
+	{
+		return g_mockAampConfig->GetConfigOwner(cfg);
+	}
+	else
+	{
+		return AAMP_DEFAULT_SETTING;
+	}
 }
 ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg)
 {
-	return AAMP_DEFAULT_SETTING;
+	if (g_mockAampConfig != nullptr)
+	{
+		return g_mockAampConfig->GetConfigOwner(cfg);
+	}
+	else
+	{
+		return AAMP_DEFAULT_SETTING;
+	}
 }
 
 bool AampConfig::GetAampConfigJSONStr(std::string &str)
@@ -190,4 +218,45 @@ const char * AampConfig::GetChannelLicenseOverride(const std::string manifestUrl
 bool AampConfig::CustomSearch( std::string url, int playerId , std::string appname)
 {
     return false;
+}
+
+bool AampConfig::ReadDeviceProperties()
+{
+	return false;
+}
+
+void AampConfig::ReadGstPlugins()
+{
+}
+
+void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingBool cfg)
+{
+	if (g_mockAampConfig != nullptr)
+	{
+		return g_mockAampConfig->RestoreConfiguration(owner,cfg);
+	}
+}
+
+void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingInt cfg)
+{
+	if (g_mockAampConfig != nullptr)
+	{
+		return g_mockAampConfig->RestoreConfiguration(owner,cfg);
+	}
+}
+
+void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingFloat cfg)
+{
+	if (g_mockAampConfig != nullptr)
+	{
+		return g_mockAampConfig->RestoreConfiguration(owner,cfg);
+	}
+}
+
+void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingString cfg)
+{
+	if (g_mockAampConfig != nullptr)
+	{
+		return g_mockAampConfig->RestoreConfiguration(owner,cfg);
+	}
 }

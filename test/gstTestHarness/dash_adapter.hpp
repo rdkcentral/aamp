@@ -75,6 +75,8 @@ public:
 	long bandwidth;
 	long width;
 	long height;
+	long frameRate;
+	long audioSamplingRate;
 	
 	class MediaData data;
 	
@@ -87,8 +89,10 @@ public:
 		stream << "bandwidth=" << bandwidth << "\n";
 		stream << "width=" << width << "\n";
 		stream << "height=" << height << "\n";
-		data.Debug();
+		stream << "frameRate=" << frameRate << "\n";
+		stream << "audioSamplingRate=" << audioSamplingRate << "\n";
 		puts( stream.str().c_str() );
+		data.Debug();
 	}
 };
 
@@ -101,6 +105,10 @@ public:
 	std::string codecs;
 	std::string mimeType;
 	std::string licenseURL;
+	long maxWidth;
+	long maxHeight;
+	long frameRate;
+	long audioSamplingRate;
 	
 	class MediaData data;
 	
@@ -115,6 +123,7 @@ public:
 		stream << "contentType=" << contentType << "\n";
 		stream << "codecs=" << codecs << "\n";
 		stream << "mimeType=" << mimeType << "\n";
+		stream << "audioSamplingRate=" << audioSamplingRate << "\n";
 		puts( stream.str().c_str() );
 		data.Debug();
 		for( auto it : representation )

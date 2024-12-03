@@ -347,8 +347,9 @@ public:
 	 * @fn PushNextFragment 
 	 * @param pMediaStreamContext Track object
 	 * @param curlInstance instance of curl to be used to fetch
+	 * @param skipFetch true if fragment fetch is to be skipped for seamlessaudio
 	 */
-	bool PushNextFragment( class MediaStreamContext *pMediaStreamContext, unsigned int curlInstance);
+	bool PushNextFragment( class MediaStreamContext *pMediaStreamContext, unsigned int curlInstance, bool skipFetch=false);
 	/**
 	 * @fn SkipFragments
 	 * @param pMediaStreamContext Media track object
@@ -561,9 +562,15 @@ protected:
 	void printSelectedTrack(const std::string &trackIndex, AampMediaType media);
 	/**
 	 * @fn AdvanceTrack
+	 * @param[in] trackIdx - track index
+	 * @param[in] trickPlay - flag indicates if its trickplay
+	 * @param[in/out] waitForFreeFrag - flag is updated if we are waiting for free fragment
+	 * @param[in/out] bCacheFullState - flag is updated if the cache is full for this track
+	 * @param[in] throttleAudio - flag indicates if we should throttle audio download
+	 * @param[in] isDiscontinuity - flag indicates if its a discontinuity
 	 * @return void
 	 */
-	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState,bool isDiscontinuity = false);
+	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState,bool throttleAudio,bool isDiscontinuity = false);
 	/**
 	 * @fn AdvanceTsbFetch
 	 * @param[in] trackIdx - trackIndex
@@ -589,12 +596,11 @@ protected:
 	 * @param[in,out] mpdChanged flag
 	 * @param[in,out] AdStateChanged flag
 	 * @param[in,out] waitForAdBreakCatchup flag
-	 * @param[in,out] bmanifestupdate flag
 	 * @param[in,out] requireStreamSelection flag
 	 * @param[in,out] currentPeriodId string
 	 * @return bool - true if new period selected, false otherwise
 	 */
-	bool SelectSourceOrAdPeriod(bool &periodChanged, bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &bmanifestupdate, bool &requireStreamSelection, std::string &currentPeriodId);
+	bool SelectSourceOrAdPeriod(bool &periodChanged, bool &mpdChanged, bool &adStateChanged, bool &waitForAdBreakCatchup, bool &requireStreamSelection, std::string &currentPeriodId);
 
 	/**
 	 * @fn IndexSelectedPeriod
@@ -1065,6 +1071,7 @@ protected:
 
 	double mLiveEndPosition;
 	double mCulledSeconds;
+	double mPrevFirstPeriodStart;
 	bool mAdPlayingFromCDN;   /*Note: TRUE: Ad playing currently & from CDN. FALSE: Ad "maybe playing", but not from CDN.*/
 	double mAvailabilityStartTime;
 	std::map<std::string, int> mDrmPrefs;

@@ -13,6 +13,11 @@ Copyright (c) 2022 RDK Management and licensed to you under the LGPL-2.1 License
 directory contains its own license file, called COPYING, which describes the licensing of the
 software under the gst_subtec directory.
 
+The gst-plugins-rdk-aamp directory tree within this component contains some software which is
+Copyright (c) 2022 RDK Management and licensed to you under the LGPL-2.1 License.  The gst-plugins-rdk-aamp
+directory contains its own license file, called COPYING, which describes the licensing of the
+software under the gst-plugins-rdk-aamp directory.
+
 Code in patch files takes the license of the source which is being patched.
 
 Copyright (c) 2009-2017 Dave Gamble and cJSON contributors

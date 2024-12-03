@@ -1,3 +1,22 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2020 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 /**
  * @file opencdmsessionadapter.cpp
  * @brief Handles operation with OCDM session to handle DRM License data
@@ -7,7 +26,6 @@
 #include "AampDrmHelper.h"
 #include "AampUtils.h"
 
-#include <gst/gst.h>
 #include <assert.h>
 #include <iostream>
 #include <sstream>
@@ -21,7 +39,6 @@
 #include "priv_aamp.h"
 
 #include <sys/time.h>
-#include <gst/gstbuffer.h>
 
 #define LICENSE_RENEWAL_MESSAGE_TYPE "1"
 
@@ -141,15 +158,10 @@ void AAMPOCDMSessionAdapter::generateAampDRMSession(const uint8_t *f_pbInitData,
 		const unsigned char *customDataMessage = customData.empty() ? nullptr:reinterpret_cast<const unsigned char *>(customData.c_str()) ;
 		const uint16_t customDataMessageLength = customData.length();
 		AAMPLOG_INFO("data length : %d: ", customDataMessageLength);
-#ifdef USE_RIALTO_OCDM
-		const char *initDataType = "cenc";
-#else
-		const char *initDataType = "video/mp4";
-#endif
 #ifdef USE_THUNDER_OCDM_API_0_2
-	OpenCDMError ocdmRet = opencdm_construct_session(m_pOpenCDMSystem, LicenseType::Temporary, initDataType,
+	OpenCDMError ocdmRet = opencdm_construct_session(m_pOpenCDMSystem, LicenseType::Temporary, "cenc",
 #else
-    OpenCDMError ocdmRet = opencdm_construct_session(m_pOpenCDMSystem, m_keySystem.c_str(), LicenseType::Temporary, initDataType,
+    OpenCDMError ocdmRet = opencdm_construct_session(m_pOpenCDMSystem, m_keySystem.c_str(), LicenseType::Temporary, "cenc",
 #endif
 				  const_cast<unsigned char*>(f_pbInitData), f_cbInitData,
 				  customDataMessage, customDataMessageLength,
@@ -417,7 +429,6 @@ void AAMPOCDMSessionAdapter::setKeyId(const std::vector<uint8_t>& keyId)
 {
 	m_keyId = keyId;
 }
-
 
 bool AAMPOCDMSessionAdapter::verifyOutputProtection()
 {

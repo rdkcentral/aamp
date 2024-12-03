@@ -151,6 +151,16 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback(char *ptr, size_t size, size_
 	return 0;
 }
 
+bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
+{
+	bool bIsDecryptClearSamplesRequired = false;
+	if (g_mockPrivateInstanceAAMP)
+	{
+		bIsDecryptClearSamplesRequired = g_mockPrivateInstanceAAMP->isDecryptClearSamplesRequired();
+	}
+	return bIsDecryptClearSamplesRequired;
+}
+
 #ifdef USE_SECCLIENT
 void PrivateInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
 {
@@ -1026,12 +1036,12 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 }
 
 void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId,
-												 uint64_t position, bool immediate)
+												 uint64_t position, uint64_t absolutePositionMs, bool immediate)
 {
 }
 
 void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::string &adId,
-											   uint32_t position, uint32_t adOffset,
+											   uint32_t position, uint64_t absolutePositionMs, uint32_t adOffset,
 											   uint32_t adDuration, bool immediate, long error_code)
 {
 }
@@ -1220,8 +1230,9 @@ long long PrivateInstanceAAMP::GetVideoPTS()
 	return 0;
 }
 
-void PrivateInstanceAAMP::SignalSubtitleClock()
+bool PrivateInstanceAAMP::SignalSubtitleClock()
 {
+	return false;
 }
 
 int PrivateInstanceAAMP::ScheduleAsyncTask(IdleTask task, void *arg, std::string taskName)
@@ -1319,3 +1330,19 @@ void PrivateInstanceAAMP::updateManifest(const char *manifestData)
 	if(NULL != manifestData)
 		mProvidedManifestFile = manifestData;
 }
+
+bool AAMPGstPlayer::IsMS2V12Supported()
+{
+	return false;
+}
+
+PlatformType AAMPGstPlayer::InitializeAAMPPlatformConfigs()
+{
+	return ePLATFORM_UNKNOWN;
+}
+
+int PrivateInstanceAAMP::GetPlatformType()
+{
+	return 0;
+}
+

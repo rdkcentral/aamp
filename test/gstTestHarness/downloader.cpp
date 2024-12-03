@@ -19,7 +19,6 @@
 #include "downloader.hpp"
 #include <stdlib.h>
 #include <curl/curl.h>
-#include <gst/gst.h>
 #include "string_utils.hpp"
 #include <assert.h>
 
@@ -186,7 +185,12 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 		{
 			std::string prefix = url.substr(start);
 			f = fopen( prefix.c_str(), "rb" );
-			assert( f );
+			if( !f )
+			{ // file not found
+				printf( "file not found!\n" );
+				return NULL;
+			}
+			//assert( f );
 			fseek( f, 0, SEEK_END );
 			len = ftell(f);
 		}

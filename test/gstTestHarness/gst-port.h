@@ -26,7 +26,7 @@
 #include <gst/gst.h>
 #include "initializationheaderinfo.hpp"
 
-// refer XIONE-13670 [RealTek] gstreamer pipeline unexpected behaviors when attempting to render single iframe
+// refer  gstreamer pipeline unexpected behaviors when attempting to render single iframe
 // #define REALTEK_HACK
 
 typedef enum

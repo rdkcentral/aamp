@@ -1,3 +1,22 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2020 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 /**
  * @file AampOcdmGstSessionAdapter.cpp
  * @brief File holds operations on OCDM gst sessions
@@ -6,11 +25,10 @@
 #include <sys/time.h>
 #include <inttypes.h>
 #include "AampOcdmGstSessionAdapter.h"
+#include "AampUtils.h"
 
-#ifdef AMLOGIC
 #include "gst/video/gstvideotimecode.h"
 #include "gst/video/gstvideometa.h"
-#endif
 
 #define USEC_PER_SEC   1000000
 static inline uint64_t GetCurrentTimeStampInUSec()
@@ -117,7 +135,6 @@ void LogPerformanceExt(const char *strFunc, uint64_t msStart, uint64_t msEnd, SE
 #endif //LOG_DECRYPT_STATS
 }
 
-#ifdef AMLOGIC
 class BitStreamState
 {
 	private:
@@ -245,8 +262,8 @@ void AAMPOCDMGSTSessionAdapter::ExtractSEI( GstBuffer *buffer)
 							AAMPLOG_TRACE( "SEI (HH:MM:SS)  %02d:%02d:%02d number of frames (%d)", hours_value, minutes_value, seconds_value, n_frames );
 							gst_buffer_add_video_time_code_meta_full(
 																	 buffer,
-																	 0, // fps_n
-																	 1, // fps_d
+																	 30000, // fps_n
+																	 1001, // fps_d
 																	 NULL, // latest_daily_jam
 																	 GST_VIDEO_TIME_CODE_FLAGS_NONE,
 																	 hours_value,
@@ -266,7 +283,6 @@ void AAMPOCDMGSTSessionAdapter::ExtractSEI( GstBuffer *buffer)
 	/** Unmap buffer after use **/
 	gst_buffer_unmap(buffer, &info);
 }
-#endif
 
 /**
  * @brief decrypt the data
@@ -282,76 +298,85 @@ int AAMPOCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuff
 			return HDCP_COMPLIANCE_CHECK_FAILURE;
 		}
 
-#ifdef AMLOGIC
 		/**
 		 * Extract the SEI timestamps from both clear and encrypted content. 
 		 */
 		AAMPLOG_TRACE("DEBUG: Extract the SEI timestamps from encrypted content.");
 		ExtractSEI(buffer);
-#endif
-		pthread_mutex_lock(&decryptMutex);
-		uint64_t start_decrypt_time = GetCurrentTimeStampInMSec();
 
-		/* Added GST_IS_CAPS check also before passing gst caps to OCDM decrypt() as gst_caps_is_empty returns false when caps object is not of 
-		   type GST_TYPE_CAPS. This will avoid crash when caps is not of type GST_TYPE_CAPS. */
-		if (AAMPOCDMGSTSessionDecrypt && !gst_caps_is_empty(caps) && GST_IS_CAPS(caps))
+		if ((keyIDBuffer == nullptr) 
+			&& (false == m_drmHelper->isDecryptClearSamplesRequired())
+		   )
 		{
-            		GstProtectionMeta* protectionMeta = reinterpret_cast<GstProtectionMeta*>(gst_buffer_get_protection_meta(buffer));
-
-		            if (protectionMeta != nullptr) {
-                		gst_structure_set (protectionMeta->info, "subsample_count", G_TYPE_UINT, subSampleCount, "subsamples", GST_TYPE_BUFFER, subSamplesBuffer, "iv", GST_TYPE_BUFFER, ivBuffer, "kid", GST_TYPE_BUFFER, keyIDBuffer, "initWithLast15", G_TYPE_UINT, 0, NULL);
-		            } else {
-               				 GstStructure *crypto_info = gst_structure_new ("protection_meta_info","subsample_count", G_TYPE_UINT, subSampleCount, "subsamples", GST_TYPE_BUFFER, subSamplesBuffer, "iv", GST_TYPE_BUFFER, ivBuffer, "kid", GST_TYPE_BUFFER, keyIDBuffer, "initWithLast15", G_TYPE_UINT, 0, NULL);
-                gst_buffer_add_protection_meta (buffer, crypto_info);
-            			}
-            		retValue = AAMPOCDMGSTSessionDecrypt(m_pOpenCDMSession, buffer, caps);
+			AAMPLOG_INFO("Skip decrypt of clear sample");
+			retValue = 0;
 		}
 		else
-			/* CID:328751 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
-			retValue = opencdm_gstreamer_session_decrypt(m_pOpenCDMSession, buffer, subSamplesBuffer, subSampleCount, ivBuffer, keyIDBuffer, 0);
-		uint64_t end_decrypt_time = GetCurrentTimeStampInMSec();
-		if (retValue != 0)
 		{
-			GstMapInfo keyIDMap;
-			if (gst_buffer_map(keyIDBuffer, &keyIDMap, (GstMapFlags) GST_MAP_READ) == true)
-			{
-				uint8_t *mappedKeyID = reinterpret_cast<uint8_t*>(keyIDMap.data);
-				uint32_t mappedKeyIDSize = static_cast<uint32_t>(keyIDMap.size);
-#ifdef USE_THUNDER_OCDM_API_0_2
-				KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, mappedKeyID, mappedKeyIDSize);
-#else
-				KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, mappedKeyID,mappedKeyIDSize );
-#endif
-				AAMPLOG_INFO("AAMPOCDMSessionAdapter: decrypt returned : %d key status is : %d", retValue, keyStatus);
-#ifdef USE_THUNDER_OCDM_API_0_2
-				if (keyStatus == OutputRestricted){
-#else
-				if(keyStatus == KeyStatus::OutputRestricted){
-#endif
-					retValue = HDCP_OUTPUT_PROTECTION_FAILURE;
-				}
-#ifdef USE_THUNDER_OCDM_API_0_2
-				else if (keyStatus == OutputRestrictedHDCP22){
-#else
-				else if(keyStatus == KeyStatus::OutputRestrictedHDCP22){
-#endif
-					retValue = HDCP_COMPLIANCE_CHECK_FAILURE;
-				}
-				gst_buffer_unmap(keyIDBuffer, &keyIDMap);
-			}
-		}
+			pthread_mutex_lock(&decryptMutex);
+			uint64_t start_decrypt_time = GetCurrentTimeStampInMSec();
 
-		GstMapInfo mapInfo;
-		if (gst_buffer_map(buffer, &mapInfo, GST_MAP_READ))
-		{
-			if (mapInfo.size > 0)
+			/* Added GST_IS_CAPS check also before passing gst caps to OCDM decrypt() as gst_caps_is_empty returns false when caps object is not of 
+			type GST_TYPE_CAPS. This will avoid crash when caps is not of type GST_TYPE_CAPS. */
+			if (AAMPOCDMGSTSessionDecrypt && !gst_caps_is_empty(caps) && GST_IS_CAPS(caps))
 			{
-				LogPerformanceExt(__FUNCTION__, start_decrypt_time, end_decrypt_time, mapInfo.size);
-			}
-			gst_buffer_unmap(buffer, &mapInfo);
-		}
+						GstProtectionMeta* protectionMeta = reinterpret_cast<GstProtectionMeta*>(gst_buffer_get_protection_meta(buffer));
 
-		pthread_mutex_unlock(&decryptMutex);
+						if (protectionMeta != nullptr) {
+							gst_structure_set (protectionMeta->info, "subsample_count", G_TYPE_UINT, subSampleCount, "subsamples", GST_TYPE_BUFFER, subSamplesBuffer, "iv", GST_TYPE_BUFFER, ivBuffer, "kid", GST_TYPE_BUFFER, keyIDBuffer, "initWithLast15", G_TYPE_UINT, 0, NULL);
+						} else {
+								GstStructure *crypto_info = gst_structure_new ("protection_meta_info","subsample_count", G_TYPE_UINT, subSampleCount, "subsamples", GST_TYPE_BUFFER, subSamplesBuffer, "iv", GST_TYPE_BUFFER, ivBuffer, "kid", GST_TYPE_BUFFER, keyIDBuffer, "initWithLast15", G_TYPE_UINT, 0, NULL);
+					gst_buffer_add_protection_meta (buffer, crypto_info);
+							}
+						retValue = AAMPOCDMGSTSessionDecrypt(m_pOpenCDMSession, buffer, caps);
+			}
+			else
+				/* CID:328751 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
+				retValue = opencdm_gstreamer_session_decrypt(m_pOpenCDMSession, buffer, subSamplesBuffer, subSampleCount, ivBuffer, keyIDBuffer, 0);
+			uint64_t end_decrypt_time = GetCurrentTimeStampInMSec();
+			if (retValue != 0)
+			{
+				GstMapInfo keyIDMap;
+				if (gst_buffer_map(keyIDBuffer, &keyIDMap, (GstMapFlags) GST_MAP_READ) == true)
+				{
+					uint8_t *mappedKeyID = reinterpret_cast<uint8_t*>(keyIDMap.data);
+					uint32_t mappedKeyIDSize = static_cast<uint32_t>(keyIDMap.size);
+	#ifdef USE_THUNDER_OCDM_API_0_2
+					KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, mappedKeyID, mappedKeyIDSize);
+	#else
+					KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, mappedKeyID,mappedKeyIDSize );
+	#endif
+					AAMPLOG_INFO("AAMPOCDMSessionAdapter: decrypt returned : %d key status is : %d", retValue, keyStatus);
+	#ifdef USE_THUNDER_OCDM_API_0_2
+					if (keyStatus == OutputRestricted){
+	#else
+					if(keyStatus == KeyStatus::OutputRestricted){
+	#endif
+						retValue = HDCP_OUTPUT_PROTECTION_FAILURE;
+					}
+	#ifdef USE_THUNDER_OCDM_API_0_2
+					else if (keyStatus == OutputRestrictedHDCP22){
+	#else
+					else if(keyStatus == KeyStatus::OutputRestrictedHDCP22){
+	#endif
+						retValue = HDCP_COMPLIANCE_CHECK_FAILURE;
+					}
+					gst_buffer_unmap(keyIDBuffer, &keyIDMap);
+				}
+			}
+
+			GstMapInfo mapInfo;
+			if (gst_buffer_map(buffer, &mapInfo, GST_MAP_READ))
+			{
+				if (mapInfo.size > 0)
+				{
+					LogPerformanceExt(__FUNCTION__, start_decrypt_time, end_decrypt_time, mapInfo.size);
+				}
+				gst_buffer_unmap(buffer, &mapInfo);
+			}
+
+			pthread_mutex_unlock(&decryptMutex);
+		}
 	}
 	return retValue;
 }
@@ -367,9 +392,7 @@ int AAMPOCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, c
 			return HDCP_COMPLIANCE_CHECK_FAILURE;
 		}
 		pthread_mutex_lock(&decryptMutex);
-#ifdef USE_RIALTO_OCDM
-		AAMPLOG_ERR("opencdm_session_decrypt not implemented");
-#else
+
 		EncryptionScheme encScheme = AesCtr_Cenc;
 		EncryptionPattern pattern = {0};
 		/* CID:313718 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
@@ -397,7 +420,6 @@ int AAMPOCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, c
 				retValue = HDCP_COMPLIANCE_CHECK_FAILURE;
 			}
 		}
-#endif /* USE_RIALTO_OCDM */
 
 		pthread_mutex_unlock(&decryptMutex);
 	}

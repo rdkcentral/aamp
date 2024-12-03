@@ -32,6 +32,7 @@ extern VirtualChannelMap mVirtualChannelMap;
 extern void tsdemuxer_InduceRollover( bool enable );
 extern std::vector<std::vector<AdvertInfo>> mAdvertList;
 static int mAdvertIndex = 0;
+static int mAdReservationIndex = 0;
 
 Aampcli :: Aampcli():
 	mInitialized(false),
@@ -728,7 +729,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 								}
 								else
 								{
-									// set default url 
+									// set default url
 									advertInfo ad;
 									ad.url = "https://ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd";
 									ad.duration = 0;
@@ -746,7 +747,8 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 							}
 							for(int i=0; i<adList.size(); i++)
 							{
-								adId = "adId" + std::to_string(i+1);
+								++mAdReservationIndex;
+								adId = "adId" + std::to_string(mAdReservationIndex);
 								if (adList[i].url == "file://skip")
 								{
 									printf("[AMPCLI] AAMP_EVENT_TIMED_METADATA skip advert placement breakId=%s adId=%s\n", ev->getId().c_str(), adId.c_str());
@@ -777,7 +779,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		{
 			std::string manifest;
 			ManifestRefreshEventPtr ev = std::dynamic_pointer_cast<ManifestRefreshEvent>(e);
-			printf("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime());
+			printf("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u]\nmanifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType());
 			manifest = mAampcli.mSingleton->GetManifest();
 			printf("\n [AAMPCLI] Dash  Manifest length [%zu]\n",manifest.length());
 			break;
@@ -813,28 +815,28 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_AD_PLACEMENT_START:
 		{
 			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_START\n\tadId=%s\n\tposition=%u\n\toffset=%u\n\tduration=%u\n\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_START\tadId=%s\tposition=%u\toffset=%u\tduration=%u\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
 			break;
 		}
 
 		case AAMP_EVENT_AD_PLACEMENT_END:
 		{
 			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_END\n\tadId=%s\n\tposition=%u\n\toffset=%u\n\tduration=%u\n\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_END\tadId=%s\tposition=%u\toffset=%u\tduration=%u\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
 			break;
 		}
 
 		case AAMP_EVENT_AD_PLACEMENT_ERROR:
 		{
 			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_ERROR\n\tadId=%s\n\tposition=%u\n\toffset=%u\n\tduration=%u\n\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_ERROR\tadId=%s\tposition=%u\toffset=%u\tduration=%u\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
 			break;
 		}
 
 		case AAMP_EVENT_AD_PLACEMENT_PROGRESS:
 		{
 			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_PROGRESS\n\tadId=%s\n\tposition=%u\n\toffset=%u\n\tduration=%u\n\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_PROGRESS\tadId=%s\tposition=%u\toffset=%u\tduration=%u\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
 			break;
 		}
 		case AAMP_EVENT_NEED_MANIFEST_DATA:
@@ -842,7 +844,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			printf("[AAMPCLI]  AAMP_EVENT_NEED_MANIFEST_DATA received \n");
 			std::string manifestData = PlaybackCommand::getManifestData(mAampcli.mManifestDataUrl);
 			printf("[AAMPCLI] updateManifest\n");
-			mAampcli.mSingleton->aamp->updateManifest(manifestData.c_str());
+			mAampcli.mSingleton->updateManifest(manifestData.c_str());
 			break;
 		}
 

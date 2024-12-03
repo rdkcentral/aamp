@@ -1559,7 +1559,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 			bool isPacketIgnored = false;
 			demuxer->processPacket(packetStart, basePTSUpdated, ptsError, isPacketIgnored, m_applyOffset, processor);
 
-			/* DELIA 47453 Audio is not playing in particular hls file.
+			/* Audio is not playing in particular hls file.
 			 * We always choose the first audio pid to play the audio data, even if we
 			 * have multiple audio tracks in the PMT Table.
 			 * But in one particular hls file, we dont have PES data in the first audio pid.

@@ -48,7 +48,7 @@ shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, st
  */
 static int GetFieldValue(string &attrName, string keyName, string &valuePtr);
 static int getPsshData(string attrName, string &psshData);
-static shared_ptr<AampDrmHelper> getDrmHelper(string attrName , bool bPropagateUriParams);
+static shared_ptr<AampDrmHelper> getDrmHelper(string attrName , bool bPropagateUriParams, bool bDecryptClearSamplesRequired);
 
 /**
  * @brief Return the string value, from the input KEY="value"
@@ -155,7 +155,7 @@ static int getPsshData(string attrName, string &psshData){
  * 
  * @return AampDrmHelper - DRM Helper (nullptr in case of unexpected behaviour)
  */
-static std::shared_ptr<AampDrmHelper> getDrmHelper(string attrName , bool bPropagateUriParams){
+static std::shared_ptr<AampDrmHelper> getDrmHelper(string attrName , bool bPropagateUriParams, bool bDecryptClearSamplesRequired){
 
 	string systemId = "";
 	
@@ -173,6 +173,7 @@ static std::shared_ptr<AampDrmHelper> getDrmHelper(string attrName , bool bPropa
 	drmInfo.mediaFormat = eMEDIAFORMAT_HLS_MP4;
 	drmInfo.systemUUID = systemId;
 	drmInfo.bPropagateUriParams = bPropagateUriParams;
+	drmInfo.bDecryptClearSamplesRequired = bDecryptClearSamplesRequired;
 	return AampDrmHelperEngine::getInstance().createHelper(drmInfo);
 }
 
@@ -200,7 +201,7 @@ shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, st
 
 	do
 	{
-		shared_ptr<AampDrmHelper> drmHelper = getDrmHelper(attrName, ISCONFIGSET(eAAMPConfig_PropogateURIParam));
+		shared_ptr<AampDrmHelper> drmHelper = getDrmHelper(attrName, ISCONFIGSET(eAAMPConfig_PropogateURIParam), aamp->isDecryptClearSamplesRequired());
 		if (nullptr == drmHelper)
 		{
 			AAMPLOG_ERR("Failed to get DRM type/helper from manifest!");

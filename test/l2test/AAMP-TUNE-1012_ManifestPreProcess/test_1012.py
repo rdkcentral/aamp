@@ -43,17 +43,17 @@ def test_1012(aamp_setup_teardown,test_data):
     BASIC_TEST_DATA = {
         "title": "TEST MANIFEST PREPROCESS",
         "max_test_time_seconds": 20,
+        "url": "index.mpd",
+        "simlinear_type": "DASH",
         "expect_list": [
             {"cmd": test_data['cmd']},
-            {"cmd": "tunedata https://d24rwxnt7vw9qb.cloudfront.net/v1/dash/e6d234965645b411ad572802b6c9d5a10799c9c1/All_Reference_Streams/6ba06d17f65b4e1cbd1238eaa05c02c1/index.mpd"},
-            {"expect": "Previous preprocessed manifest is not read"},
-            {"expect": "PreProcessed Manifest not available send Need Manifest data event"},
-	    {"expect": "AAMP_EVENT_NEED_MANIFEST_DATA"},
+            {"cmd":"tunedata http://localhost:8085/index.mpd"},
+            {"expect": "Previous preprocessed manifest is not read|PreProcessed Manifest not available send Need Manifest data event"},
             {"expect": "updateManifest"},
             {"cmd": "sleep 2000"},
             {"cmd": "stop"},
 
-            {"cmd": "tunedata https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel-tiled-thumbnails-numbered.ism/.mpd"},
+            {"cmd": "tunedata https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/foxtel-10/single-period.mpd"},
             {"expect": "PreProcessed manifest provided"},
             {"expect": "AAMP_EVENT_STATE_CHANGED: PLAYING"},
             {"expect": "aamp pos"},

@@ -1,4 +1,22 @@
 #!/usr/bin/env bash
+#
+# If not stated otherwise in this file or this component's license file the
+# following copyright and licenses apply:
+#
+# Copyright 2020 RDK Management
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 declare DEFAULT_OPENSSL_VERSION="openssl@1.1"
 
@@ -41,6 +59,17 @@ function install_pkgs_darwin_fn()
         fi
         PKGDIR="`brew --prefix ${PKG}`/lib/pkgconfig:"
         INSTALLED_PKGCONFIG=$PKGDIR$INSTALLED_PKGCONFIG
+
+	# Add the path to the pkgconfig directory to the PKG_CONFIG_PATH for openldap and krb5
+        if [ $PKG = "openldap" ] || [ $PKG = "krb5" ]; then
+            brew link $PKG --force
+            if [ "$(uname -m)" = "arm64" ]; then
+                export PKG_CONFIG_PATH="/opt/homebrew/opt/krb5/lib/pkgconfig:/opt/homebrew/opt/openldap/lib/pkgconfig:$PKG_CONFIG_PATH"
+            else
+                export PKG_CONFIG_PATH="/usr/local/opt/krb5/lib/pkgconfig:/usr/local/opt/openldap/lib/pkgconfig:$PKG_CONFIG_PATH"
+            fi
+
+        fi
     done
     echo "${INSTALLED_PKGCONFIG}"
 }
@@ -168,7 +197,7 @@ function install_pkgs_fn()
       fi
 
       install_pkgs_darwin_fn git json-glib cmake "openssl@1.1" libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq curl
-      install_pkgs_darwin_fn coreutils websocketpp boost jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2
+      install_pkgs_darwin_fn coreutils websocketpp boost jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2 openldap krb5
 
       # ORC causes compile errors on x86_64 Mac, but not on ARM64
       if [[ $ARCH == "x86_64" ]]; then

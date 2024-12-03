@@ -136,7 +136,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mWaitForDiscoToComplete(),
 	mIsPeriodChangeMarked(false),
 	mProgressReportAvailabilityOffset(-1),
-	mpStreamAbstractionAAMP()
+	mpStreamAbstractionAAMP(),
+	zoom_mode(VIDEO_ZOOM_NONE)
 {
 	pthread_cond_init(&waitforplaystart, NULL);
 	pthread_mutex_init(&mMutexPlaystart, NULL);
@@ -1105,11 +1106,11 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 {
 }
 
-void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, bool immediate)
+void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate)
 {
 }
 
-void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::string &adId, uint32_t position, uint32_t adOffset, uint32_t adDuration, bool immediate, long error_code)
+void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, uint32_t adOffset, uint32_t adDuration, bool immediate, long error_code)
 {
 }
 
@@ -1320,8 +1321,9 @@ long long PrivateInstanceAAMP::GetVideoPTS()
 	return 0;
 }
 
-void PrivateInstanceAAMP::SignalSubtitleClock()
+bool PrivateInstanceAAMP::SignalSubtitleClock()
 {
+	return false;
 }
 
 int PrivateInstanceAAMP::ScheduleAsyncTask(IdleTask task, void *arg, std::string taskName)
@@ -1509,4 +1511,27 @@ void PrivateInstanceAAMP::SetPauseOnStartPlayback(bool enable)
 	{
 		g_mockPrivateInstanceAAMP->SetPauseOnStartPlayback(enable);
 	}
+}
+
+bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
+{
+	bool bIsDecryptClearSamplesRequired = false;
+	if (g_mockPrivateInstanceAAMP)
+	{
+		bIsDecryptClearSamplesRequired = g_mockPrivateInstanceAAMP->isDecryptClearSamplesRequired();
+	}
+	return bIsDecryptClearSamplesRequired;
+}
+int PrivateInstanceAAMP::GetPlatformType()
+{
+	return 0;
+}
+void PrivateInstanceAAMP::ResetTrickStartUTCTime()
+{
+}
+
+
+void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
+{
+	mIsChunkMode = enable;
 }

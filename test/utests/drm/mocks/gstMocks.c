@@ -20,10 +20,27 @@
 #include <glib.h>
 #include <gst/gst.h>
 #include <gst/base/gstbytereader.h>
-
+#include <gst/video/gstvideotimecode.h>
+#include <gst/video/gstvideometa.h>
 
 GType _gst_caps_type = 0;
 GType _gst_buffer_type = 0;
+
+
+GstVideoTimeCodeMeta * gst_buffer_add_video_time_code_meta_full(
+																GstBuffer * buffer,
+																guint fps_n,
+																guint fps_d,
+																GDateTime * latest_daily_jam,
+																GstVideoTimeCodeFlags flags,
+																guint hours,
+																guint minutes,
+																guint seconds,
+																guint frames,
+																guint field_count)
+{
+	return NULL;
+}
 
 gboolean gst_buffer_map(GstBuffer *buffer, GstMapInfo *info, GstMapFlags flags)
 {
@@ -76,4 +93,8 @@ GstProtectionMeta * gst_buffer_add_protection_meta (GstBuffer * buffer, GstStruc
 GType gst_protection_meta_api_get_type (void)
 {
 	return 0;
+}
+
+void g_object_get(gpointer object, const gchar *first_property_name, ...)
+{
 }

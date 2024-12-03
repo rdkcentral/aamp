@@ -77,7 +77,7 @@ public:
 	 * @param[in] enable - true to enable CC rendering
 	 * @return int - 0 on success, -1 on failure
 	 */
-	int SetStatus(bool enable);
+	virtual int SetStatus(bool enable);
 
 	/**
 	 * @brief Get CC rendering status
@@ -100,7 +100,7 @@ public:
 	 * @param[in] format - force track to 608/708 or default
 	 * @return int - 0 on success, -1 on failure
 	 */
-	int SetTrack(const std::string &track, const CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT);
+	virtual int SetTrack(const std::string &track, const CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT);
 
 	/**
 	 * @fn SetStyle
@@ -108,7 +108,7 @@ public:
 	 * @param[in] options - rendering style options
 	 * @return int - 0 on success, -1 on failure
 	 */
-	int SetStyle(const std::string &options);
+	virtual int SetStyle(const std::string &options);
 
 	/**
 	 * @brief Get current CC styles
@@ -124,7 +124,7 @@ public:
 	 * @param[in] enable - true when trickplay starts, false otherwise
 	 * @return void
 	 */
-	void SetTrickplayStatus(bool enable);
+	virtual void SetTrickplayStatus(bool enable);
 
 	/**
 	 * @fn SetParentalControlStatus
@@ -132,7 +132,7 @@ public:
 	 * @param[in] locked - true when parental control lock enabled, false otherwise
 	 * @return void
 	 */
-	void SetParentalControlStatus(bool locked);
+	virtual void SetParentalControlStatus(bool locked);
 
 	/**
 	 * @fn RestoreCC 
@@ -149,7 +149,7 @@ public:
 	 * @param[in] newTextTracks - list of text tracks to store
 	 * @return void
 	 */
-	void updateLastTextTracks(const std::vector<TextTrackInfo>& newTextTracks) { mLastTextTracks = newTextTracks; }
+	virtual void updateLastTextTracks(const std::vector<TextTrackInfo>& newTextTracks) { mLastTextTracks = newTextTracks; }
 
 	/**
 	 * @brief Get list of text tracks
@@ -163,7 +163,7 @@ public:
 	 *
 	 * @return bool, True if Out of Band Closed caption/subtitle rendering supported
 	 */
-	bool IsOOBCCRenderingSupported();
+	virtual bool IsOOBCCRenderingSupported();
 
 protected:
 	/**
@@ -275,5 +275,67 @@ private:
 	static AampCCManagerBase *mInstance; /**< Singleton instance */
 };
 
+class AampFakeCCManager : public AampCCManagerBase
+{
+public:
+
+	void Release(int iID) override {};
+	/**
+	 * @fn AampFakeCCManager
+	 */
+	AampFakeCCManager() = default;
+
+	/**
+	 * @brief Destructor
+	 */
+	~AampFakeCCManager() = default;
+
+	AampFakeCCManager(const AampFakeCCManager&) = delete;
+	AampFakeCCManager& operator=(const AampFakeCCManager&) = delete;
+
+private:
+	/**
+	 * @fn StartRendering
+	 *
+	 * @return void
+	 */
+	void StartRendering() override {};
+
+	/**
+	 * @fn StopRendering
+	 *
+	 * @return void
+	 */
+	void StopRendering() override {};
+
+	/**
+	 * @fn SetDigitalChannel
+	 *
+	 * @return CC_VL_OS_API_RESULT
+	 */
+	int SetDigitalChannel(unsigned int id) override { return 0; };
+	/**
+	 * @fn SetAnalogChannel
+	 *
+	 * @return CC_VL_OS_API_RESULT
+	 */
+	int SetAnalogChannel(unsigned int id) override { return 0; };
+
+	bool CheckCCHandle() const override{ return false; }
+	
+	void updateLastTextTracks(const std::vector<TextTrackInfo>& newTextTracks) override {};
+
+	void SetParentalControlStatus(bool locked) override {};
+
+	void SetTrickplayStatus(bool enable) override {};
+
+	int SetStatus(bool enable) override { return 0; };
+
+	int SetStyle(const std::string &options) override { return 0; };
+
+	int SetTrack(const std::string &track, const CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT) override { return 0; };
+
+	bool IsOOBCCRenderingSupported() override { return false; };
+};
 
 #endif /* __AAMP_CC_MANAGER_H__ */

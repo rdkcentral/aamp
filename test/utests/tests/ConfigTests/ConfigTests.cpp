@@ -1,3 +1,22 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2020 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 #include <iostream>
 #include <string>
 #include <string.h>
@@ -734,12 +753,12 @@ R"(
 {
    "info":true,
    "progress":true,
-   "licenseServerUrl":"https://mds.ccp.xcal.tv/license",
+   "licenseServerUrl":"https://example.com/license"
    "chmap": 
     [
       {
-        "name": "HBO",
-        "url": "http://ccr.ipvod-t6.xcr.comcast.net/ipvod6/HCHD0000000001467873/movie/1619768135498/manifest.mpd"
+        "name": "ExampleChannel",
+        "url": "http://example.com/ipvod6/ExampleMovie/manifest.mpd"
         
       }
     
@@ -747,7 +766,7 @@ R"(
    "drmConfig":
       {
         "name": "customData",
-        "url": "http://ccr.ipvod-t6.xcr.comcast.net/ipvod6/HCHD0000000001467873/movie/1619768135498/manifest.mpd"
+        "url": "http://example.com/ipvod6/ExampleMovie/manifest.mpd"
       }
 }
 )";
@@ -870,7 +889,6 @@ TEST_F(AampConfigTests, ProcessConfigText)
 	EXPECT_STREQ(result, NULL);
 	result = aampConfig.GetChannelLicenseOverride("HBOCM");
 	EXPECT_STREQ(result, "test");
-	// SERXIONE-2171
 	std::string str2 = "donut=";
 	aampConfig.ProcessConfigText(str2, AAMP_DEV_CFG_SETTING);
 }
@@ -1116,4 +1134,83 @@ TEST_F(AampConfigTests, ConfigureLogSettingsInfo)
 	mAampConfig->ConfigureLogSettings();
 	EXPECT_EQ( AampLogManager::locked, true );
 	EXPECT_EQ( AampLogManager::aampLoglevel, eLOGLEVEL_INFO );
+}
+
+//helper functions for RestoreConfiguration test
+const ConfigLookupEntryInt* GetDefaultValue(AAMPConfigSettingInt cfg)
+{
+	return mConfigLookupTableInt;
+}
+
+const ConfigLookupEntryBool* GetDefaultValue(AAMPConfigSettingBool cfg)
+{
+	return mConfigLookupTableBool;
+}
+
+const ConfigLookupEntryFloat* GetDefaultValue(AAMPConfigSettingFloat cfg)
+{
+	return mConfigLookupTableFloat;
+}
+
+const ConfigLookupEntryString* GetDefaultValue(AAMPConfigSettingString cfg)
+{
+	return mConfigLookupTableString;
+}
+
+template <typename T, typename KeyType>
+void TestSetAndRestoreSingleConfig(AampConfig* config, ConfigPriority initialOwner, ConfigPriority restoreOwner,
+									KeyType key, T initialValue, T newValue, T defaultValue)
+{
+
+	// Initialize configuration and set initial value and owner
+	config->Initialize();
+	config->SetConfigValue(initialOwner, key, initialValue);
+	ASSERT_EQ(initialValue, config->GetConfigValue(key));
+	ASSERT_EQ(initialOwner, config->GetConfigOwner(key));
+
+	// Update value and owner, and verify
+	config->SetConfigValue(restoreOwner, key, newValue);
+	ASSERT_EQ(newValue, config->GetConfigValue(key));
+	ASSERT_EQ(restoreOwner, config->GetConfigOwner(key));
+
+	// Restore to previous owner/value and check
+	config->RestoreConfiguration(restoreOwner, key);
+	ASSERT_EQ(initialValue, config->GetConfigValue(key));
+	ASSERT_EQ(initialOwner, config->GetConfigOwner(key));
+
+	// Reinitialize and check default behavior
+	config = std::unique_ptr<AampConfig>(new AampConfig()).release();
+	config->Initialize();
+	ASSERT_EQ(AAMP_DEFAULT_SETTING, config->GetConfigOwner(key));
+	auto lookup = GetDefaultValue(key);
+	EXPECT_EQ(lookup[key].defaultValue, config->GetConfigValue(key));
+
+	// Test Restore with mismatching owner, should not restore
+	config->SetConfigValue(restoreOwner, key, newValue);
+	config->RestoreConfiguration(static_cast<ConfigPriority>(AAMP_DEV_CFG_SETTING), key);
+	ASSERT_EQ(newValue, config->GetConfigValue(key));
+	ASSERT_EQ(restoreOwner, config->GetConfigOwner(key));
+}
+
+TEST_F(AampConfigTests, ResetSingleConfigurationTest)
+{
+	// Integer test
+	TestSetAndRestoreSingleConfig<int, AAMPConfigSettingInt>(mAampConfig.get(), AAMP_APPLICATION_SETTING, AAMP_TUNE_SETTING,
+															 eAAMPConfig_MinABRNWBufferRampDown, 399, 199,
+															 mConfigLookupTableInt[eAAMPConfig_MinABRNWBufferRampDown].defaultValue);
+
+	// Boolean test
+	TestSetAndRestoreSingleConfig<bool, AAMPConfigSettingBool>(mAampConfig.get(), AAMP_APPLICATION_SETTING, AAMP_TUNE_SETTING,
+															   eAAMPConfig_ForceLLDFlow, true, false,
+															   mConfigLookupTableBool[eAAMPConfig_ForceLLDFlow].defaultValue);
+
+	// Float test
+	TestSetAndRestoreSingleConfig<float, AAMPConfigSettingFloat>(mAampConfig.get(), AAMP_APPLICATION_SETTING, AAMP_TUNE_SETTING,
+																 eAAMPConfig_BWToGstBufferFactor, 1.23, 4.56,
+																 static_cast<float>(mConfigLookupTableFloat[eAAMPConfig_BWToGstBufferFactor].defaultValue));
+
+	// String test
+	TestSetAndRestoreSingleConfig<std::string, AAMPConfigSettingString>(mAampConfig.get(), AAMP_APPLICATION_SETTING, AAMP_TUNE_SETTING,
+																		eAAMPConfig_LLDUrlKeyword, "initial", "new_value",
+																		mConfigLookupTableString[eAAMPConfig_LLDUrlKeyword].defaultValue);
 }

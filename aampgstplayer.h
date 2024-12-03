@@ -369,17 +369,21 @@ public:
 	*/
 	~AAMPGstPlayer();
 	/**
-     	 * @fn InitializeAAMPGstreamerPlugins
-     	 */
+	 * @fn InitializeAAMPGstreamerPlugins
+	 */
 	static void InitializeAAMPGstreamerPlugins();
 	/**
+	 * @fn InitializeAAMPPlatformConfigs
+	 */
+	static PlatformType InitializeAAMPPlatformConfigs();
+	/**
 	 * @fn NotifyEOS
-     	 */
+	 */
 	void NotifyEOS();
 	/**
-     	 * @fn NotifyFirstFrame
-     	 * @param[in] type media type of the frame which is decoded, either audio or video.
-     	 */
+	 * @fn NotifyFirstFrame
+	 * @param[in] type media type of the frame which is decoded, either audio or video.
+	 */
 	void NotifyFirstFrame(AampMediaType type);
 	/**
      	 * @fn DumpDiagnostics
@@ -460,6 +464,13 @@ public:
 	void ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback);
 
 	/**
+	 * @fn IsAssociatedAamp
+	 * @brief Check if the specified player is associated with the pipeline
+   	 * @param[in] aampInstance - pointer to new instance of PrivateInstanceAAMP
+	 */
+	bool IsAssociatedAamp(PrivateInstanceAAMP *aampInstance);
+
+	/**
 	 * @fn SetEncryptedAamp
    	 * @param[in] aamp - Pointer to the instance of PrivateInstanceAAMP that has the encrypted content
 	 */
@@ -468,8 +479,9 @@ public:
 	/**
 	 * @fn SignalSubtitleClock
 	 * @brief Signal the new clock to subtitle module
+	 * @return - true indicating successful operation in sending the clock update
 	 */
-	void SignalSubtitleClock() override;
+	bool SignalSubtitleClock() override;
 
 /**
 	 * @fn GetBufferControlData

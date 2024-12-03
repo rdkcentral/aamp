@@ -2478,20 +2478,25 @@ TEST_F(PrivAampTests,SendAdResolvedEventTest)
 
 TEST_F(PrivAampTests,SendAdReservationEventTest)
 {
-	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START,"adbreakId",123445,true);
-	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START,"adbreakId",123445,false);
-	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END,"adbreakId",123445,true);
-
+	uint64_t absolutePositionMs = 123456789;
+	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, "adbreakId", 123445, absolutePositionMs, true);
+	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, "adbreakId", 123445, absolutePositionMs, false);
+	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END, "adbreakId", 123445, absolutePositionMs, true);
 	EXPECT_EQ(p_aamp->mAdEventsQ.size(),0);
 }
 
 TEST_F(PrivAampTests,SendAdPlacementEventTest)
 {
-	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,"adStringid",234,5678,true,0);
-	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,"adStringid",234,5678,false,0);
-	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_ERROR,"adStringid",234,5678,true,0);
-
-	EXPECT_NE(p_aamp->mAdEventsQ.size(),0);
+	uint32_t position = 234;
+	uint64_t absolutePositionMs = 123456789;
+	uint32_t adOffset = 5678;
+	uint32_t adDuration = 0;
+	long error_code = 0;
+	
+	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,"adStringid", position, absolutePositionMs, adOffset, adDuration, true, error_code);
+	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,"adStringid", position, absolutePositionMs, adOffset, adDuration, false, error_code);
+	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_ERROR,"adStringid", position,  absolutePositionMs, adOffset, adDuration, true, error_code);
+	EXPECT_EQ(p_aamp->mAdEventsQ.size(),0);
 }
 
 TEST_F(PrivAampTests,getStreamTypeStringTest)
@@ -3681,4 +3686,107 @@ TEST_F(PrivAampPrivTests,ReconfigureForCodecChangeTest1)
 	testp_aamp->mpStreamAbstractionAAMP->ResetESChangeStatus();
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillOnce(Return(false));
 	EXPECT_FALSE(testp_aamp->ReconfigureForCodecChange());
+}
+
+TEST_F(PrivAampTests,isDecryptClearSamplesRequired)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(false));
+	EXPECT_TRUE(p_aamp->isDecryptClearSamplesRequired());
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(true));
+	EXPECT_FALSE(p_aamp->isDecryptClearSamplesRequired());
+}
+
+TEST_F(PrivAampTests,AccessibilityParsing)
+{
+	Accessibility accessibilityItem;
+	
+	// numeric value
+	accessibilityItem = Accessibility("schemeId","1234");
+	EXPECT_EQ(1234,accessibilityItem.getIntValue());
+	EXPECT_STREQ(accessibilityItem.getTypeName(),"int_value");
+	EXPECT_STREQ( accessibilityItem.print().c_str(), "{ scheme:schemeId, int_value:1234 }" );
+	
+	// equality operators
+	EXPECT_TRUE( Accessibility("schemeId","2345") != accessibilityItem );
+	EXPECT_TRUE( Accessibility("schemeId","1234") == accessibilityItem );
+	
+	// setAccessibilityData( int )
+	accessibilityItem.setAccessibilityData("altSchemeId1",5);
+	EXPECT_STREQ("altSchemeId1",accessibilityItem.getSchemeId().c_str() );
+	EXPECT_EQ(5,accessibilityItem.getIntValue());
+	
+	// setAccessibilityData( string )
+	accessibilityItem.setAccessibilityData("altSchemeId2","x");
+	EXPECT_STREQ("altSchemeId2",accessibilityItem.getSchemeId().c_str() );
+	EXPECT_EQ(-1,accessibilityItem.getIntValue());
+	EXPECT_STREQ("x",accessibilityItem.getStrValue().c_str());
+	
+	// string value
+	accessibilityItem = Accessibility("schemeId","Foo");
+	EXPECT_EQ(-1,accessibilityItem.getIntValue());
+	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
+	EXPECT_STREQ( accessibilityItem.print().c_str(), "{ scheme:schemeId, string_value:Foo }" );
+	
+	//Exception cases:
+	accessibilityItem = Accessibility("schemeId","12340000000000000000000000000000");
+	EXPECT_EQ(-1,accessibilityItem.getIntValue());
+	
+	// empty string
+	accessibilityItem = Accessibility("schemeId","");
+	EXPECT_EQ(-1,accessibilityItem.getIntValue());
+	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"");
+	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
+	
+	accessibilityItem = Accessibility("schemeId","123q4");
+	EXPECT_EQ(-1,accessibilityItem.getIntValue());
+	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"123q4");
+	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
+	
+	// starts with non-numeric character, should be considered as string
+	accessibilityItem = Accessibility("schemeId","q2341");
+	EXPECT_EQ(-1,accessibilityItem.getIntValue());
+	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"q2341");
+	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
+	
+	//negative value should not be considered
+	accessibilityItem = Accessibility("schemeId","-1234");
+	EXPECT_EQ(-1,accessibilityItem.getIntValue());
+	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"-1234");
+	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
+}
+
+TEST_F(PrivAampPrivTests,SetLLDashChunkModeTrueTest)
+{
+	testp_aamp->InitStreamAbstraction();
+	int fragment_duration = 0;
+
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MinABRNWBufferRampDown,AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MaxABRNWBufferRampUp,AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadStartTimeout,fragment_duration));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlStallTimeout,fragment_duration));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadLowBWTimeout,fragment_duration));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_NetworkTimeout,TIMEOUT_FOR_LLD));
+
+	testp_aamp->SetLLDashChunkMode(true);
+}
+
+TEST_F(PrivAampPrivTests,SetLLDashChunkModeFalseTest)
+{
+	testp_aamp->InitStreamAbstraction();
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_MinABRNWBufferRampDown)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_MaxABRNWBufferRampUp)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_CurlDownloadStartTimeout)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_CurlStallTimeout)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_CurlDownloadLowBWTimeout)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_NetworkTimeout)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
+
+	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_MinABRNWBufferRampDown)).Times(1);
+	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_MaxABRNWBufferRampUp)).Times(1);
+	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlDownloadStartTimeout)).Times(1);
+	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlStallTimeout)).Times(1);
+	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlDownloadLowBWTimeout)).Times(1);
+	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_NetworkTimeout)).Times(1);
+	testp_aamp->SetLLDashChunkMode(false);
 }

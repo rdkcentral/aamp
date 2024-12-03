@@ -45,10 +45,11 @@ static uint64_t ReadBytes( const uint8_t *ptr, int n )
 #define READ_VERSION(buf) buf[0]; buf++;
 #define READ_FLAGS(buf) (uint32_t)ReadBytes(buf,3); buf+=3;
 
-void mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restamp_delta )
+uint64_t mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restamp_delta )
 {
+	uint64_t baseMediaDecodeTime = 0;
 	const uint8_t *fin = &ptr[len];
-	while( ptr < fin )
+	while( ptr < fin && !baseMediaDecodeTime )
 	{
 		uint8_t *next = ptr + READ_U32(ptr);
 		uint32_t type = READ_U32(ptr);
@@ -58,11 +59,11 @@ void mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restamp_de
 			int sz = (version==1)?8:4;
 			uint32_t flags  = READ_FLAGS(ptr);
 			(void)flags;
-			uint64_t baseMediaDecodeTime = ReadBytes( ptr, sz );
+			baseMediaDecodeTime = ReadBytes( ptr, sz );
 			baseMediaDecodeTime += pts_restamp_delta;
 			WriteBytes( (uint8_t *)ptr, sz, baseMediaDecodeTime );
-			printf( "baseMediaDecodeTime: %" PRIu64 "\n", baseMediaDecodeTime );
-			return;
+			//printf( "baseMediaDecodeTime: %" PRIu64 "\n", baseMediaDecodeTime );
+			break;
 		}
 		else
 		{ // walk children
@@ -77,7 +78,7 @@ void mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restamp_de
 				case 'mvex':
 				case 'moof':
 				case 'mdia':
-					mp4_AdjustMediaDecodeTime( ptr, next-ptr, pts_restamp_delta );
+					baseMediaDecodeTime = mp4_AdjustMediaDecodeTime( ptr, next-ptr, pts_restamp_delta );
 					break;
 					
 				default:
@@ -86,4 +87,5 @@ void mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restamp_de
 		}
 		ptr = next;
 	}
+	return baseMediaDecodeTime;
 }

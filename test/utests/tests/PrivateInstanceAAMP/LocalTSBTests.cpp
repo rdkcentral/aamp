@@ -265,17 +265,17 @@ TEST_F(LocalTSBTests, IncreaseGSTBufferTest_1)
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstVideoBufBytes)).WillRepeatedly(Return(GST_VIDEOBUFFER_SIZE_BYTES));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(8000000)); //8 Mbps
 	int newBuffer = 8000000 * 0.8;
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer)).Times(0);	//UTest addressed, With CONTENT_4K_SUPPORTED is set default, newBuffer < minVideoBuffer, hence the buffer config shouldnt be modified.
 	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(13000000)); //13 Mbps
 	newBuffer = 13000000 * 0.8;
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer)).Times(0);
 	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(18000000)); // 18 Mbps
 	newBuffer = 18000000 * 0.8;
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer)).Times(0);
 	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(30000000)); //30 Mbps

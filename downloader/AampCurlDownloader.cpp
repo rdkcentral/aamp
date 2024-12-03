@@ -198,7 +198,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 					}
 					if (mDnldCfg->iDownloadRetryCount)
 					{
-						//DELIA-63160: make http 408 retry-worthy as well
+						//make http 408 retry-worthy as well
 						if(mDownloadResponse->iHttpRetValue == 408 ||
 								(mDownloadResponse->iHttpRetValue != 200 &&
 								mDownloadResponse->iHttpRetValue != 204 &&

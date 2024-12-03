@@ -213,7 +213,8 @@ Example:
                 networkTimeout: 10,
                 preferredAudioLanguage: "en",
             };
-	    var url = "https://cpetestutility.stb.r53.xcal.tv/multilang/main.m3u8";
+            // Use valid URL instead of example
+	    var url = "https://example.com/multilang/sample.m3u8";
 	    var player = new AAMPMediaPlayer();
 	    player.initConfig(playerInitConfig);
 	    player.load(url); 
@@ -238,11 +239,11 @@ Example:
     {
             // configuration for DRM -Sample for Widevine
             var DrmConfig = { 
-            'com.widevine.alpha':'https://drm-widevine-licensing.axtest.net/AcquireLicense',
+	    'https://example.com/AcquireLicense', // Use valid URL instead of example
             'preferredKeysystem':'com.widevine.alpha'
             };
-            
-	    var url = "https://cpetestutility.stb.r53.xcal.tv/multilang/main.m3u8";
+            // Use valid URL instead of example
+	    var url = "https://example.com/multilang/sample.m3u8";
 	    var player = new AAMPMediaPlayer();
 	    player.setDRMConfig(DrmConfig);
 	    player.load(url); 
@@ -298,15 +299,16 @@ Example:
 ```js
     {
 	    var player = new AAMPMediaPlayer();
-	    var url = "https://cpetestutility.stb.r53.xcal.tv/multilang/main.m3u8";
+	    var url = "https://example.com/multilang/sample.m3u8"; // Use valid URL instead of example
 	    player.load(url); // for autoplayback 
     }
     // support for multiple player instances 
     {
 	    var player1 = new AAMPMediaPlayer();
 	    var player2 = new AAMPMediaPlayer();
-	    var url1 = "https://cpetestutility.stb.r53.xcal.tv/multilang/main.m3u8";
-	    var url2 = "https://cpetestutility.stb.r53.xcal.tv/multilang/main1.m3u8";
+            // Use valid URLs instead of example
+	    var url1 = "https://example.com/multilang/sample.m3u8";
+	    var url2 = "https://example.com/multilang/sample1.m3u8";
 	    player1.load(url1); // for immediate playback 
 	    player2.load(url2,false); // for background buffering,no playback. 
     }
@@ -314,8 +316,9 @@ Example:
     {
 	    var player1 = new AAMPMediaPlayer();
 	    var player2 = new AAMPMediaPlayer();
-	    var url1 = "https://cpetestutility.stb.r53.xcal.tv/multilang/main.m3u8";
-	    var url2 = "https://cpetestutility.stb.r53.xcal.tv/multilang/main1.m3u8";
+            // Use valid URLs instead of example
+	    var url1 = "https://example.com/multilang/sample.m3u8";
+	    var url2 = "https://example.com/multilang/sample1.m3u8";
 
 	    var params_1 = { sessionId: "12192978-da71-4da7-8335-76fbd9ae2ae9" };
 	    var params_2 = { sessionId: "6e3c49cb-6254-4324-9f5e-bddef465bdff" };
@@ -326,7 +329,8 @@ Example:
     // support for preprocessed DASH manifest
     {
 	    var player = new AAMPMediaPlayer();
-	    var url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/stitched/manifest.mpd";
+            // Use valid URL instead of example
+	    var url = "https://example.com/VideoTestStream/aamptest/streams/ads/stitched/sample_manifest.mpd"
 	    const xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" ...; // for working case need valid DASH manifest XML
 	    player.load(url,true,{ manifest: xml});
      }
@@ -343,7 +347,7 @@ Example:
 ```js
     {
 	    var player = new AAMPMediaPlayer();
-	    var url = "https://cpetestutility.stb.r53.xcal.tv/multilang/main.m3u8";
+	    var url = "https://example.com/multilang/main.m3u8"; // Use valid URL instead of example
 	    player.load(url,false); // for background buffering,no playback. 
 	    // application can start the playback background session using play API
 	    player.play();  // Or player.setPlaybackRate(1);
@@ -380,7 +384,8 @@ Note: starting in RDK 6.9, we support ability to start video paused on first fra
     {
 	    .....
 	    // start playback backgrounded with autoplay=false
-	    player.load("https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd", false);
+            // Use valid URL instead of example
+	    player.load("https://example.com/public/aamptest/streams/main.mpd", false);
 	    player.seek(30); // optionally jump to new position
 	    player.pause(); // bring video to foreground, and show first frame of video
     }
@@ -622,7 +627,8 @@ Example:
 		var player;
 		window.onload = function() {
 			player = new AAMPMediaPlayer(); // create player instance for AAMP
-			let url = "http://amssamples.streaming.mediaservices.windows.net/683f7e47-bd83-4427-b0a3-26a6c4547782/BigBuckBunny.ism/manifest(format=mpd-time-csf)";
+                        // Use valid URL instead of example
+			let url = "http://example.com/12345678-1234-1234-1234-123456789012/SampleVideo.ism/manifest(format=mpd-time-csf)";
 			console.log("loading " + url );
 			player.load( url ); // tune using AMP
 			console.log("screen size: " + screen.width + "x" + screen.height); // typically 1280x720
@@ -707,12 +713,12 @@ Example:
     {
             // configuration for DRM -Sample for Widevine
             var DrmConfig = { 
-            'com.widevine.alpha':'https://drm-widevine-licensing.axtest.net/AcquireLicense',
+            'com.widevine.alpha':'https://example.com/AcquireLicense', // Use valid URL instead of example
             'preferredKeysystem':'com.widevine.alpha'
             };
             
             
-	    var url = "https://cpetestutility.stb.r53.xcal.tv/multilang/main.m3u8";
+	    var url = "https://example.com/multilang/sample.m3u8"; // Use valid URL instead of example
 	    var player = new AAMPMediaPlayer();
 	    player.setDRMConfig(DrmConfig);
 	    // custom header message for license request
@@ -851,7 +857,7 @@ Examples:
     <AudioChannelConfiguration schemeIdUri="tag:dolby.com,2014:dash:audio_channel_configuration:2011" value="a000"/>
     <Accessibility schemeIdUri="urn:mpeg:dash:role:2011" value="description"/>
     <Role schemeIdUri="urn:mpeg:dash:role:2011" value="alternate"/>
-    <SegmentTemplate initialization="S4CHD_HD_SU_SKYUK_2296_0_4955246312692938163-eac3/track-sap-repid-$RepresentationID$-tc-0-header.mp4" media="S4CHD_HD_SU_SKYUK_2296_0_4955246312692938163-eac3/track-sap-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="832358982" presentationTimeOffset="144013">
+    <SegmentTemplate initialization="Example_HD_SU_Example_1234_0_1234567890123456789-eac3/track-sap-repid-$RepresentationID$-tc-0-header.mp4" media="Example_HD_SU_Example_1234_0_1234567890123456789-eac3/track-sap-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="123456789" presentationTimeOffset="987654">
     <SegmentTimeline>
         <S t="7394777152" d="172800" r="14"/>
     </SegmentTimeline>
@@ -1129,7 +1135,7 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 ```html
 <AdaptationSet id="100" contentType="text" mimeType="application/mp4" lang="cy" segmentAlignment="true" startWithSAP="1">
     <Role schemeIdUri="urn:mpeg:dash:role:2011" value="subtitle"/>
-    <SegmentTemplate initialization="S4CHD_HD_SU_SKYUK_2296_0_4955246312692938163/track-text-repid-$RepresentationID$-tc--header.mp4" media="S4CHD_HD_SU_SKYUK_2296_0_4955246312692938163/track-text-repid-$RepresentationID$-tc--frag-$Number$.mp4" timescale="90000" startNumber="832358982" presentationTimeOffset="144013">
+    <SegmentTemplate initialization="Example_HD_SU_Example_1234_0_1234567890123456789/track-text-repid-$RepresentationID$-tc--header.mp4" media="Example_HD_SU_Example_1234_0_1234567890123456789/track-text-repid-$RepresentationID$-tc--frag-$Number$.mp4" timescale="90000" startNumber="123456789" presentationTimeOffset="987654">
         <SegmentTimeline>
             <S t="7394947162" d="172800" r="14"/>
         </SegmentTimeline>
@@ -1398,6 +1404,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 
 ### getThumbnail(startPosition, endPosition)
 - Get the thumbnail data for the time range “startPosition” till “endPosition”.
+- For linear streams(e.g Live,Hot CDVR,..) start and endPosition has to be specified w.r.t Avaialability start time
 
 |Name|Type|Description|
 |----|----|-----------|
@@ -1415,10 +1422,40 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 | x | String | X co-ordinate position to locate the tile from sprite sheet |
 | y | String | Y co-ordinate position to locate the tile from sprite sheet |
 
+```js
+    {
+	    var player = new AAMPMediaPlayer();
+	    player.getAvailableThumbnailTracks();
+	    setThumbnailTrack(trackIndex);
+	    player.getThumbnail(1729737573,1729737600); //linear streams
+	    // for VOD
+	    player.getThumbnail(0,120); //time range in relative
+    }
+```
 ##### Example:
 
+Linear Streams:
       {
-          "baseUrl" : "https://g004-c-13a10c-peacockvodstg.s.llnwi.net/pub/global/aOb/kIc/PCK_1604349987778_01/cmaf_thumbtest_segtime_d/mpeg_2sec/images/416x234/",
+	  // Use valid URL instead of example
+	  "baseUrl" : "https://example.com/12345678-1234-1234-1234-123456789012/",
+	  "raw_w":1600,
+	  "raw_h":900,
+	  "width":320,
+	  "height":180,
+	  "tile":
+          [{
+	    "url":"keyframes-root_audio_video5-video=206000-5.jpeg",
+	    "t":1729736580,
+	    "d":10,
+	    "x":1282,
+	    "y":0
+	  }]
+      }
+
+VOD Streams:
+      {
+	  // Use valid URL instead of example
+	  "baseUrl" : "https://example.com/pub/global/abc/def/Example_1234567890123_01/cmaf_thumbtest_segtime_d/mpeg_2sec/images/416x234/",
           "raw_w": 3744,
           "raw_h": 3978,
           "width": 416,
@@ -1432,7 +1469,6 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
             "y": 234
           }]
       }
-
 ---
 
 ### subscribeResponseHeaders(headerNames)
@@ -1476,7 +1512,7 @@ acquisition |
 ```
  {
     "keyID" : [57, 49, 49, 100, 98, 54, 99, 99, 45],
-    "com.widevine.alpha" : “mds.ccp.xcal.tv”,
+    "com.widevine.alpha" : "example.com", // Use valid URL instead of example.com
     "customData" : “data”,
     "authToken"  : “token string”,
  }
@@ -1839,7 +1875,7 @@ Example:
 - manifestDuration: number (duration in seconds)
 - manifestPublishedTime: number (UTC seconds)
 - noOfPeriods: number (period count)
-
+- manifestType: string("dynamic" or "static")
 **Description:**
 - sent when a live DASH manifest is refreshed
 
@@ -2656,7 +2692,7 @@ Player supports multiple pause exit behavior on live content based on the config
 Procedure to setup the AAMP Reference Player in RDK devices(Comcast):
 ```markdown
 1.  Host the ReferencePlayer folder in a web server. 
-2.  Use Comcast's IBIS tool (https://ibis.comcast.com/app-dev-tool/send-html-app) to launch the reference player in the device:
+2.  Use Comcast's IBIS tool to launch the reference player in the device:
         a. Under Launch HTML App, select Select a device to get started.
         b. From the list, find your device (it should be registered previously).
         c. Enter the ReferencePlayer URL in the URL field.

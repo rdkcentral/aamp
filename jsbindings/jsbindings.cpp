@@ -34,9 +34,7 @@
 #include "main_aamp.h"
 #include "priv_aamp.h"
 
-#ifdef AAMP_CC_ENABLED
 #include "AampCCManager.h"
-#endif
 
 static class PlayerInstanceAAMP* _allocated_aamp = NULL;
 static pthread_mutex_t jsMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -1976,7 +1974,8 @@ public:
 	{
 		ManifestRefreshEventPtr evt = std::dynamic_pointer_cast<ManifestRefreshEvent>(e);
 		JSStringRef prop;
-        prop = JSStringCreateWithUTF8CString("manifestDuration");
+		const char* manifestType = evt->getManifestType();
+		prop = JSStringCreateWithUTF8CString("manifestDuration");
 		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getManifestDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 		
@@ -1986,6 +1985,10 @@ public:
 		
 		prop = JSStringCreateWithUTF8CString("noOfPeriods");
 		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getNoOfPeriods()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("manifestType");
+		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, manifestType), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -4471,11 +4474,9 @@ static void AAMP_finalize(JSObjectRef thisObject)
 	pthread_mutex_unlock(&jsMutex);
 	SAFE_DELETE(pAAMP);
 
-#ifdef AAMP_CC_ENABLED
 	//disable CC rendering so that state will not be persisted between two different sessions.
 	AAMPLOG_WARN("Disabling CC");
 	AampCCManager::GetInstance()->SetStatus(false);
-#endif
 }
 
 
@@ -4818,9 +4819,9 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
     	//Get jsinfo config for INFO logging
 	pAAMP->bInfoEnabled =  pAAMP->_aamp->IsJsInfoLoggingEnabled();
 	
-	// DELIA-48250 Set tuned event configuration to playlist indexed
+	// Set tuned event configuration to playlist indexed
 	pAAMP->_aamp->SetTuneEventConfig(eTUNED_EVENT_ON_PLAYLIST_INDEXED);
-	// DELIA-48278 Set EnableVideoRectangle to false, this is tied to westeros config
+	// Set EnableVideoRectangle to false, this is tied to westeros config
 	pAAMP->_aamp->EnableVideoRectangle(false);
 
 	pAAMP->_eventType = AAMP_JS_AddEventTypeClass(jsContext);

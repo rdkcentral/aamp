@@ -118,7 +118,6 @@ TEST_F(StreamAbstractionAAMP_OTATest, InitTest)
 
 /*For this function getting segment fault as WAYLAND_DISPLAY: NULL!
 In test environment doesn't have the "WAYLAND_DISPLAY" environment variable set.
-Issue reported under : DELIA-63273
 */
 
 // Define a test case for the Start function

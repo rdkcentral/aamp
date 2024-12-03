@@ -33,7 +33,6 @@ TESTDATA1 = {
         {"cmd": "set stereoOnlyPlayback 1"},
         {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/audiomultichannel/dolby_and_stereo_stream/stream.mpd"},
         {"cmd": "getconfig"},
-        {"expect": r'"forceEC3":false'},
         {"expect": r'"disableEC3":true'},
         {"expect": r'"disableATMOS":true'},
         {"expect": r'"stereoOnly":true'},

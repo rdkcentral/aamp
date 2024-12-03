@@ -19,7 +19,7 @@
 
 #include "AampGstUtils.h"
 
-GstCaps *GetGstCaps(StreamOutputFormat format)
+GstCaps *GetGstCaps(StreamOutputFormat format, PlatformType platform)
 {
 	return nullptr;
 }

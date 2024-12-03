@@ -48,7 +48,7 @@ struct DrmInfo
 {
 	DrmInfo() : method(eMETHOD_NONE), mediaFormat(eMEDIAFORMAT_HLS), useFirst16BytesAsIV(false), iv(nullptr),
 				masterManifestURL(), manifestURL(), keyURI(), keyFormat(), systemUUID(), initData(), bPropagateUriParams(true),
-				bUseMediaSequenceIV(true)
+				bUseMediaSequenceIV(true), bDecryptClearSamplesRequired(true)
 	{};
 	~DrmInfo() {};
 	// copy constructor
@@ -56,7 +56,7 @@ struct DrmInfo
 					useFirst16BytesAsIV(other.useFirst16BytesAsIV), masterManifestURL(other.masterManifestURL),
 					manifestURL(other.manifestURL), keyURI(other.keyURI), keyFormat(other.keyFormat),
 					systemUUID(other.systemUUID), initData(other.initData), iv(), bPropagateUriParams(other.bPropagateUriParams),
-					bUseMediaSequenceIV(other.bUseMediaSequenceIV)
+					bUseMediaSequenceIV(other.bUseMediaSequenceIV), bDecryptClearSamplesRequired(other.bDecryptClearSamplesRequired)
 	{
 		// copying same iv, releases memory allocated after deleting any of these objects.
 		iv = other.iv;
@@ -66,6 +66,7 @@ struct DrmInfo
 		method = other.method;
 		mediaFormat = other.mediaFormat;
 		useFirst16BytesAsIV = other.useFirst16BytesAsIV;
+		bDecryptClearSamplesRequired = other.bDecryptClearSamplesRequired;
 		masterManifestURL = other.masterManifestURL;
 		manifestURL = other.manifestURL;
 		keyURI = other.keyURI;
@@ -81,6 +82,7 @@ struct DrmInfo
 	bool useFirst16BytesAsIV;
 	bool bPropagateUriParams;		/**< Propagagate Manifest uri params in DRM */
 	bool bUseMediaSequenceIV;		/**< To create IV using media sequence number */
+	bool bDecryptClearSamplesRequired;		/**< Process call to decrypt clear samples */
 	unsigned char *iv;			/**< [16] Initialisation vector */
 	std::string masterManifestURL;		/**< URL of the master manifest */
 	std::string manifestURL;		/**< URL of playlist the DRM info was taken from. May be the same as the masterManifestURL */

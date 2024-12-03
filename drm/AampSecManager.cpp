@@ -29,9 +29,8 @@
 
 static AampSecManager *Instance = nullptr; /**< singleton instance*/
 
-/* DELIA-63204 - mutex GetInstance() & DestroyInstance() to improve thread safety
- * There is still a race between using the pointer returned from GetInstance() and calling DestroyInstance()
- * Raised DELIA-63431 to address this and associated issues.*/
+/* mutex GetInstance() & DestroyInstance() to improve thread safety
+ * There is still a race between using the pointer returned from GetInstance() and calling DestroyInstance()*/
 static std::mutex InstanceMutex;
 
 /**
@@ -87,7 +86,7 @@ AampSecManager::AampSecManager() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSecMut
 		mSchedulerStarted = true;
 	}
 
-	/* DELIA-63204
+	/*
 	* Release any unexpectedly open sessions.
 	* These could exist if a previous aamp session crashed
 	* 'firstInstance' check is a defensive measure allowing for the usage of
@@ -315,7 +314,7 @@ bool AampSecManager::AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const
 				#endif
 					if (response["success"].Boolean())
 					{
-						/* DELIA-63205
+						/*
 						* Ensure all sessions have a Session ID created to manage lifetime
 						* multiple object creation is OK as an existing instance should be returned
 						* where input data changes e.g. following a call to updatePlaybackSession

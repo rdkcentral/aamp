@@ -389,7 +389,9 @@ protected:
 
                 void CallAdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState)
                 {
-                        AdvanceTrack(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
+					bool throttleAudioDownload = false;
+					bool isDiscontinuity = false;
+					AdvanceTrack(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState, throttleAudioDownload, isDiscontinuity );
                 }
 
                 void CallFetcherLoop()
@@ -2351,24 +2353,26 @@ TEST_F(FunctionalTests, SetThumbnailTrack)
     std::string fragmentUrl;
     bool rc;
     static const char *manifest =
-R"(<?xml version="1.0" encoding="utf-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
-    <Period id="p0" start="PT0S">
-        <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
-          <Accessibility schemeIdUri="urn:scte:dash:cc:cea-708:2015" value="1=lang:en;2=lang:en"/>
-          <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
-          <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
-        </AdaptationSet>
-         <AdaptationSet id="2" group="4" contentType="image" par="16:9" width="1600" height="900" sar="1:1" mimeType="image/jpeg" codecs="jpeg">
-              <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
-              <SegmentTemplate startNumber="1" timescale="24000" duration="6006000" media="out-$RepresentationID$-n-$Number$.jpg"></SegmentTemplate>
-              <Representation id="img=7000" bandwidth="7000">
-                <EssentialProperty schemeIdUri="http://dashif.org/guidelines/thumbnail_tile" value="5x5" />
-              </Representation>
+    R"(<?xml version="1.0" encoding="utf-8"?>
+    <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+        <Period id="p0" start="PT0S">
+            <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+                <Accessibility schemeIdUri="urn:scte:dash:cc:cea-708:2015" value="1=lang:en;2=lang:en"/>
+                <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+                <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
             </AdaptationSet>
-    </Period>
-</MPD>
-)";
+            <AdaptationSet id="2" group="4" contentType="image" par="16:9" sar="1:1" mimeType="image/jpeg" codecs="jpeg">
+                <BaseURL>https://dluxvod.stvacdn.spectrum.com/DASH_VOD/mass0000000020751006/out.ism/dash/</BaseURL>
+                <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+                <SegmentTemplate startNumber="1" timescale="24000" duration="6006000" media="out-$RepresentationID$-n-$Number$.jpg" />
+                <Representation id="img=7000" bandwidth="7000" width="1600" height="900">
+                  <BaseURL>thumbnail_v1/2bfd42-b08302hx/</BaseURL>
+                    <EssentialProperty schemeIdUri="http://dashif.org/guidelines/thumbnail_tile" value="5x5" />
+                </Representation>
+            </AdaptationSet>
+        </Period>
+    </MPD>
+    )";
     fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
     EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
         .WillOnce(Return(true));
@@ -2381,29 +2385,30 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 TEST_F(FunctionalTests, GetThumbnailRangeDataTest1)
 {
-
     AAMPStatusType status;
     std::string fragmentUrl;
     bool rc;
     static const char *manifest =
-R"(<?xml version="1.0" encoding="utf-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
-    <Period id="p0" start="PT0S">
-        <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
-          <Accessibility schemeIdUri="urn:scte:dash:cc:cea-708:2015" value="1=lang:en;2=lang:en"/>
-          <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
-          <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
-        </AdaptationSet>
-         <AdaptationSet id="2" group="4" contentType="image" par="16:9"  sar="1:1" mimeType="image/jpeg" codecs="jpeg">
-              <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
-              <SegmentTemplate startNumber="1" timescale="24000" duration="6006000" media="out-$RepresentationID$-n-$Number$.jpg"></SegmentTemplate>
-              <Representation id="img=7000" bandwidth="7000" width="1600" height="900">
-                <EssentialProperty schemeIdUri="http://dashif.org/guidelines/thumbnail_tile" value="5x5" />
-              </Representation>
+    R"(<?xml version="1.0" encoding="utf-8"?>
+    <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+        <Period id="p0" start="PT0S">
+            <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+                <Accessibility schemeIdUri="urn:scte:dash:cc:cea-708:2015" value="1=lang:en;2=lang:en"/>
+                <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+                <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
             </AdaptationSet>
-    </Period>
-</MPD>
-)";
+            <AdaptationSet id="2" group="4" contentType="image" par="16:9" sar="1:1" mimeType="image/jpeg" codecs="jpeg">
+                <BaseURL>https://dluxvod.stvacdn.spectrum.com/DASH_VOD/mass0000000020751006/out.ism/dash/</BaseURL>
+                <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+                <SegmentTemplate startNumber="1" timescale="24000" duration="6006000" media="out-$RepresentationID$-n-$Number$.jpg" />
+                <Representation id="img=7000" bandwidth="7000" width="1600" height="900">
+                    <BaseURL>thumbnail_v1/2bfd42-b08302hx/</BaseURL>
+                    <EssentialProperty schemeIdUri="http://dashif.org/guidelines/thumbnail_tile" value="5x5" />
+                </Representation>
+            </AdaptationSet>
+        </Period>
+    </MPD>
+    )";
     fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
     EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
         .WillOnce(Return(true));
@@ -2419,6 +2424,77 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     EXPECT_EQ(thumbnailData.size(), 1);
     EXPECT_EQ(width,320); //width of 1 thumbnail = width/w(value = 5x5,w= 5)
     EXPECT_EQ(thumbnailData[0].d,10); // (duration/timscale)/value
+    EXPECT_EQ(baseUrl,"https://dluxvod.stvacdn.spectrum.com/DASH_VOD/mass0000000020751006/out.ism/dash/thumbnail_v1/2bfd42-b08302hx/");
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, CheckAdResolvedStatus_FirstTryAdBreakNotResolved)
+{
+        std::string periodId = "periodId1";
+        auto ads = std::make_shared<std::vector<AdNode>>();
+
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, isAdBreakObjectExist(_))
+            .Times(AnyNumber())
+            .WillRepeatedly(Return(true));
+
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, WaitForNextAdResolved(_, _))
+            .Times(AnyNumber())
+            .WillRepeatedly(Return(false));
+
+        mStreamAbstractionAAMP_MPD->CallCheckForAdResolvedStatus(ads, -1, periodId);
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, CheckAdResolvedStatus_FirstTryAdBreakResolved)
+{
+        std::string periodId = "periodId1";
+        auto ads = std::make_shared<std::vector<AdNode>>();
+
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, WaitForNextAdResolved(_, _))
+            .Times(1)
+            .WillOnce(Return(true));
+
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, isAdBreakObjectExist(_))
+            .Times(AnyNumber())
+            .WillRepeatedly(Return(true));
+
+        mStreamAbstractionAAMP_MPD->CallCheckForAdResolvedStatus(ads, -1, periodId);
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, CheckAdResolvedStatus_AdNotResolved)
+{
+        AdNodeVectorPtr ads = std::make_shared<std::vector<AdNode>>();
+        ads->emplace_back(false, false, false, "adId1", "url1", 30000, "periodId1", 0, nullptr);
+        int adIdx = 0;
+        std::string periodId = "periodId1";
+
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, WaitForNextAdResolved(_))
+            .Times(1)
+            .WillOnce(Return(false));
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, isAdBreakObjectExist(_))
+            .Times(AnyNumber())
+            .WillRepeatedly(Return(true));
+
+        mStreamAbstractionAAMP_MPD->CallCheckForAdResolvedStatus(ads, adIdx, periodId);
+
+        EXPECT_TRUE(ads->at(adIdx).invalid);
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, CheckAdResolvedStatus_AdResolved)
+{
+        AdNodeVectorPtr ads = std::make_shared<std::vector<AdNode>>();
+        ads->emplace_back(false, false, false, "adId1", "url1", 30000, "periodId1", 0, nullptr);
+        int adIdx = 0;
+        std::string periodId = "periodId1";
+
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, WaitForNextAdResolved(_))
+            .Times(1)
+            .WillOnce(Return(true));
+        EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, isAdBreakObjectExist(_))
+            .Times(AnyNumber())
+            .WillRepeatedly(Return(true));
+
+        mStreamAbstractionAAMP_MPD->CallCheckForAdResolvedStatus(ads, adIdx, periodId);
+
+        EXPECT_FALSE(ads->at(adIdx).invalid);
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, CheckAdResolvedStatus_FirstTryAdBreakNotResolved)

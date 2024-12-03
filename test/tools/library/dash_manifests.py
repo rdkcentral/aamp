@@ -2,7 +2,7 @@
 # If not stated otherwise in this file or this component's LICENSE file the
 # following copyright and licenses apply:
 #
-# Copyright 2023 Synamedia Ltd.
+# Copyright 2023 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+"""
+To test any changes use
+aamp/test/tools/library/test_toolchain.py
+######################################################################
+"""
+
 import os
 import sys
 from datetime import datetime, timedelta
@@ -27,7 +34,7 @@ import logging
 import xml.etree.ElementTree as ET
 from library.manifests import delHTTPhost, Manifest, SegmentList
 from library.attriblist import AttribList
-
+from library.filesys_utils import url_to_filename
 
 class DASHManifest(Manifest):
     """
@@ -35,8 +42,8 @@ class DASHManifest(Manifest):
     provides manipulation.
     """
 
-    def __init__(self, path, content=None, rebase=None, default_start=None):
-        super().__init__(path)
+    def __init__(self, path_or_url, content=None, rebase=None, default_start=None):
+        super().__init__(path_or_url)
 
         self.orig_tree = ET.ElementTree()
         self.root = None
@@ -50,7 +57,7 @@ class DASHManifest(Manifest):
         self.remove_duplicate_req = {} # This is to handle 404 during All Profiles harvest.
 
         if content is None:
-            with open(path, "rb") as f:
+            with open(path_or_url, "rb") as f:
                 content = f.read()
 
         # Pull all the namespace attributes out the incomming XML 'header' and
@@ -385,6 +392,7 @@ class DASHManifest(Manifest):
         """
         Reduce down the number of bandwidths supported by the top level manifest.
         """
+        log.debug(f"bands {band_list}")
         if type(band_list) in [str, int]:
             band_list = [int(band_list)]
 
@@ -513,7 +521,6 @@ class DASHManifest(Manifest):
             adpset_id = adpset.get("id")
             period_id = period.get("id")
             templ_lst = self.templ[adpset]
-
             # Obtain any AdaptationSet values from the default template
             if len(templ_lst) > 0:
                 templ, rband, rid = templ_lst[0]
@@ -536,11 +543,12 @@ class DASHManifest(Manifest):
                     fn_templ = self.abs_path(fn_templ, self.urls.get(adpset, prefix))
 
                 tlines = self.tlines[templ] # RDKAAMP-1834
-                    
+
                 # Handle first time for this template within a Represetation
                 if seg_no < 0:
                     attrs = AttribList(adpset.attrib)
                     setattr(attrs,"period_id",period_id)
+                    setattr(attrs,"period_start",period.get("start",""))
                     if pts == 0.0:
                         if tlines:
                             pts = float(tlines[0].get('t', 0))
@@ -551,15 +559,19 @@ class DASHManifest(Manifest):
 
                         attrs.merge(rept.attrib)
                         break
-
+                    setattr(attrs,"timescale",templ.get("timescale", adpset_ts))
                     seg_list.new_file(key, encrypted, attrs)
                     fn = templ.get("initialization")
 
                     # Handle template with an initialisation file
                     if fn is not None:
+                        log.debug(fn)
                         if abs_paths:
                             fn = self.abs_path(fn, self.urls.get(adpset, prefix))
-                        seg_list.add_init(self.template_subs(fn, rband, rid)[0], key)
+                        url = self.template_subs(fn, rband, rid)[0]
+                        log.debug(url)
+                        seg_filename = url_to_filename(url)
+                        seg_list.add_init(url, key, segment_filename=seg_filename)
 
                 tlines = self.tlines[templ]
                 start_num = int(templ.get("startNumber", -1))
@@ -585,43 +597,55 @@ class DASHManifest(Manifest):
                     else:
                         end_num = start_num + int(dur / intv)
 
-                    if end_num <= seg_no: print("Continue - Pass.")
+                    if end_num <= seg_no: log.debug("Continue - Pass.")
 
                     # Generate the names of the files from increasing segement value using $Number$
                     for n in range(
                         start_num if seg_no < start_num else seg_no, end_num
                     ):
-                        seg_list.add_file(fn_templ % n, intv, key)
+                        url = fn_templ % n
+                        seg_filename = url_to_filename(url)
+                        seg_list.add_file(fn_templ % n, intv, key, segment_filename=seg_filename)
 
-                    seg_list.add_file(fn_templ % end_num, dur % intv, key)
+                    url = fn_templ % end_num
+                    seg_filename = url_to_filename(url)
+                    seg_list.add_file(url, dur % intv, key, segment_filename=seg_filename)
                     seg_no = end_num
 
                 # Segment list and file generation based upon $Number$
                 elif do_number:
                     # Run through the segments in the AdaptationSet
+                    segment_t = 0
                     for seg in tlines:
+                        segment_t = int(seg.get("t", segment_t))
                         end_num = start_num + int(seg.get("r", 0)) + 1
-                        if end_num <= seg_no: print("Continue - Pass.")
+                        if end_num <= seg_no: log.debug("Continue - Pass.")
 
-                        intv = float(seg.get("d")) / ts
+                        segment_d = int(seg.get("d"))
+                        intv = segment_d / ts
 
                         # Generate the names of the files from increasing segement value using $Number$
                         for num in range(
                             start_num if seg_no < start_num else seg_no, end_num
                         ):
-                            if end_num <= seg_no:
-                                temp_file_name = fn_templ.split("/")[-1].replace("%d", str(num)) 
 
-                                if temp_file_name not in self.remove_duplicate_req.keys(): 
-                                    seg_list.add_file(fn_templ % num, intv, key) 
-                                    self.remove_duplicate_req[temp_file_name] = str(1) 
-                                    
-                                else: 
-                                    self.remove_duplicate_req[temp_file_name] = str(int(self.remove_duplicate_req[temp_file_name]) + 1) 
-                                    
+                            if end_num <= seg_no:
+                                temp_file_name = fn_templ.split("/")[-1].replace("%d", str(num))
+
+                                if temp_file_name not in self.remove_duplicate_req.keys():
+                                    url = fn_templ % num
+                                    seg_filename = url_to_filename(url)
+                                    seg_list.add_file(url, intv, key, segment_t=segment_t, segment_d=segment_d, segment_filename=seg_filename)
+                                    self.remove_duplicate_req[temp_file_name] = str(1)
+
+                                else:
+                                    self.remove_duplicate_req[temp_file_name] = str(int(self.remove_duplicate_req[temp_file_name]) + 1)
+
                             else:
-                                seg_list.add_file(fn_templ % num, intv, key) 
-                                                                                            
+                                url = fn_templ % num
+                                seg_filename = url_to_filename(url)
+                                seg_list.add_file(url, intv, key,segment_t=segment_t, segment_d=segment_d,segment_filename=seg_filename)
+                            segment_t += segment_d
                         seg_no = start_num = end_num
 
                 # Segmentlist and filename generation based upon $Time$
@@ -634,13 +658,15 @@ class DASHManifest(Manifest):
                         d = int(seg.get("d"))
 
                         next_t = t + d * (r + 1)
-                        if next_t <= seg_no: print("Continue - Pass.")
+                        #if next_t <= seg_no: log.debug("Continue - Pass.")
 
                         intv = float(d) / ts
 
                         # Generate the names of the files from the increasing 't' value using $Time$
                         for t in range(t if seg_no < t else seg_no, next_t, d):
-                            seg_list.add_file(fn_templ % t, intv, key)
+                            url = fn_templ % t
+                            seg_filename = url_to_filename(url)
+                            seg_list.add_file(url, intv, key, segment_t = t, segment_d = d, segment_filename=seg_filename)
                         seg_no = next_t
 
                 from_seg[key] = seg_no
@@ -672,6 +698,7 @@ class DASHManifest(Manifest):
                                 break
                         attrs=AttribList(adpset.attrib).merge(rept.attrib)
                         setattr(attrs,"period_id",period_id)
+                        setattr(attrs,"period_start",period.get("start",""))
                         seg_list.new_file(
                             key,
                             encrypted,
@@ -682,7 +709,9 @@ class DASHManifest(Manifest):
                         if fn is not None:
                             if abs_paths:
                                 fn = self.abs_path(fn, segml_prefix)
-                            seg_list.add_init(fn, key)
+                            url = fn
+                            seg_filename = url_to_filename(url)
+                            seg_list.add_init(url, key, segment_filename=seg_filename)
 
                     idx = -1
                     dur = int(segml.get("duration")) / int(segml.get("timescale"))
@@ -693,12 +722,13 @@ class DASHManifest(Manifest):
                             continue
 
                         idx += 1
-                        if idx <= seg_no: print("Continue - Pass.")
+                        if idx <= seg_no: log.debug("Continue - Pass.")
                         fn = segurl.get("media")
                         if abs_paths:
                             fn = self.abs_path(fn, segml_prefix)
-
-                        seg_list.add_file(fn, dur, key)
+                        url = fn
+                        seg_filename = url_to_filename(url)
+                        seg_list.add_file(url, dur, key, segment_filename=seg_filename)
                     from_seg[key] = idx
 
                 # Representation contains SegmentBase
@@ -706,6 +736,7 @@ class DASHManifest(Manifest):
                     path = self.urls[rept].text
                     attrs=AttribList(adpset.attrib).merge(rept.attrib)
                     setattr(attrs,"period_id",period_id)
+                    setattr(attrs,"period_start",period.get("start",""))
                     seg_list.new_file(
                         key, encrypted, attrs
                     )
@@ -714,7 +745,8 @@ class DASHManifest(Manifest):
 
                     # Not properly supported because we do not know the duration of the
                     # segment. Put 999 for now
-                    seg_list.add_file(path, 999, key)
+                    seg_filename = url_to_filename(path)
+                    seg_list.add_file(path, 999, key,segment_filename=seg_filename)
                     from_seg[key] = 0
 
         return seg_list
@@ -821,6 +853,7 @@ class DASHManifest(Manifest):
             for templ in adpset:
                 tag = templ.tag
                 if tag.endswith('ContentProtection'):
+                    # Leave in manifest but rename
                     templ.tag = re.sub('ContentProtection','ContentProtection_Transcode_Removed',tag)
                     cnt += 1
 

@@ -75,6 +75,14 @@ pkg_check_modules(UUID REQUIRED uuid)
 
 include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
+if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
+	message("Building aamp support libraries")
+	add_subdirectory(support/aampabr)
+	add_subdirectory(support/aampmetrics)
+	add_subdirectory(plugins/gst-plugins-rdk-aamp)
+endif()
+
+message("Adding tsb folder")
 add_subdirectory(tsb)
 
 install(TARGETS tsb
@@ -101,18 +109,13 @@ endif()
 endif()
 endif()
 
-if(CMAKE_QT5WEBKIT_JSBINDINGS)
-        message("CMAKE_QT5WEBKIT_JSBINDINGS set, require Qt5WebKit")
-	pkg_check_modules(Qt5WebKit REQUIRED Qt5WebKit)
-	find_path (STAGING_INCDIR webkit-apis/ForwardingHeaders)
-	include_directories(${STAGING_INCDIR}/webkit-apis/ForwardingHeaders)
-elseif(CMAKE_WPEWEBKIT_JSBINDINGS)
-	message("CMAKE_QT5WEBKIT_JSBINDINGS not set, CMAKE_WPEWEBKIT_JSBINDINGS is set, Finding JavaScriptCore")
+if(CMAKE_WPEWEBKIT_JSBINDINGS)
+	message("CMAKE_WPEWEBKIT_JSBINDINGS is set, Finding JavaScriptCore")
 	pkg_search_module(PC_WPE_WEBKIT wpe-webkit-deprecated-0.1 wpe-webkit-1.0 wpe-webkit-1.1)
         find_path (JSC_INCDIR JavaScriptCore/JavaScript.h HINTS ${PC_WPE_WEBKIT_INCLUDEDIR} ${PC_WPE_WEBKIT_INCLUDE_DIRS})
         include_directories(${JSC_INCDIR})
 else()
-	message("CMAKE_QT5WEBKIT_JSBINDINGS not set, CMAKE_WPEWEBKIT_JSBINDINGS not set")
+	message("CMAKE_WPEWEBKIT_JSBINDINGS not set")
 endif()
 
 #update XCode scheme flags, harmless for non Darwin builds
@@ -145,7 +148,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     set(CMAKE_HAVE_THREADS_LIBRARY 1)
     pkg_check_modules(GLIB REQUIRED GLib-2.0)
     include_directories(${GLIB_INCLUDE_DIRS})
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DCONTENT_4K_SUPPORTED")
 
     # XCode build flags. Even when using CLANG, the GCC name is required to enable the check
     set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_UNUSED_FUNCTION "YES")
@@ -153,14 +155,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 else()
     set(USE_MAC_FOR_RANDOM_GEN "-DUSE_MAC_FOR_RANDOM_GEN")
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-
-if(CMAKE_RDK_CC_ENABLED)
-	pkg_check_modules(DIRECTFB REQUIRED directfb)
-endif()
-
-if(CMAKE_USE_RIALTO_OCDM)
-    pkg_check_modules(OCDM_RIALTO REQUIRED ocdmRialto)
-endif()
 
 find_package (Threads REQUIRED)
 
@@ -261,6 +255,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampTsbReader.h
 					lstring.hpp
 					scte35/AampSCTE35.h
+					Accessibility.hpp
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -351,6 +346,11 @@ if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
   # set(CMAKE_USE_SECCLIENT_MOCKS TRUE)
 endif()
 
+if(CMAKE_SOC_PLATFORM_RPI)
+    message("CMAKE_SOC_PLATFORM_RPI set")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRPI=1")
+endif()
+
 if(CMAKE_USE_SECCLIENT)
 	if (CMAKE_USE_SECCLIENT_MOCKS)
 		set(LIBAAMP_HEADERS ${LIBAAMP_HEADERS} sec_client.h sec_security_datatype.h)
@@ -378,7 +378,7 @@ set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_BUILD_INFO='${buildinfo}'")
 
 if (CMAKE_PLATFORM_UBUNTU)
 	message("CMAKE_PLATFORM_UBUNTU set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUBUNTU=1 -DNO_NATIVE_AV=1 -DCONTENT_4K_SUPPORTED")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUBUNTU=1 -DNO_NATIVE_AV=1")
 endif()
 
 if (CMAKE_USE_OPENCDM_ADAPTER)
@@ -393,37 +393,19 @@ if(CMAKE_USE_RDK_PLUGINS)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DREAD_ESTB_IFACE_FROM_DEVICE_PROPERTIES -DCREATE_PIPE_SESSION_TO_XRE")
 endif()
 
-if (CMAKE_CUSTOM_QTDEMUX_PLUGIN_ENABLED)
-    #Macro should be enabled only when the qtdemux plugin with AAMP patches are available in the platform.
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DENABLE_AAMP_QTDEMUX_OVERRIDE=1")
-endif()
-
-set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl -labr ${SEC_CLIENT_LIB})
+set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl ${SEC_CLIENT_LIB})
 set(PLAYBINTEST_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LIBRARIES})
-
-if (CMAKE_AMLOGIC_SOC)
-	message("CMAKE_AMLOGIC_SOC set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DNO_NATIVE_AV=1 -DAMLOGIC -DCONTENT_4K_SUPPORTED")
-
-	# For extracting SEI timecode
-	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lgstvideo-1.0")
-endif()
 
 if(CMAKE_FLEX2_RDK)
     message("CMAKE_FLEX2_RDK set")
     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DFLEX2_RDK")
 endif()
 
-if(CMAKE_QT5WEBKIT_JSBINDINGS)
-	message("CMAKE_QT5WEBKIT_JSBINDINGS set, adding sources to libaamp")
-	set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} jsbindings/jsbindings.cpp jsbindings/jsutils.cpp jsbindings/jsmediaplayer.cpp jsbindings/jseventlistener.cpp jsbindings/jsevent.cpp jsbindings/PersistentWatermark/PersistentWatermark.cpp)
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS")
-	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -l${Qt5WebKit_LIBRARIES}")
-elseif(CMAKE_WPEWEBKIT_JSBINDINGS)
+if(CMAKE_WPEWEBKIT_JSBINDINGS)
 	message("CMAKE_WPEWEBKIT_JSBINDINGS set, just setting flags")
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS")
 else()
-	message("CMAKE_WPEWEBKIT_JSBINDINGS and CMAKE_WPEWEBKIT_JSBINDINGS not set")
+	message("CMAKE_WPEWEBKIT_JSBINDINGS not set")
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -std=c++11 -Wno-non-virtual-dtor -Wno-psabi")
@@ -461,7 +443,6 @@ set(AAMP_CLI_HEADERS test/aampcli/Aampcli.h
 			test/aampcli/AampcliSet.h
 			test/aampcli/AampcliVirtualChannelMap.h
 			test/aampcli/AampcliShader.h
-			test/aampcli/AampcliHarvester.h
 			test/aampcli/AampcliSmokeTest.h
 			test/aampcli/AampcliSubtecSimulator.h
 			${AAMP_OS_SOURCES})
@@ -472,14 +453,13 @@ set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp
 			test/aampcli/AampcliSet.cpp
 			test/aampcli/AampcliVirtualChannelMap.cpp
 			test/aampcli/AampcliShader.cpp
-			test/aampcli/AampcliHarvester.cpp
 			test/aampcli/AampcliSmokeTest.cpp
 			test/aampcli/AampcliSubtecSimulator.cpp
 			${AAMP_OS_SOURCES})
 
-
-# Session based stats for latency histogram
-set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lmetrics")
+if (NOT CMAKE_INBUILT_AAMP_DEPENDENCIES)
+	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -labr -lmetrics")
+endif()
 
 # Sources common to all forms of OpenCDM and CDM
 set(LIBAAMP_DRM_SOURCES drm/AampDRMSessionManager.cpp
@@ -554,18 +534,16 @@ if(CMAKE_USE_OPENCDM_ADAPTER)
                                                      drm/AampOcdmBasicSessionAdapter.cpp
                                                      drm/AampOcdmGstSessionAdapter.cpp
     )
-    if(DEFINED SAGE_SVP)
-            set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DCONTENT_4K_SUPPORTED")
-    endif()
+
+    # For extracting SEI timecode
+    set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lgstvideo-1.0")
+
     if(CMAKE_USE_OPENCDM_ADAPTER_MOCKS)
         set(LIBAAMP_HEADERS ${LIBAAMP_HEADERS} open_cdm.h open_cdm_adapter.h)
         # copy_staging_header_file(open_cdm.h)
         # copy_staging_header_file(opencdmMocks.cpp)
         set(LIBAAMP_MOCK_SOURCES ${LIBAAMP_MOCK_SOURCES} test/mocks/opencdmMocks.cpp)
         set(LIBAAMP_MOCK_DEPENDS -lgmock -lgtest)
-    elseif (CMAKE_USE_RIALTO_OCDM)
-        set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} ${OCDM_RIALTO_LDFLAGS}")
-        set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_RIALTO_OCDM")
     else()
         set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -locdm")
     endif()
@@ -576,21 +554,7 @@ if(CMAKE_USE_OPENCDM_ADAPTER)
 elseif(CMAKE_USE_OPENCDM)
     message("Using OPEN CDM")
     set(LIBAAMP_DRM_SOURCES "${LIBAAMP_DRM_SOURCES}" drm/opencdmsession.cpp)
-
-    if (DEFINED SECAPI_ENGINE_BROADCOM_SAGE)
-        set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SECAPI_BRCMHW=1")
-        if(DEFINED SAGE_SVP)
-            set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SAGE_SVP -DCONTENT_4K_SUPPORTED")
-            set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -locdm -lb_secbuf -lnexus -lbrcmsvpmeta -lsec_api")
-        else()
-            set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -locdm -lsec_api")
-        endif()
-    elseif(DEFINED SECAPI_ENGINE_BROADCOM_RAAGA)
-        set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SECAPI_BRCMHW=1")
-        set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -locdm -lsec_api")
-    else()
-        set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -locdm -lsec_api_crypto")
-    endif()
+    set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -locdm -lsec_api_crypto")
     find_path (STAGING_INCDIR opencdm)
     include_directories(${STAGING_INCDIR}/opencdm)
 elseif(CMAKE_CDM_DRM)
@@ -611,39 +575,16 @@ elseif(CMAKE_CDM_DRM)
         include_directories(${STAGING_INCDIR}/playready/oem/common/inc)
         include_directories(${STAGING_INCDIR}/playready/oem/ansi/inc)
     endif()
-    if (DEFINED SECAPI_ENGINE_BROADCOM_SAGE)
-        set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SECAPI_BRCMHW=1")
-        if(DEFINED SAGE_SVP)
-            set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SAGE_SVP -DCONTENT_4K_SUPPORTED")
-            if (NOT CMAKE_USE_SEC_API_MOCKS)
-                set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lsec_api -lb_secbuf -lnexus -lbrcmsvpmeta")
-            endif()
-        else()
-            if (CMAKE_USE_PLAYREADY AND NOT CMAKE_USE_SEC_API_MOCKS)
-                set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lsec_api")
-            endif()
-        endif()
-    elseif(DEFINED SECAPI_ENGINE_BROADCOM_RAAGA)
-        set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SECAPI_BRCMHW=1")
-        if (CMAKE_USE_PLAYREADY AND NOT CMAKE_USE_SEC_API_MOCKS)
-            set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lsec_api")
-        endif()
-    else()
-        if (CMAKE_USE_PLAYREADY AND NOT CMAKE_USE_SEC_API_MOCKS)
-            set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lsec_api_crypto")
-        endif()
+    if (CMAKE_USE_PLAYREADY AND NOT CMAKE_USE_SEC_API_MOCKS)
+        set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lsec_api_crypto")
     endif()
-
     if(CMAKE_IARM_MGR AND NOT CMAKE_IARM_MGR_MOCKS)
         set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lIARMBus -lds -ldshalcli")
     endif()
 endif()
 
-if (CMAKE_RDK_CC_ENABLED OR CMAKE_SUBTEC_CC_ENABLED)
-    include_directories(closedcaptions)
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_CC_ENABLED")
-	set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} closedcaptions/AampCCManager.cpp)
-endif()
+include_directories(closedcaptions)
+set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} closedcaptions/AampCCManager.cpp)
 
 if (CMAKE_AAMP_RFC_REQUIRED)
         message("AAMP RFC set")
@@ -656,26 +597,6 @@ if (CMAKE_AAMP_RFC_REQUIRED)
         else()
             set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -ltr181api")
         endif()
-endif()
-
-if (CMAKE_RDK_CC_ENABLED)
-	message("CMAKE_RDK_CC_ENABLED set")
-	include_directories(${DIRECTFB_INCLUDE_DIRS})
-	include_directories(${DIRECTFB_INCLUDE_DIRS}/fusion)
-	include_directories(${DIRECTFB_INCLUDE_DIRS}/direct)
-	include_directories(closedcaptions/rdk)
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_RDK_CC_ENABLED")
-	set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} closedcaptions/rdk/AampRDKCCManager.cpp)
-	if (CMAKE_USE_CC_MANAGER_MOCKS)
-		find_path(STAGING_INCDIR closedcaption)
-		include_directories(${STAGING_INCDIR}/closedcaption)
-		include_directories(${STAGING_INCDIR}/closedcaption/ccGraphics)
-		include_directories(${STAGING_INCDIR}/closedcaption/ccManager)
-		set(LIBAAMP_MOCK_SOURCES ${LIBAAMP_MOCK_SOURCES} test/fakes/ccManagerFakes.cpp)
-		copy_staging_header_file(vlCCConstants.h)
-	else()
-		set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lrdkCCReader -lrdkCCManager -lrdkCCGfx -l${DIRECTFB_LIBRARIES}")
-	endif()
 endif()
 
 set(AAMP_SUBTEC_CLASS_SOURCES subtec/subtecparser/WebVttSubtecParser.cpp subtec/subtecparser/TtmlSubtecParser.cpp subtec/subtecparser/WebvttSubtecDevParser.cpp subtec/subtecparser/TextStyleAttributes.cpp)
@@ -697,20 +618,18 @@ install (TARGETS subtec
 )
 
 if (CMAKE_GST_SUBTEC_ENABLED)
+    set(CMAKE_AAMP_SUBTITLE_SUPPORT TRUE)
     message("CMAKE_GST_SUBTEC_ENABLED set")
     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DGST_SUBTEC_ENABLED")
 endif()
 
-if (CMAKE_SUBTEC_CC_ENABLED)
-    message("CMAKE_SUBTEC_CC_ENABLED set")
-
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SUBTEC_CC_ENABLED")
-
+if (CMAKE_AAMP_SUBTITLE_SUPPORT)
+    message("CMAKE_AAMP_SUBTITLE_SUPPORT set")
+    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SUBTITLE_SUPPORTED")
     set(LIBSUBTECCONNECTOR_DEFINES "${LIBAAMP_DEFINES}")
-
+    find_path(STAGING_INCDIR closedcaption/ccDataReader.h)
+    include_directories(${STAGING_INCDIR}/closedcaption)
     if (CMAKE_USE_CC_MANAGER_MOCKS)
-        find_path(STAGING_INCDIR closedcaption/ccDataReader.h)
-        include_directories(${STAGING_INCDIR}/closedcaption)
         set(LIBAAMP_MOCK_SOURCES ${LIBAAMP_MOCK_SOURCES} test/fakes/ccManagerFakes.cpp)
     else()
         set(LIBSUBTECCONNECTOR_DEPENDS pthread rdkCCReader subtec)
@@ -725,12 +644,8 @@ if (CMAKE_SUBTEC_CC_ENABLED)
     target_link_libraries(subtec_connector ${LIBSUBTECCONNECTOR_DEPENDS})
     install(TARGETS subtec_connector DESTINATION lib)
 
-    link_directories("${CMAKE_BINARY_DIR}")
-
     set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} closedcaptions/subtec/AampSubtecCCManager.cpp)
-    set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS}" subtec_connector)
 endif()
-
 
 set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} ${SEC_CONTENT_METADATA_ENABLED}")
 
@@ -751,16 +666,6 @@ add_executable(playbintest test/playbintest.cpp)
 target_link_libraries(playbintest ${PLAYBINTEST_DEPENDS})
 # XCode schema target
 xcode_define_schema(playbintest)
-
-if(CMAKE_SOC_PLATFORM_REALTEK)
-        message("CMAKE_SOC_PLATFORM_REALTEK set")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DREALTEKCE=1 -DENABLE_AAMP_QTDEMUX_OVERRIDE=1 -DCONTENT_4K_SUPPORTED")
-endif()
-
-if(CMAKE_SOC_PLATFORM_RPI)
-	message("CMAKE_SOC_PLATFORM_RPI set")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRPI=1 -DENABLE_AAMP_QTDEMUX_OVERRIDE=1")
-endif()
 
 if(CMAKE_SYSTEMD_JOURNAL)
     message("CMAKE_SYSTEMD_JOURNAL set")
@@ -804,10 +709,6 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS)
     endif()
     target_link_libraries(aampjsbindings aamp systemd)
 
-    if (CMAKE_RDK_CC_ENABLED OR CMAKE_SUBTEC_CC_ENABLED)
-        set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DAAMP_CC_ENABLED")
-    endif()
-
     if(CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS)
         set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_WATERMARK_JSBINDINGS -DUSE_CPP_THUNDER_PLUGIN_ACCESS")
         target_link_libraries(aampjsbindings ${WPEFRAMEWORK_LIBRARIES})
@@ -827,7 +728,6 @@ if(CMAKE_AUXILIARY_AUDIO_ENABLED)
 endif()
 
 message("LIB_AAMP_DEPENDS is ${LIBAAMP_DEPENDS}")
-
 target_link_libraries(aamp ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
@@ -844,6 +744,10 @@ set_target_properties(aamp-cli PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${AA
 set_target_properties(aamp PROPERTIES PUBLIC_HEADER "main_aamp.h")
 set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
 
+if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
+	include_directories(support/aampabr)
+	include_directories(support/aampmetrics)
+endif()
 include_directories(tsb/api)
 
 set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${LIBDASH_LIBRARIES} ${CURL_LINK_LIBRARIES})
@@ -873,6 +777,12 @@ xcode_define_schema(gstTestHarness)
 install(TARGETS gstTestHarness DESTINATION bin)
 target_link_libraries(aamp-cli subtec tsb)
 target_link_libraries(aamp subtec tsb)
+if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
+	target_link_libraries(aamp abr metrics)
+endif()
+if (CMAKE_AAMP_SUBTITLE_SUPPORT)
+	target_link_libraries(aamp subtec_connector)
+endif()
 install(TARGETS aamp-cli DESTINATION bin)
 install(TARGETS playbintest DESTINATION bin)
 
@@ -898,6 +808,7 @@ install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h Aam
   AampTSBSessionManager.h
   AampTsbReader.h
   tsb/api/TsbApi.h
+  closedcaptions/AampCCManager.h
   DESTINATION include)
 
 if (CMAKE_AAMP_RFC_REQUIRED)

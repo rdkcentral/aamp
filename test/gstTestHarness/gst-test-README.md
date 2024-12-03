@@ -22,6 +22,9 @@
 ### help
 > show available commands
 
+### inventory <vodurl>
+> load specified DASH manifest, and generate inventory.sh with sequence of calls to generate-video-segment.sh and genenerate-audio-segment.sh
+
 ### load <vodurl>
 > load and play content from specified DASH manifest.
 > * Good compatibility with minimal, streamlined implementation, able to play most clear vod content
@@ -29,14 +32,20 @@
 > * Note: Currently has limitations: no ABR, arbitrary AdaptationSet selection, no DRM support, seek not yet implemented, but as a milestone, useful for testing
 > * Note: playback can be interrupted with existing 'flush' command
 
-### format mp4
-> default; use/inject DASH .mp4 segments for tests.
+### format
+> enumerate currently configured format and options
 
-### format ts
-> use/inject whole HLS .ts segments for tests; this works on Ubuntu via GstTSDemux (gstreamer demuxer from gst-plugins-bad), but not yet in other builds
+### format 0
+> inject elementary stream sample data extracted from mp4, processed with mp4demux, a WIP software mp4 demuxer
 
-### format es
-> demux HLS .ts segments, injecting elementary streams for tests, each decorated with pts/dts from pes header.  This is intented to parallel AAMP's use of tsprocessor (software demuxer).
+### format 1
+> default; inject whole mp4 segments to be demuxed by gstreamer qtdemux element
+
+### format 2
+> inject elementary stream frames extracted from ts, each decorated with pts/dts from pes header. This is intented to parallel AAMP's use of tsprocessor (software demuxer).
+
+### format 3
+> inject whole ts segments (demuxed by gstreamer tsdemux element, if available); this works on Ubuntu via gst-plugins-bad/GstTSDemux but not in other builds
 
 ### position
 > toggle position reporting (default = off)

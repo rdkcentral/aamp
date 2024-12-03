@@ -46,7 +46,6 @@
 #include "AampcliGet.h"
 #include "AampcliSet.h"
 #include "AampcliShader.h"
-#include "AampcliHarvester.h"
 
 class MyAAMPEventListener : public AAMPEventObjectListener
 {

@@ -2,7 +2,7 @@
 # If not stated otherwise in this file or this component's LICENSE file the
 # following copyright and licenses apply:
 #
-# Copyright 2023 Synamedia Ltd.
+# Copyright 2023 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,11 @@
 # limitations under the License.
 #
 
+"""
+To test any changes use
+aamp/test/tools/library/test_toolchain.py
+######################################################################
+"""
 
 import sys
 import os
@@ -34,7 +39,7 @@ import urllib
 from library.hls_manifests import HLSManifest, HLSMainManifest
 from library.dash_manifests import DASHManifest
 from library.manifests import write_harvest_details
-
+from  library.filesys_utils import url_to_filename
 
 HELP = """
 This utility is used downloading content from servers. This content will be in HLS or
@@ -58,13 +63,12 @@ def add_timestamp(filename):
     return f"{filename}.orig{datetime.utcnow().strftime('%y%m%d_%H%M%S')}"
 
 
-def write_file(url, data):
+def write_file(file_name, data):
     """
     Write out a blob of data to a file and optionally create any
     directories.
     """
 
-    file_name = url_to_filename(url)
     mode = "wb" if isinstance(data, bytes) else "w"
 
     log.info("%s size=%d ts=%d", file_name, len(data), time.time())
@@ -76,20 +80,6 @@ def write_file(url, data):
 
     with open(file_name, mode) as f_stream:
         f_stream.write(data)
-
-
-def url_to_filename(url):
-    """
-    Convert url into a relative path that can be used for writing data to
-    E.G
-    http://video-origin-skit-skyip.skyeucidcf.synamedialabs.com/service/1001/1001.m3u8
-    becomes
-    service/1001/1001.m3u8
-    """
-    o = urllib.parse.urlparse(url)
-    # strip leading /
-    path = o.path[1:]
-    return path
 
 
 class SegmentDownloader:
@@ -122,12 +112,13 @@ class SegmentDownloader:
 
         while not (self.shutdown_when_empty and self.inqueue.empty()) and not self.shutdown_immediatly:
             try:
-                url = self.inqueue.get_nowait()
+                (url,filename) = self.inqueue.get_nowait()
+                log.debug(f"Fetching {url}")
 
                 resp = self.requests_session.get(url)
 
                 if resp.ok:
-                    write_file(url, resp.content)
+                    write_file(filename, resp.content)
                 else:
                     log.error("status_code=%d %s", resp.status_code, url)
                     self.missing.append(url)
@@ -139,25 +130,25 @@ class SegmentDownloader:
         log.info("Downloader stopping %s", self.thread_number)
 
     @classmethod
-    def add(cls, filename):
+    def add(cls, url, filename):
         """
-        Add a file to be downloaded to the queue.
+        url - the url to fetch
+        filename - the location where to save the fetched contents
         """
-        cls.inqueue.put(filename)
+        cls.inqueue.put((url,filename))
 
     @classmethod
     def stop_all(cls,shutdown_immediatly=False):
         """
         Stop all downloader threads.
         """
-        log.info(
-            "Stopping threads=%d qsize=%s", len(cls.threads), cls.inqueue.qsize()
-        )
+
         cls.shutdown_when_empty = True
         cls.shutdown_immediatly = shutdown_immediatly
 
         while len(cls.threads) > 0:
-            time.sleep(1)
+            log.info("Stopping threads=%d qsize=%s", len(cls.threads), cls.inqueue.qsize())
+            time.sleep(2)
 
 
 class ManifestDownloader:
@@ -166,14 +157,15 @@ class ManifestDownloader:
     type processing when a change has occured..
     """
 
-    def __init__(self, requests_session, manifest_checker, url_list):
+    def __init__(self, requests_session, manifest_checker, url_list, args):
         self.requests_session = requests_session
         self.shutdown = False
 
-        self.last_read = {filename: b"" for filename in url_list}
-        self.check = {filename: manifest_checker(filename) for filename in url_list}
+        self.last_read = {url: b"" for url in url_list}
+        self.check = {url: manifest_checker(url) for url in url_list}
         self.max_time = None
-        self.do_download_segments = True
+        self.args = args
+        self.do_download_segments = not args.no_segments
 
         self.seg_requested_duration_totals = {}
 
@@ -193,9 +185,8 @@ class ManifestDownloader:
                 self.seg_requested_duration_totals[profile] = (
                     total + segment_details["duration"]
                 )
-                segment_name = segment_details["segment_name"]
-                # print("Adding {}",segment_details)
-                SegmentDownloader.add(segment_name)
+
+                SegmentDownloader.add(segment_details["segment_url"],segment_details["segment_filename"])
                 did_add_segment = True
             else:
                 pass
@@ -218,6 +209,7 @@ class ManifestDownloader:
 
         max_idle = 20 // poll_intv
         last_change = max_idle
+        last_loop_time = time.time()
 
         while not self.shutdown:
             for url, last_read in self.last_read.items():
@@ -263,7 +255,12 @@ class ManifestDownloader:
                 log.info("SHUTDOWN Polling for longer than %d", self.max_time)
                 self.shutdown = True
 
-            time.sleep(poll_intv)
+            loop_elapsed = time.time() - last_loop_time
+            loop_delay = poll_intv - loop_elapsed
+            log.debug(f"Sleep for {loop_delay} loop_elapsed {loop_elapsed}")
+            if loop_delay > 0:
+                time.sleep(loop_delay)
+            last_loop_time = time.time()
 
         for man in self.check.values():
             man.terminate()
@@ -282,8 +279,8 @@ class HLSChecker:
     Handle the checking of a changed HLS manifest.
     """
 
-    def __init__(self, filename):
-        self.filename = filename.rsplit("?", 1)[0]
+    def __init__(self, url):
+        self.url = url
         self.seg_no = {}
         self.file_no = 0
         self.vod = None
@@ -292,22 +289,24 @@ class HLSChecker:
         """
         Called when a change has been seen of the manifest contents
         """
-        man = HLSManifest(self.filename, content=cur_read)
+        log.debug(f"{self.url}")
+        self.file_no += 1
+
+        if self.file_no == 1 and self.vod:
+            wr_fn = url_to_filename(self.url)
+        else:
+            wr_fn = url_to_filename(self.url) + f".{self.file_no}"
+        # Write exactly as recieved
+        write_file(add_timestamp(wr_fn), cur_read)
+
+        man = HLSManifest(self.url, content=cur_read)
 
         segment_detail_list = man.get_seg_list(self.seg_no, abs_paths=True)
         if self.vod is None:
             self.vod = man.check_vod()
 
         man.trim_urls()
-        self.file_no += 1
 
-        if self.file_no == 1 and self.vod:
-            wr_fn = self.filename
-        else:
-            wr_fn = f"{self.filename}.{self.file_no}"
-
-        # Write exactly as recieved
-        write_file(add_timestamp(wr_fn), cur_read)
         # Write as recreated
         write_file(wr_fn, str(man))
 
@@ -317,7 +316,7 @@ class HLSChecker:
         """
         Called when shutdown invoked.
         """
-        log.info("HLS Terminated manifest %s", self.filename)
+        log.info("HLS Terminated manifest %s", self.url)
 
 
 class DASHChecker:
@@ -325,19 +324,20 @@ class DASHChecker:
     Handle the checking of a changed DASH manifest.
     """
 
-    def __init__(self, bands=None):
-        self.bands = bands
+    def __init__(self, args):
+        self.bands = args.bandwidths
         self.seg_no = {}
         self.file_no = 0
-        self.filename = None
+        self.url = None
         self.vod = None
+        self.args = args
 
-    def pass_thru(self, filename):
+    def pass_thru(self, url):
         """
         helper to allow class to be created outside of ManifestDownloader
         creation.
         """
-        self.filename = filename.rsplit("?", 1)[0]
+        self.url = url
         return self
 
     def changed(self, cur_read, owner):
@@ -345,11 +345,12 @@ class DASHChecker:
         Called when a change has been seen of the manifest contents
         """
 
-        man = DASHManifest(self.filename, content=cur_read)
+        man = DASHManifest(self.url, content=cur_read)
         if self.bands:
             man.reduce_bandwidth(self.bands)
 
         segment_detail_list = man.get_seg_list(self.seg_no, abs_paths=True)
+
         if self.vod is None:
             self.vod = man.check_vod()
 
@@ -359,9 +360,9 @@ class DASHChecker:
             self.file_no += 1
 
             if self.file_no == 1 and self.vod:
-                wr_fn = self.filename
+                wr_fn = url_to_filename(self.url)
             else:
-                wr_fn = f"{self.filename}.{self.file_no}"
+                wr_fn = url_to_filename(self.url) + f".{self.file_no}"
 
             # Writing exactly as recieved
             write_file(add_timestamp(wr_fn), cur_read)
@@ -387,7 +388,7 @@ class DASHChecker:
 
                 segment_detail_list = man.get_seg_list(self.seg_no, abs_paths=True)
 
-        write_file(self.filename, str(man))
+        write_file(url_to_filename(self.url), str(man))
 
         owner.max_time = 0
         return True, []
@@ -396,7 +397,7 @@ class DASHChecker:
         """
         Called when shutdown invoked.
         """
-        log.info("DASH Terminated manifest %s", self.filename)
+        log.info("DASH Terminated manifest %s", self.url)
 
 
 def get_manifest_type(filename):
@@ -420,7 +421,7 @@ def get_manifest_type(filename):
 assert sys.version_info >= (3, 9)
 
 logging.basicConfig(
-    format="%(funcName)-15s:%(lineno)04d %(message)s",
+    format="%(asctime)s %(funcName)-15s:%(lineno)04d %(message)s",
     stream=sys.stdout,
 )
 
@@ -483,6 +484,18 @@ if __name__ == "__main__":
         type=str,
         help="""For adding related Jira Ticket. In format RDKAAMP-XXXX""",
     )
+
+    parser.add_argument(
+        "--no_segments",
+        action="store_true",
+        help="""Skip download of segments as they will be generated by transcode.""",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Display more detail during execution",
+    )
     parser.add_argument("url", metavar="URL", help="URL from which to obtain content")
 
     args = parser.parse_args()
@@ -490,8 +503,13 @@ if __name__ == "__main__":
     if args.root is not None:
         os.chdir(args.root)
 
+    if args.verbose:
+        log.setLevel(logging.DEBUG)
+
     url = args.url
-    filename_part = url_to_filename(url)
+
+    parsed_url = urllib.parse.urlparse(args.url)
+    filename_part = parsed_url.path
     if filename_part is None or len(filename_part) == 0:
         log.error("ERROR no filename from %s", url)
         sys.exit(1)
@@ -510,8 +528,14 @@ if __name__ == "__main__":
 
     write_harvest_details({'url':args.url}, ftype)
 
-    for i in range(NUM_DOWNLOADERS):
-        SegmentDownloader()
+    """
+    Only need segment downloader if we are to download segments
+    It was also noticed that with multiple SegmentDownloader()
+    not doing anything then the manifest fetch was taking 30+seconds.
+    """
+    if not args.no_segments:
+        for i in range(NUM_DOWNLOADERS):
+            SegmentDownloader()
 
     if ftype == "hls":
         content = response.content
@@ -520,7 +544,7 @@ if __name__ == "__main__":
 
         if man.is_master_manifest:
             # Write exactly as recieved
-            write_file(add_timestamp(url), content)
+            write_file(add_timestamp(url_to_filename(url)), content)
 
             man = HLSMainManifest(url, content=content)
             # This is a 'top level' manifest
@@ -530,23 +554,29 @@ if __name__ == "__main__":
                 log.error("Bandwidths invalid %s", man.rept_bands())
                 sys.exit(1)
 
+            man.trim_urls()
+            write_file(url_to_filename(url), str(man))
+
+            #Now deal with sub manifests
             flist = man.get_sub_files(abs_paths=True)
             log.info("url=%s flist=%s", url, flist)
-            url_list = flist
+            url_list = []
 
-            man.trim_urls()
-            write_file(url, str(man))
+            # Any query argument needs to be passed to sub manifest url
+            for sub_url in flist:
+                p = urllib.parse.urlparse(sub_url)
+                url_list.append(p._replace(query=parsed_url.query).geturl())
 
         else:
             url_list = [url]
 
         log.info("url_list=%s", url_list)
-        man_down = ManifestDownloader(requests_session, HLSChecker, url_list)
+        man_down = ManifestDownloader(requests_session, HLSChecker, url_list, args)
 
     elif ftype == "dash":
         content = response.content
         # Write exactly as recieved
-        write_file(add_timestamp(url), content)
+        write_file(add_timestamp(url_to_filename(url)), content)
 
         man = DASHManifest(filename_part, content=content)
         print(str(man))
@@ -555,9 +585,9 @@ if __name__ == "__main__":
             log.error("Bandwidths invalid %s", man.rept_bands())
             sys.exit(1)
 
-        check = DASHChecker(args.bandwidths)
+        check = DASHChecker(args)
 
-        man_down = ManifestDownloader(requests_session, check.pass_thru, [url])
+        man_down = ManifestDownloader(requests_session, check.pass_thru, [url], args)
 
     else:
         log.info("Unrecognised URL type: try using -o option")
@@ -565,13 +595,14 @@ if __name__ == "__main__":
 
     man_down.run(args.maxtime, args.poll)
 
-    SegmentDownloader.stop_all()
+    if not args.no_segments:
+        SegmentDownloader.stop_all()
 
-    log.info("Missing details %d", len(SegmentDownloader.missing))
-    with open("missing_segments.txt", "a") as f:
-        f.write("Missing details " + str(len(set(SegmentDownloader.missing))) + "\n\n")
-        for filename in set(SegmentDownloader.missing):
-            log.info("%s", filename)
-            f.write(filename + "\n\n")
+        log.info("Missing details %d", len(SegmentDownloader.missing))
+        with open("missing_segments.txt", "a") as f:
+            f.write("Missing details " + str(len(set(SegmentDownloader.missing))) + "\n\n")
+            for filename in set(SegmentDownloader.missing):
+                log.info("%s", filename)
+                f.write(filename + "\n\n")
 
     sys.exit(0)

@@ -29,11 +29,13 @@ import pytest
 import subprocess
 import atexit
 import re
+from l2test_pts_restamp import PtsRestampUtils
 
 ###############################################################################
 
 server_process = None
 server_path = os.path.join(os.getcwd(), "AAMP-CDAI-8004_ShortAd/testdata/content/server.py")
+pts_restamp_utils = PtsRestampUtils()
 
 def start_server():
     global server_process
@@ -54,10 +56,12 @@ def stop_server():
         server_process.terminate()
         server_process = None
 
+#Test Case 2.1: Single Source Period with Multiple CDAI Ad Replacements : Refer TC :https://etwiki.sys.comcast.net/pages/viewpage.action?spaceKey=RDKV&title=AAMP+Client-side+Dynamic+Ad+Use+cases
+#Period 2: Contains a 120-second ad, replaced by multiple ads of 30, 40, 30, and 20 seconds.
 TESTDATA1 = {
     "title": "Test1 Current ad duration same as source ad duration",
     "max_test_time_seconds": 300,
-    "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\n",
+    "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\ntrace=true\nprogress=true\n",
     "url": "http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/main.mpd?live=true",
     "cmdlist": [
         "advert add http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/ad_30s.mpd 30",
@@ -68,6 +72,7 @@ TESTDATA1 = {
     #Source ad is 120 secs, all ads will sum up to 120 secs
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/main.mpd", "min": 0, "max": 3},
+        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n',"min":0, "max":300, "callback" : pts_restamp_utils.check_restamp},
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[2\] Duration\[120000\]", "min": 0, "max": 150},
         {"expect": r"\[Event\]\[\d+\]\[CDAI\] Dynamic ad start signalled", "min": 0, "max": 150},
         {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId1 duration\=30 url\=.*?ad_30s.mpd", "min": 0, "max": 150},
@@ -91,7 +96,7 @@ TESTDATA1 = {
 TESTDATA2 = {
     "title": "Test2 Present ad duration less than source ad duration",
     "max_test_time_seconds": 400,
-    "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\n",
+    "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\ntrace=true\nprogress=true\n",
     "url": "http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/main.mpd?live=true",
     "cmdlist": [
         "advert add http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/ad_30s.mpd 30",
@@ -101,6 +106,7 @@ TESTDATA2 = {
     #Source ad is 120 secs but all ads will sum up to 100 secs
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/main.mpd", "min": 0, "max": 3},
+        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n',"min":0, "max":400, "callback" : pts_restamp_utils.check_restamp},
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[2\] Duration\[120000\]", "min": 0, "max": 150},
         {"expect": r"\[Event\]\[\d+\]\[CDAI\] Dynamic ad start signalled", "min": 0, "max": 150},
         {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId1 duration\=30 url\=.*?ad_30s.mpd", "min": 0, "max": 150},
@@ -139,12 +145,18 @@ def test_data(request):
     return request.param
 
 def test_8004(aamp_setup_teardown, test_data):
+    global pts_restamp_utils
+    aamp = None
+
+    pts_restamp_utils.reset()
+    pts_restamp_utils.tolerance_min = 0.7
+    pts_restamp_utils.max_segment_cnt = 20
+    
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
     start_server()
-    try:
-        aamp.run_expect_b(test_data)
-        stop_server()
-    finally:
-        stop_server()
+    aamp.run_expect_b(test_data)
+    stop_server()
+
+    pts_restamp_utils.check_num_segments()
 

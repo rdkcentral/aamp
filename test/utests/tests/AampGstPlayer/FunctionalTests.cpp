@@ -24,6 +24,9 @@
 #include "MockGStreamer.h"
 #include "MockGLib.h"
 #include "MockAampConfig.h"
+#include "MockAampHandlerControl.h"
+#include "MockPrivateInstanceAAMP.h"
+
 
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -33,6 +36,11 @@ using ::testing::_;
 using ::testing::Address;
 using ::testing::DoAll;
 using ::testing::SetArgPointee;
+using ::testing::NotNull;
+using ::testing::SaveArgPointee;
+using ::testing::SaveArg;
+using ::testing::Pointer;
+using ::testing::Matcher;
 
 AampConfig *gpGlobalConfig{nullptr};
 
@@ -42,17 +50,29 @@ class AAMPGstPlayerTests : public ::testing::Test
 protected:
 	AAMPGstPlayer *mAAMPGstPlayer;
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	bool isPipelineSetup = false;
+	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"Pipeline"}};
+	GstBus bus = {};
+	GstQuery query = {};
 
 	void SetUp() override
 	{
 		g_mockGStreamer = new NiceMock<MockGStreamer>();
-		g_mockGLib = new NiceMock<MockGLib>();
+		g_mockGLib = new MockGLib();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampHandlerControl = new MockAampHandlerControl();
+		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
 	}
 
 	void TearDown() override
 	{
+		delete g_mockPrivateInstanceAAMP;
+		g_mockPrivateInstanceAAMP = nullptr;
+
+		delete g_mockAampHandlerControl;
+		g_mockAampHandlerControl = nullptr;
+
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
 
@@ -67,43 +87,269 @@ protected:
 	}
 
 public:
+	/* Table with different parameter sets to be passed into mAAMPGstPlayer->Configure(...) */
+	typedef struct
+	{
+		StreamOutputFormat auxFormat;
+		bool bESChangeStatus;
+		bool forwardAudioToAux;
+		bool setReadyAfterPipelineCreation;
+		bool enableRectangleProperty;
+		bool usingWesteros; 
+		bool usingRialto;
+	} Config_Params;
+
 	static gboolean ProgressCallbackOnTimeout(gpointer user_data)
 	{
 		return FALSE;
 	}
+
+	void ConstructAMPGstPlayer()
+	{
+		std::string debug_level{"test_level"};
+		gboolean reset{TRUE};
+
+		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstDebugLevel))
+					.WillOnce(Return(debug_level));
+		EXPECT_CALL(*g_mockGStreamer, gst_debug_set_threshold_from_string(StrEq(debug_level.c_str()), reset));
+
+		mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
+	}
+
+	void DestroyAMPGstPlayer()
+	{
+		if (isPipelineSetup)
+		{
+			// AAMPGstPlayer::DestroyPipeline()
+			EXPECT_CALL(*g_mockGStreamer, gst_object_unref(&gst_element_pipeline))
+				.Times(1);
+			EXPECT_CALL(*g_mockGStreamer, gst_object_unref(&bus))
+				.Times(1);
+			EXPECT_CALL(*g_mockGStreamer, gst_mini_object_unref(GST_MINI_OBJECT_CAST(&query)))
+				.Times(1); /* AKA gst_query_unref()*/
+		}
+
+		delete mAAMPGstPlayer;
+		mAAMPGstPlayer = nullptr;
+	}
+
+	void SetupPipeline(Config_Params *setup)
+	{
+		GstElement gst_element_bin = {.object = {.name = (gchar *)"bin"}};
+		GstElement gst_element_audsrvsink = {.object = {.name = (gchar *)"audosrv"}};
+		GstElement westeros_video_sink = {.object = {.name = (gchar *)"westerossink0"}};
+		GstElement rialto_video_sink = {.object = {.name = (gchar *)"rialtomsevideosink0"}};
+		GstElement brcm_video_sink = {.object = {.name = (gchar *)"brcmvideosink0"}};
+		GstElement audio_sink = {.object = {.name = (gchar *)"amlhalasink0"}};
+		GstElement *p_video_sink = nullptr; 
+		GstElement *p_audio_sink = &audio_sink;
+		GstPipeline *pipeline = GST_PIPELINE(&gst_element_pipeline);
+
+		GstBusFunc bus_message_func = nullptr;
+		GstBusSyncHandler bus_sync_func = nullptr;
+
+		isPipelineSetup = true;
+
+		if (setup->usingRialto)
+		{
+			p_video_sink = &rialto_video_sink;
+		}
+		else if (setup->usingWesteros)
+		{
+			p_video_sink = &westeros_video_sink;
+		}
+		else
+		{
+			p_video_sink = &brcm_video_sink;
+		}
+		
+		// Expectations
+
+		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseWesterosSink)).WillRepeatedly(Return(setup->usingWesteros));
+		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillRepeatedly(Return(setup->usingRialto));
+		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableRectPropertyCfg)).WillRepeatedly(Return(setup->enableRectangleProperty));
+
+		// CreatePipeline()
+		EXPECT_CALL(*g_mockGStreamer, gst_pipeline_new(StrEq("AAMPGstPlayerPipeline")))
+			.WillOnce(Return(&gst_element_pipeline));
+
+		EXPECT_CALL(*g_mockGStreamer, gst_pipeline_get_bus(pipeline))
+			.WillOnce(Return(&bus));
+
+		// Save the bus_message function for later use
+		EXPECT_CALL(*g_mockGStreamer, gst_bus_add_watch(&bus, NotNull(), mAAMPGstPlayer))
+			.WillOnce(DoAll(
+				SaveArgPointee<1>(&bus_message_func),
+				Return(0)));
+
+		// Save the bus_sync_handler function for later use
+		EXPECT_CALL(*g_mockGStreamer, gst_bus_set_sync_handler(&bus, NotNull(), mAAMPGstPlayer, NULL))
+			.WillOnce(SaveArgPointee<1>(&bus_sync_func));
+
+		EXPECT_CALL(*g_mockGStreamer, gst_query_new_position(GST_FORMAT_TIME))
+			.WillOnce(Return(&query));
+		// End CreatePipeline()
+
+		if (setup->setReadyAfterPipelineCreation)
+		{
+			EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+				.WillOnce(DoAll(
+					SetArgPointee<1>(GST_STATE_VOID_PENDING),
+					SetArgPointee<2>(GST_STATE_NULL),
+					Return(GST_STATE_CHANGE_SUCCESS)))
+				.WillOnce(DoAll(
+					SetArgPointee<1>(GST_STATE_READY),
+					SetArgPointee<2>(GST_STATE_READY),
+					Return(GST_STATE_CHANGE_SUCCESS)));
+
+			EXPECT_CALL(*g_mockGStreamer, gst_element_set_state(&gst_element_pipeline, GST_STATE_READY))
+				.WillOnce(Return(GST_STATE_CHANGE_SUCCESS));
+		}
+		else
+		{
+
+			EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+				.WillOnce(DoAll(
+					SetArgPointee<1>(GST_STATE_VOID_PENDING),
+					SetArgPointee<2>(GST_STATE_NULL),
+					Return(GST_STATE_CHANGE_SUCCESS)));
+		}
+
+		EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("playbin"), NULL))
+			.WillRepeatedly(Return(&gst_element_bin));
+
+		if (setup->forwardAudioToAux)
+		{
+			EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("audsrvsink"), NULL))
+				.WillOnce(Return(&gst_element_audsrvsink));
+		}
+
+		if (setup->usingRialto)
+		{
+			EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("rialtomsevideosink"), NULL))
+				.WillRepeatedly(Return(p_video_sink));
+		}
+		else if (setup->usingWesteros)
+		{
+			EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("westerossink"), NULL))
+				.WillRepeatedly(Return(p_video_sink));
+		}
+		else
+		{
+			EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("brcmvideosink"), NULL))
+				.WillRepeatedly(Return(p_video_sink));
+		}
+
+		EXPECT_CALL(*g_mockGStreamer, gst_bin_add(GST_BIN(pipeline), NotNull()))
+			.WillRepeatedly(Return(TRUE));
+
+		EXPECT_CALL(*g_mockGStreamer, gst_element_set_state(&gst_element_pipeline, GST_STATE_PLAYING))
+			.WillOnce(Return(GST_STATE_CHANGE_SUCCESS));
+
+		mAAMPGstPlayer->Configure(FORMAT_VIDEO_ES_H264,
+								  FORMAT_AUDIO_ES_AAC,
+								  setup->auxFormat,
+								  FORMAT_SUBTITLE_WEBVTT,
+								  setup->bESChangeStatus,
+								  setup->forwardAudioToAux,
+							  	  setup->setReadyAfterPipelineCreation);
+
+		ASSERT_TRUE(bus_sync_func != nullptr);
+		ASSERT_TRUE(bus_message_func != nullptr);
+
+		GstMessage sync_message = {.type = GST_MESSAGE_STATE_CHANGED, .src = GST_OBJECT(p_video_sink) };
+
+		EXPECT_CALL(*g_mockAampHandlerControl, isEnabled())
+			.WillRepeatedly(Return(true));
+
+		EXPECT_CALL(*g_mockGStreamer, gst_message_parse_state_changed(Pointer(&sync_message),NotNull(),NotNull(),_))
+			.WillOnce(DoAll(
+				SetArgPointee<1>(GST_STATE_READY),
+				SetArgPointee<2>(GST_STATE_PAUSED)));
+
+		if (setup->enableRectangleProperty)
+		{
+			EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("rectangle"), Matcher<char *>(_))).Times(1);
+		}
+		else
+		{
+			EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("rectangle"), Matcher<char *>(_))).Times(0);
+		}
+		if (setup->usingRialto)
+		{
+			EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("zoom-mode"), Matcher<int>(_))).Times(0);
+		}
+		else
+		{
+			EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("zoom-mode"), Matcher<int>(VIDEO_ZOOM_NONE))).Times(1);
+		}
+		EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("show-video-window"), Matcher<int>(true))).Times(1);
+
+		EXPECT_CALL(*g_mockGStreamer, gst_object_replace(NotNull(),NotNull()))
+			.WillOnce(DoAll(
+				SetArgPointee<0>(GST_OBJECT(p_video_sink)),
+				Return(1)));
+
+		// Call the bus_sync_handler function with video sink READY -> PAUSED
+		bus_sync_func(&bus, &sync_message, mAAMPGstPlayer);
+
+		sync_message = {.type = GST_MESSAGE_STATE_CHANGED, .src = GST_OBJECT(p_audio_sink) };
+
+		EXPECT_CALL(*g_mockGStreamer, gst_message_parse_state_changed(Pointer(&sync_message),NotNull(),NotNull(),_))
+			.WillOnce(DoAll(
+				SetArgPointee<1>(GST_STATE_READY),
+				SetArgPointee<2>(GST_STATE_PAUSED)));
+
+		EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("volume"), Matcher<double>(1.0))).Times(1);
+
+		EXPECT_CALL(*g_mockGStreamer, gst_object_replace(NotNull(),NotNull()))
+			.WillOnce(DoAll(
+				SetArgPointee<0>(GST_OBJECT(p_audio_sink)),
+				Return(1)));
+
+		// Call the bus_sync_handler function with audio sink READY -> PAUSED
+		bus_sync_func(&bus, &sync_message, mAAMPGstPlayer);
+
+		GstMessage bus_message = {.type = GST_MESSAGE_STATE_CHANGED, .src = GST_OBJECT(&gst_element_pipeline) };
+
+		EXPECT_CALL(*g_mockGStreamer, gst_message_parse_state_changed(Pointer(&bus_message),NotNull(),NotNull(),NotNull()))
+			.WillOnce(DoAll(
+				SetArgPointee<1>(GST_STATE_READY),
+				SetArgPointee<2>(GST_STATE_PAUSED),
+				SetArgPointee<3>(GST_STATE_NULL)));
+
+		// Call the bus_message function
+		bus_message_func(&bus, &bus_message, mAAMPGstPlayer);
+	}
+
 };
 
 TEST_F(AAMPGstPlayerTests, Constructor)
 {
-	// Setup
-	std::string debug_level{"test_level"};
-	gboolean reset{TRUE};
-
-	// Expectations
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstDebugLevel))
-				.WillOnce(Return(debug_level));
-	EXPECT_CALL(*g_mockGStreamer,
-				gst_debug_set_threshold_from_string(StrEq(debug_level.c_str()), reset));
-
-	// Code under test
-	AAMPGstPlayer player{mPrivateInstanceAAMP,nullptr};
+	ConstructAMPGstPlayer();
+	DestroyAMPGstPlayer();
 }
 
-/* Table with different parameter sets to be passed into mAAMPGstPlayer->Configure(...) */
-typedef struct
-{
-	StreamOutputFormat auxFormat;
-	bool bESChangeStatus;
-	bool forwardAudioToAux;
-	bool setReadyAfterPipelineCreation;
 
-} Config_Params;
+//	typedef struct
+//	{
+//		StreamOutputFormat auxFormat;
+//		bool bESChangeStatus;
+//		bool forwardAudioToAux;
+//		bool setReadyAfterPipelineCreation;
+//		bool enableRectangleProperty;
+//		bool usingWesteros; 
+//		bool usingRialto;
+//	} Config_Params;
 
-static Config_Params tbl[] = {
-	{FORMAT_INVALID, false, false, false},
-	{FORMAT_AUDIO_ES_AC3, true, true, true}};
+static AAMPGstPlayerTests::Config_Params tbl[] = {
+	{FORMAT_INVALID, 	  false, false, false, false, true, false },
+	{FORMAT_INVALID, 	  false, false, false, false, true, true  },
+	{FORMAT_INVALID, 	  false, false, false, true,  true, false },
+	{FORMAT_AUDIO_ES_AC3, true,  true,  true,  false, true, false } };
 
-// Parameter test class, for running same tests with different rates
+// Parameter test class, for running same tests with different settings
 
 class AAMPGstPlayerTestsP : public AAMPGstPlayerTests,
 							public testing::WithParamInterface<int>
@@ -112,124 +358,70 @@ class AAMPGstPlayerTestsP : public AAMPGstPlayerTests,
 
 TEST_P(AAMPGstPlayerTestsP, Configure)
 {
-	// Initialise name field otherwise get a seg fault
-	// Allocating memory but not using gst methods, might cause problems when de-allocated
-	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"hello"}};
-	GstElement gst_element_bin1 = {.object = {.name = (gchar *)"bin1"}};
-	GstElement gst_element_bin2 = {.object = {.name = (gchar *)"bin2"}};
-	GstElement gst_element_bin3 = {.object = {.name = (gchar *)"bin3"}};
-	GstElement gst_element_audsrvsink = {.object = {.name = (gchar *)"audosrv"}};
-	GstBus bus = {};
-	GstPipeline *pipeline = GST_PIPELINE(&gst_element_pipeline);
-	GstQuery query = {};
-
 	int idx = GetParam();
+	ASSERT_TRUE(idx < (sizeof(tbl) / sizeof(tbl[0])));
+	AAMPGstPlayerTests::Config_Params *setup = &tbl[idx];
 
-	EXPECT_TRUE(idx < (sizeof(tbl) / sizeof(tbl[0])));
+	ConstructAMPGstPlayer();
 
-	Config_Params *setup = &tbl[idx];
+	SetupPipeline(setup);
 
-	mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
-	// Expectations
-	// CreatePipeline()
-	EXPECT_CALL(*g_mockGStreamer, gst_pipeline_new(StrEq("AAMPGstPlayerPipeline")))
-		.WillOnce(Return(&gst_element_pipeline));
+	DestroyAMPGstPlayer();
+}
 
-	EXPECT_CALL(*g_mockGStreamer, gst_pipeline_get_bus(pipeline))
-		.WillOnce(Return(&bus));
+TEST_P(AAMPGstPlayerTestsP, SetAudioVolume)
+{
+	int idx = GetParam();
+	ASSERT_TRUE(idx < (sizeof(tbl) / sizeof(tbl[0])));
+	AAMPGstPlayerTests::Config_Params *setup = &tbl[idx];
 
-	EXPECT_CALL(*g_mockGStreamer, gst_bus_add_watch(&bus, _, mAAMPGstPlayer))
-		.WillOnce(Return(0));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_bus_set_sync_handler(&bus, _, mAAMPGstPlayer, NULL))
-		.Times(1);
-
-	EXPECT_CALL(*g_mockGStreamer, gst_query_new_position(GST_FORMAT_TIME))
-		.WillOnce(Return(&query));
-	// End CreatePipeline()
-
-	// setReadyAfterPipelineCreation == true
-	//  calling SetStateWithWarnings()
-
-	if (setup->setReadyAfterPipelineCreation)
-	{
-		EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-			.WillOnce(DoAll(
-				SetArgPointee<1>(GST_STATE_VOID_PENDING),
-				SetArgPointee<2>(GST_STATE_NULL),
-				Return(GST_STATE_CHANGE_SUCCESS)))
-			.WillOnce(DoAll(
-				SetArgPointee<1>(GST_STATE_READY),
-				SetArgPointee<2>(GST_STATE_READY),
-				Return(GST_STATE_CHANGE_SUCCESS)));
-
-		EXPECT_CALL(*g_mockGStreamer, gst_element_set_state(&gst_element_pipeline, GST_STATE_READY))
-			.WillOnce(Return(GST_STATE_CHANGE_SUCCESS));
-	}
-	else
-	{
-
-		EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-			.WillOnce(DoAll(
-				SetArgPointee<1>(GST_STATE_VOID_PENDING),
-				SetArgPointee<2>(GST_STATE_NULL),
-				Return(GST_STATE_CHANGE_SUCCESS)));
-	}
-
-	//[AAMP-PLAYER][-1][INFO][AAMPGstPlayer_SetupStream][2437]AAMPGstPlayer_SetupStream - using playbin
-
-	if (setup->forwardAudioToAux)
-	{
-		EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("playbin"), NULL))
-			.WillOnce(Return(&gst_element_bin1))
-			.WillOnce(Return(&gst_element_bin2))
-			.WillOnce(Return(&gst_element_bin3));
-		EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("audsrvsink"), NULL))
-			.WillOnce(Return(&gst_element_audsrvsink));
-	}
-	else
-	{
-		EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("playbin"), NULL))
-			.WillOnce(Return(&gst_element_bin1))
-			.WillOnce(Return(&gst_element_bin2));
-	}
-	// Associate sinks with pipeline
-	EXPECT_CALL(*g_mockGStreamer, gst_bin_add(GST_BIN(pipeline), &gst_element_bin1))
-		.WillOnce(Return(TRUE));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_bin_add(GST_BIN(pipeline), &gst_element_bin2))
-		.WillOnce(Return(TRUE));
-
-	if (setup->forwardAudioToAux)
-	{
-		EXPECT_CALL(*g_mockGStreamer, gst_bin_add(GST_BIN(pipeline), &gst_element_bin3))
-			.WillOnce(Return(TRUE));
-		// Calls after [AAMPGstPlayer_SetupStream][2511]playbin flags1: 0x63
-	}
-	// Calls after [AAMPGstPlayer_SetupStream][2511]playbin flags1: 0x63
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_set_state(&gst_element_pipeline, GST_STATE_PLAYING))
-		.WillOnce(Return(GST_STATE_CHANGE_SUCCESS));
+	// Setup
+	ConstructAMPGstPlayer();
+	SetupPipeline(setup);
 
 	// Code under test
-	mAAMPGstPlayer->Configure(FORMAT_VIDEO_ES_H264,
-							  FORMAT_AUDIO_ES_AAC,
-							  setup->auxFormat,
-							  FORMAT_SUBTITLE_WEBVTT,
-							  setup->bESChangeStatus,
-							  setup->forwardAudioToAux,
-							  setup->setReadyAfterPipelineCreation);
+	
+	// Muted, and volume not set (note this is not the case for non-rialto AMLOGIC builds)
+	int volume = 0;
+	EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("mute"), Matcher<int>(true))).Times(1);
+	EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("volume"), Matcher<double>(_))).Times(0);
+	mAAMPGstPlayer->SetAudioVolume(volume);
 
-	// AAMPGstPlayer::DestroyPipeline()
-	EXPECT_CALL(*g_mockGStreamer, gst_object_unref(&gst_element_pipeline))
-		.Times(1);
-	EXPECT_CALL(*g_mockGStreamer, gst_object_unref(&bus))
-		.Times(1);
-	EXPECT_CALL(*g_mockGStreamer, gst_mini_object_unref(GST_MINI_OBJECT_CAST(&query)))
-		.Times(1); /* AKA gst_query_unref()*/
-	delete mAAMPGstPlayer;
-	mAAMPGstPlayer = nullptr;
+	// Unmuted and volume set to 100.0
+	volume = 100;
+	EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("mute"), Matcher<int>(false))).Times(1);
+	EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("volume"), Matcher<double>(volume / 100.0))).Times(1);
+	mAAMPGstPlayer->SetAudioVolume(volume);
+
+	// No change to mute, and volume set to 50.0
+	volume = 50;
+	EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("mute"), Matcher<int>(_))).Times(0);
+	EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("volume"), Matcher<double>(volume / 100.0))).Times(1);
+	mAAMPGstPlayer->SetAudioVolume(volume);
+
+	//Tidy Up
+	DestroyAMPGstPlayer();
 }
+
+TEST_P(AAMPGstPlayerTestsP, SetVideoMute)
+{
+	// Setup
+	ConstructAMPGstPlayer();
+	SetupPipeline(&tbl[0]);
+
+	bool mute = true;
+	EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("show-video-window"), Matcher<int>(!mute))).Times(1);
+	mAAMPGstPlayer->SetVideoMute(mute);
+
+	mute = false;
+	EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("show-video-window"), Matcher<int>(!mute))).Times(1);
+	mAAMPGstPlayer->SetVideoMute(mute);
+
+	//Tidy Up
+	DestroyAMPGstPlayer();
+}
+
+INSTANTIATE_TEST_SUITE_P(AAMPGstPlayer,AAMPGstPlayerTestsP, testing::Values(0,1,2,3));
 
 TEST_F(AAMPGstPlayerTests, TimerAdd)
 {
@@ -240,14 +432,9 @@ TEST_F(AAMPGstPlayerTests, TimerAdd)
 	guint taskId = 0;
 	GstElement dummyelement; 
 
-	std::string debug_level{"test_level"};
+	ConstructAMPGstPlayer();
 
 	// Expectations
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstDebugLevel)).WillOnce(Return(debug_level));
-
-	EXPECT_CALL(*g_mockGStreamer,gst_debug_set_threshold_from_string(StrEq(debug_level.c_str()), reset));
-
-	mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
 
 	// Code under test - Callback Pointer = Null, user_data = Null
 	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)) .Times(0);
@@ -275,25 +462,22 @@ TEST_F(AAMPGstPlayerTests, TimerAdd)
 	EXPECT_EQ(1,taskId);
 
 	//Tidy Up
-	delete mAAMPGstPlayer;
+	DestroyAMPGstPlayer();
 }
 
 TEST_F(AAMPGstPlayerTests, TimerRemove)
 {
 	// Setup
-	std::string debug_level{"test_level"};
-	gboolean reset{TRUE};
 	guint taskId = 0;
 
-	// Expectations
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstDebugLevel))
-				.WillOnce(Return(debug_level));
-	EXPECT_CALL(*g_mockGStreamer, gst_debug_set_threshold_from_string(StrEq(debug_level.c_str()), reset));
+	ConstructAMPGstPlayer();
 
-	mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
+	// Expectations
+
 	EXPECT_CALL(*g_mockGLib, g_source_remove(_)) .Times(0);
 
 	// Code under test - taskId = 0 timer not added to be removed
+
 	mAAMPGstPlayer->TimerRemove(taskId, "TimerRemove");
 	EXPECT_EQ(0,taskId);
 
@@ -305,7 +489,41 @@ TEST_F(AAMPGstPlayerTests, TimerRemove)
 	EXPECT_EQ(0,taskId);
 
 	//Tidy Up
-	delete mAAMPGstPlayer;
+	DestroyAMPGstPlayer();
 }
 
-INSTANTIATE_TEST_SUITE_P(AAMPGstPlayer,AAMPGstPlayerTestsP, testing::Values(0,1));
+TEST_F(AAMPGstPlayerTests, SetAudioVolume_NoSink)
+{
+	// Setup
+	ConstructAMPGstPlayer();
+
+	// Code under test
+	
+	// No sink, so no call to set volume or mute expected
+	int volume = 0;
+	EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("mute"), Matcher<int>(_))).Times(0);
+	EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("volume"), Matcher<double>(_))).Times(0);
+	mAAMPGstPlayer->SetAudioVolume(volume);
+
+	volume = 100;
+	mAAMPGstPlayer->SetAudioVolume(volume);
+
+	volume = 50;
+	mAAMPGstPlayer->SetAudioVolume(volume);
+
+	//Tidy Up
+	DestroyAMPGstPlayer();
+}
+
+TEST_F(AAMPGstPlayerTests, SetVideoMute_NoSink)
+{
+	// Setup
+	ConstructAMPGstPlayer();
+
+	bool mute = true;
+	EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("show-video-window"), Matcher<int>(_))).Times(0);
+	mAAMPGstPlayer->SetVideoMute(mute);
+
+	//Tidy Up
+	DestroyAMPGstPlayer();
+}

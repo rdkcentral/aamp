@@ -42,12 +42,78 @@ class AAMPPlayer2 extends AAMPPlayer{
     constructor(player_name) {
         super(player_name);
     }
+
+    async TST_CheckMuteVideo()
+    {
+        var mute_duration = 10;
+        var unmute_duration = 10;
+        var capture_duration = 60;
+
+        TST_STEP("Init Vid Capture... ");
+        var vid_capture = new VideoCapture();
+        if (vid_capture.isActive()) {
+            await vid_capture.Init();
+            var is_init = await vid_capture.WaitForInit();
+            TST_ASSERT ((is_init == true), ("Unexpected Init Status - Got: " + is_init + ", Expected: true"));
+
+            var is_video_present = await vid_capture.WaitForVideoPresent();
+            TST_ASSERT ((is_video_present == true), ("Unexpected Video Present Status - Got: " + is_video_present + ", Expected: true"));
+
+            var filename = "VID_000.mp4";
+            await vid_capture.Capture(filename, capture_duration);
+            var is_capturing = await vid_capture.WaitForCapturing();
+            TST_ASSERT ((is_capturing == true), ("Unexpected Capturing Status - Got: " + is_capturing + ", Expected: true"));
+        }
+        else {
+            TST_STEP("Video Capture not in use for this test run");
+        }
+
+        // mute the video
+        TST_STEP("mute video");
+        await this.player.setVideoMute(true);
+        await this.VerifyPlayback(mute_duration, 1);
+
+        // unmute the video
+        TST_STEP("unmute video");
+        await this.player.setVideoMute(false);
+        await this.VerifyPlayback(unmute_duration, 1);
+
+        if (vid_capture.isActive()) {
+            var assert_message = "";
+            var blanking_data = await vid_capture.GetBlankingStatus();
+            var blank_periods = blanking_data[0];
+            var blank_last_time = blanking_data[1];
+
+            if (blank_periods != 1) {
+                assert_message = ("Didn't get expected blank periods, expected: 1 actual: " + blank_periods)
+            }
+            else if ((blank_last_time < (mute_duration - 1)) || (blank_last_time > (mute_duration + 1))) {
+                assert_message = ("Blank duration out of tolerance, expected: " +  mute_duration + " actual: " + blank_last_time)
+            }
+
+            await vid_capture.Stop();
+            await vid_capture.Term();
+
+            if (assert_message != "") {
+                TST_ASSERT_FAIL_FATAL(assert_message);
+            }
+        }
+    }
+
     async TST_CheckSetAudioVolume()
     {
-        for (let i = 0; i <= 4; i++) {
+        TST_STEP("check audio mute");
+        await this.player.setVolume(0);
+        await this.VerifyPlayback(10,1);
+        const currentVol = await this.player.getVolume();
+        console.log("volume is " + currentVol);
+        TST_ASSERT(currentVol == 0, "volume is not set properly");
+
+        for (let i = 1; i <= 4; i++) {
             const setVol = i * 25;
+            TST_STEP("check audio volume: " + setVol);
             await this.player.setVolume(setVol);
-            await this.VerifyPlayback(10,1);
+            await this.VerifyPlayback(5,1);
             const currentVol = await this.player.getVolume();
             console.log("volume is " + currentVol);
             TST_ASSERT(currentVol == setVol, "volume is not set properly");

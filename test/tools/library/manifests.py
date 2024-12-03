@@ -3,7 +3,7 @@
 # If not stated otherwise in this file or this component's LICENSE file the
 # following copyright and licenses apply:
 #
-# Copyright 2023 Synamedia Ltd.
+# Copyright 2023 RDK Management
 #
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,7 +29,7 @@ import logging
 import getpass
 from enum import Enum
 from pathlib import Path
-
+import urllib
 
 def delHTTP(line):
     result = re.sub(r"^https?://", "", line)
@@ -388,26 +388,13 @@ class Manifest:
     def abs_path(self, fn, base=None):
         """
         Convert paths relative to this manifest to 'absolute path names in the server.
+        base = https://a.com/a/b/c  fn = d/e/f  returns https://a.com/a/b/c/d/e/f
         """
         if not base:
             base = self.orig_path
-        elif base.startswith("http://") or base.startswith("https://"):
-            pass
-        elif not base.startswith("/") and "/" in self.orig_path:
-            base = self.orig_path.rsplit("/", 1)[0] + "/" + base
 
-        if fn.startswith("https://"):
-            return fn[7:]
-        if fn.startswith("http://"):
-            return fn[6:]
-
-        dn = base.rsplit("/", 1)[0] if "/" in base else ""
-
-        while fn.startswith("../"):
-            dn = dn.rsplit("/", 1)[0] if "/" in dn else ""
-            fn = fn.split("/", 1)[1]
-
-        return fn if dn == "" else dn + "/" + fn
+        new_path = urllib.parse.urljoin(base, fn)
+        return new_path
 
     def rept_bands(self):
         res = {}
@@ -424,7 +411,7 @@ class SegmentList:
     returning in various forms
     """
 
-    def __init__(self):
+    def __init__(self, segments_already_added = []):
         self.segment_detail_list = []
 
         # For each segment group an incrementing counter
@@ -432,15 +419,14 @@ class SegmentList:
 
         # List of segments we have already added to segment_detail_list
         # to avoid duplicates
-        self.segment_name_list = []
+        self.segment_url_list = segments_already_added
 
         # attributes for each segment_group
         self.attributes = {}
 
     def new_file(self, segment_group, encrypted, attrs=None):
         """
-        Called for when a new logical segmented file is encountered. The different
-        attributes need to coalesed into a common set.
+        Called before a new group of segments is added via add_init()/add_file()
         """
         self.key = segment_group
         attrs.encrypted = encrypted
@@ -469,42 +455,56 @@ class SegmentList:
 
         self.attributes[segment_group] = copy.copy(attrs)
 
-    def add_init(self, fn, segment_group):
+    def add_init(self, url, segment_group,segment_filename=None):
         """
         Call for when a stream initialisation file is to be added to the list.
         """
-        self.add_file(fn, 0, segment_group)
+        self.add_file(url, 0, segment_group,segment_filename=segment_filename)
 
-    def add_file(self, segment_name, segment_duration, segment_group):
+    def add_file(self, segment_url, segment_duration, segment_group, segment_t = -1, segment_d = -1, segment_filename=None):
         """
         Call for when a segment needs to be added.
 
-        segment_name:     path to segment
+        segment_url:      path to segment it's url or filename
         segment_duration: The duration of this segment (seconds)
         segment_group :   The bandwidth or representation id of segment
+        segment_t:        The pts t value read from the manifest
+        segment_d:        The d value read from the manifest
+        segment_filename  Local path to file
         """
 
-        if segment_name in self.segment_name_list:
-            # log.info("Ignore duplicate %s",segment_name)
+        if segment_url in self.segment_url_list:
+            log.debug(f"Ignore duplicate {segment_duration} {segment_url}")
             # Allow duplication of header segment. Since for some streams, header segments have same name for multiple periods
             if  segment_duration > 0 :
                 return
+            # Do not add multiple header segments in the same segment group
+            for detail in self.segment_detail_list:
+                if detail["segment_url"] == segment_url and detail["profile"] == segment_group:
+                    return
 
-        self.segment_name_list.append(segment_name)
+        self.segment_url_list.append(segment_url)
 
         play_order = self.play_order.get(segment_group, 0)
         play_order += 1
         self.play_order.update({segment_group: play_order})
 
+        if segment_filename is None:
+            log.error(f"No filename given for {segment_url}")
+            exit(1)
+
         segment_details = {
-            "segment_name": segment_name,
+            "segment_url": segment_url,
             "profile": segment_group,
             "play_order": play_order,
             "duration": segment_duration,
+            "segment_t": segment_t,
+            "segment_d": segment_d,
+            "segment_filename": segment_filename,
         }
 
         self.segment_detail_list.append(segment_details)
-        # log.info("%s",segment_details)
+        log.debug(f"{segment_details}")
 
     def get_segment_groups(self):
         return self.play_order.keys()
@@ -524,14 +524,22 @@ class SegmentList:
         # print("get_segments",list)
         return sorted(list, key=lambda x: x.get("play_order"))
 
-    def dump_info(self):
+    def dump_info(self,group=None):
         """
-        Optput data that class is holding.
+        Output data that class is holding.
+        group parameter to limit to one group
         """
-        log.info("%s", self.attributes)
-        for segment_group in self.get_segment_groups():
+        groups = self.get_segment_groups()
+        if group:
+            groups = [group]
+
+        for segment_group in groups:
+            attrs = self.get_attributes(segment_group)
+            log.debug("attrs %s",attrs.__str__())
             seg_list = self.get_segments(segment_group)
-            log.debug("%s total_segments=%d", len(seg_list))
+            log.debug("%s total_segments=%d listing first 5",segment_group, len(seg_list))
+            for ent in seg_list[:5]:
+                log.debug("%s",ent)
 
     def __iter__(self):
         """
@@ -544,7 +552,7 @@ class SegmentList:
 
         self.rtn_list = sorted(
             self.segment_detail_list,
-            key=lambda x: (x.get("play_order"), x.get("segment_name")),
+            key=lambda x: (x.get("play_order"), x.get("segment_url")),
         )
 
         return iter(self.rtn_list)

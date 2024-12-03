@@ -14,6 +14,7 @@ parser.add_argument("--ip", type=str, required=True, help="IP address of connect
 parser.add_argument("--port", type=int, required=True, help="SSH Port of connected RDK device.")
 parser.add_argument("-t", "--testsuites_run", nargs='*', help="Specify the test suite numbers to run.")
 parser.add_argument("-d", "--dont_end_testsuit_on_failure", help="Dont end a testsuit on first failure", action="store_true")
+parser.add_argument("-r", "--rialto", help="To run AAMP on Rialto", action="store_true")
 args = parser.parse_args()
 
 # Port to serve the test files on
@@ -28,9 +29,12 @@ host_ip = l3_utils.get_internal_ip(rdk_device_ip)
 
 passed = True
 envVar = "DONT_END_TESTSUITE_ON_FAILURE=0"
+aamp_widget ="com.aamp" #Set defalut to non rialto
 
 # Test setup initialization
 def initialize():
+
+    global aamp_widget
 
     global envVar
     # Create a shell script at /tmp/data on the device to set the required environment variables.
@@ -45,15 +49,22 @@ def initialize():
     if os.path.isdir(current_directory+"/AAMP_Logs"):
         shutil.rmtree(current_directory+"/AAMP_Logs")
     
+    # Downloads and defines the AAMP widget
+    if args.rialto:
+        aamp_widget = "com.aamp.rialto"
+
+    else:
+        aamp_widget ="com.aamp"
+    
     # Commands to run before the test starts
     init_command_list = [
                     "cd / && SetPowerState ON",
                     "sleep 10",
-                    "curl -o /tmp/com.aamp.wgt https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/widgets/com.aamp.wgt",
+                    f"curl -o /tmp/{aamp_widget}.wgt https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/widgets/{aamp_widget}.wgt",
                     "appsservicectl set-test-preference forceallappslaunchable true",
                     "appsservicectl set-test-preference softcatdisableremoveapps true",
-                    "curl -X POST --header \"Content-Type:application/zip\" --data-binary @/tmp/com.aamp.wgt 127.0.0.1:8090/pm/install?sign=auto",
-                    "curl 'http://127.0.0.1:9001/as/apps/action/close?appId=com.aamp' -X POST -d '{}'"
+                    f"curl -X POST --header \"Content-Type:application/zip\" --data-binary @/tmp/{aamp_widget}.wgt 127.0.0.1:8090/pm/install?sign=auto",
+                    f"curl 'http://127.0.0.1:9001/as/apps/action/close?appId={aamp_widget}' -X POST -d '{{}}'"
                     ]
     
     # Server the test files on a HTTP server
@@ -111,11 +122,11 @@ def run_tests():
     # Run each test file
     for test_file in test_files:
         print("Running test file: ", test_file)
-        l3_utils.send_ssh_command(rdk_device_ip, "curl 'http://127.0.0.1:9001/as/apps/action/close?appId=com.aamp' -X POST -d '{}'", rdk_device_port)
+        l3_utils.send_ssh_command(rdk_device_ip, f"curl 'http://127.0.0.1:9001/as/apps/action/close?appId={aamp_widget}' -X POST -d '{{}}'", rdk_device_port)
         time.sleep(5)
         l3_utils.send_ssh_command(
             rdk_device_ip, 
-            f"curl 'http://127.0.0.1:9001/as/apps/action/launch?appId=com.aamp' "
+            f"curl 'http://127.0.0.1:9001/as/apps/action/launch?appId={aamp_widget}' "
             f"-X POST -d '{{\"url\":\"http://{host_ip}:{PORT}/{test_file}?{envVar}\"}}'", 
             rdk_device_port
         )
@@ -165,7 +176,7 @@ def cleanup():
     current_directory = os.getcwd()
     shutil.rmtree(current_directory+"/test_results")
 
-    l3_utils.send_ssh_command(rdk_device_ip, "curl 'http://127.0.0.1:9001/as/apps/action/close?appId=com.aamp' -X POST -d '{}'", rdk_device_port)
+    l3_utils.send_ssh_command(rdk_device_ip, f"curl 'http://127.0.0.1:9001/as/apps/action/close?appId={aamp_widget}' -X POST -d '{{}}'", rdk_device_port)
     l3_utils.kill_serving_port(PORT)
 
     if passed:

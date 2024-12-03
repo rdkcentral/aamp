@@ -124,6 +124,7 @@ class Aamp:
         self.aamp_pexpect = None
         self.logfile = None
         self.EXPECT_TIMEOUT = 30
+        self.max_test_time_seconds = 0
 
     def run_prerequisite(self, script="prerequisite.sh"):
         """
@@ -231,33 +232,57 @@ class Aamp:
         Provides a simple sequential cmd and expected response structure for test data.
         Format of testdata for run_expect_a()
         "title": "Title of the test"
-        "logfile": "log1.txt"              # Optional
+        "logfile": "log1.txt"              # Optional, default let framework set logfile name
         "max_test_time_seconds": 30        # Optional, The max time the test is allowed to run before fail, default 15
         "aamp_cfg": "info=true\ntrace=true\n", # Values to set in aamp.cfg
-        "expect_list": [                   # Simple list with cmds to send to aamp or log lines to
+        "url": "m3u8s_audio_discontinuity_180s/manifest.1.m3u8",
+                                            # Optional parameter either:
+                                            # 1) A 'partial' url. The test framework will expand this to a full url
+                                            # that gets the stream data from simlinear
+                                            # 2) A 'full' url starting "http"
+                                            # The url will be sent to aamp at the start of the test
+
+        "simlinear_type": "HLS",            # Optional, Start simlinear to serve url, Specify abr type "HLS" or  "DASH"
+        "cmdlist": [                        # Optional, list of commands to give to aamp-cli before starting test proper
+            'setconfig {"logMetadata":true,"client-dai":true}',
+        ]
+        "expect_list": [                    # Simple list with cmds to send to aamp or log lines to
                                             # expected back, no timing information
              {"cmd":"aamp-cli command"},
-             {"expect":"line expected from aamp"},
+             {"expect":"re expected from aamp"},
              {"cmd":"aamp-cli command"},
              {"expect":"line expected from aamp"},
+             {"expect":"some value ([12345]+)", "callback" :func, "callback_arg" : 123},
+                                            # Allows test to specify a func to call when a match occurs
+                                            # In this example results in func(match,123) getting called
+                                            # match value corresponds to obj returned from re.search()
+             {"expect": re.escape("value [qwerty]"})
+                                            # Special characters in string are escaped so it is not 
+                                            # interpreted as re
         ]
         """
 
         if testdata.get('simlinear_type') is not None:
             self.simlinear = Simlinear(self.test_dir_path, self.pytestconfig)
             self.simlinear.start(testdata['simlinear_type'], logfile_name='simlinear_' + self.logfile_name)
-        
+
         if 'logfile' in testdata:
             self.logfile_name = testdata["logfile"]
         print("{} {}".format(testdata["title"],self.logfile_name))
 
-        max_test_time_seconds = testdata.get("max_test_time_seconds", 15)
+        self.max_test_time_seconds = testdata.get("max_test_time_seconds", 15)
         self.create_aamp_cfg(testdata.get('aamp_cfg'))
 
         # start aamp-cli
         self.start_aamp()
 
         start_time = time.time()
+
+        # Optional list of commands to give to aamp before starting test proper
+        aamp_cmdlist = testdata.get('cmdlist', [])
+        for cmd in aamp_cmdlist:
+            self.sendline(cmd)
+            self.aamp_pexpect.expect('cmd: ')
 
         if self.simlinear:
             self.sendline(self.simlinear.SL_URL+testdata["url"])
@@ -267,7 +292,7 @@ class Aamp:
         for idx, e in enumerate(testdata["expect_list"]):
             if e.get('expect') is not None:
                 try:
-                    self.aamp_pexpect.expect(e['expect'], timeout=max_test_time_seconds)
+                    self.aamp_pexpect.expect(e['expect'], timeout=self.max_test_time_seconds)
                 except pexpect.TIMEOUT:
                     assert 0, "ERROR TIMEOUT was thrown idx={}:{}".format(idx, e['expect'])
                 except Exception as e:
@@ -281,12 +306,10 @@ class Aamp:
                           print("Have callback")
                           e["callback"](match)
 
-
-
                 finally:
 
                     elapsed = time.time() - start_time
-                    assert elapsed < (max_test_time_seconds*2), (
+                    assert elapsed < (self.max_test_time_seconds*2), (
                         "ERROR Max test time exceeded elapsed={}".format(elapsed))
 
             if e.get('cmd') is not None:
@@ -302,7 +325,7 @@ class Aamp:
         """
         for j in range(len(expect_did_happen)):
             ee = testdata["expect_list"][j]
-            if expect_did_happen[j] is False and elapsed > ee["max"] and "not_expected" not in ee:
+            if expect_did_happen[j] is False and elapsed > ee.get("max",self.max_test_time_seconds) and "not_expected" not in ee:
                 assert 0, "ERROR {} never occurred in expected time window".format(ee)
 
     def run_expect_b(self, testdata):
@@ -311,35 +334,39 @@ class Aamp:
         Format of testdata for run_expect_b()
         "title": "HLS Audio Discontinuity",
         "logfile": "testdata3.txt",         # Optional
-        "max_test_time_seconds": 15         # Optional, The max time the test is allowed to run before fail
-        "aamp_cfg": "info=true\ntrace=true\n", # Values to set in aamp.cfg
-        "cmdlist": [                        # Optional, list of commands to give to aamp-cli before starting test proper
-                                            # sent before the url
-            "setconfig {"logMetadata":true,"client-dai":true",
-            "advert add " + AD_URLS[3] + " 30"
+        "max_test_time_seconds": 15         # See expect_a documentation comments
+        "aamp_cfg": "info=true\ntrace=true\n", # See expect_a documentation comments
+        "cmdlist": [                        # Optional, see expect_a documentation comments
+        ....
         ]
         "url": "m3u8s_audio_discontinuity_180s/manifest.1.m3u8",
-                                            # Partial url if simlinear is used, full url otherwise. Sent to aamp to
-                                            # start the test
-        "simlinear_type": "HLS",            # Optional, Start simlinear to serve url, Specify abr type "HLS" or  "DASH"
+                                            # See expect_a documentation comments
+        "simlinear_type": "HLS",            # See expect_a documentation comments
 
-        "expect_list": [
+        "expect_list": [                    # Formatt specific to expect_b
+                                            # List of regular expressions to expect:
 
-        {"expect": r"Video Profile added to ABR", "min": 0, "max": 1},
-                                            # List of regular expressions to expect
-                                            # with min max when it is expected to occur
-                                            # The first expect in the list is used to set the time reference to 0
-        {"expect": r"track[audio] buffering GREEN->YELLOW", "min": 10, "max": 75, "not_expected" : True},
-                                            # not_expected used to indicate pattern no expected in this time frame
-        {"expect": r"#EXT-X-DISCONTINUITY", "min": 40, "max": 100
-                                            "callback" :func
-                                            "callback_arg" : 123},
-                                            # Allows test to specify a func to call when a match occurs
-                                            # In this example results in func(match,123) getting called
+        {"expect": re.escape("track[audio] buffering GREEN->YELLOW") ..}
+                                            # Log line match, See expect_a documentation comments
 
+        {"expect": "expected in first 10S" , "min": 0, "max": 10},
+        {"expect": "expected in 2nd 10S" ,   "min": 10, "max": 20},
+                                            # optional min max values in seconds give time window when log line
+                                            # is expected to occur.
+                                            # min defaults to 0, max defaults to max_test_time_seconds
+                                            # The first expect in the list is used to zero the time reference used
+                                            # for min and max
+
+        {"expect": ...                      "not_expected" : True},
+                                            # not_expected used to indicate pattern not expected in this time window
+
+        {"expect": r"#EXT-X-DISCONTINUITY", "callback" :func, "callback_arg" : "play"},
+                                            # Also see expect_a documentation for callback
+                                            # func() can be written to send the argument to aamp-cli
 
 
          { ... "end_of_test":True}          # End the test cause exit when matching expression encountered
+         ]                                  # End of expect_list
         """
 
         log_start_timestamp = 0
@@ -348,7 +375,7 @@ class Aamp:
             self.logfile_name = testdata["logfile"]
         print("{} {}".format(testdata["title"],self.logfile_name))
 
-        max_test_time_seconds = testdata.get("max_test_time_seconds", 15)
+        self.max_test_time_seconds = testdata.get("max_test_time_seconds", 15)
 
         if testdata.get('simlinear_type'):
             self.simlinear = Simlinear(self.test_dir_path, self.pytestconfig)
@@ -419,7 +446,7 @@ class Aamp:
                     match = self.aamp_pexpect.match
                     print("Event {} occurs at elapsed={}".format(match.group(0), elapsed))
 
-                    if elapsed >= e["min"] and elapsed <= e["max"]:
+                    if elapsed >= e.get("min",0) and elapsed <= e.get("max",self.max_test_time_seconds):
                         if "not_expected" in e:
                             # We got event within a time window when we were not expecting it
                             assert 0, "ERROR {} occurred elapsed={}".format(e, elapsed)
@@ -437,7 +464,7 @@ class Aamp:
 
             finally:
                 elapsed = time.time()-start_time
-                assert elapsed < max_test_time_seconds, "ERROR Max test time exceeded elapsed={}".format(elapsed)
+                assert elapsed < self.max_test_time_seconds, "ERROR Max test time exceeded elapsed={}".format(elapsed)
 
 
 def get_aamp_home():

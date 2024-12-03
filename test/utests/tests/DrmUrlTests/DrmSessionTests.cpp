@@ -48,22 +48,22 @@ TEST_F(AampDrmSessionTests, HandlesRandomString2) {
 };
 
 TEST_F(AampDrmSessionTests, HandlesHttpUrl) {
-    std::string url = "http://comcast.com/cake/cookie";
-    std::string expected = "comcast.com";
+    std::string url = "http://example.com/path/to/resource";
+    std::string expected = "example.com";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
 TEST_F(AampDrmSessionTests, HandlesHttpsUrl) {
-    std::string url = "https://comcast.com/cake/cookie";
-    std::string expected = "comcast.com";
+    std::string url = "http://example.com/path/to/resource";
+    std::string expected = "example.com";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
 TEST_F(AampDrmSessionTests, HandlesHttpsUrl2) {
-    std::string url = "https://mds.ccp.xcal.tv";
-    std::string expected = "mds.ccp.xcal.tv";
+    std::string url = "https://example.com";
+    std::string expected = "example.com";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
@@ -83,8 +83,8 @@ TEST_F(AampDrmSessionTests, HandlesUrlWithNoScheme) {
 };
 
 TEST_F(AampDrmSessionTests, HandlesUrlWithTrailingSlash) {
-    std::string url = "https://comcast.com";
-    std::string expected = "comcast.com";
+    std::string url = "https://example.com";
+    std::string expected = "example.com";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };

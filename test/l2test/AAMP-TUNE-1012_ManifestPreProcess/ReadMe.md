@@ -5,13 +5,22 @@ Manifest PreProcessing support is only available for dash streams, Hence this te
 
 <RDKAAMP-2827> Implement L2 test for RDKAAMP-2671 [Manifest call back for pre-processing]
 
+## Test Files
+simlinear.py  Webserver for serving manifest data.
+
+run_test.py  Causes aamp-cli to play manifest and check logs for tuning related info.
+               Checks log messages output from aamp are as expected. For the test gives PASS/FAIL result.
+
 ## Pre-requisites to L2 tests:
 
 Install AAMP using install-aamp.sh script.
 
 This test plays the following streams:
-"https://d24rwxnt7vw9qb.cloudfront.net/v1/dash/e6d234965645b411ad572802b6c9d5a10799c9c1/All_Reference_Streams/6ba06d17f65b4e1cbd1238eaa05c02c1/index.mpd"
-"https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel-tiled-thumbnails-numbered.ism/.mpd"
+1 .Stream for this test will be downloaded from https://cpetestutility.stb.r53.xcal.tv
+2. https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/foxtel-10/single-period.mpd
+
+Archive file containing manifest data has been downloaded ( URL: from location where the file is stored )
+   and extracted into directory 'testdata'
 
 ## Run l2test using script:
 ## Example:

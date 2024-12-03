@@ -184,6 +184,12 @@ public:
 	virtual const std::string& getUuid() const { return mDrmInfo.systemUUID; }
 
 	/**
+	 * @brief Determines if decrypt should be called on clear samples
+	 * @return Flag to indicate if should decrypt
+	 */
+	virtual bool isDecryptClearSamplesRequired() const { return mDrmInfo.bDecryptClearSamplesRequired; }
+
+	/**
 	 * @brief Determines if the DRM itself fetches the license or if AAMP should use
 	 * its own internal HTTP client to fetch the license
 	 * Returning 'true' removes AAMP calling generateLicenseRequest() on the CDM

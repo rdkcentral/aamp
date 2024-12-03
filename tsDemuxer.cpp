@@ -1,5 +1,21 @@
-
-
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2020 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
 
 #include "tsDemuxer.hpp"
 
@@ -374,7 +390,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 				AAMPLOG_WARN("Packet start prefix check failed 0x%x 0x%x 0x%x adaptation_fieldlen %d", pesStart[0],
 					pesStart[1], pesStart[2], adaptation_fieldlen);
 
-				/* DELIA 47453 video stops playing when ad fragments are injected
+				/* video stops playing when ad fragments are injected
 					* without expected discontinuity tag in the hls manifest files.
 					* This results in PTS error and video looping.
 					* In particular hls file, video payload alone is available and

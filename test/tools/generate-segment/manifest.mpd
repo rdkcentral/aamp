@@ -24,11 +24,11 @@
 			</Representation>
 		</AdaptationSet>
 		<AdaptationSet id="1" contentType="audio" startWithSAP="1" segmentAlignment="true" bitstreamSwitching="true" lang="und">
-			<Representation id="0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="70194" audioSamplingRate="44100">
+			<Representation id="0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="70194" audioSamplingRate="48000">
 				<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1" />
-				<SegmentTemplate timescale="44100" initialization="audio-init.m4s" media="audio-$Number%d$.m4s" startNumber="1">
+				<SegmentTemplate timescale="48000" initialization="audio-init.m4s" media="audio-$Number%d$.m4s" startNumber="1">
 					<SegmentTimeline>
-						<S t="0" d="85760" r="9" />
+						<S t="0" d="92160" r="9" />
 					</SegmentTimeline>
 				</SegmentTemplate>
 			</Representation>

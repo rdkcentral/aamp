@@ -151,8 +151,7 @@ void PacketSender::sendPacket(PacketPtr && pkt)
 	}
     }
     auto written = ::write(mSubtecSocketHandle, &buffer[0], size);
-    (void)written; // Avoid a warning.
-    AAMPLOG_TRACE("PacketSender: Written %ld bytes with size %ld", written, size);
+    AAMPLOG_TRACE("PacketSender: Written %ld bytes with size %zu", static_cast<long>(written), size);
 
     //Socket reconnect in case packet write fails
     if (written == -1) {

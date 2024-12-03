@@ -495,7 +495,7 @@ void aamp_SetPageHttpHeaders(const char* headerJson)
 				}
 				child = child->next;
 			}
-			if(!key.empty() && key == "X-PRIVACY-SETTINGS")/* RDK-35182: Condition is added to filter out header "X-PRIVACY-SETTINGS" since other headres like X-Forwarded-For/User-Agent/Accept-Language/ are appearing in case of x1 **/
+			if(!key.empty() && key == "X-PRIVACY-SETTINGS")/* Condition is added to filter out header "X-PRIVACY-SETTINGS" since other headres like X-Forwarded-For/User-Agent/Accept-Language/ are appearing in case of x1 **/
 			{
 				//insert key value pairs one by one
 				g_PageHttpHeaders.insert(std::make_pair(key, val));
@@ -536,7 +536,7 @@ void aamp_LoadJSController(JSGlobalContextRef context)
 	_globalController = aampObj;
 	g_UserAgent = "";
 
-	// DELIA-47534: For this ticket we have repurposed AAMP.version to return the UVE bindings version
+	// For this ticket we have repurposed AAMP.version to return the UVE bindings version
 	// When at some point in future we deprecate legacy bindings or aamp_LoadJS() please don't forget
 	// to retain this support to avoid backward compatibility issues.
 	aamp_LoadJS(context, NULL);
@@ -584,7 +584,7 @@ void aamp_UnloadJSController(JSGlobalContextRef context)
 	AAMP_JSController_finalize(aampObj);
 	_globalController = NULL;
 
-	// Per comments in DELIA-48964, use JSObjectDeleteProperty instead of JSObjectSetProperty when trying to invalidate a read-only property
+	// use JSObjectDeleteProperty instead of JSObjectSetProperty when trying to invalidate a read-only property
 	JSObjectDeleteProperty(context, globalObj, str, NULL);
 	JSStringRelease(str);
 

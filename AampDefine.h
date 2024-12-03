@@ -30,26 +30,19 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "6.10"
+#define AAMP_VERSION "6.11"
 #define AAMP_TUNETIME_VERSION 5
 
 //Stringification of Macro : use two levels of macros
 #define MACRO_TO_STRING(s) X_STR(s)
 #define X_STR(s) #s
 
-#if defined(REALTEKCE)
-#define GST_VIDEOBUFFER_SIZE_BYTES_BASE 5242880        		/**< XIONE-6722 more generous buffering - RealTek UHD specific */
-#else
-#define GST_VIDEOBUFFER_SIZE_BYTES_BASE 4194304
-#endif
+#define GST_VIDEOBUFFER_SIZE_BYTES_BASE 5242880
 #define GST_AUDIOBUFFER_SIZE_BYTES_BASE 512000
-#if defined(CONTENT_4K_SUPPORTED)
+
 #define GST_VIDEOBUFFER_SIZE_BYTES (GST_VIDEOBUFFER_SIZE_BYTES_BASE*3)
 #define GST_AUDIOBUFFER_SIZE_BYTES (GST_AUDIOBUFFER_SIZE_BYTES_BASE*3)
-#else
-#define GST_VIDEOBUFFER_SIZE_BYTES (GST_VIDEOBUFFER_SIZE_BYTES_BASE)
-#define GST_AUDIOBUFFER_SIZE_BYTES (GST_AUDIOBUFFER_SIZE_BYTES_BASE)
-#endif
+
 #define GST_BW_TO_BUFFER_FACTOR 0.80			/**< Bandwidth to buffer factor to calculate new GST Buffer Size to accomodate larger Video Buffers*/
 #define GST_VIDEOBUFFER_SIZE_MAX_BYTES 26214400			/**< 25*1024*1024 , Upper limit for HiFi Content */
 
@@ -71,7 +64,7 @@
 #define DEFAULT_LICENSE_REQ_RETRY_WAIT_TIME 500			/**< Wait time in milliseconds before retrying for DRM license */
 #define MIN_LICENSE_KEY_ACQUIRE_WAIT_TIME 500			/**<minimum wait time in milliseconds for DRM license to ACQUIRE */
 #define DEFAULT_LICENSE_KEY_ACQUIRE_WAIT_TIME 5000		/**< Wait time in milliseconds for DRM license to ACQUIRE  */
-#define MAX_LICENSE_ACQ_WAIT_TIME 12000  			/**< 12 secs Increase from 10 to 12 sec(DELIA-33528) */
+#define MAX_LICENSE_ACQ_WAIT_TIME 12000  			/**< 12 secs Increase from 10 to 12 sec */
 #define DEFAULT_INIT_BITRATE     2500000            		/**< Initial bitrate: 2.5 mb - for non-4k playback */
 #define DEFAULT_BITRATE_OFFSET_FOR_DOWNLOAD 500000		/**< Offset in bandwidth window for checking buffer download expiry */
 #define DEFAULT_INIT_BITRATE_4K 13000000            		/**< Initial bitrate for 4K playback: 13mb ie, 3/4 profile */
@@ -82,7 +75,7 @@
 #define MIN_DASH_DRM_SESSIONS 3
 #define DEFAULT_DRM_NETWORK_TIMEOUT 5                           /** < default value for drmNetworkTimeout  - 5 sec */
 #ifdef XIONE_UK
-#define DEFAULT_CACHED_FRAGMENTS_PER_TRACK  3      	 	/**< Default cached fragements per track - decreased only for XIONE UK per XIONE-6823 */
+#define DEFAULT_CACHED_FRAGMENTS_PER_TRACK  3      	 	/**< Default cached fragements per track */
 #else
 #define DEFAULT_CACHED_FRAGMENTS_PER_TRACK  4       		/**< Default cached fragements per track */
 #endif
@@ -116,7 +109,7 @@
 #define MAX_ANOMALY_BUFF_SIZE   256
 #define MAX_WAIT_TIMEOUT_MS	200				/**< Max Timeout furation for wait until cache is available to inject next*/
 #define MAX_INIT_FRAGMENT_CACHE_PER_TRACK  5       		/**< Max No Of cached Init fragements per track */
-#define MIN_SEG_DURTION_THREASHOLD	(0.25)			/**< Min Segment Duration threshold for pushing to pipeline at period End*/
+#define MIN_SEG_DURATION_THRESHOLD	(0.25)			/**< Min Segment Duration threshold for pushing to pipeline at period End*/
 #define MAX_CURL_SOCK_STORE		10			/**< Maximum no of host to be maintained in curl store*/
 #define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000	/**< Default Ad fulfillment timeout in milliseconds */
 #define MAX_AD_FULFILLMENT_TIMEOUT 5000	/**< Max Ad fulfillment timeout in milliseconds */
@@ -139,7 +132,9 @@
 #define MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (500) // 500mSec
 #define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
 #define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) /**< time interval for the telemetry reporting 300sec*/
-#define DEFAULT_SUBTITLE_CLOCK_SYNC_INTERVAL (30) /**< default time interval for the subtitle clock sync 30sec*/
+#define INITIAL_SUBTITLE_CLOCK_SYNC_INTERVAL_MS (500)     /**< default time interval for the subtitle clock sync 500ms*/
+#define DEFAULT_SUBTITLE_CLOCK_SYNC_INTERVAL    (30)      /**< default time interval for the subtitle clock sync 30sec*/
+#define SUBTITLE_CLOCK_ASSUMED_PLAYSTATE_TIME_MS (20000) /**< period after channel change/seek where we try to sync the subtitle clock quickly, before giving up and falling to slower rate */
 
 // the +1 is used to compensate for internal use originally being a > check, now >=
 #if defined(REALTEKCE)
@@ -190,10 +185,7 @@
 #define AAMP_LOW_LATENCY_URL_KEYWORD_ENCODED "%2Flow%2F" /**< AAMP expect this keyword in low latency URL to defog*/
 #define AAMP_FOG_TSB_URL_KEYWORD "tsb?" /**< AAMP expect this keyword in URL to identify it is FOG url */
 
-// DELIA-61708 audio drop workaround
-#if defined(BRCM)
 #define DEFAULT_INITIAL_RATE_CORRECTION_SPEED 1.000001f	/**< Initial rate correction speed to avoid audio drop */
-#endif
 #define DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK	20					/**< Default cached fragement chunks per track */
 #define DEFAULT_ABR_CHUNK_CACHE_LENGTH			10					/**< Default ABR chunk cache length */
 #define DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE		(DEFAULT_AAMP_ABR_THRESHOLD_SIZE)	/**< aamp abr Chunk threshold size */
@@ -237,7 +229,7 @@
 // LLD TSB Defaults
 #define DEFAULT_MIN_TSB_STORAGE_FREE_PERCENTAGE 10	// Percentage of free space in TSB 
 #define DEFAULT_MAX_TSB_STORAGE_MB				10*1024	// 10 GiB 
-#ifdef USE_TSBCONFIG_FOR_HYBRID		//Devices like XG1V4 have larger storage mounted at /opt/data unlike xi6
+#ifdef USE_TSBCONFIG_FOR_HYBRID		// for devices with more generous storage mounted at /opt/data 
 #define DEFAULT_TSB_DURATION 3600
 #define DEFAULT_TSB_LOCATION "/opt/data/fog/aamp"
 #else
@@ -413,15 +405,24 @@ enum AbsoluteProgressReportFormat
 enum EOSInjectionModeCode
 {
 	/* EOS events are only injected into the gstreamer pipeline by
-	 * AAMPGstPlayer::EndOfStreamReached() & AAMPGstPlayer::Discontinuity().
-	 * This was the only behaviour before XIONE-9099.*/
+	 * AAMPGstPlayer::EndOfStreamReached() & AAMPGstPlayer::Discontinuity().*/
 	EOS_INJECTION_MODE_NO_EXTRA,
 
 	/* In addition to the EOS_INJECTION_MODE_NO_EXTRA cases
-	 * EOS is injected in AAMPGstPlayer::Stop() prior to setting the state to null.
-	 * This is the default behaviour after XIONE-9099.*/
+	 * EOS is injected in AAMPGstPlayer::Stop() prior to setting the state to null.*/
 	EOS_INJECTION_MODE_STOP_ONLY,
 };
-#endif
 
+enum PlatformType
+{
+	ePLATFORM_UBUNTU,
+	ePLATFORM_APPLE,
+	ePLATFORM_RPI,
+	ePLATFORM_AMLOGIC,
+	ePLATFORM_REALTEK,
+	ePLATFORM_BRCM,
+	ePLATFORM_UNKNOWN
+};
+
+#endif
 

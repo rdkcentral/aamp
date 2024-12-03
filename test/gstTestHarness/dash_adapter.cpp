@@ -384,9 +384,43 @@ void parseRepresentation( Representation &representation, const XmlNode &Represe
 	parseContentType( adaptationSet, Representation );
 	if( adaptationSet.contentType == "video" )
 	{
-		representation.width = Number(Representation.getAttribute("width"));
-		representation.height = Number(Representation.getAttribute("height"));
+		if( Representation.hasAttribute("width") )
+		{
+			representation.width = Number(Representation.getAttribute("width"));
+		}
+		else
+		{
+			representation.width = adaptationSet.maxWidth;
+		}
+		if( Representation.hasAttribute("height") )
+		{
+			representation.height = Number(Representation.getAttribute("height"));
+		}
+		else
+		{
+			representation.height = adaptationSet.maxHeight;
+		}
+		if( Representation.hasAttribute("frameRate") )
+		{
+			representation.frameRate = Number(Representation.getAttribute("frameRate"));
+		}
+		else
+		{
+			representation.frameRate = adaptationSet.frameRate;
+		}
 	}
+	else if( adaptationSet.contentType == "audio" )
+	{
+		if( Representation.hasAttribute("audioSamplingRate") )
+		{
+			representation.audioSamplingRate = Number(Representation.getAttribute("audioSamplingRate"));
+		}
+		else
+		{
+			representation.audioSamplingRate = adaptationSet.audioSamplingRate;
+		}
+	}
+	
 	for( const auto pChild : Representation.children )
 	{
 		const XmlNode &child = *pChild; // hack for . syntax
@@ -458,6 +492,22 @@ bool parseAdaptationSet( AdaptationSet &adaptationSet, const XmlNode &Adaptation
 	if( AdaptationSet.hasAttribute("id") )
 	{
 		adaptationSet.id = AdaptationSet.getAttribute("id");
+	}
+	if( AdaptationSet.hasAttribute("maxWidth") )
+	{
+		adaptationSet.maxWidth = Number(AdaptationSet.getAttribute("maxWidth"));
+	}
+	if( AdaptationSet.hasAttribute("maxHeight") )
+	{
+		adaptationSet.maxHeight = Number(AdaptationSet.getAttribute("maxHeight"));
+	}
+	if( AdaptationSet.hasAttribute("frameRate") )
+	{
+		adaptationSet.frameRate = Number(AdaptationSet.getAttribute("frameRate"));
+	}
+	if( AdaptationSet.hasAttribute("audioSamplingRate") )
+	{
+		adaptationSet.audioSamplingRate = Number(AdaptationSet.getAttribute("audioSamplingRate"));
 	}
 	if( AdaptationSet.hasAttribute("lang") )
 	{

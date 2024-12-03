@@ -33,6 +33,6 @@
  * @param[in] format stream format to generate caps
  * @retval GstCaps for the input format
  */
-GstCaps* GetGstCaps(StreamOutputFormat format);
+GstCaps* GetGstCaps(StreamOutputFormat format, PlatformType platform = ePLATFORM_UNKNOWN);
 
 #endif /* __AAMP_GST_UTILS_H__ */

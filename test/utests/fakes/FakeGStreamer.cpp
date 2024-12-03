@@ -19,7 +19,6 @@
 
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
-#include <gst/app/gstappsink.h>
 
 #include "MockGStreamer.h"
 
@@ -721,5 +720,84 @@ gboolean gst_mini_object_replace (GstMiniObject **olddata, GstMiniObject *newdat
 void gst_event_copy_segment (GstEvent *event, GstSegment *segment)
 {
 	TRACE_FUNC();
+}
+
+void gst_event_parse_seek (GstEvent *event, gdouble *rate, GstFormat *format,
+		GstSeekFlags *flags,
+		GstSeekType *start_type, gint64 *start,
+		GstSeekType *stop_type, gint64 *stop)
+{
+	TRACE_FUNC();
+}
+
+GstSegment * gst_segment_new(void)
+{
+	TRACE_FUNC();
+	return NULL;
+}
+
+void gst_segment_free (GstSegment *segment)
+{
+	TRACE_FUNC();
+}
+
+GstEvent * gst_event_new_instant_rate_change (gdouble rate_multiplier,
+		GstSegmentFlags new_flags)
+{
+	TRACE_FUNC();
+	return NULL;
+}
+
+void gst_event_set_seqnum(GstEvent *event, guint32 seqnum)
+{
+	TRACE_FUNC();
+}
+
+GstPad*	gst_pad_get_peer(GstPad *pad)
+{
+	TRACE_FUNC();
+	return NULL;
+}
+
+gboolean gst_pad_send_event(GstPad *pad, GstEvent *event)
+{
+	TRACE_FUNC();
+	return false;
+}
+
+guint32 gst_event_get_seqnum(GstEvent *event)
+{
+	TRACE_FUNC();
+	return 0;
+}
+
+gboolean gst_base_sink_is_async_enabled (GstBaseSink * sink)
+{
+        TRACE_FUNC();
+        return false;
+}
+
+void gst_base_sink_set_async_enabled (GstBaseSink * sink, gboolean enabled)
+{
+	TRACE_FUNC();
+}
+
+GstEvent* gst_event_new_seek(gdouble rate, GstFormat format, GstSeekFlags flags,
+                                                 GstSeekType start_type, gint64 start,
+                                                 GstSeekType stop_type, gint64 stop)
+{
+        TRACE_FUNC();
+        return NULL;
+}
+
+void gst_caps_set_simple (GstCaps * caps, const char *field, ...)
+{
+	TRACE_FUNC();
+}
+
+GType gst_base_sink_get_type (void)
+{
+        TRACE_FUNC();
+        return 0;
 }
 

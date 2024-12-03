@@ -143,6 +143,12 @@ MATCHER_P(StateChanged, state, "")
     return match;
 }
 
+// ensure default zoom mod initialized as expected
+TEST_F(PauseOnPlaybackTests, DefaultZoomMode )
+{
+	EXPECT_EQ(mPrivateInstanceAAMP->zoom_mode,VIDEO_ZOOM_NONE);
+}
+
 // Testing calling SetPauseOnStartPlayback_Enable with enabled
 TEST_F(PauseOnPlaybackTests, SetPauseOnStartPlayback_Enable)
 {
