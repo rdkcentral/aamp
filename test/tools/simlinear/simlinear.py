@@ -177,19 +177,18 @@ def handle_delay(param, path):
             time.sleep(delay / 1000)
         else:
             log.info(f"Delay limit exceeded: {delay}ms. Limit is 10000ms for URI {path}")
-            
+
 #################################################################
 
 def handle_status(param, path):
-    status = int(param.get('status')) 
+    status = int(param.get('status', 200))
     pattern = param.get('pattern', "")
-    
-    if status is not None:
-    	if not pattern or re.search(pattern, path):
-    	    if status == 404:
-    	    	raise FileNotFoundError
-    	    else:
-            	raise CustomError(f"simlinear generated error with HTTP status {status}.", int(status))
+
+    if status != 200 and (not pattern or re.search(pattern, path)):
+        if status == 404:
+            raise FileNotFoundError
+        else:
+            raise CustomError(f"simlinear generated error with HTTP status {status}.", status)
 #################################################################
 
 def modify_response(path): #RDKAAMP-3019
