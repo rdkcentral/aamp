@@ -61,9 +61,14 @@ if ! command -v jq &> /dev/null; then
     apt install -y jq
 fi
 
+dpkg -s libjavascriptcoregtk-4.1-dev
+if [ $? != 0 ]; then
+    apt install -y libjavascriptcoregtk-4.1-dev
+fi
+
 sudo apt remove -y meson
-sudo pip3 install -y meson
-sudo pip3 install -y lcov_cobertura
+sudo pip3 install meson
+sudo pip3 install lcov_cobertura
 hash -r
 
 mkdir -p "/tmp/Gtest_Report/"
