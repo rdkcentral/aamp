@@ -39,7 +39,7 @@
 #define PROFILE_IDX_RANGE_CHECK(profileIdx, profileCount) \
     do { \
       if (profileIdx >= profileCount) { \
-        sLogger("%s:%d Invalid profileIndex %d exceeds the current profile count %d\n", __FUNCTION__, __LINE__, profileIdx, profileCount); \
+        logprintf("%s:%d Invalid profileIndex %d exceeds the current profile count %d\n", __FUNCTION__, __LINE__, profileIdx, profileCount); \
         profileIdx = profileCount - 1; \
       } \
     } while(0)
@@ -47,7 +47,7 @@
 #define PROFILES_EMPTY_CHECK_RET(profileCount, retValue) \
     do { \
       if (profileCount == 0) { \
-        sLogger("%s:%d No profiles found\n", __FUNCTION__, __LINE__); \
+        logprintf("%s:%d No profiles found\n", __FUNCTION__, __LINE__); \
         return retValue; \
       } \
     } while(0)
@@ -55,7 +55,7 @@
 #define PROFILES_EMPTY_RANGE_CHECK_RET(currentProfileIndex, profileCount, retValue) \
     do { \
       if (profileCount == 0 || currentProfileIndex >= profileCount) { \
-        sLogger("%s:%d No profiles/input profile %d more than profileCount %d\n", __FUNCTION__, __LINE__, currentProfileIndex, profileCount); \
+        logprintf("%s:%d No profiles/input profile %d more than profileCount %d\n", __FUNCTION__, __LINE__, currentProfileIndex, profileCount); \
         return retValue; \
       } \
     } while(0)
@@ -82,32 +82,21 @@ static const char *moduleName = "[ABRManager] ";
 static const int MODULE_NAME_SIZE = 13;
 
 /**
- * @brief Empty logger (for disabling the logger)
- * @param fmt The format string
- * @param ... Variadic parameters
- * 
- * @return Number of printed characters 
- */
-static int emptyLogger(const char* fmt, ...) {
-  return 0;
-}
-
-/**
  * @brief Default logger
  * @param fmt The format string
  * @param ... Variadic parameters
- * 
- * @return Number of printed characters 
  */
-static int defaultLogger(const char* fmt, ...) 
+/**
+ * @brief Initialize the logger to printf
+ */
+void ABRManager::logprintf(const char* fmt, ...)
 {
-	int ret = 0;
 	char logBuf[MAX_LOG_BUFF_SIZE] = {0};
 
 	strcpy(logBuf, moduleName);
 	va_list args;
 	va_start(args, fmt);
-	ret = vsnprintf(logBuf + MODULE_NAME_SIZE, (MAX_LOG_BUFF_SIZE - 1 - MODULE_NAME_SIZE), fmt, args);
+	vsnprintf(logBuf + MODULE_NAME_SIZE, (MAX_LOG_BUFF_SIZE - 1 - MODULE_NAME_SIZE), fmt, args);
 	va_end(args);
 
 #if defined(ENABLE_RDK_LOGGER)
@@ -116,23 +105,10 @@ static int defaultLogger(const char* fmt, ...)
 #elif defined(USE_SYSLOG_HELPER_PRINT)
 	send_logs_to_syslog(logBuf);
 #endif
-	return ret;
 #else // ENABLE_RDK_LOGGER
-#ifdef WIN32
-	static bool init;
-	FILE *f = fopen(gsLogDirectory, (init ? "a" : "w"));
-	if (f)
-	{
-		init = true;
-		fprintf(f, "%s", logBuf);
-		fclose(f);
-	}
-	return printf("%s", logBuf);
-#else
 	struct timeval t;
 	gettimeofday(&t, NULL);
-	return printf("%ld:%3ld : %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, logBuf);
-#endif
+	printf("%ld:%3ld : %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, logBuf);
 #endif
 }
 
@@ -141,7 +117,7 @@ void ABRLogger(const char* levelstr,const char* file, int line,const char *fmt, 
   char logBuf[MAX_LOG_BUFF_SIZE] = {0};
 
   
-  len = sprintf(logBuf, "[AAMP-ABR][%s][%s][%d]",levelstr,file,line);
+  len = snprintf(logBuf, sizeof(logBuf), "[AAMP-ABR][%s][%s][%d]",levelstr,file,line);
   va_list args;
   va_start(args, fmt);
   //t = vsnprintf(logBuf + MODULE_NAME_SIZE, (MAX_LOG_BUFF_SIZE - 1 - MODULE_NAME_SIZE), fmt, args);
@@ -156,30 +132,11 @@ void ABRLogger(const char* levelstr,const char* file, int line,const char *fmt, 
 #endif
   return ;
 #else // ENABLE_RDK_LOGGER
-#ifdef WIN32
-  static bool init;
-  FILE *f = fopen(gsLogDirectory, (init ? "a" : "w"));
-  if (f)
-  {
-	init = true;
-	fprintf(f, "%s", logBuf);
-	fclose(f);
-  }
-  printf("%s", logBuf);
-#else
   struct timeval t;
   gettimeofday(&t, NULL);
   printf("%ld:%3ld : %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, logBuf);
 #endif
-#endif
 }
-
-/**
- * @brief Initialize the logger to printf
- */
-ABRManager::LoggerFuncType ABRManager::sLogger = defaultLogger;
-
-ABRManager::LoggerFuncType ABRManager::logprintf = defaultLogger;
 
 long ABRManager::mPersistBandwidth = 0;
 long long ABRManager::mPersistBandwidthUpdatedTime = 0;
@@ -227,10 +184,10 @@ int ABRManager::getInitialProfileIndex(bool chooseMediumProfile, const std::stri
   }
   if (INVALID_PROFILE == desiredProfileIndex) {
     desiredProfileIndex = mSortedBWProfileList[periodId].begin()->second;
-    sLogger("%s:%d Got invalid profile index, choose the first index = %d and profileCount = %d and defaultBitrate = %ld\n",
+    logprintf("%s:%d Got invalid profile index, choose the first index = %d and profileCount = %d and defaultBitrate = %ld\n",
       __FUNCTION__, __LINE__, desiredProfileIndex, profileCount, mDefaultInitBitrate);
   } else {
-    sLogger("%s:%d Get initial profile index = %d, bitrate = %ld and defaultBitrate = %ld\n",
+    logprintf("%s:%d Get initial profile index = %d, bitrate = %ld and defaultBitrate = %ld\n",
       __FUNCTION__, __LINE__, desiredProfileIndex, mProfiles[desiredProfileIndex].bandwidthBitsPerSecond, mDefaultInitBitrate);
   }
   return desiredProfileIndex;
@@ -299,7 +256,7 @@ void ABRManager::updateProfile() {
       if(is4K) {
         // Get the default profile of 4k video , apply same bandwidth of video to iframe also
         int desiredProfileIndexNonIframe = profileCount / 2;
-        int desiredProfileNonIframeBW = mProfiles[desiredProfileIndexNonIframe].bandwidthBitsPerSecond ;
+        int desiredProfileNonIframeBW = (int)mProfiles[desiredProfileIndexNonIframe].bandwidthBitsPerSecond ;
         mDesiredIframeProfile = mLowestIframeProfile = 0;
         for (int cnt = 0; cnt <= iframeTrackIdx; cnt++) {
           // if bandwidth matches , apply to both desired and lower ( for all speed of trick)
@@ -331,7 +288,7 @@ void ABRManager::updateProfile() {
   delete[] iframeTrackInfo;
 
 #if defined(DEBUG_ENABLED)
-  sLogger("%s:%d Update profile info, mDesiredIframeProfile = %d, mLowestIframeProfile = %d\n",
+  logprintf("%s:%d Update profile info, mDesiredIframeProfile = %d, mLowestIframeProfile = %d\n",
     __FUNCTION__, __LINE__, mDesiredIframeProfile, mLowestIframeProfile);
 #endif
 }
@@ -367,7 +324,7 @@ int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth) {
     }
   }
 #if defined(DEBUG_ENABLED)
-  sLogger("%s:%d Get best matched profile index = %d bitrate = %ld\n",
+  logprintf("%s:%d Get best matched profile index = %d bitrate = %ld\n",
     __FUNCTION__, __LINE__, desiredProfileIndex,
     (profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0);
 #endif
@@ -390,7 +347,7 @@ int ABRManager::getRampedDownProfileIndex(int currentProfileIndex, const std::st
   long currentBandwidth = mProfiles[currentProfileIndex].bandwidthBitsPerSecond;
   SortedBWProfileListIter iter = mSortedBWProfileList[periodId].find(currentBandwidth);
   if (iter == mSortedBWProfileList[periodId].end()) {
-    sLogger("%s:%d The current bitrate %ld is not in the profile list\n",
+    logprintf("%s:%d The current bitrate %ld is not in the profile list\n",
        __FUNCTION__, __LINE__, currentBandwidth);
     return desiredProfileIndex;
   }
@@ -403,7 +360,7 @@ int ABRManager::getRampedDownProfileIndex(int currentProfileIndex, const std::st
   }
 
 #if defined(DEBUG_ENABLED)
-  sLogger("%s:%d Ramped down profile index = %d bitrate = %ld\n",
+  logprintf("%s:%d Ramped down profile index = %d bitrate = %ld\n",
     __FUNCTION__, __LINE__, desiredProfileIndex, mProfiles[desiredProfileIndex].bandwidthBitsPerSecond);
 #endif
   return desiredProfileIndex;
@@ -423,7 +380,7 @@ int ABRManager::getRampedUpProfileIndex(int currentProfileIndex, const std::stri
   long currentBandwidth = mProfiles[currentProfileIndex].bandwidthBitsPerSecond;
   SortedBWProfileListIter iter = mSortedBWProfileList[periodId].find(currentBandwidth);
   if (iter == mSortedBWProfileList[periodId].end()) {
-    sLogger("%s:%d The current bitrate %ld is not in the profile list\n",
+    logprintf("%s:%d The current bitrate %ld is not in the profile list\n",
        __FUNCTION__, __LINE__, currentBandwidth);
     return desiredProfileIndex;
   }
@@ -435,7 +392,7 @@ int ABRManager::getRampedUpProfileIndex(int currentProfileIndex, const std::stri
   }
 
 #if defined(DEBUG_ENABLED)
-  sLogger("%s:%d Ramped up profile index = %d bitrate = %ld\n",
+  logprintf("%s:%d Ramped up profile index = %d bitrate = %ld\n",
     __FUNCTION__, __LINE__, desiredProfileIndex, mProfiles[desiredProfileIndex].bandwidthBitsPerSecond);
 #endif
   return desiredProfileIndex;
@@ -493,7 +450,7 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
   if (networkBandwidth == -1) {
     // If the network bandwidth is not available, just reset the profile change up/down count.
 #if defined(DEBUG_ENABLED)
-    sLogger("%s:%d No network bandwidth info available , not changing profile[%d]\n",
+    logprintf("%s:%d No network bandwidth info available , not changing profile[%d]\n",
       __FUNCTION__, __LINE__, currentProfileIndex);
 #endif
     mAbrProfileChangeUpCount = 0;
@@ -529,7 +486,7 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
     }
     mAbrProfileChangeDownCount = 0;
 #if defined(DEBUG_ENABLED)
-    sLogger("%s:%d Ramp up profile index = %d, bitrate = %ld networkBandwidth = %ld\n",
+    logprintf("%s:%d Ramp up profile index = %d, bitrate = %ld networkBandwidth = %ld\n",
       __FUNCTION__, __LINE__, desiredProfileIndex,
         (profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0, networkBandwidth);
 #endif
@@ -552,7 +509,7 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
     // we didn't find a profile which can be supported in this bandwidth
     if (reviter == mSortedBWProfileList[periodId].rend()) {
 	desiredProfileIndex = mSortedBWProfileList[periodId].begin()->second;
-        sLogger("%s:%d Didn't find a profile which supports bandwidth[%ld], min bandwidth available [%ld]. Set profile to lowest!\n", __FUNCTION__, __LINE__, networkBandwidth, mSortedBWProfileList[periodId].begin()->first);
+        logprintf("%s:%d Didn't find a profile which supports bandwidth[%ld], min bandwidth available [%ld]. Set profile to lowest!\n", __FUNCTION__, __LINE__, networkBandwidth, mSortedBWProfileList[periodId].begin()->first);
     }
 
     // No need to jump one profile for small  network change
@@ -569,14 +526,14 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
     }
     mAbrProfileChangeUpCount = 0;
 #if defined(DEBUG_ENABLED)
-    sLogger("%s:%d Ramp down profile index = %d, bitrate = %ld networkBandwidth = %ld\n",
+    logprintf("%s:%d Ramp down profile index = %d, bitrate = %ld networkBandwidth = %ld\n",
       __FUNCTION__, __LINE__, desiredProfileIndex,
       (profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0, networkBandwidth);
 #endif
   }
 
   if (currentProfileIndex != desiredProfileIndex) {
-    sLogger("%s:%d currBW:%ld NwBW=%ld currProf:%d desiredProf:%d Period ID:%s\n",
+    logprintf("%s:%d currBW:%ld NwBW=%ld currProf:%d desiredProf:%d Period ID:%s\n",
       __FUNCTION__, __LINE__, currentBandwidth, networkBandwidth,
       currentProfileIndex, desiredProfileIndex, periodId.c_str());
   }
@@ -671,8 +628,8 @@ void ABRManager::addSortedBWProfileListUnlocked(const ABRManager::ProfileInfo &p
   if (!profileInfo.isIframeTrack) {
 	mSortedBWProfileList[profileInfo.periodId][profileInfo.bandwidthBitsPerSecond] = idx;
 #if defined(DEBUG_ENABLED)
-	sLogger("%s: Period ID: %s\n", __FUNCTION__, profileInfo.periodId.c_str());
-	sLogger("%s: bw:%ld idx:%d\n", __FUNCTION__, profileInfo.bandwidthBitsPerSecond, idx);
+	logprintf("%s: Period ID: %s\n", __FUNCTION__, profileInfo.periodId.c_str());
+	logprintf("%s: bw:%ld idx:%d\n", __FUNCTION__, profileInfo.bandwidthBitsPerSecond, idx);
 #endif
   }
 
@@ -709,7 +666,7 @@ int ABRManager::removeProfiles(std::vector<long> profileBPS, int currentProfileI
     }
   }
 #if defined(DEBUG_ENABLED)
-  sLogger("%s:%d profileCount after removing profiles orig:%d and new:%d", __FUNCTION__, __LINE__, profileCount, getProfileCountUnlocked());
+  logprintf("%s:%d profileCount after removing profiles orig:%d and new:%d", __FUNCTION__, __LINE__, profileCount, getProfileCountUnlocked());
 #endif
 
   mSortedBWProfileList.clear();
@@ -723,7 +680,7 @@ int ABRManager::removeProfiles(std::vector<long> profileBPS, int currentProfileI
   }
 
   if (modifiedProfileIndex == INVALID_PROFILE) {
-    sLogger("%s:%d Unable to find the currentProfileIndex in the modified profiles, currentProfileIndex:%d currBW:%ld period ID:%s\n",
+    logprintf("%s:%d Unable to find the currentProfileIndex in the modified profiles, currentProfileIndex:%d currBW:%ld period ID:%s\n",
       __FUNCTION__, __LINE__, currentProfileIndex, currentBandwidth, periodId.c_str());
   }
   return modifiedProfileIndex;
@@ -740,23 +697,6 @@ void ABRManager::clearProfiles() {
     mSortedBWProfileList.erase(mSortedBWProfileList.begin(),mSortedBWProfileList.end());
     mSortedBWProfileList.clear();
   }	
-}
-
-/**
- *  @brief Set logger function
- * 
- *  The logger function must be in the signature int (const char*, ...)
- */
-void ABRManager::setLogger(LoggerFuncType logger) {
-  sLogger = logger;
-}
-
-/**
- *  @brief Disable logger, then no logger output.
- */
-void ABRManager::disableLogger() {
-  // Set the empty logger
-  sLogger = emptyLogger;
 }
 
 /**
