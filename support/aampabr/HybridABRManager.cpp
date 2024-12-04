@@ -58,7 +58,6 @@
 #define AAMPABRLOG_INFO(FORMAT, ...)  AAMPABRLOG(eAAMPAbrConfig.infologging,"INFO",FORMAT, ##__VA_ARGS__)
 #define AAMPABRLOG_WARN(FORMAT, ...)  AAMPABRLOG(eAAMPAbrConfig.warnlogging,"WARN",FORMAT, ##__VA_ARGS__)
 #define AAMPABRLOG_ERR(FORMAT, ...)   AAMPABRLOG(eAAMPAbrConfig.debuglogging,"ERROR",FORMAT, ##__VA_ARGS__)
-HybridABRManager::AampAbrConfig eAAMPAbrConfig = {0,0,0,0,0,0,0,0,0,0,0};
 
 /**
  * @struct SpeedCache

@@ -34,7 +34,7 @@ class HybridABRManager:public ABRManager
 		/* 
 		 * @brief Configuration related to AampABR
 		 */
-		typedef struct
+		struct AampAbrConfig
 		{
 			/**
 			 * @brief Adaptive bitrate cache life in seconds
@@ -98,7 +98,15 @@ class HybridABRManager:public ABRManager
 			 * @brief Enables Debug Logging
 			 */
 			bool debuglogging;
-		}AampAbrConfig;
+
+			// Constructor to initialize all members
+			AampAbrConfig()
+				: abrCacheLife(0), abrCacheLength(0), abrSkipDuration(0), abrNwConsistency(0),
+				abrThresholdSize(0), abrMaxBuffer(0), abrMinBuffer(0), abrCacheOutlier(0),
+				abrBufferCounter(0), infologging(false), tracelogging(false),
+				warnlogging(false), debuglogging(false) {}
+
+		};
 
 		/**
 		 * @brief Http Header Type
@@ -136,6 +144,7 @@ class HybridABRManager:public ABRManager
 		bool bLowLatencyStartABR;             /**<Low Latency ABR Start Status */
 		bool bLowLatencyServiceConfigured;    /**<Low Latency Service Configuration Status */
 		double mLLDashCurrentPlayRate;        /**<Low Latency Current play Rate */
+		HybridABRManager::AampAbrConfig eAAMPAbrConfig;
 	public:
 
 		/** @brief Read Config values
