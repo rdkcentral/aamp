@@ -34,8 +34,6 @@
 
 namespace aamp_ts {
 
-#define rmf_osal_memcpy(d, s, n, dc, sc)  memcpy(d, s, n)
-
 enum class StreamType : uint16_t
 {
 	eSTREAM_TYPE_MPEG2_VIDEO   	= 0x02, /**< MPEG2 Video */
@@ -388,7 +386,7 @@ void TSFragmentProcessor::ParseFragment(const uint8_t * base_frag_ptr, uint8_t *
 										int sectionOffset = payloadOffset + 4;
 										int sectionAvail = ts_packet_size - m_ttsSize - sectionOffset;
 										unsigned char *sectionData = packet_ptr + sectionOffset;
-										rmf_osal_memcpy(m_pmtCollector, sectionData, sectionAvail, aamp_ts::pmt_section_max_size, (packet_end - sectionData));
+										memcpy(m_pmtCollector, sectionData, sectionAvail );
 										m_pmtCollectorSectionLength = sectionLength;
 										m_pmtCollectorOffset = sectionAvail;
 										m_pmtCollectorNextContinuity = ((packet_ptr[3] + 1) & 0xF);
@@ -433,7 +431,7 @@ void TSFragmentProcessor::ParseFragment(const uint8_t * base_frag_ptr, uint8_t *
 							int copylen = ((avail > sectionAvail) ? sectionAvail : avail);
 							if(m_pmtCollector)
 							{    //CID:87880 - forward null
-								rmf_osal_memcpy(&m_pmtCollector[m_pmtCollectorOffset], &packet_ptr[payloadOffset], copylen, (aamp_ts::pmt_section_max_size - m_pmtCollectorOffset), (packet_end - &packet_ptr[payloadOffset]));
+								memcpy(&m_pmtCollector[m_pmtCollectorOffset], &packet_ptr[payloadOffset], copylen);
 							}
 							m_pmtCollectorOffset += copylen;
 							if (m_pmtCollectorOffset == m_pmtCollectorSectionLength)
@@ -737,7 +735,7 @@ void TSFragmentProcessor::ProcessPMTSection(uint8_t * section, size_t sectionLen
 						{
 							// ISO_639_language_descriptor
 						case 0x0A:
-							rmf_osal_memcpy(work, &programInfo[descIdx + 2], descrLen, 32, programInfoEnd - &programInfo[descIdx + 2]);
+							memcpy(work, &programInfo[descIdx + 2], descrLen);
 							work[descrLen] = '\0';
 							m_audioComponents[m_audioComponentCount].associatedLanguage = strdup(work);
 							break;
