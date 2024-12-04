@@ -844,7 +844,7 @@ bool PrivateInstanceAAMP::WebVTTCueListenersRegistered(void)
 	return true;
 }
 
-LangCodePreference PrivateInstanceAAMP::GetLangCodePreference()
+LangCodePreference PrivateInstanceAAMP::GetLangCodePreference() const
 {
 	return ISO639_NO_LANGCODE_PREFERENCE;
 }
@@ -1345,4 +1345,3 @@ int PrivateInstanceAAMP::GetPlatformType()
 {
 	return 0;
 }
-

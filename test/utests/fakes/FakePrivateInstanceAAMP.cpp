@@ -899,7 +899,7 @@ bool PrivateInstanceAAMP::WebVTTCueListenersRegistered(void)
     return true;
 }
 
-LangCodePreference PrivateInstanceAAMP::GetLangCodePreference()
+LangCodePreference PrivateInstanceAAMP::GetLangCodePreference() const
 {
     return ISO639_NO_LANGCODE_PREFERENCE;
 }
@@ -1099,11 +1099,11 @@ bool PrivateInstanceAAMP::GetLowLatencyServiceConfigured()
 
 long long PrivateInstanceAAMP::DurationFromStartOfPlaybackMs(void)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr) 
+	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		return g_mockPrivateInstanceAAMP->DurationFromStartOfPlaybackMs();
 	}
-	else 
+	else
 	{
 		return 0;
 	}

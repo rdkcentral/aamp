@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_UTILS_H
 
 #include <gmock/gmock.h>
+#include "main_aamp.h"
 
 class MockAampUtils
 {
@@ -33,6 +34,8 @@ public:
 	MOCK_METHOD(bool, parseAndValidateSCTE35, (const std::string &scte35Data));
 
 	MOCK_METHOD(double, GetNetworkTime, (const std::string& remoteUrl, int *http_error , std::string NetworkProxy));
+
+	MOCK_METHOD(std::string, Getiso639map_NormalizeLanguageCode, (std::string, LangCodePreference));
 };
 
 extern MockAampUtils *g_mockAampUtils;

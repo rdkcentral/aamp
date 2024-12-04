@@ -322,8 +322,13 @@ const char * GetAudioFormatStringForCodec ( StreamOutputFormat input)
     return "UNKNOWN";
 }
 
-std::string Getiso639map_NormalizeLanguageCode(std::string  lang,LangCodePreference preferLangFormat )
+std::string Getiso639map_NormalizeLanguageCode(std::string lang, LangCodePreference preferLangFormat)
 {
+	if (g_mockAampUtils)
+	{
+		return g_mockAampUtils->Getiso639map_NormalizeLanguageCode(lang, preferLangFormat);
+	}
+
     return lang;
 }
 
@@ -585,5 +590,3 @@ void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *aamp)
 {
 }
 }
-
-

@@ -2137,10 +2137,10 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 }
 
-/* 
+/*
  * @brief Test to make sure ChunkMode is turned off for non-LLD streams.
- * This test checks that ChunkMode (used for lld) is not 
- * activated when playing a regular non lld stream.Testing under below three situation 
+ * This test checks that ChunkMode (used for lld) is not
+ * activated when playing a regular non lld stream.Testing under below three situation
  * - Normal playback
  * - Retune
  * - Seeking near the end of the stream
@@ -2183,9 +2183,9 @@ TEST_F(FunctionalTests, ChunkMode_NonLLD)
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), false);
 }
 
-/* 
- * @brief Test to ensure ChunkMode is enabled for LLD streams. 
- * This test checks that ChunkMode (used for lld) is activated 
+/*
+ * @brief Test to ensure ChunkMode is enabled for LLD streams.
+ * This test checks that ChunkMode (used for lld) is activated
  * Tested under below scenarios:
  * - Normal playback (ChunkMode should be on)
  * - Seeking at the beginning of the stream (ChunkMode should be off)
@@ -2218,13 +2218,13 @@ TEST_F(FunctionalTests, ChunkMode_LLD)
 )";
 	double seekPosition = 0;
 	int rate = 1 ; //Normal playrate test
-	
+
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
 		.WillRepeatedly(Return(true));
-	
+
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
-	//For this test case we need EnableLowLatencyDash as true 
+	//For this test case we need EnableLowLatencyDash as true
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
 		.WillRepeatedly(Invoke([](AAMPConfigSettingBool config) {
 					return config == eAAMPConfig_EnableLowLatencyDash;
@@ -2232,33 +2232,33 @@ TEST_F(FunctionalTests, ChunkMode_LLD)
 	EXPECT_CALL(*g_mockAampMPDDownloader, IsMPDLowLatency (_))
 		.WillRepeatedly(Return(true));
 
-	status = InitializeMPD(manifest,TuneType::eTUNETYPE_NEW_NORMAL, seekPosition, rate,false); 
+	status = InitializeMPD(manifest,TuneType::eTUNETYPE_NEW_NORMAL, seekPosition, rate,false);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), true);
 
 	//seek to the beginning
-	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK, seekPosition, rate,false); 
+	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK, seekPosition, rate,false);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), false);
 
 	seekPosition = 1550 ; //Total duration -1560
-	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK,seekPosition, rate,false); 
+	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK,seekPosition, rate,false);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), true);
 
 	seekPosition = 1000; //behind live point
-	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK,seekPosition, rate,false); 
+	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK,seekPosition, rate,false);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), false);
 }
 
 /**
  * @brief Test LLD ChunkMode behavior with a seek position within the latency range.
- * 
- * This test verifies that ChunkMode is enabled when seeking to 1552 seconds 
- * in a 1560-second stream. The live offset is 6 seconds, and maximum latency 
- * is 9 seconds. The seek position is behind the live edge but within the 
- * allowable latency (1560 - 9 = 1551 seconds). The test checks if ChunkMode 
+ *
+ * This test verifies that ChunkMode is enabled when seeking to 1552 seconds
+ * in a 1560-second stream. The live offset is 6 seconds, and maximum latency
+ * is 9 seconds. The seek position is behind the live edge but within the
+ * allowable latency (1560 - 9 = 1551 seconds). The test checks if ChunkMode
  * is correctly enabled in this scenario.
  */
 
@@ -2287,7 +2287,7 @@ TEST_F(FunctionalTests, ChunkMode_LLD_ForMaxLatency_Case)
 )";
 	double seekPosition = 1552; ///Total duration : 1560
 	int rate = 1 ; //Normal playrate test
-	
+
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
 		.WillRepeatedly(Return(true));
 
@@ -2458,7 +2458,7 @@ TEST_F(FunctionalTests, FindServerUTCTimeTest)
     // The manifest URL contains parameters
     mManifestUrl = "http://host/asset/manifest.mpd?chunked";
 
-    g_mockAampUtils = new StrictMock<MockAampUtils>();
+    g_mockAampUtils = new NiceMock<MockAampUtils>();
     const char *currentTimeISO = "2023-01-01T00:00:00Z";
     double currentTime = ISO8601DateTimeToUTCSeconds(currentTimeISO);
     long long timeMS = 1000LL*((long long)currentTime);

@@ -564,6 +564,7 @@ class PrivateInstanceAAMP : public AampDrmCallbacks, public std::enable_shared_f
 	long long mLastTelemetryTimeMS;
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
+	void SanitizeLanguageList(std::vector<std::string>& languages) const;
 public:
 	/**
 	 * @brief Get profiler bucket type
@@ -648,11 +649,12 @@ public:
 	 * @return void
 	 */
 	void SendMessageOverPipe(const char *str,int nToWrite);
+
 	/**
 	 *   @fn GetLangCodePreference
 	 *   @return enum type
 	 */
-	LangCodePreference GetLangCodePreference();
+	LangCodePreference GetLangCodePreference() const;
 
 	/**
 	 * @fn SetupPipeSession

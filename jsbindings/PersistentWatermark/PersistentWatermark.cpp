@@ -18,9 +18,9 @@
 */
 
 #include "PersistentWatermark.h"
-#ifndef USE_WATERMARK_JSBINDINGS
-
 #include "jsutils.h"
+
+#ifndef USE_WATERMARK_JSBINDINGS
 
 void PersistentWatermark_LoadJS(void* context)
 {
