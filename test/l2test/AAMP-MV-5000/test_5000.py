@@ -114,6 +114,10 @@ TESTDATA3 = {
 	{"expect": r"Seamless Text switch has been enabled"},
 	{"expect": r"AAMP_EVENT_TEXT_TRACKS_CHANGED"},
 	{"expect": r"FlushTrack()"},
+	{"cmd": "sleep 2000"},
+	{"cmd": "stop"},
+	{"cmd": "set subtecSimulator 0"},
+	{"expect": r"SubtecSimulatorThread - exit",},
 	{"cmd": "exit"},
     ]
 }
