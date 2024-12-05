@@ -551,7 +551,7 @@ public:
 		if( iter != lookupBool.end())
 		{
 			auto cfg = iter->second;
-			AAMPLOG_WARN("Parsed value for dev cfg property %s - %s", key.c_str(), value_cstr );
+			AAMPLOG_MIL("Parsed value for dev cfg property %s - %s", key.c_str(), value_cstr );
 			if( value.empty() )
 			{
 				bool currentValue = aampConfig->GetConfigValue(cfg.configEnum);
@@ -699,12 +699,12 @@ public:
 			if(cJSON_IsTrue(searchObj))
 			{
 				aampConfig->SetConfigValue(owner,cfgEnum,true);
-				AAMPLOG_WARN("Parsed value for property %s - true",keyname.c_str());
+				AAMPLOG_MIL("Parsed value for property %s - true",keyname.c_str());
 			}
 			else
 			{
 				aampConfig->SetConfigValue(owner,cfgEnum,false);
-				AAMPLOG_WARN("Parsed value for property %s - false",keyname.c_str());
+				AAMPLOG_MIL("Parsed value for property %s - false",keyname.c_str());
 			}
 		}
 		else
@@ -718,7 +718,7 @@ public:
 				auto cfgEnum = cfg.configEnum;
 				std::string keyname = it->first;
 				aampConfig->SetConfigValue(owner,cfgEnum,conv);
-				AAMPLOG_WARN("Parsed value for property %s - %d",keyname.c_str(),conv);
+				AAMPLOG_MIL("Parsed value for property %s - %d",keyname.c_str(),conv);
 			}
 			else
 			{
@@ -731,7 +731,7 @@ public:
 					auto cfgEnum = cfg.configEnum;
 					std::string keyname = it->first;
 					aampConfig->SetConfigValue(owner,cfgEnum,conv);
-					AAMPLOG_WARN("Parsed value for property %s - %f",keyname.c_str(),conv);
+					AAMPLOG_MIL("Parsed value for property %s - %f",keyname.c_str(),conv);
 				}
 				else
 				{
@@ -744,7 +744,7 @@ public:
 						auto cfgEnum = cfg.configEnum;
 						std::string keyname = it->first;
 						aampConfig->SetConfigValue(owner,cfgEnum,conv);
-						AAMPLOG_WARN("Parsed value for property %s - %s",keyname.c_str(),conv.c_str() );
+						AAMPLOG_MIL("Parsed value for property %s - %s",keyname.c_str(),conv.c_str() );
 					}
 				}
 			}
@@ -1099,7 +1099,7 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingBool c
 		}
 		setting.value = value;
 		setting.owner = newowner;
-		AAMPLOG_WARN("%s New Owner[%d]",cfgName,newowner);
+		AAMPLOG_MIL("%s New Owner[%d]",cfgName,newowner);
 	}
 	else
 	{
@@ -1125,7 +1125,7 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingInt cf
 		}
 		setting.value = value;
 		setting.owner = newowner;
-		AAMPLOG_WARN("%s New Owner[%d]", cfgInfo.cmdString, newowner);
+		AAMPLOG_MIL("%s New Owner[%d]", cfgInfo.cmdString, newowner);
 	}
 	else
 	{
@@ -1151,7 +1151,7 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingFloat 
 		}
 		setting.value = value;
 		setting.owner = newowner;
-		AAMPLOG_WARN("%s New Owner[%d]",cfgInfo.cmdString,newowner);
+		AAMPLOG_MIL("%s New Owner[%d]",cfgInfo.cmdString,newowner);
 	}
 	else
 	{
@@ -1172,7 +1172,7 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingString
 		}
 		setting.value = value;
 		setting.owner = newowner;
-		AAMPLOG_WARN("%s New Owner[%d]",cfgName,newowner);
+		AAMPLOG_MIL("%s New Owner[%d]",cfgName,newowner);
 	}
 	else
 	{
@@ -1234,7 +1234,7 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 		cJSON *drmConfig = cJSON_GetObjectItem(cfgdata,"drmConfig");
 		if(drmConfig)
 		{
-			AAMPLOG_WARN("Parsed value for property DrmConfig");
+			AAMPLOG_MIL("Parsed value for property DrmConfig");
 			cJSON *subitem = drmConfig->child;
 			DRMSystems drmType = eDRM_PlayReady;
 			while( subitem )
@@ -1242,30 +1242,30 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 				std::string conv = std::string(subitem->valuestring);
 				if(strcasecmp("com.microsoft.playready",subitem->string)==0)
 				{
-					AAMPLOG_WARN("Playready License Server URL config param received - %s", conv.c_str());
+					AAMPLOG_MIL("Playready License Server URL config param received - %s", conv.c_str());
 					SetConfigValue(owner,eAAMPConfig_PRLicenseServerUrl,conv);
 					drmType = eDRM_PlayReady;
 				}
 				if(strcasecmp("com.widevine.alpha",subitem->string)==0)
 				{
-					AAMPLOG_WARN("Widevine License Server URL config param received - %s", conv.c_str());
+					AAMPLOG_MIL("Widevine License Server URL config param received - %s", conv.c_str());
 					SetConfigValue(owner,eAAMPConfig_WVLicenseServerUrl,conv);
 					drmType = eDRM_WideVine;
 				}
 				if(strcasecmp("org.w3.clearkey",subitem->string)==0)
 				{
-					AAMPLOG_WARN("ClearKey License Server URL config param received - %s", conv.c_str());
+					AAMPLOG_MIL("ClearKey License Server URL config param received - %s", conv.c_str());
 					SetConfigValue(owner,eAAMPConfig_CKLicenseServerUrl,conv);
 					drmType = eDRM_ClearKey;
 				}
 				if(strcasecmp("preferredKeysystem",subitem->string)==0)
 				{
-					AAMPLOG_WARN("Preferred key system received - %s", conv.c_str());
+					AAMPLOG_MIL("Preferred key system received - %s", conv.c_str());
 					SetConfigValue(owner,eAAMPConfig_PreferredDRM,(int)drmType);
 				}
 				if(strcasecmp("customData",subitem->string)==0)
 				{
-					AAMPLOG_WARN("customData received - %s", conv.c_str());
+					AAMPLOG_MIL("customData received - %s", conv.c_str());
 					SetConfigValue(owner,eAAMPConfig_CustomLicenseData,conv);
 				}
 				subitem = subitem->next;
@@ -1326,7 +1326,7 @@ void AampConfig::CustomArrayRead( cJSON *customArray,ConfigPriority owner )
 		}
 		for(int i = 0; i < vCustom.size(); i++)
 		{
-			AAMPLOG_WARN("Custom Values listed %s %s",vCustom[i].config.c_str(),vCustom[i].configValue.c_str());
+			AAMPLOG_MIL("Custom Values listed %s %s",vCustom[i].config.c_str(),vCustom[i].configValue.c_str());
 		}
 	}
 }
@@ -1546,7 +1546,7 @@ bool AampConfig::ReadAampCfgJsonFile()
 		std::ifstream f(cfgPath, std::ifstream::in | std::ifstream::binary);
 		if (f.good())
 		{
-			AAMPLOG_WARN("opened aampcfg.json");
+			AAMPLOG_MIL("opened aampcfg.json");
 			std::filebuf* pbuf = f.rdbuf();
 			std::size_t size = pbuf->pubseekoff (0,f.end,f.in);
 			pbuf->pubseekpos (0,f.in);
@@ -1583,7 +1583,7 @@ bool AampConfig::ReadAampCfgTxtFile()
 		std::ifstream f(cfgPath, std::ifstream::in | std::ifstream::binary);
 		if (f.good())
 		{
-			AAMPLOG_WARN("opened aamp.cfg");
+			AAMPLOG_MIL("opened aamp.cfg");
 			std::string buf;
 			while (f.good())
 			{
@@ -1675,7 +1675,7 @@ void AampConfig::ReadAampCfgFromEnv()
 	if(NULL != envConf)
 	{
 		std::string strEnvConfig = envConf; // make sure we copy this as recommonded by getEnv doc
-		AAMPLOG_WARN("ReadAampCfgFromEnv:Text ENV:%s len:%zu ",strEnvConfig.c_str(),strEnvConfig.length());
+		AAMPLOG_MIL("ReadAampCfgFromEnv:Text ENV:%s len:%zu ",strEnvConfig.c_str(),strEnvConfig.length());
 		std::stringstream ss (strEnvConfig);
 		std::string item;
 
@@ -1697,7 +1697,7 @@ void AampConfig::ReadAampCfgFromEnv()
 		{
 			std::string strEnvConfig = envConf; // make sure we copy this as recommonded by getEnv doc
 			size_t iConfigLen = strEnvConfig.length();
-			AAMPLOG_WARN("ReadAampCfgFromEnv:BASE64 ENV:%s len:%zu ",strEnvConfig.c_str(),iConfigLen);
+			AAMPLOG_MIL("ReadAampCfgFromEnv:BASE64 ENV:%s len:%zu ",strEnvConfig.c_str(),iConfigLen);
 			char * strConfig = (char * ) base64_Decode(strEnvConfig.c_str(),&iConfigLen);
 			if( NULL != strConfig )
 			{
@@ -1781,7 +1781,7 @@ void AampConfig::ReadAllTR181Params()
 			}
 		}
 	}
-	AAMPLOG_WARN("ReadAllTR181Params took %lld ms to execute", (NOW_STEADY_TS_MS - begin));
+	AAMPLOG_MIL("ReadAllTR181Params took %lld ms to execute", (NOW_STEADY_TS_MS - begin));
 }
 
 
@@ -2012,7 +2012,7 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner )
 	{
 		if(configValueBool[i].owner == owner && configValueBool[i].owner != configValueBool[i].lastowner)
 		{
-			AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s]->[%-5s][%s]->[%s]",i,GetConfigName((AAMPConfigSettingBool)i), mOwnerLookupTable[configValueBool[i].owner].ownerName,
+			AAMPLOG_MIL("Cfg [%-3d][%-20s][%-5s]->[%-5s][%s]->[%s]",i,GetConfigName((AAMPConfigSettingBool)i), mOwnerLookupTable[configValueBool[i].owner].ownerName,
 				mOwnerLookupTable[configValueBool[i].lastowner].ownerName,configValueBool[i].value?"true":"false",configValueBool[i].lastvalue?"true":"false");
 			configValueBool[i].owner = configValueBool[i].lastowner;
 			configValueBool[i].value = configValueBool[i].lastvalue;
@@ -2025,7 +2025,7 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner )
 		// for int array
 		if(configValueInt[i].owner == owner && configValueInt[i].owner != configValueInt[i].lastowner)
 		{
-			AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s]->[%-5s][%d]->[%d]",i,GetConfigName((AAMPConfigSettingInt)i), mOwnerLookupTable[configValueInt[i].owner].ownerName,
+			AAMPLOG_MIL("Cfg [%-3d][%-20s][%-5s]->[%-5s][%d]->[%d]",i,GetConfigName((AAMPConfigSettingInt)i), mOwnerLookupTable[configValueInt[i].owner].ownerName,
 				mOwnerLookupTable[configValueInt[i].lastowner].ownerName,configValueInt[i].value,configValueInt[i].lastvalue);
 			configValueInt[i].owner = configValueInt[i].lastowner;
 			configValueInt[i].value = configValueInt[i].lastvalue;
@@ -2038,13 +2038,13 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner )
 	{
 		// for double array
 		if(configValueFloat[i].owner == owner && configValueFloat[i].owner != configValueFloat[i].lastowner)
-                {
-					AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s]->[%-5s][%f]->[%f]",i,GetConfigName((AAMPConfigSettingFloat)i), mOwnerLookupTable[configValueFloat[i].owner].ownerName,
+		{
+			AAMPLOG_MIL("Cfg [%-3d][%-20s][%-5s]->[%-5s][%f]->[%f]",i,GetConfigName((AAMPConfigSettingFloat)i), mOwnerLookupTable[configValueFloat[i].owner].ownerName,
 						mOwnerLookupTable[configValueFloat[i].lastowner].ownerName,configValueFloat[i].value,configValueFloat[i].lastvalue);
-					configValueFloat[i].owner = configValueFloat[i].lastowner;
-					configValueFloat[i].value = configValueFloat[i].lastvalue;
-                }
-        }
+			configValueFloat[i].owner = configValueFloat[i].lastowner;
+			configValueFloat[i].value = configValueFloat[i].lastvalue;
+		}
+	}
 
 
 	// All String values
@@ -2053,7 +2053,7 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner )
 		// for string array
 		if(configValueString[i].owner == owner && configValueString[i].owner != configValueString[i].lastowner)
 		{
-			AAMPLOG_WARN("Cfg [%-3d][%-20s][%-5s]->[%-5s][%s]->[%s]",i,GetConfigName((AAMPConfigSettingString)i), mOwnerLookupTable[configValueString[i].owner].ownerName,
+			AAMPLOG_MIL("Cfg [%-3d][%-20s][%-5s]->[%-5s][%s]->[%s]",i,GetConfigName((AAMPConfigSettingString)i), mOwnerLookupTable[configValueString[i].owner].ownerName,
 				mOwnerLookupTable[configValueString[i].lastowner].ownerName,configValueString[i].value.c_str(),configValueString[i].lastvalue.c_str());
 			configValueString[i].owner = configValueString[i].lastowner;
 			configValueString[i].value = configValueString[i].lastvalue;
@@ -2073,7 +2073,7 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingBoo
 {
 	if(configValueBool[cfg].owner == owner && configValueBool[cfg].owner != configValueBool[cfg].lastowner)
 	{
-		AAMPLOG_WARN("Cfg restoring [%-20s][%-5s]->[%-5s][%s]->[%s]",GetConfigName(cfg), mOwnerLookupTable[configValueBool[cfg].owner].ownerName,
+		AAMPLOG_MIL("Cfg restoring [%-20s][%-5s]->[%-5s][%s]->[%s]",GetConfigName(cfg), mOwnerLookupTable[configValueBool[cfg].owner].ownerName,
 					mOwnerLookupTable[configValueBool[cfg].lastowner].ownerName,configValueBool[cfg].value?"true":"false",configValueBool[cfg].lastvalue?"true":"false");
 		configValueBool[cfg].owner = configValueBool[cfg].lastowner;
 		configValueBool[cfg].value = configValueBool[cfg].lastvalue;
@@ -2087,7 +2087,7 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingInt
 {
 	if(configValueInt[cfg].owner == owner && configValueInt[cfg].owner != configValueInt[cfg].lastowner)
 	{
-		AAMPLOG_WARN("Cfg restoring [%-20s][%-5s]->[%-5s][%d]->[%d]",GetConfigName(cfg), mOwnerLookupTable[configValueInt[cfg].owner].ownerName,
+		AAMPLOG_MIL("Cfg restoring [%-20s][%-5s]->[%-5s][%d]->[%d]",GetConfigName(cfg), mOwnerLookupTable[configValueInt[cfg].owner].ownerName,
 					mOwnerLookupTable[configValueInt[cfg].lastowner].ownerName,configValueInt[cfg].value,configValueInt[cfg].lastvalue);
 		configValueInt[cfg].owner = configValueInt[cfg].lastowner;
 		configValueInt[cfg].value = configValueInt[cfg].lastvalue;
@@ -2102,7 +2102,7 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingFlo
 {
 	if(configValueFloat[cfg].owner == owner && configValueFloat[cfg].owner != configValueFloat[cfg].lastowner)
 	{
-		AAMPLOG_WARN("Cfg restoring [%-20s][%-5s]->[%-5s][%f]->[%f]",GetConfigName(cfg), mOwnerLookupTable[configValueFloat[cfg].owner].ownerName,
+		AAMPLOG_MIL("Cfg restoring [%-20s][%-5s]->[%-5s][%f]->[%f]",GetConfigName(cfg), mOwnerLookupTable[configValueFloat[cfg].owner].ownerName,
 					mOwnerLookupTable[configValueFloat[cfg].lastowner].ownerName,configValueFloat[cfg].value,configValueFloat[cfg].lastvalue);
 		configValueFloat[cfg].owner = configValueFloat[cfg].lastowner;
 		configValueFloat[cfg].value = configValueFloat[cfg].lastvalue;
@@ -2116,7 +2116,7 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingStr
 {
 	if(configValueString[cfg].owner == owner && configValueString[cfg].owner != configValueString[cfg].lastowner)
 	{
-		AAMPLOG_WARN("Cfg restoring [%-20s][%-5s]->[%-5s][%s]->[%s]",GetConfigName(cfg), mOwnerLookupTable[configValueString[cfg].owner].ownerName,
+		AAMPLOG_MIL("Cfg restoring [%-20s][%-5s]->[%-5s][%s]->[%s]",GetConfigName(cfg), mOwnerLookupTable[configValueString[cfg].owner].ownerName,
 					mOwnerLookupTable[configValueString[cfg].lastowner].ownerName,configValueString[cfg].value.c_str(),configValueString[cfg].lastvalue.c_str());
 		configValueString[cfg].owner = configValueString[cfg].lastowner;
 		configValueString[cfg].value = configValueString[cfg].lastvalue;
@@ -2133,7 +2133,7 @@ void AampConfig::ShowConfiguration(ConfigPriority owner)
 	{
 		if(configValueBool[i].owner == owner || owner == AAMP_MAX_SETTING)
 		{
-			AAMPLOG_WARN("Cfg [%-34s][%-5s][%s]", GetConfigName((AAMPConfigSettingBool)i), mOwnerLookupTable[configValueBool[i].owner].ownerName,configValueBool[i].value?"true":"false");
+			AAMPLOG_MIL("Cfg [%-34s][%-5s][%s]", GetConfigName((AAMPConfigSettingBool)i), mOwnerLookupTable[configValueBool[i].owner].ownerName,configValueBool[i].value?"true":"false");
 		}
 	}
 
@@ -2141,7 +2141,7 @@ void AampConfig::ShowConfiguration(ConfigPriority owner)
 	{
 		if(configValueInt[i].owner == owner || owner == AAMP_MAX_SETTING)
 		{
-			AAMPLOG_WARN("Cfg [%-34s][%-5s][%d]", GetConfigName((AAMPConfigSettingInt)i), mOwnerLookupTable[configValueInt[i].owner].ownerName,configValueInt[i].value);
+			AAMPLOG_MIL("Cfg [%-34s][%-5s][%d]", GetConfigName((AAMPConfigSettingInt)i), mOwnerLookupTable[configValueInt[i].owner].ownerName,configValueInt[i].value);
 		}
 	}
 
@@ -2149,7 +2149,7 @@ void AampConfig::ShowConfiguration(ConfigPriority owner)
 	{
 		if(configValueFloat[i].owner == owner || owner == AAMP_MAX_SETTING)
 		{
-			AAMPLOG_WARN("Cfg [%-34s][%-5s][%f]", GetConfigName((AAMPConfigSettingFloat)i), mOwnerLookupTable[configValueFloat[i].owner].ownerName,configValueFloat[i].value);
+			AAMPLOG_MIL("Cfg [%-34s][%-5s][%f]", GetConfigName((AAMPConfigSettingFloat)i), mOwnerLookupTable[configValueFloat[i].owner].ownerName,configValueFloat[i].value);
 		}
 	}
 
@@ -2157,7 +2157,7 @@ void AampConfig::ShowConfiguration(ConfigPriority owner)
 	{
 		if(configValueString[i].owner == owner || owner == AAMP_MAX_SETTING)
 		{
-			AAMPLOG_WARN("Cfg [%-34s][%-5s][%s]", GetConfigName((AAMPConfigSettingString)i), mOwnerLookupTable[configValueString[i].owner].ownerName,configValueString[i].value.c_str());
+			AAMPLOG_MIL("Cfg [%-34s][%-5s][%s]", GetConfigName((AAMPConfigSettingString)i), mOwnerLookupTable[configValueString[i].owner].ownerName,configValueString[i].value.c_str());
 		}
 	}
 

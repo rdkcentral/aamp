@@ -676,7 +676,7 @@ void gst_structure_free(GstStructure *structure)
 gboolean gst_init_check(int *argc, char **argv[], GError **error)
 {
 	TRACE_FUNC();
-	return FALSE;
+	return TRUE;
 }
 
 GstCaps *gst_caps_new_simple(const char *media_type, const char *fieldname, ...)

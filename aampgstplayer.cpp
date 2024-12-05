@@ -4826,8 +4826,8 @@ bool AAMPGstPlayer::IsMS2V12Supported()
 void AAMPGstPlayer::InitializeAAMPGstreamerPlugins()
 {
 	// Ensure GST is initialized
-	if (gst_init_check(nullptr, nullptr, nullptr)) {
-		AAMPLOG_WARN("gst_init_check() failed");
+	if (!gst_init_check(nullptr, nullptr, nullptr)) {
+		AAMPLOG_ERR("gst_init_check() failed");
 	}
 
 #ifdef AAMP_MPD_DRM
@@ -4924,8 +4924,8 @@ void AAMPGstPlayer::InitializeAAMPGstreamerPlugins()
 PlatformType AAMPGstPlayer::InferPlatformFromPluginScan()
 {
 	// Ensure GST is initialized
-	if (gst_init_check(nullptr, nullptr, nullptr)) {
-		AAMPLOG_WARN("gst_init_check() failed");
+	if (!gst_init_check(nullptr, nullptr, nullptr)) {
+		AAMPLOG_ERR("gst_init_check() failed");
 	}
 	static const std::pair<const char*, PlatformType> plugins[] = {
 		{"amlhalasink", ePLATFORM_AMLOGIC},
