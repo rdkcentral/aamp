@@ -149,11 +149,11 @@ function install_pkgs_linux_fn()
     install_package_fn libsystemd-dev
     install_package_fn jq
     install_package_fn libtinyxml2-dev
-    install_package_fn libwebkit2gtk-4.0-dev
 
     VER=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
     if [ ${VER:0:2} -ge 22 ]; then
+        install_package_fn libjavascriptcoregtk-4.1-dev
         # Install and verify the version of meson
         install_package_fn python3-pip
         pip_install_package_fn meson
@@ -170,9 +170,11 @@ function install_pkgs_linux_fn()
             return 1
         fi
     elif [ ${VER:0:2} -eq 20 ]; then
+        install_package_fn libjavascriptcoregtk-4.0-dev
         install_package_fn python3-pip
         pip_install_package_fn meson
     elif [ ${VER:0:2} -eq 18 ]; then
+        install_package_fn libjavascriptcoregtk-4.0-dev
         install_package_fn python3-pip
         pip_install_package_fn meson
     else
