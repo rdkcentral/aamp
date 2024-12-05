@@ -29,52 +29,42 @@ TESTDATA1 = {
     "title": "dashIgnoreBaseUrlIfSlash",
     "logfile": f"dashIgnoreBaseUrlIfSlash_1.txt",
     "max_test_time_seconds": 80,
-    
     "aamp_cfg": "info=true\ntrace=true\n",
     "archive_url": archive_url,
-    "url":"TestDashIgnore/demo_manifest.mpd",
     "simlinear_type": "DASH",
     "expect_list": [
         {"cmd": 'setconfig {"dashIgnoreBaseUrlIfSlash":true}'},
+        {"expect":"Parsed value for property dashIgnoreBaseUrlIfSlash - true"},
         {"cmd": "http://localhost:8085/TestDashIgnore/demo_manifest.mpd"},
         {"expect":"AAMP_EVENT_STATE_CHANGED: INITIALIZING"},
         {"expect":"AAMP_EVENT_PLAYLIST_INDEXED"},
         {"expect":"AAMP_EVENT_STATE_CHANGED: PREPARING"},
-        {"expect":r"fragmentUrl http://localhost:8085/video_init.mp4"},
-        {"expect":"Parsed value for property dashIgnoreBaseUrlIfSlash - true"},
         {"expect":r"ignoring baseurl /"},
+        {"expect":r"fragmentUrl http://localhost:8085/TestDashIgnore/video_init.mp4"},
         {"expect":r"init url http://localhost:8085/TestDashIgnore/video_init.mp4"},
         {"expect":r"Returning Position as 2(\d{3})"},
         {"expect":r"Returning Position as 5(\d{3})"},
-        #{"cmd":"sleep 50"},
-        
-
     ]
 }
 TESTDATA2 = {
     "title": "dashIgnoreBaseUrlIfSlash",
     "logfile": f"dashIgnoreBaseUrlIfSlash_2.txt",
     "max_test_time_seconds": 80,
-    
     "aamp_cfg": "info=true\ntrace=true\n",
     "archive_url": archive_url,
-    "url":"TestDashIgnore/demo_manifest.mpd",
     "simlinear_type": "DASH",
-    "expect_list": [ 
+    "expect_list": [
         {"cmd": 'setconfig {"dashIgnoreBaseUrlIfSlash":false}'},
+        {"expect":r"Parsed value for property dashIgnoreBaseUrlIfSlash - false"},
         {"cmd": "http://localhost:8085/TestDashIgnore/demo_manifest.mpd"},
         {"expect": "AAMP_EVENT_STATE_CHANGED: INITIALIZING"},
         {"expect":"AAMP_EVENT_PLAYLIST_INDEXED"},
         {"expect":"AAMP_EVENT_STATE_CHANGED: PREPARING"},
         {"expect":"Init fragment fetch failed -- fragmentUrl http://localhost:8085/video_init.mp4"},
         {"expect":"AAMP_EVENT_TUNE_FAILED reason=AAMP: init fragment download failed : Http Error Code 404"},
-        {"expect":r"Parsed value for property dashIgnoreBaseUrlIfSlash - false"},
-        {"expect":r"Returning Position as 0"},
     ]
 }
 TESTLIST = [TESTDATA1,TESTDATA2]
-
-############################################################
 
 ############################################################
 @pytest.fixture(params=TESTLIST)

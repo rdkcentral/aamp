@@ -385,6 +385,23 @@ class Aamp:
 
         self.create_aamp_cfg(testdata.get('aamp_cfg'))
 
+        # start aamp-cli
+        self.start_aamp()
+
+        # Optional list of commands to give to aamp before starting test proper
+        aamp_cmdlist = testdata.get('cmdlist', [])
+        for cmd in aamp_cmdlist:
+            self.sendline(cmd)
+            self.aamp_pexpect.expect('cmd: ')
+
+        url = testdata.get('url')
+        if self.simlinear and url is not None:
+            assert "http" not in url, f'url parameter cannot start with http for simlinear {url}'
+            self.sendline(self.simlinear.SL_URL+url)
+        elif url is not None:
+            assert "http" in url, f'url parameter should start with http {url}'
+            self.sendline(url)
+
     def run_expect_a(self, testdata):
         """
         Provides a simple sequential cmd and expected response structure for test data.
@@ -427,22 +444,8 @@ class Aamp:
 
         self.common_startup(testdata)
 
-        # start aamp-cli
-        self.start_aamp()
 
         start_time = time.time()
-
-        # Optional list of commands to give to aamp before starting test proper
-        aamp_cmdlist = testdata.get('cmdlist', [])
-        for cmd in aamp_cmdlist:
-            self.sendline(cmd)
-            self.aamp_pexpect.expect('cmd: ')
-
-        if self.simlinear:
-            self.sendline(self.simlinear.SL_URL+testdata["url"])
-        elif testdata.get('url') is not None:
-            self.sendline(testdata["url"])
-
         for idx, e in enumerate(testdata["expect_list"]):
             if e.get('expect') is not None:
                 try:
@@ -538,25 +541,9 @@ class Aamp:
         # Add a pattern which matches on the timestamp at the beginning of each log line
         expect_list.append(r"\n(\d{10})")
 
-        # A test can start aamp early to giv it some commands, in which case no need to start here
-        if self.aamp_pexpect is None:
-            self.start_aamp()
-
-        # Optional list of commands to give to aamp before starting test proper
-        aamp_cmdlist = testdata.get('cmdlist', [])
-        for cmd in aamp_cmdlist:
-            self.sendline(cmd)
-            self.aamp_pexpect.expect('cmd: ')
-
         expect_re = self.aamp_pexpect.compile_pattern_list(expect_list)
-
         # Send URL to start playing
         assert 'url' in testdata, "No url specified in test data"
-
-        if self.simlinear:
-            self.sendline(self.simlinear.SL_URL+testdata["url"])
-        else:
-            self.sendline(testdata["url"])
 
         start_time = time.time()
         end_of_test = False
