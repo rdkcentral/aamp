@@ -17,8 +17,8 @@
  * limitations under the License.
  */
 
-#ifndef INTERFACEPLAYER_H
-#define INTERFACEPLAYER_H
+#ifndef INTERFACE_PLAYER_H
+#define INTERFACE_PLAYER_H
 
 #include <map>
 #include <cstdint>
@@ -275,7 +275,7 @@ struct MonitorAVState
 	bool happy;
 };
 /**
- * @struct InterfacePlayerRDKPriv
+ * @struct GstPlayerPriv
  * @brief Holds private variables of InterfacePlayerRDK
  */
 struct GstPlayerPriv
@@ -1138,4 +1138,4 @@ struct data
 	bool GstWaitingForData;
 };
 
-#endif // INTERFACEPLAYER_H
+#endif // INTERFACE_PLAYER_H

@@ -31,6 +31,7 @@
 #include <iterator>
 #include <vector>
 #include <glib.h>
+#include <mutex>
 
 #define eCURL_MAX_AGE_TIME			( (300) * (1000) )			/**< 5 mins - 300 secs - Max age for a connection */
 
@@ -51,16 +52,11 @@ enum AampCurlStoreErrorCode
  */
 typedef struct curldatasharelock
 {
-	pthread_mutex_t mCurlSharedlock;
-	pthread_mutex_t mDnsCurlShareMutex;
-	pthread_mutex_t mSslCurlShareMutex;
+	std::mutex mCurlSharedlock;
+	std::mutex mDnsCurlShareMutex;
+	std::mutex mSslCurlShareMutex;
 
-	curldatasharelock():mCurlSharedlock(), mDnsCurlShareMutex(),mSslCurlShareMutex()
-	{
-		pthread_mutex_init(&mCurlSharedlock, NULL);
-		pthread_mutex_init(&mDnsCurlShareMutex, NULL);
-		pthread_mutex_init(&mSslCurlShareMutex, NULL);
-	}
+	curldatasharelock():mCurlSharedlock(), mDnsCurlShareMutex(),mSslCurlShareMutex(){}
 }CurlDataShareLock;
 
 typedef struct curlstruct

@@ -16,8 +16,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef PLAYERLOGMANAGER_H
-#define PLAYERLOGMANAGER_H
+#ifndef PLAYER_LOG_MANAGER_H
+#define PLAYER_LOG_MANAGER_H
 
 /**
  * @file PlayerLogManager.h
@@ -120,4 +120,4 @@ if( (LEVEL) >= PlayerLogManager::mwLoglevel ) \
 #define MW_LOG_MIL(FORMAT, ...)   MW_LOG(mLOGLEVEL_MIL, FORMAT, ##__VA_ARGS__)
 #define MW_LOG_ERR(FORMAT, ...)   MW_LOG(mLOGLEVEL_ERROR, FORMAT, ##__VA_ARGS__)
 
-#endif /* PLAYERLOGMANAGER_H */
+#endif /* PLAYER_LOG_MANAGER_H */

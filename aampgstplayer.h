@@ -31,7 +31,6 @@
 #include <stddef.h>
 #include <functional>
 #include <gst/gst.h>
-#include <pthread.h>
 #include "InterfacePlayerRDK.h"
 
 /**
@@ -426,9 +425,7 @@ public:
         void UnregisterFirstFrameCallbacks();
 
 private:
-
-	pthread_mutex_t mBufferingLock;
-
+	std::mutex mBufferingLock;
 	id3_callback_t m_ID3MetadataHandler; /**< Function to call to generate the JS event for in ID3 packet */
 
 public:

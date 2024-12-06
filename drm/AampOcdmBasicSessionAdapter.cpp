@@ -23,7 +23,6 @@
  */
 
 #include "AampOcdmBasicSessionAdapter.h"
-#include "AampMutex.h"
 
 int AAMPOCDMBasicSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const uint8_t *payloadData,
 										 uint32_t payloadDataSize, uint8_t **ppOpaqueData)
@@ -33,7 +32,7 @@ int AAMPOCDMBasicSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV,
 		return HDCP_COMPLIANCE_CHECK_FAILURE;
 	}
 
-	AampMutexHold decryptMutexHold(decryptMutex);
+	std::lock_guard<std::mutex> guard(decryptMutex);
 
 	uint8_t *dataToSend = const_cast<uint8_t *>(payloadData);
 	uint32_t sizeToSend = payloadDataSize;

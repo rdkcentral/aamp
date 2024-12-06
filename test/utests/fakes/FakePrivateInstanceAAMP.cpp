@@ -140,20 +140,10 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	zoom_mode(VIDEO_ZOOM_NONE),
 	mLocalAAMPTsb(false)
 {
-	pthread_cond_init(&waitforplaystart, NULL);
-	pthread_mutex_init(&mMutexPlaystart, NULL);
-#ifdef AAMP_HLS_DRM
-	pthread_mutex_init(&drmParserMutex, NULL);
-#endif
 }
 
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
-	pthread_cond_destroy(&waitforplaystart);
-	pthread_mutex_destroy(&mMutexPlaystart);
-#ifdef AAMP_HLS_DRM
-	pthread_mutex_destroy(&drmParserMutex);
-#endif
 }
 
 size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata )

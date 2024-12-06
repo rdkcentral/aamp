@@ -23,7 +23,6 @@
 */
 
 #include "ElementaryProcessor.h"
-#include <pthread.h>
 #include <assert.h>
 
 ElementaryProcessor::ElementaryProcessor(class PrivateInstanceAAMP *aamp)

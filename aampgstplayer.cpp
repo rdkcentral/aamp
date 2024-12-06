@@ -33,7 +33,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "priv_aamp.h"
-#include <pthread.h>
 #include <atomic>
 #include <algorithm>
 
@@ -405,7 +404,6 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		this->aamp = aamp;
 		// Initially set to this instance, can be changed by SetEncryptedAamp
 		this->mEncryptedAamp = aamp;
-		pthread_mutex_init(&mBufferingLock, NULL);
 		
 		this->cbExportYUVFrame = exportFrames;
 		playerInstance->gstCbExportYUVFrame = exportFrames;
@@ -437,7 +435,6 @@ AAMPGstPlayer::~AAMPGstPlayer()
 	UnregisterFirstFrameCallbacks();
 	playerInstance->DestroyPipeline();
 	SAFE_DELETE(privateContext);
-	pthread_mutex_destroy(&mBufferingLock);
 }
 
 /**
@@ -732,7 +729,6 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 	{
 		sendNewSegmentEvent = true;
 	}
-	
 	bool bPushBuffer = playerInstance->SendHelper(mediaType, ptr, len, fpts, fdts, fDuration, copy, initFragment, discontinuity, notifyFirstBufferProcessed, sendNewSegmentEvent, resetTrickUTC, firstBufferPushed);
 	if(sendNewSegmentEvent)
 	{
@@ -746,7 +742,6 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 	{
 		privateContext->mBufferControl[mediaType].notifyFragmentInject(this, mediaType, fpts, fdts, fDuration, discontinuity);
 	}
-	
 	if (eMEDIATYPE_VIDEO == mediaType)
 	{
 		// For westerossink, it will send first-video-frame-callback signal after each flush
@@ -1207,7 +1202,7 @@ std::string AAMPGstPlayer::GetVideoRectangle()
  */
 void AAMPGstPlayer::StopBuffering(bool forceStop)
 {
-	pthread_mutex_lock(&mBufferingLock);
+	std::lock_guard<std::mutex> guard(mBufferingLock);
 	//Check if we are in buffering
 	if (ISCONFIGSET(eAAMPConfig_ReportBufferEvent) && aamp->GetBufUnderFlowStatus())
 	{
@@ -1228,7 +1223,6 @@ void AAMPGstPlayer::StopBuffering(bool forceStop)
 			aamp->SendBufferChangeEvent();          /* To indicate buffer availability */
 		}
 	}
-	pthread_mutex_unlock(&mBufferingLock);
 }
 
 /**

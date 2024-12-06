@@ -25,7 +25,6 @@
 #include "priv_aamp.h"
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <signal.h>
 #include <assert.h>
 #include "AampUtils.h"
