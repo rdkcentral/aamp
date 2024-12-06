@@ -313,7 +313,7 @@ int AAMPOCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuff
 		}
 		else
 		{
-			pthread_mutex_lock(&decryptMutex);
+			std::lock_guard<std::mutex> guard(decryptMutex);
 			uint64_t start_decrypt_time = GetCurrentTimeStampInMSec();
 
 			/* Added GST_IS_CAPS check also before passing gst caps to OCDM decrypt() as gst_caps_is_empty returns false when caps object is not of 
@@ -374,8 +374,6 @@ int AAMPOCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuff
 				}
 				gst_buffer_unmap(buffer, &mapInfo);
 			}
-
-			pthread_mutex_unlock(&decryptMutex);
 		}
 	}
 	return retValue;
@@ -391,37 +389,39 @@ int AAMPOCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, c
 		{
 			return HDCP_COMPLIANCE_CHECK_FAILURE;
 		}
-		pthread_mutex_lock(&decryptMutex);
-
-		EncryptionScheme encScheme = AesCtr_Cenc;
-		EncryptionPattern pattern = {0};
-		/* CID:313718 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
-		retValue = opencdm_session_decrypt(m_pOpenCDMSession, (uint8_t *)payloadData, payloadDataSize, encScheme, pattern, f_pbIV, f_cbIV, NULL, 0, 0);
-		if (retValue != 0)
+		else
 		{
+			std::lock_guard<std::mutex> guard(decryptMutex);
+			EncryptionScheme encScheme = AesCtr_Cenc;
+			EncryptionPattern pattern = {0};
+			/* CID:313718 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
+			retValue = opencdm_session_decrypt(m_pOpenCDMSession, (uint8_t *)payloadData, payloadDataSize, encScheme, pattern, f_pbIV, f_cbIV, NULL, 0, 0);
+			if (retValue != 0)
+			{
 #ifdef USE_THUNDER_OCDM_API_0_2
-			KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, NULL, 0);
+				KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, NULL, 0);
 #else
-			KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, NULL, 0);
+				KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, NULL, 0);
 #endif
-			AAMPLOG_INFO("AAMPOCDMSessionAdapter:%s : decrypt returned : %d key status is : %d", __FUNCTION__, retValue, keyStatus);
+				AAMPLOG_INFO("AAMPOCDMSessionAdapter:%s : decrypt returned : %d key status is : %d", __FUNCTION__, retValue, keyStatus);
 #ifdef USE_THUNDER_OCDM_API_0_2
-			if (keyStatus == OutputRestricted){
+				if (keyStatus == OutputRestricted)
 #else
-			if(keyStatus == KeyStatus::OutputRestricted){
+				if(keyStatus == KeyStatus::OutputRestricted)
 #endif
-				retValue = HDCP_OUTPUT_PROTECTION_FAILURE;
-			}
+				{
+					retValue = HDCP_OUTPUT_PROTECTION_FAILURE;
+				}
 #ifdef USE_THUNDER_OCDM_API_0_2
-			else if (keyStatus == OutputRestrictedHDCP22){
+				else if (keyStatus == OutputRestrictedHDCP22)
 #else
-			else if(keyStatus == KeyStatus::OutputRestrictedHDCP22){
+				else if(keyStatus == KeyStatus::OutputRestrictedHDCP22)
 #endif
-				retValue = HDCP_COMPLIANCE_CHECK_FAILURE;
+				{
+					retValue = HDCP_COMPLIANCE_CHECK_FAILURE;
+				}
 			}
 		}
-
-		pthread_mutex_unlock(&decryptMutex);
 	}
 	return retValue;
 }

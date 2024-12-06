@@ -38,7 +38,6 @@ using ::testing::Return;
 using ::testing::NiceMock;
 using ::testing::AnyNumber;
 
-
 class TextStyleTests : public ::testing::Test
 {
 protected:

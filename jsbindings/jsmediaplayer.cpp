@@ -179,7 +179,7 @@ std::vector<AAMPMediaPlayer_JS *> AAMPMediaPlayer_JS::_jsMediaPlayerInstances = 
 /**
  * @brief Mutex for global cache of AAMPMediaPlayer_JS instances
  */
-static pthread_mutex_t jsMediaPlayerCacheMutex = PTHREAD_MUTEX_INITIALIZER;
+static std::mutex jsMediaPlayerCacheMutex;
 
 /**
  * @brief Helper function to parse a JS property value as number
@@ -339,7 +339,7 @@ static bool findInGlobalCacheAndRelease(AAMPMediaPlayer_JS *privObj)
 
 	if (privObj != NULL)
 	{
-		pthread_mutex_lock(&jsMediaPlayerCacheMutex);
+		std::unique_lock<std::mutex> lock(jsMediaPlayerCacheMutex);
 		for (std::vector<AAMPMediaPlayer_JS *>::iterator iter = AAMPMediaPlayer_JS::_jsMediaPlayerInstances.begin(); iter != AAMPMediaPlayer_JS::_jsMediaPlayerInstances.end(); iter++)
 		{
 			if (privObj == *iter)
@@ -350,7 +350,7 @@ static bool findInGlobalCacheAndRelease(AAMPMediaPlayer_JS *privObj)
 				break;
 			}
 		}
-		pthread_mutex_unlock(&jsMediaPlayerCacheMutex);
+		lock.unlock();
 
 		if (found)
 		{
@@ -3864,9 +3864,10 @@ JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef c
 	// In this case AAMPMediaPlayer_JS should be available to access
 	JSObjectRef newObj = JSObjectMake(ctx, AAMPMediaPlayer_object_ref(), privObj);
 
-	pthread_mutex_lock(&jsMediaPlayerCacheMutex);
-	AAMPMediaPlayer_JS::_jsMediaPlayerInstances.push_back(privObj);
-	pthread_mutex_unlock(&jsMediaPlayerCacheMutex);
+	{
+		std::lock_guard<std::mutex> guard(jsMediaPlayerCacheMutex);
+		AAMPMediaPlayer_JS::_jsMediaPlayerInstances.push_back(privObj);
+	}
 
 	// Add a dummy event listener without any function callback.
 	// Upto JS application to register a common callback function for AAMP to notify ad resolve status
@@ -3917,7 +3918,6 @@ static JSClassDefinition AAMPMediaPlayer_JS_class_def {
  */
 void ClearAAMPPlayerInstances(void)
 {
-	pthread_mutex_lock(&jsMediaPlayerCacheMutex);
 	LOG_WARN_EX("Number of active jsmediaplayer instances: %zu", AAMPMediaPlayer_JS::_jsMediaPlayerInstances.size());
 	while(AAMPMediaPlayer_JS::_jsMediaPlayerInstances.size() > 0)
 	{
@@ -3925,7 +3925,6 @@ void ClearAAMPPlayerInstances(void)
 		releaseNativeResources(obj);
 		AAMPMediaPlayer_JS::_jsMediaPlayerInstances.pop_back();
 	}
-	pthread_mutex_unlock(&jsMediaPlayerCacheMutex);
 }
 
 class XREReceiver_onEventHandler
@@ -4204,7 +4203,10 @@ void AAMPPlayer_UnloadJS(void* context)
 	JSGlobalContextRef jsContext = (JSGlobalContextRef)context;
 
 	//Clear all active js mediaplayer instances and its resources
-	ClearAAMPPlayerInstances();
+	{
+		std::lock_guard<std::mutex> guard(jsMediaPlayerCacheMutex);
+		ClearAAMPPlayerInstances();
+	}
 
 	JSObjectRef globalObj = JSContextGetGlobalObject(jsContext);
 	JSStringRef str = JSStringCreateWithUTF8CString("AAMPMediaPlayer");

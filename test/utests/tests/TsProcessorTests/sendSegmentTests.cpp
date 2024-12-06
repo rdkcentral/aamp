@@ -155,11 +155,6 @@ protected:
             updatePATPMT();
         }
  
-        void CallabortUnlocked()
-        {
-            abortUnlocked();
-        }
- 
         bool CallprocessBuffer(unsigned char *buffer, int size, bool &insPatPmt, bool discontinuity_pending)
         {
             bool BufferResult = processBuffer(buffer, size, insPatPmt, discontinuity_pending);
@@ -783,11 +778,6 @@ TEST_F(sendSegmentTests, CallgetSExpGolombTest3)
 TEST_F(sendSegmentTests, CallupdatePATPMTTest)
 {
     mTSProcessor->CallupdatePATPMT();
-}
- 
-TEST_F(sendSegmentTests, CallabortUnlockedTest)
-{
-    mTSProcessor->CallabortUnlocked();
 }
  
 TEST_F(sendSegmentTests, CallgetCurrentTimeTest)

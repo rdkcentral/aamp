@@ -25,10 +25,8 @@
 
 #include "AampDRMSessionManager.h"
 #include "priv_aamp.h"
-#include <pthread.h>
 #include "_base64.h"
 #include <iostream>
-#include "AampMutex.h"
 #include "AampDrmHelper.h"
 #include "AampJsonObject.h"
 #include "AampUtils.h"
@@ -95,8 +93,8 @@ std::string getFormattedLicenseServerURL( const std::string &url)
  */
 AampDRMSessionManager::AampDRMSessionManager(int maxDrmSessions, PrivateInstanceAAMP *aamp) : drmSessionContexts(NULL),
 		cachedKeyIDs(NULL), accessToken(NULL),
-		accessTokenLen(0), sessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE), accessTokenMutex(PTHREAD_MUTEX_INITIALIZER),
-		cachedKeyMutex(PTHREAD_MUTEX_INITIALIZER)
+		accessTokenLen(0), sessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE), accessTokenMutex(),
+		cachedKeyMutex()
 		,mEnableAccessAttributes(true)
 		,mDrmSessionLock(), licenseRequestAbort(false)
 		,mMaxDRMSessions(maxDrmSessions)
@@ -115,7 +113,6 @@ AampDRMSessionManager::AampDRMSessionManager(int maxDrmSessions, PrivateInstance
 	cachedKeyIDs		= new KeyID[mMaxDRMSessions];
 	mLicenseRenewalThreads.resize(mMaxDRMSessions);
 	AAMPLOG_INFO("AampDRMSessionManager MaxSession:%d",mMaxDRMSessions);
-	pthread_mutex_init(&mDrmSessionLock, NULL);
 	mLicensePrefetcher = new AampLicensePreFetcher(aamp);
 	mLicensePrefetcher->Init();
 }
@@ -131,9 +128,6 @@ AampDRMSessionManager::~AampDRMSessionManager()
 	releaseLicenseRenewalThreads();
 	SAFE_DELETE_ARRAY(drmSessionContexts);
 	SAFE_DELETE_ARRAY(cachedKeyIDs);
-	pthread_mutex_destroy(&mDrmSessionLock);
-	pthread_mutex_destroy(&accessTokenMutex);
-	pthread_mutex_destroy(&cachedKeyMutex);
 }
 
 /**
@@ -250,12 +244,13 @@ void AampDRMSessionManager::clearSessionData()
 			drmSessionContexts[i] = DrmSessionContext();
 		}
 
-		(void)pthread_mutex_lock(&cachedKeyMutex);
-		if (cachedKeyIDs != NULL)
 		{
-			cachedKeyIDs[i] = KeyID();
-		}		
-		(void)pthread_mutex_unlock(&cachedKeyMutex);
+			std::lock_guard<std::mutex> guard(cachedKeyMutex);
+			if (cachedKeyIDs != NULL)
+			{
+				cachedKeyIDs[i] = KeyID();
+			}
+		}
 	}
 }
 
@@ -289,7 +284,7 @@ void AampDRMSessionManager::setLicenseRequestAbort(bool isAbort)
  */
 void AampDRMSessionManager::clearFailedKeyIds()
 {
-	pthread_mutex_lock(&cachedKeyMutex);
+	std::lock_guard<std::mutex> guard(cachedKeyMutex);
 	for(int i = 0 ; i < mMaxDRMSessions; i++)
 	{
 		if(cachedKeyIDs[i].isFailedKeyId)
@@ -303,7 +298,6 @@ void AampDRMSessionManager::clearFailedKeyIds()
 		}
 		cachedKeyIDs[i].isPrimaryKeyId = false;
 	}
-	pthread_mutex_unlock(&cachedKeyMutex);
 }
 
 /**
@@ -329,7 +323,7 @@ void AampDRMSessionManager::clearDrmSession(bool forceClearSession)
 		// Clear the session data if license key acquisition failed or if forceClearSession is true in the case of LicenseCaching is false.
 		if((cachedKeyIDs[i].isFailedKeyId || forceClearSession) && drmSessionContexts != NULL)
 		{
-			AampMutexHold sessionMutex(drmSessionContexts[i].sessionMutex);
+			std::lock_guard<std::mutex> guard(drmSessionContexts[i].sessionMutex);
 			if (drmSessionContexts[i].drmSession != NULL)
 			{
 				AAMPLOG_WARN("AampDRMSessionManager:: Clearing failed Session Data Slot : %d", i);
@@ -558,7 +552,7 @@ const char * AampDRMSessionManager::getAccessToken(int &tokenLen, int &error_cod
 bool AampDRMSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &status)
 {
 	bool ret = false;
-	pthread_mutex_lock(&cachedKeyMutex);
+	std::lock_guard<std::mutex> guard(cachedKeyMutex);
 	for (int sessionSlot = 0; sessionSlot < mMaxDRMSessions; sessionSlot++)
 	{
 		auto keyIDSlot = cachedKeyIDs[sessionSlot].data;
@@ -571,8 +565,6 @@ bool AampDRMSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bo
 			break;
 		}
 	}
-	pthread_mutex_unlock(&cachedKeyMutex);
-
 	return ret;
 }
 
@@ -777,7 +769,7 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 int AampDRMSessionManager::getSlotIdForSession(AampDrmSession* session)
 {
 	int slot = -1;
-	AampMutexHold drmSessionLock(mDrmSessionLock);
+	std::lock_guard<std::mutex> guard(mDrmSessionLock);
 
 	if (drmSessionContexts != NULL)
 	{
@@ -1120,7 +1112,7 @@ AampDrmSession* AampDRMSessionManager::createDrmSession(std::shared_ptr<AampDrmH
 	}
 
 	// protect createDrmSession multi-thread calls; found during PR 4.0 DRM testing
-	AampMutexHold drmSessionLock(mDrmSessionLock);
+	std::lock_guard<std::mutex> guard(mDrmSessionLock);
 
 	int cdmError = -1;
 	KeyState code = KEY_ERROR;
@@ -1170,7 +1162,7 @@ AampDrmSession* AampDRMSessionManager::createDrmSession(std::shared_ptr<AampDrmH
 	if (code != KEY_INIT)
 	{
 		AAMPLOG_WARN(" Unable to initialize DrmSession : Key State %d ", code);
-		AampMutexHold keymutex(cachedKeyMutex);
+		std::lock_guard<std::mutex> guard(cachedKeyMutex);
  		cachedKeyIDs[selectedSlot].isFailedKeyId = true;
 		return nullptr;
 	}
@@ -1178,7 +1170,7 @@ AampDrmSession* AampDRMSessionManager::createDrmSession(std::shared_ptr<AampDrmH
 	if(aampInstance->mIsFakeTune)
 	{
 		AAMPLOG_MIL( "Exiting fake tune after DRM initialization.");
-		AampMutexHold keymutex(cachedKeyMutex);
+		std::lock_guard<std::mutex> guard(cachedKeyMutex);
 		cachedKeyIDs[selectedSlot].isFailedKeyId = true;
 		return nullptr;
 	}
@@ -1187,7 +1179,7 @@ AampDrmSession* AampDRMSessionManager::createDrmSession(std::shared_ptr<AampDrmH
 	if (code != KEY_READY)
 	{
 		AAMPLOG_WARN(" Unable to get Ready Status DrmSession : Key State %d ", code);
-		AampMutexHold keymutex(cachedKeyMutex);
+		std::lock_guard<std::mutex> guard(cachedKeyMutex);
 		cachedKeyIDs[selectedSlot].isFailedKeyId = true;
 		return nullptr;
 	}
@@ -1243,7 +1235,7 @@ KeyState AampDRMSessionManager::getDrmSession(std::shared_ptr<AampDrmHelper> drm
 	int sessionSlot = 0;
 
 	{
-		AampMutexHold keymutex(cachedKeyMutex);
+		std::lock_guard<std::mutex> guard(cachedKeyMutex);
 
 		for (; sessionSlot < mMaxDRMSessions; sessionSlot++)
 		{
@@ -1326,7 +1318,7 @@ KeyState AampDRMSessionManager::getDrmSession(std::shared_ptr<AampDrmHelper> drm
 
 	selectedSlot = sessionSlot;
 	const std::string systemId = drmHelper->ocdmSystemId();
-	AampMutexHold sessionMutex(drmSessionContexts[sessionSlot].sessionMutex);
+	std::lock_guard<std::mutex> guard(drmSessionContexts[sessionSlot].sessionMutex);
 	if (drmSessionContexts[sessionSlot].drmSession != NULL)
 	{
 		if (drmHelper->ocdmSystemId() != drmSessionContexts[sessionSlot].drmSession->getKeySystem())
@@ -1368,7 +1360,7 @@ KeyState AampDRMSessionManager::getDrmSession(std::shared_ptr<AampDrmHelper> drm
 				}
 				AAMPLOG_WARN("key was never ready for %s ", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
 				//CID-164094 : Added the mutex lock due to overriding the isFailedKeyId variable
-				AampMutexHold keymutex(cachedKeyMutex);
+				std::lock_guard<std::mutex> guard(cachedKeyMutex);
 				cachedKeyIDs[selectedSlot].isFailedKeyId = true;
 				return KEY_ERROR;
 			}
@@ -1376,7 +1368,7 @@ KeyState AampDRMSessionManager::getDrmSession(std::shared_ptr<AampDrmHelper> drm
 			{
 				AAMPLOG_WARN("existing DRM session for %s has error state %d", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str(), existingState);
 				//CID-164094 : Added the mutex lock due to overriding the isFailedKeyId variable
-				AampMutexHold keymutex(cachedKeyMutex);
+				std::lock_guard<std::mutex> guard(cachedKeyMutex);
 				cachedKeyIDs[selectedSlot].isFailedKeyId = true;
 				return KEY_ERROR;
 			}
@@ -1428,7 +1420,7 @@ KeyState AampDRMSessionManager::initializeDrmSession(std::shared_ptr<AampDrmHelp
 	std::vector<uint8_t> drmInitData;
 	drmHelper->createInitData(drmInitData);
 
-	AampMutexHold sessionMutex(drmSessionContexts[sessionSlot].sessionMutex);
+	std::lock_guard<std::mutex> guard(drmSessionContexts[sessionSlot].sessionMutex);
 	std::string customData = aampInstance->GetLicenseCustomData();
 	AAMPLOG_INFO("DRM session Custom Data - %s ", customData.empty()?"NULL":customData.c_str());
 	drmSessionContexts[sessionSlot].drmSession->generateAampDRMSession(drmInitData.data(), (uint32_t)drmInitData.size(), customData);
@@ -1474,7 +1466,7 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 	}
 	else
 	{
-		AampMutexHold sessionMutex(drmSessionContexts[sessionSlot].sessionMutex);
+		std::lock_guard<std::mutex> guard(drmSessionContexts[sessionSlot].sessionMutex);
 
 		/**
 		 * Generate a License challenge from the CDM
@@ -1508,7 +1500,7 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 
 			if (!(drmHelper->getDrmMetaData().empty() || anonymousLicenceReq))
 			{
-				AampMutexHold accessTokenMutexHold(accessTokenMutex);
+				std::lock_guard<std::mutex> guard(accessTokenMutex);
 
 				int tokenLen = 0;
 				int tokenError = 0;
@@ -1918,18 +1910,17 @@ void AampDRMSessionManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aam
 	if(!DRM_Config_Available) {
 		ContentProtectionDataEventPtr eventData = std::make_shared<ContentProtectionDataEvent>(keyId, contentType, aampInstance->GetSessionId());
 		std::string keyIdDebugStr = AampLogManager::getHexDebugStr(keyId);
-		pthread_mutex_lock(&aampInstance->mDynamicDrmUpdateLock);
-		int pthreadReturnValue = 0;
-		struct timespec ts;
+		std::unique_lock<std::recursive_mutex> lock(aampInstance->mDynamicDrmUpdateLock);
 		int drmUpdateTimeout = aampInstance->mConfig->GetConfigValue(eAAMPConfig_ContentProtectionDataUpdateTimeout);
 		AAMPLOG_WARN("Timeout Wait for DRM config message from application :%d",drmUpdateTimeout);
-		ts = aamp_GetTimespec(drmUpdateTimeout); /** max delay to update dynamic drm on key rotation **/
 		AAMPLOG_INFO("Found new KeyId %s and not in drm config cache, sending ContentProtectionDataEvent to App", keyIdDebugStr.c_str());
 		aampInstance->SendEvent(eventData);
-		pthreadReturnValue = pthread_cond_timedwait(&aampInstance->mWaitForDynamicDRMToUpdate, &aampInstance->mDynamicDrmUpdateLock, &ts);
-		if (ETIMEDOUT == pthreadReturnValue)
+		if( std::cv_status::timeout ==
+		   aampInstance->mWaitForDynamicDRMToUpdate.wait_for(
+															 lock,
+															std::chrono::milliseconds(drmUpdateTimeout) ) )
 		{
-			AAMPLOG_WARN("pthread_cond_timedwait returned TIMEOUT, Applying Default config");
+			AAMPLOG_WARN("cond_timedwait returned TIMEOUT, Applying Default config");
 			DynamicDrmInfo dynamicDrmCache = aampInstance->mDynamicDrmDefaultconfig;
 			std::map<std::string,std::string>::iterator itr;
 			for(itr = dynamicDrmCache.licenseEndPoint.begin();itr!=dynamicDrmCache.licenseEndPoint.end();itr++) {
@@ -1946,15 +1937,10 @@ void AampDRMSessionManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aam
 			aampInstance->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING,eAAMPConfig_AuthToken,dynamicDrmCache.authToken);
 			aampInstance->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING,eAAMPConfig_CustomLicenseData,dynamicDrmCache.customData);
 		}
-		else if (0 != pthreadReturnValue)
-		{
-			AAMPLOG_WARN("pthread_cond_timedwait returned %s ", strerror(pthreadReturnValue));
-		}
 		else
 		{
-			AAMPLOG_WARN("%s:%d [WARN] pthread_cond_timedwait(dynamicDrmUpdate) returned success!", __FUNCTION__, __LINE__);
+			AAMPLOG_WARN("%s:%d [WARN] cond_timedwait(dynamicDrmUpdate) returned success!", __FUNCTION__, __LINE__);
 		}
-		pthread_mutex_unlock(&aampInstance->mDynamicDrmUpdateLock);
 	}
 }
 
