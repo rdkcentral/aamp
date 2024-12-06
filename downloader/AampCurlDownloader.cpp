@@ -159,7 +159,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 {
 	int httpRetVal=0;
 	int curlRetVal=0;
-	int retryCount = mDnldCfg->iDownloadRetryCount;
+	int retryCount = mDnldCfg?mDnldCfg->iDownloadRetryCount:0;
 	if(urlStr.size() == 0 || dnldData == nullptr)
 	{
 		AAMPLOG_ERR("Invalid inputs provided for download . Check the arguements. Url[%s] dnldData is Null[%d]", urlStr.c_str(), (dnldData == nullptr));
