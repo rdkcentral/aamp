@@ -27,9 +27,11 @@ import pytest
 from inspect import getsourcefile
 
 
-TEST_DATA_PART = [
-
-    [
+TESTDATA1 = {
+     "title": f"Test multi audio profile",
+     "max_test_time_seconds": 90,
+     "aamp_cfg": f"info=true\ntrace=true\nabr=false\n",
+     "expect_list": [
         {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
         {"cmd": "set 42 2"},
         {"expect": "Matched Command AudioTrack - set 42 2"},
@@ -38,9 +40,8 @@ TEST_DATA_PART = [
         {"expect": "\"codec\":\t\"mp4a.40.2\","},
         {"expect": "\"bandwidth\":\t288000,"},
         {"expect": "\"type\":\t\"audio\""},
-    ],
-    [
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+
+	{"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
         {"cmd": "set 42 0"},
         {"expect": "Matched Command AudioTrack - set 42 0"},
         {"cmd": "get 26"},
@@ -48,9 +49,8 @@ TEST_DATA_PART = [
         {"expect": "\"codec\":\t\"mp4a.40.2\","},
         {"expect": "\"bandwidth\":\t288000,"},
         {"expect": "\"type\":\t\"audio\""},
-    ],
-    [
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+
+	{"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
         {"cmd": "set 42 4"},
         {"expect": "Matched Command AudioTrack - set 42 4"},
         {"cmd": "get 26"},
@@ -58,9 +58,8 @@ TEST_DATA_PART = [
         {"expect": "\"codec\":\t\"mp4a.40.2\","},
         {"expect": "\"bandwidth\":\t288000,"},
         {"expect": "\"type\":\t\"audio\""},
-    ],
-    [
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+
+	{"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
         {"cmd": "set 42 6"},
         {"expect": "Matched Command AudioTrack - set 42 6"},
         {"cmd": "get 26"},
@@ -68,9 +67,8 @@ TEST_DATA_PART = [
         {"expect": "\"codec\":\t\"mp4a.40.2\","},
         {"expect": "\"bandwidth\":\t288000,"},
         {"expect": "\"type\":\t\"audio\""},
-    ],
-    [
-        {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+
+	{"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
         {"cmd": "set 42 8"},
         {"expect": "Matched Command AudioTrack - set 42 8"},
         {"cmd": "get 26"},
@@ -79,10 +77,33 @@ TEST_DATA_PART = [
         {"expect": "\"bandwidth\":\t288000,"},
         {"expect": "\"type\":\t\"audio\""},
     ]
-]
+}
 
+TESTDATA2 = {
+     "title": f"test hls muxed audio",
+     "max_test_time_seconds": 30,
+     "aamp_cfg": f"info=true\nprogress=true\nenablePublishingMuxedAudio=true\n",
+     "expect_list": [
 
-@pytest.fixture(params=TEST_DATA_PART)
+	{"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/muxed/main_mux.m3u8"},
+	{"expect": r"aamp_tune","min":0, "max":1},
+	{"cmd": "sleep 4000"},
+        {"expect": "sleeping for 4.000000 seconds"},
+        {"cmd":"get 20"},
+        {"expect": "\"language\":\t\"eng\","},
+        {"cmd": "set 42 2"},
+        {"expect": "Parsed preferred lang: deu"},
+	{"cmd": "sleep 4000"},
+        {"expect": "sleeping for 4.000000 seconds"},
+        {"cmd": "get 26"},
+        {"expect": "\"language\":\t\"deu\","},
+        {"expect": "\"codec\":\t\"mp4a.40.2\","},
+        {"expect": "\"characteristics\":\t\"muxed-audio\""},
+     ]
+}
+
+TESTDATA = [TESTDATA1,TESTDATA2]
+@pytest.fixture(params=TESTDATA)
 def test_data(request):
     return request.param
 
@@ -91,17 +112,9 @@ def test_data(request):
 
 
 def test_13004(aamp_setup_teardown,test_data):
-
-    full_test_data = {
-        "title": "Test multi audio profile",
-        "max_test_time_seconds": 90,
-        "aamp_cfg": "info=true\ntrace=true\nabr=false\n",
-        "expect_list": test_data
-    }
-
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    aamp.run_expect_a(full_test_data)
+    aamp.run_expect_a(test_data)
 
 
 

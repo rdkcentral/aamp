@@ -575,6 +575,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 	if (audioComponentCount > 0)
 	{
 		std::vector<AudioTrackInfo> audioTracks;
+		std::map<std::string, int> languageCount;
 		for(int i=0; i< audioComponentCount; i++)
 		{
 			std::string index = "mux-" + std::to_string(i);
@@ -584,7 +585,14 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 				language = Getiso639map_NormalizeLanguageCode(audioComponents[i].associatedLanguage,aamp->GetLangCodePreference());
 			}
 			std::string group_id = m_audioGroupId;
-			std::string name = "pid-" + std::to_string(audioComponents[i].pid);
+			std::string name = language; // use 3 character language code as default track name
+			// Note that we COULD map the full human-readable language name (i.e. eng -> English) here,
+			// but better to let the UI layer localize, if required.
+			// Video engine doesn't know if "German" or "Deutsch" is better as track name.
+			int count = ++languageCount[language];
+			if (count > 1) { // append suffix to make unique if needed
+				name += std::to_string(count);
+			}
 			std::string characteristics = "muxed-audio";
 			StreamOutputFormat streamtype = getStreamFormatForCodecType(audioComponents[i].elemStreamType);
 			std::string codec = GetAudioFormatStringForCodec(streamtype);
