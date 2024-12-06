@@ -1,3 +1,6 @@
+Source: COMCAST
+Upstream-Status: Pending
+Notice: Code in patch files takes the license of the source which is being patched.
 --- a/JsonHelper.cpp	2024-03-07 16:33:38.158962188 +0000
 +++ b/JsonHelper.cpp	2024-03-07 17:03:08.693947151 +0000
 @@ -400,17 +400,17 @@

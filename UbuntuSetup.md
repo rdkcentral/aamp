@@ -140,9 +140,9 @@ cd aamp
 
 **5. Create /opt/aampcli.cfg with below content for a virtual channel list of assets that could be loaded in aamp-cli**
 ```
-*1 HOSTED_FRAGMP4 https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main_mp4.m3u8
-*2 HOSTED_HLS https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.m3u8
-*3 HOSTED_DASH https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd
+*1 HOSTED_FRAGMP4 https://example.com/VideoTestStream/main_mp4.m3u8
+*2 HOSTED_HLS https://example.com/VideoTestStream/main.m3u8
+*3 HOSTED_DASH https://example.com/VideoTestStream/main.mpd
 ```
 
 ## Execute binaries

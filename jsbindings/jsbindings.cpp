@@ -4726,7 +4726,7 @@ void aamp_UnloadJS(void* context)
 				// So it makes sense to remove the object when webpage is unloaded.
 				AAMP_finalize(aampObj);
 			}
-			// Per comments in DELIA-48964, use JSObjectDeleteProperty instead of JSObjectSetProperty when trying to invalidate a read-only property
+			//use JSObjectDeleteProperty instead of JSObjectSetProperty when trying to invalidate a read-only property
 			JSObjectDeleteProperty(jsContext, globalObj, str, NULL);
 			
 			// Force a garbage collection to clean-up all AAMP objects.

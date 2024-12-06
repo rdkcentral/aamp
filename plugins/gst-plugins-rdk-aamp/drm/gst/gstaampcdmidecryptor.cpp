@@ -2,16 +2,16 @@
 * Copyright 2018 RDK Management
 *
 * This library is free software; you can redistribute it and/or
-* modify it under the terms of the GNU Library General Public
-* License as published by the Free Software Foundation, version 2
+* modify it under the terms of the GNU Lesser General Public
+* License as published by the Free Software Foundation, version 2.1
 * of the license.
 *
 * This library is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-* Library General Public License for more details.
+* Lesser General Public License for more details.
 *
-* You should have received a copy of the GNU Library General Public
+* You should have received a copy of the GNU Lesser General Public
 * License along with this library; if not, write to the
 * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
 * Boston, MA 02110-1301, USA.
@@ -326,7 +326,7 @@ gst_aampcdmidecryptor_transform_caps(GstBaseTransform * trans,
 			{
 				GST_DEBUG_OBJECT(trans, "No original-media-type field in caps: %" GST_PTR_FORMAT, out);
 
-				// BCOM-4645: Check if these caps are present in supported src pad caps in case direction is GST_PAD_SINK,
+				// Check if these caps are present in supported src pad caps in case direction is GST_PAD_SINK,
 				// we can allow caps in this case, since plugin will let the data passthrough
 				gboolean found = false;
 				for (int j = 0; srcMimeTypes[j]; j++)
@@ -1315,14 +1315,14 @@ static gboolean gst_aampcdmidecryptor_sink_event(GstBaseTransform * trans,
 		}
 		if (NULL == aampcdmidecryptor->drmSession)
 		{
-/* For DELIA-32832 - Avoided setting 'streamReceived' as FALSE if createDrmSession() failed after a successful case.
+/* For  Avoided setting 'streamReceived' as FALSE if createDrmSession() failed after a successful case.
  * Set to FALSE is already handled on gst_aampcdmidecryptor_init() as part of initialization.
  */
 #if 0
 			aampcdmidecryptor->streamReceived = FALSE;
 #endif /* 0 */
 
-			/* DELIA-46675-Need to reset canWait to skip conditional wait in "gst_aampcdmidecryptor_transform_ip to avoid deadlock
+			/* Need to reset canWait to skip conditional wait in "gst_aampcdmidecryptor_transform_ip to avoid deadlock
 			 *		scenario on drm session failure
 			 */
 			aampcdmidecryptor->canWait = false;
@@ -1503,7 +1503,7 @@ static gboolean gst_aampcdmidecryptor_accept_caps(GstBaseTransform * trans,
 		gst_caps_unref(allowedCaps);
 	}
 
-	// BCOM-4645: Check if these are same as src pad caps in case direction is GST_PAD_SINK,
+	// Check if these are same as src pad caps in case direction is GST_PAD_SINK,
 	// we can let it through in this case
 	if (ret == FALSE && direction == GST_PAD_SINK)
 	{

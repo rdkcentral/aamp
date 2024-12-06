@@ -3100,7 +3100,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 
 			// Reset with injected position from StreamAbstractionAAMP. This ensures that any drift in
 			// GStreamer position reporting is taken care of.
-			// BCOM-4765: Set seek_pos_seconds to injected position only in case of westerossink. In cases with
+			// Set seek_pos_seconds to injected position only in case of westerossink. In cases with
 			// brcmvideodecoder, we have noticed a drift of 500ms for HLS-TS assets (due to PTS restamping
 			if (injectedPosition != 0 && (fabs(injectedPosition - newPosition) < 5.0) && ISCONFIGSET_PRIV(eAAMPConfig_UseWesterosSink))
 			{
@@ -5915,7 +5915,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	//temporary hack for peacock
 	if (strcasestr(mAppName.c_str(), "peacock"))
 	{
-		// Enable PTS Restamping only for Peacock App on BCOM
+		// Enable PTS Restamping only for Peacock App on specific platform
 		switch( GetPlatformType() )
 		{
 		case ePLATFORM_BROADCOM:
@@ -13640,7 +13640,7 @@ void PrivateInstanceAAMP::updateManifest(const char *manifestData)
 
 bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
 {
-	// On AMLOGIC platform decrypt is called by the decryptor gstreamer plugin even for clear samples in order to
+	// On some platform decrypt is called by the decryptor gstreamer plugin even for clear samples in order to
 	// copy it to a secure buffer. However if Rialto is enabled there should be no copy in the aamp pipeline, as
 	// it will be done in the server pipeline
 	return !ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink);

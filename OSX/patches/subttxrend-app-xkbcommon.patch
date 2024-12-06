@@ -1,3 +1,6 @@
+Source: COMCAST
+Upstream-Status: Pending
+Notice: Code in patch files takes the license of the source which is being patched.
 diff --git a/subttxrend-app/CMakeLists.txt b/subttxrend-app/CMakeLists.txt
 index 5ef5616..b6180d8 100644
 --- a/subttxrend-app/CMakeLists.txt

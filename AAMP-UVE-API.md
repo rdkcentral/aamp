@@ -42,7 +42,7 @@ This document is targeted to application developers  who are interested in evalu
 	<script>
 	    window.onload = function() {
 		    var player = new AAMPMediaPlayer();
-		    var url = "https://cpetestutility.stb.r53.xcal.tv/multilang/main.m3u8";
+		    var url = "https://example.com/multilang/main.m3u8";
 		    player.load(url);
 	    }
 	</script>

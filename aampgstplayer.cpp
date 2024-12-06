@@ -374,7 +374,7 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 		}
 		
 		// No additional checks added here, since the NotifyFirstFrame will be invoked only once
-		// in westerossink disabled case until BCOM fixes it. Also aware of NotifyFirstBufferProcessed called
+		// in westerossink disabled case until specific platform fixes it. Also aware of NotifyFirstBufferProcessed called
 		// twice in this function, since it updates timestamp for calculating time elapsed, its trivial
 		if (!firstBufferNotified)
 		{

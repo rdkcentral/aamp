@@ -1980,7 +1980,7 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 	}
 	if(GetConfigValue(eAAMPConfig_InitialBuffer) > 0)
 	{
-		//Enabling initialBuffer and gstBufferAndPlay together cause first frame freeze in amlogic.
+		//Enabling initialBuffer and gstBufferAndPlay together cause first frame freeze in specific platform.
 		SetConfigValue(owner, eAAMPConfig_GStreamerBufferingBeforePlay, false);
 	}
 	ConfigureLogSettings();

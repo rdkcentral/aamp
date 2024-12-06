@@ -12,7 +12,7 @@ function aampcli_install_postbuild_fn()
     
             #Launching aamp-cli
             otool -L ./Debug/aamp-cli
-            ./Debug/aamp-cli https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd
+            ./Debug/aamp-cli https://example.com/VideoTestStream/main.mpd
         else
             echo "To use Xcode, open aamp/build/AAMP.xcodeproj project file"
         fi      

@@ -375,7 +375,7 @@ void ProfileEventAAMP::GetClassicTuneTimeInfo(bool success, int tuneRetries, int
 	unsigned int playBucketTime                     =       (unsigned int)(xreTimeBuckets[TuneTimePlay]- xreTimeBuckets[TuneTimePrepareToPlay]);
 	unsigned int fragmentBucketTime                 =       (unsigned int)(fragmentReadyTime - xreTimeBuckets[TuneTimePlay]) ;
 	unsigned int decoderStreamingBucketTime         =       (unsigned int)(xreTimeBuckets[TuneTimeStreaming] - xreTimeBuckets[TuneTimeStartStream]);
-	/*Note: 'Drm Ready' to 'decrypt start' gap is not covered in any of the buckets.*/
+	/*Note: 'Drm Ready' to 'decrypt start' gap is not in any of the buckets.*/
 
 	unsigned int manifestTotal      =       bucketDuration(PROFILE_BUCKET_MANIFEST);
 	unsigned int profilesTotal      =       effectiveBucketTime(PROFILE_BUCKET_PLAYLIST_VIDEO, PROFILE_BUCKET_PLAYLIST_AUDIO);

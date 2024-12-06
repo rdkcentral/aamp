@@ -1,3 +1,6 @@
+Source: COMCAST
+Upstream-Status: Pending
+Notice: Code in patch files takes the license of the source which is being patched.
 --- ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme	2023-03-27 11:07:44
 +++ ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme.new	2023-03-27 11:25:40
 @@ -42,6 +42,7 @@

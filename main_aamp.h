@@ -824,7 +824,7 @@ public:
 	 *   @param[in]  mainManifestUrl - HTTP/HTTPS url to be played.
 	 *   @param[in]  contentType - Content type of the asset
 	 *   @param[in]  audioDecoderStreamSync - Enable or disable audio decoder stream sync,
-	 *                set to 'false' if audio fragments come with additional padding at the end (BCOM-4203)
+	 *                set to 'false' if audio fragments come with additional padding at the end 
 	 *   @return void
 	 */
 	void Tune(const char *mainManifestUrl, const char *contentType, bool bFirstAttempt,
@@ -837,7 +837,7 @@ public:
 	 *   @param[in]  autoPlay - Start playback immediately or not
 	 *   @param[in]  contentType - Content type of the asset
 	 *   @param[in]  audioDecoderStreamSync - Enable or disable audio decoder stream sync,
-	 *                set to 'false' if audio fragments come with additional padding at the end (BCOM-4203)
+	 *                set to 'false' if audio fragments come with additional padding at the end 
 	 *   @return void
 	 */
 	void Tune(const char *mainManifestUrl,

@@ -8,7 +8,6 @@ Add support for retimestamping in qtdemux based on a
 custom event which is sent only when aamp is used.
 
 Source: COMCAST
-License: LGPL-2.0-or-later
 Upstream-Status: Pending
 Notice: Code in patch files takes the license of the source which is being patched.
 

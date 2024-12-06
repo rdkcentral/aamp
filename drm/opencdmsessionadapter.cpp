@@ -315,7 +315,7 @@ int AAMPOCDMSessionAdapter::aampDRMProcessKey(DrmData* key, uint32_t timeout)
 		else if(m_keyStatus == KeyStatus::HWError)
 #endif
 		{
-			// BCOM-3537 - SAGE Hang .. Need to restart the wpecdmi process and then self kill player to recover
+			//  SAGE Hang .. Need to restart the wpecdmi process and then self kill player to recover
 			AAMPLOG_WARN("processKey: Update() returned HWError.Restarting process...");
 			int systemResult = -1;
 			// In Release another process handles opencdm which needs to be restarts .In Sprint this process is not available.

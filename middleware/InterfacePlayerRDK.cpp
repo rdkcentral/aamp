@@ -773,7 +773,7 @@ void InterfacePlayerRDK::SetPreferredDRM(const char *drmID)
 static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK * pInterfacePlayerRDK);
 
 /**
- * @brief check if element is instance (BCOM-3563)
+ * @brief check if element is instance
  */
 static void type_check_instance( const char * str, GstElement * elem);
 
@@ -1524,7 +1524,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	
 	else
 	{
-		/* BCOM-3563, pipeline may enter paused state even when audio decoder is not ready, check again */
+		/* pipeline may enter paused state even when audio decoder is not ready, check again */
 		if (gstPrivateContext->audio_dec)
 		{
 			ret = gst_element_get_state(gstPrivateContext->audio_dec, &aud_current, &aud_pending, 0);
@@ -3269,7 +3269,7 @@ bool InterfacePlayerRDK::IsCacheEmpty(int Type)
 		}
 		else
 		{
-			// Changed to MW_LOG_TRACE, to avoid log flooding (seen on xi3 and xid).
+			// Changed to MW_LOG_TRACE, to avoid log flooding
 			// We're seeing this logged frequently during live linear playback, despite no user-facing problem.
 			MW_LOG_TRACE("InterfacePlayerRDK::Cache level empty");
 			if (gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].bufferUnderrun == true ||
@@ -3651,7 +3651,7 @@ bool gst_StartsWith( const char *inputStr, const char *prefix )
 bool GstPlayer_isVideoOrAudioDecoder(const char* name, InterfacePlayerRDK * pInterfacePlayerRDK)
 {
 	// The idea is to identify video or audio decoder plugin created at runtime by playbin and register to its first-frame/pts-error callbacks
-	// This support is available in BCOM plugins in RDK builds and hence checking only for such plugin instances here
+	// This support is available in specific platform plugins in RDK builds and hence checking only for such plugin instances here
 	// For platforms that doesnt support callback, we use GST_STATE_PLAYING state change of playbin to notify first frame to app
 	bool isAudioOrVideoDecoder = false;
 	const auto platformType = pInterfacePlayerRDK->m_gstConfigParam->platformType;
@@ -3843,8 +3843,8 @@ long long InterfacePlayerRDK::GetVideoPTS(void)
 	if( element )
 	{
 		g_object_get(element, "video-pts", &currentPTS, NULL);                  /* Gets the 'video-pts' from the element into the currentPTS */
-		//Westeros sink sync returns PTS in 90Khz format where as BCM returns in 45 KHz,
-		// hence converting to 90Khz for BCM
+		//Westeros sink sync returns PTS in 90Khz format where as specific platform returns in 45 KHz,
+		// hence converting to 90Khz for sppecific platform
 		if(platformType != eGST_PLATFORM_REALTEK && !gstPrivateContext->using_westerossink)
 		{
 			currentPTS = currentPTS * 2; // convert from 45 KHz to 90 Khz PTS
@@ -4147,7 +4147,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 					
 					if((platformType) == eGST_PLATFORM_AMLOGIC)
 					{
-						//To support first frame notification on audioOnlyPlayback for hls streams on amlogic.
+						//To support first frame notification on audioOnlyPlayback for hls streams on specific platform.
 						if(pInterfacePlayerRDK->m_gstConfigParam->audioOnlyMode && !pInterfacePlayerRDK->gstPrivateContext->firstAudioFrameReceived && pInterfacePlayerRDK->gstPrivateContext->NumberOfTracks==1)
 						{
 							gst_media_stream *stream = &pInterfacePlayerRDK->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO];
@@ -4454,7 +4454,7 @@ bool InterfacePlayerRDK::SetPlayBackRate(double rate)
 		gst_event_unref(rate_event);
 		MW_LOG_MIL("Current rate: %g", rate);
 	}
-	else //Non BRCM/AMLOGIC/REALTEK case
+	else
 	{
 		return false;
 	}
@@ -4504,8 +4504,8 @@ void InterfacePlayerRDK::SetVolumeOrMuteUnMute(void)
 		}
 		if(platformType == eGST_PLATFORM_AMLOGIC)
 		{
-			/* Avoid mute property setting for AMLOGIC as use of "mute" property on pipeline is impacting all other players */
-			/* Using "stream-volume" property of audio-sink for setting volume and mute for AMLOGIC platform */
+			/* Avoid mute property setting for specific platform as use of "mute" property on pipeline is impacting all other players */
+			/* Using "stream-volume" property of audio-sink for setting volume and mute for specific platform */
 			volumePropertyName = "stream-volume";
 		}
 		else

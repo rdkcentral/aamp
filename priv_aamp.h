@@ -593,7 +593,7 @@ public:
 	 * @param[in] bFirstAttempt - External initiated tune
 	 * @param[in] bFinalAttempt - Final retry/attempt.
 	 * @param[in] audioDecoderStreamSync - Enable or disable audio decoder stream sync,
-	 *                set to 'false' if audio fragments come with additional padding at the end (BCOM-4203)
+	 *                set to 'false' if audio fragments come with additional padding at the end 
 	 *
 	 * @param[in] refreshManifestUrl -
 	 * @param[in] mpdStitchingMode -
@@ -1078,7 +1078,7 @@ public:
 	AampDRMSessionManager *mDRMSessionManager;
 #endif
 	int mPlaylistFetchFailError;				/**< To store HTTP error code when playlist download fails */
-	bool mAudioDecoderStreamSync; 				/**< BCOM-4203: Flag to set or clear 'stream_sync_mode' property
+	bool mAudioDecoderStreamSync; 				/**<  Flag to set or clear 'stream_sync_mode' property
 	                                				in gst brcmaudiodecoder, default: True */
 	std::string mSessionToken; 				/**< Field to set session token for player */
 	bool midFragmentSeekCache;    				/**< To find if cache is updated when seeked to mid fragment boundary */

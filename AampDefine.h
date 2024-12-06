@@ -144,9 +144,9 @@
 
 // the +1 is used to compensate for internal use originally being a > check, now >=
 #if defined(REALTEKCE)
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (3+1) // TODO: deprecate realtek-specific config (risk: tune time impact)
+#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (3+1) // TODO: deprecate specific config (risk: tune time impact)
 #else
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (5+1) // more conservative config; used on AmLogic
+#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (5+1) // more conservative config; used on specific platform
 #endif
 
 // Player supported play/trick-play rates.

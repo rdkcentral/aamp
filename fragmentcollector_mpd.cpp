@@ -9782,7 +9782,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					cacheFullStatus[eMEDIATYPE_VIDEO] = cacheFullStatus[eMEDIATYPE_AUDIO] = false;
 				}
 
-				// BCOM-2959  -- Exit from fetch loop for period to be done only after audio and video fetch
+				//   -- Exit from fetch loop for period to be done only after audio and video fetch
 				// While playing CDVR with EAC3 audio , durations doesnt match and only video downloads are seen leaving audio behind
 				// Audio cache is always full and need for data is not received for more fetch.
 				// So after video downloads loop was exiting without audio fetch causing audio drop .
