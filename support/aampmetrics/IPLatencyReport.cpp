@@ -78,8 +78,7 @@ std::string CLatencyReport::GetTimeWindow(long timeMs)
 	std::string window;
 	if(isInitialized)
 	{
-		unsigned int windowNumber = (timeMs / LATENCY_WINDOW_BUCKET_DURATION);
-		window = std::to_string(windowNumber);
+		window = std::to_string(timeMs / LATENCY_WINDOW_BUCKET_DURATION);
 	}
 	return window;
 }
