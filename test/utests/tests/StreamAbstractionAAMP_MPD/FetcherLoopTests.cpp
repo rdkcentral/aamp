@@ -273,10 +273,9 @@ protected:
 			{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
 			{eAAMPConfig_StallTimeoutMS, DEFAULT_STALL_DETECTION_TIMEOUT},
 			{eAAMPConfig_AdFulfillmentTimeout, DEFAULT_AD_FULFILLMENT_TIMEOUT},
-			{eAAMPConfig_BufferHealthMonitorDelay, DEFAULT_BUFFER_HEALTH_MONITOR_DELAY},
-			{eAAMPConfig_BufferHealthMonitorInterval, DEFAULT_BUFFER_HEALTH_MONITOR_INTERVAL},
-			{eAAMPConfig_DiscontinuityTimeout, DEFAULT_DISCONTINUITY_TIMEOUT},
-			{eAAMPConfig_AdFulfillmentTimeoutMax, MAX_AD_FULFILLMENT_TIMEOUT}};
+			{eAAMPConfig_AdFulfillmentTimeoutMax, MAX_AD_FULFILLMENT_TIMEOUT},
+			{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
+		};
 
 	IntConfigSettings mIntConfigSettings;
 
@@ -820,10 +819,10 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLive)
 	// Add the new EXPECT_CALL for DownloadsAreEnabled
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())
-		.WillRepeatedly([]()
+		.WillRepeatedly([]() 
 						{
-        					static int counter = 0;
-        					return (++counter < 20); });
+							static int counter = 0;
+							return (++counter < 20); });
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.Times(1)
@@ -949,35 +948,35 @@ TEST_F(FetcherLoopTests, SkipFetchAudioTests)
 	static const char *manifest =
 R"(<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="dynamic" id="0000000000000018163" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" minimumUpdatePeriod="PT0H0M1.920S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2024-11-08T12:53:09.725Z">
-  <Period id="901591170" start="PT416006H37M27.854S">
-    <AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-<EssentialProperty schemeIdUri="urn:mpeg:mpegB:cicp:ColourPrimaries" value="1"/>
-<EssentialProperty schemeIdUri="urn:mpeg:mpegB:cicp:MatrixCoefficients" value="1"/>
-<EssentialProperty schemeIdUri="urn:mpeg:mpegB:cicp:TransferCharacteristics" value="1"/>
-      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
-      <SegmentTemplate initialization="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163/track-video-repid-$RepresentationID$-tc--enc--header.mp4" media="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163/track-video-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
-        <SegmentTimeline>
-          <S t="1377581813" d="172800" r="14"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
-      <Representation id="root_video3" bandwidth="1328400" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
-      <Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
-      <Representation id="root_video1" bandwidth="4461200" codecs="hvc1.1.6.L120.90" width="1280" height="720" frameRate="50000/1000"/>
-      <Representation id="root_video0" bandwidth="6052400" codecs="hvc1.1.6.L123.90" width="1920" height="1080" frameRate="50000/1000"/>
-    </AdaptationSet>
-    <AdaptationSet id="3" contentType="audio" mimeType="audio/mp4" lang="en">
-      <AudioChannelConfiguration schemeIdUri="tag:dolby.com,2014:dash:audio_channel_configuration:2011" value="a000"/>
-      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
-      <SegmentTemplate initialization="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163-eac3/track-audio-repid-$RepresentationID$-tc--enc--header.mp4" media="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163-eac3/track-audio-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
-        <SegmentTimeline>
-          <S t="1377583936" d="172800" r="14"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="root_audio110" bandwidth="215200" codecs="ec-3" audioSamplingRate="48000"/>
-    </AdaptationSet>
-  </Period>
-  <SupplementalProperty schemeIdUri="urn:scte:dash:powered-by" value="viper-mod_super8-4.4.0-1"/>
+	<Period id="901591170" start="PT416006H37M27.854S">
+		<AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<EssentialProperty schemeIdUri="urn:mpeg:mpegB:cicp:ColourPrimaries" value="1"/>
+			<EssentialProperty schemeIdUri="urn:mpeg:mpegB:cicp:MatrixCoefficients" value="1"/>
+			<EssentialProperty schemeIdUri="urn:mpeg:mpegB:cicp:TransferCharacteristics" value="1"/>
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+			<SegmentTemplate initialization="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163/track-video-repid-$RepresentationID$-tc--enc--header.mp4" media="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163/track-video-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
+				<SegmentTimeline>
+					<S t="1377581813" d="172800" r="14"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+			<Representation id="root_video3" bandwidth="1328400" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+			<Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+			<Representation id="root_video1" bandwidth="4461200" codecs="hvc1.1.6.L120.90" width="1280" height="720" frameRate="50000/1000"/>
+			<Representation id="root_video0" bandwidth="6052400" codecs="hvc1.1.6.L123.90" width="1920" height="1080" frameRate="50000/1000"/>
+		</AdaptationSet>
+		<AdaptationSet id="3" contentType="audio" mimeType="audio/mp4" lang="en">
+			<AudioChannelConfiguration schemeIdUri="tag:dolby.com,2014:dash:audio_channel_configuration:2011" value="a000"/>
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+			<SegmentTemplate initialization="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163-eac3/track-audio-repid-$RepresentationID$-tc--enc--header.mp4" media="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163-eac3/track-audio-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
+				<SegmentTimeline>
+					<S t="1377583936" d="172800" r="14"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation id="root_audio110" bandwidth="215200" codecs="ec-3" audioSamplingRate="48000"/>
+		</AdaptationSet>
+	</Period>
+	<SupplementalProperty schemeIdUri="urn:scte:dash:powered-by" value="viper-mod_super8-4.4.0-1"/>
 </MPD>
 )";
 	// Only init fragments are allowed to download

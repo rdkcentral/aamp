@@ -169,28 +169,6 @@ TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_Off)
 	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
 }
 
-TEST_F(LocalTSBTests, No_Chunked_With_LLD)
-{
-	// Chunked key word should trigger TSBSessionManager creation
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).Times(0);
-
-	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(0);
-	const char *chunkedUrl = "http://localhost:80/manifest.mpd";
-
-	// For low latency stream case
-	AampLLDashServiceData llData;
-	llData.lowLatencyMode = true;
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
-		.WillOnce([this, &llData] {
-					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
-					return eAAMPSTATUS_OK;
-				});
-	mPrivateInstanceAAMP->Tune(chunkedUrl, true);
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
-}
-
 TEST_F(LocalTSBTests, Chunked_Without_LLD_And_Config_On)
 {
 	// Chunked key word should trigger TSBSessionManager creation

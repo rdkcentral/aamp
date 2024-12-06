@@ -36,25 +36,25 @@ void StreamAbstractionAAMP::DisablePlaylistDownloads()
 
 bool StreamAbstractionAAMP::IsMuxedStream()
 {
-    return false;
+	return false;
 }
 
 double StreamAbstractionAAMP::GetLastInjectedFragmentPosition()
 {
-    return 0.0;
+	return 0.0;
 }
 
 double StreamAbstractionAAMP::GetBufferedVideoDurationSec()
 {
-    return 0.0;
+	return 0.0;
 }
 
 void StreamAbstractionAAMP::MuteSubtitles(bool mute)
 {
-    if (g_mockStreamAbstractionAAMP != nullptr)
-    {
-        g_mockStreamAbstractionAAMP->MuteSubtitles(mute);
-    }
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->MuteSubtitles(mute);
+	}
 }
 
 void StreamAbstractionAAMP::RefreshSubtitles()
@@ -63,7 +63,7 @@ void StreamAbstractionAAMP::RefreshSubtitles()
 
 long StreamAbstractionAAMP::GetVideoBitrate(void)
 {
-    return 0;
+	return 0;
 }
 
 void StreamAbstractionAAMP::SetAudioTrackInfoFromMuxedStream(std::vector<AudioTrackInfo>& vector)
@@ -72,27 +72,27 @@ void StreamAbstractionAAMP::SetAudioTrackInfoFromMuxedStream(std::vector<AudioTr
 
 long StreamAbstractionAAMP::GetAudioBitrate(void)
 {
-    return 0;
+	return 0;
 }
 
 int StreamAbstractionAAMP::GetAudioTrack()
 {
-    return 0;
+	return 0;
 }
 
 bool StreamAbstractionAAMP::GetCurrentAudioTrack(AudioTrackInfo &audioTrack)
 {
-    return false;
+	return false;
 }
 
 int StreamAbstractionAAMP::GetTextTrack()
 {
-    return 0;
+	return 0;
 }
 
 bool StreamAbstractionAAMP::GetCurrentTextTrack(TextTrackInfo &textTrack)
 {
-    return 0;
+	return 0;
 }
 
 bool StreamAbstractionAAMP::isInBandCcAvailable()
@@ -107,20 +107,20 @@ bool StreamAbstractionAAMP::IsInitialCachingSupported()
 
 void StreamAbstractionAAMP::NotifyPlaybackPaused(bool paused)
 {
-    if (g_mockStreamAbstractionAAMP != nullptr)
-    {
-        g_mockStreamAbstractionAAMP->NotifyPlaybackPaused(paused);
-    }
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->NotifyPlaybackPaused(paused);
+	}
 }
 
 bool StreamAbstractionAAMP::IsEOSReached()
 {
-    return false;
+	return false;
 }
 
 bool StreamAbstractionAAMP::GetPreferredLiveOffsetFromConfig()
 {
-    return false;
+	return false;
 }
 
 void MediaTrack::OnSinkBufferFull()
@@ -129,16 +129,16 @@ void MediaTrack::OnSinkBufferFull()
 
 BufferHealthStatus MediaTrack::GetBufferStatus()
 {
-    return BUFFER_STATUS_GREEN;
+	return BUFFER_STATUS_GREEN;
 }
 
 bool StreamAbstractionAAMP::SetTextStyle(const std::string &options)
 {
-    if (g_mockStreamAbstractionAAMP != nullptr)
-    {
-        return g_mockStreamAbstractionAAMP->SetTextStyle(options);
-    }
-    return false;
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		return g_mockStreamAbstractionAAMP->SetTextStyle(options);
+	}
+	return false;
 }
 
 void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
@@ -155,7 +155,7 @@ void MediaTrack::AbortWaitForPlaylistDownload()
 
 bool MediaTrack::Enabled()
 {
-    return true;
+	return true;
 }
 
 void MediaTrack::FlushFragments()
@@ -164,17 +164,17 @@ void MediaTrack::FlushFragments()
 
 int MediaTrack::GetCurrentBandWidth()
 {
-    return 0;
+	return 0;
 }
 
 CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
 {
-    return NULL;
+	return NULL;
 }
 
 AampMediaType MediaTrack::GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe)
 {
-    return eMEDIATYPE_DEFAULT;
+	return eMEDIATYPE_DEFAULT;
 }
 
 void MediaTrack::PlaylistDownloader()
@@ -215,7 +215,7 @@ void MediaTrack::UpdateTSAfterFetch(bool isInitSegment)
 
 bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 {
-    return true;
+	return true;
 }
 
 void MediaTrack::WaitForManifestUpdate()
@@ -224,66 +224,66 @@ void MediaTrack::WaitForManifestUpdate()
 
 bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 {
-    return true;
+	return true;
 }
 bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fragmentDiscarded, bool& isDiscontinuity, bool &ret)
 {
-    return false;
+	return false;
 }
 
 void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool fragmentDiscarded, bool isDiscontinuity, bool &ret)
 {
-    return;
+	return;
 }
 
 double MediaTrack::GetTotalInjectedDuration()
 {
-    return 0.0;
+	return 0.0;
 }
 
 bool MediaTrack::SignalIfEOSReached()
 {
-    return false;
+	return false;
 }
 
 bool StreamAbstractionAAMP::CheckForRampDownLimitReached()
 {
-    return true;
+	return true;
 }
 
 bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 {
-    return true;
+	return true;
 }
 
 double StreamAbstractionAAMP::LastVideoFragParsedTimeMS(void)
 {
-    return 0;
+	return 0;
 }
 
 int StreamAbstractionAAMP::GetDesiredProfile(bool getMidProfile)
 {
-    return 0;
+	return 0;
 }
 
 int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 {
-    return 0;
+	return 0;
 }
 
 int StreamAbstractionAAMP::GetIframeTrack()
 {
-    return 0;
+	return 0;
 }
 
 int StreamAbstractionAAMP::GetMaxBWProfile()
 {
-    return 0;
+	return 0;
 }
 
 int StreamAbstractionAAMP::getOriginalCurlError(int http_error)
 {
-    return 0;
+	return 0;
 }
 
 void StreamAbstractionAAMP::AbortWaitForAudioTrackCatchup(bool force)
@@ -311,12 +311,12 @@ void StreamAbstractionAAMP::ReassessAndResumeAudioTrack(bool abort)
 }
 bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
 {
-    return false;
+	return false;
 }
 
 CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 {
-     return NULL;
+	 return NULL;
 }
 
 void MediaTrack::UpdateTSAfterChunkFetch()
@@ -341,7 +341,7 @@ void MediaTrack::AbortWaitForCachedFragmentChunk()
 
 double StreamAbstractionAAMP::GetBufferValue(MediaTrack *video)
 {
-    return 0;
+	return 0;
 }
 void MediaTrack::SetCachedFragmentChunksSize(size_t size)
 {
@@ -363,4 +363,10 @@ void StreamAbstractionAAMP::UpdateIframeTracks()
 
 void MediaTrack::FlushFragmentChunks()
 {
+}
+
+bool MediaTrack::IsInjectionFromCachedFragmentChunks()
+{
+	bool ret = false;
+	return ret;
 }

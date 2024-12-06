@@ -5635,8 +5635,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			}
 		}
 
-		// For tune to a non-LLD content, reset localAAMPTSB flag
-		if (newTune && IsLocalAAMPTsb() && !GetLLDashServiceData()->lowLatencyMode)
+		if (newTune && IsLocalAAMPTsb() && !GetTSBSessionManager())
 		{
 			SetLocalAAMPTsb(false);
 			AAMPLOG_WARN("Disabling local TSB handling for this tune");
@@ -5891,18 +5890,16 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	}
 
-	std::string lldUrlKeyword = GETCONFIGVALUE_PRIV(eAAMPConfig_LLDUrlKeyword);
-	AAMPLOG_INFO("LLD Url Keyword: %s",lldUrlKeyword.c_str());
-	if (!lldUrlKeyword.empty() && mManifestUrl.find(lldUrlKeyword) != std::string::npos)
+	mMediaFormat = GetMediaFormatType(mainManifestUrl);
+
+	if (eMEDIAFORMAT_DASH == mMediaFormat)
 	{
-		// New Code to initialize the TSBSessionManager for LowLatency URL from Viper
 		if(mTSBSessionManager)
 		{
 			SAFE_DELETE(mTSBSessionManager);
 		}
 		if(ISCONFIGSET_PRIV(eAAMPConfig_LocalTSBEnabled))
 		{
-			// create new TSB Session Manager for LLD
 			mTSBSessionManager = new AampTSBSessionManager(this);
 			 //TODO unique session id for each
 			if(mTSBSessionManager)
@@ -5920,8 +5917,14 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 				}
 			}
 		}
-		//For the LLD case, we need to update the manifest timeout before starting the MPDDownloader. So, we are updating the value here
-		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_ManifestTimeout,MANIFEST_TIMEOUT_FOR_LLD);
+
+		const std::string &lldUrlKeyword = GETCONFIGVALUE_PRIV(eAAMPConfig_LLDUrlKeyword);
+		AAMPLOG_INFO("LLD Url Keyword: %s", lldUrlKeyword.c_str());
+		// For the LLD case, we need to update the manifest timeout before starting the MPDDownloader. So, we are updating the value here
+		if (!lldUrlKeyword.empty() && mManifestUrl.find(lldUrlKeyword) != std::string::npos)
+		{
+			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_ManifestTimeout,MANIFEST_TIMEOUT_FOR_LLD);
+		}
 	}
 
 	mTSBEnabled = strcasestr(mainManifestUrl, AAMP_FOG_TSB_URL_KEYWORD) && ISCONFIGSET_PRIV(eAAMPConfig_Fog);
@@ -5995,9 +5998,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	}
 
 	mAudioDecoderStreamSync = audioDecoderStreamSync;
-
-
-	mMediaFormat = GetMediaFormatType(mainManifestUrl);
 
 	mbUsingExternalPlayer = (mMediaFormat == eMEDIAFORMAT_OTA) || (mMediaFormat== eMEDIAFORMAT_HDMI) || (mMediaFormat==eMEDIAFORMAT_COMPOSITE) || \
 		(mMediaFormat == eMEDIAFORMAT_RMF);

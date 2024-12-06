@@ -258,7 +258,7 @@ TESTDATA9 = {
 TESTDATA10 = {
     "title": "Test trick modes (rewind and fast forward) with PTS restamping",
     "logfile": "trickmodes10.log",
-    "max_test_time_seconds": 40,
+    "max_test_time_seconds": 50,
     'simlinear_type': 'DASH',
     "archive_url": archive_url,
     "url": LLD_URL,

@@ -278,7 +278,9 @@ protected:
 			{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
 			{eAAMPConfig_StallTimeoutMS, DEFAULT_STALL_DETECTION_TIMEOUT},
 			{eAAMPConfig_AdFulfillmentTimeout, DEFAULT_AD_FULFILLMENT_TIMEOUT},
-			{eAAMPConfig_AdFulfillmentTimeoutMax, MAX_AD_FULFILLMENT_TIMEOUT}};
+			{eAAMPConfig_AdFulfillmentTimeoutMax, MAX_AD_FULFILLMENT_TIMEOUT},
+			{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
+		};
 
 	IntConfigSettings mIntConfigSettings;
 
@@ -633,9 +635,9 @@ TEST_F(AdSelectionTests, AdTransitionTest)
 	cdaiObj->mAdBreaks[endPeriodId].ads->emplace_back(false /*invalid*/, true /*placed*/, true /*resolved*/,
 													  "adId1" /*adId*/, adUrl /*url*/, 30000 /*duration*/, endPeriodId /*basePeriodId*/, 0 /*basePeriodOffset*/, mAdMPD /*mpd*/);
 	cdaiObj->mPeriodMap[endPeriodId] = Period2AdData(false, endPeriodId, 30000 /*in ms*/,
-    {
-      std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+	{
+	  std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
+	});
 
 	bool periodChanged = false;
 	bool adStateChanged = false; // since we finished playing an ad
