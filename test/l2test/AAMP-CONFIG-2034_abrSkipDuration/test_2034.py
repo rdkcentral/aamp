@@ -36,7 +36,7 @@ TESTDATA1 = {
     "aamp_cfg": "info=true\ntrace=true\nabrSkipDuration=8",
     "expect_list": [
         {"expect" : r"fragmentUrl http://localhost:8085/VideoTestStream/dash/480p_004.m4s"},
-        {"expect" : r"getProfileIndexByBitrateRampUpOrDown:580 currBW:1400000 NwBW=[0-9]{8,9} currProf:2 desiredProf:0 Period ID:"},
+        {"expect" : r"getProfileIndexByBitrateRampUpOrDown:\d+ currBW:1400000 NwBW=[0-9]{8,9} currProf:2 desiredProf:0 Period ID:"},
         {"expect" : r"switching to 'higher' profile '2 -> 0' currentBandwidth\[1400000\]->desiredBandwidth\[5000000\]"},
         {"expect" : r"ABR 842x474\[1400000] -> 1920x1080\[5000000]"},
         {"expect" : r"sending segment at pos:8\.[0-9]{6} dur:[0-9]\.[0-9]{6}"},
@@ -58,7 +58,7 @@ TESTDATA2 = {
     "aamp_cfg": "info=true\ntrace=true\nabrSkipDuration=4",
     "expect_list": [
         {"expect" : r"fragmentUrl http://localhost:8085/VideoTestStream/dash/480p_002.m4s"}, 
-        {"expect" : r"getProfileIndexByBitrateRampUpOrDown:580 currBW:1400000 NwBW=[0-9]{8,9} currProf:2 desiredProf:0 Period ID:"}, 
+        {"expect" : r"getProfileIndexByBitrateRampUpOrDown:\d+ currBW:1400000 NwBW=[0-9]{8,9} currProf:2 desiredProf:0 Period ID:"}, 
         {"expect" : r"switching to 'higher' profile '2 -> 0' currentBandwidth\[1400000\]->desiredBandwidth\[5000000\]"}, 
         {"expect" : r"ABR 842x474\[1400000] -> 1920x1080\[5000000]"}, 
         {"expect" : r"sending segment at pos:[2-4]\.[0-9]{6} dur:[0-9]\.[0-9]{6}"}, 
@@ -81,7 +81,7 @@ TESTDATA3 = {
     "aamp_cfg": "info=true\ntrace=true\nabrSkipDuration=10",
     "expect_list": [
         {"expect" : r"fragmentUrl http://localhost:8085/VideoTestStream/dash/480p_005.m4s"},
-        {"expect" : r"getProfileIndexByBitrateRampUpOrDown:580 currBW:1400000 NwBW=[0-9]{8,9} currProf:2 desiredProf:0 Period ID:"},
+        {"expect" : r"getProfileIndexByBitrateRampUpOrDown:\d+ currBW:1400000 NwBW=[0-9]{8,9} currProf:2 desiredProf:0 Period ID:"},
         {"expect" : r"switching to 'higher' profile '2 -> 0' currentBandwidth\[1400000\]->desiredBandwidth\[5000000\]"},
         {"expect" : r"ABR 842x474\[1400000] -> 1920x1080\[5000000]"},
         {"expect" : r"sending segment at pos:[0-9]{1,2}\.[0-9]{6} dur:[0-9]\.[0-9]{6}"},
@@ -112,7 +112,7 @@ TESTDATA4 = {
     "simlinear_type": "DASH",
     "expect_list": [ 
         {"expect" : r"fragmentUrl http://localhost:8085/VideoTestStream/dash/480p_005.m4s"},
-        {"expect" : r"getProfileIndexByBitrateRampUpOrDown:580 currBW:1400000 NwBW=[0-9]{8,9} currProf:2 desiredProf:0 Period ID:"},
+        {"expect" : r"getProfileIndexByBitrateRampUpOrDown:\d+ currBW:1400000 NwBW=[0-9]{8,9} currProf:2 desiredProf:0 Period ID:"},
         {"expect" : r"switching to 'higher' profile '2 -> 0' currentBandwidth\[1400000\]->desiredBandwidth\[5000000\]"},
         {"expect" : r"ABR 842x474\[1400000] -> 1920x1080\[5000000]"},
         {"expect" : r"(?i)AAMPLogNetworkError error='http error 404' type='INIT_VIDEO' location='unknown' symptom='video fails to start' url='http://localhost:8085/VideoTestStream/dash/1080p_init\.m4s\?respData="+data+"'"},
