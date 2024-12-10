@@ -158,6 +158,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mShortAdOffsetCalc(false)
 	,mNextPts(0.0)
 	,mPrevFirstPeriodStart(0.0f)
+	,mTrackWorkers()
 {
 	this->aamp = aamp;
 #ifdef AAMP_MPD_DRM
@@ -9772,57 +9773,29 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					SwitchSubtitleTrack(true);
 					mMediaStreamContext[eTRACK_SUBTITLE]->refreshSubtitles = false;
 				}
-				std::thread *parallelDownload[AAMP_TRACK_COUNT] = {nullptr};
 				for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
 				{
-					parallelDownload[trackIdx] = NULL;
 					cacheFullStatus[trackIdx] = true;
 					if (!mMediaStreamContext[trackIdx]->eos)
 					{
-						if (parallelDnld && trackIdx > 0) // (trackIdx > 0) indicates video/iframe/audio-only has to be downloaded in sync mode from this FetcherLoop().
+						if (parallelDnld && trackIdx < mTrackWorkers.size() && mTrackWorkers[trackIdx])
 						{
-							// Download the audio & subtitle fragments in a separate parallel thread.
-							try
-							{
-								parallelDownload[trackIdx] = new std::thread(
-									&StreamAbstractionAAMP_MPD::AdvanceTrack,
-									this,
-									trackIdx,
-									trickPlay,
-									&delta,
-									&waitForFreeFrag,
-									&cacheFullStatus[trackIdx],
-									(trackIdx == eMEDIATYPE_AUDIO) ? throttleAudio : false,
-									false);
-								AAMPLOG_TRACE("Thread created for parallelDownload:AdvanceTrack [%d][%zx]", trackIdx, GetPrintableThreadID(*parallelDownload[trackIdx]));
-								// Reset throttleAudio for next iteration
-								if (trackIdx == eMEDIATYPE_AUDIO && throttleAudio)
-								{
-									AAMPLOG_INFO("Set throttleAudio to false");
-									throttleAudio = false;
-								}
-							}
-							catch (const std::exception &e)
-							{
-								AAMPLOG_ERR("Failed to create thread for parallelDownload:AdvanceTrack [%d] - %s", trackIdx, e.what());
-							}
+							// Download the video, audio & subtitle fragments in a separate parallel thread.
+							AAMPLOG_DEBUG("Submitting job for track %d", trackIdx);
+							mTrackWorkers[trackIdx]->SubmitJob([this, trackIdx, &delta, &waitForFreeFrag, &cacheFullStatus, trickPlay, throttleAudio]()
+															   { AdvanceTrack(trackIdx, trickPlay, &delta, &waitForFreeFrag, &cacheFullStatus[trackIdx],
+																			  (trackIdx == eMEDIATYPE_AUDIO) ? throttleAudio : false, false); });
 						}
 						else
 						{
-							AdvanceTrack(trackIdx, trickPlay, &delta, &waitForFreeFrag, &cacheFullStatus[trackIdx],false, isVidDiscInitFragFail);
-							parallelDownload[trackIdx] = NULL;
+							AdvanceTrack(trackIdx, trickPlay, &delta, &waitForFreeFrag, &cacheFullStatus[trackIdx], false, isVidDiscInitFragFail);
 						}
 					}
 				}
 
 				for (int trackIdx = (mNumberOfTracks - 1); (parallelDnld && trackIdx >= 0); trackIdx--)
 				{
-					// Join the parallel threads.
-					if (parallelDownload[trackIdx])
-					{
-						parallelDownload[trackIdx]->join();
-						SAFE_DELETE(parallelDownload[trackIdx]);
-					}
+					mTrackWorkers[trackIdx]->WaitForCompletion();
 				}
 
 				// If download status is disabled then need to exit from fetcher loop
@@ -10488,7 +10461,8 @@ void StreamAbstractionAAMP_MPD::Start(void)
 		{
 			AAMPLOG_ERR("Thread allocation failed for FetcherLoop : %s ", e.what());
 		}
-
+		// Start the worker threads for each track
+		InitializeWorkers();
 		for (int i = 0; i < mNumberOfTracks; i++)
 		{
 			if(aamp->IsPlayEnabled())
@@ -13926,6 +13900,23 @@ void StreamAbstractionAAMP_MPD::SetSubtitleTrackOffset()
 		if (mMediaStreamContext[eMEDIATYPE_SUBTITLE]->playContext)
 		{
 			mMediaStreamContext[eMEDIATYPE_SUBTITLE]->playContext->setTrackOffset(offsetInSecs);
+		}
+	}
+}
+
+/**
+ * @fn InitializeWorkers
+ * @brief Initialize worker threads
+ *
+ * @return void
+ */
+void StreamAbstractionAAMP_MPD::InitializeWorkers()
+{
+	if(mTrackWorkers.empty())
+	{
+		for (int i = 0; i < mMaxTracks; i++)
+		{
+			mTrackWorkers.push_back(aamp_utils::make_unique<aamp::AampTrackWorker>(aamp, static_cast<AampMediaType>(i)));
 		}
 	}
 }

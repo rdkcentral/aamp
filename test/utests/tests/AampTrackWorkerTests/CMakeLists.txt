@@ -1,7 +1,7 @@
 # If not stated otherwise in this file or this component's license file the
 # following copyright and licenses apply:
 #
-# Copyright 2023 RDK Management
+# Copyright 2024 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,47 +17,27 @@
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME StreamAbstractionAAMP_MPD)
+set(EXEC_NAME AampTrackWorkerTest)
 
+# Include directories for priv_aamp dependency
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/closedcaptions)
-
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${LIBDASH_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${UTESTS_ROOT}/mocks)
-include_directories(${LIBCJSON_INCLUDE_DIRS})
-
-set (DASH_PARSER_SOURCES ${AAMP_ROOT}/dash/xml/DomDocument.cpp
-                ${AAMP_ROOT}/dash/xml/DomElement.cpp
-                ${AAMP_ROOT}/dash/xml/DomNode.cpp
-                ${AAMP_ROOT}/dash/xml/DomNodeIter.cpp
-                ${AAMP_ROOT}/dash/xml/DomTextNode.cpp
-                ${AAMP_ROOT}/dash/mpd/MPDModel.cpp
-                ${AAMP_ROOT}/dash/mpd/MPDSegmenter.cpp
-                ${AAMP_ROOT}/dash/utils/Utils.cpp
-                ${AAMP_ROOT}/dash/utils/Url.cpp
-                ${AAMP_ROOT}/dash/utils/StringEx.cpp
-                ${AAMP_ROOT}/dash/utils/Path.cpp)
 
 set(TEST_SOURCES FunctionalTests.cpp
-                 LinearFOGTests.cpp
-                 AudioOnlyTests.cpp
-                 FetcherLoopTests.cpp
-                 StreamAbstractionAAMP_MPD.cpp
-		             AudioTrackSelectionTests.cpp
-                 AudioTrackSwitchTests.cpp
-                 subtitleTests.cpp
-		 StreamSelectionTest.cpp
-                 MonitorLatencyTests.cpp)
+                 AampTrackWorkerTest.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDParseHelper.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/AampTrackWorker.cpp ${DASH_PARSER_SOURCES})
+
+set(AAMP_SOURCES ${AAMP_ROOT}/AampTrackWorker.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
@@ -77,6 +57,6 @@ endif()
 target_link_libraries(${EXEC_NAME} fakes -lpthread ${LIBDASH_LINK_LIBRARIES} ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES})
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
-set_target_properties(${EXEC_NAME} PROPERTIES COMPILE_FLAGS "-Wno-effc++ -Wno-multichar")
+set_target_properties(${EXEC_NAME} PROPERTIES COMPILE_FLAGS -Wno-effc++)
 
 aamp_utest_run_add(${EXEC_NAME})
