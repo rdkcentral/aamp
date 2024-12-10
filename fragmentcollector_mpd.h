@@ -42,6 +42,7 @@
 #include "AampMPDDownloader.h"
 #include "AampDRMLicPreFetcher.h"
 #include "AampMPDParseHelper.h"
+#include "AampTrackWorker.h"
 
 using namespace dash;
 using namespace std;
@@ -570,7 +571,7 @@ protected:
 	 * @param[in] isDiscontinuity - flag indicates if its a discontinuity
 	 * @return void
 	 */
-	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState,bool throttleAudio,bool isDiscontinuity = false);
+	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool &waitForFreeFrag, bool &bCacheFullState,bool throttleAudio,bool isDiscontinuity = false);
 	/**
 	 * @fn AdvanceTsbFetch
 	 * @param[in] trackIdx - trackIndex
@@ -1007,6 +1008,14 @@ protected:
 	*/
 	void SetSubtitleTrackOffset();
 
+	/**
+	 * @fn InitializeWorkers
+	 * @brief Initialize worker threads
+	 *
+	 * @return void
+	 */
+	void InitializeWorkers();
+
 	std::mutex mStreamLock;
 	bool fragmentCollectorThreadStarted;
 	bool tsbReaderThreadStarted;
@@ -1167,6 +1176,7 @@ protected:
 	double mFragmentTimeOffset;     /**< denotes the offset added to fragment time when absolute timeline is disabled, holds currentPeriodOffset*/
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
+	std::vector<std::unique_ptr<aamp::AampTrackWorker>> mTrackWorkers;	/**< Track workers for fetching fragments*/
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_
