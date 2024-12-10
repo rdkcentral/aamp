@@ -25,7 +25,7 @@ Options to build and install GStreamer Subtec plugin:
 
 * Run the test with the build option (takes longer because it also build AAMP):
 
-      ./run_l2_test.py -b -t 1001
+      ./run_l2_aamp.py -b -t 1001
 
 This test plays the following stream:
 https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8
