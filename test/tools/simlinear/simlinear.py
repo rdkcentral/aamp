@@ -350,7 +350,9 @@ class DASHServerHandler(BaseHTTPRequestHandler):
 
         isTiming = False
 
-        path = self.path[1:].split("?")[0]
+        # Remove any query parameters and make path relative by removing leading slash (/)
+        parsed_url = urlparse(self.path)
+        path = parsed_url.path[1:]
 
         if self.path.endswith(".m3u8"):
             log.error("ERROR This looks like a HLS request but I am a DASH server")
@@ -380,7 +382,7 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                     raise FileNotFoundError
                 log.info("%s %s",time.time(), rtn["path"])
 
-            elif self.path == "/timing":
+            elif path == "timing":
                 """
                 DASH manifest contains the following
                 <UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="/timing" />

@@ -4417,7 +4417,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			manifestUrl = aamp->mManifestUrl = mManifestDnldRespPtr->mMPDDownloadResponse->sEffectiveUrl;
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
-			mNetworkDownDetected = false;			
+			mNetworkDownDetected = false;
 		}
 		else if (aamp->DownloadsAreEnabled())
 		{
@@ -4721,9 +4721,10 @@ bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 						if(!(ServerUrl.find("http") == 0))
 						{
 							std::string valueCopy = ServerUrl;
-							aamp_ResolveURL(ServerUrl, aamp->GetManifestUrl(), valueCopy.c_str(), ISCONFIGSET(eAAMPConfig_PropogateURIParam));
+							// Do not add parameters to the Time Server URL, even if eAAMPConfig_PropogateURIParam is set
+							aamp_ResolveURL(ServerUrl, aamp->GetManifestUrl(), valueCopy.c_str(), false);
 						}
-						
+
 						mLocalUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
 						if(mLocalUtcTime > 0 )
 						{
