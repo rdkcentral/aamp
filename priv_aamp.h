@@ -1054,7 +1054,6 @@ public:
 	bool mIsVSS;       					/**< Indicates if stream is VSS, updated during Tune */
 	long curlDLTimeout[eCURLINSTANCE_MAX]; 			/**< To store donwload timeout of each curl instance*/
 	std::string mSubLanguage;
-	std::vector<std::string> preferredSubtitleLanguageVctr;	/**< list of preferred text languages from most-preferred to the least*/
 	bool mPlayerPreBuffered;	     			/**< Player changed from BG to FG */
 	int mPlayerId;
 	int mDrmDecryptFailCount;				/**< Sets retry count for DRM decryption failure */

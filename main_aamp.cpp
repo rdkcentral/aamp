@@ -2419,11 +2419,9 @@ void PlayerInstanceAAMP::SetPreferredSubtitleLanguage(const char* language)
 	ERROR_STATE_CHECK_VOID();
         AAMPLOG_WARN("PlayerInstanceAAMP::(%s)->(%s)",  aamp->mSubLanguage.c_str(), language);
 
-	//Compare it with the first element and update it to the new preferred language if they don't match.
-	if(1 == aamp->preferredSubtitleLanguageVctr.size() && aamp->preferredSubtitleLanguageVctr.front() == language )
-	{
+	if (aamp->mSubLanguage.compare(language) == 0)
 		return;
-	}
+
 
 	if (state == eSTATE_IDLE || state == eSTATE_RELEASED)
 	{

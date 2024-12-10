@@ -1183,20 +1183,10 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, preferredInstreamIdString("")
 	, preferredTextNameString("")
 	, preferredNameString("")
-	, mProgressReportOffset(-1)
-	, mFirstFragmentTimeOffset(-1)
-	, mProgressReportAvailabilityOffset(-1)
-	, mAutoResumeTaskId(AAMP_TASK_ID_INVALID)
-	, mAutoResumeTaskPending(false)
-	, mScheduler(NULL)
-	, mEventLock()
-	, mEventPriority(G_PRIORITY_DEFAULT_IDLE)
+	, mProgressReportOffset(-1), mFirstFragmentTimeOffset(-1), mProgressReportAvailabilityOffset(-1)
+	, mAutoResumeTaskId(AAMP_TASK_ID_INVALID), mAutoResumeTaskPending(false), mScheduler(NULL), mEventLock(), mEventPriority(G_PRIORITY_DEFAULT_IDLE)
 	, mStreamLock()
-	, mConfig (config)
-	, mSubLanguage()
-	, preferredSubtitleLanguageVctr()
-	, mHarvestCountLimit(0)
-	, mHarvestConfig(0)
+	, mConfig (config),mSubLanguage(), mHarvestCountLimit(0), mHarvestConfig(0)
 	, mIsWVKIDWorkaround(false)
 	, mAuxFormat(FORMAT_INVALID), mAuxAudioLanguage()
 	, mAbsoluteEndPosition(0), mIsLiveStream(false)
@@ -5797,15 +5787,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	mSessionToken = GETCONFIGVALUE_PRIV(eAAMPConfig_AuthToken);
 	mSubLanguage = GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage);
-	preferredSubtitleLanguageVctr.clear();
-	std::istringstream ss(mSubLanguage);
-	std::string lng;
-	while(std::getline(ss, lng, ','))
-	{
-		preferredSubtitleLanguageVctr.push_back(lng);
-		AAMPLOG_INFO("Parsed preferred subtitle lang: %s", lng.c_str());
-	}
-
 	mSupportedTLSVersion = GETCONFIGVALUE_PRIV(eAAMPConfig_TLSVersion);
 	mLiveOffsetDrift = GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffsetDriftCorrectionInterval);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
@@ -11736,6 +11717,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					preferredLanguagesList.push_back(lng);
 					AAMPLOG_INFO("Parsed preferred lang: %s", lng.c_str());
 				}
+
+				preferredLanguagesString = std::string(languageList);
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLanguage,preferredLanguagesString);
 			}
 
@@ -12265,15 +12248,12 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 	else if( param )
 	{
 		AAMPLOG_INFO("Setting Text Languages  %s", param);
-		preferredTextLanguagesString = std::string(param);
+		std::string inputTextLanguagesString;
+		inputTextLanguagesString = std::string(param);
+
 		preferredTextLanguagesList.clear();
-		std::istringstream ss(preferredTextLanguagesString);
-		std::string lng;
-		while(std::getline(ss, lng, ','))
-		{
-			preferredTextLanguagesList.push_back(lng);
-			AAMPLOG_INFO("Parsed preferred text lang: %s", lng.c_str());
-		}
+		preferredTextLanguagesList.push_back(inputTextLanguagesString);
+		preferredTextLanguagesString = inputTextLanguagesString;
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING, eAAMPConfig_PreferredTextLanguage, preferredTextLanguagesString);
 	}
 	else
