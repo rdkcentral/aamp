@@ -7057,9 +7057,13 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 	}
 	else
 	{
-		if (!aamp->mSubLanguage.empty())
+		for (const auto& LangStr : aamp->preferredSubtitleLanguageVctr)
 		{
-			currentTextTrackProfileIndex = GetMediaIndexForLanguage(aamp->mSubLanguage, eTRACK_SUBTITLE);
+			currentTextTrackProfileIndex = GetMediaIndexForLanguage(LangStr, eTRACK_SUBTITLE);
+			if(currentTextTrackProfileIndex > -1 )
+			{
+				break;
+			}
 		}
 	}
 	AAMPLOG_WARN("TextTrack Selected :%d", currentTextTrackProfileIndex);
