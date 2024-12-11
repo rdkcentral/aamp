@@ -2218,6 +2218,10 @@ TEST_F(FunctionalTests, ChunkMode_LLD)
 )";
 	double seekPosition = 0;
 	int rate = 1 ; //Normal playrate test
+	
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
+		.WillRepeatedly(Return(true));
+	
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 	//For this test case we need EnableLowLatencyDash as true 
@@ -2246,7 +2250,6 @@ TEST_F(FunctionalTests, ChunkMode_LLD)
 	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK,seekPosition, rate,false); 
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), false);
-
 }
 
 /**
@@ -2284,6 +2287,10 @@ TEST_F(FunctionalTests, ChunkMode_LLD_ForMaxLatency_Case)
 )";
 	double seekPosition = 1552; ///Total duration : 1560
 	int rate = 1 ; //Normal playrate test
+	
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
+		.WillRepeatedly(Return(true));
+
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 
