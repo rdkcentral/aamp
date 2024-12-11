@@ -1305,7 +1305,6 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							AAMPLOG_INFO("Type[%d] update startTime to %" PRIu64 ,pMediaStreamContext->type, startTime);
 						}
 						pMediaStreamContext->fragmentDescriptor.Time = startTime;
-	
 						//Some foxtel streams have timeline start variation(~1) under diff representation but on same adaptation with same startNumber. Reset lastSegmentTime, as FDT>lastSegmentTime, it leads to Fetch duplicate fragment, as fragment number remains same.
                                                 if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO &&
 						(prevTimeScale != 0 && prevTimeScale != timeScale) && (pMediaStreamContext->lastSegmentTime != 0 && pMediaStreamContext->lastSegmentTime < pMediaStreamContext->fragmentDescriptor.Time) &&
@@ -1598,6 +1597,12 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						}
 						else
 						{
+							if (pMediaStreamContext->fragmentRepeatCount == 0 && pMediaStreamContext->timeLineIndex > 0)
+							{
+								//Going backwards and at the begining of a timeline idx, get duration from preceeding entry
+								ITimeline *timeline = timelines.at(pMediaStreamContext->timeLineIndex - 1);
+								duration = timeline->GetDuration();
+							}
 							pMediaStreamContext->fragmentDescriptor.Time -= duration;
 							pMediaStreamContext->fragmentDescriptor.Number--;
 							pMediaStreamContext->fragmentRepeatCount--;
@@ -2359,7 +2364,32 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							pMediaStreamContext->fragmentDescriptor.Time = startTime;
 						}
 					}
+
+					/*
+					The following variables point to the segment that will be the next to play/skip over when
+					playing in a fwd direction
+						pMediaStreamContext->fragmentRepeatCount
+						pMediaStreamContext->timeLineIndex
+					When going in reverse then the 'next' segment will be before these variables and if we are already
+					pointing to the first entry in the timeLineIndex then the duration will come from the previous
+					timeLineIndex
+					<SegmentTimeline>
+          				<S t="927972765613" d="336000" r="0" />     <-- the duration we want for rew
+          				<S t="927973101613" d="326400" r="0" />     <------timeLineIndex
+          				<S t="927973428013" d="460800" r="43" />
+			        </SegmentTimeline>
+					*/
 					uint32_t duration = timeline->GetDuration();
+					if (skipTime < 0)
+					{
+						// rewind
+						if (pMediaStreamContext->fragmentRepeatCount == 0 && pMediaStreamContext->timeLineIndex > 0)
+						{
+							ITimeline *timeline = timelines.at(pMediaStreamContext->timeLineIndex - 1);
+							duration = timeline->GetDuration();
+						}
+					}
+
 					double fragmentDuration = ComputeFragmentDuration(duration,timeScale);
 					double nextPTS = (double)(pMediaStreamContext->fragmentDescriptor.Time + duration)/timeScale;
 					double firstPTS = (double)pMediaStreamContext->fragmentDescriptor.Time/timeScale;
@@ -2471,7 +2501,6 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 								pMediaStreamContext->fragmentRepeatCount = timelines.at(pMediaStreamContext->timeLineIndex)->GetRepeatCount();
 							}
 						}
-
 						continue;  /* continue to next fragment */
 					}
 					if (abs(skipTime) < fragmentDuration)

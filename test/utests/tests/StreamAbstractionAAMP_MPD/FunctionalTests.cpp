@@ -643,7 +643,7 @@ protected:
  * Trickplay tests are instantiated multiple times with a range of play rates.
  */
 class TrickplayTests : public FunctionalTestsBase,
-                                           public ::testing::TestWithParam<float>
+                                           public ::testing::TestWithParam<int>
 {
 protected:
         void SetUp() override
@@ -673,6 +673,14 @@ public:
                 return mStreamAbstractionAAMP_MPD->SkipFragments(pMediaStreamContext, skipTime);
         }
 };
+
+/**
+ * @brief Parameterized trickplay tests class.
+ *
+ * Trickplay tests are instantiated multiple times with a range of play rates.
+ */
+class TrickplayTests1 : public TrickplayTests {};
+
 
 /**
  * @brief Segment time identifier test.
@@ -1533,6 +1541,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
  *
  * Verify the difference between successive IFrame indices in trickplay.
  */
+float trickplay_number_tbl[] = {-1.0, 2.0, -2.0, 6.0, -6.0, 12.0, -12.0, 30.0, -30.0};
+
 TEST_P(TrickplayTests, Cadence)
 {
         float rate;
@@ -1561,7 +1571,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
 
         /* Get the rate parameter. */
-        rate = GetParam();
+        rate = trickplay_number_tbl[GetParam()];
 
         /* Initialize MPD with seek position and play rate. The initialization
          * segment is cached.
@@ -1604,12 +1614,138 @@ R"(<?xml version="1.0" encoding="utf-8"?>
         PushNextFragment(eTRACK_VIDEO);
 }
 
+
+/**
+ * @brief Trickplay url generation test where $Time$ is used in the media attribute.
+ *
+ * @param[in] idx idx into table of test values
+ *
+ * Verify that correct time calculations lead to generation of the
+ * correct url for the segment when we are performing trickplay.
+ */
+
+/*
+Here is the expanded SegmentTimeline used in TrickplayTests1 . Used to generate expected segment numbers:
+t	d	r
+0	9	0
+9	9	1
+18	9	2
+27	9	3
+36	9	4
+45	11	0
+56	8	0
+64	8	1
+72	8	2
+80	8	3
+88	8	4
+96	10	0
+106	10	1
+116	10	2
+126	10	3
+136	10	4
+146	10	5
+156	10	6
+166	10	7
+176	10	8
+186	10	9
+196	10	10
+*/
+
+typedef struct {
+        double seek;
+        double rate;
+        int expected_seg_time[100];
+} TRICKPLAY_TBL;
+
+TRICKPLAY_TBL trickplay_time_tbl[] = {
+//{ seek, rate, {expected segment numbers ...} }
+{ 0,     2.0, {0,9,18,27,36,45,56,64,72,80,88,96,106,-1} },
+{ 11.6, -2.0, {116,106,96,88,80,72,64,56,45,36,27,18,9,-1} },
+
+{ 0,     6.0, {0,18,36,56,72,88,106,126,146,166,186,-1} },
+{ 18.6, -6.0, {186,166, 146,126,106,88,72,56,36,18,0,-1} },
+
+{ 0,     12.0, {0,36,72,106,146,186,-1} },
+{ 18.6, -12.0, {186,146,106,72,36,0,-1} }
+};
+
+
+TEST_P(TrickplayTests1, TblIndex)
+{
+        float rate;
+
+        std::string fragmentUrl;
+        AAMPStatusType status;
+        double seekPosition = 0.0;
+        double skipTime = 0.0;
+        static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:xlink="http://www.w3.org/1999/xlink" xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT15M0.0S" minBufferTime="PT4.0S">
+        <Period id="0" start="PT0.0S">
+                <AdaptationSet id="1" contentType="video" segmentAlignment="true" bitstreamSwitching="true" lang="und">
+                        <EssentialProperty schemeIdUri="http://dashif.org/guidelines/trickmode" value="1"/>
+                        <Representation id="4" mimeType="video/mp4" codecs="avc1.4d4016" bandwidth="800000" width="640" height="360" frameRate="1/1">
+                                <SegmentTemplate timescale="10" initialization="dash/iframe_init.m4s" media="dash/iframe_$Time$.m4s" startNumber="1">
+                                        <SegmentTimeline>
+          				<S t="0" d="9" r="4" />
+          				<S t="45" d="11" r="0" />
+          				<S t="56" d="8" r="4" />
+                                        <S t="96" d="10" r="10" />
+                                        </SegmentTimeline>
+                                </SegmentTemplate>
+                        </Representation>
+                </AdaptationSet>
+        </Period>
+</MPD>
+)";
+
+        /* Get the rate parameter. */
+        int idx = GetParam();
+
+        rate = trickplay_time_tbl[idx].rate;
+        seekPosition = trickplay_time_tbl[idx].seek;
+
+        /* Initialize MPD with seek position and play rate. */
+        fragmentUrl = std::string(TEST_BASE_URL) + std::string("dash/iframe_init.m4s");
+        EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+                .WillOnce(Return(true));
+
+        status = InitializeMPD(manifest, TuneType::eTUNETYPE_NEW_NORMAL, seekPosition, rate);
+
+        EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+        /* Generate all the video segment URLs we are expecting */
+        int j;
+        for (j = 0; trickplay_time_tbl[idx].expected_seg_time[j] >=0; j++)
+        {
+                char number[50];
+                (void)snprintf(number, sizeof(number), "dash/iframe_%d.m4s", trickplay_time_tbl[idx].expected_seg_time[j]);
+                fragmentUrl = std::string(TEST_BASE_URL) + std::string(number);
+                EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+                    .WillOnce(Return(true));
+        }
+
+        /* Loop through the code we are testing */
+        for (j = 0; trickplay_time_tbl[idx].expected_seg_time[j] >=0; j++)
+        {
+                PushNextFragment(eTRACK_VIDEO);
+
+                /* Skip segments which will not be pushed. */
+                skipTime = rate / TRICKPLAY_VOD_PLAYBACK_FPS;
+                (void)SkipFragments(eTRACK_VIDEO, skipTime);
+        }
+}
+
 /**
  * @brief Instantiate the trickplay tests with multiple play rates.
  */
 INSTANTIATE_TEST_SUITE_P(TrickPlay,
                          TrickplayTests,
-                         testing::Values(-1.0, 2.0, -2.0, 6.0, -6.0, 12.0, -12.0, 30.0, -30.0));
+                         testing::Range(0,(int)(sizeof(trickplay_number_tbl)/sizeof(trickplay_number_tbl[0]))));
+
+INSTANTIATE_TEST_SUITE_P(TrickPlayTime,
+                         TrickplayTests1,
+                         testing::Range(0,(int)(sizeof(trickplay_time_tbl)/sizeof(trickplay_time_tbl[0]))));
 
 TEST_F(FunctionalTests_1, ResetSubtitle)
 {
