@@ -66,7 +66,7 @@ TESTDATA = [TESTDATA1,TESTDATA2]
 def test_data(request):
     return request.param
 
-def test_13005(aamp_setup_teardown, test_data):
+def test_13006(aamp_setup_teardown, test_data):
 
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))

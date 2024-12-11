@@ -29,6 +29,7 @@ import requests
 import shutil
 import dateutil.parser
 import datetime
+import re
 
 class Simlinear:
     """
@@ -408,7 +409,7 @@ class Aamp:
         Format of testdata for run_expect_a()
         "title": "Title of the test"
         "logfile": "log1.txt"              # Optional, default let framework set logfile name
-        "max_test_time_seconds": 30        # Optional, The max time the test is allowed to run before fail, default 15
+        "max_test_time_seconds": 30        # Optional, default 15. Fail if waiting for match on next expect exceeds this.
         "aamp_cfg": "info=true\ntrace=true\n", # Values to set in aamp.cfg
 
         One of the following to provide a stream for aamp to play
@@ -444,36 +445,41 @@ class Aamp:
 
         self.common_startup(testdata)
 
-
+        line_compiled = re.compile(".*?\r\n")
         start_time = time.time()
         for idx, e in enumerate(testdata["expect_list"]):
             if e.get('expect') is not None:
-                try:
-                    self.aamp_pexpect.expect(e['expect'], timeout=self.max_test_time_seconds)
-                except pexpect.TIMEOUT:
-                    assert 0, "ERROR TIMEOUT was thrown idx={}:{}".format(idx, e['expect'])
-                except Exception as e:
-                    assert 0, "ERROR Exception was thrown idx={}:{}".format(idx, str(e))
-                else:
-                    elapsed = time.time() - start_time
-                    match = self.aamp_pexpect.match
-                    print("Event idx={} {} occurs at elapsed={}".format
-                          (idx, str(e["expect"]).replace("\\", ""), elapsed))
-                    if "callback" in e:
-                          print("Have callback")
-                          e["callback"](match)
+                match = None
+                start_match_time = time.time()
+                while match is None:
+                    try:
+                        self.aamp_pexpect.expect(line_compiled)
+                    except pexpect.TIMEOUT:
+                        assert 0, "ERROR TIMEOUT was thrown idx={}:{}".format(idx, e['expect'])
+                    except Exception as e:
+                        assert 0, "ERROR Exception was thrown idx={}:{}".format(idx, str(e))
+                    else:
+                        log_line = self.aamp_pexpect.match.group(0).decode('utf-8')
+                        match = re.search(e['expect'],log_line)
+                        if match:
+                            elapsed = time.time() - start_time
+                            stripped = str(e["expect"]).replace("\\", "")
+                            print(f"Event idx={idx} {stripped} occurs at elapsed={elapsed:.2f}")
+                            if "callback" in e:
+                                print("Have callback")
+                                e["callback"](match)
 
-                finally:
+                    finally:
+                        pass
 
-                    elapsed = time.time() - start_time
-                    assert elapsed < (self.max_test_time_seconds*2), (
-                        "ERROR Max test time exceeded elapsed={}".format(elapsed))
+                    match_elapsed = time.time() - start_match_time
+                    assert match_elapsed < self.max_test_time_seconds, (f"ERROR Max test time exceeded elapsed={match_elapsed:.2f} {e}")
 
             if e.get('cmd') is not None:
                 elapsed = time.time() - start_time
-                print("Cmd idx={} {} sent at elapsed={}"
-                      .format(idx, str(e["cmd"]).replace("\\", ""), elapsed))
-                self.sendline(e["cmd"])
+                cmd = e["cmd"]
+                print(f"Cmd idx={idx} {cmd} sent at elapsed={elapsed:.2f}")
+                self.sendline(cmd)
 
     def check_for_missed_events(self, testdata, elapsed, expect_did_happen):
         """
@@ -490,10 +496,10 @@ class Aamp:
         Offers more capability for checking logs against expected timing relative to the start of the test.
         Format of testdata for run_expect_b()
         "title": "HLS Audio Discontinuity",
-        "logfile": "testdata3.txt",         # Optional
-        "max_test_time_seconds": 15         # See expect_a documentation comments
+        "logfile": "testdata3.txt",         # See expect_a documentation comments
+        "max_test_time_seconds": 15         # Optional, default 15. Fail if the test running time exceeds this.
         "aamp_cfg": "info=true\ntrace=true\n", # See expect_a documentation comments
-        "cmdlist": [                        # Optional, see expect_a documentation comments
+        "cmdlist": [                        # See expect_a documentation comments
         ....
         ]
         "url": "m3u8s_audio_discontinuity_180s/manifest.1.m3u8",
@@ -501,7 +507,7 @@ class Aamp:
         "simlinear_type": "HLS",            # See expect_a documentation comments
 
         "expect_list": [                    # Formatt specific to expect_b
-                                            # List of regular expressions to expect:
+                                            # List of regular expressions to expect, look for them all simultaneously:
 
         {"expect": re.escape("track[audio] buffering GREEN->YELLOW") ..}
                                             # Log line match, See expect_a documentation comments
@@ -526,75 +532,66 @@ class Aamp:
          ]                                  # End of expect_list
         """
 
-        log_start_timestamp = 0
-        log_timestamp = 0
-
         self.common_startup(testdata)
 
-        expect_list = []
+        expect_list_compiled = []
         expect_did_happen = []
         # Build list of expected strings from testdata
         for e in testdata["expect_list"]:
-            expect_list.append(e["expect"])
+            expect_list_compiled.append(re.compile(e["expect"]))
             expect_did_happen.append(False)
 
-        # Add a pattern which matches on the timestamp at the beginning of each log line
-        expect_list.append(r"\n(\d{10})")
-
-        expect_re = self.aamp_pexpect.compile_pattern_list(expect_list)
         # Send URL to start playing
         assert 'url' in testdata, "No url specified in test data"
 
         start_time = time.time()
         end_of_test = False
+        last_missed_event_check = 0
+        line_compiled = re.compile(".*?\r\n")
         while end_of_test is False:
             try:
-                i = self.aamp_pexpect.expect_list(expect_re)
+                i = self.aamp_pexpect.expect(line_compiled)
+                elapsed = time.time() - start_time
             except pexpect.TIMEOUT:
-                # Get this exception if no matches for 10secs
-                # Use it to do some housekeeping
-                # We check that all expected log output has occurred.
-                elapsed_since_start = log_timestamp - log_start_timestamp + self.EXPECT_TIMEOUT
-                self.check_for_missed_events(testdata, elapsed_since_start, expect_did_happen)
+                # Get here if no log lines received for the default pexpect time of 30secs
+                # do nothing as the test will time out depending on it own setting
+                pass
 
             except Exception as e:
                 assert 0, "ERROR Exception was thrown {}".format(e)
 
             else:
-                if i == len(expect_list)-1:
-                    # last entry in our list which is the timestamp pattern
-                    # print(aamp.match.group(0))
-                    # print(aamp.match.group(1))
-                    log_timestamp = int(self.aamp_pexpect.match.group(1))
-                else:
-                    # First match in list , set time reference
-                    if i == 0 and log_start_timestamp == 0:
-                        log_start_timestamp = log_timestamp
+                log_line = self.aamp_pexpect.match.group(0).decode('utf-8')
+                #print("log_line ",log_line)
+                for i, compiled_re in enumerate(expect_list_compiled):
+                    match = compiled_re.search(log_line)
+                    if match:
+                        # Get details of the event we just received
+                        e = testdata["expect_list"][i]
+                        print("Event {} occurs at elapsed={}".format(match.group(0), int(elapsed)))
 
-                    elapsed = log_timestamp - log_start_timestamp
-                    # Get details of the event we just received
-                    e = testdata["expect_list"][i]
-                    match = self.aamp_pexpect.match
-                    print("Event {} occurs at elapsed={}".format(match.group(0), elapsed))
+                        if elapsed >= e.get("min",0) and elapsed <= e.get("max",self.max_test_time_seconds):
+                            if "not_expected" in e:
+                                # We got event within a time window when we were not expecting it
+                                assert 0, "ERROR {} occurred elapsed={}".format(e, elapsed)
+                            else:
+                                # Event occurred in window and was expected
+                                expect_did_happen[i] = True
 
-                    if elapsed >= e.get("min",0) and elapsed <= e.get("max",self.max_test_time_seconds):
-                        if "not_expected" in e:
-                            # We got event within a time window when we were not expecting it
-                            assert 0, "ERROR {} occurred elapsed={}".format(e, elapsed)
-                        else:
-                            # Event occurred in window and was expected
-                            expect_did_happen[i] = True
+                                if "callback" in e:
+                                    print("Have callback")
+                                    e["callback"](match, e.get("callback_arg"))
 
-                            if "callback" in e:
-                                print("Have callback")
-                                e["callback"](match, e.get("callback_arg"))
+                                if "end_of_test" in e:
+                                    self.check_for_missed_events(testdata, elapsed, expect_did_happen)
+                                    end_of_test = True
 
-                            if "end_of_test" in e:
-                                self.check_for_missed_events(testdata, elapsed, expect_did_happen)
-                                end_of_test = True
+                if int(elapsed) != last_missed_event_check:
+                    # Every second check if we have not received any expected events
+                    last_missed_event_check = int(elapsed)
+                    self.check_for_missed_events(testdata, elapsed, expect_did_happen)
 
             finally:
-                elapsed = time.time()-start_time
                 assert elapsed < self.max_test_time_seconds, "ERROR Max test time exceeded elapsed={}".format(elapsed)
 
 

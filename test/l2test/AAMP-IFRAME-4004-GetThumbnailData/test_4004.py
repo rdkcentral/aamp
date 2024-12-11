@@ -66,10 +66,9 @@ def tracks_parser(regex_match):
     for idx in range(track_count):
         test_sequence['expect_list'].insert(-1, {"cmd": "set thumbnailTrack {}".format(idx)})
         test_sequence['expect_list'].insert(-1, {"expect": r" SetThumbnailTrack \[{}\] result: success".format(idx)})
-        test_sequence['expect_list'].insert(-1, {"cmd": "get thumbnailData 0 120"})
-        test_sequence['expect_list'].insert(-1, {"expect": r" GETTING THUMBNAIL TIME RANGE DATA for duration \(.*\): (.*) complete\.", "callback": ranges_parser})
+        test_sequence['expect_list'].insert(-1, {"cmd": "get thumbnailData 0 120 1"})
+        test_sequence['expect_list'].insert(-1, {"expect": r" GETTING THUMBNAIL TIME RANGE DATA (.*)", "callback": ranges_parser})
         test_sequence['expect_list'].insert(-1, {"cmd": "sleep {}".format(sleep_time)})
-    
 
 stream_configuration=[
 

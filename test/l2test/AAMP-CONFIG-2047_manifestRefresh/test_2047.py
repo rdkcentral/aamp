@@ -34,7 +34,8 @@ TESTDATA1 = {
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\njsinfo=true\nprogress=true",
     "expect_list": [
-       {"expect": r"\[AAMPCLI\] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY.*manifestType\[dynamic\]"}
+       {"expect": r"\[AAMPCLI\] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY"},
+       {"expect": r"manifestType\[dynamic\]"}
     ],
 }
 

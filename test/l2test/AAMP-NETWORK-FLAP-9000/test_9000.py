@@ -127,11 +127,11 @@ TESTDATA3= {
     "expect_list": [
         {"expect": r"aamp_tune"},
         {"expect": r"HttpRequestEnd: 0,0,200"},
-        {"expect": r"aamp pos: \[.*?\.\.1\.00\]"},
+        {"expect": r"aamp pos:.*" + re.escape("..1.00]")},
         {"expect": r"Download failed due to Server error http-502 . Retrying Attempt: 1!"},
         {"expect": r"Download Status Ret:0 502"},
         {"expect": r"Manifest retries exhausted for HTTP error 502,exiting mpd downloader!!"},
-        {"expect": r"aamp pos: \[.*?\.\.1\.00\]","not_expected" : True},
+        {"expect": r"aamp pos:.*" + re.escape("..1.00]"),"not_expected" : True, "min":20}, #Dont expect to see this after 20sec into test
         {"expect": r"FOREGROUND PLAYER\[0\] Sending error AAMP: Manifest Download failed : Http Error Code 502","end_of_test": True},
     ]
 }

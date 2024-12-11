@@ -41,7 +41,7 @@ class PtsRestampUtils:
         before = float(match.group(3))
         after = float(match.group(4))
         duration = float(match.group(5))
-        url = match.group(6).decode()
+        url = match.group(6)
 
         self.segment_cnt += 1
         print(self.segment_cnt, mediaTrack, timeScale, before, after, duration, url)

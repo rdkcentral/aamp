@@ -137,6 +137,8 @@ for language,details in lang_dict.items():
 for language,details in lang_dict.items():
     print(language,details)
 
+    details_long = details['long']
+    details_short = details['short']
     TESTLIST.append(
         {
             "title": "Get preferredAudioLanguage",
@@ -144,16 +146,15 @@ for language,details in lang_dict.items():
             "aamp_cfg": f"info=true\ntrace=true\nprogress=true\n",
             "expect_list": [
                 {"cmd":'setconfig {"info":true,"trace":true}'},
-                {"cmd":r'setconfig {"preferredAudioLanguage":'+'"'+f"{details['long']}"+'"'+'}'},
-                {"cmd":r'setconfig {"preferredAudioLabel":'+'"'+f"{details['long']}"+'"'+'}'},
+                {"cmd":r'setconfig {"preferredAudioLanguage":"'+details_long+'"}'},
+                {"cmd":r'setconfig {"preferredAudioLabel":"'+details_long+'"}'},
                 {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
                 {"expect": r"AAMP_EVENT_STATE_CHANGED: PLAYING"},
                 # Expected current playback position as a 4 digit number. i.e less than 9999
                 {"expect": r"Returning Position as (\d{4}) "},
                 {"cmd": "getconfig"},
-                {"expect": '"preferredAudioLanguage":"'+f"{details['long']}"+'"'},
-                {"expect": '"preferredAudioLabel":"'+f"{details['long']}"+'"'},
-                {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/"+f"{details['short']}"+r"_[0-9]*\.mp3"},
+                {"expect": f'"preferredAudioLanguage":"{details_long}","preferredAudioLabel":"{details_long}"'},
+                {"expect": r"https://cpetestutility\.stb\.r53\.xcal\.tv/VideoTestStream/dash/"+f"{details_short}"+r"_[0-9]*\.mp3"},
                 {"cmd": "sleep 3000"},
                 {"expect": "sleeping for 3.000000 seconds"},
                 # Playback position is now 5 digit number. confirmed playback progressed.
