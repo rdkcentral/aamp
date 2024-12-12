@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-declare DEFAULT_GSTVERSION="1.20.3"
+declare DEFAULT_GSTVERSION="1.24.9"
 
 
 function install_gstreamer_fn()
@@ -13,7 +13,7 @@ function install_gstreamer_fn()
         if [[ $ARCH == "x86_64" ]]; then
             DEFAULT_GSTVERSION="1.18.6"
         elif [[ $ARCH == "arm64" ]]; then
-            DEFAULT_GSTVERSION="1.20.3" 
+            DEFAULT_GSTVERSION="1.24.9" 
         else
             echo "Achitecture $ARCH is unsupported"
             return 1
@@ -35,6 +35,8 @@ function install_gstreamer_fn()
             curl -o gstreamer-1.0-devel-$DEFAULT_GSTVERSION-x86_64.pkg  https://gstreamer.freedesktop.org/data/pkg/osx/$DEFAULT_GSTVERSION/gstreamer-1.0-devel-$DEFAULT_GSTVERSION-x86_64.pkg
             sudo installer -pkg gstreamer-1.0-devel-$DEFAULT_GSTVERSION-x86_64.pkg  -target /
             rm gstreamer-1.0-devel-$DEFAULT_GSTVERSION-x86_64.pkg
+            export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH
+
         elif [[ $ARCH == "arm64" ]]; then
             curl -o gstreamer-1.0-$DEFAULT_GSTVERSION-universal.pkg  https://gstreamer.freedesktop.org/data/pkg/osx/$DEFAULT_GSTVERSION/gstreamer-1.0-$DEFAULT_GSTVERSION-universal.pkg
             sudo installer -pkg gstreamer-1.0-$DEFAULT_GSTVERSION-universal.pkg -target /
@@ -49,6 +51,7 @@ function install_gstreamer_fn()
                 echo "Fixing Gstreamer.framework .pc files."
                 sudo sed -i '.bak'  's#prefix=.*#prefix=/Library/Frameworks/GStreamer.framework/Versions/1.0#' /Library/Frameworks/GStreamer.framework/Libraries/pkgconfig/*
             fi
+            export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
         fi
         INSTALL_STATUS_ARR+=("gstreamer $DEFAULT_GSTVERSION was successfully installed.")
 

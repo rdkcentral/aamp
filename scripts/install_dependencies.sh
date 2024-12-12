@@ -18,7 +18,7 @@
 # limitations under the License.
 #
 
-declare DEFAULT_OPENSSL_VERSION="openssl@1.1"
+declare DEFAULT_OPENSSL_VERSION="openssl@3.4"
 
 function install_pkgs_pkgconfig_darwin_fn() 
 {
@@ -198,7 +198,7 @@ function install_pkgs_fn()
           brew update
       fi
 
-      install_pkgs_darwin_fn git json-glib cmake "openssl@1.1" libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq curl
+      install_pkgs_darwin_fn git json-glib cmake "openssl@3.4" libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq curl
       install_pkgs_darwin_fn coreutils websocketpp boost jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2 openldap krb5
 
       # ORC causes compile errors on x86_64 Mac, but not on ARM64
