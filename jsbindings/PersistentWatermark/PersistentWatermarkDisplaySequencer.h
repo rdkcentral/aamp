@@ -33,9 +33,11 @@ namespace PersistentWatermark
 	public:
 
 		/**
-		 @brief Show the Watermark contained in storage
-		* */
-		void Show(PersistentWatermark::Storage& storage);
+		*   @brief Show the Watermark contained in storage
+		*   @param[in]  storage - storage object containing the watermark to display
+		*   @param[in]  opacity - opacity of the watermark (0-100) this is basically defines % of alpha w.r.t to original alpha in pixel
+		*/
+		void Show(PersistentWatermark::Storage& storage, int opacity=100);
 
 		/**
 		 @brief Hide any watermark currently displayed

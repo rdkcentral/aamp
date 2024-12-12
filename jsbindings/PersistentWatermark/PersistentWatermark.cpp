@@ -126,8 +126,14 @@ static JSValueRef PersistentWatermarkJS_Hide (JSContextRef ctx, JSObjectRef func
 static JSValueRef PersistentWatermarkJS_Show (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
 	std::lock_guard<std::mutex>lock(JSInterfaceMutex);
-	LOG_WARN_EX("PersistentWatermark.Show()");
-	PersistentWatermark::DisplaySequencer::getInstance().Show(PersistentWatermark::Storage::getInstance());
+	int iOpacityValue = 100;
+	// read the opacity value if present
+	if (argumentCount == 1 )
+	{
+		iOpacityValue = (int) JSValueToNumber(ctx, arguments[0], NULL);
+	}
+	LOG_WARN_EX("PersistentWatermark.Show() with opacity %d", iOpacityValue);
+	PersistentWatermark::DisplaySequencer::getInstance().Show(PersistentWatermark::Storage::getInstance(),iOpacityValue);
 	LOG_TRACE("PersistentWatermark.Show() Exit");
 	return JSValueMakeUndefined(ctx);
 }

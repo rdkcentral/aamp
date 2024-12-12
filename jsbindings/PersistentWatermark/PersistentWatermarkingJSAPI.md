@@ -95,13 +95,13 @@ Generates a ShowSuccess or ShowFailed event on completion.
 
 | Name | Type | Description |
 | ---- | ---- | ---------- |
-| show | Boolean | true, the current watermark is displayed, false, the current watermark is hidden |
+| opacity | Number | Percentage multipler for alpha (0..100). Use 100 to honor original image's alpha values.  Smaller values will make watermark more translucent down to 0 (invisible). |
 
 Example:
 ```js
     {
     	var watermark = new PersistentWatermark();
-	    watermark.show();
+    	watermark.show(75); // watermark will be rendered at 75% translucency compared to source image
     }
 ```
 ---

@@ -71,7 +71,7 @@ static int nextLayerID()
 	return nextLayer;
 }
 
-void PersistentWatermark::DisplaySequencer::Show(PersistentWatermark::Storage& storage)
+void PersistentWatermark::DisplaySequencer::Show(PersistentWatermark::Storage& storage, int opacity)
 {
 	if(mCurrentLayerID == 0)
 	{
@@ -100,6 +100,7 @@ void PersistentWatermark::DisplaySequencer::Show(PersistentWatermark::Storage& s
 		LOG_TRACE("Watermark show");
 		JsonObject param, result;
 		param["show"] = true;
+		param["alpha"] = opacity;
 		bool success = PluginAccess::get().InvokeJSONRPC("showWatermark", param, result);
 		if(success && result["success"].Boolean())
 		{
