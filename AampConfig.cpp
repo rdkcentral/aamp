@@ -317,6 +317,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"parallelPlaylistDownload",eAAMPConfig_PlaylistParallelFetch,false},
 	{true,"parallelPlaylistRefresh",eAAMPConfig_PlaylistParallelRefresh ,false},
 	{false,"bulkTimedMetadata",eAAMPConfig_BulkTimedMetaReport,false},
+	{false,"bulkTimedMetadataLive",eAAMPConfig_BulkTimedMetaReportLive,false},
 	{false,"useAverageBandwidth",eAAMPConfig_AvgBWForABR,false},
 	{false,"nativeCCRendering",eAAMPConfig_NativeCCRendering,false},
 	{true,"subtecSubtitle",eAAMPConfig_Subtec_subtitle,false},

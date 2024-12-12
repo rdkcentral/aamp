@@ -2898,12 +2898,13 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( std::shared_ptr<Man
 	if (tmpMPD)
 	{
 		Node *root			=	mpdDnldResp->mRootNode;
-		bool bMetadata		=	ISCONFIGSET(eAAMPConfig_BulkTimedMetaReport);
-
+		//If bulk metadata is enabled for live, all metadata should be reported as bulkmetadata event
+		//and player should not send the same  events again.
+		bool bMetadata		=	ISCONFIGSET(eAAMPConfig_BulkTimedMetaReport) || ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive);
 		FindTimedMetadata((dash::mpd::MPD *)tmpMPD, root, init, bMetadata);
 		if(!init)
 		{
-			aamp->ReportTimedMetadata(false);
+			aamp->ReportTimedMetadata(bMetadata);
 		}
 		// get Network time
 		mHasServerUtcTime = FindServerUTCTime(root);
@@ -4871,7 +4872,7 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 							if((name == "EventStream") && ("" != prdId) && !mCdaiObject->isPeriodExist(prdId))
 							{
 								bool processEventsInPeriod = ((!init || (1 < periodCnt && 0 == period->GetAdaptationSets().size())) //Take last & empty period at the MPD init AND all new periods in the MPD refresh. (No empty periods will come the middle)
-								      						 || (!mIsLiveManifest && init)); //to enable VOD content to send the metadata
+											      || (!mIsLiveManifest && init) || (mIsLiveManifest && ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive) ));
 
 								bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
 								if (modifySCTEProcessing)
@@ -5234,7 +5235,7 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 				}
 
 				//for livestream send the timedMetadata only., because at init, control does not come here
-				if(mIsLiveManifest)
+				if(mIsLiveManifest && ! ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive))
 				{
 					// The current process relies on enabling eAAMPConfig_EnableClientDai and that may not be desirable
 					// for our requirements. We'll just skip this and use the VOD process to send events

@@ -67,6 +67,7 @@ protected:
 		{eAAMPConfig_EnableMediaProcessor, true},
 		{eAAMPConfig_EnableCMCD, false},
 		{eAAMPConfig_BulkTimedMetaReport, false},
+		{eAAMPConfig_BulkTimedMetaReportLive, false},
 		{eAAMPConfig_EnableSCTE35PresentationTime, false},
 		{eAAMPConfig_EnableClientDai, false},
 		{eAAMPConfig_MatchBaseUrl, false},
@@ -272,9 +273,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	</Period>
 </MPD>
 )";
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableAC4))
-		.WillRepeatedly(Return(true));
-
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("opus/audio_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));

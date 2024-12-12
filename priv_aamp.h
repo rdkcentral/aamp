@@ -2419,11 +2419,21 @@ public:
 	void SetBulkTimedMetaReport(bool bValue);
 
 	/**
+	 *   @brief Set Bulk TimedMetadata Reporting flag for live
+	 *   @param[in] bValue - if true Bulk event reporting enabled for live
+	 *
+	 *   @return void
+	 */
+
+	void SetBulkTimedMetaReportLive(bool bValue);
+
+	/**
 	 *	 @brief Set unpaired discontinuity retune flag
 	 *	 @param[in] bValue - true if unpaired discontinuity retune set
 	 *
 	 *	 @return void
 	 */
+
 	void SetRetuneForUnpairedDiscontinuity(bool bValue);
 
 	/**

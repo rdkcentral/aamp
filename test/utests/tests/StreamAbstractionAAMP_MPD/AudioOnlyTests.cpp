@@ -69,13 +69,13 @@ protected:
         {
                 {eAAMPConfig_EnableMediaProcessor, true},
                 {eAAMPConfig_EnableCMCD, false},
-                {eAAMPConfig_BulkTimedMetaReport, false},
+			{eAAMPConfig_BulkTimedMetaReport, false},
+			{eAAMPConfig_BulkTimedMetaReportLive, false},
                 {eAAMPConfig_EnableSCTE35PresentationTime, false},
                 {eAAMPConfig_EnableClientDai, false},
                 {eAAMPConfig_MatchBaseUrl, false},
                 {eAAMPConfig_UseAbsoluteTimeline, false},
                 {eAAMPConfig_DisableAC4, true},
-                // {eAAMPConfig_AudioOnlyPlayback, true}, // set to true
                 {eAAMPConfig_LimitResolution, false},
                 {eAAMPConfig_Disable4K, false},
                 {eAAMPConfig_PersistHighNetworkBandwidth, false},

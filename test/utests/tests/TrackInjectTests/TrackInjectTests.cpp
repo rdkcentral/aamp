@@ -156,6 +156,7 @@ public:
 			{eAAMPConfig_EnableMediaProcessor, true},
 			{eAAMPConfig_EnableCMCD, false},
 			{eAAMPConfig_BulkTimedMetaReport, false},
+			{eAAMPConfig_BulkTimedMetaReportLive, false},
 			{eAAMPConfig_EnableSCTE35PresentationTime, false},
 			{eAAMPConfig_EnableClientDai, false},
 			{eAAMPConfig_MatchBaseUrl, false},
