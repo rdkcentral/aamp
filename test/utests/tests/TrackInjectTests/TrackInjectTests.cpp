@@ -118,14 +118,14 @@ public:
 		CachedFragment *cachFragment = nullptr;
 		if (isLLD)
 		{
-			cachFragment = &this->cachedFragmentChunks[fragmentIdxToFetch];
+			cachFragment = &this->mCachedFragmentChunks[fragmentIdxToFetch];
 			cachFragment->fragment.Clear();
 		}
 		else
 		{
 			// cachFragment = GetFetchBuffer(true);
-			this->cachedFragment = new CachedFragment[3];
-			cachFragment = &this->cachedFragment[fragmentIdxToFetch];
+			this->mCachedFragment = new CachedFragment[3];
+			cachFragment = &this->mCachedFragment[fragmentIdxToFetch];
 		}
 		cachFragment->initFragment = isInit;
 		cachFragment->discontinuity = isDisc;

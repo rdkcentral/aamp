@@ -45,7 +45,7 @@ bool AampTsbDataManager::AddInitFragment(std::string &url, AampMediaType media, 
 	return false;
 }
 
-bool AampTsbDataManager::AddFragment(std::string &url, AampMediaType media, double position, double duration, double pts, bool discont, std::string &periodId)
+bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType media, bool discont)
 {
 	return false;
 }

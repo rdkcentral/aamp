@@ -205,9 +205,15 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 	if (len > 0)
 	{
 		cachedFragment->position = fragment->GetPosition();
+		cachedFragment->absPosition = fragment->GetPosition(); // AbsPosition is same as position for content from TSB
 		cachedFragment->duration = fragment->GetDuration();
 		cachedFragment->discontinuity = fragment->IsDiscontinuous();
 		cachedFragment->type = fragment->GetInitFragData()->GetMediaType();
+		cachedFragment->uri = url;
+		pts = fragment->GetPTS();
+		AAMPLOG_INFO("[%s] Read fragment from AAMP TSB: position %fs absPosition %fs pts %fs duration %fs discontinuity %d url %s",
+			GetMediaTypeName(cachedFragment->type), cachedFragment->position, cachedFragment->absPosition, pts, cachedFragment->duration,
+			cachedFragment->discontinuity, url.c_str());
 
 		if (fragment->GetInitFragData())
 		{
@@ -221,7 +227,6 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 			return nullptr;
 		}
 
-		pts = fragment->GetPTS();
 		cachedFragment->fragment.ReserveBytes(len);
 		UnlockReadMutex();
 		status = mTSBStore->Read(url, cachedFragment->fragment.GetPtr(), len);
@@ -245,72 +250,10 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 }
 
 /**
- * @fn Read  - function to read file from TSB
- * @param[in] - position
- * @param[in] - mediaType
- * @param[out] - eos
- * @param[out] - pts
+ * @brief Write - function to enqueue data for writing to AAMP TSB
  *
- * @return CachedFragment
- */
-std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(double position, AampMediaType mediatype, bool &eos, double &pts)
-{
-	INIT_CHECK_RETURN_VAL(nullptr);
-
-	CachedFragmentPtr cachedFragment = std::make_shared<CachedFragment>();
-	std::size_t len = 0; // Initialize to 0
-
-	std::shared_ptr<AampTsbDataManager> dataManager;
-
-	dataManager = GetTsbDataManager(mediatype);
-
-	TsbFragmentDataPtr fragment = dataManager->GetFragment(position, eos);
-	std::string url = fragment->GetUrl();
-	len = mTSBStore->GetSize(url);
-
-	if (len > 0) // Check if length is greater than 0 before allocating memory
-	{
-		cachedFragment->fragment.ReserveBytes(len);
-		TSB::Status status = mTSBStore->Read(url, cachedFragment->fragment.GetPtr(), len); // Read from TSBLibrary
-		if (status != TSB::Status::OK)
-		{
-			AAMPLOG_WARN("Read failure from TSBLibrary");
-			return nullptr;
-		}
-		cachedFragment->fragment.SetLen(len);
-	}
-	else
-	{
-		AAMPLOG_WARN("Length is 0. No need to allocate memory.");
-		return nullptr;
-	}
-
-	cachedFragment->position = fragment->GetPosition();
-	cachedFragment->duration = fragment->GetDuration();
-	cachedFragment->discontinuity = fragment->IsDiscontinuous();
-	cachedFragment->type = mediatype;
-	pts = fragment->GetPTS();
-	if (fragment->GetInitFragData() != nullptr)
-	{
-		cachedFragment->cacheFragStreamInfo = fragment->GetInitFragData()->GetCacheFragStreamInfo();
-		cachedFragment->profileIndex = fragment->GetInitFragData()->GetProfileIndex();
-	}
-	else
-	{
-		// Handle the case where GetInitFragData returns nullptr
-		AAMPLOG_WARN("Fragment's InitFragData is nullptr.");
-		return nullptr;
-	}
-
-	return cachedFragment;
-}
-
-/**
- * @fn Write - function to Enqueues data for writing
  * @param[in] - URL
  * @param[in] - cachedFragment
- *
- * @return None
  */
 void AampTSBSessionManager::EnqueueWrite(std::string url, std::shared_ptr<CachedFragment> cachedFragment, std::string periodId)
 {
@@ -341,7 +284,7 @@ void AampTSBSessionManager::EnqueueWrite(std::string url, std::shared_ptr<Cached
 }
 
 /**
- * @brief Monitors the write queue for pending data.
+ * @brief Monitors the write queue and writes any pending data to AAMP TSB
  */
 void AampTSBSessionManager::ProcessWriteQueue()
 {
@@ -357,11 +300,8 @@ void AampTSBSessionManager::ProcessWriteQueue()
 		{
 			TSBWriteData writeData = mWriteQueue.front();
 			mWriteQueue.pop();
-			lock.unlock(); // Release the lock before async write
+			lock.unlock(); // Release the lock before writing to AAMP TSB
 
-			/* Perform async write operation
-			   std::thread writeThread(&AampTSBSessionManager::AsyncWrite, this, item);
-			   writeThread.join(); */
 			bool writeSucceeded = false;
 			AampMediaType mediatype = ConvertMediaType(writeData.cachedFragment->type);
 			while (!writeSucceeded && !mStopThread_.load())
@@ -375,7 +315,7 @@ void AampTSBSessionManager::ProcessWriteQueue()
 					bool TSBDataAddStatus = false;
 					AAMPLOG_TRACE("TSBWrite Metrics...OK...time taken (%lldms)...buffer (%zu)....BW(%ld)...mediatype(%s)...disc(%d)...pts(%f)...periodId(%s)..URL (%s)",
 					NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type),
-					discontinuity[mediatype]? 1 : 0, writeData.pts, writeData.periodId.c_str(), writeData.url.c_str()); // keeping it warn for testing period.
+						discontinuity[mediatype]? 1 : 0, writeData.pts, writeData.periodId.c_str(), writeData.url.c_str());
 					LockReadMutex();
 					if (writeData.cachedFragment->initFragment)
 					{
@@ -385,8 +325,9 @@ void AampTSBSessionManager::ProcessWriteQueue()
 					}
 					else
 					{
-						TSBDataAddStatus = GetTsbDataManager(mediatype)->AddFragment(writeData.url, mediatype, writeData.cachedFragment->position,
-						writeData.cachedFragment->duration, writeData.pts, discontinuity[mediatype], writeData.periodId);
+						TSBDataAddStatus = GetTsbDataManager(mediatype)->AddFragment(writeData,
+																					mediatype,
+																					discontinuity[mediatype]);
 						discontinuity[mediatype] = false;
 						if(GetTsbReader(mediatype))
 						{
@@ -817,7 +758,7 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
  * @return bool - true if success
  * @brief Fetches and caches audio fragment parallelly for video fragment.
  */
-bool AampTSBSessionManager::PushNextFragment(MediaStreamContext *pMediaStreamContext)
+bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStreamContext)
 {
 	// FN_TRACE_F_MPD( __FUNCTION__ );
 	INIT_CHECK_RETURN_VAL(false);

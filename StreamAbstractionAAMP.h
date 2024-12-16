@@ -864,8 +864,8 @@ public:
 protected:
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< Helper class for ISO BMFF parsing */
-	CachedFragment *cachedFragment;     /**< storage for currently-downloaded fragment */
-	CachedFragment cachedFragmentChunks[DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK];
+	CachedFragment *mCachedFragment;    /**< storage for currently-downloaded fragment */
+	CachedFragment mCachedFragmentChunks[DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK];
 	AampGrowableBuffer unparsedBufferChunk; /**< Buffer to keep fragment content */
 	AampGrowableBuffer parsedBufferChunk;   /**< Buffer to keep fragment content */
 	bool abort;                         /**< Abort all operations if flag is set*/
@@ -873,7 +873,7 @@ protected:
 	bool ptsError;                      /**< flag to indicate if last injected fragment has ptsError */
 	bool abortInject;                   /**< Abort inject operations if flag is set*/
 	bool abortInjectChunk;              /**< Abort inject operations if flag is set*/
-	pthread_mutex_t audioMutex;             /**< protection of audio track reconfiguration */
+	pthread_mutex_t audioMutex;         /**< protection of audio track reconfiguration */
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
 	pthread_mutex_t subtitleMutex;
 	bool loadNewSubtitle;
@@ -892,13 +892,11 @@ private:
 	pthread_cond_t fragmentInjected;    	/**< Signaled after a fragment is injected*/
 	std::thread fragmentInjectorThreadID;  	/**< Fragment injector thread id*/
 	pthread_cond_t fragmentChunkInjected;	/**< Signaled after a fragment is injected*/
-	std::thread fragmentChunkInjectorThreadID;/**< Fragment injector thread id*/
-    	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
+	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
 	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronisation thread id */
 	int totalFragmentsDownloaded;       	/**< Total fragments downloaded since start by track*/
 	int totalFragmentChunksDownloaded;      /**< Total fragments downloaded since start by track*/
 	bool fragmentInjectorThreadStarted; 	/**< Fragment injector's thread started or not*/
-	bool fragmentChunkInjectorThreadStarted;/**< Fragment Chunk injector's thread started or not*/
 	bool bufferMonitorThreadStarted;    	/**< Buffer Monitor thread started or not */
 	bool UpdateSubtitleClockTaskStarted;    /**< Subtitle clock synchronisation thread started, or not */
 	bool bufferMonitorThreadDisabled;    	/**< Buffer Monitor thread Disabled or not */

@@ -229,7 +229,7 @@ std::shared_ptr<TsbFragmentData> AampTsbReader::ReadNext()
 		DetectDiscontinuity(ret);
 	}
 	mUpcomingFragmentPosition += (mCurrentRate >= 0) ? ret->GetDuration() : -ret->GetDuration();
-	AAMPLOG_INFO("[%s] Returning fragment Pos:%lf PTS %lf relativePos:%lf Next:%lf EOS(%d), initWaiting(%d) discontinuity(%d) mIsPeriodBoundary(%d) period(%s) Url: %s",
+	AAMPLOG_INFO("[%s] Returning fragment: pos %lfs pts %lfs relativePos %lfs next %lfs eos %d initWaiting %d discontinuity %d mIsPeriodBoundary %d period %s url %s",
 				 GetMediaTypeName(mMediaType), ret->GetPosition(), ret->GetPTS(), ret->GetRelativePosition(), mUpcomingFragmentPosition, mEosReached, mNewInitWaiting, mIsNextFragmentDisc, mIsPeriodBoundary, ret->GetPeriodId().c_str(), ret->GetUrl().c_str());
 
 	return ret;

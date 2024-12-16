@@ -5258,6 +5258,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 	if (mMediaFormat == eMEDIAFORMAT_DASH)
 	{
+		/* This relies on the fact that when tuning to a new channel, the flag mLocalAAMPTsb is set after this point,
+		so the StreamAbstraction object is created even if Local AAMP TSB is used. When TuneHelper is called for
+		another reason, like changing the rate, the flag is already set and the object is not re-created. */
 		if(!IsLocalAAMPTsb())
 		{
 			mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, rate,
@@ -13659,6 +13662,7 @@ void PrivateInstanceAAMP::SetLocalAAMPTsbInjection(bool value)
 {
 	pthread_mutex_lock(&mLock);
 	mLocalAAMPInjectionEnabled = value;
+	AAMPLOG_INFO("Local AAMP TSB injection %d", mLocalAAMPInjectionEnabled);
 	pthread_mutex_unlock(&mLock);
 }
 

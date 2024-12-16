@@ -110,6 +110,46 @@ protected:
 };
 
 /**
+ * @test FunctionalTests::TsbFragmentData_Constructor
+ * @brief Tests the TsbFragmentData constructor.
+ *
+ * This test case verifies that the TsbFragmentData constructor initializes the object correctly.
+ */
+TEST_F(FunctionalTests, TsbFragmentData_Constructor)
+{
+	float rate = 1.0f;
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+
+	// Mock valid fragment data
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double relativePos = 0.0;
+	double duration = 5.0;
+	double pts = 0.0;
+	bool discont = false;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, streamInfo, periodId, profileIdx);
+
+	// Create fragment
+	TsbFragmentDataPtr fragment = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, discont, relativePos, periodId, initFragment);
+
+	// Check fragment data
+	EXPECT_STREQ(fragment->GetUrl().c_str(), url.c_str());
+	EXPECT_EQ(fragment->GetMediaType(), media);
+	EXPECT_DOUBLE_EQ(fragment->GetPosition(), position);
+	EXPECT_DOUBLE_EQ(fragment->GetDuration(), duration);
+	EXPECT_DOUBLE_EQ(fragment->GetPTS(), pts);
+	EXPECT_EQ(fragment->IsDiscontinuous(), discont);
+	EXPECT_DOUBLE_EQ(fragment->GetRelativePosition(), relativePos);
+	EXPECT_EQ(fragment->GetInitFragData(), initFragment);
+}
+
+/**
  * @test FunctionalTests::Init_InValidStartPos
  * @brief Tests the Init method with an invalid start position.
  *

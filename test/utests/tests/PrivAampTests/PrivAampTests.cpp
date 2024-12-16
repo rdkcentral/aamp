@@ -3798,3 +3798,22 @@ TEST_F(PrivAampTests, GetStringForPlaybackErrorTest)
     EXPECT_STREQ(p_aamp->getStringForPlaybackError(eGST_ERROR_GST_PIPELINE_INTERNAL), "GstPipeline Internal Error");
     EXPECT_STREQ(p_aamp->getStringForPlaybackError(static_cast<PlaybackErrorType>(-1)), "STARTTIME RESET");
 }
+
+/**
+ * @test PrivAampTests::TuneHelperWithAampTsb
+ * @brief Test the method TuneHelper with AAMP TSB enabled
+ *
+ * When AAMP TSB is enabled, the StreamAbstraction object is only created when tuning to a new channel, and not every
+ * time TuneHelper is called (i.e. not when called due to seek or set rate).
+ */
+TEST_F(PrivAampTests, TuneHelperWithAampTsb)
+{
+	float rate {-2.0};
+	p_aamp->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(p_aamp, 0.0, rate);
+	StreamAbstractionAAMP *savedStreamAbstractionAAMP = p_aamp->mpStreamAbstractionAAMP;
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->TuneHelper(eTUNETYPE_SEEK);
+	// Verify that the StreamAbstraction object is not recreated
+	EXPECT_EQ(savedStreamAbstractionAAMP, p_aamp->mpStreamAbstractionAAMP);
+}
