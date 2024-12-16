@@ -115,9 +115,9 @@ cmake_version=$(cmake --version | head -n 1 | awk '{print $3}')
 major_version=$(echo "$cmake_version" | cut -d. -f1)
 minor_version=$(echo "$cmake_version" | cut -d. -f2)
 if [[ "$major_version" -gt 3 ]] || [[ "$major_version" -eq 3 && "$minor_version" -ge 21 ]]; then
-  TESTDIR="" 
+  CT_TESTDIR="" 
 else
-  TESTDIR="--testdir build" 
+  CT_TESTDIR="--testdir build" 
     
 fi
 
@@ -125,12 +125,12 @@ if [ "$rdke_build" -eq "1" ]; then
 	echo "RDKE build"
 
 	export GTEST_OUTPUT="json"
-  ctest -j 4 --output-on-failure --no-compress-output -T Test $TESTDIR || true  # Don't exit script if a test fails
+  ctest -j 4 --output-on-failure --no-compress-output -T Test $CT_TESTDIR || true  # Don't exit script if a test fails
 
 	find . -name test_detail\*.json | xargs cat |  jq -s '{test_cases_results: {tests: map(.tests) | add,failures: map(.failures) | add,disabled: map(.disabled) | add,errors: map(.errors) | add,time: ((map(.time | rtrimstr("s") | tonumber) | add) | tostring + "s"),name: .[0].name,testsuites: map(.testsuites[])}}' > L1Report.json
 
 else
-    ctest -j 4 --output-on-failure --no-compress-output -T Test $TESTDIR --output-junit ctest-results.xml
+    ctest -j 4 --output-on-failure --no-compress-output -T Test $CT_TESTDIR --output-junit ctest-results.xml
 fi
 
 if [ "$build_coverage" -eq "1" ]; then
