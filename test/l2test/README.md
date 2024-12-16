@@ -165,4 +165,6 @@ See documentation above for more script options.
 
 - If the test suite has any prerequisites, include a ***prerequisite.sh***. It specifies actions to be taken before starting a test run.
 
+- If the new test uses a new python package then it will need to be added into the requirements.txt 
+
 
