@@ -583,6 +583,12 @@ public:
 	 * @param[in] startOffset - start offset of current ad
 	 */
 	uint64_t GetRemainingAdDurationInBreak(const std::string &breakId, int adIdx, uint32_t startOffset);
+
+	/**
+	 * @brief Getting the next valid ad in the break to be placed
+	 * @return true if the next ad is available, false otherwise
+	 */
+	bool GetNextAdInBreakToPlace();
 };
 
 #endif /* ADMANAGER_MPD_H_ */

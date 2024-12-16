@@ -526,6 +526,13 @@ public:
 	void UpdateSeekPeriodOffset( double &offsetFromStart );
 
 	/**
+	 * @fn GetNextAdInBreak
+	 * @brief Get the next valid ad in the ad break
+	 * @param[in] direction will be 1 or -1 depending on the playback rate
+	 */
+	void GetNextAdInBreak(int direction);
+
+	/**
 	 * @fn UseIframeTrack
 	 * @brief Check if AAMP is using an iframe track
 	 *

@@ -11892,10 +11892,8 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			{
 				bool curAdFailed = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).invalid;	//TODO: Vinod, may need to check boundary.
 
-				if(rate >= AAMP_NORMAL_PLAY_RATE)
-					mCdaiObject->mCurAdIdx++;
-				else
-					mCdaiObject->mCurAdIdx--;
+				GetNextAdInBreak((rate >= AAMP_NORMAL_PLAY_RATE) ? 1 : -1);
+
 				if(mCdaiObject->mCurAdIdx >= 0 && mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size())
 				{
 					// Wait for some time if the ad is not ready yet.
@@ -13936,4 +13934,34 @@ bool StreamAbstractionAAMP_MPD::UseIframeTrack(void)
 		useIframe = false;
 	}
 	return useIframe;
+}
+
+/**
+ * @fn GetNextAdInBreak
+ * @brief Get the next valid ad in the ad break
+ * @param[in] direction will be 1 or -1 depending on the playback rate
+ */
+void StreamAbstractionAAMP_MPD::GetNextAdInBreak(int direction)
+{
+	if (direction == 1 || direction == -1)
+	{
+		mCdaiObject->mCurAdIdx += direction;
+		while( mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size() && mCdaiObject->mCurAdIdx >= 0 )
+		{
+			if( mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).invalid )
+			{
+				AAMPLOG_INFO("Ad index to be played[%d] is invalid, moving to next one",mCdaiObject->mCurAdIdx);
+				mCdaiObject->mCurAdIdx += direction;
+			}
+			else
+			{
+				AAMPLOG_INFO("Ad index to be played[%d] is valid",mCdaiObject->mCurAdIdx);
+				break;
+			}
+		}
+	}
+	else
+	{
+		AAMPLOG_ERR("Invalid value[%d] for direction, not expected!", direction);
+	}
 }
