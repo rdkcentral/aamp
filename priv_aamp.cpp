@@ -12106,6 +12106,10 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 /**
  *  @brief Sanitize the given language list by normalizing the codes and removing duplicates.
  *         Order is preserved.
+ *
+ *         NOTE: if AAMP langCodePreference config is ISO639_NO_LANGCODE_PREFERENCE (=0 the default value),
+ *         then "en", "eng" - or other 2/3-digit codes for the *same* language - will not be
+ *         normalized and deduplicated to a single value.
  */
 void PrivateInstanceAAMP::SanitizeLanguageList(std::vector<std::string>& languages) const
 {
@@ -12331,7 +12335,8 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			if (trackIndex >= 0)
 			{
 				std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
-				char *currentPrefLanguage = const_cast<char*>(trackInfo[trackIndex].language.c_str());
+				std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(
+					trackInfo[trackIndex].language, this->GetLangCodePreference());
 				char *currentPrefRendition = const_cast<char*>(trackInfo[trackIndex].rendition.c_str());
 				char *currentPrefInstreamId =  const_cast<char*>(trackInfo[trackIndex].instreamId.c_str());
 				char *currentPrefName = const_cast<char*>(trackInfo[trackIndex].name.c_str());
@@ -12343,13 +12348,16 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				{
 					std::string firstLanguage = preferredTextLanguagesList.at(0);
 
-					// CID:280501 - Using invalid iterator
-					for (auto &temp : trackInfo)
+					for (const auto& track : trackInfo)
 					{
-						if ((temp.language == firstLanguage) && (temp.language != currentPrefLanguage))
+						std::string trackLanguage = Getiso639map_NormalizeLanguageCode(
+							track.language, this->GetLangCodePreference());
+
+						if ((trackLanguage == firstLanguage) &&
+							(trackLanguage != currentPrefLanguage))
 						{
 							languagePresent = true;
-							if (temp.isAvailable)
+							if (track.isAvailable)
 							{
 								languageAvailabilityInManifest = true;
 								break;
@@ -12359,7 +12367,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 
 					if (preferredTextLanguagesList.size() > 1)
 					{
-						/* If multiple value of language is present then retune */
+						/* If multiple value of language is present then retune. */
 						languagePresent = true;
 					}
 				}

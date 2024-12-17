@@ -156,10 +156,12 @@ typedef std::vector < PreCacheUrlStruct> PreCacheUrlList;
  */
 typedef enum
 {
-    ISO639_NO_LANGCODE_PREFERENCE,
-    ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE,
-    ISO639_PREFER_3_CHAR_TERMINOLOGY_LANGCODE,
-    ISO639_PREFER_2_CHAR_LANGCODE
+	ISO639_NO_LANGCODE_PREFERENCE, /**< AAMP will not normalize language codes - the client must use
+									  language codes that match the manifest when specifying audio
+									  or subtitle tracks, for example. */
+	ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE,
+	ISO639_PREFER_3_CHAR_TERMINOLOGY_LANGCODE,
+	ISO639_PREFER_2_CHAR_LANGCODE
 } LangCodePreference;
 
 /**
@@ -198,9 +200,9 @@ struct AudioTrackInfo
 	bool isAvailable;
 	bool isDefault;
 
-	AudioTrackInfo() : index(), language(), rendition(), name(), codec(), characteristics(), channels(0), 
+	AudioTrackInfo() : index(), language(), rendition(), name(), codec(), characteristics(), channels(0),
 	bandwidth(0),primaryKey(0), contentType(), mixType(), accessibilityType(), isMuxed(false), label(), mType(), accessibilityItem(), isAvailable(true),
-	isDefault(false) 
+	isDefault(false)
 	{
 	}
 
@@ -262,9 +264,9 @@ struct AudioTrackInfo
 
 	bool operator == (const AudioTrackInfo& track) const
 	{
-		return ((language == track.language) &&	
-			(rendition == track.rendition) &&	
-			(contentType == track.contentType) &&	
+		return ((language == track.language) &&
+			(rendition == track.rendition) &&
+			(contentType == track.contentType) &&
 			(codec == track.codec) &&
 			(channels == track.channels) &&
 			(bandwidth == track.bandwidth) &&
@@ -300,7 +302,7 @@ struct TextTrackInfo
 	std::string instreamId;
 	std::string characteristics;
 	std::string codec;
-	std::string label; //Field for label	
+	std::string label; //Field for label
 	int primaryKey; // used for ATSC to store key , this should not be exposed to app.
 	std::string accessibilityType; //value of Accessibility
 	Accessibility accessibilityItem; /**< Field to store Accessibility Node */
@@ -332,7 +334,7 @@ struct TextTrackInfo
 		codec(codecStr), primaryKey(0), accessibilityType(typ), label(), mType(), accessibilityItem(), isAvailable(true)
 	{
 	}
-	
+
 	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string id, std::string cha, std::string typ, std::string lab, std::string type):
 		index(idx), language(lang), isCC(cc), rendition(rend),
 		name(trackName), instreamId(id), characteristics(cha),
@@ -347,26 +349,26 @@ struct TextTrackInfo
 	{
 	}
 
-	void set (std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string codecStr, std::string cha, 
+	void set (std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string codecStr, std::string cha,
 			std::string acctyp, std::string lab, std::string type, Accessibility acc)
 	{
-		index = idx; 
+		index = idx;
 		language = lang;
 		isCC = cc;
 		rendition = rend;
-		name = trackName; 
+		name = trackName;
 		characteristics = cha;
-		codec = codecStr; 
+		codec = codecStr;
 		accessibilityType = acctyp;
-		label = lab; 
+		label = lab;
 		accessibilityItem = acc;
 		mType = type;
 	}
 
 	bool operator == (const TextTrackInfo& track) const
 	{
-		return ((language == track.language) &&	
-			(isCC == track.isCC) &&	
+		return ((language == track.language) &&
+			(isCC == track.isCC) &&
 			(rendition == track.rendition) &&
 			(name == track.name) &&
 			(characteristics == track.characteristics) &&
@@ -710,7 +712,7 @@ public:
 
 	/**
 	 * @brief API to set track Id to audio sync property in case of AC4 audio
-	 * 
+	 *
 	 * @param[in] trackId - AC4 track Id parsed by aamp based of preference
 	 * @return bol sttaus of API
 	 */
@@ -741,17 +743,17 @@ public:
  * @class PlayerInstanceAAMP
  * @brief Player interface class for the JS pluggin.
  */
-class PlayerInstanceAAMP 
+class PlayerInstanceAAMP
 {
 public: // FIXME: this should be private, but some tests access it
 	class PrivateInstanceAAMP *aamp;  		  /**< AAMP player's private instance */
 
 private:
 	std::shared_ptr<PrivateInstanceAAMP> sp_aamp; 	  /**< shared pointer for aamp resource */
-	
+
 public:
 	AampConfig mConfig;
-	
+
 	/**
 	 *   @fn PlayerInstanceAAMP
 	 *
@@ -843,7 +845,7 @@ public:
 	 *   @return void
 	 */
 	void Stop(bool sendStateChangeEvent = true);
-	
+
 	/**
 	 *   @fn ResetConfiguration
 	 *   @return void
@@ -878,7 +880,7 @@ public:
 
 	/**
 	 *   @fn PauseAt
-	 * 
+	 *
 	 *       Any subsequent call to this method will override the previous call.
 	 *
 	 *   @param[in]  position - Absolute position within the asset for VOD or
@@ -901,7 +903,7 @@ public:
 	 *   @fn SeekToLive
 	 *
 	 *   @param[in]  keepPaused - set true if want to keep paused state after seek
-	 *   @return void	
+	 *   @return void
 	 */
 	void SeekToLive(bool keepPaused = false);
 
@@ -1059,15 +1061,15 @@ public:
 	 *   @return bool - True if live content, false otherwise
 	 */
 	bool IsLive();
-	
+
 	/**
 	 *   @fn  IsJsInfoLoggingEnabled
 	 *
 	 *   @return bool - True if jsinfo is enabled, false otherwise
 	 */
-	 
+
 	 bool IsJsInfoLoggingEnabled();
-	
+
 
 	/**
 	 *   @brief Schedule insertion of ad at given position.
@@ -1084,7 +1086,7 @@ public:
 	 *   @return const char* - current audio language
 	 */
 	std::string GetAudioLanguage();
- 
+
 	const char * GetCurrentAudioLanguage(); // stub for pxVideo.cpp backwards compatibility - TBR
 
 	/**
@@ -1191,7 +1193,7 @@ public:
 	/**
 	 *   @fn SetPreCacheTimeWindow
 	 *
-	 *   @param nTimeWindow Time in minutes - Max PreCache Time 
+	 *   @param nTimeWindow Time in minutes - Max PreCache Time
 	 *   @return void
 	 */
 	void SetPreCacheTimeWindow(int nTimeWindow);
@@ -1400,7 +1402,7 @@ public:
 
 	/**
 	 *   @fn SetNetworkTimeout
-	 *   
+	 *
 	 *   @param[in] timeout preferred timeout value
 	 *   @return void
 	 */
@@ -1494,7 +1496,7 @@ public:
 	 *   @return void
 	 */
 	void SetParallelPlaylistDL(bool bValue);
-	
+
 	 /**
          *   @fn ManageAsyncTuneConfig
          *   @param[in] url - main manifest url
@@ -1505,7 +1507,7 @@ public:
 
 	/**
 	 *   @fn SetAsyncTuneConfig
-	 *   @param[in] bValue - true if async tune enabled 
+	 *   @param[in] bValue - true if async tune enabled
 	 *
 	 *   @return void
 	 */
@@ -1590,7 +1592,7 @@ public:
 	 *   @return void
 	 */
 	void SetNewAdBreakerConfig(bool bValue);
-    
+
 	/**
 	 *   @fn Setb64LicenseWrapping
 	 *   @param[in] bValue - true if json formatted base64 license data payload is expected
@@ -1598,7 +1600,7 @@ public:
 	 *   @return void
 	 */
 	void Setb64LicenseWrapping(bool bValue);
-    
+
 	/**
 	 *   @fn GetAvailableVideoTracks
 	 *
@@ -1609,7 +1611,7 @@ public:
 	/**
 	 *   @fn SetVideoTracks
 	 *   @param[in] bitrate - video bitrate list
-	 *   
+	 *
 	 *   @return void
 	 */
 	void SetVideoTracks(std::vector<BitsPerSecond> bitrates);
@@ -1627,7 +1629,7 @@ public:
 	std::string GetAvailableTextTracks(bool allTrack = false);
 
 	/**
-	 *   @fn GetVideoRectangle 
+	 *   @fn GetVideoRectangle
 	 *
 	 *   @return current video co-ordinates in x,y,w,h format
 	 */
@@ -1659,15 +1661,15 @@ public:
 
 
 	/**
-	 *   @fn SetPreferredTextLanguages 
+	 *   @fn SetPreferredTextLanguages
 	 *   @param[in] languageList - string with comma-delimited language list in ISO-639
 	 *   @return void
 	 */
-	void SetPreferredTextLanguages(const char* param); 
+	void SetPreferredTextLanguages(const char* param);
 
 	/**
 	 *   @fn SetAudioTrack
-	 *   @param[in] language - Language to set 
+	 *   @param[in] language - Language to set
 	 *   @param[in] rendition - Role/rendition to set
 	 *   @param[in] codec - Codec to set
 	 *   @param[in] channel - Channel number to set
@@ -1761,13 +1763,13 @@ public:
 
 	/**
 	 * @fn GetMaximumBitrate
-	 * @return Max bit rate value 
+	 * @return Max bit rate value
 	 */
 	BitsPerSecond GetMaximumBitrate(void);
 
 	/**
 	 * @fn SetSegmentInjectFailCount
-	 * @return void        
+	 * @return void
 	 */
 	void SetSegmentInjectFailCount(int value);
 
@@ -1812,7 +1814,7 @@ public:
 	 *   @param[in] audioOnlyPlayback - true if audio only playback
 	 */
 	void SetAudioOnlyPlayback(bool audioOnlyPlayback);
- 
+
 	/**
 	 *   @fn GetAudioTrack
 	 *
@@ -1845,7 +1847,7 @@ public:
 	 *   @fn GetPreferredTextProperties
 	 */
 	std::string GetPreferredTextProperties();
-	
+
 	/**
 	 *   @fn SetTextTrack
 	 *
@@ -1933,7 +1935,7 @@ public:
 
 	/**
 	 *   @fn SetReportVideoPTS
-	 *  
+	 *
 	 *   @param[in] enabled - true if enabled
 	 */
 	void SetReportVideoPTS(bool enabled);
@@ -1963,7 +1965,7 @@ public:
 	void EnableContentRestrictions();
 
 	/**
-	 *   @fn AsyncStartStop 
+	 *   @fn AsyncStartStop
 	 *
 	 *   @return void
 	 */
@@ -2011,7 +2013,7 @@ public:
 	bool InitAAMPConfig(const char *jsonStr);
 
 	/**
-	 * @fn GetAAMPConfig 
+	 * @fn GetAAMPConfig
 	 */
 	std::string GetAAMPConfig();
 
@@ -2179,7 +2181,7 @@ protected:
 	 *   @return void
 	 */
 	void SetTextTrackInternal(int trackId, char *data);
-private:	
+private:
 
 	/**
 	 *   @fn StopInternal

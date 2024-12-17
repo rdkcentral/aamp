@@ -152,10 +152,18 @@ TEST_P(SetPreferredTextLanguagesIso639Tests, LanguageListTestIso639)
 	// AAMP is expected to normalise the language code according to the current preference
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LanguageCodePreference))
 		.WillRepeatedly(Return(ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE));
+	// The number of times the language code is normalised depends on the number of languages in the
+	// list. English will also be normalised twice - once as the currently selected subtitle track,
+	// and once as it's in the list of available subtitle tracks (alongside Spanish).
+	int normalizationCount = 2 + (strchr(testLanguageList, ',') ? 2 : 1);
 	EXPECT_CALL(*g_mockAampUtils,
 				Getiso639map_NormalizeLanguageCode(AnyOf(StrEq("eng"), StrEq("en")),
 												   ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE))
+		.Times(normalizationCount)
 		.WillRepeatedly(Return("eng"));
+	EXPECT_CALL(*g_mockAampUtils, Getiso639map_NormalizeLanguageCode(
+									  StrEq("spa"), ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE))
+		.WillOnce(Return("spa"));
 
 	// No retune
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
