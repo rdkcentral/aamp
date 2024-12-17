@@ -293,8 +293,6 @@ typedef enum
 	eAAMPConfig_MinBitrate,                         			/**< minimum bitrate filter for playback profiles */
 	eAAMPConfig_MaxBitrate,                         			/**< maximum bitrate filter for playback profiles*/
 	eAAMPConfig_TLSVersion,							/**< TLS Version value*/
-	eAAMPConfig_GstVideoBufBytesForFogLive,                                 /**< Gstreamer Max Video buffering bytes for fog linear*/
-	eAAMPConfig_GstAudioBufBytesForFogLive,                                 /**< Gstreamer Max Audio buffering bytes for fog linear*/
 	eAAMPConfig_DrmNetworkTimeout,                                          /**< DRM license request timeout in sec*/
 	eAAMPConfig_DrmStallTimeout,                                            /**< Stall Timeout for DRM license request*/
 	eAAMPConfig_DrmStartTimeout,						/**< Start Timeout for DRM license request*/

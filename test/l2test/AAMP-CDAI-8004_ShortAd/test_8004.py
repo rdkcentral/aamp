@@ -68,8 +68,8 @@ TESTDATA1 = {
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 2, duration: 120000, endPeriodId: 3, endPeriodOffset: 0, \#Ads: 4", "min": 240, "max": 260},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] => \[OUTSIDE_ADBREAK\].", "min": 240, "max": 260},
         {"expect": re.escape("Period ID changed from '3-114' to '3' [BasePeriodId='3']"), "min": 240, "max": 270},
-        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_132.m4s\?live=true", "min": 250, "max": 270},
-        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_133.m4s\?live=true", "min": 250, "max": 270, "end_of_test":True},
+        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_132.m4s\?live=true", "min": 240, "max": 270},
+        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_133.m4s\?live=true", "min": 240, "max": 270, "end_of_test":True},
     ]
 }
 

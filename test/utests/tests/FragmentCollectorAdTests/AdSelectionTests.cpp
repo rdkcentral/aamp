@@ -552,11 +552,12 @@ TEST_F(AdSelectionTests, WaitForAdFallbackTest)
 	// Set the ad variables, we have finished ad playback and waiting for base period to catchup
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
-	std::string periodId = "p0";
-	std::string endPeriodId = "p1"; // landing in p1
+	std::string periodId = "p1"; // empty adbreak in p1
 	// Add ads to the adBreak
 	cdaiObj->mAdBreaks = {
-		{endPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 0)}};
+		{periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 0)}
+	};
+	cdaiObj->mPeriodMap[periodId] = Period2AdData(false, periodId, 30000 /*in ms*/, {});
 
 	bool periodChanged = false;
 	bool adStateChanged = false; // since we finished playing an ad
@@ -571,7 +572,7 @@ TEST_F(AdSelectionTests, WaitForAdFallbackTest)
 	 */
 	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId);
 	EXPECT_TRUE(ret);
-	EXPECT_EQ(cdaiObj->mAdBreaks[endPeriodId].invalid, true);
+	EXPECT_EQ(cdaiObj->mAdBreaks[periodId].invalid, true);
 	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT), false);
 }

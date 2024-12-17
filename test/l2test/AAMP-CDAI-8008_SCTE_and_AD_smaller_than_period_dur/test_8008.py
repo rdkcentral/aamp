@@ -42,7 +42,7 @@ pts_restamp_utils = PtsRestampUtils()
 #   - Period 0: 30 seconds long, with no ads.
 #   - Period 1: 30 seconds long, containing a single ad break. The SCTE break duration is set to 10 seconds, ad duration is 10 seconds
 #   - Period 2: 10 sec duration with 5 seconds scte 
-#   - Period 3: 10 seconds long, with no ads.
+#   - Period 3: 30 seconds long, with no ads.
 # - The expectation is period1 and 2 should play the remaining content from source .
 
 TESTDATA1 = {
@@ -86,7 +86,7 @@ TESTDATA1 = {
 #   - Period 0: 30 seconds long, with no ads.
 #   - Period 1: 30 seconds long, containing a single ad break. The SCTE break duration is set to 10 seconds, ad duration is 10 seconds
 #   - Period 2: 10 sec duration with 5 seconds scte ,substituted with 5 sec ad  -
-#   - Period 3: 10 seconds long, with no ads.
+#   - Period 3: 30 seconds long, with no ads.
 # - The expectation is period1 and 2 should play the remaining content from source .
 
 TESTDATA2 = {
@@ -126,8 +126,6 @@ TESTDATA2 = {
         {"expect": re.escape("Period ID changed from '0-114' to '1' [BasePeriodId='1']"), "min": 20, "max": 200},
         # State change indicating the start of ad playback inside the ad break
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] \=\> \[OUTSIDE_ADBREAK\]", "max": 200},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[OUTSIDE_ADBREAK_WAIT4ADS\].", "max": 200},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK_WAIT4ADS\] \=\> \[OUTSIDE_ADBREAK\].", "min": 30, "max": 200},
         # Starting Ad break 2
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[2\] AdIdx\[0\] Found at Period\[2\]", "max": 200},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\].", "max": 200},

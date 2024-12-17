@@ -89,7 +89,6 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->enablePTSReStamp = config->IsConfigSet(eAAMPConfig_EnablePTSReStamp);
 	interfacePlayer->m_gstConfigParam->seamlessAudioSwitch = config->IsConfigSet(eAAMPConfig_SeamlessAudioSwitch);
 	interfacePlayer->m_gstConfigParam->videoBufBytes = config->GetConfigValue(eAAMPConfig_GstVideoBufBytes);
-	interfacePlayer->m_gstConfigParam->videoBufBytesForFog = config->GetConfigValue(eAAMPConfig_GstVideoBufBytesForFogLive);
 	interfacePlayer->m_gstConfigParam->platformType = config->GetConfigValue(eAAMPConfig_PlatformType);
 	interfacePlayer->m_gstConfigParam->noNativeAV = config->IsConfigSet(eAAMPConfig_NoNativeAV);
 	interfacePlayer->m_gstConfigParam->enableDisconnectSignals = config->IsConfigSet(eAAMPConfig_enableDisconnectSignals);
@@ -97,7 +96,6 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->vodTrickModeFPS =  config->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
 	interfacePlayer->m_gstConfigParam->enableGstPosQuery =  config->IsConfigSet(eAAMPConfig_EnableGstPositionQuery);
 	interfacePlayer->m_gstConfigParam->audioBufBytes = config->GetConfigValue(eAAMPConfig_GstAudioBufBytes);
-	interfacePlayer->m_gstConfigParam->audioBufBytesForFog = config->GetConfigValue(eAAMPConfig_GstAudioBufBytesForFogLive);
 	interfacePlayer->m_gstConfigParam->progressTimer = config->GetConfigValue(eAAMPConfig_ReportProgressInterval);
 	interfacePlayer->m_gstConfigParam->gstreamerBufferingBeforePlay = config->IsConfigSet(eAAMPConfig_GStreamerBufferingBeforePlay);
 	interfacePlayer->m_gstConfigParam->seiTimeCode = config->IsConfigSet(eAAMPConfig_SEITimeCode);
@@ -109,7 +107,6 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->framesToQueue =  config->GetConfigValue(eAAMPConfig_RequiredQueuedFrames);
 	interfacePlayer->m_gstConfigParam->monitorAV = config->IsConfigSet(eAAMPConfig_MonitorAV);
 	interfacePlayer->m_gstConfigParam->disableUnderflow = config->IsConfigSet(eAAMPConfig_DisableUnderflow);
-	interfacePlayer->m_gstConfigParam->tsbEnabled = _this->aamp->mFogTSBEnabled;
 	interfacePlayer->m_gstConfigParam->audioDecoderStreamSync = _this->aamp->mAudioDecoderStreamSync;
 	interfacePlayer->m_gstConfigParam->audioOnlyMode = _this->aamp->mAudioOnlyPb;
 	interfacePlayer->m_gstConfigParam->gstreamerSubsEnabled = _this->aamp->IsGstreamerSubsEnabled();

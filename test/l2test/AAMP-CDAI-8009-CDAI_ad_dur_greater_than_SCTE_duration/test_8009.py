@@ -58,6 +58,7 @@ TESTDATA1 = {
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[1\] Duration\[30000\]", "max": 50},
         {"expect": r"\[AAMPCLI\] \[CDAI\] Dynamic ad start signalled", "max": 50},
         {"expect": r"\[AAMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=1 adId\=adId1", "max": 50},
+        {"expect": r"Adbreak's available space\[30000\] < Ad's Duration\[40000\]. Trimming the Ad."},
         # State change indicating the start of ad playback
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\].", "min": 10, "max": 60},
         # Indication that the ad break is starting for Period 1
@@ -70,11 +71,13 @@ TESTDATA1 = {
         {"expect": re.escape("Period ID changed from '0-112' to '2' [BasePeriodId='2']"), "min": 0, "max": 60},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 1", "min": 10, "max": 70},
         #Expectation for truncate happening - it should not play excess ad duration
-        {"expect": r"HttpRequestEnd.*ad_40/en_001.mp3", "max":180},
-        {"expect": r"HttpRequestEnd.*ad_40/en_015.mp3", "max":180},
-        {"expect": r"HttpRequestEnd.*ad_40/en_017.mp3", "max":180, "not_expected": True},
+        {"expect": r"HttpRequestEnd.*?ad_40/en_001.mp3", "max":180},
+        {"expect": r"HttpRequestEnd.*?ad_40/en_015.mp3", "max":180},
+        # Ad playback will be terminated early due to the ad duration exceeding the SCTE duration
+        {"expect": r"\[CDAI\] Track\[0\] Adbreak ended early. Terminating Ad playback.", "max": 180},
+        {"expect": r"HttpRequestEnd.*?ad_40/en_017.mp3", "max":180, "not_expected": True},
         #End of the test - confirm the last segment fetched from Period 2
-        {"expect": r"HttpRequestEnd.*(1080|720|480|360)p_045.m4s\?live=true", "max": 180, "end_of_test":True},
+        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_045.m4s\?live=true", "max": 180, "end_of_test":True},
     ]
 }
 
@@ -99,28 +102,32 @@ TESTDATA2 = {
     "cmdlist": [
         # Adding two 20-second ads for the ad break in Period 1
         "advert map 1 http://localhost:8080/content/ad_20s.mpd",
-        "advert map 1 http://localhost:8080/content/ad_20s.mpd",
+        "advert map 1 http://localhost:8080/content/ad_30s.mpd",
     ],
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune:", "max": 3},
-        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[1\] Duration\[30000\]", "max": 200},
-	    {"expect": r"\[AAMPCLI\] \[CDAI\] Dynamic ad start signalled", "max": 200},
-        {"expect": r"\[AAMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=1 adId\=adId1", "max": 200},
-        {"expect": r"\[AAMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=1 adId\=adId2", "max": 200},
+        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[1\] Duration\[30000\]"},
+        {"expect": r"\[AAMPCLI\] \[CDAI\] Dynamic ad start signalled"},
+        {"expect": r"\[AAMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=1 adId\=adId1"},
+        {"expect": r"\[AAMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=1 adId\=adId2"},
+        {"expect": r"Adbreak's available space\[10000\] < Ad's Duration\[30000\]. Trimming the Ad."},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\].", "min": 10, "max": 200},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[1\] AdIdx\[0\] Found at Period\[1\]", "min": 10, "max": 200},
         # Expectation for the period ID change due to ad insertion
-        {"expect": re.escape("Period ID changed from '0' to '0-114' [BasePeriodId='1']"), "min": 0, "max": 200},
+        {"expect": re.escape("Period ID changed from '0' to '0-114' [BasePeriodId='1']")},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] \=\> \[OUTSIDE_ADBREAK\].", "min": 30, "max": 200},
         # Expectation for the period ID change due to ad completion
-        {"expect": re.escape("Period ID changed from '0-114' to '1-114' [BasePeriodId='1']"), "min": 0, "max": 200},
-        {"expect": re.escape("Period ID changed from '1-114' to '2' [BasePeriodId='2']"), "min": 0, "max": 200},
+        {"expect": re.escape("Period ID changed from '0-114' to '1-111' [BasePeriodId='1']")},
+        # Ad playback will be terminated early due to the ad duration exceeding the SCTE duration
+        {"expect": r"\[CDAI\] Track\[0\] Adbreak ended early. Terminating Ad playback."},
+        {"expect": r"HttpRequestEnd.*?/ad_30/en_007.mp3", "not_expected": True},
+        {"expect": re.escape("Period ID changed from '1-111' to '2' [BasePeriodId='2']"), "min": 0, "max": 200},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 2", "min": 10, "max": 200},
         #Ensure ad1 ends properly 
         {"expect":r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_20/1080p_010.m4s","min":10,"max":200},
         #Ensure fragments download by both ads
         {"expect":r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_20/1080p_006.m4s", "min":10,"max":200,"count":2},
-        {"expect": r"HttpRequestEnd.*?/dash/en_031.mp", "max":180},
+        {"expect": r"HttpRequestEnd.*?/dash/en_031.mp3", "max":180},
         # End of the test - confirm the last segment fetched from Period 2
         {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_045.m4s\?live=true", "max": 200, "end_of_test": True},
     ]

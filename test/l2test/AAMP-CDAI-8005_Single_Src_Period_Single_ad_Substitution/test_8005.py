@@ -70,10 +70,10 @@ TESTDATA1 = {
 
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune:", "max": 3},
-        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n', "max":300, "callback" : pts_restamp_utils.check_restamp},
+        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n', "max":180, "callback" : pts_restamp_utils.check_restamp},
         # Confirm that an ad break is detected in Period 1 with a duration of 30 seconds
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[1\] Duration\[30000\]", "max": 50},
-		{"expect": r"\[AAMPCLI\] \[CDAI\] Dynamic ad start signalled", "max": 50},
+        {"expect": r"\[AAMPCLI\] \[CDAI\] Dynamic ad start signalled", "max": 50},
         {"expect": r"\[AAMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=1 adId\=adId1 url\=.*?ad_30s.mpd", "max": 50},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\].", "min": 10, "max": 60},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[1\] AdIdx\[0\] Found at Period\[1\]", "min": 10, "max": 60},

@@ -50,7 +50,7 @@ def test_8013(aamp_setup_teardown):
         "cmdlist": [ "advert list" ],
         "expect_list": [
                 {"expect": r"Found CDAI events for period 881036617"},
-                {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\] Got adIdx\[-1\] for adBreakId\[881036617\] but adBreak object exist"},
+                {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\] CheckForAdStart found Adbreak\[881036617\] adIdx\[-1\].*?SeekOffset:0.000000"},
                 {"expect": r"\[WaitForNextAdResolved\]\[\d+\]Waiting for next ad placement in 881036617 to complete with timeout \d+ ms."},
                 {"cmd": "advert clear"},
                 {"cmd": "set alternateContents 881036617 ad1 " + AD_URL},

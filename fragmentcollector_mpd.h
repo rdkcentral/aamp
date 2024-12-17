@@ -1027,9 +1027,13 @@ protected:
 	 */
 	void ProcessAllContentProtectionForMediaType(AampMediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs);
 
-	bool PlacenextAdBrkifAvail(dash::mpd::IMPD *mpd);
-
-	int getValidperiodIdx(int periodIdx);
+	/**
+	 * @brief Retrieves the index of a valid period based on the given period index.
+	 *
+	 * @param periodIdx The index of the period to check.
+	 * @return The index of a valid period.
+	 */
+	int GetValidPeriodIdx(int periodIdx);
 
 	void UpdateMPDPeriodDetails(std::vector<PeriodInfo>& currMPDPeriodDetails,uint64_t &durMs);
 
@@ -1150,12 +1154,6 @@ protected:
 	 * @param[in] trackIndex - index of current audio track
 	 */
 
-	/**
-	 * @fn checkSrcAdisGreaterThanAdbreak
-	 * @param
-	 * @param 
-	 */
-	void checkSrcAdisGreaterThanAdbreak();
 	void SetAudioTrackInfo(const std::vector<AudioTrackInfo> &tracks, const std::string &trackIndex);
 	void SetTextTrackInfo(const std::vector<TextTrackInfo> &tracks, const std::string &trackIndex);
 	/**

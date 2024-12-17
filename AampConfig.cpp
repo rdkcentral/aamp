@@ -451,8 +451,6 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{0,"minBitrate",eAAMPConfig_MinBitrate,true},
 	{INT_MAX,"maxBitrate",eAAMPConfig_MaxBitrate,true},
 	{CURL_SSLVERSION_TLSv1_2,"supportTLS",eAAMPConfig_TLSVersion,true,eCONFIG_RANGE_CURL_SSL_VERSION},
-	{MAX_GST_VIDEO_BUFFER_BYTES_FOG_LIVE,"gstVideoBufBytesForFogLive", eAAMPConfig_GstVideoBufBytesForFogLive,false},
-	{MAX_GST_AUDIO_BUFFER_BYTES_FOG_LIVE,"gstAudioBufBytesForFogLive", eAAMPConfig_GstAudioBufBytesForFogLive,false},
 	{DEFAULT_DRM_NETWORK_TIMEOUT,"drmNetworkTimeout",eAAMPConfig_DrmNetworkTimeout,true,eCONFIG_RANGE_TIMEOUT},
 	{0,"drmStallTimeout",eAAMPConfig_DrmStallTimeout,true,eCONFIG_RANGE_TIMEOUT},
 	{0,"drmStartTimeout",eAAMPConfig_DrmStartTimeout,true,eCONFIG_RANGE_TIMEOUT},

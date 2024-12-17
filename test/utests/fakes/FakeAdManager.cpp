@@ -36,7 +36,7 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &adBreakId, const std
 }
 
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mImmediateNextAdbreakAvailable(false),mAdtoInsertInNextBreakVec(),mAdBrkVecMtx()
+					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mAdtoInsertInNextBreakVec(),mAdBrkVecMtx()
 {
 }
 
@@ -52,7 +52,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &url, bool &finalManifest, int &
 	return NULL;
 }
 
-void PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
+void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 {
 }
 
@@ -92,7 +92,7 @@ void PrivateCDAIObjectMPD::ResetState()
 {
 }
 
-void PrivateCDAIObjectMPD::ErasefrmAdBrklist(const std::string adBrkId)
+void PrivateCDAIObjectMPD::RemovePlacementObj(const std::string adBrkId)
 {
 
 }

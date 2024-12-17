@@ -465,6 +465,13 @@ public :
      * @return True if period has segment timeline for video otherwise false
      */
     bool aamp_HasSegmentTimeline(IPeriod * period);
+
+	/**
+	 * @brief Get the MPD instance.
+	 *
+	 * @return const dash::mpd::IMPD* A pointer to the MPD instance.
+	 */
+	const dash::mpd::IMPD* getMPD() const { return mMPDInstance; }
 private:
 
 	/**
@@ -509,5 +516,6 @@ private:
 	std::vector<PeriodInfo> mMPDPeriodDetails;
 };
 
+typedef std::shared_ptr<AampMPDParseHelper> AampMPDParseHelperPtr;
 
 #endif
