@@ -234,7 +234,7 @@ void AAMPGstPlayer::FlushTrack(AampMediaType mediaType,double pos)
 {
 }
 
-bool AAMPGstPlayer::SignalSubtitleClock()
+bool AAMPGstPlayer::SignalSubtitleClock(bool verboseDebug)
 {
 	return false;
 }

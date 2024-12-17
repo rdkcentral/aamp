@@ -131,8 +131,15 @@
 #define MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS (1000) // 1000mSec
 #define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
 #define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) /**< time interval for the telemetry reporting 300sec*/
-#define INITIAL_SUBTITLE_CLOCK_SYNC_INTERVAL_MS (500)     /**< default time interval for the subtitle clock sync 500ms*/
-#define DEFAULT_SUBTITLE_CLOCK_SYNC_INTERVAL    (30)      /**< default time interval for the subtitle clock sync 30sec*/
+
+// We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
+//#define SUBTEC_VARIABLE_CLOCK_UPDATE_RATE   /* enable this to make the clock update rate dynamic*/
+#ifdef SUBTEC_VARIABLE_CLOCK_UPDATE_RATE
+ #define INITIAL_SUBTITLE_CLOCK_SYNC_INTERVAL_MS (500)     /**< default time interval for the subtitle clock sync 500ms*/
+ #define DEFAULT_SUBTITLE_CLOCK_SYNC_INTERVAL_S  (30)      /**< default time interval for the subtitle clock sync 30sec*/
+#else
+ #define DEFAULT_SUBTITLE_CLOCK_SYNC_INTERVAL_S    (1)     /**< default time interval for the subtitle clock sync 1sec*/
+#endif
 #define SUBTITLE_CLOCK_ASSUMED_PLAYSTATE_TIME_MS (20000) /**< period after channel change/seek where we try to sync the subtitle clock quickly, before giving up and falling to slower rate */
 
 // the +1 is used to compensate for internal use originally being a > check, now >=

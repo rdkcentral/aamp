@@ -13560,8 +13560,9 @@ bool PrivateInstanceAAMP::IsGstreamerSubsEnabled(void)
 
 /**
  * @brief Signal the clock to subtitle module
+ * @param[in] verboseDebug - enable more debug
  */
-bool PrivateInstanceAAMP::SignalSubtitleClock()
+bool PrivateInstanceAAMP::SignalSubtitleClock(bool verboseDebug)
 {
 	bool success = false;
 	// Sent clock only if subtitle track injection is unblocked. otherwise this instance might be detached/flushed
@@ -13572,7 +13573,7 @@ bool PrivateInstanceAAMP::SignalSubtitleClock()
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if(sink)
 			{
-				if (sink->SignalSubtitleClock())
+				if (sink->SignalSubtitleClock(verboseDebug))
 				{
 					success=true;
 				}

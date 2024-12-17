@@ -4118,7 +4118,7 @@ public:
 	 * @brief Signal the clock to subtitle module
 	 * @return - true indicating successful operation in sending the clock update
 	 */
-	bool SignalSubtitleClock();
+	bool SignalSubtitleClock(bool verboseDebug);
 
 	/**
 	 * @brief Apply CC/Subtitle mute but preserve the original status

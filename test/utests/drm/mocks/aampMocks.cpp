@@ -1220,7 +1220,7 @@ long long PrivateInstanceAAMP::GetVideoPTS()
 	return 0;
 }
 
-bool PrivateInstanceAAMP::SignalSubtitleClock()
+bool PrivateInstanceAAMP::SignalSubtitleClock(bool verboseDebug)
 {
 	return false;
 }

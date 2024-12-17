@@ -479,9 +479,10 @@ public:
 	/**
 	 * @fn SignalSubtitleClock
 	 * @brief Signal the new clock to subtitle module
+	 * @param[in] verboseDebug - enable more debug
 	 * @return - true indicating successful operation in sending the clock update
 	 */
-	bool SignalSubtitleClock() override;
+	bool SignalSubtitleClock(bool verboseDebug) override;
 
 /**
 	 * @fn GetBufferControlData

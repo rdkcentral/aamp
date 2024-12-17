@@ -5610,9 +5610,10 @@ gboolean AAMPGstPlayer::SendQtDemuxOverrideEvent(AampMediaType mediaType, GstClo
 /**
  * @fn SignalSubtitleClock
  * @brief Signal the new clock to subtitle module
+ * @param[in] verboseDebug - enable more debug
  * @return - true indicating successful operation in sending the clock update
  */
-bool AAMPGstPlayer::SignalSubtitleClock()
+bool AAMPGstPlayer::SignalSubtitleClock(bool verboseDebug)
 {
 	//AAMPLOG_TRACE("Enter SignalSubtitleClock");
 	bool signalSent=false;
@@ -5651,8 +5652,15 @@ bool AAMPGstPlayer::SignalSubtitleClock()
 							AAMPLOG_ERR("Got VideoPTS: %" G_GINT64_FORMAT " and converted pts: %" G_GUINT64_FORMAT " , state = %d, pending = %d", videoPTS, pts, current, pending);
 						}
 						else
-						{							
-							AAMPLOG_WARN("Sent sub_clock_sync event, pts = %" G_GUINT64_FORMAT ", pts from sink was %" G_GUINT64_FORMAT "", pts, videoPTS);
+						{
+							if (verboseDebug)
+							{
+								AAMPLOG_WARN("Sent sub_clock_sync event, pts = %" G_GUINT64_FORMAT ", pts from sink was %" G_GUINT64_FORMAT "", pts, videoPTS);
+						       	}
+							else
+							{
+								AAMPLOG_DEBUG("Sent sub_clock_sync event, pts = %" G_GUINT64_FORMAT ", pts from sink was %" G_GUINT64_FORMAT "", pts, videoPTS);
+							}
 							signalSent=true;
 						}
 					}

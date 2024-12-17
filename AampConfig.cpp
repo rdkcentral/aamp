@@ -462,7 +462,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_TELEMETRY_REPORT_INTERVAL,"telemetryInterval",eAAMPConfig_TelemetryInterval,true},
 	{0,"rateCorrectionDelay", eAAMPConfig_RateCorrectionDelay,true},
 	{-1,"harvestDuration",eAAMPConfig_HarvestDuration,false,eCONFIG_RANGE_HARVEST_DURATION},
-	{DEFAULT_SUBTITLE_CLOCK_SYNC_INTERVAL,"subtitleClockSyncInterval",eAAMPConfig_SubtitleClockSyncInterval,true},
+	{DEFAULT_SUBTITLE_CLOCK_SYNC_INTERVAL_S,"subtitleClockSyncInterval",eAAMPConfig_SubtitleClockSyncInterval,true},
 	{eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START,"preferredAbsoluteReporting",eAAMPConfig_PreferredAbsoluteProgressReporting,true, eCONFIG_RANGE_ABSOLUTE_REPORTING},
 	{EOS_INJECTION_MODE_STOP_ONLY,"EOSInjectionMode", eAAMPConfig_EOSInjectionMode,true},
 	{DEFAULT_ABR_BUFFER_COUNTER,"abrBufferCounter", eAAMPConfig_ABRBufferCounter,true},
