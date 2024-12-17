@@ -65,7 +65,6 @@
 #include "AampMPDUtils.h"
 
 typedef void (*ManifestUpdateCallbackFunc)(void *);
-typedef std::shared_ptr<AampMPDParseHelper> AampMPDParseHelperPtr;
 
 /**
  * @struct _manifestDownloadConfig

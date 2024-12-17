@@ -32,6 +32,7 @@
 #include "libdash/IDASHManager.h"
 #include "libdash/xml/Node.h"
 #include "libdash/IMPD.h"
+#include "AampMPDParseHelper.h"
 
 using namespace dash;
 using namespace std;
@@ -144,8 +145,8 @@ struct AdNode {
 	* @param[in] mpd - Pointer to the MPD object
 	*/
 	AdNode(bool invalid, bool placed, bool resolved, std::string adId, std::string url, uint64_t duration,
-									std::string basePeriodId, int basePeriodOffset, MPD* mpd)
-	: invalid(invalid), placed(placed), resolved(resolved), adId(adId), url(url), duration(duration), basePeriodId(basePeriodId),
+		std::string basePeriodId, int basePeriodOffset, MPD* mpd)
+		: invalid(invalid), placed(placed), resolved(resolved), adId(adId), url(url), duration(duration), basePeriodId(basePeriodId),
 		basePeriodOffset(basePeriodOffset), mpd(mpd)
 	{
 
@@ -156,9 +157,10 @@ struct AdNode {
 	*
 	* @param[in] adNode - Reference to the source AdNode
 	*/
-	AdNode(const AdNode& adNode) : invalid(adNode.invalid), placed(adNode.placed), resolved(adNode.resolved), adId(adNode.adId),
-									url(adNode.url), duration(adNode.duration), basePeriodId(adNode.basePeriodId),
-									basePeriodOffset(adNode.basePeriodOffset), mpd(adNode.mpd)
+	AdNode(const AdNode& adNode)
+		: invalid(adNode.invalid), placed(adNode.placed), resolved(adNode.resolved), adId(adNode.adId),
+		url(adNode.url), duration(adNode.duration), basePeriodId(adNode.basePeriodId),
+		basePeriodOffset(adNode.basePeriodOffset), mpd(adNode.mpd)
 	{
 	}
 
@@ -184,14 +186,15 @@ struct AdBreakObject{
 	bool                                 adjustEndPeriodOffset;     /**< endPeriodOffset needs be re-adjusted or not */
 	bool                                 mAdBreakPlaced;  /**< flag marks if the adbreak is completely placed */
 	bool                                 mAdFailed;       /** Current Ad playback failed flag */
-	bool                                 mSrcPeriodOffsetGTthreshold;/*The flag will be set if the difference between the source period and the total ad duration exceeds the 2-second threshold.*/
 	bool                                 mSplitPeriod;    /**< To identify whether the ad is split period ad or not */
-	bool                                 invalid; /**< flag marks if the adbreak is invalid or not */
+	bool                                 invalid;         /**< flag marks if the adbreak is invalid or not */
 	
 	/**
 	* @brief AdBreakObject default constructor
 	*/
-	AdBreakObject() : brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false),mSrcPeriodOffsetGTthreshold(false), mSplitPeriod(false), invalid(false)
+	AdBreakObject()
+		: brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false),
+		mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false)
 	{
 	}
 
@@ -205,8 +208,9 @@ struct AdBreakObject{
 	* @param[in] _adsDuration - Ads' duration in the Adbreak in milliseconds
 	*/
 	AdBreakObject(uint32_t _duration, AdNodeVectorPtr _ads, std::string _endPeriodId,
-	uint64_t _endPeriodOffset, uint32_t _adsDuration)
-	: brkDuration(_duration), ads(_ads), endPeriodId(_endPeriodId), endPeriodOffset(_endPeriodOffset), adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false),mSrcPeriodOffsetGTthreshold(false),mSplitPeriod(false)
+		uint64_t _endPeriodOffset, uint32_t _adsDuration)
+		: brkDuration(_duration), ads(_ads), endPeriodId(_endPeriodId), endPeriodOffset(_endPeriodOffset),
+		adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false)
 	{
 	}
 };
@@ -306,7 +310,7 @@ struct PlacementObj {
 	/**
 	* @brief PlacementObj constructor
 	*/
-	PlacementObj(): pendingAdbrkId(), openPeriodId(), curEndNumber(0), curAdIdx(-1), adNextOffset(0), adStartOffset(0), waitForNextPeriod(false)
+	PlacementObj() : pendingAdbrkId(), openPeriodId(), curEndNumber(0), curAdIdx(-1), adNextOffset(0), adStartOffset(0), waitForNextPeriod(false)
 	{
 
 	}
@@ -320,7 +324,8 @@ struct PlacementObj {
 	* @param adNextOffset The current ad's offset to be placed in the next iteration of PlaceAds in milliseconds
 	* @param adStartOffset The current ad's start offset in milliseconds
 	*/
-	PlacementObj(const std::string& pendingAdbrkId, const std::string& openPeriodId, uint64_t curEndNumber, int curAdIdx, uint32_t adNextOffset, uint32_t adStartOffset, bool waitForNextPeriod)
+	PlacementObj(const std::string& pendingAdbrkId, const std::string& openPeriodId, uint64_t curEndNumber,
+		int curAdIdx, uint32_t adNextOffset, uint32_t adStartOffset, bool waitForNextPeriod)
 			: pendingAdbrkId(pendingAdbrkId), openPeriodId(openPeriodId), curEndNumber(curEndNumber),
 			curAdIdx(curAdIdx), adNextOffset(adNextOffset), adStartOffset(adStartOffset), waitForNextPeriod(waitForNextPeriod)
 	{
@@ -351,7 +356,6 @@ public:
 	PlacementObj                                   mPlacementObj;       /**< Temporary object for Ad placement over period */
 	double                                         mContentSeekOffset;  /**< Seek offset after the Ad playback */
 	AdState                                        mAdState;            /**< Current state of the CDAI state machine */
-	bool                                           mImmediateNextAdbreakAvailable;/**< Next ad break(immediate/back to back)  need to be placed if the value is true*/
 	bool                                           currentAdPeriodClosed;/**< The very next open period should be processed only when the flag is true*/
 	std::vector<PlacementObj>                      mAdtoInsertInNextBreakVec;/**<Stores the PlacementObj yet to be placed*/
 	std::mutex                                     mAdBrkVecMtx;        /**< Mutex protecting DAI critical section */
@@ -455,9 +459,12 @@ public:
 	void ClearMaps();
 
 	/**
-	 * @fn PlaceAds
+	 * @brief Places ads using the provided AampMPDParseHelper object.
+	 * This function is responsible for placing ads using the provided AampMPDParseHelper object.
+	 *
+	 * @param AampMPDParseHelperPtr shared_ptr to the AampMPDParseHelper object.
 	 */
-	void PlaceAds(dash::mpd::IMPD *mpd);
+	void PlaceAds(AampMPDParseHelperPtr adMPDParseHelper);
 
 	/**
 	 * @brief Updates ad placement details for the next period in the MPD.
@@ -506,11 +513,11 @@ public:
 	PlacementObj setPlacementObj(const std::string adBrkId, const std::string endPeriodId);
 
 	/**
-	 * @fn ErasefrmAdBrklist
-	 * @brief Function to erase the current PlayingAdBrkId from next AdBreak Vector
+	 * @fn RemovePlacementObj
+	 * @brief Function to erase the PlacementObj matching the adBreakId from mAdtoInsertInNextBreakVec Vector
 	 * @param[in] adBrkId Ad break id to be erased
 	 */
-	void ErasefrmAdBrklist(const std::string adBrkId);
+	void RemovePlacementObj(const std::string adBrkId);
 
 	/**
 	 * @fn HasDaiAd

@@ -95,9 +95,7 @@ struct Configs
 	bool enablePTSReStamp;
 	std::string manifestUrl;
 	int media;
-	bool tsbEnabled;
 	int videoBufBytes;
-	int videoBufBytesForFog;
 	int platformType;
 	bool noNativeAV;
 	bool enableDisconnectSignals;
@@ -107,7 +105,6 @@ struct Configs
 	int vodTrickModeFPS;
 	int enableGstPosQuery;
 	int audioBufBytes;
-	int audioBufBytesForFog;
 	std::string networkProxy;
 	float progressTimer;
 	bool audioOnlyMode;
@@ -792,9 +789,8 @@ public:
 	 * @param[in] PlayerInstance The player instance.
 	 * @param[in] source The source to initialize.
 	 * @param[in] eMEDIATYPE_VIDEO The media type for video.
-	 * @param[in] isFogEnabled Indicates whether Fog is enabled.
 	 */
-	void InitializeSourceForPlayer(void *PlayerInstance, void *source, GstMediaType eMEDIATYPE_VIDEO, bool isFogEnabled);
+	void InitializeSourceForPlayer(void *PlayerInstance, void *source, GstMediaType eMEDIATYPE_VIDEO);
 
 	/**
 	 * @brief Gets the app source element for a given media type.

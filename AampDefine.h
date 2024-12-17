@@ -166,9 +166,6 @@
 #define MAX_GST_VIDEO_BUFFER_BYTES			(GST_VIDEOBUFFER_SIZE_BYTES)
 #define MAX_GST_AUDIO_BUFFER_BYTES			(GST_AUDIOBUFFER_SIZE_BYTES)
 
-#define MAX_GST_VIDEO_BUFFER_BYTES_FOG_LIVE 		(2097152) /* GST Buffer for FOG Linear Video*/
-#define MAX_GST_AUDIO_BUFFER_BYTES_FOG_LIVE		(256000)  /* GST Buffer for FOG Linear Audio*/
-
 #define DEFAULT_LATENCY_MONITOR_DELAY			9					/**< Latency Monitor Delay */
 #define DEFAULT_LATENCY_MONITOR_INTERVAL		6					/**< Latency monitor Interval */
 #define DEFAULT_MIN_LOW_LATENCY			3					/**< min Default Latency */
